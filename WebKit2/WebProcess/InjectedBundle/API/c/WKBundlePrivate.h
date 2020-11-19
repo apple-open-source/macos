@@ -33,6 +33,7 @@
 #endif
 
 #include <JavaScriptCore/JSBase.h>
+#include <WebKit/WKDeprecated.h>
 #include <WebKit/WKUserContentInjectedFrames.h>
 #include <WebKit/WKUserScriptInjectionTime.h>
 
@@ -52,9 +53,9 @@ WK_EXPORT void WKBundleSetJavaScriptCanAccessClipboard(WKBundleRef bundle, WKBun
 WK_EXPORT void WKBundleSetPopupBlockingEnabled(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
 WK_EXPORT void WKBundleSetAuthorAndUserStylesEnabled(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
 WK_EXPORT void WKBundleSetSpatialNavigationEnabled(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool enabled);
-WK_EXPORT void WKBundleAddOriginAccessWhitelistEntry(WKBundleRef bundle, WKStringRef, WKStringRef, WKStringRef, bool);
-WK_EXPORT void WKBundleRemoveOriginAccessWhitelistEntry(WKBundleRef bundle, WKStringRef, WKStringRef, WKStringRef, bool);
-WK_EXPORT void WKBundleResetOriginAccessWhitelists(WKBundleRef bundle);
+WK_EXPORT void WKBundleAddOriginAccessAllowListEntry(WKBundleRef bundle, WKStringRef, WKStringRef, WKStringRef, bool);
+WK_EXPORT void WKBundleRemoveOriginAccessAllowListEntry(WKBundleRef bundle, WKStringRef, WKStringRef, WKStringRef, bool);
+WK_EXPORT void WKBundleResetOriginAccessAllowLists(WKBundleRef bundle);
 WK_EXPORT int WKBundleNumberOfPages(WKBundleRef bundle, WKBundleFrameRef frameRef, double pageWidthInPixels, double pageHeightInPixels);
 WK_EXPORT int WKBundlePageNumberForElementById(WKBundleRef bundle, WKBundleFrameRef frameRef, WKStringRef idRef, double pageWidthInPixels, double pageHeightInPixels);
 WK_EXPORT WKStringRef WKBundlePageSizeAndMarginsInPixels(WKBundleRef bundle, WKBundleFrameRef frameRef, int, int, int, int, int, int, int);
@@ -69,13 +70,13 @@ WK_EXPORT void WKBundleSetAsynchronousSpellCheckingEnabled(WKBundleRef bundleRef
 WK_EXPORT WKArrayRef WKBundleGetLiveDocumentURLs(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, bool excludeDocumentsInPageGroupPages);
 
 // UserContent API
-WK_EXPORT void WKBundleAddUserScript(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld, WKStringRef source, WKURLRef url, WKArrayRef whitelist, WKArrayRef blacklist, _WKUserScriptInjectionTime injectionTime, WKUserContentInjectedFrames injectedFrames);
-WK_EXPORT void WKBundleAddUserStyleSheet(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld, WKStringRef source, WKURLRef url, WKArrayRef whitelist, WKArrayRef blacklist, WKUserContentInjectedFrames injectedFrames);
-WK_EXPORT void WKBundleRemoveUserScript(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld, WKURLRef url);
-WK_EXPORT void WKBundleRemoveUserStyleSheet(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld, WKURLRef url);
-WK_EXPORT void WKBundleRemoveUserScripts(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld);
-WK_EXPORT void WKBundleRemoveUserStyleSheets(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld);
-WK_EXPORT void WKBundleRemoveAllUserContent(WKBundleRef bundle, WKBundlePageGroupRef pageGroup);
+WK_EXPORT void WKBundleAddUserScript(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld, WKStringRef source, WKURLRef url, WKArrayRef allowlist, WKArrayRef blocklist, _WKUserScriptInjectionTime injectionTime, WKUserContentInjectedFrames injectedFrames) WK_C_API_DEPRECATED_WITH_REPLACEMENT(WKBundlePageAddUserScript);
+WK_EXPORT void WKBundleAddUserStyleSheet(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld, WKStringRef source, WKURLRef url, WKArrayRef allowlist, WKArrayRef blocklist, WKUserContentInjectedFrames injectedFrames) WK_C_API_DEPRECATED_WITH_REPLACEMENT(WKBundlePageAddUserStyleSheet);
+WK_EXPORT void WKBundleRemoveUserScript(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld, WKURLRef url) WK_C_API_DEPRECATED;
+WK_EXPORT void WKBundleRemoveUserStyleSheet(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld, WKURLRef url) WK_C_API_DEPRECATED;
+WK_EXPORT void WKBundleRemoveUserScripts(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld) WK_C_API_DEPRECATED;
+WK_EXPORT void WKBundleRemoveUserStyleSheets(WKBundleRef bundle, WKBundlePageGroupRef pageGroup, WKBundleScriptWorldRef scriptWorld) WK_C_API_DEPRECATED;
+WK_EXPORT void WKBundleRemoveAllUserContent(WKBundleRef bundle, WKBundlePageGroupRef pageGroup) WK_C_API_DEPRECATED_WITH_REPLACEMENT(WKBundlePageRemoveAllUserContent);
 
 // Local storage API
 WK_EXPORT void WKBundleClearAllDatabases(WKBundleRef bundle);

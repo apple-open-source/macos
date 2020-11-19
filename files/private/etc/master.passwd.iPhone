@@ -26,6 +26,10 @@ _captiveagent:*:258:258::0:0:captiveagent:/var/empty:/usr/bin/false
 _analyticsd:*:263:263::0:0:Analytics Daemon:/var/db/analyticsd:/usr/bin/false
 _timed:*:266:266::0:0:Time Sync Daemon:/var/db/timed:/usr/bin/false
 _gpsd:*:267:267::0:0:GPS Daemon:/var/db/gpsd:/usr/bin/false
-_nearbyd:*:268:268::0:0:Proximity and Ranging Daemon:/var/db/nearbyd:/usr/bin/false
 _reportmemoryexception:*:269:269::0:0:ReportMemoryException:/var/empty:/usr/bin/false
+_diskimagesiod:*:271:271::0:0:DiskImages IO Daemon:/var/db/diskimagesiod:/usr/bin/false
+_logd:*:272:272::0:0:Log Daemon:/var/db/diagnostics:/usr/bin/false
 _iconservices:*:276:276::0:0:Icon services:/var/empty:/usr/bin/false
+_fud:*:278:278::0:0:Firmware Update Daemon:/var/db/fud:/usr/bin/false
+_knowledgegraphd:*:279:279::0:0:Knowledge Graph Daemon:/var/db/knowledgegraphd:/usr/bin/false
+_coreml:*:280:280::0:0:CoreML Services:/var/empty:/usr/bin/false

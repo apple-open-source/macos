@@ -20,12 +20,11 @@
 -(bool) isInCircleOnly:(CFErrorRef *)error;
 -(void) forEachCirclePeerExceptMe:(SOSIteratePeerBlock)block;
 -(bool) leaveCircle:(SOSAccount*)account err:(CFErrorRef*) error;
--(bool) leaveCircleWithAccount:(SOSAccount*)account withAnalytics:(NSData*)parentEvent err:(CFErrorRef*) error;
+-(bool) leaveCircleWithAccount:(SOSAccount*)account err:(CFErrorRef*) error;
 -(bool) resetToOffering:(SOSAccountTransaction*) aTxn key:(SecKeyRef)userKey err:(CFErrorRef*) error;
 -(bool) resetCircleToOffering:(SOSAccountTransaction*) aTxn userKey:(SecKeyRef) user_key err:(CFErrorRef *)error;
 -(SOSCCStatus) thisDeviceStatusInCircle:(SOSCircleRef) circle peer:(SOSPeerInfoRef) this_peer;
 -(bool) updateCircle:(SOSCircleStorageTransport*)circleTransport newCircle:(SOSCircleRef) newCircle err:(CFErrorRef*)error;
--(bool) updateCircleWithAnalytics:(SOSCircleStorageTransport*)circleTransport newCircle:(SOSCircleRef) newCircle parentEvent:(NSData*)parentEvent err:(CFErrorRef*)error;
 
 -(bool) updateCircleFromRemote:(SOSCircleStorageTransport*)circleTransport newCircle:(SOSCircleRef)newCircle err:(CFErrorRef*)error;
 

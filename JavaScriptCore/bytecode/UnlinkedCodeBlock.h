@@ -123,7 +123,6 @@ public:
     enum { CallFunction, ApplyFunction };
 
     bool isConstructor() const { return m_isConstructor; }
-    bool isStrictMode() const { return m_isStrictMode; }
     bool usesEval() const { return m_usesEval; }
     SourceParseMode parseMode() const { return m_parseMode; }
     bool isArrowFunction() const { return isArrowFunctionParseMode(parseMode()); }
@@ -137,6 +136,9 @@ public:
 
     bool hasExpressionInfo() { return m_expressionInfo.size(); }
     const RefCountedArray<ExpressionRangeInfo>& expressionInfo() { return m_expressionInfo; }
+
+    bool hasCheckpoints() const { return m_hasCheckpoints; }
+    void setHasCheckpoints() { m_hasCheckpoints = true; }
 
     // Special registers
     void setThisRegister(VirtualRegister thisRegister) { m_thisRegister = thisRegister; }
@@ -155,8 +157,8 @@ public:
     BitVector& bitVector(size_t i) { ASSERT(m_rareData); return m_rareData->m_bitVectors[i]; }
 
     const RefCountedArray<WriteBarrier<Unknown>>& constantRegisters() { return m_constantRegisters; }
-    const WriteBarrier<Unknown>& constantRegister(int index) const { return m_constantRegisters[index - FirstConstantRegisterIndex]; }
-    ALWAYS_INLINE JSValue getConstant(int index) const { return m_constantRegisters[index - FirstConstantRegisterIndex].get(); }
+    const WriteBarrier<Unknown>& constantRegister(VirtualRegister reg) const { return m_constantRegisters[reg.toConstantIndex()]; }
+    ALWAYS_INLINE JSValue getConstant(VirtualRegister reg) const { return m_constantRegisters[reg.toConstantIndex()].get(); }
     const RefCountedArray<SourceCodeRepresentation>& constantsSourceCodeRepresentation() { return m_constantsSourceCodeRepresentation; }
 
     unsigned numberOfConstantIdentifierSets() const { return m_rareData ? m_rareData->m_constantIdentifierSets.size() : 0; }
@@ -221,10 +223,10 @@ public:
         m_endColumn = endColumn;
     }
 
-    const String& sourceURLDirective() const { return m_sourceURLDirective; }
-    const String& sourceMappingURLDirective() const { return m_sourceMappingURLDirective; }
-    void setSourceURLDirective(const String& sourceURL) { m_sourceURLDirective = sourceURL; }
-    void setSourceMappingURLDirective(const String& sourceMappingURL) { m_sourceMappingURLDirective = sourceMappingURL; }
+    StringImpl* sourceURLDirective() const { return m_sourceURLDirective.get(); }
+    StringImpl* sourceMappingURLDirective() const { return m_sourceMappingURLDirective.get(); }
+    void setSourceURLDirective(const String& sourceURL) { m_sourceURLDirective = sourceURL.impl(); }
+    void setSourceMappingURLDirective(const String& sourceMappingURL) { m_sourceMappingURLDirective = sourceMappingURL.impl(); }
 
     CodeFeatures codeFeatures() const { return m_features; }
     bool hasCapturedVariables() const { return m_hasCapturedVariables; }
@@ -256,6 +258,13 @@ public:
 
     unsigned age() const { return m_age; }
     void resetAge() { m_age = 0; }
+
+    NeedsClassFieldInitializer needsClassFieldInitializer() const
+    {
+        if (m_rareData)
+            return static_cast<NeedsClassFieldInitializer>(m_rareData->m_needsClassFieldInitializer);
+        return NeedsClassFieldInitializer::No;
+    }
 
     void dump(PrintStream&) const;
 
@@ -325,7 +334,6 @@ private:
     VirtualRegister m_scopeRegister;
 
     unsigned m_usesEval : 1;
-    unsigned m_isStrictMode : 1;
     unsigned m_isConstructor : 1;
     unsigned m_hasCapturedVariables : 1;
     unsigned m_isBuiltinFunction : 1;
@@ -341,6 +349,7 @@ private:
     unsigned m_didOptimize : 2;
     unsigned m_age : 3;
     static_assert(((1U << 3) - 1) >= maxAge);
+    bool m_hasCheckpoints : 1;
 public:
     ConcurrentJSLock m_lock;
 private:
@@ -355,8 +364,8 @@ private:
     int m_numCalleeLocals { 0 };
     int m_numParameters { 0 };
 
-    String m_sourceURLDirective;
-    String m_sourceMappingURLDirective;
+    PackedRefPtr<StringImpl> m_sourceURLDirective;
+    PackedRefPtr<StringImpl> m_sourceMappingURLDirective;
 
     RefCountedArray<InstructionStream::Offset> m_jumpTargets;
     Ref<UnlinkedMetadataTable> m_metadata;
@@ -396,6 +405,8 @@ public:
         RefCountedArray<InstructionStream::Offset> m_opProfileControlFlowBytecodeOffsets;
         RefCountedArray<BitVector> m_bitVectors;
         RefCountedArray<ConstantIdentifierSetEntry> m_constantIdentifierSets;
+
+        unsigned m_needsClassFieldInitializer : 1;
     };
 
     int outOfLineJumpOffset(InstructionStream::Offset);

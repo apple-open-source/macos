@@ -46,30 +46,30 @@ public:
 	{ *(CSSM_MEMORY_FUNCS *)this = funcs; }
 	CssmMemoryFunctions() { }
 
-	void *malloc(size_t size) const throw(std::bad_alloc);
-	void free(void *mem) const throw() { free_func(mem, AllocRef); }
-	void *realloc(void *mem, size_t size) const throw(std::bad_alloc);
-	void *calloc(uint32 count, size_t size) const throw(std::bad_alloc);
+	void *malloc(size_t size) const;
+	void free(void *mem) const _NOEXCEPT { free_func(mem, AllocRef); }
+	void *realloc(void *mem, size_t size) const;
+	void *calloc(uint32 count, size_t size) const;
 	
-	bool operator == (const CSSM_MEMORY_FUNCS &other) const throw()
+	bool operator == (const CSSM_MEMORY_FUNCS &other) const _NOEXCEPT
 	{ return !memcmp(this, &other, sizeof(*this)); }
 };
 
-inline void *CssmMemoryFunctions::malloc(size_t size) const throw(std::bad_alloc)
+inline void *CssmMemoryFunctions::malloc(size_t size) const
 {
 	if (void *addr = malloc_func(size, AllocRef))
 		return addr;
 	throw std::bad_alloc();
 }
 
-inline void *CssmMemoryFunctions::calloc(uint32 count, size_t size) const throw(std::bad_alloc)
+inline void *CssmMemoryFunctions::calloc(uint32 count, size_t size) const
 {
 	if (void *addr = calloc_func(count, size, AllocRef))
 		return addr;
 	throw std::bad_alloc();
 }
 
-inline void *CssmMemoryFunctions::realloc(void *mem, size_t size) const throw(std::bad_alloc)
+inline void *CssmMemoryFunctions::realloc(void *mem, size_t size) const
 {
 	if (void *addr = realloc_func(mem, size, AllocRef))
 		return addr;
@@ -84,11 +84,11 @@ class CssmMemoryFunctionsAllocator : public Allocator {
 public:
 	CssmMemoryFunctionsAllocator(const CssmMemoryFunctions &memFuncs) : functions(memFuncs) { }
 	
-	void *malloc(size_t size) throw(std::bad_alloc);
-	void free(void *addr) throw();
-	void *realloc(void *addr, size_t size) throw(std::bad_alloc);
+	void *malloc(size_t size);
+	void free(void *addr) _NOEXCEPT;
+	void *realloc(void *addr, size_t size);
 	
-	operator const CssmMemoryFunctions & () const throw() { return functions; }
+	operator const CssmMemoryFunctions & () const _NOEXCEPT { return functions; }
 
 private:
 	const CssmMemoryFunctions functions;
@@ -106,12 +106,12 @@ public:
 	CssmAllocatorMemoryFunctions() { /*IFDEBUG(*/ AllocRef = NULL /*)*/ ; }	// later assignment req'd
 	
 private:
-	static void *relayMalloc(size_t size, void *ref) throw(std::bad_alloc);
-	static void relayFree(void *mem, void *ref) throw();
-	static void *relayRealloc(void *mem, size_t size, void *ref) throw(std::bad_alloc);
-	static void *relayCalloc(uint32 count, size_t size, void *ref) throw(std::bad_alloc);
+	static void *relayMalloc(size_t size, void *ref);
+	static void relayFree(void *mem, void *ref) _NOEXCEPT;
+	static void *relayRealloc(void *mem, size_t size, void *ref);
+	static void *relayCalloc(uint32 count, size_t size, void *ref);
 
-	static Allocator &allocator(void *ref) throw()
+	static Allocator &allocator(void *ref) _NOEXCEPT
 	{ return *reinterpret_cast<Allocator *>(ref); }
 };
 

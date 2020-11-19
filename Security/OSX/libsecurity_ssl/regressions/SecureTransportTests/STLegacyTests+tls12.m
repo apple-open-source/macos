@@ -100,6 +100,7 @@ static int SocketConnect(const char *hostName, int port)
 	int					sock;
     int                 err;
     struct hostent      *ent;
+    char **h_addr_list = NULL;
 
     if (hostName[0] >= '0' && hostName[0] <= '9') {
         host.s_addr = inet_addr(hostName);
@@ -109,11 +110,14 @@ static int SocketConnect(const char *hostName, int port)
 			printf("\n***gethostbyname(%s) returned: %s\n", hostName, hstrerror(h_errno));
             return -2;
         }
-        memcpy(&host, ent->h_addr, sizeof(struct in_addr));
+        h_addr_list = malloc(sizeof(char *));
+        memcpy(h_addr_list, ent->h_addr_list, sizeof(char *));
+        memcpy(&host, h_addr_list[0], sizeof(struct in_addr));
     }
 
     sock = socket(AF_INET, SOCK_STREAM, 0);
-    addr.sin_addr = host;
+    addr.sin_addr.s_addr = host.s_addr;
+    free(h_addr_list);
     addr.sin_port = htons((u_short)port);
 
     addr.sin_family = AF_INET;

@@ -71,11 +71,11 @@ public:
 	void removeSubservice(const char *guid, uint32 ssid);
 
     // implement CssmHeap::Allocator
-    void *malloc(size_t size) throw(std::bad_alloc)
+    void *malloc(size_t size)
 	{ return mCssmMemoryFunctions.malloc(size); }
-    void free(void *addr) throw()
+    void free(void *addr) _NOEXCEPT
 	{ mCssmMemoryFunctions.free(addr); }
-	void *realloc(void *addr, size_t size) throw(std::bad_alloc)
+	void *realloc(void *addr, size_t size)
 	{ return mCssmMemoryFunctions.realloc(addr, size); }
 
 	MDSModule		&module() 	{ return mModule; }

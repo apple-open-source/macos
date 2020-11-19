@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "InputMethodState.h"
 #include <WebCore/CompositionUnderline.h>
 #include <WebCore/IntPoint.h>
 #include <wtf/Noncopyable.h>
@@ -28,7 +29,11 @@
 typedef struct _WebKitInputMethodContext WebKitInputMethodContext;
 
 #if PLATFORM(GTK)
-typedef struct _GdkEventKey GdkEventKey;
+#if USE(GTK4)
+typedef struct _GdkEvent GdkEvent;
+#else
+typedef union _GdkEvent GdkEvent;
+#endif
 #elif PLATFORM(WPE)
 struct wpe_input_keyboard_event;
 #endif
@@ -49,10 +54,10 @@ public:
     void setContext(WebKitInputMethodContext*);
     WebKitInputMethodContext* context() const { return m_context.get(); }
 
-    void setEnabled(bool);
+    void setState(Optional<InputMethodState>&&);
 
 #if PLATFORM(GTK)
-    using PlatformEventKey = GdkEventKey;
+    using PlatformEventKey = GdkEvent;
 #elif PLATFORM(WPE)
     using PlatformEventKey = struct wpe_input_keyboard_event;
 #endif
@@ -62,10 +67,15 @@ public:
     };
     FilterResult filterKeyEvent(PlatformEventKey*);
 
+#if PLATFORM(GTK)
+    FilterResult filterKeyEvent(unsigned type, unsigned keyval, unsigned keycode, unsigned modifiers);
+#endif
+
     void notifyFocusedIn();
     void notifyFocusedOut();
     void notifyMouseButtonPress();
     void notifyCursorRect(const WebCore::IntRect&);
+    void notifySurrounding(const String&, uint64_t, uint64_t);
 
     void cancelComposition();
 
@@ -74,18 +84,23 @@ private:
     static void preeditChangedCallback(InputMethodFilter*);
     static void preeditFinishedCallback(InputMethodFilter*);
     static void committedCallback(InputMethodFilter*, const char*);
+    static void deleteSurroundingCallback(InputMethodFilter*, int offset, unsigned characterCount);
 
     void preeditStarted();
     void preeditChanged();
     void preeditFinished();
     void committed(const char*);
+    void deleteSurrounding(int offset, unsigned characterCount);
 
+    bool isEnabled() const { return !!m_state; }
     bool isViewFocused() const;
+
+    void notifyContentType();
 
     WebCore::IntRect platformTransformCursorRectToViewCoordinates(const WebCore::IntRect&);
     bool platformEventKeyIsKeyPress(PlatformEventKey*) const;
 
-    bool m_enabled { false };
+    Optional<InputMethodState> m_state;
     GRefPtr<WebKitInputMethodContext> m_context;
 
     struct {
@@ -97,10 +112,19 @@ private:
     struct {
         bool isActive { false };
         bool preeditChanged { false };
+#if PLATFORM(GTK) && USE(GTK4)
+        bool isFakeKeyEventForTesting { false };
+#endif
     } m_filteringContext;
 
     String m_compositionResult;
     WebCore::IntPoint m_cursorLocation;
+
+    struct {
+        String text;
+        uint64_t cursorPosition;
+        uint64_t selectionPosition;
+    } m_surrounding;
 };
 
 } // namespace WebKit

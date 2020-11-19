@@ -190,7 +190,7 @@ struct MinorSlot
 #endif /* !TARGET_OS_OSX */
 };
 
-class MinorTable
+class __exported MinorTable
 {
 protected:
     class
@@ -957,6 +957,8 @@ int dkopen(dev_t dev, int flags, int devtype, proc_t /* proc */)
     error = 0;
     media = 0;
     minor = gIOMediaBSDClientGlobals.getMinor(getminor(dev));
+    level = kIOStorageAccessInvalid;
+    levelOut = kIOStorageAccessInvalid;
 
     //
     // Process the open.
@@ -3133,14 +3135,22 @@ void dkreadwritecompletion( void *   target,
     {
         if ( status != kIOReturnNotPermitted )
         {
-            IOLog("%s: %s.\n", minor->name, minor->media->stringFromReturn(status));
+            if ( minor != NULL )
+            {
+                IOLog("%s: %s.\n", minor->name, minor->media->stringFromReturn(status));
+            }
+            else
+            {
+                IOLog("minor not available for device %x: %x.\n", dev, status);
+            }
         }
     }
 
     if ( DKR_IS_ASYNCHRONOUS(dkr, dkrtype) )       // (an asynchronous request?)
     {
         DKR_SET_BYTE_COUNT(dkr, dkrtype, actualByteCount);   // (set byte count)
-        DKR_RUN_COMPLETION(dkr, dkrtype, minor->media->errnoFromReturn(status)); // (run completion)
+        DKR_RUN_COMPLETION(dkr, dkrtype,
+            ((minor != NULL) ? minor->media->errnoFromReturn(status) : ENXIO));   // (run completion)
     }
     else
     {

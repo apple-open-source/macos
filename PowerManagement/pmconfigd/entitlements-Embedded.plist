@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.private.vfs.setsize</key>
+	<true/>
+	<key>com.apple.private.ppm.superclient</key>
+	<true/>
+	<key>com.apple.private.powersource-read</key>
+	<true/>
 	<key>com.apple.private.applesmc.user-access</key>
 	<true/>
 	<key>com.apple.security.system-groups</key>
@@ -12,5 +18,13 @@
 	<true/>
 	<key>com.apple.private.iokit.rootdomain-set-property</key>
 	<true/>
+	<key>com.apple.security.iokit-user-client-class</key>
+	<array>
+		<string>ApplePPMUserClient</string>
+		<string>RootDomainUserClient</string>
+		<string>AppleSMCClient</string>
+		<string>AppleSmartBatteryManagerUserClient</string>
+		<string>IOReportUserClient</string>
+	</array>
 </dict>
 </plist>

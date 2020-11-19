@@ -31,8 +31,7 @@
 #import <CloudServices/SecureBackup.h>
 #import <CoreFoundation/CFUserNotification.h>
 #import <Foundation/Foundation.h>
-#import <ManagedConfiguration/MCProfileConnection.h>
-#import <ManagedConfiguration/MCFeatures.h>
+#import <ManagedConfiguration/ManagedConfiguration.h>
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <MobileCoreServices/LSApplicationWorkspace.h>
 #import <MobileGestalt.h>

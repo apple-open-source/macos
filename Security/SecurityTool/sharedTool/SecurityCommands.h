@@ -41,9 +41,11 @@ SECURITY_COMMAND("item", keychain_item,
                  "SAC object for deleting item added by default\n",
                  "Manipulate keychain items.")
 
+#if !TARGET_OS_BRIDGE
 SECURITY_COMMAND("policy-dryrun", policy_dryrun,
                  "",
                  "Try to evaluate policy old/new.")
+#endif
 
 SECURITY_COMMAND("keychain-item-digest", keychain_item_digest,
                  "itemClass keychainAccessGroup\n"
@@ -223,3 +225,24 @@ SECURITY_COMMAND("show-ct-exceptions", show_ct_exceptions,
                  "   -c             Output certificate exceptions (as SPKI hash).\n"
                  "                      Default is both domains and certs.\n",
                  "Display exceptions for Certificate Transparency enforcement in json.")
+
+SECURITY_COMMAND("add-ca-revocation-checking", add_ca_revocation_checking,
+                 "[options]\n"
+                 "   -c cert    Cert for which revocation checking should be enabled.\n"
+                 "                 Specify a CA cert to enable checking for all its issued certs.\n"
+                 "                 Can be specified multiple times.\n"
+                 "   -p plist   plist containing entries to enable explicit revocation checking.\n"
+                 "                 Resets existing entries, if present.\n"
+                 "                 Overrides -c\n"
+                 "                 For detailed specification, see SecTrustSettingsPriv.h.\n"
+                 "   -r which   Resets cert entries for \"cert\" or \"all\".\n"
+                 "                 Overrides -c and -p\n",
+                 "Specify additional CA certs for which revocation checking is enabled")
+
+SECURITY_COMMAND("show-ca-revocation-checking", show_ca_revocation_checking,
+                 "[options]\n"
+                 "   -a             Output all combined CA revocation checking additions.\n"
+                 "   -i identifier  Output CA revocation additions for specified identifier.\n"
+                 "                      Default is the additions for this tool. Overridden by -a.\n"
+                 "   -c             Output CA revocation additions (as certificate SPKI hash).\n",
+                 "Display CA revocation checking additions in json.")

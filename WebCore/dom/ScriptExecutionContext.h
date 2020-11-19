@@ -65,6 +65,7 @@ class RejectedPromiseTracker;
 class ResourceRequest;
 class SecurityOrigin;
 class SocketProvider;
+enum class ReferrerPolicy : uint8_t;
 enum class TaskSource : uint8_t;
 
 #if ENABLE(SERVICE_WORKER)
@@ -94,9 +95,12 @@ public:
     virtual EventLoopTaskGroup& eventLoop() = 0;
 
     virtual const URL& url() const = 0;
-    virtual URL completeURL(const String& url) const = 0;
+    enum class ForceUTF8 { No, Yes };
+    virtual URL completeURL(const String& url, ForceUTF8 = ForceUTF8::No) const = 0;
 
     virtual String userAgent(const URL&) const = 0;
+
+    virtual ReferrerPolicy referrerPolicy() const = 0;
 
     virtual void disableEval(const String& errorMessage) = 0;
     virtual void disableWebAssembly(const String& errorMessage) = 0;
@@ -120,7 +124,6 @@ public:
     virtual void addConsoleMessage(MessageSource, MessageLevel, const String& message, unsigned long requestIdentifier = 0) = 0;
 
     virtual SecurityOrigin& topOrigin() const = 0;
-    virtual String origin() const = 0;
 
     virtual bool shouldBypassMainWorldContentSecurityPolicy() const { return false; }
 
@@ -149,7 +152,7 @@ public:
     void createdMessagePort(MessagePort&);
     void destroyedMessagePort(MessagePort&);
 
-    virtual void didLoadResourceSynchronously();
+    virtual void didLoadResourceSynchronously(const URL&);
 
     void ref() { refScriptExecutionContext(); }
     void deref() { derefScriptExecutionContext(); }
@@ -242,7 +245,6 @@ public:
     void setDomainForCachePartition(String&& domain) { m_domainForCachePartition = WTFMove(domain); }
 
     bool allowsMediaDevices() const;
-    bool hasServiceWorkerScheme() const;
 #if ENABLE(SERVICE_WORKER)
     ServiceWorker* activeServiceWorker() const;
     void setActiveServiceWorker(RefPtr<ServiceWorker>&&);
@@ -324,7 +326,7 @@ private:
     mutable bool m_activeDOMObjectAdditionForbidden { false };
     bool m_willprocessMessageWithMessagePortsSoon { false };
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     bool m_inScriptExecutionContextDestructor { false };
 #endif
 

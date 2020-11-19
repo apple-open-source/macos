@@ -57,8 +57,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSData* encodedChangeToken;
 @property BOOL moreRecordsInCloudKit;
 @property (nullable) NSDate* lastFetchTime;
+@property (nullable) NSDate* lastLocalKeychainScanTime;
 
 @property CKKSFixup lastFixup;
+
 
 @property (nullable) CKKSRateLimiter* rateLimiter;
 @property (nullable) NSData* encodedRateLimiter;
@@ -74,10 +76,11 @@ NS_ASSUME_NONNULL_BEGIN
                    changeToken:(NSData* _Nullable)changetoken
          moreRecordsInCloudKit:(BOOL)moreRecords
                      lastFetch:(NSDate* _Nullable)lastFetch
+                      lastScan:(NSDate* _Nullable)localKeychainScanned
                      lastFixup:(CKKSFixup)lastFixup
             encodedRateLimiter:(NSData* _Nullable)encodedRateLimiter;
 
-- (CKServerChangeToken*)getChangeToken;
+- (CKServerChangeToken* _Nullable)getChangeToken;
 - (void)setChangeToken:(CKServerChangeToken* _Nullable)token;
 
 - (BOOL)isEqual:(id)object;

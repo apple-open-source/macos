@@ -47,7 +47,7 @@ public:
 
     // Can be called from any thread.
     AudioNode* node() const { return m_node; }
-    AudioContext& context() { return m_node->context(); }
+    BaseAudioContext& context() { return m_node->context(); }
     
     // Causes our AudioNode to process if it hasn't already for this render quantum.
     // It returns the bus containing the processed audio for this output, returning inPlaceBus if in-place processing was possible.
@@ -74,6 +74,9 @@ public:
     bool isChannelCountKnown() const { return numberOfChannels() > 0; }
 
     bool isConnected() { return fanOutCount() > 0 || paramFanOutCount() > 0; }
+
+    bool isConnectedTo(AudioNodeInput& input) const { return m_inputs.contains(&input); }
+    bool isConnectedTo(AudioParam& param) const { return m_params.contains(&param); }
 
     // Disable/Enable happens when there are still JavaScript references to a node, but it has otherwise "finished" its work.
     // For example, when a note has finished playing.  It is kept around, because it may be played again at a later time.

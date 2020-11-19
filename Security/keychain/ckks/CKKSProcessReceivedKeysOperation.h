@@ -32,24 +32,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 
-// CKKS's state machine depends on its operations performing callbacks to move the state, but this means
-// the operations cannot be reused outside of the state machine context.
-// Therefore, split this operation into two: one which does the work, and another which does the CKKS state manipulation.
-
-@interface CKKSProcessReceivedKeysOperation : CKKSResultOperation
+@interface CKKSProcessReceivedKeysOperation : CKKSResultOperation <OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
 @property (weak) CKKSKeychainView* ckks;
 
 @property CKKSZoneKeyState* nextState;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks;
-@end
-
-@interface CKKSProcessReceivedKeysStateMachineOperation : CKKSResultOperation
-@property (weak) CKKSKeychainView* ckks;
-
-- (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks;
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                       intendedState:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState;
 @end
 
 NS_ASSUME_NONNULL_END

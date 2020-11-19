@@ -10,6 +10,7 @@
 #include <Security/SecBase.h>
 #include <utilities/array_size.h>
 #include <utilities/SecCFWrappers.h>
+#include <os/feature_private.h>
 
 #include "Security_regressions.h"
 
@@ -20,7 +21,11 @@ static void tests(void) {
     CFDictionaryAddValue(dict, kSecAttrAccessGroup, kSecAttrAccessGroupToken);
 
     is_status(SecItemAdd(dict, NULL), errSecMissingEntitlement);
-    is_status(SecItemCopyMatching(dict, NULL), errSecItemNotFound);
+    if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        is_status(SecItemCopyMatching(dict, NULL), errSecItemNotFound);
+    } else {
+        is_status(SecItemCopyMatching(dict, NULL), errSecMissingEntitlement);
+    }
 
     CFRelease(dict);
 }

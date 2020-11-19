@@ -160,31 +160,16 @@
     return _syncingPolicy != nil;
 }
 @synthesize syncingPolicy = _syncingPolicy;
-@synthesize syncingViews = _syncingViews;
-- (void)clearSyncingViews
+- (BOOL)hasVoucher
 {
-    [_syncingViews removeAllObjects];
+    return _voucher != nil;
 }
-- (void)addSyncingView:(NSString *)i
+@synthesize voucher = _voucher;
+- (BOOL)hasVoucherSignature
 {
-    if (!_syncingViews)
-    {
-        _syncingViews = [[NSMutableArray alloc] init];
-    }
-    [_syncingViews addObject:i];
+    return _voucherSignature != nil;
 }
-- (NSUInteger)syncingViewsCount
-{
-    return [_syncingViews count];
-}
-- (NSString *)syncingViewAtIndex:(NSUInteger)idx
-{
-    return [_syncingViews objectAtIndex:idx];
-}
-+ (Class)syncingViewType
-{
-    return [NSString class];
-}
+@synthesize voucherSignature = _voucherSignature;
 
 - (NSString *)description
 {
@@ -230,9 +215,13 @@
     {
         [dict setObject:self->_syncingPolicy forKey:@"syncingPolicy"];
     }
-    if (self->_syncingViews)
+    if (self->_voucher)
     {
-        [dict setObject:self->_syncingViews forKey:@"syncingView"];
+        [dict setObject:self->_voucher forKey:@"voucher"];
+    }
+    if (self->_voucherSignature)
+    {
+        [dict setObject:self->_voucherSignature forKey:@"voucherSignature"];
     }
     return dict;
 }
@@ -301,19 +290,22 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
                 self->_cdpState = PBReaderReadInt32(reader);
             }
             break;
-            case 9 /* syncingPolicy */:
+            case 11 /* syncingPolicy */:
             {
                 NSData *new_syncingPolicy = PBReaderReadData(reader);
                 self->_syncingPolicy = new_syncingPolicy;
             }
             break;
-            case 10 /* syncingViews */:
+            case 12 /* voucher */:
             {
-                NSString *new_syncingViews = PBReaderReadString(reader);
-                if (new_syncingViews)
-                {
-                    [self addSyncingView:new_syncingViews];
-                }
+                NSData *new_voucher = PBReaderReadData(reader);
+                self->_voucher = new_voucher;
+            }
+            break;
+            case 13 /* voucherSignature */:
+            {
+                NSData *new_voucherSignature = PBReaderReadData(reader);
+                self->_voucherSignature = new_voucherSignature;
             }
             break;
             default:
@@ -391,14 +383,21 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         if (self->_syncingPolicy)
         {
-            PBDataWriterWriteDataField(writer, self->_syncingPolicy, 9);
+            PBDataWriterWriteDataField(writer, self->_syncingPolicy, 11);
         }
     }
-    /* syncingViews */
+    /* voucher */
     {
-        for (NSString *s_syncingViews in self->_syncingViews)
+        if (self->_voucher)
         {
-            PBDataWriterWriteStringField(writer, s_syncingViews, 10);
+            PBDataWriterWriteDataField(writer, self->_voucher, 12);
+        }
+    }
+    /* voucherSignature */
+    {
+        if (self->_voucherSignature)
+        {
+            PBDataWriterWriteDataField(writer, self->_voucherSignature, 13);
         }
     }
 }
@@ -447,14 +446,13 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         other.syncingPolicy = _syncingPolicy;
     }
-    if ([self syncingViewsCount])
+    if (_voucher)
     {
-        [other clearSyncingViews];
-        NSUInteger syncingViewsCnt = [self syncingViewsCount];
-        for (NSUInteger i = 0; i < syncingViewsCnt; i++)
-        {
-            [other addSyncingView:[self syncingViewAtIndex:i]];
-        }
+        other.voucher = _voucher;
+    }
+    if (_voucherSignature)
+    {
+        other.voucherSignature = _voucherSignature;
     }
 }
 
@@ -494,11 +492,8 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
         copy->_has.cdpState = YES;
     }
     copy->_syncingPolicy = [_syncingPolicy copyWithZone:zone];
-    for (NSString *v in _syncingViews)
-    {
-        NSString *vCopy = [v copyWithZone:zone];
-        [copy addSyncingView:vCopy];
-    }
+    copy->_voucher = [_voucher copyWithZone:zone];
+    copy->_voucherSignature = [_voucherSignature copyWithZone:zone];
     return copy;
 }
 
@@ -525,7 +520,9 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     &&
     ((!self->_syncingPolicy && !other->_syncingPolicy) || [self->_syncingPolicy isEqual:other->_syncingPolicy])
     &&
-    ((!self->_syncingViews && !other->_syncingViews) || [self->_syncingViews isEqual:other->_syncingViews])
+    ((!self->_voucher && !other->_voucher) || [self->_voucher isEqual:other->_voucher])
+    &&
+    ((!self->_voucherSignature && !other->_voucherSignature) || [self->_voucherSignature isEqual:other->_voucherSignature])
     ;
 }
 
@@ -551,7 +548,9 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     ^
     [self->_syncingPolicy hash]
     ^
-    [self->_syncingViews hash]
+    [self->_voucher hash]
+    ^
+    [self->_voucherSignature hash]
     ;
 }
 
@@ -599,9 +598,13 @@ BOOL OTAccountMetadataClassCReadFrom(__unsafe_unretained OTAccountMetadataClassC
     {
         [self setSyncingPolicy:other->_syncingPolicy];
     }
-    for (NSString *iter_syncingViews in other->_syncingViews)
+    if (other->_voucher)
     {
-        [self addSyncingView:iter_syncingViews];
+        [self setVoucher:other->_voucher];
+    }
+    if (other->_voucherSignature)
+    {
+        [self setVoucherSignature:other->_voucherSignature];
     }
 }
 

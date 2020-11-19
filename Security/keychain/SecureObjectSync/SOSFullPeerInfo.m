@@ -41,7 +41,6 @@
 #include <Security/SecFramework.h>
 
 #include <stdlib.h>
-#include <assert.h>
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFRelease.h>
@@ -146,15 +145,17 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateWithViews(CFAllocatorRef allocator,
     fpi->peer_info = SOSPeerInfoCreateWithTransportAndViews(allocator, gestalt, backupKey,
                                                             IDSID, transportType, preferIDS,
                                                             preferIDSFragmentation, preferACKModel, initialViews,
-                                                            signingKey, octagonPeerSigningKey, octagonPeerEncryptionKey, error);
+                                                            signingKey, octagonPeerSigningKey, octagonPeerEncryptionKey,
+                                                            // All newly-created FullPeerInfos are on software that supports CKKS4All
+                                                            true,
+                                                            error);
     require_quiet(fpi->peer_info, exit);
 
     OSStatus status = SecKeyCopyPersistentRef(signingKey, &fpi->key_ref);
     require_quiet(SecError(status, error, CFSTR("Inflating persistent ref")), exit);
-    
     status = SecKeyCopyPersistentRef(octagonPeerSigningKey, &fpi->octagon_peer_signing_key_ref);
     require_quiet(SecError(status, error, CFSTR("Inflating octagon peer signing persistent ref")), exit);
-    status = SecKeyCopyPersistentRef(octagonPeerSigningKey, &fpi->octagon_peer_encryption_key_ref);
+    status = SecKeyCopyPersistentRef(octagonPeerEncryptionKey, &fpi->octagon_peer_encryption_key_ref);
     require_quiet(SecError(status, error, CFSTR("Inflating octagon peer encryption persistent ref")), exit);
 
     CFTransferRetained(result, fpi);
@@ -199,6 +200,27 @@ bool SOSFullPeerInfoUpdateOctagonEncryptionKey(SOSFullPeerInfoRef peer, SecKeyRe
     });
 }
 
+bool SOSFullPeerInfoSetCKKS4AllSupport(SOSFullPeerInfoRef fullPeerInfo, bool support, CFErrorRef* error) {
+
+    SOSPeerInfoRef peerInfo = SOSFullPeerInfoGetPeerInfo(fullPeerInfo);
+    bool supportsCKKS4All = SOSPeerInfoSupportsCKKSForAll(peerInfo);
+
+    if(supportsCKKS4All == support) {
+        // Early-exit: no change needed
+        return true;
+    }
+
+    secnotice("circleChange", "Setting CKKS4All status to '%@'", support ? @"supported" : @"not supported");
+
+    return SOSFullPeerInfoUpdate(fullPeerInfo, error, ^SOSPeerInfoRef(SOSPeerInfoRef currentPeerInfo, SecKeyRef key, CFErrorRef *blockerror) {
+        SOSPeerInfoRef newPeerInfo = SOSPeerInfoCopyWithModification(kCFAllocatorDefault, currentPeerInfo, key, blockerror,
+                                                                     ^bool(SOSPeerInfoRef peerToModify, CFErrorRef *innerblockerror) {
+            SOSPeerInfoSetSupportsCKKSForAll(peerToModify, support);
+            return true;
+        });
+        return newPeerInfo;
+    });
+}
 
 
 CFDataRef SOSPeerInfoCopyData(SOSPeerInfoRef pi, CFErrorRef *error)
@@ -271,7 +293,7 @@ SOSFullPeerInfoRef SOSFullPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErro
     fpi->peer_info = SOSPeerInfoCreateFromDER(allocator, error, der_p, der_end);
     require_quiet(fpi->peer_info != NULL, fail);
 
-    *der_p = der_decode_data(allocator, kCFPropertyListImmutable, &fpi->key_ref, error, *der_p, sequence_end);
+    *der_p = der_decode_data(allocator, &fpi->key_ref, error, *der_p, sequence_end);
     require_quiet(*der_p != NULL, fail);
     
     return fpi;
@@ -492,12 +514,14 @@ errOut:
 
 static SecKeyRef SOSFullPeerInfoCopyMatchingPrivateKey(SOSFullPeerInfoRef fpi, CFErrorRef *error) {
     SecKeyRef retval = NULL;
-
     SecKeyRef pub = SOSFullPeerInfoCopyPubKey(fpi, error);
-    require_quiet(pub, exit);
-    retval = SecKeyCopyMatchingPrivateKey(pub, error);
-exit:
-    CFReleaseNull(pub);
+    if(pub) {
+        retval = SecKeyCopyMatchingPrivateKey(pub, error);
+        if(!retval) {
+            secnotice("circleOp", "Failed to find my private key for spid %@", SOSPeerInfoGetSPID(SOSFullPeerInfoGetPeerInfo(fpi)));
+        }
+        CFReleaseNull(pub);
+    }
     return retval;
 }
 

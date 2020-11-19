@@ -24,6 +24,7 @@
 
 #include "secd_regressions.h"
 
+#import <Foundation/Foundation.h>
 #include <Security/Security.h>
 
 #include <utilities/SecCFWrappers.h>
@@ -66,7 +67,8 @@ int secd_36_ks_encrypt(int argc, char *const *argv)
     ok(ac = SecAccessControlCreate(NULL, &error), "SecAccessControlCreate: %@", error);
     ok(SecAccessControlSetProtection(ac, kSecAttrAccessibleWhenUnlocked, &error), "SecAccessControlSetProtection: %@", error);
 
-    ret = ks_encrypt_data(keybag, ac, NULL, data, (__bridge CFDictionaryRef)@{@"persistref" : @"aaa-bbb-ccc"}, NULL, &enc, true, &error);
+    CFDictionaryRef empty = (__bridge CFDictionaryRef)@{};
+    ret = ks_encrypt_data(keybag, ac, NULL, data, (__bridge CFDictionaryRef)@{@"persistref" : @"aaa-bbb-ccc"}, empty, &enc, true, &error);
     is(true, ret);
 
     CFReleaseNull(ac);
@@ -75,7 +77,11 @@ int secd_36_ks_encrypt(int argc, char *const *argv)
         CFMutableDictionaryRef attributes = NULL;
         uint32_t version = 0;
 
-        ret = ks_decrypt_data(keybag, kAKSKeyOpDecrypt, &ac, NULL, enc, NULL, NULL, &attributes, &version, true, NULL, &error);
+        NSData* dummyACM = [NSData dataWithBytes:"dummy" length:5];
+        const SecDbClass* class = kc_class_with_name(kSecClassGenericPassword);
+        NSArray* dummyArray = [NSArray array];
+
+        ret = ks_decrypt_data(keybag, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, NULL, &error);
         is(true, ret, "ks_decrypt_data: %@", error);
 
         CFTypeRef aclProtection = ac ? SecAccessControlGetProtection(ac) : NULL;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -116,6 +116,7 @@ getconfig(intface)
 	char buf[BUFSIZ];
 	char *bp = buf;
 	char *addr, *flagstr;
+	char *capport;
 	static int forwarding = -1;
 
 #define MUSTHAVE(var, cap)	\
@@ -711,6 +712,17 @@ getconfig(intface)
 	    rai->dnssl_option_length += (8 - (rai->dnssl_option_length & 0x7));
 	}
 
+	/* captive portal */
+	capport = agetstr("capport", &bp);
+	if (capport != NULL) {
+		rai->capport = strdup(capport);
+		rai->capport_length = strlen(capport);
+		rai->capport_option_length
+			= sizeof(struct nd_opt_hdr) + rai->capport_length;
+		rai->capport_option_length
+			+= (8 - (rai->capport_option_length & 0x7));
+	}
+
 	/* okey */
 	rai->next = ralist;
 	ralist = rai;
@@ -1053,6 +1065,9 @@ make_packet(struct rainfo *rainfo)
 	if (rainfo->dnssl_length > 0) {
 		packlen += rainfo->dnssl_option_length;
 	}
+	if (rainfo->capport_option_length != 0) {
+		packlen += rainfo->capport_option_length;
+	}
 
 	/* allocate memory for the packet */
 	if ((buf = malloc(packlen)) == NULL) {
@@ -1225,7 +1240,26 @@ make_packet(struct rainfo *rainfo)
 
 		buf += rainfo->dnssl_option_length;
 	}
+	if (rainfo->capport != NULL) {
+		struct nd_opt_hdr *	capport_opt;
+		u_int32_t		zero_space;
 
+		capport_opt = (struct nd_opt_hdr *)buf;
+#ifndef ND_OPT_CAPTIVE_PORTAL
+#define ND_OPT_CAPTIVE_PORTAL           37      /* RFC 7710 */
+#endif /* ND_OPT_CAPTIVE_PORTAL */
+		capport_opt->nd_opt_type = ND_OPT_CAPTIVE_PORTAL;
+		capport_opt->nd_opt_len = rainfo->capport_option_length >> 3;
+		buf += sizeof(*capport_opt);
+		bcopy(rainfo->capport, buf, rainfo->capport_length);
+		buf += rainfo->capport_length;
+		zero_space = rainfo->capport_option_length
+			- rainfo->capport_length;
+		if (zero_space > 0) {
+			bzero(buf, zero_space);
+			buf += zero_space;
+		}
+	}
 	return;
 }
 

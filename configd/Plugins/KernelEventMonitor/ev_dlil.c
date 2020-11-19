@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -134,10 +134,11 @@ interface_update_status(const char *if_name,
 		}
 	} else {
 		/* remove the value */
-		if (oldDict != NULL) {
+		if (!only_if_different
+		    || oldDict != NULL) {
 			SC_log(LOG_DEBUG, "Update interface link status: %s: <removed>", if_name);
+			SCDynamicStoreRemoveValue(store, key);
 		}
-		SCDynamicStoreRemoveValue(store, key);
 	}
 
 	CFRelease(key);

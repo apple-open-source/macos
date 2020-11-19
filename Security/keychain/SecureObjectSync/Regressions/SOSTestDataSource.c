@@ -220,7 +220,7 @@ static SOSObjectRef copyMergedObject(SOSObjectRef object1, SOSObjectRef object2,
             // Return the item with the smallest digest.
             CFDataRef digest1 = copyDigest(object1, error);
             CFDataRef digest2 = copyDigest(object2, error);
-            if (digest1 && digest2) switch (CFDataCompare(digest1, digest2)) {
+            if (digest1 && digest2) switch (CFDataCompareDERData(digest1, digest2)) {
                 case kCFCompareGreaterThan:
                 case kCFCompareEqualTo:
                     result = (SOSObjectRef)dict2;

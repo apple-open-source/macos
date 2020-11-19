@@ -37,40 +37,44 @@
 
 // Note: reencryption is not, strictly speaking, a CloudKit operation. However, we preserve this to pass it back to the outgoing queue operation we'll create
 @interface CKKSReencryptOutgoingItemsOperation ()
-@property CKOperationGroup* ckoperationGroup;
 @end
 
 @implementation CKKSReencryptOutgoingItemsOperation
+@synthesize nextState = _nextState;
+@synthesize intendedState = _intendedState;
 
 - (instancetype)init {
     return nil;
 }
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup {
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks
+                       intendedState:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState
+{
     if(self = [super init]) {
+        _deps = dependencies;
         _ckks = ckks;
-        _ckoperationGroup = ckoperationGroup;
+
+        _nextState = errorState;
+        _intendedState = intendedState;
 
         [self addNullableDependency:ckks.keyStateReadyDependency];
         [self addNullableDependency:ckks.holdReencryptOutgoingItemsOperation];
 
         // We also depend on the key hierarchy being reasonable
         [self addNullableDependency:ckks.keyStateReadyDependency];
-
     }
     return self;
 }
 
-- (void) main {
+- (void)main
+{
     CKKSKeychainView* ckks = self.ckks;
-    if(!ckks) {
-        ckkserror("ckksreencrypt", ckks, "no CKKS object");
-        return;
-    }
 
-    [ckks dispatchSync: ^bool{
+    [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         if(self.cancelled) {
-            ckksnotice("ckksreencrypt", ckks, "CKKSReencryptOutgoingItemsOperation cancelled, quitting");
-            return false;
+            ckksnotice("ckksreencrypt", self.deps.zoneID, "CKKSReencryptOutgoingItemsOperation cancelled, quitting");
+            return CKKSDatabaseTransactionRollback;
         }
 
         ckks.lastReencryptOutgoingItemsOperation = self;
@@ -78,30 +82,30 @@
         NSError* error = nil;
         bool newItems = false;
 
-        NSArray<CKKSOutgoingQueueEntry*>* oqes = [CKKSOutgoingQueueEntry allInState: SecCKKSStateReencrypt zoneID:ckks.zoneID error:&error];
+        NSArray<CKKSOutgoingQueueEntry*>* oqes = [CKKSOutgoingQueueEntry allInState:SecCKKSStateReencrypt zoneID:self.deps.zoneID error:&error];
         if(error) {
-            ckkserror("ckksreencrypt", ckks, "Error fetching oqes from database: %@", error);
+            ckkserror("ckksreencrypt", self.deps.zoneID, "Error fetching oqes from database: %@", error);
             self.error = error;
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
-        [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventReencryptOutgoing  zone:ckks.zoneName count:oqes.count];
+        [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventReencryptOutgoing zone:self.deps.zoneID.zoneName count:oqes.count];
 
         for(CKKSOutgoingQueueEntry* oqe in oqes) {
             // If there's already a 'new' item replacing this one, drop the reencryption on the floor
             CKKSOutgoingQueueEntry* newOQE = [CKKSOutgoingQueueEntry tryFromDatabase:oqe.uuid state:SecCKKSStateNew zoneID:oqe.item.zoneID error:&error];
             if(error) {
-                ckkserror("ckksreencrypt", ckks, "Couldn't load 'new' OQE to determine status: %@", error);
+                ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't load 'new' OQE to determine status: %@", error);
                 self.error = error;
                 error = nil;
                 continue;
             }
             if(newOQE) {
-                ckksnotice("ckksreencrypt", ckks, "Have a new OQE superceding %@ (%@), skipping", oqe, newOQE);
+                ckksnotice("ckksreencrypt", self.deps.zoneID, "Have a new OQE superceding %@ (%@), skipping", oqe, newOQE);
                 // Don't use the state transition here, either, since this item isn't really changing states
                 [oqe deleteFromDatabase:&error];
                 if(error) {
-                    ckkserror("ckksreencrypt", ckks, "Couldn't delete reencrypting OQE(%@) from database: %@", oqe, error);
+                    ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't delete reencrypting OQE(%@) from database: %@", oqe, error);
                     self.error = error;
                     error = nil;
                     continue;
@@ -109,15 +113,16 @@
                 continue;
             }
 
-            ckksnotice("ckksreencrypt", ckks, "Reencrypting item %@", oqe);
+            ckksnotice("ckksreencrypt", self.deps.zoneID, "Reencrypting item %@", oqe);
 
             NSDictionary* item = [CKKSItemEncrypter decryptItemToDictionary: oqe.item error:&error];
             if(error) {
                 if ([error.domain isEqualToString:@"securityd"] && error.code == errSecItemNotFound) {
-                    ckkserror("ckksreencrypt", ckks, "Couldn't find key in keychain; attempting to poke key hierarchy: %@", error);
-                    [ckks.pokeKeyStateMachineScheduler trigger];
+                    ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't find key in keychain; asking for reset: %@", error);
+                    [ckks _onqueuePokeKeyStateMachine];
+                    self.nextState = SecCKKSZoneKeyStateUnhealthy;
                 } else {
-                    ckkserror("ckksreencrypt", ckks, "Couldn't decrypt item %@: %@", oqe, error);
+                    ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't decrypt item %@: %@", oqe, error);
                 }
                 self.error = error;
                 error = nil;
@@ -125,26 +130,26 @@
             }
 
             // Pick a key whose class matches the keyclass that this item
-            CKKSKey* originalKey = [CKKSKey fromDatabase: oqe.item.parentKeyUUID zoneID:ckks.zoneID error:&error];
+            CKKSKey* originalKey = [CKKSKey fromDatabase: oqe.item.parentKeyUUID zoneID:self.deps.zoneID error:&error];
             if(error) {
-                ckkserror("ckksreencrypt", ckks, "Couldn't fetch key (%@) for item %@: %@", oqe.item.parentKeyUUID, oqe, error);
+                ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't fetch key (%@) for item %@: %@", oqe.item.parentKeyUUID, oqe, error);
                 self.error = error;
                 error = nil;
                 continue;
             }
 
-            CKKSKey* newkey = [CKKSKey currentKeyForClass: originalKey.keyclass zoneID:ckks.zoneID error:&error];
+            CKKSKey* newkey = [CKKSKey currentKeyForClass: originalKey.keyclass zoneID:self.deps.zoneID error:&error];
             [newkey ensureKeyLoaded: &error];
             if(error) {
-                ckkserror("ckksreencrypt", ckks, "Couldn't fetch the current key for class %@: %@", originalKey.keyclass, error);
+                ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't fetch the current key for class %@: %@", originalKey.keyclass, error);
                 self.error = error;
                 error = nil;
                 continue;
             }
 
-            CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:oqe.item.uuid zoneID:ckks.zoneID error:&error];
+            CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:oqe.item.uuid zoneID:self.deps.zoneID error:&error];
             if(error) {
-                ckkserror("ckksreencrypt", ckks, "Couldn't fetch ckme (%@) for item %@: %@", oqe.item.parentKeyUUID, oqe, error);
+                ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't fetch ckme (%@) for item %@: %@", oqe.item.parentKeyUUID, oqe, error);
                 self.error = error;
                 error = nil;
                 continue;
@@ -157,7 +162,7 @@
                                                                    error:&error];
 
             if(error) {
-                ckkserror("ckksreencrypt", ckks, "Couldn't encrypt under the new key %@: %@", newkey, error);
+                ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't encrypt under the new key %@: %@", newkey, error);
                 self.error = error;
                 error = nil;
                 continue;
@@ -173,7 +178,7 @@
             [oqe deleteFromDatabase:&error];
             [replacement saveToDatabase:&error];
             if(error) {
-                ckkserror("ckksreencrypt", ckks, "Couldn't save newly-encrypted oqe %@: %@", replacement, error);
+                ckkserror("ckksreencrypt", self.deps.zoneID, "Couldn't save newly-encrypted oqe %@: %@", replacement, error);
                 self.error = error;
                 error = nil;
                 continue;
@@ -184,14 +189,15 @@
 
         CKKSAnalytics* logger = [CKKSAnalytics logger];
         if (self.error) {
-            [logger logRecoverableError:error forEvent:CKKSEventProcessReencryption inView:ckks withAttributes:nil];
+            [logger logRecoverableError:error forEvent:CKKSEventProcessReencryption zoneName:self.deps.zoneID.zoneName withAttributes:nil];
         } else {
-            [logger logSuccessForEvent:CKKSEventProcessReencryption inView:ckks];
+            [logger logSuccessForEvent:CKKSEventProcessReencryption zoneName:self.deps.zoneID.zoneName ];
         }
 
         if(newItems) {
-            [ckks processOutgoingQueue:self.ckoperationGroup];
+            [ckks processOutgoingQueue:self.deps.ckoperationGroup];
         }
+        self.nextState = self.intendedState;
         return true;
     }];
 }

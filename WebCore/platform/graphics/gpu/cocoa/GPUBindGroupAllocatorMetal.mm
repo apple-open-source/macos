@@ -85,9 +85,9 @@ Optional<GPUBindGroupAllocator::ArgumentBufferOffsets> GPUBindGroupAllocator::al
         if (minimumSize < newOffset)
             minimumSize = newOffset;
 
-        BEGIN_BLOCK_OBJC_EXCEPTIONS;
+        BEGIN_BLOCK_OBJC_EXCEPTIONS
         m_argumentBuffer = adoptNS([device newBufferWithLength:minimumSize options:0]);
-        END_BLOCK_OBJC_EXCEPTIONS;
+        END_BLOCK_OBJC_EXCEPTIONS
 
         if (!m_argumentBuffer) {
             m_errorScopes->generateError("", GPUErrorFilter::OutOfMemory);
@@ -98,7 +98,7 @@ Optional<GPUBindGroupAllocator::ArgumentBufferOffsets> GPUBindGroupAllocator::al
     ArgumentBufferOffsets offsets;
 
     // Math in the following section is guarded against overflow by newOffset calculation.
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     if (vertex) {
         offsets.vertex = m_lastOffset;
@@ -113,9 +113,10 @@ Optional<GPUBindGroupAllocator::ArgumentBufferOffsets> GPUBindGroupAllocator::al
         [compute setArgumentBuffer:m_argumentBuffer.get() offset:*offsets.compute];
     }
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     m_lastOffset = newOffset;
+    ++m_numBindGroups;
 
     return offsets;
 }
@@ -135,12 +136,12 @@ bool GPUBindGroupAllocator::reallocate(NSUInteger newOffset)
         }
     }
 
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     newBuffer = [m_argumentBuffer.get().device newBufferWithLength:newLength.unsafeGet() options:0];
     memcpy(newBuffer.contents, m_argumentBuffer.get().contents, m_argumentBuffer.get().length);
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     if (!newBuffer) {
         m_errorScopes->generateError("", GPUErrorFilter::OutOfMemory);
@@ -153,11 +154,14 @@ bool GPUBindGroupAllocator::reallocate(NSUInteger newOffset)
 
 void GPUBindGroupAllocator::tryReset()
 {
-    if (!hasOneRef())
-        return;
+    --m_numBindGroups;
+    
+    ASSERT(m_numBindGroups > -1);
 
-    m_argumentBuffer = nullptr;
-    m_lastOffset = 0;
+    if (!m_numBindGroups) {
+        m_argumentBuffer = nullptr;
+        m_lastOffset = 0;
+    }
 }
 
 #endif // USE(METAL)

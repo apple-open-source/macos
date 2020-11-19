@@ -7,8 +7,11 @@
 #ifndef __CHAR16PTR_H__
 #define __CHAR16PTR_H__
 
-#include <cstddef>
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
+#include <cstddef>
 
 /**
  * \file
@@ -17,7 +20,6 @@
  *        Also conversion functions from char16_t * to UChar * and OldUChar *.
  */
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -305,6 +307,7 @@ inline OldUChar *toOldUCharPtr(char16_t *p) {
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif  // __CHAR16PTR_H__

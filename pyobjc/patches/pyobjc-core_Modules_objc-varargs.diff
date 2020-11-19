@@ -1,0 +1,28 @@
+diff -urw pyobjc-core-2.5.1.orig/Modules/objc/function.m pyobjc-core-2.5.1/Modules/objc/function.m
+--- pyobjc-core-2.5.1.orig/Modules/objc/function.m	2013-01-10 12:00:30.000000000 -0800
++++ pyobjc-core-2.5.1/Modules/objc/function.m	2019-05-02 14:26:15.000000000 -0700
+@@ -204,7 +204,7 @@
+ 	}
+ 
+ 	if (variadicAllArgs) {
+-		r = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, cif_arg_count,
++		r = ffi_prep_cif_var(&cif, FFI_DEFAULT_ABI, Py_SIZE(self->methinfo), cif_arg_count,
+ 			signature_to_ffi_return_type(self->methinfo->rettype.type), arglist);
+ 		if (r != FFI_OK) {
+ 			PyErr_Format(PyExc_RuntimeError,
+diff -urw pyobjc-core-2.5.1.orig/Modules/objc/libffi_support.m pyobjc-core-2.5.1/Modules/objc/libffi_support.m
+--- pyobjc-core-2.5.1.orig/Modules/objc/libffi_support.m	2019-05-02 14:56:51.000000000 -0700
++++ pyobjc-core-2.5.1/Modules/objc/libffi_support.m	2019-05-02 14:49:25.000000000 -0700
+@@ -3853,7 +3853,11 @@
+ 	PyErr_Clear();
+ 	ffi_type* retsig = signature_to_ffi_return_type(rettype);
+ 	if (retsig == NULL) goto error_cleanup;
+-	r = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, r, retsig, arglist);
++	if (variadicAllArgs) {
++		r = ffi_prep_cif_var(&cif, FFI_DEFAULT_ABI, Py_SIZE(methinfo), r, retsig, arglist);
++	} else {
++		r = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, r, retsig, arglist);
++	}
+ 	if (r != FFI_OK) {
+ 		PyErr_Format(PyExc_RuntimeError,
+ 			"Cannot setup FFI CIF [%d]", r);

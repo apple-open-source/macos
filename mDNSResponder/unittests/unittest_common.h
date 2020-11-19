@@ -37,7 +37,6 @@ extern mStatus  init_mdns_storage(void);
 extern size_t   get_reply_len(char* name, uint16_t rdlen);
 extern mStatus  start_client_request(request_state* req, char *msgbuf, size_t msgsz, uint32_t op, UDPSocket* socket);
 extern void     receive_response(const request_state* req, DNSMessage *msg, size_t msgSize);
-extern void     receive_suspicious_response_ut(const request_state* req, DNSMessage *msg, size_t msgSize, mDNSOpaque16 suspiciousqid, mDNSBool goodLastQID);
 extern void     get_ip(const char *const name, struct sockaddr_storage *result);
 extern void     free_req(request_state* req);
 

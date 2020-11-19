@@ -1,1 +1,0 @@
-ARCHS[sdk=macosx*] = $(ARCHS_STANDARD_32_64_BIT)

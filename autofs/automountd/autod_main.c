@@ -189,12 +189,24 @@ main(argc, argv)
 				trace = 0;
 		}
 		if ((defval = defread("AUTOMOUNTD_ENV=")) != NULL) {
-			(void) putenv(strdup(defval));
+			char *tmp = strdup(defval);
+			if (putenv(tmp)) {
+				free(tmp);
+			}
+			/* if putenv() is successfull, we lost ownership of the string */
+			tmp = NULL;
+
 			defflags = defcntl(DC_GETFLAGS, 0);
 			TURNON(defflags, DC_NOREWIND);
 			defflags = defcntl(DC_SETFLAGS, defflags);
-			while ((defval = defread("AUTOMOUNTD_ENV=")) != NULL)
-				(void) putenv(strdup(defval));
+			while ((defval = defread("AUTOMOUNTD_ENV=")) != NULL) {
+				tmp = strdup(defval);
+				if (putenv(tmp)) {
+					free(tmp);
+				}
+				/* if putenv() is successfull, we lost ownership of the string */
+				tmp = NULL;
+			}
 			(void) defcntl(DC_SETFLAGS, defflags);
 		}
 		if ((defval = defread("AUTOMOUNTD_MNTOPTS=")) != NULL
@@ -248,15 +260,13 @@ main(argc, argv)
 
 	/*
 	 * This is platform-dependent; for now, we just say
-	 * "macintosh" - I guess we could do something to
-	 * distinguish x86 from PowerPC.
+	 * "macintosh".
+	 * XXX Unclear what we should do for iOS.
 	 */
 	if (getenv("ARCH") == NULL)
 		(void) putenv("ARCH=macintosh");
 	if (getenv("CPU") == NULL) {
-#if defined(__ppc__)
-		(void) putenv("CPU=powerpc");
-#elif defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 		/*
 		 * At least on Solaris, "CPU" appears to be the
 		 * narrowest ISA the machine supports, with
@@ -264,6 +274,8 @@ main(argc, argv)
 		 * even on x86-64.
 		 */
 		(void) putenv("CPU=i386");
+#elif defined(__arm64__)
+		(void) putenv("CPU=arm");
 #else
 #error "can't determine processor type");
 #endif

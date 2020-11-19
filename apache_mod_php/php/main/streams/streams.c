@@ -148,10 +148,16 @@ static zend_llist *php_get_wrapper_errors_list(php_stream_wrapper *wrapper)
 /* {{{ wrapper error reporting */
 void php_stream_display_wrapper_errors(php_stream_wrapper *wrapper, const char *path, const char *caption)
 {
-	char *tmp = estrdup(path);
+	char *tmp;
 	char *msg;
 	int free_msg = 0;
 
+	if (EG(exception)) {
+		/* Don't emit additional warnings if an exception has already been thrown. */
+		return;
+	}
+
+	tmp = estrdup(path);
 	if (wrapper) {
 		zend_llist *err_list = php_get_wrapper_errors_list(wrapper);
 		if (err_list) {
@@ -470,9 +476,15 @@ fprintf(stderr, "stream_free: %s:%p[%s] preserve_handle=%d release_cast=%d remov
 
 	if (close_options & PHP_STREAM_FREE_RELEASE_STREAM) {
 		while (stream->readfilters.head) {
+			if (stream->readfilters.head->res != NULL) {
+				zend_list_close(stream->readfilters.head->res);
+			}
 			php_stream_filter_remove(stream->readfilters.head, 1);
 		}
 		while (stream->writefilters.head) {
+			if (stream->writefilters.head->res != NULL) {
+				zend_list_close(stream->writefilters.head->res);
+			}
 			php_stream_filter_remove(stream->writefilters.head, 1);
 		}
 
@@ -571,8 +583,15 @@ PHPAPI void _php_stream_fill_read_buffer(php_stream *stream, size_t size)
 					 * stream read buffer */
 					while (brig_inp->head) {
 						bucket = brig_inp->head;
-						/* grow buffer to hold this bucket
-						 * TODO: this can fail for persistent streams */
+						/* reduce buffer memory consumption if possible, to avoid a realloc */
+						if (stream->readbuf && stream->readbuflen - stream->writepos < bucket->buflen) {
+							if (stream->writepos > stream->readpos) {
+								memmove(stream->readbuf, stream->readbuf + stream->readpos, stream->writepos - stream->readpos);
+							}
+							stream->writepos -= stream->readpos;
+							stream->readpos = 0;
+						}
+						/* grow buffer to hold this bucket */
 						if (stream->readbuflen - stream->writepos < bucket->buflen) {
 							stream->readbuflen += bucket->buflen;
 							stream->readbuf = perealloc(stream->readbuf, stream->readbuflen,

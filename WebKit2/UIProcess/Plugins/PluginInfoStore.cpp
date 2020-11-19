@@ -145,16 +145,15 @@ PluginModuleInfo PluginInfoStore::findPluginForExtension(const String& extension
     return PluginModuleInfo();
 }
 
-static inline String pathExtension(const URL& url)
+static String pathExtension(const URL& url)
 {
-    String extension;
-    String filename = url.lastPathComponent();
-    if (!filename.endsWith('/')) {
-        size_t extensionPos = filename.reverseFind('.');
-        if (extensionPos != notFound)
-            extension = filename.substring(extensionPos + 1);
-    }
-    return extension.convertToASCIILowercase();
+    auto filename = url.lastPathComponent();
+    if (filename.endsWith('/'))
+        return { };
+    size_t lastDotPosition = filename.reverseFind('.');
+    if (lastDotPosition == notFound)
+        return { };
+    return filename.substring(lastDotPosition + 1).convertToASCIILowercase();
 }
 
 #if !PLATFORM(COCOA)
@@ -191,7 +190,7 @@ PluginModuleInfo PluginInfoStore::findPlugin(String& mimeType, const URL& url, P
             return plugin;
         
         // Finally, try to get the MIME type from the extension in a platform specific manner and use that.
-        String extensionMimeType = MIMETypeRegistry::getMIMETypeForExtension(extension);
+        String extensionMimeType = MIMETypeRegistry::mimeTypeForExtension(extension);
         if (!extensionMimeType.isNull()) {
             PluginModuleInfo plugin = findPluginForMIMEType(extensionMimeType, allowedPluginTypes);
             if (!plugin.path.isNull()) {

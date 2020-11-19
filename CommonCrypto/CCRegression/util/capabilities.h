@@ -25,6 +25,8 @@
 #define CCSYMOFB 1
 #define CCSYMCFB 1
 #define CCSYMGCM 1
+#define CCSYMCHACHA20 1
+#define CCSYMCHACHA20POLY1305 1
 #define CCSYMCCM 1
 #define CCSYMXTS 1
 #define CCSYMRC2 1

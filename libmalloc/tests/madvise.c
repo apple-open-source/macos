@@ -292,3 +292,92 @@ T_DECL(small_subpage_madvise, "small allocator madvise",
 	}
 }
 #endif // #if 0
+
+static void
+test_aggressive_madvise(const vm_size_t total_size, const size_t granularity)
+{
+	void *bank[total_size / granularity];
+
+	for (int i = 0; i < (sizeof(bank)/sizeof(*bank)); i++) {
+		bank[i] = malloc(granularity);
+		memset(bank[i], 'A', granularity);
+	}
+
+	// free all allocations to force as much as possible to be madvise'd
+	for (int i = 0; i < (sizeof(bank)/sizeof(*bank)); i++) {
+		free(bank[i]);
+	}
+
+	// find the first page aligned allocation that has
+	// continguous allocations after it that total an entire page
+	void *ptr = NULL;
+	void *next_ptr = NULL;
+	int num_needed = -1;
+	for (int i = 0; i < (sizeof(bank)/sizeof(*bank)); i++) {
+		if (ptr) {
+			if (bank[i] == next_ptr) {
+				num_needed--;
+
+				if (num_needed == 0) {
+					// found an entire page that should be free
+					break;
+				}
+			} else {
+				// start search again because there was a non-contiguous allocation
+				ptr = NULL;
+			}
+		}
+
+		if (!ptr && round_page((uintptr_t)bank[i]) == (uintptr_t)bank[i]) {
+			// start a new search at this page aligned allocation
+			ptr = next_ptr = bank[i];
+			num_needed = ((vm_kernel_page_size + granularity - 1) / granularity) - 1;
+
+			if (num_needed == 0) {
+				// granularity is greater than or equal to a page
+				break;
+			}
+		}
+
+		if (ptr) {
+			next_ptr = (void *)((uintptr_t)next_ptr + granularity);
+		}
+	}
+
+	T_ASSERT_NOTNULL(ptr, "expected pointer");
+	T_ASSERT_EQ(num_needed, 0, "need entire page");
+
+	// Check the entire page-aligned range is empty.
+	T_EXPECT_BYTES(ptr, vm_page_size, 0x0, "madvise'd memory is all zeros");
+}
+
+T_DECL(tiny_aggressive_madvise, "tiny allocator free with MallocAggressiveMadvise=1",
+	   T_META_SYSCTL_INT("vm.madvise_free_debug=1"),
+	   T_META_ENVVAR("MallocNanoZone=0"),
+	   T_META_ENVVAR("MallocAggressiveMadvise=1"),
+	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
+	   T_META_ASROOT(YES))
+{
+	test_aggressive_madvise(vm_page_size * 4, 16);
+}
+
+T_DECL(small_aggressive_madvise, "small allocator free with MallocAggressiveMadvise=1",
+	   T_META_SYSCTL_INT("vm.madvise_free_debug=1"),
+	   T_META_ENVVAR("MallocAggressiveMadvise=1"),
+	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
+	   T_META_ASROOT(YES))
+{
+	test_aggressive_madvise(vm_page_size * 8, 1536);
+}
+
+T_DECL(medium_aggressive_madvise, "medium allocator free with MallocAggressiveMadvise=1",
+	   T_META_SYSCTL_INT("vm.madvise_free_debug=1"),
+	   T_META_ENVVAR("MallocMediumZone=1"),
+	   T_META_ENVVAR("MallocMediumActivationThreshold=1"),
+	   T_META_ENVVAR("MallocAggressiveMadvise=1"),
+	   T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR),
+	   T_META_ENABLED(CONFIG_AGGRESSIVE_MADVISE),
+	   T_META_ASROOT(YES))
+{
+	test_aggressive_madvise(16 * 64 * 1024, 64 * 1024);
+}

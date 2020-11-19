@@ -607,17 +607,25 @@ void poweronScheduleCallout(CFDictionaryRef event)
 
 
 
-void wakeTimerExpiredCallout(CFDictionaryRef event __unused)
+void wakeTimerExpiredCallout(CFDictionaryRef event)
 {
 
     CFMutableDictionaryRef assertionDescription = NULL;
+    // check if this is a wake due to com.apple.alarm
+    CFStringRef appName = CFDictionaryGetValue(event, CFSTR(kIOPMPowerEventAppNameKey));
+    if (appName && CFStringFind(appName, CFSTR("com.apple.alarm"), 0).location != kCFNotFound) {
+        INFO_LOG("Wake timer expired for com.apple.alarm");
+        assertionDescription = _IOPMAssertionDescriptionCreate(kIOPMAssertInternalPreventSleep,
+                                    CFSTR("com.apple.powermanagement.wakeschedule"), NULL,
+                                    CFSTR("Waking device for scheduled wake"), NULL, 5, kIOPMAssertionTimeoutActionRelease);
+    } else {
 
-    assertionDescription = _IOPMAssertionDescriptionCreate(
-                    kIOPMAssertionUserIsActive,
-                    CFSTR("com.apple.powermanagement.wakeschedule"),
-                    NULL, CFSTR("Waking screen for scheduled system wake"), NULL,
-                    2, kIOPMAssertionTimeoutActionRelease);
-
+        assertionDescription = _IOPMAssertionDescriptionCreate(
+                        kIOPMAssertionUserIsActive,
+                        CFSTR("com.apple.powermanagement.wakeschedule"),
+                        NULL, CFSTR("Waking screen for scheduled system wake"), NULL,
+                        2, kIOPMAssertionTimeoutActionRelease);
+    }
     InternalCreateAssertion(assertionDescription, NULL);
 
     CFRelease(assertionDescription);

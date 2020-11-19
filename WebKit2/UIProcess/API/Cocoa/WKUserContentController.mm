@@ -26,13 +26,15 @@
 #import "config.h"
 #import "WKUserContentControllerInternal.h"
 
+#import "APIContentWorld.h"
 #import "APISerializedScriptValue.h"
-#import "APIUserContentWorld.h"
 #import "InjectUserScriptImmediately.h"
 #import "WKContentRuleListInternal.h"
+#import "WKContentWorldInternal.h"
 #import "WKFrameInfoInternal.h"
 #import "WKNSArray.h"
 #import "WKScriptMessageHandler.h"
+#import "WKScriptMessageHandlerWithReply.h"
 #import "WKScriptMessageInternal.h"
 #import "WKUserScriptInternal.h"
 #import "WKWebViewInternal.h"
@@ -124,36 +126,114 @@ public:
         : m_controller(controller)
         , m_handler(handler)
         , m_name(adoptNS([name copy]))
+        , m_supportsAsyncReply(false)
     {
     }
-    
-    void didPostMessage(WebKit::WebPageProxy& page, WebKit::FrameInfoData&& frameInfoData, WebCore::SerializedScriptValue& serializedScriptValue) override
+
+    ScriptMessageHandlerDelegate(WKUserContentController *controller, id <WKScriptMessageHandlerWithReply> handler, NSString *name)
+        : m_controller(controller)
+        , m_handler(handler)
+        , m_name(adoptNS([name copy]))
+        , m_supportsAsyncReply(true)
+    {
+    }
+
+    void didPostMessage(WebKit::WebPageProxy& page, WebKit::FrameInfoData&& frameInfoData, API::ContentWorld& world, WebCore::SerializedScriptValue& serializedScriptValue) final
     {
         @autoreleasepool {
             RetainPtr<WKFrameInfo> frameInfo = wrapper(API::FrameInfo::create(WTFMove(frameInfoData), &page));
             id body = API::SerializedScriptValue::deserialize(serializedScriptValue, 0);
-            auto message = adoptNS([[WKScriptMessage alloc] _initWithBody:body webView:fromWebPageProxy(page) frameInfo:frameInfo.get() name:m_name.get()]);
+            auto message = adoptNS([[WKScriptMessage alloc] _initWithBody:body webView:fromWebPageProxy(page) frameInfo:frameInfo.get() name:m_name.get() world:wrapper(world)]);
         
-            [m_handler userContentController:m_controller.get() didReceiveScriptMessage:message.get()];
+            [(id<WKScriptMessageHandler>)m_handler.get() userContentController:m_controller.get() didReceiveScriptMessage:message.get()];
+        }
+    }
+
+    bool supportsAsyncReply() final
+    {
+        return m_supportsAsyncReply;
+    }
+
+    void didPostMessageWithAsyncReply(WebKit::WebPageProxy& page, WebKit::FrameInfoData&& frameInfoData, API::ContentWorld& world, WebCore::SerializedScriptValue& serializedScriptValue, Function<void(API::SerializedScriptValue*, const String&)>&& replyHandler) final
+    {
+        ASSERT(m_supportsAsyncReply);
+
+        auto finalizer = [](Function<void(API::SerializedScriptValue*, const String&)>& function) {
+            function(nullptr, "WKWebView API client did not respond to this postMessage"_s);
+        };
+        __block auto handler = CompletionHandlerWithFinalizer<void(API::SerializedScriptValue*, const String&)>(WTFMove(replyHandler), WTFMove(finalizer));
+
+        @autoreleasepool {
+            RetainPtr<WKFrameInfo> frameInfo = wrapper(API::FrameInfo::create(WTFMove(frameInfoData), &page));
+            id body = API::SerializedScriptValue::deserialize(serializedScriptValue, 0);
+            auto message = adoptNS([[WKScriptMessage alloc] _initWithBody:body webView:fromWebPageProxy(page) frameInfo:frameInfo.get() name:m_name.get() world:wrapper(world)]);
+
+            [(id<WKScriptMessageHandlerWithReply>)m_handler.get() userContentController:m_controller.get() didReceiveScriptMessage:message.get() replyHandler:^(id result, NSString *errorMessage) {
+                if (errorMessage) {
+                    handler(nullptr, errorMessage);
+                    return;
+                }
+
+                auto serializedValue = API::SerializedScriptValue::createFromNSObject(result);
+                if (!serializedValue) {
+                    handler(nullptr, "The result value passed back from the WKWebView API client was unable to be serialized"_s);
+                    return;
+                }
+
+                handler(serializedValue.get(), { });
+            }];
         }
     }
 
 private:
     RetainPtr<WKUserContentController> m_controller;
-    RetainPtr<id <WKScriptMessageHandler>> m_handler;
+    RetainPtr<id> m_handler;
     RetainPtr<NSString> m_name;
+    bool m_supportsAsyncReply;
 };
+
+- (void)_addScriptMessageHandler:(WebKit::WebScriptMessageHandler&)scriptMessageHandler
+{
+    if (!_userContentControllerProxy->addUserScriptMessageHandler(scriptMessageHandler))
+        [NSException raise:NSInvalidArgumentException format:@"Attempt to add script message handler with name '%@' when one already exists.", (NSString *)scriptMessageHandler.name()];
+}
 
 - (void)addScriptMessageHandler:(id <WKScriptMessageHandler>)scriptMessageHandler name:(NSString *)name
 {
-    auto handler = WebKit::WebScriptMessageHandler::create(makeUnique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, API::UserContentWorld::normalWorld());
-    if (!_userContentControllerProxy->addUserScriptMessageHandler(handler.get()))
-        [NSException raise:NSInvalidArgumentException format:@"Attempt to add script message handler with name '%@' when one already exists.", name];
+    auto handler = WebKit::WebScriptMessageHandler::create(makeUnique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, API::ContentWorld::pageContentWorld());
+    [self _addScriptMessageHandler:handler.get()];
+}
+
+- (void)addScriptMessageHandler:(id <WKScriptMessageHandler>)scriptMessageHandler contentWorld:(WKContentWorld *)world name:(NSString *)name
+{
+    auto handler = WebKit::WebScriptMessageHandler::create(makeUnique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, *world->_contentWorld);
+    [self _addScriptMessageHandler:handler.get()];
+}
+
+- (void)addScriptMessageHandlerWithReply:(id <WKScriptMessageHandlerWithReply>)scriptMessageHandler contentWorld:(WKContentWorld *)world name:(NSString *)name
+{
+    auto handler = WebKit::WebScriptMessageHandler::create(makeUnique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, *world->_contentWorld);
+    [self _addScriptMessageHandler:handler.get()];
 }
 
 - (void)removeScriptMessageHandlerForName:(NSString *)name
 {
-    _userContentControllerProxy->removeUserMessageHandlerForName(name, API::UserContentWorld::normalWorld());
+    _userContentControllerProxy->removeUserMessageHandlerForName(name, API::ContentWorld::pageContentWorld());
+}
+
+- (void)removeScriptMessageHandlerForName:(NSString *)name contentWorld:(WKContentWorld *)contentWorld
+{
+    _userContentControllerProxy->removeUserMessageHandlerForName(name, *contentWorld->_contentWorld);
+}
+
+- (void)removeAllScriptMessageHandlersFromContentWorld:(WKContentWorld *)contentWorld
+{
+    _userContentControllerProxy->removeAllUserMessageHandlers(*contentWorld->_contentWorld);
+}
+
+- (void)removeAllScriptMessageHandlers
+{
+    _userContentControllerProxy->removeAllUserMessageHandlers();
 }
 
 #pragma mark WKObject protocol implementation
@@ -172,9 +252,9 @@ private:
     _userContentControllerProxy->removeUserScript(*userScript->_userScript);
 }
 
-- (void)_removeAllUserScriptsAssociatedWithUserContentWorld:(_WKUserContentWorld *)userContentWorld
+- (void)_removeAllUserScriptsAssociatedWithContentWorld:(WKContentWorld *)contentWorld
 {
-    _userContentControllerProxy->removeAllUserScripts(*userContentWorld->_userContentWorld);
+    _userContentControllerProxy->removeAllUserScripts(*contentWorld->_contentWorld);
 }
 
 - (void)_addUserScriptImmediately:(WKUserScript *)userScript
@@ -223,26 +303,33 @@ private:
     _userContentControllerProxy->removeAllUserStyleSheets();
 }
 
-- (void)_removeAllUserStyleSheetsAssociatedWithUserContentWorld:(_WKUserContentWorld *)userContentWorld
+- (void)_removeAllUserStyleSheetsAssociatedWithContentWorld:(WKContentWorld *)contentWorld
 {
-    _userContentControllerProxy->removeAllUserStyleSheets(*userContentWorld->_userContentWorld);
+    _userContentControllerProxy->removeAllUserStyleSheets(*contentWorld->_contentWorld);
 }
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (void)_addScriptMessageHandler:(id <WKScriptMessageHandler>)scriptMessageHandler name:(NSString *)name userContentWorld:(_WKUserContentWorld *)userContentWorld
 {
-    auto handler = WebKit::WebScriptMessageHandler::create(makeUnique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, *userContentWorld->_userContentWorld);
+    auto handler = WebKit::WebScriptMessageHandler::create(makeUnique<ScriptMessageHandlerDelegate>(self, scriptMessageHandler, name), name, *userContentWorld->_contentWorld->_contentWorld);
     if (!_userContentControllerProxy->addUserScriptMessageHandler(handler.get()))
         [NSException raise:NSInvalidArgumentException format:@"Attempt to add script message handler with name '%@' when one already exists.", name];
 }
 
+- (void)_addScriptMessageHandler:(id <WKScriptMessageHandler>)scriptMessageHandler name:(NSString *)name contentWorld:(WKContentWorld *)contentWorld
+{
+    [self _addScriptMessageHandler:scriptMessageHandler name:name userContentWorld:contentWorld._userContentWorld];
+}
+
 - (void)_removeScriptMessageHandlerForName:(NSString *)name userContentWorld:(_WKUserContentWorld *)userContentWorld
 {
-    _userContentControllerProxy->removeUserMessageHandlerForName(name, *userContentWorld->_userContentWorld);
+    _userContentControllerProxy->removeUserMessageHandlerForName(name, *userContentWorld->_contentWorld->_contentWorld);
 }
 
 - (void)_removeAllScriptMessageHandlersAssociatedWithUserContentWorld:(_WKUserContentWorld *)userContentWorld
 {
-    _userContentControllerProxy->removeAllUserMessageHandlers(*userContentWorld->_userContentWorld);
+    _userContentControllerProxy->removeAllUserMessageHandlers(*userContentWorld->_contentWorld->_contentWorld);
 }
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 @end

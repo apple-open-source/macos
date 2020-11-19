@@ -32,6 +32,7 @@
 #include "unicode/ustring.h"
 #include "unicode/udisplaycontext.h"
 #include "unicode/uchar.h"
+#include "unicode/ures.h" // TAKE ME OUT!!!
 
 #include "cintltst.h"
 #include "cnumtst.h"
@@ -76,6 +77,8 @@ static void Test12052_NullPointer(void);
 static void TestParseCases(void);
 static void TestSetMaxFracAndRoundIncr(void);
 static void TestIgnorePadding(void);
+static void TestSciNotationMaxFracCap(void);
+
 static void TestParseAltNum(void);
 static void TestParseCurrPatternWithDecStyle(void);
 static void TestFormatPrecision(void);
@@ -91,6 +94,7 @@ static void TestCurrForUnkRegion(void); // Apple <rdar://problem/51985640>
 static void TestMinIntMinFracZero(void); // Apple <rdar://problem/54569257>
 #if APPLE_ADDITIONS
 static void TestFormatDecPerf(void); // Apple <rdar://problem/51672521>
+static void TestCountryFallback(void); // Apple <rdar://problem/54886964>
 #endif
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/cnumtst/" #x)
@@ -131,6 +135,8 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestParseCases);
     TESTCASE(TestSetMaxFracAndRoundIncr);
     TESTCASE(TestIgnorePadding);
+    TESTCASE(TestSciNotationMaxFracCap);
+
     TESTCASE(TestParseAltNum);
     TESTCASE(TestParseCurrPatternWithDecStyle);
     TESTCASE(TestFormatPrecision);
@@ -146,6 +152,7 @@ void addNumForTest(TestNode** root)
     TESTCASE(TestMinIntMinFracZero); // Apple <rdar://problem/54569257>
 #if APPLE_ADDITIONS
     TESTCASE(TestFormatDecPerf); // Apple <rdar://problem/51672521>
+    TESTCASE(TestCountryFallback); // Apple <rdar://problem/51672521>
 #endif
 }
 
@@ -533,7 +540,7 @@ free(result);
     pattern=unum_open(UNUM_IGNORE,temp1, u_strlen(temp1), NULL, NULL,&status);
     if(U_FAILURE(status))
     {
-        log_err("error in unum_openPattern(): %s\n", myErrorName(status) );;
+        log_err("error in unum_openPattern(): %s\n", myErrorName(status) );
     }
     else
         log_verbose("Pass: unum_openPattern() works fine\n");
@@ -916,9 +923,9 @@ free(result);
             log_err("File %s, Line %d, (expected, acutal) =  (\"%s\", \"%s\")\n",
                     __FILE__, __LINE__, numFormatted, desta);
         }
-        if (strlen(numFormatted) != resultSize) {
+        if ((int32_t)strlen(numFormatted) != resultSize) {
             log_err("File %s, Line %d, (expected, actual) = (%d, %d)\n",
-                     __FILE__, __LINE__, strlen(numFormatted), resultSize);
+                     __FILE__, __LINE__, (int32_t)strlen(numFormatted), resultSize);
         }
 
         /* Format with a FieldPosition parameter */
@@ -957,9 +964,9 @@ free(result);
             log_verbose("File %s, Line %d, got expected = \"%s\"\n",
                     __FILE__, __LINE__, desta);
         }
-        if (strlen(parseExpected) != resultSize) {
+        if ((int32_t)strlen(parseExpected) != resultSize) {
             log_err("File %s, Line %d, (expected, actual) = (%d, %d)\n",
-                    __FILE__, __LINE__, strlen(parseExpected), resultSize);
+                    __FILE__, __LINE__, (int32_t)strlen(parseExpected), resultSize);
         }
 
         /* Parse with a parsePos parameter */
@@ -979,9 +986,9 @@ free(result);
             log_verbose("File %s, Line %d, got expected = \"%s\"\n",
                     __FILE__, __LINE__, desta);
         }
-        if (strlen(numFormatted) != parsePos) {
+        if ((int32_t)strlen(numFormatted) != parsePos) {
             log_err("File %s, Line %d, parsePos (expected, actual) = (\"%d\", \"%d\")\n",
-                    __FILE__, __LINE__, strlen(parseExpected), parsePos);
+                    __FILE__, __LINE__, (int32_t)strlen(parseExpected), parsePos);
         }
 
         unum_close(fmt);
@@ -1417,7 +1424,7 @@ static void TestNumberFormatPadding()
     pattern=unum_open(UNUM_IGNORE,temp1, u_strlen(temp1), "en_US",NULL, &status);
     if(U_FAILURE(status))
     {
-        log_err_status(status, "error in padding unum_openPattern(%s): %s\n", temp1, myErrorName(status) );;
+        log_err_status(status, "error in padding unum_openPattern(%s): %s\n", temp1, myErrorName(status) );
     }
     else {
         log_verbose("Pass: padding unum_openPattern() works fine\n");
@@ -1719,7 +1726,7 @@ static void test_fmt(UNumberFormat* fmt, UBool isDecimal) {
             /* set the default ruleset to the first one found, and retry */
 
             if (len > 0) {
-                for (i = 0; i < len && temp[i] != ';'; ++i){};
+                for (i = 0; i < len && temp[i] != ';'; ++i){}
                 if (i < len) {
                     buffer[i] = 0;
                     unum_setTextAttribute(fmt, UNUM_DEFAULT_RULESET, buffer, -1, &status);
@@ -1930,6 +1937,7 @@ static void TestRBNFRounding() {
     }
     len = unum_formatDouble(fmt, 10.123456789, fmtbuf, FORMAT_BUF_CAPACITY, NULL, &status);
     U_ASSERT(len < FORMAT_BUF_CAPACITY);
+    (void)len;
     if (U_FAILURE(status)) {
         log_err_status(status, "unum_formatDouble 10.123456789 failed with %s\n", u_errorName(status));
     }
@@ -2675,7 +2683,10 @@ static void TestCurrencyIsoPluralFormat(void) {
         {"root@cf=account",   "-1.23",    "USD", "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-US$\\u00A01.23",    "-USD\\u00A01.23", "-1.23 USD"},
         // test choice format
         {"es_AR",             "1",        "INR", "INR\\u00A01,00",     "INR\\u00A01,00",     "INR\\u00A01,00",     "INR\\u00A01,00",  "1,00 rupia india"},
-    };
+         // test EUR format for some now-redundant locale data removed in rdar://62544359
+        {"en_NO",             "1234.56",  "EUR", "\\u20AC\\u00A01\\u00A0234,56", "\\u20AC\\u00A01\\u00A0234,56", "\\u20AC\\u00A01\\u00A0234,56", "EUR\\u00A01\\u00A0234,56", "1\\u00A0234,56 euros"},
+        {"en_PL",             "1234.56",  "EUR", "1\\u00A0234,56\\u00A0\\u20AC", "1\\u00A0234,56\\u00A0\\u20AC", "1\\u00A0234,56\\u00A0\\u20AC", "1\\u00A0234,56\\u00A0EUR", "1\\u00A0234,56 euros"},
+   };
     static const UNumberFormatStyle currencyStyles[] = {
         UNUM_CURRENCY,
         UNUM_CURRENCY_STANDARD,
@@ -3076,6 +3087,27 @@ static const ValueAndExpectedString srLongMax2[] = {
   {0.0, NULL, NULL}
 };
 
+// rdar://52188411
+static const ValueAndExpectedString enINShortMax2[] = {
+  {0.0,           "0.0",           "0"},
+  {0.17,          "0.17",          "0.17"},
+  {1.0,           "1.0",           "1"},
+  {1234.0,        "1234.0",        "1.2K"},
+  {12345.0,       "12345.0",       "12K"},
+  {123456.0,      "123456.0",      "1.2L"},
+  {1234567.0,     "1234567.0",     "12L"},
+  {12345678.0,    "12345678.0",    "1.2Cr"},
+  {123456789.0,   "123456789.0",   "12Cr"},
+  {1.23456789E9,  "1.23456789E9",  "120Cr"},
+  {1.23456789E10, "1.23456789E10", "1.2KCr"},
+  {1.23456789E11, "1.23456789E11", "12KCr"},
+  {1.23456789E12, "1.23456789E12", "1.2LCr"},
+  {1.23456789E13, "1.23456789E13", "12LCr"},
+  {1.23456789E14, "1.23456789E14", "120LCr"},
+  {1.23456789E15, "1.23456789E15", "1200LCr"},
+  {0.0, NULL, NULL}
+};
+
 typedef struct {
     const char *       locale;
     UNumberFormatStyle style;
@@ -3085,13 +3117,14 @@ typedef struct {
 } LocStyleAttributeTest;
 
 static const LocStyleAttributeTest lsaTests[] = {
-  { "en",   UNUM_DECIMAL,                   UNUM_MIN_FRACTION_DIGITS,       1,  enDecMinFrac },
-  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     -1,                             0,  enShort },
-  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  enShortMax2 },
-  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    5,  enShortMax5 },
-  { "en",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MIN_SIGNIFICANT_DIGITS,    3,  enShortMin3 },
-  { "ja",   UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  jaShortMax2 },
-  { "sr",   UNUM_DECIMAL_COMPACT_LONG,      UNUM_MAX_SIGNIFICANT_DIGITS,    2,  srLongMax2  },
+  { "en",    UNUM_DECIMAL,                   UNUM_MIN_FRACTION_DIGITS,       1,  enDecMinFrac },
+  { "en",    UNUM_DECIMAL_COMPACT_SHORT,     -1,                             0,  enShort },
+  { "en",    UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  enShortMax2 },
+  { "en",    UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    5,  enShortMax5 },
+  { "en",    UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MIN_SIGNIFICANT_DIGITS,    3,  enShortMin3 },
+  { "ja",    UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  jaShortMax2 },
+  { "sr",    UNUM_DECIMAL_COMPACT_LONG,      UNUM_MAX_SIGNIFICANT_DIGITS,    2,  srLongMax2  },
+  { "en_IN", UNUM_DECIMAL_COMPACT_SHORT,     UNUM_MAX_SIGNIFICANT_DIGITS,    2,  enINShortMax2 }, // rdar://52188411
   { NULL,   (UNumberFormatStyle)0,          -1,                             0,  NULL }
 };
 
@@ -3373,6 +3406,7 @@ static void TestParseCases(void) {
         status = U_ZERO_ERROR;
         decstr[0] = 0;
         dclen = unum_parseDecimal(unumDec, itemPtr->text, -1, &parsePos, decstr, 32, &status);
+        (void)dclen;
         if (status != itemPtr->decStatus || parsePos != itemPtr->decPos || uprv_strcmp(decstr,itemPtr->decString) != 0) {
             char btext[32];
             u_austrcpy(btext, itemPtr->text);
@@ -3507,6 +3541,7 @@ static void TestSetMaxFracAndRoundIncr(void) {
 
         status = U_ZERO_ERROR;
         ulen = unum_toPattern(unf, FALSE, ubuf, kUBufMax, &status);
+        (void)ulen;
         if ( U_FAILURE(status) ) {
             log_err("test %s: unum_toPattern fails with %s\n", itemPtr->descrip, u_errorName(status));
         } else if (u_strcmp(ubuf,itemPtr->expPattern)!=0) {
@@ -3571,6 +3606,40 @@ static void TestIgnorePadding(void) {
                         log_err("unum_formatDecimal result expect 24 but get %s\n", bbuf);
                     }
                 }
+            }
+        }
+        unum_close(unum);
+    }
+}
+
+static void TestSciNotationMaxFracCap(void) {
+    static const UChar* pat1 = u"#.##E+00;-#.##E+00";
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormat* unum = unum_open(UNUM_PATTERN_DECIMAL, pat1, -1, "en_US", NULL, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("unum_open UNUM_PATTERN_DECIMAL with scientific pattern for \"en_US\" fails with %s\n", u_errorName(status));
+    } else {
+        double value;
+        UChar ubuf[kUBufMax];
+        char bbuf[kBBufMax];
+        int32_t ulen;
+
+        unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
+        unum_setAttribute(unum, UNUM_MAX_FRACTION_DIGITS, 2147483647);
+        ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+        if ( U_SUCCESS(status) ) {
+            u_austrncpy(bbuf, ubuf, kUBufMax);
+            log_info("unum_toPattern (%d): %s\n", ulen, bbuf);
+        }
+
+        for (value = 10.0; value < 1000000000.0; value *= 10.0) {
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, value, ubuf, kUBufMax, NULL, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("unum_formatDouble value %.1f status %s\n", value, u_errorName(status));
+            } else if (u_strncmp(ubuf,u"1E+0",4) != 0) {
+                u_austrncpy(bbuf, ubuf, kUBufMax);
+                log_err("unum_formatDouble value %.1f expected result to begin with 1E+0, got %s\n", value, bbuf);
             }
         }
         unum_close(unum);
@@ -4461,9 +4530,253 @@ static void TestFormatDecPerf(void) {
     }
 }
 
+// Apple only for <rdar://problem/54886964> and <rdar://problem/62544359>
 
+static void TestCountryFallback(void) {
+    // Locales to check fallback behavior for-- the first column (subscript % 3 == 0)
+    // is the locale to test with; the second column (subscript % 3 == 1) is the locale
+    // whose number-formatting properties we should be matching when we use the test locale,
+    // and the third column (subscript % 3 == 2) is the locale we should be inheriting
+    // certain language-dependent symbols from (generally, the locale you'd normally get
+    // as a fallback).
+    // NOTE: The currency format always follows the country locale, except for the Euro in a handful
+    // of countries, where it follows the US English currency format.  If the country-fallback locale
+    // ID begins with a *, that's a signal that the currency format comes from the language locale
+    // instead of the country locale.
+    char* testLocales[] = {
+        // locales we still have synthetic resources for that were working okay to begin with
+        "en_BG", "bg_BG", "en_150",
+        "en_CN", "zh_CN", "en_001",
+        "en_CZ", "cs_CZ", "en_CZ",
+        "en_JP", "ja_JP", "en_001",
+        "en_KR", "ko_KR", "en_001",
+        "en_TH", "th_TH", "en_001",
+        "en_TW", "zh_TW", "en_001",
 
+        // locales that were okay except for currency-pattern issues
+        // (note that we have to specify the language locale as en, not en_150-- the en_150 currency format is wrong too)
+        "en_EE", "*et_EE", "en",
+        "en_LT", "*lt_LT", "en_LT",
+        "en_LV", "*lv_LV", "en",
+        "en_PT", "*pt_PT", "en",
+        "en_SK", "*sk_SK", "en_SK",
+        "en_FR", "*fr_FR", "en_FR",
 
+        // locales we still have synthetic resources for that we had to modify to match the country-fallback results
+        "en_AL", "sq_AL", "en_150",
+        "en_AR", "es_AR", "en_AR",
+        "en_BD", "bn_BD@numbers=latn", "en_BD",
+        "en_BR", "pt_BR", "en_001",
+        "en_CL", "es_CL", "en_CL",
+        "en_CO", "es_CO", "en_CO",
+        "en_GR", "el_GR", "en_150",
+        "en_HU", "hu_HU", "en_150",
+        "en_ID", "id_ID", "en_001",
+        "en_MM", "my_MM@numbers=latn", "en_001",
+        "en_MV", "dv_MV", "en_001",
+        "en_MX", "es_MX", "en_001",
+        "en_RU", "ru_RU", "en_RU",
+        "en_TR", "tr_TR", "en_TR",
+        "en_UA", "uk_UA", "en_150",
+        "es_AG", "en_AG", "es_AG",
+        "es_BB", "en_BB", "es_BB",
+        "es_BM", "en_BM", "es_BM",
+        "es_BQ", "nl_BQ", "es_BQ",
+        "es_BS", "en_BS", "es_BS",
+        "es_CA", "en_CA", "es_CA",
+        "es_CW", "nl_CW", "es_CW",
+        "es_DM", "en_DM", "es_DM",
+        "es_GD", "en_GD", "es_GD",
+        "es_GY", "en_GY", "es_GY",
+        "es_HT", "fr_HT", "es_HT",
+        "es_KN", "en_KN", "es_KN",
+        "es_KY", "en_KY", "es_KY",
+        "es_LC", "en_LC", "es_LC",
+        "es_TC", "en_TC", "es_TC",
+        "es_TT", "en_TT", "es_TT",
+        "es_VC", "en_VC", "es_VC",
+        "es_VG", "en_VG", "es_VG",
+        "es_VI", "en_VI", "es_VI",
+
+        // locales we used to have synthetic resources for but don't anymore
+        "en_AD", "ca_AD", "en_150",
+        "en_BA", "bs_BA", "en_150",
+        "en_ES", "es_ES", "en_150",
+        "en_HR", "hr_HR", "en_150",
+        "en_IS", "is_IS", "en_150",
+        "en_IT", "it_IT", "en_150",
+        "en_LU", "fr_LU", "en_150",
+        "en_ME", "sr_ME", "en_150",
+        "en_NO", "nb_NO", "en_NO",
+        "en_PL", "pl_PL", "en_150",
+        "en_RO", "ro_RO", "en_150",
+        "en_RS", "sr_RS", "en_150",
+        "en_SA", "ar_SA@numbers=latn", "en",
+        "es_AI", "en_AI", "es_419",
+        "es_AW", "nl_AW", "es_419",
+        "es_BL", "fr_BL", "es_419",
+        "es_FK", "en_FK", "es_419",
+        "es_GF", "fr_GF", "es_419",
+        "es_GL", "kl_GL", "es",
+        "es_GP", "fr_GP", "es_419",
+        "es_MF", "fr_MF", "es_419",
+        "es_MQ", "fr_MQ", "es_419",
+        "es_MS", "en_MS", "es_419",
+        "es_PM", "fr_PM", "es_419",
+        "es_SR", "nl_SR", "es_419",
+        "es_SX", "en_SX", "es_419",
+
+        // locales we have synthetic resources for, but they come from open-source ICU
+        "en_DE", "de_DE", "en_DE",
+        "en_ER", "ti_ER", "en_001",
+        "en_GH", "ak_GH", "en_001",
+        "en_HK", "zh_HK", "en_001",
+        "en_ME", "sr_ME", "en_150",
+        "en_MO", "zh_MO", "en_001",
+        "en_MT", "mt_MT", "en_150",
+        "en_MY", "ms_MY", "en_001",
+        "en_NL", "nl_NL", "en_150",
+        "en_PH", "fil_PH", "en_001",
+        "en_ZW", "sn_ZW", "en_001",
+        "es_US", "en_US", "es_US",
+        
+        // locales where we're adding a NEW synthetic resource bundle, to PREVENT us from falling back by country
+        "en_BN", "en_001", "en_001", // rdar://69272236
+        
+        // locales specifically mentioned in Radars
+        "fr_US", "en_US", "fr", // rdar://problem/54886964
+//        "en_TH", "th_TH", "en", // rdar://problem/29299919 (listed above)
+//        "en_BG", "bg_BG", "en", // rdar://problem/29299919 (listed above)
+        "en_LI", "de_LI", "en", // rdar://problem/29299919
+        "en_MC", "fr_MC", "en", // rdar://problem/29299919
+        "en_MD", "ro_MD", "en", // rdar://problem/29299919
+        "en_VA", "it_VA", "en", // rdar://problem/29299919
+        "fr_GB", "en_GB", "fr", // rdar://problem/36020946
+        "fr_CN", "zh_CN", "fr", // rdar://problem/50083902
+        "es_IE", "en_IE", "es", // rdar://problem/58733843
+        "en_LB", "ar_LB@numbers=latn", "en_001", // rdar://66609948
+
+        // tests for situations where the default number system is different depending on whether you
+        // fall back by language or by country:
+//        "en_SA", "ar_SA@numbers=latn", "en", // (listed above)
+        "ar_US", "en_US@numbers=arab", "ar",
+        "en_SA@numbers=arab", "ar_SA", "en@numbers=arab",
+        "ar_US@numbers=latn", "en_US", "ar@numbers=latn",
+
+        // tests for situations where the original locale ID specifies a script:
+        "sr_Cyrl_SA", "ar_SA@numbers=latn", "sr_Cyrl",
+        "ru_Cyrl_BA", "bs_Cyrl_BA", "ru",
+
+        // a few additional arbitrary combinations:
+        "ja_US", "en_US", "ja",
+        "fr_DE", "de_DE", "fr",
+        "de_FR", "fr_FR", "de",
+        "es_TW", "zh_TW", "es",
+
+        // not in the resources, but to exercise the new ures_openWithCountryFallback() logic (AQ's default language is "und")
+        "fr_AQ", "en", "fr",
+
+        // test to make sure that nothing goes wrong if language and country fallback both lead to the same resource
+        // (This won't happen for any "real" locales, because ICU has resources for all of them, but we can fake it with
+        // a nonexistent country code such as QQ.)
+        "en_QQ", "en", "en"
+    };
+
+    for (int32_t i = 0; i < (sizeof(testLocales) / sizeof(char*)); i += 3) {
+        const char* testLocale = testLocales[i];
+        const char* fallbackLocale = testLocales[i + 1];
+        const char* languageLocale = testLocales[i + 2];
+        char errorMessage[200];
+        UBool currencyFollowsLanguage = FALSE;
+        UErrorCode err = U_ZERO_ERROR;
+
+        if (fallbackLocale[0] == '*') {
+            currencyFollowsLanguage = TRUE;
+            ++fallbackLocale;
+        }
+
+        // Check that the decimal, percentage, currency, and scientific formatting patterns
+        // for the test locale are the same as those for the fallback locale.
+        for (UNumberFormatStyle style = UNUM_DECIMAL; style <= UNUM_SCIENTIFIC; ++style) {
+            err = U_ZERO_ERROR;
+            UNumberFormat* testFormatter = unum_open(style, NULL, -1, testLocale, NULL, &err);
+            UNumberFormat* fallbackFormatter = unum_open(style, NULL, -1, fallbackLocale, NULL, &err);
+            UNumberFormat* languageLocaleFormatter = unum_open(style, NULL, -1, languageLocale, NULL, &err);
+
+            sprintf(errorMessage, "Error creating formatters for %s and %s", testLocale, fallbackLocale);
+            if (assertSuccess(errorMessage, &err)) {
+                UChar testPattern[100];
+                UChar fallbackPattern[100];
+
+                unum_toPattern(testFormatter, FALSE, testPattern, 100, &err);
+                if (style == UNUM_PERCENT || (style == UNUM_CURRENCY && currencyFollowsLanguage)) {
+                    unum_toPattern(languageLocaleFormatter, FALSE, fallbackPattern, 100, &err);
+                } else {
+                    unum_toPattern(fallbackFormatter, FALSE, fallbackPattern, 100, &err);
+                }
+
+                if (assertSuccess("Error getting number format patterns", &err)) {
+                    sprintf(errorMessage, "In %s, formatting pattern for style %d doesn't match", testLocale, style);
+                    assertUEquals(errorMessage, fallbackPattern, testPattern);
+                }
+            }
+            unum_close(testFormatter);
+            unum_close(fallbackFormatter);
+            unum_close(languageLocaleFormatter);
+        }
+
+        // Check that all of the number formatting symbols for the test locale (except for the
+        // currency, exponential, infinity, and NaN symbols) are the same as those for the fallback locale.
+        UNumberFormat* testFormatter = unum_open(UNUM_DECIMAL, NULL, -1, testLocale, NULL, &err);
+        UNumberFormat* fallbackFormatter = unum_open(UNUM_DECIMAL, NULL, -1, fallbackLocale, NULL, &err);
+        UNumberFormat* languageLocaleFormatter = unum_open(UNUM_DECIMAL, NULL, -1, languageLocale, NULL, &err);
+        if (assertSuccess("Error creating formatters", &err)) {
+            for (UNumberFormatSymbol symbol = UNUM_DECIMAL_SEPARATOR_SYMBOL; symbol < UNUM_FORMAT_SYMBOL_COUNT; ++symbol) {
+                UBool compareToFallbackLocale = TRUE;
+                switch (symbol) {
+                    case UNUM_CURRENCY_SYMBOL:
+                    case UNUM_INTL_CURRENCY_SYMBOL:
+                    case UNUM_MONETARY_SEPARATOR_SYMBOL:
+                    case UNUM_MONETARY_GROUPING_SEPARATOR_SYMBOL:
+                        // we don't do anything special with currency here
+                        continue;
+                    case UNUM_PLUS_SIGN_SYMBOL:
+                    case UNUM_MINUS_SIGN_SYMBOL:
+                    case UNUM_PERCENT_SYMBOL:
+                    case UNUM_EXPONENTIAL_SYMBOL:
+                    case UNUM_INFINITY_SYMBOL:
+                    case UNUM_NAN_SYMBOL:
+                        // unlike most number symbols, these should follow the language
+                        compareToFallbackLocale = FALSE;
+                        break;
+                    default:
+                        // everything else follows the country
+                        compareToFallbackLocale = TRUE;
+                        break;
+                }
+
+                UChar testSymbol[50];
+                UChar fallbackSymbol[50];
+
+                err = U_ZERO_ERROR;
+                unum_getSymbol(testFormatter, symbol, testSymbol, 50, &err);
+                if (compareToFallbackLocale) {
+                    unum_getSymbol(fallbackFormatter, symbol, fallbackSymbol, 50, &err);
+                } else {
+                    unum_getSymbol(languageLocaleFormatter, symbol, fallbackSymbol, 50, &err);
+                }
+
+                if (assertSuccess("Error getting number format symbol", &err)) {
+                    sprintf(errorMessage, "In %s, formatting symbol #%d doesn't match the fallback", testLocale, symbol);
+                    assertUEquals(errorMessage, fallbackSymbol, testSymbol);
+                }
+            }
+        }
+        unum_close(testFormatter);
+        unum_close(fallbackFormatter);
+        unum_close(languageLocaleFormatter);
+    }
+}
 
 #endif /* APPLE_ADDITIONS */
 

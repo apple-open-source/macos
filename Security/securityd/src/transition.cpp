@@ -51,6 +51,7 @@
 #include <Security/AuthorizationTagsPriv.h>
 #include <AssertMacros.h>
 #include <security_utilities/errors.h>
+#include <Security/SecEntitlements.h>
 
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFDictionary.h>
@@ -65,7 +66,7 @@
 #define BEGIN_IPCN	*rcode = CSSM_OK; try {
 #define BEGIN_IPC(name)	BEGIN_IPCN RefPointer<Connection> connRef(&Server::connection(replyPort, auditToken)); \
 		Connection &connection __attribute__((unused)) = *connRef; \
-        secinfo("SecServer", "request entry " #name " (pid:%d ession:%d)", connection.process().pid(), connection.session().sessionId());
+        secinfo("SecServer", "request entry " #name " (pid:%d session:%d)", connection.process().pid(), connection.session().sessionId());
 
 #define END_IPC(base)	END_IPCN(base) Server::requestComplete(*rcode); return KERN_SUCCESS;
 #define END_IPCN(base) 	secinfo("SecServer", "request return: %d", *(rcode)); \
@@ -244,6 +245,7 @@ kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskPort, ClientSetupInfo
 	END_IPCN(CSSM)
 	if (*rcode)
 		Syslog::notice("setup(%s) failed rcode=%d", identity ? identity : "<NULL>", *rcode);
+	mach_port_deallocate(mach_task_self(), taskPort);
 	return KERN_SUCCESS;
 }
 
@@ -256,6 +258,7 @@ kern_return_t ucsp_server_setupThread(UCSP_ARGS, mach_port_t taskPort)
 	END_IPCN(CSSM)
 	if (*rcode)
 		Syslog::notice("setupThread failed rcode=%d", *rcode);
+	mach_port_deallocate(mach_task_self(), taskPort);
 	return KERN_SUCCESS;
 }
 
@@ -735,7 +738,7 @@ static void check_stash_entitlement(Process & proc)
     }
     require(entitlements != NULL, done);
 
-    if (CFDictionaryGetValueIfPresent(entitlements, CFSTR("com.apple.private.securityd.stash"), &value)) {
+    if (CFDictionaryGetValueIfPresent(entitlements, kSecEntitlementPrivateStash, &value)) {
         if (CFGetTypeID(value) && CFBooleanGetTypeID()) {
             entitled = CFBooleanGetValue((CFBooleanRef)value);
         }

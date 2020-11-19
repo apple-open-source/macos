@@ -23,22 +23,10 @@
 
 #include "resolver.h"
 #include "internal.h"
-#include "dependency_private.h"
-#include <sys/ulock.h>
 
 #define PREREQUISITE_FULFILLED  (~0u)
 
-PTHREAD_NOEXPORT
-void _pthread_dependency_fulfill_slow(pthread_dependency_t *pr, uint32_t old);
-
-OS_ALWAYS_INLINE
-static inline mach_port_t
-_pthread_dependency_self(void)
-{
-	void *v = _pthread_getspecific_direct(_PTHREAD_TSD_SLOT_MACH_THREAD_SELF);
-	return (mach_port_t)(uintptr_t)v;
-}
-
+#if !VARIANT_DYLD
 void
 pthread_dependency_init_np(pthread_dependency_t *pr, pthread_t pth,
 		pthread_dependency_attr_t *attrs)
@@ -54,7 +42,7 @@ _pthread_dependency_fulfill_slow(pthread_dependency_t *pr, uint32_t old)
 	if (old == PREREQUISITE_FULFILLED) {
 		PTHREAD_CLIENT_CRASH(0, "Fufilling pthread_dependency_t twice");
 	}
-	if (os_unlikely(old != _pthread_dependency_self())) {
+	if (os_unlikely(old != _pthread_mach_thread_self_direct())) {
 		PTHREAD_CLIENT_CRASH(old, "Fulfilled a dependency "
 				"not owned by current thread");
 	}
@@ -70,6 +58,7 @@ _pthread_dependency_fulfill_slow(pthread_dependency_t *pr, uint32_t old)
 }
 
 
+PTHREAD_NOEXPORT_VARIANT
 void
 pthread_dependency_fulfill_np(pthread_dependency_t *pr, void *value)
 {
@@ -81,6 +70,7 @@ pthread_dependency_fulfill_np(pthread_dependency_t *pr, void *value)
 	if (old != 0) _pthread_dependency_fulfill_slow(pr, old);
 }
 
+PTHREAD_NOEXPORT_VARIANT
 void *
 pthread_dependency_wait_np(pthread_dependency_t *pr)
 {
@@ -109,3 +99,16 @@ pthread_dependency_wait_np(pthread_dependency_t *pr)
 	PTHREAD_CLIENT_CRASH(cur, "Corrupted pthread_dependency_t");
 }
 
+PTHREAD_NOEXPORT_VARIANT void*
+_pthread_atomic_xchg_ptr(void **p, void *v)
+{
+	return os_atomic_xchg(p, v, seq_cst);
+}
+
+PTHREAD_NOEXPORT_VARIANT uint32_t
+_pthread_atomic_xchg_uint32_relaxed(uint32_t *p, uint32_t v)
+{
+	return os_atomic_xchg(p, v, relaxed);
+}
+
+#endif // !VARIANT_DYLD

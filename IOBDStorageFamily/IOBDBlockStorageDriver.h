@@ -83,7 +83,7 @@
  * functions.
 */
 
-class IOBDBlockStorageDriver : public IODVDBlockStorageDriver
+class __exported IOBDBlockStorageDriver : public IODVDBlockStorageDriver
 {
     OSDeclareDefaultStructors(IOBDBlockStorageDriver)
 

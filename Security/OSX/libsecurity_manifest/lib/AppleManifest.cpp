@@ -584,12 +584,13 @@ void AppleManifest::ReconstructOther (uint32& finger, const uint8* data, Manifes
 
 void AppleManifest::ReconstructManifestItemList (uint32 &finger, const uint8* data, ManifestItemList &itemList)
 {
-	uint32 start = finger;
-	uint64_t length = ReconstructUInt64 (finger, data);
+    uint32 start = finger;
+    uint64_t length = ReconstructUInt64 (finger, data);
     uint32 end = (uint32)(start + length);
 
-    if (length > UINT32_MAX || (length + (uint64_t)start) > (uint64_t)UINT32_MAX)
+    if (length > UINT32_MAX || (length + (uint64_t)start) > (uint64_t)UINT32_MAX) {
         MacOSError::throwMe (errSecManifestDamaged);
+    }
 
 	while (finger < end)
 	{

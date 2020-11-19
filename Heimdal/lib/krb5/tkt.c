@@ -1107,7 +1107,9 @@ static void
 tkt_release(void *ptr)
 {
     krb5_tkt_creds_context ctx = ptr;
-    krb5_free_creds(ctx->context, ctx->cred);
+    if (ctx->cred) {
+	krb5_free_creds(ctx->context, ctx->cred);
+    }
     tkt_reset(ctx->context, ctx);
     if (ctx->tickets) {
 	size_t n;

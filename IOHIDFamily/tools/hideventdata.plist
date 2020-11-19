@@ -411,7 +411,7 @@
 				<key>name</key>
 				<string>down</string>
 				<key>type</key>
-				<string>boolean_t</string>
+				<string>uint32_t</string>
 			</dict>
 			<dict>
 				<key>fields</key>
@@ -753,7 +753,7 @@
 				<key>name</key>
 				<string>state</string>
 				<key>type</key>
-				<string>boolean_t</string>
+				<string>uint32_t</string>
 			</dict>
 		</array>
 		<key>name</key>
@@ -2638,7 +2638,7 @@
 				<key>name</key>
 				<string>brightnessChanged</string>
 				<key>type</key>
-				<string>Boolean</string>
+				<string>bool</string>
 			</dict>
 			<dict>
 				<key>canonical_type</key>
@@ -3312,7 +3312,7 @@
 				<key>name</key>
 				<string>state</string>
 				<key>type</key>
-				<string>boolean_t</string>
+				<string>uint32_t</string>
 			</dict>
 		</array>
 		<key>name</key>

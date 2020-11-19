@@ -27,6 +27,7 @@
 #import "CKKSKeychainView.h"
 #import "CKKSCurrentKeyPointer.h"
 #import "CKKSKey.h"
+#import "keychain/ckks/CKKSPeerProvider.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #include "keychain/securityd/SecItemSchema.h"
 #include <Security/SecItem.h>
@@ -41,7 +42,8 @@
 @implementation CKKSKey
 
 - (instancetype)init {
-    self = [super init];
+    if ((self = [super init])) {
+    }
     return self;
 }
 
@@ -155,6 +157,11 @@
     return self.keycore.uuid;
 }
 
+- (NSString*)zoneName
+{
+    return self.keycore.zoneID.zoneName;
+}
+
 - (void)setUuid:(NSString *)uuid
 {
     self.keycore.uuid = uuid;
@@ -265,9 +272,11 @@
 
         // Check for circular references.
         if([seenUUID containsObject:key.uuid]) {
-            *error = [NSError errorWithDomain:CKKSErrorDomain
-                                         code:CKKSCircularKeyReference
-                                  description:@"Circular reference in key hierarchy"];
+            if (error) {
+                *error = [NSError errorWithDomain:CKKSErrorDomain
+                                             code:CKKSCircularKeyReference
+                                      description:@"Circular reference in key hierarchy"];
+            }
             return nil;
         }
 
@@ -302,7 +311,7 @@
         // Attempt to save this new key, but don't error if it fails
         NSError* resaveError = nil;
         if(![self saveKeyMaterialToKeychain:&resaveError] || resaveError) {
-            secerror("ckkskey: Resaving missing key failed, continuing: %@", resaveError);
+            ckkserror("ckkskey", self.zoneID, "Resaving missing key failed, continuing: %@", resaveError);
         }
 
         return self.aessivkey;
@@ -350,6 +359,130 @@
 
     self.keycore.aessivkey = [parent unwrapAESKey:self.wrappedkey error:error];
     return self.aessivkey;
+}
+
+- (BOOL)unwrapViaTLKSharesTrustedBy:(NSArray<CKKSPeerProviderState*>*)trustStates
+                              error:(NSError**)error
+{
+    NSError* localerror = nil;
+
+    if(trustStates.count == 0u) {
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSLackingTrust
+                                  description:@"No current trust states; can't unwrap TLK"];
+        }
+        return NO;
+    }
+
+    NSArray<CKKSTLKShareRecord*>* possibleShares = [CKKSTLKShareRecord allForUUID:self.uuid
+                                                                           zoneID:self.zoneID
+                                                                            error:&localerror];
+
+    if(!possibleShares || localerror) {
+        ckkserror("ckksshare", self, "Unable to load TLK shares for TLK(%@): %@", self, localerror);
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+
+    NSError* lastTrustStateError = nil;
+    for(CKKSPeerProviderState* trustState in trustStates) {
+        BOOL extracted = [trustState unwrapKey:self
+                                    fromShares:possibleShares
+                                         error:&localerror];
+
+        if(!extracted || localerror) {
+            ckkserror("ckksshare", self, "Failed to recover tlk (%@) from trust state (%@): %@", self.uuid, trustState, localerror);
+            lastTrustStateError = localerror;
+            localerror = nil;
+        } else {
+            ckkserror("ckksshare", self, "Recovered tlk (%@) from trust state (%@)", self.uuid, trustState);
+            return YES;
+        }
+    }
+
+    // Because there's at least one trustState, then either we returned the TLK above, or we filled in lastTrustStateError.
+    if(error) {
+        *error = lastTrustStateError;
+    }
+
+    return NO;
+}
+
+- (BOOL)validTLK:(NSError**)error
+{
+    if(![self wrapsSelf]) {
+        NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain
+                                                  code:CKKSKeyNotSelfWrapped
+                                           description:[NSString stringWithFormat:@"Potential TLK %@ doesn't wrap itself: %@",
+                                                        self,
+                                                        self.parentKeyUUID]
+                                            underlying:NULL];
+        ckkserror("ckksshare", self, "Error with TLK: %@", localerror);
+        if (error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+
+    return YES;
+}
+
+- (BOOL)tlkMaterialPresentOrRecoverableViaTLKShare:(NSArray<CKKSPeerProviderState*>*)trustStates
+                                             error:(NSError**)error
+{
+    // If we have the key material, then this TLK is considered valid.
+    NSError* loadError = nil;
+    CKKSAESSIVKey* loadedKey = [self ensureKeyLoaded:&loadError];
+    if(!loadedKey || loadError) {
+        if(loadError.code == errSecInteractionNotAllowed) {
+            ckkserror("ckksshare", self, "Unable to load key due to lock state: %@", loadError);
+            if(error) {
+                *error = loadError;
+            }
+
+            return NO;
+        }
+
+        ckkserror("ckksshare", self, "Do not yet have this key in the keychain: %@", loadError);
+        // Fall through to attempt to recover the TLK via shares below
+    } else {
+        bool result = [self trySelfWrappedKeyCandidate:loadedKey error:&loadError];
+        if(result) {
+            // We have a key, and it can decrypt itself.
+            return YES;
+        } else {
+            ckkserror("ckksshare", self, "Some key is present, but the key is not self-wrapped: %@", loadError);
+            // Key seems broken. Fall through.
+        }
+    }
+
+    NSError* localerror = nil;
+    BOOL success = [self unwrapViaTLKSharesTrustedBy:trustStates
+                                               error:&localerror];
+
+    if(!success || localerror) {
+        ckkserror("ckksshare", self, "Failed to unwrap tlk(%@) via shares: %@", self.uuid, localerror);
+        if(error) {
+            *error = localerror;
+        }
+        return NO;
+    }
+
+    success = [self saveKeyMaterialToKeychain:true error:&localerror];
+
+    if(!success || localerror) {
+        ckkserror("ckksshare", self, "Errored saving TLK to keychain: %@", localerror);
+
+        if(error) {
+            *error = localerror;
+            return NO;
+        }
+    }
+
+    return YES;
 }
 
 - (bool)trySelfWrappedKeyCandidate:(CKKSAESSIVKey*)candidate error:(NSError * __autoreleasing *) error {
@@ -592,31 +725,31 @@
     }
 
     if(![record.recordID.recordName isEqualToString: self.uuid]) {
-        secinfo("ckkskey", "UUID does not match");
+        ckksinfo_global("ckkskey", "UUID does not match");
         return false;
     }
 
     // For the parent key ref, ensure that if it's nil, we wrap ourself
     if(record[SecCKRecordParentKeyRefKey] == nil) {
         if(![self wrapsSelf]) {
-            secinfo("ckkskey", "wrapping key reference (self-wrapped) does not match");
+            ckksinfo_global("ckkskey", "wrapping key reference (self-wrapped) does not match");
             return false;
         }
 
     } else {
         if(![[[record[SecCKRecordParentKeyRefKey] recordID] recordName] isEqualToString: self.parentKeyUUID]) {
-            secinfo("ckkskey", "wrapping key reference (non-self-wrapped) does not match");
+            ckksinfo_global("ckkskey", "wrapping key reference (non-self-wrapped) does not match");
             return false;
         }
     }
 
     if(![record[SecCKRecordKeyClassKey] isEqual: self.keyclass]) {
-        secinfo("ckkskey", "key class does not match");
+        ckksinfo_global("ckkskey", "key class does not match");
         return false;
     }
 
     if(![record[SecCKRecordWrappedKeyKey] isEqual: [self.wrappedkey base64WrappedKey]]) {
-        secinfo("ckkskey", "wrapped key does not match");
+        ckksinfo_global("ckkskey", "wrapped key does not match");
         return false;
     }
 

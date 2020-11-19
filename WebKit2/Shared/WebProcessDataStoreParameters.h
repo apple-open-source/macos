@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #pragma once
 
 #include "SandboxExtension.h"
+#include <WebCore/NetworkStorageSession.h>
 #include <pal/SessionID.h>
 #include <wtf/HashMap.h>
 
@@ -45,6 +46,10 @@ struct WebProcessDataStoreParameters {
     String javaScriptConfigurationDirectory;
     SandboxExtension::Handle javaScriptConfigurationDirectoryExtensionHandle;
     HashMap<unsigned, WallTime> plugInAutoStartOriginHashes;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode { WebCore::ThirdPartyCookieBlockingMode::All };
+    HashSet<WebCore::RegistrableDomain> domainsWithUserInteraction;
+#endif
     bool resourceLoadStatisticsEnabled { false };
 
     template<class Encoder> void encode(Encoder&) const;
@@ -67,6 +72,10 @@ void WebProcessDataStoreParameters::encode(Encoder& encoder) const
     encoder << javaScriptConfigurationDirectory;
     encoder << javaScriptConfigurationDirectoryExtensionHandle;
     encoder << plugInAutoStartOriginHashes;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    encoder << thirdPartyCookieBlockingMode;
+    encoder << domainsWithUserInteraction;
+#endif
     encoder << resourceLoadStatisticsEnabled;
 }
 
@@ -132,6 +141,18 @@ Optional<WebProcessDataStoreParameters> WebProcessDataStoreParameters::decode(De
     if (!plugInAutoStartOriginHashes)
         return WTF::nullopt;
 
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    Optional<WebCore::ThirdPartyCookieBlockingMode> thirdPartyCookieBlockingMode;
+    decoder >> thirdPartyCookieBlockingMode;
+    if (!thirdPartyCookieBlockingMode)
+        return WTF::nullopt;
+
+    Optional<HashSet<WebCore::RegistrableDomain>> domainsWithUserInteraction;
+    decoder >> domainsWithUserInteraction;
+    if (!domainsWithUserInteraction)
+        return WTF::nullopt;
+#endif
+
     bool resourceLoadStatisticsEnabled = false;
     if (!decoder.decode(resourceLoadStatisticsEnabled))
         return WTF::nullopt;
@@ -150,6 +171,10 @@ Optional<WebProcessDataStoreParameters> WebProcessDataStoreParameters::decode(De
         WTFMove(javaScriptConfigurationDirectory),
         WTFMove(*javaScriptConfigurationDirectoryExtensionHandle),
         WTFMove(*plugInAutoStartOriginHashes),
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+        *thirdPartyCookieBlockingMode,
+        WTFMove(*domainsWithUserInteraction),
+#endif
         resourceLoadStatisticsEnabled
     };
 }

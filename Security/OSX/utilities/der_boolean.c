@@ -32,12 +32,14 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 
-const uint8_t* der_decode_boolean(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_boolean(CFAllocatorRef allocator,
                                   CFBooleanRef* boolean, CFErrorRef *error,
                                   const uint8_t* der, const uint8_t *der_end)
 {
-    if (NULL == der)
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
 
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_BOOLEAN, &payload_size, der, der_end);
@@ -64,7 +66,8 @@ uint8_t* der_encode_boolean(CFBooleanRef boolean, CFErrorRef *error,
 {
     uint8_t value = CFBooleanGetValue(boolean);
 
-    return ccder_encode_tl(CCDER_BOOLEAN, 1, der,
-           ccder_encode_body(1, &value, der, der_end));
+    return SecCCDEREncodeHandleResult(ccder_encode_tl(CCDER_BOOLEAN, 1, der,
+                                                      ccder_encode_body(1, &value, der, der_end)),
+                                      error);
 
 }

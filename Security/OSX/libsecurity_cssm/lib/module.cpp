@@ -155,7 +155,7 @@ CSSM_RETURN Module::spiEventRelay(const CSSM_GUID *ModuleGuid,
                                    CSSM_SERVICE_TYPE ServiceType,
                                    CSSM_MODULE_EVENT EventType)
 {
-    BEGIN_API
+    BEGIN_API_NO_METRICS
     static_cast<Module *>(Context)->spiEvent(EventType,
                                              Guid::required(ModuleGuid),
                                              SubserviceId,

@@ -598,7 +598,7 @@ static int hc_get_backend(const char *proxy_function, proxy_conn_rec **backend,
     if (status == OK) {
         (*backend)->addr = hc->cp->addr;
         (*backend)->hostname = hc->s->hostname_ex;
-        if (strcmp(hc->s->scheme, "https") == 0) {
+        if (strcmp(hc->s->scheme, "https") == 0 || strcmp(hc->s->scheme, "wss") == 0 ) {
             if (!ap_proxy_ssl_enable(NULL)) {
                 ap_log_error(APLOG_MARK, APLOG_WARNING, 0, ctx->s, APLOGNO(03252)
                               "mod_ssl not configured?");
@@ -644,6 +644,7 @@ static int hc_read_headers(request_rec *r)
 {
     char buffer[HUGE_STRING_LEN];
     int len;
+    const char *ct;
 
     len = ap_getline(buffer, sizeof(buffer), r, 1);
     if (len <= 0) {
@@ -678,6 +679,7 @@ static int hc_read_headers(request_rec *r)
     } else {
         return !OK;
     }
+
     /* OK, 1st line is OK... scarf in the headers */
     while ((len = ap_getline(buffer, sizeof(buffer), r, 1)) > 0) {
         char *value, *end;
@@ -694,6 +696,11 @@ static int hc_read_headers(request_rec *r)
             *end = '\0';
         apr_table_add(r->headers_out, buffer, value);
     }
+
+    /* Set the Content-Type for the request if set */
+    if ((ct = apr_table_get(r->headers_out, "Content-Type")) != NULL)
+        ap_set_content_type(r, ct);
+
     return OK;
 }
 

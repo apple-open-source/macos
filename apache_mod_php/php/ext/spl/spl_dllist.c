@@ -257,6 +257,7 @@ static void spl_ptr_llist_pop(spl_ptr_llist *llist, zval *ret) /* {{{ */
 	llist->count--;
 	ZVAL_COPY(ret, &tail->data);
 
+	tail->prev = NULL;
 	if (llist->dtor) {
 		llist->dtor(tail);
 	}
@@ -310,6 +311,7 @@ static void spl_ptr_llist_shift(spl_ptr_llist *llist, zval *ret) /* {{{ */
 	llist->count--;
 	ZVAL_COPY(ret, &head->data);
 
+	head->next = NULL;
 	if (llist->dtor) {
 		llist->dtor(head);
 	}
@@ -1181,6 +1183,12 @@ SPL_METHOD(SplDoublyLinkedList, unserialize)
 
 	if (buf_len == 0) {
 		return;
+	}
+
+	while (intern->llist->count > 0) {
+		zval tmp;
+		spl_ptr_llist_pop(intern->llist, &tmp);
+		zval_ptr_dtor(&tmp);
 	}
 
 	s = p = (const unsigned char*)buf;

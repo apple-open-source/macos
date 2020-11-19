@@ -4,7 +4,7 @@
 
 # Project info
 Project         = man
-GnuAfterInstall = strip-man link-manpath install-plist fix-perms
+GnuAfterInstall = strip-man link-manpath install-plist fix-perms install-ff
 
 install:: shadow_source
 
@@ -18,53 +18,8 @@ Extra_Make_Flags = CFLAGS="$(RC_CFLAGS)" LDFLAGS="$(RC_CFLAGS)" LIBS=-lxcselect
 Install_Flags   = DESTDIR="$(DSTROOT)"
 Install_Target  = install
 
-# Automatic Extract & Patch
-AEP            = YES
-AEP_Project    = $(Project)
-AEP_Version    = 1.6g
-AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
-AEP_Filename   = $(AEP_ProjVers).tar.gz
-AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = Makefile.in.diff \
-                 configure.diff \
-                 man__Makefile.in.diff \
-                 src__Makefile.in.diff \
-                 src__man-getopt.c.diff \
-                 src__man.c.diff \
-                 src__man.conf.in.diff \
-                 src__manpath.c.diff \
-                 src__util.c.diff \
-                 PR3845474.diff \
-                 PR3857969.diff \
-                 PR3939085.diff \
-                 PR4006198.diff \
-                 PR4062483.diff \
-                 PR4076593.diff \
-                 PR4121764.diff \
-                 PR4302566.diff \
-                 PR4670363.diff \
-                 PR5291011.diff \
-                 PR5024303.diff \
-                 PR11291804-xcode.diff \
-                 PR13528825.diff \
-                 PR54111703.diff
-
-ifeq ($(suffix $(AEP_Filename)),.bz2)
-AEP_ExtractOption = j
-else
-AEP_ExtractOption = z
-endif
-
 # Extract the source.
 install_source::
-ifeq ($(AEP),YES)
-	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xf $(SRCROOT)/$(AEP_Filename)
-	$(RMDIR) $(SRCROOT)/$(Project)
-	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
-	for patchfile in $(AEP_Patches); do \
-		(cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile) || exit 1; \
-	done
-endif
 
 strip-man:
 	$(STRIP) -x $(DSTROOT)/usr/bin/man
@@ -87,3 +42,9 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt
+
+FF      = $(DSTROOT)/System/Library/FeatureFlags/Domain/
+
+install-ff:
+	$(MKDIR) $(FF)
+	$(INSTALL_FILE) $(SRCROOT)/ff-$(Project).plist $(FF)/$(Project).plist

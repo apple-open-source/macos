@@ -36,7 +36,11 @@
 #include "DOMWindow.h"
 #include "DedicatedWorkerThread.h"
 #include "MessageEvent.h"
+#include "RequestAnimationFrameCallback.h"
 #include "SecurityOrigin.h"
+#if ENABLE(OFFSCREEN_CANVAS)
+#include "WorkerAnimationController.h"
+#endif
 #include "WorkerObjectProxy.h"
 #include <wtf/IsoMallocInlines.h>
 
@@ -44,17 +48,17 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(DedicatedWorkerGlobalScope);
 
-Ref<DedicatedWorkerGlobalScope> DedicatedWorkerGlobalScope::create(const URL& url, Ref<SecurityOrigin>&& origin, const String& name, const String& identifier, const String& userAgent, bool isOnline, DedicatedWorkerThread& thread, const ContentSecurityPolicyResponseHeaders& contentSecurityPolicyResponseHeaders, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
+Ref<DedicatedWorkerGlobalScope> DedicatedWorkerGlobalScope::create(const WorkerParameters& params, Ref<SecurityOrigin>&& origin, DedicatedWorkerThread& thread, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
 {
-    auto context = adoptRef(*new DedicatedWorkerGlobalScope(url, WTFMove(origin), name, identifier, userAgent, isOnline, thread, shouldBypassMainWorldContentSecurityPolicy, WTFMove(topOrigin), timeOrigin, connectionProxy, socketProvider));
-    if (!shouldBypassMainWorldContentSecurityPolicy)
-        context->applyContentSecurityPolicyResponseHeaders(contentSecurityPolicyResponseHeaders);
+    auto context = adoptRef(*new DedicatedWorkerGlobalScope(params, WTFMove(origin), thread, WTFMove(topOrigin), connectionProxy, socketProvider));
+    if (!params.shouldBypassMainWorldContentSecurityPolicy)
+        context->applyContentSecurityPolicyResponseHeaders(params.contentSecurityPolicyResponseHeaders);
     return context;
 }
 
-DedicatedWorkerGlobalScope::DedicatedWorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origin, const String& name, const String& identifier, const String& userAgent, bool isOnline, DedicatedWorkerThread& thread, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
-    : WorkerGlobalScope(url, WTFMove(origin), identifier, userAgent, isOnline, thread, shouldBypassMainWorldContentSecurityPolicy, WTFMove(topOrigin), timeOrigin, connectionProxy, socketProvider)
-    , m_name(name)
+DedicatedWorkerGlobalScope::DedicatedWorkerGlobalScope(const WorkerParameters& params, Ref<SecurityOrigin>&& origin, DedicatedWorkerThread& thread, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
+    : WorkerGlobalScope(params, WTFMove(origin), thread, WTFMove(topOrigin), connectionProxy, socketProvider)
+    , m_name(params.name)
 {
 }
 
@@ -92,5 +96,20 @@ DedicatedWorkerThread& DedicatedWorkerGlobalScope::thread()
 {
     return static_cast<DedicatedWorkerThread&>(Base::thread());
 }
+
+#if ENABLE(OFFSCREEN_CANVAS)
+CallbackId DedicatedWorkerGlobalScope::requestAnimationFrame(Ref<RequestAnimationFrameCallback>&& callback)
+{
+    if (!m_workerAnimationController)
+        m_workerAnimationController = WorkerAnimationController::create(*this);
+    return m_workerAnimationController->requestAnimationFrame(WTFMove(callback));
+}
+
+void DedicatedWorkerGlobalScope::cancelAnimationFrame(CallbackId callbackId)
+{
+    if (m_workerAnimationController)
+        m_workerAnimationController->cancelAnimationFrame(callbackId);
+}
+#endif
 
 } // namespace WebCore

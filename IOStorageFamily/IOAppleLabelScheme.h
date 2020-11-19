@@ -83,7 +83,7 @@ struct applelabel
  * Class
  */
 
-class IOAppleLabelScheme : public IOFilterScheme
+class __exported IOAppleLabelScheme : public IOFilterScheme
 {
     OSDeclareDefaultStructors(IOAppleLabelScheme);
 

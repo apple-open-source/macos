@@ -86,7 +86,9 @@ BASE_PAGES="pthread.3 \
 	pthread_setname_np.3 \
 	pthread_setspecific.3 \
 	pthread_threadid_np.3 \
-	pthread_yield_np.3"
+	pthread_yield_np.3 \
+	pthread_jit_write_protect_np.3"
+
 
 cp $BASE_PAGES "$DSTROOT"/usr/share/man/man3
 
@@ -113,6 +115,7 @@ chmod $INSTALL_MODE_FLAG $BASE_PAGES
 ln -fh pthread_getschedparam.3 pthread_setschedparam.3
 ln -fh pthread_rwlock_rdlock.3 pthread_rwlock_tryrdlock.3
 ln -fh pthread_rwlock_wrlock.3 pthread_rwlock_trywrlock.3
+ln -fh pthread_jit_write_protect_np.3 pthread_jit_write_protect_supported_np.3
 
 for M in \
 	pthread_attr_destroy.3 \

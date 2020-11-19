@@ -19,7 +19,6 @@ LOCAL_SRC_FILES := \
     ./lib/CommonCMAC.c \
     ./lib/ccDispatch.c \
     ./lib/dummy.c \
-    ./lib/CommonCryptorRC4.c \
     ./lib/CommonCryptorDES.c \
     ./lib/CommonKeyDerivationSPI.c \
     ./lib/CommonSymmetricKeywrap.c \

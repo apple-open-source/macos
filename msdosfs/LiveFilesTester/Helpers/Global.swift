@@ -75,6 +75,11 @@ enum TestType: String {
     case dirtyBitLockTest
     case renameSimultaneously
     case hardLinkTesting
+    case journalOpen
+    case readOnlyMount
+    case faultyJournal
+    case cloneDirTest
+    case preAllocationValidationTest
     case unknown
     
     static let allValues = [
@@ -119,7 +124,12 @@ enum TestType: String {
         performanceTest,
         dirtyBitLockTest,
         renameSimultaneously,
-        hardLinkTesting
+        hardLinkTesting,
+        journalOpen,
+        readOnlyMount,
+        faultyJournal,
+        cloneDirTest,
+        preAllocationValidationTest,
     ]
     
     init(value: String) {
@@ -166,6 +176,11 @@ enum TestType: String {
         case "dirtybitlocktest":                    self = .dirtyBitLockTest
         case "renamesimultaneously":                self = .renameSimultaneously
         case "hardlinktesting":                     self = .hardLinkTesting
+        case "journalopen":                         self = .journalOpen
+        case "readonlymount":                       self = .readOnlyMount
+        case "faultyjournal":                       self = .faultyJournal
+        case "clonedirtest":                        self = .cloneDirTest
+        case "preallocationvalidationtest":         self = .preAllocationValidationTest
         default:                                    self = .unknown
         }
     }
@@ -339,7 +354,7 @@ final class Global {
         let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
 #endif
         
-        regressionTests = "writingSameClusterSimultaneously,writingFilesSimultaneously,millionFilesTest,defragmentedClusterTest,depthTest,writingSameFileSimultaneously,createDirectoryAndFile,deleteDirectoryAndFile,"
+        regressionTests = "writingSameClusterSimultaneously,writingFilesSimultaneously,millionFilesTest,defragmentedClusterTest,depthTest,writingSameFileSimultaneously,createDirectoryAndFile,deleteDirectoryAndFile,cloneDirTest,preAllocationValidationTest"
         regressionTests.append("changeAttributes,illegalDirFileSymlink,createFileTwice,lookupTesting,createSymFile,minimalFile,renameTest,subfoldersTesting,removeAndRmdir,renameSimultaneously")
         regressionTests.append("writeAndReadFile,writeAndReadFileSimple,fillRootDir,filesNamesTest,syncOperationTest,readdirTest,readdirattrTest,dirtyBitTest,writeReadRemoveNonContiguousFile,readWriteThreadsTesting,killSyncTesting,diskAccessSize")
         
@@ -448,13 +463,21 @@ final class Global {
             classType = T_renameSimultaneously.self
         case .hardLinkTesting:
             classType = T_hardLinkTesting.self
+        case .journalOpen:
+            classType = T_journalOpen.self
+        case .readOnlyMount:
+            classType = T_readOnlyMount.self
+        case .faultyJournal:
+            classType = T_faultyJournal.self
+        case .cloneDirTest:
+            classType = T_CloneDirectoryTest.self
+        case .preAllocationValidationTest:
+            classType = T_PreAllocationValidationTest.self
         default:
             throw NSError(domain: "Invalid test name \(test)", code: 1)
         }
-        
+
         return classType
     }
-    
-
 }
 

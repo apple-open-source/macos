@@ -116,6 +116,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_DURATION_MONTH_PERSON = (4 << 8) + 12,   // (CLDR 35, ICU-641)
     UAMEASUNIT_DURATION_WEEK_PERSON = (4 << 8) + 13,    // (CLDR 35, ICU-641)
     UAMEASUNIT_DURATION_DAY_PERSON  = (4 << 8) + 14,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_DURATION_DECADE      = (4 << 8) + 15,    // (CLDR 36, ICU-661)
     //
     UAMEASUNIT_LENGTH_METER         = (5 << 8) + 0,
     UAMEASUNIT_LENGTH_CENTIMETER    = (5 << 8) + 1,
@@ -169,6 +170,8 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_PRESSURE_ATMOSPHERE      = (8 << 8) + 5,     // (CLDR 34, ICU-631)
     UAMEASUNIT_PRESSURE_KILOPASCAL      = (8 << 8) + 6,     // (CLDR 35, ICU-641)
     UAMEASUNIT_PRESSURE_MEGAPASCAL      = (8 << 8) + 7,     // (CLDR 35, ICU-641)
+    UAMEASUNIT_PRESSURE_PASCAL          = (8 << 8) + 8,     // (CLDR 36, ICU-661)
+    UAMEASUNIT_PRESSURE_BAR             = (8 << 8) + 9,     // (CLDR 36, ICU-661)
     //
     UAMEASUNIT_SPEED_METER_PER_SECOND   = (9 << 8) + 0,
     UAMEASUNIT_SPEED_KILOMETER_PER_HOUR = (9 << 8) + 1,
@@ -218,6 +221,7 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_ENERGY_KILOWATT_HOUR     = (12 << 8) + 5,    // (ICU-541)
     UAMEASUNIT_ENERGY_ELECTRONVOLT      = (12 << 8) + 6,    // (CLDR 35, ICU-641)
     UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT = (12 << 8) + 7, // (CLDR 35, ICU-641)
+    UAMEASUNIT_ENERGY_THERM_US          = (12 << 8) + 8,    // (CLDR 36, ICU-661)
     //
     // new categories/values in CLDR 26 & ICU-541
     //
@@ -269,6 +273,16 @@ typedef enum UAMeasureUnit {
     //
     UAMEASUNIT_TORQUE_NEWTON_METER      = (20 << 8) + 0,    // (CLDR 35, ICU-641)
     UAMEASUNIT_TORQUE_POUND_FOOT        = (20 << 8) + 1,    // (CLDR 35, ICU-641)
+    //
+    // new categories/values in CLDR 36, ICU-661+
+    //
+    UAMEASUNIT_GRAPHICS_EM              = (21 << 8) + 0,    // (CLDR 36, ICU-661)
+    UAMEASUNIT_GRAPHICS_PIXEL           = (21 << 8) + 1,    // (CLDR 36, ICU-661)
+    UAMEASUNIT_GRAPHICS_MEGAPIXEL       = (21 << 8) + 2,    // (CLDR 36, ICU-661)
+    UAMEASUNIT_GRAPHICS_PIXEL_PER_CENTIMETER = (21 << 8) + 3, // (CLDR 36, ICU-661)
+    UAMEASUNIT_GRAPHICS_PIXEL_PER_INCH  = (21 << 8) + 4,    // (CLDR 36, ICU-661)
+    UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER   = (21 << 8) + 5, // (CLDR 36, ICU-661)
+    UAMEASUNIT_GRAPHICS_DOT_PER_INCH    = (21 << 8) + 6,    // (CLDR 36, ICU-661)
     //
 } UAMeasureUnit;
 

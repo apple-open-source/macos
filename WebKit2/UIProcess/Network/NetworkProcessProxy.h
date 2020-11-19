@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #pragma once
 
 #include "AuxiliaryProcessProxy.h"
+#include "CallbackID.h"
 #include "NetworkProcessProxyMessagesReplies.h"
 #include "ProcessLauncher.h"
 #include "ProcessThrottler.h"
@@ -43,6 +44,14 @@
 #include "LegacyCustomProtocolManagerProxy.h"
 #endif
 
+#if PLATFORM(COCOA)
+#include "XPCEventHandler.h"
+#endif
+
+namespace IPC {
+class FormDataReference;
+}
+
 namespace PAL {
 class SessionID;
 }
@@ -54,6 +63,7 @@ class ResourceRequest;
 enum class ShouldSample : bool;
 enum class StorageAccessPromptWasShown : bool;
 enum class StorageAccessWasGranted : bool;
+enum class StoredCredentialsPolicy : uint8_t;
 class SecurityOrigin;
 struct SecurityOriginData;
 struct ClientOrigin;
@@ -65,14 +75,16 @@ class DownloadProxy;
 class DownloadProxyMap;
 class WebPageProxy;
 class WebProcessPool;
+class WebUserContentControllerProxy;
+
 enum class ShouldGrandfatherStatistics : bool;
 enum class StorageAccessStatus : uint8_t;
-enum class WebsiteDataFetchOption;
-enum class WebsiteDataType;
+enum class WebsiteDataFetchOption : uint8_t;
+enum class WebsiteDataType : uint32_t;
 
 struct FrameInfoData;
 struct NetworkProcessCreationParameters;
-class WebUserContentControllerProxy;
+struct ResourceLoadInfo;
 struct WebsiteData;
 
 class NetworkProcessProxy final : public AuxiliaryProcessProxy, private ProcessThrottlerClient, public CanMakeWeakPtr<NetworkProcessProxy> {
@@ -99,9 +111,12 @@ public:
 
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, CompletionHandler<void(WebsiteData)>&&);
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&& completionHandler);
-    void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebKit::WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, const Vector<String>& HSTSCacheHostNames, CompletionHandler<void()>&&);
+    void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebKit::WebsiteDataType>, const Vector<WebCore::SecurityOriginData>& origins, const Vector<String>& cookieHostNames, const Vector<String>& HSTSCacheHostNames, const Vector<RegistrableDomain>&, CompletionHandler<void()>&&);
+    void renameOriginInWebsiteData(PAL::SessionID, const URL&, const URL&, OptionSet<WebsiteDataType>, CompletionHandler<void()>&&);
 
     void getLocalStorageDetails(PAL::SessionID, CompletionHandler<void(Vector<LocalStorageDatabaseTracker::OriginDetails>&&)>&&);
+
+    void preconnectTo(PAL::SessionID, WebPageProxyIdentifier, WebCore::PageIdentifier, const URL&, const String&, WebCore::StoredCredentialsPolicy, Optional<NavigatingToAppBoundDomain>);
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     void clearPrevalentResource(PAL::SessionID, const RegistrableDomain&, CompletionHandler<void()>&&);
@@ -120,6 +135,8 @@ public:
     void logUserInteraction(PAL::SessionID, const RegistrableDomain&, CompletionHandler<void()>&&);
     void scheduleStatisticsAndDataRecordsProcessing(PAL::SessionID, CompletionHandler<void()>&&);
     void setLastSeen(PAL::SessionID, const RegistrableDomain&, Seconds, CompletionHandler<void()>&&);
+    void domainIDExistsInDatabase(PAL::SessionID, int domainID, CompletionHandler<void(bool)>&&);
+    void statisticsDatabaseHasAllTables(PAL::SessionID, CompletionHandler<void(bool)>&&);
     void mergeStatisticForTesting(PAL::SessionID, const RegistrableDomain&, const TopFrameDomain& topFrameDomain1, const TopFrameDomain& topFrameDomain2, Seconds lastSeen, bool hadUserInteraction, Seconds mostRecentUserInteraction, bool isGrandfathered, bool isPrevalent, bool isVeryPrevalent, unsigned dataRecordsRemoved, CompletionHandler<void()>&&);
     void insertExpiredStatisticForTesting(PAL::SessionID, const RegistrableDomain&, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&&);
     void setAgeCapForClientSideCookies(PAL::SessionID, Optional<Seconds>, CompletionHandler<void()>&&);
@@ -128,7 +145,6 @@ public:
     void setUseITPDatabase(PAL::SessionID, bool value, CompletionHandler<void()>&&);
     void setNotifyPagesWhenDataRecordsWereScanned(PAL::SessionID, bool, CompletionHandler<void()>&&);
     void setIsRunningResourceLoadStatisticsTest(PAL::SessionID, bool, CompletionHandler<void()>&&);
-    void setNotifyPagesWhenTelemetryWasCaptured(PAL::SessionID, bool, CompletionHandler<void()>&&);
     void setSubframeUnderTopFrameDomain(PAL::SessionID, const SubFrameDomain&, const TopFrameDomain&, CompletionHandler<void()>&&);
     void setSubresourceUnderTopFrameDomain(PAL::SessionID, const SubResourceDomain&, const TopFrameDomain&, CompletionHandler<void()>&&);
     void setSubresourceUniqueRedirectTo(PAL::SessionID, const SubResourceDomain&, const RedirectedToDomain&, CompletionHandler<void()>&&);
@@ -153,6 +169,7 @@ public:
     void setMinimumTimeBetweenDataRecordsRemoval(PAL::SessionID, Seconds, CompletionHandler<void()>&&);
     void setPruneEntriesDownTo(PAL::SessionID, size_t pruneTargetCount, CompletionHandler<void()>&&);
     void setResourceLoadStatisticsDebugMode(PAL::SessionID, bool debugMode, CompletionHandler<void()>&&);
+    void isResourceLoadStatisticsEphemeral(PAL::SessionID, CompletionHandler<void(bool)>&&);
     void setShouldClassifyResourcesBeforeDataRecordsRemoval(PAL::SessionID, bool, CompletionHandler<void()>&&);
     void resetCacheMaxAgeCapForPrevalentResources(PAL::SessionID, CompletionHandler<void()>&&);
     void didCommitCrossSiteLoadWithDataTransfer(PAL::SessionID, const NavigatedFromDomain&, const NavigatedToDomain&, OptionSet<WebCore::CrossSiteNavigationDataTransfer::Flag>, WebPageProxyIdentifier, WebCore::PageIdentifier);
@@ -162,10 +179,18 @@ public:
     void deleteCookiesForTesting(PAL::SessionID, const RegistrableDomain&, bool includeHttpOnlyCookies, CompletionHandler<void()>&&);
     void deleteWebsiteDataInUIProcessForRegistrableDomains(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, Vector<RegistrableDomain>, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
     void hasIsolatedSession(PAL::SessionID, const RegistrableDomain&, CompletionHandler<void(bool)>&&);
+    void setAppBoundDomainsForResourceLoadStatistics(PAL::SessionID, const HashSet<RegistrableDomain>&, CompletionHandler<void()>&&);
     void setShouldDowngradeReferrerForTesting(bool, CompletionHandler<void()>&&);
-    void setShouldBlockThirdPartyCookiesForTesting(PAL::SessionID, WebCore::ThirdPartyCookieBlockingMode, CompletionHandler<void()>&&);
+    void setThirdPartyCookieBlockingMode(PAL::SessionID, WebCore::ThirdPartyCookieBlockingMode, CompletionHandler<void()>&&);
+    void setShouldEnbleSameSiteStrictEnforcementForTesting(PAL::SessionID, WebCore::SameSiteStrictEnforcementEnabled, CompletionHandler<void()>&&);
     void setFirstPartyWebsiteDataRemovalModeForTesting(PAL::SessionID, WebCore::FirstPartyWebsiteDataRemovalMode, CompletionHandler<void()>&&);
+    void setToSameSiteStrictCookiesForTesting(PAL::SessionID, const RegistrableDomain&, CompletionHandler<void()>&&);
+    void setFirstPartyHostCNAMEDomainForTesting(PAL::SessionID, const String& firstPartyHost, const RegistrableDomain& cnameDomain, CompletionHandler<void()>&&);
+    void setThirdPartyCNAMEDomainForTesting(PAL::SessionID, const WebCore::RegistrableDomain&, CompletionHandler<void()>&&);
+    void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&&);
 #endif
+
+    void setAdClickAttributionDebugMode(bool);
     
     void synthesizeAppIsBackground(bool background);
 
@@ -175,9 +200,9 @@ public:
     void didSyncAllCookies();
 
     void testProcessIncomingSyncMessagesWhenWaitingForSyncReply(WebPageProxyIdentifier, Messages::NetworkProcessProxy::TestProcessIncomingSyncMessagesWhenWaitingForSyncReplyDelayedReply&&);
-    void terminateUnresponsiveServiceWorkerProcesses(WebCore::RegistrableDomain&&, PAL::SessionID);
+    void terminateUnresponsiveServiceWorkerProcesses(WebCore::ProcessIdentifier);
 
-    ProcessThrottler& throttler() { return m_throttler; }
+    ProcessThrottler& throttler() final { return m_throttler; }
     void updateProcessAssertion();
 
     WebProcessPool& processPool() { return m_processPool; }
@@ -187,10 +212,8 @@ public:
 #endif
 
     void addSession(Ref<WebsiteDataStore>&&);
+    bool hasSession(PAL::SessionID) const;
     void removeSession(PAL::SessionID);
-    
-    void takeUploadAssertion();
-    void clearUploadAssertion();
     
 #if ENABLE(INDEXED_DATABASE)
     void createSymLinkForFileUpgrade(const String& indexedDatabaseDirectory);
@@ -198,6 +221,7 @@ public:
 
     // ProcessThrottlerClient
     void sendProcessDidResume() final;
+    ASCIILiteral clientName() const final { return "NetworkProcess"_s; }
     
     void sendProcessWillSuspendImminentlyForTesting();
 
@@ -206,8 +230,25 @@ public:
 
     void resetQuota(PAL::SessionID, CompletionHandler<void()>&&);
 
+    void resourceLoadDidSendRequest(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::ResourceRequest&&, Optional<IPC::FormDataReference>&&);
+    void resourceLoadDidPerformHTTPRedirection(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::ResourceResponse&&, WebCore::ResourceRequest&&);
+    void resourceLoadDidReceiveChallenge(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::AuthenticationChallenge&&);
+    void resourceLoadDidReceiveResponse(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::ResourceResponse&&);
+    void resourceLoadDidCompleteWithError(WebPageProxyIdentifier, ResourceLoadInfo&&, WebCore::ResourceResponse&&, WebCore::ResourceError&&);
+
+    void hasAppBoundSession(PAL::SessionID, CompletionHandler<void(bool)>&&);
+    void clearAppBoundSession(PAL::SessionID, CompletionHandler<void()>&&);
+    void getAppBoundDomains(PAL::SessionID, CompletionHandler<void(HashSet<WebCore::RegistrableDomain>&&)>&&);
+
+    // ProcessThrottlerClient
+    void sendPrepareToSuspend(IsSuspensionImminent, CompletionHandler<void()>&&) final;
+    void updateBundleIdentifier(const String&, CompletionHandler<void()>&&);
+    void clearBundleIdentifier(CompletionHandler<void()>&&);
+
 private:
     // AuxiliaryProcessProxy
+    ASCIILiteral processName() const final { return "Networking"_s; }
+
     void getLaunchOptions(ProcessLauncher::LaunchOptions&) override;
     void connectionWillOpen(IPC::Connection&) override;
     void processWillShutDown(IPC::Connection&) override;
@@ -215,28 +256,25 @@ private:
     void networkProcessCrashed();
     void clearCallbackStates();
 
-    // ProcessThrottlerClient
-    void sendPrepareToSuspend(IsSuspensionImminent, CompletionHandler<void()>&&) final;
-    void didSetAssertionState(AssertionState) final;
-
     // IPC::Connection::Client
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
     void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&) override;
     void didClose(IPC::Connection&) override;
-    void didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference messageReceiverName, IPC::StringReference messageName) override;
+    void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName) override;
     void didReceiveSyncNetworkProcessProxyMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
     // Message handlers
     void didReceiveNetworkProcessProxyMessage(IPC::Connection&, IPC::Decoder&);
     void didReceiveAuthenticationChallenge(PAL::SessionID, WebPageProxyIdentifier, const Optional<WebCore::SecurityOriginData>&, WebCore::AuthenticationChallenge&&, bool, uint64_t challengeID);
     void negotiatedLegacyTLS(WebPageProxyIdentifier);
-    void didFetchWebsiteData(uint64_t callbackID, const WebsiteData&);
-    void didDeleteWebsiteData(uint64_t callbackID);
-    void didDeleteWebsiteDataForOrigins(uint64_t callbackID);
+    void didNegotiateModernTLS(WebPageProxyIdentifier, const WebCore::AuthenticationChallenge&);
+    void didFetchWebsiteData(CallbackID, const WebsiteData&);
+    void didDeleteWebsiteData(CallbackID);
+    void didDeleteWebsiteDataForOrigins(CallbackID);
+    void setWebProcessHasUploads(WebCore::ProcessIdentifier, bool);
     void logDiagnosticMessage(WebPageProxyIdentifier, const String& message, const String& description, WebCore::ShouldSample);
     void logDiagnosticMessageWithResult(WebPageProxyIdentifier, const String& message, const String& description, uint32_t result, WebCore::ShouldSample);
     void logDiagnosticMessageWithValue(WebPageProxyIdentifier, const String& message, const String& description, double value, unsigned significantFigures, WebCore::ShouldSample);
-    void logGlobalDiagnosticMessageWithValue(const String& message, const String& description, double value, unsigned significantFigures, WebCore::ShouldSample);
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     void logTestingEvent(PAL::SessionID, const String& event);
     void notifyResourceLoadStatisticsProcessed();
@@ -257,29 +295,25 @@ private:
     void unregisterServiceWorkerClientProcess(WebCore::ProcessIdentifier webProcessIdentifier, WebCore::ProcessIdentifier serviceWorkerProcessIdentifier);
 #endif
 
+    void terminateWebProcess(WebCore::ProcessIdentifier);
+
     void requestStorageSpace(PAL::SessionID, const WebCore::ClientOrigin&, uint64_t quota, uint64_t currentSize, uint64_t spaceRequired, CompletionHandler<void(Optional<uint64_t> quota)>&&);
 
     WebsiteDataStore* websiteDataStoreFromSessionID(PAL::SessionID);
 
     // ProcessLauncher::Client
     void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
-
-    void openNetworkProcessConnection(uint64_t connectionRequestIdentifier, WebProcessProxy&);
+#if PLATFORM(COCOA)
+    RefPtr<XPCEventHandler> xpcEventHandler() const override;
+#endif
 
     void processAuthenticationChallenge(PAL::SessionID, Ref<AuthenticationChallengeProxy>&&);
 
     WebProcessPool& m_processPool;
 
-    struct ConnectionRequest {
-        WeakPtr<WebProcessProxy> webProcess;
-        Messages::WebProcessProxy::GetNetworkProcessConnectionDelayedReply reply;
-    };
-    uint64_t m_connectionRequestIdentifier { 0 };
-    HashMap<uint64_t, ConnectionRequest> m_connectionRequests;
-
-    HashMap<uint64_t, CompletionHandler<void(WebsiteData)>> m_pendingFetchWebsiteDataCallbacks;
-    HashMap<uint64_t, CompletionHandler<void()>> m_pendingDeleteWebsiteDataCallbacks;
-    HashMap<uint64_t, CompletionHandler<void()>> m_pendingDeleteWebsiteDataForOriginsCallbacks;
+    HashMap<CallbackID, CompletionHandler<void(WebsiteData)>> m_pendingFetchWebsiteDataCallbacks;
+    HashMap<CallbackID, CompletionHandler<void()>> m_pendingDeleteWebsiteDataCallbacks;
+    HashMap<CallbackID, CompletionHandler<void()>> m_pendingDeleteWebsiteDataForOriginsCallbacks;
 
     std::unique_ptr<DownloadProxyMap> m_downloadProxyMap;
 #if ENABLE(LEGACY_CUSTOM_PROTOCOL_MANAGER)
@@ -296,9 +330,26 @@ private:
     HashSet<WebUserContentControllerProxy*> m_webUserContentControllerProxies;
 #endif
 
-    HashMap<PAL::SessionID, RefPtr<WebsiteDataStore>> m_websiteDataStores;
+    struct UploadActivity {
+        std::unique_ptr<ProcessAssertion> uiAssertion;
+        std::unique_ptr<ProcessAssertion> networkAssertion;
+        HashMap<WebCore::ProcessIdentifier, std::unique_ptr<ProcessAssertion>> webProcessAssertions;
+    };
+    Optional<UploadActivity> m_uploadActivity;
 
-    std::unique_ptr<ProcessAssertion> m_uploadAssertion;
+#if PLATFORM(COCOA)
+    class XPCEventHandler : public WebKit::XPCEventHandler {
+    public:
+        XPCEventHandler(const NetworkProcessProxy&);
+
+        bool handleXPCEvent(xpc_object_t) const override;
+
+    private:
+        WeakPtr<NetworkProcessProxy> m_networkProcess;
+    };
+#endif
+
+    HashSet<PAL::SessionID> m_sessionIDs;
 };
 
 } // namespace WebKit

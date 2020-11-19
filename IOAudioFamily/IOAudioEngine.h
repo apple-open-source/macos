@@ -249,7 +249,8 @@ protected:
 	    UInt32								inputSampleOffset;
 		UInt32								commandGateStatus;			// <rdar://8518215>
 		SInt32								commandGateUsage;			// <rdar://8518215>
-	};
+        bool                                useHiResSampleInterval;
+    };
     
     ExpansionData   *reserved;
 
@@ -372,6 +373,33 @@ public:
 	
     virtual IOReturn getAttributeForConnection( SInt32 connectIndex, UInt32 attribute, uintptr_t * value  ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
+    // OSMetaClassDeclareReservedUsed(IOAudioEngine, 15);
+    /*! @function calculateSampleTimeoutHiRes
+     * @abstract Calculate the timeout value for the write mixing engine.
+     * @discussion This method is called from the IOAudioEngineUserClient and used to calculate a time in the future at which a watchdog timer will expire and prevent further mixing in the audio buffer. A subclassing driver will not typically
+     * need to override this method. See also calculateSampleTimeout. This High Resolution varient of the function is enabled by a call to useHiResSampleInterval.
+     * @param sampleInterval the number of ticks of the system clock between two consecutive samples at the scaled sample rate. This value is calculated by the HAL based on the clock provided through
+     * Zero Time Stamps and passed down from the HAL through the performClientIO trap. This value is a Fixed Point number with the integer value in the top 32 bits and a fractional value in the lower 32 bits.
+     * @param numSampleFrames The number of sample frames being sent by this call to performClientIO. Informs the timeout value by giving a hint on when this audio application is expected to send another IO.
+     * @param startingPosition A sample frame position. Includes the position of the frame within the sample buffer as well as the loop count for the ZTS which matches the beginning of the sample buffer.
+     * @param wakeupTime A pointer to the AbsoluteTime which represents the calculated timeout value.
+     * @result an IOReturn code.
+     */
+    virtual IOReturn calculateSampleTimeoutHiRes(uint64_t sampleIntervalHiRes, UInt32 numSampleFrames, IOAudioEnginePosition *startingPosition, AbsoluteTime *wakeupTime);
+
+    // OSMetaClassDeclareReservedUsed(IOAudioEngine, 16);
+    /*! @function useHiResSampleInterval
+     * @abstract This method is called from an IOAudioEngine subclass in order to enable the use of calculateSampleTimeoutHiRes for calculating the write mix buffer timeout value.
+     * @discussion The historic IOAudioEngine method calculateSampleTimeout uses an integer value representing the number of ticks between two samples at the current perceived sample rate
+     * which is scaled by the audio HAL based on the time base calculated using the Zero Time Stamps provided by the driver. There is some amount of error in this value due to the fact that it is
+     * rounded to an integer value. This value is used to multiply by a particular sample offset in the sample buffer which results in a multiplication of that error value. This aggregate error can be especially pronounced
+     * if the the sample rate is particularly high (thus reducing the amount of time between samples) or if the sample buffer is particularly large (thus extending the possible value for the multiplication). If useHiResSampleInterval
+     * is called, the HAL will pass down a Fixed Point sample interval, with a fractional part included. When the multiplcation occurs, this fractional value will be taken into account, which greatly reduces the amount of the error.
+     * NOTE: this is a one way function. Once enabled, this feature may not be disabled. This method is not called by default. If a subclassing driver needs this functionality, it should call this in its IOAudioEngine subclass init() method.
+     * @result an IOReturn code.
+     */
+    virtual IOReturn useHiResSampleInterval(void);
+    
 private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 0);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 1);
@@ -388,9 +416,9 @@ private:
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 12);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 13);
 	OSMetaClassDeclareReservedUsed(IOAudioEngine, 14);
-
-	OSMetaClassDeclareReservedUnused(IOAudioEngine, 15);
-	OSMetaClassDeclareReservedUnused(IOAudioEngine, 16);
+    OSMetaClassDeclareReservedUsed(IOAudioEngine, 15);
+    OSMetaClassDeclareReservedUsed(IOAudioEngine, 16);
+    
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 17);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 18);
 	OSMetaClassDeclareReservedUnused(IOAudioEngine, 19);
@@ -737,6 +765,18 @@ public:
     virtual void takeTimeStamp(bool incrementLoopCount = true, AbsoluteTime *timestamp = NULL ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     virtual IOReturn getLoopCountAndTimeStamp(UInt32 *loopCount, AbsoluteTime *timestamp ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
 
+    /*! @function calculateSampleTimeout
+     * @abstract Calculate the timeout value for the write mixing engine.
+     * @discussion This method is called from the IOAudioEngineUserClient and used to calculate a time in the future at which a watchdog timer will expire and prevent further mixing in the audio buffer. A subclassing driver will not typically
+     * need to override this method.
+     * @param sampleInterval the number of ticks of the system clock between two consecutive samples at the scaled sample rate. This value is calculated by the HAL based on the clock provided through
+     * Zero Time Stamps and passed down from the HAL through the performClientIO trap. This value is an integer representing the integer part of the  number of system ticks between two samples. (see also calculateSampleTimeoutHiRes)
+     * Note: if useHiResSampleInterval has been called, then this method is called with a different value in sampleInterval. It is the value which is documented in that call (this just becomes a call through to that method)
+     * @param numSampleFrames The number of sample frames being sent by this call to performClientIO. Informs the timeout value by giving a hint on when this audio application is expected to send another IO.
+     * @param startingPosition A sample frame position. Includes the position of the frame within the sample buffer as well as the loop count for the ZTS which matches the beginning of the sample buffer.
+     * @param wakeupTime A pointer to the AbsoluteTime which represents the calculated timeout value.
+     * @result an IOReturn code.
+     */
     virtual IOReturn calculateSampleTimeout(AbsoluteTime *sampleInterval, UInt32 numSampleFrames, IOAudioEnginePosition *startingPosition, AbsoluteTime *wakeupTime ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
     
     virtual IOReturn performFormatChange(IOAudioStream *audioStream, const IOAudioStreamFormat *newFormat, const IOAudioSampleRate *newSampleRate ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;
@@ -873,6 +913,21 @@ protected:
 
 	static void setCommandGateUsage(IOAudioEngine *engine, bool increment ) AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_10;		// <rdar://8518215>
 
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+    /*!
+     * @function driverDesiresHiResSampleIntervals
+     * @abstract Queries a subclassing driver to determine whether that driver desires IOAudioEngine to use Hi Resolution sample intervals from the HAL .
+     * @discussion  (see useHiResSampleInterval and calculateSampleTimeoutHiRes for a discussion of these Hi Resolution sample intervals)
+     * this is a new, pure virtual method which only exists on ARM platforms and which therefore breaks binary compatibility if this is compiled
+     * on Intel platforms. That is intentional, and that is why it does not use a padding slot.
+     * A driver subclass which runs on ARM must implement this method
+     *      • the driver subclass should return TRUE if it would like the IOAudioEngine to call useHiResSampleInterval(), thus telling the HAL to use fixed point sample intervals
+     *      • the driver subclass should return FALSE if it would like the IOAudioEngine to use the integer sample intervals (which means more error on ARM machines)
+     * The driver subclass need not call useHiResSampleInterval() itself, although it may do so if desired
+     * Because this call does not exist on x86 architectures, a driver which desires to use the fixed point sample intervals on those platforms must call useHiResSampleInterval()
+     */
+    virtual bool    driverDesiresHiResSampleIntervals(void) = 0;
+#endif
 };
 
 #endif /* _IOKIT_IOAUDIOENGINE_H */

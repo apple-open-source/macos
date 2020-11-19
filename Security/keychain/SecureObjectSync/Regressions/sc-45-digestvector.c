@@ -28,8 +28,7 @@
 
 #include <utilities/SecCFRelease.h>
 #include <stdlib.h>
-
-static int kTestTestCount = 15;
+#include "SOSRegressionUtilities.h"
 
 static void testNullDigestVector(void)
 {
@@ -158,9 +157,11 @@ static void tests(void)
 
 int sc_45_digestvector(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
-
+#if SOS_ENABLED
+    plan_tests(15);
     tests();
-
+#else
+    plan_tests(0);
+#endif
 	return 0;
 }

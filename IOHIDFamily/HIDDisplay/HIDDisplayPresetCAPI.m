@@ -346,18 +346,3 @@ HIDDisplayPresetInterfaceRef __nullable HIDDisplayCreatePresetInterfaceWithServi
     return (__bridge_retained HIDDisplayPresetInterfaceRef)device;
 }
 
-CFStringRef __nullable HIDDisplayGetContainerID(HIDDisplayPresetInterfaceRef hidDisplayInterface)
-{
-    id device = (__bridge id)hidDisplayInterface;
-    
-    HIDDisplayPresetInterface *_device = nil;
-    
-    if (![device isKindOfClass:[HIDDisplayPresetInterface class]]) {
-        os_log_error(HIDDisplayLog(),"Invalid HIDDisplayPresetInterfaceRef");
-        return NULL;
-    }
-    
-    _device = (HIDDisplayPresetInterface*)device;
-    
-    return (__bridge CFStringRef)_device.containerID;
-}

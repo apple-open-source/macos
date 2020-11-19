@@ -694,7 +694,7 @@ cancel_session(task_name_t task_name)
 static uint32_t
 register_direct_watch(uint16_t port)
 {
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	uint32_t i;
 	int sock, flags;
 	struct sockaddr_in address;
@@ -764,7 +764,7 @@ register_direct_watch(uint16_t port)
 static void
 cancel_direct_watch(uint16_t port)
 {
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	uint32_t i;
 
 	for (i = 0; (i < direct_watch_count) && (port != direct_watch_port[i]); i++);
@@ -1204,7 +1204,7 @@ database_server()
 static void
 caller_get_read_entitlement(audit_token_t *token, uid_t *uid, gid_t *gid)
 {
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	xpc_object_t entitlements, val;
 	bool bval = false;
 	int64_t ival = -2;
@@ -1297,7 +1297,7 @@ __asl_server_query_internal
 	else
 	{
 		int x = 0;
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		x = pid;
 #endif
 

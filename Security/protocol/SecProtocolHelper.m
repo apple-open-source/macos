@@ -98,16 +98,6 @@ static const struct tls_ciphersuite_definition tls_ciphersuite_definitions[] = {
 static const size_t tls_ciphersuite_definitions_length = \
     sizeof(tls_ciphersuite_definitions) / sizeof(struct tls_ciphersuite_definition);
 
-// Remove macro definitions
-#undef CiphersuitesTLS13
-#undef CiphersuitesPFS
-#undef CiphersuitesNonPFS
-#undef CiphersuitesTLS10_3DES
-#undef CiphersuitesTLS10
-#undef CiphersuitesDHE
-#undef DefineTLSCiphersuiteGroupList
-#undef DefineTLSCiphersuiteDefinition
-
 const tls_ciphersuite_t *
 sec_protocol_helper_ciphersuite_group_to_ciphersuite_list(tls_ciphersuite_group_t group, size_t *list_count)
 {

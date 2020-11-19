@@ -1,4 +1,4 @@
-# Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+# Copyright (C) 2011-2020 Apple Inc. All rights reserved.
 # Copyright (C) 2013 University of Szeged. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,7 +37,7 @@ require "risc"
 #  x7 => cfr
 #  x8 => t4         (callee-save)
 #  x9 => t5         (callee-save)
-# x10 =>            (callee-save scratch)
+# x10 => csr1       (callee-save, PB)
 # x11 => cfr, csr0  (callee-save, metadataTable)
 # x12 =>            (callee-save scratch)
 #  lr => lr
@@ -69,7 +69,7 @@ class SpecialRegister
     end
 end
 
-ARM_EXTRA_GPRS = [SpecialRegister.new("r6"), SpecialRegister.new("r10"), SpecialRegister.new("r12")]
+ARM_EXTRA_GPRS = [SpecialRegister.new("r6"), SpecialRegister.new("r4"), SpecialRegister.new("r12")]
 ARM_EXTRA_FPRS = [SpecialRegister.new("d7")]
 ARM_SCRATCH_FPR = SpecialRegister.new("d6")
 OS_DARWIN = ((RUBY_PLATFORM =~ /darwin/i) != nil)
@@ -102,7 +102,7 @@ class RegisterID
         when "a3"
             "r3"
         when "t3"
-            "r4"
+            "r3"
         when "t4"
             "r8"
         when "t5"
@@ -111,6 +111,8 @@ class RegisterID
             "r7"
         when "csr0"
             "r11"
+        when "csr1"
+            "r10"
         when "lr"
             "lr"
         when "sp"
@@ -669,6 +671,16 @@ class Instruction
             temp = operands[2]
 
             uid = $asm.newUID
+
+            $asm.putStr("#if OS(DARWIN)")
+            $asm.puts "movw #{operands[1].armOperand}, :lower16:(L#{operands[0].asmLabel}_#{uid}$non_lazy_ptr-(L_offlineasm_#{uid}+4))"
+            $asm.puts "movt #{operands[1].armOperand}, :upper16:(L#{operands[0].asmLabel}_#{uid}$non_lazy_ptr-(L_offlineasm_#{uid}+4))"
+            $asm.puts "L_offlineasm_#{uid}:"
+            $asm.puts "add #{operands[1].armOperand}, pc"
+            $asm.puts "ldr #{operands[1].armOperand}, [#{operands[1].armOperand}]"
+
+            # On Linux, use ELF GOT relocation specifiers.
+            $asm.putStr("#elif OS(LINUX)")
             gotLabel = Assembler.localLabelReference("offlineasm_arm_got_#{uid}")
             offsetLabel = Assembler.localLabelReference("offlineasm_arm_got_offset_#{uid}")
 
@@ -678,12 +690,31 @@ class Instruction
             $asm.puts "add #{dest.armOperand}, pc, #{dest.armOperand}"
             $asm.puts "ldr #{dest.armOperand}, [#{dest.armOperand}, #{temp.armOperand}]"
 
+            # Throw a compiler error everywhere else.
+            $asm.putStr("#else")
+            $asm.putStr("#error Missing globaladdr implementation")
+            $asm.putStr("#endif")
+
             offset = 4
 
             $asm.deferNextLabelAction {
+                $asm.putStr("#if OS(DARWIN)")
+                $asm.puts ".section __DATA,__nl_symbol_ptr,non_lazy_symbol_pointers"
+                $asm.puts ".p2align 2"
+
+                $asm.puts "L#{operands[0].asmLabel}_#{uid}$non_lazy_ptr:"
+                $asm.puts ".indirect_symbol #{operands[0].asmLabel}"
+                $asm.puts ".long 0"
+                
+                $asm.puts ".text"
+                $asm.puts ".align 4"
+
+                $asm.putStr("#elif OS(LINUX)")
                 $asm.puts "#{gotLabel}:"
                 $asm.puts ".word _GLOBAL_OFFSET_TABLE_-(#{offsetLabel}+#{offset})"
                 $asm.puts ".word #{labelRef.asmLabel}(GOT)"
+
+                $asm.putStr("#endif")
             }
         else
             lowerDefault

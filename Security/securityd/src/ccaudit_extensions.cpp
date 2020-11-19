@@ -8,7 +8,7 @@
  */
 
 #include <errno.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <stdio.h>                  // vsnprintf()
 #include <stdarg.h>                 // va_start(), et al.
 #include <syslog.h>

@@ -24,23 +24,38 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
 #if OCTAGON
+
+#import "keychain/ckks/CKKSOperationDependencies.h"
+#import "keychain/ot/OctagonStateMachineHelpers.h"
+
 NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 @class CKKSItem;
 
-@interface CKKSIncomingQueueOperation : CKKSResultOperation
+@interface CKKSIncomingQueueOperation : CKKSResultOperation <OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
 @property (weak) CKKSKeychainView* ckks;
 
 // Set this to true if this instance of CKKSIncomingQueueOperation
 // should error if it can't process class A items due to the keychain being locked.
 @property bool errorOnClassAFailure;
 
+// Set this to true if you're pretty sure that the policy set on the CKKS object
+// should be considered authoritative, and items that do not match this policy should
+// be moved.
+@property bool handleMismatchedViewItems;
+
 @property size_t successfulItemsProcessed;
 @property size_t errorItemsProcessed;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks errorOnClassAFailure:(bool)errorOnClassAFailure;
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks
+                           intending:(OctagonState*)intending
+                          errorState:(OctagonState*)errorState
+                errorOnClassAFailure:(bool)errorOnClassAFailure
+               handleMismatchedViewItems:(bool)handleMismatchedViewItems;
 
 // Use this to turn a CKKS item into a keychain dictionary suitable for keychain insertion
 + (NSDictionary* _Nullable)decryptCKKSItemToAttributes:(CKKSItem*)item error:(NSError**)error;

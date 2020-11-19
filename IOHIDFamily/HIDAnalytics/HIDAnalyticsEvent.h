@@ -21,6 +21,7 @@ typedef NS_ENUM(NSUInteger, HIDAnalyticsEventType) {
 
 @property (retain) NSString* name;
 @property (retain) NSDictionary *desc;
+@property BOOL isLogged;
 
 - (instancetype)init NS_UNAVAILABLE;
 

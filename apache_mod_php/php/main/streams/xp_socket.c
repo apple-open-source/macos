@@ -272,6 +272,12 @@ static inline int sock_recvfrom(php_netstream_data_t *sock, char *buf, size_t bu
 		socklen_t sl = sizeof(sa);
 		ret = recvfrom(sock->socket, buf, XP_SOCK_BUF_SIZE(buflen), flags, (struct sockaddr*)&sa, &sl);
 		ret = (ret == SOCK_CONN_ERR) ? -1 : ret;
+#ifdef PHP_WIN32
+		/* POSIX discards excess bytes without signalling failure; emulate this on Windows */
+		if (ret == -1 && WSAGetLastError() == WSAEMSGSIZE) {
+			ret = buflen;
+		}
+#endif
 		if (sl) {
 			php_network_populate_name_from_sockaddr((struct sockaddr*)&sa, sl,
 					textaddr, addr, addrlen);
@@ -738,6 +744,10 @@ static inline int php_tcp_sockop_connect(php_stream *stream, php_netstream_data_
 			return -1;
 		}
 		bindto = parse_ip_address_ex(Z_STRVAL_P(tmpzval), Z_STRLEN_P(tmpzval), &bindport, xparam->want_errortext, &xparam->outputs.error_text);
+		if (bindto == NULL) {
+			efree(host);
+			return -1;
+		}
 	}
 
 #ifdef SO_BROADCAST

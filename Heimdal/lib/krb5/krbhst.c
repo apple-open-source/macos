@@ -69,6 +69,7 @@ struct krb5_krbhst_data {
     char *hostname;
     char *sitename;
     krb5_uuid delegate_uuid;
+    pid_t delegate_pid;
     unsigned int fallback_count;
 
     struct krb5_krbhst_info *hosts, **index, **end;
@@ -388,7 +389,7 @@ host_get_dns_service_id(krb5_context context,
 			DNSServiceFlags *flags)
 {
     int dns_service_id = 0;
-#if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
+#if !TARGET_OS_SIMULATOR
     nw_path_evaluator_t evaluator = NULL;
     nw_parameters_t parameters = NULL;
     nw_interface_t iface = NULL;
@@ -445,9 +446,11 @@ host_get_dns_service_id(krb5_context context,
 		     hostname,
 		     uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
 		     uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
-
-	dns_service_id = ne_session_service_get_dns_service_id(uuid, NESessionTypeAppVPN, hostname);
-
+	if (nw_path_is_per_app_vpn(path)) {
+	    dns_service_id = ne_session_service_get_dns_service_id(uuid, NESessionTypeAppVPN, hostname);
+	} else {
+	    dns_service_id = ne_session_service_get_dns_service_id(uuid, NESessionTypeVPN, hostname);
+	}
 	_krb5_debugx(context, 5, "host_create(%s): AppVPN: %d", hostname, (int)dns_service_id);
 
 	if (dns_service_id)
@@ -784,7 +787,7 @@ SRVQueryCallback(DNSServiceRef sdRef,
 
 	srv_reply->addrinfo_queue = heim_retain(handle->addrinfo_queue);
 
-	error = DNSServiceCreateDelegateConnection(&srv_reply->srv_sd, 0, handle->delegate_uuid);
+	error = DNSServiceCreateDelegateConnection(&srv_reply->srv_sd, handle->delegate_pid, handle->delegate_uuid);
 	if (error != kDNSServiceErr_NoError) {
 	    _krb5_debugx(query->context, 2,
 			 "Failed setting up search context for addrinfo resolving for %s failed: %d",
@@ -918,7 +921,7 @@ srv_find_realm(krb5_context context, struct krb5_krbhst_data *handle,
     if (handle->main_sd == NULL) {
 
 	if (handle->flags & KD_DELEG_UUID) {
-	    error = DNSServiceCreateDelegateConnection(&handle->main_sd, 0, handle->delegate_uuid);
+	    error = DNSServiceCreateDelegateConnection(&handle->main_sd, handle->delegate_pid, handle->delegate_uuid);
 	} else {
 	    error = DNSServiceCreateConnection(&handle->main_sd);
 	}
@@ -1864,7 +1867,7 @@ kpasswd_get_next(krb5_context context,
     }
 
     if(context->srv_lookup) {
-	if((kd->flags & KD_SRV_UDP) == 0) {
+	if((kd->flags & KD_SRV_UDP) == 0 && (kd->flags & KD_LARGE_MSG) == 0) {
 	    srv_get_hosts(context, kd, NULL, "udp", "kpasswd");
 	    kd->flags |= KD_SRV_UDP;
 	    if(get_next(kd, host))
@@ -2182,13 +2185,28 @@ krb5_krbhst_set_delgated_uuid(krb5_context context,
 			      krb5_krbhst_handle handle,
 			      krb5_uuid uuid)
 {
-    handle->flags |= KD_DELEG_UUID;
-    memcpy(handle->delegate_uuid, uuid, sizeof(krb5_uuid));
+    if (uuid) {
+	handle->flags |= KD_DELEG_UUID;
+	memcpy(handle->delegate_uuid, uuid, sizeof(krb5_uuid));
+	
+	_krb5_debugx(context, 5, "krb5_krbhst_set_delegated_uuid: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		     uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
+		     uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
+    }
+    return 0;
+}
 
-    _krb5_debugx(context, 5, "krb5_krbhst_set_delegated_uuid: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-		 uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
-		 uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
-
+krb5_error_code KRB5_LIB_FUNCTION
+krb5_krbhst_set_delgated_pid(krb5_context context,
+			      krb5_krbhst_handle handle,
+			      pid_t pid)
+{
+    if (pid) {
+	handle->flags |= KD_DELEG_UUID;
+	handle->delegate_pid = pid;
+	
+	_krb5_debugx(context, 5, "krb5_krbhst_set_delegated_pid: %d", pid);
+    }
     return 0;
 }
 

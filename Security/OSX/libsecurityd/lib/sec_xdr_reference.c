@@ -59,7 +59,7 @@ static char *sccsid = "@(#)xdr_reference.c      2.1 88/07/29 4.0 RPCSRC";
 static char *rcsid = "$FreeBSD: src/lib/libc/xdr/xdr_reference.c,v 1.11 2002/03/22 21:53:26 obrien Exp $";
 #endif
 #include <sys/cdefs.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 /*
  * xdr_reference.c, Generic XDR routines impelmentation.
  *

@@ -1,9 +1,9 @@
-﻿# ***************************************************************************
-# *
-# *  Copyright (C) 2010,2012 Apple Inc. All Rights Reserved.
-# *
-# ***************************************************************************
+﻿# © 2016 and later: Unicode, Inc. and others.
+# License & terms of use: http://www.unicode.org/copyright.html#License
+# Apple addition, © 2010,2012 Apple Inc. All Rights Reserved.
+#
 # File: Any_SoftbankSMS.txt
+# Generated from CLDR
 #
 
 ####
@@ -162,7 +162,6 @@
 \u3297 → \uE30D ; # xF9 xAD
 \u3299\uFE0F ↔ \uE315 ; # xF9 xB5
 \u3299 → \uE315 ; # xF9 xB5
-
 # Part 2 non-BMP
 \U0001F004\uFE0F ↔ \uE12D ; # xF7 x6D
 \U0001F004 → \uE12D ; # xF7 x6D
@@ -555,7 +554,6 @@
 \U0001F6BD ↔ \uE140 ; # xF7 x81
 \U0001F6BE ↔ \uE309 ; # xF9 xA9
 \U0001F6C0 ↔ \uE13F ; # xF7 x80
-
 ####
 # Fallbacks from softbank PUA that were not used
 # since there were standard pre-6.0 Unicodes available
@@ -564,7 +562,6 @@
 \u00A9 ← \uE24E ; # xF7 xEE
 \u00AE ← \uE24F ; # xF7 xEF
 \u2122 ← \uE537 ; # xFB xD7
-
 ####
 # Fallbacks from other standard Han ideographs to JISX0208 Kanji
 # as in the softbank-sjis table
@@ -609,7 +606,6 @@
 \u9E7C → \u9E78 ; # x8C xB2
 \u9EB4 → \u9EB9 ; # x8D x8D
 \u9EB5 → \u9EBA ; # x96 xCB
-
 ####
 # Use identity mappings for other softbank PUA, e.g.
 # (ranges shown using | )
@@ -674,3 +670,4 @@
 #	\uE757 # xF9 xFC
 #
 ####
+

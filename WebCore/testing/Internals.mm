@@ -26,6 +26,7 @@
 #import "config.h"
 #import "Internals.h"
 
+#import "AGXCompilerService.h"
 #import "DOMURL.h"
 #import "DictionaryLookup.h"
 #import "Document.h"
@@ -34,8 +35,12 @@
 #import "HitTestResult.h"
 #import "MediaPlayerPrivate.h"
 #import "Range.h"
+#import "SimpleRange.h"
+#import "UTIUtilities.h"
 #import <AVFoundation/AVPlayer.h>
+#import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <wtf/cocoa/NSURLExtras.h>
+#import <wtf/spi/darwin/SandboxSPI.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <pal/ios/UIKitSoftLink.h>
@@ -67,10 +72,13 @@ ExceptionOr<RefPtr<Range>> Internals::rangeForDictionaryLookupAtLocation(int x, 
 
     document->updateLayoutIgnorePendingStylesheets();
 
-    HitTestResult result = document->frame()->mainFrame().eventHandler().hitTestResultAtPoint(IntPoint(x, y), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
-    RefPtr<Range> range;
-    std::tie(range, std::ignore) = DictionaryLookup::rangeAtHitTestResult(result);
-    return WTFMove(range);
+    constexpr OptionSet<HitTestRequest::RequestType> hitType { HitTestRequest::ReadOnly, HitTestRequest::Active, HitTestRequest::DisallowUserAgentShadowContent, HitTestRequest::AllowChildFrameContent };
+    auto result = document->frame()->mainFrame().eventHandler().hitTestResultAtPoint(IntPoint(x, y), hitType);
+    auto range = DictionaryLookup::rangeAtHitTestResult(result);
+    if (!range)
+        return nullptr;
+
+    return RefPtr<Range> { createLiveRange(std::get<SimpleRange>(*range)) };
 }
 
 #endif
@@ -87,5 +95,35 @@ double Internals::privatePlayerVolume(const HTMLMediaElement& element)
     return [player volume];
 }
 #endif
+
+String Internals::encodedPreferenceValue(const String& domain, const String& key)
+{
+    auto userDefaults = adoptNS([[NSUserDefaults alloc] initWithSuiteName:domain]);
+    id value = [userDefaults objectForKey:key];
+    auto data = adoptNS([NSKeyedArchiver archivedDataWithRootObject:value requiringSecureCoding:YES error:nullptr]);
+    return [data base64EncodedStringWithOptions:0];
+}
+
+String Internals::getUTIFromTag(const String& tagClass, const String& tag, const String& conformingToUTI)
+{
+    return UTIFromTag(tagClass, tag, conformingToUTI);
+}
+
+bool Internals::isRemoteUIAppForAccessibility()
+{
+#if PLATFORM(MAC)
+    return [NSAccessibilityRemoteUIElement isRemoteUIApp];
+#else
+    return false;
+#endif
+}
+
+bool Internals::hasSandboxIOKitOpenAccessToClass(const String& process, const String& ioKitClass)
+{
+    UNUSED_PARAM(process); // TODO: add support for getting PID of other WebKit processes.
+    pid_t pid = getpid();
+
+    return !sandbox_check(pid, "iokit-open", static_cast<enum sandbox_filter_type>(SANDBOX_FILTER_IOKIT_CONNECTION | SANDBOX_CHECK_NO_REPORT), ioKitClass.utf8().data());
+}
 
 }

@@ -133,7 +133,7 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType)
 }
 
 
-- (NSDictionary *)sysdiagnoseStatus
+- (NSDictionary *_Nullable)sysdiagnoseStatus
 {
     NSMutableDictionary *pendingCFUs = nil;
 

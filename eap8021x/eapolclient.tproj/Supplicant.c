@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -449,8 +449,6 @@ eap_client_free_properties(SupplicantRef supp)
     my_CFRelease((CFDictionaryRef *)&supp->eap.plugin_data.properties);
 }
 
-#if TARGET_OS_IPHONE
-
 static void
 eap_client_set_properties(SupplicantRef supp)
 {
@@ -505,19 +503,6 @@ eap_client_set_properties(SupplicantRef supp)
     }
     return;
 }
-
-#else /* TARGET_OS_IPHONE */
-
-static void
-eap_client_set_properties(SupplicantRef supp)
-{
-    eap_client_free_properties(supp);
-    *((CFDictionaryRef *)&supp->eap.plugin_data.properties) 
-	= CFRetain(supp->config_dict);
-    return;
-}
-
-#endif /* TARGET_OS_IPHONE */
 
 static void
 eap_client_free(SupplicantRef supp)
@@ -1407,7 +1392,7 @@ Supplicant_no_authenticator(SupplicantRef supp, SupplicantEvent event,
 }
 
 static void
-Supplicant_connecting(SupplicantRef supp, SupplicantEvent event, 
+Supplicant_connecting(SupplicantRef supp, SupplicantEvent event,
 		      void * evdata)
 {
     EAPOLSocketReceiveDataRef 	rx = evdata;
@@ -1423,6 +1408,10 @@ Supplicant_connecting(SupplicantRef supp, SupplicantEvent event,
 				 (void *)Supplicant_connecting,
 				 (void *)supp, 
 				 (void *)kSupplicantEventData);
+	/* it's possible we picked a stale address during the
+	 * source initialization, so update it here
+	 */
+	EAPOLSocketSourceUpdateWiFiLocalMACAddress(supp->sock);
 	/* FALL THROUGH */
     case kSupplicantEventData:
 	if (rx != NULL) {
@@ -2152,59 +2141,9 @@ dicts_compare_arrays(CFDictionaryRef dict1, CFDictionaryRef dict2,
 }
 
 static void
-trust_callback(const void * arg1, const void * arg2,
-	       TrustDialogueResponseRef response)
+trust_callback(__unused const void * arg1, __unused const void * arg2,
+	       __unused TrustDialogueResponseRef response)
 {
-    CFDictionaryRef		config_dict = NULL;
-    SupplicantRef		supp = (SupplicantRef)arg1;
-    CFDictionaryRef		trust_info;
-    CFArrayRef			trust_proceed;
-
-    if (supp->trust_prompt == NULL) {
-	return;
-    }
-    trust_info = TrustDialogue_trust_info(supp->trust_prompt);
-    if (trust_info != NULL) {
-	CFRetain(trust_info);
-    }
-    TrustDialogue_free(&supp->trust_prompt);
-    if (trust_info == NULL) {
-	return;
-    }
-    if (response->proceed == FALSE) {
-	EAPLOG(LOG_NOTICE, "%s: user cancelled", 
-	       EAPOLSocketIfName(supp->sock, NULL));
-	EAPOLSocketStopClient(supp->sock);
-	goto done;
-    }
-    if (supp->last_status != kEAPClientStatusUserInputRequired
-	|| supp->eap.published_props == NULL) {
-	goto done;
-    }
-    create_ui_config_dict(supp);
-    if (dicts_compare_arrays(trust_info, supp->eap.published_props,
-			     kEAPClientPropTLSServerCertificateChain)
-	== FALSE) {
-	CFDictionaryRemoveValue(supp->ui_config_dict, 
-				kEAPClientPropTLSUserTrustProceedCertificateChain);
-    }
-    else {
-	trust_proceed
-	    = CFDictionaryGetValue(supp->eap.published_props,
-				   kEAPClientPropTLSServerCertificateChain);
-	if (trust_proceed != NULL) {
-	    CFDictionarySetValue(supp->ui_config_dict, 
-				 kEAPClientPropTLSUserTrustProceedCertificateChain,
-				 trust_proceed);
-	}
-    }
-    config_dict = CFDictionaryCreateCopy(NULL, supp->orig_config_dict);
-    Supplicant_update_configuration(supp, config_dict, NULL);
-    my_CFRelease(&config_dict);
-    user_supplied_data(supp);
-
- done:
-    my_CFRelease(&trust_info);
     return;
 }
 
@@ -2709,6 +2648,7 @@ Supplicant_report_status(SupplicantRef supp)
     if (need_trust) {
 	if (supp->trust_prompt == NULL) {
 	    CFStringRef	ssid = NULL;
+	    CFStringRef	interface = NULL;
 
 	    if (EAPOLSocketIsWireless(supp->sock)) {
 		ssid = EAPOLSocketGetSSID(supp->sock);
@@ -2716,10 +2656,15 @@ Supplicant_report_status(SupplicantRef supp)
 		    ssid = CFSTR("");
 		}
 	    }
+	    interface = CFStringCreateWithCString(NULL,
+						  EAPOLSocketIfName(supp->sock, NULL),
+						  kCFStringEncodingASCII);
+
 	    supp->trust_prompt 
 		= TrustDialogue_create(trust_callback, supp, NULL,
 				       supp->eap.published_props,
-				       ssid);
+				       ssid, interface);
+	    my_CFRelease(&interface);
 	}
     }
  no_ui:
@@ -2907,7 +2852,7 @@ my_strcmp(char * s1, char * s2)
 }
 
 static char *
-eap_method_user_name(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
+eap_method_user_name(EAPAcceptTypesRef accept, CFDictionaryRef config_dict, Boolean *set_no_ui)
 {
     int 	i;
 
@@ -2925,7 +2870,13 @@ eap_method_user_name(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
 
 	    user = my_CFStringToCString(eap_user, kCFStringEncodingUTF8);
 	    my_CFRelease(&eap_user);
+	    *set_no_ui = FALSE;
 	    return (user);
+	} else {
+	    if (accept->types[i] == kEAPTypeEAPSIM || accept->types[i] == kEAPTypeEAPAKA) {
+		/* make sure we don't prompt user for username/password for EAP-SIM and EAP-AKA mehods */
+		*set_no_ui = TRUE;
+	    }
 	}
     }
     return (NULL);
@@ -3116,6 +3067,11 @@ S_set_credentials(SupplicantRef supp)
 						kEAPClientPropSaveCredentialsOnSuccessfulAuthentication,
 						FALSE);
 	}
+	if (myCFDictionaryGetBooleanValue(supp->config_dict,
+					  kEAPClientPropDisableUserInteraction,
+					  FALSE)) {
+	    Supplicant_set_no_ui(supp);
+	}
 #endif /* ! TARGET_OS_IPHONE */
 	break;
     default:
@@ -3287,10 +3243,13 @@ S_set_credentials(SupplicantRef supp)
 
     /* name */
     if (cert_required == FALSE && name == NULL) {
+	Boolean set_no_ui = FALSE;
 	/* no username specified, ask EAP types if they can come up with one */
-	name = eap_method_user_name(&supp->eap_accept, supp->config_dict);
+	name = eap_method_user_name(&supp->eap_accept, supp->config_dict, &set_no_ui);
 	if (name != NULL) {
 	    username_derived = TRUE;
+	} else if (set_no_ui) {
+	    Supplicant_set_no_ui(supp);
 	}
     }
     if (my_strcmp(supp->username, name) != 0) {
@@ -3587,6 +3546,16 @@ Supplicant_control(SupplicantRef supp,
 	    create_ui_config_dict(supp);
 	    CFDictionaryApplyFunction(user_input_dict, dict_set_key_value, 
 				      supp->ui_config_dict);
+	    if (EAPOLSocketIsWireless(supp->sock) == FALSE) {
+		/* we cannot save the trust exception for wired 802.1X networks */
+		bool save_it = my_CFDictionaryGetBooleanValue(supp->ui_config_dict,
+							      kEAPClientPropTLSSaveTrustExceptions,
+							      FALSE);
+		if (save_it) {
+		    CFDictionarySetValue(supp->ui_config_dict,
+					 kEAPClientPropTLSSaveTrustExceptions, kCFBooleanFalse);
+		}
+	    }
 	}
 	config_dict = CFDictionaryCreateCopy(NULL, supp->orig_config_dict);
 	Supplicant_update_configuration(supp, config_dict, NULL);
@@ -3769,7 +3738,7 @@ Supplicant_create_with_supplicant(EAPOLSocketRef sock, SupplicantRef main_supp)
 	supp->password_length = main_supp->password_length;
     }
     EAPAcceptTypesCopy(&supp->eap_accept, &main_supp->eap_accept);
-    supp->no_ui = TRUE;
+    Supplicant_set_no_ui(supp);
 
     return (supp);
 }

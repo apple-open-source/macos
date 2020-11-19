@@ -46,6 +46,8 @@
 
 #include "SOSRegressionUtilities.h"
 
+#if SOS_ENABLED
+
 #if TARGET_OS_IPHONE
 #include <MobileGestalt.h>
 #endif
@@ -152,12 +154,15 @@ static void tests(void)
     CFReleaseNull(octagonEncryptionKey);
     CFReleaseNull(fpi);
 }
+#endif
 
 int sc_30_peerinfo(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-	
     tests();
-
+#else
+    plan_tests(0);
+#endif
 	return 0;
 }

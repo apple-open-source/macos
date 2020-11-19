@@ -1232,10 +1232,13 @@ small_free_do_recirc_to_depot(rack_t *rack, magazine_t *small_mag_ptr, mag_index
 	MAGMALLOC_RECIRCREGION(SMALL_SZONE_FROM_RACK(rack), (int)mag_index, (void *)sparse_region, SMALL_REGION_SIZE,
 						   (int)BYTES_USED_FOR_SMALL_REGION(sparse_region)); // DTrace USDT Probe
 
-#if !CONFIG_AGGRESSIVE_MADVISE
-	// Mark free'd dirty pages with MADV_FREE to reduce memory pressure
-	small_free_scan_madvise_free(rack, depot_ptr, sparse_region);
+#if CONFIG_AGGRESSIVE_MADVISE
+	if (!aggressive_madvise_enabled)
 #endif
+	{
+		// Mark free'd dirty pages with MADV_FREE to reduce memory pressure
+		small_free_scan_madvise_free(rack, depot_ptr, sparse_region);
+	}
 
 	// If the region is entirely empty vm_deallocate() it outside the depot lock
 	region_t r_dealloc = small_free_try_depot_unmap_no_lock(rack, depot_ptr, node);
@@ -1282,11 +1285,14 @@ small_free_try_recirc_to_depot(rack_t *rack,
 			return small_free_do_recirc_to_depot(rack, small_mag_ptr, mag_index);
 		}
 	} else {
-#if !CONFIG_AGGRESSIVE_MADVISE
-		// We are free'ing into the depot, so madvise as we do so unless we were madvising every incoming
-		// allocation anyway.
-		small_madvise_free_range_no_lock(rack, small_mag_ptr, region, freee, msize, headptr, headsize);
+#if CONFIG_AGGRESSIVE_MADVISE
+		if (!aggressive_madvise_enabled)
 #endif
+		{
+			// We are free'ing into the depot, so madvise as we do so unless we were madvising every incoming
+			// allocation anyway.
+			small_madvise_free_range_no_lock(rack, small_mag_ptr, region, freee, msize, headptr, headsize);
+		}
 
 		if (0 < bytes_used || 0 < node->pinned_to_depot) {
 			/* Depot'd region is still live. Leave it in place on the Depot's recirculation list
@@ -1381,7 +1387,9 @@ small_free_no_lock(rack_t *rack, magazine_t *small_mag_ptr, mag_index_t mag_inde
 	trailer->bytes_used = (unsigned int)bytes_used;
 
 #if CONFIG_AGGRESSIVE_MADVISE
-	small_madvise_free_range_no_lock(rack, small_mag_ptr, region, freee, msize, original_ptr, original_size);
+	if (aggressive_madvise_enabled) {
+		small_madvise_free_range_no_lock(rack, small_mag_ptr, region, freee, msize, original_ptr, original_size);
+	}
 #endif
 
 	// Caller must do SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr) if this function
@@ -2204,9 +2212,6 @@ small_size(rack_t *rack, const void *ptr)
 static MALLOC_NOINLINE void
 free_small_botch(rack_t *rack, void *ptr)
 {
-	mag_index_t mag_index = MAGAZINE_INDEX_FOR_SMALL_REGION(SMALL_REGION_FOR_PTR(ptr));
-	magazine_t *small_mag_ptr = &(rack->magazines[mag_index]);
-	SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 	malloc_zone_error(rack->debug_flags, true, "double free for ptr %p\n", ptr);
 }
 
@@ -2239,6 +2244,7 @@ free_small(rack_t *rack, void *ptr, region_t small_region, size_t known_size)
 
 		/* check that we don't already have this pointer in the cache */
 		if (ptr == ptr2) {
+			SZONE_MAGAZINE_PTR_UNLOCK(small_mag_ptr);
 			free_small_botch(rack, ptr);
 			return;
 		}

@@ -128,7 +128,9 @@ public:
     virtual void setRollOverElementPtr(IOHIDElementPrivate **rollOverElementPtr);
     
     virtual uint32_t getElementValueSize() const;
-    virtual IOByteCount getByteSize();
+    virtual IOByteCount getByteSize() const;
+    IOByteCount getCurrentByteSize();
+
     void setDataBits(OSData *data);
     virtual bool getReportType(IOHIDReportType *reportType) const;
     virtual void setReportSize(uint32_t numberOfBits);

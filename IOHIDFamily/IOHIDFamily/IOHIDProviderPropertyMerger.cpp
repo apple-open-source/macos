@@ -32,15 +32,16 @@
 
 OSDefineMetaClassAndStructors(IOHIDProviderPropertyMerger, IOService);
 
-bool IOHIDProviderPropertyMerger::start(IOService* provider)
+IOService * IOHIDProviderPropertyMerger::probe(IOService *provider, SInt32 * score __unused)
 {
     OSObject * properties = NULL;
 
     properties = copyProperty("IOProviderMergeProperties");
     mergeProperties(provider, OSDynamicCast(OSDictionary, properties));
     OSSafeReleaseNULL(properties);
-    
-    return false;
+
+    // Fail probe by returning no service.
+    return NULL;
 }
 
 bool IOHIDProviderPropertyMerger::mergeProperties(IOService * provider, OSDictionary * properties)

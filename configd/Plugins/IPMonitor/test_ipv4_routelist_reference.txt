@@ -26170,16 +26170,3 @@ Add new[8]: Net 255.255.255.255/32 Ifp en0 Ifa 10.0.0.10
 Add new[9]: Net 255.255.255.255/32 Ifp en1 Ifa 192.168.2.50 [last] [SCOPED]
 =================> Apply 'test18', 'test17' End <=================
 
-Checking for leaks
-Process:         test_ipv4_routelist [XXXX]
-Path: XXXX
-Identifier:      test_ipv4_routelist
-Code Type:       X86-64
-
-Date/Time:       XXXX
-OS Version: XXXX
-Report Version:  7
-
-leaks Report Version: 4.0
-Process XXXX 0 leaks for 0 total leaked bytes.
-

@@ -1,9 +1,0 @@
-# /
-/build
-
-# /Libsystem.xcodeproj/
-/Libsystem.xcodeproj/xcuserdata
-
-# /Libsystem.xcodeproj/project.xcworkspace/
-/Libsystem.xcodeproj/project.xcworkspace/xcuserdata
-project.xcworkspace

@@ -58,11 +58,9 @@ typedef struct IONotificationPort *IONotificationPortRef;
 #endif
 
 #ifndef __OS_LOG_H__
-#if OS_OBJECT_SWIFT3
-OS_OBJECT_DECL_SWIFT(os_log);
-#elif OS_OBJECT_USE_OBJC
+#if OS_OBJECT_USE_OBJC
 OS_OBJECT_DECL(os_log);
-#else
+#elif !OS_OBJECT_SWIFT3
 typedef struct os_log_s *os_log_t;
 #endif /* OS_OBJECT_USE_OBJC */
 #endif
@@ -118,6 +116,9 @@ typedef struct IOHIDServiceVirtualCallbacksV2 IOHIDServiceVirtualCallbacksV2;
 typedef struct __IOHIDServiceQueueContext __IOHIDServiceQueueContext;
 #endif
 
+#ifndef _IOKIT_HID_SESSION_PRIVATE_H
+typedef struct __IOHIDSessionQueueContext __IOHIDSessionQueueContext;
+#endif
 
 /*
  * IOHIDSession forward declares

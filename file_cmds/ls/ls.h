@@ -37,6 +37,9 @@
  * $FreeBSD: src/bin/ls/ls.h,v 1.18 2002/05/19 02:51:36 tjr Exp $
  */
 
+#ifndef _LS_H_
+#define _LS_H_
+
 #define NO_PRINT	1
 
 extern long blocksize;		/* block size units */
@@ -101,3 +104,5 @@ typedef struct {
 #endif /* __APPLE__ */
 	char data[1];
 } NAMES;
+
+#endif /* _LS_H_ */

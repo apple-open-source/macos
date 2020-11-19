@@ -5,11 +5,12 @@ THE Z SHELL (ZSH)
 Version
 -------
 
-This is version 5.7.1 of the shell.  This is a stable release.  There are
-a few visible improvements since 5.6 as well as many bugfixes.
+This is version 5.8 of the shell.  This is a security and feature release.
+There are a few visible improvements since 5.7, as well as many bugfixes.
+All zsh installations are encouraged to upgrade as soon as possible.
 
 Note in particular the changes highlighted under "Incompatibilities since
-5.6.2" below.  See NEWS for more information.
+5.7.1" below.  See NEWS for more information.
 
 Installing Zsh
 --------------
@@ -30,8 +31,40 @@ Zsh is a shell with lots of features.  For a list of some of these, see the
 file FEATURES, and for the latest changes see NEWS.  For more
 details, see the documentation.
 
-Incompatibilities since 5.6.2
+Incompatibilities since 5.7.1
 -----------------------------
+
+The history expansion !:1:t2 used to be interpreted such that the 2
+was a separate character added after the history expansion.  Now
+it is an argument to the :t modifier.
+
+For example
+
+% echo /my/interesting/path
+% echo !:1:t2
+
+used to echo "path2", but now echoes "interesting/path".
+
+The behaviour of :h has similarly changed.
+
+The behaviour has also changed in forms such as ${foo:t2) and *(:t2),
+but in those cases the previous behaviour was not meaningful.
+
+The vcs_info function VCS_INFO_quilt-dirfind now returns a string value
+by setting $REPLY.  Previously it printed the value to standard output.
+This only affects you if you override that function in your dotfiles.
+
+The cd and chdir builtins no longer interpret operands like -1 and +2 as
+stack entries when POSIX_CD is enabled.
+
+Dropping privileges with `unsetopt privileged` may fail (with an error
+message) on some older and uncommon platforms due to library dependency
+changes made in the course of fixing CVE-2019-20044.  Please report this
+to the zsh-workers mailing list if your system is affected.  See NEWS for
+more.
+
+Incompatibilities between 5.6.2 and 5.7.1
+-----------------------------------------
 
 1) vcs_info git: The gen-unapplied-string hook receives the patches in
 order (next to be applied first).  This is consistent with the hg
@@ -181,7 +214,7 @@ of this change is that variables that should have active ranges need
   [[ b = [${~cset}] ]]
 
 The "~" causes the "-" character to be active.  In sh emulation the
-"~" is unncessary in this example and double quotes must be used to
+"~" is unnecessary in this example and double quotes must be used to
 suppress the range behaviour of the "-".
 
 2) The first argument to 'repeat' is now evaluated as an arithmetic
@@ -194,7 +227,7 @@ leading zeroes and the OCTAL_ZEROES option is set.
 3) For some time the shell has had a POSIX_TRAPS option which determines
 whether the EXIT trap has POSIX behaviour (the trap is only run at shell
 exit) or traditional zsh behaviour (the trap is run once and discarded
-when the enclosing fuction or shell exits, whichever happens first).
+when the enclosing function or shell exits, whichever happens first).
 The use of this option has now been made "sticky" on the EXIT trap ---
 in other words, the setting of the option at the point where the trap is
 set now determines whether the trap has POSIX or traditional zsh
@@ -321,7 +354,7 @@ can be used with both assoiative arrays and normal arrays.  In the
 unlikely event that you wish to create an array with an entry
 matching a file whose name consists of one of a range of characters
 matched as a [...] expression, followed by an equal sign, followed
-by arbitrary other charaters, it is now necessary to quote the equals
+by arbitrary other characters, it is now necessary to quote the equals
 sign.
 
 Incompatibilites between 5.0.7 and 5.0.8
@@ -338,7 +371,7 @@ or both of the arguments were floating point.  Now, the C math
 library fmod() operator is used to implement the operation where
 one of the arguments is floating point.  For example:
 
-Old behavour:
+Old behaviour:
 
 % print $(( 5.5 % 2 ))
 1

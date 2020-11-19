@@ -15,7 +15,7 @@
 #import <os/log.h>
 #import <IOKit/hid/IOHIDPrivateKeys.h>
 
-#define HID_ANALYTICS_LOG_INTERVAL 72000 //sec
+#define HID_ANALYTICS_LOG_INTERVAL 172000 //sec
 
 @implementation HIDAnalyticsReporter
 {
@@ -247,8 +247,14 @@
    
     dispatch_sync(_queue, ^{
         
-        os_log(OS_LOG_DEFAULT, "HIDAnalytics Unregister Send event %@",event.name);
-        [self logAnalyticsEvent:event];
+        // don't send analaytics always here since it can be lot of churn with service going away on dark sleep cycles
+        // send analytics only when we have never send any analytics for given event. This doesn't buy us much in
+        // terms of data , but we use analytics to track different kind of hid sevices, so let's log if service terminate
+        // before timer had chance to log it.
+        if (!event.isLogged) {
+            os_log(OS_LOG_DEFAULT, "HIDAnalytics Unregister Send event %@",event.name);
+            [self logAnalyticsEvent:event];
+        }
         
         [_events removeObject:event];
         

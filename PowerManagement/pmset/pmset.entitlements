@@ -6,5 +6,15 @@
 	<true/>
 	<key>com.apple.private.iokit.rootdomain-set-property</key>
 	<true/>
+	<key>com.apple.security.iokit-user-client-class</key>
+	<array>
+		<string>ApplePPMUserClient</string>
+		<string>RootDomainUserClient</string>
+		<string>AppleSMCClient</string>
+		<string>AppleSmartBatteryManagerUserClient</string>
+		<string>IOReportUserClient</string>
+	</array>
+	<key>com.apple.private.SkyLight.displaycontrol</key>
+	<true/>
 </dict>
 </plist>

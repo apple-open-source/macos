@@ -91,7 +91,7 @@ zh_Hant_HK{
             }
         }
     }
-    Version{"2.1.47.86"}
+    Version{"36.1"}
     calendar{
         buddhist{
             availableFormats{
@@ -197,9 +197,9 @@ zh_Hant_HK{
                 "ah:mm:ss [z]",
                 "ah:mm:ss",
                 "ah:mm",
-                "G y年M月d日 EEEE",
-                "G y年M月d日",
-                "G y年M月d日",
+                "Gy年M月d日EEEE",
+                "Gy年M月d日",
+                "Gy年M月d日",
                 "d/M/y GGGGG",
                 "{1} {0}",
                 "{1} {0}",
@@ -209,32 +209,32 @@ zh_Hant_HK{
             }
             availableFormats{
                 Ed{"d E"}
-                Gy{"G y年"}
-                GyMMM{"G y年M月"}
-                GyMMMEd{"G y年M月d日 E"}
-                GyMMMd{"G y年M月d日"}
+                Gy{"Gy年"}
+                GyMMM{"Gy年M月"}
+                GyMMMEd{"Gy年M月d日E"}
+                GyMMMd{"Gy年M月d日"}
                 H{"H時"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 MEd{"E d/M"}
-                MMMEd{"M月d日 E"}
+                MMMEd{"M月d日E"}
                 MMMd{"M月d日"}
                 Md{"d/M"}
                 h{"ah時"}
                 hm{"ah:mm"}
                 hms{"ah:mm:ss"}
                 ms{"mm:ss"}
-                y{"G y年"}
-                yyyy{"G y年"}
+                y{"Gy年"}
+                yyyy{"Gy年"}
                 yyyyM{"M/y GGGGG"}
                 yyyyMEd{"E d/M/y GGGGG"}
-                yyyyMMM{"G y年M月"}
-                yyyyMMMEd{"G y年M月d日 E"}
-                yyyyMMMM{"G y年M月"}
-                yyyyMMMd{"G y年M月d日"}
+                yyyyMMM{"Gy年M月"}
+                yyyyMMMEd{"Gy年M月d日E"}
+                yyyyMMMM{"Gy年M月"}
+                yyyyMMMd{"Gy年M月d日"}
                 yyyyMd{"d/M/y GGGGG"}
-                yyyyQQQ{"G y年QQQ"}
-                yyyyQQQQ{"G y年QQQQ"}
+                yyyyQQQ{"Gy年QQQ"}
+                yyyyQQQQ{"Gy年QQQQ"}
             }
             intervalFormats{
                 MEd{
@@ -255,7 +255,7 @@ zh_Hant_HK{
                 }
                 fallback{"{0}至{1}"}
                 y{
-                    y{"G y年至y年"}
+                    y{"Gy年至y年"}
                 }
                 yM{
                     M{"G y/M至y/M"}
@@ -267,22 +267,22 @@ zh_Hant_HK{
                     y{"G y/M/dE至y/M/dE"}
                 }
                 yMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMEd{
-                    M{"G y年M月d日 (E) 至 M月d日 (E)"}
-                    d{"G y年M月d日 (E) 至 d日 (E)"}
-                    y{"G y年M月d日 (E) 至 y年M月d日 (E)"}
+                    M{"Gy年M月d日 (E) 至 M月d日 (E)"}
+                    d{"Gy年M月d日 (E) 至 d日 (E)"}
+                    y{"Gy年M月d日 (E) 至 y年M月d日 (E)"}
                 }
                 yMMMM{
-                    M{"G y年M月至M月"}
-                    y{"G y年M月至y年M月"}
+                    M{"Gy年M月至M月"}
+                    y{"Gy年M月至y年M月"}
                 }
                 yMMMd{
-                    M{"G y年M月d日至M月d日"}
-                    d{"G y年M月d日至d日"}
-                    y{"G y年M月d日至y年M月d日"}
+                    M{"Gy年M月d日至M月d日"}
+                    d{"Gy年M月d日至d日"}
+                    y{"Gy年M月d日至y年M月d日"}
                 }
                 yMd{
                     M{"G y/M/d至y/M/d"}
@@ -297,7 +297,7 @@ zh_Hant_HK{
                 "ah:mm:ss [z]",
                 "ah:mm:ss",
                 "ah:mm",
-                "y年M月d日 EEEE",
+                "y年M月d日EEEE",
                 "y年M月d日",
                 "y年M月d日",
                 "d/M/y",
@@ -310,9 +310,9 @@ zh_Hant_HK{
             availableFormats{
                 E{"cccc"}
                 Ed{"d E"}
-                GyMMMEd{"Gy年M月d日 E"}
+                GyMMMEd{"Gy年M月d日E"}
                 MEd{"E d/M"}
-                MMMEd{"M月d日 E"}
+                MMMEd{"M月d日E"}
                 MMMMW{
                     other{"M月第W週"}
                 }
@@ -322,7 +322,7 @@ zh_Hant_HK{
                 yMEd{"E d/M/y"}
                 yMM{"MM/y"}
                 yMMM{"y年M月"}
-                yMMMEd{"y年M月d日 E"}
+                yMMMEd{"y年M月d日E"}
                 yMMMM{"y年M月"}
                 yMMMd{"y年M月d日"}
                 yMd{"d/M/y"}
@@ -338,6 +338,7 @@ zh_Hant_HK{
                         evening1{"晚上"}
                         midnight{"午夜"}
                         morning1{"早上"}
+                        morning2{"上午"}
                         night1{"凌晨"}
                     }
                     narrow{
@@ -346,6 +347,7 @@ zh_Hant_HK{
                         evening1{"晚上"}
                         midnight{"午夜"}
                         morning1{"早上"}
+                        morning2{"上午"}
                         night1{"凌晨"}
                     }
                     wide{
@@ -354,6 +356,7 @@ zh_Hant_HK{
                         evening1{"晚上"}
                         midnight{"午夜"}
                         morning1{"早上"}
+                        morning2{"上午"}
                         night1{"凌晨"}
                     }
                 }
@@ -363,6 +366,7 @@ zh_Hant_HK{
                         afternoon2{"下午"}
                         evening1{"晚上"}
                         morning1{"早上"}
+                        morning2{"上午"}
                         night1{"凌晨"}
                     }
                     narrow{
@@ -370,6 +374,7 @@ zh_Hant_HK{
                         afternoon2{"下午"}
                         evening1{"晚上"}
                         morning1{"早上"}
+                        morning2{"上午"}
                         night1{"凌晨"}
                     }
                     wide{
@@ -377,6 +382,7 @@ zh_Hant_HK{
                         afternoon2{"下午"}
                         evening1{"晚上"}
                         morning1{"早上"}
+                        morning2{"上午"}
                         night1{"凌晨"}
                     }
                 }

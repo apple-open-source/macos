@@ -1,0 +1,27 @@
+diff --git a/Modules/objc/block_support.m b/Modules/objc/block_support.m
+index c4d8adf..2b4bbc0 100644
+--- a/Modules/objc/block_support.m
++++ b/Modules/objc/block_support.m
+@@ -10,6 +10,13 @@
+  */
+ #import "pyobjc.h"
+ 
++#if __has_include(<ptrauth.h>)
++#include <ptrauth.h>
++#endif
++#ifndef __ptrauth_objc_isa_pointer
++#define __ptrauth_objc_isa_pointer
++#endif
++
+ /*
+  * Definitions for block functions. These definitions are technically
+  * private, but are the only way to interact with the block machinary.
+@@ -78,7 +85,7 @@
+ };
+ 
+ struct block_literal {
+-	void* isa;
++	void* __ptrauth_objc_isa_pointer isa;
+ 	int   flags;
+ 	int   reserved;
+ 	void (*invoke)(void*, ...);

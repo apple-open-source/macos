@@ -49,7 +49,7 @@ public:
 	SECCFFUNCTIONS(PolicyCursor, SecPolicySearchRef, errSecInvalidSearchRef, gTypes().PolicyCursor)
 
 	PolicyCursor(const CSSM_OID* oid, const CSSM_DATA* value);
-	virtual ~PolicyCursor() throw();
+	virtual ~PolicyCursor() _NOEXCEPT;
 	bool next(SecPointer<Policy> &policy);
 	bool oidProvided() { return mOidGiven; }
 

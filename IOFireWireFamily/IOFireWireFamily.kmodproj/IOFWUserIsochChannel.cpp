@@ -44,6 +44,8 @@ bool IOFWUserIsochChannel::init(
 	UInt32 						packetSize, 
 	IOFWSpeed 					prefSpeed )
 {
+	DebugLog("IOFWUserIsochChannel<%p>::init - packetSize = %d, doIRM = %d\n", this, packetSize, doIRM );
+	
 	return super::init( control, doIRM, packetSize, prefSpeed, &IOFWUserIsochChannel::isochChannel_ForceStopHandler, this ) ;
 }
 
@@ -112,7 +114,7 @@ IOFWUserIsochChannel::allocateTalkerPort()
 void
 IOFWUserIsochChannel::s_exporterCleanup ( IOFWUserIsochChannel * channel )
 {
-	DebugLog( "+IOFWUserIsochChannel::s_exporterCleanup channel=%p\n", channel) ;
+	DebugLog( "IOFWUserIsochChannel::s_exporterCleanup - channel = %p\n", channel) ;
 	
 	channel->fControl->removeAllocatedChannel( channel ) ;
 

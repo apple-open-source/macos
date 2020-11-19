@@ -93,14 +93,16 @@ do_addinternetpassword(const char *keychainName, const char *serverName,
 	/* @@@ For performance reasons we could choose to make the dictionaries
      CFRetain callback a no op and let the dictionary deal with the
      releasing. */
-    for (; ix-- > 0;)
+    for (; ix-- > 0;) {
         CFRelease(values[ix]);
+    }
     
 	result = SecItemAdd(attributes, NULL);
     
-    if (attributes)
+    if (attributes) {
         CFRelease(attributes);
-    
+    }
+
 	if (result)
 	{
 		sec_perror("SecItemAdd", result);

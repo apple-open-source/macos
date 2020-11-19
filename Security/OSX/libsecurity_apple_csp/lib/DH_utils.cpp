@@ -121,7 +121,7 @@ DH *rawCssmKeyToDh(
 		// someone else's key (should never happen)
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ALGORITHM);
 	}
-	assert(hdr->BlobType == CSSM_KEYBLOB_RAW); 
+	assert(hdr->BlobType == CSSM_KEYBLOB_RAW);
 	/* validate and figure out what we're dealing with */
 	switch(hdr->KeyClass) {
 		case CSSM_KEYCLASS_PUBLIC_KEY:

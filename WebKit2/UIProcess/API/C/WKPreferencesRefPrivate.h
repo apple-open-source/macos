@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -60,7 +60,7 @@ WK_EXPORT bool WKPreferencesGetSubpixelAntialiasedLayerTextEnabled(WKPreferences
 
 // Defaults to EditableLinkNeverLive.
 WK_EXPORT void WKPreferencesSetEditableLinkBehavior(WKPreferencesRef preferencesRef, WKEditableLinkBehavior);
-WK_EXPORT WKEditableLinkBehavior WKPreferencesGetEditableLinkBehavior(WKPreferencesRef preferencesRef);   
+WK_EXPORT WKEditableLinkBehavior WKPreferencesGetEditableLinkBehavior(WKPreferencesRef preferencesRef);
     
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetAcceleratedDrawingEnabled(WKPreferencesRef, bool);
@@ -153,6 +153,10 @@ WK_EXPORT bool WKPreferencesGetUniversalAccessFromFileURLsAllowed(WKPreferencesR
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetFileAccessFromFileURLsAllowed(WKPreferencesRef preferences, bool allowed);
 WK_EXPORT bool WKPreferencesGetFileAccessFromFileURLsAllowed(WKPreferencesRef preferences);
+
+// Defaults to false.
+WK_EXPORT void WKPreferencesSetTopNavigationToDataURLsAllowed(WKPreferencesRef preferences, bool allowed);
+WK_EXPORT bool WKPreferencesGetTopNavigationToDataURLsAllowed(WKPreferencesRef preferences);
 
 // Defaults to true
 WK_EXPORT void WKPreferencesSetNeedsStorageAccessFromFileURLsQuirk(WKPreferencesRef preferences, bool needsQuirk);
@@ -301,10 +305,6 @@ WK_EXPORT bool WKPreferencesGetHiddenPageDOMTimerThrottlingAutoIncreases(WKPrefe
 // Defaults to true on Mac, false on other platforms.
 WK_EXPORT void WKPreferencesSetHiddenPageCSSAnimationSuspensionEnabled(WKPreferencesRef preferences, bool enabled);
 WK_EXPORT bool WKPreferencesGetHiddenPageCSSAnimationSuspensionEnabled(WKPreferencesRef preferences);
-
-// Defaults to true.
-WK_EXPORT void WKPreferencesSetRenderingUpdateThrottlingEnabled(WKPreferencesRef preferences, bool enabled);
-WK_EXPORT bool WKPreferencesGetRenderingUpdateThrottlingEnabled(WKPreferencesRef preferences);
 
 // Defaults to false
 WK_EXPORT void WKPreferencesSetSnapshotAllPlugIns(WKPreferencesRef preferencesRef, bool enabled);
@@ -500,6 +500,10 @@ WK_EXPORT void WKPreferencesSetUserTimingEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetUserTimingEnabled(WKPreferencesRef);
 
 // Defaults to false
+WK_EXPORT void WKPreferencesSetPaintTimingEnabled(WKPreferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetPaintTimingEnabled(WKPreferencesRef);
+
+// Defaults to false
 WK_EXPORT void WKPreferencesSetResourceTimingEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetResourceTimingEnabled(WKPreferencesRef);
 
@@ -510,6 +514,10 @@ WK_EXPORT bool WKPreferencesGetFetchAPIKeepAliveEnabled(WKPreferencesRef);
 // Defaults to false
 WK_EXPORT void WKPreferencesSetIsNSURLSessionWebSocketEnabled(WKPreferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetIsNSURLSessionWebSocketEnabled(WKPreferencesRef);
+
+// Defaults to false
+WK_EXPORT void WKPreferencesSetIsAccessibilityIsolatedTreeEnabled(WKPreferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetIsAccessibilityIsolatedTreeEnabled(WKPreferencesRef);
 
 // Defaults to true.
 WK_EXPORT void WKPreferencesSetLargeImageAsyncDecodingEnabled(WKPreferencesRef preferencesRef, bool flag);

@@ -29,6 +29,7 @@
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
 
 #include "Logging.h"
+#include "NetworkProcess.h"
 #include "NetworkSession.h"
 #include "PluginProcessManager.h"
 #include "PluginProcessProxy.h"
@@ -51,11 +52,7 @@ namespace WebKit {
 using namespace WebCore;
 
 constexpr Seconds minimumStatisticsProcessingInterval { 5_s };
-constexpr unsigned operatingDatesWindowLong { 30 };
-constexpr unsigned operatingDatesWindowShort { 7 };
-constexpr Seconds operatingTimeWindowForLiveOnTesting { 1_h };
 
-#if !RELEASE_LOG_DISABLED
 static String domainsToString(const Vector<RegistrableDomain>& domains)
 {
     StringBuilder builder;
@@ -67,30 +64,29 @@ static String domainsToString(const Vector<RegistrableDomain>& domains)
     return builder.toString();
 }
 
-static String domainsToString(const Vector<std::pair<RegistrableDomain, WebsiteDataToRemove>>& domainsToRemoveWebsiteDataFor)
+static String domainsToString(const RegistrableDomainsToDeleteOrRestrictWebsiteDataFor& domainsToRemoveOrRestrictWebsiteDataFor)
 {
     StringBuilder builder;
-    for (auto& pair : domainsToRemoveWebsiteDataFor) {
-        auto& domain = pair.first;
-        auto& dataToRemove = pair.second;
+    for (auto& domain : domainsToRemoveOrRestrictWebsiteDataFor.domainsToDeleteAllCookiesFor) {
         if (!builder.isEmpty())
             builder.appendLiteral(", ");
         builder.append(domain.string());
-        switch (dataToRemove) {
-        case WebsiteDataToRemove::All:
-            builder.appendLiteral("(all data)");
-            break;
-        case WebsiteDataToRemove::AllButHttpOnlyCookies:
-            builder.appendLiteral("(all but HttpOnly cookies)");
-            break;
-        case WebsiteDataToRemove::AllButCookies:
-            builder.appendLiteral("(all but cookies)");
-            break;
-        }
+        builder.appendLiteral("(all data)");
+    }
+    for (auto& domain : domainsToRemoveOrRestrictWebsiteDataFor.domainsToDeleteAllButHttpOnlyCookiesFor) {
+        if (!builder.isEmpty())
+            builder.appendLiteral(", ");
+        builder.append(domain.string());
+        builder.appendLiteral("(all but HttpOnly cookies)");
+    }
+    for (auto& domain : domainsToRemoveOrRestrictWebsiteDataFor.domainsToDeleteAllNonCookieWebsiteDataFor) {
+        if (!builder.isEmpty())
+            builder.appendLiteral(", ");
+        builder.append(domain.string());
+        builder.appendLiteral("(all but cookies)");
     }
     return builder.toString();
 }
-#endif
 
 OperatingDate OperatingDate::fromWallTime(WallTime time)
 {
@@ -134,8 +130,6 @@ ResourceLoadStatisticsStore::ResourceLoadStatisticsStore(WebResourceLoadStatisti
     , m_shouldIncludeLocalhost(shouldIncludeLocalhost)
 {
     ASSERT(!RunLoop::isMain());
-
-    includeTodayAsOperatingDateIfNecessary();
 }
 
 ResourceLoadStatisticsStore::~ResourceLoadStatisticsStore()
@@ -199,33 +193,40 @@ void ResourceLoadStatisticsStore::removeDataRecords(CompletionHandler<void()>&& 
         m_activePluginTokens.add(plugin->pluginProcessToken());
 #endif
 
-    auto domainsToRemoveWebsiteDataFor = registrableDomainsToRemoveWebsiteDataFor();
-    if (domainsToRemoveWebsiteDataFor.isEmpty()) {
+    auto domainsToDeleteOrRestrictWebsiteDataFor = registrableDomainsToDeleteOrRestrictWebsiteDataFor();
+    if (domainsToDeleteOrRestrictWebsiteDataFor.isEmpty()) {
         completionHandler();
         return;
     }
 
-    RELEASE_LOG_INFO_IF(m_debugLoggingEnabled, ITPDebug, "About to remove data records for %{public}s.", domainsToString(domainsToRemoveWebsiteDataFor).utf8().data());
+    if (UNLIKELY(m_debugLoggingEnabled)) {
+        RELEASE_LOG_INFO(ITPDebug, "About to remove data records for %" PUBLIC_LOG_STRING ".", domainsToString(domainsToDeleteOrRestrictWebsiteDataFor).utf8().data());
+        debugBroadcastConsoleMessage(MessageSource::ITPDebug, MessageLevel::Info, makeString("[ITP] About to remove data records for: ["_s, domainsToString(domainsToDeleteOrRestrictWebsiteDataFor), "]."_s));
+    }
 
     setDataRecordsBeingRemoved(true);
 
-    RunLoop::main().dispatch([store = makeRef(m_store), domainsToRemoveWebsiteDataFor = crossThreadCopy(domainsToRemoveWebsiteDataFor), completionHandler = WTFMove(completionHandler), weakThis = makeWeakPtr(*this), shouldNotifyPagesWhenDataRecordsWereScanned = m_parameters.shouldNotifyPagesWhenDataRecordsWereScanned, workQueue = m_workQueue.copyRef()] () mutable {
-        store->deleteWebsiteDataForRegistrableDomains(WebResourceLoadStatisticsStore::monitoredDataTypes(), WTFMove(domainsToRemoveWebsiteDataFor), shouldNotifyPagesWhenDataRecordsWereScanned, [completionHandler = WTFMove(completionHandler), weakThis = WTFMove(weakThis), workQueue = workQueue.copyRef()](const HashSet<RegistrableDomain>& domainsWithDeletedWebsiteData) mutable {
+    RunLoop::main().dispatch([store = makeRef(m_store), domainsToDeleteOrRestrictWebsiteDataFor = crossThreadCopy(domainsToDeleteOrRestrictWebsiteDataFor), completionHandler = WTFMove(completionHandler), weakThis = makeWeakPtr(*this), shouldNotifyPagesWhenDataRecordsWereScanned = m_parameters.shouldNotifyPagesWhenDataRecordsWereScanned, workQueue = m_workQueue] () mutable {
+        store->deleteAndRestrictWebsiteDataForRegistrableDomains(WebResourceLoadStatisticsStore::monitoredDataTypes(), WTFMove(domainsToDeleteOrRestrictWebsiteDataFor), shouldNotifyPagesWhenDataRecordsWereScanned, [completionHandler = WTFMove(completionHandler), weakThis = WTFMove(weakThis), workQueue](const HashSet<RegistrableDomain>& domainsWithDeletedWebsiteData) mutable {
             workQueue->dispatch([domainsWithDeletedWebsiteData = crossThreadCopy(domainsWithDeletedWebsiteData), completionHandler = WTFMove(completionHandler), weakThis = WTFMove(weakThis)] () mutable {
                 if (!weakThis) {
                     completionHandler();
                     return;
                 }
+
                 weakThis->incrementRecordsDeletedCountForDomains(WTFMove(domainsWithDeletedWebsiteData));
                 weakThis->setDataRecordsBeingRemoved(false);
-                
+
                 auto dataRecordRemovalCompletionHandlers = WTFMove(weakThis->m_dataRecordRemovalCompletionHandlers);
                 completionHandler();
-                
+
                 for (auto& dataRecordRemovalCompletionHandler : dataRecordRemovalCompletionHandlers)
                     dataRecordRemovalCompletionHandler();
 
-                RELEASE_LOG_INFO_IF(weakThis->m_debugLoggingEnabled, ITPDebug, "Done removing data records.");
+                if (UNLIKELY(weakThis->m_debugLoggingEnabled)) {
+                    RELEASE_LOG_INFO(ITPDebug, "Done removing data records.");
+                    weakThis->debugBroadcastConsoleMessage(MessageSource::ITPDebug, MessageLevel::Info, "[ITP] Done removing data records"_s);
+                }
             });
         });
     });
@@ -234,6 +235,9 @@ void ResourceLoadStatisticsStore::removeDataRecords(CompletionHandler<void()>&& 
 void ResourceLoadStatisticsStore::processStatisticsAndDataRecords()
 {
     ASSERT(!RunLoop::isMain());
+
+    if (parameters().isRunningTest && !m_parameters.shouldNotifyPagesWhenDataRecordsWereScanned)
+        return;
 
     if (m_parameters.shouldClassifyResourcesBeforeDataRecordsRemoval)
         classifyPrevalentResources();
@@ -261,8 +265,8 @@ void ResourceLoadStatisticsStore::grandfatherExistingWebsiteData(CompletionHandl
 {
     ASSERT(!RunLoop::isMain());
 
-    RunLoop::main().dispatch([weakThis = makeWeakPtr(*this), callback = WTFMove(callback), shouldNotifyPagesWhenDataRecordsWereScanned = m_parameters.shouldNotifyPagesWhenDataRecordsWereScanned, workQueue = m_workQueue.copyRef(), store = makeRef(m_store)] () mutable {
-        store->registrableDomainsWithWebsiteData(WebResourceLoadStatisticsStore::monitoredDataTypes(), shouldNotifyPagesWhenDataRecordsWereScanned, [weakThis = WTFMove(weakThis), callback = WTFMove(callback), workQueue = workQueue.copyRef()] (HashSet<RegistrableDomain>&& domainsWithWebsiteData) mutable {
+    RunLoop::main().dispatch([weakThis = makeWeakPtr(*this), callback = WTFMove(callback), shouldNotifyPagesWhenDataRecordsWereScanned = m_parameters.shouldNotifyPagesWhenDataRecordsWereScanned, workQueue = m_workQueue, store = makeRef(m_store)] () mutable {
+        store->registrableDomainsWithWebsiteData(WebResourceLoadStatisticsStore::monitoredDataTypes(), shouldNotifyPagesWhenDataRecordsWereScanned, [weakThis = WTFMove(weakThis), callback = WTFMove(callback), workQueue] (HashSet<RegistrableDomain>&& domainsWithWebsiteData) mutable {
             workQueue->dispatch([weakThis = WTFMove(weakThis), domainsWithWebsiteData = crossThreadCopy(domainsWithWebsiteData), callback = WTFMove(callback)] () mutable {
                 if (!weakThis) {
                     callback();
@@ -283,11 +287,19 @@ void ResourceLoadStatisticsStore::setResourceLoadStatisticsDebugMode(bool enable
 {
     ASSERT(!RunLoop::isMain());
 
-    if (enable)
-        RELEASE_LOG_INFO(ITPDebug, "Turned ITP Debug Mode on.");
+    if (m_debugModeEnabled == enable)
+        return;
 
     m_debugModeEnabled = enable;
     m_debugLoggingEnabled = enable;
+
+    if (m_debugLoggingEnabled) {
+        RELEASE_LOG_INFO(ITPDebug, "Turned ITP Debug Mode on.");
+        debugBroadcastConsoleMessage(MessageSource::ITPDebug, MessageLevel::Info, "[ITP] Turned Debug Mode on."_s);
+    } else {
+        RELEASE_LOG_INFO(ITPDebug, "Turned ITP Debug Mode off.");
+        debugBroadcastConsoleMessage(MessageSource::ITPDebug, MessageLevel::Info, "[ITP] Turned Debug Mode off."_s);
+    }
 
     ensurePrevalentResourcesForDebugMode();
     // This will log the current cookie blocking state.
@@ -298,6 +310,11 @@ void ResourceLoadStatisticsStore::setResourceLoadStatisticsDebugMode(bool enable
 void ResourceLoadStatisticsStore::setPrevalentResourceForDebugMode(const RegistrableDomain& domain)
 {
     m_debugManualPrevalentResource = domain;
+}
+
+void ResourceLoadStatisticsStore::setAppBoundDomains(HashSet<RegistrableDomain>&& domains)
+{
+    m_appBoundDomains = WTFMove(domains);
 }
 
 void ResourceLoadStatisticsStore::scheduleStatisticsProcessingRequestIfNecessary()
@@ -422,119 +439,19 @@ void ResourceLoadStatisticsStore::updateCookieBlockingForDomains(const Registrab
     ASSERT(!RunLoop::isMain());
     
     RunLoop::main().dispatch([store = makeRef(m_store), domainsToBlock = crossThreadCopy(domainsToBlock), completionHandler = WTFMove(completionHandler)] () mutable {
-        store->callUpdatePrevalentDomainsToBlockCookiesForHandler(domainsToBlock, [store = store.copyRef(), completionHandler = WTFMove(completionHandler)]() mutable {
+        store->callUpdatePrevalentDomainsToBlockCookiesForHandler(domainsToBlock, [store, completionHandler = WTFMove(completionHandler)]() mutable {
             store->statisticsQueue().dispatch([completionHandler = WTFMove(completionHandler)]() mutable {
                 completionHandler();
             });
         });
     });
 }
-    
 
-void ResourceLoadStatisticsStore::clearBlockingStateForDomains(const Vector<RegistrableDomain>& domains, CompletionHandler<void()>&& completionHandler)
+bool ResourceLoadStatisticsStore::shouldEnforceSameSiteStrictForSpecificDomain(const RegistrableDomain& domain) const
 {
-    ASSERT(!RunLoop::isMain());
-
-    if (domains.isEmpty()) {
-        completionHandler();
-        return;
-    }
-
-    RunLoop::main().dispatch([store = makeRef(m_store), domains = crossThreadCopy(domains)] {
-        store->callRemoveDomainsHandler(domains);
-    });
-
-    completionHandler();
-}
-
-Optional<Seconds> ResourceLoadStatisticsStore::statisticsEpirationTime() const
-{
-    ASSERT(!RunLoop::isMain());
-
-    if (m_parameters.timeToLiveUserInteraction)
-        return WallTime::now().secondsSinceEpoch() - m_parameters.timeToLiveUserInteraction.value();
-    
-    if (m_operatingDates.size() >= operatingDatesWindowLong)
-        return m_operatingDates.first().secondsSinceEpoch();
-    
-    return WTF::nullopt;
-}
-
-Vector<OperatingDate> ResourceLoadStatisticsStore::mergeOperatingDates(const Vector<OperatingDate>& existingDates, Vector<OperatingDate>&& newDates)
-{
-    if (existingDates.isEmpty())
-        return WTFMove(newDates);
-    
-    Vector<OperatingDate> mergedDates(existingDates.size() + newDates.size());
-    
-    // Merge the two sorted vectors of dates.
-    std::merge(existingDates.begin(), existingDates.end(), newDates.begin(), newDates.end(), mergedDates.begin());
-    // Remove duplicate dates.
-    removeRepeatedElements(mergedDates);
-    
-    // Drop old dates until the Vector size reaches operatingDatesWindowLong.
-    while (mergedDates.size() > operatingDatesWindowLong)
-        mergedDates.remove(0);
-    
-    return mergedDates;
-}
-
-void ResourceLoadStatisticsStore::mergeOperatingDates(Vector<OperatingDate>&& newDates)
-{
-    ASSERT(!RunLoop::isMain());
-
-    m_operatingDates = mergeOperatingDates(m_operatingDates, WTFMove(newDates));
-}
-
-void ResourceLoadStatisticsStore::includeTodayAsOperatingDateIfNecessary()
-{
-    ASSERT(!RunLoop::isMain());
-
-    auto today = OperatingDate::today();
-    if (!m_operatingDates.isEmpty() && today <= m_operatingDates.last())
-        return;
-
-    while (m_operatingDates.size() >= operatingDatesWindowLong)
-        m_operatingDates.remove(0);
-
-    m_operatingDates.append(today);
-}
-
-bool ResourceLoadStatisticsStore::hasStatisticsExpired(WallTime mostRecentUserInteractionTime, OperatingDatesWindow operatingDatesWindow) const
-{
-    ASSERT(!RunLoop::isMain());
-
-    unsigned operatingDatesWindowInDays = 0;
-    switch (operatingDatesWindow) {
-    case OperatingDatesWindow::Long:
-        operatingDatesWindowInDays = operatingDatesWindowLong;
-        break;
-    case OperatingDatesWindow::Short:
-        operatingDatesWindowInDays = operatingDatesWindowShort;
-        break;
-    case OperatingDatesWindow::ForLiveOnTesting:
-        return WallTime::now() > mostRecentUserInteractionTime + operatingTimeWindowForLiveOnTesting;
-    case OperatingDatesWindow::ForReproTesting:
-        return true;
-    }
-
-    if (m_operatingDates.size() >= operatingDatesWindowInDays) {
-        if (OperatingDate::fromWallTime(mostRecentUserInteractionTime) < m_operatingDates.first())
-            return true;
-    }
-    
-    // If we don't meet the real criteria for an expired statistic, check the user setting for a tighter restriction (mainly for testing).
-    if (m_parameters.timeToLiveUserInteraction) {
-        if (WallTime::now() > mostRecentUserInteractionTime + m_parameters.timeToLiveUserInteraction.value())
-            return true;
-    }
-    
+    // We currently know of no domains that need this protection.
+    UNUSED_PARAM(domain);
     return false;
-}
-
-bool ResourceLoadStatisticsStore::hasStatisticsExpired(const ResourceLoadStatistics& resourceStatistic, OperatingDatesWindow operatingDatesWindow) const
-{
-    return hasStatisticsExpired(resourceStatistic.mostRecentUserInteractionTime, operatingDatesWindow);
 }
 
 void ResourceLoadStatisticsStore::setMaxStatisticsEntries(size_t maximumEntryCount)
@@ -556,6 +473,7 @@ void ResourceLoadStatisticsStore::resetParametersToDefaultValues()
     ASSERT(!RunLoop::isMain());
 
     m_parameters = { };
+    m_appBoundDomains.clear();
 }
 
 void ResourceLoadStatisticsStore::logTestingEvent(const String& event)
@@ -571,7 +489,7 @@ void ResourceLoadStatisticsStore::removeAllStorageAccess(CompletionHandler<void(
 {
     ASSERT(!RunLoop::isMain());
     RunLoop::main().dispatch([store = makeRef(m_store), completionHandler = WTFMove(completionHandler)]() mutable {
-        store->removeAllStorageAccess([store = store.copyRef(), completionHandler = WTFMove(completionHandler)]() mutable {
+        store->removeAllStorageAccess([store, completionHandler = WTFMove(completionHandler)]() mutable {
             store->statisticsQueue().dispatch([completionHandler = WTFMove(completionHandler)]() mutable {
                 completionHandler();
             });
@@ -588,62 +506,61 @@ void ResourceLoadStatisticsStore::didCreateNetworkProcess()
     updateClientSideCookiesAgeCap();
 }
 
+void ResourceLoadStatisticsStore::debugBroadcastConsoleMessage(MessageSource source, MessageLevel level, const String& message)
+{
+    if (!RunLoop::isMain()) {
+        RunLoop::main().dispatch([&, weakThis = makeWeakPtr(*this), source = crossThreadCopy(source), level = crossThreadCopy(level), message = crossThreadCopy(message)]() {
+            if (!weakThis)
+                return;
+
+            debugBroadcastConsoleMessage(source, level, message);
+        });
+        return;
+    }
+
+    if (auto* networkSession = m_store.networkSession())
+        networkSession->networkProcess().broadcastConsoleMessage(networkSession->sessionID(), source, level, message);
+}
+
 void ResourceLoadStatisticsStore::debugLogDomainsInBatches(const char* action, const RegistrableDomainsToBlockCookiesFor& domainsToBlock)
 {
+    ASSERT(debugLoggingEnabled());
+
     Vector<RegistrableDomain> domains;
     domains.appendVector(domainsToBlock.domainsToBlockAndDeleteCookiesFor);
     domains.appendVector(domainsToBlock.domainsToBlockButKeepCookiesFor);
-    static const auto maxNumberOfDomainsInOneLogStatement = 50;
     if (domains.isEmpty())
         return;
-    
+
+    debugBroadcastConsoleMessage(MessageSource::ITPDebug, MessageLevel::Info, makeString("[ITP] "_s, action, " to: ["_s, domainsToString(domains), "]."_s));
+
+    static const auto maxNumberOfDomainsInOneLogStatement = 50;
+
     if (domains.size() <= maxNumberOfDomainsInOneLogStatement) {
-        RELEASE_LOG_INFO(ITPDebug, "About to %{public}s cookies in third-party contexts for: %{public}s.", action, domainsToString(domains).utf8().data());
+        RELEASE_LOG_INFO(ITPDebug, "%" PUBLIC_LOG_STRING " to: %" PUBLIC_LOG_STRING ".", action, domainsToString(domains).utf8().data());
         return;
     }
-    
+
     Vector<RegistrableDomain> batch;
     batch.reserveInitialCapacity(maxNumberOfDomainsInOneLogStatement);
     auto batchNumber = 1;
     unsigned numberOfBatches = std::ceil(domains.size() / static_cast<float>(maxNumberOfDomainsInOneLogStatement));
-    
+
     for (auto& domain : domains) {
         if (batch.size() == maxNumberOfDomainsInOneLogStatement) {
-            RELEASE_LOG_INFO(ITPDebug, "About to %{public}s cookies in third-party contexts for (%{public}d of %u): %{public}s.", action, batchNumber, numberOfBatches, domainsToString(batch).utf8().data());
+            RELEASE_LOG_INFO(ITPDebug, "%" PUBLIC_LOG_STRING " to (%{public}d of %u): %" PUBLIC_LOG_STRING ".", action, batchNumber, numberOfBatches, domainsToString(batch).utf8().data());
             batch.shrink(0);
             ++batchNumber;
         }
         batch.append(domain);
     }
     if (!batch.isEmpty())
-        RELEASE_LOG_INFO(ITPDebug, "About to %{public}s cookies in third-party contexts for (%{public}d of %u): %{public}s.", action, batchNumber, numberOfBatches, domainsToString(batch).utf8().data());
+        RELEASE_LOG_INFO(ITPDebug, "%" PUBLIC_LOG_STRING " to (%{public}d of %u): %" PUBLIC_LOG_STRING ".", action, batchNumber, numberOfBatches, domainsToString(batch).utf8().data());
 }
 
-void ResourceLoadStatisticsStore::insertExpiredStatisticForTesting(const RegistrableDomain& domain, bool hasUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent)
+bool ResourceLoadStatisticsStore::shouldExemptFromWebsiteDataDeletion(const RegistrableDomain& domain) const
 {
-    // Populate the Operating Dates table with enough days to require pruning.
-    double daysAgoInSeconds = 0;
-    for (unsigned i = 1; i <= operatingDatesWindowLong; i++) {
-        double daysToSubtract = Seconds::fromHours(24 * i).value();
-        daysAgoInSeconds = WallTime::now().secondsSinceEpoch().value() - daysToSubtract;
-        auto dateToInsert = OperatingDate::fromWallTime(WallTime::fromRawSeconds(daysAgoInSeconds));
-        m_operatingDates.append(OperatingDate(dateToInsert.year(), dateToInsert.month(), dateToInsert.monthDay()));
-    }
-
-    // Make sure mostRecentUserInteractionTime is the least recent of all entries.
-    daysAgoInSeconds -= Seconds::fromHours(24).value();
-
-    auto statistic = ResourceLoadStatistics(domain);
-    statistic.lastSeen = WallTime::fromRawSeconds(daysAgoInSeconds);
-    statistic.hadUserInteraction = hasUserInteraction;
-    statistic.mostRecentUserInteractionTime = WallTime::fromRawSeconds(daysAgoInSeconds);
-    statistic.isPrevalentResource = isPrevalent;
-    statistic.gotLinkDecorationFromPrevalentResource = isScheduledForAllButCookieDataRemoval;
-
-    Vector<ResourceLoadStatistics> statistics;
-    statistics.append(WTFMove(statistic));
-
-    mergeStatistics(WTFMove(statistics));
+    return !domain.isEmpty() && (domain == m_standaloneApplicationDomain || m_appBoundDomains.contains(domain));
 }
 
 } // namespace WebKit

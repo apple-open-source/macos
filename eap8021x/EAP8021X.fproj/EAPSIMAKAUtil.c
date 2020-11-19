@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -607,22 +607,38 @@ EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string)
 }
 
 PRIVATE_EXTERN EAPSIMAKAEncryptedIdentityInfoRef
-EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, bool static_config)
+EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boolean static_config, Boolean *is_privacy_protection_enabled)
 {
     EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info = NULL;
     CFDataRef				encrypted_identity = NULL;
     CFStringRef				anonymous_username = NULL;
     CFStringRef				anonymous_identity = NULL;
+    CFStringRef				oob_pseudonym = NULL;
+    Boolean 				isOOBPseudonymSupported = FALSE;
     CFBooleanRef 			b;
 
+    *is_privacy_protection_enabled = TRUE;
     b = isA_CFBoolean(CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAEncryptedIdentityEnabled));
     if (b == NULL || CFBooleanGetValue(b) == false) {
-	EAPLOG_FL(LOG_DEBUG, "The carrier does not support encrypted identity");
+	*is_privacy_protection_enabled = FALSE;
+	EAPLOG_FL(LOG_INFO, "The carrier does not support privacy protection");
 	return NULL;
     }
+    EAPLOG_FL(LOG_INFO, "The carrier supports privacy protection");
     if (static_config) {
 	CFStringRef realm = isA_CFString(CFDictionaryGetValue(properties,
 							      kEAPClientPropEAPSIMAKARealm));
+	oob_pseudonym = isA_CFString(CFDictionaryGetValue(properties, kEAPClientPropEAPSIMAKAOutOfBandPseudonym));
+	if (oob_pseudonym != NULL) {
+	    if (realm) {
+		oob_pseudonym =
+		    CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"), oob_pseudonym, realm);
+	    } else {
+		CFRetain(oob_pseudonym);
+	    }
+	    isOOBPseudonymSupported = TRUE;
+	    goto done;
+	}
 	encrypted_identity = isA_CFData(CFDictionaryGetValue(properties,
 							     kEAPClientPropEAPSIMAKAEncryptedUsername));
 	if (encrypted_identity == NULL) {
@@ -646,8 +662,32 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, boo
 	goto done;
     }
 #if TARGET_OS_IPHONE
+    CFStringRef realm = SIMCopyRealm(NULL);
+    /* check if encrypted identity or oob pseudonym supported */
+    if (!SIMIsOOBPseudonymSupported(&isOOBPseudonymSupported)) {
+	/* something went wrong */
+	EAPLOG_FL(LOG_INFO, "check for OOB pseudonym support failed");
+	return NULL;
+    }
+    if (isOOBPseudonymSupported) {
+	EAPLOG_FL(LOG_INFO, "The carrier supports OOB pseudonym");
+	oob_pseudonym = SIMCopyOOBPseudonym();
+	if (oob_pseudonym == NULL) {
+	    EAPLOG_FL(LOG_INFO, "failed to get OOB pseudonym");
+	    return NULL;
+	}
+	if (realm) {
+	    CFStringRef temp_oob_pseudonym =
+		CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"), oob_pseudonym, realm);
+	    my_CFRelease(&oob_pseudonym);
+	    my_CFRelease(&realm);
+	    oob_pseudonym = temp_oob_pseudonym;
+	}
+	goto done;
+    }
     CFDictionaryRef info = SIMCopyEncryptedIMSIInfo(type);
     if (info == NULL) {
+	EAPLOG_FL(LOG_INFO, "failed to get encrypted idenity");
 	return NULL;
     }
     /* encrypted_identity = "\0|<base64<encryption<IMSI>>>|<nai realm>" */
@@ -663,7 +703,6 @@ EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, boo
     } else {
 	CFRetain(anonymous_username);
     }
-    CFStringRef realm = SIMCopyRealm(NULL);
     if (realm != NULL) {
 	anonymous_identity = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@" "@" "%@"),
 						      anonymous_username,
@@ -681,11 +720,16 @@ done:
     if (encrypted_identity_info == NULL) {
 	my_CFRelease(&encrypted_identity);
 	my_CFRelease(&anonymous_identity);
+	my_CFRelease(&oob_pseudonym);
 	return NULL;
     }
     bzero(encrypted_identity_info, sizeof(*encrypted_identity_info));
-    encrypted_identity_info->encrypted_identity = encrypted_identity;
-    encrypted_identity_info->anonymous_identity = anonymous_identity;
+    if (isOOBPseudonymSupported) {
+	encrypted_identity_info->oob_pseudonym = oob_pseudonym;
+    } else {
+	encrypted_identity_info->encrypted_identity = encrypted_identity;
+	encrypted_identity_info->anonymous_identity = anonymous_identity;
+    }
     return encrypted_identity_info;
 }
 
@@ -695,6 +739,7 @@ EAPSIMAKAClearEncryptedIdentityInfo(EAPSIMAKAEncryptedIdentityInfoRef info)
     if (info != NULL) {
 	my_CFRelease(&info->anonymous_identity);
 	my_CFRelease(&info->encrypted_identity);
+	my_CFRelease(&info->oob_pseudonym);
 	free(info);
     }
 }

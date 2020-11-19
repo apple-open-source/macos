@@ -106,9 +106,8 @@ bc_get_volume_info(dev_t volume_dev,
 	
 	OSDictionary *target, *filter;
 	OSNumber *number;
-	IOService *volume;
-	IORegistryEntry *container, *media, *scheme;
-	OSNumber *dev_major, *dev_minor;
+	IOService *serviceMatchingDev;
+	IORegistryEntry *volume, *container, *media, *scheme;
 	OSString* uuid_str;
 	
 	if ((target = IOService::serviceMatching(kIOMediaClass)) != NULL) {
@@ -121,77 +120,101 @@ bc_get_volume_info(dev_t volume_dev,
 		number->release();
 		target->setObject(gIOPropertyMatchKey, filter);
 		filter->release();
-		if ((volume = IOService::copyMatchingService(target)) != NULL) {
-			volume->waitQuiet();
+		if ((serviceMatchingDev = IOService::copyMatchingService(target)) != NULL) {
+			serviceMatchingDev->waitQuiet();
 			
-			if (volume->metaCast(APFS_VOLUME_OBJECT) != NULL) {
-				if (fs_flags_out) {
-					*fs_flags_out |= BC_FS_APFS;
-					
-					OSBoolean *boolean = OSDynamicCast(OSBoolean, volume->getProperty(kAPFSEncryptedKey));
-					if (boolean == kOSBooleanTrue) {
-						*fs_flags_out |= BC_FS_APFS_ENCRYPTED;
-					}
-					
-					boolean = OSDynamicCast(OSBoolean, volume->getProperty(kAPFSEncryptionRolling));
-					if (boolean == kOSBooleanTrue) {
-						*fs_flags_out |= BC_FS_APFS_ENCRYPTION_ROLLING;
-					}
-				}
-				
-				if ((container = volume->getParentEntry(gIOServicePlane)) != NULL && container->metaCast(APFS_CONTAINER_OBJECT) != NULL) {
-					if ((media = container->getParentEntry(gIOServicePlane)) != NULL && media->metaCast(APFS_MEDIA_OBJECT) != NULL) {
-						if ((scheme = media->getParentEntry(gIOServicePlane)) != NULL && scheme->metaCast(APFS_SCHEME_OBJECT) != NULL) {
-							
-							if (apfs_container_uuid_out) {
-								if ((uuid_str = OSDynamicCast(OSString, container->getProperty(kIOMediaUUIDKey))) != NULL) {
-									uuid_parse(uuid_str->getCStringNoCopy(), apfs_container_uuid_out);
-								}
-							}
-							
-							if (apfs_container_dev_out) {
-								if ((dev_major = OSDynamicCast(OSNumber, media->getProperty(kIOBSDMajorKey))) != NULL &&
-									(dev_minor = OSDynamicCast(OSNumber, media->getProperty(kIOBSDMinorKey))) != NULL) {
-									*apfs_container_dev_out = makedev(dev_major->unsigned32BitValue(), dev_minor->unsigned32BitValue());
-								}
-							}
-							
-							if (apfs_container_has_encrypted_volumes_out || apfs_container_has_rolling_volumes_out) {
-								apfs_container_has_encrypted_or_rolling_volumes(container, apfs_container_has_encrypted_volumes_out, apfs_container_has_rolling_volumes_out);
-							}
-							
-							if (fs_flags_out) {
-								OSBoolean *boolean = OSDynamicCast(OSBoolean, scheme->getProperty(kAPFSContainerIsCompositedKey));
-								if (boolean == kOSBooleanTrue) {
-									*fs_flags_out |= BC_FS_APFS_FUSION;
-								}
-							}
-							
-							
-						} else {
-							message("No scheme for APFS media");
-						}
-					} else {
-						message("No media for APFS container");
-					}
+			bool isApfsSnapshot = false;
+			if (serviceMatchingDev->metaCast(APFS_SNAPSHOT_OBJECT) != NULL) {
+				debug("Found APFS snapshot for device %#x", volume_dev);
+				isApfsSnapshot = true;
+
+				if ((volume = serviceMatchingDev->getParentEntry(gIOServicePlane)) != NULL && volume->metaCast(APFS_VOLUME_OBJECT) != NULL) {
+					// Good case
 				} else {
-					message("No container for APFS volume");
-				}
-				
-				
-			} else if (volume->metaCast(kCoreStorageLogicalClassName) != NULL) {
-				if (fs_flags_out) {
-					*fs_flags_out |= BC_FS_CS;
-					
-					OSBoolean *boolean = OSDynamicCast(OSBoolean, volume->getProperty(kCoreStorageIsCompositedKey));
-					if (boolean == kOSBooleanTrue) {
-						*fs_flags_out |= BC_FS_CS_FUSION;
-					}
+					message("No volume for APFS snapshot for device %#x: found %s", volume_dev, volume ? volume->getName(gIOServicePlane) : "null volume");
+					volume = NULL;
 				}
 			} else {
-				// Non-apfs and non-CoreStorage
+				// If not an apfs snapshot, assume it's a volume
+				volume = serviceMatchingDev;
 			}
-			volume->release();
+
+			if (volume) {
+				if (volume->metaCast(APFS_VOLUME_OBJECT) != NULL) {
+					if (fs_flags_out) {
+						*fs_flags_out |= BC_FS_APFS;
+						if (isApfsSnapshot) {
+							*fs_flags_out |= BC_FS_APFS_SNAPSHOT;
+						} else {
+							*fs_flags_out |= BC_FS_APFS_VOLUME;
+						}
+						
+						OSBoolean *boolean = OSDynamicCast(OSBoolean, volume->getProperty(kAPFSEncryptedKey));
+						if (boolean == kOSBooleanTrue) {
+							*fs_flags_out |= BC_FS_APFS_ENCRYPTED;
+						}
+						
+						boolean = OSDynamicCast(OSBoolean, volume->getProperty(kAPFSEncryptionRolling));
+						if (boolean == kOSBooleanTrue) {
+							*fs_flags_out |= BC_FS_APFS_ENCRYPTION_ROLLING;
+						}
+					}
+					
+					if ((container = volume->getParentEntry(gIOServicePlane)) != NULL && container->metaCast(APFS_CONTAINER_OBJECT) != NULL) {
+						if ((media = container->getParentEntry(gIOServicePlane)) != NULL && media->metaCast(APFS_MEDIA_OBJECT) != NULL) {
+							if ((scheme = media->getParentEntry(gIOServicePlane)) != NULL && scheme->metaCast(APFS_SCHEME_OBJECT) != NULL) {
+								
+								if (apfs_container_uuid_out) {
+									if ((uuid_str = OSDynamicCast(OSString, container->getProperty(kIOMediaUUIDKey))) != NULL) {
+										uuid_parse(uuid_str->getCStringNoCopy(), apfs_container_uuid_out);
+									}
+								}
+								
+								if (apfs_container_dev_out) {
+									OSNumber *dev_major, *dev_minor;
+									if ((dev_major = OSDynamicCast(OSNumber, media->getProperty(kIOBSDMajorKey))) != NULL &&
+										(dev_minor = OSDynamicCast(OSNumber, media->getProperty(kIOBSDMinorKey))) != NULL) {
+										*apfs_container_dev_out = makedev(dev_major->unsigned32BitValue(), dev_minor->unsigned32BitValue());
+									}
+								}
+								
+								if (apfs_container_has_encrypted_volumes_out || apfs_container_has_rolling_volumes_out) {
+									apfs_container_has_encrypted_or_rolling_volumes(container, apfs_container_has_encrypted_volumes_out, apfs_container_has_rolling_volumes_out);
+								}
+								
+								if (fs_flags_out) {
+									OSBoolean *boolean = OSDynamicCast(OSBoolean, scheme->getProperty(kAPFSContainerIsCompositedKey));
+									if (boolean == kOSBooleanTrue) {
+										*fs_flags_out |= BC_FS_APFS_FUSION;
+									}
+								}
+								
+								
+							} else {
+								message("No scheme for APFS media for device %#x", volume_dev);
+							}
+						} else {
+							message("No media for APFS container for device %#x", volume_dev);
+						}
+					} else {
+						message("No container for APFS volume for device %#x", volume_dev);
+					}
+					
+					
+				} else if (volume->metaCast(kCoreStorageLogicalClassName) != NULL) {
+					if (fs_flags_out) {
+						*fs_flags_out |= BC_FS_CS;
+						
+						OSBoolean *boolean = OSDynamicCast(OSBoolean, volume->getProperty(kCoreStorageIsCompositedKey));
+						if (boolean == kOSBooleanTrue) {
+							*fs_flags_out |= BC_FS_CS_FUSION;
+						}
+					}
+				} else {
+					// Non-apfs and non-CoreStorage
+				}
+			}
+			serviceMatchingDev->release();
 		}
 		target->release();
 	}
@@ -254,12 +277,31 @@ bc_get_group_uuid_for_dev(dev_t dev, uuid_t _Nonnull group_uuid_out)
 					if (!foundContainer) {
 						debug("No apfs container for media for device %#x", dev);
 					}
-
+					
 					iterator->release();
 				} else {
 					message("No child iterator for media for device %#x", dev);
 				}
-
+				
+			} else if (matchingService->metaCast(APFS_SNAPSHOT_OBJECT) != NULL) {
+				IORegistryEntry *volume = NULL, *container = NULL;
+				
+				if ((volume = matchingService->getParentEntry(gIOServicePlane)) != NULL && volume->metaCast(APFS_VOLUME_OBJECT) != NULL) {
+					if ((container = volume->getParentEntry(gIOServicePlane)) != NULL && container->metaCast(APFS_CONTAINER_OBJECT) != NULL) {
+						
+						debug("Found apfs container via snapshot for device %#x", dev);
+						if ((uuid_str = OSDynamicCast(OSString, container->getProperty(kIOMediaUUIDKey))) != NULL) {
+							uuid_parse(uuid_str->getCStringNoCopy(), group_uuid_out);
+						}
+						
+					} else {
+						message("No container for APFS volume");
+					}
+				}else {
+					message("No volume for APFS snapshot");
+				}
+				
+				
 			} else if (matchingService->metaCast(APFS_VOLUME_OBJECT) != NULL) {
 				IORegistryEntry* container = NULL;
 

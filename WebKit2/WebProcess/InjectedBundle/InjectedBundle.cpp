@@ -196,12 +196,10 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
     if (preference == "WebKitCacheAPIEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setCacheAPIEnabled(enabled);
 
-#if ENABLE(STREAMS_API)
     if (preference == "WebKitReadableByteStreamAPIEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setReadableByteStreamAPIEnabled(enabled);
     if (preference == "WebKitWritableStreamAPIEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setWritableStreamAPIEnabled(enabled);
-#endif
 
     if (preference == "WebKitInteractiveFormValidationEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setInteractiveFormValidationEnabled(enabled);
@@ -238,14 +236,12 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
         RuntimeEnabledFeatures::sharedFeatures().setWebRTCMDNSICECandidatesEnabled(enabled);
 #endif
 
-#if ENABLE(VIDEO_TRACK)
     if (preference == "WebKitGenericCueAPIEnabled") {
         WebPreferencesStore::overrideBoolValueForKey(WebPreferencesKey::genericCueAPIEnabledKey(), enabled);
         for (auto* page : pages)
             page->settings().setGenericCueAPIEnabled(enabled);
         return;
     }
-#endif
 
 #if ENABLE(GPU_PROCESS)
     if (preference == "WebKitUseGPUProcessForMedia" || preference == "WebKitCaptureAudioInGPUProcessEnabledKey") {
@@ -287,6 +283,16 @@ void InjectedBundle::overrideBoolPreferenceForTestRunner(WebPageGroupProxy* page
 #if ENABLE(OFFSCREEN_CANVAS)
     if (preference == "OffscreenCanvasEnabled")
         RuntimeEnabledFeatures::sharedFeatures().setOffscreenCanvasEnabled(enabled);
+#endif
+
+#if ENABLE(WEBXR)
+    if (preference == "WebKitWebXREnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setWebXREnabled(enabled);
+#endif
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (preference == "IsAccessibilityIsolatedTreeEnabled")
+        RuntimeEnabledFeatures::sharedFeatures().setIsAccessibilityIsolatedTreeEnabled(enabled);
 #endif
 
     // Map the names used in LayoutTests with the names used in WebCore::Settings and WebPreferencesStore.
@@ -390,23 +396,23 @@ void InjectedBundle::setSpatialNavigationEnabled(WebPageGroupProxy* pageGroup, b
         (*iter)->settings().setSpatialNavigationEnabled(enabled);
 }
 
-void InjectedBundle::addOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
+void InjectedBundle::addOriginAccessAllowListEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
 {
-    SecurityPolicy::addOriginAccessWhitelistEntry(SecurityOrigin::createFromString(sourceOrigin).get(), destinationProtocol, destinationHost, allowDestinationSubdomains);
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::AddOriginAccessWhitelistEntry { sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains }, 0);
+    SecurityPolicy::addOriginAccessAllowlistEntry(SecurityOrigin::createFromString(sourceOrigin).get(), destinationProtocol, destinationHost, allowDestinationSubdomains);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::AddOriginAccessAllowListEntry { sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains }, 0);
 
 }
 
-void InjectedBundle::removeOriginAccessWhitelistEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
+void InjectedBundle::removeOriginAccessAllowListEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains)
 {
-    SecurityPolicy::removeOriginAccessWhitelistEntry(SecurityOrigin::createFromString(sourceOrigin).get(), destinationProtocol, destinationHost, allowDestinationSubdomains);
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RemoveOriginAccessWhitelistEntry { sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains }, 0);
+    SecurityPolicy::removeOriginAccessAllowlistEntry(SecurityOrigin::createFromString(sourceOrigin).get(), destinationProtocol, destinationHost, allowDestinationSubdomains);
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::RemoveOriginAccessAllowListEntry { sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains }, 0);
 }
 
-void InjectedBundle::resetOriginAccessWhitelists()
+void InjectedBundle::resetOriginAccessAllowLists()
 {
-    SecurityPolicy::resetOriginAccessWhitelists();
-    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::ResetOriginAccessWhitelists { }, 0);
+    SecurityPolicy::resetOriginAccessAllowlists();
+    WebProcess::singleton().ensureNetworkProcessConnection().connection().send(Messages::NetworkConnectionToWebProcess::ResetOriginAccessAllowLists { }, 0);
 }
 
 void InjectedBundle::setAsynchronousSpellCheckingEnabled(WebPageGroupProxy* pageGroup, bool enabled)
@@ -468,45 +474,6 @@ bool InjectedBundle::isPageBoxVisible(WebFrame* frame, int pageIndex)
 bool InjectedBundle::isProcessingUserGesture()
 {
     return UserGestureIndicator::processingUserGesture();
-}
-
-void InjectedBundle::addUserScript(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, String&& source, String&& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserScriptInjectionTime injectionTime, WebCore::UserContentInjectedFrames injectedFrames)
-{
-    UserScript userScript { WTFMove(source), URL(URL(), url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectionTime, injectedFrames };
-
-    pageGroup->userContentController().addUserScript(*scriptWorld, WTFMove(userScript));
-}
-
-void InjectedBundle::addUserStyleSheet(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, const String& source, const String& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserContentInjectedFrames injectedFrames)
-{
-    UserStyleSheet userStyleSheet{ source, URL(URL(), url), whitelist ? whitelist->toStringVector() : Vector<String>(), blacklist ? blacklist->toStringVector() : Vector<String>(), injectedFrames, UserStyleUserLevel };
-
-    pageGroup->userContentController().addUserStyleSheet(*scriptWorld, WTFMove(userStyleSheet));
-}
-
-void InjectedBundle::removeUserScript(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, const String& url)
-{
-    pageGroup->userContentController().removeUserScriptWithURL(*scriptWorld, URL(URL(), url));
-}
-
-void InjectedBundle::removeUserStyleSheet(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld, const String& url)
-{
-    pageGroup->userContentController().removeUserStyleSheetWithURL(*scriptWorld, URL(URL(), url));
-}
-
-void InjectedBundle::removeUserScripts(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld)
-{
-    pageGroup->userContentController().removeUserScripts(*scriptWorld);
-}
-
-void InjectedBundle::removeUserStyleSheets(WebPageGroupProxy* pageGroup, InjectedBundleScriptWorld* scriptWorld)
-{
-    pageGroup->userContentController().removeUserStyleSheets(*scriptWorld);
-}
-
-void InjectedBundle::removeAllUserContent(WebPageGroupProxy* pageGroup)
-{
-    pageGroup->userContentController().removeAllUserContent();
 }
 
 void InjectedBundle::garbageCollectJavaScriptObjects()
@@ -648,6 +615,13 @@ void InjectedBundle::setWebAnimationsEnabled(bool enabled)
 void InjectedBundle::setWebAnimationsCSSIntegrationEnabled(bool enabled)
 {
     RuntimeEnabledFeatures::sharedFeatures().setWebAnimationsCSSIntegrationEnabled(enabled);
+}
+
+void InjectedBundle::setAccessibilityIsolatedTreeEnabled(bool enabled)
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    RuntimeEnabledFeatures::sharedFeatures().setIsAccessibilityIsolatedTreeEnabled(enabled);
+#endif
 }
 
 } // namespace WebKit

@@ -26,7 +26,6 @@
 #include "SecAsn1Templates.h"
 #include "X509Templates.h"
 #include "keyTemplates.h"
-#include <assert.h>
 #include <stddef.h>
 
 /* 

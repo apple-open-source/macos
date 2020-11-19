@@ -22,6 +22,9 @@
 #import <utilities/SecCFWrappers.h>
 
 #import "SecdTestKeychainUtilities.h"
+#include "SOSAccountTesting.h"
+
+#if SOS_ENABLED
 
 
 const int kTestRecoveryKeyCount = 3;
@@ -52,16 +55,17 @@ static void testRecoveryKeyBasic(void)
     }
 }
 
+#endif
 
 int secd_202_recoverykey(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestRecoveryKeyCount + kTestRecoveryKeyBasicCount);
-
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     testRecoveryKeyBasic();
-
     testRecoveryKey();
-
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

@@ -37,7 +37,7 @@
 #include <dns_sd.h>
 #include <dns_sd_private.h>
 
-#if	TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
+#if	TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST
 
 
 static CFMutableArrayRef	mirror_keys	= NULL;
@@ -323,4 +323,4 @@ main(int argc, char **argv)
 }
 #endif
 
-#endif	// TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
+#endif	// TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST

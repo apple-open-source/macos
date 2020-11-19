@@ -27,7 +27,7 @@
 #include "FormAssociatedElement.h"
 #include "LabelableElement.h"
 
-#if ENABLE(IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
+#if ENABLE(AUTOCAPITALIZE)
 #include "Autocapitalize.h"
 #endif
 
@@ -91,8 +91,11 @@ public:
     virtual bool isActivatedSubmit() const { return false; }
     virtual void setActivatedSubmit(bool) { }
 
-#if ENABLE(IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
+#if ENABLE(AUTOCORRECT)
     WEBCORE_EXPORT bool shouldAutocorrect() const final;
+#endif
+
+#if ENABLE(AUTOCAPITALIZE)
     WEBCORE_EXPORT AutocapitalizeType autocapitalizeType() const final;
 #endif
 
@@ -112,8 +115,6 @@ public:
 
     bool hasAutofocused() { return m_hasAutofocused; }
     void setAutofocused() { m_hasAutofocused = true; }
-
-    static HTMLFormControlElement* enclosingFormControlElement(Node*);
 
     WEBCORE_EXPORT String autocomplete() const;
     WEBCORE_EXPORT void setAutocomplete(const String&);

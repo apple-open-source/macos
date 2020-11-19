@@ -43,10 +43,13 @@
 		<string>123456.test.group</string>
 		<string>123456.test.group2</string>
 		<string>com.apple.bluetooth</string>
+		<string>com.apple.token</string>
 	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
 		<string>webcredentials:localhost</string>
 	</array>
+	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
 </dict>
 </plist>

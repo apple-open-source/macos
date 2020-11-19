@@ -419,6 +419,11 @@ class FSTree {
         return rValue
     }
     
+    func preAllocateSpace(node: Node_t, size: Int) -> Int32 {
+        let rValue = brdg_fsops_preallocate(&testerFsOps, &node.node, size)
+        return rValue
+    }
+    
     // This function recieves dir node and filename for both source and target. It takes the source filename from the source dir node,
     // and place it under the target dir node with the target filename.
     // If the target arguments are not given, the function uses the source args as the target args.

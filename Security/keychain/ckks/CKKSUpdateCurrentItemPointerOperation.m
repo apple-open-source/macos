@@ -101,10 +101,10 @@
 
     WEAKIFY(self);
 
-    [ckks dispatchSyncWithAccountKeys:^bool {
+    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         if(self.cancelled) {
             ckksnotice("ckkscurrent", ckks, "CKKSUpdateCurrentItemPointerOperation cancelled, quitting");
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         NSError* error = nil;
@@ -117,7 +117,7 @@
         if(!self.newItem || error) {
             ckksnotice("ckkscurrent", ckks, "Couldn't fetch new item, quitting: %@", error);
             self.error = error;
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         // Now that we're on the db queue, ensure that the given hashes for the items match the hashes as they are now.
@@ -130,14 +130,14 @@
                                              code:CKKSItemChanged
                                       description:@"New item has changed; hashes mismatch. Refetch and try again."
                                        underlying:(NSError*)CFBridgingRelease(cferror)];
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         newItemUUID = (NSString*) CFBridgingRelease(CFRetainSafe(SecDbItemGetValue(self.newItem, &v10itemuuid, &cferror)));
         if(!newItemUUID || cferror) {
             ckkserror("ckkscurrent", ckks, "Error fetching UUID for new item: %@", cferror);
             self.error = (NSError*) CFBridgingRelease(cferror);
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         // If the old item is nil, that's an indicator that the old item isn't expected to exist in the keychain anymore
@@ -147,7 +147,7 @@
             if(!self.oldItem || error) {
                 ckksnotice("ckkscurrent", ckks, "Couldn't fetch old item, quitting: %@", error);
                 self.error = error;
-                return false;
+                return CKKSDatabaseTransactionRollback;
             }
 
             oldCurrentItemHash = (NSData*) CFBridgingRelease(CFRetainSafe(SecDbItemGetSHA1(self.oldItem, &cferror)));
@@ -158,14 +158,14 @@
                                                  code:CKKSItemChanged
                                           description:@"Old item has changed; hashes mismatch. Refetch and try again."
                                            underlying:(NSError*)CFBridgingRelease(cferror)];
-                return false;
+                return CKKSDatabaseTransactionRollback;
             }
 
             oldCurrentItemUUID = (NSString*) CFBridgingRelease(CFRetainSafe(SecDbItemGetValue(self.oldItem, &v10itemuuid, &cferror)));
             if(!oldCurrentItemUUID || cferror) {
                 ckkserror("ckkscurrent", ckks, "Error fetching UUID for old item: %@", cferror);
                 self.error = (NSError*) CFBridgingRelease(cferror);
-                return false;
+                return CKKSDatabaseTransactionRollback;
             }
         }
 
@@ -180,7 +180,7 @@
                                              code:CKKSRemoteItemChangePending
                                       description:[NSString stringWithFormat:@"Update to current item pointer is pending."]];
             ckkserror("ckkscurrent", ckks, "Attempt to set a new current item pointer when one exists: %@", self.error);
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         CKKSCurrentItemPointer* cip = [CKKSCurrentItemPointer tryFromDatabase:self.currentPointerIdentifier state:SecCKKSProcessedStateLocal zoneID:ckks.zoneID error:&error];
@@ -198,7 +198,7 @@
                 self.error = [NSError errorWithDomain:CKKSErrorDomain
                                                  code:CKKSItemChanged
                                           description:[NSString stringWithFormat:@"Current pointer(%@) does not match user-supplied %@, aborting", cip, oldCurrentItemUUID]];
-                return false;
+                return CKKSDatabaseTransactionRollback;
             }
             // Cool. Since you know what you're updating, you're allowed to update!
             cip.currentItemUUID = newItemUUID;
@@ -209,7 +209,7 @@
             self.error = [NSError errorWithDomain:CKKSErrorDomain
                                              code:CKKSItemChanged
                                       description:[NSString stringWithFormat:@"Current pointer(%@) does not match given value of '%@', aborting", cip, oldCurrentItemUUID]];
-            return false;
+            return CKKSDatabaseTransactionRollback;
         } else {
             // No current item pointer? How exciting! Let's make you a nice new one.
             cip = [[CKKSCurrentItemPointer alloc] initForIdentifier:self.currentPointerIdentifier
@@ -237,7 +237,7 @@
         if(error) {
             ckkserror("ckkscurrent", ckks, "Error attempting to update current item pointer %@: %@", self.currentPointerIdentifier, error);
             self.error = error;
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         // Make sure the item is synced, though!
@@ -250,11 +250,7 @@
                                   underlying:error];
 
             self.error = error;
-            return false;
-        }
-
-        if ([CKKSManifest shouldSyncManifests]) {
-            [ckks.egoManifest setCurrentItemUUID:newItemUUID forIdentifier:self.currentPointerIdentifier];
+            return CKKSDatabaseTransactionRollback;
         }
 
         ckksnotice("ckkscurrent", ckks, "Saving new current item pointer %@", cip);
@@ -262,12 +258,6 @@
         NSMutableDictionary<CKRecordID*, CKRecord*>* recordsToSave = [[NSMutableDictionary alloc] init];
         CKRecord* record = [cip CKRecordWithZoneID:ckks.zoneID];
         recordsToSave[record.recordID] = record;
-
-        if([CKKSManifest shouldSyncManifests]) {
-            for(CKRecord* record in [ckks.egoManifest allCKRecordsWithZoneID:ckks.zoneID]) {
-                recordsToSave[record.recordID] = record;
-            }
-        }
 
         // Start a CKModifyRecordsOperation to save this new/updated record.
         NSBlockOperation* modifyComplete = [[NSBlockOperation alloc] init];
@@ -311,8 +301,8 @@
                 ckkserror("ckkscurrent", strongCKKS, "CloudKit returned an error: %@", ckerror);
                 self.error = ckerror;
 
-                [strongCKKS dispatchSync:^bool {
-                    return [strongCKKS _onqueueCKWriteFailed:ckerror attemptedRecordsChanged:recordsToSave];
+                [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+                    return [strongCKKS _onqueueCKWriteFailed:ckerror attemptedRecordsChanged:recordsToSave] ? CKKSDatabaseTransactionCommit : CKKSDatabaseTransactionRollback;
                 }];
 
                 [strongCKKS scheduleOperation: modifyComplete];
@@ -321,7 +311,7 @@
 
             __block NSError* error = nil;
 
-            [strongCKKS dispatchSync: ^bool{
+            [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
                 for(CKRecord* record in savedRecords) {
                     // Save the item records
                     if([record.recordType isEqualToString: SecCKRecordCurrentItemType]) {
@@ -347,7 +337,7 @@
                     // Schedule a 'view changed' notification
                     [strongCKKS.notifyViewChangedScheduler trigger];
                 }
-                return true;
+                return CKKSDatabaseTransactionCommit;
             }];
 
             self.error = error;
@@ -357,16 +347,17 @@
         [self dependOnBeforeGroupFinished: self.modifyRecordsOperation];
         [ckks.database addOperation: self.modifyRecordsOperation];
 
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 }
 
 - (SecDbItemRef _Nullable)_onqueueFindSecDbItem:(NSData*)persistentRef accessGroup:(NSString*)accessGroup error:(NSError**)error {
+    CKKSKeychainView* ckks = self.ckks;
+    dispatch_assert_queue(ckks.queue);
     __block SecDbItemRef blockItem = NULL;
     CFErrorRef cferror = NULL;
     __block NSError* localerror = NULL;
 
-    CKKSKeychainView* ckks = self.ckks;
     bool ok = kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
         // Find the items from their persistent refs.
         CFErrorRef blockcfError = NULL;
@@ -376,6 +367,7 @@
                                                                          },
                                            NULL,
                                            1,
+                                           NULL, 
                                            &blockcfError);
         if(blockcfError || !q) {
             ckkserror("ckkscurrent", ckks, "couldn't create query for item persistentRef: %@", blockcfError);

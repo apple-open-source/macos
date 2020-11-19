@@ -73,9 +73,9 @@ extern const CFStringRef kSecPolicyAppleiChat
     __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_7, __MAC_10_9, __IPHONE_NA, __IPHONE_NA);
 #endif
 extern const CFStringRef kSecPolicyApplePKINITClient
-    API_AVAILABLE(macos(10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 extern const CFStringRef kSecPolicyApplePKINITServer
-    API_AVAILABLE(macos(10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 extern const CFStringRef kSecPolicyAppleCodeSigning
     __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_7_0);
 extern const CFStringRef kSecPolicyMacAppStoreReceipt

@@ -1,0 +1,12 @@
+--- _Foundation_NSDecimal.m.orig	2013-01-10 12:00:34.000000000 -0800
++++ _Foundation_NSDecimal.m	2017-06-26 14:25:49.000000000 -0700
+@@ -1139,6 +1139,9 @@
+ 		 * really a problem.
+ 		 */
+ 		aDecimal = [PyObjCObject_GetObject(self) decimalValue];
++#elif defined(__arm64__)
++		/* No _stret variant on arm64 */
++		aDecimal = ((NSDecimal (*)(struct objc_super *, SEL))objc_msgSendSuper)(&super, PyObjCSelector_GetSelector(method));
+ #else
+ 		((void(*)(void*, struct objc_super*, SEL))objc_msgSendSuper_stret)(&aDecimal, &super,
+ 				PyObjCSelector_GetSelector(method));

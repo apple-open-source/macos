@@ -388,7 +388,7 @@ zle_free_highlight(void)
 
 /*
  * Interface to the region_highlight ZLE parameter.
- * Converts betwen a format like "P32 42 underline,bold" to
+ * Converts between a format like "P32 42 underline,bold" to
  * the format in the region_highlights variable.  Note that
  * the region_highlights variable stores the internal (point/mark)
  * region in element zero.
@@ -834,7 +834,7 @@ nextline(Rparams rpms, int wrapped)
 	    if (rpms->nvln != -1 && rpms->nvln != winh - 1
 		&& (numscrolls != onumscrolls - 1
 		    || rpms->nvln <= winh / 2))
-	        return 1;
+		return 1;
 	    numscrolls++;
 	    rpms->canscroll = winh / 2;
 	}
@@ -1151,20 +1151,20 @@ zrefresh(void)
 	resetneeded = 0;	/* unset */
 	oput_rpmpt = 0;		/* no right-prompt currently on screen */
 
-        if (!clearflag) {
-            if (tccan(TCCLEAREOD))
-                tcoutclear(TCCLEAREOD);
-            else
-                cleareol = 1;   /* request: clear to end of line */
+	if (!clearflag) {
+	    if (tccan(TCCLEAREOD))
+		tcoutclear(TCCLEAREOD);
+	    else
+		cleareol = 1;   /* request: clear to end of line */
 	    if (listshown > 0)
 		listshown = 0;
 	}
-        if (t0 > -1)
-            olnct = (t0 < winh) ? t0 : winh;
-        if (termflags & TERM_SHORT)
-            vcs = 0;
+	if (t0 > -1)
+	    olnct = (t0 < winh) ? t0 : winh;
+	if (termflags & TERM_SHORT)
+	    vcs = 0;
 	else if (!clearflag && lpromptbuf[0]) {
-            zputs(lpromptbuf, shout);
+	    zputs(lpromptbuf, shout);
 	    if (lpromptwof == winw)
 		zputs("\n", shout);	/* works with both hasam and !hasam */
 	} else {
@@ -1678,7 +1678,12 @@ zrefresh(void)
 
 	    moveto(0, winw - rprompt_off - rpromptw);
 	    zputs(rpromptbuf, shout);
-	    vcs = winw - rprompt_off;
+	    if (rprompt_off) {
+		vcs = winw - rprompt_off;
+	    } else {
+		zputc(&zr_cr);
+		vcs = 0;
+	    }
 	/* reset character attributes to that set by the main prompt */
 	    txtchange = pmpt_attr;
 	    /*
@@ -1885,7 +1890,7 @@ refreshline(int ln)
     if (hasam && vcs == winw) {
 	if (nbuf[vln] && nbuf[vln][vcs + 1].chr == ZWC('\n')) {
 	    vln++, vcs = 1;
-            if (nbuf[vln]  && nbuf[vln]->chr) {
+	    if (nbuf[vln]  && nbuf[vln]->chr) {
 		zputc(nbuf[vln]);
 	    } else
 		zputc(&zr_sp);  /* I don't think this should happen */
@@ -1954,11 +1959,11 @@ refreshline(int ln)
 	    if (!nl->chr) {
 		if (ccs == winw && hasam && char_ins > 0 && ins_last
 		    && vcs != winw) {
-		    nl--;           /* we can assume we can go back here */
+		    nl--;	   /* we can assume we can go back here */
 		    moveto(ln, winw - 1);
 		    zputc(nl);
 		    vcs++;
-		    return;         /* write last character in line */
+		    return;	 /* write last character in line */
 		}
 		if ((char_ins <= 0) || (ccs >= winw))    /* written everything */
 		    return;
@@ -2159,24 +2164,19 @@ moveto(int ln, int cl)
     const REFRESH_ELEMENT *rep;
 
     if (vcs == winw) {
-	if (rprompt_indent == 0 && tccan(TCLEFT)) {
-	  tc_leftcurs(1);
-	  vcs--;
+	vln++, vcs = 0;
+	if (!hasam) {
+	    zputc(&zr_cr);
+	    zputc(&zr_nl);
 	} else {
-	    vln++, vcs = 0;
-	    if (!hasam) {
-		zputc(&zr_cr);
-		zputc(&zr_nl);
-	    } else {
-		if ((vln < nlnct) && nbuf[vln] && nbuf[vln]->chr)
-		    rep = nbuf[vln];
-		else
-		    rep = &zr_sp;
-		zputc(rep);
-		zputc(&zr_cr);
-		if ((vln < olnct) && obuf[vln] && obuf[vln]->chr)
-		    *obuf[vln] = *rep;
-	    }
+	    if ((vln < nlnct) && nbuf[vln] && nbuf[vln]->chr)
+		rep = nbuf[vln];
+	    else
+		rep = &zr_sp;
+	    zputc(rep);
+	    zputc(&zr_cr);
+	    if ((vln < olnct) && obuf[vln] && obuf[vln]->chr)
+		*obuf[vln] = *rep;
 	}
     }
 
@@ -2212,7 +2212,7 @@ moveto(int ln, int cl)
     }
 
     if (cl != vcs)
-        singmoveto(cl);
+	singmoveto(cl);
 }
 
 /**/
@@ -2292,7 +2292,7 @@ tc_rightcurs(int ct)
 	    /* it is cheaper to send TCRIGHT than reprint the whole prompt */
 	    for (ct = lpromptw - i; ct--; )
 		tcout(TCRIGHT);
-        else {
+	else {
 	    if (i != 0)
 		zputc(&zr_cr);
 	    tc_upcurs(lprompth - 1);

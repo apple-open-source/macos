@@ -316,7 +316,7 @@ __cxa_finalize(const void *dso)
 	}
 }
 
-#if !TARGET_IPHONE_SIMULATOR && (__i386__ || __x86_64__)
+#if TARGET_OS_OSX
 /*
  * Support for thread_local in C++, using existing _tlv_atexit() in libdyld
  */

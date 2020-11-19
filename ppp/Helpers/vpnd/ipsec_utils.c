@@ -104,7 +104,6 @@ static int configure_remote(int level, FILE *file, CFDictionaryRef ipsec_dict, c
 static int configure_proposal(int level, FILE *file, CFDictionaryRef ipsec_dict, CFDictionaryRef proposal_dict, char **errstr);
 
 //static void closeall();
-static int racoon_pid(void);
 //static int racoon_is_started(char *filename);
 static int racoon_restart(void);
 static service_route_t * get_service_route (struct service *serv, in_addr_t local_addr, in_addr_t dest_addr);
@@ -243,10 +242,11 @@ closeall()
 /* -----------------------------------------------------------------------------
 return the pid of racoon process
 ----------------------------------------------------------------------------- */
-int 
+pid_t
 racoon_pid()
 {
-    int   	pid = 0, err, name[4];
+    pid_t	pid = 0;
+    int   	err, name[4];
     FILE 	*f;
     size_t	namelen, infolen;
     struct kinfo_proc	info;
@@ -302,7 +302,7 @@ if racoon was not started, it will be started only if launch is set
 int 
 racoon_restart()
 {
-	int pid = racoon_pid();
+	pid_t pid = racoon_pid();
 
 	if (pid) {
 		kill(pid, SIGUSR1);
@@ -319,7 +319,7 @@ this is not a good idea...
 static int 
 racoon_stop()
 {
-    int   	pid = racoon_pid();
+    pid_t pid = racoon_pid();
 
     if (pid)
         kill(pid, SIGTERM);
@@ -3081,8 +3081,9 @@ IPSecCreateL2TPDefaultConfiguration(struct sockaddr *src, struct sockaddr *dst, 
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyEncryptionAlgorithm, encryption_array);
 	CFRelease(encryption_array);
 	hash_array = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
-	CFArraySetValueAtIndex(hash_array, 0, kRASValIPSecPolicyHashAlgorithmSHA1);
-	CFArraySetValueAtIndex(hash_array, 1, kRASValIPSecPolicyHashAlgorithmMD5);
+	CFArraySetValueAtIndex(hash_array, 0, kRASValIPSecPolicyHashAlgorithmSHA256);
+	CFArraySetValueAtIndex(hash_array, 1, kRASValIPSecPolicyHashAlgorithmSHA1);
+	CFArraySetValueAtIndex(hash_array, 2, kRASValIPSecPolicyHashAlgorithmMD5);
 	CFDictionarySetValue(policy0, kRASPropIPSecPolicyHashAlgorithm, hash_array);
 	CFRelease(hash_array);
 

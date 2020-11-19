@@ -25,7 +25,7 @@
 #define HAVE_NOTIFY_H 1
 #define KRB5_CONFIGURATION_CHANGE_NOTIFY_NAME "com.apple.Kerberos.configuration-changed"
 
-#define DEFAULT_KDC_LOG_DEST "SYSLOG:AUTHPRIV:NOTICE"
+#define DEFAULT_KDC_LOG_DEST "OSLOG:normal:kdc"
 
 #ifndef PKINIT
 #error "no pkinit ?"
@@ -50,8 +50,8 @@
 
 #else
 
-#define KCM_IS_API_CACHE 1
-#define KRB5_DEFAULT_CCTYPE (&krb5_akcm_ops)
+#define XCACHE_IS_API_CACHE 1
+#define KRB5_DEFAULT_CCTYPE (&krb5_xcc_api_ops)
 
 #define HAVE_KCM 1
 #define HAVE_XCC 1

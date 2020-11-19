@@ -23,35 +23,35 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "ResourceUsageOverlay.h"
+#import "config.h"
+#import "ResourceUsageOverlay.h"
 
 #if ENABLE(RESOURCE_USAGE)
 
-#include <CoreText/CoreText.h>
-
-#include "CommonVM.h"
-#include "JSDOMWindow.h"
-#include "PlatformCALayer.h"
-#include "ResourceUsageThread.h"
-#include <CoreGraphics/CGContext.h>
-#include <QuartzCore/CALayer.h>
-#include <QuartzCore/CATransaction.h>
-#include <wtf/MainThread.h>
-#include <wtf/MathExtras.h>
-#include <wtf/MemoryFootprint.h>
-#include <wtf/NeverDestroyed.h>
-#include <wtf/text/StringConcatenateNumbers.h>
+#import "CommonVM.h"
+#import "JSDOMWindow.h"
+#import "PlatformCALayer.h"
+#import "ResourceUsageThread.h"
+#import <CoreGraphics/CGContext.h>
+#import <CoreText/CoreText.h>
+#import <QuartzCore/CALayer.h>
+#import <QuartzCore/CATransaction.h>
+#import <wtf/MainThread.h>
+#import <wtf/MathExtras.h>
+#import <wtf/MemoryFootprint.h>
+#import <wtf/NeverDestroyed.h>
+#import <wtf/text/StringConcatenateNumbers.h>
 
 using WebCore::ResourceUsageOverlay;
-@interface WebOverlayLayer : CALayer {
+
+@interface WebResourceUsageOverlayLayer : CALayer {
     ResourceUsageOverlay* m_overlay;
 }
 @end
 
-@implementation WebOverlayLayer
+@implementation WebResourceUsageOverlayLayer
 
-- (WebOverlayLayer *)initWithResourceUsageOverlay:(ResourceUsageOverlay *)overlay
+- (instancetype)initWithResourceUsageOverlay:(ResourceUsageOverlay *)overlay
 {
     self = [super init];
     if (!self)
@@ -128,14 +128,12 @@ static CGColorRef createColor(float r, float g, float b, float a)
 struct HistoricMemoryCategoryInfo {
     HistoricMemoryCategoryInfo() { } // Needed for std::array.
 
-    HistoricMemoryCategoryInfo(unsigned category, RGBA32 rgba, String name, bool subcategory = false)
+    HistoricMemoryCategoryInfo(unsigned category, SRGBA<uint8_t> color, String name, bool subcategory = false)
         : name(WTFMove(name))
+        , color(cachedCGColor(color))
         , isSubcategory(subcategory)
         , type(category)
     {
-        float r, g, b, a;
-        Color(rgba).getRGBA(r, g, b, a);
-        color = adoptCF(createColor(r, g, b, a));
     }
 
     String name;
@@ -162,18 +160,18 @@ struct HistoricResourceUsageData {
 HistoricResourceUsageData::HistoricResourceUsageData()
 {
     // VM tag categories.
-    categories[MemoryCategory::JSJIT] = HistoricMemoryCategoryInfo(MemoryCategory::JSJIT, 0xFFFF60FF, "JS JIT");
-    categories[MemoryCategory::Gigacage] = HistoricMemoryCategoryInfo(MemoryCategory::Gigacage, 0xFF654FF0, "Gigacage");
-    categories[MemoryCategory::Images] = HistoricMemoryCategoryInfo(MemoryCategory::Images, 0xFFFFFF00, "Images");
-    categories[MemoryCategory::Layers] = HistoricMemoryCategoryInfo(MemoryCategory::Layers, 0xFF00FFFF, "Layers");
-    categories[MemoryCategory::LibcMalloc] = HistoricMemoryCategoryInfo(MemoryCategory::LibcMalloc, 0xFF00FF00, "libc malloc");
-    categories[MemoryCategory::bmalloc] = HistoricMemoryCategoryInfo(MemoryCategory::bmalloc, 0xFFFF6060, "bmalloc");
-    categories[MemoryCategory::IsoHeap] = HistoricMemoryCategoryInfo(MemoryCategory::IsoHeap, 0xFF809F40, "IsoHeap");
-    categories[MemoryCategory::Other] = HistoricMemoryCategoryInfo(MemoryCategory::Other, 0xFFC0FF00, "Other");
+    categories[MemoryCategory::JSJIT] = HistoricMemoryCategoryInfo(MemoryCategory::JSJIT, { 255, 96, 255 }, "JS JIT");
+    categories[MemoryCategory::Gigacage] = HistoricMemoryCategoryInfo(MemoryCategory::Gigacage, { 101, 79, 240 }, "Gigacage");
+    categories[MemoryCategory::Images] = HistoricMemoryCategoryInfo(MemoryCategory::Images, Color::yellow, "Images");
+    categories[MemoryCategory::Layers] = HistoricMemoryCategoryInfo(MemoryCategory::Layers, Color::cyan, "Layers");
+    categories[MemoryCategory::LibcMalloc] = HistoricMemoryCategoryInfo(MemoryCategory::LibcMalloc, Color::green, "libc malloc");
+    categories[MemoryCategory::bmalloc] = HistoricMemoryCategoryInfo(MemoryCategory::bmalloc, { 255, 96, 96 }, "bmalloc");
+    categories[MemoryCategory::IsoHeap] = HistoricMemoryCategoryInfo(MemoryCategory::IsoHeap, { 128, 159, 64 }, "IsoHeap");
+    categories[MemoryCategory::Other] = HistoricMemoryCategoryInfo(MemoryCategory::Other, { 192, 255, 0 }, "Other");
 
     // Sub categories (e.g breakdown of bmalloc tag.)
-    categories[MemoryCategory::GCHeap] = HistoricMemoryCategoryInfo(MemoryCategory::GCHeap, 0xFFA0A0FF, "GC heap", true);
-    categories[MemoryCategory::GCOwned] = HistoricMemoryCategoryInfo(MemoryCategory::GCOwned, 0xFFFFC060, "GC owned", true);
+    categories[MemoryCategory::GCHeap] = HistoricMemoryCategoryInfo(MemoryCategory::GCHeap, { 160, 160, 255 }, "GC heap", true);
+    categories[MemoryCategory::GCOwned] = HistoricMemoryCategoryInfo(MemoryCategory::GCOwned, { 255, 192, 96 }, "GC owned", true);
 
 #ifndef NDEBUG
     // Ensure this aligns with ResourceUsageData's category order.
@@ -216,7 +214,7 @@ static void appendDataToHistory(const ResourceUsageData& data)
 
 void ResourceUsageOverlay::platformInitialize()
 {
-    m_layer = adoptNS([[WebOverlayLayer alloc] initWithResourceUsageOverlay:this]);
+    m_layer = adoptNS([[WebResourceUsageOverlayLayer alloc] initWithResourceUsageOverlay:this]);
 
     m_containerLayer = adoptNS([[CALayer alloc] init]);
     [m_containerLayer.get() addSublayer:m_layer.get()];

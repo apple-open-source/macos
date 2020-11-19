@@ -64,6 +64,7 @@
 static dispatch_once_t kSecTrustStoreUserOnce;
 static SecTrustStoreRef kSecTrustStoreUser = NULL;
 
+#if TARGET_OS_IPHONE
 static const char copyParentsSQL[] = "SELECT data FROM tsettings WHERE subj=?";
 static const char containsSQL[] = "SELECT tset FROM tsettings WHERE sha1=?";
 static const char insertSQL[] = "INSERT OR REPLACE INTO tsettings(sha1,subj,tset,data)VALUES(?,?,?,?)";
@@ -71,6 +72,7 @@ static const char deleteSQL[] = "DELETE FROM tsettings WHERE sha1=?";
 static const char deleteAllSQL[] = "BEGIN EXCLUSIVE TRANSACTION; DELETE from tsettings; COMMIT TRANSACTION; VACUUM;";
 static const char copyAllSQL[] = "SELECT data,tset FROM tsettings ORDER BY sha1";
 static const char countAllSQL[] = "SELECT COUNT(*) FROM tsettings";
+#endif
 
 #define kSecTrustStoreName CFSTR("TrustStore")
 #define kSecTrustStoreDbExtension CFSTR("sqlite3")
@@ -92,7 +94,7 @@ struct __SecTrustStore {
 
 // MARK: -
 // MARK: Trust store functions
-
+#if TARGET_OS_IPHONE
 static int sec_create_path(const char *path)
 {
 	char pathbuf[PATH_MAX];
@@ -594,3 +596,62 @@ bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, 
 errOutNotLocked:
     return ok;
 }
+
+#else // !TARGET_OS_IPHONE
+/* On macOS the trust store has nothing in it by default */
+static void SecTrustStoreInitUser(void) {
+    SecTrustStoreRef ts = (SecTrustStoreRef)malloc(sizeof(struct __SecTrustStore));
+    memset(ts, 0, sizeof(struct __SecTrustStore));
+    ts->readOnly = true;
+    kSecTrustStoreUser = ts;
+}
+
+SecTrustStoreRef SecTrustStoreForDomainName(CFStringRef domainName, CFErrorRef *error) {
+    if (CFEqual(CFSTR("user"), domainName)) {
+        dispatch_once(&kSecTrustStoreUserOnce, ^{ SecTrustStoreInitUser(); });
+        return kSecTrustStoreUser;
+    } else {
+        SecError(errSecParam, error, CFSTR("unknown domain: %@"), domainName);
+        return NULL;
+    }
+}
+
+bool _SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
+                                    SecCertificateRef certificate,
+                                    CFTypeRef trustSettingsDictOrArray, CFErrorRef *error) {
+    return SecError(errSecUnimplemented, error, CFSTR("trust store is not modifiable on this platform"));
+}
+
+bool SecTrustStoreRemoveCertificateWithDigest(SecTrustStoreRef ts, CFDataRef digest, CFErrorRef *error) {
+    return SecError(errSecUnimplemented, error, CFSTR("trust store is not modifiable on this platform"));
+}
+
+bool _SecTrustStoreRemoveAll(SecTrustStoreRef ts, CFErrorRef *error) {
+    return SecError(errSecUnimplemented, error, CFSTR("trust store is not modifiable on this platform"));
+}
+
+CFArrayRef SecTrustStoreCopyParents(SecTrustStoreRef ts,
+                                    SecCertificateRef certificate, CFErrorRef *error) {
+    CFArrayRef parents = NULL;
+    return parents;
+}
+
+bool SecTrustStoreContainsCertificateWithDigest(SecTrustStoreRef ts, CFDataRef digest, bool *contains, CFErrorRef *error) {
+    if (contains) {
+        *contains = false;
+    }
+    return true;
+}
+
+bool _SecTrustStoreCopyUsageConstraints(SecTrustStoreRef ts, CFDataRef digest, CFArrayRef *usageConstraints, CFErrorRef *error) {
+    return true;
+}
+
+bool _SecTrustStoreCopyAll(SecTrustStoreRef ts, CFArrayRef *trustStoreContents, CFErrorRef *error) {
+    CFMutableArrayRef CertsAndSettings = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    if (CertsAndSettings) {
+        *trustStoreContents = CertsAndSettings;
+    }
+    return true;
+}
+#endif

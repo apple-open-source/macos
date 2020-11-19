@@ -29,6 +29,8 @@
 #include "CommonDigestPriv.h"
 #include <CommonCrypto/CommonRandomSPI.h>
 #include <corecrypto/ccec.h>
+#include <corecrypto/ccec_priv.h>
+#include <corecrypto/cch2c.h>
 #include "ccdebug.h"
 
 #include "cc_macros_priv.h"
@@ -548,5 +550,113 @@ CCECCryptorTwinDiversifyKey(CCECKeyType keyType, CCECCryptorRef inKey,
     *outKey = cryptor;
 
     return kCCSuccess;
+}
+
+CCECCryptorRef CCECCryptorH2C(CCH2CParams h2c_params, size_t dst_nbytes, const void *dst, size_t data_nbytes, const void *data) {
+    CCECCryptorRef pk = NULL;
+    const struct cch2c_info *h2c_info;
+    ccec_const_cp_t cp;
+    
+    switch(h2c_params) {
+        case CCH2C_P256_SHA256:
+            h2c_info = &cch2c_p256_sha256_sswu_ro_info;
+            cp = ccec_cp_256();
+            break;
+        case CCH2C_P384_SHA512:
+            h2c_info = &cch2c_p384_sha512_sswu_ro_info;
+            cp = ccec_cp_384();
+            break;
+        case CCH2C_P521_SHA512:
+            h2c_info = &cch2c_p521_sha512_sswu_ro_info;
+            cp = ccec_cp_521();
+            break;
+        default:
+            return NULL;
+    }
+    
+    pk = ccMallocECCryptor(ccec_cp_prime_bitlen(cp), ccECKeyPublic);
+    if (pk == NULL) {
+        return NULL;
+    }
+    
+    int result = cch2c(h2c_info, dst_nbytes, dst, data_nbytes, data, pk->ecKey.public);
+    if (result != CCERR_OK) {
+        ccECCryptorFree(pk);
+        return NULL;
+    }
+    return pk;
+}
+
+CCBlindingKeysRef CCECCryptorGenerateBlindingKeys(CCECCurveParams curve_params) {
+    CCBlindingKeysRef bk = NULL;
+    ccec_const_cp_t cp = ccec_get_cp(curve_params);
+    
+    if (cp == NULL) {
+        goto err;
+    }
+    
+    if ((bk = malloc(sizeof(CCBlindingKeys))) == NULL) {
+        goto err;
+    }
+    bk->curve_params = curve_params;
+    bk->k = NULL;
+    bk->kinv = NULL;
+    
+    if ((bk->k = ccMallocECCryptor(curve_params, ccECKeyPrivate)) == NULL) {
+        goto err;
+    }
+    
+    if ((bk->kinv = ccMallocECCryptor(curve_params, ccECKeyPrivate)) == NULL) {
+        goto err;
+    }
+    
+    if (ccec_generate_blinding_keys(cp, ccDRBGGetRngState(), bk->k->ecKey.private, bk->kinv->ecKey.private) != CCERR_OK) {
+        goto err;
+    }
+    
+    return bk;
+err:
+    CCECCryptorBlindingKeysRelease(bk);
+    return NULL;
+}
+
+void CCECCryptorBlindingKeysRelease(CCBlindingKeysRef bk) {
+    if (bk) {
+        ccECCryptorFree(bk->k);
+        ccECCryptorFree(bk->kinv);
+    }
+    free(bk);
+}
+
+CCECCryptorRef CCECCryptorBlind(CCBlindingKeysRef bk, CCECCryptorRef pk)
+{
+    CCECCryptor *blinded_key = ccMallocECCryptor(bk->curve_params, ccECKeyPublic);
+    if (blinded_key == NULL) {
+        return NULL;
+    }
+    
+    int status = ccec_blind(ccDRBGGetRngState(), bk->k->ecKey.private, pk->ecKey.public, blinded_key->ecKey.public);
+    if (status != CCERR_OK) {
+        CCECCryptorRelease(blinded_key);
+        return NULL;
+    }
+    
+    return blinded_key;
+}
+
+CCECCryptorRef CCECCryptorUnblind(CCBlindingKeysRef bk, CCECCryptorRef pk)
+{
+    CCECCryptor *unblinded_key = ccMallocECCryptor(bk->curve_params, ccECKeyPublic);
+    if (unblinded_key == NULL) {
+        return NULL;
+    }
+    
+    int status = ccec_unblind(ccDRBGGetRngState(), bk->kinv->ecKey.private, pk->ecKey.public, unblinded_key->ecKey.public);
+    if (status != CCERR_OK) {
+        CCECCryptorRelease(unblinded_key);
+        return NULL;
+    }
+    
+    return unblinded_key;
 }
 

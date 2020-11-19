@@ -88,6 +88,22 @@ static int GetIfGroupOfVolumeDevContainsCompatibleSystemRoleVolume(BLContextPtr 
         ret = 2;
         goto exit;
     }
+	
+	if (IOObjectConformsTo(targetVolIOMedia, "AppleAPFSSnapshot")) {
+		io_registry_entry_t volMedia;
+		
+		contextprintf(context, kBLLogLevelVerbose, "%s is a snapshot\n", targetVolBSD);
+		ret = BLAPFSSnapshotToVolume(context, targetVolIOMedia, &volMedia);
+		if (ret) {
+			contextprintf(context, kBLLogLevelError, "Could not resolve snapshot at %s to a volume\n", targetVolBSD);
+			IOObjectRelease(targetVolIOMedia);
+			ret = 2;
+			goto exit;
+		}
+		IOObjectRelease(targetVolIOMedia);
+		targetVolIOMedia = volMedia;
+	}
+	
     if (!IOObjectConformsTo(targetVolIOMedia, APFS_VOLUME_OBJECT)) {
         contextprintf(context, kBLLogLevelError, "%s is not an APFS volume\n", volumeDev);
         ret = 3;

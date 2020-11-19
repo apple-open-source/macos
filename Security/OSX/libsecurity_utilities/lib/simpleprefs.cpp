@@ -30,7 +30,7 @@
 #include "errors.h"
 #include <sys/param.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <stdexcept>
 #include <security_utilities/debugging.h>
 #include <CoreFoundation/CFData.h>

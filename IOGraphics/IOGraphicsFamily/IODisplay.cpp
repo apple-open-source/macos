@@ -22,7 +22,9 @@
 
 
 #define IOFRAMEBUFFER_PRIVATE
+#define OSLOGINFO(args...) os_log_info(OS_LOG_DEFAULT, ##args)
 
+#include <os/log.h>
 #include <libkern/OSAtomic.h>
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOHibernatePrivate.h>
@@ -31,9 +33,11 @@
 #include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
+#include <IOKit/pci/IOPCIDevice.h>
 
 #include <IOKit/graphics/IOBacklightDisplayTrace.h>
 #include <IOKit/graphics/IODisplay.h>
+#include <IOKit/graphics/IOFramebuffer.h>
 #include <IOKit/graphics/IOGraphicsPrivate.h>
 
 #include "IOGraphicsKTrace.h"
@@ -151,6 +155,15 @@ struct EDID
     UInt8       extension;
     UInt8       checksum;
 };
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
+namespace {
+OSDictionary * gIODisplayLivePrefKeys;
+} //namespace
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
+
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -278,6 +291,8 @@ void IODisplay::initialize( void )
         gIODisplayFastBootEDIDKey  = OSSymbol::withCStringNoCopy( kIODisplayFastBootEDIDKey );
         gIODisplayZeroData         = OSData::withCapacity(0);
     }
+    
+    gIODisplayLivePrefKeys = OSDictionary::withCapacity(3);
     IOD_END(initialize,0,0,0);
 }
 
@@ -355,13 +370,172 @@ void IODisplay::searchParameterHandlers(IORegistryEntry * entry)
     IOD_END(searchParameterHandlers,0,0,0);
 }
 
+static const OSSymbol * displayEDIDNotUnique = OSSymbol::withCString("edid-not-unique");
+void IODisplay::loadPrefs( uint64_t edidHash, uint32_t vendor, uint32_t product, uint32_t serial ) {
+    
+    enum
+    {
+        kMaxKeyLen = 1024,
+        kMaxKeyVendorProduct = 20, /* "-12345678-12345678" */
+        kMaxKeyVendorProductHash = 40 /* "-12345678-12345678-1234567890123456" */
+    };
+
+    int pathLenOld = kMaxKeyLen - kMaxKeyVendorProduct;
+    int pathLenWithHash = kMaxKeyLen - kMaxKeyVendorProductHash;
+    char * prefsKeyOld = IONew(char, kMaxKeyLen);
+    char * prefsKeyWithHash = IONew(char, kMaxKeyLen);
+    IOFramebuffer * framebuffer = fConnection->getFramebuffer();
+    assert( framebuffer );
+    
+    if (prefsKeyOld && prefsKeyWithHash)
+    {
+        bool ok = false;
+        OSObject * obj;
+        bool useOldPrefs = false;
+        
+        if ((obj = copyProperty("AAPL,display-alias", gIOServicePlane)))
+        {
+            OSData * data;
+            useOldPrefs = true;
+            ok = (data = OSDynamicCast(OSData, obj));
+            if (ok)
+            {
+                pathLenOld = snprintf(prefsKeyOld, kMaxKeyLen, "Alias:%d/%s",
+                                ((uint32_t *) data->getBytesNoCopy())[0], getName());
+            }
+            OSSafeReleaseNULL(obj);
+        }
+        if (!ok)
+        {
+            IOService * pci_device = framebuffer;
+            while ((pci_device = pci_device->getProvider()))
+                if (OSDynamicCast(IOPCIDevice, pci_device))
+                    break;
+
+            ok = true;
+            if (pci_device)
+                ok &= pci_device->getPath(prefsKeyWithHash, &pathLenWithHash, gIOServicePlane);
+            else {
+                useOldPrefs = true;
+            }
+            ok &= getPath(prefsKeyOld, &pathLenOld, gIOServicePlane);
+        }
+        if (ok)
+        {
+            // Construct old preferences key with framebuffer path
+            snprintf(prefsKeyOld + pathLenOld, kMaxKeyLen - pathLenOld, "-%x-%x", (int) vendor, (int) product);
+            const OSSymbol * symOld = OSSymbol::withCString(prefsKeyOld);
+            
+            // Use old preferences code path
+            if (useOldPrefs)
+            {
+                if (symOld)
+                {
+                    OSLOGINFO("%s: %s fell back to old display preferences path", __func__, symOld->getCStringNoCopy());
+                    setProperty(kIODisplayPrefKeyKey, (OSObject *) symOld);
+                }
+            }
+            else
+            {
+                // Construct new preferences key with IOPCI device path and EDID hash
+                snprintf(prefsKeyWithHash + pathLenWithHash, kMaxKeyLen - pathLenWithHash,
+                        "-%x-%x-%llx", (int) vendor, (int) product, edidHash);
+                const OSSymbol * symWithHash = OSSymbol::withCString(prefsKeyWithHash);
+                if (symOld && symWithHash)
+                {
+                    // Always store a copy of the old preferences key in case we need to fall
+                    // back to the old format when cloned displays are encountered. The actual
+                    // preference key that is in use is stored under kIODisplayPrefKeyKey.
+                    setProperty(kIODisplayPrefKeyKeyOld, (OSObject *) symOld);
+                    setProperty(kIODisplayPrefKeyKey, (OSObject *) symWithHash);
+                   
+                    OSDictionary * prefsOld = framebuffer->copyPreferenceDict(symOld);
+                    OSDictionary * prefsWithHash = framebuffer->copyPreferenceDict(symWithHash);
+                   
+                    // If the new key has no associated preferences, migrate the preferences
+                    // associated with the old key to the new key
+                    if (!prefsWithHash && prefsOld)
+                    {
+                        OSCollectionIterator * iterator = OSCollectionIterator::withCollection(prefsOld);
+                        OSSymbol * pref;
+                        while ((pref = (OSSymbol *)iterator->getNextObject()))
+                            framebuffer->setPreference(this, pref, prefsOld->getObject(pref));
+                        gIODisplayLivePrefKeys->setObject(symWithHash, this);
+                        OSSafeReleaseNULL(iterator);
+                        OSLOGINFO("%s: %s migrated", __func__, symWithHash->getCStringNoCopy());
+                    }
+                    else if (prefsWithHash)
+                    {
+                        IODisplay * otherDisplay = nullptr;
+                       
+                        // If a clone of this display was encountered in the past, use old key
+                        if (prefsWithHash->getObject(displayEDIDNotUnique)) {
+                            setProperty(kIODisplayPrefKeyKey, (OSObject *) symOld);
+                            OSLOGINFO("%s: %s display edid not unique, using old key", __func__, symOld->getCStringNoCopy());
+                        }
+                       
+                        // If this display is a clone of another already connected display, blacklist
+                        // the preferences key with hash and adjust both displays to use the old key.
+                        else if ((otherDisplay = OSDynamicCast(IODisplay,    gIODisplayLivePrefKeys->getObject(symWithHash))))
+                        {
+                            // Reach across to other display and copy its current preferences
+                            // stored under the new key to the preferences stored under its
+                            // old key.
+                            framebuffer->sysAssertGated();
+                            otherDisplay->setProperty(kIODisplayPrefKeyKey, otherDisplay->getProperty(kIODisplayPrefKeyKeyOld));
+                           
+                            if (otherDisplay->fConnection)
+                            {
+                                IOFramebuffer * otherFramebuffer = otherDisplay->fConnection->getFramebuffer();
+                                OSCollectionIterator * iterator = OSCollectionIterator::withCollection(prefsWithHash);
+                                OSSymbol * pref;
+                                while ((pref = (OSSymbol *)iterator->getNextObject()))
+                                    otherFramebuffer->setPreference(otherDisplay, pref, prefsWithHash->getObject(pref));
+                                OSSafeReleaseNULL(iterator);
+                            }
+                            gIODisplayLivePrefKeys->removeObject(symWithHash);
+                            
+                            // Blacklist the preferences key with hash
+                            if (displayEDIDNotUnique)
+                                framebuffer->setPreference(this, displayEDIDNotUnique, kOSBooleanTrue);
+
+                            setProperty(kIODisplayPrefKeyKey, (OSObject *) symOld);
+                            OSLOGINFO("%s: %s collision with another display, switching to old key", __func__, symOld->getCStringNoCopy());
+                        }
+                       
+                        // If there are no display collisions under the new key, simply add
+                        // the key to the list of "live" keys for future collision detection
+                        else {
+                            gIODisplayLivePrefKeys->setObject(symWithHash, this);
+                            OSLOGINFO("%s: %s using new key", __func__, symWithHash->getCStringNoCopy());
+                        }
+                    }
+                    // If there are no preferences for the display under either key, use
+                    // the new key
+                    else {
+                        gIODisplayLivePrefKeys->setObject(symWithHash, this);
+                        OSLOGINFO("%s: %s creating preferences under new key", __func__, symWithHash->getCStringNoCopy());
+                    }
+
+                    OSSafeReleaseNULL(prefsOld);
+                    OSSafeReleaseNULL(prefsWithHash);
+                }
+                OSSafeReleaseNULL(symWithHash);
+            }
+            OSSafeReleaseNULL(symOld);
+        }
+    }
+    IOSafeDeleteNULL(prefsKeyOld, char, kMaxKeyLen);
+    IOSafeDeleteNULL(prefsKeyWithHash, char, kMaxKeyLen);
+}
+
 bool IODisplay::start( IOService * provider )
 {
     IOD_START(start,0,0,0);
     IOFramebuffer *     framebuffer;
     uintptr_t           connectFlags;
     OSData *            edidData;
-    EDID *              edid;
+    EDID *              edid = nullptr;
     uint32_t            vendor = 0;
     uint32_t            product = 0;
     uint32_t            serial = 0;
@@ -482,43 +656,12 @@ bool IODisplay::start( IOService * provider )
         setProperty( kDisplayProductID, product, 32);
     if (0 == getProperty(kDisplaySerialNumber))
         setProperty( kDisplaySerialNumber, serial, 32);
-
-    enum
-    {
-        kMaxKeyLen = 1024,
-        kMaxKeyVendorProduct = 20 /* "-12345678-12345678" */
-    };
-    int pathLen = kMaxKeyLen - kMaxKeyVendorProduct;
-    char * prefsKey = IONew(char, kMaxKeyLen);
-
-    if (prefsKey)
-    {
-        bool ok = false;
-        OSObject * obj;
-        OSData * data;
-        if ((obj = copyProperty("AAPL,display-alias", gIOServicePlane)))
-        {
-            ok = (data = OSDynamicCast(OSData, obj));
-            if (ok)
-                pathLen = snprintf(prefsKey, kMaxKeyLen, "Alias:%d/%s",
-                                ((uint32_t *) data->getBytesNoCopy())[0], getName());
-            obj->release();
-        }
-        if (!ok)
-            ok = getPath(prefsKey, &pathLen, gIOServicePlane);
-        if (ok)
-        {
-            snprintf(prefsKey + pathLen, kMaxKeyLen - pathLen, "-%x-%x", (int) vendor, (int) product);
-            const OSSymbol * sym = OSSymbol::withCString(prefsKey);
-            if (sym)
-            {
-                setProperty(kIODisplayPrefKeyKey, (OSObject *) sym);
-                sym->release();
-            }
-        }
-        IODelete(prefsKey, char, kMaxKeyLen);
-    }
-
+    
+    uint64_t edidHash = 0;
+    if (edid)
+        edidHash = XXH64((uint8_t *)edid, edidData->getLength());
+    loadPrefs(edidHash, vendor, product, serial);
+    
     OSNumber * num;
     if ((num = OSDynamicCast(OSNumber, framebuffer->getProperty(kIOFBTransformKey))))
     {
@@ -665,6 +808,7 @@ void IODisplay::stop( IOService * provider )
     IOD_START(stop,0,0,0);
     if (fConnection)
     {
+        gIODisplayLivePrefKeys->removeObject((OSSymbol *)getProperty(kIODisplayPrefKeyKey));
         fConnection->getFramebuffer()->displayOnline(this, -1, 0);
         fConnection = 0;
     }

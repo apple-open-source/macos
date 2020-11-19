@@ -240,7 +240,7 @@ text_open(TestText *tt) {
     fclose(f);
     return FALSE;
   }
-  if (length != fread(tt->text, 1, length, f)) {
+  if (length != (int32_t)fread(tt->text, 1, length, f)) {
     log_err("error reading %ld bytes from test text file\n", (long)length);
     length = 0;
     uprv_free(tt->text);
@@ -386,7 +386,7 @@ static void TestSelector()
     return;
   }
   if (!text_open(&text)) {
-    releaseAvailableNames();;
+    releaseAvailableNames();
   }
 
   excluded_sets[0] = uset_openEmpty();

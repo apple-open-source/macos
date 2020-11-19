@@ -16,12 +16,14 @@
  * \brief C++ API: time unit object
  */
 
+#include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
 
 #include "unicode/measunit.h"
 
 #if !UCONFIG_NO_FORMATTING
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -71,7 +73,7 @@ public:
      * Override clone.
      * @stable ICU 4.2
      */
-    virtual UObject* clone() const;
+    virtual TimeUnit* clone() const;
 
     /**
      * Copy operator.
@@ -130,9 +132,10 @@ private:
 
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // __TMUNIT_H__
 //eof

@@ -357,7 +357,7 @@ SPI_AVAILABLE(macos(10.8), ios(9.0));
      For compatibility, your code should migrate to use SecKeyGetAlgorithmId instead.
 */
 CFIndex SecKeyGetAlgorithmID(SecKeyRef key)
-API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", ios(5.0, 9.0)) API_UNAVAILABLE(iosmac);
+API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", ios(5.0, 9.0)) API_UNAVAILABLE(macCatalyst);
 #endif // TARGET_OS_IPHONE
 
 #if TARGET_OS_OSX
@@ -372,7 +372,7 @@ API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", ios(5.0, 9.0)) API_UNAVA
  had different arguments and a different return value. Use SecKeyGetAlgorithmId instead.
  */
 OSStatus SecKeyGetAlgorithmID(SecKeyRef key, const CSSM_X509_ALGORITHM_IDENTIFIER **algid)
-API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", macos(10.2, 10.8)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, iosmac);
+API_DEPRECATED_WITH_REPLACEMENT("SecKeyGetAlgorithmId", macos(10.2, 10.8)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, macCatalyst);
 #endif
 
 #if !SEC_OS_OSX
@@ -473,7 +473,7 @@ OSStatus SecKeyImportPair(
         SecAccessRef initialAccess,
         SecKeyRef* publicKey,
         SecKeyRef* privateKey)
-        API_DEPRECATED_WITH_REPLACEMENT("SecItemImport", macos(10.0, 10.5)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+        API_DEPRECATED_WITH_REPLACEMENT("SecItemImport", macos(10.0, 10.5)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @function SecKeyCreate
@@ -504,7 +504,7 @@ SecKeyRef SecKeyCreate(CFAllocatorRef allocator,
 */
 OSStatus SecKeyCreateWithCSSMKey(const CSSM_KEY *key, SecKeyRef* keyRef) API_DEPRECATED("CSSM_KEY is deprecated", macos(10.11, 10.14));
 
-// Alias macOS versions of this deprecated SPI to unique macOS names. Undecorated names are used for iosmac.
+// Alias macOS versions of this deprecated SPI to unique macOS names. Undecorated names are used for macCatalyst.
 #define SecKeyRawSign SecKeyRawSign_macOS
 #define SecKeyRawVerify SecKeyRawVerify_macOS
 
@@ -809,6 +809,10 @@ typedef CF_ENUM(uint32_t, SecKeyAttestationKeyType)
     kSecKeyAttestationKeyTypeUIKCommitted SPI_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 2,
     kSecKeyAttestationKeyTypeUIKProposed SPI_AVAILABLE(macos(10.14), ios(12.0), tvos(12.0), watchos(5.0)) = 3,
     kSecKeyAttestationKeyTypeSecureElement SPI_AVAILABLE(ios(13.0)) = 4,
+    kSecKeyAttestationKeyTypeOIKCommitted SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0)) = 5,
+    kSecKeyAttestationKeyTypeOIKProposed SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0)) = 6,
+    kSecKeyAttestationKeyTypeDAKCommitted SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0)) = 7,
+    kSecKeyAttestationKeyTypeDAKProposed SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0)) = 8,
 } SPI_AVAILABLE(macos(10.12), ios(10.0), tvos(10.0), watchos(3.0));
 
 /*!

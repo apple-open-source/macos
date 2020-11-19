@@ -66,7 +66,7 @@ typedef unsigned char uchar;
 
 #define EFREE_IF(ptr)	if (ptr) efree(ptr)
 
-#define MAX_IFD_NESTING_LEVEL 150
+#define MAX_IFD_NESTING_LEVEL 200
 
 /* {{{ arginfo */
 ZEND_BEGIN_ARG_INFO(arginfo_exif_tagname, 0)
@@ -3138,7 +3138,8 @@ static int exif_process_IFD_in_MAKERNOTE(image_info_type *ImageInfo, char * valu
 		/*exif_error_docref(NULL EXIFERR_CC, ImageInfo, E_NOTICE, "check (%s)", maker_note->make?maker_note->make:"");*/
 		if (maker_note->make && (!ImageInfo->make || strcmp(maker_note->make, ImageInfo->make)))
 			continue;
-		if (maker_note->id_string && strncmp(maker_note->id_string, value_ptr, maker_note->id_string_len))
+		if (maker_note->id_string && value_len >= maker_note->id_string_len
+				&& strncmp(maker_note->id_string, value_ptr, maker_note->id_string_len))
 			continue;
 		break;
 	}
@@ -3146,7 +3147,7 @@ static int exif_process_IFD_in_MAKERNOTE(image_info_type *ImageInfo, char * valu
 	if (value_len < 2 || maker_note->offset >= value_len - 1) {
 		/* Do not go past the value end */
 		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "IFD data too short: 0x%04X offset 0x%04X", value_len, maker_note->offset);
-		return FALSE;
+		return TRUE;
 	}
 
 	dir_start = value_ptr + maker_note->offset;
@@ -3171,6 +3172,23 @@ static int exif_process_IFD_in_MAKERNOTE(image_info_type *ImageInfo, char * valu
 	}
 
 	NumDirEntries = php_ifd_get16u(dir_start, ImageInfo->motorola_intel);
+
+	/* It can be that motorola_intel is wrongly mapped, let's try inverting it */
+	if ((2+NumDirEntries*12) > value_len) {
+		exif_error_docref(NULL EXIFERR_CC, ImageInfo, E_NOTICE, "Potentially invalid endianess, trying again with different endianness before imminent failure.");
+
+		ImageInfo->motorola_intel = ImageInfo->motorola_intel == 0 ? 1 : 0;
+		NumDirEntries = php_ifd_get16u(dir_start, ImageInfo->motorola_intel);
+	}
+
+	if ((2+NumDirEntries*12) > value_len) {
+		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Illegal IFD size: 2 + 0x%04X*12 = 0x%04X > 0x%04X", NumDirEntries, 2+NumDirEntries*12, value_len);
+		return FALSE;
+	}
+	if ((dir_start - value_ptr) > value_len - (2+NumDirEntries*12)) {
+		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Illegal IFD size: 0x%04X > 0x%04X", (dir_start - value_ptr) + (2+NumDirEntries*12), value_len);
+		return FALSE;
+	}
 
 	switch (maker_note->offset_mode) {
 		case MN_OFFSET_MAKER:
@@ -3202,18 +3220,10 @@ static int exif_process_IFD_in_MAKERNOTE(image_info_type *ImageInfo, char * valu
 			break;
 	}
 
-	if ((2+NumDirEntries*12) > value_len) {
-		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Illegal IFD size: 2 + 0x%04X*12 = 0x%04X > 0x%04X", NumDirEntries, 2+NumDirEntries*12, value_len);
-		return FALSE;
-	}
-	if ((dir_start - value_ptr) > value_len - (2+NumDirEntries*12)) {
-		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Illegal IFD size: 0x%04X > 0x%04X", (dir_start - value_ptr) + (2+NumDirEntries*12), value_len);
-		return FALSE;
-	}
-
 	for (de=0;de<NumDirEntries;de++) {
-		if (!exif_process_IFD_TAG(ImageInfo, dir_start + 2 + 12 * de,
-								  offset_base, data_len, displacement, section_index, 0, maker_note->tag_table)) {
+		size_t offset = 2 + 12 * de;
+		if (!exif_process_IFD_TAG(ImageInfo, dir_start + offset,
+								  offset_base, data_len - offset, displacement, section_index, 0, maker_note->tag_table)) {
 			return FALSE;
 		}
 	}
@@ -3265,11 +3275,6 @@ static int exif_process_IFD_TAG(image_info_type *ImageInfo, char *dir_entry, cha
 		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Process tag(x%04X=%s): Illegal format code 0x%04X, suppose BYTE", tag, exif_get_tagname(tag, tagname, -12, tag_table), format);
 		format = TAG_FMT_BYTE;
 		/*return TRUE;*/
-	}
-
-	if (components < 0) {
-		exif_error_docref("exif_read_data#error_ifd" EXIFERR_CC, ImageInfo, E_WARNING, "Process tag(x%04X=%s): Illegal components(%d)", tag, exif_get_tagname(tag, tagname, -12, tag_table), components);
-		return FALSE;
 	}
 
 	byte_count_signed = (int64_t)components * php_tiff_bytes_per_format[format];
@@ -3668,6 +3673,11 @@ static void exif_process_TIFF_in_JPEG(image_info_type *ImageInfo, char *CharBuf,
 {
 	unsigned exif_value_2a, offset_of_ifd;
 
+	if (length < 2) {
+		exif_error_docref(NULL EXIFERR_CC, ImageInfo, E_WARNING, "Missing TIFF alignment marker");
+		return;
+	}
+
 	/* set the thumbnail stuff to nothing so we can test to see if they get set up */
 	if (memcmp(CharBuf, "II", 2) == 0) {
 		ImageInfo->motorola_intel = 0;
@@ -3820,7 +3830,7 @@ static int exif_scan_JPEG_header(image_info_type *ImageInfo)
 			return FALSE;
 		}
 
-		sn = exif_file_sections_add(ImageInfo, marker, itemlen+1, NULL);
+		sn = exif_file_sections_add(ImageInfo, marker, itemlen, NULL);
 		Data = ImageInfo->file.list[sn].data;
 
 		/* Store first two pre-read bytes. */
@@ -4576,8 +4586,9 @@ PHP_FUNCTION(exif_read_data)
 		exif_iif_add_fmt(&ImageInfo, SECTION_COMPUTED, "CCDWidth", "%dmm", (int)ImageInfo.CCDWidth);
 	}
 	if(ImageInfo.ExposureTime>0) {
-		if(ImageInfo.ExposureTime <= 0.5) {
-			exif_iif_add_fmt(&ImageInfo, SECTION_COMPUTED, "ExposureTime", "%0.3F s (1/%d)", ImageInfo.ExposureTime, (int)(0.5 + 1/ImageInfo.ExposureTime));
+		float recip_exposure_time = 0.5f + 1.0f/ImageInfo.ExposureTime;
+		if (ImageInfo.ExposureTime <= 0.5 && recip_exposure_time < INT_MAX) {
+			exif_iif_add_fmt(&ImageInfo, SECTION_COMPUTED, "ExposureTime", "%0.3F s (1/%d)", ImageInfo.ExposureTime, (int) recip_exposure_time);
 		} else {
 			exif_iif_add_fmt(&ImageInfo, SECTION_COMPUTED, "ExposureTime", "%0.3F s", ImageInfo.ExposureTime);
 		}

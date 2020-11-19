@@ -2202,10 +2202,7 @@ xmlSAX2AttributeNs(xmlParserCtxtPtr ctxt,
 
 #ifdef __APPLE__
 #include <dispatch/dispatch.h>
-#include <mach-o/dyld.h>
-
-extern int dyld_get_program_sdk_version(void);
-#define DYLD_MACOSX_VERSION_10_9 0x000A0900
+#include <mach-o/dyld_priv.h>
 
 // libxml2 v2.9 changed how elements with undeclared namespace prefixes are handled, an error case that has undefined behavior,
 // in such a way that broke Microsoft Document Connection. Detect Microsoft Document Connection and mimic the old behavior.
@@ -2226,9 +2223,12 @@ static bool evaluateStartElementNSNeedsUndeclaredPrefixQuirk(void)
     if (strcmp(executableName, "Microsoft Document Connection"))
         return false;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // Apply the workaround if the application was linked against an SDK prior to where
     // libxml2 v2.9 was present.
     return dyld_get_program_sdk_version() < DYLD_MACOSX_VERSION_10_9;
+#pragma clang diagnostic pop
 }
 
 static bool startElementNSNeedsUndeclaredPrefixQuirk(void)
@@ -2242,7 +2242,7 @@ static bool startElementNSNeedsUndeclaredPrefixQuirk(void)
     return needsQuirk;
 }
 
-#endif
+#endif // __APPLE__
 
 /**
  * xmlSAX2StartElementNs:

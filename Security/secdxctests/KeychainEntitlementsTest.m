@@ -23,6 +23,7 @@
 
 #import <Security/Security.h>
 #import <Security/SecItemPriv.h>
+#import <os/feature_private.h>
 
 #import "KeychainXCTest.h"
 
@@ -39,7 +40,18 @@
     // Application with no keychain-related entitlements at all, but CopyMatching must work in order to support
     // backward compatibility with smart-card-enabled macos applications (com.apple.token AG is added automatically in this case).
     [self setEntitlements:@{} validated:false];
-    XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+    if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+#if TARGET_OS_OSX
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+#else
+        // On non-macOS targets, token items must be explicitly enabled, and that requires entitlements.
+        // But since this test has no entitlements, it will always fail with errSecMissingEntitlement.
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
+#endif
+    } else {
+        // If tokens are not enabled, this situation really means that there is an entitlement problem.
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
+    }
 
     // However, write access is declined for such application.
     XCTAssertEqual(SecItemAdd((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
@@ -120,8 +132,12 @@
                 (id)kSecClass: (id)kSecClassGenericPassword,
                 (id)kSecAttrLabel: @"label",
                 (id)kSecAttrAccessGroup: (id)kSecAttrAccessGroupToken, };
-    [self setEntitlements:@{ @"com.apple.application-identifier": (id)kSecAttrAccessGroupToken } validated:YES];
-    XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+    [self setEntitlements:@{ @"keychain-access-groups": @[ (id)kSecAttrAccessGroupToken ] } validated:YES];
+    if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+    } else {
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
+    }
     XCTAssertEqual(SecItemAdd((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
     XCTAssertEqual(SecItemDelete((CFDictionaryRef)params), errSecMissingEntitlement);
 }
@@ -134,8 +150,12 @@
                 (id)kSecAttrLabel: @"label", };
     [self setEntitlements:@{ @"com.apple.security.application-groups": @[@"com.apple.test-app-groups"] } validated:NO];
 
-    // Invalid access group entitlement should still allow querying com.apple.token
-    XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+    // Invalid access group entitlement should still allow querying com.apple.token, if tokens are enabled
+    if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+    } else {
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
+    }
 
     // But write-access is forbidden,
     XCTAssertEqual(SecItemAdd((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
@@ -150,17 +170,29 @@
     XCTAssertEqual(SecItemAdd((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
     XCTAssertEqual(SecItemDelete((CFDictionaryRef)params), errSecMissingEntitlement);
 
-    // Explicitly referring to com.apple.token should work fine too.
     params = @{ (id)kSecUseDataProtectionKeychain: @YES,
                 (id)kSecClass: (id)kSecClassGenericPassword,
                 (id)kSecAttrLabel: @"label",
                 (id)kSecAttrAccessGroup: (id)kSecAttrAccessGroupToken, };
-    XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+    if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+    } else {
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecMissingEntitlement);
+    }
 }
 #endif // TARGET_OS_OSX
 
 - (void)testTokenItemsGroup {
     NSDictionary *params;
+
+    [self setEntitlements:@{
+#if TARGET_OS_OSX
+        @"com.apple.application-identifier": @"com.apple.test-app-identifier",
+#else
+        @"application-identifier": @"com.apple.test-app-identifier",
+#endif
+        @"keychain-access-groups": @[ @"com.apple.token" ],
+    } validated:YES];
 
     // Add token items for testing into the keychain.
     NSArray *tokenItems = @[ @{
@@ -168,29 +200,36 @@
                                  (id)kSecAttrAccessGroup: (id)kSecAttrAccessGroupToken,
                                  (id)kSecAttrLabel: @"label",
                                  } ];
-    XCTAssertEqual(SecItemUpdateTokenItems(@"com.apple.testtoken", (__bridge CFArrayRef)tokenItems), errSecSuccess);
+    XCTAssertEqual(SecItemUpdateTokenItemsForAccessGroups(@"com.apple.testtoken", (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], (__bridge CFArrayRef)tokenItems), errSecSuccess);
 
-    [self setEntitlements:@{ @"com.apple.application-identifier": @"com.apple.test-app-identifier" } validated:YES];
-
-    // Query without explicit access group, should find item on macOS and not find it on iOS.
+    // Query should find items, because we have token access group in entitlements.
     params = @{ (id)kSecUseDataProtectionKeychain: @YES,
                 (id)kSecClass: (id)kSecClassGenericPassword,
                 (id)kSecAttrLabel: @"label", };
+    if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecSuccess);
+    } else {
+        XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
+    }
+
 #if TARGET_OS_IPHONE
+    // Not having access group in entitlements will not find items.
+    [self setEntitlements:@{
+        @"application-identifier": @"com.apple.test-app-identifier",
+    } validated:YES];
     XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecItemNotFound);
-#else
-    XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecSuccess);
 #endif
 
-    // Query with explicit AG should work the same on both platforms.
-    params = @{ (id)kSecUseDataProtectionKeychain: @YES,
-                (id)kSecClass: (id)kSecClassGenericPassword,
-                (id)kSecAttrLabel: @"label",
-                (id)kSecAttrAccessGroup: (id)kSecAttrAccessGroupToken, };
-    XCTAssertEqual(SecItemCopyMatching((CFDictionaryRef)params, NULL), errSecSuccess);
-
     // Delete all test token items.
-    SecItemUpdateTokenItems(@"com.apple.testtoken", (__bridge CFArrayRef)@[]);
+    [self setEntitlements:@{
+#if TARGET_OS_OSX
+        @"com.apple.application-identifier": @"com.apple.test-app-identifier",
+#else
+        @"application-identifier": @"com.apple.test-app-identifier",
+#endif
+        @"keychain-access-groups": @[ @"com.apple.token" ],
+    } validated:YES];
+    SecItemUpdateTokenItemsForAccessGroups(@"com.apple.testtoken", (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], (__bridge CFArrayRef)@[]);
 }
 
 - (void)testEntitlementForExplicitAccessGroupLacking {

@@ -11,7 +11,16 @@ es_MX{
             patternsLong{
                 decimalFormat{
                     1000000000000{
+                        one{"0 billón"}
                         other{"0 billones"}
+                    }
+                    10000000000000{
+                        one{"00 billones"}
+                        other{"00 billones"}
+                    }
+                    100000000000000{
+                        one{"000 billones"}
+                        other{"000 billones"}
                     }
                 }
             }
@@ -94,9 +103,8 @@ es_MX{
                 }
             }
         }
-        minimumGroupingDigits{"1"}
     }
-    Version{"2.1.47.96"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -248,10 +256,6 @@ es_MX{
                         am{"a. m."}
                         pm{"p. m."}
                     }
-                    narrow{
-                        am{"a. m."}
-                        pm{"p. m."}
-                    }
                     wide{
                         am{"a. m."}
                         pm{"p. m."}
@@ -260,21 +264,21 @@ es_MX{
             }
             intervalFormats{
                 GyMMM{
-                    G{"MMM 'de' y G – MMM 'de' y G"}
+                    G{"MMM 'de' y G – MMM 'de' y G"}
                     M{"MMM–MMM 'de' y G"}
-                    y{"MMM 'de' y – MMM 'de' y G"}
+                    y{"MMM 'de' y – MMM 'de' y G"}
                 }
                 GyMMMEd{
-                    G{"E d 'de' MMM 'de' y G – E d 'de' MMM 'de' y G"}
-                    M{"E d 'de' MMM – E d 'de' MMM 'de' y G"}
-                    d{"E d 'de' MMM – E d 'de' MMM 'de' y G"}
-                    y{"E d 'de' MMM 'de' y – E d 'de' MMM 'de' y G"}
+                    G{"E d 'de' MMM 'de' y G – E d 'de' MMM 'de' y G"}
+                    M{"E d 'de' MMM – E d 'de' MMM 'de' y G"}
+                    d{"E d 'de' MMM – E d 'de' MMM 'de' y G"}
+                    y{"E d 'de' MMM 'de' y – E d 'de' MMM 'de' y G"}
                 }
                 GyMMMd{
-                    G{"d 'de' MMM 'de' y G – d 'de' MMM 'de' y G"}
-                    M{"d 'de' MMM – d 'de' MMM 'de' y G"}
+                    G{"d 'de' MMM 'de' y G – d 'de' MMM 'de' y G"}
+                    M{"d 'de' MMM – d 'de' MMM 'de' y G"}
                     d{"d–d 'de' MMM 'de' y G"}
-                    y{"d 'de' MMM 'de' y – d 'de' MMM 'de' y G"}
+                    y{"d 'de' MMM 'de' y – d 'de' MMM 'de' y G"}
                 }
                 H{
                     H{"H – H"}
@@ -464,12 +468,6 @@ es_MX{
                     }
                 }
                 stand-alone{
-                    abbreviated{
-                        "1er. trim.",
-                        "2º. trim.",
-                        "3er. trim.",
-                        "4º trim.",
-                    }
                     narrow{
                         "1T",
                         "2T",

@@ -716,12 +716,12 @@ static CFTypeRef SecKeyECDHCopyX963Result(SecKeyOperationContext *context, const
         CFMutableDataRef kdfResult = CFDataCreateMutableWithScratch(kCFAllocatorDefault, requestedSize);
         int err = ccansikdf_x963(di, CFDataGetLength(sharedSecret), CFDataGetBytePtr(sharedSecret), sharedInfoLength, sharedInfo,
                                  requestedSize, CFDataGetMutableBytePtr(kdfResult));
-        require_noerr_action_quiet(err, out, (CFReleaseNull(result),
+        require_noerr_action_quiet(err, out, (CFReleaseNull(kdfResult),
                                               SecError(errSecParam, error, CFSTR("ECDHKeyExchange wrong input (%d)"), err)));
         CFAssignRetained(result, kdfResult);
     } else {
         // In test-only mode, propagate result (YES/NO) of underlying operation.
-        result = CFRetainAssign(result, sharedSecret);
+        CFRetainAssign(result, sharedSecret);
     }
 out:
     CFReleaseNull(sharedSecret);
@@ -949,8 +949,11 @@ out:
 static CFDataRef SecKeyECIESDecryptAESGCMCopyResult(CFDataRef keyExchangeResult, CFDataRef inData, CFDictionaryRef inParams,
                                                     CFErrorRef *error) {
     CFDataRef result = NULL;
-    CFMutableDataRef plaintext = CFDataCreateMutableWithScratch(kCFAllocatorDefault, CFDataGetLength(inData) - kSecKeyIESTagLength);
-    CFMutableDataRef tag = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), kSecKeyIESTagLength);
+    CFMutableDataRef plaintext = NULL;
+    CFMutableDataRef tag = NULL;
+    require_action_quiet(CFDataGetLength(inData) >= kSecKeyIESTagLength, out, SecError(errSecParam, error, CFSTR("ECIES: Input data too short")));
+    plaintext = CFDataCreateMutableWithScratch(kCFAllocatorDefault, CFDataGetLength(inData) - kSecKeyIESTagLength);
+    tag = CFDataCreateMutableWithScratch(SecCFAllocatorZeroize(), kSecKeyIESTagLength);
     CFDataGetBytes(inData, CFRangeMake(CFDataGetLength(inData) - kSecKeyIESTagLength, kSecKeyIESTagLength),
                    CFDataGetMutableBytePtr(tag));
     CFIndex aesKeySize = CFDataGetLength(keyExchangeResult) - sizeof(kSecKeyIESIV);

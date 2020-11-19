@@ -3,10 +3,11 @@
 en_GB{
     %%Parent{"en_001"}
     Languages{
+        fa_AF{"Dari"}
         nds_NL{"West Low German"}
+        nl_BE{"Flemish"}
+        ro_MD{"Moldavian"}
+        sw_CD{"Congo Swahili"}
     }
-    Scripts{
-        Thai{"Thai"}
-    }
-    Version{"2.1.47.86"}
+    Version{"36.1"}
 }

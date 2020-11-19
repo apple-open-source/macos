@@ -25,15 +25,20 @@
  
 // the controls 
 
+// *** START HERE: disable debug logging
 #define FWLOGGING 0
 #define FWASSERTS 1
 
 ///////////////////////////////////////////
 
 #if FWLOGGING
-#define FWKLOG(x) IOLog x
+	#define FWKLOG( x )					IOLog x
+	#define DebugLog( x... )			IOLog( x ) ;
+	#define DebugLogCond( x, y... ) 	{ if (x) DebugLog( y ) ; }
 #else
-#define FWKLOG(x) do {} while (0)
+	#define FWKLOG( x... )				do {} while (0)
+	#define DebugLog( x... )			do {} while (0)
+	#define DebugLogCond( x, y... )		do {} while (0)
 #endif
 
 #if FWLOCALLOGGING
@@ -60,26 +65,18 @@
 #define FWASSERTINGATE(a) do {} while (0)
 #endif
 
-#if FIRELOG > 0
-#   define DoErrorLog( x... ) { FireLog( "ERROR: " x ) ; }
-#   define DoDebugLog( x... ) { FireLog( x ) ; }
-#else
-#   define DoErrorLog( x... ) { IOLog( "ERROR: " x ) ; }
-#   define DoDebugLog( x... ) { IOLog( x ) ; }
-#endif
+#define DoErrorLog( x... ) { IOLog( "ERROR: " x ) ; }
+#define DoDebugLog( x... ) { IOLog( x ) ; }
 
 #define ErrorLog(x...) 				DoErrorLog( x ) ;
 #define	ErrorLogCond( x, y... )		{ if (x) ErrorLog ( y ) ; }
 
 #if IOFIREWIREDEBUG > 0
-#if FIRELOG
-#	import <IOKit/firewire/FireLog.h>
-#endif
-#	define DebugLog(x...)			DoDebugLog( x ) ;
-#	define DebugLogCond( x, y... ) 	{ if (x) DebugLog ( y ) ; }
+#	define DebugLogOrig(x...)			DoDebugLog( x ) ;
+#	define DebugLogCondOrig( x, y... ) 	{ if (x) DebugLogOrig ( y ) ; }
 #else
-#	define DebugLog(x...)			do {} while (0)
-#	define DebugLogCond( x, y... )	do {} while (0)
+#	define DebugLogOrig(x...)			do {} while (0)
+#	define DebugLogCondOrig( x, y... )	do {} while (0)
 #endif
 
 #define TIMEIT( doit, description ) \
@@ -93,7 +90,7 @@
 	SUB_ABSOLUTETIME( & end, & start ) ;\
 	UInt64 nanos ;\
 	absolutetime_to_nanoseconds( end, & nanos ) ;\
-	DebugLog("%s duration %llu us\n", "" description, nanos/1000) ;\
+	DebugLogOrig("%s duration %llu us\n", "" description, nanos/1000) ;\
 }
 
 #define InfoLog(x...) do {} while (0)

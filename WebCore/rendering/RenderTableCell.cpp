@@ -53,7 +53,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(RenderTableCell);
 
 struct SameSizeAsRenderTableCell : public RenderBlockFlow {
     unsigned bitfields;
-    LayoutUnit paddings[2];
+    LayoutUnit padding[2];
 };
 
 COMPILE_ASSERT(sizeof(RenderTableCell) == sizeof(SameSizeAsRenderTableCell), RenderTableCell_should_stay_small);
@@ -400,7 +400,7 @@ Optional<LayoutRect> RenderTableCell::computeVisibleRectInContainer(const Layout
     if (container == this)
         return rect;
     LayoutRect adjustedRect = rect;
-    if ((!view().frameView().layoutContext().isPaintOffsetCacheEnabled() || container || context.m_options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection)) && parent())
+    if ((!view().frameView().layoutContext().isPaintOffsetCacheEnabled() || container || context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection)) && parent())
         adjustedRect.moveBy(-parentBox()->location()); // Rows are in the same coordinate space, so don't add their offset in.
     return RenderBlockFlow::computeVisibleRectInContainer(adjustedRect, container, context);
 }

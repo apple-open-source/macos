@@ -220,6 +220,37 @@ DAReturn _DADiskRefresh( DADiskRef disk )
                             DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
 
                             CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
+
+                            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaPathKey ) )
+                            {
+                                CFURLRef mountpoint;
+                                if ( CFEqual( CFURLGetString( path ), CFSTR( "file:///" ) ) )
+                                {
+                                    mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+
+                                    if ( mountpoint )
+                                    {
+                                        DADiskSetBypath( disk, mountpoint );
+
+                                        CFRelease( mountpoint );
+                                    }
+                                }
+                                else
+                                {
+                                    mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+
+                                    if ( mountpoint )
+                                    {
+                                        DADiskSetBypath( disk, mountpoint );
+
+                                        DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
+
+                                        CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
+
+                                        CFRelease( mountpoint );
+                                    }
+                                }
+                            }
                         }
                         CFRelease( name );
                     }

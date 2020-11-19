@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHMODULES" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -1308,6 +1308,27 @@ The commands loaded by default are:
 Changes group of files specified\&.  This is equivalent to \fBchown\fP with
 a \fIuser\-spec\fP argument of `\fB:\fP\fIgroup\fP\&'\&.
 .TP
+\fBchmod\fP [ \fB\-Rs\fP ] \fImode\fP \fIfilename\fP \&.\&.\&.
+Changes mode of files specified\&.
+.RS
+.PP
+The specified \fImode\fP must be in octal\&.
+.PP
+The \fB\-R\fP option causes \fBchmod\fP to recursively descend into directories,
+changing the mode of all files in the directory after
+changing the mode of the directory itself\&.
+.PP
+The \fB\-s\fP option is a zsh extension to \fBchmod\fP functionality\&.  It enables
+paranoid behaviour, intended to avoid security problems involving
+a \fBchmod\fP being tricked into affecting files other than the ones
+intended\&.  It will refuse to follow symbolic links, so that (for example)
+``\fBchmod 600 /tmp/foo/passwd\fP\&'' can't accidentally chmod \fB/etc/passwd\fP
+if \fB/tmp/foo\fP happens to be a link to \fB/etc\fP\&.  It will also check
+where it is after leaving directories, so that a recursive chmod of
+a deep directory tree can\&'t end up recursively chmoding \fB/usr\fP as
+a result of directories being moved up the tree\&.
+.RE
+.TP
 \fBchown\fP [ \fB\-hRs\fP ] \fIuser\-spec\fP \fIfilename\fP \&.\&.\&.
 Changes ownership and group of files specified\&.
 .RS
@@ -1426,16 +1447,16 @@ fall back on copying and removing files; if this behaviour is desired,
 use \fBcp\fP and \fBrm\fP manually\&.  This may change in a future version\&.
 .RE
 .TP
-\fBrm\fP [ \fB\-dfirs\fP ] \fIfilename\fP \&.\&.\&.
+\fBrm\fP [ \fB\-dfiRrs\fP ] \fIfilename\fP \&.\&.\&.
 Removes files and directories specified\&.
 .RS
 .PP
-Normally, \fBrm\fP will not remove directories (except with the \fB\-r\fP
-option)\&.  The \fB\-d\fP option causes \fBrm\fP to try removing directories
+Normally, \fBrm\fP will not remove directories (except with the \fB\-R\fP or \fB\-r\fP
+options)\&.  The \fB\-d\fP option causes \fBrm\fP to try removing directories
 with \fBunlink\fP (see \fIunlink\fP(2)), the same method used for files\&.
 Typically only the super\-user can actually succeed in unlinking
 directories in this way\&.
-\fB\-d\fP takes precedence over \fB\-r\fP\&.
+\fB\-d\fP takes precedence over \fB\-R\fP and \fB\-r\fP\&.
 .PP
 By default, the user will be queried before removing any file
 that the user cannot write to, but writable files will be silently
@@ -1445,9 +1466,9 @@ any files\&.  The \fB\-f\fP option causes files to be
 silently deleted, without querying, and suppresses all error indications\&.
 \fB\-f\fP takes precedence\&.
 .PP
-The \fB\-r\fP option causes \fBrm\fP to recursively descend into directories,
-deleting all files in the directory before removing the directory with
-the \fBrmdir\fP system call (see \fIrmdir\fP(2))\&.
+The \fB\-R\fP and \fB\-r\fP options cause \fBrm\fP to recursively descend into
+directories, deleting all files in the directory before removing the directory
+with the \fBrmdir\fP system call (see \fIrmdir\fP(2))\&.
 .PP
 The \fB\-s\fP option is a zsh extension to \fBrm\fP functionality\&.  It enables
 paranoid behaviour, intended to avoid common security problems involving
@@ -1526,7 +1547,7 @@ editing the file `\fBmyfile\fP\&'\&.
 .PP
 When the array is accessed as a whole, the keys are the names of files in
 the current directory, and the values are empty (to save a huge overhead in
-memory)\&.  Thus \fB${(k)mapfile}\fP has the same affect as the glob operator
+memory)\&.  Thus \fB${(k)mapfile}\fP has the same effect as the glob operator
 \fB*(D)\fP, since files beginning with a dot are not special\&.  Care must be
 taken with expressions such as \fBrm ${(k)mapfile}\fP, which will delete
 every file in the current directory without the usual `\fBrm *\fP\&' test\&.
@@ -1801,7 +1822,7 @@ For any other function, including any defined at an interactive prompt or
 an autoload function whose path has not yet been resolved, this is
 the empty string\&.  However, the hash element is reported as defined
 just so long as the function is present:  the keys to this hash are
-the same as those to \fB$funcions\fP\&.
+the same as those to \fB$functions\fP\&.
 .RE
 .TP
 \fBdis_functions_source\fP
@@ -2342,7 +2363,8 @@ needed, for example:
 \fBzsocket\fP \fB\-l\fP [ \fB\-v\fP ] [ \fB\-d\fP \fIfd\fP ] \fIfilename\fP
 \fBzsocket \-l\fP will open a socket listening on \fIfilename\fP\&.
 The shell parameter \fBREPLY\fP will be set to the file descriptor
-associated with that listener\&.
+associated with that listener\&.  The file descriptor remains open in subshells
+and forked external executables\&.
 .RS
 .PP
 If \fB\-d\fP is specified, its argument
@@ -2357,7 +2379,8 @@ In order to elicit more verbose output, use \fB\-v\fP\&.
 to the socket associated with \fIlistenfd\fP\&.
 The shell parameter \fBREPLY\fP will
 be set to the file descriptor associated with
-the inbound connection\&.
+the inbound connection\&.  The file descriptor remains open in subshells
+and forked external executables\&.
 .RS
 .PP
 If \fB\-d\fP is specified, its argument
@@ -2604,7 +2627,9 @@ options\&. Note that, depending on the system, some may not be available\&.
 .TP
 .PD
 \fBcloexec\fP
-mark file to be closed when other programs are executed
+mark file to be closed when other programs are executed (else
+the file descriptor remains open in subshells and forked external
+executables)
 .TP
 .PD 0
 \fBcreate\fP
@@ -2755,8 +2780,11 @@ locked by opening a file descriptor to the file and applying a lock to
 the file descriptor\&.  The lock terminates when the shell process that
 created the lock exits; it is therefore often convenient to create file
 locks within subshells, since the lock is automatically released when
-the subshell exits\&.  Status 0 is returned if the lock succeeds, else
-status 1\&.
+the subshell exits\&.  Note that use of the \fBprint\fP builtin with the
+\fB\-u\fP option will, as a side effect, release the lock, as will redirection
+to the file in the shell holding the lock\&.  To work around this use a
+subshell, e\&.g\&. `\fB(print message) >> \fP\fIfile\fP\&'\&.  Status 0 is
+returned if the lock succeeds, else status 1\&.
 .PP
 In the second form the file descriptor given by the arithmetic
 expression \fIfd_expr\fP is closed, releasing a lock\&.  The file descriptor
@@ -3717,7 +3745,7 @@ The shell parameter \fBREPLY\fP is set to the file descriptor assigned to
 the master side of the pseudo\-terminal\&.  This allows the terminal to be
 monitored with ZLE descriptor handlers (see \fIzshzle\fP(1)) or manipulated with \fBsysread\fP and
 \fBsyswrite\fP (see THE ZSH/SYSTEM MODULE in \fIzshmodules\fP(1))\&.  \fIWarning\fP: Use of \fBsysread\fP
-and \fBsyswrite\fP is \fInot\fP recommended, use \fBzpty \-r\fP and \fBzpty \-w\fP
+and \fBsyswrite\fP is \fInot\fP recommended; use \fBzpty \-r\fP and \fBzpty \-w\fP
 unless you know exactly what you are doing\&.
 .RE
 .TP
@@ -3864,7 +3892,7 @@ The \fBzsh/zutil\fP module only adds some builtins:
 .PD 0
 .TP
 .PD 0
-\fBzstyle\fP [ \fB\-L\fP [ \fIpattern\fP [ \fIstyle\fP ] ] ]
+\fBzstyle\fP [ \fB\-L\fP [ \fImetapattern\fP [ \fIstyle\fP ] ] ]
 .TP
 .PD 0
 \fBzstyle\fP [ \fB\-e\fP | \fB\-\fP | \fB\-\fP\fB\-\fP ] \fIpattern\fP \fIstyle\fP \fIstring\fP \&.\&.\&.
@@ -3886,38 +3914,69 @@ The \fBzsh/zutil\fP module only adds some builtins:
 This builtin command is used to define and lookup styles\&.  Styles are
 pairs of names and values, where the values consist of any number of
 strings\&.  They are stored together with patterns and lookup is done by
-giving a string, called the `context\&', which is compared to the
-patterns\&.  The definition stored for the first matching pattern will be 
-returned\&.
+giving a string, called the `\fIcontext\fP\&', which is matched against the
+patterns\&.  The definition stored for the most specific pattern that matches
+will be returned\&.
 .RS
 .PP
-For ordering of comparisons, patterns are searched from most specific to
-least specific, and patterns that are equally specific keep the order in 
-which they were defined\&.  A pattern is considered to be more specific
+A pattern is considered to be more specific
 than another if it contains more components (substrings separated by
 colons) or if the patterns for the components are more specific, where 
 simple strings are considered to be more specific than patterns and
 complex patterns are considered to be more specific than the pattern
-`\fB*\fP\&'\&.
+`\fB*\fP\&'\&.  A `\fB*\fP' in the pattern will match zero or more characters
+in the context; colons are not treated specially in this regard\&.
+If two patterns are equally specific, the tie is broken in favour of
+the pattern that was defined first\&.
 .PP
-The first form (without arguments) lists the definitions\&.  Styles
-are shown in alphabetic order and patterns are shown in the order
-\fBzstyle\fP will test them\&.
+\fIExample\fP
 .PP
-If the \fB\-L\fP option is given, listing is done in the form of calls to
-\fBzstyle\fP\&.  The optional first argument is a pattern which will be matched
-against the string supplied as the pattern for the context; note that
-this means, for example, `\fBzstyle \-L ":completion:*"\fP\&' will
-match any supplied pattern beginning `\fB:completion:\fP\&', not
-just \fB":completion:*"\fP:  use \fB":completion:\e*"\fP to match that\&.
-The optional second argument limits the output to a specific \fIstyle\fP (not a
-pattern)\&.  \fB\-L\fP is not compatible with any other options\&.
+For example, to define your preferred form of precipitation depending on which
+city you\&'re in, you might set the following in your \fBzshrc\fP:
 .PP
-The other forms are the following:
+.RS
+.nf
+\fBzstyle \&':weather:europe:*' preferred\-precipitation rain
+zstyle \&':weather:europe:germany:* preferred\-precipitation none
+zstyle \&':weather:europe:germany:*:munich' preferred\-precipitation snow\fP
+.fi
+.RE
+.PP
+Then, the fictional `\fBweather\fP\&' plugin might run under the hood a command
+such as
+.PP
+.RS
+.nf
+\fBzstyle \-s ":weather:${continent}:${country}:${county}:${city}" preferred\-precipitation REPLY\fP
+.fi
+.RE
+.PP
+in order to retrieve your preference into the scalar variable \fB$REPLY\fP\&.
+.PP
+\fIUsage\fP
+.PP
+The forms that operate on patterns are the following\&.
 .PP
 .PD 0
 .TP
 .PD
+\fBzstyle\fP [ \fB\-L\fP [ \fImetapattern\fP [ \fIstyle\fP ] ] ]
+Without arguments, lists style definitions\&.  Styles
+are shown in alphabetic order and patterns are shown in the order
+\fBzstyle\fP will test them\&.
+.RS
+.PP
+If the \fB\-L\fP option is given, listing is done in the form of calls to
+\fBzstyle\fP\&.  The optional first argument, \fImetapattern\fP, is a pattern which
+will be matched against the string supplied as \fIpattern\fP when the style was
+defined\&.  Note:
+this means, for example, `\fBzstyle \-L ":completion:*"\fP\&' will
+match any supplied pattern beginning `\fB:completion:\fP\&', not
+just \fB":completion:*"\fP:  use \fB\&':completion:\e*'\fP to match that\&.
+The optional second argument limits the output to a specific \fIstyle\fP (not a
+pattern)\&.  \fB\-L\fP is not compatible with any other options\&.
+.RE
+.TP
 \fBzstyle\fP [ \fB\-\fP | \fB\-\fP\fB\-\fP | \fB\-e\fP ] \fIpattern\fP \fIstyle\fP \fIstring\fP \&.\&.\&.
 Defines the given \fIstyle\fP for the \fIpattern\fP with the \fIstring\fPs as
 the value\&.  If the \fB\-e\fP option is given, the \fIstring\fPs will be
@@ -3943,7 +4002,7 @@ any further arguments, all patterns defined are returned\&. With a
 both a \fIpattern\fP and a \fIstyle\fP, the value strings of that
 combination is returned\&.
 .PP
-The other forms can be used to look up or test patterns\&.
+The other forms can be used to look up or test styles for a given context\&.
 .PP
 .PD 0
 .TP
@@ -3952,17 +4011,29 @@ The other forms can be used to look up or test patterns\&.
 The parameter \fIname\fP is set to the value of the style interpreted as a
 string\&.  If the value contains several strings they are concatenated with
 spaces (or with the \fIsep\fP string if that is given) between them\&.
+.RS
+.PP
+Return \fB0\fP if the style is set, \fB1\fP otherwise\&.
+.RE
 .TP
 \fBzstyle \-b\fP \fIcontext\fP \fIstyle\fP \fIname\fP
 The value is stored in \fIname\fP as a boolean, i\&.e\&. as the string
 `\fByes\fP\&' if the value has only one string and that string is equal to one
 of `\fByes\fP\&', `\fBtrue\fP', `\fBon\fP', or `\fB1\fP'\&. If the value is any other
 string or has more than one string, the parameter is set to `\fBno\fP\&'\&.
+.RS
+.PP
+Return \fB0\fP if \fIname\fP is set to `\fByes\fP\&', \fB1\fP otherwise\&.
+.RE
 .TP
 \fBzstyle \-a\fP \fIcontext\fP \fIstyle\fP \fIname\fP
 The value is stored in \fIname\fP as an array\&. If \fIname\fP is declared 
 as an associative array,  the first, third, etc\&. strings are used as the
 keys and the other strings are used as the values\&.
+.RS
+.PP
+Return \fB0\fP if the style is set, \fB1\fP otherwise\&.
+.RE
 .TP
 .PD 0
 \fBzstyle \-t\fP \fIcontext\fP \fIstyle\fP [ \fIstring\fP \&.\&.\&. ]
@@ -4061,7 +4132,7 @@ The resulting strings are stored in the \fIarray\fP\&.
 \fBzregexparse\fP
 This implements some internals of the \fB_regex_arguments\fP function\&.
 .TP
-\fBzparseopts\fP [ \fB\-D\fP \fB\-K\fP \fB\-M\fP \fB\-E\fP ] [ \fB\-a\fP \fIarray\fP ] [ \fB\-A\fP \fIassoc\fP ] [ \fB\-\fP ] \fIspec\fP \&.\&.\&.
+\fBzparseopts\fP [ \fB\-D\fP \fB\-E\fP \fB\-F\fP \fB\-K\fP \fB\-M\fP ] [ \fB\-a\fP \fIarray\fP ] [ \fB\-A\fP \fIassoc\fP ] [ \fB\-\fP ] \fIspec\fP \&.\&.\&.
 This builtin simplifies the parsing of options in positional parameters,
 i\&.e\&. the set of arguments given by \fB$*\fP\&.  Each \fIspec\fP describes one
 option and must be of the form `\fIopt\fP[\fB=\fP\fIarray\fP]\&'\&.  If an option
@@ -4077,7 +4148,7 @@ Note that it is an error to give any \fIspec\fP without an
 Unless the \fB\-E\fP option is given, parsing stops at the first string
 that isn\&'t described by one of the \fIspec\fPs\&.  Even with \fB\-E\fP,
 parsing always stops at a positional parameter equal to `\fB\-\fP\&' or
-`\fB\-\fP\fB\-\fP\&'\&.
+`\fB\-\fP\fB\-\fP\&'\&. See also \fB\-F\fP\&.
 .PP
 The \fIopt\fP description must be one of the following\&.  Any of the special
 characters can appear in the option name provided it is preceded by a
@@ -4127,9 +4198,23 @@ A `\fB+\fP\&' as described above may appear between the \fIname\fP and the
 first colon\&.
 .RE
 .PP
+In all cases, option\-arguments must appear either immediately following the
+option in the same positional parameter or in the next one\&. Even an optional
+argument may appear in the next parameter, unless it begins with a `\fB\-\fP\&'\&.
+There is no special handling of `\fB=\fP\&' as with GNU\-style argument parsers;
+given the \fIspec\fP `\fB\-foo:\fP\&', the positional parameter `\fB\-\fP\fB\-foo=bar\fP'
+is parsed as `\fB\-\fP\fB\-foo\fP\&' with an argument of `\fB=bar\fP'\&.
+.PP
+When the names of two options that take no arguments overlap, the longest one
+wins, so that parsing for the \fIspec\fPs `\fB\-foo \-foobar\fP\&' (for example) is
+unambiguous\&. However, due to the aforementioned handling of option\-arguments,
+ambiguities may arise when at least one overlapping \fIspec\fP takes an
+argument, as in `\fB\-foo: \-foobar\fP\&'\&. In that case, the last matching
+\fIspec\fP wins\&.
+.PP
 The options of \fBzparseopts\fP itself cannot be stacked because, for
 example, the stack `\fB\-DEK\fP\&' is indistinguishable from a \fIspec\fP for
-the GNU\-style long option `\fB\-\-DEK\fP\&'\&.  The options of \fBzparseopts\fP
+the GNU\-style long option `\fB\-\fP\fB\-DEK\fP\&'\&.  The options of \fBzparseopts\fP
 itself are:
 .PP
 .PD 0
@@ -4147,8 +4232,31 @@ as the values\&.
 \fB\-D\fP
 If this option is given, all options found are removed from the positional
 parameters of the calling shell or shell function, up to but not including
-any not described by the \fIspec\fPs\&.  This is similar to using the \fBshift\fP
-builtin\&.
+any not described by the \fIspec\fPs\&.  If the first such parameter is `\fB\-\fP\&'
+or `\fB\-\fP\fB\-\fP\&', it is removed as well\&.  This is similar to using the
+\fBshift\fP builtin\&.
+.TP
+\fB\-E\fP
+This changes the parsing rules to \fInot\fP stop at the first string
+that isn\&'t described by one of the \fIspec\fPs\&.  It can be used to test
+for or (if used together with \fB\-D\fP) extract options and their
+arguments, ignoring all other options and arguments that may be in the
+positional parameters\&.  As indicated above, parsing still stops at the
+first `\fB\-\fP\&' or `\fB\-\fP\fB\-\fP' not described by a \fIspec\fP, but it is not
+removed when used with \fB\-D\fP\&.
+.TP
+\fB\-F\fP
+If this option is given, \fBzparseopts\fP immediately stops at the first
+option\-like parameter not described by one of the \fIspec\fPs, prints an
+error message, and returns status 1\&.  Removal (\fB\-D\fP) and extraction
+(\fB\-E\fP) are not performed, and option arrays are not updated\&.  This
+provides basic validation for the given options\&.
+.RS
+.PP
+Note that the appearance in the positional parameters of an option without
+its required argument always aborts parsing and returns an error as described
+above regardless of whether this option is used\&.
+.RE
 .TP
 \fB\-K\fP
 With this option, the arrays specified with the \fB\-a\fP option and with the
@@ -4166,13 +4274,6 @@ which is used to choose where to store the values\&.  If no other \fIspec\fP
 is found, the values are stored as usual\&.  This changes only the way the
 values are stored, not the way \fB$*\fP is parsed, so results may be
 unpredictable if the `\fIname\fP\fB+\fP\&' specifier is used inconsistently\&.
-.TP
-\fB\-E\fP
-This changes the parsing rules to \fInot\fP stop at the first string
-that isn\&'t described by one of the \fIspec\fPs\&.  It can be used to test
-for or (if used together with \fB\-D\fP) extract options and their
-arguments, ignoring all other options and arguments that may be in the
-positional parameters\&.
 .PP
 For example,
 .PP

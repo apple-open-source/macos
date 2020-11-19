@@ -68,18 +68,18 @@ public:
     void mergeAttributes(const CSSM_CONTEXT_ATTRIBUTE *attributes, uint32 count);
     CSSM_RETURN validateChange(CSSM_CONTEXT_EVENT event);
 
-    void *operator new (size_t size, Allocator &alloc) throw(std::bad_alloc)
+    void *operator new (size_t size, Allocator &alloc)
     { return alloc.malloc(size); }
-    void operator delete (void *addr, size_t, Allocator &alloc) throw()
+    void operator delete (void *addr, size_t, Allocator &alloc) _NOEXCEPT
     { return alloc.free(addr); }
-    static void destroy(HandleContext *context, Allocator &alloc) throw()
+    static void destroy(HandleContext *context, Allocator &alloc) _NOEXCEPT
     { context->~HandleContext(); alloc.free(context); }
 
     class Maker;	// deluxe builder
 
 #if __GNUC__ > 2
 private:
-    void operator delete (void *addr) throw() { assert(0); }
+    void operator delete (void *addr) _NOEXCEPT { assert(0); }
 #endif
 
 protected:

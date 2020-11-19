@@ -229,12 +229,60 @@
     return peerSet;
 }
 
-- (void)updateOctagonKeySetWithAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error {
+
+- (BOOL)preloadOctagonKeySetOnAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error {
+    // in case we don't have the keys, don't try to update them
+    if (currentSelfPeer.publicSigningKey.secKey == NULL || currentSelfPeer.publicEncryptionKey.secKey == NULL) {
+        secnotice("octagon-preload-keys", "no octagon keys available skipping updating SOS record");
+        return YES;
+    }
+
+    __block CFDataRef signingFullKey = CFBridgingRetain(currentSelfPeer.signingKey.keyData);
+    __block CFDataRef encryptionFullKey = CFBridgingRetain(currentSelfPeer.encryptionKey.keyData);
+    __block SecKeyRef octagonSigningPubSecKey = CFRetainSafe(currentSelfPeer.publicSigningKey.secKey);
+    __block SecKeyRef octagonEncryptionPubSecKey = CFRetainSafe(currentSelfPeer.publicEncryptionKey.secKey);
+    __block SecKeyRef signingFullKeyRef = CFRetainSafe(currentSelfPeer.signingKey.secKey);
+    __block SecKeyRef encryptionFullKeyRef = CFRetainSafe(currentSelfPeer.encryptionKey.secKey);
+
+    SFAnalyticsActivityTracker *tracker = [[[CKKSAnalytics class] logger] startLogSystemMetricsForActivityNamed:OctagonSOSAdapterUpdateKeys];
+
+    __block BOOL ret;
+    __block NSError *localError = nil;
+
+    /* WARNING! Please be very very careful passing keys to this routine.  Note the slightly different variations of keys*/
+    SOSCCPerformPreloadOfAllOctagonKeys(signingFullKey, encryptionFullKey,
+                                        signingFullKeyRef, encryptionFullKeyRef,
+                                        octagonSigningPubSecKey, octagonEncryptionPubSecKey,
+                                       ^(CFErrorRef cferror) {
+                                           [tracker stopWithEvent: OctagonSOSAdapterUpdateKeys result:(__bridge NSError * _Nullable)(cferror)];
+                                           if(cferror) {
+                                               secerror("octagon-preload-keys: failed to preload Octagon keys in SOS:%@", cferror);
+                                               ret = NO;
+                                               localError = (__bridge NSError *)cferror;
+                                           } else {
+                                               ret = YES;
+                                               secnotice("octagon-preload-keys", "successfully preloaded Octagon keys in SOS!");
+                                           }
+                                           CFRelease(signingFullKey);
+                                           CFRelease(encryptionFullKey);
+                                           CFRelease(octagonSigningPubSecKey);
+                                           CFRelease(octagonEncryptionPubSecKey);
+                                           CFRelease(signingFullKeyRef);
+                                           CFRelease(encryptionFullKeyRef);
+                                       });
+    if (error) {
+        *error = localError;
+    }
+    return ret;
+
+}
+
+- (BOOL)updateOctagonKeySetWithAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error {
 
     // in case we don't have the keys, don't try to update them
     if (currentSelfPeer.publicSigningKey.secKey == NULL || currentSelfPeer.publicEncryptionKey.secKey == NULL) {
         secnotice("octagon-sos", "no octagon keys available skipping updating SOS record");
-        return;
+        return YES;
     }
 
     __block CFDataRef signingFullKey = CFBridgingRetain(currentSelfPeer.signingKey.keyData);
@@ -246,15 +294,21 @@
 
     SFAnalyticsActivityTracker *tracker = [[[CKKSAnalytics class] logger] startLogSystemMetricsForActivityNamed:OctagonSOSAdapterUpdateKeys];
 
+    __block BOOL ret;
+    __block NSError *localError = nil;
+
     /* WARNING! Please be very very careful passing keys to this routine.  Note the slightly different variations of keys*/
     SOSCCPerformUpdateOfAllOctagonKeys(signingFullKey, encryptionFullKey,
                                        signingPublicKey, encryptionPublicKey,
                                        octagonSigningPubSecKey, octagonEncryptionPubSecKey,
-                                       ^(CFErrorRef error) {
-                                           [tracker stopWithEvent: OctagonSOSAdapterUpdateKeys result:(__bridge NSError * _Nullable)(error)];
-                                           if(error){
-                                               secerror("octagon-sos: failed to update Octagon keys in SOS:%@", error);
-                                           }else {
+                                       ^(CFErrorRef cferror) {
+                                           [tracker stopWithEvent: OctagonSOSAdapterUpdateKeys result:(__bridge NSError * _Nullable)(cferror)];
+                                           if(cferror) {
+                                               secerror("octagon-sos: failed to update Octagon keys in SOS:%@", cferror);
+                                               ret = NO;
+                                               localError = (__bridge NSError *)cferror;
+                                           } else {
+                                               ret = YES;
                                                secnotice("octagon-sos", "successfully updated Octagon keys in SOS!");
                                            }
                                            CFRelease(signingFullKey);
@@ -264,6 +318,29 @@
                                            CFRelease(octagonSigningPubSecKey);
                                            CFRelease(octagonEncryptionPubSecKey);
                                        });
+    if (error) {
+        *error = localError;
+    }
+    return ret;
+}
+
+- (BOOL)updateCKKS4AllStatus:(BOOL)status error:(NSError**)error
+{
+    CFErrorRef cferror = nil;
+    bool result = SOSCCSetCKKS4AllStatus(status, &cferror);
+
+    NSError* localerror = CFBridgingRelease(cferror);
+
+    if(!result || localerror) {
+        secerror("octagon-sos: failed to update CKKS4All status in SOS: %@", localerror);
+    } else {
+        secnotice("octagon-sos", "successfully updated CKKS4All status in SOS to '%@'", status ? @"supported" : @"not supported");
+    }
+
+    if(error && localerror) {
+        *error = localerror;
+    }
+    return result;
 }
 
 - (void)registerForPeerChangeUpdates:(nonnull id<CKKSPeerUpdateListener>)listener {
@@ -301,6 +378,23 @@
     }];
 
     return result;
+}
+
+- (BOOL)safariViewSyncingEnabled:(NSError**)error
+{
+    CFErrorRef viewCFError = NULL;
+    SOSViewResultCode result = SOSCCView(kSOSViewAutofillPasswords, kSOSCCViewQuery, &viewCFError);
+
+    if(viewCFError) {
+        if(error) {
+            *error = CFBridgingRelease(viewCFError);
+        } else {
+            CFReleaseNull(viewCFError);
+        }
+        return NO;
+    }
+
+    return result == kSOSCCViewMember;
 }
 @end
 
@@ -345,12 +439,23 @@
     return nil;
 }
 
-- (void)updateOctagonKeySetWithAccount:(nonnull id<CKKSSelfPeer>)currentSelfPeer error:(NSError *__autoreleasing  _Nullable * _Nullable)error {
+- (BOOL)updateOctagonKeySetWithAccount:(nonnull id<CKKSSelfPeer>)currentSelfPeer error:(NSError *__autoreleasing  _Nullable * _Nullable)error {
     if(error) {
         *error = [NSError errorWithDomain:NSOSStatusErrorDomain
                                      code:errSecUnimplemented
                               description:@"SOS unsupported on this platform"];
     }
+    return NO;
+}
+
+- (BOOL)updateCKKS4AllStatus:(BOOL)status error:(NSError**)error
+{
+    if(error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                     code:errSecUnimplemented
+                              description:@"SOS unsupported on this platform"];
+    }
+    return NO;
 }
 
 - (CKKSSelves * _Nullable)fetchSelfPeers:(NSError * _Nullable __autoreleasing * _Nullable)error
@@ -388,6 +493,20 @@
                                                             selfPeersError:unimplementedError
                                                               trustedPeers:nil
                                                          trustedPeersError:unimplementedError];
+}
+
+- (BOOL)safariViewSyncingEnabled:(NSError**)error
+{
+    return NO;
+}
+
+- (BOOL)preloadOctagonKeySetOnAccount:(nonnull id<CKKSSelfPeer>)currentSelfPeer error:(NSError *__autoreleasing  _Nullable * _Nullable)error {
+    if(error) {
+        *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                     code:errSecUnimplemented
+                              description:@"SOS unsupported on this platform"];
+    }
+    return NO;
 }
 
 @end

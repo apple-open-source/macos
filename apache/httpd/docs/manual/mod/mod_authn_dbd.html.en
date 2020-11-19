@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
-<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
 <!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
@@ -27,12 +27,12 @@
 <div id="preamble"><h1>Apache Module mod_authn_dbd</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_authn_dbd.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/mod/mod_authn_dbd.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
+<a href="../fr/mod/mod_authn_dbd.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>User authentication using an SQL database</td></tr>
 <tr><th><a href="module-dict.html#Status">Status:</a></th><td>Extension</td></tr>
-<tr><th><a href="module-dict.html#ModuleIdentifier">Module Identifier:</a></th><td>authn_dbd_module</td></tr>
-<tr><th><a href="module-dict.html#SourceFile">Source File:</a></th><td>mod_authn_dbd.c</td></tr>
+<tr><th><a href="module-dict.html#ModuleIdentifier">ModuleÂ Identifier:</a></th><td>authn_dbd_module</td></tr>
+<tr><th><a href="module-dict.html#SourceFile">SourceÂ File:</a></th><td>mod_authn_dbd.c</td></tr>
 <tr><th><a href="module-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.1 and later</td></tr></table>
 <h3>Summary</h3>
 
@@ -53,7 +53,7 @@
 </div>
 <div id="quickview"><a href="https://www.apache.org/foundation/contributing.html" class="badge"><img src="https://www.apache.org/images/SupportApache-small.png" alt="Support Apache!" /></a><h3>Topics</h3>
 <ul id="topics">
-<li><img alt="" src="../images/down.gif" /> <a href="#socache">Performance and Cacheing</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#socache">Performance and Caching</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#example">Configuration Example</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#exposed">Exposing Login Information</a></li>
 </ul><h3 class="directives">Directives</h3>
@@ -77,7 +77,7 @@
 <li><a href="#comments_section">Comments</a></li></ul></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="section">
-<h2><a name="socache" id="socache">Performance and Cacheing</a></h2>
+<h2><a name="socache" id="socache">Performance and Caching</a></h2>
 
 <p>Some users of DBD authentication in HTTPD 2.2/2.4 have reported that it
 imposes a problematic load on the database.  This is most likely where
@@ -92,7 +92,7 @@ to cache credentials and take most of the load off the database.</p>
 <p>This simple example shows use of this module in the context of
 the Authentication and DBD frameworks.</p>
 <pre class="prettyprint lang-config"># mod_dbd configuration
-# UPDATED to include authentication cacheing
+# UPDATED to include authentication caching
 DBDriver pgsql
 DBDParams "dbname=apacheauth user=apache password=xxxxxx"
 
@@ -206,8 +206,8 @@ configuration required in some web applications.
 </div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_authn_dbd.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/mod/mod_authn_dbd.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<a href="../fr/mod/mod_authn_dbd.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a></p>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authn_dbd.html';
@@ -225,7 +225,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authn_dbd.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

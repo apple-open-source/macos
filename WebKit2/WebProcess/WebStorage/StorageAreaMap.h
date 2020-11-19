@@ -97,11 +97,10 @@ private:
     RefPtr<WebCore::StorageMap> m_map;
     Optional<StorageAreaIdentifier> m_mapID;
     HashCountedSet<String> m_pendingValueChanges;
-    
-    uint64_t m_useCount { 0 };
     uint64_t m_currentSeed { 0 };
     unsigned m_quotaInBytes;
     WebCore::StorageType m_type;
+    uint64_t m_useCount { 0 };
     bool m_hasPendingClear { false };
 };
 

@@ -325,7 +325,7 @@ done:
 }
 
 int
-service_client_stash_get_key(service_context_t *context, void ** key, int * key_len)
+service_client_stash_get_key(service_context_t *context, void ** key, size_t * key_len)
 {
     int rc = KB_GeneralError;
     xpc_object_t message = NULL;
@@ -347,7 +347,7 @@ service_client_stash_get_key(service_context_t *context, void ** key, int * key_
         if (data) {
             *key = calloc(1u, data_len);
             memcpy(*key, data, data_len);
-            *key_len = (int)data_len;
+            *key_len = data_len;
         }
     }
 

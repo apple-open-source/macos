@@ -48,12 +48,15 @@
 #import <WebCore/FrameLoader.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLParserIdioms.h>
+#import <WebCore/HTMLTextFormControlElement.h>
 #import <WebCore/JSElement.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/PlatformWheelEvent.h>
+#import <WebCore/Range.h>
 #import <WebCore/RenderElement.h>
 #import <WebCore/RenderTreeAsText.h>
 #import <WebCore/ShadowRoot.h>
+#import <WebCore/SimpleRange.h>
 #import <WebCore/WheelEvent.h>
 #import <WebCore/markup.h>
 #import <WebKitLegacy/DOMExtensions.h>
@@ -97,6 +100,7 @@ using namespace JSC;
 }
 
 #if PLATFORM(IOS_FAMILY)
+
 - (BOOL)isHorizontalWritingMode
 {
     Node* node = core(self);
@@ -112,24 +116,16 @@ using namespace JSC;
 
 - (void)hidePlaceholder
 {
-    if (![self isKindOfClass:[DOMHTMLInputElement class]]
-        && ![self isKindOfClass:[DOMHTMLTextAreaElement class]])
-        return;
-    
-    Node *node = core(self);
-    HTMLTextFormControlElement *formControl = static_cast<HTMLTextFormControlElement *>(node);
-    formControl->hidePlaceholder();
+    if (auto node = core(self); is<HTMLTextFormControlElement>(node))
+        downcast<HTMLTextFormControlElement>(*node).setCanShowPlaceholder(false);
 }
 
 - (void)showPlaceholderIfNecessary
 {
-    if (![self isKindOfClass:[DOMHTMLInputElement class]]
-        && ![self isKindOfClass:[DOMHTMLTextAreaElement class]])
-        return;
-    
-    HTMLTextFormControlElement *formControl = static_cast<HTMLTextFormControlElement *>(core(self));
-    formControl->showPlaceholderIfNecessary();
+    if (auto node = core(self); is<HTMLTextFormControlElement>(node))
+        downcast<HTMLTextFormControlElement>(*node).setCanShowPlaceholder(true);
 }
+
 #endif
 
 @end
@@ -190,13 +186,13 @@ using namespace JSC;
 
 - (WebArchive *)webArchive
 {
-    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(core(self))] autorelease];
+    return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(makeSimpleRange(*core(self)))] autorelease];
 }
 
 - (NSString *)markupString
 {
     auto& range = *core(self);
-    return String { documentTypeString(range.startContainer().document()) + serializePreservingVisualAppearance(range, nullptr, AnnotateForInterchange::Yes) };
+    return String { documentTypeString(range.ownerDocument()) + serializePreservingVisualAppearance(makeSimpleRange(range), nullptr, AnnotateForInterchange::Yes) };
 }
 
 @end

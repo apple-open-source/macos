@@ -45,8 +45,8 @@ RealtimeOutgoingAudioSource::RealtimeOutgoingAudioSource(Ref<MediaStreamTrackPri
 
 RealtimeOutgoingAudioSource::~RealtimeOutgoingAudioSource()
 {
-ASSERT(!m_audioSource->hasObserver(*this));
-#if !ASSERT_DISABLED
+    ASSERT(!m_audioSource->hasObserver(*this));
+#if ASSERT_ENABLED
     auto locker = holdLock(m_sinksLock);
 #endif
     ASSERT(m_sinks.isEmpty());
@@ -58,11 +58,13 @@ void RealtimeOutgoingAudioSource::observeSource()
 {
     ASSERT(!m_audioSource->hasObserver(*this));
     m_audioSource->addObserver(*this);
+    m_audioSource->source().addAudioSampleObserver(*this);
     initializeConverter();
 }
 
 void RealtimeOutgoingAudioSource::unobserveSource()
 {
+    m_audioSource->source().removeAudioSampleObserver(*this);
     m_audioSource->removeObserver(*this);
 }
 

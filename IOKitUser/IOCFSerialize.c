@@ -1261,11 +1261,14 @@ IOCFUnserializeBinary(const char	* buffer,
 		        break;
 
 		    case kOSSerializeSymbol:
+                if (len < 1) break;
 		    	len--;
 		    	/* fall thru */
 		    case kOSSerializeString:
 				bufferPos += (wordLen * sizeof(uint32_t));
 				if (bufferPos > bufferSize) break;
+				if ((kOSSerializeSymbol == (kOSSerializeTypeMask & key))
+					&& (0 != ((const UInt8 *)next)[len])) break;
 				o = CFStringCreateWithBytes(allocator, (const UInt8 *) next, len, kCFStringEncodingUTF8, false);
 				if (!o)
 				{

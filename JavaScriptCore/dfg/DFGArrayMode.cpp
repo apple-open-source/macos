@@ -29,6 +29,7 @@
 #if ENABLE(DFG_JIT)
 
 #include "ArrayPrototype.h"
+#include "CacheableIdentifierInlines.h"
 #include "DFGAbstractValue.h"
 #include "DFGGraph.h"
 #include "JSCInlines.h"
@@ -184,9 +185,11 @@ ArrayMode ArrayMode::fromObserved(const ConcurrentJSLocker& locker, ArrayProfile
 
 static bool canBecomeGetArrayLength(Graph& graph, Node* node)
 {
+    if (node->op() == GetArrayLength)
+        return true;
     if (node->op() != GetById)
         return false;
-    auto uid = graph.identifiers()[node->identifierNumber()];
+    auto uid = node->cacheableIdentifier().uid();
     return uid == graph.m_vm.propertyNames->length.impl();
 }
 
@@ -239,12 +242,16 @@ ArrayMode ArrayMode::refine(
             return withTypeAndConversion(Array::Double, Array::Convert);
         return withTypeAndConversion(Array::Contiguous, Array::Convert);
     case Array::Undecided: {
+        // As long as we have a JSArray getting its length shouldn't require any sane chainness.
+        if (canBecomeGetArrayLength(graph, node) && isJSArray())
+            return *this;
+
         // If we have an OriginalArray and the JSArray prototype chain is sane,
         // any indexed access always return undefined. We have a fast path for that.
         JSGlobalObject* globalObject = graph.globalObjectFor(node->origin.semantic);
         Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure(graph.m_vm);
         Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure(graph.m_vm);
-        if ((node->op() == GetByVal || canBecomeGetArrayLength(graph, node))
+        if (node->op() == GetByVal
             && isJSArrayWithOriginalStructure()
             && !graph.hasExitSite(node->origin.semantic, OutOfBounds)
             && arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
@@ -253,7 +260,7 @@ ArrayMode ArrayMode::refine(
             graph.registerAndWatchStructureTransition(arrayPrototypeStructure);
             graph.registerAndWatchStructureTransition(objectPrototypeStructure);
             if (globalObject->arrayPrototypeChainIsSane())
-                return withSpeculation(Array::SaneChain);
+                return withSpeculation(Array::InBoundsSaneChain);
         }
         return ArrayMode(Array::Generic, action());
     }
@@ -561,6 +568,8 @@ bool ArrayMode::alreadyChecked(Graph& graph, Node* node, const AbstractValue& va
             }
             return true;
         }
+        default:
+            CRASH();
         }
         
     case Array::DirectArguments:
@@ -704,14 +713,16 @@ const char* arrayClassToString(Array::Class arrayClass)
 const char* arraySpeculationToString(Array::Speculation speculation)
 {
     switch (speculation) {
-    case Array::SaneChain:
-        return "SaneChain";
+    case Array::InBoundsSaneChain:
+        return "InBoundsSaneChain";
     case Array::InBounds:
         return "InBounds";
     case Array::ToHole:
         return "ToHole";
     case Array::OutOfBounds:
         return "OutOfBounds";
+    case Array::OutOfBoundsSaneChain:
+        return "OutOfBoundsSaneChain";
     default:
         return "Unknown!";
     }

@@ -36,4 +36,6 @@
 extern int f_local;
 extern int vflag;
 
+#define IPSECLOGASLMSG(format, args...) plog(ASL_LEVEL_NOTICE, format, ##args);
+
 #endif /* _DEBUG_H */

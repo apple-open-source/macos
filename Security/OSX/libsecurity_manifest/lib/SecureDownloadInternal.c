@@ -3,6 +3,8 @@
 #include "SecureDownloadInternal.h"
 #include "SecCFRelease.h"
 
+#include "simulatecrash_assert.h"
+
 //
 // SecureDownloadXML: SecureDownloadXML.c
 //        cc -g -framework CoreFoundation -o $@ $^

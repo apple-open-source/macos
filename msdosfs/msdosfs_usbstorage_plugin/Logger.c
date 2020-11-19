@@ -14,8 +14,10 @@ bool     gbIsLoggerInit = false;
 
 const os_log_type_t gpeMsDosToOsLevel [LEVEL_AMOUNT] = {
     [ LEVEL_DEBUG   ]       = OS_LOG_TYPE_DEBUG,
+    [ LEVEL_INFO    ]       = OS_LOG_TYPE_INFO,
     [ LEVEL_DEFAULT ]       = OS_LOG_TYPE_DEFAULT,
-    [ LEVEL_ERROR   ]       = OS_LOG_TYPE_ERROR
+    [ LEVEL_ERROR   ]       = OS_LOG_TYPE_ERROR,
+    [ LEVEL_FAULT   ]       = OS_LOG_TYPE_FAULT
 };
 
 int

@@ -61,7 +61,6 @@
 #import <WebCore/Frame.h>
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLInputElement.h>
-#import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
 #import <wtf/WeakObjCPtr.h>
 
 @interface NSObject (WKDeprecatedDelegateMethods)
@@ -369,11 +368,11 @@ static void setUpResourceLoadClient(WKWebProcessPlugInBrowserContextController *
 
 - (WKDOMRange *)selectedRange
 {
-    RefPtr<WebCore::Range> range = _page->currentSelectionAsRange();
+    auto range = _page->currentSelectionAsRange();
     if (!range)
         return nil;
 
-    return WebKit::toWKDOMRange(range.get());
+    return WebKit::toWKDOMRange(createLiveRange(*range).ptr());
 }
 
 - (WKWebProcessPlugInFrame *)mainFrame
@@ -429,32 +428,27 @@ static void setUpResourceLoadClient(WKWebProcessPlugInBrowserContextController *
 {
     _formDelegate = formDelegate;
 
-    class FormClient : public API::InjectedBundle::FormClient {
+    class FormClient final : public API::InjectedBundle::FormClient {
     public:
         explicit FormClient(WKWebProcessPlugInBrowserContextController *controller)
             : m_controller(controller)
         {
         }
 
-        virtual ~FormClient() { }
-
-        void didFocusTextField(WebKit::WebPage*, WebCore::HTMLInputElement* inputElement, WebKit::WebFrame* frame) override
+        void didFocusTextField(WebKit::WebPage*, WebCore::HTMLInputElement* inputElement, WebKit::WebFrame* frame) final
         {
             auto formDelegate = m_controller->_formDelegate.get();
-
             if ([formDelegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:didFocusTextField:inFrame:)])
                 [formDelegate _webProcessPlugInBrowserContextController:m_controller didFocusTextField:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(inputElement).get()) inFrame:wrapper(*frame)];
         }
 
-        void willSendSubmitEvent(WebKit::WebPage*, WebCore::HTMLFormElement* formElement, WebKit::WebFrame* targetFrame, WebKit::WebFrame* sourceFrame, const Vector<std::pair<String, String>>& values) override
+        void willSendSubmitEvent(WebKit::WebPage*, WebCore::HTMLFormElement* formElement, WebKit::WebFrame* targetFrame, WebKit::WebFrame* sourceFrame, const Vector<std::pair<String, String>>& values) final
         {
             auto formDelegate = m_controller->_formDelegate.get();
-
             if ([formDelegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:willSendSubmitEventToForm:inFrame:targetFrame:values:)]) {
                 auto valueMap = adoptNS([[NSMutableDictionary alloc] initWithCapacity:values.size()]);
                 for (const auto& pair : values)
                     [valueMap setObject:pair.second forKey:pair.first];
-
                 [formDelegate _webProcessPlugInBrowserContextController:m_controller willSendSubmitEventToForm:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(formElement).get())
                     inFrame:wrapper(*sourceFrame) targetFrame:wrapper(*targetFrame) values:valueMap.get()];
             }
@@ -464,8 +458,7 @@ static void setUpResourceLoadClient(WKWebProcessPlugInBrowserContextController *
         {
             if (!userObject)
                 return;
-
-            auto archiver = secureArchiver();
+            auto archiver = adoptNS([[NSKeyedArchiver alloc] initRequiringSecureCoding:YES]);
             @try {
                 [archiver encodeObject:userObject forKey:@"userObject"];
             } @catch (NSException *exception) {
@@ -473,70 +466,57 @@ static void setUpResourceLoadClient(WKWebProcessPlugInBrowserContextController *
                 return;
             }
             [archiver finishEncoding];
-
             userData = API::Data::createWithoutCopying(archiver.get().encodedData);
         }
 
-        void willSubmitForm(WebKit::WebPage*, WebCore::HTMLFormElement* formElement, WebKit::WebFrame* frame, WebKit::WebFrame* sourceFrame, const Vector<std::pair<WTF::String, WTF::String>>& values, RefPtr<API::Object>& userData) override
+        void willSubmitForm(WebKit::WebPage*, WebCore::HTMLFormElement* formElement, WebKit::WebFrame* frame, WebKit::WebFrame* sourceFrame, const Vector<std::pair<WTF::String, WTF::String>>& values, RefPtr<API::Object>& userData) final
         {
             auto formDelegate = m_controller->_formDelegate.get();
-
             if ([formDelegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:willSubmitForm:toFrame:fromFrame:withValues:)]) {
                 auto valueMap = adoptNS([[NSMutableDictionary alloc] initWithCapacity:values.size()]);
                 for (const auto& pair : values)
                     [valueMap setObject:pair.second forKey:pair.first];
-
-                NSObject <NSSecureCoding> *userObject = [formDelegate _webProcessPlugInBrowserContextController:m_controller willSubmitForm:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(formElement).get()) toFrame:wrapper(*frame) fromFrame:wrapper(*sourceFrame) withValues:valueMap.get()];
-                encodeUserObject(userObject, userData);
+                encodeUserObject([formDelegate _webProcessPlugInBrowserContextController:m_controller willSubmitForm:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(formElement).get()) toFrame:wrapper(*frame) fromFrame:wrapper(*sourceFrame) withValues:valueMap.get()], userData);
             }
         }
 
-        void textDidChangeInTextField(WebKit::WebPage*, WebCore::HTMLInputElement* inputElement, WebKit::WebFrame* frame, bool initiatedByUserTyping) override
+        void textDidChangeInTextField(WebKit::WebPage*, WebCore::HTMLInputElement* inputElement, WebKit::WebFrame* frame, bool initiatedByUserTyping) final
         {
             auto formDelegate = m_controller->_formDelegate.get();
-
             if ([formDelegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:textDidChangeInTextField:inFrame:initiatedByUserTyping:)])
                 [formDelegate _webProcessPlugInBrowserContextController:m_controller textDidChangeInTextField:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(inputElement)) inFrame:wrapper(*frame) initiatedByUserTyping:initiatedByUserTyping];
         }
 
-        void willBeginInputSession(WebKit::WebPage*, WebCore::Element* element, WebKit::WebFrame* frame, bool userIsInteracting, RefPtr<API::Object>& userData) override
+        void willBeginInputSession(WebKit::WebPage*, WebCore::Element* element, WebKit::WebFrame* frame, bool userIsInteracting, RefPtr<API::Object>& userData) final
         {
             auto formDelegate = m_controller->_formDelegate.get();
-
             if ([formDelegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:willBeginInputSessionForElement:inFrame:userIsInteracting:)]) {
-                NSObject<NSSecureCoding> *userObject = [formDelegate _webProcessPlugInBrowserContextController:m_controller willBeginInputSessionForElement:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(element)) inFrame:wrapper(*frame) userIsInteracting:userIsInteracting];
-                encodeUserObject(userObject, userData);
+                encodeUserObject([formDelegate _webProcessPlugInBrowserContextController:m_controller willBeginInputSessionForElement:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(element)) inFrame:wrapper(*frame) userIsInteracting:userIsInteracting], userData);
             } else if (userIsInteracting && [formDelegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:willBeginInputSessionForElement:inFrame:)]) {
                 // FIXME: We check userIsInteracting so that we don't begin an input session for a
                 // programmatic focus that doesn't cause the keyboard to appear. But this misses the case of
                 // a programmatic focus happening while the keyboard is already shown. Once we have a way to
                 // know the keyboard state in the Web Process, we should refine the condition.
-                NSObject<NSSecureCoding> *userObject = [formDelegate _webProcessPlugInBrowserContextController:m_controller willBeginInputSessionForElement:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(element)) inFrame:wrapper(*frame)];
-                encodeUserObject(userObject, userData);
+                encodeUserObject([formDelegate _webProcessPlugInBrowserContextController:m_controller willBeginInputSessionForElement:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(element)) inFrame:wrapper(*frame)], userData);
             }
         }
 
-        bool shouldNotifyOnFormChanges(WebKit::WebPage*) override
+        bool shouldNotifyOnFormChanges(WebKit::WebPage*) final
         {
             auto formDelegate = m_controller->_formDelegate.get();
-
             if (![formDelegate respondsToSelector:@selector(_webProcessPlugInBrowserContextControllerShouldNotifyOnFormChanges:)])
                 return false;
-
             return [formDelegate _webProcessPlugInBrowserContextControllerShouldNotifyOnFormChanges:m_controller];
         }
 
-        void didAssociateFormControls(WebKit::WebPage*, const Vector<RefPtr<WebCore::Element>>& elements, WebKit::WebFrame*) override
+        void didAssociateFormControls(WebKit::WebPage*, const Vector<RefPtr<WebCore::Element>>& elements, WebKit::WebFrame*) final
         {
             auto formDelegate = m_controller->_formDelegate.get();
-
             if (![formDelegate respondsToSelector:@selector(_webProcessPlugInBrowserContextController:didAssociateFormControls:)])
                 return;
-
-            auto controls = adoptNS([[NSMutableArray alloc] initWithCapacity:elements.size()]);
-            for (const auto& element : elements)
-                [controls addObject:wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(element.get()))];
-            return [formDelegate _webProcessPlugInBrowserContextController:m_controller didAssociateFormControls:controls.get()];
+            return [formDelegate _webProcessPlugInBrowserContextController:m_controller didAssociateFormControls:createNSArray(elements, [] (auto& element) {
+                return wrapper(*WebKit::InjectedBundleNodeHandle::getOrCreate(element.get()));
+            }).get()];
         }
 
     private:
@@ -579,21 +559,21 @@ static inline WKEditorInsertAction toWK(WebCore::EditorInsertAction action)
         }
 
     private:
-        bool shouldInsertText(WebKit::WebPage&, StringImpl* text, WebCore::Range* rangeToReplace, WebCore::EditorInsertAction action) final
+        bool shouldInsertText(WebKit::WebPage&, const WTF::String& text, const Optional<WebCore::SimpleRange>& rangeToReplace, WebCore::EditorInsertAction action) final
         {
             if (!m_delegateMethods.shouldInsertText)
                 return true;
 
-            return [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller shouldInsertText:String(text) replacingRange:wrapper(*WebKit::InjectedBundleRangeHandle::getOrCreate(rangeToReplace)) givenAction:toWK(action)];
+            return [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller shouldInsertText:text replacingRange:wrapper(*WebKit::createHandle(rangeToReplace)) givenAction:toWK(action)];
         }
 
-        bool shouldChangeSelectedRange(WebKit::WebPage&, WebCore::Range* fromRange, WebCore::Range* toRange, WebCore::EAffinity affinity, bool stillSelecting) final
+        bool shouldChangeSelectedRange(WebKit::WebPage&, const Optional<WebCore::SimpleRange>& fromRange, const Optional<WebCore::SimpleRange>& toRange, WebCore::EAffinity affinity, bool stillSelecting) final
         {
             if (!m_delegateMethods.shouldChangeSelectedRange)
                 return true;
 
-            auto apiFromRange = fromRange ? adoptNS([[WKDOMRange alloc] _initWithImpl:fromRange]) : nil;
-            auto apiToRange = toRange ? adoptNS([[WKDOMRange alloc] _initWithImpl:toRange]) : nil;
+            auto apiFromRange = adoptNS([[WKDOMRange alloc] _initWithImpl:createLiveRange(fromRange).get()]);
+            auto apiToRange = adoptNS([[WKDOMRange alloc] _initWithImpl:createLiveRange(toRange).get()]);
 #if PLATFORM(IOS_FAMILY)
             UITextStorageDirection apiAffinity = affinity == WebCore::UPSTREAM ? UITextStorageDirectionBackward : UITextStorageDirectionForward;
 #else
@@ -603,7 +583,7 @@ static inline WKEditorInsertAction toWK(WebCore::EditorInsertAction action)
             return [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller shouldChangeSelectedRange:apiFromRange.get() toRange:apiToRange.get() affinity:apiAffinity stillSelecting:stillSelecting];
         }
 
-        void didChange(WebKit::WebPage&, StringImpl*) final
+        void didChange(WebKit::WebPage&, const String&) final
         {
             if (!m_delegateMethods.didChange)
                 return;
@@ -611,20 +591,20 @@ static inline WKEditorInsertAction toWK(WebCore::EditorInsertAction action)
             [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextControllerDidChangeByEditing:m_controller];
         }
 
-        void willWriteToPasteboard(WebKit::WebPage&, WebCore::Range* range) final
+        void willWriteToPasteboard(WebKit::WebPage&, const Optional<WebCore::SimpleRange>& range) final
         {
             if (!m_delegateMethods.willWriteToPasteboard)
                 return;
 
-            [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller willWriteRangeToPasteboard:wrapper(*WebKit::InjectedBundleRangeHandle::getOrCreate(range).get())];
+            [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller willWriteRangeToPasteboard:wrapper(WebKit::createHandle(range).get())];
         }
 
-        void getPasteboardDataForRange(WebKit::WebPage&, WebCore::Range* range, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer>>& pasteboardData) final
+        void getPasteboardDataForRange(WebKit::WebPage&, const Optional<WebCore::SimpleRange>& range, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer>>& pasteboardData) final
         {
             if (!m_delegateMethods.getPasteboardDataForRange)
                 return;
 
-            auto dataByType = [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller pasteboardDataForRange:wrapper(*WebKit::InjectedBundleRangeHandle::getOrCreate(range).get())];
+            auto dataByType = [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller pasteboardDataForRange:wrapper(WebKit::createHandle(range).get())];
             for (NSString *type in dataByType) {
                 pasteboardTypes.append(type);
                 pasteboardData.append(WebCore::SharedBuffer::create(dataByType[type]));
@@ -639,12 +619,12 @@ static inline WKEditorInsertAction toWK(WebCore::EditorInsertAction action)
             [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextControllerDidWriteToPasteboard:m_controller];
         }
 
-        bool performTwoStepDrop(WebKit::WebPage&, WebCore::DocumentFragment& fragment, WebCore::Range& range, bool isMove) final
+        bool performTwoStepDrop(WebKit::WebPage&, WebCore::DocumentFragment& fragment, const WebCore::SimpleRange& range, bool isMove) final
         {
             if (!m_delegateMethods.performTwoStepDrop)
                 return false;
 
-            auto rangeHandle = WebKit::InjectedBundleRangeHandle::getOrCreate(&range);
+            auto rangeHandle = WebKit::createHandle(range);
             auto nodeHandle = WebKit::InjectedBundleNodeHandle::getOrCreate(&fragment);
             return [m_controller->_editingDelegate.get() _webProcessPlugInBrowserContextController:m_controller performTwoStepDrop:wrapper(*nodeHandle) atDestination:wrapper(*rangeHandle) isMove:isMove];
         }

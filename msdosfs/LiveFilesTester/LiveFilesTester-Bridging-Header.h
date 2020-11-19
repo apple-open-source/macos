@@ -74,6 +74,7 @@ int brdg_fsops_readdir(UVFSFSOps* testerFsOps, UVFSFileNode *dirNode, void *buf,
 int brdg_fsops_readdirattr(UVFSFSOps* testerFsOps, UVFSFileNode *dirNode, void *buf, size_t buflen, uint64_t cookie, size_t *bytes_read,  uint64_t *verifier);
 int brdg_fsops_getfsattr(UVFSFSOps* testerFsOps, UVFSFileNode *Node, const char *attr, UVFSFSAttributeValue *val, size_t len, size_t *retlen);
 int brdg_fsops_setfsattr(UVFSFSOps* testerFsOps, UVFSFileNode *Node, const char *attr, const UVFSFSAttributeValue *val, size_t len, UVFSFSAttributeValue *out_val, size_t out_len);
+int brdg_fsops_preallocate(UVFSFSOps* testerFsOps, UVFSFileNode *Node, size_t len);
 uint64_t brdg_fsops_version(UVFSFSOps* testerFsOps);
 int brdg_fsops_check(UVFSFSOps* testerFsOps,int disk_fd, check_flags_t how);
 
@@ -97,6 +98,7 @@ char*   getBuildTime        (void);
 char*   getBuildDate        (void);
 int brdg_inject_error       (CrashAbort_E stepToFall);
 int brdg_reject_error       (CrashAbort_E stepToFall);
+size_t  get_min_dea_reclen(uint32_t namelen);
 size_t  get_dea_reclen(UVFSDirEntryAttr dea , uint32_t namelen);
 char*   get_dea_name(void *streamBuf, size_t offset);
 int     dirtyBlockTest_Create(UVFSFSOps* testerFsOps, UVFSFileNode* dirNode, const char *name, const UVFSFileAttributes *attrs, UVFSFileNode *outNode);

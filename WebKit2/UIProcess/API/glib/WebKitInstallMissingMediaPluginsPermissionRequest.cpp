@@ -27,7 +27,7 @@
 
 #if ENABLE(VIDEO)
 #include <WebCore/PlatformDisplay.h>
-#if PLATFORM(X11)
+#if PLATFORM(X11) && !USE(GTK4)
 #include <gdk/gdkx.h>
 #include <gtk/gtk.h>
 #endif
@@ -56,7 +56,7 @@ using namespace WebCore;
 static void webkit_permission_request_interface_init(WebKitPermissionRequestIface*);
 
 struct _WebKitInstallMissingMediaPluginsPermissionRequestPrivate {
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !USE(GSTREAMER_FULL)
     RefPtr<InstallMissingMediaPluginsPermissionRequest> request;
 #endif
     CString description;
@@ -67,10 +67,10 @@ WEBKIT_DEFINE_TYPE_WITH_CODE(
     WebKitInstallMissingMediaPluginsPermissionRequest, webkit_install_missing_media_plugins_permission_request, G_TYPE_OBJECT,
     G_IMPLEMENT_INTERFACE(WEBKIT_TYPE_PERMISSION_REQUEST, webkit_permission_request_interface_init))
 
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !USE(GSTREAMER_FULL)
 static GUniquePtr<GstInstallPluginsContext> createGstInstallPluginsContext(WebPageProxy& page)
 {
-#if PLATFORM(X11)
+#if PLATFORM(X11) && !USE(GTK4)
     if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::X11) {
         GUniquePtr<GstInstallPluginsContext> context(gst_install_plugins_context_new());
         gst_install_plugins_context_set_xid(context.get(), GDK_WINDOW_XID(gtk_widget_get_window(page.viewWidget())));
@@ -91,7 +91,7 @@ static void webkitInstallMissingMediaPluginsPermissionRequestAllow(WebKitPermiss
     // Only one decision at a time.
     if (priv->madeDecision)
         return;
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !USE(GSTREAMER_FULL)
     priv->request->allow(createGstInstallPluginsContext(priv->request->page()));
 #endif
     priv->madeDecision = true;
@@ -107,7 +107,7 @@ static void webkitInstallMissingMediaPluginsPermissionRequestDeny(WebKitPermissi
     if (priv->madeDecision)
         return;
 
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !USE(GSTREAMER_FULL)
     priv->request->deny();
 #endif
     priv->madeDecision = true;
@@ -132,7 +132,7 @@ static void webkit_install_missing_media_plugins_permission_request_class_init(W
     objectClass->dispose = webkitInstallMissingMediaPluginsPermissionRequestDispose;
 }
 
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !USE(GSTREAMER_FULL)
 WebKitInstallMissingMediaPluginsPermissionRequest* webkitInstallMissingMediaPluginsPermissionRequestCreate(InstallMissingMediaPluginsPermissionRequest& request)
 {
     WebKitInstallMissingMediaPluginsPermissionRequest* permissionRequest = WEBKIT_INSTALL_MISSING_MEDIA_PLUGINS_PERMISSION_REQUEST(g_object_new(WEBKIT_TYPE_INSTALL_MISSING_MEDIA_PLUGINS_PERMISSION_REQUEST, nullptr));
@@ -155,7 +155,7 @@ const char* webkit_install_missing_media_plugins_permission_request_get_descript
 {
     g_return_val_if_fail(WEBKIT_IS_INSTALL_MISSING_MEDIA_PLUGINS_PERMISSION_REQUEST(request), nullptr);
 
-#if ENABLE(VIDEO)
+#if ENABLE(VIDEO) && !USE(GSTREAMER_FULL)
     if (!request->priv->description.isNull())
         return request->priv->description.data();
 

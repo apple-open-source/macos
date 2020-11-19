@@ -37,6 +37,7 @@
 #define kQueueSizeMax   16384
 
 #define kIOHIDSystemUserAccessFastPathEntitlement   "com.apple.hid.system.user-access-fast-path"
+#define kIOHIDSystemFastPathMotionEventEntitlement   "com.apple.hid.system.fast-path-motion-event-privileged"
 
 
 #define dispatch_workloop_sync(b)            \
@@ -72,17 +73,17 @@ OSDefineMetaClassAndStructors( IOHIDEventServiceFastPathUserClient, IOUserClient
 // IOHIDEventServiceFastPathUserClient::sMethods
 //==============================================================================
 const IOExternalMethodDispatch IOHIDEventServiceFastPathUserClient::sMethods[kIOHIDEventServiceFastPathUserClientNumCommands] = {
-    [kIOHIDEventServiceFastPathUserClientOpen] = { //    kIOHIDEventServiceFastPathUserClientOpen
+    { //    kIOHIDEventServiceFastPathUserClientOpen
 	(IOExternalMethodAction) &IOHIDEventServiceFastPathUserClient::_open,
 	1, kIOUCVariableStructureSize,
     0,  0
     },
-    [kIOHIDEventServiceFastPathUserClientClose] = { //    kIOHIDEventServiceFastPathUserClientClose
+    { //    kIOHIDEventServiceFastPathUserClientClose
 	(IOExternalMethodAction) &IOHIDEventServiceFastPathUserClient::_close,
 	1, 0,
     0, 0
     },
-    [kIOHIDEventServiceFastPathUserClientCopyEvent] = { //    kIOHIDEventServiceFastPathUserClientCopyEvent
+    { //    kIOHIDEventServiceFastPathUserClientCopyEvent
 	(IOExternalMethodAction) &IOHIDEventServiceFastPathUserClient::_copyEvent,
     2, kIOUCVariableStructureSize,
     0, kIOUCVariableStructureSize
@@ -235,6 +236,12 @@ bool IOHIDEventServiceFastPathUserClient::initWithTask (task_t owningTask, void 
         proc_name(proc_pid(process), name, sizeof(name));
         HIDLogInfo("%s Does not have fast path entitlement", name);
     }
+
+    entitlement = copyClientEntitlement(owningTask, kIOHIDSystemFastPathMotionEventEntitlement);
+    if (entitlement) {
+        _motionEventEntitlement |= (entitlement == kOSBooleanTrue);
+        entitlement->release();
+    }
     
     _task = owningTask;
     
@@ -360,6 +367,9 @@ IOReturn IOHIDEventServiceFastPathUserClient::open(IOOptionBits  options, OSDict
     require_action(properties, exit, result = kIOReturnBadArgument);
 
     good = properties->setObject(kIOHIDFastPathHasEntitlementKey, (_fastPathEntitlement ? kOSBooleanTrue : kOSBooleanFalse));
+    require_action(good, exit, result = kIOReturnNoMemory);
+
+    good = properties->setObject(kIOHIDFastPathMotionEventEntitlementKey, (_motionEventEntitlement ? kOSBooleanTrue : kOSBooleanFalse));
     require_action(good, exit, result = kIOReturnNoMemory);
     
     _options = options;

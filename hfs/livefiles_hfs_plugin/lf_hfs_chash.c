@@ -23,11 +23,20 @@ hfs_chash_wait(struct hfsmount *hfsmp, struct cnode  *cp)
     pthread_cond_wait(&cp->c_cacsh_cond, &hfsmp->hfs_chash_mutex);
 }
 
-void
+static void
 hfs_chash_broadcast_and_unlock(struct hfsmount *hfsmp, struct cnode  *cp)
 {
-    pthread_cond_signal(&cp->c_cacsh_cond);
+    if (cp)
+        pthread_cond_signal(&cp->c_cacsh_cond);
     hfs_chash_unlock(hfsmp);
+}
+
+static void
+hfs_chash_wait_and_unlock(struct hfsmount *hfsmp, struct cnode  *cp)
+{
+    SET(cp->c_hflag, H_WAITING);
+    pthread_cond_wait(&cp->c_cacsh_cond, &hfsmp->hfs_chash_mutex);
+    hfs_chash_broadcast_and_unlock(hfsmp, cp);
 }
 
 void
@@ -175,7 +184,7 @@ loop_with_lock:
             if (hfs_lock(cp, HFS_TRY_EXCLUSIVE_LOCK, HFS_LOCK_ALLOW_NOEXISTS))
             {
                 SET(cp->c_hflag, H_WAITING);
-                hfs_chash_broadcast_and_unlock(hfsmp,cp);
+                hfs_chash_broadcast_and_unlock(hfsmp, cp);
                 usleep(100);
                 goto loop;
             }
@@ -216,6 +225,7 @@ loop_with_lock:
                 *hflags &= ~H_ATTACH;
             }
             
+            pthread_cond_signal(&cp->c_cacsh_cond);
             vp = NULL;
             cp = NULL;
             if (renamed)
@@ -224,8 +234,12 @@ loop_with_lock:
             }
         }
         
-        if (cp) hfs_chash_raise_OpenLookupCounter(cp);
-        hfs_chash_broadcast_and_unlock(hfsmp,cp);
+        if (cp) {
+            hfs_chash_raise_OpenLookupCounter(cp);
+        }
+
+        hfs_chash_broadcast_and_unlock(hfsmp, cp);
+
         *vpp = vp;
         return (cp);
     }
@@ -242,7 +256,6 @@ loop_with_lock:
     if (ncp == NULL)
     {
         hfs_chash_unlock(hfsmp);
-
         ncp = hfs_mallocz(sizeof(struct cnode));
         if (ncp == NULL)
         {
@@ -267,7 +280,7 @@ loop_with_lock:
 
     lf_lck_rw_init(&ncp->c_rwlock);
     lf_cond_init(&ncp->c_cacsh_cond);
-    
+
     if (!skiplock)
     {
         (void) hfs_lock(ncp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
@@ -290,10 +303,9 @@ hfs_chashwakeup(struct hfsmount *hfsmp, struct cnode *cp, int hflags)
 
     if (ISSET(cp->c_hflag, H_WAITING)) {
         CLR(cp->c_hflag, H_WAITING);
-        pthread_cond_broadcast(&cp->c_cacsh_cond);
     }
     
-    hfs_chash_unlock(hfsmp);
+    hfs_chash_broadcast_and_unlock(hfsmp, cp);
 }
 
 /*
@@ -312,9 +324,8 @@ hfs_chash_abort(struct hfsmount *hfsmp, struct cnode *cp)
     if (ISSET(cp->c_hflag, H_WAITING))
     {
         CLR(cp->c_hflag, H_WAITING);
-        pthread_cond_broadcast(&cp->c_cacsh_cond);
     }
-    hfs_chash_unlock(hfsmp);
+    hfs_chash_broadcast_and_unlock(hfsmp, cp);
 }
 
 /*
@@ -342,8 +353,7 @@ loop:
         /* Wait if cnode is being created or reclaimed. */
         if (ISSET(cp->c_hflag, H_ALLOC | H_TRANSIT | H_ATTACH)) {
             SET(cp->c_hflag, H_WAITING);
-            hfs_chash_broadcast_and_unlock(hfsmp,cp);
-            usleep(100);
+            hfs_chash_wait_and_unlock(hfsmp,cp);
             goto loop;
         }
         /* Obtain the desired vnode. */
@@ -358,7 +368,7 @@ loop:
             if (hfs_lock(cp, HFS_TRY_EXCLUSIVE_LOCK, HFS_LOCK_ALLOW_NOEXISTS))
             {
                 SET(cp->c_hflag, H_WAITING);
-                hfs_chash_broadcast_and_unlock(hfsmp,cp);
+                hfs_chash_broadcast_and_unlock(hfsmp, cp);
                 usleep(100);
                 goto loop;
             }
@@ -380,9 +390,10 @@ loop:
         }
         
         hfs_chash_raise_OpenLookupCounter(cp);
-        hfs_chash_broadcast_and_unlock(hfsmp,cp);
+        hfs_chash_broadcast_and_unlock(hfsmp, cp);
         return (vp);
     }
+
 exit:
     hfs_chash_unlock(hfsmp);
     return (NULL);
@@ -494,7 +505,7 @@ hfs_chash_set_childlinkbit(struct hfsmount *hfsmp, cnid_t cnid)
             retval = 1;
         }
     }
-    hfs_chash_unlock(hfsmp);
+    hfs_chash_broadcast_and_unlock(hfsmp, cp);
 
     return retval;
 }
@@ -510,7 +521,7 @@ hfs_chashremove(struct hfsmount *hfsmp, struct cnode *cp)
 
     /* Check if a vnode is getting attached */
     if (ISSET(cp->c_hflag, H_ATTACH)) {
-        hfs_chash_unlock(hfsmp);
+        hfs_chash_broadcast_and_unlock(hfsmp, cp);
         return (EBUSY);
     }
     if (cp->c_hash.le_next || cp->c_hash.le_prev) {
@@ -519,7 +530,7 @@ hfs_chashremove(struct hfsmount *hfsmp, struct cnode *cp)
         cp->c_hash.le_prev = NULL;
     }
 
-    hfs_chash_unlock(hfsmp);
+    hfs_chash_broadcast_and_unlock(hfsmp, cp);
 
     return (0);
 }
@@ -534,5 +545,5 @@ hfs_chash_mark_in_transit(struct hfsmount *hfsmp, struct cnode *cp)
     
     SET(cp->c_hflag, H_TRANSIT);
     
-    hfs_chash_unlock(hfsmp);
+    hfs_chash_broadcast_and_unlock(hfsmp, cp);
 }

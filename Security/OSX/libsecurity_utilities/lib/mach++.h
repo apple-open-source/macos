@@ -53,7 +53,7 @@ protected:
 	// actually, kern_return_t can be just about any subsystem type return code
 	Error(kern_return_t err);
 public:
-	virtual ~Error() throw();
+	virtual ~Error() _NOEXCEPT;
 
     virtual OSStatus osStatus() const;
 	virtual int unixError() const;
@@ -107,8 +107,13 @@ public:
 	// port allocation and management
 	void allocate(mach_port_right_t right = MACH_PORT_RIGHT_RECEIVE)
 	{ check(mach_port_allocate(self(), right, &mPort)); }
-    void deallocate()	{ check(mach_port_deallocate(self(), mPort)); mPort = MACH_PORT_NULL;}
-	void destroy()		{ check(mach_port_destroy(self(), mPort)); mPort = MACH_PORT_NULL; }
+	/*
+	 * (╯ರ ~ ರ）╯︵ ┻━┻
+	 * mach_port_deallocate() only deallocates send, send-once, dead-name, or port-set.
+	 * Since allocate() defaults to receive, allocate() and deallocate() do not actually
+	 * balance each other; deallocate() will fail with an invalid-right error.
+	 */
+	void deallocate()	{ check(mach_port_deallocate(self(), mPort)); mPort = MACH_PORT_NULL;}
 	
 	void insertRight(mach_msg_type_name_t type)
 	{ check(mach_port_insert_right(self(), mPort, mPort, type)); }
@@ -135,24 +140,12 @@ protected:
 
 
 //
-// A simple Port that deallocates itself on destruction.
-// If you need a subclass of Port, just assign it to a separate AutoPort.
-//
-class AutoPort : public Port {
-public:
-	AutoPort()	{ }
-	AutoPort(mach_port_t port) : Port(port) { }
-	~AutoPort()	{ if (mPort != MACH_PORT_NULL) deallocate(); }
-};
-
-
-//
 // Ports representing PortSets
 //
 class PortSet : public Port {
 public:
 	PortSet() { allocate(MACH_PORT_RIGHT_PORT_SET); }
-	~PortSet() { destroy(); }
+	~PortSet() { deallocate(); }
 	
 	void operator += (const Port &port)
 	{ check(mach_port_move_member(self(), port, mPort)); }
@@ -222,7 +215,7 @@ class ReceivePort : public Port {
 public:
 	ReceivePort()	{ allocate(); }
 	ReceivePort(const char *name, const Bootstrap &bootstrap, bool tryCheckin = true);
-	~ReceivePort()	{ destroy(); }
+	~ReceivePort()	{ modRefs(MACH_PORT_RIGHT_RECEIVE, -1); }
 };
 
 

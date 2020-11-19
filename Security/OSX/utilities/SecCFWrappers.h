@@ -34,7 +34,7 @@
 
 #include <IOKit/IOReturn.h>
 
-#include <assert.h>
+#include "utilities/simulatecrash_assert.h"
 #include <dispatch/dispatch.h>
 #include <stdlib.h>
 #include <string.h>
@@ -225,12 +225,12 @@ static inline bool isNull(CFTypeRef cfType) {
 
 // Usage: void foo(CFTypeRef value) { CFDataRef data = CFCast(CFData, value); }
 #define CFCast(type, value)                                               \
-    ((value != NULL) && CFGetTypeID(value) == type ## GetTypeID() ? (type ## Ref)(value) : NULL)
+    ({ __typeof__(value) _v = (value); (_v != NULL) && CFGetTypeID(_v) == type ## GetTypeID() ? (type ## Ref)_v : NULL; })
 
-#define CFCastWithError(type, value, error)                               \
-    ((value != NULL) && CFGetTypeID(value) == type ## GetTypeID() ?       \
-        (type ## Ref)(value) :                                            \
-        (SecError(errSecParam, error, CFSTR("Unexpected type")), NULL))
+#define CFCastWithError(type, value, error)                                                      \
+    ({ __typeof__(value) _v = (value); (_v != NULL) && CFGetTypeID(_v) == type ## GetTypeID() ?  \
+        (type ## Ref)_v :                                                                        \
+        (SecError(errSecParam, error, CFSTR("Unexpected type")), NULL); })
 
 //
 // MARK CFEqual Helpers
@@ -369,7 +369,9 @@ static inline const uint8_t* CFDataGetPastEndPtr(CFDataRef theData) {
     return CFDataGetBytePtr(theData) + CFDataGetLength(theData);
 }
 
-static inline CFComparisonResult CFDataCompare(CFDataRef left, CFDataRef right)
+// This function compare DER data object, which take into account the length
+// of the data objects when doing the comparsion which item is "before" or "after"
+static inline CFComparisonResult CFDataCompareDERData(CFDataRef left, CFDataRef right)
 {
     const size_t left_size = CFDataGetLength(left);
     const size_t right_size = CFDataGetLength(right);
@@ -383,6 +385,10 @@ static inline CFComparisonResult CFDataCompare(CFDataRef left, CFDataRef right)
         return kCFCompareLessThan;
     else
         return kCFCompareEqualTo;
+}
+
+static inline __deprecated_msg("please use CFEqual or CFDataCompareDERData") CFComparisonResult CFDataCompare(CFDataRef left, CFDataRef right) {
+    return CFDataCompareDERData(left, right);
 }
 
 static inline CFDataRef CFDataCreateWithHash(CFAllocatorRef allocator, const struct ccdigest_info *di, const uint8_t *buffer, const uint8_t length) {
@@ -530,13 +536,13 @@ static inline CFStringRef CFStringCreateTruncatedCopy(CFStringRef s, CFIndex len
 //
 
 static inline
-const void *SecCFRetainForCollection(CFAllocatorRef allocator, const void *value)
+const void *SecCFRetainForCollection(CFAllocatorRef __unused allocator, const void *value)
 {
     return CFRetain(value);
 }
 
 static inline
-void SecCFReleaseForCollection(CFAllocatorRef allocator, const void *value)
+void SecCFReleaseForCollection(CFAllocatorRef __unused allocator, const void *value)
 {
     CFRelease(value);
 }
@@ -1015,7 +1021,8 @@ static inline CFDateRef CFDateCreateForGregorianMoment(CFAllocatorRef allocator,
     return CFDateCreate(allocator, CFAbsoluteTimeForGregorianMoment(tz, year, month, day, hour, minute, second));
 }
 
-static inline CFDateRef CFDateCreateForGregorianDay(CFAllocatorRef allocator, CFTimeZoneRef tz, int year, int month, int day, int hour, int minute, int second)
+static inline CFDateRef CFDateCreateForGregorianDay(CFAllocatorRef allocator, CFTimeZoneRef tz, int year, int month, int day,
+                                                    int __unused hour, int __unused minute, int __unused second)
 {
     return CFDateCreate(allocator, CFAbsoluteTimeForGregorianDay(tz, year, month, day));
 }

@@ -155,8 +155,10 @@ int RSA_verify_ASN1_OCTET_STRING(int dtype, unsigned char *m,
 		ret=1;
 err:
 	if (sig != NULL) M_ASN1_OCTET_STRING_free(sig);
-	memset(s,0,(unsigned int)siglen);
-	Free(s);
+    if(s) {
+        memset(s,0,(unsigned int)siglen);
+        Free(s);
+    }
 	return(ret);
-	}
+}
 

@@ -78,10 +78,8 @@ void SecMemoryCertificateSourceDestroy(SecCertificateSourceRef source);
 /* SecSystemAnchorSource */
 extern const SecCertificateSourceRef kSecSystemAnchorSource;
 
-#if TARGET_OS_IPHONE
 /* SecUserAnchorSource */
 extern const SecCertificateSourceRef kSecUserAnchorSource;
-#endif
 
 /* SecCAIssuerCertificateSource */
 extern const SecCertificateSourceRef kSecCAIssuerSource;

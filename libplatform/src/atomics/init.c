@@ -31,14 +31,17 @@
 #include <platform/string.h>
 #include <platform/compat.h>
 
+#include "OSAtomicFifo.h"
+
 __attribute__ ((visibility ("hidden")))
-uintptr_t commpage_pfz_base=0;
+void *COMMPAGE_PFZ_BASE_PTR commpage_pfz_base = 0;
 
 __attribute__ ((visibility ("hidden")))
 void
 __pfz_setup(const char *apple[])
 {
     const char *p = _simple_getenv(apple, "pfz");
+	uintptr_t base = 0;
     if (p != NULL) {
         const char *q;
 
@@ -48,16 +51,16 @@ __pfz_setup(const char *apple[])
         }
 
         for (q = p + 2; *q; q++) {
-            commpage_pfz_base <<= 4; // *= 16
+            base <<= 4; // *= 16
 
             if ('0' <= *q && *q <= '9') {
-                commpage_pfz_base += *q - '0';
+                base += *q - '0';
             } else if ('a' <= *q && *q <= 'f') {
-                commpage_pfz_base += *q - 'a' + 10;
+                base += *q - 'a' + 10;
             } else if ('A' <= *q && *q <= 'F') {
-                commpage_pfz_base += *q - 'A' + 10;
+                base += *q - 'A' + 10;
             } else {
-                commpage_pfz_base=0;
+                base=0;
                 goto __pfz_setup_clear;
             }
         }
@@ -66,7 +69,8 @@ __pfz_setup_clear:
         bzero((void *)((uintptr_t)p - 4), strlen(p) + 4);
     }
 
-    if (commpage_pfz_base == 0) {
-        commpage_pfz_base = _COMM_PAGE_TEXT_START;
-    }
+	if (base != 0) {
+		commpage_pfz_base = base;
+	}
 }
+

@@ -300,7 +300,7 @@ IOReturn AppleRAID::oldMember(IORegistryEntry * child)
 	set->removeMember(member, 0);
 
 	// if this member's set is empty then nuke the set as well
- 	if ((set->getActiveCount() == 0) && (set->getSpareCount() == 0)) {
+	if (set->isSetEmpty()) {
 
 	    // if this set is part of another set then handle that first
 	    if (set->isRAIDMember()) {

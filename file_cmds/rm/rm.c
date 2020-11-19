@@ -286,12 +286,16 @@ rm_tree(argv)
 			case FTS_DP:
 			case FTS_DNR:
 #if __APPLE__
-				if (p->fts_statp != NULL && (p->fts_statp->st_flags & SF_DATALESS) != 0)
-					rval = unlinkat(AT_FDCWD, p->fts_accpath, AT_REMOVEDIR_DATALESS);
-				else
+				rval = unlinkat(AT_FDCWD, p->fts_accpath, AT_REMOVEDIR_DATALESS);
+				if (rval == -1 && errno == EINVAL) {
+					/*
+					 * Kernel rejected AT_REMOVEDIR_DATALESS?
+					 * I guess we fall back on the painful
+					 * route (but it's better than failing).
+					 */
 					rval = rmdir(p->fts_accpath);
+				}
 #else
-
 				rval = rmdir(p->fts_accpath);
 #endif
 				if (rval == 0 || (fflag && errno == ENOENT)) {

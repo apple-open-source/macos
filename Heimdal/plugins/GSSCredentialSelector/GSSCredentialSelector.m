@@ -37,7 +37,7 @@
 
 #import <Foundation/Foundation.h>
 #import <Heimdal/krb5.h>
-#import <GSS/gssapi.h>
+#import <GSS/gssapi_spi.h>
 #import <GSS/gssapi_plugin.h>
 
 #include <syslog.h>

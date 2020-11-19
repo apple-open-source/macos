@@ -48,7 +48,6 @@ class OctagonCKKSConfigurationTestsPolicyDisabled: OctagonTestsBase {
 
 class OctagonCKKSConfigurationTestsPolicyEnabled: OctagonTestsBase {
     override func setUp() {
-
         if self.mockDeviceInfo == nil {
             let actualDeviceAdapter = OTDeviceInformationActualAdapter()
             self.mockDeviceInfo = OTMockDeviceInfoAdapter(modelID: actualDeviceAdapter.modelID(),
@@ -69,18 +68,15 @@ class OctagonCKKSConfigurationTestsPolicyEnabled: OctagonTestsBase {
                 CKRecordZone.ID(zoneName: "ApplePay"),
                 CKRecordZone.ID(zoneName: "Applications"),
                 CKRecordZone.ID(zoneName: "AutoUnlock"),
-                // <rdar://problem/57771098> Octagon: create final policy for CKKS4All
-                // CKRecordZone.ID(zoneName: "Backstop"),
-                // <rdar://problem/57810109> Cuttlefish: remove Safari prefix from view names
-                CKRecordZone.ID(zoneName: "SafariCreditCards"),
+                CKRecordZone.ID(zoneName: "Backstop"),
+                CKRecordZone.ID(zoneName: "CreditCards"),
                 CKRecordZone.ID(zoneName: "DevicePairing"),
                 CKRecordZone.ID(zoneName: "Engram"),
                 CKRecordZone.ID(zoneName: "Health"),
                 CKRecordZone.ID(zoneName: "Home"),
                 CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
                 CKRecordZone.ID(zoneName: "Manatee"),
-                // <rdar://problem/57810109> Cuttlefish: remove Safari prefix from view names
-                CKRecordZone.ID(zoneName: "SafariPasswords"),
+                CKRecordZone.ID(zoneName: "Passwords"),
                 CKRecordZone.ID(zoneName: "ProtectedCloudStorage"),
                 CKRecordZone.ID(zoneName: "SecureObjectSync"),
                 CKRecordZone.ID(zoneName: "WiFi"),
@@ -100,25 +96,22 @@ class OctagonCKKSConfigurationTestsPolicyEnabled: OctagonTestsBase {
 
         #if !os(tvOS)
         let expected = Set<String>([
-                                    "ApplePay",
-                                    "Applications",
-                                    "AutoUnlock",
-                                    // <rdar://problem/57771098> Octagon: create final policy for CKKS4All
-                                    //"Backstop",
-                                    // <rdar://problem/57810109> Cuttlefish: remove Safari prefix from view names
-                                    "SafariCreditCards",
-                                    "DevicePairing",
-                                    "Engram",
-                                    "Health",
-                                    "Home",
-                                    "LimitedPeersAllowed",
-                                    "Manatee",
-                                    // <rdar://problem/57810109> Cuttlefish: remove Safari prefix from view names
-                                    "SafariPasswords",
-                                    "ProtectedCloudStorage",
-                                    "SecureObjectSync",
-                                    "WiFi",
-                                    ])
+            "ApplePay",
+            "Applications",
+            "AutoUnlock",
+            "Backstop",
+            "CreditCards",
+            "DevicePairing",
+            "Engram",
+            "Health",
+            "Home",
+            "LimitedPeersAllowed",
+            "Manatee",
+            "Passwords",
+            "ProtectedCloudStorage",
+            "SecureObjectSync",
+            "WiFi",
+        ])
         #else
         let expected = Set<String>(["LimitedPeersAllowed",
                                     "Home",

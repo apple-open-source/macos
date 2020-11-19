@@ -307,7 +307,8 @@ sv{
         CD{"Demokratiska republiken Kongo"}
         CG{"Republiken Kongo"}
         CI{"Elfenbenskusten"}
+        SZ{"Eswatini"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.48.90"}
+    Version{"36.1"}
 }

@@ -57,7 +57,7 @@ usage_label(void)
 	exit(1);
 }
 
-static void
+static int 
 label(int fd)
 {
 	uuid_t uuid;
@@ -72,21 +72,21 @@ label(int fd)
 	if (gpt == NULL) {
 		warnx("%s: error: no primary GPT header; run create or recover",
 		    device_name);
-		return;
+		return 1;
 	}
 
 	tpg = map_find(MAP_TYPE_SEC_GPT_HDR);
 	if (tpg == NULL) {
 		warnx("%s: error: no secondary GPT header; run recover",
 		    device_name);
-		return;
+		return 1;
 	}
 
 	tbl = map_find(MAP_TYPE_PRI_GPT_TBL);
 	lbt = map_find(MAP_TYPE_SEC_GPT_TBL);
 	if (tbl == NULL || lbt == NULL) {
 		warnx("%s: error: run recover -- trust me", device_name);
-		return;
+		return 1;
 	}
 
 	/* Relabel all matching entries in the map. */
@@ -142,6 +142,7 @@ label(int fd)
 		printf("%sp%u labeled\n", device_name, m->map_index);
 #endif
 	}
+	return 0;
 }
 
 static void
@@ -176,6 +177,7 @@ cmd_label(int argc, char *argv[])
 {
 	char *p;
 	int ch, fd;
+	int ret = 0;
 
 	/* Get the label options */
 	while ((ch = getopt(argc, argv, "ab:f:i:l:s:t:")) != -1) {
@@ -241,10 +243,10 @@ cmd_label(int argc, char *argv[])
 			return (1);
 		}
 
-		label(fd);
+		ret = label(fd);
 
 		gpt_close(fd);
 	}
 
-	return (0);
+	return (ret);
 }

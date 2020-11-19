@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>generateduid</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000116</string>
+	</array>
+	<key>gid</key>
+	<array>
+		<string>278</string>
+	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000116</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_fud</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>Firmware Update Daemon</string>
+	</array>
+	<key>users</key>
+	<array>
+		<string>_fud</string>
+	</array>
+</dict>
+</plist>

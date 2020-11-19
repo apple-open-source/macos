@@ -117,7 +117,7 @@ bool AppleRAIDSet::init()
     arRecoveryThreadCall = thread_call_allocate(recoverMethod, (thread_call_param_t)this);
     if (arRecoveryThreadCall == 0) return false;
 
-    arAllocateRequestMethod = (IOCommandGate::Action)0xdeadbeef;
+    arAllocateRequestMethod = (IOCommandGate::Action)0x0;
     
     return true;
 }
@@ -1296,6 +1296,11 @@ bool AppleRAIDSet::isRAIDSet(void)
 bool AppleRAIDSet::isSetComplete(void)
 {
     return arActiveCount == arMemberCount;
+}
+
+bool AppleRAIDSet::isSetEmpty(void)
+{
+    return ((arActiveCount == 0) && (getSpareCount() == 0));
 }
 
 bool AppleRAIDSet::bumpOnError(void)

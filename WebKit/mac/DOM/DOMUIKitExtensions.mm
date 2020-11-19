@@ -61,6 +61,7 @@
 #import <WebCore/RenderText.h>
 #import <WebCore/RoundedRect.h>
 #import <WebCore/SharedBuffer.h>
+#import <WebCore/SimpleRange.h>
 #import <WebCore/VisiblePosition.h>
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WAKAppKitStubs.h>
@@ -78,47 +79,49 @@ using WebCore::VisiblePosition;
 
 - (void)move:(UInt32)amount inDirection:(WebTextAdjustmentDirection)direction
 {
-    Range *range = core(self);
+    auto& range = *core(self);
+
     WebCore::FrameSelection frameSelection;
-    frameSelection.moveTo(range);
+    frameSelection.setSelection(makeSimpleRange(range));
     
-    WebCore::TextGranularity granularity = WebCore::CharacterGranularity;
+    WebCore::TextGranularity granularity = WebCore::TextGranularity::CharacterGranularity;
     // Until WebKit supports vertical layout, "down" is equivalent to "forward by a line" and
     // "up" is equivalent to "backward by a line".
     if (direction == WebTextAdjustmentDown) {
         direction = WebTextAdjustmentForward;
-        granularity = WebCore::LineGranularity;
+        granularity = WebCore::TextGranularity::LineGranularity;
     } else if (direction == WebTextAdjustmentUp) {
         direction = WebTextAdjustmentBackward;
-        granularity = WebCore::LineGranularity;
+        granularity = WebCore::TextGranularity::LineGranularity;
     }
-    
+
     for (UInt32 i = 0; i < amount; i++)
         frameSelection.modify(WebCore::FrameSelection::AlterationMove, (WebCore::SelectionDirection)direction, granularity);
-    
+
     Position start = frameSelection.selection().start().parentAnchoredEquivalent();
     Position end = frameSelection.selection().end().parentAnchoredEquivalent();
     if (start.containerNode())
-        range->setStart(*start.containerNode(), start.offsetInContainerNode());
+        range.setStart(*start.containerNode(), start.offsetInContainerNode());
     if (end.containerNode())
-        range->setEnd(*end.containerNode(), end.offsetInContainerNode());
+        range.setEnd(*end.containerNode(), end.offsetInContainerNode());
 }
 
 - (void)extend:(UInt32)amount inDirection:(WebTextAdjustmentDirection)direction
 {
-    Range *range = core(self);
+    auto& range = *core(self);
+
     WebCore::FrameSelection frameSelection;
-    frameSelection.moveTo(range);
-    
+    frameSelection.setSelection(makeSimpleRange(range));
+
     for (UInt32 i = 0; i < amount; i++)
-        frameSelection.modify(WebCore::FrameSelection::AlterationExtend, (WebCore::SelectionDirection)direction, WebCore::CharacterGranularity);
-    
+        frameSelection.modify(WebCore::FrameSelection::AlterationExtend, (WebCore::SelectionDirection)direction, WebCore::TextGranularity::CharacterGranularity);
+
     Position start = frameSelection.selection().start().parentAnchoredEquivalent();
     Position end = frameSelection.selection().end().parentAnchoredEquivalent();
     if (start.containerNode())
-        range->setStart(*start.containerNode(), start.offsetInContainerNode());
+        range.setStart(*start.containerNode(), start.offsetInContainerNode());
     if (end.containerNode())
-        range->setEnd(*end.containerNode(), end.offsetInContainerNode());
+        range.setEnd(*end.containerNode(), end.offsetInContainerNode());
 }
 
 - (DOMNode *)firstNode
@@ -208,22 +211,8 @@ using WebCore::VisiblePosition;
 
 - (DOMRange *)rangeOfContainingParagraph
 {
-    DOMRange *result = nil;
-    
-    Node *node = core(self);    
-    VisiblePosition visiblePosition(createLegacyEditingPosition(node, 0), WebCore::DOWNSTREAM);
-    VisiblePosition visibleParagraphStart = startOfParagraph(visiblePosition);
-    VisiblePosition visibleParagraphEnd = endOfParagraph(visiblePosition);
-    
-    Position paragraphStart = visibleParagraphStart.deepEquivalent().parentAnchoredEquivalent();
-    Position paragraphEnd = visibleParagraphEnd.deepEquivalent().parentAnchoredEquivalent();    
-    
-    if (paragraphStart.isNotNull() && paragraphEnd.isNotNull()) {
-        Ref<Range> range = Range::create(*node->ownerDocument(), paragraphStart, paragraphEnd);
-        result = kit(range.ptr());
-    }
-    
-    return result;
+    VisiblePosition position(createLegacyEditingPosition(core(self), 0), WebCore::DOWNSTREAM);
+    return kit(makeSimpleRange(startOfParagraph(position), endOfParagraph(position)));
 }
 
 - (CGFloat)textHeight

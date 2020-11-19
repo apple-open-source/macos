@@ -1,5 +1,7 @@
 0755	root	wheel	Library/Managed Preferences
+0751	272	272	private/var/db/diagnostics
 0700	267	267	private/var/db/gpsd
+0750	501	501	private/var/db/nearbyd
 0755	root	wheel	private/var/db/ExtensibleSSO
 0755	root	wheel	private/var/db/ExtensibleSSO/Configuration
 0755	root	wheel	private/var/hardware
@@ -28,9 +30,9 @@
 0755	root	wheel	private/var/Managed Preferences
 0755	501	501	private/var/Managed Preferences/mobile
 0755	root	wheel	private/var/preferences
-0755	root	wheel	private/var/preferences/Logging
-0755	root	wheel	private/var/preferences/Logging/Processes
-0755	root	wheel	private/var/preferences/Logging/Subsystems
+0755	272	272	private/var/preferences/Logging
+0755	272	272	private/var/preferences/Logging/Processes
+0755	272	272	private/var/preferences/Logging/Subsystems
 0755	64	wheel	private/var/Keychains
 0755	root	wheel	private/var/MobileDevice
 0755	501	501	private/var/MobileDevice/ProvisioningProfiles
@@ -39,3 +41,4 @@
 0755	25	25	private/var/wireless
 0755	25	25	private/var/wireless/Library
 0755	25	25	private/var/wireless/baseband_data
+0777	root	wheel	private/var/db/sysdiagnose

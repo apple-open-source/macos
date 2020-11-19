@@ -179,7 +179,7 @@ void CalculateCacheSizes(uint64_t cacheSize, uint32_t *calcBlockSize, uint32_t *
 	}
 
 	*calcBlockSize = blockSize;
-	*calcTotalBlocks = cacheSize / blockSize;
+	*calcTotalBlocks = (uint32_t)(cacheSize / blockSize);
 	
 out:
 	return;

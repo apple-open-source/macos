@@ -57,14 +57,6 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
         if (!selectors.length)
             return [];
 
-        // COMPATIBILITY (iOS 8): The selectorList payload was an array of selector text strings.
-        // Now they are CSSSelector objects with multiple properties.
-        if (typeof selectors[0] === "string") {
-            return selectors.map(function(selectorText) {
-                return new WI.CSSSelector(selectorText);
-            });
-        }
-
         return selectors.map(function(selectorPayload) {
             return new WI.CSSSelector(selectorPayload.text, selectorPayload.specificity, selectorPayload.dynamic);
         });
@@ -79,16 +71,16 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 
         // Try to use the node to find the frame which has the correct resource first.
         if (documentNode) {
-            let mainResource = WI.networkManager.resourceForURL(documentNode.documentURL);
+            let mainResource = WI.networkManager.resourcesForURL(documentNode.documentURL).firstValue;
             if (mainResource) {
                 let parentFrame = mainResource.parentFrame;
-                sourceCode = parentFrame.resourceForURL(sourceURL);
+                sourceCode = parentFrame.resourcesForURL(sourceURL).firstValue;
             }
         }
 
         // If that didn't find the resource, then search all frames.
         if (!sourceCode)
-            sourceCode = WI.networkManager.resourceForURL(sourceURL);
+            sourceCode = WI.networkManager.resourcesForURL(sourceURL).firstValue;
 
         if (!sourceCode)
             return null;
@@ -158,8 +150,6 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 
         this._needsRefresh = false;
 
-        let previousStylesMap = this._stylesMap.copy();
-
         let fetchedMatchedStylesPromise = new WI.WrappedPromise;
         let fetchedInlineStylesPromise = new WI.WrappedPromise;
         let fetchedComputedStylesPromise = new WI.WrappedPromise;
@@ -196,6 +186,9 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
             matchedRulesPayload = matchedRulesPayload || [];
             pseudoElementRulesPayload = pseudoElementRulesPayload || [];
             inheritedRulesPayload = inheritedRulesPayload || [];
+
+            this._previousStylesMap = this._stylesMap;
+            this._stylesMap = new Multimap;
 
             this._matchedRules = parseRuleMatchArrayPayload(matchedRulesPayload, this._node);
 
@@ -258,7 +251,8 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
 
             let significantChange = false;
             for (let [key, styles] of this._stylesMap.sets()) {
-                let previousStyles = previousStylesMap.get(key);
+                // Check if the same key exists in the previous map and has the same style objects.
+                let previousStyles = this._previousStylesMap.get(key);
                 if (previousStyles) {
                     // Some styles have selectors such that they will match with the DOM node twice (for example "::before, ::after").
                     // In this case a second style for a second matching may be generated and added which will cause the shallowEqual
@@ -292,7 +286,7 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
             }
 
             if (!significantChange) {
-                for (let [key, previousStyles] of previousStylesMap.sets()) {
+                for (let [key, previousStyles] of this._previousStylesMap.sets()) {
                     // Check if the same key exists in current map. If it does exist it was already checked for equality above.
                     if (this._stylesMap.has(key))
                         continue;
@@ -310,15 +304,13 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
                 }
             }
 
+            this._previousStylesMap = null;
             this._includeUserAgentRulesOnNextRefresh = false;
 
             this.dispatchEventToListeners(WI.DOMNodeStyles.Event.Refreshed, {significantChange});
 
             fetchedComputedStylesPromise.resolve();
         }
-
-        // FIXME: Convert to pushing StyleSheet information to the frontend. <rdar://problem/13213680>
-        WI.cssManager.fetchStyleSheetsIfNeeded();
 
         let target = WI.assumingMainTarget();
         target.CSSAgent.getMatchedStylesForNode.invoke({nodeId: this._node.id, includePseudo: true, includeInherited: true}, wrap.call(this, fetchedMatchedStyles, fetchedMatchedStylesPromise));
@@ -365,12 +357,6 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
             }
 
             target.CSSAgent.setStyleText(rulePayload.style.styleId, text, styleChanged.bind(this));
-        }
-
-        // COMPATIBILITY (iOS 9): Before CSS.createStyleSheet, CSS.addRule could be called with a contextNode.
-        if (!target.hasCommand("CSS.createStyleSheet")) {
-            target.CSSAgent.addRule.invoke({contextNodeId: this._node.id, selector}, addedRule.bind(this));
-            return;
         }
 
         function inspectorStyleSheetAvailable(styleSheet)
@@ -578,7 +564,8 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
         console.assert(matchesNode || style);
 
         if (matchesNode) {
-            let existingStyles = this._stylesMap.get(mapKey);
+            console.assert(this._previousStylesMap);
+            let existingStyles = this._previousStylesMap.get(mapKey);
             if (existingStyles && !style) {
                 for (let existingStyle of existingStyles) {
                     if (existingStyle.node === node && existingStyle.inherited === inherited) {
@@ -689,9 +676,8 @@ WI.DOMNodeStyles = class DOMNodeStyles extends WI.Object
         }
 
         if (styleSheet) {
-            if (!sourceCodeLocation && styleSheet.isInspectorStyleSheet())
+            if (!sourceCodeLocation && sourceRange)
                 sourceCodeLocation = styleSheet.createSourceCodeLocation(sourceRange.startLine, sourceRange.startColumn);
-
             sourceCodeLocation = styleSheet.offsetSourceCodeLocation(sourceCodeLocation);
         }
 

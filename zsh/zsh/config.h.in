@@ -592,6 +592,9 @@
 /* Define to 1 if RLIMIT_TCACHE is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_TCACHE
 
+/* Define to 1 if RLIMIT_UMTXP is present (whether or not as a macro). */
+#undef HAVE_RLIMIT_UMTXP
+
 /* Define to 1 if RLIMIT_VMEM is present (whether or not as a macro). */
 #undef HAVE_RLIMIT_VMEM
 

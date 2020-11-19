@@ -218,9 +218,11 @@ void Target::message(const char *scope, const char *format, va_list args)
 		// now stuff the message body in, slightly roasted
 		size_t left = buffer + sizeof(buffer) - bufp - 1;	// reserve one
 		size_t written = vsnprintf(bufp, left, format, args);
-        for (char *p = bufp; *p; p++)
-            if (!isprint(*p))
+        for (char *p = bufp; *p; p++) {
+            if (!isprint(*p)) {
                 *p = '?';
+            }
+        }
 		if (written >= left) {	// snprintf overflowed
 			bufp += left;
 			strcpy(bufp - 3, "...");

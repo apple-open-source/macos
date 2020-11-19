@@ -32,6 +32,8 @@
 #define SecCFDERCreateError(errorCode, descriptionString, previousError, newError) \
     SecCFCreateErrorWithFormat(errorCode, sSecDERErrorDomain, previousError, newError, NULL, descriptionString)
 
+uint8_t * SecCCDEREncodeHandleResult(uint8_t *der, CFErrorRef *newError);
+
 
 // CFArray <-> DER
 size_t der_sizeof_array(CFArrayRef array, CFErrorRef *error);
@@ -39,7 +41,7 @@ size_t der_sizeof_array(CFArrayRef array, CFErrorRef *error);
 uint8_t* der_encode_array(CFArrayRef array, CFErrorRef *error,
                           const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_array(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_array(CFAllocatorRef allocator,
                                 CFArrayRef* array, CFErrorRef *error,
                                 const uint8_t* der, const uint8_t *der_end);
 
@@ -49,7 +51,7 @@ size_t der_sizeof_null(CFNullRef	nul, CFErrorRef *error);
 uint8_t* der_encode_null(CFNullRef	nul, CFErrorRef *error,
                             const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_null(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_null(CFAllocatorRef allocator,
                                   CFNullRef	*nul, CFErrorRef *error,
                                   const uint8_t* der, const uint8_t *der_end);
 
@@ -60,7 +62,7 @@ size_t der_sizeof_boolean(CFBooleanRef boolean, CFErrorRef *error);
 uint8_t* der_encode_boolean(CFBooleanRef boolean, CFErrorRef *error,
                             const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_boolean(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_boolean(CFAllocatorRef allocator,
                                   CFBooleanRef* boolean, CFErrorRef *error,
                                   const uint8_t* der, const uint8_t *der_end);
 
@@ -70,14 +72,9 @@ size_t der_sizeof_data(CFDataRef data, CFErrorRef *error);
 uint8_t* der_encode_data(CFDataRef data, CFErrorRef *error,
                          const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_data(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_data(CFAllocatorRef allocator,
                                CFDataRef* data, CFErrorRef *error,
                                const uint8_t* der, const uint8_t *der_end);
-
-const uint8_t* der_decode_data_mutable(CFAllocatorRef allocator, CFOptionFlags mutability,
-                                       CFMutableDataRef* data, CFErrorRef *error,
-                                       const uint8_t* der, const uint8_t *der_end);
-
 
 // CFDate <-> DER
 size_t der_sizeof_date(CFDateRef date, CFErrorRef *error);
@@ -85,7 +82,10 @@ size_t der_sizeof_date(CFDateRef date, CFErrorRef *error);
 uint8_t* der_encode_date(CFDateRef date, CFErrorRef *error,
                          const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_date(CFAllocatorRef allocator, CFOptionFlags mutability,
+uint8_t* der_encode_date_repair(CFDateRef date, CFErrorRef *error,
+                                bool repair, const uint8_t *der, uint8_t *der_end);
+
+const uint8_t* der_decode_date(CFAllocatorRef allocator,
                                CFDateRef* date, CFErrorRef *error,
                                const uint8_t* der, const uint8_t *der_end);
 
@@ -96,7 +96,7 @@ size_t der_sizeof_dictionary(CFDictionaryRef dictionary, CFErrorRef *error);
 uint8_t* der_encode_dictionary(CFDictionaryRef dictionary, CFErrorRef *error,
                                const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_dictionary(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_dictionary(CFAllocatorRef allocator,
                                      CFDictionaryRef* dictionary, CFErrorRef *error,
                                      const uint8_t* der, const uint8_t *der_end);
 
@@ -107,7 +107,7 @@ size_t der_sizeof_number(CFNumberRef number, CFErrorRef *error);
 uint8_t* der_encode_number(CFNumberRef number, CFErrorRef *error,
                            const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_number(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_number(CFAllocatorRef allocator,
                                  CFNumberRef* number, CFErrorRef *error,
                                  const uint8_t* der, const uint8_t *der_end);
 
@@ -117,7 +117,7 @@ size_t der_sizeof_string(CFStringRef string, CFErrorRef *error);
 uint8_t* der_encode_string(CFStringRef string, CFErrorRef *error,
                            const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_string(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_string(CFAllocatorRef allocator,
                                  CFStringRef* string, CFErrorRef *error,
                                  const uint8_t* der, const uint8_t *der_end);
 
@@ -127,7 +127,7 @@ size_t der_sizeof_set(CFSetRef dict, CFErrorRef *error);
 uint8_t* der_encode_set(CFSetRef set, CFErrorRef *error,
                         const uint8_t *der, uint8_t *der_end);
 
-const uint8_t* der_decode_set(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_set(CFAllocatorRef allocator,
                               CFSetRef* set, CFErrorRef *error,
                               const uint8_t* der, const uint8_t *der_end);
 

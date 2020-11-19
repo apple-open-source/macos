@@ -183,7 +183,7 @@ class IOTimeSyncEthernetInterfaceAdapter;
     the controller driver to the data link layer. 
 */
 
-class APPLE_KEXT_DEPRECATE IOEthernetController : public IONetworkController
+class __exported APPLE_KEXT_DEPRECATE IOEthernetController : public IONetworkController
 {
     OSDeclareAbstractStructors( IOEthernetController )
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2011, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -218,6 +218,82 @@ in_set_router(int s, int enable)
 		warn("SIOCSETROUTERMODE");
 }
 
+static int
+routermode_from_string(char * str, int *mode_p)
+{
+	int	success = 1;
+
+	if (strcasecmp(str, "enabled") == 0) {
+		*mode_p = 1;
+	} else if (strcasecmp(str, "disabled") == 0) {
+		*mode_p = 0;
+	} else {
+		success = 0;
+	}
+	return (success);
+}
+
+static const char *
+routermode_string(int mode)
+{
+	const char *	str;
+
+	switch (mode) {
+	case 0:
+		str = "disabled";
+		break;
+	case 1:
+		str = "enabled";
+		break;
+	default:
+		str = "<unknown>";
+		break;
+	}
+	return str;
+}
+
+static int
+in_routermode(int s, int argc, char *const*argv)
+{
+	struct ifreq 	ifr;
+	int 		ret;
+
+	bzero(&ifr, sizeof (ifr));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	if (argc == 0) {
+		ret = 0;
+#ifndef SIOCGETROUTERMODE
+#define SIOCGETROUTERMODE _IOWR('i', 209, struct ifreq)   /* get IPv4 router mode state */
+#endif /* SIOCGETROUTERMODE */
+		if (ioctl(s, SIOCGETROUTERMODE, &ifr) < 0) {
+			if (argv != NULL) {
+				warn("SIOCGETROUTERMODE");
+			}
+		} else {
+			/* argv is NULL if we're called from status() */
+			printf("%s%s\n",
+			       (argv == NULL) ? "\troutermode4: " : "",
+			       routermode_string(ifr.ifr_intval));
+		}
+		ret = 0;
+	} else {
+		int mode;
+
+		if (routermode_from_string(argv[0], &mode) == 0) {
+			errx(EXIT_FAILURE,
+			     "mode '%s' invalid, must be one of "
+			     "disabled or enabled",
+			     argv[0]);
+		}
+		ifr.ifr_intval = mode;
+		if (ioctl(s, SIOCSETROUTERMODE, &ifr) < 0) {
+			warn("SIOCSETROUTERMODE");
+		}
+		ret = 1;
+	}
+	return ret;
+}
+
 static struct afswtch af_inet = {
 	.af_name	= "inet",
 	.af_af		= AF_INET,
@@ -226,6 +302,7 @@ static struct afswtch af_inet = {
 	.af_status_tunnel = in_status_tunnel,
 	.af_settunnel	= in_set_tunnel,
 	.af_setrouter	= in_set_router,
+	.af_routermode	= in_routermode,
 	.af_difaddr	= SIOCDIFADDR,
 	.af_aifaddr	= SIOCAIFADDR,
 	.af_ridreq	= &in_ridreq,

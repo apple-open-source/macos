@@ -438,22 +438,22 @@ void RelatedNodeRetargeter::collectTreeScopes()
     ASSERT_WITH_SECURITY_IMPLICATION(!m_ancestorTreeScopes.isEmpty());
 }
 
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
 
 inline void RelatedNodeRetargeter::checkConsistency(Node&)
 {
 }
 
-#else
+#else // ASSERT_ENABLED
 
 void RelatedNodeRetargeter::checkConsistency(Node& currentTarget)
 {
     if (!m_retargetedRelatedNode)
         return;
     ASSERT(!currentTarget.isClosedShadowHidden(*m_retargetedRelatedNode));
-    ASSERT(m_retargetedRelatedNode == &currentTarget.treeScope().retargetToScope(m_relatedNode));
+    ASSERT(m_retargetedRelatedNode == currentTarget.treeScope().retargetToScope(m_relatedNode).ptr());
 }
 
-#endif
+#endif // ASSERT_ENABLED
 
 }

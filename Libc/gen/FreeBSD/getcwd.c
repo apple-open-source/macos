@@ -49,9 +49,47 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/getcwd.c,v 1.29 2007/01/09 00:27:53 imp Exp
 #include <unistd.h>
 #include "un-namespace.h"
 
+#if TARGET_OS_OSX && !TARGET_OS_SIMULATOR
+#include <sys/attr.h>	/* for FSOPT_NOFOLLOW */
+#include <apfs/apfs_fsctl.h>
+#endif
+
 #define	ISDOT(dp) \
 	(dp->d_name[0] == '.' && (dp->d_name[1] == '\0' || \
 	    (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
+
+/*
+ * Check if the given directory is a firmlink.
+ * Return 1 if it is firmlink otherwise return 0.
+ */
+static inline int
+__check_for_firmlink(char *dir_path)
+{
+#if TARGET_OS_OSX && !TARGET_OS_SIMULATOR
+	apfs_firmlink_control_t afc;
+	int is_firmlink;
+	int err;
+
+	afc.cmd = FIRMLINK_GET;
+	afc.val = 0;
+
+	err = fsctl(dir_path, APFSIOC_FIRMLINK_CTL, (void *)&afc, FSOPT_NOFOLLOW);
+	if (err == 0) {
+		is_firmlink = afc.val ? 1 : 0;
+	} else  {
+		/*
+		 * On error, we assume it is a firmlink. This could be a false positive
+		 * and we will end up incurring a lstat() cost but it will give us some
+		 * chance to build the path successfully.
+		 */
+		is_firmlink = 1;
+	}
+
+	return is_firmlink;
+#else
+	return 0;
+#endif
+}
 
 /*
  * If __getcwd() ever becomes a syscall, we can remove this workaround.
@@ -253,8 +291,29 @@ __private_getcwd(pt, size, usegetpath)
 			for (;;) {
 				if (!(dp = readdir(dir)))
 					goto notfound;
-				if (dp->d_fileno == ino)
+				if (dp->d_fileno == ino) {
 					break;
+				} else if (!ISDOT(dp) && dp->d_type == DT_DIR) {
+					/*
+					 * The 'd_fileno' for firmlink directory would be different
+					 * than the 'st_ino' returned by stat(). We have to do an
+					 * extra lstat() on firmlink directory to determine if the
+					 * 'st_ino' matches with what we are looking for.
+					 */
+                    bcopy(dp->d_name, bup, dp->d_namlen + 1);
+
+					if (__check_for_firmlink(up) == 0)
+						continue;
+
+                    if (lstat(up, &s)) {
+                        if (!save_errno)
+                            save_errno = errno;
+                        errno = 0;
+                        continue;
+                    }
+                    if (s.st_dev == dev && s.st_ino == ino)
+                        break;
+                }
 			}
 		} else
 			for (;;) {

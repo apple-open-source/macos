@@ -31,23 +31,24 @@
 #include "Frame.h"
 #include "FrameSelection.h"
 #include "Pasteboard.h"
+#include "Range.h"
 #include "windows.h"
 
 namespace WebCore {
 
 void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> options)
 {
-    RefPtr<Range> range = selectedRange();
+    auto range = selectedRange();
     if (!range)
         return;
 
     bool chosePlainText;
-    RefPtr<DocumentFragment> fragment = pasteboard->documentFragment(m_frame, *range, options.contains(PasteOption::AllowPlainText), chosePlainText);
+    auto fragment = pasteboard->documentFragment(*m_document.frame(), *range, options.contains(PasteOption::AllowPlainText), chosePlainText);
 
     if (fragment && options.contains(PasteOption::AsQuotation))
         quoteFragmentForPasting(*fragment);
 
-    if (fragment && shouldInsertFragment(*fragment, range.get(), EditorInsertAction::Pasted))
+    if (fragment && shouldInsertFragment(*fragment, *range, EditorInsertAction::Pasted))
         pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(*pasteboard), chosePlainText, options.contains(PasteOption::IgnoreMailBlockquote) ? MailBlockquoteHandling::IgnoreBlockquote : MailBlockquoteHandling::RespectBlockquote);
 }
 
@@ -66,12 +67,12 @@ static RefPtr<DocumentFragment> createFragmentFromPlatformData(PlatformDragData&
     return nullptr;
 }
 
-RefPtr<DocumentFragment> Editor::webContentFromPasteboard(Pasteboard& pasteboard, Range&, bool /*allowPlainText*/, bool& /*chosePlainText*/)
+RefPtr<DocumentFragment> Editor::webContentFromPasteboard(Pasteboard& pasteboard, const SimpleRange&, bool /*allowPlainText*/, bool& /*chosePlainText*/)
 {
     if (COMPtr<IDataObject> platformDragData = pasteboard.dataObject())
-        return createFragmentFromPlatformData(*platformDragData, m_frame);
+        return createFragmentFromPlatformData(*platformDragData, *m_document.frame());
 
-    return createFragmentFromPlatformData(pasteboard.dragDataMap(), m_frame);
+    return createFragmentFromPlatformData(pasteboard.dragDataMap(), *m_document.frame());
 }
 
 } // namespace WebCore

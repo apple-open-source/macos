@@ -219,6 +219,7 @@ fdirstat_fallback(int parent_fd, int flags, struct dirstat *ds)
 
 			if (fd < 0) {
 				DEBUGPRINT( "Unable to open directory %d:%s => %s\n", parent_fd, path, strerror(errno));
+				free(path);
 				continue;
 			}
 		}

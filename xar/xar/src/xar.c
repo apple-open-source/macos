@@ -802,6 +802,9 @@ static int32_t err_callback(int32_t sev, int32_t err, xar_errctx_t ctx, void *us
 }
 
 static void usage(const char *prog) {
+	fprintf(stderr, "DEPRECATION WARNING:\n"
+					"\txar is no longer under active development by Apple.\n"
+					"\tClients of xar should pursue alternative archive formats.\n\n");
 	fprintf(stderr, "Usage: %s -[ctx][v] -f <archive> ...\n", prog);
 	fprintf(stderr, "\t-c               Creates an archive\n");
 	fprintf(stderr, "\t-x               Extracts an archive\n");

@@ -25,7 +25,7 @@
 }
 - (BOOL)hasEpoch
 {
-    return _has.epoch;
+    return _has.epoch != 0;
 }
 
 - (NSString *)description

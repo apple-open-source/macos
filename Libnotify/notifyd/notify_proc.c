@@ -31,7 +31,9 @@
 #include <mach/mach_error.h>
 #include <mach/mach_traps.h>
 #include <sys/sysctl.h>
+#include <sys/kauth.h>
 #include <pthread.h>
+#include <pwd.h>
 #include <sys/fcntl.h>
 #include <dispatch/private.h>
 #include <assert.h>
@@ -42,6 +44,8 @@
 #include "notify_internal.h"
 #include "notifyServer.h"
 #include <sandbox.h>
+
+static inline void proc_cancel(proc_data_t *pdata);
 
 static void
 port_arm_mach_notifications(mach_port_t port)
@@ -78,6 +82,24 @@ port_free(void *_pp)
 	free(pdata);
 }
 
+// This should be called either when the process cleans up, or when the process
+// forgets about a common port, such as after an exec.
+static void
+common_port_free(port_data_t *common_port_data) {
+	// Common port registrations should not be freed until both the mach port cleanup and the process
+	//    cleanup is done. Whichever happens first sets the _READY_TO_FREE flags, and whichever happens
+	//    second frees.
+	if (common_port_data->flags & NOTIFY_PORT_FLAG_COMMON_READY_TO_FREE) {
+		if (!LIST_EMPTY(&common_port_data->clients)) {
+			NOTIFY_INTERNAL_CRASH(0, "port_proc still had clients");
+		}
+		log_message(ASL_LEVEL_DEBUG, "do_mach_notify_dead_name freed port %x\n", (unsigned int)common_port_data);
+		port_free(common_port_data);
+	} else {
+		common_port_data->flags |= NOTIFY_PORT_FLAG_COMMON_READY_TO_FREE;
+	}
+}
+
 static void
 proc_free(void *_pp)
 {
@@ -92,13 +114,29 @@ proc_free(void *_pp)
 
 	ns->stat_portproc_free++;
 
+	if (pdata->common_port_data) {
+		common_port_free(pdata->common_port_data);
+	}
+
 	dispatch_release(pdata->src);
 	free(pdata);
 }
 
 static void
-proc_create(notify_state_t *ns, client_t *c, pid_t proc, dispatch_source_t src)
+proc_event(void *_pp)
 {
+	proc_data_t *pdata = _pp;
+
+	proc_cancel(pdata);
+}
+
+static proc_data_t *
+proc_create(notify_state_t *ns, client_t *c, pid_t pid)
+{
+	dispatch_source_t src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, pid,
+			DISPATCH_PROC_EXIT, global.workloop);
+	dispatch_source_set_event_handler_f(src, proc_event);
+
 	proc_data_t *pdata = malloc(sizeof(proc_data_t));
 
 	if (pdata == NULL) {
@@ -112,13 +150,18 @@ proc_create(notify_state_t *ns, client_t *c, pid_t proc, dispatch_source_t src)
 	LIST_INIT(&pdata->clients);
 	pdata->src = src;
 	pdata->flags = PORT_PROC_FLAGS_NONE;
-	pdata->pid = proc;
+	pdata->pid = (uint32_t)pid;
+	pdata->common_port_data = NULL;
 	_nc_table_insert_n(&ns->proc_table, &pdata->pid);
-	LIST_INSERT_HEAD(&pdata->clients, c, client_pid_entry);
+	if(c) {
+		LIST_INSERT_HEAD(&pdata->clients, c, client_pid_entry);
+	}
 
 	dispatch_set_context(src, pdata);
 	dispatch_source_set_cancel_handler_f(src, proc_free);
 	dispatch_activate(src);
+
+	return pdata;
 }
 
 // Returns true on success
@@ -153,14 +196,45 @@ port_create(notify_state_t *ns, client_t *c, mach_port_t port)
 	return true;
 }
 
-static bool
+static port_data_t *
+common_port_create(notify_state_t *ns, mach_port_t port)
+{
+	port_data_t *pdata = calloc(1, sizeof(port_data_t));
+
+	if (pdata == NULL) {
+		// failing here is not an option, and our malloc will never fail
+		// for such a small allocation
+		NOTIFY_INTERNAL_CRASH(0, "Unable to allocate portproc");
+	}
+
+	ns->stat_portproc_alloc++;
+
+	LIST_INIT(&pdata->clients);
+	pdata->port = port;
+	pdata->flags = NOTIFY_PORT_FLAG_COMMON;
+	_nc_table_insert_n(&ns->port_table, &pdata->port);
+
+	/* arming SEND_POSSIBLE must be done before we attempt any send */
+	port_arm_mach_notifications(port);
+
+	return pdata;
+}
+
+static proc_data_t *
 proc_register(notify_state_t *ns, client_t *c, pid_t pid)
 {
 	proc_data_t *pdata = _nc_table_find_n(&ns->proc_table, pid);
-	if (pdata) {
+	if (pdata && c) {
 		LIST_INSERT_HEAD(&pdata->clients, c, client_pid_entry);
 	}
-	return pdata != NULL;
+	return pdata;
+}
+
+static void proc_add_client(proc_data_t *pdata,client_t *c, pid_t pid)
+{
+	if (pdata && c) {
+		LIST_INSERT_HEAD(&pdata->clients, c, client_pid_entry);
+	}
 }
 
 static bool
@@ -234,17 +308,12 @@ port_proc_cancel_client(client_t *c)
 
 	n = c->name_info;
 	assert(n != NULL);
-	if ((n->refcount == 1) && (n->private != NULL))
-	{
-		service_close(n->private);
-		n->private = NULL;
-	}
 
-	if (c->state_and_type & NOTIFY_TYPE_MEMORY)
+	if (notify_is_type(c->state_and_type, NOTIFY_TYPE_MEMORY))
 	{
 		global.shared_memory_refcount[n->slot]--;
 	}
-	else if (c->state_and_type & NOTIFY_TYPE_PORT)
+	else if (notify_is_type(c->state_and_type, NOTIFY_TYPE_PORT) || notify_is_type(c->state_and_type, NOTIFY_TYPE_COMMON_PORT))
 	{
 		LIST_REMOVE(c, client_port_entry);
 	}
@@ -280,7 +349,19 @@ do_mach_notify_dead_name(mach_port_t notify, mach_port_name_t port)
 	LIST_FOREACH_SAFE(c, &pdata->clients, client_port_entry, tmp) {
 		port_proc_cancel_client(c);
 	}
-	port_free(pdata);
+	if (pdata->flags & NOTIFY_PORT_FLAG_COMMON) {
+		// Common port registrations should not be freed until both the mach port cleanup and the process
+		//    cleanup is done. Whichever happens first sets the _READY_TO_FREE flags, and whichever happens
+		//    second frees.
+		if (pdata->flags & NOTIFY_PORT_FLAG_COMMON_READY_TO_FREE) {
+			log_message(ASL_LEVEL_DEBUG, "do_mach_notify_dead_name freed port %x\n", (unsigned int)port);
+			port_free(pdata);
+		} else {
+			pdata->flags |= NOTIFY_PORT_FLAG_COMMON_READY_TO_FREE;
+		}
+	} else {
+		port_free(pdata);
+	}
 
 	// the act of receiving a dead name notification allocates a dead-name
 	// right that must be deallocated
@@ -288,31 +369,17 @@ do_mach_notify_dead_name(mach_port_t notify, mach_port_name_t port)
 	return KERN_SUCCESS;
 }
 
-
-static void
-proc_event(void *_pp)
-{
-	proc_data_t *pdata = _pp;
-
-	proc_cancel(pdata);
-}
-
-static void
+static proc_data_t *
 register_proc(client_t *c, pid_t pid)
 {
-	dispatch_source_t src;
+	if (pid <= 0) return NULL;
+	proc_data_t *result = NULL;
 
-	if (pid <= 0) return;
-
-	if (proc_register(&global.notify_state, c, pid)) {
-		return;
+	if ((result = proc_register(&global.notify_state, c, pid)) != NULL) {
+		return result;
 	}
 
-	src = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, pid,
-			DISPATCH_PROC_EXIT, global.workloop);
-	dispatch_source_set_event_handler_f(src, proc_event);
-
-	proc_create(&global.notify_state, c, pid, src);
+	return proc_create(&global.notify_state, c, pid);
 }
 
 // Returns true on success
@@ -324,6 +391,41 @@ register_port(client_t *c, mach_port_t port)
 	}
 
 	return port_create(&global.notify_state, c, port);
+}
+
+static void
+register_xpc_event(client_t *c, uint64_t event_token)
+{
+	event_data_t *edata = _nc_table_find_64(&global.notify_state.event_table, event_token);
+	if (edata != NULL) {
+		NOTIFY_INTERNAL_CRASH(event_token, "Event token is already registered");
+	}
+
+	edata = calloc(1, sizeof(event_data_t));
+	edata->client = c;
+	edata->event_token = event_token;
+
+	_nc_table_insert_64(&global.notify_state.event_table, &edata->event_token);
+
+	global.notify_state.stat_portproc_alloc++;
+}
+
+static client_t *
+cancel_xpc_event(uint64_t event_token)
+{
+	event_data_t *edata = _nc_table_find_64(&global.notify_state.event_table, event_token);
+	if (edata == NULL) {
+		return NULL;
+	}
+
+	client_t *client = edata->client;
+
+	_nc_table_delete_64(&global.notify_state.event_table, event_token);
+	free(edata);
+
+	global.notify_state.stat_portproc_free++;
+
+	return client;
 }
 
 
@@ -462,7 +564,7 @@ kern_return_t __notify_server_post_2
 
 	if (n == NULL)
 	{
-		*status = NOTIFY_STATUS_INVALID_NAME;
+		*status = NOTIFY_STATUS_NO_NID;
 		*name_id = UINT64_MAX;
 		call_statistics.post_no_op++;
 	}
@@ -507,7 +609,7 @@ kern_return_t __notify_server_register_plain_2
 )
 {
 	client_t *c;
-	uint64_t nid, cid;
+	uint64_t nid, cid = 0;
 	uint32_t status;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
@@ -549,7 +651,7 @@ kern_return_t __notify_server_register_check_2
 {
 	name_info_t *n;
 	uint32_t i, j, x, new_slot;
-	uint64_t cid;
+	uint64_t cid = 0;
 	client_t *c;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
@@ -652,7 +754,7 @@ kern_return_t __notify_server_register_signal_2
 )
 {
 	client_t *c;
-	uint64_t name_id, cid;
+	uint64_t name_id, cid = 0;
 	uint32_t status;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
@@ -692,7 +794,7 @@ kern_return_t __notify_server_register_file_descriptor_2
 	client_t *c;
 	int fd, flags;
 	uint32_t status;
-	uint64_t name_id, cid;
+	uint64_t name_id, cid = 0;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
 	pid_t pid = (pid_t)-1;
@@ -738,9 +840,8 @@ kern_return_t __notify_server_register_file_descriptor_2
 	return KERN_SUCCESS;
 }
 
-kern_return_t __notify_server_register_mach_port_2
+static uint32_t _notify_register_mach_port_helper
 (
-	mach_port_t server,
 	caddr_t name,
 	int token,
 	mach_port_t port,
@@ -748,7 +849,7 @@ kern_return_t __notify_server_register_mach_port_2
 )
 {
 	client_t *c;
-	uint64_t name_id, cid;
+	uint64_t name_id, cid = 0;
 	uint32_t status;
 	uid_t uid = (uid_t)-1;
 	gid_t gid = (gid_t)-1;
@@ -756,7 +857,7 @@ kern_return_t __notify_server_register_mach_port_2
 
 	if (port == MACH_PORT_DEAD || port == MACH_PORT_NULL)
 	{
-		return KERN_SUCCESS;
+		return NOTIFY_STATUS_INVALID_PORT_INTERNAL;
 	}
 
 	server_preflight(audit, token, &uid, &gid, &pid, &cid);
@@ -770,10 +871,10 @@ kern_return_t __notify_server_register_mach_port_2
 	if (status != NOTIFY_STATUS_OK)
 	{
 		mach_port_deallocate(mach_task_self(), port);
-		return KERN_SUCCESS;
+		return NOTIFY_STATUS_NOT_AUTHORIZED;
 	}
 
-	c = _nc_table_find_64(&global.notify_state.client_table,cid);
+	c = _nc_table_find_64(&global.notify_state.client_table, cid);
 
 	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, audit);
 
@@ -784,6 +885,29 @@ kern_return_t __notify_server_register_mach_port_2
 	}
 
 	// The mach_port_dealloc of port is done when the registration is cancelled
+	return NOTIFY_STATUS_OK;
+}
+
+kern_return_t __notify_server_register_mach_port_2
+(
+	mach_port_t server,
+	caddr_t name,
+	int token,
+	mach_port_t port,
+	audit_token_t audit
+)
+{
+	notify_state_t *ns = &global.notify_state;
+
+	if (_nc_table_find_n(&ns->port_table, port) == NULL)
+	{
+		// Port was not created by notifyd
+		mach_port_deallocate(mach_task_self(), port);
+		return KERN_SUCCESS;
+	}
+
+	(void)_notify_register_mach_port_helper(name, token, port, audit);
+
 	return KERN_SUCCESS;
 }
 
@@ -1184,7 +1308,6 @@ kern_return_t __notify_server_regenerate
 	audit_token_t audit
 )
 {
-	kern_return_t kstatus;
 	pid_t pid = (pid_t)-1;
 	int size;
 	name_info_t *n;
@@ -1218,16 +1341,16 @@ kern_return_t __notify_server_regenerate
 		case NOTIFY_TYPE_MEMORY:
 		{
 			/* prev_slot must be between 0 and global.nslots */
-			if ((prev_slot < 0) || (prev_slot >= global.nslots))
+			if ((uint32_t)prev_slot >= global.nslots)
 			{
 				*status = NOTIFY_STATUS_INVALID_REQUEST;
 				return KERN_SUCCESS;
 			}
 
-			kstatus = __notify_server_register_check_2(server, name, token, &size, new_slot, new_nid, status, audit);
+			(void)__notify_server_register_check_2(server, name, token, &size, (int *)new_slot, new_nid, status, audit);
 			if (*status == NOTIFY_STATUS_OK)
 			{
-				if ((*new_slot != UINT32_MAX) && (global.last_shm_base != NULL))
+				if (((uint32_t)*new_slot != SLOT_NONE) && (global.last_shm_base != NULL))
 				{
 					global.shared_memory_base[*new_slot] = global.shared_memory_base[*new_slot] + global.last_shm_base[prev_slot] - 1;
 					global.last_shm_base[prev_slot] = 0;
@@ -1237,19 +1360,20 @@ kern_return_t __notify_server_regenerate
 		}
 		case NOTIFY_TYPE_PLAIN:
 		{
-			kstatus = __notify_server_register_plain_2(server, name, token, audit);
-			break;
-		}
-		case NOTIFY_TYPE_PORT:
-		{
-			kstatus = __notify_server_register_mach_port_2(server, name, token, port, audit);
+			(void)__notify_server_register_plain_2(server, name, token, audit);
 			break;
 		}
 		case NOTIFY_TYPE_SIGNAL:
 		{
-			kstatus = __notify_server_register_signal_2(server, name, token, sig, audit);
+			(void)__notify_server_register_signal_2(server, name, token, sig, audit);
 			break;
 		}
+		case NOTIFY_TYPE_COMMON_PORT:
+		{
+			(void)__notify_server_register_common_port(server, name, token, audit);
+			break;
+		}
+		case NOTIFY_TYPE_PORT:
 		case NOTIFY_TYPE_FILE: /* fall through */
 		default:
 		{
@@ -1360,3 +1484,228 @@ kern_return_t __notify_server_dump
 
 	return KERN_SUCCESS;
 }
+
+static uid_t
+xpc_event_token_get_uid(uint64_t event_token)
+{
+#if TARGET_OS_OSX
+	au_asid_t asid = xpc_event_publisher_get_subscriber_asid(global.notify_state.event_publisher, event_token);
+
+	auditinfo_addr_t info = { 0 };
+	info.ai_asid = asid;
+
+	int ret = auditon(A_GETSINFO_ADDR, &info, sizeof(info));
+	if (ret != 0) {
+		log_message(ASL_LEVEL_WARNING, "auditon on asid %d failed with errno %d, skipping registration\n", asid, errno);
+		return KAUTH_UID_NONE;
+	}
+
+	return info.ai_auid;
+#else // TARGET_OS_OSX
+	// XPC event registrations historically bypassed UID permission checks on
+	// iOS since those were coming from UEA running as root. Preserve that and
+	// return root UID.
+	// There isn't a way to obtain the UID for an event token on iOS.
+	// rdar://problem/50776875
+	(void)event_token;
+	return 0; // root
+#endif // TARGET_OS_OSX
+}
+
+void
+notifyd_matching_register(uint64_t event_token, xpc_object_t descriptor)
+{
+	assert(xpc_get_type(descriptor) == XPC_TYPE_DICTIONARY);
+	const char *name = xpc_dictionary_get_string(descriptor, NOTIFY_XPC_EVENT_PAYLOAD_KEY_NAME);
+
+	// Use bogus PID for XPC event registrations
+	pid_t pid = -1;
+	int token = global.next_no_client_token++;
+
+	call_statistics.reg++;
+	call_statistics.reg_xpc_event++;
+
+	log_message(ASL_LEVEL_DEBUG, "notifyd_matching_register %s %d %llu\n", name, token, event_token);
+
+	uid_t uid = xpc_event_token_get_uid(event_token);
+	if (uid == KAUTH_UID_NONE) {
+		return;
+	}
+	// notifyd can't call getpwuid_r to find out GID for UID as it deadlocks
+	// with opendirectoryd. Use bogus GID to fail group access checks if any.
+	gid_t gid = KAUTH_GID_NONE;
+
+	uint64_t unused_nid = 0;
+	uint32_t status = _notify_lib_register_xpc_event(&global.notify_state, name, pid, token, event_token, uid, gid, &unused_nid);
+	if (status != NOTIFY_STATUS_OK) {
+		if (status != NOTIFY_STATUS_NOT_AUTHORIZED) {
+			log_message(ASL_LEVEL_WARNING, "_notify_lib_register_xpc_event failed with status %u\n", status);
+		}
+		return;
+	}
+
+	client_t *c = _nc_table_find_64(&global.notify_state.client_table, make_client_id(pid, token));
+	if (c == NULL) {
+		NOTIFY_INTERNAL_CRASH(0, "Can't find client after registering an event");
+	}
+
+	// Don't register_proc since PID is bogus
+	register_xpc_event(c, event_token);
+}
+
+void
+notifyd_matching_unregister(uint64_t event_token)
+{
+	client_t *c = cancel_xpc_event(event_token);
+	if (c == NULL) {
+		return; // if registration was denied, there wouldn't be anything to unregister
+	}
+
+	_notify_lib_cancel_client(&global.notify_state, c);
+}
+
+kern_return_t __notify_generate_common_port
+(
+	mach_port_t server,
+	uint32_t *status,
+	mach_port_t *out_port,
+	audit_token_t audit
+)
+{
+	mach_port_t port;
+	kern_return_t kstatus;
+
+	*status = NOTIFY_STATUS_OK;
+	*out_port = MACH_PORT_NULL;
+
+	pid_t pid = audit_token_to_pid(audit);
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_generate_common_port %d\n", pid);
+
+	// Create a proc object if one doesn't exist
+	notify_state_t *ns = &global.notify_state;
+	proc_data_t *pdata = _nc_table_find_n(&ns->proc_table, pid);
+	if (!pdata) {
+		pdata = proc_create(ns, NULL, pid);
+	}
+
+	// It's possible the process may have already generated the common port,
+	// such as if the process calls exec.
+	if(pdata->common_port_data != NULL)
+	{
+		client_t *c, *tmp;
+		LIST_FOREACH_SAFE(c, &pdata->common_port_data->clients, client_pid_entry, tmp) {
+			port_proc_cancel_client(c);
+		}
+		common_port_free(pdata->common_port_data);
+		pdata->common_port_data = NULL;
+	}
+
+	mach_port_options_t opts = {
+		.flags = MPO_QLIMIT,
+		.mpl.mpl_qlimit = 16,
+	};
+
+	kstatus = mach_port_construct(mach_task_self(), &opts, 0, &port);
+	assert(kstatus == KERN_SUCCESS);
+
+	// This right will be released in do_mach_notify_dead_name/port_free
+	kstatus = mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
+	assert(kstatus == KERN_SUCCESS);
+
+	pdata->common_port_data = common_port_create(&global.notify_state, port);
+	*out_port = port;
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_register_common_port
+(
+	mach_port_t server,
+	caddr_t name,
+	int token,
+	audit_token_t audit
+)
+{
+	client_t *c;
+	uint64_t name_id, cid = 0;
+	uint32_t status;
+	uid_t uid = (uid_t)-1;
+	gid_t gid = (gid_t)-1;
+	pid_t pid = (pid_t)-1;
+
+	server_preflight(audit, token, &uid, &gid, &pid, &cid);
+
+	call_statistics.reg++;
+	call_statistics.reg_common++;
+
+	log_message(ASL_LEVEL_DEBUG, "__notify_server_register_common_port %s %d %d\n", name, pid, token);
+
+	notify_state_t *ns = &global.notify_state;
+
+	proc_data_t *proc = _nc_table_find_n(&ns->proc_table, pid);
+	if (!proc || !proc->common_port_data) {
+		// Client doesn't have a common port set up
+		log_message(ASL_LEVEL_DEBUG, "_notify_server_register_common_port FAILED %s %d %d\n", name, pid, token);
+		return KERN_SUCCESS;
+	}
+
+
+	status = _notify_lib_register_common_port(ns, name, pid, token, uid, gid, &name_id);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		return KERN_SUCCESS;
+	}
+
+	c = _nc_table_find_64(&ns->client_table, cid);
+
+	if (!strncmp(name, SERVICE_PREFIX, SERVICE_PREFIX_LEN)) service_open(name, c, audit);
+
+	proc_add_client(proc, c, pid);
+	LIST_INSERT_HEAD(&proc->common_port_data->clients, c, client_port_entry);
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t __notify_server_register_mach_port_3
+(
+	mach_port_t server,
+	caddr_t name,
+	int token,
+	uint32_t *status,
+	mach_port_t *out_port,
+	audit_token_t audit
+)
+{
+	mach_port_t port;
+	kern_return_t kstatus;
+
+	*status = NOTIFY_STATUS_OK;
+	*out_port = MACH_PORT_NULL;
+
+	mach_port_options_t opts = {
+		.flags = MPO_QLIMIT,
+		.mpl.mpl_qlimit = 16,
+	};
+
+	kstatus = mach_port_construct(mach_task_self(), &opts, 0, &port);
+	assert(kstatus == KERN_SUCCESS);
+
+	// This right will be released in do_mach_notify_dead_name/port_free
+	kstatus = mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND);
+	assert(kstatus == KERN_SUCCESS);
+
+	*status = _notify_register_mach_port_helper(name, token, port, audit);
+
+	if (*status == NOTIFY_STATUS_OK)
+	{
+		*out_port = port;
+	}
+	else
+	{
+		mach_port_destruct(mach_task_self(), port, -1, 0);
+	}
+
+	return KERN_SUCCESS;
+}
+

@@ -158,11 +158,11 @@ static void reportStats(unsigned expected_mismatches, unsigned real_mismatches, 
 int policy_dryrun(int argc, char * const *argv) {
     @autoreleasepool {
         NSError* error = nil;
-        // From Swift.policy, policy v5
+        // From Swift.policy, policy v7
 
-        TPPolicyDocument *tpd = [TPPolicyDocument policyDocWithHash:@"SHA256:O/ECQlWhvNlLmlDNh2+nal/yekUC87bXpV3k+6kznSo="
+        TPPolicyDocument *tpd = [TPPolicyDocument policyDocWithHash:@"SHA256:dL8Qujqzprhp6FdH5GzNMtPlnZtLWMwfiiF7aykr8WU="
                                                   data:[[NSData alloc] initWithBase64EncodedString:
-                                                                           @"CAUSDgoGaVBob25lEgRmdWxsEgwKBGlQYWQSBGZ1bGwSDAoEaVBvZBIEZnVsbBILCgNNYWMSBGZ1bGwSDAoEaU1hYxIEZnVsbBINCgdBcHBsZVRWEgJ0dhIOCgVXYXRjaBIFd2F0Y2gSFwoOQXVkaW9BY2Nlc3NvcnkSBWF1ZGlvGhsKDEFwcGxpY2F0aW9ucxIEZnVsbBIFd2F0Y2gaHwoQU2VjdXJlT2JqZWN0U3luYxIEZnVsbBIFd2F0Y2gaHAoNRGV2aWNlUGFpcmluZxIEZnVsbBIFd2F0Y2gaGgoLQ3JlZGl0Q2FyZHMSBGZ1bGwSBXdhdGNoGhUKBkhlYWx0aBIEZnVsbBIFd2F0Y2gaLQoTTGltaXRlZFBlZXJzQWxsb3dlZBIEZnVsbBIFd2F0Y2gSAnR2EgVhdWRpbxokChVQcm90ZWN0ZWRDbG91ZFN0b3JhZ2USBGZ1bGwSBXdhdGNoGhcKCEFwcGxlUGF5EgRmdWxsEgV3YXRjaBoZCgpBdXRvVW5sb2NrEgRmdWxsEgV3YXRjaBoWCgdNYW5hdGVlEgRmdWxsEgV3YXRjaBoYCglQYXNzd29yZHMSBGZ1bGwSBXdhdGNoGhUKBkVuZ3JhbRIEZnVsbBIFd2F0Y2gaHgoEV2lGaRIEZnVsbBIFd2F0Y2gSAnR2EgVhdWRpbxoTCgRIb21lEgRmdWxsEgV3YXRjaCIbCgVhdWRpbxIEZnVsbBIFd2F0Y2gSBWF1ZGlvIhMKBGZ1bGwSBGZ1bGwSBXdhdGNoIhUKAnR2EgRmdWxsEgV3YXRjaBICdHYiFAoFd2F0Y2gSBGZ1bGwSBXdhdGNoMiIKFgAEIhICBHZ3aHQKCl5BcHBsZVBheSQSCEFwcGxlUGF5MiYKGAAEIhQCBHZ3aHQKDF5BdXRvVW5sb2NrJBIKQXV0b1VubG9jazIeChQABCIQAgR2d2h0CgheRW5ncmFtJBIGRW5ncmFtMh4KFAAEIhACBHZ3aHQKCF5IZWFsdGgkEgZIZWFsdGgyGgoSAAQiDgIEdndodAoGXkhvbWUkEgRIb21lMiAKFQAEIhECBHZ3aHQKCV5NYW5hdGVlJBIHTWFuYXRlZTI4CiEABCIdAgR2d2h0ChVeTGltaXRlZFBlZXJzQWxsb3dlZCQSE0xpbWl0ZWRQZWVyc0FsbG93ZWQyXQpQAAISHgAEIhoCBHZ3aHQKEl5Db250aW51aXR5VW5sb2NrJBIVAAQiEQIEdndodAoJXkhvbWVLaXQkEhUABCIRAgR2d2h0CgleQXBwbGVUViQSCU5vdFN5bmNlZDIrChsABCIXAgRhZ3JwCg9eWzAtOUEtWl17MTB9XC4SDEFwcGxpY2F0aW9uczLFAQqwAQACEjQAAQoTAAQiDwIFY2xhc3MKBl5nZW5wJAobAAQiFwIEYWdycAoPXmNvbS5hcHBsZS5zYmQkEj0AAQoTAAQiDwIFY2xhc3MKBl5rZXlzJAokAAQiIAIEYWdycAoYXmNvbS5hcHBsZS5zZWN1cml0eS5zb3MkEhkABCIVAgR2d2h0Cg1eQmFja3VwQmFnVjAkEhwABCIYAgR2d2h0ChBeaUNsb3VkSWRlbnRpdHkkEhBTZWN1cmVPYmplY3RTeW5jMmMKWwACEhIABCIOAgR2d2h0CgZeV2lGaSQSQwABChMABCIPAgVjbGFzcwoGXmdlbnAkChMABCIPAgRhZ3JwCgdeYXBwbGUkChUABCIRAgRzdmNlCgleQWlyUG9ydCQSBFdpRmkynQMKgwMAAhIYAAQiFAIEdndodAoMXlBDUy1CYWNrdXAkEhoABCIWAgR2d2h0Cg5eUENTLUNsb3VkS2l0JBIYAAQiFAIEdndodAoMXlBDUy1Fc2Nyb3ckEhUABCIRAgR2d2h0CgleUENTLUZERSQSGgAEIhYCBHZ3aHQKDl5QQ1MtRmVsZHNwYXIkEhoABCIWAgR2d2h0Cg5eUENTLU1haWxEcm9wJBIaAAQiFgIEdndodAoOXlBDUy1NYWlsZHJvcCQSGwAEIhcCBHZ3aHQKD15QQ1MtTWFzdGVyS2V5JBIXAAQiEwIEdndodAoLXlBDUy1Ob3RlcyQSGAAEIhQCBHZ3aHQKDF5QQ1MtUGhvdG9zJBIZAAQiFQIEdndodAoNXlBDUy1TaGFyaW5nJBIeAAQiGgIEdndodAoSXlBDUy1pQ2xvdWRCYWNrdXAkEh0ABCIZAgR2d2h0ChFeUENTLWlDbG91ZERyaXZlJBIaAAQiFgIEdndodAoOXlBDUy1pTWVzc2FnZSQSFVByb3RlY3RlZENsb3VkU3RvcmFnZTI6CisABCInAgRhZ3JwCh9eY29tLmFwcGxlLnNhZmFyaS5jcmVkaXQtY2FyZHMkEgtDcmVkaXRDYXJkczIuCiEABCIdAgRhZ3JwChVeY29tLmFwcGxlLmNmbmV0d29yayQSCVBhc3N3b3JkczJtClwAAhIeAAQiGgIEdndodAoSXkFjY2Vzc29yeVBhaXJpbmckEhoABCIWAgR2d2h0Cg5eTmFub1JlZ2lzdHJ5JBIcAAQiGAIEdndodAoQXldhdGNoTWlncmF0aW9uJBINRGV2aWNlUGFpcmluZzIOCgIABhIIQmFja3N0b3A=" options:0]];
+                                                                           @"CAcSDgoGaVBob25lEgRmdWxsEgwKBGlQYWQSBGZ1bGwSDAoEaVBvZBIEZnVsbBILCgNNYWMSBGZ1bGwSDAoEaU1hYxIEZnVsbBINCgdBcHBsZVRWEgJ0dhIOCgVXYXRjaBIFd2F0Y2gSFwoOQXVkaW9BY2Nlc3NvcnkSBWF1ZGlvGh4KBEhvbWUSBGZ1bGwSBXdhdGNoEgJ0dhIFYXVkaW8aJAoVUHJvdGVjdGVkQ2xvdWRTdG9yYWdlEgRmdWxsEgV3YXRjaBoYCglQYXNzd29yZHMSBGZ1bGwSBXdhdGNoGh8KEFNlY3VyZU9iamVjdFN5bmMSBGZ1bGwSBXdhdGNoGh4KBFdpRmkSBGZ1bGwSBXdhdGNoEgJ0dhIFYXVkaW8aGgoLQ3JlZGl0Q2FyZHMSBGZ1bGwSBXdhdGNoGhcKCEFwcGxlUGF5EgRmdWxsEgV3YXRjaBoVCgZIZWFsdGgSBGZ1bGwSBXdhdGNoGhkKCkF1dG9VbmxvY2sSBGZ1bGwSBXdhdGNoGi0KE0xpbWl0ZWRQZWVyc0FsbG93ZWQSBGZ1bGwSBXdhdGNoEgJ0dhIFYXVkaW8aHAoNRGV2aWNlUGFpcmluZxIEZnVsbBIFd2F0Y2gaFgoHTWFuYXRlZRIEZnVsbBIFd2F0Y2gaFQoGRW5ncmFtEgRmdWxsEgV3YXRjaBoXCghCYWNrc3RvcBIEZnVsbBIFd2F0Y2gaGwoMQXBwbGljYXRpb25zEgRmdWxsEgV3YXRjaCITCgRmdWxsEgRmdWxsEgV3YXRjaCIVCgJ0dhIEZnVsbBIFd2F0Y2gSAnR2IhQKBXdhdGNoEgRmdWxsEgV3YXRjaCIbCgVhdWRpbxIEZnVsbBIFd2F0Y2gSBWF1ZGlvMiIKFgAEIhICBHZ3aHQKCl5BcHBsZVBheSQSCEFwcGxlUGF5MiYKGAAEIhQCBHZ3aHQKDF5BdXRvVW5sb2NrJBIKQXV0b1VubG9jazIeChQABCIQAgR2d2h0CgheRW5ncmFtJBIGRW5ncmFtMh4KFAAEIhACBHZ3aHQKCF5IZWFsdGgkEgZIZWFsdGgyGgoSAAQiDgIEdndodAoGXkhvbWUkEgRIb21lMiAKFQAEIhECBHZ3aHQKCV5NYW5hdGVlJBIHTWFuYXRlZTI4CiEABCIdAgR2d2h0ChVeTGltaXRlZFBlZXJzQWxsb3dlZCQSE0xpbWl0ZWRQZWVyc0FsbG93ZWQyXQpQAAISHgAEIhoCBHZ3aHQKEl5Db250aW51aXR5VW5sb2NrJBIVAAQiEQIEdndodAoJXkhvbWVLaXQkEhUABCIRAgR2d2h0CgleQXBwbGVUViQSCU5vdFN5bmNlZDIrChsABCIXAgRhZ3JwCg9eWzAtOUEtWl17MTB9XC4SDEFwcGxpY2F0aW9uczLKAQq1AQACEjYAAQoTAAQiDwIFY2xhc3MKBl5nZW5wJAodAAQiGQIEYWdycAoRXmNvbVwuYXBwbGVcLnNiZCQSQAABChMABCIPAgVjbGFzcwoGXmtleXMkCicABCIjAgRhZ3JwChteY29tXC5hcHBsZVwuc2VjdXJpdHlcLnNvcyQSGQAEIhUCBHZ3aHQKDV5CYWNrdXBCYWdWMCQSHAAEIhgCBHZ3aHQKEF5pQ2xvdWRJZGVudGl0eSQSEFNlY3VyZU9iamVjdFN5bmMyYwpbAAISEgAEIg4CBHZ3aHQKBl5XaUZpJBJDAAEKEwAEIg8CBWNsYXNzCgZeZ2VucCQKEwAEIg8CBGFncnAKB15hcHBsZSQKFQAEIhECBHN2Y2UKCV5BaXJQb3J0JBIEV2lGaTKdAwqDAwACEhgABCIUAgR2d2h0CgxeUENTLUJhY2t1cCQSGgAEIhYCBHZ3aHQKDl5QQ1MtQ2xvdWRLaXQkEhgABCIUAgR2d2h0CgxeUENTLUVzY3JvdyQSFQAEIhECBHZ3aHQKCV5QQ1MtRkRFJBIaAAQiFgIEdndodAoOXlBDUy1GZWxkc3BhciQSGgAEIhYCBHZ3aHQKDl5QQ1MtTWFpbERyb3AkEhoABCIWAgR2d2h0Cg5eUENTLU1haWxkcm9wJBIbAAQiFwIEdndodAoPXlBDUy1NYXN0ZXJLZXkkEhcABCITAgR2d2h0CgteUENTLU5vdGVzJBIYAAQiFAIEdndodAoMXlBDUy1QaG90b3MkEhkABCIVAgR2d2h0Cg1eUENTLVNoYXJpbmckEh4ABCIaAgR2d2h0ChJeUENTLWlDbG91ZEJhY2t1cCQSHQAEIhkCBHZ3aHQKEV5QQ1MtaUNsb3VkRHJpdmUkEhoABCIWAgR2d2h0Cg5eUENTLWlNZXNzYWdlJBIVUHJvdGVjdGVkQ2xvdWRTdG9yYWdlMj0KLgAEIioCBGFncnAKIl5jb21cLmFwcGxlXC5zYWZhcmlcLmNyZWRpdC1jYXJkcyQSC0NyZWRpdENhcmRzMjAKIwAEIh8CBGFncnAKF15jb21cLmFwcGxlXC5jZm5ldHdvcmskEglQYXNzd29yZHMybQpcAAISHgAEIhoCBHZ3aHQKEl5BY2Nlc3NvcnlQYWlyaW5nJBIaAAQiFgIEdndodAoOXk5hbm9SZWdpc3RyeSQSHAAEIhgCBHZ3aHQKEF5XYXRjaE1pZ3JhdGlvbiQSDURldmljZVBhaXJpbmcyDgoCAAYSCEJhY2tzdG9w" options:0]];
         TPPolicy *policy = [tpd policyWithSecrets:@{} decrypter:nil error:&error];
         if (error != nil) {
             NSLog(@"policy error: %@", error);
@@ -172,6 +172,15 @@ int policy_dryrun(int argc, char * const *argv) {
             NSLog(@"policy is nil");
             return 1;
         }
+
+        TPSyncingPolicy* syncingPolicy = [policy syncingPolicyForModel:@"iPhone"
+                                             syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_UNKNOWN
+                                                                 error:&error];
+        if(syncingPolicy == nil || error != nil) {
+            NSLog(@"syncing policy is nil: %@", error);
+            return 1;
+        }
+
         unsigned real_mismatches = 0;
         unsigned expected_mismatches = 0;
         NSMutableArray<NSDictionary*>* reportedMismatches = [[NSMutableArray<NSDictionary*> alloc] init];
@@ -219,7 +228,7 @@ int policy_dryrun(int argc, char * const *argv) {
                 NSMutableDictionary* mutA = [a mutableCopy];
                 mutA[(id)kSecClass] = (id)itemClass;
 
-                NSString* newView = [policy mapKeyToView:mutA];
+                NSString* newView = [syncingPolicy mapDictionaryToView:mutA];
                 if (newView != nil) {
                     NSLog(@"new: %@", newView);
                 }

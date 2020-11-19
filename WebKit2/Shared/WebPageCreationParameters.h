@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,12 +29,11 @@
 #include "LayerTreeContext.h"
 #include "SandboxExtension.h"
 #include "SessionState.h"
-#include "WebCompiledContentRuleListData.h"
+#include "UserContentControllerParameters.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPageGroupData.h"
 #include "WebPageProxyIdentifier.h"
 #include "WebPreferencesStore.h"
-#include "WebUserContentControllerDataTypes.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/Color.h>
 #include <WebCore/FloatSize.h>
@@ -44,6 +43,7 @@
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/Pagination.h>
 #include <WebCore/ScrollTypes.h>
+#include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/UserInterfaceLayoutDirection.h>
 #include <WebCore/ViewportArguments.h>
 #include <wtf/HashMap.h>
@@ -85,6 +85,8 @@ struct WebPageCreationParameters {
     bool useFixedLayout;
     WebCore::IntSize fixedLayoutSize;
 
+    Optional<WebCore::FloatRect> viewExposedRect;
+
     bool alwaysShowsHorizontalScroller;
     bool alwaysShowsVerticalScroller;
 
@@ -98,9 +100,9 @@ struct WebPageCreationParameters {
     
     String userAgent;
 
+    bool itemStatesWereRestoredByAPIRequest { false };
     Vector<BackForwardListItemState> itemStates;
 
-    UserContentControllerIdentifier userContentControllerID;
     uint64_t visitedLinkTableID;
     bool canRunBeforeUnloadConfirmPanel;
     bool canRunModal;
@@ -119,6 +121,7 @@ struct WebPageCreationParameters {
     bool mediaPlaybackIsSuspended { false };
 
     WebCore::IntSize minimumSizeForAutoLayout;
+    WebCore::IntSize sizeToContentAutoSizeMaximumSize;
     bool autoSizingShouldExpandToViewHeight;
     Optional<WebCore::IntSize> viewportSizeForCSSViewportUnits;
     
@@ -132,6 +135,8 @@ struct WebPageCreationParameters {
 
     LayerHostingMode layerHostingMode;
 
+    bool hasResourceLoadClient { false };
+
     Vector<String> mimeTypesWithCustomContentProviders;
 
     bool controlledByAutomation;
@@ -144,28 +149,39 @@ struct WebPageCreationParameters {
     ColorSpaceData colorSpace;
     bool useSystemAppearance;
 #endif
-#if PLATFORM(IOS_FAMILY)
-    WebCore::FloatSize screenSize;
-    WebCore::FloatSize availableScreenSize;
-    WebCore::FloatSize overrideScreenSize;
-    float textAutosizingWidth;
+#if ENABLE(META_VIEWPORT)
     bool ignoresViewportScaleLimits;
     WebCore::FloatSize viewportConfigurationViewLayoutSize;
     double viewportConfigurationLayoutSizeScaleFactor;
     double viewportConfigurationMinimumEffectiveDeviceWidth;
     WebCore::FloatSize viewportConfigurationViewSize;
+    Optional<WebCore::ViewportArguments> overrideViewportArguments;
+    Optional<SandboxExtension::Handle> frontboardExtensionHandle;
+    Optional<SandboxExtension::Handle> iconServicesExtensionHandle;
+#endif
+#if PLATFORM(IOS_FAMILY)
+    WebCore::FloatSize screenSize;
+    WebCore::FloatSize availableScreenSize;
+    WebCore::FloatSize overrideScreenSize;
+    float textAutosizingWidth;
     WebCore::FloatSize maximumUnobscuredSize;
     int32_t deviceOrientation { 0 };
     bool keyboardIsAttached { false };
     bool canShowWhileLocked { false };
-    Optional<WebCore::ViewportArguments> overrideViewportArguments;
+    bool isCapturingScreen { false };
 #endif
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
     Vector<String> additionalSupportedImageTypes;
 #endif
+#if HAVE(APP_ACCENT_COLORS)
+    WebCore::Color accentColor;
+#endif
 #if USE(WPE_RENDERER)
     IPC::Attachment hostFileDescriptor;
+#endif
+#if PLATFORM(WIN)
+    uint64_t nativeWindowHandle;
 #endif
     bool appleMailPaginationQuirkEnabled;
     bool appleMailLinesClampEnabled;
@@ -189,14 +205,7 @@ struct WebPageCreationParameters {
     bool iceCandidateFilteringEnabled { true };
     bool enumeratingAllNetworkInterfacesEnabled { false };
 
-    // UserContentController members
-    Vector<std::pair<uint64_t, String>> userContentWorlds;
-    Vector<WebUserScriptData> userScripts;
-    Vector<WebUserStyleSheetData> userStyleSheets;
-    Vector<WebScriptMessageHandlerData> messageHandlers;
-#if ENABLE(CONTENT_EXTENSIONS)
-    Vector<std::pair<String, WebCompiledContentRuleListData>> contentRuleLists;
-#endif
+    UserContentControllerParameters userContentControllerParameters;
 
     Optional<WebCore::Color> backgroundColor;
 
@@ -204,6 +213,30 @@ struct WebPageCreationParameters {
 
     String overriddenMediaType;
     Vector<String> corsDisablingPatterns;
+    bool userScriptsShouldWaitUntilNotification { true };
+    bool loadsSubresources { true };
+    bool loadsFromNetwork { true };
+
+    bool crossOriginAccessControlCheckEnabled { true };
+    String processDisplayName;
+
+    bool shouldCaptureAudioInUIProcess { false };
+    bool shouldCaptureAudioInGPUProcess { false };
+    bool shouldCaptureVideoInUIProcess { false };
+    bool shouldCaptureVideoInGPUProcess { false };
+    bool shouldCaptureDisplayInUIProcess { false };
+    bool shouldRenderCanvasInGPUProcess { false };
+    bool shouldEnableVP9Decoder { false };
+    bool shouldEnableVP9SWDecoder { false };
+    bool needsInAppBrowserPrivacyQuirks { false };
+    bool limitsNavigationsToAppBoundDomains { false };
+    bool canUseCredentialStorage { true };
+
+    WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking { WebCore::ShouldRelaxThirdPartyCookieBlocking::No };
+
+#if PLATFORM(GTK)
+    String themeName;
+#endif
 };
 
 } // namespace WebKit

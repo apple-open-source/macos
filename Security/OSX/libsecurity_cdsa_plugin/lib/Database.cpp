@@ -39,7 +39,7 @@ DatabaseManager::get (const DbName &inDbName)
     DatabaseMap::iterator anIterator = mDatabaseMap.find (inDbName);
     if (anIterator == mDatabaseMap.end())
     {
-        auto_ptr<Database> aDatabase(make(inDbName));
+        unique_ptr<Database> aDatabase(make(inDbName));
         mDatabaseMap.insert(DatabaseMap::value_type(aDatabase->mDbName, aDatabase.get()));
         return aDatabase.release();
     }
@@ -164,7 +164,7 @@ Database::_dbOpen(DatabaseSession &inDatabaseSession,
                   const AccessCredentials *inAccessCred,
                   const void *inOpenParameters)
 {
-    auto_ptr<DbContext>aDbContext(makeDbContext(inDatabaseSession,
+    unique_ptr<DbContext>aDbContext(makeDbContext(inDatabaseSession,
                                                 inAccessRequest,
                                                 inAccessCred,
                                                 inOpenParameters));
@@ -195,7 +195,7 @@ Database::_dbCreate(DatabaseSession &inDatabaseSession,
                     const CSSM_RESOURCE_CONTROL_CONTEXT *inCredAndAclEntry,
                     const void *inOpenParameters)
 {
-    auto_ptr<DbContext>aDbContext(makeDbContext(inDatabaseSession,
+    unique_ptr<DbContext>aDbContext(makeDbContext(inDatabaseSession,
                                                 inAccessRequest,
                                                 (inCredAndAclEntry
 												 ? AccessCredentials::optional(inCredAndAclEntry->AccessCred)

@@ -142,3 +142,39 @@ removefile_cancel(removefile_state_t state) {
 		return 0;
 	}
 }
+
+int
+removefileat(int fd, const char* path, removefile_state_t state_param, removefile_flags_t flags) {
+	int error = 0;
+
+	if (path == NULL) {
+		errno = EINVAL;
+		return -1;
+	}
+	// check if the path is absolute, or the AT_FDCWD argument was given
+	char c = *(path);
+	if (c == '/' || fd == AT_FDCWD)
+		return removefile(path, state_param, flags);
+
+	// get the fd path
+	char* base_path = malloc(PATH_MAX);
+	if (base_path == NULL) {
+		errno = ENOMEM;
+		return -1;
+	}
+	error = fcntl(fd, F_GETPATH, base_path);
+
+	// generate the base_path to call in removefile
+	if (error == 0) {
+		// add a '/' between base_path and the relative path.
+		if (snprintf(base_path, PATH_MAX, "%s/%s", base_path, path) < PATH_MAX) {
+			error = removefile(base_path, state_param, flags);
+		} else {
+			error = -1;
+			errno = ENAMETOOLONG;
+		}
+	}
+
+	free(base_path);
+	return error;
+}

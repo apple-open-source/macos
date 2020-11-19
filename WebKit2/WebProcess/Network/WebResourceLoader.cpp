@@ -114,6 +114,7 @@ void WebResourceLoader::willSendRequest(ResourceRequest&& proposedRequest, IPC::
             return;
         }
 
+        RELEASE_LOG_IF_ALLOWED("willSendRequest: returning ContinueWillSendRequest");
         send(Messages::NetworkResourceLoader::ContinueWillSendRequest(request, m_coreLoader->isAllowedToAskUserForCredentials()));
     });
 }
@@ -137,11 +138,11 @@ void WebResourceLoader::didReceiveResponse(const ResourceResponse& response, boo
 
     CompletionHandler<void()> policyDecisionCompletionHandler;
     if (needsContinueDidReceiveResponseMessage) {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         m_isProcessingNetworkResponse = true;
 #endif
         policyDecisionCompletionHandler = [this, protectedThis = WTFMove(protectedThis)] {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
             m_isProcessingNetworkResponse = false;
 #endif
             // If m_coreLoader becomes null as a result of the didReceiveResponse callback, we can't use the send function().
@@ -195,18 +196,16 @@ void WebResourceLoader::didReceiveData(const IPC::DataReference& data, int64_t e
     ASSERT_WITH_MESSAGE(!m_isProcessingNetworkResponse, "Network process should not send data until we've validated the response");
 
     if (UNLIKELY(m_interceptController.isIntercepting(m_coreLoader->identifier()))) {
-        auto buffer = WebCore::SharedBuffer::create(data.data(), data.size());
+        auto buffer = SharedBuffer::create(data.data(), data.size());
         m_interceptController.defer(m_coreLoader->identifier(), [this, protectedThis = makeRef(*this), buffer = WTFMove(buffer), encodedDataLength]() mutable {
-            IPC::DataReference data(reinterpret_cast<const uint8_t*>(buffer->data()), buffer->size());
             if (m_coreLoader)
-                didReceiveData(data, encodedDataLength);
+                didReceiveData({ buffer->dataAsUInt8Ptr(), buffer->size() }, encodedDataLength);
         });
         return;
     }
 
-    if (!m_numBytesReceived) {
+    if (!m_numBytesReceived)
         RELEASE_LOG_IF_ALLOWED("didReceiveData: Started receiving data");
-    }
     m_numBytesReceived += data.size();
 
     m_coreLoader->didReceiveData(reinterpret_cast<const char*>(data.data()), data.size(), encodedDataLength, DataPayloadBytes);

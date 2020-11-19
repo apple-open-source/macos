@@ -20,6 +20,8 @@ Options:
 
 	-h, --help                Show this help message and exit.
 ]]
+
+local runtime_timeout = tonumber(os.getenv("MALLOCBENCH_RUN_TIMEOUT") or "2400")
 local fileSep = package.config:sub(1,1)
 local run_benchmark = "run-malloc-benchmarks.lua"
 local benchJSONFileBase = "malloc_bench.json"
@@ -54,8 +56,11 @@ local function runBenchmark()
 		bench_arg[k + 4] = v
 	end
 
+	-- account for quiesce and top time for benchrun in deadline calculation
+	local begin_time = os.time()
+	local deadline = begin_time + runtime_timeout - 90
 	-- Run the benchmark and write the results as perfdata
-	print("Create benchrun instance at " .. os.date("%H:%M:%S"))
+	print("Create benchrun instance with begin=" .. begin_time .. " deadline=" .. deadline .. " at " .. os.date("%H:%M:%S"))
 	local benchmark = benchrun.new{
 		name = "libmalloc.MallocBench",
 		--- SVN version of MallocBench sources
@@ -71,16 +76,25 @@ local function runBenchmark()
 
 	local run_index = 1
 	local results = {}
+	print("Start iteration at " .. os.date("%H:%M:%S"))
 	for result in benchmark:run(bench_arg) do
-		print("Start iteration at " .. os.date("%H:%M:%S"))
+		print("End iteration at " .. os.date("%H:%M:%S"))
+		print("Start result processing at " .. os.date("%H:%M:%S"))
 		local f = assert(io.open(benchJSONFile, "r"), "Failed to open JSON file " .. benchJSONFile)
 		local run_results = assert(cjson.decode(f:read("a")), "Failed to decode JSON results")
 		--- Print all the results so that they are captured in the output.
 		print(inspect(run_results))
-		print("End iteration at " .. os.date("%H:%M:%S"))
+		print("End result processing at " .. os.date("%H:%M:%S"))
 		f:close()
 		results[run_index] = run_results
+		local avg_iteration_time = (os.time() - begin_time)/run_index
+		if (os.time() + avg_iteration_time) > deadline then
+			print("Stopping at iteration " .. run_index .. " as we might timeout.")
+			break
+		end
+		print("Start iteration at " .. os.date("%H:%M:%S"))
 		run_index = run_index + 1
+
 	end
 
 	print("RESULTS (time is " .. os.date("%H:%M:%S") .. ")")

@@ -3416,13 +3416,16 @@ htmlParseCharRef(htmlParserCtxtPtr ctxt) {
         ((NXT(2) == 'x') || NXT(2) == 'X')) {
 	SKIP(3);
 	while (CUR != ';') {
-	    if ((CUR >= '0') && (CUR <= '9'))
-	        val = val * 16 + (CUR - '0');
-	    else if ((CUR >= 'a') && (CUR <= 'f'))
-	        val = val * 16 + (CUR - 'a') + 10;
-	    else if ((CUR >= 'A') && (CUR <= 'F'))
-	        val = val * 16 + (CUR - 'A') + 10;
-	    else {
+	    if ((CUR >= '0') && (CUR <= '9')) {
+                if (val < 0x110000)
+	            val = val * 16 + (CUR - '0');
+            } else if ((CUR >= 'a') && (CUR <= 'f')) {
+                if (val < 0x110000)
+	            val = val * 16 + (CUR - 'a') + 10;
+            } else if ((CUR >= 'A') && (CUR <= 'F')) {
+                if (val < 0x110000)
+	            val = val * 16 + (CUR - 'A') + 10;
+            } else {
 	        htmlParseErr(ctxt, XML_ERR_INVALID_HEX_CHARREF,
 		             "htmlParseCharRef: missing semicolon\n",
 			     NULL, NULL);
@@ -3435,9 +3438,10 @@ htmlParseCharRef(htmlParserCtxtPtr ctxt) {
     } else if  ((CUR == '&') && (NXT(1) == '#')) {
 	SKIP(2);
 	while (CUR != ';') {
-	    if ((CUR >= '0') && (CUR <= '9'))
-	        val = val * 10 + (CUR - '0');
-	    else {
+	    if ((CUR >= '0') && (CUR <= '9')) {
+                if (val < 0x110000)
+	            val = val * 10 + (CUR - '0');
+            } else {
 	        htmlParseErr(ctxt, XML_ERR_INVALID_DEC_CHARREF,
 		             "htmlParseCharRef: missing semicolon\n",
 			     NULL, NULL);
@@ -3456,6 +3460,9 @@ htmlParseCharRef(htmlParserCtxtPtr ctxt) {
      */
     if (IS_CHAR(val)) {
         return(val);
+    } else if (val >= 0x110000) {
+	htmlParseErr(ctxt, XML_ERR_INVALID_CHAR,
+		     "htmlParseCharRef: value too large\n", NULL, NULL);
     } else {
 	htmlParseErrInt(ctxt, XML_ERR_INVALID_CHAR,
 			"htmlParseCharRef: invalid xmlChar value %d\n",
@@ -5377,7 +5384,7 @@ static int
 htmlParseTryOrFinish(htmlParserCtxtPtr ctxt, int terminate) {
     int ret = 0;
     htmlParserInputPtr in;
-    int avail = 0;
+    ptrdiff_t avail = 0;
     xmlChar cur, next;
 
     htmlParserNodeInfo node_info;
@@ -5442,7 +5449,8 @@ htmlParseTryOrFinish(htmlParserCtxtPtr ctxt, int terminate) {
 	if (in->buf == NULL)
 	    avail = in->length - (in->cur - in->base);
 	else
-	    avail = xmlBufUse(in->buf->buffer) - (in->cur - in->base);
+	    avail = (ptrdiff_t)xmlBufUse(in->buf->buffer) -
+                    (in->cur - in->base);
 	if ((avail == 0) && (terminate)) {
 	    htmlAutoCloseOnEnd(ctxt);
 	    if ((ctxt->nameNr == 0) && (ctxt->instate != XML_PARSER_EOF)) {
@@ -5478,7 +5486,8 @@ htmlParseTryOrFinish(htmlParserCtxtPtr ctxt, int terminate) {
 		    if (in->buf == NULL)
 			avail = in->length - (in->cur - in->base);
 		    else
-			avail = xmlBufUse(in->buf->buffer) - (in->cur - in->base);
+			avail = (ptrdiff_t)xmlBufUse(in->buf->buffer) -
+                                (in->cur - in->base);
 		}
 		if ((ctxt->sax) && (ctxt->sax->setDocumentLocator))
 		    ctxt->sax->setDocumentLocator(ctxt->userData,
@@ -5520,7 +5529,8 @@ htmlParseTryOrFinish(htmlParserCtxtPtr ctxt, int terminate) {
 		if (in->buf == NULL)
 		    avail = in->length - (in->cur - in->base);
 		else
-		    avail = xmlBufUse(in->buf->buffer) - (in->cur - in->base);
+		    avail = (ptrdiff_t)xmlBufUse(in->buf->buffer) -
+                            (in->cur - in->base);
 		/*
 		 * no chars in buffer
 		 */
@@ -5593,7 +5603,8 @@ htmlParseTryOrFinish(htmlParserCtxtPtr ctxt, int terminate) {
 		if (in->buf == NULL)
 		    avail = in->length - (in->cur - in->base);
 		else
-		    avail = xmlBufUse(in->buf->buffer) - (in->cur - in->base);
+		    avail = (ptrdiff_t)xmlBufUse(in->buf->buffer) -
+                            (in->cur - in->base);
 		if (avail < 2)
 		    goto done;
 		cur = in->cur[0];
@@ -5634,7 +5645,8 @@ htmlParseTryOrFinish(htmlParserCtxtPtr ctxt, int terminate) {
 		if (in->buf == NULL)
 		    avail = in->length - (in->cur - in->base);
 		else
-		    avail = xmlBufUse(in->buf->buffer) - (in->cur - in->base);
+		    avail = (ptrdiff_t)xmlBufUse(in->buf->buffer) -
+                            (in->cur - in->base);
 		if (avail < 1)
 		    goto done;
 		cur = in->cur[0];
@@ -6175,12 +6187,12 @@ htmlParseChunk(htmlParserCtxtPtr ctxt, const char *chunk, int size,
 	int res;
 
 	res = xmlParserInputBufferPush(ctxt->input->buf, size, chunk);
+        xmlBufSetInputBaseCur(ctxt->input->buf->buffer, ctxt->input, base, cur);
 	if (res < 0) {
 	    ctxt->errNo = XML_PARSER_EOF;
 	    ctxt->disableSAX = 1;
 	    return (XML_PARSER_EOF);
 	}
-        xmlBufSetInputBaseCur(ctxt->input->buf->buffer, ctxt->input, base, cur);
 #ifdef DEBUG_PUSH
 	xmlGenericError(xmlGenericErrorContext, "HPP: pushed %d\n", size);
 #endif
@@ -6199,12 +6211,12 @@ htmlParseChunk(htmlParserCtxtPtr ctxt, const char *chunk, int size,
 		size_t current = ctxt->input->cur - ctxt->input->base;
 
 		nbchars = xmlCharEncInput(in, terminate);
+		xmlBufSetInputBaseCur(in->buffer, ctxt->input, base, current);
 		if (nbchars < 0) {
 		    htmlParseErr(ctxt, XML_ERR_INVALID_ENCODING,
 			         "encoder error\n", NULL, NULL);
 		    return(XML_ERR_INVALID_ENCODING);
 		}
-		xmlBufSetInputBaseCur(in->buffer, ctxt->input, base, current);
 	    }
 	}
     }
@@ -6743,10 +6755,7 @@ htmlCtxtReset(htmlParserCtxtPtr ctxt)
 
 #ifdef __APPLE__
 #include <dispatch/dispatch.h>
-#include <mach-o/dyld.h>
-
-extern int dyld_get_program_sdk_version(void);
-#define DYLD_MACOSX_VERSION_10_9 0x000A0900
+#include <mach-o/dyld_priv.h>
 
 // libxml2 v2.9 changed the HTML parser's handling of whitespace in a way that broke
 // H&R Block at Home 2010. Detect H&R Block at Home 2010 and mimic the old parser behavior.
@@ -6767,9 +6776,12 @@ static bool evaluteHTMLParserNeedsNoBlankQuirkCriteria(void)
     if (strcmp(executableName, "TaxCut.real"))
         return false;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     // Apply the workaround if the application was linked against an SDK prior to where
     // libxml2 v2.9 was present.
     return dyld_get_program_sdk_version() < DYLD_MACOSX_VERSION_10_9;
+#pragma clang diagnostic pop
 }
 
 static bool htmlParserNeedsNoBlankQuirk(void)
@@ -6783,7 +6795,7 @@ static bool htmlParserNeedsNoBlankQuirk(void)
     return needsQuirk;
 }
 
-#endif
+#endif // __APPLE__
 
 /**
  * htmlCtxtUseOptions:

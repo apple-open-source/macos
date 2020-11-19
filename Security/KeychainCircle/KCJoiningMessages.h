@@ -111,7 +111,7 @@ typedef enum {
 
 + (nullable instancetype) messageWithType: (KCJoiningMessageType) type
                                      data: (NSData*) firstData
-                                  payload: (NSData*) secondData
+                                  payload: (nullable NSData*) secondData
                                     error: (NSError**) error;
 
 

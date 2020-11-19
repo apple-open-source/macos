@@ -310,6 +310,10 @@ static IOReturn _copyNextValue(void *iunknown,
     *pValue = _IOHIDValueCreateWithElementValuePtr(kCFAllocatorDefault,
                                                    [_device getElement:cookie],
                                                    elementValue);
+    if (*pValue && _IOHIDValueGetFlags(*pValue) & kIOHIDElementValueOOBReport) {
+        uint64_t * reportAddress = (uint64_t *)elementValue->value;
+        [_device releaseOOBReport:*reportAddress];
+    }
     IODataQueueDequeue(_queueMemory, NULL, &dataSize);
     require(*pValue, exit);
     

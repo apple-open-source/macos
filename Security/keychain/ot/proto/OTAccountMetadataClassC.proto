@@ -55,7 +55,14 @@ message AccountMetadataClassC {
 
     optional CDPState cdpState = 8;
 
-    // These store the current policy and view list, so that we don't need to re-ask TPH every time
-    optional bytes syncingPolicy = 9;
-    repeated string syncingView = 10;
+    // Used during development
+    //reserved 9;
+    //reserved 10;
+
+    // This holds the current syncing policy for the local peer, including the view list.
+    optional bytes syncingPolicy = 11;
+
+    // This might contain a voucher for use in joining Octagon.
+    optional bytes voucher = 12;
+    optional bytes voucherSignature = 13;
 }

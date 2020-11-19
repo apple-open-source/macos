@@ -168,7 +168,6 @@ hfs_vnop_getxattr(vnode_t vp, const char *attr_name, void *buf, size_t bufsize, 
     BTreeIterator * iterator = NULL;
     size_t attrsize = 0;
     HFSPlusAttrRecord *recp = NULL;
-    size_t recp_size = 0;
     FSBufferDescriptor btdata;
     int lockflags = 0;
     u_int16_t datasize = 0;
@@ -196,7 +195,7 @@ hfs_vnop_getxattr(vnode_t vp, const char *attr_name, void *buf, size_t bufsize, 
      * big enough to read in all types of attribute records.  It is not big
      * enough to read inline attribute data which is read in later.
      */
-    recp = hfs_malloc(recp_size = sizeof(HFSPlusAttrRecord));
+    recp = hfs_malloc(sizeof(HFSPlusAttrRecord));
     btdata.bufferAddress = recp;
     btdata.itemSize = sizeof(HFSPlusAttrRecord);
     btdata.itemCount = 1;
@@ -250,7 +249,7 @@ hfs_vnop_getxattr(vnode_t vp, const char *attr_name, void *buf, size_t bufsize, 
                      */
                     attrsize = sizeof(HFSPlusAttrData) - 2 + recp->attrData.attrSize;
                     hfs_free(recp);
-                    recp = hfs_malloc(recp_size = attrsize);
+                    recp = hfs_malloc(attrsize);
 
                     btdata.bufferAddress = recp;
                     btdata.itemSize = attrsize;
@@ -558,7 +557,6 @@ hfs_vnop_setxattr(vnode_t vp, const char *attr_name, const void *buf, size_t buf
     FSBufferDescriptor btdata;
     HFSPlusAttrRecord attrdata;  /* 90 bytes */
     HFSPlusAttrRecord *recp = NULL;
-    size_t recp_size = 0;
     HFSPlusExtentDescriptor *extentptr = NULL;
     size_t extentbufsize = 0;
     int lockflags = 0;
@@ -674,7 +672,7 @@ hfs_vnop_setxattr(vnode_t vp, const char *attr_name, const void *buf, size_t buf
             }
         }
         /* Create attribute fork data record. */
-        recp = hfs_malloc(recp_size = sizeof(HFSPlusAttrRecord));
+        recp = hfs_malloc(sizeof(HFSPlusAttrRecord));
 
         btdata.bufferAddress = recp;
         btdata.itemCount = 1;
@@ -731,7 +729,7 @@ hfs_vnop_setxattr(vnode_t vp, const char *attr_name, const void *buf, size_t buf
 
         /* Calculate size of record rounded up to multiple of 2 bytes. */
         btdata.itemSize = sizeof(HFSPlusAttrData) - 2 + attrsize + ((attrsize & 1) ? 1 : 0);
-        recp = hfs_malloc(recp_size = btdata.itemSize);
+        recp = hfs_malloc(btdata.itemSize);
 
         recp->recordType = kHFSPlusAttrInlineData;
         recp->attrData.reserved[0] = 0;

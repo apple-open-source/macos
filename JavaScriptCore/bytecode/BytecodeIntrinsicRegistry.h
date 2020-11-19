@@ -42,11 +42,18 @@ enum class LinkTimeConstant : int32_t;
     macro(argumentCount) \
     macro(getByIdDirect) \
     macro(getByIdDirectPrivate) \
+    macro(getPrototypeOf) \
     macro(getPromiseInternalField) \
     macro(getGeneratorInternalField) \
     macro(getAsyncGeneratorInternalField) \
+    macro(getArrayIteratorInternalField) \
+    macro(getStringIteratorInternalField) \
+    macro(getMapIteratorInternalField) \
+    macro(getSetIteratorInternalField) \
     macro(idWithProfile) \
     macro(isObject) \
+    macro(isCallable) \
+    macro(isConstructor) \
     macro(isJSArray) \
     macro(isProxyObject) \
     macro(isDerivedArray) \
@@ -56,18 +63,27 @@ enum class LinkTimeConstant : int32_t;
     macro(isRegExpObject) \
     macro(isMap) \
     macro(isSet) \
+    macro(isStringIterator) \
+    macro(isArrayIterator) \
+    macro(isMapIterator) \
+    macro(isSetIterator) \
     macro(isUndefinedOrNull) \
     macro(tailCallForwardArguments) \
     macro(throwTypeError) \
     macro(throwRangeError) \
     macro(throwOutOfMemoryError) \
     macro(tryGetById) \
+    macro(tryGetByIdWithWellKnownSymbol) \
     macro(putByIdDirect) \
     macro(putByIdDirectPrivate) \
     macro(putByValDirect) \
     macro(putPromiseInternalField) \
     macro(putGeneratorInternalField) \
     macro(putAsyncGeneratorInternalField) \
+    macro(putArrayIteratorInternalField) \
+    macro(putStringIteratorInternalField) \
+    macro(putMapIteratorInternalField) \
+    macro(putSetIteratorInternalField) \
     macro(toNumber) \
     macro(toString) \
     macro(toObject) \
@@ -86,7 +102,7 @@ enum class LinkTimeConstant : int32_t;
     macro(Infinity) \
     macro(iterationKindKey) \
     macro(iterationKindValue) \
-    macro(iterationKindKeyValue) \
+    macro(iterationKindEntries) \
     macro(MAX_ARRAY_INDEX) \
     macro(MAX_STRING_LENGTH) \
     macro(MAX_SAFE_INTEGER) \
@@ -115,6 +131,15 @@ enum class LinkTimeConstant : int32_t;
     macro(GeneratorResumeModeReturn) \
     macro(GeneratorStateCompleted) \
     macro(GeneratorStateExecuting) \
+    macro(arrayIteratorFieldIndex) \
+    macro(arrayIteratorFieldIteratedObject) \
+    macro(arrayIteratorFieldKind) \
+    macro(mapIteratorFieldMapBucket) \
+    macro(mapIteratorFieldKind) \
+    macro(setIteratorFieldSetBucket) \
+    macro(setIteratorFieldKind) \
+    macro(stringIteratorFieldIndex) \
+    macro(stringIteratorFieldIteratedString) \
     macro(asyncGeneratorFieldSuspendReason) \
     macro(asyncGeneratorFieldQueueFirst) \
     macro(asyncGeneratorFieldQueueLast) \

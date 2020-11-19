@@ -66,6 +66,13 @@
 #include <sysexits.h>
 #include <libproc.h>
 
+#if __has_include (<SkyLight/SLSDisplayManager.h>)
+#define SLSDISPLAYMANAGER   1
+#import <SkyLight/SLSDisplayManager.h>
+#else
+#define SLSDISPLAYMANAGER   0
+#endif
+
 /*
  * This is the command line interface to Energy Saver Preferences in
  * /Library/Preferences/SystemConfiguration/com.apple.PowerManagement.plist
@@ -208,7 +215,9 @@
 #define ARG_DWLINTERVAL     "dwlinterval"
 #define ARG_MT2BOOK         "mt2book"
 #define ARG_SETSAAFLAGS     "saaflags"
-
+#define ARG_CLAMSHELL       "clamshell"
+#define ARG_ACATTACH        "acattach"
+#define ARG_SET_DESKTOPMODE  "desktopmode"
 // special system
 #define ARG_DISABLESLEEP    "disablesleep"
 #define ARG_DISABLEFDEKEYSTORE  "destroyfvkeyonstandby"
@@ -942,6 +951,12 @@ exit:
 
 static void displaySleepNow()
 {
+#if SLSDISPLAYMANAGER
+    CGError err = SLSDisplayManagerRequestDisplaysIdle();
+    if (kCGErrorSuccess != err) {
+        fprintf(stderr, "pmset: Failed to put the display to sleep, error %d\n", err);
+    }
+#else
     io_registry_entry_t disp_wrangler = IO_OBJECT_NULL;
     kern_return_t kr;
 
@@ -959,6 +974,7 @@ static void displaySleepNow()
     IOObjectRelease(disp_wrangler);
 
     return ;
+#endif
 
 }
 
@@ -2607,8 +2623,8 @@ static void show_assertions_individually(CFDictionaryRef assertions_info, void (
 
                 if ((createdDate = CFDictionaryGetValue(tmp_dict, kIOPMAssertionCreateDateKey)))
                 {
-                    createdCFTime                   = CFDateGetAbsoluteTime(createdDate);
-                    createdSince                    = (int)(CFAbsoluteTimeGetCurrent() - createdCFTime);
+                    createdCFTime    = CFDateGetAbsoluteTime(createdDate);
+                    createdSince                = (int)(CFAbsoluteTimeGetCurrent() - createdCFTime);
                     int hours                       = createdSince / 3600;
                     int minutes                     = (createdSince / 60) % 60;
                     int seconds                     = createdSince % 60;
@@ -2770,6 +2786,10 @@ static void show_assertion_activity(bool init_only)
     CFDictionaryRef     entry;
     IOReturn            rc;
     pid_t               beneficiary;
+    int                 createdSince = 0;
+    CFAbsoluteTime      createdCFTime = 0.0;
+    CFDateRef           createdDate = NULL;
+
 
     rc = IOPMCopyAssertionActivityUpdate(&log, &of, &refCnt);
     if ((rc  != kIOReturnSuccess) && (rc != kIOReturnNotFound)) {
@@ -2791,10 +2811,10 @@ static void show_assertion_activity(bool init_only)
         if (entry == NULL) continue;
 
         if ((lines++ % 30) == 0) {
-            printf("\n%-17s%-12s%-30s%-20s%-20s%-50s\n",
-                   "Time","Action", "Type", "PID(Causing PID)", "ID", "Name");
-            printf("%-17s%-12s%-30s%-20s%-20s%-50s\n",
-                   "====","======", "====", "================", "==", "====");
+            printf("\n%-17s%-12s%-10s%-30s%-20s%-20s%-50s\n",
+                   "Time","Action", "Age", "Type", "PID(Causing PID)", "ID", "Name");
+            printf("%-17s%-12s%-10s%-30s%-20s%-20s%-50s\n",
+                   "====","======", "========","====", "================", "==", "====");
         }
 
         time_cf = CFDictionaryGetValue(entry, kIOPMAssertionActivityTime);
@@ -2807,6 +2827,17 @@ static void show_assertion_activity(bool init_only)
         if (isA_CFString(str_cf))
             CFStringGetCString(str_cf, str, sizeof(str), kCFStringEncodingMacRoman);
         printf("%-12s", str);
+
+        if ((createdDate = CFDictionaryGetValue(entry, kIOPMAssertionCreateDateKey)))
+        {
+            createdCFTime                   = CFDateGetAbsoluteTime(createdDate);
+            createdSince                    = (int)(CFAbsoluteTimeGetCurrent() - createdCFTime);
+            int hours                       = createdSince / 3600;
+            int minutes                     = (createdSince / 60) % 60;
+            int seconds                     = createdSince % 60;
+            snprintf(str, sizeof(str), "%02d:%02d:%02d ", hours, minutes, seconds);
+        }
+        printf("%-10s", createdDate ? str : "");
 
         str_cf = CFDictionaryGetValue(entry, kIOPMAssertionTypeKey);
         str[0]=0;
@@ -2944,6 +2975,7 @@ static void show_assertions_in_kernel(void)
         CFNumberRef     registryEntryID = NULL;
         CFNumberRef     n_id = NULL;
         CFNumberRef     n_modified = NULL;
+        CFNumberRef     n_created = NULL;
         CFNumberRef     n_owner = NULL;
         CFNumberRef     n_level = NULL;
         CFNumberRef     n_asserted = NULL;
@@ -2962,17 +2994,27 @@ static void show_assertions_in_kernel(void)
             registryEntryID     = CFDictionaryGetValue(whichAssertion, CFSTR(kIOPMDriverRegistryEntryIDKey));
             n_id                = CFDictionaryGetValue(whichAssertion, CFSTR(kIOPMDriverAssertionIDKey));
             n_modified          = CFDictionaryGetValue(whichAssertion, CFSTR(kIOPMDriverAssertionModifiedTimeKey));
+            n_created           = CFDictionaryGetValue(whichAssertion, CFSTR(kIOPMDriverAssertionCreatedTimeKey));
             n_owner             = CFDictionaryGetValue(whichAssertion, CFSTR(kIOPMDriverAssertionOwnerServiceKey));
             n_level             = CFDictionaryGetValue(whichAssertion, CFSTR(kIOPMDriverAssertionLevelKey));
             n_asserted          = CFDictionaryGetValue(whichAssertion, CFSTR(kIOPMDriverAssertionAssertedKey));
 
 
-            CFAbsoluteTime      modifiedTime = 1.0;
+            CFAbsoluteTime      modifiedTime = 0.0;
+            CFAbsoluteTime      createdTime = 0.0;
             uint32_t            level = 0;
 
             if (n_modified && CFNumberGetValue(n_modified, kCFNumberSInt64Type, &val64)) {
-                modifiedTime = _CFAbsoluteTimeFromPMEventTimeStamp(val64);
+                if (val64) {
+                    modifiedTime = _CFAbsoluteTimeFromPMEventTimeStamp(val64);
+                }
             }
+            if (n_created && CFNumberGetValue(n_created, kCFNumberSInt64Type, &val64)) {
+                if (val64) {
+                    createdTime = _CFAbsoluteTimeFromPMEventTimeStamp(val64);
+                }
+            }
+
             if (n_level) {
                 CFNumberGetValue(n_level, kCFNumberSInt32Type, &level);
             }
@@ -2992,8 +3034,14 @@ static void show_assertions_in_kernel(void)
                         print_descriptive_kernel_assertions(val32);
                     }
                 }
-                printf(" mod=");
-                print_short_date(modifiedTime, false);
+                if (createdTime) {
+                    printf(" creat=");
+                    print_short_date(createdTime, false);
+                }
+                if (modifiedTime) {
+                    printf(" mod=");
+                    print_short_date(modifiedTime, false);
+                }
                 if (ownerString &&
                     CFStringGetCString(ownerString, ownerBuf, sizeof(ownerBuf), kCFStringEncodingUTF8))
                 {
@@ -3136,10 +3184,10 @@ static void log_assertions(void)
                                           show_assertions(NULL, "Showing all currently held IOKit power assertions");
                                           printf("\nShowing assertion changes(Press Ctrl-T to log all currently held assertions):\n");
 
-                                          printf("\n%-17s%-12s%-30s%-10s%-16s%-50s\n",
-                                                 "Time","Action", "Type", "PID", "ID", "Name");
-                                          printf("%-17s%-12s%-30s%-10s%-16s%-50s\n",
-                                                 "====","======", "====", "===", "==", "====");
+                                          printf("\n%-17s%-12s%-10s%-30s%-20s%-20s%-50s\n",
+                                                 "Time","Action", "Age", "Type", "PID", "ID", "Name");
+                                          printf("%-17s%-12s%-10s%-30s%-20s%-20s%-50s\n",
+                                                 "====","======", "=======", "====", "===", "==", "====");
                                       });
     dispatch_resume(sig_info);
 
@@ -5213,7 +5261,68 @@ static int parseArgs(int argc,
                 }
 
                 i++;
-            } else if (0 == strncmp(argv[i], ARG_POLLBOOT, kMaxArgStringLength)) {
+            } else if(0 == strncmp(argv[i], ARG_CLAMSHELL, kMaxArgStringLength))
+            {
+                if(argc <= 2) {
+                    printf("Error: Clamshell value should be specified. 0 for open and 1 for close\n");
+                    goto exit;
+                }
+                // Tell PMRD new clamshell value
+                uint32_t value = (uint32_t)strtol(argv[i+1], NULL, 0);
+                if (value) {
+                    kr = setRootDomainProperty(CFSTR("IOPMTestClamshellClose"), kCFBooleanTrue);
+                } else {
+                    kr = setRootDomainProperty(CFSTR("IOPMTestClamshellOpen"), kCFBooleanTrue);
+                }
+                if (kr == kIOReturnSuccess) {
+                    printf("setting clamshell to %u\n", value);
+                } else {
+                    fprintf(stderr, "pmset: Error 0x%x setting clamshell close property\n", kr);
+                    fflush(stderr);
+                }
+                goto exit;
+            } else if(0 == strncmp(argv[i], ARG_ACATTACH, kMaxArgStringLength))
+            {
+                // Tell PMRD new ac attach value
+                if(argc <= 2) {
+                    printf("Error: AC attach value should be specified. 0 for detach and 1 for attach\n");
+                    goto exit;
+                }
+                uint32_t value = (uint32_t)strtol(argv[i+1], NULL, 0);
+                if (value) {
+                    kr = setRootDomainProperty(CFSTR("IOPMTestACAttach"), kCFBooleanTrue);
+                } else {
+                    kr = setRootDomainProperty(CFSTR("IOPMTestACDetach"), kCFBooleanTrue);
+                }
+                if (kr == kIOReturnSuccess) {
+                    printf("setting ac attach %u\n", value);
+                } else {
+                    fprintf(stderr, "pmset: Error 0x%x setting ac attach property\n", kr);
+                    fflush(stderr);
+                }
+                goto exit;
+            } else if(0 == strncmp(argv[1], ARG_SET_DESKTOPMODE, kMaxArgStringLength))
+            {
+                // Tell PMRD new desktopmode value
+                if(argc <= 2) {
+                    printf("Error: DesktopMode value should be specified. 0 for detach and 1 for attach\n");
+                    goto exit;
+                }
+                uint32_t value = (uint32_t)strtol(argv[i+1], NULL, 0);
+                if (value) {
+                    kr = setRootDomainProperty(CFSTR("IOPMTestDesktopModeSet"), kCFBooleanTrue);
+                } else {
+                    kr = setRootDomainProperty(CFSTR("IOPMTestDesktopModeRemove"), kCFBooleanTrue);
+                }
+                if (kr == kIOReturnSuccess) {
+                    printf("setting desktopmode %u\n", value);
+                } else {
+                    fprintf(stderr, "pmset: Error 0x%x setting desktopmode property\n", kr);
+                    fflush(stderr);
+                }
+                goto exit;
+            }
+            else if (0 == strncmp(argv[i], ARG_POLLBOOT, kMaxArgStringLength)) {
                 ret = IOPSRequestBatteryUpdate(kIOPSReadSystemBoot);
                 if (kIOReturnSuccess != ret) {
                     fprintf(stderr, "pmset: Must be run as root.\n");
@@ -6113,9 +6222,12 @@ static void printStatsMsg(asl_object_t m, int logType)
     int           cnt = 0;
     const char    *appName, *responseType, *delay;
     const char    *transition = NULL;
-    char          *str, buf[128];
+    char          str[128];
+    char          buf[128];
     const char    *ps, *msg;
     bool          messageFlag=false;
+    bool          sleepDelays = false;
+    bool          wakeDelays = false;
 
     while (true) {
 
@@ -6132,11 +6244,11 @@ static void printStatsMsg(asl_object_t m, int logType)
             break;
 
         if (!strncmp(responseType, kIOPMStatsResponseTimedOut, sizeof(kIOPMStatsResponseTimedOut)))
-            str = "timed out";
+            snprintf(str, sizeof(str), "%s", "timed out");
         else if (!strncmp(responseType, kIOPMStatsResponseSlow, sizeof(kIOPMStatsResponseSlow)))
-            str = "is slow";
+            snprintf(str, sizeof(str), "%s", "is slow");
         else if (!strncmp(responseType, kIOPMStatsResponsePrompt, sizeof(kIOPMStatsResponsePrompt)))
-            str = "is prompt";
+            snprintf(str, sizeof(str), "%s", "is prompt");
         else if (!strncmp(responseType, kIOPMStatsDriverPSChangeSlow, sizeof(kIOPMStatsDriverPSChangeSlow)))  {
             ps = NULL;
             snprintf(buf, sizeof(buf), "%s%d",kPMASLResponsePSCapsPrefix, cnt);
@@ -6148,19 +6260,37 @@ static void printStatsMsg(asl_object_t m, int logType)
 
             snprintf(buf, sizeof(buf), "driver is slow(msg: %s to %s)",
                      (msg) ? msg : "", (ps) ? ps : "");
-            str = buf;
+            strcpy(str, buf);
             messageFlag=true;
         }
         else
             break;
 
-        transition = asl_get(m, kPMASLResponseSystemTransition);
-        if (cnt == 0 && transition)
-            printf("%sDelays to %s notifications%s:%s ",
-                   (logType) ? ",\"":"",
-                   transition,
-                   (logType) ? "\"":"",
-                   (logType) ? "[":"");
+        snprintf(buf, sizeof(buf), "%s%d", kPMASLResponseSystemTransition, cnt); 
+        transition = asl_get(m, buf);
+        if (transition) {
+            if (!strncmp(transition, "Sleep", strlen(transition)) && !sleepDelays) {
+                printf("%sDelays to %s notifications%s:%s ",
+                       (logType) ? ",\"":"",
+                       transition,
+                       (logType) ? "\"":"",
+                       (logType) ? "[":"");
+                sleepDelays = true;
+            } else if (!strncmp(transition, "Wake", strlen(transition)) && !wakeDelays) {
+                const char *val = asl_get(m, ASL_KEY_TIME);
+                long time = atol(val);
+                CFAbsoluteTime absTime = (CFAbsoluteTime)(time - kCFAbsoluteTimeIntervalSince1970);
+                printf("\n");
+                print_pretty_date(absTime, false);
+                printf("%-20s\t", "Kernel Client Acks");
+                printf("%sDelays to %s notifications%s:%s ",
+                       (logType) ? ",\"":"",
+                       transition,
+                       (logType) ? "\"":"",
+                       (logType) ? "[":"");
+                wakeDelays = true;
+            }
+        }
 
         if(!logType)
             printf("[%s %s(%s ms)] ", appName, str, delay);

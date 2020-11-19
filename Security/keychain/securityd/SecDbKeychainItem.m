@@ -78,25 +78,25 @@ static CFDataRef kc_create_auth_data(SecAccessControlRef access_control, CFDicti
 static CFDataRef kc_copy_access_groups_data(CFArrayRef access_groups, CFErrorRef *error);
 #endif
 
-static const uint8_t* der_decode_plist_with_repair(CFAllocatorRef pl, CFOptionFlags mutability, CFPropertyListRef* cf, CFErrorRef *error,
+static const uint8_t* der_decode_plist_with_repair(CFAllocatorRef pl, CFPropertyListRef* cf, CFErrorRef *error,
                                                    const uint8_t* der, const uint8_t *der_end,
-                                                   const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFOptionFlags mutability, CFPropertyListRef* pl, CFErrorRef *error,
+                                                   const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFPropertyListRef* pl, CFErrorRef *error,
                                                                                  const uint8_t* der, const uint8_t *der_end));
-static const uint8_t* der_decode_dictionary_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability, CFDictionaryRef* dictionary, CFErrorRef *error,
+static const uint8_t* der_decode_dictionary_with_repair(CFAllocatorRef allocator, CFDictionaryRef* dictionary, CFErrorRef *error,
                                                         const uint8_t* der, const uint8_t *der_end,
-                                                        const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFOptionFlags mutability, CFPropertyListRef* pl, CFErrorRef *error,
+                                                        const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFPropertyListRef* pl, CFErrorRef *error,
                                                                                       const uint8_t* der, const uint8_t *der_end));
-static const uint8_t* der_decode_key_value_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability, CFPropertyListRef* key, CFPropertyListRef* value, CFErrorRef *error,
+static const uint8_t* der_decode_key_value_with_repair(CFAllocatorRef allocator, CFPropertyListRef* key, CFPropertyListRef* value, CFErrorRef *error,
                                                        const uint8_t* der, const uint8_t *der_end,
-                                                       const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFOptionFlags mutability, CFPropertyListRef* pl, CFErrorRef *error,
+                                                       const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFPropertyListRef* pl, CFErrorRef *error,
                                                                                      const uint8_t* der, const uint8_t *der_end));
-static const uint8_t* der_decode_array_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability, CFArrayRef* array, CFErrorRef *error,
+static const uint8_t* der_decode_array_with_repair(CFAllocatorRef allocator, CFArrayRef* array, CFErrorRef *error,
                                                    const uint8_t* der, const uint8_t *der_end,
-                                                   const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFOptionFlags mutability, CFPropertyListRef* pl, CFErrorRef *error,
+                                                   const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFPropertyListRef* pl, CFErrorRef *error,
                                                                                  const uint8_t* der, const uint8_t *der_end));
-static const uint8_t* der_decode_set_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability, CFSetRef* set, CFErrorRef *error,
+static const uint8_t* der_decode_set_with_repair(CFAllocatorRef allocator, CFSetRef* set, CFErrorRef *error,
                                                  const uint8_t* der, const uint8_t *der_end,
-                                                 const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFOptionFlags mutability, CFPropertyListRef* pl, CFErrorRef *error,
+                                                 const uint8_t* (^repairBlock)(CFAllocatorRef allocator, CFPropertyListRef* pl, CFErrorRef *error,
                                                                                const uint8_t* der, const uint8_t *der_end));
 
 const uint32_t kUseDefaultIVMask =  1<<31;
@@ -305,13 +305,13 @@ ks_warn_non_device_keybag(void)
     sec_action_perform(action);
 }
 
-bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
-                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error) {
+bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
+                     CFDictionaryRef _Nonnull secretData, CFDictionaryRef _Nonnull attributes, CFDictionaryRef _Nonnull authenticated_attributes, CFDataRef _Nonnull *pBlob, bool useDefaultIV, CFErrorRef *error) {
     return ks_encrypt_data_with_backupuuid(keybag, access_control, acm_context, secretData, attributes, authenticated_attributes, pBlob, NULL, useDefaultIV, error);
 }
 
-bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
-                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, CFDataRef *bkUUID, bool useDefaultIV, CFErrorRef *error) {
+bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
+                     CFDictionaryRef _Nonnull secretData, CFDictionaryRef _Nonnull attributes, CFDictionaryRef _Nonnull authenticated_attributes, CFDataRef _Nonnull *pBlob, CFDataRef _Nullable *bkUUID, bool useDefaultIV, CFErrorRef *error) {
     if (keybag != KEYBAG_DEVICE) {
         ks_warn_non_device_keybag();
 
@@ -331,8 +331,8 @@ bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef
 
     if (SecAccessControlGetConstraints(access_control)) {
         NSMutableDictionary* allAttributes = [(__bridge NSDictionary*)attributes mutableCopy];
-        [allAttributes addEntriesFromDictionary:(__bridge NSDictionary*)secretData];
-        return ks_encrypt_data_legacy(keybag, access_control, acm_context, (__bridge CFDictionaryRef)allAttributes, authenticated_attributes, pBlob, useDefaultIV, error);
+        [allAttributes addEntriesFromDictionary:(__bridge NSDictionary*_Nonnull)secretData];
+        return ks_encrypt_data_legacy(keybag, access_control, acm_context, (__bridge CFDictionaryRef _Nonnull)allAttributes, authenticated_attributes, pBlob, useDefaultIV, error);
     }
 
     bool success = false;
@@ -342,7 +342,7 @@ bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef
         metadataAttributes[@"SecAccessControl"] = (__bridge_transfer NSData*)SecAccessControlCopyData(access_control);
 
         NSString* tamperCheck = [[NSUUID UUID] UUIDString]; // can use the item persistent reference when that starts getting filled in
-        SecDbKeychainItemV7* item = [[SecDbKeychainItemV7 alloc] initWithSecretAttributes:(__bridge NSDictionary*)secretData metadataAttributes:metadataAttributes tamperCheck:tamperCheck keyclass:key_class];
+        SecDbKeychainItemV7* item = [[SecDbKeychainItemV7 alloc] initWithSecretAttributes:(__bridge NSDictionary*_Nonnull)secretData metadataAttributes:metadataAttributes tamperCheck:tamperCheck keyclass:key_class];
 
         NSError* localError = nil;
         NSData* encryptedBlob = [item encryptedBlobWithKeybag:keybag accessControl:access_control acmContext:(__bridge NSData*)acm_context error:&localError];
@@ -789,7 +789,7 @@ static bool kc_attribs_key_encrypted_data_from_blob(keybag_handle_t keybag, cons
     CFDataRef ed = NULL;
     bool ok = false;
 
-    der_decode_plist(NULL, kCFPropertyListImmutable, (CFPropertyListRef*)&blob_dict, NULL, blob_data, blob_data + blob_data_len);
+    der_decode_plist(NULL, (CFPropertyListRef*)&blob_dict, NULL, blob_data, blob_data + blob_data_len);
     require_action_quiet(blob_dict, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'blob data'")));
 
     if (!ks_separate_data_and_key(blob_dict, &ed, &key_data)) {
@@ -804,7 +804,7 @@ static bool kc_attribs_key_encrypted_data_from_blob(keybag_handle_t keybag, cons
     require_quiet(external_data = ks_ref_key_get_external_data(keybag, key_data, &tmp_ref_key, &external_data_len, error), out);
 
     CFPropertyListRef external_data_dict = NULL;
-    der_decode_plist(NULL, kCFPropertyListImmutable, &external_data_dict, NULL, external_data, external_data + external_data_len);
+    der_decode_plist(NULL, &external_data_dict, NULL, external_data, external_data + external_data_len);
     require_action_quiet(external_data_dict, out, SecError(errSecDecode, error, CFSTR("kc_attribs_key_encrypted_data_from_blob: failed to decode 'encrypted data dictionary'")));
     acl = CFDictionaryCreateMutableCopy(NULL, 0, external_data_dict);
     SecDbForEachAttrWithMask(class, attr_desc, kSecDbInAuthenticatedDataFlag) {
@@ -902,7 +902,7 @@ static CFDataRef kc_copy_protection_data(SecAccessControlRef access_control)
 static CFTypeRef kc_copy_protection_from(const uint8_t *der, const uint8_t *der_end)
 {
     CFTypeRef result = NULL;
-    der_decode_plist(NULL, kCFPropertyListImmutable, &result, NULL, der, der_end);
+    der_decode_plist(NULL, &result, NULL, der, der_end);
     return result;
 }
 
@@ -925,8 +925,8 @@ CFMutableDictionaryRef s3dl_item_v2_decode(CFDataRef plain, CFErrorRef *error) {
     return dictionaryFromPlist(item, error);
 }
 
-static const uint8_t* (^s3dl_item_v3_decode_repair_date)(CFAllocatorRef, CFOptionFlags, CFPropertyListRef*, CFErrorRef*, const uint8_t*, const uint8_t*) =
-    ^const uint8_t*(CFAllocatorRef allocator, CFOptionFlags mutability, CFPropertyListRef* pl, CFErrorRef *error, const uint8_t* der, const uint8_t *der_end) {
+static const uint8_t* (^s3dl_item_v3_decode_repair_date)(CFAllocatorRef, CFPropertyListRef*, CFErrorRef*, const uint8_t*, const uint8_t*) =
+    ^const uint8_t*(CFAllocatorRef allocator, CFPropertyListRef* pl, CFErrorRef *error, const uint8_t* der, const uint8_t *der_end) {
         if (error && CFEqualSafe(CFErrorGetDomain(*error), sSecDERErrorDomain) && CFErrorGetCode(*error) == kSecDERErrorUnknownEncoding) {
             CFAbsoluteTime date = 0;
             CFCalendarRef calendar = CFCalendarCreateWithIdentifier(allocator, kCFGregorianCalendar);
@@ -950,10 +950,10 @@ CFMutableDictionaryRef s3dl_item_v3_decode(CFDataRef plain, CFErrorRef *error) {
     CFPropertyListRef item = NULL;
     const uint8_t *der_beg = CFDataGetBytePtr(plain);
     const uint8_t *der_end = der_beg + CFDataGetLength(plain);
-    const uint8_t *der = der_decode_plist(0, kCFPropertyListMutableContainers, &item, error, der_beg, der_end);
+    const uint8_t *der = der_decode_plist(0, &item, error, der_beg, der_end);
     if (!der && error && CFEqualSafe(CFErrorGetDomain(*error), sSecDERErrorDomain) && CFErrorGetCode(*error) == kSecDERErrorUnknownEncoding) {
         CFReleaseNull(*error);
-        der = der_decode_plist_with_repair(0, kCFPropertyListMutableContainers, &item, error, der_beg, der_end, s3dl_item_v3_decode_repair_date);
+        der = der_decode_plist_with_repair(0, &item, error, der_beg, der_end, s3dl_item_v3_decode_repair_date);
     }
     if (der && der != der_end) {
         SecCFCreateError(errSecDecode, kSecErrorDomain, CFSTR("trailing garbage at end of decrypted item"), NULL, error);
@@ -1145,7 +1145,7 @@ bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef *error)
  src_keybag is normally the backup keybag.
  dst_keybag is normally the device keybag.
  */
-SecDbItemRef SecDbItemCreateWithBackupDictionary(CFAllocatorRef allocator, const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, keybag_handle_t dst_keybag, CFErrorRef *error)
+SecDbItemRef SecDbItemCreateWithBackupDictionary(const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, keybag_handle_t dst_keybag, CFErrorRef *error)
 {
     CFDataRef edata = CFDictionaryGetValue(dict, CFSTR("v_Data"));
     SecDbItemRef item = NULL;
@@ -1322,10 +1322,10 @@ out:
     return result;
 }
 
-static const uint8_t* der_decode_plist_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability,
+static const uint8_t* der_decode_plist_with_repair(CFAllocatorRef allocator,
                                                    CFPropertyListRef* pl, CFErrorRef *error,
                                                    const uint8_t* der, const uint8_t *der_end,
-                                                   const uint8_t* (^repairBlock)(CFAllocatorRef, CFOptionFlags, CFPropertyListRef*, CFErrorRef*,
+                                                   const uint8_t* (^repairBlock)(CFAllocatorRef, CFPropertyListRef*, CFErrorRef*,
                                                                                  const uint8_t*, const uint8_t*))
 {
     if (NULL == der) {
@@ -1341,38 +1341,38 @@ static const uint8_t* der_decode_plist_with_repair(CFAllocatorRef allocator, CFO
 
     switch (tag) {
         case CCDER_NULL:
-            return der_decode_null(allocator, mutability, (CFNullRef*)pl, error, der, der_end);
+            return der_decode_null(allocator, (CFNullRef*)pl, error, der, der_end);
         case CCDER_BOOLEAN:
-            return der_decode_boolean(allocator, mutability, (CFBooleanRef*)pl, error, der, der_end);
+            return der_decode_boolean(allocator, (CFBooleanRef*)pl, error, der, der_end);
         case CCDER_OCTET_STRING:
-            return der_decode_data(allocator, mutability, (CFDataRef*)pl, error, der, der_end);
+            return der_decode_data(allocator, (CFDataRef*)pl, error, der, der_end);
         case CCDER_GENERALIZED_TIME: {
-                const uint8_t* der_result = der_decode_date(allocator, mutability, (CFDateRef*)pl, error, der, der_end);
+                const uint8_t* der_result = der_decode_date(allocator, (CFDateRef*)pl, error, der, der_end);
                 if (!der_result) {
-                    der_result = repairBlock(allocator, mutability, pl, error, der, der_end);
+                    der_result = repairBlock(allocator, pl, error, der, der_end);
                 }
                 return der_result;
             }
         case CCDER_CONSTRUCTED_SEQUENCE:
-            return der_decode_array_with_repair(allocator, mutability, (CFArrayRef*)pl, error, der, der_end, repairBlock);
+            return der_decode_array_with_repair(allocator, (CFArrayRef*)pl, error, der, der_end, repairBlock);
         case CCDER_UTF8_STRING:
-            return der_decode_string(allocator, mutability, (CFStringRef*)pl, error, der, der_end);
+            return der_decode_string(allocator, (CFStringRef*)pl, error, der, der_end);
         case CCDER_INTEGER:
-            return der_decode_number(allocator, mutability, (CFNumberRef*)pl, error, der, der_end);
+            return der_decode_number(allocator, (CFNumberRef*)pl, error, der, der_end);
         case CCDER_CONSTRUCTED_SET:
-            return der_decode_dictionary_with_repair(allocator, mutability, (CFDictionaryRef*)pl, error, der, der_end, repairBlock);
+            return der_decode_dictionary_with_repair(allocator, (CFDictionaryRef*)pl, error, der, der_end, repairBlock);
         case CCDER_CONSTRUCTED_CFSET:
-            return der_decode_set_with_repair(allocator, mutability, (CFSetRef*)pl, error, der, der_end, repairBlock);
+            return der_decode_set_with_repair(allocator, (CFSetRef*)pl, error, der, der_end, repairBlock);
         default:
             SecCFDERCreateError(kSecDERErrorUnsupportedDERType, CFSTR("Unsupported DER Type"), NULL, error);
             return NULL;
     }
 }
 
-static const uint8_t* der_decode_dictionary_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability,
+static const uint8_t* der_decode_dictionary_with_repair(CFAllocatorRef allocator,
                                                         CFDictionaryRef* dictionary, CFErrorRef *error,
                                                         const uint8_t* der, const uint8_t *der_end,
-                                                        const uint8_t* (^repairBlock)(CFAllocatorRef, CFOptionFlags, CFPropertyListRef*, CFErrorRef*,
+                                                        const uint8_t* (^repairBlock)(CFAllocatorRef, CFPropertyListRef*, CFErrorRef*,
                                                                                       const uint8_t*, const uint8_t*))
 {
     if (NULL == der) {
@@ -1401,7 +1401,7 @@ static const uint8_t* der_decode_dictionary_with_repair(CFAllocatorRef allocator
         CFTypeRef key = NULL;
         CFTypeRef value = NULL;
 
-        payload = der_decode_key_value_with_repair(allocator, mutability, &key, &value, error, payload, payload_end, repairBlock);
+        payload = der_decode_key_value_with_repair(allocator, &key, &value, error, payload, payload_end, repairBlock);
 
         if (payload) {
             CFDictionaryAddValue(dict, key, value);
@@ -1423,10 +1423,10 @@ exit:
     return payload;
 }
 
-static const uint8_t* der_decode_key_value_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability,
+static const uint8_t* der_decode_key_value_with_repair(CFAllocatorRef allocator,
                                                        CFPropertyListRef* key, CFPropertyListRef* value, CFErrorRef *error,
                                                        const uint8_t* der, const uint8_t *der_end,
-                                                       const uint8_t* (^repairBlock)(CFAllocatorRef, CFOptionFlags, CFPropertyListRef*, CFErrorRef*,
+                                                       const uint8_t* (^repairBlock)(CFAllocatorRef, CFPropertyListRef*, CFErrorRef*,
                                                                                      const uint8_t*, const uint8_t*))
 {
     const uint8_t *payload_end = 0;
@@ -1441,8 +1441,8 @@ static const uint8_t* der_decode_key_value_with_repair(CFAllocatorRef allocator,
     CFTypeRef valueObject = NULL;
 
 
-    payload = der_decode_plist_with_repair(allocator, mutability, &keyObject, error, payload, payload_end, repairBlock);
-    payload = der_decode_plist_with_repair(allocator, mutability, &valueObject, error, payload, payload_end, repairBlock);
+    payload = der_decode_plist_with_repair(allocator, &keyObject, error, payload, payload_end, repairBlock);
+    payload = der_decode_plist_with_repair(allocator, &valueObject, error, payload, payload_end, repairBlock);
 
     if (payload != NULL) {
         *key = keyObject;
@@ -1454,10 +1454,10 @@ static const uint8_t* der_decode_key_value_with_repair(CFAllocatorRef allocator,
     return payload;
 }
 
-static const uint8_t* der_decode_array_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability,
+static const uint8_t* der_decode_array_with_repair(CFAllocatorRef allocator,
                                                    CFArrayRef* array, CFErrorRef *error,
                                                    const uint8_t* der, const uint8_t *der_end,
-                                                   const uint8_t* (^repairBlock)(CFAllocatorRef, CFOptionFlags, CFPropertyListRef*, CFErrorRef*,
+                                                   const uint8_t* (^repairBlock)(CFAllocatorRef, CFPropertyListRef*, CFErrorRef*,
                                                                                  const uint8_t*, const uint8_t*))
 {
     if (NULL == der) {
@@ -1472,7 +1472,7 @@ static const uint8_t* der_decode_array_with_repair(CFAllocatorRef allocator, CFO
 
     while (current_element != NULL && current_element < elements_end) {
         CFPropertyListRef element = NULL;
-        current_element = der_decode_plist_with_repair(allocator, mutability, &element, error, current_element, elements_end, repairBlock);
+        current_element = der_decode_plist_with_repair(allocator, &element, error, current_element, elements_end, repairBlock);
         if (current_element) {
             CFArrayAppendValue(result, element);
             CFReleaseNull(element);
@@ -1488,10 +1488,10 @@ static const uint8_t* der_decode_array_with_repair(CFAllocatorRef allocator, CFO
     return current_element;
 }
 
-static const uint8_t* der_decode_set_with_repair(CFAllocatorRef allocator, CFOptionFlags mutability,
+static const uint8_t* der_decode_set_with_repair(CFAllocatorRef allocator,
                                                  CFSetRef* set, CFErrorRef *error,
                                                  const uint8_t* der, const uint8_t *der_end,
-                                                 const uint8_t* (^repairBlock)(CFAllocatorRef, CFOptionFlags, CFPropertyListRef*, CFErrorRef*,
+                                                 const uint8_t* (^repairBlock)(CFAllocatorRef, CFPropertyListRef*, CFErrorRef*,
                                                                                const uint8_t*, const uint8_t*))
 {
     if (NULL == der) {
@@ -1519,7 +1519,7 @@ static const uint8_t* der_decode_set_with_repair(CFAllocatorRef allocator, CFOpt
     while (payload != NULL && payload < payload_end) {
         CFTypeRef value = NULL;
 
-        payload = der_decode_plist_with_repair(allocator, mutability, &value, error, payload, payload_end, repairBlock);
+        payload = der_decode_plist_with_repair(allocator, &value, error, payload, payload_end, repairBlock);
 
         if (payload) {
             CFSetAddValue(theSet, value);

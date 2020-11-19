@@ -86,9 +86,11 @@ void NumberFormatterApiTest::runIndexedTest(int32_t index, UBool exec, const cha
         // TODO: Add this method if currency symbols override support is added.
         //TESTCASE_AUTO(symbolsOverride);
         TESTCASE_AUTO(sign);
+        TESTCASE_AUTO(signCoverage);
         TESTCASE_AUTO(decimal);
         TESTCASE_AUTO(scale);
         TESTCASE_AUTO(locale);
+        TESTCASE_AUTO(skeletonUserGuideExamples);
         TESTCASE_AUTO(formatTypes);
         TESTCASE_AUTO(fieldPositionLogic);
         TESTCASE_AUTO(fieldPositionCoverage);
@@ -102,6 +104,7 @@ void NumberFormatterApiTest::runIndexedTest(int32_t index, UBool exec, const cha
         TESTCASE_AUTO(copyMove);
         TESTCASE_AUTO(localPointerCAPI);
         TESTCASE_AUTO(toObject);
+        TESTCASE_AUTO(toDecimalNumber);
     TESTCASE_AUTO_END;
 }
 
@@ -215,6 +218,22 @@ void NumberFormatterApiTest::notationScientific() {
             Locale::getEnglish(),
             -1000000,
             u"-1E6");
+
+    assertFormatSingle(
+            u"Scientific Infinity",
+            u"scientific",
+            NumberFormatter::with().notation(Notation::scientific()),
+            Locale::getEnglish(),
+            -uprv_getInfinity(),
+            u"-∞");
+
+    assertFormatSingle(
+            u"Scientific NaN",
+            u"scientific",
+            NumberFormatter::with().notation(Notation::scientific()),
+            Locale::getEnglish(),
+            uprv_getNaN(),
+            u"NaN");
 }
 
 void NumberFormatterApiTest::notationCompact() {
@@ -430,6 +449,22 @@ void NumberFormatterApiTest::notationCompact() {
             Locale("zh-Hant"),
             1e7,
             u"1000\u842C");
+
+    assertFormatSingle(
+            u"Compact Infinity",
+            u"compact-short",
+            NumberFormatter::with().notation(Notation::compactShort()),
+            Locale::getEnglish(),
+            -uprv_getInfinity(),
+            u"-∞");
+
+    assertFormatSingle(
+            u"Compact NaN",
+            u"compact-short",
+            NumberFormatter::with().notation(Notation::compactShort()),
+            Locale::getEnglish(),
+            uprv_getNaN(),
+            u"NaN");
 
     // NOTE: There is no API for compact custom data in C++
     // and thus no "Compact Somali No Figure" test
@@ -1345,30 +1380,14 @@ void NumberFormatterApiTest::grouping() {
             u"8.765",
             u"0");
 
-    // NOTE: Hungarian was interesting because it had minimumGroupingDigits=4 in locale data.
-    // Open source has fixed Hungarian to have minimumGroupingDigits=1 and changed this test to
-    // use Polish with minimumGroupingDigits=2. However for now we keep the test using Hungarian
-    // to verify the change.
+    // NOTE: Polish is interesting because it has minimumGroupingDigits=2 in locale data
+    // (Most locales have either 1 or 2)
+    // If this test breaks due to data changes, find another locale that has minimumGroupingDigits.
     assertFormatDescendingBig(
-            u"Hungarian Grouping",
+            u"Polish Grouping",
             u"group-auto",
             NumberFormatter::with().grouping(UNUM_GROUPING_AUTO),
-            Locale("hu"),
-            u"87 650 000",
-            u"8 765 000",
-            u"876 500",
-            u"87 650",
-            u"8 765",
-            u"876,5",
-            u"87,65",
-            u"8,765",
-            u"0");
-
-    assertFormatDescendingBig(
-            u"Hungarian Grouping, Min 2",
-            u"group-min2",
-            NumberFormatter::with().grouping(UNUM_GROUPING_MIN2),
-            Locale("hu"),
+            Locale("pl"),
             u"87 650 000",
             u"8 765 000",
             u"876 500",
@@ -1380,10 +1399,25 @@ void NumberFormatterApiTest::grouping() {
             u"0");
 
     assertFormatDescendingBig(
-            u"Hungarian Grouping, Always",
+            u"Polish Grouping, Min 2",
+            u"group-min2",
+            NumberFormatter::with().grouping(UNUM_GROUPING_MIN2),
+            Locale("pl"),
+            u"87 650 000",
+            u"8 765 000",
+            u"876 500",
+            u"87 650",
+            u"8765",
+            u"876,5",
+            u"87,65",
+            u"8,765",
+            u"0");
+
+    assertFormatDescendingBig(
+            u"Polish Grouping, Always",
             u"group-on-aligned",
             NumberFormatter::with().grouping(UNUM_GROUPING_ON_ALIGNED),
-            Locale("hu"),
+            Locale("pl"),
             u"87 650 000",
             u"8 765 000",
             u"876 500",
@@ -2070,6 +2104,39 @@ void NumberFormatterApiTest::sign() {
             u"-444,444.00 US dollars");
 }
 
+void NumberFormatterApiTest::signCoverage() {
+    // https://unicode-org.atlassian.net/browse/ICU-20708
+    IcuTestErrorCode status(*this, "signCoverage");
+    const struct TestCase {
+        UNumberSignDisplay sign;
+        const char16_t* expectedStrings[8];
+    } cases[] = {
+        { UNUM_SIGN_AUTO, {        u"-∞", u"-1", u"-0",  u"0",  u"1",  u"∞",  u"NaN", u"-NaN" } },
+        { UNUM_SIGN_ALWAYS, {      u"-∞", u"-1", u"-0", u"+0", u"+1", u"+∞", u"+NaN", u"-NaN" } },
+        { UNUM_SIGN_NEVER, {        u"∞",  u"1",  u"0",  u"0",  u"1",  u"∞",  u"NaN",  u"NaN" } },
+        { UNUM_SIGN_EXCEPT_ZERO, { u"-∞", u"-1", u"-0",  u"0", u"+1", u"+∞",  u"NaN", u"-NaN" } },
+    };
+    double negNaN = std::copysign(uprv_getNaN(), -0.0);
+    const double inputs[] = {
+        -uprv_getInfinity(), -1, -0.0, 0, 1, uprv_getInfinity(), uprv_getNaN(), negNaN
+    };
+    for (auto& cas : cases) {
+        auto sign = cas.sign;
+        for (int32_t i = 0; i < UPRV_LENGTHOF(inputs); i++) {
+            auto input = inputs[i];
+            auto expected = cas.expectedStrings[i];
+            auto actual = NumberFormatter::with()
+                .sign(sign)
+                .locale(Locale::getUS())
+                .formatDouble(input, status)
+                .toString(status);
+            assertEquals(
+                DoubleToUnicodeString(input) + " " + Int64ToUnicodeString(sign),
+                expected, actual);
+        }
+    }
+}
+
 void NumberFormatterApiTest::decimal() {
     assertFormatDescending(
             u"Decimal Default",
@@ -2232,6 +2299,47 @@ void NumberFormatterApiTest::locale() {
     UnicodeString actual = NumberFormatter::withLocale(Locale::getFrench()).formatInt(1234, status)
             .toString(status);
     assertEquals("Locale withLocale()", u"1\u202f234", actual);
+}
+
+void NumberFormatterApiTest::skeletonUserGuideExamples() {
+    IcuTestErrorCode status(*this, "skeletonUserGuideExamples");
+
+    // Test the skeleton examples in userguide/format_parse/numbers/skeletons.md
+    struct TestCase {
+        const char16_t* skeleton;
+        double input;
+        const char16_t* expected;
+    } cases[] = {
+        {u"percent", 25, u"25%"},
+        {u".00", 25, u"25.00"},
+        {u"percent .00", 25, u"25.00%"},
+        {u"scale/100", 0.3, u"30"},
+        {u"percent scale/100", 0.3, u"30%"},
+        {u"measure-unit/length-meter", 5, u"5 m"},
+        {u"measure-unit/length-meter unit-width-full-name", 5, u"5 meters"},
+        {u"currency/CAD", 10, u"CA$10.00"},
+        {u"currency/CAD unit-width-narrow", 10, u"$10.00"},
+        {u"compact-short", 5000, u"5K"},
+        {u"compact-long", 5000, u"5 thousand"},
+        {u"compact-short currency/CAD", 5000, u"CA$5K"},
+        {u"", 5000, u"5,000"},
+        {u"group-min2", 5000, u"5000"},
+        {u"group-min2", 15000, u"15,000"},
+        {u"sign-always", 60, u"+60"},
+        {u"sign-always", 0, u"+0"},
+        {u"sign-except-zero", 60, u"+60"},
+        {u"sign-except-zero", 0, u"0"},
+        {u"sign-accounting currency/CAD", -40, u"(CA$40.00)"}
+    };
+
+    for (const auto& cas : cases) {
+        status.setScope(cas.skeleton);
+        FormattedNumber actual = NumberFormatter::forSkeleton(cas.skeleton, status)
+            .locale("en-US")
+            .formatDouble(cas.input, status);
+        assertEquals(cas.skeleton, cas.expected, actual.toTempString(status));
+        status.errIfFailureAndReset();
+    }
 }
 
 void NumberFormatterApiTest::formatTypes() {
@@ -2713,7 +2821,7 @@ void NumberFormatterApiTest::validRanges() {
 
 #define EXPECTED_MAX_INT_FRAC_SIG 999
 
-#define VALID_RANGE_ASSERT(status, method, lowerBound, argument) { \
+#define VALID_RANGE_ASSERT(status, method, lowerBound, argument) UPRV_BLOCK_MACRO_BEGIN { \
     UErrorCode expectedStatus = ((lowerBound <= argument) && (argument <= EXPECTED_MAX_INT_FRAC_SIG)) \
         ? U_ZERO_ERROR \
         : U_NUMBER_ARG_OUTOFBOUNDS_ERROR; \
@@ -2722,17 +2830,17 @@ void NumberFormatterApiTest::validRanges() {
             + Int64ToUnicodeString(argument), \
         expectedStatus, \
         status); \
-}
+} UPRV_BLOCK_MACRO_END
 
-#define VALID_RANGE_ONEARG(setting, method, lowerBound) { \
+#define VALID_RANGE_ONEARG(setting, method, lowerBound) UPRV_BLOCK_MACRO_BEGIN { \
     for (int32_t argument = -2; argument <= EXPECTED_MAX_INT_FRAC_SIG + 2; argument++) { \
         UErrorCode status = U_ZERO_ERROR; \
         NumberFormatter::with().setting(method(argument)).copyErrorTo(status); \
         VALID_RANGE_ASSERT(status, method, lowerBound, argument); \
     } \
-}
+} UPRV_BLOCK_MACRO_END
 
-#define VALID_RANGE_TWOARGS(setting, method, lowerBound) { \
+#define VALID_RANGE_TWOARGS(setting, method, lowerBound) UPRV_BLOCK_MACRO_BEGIN { \
     for (int32_t argument = -2; argument <= EXPECTED_MAX_INT_FRAC_SIG + 2; argument++) { \
         UErrorCode status = U_ZERO_ERROR; \
         /* Pass EXPECTED_MAX_INT_FRAC_SIG as the second argument so arg1 <= arg2 in expected cases */ \
@@ -2748,7 +2856,7 @@ void NumberFormatterApiTest::validRanges() {
             U_NUMBER_ARG_OUTOFBOUNDS_ERROR, \
             status); \
     } \
-}
+} UPRV_BLOCK_MACRO_END
 
     VALID_RANGE_ONEARG(precision, Precision::fixedFraction, 0);
     VALID_RANGE_ONEARG(precision, Precision::minFraction, 0);
@@ -2925,6 +3033,18 @@ void NumberFormatterApiTest::toObject() {
     {
         NumberFormatter::with().clone();
     }
+}
+
+void NumberFormatterApiTest::toDecimalNumber() {
+    IcuTestErrorCode status(*this, "toDecimalNumber");
+    FormattedNumber fn = NumberFormatter::withLocale("bn-BD")
+        .scale(Scale::powerOfTen(2))
+        .precision(Precision::maxSignificantDigits(5))
+        .formatDouble(9.87654321e12, status);
+    assertEquals("Should have expected localized string result",
+        u"৯৮,৭৬,৫০,০০,০০,০০,০০০", fn.toString(status));
+    assertEquals(u"Should have expected toDecimalNumber string result",
+        "9.8765E+14", fn.toDecimalNumber<std::string>(status).c_str());
 }
 
 

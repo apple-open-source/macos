@@ -110,7 +110,7 @@ namespace IOFireWireLib {
 			}
 				
 			::CFArrayAppendValue( fProgram, dcl ) ;
-			dcl->SetExportIndex( ::CFArrayGetCount( fProgram ) ) ;
+			dcl->SetExportIndex( (unsigned)(::CFArrayGetCount( fProgram )) ) ;
 		}
 		
 		return dcl ;
@@ -144,7 +144,7 @@ namespace IOFireWireLib {
 		IOVirtualRange			bufferRanges[],
 		unsigned				bufferRangeCount ) const
 	{
-		unsigned programCount = ::CFArrayGetCount( fProgram ) ;
+		unsigned programCount = (unsigned)(::CFArrayGetCount( fProgram )) ;
 		IOByteCount exportBytes = 0 ;
 		
 		for( unsigned index=0; index < programCount; ++index )

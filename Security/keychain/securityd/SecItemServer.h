@@ -56,7 +56,7 @@ CFStringRef _SecServerBackupCopyUUID(CFDataRef backup, CFErrorRef *error);
 bool _SecServerBackupKeybagAdd(SecurityClient *client, CFDataRef passcode, CFDataRef *identifier, CFDataRef *pathinfo, CFErrorRef *error);
 bool _SecServerBackupKeybagDelete(CFDictionaryRef attributes, bool deleteAll, CFErrorRef *error);
 
-bool _SecItemUpdateTokenItems(CFStringRef tokenID, CFArrayRef items, SecurityClient *client, CFErrorRef *error);
+bool _SecItemUpdateTokenItemsForAccessGroups(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef items, SecurityClient *client, CFErrorRef *error);
 
 CF_RETURNS_RETAINED CFArrayRef _SecServerKeychainSyncUpdateMessage(CFDictionaryRef updates, CFErrorRef *error);
 CF_RETURNS_RETAINED CFDictionaryRef _SecServerBackupSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef password, CFErrorRef *error);
@@ -71,10 +71,10 @@ bool _SecServerTransmogrifyToSyncBubble(CFArrayRef services, uid_t uid, Security
 bool _SecServerDeleteMUSERViews(SecurityClient *client, uid_t uid, CFErrorRef *error);
 #endif
 
-#if TARGET_OS_IOS && !TARGET_OS_BRIDGE
+#if SHAREDWEBCREDENTIALS
 bool _SecAddSharedWebCredential(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error);
 bool _SecCopySharedWebCredential(CFDictionaryRef query, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error);
-#endif /* TARGET_OS_IOS */
+#endif /* SHAREDWEBCREDENTIALS */
 
 // Hack to log objects from inside SOS code
 void SecItemServerAppendItemDescription(CFMutableStringRef desc, CFDictionaryRef object);
@@ -91,7 +91,6 @@ bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFEr
 /* For whitebox testing only */
 void SecKeychainDbForceClose(void);
 void SecKeychainDbReset(dispatch_block_t inbetween);
-
 
 SOSDataSourceFactoryRef SecItemDataSourceFactoryGetDefault(void);
 
@@ -128,6 +127,8 @@ bool match_item(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFDic
 bool accessGroupsAllows(CFArrayRef accessGroups, CFStringRef accessGroup, SecurityClient* client);
 bool itemInAccessGroup(CFDictionaryRef item, CFArrayRef accessGroups);
 void SecKeychainChanged(void);
+
+void deleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sqlite_int64 rowid);
 
 __END_DECLS
 

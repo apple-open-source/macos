@@ -26,13 +26,35 @@
 
 #pragma once
 
-#if ENABLE(INTL)
-
 #include "BuiltinNames.h"
 #include "IntlObject.h"
 #include "JSObject.h"
+#include <unicode/ucol.h>
 
 namespace JSC {
+
+template<typename Predicate> String bestAvailableLocale(const String& locale, Predicate predicate)
+{
+    // BestAvailableLocale (availableLocales, locale)
+    // https://tc39.github.io/ecma402/#sec-bestavailablelocale
+
+    String candidate = locale;
+    while (!candidate.isEmpty()) {
+        if (predicate(candidate))
+            return candidate;
+
+        size_t pos = candidate.reverseFind('-');
+        if (pos == notFound)
+            return String();
+
+        if (pos >= 2 && candidate[pos - 2] == '-')
+            pos -= 2;
+
+        candidate = candidate.substring(0, pos);
+    }
+
+    return String();
+}
 
 template<typename IntlInstance, typename Constructor, typename Factory>
 JSValue constructIntlInstanceWithWorkaroundForLegacyIntlConstructor(JSGlobalObject* globalObject, JSValue thisValue, Constructor* callee, Factory factory)
@@ -60,6 +82,66 @@ JSValue constructIntlInstanceWithWorkaroundForLegacyIntlConstructor(JSGlobalObje
     RELEASE_AND_RETURN(scope, factory(vm));
 }
 
-} // namespace JSC
+template<typename ResultType>
+ResultType intlOption(JSGlobalObject* globalObject, JSValue options, PropertyName property, std::initializer_list<std::pair<ASCIILiteral, ResultType>> values, ASCIILiteral notFoundMessage, ResultType fallback)
+{
+    // GetOption (options, property, type="string", values, fallback)
+    // https://tc39.github.io/ecma402/#sec-getoption
 
-#endif // ENABLE(INTL)
+    ASSERT(values.size() > 0);
+
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    if (options.isUndefined())
+        return fallback;
+
+    JSObject* opts = options.toObject(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    JSValue value = opts->get(globalObject, property);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    if (!value.isUndefined()) {
+        String stringValue = value.toWTFString(globalObject);
+        RETURN_IF_EXCEPTION(scope, { });
+
+        for (const auto& entry : values) {
+            if (entry.first == stringValue)
+                return entry.second;
+        }
+        throwException(globalObject, scope, createRangeError(globalObject, notFoundMessage));
+        return { };
+    }
+
+    return fallback;
+}
+
+
+ALWAYS_INLINE bool canUseASCIIUCADUCETComparison(UChar character)
+{
+    return isASCII(character) && ducetWeights[character];
+}
+
+template<typename CharacterType1, typename CharacterType2>
+inline UCollationResult compareASCIIWithUCADUCET(const CharacterType1* characters1, unsigned length1, const CharacterType2* characters2, unsigned length2)
+{
+    unsigned commonLength = std::min(length1, length2);
+    for (unsigned position = 0; position < commonLength; ++position) {
+        auto lhs = characters1[position];
+        auto rhs = characters2[position];
+        ASSERT(canUseASCIIUCADUCETComparison(lhs));
+        ASSERT(canUseASCIIUCADUCETComparison(rhs));
+        uint8_t leftWeight = ducetWeights[lhs];
+        uint8_t rightWeight = ducetWeights[rhs];
+        if (leftWeight == rightWeight)
+            continue;
+        return leftWeight > rightWeight ? UCOL_GREATER : UCOL_LESS;
+    }
+
+    if (length1 == length2)
+        return UCOL_EQUAL;
+    return length1 > length2 ? UCOL_GREATER : UCOL_LESS;
+}
+
+} // namespace JSC

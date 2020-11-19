@@ -179,7 +179,7 @@ void SocketConnection::sendMessage(const char* messageName, GVariant* parameters
 {
     GRefPtr<GVariant> adoptedParameters = parameters;
     size_t parametersSize = parameters ? g_variant_get_size(parameters) : 0;
-    Checked<size_t, RecordOverflow> messageNameLength = strlen(messageName);
+    CheckedSize messageNameLength = strlen(messageName);
     messageNameLength++;
     if (UNLIKELY(messageNameLength.hasOverflowed())) {
         g_warning("Trying to send message with invalid too long name");
@@ -250,7 +250,7 @@ void SocketConnection::waitForSocketWritability()
     m_writeMonitor.start(g_socket_connection_get_socket(m_connection.get()), G_IO_OUT, RunLoop::current(), [this, protectedThis = makeRef(*this)] (GIOCondition condition) -> gboolean {
         if (condition & G_IO_OUT) {
             // We can't stop the monitor from this lambda, because stop destroys the lambda.
-            RunLoop::current().dispatch([this, protectedThis = protectedThis.copyRef()] {
+            RunLoop::current().dispatch([this, protectedThis] {
                 m_writeMonitor.stop();
                 write();
             });

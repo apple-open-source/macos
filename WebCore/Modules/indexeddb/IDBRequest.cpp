@@ -259,24 +259,21 @@ const char* IDBRequest::activeDOMObjectName() const
     return "IDBRequest";
 }
 
-bool IDBRequest::hasPendingActivity() const
+bool IDBRequest::virtualHasPendingActivity() const
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()) || Thread::mayBeGCThread());
-    return !m_contextStopped && m_hasPendingActivity;
+    return m_hasPendingActivity;
 }
 
 void IDBRequest::stop()
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
-    ASSERT(!m_contextStopped);
 
     cancelForStop();
 
     removeAllEventListeners();
 
     clearWrappers();
-
-    m_contextStopped = true;
 }
 
 void IDBRequest::cancelForStop()
@@ -287,7 +284,7 @@ void IDBRequest::cancelForStop()
 void IDBRequest::enqueueEvent(Ref<Event>&& event)
 {
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
-    if (m_contextStopped)
+    if (isContextStopped())
         return;
 
     queueTaskToDispatchEvent(*this, TaskSource::DatabaseAccess, WTFMove(event));
@@ -299,7 +296,7 @@ void IDBRequest::dispatchEvent(Event& event)
 
     ASSERT(canCurrentThreadAccessThreadLocalData(originThread()));
     ASSERT(m_hasPendingActivity);
-    ASSERT(!m_contextStopped);
+    ASSERT(!isContextStopped());
 
     auto protectedThis = makeRef(*this);
     m_dispatchingEvent = true;
@@ -499,7 +496,7 @@ void IDBRequest::didOpenOrIterateCursor(const IDBResultData& resultData)
     m_resultWrapper = { };
 
     if (resultData.type() == IDBResultType::IterateCursorSuccess || resultData.type() == IDBResultType::OpenCursorSuccess) {
-        if (m_pendingCursor->setGetResult(*this, resultData.getResult()) && m_cursorWrapper)
+        if (m_pendingCursor->setGetResult(*this, resultData.getResult(), m_currentTransactionOperationID) && m_cursorWrapper)
             m_resultWrapper = m_cursorWrapper;
         if (resultData.getResult().isDefined())
             m_result = m_pendingCursor;

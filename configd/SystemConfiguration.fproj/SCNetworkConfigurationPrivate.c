@@ -125,16 +125,6 @@ __SCNetworkConfigurationBackup(SCPreferencesRef prefs, CFStringRef suffix, SCPre
 		       suffix);
 	backup = SCPreferencesCreateCompanion(relativeTo, backupPrefsID);
 	CFRelease(backupPrefsID);
-
-	SC_log(LOG_INFO,
-	       "__SCNetworkConfigurationBackup()"
-	       "\n  relativeTo = %@"
-	       "\n  prefs      = %@"
-	       "\n  backup     = %@",
-	       relativeTo,
-	       prefs,
-	       backup);
-
 	if (backup != NULL) {
 		plist = SCPreferencesPathGetValue(prefs, CFSTR("/"));
 		SCPreferencesPathSetValue(backup, CFSTR("/"), plist);
@@ -876,7 +866,7 @@ __SCNetworkConfigurationCleanHiddenInterfaces(SCPreferencesRef prefs, SCPreferen
 					}
 					updated++;
 					continue;
-  				}
+				}
 			}
 
 			CFArrayAppendValue(interfaces_new, if_dict);

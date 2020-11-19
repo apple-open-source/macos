@@ -25,9 +25,18 @@
 
 #pragma once
 
-#if ENABLE(WEBGL)
+#if ENABLE(WEBGL2)
 
+#include "WebGL2RenderingContext.h"
 #include "WebGLSharedObject.h"
+
+namespace JSC {
+class SlotVisitor;
+}
+
+namespace WTF {
+class AbstractLocker;
+}
 
 namespace WebCore {
 
@@ -35,12 +44,45 @@ class WebGLTransformFeedback final : public WebGLSharedObject {
 public:
     virtual ~WebGLTransformFeedback();
 
-    static Ref<WebGLTransformFeedback> create(WebGLRenderingContextBase&);
+    static Ref<WebGLTransformFeedback> create(WebGL2RenderingContext&);
+    
+    bool isActive() const { return m_active; }
+    bool isPaused() const { return m_paused; }
+    
+    void setActive(bool active) { m_active = active; }
+    void setPaused(bool paused) { m_paused = paused; }
+    
+    // These are the indexed bind points for transform feedback buffers.
+    // Returns false if index is out of range and the caller should
+    // synthesize a GL error.
+    void setBoundIndexedTransformFeedbackBuffer(const WTF::AbstractLocker&, GCGLuint index, WebGLBuffer*);
+    bool getBoundIndexedTransformFeedbackBuffer(GCGLuint index, WebGLBuffer** outBuffer);
+    
+    bool validateProgramForResume(WebGLProgram*) const;
 
-protected:
-    WebGLTransformFeedback(WebGLRenderingContextBase&);
+    bool hasEverBeenBound() const { return object() && m_hasEverBeenBound; }
+    void setHasEverBeenBound() { m_hasEverBeenBound = true; }
+    
+    WebGLProgram* program() const { return m_program.get(); }
+    void setProgram(const WTF::AbstractLocker&, WebGLProgram&);
+    
+    void unbindBuffer(const AbstractLocker&, WebGLBuffer&);
+    
+    bool hasEnoughBuffers(GCGLuint numRequired) const;
 
-    void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override;
+    void addMembersToOpaqueRoots(const AbstractLocker&, JSC::SlotVisitor&);
+
+private:
+    WebGLTransformFeedback(WebGL2RenderingContext&);
+
+    void deleteObjectImpl(const WTF::AbstractLocker&, GraphicsContextGLOpenGL*, PlatformGLObject) override;
+    
+    bool m_active { false };
+    bool m_paused { false };
+    bool m_hasEverBeenBound { false };
+    unsigned m_programLinkCount { 0 };
+    Vector<RefPtr<WebGLBuffer>> m_boundIndexedTransformFeedbackBuffers;
+    RefPtr<WebGLProgram> m_program;
 };
 
 } // namespace WebCore

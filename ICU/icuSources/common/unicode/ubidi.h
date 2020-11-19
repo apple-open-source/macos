@@ -576,7 +576,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUBiDiPointer, UBiDi, ubidi_close);
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Modify the operation of the Bidi algorithm such that it

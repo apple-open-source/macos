@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "DocumentIdentifier.h"
 #include "LibWebRTCMacros.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Expected.h>
@@ -71,6 +72,7 @@ public:
     virtual ~LibWebRTCProvider() = default;
 
     static bool webRTCAvailable();
+    static void registerWebKitVP9Decoder();
 
     virtual void setActive(bool);
 
@@ -79,14 +81,10 @@ public:
     using IPAddressOrError = Expected<String, MDNSRegisterError>;
     using MDNSNameOrError = Expected<String, MDNSRegisterError>;
 
-    virtual void unregisterMDNSNames(uint64_t documentIdentifier)
-    {
-        UNUSED_PARAM(documentIdentifier);
-    }
+    virtual void unregisterMDNSNames(DocumentIdentifier) { }
 
-    virtual void registerMDNSName(uint64_t documentIdentifier, const String& ipAddress, CompletionHandler<void(MDNSNameOrError&&)>&& callback)
+    virtual void registerMDNSName(DocumentIdentifier, const String& ipAddress, CompletionHandler<void(MDNSNameOrError&&)>&& callback)
     {
-        UNUSED_PARAM(documentIdentifier);
         UNUSED_PARAM(ipAddress);
         callback(makeUnexpected(MDNSRegisterError::NotImplemented));
     }
@@ -107,10 +105,14 @@ public:
     void disableEnumeratingAllNetworkInterfaces();
     void enableEnumeratingAllNetworkInterfaces();
 
-    void supportsVP8(bool value) { m_supportsVP8 = value; }
+    void setH265Support(bool value) { m_supportsH265 = value; }
+    void setVP9Support(bool value) { m_supportsVP9 = value; }
+    bool isSupportingH265() const { return m_supportsH265; }
+    bool isSupportingVP9() const { return m_supportsVP9; }
     virtual void disableNonLocalhostConnections() { m_disableNonLocalhostConnections = true; }
 
-    rtc::RTCCertificateGenerator& certificateGenerator();
+    // Callback is executed on a background thread.
+    void prepareCertificateGenerator(Function<void(rtc::RTCCertificateGenerator&)>&&);
 
     Optional<RTCRtpCapabilities> receiverCapabilities(const String& kind);
     Optional<RTCRtpCapabilities> senderCapabilities(const String& kind);
@@ -120,7 +122,6 @@ public:
     void setEnableLogging(bool);
     void setEnableWebRTCEncryption(bool);
     void setUseDTLS10(bool);
-    void setUseGPUProcess(bool);
 
     class SuspendableSocketFactory : public rtc::PacketSocketFactory {
     public:
@@ -135,7 +136,7 @@ protected:
 
     rtc::scoped_refptr<webrtc::PeerConnectionInterface> createPeerConnection(webrtc::PeerConnectionObserver&, rtc::NetworkManager&, rtc::PacketSocketFactory&, webrtc::PeerConnectionInterface::RTCConfiguration&&, std::unique_ptr<webrtc::AsyncResolverFactory>&&);
 
-    rtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> createPeerConnectionFactory(rtc::Thread* networkThread, rtc::Thread* signalingThread, LibWebRTCAudioModule*);
+    rtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> createPeerConnectionFactory(rtc::Thread* networkThread, rtc::Thread* signalingThread);
     virtual std::unique_ptr<webrtc::VideoDecoderFactory> createDecoderFactory();
     virtual std::unique_ptr<webrtc::VideoEncoderFactory> createEncoderFactory();
 
@@ -149,10 +150,10 @@ protected:
 
     rtc::scoped_refptr<webrtc::PeerConnectionFactoryInterface> m_factory;
     bool m_disableNonLocalhostConnections { false };
-    bool m_supportsVP8 { false };
+    bool m_supportsH265 { false };
+    bool m_supportsVP9 { false };
     bool m_enableLogging { true };
     bool m_useDTLS10 { false };
-    bool m_useGPUProcess { false };
 #endif
 };
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015, 2016, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015, 2016, 2018, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -106,11 +106,11 @@ libSC_info_client_create(dispatch_queue_t	q,
 {
 	xpc_connection_t	c;
 	libSC_info_client_t	*client;
-#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 	const uint64_t		flags	=	XPC_CONNECTION_MACH_SERVICE_PRIVILEGED;
-#else	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#else	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 	const uint64_t		flags	=	0;
-#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 
 	if (!_available) {
 		return NULL;

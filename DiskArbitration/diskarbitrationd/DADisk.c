@@ -26,6 +26,7 @@
 #include "DABase.h"
 #include "DAInternal.h"
 #include "DALog.h"
+#include "DAPrivate.h"
 
 #include <grp.h>
 #include <paths.h>
@@ -972,6 +973,8 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
                     if ( disk )
                     {
                         struct passwd * user;
+                        const int32_t bsd_major = major( fs->f_fsid.val[0] );
+                        const int32_t bsd_minor = minor( fs->f_fsid.val[0] );
 
                         disk->_bypath = CFRetain( path );
 
@@ -987,6 +990,20 @@ DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, const struct sta
                         {
                             CFDictionarySetValue( disk->_description, kDADiskDescriptionVolumeNameKey, object );
 
+                            CFRelease( object );
+                        }
+
+                        object = CFNumberCreate( NULL, kCFNumberSInt32Type, &bsd_major );
+                        if ( object )
+                        {
+                            CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaBSDMajorKey, object );
+                            CFRelease( object );
+                        }
+
+                        object = CFNumberCreate( NULL, kCFNumberSInt32Type, &bsd_minor );
+                        if ( object )
+                        {
+                            CFDictionarySetValue( disk->_description, kDADiskDescriptionMediaBSDMinorKey, object );
                             CFRelease( object );
                         }
 

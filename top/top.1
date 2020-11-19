@@ -1,4 +1,4 @@
-.\" Copyright (c) 2002-2004, 2009, 2017 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2002--2020 Apple Computer, Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\"
@@ -17,14 +17,14 @@
 .\" under the License.
 .\"
 .\" @APPLE_LICENSE_HEADER_END@
-.Dd 13 March 2017
+.Dd February 10, 2020
 .Dt TOP 1
 .Os Darwin
-.\"
+.
 .Sh NAME
 .Nm top
-.Nd display and update sorted information about processes
-.\"
+.Nd display sorted information about processes
+.
 .Sh SYNOPSIS
 .Bl -tag -width "top " -compact
 .It Nm Op Fl a | Fl d | Fl e | Fl c Ar mode
@@ -61,19 +61,20 @@
 .It
 .Op Fl u
 .El
-.\"
+.
 .Sh DESCRIPTION
 The
 .Nm
-program periodically displays a sorted list of system processes.  The default
-sorting key is pid, but other keys can be used instead.  Various output options
-are available.
-.\"
+program periodically displays a sorted list of system processes.
+The default sorting key is pid, but other keys can be used instead.
+Various output options are available.
+.
 .Sh OPTIONS
-Command line option specifications are processed from left to right.  Options
-can be specified more than once.  If conflicting options are specified, later
-specifications override earlier ones.  This makes it viable to create a shell
-alias for
+Command line option specifications are processed from left to right.
+Options can be specified more than once.
+If conflicting options are specified, later specifications override earlier
+ones.
+This makes it viable to create a shell alias for
 .Nm
 with preferred defaults specified, then override those preferred defaults as
 desired on the command line.
@@ -87,20 +88,24 @@ Set event counting mode to
 The supported modes are
 .Bl -tag -width indent
 .It a
-Accumulative mode.  Count events cumulatively, starting at the launch of
+Accumulative mode.
+Count events cumulatively, starting at the launch of
 .Nm .
 Calculate CPU usage and CPU time since the launch of
 .Nm .
 .It d
-Delta mode.  Count events relative to the previous sample.  Calculate CPU usage
-since the previous sample.  This mode by default disables the memory object map
-reporting.  The memory object map reporting may be re-enabled with the
+Delta mode.
+Count events relative to the previous sample.
+Calculate CPU usage since the previous sample.
+This mode by default disables the memory object map reporting.
+The memory object map reporting may be re-enabled with the
 .Fl r
 option or the interactive
 .Cm r
 command.
 .It e
-Absolute mode.  Count events using absolute counters.
+Absolute mode.
+Count events using absolute counters.
 .It n
 Non-event mode
 .Pq default .
@@ -130,16 +135,17 @@ section for more details.
 .It Fl l Ar samples
 Use logging mode and display
 .Ar samples
-samples, even if standard output is a terminal.  0 is treated as infinity.
-Rather than redisplaying, output is periodically printed in raw form.  Note that
-the first sample displayed will have an invalid %CPU displayed for each process,
-as it is calculated using the delta between samples.
+samples, even if standard output is a terminal.
+0 is treated as infinity.
+Rather than redisplaying, output is periodically printed in raw form.
+Note that the first sample displayed will have an invalid %CPU displayed for
+each process, as it is calculated using the delta between samples.
 .It Fl ncols Ar columns
 Display
 .Ar columns
-when using logging mode.  The default is infinite.  The number must be
-.Gt
-0 or an error will occur.
+when using logging mode.
+The default is infinite.
+The number must be > 0 or an error will occur.
 .It Fl n Ar nprocs
 Only display up to
 .Ar nprocs
@@ -147,15 +153,18 @@ processes.
 .It Fl O Ar skey
 Use
 .Ar skey
-as a secondary key when ordering the process display.  See
+as a secondary key when ordering the process display.
+See
 .Fl o
 for key names
 .Pq Li pid is the default .
 .It Fl o Ar key
 Order the process display by sorting on
 .Ar key
-in descending order.  A + or - can be prefixed to the key name to specify
-ascending or descending order, respectively.  The supported keys are:
+in descending order.
+A + or - can be prefixed to the key name to specify ascending or descending
+order, respectively.
+The supported keys are:
 .Bl -tag -width indent
 .It pid
 Process ID
@@ -207,6 +216,8 @@ Parent process ID.
 alias: pstate
 .br
 Process state.
+.br
+One of "zombie", "running", "stuck" (i.e. uninterruptible sleep),  "sleeping", "idle", "stopped", "halted", or "unknown".
 .It uid
 User ID.
 .It wq
@@ -236,11 +247,13 @@ Total Mach syscalls.
 .It pageins
 Total pageins.
 .It boosts
-The number of boosts help by the process.  This is followed by the number of
-times the process has transitioned from unboosted to boosted in brackets.  An
-asterisk before the value indicates that the process was able to send boosts at
-some point since the previous update.  For more information about boosts, see
-xpc_transaction_begin(3).
+The number of boosts held by the process.
+This is followed by the number of
+times the process has transitioned from unboosted to boosted in brackets.
+An asterisk before the value indicates that the process was able to send boosts
+at some point since the previous update.
+For more information about boosts, see
+.Xr xpc_transaction_begin 3 .
 .It instrs
 The number of instructions retired by the process in both user space and the
 kernel.
@@ -258,9 +271,11 @@ Display the global statistics for swap and purgeable memory.
 .It Fl s Ar delay-secs
 Set the delay between updates to
 .Ar delay-secs
-seconds.  The default delay between updates is 1 second.
+seconds.
+The default delay between updates is 1 second.
 .It Fl stats Ar keys
-Only display the comma separated statistics.  See the
+Only display the comma separated statistics.
+See the
 .Fl o
 flag for the valid
 .Ar keys .
@@ -280,11 +295,12 @@ This is an alias for
 This is an alias equivalent to:
 .Fl o Ar cpu Fl O Ar time
 .El
-.\"
+.
 .Sh DISPLAY
 The first several lines of the
 .Nm
-display show various global state.  All of the information is labeled.
+display show various global state.
+All of the information is labeled.
 Following is an alphabetical list of global state fields and their descriptions.
 .Bl -tag -width "MemRegions"
 .It CPU
@@ -294,8 +310,8 @@ counting mode.
 .It Disks
 Number and total size of disk reads and writes.
 .It LoadAvg
-Load average over 1, 5, and 15 minutes.  The load average is the average number
-of jobs in the run queue.
+Load average over 1, 5, and 15 minutes.
+The load average is the average number of jobs in the run queue.
 .It MemRegions
 Number and total size of memory regions, and total size of memory regions broken
 into private
@@ -313,10 +329,11 @@ Resident sizes of code and data segments, and link editor memory usage.
 .It Threads
 Number of threads.
 .It Time
-Time, in H:MM:SS format.  When running in logging mode, Time is in YYYY/MM/DD
-HH:MM:SS format by default, but may be overridden with accumulative mode.  When
-running in accumulative event counting mode, the Time is in HH:MM:SS since the
-beginning of the
+Time, in H:MM:SS format.
+When running in logging mode, Time is in YYYY/MM/DD HH:MM:SS format by default,
+but may be overridden with accumulative mode.
+When running in accumulative event counting mode, the Time is in HH:MM:SS since
+the beginning of the
 .Nm
 process.
 .It VirtMem
@@ -329,9 +346,9 @@ swap space available.
 Number of pages purged and number of pages currently purgeable.
 .El
 .Pp
-Below the global state fields, a list of processes is displayed.  The fields
-that are displayed depend on the options that are set.  The pid field displays
-the following for the architecture:
+Below the global state fields, a list of processes is displayed.
+The fields that are displayed depend on the options that are set.
+The pid field displays the following for the architecture:
 .Pp
 + for 64-bit native architecture, or - for 32-bit native architecture, or * for
 a non-native architecture.
@@ -342,11 +359,13 @@ is run in interactive
 .Pq non-logging
 mode, it is possible to control the output of
 .Nm ,
-as well as interactively send signals to processes.  The interactive command
-syntax is terse.  Each command is one character, followed by 0 to 2 arguments.
+as well as interactively send signals to processes.
+The interactive command syntax is terse.
+Each command is one character, followed by 0 to 2 arguments.
 Commands that take arguments prompt interactively for the arguments, and where
-applicable, the default value is shown in square brackets.  The default value
-can be selected by leaving the input field blank and pressing enter.
+applicable, the default value is shown in square brackets.
+The default value can be selected by leaving the input field blank and pressing
+enter.
 .Li ^G
 escapes the interactive argument prompt, and has the same effect as leaving the
 input field blank and pressing enter.
@@ -354,8 +373,9 @@ input field blank and pressing enter.
 The following commands are supported:
 .Bl -tag -width indent
 .It ?
-Display the help screen.  Any character exits help screen mode.  This command
-always works, even in the middle of a command.
+Display the help screen.
+Any character exits help screen mode.
+This command always works, even in the middle of a command.
 .It ^L
 Redraw the screen.
 .It c Ns Ar mode
@@ -367,15 +387,17 @@ option for descriptions of the allowed modes.
 .It O Ns Ar skey
 Use
 .Ar skey
-as a secondary key when ordering the process display.  See the
+as a secondary key when ordering the process display.
+See the
 .Fl o
 option for key names.
 .It o Ns Ar key
 Order the process display by sorting on
 .Ar key
-in descending order.  A + or - can be prefixed to the key name to specify
-ascending or descending order, respectively.  The supported keys and alises are
-listed with the
+in descending order.
+A + or - can be prefixed to the key name to specify ascending or descending
+order, respectively.
+The supported keys and alises are listed with the
 .Fl o
 option above.
 .It q
@@ -403,18 +425,19 @@ seconds.
 .It U Ar user
 Only display processes owned by
 .Ar user.
-Either the username or uid number can be specified.  To display all processes,
-press enter without entering a username or uid number.
+Either the username or uid number can be specified.
+To display all processes, press enter without entering a username or uid number.
 .El
-.\"
+.
 .Sh PERFORMANCE/ACCURACY TRADEOFF
-Calculating detailed memory statistics is fundamentally resource-intensive.  To
-reduce the CPU usage in
+Calculating detailed memory statistics is fundamentally resource-intensive.
+To reduce the CPU usage in
 .Nm ,
 the
 .Fl i
-option has been introduced to allow the user to tune this tradeoff.  With the
-default value of 10, framework stats will be updated once every 10 samples.
+option has been introduced to allow the user to tune this tradeoff.
+With the default value of 10, framework stats will be updated once every 10
+samples.
 Specifying
 .Fl i Ar 1
 will result in the most accurate display, at the expense of system resources.
@@ -427,12 +450,13 @@ optionally enabled via
 .Fl r
 or the interactive
 .Cm r
-command.  To enable the
+command.
+To enable the
 .Fl r
 option, use it after any
 .Fl c
 mode options.
-.\"
+.
 .Sh EXAMPLES
 .Bl -tag -width indent
 .It top -o cpu -O +rsize -s 5 -n 20
@@ -447,9 +471,10 @@ in delta mode.
 Display only the specified statistics, regardless of any growth of the terminal.
 If the terminal is too small, only the statistics that fit will be displayed.
 .El
-.\"
+.
 .Sh SEE ALSO
-.Xr kill 2 ,
+.Xr taskinfo 1 ,
 .Xr vm_stat 1 ,
-.Xr signal 3 ,
-.Xr vmmap 1
+.Xr vmmap 1 ,
+.Xr kill 2 ,
+.Xr signal 3

@@ -28,15 +28,16 @@
 
 #if ENABLE(ACCESSIBILITY) && PLATFORM(MAC)
 
-#import "AXIsolatedTreeNode.h"
+#import "AXIsolatedObject.h"
 #import "AccessibilityObject.h"
 #import "AccessibilityTable.h"
 #import "RenderObject.h"
 #import "WebAccessibilityObjectWrapperMac.h"
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
+#import <pal/spi/mac/HIServicesSPI.h>
 
 #if USE(APPLE_INTERNAL_SDK)
-#include <ApplicationServices/ApplicationServicesPriv.h>
+#import <ApplicationServices/ApplicationServicesPriv.h>
 #endif
 
 #ifndef NSAccessibilityLiveRegionChangedNotification
@@ -93,6 +94,30 @@
 
 #ifndef NSAccessibilitySelectedTextMarkerRangeAttribute
 #define NSAccessibilitySelectedTextMarkerRangeAttribute @"AXSelectedTextMarkerRange"
+#endif
+
+#ifndef kAXDraggingSourceDragBeganNotification
+#define kAXDraggingSourceDragBeganNotification CFSTR("AXDraggingSourceDragBegan")
+#endif
+
+#ifndef kAXDraggingSourceDragEndedNotification
+#define kAXDraggingSourceDragEndedNotification CFSTR("AXDraggingSourceDragEnded")
+#endif
+
+#ifndef kAXDraggingDestinationDropAllowedNotification
+#define kAXDraggingDestinationDropAllowedNotification CFSTR("AXDraggingDestinationDropAllowed")
+#endif
+
+#ifndef kAXDraggingDestinationDropNotAllowedNotification
+#define kAXDraggingDestinationDropNotAllowedNotification CFSTR("AXDraggingDestinationDropNotAllowed")
+#endif
+
+#ifndef kAXDraggingDestinationDragAcceptedNotification
+#define kAXDraggingDestinationDragAcceptedNotification CFSTR("AXDraggingDestinationDragAccepted")
+#endif
+
+#ifndef kAXDraggingDestinationDragNotAcceptedNotification
+#define kAXDraggingDestinationDragNotAcceptedNotification CFSTR("AXDraggingDestinationDragNotAccepted")
 #endif
 
 // Very large strings can negatively impact the performance of notifications, so this length is chosen to try to fit an average paragraph or line of text, but not allow strings to be large enough to hurt performance.
@@ -232,12 +257,6 @@ static AXTextSelectionGranularity platformGranularityForWebCoreGranularity(WebCo
 
 namespace WebCore {
 
-void AXObjectCache::detachWrapper(AccessibilityObject* obj, AccessibilityDetachmentType)
-{
-    [obj->wrapper() detach];
-    obj->setWrapper(nullptr);
-}
-
 void AXObjectCache::attachWrapper(AXCoreObject* obj)
 {
     RetainPtr<WebAccessibilityObjectWrapper> wrapper = adoptNS([[WebAccessibilityObjectWrapper alloc] initWithAccessibilityObject:obj]);
@@ -309,7 +328,7 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* obj, AXNotification n
             macNotification = @"AXInvalidStatusChanged";
             break;
         case AXSelectedChildrenChanged:
-            if (is<AccessibilityTable>(*obj) && downcast<AccessibilityTable>(*obj).isExposableThroughAccessibility())
+            if (obj->isTable() && obj->isExposable())
                 macNotification = NSAccessibilitySelectedRowsChangedNotification;
             else
                 macNotification = NSAccessibilitySelectedChildrenChangedNotification;
@@ -346,6 +365,7 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* obj, AXNotification n
             macNotification = (id)kAXMenuClosedNotification;
             break;
         case AXMenuListItemSelected:
+        case AXMenuListValueChanged:
             macNotification = (id)kAXMenuItemSelectedNotification;
             break;
         case AXPressDidSucceed:
@@ -356,6 +376,21 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* obj, AXNotification n
             break;
         case AXMenuOpened:
             macNotification = (id)kAXMenuOpenedNotification;
+            break;
+        case AXDraggingStarted:
+            macNotification = (id)kAXDraggingSourceDragBeganNotification;
+            break;
+        case AXDraggingEnded:
+            macNotification = (id)kAXDraggingSourceDragEndedNotification;
+            break;
+        case AXDraggingEnteredDropZone:
+            macNotification = (id)kAXDraggingDestinationDropAllowedNotification;
+            break;
+        case AXDraggingDropped:
+            macNotification = (id)kAXDraggingDestinationDragAcceptedNotification;
+            break;
+        case AXDraggingExitedDropZone:
+            macNotification = (id)kAXDraggingDestinationDragNotAcceptedNotification;
             break;
         default:
             return;
@@ -370,7 +405,7 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* obj, AXNotification n
     AXPostNotificationWithUserInfo(obj->wrapper(), macNotification, nil, skipSystemNotification);
 }
 
-void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject* object, const AXTextStateChangeIntent& intent, const VisibleSelection& selection)
+void AXObjectCache::postTextStateChangePlatformNotification(AXCoreObject* object, const AXTextStateChangeIntent& intent, const VisibleSelection& selection)
 {
     if (!object)
         object = rootWebArea();
@@ -409,7 +444,7 @@ void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject*
         }
     }
     if (!selection.isNone()) {
-        if (id textMarkerRange = [object->wrapper() textMarkerRangeFromVisiblePositions:selection.visibleStart() endPosition:selection.visibleEnd()])
+        if (id textMarkerRange = textMarkerRangeFromVisiblePositions(this, selection.visibleStart(), selection.visibleEnd()))
             [userInfo setObject:textMarkerRange forKey:NSAccessibilitySelectedTextMarkerRangeAttribute];
     }
 
@@ -425,7 +460,7 @@ void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject*
     [userInfo release];
 }
 
-static void addTextMarkerFor(NSMutableDictionary* change, AccessibilityObject& object, const VisiblePosition& position)
+static void addTextMarkerFor(NSMutableDictionary* change, AXCoreObject& object, const VisiblePosition& position)
 {
     if (position.isNull())
         return;
@@ -433,14 +468,14 @@ static void addTextMarkerFor(NSMutableDictionary* change, AccessibilityObject& o
         [change setObject:textMarker forKey:NSAccessibilityTextChangeValueStartMarker];
 }
 
-static void addTextMarkerFor(NSMutableDictionary* change, AccessibilityObject& object, HTMLTextFormControlElement& textControl)
+static void addTextMarkerFor(NSMutableDictionary* change, AXCoreObject& object, HTMLTextFormControlElement& textControl)
 {
     if (id textMarker = [object.wrapper() textMarkerForFirstPositionInTextControl:textControl])
         [change setObject:textMarker forKey:NSAccessibilityTextChangeValueStartMarker];
 }
 
 template <typename TextMarkerTargetType>
-static NSDictionary *textReplacementChangeDictionary(AccessibilityObject& object, AXTextEditType type, const String& string, TextMarkerTargetType& markerTarget)
+static NSDictionary *textReplacementChangeDictionary(AXCoreObject& object, AXTextEditType type, const String& string, TextMarkerTargetType& markerTarget)
 {
     NSString *text = (NSString *)string;
     NSUInteger length = [text length];
@@ -449,7 +484,7 @@ static NSDictionary *textReplacementChangeDictionary(AccessibilityObject& object
     NSMutableDictionary *change = [[NSMutableDictionary alloc] initWithCapacity:4];
     [change setObject:@(platformEditTypeForWebCoreEditType(type)) forKey:NSAccessibilityTextEditType];
     if (length > AXValueChangeTruncationLength) {
-        [change setObject:[NSNumber numberWithInt:length] forKey:NSAccessibilityTextChangeValueLength];
+        [change setObject:@(length) forKey:NSAccessibilityTextChangeValueLength];
         text = [text substringToIndex:AXValueChangeTruncationLength];
     }
     [change setObject:text forKey:NSAccessibilityTextChangeValue];
@@ -465,7 +500,7 @@ void AXObjectCache::postTextStateChangePlatformNotification(AccessibilityObject*
     postTextReplacementPlatformNotification(object, AXTextEditTypeUnknown, emptyString(), type, text, position);
 }
 
-static void postUserInfoForChanges(AccessibilityObject& rootWebArea, AccessibilityObject& object, NSMutableArray* changes)
+static void postUserInfoForChanges(AXCoreObject& rootWebArea, AXCoreObject& object, NSMutableArray* changes)
 {
     NSMutableDictionary *userInfo = [[NSMutableDictionary alloc] initWithCapacity:4];
     [userInfo setObject:@(platformChangeTypeForWebCoreChangeType(AXTextStateChangeTypeEdit)) forKey:NSAccessibilityTextStateChangeTypeKey];
@@ -482,7 +517,7 @@ static void postUserInfoForChanges(AccessibilityObject& rootWebArea, Accessibili
     [userInfo release];
 }
 
-void AXObjectCache::postTextReplacementPlatformNotification(AccessibilityObject* object, AXTextEditType deletionType, const String& deletedText, AXTextEditType insertionType, const String& insertedText, const VisiblePosition& position)
+void AXObjectCache::postTextReplacementPlatformNotification(AXCoreObject* object, AXTextEditType deletionType, const String& deletedText, AXTextEditType insertionType, const String& insertedText, const VisiblePosition& position)
 {
     if (!object)
         object = rootWebArea();
@@ -495,11 +530,13 @@ void AXObjectCache::postTextReplacementPlatformNotification(AccessibilityObject*
         [changes addObject:change];
     if (NSDictionary *change = textReplacementChangeDictionary(*object, insertionType, insertedText, position))
         [changes addObject:change];
-    postUserInfoForChanges(*rootWebArea(), *object, changes);
+
+    if (auto* root = rootWebArea())
+        postUserInfoForChanges(*root, *object, changes);
     [changes release];
 }
 
-void AXObjectCache::postTextReplacementPlatformNotificationForTextControl(AccessibilityObject* object, const String& deletedText, const String& insertedText, HTMLTextFormControlElement& textControl)
+void AXObjectCache::postTextReplacementPlatformNotificationForTextControl(AXCoreObject* object, const String& deletedText, const String& insertedText, HTMLTextFormControlElement& textControl)
 {
     if (!object)
         object = rootWebArea();
@@ -512,7 +549,9 @@ void AXObjectCache::postTextReplacementPlatformNotificationForTextControl(Access
         [changes addObject:change];
     if (NSDictionary *change = textReplacementChangeDictionary(*object, AXTextEditTypeInsert, insertedText, textControl))
         [changes addObject:change];
-    postUserInfoForChanges(*rootWebArea(), *object, changes);
+
+    if (auto* root = rootWebArea())
+        postUserInfoForChanges(*root, *object, changes);
     [changes release];
 }
 
@@ -545,6 +584,50 @@ void AXObjectCache::handleScrolledToAnchor(const Node*)
 
 void AXObjectCache::platformPerformDeferredCacheUpdate()
 {
+}
+
+// TextMarker utility functions.
+
+static id AXTextMarkerRange(id startMarker, id endMarker)
+{
+    ASSERT(startMarker);
+    ASSERT(endMarker);
+    ASSERT(CFGetTypeID((__bridge CFTypeRef)startMarker) == AXTextMarkerGetTypeID());
+    ASSERT(CFGetTypeID((__bridge CFTypeRef)endMarker) == AXTextMarkerGetTypeID());
+    return CFBridgingRelease(AXTextMarkerRangeCreate(kCFAllocatorDefault, (AXTextMarkerRef)startMarker, (AXTextMarkerRef)endMarker));
+}
+
+id textMarkerRangeFromMarkers(id textMarker1, id textMarker2)
+{
+    if (!textMarker1 || !textMarker2)
+        return nil;
+
+    return AXTextMarkerRange(textMarker1, textMarker2);
+}
+
+id textMarkerForVisiblePosition(AXObjectCache* cache, const VisiblePosition& visiblePos)
+{
+    ASSERT(isMainThread());
+    ASSERT(cache);
+    if (!cache)
+        return nil;
+
+    auto textMarkerData = cache->textMarkerDataForVisiblePosition(visiblePos);
+    if (!textMarkerData)
+        return nil;
+
+    return CFBridgingRelease(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&textMarkerData.value(), sizeof(textMarkerData.value())));
+}
+
+id textMarkerRangeFromVisiblePositions(AXObjectCache* cache, const VisiblePosition& startPosition, const VisiblePosition& endPosition)
+{
+    ASSERT(isMainThread());
+    if (!cache)
+        return nil;
+
+    id startTextMarker = textMarkerForVisiblePosition(cache, startPosition);
+    id endTextMarker = textMarkerForVisiblePosition(cache, endPosition);
+    return textMarkerRangeFromMarkers(startTextMarker, endTextMarker);
 }
 
 }

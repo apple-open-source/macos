@@ -57,7 +57,7 @@
     padding: 4px 0 2px;
     -webkit-appearance: unset;
     border: 1px solid hsl(0, 0%, 78%);
-    background: var(--background-color-code);
+    background: var(--background-color-content);
     border-color: var(--text-color-quaternary);
 }
 
@@ -96,6 +96,18 @@
 
 .popover .local-resource-override-popover-content .add-header {
     margin-top: 8px;
+}
+
+.popover .local-resource-override-popover-content .reference-page-link-container {
+    margin-top: 6px;
+}
+
+body[dir=ltr] .popover .local-resource-override-popover-content .reference-page-link-container {
+    float: right;
+}
+
+body[dir=rtl] .popover .local-resource-override-popover-content .reference-page-link-container {
+    float: left;
 }
 
 @media (prefers-color-scheme: dark) {

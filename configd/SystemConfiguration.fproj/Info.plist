@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>SystemConfiguration</string>
 	<key>CFBundleGetInfoString</key>
-	<string>1.19</string>
+	<string>1.20</string>
 	<key>CFBundleIdentifier</key>
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -17,10 +17,10 @@
 	<key>CFBundlePackageType</key>
 	<string>FMWK</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.19</string>
+	<string>1.20</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.19</string>
+	<string>1.20</string>
 </dict>
 </plist>

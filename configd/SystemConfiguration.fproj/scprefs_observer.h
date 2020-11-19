@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, 2017, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2014, 2017-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,7 +34,6 @@ typedef enum {
 		scprefs_observer_type_mcx	= 1,
 #else	// !TARGET_OS_IPHONE
 		scprefs_observer_type_global	= 2,
-		scprefs_observer_type_profile	= 3,
 #endif	// !TARGET_OS_IPHONE
 } _scprefs_observer_type;
 
@@ -58,7 +57,7 @@ _scprefs_observer_watch(_scprefs_observer_type type, const char *plist_name,
 
 /*!
  @function prefs_observer_watch
- @discussion Cancells/deregisters the given preferences watcher.
+ @discussion Cancels/deregisters the given preferences watcher.
  @param observer the watcher to be cancelled.
  */
 void

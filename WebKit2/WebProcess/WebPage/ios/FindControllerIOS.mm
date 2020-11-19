@@ -51,18 +51,15 @@ const int cornerRadius = 3;
 const int totalHorizontalMargin = 1;
 const int totalVerticalMargin = 1;
 
-const TextIndicatorOptions findTextIndicatorOptions = TextIndicatorOptionIncludeMarginIfRangeMatchesSelection | TextIndicatorOptionDoNotClipToVisibleRect;
+constexpr OptionSet<TextIndicatorOption> findTextIndicatorOptions { TextIndicatorOption::IncludeMarginIfRangeMatchesSelection, TextIndicatorOption::DoNotClipToVisibleRect };
 
-static Color highlightColor()
-{
-    return Color(255, 228, 56, 255);
-}
+static constexpr auto highlightColor = SRGBA<uint8_t> { 255, 228, 56 };
 
 void FindIndicatorOverlayClientIOS::drawRect(PageOverlay& overlay, GraphicsContext& context, const IntRect& dirtyRect)
 {
     float scaleFactor = m_frame.page()->deviceScaleFactor();
 
-    if (m_frame.view() && m_frame.view()->delegatesPageScaling())
+    if (m_frame.page()->delegatesScaling())
         scaleFactor *= m_frame.page()->pageScaleFactor();
 
     // If the page scale changed, we need to paint a new TextIndicator.
@@ -79,7 +76,7 @@ void FindIndicatorOverlayClientIOS::drawRect(PageOverlay& overlay, GraphicsConte
     Vector<FloatRect> textRectsInBoundingRectCoordinates = m_textIndicator->textRectsInBoundingRectCoordinates();
     Vector<Path> paths = PathUtilities::pathsWithShrinkWrappedRects(textRectsInBoundingRectCoordinates, cornerRadius);
 
-    context.setFillColor(highlightColor());
+    context.setFillColor(highlightColor);
     for (const auto& path : paths)
         context.fillPath(path);
 

@@ -6,6 +6,7 @@
  * others. All Rights Reserved.
  ********************************************************************/
 
+#include <functional>
 #include <iterator>
 #include <set>
 #include <utility>
@@ -146,13 +147,12 @@ static const char* const rawData[33][8] = {
    the macro is ugly but makes the tests pretty.
 */
 
-#define test_assert(test) \
-    { \
-        if(!(test)) \
-            errln("FAIL: " #test " was not true. In " __FILE__ " on line %d", __LINE__ ); \
-        else \
-            logln("PASS: asserted " #test); \
-    }
+#define test_assert(test) UPRV_BLOCK_MACRO_BEGIN { \
+    if(!(test)) \
+        errln("FAIL: " #test " was not true. In " __FILE__ " on line %d", __LINE__ ); \
+    else \
+        logln("PASS: asserted " #test); \
+} UPRV_BLOCK_MACRO_END
 
 /*
  Usage:
@@ -164,16 +164,17 @@ static const char* const rawData[33][8] = {
    the macro is ugly but makes the tests pretty.
 */
 
-#define test_assert_print(test,print) \
-    { \
-        if(!(test)) \
-            errln("FAIL: " #test " was not true. " + UnicodeString(print) ); \
-        else \
-            logln("PASS: asserted " #test "-> " + UnicodeString(print)); \
-    }
+#define test_assert_print(test,print) UPRV_BLOCK_MACRO_BEGIN { \
+    if(!(test)) \
+        errln("FAIL: " #test " was not true. " + UnicodeString(print) ); \
+    else \
+        logln("PASS: asserted " #test "-> " + UnicodeString(print)); \
+} UPRV_BLOCK_MACRO_END
 
 
-#define test_dumpLocale(l) { logln(#l " = " + UnicodeString(l.getName(), "")); }
+#define test_dumpLocale(l) UPRV_BLOCK_MACRO_BEGIN { \
+    logln(#l " = " + UnicodeString(l.getName(), "")); \
+} UPRV_BLOCK_MACRO_END
 
 LocaleTest::LocaleTest()
 : dataTable(NULL)
@@ -221,6 +222,7 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
     TESTCASE_AUTO(Test4147317);
     TESTCASE_AUTO(Test4147552);
     TESTCASE_AUTO(TestVariantParsing);
+    TESTCASE_AUTO(Test20639_DeprecatesISO3Language);
 #if !UCONFIG_NO_FORMATTING
     TESTCASE_AUTO(Test4105828);
 #endif
@@ -233,7 +235,9 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
     TESTCASE_AUTO(TestCreateUnicodeKeywords);
     TESTCASE_AUTO(TestKeywordVariantParsing);
     TESTCASE_AUTO(TestCreateKeywordSet);
+    TESTCASE_AUTO(TestCreateKeywordSetEmpty);
     TESTCASE_AUTO(TestCreateUnicodeKeywordSet);
+    TESTCASE_AUTO(TestCreateUnicodeKeywordSetEmpty);
     TESTCASE_AUTO(TestGetKeywordValueStdString);
     TESTCASE_AUTO(TestGetUnicodeKeywordValueStdString);
     TESTCASE_AUTO(TestSetKeywordValue);
@@ -251,6 +255,7 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
     TESTCASE_AUTO(TestBug13277);
     TESTCASE_AUTO(TestBug13554);
     TESTCASE_AUTO(TestBug20410);
+    TESTCASE_AUTO(TestConstructorAcceptsBCP47);
     TESTCASE_AUTO(TestForLanguageTag);
     TESTCASE_AUTO(TestToLanguageTag);
     TESTCASE_AUTO(TestMoveAssign);
@@ -262,6 +267,12 @@ void LocaleTest::runIndexedTest( int32_t index, UBool exec, const char* &name, c
     TESTCASE_AUTO(TestUndScript);
     TESTCASE_AUTO(TestUndRegion);
     TESTCASE_AUTO(TestUndCAPI);
+    TESTCASE_AUTO(TestRangeIterator);
+    TESTCASE_AUTO(TestPointerConvertingIterator);
+    TESTCASE_AUTO(TestTagConvertingIterator);
+    TESTCASE_AUTO(TestCapturingTagConvertingIterator);
+    TESTCASE_AUTO(TestSetUnicodeKeywordValueInLongLocale);
+    TESTCASE_AUTO(TestSetUnicodeKeywordValueNullInLongLocale);
     TESTCASE_AUTO_END;
 }
 
@@ -898,8 +909,8 @@ LocaleTest::TestGetLangsAndCountries()
       ;
 
     /* TODO: Change this test to be more like the cloctst version? */
-    if (testCount != 595)
-        errln("Expected getISOLanguages() to return 595 languages; it returned %d", testCount);
+    if (testCount != 596)
+        errln("Expected getISOLanguages() to return 596 languages; it returned %d", testCount);
     else {
         for (i = 0; i < 15; i++) {
             int32_t j;
@@ -1574,6 +1585,27 @@ LocaleTest::TestVariantParsing()
     }
 }
 
+void LocaleTest::Test20639_DeprecatesISO3Language() {
+    IcuTestErrorCode status(*this, "Test20639_DeprecatesISO3Language");
+
+    const struct TestCase {
+        const char* localeName;
+        const char* expectedISO3Language;
+    } cases[] = {
+        {"nb", "nob"},
+        {"no", "nor"}, // why not nob?
+        {"he", "heb"},
+        {"iw", "heb"},
+        {"ro", "ron"},
+        {"mo", "mol"},
+    };
+    for (auto& cas : cases) {
+        Locale loc(cas.localeName);
+        const char* actual = loc.getISO3Language();
+        assertEquals(cas.localeName, cas.expectedISO3Language, actual);
+    }
+}
+
 #if !UCONFIG_NO_FORMATTING
 
 /**
@@ -1913,6 +1945,21 @@ LocaleTest::TestCreateKeywordSet(void) {
 }
 
 void
+LocaleTest::TestCreateKeywordSetEmpty(void) {
+    IcuTestErrorCode status(*this, "TestCreateKeywordSetEmpty()");
+
+    static const Locale l("de");
+
+    std::set<std::string> result;
+    l.getKeywords<std::string>(
+            std::insert_iterator<decltype(result)>(result, result.begin()),
+            status);
+    status.errIfFailureAndReset("\"%s\"", l.getName());
+
+    assertEquals("set::size()", 0, static_cast<int32_t>(result.size()));
+}
+
+void
 LocaleTest::TestCreateUnicodeKeywordSet(void) {
     IcuTestErrorCode status(*this, "TestCreateUnicodeKeywordSet()");
 
@@ -1929,6 +1976,21 @@ LocaleTest::TestCreateUnicodeKeywordSet(void) {
                result.find("ca") != result.end());
     assertTrue("set::find(\"co\")",
                result.find("co") != result.end());
+}
+
+void
+LocaleTest::TestCreateUnicodeKeywordSetEmpty(void) {
+    IcuTestErrorCode status(*this, "TestCreateUnicodeKeywordSetEmpty()");
+
+    static const Locale l("de");
+
+    std::set<std::string> result;
+    l.getUnicodeKeywords<std::string>(
+            std::insert_iterator<decltype(result)>(result, result.begin()),
+            status);
+    status.errIfFailureAndReset("\"%s\"", l.getName());
+
+    assertEquals("set::size()", 0, static_cast<int32_t>(result.size()));
 }
 
 void
@@ -2642,7 +2704,7 @@ void LocaleTest::TestCurrencyByDate(void)
 #if !UCONFIG_NO_FORMATTING
     UErrorCode status = U_ZERO_ERROR;
     UDate date = uprv_getUTCtime();
-	UChar TMP[4];
+	UChar TMP[4] = {0, 0, 0, 0};
 	int32_t index = 0;
 	int32_t resLen = 0;
     UnicodeString tempStr, resultStr;
@@ -3065,6 +3127,45 @@ void LocaleTest::TestBug20410() {
     Locale result4 = Locale::createCanonical(locid4);
     static const Locale expected4("jbo@x=0");
     assertEquals(locid4, expected4.getName(), result4.getName());
+}
+
+void LocaleTest::TestConstructorAcceptsBCP47() {
+    IcuTestErrorCode status(*this, "TestConstructorAcceptsBCP47");
+
+    Locale loc1("ar-EG-u-nu-latn");
+    Locale loc2("ar-EG@numbers=latn");
+    Locale loc3("ar-EG");
+    std::string val;
+
+    // Check getKeywordValue "numbers"
+    val = loc1.getKeywordValue<std::string>("numbers", status);
+    assertEquals("BCP47 syntax has ICU keyword value", "latn", val.c_str());
+
+    val = loc2.getKeywordValue<std::string>("numbers", status);
+    assertEquals("ICU syntax has ICU keyword value", "latn", val.c_str());
+
+    val = loc3.getKeywordValue<std::string>("numbers", status);
+    assertEquals("Default, ICU keyword", "", val.c_str());
+
+    // Check getUnicodeKeywordValue "nu"
+    val = loc1.getUnicodeKeywordValue<std::string>("nu", status);
+    assertEquals("BCP47 syntax has short unicode keyword value", "latn", val.c_str());
+
+    val = loc2.getUnicodeKeywordValue<std::string>("nu", status);
+    assertEquals("ICU syntax has short unicode keyword value", "latn", val.c_str());
+
+    val = loc3.getUnicodeKeywordValue<std::string>("nu", status);
+    status.expectErrorAndReset(U_ILLEGAL_ARGUMENT_ERROR, "Default, short unicode keyword");
+
+    // Check getUnicodeKeywordValue "numbers"
+    val = loc1.getUnicodeKeywordValue<std::string>("numbers", status);
+    assertEquals("BCP47 syntax has long unicode keyword value", "latn", val.c_str());
+
+    val = loc2.getUnicodeKeywordValue<std::string>("numbers", status);
+    assertEquals("ICU syntax has long unicode keyword value", "latn", val.c_str());
+
+    val = loc3.getUnicodeKeywordValue<std::string>("numbers", status);
+    status.expectErrorAndReset(U_ILLEGAL_ARGUMENT_ERROR, "Default, long unicode keyword");
 }
 
 void LocaleTest::TestForLanguageTag() {
@@ -3764,4 +3865,185 @@ void LocaleTest::TestUndCAPI() {
     status.errIfFailureAndReset("\"%s\"", und_region);
     assertTrue("reslen >= 0", reslen >= 0);
     assertEquals("uloc_getLanguage() 7", und, tmp); // change from open ICU
+}
+
+#define ARRAY_RANGE(array) (array), ((array) + UPRV_LENGTHOF(array))
+
+void LocaleTest::TestRangeIterator() {
+    IcuTestErrorCode status(*this, "TestRangeIterator");
+    Locale locales[] = { "fr", "en_GB", "en" };
+    Locale::RangeIterator<Locale *> iter(ARRAY_RANGE(locales));
+
+    assertTrue("0.hasNext()", iter.hasNext());
+    const Locale &l0 = iter.next();
+    assertEquals("0.next()", "fr", l0.getName());
+    assertTrue("&0.next()", &l0 == &locales[0]);
+
+    assertTrue("1.hasNext()", iter.hasNext());
+    const Locale &l1 = iter.next();
+    assertEquals("1.next()", "en_GB", l1.getName());
+    assertTrue("&1.next()", &l1 == &locales[1]);
+
+    assertTrue("2.hasNext()", iter.hasNext());
+    const Locale &l2 = iter.next();
+    assertEquals("2.next()", "en", l2.getName());
+    assertTrue("&2.next()", &l2 == &locales[2]);
+
+    assertFalse("3.hasNext()", iter.hasNext());
+}
+
+void LocaleTest::TestPointerConvertingIterator() {
+    IcuTestErrorCode status(*this, "TestPointerConvertingIterator");
+    Locale locales[] = { "fr", "en_GB", "en" };
+    Locale *pointers[] = { locales, locales + 1, locales + 2 };
+    // Lambda with explicit reference return type to prevent copy-constructing a temporary
+    // which would be destructed right away.
+    Locale::ConvertingIterator<Locale **, std::function<const Locale &(const Locale *)>> iter(
+        ARRAY_RANGE(pointers), [](const Locale *p) -> const Locale & { return *p; });
+
+    assertTrue("0.hasNext()", iter.hasNext());
+    const Locale &l0 = iter.next();
+    assertEquals("0.next()", "fr", l0.getName());
+    assertTrue("&0.next()", &l0 == pointers[0]);
+
+    assertTrue("1.hasNext()", iter.hasNext());
+    const Locale &l1 = iter.next();
+    assertEquals("1.next()", "en_GB", l1.getName());
+    assertTrue("&1.next()", &l1 == pointers[1]);
+
+    assertTrue("2.hasNext()", iter.hasNext());
+    const Locale &l2 = iter.next();
+    assertEquals("2.next()", "en", l2.getName());
+    assertTrue("&2.next()", &l2 == pointers[2]);
+
+    assertFalse("3.hasNext()", iter.hasNext());
+}
+
+namespace {
+
+class LocaleFromTag {
+public:
+    LocaleFromTag() : locale(Locale::getRoot()) {}
+    const Locale &operator()(const char *tag) { return locale = Locale(tag); }
+
+private:
+    // Store the locale in the converter, rather than return a reference to a temporary,
+    // or a value which could go out of scope with the caller's reference to it.
+    Locale locale;
+};
+
+}  // namespace
+
+void LocaleTest::TestTagConvertingIterator() {
+    IcuTestErrorCode status(*this, "TestTagConvertingIterator");
+    const char *tags[] = { "fr", "en_GB", "en" };
+    LocaleFromTag converter;
+    Locale::ConvertingIterator<const char **, LocaleFromTag> iter(ARRAY_RANGE(tags), converter);
+
+    assertTrue("0.hasNext()", iter.hasNext());
+    const Locale &l0 = iter.next();
+    assertEquals("0.next()", "fr", l0.getName());
+
+    assertTrue("1.hasNext()", iter.hasNext());
+    const Locale &l1 = iter.next();
+    assertEquals("1.next()", "en_GB", l1.getName());
+
+    assertTrue("2.hasNext()", iter.hasNext());
+    const Locale &l2 = iter.next();
+    assertEquals("2.next()", "en", l2.getName());
+
+    assertFalse("3.hasNext()", iter.hasNext());
+}
+
+void LocaleTest::TestCapturingTagConvertingIterator() {
+    IcuTestErrorCode status(*this, "TestCapturingTagConvertingIterator");
+    const char *tags[] = { "fr", "en_GB", "en" };
+    // Store the converted locale in a locale variable,
+    // rather than return a reference to a temporary,
+    // or a value which could go out of scope with the caller's reference to it.
+    Locale locale;
+    // Lambda with explicit reference return type to prevent copy-constructing a temporary
+    // which would be destructed right away.
+    Locale::ConvertingIterator<const char **, std::function<const Locale &(const char *)>> iter(
+        ARRAY_RANGE(tags), [&](const char *tag) -> const Locale & { return locale = Locale(tag); });
+
+    assertTrue("0.hasNext()", iter.hasNext());
+    const Locale &l0 = iter.next();
+    assertEquals("0.next()", "fr", l0.getName());
+
+    assertTrue("1.hasNext()", iter.hasNext());
+    const Locale &l1 = iter.next();
+    assertEquals("1.next()", "en_GB", l1.getName());
+
+    assertTrue("2.hasNext()", iter.hasNext());
+    const Locale &l2 = iter.next();
+    assertEquals("2.next()", "en", l2.getName());
+
+    assertFalse("3.hasNext()", iter.hasNext());
+}
+
+void LocaleTest::TestSetUnicodeKeywordValueInLongLocale() {
+    IcuTestErrorCode status(*this, "TestSetUnicodeKeywordValueInLongLocale");
+    const char* value = "efghijkl";
+    icu::Locale l("de");
+    char keyword[3];
+    CharString expected("de-u", status);
+    keyword[2] = '\0';
+    for (char i = 'a'; i < 's'; i++) {
+        keyword[0] = keyword[1] = i;
+        expected.append("-", status);
+        expected.append(keyword, status);
+        expected.append("-", status);
+        expected.append(value, status);
+        l.setUnicodeKeywordValue(keyword, value, status);
+        if (status.errIfFailureAndReset(
+            "setUnicodeKeywordValue(\"%s\", \"%s\") fail while locale is \"%s\"",
+            keyword, value, l.getName())) {
+            return;
+        }
+        std::string tag = l.toLanguageTag<std::string>(status);
+        if (status.errIfFailureAndReset(
+            "toLanguageTag fail on \"%s\"", l.getName())) {
+            return;
+        }
+        if (tag != expected.data()) {
+            errln("Expected to get \"%s\" bug got \"%s\"", tag.c_str(),
+                  expected.data());
+            return;
+        }
+    }
+}
+
+void LocaleTest::TestSetUnicodeKeywordValueNullInLongLocale() {
+    IcuTestErrorCode status(*this, "TestSetUnicodeKeywordValueNullInLongLocale");
+    const char *exts[] = {"cf", "cu", "em", "kk", "kr", "ks", "kv", "lb", "lw",
+      "ms", "nu", "rg", "sd", "ss", "tz"};
+    for (int32_t i = 0; i < UPRV_LENGTHOF(exts); i++) {
+        CharString tag("de-u", status);
+        for (int32_t j = 0; j <= i; j++) {
+            tag.append("-", status).append(exts[j], status);
+        }
+        if (status.errIfFailureAndReset(
+                "Cannot create tag \"%s\"", tag.data())) {
+            continue;
+        }
+        Locale l = Locale::forLanguageTag(tag.data(), status);
+        if (status.errIfFailureAndReset(
+                "Locale::forLanguageTag(\"%s\") failed", tag.data())) {
+            continue;
+        }
+        for (int32_t j = 0; j <= i; j++) {
+            l.setUnicodeKeywordValue(exts[j], nullptr, status);
+            if (status.errIfFailureAndReset(
+                    "Locale(\"%s\").setUnicodeKeywordValue(\"%s\", nullptr) failed",
+                    tag.data(), exts[j])) {
+                 continue;
+            }
+        }
+        if (strcmp("de", l.getName()) != 0) {
+            errln("setUnicodeKeywordValue should remove all extensions from "
+                  "\"%s\" and only have \"de\", but is \"%s\" instead.",
+                  tag.data(), l.getName());
+        }
+    }
 }

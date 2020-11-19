@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@ enum class StorageAccessWasGranted : bool;
 
 namespace WebKit {
 
+class RemoteRenderingBackend;
 class WebFrame;
 class WebPage;
 
@@ -75,7 +76,7 @@ private:
     // Frame wants to create the new Page.  Also, the newly created window
     // should not be shown to the user until the ChromeClient of the newly
     // created Page has its show method called.
-    WebCore::Page* createWindow(WebCore::Frame&, const WebCore::FrameLoadRequest&, const WebCore::WindowFeatures&, const WebCore::NavigationAction&) final;
+    WebCore::Page* createWindow(WebCore::Frame&, const WebCore::WindowFeatures&, const WebCore::NavigationAction&) final;
     void show() final;
     
     bool canRunModal() final;
@@ -148,6 +149,7 @@ private:
 
 #if ENABLE(DATALIST_ELEMENT)
     std::unique_ptr<WebCore::DataListSuggestionPicker> createDataListSuggestionPicker(WebCore::DataListSuggestionsClient&) final;
+    bool canShowDataListSuggestionLabels() const final;
 #endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -183,6 +185,8 @@ private:
     void didDestroyEditableImage(WebCore::GraphicsLayer::EmbeddedViewID) final;
 
     bool shouldUseMouseEventForSelection(const WebCore::PlatformMouseEvent&) final;
+
+    bool showDataDetectorsUIForElement(const WebCore::Element&, const WebCore::Event&) final;
 #endif
 
 #if ENABLE(ORIENTATION_EVENTS)
@@ -195,7 +199,7 @@ private:
 
     void setCursor(const WebCore::Cursor&) final;
     void setCursorHiddenUntilMouseMoves(bool) final;
-#if !HAVE(NSCURSOR)
+#if !HAVE(NSCURSOR) && !PLATFORM(GTK)
     bool supportsSettingCursor() final { return false; }
 #endif
 
@@ -216,8 +220,7 @@ private:
     void attachRootGraphicsLayer(WebCore::Frame&, WebCore::GraphicsLayer*) final;
     void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) final;
     void setNeedsOneShotDrawingSynchronization() final;
-    void scheduleCompositingLayerFlush() final;
-    bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) final;
+    void scheduleRenderingUpdate() final;
 
     void contentRuleListNotification(const URL&, const WebCore::ContentRuleListResults&) final;
 
@@ -229,8 +232,13 @@ private:
     void AXFinishFrameLoad() final { }
 #endif
 
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
+    void animationDidFinishForElement(const WebCore::Element&) final;
+
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID) const final;
+
+#if ENABLE(GPU_PROCESS)
+    RemoteRenderingBackend& ensureRemoteRenderingBackend() const;
+    std::unique_ptr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::ShouldAccelerate, WebCore::ShouldUseDisplayList, WebCore::RenderingPurpose, float resolutionScale, WebCore::ColorSpace) const final;
 #endif
 
     CompositingTriggerFlags allowedCompositingTriggers() const final
@@ -250,22 +258,29 @@ private:
     }
 
     bool layerTreeStateIsFrozen() const final;
-    bool layerFlushThrottlingIsActive() const final;
 
 #if ENABLE(ASYNC_SCROLLING)
     RefPtr<WebCore::ScrollingCoordinator> createScrollingCoordinator(WebCore::Page&) const final;
 #endif
 
-#if (PLATFORM(IOS_FAMILY) && HAVE(AVKIT)) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    void prepareForVideoFullscreen() final;
     bool supportsVideoFullscreen(WebCore::HTMLMediaElementEnums::VideoFullscreenMode) final;
     bool supportsVideoFullscreenStandby() final;
-    void setUpPlaybackControlsManager(WebCore::HTMLMediaElement&) final;
-    void clearPlaybackControlsManager() final;
+    void setMockVideoPresentationModeEnabled(bool) final;
     void enterVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode, bool standby) final;
     void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&) final;
+    void setUpPlaybackControlsManager(WebCore::HTMLMediaElement&) final;
+    void clearPlaybackControlsManager() final;
 #endif
 
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+#if ENABLE(MEDIA_USAGE)
+    void addMediaUsageManagerSession(WebCore::MediaSessionIdentifier, const String&, const URL&) final;
+    void updateMediaUsageManagerSessionState(WebCore::MediaSessionIdentifier, const WebCore::MediaUsageInfo&) final;
+    void removeMediaUsageManagerSession(WebCore::MediaSessionIdentifier) final;
+#endif
+
+#if ENABLE(VIDEO_PRESENTATION_MODE)
     void exitVideoFullscreenToModeWithoutAnimation(WebCore::HTMLVideoElement&, WebCore::HTMLMediaElementEnums::VideoFullscreenMode) final;
 #endif
 
@@ -318,6 +333,8 @@ private:
 
     bool shouldUseTiledBackingForFrameView(const WebCore::FrameView&) const final;
 
+    MonotonicTime timestampForPaintFrequencyTracking() const final;
+
     void isPlayingMediaDidChange(WebCore::MediaProducer::MediaStateFlags, uint64_t) final;
     void handleAutoplayEvent(WebCore::AutoplayEvent, OptionSet<WebCore::AutoplayEventFlags>) final;
 
@@ -350,10 +367,10 @@ private:
     void inputElementDidResignStrongPasswordAppearance(WebCore::HTMLInputElement&) final;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
-    void addPlaybackTargetPickerClient(uint64_t /*contextId*/) final;
-    void removePlaybackTargetPickerClient(uint64_t /*contextId*/) final;
-    void showPlaybackTargetPicker(uint64_t contextId, const WebCore::IntPoint&, bool) final;
-    void playbackTargetPickerClientStateDidChange(uint64_t, WebCore::MediaProducer::MediaStateFlags) final;
+    void addPlaybackTargetPickerClient(WebCore::PlaybackTargetClientContextIdentifier) final;
+    void removePlaybackTargetPickerClient(WebCore::PlaybackTargetClientContextIdentifier) final;
+    void showPlaybackTargetPicker(WebCore::PlaybackTargetClientContextIdentifier, const WebCore::IntPoint&, bool) final;
+    void playbackTargetPickerClientStateDidChange(WebCore::PlaybackTargetClientContextIdentifier, WebCore::MediaProducer::MediaStateFlags) final;
     void setMockMediaPlaybackTargetPickerEnabled(bool) final;
     void setMockMediaPlaybackTargetPickerState(const String&, WebCore::MediaPlaybackTargetContext::State) final;
     void mockMediaPlaybackTargetPickerDismissPopup() final;
@@ -371,7 +388,7 @@ private:
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     void hasStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebCore::Frame&, WTF::CompletionHandler<void(bool)>&&) final;
-    void requestStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebCore::Frame&, WTF::CompletionHandler<void(WebCore::StorageAccessWasGranted, WebCore::StorageAccessPromptWasShown)>&&) final;
+    void requestStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebCore::Frame&, WebCore::StorageAccessScope, WTF::CompletionHandler<void(WebCore::RequestStorageAccessResult)>&&) final;
 #endif
 
 #if ENABLE(DEVICE_ORIENTATION)
@@ -387,10 +404,11 @@ private:
     void setMockWebAuthenticationConfiguration(const WebCore::MockWebAuthenticationConfiguration&) final;
 #endif
 
-    mutable RefPtr<WebFrame> m_cachedFrameSetLargestFrame;
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };
     mutable bool m_cachedMainFrameHasVerticalScrollbar { false };
-
+#if ENABLE(GPU_PROCESS)
+    mutable std::unique_ptr<RemoteRenderingBackend> m_remoteRenderingBackend;
+#endif
     WebPage& m_page;
 };
 

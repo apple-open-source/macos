@@ -30,6 +30,9 @@
  * $FreeBSD: src/bin/cp/extern.h,v 1.20 2005/09/05 04:36:08 csjp Exp $
  */
 
+#ifndef _CP_EXTERN_H_
+#define _CP_EXTERN_H_
+
 typedef struct {
 	char	*p_end;			/* pointer to NULL at end of path */
 	char	*target_end;		/* pointer to end of target base */
@@ -54,3 +57,5 @@ int	preserve_dir_acls(struct stat *, char *, char *);
 int	preserve_fd_acls(int, int);
 void	usage(void);
 __END_DECLS
+
+#endif /* _CP_EXTERN_H_ */

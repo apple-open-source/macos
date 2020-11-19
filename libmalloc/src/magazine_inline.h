@@ -34,10 +34,10 @@ extern unsigned int _os_cpu_number_override;
  * and immediately return an error if the requested size exceeds this maximum.
  * Of course, values less than this absolute max can fail later if the value
  * is still too large for the available memory.  The largest value added
- * seems to be PAGE_SIZE (in the macro round_page()), so to be safe, we set
+ * seems to be large_vm_page_quanta_size (in the macro round_large_page_quanta()), so to be safe, we set
  * the maximum to be 2 * PAGE_SIZE less than SIZE_T_MAX.
  */
-#define MALLOC_ABSOLUTE_MAX_SIZE (SIZE_T_MAX - (2 * PAGE_SIZE))
+#define MALLOC_ABSOLUTE_MAX_SIZE (SIZE_T_MAX - (2 * large_vm_page_quanta_size))
 
 // Gets the allocation size for a calloc(). Multiples size by num_items and adds
 // extra_size, storing the result in *total_size. Returns 0 on success, -1 (with

@@ -75,7 +75,7 @@ typedef NS_ENUM(NSUInteger, SecCKKSTLKShareVersion) {
 - (instancetype)initForKey:(NSString*)tlkUUID
               senderPeerID:(NSString*)senderPeerID
             recieverPeerID:(NSString*)receiverPeerID
-  receiverEncPublicKeySPKI:(NSData*)publicKeySPKI
+  receiverEncPublicKeySPKI:(NSData* _Nullable)publicKeySPKI
                      curve:(SFEllipticCurve)curve
                    version:(SecCKKSTLKShareVersion)version
                      epoch:(NSInteger)epoch

@@ -1,0 +1,17 @@
+diff --git a/Modules/posixmodule.c b/Modules/posixmodule.c
+index ac0e16e..694cd35 100644
+--- a/Modules/posixmodule.c
++++ b/Modules/posixmodule.c
+@@ -3928,11 +3928,10 @@ posix_fork(PyObject *self, PyObject *noargs)
+ #else
+ #ifdef HAVE_LIBUTIL_H
+ #include <libutil.h>
+-#else
++#endif /* HAVE_LIBUTIL_H */
+ #ifdef HAVE_UTIL_H
+ #include <util.h>
+ #endif /* HAVE_UTIL_H */
+-#endif /* HAVE_LIBUTIL_H */
+ #endif /* HAVE_PTY_H */
+ #ifdef HAVE_STROPTS_H
+ #include <stropts.h>

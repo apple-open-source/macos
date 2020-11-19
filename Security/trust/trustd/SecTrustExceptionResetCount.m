@@ -119,6 +119,8 @@ static bool SecWritePlistToFileInKeychainDirectory(uint64_t exceptionResetCount,
     if (localError) {
         if (error) {
             *error = localError;
+        } else {
+            CFReleaseNull(localError);
         }
         secerror("Permanent storage for the exceptions epoch is unavailable.");
         return status;
@@ -164,11 +166,14 @@ uint64_t SecTrustServerGetExceptionResetCount(CFErrorRef *error) {
      * That's expected when epoch is still 0 and there is nothing to store in permanent storage. (and later read)
      */
     if (localError && CFEqualSafe(CFErrorGetDomain(localError), kCFErrorDomainPOSIX) && CFErrorGetCode(localError) == ENXIO) {
-        CFRelease(localError);
-        localError = NULL;
+        CFReleaseNull(localError);
     }
-    if (error && localError) {
-        *error = localError;
+    if (localError) {
+        if (error) {
+            *error = localError;
+        } else {
+            CFReleaseNull(localError);
+        }
     }
     secinfo("trust", "exceptionResetCount: %llu (%s)", exceptionResetCount, error ? (*error ? "Error" : "OK") : "N/A");
     return exceptionResetCount;

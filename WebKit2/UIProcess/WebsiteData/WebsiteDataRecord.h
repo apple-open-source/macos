@@ -26,6 +26,7 @@
 #pragma once
 
 #include "WebsiteDataType.h"
+#include <WebCore/RegistrableDomain.h>
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/SecurityOriginHash.h>
 #include <wtf/HashMap.h>
@@ -36,7 +37,6 @@
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
-class RegistrableDomain;
 class SecurityOrigin;
 }
 
@@ -54,6 +54,10 @@ struct WebsiteDataRecord {
     void addPluginDataHostName(const String& hostName);
 #endif
     void addHSTSCacheHostname(const String& hostName);
+    void addAlternativeServicesHostname(const String& hostName);
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    void addResourceLoadStatisticsRegistrableDomain(const WebCore::RegistrableDomain&);
+#endif
 
     String displayName;
     OptionSet<WebsiteDataType> types;
@@ -70,6 +74,10 @@ struct WebsiteDataRecord {
     HashSet<String> pluginDataHostNames;
 #endif
     HashSet<String> HSTSCacheHostNames;
+    HashSet<String> alternativeServicesHostNames;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    HashSet<WebCore::RegistrableDomain> resourceLoadStatisticsRegistrableDomains;
+#endif
 
     bool matches(const WebCore::RegistrableDomain&) const;
     String topPrivatelyControlledDomain();

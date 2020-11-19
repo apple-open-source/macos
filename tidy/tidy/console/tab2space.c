@@ -37,7 +37,7 @@ static Bool tabs = false;
  mechanisms up provides for greater flexibility and allows
  out of memory conditions to be detected in one place.
 */
-void *MemAlloc(size_t size)
+static void *MemAlloc(size_t size)
 {
     void *p;
 
@@ -52,7 +52,7 @@ void *MemAlloc(size_t size)
     return p;
 }
 
-void *MemRealloc(void *old, size_t size)
+static void *MemRealloc(void *old, size_t size)
 {
     void *p;
 
@@ -67,7 +67,7 @@ void *MemRealloc(void *old, size_t size)
     return p;
 }
 
-void MemFree(void *p)
+static void MemFree(void *p)
 {
     free(p);
     p = NULL;

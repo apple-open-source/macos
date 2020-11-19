@@ -12,24 +12,24 @@ class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
         super.init()
     }
 
-    func recover(withInfo info: [AnyHashable: Any]!,
-                 results: AutoreleasingUnsafeMutablePointer<NSDictionary?>!) -> Error! {
+    func recover(withInfo info: [AnyHashable: Any]?,
+                 results: AutoreleasingUnsafeMutablePointer<NSDictionary?>?) -> Error? {
         if self.bottleID == nil && self.entropy == nil {
-            results.pointee = [
+            results!.pointee = [
                 "bottleValid": "invalid",
             ]
         } else if self.bottleID == nil && self.entropy != nil {
-            results.pointee = [
+            results!.pointee = [
                 "EscrowServiceEscrowData": ["BottledPeerEntropy": self.entropy],
                 "bottleValid": "invalid",
             ]
         } else if self.bottleID != nil && self.entropy == nil {
-            results.pointee = [
+            results!.pointee = [
                 "bottleID": self.bottleID!,
                 "bottleValid": "invalid",
             ]
         } else { //entropy and bottleID must exist, so its a good bottle.
-            results.pointee = [
+            results!.pointee = [
                 "bottleID": self.bottleID!,
                 "bottleValid": "valid",
                 "EscrowServiceEscrowData": ["BottledPeerEntropy": self.entropy],
@@ -39,6 +39,17 @@ class OTMockSecureBackup: NSObject, OctagonEscrowRecovererPrococol {
     }
 
     func disable(withInfo info: [AnyHashable: Any]!) -> Error? {
+        return nil
+    }
+
+    @objc func getAccountInfo(withInfo info: [AnyHashable: Any]!, results: AutoreleasingUnsafeMutablePointer<NSDictionary?>!) -> Error? {
+        let recordData = accountInfoWithInfoSample.data(using: .utf8)!
+        var propertyListFormat = PropertyListSerialization.PropertyListFormat.xml
+        do {
+            results.pointee = try PropertyListSerialization.propertyList(from: recordData, options: .mutableContainersAndLeaves, format: &propertyListFormat) as! [String: AnyObject] as NSDictionary
+        } catch {
+            print("Error reading plist: \(error), format: \(propertyListFormat)")
+        }
         return nil
     }
 }

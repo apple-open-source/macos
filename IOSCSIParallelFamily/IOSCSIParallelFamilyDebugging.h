@@ -84,7 +84,6 @@ IOSCSIParallelFamilyDebugAssert ( 	const char * componentNameString,
 
 #include <AssertMacros.h>
 
-
 // Other helpful macros (maybe some day these will make
 // their way into /usr/include/AssertMacros.h)
 
@@ -124,6 +123,5 @@ IOSCSIParallelFamilyDebugAssert ( 	const char * componentNameString,
 
 #define require_nonzero_action_string( obj, exceptionLabel, action, message ) \
 	require_action_string( ( 0 != obj ), exceptionLabel, action, message )
-
 
 #endif	/* __IOKIT_IO_SCSI_PARALLEL_FAMILY_DEBUGGING_H__ */

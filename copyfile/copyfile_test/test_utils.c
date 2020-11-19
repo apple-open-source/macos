@@ -11,9 +11,77 @@
 #include <unistd.h>
 #include <sys/fcntl.h>
 #include <sys/stat.h>
+#include <sys/xattr.h>
 
 #include "test_utils.h"
 #include "systemx.h"
+
+static bool verify_xattr_content(int fd, const char *xattr_name, const char *expected, ssize_t size) {
+	// Verify that the file referenced by `fd` has an xattr named `xattr_name`
+	// of size `size` and with contents equal to `expected`.
+	char *actual = NULL;
+	bool equal;
+
+	assert(fd > 0 && xattr_name && expected);
+	assert_with_errno(actual = malloc(size));
+	assert_with_errno(fgetxattr(fd, xattr_name, actual, size, 0, 0) == size);
+
+	equal = (memcmp(actual, expected, size) == 0);
+	if (!equal) {
+		printf("xattr %s: content does not match expected\n", xattr_name);
+	}
+
+	free(actual);
+	return equal;
+}
+
+bool verify_fd_xattr_contents(int orig_fd, int copy_fd) {
+	// Verify that both fd's have the same xattrs.
+	// We do so by first verifying that `flistxattr()` returns the same size
+	// for both, and then validating that `copy_fd` has each of the xattrs
+	// that `orig_fd` has.
+	char *namebuf = NULL, *xa_buf = NULL, *name, *end;
+	ssize_t orig_size, copy_size, xa_size;
+	bool equal = true;
+
+	assert((orig_fd > 0) && (copy_fd > 0));
+
+	orig_size = flistxattr(orig_fd, 0, 0, XATTR_SHOWCOMPRESSION);
+	copy_size = flistxattr(copy_fd, 0, 0, XATTR_SHOWCOMPRESSION);
+	if (orig_size != copy_size) {
+		printf("xattrlist size: orig_size(%zu) != (%zu)copy_size\n", orig_size, copy_size);
+		return false;
+	}
+
+	if (orig_size == 0) {
+		return true;
+	}
+
+	assert_with_errno(namebuf = malloc(orig_size));
+
+	assert_with_errno(flistxattr(orig_fd, namebuf, orig_size, 0) == orig_size);
+
+	end = namebuf + orig_size - 1;
+	if (*end != 0) {
+		*end = 0;
+	}
+
+	for (name = namebuf; name <= end; name += strlen(name) + 1) {
+		xa_size = fgetxattr(orig_fd, name, 0, 0, 0, 0);
+		assert(xa_size >= 0);
+		assert_with_errno(xa_buf = malloc(xa_size));
+		assert_with_errno(fgetxattr(orig_fd, name, xa_buf, xa_size, 0, 0) == xa_size);
+		equal = equal && verify_xattr_content(copy_fd, name, xa_buf, xa_size);
+		free(xa_buf);
+
+		if (!equal) {
+			break;
+		}
+	}
+	free(namebuf);
+
+	return equal;
+}
 
 bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect) {
 	// Verify that sb's flags include flags_to_expect.
@@ -26,6 +94,37 @@ bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect) {
 	return true;
 }
 
+bool verify_contents_with_buf(int orig_fd, off_t orig_pos, const char *expected, size_t length)
+{
+	// Read *length* bytes from a file descriptor at a specified position
+	// and assert that they match *length* bytes from expected.
+	char orig_contents[length];
+	bool equal;
+
+	assert(orig_fd > 0 && orig_pos >= 0);
+	memset(orig_contents, 0, length);
+
+	errno = 0;
+	ssize_t pread_res = pread(orig_fd, orig_contents, length, orig_pos);
+	assert_with_errno(pread_res == (off_t) length);
+	equal = (memcmp(orig_contents, expected, length) == 0);
+	if (!equal) {
+		printf("fd (%lld - %lld) did not match expected contents\n", orig_pos, orig_pos + length);
+
+		// Find the first non-matching byte and print it out.
+		for (size_t bad_off = 0; bad_off < length; bad_off++) {
+			if (orig_contents[bad_off] != expected[bad_off]) {
+				printf("first mismatch is at offset %zu, original 0x%llx expected 0x%llx\n",
+					   bad_off, (unsigned long long)orig_contents[bad_off],
+					   (unsigned long long)expected[bad_off]);
+				break;
+			}
+		}
+	}
+
+	return equal;
+}
+
 bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos, size_t length) {
 	// Read *length* contents of the two fds and make sure they compare as equal.
 	// Don't alter the position of either fd.
@@ -33,6 +132,7 @@ bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos
 	bool equal;
 
 	assert(orig_fd > 0 && copy_fd > 0);
+	assert(orig_pos >= 0);
 	memset(orig_contents, 0, length);
 	memset(copy_contents, 0, length);
 
@@ -119,7 +219,7 @@ int create_hole_in_fd(int fd, off_t offset, off_t length) {
 
 
 void create_test_file_name(const char *dir, const char *postfix, int id, char *string_out) {
-	// Make a name for this new file and put it in out_name, which should be BSIZE_B bytes.
+	// Make a name for this new file and put it in string_out, which should be BSIZE_B bytes.
 	assert_with_errno(snprintf(string_out, BSIZE_B, "%s/testfile-%d.%s", dir, id, postfix) > 0);
 }
 

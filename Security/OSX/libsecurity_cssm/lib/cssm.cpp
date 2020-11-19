@@ -31,7 +31,7 @@
 #include "module.h"
 #include <security_utilities/globalizer.h>
 #include <security_cdsa_utilities/cssmbridge.h>
-
+#include "LegacyAPICounts.h"
 
 //
 // We currently use exactly one instance of CssmManager.

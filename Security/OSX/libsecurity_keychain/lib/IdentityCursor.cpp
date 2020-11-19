@@ -55,7 +55,7 @@ IdentityCursorPolicyAndID::IdentityCursorPolicyAndID(const StorageManager::Keych
 	}
 }
 
-IdentityCursorPolicyAndID::~IdentityCursorPolicyAndID() throw()
+IdentityCursorPolicyAndID::~IdentityCursorPolicyAndID() _NOEXCEPT
 {
 	if (mPolicy) {
 		CFRelease(mPolicy);
@@ -271,7 +271,7 @@ IdentityCursor::IdentityCursor(const StorageManager::KeychainList &searchList, C
 		mKeyCursor->add(CSSM_DB_EQUAL, KeySchema::Unwrap, true);
 }
 
-IdentityCursor::~IdentityCursor() throw()
+IdentityCursor::~IdentityCursor() _NOEXCEPT
 {
 }
 
@@ -281,7 +281,7 @@ IdentityCursor::pubKeyHashForSystemIdentity(CFStringRef domain)
 	StLock<Mutex>_(mMutex);
 
     CFDataRef entryValue = nil;
-	auto_ptr<Dictionary> identDict;
+	unique_ptr<Dictionary> identDict;
 	Dictionary* d = Dictionary::CreateDictionary("com.apple.security.systemidentities", Dictionary::US_System);
 	if (d)
 	{

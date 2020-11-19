@@ -26,6 +26,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_NORMALIZATION
 
 #include "unicode/stringpiece.h"
@@ -33,7 +35,6 @@
 #include "unicode/unistr.h"
 #include "unicode/unorm2.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class ByteSink;
@@ -770,7 +771,9 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif  // !UCONFIG_NO_NORMALIZATION
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif  // __NORMALIZER2_H__

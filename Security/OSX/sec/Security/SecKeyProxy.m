@@ -136,7 +136,11 @@
 @implementation SecKeyProxy
 - (instancetype)initWithKey:(SecKeyRef)key certificate:(nullable NSData *)certificate {
     if (self = [super init]) {
-        _key = CFBridgingRelease(CFRetain(key));
+        if (key != nil) {
+            _key = CFBridgingRelease(CFRetainSafe(key));
+        } else {
+            _key = nil;
+        }
         _certificate = certificate;
         _listener = [NSXPCListener anonymousListener];
         _listener.delegate = self;

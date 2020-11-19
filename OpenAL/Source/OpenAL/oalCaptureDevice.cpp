@@ -21,6 +21,7 @@
 *
 **********************************************************************************************************************************/
 
+#import <AudioToolbox/AudioComponent.h>
 #include "OALCaptureDevice.h"
 
 #define LOG_CAPTURE         0
@@ -101,7 +102,7 @@ OALCaptureDevice::~OALCaptureDevice()
 	DebugMessageN1("OALCaptureDevice::~OALCaptureDevice() - OALCaptureDevice = %ld", (long int) mSelfToken);
 #endif
 	if (mInputUnit)
-		CloseComponent(mInputUnit);
+		AudioComponentInstanceDispose(mInputUnit);
 	if (mBufferData)
 		free(mBufferData);
 	delete mRingBuffer;
@@ -139,9 +140,9 @@ void	OALCaptureDevice::InitializeAU(const char* 	inDeviceName)
 	DebugMessageN2("OALCaptureDevice::InitializeAU() - OALCaptureDevice = %ld:%s", (long int) mSelfToken, inDeviceName);
 #endif
 	// open input unit
-	OSStatus				result = noErr;
-	Component				comp;
-	ComponentDescription	desc;
+	OSStatus				    result = noErr;
+	AudioComponent			    comp;
+	AudioComponentDescription	desc;
 	
 	try {
 		desc.componentType = kAudioUnitType_Output;
@@ -149,11 +150,11 @@ void	OALCaptureDevice::InitializeAU(const char* 	inDeviceName)
 		desc.componentManufacturer = kAudioUnitManufacturer_Apple;
 		desc.componentFlags = 0;
 		desc.componentFlagsMask = 0;
-		comp = FindNextComponent(NULL, &desc);
+		comp = AudioComponentFindNext(NULL, &desc);
 		if (comp == NULL)
 			throw -1;
 			
-		result = OpenAComponent(comp, &mInputUnit);
+		result = AudioComponentInstanceNew(comp, &mInputUnit);
 			THROW_RESULT
 		
 		UInt32 enableIO;
@@ -207,11 +208,11 @@ void	OALCaptureDevice::InitializeAU(const char* 	inDeviceName)
 
 	}
 	catch (OSStatus	result) {
-		if (mInputUnit)	CloseComponent(mInputUnit);
+		if (mInputUnit)	AudioComponentInstanceDispose(mInputUnit);
 		throw result;
 	}
 	catch (...) {
-		if (mInputUnit)	CloseComponent(mInputUnit);
+		if (mInputUnit)	AudioComponentInstanceDispose(mInputUnit);
 		throw - 1;
 	}
 }

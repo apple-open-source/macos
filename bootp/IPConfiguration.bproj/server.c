@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -112,27 +112,6 @@ S_IPConfigurationServiceOperationAllowed(audit_token_t audit_token)
     return (FALSE);
 }
 
-static CFPropertyListRef
-my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
-{
-    CFPropertyListRef	plist;
-    CFDataRef		xml_data;
-
-    xml_data = CFDataCreateWithBytesNoCopy(NULL, 
-					   (const UInt8 *)data, data_len,
-					   kCFAllocatorNull);
-    if (xml_data == NULL) {
-	return (NULL);
-    }
-    plist = CFPropertyListCreateWithData(NULL,
-					 xml_data,
-					 kCFPropertyListImmutable,
-					 NULL,
-					 NULL);
-    CFRelease(xml_data);
-    return (plist);
-}
-
 static ipconfig_status_t
 method_info_from_xml_data(xmlData_t xml_data,
 			  mach_msg_type_number_t xml_data_len,
@@ -153,10 +132,10 @@ method_info_from_xml_data(xmlData_t xml_data,
 }
 
 PRIVATE_EXTERN kern_return_t
-_ipconfig_if_addr(mach_port_t p, if_name_t name, 
+_ipconfig_if_addr(mach_port_t p, InterfaceName name,
 		  u_int32_t * addr, ipconfig_status_t * status)
 {
-    *status = get_if_addr(name, addr);
+    *status = get_if_addr(InterfaceNameNulTerminate(name), addr);
     return (KERN_SUCCESS);
 }
 
@@ -168,38 +147,41 @@ _ipconfig_if_count(mach_port_t p, int * count)
 }
 
 PRIVATE_EXTERN kern_return_t
-_ipconfig_get_option(mach_port_t p, if_name_t name, int option_code,
-		     inline_data_t option_data,
+_ipconfig_get_option(mach_port_t p, InterfaceName name, int option_code,
+		     dataOut_t * option_data,
 		     mach_msg_type_number_t * option_dataCnt,
 		     ipconfig_status_t * status)
 
 {
-    *status = get_if_option(name, option_code, option_data, option_dataCnt);
+    *status = get_if_option(InterfaceNameNulTerminate(name), option_code,
+			    option_data, option_dataCnt);
     return (KERN_SUCCESS);
 }
 
 PRIVATE_EXTERN kern_return_t
-_ipconfig_get_packet(mach_port_t p, if_name_t name,
-		     inline_data_t packet_data,
+_ipconfig_get_packet(mach_port_t p, InterfaceName name,
+		     dataOut_t * packet_data,
 		     mach_msg_type_number_t * packet_dataCnt,
 		     ipconfig_status_t * status)
 {
-    *status = get_if_packet(name, packet_data, packet_dataCnt);
+    *status = get_if_packet(InterfaceNameNulTerminate(name),
+			    packet_data, packet_dataCnt);
     return (KERN_SUCCESS);
 }
 
 PRIVATE_EXTERN kern_return_t
-_ipconfig_get_v6_packet(mach_port_t p, if_name_t name,
-		     inline_data_t packet_data,
-		     mach_msg_type_number_t * packet_dataCnt,
-		     ipconfig_status_t * status)
+_ipconfig_get_v6_packet(mach_port_t p, InterfaceName name,
+			dataOut_t * packet_data,
+			mach_msg_type_number_t * packet_dataCnt,
+			ipconfig_status_t * status)
 {
-    *status = get_if_v6_packet(name, packet_data, packet_dataCnt);
+    *status = get_if_v6_packet(InterfaceNameNulTerminate(name),
+			       packet_data, packet_dataCnt);
     return (KERN_SUCCESS);
 }
 
 PRIVATE_EXTERN kern_return_t
-_ipconfig_set(mach_port_t p, if_name_t name,
+_ipconfig_set(mach_port_t p, InterfaceName name,
 	      xmlData_t xml_data,
 	      mach_msg_type_number_t xml_data_len,
 	      ipconfig_status_t * ret_status,
@@ -218,7 +200,7 @@ _ipconfig_set(mach_port_t p, if_name_t name,
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = set_if(name, &info);
+    status = set_if(InterfaceNameNulTerminate(name), &info);
     ipconfig_method_info_free(&info);
 
  done:
@@ -250,11 +232,10 @@ _ipconfig_set_something(mach_port_t p, int verbose,
 
 PRIVATE_EXTERN kern_return_t
 _ipconfig_add_service(mach_port_t p, 
-		      if_name_t name,
+		      InterfaceName name,
 		      xmlData_t xml_data,
 		      mach_msg_type_number_t xml_data_len,
-		      inline_data_t service_id,
-		      mach_msg_type_number_t * service_id_len,
+		      ServiceID service_id,
 		      ipconfig_status_t * ret_status,
 		      audit_token_t audit_token)
 {
@@ -275,7 +256,9 @@ _ipconfig_add_service(mach_port_t p,
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = add_service(name, &info, service_id, service_id_len, plist, S_pid);
+    ServiceIDClear(service_id);
+    status = add_service(InterfaceNameNulTerminate(name),
+			 &info, service_id, plist, S_pid);
     ipconfig_method_info_free(&info);
 
  done:
@@ -292,11 +275,10 @@ _ipconfig_add_service(mach_port_t p,
 
 kern_return_t
 _ipconfig_set_service(mach_port_t p, 
-		      if_name_t name,
+		      InterfaceName name,
 		      xmlData_t xml_data,
 		      mach_msg_type_number_t xml_data_len,
-		      inline_data_t service_id,
-		      mach_msg_type_number_t * service_id_len,
+		      ServiceID service_id,
 		      ipconfig_status_t * ret_status,
 		      audit_token_t audit_token)
 {
@@ -312,7 +294,8 @@ _ipconfig_set_service(mach_port_t p,
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = set_service(name, &info, service_id, service_id_len);
+    ServiceIDClear(service_id);
+    status = set_service(InterfaceNameNulTerminate(name), &info, service_id);
     ipconfig_method_info_free(&info);
 
  done:
@@ -325,26 +308,9 @@ _ipconfig_set_service(mach_port_t p,
 }
 
 PRIVATE_EXTERN kern_return_t 
-_ipconfig_remove_service_with_id(mach_port_t server,
-				 inline_data_t service_id,
-				 mach_msg_type_number_t service_id_len,
-				 ipconfig_status_t * ret_status,
-				 audit_token_t audit_token)
-{
-    if (!S_IPConfigurationServiceOperationAllowed(audit_token)) {
-	*ret_status = ipconfig_status_permission_denied_e;
-    }
-    else {
-	*ret_status = remove_service_with_id(NULL, service_id, service_id_len);
-    }
-    return (KERN_SUCCESS);
-}
-
-PRIVATE_EXTERN kern_return_t 
 _ipconfig_remove_service_on_interface(mach_port_t server,
-				      if_name_t name,
-				      inline_data_t service_id,
-				      mach_msg_type_number_t service_id_len,
+				      InterfaceName name,
+				      ServiceID service_id,
 				      ipconfig_status_t * ret_status,
 				      audit_token_t audit_token)
 {
@@ -352,30 +318,39 @@ _ipconfig_remove_service_on_interface(mach_port_t server,
 	*ret_status = ipconfig_status_permission_denied_e;
     }
     else {
-	*ret_status = remove_service_with_id(name, service_id, service_id_len);
+	char *	ifname;
+
+	if (name[0] == '\0') {
+	    ifname = NULL;
+	}
+	else {
+	    ifname = InterfaceNameNulTerminate(name);
+	}
+	*ret_status = remove_service_with_id(ifname, service_id);
     }
     return (KERN_SUCCESS);
 }
 
 PRIVATE_EXTERN kern_return_t 
 _ipconfig_find_service(mach_port_t server,
-		       if_name_t name,
+		       InterfaceName name,
 		       boolean_t exact,
 		       xmlData_t xml_data,
 		       mach_msg_type_number_t xml_data_len,
-		       inline_data_t service_id,
-		       mach_msg_type_number_t *service_id_len,
+		       ServiceID service_id,
 		       ipconfig_status_t * ret_status)
 {
     ipconfig_method_info	info;
     ipconfig_status_t		status;
 
+    ServiceIDClear(service_id);
     ipconfig_method_info_init(&info);
     status = method_info_from_xml_data(xml_data, xml_data_len, &info);
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = find_service(name, exact, &info, service_id, service_id_len);
+    status = find_service(InterfaceNameNulTerminate(name),
+			  exact, &info, service_id);
     ipconfig_method_info_free(&info);
 
  done:
@@ -389,7 +364,7 @@ _ipconfig_find_service(mach_port_t server,
 
 PRIVATE_EXTERN kern_return_t 
 _ipconfig_remove_service(mach_port_t server,
-			 if_name_t name,
+			 InterfaceName name,
 			 xmlData_t xml_data,
 			 mach_msg_type_number_t xml_data_len,
 			 ipconfig_status_t * ret_status,
@@ -407,7 +382,7 @@ _ipconfig_remove_service(mach_port_t server,
     if (status != ipconfig_status_success_e) {
 	goto done;
     }
-    status = remove_service(name, &info);
+    status = remove_service(InterfaceNameNulTerminate(name), &info);
     ipconfig_method_info_free(&info);
 
  done:
@@ -421,9 +396,8 @@ _ipconfig_remove_service(mach_port_t server,
 
 PRIVATE_EXTERN kern_return_t 
 _ipconfig_refresh_service(mach_port_t server,
-			  if_name_t name,
-			  inline_data_t service_id,
-			  mach_msg_type_number_t service_id_len,
+			  InterfaceName name,
+			  ServiceID service_id,
 			  ipconfig_status_t * ret_status,
 			  audit_token_t audit_token)
 {
@@ -431,14 +405,15 @@ _ipconfig_refresh_service(mach_port_t server,
 	*ret_status = ipconfig_status_permission_denied_e;
     }
     else {
-	*ret_status = refresh_service(name, service_id, service_id_len);
+	*ret_status = refresh_service(InterfaceNameNulTerminate(name),
+				      service_id);
     }
     return (KERN_SUCCESS);
 }
 
 PRIVATE_EXTERN kern_return_t
 _ipconfig_forget_network(mach_port_t server,
-			 if_name_t name,
+			 InterfaceName name,
 			 xmlData_t xml_data,
 			 mach_msg_type_number_t xml_data_len,
 			 ipconfig_status_t * ret_status,
@@ -462,7 +437,7 @@ _ipconfig_forget_network(mach_port_t server,
 	    ssid = isA_CFString(ssid);
 	}
     }
-    status = forget_network(name, ssid);
+    status = forget_network(InterfaceNameNulTerminate(name), ssid);
     my_CFRelease(&dict);
 
  done:
@@ -471,6 +446,16 @@ _ipconfig_forget_network(mach_port_t server,
 			    xml_data_len);
     }
     *ret_status = status;
+    return (KERN_SUCCESS);
+}
+
+PRIVATE_EXTERN kern_return_t
+_ipconfig_get_ra(mach_port_t p, InterfaceName name,
+		 xmlDataOut_t * ra_data,
+		 mach_msg_type_number_t * ra_data_cnt,
+		 ipconfig_status_t * status)
+{
+    *status = get_if_ra(InterfaceNameNulTerminate(name), ra_data, ra_data_cnt);
     return (KERN_SUCCESS);
 }
 

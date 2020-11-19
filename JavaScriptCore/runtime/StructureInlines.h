@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -224,7 +224,7 @@ inline bool Structure::hasIndexingHeader(const JSCell* cell) const
     
     if (!isTypedView(typedArrayTypeForType(m_blob.type())))
         return false;
-    
+
     return jsCast<const JSArrayBufferView*>(cell)->mode() == WastefulTypedArray;
 }
 
@@ -242,32 +242,32 @@ inline bool Structure::transitivelyTransitionedFrom(Structure* structureToFind)
     return false;
 }
 
-inline void Structure::setCachedOwnKeys(VM& vm, JSImmutableButterfly* ownKeys)
+inline void Structure::setCachedPropertyNames(VM& vm, CachedPropertyNamesKind kind, JSImmutableButterfly* cached)
 {
-    ensureRareData(vm)->setCachedOwnKeys(vm, ownKeys);
+    ensureRareData(vm)->setCachedPropertyNames(vm, kind, cached);
 }
 
-inline JSImmutableButterfly* Structure::cachedOwnKeys() const
-{
-    if (!hasRareData())
-        return nullptr;
-    return rareData()->cachedOwnKeys();
-}
-
-inline JSImmutableButterfly* Structure::cachedOwnKeysIgnoringSentinel() const
+inline JSImmutableButterfly* Structure::cachedPropertyNames(CachedPropertyNamesKind kind) const
 {
     if (!hasRareData())
         return nullptr;
-    return rareData()->cachedOwnKeysIgnoringSentinel();
+    return rareData()->cachedPropertyNames(kind);
 }
 
-inline bool Structure::canCacheOwnKeys() const
+inline JSImmutableButterfly* Structure::cachedPropertyNamesIgnoringSentinel(CachedPropertyNamesKind kind) const
+{
+    if (!hasRareData())
+        return nullptr;
+    return rareData()->cachedPropertyNamesIgnoringSentinel(kind);
+}
+
+inline bool Structure::canCacheOwnPropertyNames() const
 {
     if (isDictionary())
         return false;
     if (hasIndexedProperties(indexingType()))
         return false;
-    if (typeInfo().overridesGetPropertyNames())
+    if (typeInfo().overridesAnyFormOfGetPropertyNames())
         return false;
     return true;
 }
@@ -279,7 +279,7 @@ ALWAYS_INLINE JSValue prototypeForLookupPrimitiveImpl(JSGlobalObject* globalObje
     if (structure->typeInfo().type() == StringType)
         return globalObject->stringPrototype();
     
-    if (structure->typeInfo().type() == BigIntType)
+    if (structure->typeInfo().type() == HeapBigIntType)
         return globalObject->bigIntPrototype();
 
     ASSERT(structure->typeInfo().type() == SymbolType);
@@ -427,11 +427,11 @@ inline size_t nextOutOfLineStorageCapacity(size_t currentCapacity)
     return currentCapacity * outOfLineGrowthFactor;
 }
 
-inline void Structure::setObjectToStringValue(JSGlobalObject* globalObject, VM& vm, JSString* value, PropertySlot toStringTagSymbolSlot)
+inline void Structure::cacheSpecialProperty(JSGlobalObject* globalObject, VM& vm, JSValue value, CachedSpecialPropertyKey key, const PropertySlot& slot)
 {
     if (!hasRareData())
         allocateRareData(vm);
-    rareData()->setObjectToStringValue(globalObject, vm, this, value, toStringTagSymbolSlot);
+    rareData()->cacheSpecialProperty(globalObject, vm, this, value, key, slot);
 }
 
 template<Structure::ShouldPin shouldPin, typename Func>
@@ -465,7 +465,7 @@ inline PropertyOffset Structure::add(VM& vm, PropertyName propertyName, unsigned
     m_propertyHash = m_propertyHash ^ rep->existingSymbolAwareHash();
     m_seenProperties.add(bitwise_cast<uintptr_t>(rep));
 
-    auto result = table->add(PropertyMapEntry(rep, newOffset, attributes));
+    auto result = table->add(vm, PropertyMapEntry(rep, newOffset, attributes));
     ASSERT_UNUSED(result, result.second);
     ASSERT_UNUSED(result, result.first.first->offset == newOffset);
     auto newMaxOffset = std::max(newOffset, maxOffset());
@@ -507,7 +507,7 @@ inline PropertyOffset Structure::remove(VM& vm, PropertyName propertyName, const
     
     PropertyOffset offset = position.first->offset;
 
-    table->remove(position);
+    table->remove(vm, position);
     table->addDeletedOffset(offset);
 
     PropertyOffset newMaxOffset = maxOffset();
@@ -608,7 +608,7 @@ ALWAYS_INLINE bool Structure::shouldConvertToPolyProto(const Structure* a, const
     return !aObj && !bObj;
 }
 
-inline Structure* Structure::nonPropertyTransition(VM& vm, Structure* structure, NonPropertyTransition transitionKind)
+inline Structure* Structure::nonPropertyTransition(VM& vm, Structure* structure, TransitionKind transitionKind)
 {
     IndexingType indexingModeIncludingHistory = newIndexingType(structure->indexingModeIncludingHistory(), transitionKind);
 

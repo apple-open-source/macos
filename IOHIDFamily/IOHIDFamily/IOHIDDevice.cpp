@@ -30,6 +30,8 @@
 #include <IOKit/hidsystem/IOHIDSystem.h>
 #include <IOKit/IOEventSource.h>
 #include <IOKit/IOMessage.h>
+#include <libkern/OSKextLib.h>
+#include <IOKit/IOKitKeys.h>
 
 #include "IOHIDFamilyPrivate.h"
 #include <IOKit/hid/IOHIDDevice.h>
@@ -67,6 +69,7 @@
 #define HIDDeviceLog(fmt, ...)        HIDLog("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDDeviceLogInfo(fmt, ...)    HIDLogInfo("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
 #define HIDDeviceLogDebug(fmt, ...)   HIDLogDebug("%s:0x%llx " fmt "\n", getName(), getRegistryEntryID(), ##__VA_ARGS__)
+#define HIDDeviceLogTest(fmt, ...)    HIDDeviceLog(" DEBUG " fmt, ##__VA_ARGS__)
 
 //===========================================================================
 // IOHIDAsyncReportQueue class
@@ -551,6 +554,76 @@ void IOHIDDevice::stop(IOService * provider)
     super::stop(provider);
 }
 
+bool IOHIDDevice::validateMatchingTable(OSDictionary * table)
+{
+    OSNumber *primaryUsagePage       = OSDynamicCast(OSNumber, table->getObject(kIOHIDPrimaryUsagePageKey));
+    OSArray  *deviceUsagePairs       = OSDynamicCast(OSArray, table->getObject(kIOHIDDeviceUsagePairsKey));
+    OSString *bundleIdentifier       = OSDynamicCast(OSString, table->getObject(kCFBundleIdentifierKey));
+    OSString *bundleIdentifierKernel = OSDynamicCast(OSString, table->getObject(kCFBundleIdentifierKernelKey));
+    OSString *ioClass                = OSDynamicCast(OSString, table->getObject(kIOClassKey));
+    OSObject *vendorID               = table->getObject(kIOHIDVendorIDKey);
+    OSString *transport              = OSDynamicCast(OSString, table->getObject(kIOHIDTransportKey));
+    
+    bool match = true;
+    
+    char vendorUsageDebugDescription[52];
+    
+    bzero(vendorUsageDebugDescription, sizeof(vendorUsageDebugDescription));
+    
+    bool hasVendorUsagePage = false;
+    
+    if (primaryUsagePage && primaryUsagePage->unsigned32BitValue() >= 0xFF00) {
+        hasVendorUsagePage = true;
+        snprintf(vendorUsageDebugDescription, sizeof(vendorUsageDebugDescription), "PrimaryUsagePage : %x",primaryUsagePage->unsigned32BitValue());
+    }
+    
+    // Check only if primary usage is not vendor specific
+    if (deviceUsagePairs && !hasVendorUsagePage) {
+
+        int deviceUsagePairsCount = deviceUsagePairs->getCount();
+
+        for (int i=0; i<deviceUsagePairsCount; i++)
+        {
+            OSDictionary *deviceUsagePair = OSDynamicCast(OSDictionary,deviceUsagePairs->getObject(i));
+            if (!deviceUsagePair) {
+                continue;
+            }
+            
+            OSNumber *deviceUsagePage = OSDynamicCast(OSNumber, deviceUsagePair->getObject(kIOHIDDeviceUsagePageKey));
+            if (deviceUsagePage && deviceUsagePage->unsigned32BitValue() >= 0xFF00) {
+                hasVendorUsagePage = true;
+                snprintf(vendorUsageDebugDescription, sizeof(vendorUsageDebugDescription), "DeviceUsagePage : %x",deviceUsagePage->unsigned32BitValue());
+                break;
+            }
+        }
+    }
+        
+    // If no vendor usage, should return with match
+    require_quiet(hasVendorUsagePage == true, exit);
+    
+    // We can assume that device will understand vendor usages and matching is intentional.
+    require_quiet(vendorID == NULL, exit);
+    
+    // Device has vendor usages but missing vendor ID.
+    // Check if transport is USB or Bluetooth. This check is not applicable for any other transport for
+    // now to minimize risk of fallouts
+
+    if (transport) {
+        const char *transportName = transport->getCStringNoCopy();
+
+        // if not usb and bluetooth transport , we should return match
+        if ((strnstr(transportName, kIOHIDTransportBluetoothValue, transport->getLength()) != NULL)
+            || (strnstr(transportName, kIOHIDTransportUSBValue, transport->getLength()) != NULL)) {
+            match = false;
+            HIDDeviceLogFault("Matching has vendor %s bundleIdentifier %s ioclass %s transport %s but vendorID is missing", vendorUsageDebugDescription, bundleIdentifier ? bundleIdentifier->getCStringNoCopy() : (bundleIdentifierKernel ? bundleIdentifierKernel->getCStringNoCopy() : "none"), ioClass ? ioClass->getCStringNoCopy() : "none", transportName);
+        }
+    } else {
+        HIDDeviceLogFault("Matching has vendor %s bundleIdentifier %s ioclass %s but transport and vendorID is missing", vendorUsageDebugDescription, bundleIdentifier ? bundleIdentifier->getCStringNoCopy() : (bundleIdentifierKernel ? bundleIdentifierKernel->getCStringNoCopy() : "none"), ioClass ? ioClass->getCStringNoCopy() : "none");
+    }
+exit:
+    
+    return match;
+}
 
 bool IOHIDDevice::matchPropertyTable(OSDictionary * table, SInt32 * score)
 {
@@ -580,7 +653,14 @@ bool IOHIDDevice::matchPropertyTable(OSDictionary * table, SInt32 * score)
         }
     }
     // *** END HACK ***
-
+    
+#if TARGET_OS_OSX
+    // For vendor defined usage page as part of primary usage or device usages
+    // matching should contain vendor id and transport
+    if (match && table) {
+        match = validateMatchingTable(table);
+    }
+#endif //TARGET_OS_OSX
     return match;
 }
 
@@ -667,7 +747,7 @@ bool IOHIDDevice::publishProperties(IOService * provider __unused)
         SET_PROP_FROM_VALUE(    kIOHIDMaxFeatureReportSizeKey,  copyProperty(kIOHIDMaxFeatureReportSizeKey));
         SET_PROP_FROM_VALUE(    kIOHIDRelaySupportKey,          copyProperty(kIOHIDRelaySupportKey, gIOServicePlane));
         SET_PROP_FROM_VALUE(    kIOHIDReportDescriptorKey,      copyProperty(kIOHIDReportDescriptorKey));
-        SET_PROP_FROM_VALUE(    kIOHIDProtectedAccessKey,       copyProperty(kIOHIDProtectedAccessKey));
+        SET_PROP_FROM_VALUE(    kIOHIDProtectedAccessKey,       newIsAccessProtected());
 
         if ( getProvider() )
         {
@@ -1286,6 +1366,77 @@ OSArray * IOHIDDevice::newDeviceUsagePairs(OSArray * elements, UInt32 start)
     return functions;
 }
 
+OSBoolean * IOHIDDevice::newIsAccessProtected()
+{
+    struct UsagePair {
+        const UInt32 usagePage;
+        const UInt32 usage;
+    };
+
+    static const UsagePair ProtectedAccessUsagePairs[] = {
+        {kHIDPage_AppleVendor, 0x004B},
+        {kHIDPage_AppleVendor, 0x004D}
+    };
+
+    struct AppleVendorID {
+        const char * transport;
+        const UInt32 vendorID;
+    };
+
+    static const AppleVendorID AppleVendorIDs[] = {
+        {kIOHIDTransportUSBValue, 1452},
+        {kIOHIDTransportBluetoothValue, 76},
+        {kIOHIDTransportBluetoothLowEnergyValue, 76}
+    };
+
+    OSString *  transportStr = newTransportString();
+    OSNumber *  vidNum = newVendorIDNumber();
+    OSObject *  obj;
+    OSBoolean * boolean;
+
+    do {
+        bool ok = false;
+
+        // A value previously set for kIOHIDProtectedAccessKey takes precedence
+        obj = copyProperty(kIOHIDProtectedAccessKey);
+        boolean = OSDynamicCast(OSBoolean, obj);
+        if (boolean) {
+            break;
+        }
+
+        if (!transportStr || !vidNum) {
+            break;
+        }
+
+        // Test this device's transport and vendorID against potentially protected 1st party Transport/VID pairs
+        for (size_t j = 0; j<sizeof(AppleVendorIDs)/sizeof(AppleVendorIDs[0]); j++) {
+            if (transportStr->isEqualTo(AppleVendorIDs[j].transport) &&
+                vidNum->unsigned32BitValue() == AppleVendorIDs[j].vendorID) {
+                ok = true;
+                break;
+            }
+        }
+        if (!ok) {
+            break;
+        }
+
+        // Test protected usages against this device's usage pairs
+        for (size_t i = 0; i<sizeof(ProtectedAccessUsagePairs)/sizeof(ProtectedAccessUsagePairs[0]); i++) {
+            if (conformsTo(ProtectedAccessUsagePairs[i].usagePage, ProtectedAccessUsagePairs[i].usage)) {
+                boolean = kOSBooleanTrue;
+                break;
+            }
+        }
+
+    } while (0);
+
+    OSSafeReleaseNULL(transportStr);
+    OSSafeReleaseNULL(vidNum);
+    OSSafeReleaseNULL(obj);
+
+    return boolean;
+}
+
 void IOHIDDevice::setupResolution()
 {
     for (unsigned int i = 0; i < _hierarchElements->getCount(); i++) {
@@ -1375,6 +1526,83 @@ bool IOHIDDevice::createValueElements( HIDPreparsedDataRef parseData __unused,
 bool IOHIDDevice::createReportHandlerElements( HIDPreparsedDataRef parseData __unused)
 {
     return true;
+}
+
+IOReturn IOHIDDevice::postElementTransaction(const void* elementData, UInt32 dataSize)
+{
+    IOReturn ret = kIOReturnError;
+    uint32_t   cookies_[kMaxLocalCookieArrayLength];
+    uint32_t   *cookies = cookies_;
+    uint32_t   cookieCount = 0;
+    uint32_t   cookieSize = 0;
+    uint32_t   dataOffset = 0;
+    uint8_t    *data = (uint8_t*)elementData;
+    IOMemoryDescriptor *elementDesc = getMemoryWithCurrentElementValues();
+    require(_elementArray && elementDesc, fail);
+
+    WORKLOOP_LOCK;
+
+    // Find the number of cookies in the data. Check that all cookies are valid elements.
+    while (dataOffset < dataSize) {
+        const IOHIDElementValueHeader *headerPtr = (const IOHIDElementValueHeader *)(data + dataOffset);
+        IOHIDElementPrivate *element = GetElement(headerPtr->cookie);
+        if (!element) {
+            HIDDeviceLogError("Could not find element for cookie: %d", headerPtr->cookie);
+            ret = kIOReturnAborted;
+            goto fail;
+        }
+        cookieCount++;
+        dataOffset += headerPtr->length + sizeof(IOHIDElementValueHeader);
+    }
+    // Data isn't as large as expected, don't overrun, just abort
+    if (dataOffset != dataSize) {
+        HIDDeviceLogError("Cookie data buffer is smaller than expected. %u vs. %u",
+                          (unsigned int)dataSize, (unsigned int)dataOffset);
+        ret = kIOReturnAborted;
+        goto fail;
+    }
+    dataOffset = 0;
+
+    require_noerr_action(os_mul_overflow(cookieCount, sizeof(uint32_t), &cookieSize),
+                         fail,
+                         HIDDeviceLogError("Overflow calculating cookieSize"));
+
+    cookies = (cookieCount <= kMaxLocalCookieArrayLength) ? cookies : (uint32_t*)IOMalloc(cookieSize);
+
+    if (cookies == NULL) {
+        ret = kIOReturnNoMemory;
+        goto fail;
+    }
+
+    // Update the elements, this replaced the shared kernel-user shared memory.
+    for (size_t index = 0; dataOffset < dataSize; ++index) {
+        const IOHIDElementValueHeader *headerPtr;
+        IOHIDElementPrivate *element;
+        OSData *elementVal;
+
+        headerPtr = (const IOHIDElementValueHeader *)(data + dataOffset);
+        element = GetElement(headerPtr->cookie);
+        dataOffset += headerPtr->length + sizeof(IOHIDElementValueHeader);
+
+        elementVal = OSData::withBytesNoCopy((void*)headerPtr->value,
+                                             headerPtr->length);
+        require_action(elementVal, fail, ret = kIOReturnNoMemory);
+        element->setDataBits(elementVal);
+        elementVal->release();
+
+        cookies[index] = headerPtr->cookie;
+    }
+
+    // Actually post elements
+    ret = postElementValues((IOHIDElementCookie *)cookies, (UInt32)cookieCount);
+
+fail:
+    WORKLOOP_UNLOCK;
+    if (cookies != &cookies_[0]) {
+        IOFree(cookies, cookieSize);
+    }
+
+    return ret;
 }
 
 bool IOHIDDevice::registerElement( IOHIDElementPrivate * element __unused,
@@ -1840,7 +2068,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
         // XXX - Do we need to advance the start of the report data?
 
         reportID = ( _reportCount > 1 ) ? *((UInt8 *) reportData) : 0;
-        
+
         changed = _elementContainer->processReport(reportType,
                                                    reportID,
                                                    reportData,
@@ -2113,9 +2341,13 @@ IMPL(IOHIDDevice, _ProcessReport)
 kern_return_t
 IMPL(IOHIDDevice, _HandleReport)
 {
+    kern_return_t   ret = kIOReturnSuccess;
     IOBufferMemoryDescriptor *bmd = OSDynamicCast(IOBufferMemoryDescriptor, report);
     
     if (bmd) {
+        
+        require_action(reportLength <= bmd->getCapacity(), exit, ret = kIOReturnBadArgument; HIDDeviceLogError("HandleReport reportLength:%d capacity:%d\n", (int)reportLength, (int)bmd->getCapacity()););
+        
         bmd->setLength(reportLength);
     }
     
@@ -2125,7 +2357,9 @@ IMPL(IOHIDDevice, _HandleReport)
         bmd->setLength(bmd->getCapacity());
     }
     
-    return kIOReturnSuccess;
+exit:
+    
+    return ret;
 }
 
 void

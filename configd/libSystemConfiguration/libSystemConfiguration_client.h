@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,11 +37,11 @@
 
 #define	DNSINFO_SERVER_VERSION		20130408
 
-#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 #define	DNSINFO_SERVICE_NAME		"com.apple.SystemConfiguration.DNSConfiguration"
-#else	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#else	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 #define	DNSINFO_SERVICE_NAME		"com.apple.SystemConfiguration.DNSConfiguration_sim"
-#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 
 #define	DNSINFO_PROC_NAME		"proc_name"	// string
 
@@ -62,11 +62,11 @@ enum {
 
 #define	NWI_SERVER_VERSION		20130408
 
-#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 #define	NWI_SERVICE_NAME		"com.apple.SystemConfiguration.NetworkInformation"
-#else	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#else	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 #define	NWI_SERVICE_NAME		"com.apple.SystemConfiguration.NetworkInformation_sim"
-#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 
 #define	NWI_PROC_NAME			"proc_name"	// string
 
@@ -77,10 +77,10 @@ enum {
 	NWI_STATE_REQUEST_COPY		= 0x20001,
 	NWI_STATE_REQUEST_ACKNOWLEDGE,
 
-#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 	/* NWI config agent requests  */
 	NWI_CONFIG_AGENT_REQUEST_COPY
-#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 };
 
 #define	NWI_CONFIGURATION		"configuration"	// data

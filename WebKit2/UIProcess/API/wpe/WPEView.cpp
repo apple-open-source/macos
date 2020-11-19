@@ -35,6 +35,7 @@
 #include "NativeWebMouseEvent.h"
 #include "NativeWebTouchEvent.h"
 #include "NativeWebWheelEvent.h"
+#include "ScrollGestureController.h"
 #include "WebPageGroup.h"
 #include "WebProcessPool.h"
 #include <WebCore/CompositionUnderline.h>
@@ -46,6 +47,7 @@ namespace WKWPE {
 
 View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseConfiguration)
     : m_client(makeUnique<API::ViewClient>())
+    , m_scrollGestureController(makeUnique<ScrollGestureController>())
     , m_pageClient(makeUnique<PageClientImpl>(*this))
     , m_size { 800, 600 }
     , m_viewStateFlags { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsFocused, WebCore::ActivityState::IsVisible, WebCore::ActivityState::IsInWindow }
@@ -159,13 +161,26 @@ View::View(struct wpe_view_backend* backend, const API::PageConfiguration& baseC
         [](void* data, struct wpe_input_axis_event* event)
         {
             auto& page = reinterpret_cast<View*>(data)->page();
-            page.handleWheelEvent(WebKit::NativeWebWheelEvent(event, page.deviceScaleFactor()));
+            page.handleWheelEvent(WebKit::NativeWebWheelEvent(event, page.deviceScaleFactor(), WebWheelEvent::Phase::PhaseNone, WebWheelEvent::Phase::PhaseNone));
         },
         // handle_touch_event
         [](void* data, struct wpe_input_touch_event* event)
         {
-            auto& page = reinterpret_cast<View*>(data)->page();
-            page.handleTouchEvent(WebKit::NativeWebTouchEvent(event, page.deviceScaleFactor()));
+            auto& view = *reinterpret_cast<View*>(data);
+            auto& page = view.page();
+
+            WebKit::NativeWebTouchEvent touchEvent(event, page.deviceScaleFactor());
+
+            auto& scrollGestureController = *view.m_scrollGestureController;
+            if (scrollGestureController.isHandling()) {
+                const struct wpe_input_touch_event_raw* touchPoint = touchEvent.nativeFallbackTouchPoint();
+                if (touchPoint->type != wpe_input_touch_event_type_null && scrollGestureController.handleEvent(touchPoint)) {
+                    page.handleWheelEvent(WebKit::NativeWebWheelEvent(scrollGestureController.axisEvent(), page.deviceScaleFactor(), scrollGestureController.phase(), WebWheelEvent::Phase::PhaseNone));
+                    return;
+                }
+            }
+
+            page.handleTouchEvent(touchEvent);
         },
         // padding
         nullptr,
@@ -231,16 +246,19 @@ WebKitInputMethodContext* View::inputMethodContext() const
     return m_inputMethodFilter.context();
 }
 
-void View::setInputMethodState(bool enabled)
+void View::setInputMethodState(Optional<InputMethodState>&& state)
 {
-    m_inputMethodFilter.setEnabled(enabled);
+    m_inputMethodFilter.setState(WTFMove(state));
 }
 
 void View::selectionDidChange()
 {
     const auto& editorState = m_pageProxy->editorState();
-    if (!editorState.isMissingPostLayoutData)
+    if (!editorState.isMissingPostLayoutData) {
         m_inputMethodFilter.notifyCursorRect(editorState.postLayoutData().caretRectAtStart);
+        m_inputMethodFilter.notifySurrounding(editorState.postLayoutData().surroundingContext, editorState.postLayoutData().surroundingContextCursorPosition,
+            editorState.postLayoutData().surroundingContextSelectionPosition);
+    }
 }
 
 void View::setSize(const WebCore::IntSize& size)

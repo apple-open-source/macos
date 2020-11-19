@@ -516,7 +516,7 @@ OSStatus SSLGetDHEEnabled(SSLContextRef ctx, bool *enabled);
 OSStatus
 _SSLSetProtocolVersionEnabled (SSLContextRef 	context,
                               SSLProtocol		protocol,
-                               Boolean			enable) API_UNAVAILABLE(iosmac);
+                               Boolean			enable) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Obtain a value specified in SSLSetProtocolVersionEnabled.
@@ -526,7 +526,7 @@ _SSLSetProtocolVersionEnabled (SSLContextRef 	context,
 OSStatus
 _SSLGetProtocolVersionEnabled(SSLContextRef 		context,
                              SSLProtocol		protocol,
-                              Boolean			*enable) API_UNAVAILABLE(iosmac);		/* RETURNED */
+                              Boolean			*enable) API_UNAVAILABLE(macCatalyst);		/* RETURNED */
 
 /*
  * Get/set SSL protocol version; optional. Default is kSSLProtocolUnknown,
@@ -541,7 +541,7 @@ _SSLGetProtocolVersionEnabled(SSLContextRef 		context,
  */
 OSStatus
 _SSLSetProtocolVersion		(SSLContextRef 		context,
-                             SSLProtocol		version) API_UNAVAILABLE(iosmac);
+                             SSLProtocol		version) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Obtain the protocol version specified in SSLSetProtocolVersion.
@@ -555,7 +555,7 @@ _SSLSetProtocolVersion		(SSLContextRef 		context,
  */
 OSStatus
 _SSLGetProtocolVersion		(SSLContextRef		context,
-                             SSLProtocol		*protocol) API_UNAVAILABLE(iosmac);		/* RETURNED */
+                             SSLProtocol		*protocol) API_UNAVAILABLE(macCatalyst);		/* RETURNED */
 
 /* API REVIEW:
  The following 15 calls were used to change the behaviour of the trust
@@ -573,11 +573,11 @@ _SSLGetProtocolVersion		(SSLContextRef		context,
  */
 OSStatus
 _SSLSetEnableCertVerify		(SSLContextRef 			context,
-                             Boolean				enableVerify) API_UNAVAILABLE(iosmac);
+                             Boolean				enableVerify) API_UNAVAILABLE(macCatalyst);
 
 OSStatus
 _SSLGetEnableCertVerify		(SSLContextRef 			context,
-                             Boolean				*enableVerify) API_UNAVAILABLE(iosmac);	/* RETURNED */
+                             Boolean				*enableVerify) API_UNAVAILABLE(macCatalyst);	/* RETURNED */
 
 /*
  * Specify the option of ignoring certificates' "expired" times.
@@ -587,14 +587,14 @@ _SSLGetEnableCertVerify		(SSLContextRef 			context,
  */
 OSStatus
 _SSLSetAllowsExpiredCerts	(SSLContextRef		context,
-                             Boolean			allowsExpired) API_UNAVAILABLE(iosmac);
+                             Boolean			allowsExpired) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Obtain the current value of an SSLContext's "allowExpiredCerts" flag.
  */
 OSStatus
 _SSLGetAllowsExpiredCerts	(SSLContextRef		context,
-                             Boolean			*allowsExpired) API_UNAVAILABLE(iosmac); /* RETURNED */
+                             Boolean			*allowsExpired) API_UNAVAILABLE(macCatalyst); /* RETURNED */
 
 /*
  * Similar to SSLSetAllowsExpiredCerts(), this function allows the
@@ -604,11 +604,11 @@ _SSLGetAllowsExpiredCerts	(SSLContextRef		context,
  */
 OSStatus
 _SSLSetAllowsExpiredRoots	(SSLContextRef		context,
-                             Boolean			allowsExpired) API_UNAVAILABLE(iosmac);
+                             Boolean			allowsExpired) API_UNAVAILABLE(macCatalyst);
 
 OSStatus
 _SSLGetAllowsExpiredRoots	(SSLContextRef		context,
-                             Boolean			*allowsExpired) API_UNAVAILABLE(iosmac); /* RETURNED */
+                             Boolean			*allowsExpired) API_UNAVAILABLE(macCatalyst); /* RETURNED */
 
 /*
  * Specify option of allowing for an unknown root cert, i.e., one which
@@ -627,14 +627,14 @@ _SSLGetAllowsExpiredRoots	(SSLContextRef		context,
  */
 OSStatus
 _SSLSetAllowsAnyRoot			(SSLContextRef		context,
-                                 Boolean			anyRoot) API_UNAVAILABLE(iosmac);
+                                 Boolean			anyRoot) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Obtain the current value of an SSLContext's "allow any root" flag.
  */
 OSStatus
 _SSLGetAllowsAnyRoot			(SSLContextRef		context,
-                                 Boolean			*anyRoot) API_UNAVAILABLE(iosmac); /* RETURNED */
+                                 Boolean			*anyRoot) API_UNAVAILABLE(macCatalyst); /* RETURNED */
 
 /*
  * Augment or replace the system's default trusted root certificate set
@@ -651,7 +651,7 @@ _SSLGetAllowsAnyRoot			(SSLContextRef		context,
 OSStatus
 _SSLSetTrustedRoots			(SSLContextRef 		context,
                              CFArrayRef 		trustedRoots,
-                             Boolean 			replaceExisting) API_UNAVAILABLE(iosmac);
+                             Boolean 			replaceExisting) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Obtain an array of SecCertificateRefs representing the current
@@ -662,7 +662,7 @@ _SSLSetTrustedRoots			(SSLContextRef 		context,
  */
 OSStatus
 _SSLCopyTrustedRoots			(SSLContextRef 		context,
-                                 CFArrayRef 		*trustedRoots) API_UNAVAILABLE(iosmac);	/* RETURNED */
+                                 CFArrayRef 		*trustedRoots) API_UNAVAILABLE(macCatalyst);	/* RETURNED */
 
 /*
  * Add a SecCertificateRef, or a CFArray of them, to a server's list
@@ -680,7 +680,7 @@ _SSLCopyTrustedRoots			(SSLContextRef 		context,
 OSStatus
 _SSLSetCertificateAuthorities(SSLContextRef		context,
                              CFTypeRef			certificateOrArray,
-                              Boolean 			replaceExisting) API_UNAVAILABLE(iosmac);
+                              Boolean 			replaceExisting) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Obtain the certificates specified in SSLSetCertificateAuthorities(),
@@ -691,7 +691,7 @@ _SSLSetCertificateAuthorities(SSLContextRef		context,
 
 OSStatus
 _SSLCopyCertificateAuthorities(SSLContextRef		context,
-                              CFArrayRef		*certificates) API_UNAVAILABLE(iosmac);	/* RETURNED */
+                              CFArrayRef		*certificates) API_UNAVAILABLE(macCatalyst);	/* RETURNED */
 
 /*
  * Request peer certificates. Valid anytime, subsequent to
@@ -716,7 +716,7 @@ _SSLCopyCertificateAuthorities(SSLContextRef		context,
  */
 OSStatus
 _SSLCopyPeerCertificates		(SSLContextRef 		context,
-                             CFArrayRef			*certs) API_UNAVAILABLE(iosmac);	/* RETURNED */
+                             CFArrayRef			*certs) API_UNAVAILABLE(macCatalyst);	/* RETURNED */
 
 /*
  * Specify Diffie-Hellman parameters. Optional; if we are configured to allow
@@ -726,7 +726,7 @@ _SSLCopyPeerCertificates		(SSLContextRef 		context,
  */
 OSStatus _SSLSetDiffieHellmanParams	(SSLContextRef			context,
                                      const void 			*dhParams,
-                                     size_t					dhParamsLen) API_UNAVAILABLE(iosmac);
+                                     size_t					dhParamsLen) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Return parameter block specified in SSLSetDiffieHellmanParams.
@@ -734,7 +734,7 @@ OSStatus _SSLSetDiffieHellmanParams	(SSLContextRef			context,
  */
 OSStatus _SSLGetDiffieHellmanParams	(SSLContextRef			context,
                                      const void 			**dhParams,
-                                     size_t					*dhParamsLen) API_UNAVAILABLE(iosmac);
+                                     size_t					*dhParamsLen) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Enable/Disable RSA blinding. This feature thwarts a known timing
@@ -743,10 +743,10 @@ OSStatus _SSLGetDiffieHellmanParams	(SSLContextRef			context,
  * enabled.
  */
 OSStatus _SSLSetRsaBlinding			(SSLContextRef			context,
-                                     Boolean				blinding) API_UNAVAILABLE(iosmac);
+                                     Boolean				blinding) API_UNAVAILABLE(macCatalyst);
 
 OSStatus _SSLGetRsaBlinding			(SSLContextRef			context,
-                                     Boolean				*blinding) API_UNAVAILABLE(iosmac);
+                                     Boolean				*blinding) API_UNAVAILABLE(macCatalyst);
 
 /*
  * Create a new SSL/TLS session context.
@@ -754,14 +754,14 @@ OSStatus _SSLGetRsaBlinding			(SSLContextRef			context,
  */
 OSStatus
 _SSLNewContext				(Boolean 			isServer,
-                             SSLContextRef 		*tlsContextPtr) API_UNAVAILABLE(iosmac);     /* RETURNED */
+                             SSLContextRef 		*tlsContextPtr) API_UNAVAILABLE(macCatalyst);     /* RETURNED */
 
 /*
  * Dispose of an SSLContextRef.  This is effectivly a CFRelease.
  * Deprecated.
  */
 OSStatus
-_SSLDisposeContext			(SSLContextRef		context) API_UNAVAILABLE(iosmac);
+_SSLDisposeContext			(SSLContextRef		context) API_UNAVAILABLE(macCatalyst);
 
 /* We redefine the names of all SPIs to avoid collision with unavailable APIs */
 #define SSLSetProtocolVersionEnabled _SSLSetProtocolVersionEnabled
@@ -807,7 +807,7 @@ _SSLProtocolVersionToWireFormatValue   (SSLProtocol protocol);
  */
 OSStatus
 SSLNewDatagramContext		(Boolean 			isServer,
-                             SSLContextRef 		*dtlsContextPtr) API_UNAVAILABLE(iosmac);	/* RETURNED */
+                             SSLContextRef 		*dtlsContextPtr) API_UNAVAILABLE(macCatalyst);	/* RETURNED */
 
 
 

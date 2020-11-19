@@ -544,7 +544,7 @@ name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 		}
 		(void)close(p->fts_symfd);
 	} else if (!(p->fts_flags & FTS_DONTCHDIR) &&
-	    fts_safe_changedir(sp, p->fts_parent, -1, "..")) {
+	    fts_safe_changedir(sp, p, -1, "..")) {
 		SET(FTS_STOP);
 		sp->fts_cur = p;
 		return (NULL);
@@ -1255,7 +1255,7 @@ common_no_stat:
 	 */
 	if (descend && (type == BCHILD || !nitems) &&
 	    (cur->fts_level == FTS_ROOTLEVEL ? FCHDIR(sp, sp->fts_rfd) :
-	    fts_safe_changedir(sp, cur->fts_parent, -1, ".."))) {
+	    fts_safe_changedir(sp, cur, -1, ".."))) {
 		cur->fts_info = FTS_ERR;
 		SET(FTS_STOP);
 		return (NULL);
@@ -1570,6 +1570,41 @@ fts_safe_changedir(FTS *sp, FTSENT *p, int fd, char *path)
 		goto bail;
 	}
 #endif
+
+	if (fd != -1) {
+		// Going down
+		struct stat csb;
+		int cfd =  open(".", O_RDONLY | O_CLOEXEC);
+		if (cfd < 0) {
+			ret = -1;
+			goto bail;
+		} else if (fstat(cfd, &csb)) {
+			oerrno = errno;
+			(void)close(cfd);
+			errno = oerrno;
+			ret = -1;
+			goto bail;
+		} else {
+			if (sb.st_dev != csb.st_dev) {
+				// Changed device, so we'll need to track the fd of the current
+				// directory
+				p->fts_symfd = cfd;
+				p->fts_flags |= FTS_CHDIRFD;
+			} else {
+				// Same device so assume open("..") will work
+				(void)close(cfd);
+			}
+		}
+	} else if (fd == -1 && strcmp(path, "..") == 0) {
+		// Going up
+		if (p->fts_flags & FTS_CHDIRFD) {
+			// If FTS_CHDIRFD is set, use the stashed fd to follow ".."
+			(void)close(newfd);
+			newfd = p->fts_symfd;
+			p->fts_symfd = 0;
+			p->fts_flags &= ~FTS_CHDIRFD;
+		}
+	}
 
 	ret = fchdir(newfd);
 bail:

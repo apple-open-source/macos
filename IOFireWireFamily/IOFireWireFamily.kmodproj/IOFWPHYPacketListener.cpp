@@ -46,7 +46,7 @@ OSMetaClassDefineReservedUnused( IOFWPHYPacketListener, 9 );
 IOFWPHYPacketListener * IOFWPHYPacketListener::createWithController( IOFireWireController * controller )
 {
     IOReturn				status = kIOReturnSuccess;
-    IOFWPHYPacketListener * me;
+    IOFWPHYPacketListener * me = NULL;
         
     if( status == kIOReturnSuccess )
     {

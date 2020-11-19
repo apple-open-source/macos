@@ -86,10 +86,10 @@ void CacheStorageEngineConnection::caches(WebCore::ClientOrigin&& origin, uint64
     });
 }
 
-void CacheStorageEngineConnection::retrieveRecords(uint64_t cacheIdentifier, URL&& url, RecordsCallback&& callback)
+void CacheStorageEngineConnection::retrieveRecords(uint64_t cacheIdentifier, WebCore::RetrieveRecordsOptions&& options, RecordsCallback&& callback)
 {
     RELEASE_LOG_IF_ALLOWED("retrieveRecords in cache %" PRIu64, cacheIdentifier);
-    Engine::retrieveRecords(m_connection.networkProcess(), sessionID(), cacheIdentifier, WTFMove(url), [callback = WTFMove(callback), sessionID = this->sessionID()](auto&& result) mutable {
+    Engine::retrieveRecords(m_connection.networkProcess(), sessionID(), cacheIdentifier, WTFMove(options), [callback = WTFMove(callback), sessionID = this->sessionID()](auto&& result) mutable {
         RELEASE_LOG_FUNCTION_IF_ALLOWED_IN_CALLBACK("retrieveRecords", "records size is %lu", [](const auto& value) { return value.size(); });
         callback(WTFMove(result));
     });
@@ -116,6 +116,10 @@ void CacheStorageEngineConnection::putRecords(uint64_t cacheIdentifier, Vector<R
 void CacheStorageEngineConnection::reference(uint64_t cacheIdentifier)
 {
     RELEASE_LOG_IF_ALLOWED("reference cache %" PRIu64, cacheIdentifier);
+    ASSERT(m_cachesLocks.isValidKey(cacheIdentifier));
+    if (!m_cachesLocks.isValidKey(cacheIdentifier))
+        return;
+
     auto& counter = m_cachesLocks.ensure(cacheIdentifier, []() {
         return 0;
     }).iterator->value;
@@ -126,6 +130,9 @@ void CacheStorageEngineConnection::reference(uint64_t cacheIdentifier)
 void CacheStorageEngineConnection::dereference(uint64_t cacheIdentifier)
 {
     RELEASE_LOG_IF_ALLOWED("dereference cache %" PRIu64, cacheIdentifier);
+    ASSERT(m_cachesLocks.isValidKey(cacheIdentifier));
+    if (!m_cachesLocks.isValidKey(cacheIdentifier))
+        return;
 
     auto referenceResult = m_cachesLocks.find(cacheIdentifier);
     if (referenceResult == m_cachesLocks.end())

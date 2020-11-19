@@ -3574,5 +3574,106 @@ typedef struct __attribute__((packed))
   int16_t  PrimaryBattery0007;                       // Usage 0xFF0D0007: , Value = -32768 to 32767, Physical = ((Value + 32768) - 32768) in 10⁻³ A units
 } HIDBatteryCaseOutputReport13;
 
+#define HIDReportWithSingleUsageAndMultiReportCount \
+0x06, 0x26, 0xFF,            /* (GLOBAL) USAGE_PAGE         0xFF26 Vendor-defined  */\
+0x0A, 0x01, 0x00,            /* (LOCAL)  USAGE              0xFF260001   */\
+0xA1, 0x01,                  /* (MAIN)   COLLECTION         0x01 Application (Usage=0xFF260001: Page=Vendor-defined, Usage=, Type=) */\
+0x85, 0x01,                  /*   (GLOBAL) REPORT_ID          0x01 (1)    */\
+0x0A, 0x02, 0x00,            /*   (LOCAL)  USAGE              0xFF2600002     */\
+0x75, 0x20,                  /*   (GLOBAL) REPORT_SIZE        0x20 (32) Number of bits per field     */\
+0x95, 0x05,                  /*   (GLOBAL) REPORT_COUNT       0x05 (5) Number of fields     */\
+0xB1, 0x02,                  /*   (MAIN)   Feature              0x00000000 (1 field x 32 bits) 0=Data 0=Variable 0=Absolute 0=Ignored 0=Ignored 0=PrefState 0=NoNull    */\
+0x85, 0x02,                  /*   (GLOBAL) REPORT_ID          0x02 (1)    */\
+0x1A, 0x03,0x00,            /* Usage Minimum */\
+0x2A, 0x07,0x00,            /* Usage Maximum*/\
+0x75, 0x8,                  /*   (GLOBAL) REPORT_SIZE        0x08 (8) Number of bits per field     */\
+0x95, 0x01,                  /*   (GLOBAL) REPORT_COUNT       0x01 (1) Number of fields     */\
+0x81, 0x00,                  /*   (MAIN)   Input              0x00000000 (1 field x 8 bits) 0=Data 0=Array 0=Absolute 0=Ignored 0=Ignored 0=PrefState 0=NoNull    */\
+0xC0,                        /* (MAIN)   END_COLLECTION     Application */\
+
+#define HIDPhaseKeyboardDescriptor \
+0x05, 0x0C,                               /* Usage Page (Consumer) */\
+0x09, 0x01,                               /* Usage (Consumer Control) */\
+0xA1, 0x01,                               /* Collection (Application) */\
+0x85, 0x01,                               /*   ReportID................ (1) */\
+0x05, 0x0C,                               /*   Usage Page (Consumer) */\
+0x09, 0xCD,                               /*   Usage (Play Or Pause) */\
+0x09, 0xEA,                               /*   Usage (Volume Decrement) */\
+0x09, 0xE9,                               /*   Usage (Volume Increment) */\
+0x09, 0xE2,                               /*   Usage (Mute) */\
+0x06, 0x01, 0xFF,                         /*   Usage Page (Apple Vendor Keyboard) */\
+0x0A, 0x00, 0x01,                         /*   Usage (Long Press) */\
+0x75, 0x01,                               /*   Report Size........... (1) */\
+0x95, 0x05,                               /*   Report Count.......... (5) */\
+0x15, 0x00,                               /*   Logical Minimum....... (0) */\
+0x25, 0x01,                               /*   Logical Maximum....... (1) */\
+0x81, 0x02,                               /*   Input (Data, Variable, Absolute) */\
+0x75, 0x03,                               /*   Report Size........... (3) */\
+0x95, 0x01,                               /*   Report Count.......... (1) */\
+0x81, 0x01,                               /*   Input (Constant) */\
+0x06, 0x1C, 0xFF,                         /*   Usage Page (Apple Vendor Phase) */\
+0x09, 0x01,                               /*   Usage (Phase Began) */\
+0x09, 0x02,                               /*   Usage (Phase Changed) */\
+0x09, 0x03,                               /*   Usage (Phase Ended) */\
+0x09, 0x04,                               /*   Usage (Phase Cancelled) */\
+0x09, 0x05,                               /*   Usage (Phase May Begin) */\
+0x75, 0x01,                               /*   Report Size........... (1) */\
+0x95, 0x05,                               /*   Report Count.......... (5) */\
+0x81, 0x02,                               /*   Input (Data, Variable, Absolute) */\
+0x75, 0x03,                               /*   Report Size........... (3) */\
+0x95, 0x01,                               /*   Report Count.......... (1) */\
+0x81, 0x01,                               /*   Input (Constant) */\
+0xC0,                                     /*  End Collection */
+
+//--------------------------------------------------------------------------------
+//  HIDAudioPhasedInputReport 01 (Host <-- Device)
+//--------------------------------------------------------------------------------
+
+typedef struct __attribute__((packed))
+{
+    uint8_t  reportId;                                 // Report ID = 0x01 (1)
+
+    // Field:   1
+    // Width:   1
+    // Count:   4
+    // Flags:   00000002: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF07 LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:1 RID:0 RCNT:4
+    // Locals:  USAG:FF070001 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  000B0021 000C00EA 000C00E9
+    // Coll:    ConsumerControl
+    // Access:  Read/Write
+    // Type:    Variable
+    // Page 0xFF07: Vendor-defined
+    // Collection: ConsumerControl
+    uint8_t  TEL_ConsumerControlFlash : 1;             // Usage 0x000B0021: Flash, Value = 0 to 1
+    uint8_t  CD_ConsumerControlVolumeDecrement : 1;    // Usage 0x000C00EA: Volume Decrement, Value = 0 to 1
+    uint8_t  CD_ConsumerControlVolumeIncrement : 1;    // Usage 0x000C00E9: Volume Increment, Value = 0 to 1
+    uint8_t  CD_ConsumerControlVolumeMute : 1;
+    uint8_t  VEN_AppleVendorKeyboard_LongPress : 1;
+
+    uint8_t : 3; // Pad
+
+    // Field:   2
+    // Width:   1
+    // Count:   5
+    // Flags:   00000002: 0=Data 1=Variable 0=Absolute 0=NoWrap 0=Linear 0=PrefState 0=NoNull 0=NonVolatile 0=Bitmap
+    // Globals: PAGE:FF1C LMIN:0 LMAX:1 PMIN:0 PMAX:0 UEXP:0 UNIT:0 RSIZ:1 RID:0 RCNT:5
+    // Locals:  USAG:FF1C0001 UMIN:0 UMAX:0 DIDX:0 DMIN:0 DMAX:0 SIDX:0 SMIN:0 SMAX:0
+    // Usages:  FF1C0001 FF1C0002 FF1C0003 FF1C0004 FF1C0005
+    // Coll:    ConsumerControl
+    // Access:  Read/Write
+    // Type:    Variable
+    // Page 0xFF1C: Vendor-defined
+    // Collection: ConsumerControl
+    uint8_t VEN_Phase_Began     : 1;                    // Usage 0xFF1C0001: Phase Began, Value = 0 to 1
+    uint8_t VEN_Phase_Changed   : 1;                    // Usage 0xFF1C0002: Phase Changed, Value = 0 to 1
+    uint8_t VEN_Phase_Ended     : 1;                    // Usage 0xFF1C0003: Phase Ended, Value = 0 to 1
+    uint8_t VEN_Phase_Cancelled : 1;                    // Usage 0xFF1C0004: Phase Cancelled, Value = 0 to 1
+    uint8_t VEN_Phase_MayBegin  : 1;                    // Usage 0xFF1C0005: Phase MayBegin, Value = 0 to 1
+
+    uint8_t : 3; // Pad
+
+} HIDPhaseKeyboardReport;
+
 #endif /* IOHIDUnitTestDescriptors_h */
 

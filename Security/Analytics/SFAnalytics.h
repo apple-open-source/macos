@@ -26,9 +26,9 @@
 #define SFAnalytics_h
 
 #import <Foundation/Foundation.h>
-#import "SFAnalyticsSampler.h"
-#import "SFAnalyticsMultiSampler.h"
-#import "SFAnalyticsActivityTracker.h"
+#import <Security/SFAnalyticsSampler.h>
+#import <Security/SFAnalyticsMultiSampler.h>
+#import <Security/SFAnalyticsActivityTracker.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -69,6 +69,9 @@ typedef NS_ENUM(uint32_t, SFAnalyticsTimestampBucket) {
 + (void)addOSVersionToEvent:(NSMutableDictionary*)event;
 // Help for the subclass to pick a prefered location
 + (NSString *)defaultAnalyticsDatabasePath:(NSString *)basename;
+
++ (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename uuid:(NSUUID * __nullable)userUuid;
++ (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename; // uses current user UUID for path
 
 - (void)dailyCoreAnalyticsMetrics:(NSString *)eventName;
 

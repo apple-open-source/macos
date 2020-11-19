@@ -25,7 +25,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "SecTransform.h"
+#include <Security/SecTransform.h>
 
 #ifdef __cplusplus
 extern "C" {

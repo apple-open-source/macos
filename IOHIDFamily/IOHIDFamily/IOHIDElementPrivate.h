@@ -49,6 +49,7 @@ enum {
     
 class IOHIDElementPrivate: public IOHIDElement
 {
+    friend class IOHIDLibUserClient;
     OSDeclareDefaultStructors( IOHIDElementPrivate )
 
 protected:
@@ -66,6 +67,7 @@ protected:
 
     UInt32                  _reportSize;
     UInt32                  _reportCount;
+    UInt32                  _rawReportCount;
     UInt32                  _reportStartBit;
     UInt32                  _reportBits;
     UInt32                  _reportID;
@@ -137,7 +139,7 @@ protected:
     bool            initIterator(void * iterationContext) const APPLE_KEXT_OVERRIDE;
     bool            getNextObjectForIterator(void      * iterationContext,
                                              OSObject ** nextObject) const APPLE_KEXT_OVERRIDE;
-    bool enqueueValue(void *value, UInt32 valueSize);
+    bool enqueueValue(IOHIDElementValue * value);
 public:
 
     static IOHIDElementPrivate * buttonElement(
@@ -210,8 +212,10 @@ public:
 
     virtual void setRollOverElementPtr(IOHIDElementPrivate ** rollOverElementPtr);
     virtual UInt32 getElementValueSize() const;
-    virtual IOByteCount getByteSize();
+    virtual IOByteCount getByteSize() const;
     void setDataBits(OSData *data);
+
+    IOByteCount getCurrentByteSize();
 
     virtual UInt32 getRangeCount() const;
     virtual UInt32 getStartingRangeIndex() const;
@@ -269,6 +273,7 @@ public:
     virtual OSData *                        getDataValue(void) APPLE_KEXT_OVERRIDE;
     virtual OSData *                        getDataValue(IOOptionBits options) APPLE_KEXT_OVERRIDE;
     virtual void                            setValue(UInt32 value) APPLE_KEXT_OVERRIDE;
+    virtual void                            setValue(UInt32 value, IOOptionBits options) APPLE_KEXT_OVERRIDE;
     virtual void                            setDataValue(OSData * value) APPLE_KEXT_OVERRIDE;
     virtual bool                            conformsTo(UInt32 usagePage, UInt32 usage=0) APPLE_KEXT_OVERRIDE;
     virtual void                            setCalibration(UInt32 min=0, UInt32 max=0, UInt32 saturationMin=0, UInt32 saturationMax=0, UInt32 deadZoneMin=0, UInt32 deadZoneMax=0, IOFixed granularity=0) APPLE_KEXT_OVERRIDE;

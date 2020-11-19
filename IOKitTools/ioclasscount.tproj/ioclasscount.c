@@ -39,6 +39,7 @@ cc ioclasscount.c -o /tmp/ioclasscount -Wall -isysroot /Applications/Xcode.app/C
 #include <IOKit/IOKitKeys.h>
 #include <CoreSymbolication/CoreSymbolication.h>
 
+
 /*********************************************************************
 *********************************************************************/
 static int compareClassNames(const void * left, const void * right)
@@ -377,15 +378,16 @@ ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * sear
 	    numBTs = 1;
 	    if (site->btPID)
 	    {
-		proc_name(site->btPID, &procname[0], sizeof(procname));
-		sym[1] = CSSymbolicatorCreateWithPid(site->btPID);
-		numBTs = 2;
+		if (proc_name(site->btPID, &procname[0], sizeof(procname)) > 0) {
+		    sym[1] = CSSymbolicatorCreateWithPid(site->btPID);
+		    numBTs = 2;
+		} else {
+		    snprintf(procname, sizeof(procname), "exited process");
+		}
 	    }
 
 	    for (userBT = 0, btIdx = 0; userBT < numBTs; userBT++)
 	    {
-		if (userBT && !search) printf("<%s(%d)>\n", procname, site->btPID);
-
 		for (j = 0; j < kIOTrackingCallSiteBTs; j++, btIdx++)
 		{
 		    mach_vm_address_t addr = site->bt[userBT][j];
@@ -425,6 +427,7 @@ ProcessBacktraces(void * output, size_t outputSize, pid_t pid, const char * sear
 		}
 		if (found) break;
 	    }
+	    if (site->btPID && !search) printf("<%s(%d)>\n", procname, site->btPID);
 	    if (numBTs == 2) CSRelease(sym[1]);
 	    if (!found || !search) break;
 	    search = false;

@@ -25,6 +25,15 @@
 #include "utilities/der_plist_internal.h"
 #include "utilities/SecCFError.h"
 #include "utilities/SecCFRelease.h"
+#include "utilities/der_plist.h"
 #include <CoreFoundation/CoreFoundation.h>
 
 CFStringRef sSecDERErrorDomain = CFSTR("com.apple.security.cfder.error");
+
+uint8_t * SecCCDEREncodeHandleResult(uint8_t *der, CFErrorRef *newError)
+{
+    if (!der) {
+        SecCFDERCreateError(kSecDERErrorCCDEREncode, CFSTR("ccder failed to encode"), NULL, newError);
+    }
+    return der;
+}

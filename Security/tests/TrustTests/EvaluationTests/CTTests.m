@@ -34,7 +34,10 @@
 #include "trust/trustd/OTATrustUtilities.h"
 
 #if !TARGET_OS_BRIDGE
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #import <OCMock/OCMock.h>
+#pragma clang diagnostic pop
 #endif
 
 #if TARGET_OS_IPHONE
@@ -1892,6 +1895,52 @@ errOut:
     CFReleaseNull(pinnedNonCT);
     CFReleaseNull(policy);
     CFReleaseNull(trust);
+}
+
+- (void) testCheckCTRequired {
+    SecCertificateRef system_root = NULL,  system_server_after = NULL;
+    SecTrustRef trust = NULL;
+    NSArray *enforce_anchors = nil;
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
+    CFErrorRef error = nil;
+
+    // A policy with CTRequired set
+    SecPolicyRef policy = SecPolicyCreateBasicX509();
+    SecPolicySetOptionsValue(policy, kSecPolicyCheckCTRequired, kCFBooleanTrue);
+
+    require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
+                   errOut, fail("failed to create system root"));
+    require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
+                   errOut, fail("failed to create system server cert issued after flag day"));
+
+    enforce_anchors = @[ (__bridge id)system_root ];
+    require_noerr_action(SecTrustCreateWithCertificates(system_server_after, policy, &trust), errOut, fail("failed to create trust"));
+    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforce_anchors), errOut, fail("failed to set anchors"));
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
+
+    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
+
+    // test system cert without CT fails (with trusted logs)
+#if !TARGET_OS_BRIDGE
+    is(SecTrustEvaluateWithError(trust, &error), false, "system post-flag-date non-CT cert with trusted logs succeeded");
+    if (error) {
+        is(CFErrorGetCode(error), errSecNotTrusted, "got wrong error code for non-ct cert, got %ld, expected %d",
+           (long)CFErrorGetCode(error), (int)errSecNotTrusted);
+    } else {
+        fail("expected trust evaluation to fail and it did not.");
+    }
+#else
+    /* BridgeOS doesn't enforce */
+    ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date non-CT cert with trusted logs failed");
+#endif
+
+errOut:
+    CFReleaseNull(system_root);
+    CFReleaseNull(system_server_after);
+    CFReleaseNull(policy);
+    CFReleaseNull(trust);
+    CFReleaseNull(error);
+
 }
 
 @end

@@ -220,7 +220,7 @@
                                                                  zoneID:key.zoneID
                                                                   error:&localerror];
     if(localerror) {
-        secerror("ckksshare: couldn't load old share for %@: %@", key, localerror);
+        ckkserror("ckksshare", key.zoneID, "couldn't load old share for %@: %@", key, localerror);
         if(error) {
             *error = localerror;
         }

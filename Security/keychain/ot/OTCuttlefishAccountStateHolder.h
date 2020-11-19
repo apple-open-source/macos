@@ -34,8 +34,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)persistNewTrustState:(OTAccountMetadataClassC_TrustState)newState
                        error:(NSError**)error;
 
-- (BOOL)persistNewEpoch:(uint64_t)epoch error:(NSError**)error;
-
 - (BOOL)persistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges
                         error:(NSError**)error;
 
@@ -45,7 +43,6 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSDate *)lastHealthCheckupDate:(NSError * _Nullable *)error;
 - (BOOL)persistLastHealthCheck:(NSDate*)lastCheck error:(NSError**)error;
 
-- (OTAccountMetadataClassC_AttemptedAJoinState)fetchPersistedJoinAttempt:(NSError * _Nullable *)error;
 - (BOOL)persistOctagonJoinAttempt:(OTAccountMetadataClassC_AttemptedAJoinState)attempt error:(NSError**)error;
 
 @end

@@ -33,6 +33,10 @@
 #ifdef TERMIOS_HEADER
 #include <sys/termios.h>
 #endif
+#ifdef __APPLE__
+#include <os/feature_private.h>
+#include <os/variant_private.h>
+#endif
 
 #ifndef R_OK
 #define R_OK 4
@@ -739,6 +743,39 @@ make_roff_command (const char *path, const char *file) {
      return buf;
 }
 
+#ifdef __APPLE__
+static char *
+make_mandoc_command(const char * __unused path, const char *file) {
+    int ll = setll();
+    char *command = my_xsprintf("%s -c -O width=%d %s",
+	    "/usr/bin/mandoc", ll, file);
+
+    if (os_variant_is_darwinos("com.apple.man")) {
+	// darwinOS won't have roff available
+	return command;
+    }
+
+    const char *mandoc_env = getenv("MAN_USE_MANDOC");
+    if (mandoc_env && strcmp(mandoc_env, "N") == 0) {
+	return NULL;
+    } else if (mandoc_env && strcmp(mandoc_env, "Y") == 0) {
+	return command;
+    }
+
+    if (!os_feature_enabled(man, mandoc) ) {
+	return NULL;
+    }
+
+    char *test_command = my_xsprintf("%s -W unsupp,stop %s 2>&1 >/dev/null",
+	"/usr/bin/mandoc", file);
+    int test_status = do_system_command(test_command, 1);
+    if (test_status == 0) {
+	return command;
+    }
+    return NULL;
+}
+#endif // __APPLE__
+
 /*
  * Try to format the man page and create a new formatted file.  Return
  * 1 for success and 0 for failure.
@@ -856,14 +893,23 @@ static int
 display_man_file(const char *path, const char *man_file) {
      char *roff_command;
      char *command;
+     char *mandoc_command = NULL;
 
      if (!different_man_file (man_file))
 	  return 0; 
+
+#ifdef __APPLE__
+     mandoc_command = make_mandoc_command (path, man_file);
+#endif // __APPLE__
+
      roff_command = make_roff_command (path, man_file);
      if (roff_command == NULL)
 	  return 0;
      if (do_troff)
 	  command = my_xsprintf ("(cd \"%Q\" && %s)", path, roff_command);
+     else if (mandoc_command)
+	  command = my_xsprintf ("%s | (%s || true)",
+		   mandoc_command, pager);
      else
 	  command = my_xsprintf ("(cd \"%Q\" && %s | (%s || true))", path,
 		   roff_command, pager);

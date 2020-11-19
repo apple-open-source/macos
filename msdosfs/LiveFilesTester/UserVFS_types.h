@@ -338,6 +338,8 @@ typedef union {
 #define UVFS_FSATTR_CAPS_FORMAT             "_N_caps_format"            // number
 #define UVFS_FSATTR_CAPS_INTERFACES         "_N_caps_interfaces"        // number
 
+#define UVFS_FSATTR_PREALLOCATE             "_O_f_preallocate"            // opaque IN-OUT
+
 typedef uint32_t UVFSMountFlags;
 #define UVFS_MOUNT_RDONLY         (1U << 0)
 
@@ -370,6 +372,22 @@ typedef struct _UVFSVolumeCredential
      uint64_t vc_validmask;
      // will expand when we implement crypto
 } UVFSVolumeCredential;
+
+/*
+ * F_PREALLOCATE flags
+ */
+
+#define UVFS_PREALLOCATE_ALLOCATEALL            0x00000002
+#define UVFS_PREALLOCATE_ALLOCATECONTIG         0x00000004
+#define UVFS_PREALLOCATE_ALLOCATEFROMPEOF       0x00000010
+#define UVFS_PREALLOCATE_ALLOCATEFROMVOL        0x00000020
+
+typedef struct _fpnfs_fpreallocate_args {
+       off_t           offset;
+       off_t           length;
+       uint32_t        flags;
+       off_t           bytesallocated;
+} LIFilePreallocateArgs_t;
 
 #endif /* __clang_tapi__ */
 

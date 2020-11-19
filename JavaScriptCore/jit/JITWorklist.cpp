@@ -29,7 +29,6 @@
 #if ENABLE(JIT)
 
 #include "JIT.h"
-#include "JSCInlines.h"
 #include "VMInlines.h"
 
 namespace JSC {
@@ -57,14 +56,12 @@ public:
         switch (result) {
         case CompilationFailed:
             CODEBLOCK_LOG_EVENT(m_codeBlock, "delayJITCompile", ("compilation failed"));
-            if (Options::verboseOSR())
-                dataLogF("    JIT compilation failed.\n");
+            dataLogLnIf(Options::verboseOSR(), "    JIT compilation failed.");
             m_codeBlock->dontJITAnytimeSoon();
             m_codeBlock->m_didFailJITCompilation = true;
             return;
         case CompilationSuccessful:
-            if (Options::verboseOSR())
-                dataLogF("    JIT compilation successful.\n");
+            dataLogLnIf(Options::verboseOSR(), "    JIT compilation successful.");
             m_codeBlock->ownerExecutable()->installCode(m_codeBlock);
             m_codeBlock->jitSoon();
             return;
@@ -97,7 +94,7 @@ private:
     bool m_isFinishedCompiling { false };
 };
 
-class JITWorklist::Thread : public AutomaticThread {
+class JITWorklist::Thread final : public AutomaticThread {
 public:
     Thread(const AbstractLocker& locker, JITWorklist& worklist)
         : AutomaticThread(locker, worklist.m_lock, worklist.m_condition.copyRef())
@@ -106,7 +103,7 @@ public:
         m_worklist.m_numAvailableThreads++;
     }
 
-    const char* name() const override
+    const char* name() const final
     {
 #if OS(LINUX)
         return "JITWorker";
@@ -115,8 +112,8 @@ public:
 #endif
     }
     
-protected:
-    PollResult poll(const AbstractLocker&) override
+private:
+    PollResult poll(const AbstractLocker&) final
     {
         RELEASE_ASSERT(m_worklist.m_numAvailableThreads);
         
@@ -128,7 +125,7 @@ protected:
         return PollResult::Work;
     }
     
-    WorkResult work() override
+    WorkResult work() final
     {
         RELEASE_ASSERT(!m_myPlans.isEmpty());
         
@@ -148,8 +145,7 @@ protected:
         m_worklist.m_numAvailableThreads++;
         return WorkResult::Continue;
     }
-    
-private:
+
     JITWorklist& m_worklist;
     Plans m_myPlans;
 };

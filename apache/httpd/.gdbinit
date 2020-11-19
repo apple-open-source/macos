@@ -125,9 +125,9 @@ define dump_bucket_ex
     set $refcount = -1
 
     print_bkt_datacol "bucket" "%-9s" $bucket->type->name $sh
-    printf "(0x%08lx)", (unsigned long)$bucket
+    printf "(%12lx)", (unsigned long)$bucket
     print_bkt_datacol "length" "%-6ld" (long)($bucket->length) $sh
-    print_bkt_datacol "data" "0x%08lx" $bucket->data $sh
+    print_bkt_datacol "data" "%12lx" $bucket->data $sh
 
     if !$sh
         printf "\n    "
@@ -151,18 +151,13 @@ define dump_bucket_ex
         print_bkt_datacol "rc" "n/%c" 'a' $sh
 
     else
-    if (($bucket->type == &apr_bucket_type_file) || \
-        ($bucket->type == &apr_bucket_type_pipe) || \
-        ($bucket->type == &apr_bucket_type_socket))
+    if ($bucket->type == &apr_bucket_type_file)
 
-        # buckets that contain data not in memory (ie not printable)
-
-        print_bkt_datacol "contents" "[**unprintable**%c" ']' $sh
-        printf "     "
-        if $bucket->type == &apr_bucket_type_file
-            set $refcount = ((apr_bucket_refcount *)$bucket->data)->refcount
-            print_bkt_datacol "rc" "%d" $refcount $sh
-        end
+        # file bucket, can show fd and refcount
+        set $fd = ((apr_bucket_file*)$bucket->data)->fd->filedes
+        print_bkt_datacol "contents" "[***file***] fd=%-6ld" (long)$fd $sh
+        set $refcount = ((apr_bucket_refcount *)$bucket->data)->refcount
+        print_bkt_datacol "rc" "%d" $refcount $sh
 
     else
     if (($bucket->type == &apr_bucket_type_heap)      || \
@@ -210,17 +205,21 @@ define dump_bucket_ex
             printf " contents=["
         end
         set $datalen = $bucket->length
-        if $datalen > 17
-            printmem $data 17
-            printf "..."
-            set $datalen = 20
+        if $isValidAddress($data) == 1
+            if $datalen > 17
+                printmem $data 17
+                printf "..."
+                set $datalen = 20
+            else
+                printmemn $data $datalen
+            end
+            printf "]"
+            while $datalen < 20
+                printf " "
+                set $datalen = $datalen + 1
+            end
         else
-            printmemn $data $datalen
-        end
-        printf "]"
-        while $datalen < 20
-            printf " "
-            set $datalen = $datalen + 1
+            printf "Iv addr %12lx]", $data
         end
 
         if $refcount != -1
@@ -230,8 +229,27 @@ define dump_bucket_ex
         end
 
     else
-        # 3rd-party bucket type
-        print_bkt_datacol "contents" "[**unknown**%c" ']' $sh
+        if ($bucket->type == &apr_bucket_type_pipe)
+
+            # pipe bucket, can show fd
+            set $fd = ((apr_file_t*)$bucket->data)->filedes;
+            print_bkt_datacol "contents" "[***pipe***] fd=%-6ld" (long)$fd $sh
+
+        else
+        if ($bucket->type == &apr_bucket_type_socket)
+
+            # file bucket, can show fd
+            set $fd = ((apr_socket_t*)$bucket->data)->socketdes;
+            print_bkt_datacol "contents" "[**socket**] fd=%-6ld" (long)$fd $sh
+
+        else
+
+            # 3rd-party bucket type
+            print_bkt_datacol "contents" "[**opaque**]%-10c" ' ' $sh
+        end
+        end
+
+        # no refcount
         printf "         "
         print_bkt_datacol "rc" "n/%c" 'a' $sh
     end
@@ -257,9 +275,9 @@ define dump_brigade
                                - ((size_t) &((struct apr_bucket *)0)->link)))
     printf "dump of brigade 0x%lx\n", (unsigned long)$bb
 
-    printf "   | type     (address)    | length | "
-    printf "data addr  | contents               | rc\n"
-    printf "----------------------------------------"
+    printf "   | type     (address)      | length | "
+    printf "data address | contents               | rc\n"
+    printf "------------------------------------------"
     printf "----------------------------------------\n"
 
     if $bucket == $sentinel
@@ -267,13 +285,18 @@ define dump_brigade
     end
 
     set $j = 0
+    set $brigade_length = 0
     while $bucket != $sentinel
         printf "%2d", $j
         dump_bucket_ex $bucket 1
         set $j = $j + 1
+        if $bucket->length > 0
+            set $brigade_length = $brigade_length + $bucket->length
+        end
         set $bucket = $bucket->link.next
     end
     printf "end of brigade\n"
+    printf "Length of brigade (excluding buckets of unknown length): %u\n", $brigade_length
 end
 document dump_brigade
     Print bucket brigade info
@@ -330,10 +353,26 @@ document dump_process_rec
     Print process_rec info
 end
 
+define dump_server_addr_recs
+    set $sa_ = $arg0
+    set $san_ = 0
+    while $sa_
+      ### need to call apr_sockaddr_info_getbuf to print ->host_addr properly
+      ### which is a PITA since we need a buffer :(
+      printf " addr#%d: vhost=%s -> :%d\n", $san_++, $sa_->virthost, $sa_->host_port
+      set $sa_ = $sa_->next
+    end
+end
+document dump_server_addr_recs
+    Print server_addr_rec info
+end
+
+
 define dump_server_rec
     set $s = $arg0
-    printf "name=%s:%d\n", \
-            $s->server_hostname, $s->port
+    printf "name=%s:%d (0x%lx)\n", \
+            $s->server_hostname, $s->port, $s
+    dump_server_addr_recs $s->addrs
     dump_process_rec($s->process)
 end
 document dump_server_rec
@@ -361,6 +400,28 @@ define dump_request_tree
         set $r = $r->main
     end
 end        
+
+define dump_scoreboard
+    # Need to reserve size of array first before string literals could be
+    # put in
+    set $status = {0, 1, 2, 3, 4 ,5 ,6 ,7 ,8 ,9 ,10}
+    set $status = {"DEAD", "STARTING", "READY", "BUSY_READ", "BUSY_WRITE", "BUSY_KEEPALIVE", "BUSY_LOG", "BUSY_DNS", "CLOSING", "GRACEFUL", "IDLE_KILL"}
+    set $i = 0
+    while ($i < server_limit)
+        if ap_scoreboard_image->servers[$i][0].pid != 0
+            set $j = 0
+            while ($j < threads_per_child)
+                set $ws = ap_scoreboard_image->servers[$i][$j]
+                printf "pid: %d, tid: 0x%lx, status: %s\n", $ws.pid, $ws.tid, $status[$ws.status]
+                set $j = $j +1
+            end
+        end
+        set $i = $i +1
+    end
+end
+document dump_scoreboard
+    Dump the scoreboard
+end
 
 define dump_allocator
     printf "Allocator current_free_index = %d, max_free_index = %d\n", \
@@ -414,14 +475,18 @@ define dump_one_pool
 end
 
 define dump_all_pools
-    set $root = $arg0
+    if $argc > 0
+        set $root = $arg0
+    else
+        set $root = ap_pglobal
+    end
     while $root->parent
         set $root = $root->parent
     end
     dump_pool_and_children $root
 end
 document dump_all_pools
-    Dump the whole pool hierarchy starting from apr_global_pool. Requires an arbitrary pool as starting parameter.
+    Dump the whole pool hierarchy starting from apr_global_pool. Optionally takes an arbitrary pool as starting parameter.
 end
 
 python
@@ -481,13 +546,12 @@ class DumpPoolAndChilds (gdb.Command):
 
   def _dump(self, arg, depth):
     pool = arg
-    print("%*c" % (depth * 4 + 1, " "), end="")
-    self._dump_one_pool(pool)
-    if pool['child'] != 0:
-      self._dump(pool['child'], depth + 1)
-    s = pool['sibling']
-    if s != 0:
-      self._dump(s, depth)
+    while pool:
+        print("%*c" % (depth * 4 + 1, " "), end="")
+        self._dump_one_pool(pool)
+        if pool['child'] != 0:
+            self._dump(pool['child'], depth + 1)
+        pool = pool['sibling']
 
   def invoke (self, arg, from_tty):
     pool = gdb.parse_and_eval(arg)
@@ -506,6 +570,27 @@ DumpPoolAndChilds ()
 end
 document dump_pool_and_children
     Dump the whole pool hierarchy starting from the given pool.
+end
+
+python
+
+class isValidAddress (gdb.Function):
+    """Determines if the argument is a valid address."""
+
+    def __init__(self):
+        super(isValidAddress, self).__init__("isValidAddress")
+
+    def invoke(self, address):
+        inf = gdb.inferiors()[0]
+        result = 1
+        try:
+            inf.read_memory(address, 8)
+        except:
+            result = 0
+        return result
+
+isValidAddress()
+
 end
 
 # Set sane defaults for common signals:

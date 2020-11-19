@@ -261,7 +261,7 @@ CFMutableArrayRef Trust::addPreferenceRevocationPolicies(
 	pd = new Dictionary(tempDict);
 	CFRelease(tempDict);
 
-	auto_ptr<Dictionary> prefsDict(pd);
+	unique_ptr<Dictionary> prefsDict(pd);
 
 	bool doOcsp = false;
 	bool doCrl = false;

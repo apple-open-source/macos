@@ -67,8 +67,7 @@
 
 - (instancetype)initAsInitiator:(bool)initiator version:(KCPairingChannelContext *)peerVersionContext device:(SecRemoteDevice *)device
 {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         self.remoteVersionContext = peerVersionContext;
         self.initiator = initiator;
         self.device = device;
@@ -135,7 +134,7 @@
 
 - (void)sosCircleStatus:(void(^)(SOSCCStatus status, NSError *error))complete
 {
-    SOSCloudKeychainFlush(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef __unused returnedValues, CFErrorRef __unused sync_error) {
+    SOSCloudKeychainFlush(dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), ^(CFDictionaryRef __unused returnedValues, CFErrorRef __unused sync_error) {
         CFErrorRef cferror = NULL;
         SOSCCStatus status = SOSCCThisDeviceIsInCircle(&cferror);
         complete(status, (__bridge NSError *)cferror);
@@ -145,7 +144,7 @@
 
 - (void)sosCircleStatusNonCached:(void(^)(SOSCCStatus status, NSError *error))complete
 {
-    SOSCloudKeychainFlush(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef __unused returnedValues, CFErrorRef __unused sync_error) {
+    SOSCloudKeychainFlush(dispatch_get_global_queue(SOS_ACCOUNT_PRIORITY, 0), ^(CFDictionaryRef __unused returnedValues, CFErrorRef __unused sync_error) {
         CFErrorRef cferror = NULL;
         SOSCCStatus status = SOSCCThisDeviceIsInCircleNonCached(&cferror);
         complete(status, (__bridge NSError *)cferror);

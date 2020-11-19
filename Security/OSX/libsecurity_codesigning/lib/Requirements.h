@@ -46,7 +46,7 @@ public:
 
 	SecRequirement(const void *data, size_t length);
 	SecRequirement(const Requirement *req, bool transferOwnership = false);
-    virtual ~SecRequirement() throw();
+    virtual ~SecRequirement() _NOEXCEPT;
 	
     bool equal(SecCFObject &other);
     CFHashCode hash();

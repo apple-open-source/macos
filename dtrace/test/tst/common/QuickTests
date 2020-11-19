@@ -26,6 +26,12 @@ fbtprovider/tst.return0.d
 fbtprovider/tst.tailcall.d
 ## io/tst.fds.d									/* RADAR 4906214: Awaits translator for fileinfo_t */
 ## misc/tst.include.ksh							/* RADAR 4768973: "dtrace -C" is confused by, e.g. #include <stdio.h> */
+lockstat/tst.adaptiveprobes.d
+lockstat/tst.lockprof.spin.ksh
+lockstat/tst.lockprof.ticket.ksh
+lockstat/tst.rwprobes.d
+lockstat/tst.spinprobes.d
+lockstat/tst.ticketprobes.d
 objc/tst.TrampolineBlacklist.ksh
 pid/tst.coverage.d
 pid/tst.oneshot.ksh
@@ -34,6 +40,7 @@ pid/tst.oneshot_return.ksh
 pid/tst.return.d
 ## plockstat/tst.available.d						/* RADAR 4689416: Await Darwin plockstat provider. */
 ## plockstat/tst.libmap.d
+pointers/tst.basic1.d
 proc/tst.create.ksh
 proc/tst.discard.ksh
 proc/tst.exec.ksh

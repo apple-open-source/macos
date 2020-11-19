@@ -24,7 +24,8 @@ post-install:
 	find $(DSTROOT)/ -name 'usb*.h' -exec rm \{\} \;
 	rm -r $(DSTROOT)/usr/include
 	rm -r $(DSTROOT)/usr/lib
-	install_name_tool -id $(CCIDDriversPath)$(CCIDdylib) $(DSTROOT)$(CCIDDriversPath)$(CCIDdylib) 
+	install_name_tool -id $(CCIDDriversPath)$(CCIDdylib) $(DSTROOT)$(CCIDDriversPath)$(CCIDdylib)
+	codesign -s - $(DSTROOT)$(CCIDDriversPath)$(CCIDdylib)
 
 # Automatic Extract & Patch
 AEP_Project    = ccid

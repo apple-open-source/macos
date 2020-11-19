@@ -265,8 +265,8 @@ void
 usage(void)
 {
 	(void)fprintf(stderr, "%s\n%s\n%s\n",
-	    "usage: ln [-Ffhinsv] source_file [target_file]",
-	    "       ln [-Ffhinsv] source_file ... target_dir",
-	    "       link source_file target_file");
+	    "usage: ln [-Ffhinsv] source_file [link_name]",
+	    "       ln [-Ffhinsv] source_file ... linkname_dir",
+	    "       link source_file link_name");
 	exit(1);
 }

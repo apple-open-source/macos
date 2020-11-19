@@ -27,10 +27,8 @@
 #include "CallLinkInfo.h"
 
 #include "CallFrameShuffleData.h"
-#include "DFGOperations.h"
-#include "DFGThunks.h"
 #include "FunctionCodeBlock.h"
-#include "JSCInlines.h"
+#include "JSCellInlines.h"
 #include "Opcode.h"
 #include "Repatch.h"
 #include <wtf/ListDump.h>
@@ -40,22 +38,39 @@ namespace JSC {
 
 CallLinkInfo::CallType CallLinkInfo::callTypeFor(OpcodeID opcodeID)
 {
-    if (opcodeID == op_call || opcodeID == op_call_eval)
+    switch (opcodeID) {
+    case op_tail_call_varargs:
+    case op_tail_call_forward_arguments:
+        return TailCallVarargs;        
+
+    case op_call:
+    case op_call_eval:
+    case op_iterator_open:
+    case op_iterator_next:
         return Call;
-    if (opcodeID == op_call_varargs)
+
+    case op_call_varargs:
         return CallVarargs;
-    if (opcodeID == op_construct)
+
+    case op_construct:
         return Construct;
-    if (opcodeID == op_construct_varargs)
+
+    case op_construct_varargs:
         return ConstructVarargs;
-    if (opcodeID == op_tail_call)
+
+    case op_tail_call:
         return TailCall;
-    ASSERT(opcodeID == op_tail_call_varargs || opcodeID == op_tail_call_forward_arguments);
-    return TailCallVarargs;
+
+    default:
+        break;
+    }
+    RELEASE_ASSERT_NOT_REACHED();
+    return Call;
 }
 
-CallLinkInfo::CallLinkInfo()
-    : m_hasSeenShouldRepatch(false)
+CallLinkInfo::CallLinkInfo(CodeOrigin codeOrigin)
+    : m_codeOrigin(codeOrigin)
+    , m_hasSeenShouldRepatch(false)
     , m_hasSeenClosure(false)
     , m_clearedByGC(false)
     , m_clearedByVirtual(false)
@@ -209,7 +224,7 @@ void CallLinkInfo::visitWeak(VM& vm)
     if (isLinked()) {
         if (stub()) {
             if (!stub()->visitWeak(vm)) {
-                if (Options::verboseOSR()) {
+                if (UNLIKELY(Options::verboseOSR())) {
                     dataLog(
                         "At ", m_codeOrigin, ", ", RawPointer(this), ": clearing call stub to ",
                         listDump(stub()->variants()), ", stub routine ", RawPointer(stub()),
@@ -220,14 +235,14 @@ void CallLinkInfo::visitWeak(VM& vm)
             }
         } else if (!vm.heap.isMarked(m_calleeOrCodeBlock.get())) {
             if (isDirect()) {
-                if (Options::verboseOSR()) {
+                if (UNLIKELY(Options::verboseOSR())) {
                     dataLog(
                         "Clearing call to ", RawPointer(codeBlock()), " (",
                         pointerDump(codeBlock()), ").\n");
                 }
             } else {
                 if (callee()->type() == JSFunctionType) {
-                    if (Options::verboseOSR()) {
+                    if (UNLIKELY(Options::verboseOSR())) {
                         dataLog(
                             "Clearing call to ",
                             RawPointer(callee()), " (",
@@ -236,14 +251,14 @@ void CallLinkInfo::visitWeak(VM& vm)
                     }
                     handleSpecificCallee(static_cast<JSFunction*>(callee()));
                 } else {
-                    if (Options::verboseOSR())
+                    if (UNLIKELY(Options::verboseOSR()))
                         dataLog("Clearing call to ", RawPointer(callee()), ".\n");
                     m_clearedByGC = true;
                 }
             }
             unlink(vm);
         } else if (isDirect() && !vm.heap.isMarked(m_lastSeenCalleeOrExecutable.get())) {
-            if (Options::verboseOSR()) {
+            if (UNLIKELY(Options::verboseOSR())) {
                 dataLog(
                     "Clearing call to ", RawPointer(executable()),
                     " because the executable is dead.\n");

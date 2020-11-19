@@ -34,10 +34,22 @@ SOFT_LINK_FRAMEWORK_FOR_HEADER(PAL, AppSSO);
 
 SOFT_LINK_CLASS_FOR_HEADER(PAL, SOAuthorization);
 
+SOFT_LINK_CLASS_FOR_HEADER(PAL, SOAuthorizationHints);
+
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AppSSO, SOAuthorizationOptionUserActionInitiated, NSString*);
 #define SOAuthorizationOptionUserActionInitiated PAL::get_AppSSO_SOAuthorizationOptionUserActionInitiated()
 
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AppSSO, SOAuthorizationOptionInitiatorOrigin, NSString*);
+#define SOAuthorizationOptionInitiatorOrigin PAL::get_AppSSO_SOAuthorizationOptionInitiatorOrigin()
+
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AppSSO, SOAuthorizationOptionInitiatingAction, NSString*);
+#define SOAuthorizationOptionInitiatingAction PAL::get_AppSSO_SOAuthorizationOptionInitiatingAction()
+
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AppSSO, SOErrorDomain, NSErrorDomain);
 #define SOErrorDomain PAL::get_AppSSO_SOErrorDomain()
+
+SOFT_LINK_FRAMEWORK_FOR_HEADER(PAL, AppSSOCore);
+
+SOFT_LINK_CLASS_FOR_HEADER(PAL, SOAuthorizationHintsCore);
 
 #endif

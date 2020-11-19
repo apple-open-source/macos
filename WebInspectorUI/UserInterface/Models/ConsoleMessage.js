@@ -84,7 +84,7 @@ WI.ConsoleMessage = class ConsoleMessage
         // If that doesn't exist try to get a location from the url/line/column in the ConsoleMessage.
         // FIXME <http://webkit.org/b/76404>: Remove the string equality checks for undefined once we don't get that value anymore.
         if (this._url && this._url !== "undefined") {
-            let sourceCode = WI.networkManager.resourceForURL(this._url);
+            let sourceCode = WI.networkManager.resourcesForURL(this._url).firstValue;
             if (sourceCode) {
                 let lineNumber = this._line > 0 ? this._line - 1 : 0;
                 let columnNumber = this._column > 0 ? this._column - 1 : 0;
@@ -109,10 +109,12 @@ WI.ConsoleMessage.MessageSource = {
     Rendering: "rendering",
     CSS: "css",
     Security: "security",
-    Other: "other",
     Media: "media",
     MediaSource: "mediasource",
     WebRTC: "webrtc",
+    ITPDebug: "itp-debug",
+    AdClickAttribution: "ad-click-attribution",
+    Other: "other",
 };
 
 WI.ConsoleMessage.MessageType = {

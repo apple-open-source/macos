@@ -1,0 +1,11 @@
+--- Makefile.PL.orig	2020-04-13 16:37:11.000000000 -0700
++++ Makefile.PL	2020-04-13 16:37:18.000000000 -0700
+@@ -56,7 +56,7 @@
+         defined $ENV{'AUTOMATED_TESTING'} ? ( 'Devel::Leak' => 0 ) : (),
+ 
+     },
+-    INC    => "-I.",
++    INC    => '-I.',
+     OBJECT => $c_files,
+     dist   => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
+     clean  => { FILES => 'Test-MockFile-*' },

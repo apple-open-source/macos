@@ -52,6 +52,8 @@
 #import "tests/secdmockaks/generated_source/MockAKSRefKey.h"
 #import "tests/secdmockaks/generated_source/MockAKSOptionalParameters.h"
 
+#include "utilities/simulatecrash_assert.h"
+
 bool hwaes_key_available(void)
 {
     return false;
@@ -70,6 +72,8 @@ static NSMutableDictionary* _lockedStates = nil;
 static dispatch_queue_t _mutabilityQueue = nil;
 static keybag_state_t _keybag_state = keybag_state_unlocked | keybag_state_been_unlocked;
 static NSMutableArray<NSError *>* _decryptRefKeyErrors = nil;
+static int _operationsUntilUnlock = -1;      // -1: don't care, 0: be unlocked, posnum: decrement and be locked
+
 /*
  * Method that limit where this rather in-secure version of AKS can run
  */
@@ -222,6 +226,24 @@ static NSMutableArray<NSError *>* _decryptRefKeyErrors = nil;
     return error;
 }
 
++ (void)setOperationsUntilUnlock:(int)val {
+    _operationsUntilUnlock = val;
+}
+
++ (void)updateOperationsUntilUnlock {
+    if (_operationsUntilUnlock == -1) {
+        return;
+    }
+
+    if (_operationsUntilUnlock == 0) {
+        _operationsUntilUnlock = -1;
+        [SecMockAKS unlockAllClasses];
+        return;
+    }
+
+    --_operationsUntilUnlock;
+}
+
 
 @end
 
@@ -309,6 +331,8 @@ aks_wrap_key(const void * key, int key_size, keyclass_t key_class, keybag_handle
         return kAKSReturnBusy;
     }
 
+    [SecMockAKS updateOperationsUntilUnlock];
+
     // Assumes non-device keybags are asym
     if ([SecMockAKS isLocked:key_class] && handle == KEYBAG_DEVICE) {
         return kAKSReturnNoPermission;
@@ -348,6 +372,8 @@ aks_unwrap_key(const void * wrapped_key, int wrapped_key_size, keyclass_t key_cl
     if ([SecMockAKS isSEPDown]) {
         return kAKSReturnBusy;
     }
+
+    [SecMockAKS updateOperationsUntilUnlock];
 
     if ([SecMockAKS isLocked:key_class]) {
         return kAKSReturnNoPermission;
@@ -408,7 +434,7 @@ aks_unwrap_key(const void * wrapped_key, int wrapped_key_size, keyclass_t key_cl
             CFTypeRef cf = NULL;
             CFErrorRef cferror = NULL;
             uint8_t *der = (uint8_t *)params.externalData.bytes;
-            der_decode_plist(NULL, false, &cf, &cferror, der, der + params.externalData.length);
+            der_decode_plist(NULL, &cf, &cferror, der, der + params.externalData.length);
             if (cf == NULL) {
                 *error = [NSError errorWithDomain:@"foo" code:kAKSReturnBadArgument userInfo:nil];
                 return NULL;
@@ -610,6 +636,14 @@ aks_ref_key_delete(aks_ref_key_t handle, const uint8_t *der_params, size_t der_p
     return kAKSReturnSuccess;
 }
 
+const uint8_t *
+aks_ref_key_get_public_key(aks_ref_key_t handle, size_t *pub_key_len)
+{
+    static const uint8_t dummy_key[0x41] = { 0 };
+    *pub_key_len = sizeof(dummy_key);
+    return dummy_key;
+}
+
 int
 aks_operation_optional_params(const uint8_t * access_groups, size_t access_groups_len, const uint8_t * external_data, size_t external_data_len, const void * acm_handle, int acm_handle_len, void ** out_der, size_t * out_der_len)
 {
@@ -720,6 +754,126 @@ aks_generation(keybag_handle_t handle,
     return kAKSReturnSuccess;
 }
 
+kern_return_t
+aks_get_device_state(keybag_handle_t handle, aks_device_state_s *device_state)
+{
+    // Probably not legal
+    return kAKSReturnError;
+}
+
+int
+aks_system_key_get_public(aks_system_key_type_t type, aks_system_key_generation_t generation, const uint8_t *der_params, size_t der_params_len, uint8_t **pub_out, size_t *pub_len_out)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_system_key_operate(aks_system_key_type_t type, aks_system_key_operation_t operation, const uint8_t *der_params, size_t der_params_len)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_system_key_collection(aks_system_key_type_t type, aks_system_key_generation_t generation, const uint8_t *der_params, size_t der_params_len, uint8_t **out_der, size_t *out_der_len)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_system_key_attest(aks_system_key_type_t type, aks_system_key_generation_t generation, aks_ref_key_t ref_key, const uint8_t *der_params, size_t der_params_len, uint8_t **out_der, size_t *out_der_len)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_gid_attest(aks_ref_key_t handle, uint8_t *der_params, size_t der_params_len, void **out_der, size_t *out_der_len)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_sik_attest(aks_ref_key_t handle, uint8_t *der_params, size_t der_params_len, void **out_der, size_t *out_der_len)
+{
+    return kAKSReturnError;
+}
+
+/* Unimplemented aks_ref_key functions */
+
+int
+aks_ref_key_compute_key(aks_ref_key_t handle, uint8_t *der_params, size_t der_params_len, const uint8_t *pub_key, size_t pub_key_len, void **out_der, size_t *out_der_len)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_ref_key_attest(aks_ref_key_t handle, uint8_t *der_params, size_t der_params_len, aks_ref_key_t handle2, void **out_der, size_t *out_der_len)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_ref_key_sign(aks_ref_key_t handle, uint8_t *der_params, size_t der_params_len, const uint8_t *digest, size_t digest_len, void **out_der, size_t *out_der_len)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_ref_key_ecies_transcode(aks_ref_key_t handle, uint8_t *der_params, size_t der_params_len, const uint8_t *public_key, size_t public_key_len, const uint8_t *cipher_txt_in, size_t cipher_txt_in_len, uint8_t **cipher_txt_out, size_t *cipher_txt_out_len)
+{
+    return kAKSReturnError;
+}
+
+keyclass_t
+aks_ref_key_get_key_class(aks_ref_key_t handle)
+{
+    return key_class_a;
+}
+
+aks_key_type_t
+aks_ref_key_get_type(aks_ref_key_t handle)
+{
+    return key_type_sym;
+}
+
+/* AKS Params (unimplemented) */
+
+aks_params_t aks_params_create(const uint8_t *der_params, size_t der_params_len)
+{
+    return NULL;
+}
+
+int aks_params_free(aks_params_t *params)
+{
+    return kAKSReturnSuccess;
+}
+
+int
+aks_params_set_data(aks_params_t params, aks_params_key_t key, const void *value, size_t length)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_params_get_der(aks_params_t params, uint8_t **out_der, size_t *out_der_len)
+{
+    return kAKSReturnError;
+}
+
+int
+aks_params_set_number(aks_params_t params, aks_params_key_t key, int64_t *num)
+{
+    return kAKSReturnError;
+}
+
+// This is in libaks_internal.h, which doesn't appear to be in the SDK.
+int aks_ref_key_enable_test_keys(keybag_handle_t handle, const uint8_t *passcode, size_t passcode_len);
+int
+aks_ref_key_enable_test_keys(keybag_handle_t handle, const uint8_t *passcode, size_t passcode_len)
+{
+    abort();
+    return kAKSReturnError;
+}
+
 CFStringRef kMKBDeviceModeMultiUser = CFSTR("kMKBDeviceModeMultiUser");
 CFStringRef kMKBDeviceModeSingleUser = CFSTR("kMKBDeviceModeSingleUser");
 CFStringRef kMKBDeviceModeKey = CFSTR("kMKBDeviceModeKey");
@@ -770,82 +924,6 @@ MKBUserTypeDeviceMode(CFDictionaryRef options, CFErrorRef * error)
 int MKBForegroundUserSessionID( CFErrorRef * error)
 {
     return kMobileKeyBagSuccess;
-}
-
-const CFTypeRef kAKSKeyAcl = (CFTypeRef)CFSTR("kAKSKeyAcl");
-const CFTypeRef kAKSKeyAclParamRequirePasscode = (CFTypeRef)CFSTR("kAKSKeyAclParamRequirePasscode");
-
-const CFTypeRef kAKSKeyOpDefaultAcl = (CFTypeRef)CFSTR("kAKSKeyOpDefaultAcl");
-const CFTypeRef kAKSKeyOpEncrypt = (CFTypeRef)CFSTR("kAKSKeyOpEncrypt");
-const CFTypeRef kAKSKeyOpDecrypt = (CFTypeRef)CFSTR("kAKSKeyOpDecrypt");
-const CFTypeRef kAKSKeyOpSync = (CFTypeRef)CFSTR("kAKSKeyOpSync");
-const CFTypeRef kAKSKeyOpDelete = (CFTypeRef)CFSTR("kAKSKeyOpDelete");
-const CFTypeRef kAKSKeyOpCreate = (CFTypeRef)CFSTR("kAKSKeyOpCreate");
-const CFTypeRef kAKSKeyOpSign = (CFTypeRef)CFSTR("kAKSKeyOpSign");
-const CFTypeRef kAKSKeyOpSetKeyClass = (CFTypeRef)CFSTR("kAKSKeyOpSetKeyClass");
-const CFTypeRef kAKSKeyOpWrap = (CFTypeRef)CFSTR("kAKSKeyOpWrap");
-const CFTypeRef kAKSKeyOpUnwrap = (CFTypeRef)CFSTR("kAKSKeyOpUnwrap");
-const CFTypeRef kAKSKeyOpComputeKey = (CFTypeRef)CFSTR("kAKSKeyOpComputeKey");
-const CFTypeRef kAKSKeyOpAttest = (CFTypeRef)CFSTR("kAKSKeyOpAttest");
-const CFTypeRef kAKSKeyOpTranscrypt = (CFTypeRef)CFSTR("kAKSKeyOpTranscrypt");
-const CFTypeRef kAKSKeyOpECIESEncrypt = (CFTypeRef)CFSTR("kAKSKeyOpECIESEncrypt");
-const CFTypeRef kAKSKeyOpECIESDecrypt = (CFTypeRef)CFSTR("kAKSKeyOpECIESDecrypt");
-const CFTypeRef kAKSKeyOpECIESTranscode = (CFTypeRef)CFSTR("kAKSKeyOpECIESTranscode");
-
-
-TKTokenRef TKTokenCreate(CFDictionaryRef attributes, CFErrorRef *error)
-{
-    return NULL;
-}
-
-CFTypeRef TKTokenCopyObjectData(TKTokenRef token, CFDataRef objectID, CFErrorRef *error)
-{
-    return NULL;
-}
-
-CFDataRef TKTokenCreateOrUpdateObject(TKTokenRef token, CFDataRef objectID, CFMutableDictionaryRef attributes, CFErrorRef *error)
-{
-    return NULL;
-}
-
-CFDataRef TKTokenCopyObjectAccessControl(TKTokenRef token, CFDataRef objectID, CFErrorRef *error)
-{
-    return NULL;
-}
-bool TKTokenDeleteObject(TKTokenRef token, CFDataRef objectID, CFErrorRef *error)
-{
-    return false;
-}
-
-CFDataRef TKTokenCopyPublicKeyData(TKTokenRef token, CFDataRef objectID, CFErrorRef *error)
-{
-    return NULL;
-}
-
-CFTypeRef TKTokenCopyOperationResult(TKTokenRef token, CFDataRef objectID, CFIndex secKeyOperationType, CFArrayRef algorithm,
-                                     CFIndex secKeyOperationMode, CFTypeRef in1, CFTypeRef in2, CFErrorRef *error)
-{
-    return NULL;
-}
-
-CF_RETURNS_RETAINED CFDictionaryRef TKTokenControl(TKTokenRef token, CFDictionaryRef attributes, CFErrorRef *error)
-{
-    return NULL;
-}
-
-CFTypeRef LACreateNewContextWithACMContext(CFDataRef acmContext, CFErrorRef *error)
-{
-    return NULL;
-}
-
-CFDataRef LACopyACMContext(CFTypeRef context, CFErrorRef *error)
-{
-    return NULL;
-}
-
-bool LAEvaluateAndUpdateACL(CFTypeRef context, CFDataRef acl, CFTypeRef operation, CFDictionaryRef hints, CFDataRef *updatedACL, CFErrorRef *error)
-{
-    return false;
 }
 
 ACMContextRef

@@ -39,7 +39,8 @@ static char *(p_ssop_values[]) = {"buffers", "winpos", "resize", "winsize",
     "localoptions", "options", "help", "blank", "globals", "slash", "unix",
     "sesdir", "curdir", "folds", "cursor", "tabpages", "terminal", NULL};
 #endif
-static char *(p_swb_values[]) = {"useopen", "usetab", "split", "newtab", "vsplit", NULL};
+// Keep in sync with SWB_ flags in option.h
+static char *(p_swb_values[]) = {"useopen", "usetab", "split", "newtab", "vsplit", "uselast", NULL};
 static char *(p_tc_values[]) = {"followic", "ignore", "match", "followscs", "smart", NULL};
 #if defined(FEAT_TOOLBAR) && !defined(FEAT_GUI_MSWIN)
 static char *(p_toolbar_values[]) = {"text", "icons", "tooltips", "horiz", NULL};
@@ -67,7 +68,7 @@ static char *(p_debug_values[]) = {"msg", "throw", "beep", NULL};
 static char *(p_ead_values[]) = {"both", "ver", "hor", NULL};
 static char *(p_buftype_values[]) = {"nofile", "nowrite", "quickfix", "help", "terminal", "acwrite", "prompt", "popup", NULL};
 static char *(p_bufhidden_values[]) = {"hide", "unload", "delete", "wipe", NULL};
-static char *(p_bs_values[]) = {"indent", "eol", "start", NULL};
+static char *(p_bs_values[]) = {"indent", "eol", "start", "nostop", NULL};
 #ifdef FEAT_FOLDING
 static char *(p_fdm_values[]) = {"manual", "expr", "marker", "indent", "syntax",
 # ifdef FEAT_DIFF
@@ -499,7 +500,7 @@ set_string_option(
     if (is_hidden_option(opt_idx))	// don't set hidden option
 	return NULL;
 
-    s = vim_strsave(value);
+    s = vim_strsave(value == NULL ? (char_u *)"" : value);
     if (s != NULL)
     {
 	varp = (char_u **)get_option_varp_scope(opt_idx,
@@ -1156,8 +1157,11 @@ did_set_string_option(
 
 	if (STRCMP(curbuf->b_p_key, oldval) != 0)
 	    // Need to update the swapfile.
+	{
 	    ml_set_crypt_key(curbuf, oldval,
 			      *curbuf->b_p_cm == NUL ? p_cm : curbuf->b_p_cm);
+	    changed_internal();
+	}
     }
 
     else if (gvarp == &p_cm)
@@ -1909,7 +1913,7 @@ did_set_string_option(
     {
 	if (VIM_ISDIGIT(*p_bs))
 	{
-	    if (*p_bs > '2' || p_bs[1] != NUL)
+	    if (*p_bs > '3' || p_bs[1] != NUL)
 		errmsg = e_invarg;
 	}
 	else if (check_opt_strings(p_bs, p_bs_values, TRUE) != OK)
@@ -2127,6 +2131,12 @@ did_set_string_option(
 		errmsg = e_invarg;
 	}
     }
+    // 'wincolor'
+    else if (varp == &curwin->w_p_wcr)
+    {
+	if (curwin->w_buffer->b_term != NULL)
+	    term_update_colors();
+    }
 # if defined(MSWIN)
     // 'termwintype'
     else if (varp == &p_twt)
@@ -2219,7 +2229,7 @@ did_set_string_option(
     }
 #endif
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     // 'previewpopup'
     else if (varp == &p_pvp)
     {

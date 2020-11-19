@@ -29,7 +29,8 @@
  *
  */
 
-#include <ApplicationServices/ApplicationServices.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <CoreText/CoreText.h>
 
 int main1(int argc, char *argv[]) {
     

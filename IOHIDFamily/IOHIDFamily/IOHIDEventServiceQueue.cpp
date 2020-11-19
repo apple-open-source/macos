@@ -90,7 +90,7 @@ Boolean IOHIDEventServiceQueue::enqueueEvent( IOHIDEvent * event )
     IOByteCount         dataSize  = ALIGNED_DATA_SIZE (eventSize, sizeof(uint32_t));
     UInt32              head;
     UInt32              tail;
-    UInt32              newTail;
+    UInt32              newTail = 0;
     UInt32              entrySize;
     IODataQueueEntry *  entry;
     bool                queueFull = false;

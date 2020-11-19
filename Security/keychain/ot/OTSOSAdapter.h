@@ -12,7 +12,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (SOSCCStatus)circleStatus:(NSError**)error;
 - (id<CKKSSelfPeer> _Nullable)currentSOSSelf:(NSError**)error;
 - (NSSet<id<CKKSRemotePeerProtocol>>* _Nullable)fetchTrustedPeers:(NSError**)error;
-- (void)updateOctagonKeySetWithAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error;
+- (BOOL)updateOctagonKeySetWithAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error;
+- (BOOL)preloadOctagonKeySetOnAccount:(id<CKKSSelfPeer>)currentSelfPeer error:(NSError**)error;
+- (BOOL)updateCKKS4AllStatus:(BOOL)status error:(NSError**)error;
+
+- (BOOL)safariViewSyncingEnabled:(NSError**)error __attribute__((swift_error(nonnull_error)));
 @end
 
 @interface OTSOSActualAdapter : NSObject <OTSOSAdapter>

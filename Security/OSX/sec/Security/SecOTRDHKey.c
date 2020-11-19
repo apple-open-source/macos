@@ -31,8 +31,7 @@
 #include <corecrypto/ccsha1.h>
 #include <corecrypto/ccec_priv.h>
 #include <corecrypto/ccec.h>
-
-#include <CommonCrypto/CommonRandomSPI.h>
+#include <corecrypto/ccrng.h>
 
 #define kECKeySize 256
 
@@ -177,7 +176,7 @@ fail:
 
 OSStatus SecFDHKNewKey(SecOTRFullDHKeyRef fullKey)
 {
-    struct ccrng_state *rng=ccDRBGGetRngState();
+    struct ccrng_state *rng=ccrng(NULL);
 
     // We need compact keys, maybe we should be using
     // ccecdh_generate_key or ccechd_generate_compact_key, but for now ecdh are fine for compact use IFF we don't

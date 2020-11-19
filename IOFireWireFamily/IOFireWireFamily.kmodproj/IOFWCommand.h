@@ -143,7 +143,7 @@ protected:
 public:
 
     virtual bool	initWithController(IOFireWireController *control);
-	virtual void	free( void );
+	virtual void	free( void ) APPLE_KEXT_OVERRIDE;
 	
     IOReturn		getStatus() const { return fStatus; };
     
@@ -196,7 +196,7 @@ public:
     void setTimeout( UInt32 timeout )
         { fTimeout = timeout; };
         
-    friend class IOFWCmdQ;
+    friend struct IOFWCmdQ;
 
 	void * getFWIMRefCon( void )
 	{
@@ -245,7 +245,7 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 
-    virtual IOReturn	complete(IOReturn status);
+    virtual IOReturn	complete(IOReturn status) APPLE_KEXT_OVERRIDE;
 
     virtual bool	initWithController(IOFireWireController *control,
 				FWBusCallback completion=NULL, void *refcon=NULL);
@@ -279,7 +279,7 @@ class IOFWDelayCommand : public IOFWBusCommand
     ExpansionData *reserved;
 
 protected:
-    virtual IOReturn	execute();
+    virtual IOReturn	execute() APPLE_KEXT_OVERRIDE;
 
 public:
     virtual bool	initWithDelay(IOFireWireController *control, UInt32 uSecs,
@@ -341,8 +341,8 @@ protected:
 
     MemberVariables * fMembers;
 
-    virtual IOReturn	complete(IOReturn status);
-	virtual bool	initWithController(IOFireWireController *control);
+    virtual IOReturn	complete(IOReturn status) APPLE_KEXT_OVERRIDE;
+	virtual bool	initWithController(IOFireWireController *control) APPLE_KEXT_OVERRIDE;
     virtual bool	initAll(IOFireWireNub *device, FWAddress devAddress,
 				IOMemoryDescriptor *hostMem,
 				FWDeviceCallback completion, void *refcon, bool failOnReset);
@@ -350,7 +350,7 @@ protected:
                                 UInt32 generation, FWAddress devAddress,
                                 IOMemoryDescriptor *hostMem,
                                 FWDeviceCallback completion, void *refcon);
-	virtual void free( void );
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
     virtual IOReturn	reinit(FWAddress devAddress, IOMemoryDescriptor *hostMem,
 				FWDeviceCallback completion, void *refcon, bool failOnReset);
     virtual IOReturn	reinit(UInt32 generation, FWAddress devAddress, IOMemoryDescriptor *hostMem,
@@ -427,7 +427,7 @@ public:
 	void setForceBlockRequests( bool enabled )
 		{ fMembers->fForceBlockRequests = enabled; }
 
-	virtual IOReturn checkProgress( void );
+	virtual IOReturn checkProgress( void ) APPLE_KEXT_OVERRIDE;
 			
 private:
     OSMetaClassDeclareReservedUnused(IOFWAsyncCommand, 0);
@@ -448,23 +448,23 @@ class IOFWReadCommand : public IOFWAsyncCommand
 
 protected:
 	
-    virtual void 	gotPacket(int rcode, const void* data, int size);
+    virtual void 	gotPacket(int rcode, const void* data, int size) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn	execute();
+    virtual IOReturn	execute() APPLE_KEXT_OVERRIDE;
 
 public:
     virtual bool	initAll(IOFireWireNub *device, FWAddress devAddress,
 				IOMemoryDescriptor *hostMem,
-				FWDeviceCallback completion, void *refcon, bool failOnReset);
+				FWDeviceCallback completion, void *refcon, bool failOnReset) APPLE_KEXT_OVERRIDE;
     virtual bool	initAll(IOFireWireController *control,
                                 UInt32 generation, FWAddress devAddress,
                                 IOMemoryDescriptor *hostMem,
-                                FWDeviceCallback completion, void *refcon);
+                                FWDeviceCallback completion, void *refcon) APPLE_KEXT_OVERRIDE;
     virtual IOReturn	reinit(FWAddress devAddress, IOMemoryDescriptor *hostMem,
 				FWDeviceCallback completion=NULL, void *refcon=NULL,
-				bool failOnReset=false);
+				bool failOnReset=false) APPLE_KEXT_OVERRIDE;
     virtual IOReturn	reinit(UInt32 generation, FWAddress devAddress, IOMemoryDescriptor *hostMem,
-                                FWDeviceCallback completion=NULL, void *refcon=NULL);
+                                FWDeviceCallback completion=NULL, void *refcon=NULL) APPLE_KEXT_OVERRIDE;
 
 private:
     OSMetaClassDeclareReservedUnused(IOFWReadCommand, 0);
@@ -497,11 +497,11 @@ protected:
 	
 	bool createMemberVariables( void );
 	void destroyMemberVariables( void );
-	virtual void free( void );
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
 	
-    virtual void 	gotPacket(int rcode, const void* data, int size);
+    virtual void 	gotPacket(int rcode, const void* data, int size) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn	execute();
+    virtual IOReturn	execute() APPLE_KEXT_OVERRIDE;
 
 public:
     virtual bool	initAll(IOFireWireNub *device, FWAddress devAddress,
@@ -546,42 +546,42 @@ protected:
 	}
 	MemberVariables;
 		
-    virtual IOReturn	execute();
+    virtual IOReturn	execute() APPLE_KEXT_OVERRIDE;
 
-    virtual void 	gotPacket( int rcode, const void* data, int size );
+    virtual void 	gotPacket( int rcode, const void* data, int size ) APPLE_KEXT_OVERRIDE;
 
 	bool createMemberVariables( void );
 	void destroyMemberVariables( void );
 	
 public:
 
-	virtual bool	initWithController(IOFireWireController *control);
+	virtual bool	initWithController(IOFireWireController *control) APPLE_KEXT_OVERRIDE;
     virtual bool	initAll(	IOFireWireNub *			device, 
 								FWAddress 				devAddress,
 								IOMemoryDescriptor *	hostMem,
 								FWDeviceCallback 		completion, 
 								void *					refcon, 
-								bool 					failOnReset );
+								bool 					failOnReset ) APPLE_KEXT_OVERRIDE;
 								
     virtual bool	initAll(	IOFireWireController *	control,
                                 UInt32 					generation, 
 								FWAddress 				devAddress,
                                 IOMemoryDescriptor *	hostMem,
                                 FWDeviceCallback 		completion, 
-								void *					refcon );
-	virtual void free( void );
+								void *					refcon ) APPLE_KEXT_OVERRIDE;
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
 								
     virtual IOReturn	reinit(	FWAddress 				devAddress, 
 								IOMemoryDescriptor *	hostMem,
 								FWDeviceCallback 		completion = NULL, 
 								void *					refcon = NULL,
-								bool 					failOnReset = false );
+								bool 					failOnReset = false ) APPLE_KEXT_OVERRIDE;
 								
     virtual IOReturn	reinit(	UInt32 					generation, 
 								FWAddress 				devAddress, 
 								IOMemoryDescriptor *	hostMem,
                                 FWDeviceCallback		completion = NULL, 
-								void *					refcon = NULL );
+								void *					refcon = NULL ) APPLE_KEXT_OVERRIDE;
 
 	void setDeferredNotify( bool state ) 
 		{ ((MemberVariables*)fMembers->fSubclassMembers)->fDeferredNotify = state; };
@@ -633,15 +633,15 @@ protected:
 	} 
 	MemberVariables;
 	
-    virtual void 	gotPacket( int rcode, const void* data, int size );
+    virtual void 	gotPacket( int rcode, const void* data, int size ) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn	execute();
+    virtual IOReturn	execute() APPLE_KEXT_OVERRIDE;
 
 	bool createMemberVariables( void );
 	void destroyMemberVariables( void );
 	
 public:
-	virtual bool	initWithController(IOFireWireController *control);
+	virtual bool	initWithController(IOFireWireController *control) APPLE_KEXT_OVERRIDE;
     
 	virtual bool	initAll(	IOFireWireNub *		device, 
 								FWAddress 			devAddress,
@@ -659,7 +659,7 @@ public:
                                 FWDeviceCallback 		completion, 
 								void *					refcon );
 
-	virtual void free( void );
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn	reinit(	FWAddress 			devAddress, 
 								UInt32 *			quads, 
@@ -718,14 +718,14 @@ protected:
 	
 	MemberVariables * fMembers;
 
-    virtual void 	gotPacket(int rcode, const void* data, int size);
+    virtual void 	gotPacket(int rcode, const void* data, int size) APPLE_KEXT_OVERRIDE;
 
-    virtual IOReturn	execute();
+    virtual IOReturn	execute() APPLE_KEXT_OVERRIDE;
 
 public:
     // Compare to cmpVal, and if equal replace with newVal.
     // Size = 1 for 32 bit operation (one quad), 2 for 64 bit (two quads)
-	virtual bool	initWithController(IOFireWireController *control);
+	virtual bool	initWithController(IOFireWireController *control) APPLE_KEXT_OVERRIDE;
     virtual bool	initAll(IOFireWireNub *device, FWAddress devAddress,
 				const UInt32 *cmpVal, const UInt32 *newVal, int size,
 				FWDeviceCallback completion, void *refcon, bool failOnReset);
@@ -744,7 +744,7 @@ public:
     // returns true if it was the expected value, ie. the lock succeeded
     virtual bool	locked(UInt32 *oldVal);
 
-	virtual void free( void );
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
 protected:
 
@@ -800,10 +800,10 @@ protected:
     MemberVariables * fMembers;		
 	
     virtual IOReturn	complete(
-    							IOReturn 				status);
+    							IOReturn 				status) APPLE_KEXT_OVERRIDE;
     							
 	// To be called by IOFireWireController and derived classes.
-    virtual IOReturn	execute();
+    virtual IOReturn	execute() APPLE_KEXT_OVERRIDE;
 
 public:
 
@@ -819,7 +819,7 @@ public:
                                 FWAsyncStreamCallback	completion,
                                 void 					* refcon);
 
-	virtual void free( void );
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn	reinit(	UInt32 					generation, 
                                 UInt32 					channel,
@@ -914,10 +914,10 @@ protected:
     MemberVariables * fMembers;		
 	
     virtual IOReturn	complete(
-    							IOReturn 				status );
+    							IOReturn 				status ) APPLE_KEXT_OVERRIDE;
     							
 	// To be called by IOFireWireController and derived classes.
-    virtual IOReturn	execute();
+    virtual IOReturn	execute() APPLE_KEXT_OVERRIDE;
 
 	void setResponseCode( UInt32 rcode );
 	void setAckCode( int ack );
@@ -932,7 +932,7 @@ public:
                                 FWAsyncPHYCallback		completion,
                                 void 					* refcon,
 								bool 					failOnReset );
-	virtual void free( void );
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
     virtual IOReturn	reinit(	UInt32 					generation, 
 								UInt32					data1,

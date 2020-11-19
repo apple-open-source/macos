@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Sub-Exporter-ForMethods</string>
+        <key>OpenSourceVersion</key>
+        <string>0.100052</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/R/RJ/RJBS/Sub-Exporter-ForMethods-0.100052.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-28</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

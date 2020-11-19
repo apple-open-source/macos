@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 hi{
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -247,6 +247,11 @@ hi{
                 other{"{0} दिन"}
                 per{"{0}/दिन"}
             }
+            decade{
+                dnam{"दशकों"}
+                one{"{0} दशक"}
+                other{"{0} दशकों"}
+            }
             hour{
                 dnam{"घंटे"}
                 one{"{0} घंटा"}
@@ -362,6 +367,11 @@ hi{
                 one{"{0} किलोवॉट-घंटा"}
                 other{"{0} किलोवॉट-घंटे"}
             }
+            therm-us{
+                dnam{"यूएस थेर्म"}
+                one{"{0} यूएस थेर्म"}
+                other{"{0} यूएस थेर्म"}
+            }
         }
         force{
             newton{
@@ -395,6 +405,41 @@ hi{
                 dnam{"मेगाहर्ट्ज़"}
                 one{"{0} मेगाहर्ट्ज़"}
                 other{"{0} मेगाहर्ट्ज़"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"बिंदु प्रति सेंटीमीटर"}
+                one{"{0} बिंदु प्रति सेंटीमीटर"}
+                other{"{0} बिंदु प्रति सेंटीमीटर"}
+            }
+            dot-per-inch{
+                dnam{"बिंदु प्रति इंच"}
+                one{"{0} बिंदु प्रति इंच"}
+                other{"{0} बिंदु प्रति इंच"}
+            }
+            em{
+                dnam{"टाइपोग्राफ़िक एम"}
+            }
+            megapixel{
+                dnam{"मेगापिक्सेल"}
+                one{"{0} मेगापिक्सेल"}
+                other{"{0} मेगापिक्सेल"}
+            }
+            pixel{
+                dnam{"पिक्सेल"}
+                one{"{0} पिक्सेल"}
+                other{"{0} पिक्सेल"}
+            }
+            pixel-per-centimeter{
+                dnam{"पिक्सेल प्रति सेंटीमीटर"}
+                one{"{0} पिक्सेल प्रति सेंटीमीटर"}
+                other{"{0} पिक्सेल प्रति सेंटीमीटर"}
+            }
+            pixel-per-inch{
+                dnam{"पिक्सेल प्रति इंच"}
+                one{"{0} पिक्सेल प्रति इंच"}
+                other{"{0} पिक्सेल प्रति इंच"}
             }
         }
         length{
@@ -620,6 +665,11 @@ hi{
                 one{"{0} वायुमंडलीय दबाव"}
                 other{"{0} वायुमंडलीय दबाव"}
             }
+            bar{
+                dnam{"बार"}
+                one{"{0} बार"}
+                other{"{0} बार"}
+            }
             hectopascal{
                 dnam{"हेक्टोपास्कल"}
                 one{"{0} हेक्टोपास्कल"}
@@ -649,6 +699,11 @@ hi{
                 dnam{"मर्क्युरी-मिलीमीटर"}
                 one{"{0} मर्क्युरी-मिलीमीटर"}
                 other{"{0} मर्क्युरी-मिलीमीटर"}
+            }
+            pascal{
+                dnam{"पास्कल"}
+                one{"{0} पास्कल"}
+                other{"{0} पास्कल"}
             }
             pound-per-square-inch{
                 dnam{"पाउंड प्रति वर्ग इंच"}
@@ -689,6 +744,11 @@ hi{
                 one{"{0} डिग्री फ़ैरनहाइट"}
                 other{"{0} डिग्री फ़ैरनहाइट"}
             }
+            generic{
+                dnam{"°"}
+                one{"{0}°"}
+                other{"{0}°"}
+            }
             kelvin{
                 dnam{"केल्विन"}
                 one{"{0} केल्विन"}
@@ -702,7 +762,7 @@ hi{
                 other{"{0} न्यूटन-मीटर"}
             }
             pound-foot{
-                dnam{"पाउंड-फ़ीट"}
+                dnam{"पाउंड-फ़ुट"}
                 one{"{0} पाउंड-फ़ुट"}
                 other{"{0} पाउंड-फ़ुट"}
             }
@@ -891,6 +951,16 @@ hi{
             square-mile{
                 one{"{0} mi²"}
                 other{"{0} mi²"}
+            }
+        }
+        compound{
+            per{"{0}/{1}"}
+        }
+        concentr{
+            percent{
+                dnam{"%"}
+                one{"{0}%"}
+                other{"{0}%"}
             }
         }
         consumption{
@@ -1193,6 +1263,9 @@ hi{
                 other{"{0} यार्ड²"}
             }
         }
+        compound{
+            per{"{0}/{1}"}
+        }
         concentr{
             karat{
                 dnam{"कैरट"}
@@ -1213,6 +1286,11 @@ hi{
                 dnam{"मोल"}
                 one{"{0} मोल"}
                 other{"{0} मोल"}
+            }
+            part-per-million{
+                dnam{"ppm"}
+                one{"{0} ppm"}
+                other{"{0} ppm"}
             }
             percent{
                 dnam{"प्रतिशत"}
@@ -1270,10 +1348,50 @@ hi{
                 one{"{0} बाइट"}
                 other{"{0} बाइट"}
             }
+            gigabit{
+                dnam{"Gb"}
+                one{"{0} Gb"}
+                other{"{0} Gb"}
+            }
+            gigabyte{
+                dnam{"GB"}
+                one{"{0} GB"}
+                other{"{0} GB"}
+            }
+            kilobit{
+                dnam{"kb"}
+                one{"{0} kb"}
+                other{"{0} kb"}
+            }
+            kilobyte{
+                dnam{"kB"}
+                one{"{0} kB"}
+                other{"{0} kB"}
+            }
+            megabit{
+                dnam{"Mb"}
+                one{"{0} Mb"}
+                other{"{0} Mb"}
+            }
+            megabyte{
+                dnam{"MB"}
+                one{"{0} MB"}
+                other{"{0} MB"}
+            }
             petabyte{
                 dnam{"पेटाबाइट"}
                 one{"{0} PB"}
                 other{"{0} PB"}
+            }
+            terabit{
+                dnam{"Tb"}
+                one{"{0} Tb"}
+                other{"{0} Tb"}
+            }
+            terabyte{
+                dnam{"TB"}
+                one{"{0} TB"}
+                other{"{0} TB"}
             }
         }
         duration{
@@ -1287,6 +1405,11 @@ hi{
                 one{"{0} दिन"}
                 other{"{0} दिन"}
                 per{"{0}/दिन"}
+            }
+            decade{
+                dnam{"दश."}
+                one{"{0} दश."}
+                other{"{0} दश."}
             }
             hour{
                 dnam{"घंटे"}
@@ -1403,6 +1526,11 @@ hi{
                 one{"{0} kWh"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"यूएस थेर्म"}
+                one{"{0} यूएस थेर्म"}
+                other{"{0} यूएस थेर्म"}
+            }
         }
         force{
             newton{
@@ -1436,6 +1564,14 @@ hi{
                 dnam{"मेगाहर्ट्ज़"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            megapixel{
+                dnam{"मेगापिक्सेल"}
+            }
+            pixel{
+                dnam{"पिक्सेल"}
             }
         }
         length{
@@ -1493,6 +1629,11 @@ hi{
                 dnam{"मील"}
                 one{"{0} मील"}
                 other{"{0} मील"}
+            }
+            mile-scandinavian{
+                dnam{"smi"}
+                one{"{0} smi"}
+                other{"{0} smi"}
             }
             millimeter{
                 dnam{"मि॰मी॰"}
@@ -1619,6 +1760,31 @@ hi{
             }
         }
         power{
+            gigawatt{
+                dnam{"GW"}
+                one{"{0} GW"}
+                other{"{0} GW"}
+            }
+            horsepower{
+                dnam{"hp"}
+                one{"{0} hp"}
+                other{"{0} hp"}
+            }
+            kilowatt{
+                dnam{"kW"}
+                one{"{0} kW"}
+                other{"{0} kW"}
+            }
+            megawatt{
+                dnam{"MW"}
+                one{"{0} MW"}
+                other{"{0} MW"}
+            }
+            milliwatt{
+                dnam{"mW"}
+                one{"{0} mW"}
+                other{"{0} mW"}
+            }
             watt{
                 dnam{"वॉट"}
                 one{"{0} W"}
@@ -1626,6 +1792,26 @@ hi{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"atm"}
+                one{"{0} atm"}
+                other{"{0} atm"}
+            }
+            bar{
+                dnam{"बार"}
+                one{"{0} बार"}
+                other{"{0} बार"}
+            }
+            hectopascal{
+                dnam{"hPa"}
+                one{"{0} hPa"}
+                other{"{0} hPa"}
+            }
+            inch-hg{
+                dnam{"inHg"}
+                one{"{0} inHg"}
+                other{"{0} inHg"}
+            }
             kilopascal{
                 dnam{"किपा॰"}
                 one{"{0} किपा॰"}
@@ -1635,6 +1821,26 @@ hi{
                 dnam{"मेपा॰"}
                 one{"{0} मेपा॰"}
                 other{"{0} मेपा॰"}
+            }
+            millibar{
+                dnam{"mbar"}
+                one{"{0} mbar"}
+                other{"{0} mbar"}
+            }
+            millimeter-of-mercury{
+                dnam{"mm Hg"}
+                one{"{0} mm Hg"}
+                other{"{0} mm Hg"}
+            }
+            pascal{
+                dnam{"पा॰"}
+                one{"{0} पा॰"}
+                other{"{0} पा॰"}
+            }
+            pound-per-square-inch{
+                dnam{"psi"}
+                one{"{0} psi"}
+                other{"{0} psi"}
             }
         }
         speed{
@@ -1669,6 +1875,16 @@ hi{
                 dnam{"℉"}
                 one{"{0}℉"}
                 other{"{0}℉"}
+            }
+            generic{
+                dnam{"°"}
+                one{"{0}°"}
+                other{"{0}°"}
+            }
+            kelvin{
+                dnam{"K"}
+                one{"{0} K"}
+                other{"{0} K"}
             }
         }
         torque{

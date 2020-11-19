@@ -25,29 +25,26 @@
 
 WI.NavigationBar = class NavigationBar extends WI.View
 {
-    constructor(element, navigationItems, role, label)
+    constructor(element, {role, sizesToFit, navigationItems} = {})
     {
         super(element);
 
         this.element.classList.add(this.constructor.StyleClassName || "navigation-bar");
-        this.element.tabIndex = 0;
 
         if (role)
             this.element.setAttribute("role", role);
-        if (label)
-            this.element.setAttribute("aria-label", label);
 
-        this.element.addEventListener("focus", this._focus.bind(this), false);
-        this.element.addEventListener("blur", this._blur.bind(this), false);
         this.element.addEventListener("keydown", this._keyDown.bind(this), false);
-        this.element.addEventListener("mousedown", this._mouseDown.bind(this), false);
+        this.element.addEventListener("mousedown", this._mouseDown.bind(this), true);
 
-        this._mouseMovedEventListener = this._mouseMoved.bind(this);
-        this._mouseUpEventListener = this._mouseUp.bind(this);
-
+        this._role = role;
+        this._sizesToFit = sizesToFit || false;
         this._minimumWidth = NaN;
         this._navigationItems = [];
         this._selectedNavigationItem = null;
+
+        this._mouseMovedEventListener = this._mouseMoved.bind(this);
+        this._mouseUpEventListener = this._mouseUp.bind(this);
 
         if (navigationItems) {
             for (var i = 0; i < navigationItems.length; ++i)
@@ -57,9 +54,11 @@ WI.NavigationBar = class NavigationBar extends WI.View
 
     // Public
 
+    get sizesToFit() { return this._sizesToFit; }
+
     addNavigationItem(navigationItem, parentElement)
     {
-        return this.insertNavigationItem(navigationItem, this._navigationItems.length, parentElement);
+        return this.insertNavigationItem(navigationItem, Infinity, parentElement);
     }
 
     insertNavigationItem(navigationItem, index, parentElement)
@@ -73,7 +72,7 @@ WI.NavigationBar = class NavigationBar extends WI.View
 
         navigationItem.didAttach(this);
 
-        console.assert(index >= 0 && index <= this._navigationItems.length);
+        console.assert(!isFinite(index) || (index >= 0 && index <= this._navigationItems.length));
         index = Math.max(0, Math.min(index, this._navigationItems.length));
 
         this._navigationItems.splice(index, 0, navigationItem);
@@ -166,12 +165,6 @@ WI.NavigationBar = class NavigationBar extends WI.View
         if (isNaN(this._minimumWidth))
             this._minimumWidth = this._calculateMinimumWidth();
         return this._minimumWidth;
-    }
-
-    get sizesToFit()
-    {
-        // Can be overridden by subclasses.
-        return false;
     }
 
     findNavigationItem(identifier)
@@ -289,14 +282,17 @@ WI.NavigationBar = class NavigationBar extends WI.View
         if (event.button !== 0)
             return;
 
-        // Remove the tabIndex so clicking the navigation bar does not give it focus.
-        // Only keep the tabIndex if already focused from keyboard navigation. This matches Xcode.
-        if (!this._focused)
-            this.element.removeAttribute("tabindex");
-
         var itemElement = event.target.closest("." + WI.RadioButtonNavigationItem.StyleClassName);
         if (!itemElement || !itemElement.navigationItem)
             return;
+
+        if (this._role === "tablist") {
+            if (this.element.contains(document.activeElement)) {
+                // If clicking on a tab, stop the event from being handled by the button element. Instead,
+                // pass focus to the selected tab. Otherwise, let the button become activated normally.
+                event.stopPropagation();
+            }
+        }
 
         this._previousSelectedNavigationItem = this.selectedNavigationItem;
         this.selectedNavigationItem = itemElement.navigationItem;
@@ -311,9 +307,6 @@ WI.NavigationBar = class NavigationBar extends WI.View
         // Register these listeners on the document so we can track the mouse if it leaves the navigation bar.
         document.addEventListener("mousemove", this._mouseMovedEventListener, false);
         document.addEventListener("mouseup", this._mouseUpEventListener, false);
-
-        event.preventDefault();
-        event.stopPropagation();
     }
 
     _mouseMoved(event)
@@ -362,9 +355,6 @@ WI.NavigationBar = class NavigationBar extends WI.View
         document.removeEventListener("mousemove", this._mouseMovedEventListener, false);
         document.removeEventListener("mouseup", this._mouseUpEventListener, false);
 
-        // Restore the tabIndex so the navigation bar can be in the keyboard tab loop.
-        this.element.tabIndex = 0;
-
         // Dispatch the selected event here since the selectedNavigationItem setter surpresses it
         // while the mouse is down to prevent sending it while scrubbing the bar.
         if (this._previousSelectedNavigationItem !== this.selectedNavigationItem)
@@ -378,44 +368,38 @@ WI.NavigationBar = class NavigationBar extends WI.View
 
     _keyDown(event)
     {
-        if (!this._focused)
+        let isLeftArrow = event.code === "ArrowLeft";
+        if (!isLeftArrow && event.code !== "ArrowRight")
             return;
 
-        if (event.keyIdentifier !== "Left" && event.keyIdentifier !== "Right")
+        if (this._selectedNavigationItem?.element !== document.activeElement)
             return;
 
         event.preventDefault();
         event.stopPropagation();
 
-        var selectedNavigationItemIndex = this._navigationItems.indexOf(this._selectedNavigationItem);
+        let delta = isLeftArrow ? -1 : 1;
+        if (WI.resolveLayoutDirectionForElement(this._element) === WI.LayoutDirection.RTL)
+            delta *= -1;
 
-        if (event.keyIdentifier === "Left") {
-            if (selectedNavigationItemIndex === -1)
-                selectedNavigationItemIndex = this._navigationItems.length;
+        let selectedIndex = this._navigationItems.indexOf(this._selectedNavigationItem);
 
-            do {
-                selectedNavigationItemIndex = Math.max(0, selectedNavigationItemIndex - 1);
-            } while (selectedNavigationItemIndex && !(this._navigationItems[selectedNavigationItemIndex] instanceof WI.RadioButtonNavigationItem));
-        } else if (event.keyIdentifier === "Right") {
-            do {
-                selectedNavigationItemIndex = Math.min(selectedNavigationItemIndex + 1, this._navigationItems.length - 1);
-            } while (selectedNavigationItemIndex < this._navigationItems.length - 1 && !(this._navigationItems[selectedNavigationItemIndex] instanceof WI.RadioButtonNavigationItem));
+        if (selectedIndex === -1)
+            selectedIndex = (this._navigationItems.length + delta) % this._navigationItems.length;
+
+        while (true) {
+            selectedIndex += delta;
+
+            if (selectedIndex < 0 || selectedIndex >= this._navigationItems.length)
+                break;
+
+            let selectedItemCandidate = this._navigationItems[selectedIndex];
+            if (selectedItemCandidate instanceof WI.RadioButtonNavigationItem) {
+                this.selectedNavigationItem = selectedItemCandidate;
+                this.selectedNavigationItem.element.focus();
+                break;
+            }
         }
-
-        if (!(this._navigationItems[selectedNavigationItemIndex] instanceof WI.RadioButtonNavigationItem))
-            return;
-
-        this.selectedNavigationItem = this._navigationItems[selectedNavigationItemIndex];
-    }
-
-    _focus(event)
-    {
-        this._focused = true;
-    }
-
-    _blur(event)
-    {
-        this._focused = false;
     }
 
     _calculateMinimumWidth()

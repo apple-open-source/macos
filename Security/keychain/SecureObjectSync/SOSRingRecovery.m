@@ -47,7 +47,6 @@
 #include <utilities/SecCFWrappers.h>
 
 #include <stdlib.h>
-#include <assert.h>
 
 #include "SOSRingUtils.h"
 #include "SOSRingTypes.h"

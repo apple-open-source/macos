@@ -2,8 +2,9 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
-#import "keychain/ot/OTOperationDependencies.h"
 #import "keychain/ckks/CKKSPeer.h"
+#import "keychain/ckks/CKKSPeerProvider.h"
+#import "keychain/ot/CuttlefishXPCWrapper.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -19,10 +20,15 @@ NS_ASSUME_NONNULL_BEGIN
 @interface OctagonCKKSPeerAdapter : NSObject  <CKKSPeerProvider>
 
 @property (nullable) NSString* peerID;
-@property OTOperationDependencies* deps;
+@property (readonly) CuttlefishXPCWrapper* cuttlefishXPCWrapper;
+@property (readonly) NSString* containerName;
+@property (readonly) NSString* contextID;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithPeerID:(NSString*)peerID operationDependencies:(OTOperationDependencies*)deps;
+- (instancetype)initWithPeerID:(NSString*)peerID
+                 containerName:(NSString*)containerName
+                     contextID:(NSString*)contextID
+                 cuttlefishXPC:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
 @end
 
 NS_ASSUME_NONNULL_END

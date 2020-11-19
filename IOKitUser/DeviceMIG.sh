@@ -36,6 +36,9 @@ then
 
 			#endif /* !__LP64__ */
 		EOI_iokitmig
+    elif [ ! -f $SCRIPT_INPUT_FILE_0 ]
+    then
+        echo "/* Deprecated, kept (for now) for compatibility */" > $SCRIPT_OUTPUT_FILE_0
     fi
     exit
 fi

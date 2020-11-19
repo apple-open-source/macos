@@ -114,6 +114,8 @@ WI.CSSKeywordCompletions.forFunction = function(functionName)
         suggestions.push("url()");
     else if (functionName === "repeat")
         suggestions.push("auto", "auto-fill", "auto-fit", "min-content", "max-content");
+    else if (functionName === "steps")
+        suggestions.push("jump-none", "jump-start", "jump-end", "jump-both", "start", "end");
     else if (functionName.endsWith("gradient")) {
         suggestions.push("to", "left", "right", "top", "bottom");
         suggestions.pushAll(WI.CSSKeywordCompletions._colors);
@@ -311,7 +313,7 @@ WI.CSSKeywordCompletions._colors = [
     "paleturquoise", "palevioletred", "papayawhip", "peachpuff", "peru", "pink", "plum", "powderblue", "rebeccapurple", "rosybrown",
     "royalblue", "saddlebrown", "salmon", "sandybrown", "seagreen", "seashell", "sienna", "skyblue", "slateblue",
     "slategray", "slategrey", "snow", "springgreen", "steelblue", "tan", "thistle", "tomato", "turquoise", "violet",
-    "wheat", "whitesmoke", "yellowgreen", "rgb()", "rgba()", "hsl()", "hsla()"
+    "wheat", "whitesmoke", "yellowgreen", "rgb()", "rgba()", "hsl()", "hsla()", "color()",
 ];
 
 WI.CSSKeywordCompletions._colorAwareProperties = new Set([

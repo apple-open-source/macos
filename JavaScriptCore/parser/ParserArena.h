@@ -50,6 +50,7 @@ namespace JSC {
         ALWAYS_INLINE const Identifier& makeIdentifierLCharFromUChar(VM&, const UChar* characters, size_t length);
         ALWAYS_INLINE const Identifier& makeIdentifier(VM&, SymbolImpl*);
 
+        const Identifier& makeBigIntDecimalIdentifier(VM&, const Identifier&, uint8_t radix);
         const Identifier& makeNumericIdentifier(VM&, double number);
 
     public:
@@ -59,9 +60,9 @@ namespace JSC {
         {
             m_identifiers.clear();
             for (int i = 0; i < MaximumCachableCharacter; i++)
-                m_shortIdentifiers[i] = 0;
+                m_shortIdentifiers[i] = nullptr;
             for (int i = 0; i < MaximumCachableCharacter; i++)
-                m_recentIdentifiers[i] = 0;
+                m_recentIdentifiers[i] = nullptr;
         }
 
     private:

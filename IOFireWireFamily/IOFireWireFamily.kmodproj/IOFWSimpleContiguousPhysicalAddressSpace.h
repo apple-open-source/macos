@@ -39,13 +39,13 @@ private:
 	IOReturn cachePhysicalAddress( void );
 
 protected:	
-	virtual bool createMemberVariables( void );
-	virtual void destroyMemberVariables( void );
+	virtual bool createMemberVariables( void ) APPLE_KEXT_OVERRIDE;
+	virtual void destroyMemberVariables( void ) APPLE_KEXT_OVERRIDE;
 
 public:
 
 	virtual bool init( IOFireWireBus * control, vm_size_t size, IODirection direction );
-	virtual void free( void );
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
 	FWAddress getFWAddress( void );
 

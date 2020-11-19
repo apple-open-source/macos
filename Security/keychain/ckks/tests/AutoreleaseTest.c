@@ -41,8 +41,7 @@ read_releases_pending(int fd, void (^handler)(ssize_t))
 
         char *line = NULL;
         size_t linecap = 0;
-        ssize_t linelen;
-        while ((linelen = getline(&line, &linecap, fp)) > 0) {
+        while (getline(&line, &linecap, fp) > 0) {
             ssize_t pending;
 
             if (sscanf(line, "objc[%*d]: %ld releases pending", &pending) == 1) {

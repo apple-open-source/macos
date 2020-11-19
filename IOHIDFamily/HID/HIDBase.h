@@ -28,6 +28,7 @@ typedef uint32_t IOHIDEventField;
 typedef kern_return_t IOReturn;
 typedef mach_port_t io_object_t;
 typedef io_object_t io_service_t;
+typedef uint32_t IOHIDEventType;
 
 /*!
  * @typedef HIDReportType

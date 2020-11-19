@@ -1,6 +1,6 @@
 "system.preferences.accounts" = "Touch ID to Unlock Users & Groups Preferences.";
 
-"com.apple.SoftwareUpdate.scan" = "Touch ID to Check for New Apple-provided Software.";
+"com.apple.SoftwareUpdate.scan" = "Touch ID to Check for New Apple Software.";
 
 "system.preferences.datetime" = "Touch ID to Unlock the Date & Time Preferences.";
 
@@ -48,9 +48,9 @@
 
 "system.preferences.energysaver" = "Touch ID to Unlock the Energy Saver Preferences.";
 
-"system.install.apple-software" = "Touch ID to Install Apple-provided Software.";
+"system.install.apple-software" = "Touch ID to Install Apple Software.";
 
-"system.install.apple-software.standard-user" = "Touch ID to Install Apple-provided software.";
+"system.install.apple-software.standard-user" = "Touch ID to Install Apple software.";
 
 "com.apple.security.assessment.update" = "Touch ID to Install an App from an Unidentified Developer.";
 

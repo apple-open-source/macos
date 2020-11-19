@@ -17,6 +17,7 @@
 
 #import <Foundation/Foundation.h>
 
+
 static dtrace_hdl_t *g_dtp;
 
 static int
@@ -114,9 +115,9 @@ T_DECL(dtrace_fbt_probes, "measures the count of fbt probes and modules on the s
 
 	char filename[MAXPATHLEN] = "dtrace.probes.fbt" PD_FILE_EXT;
 	dt_resultfile(filename, sizeof(filename));
-	T_LOG("perfdata file: %s\n", filename);
+	T_LOG("perfdata file: %s", filename);
 	pdwriter_t wr = pdwriter_open(filename, "dtrace.probes.fbt", 1, 0);
-	T_ASSERT_NOTNULL(wr, "pdwriter_open %s", filename);
+	T_WITH_ERRNO; T_ASSERT_NOTNULL(wr, "pdwriter_open %s", filename);
 
 	pdwriter_new_value(wr, "entry", PDUNIT_CUSTOM(probes), fbt_entry);
 	pdwriter_record_variable(wr, "usdt_enabled", usdt_enabled);
@@ -163,7 +164,7 @@ T_DECL(dtrace_probes, "measures the count of probes and providers", T_META_CHECK
 	dt_resultfile(filename, sizeof(filename));
 	T_LOG("perfdata file: %s\n", filename);
 	pdwriter_t wr = pdwriter_open(filename, "dtrace.probes", 1, 0);
-	T_ASSERT_NOTNULL(wr, "pdwriter_open %s", filename);
+	T_WITH_ERRNO; T_ASSERT_NOTNULL(wr, "pdwriter_open %s", filename);
 
 	pdwriter_new_value(wr, "probes", PDUNIT_CUSTOM(probes), probes);
 	pdwriter_record_variable(wr, "usdt_enabled", usdt_enabled);

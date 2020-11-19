@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,13 +28,10 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "ExceptionFuzz.h"
-#include "FrameTracers.h"
+#include "BytecodeStructs.h"
 #include "LLIntData.h"
 #include "WasmBBQPlan.h"
 #include "WasmCallee.h"
-#include "WasmCompilationMode.h"
-#include "WasmContextInlines.h"
 #include "WasmFunctionCodeBlock.h"
 #include "WasmInstance.h"
 #include "WasmModuleInformation.h"
@@ -42,7 +39,6 @@
 #include "WasmOMGPlan.h"
 #include "WasmOperations.h"
 #include "WasmSignatureInlines.h"
-#include "WasmThunks.h"
 #include "WasmWorklist.h"
 
 namespace JSC { namespace LLInt {
@@ -76,8 +72,26 @@ namespace JSC { namespace LLInt {
 
 #define READ(virtualRegister) \
     (virtualRegister.isConstant() \
-        ? JSValue::decode(CODE_BLOCK()->getConstant(virtualRegister.offset())) \
+        ? JSValue::decode(CODE_BLOCK()->getConstant(virtualRegister)) \
         : callFrame->r(virtualRegister))
+
+enum class RequiredWasmJIT { Any, OMG };
+
+inline bool shouldJIT(Wasm::FunctionCodeBlock* codeBlock, RequiredWasmJIT requiredJIT = RequiredWasmJIT::Any)
+{
+    if (requiredJIT == RequiredWasmJIT::OMG) {
+        if (!Options::useOMGJIT())
+            return false;
+    } else {
+        if (Options::wasmLLIntTiersUpToBBQ() && !Options::useBBQJIT())
+            return false;
+        if (!Options::wasmLLIntTiersUpToBBQ() && !Options::useOMGJIT())
+            return false;
+    }
+    if (!Options::wasmFunctionIndexRangeToCompile().isInRange(codeBlock->functionIndex()))
+        return false;
+    return true;
+}
 
 inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::FunctionCodeBlock* codeBlock, Wasm::Instance* instance)
 {
@@ -134,24 +148,32 @@ WASM_SLOW_PATH_DECL(prologue_osr)
     Wasm::LLIntCallee* callee = static_cast<Wasm::LLIntCallee*>(callFrame->callee().asWasmCallee());
     Wasm::FunctionCodeBlock* codeBlock = CODE_BLOCK();
 
-    dataLogLnIf(Options::verboseOSR(), *callee, ": Entered epilogue_osr with tierUpCounter = ", codeBlock->tierUpCounter());
+    if (!shouldJIT(codeBlock)) {
+        codeBlock->tierUpCounter().deferIndefinitely();
+        WASM_RETURN_TWO(nullptr, nullptr);
+    }
+
+    if (!Options::useWasmLLIntPrologueOSR())
+        WASM_RETURN_TWO(nullptr, nullptr);
+
+    dataLogLnIf(Options::verboseOSR(), *callee, ": Entered prologue_osr with tierUpCounter = ", codeBlock->tierUpCounter());
 
     if (!jitCompileAndSetHeuristics(callee, codeBlock, instance))
-        WASM_RETURN_TWO(0, 0);
+        WASM_RETURN_TWO(nullptr, nullptr);
 
-    WASM_RETURN_TWO(callee->replacement()->entrypoint().executableAddress(), 0);
+    WASM_RETURN_TWO(callee->replacement()->entrypoint().executableAddress(), nullptr);
 }
 
 WASM_SLOW_PATH_DECL(loop_osr)
 {
-    if (!Options::useWebAssemblyOSR()) {
-        slow_path_wasm_prologue_osr(callFrame, pc, instance);
-        WASM_RETURN_TWO(0, 0);
-    }
-
     Wasm::LLIntCallee* callee = static_cast<Wasm::LLIntCallee*>(callFrame->callee().asWasmCallee());
     Wasm::FunctionCodeBlock* codeBlock = CODE_BLOCK();
     Wasm::LLIntTierUpCounter& tierUpCounter = codeBlock->tierUpCounter();
+
+    if (!Options::useWebAssemblyOSR() || !Options::useWasmLLIntLoopOSR() || !shouldJIT(codeBlock, RequiredWasmJIT::OMG)) {
+        slow_path_wasm_prologue_osr(callFrame, pc, instance);
+        WASM_RETURN_TWO(nullptr, nullptr);
+    }
 
     dataLogLnIf(Options::verboseOSR(), *callee, ": Entered loop_osr with tierUpCounter = ", codeBlock->tierUpCounter());
 
@@ -160,19 +182,19 @@ WASM_SLOW_PATH_DECL(loop_osr)
 
     if (!tierUpCounter.checkIfOptimizationThresholdReached()) {
         dataLogLnIf(Options::verboseOSR(), "    JIT threshold should be lifted.");
-        WASM_RETURN_TWO(0, 0);
+        WASM_RETURN_TWO(nullptr, nullptr);
     }
 
     const auto doOSREntry = [&] {
         Wasm::OMGForOSREntryCallee* osrEntryCallee = callee->osrEntryCallee();
         if (osrEntryCallee->loopIndex() != osrEntryData.loopIndex)
-            WASM_RETURN_TWO(0, 0);
+            WASM_RETURN_TWO(nullptr, nullptr);
 
         size_t osrEntryScratchBufferSize = osrEntryCallee->osrEntryScratchBufferSize();
         RELEASE_ASSERT(osrEntryScratchBufferSize == osrEntryData.values.size());
         uint64_t* buffer = instance->context()->scratchBufferForSize(osrEntryScratchBufferSize);
         if (!buffer)
-            WASM_RETURN_TWO(0, 0);
+            WASM_RETURN_TWO(nullptr, nullptr);
 
         uint32_t index = 0;
         for (VirtualRegister reg : osrEntryData.values)
@@ -212,13 +234,20 @@ WASM_SLOW_PATH_DECL(loop_osr)
     if (callee->osrEntryCallee())
         return doOSREntry();
 
-    WASM_RETURN_TWO(0, 0);
+    WASM_RETURN_TWO(nullptr, nullptr);
 }
 
 WASM_SLOW_PATH_DECL(epilogue_osr)
 {
     Wasm::LLIntCallee* callee = static_cast<Wasm::LLIntCallee*>(callFrame->callee().asWasmCallee());
     Wasm::FunctionCodeBlock* codeBlock = CODE_BLOCK();
+
+    if (!shouldJIT(codeBlock)) {
+        codeBlock->tierUpCounter().deferIndefinitely();
+        WASM_END_IMPL();
+    }
+    if (!Options::useWasmLLIntEpilogueOSR())
+        WASM_END_IMPL();
 
     dataLogLnIf(Options::verboseOSR(), *callee, ": Entered epilogue_osr with tierUpCounter = ", codeBlock->tierUpCounter());
 
@@ -412,7 +441,7 @@ WASM_SLOW_PATH_DECL(set_global_ref_portable_binding)
 extern "C" SlowPathReturnType slow_path_wasm_throw_exception(CallFrame* callFrame, const Instruction* pc, Wasm::Instance* instance, Wasm::ExceptionType exceptionType)
 {
     UNUSED_PARAM(pc);
-    WASM_RETURN_TWO(operationWasmToJSException(callFrame, exceptionType, instance), 0);
+    WASM_RETURN_TWO(operationWasmToJSException(callFrame, exceptionType, instance), nullptr);
 }
 
 extern "C" SlowPathReturnType slow_path_wasm_popcount(const Instruction* pc, uint32_t x)

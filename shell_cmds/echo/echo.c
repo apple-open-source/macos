@@ -41,97 +41,122 @@ static char sccsid[] = "@(#)echo.c	8.1 (Berkeley) 5/31/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/bin/echo/echo.c,v 1.18 2005/01/10 08:39:22 imp Exp $");
 
-#include <sys/types.h>
-#include <sys/uio.h>
-
-#include <assert.h>
-#include <errno.h>
-#include <limits.h>
+#include <err.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <wchar.h>
 
-/*
- * Report an error and exit.
- * Use it instead of err(3) to avoid linking-in stdio.
- */
-static void
-errexit(const char *prog, const char *reason)
+static char *
+print_one_char(char *cur, int *bytes_len_out)
 {
-	char *errstr = strerror(errno);
-	write(STDERR_FILENO, prog, strlen(prog));
-	write(STDERR_FILENO, ": ", 2);
-	write(STDERR_FILENO, reason, strlen(reason));
-	write(STDERR_FILENO, ": ", 2);
-	write(STDERR_FILENO, errstr, strlen(errstr));
-	write(STDERR_FILENO, "\n", 1);
-	exit(1);
+	wchar_t wc;
+	int bytes_len = mbtowc(&wc, cur, MB_CUR_MAX);
+	if (bytes_len <= 0) {
+		putchar(*cur);
+		bytes_len = 1;
+		goto out;
+	}
+
+	if (wc != '\\') {
+		putwchar(wc);
+		goto out;
+	}
+
+	cur += bytes_len;
+	bytes_len = 1;
+
+	switch (*cur) {
+		case 'a':
+			putchar('\a');
+			goto out;
+
+		case 'b':
+			putchar('\b');
+			goto out;
+
+		case 'c':
+			if (fflush(stdout) != 0)
+				err(1, "fflush");
+			exit(0);
+
+		case 'f':
+			putchar('\f');
+			goto out;
+
+		case 'n':
+			putchar('\n');
+			goto out;
+
+		case 'r':
+			putchar('\r');
+			goto out;
+
+		case 't':
+			putchar('\t');
+			goto out;
+
+		case 'v':
+			putchar('\v');
+			goto out;
+
+		case '\\':
+			putchar('\\');
+			goto out;
+
+		case '0': {
+			int j = 0, num = 0;
+			while ((*++cur >= '0' && *cur <= '7') &&
+			       j++ < 3) {
+				num <<= 3;
+				num |= (*cur - '0');
+			}
+			putchar(num);
+			--cur;
+			goto out;
+		}
+		default:
+			--cur;
+			putchar(*cur);
+			goto out;
+	}
+
+ out:
+	if (bytes_len_out)
+		*bytes_len_out = bytes_len;
+	return cur;
 }
-	
+
 int
 main(int argc, char *argv[])
 {
-	int nflag;	/* if not set, output a trailing newline. */
-	int veclen;	/* number of writev arguments. */
-	struct iovec *iov, *vp; /* Elements to write, current element. */
-	char space[] = " ";
-	char newline[] = "\n";
-	char *progname = argv[0];
+	int nflag = 0;
+	int posix = (getenv("POSIXLY_CORRECT") != NULL || getenv("POSIX_PEDANTIC") != NULL);
 
-	/* This utility may NOT do getopt(3) option parsing. */
-	if (*++argv && !strcmp(*argv, "-n")) {
-		++argv;
-		--argc;
+	if (!posix && argv[1] && strcmp(argv[1], "-n") == 0)
 		nflag = 1;
-	} else
-		nflag = 0;
 
-	veclen = (argc >= 2) ? (argc - 2) * 2 + 1 : 0;
+	for (int i = 0; i < argc; i++) {
+		/* argv[0] == progname */
+		int ignore_arg = (i == 0 || (i == 1 && nflag == 1));
+		int last_arg = (i == (argc - 1));
+		if (!ignore_arg) {
+			char *cur = argv[i];
+			size_t arg_len = strlen(cur);
+			int bytes_len = 0;
 
-	if ((vp = iov = malloc((veclen + 1) * sizeof(struct iovec))) == NULL)
-		errexit(progname, "malloc");
-
-	while (argv[0] != NULL) {
-		size_t len;
-		
-		len = strlen(argv[0]);
-
-		/*
-		 * If the next argument is NULL then this is this
-		 * the last argument, therefore we need to check
-		 * for a trailing \c.
-		 */
-		if (argv[1] == NULL) {
-			/* is there room for a '\c' and is there one? */
-			if (len >= 2 &&
-			    argv[0][len - 2] == '\\' &&
-			    argv[0][len - 1] == 'c') {
-				/* chop it and set the no-newline flag. */
-				len -= 2;
-				nflag = 1;
+			for (const char *end = cur + arg_len; cur < end; cur += bytes_len) {
+				cur = print_one_char(cur, &bytes_len);
 			}
 		}
-		vp->iov_base = *argv;
-		vp++->iov_len = len;
-		if (*++argv) {
-			vp->iov_base = space;
-			vp++->iov_len = 1;
-		}
-	}
-	if (!nflag) {
-		veclen++;
-		vp->iov_base = newline;
-		vp++->iov_len = 1;
-	}
-	/* assert(veclen == (vp - iov)); */
-	while (veclen) {
-		int nwrite;
+		if (last_arg && !nflag)
+			putchar('\n');
+		else if (!last_arg && !ignore_arg)
+			putchar(' ');
 
-		nwrite = (veclen > IOV_MAX) ? IOV_MAX : veclen;
-		if (writev(STDOUT_FILENO, iov, nwrite) == -1)
-			errexit(progname, "write");
-		iov += nwrite;
-		veclen -= nwrite;
+		if (fflush(stdout) != 0)
+			err(1, "fflush");
 	}
+
 	return 0;
 }

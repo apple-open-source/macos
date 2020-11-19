@@ -170,6 +170,7 @@ WI.appendContextMenuItemsForSourceCode = function(contextMenu, sourceCodeOrLocat
             let saveData = {
                 url: sourceCode.url,
                 content: sourceCode.content,
+                base64Encoded: sourceCode.base64Encoded,
             };
 
             if (sourceCode.urlComponents.path === "/") {
@@ -208,7 +209,7 @@ WI.appendContextMenuItemsForURL = function(contextMenu, url, options = {})
         });
     }
 
-    if (WI.networkManager.resourceForURL(url)) {
+    if (WI.networkManager.resourcesForURL(url).size) {
         if (!WI.isShowingSourcesTab()) {
             contextMenu.appendItem(WI.UIString("Reveal in Sources Tab"), () => {
                 showResourceWithOptions({preferredTabType: WI.SourcesTabContentView.Type});
@@ -345,7 +346,7 @@ WI.appendContextMenuItemsForDOMNode = function(contextMenu, domNode, options = {
             });
         }
 
-        if (InspectorBackend.hasDomain("Page") && attached) {
+        if (InspectorBackend.hasCommand("Page.snapshotNode") && attached) {
             contextMenu.appendItem(WI.UIString("Capture Screenshot", "Capture screenshot of the selected DOM node"), () => {
                 let target = WI.assumingMainTarget();
                 target.PageAgent.snapshotNode(domNode.id, (error, dataURL) => {

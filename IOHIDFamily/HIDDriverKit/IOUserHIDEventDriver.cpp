@@ -39,6 +39,7 @@ struct IOUserHIDEventDriver_IVars
     
     struct {
         OSArray *collections;
+        IOHIDElement *relativeScanTime;
     } digitizer;
 };
 
@@ -49,8 +50,44 @@ struct IOUserHIDEventDriver_IVars
 #define _led            ivars->led
 #define _digitizer      ivars->digitizer
 
+#define kHIDUsage_MaxUsage 0xFFFF
+
 #undef super
 #define super IOUserHIDEventService
+
+static IOFixed getFixedValue(uint32_t value, uint32_t unit, uint32_t exponent)
+{
+    int64_t  orgValue   = (int64_t)value;
+    IOFixed returnValue     = 0;
+
+    uint32_t numExp   = 1;
+    uint32_t denomExp = 1;
+    int resExponent  = exponent & 0x0F;
+
+    // Value in MM
+    switch (unit) {
+       case 0x11:
+           // cm to mm
+           orgValue = orgValue * 10;
+           break;
+       default: {
+           return (IOFixed)orgValue;
+       }
+    }
+
+    if (resExponent < 8) {
+       for (int i = resExponent; i > 0; i--) {
+           numExp *=  10;
+       }
+    } else {
+       for (int i = 0x10 - resExponent; i > 0; i--) {
+           denomExp *= 10;
+       }
+    }
+
+    returnValue = (IOFixed)(((orgValue << 16) / denomExp) * numExp);
+    return returnValue;
+}
 
 bool IOUserHIDEventDriver::init()
 {
@@ -77,6 +114,8 @@ void IOUserHIDEventDriver::free()
         OSSafeReleaseNULL(_pointer.absolute);
         OSSafeReleaseNULL(_scroll.elements);
         OSSafeReleaseNULL(_led.elements);
+        OSSafeReleaseNULL(_digitizer.collections);
+        OSSafeReleaseNULL(_digitizer.relativeScanTime);
     }
     
     IOSafeDeleteNULL(ivars, IOUserHIDEventDriver_IVars, 1);
@@ -160,6 +199,17 @@ bool IOUserHIDEventDriver::parseElements(OSArray *elements)
         });
 
     }
+
+    // Reset LED state.
+    if (_led.elements) {
+        for (int index = 0; index < _led.elements->getCount(); ++index) {
+            IOHIDElement *element = (IOHIDElement *)_led.elements->getObject(index);
+            IOReturn status;
+            element->setValue(0);
+            status = element->commit(kIOHIDElementCommitDirectionOut);
+            HIDServiceLog("Set LED 0x%x: 0 0x%x", element->getUsage(), status);
+        }
+    }
     
     HIDServiceLog("parseElements: keyboard: %d digitizer: %d pointer: %d %d scroll: %d led: %d",
                   _keyboard.elements ? _keyboard.elements->getCount() : 0,
@@ -237,7 +287,7 @@ void IOUserHIDEventDriver::setSurfaceDimensions()
         
         usagePage = element->getUsagePage();
         usage = element->getUsage();
-        pDelta = element->getPhysicalMax() - element->getPhysicalMin();
+        pDelta = getFixedValue(element->getPhysicalMax() - element->getPhysicalMin(), element->getUnit(), element->getUnitExponent());
         
         if (usagePage != kHIDPage_GenericDesktop) {
             return false;
@@ -310,7 +360,8 @@ bool IOUserHIDEventDriver::parseKeyboardElement(IOHIDElement *element)
     bool result = false;
     uint32_t usagePage = element->getUsagePage();
     uint32_t usage = element->getUsage();
-    
+
+    require(usage <= kHIDUsage_MaxUsage, exit);
     switch (usagePage) {
         case kHIDPage_GenericDesktop:
             switch (usage) {
@@ -333,6 +384,7 @@ bool IOUserHIDEventDriver::parseKeyboardElement(IOHIDElement *element)
                 case kHIDUsage_GD_DPadDown:
                 case kHIDUsage_GD_DPadRight:
                 case kHIDUsage_GD_DPadLeft:
+                case kHIDUsage_GD_DoNotDisturb:
                     result = true;
                     break;
             }
@@ -375,7 +427,8 @@ bool IOUserHIDEventDriver::parsePointerElement(IOHIDElement *element)
     uint32_t usagePage = element->getUsagePage();
     uint32_t usage = element->getUsage();
     bool absolute = false;
-    
+
+    require(usage <= kHIDUsage_MaxUsage, exit);
     switch (usagePage) {
         case kHIDPage_GenericDesktop:
             switch (usage) {
@@ -421,7 +474,8 @@ bool IOUserHIDEventDriver::parseScrollElement(IOHIDElement *element)
     bool result = false;
     uint32_t usagePage = element->getUsagePage();
     uint32_t usage = element->getUsage();
-    
+
+    require(usage <= kHIDUsage_MaxUsage, exit);
     switch (usagePage) {
         case kHIDPage_GenericDesktop:
             switch (usage) {
@@ -461,8 +515,10 @@ exit:
 bool IOUserHIDEventDriver::parseLEDElement(IOHIDElement *element)
 {
     uint32_t usagePage = element->getUsagePage();
+    uint32_t usage = element->getUsage();
     bool result = false;
-    
+
+    require(usage <= kHIDUsage_MaxUsage, exit);
     switch (usagePage) {
         case kHIDPage_LEDs:
             result = true;
@@ -541,6 +597,12 @@ bool IOUserHIDEventDriver::parseDigitizerElement(IOHIDElement *element)
                 break;
             }
         }
+    }
+    
+    if (element->getUsagePage() == kHIDPage_Digitizer && element->getUsage() == kHIDUsage_Dig_RelativeScanTime) {
+        OSSafeReleaseNULL(_digitizer.relativeScanTime);
+        element->retain();
+        _digitizer.relativeScanTime = element;
     }
     
     require(parent, exit);
@@ -879,6 +941,8 @@ void IOUserHIDEventDriver::handleDigitizerReport(uint64_t timestamp,
     IOFixed centroidY = 0;
     uint32_t touchCount = 0;
     uint32_t inRangeCount = 0;
+    IOHIDEvent *scanTimeEvent = NULL;
+    OSData *scanTimeValue = NULL;
     
     require_quiet(_digitizer.collections, exit);
     
@@ -937,6 +1001,22 @@ void IOUserHIDEventDriver::handleDigitizerReport(uint64_t timestamp,
     
     require(collectionEvent, exit);
     
+    // Append Scan time as vendor event
+    // if collection event is NULL at this point , it
+    // means we don't have any valid transducer , so no
+    // point adding scan time here ??
+    if (collectionEvent && _digitizer.relativeScanTime) {
+        scanTimeValue  = _digitizer.relativeScanTime->getDataValue(0);
+                
+        if (scanTimeValue && scanTimeValue->getLength()) {
+            scanTimeEvent =  IOHIDEvent::vendorDefinedEvent( timestamp, kHIDPage_Digitizer, kHIDUsage_Dig_RelativeScanTime, 0, (uint8_t *)scanTimeValue->getBytesNoCopy(), scanTimeValue->getLength(), 0);
+            if (scanTimeEvent) {
+                collectionEvent->appendChild(scanTimeEvent);
+                scanTimeEvent->release();
+            }
+        }
+    }
+    
     if (touchCount) {
         centroidX = IOFixedDivide(touchX, touchCount << 16);
         centroidY = IOFixedDivide(touchY, touchCount << 16);
@@ -968,11 +1048,11 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
     IOHIDEvent *event = NULL;
     OSArray *elements = collection->getElements();
     bool handled = false;
-    bool cancel = false;
     bool inRange = true;
     bool invert = false;
     bool touch = false;
-    bool hasInRangeUsage = false;
+    bool unTouch = false;
+    bool isFinger = false;
     IOFixed x = 0;
     IOFixed y = 0;
     IOFixed z = 0;
@@ -985,6 +1065,9 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
     uint32_t transducerID = reportID;
     uint32_t eventMask = 0;
     uint32_t eventOptions = kIOHIDEventOptionIsAbsolute;
+    bool hasInRangeUsage = false;
+    IOHIDDigitizerTransducerType transducerType = collection->getType();
+    
     
     require(elements, exit);
     
@@ -1021,11 +1104,10 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
                         break;
                 }
                 break;
-                // TODO
-//            case kHIDPage_Button:
-//                setButtonState(&buttonState, (usage - 1), value);
-//                handled    |= elementIsCurrent;
-//                break;
+            case kHIDPage_Button:
+                setButtonState(&buttonState, (usage - 1), value);
+                handled    |= (elementIsCurrent | (buttonState != 0));
+                break;
             case kHIDPage_Digitizer:
                 switch (usage) {
                     case kHIDUsage_Dig_TransducerIndex:
@@ -1034,14 +1116,14 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
                         handled |= elementIsCurrent;
                         break;
                     case kHIDUsage_Dig_Untouch:
-                        cancel = value;
+                        unTouch = value!=0;
                         handled |= elementIsCurrent;
                         break;
                     case kHIDUsage_Dig_Touch:
                     case kHIDUsage_Dig_TipSwitch:
                         touch = value != 0;
-                        setButtonState(&buttonState, 0, value);
-                        handled |= (elementIsCurrent | (buttonState != 0));
+                        handled    |= (elementIsCurrent | (touch != 0));
+                        // If it's touched we should dispatch it irrespective of any position change
                         break;
                     case kHIDUsage_Dig_BarrelSwitch:
                         setButtonState(&buttonState, 1, value);
@@ -1081,6 +1163,13 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
                         invert = value != 0;
                         handled |= elementIsCurrent;
                         break;
+                    // Gives touch confidence , 1 : Finger , 0 : Hand
+                    case kHIDUsage_Dig_TouchValid:
+                        handled    |= elementIsCurrent;
+                        if (value == 1) {
+                            isFinger = true;
+                        }
+                        break;
                     default:
                         break;
                 }
@@ -1088,14 +1177,27 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
         }
     }
     
-    if (hasInRangeUsage == false && (cancel || touch == 0)) {
-        inRange = false;
-    }
-    
     require(handled, exit);
     
     if (invert) {
         eventOptions |= kIOHIDTransducerInvert;
+    }
+    
+    // tip pressure shouldn't decide touch,
+    // it can only change button state
+    if ( tipPressure ) {
+        setButtonState ( &buttonState, 0, tipPressure);
+    }
+    
+    // Should modify transducer type based on finger confidence if original
+    // transducer type is finger or hand
+    if (transducerType == kIOHIDDigitizerCollectionTypeFinger || transducerType == kIOHIDDigitizerCollectionTypeHand) {
+       transducerType = isFinger ? kIOHIDDigitizerCollectionTypeFinger : kIOHIDDigitizerCollectionTypeHand;
+    }
+    
+    // If device has explicitly specified inRange , we shouldn't override it
+    if (hasInRangeUsage == false && (unTouch || touch == 0)) {
+        inRange = false;
     }
     
     event = IOHIDEvent::withType(kIOHIDEventTypeDigitizer,
@@ -1109,7 +1211,9 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
         eventMask |= kIOHIDDigitizerEventTouch;
     }
     
-    if (cancel) {
+    // If both touch and untouch usage are set for event then we should mark it
+    // as cancelled event
+    if (touch & unTouch & 1) {
         eventMask |= kIOHIDDigitizerEventCancel;
     }
     
@@ -1124,7 +1228,7 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
     if (inRange != collection->getInRange()) {
         eventMask |= kIOHIDDigitizerEventRange;
     }
-    
+
     // If we get multiple untouch event we should discard it
     // reporting out of range , multiple untouch event can confuse
     // ui layer application
@@ -1136,7 +1240,7 @@ IOHIDEvent *IOUserHIDEventDriver::createEventForDigitizerCollection(IOHIDDigitiz
         event->setIntegerValue(kIOHIDEventFieldDigitizerRange, inRange);
         event->setIntegerValue(kIOHIDEventFieldDigitizerTouch, touch);
         event->setIntegerValue(kIOHIDEventFieldDigitizerIndex, transducerID);
-        event->setIntegerValue(kIOHIDEventFieldDigitizerType, collection->getType());
+        event->setIntegerValue(kIOHIDEventFieldDigitizerType, transducerType);
         event->setIntegerValue(kIOHIDEventFieldDigitizerButtonMask, buttonState);
         event->setFixedValue(kIOHIDEventFieldDigitizerX, x);
         event->setFixedValue(kIOHIDEventFieldDigitizerY, y);

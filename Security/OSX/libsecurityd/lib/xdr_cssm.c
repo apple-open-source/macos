@@ -24,7 +24,7 @@
 #include <architecture/byte_order.h>
 #include <string.h>		/* bzero() */
 #include <stdlib.h>		/* exit() */
-#include <assert.h>		/* assert() */
+#include <security_utilities/simulatecrash_assert.h>		/* assert() */
 #include <stdio.h>		/* XXX/gh  because utilities/debugging.h doesn't */
 #include <security_utilities/debugging.h>
 

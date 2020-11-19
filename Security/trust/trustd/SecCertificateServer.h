@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2017-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -165,6 +165,12 @@ SecPathCTPolicy SecCertificatePathVCRequiresCT(SecCertificatePathVCRef certifica
 void SecCertificatePathVCSetRequiresCT(SecCertificatePathVCRef certificatePath, SecPathCTPolicy requiresCT);
 CFAbsoluteTime SecCertificatePathVCIssuanceTime(SecCertificatePathVCRef certificatePath);
 void SecCertificatePathVCSetIssuanceTime(SecCertificatePathVCRef certificatePath, CFAbsoluteTime issuanceTime);
+
+/* CA Revocation Additions */
+/* Returns the index of the highest issuing CA which has matching key-based
+ * revocation additions in the given path, or kCFNotFound if none is found.
+ */
+CFIndex SecCertificatePathVCIndexOfCAWithRevocationAdditions(SecCertificatePathVCRef certificatePath);
 
 /* Allowlist */
 bool SecCertificatePathVCIsAllowlisted(SecCertificatePathVCRef certificatePath);

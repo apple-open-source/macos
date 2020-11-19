@@ -398,9 +398,9 @@ static int u16ToPseudo(const int length, const UChar * input, char * output)
 static char * formatLevels(UBiDi *bidi, char *buffer) {
     UErrorCode ec = U_ZERO_ERROR;
     const UBiDiLevel* gotLevels = ubidi_getLevels(bidi, &ec);
-    int len = ubidi_getLength(bidi);
+    int32_t len = ubidi_getLength(bidi);
     char c;
-    int i, k;
+    int32_t i, k;
 
     if(U_FAILURE(ec)) {
         strcpy(buffer, "BAD LEVELS");
@@ -408,7 +408,7 @@ static char * formatLevels(UBiDi *bidi, char *buffer) {
     }
     for (i=0; i<len; i++) {
         k = gotLevels[i];
-        if (k >= sizeof(columns))
+        if (k >= (int32_t)sizeof(columns))
             c = '+';
         else
             c = columns[k];
@@ -1287,11 +1287,12 @@ _testReordering(UBiDi *pBiDi, int testNumber) {
     }
 }
 
-#define RETURN_IF_BAD_ERRCODE(x)    \
+#define RETURN_IF_BAD_ERRCODE(x) UPRV_BLOCK_MACRO_BEGIN { \
     if (U_FAILURE(errorCode)) {      \
         log_err("\nbad errorCode %d at %s\n", errorCode, (x));  \
         return;     \
     }               \
+} UPRV_BLOCK_MACRO_END
 
 #define STRING_TEST_CASE(s) { (s), UPRV_LENGTHOF(s) }
 
@@ -4630,7 +4631,7 @@ static char * formatMap(const int32_t * map, int len, char * buffer)
         k = map[i];
         if (k < 0)
             c = '-';
-        else if (k >= sizeof(columns))
+        else if (k >= (int32_t)sizeof(columns))
             c = '+';
         else
             c = columns[k];

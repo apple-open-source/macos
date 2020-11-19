@@ -540,12 +540,17 @@ const char* loadTestData(UErrorCode* err){
         char* tdpath=NULL;
         const char* tdrelativepath;
 #if defined (U_TOPBUILDDIR)
+#if defined (APPLE_XCODE_BUILD)
+        tdrelativepath = "."U_FILE_SEP_STRING;
+        directory = U_TOPBUILDDIR;
+#else
         tdrelativepath = "test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
         directory = U_TOPBUILDDIR;
+#endif  // APPLE_XCODE_BUILD
 #else
         tdrelativepath = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING"test"U_FILE_SEP_STRING"testdata"U_FILE_SEP_STRING"out"U_FILE_SEP_STRING;
         directory= ctest_dataOutDir();
-#endif
+#endif  // U_TOPBUILDDIR
 
         tdpath = (char*) ctst_malloc(sizeof(char) *(( strlen(directory) * strlen(tdrelativepath)) + 10));
 
@@ -738,6 +743,20 @@ U_CFUNC UBool assertIntEquals(const char* message, int64_t expected, int64_t act
 #ifdef VERBOSE_ASSERTIONS
     else {
         log_verbose("Ok: %s; got \"%d\"\n", message, actual);
+    }
+#endif
+    return TRUE;
+}
+
+U_CFUNC UBool assertPtrEquals(const char* message, const void* expected, const void* actual) {
+    if (expected != actual) {
+        log_err("FAIL: %s; got 0x%llx; expected 0x%llx\n",
+                message, actual, expected);
+        return FALSE;
+    }
+#ifdef VERBOSE_ASSERTIONS
+    else {
+        log_verbose("Ok: %s; got 0x%llx\n", message, actual);
     }
 #endif
     return TRUE;

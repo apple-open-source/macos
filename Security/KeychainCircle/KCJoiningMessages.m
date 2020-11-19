@@ -32,14 +32,14 @@
 
 + (nullable instancetype) messageWithType: (KCJoiningMessageType) type
                                      data: (NSData*) firstData
-                               secondData: (NSData*) secondData
+                               secondData: (nullable NSData*) secondData
                                     error: (NSError**) error {
     return [[KCJoiningMessage alloc] initWithType:type data:firstData payload:secondData error:error];
 }
 
 + (nullable instancetype) messageWithType: (KCJoiningMessageType) type
                                      data: (NSData*) firstData
-                                  payload: (NSData*) secondData
+                                  payload: (nullable NSData*) secondData
                                     error: (NSError**) error {
     return [[KCJoiningMessage alloc] initWithType:type data:firstData payload:secondData error:error];
     
@@ -140,10 +140,9 @@
 
 - (nullable instancetype) initWithDER: (NSData*) message
                        error: (NSError**) error {
-    self = [super init];
-
-    self->_der = [NSData dataWithData: message];
-
+    if ((self = [super init])) {
+        self->_der = [NSData dataWithData: message];
+    }
     return [self inflatePartsOfEncoding: error] ? self : nil;
 }
 
@@ -151,14 +150,13 @@
                          data: (NSData*) firstData
                       payload: (nullable NSData*) secondData
                         error: (NSError**) error {
-    self = [super init];
-
-    self->_der = [KCJoiningMessage encodeToDERType:type
-                                              data:firstData
-                                           payload:secondData
-                                             error:error];
-    if (self->_der == nil) return nil;
-
+    if ((self = [super init])) {
+        self->_der = [KCJoiningMessage encodeToDERType:type
+                                                  data:firstData
+                                               payload:secondData
+                                                 error:error];
+        if (self->_der == nil) return nil;
+    }
     return [self inflatePartsOfEncoding: error] ? self : nil;
 }
 

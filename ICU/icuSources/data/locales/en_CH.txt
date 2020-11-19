@@ -15,7 +15,7 @@ en_CH{
             }
         }
     }
-    Version{"2.1.48.50"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

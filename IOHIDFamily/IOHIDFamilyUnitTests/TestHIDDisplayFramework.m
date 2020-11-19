@@ -10,7 +10,6 @@
 #import <IOKit/hid/IOHIDKeys.h>
 #import <HID/HID.h>
 #import <IOKit/hid/AppleHIDUsageTables.h>
-#import <XCTest/XCTMemoryChecker.h>
 #import <IOKit/usb/USBSpec.h>
 #import "IOHIDXCTestExpectation.h"
 #import "IOHIDUnitTestUtility.h"
@@ -64,7 +63,6 @@ static NSMutableArray<NSString*> *presetUUIDs;
 @property NSInteger             setReportCount;
 @property NSUInteger            presetCount;
 @property NSString              * containerID;
-@property XCTMemoryChecker      * memoryChecker;
 
 @end
 
@@ -86,7 +84,6 @@ static NSMutableArray<NSString*> *presetUUIDs;
     
     _containerID = [[[NSUUID alloc] init] UUIDString];
     
-    _memoryChecker = [[XCTMemoryChecker alloc]initWithDelegate:self];
     
     NSMutableDictionary * deviceConfig = [NSPropertyListSerialization propertyListWithData:[deviceDescription dataUsingEncoding:NSUTF8StringEncoding] options:NSPropertyListMutableContainers format:NULL error:NULL];
     
@@ -95,7 +92,7 @@ static NSMutableArray<NSString*> *presetUUIDs;
     deviceConfig [@kIOHIDReportDescriptorKey] = descriptorData;
     deviceConfig [kHIDUserDevicePropertyCreateInactiveKey] = @YES;
 
-#if !TARGET_OS_IPHONE || TARGET_OS_IOSMAC
+#if !TARGET_OS_IPHONE || TARGET_OS_MACCATALYST
      deviceConfig [@kUSBDeviceContainerID] = _containerID;
 #else
      deviceConfig [@kUSBContainerID] = _containerID;
@@ -332,22 +329,18 @@ static NSMutableArray<NSString*> *presetUUIDs;
 }
 - (void)testHIDDisplayFramework {
     
-    
-    [_memoryChecker assertObjectsOfTypes:@[@"HIDDisplayDevice", @"HIDDisplayDevicePreset"] invalidAfterScope:^{
+    @autoreleasepool {
         
-        @autoreleasepool {
-            
-            _hidDisplayDevice = HIDDisplayCreateDeviceWithContainerID((__bridge CFStringRef)_containerID);
-            
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST  | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, _hidDisplayDevice != NULL);
-            
-            [self TestPresetDefaultInfo];
-            
-            [self TestSetPresetInfo];
-            
-            CFRelease(_hidDisplayDevice);
-        }
-    }];
+        _hidDisplayDevice = HIDDisplayCreateDeviceWithContainerID((__bridge CFStringRef)_containerID);
+        
+        HIDXCTAssertWithParameters (RETURN_FROM_TEST  | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, _hidDisplayDevice != NULL);
+        
+        [self TestPresetDefaultInfo];
+        
+        [self TestSetPresetInfo];
+        
+        CFRelease(_hidDisplayDevice);
+    }
     
 }
 

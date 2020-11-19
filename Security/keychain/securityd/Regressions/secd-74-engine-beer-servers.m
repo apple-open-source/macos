@@ -25,6 +25,9 @@
 #include "keychain/SecureObjectSync/Regressions/SOSTestDevice.h"
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
+#include "SOSAccountTesting.h"
+
+#if SOS_ENABLED
 
 static int kTestTestCount = 646;
 
@@ -79,15 +82,17 @@ static void beer_servers(void) {
     CFRelease(objectNames);
     CFRelease(itemData);
 }
+#endif
 
 int secd_74_engine_beer_servers(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     beer_servers();
-
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

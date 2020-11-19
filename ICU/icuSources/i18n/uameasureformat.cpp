@@ -105,6 +105,7 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
         case UAMEASUNIT_DURATION_MONTH_PERSON:  munit = MeasureUnit::createMonthPerson(*status); break;
         case UAMEASUNIT_DURATION_WEEK_PERSON:   munit = MeasureUnit::createWeekPerson(*status);  break;
         case UAMEASUNIT_DURATION_DAY_PERSON:    munit = MeasureUnit::createDayPerson(*status);   break;
+        case UAMEASUNIT_DURATION_DECADE:        munit = MeasureUnit::createDecade(*status);      break;
 
         case UAMEASUNIT_LENGTH_METER:           munit = MeasureUnit::createMeter(*status);       break;
         case UAMEASUNIT_LENGTH_CENTIMETER:      munit = MeasureUnit::createCentimeter(*status);  break;
@@ -158,6 +159,8 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
         case UAMEASUNIT_PRESSURE_ATMOSPHERE:    munit = MeasureUnit::createAtmosphere(*status);  break;
         case UAMEASUNIT_PRESSURE_KILOPASCAL:    munit = MeasureUnit::createKilopascal(*status);  break;
         case UAMEASUNIT_PRESSURE_MEGAPASCAL:    munit = MeasureUnit::createMegapascal(*status);  break;
+        case UAMEASUNIT_PRESSURE_PASCAL:        munit = MeasureUnit::createPascal(*status);      break;
+        case UAMEASUNIT_PRESSURE_BAR:           munit = MeasureUnit::createBar(*status);         break;
 
         case UAMEASUNIT_SPEED_METER_PER_SECOND:   munit = MeasureUnit::createMeterPerSecond(*status);   break;
         case UAMEASUNIT_SPEED_KILOMETER_PER_HOUR: munit = MeasureUnit::createKilometerPerHour(*status); break;
@@ -205,6 +208,7 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
         case UAMEASUNIT_ENERGY_KILOWATT_HOUR:   munit = MeasureUnit::createKilowattHour(*status);   break;
         case UAMEASUNIT_ENERGY_ELECTRONVOLT:    munit = MeasureUnit::createElectronvolt(*status);   break;
         case UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT: munit = MeasureUnit::createBritishThermalUnit(*status); break;
+        case UAMEASUNIT_ENERGY_THERM_US:        munit = MeasureUnit::createThermUs(*status);        break;
 
         case UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER: munit = MeasureUnit::createLiterPerKilometer(*status); break;
         case UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON:     munit = MeasureUnit::createMilePerGallon(*status);     break;
@@ -250,6 +254,14 @@ static MeasureUnit * createObjectForMeasureUnit(UAMeasureUnit unit, UErrorCode* 
 
         case UAMEASUNIT_TORQUE_NEWTON_METER:    munit = MeasureUnit::createNewtonMeter(*status); break;
         case UAMEASUNIT_TORQUE_POUND_FOOT:      munit = MeasureUnit::createPoundFoot(*status);   break;
+
+        case UAMEASUNIT_GRAPHICS_EM:            munit = MeasureUnit::createEm(*status);         break;
+        case UAMEASUNIT_GRAPHICS_PIXEL:         munit = MeasureUnit::createPixel(*status);      break;
+        case UAMEASUNIT_GRAPHICS_MEGAPIXEL:     munit = MeasureUnit::createMegapixel(*status);  break;
+        case UAMEASUNIT_GRAPHICS_PIXEL_PER_CENTIMETER: munit = MeasureUnit::createPixelPerCentimeter(*status); break;
+        case UAMEASUNIT_GRAPHICS_PIXEL_PER_INCH:       munit = MeasureUnit::createPixelPerInch(*status);       break;
+        case UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER:   munit = MeasureUnit::createDotPerCentimeter(*status);   break;
+        case UAMEASUNIT_GRAPHICS_DOT_PER_INCH :        munit = MeasureUnit::createDotPerInch(*status);         break;
 
         default: *status = U_ILLEGAL_ARGUMENT_ERROR; break;
     }
@@ -463,7 +475,10 @@ static const KeyToUnits keyToUnits[] = {
     {   "acre",                     1,  { UAMEASUNIT_AREA_ACRE }   },
     {   "celsius",                  1,  { UAMEASUNIT_TEMPERATURE_CELSIUS }   },
     {   "centimeter",               1,  { UAMEASUNIT_LENGTH_CENTIMETER }   },
+    {   "cubic-kilometer",          1,  { UAMEASUNIT_VOLUME_CUBIC_KILOMETER }   },
+    {   "cubic-mile",               1,  { UAMEASUNIT_VOLUME_CUBIC_MILE }   },
     {   "fahrenheit",               1,  { UAMEASUNIT_TEMPERATURE_FAHRENHEIT }   },
+    {   "fluid-ounce",              1,  { UAMEASUNIT_VOLUME_FLUID_OUNCE }   },
     {   "foodcalorie",              1,  { UAMEASUNIT_ENERGY_FOODCALORIE }   },
     {   "foot",                     1,  { UAMEASUNIT_LENGTH_FOOT }   },
     {   "foot inch",                2,  { UAMEASUNIT_LENGTH_FOOT, UAMEASUNIT_LENGTH_INCH }   },
@@ -473,17 +488,21 @@ static const KeyToUnits keyToUnits[] = {
     {   "hectopascal",              1,  { UAMEASUNIT_PRESSURE_HECTOPASCAL }   },
     {   "inch",                     1,  { UAMEASUNIT_LENGTH_INCH }   },
     {   "inch-hg",                  1,  { UAMEASUNIT_PRESSURE_INCH_HG }   },
+    {   "joule",                    1,  { UAMEASUNIT_ENERGY_JOULE }   },
     {   "kilocalorie",              1,  { UAMEASUNIT_ENERGY_KILOCALORIE }   },
     {   "kilogram",                 1,  { UAMEASUNIT_MASS_KILOGRAM }   },
     {   "kilogram gram",            2,  { UAMEASUNIT_MASS_KILOGRAM, UAMEASUNIT_MASS_GRAM }   },
+    {   "kilojoule",                1,  { UAMEASUNIT_ENERGY_KILOJOULE }   },
     {   "kilometer",                1,  { UAMEASUNIT_LENGTH_KILOMETER }   },
     {   "kilometer-per-hour",       1,  { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR }   },
+    {   "kilowatt",                 1,  { UAMEASUNIT_POWER_KILOWATT }   },
+    {   "liter",                    1,  { UAMEASUNIT_VOLUME_LITER }   },
     {   "liter-per-100kilometers",  1,  { UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs }   },
     {   "liter-per-kilometer",      1,  { UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER }   },
-    {   "liter",                    1,  { UAMEASUNIT_VOLUME_LITER }   },
     {   "meter",                    1,  { UAMEASUNIT_LENGTH_METER }   },
     {   "meter centimeter",         2,  { UAMEASUNIT_LENGTH_METER, UAMEASUNIT_LENGTH_CENTIMETER }   },
     {   "meter-per-second",         1,  { UAMEASUNIT_SPEED_METER_PER_SECOND }   },
+    {   "metric-ton",               1,  { UAMEASUNIT_MASS_METRIC_TON }   },
     {   "mile",                     1,  { UAMEASUNIT_LENGTH_MILE }   },
     {   "mile-per-gallon",          1,  { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON }   },
     {   "mile-per-gallon-imperial", 1,  { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL }   },
@@ -491,13 +510,24 @@ static const KeyToUnits keyToUnits[] = {
     {   "mile-scandinavian",        1,  { UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN }   },
     {   "millibar",                 1,  { UAMEASUNIT_PRESSURE_MILLIBAR }   },
     {   "milligram-per-deciliter",  1,  { UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER }   },
+    {   "milliliter",               1,  { UAMEASUNIT_VOLUME_MILLILITER }   },
     {   "millimeter",               1,  { UAMEASUNIT_LENGTH_MILLIMETER }   },
     {   "millimeter-of-mercury",    1,  { UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY }   },
     {   "millimole-per-liter",      1,  { UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER }   },
+    {   "milliwatt",                1,  { UAMEASUNIT_POWER_MILLIWATT }   },
     {   "minute second",            2,  { UAMEASUNIT_DURATION_MINUTE, UAMEASUNIT_DURATION_SECOND }   },
+    {   "ounce",                    1,  { UAMEASUNIT_MASS_OUNCE }   },
     {   "pound",                    1,  { UAMEASUNIT_MASS_POUND }   },
     {   "pound ounce",              2,  { UAMEASUNIT_MASS_POUND, UAMEASUNIT_MASS_OUNCE }   },
+    {   "square-centimeter",        1,  { UAMEASUNIT_AREA_SQUARE_CENTIMETER }   },
+    {   "square-foot",              1,  { UAMEASUNIT_AREA_SQUARE_FOOT }   },
+    {   "square-inch",              1,  { UAMEASUNIT_AREA_SQUARE_INCH }   },
+    {   "square-kilometer",         1,  { UAMEASUNIT_AREA_SQUARE_KILOMETER }   },
+    {   "square-meter",             1,  { UAMEASUNIT_AREA_SQUARE_METER }   },
+    {   "square-mile",              1,  { UAMEASUNIT_AREA_SQUARE_MILE }   },
     {   "stone pound",              2,  { UAMEASUNIT_MASS_STONE, UAMEASUNIT_MASS_POUND }   },
+    {   "ton",                      1,  { UAMEASUNIT_MASS_TON }   },
+    {   "watt",                     1,  { UAMEASUNIT_POWER_WATT }   },
     {   "yard",                     1,  { UAMEASUNIT_LENGTH_YARD }   },
     {   "year-person month-person", 2,  { UAMEASUNIT_DURATION_YEAR, UAMEASUNIT_DURATION_MONTH }   },
 };

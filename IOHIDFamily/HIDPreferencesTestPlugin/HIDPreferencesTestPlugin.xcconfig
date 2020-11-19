@@ -1,0 +1,12 @@
+//
+//  HIDPreferencesTestPlugin.xcconfig
+//  IOHIDFamily
+//
+//  Created by AB on 10/8/19.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+
+INSTALL_PATH_ = /AppleInternal/Library/HIDPlugins/SessionFilters/

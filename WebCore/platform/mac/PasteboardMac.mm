@@ -105,6 +105,11 @@ std::unique_ptr<Pasteboard> Pasteboard::createForCopyAndPaste()
 }
 
 #if ENABLE(DRAG_SUPPORT)
+String Pasteboard::nameOfDragPasteboard()
+{
+    return NSPasteboardNameDrag;
+}
+
 std::unique_ptr<Pasteboard> Pasteboard::createForDragAndDrop()
 {
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -276,6 +281,8 @@ void Pasteboard::write(const PasteboardImage& pasteboardImage)
         m_changeCount = platformStrategies()->pasteboardStrategy()->setBufferForType(archiveData.get(), WebArchivePboardType, m_pasteboardName);
         m_changeCount = platformStrategies()->pasteboardStrategy()->setBufferForType(archiveData.get(), kUTTypeWebArchive, m_pasteboardName);
     }
+    if (!pasteboardImage.dataInHTMLFormat.isEmpty())
+        m_changeCount = platformStrategies()->pasteboardStrategy()->setStringForType(pasteboardImage.dataInHTMLFormat, legacyHTMLPasteboardType(), m_pasteboardName);
     writeFileWrapperAsRTFDAttachment(fileWrapper(pasteboardImage), m_pasteboardName, m_changeCount);
 }
 
@@ -560,7 +567,7 @@ static String cocoaTypeFromHTMLClipboardType(const String& type)
             return platformType;
     }
 
-    // Blacklist types that might contain subframe information.
+    // Reject types that might contain subframe information.
     if (type == "text/rtf" || type == "public.rtf" || type == "com.apple.traditional-mac-plain-text")
         return String();
 
@@ -783,6 +790,11 @@ void Pasteboard::setDragImage(DragImage image, const IntPoint& location)
     }
 }
 #endif
+
+bool Pasteboard::canWriteTrustworthyWebURLsPboardType()
+{
+    return true;
+}
 
 }
 

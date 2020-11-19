@@ -20,6 +20,7 @@
 
 @property        dispatch_semaphore_t   semaphore;
 @property        NSData *               lastGetReport;
+@property        IOReturn               lastSetReportStatus;
 @property        BOOL                   waitForReport;
 @property        uint32_t               handleReportCount;
 @property        uint32_t               handleReportError;
@@ -40,6 +41,20 @@
     }
     self.semaphore = dispatch_semaphore_create(0);
     return self;
+}
+
+-(IOReturn) setReportHandler:(__unused IOHIDReportType) type
+                    reportID:(__unused uint8_t) reportID
+                      status:(IOReturn) status
+{
+    if (self.waitForReport) {
+        self.lastSetReportStatus = status;
+        dispatch_semaphore_signal(self.semaphore);
+    }
+    else {
+        status = kIOReturnAborted;
+    }
+    return status;
 }
 
 -(IOReturn) getReportHandler:(__unused IOHIDReportType) type
@@ -147,6 +162,14 @@
 
 -(BOOL) createRemoteDevice:(__nonnull id) endpoint  deviceID:(uint64_t) deviceID property:( NSMutableDictionary * __nonnull) property
 {
+    // TODO: use set report response by default after transitionary period.
+    bool useSetReportResponse = false;
+
+    // Without this parameter, [HIDUserDevice initWithProperties] will instantiate the IOHIDUserDevice and trigger
+    // IOHIDService enumeration in the event system - but setting report interval / other set report will fail silently
+    // because the setReport / getReport callbacks and backing HIDElement queue are not ready until [HIDUserDevice activate]
+    // is called.
+    property[kHIDUserDevicePropertyCreateInactiveKey] = @YES;
     
     HIDRemoteDevice * device = [[HIDRemoteDevice alloc] initWithProperties:property];
     if (!device) {
@@ -156,17 +179,53 @@
     
     __weak HIDRemoteDevice  *weakDevice = device;
 
+    id prop = property[@"ProtUpdate"];
+    if ([prop isKindOfClass:[NSNumber class]] && ((NSNumber *)prop).unsignedIntValue != 0) {
+        useSetReportResponse = true;
+    }
+
     [device setSetReportHandler:^IOReturn(HIDReportType type, NSInteger reportID, const void *report, NSInteger reportLength) {
         __strong HIDRemoteDevice * strongDevice = weakDevice;
         if (!strongDevice) {
             return kIOReturnNoDevice;
         }
-        
-        NSData *reportData = [NSData dataWithBytesNoCopy:(void *)report length:reportLength freeWhenDone:false];
 
-        os_log_info (RemoteHIDLog (), "[device:%d] setReport type:%ld reportID:%ld report:%@", (int)strongDevice.deviceID, (long)type, (long)reportID, reportData);
+        NSData *    reportData;
+        long        semaStatus;
+        IOReturn    status;
         
-        IOReturn status = [self remoteDeviceSetReport:strongDevice type:type reportID:reportID report:reportData];
+        reportData = [NSData dataWithBytesNoCopy:(void *)report length:reportLength freeWhenDone:false];
+
+        os_log_info (RemoteHIDLog (), "[device:%d] setReport type:%ld reportID:%ld report:%@",
+                     (int)strongDevice.deviceID, (long)type, (long)reportID, reportData);
+
+        if (useSetReportResponse) {
+            strongDevice.lastSetReportStatus = kIOReturnError;
+            strongDevice.waitForReport = YES;
+        }
+
+        NSUInteger numRetries = (useSetReportResponse ? kRemoteHIDDeviceSetRetries : 1);
+        for (NSUInteger i = 0; i<numRetries; i++) {
+            status = [self remoteDeviceSetReport:strongDevice type:type reportID:reportID report:reportData];
+            require_quiet(status == kIOReturnSuccess, next);
+
+            if (useSetReportResponse) {
+                semaStatus = dispatch_semaphore_wait(strongDevice.semaphore, dispatch_time(DISPATCH_TIME_NOW, (kRemoteHIDDeviceSetTimeout * NSEC_PER_SEC)));
+                require_action_quiet(semaStatus == 0, next, status = kIOReturnTimeout);
+            }
+
+            break;
+
+        next:
+            os_log_error (RemoteHIDLog (), "[device:%d] remoteDeviceSetReport:0x%x%s",
+                          (int)strongDevice.deviceID, status, (i+1<numRetries ? ", retrying" : ""));
+        }
+
+        if (useSetReportResponse) {
+            status = strongDevice.lastSetReportStatus;
+            strongDevice.waitForReport = NO;
+        }
+
         return status;
     }];
 
@@ -192,7 +251,10 @@
         require_action_quiet(status == kIOReturnSuccess, exit, os_log_error (RemoteHIDLog (), "[device:%d] remoteDeviceGetReport:0x%x", (int)strongDevice.deviceID, status));
 
         semaStatus = dispatch_semaphore_wait(strongDevice.semaphore, dispatch_time(DISPATCH_TIME_NOW, kRemoteHIDDeviceTimeout * NSEC_PER_SEC));
-        require_action_quiet(semaStatus == 0, exit, status = kIOReturnTimeout; os_log_error (RemoteHIDLog (), "[device:%d] remoteDeviceGetReport timeout", (int)strongDevice.deviceID));
+        require_action_quiet(semaStatus == 0, exit, {
+            status = kIOReturnTimeout;
+            os_log_error (RemoteHIDLog (), "[device:%d] remoteDeviceGetReport timeout", (int)strongDevice.deviceID);
+        });
 
         require_action_quiet(strongDevice.lastGetReport, exit, status = kIOReturnError; os_log_error (RemoteHIDLog (), "[device:%d] invalid report :%@", (int)strongDevice.deviceID, strongDevice.lastGetReport));
         
@@ -224,6 +286,24 @@
     endpointDevices [@(deviceID)] = device;
 
     os_log (RemoteHIDLog (), "Create device:%@ for endpoint:%@ property:%@", device, endpoint, property);
+
+    // Set arbitrary reportID to notify devmotion6 service that iOS supports new timesync behavior.
+    // Without this report, devmotion6 HID device will use old timesync behavior for compatibility with old iOS.
+    // TODO: remove this setReport after W2 adopts new bevavior as default (see AOPHIDDeviceDevmotion6::setReport)
+    dispatch_async(self.queue, ^{
+        __strong HIDRemoteDevice * strongDevice = weakDevice;
+        if (!strongDevice) {
+            return;
+        }
+
+        uint8_t report[1] = { 37 };
+        NSData *reportData = [NSData dataWithBytes:report length:sizeof(report)];
+
+        IOReturn status = [self remoteDeviceSetReport:strongDevice type:HIDReportTypeFeature reportID:report[0] report:reportData];
+        os_log_info(RemoteHIDLog(), "[device:%d] Setting New TimeSync Behavior 0x%llx",
+                    (int)strongDevice.deviceID,  (unsigned long long)status);
+        return;
+    });
 
     return YES;
 }
@@ -319,10 +399,47 @@
     return status;
 }
 
+-(BOOL) remoteDeviceSetReportHandler:(__nonnull id) endpoint packet:(HIDDeviceReport *) packet
+{
+    if (packet->header.length <= sizeof(HIDDeviceReport)) {
+        os_log_error (RemoteHIDLog (), "Invalid report size:%d", packet->header.length);
+        return NO;
+    }
+
+    if (!packet->header.isResponse) {
+        os_log_error (RemoteHIDLog (), "Expected response");
+        return NO;
+    }
+
+    NSMutableDictionary * devices = self.devices[endpoint];
+    HIDRemoteDevice * device = devices[@(packet->header.deviceID)];
+    if (!device) {
+        os_log_error (RemoteHIDLog (), "HID Device for deviceID:%d does not exist", packet->header.deviceID);
+        return NO;
+    }
+
+    uint8_t reportID = 0;
+    if (packet->header.length > sizeof(HIDDeviceReport)) {
+        reportID = packet->data[0];
+    }
+
+    IOReturn reportStatus = kIOReturnSuccess;
+    if (packet->header.isError && packet->header.length >= sizeof(HIDDeviceReport)+1+sizeof(IOReturn)) {
+        memcpy((void *)&reportStatus, (const void *)&packet->data[1], sizeof(IOReturn));
+    }
+
+    return [device setReportHandler:packet->reportType reportID:reportID status:reportStatus] == kIOReturnSuccess;
+}
+
 -(BOOL) remoteDeviceGetReportHandler:(__nonnull id) endpoint packet:(HIDDeviceReport *) packet
 {
     if (packet->header.length <= sizeof(HIDDeviceReport)) {
         os_log_error (RemoteHIDLog (), "Invalid report size:%d", packet->header.length);
+        return NO;
+    }
+
+    if (!packet->header.isResponse) {
+        os_log_error (RemoteHIDLog (), "Expected response");
         return NO;
     }
     
@@ -332,8 +449,13 @@
         os_log_error (RemoteHIDLog (), "HID Device for deviceID:%d does not exist", packet->header.deviceID);
         return NO;
     }
+
+    uint8_t reportID = 0;
+    if (packet->header.length > sizeof(HIDDeviceReport)) {
+        reportID = packet->data[0];
+    }
     
-    return [device getReportHandler:packet->reportType reportID:packet->data[0] report:packet->data reportLength:(packet->header.length - sizeof(HIDDeviceReport))] == kIOReturnSuccess;
+    return [device getReportHandler:packet->reportType reportID:reportID report:packet->data reportLength:(packet->header.length - sizeof(HIDDeviceReport))] == kIOReturnSuccess;
 }
 
 -(void) remoteDeviceConnectHandler:(__nonnull id) endpoint packet:(HIDDeviceControl *) packet
@@ -373,6 +495,16 @@
         os_log_error (RemoteHIDLog (), "HIDPacketDevice de-serialization error:%@", errorString);
         os_log_debug (RemoteHIDLog (), "HIDPacketDevice config data:%@",  [[NSString alloc] initWithData:deviceDescriptionData encoding:NSASCIIStringEncoding]);
         return;
+    }
+
+    // Remove stale devices if W2 reconnects.
+    uint32_t deviceID = packet->header.deviceID;
+    NSMutableDictionary * endpointDevices = self.devices[endpoint];
+
+    if (endpointDevices && endpointDevices[@(deviceID)]) {
+        HIDRemoteDevice * device = (HIDRemoteDevice *)endpointDevices[@(deviceID)];
+        [endpointDevices removeObjectForKey:@(deviceID)];
+        [device cancel];
     }
     
     [self createRemoteDevice: endpoint  deviceID:packet->header.deviceID property:deviceDescription];
@@ -422,6 +554,9 @@ error:
             break;
         case HIDPacketTypeHandleReport:
             [self remoteDeviceReportHandler:endpoint header:(HIDDeviceHeader *)packet];
+            break;
+        case HIDPacketTypeSetReport:
+            [self remoteDeviceSetReportHandler:endpoint packet:(HIDDeviceReport *)packet];
             break;
         case HIDPacketTypeGetReport:
             [self remoteDeviceGetReportHandler:endpoint packet:(HIDDeviceReport *)packet];

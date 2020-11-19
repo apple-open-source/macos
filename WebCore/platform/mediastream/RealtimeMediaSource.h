@@ -42,11 +42,12 @@
 #include "PlatformLayer.h"
 #include "RealtimeMediaSourceCapabilities.h"
 #include "RealtimeMediaSourceFactory.h"
+#include <wtf/CompletionHandler.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/RecursiveLockAdapter.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
-#include <wtf/WeakPtr.h>
+#include <wtf/WeakHashSet.h>
 #include <wtf/text/WTFString.h>
 
 namespace WTF {
@@ -68,13 +69,13 @@ struct CaptureSourceOrError;
 
 class WEBCORE_EXPORT RealtimeMediaSource
     : public ThreadSafeRefCounted<RealtimeMediaSource, WTF::DestructionThread::MainRunLoop>
-    , public CanMakeWeakPtr<RealtimeMediaSource>
+    , public CanMakeWeakPtr<RealtimeMediaSource, WeakPtrFactoryInitialization::Eager>
 #if !RELEASE_LOG_DISABLED
-    , private LoggerHelper
+    , protected LoggerHelper
 #endif
 {
 public:
-    class Observer {
+    class Observer : public CanMakeWeakPtr<Observer> {
     public:
         virtual ~Observer();
 
@@ -83,15 +84,26 @@ public:
         virtual void sourceStopped() { }
         virtual void sourceMutedChanged() { }
         virtual void sourceSettingsChanged() { }
+        virtual void audioUnitWillStart() { }
 
         // Observer state queries.
         virtual bool preventSourceFromStopping() { return false; }
 
-        // Called on the main thread.
-        virtual void videoSampleAvailable(MediaSample&) { }
+        virtual void hasStartedProducingData() { }
+    };
+    class AudioSampleObserver {
+    public:
+        virtual ~AudioSampleObserver() = default;
 
         // May be called on a background thread.
-        virtual void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t /*numberOfFrames*/) { }
+        virtual void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t /*numberOfFrames*/) = 0;
+    };
+    class VideoSampleObserver {
+    public:
+        virtual ~VideoSampleObserver() = default;
+
+        // May be called on a background thread.
+        virtual void videoSampleAvailable(MediaSample&) = 0;
     };
 
     virtual ~RealtimeMediaSource() = default;
@@ -106,6 +118,8 @@ public:
     enum class Type { None, Audio, Video };
     Type type() const { return m_type; }
 
+    virtual void whenReady(CompletionHandler<void(String)>&&);
+
     bool isProducingData() const { return m_isProducingData; }
     void start();
     void stop();
@@ -118,7 +132,6 @@ public:
     bool captureDidFail() const { return m_captureDidFailed; }
 
     virtual bool interrupted() const { return m_interrupted; }
-    virtual void setInterrupted(bool, bool);
 
     const String& name() const { return m_name; }
     void setName(String&& name) { m_name = WTFMove(name); }
@@ -127,6 +140,12 @@ public:
 
     WEBCORE_EXPORT void addObserver(Observer&);
     WEBCORE_EXPORT void removeObserver(Observer&);
+
+    WEBCORE_EXPORT void addAudioSampleObserver(AudioSampleObserver&);
+    WEBCORE_EXPORT void removeAudioSampleObserver(AudioSampleObserver&);
+
+    WEBCORE_EXPORT void addVideoSampleObserver(VideoSampleObserver&);
+    WEBCORE_EXPORT void removeVideoSampleObserver(VideoSampleObserver&);
 
     const IntSize size() const;
     void setSize(const IntSize&);
@@ -180,13 +199,13 @@ public:
     virtual void monitorOrientation(OrientationNotifier&) { }
 
     virtual void captureFailed();
-    virtual bool isSameAs(RealtimeMediaSource& source) const { return this == &source; }
 
+    virtual bool isSameAs(RealtimeMediaSource& source) const { return this == &source; }
     virtual bool isIncomingAudioSource() const { return false; }
     virtual bool isIncomingVideoSource() const { return false; }
 
 #if !RELEASE_LOG_DISABLED
-    void setLogger(const Logger&, const void*);
+    virtual void setLogger(const Logger&, const void*);
     const Logger* loggerPtr() const { return m_logger.get(); }
     const Logger& logger() const final { ASSERT(m_logger); return *m_logger.get(); }
     const void* logIdentifier() const final { return m_logIdentifier; }
@@ -197,6 +216,8 @@ public:
     // Testing only
     virtual void delaySamples(Seconds) { };
     virtual void setInterruptedForTesting(bool);
+
+    virtual bool setShouldApplyRotation(bool) { return false; }
 
 protected:
     RealtimeMediaSource(Type, String&& name, String&& deviceID = { }, String&& hashSalt = { });
@@ -215,7 +236,7 @@ protected:
     virtual bool supportsSizeAndFrameRate(Optional<int> width, Optional<int> height, Optional<double>);
     virtual void setSizeAndFrameRate(Optional<int> width, Optional<int> height, Optional<double>);
 
-    void notifyMutedObservers() const;
+    void notifyMutedObservers();
     void notifyMutedChange(bool muted);
     void notifySettingsDidChangeObservers(OptionSet<RealtimeMediaSourceSettings::Flag>);
 
@@ -226,7 +247,9 @@ protected:
     void videoSampleAvailable(MediaSample&);
     void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t);
 
-    void forEachObserver(const WTF::Function<void(Observer&)>&) const;
+    void forEachObserver(const Function<void(Observer&)>&);
+
+    void end(Observer* = nullptr);
 
 private:
     virtual void startProducingData() { }
@@ -236,6 +259,8 @@ private:
     virtual void stopBeingObserved() { stop(); }
 
     virtual void hasEnded() { }
+
+    void updateHasStartedProducingData();
 
 #if !RELEASE_LOG_DISABLED
     RefPtr<const Logger> m_logger;
@@ -249,9 +274,17 @@ private:
     String m_persistentID;
     Type m_type;
     String m_name;
-    mutable RecursiveLock m_observersLock;
-    HashSet<Observer*> m_observers;
+    WeakHashSet<Observer> m_observers;
+
+    mutable RecursiveLock m_audioSampleObserversLock;
+    HashSet<AudioSampleObserver*> m_audioSampleObservers;
+
+    mutable RecursiveLock m_videoSampleObserversLock;
+    HashSet<VideoSampleObserver*> m_videoSampleObservers;
+
+    // Set on the main thread from constraints.
     IntSize m_size;
+    // Set on sample generation thread.
     IntSize m_intrinsicSize;
     double m_frameRate { 30 };
     double m_aspectRatio { 0 };
@@ -268,6 +301,7 @@ private:
     bool m_interrupted { false };
     bool m_captureDidFailed { false };
     bool m_isEnded { false };
+    bool m_hasStartedProducingData { false };
 };
 
 struct CaptureSourceOrError {
@@ -283,6 +317,11 @@ struct CaptureSourceOrError {
 };
 
 String convertEnumerationToString(RealtimeMediaSource::Type);
+
+inline void RealtimeMediaSource::whenReady(CompletionHandler<void(String)>&& callback)
+{
+    callback({ });
+}
 
 } // namespace WebCore
 

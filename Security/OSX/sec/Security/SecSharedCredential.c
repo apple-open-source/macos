@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2014-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -36,8 +36,28 @@
 /* forward declarations */
 OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFStringRef password, CFErrorRef *error);
 OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+OSStatus SecCopySharedWebCredentialSyncUsingAuthSvcs(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
+#endif
 
 #if SHAREDWEBCREDENTIALS
+
+// OSX now has SWC enabled, but cannot link SharedWebCredentials framework: rdar://59958701
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
+OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
+    CFStringRef account,
+    CFStringRef password,
+    CFErrorRef *error)
+{
+    OSStatus status = errSecUnimplemented;
+    if (error) {
+        SecError(status, error, CFSTR("SecAddSharedWebCredentialSync not supported on this platform"));
+    }
+    return status;
+}
+
+#else
 
 OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
     CFStringRef account,
@@ -59,7 +79,7 @@ OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
     }
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         CFTypeRef raw_result = NULL;
-        bool xpc_result;
+        bool xpc_result = false;
         bool internal_spi = false; // TODO: support this for SecurityDevTests
         if(internal_spi && gSecurityd && gSecurityd->sec_add_shared_web_credential) {
             xpc_result = gSecurityd->sec_add_shared_web_credential(args, NULL, NULL, NULL, SecAccessGroupsGetCurrent(), &raw_result, error);
@@ -84,6 +104,7 @@ OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn,
 
     return status;
 }
+#endif /* !TARGET_OS_OSX || !TARGET_OS_MACCATALYST */
 #endif /* SHAREDWEBCREDENTIALS */
 
 void SecAddSharedWebCredential(CFStringRef fqdn,
@@ -147,6 +168,23 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 }
 
 #if SHAREDWEBCREDENTIALS
+
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+
+OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
+    CFStringRef account,
+    CFArrayRef *credentials,
+    CFErrorRef *error)
+{
+    OSStatus status = errSecUnimplemented;
+    if (error) {
+        SecError(status, error, CFSTR("SecCopySharedWebCredentialSync not supported on this platform"));
+    }
+    return status;
+}
+
+#else
+
 OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
     CFStringRef account,
     CFArrayRef *credentials,
@@ -164,7 +202,7 @@ OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
     }
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         CFTypeRef raw_result = NULL;
-        bool xpc_result;
+        bool xpc_result = false;
         bool internal_spi = false; // TODO: support this for SecurityDevTests
         if(internal_spi && gSecurityd && gSecurityd->sec_copy_shared_web_credential) {
             xpc_result = gSecurityd->sec_copy_shared_web_credential(args, NULL, NULL, NULL, SecAccessGroupsGetCurrent(), &raw_result, error);
@@ -192,6 +230,7 @@ OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
 
     return status;
 }
+#endif /* !TARGET_OS_OSX || !TARGET_OS_MACCATALYST */
 #endif /* SHAREDWEBCREDENTIALS */
 
 void SecRequestSharedWebCredential(CFStringRef fqdn,
@@ -227,7 +266,11 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
 	__block CFStringRef accountStr = CFRetainSafe(account);
 
     dispatch_async(dst_queue, ^{
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
+		OSStatus status = SecCopySharedWebCredentialSyncUsingAuthSvcs(serverStr, accountStr, &result, &error);
+#else
 		OSStatus status = SecCopySharedWebCredentialSync(serverStr, accountStr, &result, &error);
+#endif
 		CFReleaseSafe(serverStr);
 		CFReleaseSafe(accountStr);
 
@@ -250,7 +293,7 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
         }
         CFReleaseSafe(error);
     });
-#endif
+#endif /* SHAREDWEBCREDENTIALS */
 
 }
 

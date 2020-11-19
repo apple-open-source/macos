@@ -57,7 +57,7 @@
     OTAccountMetadataClassC* account = [self.deps.stateHolder loadOrCreateAccountMetadata:&localError];
     if(localError && [self.deps.lockStateTracker isLockedError:localError]) {
         secnotice("octagon-cdp-status", "Device is locked! restarting on unlock");
-        self.nextState = OctagonStateWaitForUnlock;
+        self.nextState = OctagonStateWaitForClassCUnlock;
         return;
     }
 

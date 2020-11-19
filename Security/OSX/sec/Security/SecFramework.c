@@ -32,18 +32,8 @@
 #endif
 
 #include "SecFramework.h"
-#include <dispatch/dispatch.h>
 #include <CoreFoundation/CFBundle.h>
-#include <CoreFoundation/CFURLAccess.h>
-#include <Security/SecRandom.h>
-#include <CommonCrypto/CommonRandomSPI.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
-#include <Security/SecBase.h>
-#include <inttypes.h>
 
 /* Security.framework's bundle id. */
 #if TARGET_OS_IPHONE
@@ -63,20 +53,4 @@ CFStringRef SecFrameworkCopyLocalizedString(CFStringRef key,
         return CFBundleCopyLocalizedString(bundle, key, key, tableName);
 
     return CFRetainSafe(key);
-}
-
-CFURLRef SecFrameworkCopyResourceURL(CFStringRef resourceName,
-	CFStringRef resourceType, CFStringRef subDirName) {
-    CFURLRef url = NULL;
-    CFBundleRef bundle = SecFrameworkGetBundle();
-    if (bundle) {
-        url = CFBundleCopyResourceURL(bundle, resourceName,
-			resourceType, subDirName);
-		if (!url) {
-            secwarning("resource: %@.%@ in %@ not found", resourceName,
-                resourceType, subDirName);
-		}
-    }
-
-	return url;
 }

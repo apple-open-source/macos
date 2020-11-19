@@ -121,8 +121,6 @@
 #  include <netinet/in_systm.h>
 #  include <netinet/ip.h>
 #  define SOL_UDP IPPROTO_UDP
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
 #include "power_mgmt.h"
 
 extern caddr_t val2str (const char *, size_t);
@@ -429,10 +427,6 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
 		/* validity check */
 		if (memcmp(&isakmp->r_ck, r_ck0, sizeof(cookie_t)) == 0 &&
 		    iph1->side == INITIATOR) {
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-									CONSTSTR("Malformed or unexpected cookie"),
-									CONSTSTR("Failed to process packet (malformed/unexpected cookie)"));
 			plog(ASL_LEVEL_NOTICE,
 				"Malformed cookie received or "
 				"the initiator's cookies collide.\n");
@@ -455,20 +449,12 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
 			/* copy-in new addresses */
 			iph1->remote = dupsaddr(remote);
 			if (iph1->remote == NULL) {
-				IPSECSESSIONTRACEREVENT(iph1->parent_session,
-										IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-										CONSTSTR("Failed to duplicate remote address"),
-										CONSTSTR("Failed to process Phase 1 message (can't duplicate remote address"));
 				plog(ASL_LEVEL_ERR,
 				   "Phase 1 failed: dupsaddr failed.\n");
                 fatal_error(-1);
 			}
 			iph1->local = dupsaddr(local);
 			if (iph1->local == NULL) {
-				IPSECSESSIONTRACEREVENT(iph1->parent_session,
-										IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-										CONSTSTR("Failed to duplicate local address"),
-										CONSTSTR("Failed to process Phase 1 message (can't duplicate local address"));
 				plog(ASL_LEVEL_ERR,
 				   "Phase 1 failed: dupsaddr failed.\n");
                 fatal_error(-1);                
@@ -556,10 +542,6 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
                  * because of no authentication has been completed.
                  */
                 if (iph1->etype != isakmp->etype) {
-                    IPSECSESSIONTRACEREVENT(iph1->parent_session,
-                                            IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-                                            CONSTSTR("Mismatched exchange type"),
-                                            CONSTSTR("Failed to process Phase 1 message (mismatched exchange type)"));
                     plog(ASL_LEVEL_ERR,
                          "Exchange type is mismatched: "
                          "db=%s packet=%s, ignore it.\n",
@@ -634,10 +616,6 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
                 
                 /* check status of phase 1 whether negotiated or not. */
                 if (!FSM_STATE_IS_ESTABLISHED(iph1->status)) {
-                    IPSECSESSIONTRACEREVENT(iph1->parent_session,
-                                            IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_DROP,
-                                            CONSTSTR("Can't start Phase 2 without valid Phase 1"),
-                                            CONSTSTR("Failed to start Phase 2 responder (no established Phase 1"));
                     plog(ASL_LEVEL_ERR, "can't start the quick mode, "
                          "there is no valid ISAKMP-SA, %s\n", isakmp_pindex(&iph1->index, iph1->msgid));
                     return;
@@ -663,10 +641,6 @@ ikev1_received_packet(vchar_t *msg, struct sockaddr_storage *local, struct socka
                 
                 if (ISSET(isakmp->flags, ISAKMP_FLAG_E) &&
                     (iph2->ph1 == NULL || iph2->ph1->approval == NULL)) {
-                    IPSECSESSIONTRACEREVENT(iph2->parent_session,
-                                            IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_DROP,
-                                            CONSTSTR("Can't continue Phase 2 without valid Phase 1"),
-                                            CONSTSTR("Failed to continue Phase 2 resonder (invalid linked Phase 1"));
                     plog(ASL_LEVEL_ERR, "can't start the quick mode, "
                          "invalid linked ISAKMP-SA\n");
                     return;			
@@ -1840,12 +1814,7 @@ isakmp_ph1resend(iph1)
 	/* Note: NEVER do the rem/del here, it will be done by the caller or by the _stub function
 	 */
 	if (iph1->retry_counter <= 0) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH1_MAX_RETRANSMIT,
-								CONSTSTR("Phase 1 Maximum Retransmits"),
-								CONSTSTR("Phase 1 negotiation failed (Maximum retransmits)"));
-
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"Phase 1 negotiation failed due to time up. %s\n",
 			isakmp_pindex(&iph1->index, iph1->msgid));
 		if (iph1->side == INITIATOR && iph1->is_rekey && iph1->parent_session && iph1->parent_session->is_client) {
@@ -1859,23 +1828,10 @@ isakmp_ph1resend(iph1)
 	}
 
 	if (isakmp_send(iph1, iph1->sendbuf) < 0){
-		if (iph1->rmconf->retry_counter != iph1->retry_counter) {
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-									CONSTSTR("Phase 1 Retransmit"),
-									CONSTSTR("Failed to retrasmit Phase1"));
-		}
 		plog(ASL_LEVEL_ERR,
 			 "Phase 1 negotiation failed due to send error. %s\n",
 			 isakmp_pindex(&iph1->index, iph1->msgid));
 		return -1;
-	}
-
-	if (iph1->rmconf->retry_counter != iph1->retry_counter) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-								CONSTSTR("Phase 1 Retransmit"),
-								CONSTSTR(NULL));
 	}
 
 	plog(ASL_LEVEL_NOTICE,
@@ -1921,10 +1877,6 @@ isakmp_ph2resend(iph2)
 	}
     
 	if (FSM_STATE_IS_EXPIRED(iph2->ph1->status)){
-		IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH2_MAX_RETRANSMIT,
-								CONSTSTR("Underlying Phase 1 expired"),
-								CONSTSTR("Failed to retransmit Phase 2 (underlying Phase 1 expired)"));
 		plog(ASL_LEVEL_ERR,
 			"Phase 2 negotiation failed due to Phase 1 expired. %s\n",
 				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
@@ -1932,10 +1884,6 @@ isakmp_ph2resend(iph2)
 	}
 
 	if (iph2->retry_counter <= 0) {
-		IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH2_MAX_RETRANSMIT,
-								CONSTSTR("Phase 2 maximum retransmits"),
-								CONSTSTR("Phase 2 negotiation failed (maximum retransmits)"));
 		plog(ASL_LEVEL_ERR,
 			"Phase 2 negotiation failed due to time up. %s\n",
 				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
@@ -1945,23 +1893,11 @@ isakmp_ph2resend(iph2)
 	}
 
 	if (isakmp_send(iph2->ph1, iph2->sendbuf) < 0){
-		if (iph2->ph1->rmconf->retry_counter != iph2->retry_counter) {
-			IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-									CONSTSTR("Phase 2 Retransmit"),
-									CONSTSTR("Failed to retransmit Phase2 message"));
-		}
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"Phase 2 negotiation failed due to send error. %s\n",
 				isakmp_pindex(&iph2->ph1->index, iph2->msgid));
 
 		return -1;
-	}
-	if (iph2->ph1->rmconf->retry_counter != iph2->retry_counter) {
-		IPSECSESSIONTRACEREVENT(iph2->ph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-								CONSTSTR("Phase 2 Retransmit"),
-								CONSTSTR(NULL));
 	}
 
 	plog(ASL_LEVEL_NOTICE,

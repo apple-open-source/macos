@@ -16,8 +16,6 @@ xsltproc - command line XSLT processor
 .HP 9
 \fBxsltproc\fR [[\fB\-V\fR | \fB\-\-version\fR] [\fB\-v\fR | \fB\-\-verbose\fR] [{\fB\-o\fR | \fB\-\-output\fR} {\fIFILE\fR | \fIDIRECTORY\fR}] | \fB\-\-timing\fR | \fB\-\-repeat\fR | \fB\-\-debug\fR | \fB\-\-novalid\fR | \fB\-\-noout\fR | \fB\-\-maxdepth\ \fR\fB\fIVALUE\fR\fR | \fB\-\-html\fR | \fB\-\-encoding\ \fR\fB\fIENCODING\fR\fR\fB\ \fR | \fB\-\-param\ \fR\fB\fIPARAMNAME\fR\fR\fB\ \fR\fB\fIPARAMVALUE\fR\fR\fB\ \fR | \fB\-\-stringparam\ \fR\fB\fIPARAMNAME\fR\fR\fB\ \fR\fB\fIPARAMVALUE\fR\fR\fB\ \fR | \fB\-\-nonet\fR | \fB\-\-path\ "\fR\fB\fIPATH(S)\fR\fR\fB"\fR | \fB\-\-load\-trace\fR | \fB\-\-catalogs\fR | \fB\-\-xinclude\fR | [\fB\-\-profile\fR\ |\ \fB\-\-norman\fR] | \fB\-\-dumpextensions\fR | \fB\-\-nowrite\fR | \fB\-\-nomkdir\fR | \fB\-\-writesubtree\ \fR\fB\fIPATH\fR\fR | \fB\-\-nodtdattr\fR] [\fISTYLESHEET\fR] {\fIXML\-FILE\fR | \-}
 .SH "DESCRIPTION"
-.PP
-
 \fBxsltproc\fR
 is a command line tool for applying
 XSLT
@@ -26,7 +24,6 @@ XML
 documents\. It is part of
 \fBlibxslt\fR(3), the XSLT C library for GNOME\. While it was developed as part of the GNOME project, it can operate independently of the GNOME desktop\.
 .PP
-
 \fBxsltproc\fR
 is invoked from the command line with the name of the stylesheet to be used followed by the name of the file or files to which the stylesheet is to be applied\. It will use the standard input if a filename provided is
 \fB\-\fR
@@ -45,8 +42,6 @@ or
 \fB\-\-output\fR
 option\.
 .SH "OPTIONS"
-.PP
-
 \fBxsltproc\fR
 accepts the following options (in alphabetical order):
 .PP
@@ -139,7 +134,6 @@ directs the output files to the specified directory\. This can be useful for mul
 .it 1 an-trap
 .nr an-no-space-flag 1
 .nr an-break-flag 1
-.br
 Important
 The given directory
 \fBmust\fR
@@ -148,7 +142,6 @@ already exist\.
 .it 1 an-trap
 .nr an-no-space-flag 1
 .nr an-break-flag 1
-.br
 Note
 Make sure that
 \fIFILE\fR
@@ -244,7 +237,6 @@ Process the input document using the XInclude specification\. More details on th
 \fI\%http://www.w3.org/TR/xinclude/\fR
 .RE
 .SH "ENVIRONMENT"
-.PP
 \fBSGML_CATALOG_FILES\fR
 .RS 4
 SGML
@@ -265,8 +257,6 @@ environment variable to a list of catalogs\. An empty one should deactivate load
 catalog\.
 .RE
 .SH "DIAGNOSTICS"
-.PP
-
 \fBxsltproc\fR
 return codes provide information that can be used when calling it from scripts\.
 .PP
@@ -330,7 +320,6 @@ Processing was stopped by a terminating message
 Could not write the result to the output file
 .RE
 .SH "SEE ALSO"
-.PP
 \fBlibxml\fR(3),
 \fBlibxslt\fR(3)
 .PP
@@ -349,13 +338,10 @@ page
 \fI\%http://www.w3.org/TR/xslt\fR
 .RE
 .sp
-.RE
 .SH "AUTHOR"
-.PP
 \fBJohn Fleck\fR <\&jfleck@inkstain\.net\&>
 .sp -1n
 .IP "" 4
 Author.
 .SH "COPYRIGHT"
 Copyright \(co 2001, 2002
-.br

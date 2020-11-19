@@ -5817,6 +5817,7 @@ structLocale:table(nofallback){
         mn{""}
         mnc{""}
         mni{""}
+        mo{""}
         moh{""}
         mos{""}
         mr{""}
@@ -6068,6 +6069,10 @@ structLocale:table(nofallback){
         zza{""}
     }
     Languages%long{
+        zh{""}
+    }
+    Languages%menu{
+        yue{""}
         zh{""}
     }
     Languages%secondary{
@@ -24728,6 +24733,23 @@ structLocale:table(nofallback){
                     d{""}
                     y{""}
                 }
+                GyMMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMMd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
                 GyMMMd{
                     G{""}
                     M{""}
@@ -25279,6 +25301,23 @@ structLocale:table(nofallback){
                     y{""}
                 }
                 GyMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMM{
+                    G{""}
+                    M{""}
+                    y{""}
+                }
+                GyMMMMEd{
+                    G{""}
+                    M{""}
+                    d{""}
+                    y{""}
+                }
+                GyMMMMd{
                     G{""}
                     M{""}
                     d{""}

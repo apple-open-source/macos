@@ -72,14 +72,7 @@ enum {
 /*  Smart Battery Data Specification - rev 1.1          */
 /*  Section 5.1 SMBus Host to Smart Battery Messages    */
 
-/* kBManufactureDateCmd
- * Date is published in a bitfield per the Smart Battery Data spec rev 1.1
- * in section 5.1.26
- *   Bits 0...4 => day (value 1-31; 5 bits)
- *   Bits 5...8 => month (value 1-12; 4 bits)
- *   Bits 9...15 => years since 1980 (value 0-127; 7 bits)
- *
- * Custom commands not specific to 'Smart Battery Data spec' are defined
+/* Custom commands not specific to 'Smart Battery Data spec' are defined
  * with lower 16-bits set to 0.
  */
 enum {
@@ -98,7 +91,6 @@ enum {
     kBBatteryStatusCmd                = 0x16,     // READ WORD
     kBCycleCountCmd                   = 0x17,     // READ WORD
     kBDesignCapacityCmd               = 0x18,     // READ WORD
-    kBManufactureDateCmd              = 0x1b,     // READ WORD
     kBSerialNumberCmd                 = 0x1c,     // READ WORD
     kBManufactureNameCmd              = 0x20,     // READ BLOCK
     kBDeviceNameCmd                   = 0x21,     // READ BLOCK
@@ -110,10 +102,6 @@ enum {
     kBManufacturerInfoCmd             = 0x70,     // READ BLOCK
     kBDesignCycleCount9CCmd           = 0x9C,     // READ WORD
     kBPackReserveCmd                  = 0x8B,     // READ WORD
-    kAdapterStatus                    = 0x0d00,
-    kChargerDataCmd                   = 0x1100,
-    kBatteryFCCDataCmd                = 0x1200,
-    kBatteryDataCmd                   = 0x1300,
 };
 
 
@@ -220,10 +208,10 @@ typedef struct {
 
 typedef struct {
     ASBMgrOpType    opType;
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     IOSMBusAddress	address;
     IOSMBusCommand	command;
-#endif
+#endif // TARGET_OS_OSX_X86
     IOByteCount     outSize;
     uint8_t         *outData;
     bool            fullyDischarged;

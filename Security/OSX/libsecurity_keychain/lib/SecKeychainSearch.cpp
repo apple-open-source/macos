@@ -32,12 +32,12 @@
 #include <os/activity.h>
 
 #include "SecBridge.h"
+#include "LegacyAPICounts.h"
 
 CFTypeID
 SecKeychainSearchGetTypeID(void)
 {
 	BEGIN_SECAPI
-
 	return gTypes().KCCursorImpl.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)

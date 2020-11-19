@@ -74,6 +74,11 @@ void cpkp_init(cp_key_pair_t *cpkp, uint16_t max_pers_key_len,
 {
 	cpkp->cpkp_max_pers_key_len = max_pers_key_len;
 	cpkp->cpkp_pers_key_len = 0;
+
+	cpx_t embedded_cpx = cpkp_cpx(cpkp);
+	/* XNU requires us to allocate the AES context separately */
+	cpx_alloc_ctx (embedded_cpx);
+
 	cpx_init(cpkp_cpx(cpkp), max_cached_key_len);
 
 	// Default to using offsets
@@ -449,7 +454,7 @@ int cp_setup_newentry (struct hfsmount *hfsmp, struct cnode *dcp,
  */
 int cpx_gentempkeys(cpx_t *pcpx, __unused struct hfsmount *hfsmp)
 {
-	cpx_t cpx = cpx_alloc(CP_MAX_KEYSIZE);
+	cpx_t cpx = cpx_alloc(CP_MAX_KEYSIZE, true);
 
 	cpx_set_key_len(cpx, CP_MAX_KEYSIZE);
 	read_random(cpx_key(cpx), CP_MAX_KEYSIZE);
@@ -661,7 +666,7 @@ cp_vnode_setclass(struct vnode *vp, cp_key_class_t newclass)
 				goto out;
 			}
 
-			cp_key_pair_t *cpkp;
+			cp_key_pair_t *cpkp = NULL;
 			cprotect_t new_entry = cp_entry_alloc(NULL, 0, CP_MAX_KEYSIZE, &cpkp);
 
 			if (!new_entry) {
@@ -1570,7 +1575,7 @@ cp_entry_alloc(cprotect_t old, uint16_t pers_key_len,
 	size += 4;	// Extra for magic2
 #endif
 
-	cp_entry = hfs_malloc(size);
+	cp_entry = hfs_mallocz(size);
 
 	if (old) {
 		memcpy(cp_entry, old, offsetof(struct cprotect, cp_keys));
@@ -1579,8 +1584,6 @@ cp_entry_alloc(cprotect_t old, uint16_t pers_key_len,
 		// We don't copy the key roll context
 		cp_entry->cp_key_roll_ctx = NULL;
 #endif
-	} else {
-		bzero(cp_entry, offsetof(struct cprotect, cp_keys));
 	}
 
 #if DEBUG
@@ -1617,6 +1620,13 @@ cp_entry_dealloc(__unused hfsmount_t *hfsmp, struct cprotect *entry)
 
 	size_t entry_size = (sizeof(struct cprotect) - sizeof(cp_key_pair_t)
 						 + cpkp_sizex(&entry->cp_keys));
+	
+	/* 
+	 * We are freeing the HFS cprotect, which contains the memory for 'cpx'
+	 * Don't forget to release the CPX AES context 
+	 */
+	cpx_t embedded_cpx = cpkp_cpx(&entry->cp_keys);
+	cpx_free_ctx (embedded_cpx);
 
 #if DEBUG
 	hfs_assert(entry->cp_magic1 == cp_magic1);
@@ -1665,7 +1675,7 @@ static int cp_read_xattr_v4(__unused hfsmount_t *hfsmp, struct cp_xattr_v4 *xatt
 	}
 
 	/* set up entry with information from xattr */
-	cp_key_pair_t *cpkp;
+	cp_key_pair_t *cpkp = NULL;
 	cprotect_t entry;
 	
 	if (ISSET(options, CP_GET_XATTR_BASIC_INFO)) {
@@ -1753,7 +1763,7 @@ int cp_read_xattr_v5(hfsmount_t *hfsmp, struct cp_xattr_v5 *xattr,
 	}
 #endif
 
-	cp_key_pair_t *cpkp;
+	cp_key_pair_t *cpkp = NULL;
 	cprotect_t entry;
 	
 	/* 

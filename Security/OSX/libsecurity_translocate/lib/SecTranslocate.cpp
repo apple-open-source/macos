@@ -255,7 +255,7 @@ CFURLRef __nullable SecTranslocateCreateSecureDirectoryForURL (CFURLRef pathToTr
     {
         string  sourcePath = cfString(pathToTranslocate); // returns an absolute path
         
-        Security::SecTranslocate::TranslocationPath toTranslocatePath(sourcePath);
+        Security::SecTranslocate::TranslocationPath toTranslocatePath(sourcePath, Security::SecTranslocate::TranslocationOptions::Default);
 
         if(!toTranslocatePath.shouldTranslocate())
         {
@@ -337,6 +337,49 @@ end:
     return result;
 }
 
+CFURLRef __nullable SecTranslocateCreateGeneric (CFURLRef pathToTranslocate,
+                                                 CFURLRef destinationPath,
+                                                 CFErrorRef* __nullable error)
+{
+    CFURLRef result = NULL;
+    CFIndex errorCode  = 0;
+    
+    try
+    {
+        string sourcePath = cfString(pathToTranslocate);
+        Security::SecTranslocate::GenericTranslocationPath path{sourcePath, Security::SecTranslocate::TranslocationOptions::Unveil};
+        
+        string dpath = cfString(destinationPath);
+        string out_path = Security::SecTranslocate::getTranslocator()->translocatePathForUser(path, dpath);
+        
+        if(!out_path.empty())
+        {
+            result = makeCFURL(out_path, true);
+        }
+        else
+        {
+            Syslog::error("SecTranslocateCreateGeneric: No mountpoint and no prior exception. Shouldn't be here");
+            UnixError::throwMe(EINVAL);
+        }
+        
+    }
+    catch (Security::UnixError err)
+    {
+        errorCode = err.unixError();
+    }
+    catch(...)
+    {
+        Syslog::critical("SecTranslocateCreateGeneric: uncaught exception during mountpoint creation");
+        errorCode = EACCES;
+    }
+    
+    if (error && errorCode)
+    {
+        *error = SecTranslocateMakePosixError(errorCode);
+    }
+    return result;
+}
+
 /* Decide whether we need to translocate */
 Boolean SecTranslocateURLShouldRunTranslocated(CFURLRef path, bool* shouldTranslocate, CFErrorRef* __nullable error)
 {
@@ -352,7 +395,7 @@ Boolean SecTranslocateURLShouldRunTranslocated(CFURLRef path, bool* shouldTransl
     try
     {
         string pathToCheck = cfString(path);
-        Security::SecTranslocate::TranslocationPath tPath(pathToCheck);
+        Security::SecTranslocate::TranslocationPath tPath(pathToCheck, Security::SecTranslocate::TranslocationOptions::Default);
         *shouldTranslocate = tPath.shouldTranslocate();
         result = true;
     }

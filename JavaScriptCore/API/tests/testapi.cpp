@@ -26,12 +26,9 @@
 #include "config.h"
 
 #include "APICast.h"
-#include "JSCJSValueInlines.h"
 #include "JSGlobalObjectInlines.h"
-#include "JSObject.h"
-
+#include "MarkedJSValueRefArray.h"
 #include <JavaScriptCore/JSContextRefPrivate.h>
-#include <JavaScriptCore/JSObjectRefPrivate.h>
 #include <JavaScriptCore/JavaScript.h>
 #include <wtf/DataLog.h>
 #include <wtf/Expected.h>
@@ -42,6 +39,7 @@
 
 extern "C" void configureJSCForTesting();
 extern "C" int testCAPIViaCpp(const char* filter);
+extern "C" void JSSynchronousGarbageCollectForDebugging(JSContextRef);
 
 class APIString {
     WTF_MAKE_NONCOPYABLE(APIString);
@@ -144,6 +142,7 @@ public:
     void promiseUnhandledRejectionFromUnhandledRejectionCallback();
     void promiseEarlyHandledRejections();
     void topCallFrameAccess();
+    void markedJSValueArrayAndGC();
 
     int failed() const { return m_failed; }
 
@@ -620,6 +619,33 @@ void TestAPI::topCallFrameAccess()
     }
 }
 
+void TestAPI::markedJSValueArrayAndGC()
+{
+    auto testMarkedJSValueArray = [&](unsigned count) {
+        auto* globalObject = toJS(context);
+        JSC::JSLockHolder locker(globalObject->vm());
+        JSC::MarkedJSValueRefArray values(context, count);
+        for (unsigned index = 0; index < count; ++index) {
+            String target = makeString("Prefix", index);
+            auto holder = OpaqueJSString::tryCreate(target);
+            JSValueRef string = JSValueMakeString(context, holder.get());
+            values[index] = string;
+        }
+        JSSynchronousGarbageCollectForDebugging(context);
+        bool ok = true;
+        for (unsigned index = 0; index < count; ++index) {
+            String target = makeString("Prefix", index);
+            auto holder = OpaqueJSString::tryCreate(target);
+            JSValueRef string = JSValueMakeString(context, holder.get());
+            if (!JSValueIsStrictEqual(context, values[index], string))
+                ok = false;
+        }
+        check(ok, "Held JSString should be alive and correct.");
+    };
+    testMarkedJSValueArray(4);
+    testMarkedJSValueArray(1000);
+}
+
 void configureJSCForTesting()
 {
     JSC::Config::configureForTesting();
@@ -659,6 +685,7 @@ int testCAPIViaCpp(const char* filter)
     RUN(promiseUnhandledRejection());
     RUN(promiseUnhandledRejectionFromUnhandledRejectionCallback());
     RUN(promiseEarlyHandledRejections());
+    RUN(markedJSValueArrayAndGC());
 
     if (tasks.isEmpty()) {
         dataLogLn("Filtered all tests: ERROR");

@@ -16,6 +16,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Format and parse date interval in a language-independent manner.
@@ -33,7 +35,6 @@
 // Apple-specific
 #include "unicode/udateintervalformat.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 
@@ -436,7 +437,7 @@ public:
      * @return    A copy of the object.
      * @stable ICU 4.0
      */
-    virtual Format* clone(void) const;
+    virtual DateIntervalFormat* clone() const;
 
     /**
      * Return true if the given Format objects are semantically equal. Objects
@@ -1199,9 +1200,10 @@ DateIntervalFormat::operator!=(const Format& other) const  {
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // _DTITVFMT_H__
 //eof

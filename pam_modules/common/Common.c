@@ -1,4 +1,3 @@
-#include <asl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -15,13 +14,6 @@
 #include <ServerInformation/ServerInformation.h>
 
 #include "Common.h"
-
-#if !defined(kDSValueAuthAuthorityDisabledUser)
-#define kDSValueAuthAuthorityDisabledUser ";DisabledUser;"
-#endif
-
-#define kOSInstall_mpkg "/System/Installation/Packages/OSInstall.mpkg"
-#define kOSInstall_collection "/System/Installation/Packages/OSInstall.collection"
 
 enum {
 	kWaitSeconds       =  1,
@@ -155,33 +147,6 @@ od_record_create(pam_handle_t *pamh, ODRecordRef *record, CFStringRef cfUser)
 		retval = PAM_SUCCESS;
 	} else {
 		retval = PAM_USER_UNKNOWN;
-	}
-
-	if (current_iterations > 0) {
-		char *wt = NULL, *found = NULL;
-		int retval2;
-
-		if (*record)
-			found = "failure";
-		else
-			found = "success";
-
-		retval2 = asprintf(&wt, "%d", kWaitSeconds * current_iterations);
-		if (-1 == retval2) {
-			openpam_log(PAM_LOG_DEBUG, "Failed to convert current wait time to string.");
-			retval = PAM_BUF_ERR;
-			goto cleanup;
-		}
-
-
-		aslmsg m = asl_new(ASL_TYPE_MSG);
-		asl_set(m, "com.apple.message.domain", "com.apple.pam_modules.odAvailableWaitTime" );
-		asl_set(m, "com.apple.message.signature", "wait_time");
-		asl_set(m, "com.apple.message.value", wt);
-		asl_set(m, "com.apple.message.result", found);
-		asl_log(NULL, m, ASL_LEVEL_NOTICE, "OD nodes online delay: %ss. User record lookup: %s.", wt, found);
-		asl_free(m);
-		free(wt);
 	}
 
 cleanup:

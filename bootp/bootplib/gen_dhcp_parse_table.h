@@ -140,7 +140,7 @@ static const dhcptag_info_t dhcptag_info_table[] = {
   /* 111 */ { dhcptype_opaque_e   , "option_111" },
   /* 112 */ { dhcptype_ip_mult_e  , "netinfo_server_address" },
   /* 113 */ { dhcptype_string_e   , "netinfo_server_tag" },
-  /* 114 */ { dhcptype_string_e   , "url" },
+  /* 114 */ { dhcptype_string_e   , "captive_portal_url" },
   /* 115 */ { dhcptype_opaque_e   , "option_115" },
   /* 116 */ { dhcptype_uint8_e    , "auto_configure" },
   /* 117 */ { dhcptype_opaque_e   , "option_117" },

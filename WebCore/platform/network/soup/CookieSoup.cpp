@@ -32,17 +32,52 @@
 
 namespace WebCore {
 
+#if SOUP_CHECK_VERSION(2, 69, 90)
+static Cookie::SameSitePolicy coreSameSitePolicy(SoupSameSitePolicy policy)
+{
+    switch (policy) {
+    case SOUP_SAME_SITE_POLICY_NONE:
+        return Cookie::SameSitePolicy::None;
+    case SOUP_SAME_SITE_POLICY_LAX:
+        return Cookie::SameSitePolicy::Lax;
+    case SOUP_SAME_SITE_POLICY_STRICT:
+        return Cookie::SameSitePolicy::Strict;
+    }
+
+    ASSERT_NOT_REACHED();
+    return Cookie::SameSitePolicy::None;
+}
+
+static SoupSameSitePolicy soupSameSitePolicy(Cookie::SameSitePolicy policy)
+{
+    switch (policy) {
+    case Cookie::SameSitePolicy::None:
+        return SOUP_SAME_SITE_POLICY_NONE;
+    case Cookie::SameSitePolicy::Lax:
+        return SOUP_SAME_SITE_POLICY_LAX;
+    case Cookie::SameSitePolicy::Strict:
+        return SOUP_SAME_SITE_POLICY_STRICT;
+    }
+
+    ASSERT_NOT_REACHED();
+    return SOUP_SAME_SITE_POLICY_NONE;
+}
+#endif
+
 Cookie::Cookie(SoupCookie* cookie)
     : name(String::fromUTF8(cookie->name))
     , value(String::fromUTF8(cookie->value))
     , domain(String::fromUTF8(cookie->domain))
     , path(String::fromUTF8(cookie->path))
-    , expires(cookie->expires ? static_cast<double>(soup_date_to_time_t(cookie->expires)) * 1000 : 0)
+    , expires(cookie->expires ? makeOptional(static_cast<double>(soup_date_to_time_t(cookie->expires)) * 1000) : WTF::nullopt)
     , httpOnly(cookie->http_only)
     , secure(cookie->secure)
     , session(!cookie->expires)
 
 {
+#if SOUP_CHECK_VERSION(2, 69, 90)
+    sameSite = coreSameSitePolicy(soup_cookie_get_same_site_policy(cookie));
+#endif
 }
 
 static SoupDate* msToSoupDate(double ms)
@@ -66,9 +101,12 @@ SoupCookie* Cookie::toSoupCookie() const
 
     soup_cookie_set_http_only(soupCookie, httpOnly);
     soup_cookie_set_secure(soupCookie, secure);
+#if SOUP_CHECK_VERSION(2, 69, 90)
+    soup_cookie_set_same_site_policy(soupCookie, soupSameSitePolicy(sameSite));
+#endif
 
-    if (!session) {
-        SoupDate* date = msToSoupDate(expires);
+    if (!session && expires) {
+        SoupDate* date = msToSoupDate(*expires);
         soup_cookie_set_expires(soupCookie, date);
         soup_date_free(date);
     }

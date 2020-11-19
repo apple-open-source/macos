@@ -5,7 +5,7 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 #include "exsltexports.h"
-#include <libexslt/exsltconfig.h>
+#include "exsltconfig.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -482,22 +482,6 @@ API_AVAILABLE(macos(10.8), ios(5.0));
 
 
 /*!
-	@function   CCBigNumDiv2
-	@abstract   Divides a BigNum (a) by 2.
-
-	@param		result  A bigNum in which to place the result.
-    @param		a		The BigNum to divide.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumDiv2(CCBigNumRef result, const CCBigNumRef a)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
 	@function   CCBigNumMod
 	@abstract   Find the remainder of a BigNum for a given modulus.
 
@@ -532,56 +516,6 @@ API_AVAILABLE(macos(10.8), ios(5.0));
 
 
 /*!
-	@function   CCBigNumSquare
-	@abstract   Find the square of a BigNum.
-
-	@param		result  A bigNum in which to place the result.
-    @param		a	The BigNum to square.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumSquare(CCBigNumRef result, const CCBigNumRef a)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
-	@function   CCBigNumGCD
-	@abstract   Find the Greatest Common Denominator of two BigNums.
-
-	@param		result  A bigNum in which to place the result.
-    @param		a	A BigNum.
-    @param		b	A BigNum.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumGCD(CCBigNumRef result, const CCBigNumRef a, const CCBigNumRef b)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
-	@function   CCBigNumLCM
-	@abstract   Find the Least Common Multiple of two BigNums.
-
-	@param		result  A bigNum in which to place the result.
-    @param		a	A BigNum.
-    @param		b	A BigNum.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumLCM(CCBigNumRef result, const CCBigNumRef a, const CCBigNumRef b)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
 	@function   CCBigNumMulMod
 	@abstract   Perform Modular Multiplication.
 
@@ -595,40 +529,6 @@ API_AVAILABLE(macos(10.8), ios(5.0));
 
 CCStatus
 CCBigNumMulMod(CCBigNumRef result, const CCBigNumRef a, const CCBigNumRef b, const CCBigNumRef modulus)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
-	@function   CCBigNumSquareMod
-	@abstract   Perform Modular Squaring.
-
-	@param		result  A bigNum in which to place the result.
-    @param		a	A BigNum.
-    @param		modulus	The Modulus.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumSquareMod(CCBigNumRef result, const CCBigNumRef a, const CCBigNumRef modulus)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
-	@function   CCBigNumInverseMod
-	@abstract   Perform Modular Inversion.
-
-	@param		result  A bigNum in which to place the result.
-    @param		a		A BigNum.
-    @param		modulus	The Modulus.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumInverseMod(CCBigNumRef result, const CCBigNumRef a, const CCBigNumRef modulus)
 API_AVAILABLE(macos(10.8), ios(5.0));
 
 
@@ -686,56 +586,6 @@ API_AVAILABLE(macos(10.8), ios(5.0));
 
 
 /*!
-	@function   CCBigNumMontgomerySetup
-	@abstract   Setup Montgomery
-
-	@param      num	The modulus.
-	@param      rho	The destination for the reduction digit.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumMontgomerySetup(CCBigNumRef num, uint32_t *rho)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
-	@function   CCBigNumMontgomeryNormalization
-	@abstract   Get the normalization value.
-
-	@param		result  A bigNum in which to place the result.
-	@param      modulus	The modulus.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumMontgomeryNormalization(CCBigNumRef result, CCBigNumRef modulus)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
-	@function   CCBigNumMontgomeryReduce
-	@abstract   Reduce a number
-
-	@param      x 	The BigNum to reduce - the result will be stored back into
-    				this BigNum.
-	@param      modulus	The modulus.
-	@param      rho		The reduction digit.
-
-	@result		returns a CCStatus (See CommonCryptor.h for values).
- */
-
-CCStatus
-CCBigNumMontgomeryReduce(CCBigNumRef x, CCBigNumRef modulus, uint32_t rho)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-
-
-/*!
 	@function   CCBigNumCreateRandom
 	@abstract   Creates a BigNum with a random value.
     ZZZZZ
@@ -762,19 +612,6 @@ API_AVAILABLE(macos(10.8), ios(5.0));
 
 bool
 CCBigNumIsPrime(CCStatus *status, const CCBigNumRef bn)
-API_AVAILABLE(macos(10.8), ios(5.0));
-
-/*!
-	@function   CCBigNumIsOdd
-	@abstract   Determines if a BigNum is odd.
-
-	@param      status  A pointer to a CCStatus for return codes.
-	@param      bn - a BigNum.
-	@result		Returns true or false.
- */
-
-bool
-CCBigNumIsOdd(CCStatus *status, const CCBigNumRef bn)
 API_AVAILABLE(macos(10.8), ios(5.0));
 
 /*!

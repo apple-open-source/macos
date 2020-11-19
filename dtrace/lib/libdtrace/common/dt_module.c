@@ -33,7 +33,6 @@
 #include <mach-o/stab.h>
 
 #include <fcntl.h>
-#define OBJFS_ROOT "/system/object"
 	
 #include <unistd.h>
 #include <strings.h>
@@ -47,8 +46,6 @@
 #include <sys/sysctl.h>
 
 #include <dtrace.h>
-
-#include <sys/kas_info.h>
 
 #include <dt_strtab.h>
 #include <dt_module.h>
@@ -491,28 +488,6 @@ dt_module_symsort_macho(dt_module_t *dmp)
 	dt_module_strtab = NULL;
 }
 
-static uint64_t
-dt_module_slide()
-{
-        static bool initialized = FALSE;
-        static pthread_mutex_t guard = PTHREAD_MUTEX_INITIALIZER;
-        static uint64_t kernel_slide = 0;
-
-        if (!initialized) {
-                pthread_mutex_lock(&guard);
-                if (!initialized) {
-                        initialized = TRUE;
-
-                        size_t size = sizeof(kernel_slide);
-
-                        if (kas_info(KAS_INFO_KERNEL_TEXT_SLIDE_SELECTOR, &kernel_slide, &size) != KERN_SUCCESS)
-                                kernel_slide = 0;
-                }
-                pthread_mutex_unlock(&guard);
-        }
-
-        return kernel_slide;
-}
 
 static GElf_Sym *
 dt_module_symname_macho(dt_module_t *dmp, const char *name,
@@ -546,7 +521,7 @@ dt_module_symname_macho(dt_module_t *dmp, const char *name,
 			symp->st_info = STT_NOTYPE; 
 			symp->st_other = 0;
 			symp->st_shndx = sym->n_sect;
-			symp->st_value = sym->n_value + dt_module_slide();
+			symp->st_value = dt_module_sym_location(dmp, sym->n_sect, sym->n_value);
 			symp->st_size = 0;
 			
 			if (sym->n_type & N_STAB) { /* Detect C++ methods */
@@ -603,7 +578,8 @@ dt_module_symaddr_macho(dt_module_t *dmp, GElf_Addr addr,
 
 	i = addr < asmap[hi]->n_value ? lo : hi;
 	sym = asmap[i];
-	v = sym->n_value + dt_module_slide();
+
+	v = dt_module_sym_location(dmp, sym->n_sect, sym->n_value);
 
 	/*
 	 * If the previous entry has the same value, improve our choice.  The
@@ -776,7 +752,7 @@ dt_module_symname_macho_64(dt_module_t *dmp, const char *name,
 			symp->st_info = STT_NOTYPE; 
 			symp->st_other = 0;
 			symp->st_shndx = sym->n_sect;
-			symp->st_value = sym->n_value + dt_module_slide();
+			symp->st_value = dt_module_sym_location(dmp, sym->n_sect, sym->n_value);
 			symp->st_size = 0;
 			
 			if (sym->n_type & N_STAB) { /* Detect C++ methods */
@@ -859,7 +835,7 @@ dt_module_symaddr_macho_64(dt_module_t *dmp, GElf_Addr addr,
 		symp->st_info = STT_NOTYPE;
 		symp->st_other = 0;
 		symp->st_shndx = sym->n_sect;
-		symp->st_value = sym->n_value + dt_module_slide();
+		symp->st_value = dt_module_sym_location(dmp, sym->n_sect, sym->n_value);
 		symp->st_size = 0;
 
 		if (sym->n_type & N_STAB) { /* Detect C++ methods */

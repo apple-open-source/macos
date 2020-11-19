@@ -491,8 +491,6 @@ dt_aggregate_snap_cpu(dtrace_hdl_t *dtp, processorid_t cpu)
 		return (0);
 
 	if (hash->dtah_hash == NULL) {
-		size_t size;
-
 		hash->dtah_size = DTRACE_AHASHSIZE;
 		size = hash->dtah_size * sizeof (dt_ahashent_t *);
 
@@ -798,10 +796,10 @@ dt_aggregate_keycmp(const void *lhs, const void *rhs)
 	dtrace_aggdesc_t *ragg = rh->dtahe_data.dtada_desc;
 	dtrace_recdesc_t *lrec, *rrec;
 	char *ldata, *rdata;
-	int rval, i, j, keypos, nrecs;
+	int ret, i, j, keypos, nrecs;
 
-	if ((rval = dt_aggregate_hashcmp(lhs, rhs)) != 0)
-		return (rval);
+	if ((ret = dt_aggregate_hashcmp(lhs, rhs)) != 0)
+		return (ret);
 
 	nrecs = lagg->dtagd_nrecs - 1;
 	assert(nrecs == ragg->dtagd_nrecs - 1);
@@ -1234,7 +1232,7 @@ dt_aggwalk_rval(dtrace_hdl_t *dtp, dt_ahashent_t *h, int rval)
 
 	case DTRACE_AGGWALK_REMOVE: {
 		dtrace_aggdata_t *aggdata = &h->dtahe_data;
-		int i, max_cpus = agp->dtat_maxcpu;
+		int max_cpus = agp->dtat_maxcpu;
 
 		/*
 		 * First, remove this hash entry from its hash chain.
@@ -1846,7 +1844,6 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggvarid_t *aggvars,
 	 */
 	for (i = 0; i < naggvars; i++) {
 		if (zaggdata[i].dtahe_size == 0) {
-			dtrace_aggvarid_t aggvar;
 
 			aggvar = aggvars[(i - sortpos + naggvars) % naggvars];
 			assert(zaggdata[i].dtahe_data.dtada_data == NULL);
@@ -1879,8 +1876,6 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggvarid_t *aggvars,
 			}
 
 			if (zaggdata[i].dtahe_size == 0) {
-				caddr_t data;
-
 				/*
 				 * We couldn't find this aggregation, meaning
 				 * that we have never seen it before for any
@@ -1900,8 +1895,7 @@ dtrace_aggregate_walk_joined(dtrace_hdl_t *dtp, dtrace_aggvarid_t *aggvars,
 				assert(j < naggvars);
 				zaggdata[i] = zaggdata[j];
 
-				data = zaggdata[i].dtahe_data.dtada_data;
-				assert(data != NULL);
+				assert(zaggdata[i].dtahe_data.dtada_data != NULL);
 			}
 		}
 	}

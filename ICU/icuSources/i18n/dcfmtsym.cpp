@@ -392,6 +392,7 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
     LocalUResourceBundlePointer resource(ures_open(NULL, locStr, &status));
     LocalUResourceBundlePointer numberElementsRes(
         ures_getByKeyWithFallback(resource.getAlias(), gNumberElements, NULL, &status));
+    LocalUResourceBundlePointer countryFallbackResource(ures_openWithCountryFallback(NULL, locStr, NULL, &status));
 
     if (U_FAILURE(status)) {
         if ( useLastResortData ) {
@@ -400,7 +401,7 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
         }
         return;
     }
-
+    
     // Set locale IDs
     // TODO: Is there a way to do this without depending on the resource bundle instance?
     U_LOCALE_BASED(locBased, *this);
@@ -412,31 +413,51 @@ DecimalFormatSymbols::initialize(const Locale& loc, UErrorCode& status,
             numberElementsRes.getAlias(),
             ULOC_ACTUAL_LOCALE, &status));
 
-    // Now load the rest of the data from the data sink.
-    // Start with loading this nsName if it is not Latin.
+    // Now load the rest of the data from the data sink.  If `countryFallbackResource` is filled in,
+    // we have to do this twice: Once for countryFallbackResource and then again with `resource`.
     DecFmtSymDataSink sink(*this);
-    if (uprv_strcmp(nsName, gLatn) != 0) {
-        CharString path;
-        path.append(gNumberElements, status)
-            .append('/', status)
-            .append(nsName, status)
-            .append('/', status)
-            .append(gSymbols, status);
-        ures_getAllItemsWithFallback(resource.getAlias(), path.data(), sink, status);
+    // for Apple rdar://problem/54886964 (the "for" statement -- the loop body is unchanged)
+    for (UResourceBundle* curRes = countryFallbackResource.getAlias() ? countryFallbackResource.getAlias() : resource.getAlias(); curRes != NULL; curRes = ((curRes != resource.getAlias()) ? resource.getAlias() : NULL)) {
+        // Start with loading this nsName if it is not Latin.
+        if (uprv_strcmp(nsName, gLatn) != 0) {
+            CharString path;
+            path.append(gNumberElements, status)
+                .append('/', status)
+                .append(nsName, status)
+                .append('/', status)
+                .append(gSymbols, status);
+            ures_getAllItemsWithFallback(curRes, path.data(), sink, status);
 
-        // If no symbols exist for the given nsName and resource bundle, silently ignore
-        // and fall back to Latin.
-        if (status == U_MISSING_RESOURCE_ERROR) {
-            status = U_ZERO_ERROR;
-        } else if (U_FAILURE(status)) {
-            return;
+            // If no symbols exist for the given nsName and resource bundle, silently ignore
+            // and fall back to Latin.
+            if (status == U_MISSING_RESOURCE_ERROR) {
+                status = U_ZERO_ERROR;
+            } else if (U_FAILURE(status)) {
+                return;
+            }
         }
-    }
 
-    // Continue with Latin if necessary.
-    if (!sink.seenAll()) {
-        ures_getAllItemsWithFallback(resource.getAlias(), gNumberElementsLatnSymbols, sink, status);
-        if (U_FAILURE(status)) { return; }
+        // Continue with Latin if necessary.
+        if (!sink.seenAll()) {
+            ures_getAllItemsWithFallback(curRes, gNumberElementsLatnSymbols, sink, status);
+            if (U_FAILURE(status)) { return; }
+        }
+        
+        // for Apple rdar://problem/54886964 (the whole "if" statement)
+        // There are certain symbols that are language-dependent and shouldn't inherit from
+        // the country fallback resource.  Clear the resource sink's "seen" flag for those
+        // symbols so that they can inherit from the regular resource on the next trip through
+        // this loop.
+        if (curRes == countryFallbackResource.getAlias()) {
+            sink.seenSymbol[kPlusSignSymbol] = FALSE;
+            sink.seenSymbol[kMinusSignSymbol] = FALSE;
+            sink.seenSymbol[kPercentSymbol] = FALSE;
+            sink.seenSymbol[kCurrencySymbol] = FALSE;
+            sink.seenSymbol[kIntlCurrencySymbol] = FALSE;
+            sink.seenSymbol[kExponentialSymbol] = FALSE;
+            sink.seenSymbol[kInfinitySymbol] = FALSE;
+            sink.seenSymbol[kNaNSymbol] = FALSE;
+        }
     }
 
     // Let the monetary number separators equal the default number separators if necessary.

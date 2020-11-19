@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Diomidis Spinellis.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -14,7 +16,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,15 +33,16 @@
  * SUCH DAMAGE.
  *
  *	@(#)defs.h	8.1 (Berkeley) 6/6/93
- * $FreeBSD: src/usr.bin/sed/defs.h,v 1.5 2004/08/09 15:29:41 dds Exp $
+ * $FreeBSD$
  */
 
 /*
  * Types of address specifications
  */
 enum e_atype {
-	AT_RE,					/* Line that match RE */
+	AT_RE	    = 1,			/* Line that match RE */
 	AT_LINE,				/* Specific line */
+	AT_RELLINE,				/* Relative line */
 	AT_LAST,				/* Last line */
 };
 
@@ -60,10 +63,11 @@ struct s_addr {
 struct s_subst {
 	int n;					/* Occurrence to subst. */
 	int p;					/* True if p flag */
+	int icase;				/* True if I flag */
 	char *wfile;				/* NULL if no wfile */
 	int wfd;				/* Cached file descriptor */
 	regex_t *re;				/* Regular expression */
-	int maxbref;				/* Largest backreference. */
+	unsigned int maxbref;			/* Largest backreference. */
 	u_long linenum;				/* Line number. */
 	char *new;				/* Replacement text */
 };
@@ -74,9 +78,9 @@ struct s_subst {
 struct s_tr {
 	unsigned char bytetab[256];
 	struct trmulti {
-		int fromlen;
+		size_t fromlen;
 		char from[MB_LEN_MAX];
-		int tolen;
+		size_t tolen;
 		char to[MB_LEN_MAX];
 	} *multis;
 	int nmultis;
@@ -90,6 +94,7 @@ struct s_tr {
 struct s_command {
 	struct s_command *next;			/* Pointer to next command */
 	struct s_addr *a1, *a2;			/* Start and end address */
+	u_long startline;			/* Start line number or zero */
 	char *t;				/* Text for : a c i r w */
 	union {
 		struct s_command *c;		/* Command(s) for b t { */
@@ -99,7 +104,6 @@ struct s_command {
 	} u;
 	char code;				/* Command code */
 	u_int nonsel:1;				/* True if ! */
-	u_int inrange:1;			/* True if in range */
 };
 
 /*
@@ -141,6 +145,7 @@ typedef struct {
 	char *space;		/* Current space pointer. */
 	size_t len;		/* Current length. */
 	int deleted;		/* If deleted. */
+	int append_newline;	/* If originally terminated by \n. */
 	char *back;		/* Backing memory. */
 	size_t blen;		/* Backing memory length. */
 } SPACE;

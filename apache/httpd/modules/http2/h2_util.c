@@ -638,15 +638,6 @@ apr_status_t h2_fifo_term(h2_fifo *fifo)
     apr_status_t rv;
     if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
         fifo->aborted = 1;
-        apr_thread_mutex_unlock(fifo->lock);
-    }
-    return rv;
-}
-
-apr_status_t h2_fifo_interrupt(h2_fifo *fifo)
-{
-    apr_status_t rv;
-    if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
         apr_thread_cond_broadcast(fifo->not_empty);
         apr_thread_cond_broadcast(fifo->not_full);
         apr_thread_mutex_unlock(fifo->lock);
@@ -710,10 +701,6 @@ static apr_status_t fifo_push(h2_fifo *fifo, void *elem, int block)
 {
     apr_status_t rv;
     
-    if (fifo->aborted) {
-        return APR_EOF;
-    }
-
     if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
         rv = fifo_push_int(fifo, elem, block);
         apr_thread_mutex_unlock(fifo->lock);
@@ -753,10 +740,6 @@ static apr_status_t pull_head(h2_fifo *fifo, void **pelem, int block)
 static apr_status_t fifo_pull(h2_fifo *fifo, void **pelem, int block)
 {
     apr_status_t rv;
-    
-    if (fifo->aborted) {
-        return APR_EOF;
-    }
     
     if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
         rv = pull_head(fifo, pelem, block);
@@ -946,15 +929,6 @@ apr_status_t h2_ififo_term(h2_ififo *fifo)
     apr_status_t rv;
     if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
         fifo->aborted = 1;
-        apr_thread_mutex_unlock(fifo->lock);
-    }
-    return rv;
-}
-
-apr_status_t h2_ififo_interrupt(h2_ififo *fifo)
-{
-    apr_status_t rv;
-    if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
         apr_thread_cond_broadcast(fifo->not_empty);
         apr_thread_cond_broadcast(fifo->not_full);
         apr_thread_mutex_unlock(fifo->lock);
@@ -1018,10 +992,6 @@ static apr_status_t ififo_push(h2_ififo *fifo, int id, int block)
 {
     apr_status_t rv;
     
-    if (fifo->aborted) {
-        return APR_EOF;
-    }
-
     if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
         rv = ififo_push_int(fifo, id, block);
         apr_thread_mutex_unlock(fifo->lock);
@@ -1062,10 +1032,6 @@ static apr_status_t ififo_pull(h2_ififo *fifo, int *pi, int block)
 {
     apr_status_t rv;
     
-    if (fifo->aborted) {
-        return APR_EOF;
-    }
-    
     if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
         rv = ipull_head(fifo, pi, block);
         apr_thread_mutex_unlock(fifo->lock);
@@ -1087,10 +1053,6 @@ static apr_status_t ififo_peek(h2_ififo *fifo, h2_ififo_peek_fn *fn, void *ctx, 
 {
     apr_status_t rv;
     int id;
-    
-    if (fifo->aborted) {
-        return APR_EOF;
-    }
     
     if (APR_SUCCESS == (rv = apr_thread_mutex_lock(fifo->lock))) {
         if (APR_SUCCESS == (rv = ipull_head(fifo, &id, block))) {
@@ -1117,39 +1079,40 @@ apr_status_t h2_ififo_try_peek(h2_ififo *fifo, h2_ififo_peek_fn *fn, void *ctx)
     return ififo_peek(fifo, fn, ctx, 0);
 }
 
-apr_status_t h2_ififo_remove(h2_ififo *fifo, int id)
+static apr_status_t ififo_remove(h2_ififo *fifo, int id)
 {
-    apr_status_t rv;
+    int rc, i;
     
     if (fifo->aborted) {
         return APR_EOF;
     }
 
+    rc = 0;
+    for (i = 0; i < fifo->count; ++i) {
+        int e = fifo->elems[inth_index(fifo, i)];
+        if (e == id) {
+            ++rc;
+        }
+        else if (rc) {
+            fifo->elems[inth_index(fifo, i-rc)] = e;
+        }
+    }
+    if (!rc) {
+        return APR_EAGAIN;
+    }
+    fifo->count -= rc;
+    if (fifo->count + rc == fifo->nelems) {
+        apr_thread_cond_broadcast(fifo->not_full);
+    }
+    return APR_SUCCESS;
+}
+
+apr_status_t h2_ififo_remove(h2_ififo *fifo, int id)
+{
+    apr_status_t rv;
+    
     if ((rv = apr_thread_mutex_lock(fifo->lock)) == APR_SUCCESS) {
-        int i, rc;
-        int e;
-        
-        rc = 0;
-        for (i = 0; i < fifo->count; ++i) {
-            e = fifo->elems[inth_index(fifo, i)];
-            if (e == id) {
-                ++rc;
-            }
-            else if (rc) {
-                fifo->elems[inth_index(fifo, i-rc)] = e;
-            }
-        }
-        if (rc) {
-            fifo->count -= rc;
-            if (fifo->count + rc == fifo->nelems) {
-                apr_thread_cond_broadcast(fifo->not_full);
-            }
-            rv = APR_SUCCESS;
-        }
-        else {
-            rv = APR_EAGAIN;
-        }
-        
+        rv = ififo_remove(fifo, id);
         apr_thread_mutex_unlock(fifo->lock);
     }
     return rv;
@@ -1373,7 +1336,7 @@ apr_status_t h2_util_bb_avail(apr_bucket_brigade *bb,
         return status;
     }
     else if (blen == 0) {
-        /* brigade without data, does it have an EOS bucket somwhere? */
+        /* brigade without data, does it have an EOS bucket somewhere? */
         *plen = 0;
         *peos = h2_util_has_eos(bb, -1);
     }
@@ -1840,22 +1803,29 @@ int h2_res_ignore_trailer(const char *name, size_t len)
 }
 
 apr_status_t h2_req_add_header(apr_table_t *headers, apr_pool_t *pool, 
-                               const char *name, size_t nlen,
-                               const char *value, size_t vlen)
+                              const char *name, size_t nlen,
+                              const char *value, size_t vlen,
+                              size_t max_field_len, int *pwas_added)
 {
     char *hname, *hvalue;
+    const char *existing;
     
+    *pwas_added = 0;
     if (h2_req_ignore_header(name, nlen)) {
         return APR_SUCCESS;
     }
     else if (H2_HD_MATCH_LIT("cookie", name, nlen)) {
-        const char *existing = apr_table_get(headers, "cookie");
+        existing = apr_table_get(headers, "cookie");
         if (existing) {
             char *nval;
             
             /* Cookie header come separately in HTTP/2, but need
              * to be merged by "; " (instead of default ", ")
              */
+            if (max_field_len && strlen(existing) + vlen + nlen + 4 > max_field_len) {
+                /* "key: oldval, nval" is too long */
+                return APR_EINVAL;
+            }
             hvalue = apr_pstrndup(pool, value, vlen);
             nval = apr_psprintf(pool, "%s; %s", existing, hvalue);
             apr_table_setn(headers, "Cookie", nval);
@@ -1869,8 +1839,16 @@ apr_status_t h2_req_add_header(apr_table_t *headers, apr_pool_t *pool,
     }
     
     hname = apr_pstrndup(pool, name, nlen);
-    hvalue = apr_pstrndup(pool, value, vlen);
     h2_util_camel_case_header(hname, nlen);
+    existing = apr_table_get(headers, hname);
+    if (max_field_len) {
+        if ((existing? strlen(existing)+2 : 0) + vlen + nlen + 2 > max_field_len) {
+            /* "key: (oldval, )?nval" is too long */
+            return APR_EINVAL;
+        }
+    }
+    if (!existing) *pwas_added = 1;
+    hvalue = apr_pstrndup(pool, value, vlen);
     apr_table_mergen(headers, hname, hvalue);
     
     return APR_SUCCESS;
@@ -1960,7 +1938,8 @@ int h2_util_frame_print(const nghttp2_frame *frame, char *buffer, size_t maxlen)
         case NGHTTP2_GOAWAY: {
             size_t len = (frame->goaway.opaque_data_len < s_len)?
                 frame->goaway.opaque_data_len : s_len-1;
-            memcpy(scratch, frame->goaway.opaque_data, len);
+            if (len)
+                memcpy(scratch, frame->goaway.opaque_data, len);
             scratch[len] = '\0';
             return apr_snprintf(buffer, maxlen, "GOAWAY[error=%d, reason='%s', "
                                 "last_stream=%d]", frame->goaway.error_code, 

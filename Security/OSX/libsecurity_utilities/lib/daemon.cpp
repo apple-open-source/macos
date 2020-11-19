@@ -36,7 +36,6 @@
 namespace Security {
 namespace Daemon {
 
-
 //
 // Daemonize this process, the UNIX way.
 //
@@ -81,32 +80,6 @@ bool incarnate(bool doFork /*=true*/)
 	// ready to roll
 	return true;
 }
-
-
-//
-// Re-execute myself.
-// This is a pretty bad hack for libraries that are pretty broken and (essentially)
-// don't work after a fork() unless you also exec().
-//
-// WARNING: Don't even THINK of doing this in a setuid-anything program.
-//
-bool executeSelf(char **argv)
-{
-	static const char reExecEnv[] = "_RE_EXECUTE";
-	if (getenv(reExecEnv)) {		// was re-executed
-		secinfo("daemon", "self-execution complete");
-		unsetenv(reExecEnv);
-		return true;
-	} else {
-		setenv(reExecEnv, "go", 1);
-		secinfo("daemon", "self-executing (ouch!)");
-		execv(argv[0], argv);
-		perror("re-execution");
-		Syslog::error("Re-execution attempt failed");
-		return false;
-	}
-}
-
 
 } // end namespace Daemon
 } // end namespace Security

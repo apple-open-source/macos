@@ -25,8 +25,7 @@ extern CFStringRef kSOSAccountDebugScope;
 
 -(id)initWithAccount:(SOSAccount*)acct andCircleName:(NSString*)name
 {
-    self = [super init];
-    if(self){
+    if ((self = [super init])) {
         self.pending_changes = [NSMutableDictionary dictionary];
         self.circleName = [[NSString alloc] initWithString:name];
         self.account = acct;
@@ -52,7 +51,7 @@ static bool SOSTransportCircleKVSUpdateKVS(NSDictionary *changes, CFErrorRef *er
         }
     };
     
-    SOSCloudKeychainPutObjectsInCloud((__bridge CFDictionaryRef)(changes), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), log_error);
+    SOSCloudKeychainPutObjectsInCloud((__bridge CFDictionaryRef)(changes), dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), log_error);
     return true;
 }
 

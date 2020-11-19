@@ -38,6 +38,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.gcc;
 			fileType = sourcecode.c;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 			);
@@ -213,9 +215,16 @@
 /* Begin PBXProject section */
 		23237A0905ED2216005C54E8 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 0284172009E580260060E31A /* Build configuration list for PBXProject "modemccl" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+				Base,
+			);
 			mainGroup = 23237A0505ED2216005C54E8;
 			productRefGroup = 23237AF305ED24E3005C54E8 /* Products */;
 			projectDirPath = "";
@@ -267,7 +276,7 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				GCC_ENABLE_OBJC_GC = NO;
-				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/PlugIns;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns/PPPSerial.ppp/Contents/PlugIns";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -286,7 +295,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GCC_ENABLE_OBJC_GC = NO;
-				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/PlugIns;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns/PPPSerial.ppp/Contents/PlugIns";
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

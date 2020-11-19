@@ -162,29 +162,28 @@ static NSString* KCDSEpoch= @"epoch";
                                               freeWhenDone: false];
     });
 
-    self = [super init];
+    if ((self = [super init])) {
+        self.asSender = sender;
+        self.secret = sharedSecret;
+        self.send = malloc(ccgcm_context_size(ccaes_gcm_encrypt_mode()));
+        self.receive = malloc(ccgcm_context_size(ccaes_gcm_decrypt_mode()));
+        self.context = context;
 
-    self.asSender = sender;
-    self.secret = sharedSecret;
-    self.send = malloc(ccgcm_context_size(ccaes_gcm_encrypt_mode()));
-    self.receive = malloc(ccgcm_context_size(ccaes_gcm_decrypt_mode()));
-    self.context = context;
+        _pairingUUID = pairingUUID;
+        _piggybackingVersion = piggybackingVersion;
+        _epoch = epoch;
 
-    _pairingUUID = pairingUUID;
-    _piggybackingVersion = piggybackingVersion;
-    _epoch = epoch;
+        if (self.send == nil || self.receive == nil) {
+            return nil;
+        }
 
-    if (self.send == nil || self.receive == nil) {
-        return nil;
+        derive_and_init(ccaes_gcm_encrypt_mode(),
+                        self.send, self.secret,
+                        sender ? kdfInfoSendToReceive : kdfInfoReceiveToSend);
+        derive_and_init(ccaes_gcm_decrypt_mode(),
+                        self.receive, self.secret,
+                        !sender ? kdfInfoSendToReceive : kdfInfoReceiveToSend);
     }
-
-    derive_and_init(ccaes_gcm_encrypt_mode(),
-                    self.send, self.secret,
-                    sender ? kdfInfoSendToReceive : kdfInfoReceiveToSend);
-    derive_and_init(ccaes_gcm_decrypt_mode(),
-                    self.receive, self.secret,
-                    !sender ? kdfInfoSendToReceive : kdfInfoReceiveToSend);
-
     return self;
 }
 

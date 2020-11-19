@@ -43,7 +43,7 @@ do_db_create(const CSSM_GUID guid, const char *dbname, Boolean do_openparams, Bo
 	try
 	{
 		CSSM_APPLEDL_OPEN_PARAMETERS openParameters = { sizeof(CSSM_APPLEDL_OPEN_PARAMETERS),
-			(do_version_0_params ? 0 : CSSM_APPLEDL_OPEN_PARAMETERS_VERSION) };
+			(do_version_0_params ? 0u : CSSM_APPLEDL_OPEN_PARAMETERS_VERSION) };
 		Cssm cssm;
 		Module module(guid, cssm);
 		DL dl(module);

@@ -53,7 +53,10 @@ public:
         std::array<unsigned, 3> yuvPlaneOffset;
         std::array<GLfloat, 9> yuvToRgbMatrix;
     };
-    using TextureVariant = WTF::Variant<RGBTexture, YUVTexture>;
+    struct ExternalOESTexture {
+        GLuint id;
+    };
+    using TextureVariant = WTF::Variant<RGBTexture, YUVTexture, ExternalOESTexture>;
 
     TextureMapperPlatformLayerBuffer(TextureVariant&&, const IntSize&, TextureMapperGL::Flags, GLint internalFormat);
 
@@ -102,7 +105,6 @@ private:
     MonotonicTime m_timeLastUsed;
 
     TextureVariant m_variant;
-    GLuint m_textureID;
     IntSize m_size;
     GLint m_internalFormat;
     TextureMapperGL::Flags m_extraFlags;

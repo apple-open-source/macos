@@ -309,6 +309,8 @@ cs{
         CI{"Pobřeží slonoviny"}
         CZ{"Česká republika"}
         FK{"Falklandské ostrovy (Malvíny)"}
+        SZ{"Eswatini"}
+        TL{"Timor-Leste"}
     }
-    Version{"2.1.48.44"}
+    Version{"36.1"}
 }

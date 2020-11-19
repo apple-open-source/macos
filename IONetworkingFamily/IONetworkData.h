@@ -128,7 +128,7 @@ enum {
 */
 
 
-class IONetworkData : public OSObject
+class __exported IONetworkData : public OSObject
 {
     OSDeclareDefaultStructors( IONetworkData )
 

@@ -10,5 +10,7 @@
 	</array>
 	<key>com.apple.private.security.storage.SystemKeychain</key>
 	<true/>
+	<key>com.apple.private.securityd.stash-agent-client</key>
+	<true/>
 </dict>
 </plist>

@@ -36,6 +36,7 @@
 #include <IOKit/IODMACommand.h>
 #include <IOKit/scsi/spi/IOSCSIParallelInterfaceController.h>
 #include <IOKit/scsi/SCSITask.h>
+#include <DriverKit/OSAction.h>
 
 #include <IOKit/scsi/SCSITaskDefinition.h>
 
@@ -57,6 +58,12 @@ public:
 	// Counter to keep track of the number of times the IO completes
 	// with TASK SET FULL status.
 	UInt8						fTaskRetryCount;
+	
+	// Dext specific fields.
+	// Each task will have its own OSAction completion.
+	OSAction *					fDextCompletion;
+	// Indicates if the task has already been submitted to the dext.
+	bool						fTaskSubmitted;
 	
 	static SCSIParallelTask *	Create ( UInt32 sizeOfHBAData, UInt64 alignmentMask ); 
 	
@@ -122,7 +129,7 @@ public:
 	inline IOReturn SetBuffer ( IOMemoryDescriptor * buffer )
 	{
 		return setMemoryDescriptor ( buffer, false );
-	}	
+	}
 	
 private:
 	

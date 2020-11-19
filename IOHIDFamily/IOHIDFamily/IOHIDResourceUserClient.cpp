@@ -27,6 +27,7 @@
 #include <TargetConditionals.h>
 #include <os/overflow.h>
 #include <IOKit/IOKitKeys.h>
+#include <stdatomic.h>
 
 #define kIOHIDManagerUserAccessUserDeviceEntitlement "com.apple.hid.manager.user-access-device"
 #define kIOHIDVirtualDeviceEntitlement "com.apple.developer.hid.virtual.device"
@@ -49,11 +50,12 @@ enum {
 
 #define kHIDQueueSize           16384
 
+#define kMaxQueueReportSize     4 * 1024 // 4k. This size already works.
+
 #define super IOUserClient
 
 
 OSDefineMetaClassAndStructors( IOHIDResourceDeviceUserClient, IOUserClient )
-
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // IOHIDResourceDeviceUserClient::_methods
@@ -83,6 +85,11 @@ const IOExternalMethodDispatch IOHIDResourceDeviceUserClient::_methods[kIOHIDRes
         (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_registerService,
         0, 0,
         0, 0
+    },
+    { // kIOHIDResourceDeviceUserClientMethodReleaseToken
+        (IOExternalMethodAction) &IOHIDResourceDeviceUserClient::_releaseToken,
+        1, 0,
+        0, 0,
     },
 };
 
@@ -127,6 +134,8 @@ bool IOHIDResourceDeviceUserClient::initWithTask(task_t owningTask, void * secur
     
     _pending            = OSSet::withCapacity(4);
     _maxClientTimeoutUS = kHIDClientTimeoutUS;
+    _owningTask = owningTask;
+    _overSizedReports = OSArray::withCapacity(2);
 
 exit:
     return result;
@@ -229,6 +238,9 @@ void IOHIDResourceDeviceUserClient::free()
     
     if ( _owner )
         _owner->release();
+
+    if ( _overSizedReports )
+        _overSizedReports->release();
         
     return super::free();
 }
@@ -464,7 +476,6 @@ IOReturn IOHIDResourceDeviceUserClient::createDevice(IOExternalMethodArguments *
     IOByteCount             propertiesLength    = 0;
     OSObject *              object              = NULL;
     IOReturn                result;
-    
     // Report descriptor is static and thus can only be set on creation
     require_action(_device==NULL, exit, result=kIOReturnInternalError);
     
@@ -606,7 +617,7 @@ IOReturn IOHIDResourceDeviceUserClient::handleReport(IOExternalMethodArguments *
         tap.target = this;
         tap.action = OSMemberFunctionCast(IOHIDCompletionAction, this, &IOHIDResourceDeviceUserClient::ReportComplete);
         tap.parameter = pb;
-                        
+
         ret = _device->handleReportWithTimeAsync(timestamp, report, kIOHIDReportTypeInput, 0, 0, &tap);
         
         report->release();
@@ -675,6 +686,7 @@ IOReturn IOHIDResourceDeviceUserClient::getReportGated(ReportGatedArguments * ar
     header.reportID    = arguments->options&0xff;
     header.length      = (uint32_t)arguments->report->getLength();
     header.token       = result.token;
+    header.reportFlags = 0;
 
     _pending->setObject(retData);
     
@@ -745,7 +757,9 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
     AbsoluteTime                    ts;
     IOReturn                        ret;
     OSData *                        retData = NULL;
-    
+    IOMemoryDescriptor *            report = arguments->report;
+    bzero(&header, sizeof(header));
+
     require_action(!isInactive() && !_suspended, exit, ret=kIOReturnOffline);
 
     bzero(&result, sizeof(result));
@@ -758,8 +772,9 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
     header.direction   = kIOHIDResourceReportDirectionOut;
     header.type        = arguments->reportType;
     header.reportID    = arguments->options&0xff;
-    header.length      = (uint32_t)arguments->report->getLength();
+    header.length      = (uint32_t)report->getLength();
     header.token       = result.token;
+    header.reportFlags = 0;
 
     _pending->setObject(retData);
     
@@ -767,8 +782,32 @@ IOReturn IOHIDResourceDeviceUserClient::setReportGated(ReportGatedArguments * ar
     require_action(_port, exit, ret = kIOReturnOffline); // client has not registered a port
     
     _setReportCount++;
-    
-    require_action(_queue->enqueueReport(&header, arguments->report), exit, {
+
+    if (report->getLength() > kMaxQueueReportSize) {
+        bool status;
+        header.reportFlags |= kIOHIDResourceOOBReport;
+        IOMemoryMap *overSizedReportMap = report->createMappingInTask(_owningTask, 0, kIOMapAnywhere | kIOMapReadOnly);
+        if (!overSizedReportMap) {
+            HIDLogError("Could not create large report mapping.");
+            ret = kIOReturnNoMemory;
+            goto exit;
+        }
+        status = _overSizedReports->setObject(overSizedReportMap);
+        overSizedReportMap->release();
+        if (!status) {
+            HIDLogError("Could not save large report mapping.");
+            ret = kIOReturnNoMemory;
+            goto exit;
+        }
+        IOHIDResourceOOBReportInfo reportInfo = {(mach_vm_address_t)overSizedReportMap->getAddress(), (uint32_t)overSizedReportMap->getLength()};
+
+        // Assigning a buffer here is overkill, but we want to keep the same interface for the enqueue reports.
+        report = IOBufferMemoryDescriptor::withBytes(&reportInfo, sizeof(IOHIDResourceOOBReportInfo), kIODirectionInOut);
+        header.length = (uint32_t)report->getLength();
+        HIDLogDebug("Created OOB report data: %#llx(%d)", (uint64_t)reportInfo.token, (uint32_t)reportInfo.length);
+    }
+
+    require_action(_queue->enqueueReport(&header, report), exit, {
         HIDLogInfo("0x%llx: IOHIDUserDevice setReport enqueue failed.\n", getRegistryEntryID());
         ret = kIOReturnNoMemory;
         _setReportDroppedCount++;
@@ -801,6 +840,10 @@ exit:
         _commandGate->commandWakeup(&_pending);
         retData->release();
     }
+
+    if (header.reportFlags & kIOHIDResourceOOBReport) {
+        report->release();
+    }
     
     return ret;
 }
@@ -813,6 +856,8 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArgumen
     OSObject * object = NULL;
     IOReturn result = kIOReturnNotFound;
     IOByteCount descriptorLength = 0;
+    IOMemoryDescriptor * reportDescriptor = NULL;
+    IOMemoryMap * reportMap = NULL;
     
     u_int64_t token = (u_int64_t)arguments->scalarInput[kIOHIDResourceUserClientResponseIndexToken];
 
@@ -821,19 +866,48 @@ IOReturn IOHIDResourceDeviceUserClient::postReportResult(IOExternalMethodArgumen
     
     while ( (object = iterator->getNextObject()) ) {
         __ReportResult * pResult = (__ReportResult*)((OSData*)object)->getBytesNoCopy();
-        
+
         if (pResult->token != token)
             continue;
-        
-        
-        // RY: HIGHLY UNLIKELY > 4K
-        if ( pResult->descriptor && arguments->structureInput ) {
+
+        if ( pResult->descriptor && arguments->structureInputDescriptor ){
+            // response > 4K, we got a memory descriptor from the response.
+
+            // Check that the HIDUserDevice didn't change the report size over the allocated size.
+            descriptorLength = pResult->descriptor->getLength();
+
+            if (descriptorLength < arguments->structureInputDescriptor->getLength()) {
+                pResult->ret = kIOReturnOverrun;
+                _commandGate->commandWakeup(object);
+                result = kIOReturnOverrun;
+                HIDLogError("Invalid report length expected : %d got : %d",(int)descriptorLength, (int)arguments->structureInputSize);
+                break;
+            }
+            // Map result into kernel task
+            reportDescriptor = arguments->structureInputDescriptor;
+            reportMap = reportDescriptor->map(kIOMapReadOnly);
+            if (!reportMap) {
+                pResult->ret = kIOReturnNoMemory;
+                _commandGate->commandWakeup(object);
+                result = kIOReturnNoMemory;
+                HIDLogError("Failed to map report, could not copy results of get report.");
+                break;
+            }
+
+            pResult->descriptor->writeBytes(0, (void*)reportMap->getVirtualAddress(), reportDescriptor->getLength());
+
+            OSSafeReleaseNULL(reportMap);
+            // 12978252:  If we get an IOBMD passed in, set the length to be the # of bytes that were transferred
+            IOBufferMemoryDescriptor * buffer = OSDynamicCast(IOBufferMemoryDescriptor, pResult->descriptor);
+            if (buffer)
+                buffer->setLength(MIN((vm_size_t)reportDescriptor->getLength(), buffer->getCapacity()));
+        } else if ( pResult->descriptor && arguments->structureInput ) {
             
             // HID User device API with length allows caller to modify return length
             // which can be greater than orginal length of descriptor, we should check
             // that here
             descriptorLength = pResult->descriptor->getLength();
-            
+
             if (descriptorLength < arguments->structureInputSize) {
                 pResult->ret = kIOReturnOverrun;
                 _commandGate->commandWakeup(object);
@@ -942,6 +1016,38 @@ IOReturn IOHIDResourceDeviceUserClient::_registerService(
     }
 }
 
+IOReturn IOHIDResourceDeviceUserClient::releaseTokenGated(mach_vm_address_t token)
+{
+    for (int index = 0; index < _overSizedReports->getCount(); ++index) {
+        IOMemoryMap *reportMap = OSDynamicCast(IOMemoryMap, _overSizedReports->getObject(index));
+        if (!reportMap) {
+            continue;
+        }
+        if (token == reportMap->getAddress()) {
+            _overSizedReports->removeObject(index);
+            break;
+        }
+    }
+    return kIOReturnSuccess;
+}
+
+IOReturn IOHIDResourceDeviceUserClient::releaseToken(mach_vm_address_t token)
+{
+    return _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDResourceDeviceUserClient::releaseTokenGated), (void*)token);
+}
+
+
+//------------------------------------------------------------------------------
+// IOHIDResourceDeviceUserClient::_getReportForToken
+//------------------------------------------------------------------------------
+IOReturn IOHIDResourceDeviceUserClient::_releaseToken(
+                                IOHIDResourceDeviceUserClient *target,
+                                void *reference __unused,
+                                IOExternalMethodArguments *arguments)
+{
+    return target->releaseToken((mach_vm_address_t)arguments->scalarInput[0]);
+}
+
 
 IOReturn IOHIDResourceDeviceUserClient::setProperties(OSObject *properties)
 {
@@ -1031,6 +1137,10 @@ exit:
 // IOHIDResourceQueue
 //====================================================================================================
 #include <IOKit/IODataQueueShared.h>
+
+#undef super
+#define super IOSharedDataQueue
+
 OSDefineMetaClassAndStructors( IOHIDResourceQueue, IOSharedDataQueue )
 
 IOHIDResourceQueue *IOHIDResourceQueue::withCapacity(UInt32 capacity)
@@ -1058,6 +1168,15 @@ IOHIDResourceQueue *IOHIDResourceQueue::withCapacity(IOService *owner, UInt32 si
     return dataQueue;
 }
 
+Boolean IOHIDResourceQueue::initWithCapacity(UInt32 size)
+{
+    bool ret = super::initWithCapacity(size);
+    if (!ret) {
+        return ret;
+    }
+    return true;
+}
+
 void IOHIDResourceQueue::free()
 {
     if ( _descriptor )
@@ -1066,7 +1185,7 @@ void IOHIDResourceQueue::free()
         _descriptor = 0;
     }
 
-    IOSharedDataQueue::free();
+    super::free();
 }
 
 #define ALIGNED_DATA_SIZE(data_size,align_size) ((((data_size - 1) / align_size) + 1) * align_size)
@@ -1099,7 +1218,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
     if (os_add_overflow(dataSize, DATA_QUEUE_ENTRY_HEADER_SIZE, &entrySize)) {
         return false;
     }
-    
+
     // Force a single read of head and tail
     tail = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->tail, __ATOMIC_RELAXED);
     head = __c11_atomic_load((_Atomic UInt32 *)&dataQueue->head, __ATOMIC_ACQUIRE);
@@ -1120,8 +1239,10 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             
             bcopy(header, &entry->data, headerSize);
             
-            if ( report )
+
+            if ( report ) {
                 report->readBytes(0, ((UInt8*)&entry->data) + headerSize, reportSize);
+            }
 
             // The tail can be out of bound when the size of the new entry
             // exactly matches the available space at the end of the queue.
@@ -1146,8 +1267,10 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             }
 
             bcopy(header, &dataQueue->queue->data, sizeof(IOHIDResourceDataQueueHeader));
-            if ( report )
+
+            if ( report ) {
                 report->readBytes(0, ((UInt8*)&dataQueue->queue->data) + headerSize, reportSize);
+            }
    
             newTail = entrySize;
         }
@@ -1168,9 +1291,10 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
             entry->size = dataSize;
 
             bcopy(header, &entry->data, sizeof(IOHIDResourceDataQueueHeader));
-            if ( report )
+            if ( report ) {
                 report->readBytes(0, ((UInt8*)&entry->data) + headerSize, reportSize);
-            
+            }
+
             newTail = tail + entrySize;
         }
         else
@@ -1209,7 +1333,7 @@ Boolean IOHIDResourceQueue::enqueueReport(IOHIDResourceDataQueueHeader * header,
 
 void IOHIDResourceQueue::setNotificationPort(mach_port_t port) 
 {
-    IOSharedDataQueue::setNotificationPort(port);
+    super::setNotificationPort(port);
 
     if (dataQueue->head != dataQueue->tail)
         sendDataAvailableNotification();
@@ -1218,7 +1342,7 @@ void IOHIDResourceQueue::setNotificationPort(mach_port_t port)
 IOMemoryDescriptor * IOHIDResourceQueue::getMemoryDescriptor()
 {
     if (!_descriptor)
-        _descriptor = IOSharedDataQueue::getMemoryDescriptor();
+        _descriptor = super::getMemoryDescriptor();
 
     return _descriptor;
 }

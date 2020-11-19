@@ -141,6 +141,8 @@ public:
     
     // logically remove the first element (skip it)
     void snip();
+
+    CssmList &operator =(const CssmList& other);
 	
 public:
 	void clear(Allocator &alloc);		// free my contents

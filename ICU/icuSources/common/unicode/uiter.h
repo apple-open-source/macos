@@ -35,7 +35,7 @@
     class Replaceable;
 
     U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 U_CDECL_BEGIN
 
@@ -702,7 +702,7 @@ uiter_setCharacterIterator(UCharIterator *iter, icu::CharacterIterator *charIter
 U_STABLE void U_EXPORT2
 uiter_setReplaceable(UCharIterator *iter, const icu::Replaceable *rep);
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 U_CDECL_END
 

@@ -4,8 +4,8 @@ BEGIN {
     if ($^V =~ m/v([0-9]+).([0-9]+)/) {
         $PERLVERSION = $1.".".$2;
     }
-    unshift @INC, "/AppleInternal/Library/Perl/".$PERLVERSION."/darwin-thread-multi-2level";
-    unshift @INC, "/AppleInternal/Library/Perl/".$PERLVERSION;
+    unshift @INC, "/usr/local/lib/subversion/perl/".$PERLVERSION."/darwin-thread-multi-2level";
+    unshift @INC, "/usr/local/lib/subversion/perl/".$PERLVERSION;
 }
 
 use strict;

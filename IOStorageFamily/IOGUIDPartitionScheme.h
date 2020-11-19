@@ -124,7 +124,7 @@ struct gpt_ent
  * Class
  */
 
-class IOGUIDPartitionScheme : public IOPartitionScheme
+class __exported IOGUIDPartitionScheme : public IOPartitionScheme
 {
     OSDeclareDefaultStructors(IOGUIDPartitionScheme);
 
@@ -140,6 +140,20 @@ protected:
      */
 
     virtual void free(void) APPLE_KEXT_OVERRIDE;
+
+    /*!
+     * @function handleClose
+     * @discussion
+     * The handleClose method closes the client's access to this object.
+     *
+     * This implementation replaces the IOService definition of handleClose().
+     * @param client
+     * Client requesting the close.
+     * @param options
+     * Options for the close.  Set to zero.
+     */
+
+    virtual void handleClose(IOService * client, IOOptionBits options) APPLE_KEXT_OVERRIDE;
 
     /*
      * Scan the provider media for a GUID partition map.    Returns the set

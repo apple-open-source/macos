@@ -257,7 +257,7 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
 {
     struct l2tp_elem 	*send_elem;
     struct l2tp_elem	*recv_elem;
-    struct l2tp_rfc 	*rfc1;
+    struct l2tp_rfc 	*rfc1 = NULL;
 	int					i;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
@@ -307,7 +307,7 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
 ----------------------------------------------------------------------------- */
 u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 {
-    struct l2tp_rfc 	*rfc1, *rfc = (struct l2tp_rfc *)data;
+    struct l2tp_rfc 	*rfc1 = NULL, *rfc = (struct l2tp_rfc *)data;
     u_int16_t		error = 0;
     int			len, i, had_peer_addr;
     u_char 		*p;

@@ -1,4 +1,4 @@
-; Copyright (C) 2010-2019 Apple Inc. All rights reserved.
+; Copyright (C) 2010-2020 Apple Inc. All rights reserved.
 ;
 ; Redistribution and use in source and binary forms, with or without
 ; modification, are permitted provided that the following conditions
@@ -58,7 +58,8 @@
     (subpath "/System/Library/Frameworks")
     (subpath "/System/Library/PrivateFrameworks")
     (subpath "/usr/lib")
-    (literal "/usr/local/lib/sanitizers"))
+    (subpath "/usr/local/lib/sanitizers") ;; FIXME(209820)
+    (subpath "/usr/appleinternal/lib/sanitizers"))
 
 (allow file-read-metadata
     (literal "/etc")
@@ -114,17 +115,13 @@
         (iokit-registry-entry-class "IOAccelerationUserClient")
         (iokit-registry-entry-class "IOSurfaceRootUserClient")
         (iokit-registry-entry-class "IOSurfaceSendRight"))
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000
     ;; CoreVideo CVCGDisplayLink
     (allow iokit-open
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
-        (with report) (with telemetry)
-#endif
         (iokit-registry-entry-class "IOFramebufferSharedUserClient"))
+#endif
     ;; H.264 Acceleration
     (allow iokit-open
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
-        (with report) (with telemetry)
-#endif
         (iokit-registry-entry-class "AppleIntelMEUserClient")
         (iokit-registry-entry-class "AppleSNBFBUserClient"))
     ;; QuartzCore
@@ -163,21 +160,27 @@
     (sysctl-name
         "hw.byteorder"
         "hw.busfrequency_max"
+        "hw.cpufamily" ;; <rdar://problem/58416475>
         "hw.cputype"
+        "hw.logicalcpu"
         "hw.machine"
         "hw.memsize"
         "hw.model"
         "hw.ncpu"
+        "hw.physicalcpu" ;; <rdar://problem/58416475>
         "hw.vectorunit"
         "kern.bootargs" ;; <rdar://problem/47738015>
         "kern.hostname"
         "kern.maxfilesperproc"
         "kern.memorystatus_level"
         "kern.osproductversion" ;; <rdar://problem/51756739>
+        "kern.ostype"
+        "kern.osversion"
         "kern.safeboot"
         "kern.version"
         "machdep.cpu.brand_string"
         "security.mac.sandbox.sentinel"
+        "sysctl.name2oid"
         "kern.tcsm_enable"
         "kern.tcsm_available"
         "vm.footprint_suspend")
@@ -188,6 +191,7 @@
     (sysctl-name-regex #"^hw.optional\.")
     (sysctl-name-regex #"^kern.os(release|type|variant_status|version)")
     (sysctl-name-regex #"^net.routetable")
+    (sysctl-name-prefix "sysctl.oidfmt.") ; Remove when <rdar://problem/64208532> is fixed.
 )
 
 (allow sysctl-write
@@ -208,6 +212,7 @@
     (iokit-property-regex #"^AAPL,(DisplayPipe|OpenCLdisabled|IOGraphics_LER(|_RegTag_1|_RegTag_0|_Busy_2)|alias-policy|boot-display|display-alias|mux-switch-state|ndrv-dev|primary-display|slot-name)")
     (iokit-property-regex #"^ATY,(cbits|fb_(linebytes|offset|size)|intrev)")
     (iokit-property "ATY,DeviceName") ;; Needed by Metal compilers
+    (iokit-property "ATY,EFIDisplay")
     (iokit-property "ATY,FamilyName") ;; Ditto
     (iokit-property "AVCSupported")
     (iokit-property "BacklightHandle")
@@ -218,6 +223,9 @@
     (iokit-property "CapsLockDelay")
     (iokit-property "CaseSensitive")
     (iokit-property "ConfigState")
+    (iokit-property "DPLanes")
+    (iokit-property "DPLinkBit")
+    (iokit-property "DPLinkRate")
     (iokit-property "Description")
     (iokit-property "Development")
     (iokit-property-regex #"^Device( Characteristics|EqID)")
@@ -230,8 +238,14 @@
     (iokit-property "Family ID")
     (iokit-property "ForceSupported")
     (iokit-property "Formats")
+    (iokit-property "FramebufferEnabled")
+    (iokit-property "FramebufferStarted")
     (iokit-property "GPUConfigurationVariable")
+    (iokit-property "GPUDCCDisplayable")
+    (iokit-property "GPUDebugNullClientMask")
     (iokit-property "GpuDebugPolicy")
+    (iokit-property "GPURawCounterBundleName")
+    (iokit-property "GPURawCounterPluginClassName")
     (iokit-property "HEVCSupported")
     (iokit-property "HIDPointerAccelerationType")
     (iokit-property-regex #"^IOAccel(DisplayPipeCapabilities|Index|Types|Revision)")
@@ -283,6 +297,7 @@
     (iokit-property "IOParentMatch")
     (iokit-property-regex #"^IOPCI((Class|Primary|Property|)Match|Express(Capabilities|Link(Status|Capabilities))|MSIMode|Resourced|Tunnelled)")
     (iokit-property "IOPMIsPowerManaged")
+    (iokit-property "IOPersonalityPublisher")
     (iokit-property-regex #"^IOPlatform(SerialNumber|UUID)")
     (iokit-property "IOPowerManagement")
     (iokit-property "IOProbeScore")
@@ -316,6 +331,7 @@
     (iokit-property "Protocol Characteristics")
     (iokit-property "Removable")
     (iokit-property-regex #"^ResetOn(Lock|Unlock)Ms")
+    (iokit-property "SWIP_properties")
     (iokit-property "SafeEjectRequested")
     (iokit-property "SampleRates")
     (iokit-property "Serial Number")
@@ -337,6 +353,7 @@
     (iokit-property "attached-gpu-control-path")
     (iokit-property-regex #"^audio-(codec-info|device-mvalue|device-nvalue|selector)")
     (iokit-property "av-signal-type")
+    (iokit-property "backlight-PWM-freq")
     (iokit-property "bcdVersion")
     (iokit-property-regex #"^(board|device|revision|subsystem|vendor)-id")
     (iokit-property "boot-gamma-restored")
@@ -349,6 +366,11 @@
     (iokit-property "connector-type")
     (iokit-property-regex #"^(device|revision|subsystem-vendor|touch-size)-id")
     (iokit-property "device_type")
+    (iokit-property "display-bpc")
+    (iokit-property "display-connect-flags")
+    (iokit-property "display-link-component-bits")
+    (iokit-property "display-pixel-component-bits")
+    (iokit-property "display-type")
     (iokit-property "dpm")
     (iokit-property "errordb") ;; Needed for OpenGL on older hardware
     (iokit-property "filevault-image") ;; Needed by LaunchServices
@@ -395,23 +417,55 @@
     (iokit-property "IOGVAH264EncodeCapabilities") ;; <rdar://problem/49498040>
 )
 
+;; <rdar://problem/60088861>
+(if (equal? (param "CPU") "arm64")
+    (allow iokit-get-properties
+        (iokit-property "ADSSupported")
+        (iokit-property "IOAVDHEVCDecodeCapabilities")
+        (iokit-property "IOSurfaceAcceleratorCapabilitiesDict") ;; <rdar://problem/63696732>
+        (iokit-property "acoustic-id") ;; <rdar://problem/65290967>
+    ))
+
+(if (equal? (param "CPU") "arm64")
+    (with-filter (iokit-registry-entry-class "IOService")
+        (allow iokit-get-properties
+            (iokit-property "IORegistryEntryPropertyKeys"))))
+
+(if (equal? (param "CPU") "arm64")
+    (with-filter (iokit-registry-entry-class "IOMobileFramebuffer")
+        (allow iokit-get-properties
+            (iokit-property "AppleTV"
+                            "DisplayPipePlaneBaseAlignment"
+                            "DisplayPipeStrideRequirements"
+                            "dfr"
+                            "external"
+                            "hdcp-hoover-protocol"))))
+
+(if (equal? (param "CPU") "arm64")
+    (with-filter (iokit-registry-entry-class "IOPlatformDevice")
+        (allow iokit-get-properties
+            (iokit-property "soc-generation"))))
+
+(if (equal? (param "CPU") "arm64")
+    (with-filter (iokit-registry-entry-class "IOService")
+        (allow iokit-get-properties
+            (iokit-property "chip-id"
+                            "display-rotation"
+                            "display-scale"))))
+
 (deny mach-lookup (xpc-service-name-prefix ""))
 (allow mach-lookup
     (xpc-service-name "com.apple.PerformanceAnalysis.animationperfd")
-    (xpc-service-name "com.apple.accessibility.mediaaccessibilityd")
     (xpc-service-name "com.apple.audio.SandboxHelper")
-    (xpc-service-name "com.apple.coremedia.videodecoder")
-    (xpc-service-name "com.apple.coremedia.videoencoder")
     (xpc-service-name "com.apple.hiservices-xpcservice")
     (xpc-service-name "com.apple.print.normalizerd")
 )
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000
 (allow mach-lookup
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
-    (with report) (with telemetry)
-#endif
     (xpc-service-name-regex #"\.apple-extension-service$")
 )
+#endif
 
 ;; Utility functions for home directory relative path filters
 (define (home-regex home-relative-regex)
@@ -521,6 +575,40 @@
         "pbs" ;; Needed for NSAttributedString <rdar://problem/10844321>
 ))
 
+#if ENABLE(CFPREFS_DIRECT_MODE)
+(allow file-read*
+    (home-subpath "/Library/Preferences/.GlobalPreferences.plist")
+    (home-subpath "/Library/Preferences/com.apple.security.plist")
+    (home-subpath "/Library/Preferences/com.apple.Accessibility.plist")
+    (home-subpath "/Library/Preferences/com.apple.ATS.plist")
+    (home-subpath "/Library/Preferences/com.apple.CoreGraphics.plist")
+    (home-subpath "/Library/Preferences/com.apple.DownloadAssessment.plist")
+    (home-subpath "/Library/Preferences/com.apple.HIToolbox.plist")
+    (home-subpath "/Library/Preferences/com.apple.LaunchServices.plist")
+    (home-subpath "/Library/Preferences/com.apple.MultitouchSupport.plist")
+    (home-subpath "/Library/Preferences/com.apple.ServicesMenu.Services.plist")
+    (home-subpath "/Library/Preferences/com.apple.ViewBridge.plist")
+    (home-subpath "/Library/Preferences/com.apple.WebKit.plist")
+    (home-subpath "/Library/Preferences/com.apple.WebFoundation.plist")
+    (home-subpath "/Library/Preferences/com.apple.avfoundation.plist")
+    (home-subpath "/Library/Preferences/com.apple.avfoundation.frecents.plist")
+    (home-subpath "/Library/Preferences/com.apple.avfoundation.videoperformancehud.plist")
+    (home-subpath "/Library/Preferences/com.apple.coremedia.plist")
+    (home-subpath "/Library/Preferences/com.apple.crypto.plist")
+    (home-subpath "/Library/Preferences/com.apple.driver.AppleBluetoothMultitouch.mouse.plist")
+    (home-subpath "/Library/Preferences/com.apple.driver.AppleBluetoothMultitouch.trackpad.plist")
+    (home-subpath "/Library/Preferences/com.apple.driver.AppleHIDMouse.plist")
+    (home-subpath "/Library/Preferences/com.apple.lookup.shared.plist")
+    (home-subpath "/Library/Preferences/com.apple.mediaaccessibility.plist")
+    (home-subpath "/Library/Preferences/com.apple.networkConnect.plist")
+    (home-subpath "/Library/Preferences/com.apple.speech.voice.prefs.plist")
+    (home-subpath "/Library/Preferences/com.apple.systemsound.plist")
+    (home-subpath "/Library/Preferences/com.apple.universalaccess.plist")
+    (home-subpath "/Library/Preferences/edu.mit.Kerberos.plist")
+    (home-subpath "/Library/Preferences/pbs.plist")
+)
+#endif
+
 ; (Temporary) backward compatibility with non-CFPreferences readers.
 (allow file-read*
     (literal "/Library/Preferences/com.apple.ViewBridge.plist"))
@@ -565,18 +653,39 @@
     (allow-read-write-directory-and-issue-read-write-extensions (param "DARWIN_USER_TEMP_DIR")))
 
 ;; IOKit user clients
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000
 (allow iokit-open
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
-    (with report) (with telemetry)
-#endif
     (iokit-user-client-class "AppleMultitouchDeviceUserClient")
-    (iokit-user-client-class "AppleUpstreamUserClient")
     (iokit-user-client-class "IOHIDParamUserClient")
-    (iokit-user-client-class "RootDomainUserClient")
+)
+#endif
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 110000
+(deny iokit-open
+    (with send-signal SIGKILL)
+    (iokit-user-client-class "AppleMultitouchDeviceUserClient")
+    (iokit-user-client-class "IOHIDParamUserClient")
+    (iokit-registry-entry-class "IOFramebufferSharedUserClient")
+)
+#endif
+
+(allow iokit-open
+    (iokit-user-client-class "AppleUpstreamUserClient")
+    (iokit-user-client-class "RootDomainUserClient") ;; Needed by WebCore::PerformanceMonitor
+    (iokit-user-client-class "AudioAUUC") ;; <rdar://problem/10427451> && <rdar://problem/10808817>
     (iokit-user-client-class "IOAudioControlUserClient")
     (iokit-user-client-class "IOAudioEngineUserClient")
-    ;; Following is needed due to <rdar://problem/10427451> && <rdar://problem/10808817>
-    (iokit-user-client-class "AudioAUUC"))
+)
+
+;; <rdar://problem/60088861>
+(if (equal? (param "CPU") "arm64")
+    (allow iokit-open
+        (iokit-user-client-class "AppleAVDUserClient")
+        (iokit-user-client-class "IOMobileFramebufferUserClient")
+        (iokit-user-client-class "IOSurfaceAcceleratorClient") ;; <rdar://problem/63696732>
+        (iokit-user-client-class "IOSurfaceRootUserClient") ;; <rdar://problem/63696732>
+    )
+)
 
 ;; cookied.
 ;; FIXME: Update for <rdar://problem/13642852>.
@@ -602,18 +711,24 @@
 (allow mach-lookup
        (global-name "com.apple.webinspector"))
 
+;; Still actively in use
+(allow mach-lookup
+    (global-name "com.apple.coreservices.launchservicesd")
+    (global-name "com.apple.diagnosticd")
+    (global-name "com.apple.iconservices")
+    (global-name "com.apple.iconservices.store")
+    (global-name "com.apple.powerlog.plxpclogger.xpc")
+    (global-name "com.apple.tccd.system")
+    (global-name "com.apple.trustd.agent")
+)
+
 (allow mach-lookup
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
     (with report) (with telemetry)
 #endif
-    (global-name "com.apple.audio.AudioComponentRegistrar")
     (global-name "com.apple.awdd")
     (global-name "com.apple.cookied")
-    (global-name "com.apple.diagnosticd")
-    (global-name "com.apple.iconservices")
-    (global-name "com.apple.iconservices.store")
     (global-name "com.apple.mobileassetd")
-    (global-name "com.apple.powerlog.plxpclogger.xpc")
 )
 
 ;; Various services required by AppKit and other frameworks
@@ -626,9 +741,7 @@
        (global-name "com.apple.assertiond.processassertionconnection")
        (global-name "com.apple.audio.SystemSoundServer-OSX")
        (global-name "com.apple.audio.audiohald")
-       (global-name "com.apple.cmio.registerassistantservice") ;; Needed by CoreMedia for plugin drivers
        (global-name "com.apple.fonts")
-       (global-name "com.apple.mediaremoted.xpc")
        (global-name "com.apple.logd")
        (global-name "com.apple.logd.events")
        (global-name "com.apple.lskdd") ;; <rdar://problem/49123855>
@@ -644,12 +757,14 @@
     (with report) (with telemetry)
 #endif
     (global-name "com.apple.PowerManagement.control")
-    (global-name "com.apple.cfprefsd.daemon")
-    (global-name "com.apple.coreservices.launchservicesd")
+)
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 110000
+(deny mach-lookup (with telemetry-backtrace)
+#else
+(allow mach-lookup
+#endif
     (global-name "com.apple.lsd.mapdb")
-    (global-name "com.apple.tccd")
-    (global-name "com.apple.tccd.system")
-    (global-name "com.apple.trustd.agent")
 )
 
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400 || PLATFORM(MACCATALYST)
@@ -665,10 +780,17 @@
     (global-name "com.apple.windowserver.active"))
 #endif
 
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 110000
+(deny mach-lookup (with no-log)
+    (global-name "com.apple.CoreDisplay.Notification"))
+#endif
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED < 110000
 ;; Needed to support encrypted media playback <rdar://problem/40038478>
 (allow mach-lookup
     (global-name "com.apple.SecurityServer")
     (global-name "com.apple.ocspd"))
+#endif
 
 (allow file-read* file-write* (subpath "/private/var/db/mds/system")) ;; FIXME: This should be removed when <rdar://problem/9538414> is fixed.
 
@@ -709,18 +831,6 @@
 ;; CFNetwork
 (allow file-read-data (path "/private/var/db/nsurlstoraged/dafsaData.bin"))
 
-;; Network Extensions / VPN helper.
-(allow mach-lookup
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
-    (with report) (with telemetry)
-#endif
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500 || PLATFORM(MACCATALYST)
-    (global-name "com.apple.nesessionmanager.content-filter") ;; <rdar://problem/48442387>
-#else
-    (global-name "com.apple.nesessionmanager") ;; <rdar://problem/55570995>
-#endif
-    (global-name "com.apple.nehelper"))
-
 #if PLATFORM(MAC)
 ;; FIXME should be removed when <rdar://problem/9347205> + related radar in Safari is fixed
 (allow mach-lookup
@@ -729,6 +839,11 @@
 #endif
     (global-name "com.apple.system.notification_center"))
 #endif
+
+;; <rdar://problem/63943836>
+(deny mach-lookup
+    (global-name "com.apple.system.logger")
+    (with no-report))
 
 (if (defined? 'vnode-type)
         (deny file-write-create (vnode-type SYMLINK)))
@@ -762,18 +877,6 @@
        (home-subpath "/Library/Keyboard Layouts")
        (home-subpath "/Library/Input Methods"))
 #endif
-
-;; AirPlay
-(allow mach-lookup
-    (global-name "com.apple.coremedia.endpoint.xpc")
-    (global-name "com.apple.coremedia.endpointstream.xpc")
-    (global-name "com.apple.coremedia.endpointplaybacksession.xpc")
-    ; <rdar://problem/35509194>
-    (global-name "com.apple.coremedia.endpointremotecontrolsession.xpc")
-    (global-name "com.apple.coremedia.routediscoverer.xpc")
-    (global-name "com.apple.coremedia.routingcontext.xpc")
-    (global-name "com.apple.coremedia.volumecontroller.xpc")
-)
 
 ;; Data Detectors
 (allow file-read* (subpath "/private/var/db/datadetectors/sys"))
@@ -849,7 +952,12 @@
         (global-name "com.apple.cmio.AVCAssistant")
         (global-name "com.apple.cmio.IIDCVideoAssistant")
         ;; QuickTimeIIDCDigitizer assistant
-        (global-name "com.apple.IIDCAssistant"))
+        (global-name "com.apple.IIDCAssistant")
+        ;; applecamerad
+        (require-all
+            (extension "com.apple.webkit.extension.mach")
+            (global-name "com.apple.applecamerad")
+        ))
     (allow iokit-open
 #if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500
         (with report) (with telemetry)
@@ -860,10 +968,53 @@
     (allow device-camera))
 #endif // PLATFORM(MAC)
 
+;; <rdar://problem/60983812>
+(deny file-write*
+    (home-subpath "/Library/Preferences/")
+    (with no-log))
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 110000
+(deny mach-lookup (with telemetry-backtrace)
+    (global-name "com.apple.containermanagerd")
+)
+#endif
+
 (allow mach-lookup
     (require-all
         (extension "com.apple.webkit.extension.mach")
-        (global-name "com.apple.nehelper" "com.apple.nesessionmanager.content-filter")))
+        (global-name
+            "com.apple.nehelper"
+#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101500 || PLATFORM(MACCATALYST)
+            "com.apple.nesessionmanager.content-filter"
+#else
+            "com.apple.nesessionmanager"
+#endif
+            "com.apple.webinspector"
+            "com.apple.cfprefsd.agent"
+            "com.apple.cfprefsd.daemon"
+            "com.apple.containermanagerd"
+            "com.apple.tccd"
+            "com.apple.BluetoothServices"
+
+            ;;; FIXME(207716): The following should be removed when the GPU process is complete
+            "com.apple.audio.AudioComponentRegistrar" "com.apple.coremedia.endpoint.xpc" "com.apple.coremedia.endpointstream.xpc"
+            "com.apple.coremedia.endpointplaybacksession.xpc" "com.apple.coremedia.endpointremotecontrolsession.xpc" "com.apple.coremedia.routediscoverer.xpc"
+            "com.apple.coremedia.routingcontext.xpc" "com.apple.coremedia.volumecontroller.xpc" "com.apple.mediaremoted.xpc"
+            ;;; FIXME(207716): End services to remove.
+        )
+    )
+)
+
+(allow mach-lookup
+    (require-all
+        (extension "com.apple.webkit.extension.mach")
+        (xpc-service-name
+            ;;; FIXME(207716): The following should be removed when the GPU process is complete
+            "com.apple.accessibility.mediaaccessibilityd" "com.apple.audio.toolbox.reporting.service" "com.apple.coremedia.videodecoder" "com.apple.coremedia.videoencoder"
+            ;;; FIXME(207716): End services to remove.
+        )
+    )
+)
 
 (when (defined? 'syscall-unix)
     (deny syscall-unix (with send-signal SIGKILL))
@@ -1019,6 +1170,27 @@
         (syscall-number SYS_kqueue_workloop_ctl) ;; <rdar://problem/50999499>
         (syscall-number SYS_faccessat) ;; <rdar://problem/56690456>
         (syscall-number SYS_fsetxattr) ;; <rdar://problem/56332491>
+#if __MAC_OS_X_VERSION_MIN_REQUIRED > 101500
+        (syscall-number SYS_ulock_wait2) ;; <rdar://problem/58743778>
+#endif
+        (syscall-number SYS_fstat64_extended) ;; <rdar://problem/61310019>
+        (syscall-number SYS_gethostuuid)
     )
+
+    (if (equal? (param "CPU") "arm64")
+        (allow syscall-unix
+            (syscall-number SYS_fileport_makefd)
+            (syscall-number SYS_guarded_open_dprotected_np) ;; <rdar://problem/65897905>
+            (syscall-number SYS_mremap_encrypted)
+        )
+    )
+
+#if __MAC_OS_X_VERSION_MIN_REQUIRED > 101500
+    (if (defined? 'SYS_objc_bp_assist_cfg_np)
+        (allow syscall-unix (syscall-number SYS_objc_bp_assist_cfg_np)))
+#endif
 )
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/WebContentSandboxAdditionsMac.sb>
+#endif

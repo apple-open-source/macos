@@ -40,13 +40,13 @@ namespace Security {
 //
 // CssmMemoryFunctionsAllocators
 //
-void *CssmMemoryFunctionsAllocator::malloc(size_t size) throw(std::bad_alloc)
+void *CssmMemoryFunctionsAllocator::malloc(size_t size)
 { return functions.malloc(size); }
 
-void CssmMemoryFunctionsAllocator::free(void *addr) throw()
+void CssmMemoryFunctionsAllocator::free(void *addr) _NOEXCEPT
 { return functions.free(addr); }
 
-void *CssmMemoryFunctionsAllocator::realloc(void *addr, size_t size) throw(std::bad_alloc)
+void *CssmMemoryFunctionsAllocator::realloc(void *addr, size_t size)
 { return functions.realloc(addr, size); }
 
 
@@ -62,16 +62,16 @@ CssmAllocatorMemoryFunctions::CssmAllocatorMemoryFunctions(Allocator &alloc)
 	calloc_func = relayCalloc;
 }
 
-void *CssmAllocatorMemoryFunctions::relayMalloc(size_t size, void *ref) throw(std::bad_alloc)
+void *CssmAllocatorMemoryFunctions::relayMalloc(size_t size, void *ref)
 { return allocator(ref).malloc(size); }
 
-void CssmAllocatorMemoryFunctions::relayFree(void *mem, void *ref) throw()
+void CssmAllocatorMemoryFunctions::relayFree(void *mem, void *ref) _NOEXCEPT
 { allocator(ref).free(mem); }
 
-void *CssmAllocatorMemoryFunctions::relayRealloc(void *mem, size_t size, void *ref) throw(std::bad_alloc)
+void *CssmAllocatorMemoryFunctions::relayRealloc(void *mem, size_t size, void *ref)
 { return allocator(ref).realloc(mem, size); }
 
-void *CssmAllocatorMemoryFunctions::relayCalloc(uint32 count, size_t size, void *ref) throw(std::bad_alloc)
+void *CssmAllocatorMemoryFunctions::relayCalloc(uint32 count, size_t size, void *ref)
 {
 	// Allocator doesn't have a calloc() method
 	size_t alloc_size = 0;

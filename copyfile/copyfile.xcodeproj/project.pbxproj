@@ -7,7 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		096213F7239827D0005847FC /* identical_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 096213F6239827D0005847FC /* identical_test.c */; };
 		098AF3B622692BF300F9BA42 /* stat_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 098AF3B522692BF300F9BA42 /* stat_test.c */; };
+		3EF9FA5F2418B6BA003B43E8 /* readonly_fd_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF9FA5E2418B6BA003B43E8 /* readonly_fd_test.c */; };
 		721D4F071EA95283000F0555 /* copyfile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE17C1135A658F002CEE6D /* copyfile.c */; };
 		721D4F081EA95290000F0555 /* xattr_flags.c in Sources */ = {isa = PBXBuildFile; fileRef = 72406E621676C3C80099568B /* xattr_flags.c */; };
 		72406E631676C3C80099568B /* xattr_flags.c in Sources */ = {isa = PBXBuildFile; fileRef = 72406E621676C3C80099568B /* xattr_flags.c */; };
@@ -18,6 +20,7 @@
 		72B4C0F41676C47D00C13E05 /* copyfile_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B4C0F31676C47D00C13E05 /* copyfile_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		72EAA3B016A72F4500833E98 /* xattr_flags.h in Headers */ = {isa = PBXBuildFile; fileRef = 72EAA3AF16A72F4500833E98 /* xattr_flags.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		86EF9F0A1834018C00AAB3F3 /* xattr_properties.h in Headers */ = {isa = PBXBuildFile; fileRef = 86EF9F091834018C00AAB3F3 /* xattr_properties.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		D11048A22455AE7900E8F465 /* xattr_test.c in Sources */ = {isa = PBXBuildFile; fileRef = D11048A12455AE7900E8F465 /* xattr_test.c */; };
 		FCCE17C3135A658F002CEE6D /* copyfile.c in Sources */ = {isa = PBXBuildFile; fileRef = FCCE17C1135A658F002CEE6D /* copyfile.c */; };
 		FCCE17C4135A658F002CEE6D /* copyfile.h in Headers */ = {isa = PBXBuildFile; fileRef = FCCE17C2135A658F002CEE6D /* copyfile.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
@@ -35,9 +38,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		096213F5239827D0005847FC /* identical_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = identical_test.h; sourceTree = "<group>"; };
+		096213F6239827D0005847FC /* identical_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = identical_test.c; sourceTree = "<group>"; };
 		098AF3B422692BF300F9BA42 /* stat_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = stat_test.h; sourceTree = "<group>"; };
 		098AF3B522692BF300F9BA42 /* stat_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = stat_test.c; sourceTree = "<group>"; };
 		098AF3B7226A510E00F9BA42 /* copyfile_test.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; path = copyfile_test.entitlements; sourceTree = "<group>"; };
+		3EF9FA5D2418B6BA003B43E8 /* readonly_fd_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = readonly_fd_test.h; sourceTree = "<group>"; };
+		3EF9FA5E2418B6BA003B43E8 /* readonly_fd_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = readonly_fd_test.c; sourceTree = "<group>"; };
 		3F1EFD4C185C4EB400D1C970 /* copyfile.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = copyfile.xcconfig; path = xcodescripts/copyfile.xcconfig; sourceTree = "<group>"; };
 		721D4F051EA95008000F0555 /* libcopyfile.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcopyfile.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/usr/lib/system/libcopyfile.tbd; sourceTree = DEVELOPER_DIR; };
 		72406E621676C3C80099568B /* xattr_flags.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xattr_flags.c; sourceTree = "<group>"; };
@@ -53,6 +60,8 @@
 		72EAA3AF16A72F4500833E98 /* xattr_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xattr_flags.h; sourceTree = "<group>"; };
 		861E1C14180F0AF900E65B9A /* xattr_name_with_flags.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = xattr_name_with_flags.3; sourceTree = "<group>"; };
 		86EF9F091834018C00AAB3F3 /* xattr_properties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = xattr_properties.h; sourceTree = "<group>"; };
+		D11048A02455AE7900E8F465 /* xattr_test.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = xattr_test.h; sourceTree = "<group>"; };
+		D11048A12455AE7900E8F465 /* xattr_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = xattr_test.c; sourceTree = "<group>"; };
 		FCCE17BB135A6444002CEE6D /* libcopyfile.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libcopyfile.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FCCE17C0135A658F002CEE6D /* copyfile.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = copyfile.3; sourceTree = "<group>"; };
 		FCCE17C1135A658F002CEE6D /* copyfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = copyfile.c; sourceTree = "<group>"; };
@@ -89,6 +98,10 @@
 			isa = PBXGroup;
 			children = (
 				726EE9DA1E9423E50017A5B9 /* main.c */,
+				096213F6239827D0005847FC /* identical_test.c */,
+				096213F5239827D0005847FC /* identical_test.h */,
+				3EF9FA5E2418B6BA003B43E8 /* readonly_fd_test.c */,
+				3EF9FA5D2418B6BA003B43E8 /* readonly_fd_test.h */,
 				726EE9DE1E9425160017A5B9 /* sparse_test.c */,
 				726EE9DF1E9425160017A5B9 /* sparse_test.h */,
 				098AF3B522692BF300F9BA42 /* stat_test.c */,
@@ -98,6 +111,8 @@
 				726EE9E21E946B320017A5B9 /* systemx.c */,
 				726EE9E31E946B320017A5B9 /* systemx.h */,
 				098AF3B7226A510E00F9BA42 /* copyfile_test.entitlements */,
+				D11048A02455AE7900E8F465 /* xattr_test.h */,
+				D11048A12455AE7900E8F465 /* xattr_test.c */,
 			);
 			path = copyfile_test;
 			sourceTree = "<group>";
@@ -201,6 +216,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = FCCE17AB135A5FFB002CEE6D;
@@ -238,9 +254,12 @@
 			files = (
 				098AF3B622692BF300F9BA42 /* stat_test.c in Sources */,
 				721D4F081EA95290000F0555 /* xattr_flags.c in Sources */,
+				3EF9FA5F2418B6BA003B43E8 /* readonly_fd_test.c in Sources */,
+				D11048A22455AE7900E8F465 /* xattr_test.c in Sources */,
 				721D4F071EA95283000F0555 /* copyfile.c in Sources */,
 				726EE9DB1E9423E50017A5B9 /* main.c in Sources */,
 				726EE9E61E946D590017A5B9 /* test_utils.c in Sources */,
+				096213F7239827D0005847FC /* identical_test.c in Sources */,
 				726EE9E41E946B320017A5B9 /* systemx.c in Sources */,
 				726EE9E01E9425160017A5B9 /* sparse_test.c in Sources */,
 			);
@@ -366,6 +385,7 @@
 					"-ldispatch",
 					"-lxpc",
 				);
+				OTHER_TAPI_FLAGS = "-umbrella System";
 				SDKROOT = macosx.internal;
 				"SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 				SUPPORTS_TEXT_BASED_API = YES;

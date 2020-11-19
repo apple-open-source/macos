@@ -128,7 +128,7 @@ static apr_status_t ap_session_load(request_rec * r, session_rec ** z)
     now = apr_time_now();
 
     if (zz) {
-        /* load the session attibutes */
+        /* load the session attributes */
         rv = ap_run_session_decode(r, zz);
  
         /* having a session we cannot decode is just as good as having
@@ -142,6 +142,7 @@ static apr_status_t ap_session_load(request_rec * r, session_rec ** z)
 
        /* invalidate session if session is expired */
         if (zz && zz->expiry && zz->expiry < now) {
+            ap_log_rerror(APLOG_MARK, APLOG_TRACE2, 0, r, "session is expired");
             zz = NULL;
         }
     }

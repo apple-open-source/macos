@@ -36,7 +36,8 @@ LinkManPages removefile.3 \
 	removefile_state_alloc.3 \
 	removefile_state_free.3 \
 	removefile_state_get.3 \
-	removefile_state_set.3
+	removefile_state_set.3 \
+	removefileat.3
 
 InstallManPages checkint.3 
 LinkManPages checkint.3 \

@@ -102,12 +102,12 @@ out:
 }
 
 #define kNumberCleanupTests 1
-static void cleanup_keychain(SecKeychainRef keychain, SecIdentityRef identity, SecCertificateRef cert) {
+static void cleanup_keychain(SecKeychainRef* keychain, SecIdentityRef* identity, SecCertificateRef* cert) {
     /* Delete keychain - from the search list and from disk */
-    ok_status(SecKeychainDelete(keychain), "Delete temporary keychain");
-    CFReleaseNull(keychain);
-    CFReleaseNull(cert);
-    CFReleaseNull(identity);
+    ok_status(SecKeychainDelete(*keychain), "Delete temporary keychain");
+    CFReleaseNull(*keychain);
+    CFReleaseNull(*cert);
+    CFReleaseNull(*identity);
 }
 
 static OSStatus sign_please(SecIdentityRef identity, SECOidTag digestAlgTag, bool withAttrs, uint8_t *expected_output, size_t expected_len) {
@@ -370,7 +370,7 @@ static void sign_tests(SecIdentityRef identity, bool isRSA) {
     is(sign_please(identity, SEC_OID_SHA1, false, (isRSA) ? rsa_sha1 : NULL,
                    (isRSA) ? sizeof(rsa_sha1) : 0),
        errSecSuccess, "Signed with SHA-1");
-    is(sign_please(identity, SEC_OID_SHA256, false, (isRSA) ? rsa_sha256 : NULL,
+    is(sign_please(identity, SEC_OID_SHA256, false, (isRSA) ? new_sig_alg_rsa_sha256 : NULL,
                    (isRSA) ? sizeof(rsa_sha256) : 0),
        errSecSuccess, "Signed with SHA-256");
     is(sign_please(identity, SEC_OID_SHA384, false, NULL, 0), errSecSuccess, "Signed with SHA-384");
@@ -494,7 +494,7 @@ int cms_01_basic(int argc, char *const *argv)
     verify_tests(kc, true);
     encrypt_tests(certificate);
     decrypt_tests(true);
-    cleanup_keychain(kc, identity, certificate);
+    cleanup_keychain(&kc, &identity, &certificate);
 
     /* EC tests */
     kc = setup_keychain(_ec_identity, sizeof(_ec_identity), &identity, &certificate);
@@ -502,7 +502,7 @@ int cms_01_basic(int argc, char *const *argv)
     verify_tests(kc, false);
     encrypt_tests(certificate);
     decrypt_tests(false);
-    cleanup_keychain(kc, identity, certificate);
+    cleanup_keychain(&kc, &identity, &certificate);
 
     return 0;
 }

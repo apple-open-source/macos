@@ -12,6 +12,9 @@ usage(void)
 {
 	printf("osvariantutil status\n");
 	printf("osvariantutil parse <kern.osvariant_status>\n");
+	printf("osvariantutil check <OS_VARIANT_STRING\n");
+	printf("  For Example: osvariantutil check IsDarwinOS\n");
+	printf("  Refer variant_private.h for valid OS_VARIANT_STRING\n");
 	exit(1);
 }
 
@@ -31,7 +34,15 @@ main(int argc, char *argv[]) {
 		}
 		_restore_cached_check_status(status);
 		printf("Using status: %llx\n", status);
-	} else {
+	} else if (argc == 3 && strcmp(argv[1], "check") == 0) {
+          if (os_variant_check("com.apple.osvariantutil", argv[2]) == true) {
+            printf("%s: true\n", argv[2]);
+            exit(0);
+          } else {
+            printf("%s: false\n", argv[2]);
+            exit(1);
+          }
+        } else {
 		usage();
 	}
 
@@ -52,6 +63,12 @@ main(int argc, char *argv[]) {
 			bool2str(os_variant_uses_ephemeral_storage("com.apple.osvariantutil")));
 	printf("\tos_variant_is_recovery: %s\n",
 			bool2str(os_variant_is_recovery("com.apple.osvariantutil")));
+#if TARGET_OS_OSX
+	printf("\tos_variant_is_basesystem: %s\n",
+			bool2str(os_variant_is_basesystem("com.apple.osvariantutil")));
+#endif
+	printf("\tos_variant_has_full_logging: %s\n",
+			bool2str(os_variant_check("com.apple.osvariantutil", "HasFullLogging")));
 
 	printf("\nOS Variant Overrides:\n");
 	printf("\tCONTENT: %s\n", bool2str(_check_disabled(VP_CONTENT)));
@@ -73,6 +90,7 @@ main(int argc, char *argv[]) {
 	printf("\tInternal Diags Profile: %s\n", bool2str(_check_internal_diags_profile()));
 	printf("\tFactory Content: %s\n", bool2str(_check_factory_content()));
 	printf("\tBaseSystem Content: %s\n", bool2str(_check_base_system_content()));
+	printf("\tdarwinOS Content: %s\n", bool2str(_check_darwinos_content()));
 #endif
 	printf("\tCan Has Debugger: %s\n", bool2str(_check_can_has_debugger()));
 

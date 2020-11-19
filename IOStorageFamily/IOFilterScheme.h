@@ -67,7 +67,7 @@
  * and writes.
  */
 
-class IOFilterScheme : public IOStorage
+class __exported IOFilterScheme : public IOStorage
 {
     OSDeclareDefaultStructors(IOFilterScheme);
 

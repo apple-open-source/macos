@@ -81,7 +81,7 @@ handle_sig(int sig)
 }
 
 static int
-file_read(const char *filename, const char *unitmatch, int verbose, int ignore_non_c, tdata_t **td)
+file_read(const char *filename, const char *cumatch, int verbose, int ignore_non_c, tdata_t **td)
 {
 	typedef int (*reader_f)(Elf *, const char *, const char *, int, tdata_t **);
 	static const reader_f readers[] = {
@@ -118,7 +118,7 @@ file_read(const char *filename, const char *unitmatch, int verbose, int ignore_n
 	}
 
 	for (i = 0; readers[i] != NULL; i++) {
-		if ((rc = readers[i](elf, filename, unitmatch, verbose, td)) == 0)
+		if ((rc = readers[i](elf, filename, cumatch, verbose, td)) == 0)
 			break;
 	}
 

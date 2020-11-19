@@ -8,5 +8,10 @@
 	<array>
 		<string>kTCCServiceListenEvent</string>
 	</array>
+	<key>com.apple.security.iokit-user-client-class</key>
+	<array>
+		<string>IOAccessoryManagerUserClient</string>
+		<string>IOHIDLibUserClient</string>
+	</array>
 </dict>
 </plist>

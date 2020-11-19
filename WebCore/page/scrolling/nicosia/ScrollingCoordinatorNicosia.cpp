@@ -69,16 +69,16 @@ void ScrollingCoordinatorNicosia::commitTreeStateIfNeeded()
     m_scrollingStateTreeCommitterTimer.stop();
 }
 
-ScrollingEventResult ScrollingCoordinatorNicosia::handleWheelEvent(FrameView&, const PlatformWheelEvent& wheelEvent)
+bool ScrollingCoordinatorNicosia::handleWheelEvent(FrameView&, const PlatformWheelEvent& wheelEvent, ScrollingNodeID targetNode)
 {
     ASSERT(isMainThread());
     ASSERT(m_page);
     ASSERT(scrollingTree());
 
-    ScrollingThread::dispatch([threadedScrollingTree = makeRef(downcast<ThreadedScrollingTree>(*scrollingTree())), wheelEvent] {
-        threadedScrollingTree->handleWheelEvent(wheelEvent);
+    ScrollingThread::dispatch([threadedScrollingTree = makeRef(downcast<ThreadedScrollingTree>(*scrollingTree())), wheelEvent, targetNode] {
+        threadedScrollingTree->handleWheelEventAfterMainThread(wheelEvent, targetNode);
     });
-    return ScrollingEventResult::DidHandleEvent;
+    return true;
 }
 
 void ScrollingCoordinatorNicosia::scheduleTreeStateCommit()
@@ -94,13 +94,8 @@ void ScrollingCoordinatorNicosia::commitTreeState()
     if (!scrollingStateTree()->hasChangedProperties())
         return;
 
-    RefPtr<ThreadedScrollingTree> threadedScrollingTree = downcast<ThreadedScrollingTree>(scrollingTree());
-    threadedScrollingTree->incrementPendingCommitCount();
-
-    auto treeState = scrollingStateTree()->commit(LayerRepresentation::PlatformLayerRepresentation);
-    ScrollingThread::dispatch([threadedScrollingTree, treeState = WTFMove(treeState)]() mutable {
-        threadedScrollingTree->commitTreeState(WTFMove(treeState));
-    });
+    auto stateTree = scrollingStateTree()->commit(LayerRepresentation::PlatformLayerRepresentation);
+    scrollingTree()->commitTreeState(WTFMove(stateTree));
 }
 
 } // namespace WebCore

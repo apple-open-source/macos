@@ -131,8 +131,13 @@ struct linkorigin {
 };
 typedef struct linkorigin linkorigin_t;
 
-#define MAX_CACHED_ORIGINS  10
-#define MAX_CACHED_FILE_ORIGINS 8
+extern uint32_t _hfs_max_origins;
+extern uint32_t _hfs_max_file_origins;
+
+#define MAX_CACHED_ORIGINS_DEFAULT 10
+#define MAX_CACHED_ORIGINS (_hfs_max_origins)
+#define MAX_CACHED_FILE_ORIGINS_DEFAULT 8
+#define MAX_CACHED_FILE_ORIGINS (_hfs_max_file_origins)
 
 /*
  * The cnode is used to represent each active (or recently active)

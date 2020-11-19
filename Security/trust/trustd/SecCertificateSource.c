@@ -416,8 +416,6 @@ struct SecCertificateSource _kSecSystemAnchorSource = {
 
 const SecCertificateSourceRef kSecSystemAnchorSource = &_kSecSystemAnchorSource;
 
-
-#if TARGET_OS_IPHONE
 // MARK: -
 // MARK: SecUserAnchorSource
 /********************************************************
@@ -461,7 +459,6 @@ struct SecCertificateSource _kSecUserAnchorSource = {
 };
 
 const SecCertificateSourceRef kSecUserAnchorSource = &_kSecUserAnchorSource;
-#endif
 
 // MARK: -
 // MARK: SecMemoryCertificateSource
@@ -629,30 +626,33 @@ const SecCertificateSourceRef kSecLegacyCertificateSource = &_kSecLegacyCertific
 static bool SecLegacyAnchorSourceCopyParents(SecCertificateSourceRef source, SecCertificateRef certificate,
                                              void *context, SecCertificateSourceParents callback) {
     CFMutableArrayRef anchors = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    CFArrayRef parents = SecItemCopyParentCertificates_osx(certificate, NULL);
     CFArrayRef trusted = NULL;
-    if (parents == NULL) {
+    CFDataRef normalizedIssuer = SecCertificateCopyNormalizedIssuerSequence(certificate);
+    if (!normalizedIssuer) {
         goto finish;
     }
+
     /* Get the custom anchors which have been trusted in the user and admin domains.
      * We don't need system domain roots here, since SecSystemAnchorSource provides those.
      */
     OSStatus status = SecTrustSettingsCopyCertificatesForUserAdminDomains(&trusted);
     if (status == errSecSuccess && trusted) {
-        CFIndex index, count = CFArrayGetCount(parents);
+        CFIndex index, count = CFArrayGetCount(trusted);
         for (index = 0; index < count; index++) {
-            SecCertificateRef parent = (SecCertificateRef)CFArrayGetValueAtIndex(parents, index);
-            if (parent && CFArrayContainsValue(trusted, CFRangeMake(0, CFArrayGetCount(trusted)), parent)) {
-                CFArrayAppendValue(anchors, parent);
+            SecCertificateRef potentialParent = (SecCertificateRef)CFArrayGetValueAtIndex(trusted, index);
+            CFDataRef normalizedSubject = SecCertificateCopyNormalizedSubjectSequence(potentialParent);
+            if (CFEqualSafe(normalizedIssuer, normalizedSubject)) {
+                CFArrayAppendValue(anchors, potentialParent);
             }
+            CFReleaseSafe(normalizedSubject);
         }
     }
 
 finish:
     callback(context, anchors);
     CFReleaseSafe(anchors);
-    CFReleaseSafe(parents);
     CFReleaseSafe(trusted);
+    CFReleaseSafe(normalizedIssuer);
     return true;
 }
 
@@ -661,19 +661,19 @@ static CFArrayRef SecLegacyAnchorSourceCopyUsageConstraints(SecCertificateSource
     CFArrayRef result = NULL;
     CFArrayRef userTrustSettings = NULL, adminTrustSettings = NULL;
 
-    OSStatus status = SecTrustSettingsCopyTrustSettings(certificate,
-                                                        kSecTrustSettingsDomainUser,
-                                                        &userTrustSettings);
-    if ((status == errSecSuccess) && (userTrustSettings != NULL)) {
-        result = CFRetain(userTrustSettings);
+    OSStatus status = SecTrustSettingsCopyTrustSettings_Cached(certificate,
+                                                               kSecTrustSettingsDomainAdmin,
+                                                               &adminTrustSettings);
+    if ((status == errSecSuccess) && (adminTrustSettings != NULL)) {
+        /* admin trust settings overrule user trust settings (rdar://37052515) */
+        return adminTrustSettings;
     }
 
-    status = SecTrustSettingsCopyTrustSettings(certificate,
-                                               kSecTrustSettingsDomainAdmin,
-                                               &adminTrustSettings);
-    /* user trust settings overrule admin trust settings */
-    if ((status == errSecSuccess) && (adminTrustSettings != NULL) && (result == NULL)) {
-        result = CFRetain(adminTrustSettings);
+    status =  SecTrustSettingsCopyTrustSettings_Cached(certificate,
+                                                       kSecTrustSettingsDomainUser,
+                                                       &userTrustSettings);
+    if (status == errSecSuccess) {
+        result = CFRetainSafe(userTrustSettings);
     }
 
     CFReleaseNull(userTrustSettings);
@@ -686,31 +686,39 @@ static bool SecLegacyAnchorSourceContains(SecCertificateSourceRef source,
     if (certificate == NULL) {
         return false;
     }
-    CFArrayRef trusted = NULL;
-    bool result = false;
-    OSStatus status = SecTrustSettingsCopyCertificatesForUserAdminDomains(&trusted);
-    if ((status == errSecSuccess) && (trusted != NULL)) {
-        CFIndex index, count = CFArrayGetCount(trusted);
-        for (index = 0; index < count; index++) {
-            SecCertificateRef anchor = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(trusted, index));
-            if (anchor && (CFGetTypeID(anchor) != CFGetTypeID(certificate))) {
-                /* This should only happen if trustd and the Security framework are using different SecCertificate TypeIDs.
+
+    if (SecTrustSettingsUserAdminDomainsContain(certificate)) {
+        return true;
+    } else {
+        CFArrayRef trusted = NULL;
+        bool result = false;
+        OSStatus status = SecTrustSettingsCopyCertificatesForUserAdminDomains(&trusted);
+        if ((status == errSecSuccess) && (trusted != NULL)) {
+            if ((CFArrayGetCount(trusted) > 0) && CFGetTypeID(CFArrayGetValueAtIndex(trusted, 0)) != CFGetTypeID(certificate)) {
+                /* This fallback should only happen if trustd and the Security framework are using different SecCertificate TypeIDs.
                  * This occurs in TrustTests where we rebuild SecCertificate.c for code coverage purposes, so we end up with
                  * two registered SecCertificate types. So we'll make a SecCertificate of our type. */
-                SecCertificateRef temp = SecCertificateCreateWithBytes(NULL, SecCertificateGetBytePtr(anchor), SecCertificateGetLength(anchor));
-                CFAssignRetained(anchor, temp);
+                CFIndex index, count = CFArrayGetCount(trusted);
+                for (index = 0; index < count; index++) {
+                    SecCertificateRef anchor = (SecCertificateRef)CFRetainSafe(CFArrayGetValueAtIndex(trusted, index));
+                    if (anchor && (CFGetTypeID(anchor) != CFGetTypeID(certificate))) {
+                        SecCertificateRef temp = SecCertificateCreateWithBytes(NULL, SecCertificateGetBytePtr(anchor), SecCertificateGetLength(anchor));
+                        CFAssignRetained(anchor, temp);
+                    }
+                    if (anchor && CFEqual(anchor, certificate)) {
+                        result = true;
+                    }
+                    CFReleaseNull(anchor);
+                    if (result) {
+                        break;
+                    }
+                }
             }
-            if (anchor && CFEqual(anchor, certificate)) {
-                result = true;
-            }
-            CFReleaseNull(anchor);
-            if (result) {
-                break;
-            }
+            CFReleaseSafe(trusted);
+            return result;
         }
     }
-    CFReleaseSafe(trusted);
-    return result;
+    return false;
 }
 
 struct SecCertificateSource _kSecLegacyAnchorSource = {

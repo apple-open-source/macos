@@ -60,6 +60,13 @@
 
 #define kIOPCIDeviceMemoryArrayKey       "IODeviceMemory"
 
+/*  bits getInterruptType result */
+enum
+{
+    kIOInterruptTypePCIMessaged  = 0x00010000,
+    kIOInterruptTypePCIMessagedX = 0x00020000
+};
+
 /* Definitions of PCI Config Registers */
 enum
 {
@@ -114,6 +121,15 @@ enum
     kIOPCICapabilityIDMSIX                = 0x11,
     kIOPCICapabilityIDFPB                 = 0x15,
 
+#if defined(__LP64__)
+    kIOPCIExpressCapabilityIDErrorReporting            = -0x01U,
+    kIOPCIExpressCapabilityIDVirtualChannel            = -0x02U,
+    kIOPCIExpressCapabilityIDDeviceSerialNumber        = -0x03U,
+    kIOPCIExpressCapabilityIDPowerBudget               = -0x04U,
+    kIOPCIExpressCapabilityIDAccessControlServices     = -0x0DU,
+    kIOPCIExpressCapabilityIDLatencyTolerenceReporting = -0x18U,
+    kIOPCIExpressCapabilityIDL1PMSubstates             = -0x1EU,
+#else  /* defined(__LP64__) */
     kIOPCIExpressCapabilityIDErrorReporting            = -0x01UL,
     kIOPCIExpressCapabilityIDVirtualChannel            = -0x02UL,
     kIOPCIExpressCapabilityIDDeviceSerialNumber        = -0x03UL,
@@ -121,6 +137,7 @@ enum
     kIOPCIExpressCapabilityIDAccessControlServices     = -0x0DUL,
     kIOPCIExpressCapabilityIDLatencyTolerenceReporting = -0x18UL,
     kIOPCIExpressCapabilityIDL1PMSubstates             = -0x1EUL,
+#endif /* !defined(__LP64__) */
 };
 
 /* Command register definitions */
@@ -203,6 +220,19 @@ enum
 
     kPCIPMCSPMEDisableInS3 = 0x00010000,
     kPCIPMCSPMEWakeReason  = 0x00020000
+};
+
+enum
+{
+    kIOPCISlotCapabilitiesBitAttentionButtonPresent            = (1 << 0),
+    kIOPCISlotCapabilitiesBitPowerControllerPresent            = (1 << 1),
+    kIOPCISlotCapabilitiesBitMRLSensorPresent                  = (1 << 2),
+    kIOPCISlotCapabilitiesBitAttentionIndicatorPresent         = (1 << 3),
+    kIOPCISlotCapabilitiesBitPowerIndicatorPresent             = (1 << 4),
+    kIOPCISlotCapabilitiesBitHotPlugSurprise                   = (1 << 5),
+    kIOPCISlotCapabilitiesBitHotPlugCapable                    = (1 << 6),
+    kIOPCISlotCapabilitiesBitElectromechanicalInterlockPresent = (1 << 17),
+    kIOPCISlotCapabilitiesBitNoCommandCompletedSupport         = (1 << 18)
 };
 
 // PCIe error bits

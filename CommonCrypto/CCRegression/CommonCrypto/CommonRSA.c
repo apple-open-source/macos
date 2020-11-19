@@ -152,7 +152,7 @@ errOut:
 
 }
 
-static int compute_crt_components(CCRSACryptorRef rsaKey, void *dp, size_t *np, void *dq, size_t *nq, void *qinv, size_t *nqinv)
+static int compute_crt_components(CCRSACryptorRef rsaKey, void *dp, size_t *np, void *dq, size_t *nq)
 {
     size_t nbytes = (CCRSAGetKeySize(rsaKey)+7)/8;
     size_t modulus_sz = nbytes;
@@ -192,12 +192,6 @@ static int compute_crt_components(CCRSACryptorRef rsaKey, void *dp, size_t *np, 
     ok_or_fail(ccn_mod(n, dq, n, d, *np, q)==0, "computing dq");
     p[0]++; q[0]++;
     
-    cczp_decl_n(*np, zp);
-    CCZP_N(zp) = *np;
-    ccn_set(*np, CCZP_PRIME(zp), p);
-    ok_or_fail(cczp_inv(zp, qinv, q)==0, "computing qinv");
-    *nqinv = cczp_n(zp);
-    
     return 1;
 }
 
@@ -219,22 +213,18 @@ static int CCRSAGetCRTComponentsTest(CCRSACryptorRef rsaKey)
     size_t n =  ccn_nof(keybits); //should probaly be ccn_nof_bits()
     cc_unit dp2[n]; //larger than needed, but thats fine
     cc_unit dq2[n];
-    cc_unit qinv2[n];
     
-    size_t np, nq, nqinv;
-    compute_crt_components(rsaKey, dp2, &np, dq2, &nq, qinv2, &nqinv);
+    size_t np, nq;
+    compute_crt_components(rsaKey, dp2, &np, dq2, &nq);
     
-    //- compare computed crt parametrs with those received from CCRSAGetCRTComponents()
+    //- compare computed crt parameters with those received from CCRSAGetCRTComponents()
     cc_unit dp3[n];
     cc_unit dq3[n];
-    cc_unit qinv3[n];
     ccn_read_uint(n, dp3, dp_size, dp);
     ccn_read_uint(n, dq3, dq_size, dq);
-    ccn_read_uint(n, qinv3, qinv_size, qinv);
     
-    ok_or_fail(ccn_cmp(ccn_nof_size(dp_size), dp2, dp3)==0, "compring received dp with computed dp");
-    ok_or_fail(ccn_cmp(ccn_nof_size(dq_size), dq2, dq3)==0, "compring received dq with computed dq");
-    ok_or_fail(ccn_cmp(ccn_nof_size(qinv_size), qinv2, qinv3)==0, "compring received qinv with computed qinv");
+    ok_or_fail(ccn_cmp(ccn_nof_size(dp_size), dp2, dp3)==0, "comparing received dp with computed dp");
+    ok_or_fail(ccn_cmp(ccn_nof_size(dq_size), dq2, dq3)==0, "comparing received dq with computed dq");
     
     return 1;
 }
@@ -462,7 +452,7 @@ int CommonRSA (int __unused argc, char *const * __unused argv) {
     int stdgen = 1;
     size_t keystep = 512;
 
-    plan_tests(574);
+    plan_tests(553);
     CCRSACryptorCreateFromData_tests();
     CCRSACryptorCreateFromData_KATtests();
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -53,6 +53,7 @@
 #include <net/if_dl.h>
 #include <net/if_types.h>
 #include <net/network_agent.h>
+#include <os/overflow.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -114,7 +115,9 @@ static CFStringRef	__SCNetworkReachabilityCopyDescription	(CFTypeRef cf);
 static void		__SCNetworkReachabilityDeallocate	(CFTypeRef cf);
 
 static SCNetworkReachabilityFlags
-__SCNetworkReachabilityGetFlagsFromPath(nw_path_t			path,
+__SCNetworkReachabilityGetFlagsFromPath(const char			*prefix,
+					const char			*caller,
+					nw_path_t			path,
 					ReachabilityAddressType		type,
 					nw_resolver_status_t		resolverStatus,
 					nw_array_t			resolvedEndpoints,
@@ -239,20 +242,26 @@ static CFStringRef
 __SCNetworkReachabilityCopyTargetFlags(SCNetworkReachabilityRef target)
 {
 	CFAllocatorRef			allocator	= CFGetAllocator(target);
+	SCNetworkReachabilityFlags	flags;
+	unsigned int			if_index;
 	CFStringRef			str;
 	SCNetworkReachabilityPrivateRef	targetPrivate	= (SCNetworkReachabilityPrivateRef)target;
 
+	flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->log_prefix,
+							"CopyTargetFlags",
+							targetPrivate->lastPath,
+							targetPrivate->type,
+							targetPrivate->lastResolverStatus,
+							targetPrivate->lastResolvedEndpoints,
+							targetPrivate->lastResolvedEndpointHasFlags,
+							targetPrivate->lastResolvedEndpointFlags);
+	if_index = targetPrivate->lastResolvedEndpointHasFlags ? targetPrivate->lastResolvedEndpointInterfaceIndex
+							       : nw_path_get_interface_index(targetPrivate->lastPath);
 	str = CFStringCreateWithFormat(allocator,
 				       NULL,
 				       CFSTR("flags = 0x%08x, if_index = %u"),
-				       __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->lastPath,
-									       targetPrivate->type,
-									       targetPrivate->lastResolverStatus,
-									       targetPrivate->lastResolvedEndpoints,
-									       targetPrivate->lastResolvedEndpointHasFlags,
-									       targetPrivate->lastResolvedEndpointFlags),
-				       targetPrivate->lastResolvedEndpointHasFlags ? targetPrivate->lastResolvedEndpointInterfaceIndex
-										   : nw_path_get_interface_index(targetPrivate->lastPath));
+				       flags,
+				       if_index);
 	return str;
 }
 
@@ -1019,6 +1028,7 @@ static void
 __SCNetworkReachabilityGetAgentVPNFlags(xpc_object_t dictionary, Boolean *vpn, Boolean *onDemand)
 {
 	const struct netagent *agent = NULL;
+	size_t expected = 0;
 	size_t length = 0;
 
 	if (dictionary == NULL || vpn == NULL || onDemand == NULL) {
@@ -1029,7 +1039,10 @@ __SCNetworkReachabilityGetAgentVPNFlags(xpc_object_t dictionary, Boolean *vpn, B
 	*onDemand = FALSE;
 
 	agent = xpc_dictionary_get_data(dictionary, REACHABILITY_AGENT_DATA_KEY, &length);
-	if (agent == NULL || length < sizeof(struct netagent) || length != (sizeof(struct netagent) + agent->netagent_data_size)) {
+	if ((agent == NULL) ||
+	    (length < sizeof(struct netagent)) ||
+	    os_add_overflow(sizeof(struct netagent), agent->netagent_data_size, &expected) ||
+	    (length != expected)) {
 		return;
 	}
 
@@ -1079,7 +1092,9 @@ nw_path_is_linklocal_direct(nw_path_t path)
 }
 
 static SCNetworkReachabilityFlags
-__SCNetworkReachabilityGetFlagsFromPath(nw_path_t			path,
+__SCNetworkReachabilityGetFlagsFromPath(const char			*log_prefix,
+					const char			*caller,
+					nw_path_t			path,
 					ReachabilityAddressType		type,
 					nw_resolver_status_t		resolverStatus,
 					nw_array_t			resolvedEndpoints,
@@ -1175,7 +1190,13 @@ __SCNetworkReachabilityGetFlagsFromPath(nw_path_t			path,
 #endif	// TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
 		}
 	}
-	SC_log(LOG_DEBUG, "__SCNetworkReachabilityGetFlagsFromPath, flags = 0x%08x, %s", flags, why);
+
+	SC_log(LOG_DEBUG, "%s__SCNetworkReachabilityGetFlagsFromPath(%s), flags = 0x%08x, %s",
+	       log_prefix,
+	       caller,
+	       flags,
+	       why);
+
 	return (flags & kSCNetworkReachabilityFlagsMask);
 }
 
@@ -1207,7 +1228,9 @@ SCNetworkReachabilityGetInterfaceIndex(SCNetworkReachabilityRef target)
 
 	MUTEX_LOCK(&targetPrivate->lock);
 
-	flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->lastPath,
+	flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->log_prefix,
+							"GetInterfaceIndex",
+							targetPrivate->lastPath,
 							targetPrivate->type,
 							nw_resolver_status_invalid,
 							NULL,
@@ -1238,7 +1261,8 @@ __SCNetworkReachabilityCreateCrazyIvan46Path(nw_path_t path, nw_endpoint_t endpo
 	nw_path_t retPath = NULL;
 	const struct sockaddr *sa;
 
-	if ((nw_path_get_status(path) != nw_path_status_unsatisfied) ||
+	if ((path == NULL) ||
+	    (nw_path_get_status(path) != nw_path_status_unsatisfied) ||
 	    (NULL == endpoint) || (nw_endpoint_get_type(endpoint) != nw_endpoint_type_address)) {
 		return NULL;
 	}
@@ -1331,7 +1355,9 @@ SCNetworkReachabilityGetFlags(SCNetworkReachabilityRef		target,
 
 	if (targetPrivate->scheduled) {
 		// if being watched, return the last known (and what should be current) status
-		*flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->lastPath,
+		*flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->log_prefix,
+								 "GetFlags",
+								 targetPrivate->lastPath,
 								 targetPrivate->type,
 								 targetPrivate->lastResolverStatus,
 								 targetPrivate->lastResolvedEndpoints,
@@ -1359,7 +1385,14 @@ SCNetworkReachabilityGetFlags(SCNetworkReachabilityRef		target,
 		}
 	}
 
-	*flags = __SCNetworkReachabilityGetFlagsFromPath(path, 0, nw_resolver_status_invalid, NULL, FALSE, 0);
+	*flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->log_prefix,
+							 "GetFlags",
+							 path,
+							 0,
+							 nw_resolver_status_invalid,
+							 NULL,
+							 FALSE,
+							 0);
 	nw_release(path);
 	nw_release(pathEvaluator);
 
@@ -1399,7 +1432,9 @@ reachPerformAndUnlock(SCNetworkReachabilityPrivateRef targetPrivate)
 		context_release	= NULL;
 	}
 
-	flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->lastPath,
+	flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->log_prefix,
+							"Perform",
+							targetPrivate->lastPath,
 							targetPrivate->type,
 							targetPrivate->lastResolverStatus,
 							targetPrivate->lastResolvedEndpoints,
@@ -1625,10 +1660,16 @@ SCNetworkReachabilityUnscheduleFromRunLoop(SCNetworkReachabilityRef	target,
 }
 
 static __inline__ void
-__SCNetworkReachabilityCopyPathStatus(SCNetworkReachabilityPrivateRef targetPrivate, SCNetworkReachabilityFlags *flags, uint *ifIndex, size_t *endpointCount)
+__SCNetworkReachabilityCopyPathStatus(SCNetworkReachabilityPrivateRef	targetPrivate,
+				      const char			*caller,
+				      SCNetworkReachabilityFlags	*flags,
+				      uint				*ifIndex,
+				      size_t				*endpointCount)
 {
 	if (flags) {
-		*flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->lastPath,
+		*flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->log_prefix,
+								 caller,
+								 targetPrivate->lastPath,
 								 targetPrivate->type,
 								 targetPrivate->lastResolverStatus,
 								 targetPrivate->lastResolvedEndpoints,
@@ -1647,10 +1688,15 @@ __SCNetworkReachabilityCopyPathStatus(SCNetworkReachabilityPrivateRef targetPriv
 static __inline__ Boolean
 __SCNetworkReachabilityShouldUpdateClient(SCNetworkReachabilityPrivateRef targetPrivate, SCNetworkReachabilityFlags oldFlags, uint oldIFIndex, size_t oldEndpointCount)
 {
-	SCNetworkReachabilityFlags newFlags = 0;
-	uint newIFIndex = 0;
-	size_t newEndpointCount = 0;
-	__SCNetworkReachabilityCopyPathStatus(targetPrivate, &newFlags, &newIFIndex, &newEndpointCount);
+	SCNetworkReachabilityFlags	newFlags		= 0;
+	uint				newIFIndex		= 0;
+	size_t				newEndpointCount	= 0;
+
+	__SCNetworkReachabilityCopyPathStatus(targetPrivate,
+					      "ShouldUpdateClient",
+					      &newFlags,
+					      &newIFIndex,
+					      &newEndpointCount);
 	return (!targetPrivate->sentFirstUpdate ||
 		oldFlags != newFlags ||
 		oldIFIndex != newIFIndex ||
@@ -1658,7 +1704,7 @@ __SCNetworkReachabilityShouldUpdateClient(SCNetworkReachabilityPrivateRef target
 }
 
 static void
-__SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPrivate)
+__SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPrivate, const char *caller)
 {
 	if (targetPrivate &&
 	    !targetPrivate->resolverBypass &&
@@ -1692,10 +1738,15 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 		if (!nw_resolver_set_update_handler(resolver, targetPrivate->dispatchQueue, ^(nw_resolver_status_t status, nw_array_t resolved_endpoints) {
 			MUTEX_LOCK(&targetPrivate->lock);
 			if (targetPrivate->scheduled) {
-				SCNetworkReachabilityFlags oldFlags = 0;
-				uint oldIFIndex = 0;
-				size_t oldEndpointCount = 0;
-				__SCNetworkReachabilityCopyPathStatus(targetPrivate, &oldFlags, &oldIFIndex, &oldEndpointCount);
+				SCNetworkReachabilityFlags	oldFlags		= 0;
+				uint				oldIFIndex		= 0;
+				size_t				oldEndpointCount	= 0;
+
+				__SCNetworkReachabilityCopyPathStatus(targetPrivate,
+								      caller,
+								      &oldFlags,
+								      &oldIFIndex,
+								      &oldEndpointCount);
 
 				targetPrivate->lastResolverStatus = status;
 				nw_release(targetPrivate->lastResolvedEndpoints);
@@ -1707,16 +1758,76 @@ __SCNetworkReachabilityRestartResolver(SCNetworkReachabilityPrivateRef targetPri
 				targetPrivate->lastResolvedEndpointFlags = 0;
 				targetPrivate->lastResolvedEndpointInterfaceIndex = 0;
 				nw_array_apply(targetPrivate->lastResolvedEndpoints, ^bool(size_t index, nw_object_t object) {
-#pragma unused(index)
-					SCNetworkReachabilityFlags flags = 0;
-					uint interfaceIndex = 0;
-					ReachabilityRankType rank;
-					nw_endpoint_t resolvedEndpoint = (nw_endpoint_t)object;
-					nw_path_evaluator_t pathEvaluator = nw_path_create_evaluator_for_endpoint(resolvedEndpoint, targetPrivate->lastPathParameters ? targetPrivate->lastPathParameters : targetPrivate->parameters);
-					nw_path_t path = nw_path_evaluator_copy_path(pathEvaluator);
+					SCNetworkReachabilityFlags	flags			= 0;
+					unsigned int			interfaceIndex		= 0;
+					ReachabilityRankType		rank;
+					nw_endpoint_t			resolvedEndpoint	= (nw_endpoint_t)object;
+					nw_path_t			path;
+					nw_path_evaluator_t		pathEvaluator;
+
+					pathEvaluator = nw_path_create_evaluator_for_endpoint(resolvedEndpoint,
+											      targetPrivate->lastPathParameters ? targetPrivate->lastPathParameters
+																: targetPrivate->parameters);
+					path = nw_path_evaluator_copy_path(pathEvaluator);
 					if (path != NULL) {
-						flags = __SCNetworkReachabilityGetFlagsFromPath(path, 0, nw_resolver_status_invalid, NULL, FALSE, 0);
+						char			*e_caller	= NULL;
+						nw_endpoint_type_t	e_type;
+						int			ret		= 0;
+
+						// Update the log prefix to note both the "target" [address] and the "endpoint"
+
+						e_type = nw_endpoint_get_type(resolvedEndpoint);
+						switch (e_type) {
+							case nw_endpoint_type_host :
+							case nw_endpoint_type_url : {
+								const char	*hostname;
+
+								hostname = nw_endpoint_get_hostname(resolvedEndpoint);
+								if (hostname != NULL) {
+									ret = asprintf(&e_caller, "endpoint %zd, %s",
+										       index,
+										       hostname);
+								}
+								break;
+							}
+							case nw_endpoint_type_address : {
+								const struct sockaddr	*addr;
+
+								addr = nw_endpoint_get_address(resolvedEndpoint);
+								if (addr != NULL) {
+									char	buf[128];
+
+									_SC_sockaddr_to_string(addr, buf, sizeof(buf));
+									ret = asprintf(&e_caller, "endpoint %zd, %s",
+										       index,
+										       buf);
+								}
+								break;
+							}
+							default : {
+								ret = asprintf(&e_caller, "endpoint %zd, ?",
+									       index);
+								break;
+							}
+						}
+						if ((ret < 0) && (e_caller != NULL)) {
+							free(e_caller);
+							e_caller = NULL;
+						}
+
+						flags = __SCNetworkReachabilityGetFlagsFromPath(targetPrivate->log_prefix,
+												e_caller != NULL ? e_caller : "",
+												path,
+												0,
+												nw_resolver_status_invalid,
+												NULL,
+												FALSE,
+												0);
 						hasFlags = TRUE;
+
+						if (e_caller != NULL) {
+							free(e_caller);
+						}
 					}
 					interfaceIndex = nw_path_get_interface_index(path);
 					nw_release(path);
@@ -1804,7 +1915,7 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 		targetPrivate->lastResolverStatus = nw_resolver_status_invalid;
 		nw_release(targetPrivate->lastResolvedEndpoints);
 		targetPrivate->lastResolvedEndpoints = NULL;
-		__SCNetworkReachabilityRestartResolver(targetPrivate);
+		__SCNetworkReachabilityRestartResolver(targetPrivate, "Scheduled, start DNS");
 
 		CFRetain(targetPrivate);
 		nw_path_evaluator_set_cancel_handler(pathEvaluator, ^(void) {
@@ -1820,11 +1931,16 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 		if (!nw_path_evaluator_set_update_handler(pathEvaluator, targetPrivate->dispatchQueue, ^(nw_path_t path) {
 			MUTEX_LOCK(&targetPrivate->lock);
 			if (targetPrivate->scheduled) {
-				nw_path_t crazyIvanPath;
-				SCNetworkReachabilityFlags oldFlags = 0;
-				uint oldIFIndex = 0;
-				size_t oldEndpointCount = 0;
-				__SCNetworkReachabilityCopyPathStatus(targetPrivate, &oldFlags, &oldIFIndex, &oldEndpointCount);
+				nw_path_t			crazyIvanPath;
+				SCNetworkReachabilityFlags	oldFlags		= 0;
+				uint				oldIFIndex		= 0;
+				size_t				oldEndpointCount	= 0;
+
+				__SCNetworkReachabilityCopyPathStatus(targetPrivate,
+								      "Path updated",
+								      &oldFlags,
+								      &oldIFIndex,
+								      &oldEndpointCount);
 
 				nw_release(targetPrivate->lastPath);
 				targetPrivate->lastPath = nw_retain(path);
@@ -1843,7 +1959,7 @@ __SCNetworkReachabilitySetDispatchQueue(SCNetworkReachabilityPrivateRef	targetPr
 
 				if (targetPrivate->lastResolverStatus == nw_resolver_status_complete) {
 					targetPrivate->lastResolverStatus = nw_resolver_status_invalid;
-					__SCNetworkReachabilityRestartResolver(targetPrivate);
+					__SCNetworkReachabilityRestartResolver(targetPrivate, "Path updated, restart DNS");
 				}
 
 				if (__SCNetworkReachabilityShouldUpdateClient(targetPrivate, oldFlags, oldIFIndex, oldEndpointCount)) {

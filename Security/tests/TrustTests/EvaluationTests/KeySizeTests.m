@@ -108,7 +108,7 @@ errOut:
     ok_status(SecTrustSetVerifyDate(trust, date),
               "set owa.prt-forest.fi trust date to May 2013");
     
-    SecKeyRef pubkey = SecTrustCopyPublicKey(trust);
+    SecKeyRef pubkey = SecTrustCopyKey(trust);
     isnt(pubkey, NULL, "pubkey returned");
     
     CFReleaseNull(certs);

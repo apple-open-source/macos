@@ -36,7 +36,6 @@
 #include <tls_handshake.h>
 
 #include <string.h>
-#include <assert.h>
 #include <Security/SecBase.h>
 #include <Security/SecureTransportPriv.h>
 

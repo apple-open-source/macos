@@ -33,6 +33,8 @@ static char sccsid[] = "@(#)getmntinfo.c	8.1 (Berkeley) 6/4/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/lib/libc/gen/getmntinfo.c,v 1.5 2007/01/09 00:27:54 imp Exp $");
 
+#if !__DARWIN_ONLY_64_BIT_INO_T
+
 #include <sys/param.h>
 #include <sys/ucred.h>
 #include <sys/mount.h>
@@ -66,3 +68,4 @@ getmntinfo64(mntbufp, flags)
 	*mntbufp = mntbuf;
 	return (mntsize);
 }
+#endif

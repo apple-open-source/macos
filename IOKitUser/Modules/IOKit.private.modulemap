@@ -1,0 +1,31 @@
+framework module IOKit_Private [extern_c] {
+
+ explicit module hid {
+    header "hid/IOHIDEvent.h"
+    header "hid/IOHIDServiceClient.h"
+    header "hid/IOHIDEventData.h"
+    header "hid/IOHIDEventTypes.h"
+    header "hid/IOHIDService.h"	
+    header "hid/IOHIDEventSystemKeys.h"	
+    header "hid/IOHIDServicePlugIn.h"	
+    header "hid/IOHIDTypes.h"	
+    header "hid/IOHIDEventSystemConnection.h"
+    header "hid/IOHIDEventPrivateKeys.h"
+    header "hid/IOHIDServiceKeys.h"
+    header "hid/AppleHIDUsageTables.h"
+    header "hid/IOHIDPrivateKeys.h"
+    export *
+ }
+ explicit module hidobjc {
+    header "hidobjc/hidobjcbase.h"
+    header "hidobjc/HIDDeviceBase.h"
+    header "hidobjc/HIDElementBase.h"
+    header "hidobjc/HIDEventBase.h"
+    header "hidobjc/HIDServiceClientBase.h"
+    header "hidobjc/HIDServiceBase.h"
+    header "hidobjc/HIDConnectionBase.h"
+    header "hidobjc/HIDSessionBase.h"
+    export *
+  }
+	 
+}

@@ -25,8 +25,8 @@
 
 #include <mach/mach_init.h>
 #include <mach/mach_vm.h>
-#include <platform/compat.h>
 
+#if !VARIANT_DYLD
 int
 pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 {
@@ -34,7 +34,7 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 	size_t idx;
 	pthread_globals_t globals = _pthread_globals();
 
-	_PTHREAD_LOCK(globals->pthread_atfork_lock);
+	_pthread_lock_lock(&globals->pthread_atfork_lock);
 	idx = globals->atfork_count++;
 
 	if (idx == 0) {
@@ -45,7 +45,7 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 		kern_return_t kr;
 		mach_vm_address_t storage = 0;
 		mach_vm_size_t size = PTHREAD_ATFORK_MAX * sizeof(struct pthread_atfork_entry);
-		_PTHREAD_UNLOCK(globals->pthread_atfork_lock);
+		_pthread_lock_unlock(&globals->pthread_atfork_lock);
 		kr = mach_vm_map(mach_task_self(),
 				 &storage,
 				 size,
@@ -57,7 +57,7 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 				 VM_PROT_DEFAULT,
 				 VM_PROT_ALL,
 				 VM_INHERIT_DEFAULT);
-		_PTHREAD_LOCK(globals->pthread_atfork_lock);
+		_pthread_lock_lock(&globals->pthread_atfork_lock);
 		if (kr == KERN_SUCCESS) {
 			if (globals->atfork == globals->atfork_storage) {
 				globals->atfork = storage;
@@ -65,9 +65,9 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 				bzero(globals->atfork_storage, sizeof(globals->atfork_storage));
 			} else {
 				// Another thread did vm_map first.
-				_PTHREAD_UNLOCK(globals->pthread_atfork_lock);
+				_pthread_lock_unlock(&globals->pthread_atfork_lock);
 				mach_vm_deallocate(mach_task_self(), storage, size);
-				_PTHREAD_LOCK(globals->pthread_atfork_lock);
+				_pthread_lock_lock(&globals->pthread_atfork_lock);
 			}
 		} else {
 			res = ENOMEM;
@@ -82,7 +82,7 @@ pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void))
 		e->parent = parent;
 		e->child = child;
 	}
-	_PTHREAD_UNLOCK(globals->pthread_atfork_lock);
+	_pthread_lock_unlock(&globals->pthread_atfork_lock);
 
 	return res;
 }
@@ -95,7 +95,7 @@ _pthread_atfork_prepare_handlers(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 
-	_PTHREAD_LOCK(globals->pthread_atfork_lock);
+	_pthread_lock_lock(&globals->pthread_atfork_lock);
 	size_t idx;
 	for (idx = globals->atfork_count; idx > 0; --idx) {
 		struct pthread_atfork_entry *e = &globals->atfork[idx-1];
@@ -112,9 +112,9 @@ _pthread_atfork_prepare(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 
-	_PTHREAD_LOCK(globals->psaved_self_global_lock);
+	_pthread_lock_lock(&globals->psaved_self_global_lock);
 	globals->psaved_self = pthread_self();
-	_PTHREAD_LOCK(globals->psaved_self->lock);
+	_pthread_lock_lock(&globals->psaved_self->lock);
 }
 
 // Called after the fork(2) system call returns to the parent process.
@@ -125,8 +125,8 @@ _pthread_atfork_parent(void)
 {
 	pthread_globals_t globals = _pthread_globals();
 
-	_PTHREAD_UNLOCK(globals->psaved_self->lock);
-	_PTHREAD_UNLOCK(globals->psaved_self_global_lock);
+	_pthread_lock_unlock(&globals->psaved_self->lock);
+	_pthread_lock_unlock(&globals->psaved_self_global_lock);
 }
 
 // Iterate pthread_atfork parent handlers.
@@ -143,7 +143,7 @@ _pthread_atfork_parent_handlers(void)
 			e->parent();
 		}
 	}
-	_PTHREAD_UNLOCK(globals->pthread_atfork_lock);
+	_pthread_lock_unlock(&globals->pthread_atfork_lock);
 }
 
 // Called after the fork(2) system call returns to the new child process.
@@ -154,7 +154,7 @@ void
 _pthread_atfork_child(void)
 {
 	pthread_globals_t globals = _pthread_globals();
-	_PTHREAD_LOCK_INIT(globals->psaved_self_global_lock);
+	_pthread_lock_init(&globals->psaved_self_global_lock);
 	__is_threaded = 0;
 	_pthread_main_thread_postfork_init(globals->psaved_self);
 
@@ -175,7 +175,7 @@ _pthread_atfork_child_handlers(void)
 			e->child();
 		}
 	}
-	_PTHREAD_LOCK_INIT(globals->pthread_atfork_lock);
+	_pthread_lock_init(&globals->pthread_atfork_lock);
 }
 
 // Preserve legacy symbols for older iOS simulators
@@ -204,3 +204,4 @@ _pthread_fork_child_postinit(void)
 {
 	_pthread_atfork_child_handlers();
 }
+#endif // !VARIANT_DYLD

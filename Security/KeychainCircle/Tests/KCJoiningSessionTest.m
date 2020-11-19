@@ -17,8 +17,6 @@
 #include "keychain/SecureObjectSync/SOSFullPeerInfo.h"
 #include "keychain/SecureObjectSync/SOSPeerInfoInternal.h"
 
-#include <CommonCrypto/CommonRandomSPI.h>
-
 
 static SecKeyRef GenerateFullECKey_internal(int keySize,  NSError** error)
 {
@@ -88,25 +86,26 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
 - (id) initWithSecret: (NSString*) secret
       incorrectSecret: (NSString*) incorrectSecret
        incorrectTries: (int) retries {
-    self = [super init];
+    if ((self = [super init])) {
 
-    SecKeyRef signingKey = GenerateFullECKey(256, NULL);
-    SecKeyRef octagonSigningKey = GenerateFullECKey(384, NULL);
-    SecKeyRef octagonEncryptionKey = GenerateFullECKey(384, NULL);
+        SecKeyRef signingKey = GenerateFullECKey(256, NULL);
+        SecKeyRef octagonSigningKey = GenerateFullECKey(384, NULL);
+        SecKeyRef octagonEncryptionKey = GenerateFullECKey(384, NULL);
 
-    SOSPeerInfoRef newPeerInfo = SOSPeerInfoCreate(NULL, (__bridge CFDictionaryRef) @{(__bridge NSString*)kPIUserDefinedDeviceNameKey:@"Fakey"}, NULL, signingKey, octagonSigningKey, octagonEncryptionKey, NULL);
+        SOSPeerInfoRef newPeerInfo = SOSPeerInfoCreate(NULL, (__bridge CFDictionaryRef) @{(__bridge NSString*)kPIUserDefinedDeviceNameKey:@"Fakey"}, NULL, signingKey, octagonSigningKey, octagonEncryptionKey, NULL);
 
-    if (newPeerInfo == NULL) {
-        return nil;
+        if (newPeerInfo == NULL) {
+            return nil;
+        }
+        self.peerInfo = newPeerInfo;
+        CFRelease(newPeerInfo);
+        newPeerInfo = NULL;
+
+        self.sharedSecret = secret;
+        self.incorrectSecret = incorrectSecret;
+        self.incorrectTries = retries;
+
     }
-    self.peerInfo = newPeerInfo;
-    CFRelease(newPeerInfo);
-    newPeerInfo = NULL;
-
-    self.sharedSecret = secret;
-    self.incorrectSecret = incorrectSecret;
-    self.incorrectTries = retries;
-
     return self;
 }
 
@@ -188,18 +187,17 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
 }
 
 - (id) initWithSecrets: (NSArray<NSString*>*) secrets retries: (int) retries code: (NSString*) code {
-    self = [super init];
+    if ((self = [super init])) {
+        self->_secrets = secrets;
+        self.currentSecret = 0;
+        self->_retriesPerSecret = retries;
+        self->_retriesLeft = self.retriesPerSecret;
 
-    self->_secrets = secrets;
-    self.currentSecret = 0;
-    self->_retriesPerSecret = retries;
-    self->_retriesLeft = self.retriesPerSecret;
+        self->_codeToUse = code;
 
-    self->_codeToUse = code;
-
-    uint8_t joinDataBuffer[] = { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
-    self->_circleJoinData = [NSData dataWithBytes: joinDataBuffer length: sizeof(joinDataBuffer) ];
-
+        uint8_t joinDataBuffer[] = { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+        self->_circleJoinData = [NSData dataWithBytes: joinDataBuffer length: sizeof(joinDataBuffer) ];
+    }
     return self;
 }
 
@@ -270,7 +268,7 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     KCJoiningRequestTestDelegate* requestDelegate = [KCJoiningRequestTestDelegate requestDelegateWithSecret: secret];
     KCJoiningRequestSecretSession *requestSession = [[KCJoiningRequestSecretSession alloc] initWithSecretDelegate:requestDelegate
                                                                                                              dsid:dsid
-                                                                                                              rng:ccDRBGGetRngState()
+                                                                                                              rng:ccrng(NULL)
                                                                                                             error:&error];
 
     NSData* initialMessage = [requestSession initialMessage: &error];
@@ -282,7 +280,7 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     KCJoiningAcceptSession* acceptSession = [[KCJoiningAcceptSession alloc] initWithSecretDelegate:acceptDelegate
                                                                                     circleDelegate:acceptDelegate
                                                                                               dsid:dsid
-                                                                                               rng:ccDRBGGetRngState()
+                                                                                               rng:ccrng(NULL)
                                                                                              error:&error];
     
     error = nil;
@@ -365,7 +363,7 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     KCJoiningRequestTestDelegate* requestDelegate = [KCJoiningRequestTestDelegate requestDelegateWithSecret: secret incorrectSecret:@"777888" incorrectTries:3];
     KCJoiningRequestSecretSession *requestSession = [[KCJoiningRequestSecretSession alloc] initWithSecretDelegate:requestDelegate
                                                                                                              dsid:dsid
-                                                                                                              rng:ccDRBGGetRngState()
+                                                                                                              rng:ccrng(NULL)
                                                                                                             error:&error];
 
     NSData* initialMessage = [requestSession initialMessage: &error];
@@ -377,7 +375,7 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     KCJoiningAcceptSession* acceptSession = [[KCJoiningAcceptSession alloc] initWithSecretDelegate:acceptDelegate
                                                                                     circleDelegate:acceptDelegate
                                                                                               dsid:dsid
-                                                                                               rng:ccDRBGGetRngState()
+                                                                                               rng:ccrng(NULL)
                                                                                              error:&error];
 
     error = nil;
@@ -471,7 +469,7 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     KCJoiningRequestTestDelegate* requestDelegate = [KCJoiningRequestTestDelegate requestDelegateWithSecret: secret];
     KCJoiningRequestSecretSession *requestSession = [[KCJoiningRequestSecretSession alloc] initWithSecretDelegate:requestDelegate
                                                                                                              dsid:dsid
-                                                                                                              rng:ccDRBGGetRngState()
+                                                                                                              rng:ccrng(NULL)
                                                                                                             error:&error];
 
     NSData* initialMessage = [requestSession initialMessage: &error];
@@ -483,7 +481,7 @@ static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
     KCJoiningAcceptSession* acceptSession = [[KCJoiningAcceptSession alloc] initWithSecretDelegate:acceptDelegate
                                                                                     circleDelegate:acceptDelegate
                                                                                               dsid:dsid
-                                                                                               rng:ccDRBGGetRngState()
+                                                                                               rng:ccrng(NULL)
                                                                                              error:&error];
 
     error = nil;

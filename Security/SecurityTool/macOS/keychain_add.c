@@ -764,14 +764,17 @@ keychain_add_generic_password(int argc, char * const *argv)
 									 update_item);
 
 cleanup:
-    if (mustFreePasswordData)
+    if (mustFreePasswordData) {
         free(passwordData);
-	if (trusted_list)
-		CFRelease(trusted_list);
-	if (access)
-		CFRelease(access);
+    }
+    if (trusted_list) {
+        CFRelease(trusted_list);
+    }
+    if (access) {
+        CFRelease(access);
+    }
 
-	return result;
+    return result;
 }
 
 int
@@ -976,12 +979,15 @@ keychain_add_internet_password(int argc, char * const *argv)
 									  update_item);
 
 cleanup:
-    if (mustFreePasswordData)
+    if (mustFreePasswordData) {
         free(passwordData);
-	if (trusted_list)
-		CFRelease(trusted_list);
-	if (access)
-		CFRelease(access);
+    }
+    if (trusted_list) {
+        CFRelease(trusted_list);
+    }
+    if (access) {
+        CFRelease(access);
+    }
 
 	return result;
 }

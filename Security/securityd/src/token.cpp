@@ -41,7 +41,6 @@
 #include <sys/wait.h>
 #include <grp.h>
 #include <pwd.h>
-#include <msgtracer_client.h>
 
 using namespace MDSClient;
 
@@ -436,15 +435,6 @@ void Token::notify(NotificationEvent event)
     free (data.data());
 }
 
-static void mt_log_ctk_tokend(const char *signature, const char *signature2)
-{
-    msgtracer_log_with_keys("com.apple.ctk.tokend", ASL_LEVEL_NOTICE,
-                            "com.apple.message.signature", signature,
-                            "com.apple.message.signature2", signature2,
-                            "com.apple.message.summarize", "YES",
-                            NULL);
-}
-
 //
 // Choose a token daemon for our card.
 //
@@ -503,7 +493,6 @@ RefPointer<TokenDaemon> Token::chooseTokend()
 			identifiers.append(";");
 		identifiers.append(*i);
 	}
-	mt_log_ctk_tokend(identifiers.c_str(), chosenIdentifier.c_str());
 
 	return leader;
 }

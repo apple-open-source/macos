@@ -42,9 +42,11 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecFileLocations.h>
+#include "SOSAccountTesting.h"
 
 #include <AssertMacros.h>
 #include <stdint.h>
+#if SOS_ENABLED
 
 static int kTestTestCount = 121;
 
@@ -242,23 +244,23 @@ TODO: {
     }, CFSTR("Alice"), CFSTR("Bob"), NULL);
 }
 }
+#endif
 
 int secd_70_engine_corrupt(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-
     __security_simulatecrash_enable(false);
-
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     nosha1();
     drop_item();
     drop_manifest();
     add_sha1();
     change_sha1();
-
     __security_simulatecrash_enable(true);
-
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

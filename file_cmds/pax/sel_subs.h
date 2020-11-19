@@ -36,6 +36,9 @@
  *	@(#)sel_subs.h	8.1 (Berkeley) 5/31/93
  */
 
+#ifndef _SEL_SUBS_H_
+#define _SEL_SUBS_H_
+
 /*
  * data structure for storing uid/grp selects (-U, -G non standard options)
  */
@@ -70,3 +73,5 @@ typedef struct time_rng {
 #define CMPBOTH	(CMPMTME|CMPCTME)	/* compare inode and mod time */
 	struct time_rng	*fow;		/* next pattern */
 } TIME_RNG;
+
+#endif /* _SEL_SUBS_H_ */

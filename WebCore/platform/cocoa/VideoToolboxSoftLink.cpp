@@ -25,8 +25,6 @@
 
 #include "config.h"
 
-#if USE(VIDEOTOOLBOX)
-
 #include <VideoToolbox/VideoToolbox.h>
 #include <wtf/SoftLinking.h>
 
@@ -51,6 +49,7 @@ SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebCore, VideoToolbox, VTGetGVADecoderAva
 SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebCore, VideoToolbox, VTCreateCGImageFromCVPixelBuffer, OSStatus, (CVPixelBufferRef pixelBuffer, CFDictionaryRef options, CGImageRef* imageOut), (pixelBuffer, options, imageOut))
 SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebCore, VideoToolbox, VTCopyHEVCDecoderCapabilitiesDictionary, CFDictionaryRef, (), ())
 SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebCore, VideoToolbox, VTGetHEVCCapabilitesForFormatDescription, OSStatus, (CMVideoFormatDescriptionRef formatDescription, CFDictionaryRef decoderCapabilitiesDict, Boolean* isDecodable, Boolean* mayBePlayable), (formatDescription, decoderCapabilitiesDict, isDecodable, mayBePlayable))
+SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebCore, VideoToolbox, VTRegisterSupplementalVideoDecoderIfAvailable, void, (CMVideoCodecType codecType), (codecType))
 SOFT_LINK_FUNCTION_FOR_SOURCE(WebCore, VideoToolbox, VTSelectAndCreateVideoDecoderInstance, OSStatus, (CMVideoCodecType codecType, CFAllocatorRef allocator, CFDictionaryRef videoDecoderSpecification, VTVideoDecoderRef *decoderInstanceOut), (codecType, allocator, videoDecoderSpecification, decoderInstanceOut))
 SOFT_LINK_CONSTANT_FOR_SOURCE(WebCore, VideoToolbox, kVTVideoDecoderSpecification_EnableHardwareAcceleratedVideoDecoder, CFStringRef)
 SOFT_LINK_CONSTANT_FOR_SOURCE(WebCore, VideoToolbox, kVTDecompressionPropertyKey_PixelBufferPool, CFStringRef)
@@ -81,5 +80,3 @@ SOFT_LINK_CONSTANT_MAY_FAIL_FOR_SOURCE(WebCore, VideoToolbox, kVTDolbyVisionDeco
 SOFT_LINK_FUNCTION_FOR_SOURCE(WebCore, VideoToolbox, VTPixelBufferConformerCreateWithAttributes, OSStatus, (CFAllocatorRef allocator, CFDictionaryRef attributes, VTPixelBufferConformerRef* conformerOut), (allocator, attributes, conformerOut));
 SOFT_LINK_FUNCTION_FOR_SOURCE(WebCore, VideoToolbox, VTPixelBufferConformerIsConformantPixelBuffer, Boolean, (VTPixelBufferConformerRef conformer, CVPixelBufferRef pixBuf), (conformer, pixBuf))
 SOFT_LINK_FUNCTION_FOR_SOURCE(WebCore, VideoToolbox, VTPixelBufferConformerCopyConformedPixelBuffer, OSStatus, (VTPixelBufferConformerRef conformer, CVPixelBufferRef sourceBuffer, Boolean ensureModifiable, CVPixelBufferRef* conformedBufferOut), (conformer, sourceBuffer, ensureModifiable, conformedBufferOut))
-
-#endif // USE(VIDEOTOOLBOX)

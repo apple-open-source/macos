@@ -134,16 +134,6 @@ extern void DAApprovalSessionScheduleWithRunLoop( DAApprovalSessionRef session, 
 
 extern void DAApprovalSessionUnscheduleFromRunLoop( DAApprovalSessionRef session, CFRunLoopRef runLoop, CFStringRef runLoopMode ) CF_SWIFT_UNAVAILABLE( "Use DASessionSetDispatchQueue instead" );
 
-/*
- * Helper functions used by framework for storing callback information in the session's register dictionary
- *
- */
-extern CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator, mach_vm_offset_t address, mach_vm_offset_t context);
-extern SInt32 DAAddCallbackToSession(DASessionRef session, CFMutableDictionaryRef callback);
-extern void DARemoveCallbackFromSessionWithKey(DASessionRef session, SInt32 index);
-extern SInt32 DARemoveCallbackFromSession(DASessionRef session, mach_vm_offset_t address, mach_vm_offset_t context);
-extern CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef session, SInt32 index);
-
 #endif /* !__DISKARBITRATIOND__ */
 
 CF_IMPLICIT_BRIDGING_DISABLED

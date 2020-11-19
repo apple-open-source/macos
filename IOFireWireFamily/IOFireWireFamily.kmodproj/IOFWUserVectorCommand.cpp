@@ -295,7 +295,7 @@ IOFWUserVectorCommand::asyncCompletion(
 		
 		result.kernCommandRef = 0;	// not used on vector path
 		result.result = status;
-		result.bytesTransferred = async_cmd->getBytesTransferred();
+		result.bytesTransferred = (UInt32)async_cmd->getBytesTransferred();
 		result.ackCode = async_cmd->getAckCode();
 		result.responseCode = async_cmd->getResponseCode();
 		result.refCon = cmd->getRefCon();

@@ -433,6 +433,11 @@ static IOPMPowerState ourPowerStates[kIODisplayWranglerNumPowerStates] = {
 void IODisplayWrangler::initForPM(void )
 {
     IODW_START(initForPM,0,0,0);
+
+    // WAR for rdar://47370368: DW shouldn't participate in power events on
+    // j129 HW pending a replacement.  It screws with HID (and maybe others)
+    // during sleep/wake.
+#if !TARGET_OS_ARROW
     // initialize superclass variables
     PMinit();
 
@@ -442,6 +447,7 @@ void IODisplayWrangler::initForPM(void )
     // register ourselves with policy-maker (us)
     registerPowerDriver( this, ourPowerStates, kIODisplayWranglerNumPowerStates );
     makeUsable();
+#endif
 
     // HID system is waiting for this
     registerService();

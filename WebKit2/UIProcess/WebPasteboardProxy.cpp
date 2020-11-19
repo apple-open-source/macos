@@ -68,51 +68,77 @@ void WebPasteboardProxy::removeWebProcessProxy(WebProcessProxy& webProcessProxy)
     m_webProcessProxyList.remove(&webProcessProxy);
 }
 
+WebProcessProxy* WebPasteboardProxy::webProcessProxyForConnection(IPC::Connection& connection) const
+{
+    for (auto* webProcessProxy : m_webProcessProxyList) {
+        if (webProcessProxy->hasConnection(connection))
+            return webProcessProxy;
+    }
+    return nullptr;
+}
+
 #if !PLATFORM(COCOA)
 
-void WebPasteboardProxy::typesSafeForDOMToReadAndWrite(const String&, const String&, CompletionHandler<void(Vector<String>&&)>&& completionHandler)
+#if !PLATFORM(GTK)
+void WebPasteboardProxy::typesSafeForDOMToReadAndWrite(IPC::Connection&, const String&, const String&, CompletionHandler<void(Vector<String>&&)>&& completionHandler)
 {
     completionHandler({ });
 }
 
-void WebPasteboardProxy::writeCustomData(const Vector<WebCore::PasteboardCustomData>&, const String&, CompletionHandler<void(int64_t)>&& completionHandler)
+void WebPasteboardProxy::writeCustomData(IPC::Connection&, const Vector<WebCore::PasteboardCustomData>&, const String&, CompletionHandler<void(int64_t)>&& completionHandler)
 {
     completionHandler(0);
 }
+#endif
 
-void WebPasteboardProxy::allPasteboardItemInfo(const String&, int64_t, CompletionHandler<void(Optional<Vector<WebCore::PasteboardItemInfo>>&&)>&& completionHandler)
+void WebPasteboardProxy::allPasteboardItemInfo(IPC::Connection&, const String&, int64_t, CompletionHandler<void(Optional<Vector<WebCore::PasteboardItemInfo>>&&)>&& completionHandler)
 {
     completionHandler(WTF::nullopt);
 }
 
-void WebPasteboardProxy::informationForItemAtIndex(size_t, const String&, int64_t, CompletionHandler<void(Optional<WebCore::PasteboardItemInfo>&&)>&& completionHandler)
+void WebPasteboardProxy::informationForItemAtIndex(IPC::Connection&, size_t, const String&, int64_t, CompletionHandler<void(Optional<WebCore::PasteboardItemInfo>&&)>&& completionHandler)
 {
     completionHandler(WTF::nullopt);
 }
 
-void WebPasteboardProxy::getPasteboardItemsCount(const String&, CompletionHandler<void(uint64_t)>&& completionHandler)
+void WebPasteboardProxy::getPasteboardItemsCount(IPC::Connection&, const String&, CompletionHandler<void(uint64_t)>&& completionHandler)
 {
     completionHandler(0);
 }
 
-void WebPasteboardProxy::readURLFromPasteboard(size_t, const String&, CompletionHandler<void(String&& url, String&& title)>&& completionHandler)
+void WebPasteboardProxy::readURLFromPasteboard(IPC::Connection&, size_t, const String&, CompletionHandler<void(String&& url, String&& title)>&& completionHandler)
 {
     completionHandler({ }, { });
 }
 
-void WebPasteboardProxy::readBufferFromPasteboard(size_t, const String&, const String&, CompletionHandler<void(SharedMemory::Handle&&, uint64_t size)>&& completionHandler)
-{
-    completionHandler({ }, 0);
-}
-
-#if !PLATFORM(WPE)
-
-void WebPasteboardProxy::readStringFromPasteboard(size_t, const String&, const String&, CompletionHandler<void(String&&)>&& completionHandler)
+void WebPasteboardProxy::readBufferFromPasteboard(IPC::Connection&, size_t, const String&, const String&, CompletionHandler<void(SharedMemory::IPCHandle&&)>&& completionHandler)
 {
     completionHandler({ });
 }
 
-#endif // !PLATFORM(WPE)
+#if !USE(LIBWPE)
+
+void WebPasteboardProxy::readStringFromPasteboard(IPC::Connection&, size_t, const String&, const String&, CompletionHandler<void(String&&)>&& completionHandler)
+{
+    completionHandler({ });
+}
+
+#endif // !USE(LIBWPE)
+
+void WebPasteboardProxy::containsStringSafeForDOMToReadForType(IPC::Connection&, const String&, const String&, CompletionHandler<void(bool)>&& completionHandler)
+{
+    completionHandler(false);
+}
+
+void WebPasteboardProxy::containsURLStringSuitableForLoading(IPC::Connection&, const String&, CompletionHandler<void(bool)>&& completionHandler)
+{
+    completionHandler(false);
+}
+
+void WebPasteboardProxy::urlStringSuitableForLoading(IPC::Connection&, const String&, CompletionHandler<void(String&& url, String&& title)>&& completionHandler)
+{
+    completionHandler({ }, { });
+}
 
 #endif // !PLATFORM(COCOA)
 

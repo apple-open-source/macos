@@ -48,7 +48,8 @@ void sendTSARequest(CFDataRef tsaReq, const char *tsaURL, TSARequestCompletionBl
  
 - (id)init
 {
-    self = [super init];
+    if ((self = [super init])) {
+    }
     return self;
 }
 

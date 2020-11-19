@@ -24,6 +24,8 @@
 
 #include <utilities/SecCFCCWrappers.h>
 
+#include <utilities/simulatecrash_assert.h>
+
 CFDataRef CFDataCreateDigestWithBytes(CFAllocatorRef allocator, const struct ccdigest_info *di, size_t len,
                                 const void *data, CFErrorRef *error) {
     CFMutableDataRef digest = CFDataCreateMutable(allocator, di->output_size);

@@ -107,7 +107,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUCharsetDetectorPointer, UCharsetDetector, ucsd
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
   * Set the input byte data whose charset is to detected.

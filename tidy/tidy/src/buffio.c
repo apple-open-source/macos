@@ -16,6 +16,7 @@
 
 #include "tidy.h"
 #include "buffio.h"
+#include "forward.h"
 
 
 /**************

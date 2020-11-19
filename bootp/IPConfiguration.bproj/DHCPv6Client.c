@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,7 +66,7 @@ typedef void
 typedef DHCPv6ClientEventFunc * DHCPv6ClientEventFuncRef;
 
 typedef enum {
-    kDHCPv6ClientStateNone = 0,
+    kDHCPv6ClientStateInactive = 0,
     kDHCPv6ClientStateSolicit,
     kDHCPv6ClientStateRequest,
     kDHCPv6ClientStateBound,
@@ -77,14 +77,13 @@ typedef enum {
     kDHCPv6ClientStateUnbound,
     kDHCPv6ClientStateDecline,
     kDHCPv6ClientStateInform,
-    kDHCPv6ClientStateLast
-} DHCPv6ClientState;
+ } DHCPv6ClientState;
 
 STATIC const char *
 DHCPv6ClientStateGetName(DHCPv6ClientState cstate)
 {
     STATIC const char * names[] = {
-	"None",
+	"Inactive",
 	"Solicit",
 	"Request",
 	"Bound",
@@ -96,13 +95,31 @@ DHCPv6ClientStateGetName(DHCPv6ClientState cstate)
 	"Decline",
 	"Inform",
     };
+    const int 		names_count = sizeof(names) / sizeof(names[0]);
 
-    if (cstate >= kDHCPv6ClientStateNone
-	&& cstate < kDHCPv6ClientStateLast) {
+    if (cstate >= 0 && cstate < names_count) {
 	return (names[cstate]);
     }
-    return ("Unknown");
+    return ("<unknown>");
 }
+
+#if 0
+STATIC const char *
+DHCPv6ClientModeGetName(DHCPv6ClientMode mode)
+{
+    STATIC const char * names[] = {
+	"Idle",
+	"Stateless",
+	"Stateful",
+    };
+    const int 		names_count = sizeof(names) / sizeof(names[0]);
+
+    if (mode < names_count) {
+	return (names[mode]);
+    }
+    return ("<unknown>");
+}
+#endif
 
 typedef struct {
     CFAbsoluteTime		start;
@@ -115,12 +132,19 @@ typedef struct {
     bool			valid;
 } lease_info_t;
 
+typedef struct {
+    DHCPv6PacketRef		pkt;
+    int				pkt_len;
+    DHCPv6OptionListRef		options;
+} dhcpv6_info_t;
+
 struct DHCPv6Client {
     CFRunLoopSourceRef			callback_rls;
     DHCPv6ClientNotificationCallBack 	callback;
     void *				callback_arg;
     struct in6_addr			our_ip;
     int					our_prefix_length;
+    DHCPv6ClientMode			mode;
     DHCPv6ClientState			cstate;
     DHCPv6SocketRef			sock;
     timer_callout_t *			timer;
@@ -150,7 +174,8 @@ DHCPv6ClientGetInterface(DHCPv6ClientRef client)
 
 STATIC const uint16_t	DHCPv6RequestedOptionsStatic[] = {
     kDHCPv6OPTION_DNS_SERVERS,
-    kDHCPv6OPTION_DOMAIN_LIST
+    kDHCPv6OPTION_DOMAIN_LIST,
+    kDHCPv6OPTION_CAPTIVE_PORTAL_URL
 };
 #define kDHCPv6RequestedOptionsStaticCount 	(sizeof(DHCPv6RequestedOptionsStatic) / sizeof(DHCPv6RequestedOptionsStatic[0]))
 
@@ -1848,15 +1873,24 @@ DHCPv6Client_Solicit(DHCPv6ClientRef client, IFEventID_t event_id,
     return;
 }
 
+PRIVATE_EXTERN DHCPv6ClientMode
+DHCPv6ClientGetMode(DHCPv6ClientRef client)
+{
+    return (client->mode);
+}
+
 PRIVATE_EXTERN DHCPv6ClientRef
 DHCPv6ClientCreate(interface_t * if_p)
 {
     DHCPv6ClientRef		client;
+    char			timer_name[32];
 
     client = (DHCPv6ClientRef)malloc(sizeof(*client));
     bzero(client, sizeof(*client));
     client->sock = DHCPv6SocketCreate(if_p);
-    client->timer = timer_callout_init();
+    snprintf(timer_name, sizeof(timer_name),
+	     "DHCPv6-%s", if_name(if_p));
+    client->timer = timer_callout_init(timer_name);
     return (client);
 }
 
@@ -1864,6 +1898,7 @@ PRIVATE_EXTERN void
 DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address)
 {
     if (allocate_address) {
+	client->mode = kDHCPv6ClientModeStateful;
 	/* start Stateful */
 	if (DHCPv6ClientLeaseStillValid(client)) {
 	    DHCPv6Client_Confirm(client, IFEventID_start_e, NULL);
@@ -1874,6 +1909,7 @@ DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address)
     }
     else {
 	/* start Stateless */
+	client->mode = kDHCPv6ClientModeStateless;
 	DHCPv6ClientRemoveAddress(client, "Start");
 	DHCPv6Client_Inform(client, IFEventID_start_e, NULL);
     }
@@ -1892,6 +1928,7 @@ DHCPv6ClientStop(DHCPv6ClientRef client, bool discard_information)
     else {
 	client->saved_verified = FALSE;
     }
+    client->mode = kDHCPv6ClientModeIdle;
     DHCPv6ClientPostNotification(client);
     return;
 }
@@ -1923,7 +1960,7 @@ DHCPv6ClientRelease(DHCPv6ClientRef * client_p)
 }
 
 PRIVATE_EXTERN bool
-DHCPv6ClientGetInfo(DHCPv6ClientRef client, dhcpv6_info_t * info_p)
+DHCPv6ClientGetInfo(DHCPv6ClientRef client, ipv6_info_t * info_p)
 {
     if (client->saved.options == NULL || client->saved_verified == FALSE) {
 	info_p->pkt = NULL;
@@ -1931,7 +1968,9 @@ DHCPv6ClientGetInfo(DHCPv6ClientRef client, dhcpv6_info_t * info_p)
 	info_p->options = NULL;
 	return (FALSE);
     }
-    *info_p = client->saved;
+    info_p->pkt = client->saved.pkt;
+    info_p->pkt_len = client->saved.pkt_len;
+    info_p->options = client->saved.options;
     return (TRUE);
 }
 
@@ -2065,7 +2104,7 @@ client_notification(DHCPv6ClientRef client,
 		    void * callback_arg,
 		    DHCPv6ClientNotificationType type)
 {
-    dhcpv6_info_t	info;
+    ipv6_info_t	info;
 
     if (DHCPv6ClientGetInfo(client, &info) == FALSE) {
 	printf("DHCPv6 updated: no info\n");

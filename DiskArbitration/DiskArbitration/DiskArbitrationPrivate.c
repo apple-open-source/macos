@@ -40,6 +40,7 @@
 #include <IOKit/storage/IOBDMedia.h>
 #include <IOKit/storage/IOCDMedia.h>
 #include <IOKit/storage/IODVDMedia.h>
+
 ///w:start
 static kern_return_t          __gDiskArbStatus                      = KERN_SUCCESS;
 static Boolean                __gDiskArbStatusLock                  = FALSE;
@@ -2617,4 +2618,9 @@ DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding )
 void DARegisterIdleCallback( DASessionRef session, DAIdleCallback callback, void * context )
 {
     _DARegisterCallback( session, callback, context, _kDAIdleCallback, 0, NULL, NULL );
+}
+
+void DARegisterDiskListCompleteCallback( DASessionRef session, DADiskListCompleteCallback callback, void * context )
+{
+    _DARegisterCallback( session, callback, context, _kDADiskListCompleteCallback, 0, NULL, NULL );
 }

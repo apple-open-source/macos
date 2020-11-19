@@ -30,6 +30,8 @@ extern CFStringRef sRingState;                  // Dictionary of Ring Membership
 extern CFStringRef sBackupKeyKey;
 extern CFStringRef sEscrowRecord;
 
+extern CFStringRef sCKKSForAll;
+
 bool SOSPeerInfoUpdateToV2(SOSPeerInfoRef pi, CFErrorRef *error);
 void SOSPeerInfoPackV2Data(SOSPeerInfoRef peer);
 bool SOSPeerInfoExpandV2Data(SOSPeerInfoRef pi, CFErrorRef *error);

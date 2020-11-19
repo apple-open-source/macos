@@ -34,8 +34,6 @@
 #include "CAAudioStreamDescription.h"
 #include "LibWebRTCAudioFormat.h"
 #include "Logging.h"
-#include "WebAudioBufferList.h"
-#include "WebAudioSourceProviderAVFObjC.h"
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 
 #include <pal/cf/CoreMediaSoftLink.h>
@@ -69,28 +67,39 @@ static inline AudioStreamBasicDescription streamDescription(size_t sampleRate, s
 
 void RealtimeIncomingAudioSourceCocoa::OnData(const void* audioData, int bitsPerSample, int sampleRate, size_t numberOfChannels, size_t numberOfFrames)
 {
+#if !RELEASE_LOG_DISABLED
+    if (!(++m_chunksReceived % 200)) {
+        callOnMainThread([identifier = LOGIDENTIFIER, this, protectedThis = makeRef(*this), chunksReceived = m_chunksReceived] {
+            ALWAYS_LOG_IF(loggerPtr(), identifier, "chunk ", chunksReceived);
+        });
+    }
+#endif
+
+    if (!m_audioBufferList || m_sampleRate != sampleRate || m_numberOfChannels != numberOfChannels) {
+        callOnMainThread([identifier = LOGIDENTIFIER, this, protectedThis = makeRef(*this), sampleRate, numberOfChannels] {
+            ALWAYS_LOG_IF(loggerPtr(), identifier, "new audio buffer list for sampleRate ", sampleRate, " and ", numberOfChannels, " channel(s)");
+        });
+
+        m_sampleRate = sampleRate;
+        m_numberOfChannels = numberOfChannels;
+        m_streamDescription = streamDescription(sampleRate, numberOfChannels);
+        m_audioBufferList = makeUnique<WebAudioBufferList>(m_streamDescription);
+        if (m_sampleRate && m_numberOfFrames)
+            m_numberOfFrames = m_numberOfFrames * sampleRate / m_sampleRate;
+        else
+            m_numberOfFrames = 0;
+    }
+
     CMTime startTime = CMTimeMake(m_numberOfFrames, sampleRate);
     auto mediaTime = PAL::toMediaTime(startTime);
     m_numberOfFrames += numberOfFrames;
 
-    AudioStreamBasicDescription newDescription = streamDescription(sampleRate, numberOfChannels);
+    auto& bufferList = *m_audioBufferList->buffer(0);
+    bufferList.mDataByteSize = numberOfChannels * numberOfFrames * bitsPerSample / 8;
+    bufferList.mNumberChannels = numberOfChannels;
+    bufferList.mData = const_cast<void*>(audioData);
 
-    // FIXME: We should not need to do the extra memory allocation and copy.
-    // Instead, we should be able to directly pass audioData pointer.
-    WebAudioBufferList audioBufferList { CAAudioStreamDescription(newDescription), WTF::safeCast<uint32_t>(numberOfFrames) };
-    audioBufferList.buffer(0)->mDataByteSize = numberOfChannels * numberOfFrames * bitsPerSample / 8;
-    audioBufferList.buffer(0)->mNumberChannels = numberOfChannels;
-
-    if (muted())
-        memset(audioBufferList.buffer(0)->mData, 0, audioBufferList.buffer(0)->mDataByteSize);
-    else
-        memcpy(audioBufferList.buffer(0)->mData, audioData, audioBufferList.buffer(0)->mDataByteSize);
-
-#if !RELEASE_LOG_DISABLED
-    ALWAYS_LOG_IF(loggerPtr() && !(++m_chunksReceived % 200), LOGIDENTIFIER, "chunk ", m_chunksReceived);
-#endif
-
-    audioSamplesAvailable(mediaTime, audioBufferList, CAAudioStreamDescription(newDescription), numberOfFrames);
+    audioSamplesAvailable(mediaTime, *m_audioBufferList, m_streamDescription, numberOfFrames);
 }
 
 }

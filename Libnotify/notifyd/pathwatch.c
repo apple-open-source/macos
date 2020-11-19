@@ -173,7 +173,6 @@ _path_stat(const char *path, int link, uid_t uid, gid_t gid)
 	pthread_setugid_np(uid, gid);
 
 	/* stat the file */
-	stat_status = -1;
 	if (link != 0)
 	{
 		stat_status = lstat(path, &sb);
@@ -352,7 +351,7 @@ _vnode_event(vnode_t *vnode)
 	if (vnode == NULL) return;
 	if ((vnode->src != NULL) && (dispatch_source_testcancel(vnode->src))) return;
 
-	ulf = dispatch_source_get_data(vnode->src);
+	ulf = vnode->src ? dispatch_source_get_data(vnode->src) : 0;
 	flags = (uint32_t)ulf;
 
 	memset(&sb, 0, sizeof(struct stat));
@@ -746,7 +745,9 @@ _path_node_init(const char *path)
 		{
 			name = malloc(len + 1);
 			assert(name != NULL);
-			strncpy(name, start, len);
+			if (start != NULL) {
+				strncpy(name, start, len);
+			}
 			name[len] = '\0';
 		}
 
@@ -847,7 +848,9 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 			{
 				/* suspend pnode->src, and fire it after PNODE_COALESCE_TIME */
 				pnode->flags |= PATH_SRC_SUSPENDED;
-				dispatch_suspend(pnode->src);
+				if (pnode->src) {
+					dispatch_suspend(pnode->src);
+				}
 
 				dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, PNODE_COALESCE_TIME);
 				_path_node_retain(pnode);
@@ -859,7 +862,9 @@ _path_node_update(path_node_t *pnode, uint32_t flags, vnode_t *vnode)
 				});
 			}
 
-			dispatch_source_merge_data(pnode->src, data);
+			if (pnode->src) {
+				dispatch_source_merge_data(pnode->src, data);
+			}
 		}
 	}
 
@@ -934,8 +939,6 @@ path_node_create(const char *path, audit_token_t audit, bool is_notifyd, uint32_
 	pnode->audit = audit;
 
 	_path_node_update(pnode, 0, NULL);
-
-	dispatch_retain(queue);
 
 	pnode->src = dispatch_source_create(DISPATCH_SOURCE_TYPE_DATA_OR, 0, 0, queue);
 	pnode->flags = mask & PATH_NODE_ALL;

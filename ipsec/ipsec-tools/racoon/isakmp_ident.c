@@ -88,8 +88,6 @@
 
 #include "vpn_control.h"
 #include "vpn_control_var.h"
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
 #ifndef HAVE_OPENSSL
 #include <Security/SecDH.h>
 #endif
@@ -228,19 +226,7 @@ ident_i1send(iph1, msg)
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG1SENT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Initiator, Main-Mode message 1"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Initiator, Main-Mode Message 1"),
-								CONSTSTR("Failed to transmit Main-Mode Message 1"));
-	}
 #ifdef ENABLE_FRAG
 	if (vid_frag) 
 		vfree(vid_frag);
@@ -396,19 +382,7 @@ ident_i2recv(iph1, msg)
 #endif
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Initiator, Main-Mode message 2"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Initiator, Main-Mode Message 2"),
-								CONSTSTR("Failed to process Main-Mode Message 2"));
-	}
 	if (pbuf)
 		vfree(pbuf);
 	if (satmp)
@@ -495,19 +469,7 @@ ident_i3send(iph1, msg)
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG3SENT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Initiator, Main-Mode message 3"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Initiator, Main-Mode Message 3"),
-								CONSTSTR("Failed to transmit Main-Mode Message 3"));
-	}
 	return error;
 }
 
@@ -671,19 +633,7 @@ ident_i4recv(iph1, msg)
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG4RCVD);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Initiator, Main-Mode message 4"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Initiator, Main-Mode Message 4"),
-								CONSTSTR("Failed to process Main-Mode Message 4"));
-	}
 	if (pbuf)
 		vfree(pbuf);
 	if (error) {
@@ -805,19 +755,7 @@ ident_i5send(iph1, msg0)
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG5SENT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Initiator, Main-Mode message 5"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Initiator, Main-Mode Message 5"),
-								CONSTSTR("Failed to transmit Main-Mode Message 5"));
-	}
 	return error;
 }
 
@@ -940,10 +878,6 @@ ident_i6recv(iph1, msg0)
 	/* validate authentication value */
     type = oakley_validate_auth(iph1);
     if (type != 0) {
-        IPSECSESSIONTRACEREVENT(iph1->parent_session,
-                                IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
-                                CONSTSTR("Initiator, Main-Mode Message 6"),
-                                CONSTSTR("Failed to authenticate Main-Mode Message 6"));
         if (type == -1) {
             /* msg printed inner oakley_validate_auth() */
             goto end;
@@ -951,11 +885,6 @@ ident_i6recv(iph1, msg0)
         isakmp_info_send_n1(iph1, type, NULL);
         goto end;
     }
-    IPSECSESSIONTRACEREVENT(iph1->parent_session,
-                            IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
-                            CONSTSTR("Initiator, Main-Mode Message 6"),
-                            CONSTSTR(NULL));
-
 
 	/*
 	 * XXX: Should we do compare two addresses, ph1handle's and ID
@@ -973,19 +902,7 @@ ident_i6recv(iph1, msg0)
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_I_MSG6RCVD);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Initiator, Main-Mode message 6"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Initiator, Main-Mode Message 6"),
-								CONSTSTR("Failed to transmit Main-Mode Message 6"));
-	}
 	if (pbuf)
 		vfree(pbuf);
 	if (msg)
@@ -1024,14 +941,7 @@ ident_ifinalize(iph1, msg)
 	memcpy(iph1->ivm->iv->v, iph1->ivm->ive->v, iph1->ivm->iv->l);
 
 	fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_ESTABLISHED);
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_SUCC,
-							CONSTSTR("Initiator, Main-Mode"),
-							CONSTSTR(NULL));
-	
 	error = 0;
-
 end:
 	return error;
 }
@@ -1163,19 +1073,7 @@ ident_r1recv(iph1, msg)
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG1RCVD);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Responder, Main-Mode message 1"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Responder, Main-Mode Message 1"),
-								CONSTSTR("Failed to process Main-Mode Message 1"));
-	}
 	if (pbuf)
 		vfree(pbuf);
 	if (error) {
@@ -1310,19 +1208,7 @@ ident_r2send(iph1, msg)
 #endif
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Responder, Main-Mode message 2"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Responder, Main-Mode Message 2"),
-								CONSTSTR("Failed to transmit Main-Mode Message 2"));
-	}
 #ifdef ENABLE_NATT
 	if (vid_natt)
 		vfree(vid_natt);
@@ -1471,19 +1357,7 @@ ident_r3recv(iph1, msg)
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG3RCVD);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Responder, Main-Mode message 3"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Responder, Main-Mode Message 3"),
-								CONSTSTR("Failed to process Main-Mode Message 3"));
-	}
 	if (pbuf)
 		vfree(pbuf);
 
@@ -1604,19 +1478,7 @@ ident_r4send(iph1, msg)
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG4SENT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Responder, Main-Mode message 4"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Responder, Main-Mode Message 4"),
-								CONSTSTR("Failed to transmit Main-Mode Message 4"));
-	}
 	return error;
 }
 
@@ -1782,10 +1644,6 @@ ident_r5recv(iph1, msg0)
 
     type = oakley_validate_auth(iph1);
     if (type != 0) {
-        IPSECSESSIONTRACEREVENT(iph1->parent_session,
-                                IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
-                                CONSTSTR("Responder, Main-Mode Message 5"),
-                                CONSTSTR("Failed to authenticate Main-Mode Message 5"));
         if (type == -1) {
             /* msg printed inner oakley_validate_auth() */
             goto end;
@@ -1793,10 +1651,6 @@ ident_r5recv(iph1, msg0)
         isakmp_info_send_n1(iph1, type, NULL);
         goto end;
     }
-    IPSECSESSIONTRACEREVENT(iph1->parent_session,
-                            IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
-                            CONSTSTR("Responder, Main-Mode Message 5"),
-                            CONSTSTR(NULL));
 
 	if (oakley_checkcr(iph1) < 0) {
 		/* Ignore this error in order to be interoperability. */
@@ -1815,19 +1669,7 @@ ident_r5recv(iph1, msg0)
 
 	fsm_set_state(&iph1->status, IKEV1_STATE_IDENT_R_MSG5RCVD);
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Responder, Main-Mode message 5"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Responder, Main-Mode Message 5"),
-								CONSTSTR("Failed to process Main-Mode Message 5"));
-	}
 	if (pbuf)
 		vfree(pbuf);
 	if (msg)
@@ -1919,27 +1761,8 @@ ident_r6send(iph1, msg)
 	memcpy(iph1->ivm->ive->v, iph1->ivm->iv->v, iph1->ivm->iv->l);
 
 	fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_ESTABLISHED);
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_SUCC,
-							CONSTSTR("Responder, Main-Mode"),
-							CONSTSTR(NULL));
-	
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Responder, Main-Mode message 6"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Responder, Main-Mode Message 6"),
-								CONSTSTR("Failed to process Main-Mode Message 6"));
-	}
-
 	return error;
 }
 

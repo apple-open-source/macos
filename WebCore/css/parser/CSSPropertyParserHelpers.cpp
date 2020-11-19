@@ -41,6 +41,7 @@
 #include "CSSPaintImageValue.h"
 #include "CSSParserIdioms.h"
 #include "CSSValuePool.h"
+#include "ColorConversion.h"
 #include "Pair.h"
 #include "RuntimeEnabledFeatures.h"
 #include "StyleColor.h"
@@ -253,6 +254,8 @@ RefPtr<CSSPrimitiveValue> consumeLength(CSSParserTokenRange& range, CSSParserMod
             FALLTHROUGH;
         case CSSUnitType::CSS_EMS:
         case CSSUnitType::CSS_REMS:
+        case CSSUnitType::CSS_LHS:
+        case CSSUnitType::CSS_RLHS:
         case CSSUnitType::CSS_CHS:
         case CSSUnitType::CSS_EXS:
         case CSSUnitType::CSS_PX:
@@ -439,7 +442,7 @@ RefPtr<CSSPrimitiveValue> consumeTime(CSSParserTokenRange& range, CSSParserMode 
     return nullptr;
 }
 
-RefPtr<CSSPrimitiveValue> consumeResolution(CSSParserTokenRange& range)
+RefPtr<CSSPrimitiveValue> consumeResolution(CSSParserTokenRange& range, AllowXResolutionUnit allowX)
 {
     const CSSParserToken& token = range.peek();
     // Unlike the other types, calc() does not work with <resolution>.
@@ -448,6 +451,9 @@ RefPtr<CSSPrimitiveValue> consumeResolution(CSSParserTokenRange& range)
     CSSUnitType unit = token.unitType();
     if (unit == CSSUnitType::CSS_DPPX || unit == CSSUnitType::CSS_DPI || unit == CSSUnitType::CSS_DPCM)
         return CSSValuePool::singleton().createValue(range.consumeIncludingWhitespace().numericValue(), unit);
+    if (allowX == AllowXResolutionUnit::Allow && token.value() == "x")
+        return CSSValuePool::singleton().createValue(range.consumeIncludingWhitespace().numericValue(), CSSUnitType::CSS_DPPX);
+
     return nullptr;
 }
 
@@ -512,19 +518,18 @@ RefPtr<CSSPrimitiveValue> consumeUrl(CSSParserTokenRange& range)
     return CSSValuePool::singleton().createValue(url.toString(), CSSUnitType::CSS_URI);
 }
 
-static int clampRGBComponent(const CSSPrimitiveValue& value)
+static uint8_t clampRGBComponent(const CSSPrimitiveValue& value)
 {
     double result = value.doubleValue();
     if (value.isPercentage())
         result = result / 100.0 * 255.0;
 
-    return clampTo<int>(round(result), 0, 255);
+    return convertPrescaledToComponentByte(result);
 }
 
 static Color parseRGBParameters(CSSParserTokenRange& range)
 {
     ASSERT(range.peek().functionId() == CSSValueRgb || range.peek().functionId() == CSSValueRgba);
-    Color result;
     CSSParserTokenRange args = consumeFunction(range);
     RefPtr<CSSPrimitiveValue> colorParameter = consumeNumber(args, ValueRangeAll);
     if (!colorParameter)
@@ -547,7 +552,7 @@ static Color parseRGBParameters(CSSParserTokenRange& range)
         return true;
     };
 
-    int colorArray[3];
+    uint8_t colorArray[3];
     colorArray[0] = clampRGBComponent(*colorParameter);
     for (int i = 1; i < 3; i++) {
         if (i == 1)
@@ -569,7 +574,7 @@ static Color parseRGBParameters(CSSParserTokenRange& range)
         return consumeSlashIncludingWhitespace(args);
     };
 
-    int alphaComponent = 255;
+    uint8_t alphaComponent = 255;
     if (consumeAlphaSeparator()) {
         double alpha;
         if (!consumeNumberRaw(args, alpha)) {
@@ -578,17 +583,13 @@ static Color parseRGBParameters(CSSParserTokenRange& range)
                 return Color();
             alpha = alphaPercent->doubleValue() / 100.0;
         }
-
-        // W3 standard stipulates a 2.55 alpha value multiplication factor.
-        alphaComponent = static_cast<int>(lroundf(clampTo<double>(alpha, 0.0, 1.0) * 255.0f));
+        alphaComponent = convertToComponentByte(alpha);
     };
-
-    result = Color(makeRGBA(colorArray[0], colorArray[1], colorArray[2], alphaComponent));
 
     if (!args.atEnd())
         return Color();
 
-    return result;
+    return SRGBA<uint8_t> { colorArray[0], colorArray[1], colorArray[2], alphaComponent };
 }
 
 static Color parseHSLParameters(CSSParserTokenRange& range, CSSParserMode cssParserMode)
@@ -640,7 +641,7 @@ static Color parseHSLParameters(CSSParserTokenRange& range, CSSParserMode cssPar
     if (!args.atEnd())
         return Color();
 
-    return Color(makeRGBAFromHSLA(static_cast<float>(colorArray[0]), static_cast<float>(colorArray[1]), static_cast<float>(colorArray[2]), static_cast<float>(alpha)));
+    return convertToComponentBytes(toSRGBA(HSLA<float> { static_cast<float>(colorArray[0]), static_cast<float>(colorArray[1]), static_cast<float>(colorArray[2]), static_cast<float>(alpha) }));
 }
 
 static Color parseColorFunctionParameters(CSSParserTokenRange& range)
@@ -657,7 +658,7 @@ static Color parseColorFunctionParameters(CSSParserTokenRange& range)
         colorSpace = ColorSpace::DisplayP3;
         break;
     default:
-        return Color();
+        return { };
     }
     consumeIdent(args);
 
@@ -675,7 +676,7 @@ static Color parseColorFunctionParameters(CSSParserTokenRange& range)
         if (!alphaParameter)
             alphaParameter = consumeNumber(args, ValueRangeAll);
         if (!alphaParameter)
-            return Color();
+            return { };
 
         colorChannels[3] = std::max(0.0, std::min(1.0, alphaParameter->isPercentage() ? (alphaParameter->doubleValue() / 100) : alphaParameter->doubleValue()));
     }
@@ -683,43 +684,46 @@ static Color parseColorFunctionParameters(CSSParserTokenRange& range)
     // FIXME: Support the comma-separated list of fallback color values.
 
     if (!args.atEnd())
-        return Color();
-    
-    return Color(colorChannels[0], colorChannels[1], colorChannels[2], colorChannels[3], colorSpace);
+        return { };
+
+    return Color { ColorComponents { static_cast<float>(colorChannels[0]), static_cast<float>(colorChannels[1]), static_cast<float>(colorChannels[2]), static_cast<float>(colorChannels[3]) }, colorSpace };
 }
 
-static Color parseHexColor(CSSParserTokenRange& range, bool acceptQuirkyColors)
+static Optional<SRGBA<uint8_t>> parseHexColor(CSSParserTokenRange& range, bool acceptQuirkyColors)
 {
-    RGBA32 result;
-    const CSSParserToken& token = range.peek();
-    if (token.type() == HashToken) {
-        if (!Color::parseHexColor(token.value(), result))
-            return Color();
-    } else if (acceptQuirkyColors) {
-        String color;
-        if (token.type() == NumberToken || token.type() == DimensionToken) {
-            if (token.numericValueType() != IntegerValueType
-                || token.numericValue() < 0. || token.numericValue() >= 1000000.)
-                return Color();
-            if (token.type() == NumberToken) // e.g. 112233
-                color = String::number(static_cast<int>(token.numericValue()));
-            else // e.g. 0001FF
-                color = makeString(static_cast<int>(token.numericValue()), token.value().toString());
-            while (color.length() < 6)
-                color = "0" + color;
-        } else if (token.type() == IdentToken) { // e.g. FF0000
-            color = token.value().toString();
+    String string;
+    StringView view;
+    auto& token = range.peek();
+    if (token.type() == HashToken)
+        view = token.value();
+    else {
+        if (!acceptQuirkyColors)
+            return WTF::nullopt;
+        if (token.type() == IdentToken)
+            string = token.value().toString(); // e.g. FF0000
+        else if (token.type() == NumberToken || token.type() == DimensionToken) {
+            if (token.numericValueType() != IntegerValueType)
+                return WTF::nullopt;
+            auto numericValue = token.numericValue();
+            if (!(numericValue >= 0 && numericValue < 1000000))
+                return WTF::nullopt;
+            auto integerValue = static_cast<int>(token.numericValue());
+            if (token.type() == NumberToken)
+                string = String::number(integerValue); // e.g. 112233
+            else
+                string = makeString(integerValue, token.value()); // e.g. 0001FF
+            if (string.length() < 6)
+                string = makeString(&"000000"[string.length()], string);
         }
-        unsigned length = color.length();
-        if (length != 3 && length != 6)
-            return Color();
-        if (!Color::parseHexColor(color, result))
-            return Color();
-    } else {
-        return Color();
+        if (string.length() != 3 && string.length() != 6)
+            return WTF::nullopt;
+        view = string;
     }
+    auto result = CSSParser::parseHexColor(view);
+    if (!result)
+        return WTF::nullopt;
     range.consumeIncludingWhitespace();
-    return Color(result);
+    return *result;
 }
 
 static Color parseColorFunction(CSSParserTokenRange& range, CSSParserMode cssParserMode)
@@ -749,17 +753,20 @@ static Color parseColorFunction(CSSParserTokenRange& range, CSSParserMode cssPar
 
 RefPtr<CSSPrimitiveValue> consumeColor(CSSParserTokenRange& range, CSSParserMode cssParserMode, bool acceptQuirkyColors)
 {
-    CSSValueID id = range.peek().id();
-    if (StyleColor::isColorKeyword(id)) {
-        if (!isValueAllowedInMode(id, cssParserMode))
+    auto keyword = range.peek().id();
+    if (StyleColor::isColorKeyword(keyword)) {
+        if (!isValueAllowedInMode(keyword, cssParserMode))
             return nullptr;
         return consumeIdent(range);
     }
-    Color color = parseHexColor(range, acceptQuirkyColors);
-    if (!color.isValid())
+    Color color;
+    if (auto parsedColor = parseHexColor(range, acceptQuirkyColors))
+        color = *parsedColor;
+    else {
         color = parseColorFunction(range, cssParserMode);
-    if (!color.isValid())
-        return nullptr;
+        if (!color.isValid())
+            return nullptr;
+    }
     return CSSValuePool::singleton().createValue(color);
 }
 
@@ -1018,9 +1025,9 @@ static bool consumeDeprecatedGradientColorStop(CSSParserTokenRange& range, CSSGr
             return false;
     }
 
-    stop.m_position = CSSValuePool::singleton().createValue(position, CSSUnitType::CSS_NUMBER);
-    stop.m_color = consumeDeprecatedGradientStopColor(args, cssParserMode);
-    return stop.m_color && args.atEnd();
+    stop.position = CSSValuePool::singleton().createValue(position, CSSUnitType::CSS_NUMBER);
+    stop.color = consumeDeprecatedGradientStopColor(args, cssParserMode);
+    return stop.color && args.atEnd();
 }
 
 static RefPtr<CSSValue> consumeDeprecatedGradient(CSSParserTokenRange& args, CSSParserMode cssParserMode)
@@ -1038,11 +1045,11 @@ static RefPtr<CSSValue> consumeDeprecatedGradient(CSSParserTokenRange& args, CSS
     auto point = consumeDeprecatedGradientPoint(args, true);
     if (!point)
         return nullptr;
-    result->setFirstX(point.copyRef());
+    result->setFirstX(WTFMove(point));
     point = consumeDeprecatedGradientPoint(args, false);
     if (!point)
         return nullptr;
-    result->setFirstY(point.copyRef());
+    result->setFirstY(WTFMove(point));
 
     if (!consumeCommaIncludingWhitespace(args))
         return nullptr;
@@ -1052,17 +1059,17 @@ static RefPtr<CSSValue> consumeDeprecatedGradient(CSSParserTokenRange& args, CSS
         auto radius = consumeNumber(args, ValueRangeNonNegative);
         if (!radius || !consumeCommaIncludingWhitespace(args))
             return nullptr;
-        downcast<CSSRadialGradientValue>(result.get())->setFirstRadius(radius.copyRef());
+        downcast<CSSRadialGradientValue>(result.get())->setFirstRadius(WTFMove(radius));
     }
 
     point = consumeDeprecatedGradientPoint(args, true);
     if (!point)
         return nullptr;
-    result->setSecondX(point.copyRef());
+    result->setSecondX(WTFMove(point));
     point = consumeDeprecatedGradientPoint(args, false);
     if (!point)
         return nullptr;
-    result->setSecondY(point.copyRef());
+    result->setSecondY(WTFMove(point));
 
     // For radial gradients only, we now expect the second radius.
     if (isDeprecatedRadialGradient) {
@@ -1071,94 +1078,78 @@ static RefPtr<CSSValue> consumeDeprecatedGradient(CSSParserTokenRange& args, CSS
         auto radius = consumeNumber(args, ValueRangeNonNegative);
         if (!radius)
             return nullptr;
-        downcast<CSSRadialGradientValue>(result.get())->setSecondRadius(radius.copyRef());
+        downcast<CSSRadialGradientValue>(result.get())->setSecondRadius(WTFMove(radius));
     }
 
     CSSGradientColorStop stop;
     while (consumeCommaIncludingWhitespace(args)) {
         if (!consumeDeprecatedGradientColorStop(args, stop, cssParserMode))
             return nullptr;
-        result->addStop(stop);
+        result->addStop(WTFMove(stop));
     }
 
     result->doneAddingStops();
     return result;
 }
 
-static bool consumeGradientColorStops(CSSParserTokenRange& range, CSSParserMode cssParserMode, CSSGradientValue& gradient)
+static bool consumeGradientColorStops(CSSParserTokenRange& range, CSSParserMode mode, CSSGradientValue& gradient)
 {
     bool supportsColorHints = gradient.gradientType() == CSSLinearGradient || gradient.gradientType() == CSSRadialGradient || gradient.gradientType() == CSSConicGradient;
     
-    bool isConicGradient = gradient.gradientType() == CSSConicGradient;
+    auto consumeStopPosition = [&] {
+        return gradient.gradientType() == CSSConicGradient
+            ? consumeAngleOrPercent(range, mode, ValueRangeAll, UnitlessQuirk::Forbid)
+            : consumeLengthOrPercent(range, mode, ValueRangeAll);
+    };
 
     // The first color stop cannot be a color hint.
     bool previousStopWasColorHint = true;
     do {
-        CSSGradientColorStop stop;
-        stop.m_color = consumeColor(range, cssParserMode);
-        // Two hints in a row are not allowed.
-        if (!stop.m_color && (!supportsColorHints || previousStopWasColorHint))
-            return false;
-        
-        previousStopWasColorHint = !stop.m_color;
-        
-        // FIXME-NEWPARSER: This boolean could be removed. Null checking color would be sufficient.
-        stop.isMidpoint = !stop.m_color;
-
-        if (isConicGradient)
-            stop.m_position = consumeAngleOrPercent(range, cssParserMode, ValueRangeAll, UnitlessQuirk::Forbid);
-        else
-            stop.m_position = consumeLengthOrPercent(range, cssParserMode, ValueRangeAll);
-        
-        if (!stop.m_color && !stop.m_position)
+        CSSGradientColorStop stop { consumeColor(range, mode), consumeStopPosition(), { } };
+        if (!stop.color && !stop.position)
             return false;
 
-        gradient.addStop(stop);
+        // Two color hints in a row are not allowed.
+        if (!stop.color && (!supportsColorHints || previousStopWasColorHint))
+            return false;
+        previousStopWasColorHint = !stop.color;
 
-        if (!stop.m_color || !stop.m_position)
-            continue;
-
-        CSSGradientColorStop secondStop;
-        if (isConicGradient)
-            secondStop.m_position = consumeAngleOrPercent(range, cssParserMode, ValueRangeAll, UnitlessQuirk::Forbid);
-        else
-            secondStop.m_position = consumeLengthOrPercent(range, cssParserMode, ValueRangeAll);
-        
-        if (secondStop.m_position)
-            gradient.addStop(secondStop);
-        
+        // Stops with both a color and a position can have a second position, which shares the same color.
+        if (stop.color && stop.position) {
+            if (auto secondPosition = consumeStopPosition()) {
+                gradient.addStop(CSSGradientColorStop { stop });
+                stop.position = WTFMove(secondPosition);
+            }
+        }
+        gradient.addStop(WTFMove(stop));
     } while (consumeCommaIncludingWhitespace(range));
-
-    gradient.doneAddingStops();
 
     // The last color stop cannot be a color hint.
     if (previousStopWasColorHint)
         return false;
 
-    // Must have 2 or more stops to be valid.
-    return gradient.stopCount() >= 2;
+    // Must have two or more stops to be valid.
+    if (!gradient.hasAtLeastTwoStops())
+        return false;
+
+    gradient.doneAddingStops();
+    return true;
 }
 
 static RefPtr<CSSValue> consumeDeprecatedRadialGradient(CSSParserTokenRange& args, CSSParserMode cssParserMode, CSSGradientRepeat repeating)
 {
-    RefPtr<CSSRadialGradientValue> result = CSSRadialGradientValue::create(repeating, CSSPrefixedRadialGradient);
+    auto result = CSSRadialGradientValue::create(repeating, CSSPrefixedRadialGradient);
+
     RefPtr<CSSPrimitiveValue> centerX;
     RefPtr<CSSPrimitiveValue> centerY;
     consumeOneOrTwoValuedPosition(args, cssParserMode, UnitlessQuirk::Forbid, centerX, centerY);
     if ((centerX || centerY) && !consumeCommaIncludingWhitespace(args))
         return nullptr;
 
-    result->setFirstX(centerX.copyRef());
-    result->setFirstY(centerY.copyRef());
-    result->setSecondX(centerX.copyRef());
-    result->setSecondY(centerY.copyRef());
-
     auto shape = consumeIdent<CSSValueCircle, CSSValueEllipse>(args);
     auto sizeKeyword = consumeIdent<CSSValueClosestSide, CSSValueClosestCorner, CSSValueFarthestSide, CSSValueFarthestCorner, CSSValueContain, CSSValueCover>(args);
     if (!shape)
         shape = consumeIdent<CSSValueCircle, CSSValueEllipse>(args);
-    result->setShape(shape.copyRef());
-    result->setSizingBehavior(sizeKeyword.copyRef());
 
     // Or, two lengths or percentages
     if (!shape && !sizeKeyword) {
@@ -1169,14 +1160,22 @@ static RefPtr<CSSValue> consumeDeprecatedRadialGradient(CSSParserTokenRange& arg
             if (!verticalSize)
                 return nullptr;
             consumeCommaIncludingWhitespace(args);
-            result->setEndHorizontalSize(horizontalSize.copyRef());
-            result->setEndVerticalSize(verticalSize.copyRef());
+            result->setEndHorizontalSize(WTFMove(horizontalSize));
+            result->setEndVerticalSize(WTFMove(verticalSize));
         }
     } else {
         consumeCommaIncludingWhitespace(args);
     }
-    if (!consumeGradientColorStops(args, cssParserMode, *result))
+
+    if (!consumeGradientColorStops(args, cssParserMode, result))
         return nullptr;
+
+    result->setFirstX(centerX.copyRef());
+    result->setFirstY(centerY.copyRef());
+    result->setSecondX(WTFMove(centerX));
+    result->setSecondY(WTFMove(centerY));
+    result->setShape(WTFMove(shape));
+    result->setSizingBehavior(WTFMove(sizeKeyword));
 
     return result;
 }
@@ -1239,11 +1238,6 @@ static RefPtr<CSSValue> consumeRadialGradient(CSSParserTokenRange& args, CSSPars
         || (verticalSize && verticalSize->isCalculatedPercentageWithLength()))
         return nullptr;
 
-    result->setShape(shape.copyRef());
-    result->setSizingBehavior(sizeKeyword.copyRef());
-    result->setEndHorizontalSize(horizontalSize.copyRef());
-    result->setEndVerticalSize(verticalSize.copyRef());
-
     RefPtr<CSSPrimitiveValue> centerX;
     RefPtr<CSSPrimitiveValue> centerY;
     if (args.peek().id() == CSSValueAt) {
@@ -1264,6 +1258,12 @@ static RefPtr<CSSValue> consumeRadialGradient(CSSParserTokenRange& args, CSSPars
         return nullptr;
     if (!consumeGradientColorStops(args, cssParserMode, *result))
         return nullptr;
+
+    result->setShape(WTFMove(shape));
+    result->setSizingBehavior(WTFMove(sizeKeyword));
+    result->setEndHorizontalSize(WTFMove(horizontalSize));
+    result->setEndVerticalSize(WTFMove(verticalSize));
+
     return result;
 }
 
@@ -1287,8 +1287,8 @@ static RefPtr<CSSValue> consumeLinearGradient(CSSParserTokenRange& args, CSSPars
             endX = consumeIdent<CSSValueLeft, CSSValueRight>(args);
         }
 
-        result->setFirstX(endX.copyRef());
-        result->setFirstY(endY.copyRef());
+        result->setFirstX(WTFMove(endX));
+        result->setFirstY(WTFMove(endY));
     } else {
         expectComma = false;
     }
@@ -1311,24 +1311,24 @@ static RefPtr<CSSValue> consumeConicGradient(CSSParserTokenRange& args, CSSParse
             auto angle = consumeAngle(args, context.mode, UnitlessQuirk::Forbid);
             if (!angle)
                 return nullptr;
-            result->setAngle(angle.releaseNonNull());
+            result->setAngle(WTFMove(angle));
             expectComma = true;
         }
-        
+
         if (consumeIdent<CSSValueAt>(args)) {
             RefPtr<CSSPrimitiveValue> centerX;
             RefPtr<CSSPrimitiveValue> centerY;
             consumePosition(args, context.mode, UnitlessQuirk::Forbid, PositionSyntax::Position, centerX, centerY);
             if (!(centerX && centerY))
                 return nullptr;
-            
+
             result->setFirstX(centerX.copyRef());
             result->setFirstY(centerY.copyRef());
-            
+
             // Right now, conic gradients have the same start and end centers.
-            result->setSecondX(centerX.copyRef());
-            result->setSecondY(centerY.copyRef());
-    
+            result->setSecondX(WTFMove(centerX));
+            result->setSecondY(WTFMove(centerY));
+
             expectComma = true;
         }
     }
@@ -1479,29 +1479,23 @@ static RefPtr<CSSValue> consumeGeneratedImage(CSSParserTokenRange& range, CSSPar
     return result;
 }
 
-static RefPtr<CSSValue> consumeImageSet(CSSParserTokenRange& range, const CSSParserContext& context)
+static RefPtr<CSSValue> consumeImageSet(CSSParserTokenRange& range, const CSSParserContext& context, OptionSet<AllowedImageType> allowedImageTypes)
 {
     CSSParserTokenRange rangeCopy = range;
     CSSParserTokenRange args = consumeFunction(rangeCopy);
-    RefPtr<CSSImageSetValue> imageSet = CSSImageSetValue::create(context.isContentOpaque ? LoadedFromOpaqueSource::Yes : LoadedFromOpaqueSource::No);
+    RefPtr<CSSImageSetValue> imageSet = CSSImageSetValue::create();
     do {
-        AtomString urlValue = consumeUrlAsStringView(args).toAtomString();
-        if (urlValue.isNull())
+        auto image = consumeImage(args, context, allowedImageTypes);
+        if (!image)
             return nullptr;
 
-        RefPtr<CSSValue> image = CSSImageValue::create(completeURL(context, urlValue), context.isContentOpaque ? LoadedFromOpaqueSource::Yes : LoadedFromOpaqueSource::No);
         imageSet->append(image.releaseNonNull());
 
-        const CSSParserToken& token = args.consumeIncludingWhitespace();
-        if (token.type() != DimensionToken)
+        auto resolution = consumeResolution(args, AllowXResolutionUnit::Allow);
+        if (!resolution || resolution->floatValue() <= 0)
             return nullptr;
-        if (token.value() != "x")
-            return nullptr;
-        ASSERT(token.unitType() == CSSUnitType::CSS_UNKNOWN);
-        double imageScaleFactor = token.numericValue();
-        if (imageScaleFactor <= 0)
-            return nullptr;
-        imageSet->append(CSSValuePool::singleton().createValue(imageScaleFactor, CSSUnitType::CSS_NUMBER));
+
+        imageSet->append(resolution.releaseNonNull());
     } while (consumeCommaIncludingWhitespace(args));
     if (!args.atEnd())
         return nullptr;
@@ -1704,19 +1698,32 @@ RefPtr<CSSShadowValue> consumeSingleShadow(CSSParserTokenRange& range, CSSParser
     return CSSShadowValue::create(WTFMove(horizontalOffset), WTFMove(verticalOffset), WTFMove(blurRadius), WTFMove(spreadDistance), WTFMove(style), WTFMove(color));
 }
 
-RefPtr<CSSValue> consumeImage(CSSParserTokenRange& range, CSSParserContext context, ConsumeGeneratedImage generatedImage)
+RefPtr<CSSValue> consumeImage(CSSParserTokenRange& range, CSSParserContext context, OptionSet<AllowedImageType> allowedImageTypes)
 {
-    AtomString uri = consumeUrlAsStringView(range).toAtomString();
-    if (!uri.isNull())
-        return CSSImageValue::create(completeURL(context, uri), context.isContentOpaque ? LoadedFromOpaqueSource::Yes : LoadedFromOpaqueSource::No);
+    if ((range.peek().type() == StringToken) && (allowedImageTypes.contains(AllowedImageType::RawStringAsURL))) {
+        auto urlStringView = range.consumeIncludingWhitespace().value();
+        return CSSImageValue::create(completeURL(context, urlStringView.toAtomString()), context.isContentOpaque ? LoadedFromOpaqueSource::Yes : LoadedFromOpaqueSource::No);
+    }
 
     if (range.peek().type() == FunctionToken) {
-        CSSValueID id = range.peek().functionId();
-        if (id == CSSValueWebkitImageSet || id == CSSValueImageSet)
-            return consumeImageSet(range, context);
-        if (generatedImage == ConsumeGeneratedImage::Allow && isGeneratedImage(id))
+        CSSValueID functionId = range.peek().functionId();
+        if ((allowedImageTypes.contains(AllowedImageType::GeneratedImage)) && isGeneratedImage(functionId))
             return consumeGeneratedImage(range, context);
+
+        if (allowedImageTypes.contains(AllowedImageType::ImageSet)) {
+            if (functionId == CSSValueImageSet)
+                return consumeImageSet(range, context, (allowedImageTypes | AllowedImageType::RawStringAsURL) - AllowedImageType::ImageSet);
+            if (functionId == CSSValueWebkitImageSet)
+                return consumeImageSet(range, context, AllowedImageType::URLFunction);
+        }
     }
+
+    if (allowedImageTypes.contains(AllowedImageType::URLFunction)) {
+        auto uri = consumeUrlAsStringView(range);
+        if (!uri.isNull())
+            return CSSImageValue::create(completeURL(context, uri.toAtomString()), context.isContentOpaque ? LoadedFromOpaqueSource::Yes : LoadedFromOpaqueSource::No);
+    }
+
     return nullptr;
 }
 

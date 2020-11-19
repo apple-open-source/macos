@@ -45,7 +45,8 @@
 
 #if defined(__APPLE__)
 #include <get_compat.h>
-#include <rootless.h>
+#include <stdint.h>
+#include <System/sys/codesign.h>
 #endif /* __APPLE__ */
 
 #include "bashintl.h"
@@ -321,6 +322,17 @@ _cygwin32_check_tmp ()
 #endif /* __CYGWIN__ */
 
 #ifdef __APPLE__
+static int
+is_rootless_restricted_environment(void)
+{
+	uint32_t flags;
+	if (csops(0, CS_OPS_STATUS, &flags, sizeof(flags)))
+		return -1;
+	return (flags & CS_INSTALLER) ? 1 : 0;
+}
+#endif /* __APPLE__ */
+
+#ifdef __APPLE__
 static int tiger_mode = 0;
 #endif	/* __APPLE__ */
 #if defined (NO_MAIN_ENV_ARG)
@@ -489,7 +501,7 @@ main (argc, argv, env)
     if (-1 == setreuid(ruid, euid))
       internal_error( _("setreuid(%u,%u) failed: %s"), ruid, euid, strerror(errno));   
   }
-  int rootless = rootless_restricted_environment();
+  int rootless = is_rootless_restricted_environment();
   if (-1 == rootless)
     internal_error( _("Unable to determine rootless status: %s"), strerror(errno));
   running_setuid |= rootless;

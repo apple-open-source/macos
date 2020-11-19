@@ -111,7 +111,7 @@ public:
     // If we're doing a full repaint m_layoutState will be 0, but in that case layoutDelta doesn't matter.
     LayoutSize layoutDelta() const;
     void addLayoutDelta(const LayoutSize& delta);
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     bool layoutDeltaMatches(const LayoutSize& delta);
 #endif
     using LayoutStateStack = Vector<std::unique_ptr<RenderLayoutState>>;
@@ -120,6 +120,7 @@ public:
     const Layout::LayoutState* layoutFormattingState() const { return m_layoutState.get(); }
     Layout::LayoutTreeContent* layoutTreeContent() const { return m_layoutTreeContent.get(); }
     void invalidateLayoutTreeContent();
+    void invalidateLayoutState();
 #endif
 
 private:
@@ -177,7 +178,6 @@ private:
     WeakPtr<RenderElement> m_subtreeLayoutRoot;
 
     bool m_layoutSchedulingIsEnabled { true };
-    bool m_delayedLayout { false };
     bool m_firstLayout { true };
     bool m_needsFullRepaint { true };
     bool m_inAsynchronousTasks { false };

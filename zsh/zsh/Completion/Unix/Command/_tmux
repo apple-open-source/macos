@@ -43,7 +43,6 @@
 #
 # TODO:
 #
-#   - Implement __tmux-format
 #   - Implement __tmux-style (possibly using existing helpers like
 #     __tmux-attributes and __tmux-colours)
 #   - in _tmux-list-panes, use __tmux-windows or __tmux-sessions
@@ -96,6 +95,7 @@ _tmux_aliasmap=(
     prevl       previous-layout
     renamew     rename-window
     resizep     resize-pane
+    resizew     resize-window
     respawnp    respawn-pane
     respawnw    respawn-window
     rotatew     rotate-window
@@ -187,7 +187,7 @@ _tmux-break-pane() {
   [[ -n ${tmux_describe} ]] && print "break a pane from an existing into a new window" && return
   _arguments -s \
     "-d[don't make the new window become the active one]" \
-    '-F+[specify output format]:format:__tmux-format' \
+    '-F+[specify output format]:format:__tmux-formats' \
     '-P[print information of new window after it has been created]' \
     '-n+[specify window name]:name' \
     '-s+[specify source pane]:pane:__tmux-panes' \
@@ -301,17 +301,20 @@ _tmux-detach-client() {
 
 _tmux-display-message() {
   [[ -n ${tmux_describe} ]] && print "display a message in the status line" && return
-  _arguments -s -S \
+  _arguments -s -S -A "-*" \
+    '(-p -F :)-a[list the format variables and their values]' \
     '-c+[specify target client]:client:__tmux-clients' \
-    '-p[print message to stdout]' \
+    '(-a)-p[print message to stdout]' \
     '-t+[specify target pane]:pane:__tmux-panes' \
-    '-F+[specify output format]:format:__tmux-formats' \
+    '(-a)-F+[specify output format]:format:__tmux-formats' \
+    '(-a)-v[prints verbose logging as the format is parsed]' \
     ':message'
 }
 
 _tmux-display-panes() {
   [[ -n ${tmux_describe} ]] && print "display an indicator for each visible pane" && return
   _arguments -S \
+    "-b[don't block other commands until indicator is closed]" \
     '-d+[time to show indicator for]:duration (ms)' \
     '-t+[specify target client]:client:__tmux-clients' \
     '*:::command:= _tmux'
@@ -324,6 +327,7 @@ _tmux-find-window() {
     '-N[match window name]' \
     '-T[match window title]' \
     '-t+[specify target window]:window:__tmux-windows' \
+    '-Z[zoom the pane]' \
     ':window search pattern'
 }
 
@@ -584,10 +588,17 @@ _tmux-previous-window() {
 
 _tmux-refresh-client() {
   [[ -n ${tmux_describe} ]] && print "refresh a client" && return
-  _arguments -s \
+  _arguments -s -S -A "-*" \
+    '-C+[set the width and height of a control client]:width,height' \
+    '-c[reset so that the position follows the cursor]' \
+    '-D[move visible portion of window down]' \
+    '-L[move visible portion of window left]' \
+    '-l[request clipboard from the client and store it in a new paste buf using xterm(1) escape sequence]' \
     "-S[only update the client's status bar]" \
     '-t+[specify target client]:client:__tmux-clients' \
-    '-C+:size'
+    '-R[move visible portion of window right]' \
+    '-U[move visible portion of window up]' \
+    ': :_guard "[0-9]#" "adjustment"'
 }
 
 _tmux-rename-session() {
@@ -616,7 +627,22 @@ _tmux-resize-pane() {
     '-x+[specify width]:width' \
     '-y+[specify height]:height' \
     '-Z[toggle zoom of pane]' \
-    ':adjustment'
+    ': :_guard "[0-9]#" "adjustment"'
+}
+
+_tmux-resize-window() {
+  [[ -n ${tmux_describe} ]] && print "resize a window" && return
+  _arguments -s -A "-*" -S : \
+    '-A[set size of largest session containing the window]' \
+    '-a[set size of smallest session containing the window]' \
+    '-D[resize downward]' \
+    '-L[resize to the left]' \
+    '-R[resize to the right]' \
+    '-U[resize upward]' \
+    '-t+[specify target pane]:pane:__tmux-windows' \
+    '-x+[specify width]:width' \
+    '-y+[specify height]:height' \
+    ': :_guard "[0-9]#" "adjustment"'
 }
 
 _tmux-respawn-pane() {
@@ -1071,7 +1097,7 @@ function __tmux-environment-variables() {
             if _describe -t parameters $msg descriptions; then
                 :
             elif [[ -n $hint ]]; then
-                _message $msg
+                _message -e $msg
             fi
             ;;
         (value)
@@ -1079,10 +1105,10 @@ function __tmux-environment-variables() {
             # TODO: this if/else is because '_description -x' prints the "No matches" error in addition to the message.
             if [[ -n $var_and_val ]]; then
                 local -a expl
-                _description -x parameter-values expl "Value for ${words[-2]}"
+                _description -x parameter-values expl "value for ${words[-2]}"
                 compadd "$expl[@]" - ${var_and_val#*=}
             else
-                _message "Value for ${words[-2]}"
+                _message -e "value for ${words[-2]}"
             fi
             ;;
         (*)
@@ -1092,7 +1118,180 @@ function __tmux-environment-variables() {
 }
 
 __tmux-formats() {
-  _message 'not implemented yet'
+  local hash='#' open='{' close='}' paren='(' quest='?'
+  local tmux_variables expl
+  compquote hash open close paren quest
+  compset -p ${#PREFIX%$hash*}
+  if compset -P "${(q)hash}${open}"; then
+    if compset -P "${(q)quest}"; then
+      close=,
+    elif ! compset -P "([bdt]|s/[^/]#/[^/]#/|=(-|)<->):"; then
+      _describe -t operators operator '(
+	\?:conditional
+	\=:length\ limit
+      )' -S '' -- '(
+	m:fnmatch\ comparison
+	t:convert\ time\ to\ string
+	b:basename
+	c:search\ for\ fnmatch\ pattern\ in\ pane\ content
+	d:dirname
+	\==:comparison
+	\!=:comparison
+      )' -S : -- '(
+	s:substitution
+      )' -S / -- '(
+	\|\|:either\ of\ two\ conditions
+	\&\&:both\ of\ two\ conditions
+      )' -S ,
+    fi
+    tmux_variables=(
+      'alternate_on:if pane is in alternate screen'
+      'alternate_saved_x:saved cursor X in alternate screen'
+      'alternate_saved_y:saved cursor Y in alternate screen'
+      'buffer_created:time buffer created'
+      'buffer_name:name of buffer'
+      'buffer_sample:sample of start of buffer'
+      'buffer_size:size of the specified buffer in bytes'
+      'client_activity:time client last had activity'
+      'client_created:time client created'
+      'client_control_mode:1 if client is in control mode'
+      'client_discarded:bytes discarded when client behind'
+      'client_height:height of client'
+      'client_key_table:current key table'
+      "client_last_session:name of the client's last session"
+      'client_name:name of client'
+      'client_pid:PID of client process'
+      'client_prefix:1 if prefix key has been pressed'
+      'client_readonly:1 if client is readonly'
+      "client_session:name of the client's session"
+      'client_termname:terminal name of client'
+      'client_termtype:terminal type of client'
+      'client_tty:pseudo terminal of client'
+      'client_utf8:1 if client supports utf8'
+      'client_width:width of client'
+      'client_written:bytes written to client'
+      'command:name of command in use, if any'
+      'command_list_name:command name if listing commands'
+      'command_list_alias:command alias if listing commands'
+      'command_list_usage:command usage if listing commands'
+      'cursor_flag:pane cursor flag'
+      'cursor_character:character at cursor in pane'
+      'cursor_x:cursor X position in pane'
+      'cursor_y:cursor Y position in pane'
+      'history_bytes:number of bytes in window history'
+      'history_limit:maximum window history lines'
+      'history_size:size of history in lines'
+      'hook:name of running hook, if any'
+      'hook_pane:ID of pane where hook was run, if any'
+      'hook_session:ID of session where hook was run, if any'
+      'hook_session_name:name of session where hook was run, if any'
+      'hook_window:ID of window where hook was run, if any'
+      'hook_window_name:name of window where hook was run, if any'
+      'host:hostname of local host'
+      'host_short:hostname of local host (no domain name)'
+      'insert_flag:pane insert flag'
+      'keypad_cursor_flag:pane keypad cursor flag'
+      'keypad_flag:pane keypad flag'
+      'line:line number in the list'
+      'mouse_any_flag:pane mouse any flag'
+      'mouse_button_flag:pane mouse button flag'
+      'mouse_standard_flag:pane mouse standard flag'
+      'mouse_all_flag:pane mouse all flag'
+      'pane_active:1 if active pane'
+      'pane_at_bottom:1 if pane is at the bottom of window'
+      'pane_at_left:1 if pane is at the left of window'
+      'pane_at_right:1 if pane is at the right of window'
+      'pane_at_top:1 if pane is at the top of window'
+      'pane_bottom:bottom of pane'
+      'pane_current_command:current command if available'
+      'pane_dead:1 if pane is dead'
+      'pane_dead_status:exit status of process in dead pane'
+      'pane_format:1 if format is for a pane (not assuming the current)'
+      'pane_height:height of pane'
+      'pane_id:unique pane ID'
+      'pane_in_mode:if pane is in a mode'
+      'pane_input_off:if input to pane is disabled'
+      'pane_index:index of pane'
+      'pane_left:left of pane'
+      'pane_mode:name of pane mode, if any.'
+      'pane_pid:PID of first process in pane'
+      'pane_pipe:1 if pane is being piped'
+      'pane_right:right of pane'
+      'pane_search_string:last search string in copy mode'
+      'pane_start_command:command pane started with'
+      'pane_synchronized:if pane is synchronized'
+      'pane_tabs:pane tab positions'
+      'pane_title:title of pane'
+      'pane_top:top of pane'
+      'pane_tty:pseudo terminal of pane'
+      'pane_width:width of pane'
+      'pid:server PID'
+      'rectangle_toggle:1 if rectangle selection is activated'
+      'scroll_region_lower:bottom of scroll region in pane'
+      'scroll_region_upper:top of scroll region in pane'
+      'scroll_position:scroll position in copy mode'
+      'selection_present:1 if selection started in copy mode'
+      'session_alerts:list of window indexes with alerts'
+      'session_attached:number of clients session is attached to'
+      'session_activity:time of session last activity'
+      'session_created:time session created'
+      'session_format:1 if format is for a session (not assuming the current)'
+      'session_last_attached:time session last attached'
+      'session_group:name of session group'
+      'session_group_size:size of session group'
+      'session_group_list:list of sessions in group'
+      'session_grouped:1 if session in a group'
+      'session_id:unique session ID'
+      'session_many_attached:1 if multiple clients attached'
+      'session_name:name of session'
+      'session_stack:window indexes in most recent order'
+      'session_width:width of session'
+      'session_windows:number of windows in session'
+      'socket_path:server socket path'
+      'start_time:server start time'
+      'version:server version'
+      'window_activity:time of window last activity'
+      'window_activity_flag:1 if window has activity'
+      'window_active:1 if window active'
+      'window_bell_flag:1 if window has bell'
+      'window_flags:window flags'
+      'window_format:1 if format is for a window (not assuming the current)'
+      'window_height:height of window'
+      'window_id:unique window ID'
+      'window_index:index of window'
+      'window_last_flag:1 if window is the last used'
+      'window_layout:window layout description, ignoring zoomed window panes'
+      'window_linked:1 if window is linked across sessions'
+      'window_name:name of window'
+      'window_offset_x:X offset into window if larger than client'
+      'window_offset_y:Y offset into window if larger than client'
+      'window_panes:number of panes in window'
+      'window_silence_flag:1 if window has silence alert'
+      'window_stack_index:index in session most recent stack'
+      'window_visible_layout:window layout description, respecting zoomed window panes'
+      'window_width:width of window'
+      'window_zoomed_flag:1 if window is zoomed'
+      'wrap_flag:pane wrap flag'
+    )
+    _describe -t variables variable tmux_variables -S "$close"
+  elif compset -P "${(q)hash}${(q)paren}"; then
+    compset -S '(\\|)\)*'
+    _cmdstring
+  elif [[ $PREFIX = ${hash}* ]]; then
+    _describe -t variables variable '(
+      \#H:local\ hostname
+      \#h:short\ local\ hostname
+      \#D:pane\ id
+      \#P:pane\ index
+      \#T:pane\ title
+      \#S:session\ name
+      \#F:window\ flags
+      \#I:window\ index
+      \#W:window\ name
+    )' -S ''
+  else
+    _wanted format-specifiers expl 'format specifier' compadd -S '' \#
+  fi
 }
 
 function __tmux-colours() {
@@ -1128,7 +1327,7 @@ function __tmux-get-optarg() {
 }
 
 __tmux-nothing-else() {
-  _message "no further arguments"
+  _message -e "no further arguments"
 }
 
 function __tmux-option-guard() {
@@ -1140,12 +1339,13 @@ function __tmux-option-guard() {
     int_guard='_guard "[0-9]#" "'${opt}': numeric value"'
     if [[ ${mode} == 'session' ]]; then
         options=(
+            'activity-action:DESC:any none current other'
             'assume-paste-time:'${int_guard}
             'base-index:'${int_guard}
             'bell-action:DESC:any none current other'
-            'bell-on-alert:DESC:on off'
             'default-command:MSG:command string'
             'default-shell:MSG:shell executable'
+            'default-size:MSG:XxY'
             'destroy-unattached:DESC:on off'
             'detach-on-destroy:DESC:on off'
             'display-panes-colour:__tmux-colours'
@@ -1164,7 +1364,9 @@ function __tmux-option-guard() {
             'repeat-time:'${int_guard}
             'set-titles:DESC:on off'
             'set-titles-string:MSG:title format string'
+            'silence-action:DESC:any none current other'
             'status:DESC:on off'
+            'status-format:MSG:format string'
             'status-interval:'${int_guard}
             'status-justify:DESC:left centre right'
             'status-keys:DESC:vi emacs'
@@ -1177,6 +1379,7 @@ function __tmux-option-guard() {
             'status-right-style:__tmux-style'
             'status-style:__tmux-style'
             'update-environment:MSG:string listing env. variables'
+            'user-keys:MSG:key'
             'visual-activity:DESC:on off'
             'visual-bell:DESC:on off'
             'visual-silence:DESC:on off'
@@ -1185,13 +1388,14 @@ function __tmux-option-guard() {
     elif [[ ${mode} == 'server' ]]; then
         options=(
             'buffer-limit:'${int_guard}
+            'command-alias:MSG:alias'
             'default-terminal:MSG:terminal string'
             'escape-time:'${int_guard}
+            'exit-empty:DESC:on off'
             'exit-unattached:DESC:on off'
             'focus-events:DESC:on off'
             'history-file:_path-files -g "*(-.)"'
             'message-limit:'${int_guard}
-            'quiet:DESC:on off'
             'set-clipboard:DESC:on off'
             'terminal-overrides:MSG:overrides string'
         )
@@ -1204,13 +1408,12 @@ function __tmux-option-guard() {
             'automatic-rename-format:DESC:__tmux-format'
             'clock-mode-colour:__tmux-colours'
             'clock-mode-style:DESC:12 24'
-            'force-height:'${int_guard}
-            'force-width:'${int_guard}
             'main-pane-height:'${int_guard}
             'main-pane-width:'${int_guard}
             'mode-keys:DESC:vi emacs'
             'mode-style:__tmux-style'
             'monitor-activity:DESC:on off'
+            'monitor-bell:DESC:on off'
             'monitor-silence:DESC:on off'
             'other-pane-height:'${int_guard}
             'other-pane-width:'${int_guard}
@@ -1230,6 +1433,7 @@ function __tmux-option-guard() {
             'window-status-last-style:__tmux-style'
             'window-status-separator:MSG:separator string'
             'window-status-style:__tmux-style'
+            'window-size:MSG:XxY'
             'window-style:__tmux-style'
             'wrap-search:DESC:on off'
             'xterm-keys:DESC:on off'
@@ -1241,12 +1445,11 @@ function __tmux-option-guard() {
         _message "unknown ${mode} option: ${opt}"
         return
     fi
-    _message "${mode} option value"
     guard=${guard#*:}
     case ${guard} in
         ('') ;;
         (MSG:*)
-            _message ${guard#*:}
+            _message -e ${guard#*:}
             ;;
         (DESC:*)
             eval "desc=( ${guard#*:} )"
@@ -1261,12 +1464,13 @@ function __tmux-option-guard() {
 function __tmux-session-options() {
     local -a tmux_session_options
     tmux_session_options=(
+        'activity-action:set action on window activity when monitor-activity is on'
         'assume-paste-time:assume keys are pasted instead of typed if this fast'
         'base-index:define where to start numbering'
         'bell-action:set action on window bell'
-        'bell-on-alert:ring the terminal bell when an alert occurs'
         'default-command:default command for new windows'
         'default-shell:default shell executable'
+        'default-size:set the default size of windows when the size is not set'
         'destroy-unattached:destroy session if no client is attached'
         'detach-on-destroy:detach client if attached session is destroyed'
         'display-panes-colour:colour used for display-panes'
@@ -1286,7 +1490,9 @@ function __tmux-session-options() {
         'repeat-time:time for multiple commands without prefix-key presses'
         'set-titles:try to set xterm window titles'
         'set-titles-string:format used by set-titles'
+        'silence-action:set action on window silence when monitor-silence is on'
         'status:show or hide the status bar'
+        'status-format:specify the format to be used for each line of the status line'
         'status-interval:interval (in seconds) for status bar updates'
         'status-justify:position of the window list in status bar'
         'status-keys:mode to use in status bar modes (vi/emacs)'
@@ -1299,6 +1505,7 @@ function __tmux-session-options() {
         'status-right-style:style of right part of status line'
         'status-style:style status line'
         "update-environment:list of variables to be copied to a session's environment"
+        'user-keys:set list of user-defined key escape sequences'
         'visual-activity:display status line messages upon activity'
         'visual-bell:use visual bell instead of audible'
         'visual-silence:print a message if monitor-silence is on'
@@ -1352,13 +1559,14 @@ function __tmux-server-options() {
     local -a tmux_server_options
     tmux_server_options=(
         'buffer-limit:number of buffers kept per session'
+        'command-alias:custom command aliases'
         'default-terminal:default terminal definition string'
         'escape-time:set timeout to detect single escape characters (in msecs)'
         'exit-unattached:make server exit if it has no attached clients'
+        'exit-empty:exit when there are no active sessions'
         'focus-events:request focus events from terminal'
         'history-file:tmux command history file name'
         'message-limit:set size of message log per client'
-        'quiet:enable/disable the display of various informational messages'
         'set-clipboard:use esc sequences to set terminal clipboard'
         'terminal-overrides:override terminal descriptions'
     )
@@ -1420,13 +1628,12 @@ function __tmux-window-options() {
         'automatic-rename-format:format for automatic renames'
         'clock-mode-colour:set clock colour'
         'clock-mode-style:set clock hour format (12/24)'
-        'force-height:force a windows to a certain height'
-        'force-width:force a windows to a certain width'
         'main-pane-height:set height for main-* layouts'
         'main-pane-width:set width for main-* layouts'
         'mode-keys:mode to use in copy and choice modes (vi/emacs)'
         'mode-style:set window modes style'
         'monitor-activity:monitor window activity'
+        'monitor-bell:monitor for a bell in the window'
         'monitor-silence:monitor window for inactivity'
         'other-pane-height:height of other panes'
         'other-pane-width:width of other panes'
@@ -1446,6 +1653,7 @@ function __tmux-window-options() {
         'window-status-last-style:style of last window in status bar'
         'window-status-separator:separator drawn between windows in status line'
         'window-status-style:general status bar style'
+        'window-size:indicate how to automatically size windows'
         'window-style:style of window'
         'wrap-search:search wrap around at the end of a pane'
         'xterm-keys:generate xterm-style function key sequences'

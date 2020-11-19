@@ -146,10 +146,9 @@ IOFWUserCommand::asyncReadWriteCommandCompletion(
 		args[0] = cmd->fCommand->getBytesTransferred();
 		args[1] = cmd->fCommand->getAckCode();
 		args[2] = cmd->fCommand->getResponseCode();
-#if IOFIREWIREDEBUG > 0
-		IOReturn		error = 
-#endif
-		IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 3 );
+
+		IOReturn error = kIOReturnSuccess;
+		error = IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 3 );
 		
 		DebugLogCond ( error, "IOFWUserCommand::asyncReadWriteCommandCompletion: sendAsyncResult64 returned error %x\n", error ) ;
 	}
@@ -170,10 +169,8 @@ IOFWUserCommand::asyncReadQuadletCommandCompletion(
 		cmd->fOutputArgs[1] = cmd->fCommand->getResponseCode();
 		// quad data is already in fOutputArgs[3] and later
 		
-#if IOFIREWIREDEBUG > 0
-		IOReturn result =
-#endif
-		IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, (io_user_reference_t *)cmd->fOutputArgs, ( cmd->fCommand->getBytesTransferred() >> 2) + 2 ) ;
+		IOReturn result = kIOReturnSuccess;
+		result = IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, (io_user_reference_t *)cmd->fOutputArgs, (UInt32)(( cmd->fCommand->getBytesTransferred() >> 2) + 2) ) ;
 		DebugLogCond ( result, "IOFireWireUserClient::asyncReadQuadletCommandCompletion: sendAsyncResult64 returned error 0x%08x\n", result) ;
 	}
 }
@@ -243,7 +240,7 @@ IOFWUserReadCommand::submit(
 		
 		if ( copyFlag )	// is this command using in-line data?
 		{
-			if( fQuads && (fNumQuads != params->newBufferSize) || syncFlag)	// if we're executing synchronously,
+			if( ( fQuads && (fNumQuads != params->newBufferSize ) ) || syncFlag)	// if we're executing synchronously,
 																			// don't need quadlet buffer
 			{
 				IOFree( fOutputArgs, fOutputArgsSize );
@@ -433,7 +430,7 @@ IOFWUserReadCommand::submit(
 	if( syncFlag && (outResult != NULL) )
 	{
 		outResult->result 			= fCommand->getStatus() ;
-		outResult->bytesTransferred	= fCommand->getBytesTransferred() ;
+		outResult->bytesTransferred	= (UInt32)fCommand->getBytesTransferred() ;
 		outResult->ackCode			= fCommand->getAckCode();
 		outResult->responseCode		= fCommand->getResponseCode();
 		
@@ -649,7 +646,7 @@ IOFWUserWriteCommand::submit(
 	if( syncFlag && (outResult != NULL) )
 	{
 		outResult->result 			= fCommand->getStatus();
-		outResult->bytesTransferred	= fCommand->getBytesTransferred();
+		outResult->bytesTransferred	= (UInt32)fCommand->getBytesTransferred();
 		outResult->ackCode			= fCommand->getAckCode();
 		outResult->responseCode		= fCommand->getResponseCode();
 
@@ -797,10 +794,9 @@ IOFWUserPHYCommand::asyncPHYCommandCompletion(
 		args[0] = 8;
 		args[1] = cmd->fPHYCommand->getAckCode();
 		args[2] = cmd->fPHYCommand->getResponseCode();
-#if IOFIREWIREDEBUG > 0
-		IOReturn		error = 
-#endif
-		IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 3 );
+		
+		IOReturn error = kIOReturnSuccess;
+		error = IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 3 );
 		
 		DebugLogCond ( error, "IOFWUserCommand::asyncReadWriteCommandCompletion: sendAsyncResult64 returned error %x\n", error ) ;
 	}
@@ -856,7 +852,7 @@ IOFWUserCompareSwapCommand::submit ( CommandSubmitParams *	params, CommandSubmit
 																	target_address, 
 																	(UInt32*)(params+1),// cmpVal past end of param struct
 																	(UInt32*)(params+1) + 2,// newVal past end of cmpVal
-																	fSize >> 2,
+																	(int)(fSize >> 2),
 																	syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion,
 																	this ) ;
 		else
@@ -864,7 +860,7 @@ IOFWUserCompareSwapCommand::submit ( CommandSubmitParams *	params, CommandSubmit
 			fCommand = fUserClient->getOwner()->createCompareAndSwapCommand( target_address, 
 																			(UInt32*)(params+1),// cmpVal past end of param struct
 																			(UInt32*)(params+1) + 2,// newVal past end of cmpVal
-																			fSize >> 2,
+																			(int)(fSize >> 2),
 																			syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion,
 																			this,
 																			params->newFailOnReset ) ;
@@ -882,13 +878,13 @@ IOFWUserCompareSwapCommand::submit ( CommandSubmitParams *	params, CommandSubmit
 			error =((IOFWCompareAndSwapCommand*)fCommand)->reinit( params->newGeneration, 
 					target_address, (UInt32*)(params+1),// cmpVal past end of param struct
 					(UInt32*)(params+1) + 2,// newVal past end of cmpVal
-					fSize >> 2, syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion, this ) ;
+					(int)(fSize >> 2), syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion, this ) ;
 		else
 		{
 			error = ((IOFWCompareAndSwapCommand*)fCommand)->reinit( target_address, 
 					(UInt32*)(params+1),// cmpVal past end of param struct
 					(UInt32*)(params+1) + 2,// newVal past end of cmpVal
-					fSize >> 2, syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion, this,
+					(int)(fSize >> 2), syncFlag ? NULL : & IOFWUserCompareSwapCommand::asyncCompletion, this,
 					params->newFailOnReset ) ;
 			fCommand->setGeneration( params->newGeneration ) ;
 		}
@@ -927,7 +923,9 @@ IOFWUserCompareSwapCommand::submit ( CommandSubmitParams *	params, CommandSubmit
 		if( syncFlag && (result != NULL) )
 		{
 			result->result 					= fCommand->getStatus() ;
-			result->bytesTransferred		= fCommand->getBytesTransferred() ;
+			result->bytesTransferred		= (UInt32)fCommand->getBytesTransferred() ;
+
+			// *** WARNING: Taking address of packed member 'value' of class or structure 'IOFireWireLib::FWCompareSwapLockInfo' may result in an unaligned pointer value
 			result->lockInfo.didLock		= ((IOFWCompareAndSwapCommand*)fCommand)->locked( (UInt32*) & result->lockInfo.value ) ;
 			result->ackCode					= fCommand->getAckCode();
 			result->responseCode			= fCommand->getResponseCode();
@@ -976,10 +974,8 @@ IOFWUserCompareSwapCommand::asyncCompletion(
 		}
 #endif
 		
-#if IOFIREWIREDEBUG > 0
-		IOReturn error =
-#endif	
-		IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 7 );
+		IOReturn error = kIOReturnSuccess;
+		error = IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 7 );
 		DebugLogCond ( error, "IOFireWireUserClient::asyncCompareSwapCommandCompletion: sendAsyncResult64 returned error 0x%08x\n", error ) ;
 
 
@@ -992,10 +988,7 @@ IOFWUserCompareSwapCommand::asyncCompletion(
 		sendResult.ackCode = cmd->fCommand->getAckCode();
 		sendResult.responseCode = cmd->fCommand->getResponseCode();
 	
-#if IOFIREWIREDEBUG > 0
-		IOReturn error =
-#endif	
-		IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, (io_user_reference_t *)& sendResult, sizeof(sendResult)/sizeof(UInt32) ) ;	// +1 to round up
+		IOReturn error = IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, (io_user_reference_t *)& sendResult, sizeof(sendResult)/sizeof(UInt32) ) ;	// +1 to round up
 		DebugLogCond ( error, "IOFireWireUserClient::asyncCompareSwapCommandCompletion: sendAsyncResult64 returned error 0x%08x\n", error ) ;
 #endif
 
@@ -1173,10 +1166,9 @@ IOFWUserAsyncStreamCommand::asyncStreamCommandCompletion(void						*refcon,
 	{
 		io_user_reference_t args[3];
 		args[0] = 8;
-#if IOFIREWIREDEBUG > 0
-		IOReturn		error = 
-#endif
-		IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 3 );
+		
+		IOReturn error = kIOReturnSuccess;
+		error = IOFireWireUserClient::sendAsyncResult64( cmd->fAsyncRef, status, args, 3 );
 		
 		DebugLogCond ( error, "IOFWUserCommand::asyncStreamCommandCompletion: sendAsyncResult64 returned error %x\n", error ) ;
 	}

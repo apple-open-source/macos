@@ -301,7 +301,7 @@ FillSource::FillSource(const GraphicsContextState& state, const GraphicsContext&
         AffineTransform userToBaseCTM; // FIXME: This isn't really needed on Windows
         brush = state.fillPattern->createPlatformPattern(context, state.alpha, userToBaseCTM);
     } else if (state.fillGradient && !state.fillGradient->stops().isEmpty())
-        brush = state.fillGradient->createPlatformGradientIfNecessary(platformContext.renderTarget());
+        brush = state.fillGradient->createBrush(platformContext.renderTarget());
     else
         brush = platformContext.brushWithColor(color);
 }
@@ -318,7 +318,7 @@ StrokeSource::StrokeSource(const GraphicsContextState& state, const GraphicsCont
         AffineTransform userToBaseCTM; // FIXME: This isn't really needed on Windows
         brush = state.strokePattern->createPlatformPattern(context, state.alpha, userToBaseCTM);
     } else if (state.strokeGradient)
-        brush = state.strokeGradient->createPlatformGradientIfNecessary(platformContext.renderTarget());
+        brush = state.strokeGradient->createBrush(platformContext.renderTarget());
     else
         brush = platformContext.brushWithColor(color);
 }
@@ -775,12 +775,12 @@ void drawGlyphs(PlatformContextDirect2D& platformContext, const FillSource& fill
     Color shadowColor;
     graphicsContext.getShadow(shadowOffset, shadowBlur, shadowColor);
 
-    bool hasSimpleShadow = graphicsContext.textDrawingMode() == TextModeFill && shadowColor.isValid() && !shadowBlur && (!graphicsContext.shadowsIgnoreTransforms() || graphicsContext.getCTM().isIdentityOrTranslationOrFlipped());
+    bool hasSimpleShadow = graphicsContext.textDrawingMode() == TextDrawingMode::Fill && shadowColor.isValid() && !shadowBlur && (!graphicsContext.shadowsIgnoreTransforms() || graphicsContext.getCTM().isIdentityOrTranslationOrFlipped());
     if (hasSimpleShadow) {
         // Paint simple shadows ourselves instead of relying on CG shadows, to avoid losing subpixel antialiasing.
         graphicsContext.clearShadow();
         Color fillColor = graphicsContext.fillColor();
-        Color shadowFillColor(shadowColor.red(), shadowColor.green(), shadowColor.blue(), shadowColor.alpha() * fillColor.alpha() / 255);
+        Color shadowFillColor = shadowColor.colorWithAlphaMultipliedBy(fillColor.alphaAsFloat());
         float shadowTextX = point.x() + shadowOffset.width();
         // If shadows are ignoring transforms, then we haven't applied the Y coordinate flip yet, so down is negative.
         float shadowTextY = point.y() + shadowOffset.height() * (graphicsContext.shadowsIgnoreTransforms() ? -1 : 1);

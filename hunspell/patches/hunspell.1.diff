@@ -1,0 +1,8 @@
+--- man/hunspell.1	2008-06-12 01:50:43.000000000 -0700
++++ man/hunspell.1	2020-04-06 13:14:06.000000000 -0700
+@@ -1,5 +1,4 @@
+ .TH hunspell 1 "2008-06-12"
+-.LO 1
+ .SH NAME
+ hunspell \- spell checker, stemmer and morphological analyzer
+ .SH SYNOPSIS

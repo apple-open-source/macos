@@ -441,30 +441,44 @@ extern int command_scep(int argc, char * const *argv)
 
     (void) scep_signing_certificate; // Silence analyzer
 
-#if 0
+/*
         GetCACaps capabilities advertised by SCEP server:
 
-   +--------------------+----------------------------------------------+
-   | Keyword            | Description                                  |
-   +--------------------+----------------------------------------------+
-   | "GetNextCACert"    | CA Supports the GetNextCACert message.       |
-   | "POSTPKIOperation" | PKIOPeration messages may be sent via HTTP   |
-   |                    | POST.                                        |
-   | "Renewal"          | Clients may use current certificate and key  |
-   |                    | to authenticate an enrollment request for a  |
-   |                    | new certificate.                             |
-   | "SHA-512"          | CA Supports the SHA-512 hashing algorithm in |
-   |                    | signatures and fingerprints.                 |
-   | "SHA-256"          | CA Supports the SHA-256 hashing algorithm in |
-   |                    | signatures and fingerprints.                 |
-   | "SHA-1"            | CA Supports the SHA-1 hashing algorithm in   |
-   |                    | signatures and fingerprints.                 |
-   | "DES3"             | CA Supports triple-DES for encryption.       |
-   +--------------------+----------------------------------------------+
-#endif
+    +--------------------+----------------------------------------------+
+    | Keyword            | Description                                  |
+    +--------------------+----------------------------------------------+
+    | "AES"              | CA supports the AES128-CBC encryption        |
+    |                    | algorithm.                                   |
+    |                    |                                              |
+    | "DES3"             | CA supports the triple DES-CBC encryption    |
+    |                    | algorithm.                                   |
+    |                    |                                              |
+    | "GetNextCACert"    | CA supports the GetNextCACert                |
+    |                    | message.                                     |
+    |                    |                                              |
+    | "POSTPKIOperation" | CA supports PKIOPeration messages sent       |
+    |                    | via HTTP POST.                               |
+    |                    |                                              |
+    | "Renewal"          | CA supports the Renewal CA operation.        |
+    |                    |                                              |
+    | "SHA-1"            | CA supports the SHA-1 hashing algorithm.     |
+    |                    |                                              |
+    | "SHA-256"          | CA supports the SHA-256 hashing algorithm.   |
+    |                    |                                              |
+    | "SHA-512"          | CA supports the SHA-512 hashing algorithm.   |
+    |                    |                                              |
+    | "SCEPStandard"     | CA supports all mandatory-to-implement       |
+    |                    | sections of the SCEP standard.  This keyword |
+    |                    | implies "AES",                               |
+    |                    | "POSTPKIOperation", and "SHA-256", as well   |
+    |                    | as the provisions of                         |
+    |                    | Section 2.9.                                 |
+    +--------------------+----------------------------------------------+
+*/
 
     bool scep_can_use_post = false;
-    bool scep_use_3des = false;
+    bool scep_can_use_3des = false;
+    bool scep_can_use_aes = false;
     bool scep_can_use_sha1 = false;
     bool scep_can_use_sha512 = false;
     bool scep_can_use_sha256 = false;
@@ -496,20 +510,13 @@ extern int command_scep(int argc, char * const *argv)
 
         CFRange caps_length = CFRangeMake(0, CFArrayGetCount(caps));
         scep_can_use_post = CFArrayContainsValue(caps, caps_length, CFSTR("POSTPKIOperation"));
-        scep_use_3des = CFArrayContainsValue(caps, caps_length, CFSTR("DES3"));
+        scep_can_use_3des = CFArrayContainsValue(caps, caps_length, CFSTR("DES3"));
+        scep_can_use_aes = CFArrayContainsValue(caps, caps_length, CFSTR("AES"));
         scep_can_use_sha1 = CFArrayContainsValue(caps, caps_length, CFSTR("SHA-1"));
         scep_can_use_sha256 = CFArrayContainsValue(caps, caps_length, CFSTR("SHA-256"));
         scep_can_use_sha512 = CFArrayContainsValue(caps, caps_length, CFSTR("SHA-512"));
-
-        // We probably inteded these to be the values and not override them below..
-        // but for now to quiet the analyzer we reference them here. see <rdar://problem/15010402> scep.c, command_scep assumes 3des and sha1
-        (void) scep_use_3des;
-        (void) scep_can_use_sha1;
         CFRelease(caps);
     }
-
-    scep_use_3des = true;
-    scep_can_use_sha1 = true;
 
     csr_parameters = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, 
         &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -520,11 +527,14 @@ extern int command_scep(int argc, char * const *argv)
     else
         fprintf(stderr, "No SCEP challenge provided, hope that's ok.\n");
 
-    if (!scep_use_3des) {
-        CFDictionarySetValue(csr_parameters, kSecCMSBulkEncryptionAlgorithm, kSecCMSEncryptionAlgorithmDESCBC);
-        fprintf(stderr, "SCEP server does not support 3DES, falling back to DES.  You should reconfigure your server.\n");
+    // set encryption algorithm for CMS
+    if (scep_can_use_aes) {
+        CFDictionarySetValue(csr_parameters, kSecCMSBulkEncryptionAlgorithm, kSecCMSEncryptionAlgorithmAESCBC);
+    } else if (!scep_can_use_3des) {
+        fprintf(stderr, "SCEP server does not support 3DES -- using it anyway.  You must reconfigure your server.\n");
     }
 
+    // set hash algorithmn for CMS
     if (scep_can_use_sha512) {
         CFDictionarySetValue(csr_parameters, kSecCMSSignHashAlgorithm, kSecCMSHashingAlgorithmSHA512);
     } else if (scep_can_use_sha256) {
@@ -532,7 +542,7 @@ extern int command_scep(int argc, char * const *argv)
     } else if (scep_can_use_sha1) {
         CFDictionarySetValue(csr_parameters, kSecCMSSignHashAlgorithm, kSecCMSHashingAlgorithmSHA1);
     } else {
-        fprintf(stderr, "SCEP server does not support SHA-1.  You must reconfigure your server.\n");
+        fprintf(stderr, "SCEP server does not support SHA-1 -- using it anyway.  You must reconfigure your server.\n");
     }
 
     if (scep_subject_alt_name) {

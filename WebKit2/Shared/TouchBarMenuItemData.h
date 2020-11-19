@@ -24,7 +24,11 @@
  */
 
 #pragma once
+
+#if HAVE(TOUCH_BAR)
+
 #include "ArgumentCoders.h"
+#include <wtf/EnumTraits.h>
 #include <wtf/text/WTFString.h>
 
 namespace IPC {
@@ -90,4 +94,17 @@ inline bool operator!=(const TouchBarMenuItemData& lhs, const TouchBarMenuItemDa
     return !(lhs == rhs);
 }
 
-}
+} // namespace WebKit
+
+namespace WTF {
+
+template<> struct EnumTraits<WebKit::ItemType> {
+    using values = EnumValues<
+        WebKit::ItemType,
+        WebKit::ItemType::Button
+    >;
+};
+
+} // namespace WTF
+
+#endif // HAVE(TOUCH_BAR)

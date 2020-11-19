@@ -83,7 +83,7 @@
 #define MODE_LISTEN	"listen"
 #define MODE_ANSWER	"answer"
 
-#define PPPOE_NKE	"PPPoE.kext"
+#define PPPOE_NKE	"/System/Library/Extensions/PPPoE.kext"
 #define PPPOE_NKE_ID	"com.apple.nke.pppoe"
 
 /* -----------------------------------------------------------------------------
@@ -233,8 +233,7 @@ That is, open the socket and run the connector
 int pppoe_connect(int *errorcode)
 {
     char 	dev[32], name[MAXPATHLEN]; 
-    int 	err = 0, len, s;  
-    CFURLRef	url;
+    int 	err = 0, len, s;
     struct ifreq 	ifr;
     
 	*errorcode = 0;
@@ -276,24 +275,13 @@ int pppoe_connect(int *errorcode)
         sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
         if (sockfd < 0) {
             if (!noload) {
-                if ((url = CFBundleCopyBundleURL(bundle))) {
-                    name[0] = 0;
-                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
-                    CFRelease(url);
-                    strlcat(name, "/", sizeof(name));
-                    if ((url = CFBundleCopyBuiltInPlugInsURL(bundle))) {
-                        CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
-                            MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
-                        CFRelease(url);
-                        strlcat(name, "/", sizeof(name));
-                        strlcat(name, PPPOE_NKE, sizeof(name));
+                strlcpy(name, PPPOE_NKE, sizeof(name)-1);
 #if TARGET_OS_OSX // This file is not built for Embedded
-                        if (!load_kext(name, 0))
+                if (!load_kext(name, 0)) {
 #else
-                        if (!load_kext(PPPOE_NKE_ID, 1))
+                if (!load_kext(PPPOE_NKE_ID, 1)) {
 #endif
-                            sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
-                    }	
+                    sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
                 }
             }
             if (sockfd < 0) {

@@ -89,6 +89,8 @@
 		4423D5752187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */; };
 		4423D5762187C7C90077D03D /* EAPClientPluginIntrospect.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */; };
 		442403311DA86E6E0041C533 /* MobileWiFi.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 442403301DA86E6E0041C533 /* MobileWiFi.framework */; };
+		442573372500525B0098083A /* WiFi.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 442573352500525B0098083A /* WiFi.tiff */; };
+		442573382500525B0098083A /* Network.tiff in Resources */ = {isa = PBXBuildFile; fileRef = 442573362500525B0098083A /* Network.tiff */; };
 		4434A3E42166B75B0067E1E3 /* EAPClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */; };
 		4461C8F92280B86B00CBCB24 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8F82280B86A00CBCB24 /* libbsm.dylib */; };
 		4461C8FB2280B8AD00CBCB24 /* libbsm.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */; };
@@ -103,6 +105,8 @@
 		44B18DC71CC8319D000227D6 /* com.apple.eapol.plist in copy os_log subsystem plist */ = {isa = PBXBuildFile; fileRef = 44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */; };
 		44B18DC91CC831D0000227D6 /* com.apple.eapol.plist in Copy Files (1 item) */ = {isa = PBXBuildFile; fileRef = 44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */; };
 		44B2B61E20AE6A480060E361 /* libio80211.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 44B2B61D20AE6A480060E361 /* libio80211.a */; };
+		44B4EB7324633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */; };
+		44B4EB7424633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = 44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */; };
 		44D554A22065727300681A0F /* SIMAccess.m in Sources */ = {isa = PBXBuildFile; fileRef = 44D554A12065727300681A0F /* SIMAccess.m */; settings = {COMPILER_FLAGS = "-fobjc-arc"; }; };
 		44D554A4206573D400681A0F /* SIMAccessPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = 44D554A3206573D400681A0F /* SIMAccessPrivate.h */; };
 		44EC34221D130EC000E1886A /* EAPOLSIMPrefsManage.c in Sources */ = {isa = PBXBuildFile; fileRef = 44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */; };
@@ -228,7 +232,7 @@
 		F960448810D1A528000D803D /* EAPOLClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448510D1A528000D803D /* EAPOLClientConfiguration.c */; };
 		F960448910D1A528000D803D /* EAPOLClientItemID.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448610D1A528000D803D /* EAPOLClientItemID.c */; };
 		F960448A10D1A528000D803D /* EAPOLClientProfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448710D1A528000D803D /* EAPOLClientProfile.c */; };
-		F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448B10D1A54E000D803D /* EAPOLClientConfiguration.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448B10D1A54E000D803D /* EAPOLClientConfiguration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		F960448F10D1A54E000D803D /* EAPOLClientConfigurationInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448C10D1A54E000D803D /* EAPOLClientConfigurationInternal.h */; };
 		F960449010D1A54E000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448D10D1A54E000D803D /* symbol_scope.h */; };
 		F960449110D1A58A000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448D10D1A54E000D803D /* symbol_scope.h */; };
@@ -499,6 +503,8 @@
 /* Begin PBXFileReference section */
 		4423D5742187C7C90077D03D /* EAPClientPluginIntrospect.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPClientPluginIntrospect.h; sourceTree = "<group>"; };
 		442403301DA86E6E0041C533 /* MobileWiFi.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileWiFi.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS10.2.Internal.sdk/System/Library/PrivateFrameworks/MobileWiFi.framework; sourceTree = DEVELOPER_DIR; };
+		442573352500525B0098083A /* WiFi.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = WiFi.tiff; sourceTree = "<group>"; };
+		442573362500525B0098083A /* Network.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Network.tiff; sourceTree = "<group>"; };
 		4445AE4320659AD40051CCCD /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = System/Library/Frameworks/CoreTelephony.framework; sourceTree = SDKROOT; };
 		4461C8F82280B86A00CBCB24 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS13.0.Internal.sdk/usr/lib/libbsm.dylib; sourceTree = DEVELOPER_DIR; };
 		4461C8FA2280B8AD00CBCB24 /* libbsm.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbsm.tbd; path = usr/lib/libbsm.tbd; sourceTree = SDKROOT; };
@@ -511,6 +517,7 @@
 		44980A3C1ABB93B200B76F01 /* sim_simulator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sim_simulator.c; sourceTree = "<group>"; };
 		44B18DC61CC8318D000227D6 /* com.apple.eapol.plist */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = com.apple.eapol.plist; sourceTree = "<group>"; };
 		44B2B61D20AE6A480060E361 /* libio80211.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libio80211.a; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.Internal.sdk/usr/local/lib/libio80211.a; sourceTree = DEVELOPER_DIR; };
+		44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = EAPTLSTrustExceptionUtil.c; sourceTree = "<group>"; };
 		44D554A12065727300681A0F /* SIMAccess.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = SIMAccess.m; sourceTree = "<group>"; };
 		44D554A3206573D400681A0F /* SIMAccessPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SIMAccessPrivate.h; sourceTree = "<group>"; };
 		44EC34201D130EC000E1886A /* EAPOLSIMPrefsManage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLSIMPrefsManage.c; sourceTree = "<group>"; };
@@ -920,6 +927,7 @@
 				44EC34211D130EC000E1886A /* EAPOLSIMPrefsManage.h */,
 				44D554A12065727300681A0F /* SIMAccess.m */,
 				4474E8AB2166AD8C00CD7B6D /* EAPClientConfiguration.c */,
+				44B4EB7224633603008764D5 /* EAPTLSTrustExceptionUtil.c */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -1002,6 +1010,8 @@
 		F91F7B9A0C8F8450000EA394 /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				442573362500525B0098083A /* Network.tiff */,
+				442573352500525B0098083A /* WiFi.tiff */,
 				F9D5E2CC0C9614E9004C0066 /* Info.plist */,
 				F91F7B5F0C8F7F2C000EA394 /* Localizable.strings */,
 			);
@@ -1210,6 +1220,7 @@
 				F97A1F520C90871D00D792C8 /* LinkAddresses.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F530C90872100D792C8 /* EAPOLControl.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F540C90872200D792C8 /* EAPUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				447B2CCC21891FDC00DE73CF /* EAPClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F550C90872300D792C8 /* SupplicantTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F560C90872400D792C8 /* EAPOLClient.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
@@ -1222,7 +1233,6 @@
 				F97A1F5D0C90872B00D792C8 /* myCFUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F5F0C90872D00D792C8 /* EAPClientPlugin.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F600C90872E00D792C8 /* EAPOLControlTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
-				F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F610C90873100D792C8 /* EAPCertificateUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F620C90875100D792C8 /* DESSupport.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F97A1F630C90875900D792C8 /* EAPKeychainUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
@@ -1528,7 +1538,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				442573382500525B0098083A /* Network.tiff in Resources */,
 				F9F374A80CC579D400AF6F0B /* Localizable.strings in Resources */,
+				442573372500525B0098083A /* WiFi.tiff in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1621,6 +1633,7 @@
 				F9C18FD9163B995800F121AF /* eapaka_plugin.c in Sources */,
 				F9432124168BCB5E0092BF5A /* EAPLog.c in Sources */,
 				F96E5842169E02E5001068C6 /* EAPOLControlPrefs.c in Sources */,
+				44B4EB7424633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1636,6 +1649,7 @@
 				F97A1F280C907A0C00D792C8 /* eapmschapv2_plugin.c in Sources */,
 				F97A1F290C907A0D00D792C8 /* EAPCertificateUtil.c in Sources */,
 				F97A1F2A0C907A0E00D792C8 /* mschap.c in Sources */,
+				44B4EB7324633603008764D5 /* EAPTLSTrustExceptionUtil.c in Sources */,
 				F97A1F2B0C907A0F00D792C8 /* EAPKeychainUtil.c in Sources */,
 				F97A1F2C0C907A1B00D792C8 /* EAPOLControl.c in Sources */,
 				F97A1F2D0C907A1C00D792C8 /* chap.c in Sources */,

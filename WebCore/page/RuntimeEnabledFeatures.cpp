@@ -47,9 +47,6 @@ RuntimeEnabledFeatures::RuntimeEnabledFeatures()
 #if PLATFORM(WATCHOS)
     m_isWebSocketEnabled = false;
 #endif
-#if PLATFORM(GTK) && ENABLE(INPUT_TYPE_COLOR)
-    m_isInputTypeColorEnabled = true;
-#endif
 }
 
 RuntimeEnabledFeatures& RuntimeEnabledFeatures::sharedFeatures()
@@ -57,11 +54,6 @@ RuntimeEnabledFeatures& RuntimeEnabledFeatures::sharedFeatures()
     static NeverDestroyed<RuntimeEnabledFeatures> runtimeEnabledFeatures;
 
     return runtimeEnabledFeatures;
-}
-
-bool RuntimeEnabledFeatures::spectreGadgetsEnabled() const
-{
-    return JSC::Options::enableSpectreGadgets();
 }
 
 #if ENABLE(TOUCH_EVENTS)

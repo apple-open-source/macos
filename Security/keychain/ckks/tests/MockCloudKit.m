@@ -75,7 +75,7 @@
         self.completionBlock = ^{
             __strong __typeof(weakSelf) strongSelf = weakSelf;
             if(!strongSelf) {
-                secerror("ckks: received callback for released object");
+                ckkserror_global("ckks", "received callback for released object");
                 return;
             }
 
@@ -121,7 +121,7 @@
 
         if(!skipCreation) {
             // Create the zone:
-            secnotice("ckks", "Creating zone %@", zone);
+            ckksnotice_global("ckks", "Creating zone %@", zone);
             ckdb[zone.zoneID] = [[FakeCKZone alloc] initZone: zone.zoneID];
         }
 
@@ -213,7 +213,7 @@
         self.completionBlock = ^{
             __strong __typeof(weakSelf) strongSelf = weakSelf;
             if(!strongSelf) {
-                secerror("ckks: received callback for released object");
+                ckkserror_global("ckks", "received callback for released object");
                 return;
             }
 
@@ -291,6 +291,8 @@
 @synthesize recordZoneFetchCompletionBlock = _recordZoneFetchCompletionBlock;
 @synthesize fetchRecordZoneChangesCompletionBlock = _fetchRecordZoneChangesCompletionBlock;
 
+@synthesize deviceIdentifier = _deviceIdentifier;
+
 @synthesize operationID = _operationID;
 @synthesize resolvedConfiguration = _resolvedConfiguration;
 @synthesize group = _group;
@@ -313,6 +315,7 @@
         _configurationsByRecordZoneID = configurationsByRecordZoneID;
 
         _operationID = @"fake-operation-ID";
+        _deviceIdentifier = @"ckkstests";
     }
     return self;
 }
@@ -422,11 +425,10 @@
 
         self.recordZoneChangeTokensUpdatedBlock(zoneID, currentChangeToken, nil);
         self.recordZoneFetchCompletionBlock(zoneID, currentChangeToken, nil, moreComing, opError);
+    }
 
-        if(self.blockAfterFetch) {
-            self.blockAfterFetch();
-        }
-
+    if(self.blockAfterFetch) {
+        self.blockAfterFetch();
     }
 
     self.fetchRecordZoneChangesCompletionBlock(nil);
@@ -598,18 +600,15 @@
 @implementation FakeAPSConnection
 @synthesize delegate;
 
+@synthesize enabledTopics;
+@synthesize opportunisticTopics;
+@synthesize darkWakeTopics;
+
 - (id)initWithEnvironmentName:(NSString *)environmentName namedDelegatePort:(NSString*)namedDelegatePort queue:(dispatch_queue_t)queue {
     if(self = [super init]) {
     }
     return self;
 }
-
-- (void)setEnabledTopics:(NSArray<NSString *> *)enabledTopics {
-}
-
-- (void)setDarkWakeTopics:(NSArray<NSString *> *)darkWakeTopics {
-}
-
 @end
 
 // Do literally nothing
@@ -767,10 +766,14 @@
 - (NSError*)deleteCKRecordIDFromZone:(CKRecordID*) recordID {
     // todo: fail somehow
     dispatch_sync(self.queue, ^{
+        ckksnotice("fakeck", self.zoneID, "Change token before server-deleted record is : %@", self.currentChangeToken);
+
         self.pastDatabases[self.currentChangeToken] = [self.currentDatabase mutableCopy];
         [self _onqueueRollChangeToken];
 
         [self.currentDatabase removeObjectForKey: recordID];
+
+        ckksnotice("fakeck", self.zoneID, "Change token after server-deleted record is : %@", self.currentChangeToken);
     });
     return nil;
 }
@@ -824,7 +827,7 @@
     if(notification) {
         // This isn't actually fake, but XCTest likes NSNotificationCenter a whole lot.
         // These notifications shouldn't escape this process, so it's perfect.
-        secnotice("ckks", "sending fake NSNotification %@", notification);
+        ckksnotice_global("ckks", "sending fake NSNotification %@", notification);
         [[NSNotificationCenter defaultCenter] postNotificationName:notification object:nil];
     }
 }

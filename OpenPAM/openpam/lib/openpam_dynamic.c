@@ -42,6 +42,7 @@
 #include <string.h>
 
 #include <dispatch/dispatch.h>
+#include <mach-o/dyld_priv.h>
 #include <security/pam_appl.h>
 #include <System/sys/codesign.h>
 
@@ -62,17 +63,42 @@
 static void *
 openpam_dlopen(const char *path, int mode)
 {
+	/* Fast path: dyld shared cache. */
+	if (_dyld_shared_cache_contains_path(path))
+		return dlopen(path, mode);
+
+	/* Slow path: check file on disk. */
+	if (faccessat(AT_FDCWD, path, R_OK, AT_EACCESS) != 0)
+		return NULL;
+
 	void *dlh = dlopen(path, mode);
 	if (dlh != NULL)
 		return dlh;
 
-	/* The module exists and is readable, but we failed to load it: disable LV and try again. */
-	int rv = csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0);
-	if (rv == 0)
-		return dlopen(path, mode);
+	/*
+	 * The module exists and is readable, but failed to load.
+	 * If library validation is enabled, try disabling it and then try again.
+	 */
+	int   csflags = 0;
+	pid_t pid     = getpid();
+	csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+	if ((csflags & (CS_FORCED_LV | CS_REQUIRE_LV)) == 0)
+		return NULL;
 
-	openpam_log(PAM_LOG_LIBDEBUG, "csops(CS_OPS_CLEAR_LV) failed: %d", rv);
-	return NULL;
+	int rv = csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0);
+	if (rv != 0) {
+		openpam_log(PAM_LOG_LIBDEBUG, "csops(CS_OPS_CLEAR_LV) failed: %d", rv);
+		return NULL;
+	}
+	
+	dlh = dlopen(path, mode);
+	if (dlh == NULL) {
+		/* Failed to load even with LV disabled: re-enable LV. */
+		csflags = CS_REQUIRE_LV;
+		csops(pid, CS_OPS_SET_STATUS, &csflags, sizeof(csflags));		
+	}
+	
+	return dlh;
 }
 
 
@@ -86,9 +112,6 @@ openpam_dlopen(const char *path, int mode)
 static bool
 openpam_dynamic_load_single(const char *path, pam_module_t *module)
 {
-	if (access(path, R_OK) != 0)
-		return false;
-
 	void *dlh = openpam_dlopen(path, RTLD_NOW);
 	if (dlh != NULL) {
 		openpam_log(PAM_LOG_LIBDEBUG, "%s", path);

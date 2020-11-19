@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,8 +50,7 @@
 #include "myCFUtil.h"
 
 #define kNetwork	CFSTR("Network")
-#define kAirport	CFSTR("Airport")
-#define kAirPort	CFSTR("AirPort")
+#define kWiFi		CFSTR("WiFi")
 
 /**
  ** CredentialsDialogue
@@ -404,7 +403,6 @@ CredentialsDialogue_response(CFUserNotificationRef notif,
     return;
 }
 
-#define kNetworkPrefPanePath	CFSTR("/System/Library/PreferencePanes/Network.prefPane")
 #define kCoreWLANKitPath 	CFSTR("/System/Library/PrivateFrameworks/CoreWLANKit.framework")
 
 static CFURLRef
@@ -413,33 +411,7 @@ copy_icon_url_with_bundle(CFBundleRef bundle, CFStringRef icon_name)
     CFURLRef	url;
 
     url = CFBundleCopyResourceURL(bundle, icon_name, 
-				  CFSTR("icns"), NULL);
-    if (url == NULL) {
-	url = CFBundleCopyResourceURL(bundle, icon_name, 
-				      CFSTR("tiff"), NULL);
-    }
-    return (url);
-}
-
-static CFURLRef
-copy_icon_url_with_path(CFStringRef path, CFStringRef icon_name)
-{
-    CFURLRef		path_url;
-    CFURLRef		url = NULL;
-
-    path_url = CFURLCreateWithFileSystemPath(NULL,
-					     path,
-					     kCFURLPOSIXPathStyle, FALSE);
-    if (path_url != NULL) {
-	CFBundleRef	path_bundle;
-
-	path_bundle = CFBundleCreate(NULL, path_url);
-	if (path_bundle != NULL) {
-	    url = copy_icon_url_with_bundle(path_bundle, icon_name);
-	    CFRelease(path_bundle);
-	}
-	CFRelease(path_url);
-    }
+				  CFSTR("tiff"), NULL);
     return (url);
 }
 
@@ -447,18 +419,17 @@ static CFURLRef
 copy_icon_url(Boolean is_ethernet)
 {
     CFURLRef		url = NULL;
+    CFBundleRef 	bundle = NULL;
 
-    if (is_ethernet) {
-	url = copy_icon_url_with_path(kNetworkPrefPanePath,
-				      kNetwork);
+    bundle = get_bundle();
+    if (bundle == NULL) {
+	EAPLOG_FL(LOG_ERR, "get_bundle() returned NULL");
+	return NULL;
     }
-    else {
-	/* CoreWLAN uses "AirPort" */
-	url = copy_icon_url_with_path(kCoreWLANKitPath, kAirPort);
-	if (url == NULL) {
-	    /* NetworkPrefPane uses "Airport" */
-	    url = copy_icon_url_with_path(kNetworkPrefPanePath, kAirport);
-	}
+    if (is_ethernet) {
+	url = copy_icon_url_with_bundle(bundle, kNetwork);
+    } else {
+	url = copy_icon_url_with_bundle(bundle, kWiFi);
     }
     return (url);
 }
@@ -466,7 +437,7 @@ copy_icon_url(Boolean is_ethernet)
 static CFStringRef
 interface_type_for_ssid(CFStringRef ssid)
 {
-    return ((ssid != NULL) ? CFSTR("Airport") : kNetwork);
+    return ((ssid != NULL) ? kWiFi : kNetwork);
 }
 
 #define kTitleAirPortCertificate	CFSTR("TitleAirPortCertificate")
@@ -943,7 +914,7 @@ static pthread_once_t initialized = PTHREAD_ONCE_INIT;
 TrustDialogueRef
 TrustDialogue_create(TrustDialogueResponseCallBack func,
 		     const void * arg1, const void * arg2,
-		     CFDictionaryRef trust_info, CFTypeRef ssid)
+		     CFDictionaryRef trust_info, CFTypeRef ssid, CFStringRef interface)
 {
     char * 			argv[2] = {EAPTLSTRUST_PATH, NULL};
     CFBundleRef			bundle;
@@ -970,6 +941,9 @@ TrustDialogue_create(TrustDialogueResponseCallBack func,
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
+    if (interface != NULL) {
+	CFDictionarySetValue(dict, CFSTR("Interface"), interface);
+    }
     CFDictionarySetValue(dict, CFSTR("TrustInformation"), trust_info);
     CFDictionarySetValue(dict, CFSTR("Icon"),
 			 interface_type_for_ssid(ssid));
@@ -1337,7 +1311,7 @@ main(int argc, char * argv[])
     if (dialogue_p3 == NULL) {
 	fprintf(stderr, "failed to create password change dialogue\n");
     }
-    alert_p = AlertDialogue_create(my_alert_callback, alert_p_p, NULL, 
+    alert_p = AlertDialogue_create(my_alert_callback, alert_p_p, NULL,
 				   CFSTR("Here we are"), NULL);
     CFRunLoopRun();
     exit(0);

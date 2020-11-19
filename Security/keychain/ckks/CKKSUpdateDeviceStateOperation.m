@@ -87,13 +87,13 @@
         ckkserror("ckksdevice", ckks, "Not quite sure if the account isa HSA2 or not. Probably will quit?");
     }
 
-    [ckks dispatchSyncWithAccountKeys:^bool {
+    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
 
         CKKSDeviceStateEntry* cdse = [ckks _onqueueCurrentDeviceStateEntry:&error];
         if(error || !cdse) {
             ckkserror("ckksdevice", ckks, "Error creating device state entry; quitting: %@", error);
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         if(self.rateLimit) {
@@ -116,7 +116,7 @@
                 self.error =  [NSError errorWithDomain:@"securityd"
                                                   code:errSecInternalError
                                               userInfo:@{NSLocalizedDescriptionKey: @"Rate-limited the CKKSUpdateDeviceStateOperation"}];
-                return false;
+                return CKKSDatabaseTransactionRollback;
             }
         }
 
@@ -165,7 +165,7 @@
 
             __block NSError* error = nil;
 
-            [strongCKKS dispatchSync: ^bool{
+            [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
                 for(CKRecord* record in savedRecords) {
                     // Save the item records
                     if([record.recordType isEqualToString: SecCKRecordDeviceStateType]) {
@@ -176,7 +176,7 @@
                         }
                     }
                 }
-                return true;
+                return CKKSDatabaseTransactionCommit;
             }];
 
             self.error = error;
@@ -186,7 +186,7 @@
         [self dependOnBeforeGroupFinished: self.modifyRecordsOperation];
         [ckks.database addOperation: self.modifyRecordsOperation];
 
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 }
 

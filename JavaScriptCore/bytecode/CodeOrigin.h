@@ -160,7 +160,9 @@ public:
     unsigned approximateHash(InlineCallFrame* terminal = nullptr) const;
 
     template <typename Function>
-    void walkUpInlineStack(const Function&);
+    void walkUpInlineStack(const Function&) const;
+
+    inline bool inlineStackContainsActiveCheckpoint() const;
     
     // Get the inline stack. This is slow, and is intended for debugging only.
     Vector<CodeOrigin> inlineStack() const;
@@ -232,8 +234,8 @@ private:
     }
 
 #if CPU(ADDRESS64)
-    static constexpr unsigned s_freeBitsAtTop = 64 - WTF_CPU_EFFECTIVE_ADDRESS_WIDTH;
-    static constexpr uintptr_t s_maskCompositeValueForPointer = ((1ULL << WTF_CPU_EFFECTIVE_ADDRESS_WIDTH) - 1) & ~(8ULL - 1);
+    static constexpr unsigned s_freeBitsAtTop = 64 - OS_CONSTANT(EFFECTIVE_ADDRESS_WIDTH);
+    static constexpr uintptr_t s_maskCompositeValueForPointer = ((1ULL << OS_CONSTANT(EFFECTIVE_ADDRESS_WIDTH)) - 1) & ~(8ULL - 1);
     static uintptr_t buildCompositeValue(InlineCallFrame* inlineCallFrame, BytecodeIndex bytecodeIndex)
     {
         if (!bytecodeIndex)
@@ -295,9 +297,7 @@ struct CodeOriginApproximateHash {
 namespace WTF {
 
 template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::CodeOrigin> {
-    typedef JSC::CodeOriginHash Hash;
-};
+template<> struct DefaultHash<JSC::CodeOrigin> : JSC::CodeOriginHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::CodeOrigin> : SimpleClassHashTraits<JSC::CodeOrigin> {

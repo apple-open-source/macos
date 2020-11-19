@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 da{
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     durationUnits{
         hm{"h.mm"}
         hms{"h.mm.ss"}
@@ -106,6 +106,7 @@ da{
         }
         compound{
             per{"{0} pr. {1}"}
+            times{"{0} gange {1}"}
         }
         concentr{
             karat{
@@ -246,6 +247,11 @@ da{
                 one{"{0} dag"}
                 other{"{0} dage"}
                 per{"{0} pr. dag"}
+            }
+            decade{
+                dnam{"årtier"}
+                one{"{0} årti"}
+                other{"{0} årtier"}
             }
             hour{
                 dnam{"timer"}
@@ -395,6 +401,38 @@ da{
                 dnam{"megahertz"}
                 one{"{0} megahertz"}
                 other{"{0} megahertz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"punkter per centimeter"}
+                one{"{0} punkt per centimeter"}
+                other{"{0} punkter per centimeter"}
+            }
+            dot-per-inch{
+                dnam{"punkter per tomme"}
+                one{"{0} punkt per tomme"}
+                other{"{0} punkter per tomme"}
+            }
+            em{
+                dnam{"geviert"}
+                one{"{0} geviert"}
+                other{"{0} geviert"}
+            }
+            megapixel{
+                dnam{"megapixels"}
+                one{"{0} megapixel"}
+                other{"{0} megapixels"}
+            }
+            pixel-per-centimeter{
+                dnam{"pixels per centimeter"}
+                one{"{0} pixel per centimeter"}
+                other{"{0} pixels per centimeter"}
+            }
+            pixel-per-inch{
+                dnam{"pixels per tomme"}
+                one{"{0} pixel per tomme"}
+                other{"{0} pixels per tomme"}
             }
         }
         length{
@@ -650,6 +688,11 @@ da{
                 one{"{0} millimeter kviksølv"}
                 other{"{0} millimeter kviksølv"}
             }
+            pascal{
+                dnam{"pascal"}
+                one{"{0} pascal"}
+                other{"{0} pascal"}
+            }
             pound-per-square-inch{
                 dnam{"pounds pr. kvadrattomme"}
                 one{"{0} pound pr. kvadrattomme"}
@@ -659,7 +702,7 @@ da{
         speed{
             kilometer-per-hour{
                 dnam{"kilometer i timen"}
-                one{"kilometer i timen"}
+                one{"{0} kilometer i timen"}
                 other{"{0} kilometer i timen"}
             }
             knot{
@@ -866,6 +909,10 @@ da{
                 one{"{0}″"}
                 other{"{0}″"}
             }
+            degree{
+                one{"{0}°"}
+                other{"{0}°"}
+            }
         }
         area{
             acre{
@@ -884,9 +931,14 @@ da{
                 one{"{0}m²"}
                 other{"{0}m²"}
             }
+            square-mile{
+                one{"{0} mi²"}
+                other{"{0} mi²"}
+            }
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             percent{
@@ -1098,6 +1150,11 @@ da{
                 one{"{0} mmHg"}
                 other{"{0} mmHg"}
             }
+            pound-per-square-inch{
+                dnam{"psi"}
+                one{"{0} psi"}
+                other{"{0} psi"}
+            }
         }
         speed{
             kilometer-per-hour{
@@ -1122,6 +1179,21 @@ da{
                 one{"{0}°C"}
                 other{"{0}°C"}
             }
+            fahrenheit{
+                dnam{"°F"}
+                one{"{0}°F"}
+                other{"{0}°F"}
+            }
+            generic{
+                dnam{"°"}
+                one{"{0}°"}
+                other{"{0}°"}
+            }
+            kelvin{
+                dnam{"K"}
+                one{"{0} K"}
+                other{"{0} K"}
+            }
         }
         volume{
             cubic-inch{
@@ -1131,6 +1203,10 @@ da{
             cubic-kilometer{
                 one{"{0}km³"}
                 other{"{0}km³"}
+            }
+            cubic-mile{
+                one{"{0} mi³"}
+                other{"{0} mi³"}
             }
             liter{
                 dnam{"liter"}
@@ -1169,7 +1245,7 @@ da{
                 other{"{0}°"}
             }
             radian{
-                dnam{"radian"}
+                dnam{"radianer"}
                 one{"{0} radian"}
                 other{"{0} radian"}
             }
@@ -1238,6 +1314,7 @@ da{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0} ⋅ {1}"}
         }
         concentr{
             karat{
@@ -1378,6 +1455,11 @@ da{
                 one{"{0} dag"}
                 other{"{0} dage"}
                 per{"{0}/dag"}
+            }
+            decade{
+                dnam{"årti"}
+                one{"{0} årti"}
+                other{"{0} årtier"}
             }
             hour{
                 dnam{"timer"}
@@ -1747,6 +1829,11 @@ da{
             }
         }
         pressure{
+            atmosphere{
+                dnam{"atm"}
+                one{"{0} atm"}
+                other{"{0} atm"}
+            }
             hectopascal{
                 dnam{"hPa"}
                 one{"{0} hPa"}

@@ -1546,6 +1546,10 @@
 		C6868576154725700025D623 /* systime */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = systime; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6868579154725700025D623 /* systime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = systime.c; sourceTree = "<group>"; };
 		C686857B154725700025D623 /* systime.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = systime.1; sourceTree = "<group>"; };
+		CE799E6024AD3B1B00E73238 /* test_time.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = test_time.sh; sourceTree = "<group>"; usesTabs = 1; };
+		CE799E6224B3982200E73238 /* install-files.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "install-files.sh"; sourceTree = "<group>"; };
+		CE799E6324B3982200E73238 /* builtins.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = builtins.txt; sourceTree = "<group>"; };
+		CE799E6424B3982200E73238 /* builtins-manpages.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "builtins-manpages.txt"; sourceTree = "<group>"; };
 		FC5D636814B9808E00123E48 /* conv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = conv.c; sourceTree = "<group>"; };
 		FC5D636914B9808E00123E48 /* display.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = display.c; sourceTree = "<group>"; };
 		FC5D636A14B9808E00123E48 /* hexdump.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = hexdump.1; sourceTree = "<group>"; };
@@ -1661,7 +1665,7 @@
 		FCBA13FA14A141A300AA698B /* test.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = test.1; sourceTree = "<group>"; };
 		FCBA13FB14A141A300AA698B /* test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = test.c; sourceTree = "<group>"; };
 		FCBA13FF14A141A300AA698B /* time.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = time.1; sourceTree = "<group>"; };
-		FCBA140014A141A300AA698B /* time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = time.c; sourceTree = "<group>"; };
+		FCBA140014A141A300AA698B /* time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = time.c; sourceTree = "<group>"; usesTabs = 1; };
 		FCBA140314A141A300AA698B /* true.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = true.1; sourceTree = "<group>"; };
 		FCBA140414A141A300AA698B /* true.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = true.c; sourceTree = "<group>"; };
 		FCBA140814A141A300AA698B /* uname.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = uname.1; sourceTree = "<group>"; };
@@ -2194,6 +2198,24 @@
 			path = systime;
 			sourceTree = "<group>";
 		};
+		CE799E5F24AD3B1B00E73238 /* tests */ = {
+			isa = PBXGroup;
+			children = (
+				CE799E6024AD3B1B00E73238 /* test_time.sh */,
+			);
+			path = tests;
+			sourceTree = "<group>";
+		};
+		CE799E6124B3982200E73238 /* xcodescripts */ = {
+			isa = PBXGroup;
+			children = (
+				CE799E6224B3982200E73238 /* install-files.sh */,
+				CE799E6324B3982200E73238 /* builtins.txt */,
+				CE799E6424B3982200E73238 /* builtins-manpages.txt */,
+			);
+			path = xcodescripts;
+			sourceTree = "<group>";
+		};
 		FC5D636714B9808E00123E48 /* hexdump */ = {
 			isa = PBXGroup;
 			children = (
@@ -2222,6 +2244,7 @@
 		FC80BF5514A05A2F00C6F7F5 = {
 			isa = PBXGroup;
 			children = (
+				CE799E6124B3982200E73238 /* xcodescripts */,
 				FD60612F1B7D2DDE004BCA6A /* xcconfigs */,
 				FCBA134014A141A300AA698B /* alias */,
 				FCBA134514A141A300AA698B /* apply */,
@@ -2712,6 +2735,7 @@
 		FCBA13FD14A141A300AA698B /* time */ = {
 			isa = PBXGroup;
 			children = (
+				CE799E5F24AD3B1B00E73238 /* tests */,
 				FCBA13FF14A141A300AA698B /* time.1 */,
 				FCBA140014A141A300AA698B /* time.c */,
 			);
@@ -3906,7 +3930,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-files.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-files.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FCE30F4D14B619C900CC0294 /* Run Script */ = {
@@ -3921,7 +3945,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-files.sh";
+			shellScript = ". \"$PROJECT_DIR\"/xcodescripts/install-files.sh\n";
 			showEnvVarsInLog = 0;
 		};
 		FD6060EF1B7C0590004BCA6A /* mkbuiltins */ = {
@@ -3959,7 +3983,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "env -i xcrun -sdk macosx cc ${SRCROOT}/sh/mknodes.c -o ${DERIVED_FILE_DIR}/mknodes\ncd ${BUILT_PRODUCTS_DIR} && ${DERIVED_FILE_DIR}/mknodes ${SRCROOT}/sh/nodetypes ${SRCROOT}/sh/nodes.c.pat";
+			shellScript = "mkdir -p ${DERIVED_FILE_DIR}\nenv -i xcrun -sdk macosx cc ${SRCROOT}/sh/mknodes.c -o ${DERIVED_FILE_DIR}/mknodes\ncd ${BUILT_PRODUCTS_DIR} && ${DERIVED_FILE_DIR}/mknodes ${SRCROOT}/sh/nodetypes ${SRCROOT}/sh/nodes.c.pat\n";
 		};
 		FD6060F21B7C0744004BCA6A /* mksyntax */ = {
 			isa = PBXShellScriptBuildPhase;

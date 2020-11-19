@@ -220,9 +220,7 @@ class CssmDLPolyData
 public:
 	CssmDLPolyData(const CSSM_DATA &data, CSSM_DB_ATTRIBUTE_FORMAT format)
 	: mData(CssmData::overlay(data))
-#ifndef NDEBUG
     , mFormat(format)
-#endif 
     {}
 
 	// @@@ Don't use assert, but throw an exception.
@@ -269,9 +267,7 @@ public:
 
 private:
 	const CssmData &mData;
-#ifndef NDEBUG
 	CSSM_DB_ATTRIBUTE_FORMAT mFormat;
-#endif
 };
 
 
@@ -686,6 +682,8 @@ public:
 		const CSSM_NET_ADDRESS *location = NULL)
 		: mImpl(new Impl(CssmSubserviceUid(guid, NULL, ssid, sstype), name, location)) { }
 
+    DLDbIdentifier(const DLDbIdentifier& i) : mImpl(i.mImpl) {}
+
 	// Conversion Operators
 	bool operator !() const { return !mImpl; }
 	operator bool() const { return mImpl; }
@@ -749,7 +747,10 @@ struct DLDbFlatIdentifier {
 		address(const_cast<CssmNetAddress *>(ident.dbLocation()))
 		{ }
 
-    operator DLDbIdentifier ()	{ return DLDbIdentifier(*uid, name, address); }
+    operator DLDbIdentifier ()	{
+        DLDbIdentifier db(*uid, name, address);
+        return db;
+    }
 };
 
 template<class Action>

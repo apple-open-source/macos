@@ -23,7 +23,6 @@
 
 #if OCTAGON
 #import "CKKSRateLimiter.h"
-#import <utilities/debugging.h>
 #import <TargetConditionals.h>
 
 typedef NS_ENUM(int, BucketType) {
@@ -45,8 +44,7 @@ typedef NS_ENUM(int, BucketType) {
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         if (coder) {
             NSDictionary *encoded;
             encoded = [coder decodeObjectOfClasses:[NSSet setWithObjects:[NSDictionary class],

@@ -62,16 +62,12 @@ command is to run a selected architecture of a universal binary.
 A universal binary contains code that can run on different architectures.
 By default, the operating system will select the architecture that most closely
 matches the processor type.
-This means that an intel architecture is selected on intel processors and a
-powerpc architecture is selected on powerpc processors.
 A 64-bit architecture is preferred over a 32-bit architecture on a 64-bit
 processor, while only 32-bit architectures can run on a 32-bit processor.
 .Pp
 When the most natural architecture is unavailable, the operating system will
 try to pick another architecture.
 On 64-bit processors, a 32-bit architecture is tried.
-If this is also unavailable, the operating system on an intel processor will
-try running a 32-bit powerpc architecture.
 Otherwise, no architecture is run, and an error results.
 .Pp
 The
@@ -83,11 +79,13 @@ even if a 64-bit architecture is available.
 The
 .Ar arch_name
 argument must be one of the currently supported architectures:
-.Bl -tag -width x86_64 -offset indent
+.Bl -tag -width x86_64h -offset indent
 .It i386
 32-bit intel
 .It x86_64
 64-bit intel
+.It x86_64h
+64-bit intel (haswell)
 .El
 .Pp
 Either prefix the architecture with a hyphen, or (for compatibility with
@@ -209,17 +207,17 @@ If not specified as a second field in a specifier, the executable path will
 be looked up in the corresponding property list file.
 .Ss Example ARCHPREFERENCE Values
 .Bl -tag -width "    "
-.It i386,x86_64
+.It i386,x86_64,x86_64h
 A specifier that matches any name.
-.It foo:i386,x86_64
+.It foo:i386,x86_64,x86_64h
 A specifier that matches the program named
 .Nm foo
 (the full executable path is in the
 .Pa foo.plist
 file).
-.It foo:/op/bin/boo:i386,x86_64
+.It foo:/op/bin/boo:i386,x86_64,x86_64h
 A specifier with all fields specified.
-.It baz:i386;x86_64
+.It baz:i386;x86_64;x86_64h
 A specifier for
 .Nm baz
 and a second specifier that would match any other name.

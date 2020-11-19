@@ -69,7 +69,7 @@ public:
 	
 	ExtendedAttribute(ExtendedAttribute &extendedAttribute);
 
-    virtual ~ExtendedAttribute() throw();
+    virtual ~ExtendedAttribute() _NOEXCEPT;
 
 	virtual PrimaryKey add(Keychain &keychain);
 	bool operator == (const ExtendedAttribute &other) const;

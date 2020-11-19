@@ -28,9 +28,7 @@
 
 #import <WebCore/FrameIdentifier.h>
 
-@implementation _WKFrameHandle {
-    API::ObjectStorage<API::FrameHandle> _frameHandle;
-}
+@implementation _WKFrameHandle
 
 - (void)dealloc
 {
@@ -44,7 +42,7 @@
     if (object == self)
         return YES;
 
-    if (![object isKindOfClass:[_WKFrameHandle self]])
+    if (![object isKindOfClass:[_WKFrameHandle class]])
         return NO;
 
     return _frameHandle->frameID() == ((_WKFrameHandle *)object)->_frameHandle->frameID();
@@ -55,7 +53,7 @@
     return _frameHandle->frameID().toUInt64();
 }
 
-- (uint64_t)_frameID
+- (uint64_t)frameID
 {
     return _frameHandle->frameID().toUInt64();
 }
@@ -79,20 +77,20 @@
     if (!(self = [super init]))
         return nil;
 
-    NSNumber *frameID = [decoder decodeObjectOfClass:[NSNumber self] forKey:@"frameID"];
-    if (![frameID isKindOfClass:[NSNumber self]]) {
+    NSNumber *frameID = [decoder decodeObjectOfClass:[NSNumber class] forKey:@"frameID"];
+    if (![frameID isKindOfClass:[NSNumber class]]) {
         [self release];
         return nil;
     }
 
-    API::Object::constructInWrapper<API::FrameHandle>(self, WebCore::frameIdentifierFromID(frameID.unsignedLongLongValue), false);
+    API::Object::constructInWrapper<API::FrameHandle>(self, makeObjectIdentifier<WebCore::FrameIdentifierType>(frameID.unsignedLongLongValue), false);
 
     return self;
 }
 
 - (void)encodeWithCoder:(NSCoder *)coder
 {
-    [coder encodeObject:@([self _frameID]) forKey:@"frameID"];
+    [coder encodeObject:@(self.frameID) forKey:@"frameID"];
 }
 
 #pragma mark WKObject protocol implementation

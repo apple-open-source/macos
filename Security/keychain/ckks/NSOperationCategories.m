@@ -22,9 +22,9 @@
  */
 
 #import <Foundation/Foundation.h>
+#import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/NSOperationCategories.h"
 #import "keychain/ot/ObjCImprovements.h"
-#import "utilities/debugging.h"
 
 @implementation NSOperation (CKKSUsefulPrintingOperation)
 - (NSString*)selfname {
@@ -43,7 +43,7 @@
                 continue;
             }
 #if DEBUG
-            secnotice("ckks-operation", "adding dependency of %@ on %@", self, existingop);
+            ckksnotice_global("ckks-operation", "adding dependency of %@ on %@", self.name, existingop);
 #endif
             [self addDependency: existingop];
         }

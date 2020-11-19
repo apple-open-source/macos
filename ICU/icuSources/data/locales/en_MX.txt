@@ -1,14 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_MX{
-    NumberElements{
-        latn{
-            patterns{
-                accountingFormat{"¤#,##0.00"}
-            }
-       }
-    }
-    Version{"2.1.38.69"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -181,6 +174,14 @@ en_MX{
             }
         }
         gregorian{
+            AmPmMarkers{
+                "a.m.",
+                "p.m.",
+            }
+            AmPmMarkersAbbr{
+                "a.m.",
+                "p.m.",
+            }
             DateTimePatterns{
                 "H:mm:ss zzzz",
                 "H:mm:ss z",

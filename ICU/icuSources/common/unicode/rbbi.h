@@ -18,6 +18,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Rule Based Break Iterator
@@ -32,7 +34,6 @@
 // for Apple addition:
 #include "unicode/urbtok.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /** @internal */
@@ -78,6 +79,17 @@ private:
      * @internal Apple-only
      */
     uint16_t *fLatin1Cat;
+
+    /**
+     * Character category overrides
+     * @internal Apple-only <rdar://problem/51193810>
+     */
+    typedef struct {
+        UChar32   c;
+        uint16_t  category;
+    } CategoryOverride;
+    CategoryOverride *fCatOverrides;
+    int32_t         fCatOverrideCount;
 
     /**
       * The current  position of the iterator. Pinned, 0 < fPosition <= text.length.
@@ -285,7 +297,7 @@ public:
      * @return a newly-constructed RuleBasedBreakIterator
      * @stable ICU 2.0
      */
-    virtual BreakIterator* clone() const;
+    virtual RuleBasedBreakIterator* clone() const;
 
     /**
      * Compute a hash code for this BreakIterator
@@ -566,6 +578,7 @@ public:
      */
     static UClassID U_EXPORT2 getStaticClassID(void);
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Deprecated functionality. Use clone() instead.
      *
@@ -592,10 +605,10 @@ public:
      *          or if the stackBuffer was too small to hold the clone.
      * @deprecated ICU 52. Use clone() instead.
      */
-    virtual BreakIterator *  createBufferClone(void *stackBuffer,
-                                               int32_t &BufferSize,
-                                               UErrorCode &status);
-
+    virtual RuleBasedBreakIterator *createBufferClone(void *stackBuffer,
+                                                      int32_t &BufferSize,
+                                                      UErrorCode &status);
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Return the binary form of compiled break rules,
@@ -643,6 +656,14 @@ public:
      */
     virtual RuleBasedBreakIterator &refreshInputText(UText *input, UErrorCode &status);
 
+#ifndef U_HIDE_INTERNAL_API
+    /**
+     * Set the break category overrides for this break iterator, based on delimiter data.
+     * @param locale The locale whose delimiters to use.
+     * @internal Apple only <rdar://problem/51193810>
+     */
+    virtual void setCategoryOverrides(Locale locale);
+#endif  /* U_HIDE_INTERNAL_API */
 
 private:
     //=======================================================================
@@ -724,8 +745,9 @@ inline UBool RuleBasedBreakIterator::operator!=(const BreakIterator& that) const
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

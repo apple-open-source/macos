@@ -232,8 +232,10 @@ int RSA_verify(int dtype, unsigned char *m, unsigned int m_len,
 	}
 err:
 	if (sig != NULL) X509_SIG_free(sig);
-	memset(s,0,(unsigned int)siglen);
-	Free(s);
+    if(s) {
+        memset(s,0,(unsigned int)siglen);
+        Free(s);
+    }
 	return(ret);
-	}
+}
 

@@ -24,7 +24,10 @@ SECURITY_FUZZER_BASE_DIR = /AppleInternal/CoreOS/Fuzzers/Security
 // Apple Clang - Code Generation
 CLANG_TRIVIAL_AUTO_VAR_INIT = pattern
 
-WARNING_CFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-error=deprecated-declarations -Wno-error=implicit-retain-self -Wno-error=#warnings -Wno-error=unused-function -Wno-error=unused-variable
+CLANG_CXX_LANGUAGE_STANDARD = gnu++2a
+GCC_C_LANGUAGE_STANDARD = gnu2x
+
+WARNING_CFLAGS = -Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-error=deprecated-declarations -Wno-error=deprecated-implementations -Wno-error=implicit-retain-self -Wno-error=#warnings -Wno-error=unused-function -Wno-error=unused-variable -Wno-error=documentation
 
 
 WARNING_CFLAGS[sdk=embedded*] = $(WARNING_CFLAGS) -Wformat=2

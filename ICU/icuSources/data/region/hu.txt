@@ -185,7 +185,7 @@ hu{
         MH{"Marshall-szigetek"}
         MK{"Észak-Macedónia"}
         ML{"Mali"}
-        MM{"Mianmar (Burma)"}
+        MM{"Mianmar"}
         MN{"Mongólia"}
         MO{"Makaó"}
         MP{"Északi Mariana-szigetek"}
@@ -309,7 +309,8 @@ hu{
         CI{"Elefántcsontpart"}
         CZ{"Cseh Köztársaság"}
         FK{"Falkland-szigetek (Malvin-szigetek)"}
+        SZ{"Eswatini"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.48.42"}
+    Version{"36.1"}
 }

@@ -29,15 +29,8 @@
 #if ENABLE(WEBASSEMBLY)
 
 #include "CCallHelpers.h"
-#include "FrameTracers.h"
-#include "IteratorOperations.h"
-#include "JITExceptions.h"
-#include "JSCInlines.h"
-#include "JSWebAssemblyHelpers.h"
 #include "JSWebAssemblyInstance.h"
-#include "JSWebAssemblyRuntimeError.h"
 #include "LinkBuffer.h"
-#include "NativeErrorConstructor.h"
 #include "ThunkGenerators.h"
 #include "WasmCallingConvention.h"
 #include "WasmContextInlines.h"
@@ -45,9 +38,7 @@
 #include "WasmInstance.h"
 #include "WasmOperations.h"
 #include "WasmSignatureInlines.h"
-
 #include <wtf/FunctionTraits.h>
-
 
 namespace JSC { namespace Wasm {
 
@@ -154,7 +145,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
                 }
                 ++marshalledGPRs;
                 if (argType == I32) {
-                    jit.zeroExtend32ToPtr(gprReg, gprReg); // Clear non-int32 and non-tag bits.
+                    jit.zeroExtend32ToWord(gprReg, gprReg); // Clear non-int32 and non-tag bits.
                     jit.boxInt32(gprReg, JSValueRegs(gprReg), DoNotHaveTagRegisters);
                 }
                 jit.store64(gprReg, calleeFrame.withOffset(calleeFrameOffset));
@@ -268,8 +259,8 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
 
     // FIXME Tail call if the wasm return type is void and no registers were spilled. https://bugs.webkit.org/show_bug.cgi?id=165488
 
-    CallLinkInfo* callLinkInfo = callLinkInfos.add();
-    callLinkInfo->setUpCall(CallLinkInfo::Call, CodeOrigin(), importJSCellGPRReg);
+    CallLinkInfo* callLinkInfo = callLinkInfos.add(CodeOrigin());
+    callLinkInfo->setUpCall(CallLinkInfo::Call, importJSCellGPRReg);
     JIT::DataLabelPtr targetToCheck;
     JIT::TrustedImmPtr initialRightValue(nullptr);
     JIT::Jump slowPath = jit.branchPtrWithPatch(MacroAssembler::NotEqual, importJSCellGPRReg, targetToCheck, initialRightValue);
@@ -303,7 +294,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
 
             slowPath.append(jit.branchIfNotNumber(GPRInfo::returnValueGPR, DoNotHaveTagRegisters));
             slowPath.append(jit.branchIfNotInt32(JSValueRegs(GPRInfo::returnValueGPR), DoNotHaveTagRegisters));
-            jit.zeroExtend32ToPtr(GPRInfo::returnValueGPR, dest);
+            jit.zeroExtend32ToWord(GPRInfo::returnValueGPR, dest);
             done.append(jit.jump());
 
             slowPath.link(&jit);

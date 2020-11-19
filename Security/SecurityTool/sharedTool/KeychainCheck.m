@@ -137,15 +137,9 @@ int verify_backup_integrity(int argc, char * const *argv) {
     }
 
     NSLog(@"Running backup integrity validation in %@ mode", lightweight ? @"lightweight" : @"default");
-    dispatch_semaphore_t sema = dispatch_semaphore_create(0);
     SecItemVerifyBackupIntegrity(lightweight, ^(NSDictionary* results, NSError *error) {
         NSLog(@"%@", results);
-        dispatch_semaphore_signal(sema);
     });
-
-    if (dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 30))) {
-        NSLog(@"Timed out waiting for backup integrity validation");
-    }
 
     return 0;
 }

@@ -102,7 +102,7 @@ void AppleUserHIDEventService::free()
 }
 
 //----------------------------------------------------------------------------------------------------
-// IOUserHIDEventService::start
+// AppleUserHIDEventService::start
 //----------------------------------------------------------------------------------------------------
 bool AppleUserHIDEventService::start(IOService * provider)
 {
@@ -135,7 +135,7 @@ bool AppleUserHIDEventService::start(IOService * provider)
     
     if (!dkStart) {
         ret = Start(provider);
-        require_noerr_action(ret, exit, HIDEventServiceLogError("IOUserHIDEventService::Start:0x%x\n", ret));
+        require_noerr_action(ret, exit, HIDEventServiceLogError("AppleUserHIDEventService::Start:0x%x\n", ret));
     } else if (krStart) {
         ok = super::start(provider);
         require_action(ok, exit, HIDEventServiceLogError("super::start:0x%x\n", ret));

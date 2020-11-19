@@ -313,8 +313,11 @@ s3dl_query_add(SecDbConnectionRef dbt, Query *q, CFTypeRef *result, CFErrorRef *
     }
 #endif
 
-    if (ok)
-        ok = SecDbItemInsert(item, dbt, error);
+    if (ok) {
+        // We care about the new item's UUID only when we just made it from the primary key.
+        // Otherwise, we just made a random one, and don't mind if it changes.
+        ok = SecDbItemInsert(item, dbt, q->q_uuid_from_primary_key, error);
+    }
 
     if (ok) {
         if (result && q->q_return_type) {
@@ -535,39 +538,22 @@ decode:
         // errSecDecode means the item is corrupted, stash it for delete.
         if (status == errSecDecode) {
             secwarning("ignoring corrupt %@,rowid=%" PRId64 " %@", q->q_class->name, rowid, q->q_error);
-            {
-                CFStringRef tablename = CFStringCreateCopy(kCFAllocatorDefault, q->q_class->name);
-                // Can't get rid of this item on the read path. Let's come back from elsewhere.
-                dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
-                    __block CFErrorRef localErr = NULL;
-                    __block bool ok = true;
-                    ok &= kc_with_dbt(true, &localErr, ^bool(SecDbConnectionRef dbt) {
-                        CFStringRef sql = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("DELETE FROM %@ WHERE rowid=%lli"), tablename, rowid);
-                        ok &= SecDbPrepare(dbt, sql, &localErr, ^(sqlite3_stmt *stmt) {
-                            ok &= SecDbStep(dbt, stmt, &localErr, NULL);
-                        });
 
-                        if (!ok || localErr) {
-                            secerror("Failed to delete corrupt item, %@ row %lli: %@", tablename, rowid, localErr);
-                        } else {
-                            secnotice("item", "Deleted corrupt rowid %lli from table %@", rowid, tablename);
-                        }
-                        CFReleaseNull(localErr);
-                        CFReleaseNull(sql);
-                        CFReleaseSafe(tablename);
-                        return ok;
-                    });
-                });
+            // Can't get rid of this item on the read path. Let's come back from elsewhere.
+            CFStringRef tablename = CFStringCreateCopy(kCFAllocatorDefault, q->q_class->name);
+            deleteCorruptedItemAsync(c->dbt, tablename, rowid);
+            CFReleaseNull(tablename);
 
-                CFDataRef edata = s3dl_copy_data_from_col(stmt, 1, NULL);
-                CFMutableStringRef edatastring =  CFStringCreateMutable(kCFAllocatorDefault, 0);
-                if(edatastring) {
-                    CFStringAppendEncryptedData(edatastring, edata);
-                    secnotice("item", "corrupted edata=%@", edatastring);
-                }
-                CFReleaseSafe(edata);
-                CFReleaseSafe(edatastring);
+            // provide helpful logging statement
+            CFDataRef edata = s3dl_copy_data_from_col(stmt, 1, NULL);
+            CFMutableStringRef edatastring =  CFStringCreateMutable(kCFAllocatorDefault, 0);
+            if(edatastring) {
+                CFStringAppendEncryptedData(edatastring, edata);
+                secnotice("item", "corrupted edata=%@", edatastring);
             }
+            CFReleaseSafe(edata);
+            CFReleaseSafe(edatastring);
+
             CFReleaseNull(q->q_error);  // This item was never here, keep going
         } else if (status == errSecAuthNeeded) {
             secwarning("Authentication is needed for %@,rowid=%" PRId64 " (%" PRIdOSStatus "): %@", q->q_class->name, rowid, status, q->q_error);
@@ -731,6 +717,19 @@ SecDbAppendWhereMusr(CFMutableStringRef sql,
     }
 }
 
+static void
+SecDbAppendWhereAppClip(CFMutableStringRef sql,
+                        const Query* q,
+                        bool* needWhere)
+{
+    if (!q->q_skip_app_clip_items) {
+        return;
+    }
+
+    SecDbAppendWhereOrAnd(sql, needWhere);
+    CFStringAppend(sql, CFSTR("clip = 0"));
+}
+
 static void SecDbAppendWhereClause(CFMutableStringRef sql, const Query *q,
                                    CFArrayRef accessGroups) {
     bool needWhere = true;
@@ -738,6 +737,7 @@ static void SecDbAppendWhereClause(CFMutableStringRef sql, const Query *q,
     SecDbAppendWhereAttrs(sql, q, &needWhere);
     SecDbAppendWhereMusr(sql, q, &needWhere);
     SecDbAppendWhereAccessGroups(sql, CFSTR("agrp"), accessGroups, &needWhere);
+    SecDbAppendWhereAppClip(sql, q, &needWhere);
 }
 
 static void SecDbAppendLimit(CFMutableStringRef sql, CFIndex limit) {
@@ -748,14 +748,14 @@ static void SecDbAppendLimit(CFMutableStringRef sql, CFIndex limit) {
 static CFStringRef s3dl_create_select_sql(Query *q, CFArrayRef accessGroups) {
     CFMutableStringRef sql = CFStringCreateMutable(NULL, 0);
 	if (q->q_class == identity_class()) {
-        CFStringAppendFormat(sql, NULL, CFSTR("SELECT crowid, %@"
-                                              ", rowid,data FROM "
-                                              "(SELECT cert.rowid AS crowid, cert.labl AS labl,"
-                                              " cert.issr AS issr, cert.slnr AS slnr, cert.skid AS skid,"
-                                              " keys.*,cert.data AS %@"
-                                              " FROM keys, cert"
-                                              " WHERE keys.priv == 1 AND cert.pkhh == keys.klbl"),
-                             kSecAttrIdentityCertificateData, kSecAttrIdentityCertificateData);
+        CFStringAppend(sql, CFSTR("SELECT crowid, certdata"
+                                  ", rowid,data FROM "
+                                  "(SELECT cert.rowid AS crowid, cert.labl AS labl,"
+                                  " cert.issr AS issr, cert.slnr AS slnr, cert.skid AS skid,"
+                                  " cert.tkid AS tkid,"
+                                  " keys.*,cert.data AS certdata"
+                                  " FROM keys, cert"
+                                  " WHERE keys.priv == 1 AND cert.pkhh == keys.klbl"));
         SecDbAppendWhereAccessGroups(sql, CFSTR("cert.agrp"), accessGroups, 0);
         /* The next 3 SecDbAppendWhere calls are in the same order as in
          SecDbAppendWhereClause().  This makes sqlBindWhereClause() work,
@@ -766,8 +766,10 @@ static CFStringRef s3dl_create_select_sql(Query *q, CFArrayRef accessGroups) {
         SecDbAppendWhereAttrs(sql, q, &needWhere);
         SecDbAppendWhereMusr(sql, q, &needWhere);
         SecDbAppendWhereAccessGroups(sql, CFSTR("agrp"), accessGroups, &needWhere);
+        SecDbAppendWhereAppClip(sql, q, &needWhere);
 	} else {
-        CFStringAppend(sql, CFSTR("SELECT rowid, data FROM "));
+        // Most of the time we don't need agrp, but if an item fails to decode and we want to know more then this is helpful
+        CFStringAppend(sql, CFSTR("SELECT rowid, data, agrp FROM "));
 		CFStringAppend(sql, q->q_class->name);
         SecDbAppendWhereClause(sql, q, accessGroups);
     }
@@ -975,7 +977,7 @@ s3dl_copy_matching(SecDbConnectionRef dbt, Query *q, CFTypeRef *result,
                         CFSTR("attributes to query illegal; both row_id and other attributes can't be searched at the same time"));
     if (q->q_token_object_id && query_attr_count(q) != 1)
         return SecError(errSecItemIllegalQuery, error,
-                        CFSTR("attributes to query illegal; both token persitent ref and other attributes can't be searched at the same time"));
+                        CFSTR("attributes to query illegal; both token persistent ref and other attributes can't be searched at the same time"));
 
     // Only copy things that aren't tombstones unless the client explicitly asks otherwise.
     if (!CFDictionaryContainsKey(q->q_item, kSecAttrTombstone))
@@ -1128,10 +1130,7 @@ static CFBooleanRef s3dl_should_make_tombstone(Query *q, bool item_is_syncable, 
     else
         return kCFBooleanFalse;
 }
-/* AUDIT[securityd](done):
- attributesToUpdate (ok) is a caller provided dictionary,
- only its cf types have been checked.
- */
+
 bool
 s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                   CFDictionaryRef attributesToUpdate, CFArrayRef accessGroups, CFErrorRef *error)
@@ -1147,7 +1146,7 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
         return SecError(errSecItemIllegalQuery, error, CFSTR("attributes to update illegal; both token persistent ref and other attributes can't be updated at the same time"));
 
     __block bool result = true;
-    Query *u = query_create(q->q_class, NULL, attributesToUpdate, error);
+    Query *u = query_create(q->q_class, NULL, attributesToUpdate, NULL, error);
     if (u == NULL) return false;
     require_action_quiet(query_update_parse(u, attributesToUpdate, error), errOut, result = false);
     query_pre_update(u);
@@ -1174,7 +1173,7 @@ s3dl_query_update(SecDbConnectionRef dbt, Query *q,
                 // We just ignore this, and treat as if item is not found.
                 secwarning("deleting corrupt %@,rowid=%" PRId64 " %@", q->q_class->name, SecDbItemGetRowId(item, NULL), localError);
                 CFReleaseNull(localError);
-                if (!SecDbItemDelete(item, dbt, false, &localError)) {
+                if (!SecDbItemDelete(item, dbt, false, false, &localError)) {
                     secerror("failed to delete corrupt %@,rowid=%" PRId64 " %@", q->q_class->name, SecDbItemGetRowId(item, NULL), localError);
                     CFReleaseNull(localError);
                 }
@@ -1254,7 +1253,7 @@ s3dl_query_delete(SecDbConnectionRef dbt, Query *q, CFArrayRef accessGroups, CFE
         bool item_is_sync = SecDbItemIsSyncable(item);
         SecDbItemSetValue(item, sha1attr, storedSHA1, NULL);
         CFReleaseSafe(storedSHA1);
-        ok = SecDbItemDelete(item, dbt, s3dl_should_make_tombstone(q, item_is_sync, item), error);
+        ok = SecDbItemDelete(item, dbt, s3dl_should_make_tombstone(q, item_is_sync, item), q->q_tombstone_use_mdat_from_item, error);
         if (ok) {
             q->q_changed = true;
             if (item_is_sync)
@@ -1502,8 +1501,9 @@ fail:
     if (stmt) {
         ok = SecDbFinalize(stmt, error);
     }
-    if (!ok)
+    if (!ok) {
         secwarning("DeleteAllFromTableForMUSRView failed for %@ for musr: %@: %@", sql2, musr, error ? *error : NULL);
+    }
     
     CFReleaseNull(sql2);
 
@@ -1526,6 +1526,34 @@ bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, bool 
 }
 #endif
 
+OSStatus SecServerDeleteForAppClipApplicationIdentifier(CFStringRef identifier) {
+    secnotice("item", "Request to delete app clip keychain items for identifier '%@'", identifier);
+
+    __block CFErrorRef cfError = NULL;
+    __block bool ok = true;
+    ok &= kc_with_dbt(true, &cfError, ^bool(SecDbConnectionRef dbt) {
+        return kc_transaction(dbt, &cfError, ^bool{
+            const SecDbSchema* schema = current_schema();
+            for (const SecDbClass *const * class = schema->classes; *class != NULL; ++class) {
+                if ((*class)->itemclass) {
+                    CFStringRef sqlStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("DELETE FROM %@ WHERE agrp = ? AND clip = 1"), (*class)->name);
+                    ok &= SecDbPrepare(dbt, sqlStr, &cfError, ^(sqlite3_stmt *stmt) {
+                        ok &= SecDbBindObject(stmt, 1, identifier, &cfError);
+                        ok &= SecDbStep(dbt, stmt, &cfError, NULL);
+                    });
+                    CFReleaseNull(sqlStr);
+                }
+            }
+            return ok;
+        });
+    });
+
+    OSStatus status = ok ? errSecSuccess : errSecInternal;
+    secnotice("item", "Finished request to delete app clip keychain items for identifier '%@' with status %i: %@", identifier, (int)status, cfError);
+    CFReleaseNull(cfError);
+
+    return status;
+}
 
 struct s3dl_export_row_ctx {
     struct s3dl_query_ctx qc;
@@ -1539,9 +1567,6 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
     Query *q = c->qc.q;
     SecAccessControlRef access_control = NULL;
     CFErrorRef localError = NULL;
-
-    /* Skip akpu items when backing up, those are intentionally lost across restores. The same applies to SEP-based keys */
-    bool skip_akpu_or_token = c->filter == kSecBackupableItemFilter;
 
     sqlite_int64 rowid = sqlite3_column_int64(stmt, 0);
     CFMutableDictionaryRef allAttributes = NULL;
@@ -1561,12 +1586,14 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
         }
     }
 
+    /* Skip akpu items when backing up, those are intentionally lost across restores. The same applies to SEP-based keys */
     bool is_akpu = access_control ? CFEqualSafe(SecAccessControlGetProtection(access_control), kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly)
                                   // Mask generation, only look at class per se
                                   : (keyclass & key_class_last) == key_class_akpu;
     bool is_token = (ok && allAttributes != NULL) ? CFDictionaryContainsKey(allAttributes, kSecAttrTokenID) : false;
+    bool skip_akpu_or_token = (is_akpu || is_token) && c->filter == kSecBackupableItemFilter;
 
-    if (ok && allAttributes && !(skip_akpu_or_token && (is_akpu || is_token))) {
+    if (ok && allAttributes && !skip_akpu_or_token) {
         /* Only export sysbound items if do_sys_bound is true, only export non sysbound items otherwise. */
         bool do_sys_bound = c->filter == kSecSysBoundItemFilter;
         if (c->filter == kSecNoItemFilter ||
@@ -1607,7 +1634,7 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
                 CFReleaseSafe(pref);
             }
         }
-    } else {
+    } else if (!ok || !allAttributes) {
         OSStatus status = SecErrorGetOSStatus(localError);
 
         if (status == errSecInteractionNotAllowed && is_akpu) {
@@ -1615,13 +1642,15 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
                 secdebug("item", "Skipping akpu item for backup");
             } else {    // Probably failed to decrypt sysbound item. Should never be an akpu item in backup.
                 secerror("Encountered akpu item we cannot export (filter %d), skipping. %@", c->filter, localError);
-                CFDictionaryRef payload = NULL;
-                CFTypeRef agrp = CFDictionaryGetValue(allAttributes, CFSTR("agrp"));
-                if (agrp) {
-                    payload = CFDictionaryCreateForCFTypes(NULL, CFSTR("agrp"), agrp, NULL);
+                if (sqlite3_column_count(stmt) > 2) {   // Should have rowid,data,agrp from s3dl_create_select_sql
+                    CFStringRef agrp = CFStringCreateWithCString(kCFAllocatorDefault, (const char*)sqlite3_column_text(stmt, 2), kCFStringEncodingUTF8);
+                    if (agrp) {
+                        CFDictionaryRef payload = CFDictionaryCreateForCFTypes(NULL, CFSTR("agrp"), agrp, NULL);
+                        SecABCTrigger(CFSTR("keychain"), CFSTR("invalid-akpu+sysbound"), NULL, payload);
+                        CFReleaseNull(payload);
+                    }
+                    CFReleaseNull(agrp);
                 }
-                SecABCTrigger(CFSTR("keychain"), CFSTR("invalid-akpu+sysbound"), NULL, payload);
-                CFReleaseNull(payload);
             }
             // We expect akpu items to be inaccessible when the device is locked.
             CFReleaseNull(localError);
@@ -1637,7 +1666,10 @@ static void s3dl_export_row(sqlite3_stmt *stmt, void *context) {
                 q->q_error = localError;
             }
         }
+    } else {
+        secnotice("item", "export rowid %llu skipped. akpu/token: %i", rowid, skip_akpu_or_token);
     }
+
     CFReleaseNull(access_control);
     CFReleaseNull(allAttributes);
     CFReleaseNull(metadataAttributes);
@@ -1658,7 +1690,6 @@ SecCreateKeybagUUID(keybag_handle_t keybag)
     return CFStringCreateWithCString(NULL, uuidstr, kCFStringEncodingUTF8);
 #endif
 }
-
 
 CFDictionaryRef
 SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
@@ -1689,7 +1720,7 @@ SecServerCopyKeychainPlist(SecDbConnectionRef dbt,
         kSecReturnPersistentRefMask;
     q.q_limit = kSecMatchUnlimited;
     q.q_skip_acl_items = true;
-
+    q.q_skip_app_clip_items = true;
 
 #if TARGET_OS_IPHONE
     if (client && client->inMultiUser) {
@@ -1808,7 +1839,7 @@ SecServerImportItem(const void *value, void *context)
     if (state->s->src_keybag == KEYBAG_NONE) {
         item = SecDbItemCreateWithAttributes(kCFAllocatorDefault, state->class, dict, state->s->dest_keybag,  &state->s->error);
     } else {
-        item = SecDbItemCreateWithBackupDictionary(kCFAllocatorDefault, state->class, dict, state->s->src_keybag, state->s->dest_keybag, &state->s->error);
+        item = SecDbItemCreateWithBackupDictionary(state->class, dict, state->s->src_keybag, state->s->dest_keybag, &state->s->error);
     }
 
     /* If item is NULL here, control flow ends up at the end where error is cleared. */
@@ -1906,7 +1937,7 @@ SecServerImportItem(const void *value, void *context)
             SecDbItemExtractRowIdFromBackupDictionary(item, dict, &state->s->error);
         }
         SecDbItemInferSyncable(item, &state->s->error);
-        insertStatus = SecDbItemInsert(item, state->s->dbt, &state->s->error);
+        insertStatus = SecDbItemInsert(item, state->s->dbt, false, &state->s->error);
         if (!insertStatus) {
             /*
              When running in EduMode, multiple users share the same
@@ -1920,7 +1951,7 @@ SecServerImportItem(const void *value, void *context)
              again to insert the record.
              */
             SecDbItemClearRowId(item, NULL);
-            SecDbItemInsert(item, state->s->dbt, &state->s->error);
+            SecDbItemInsert(item, state->s->dbt, false, &state->s->error);
         }
     }
 
@@ -2158,7 +2189,7 @@ bool s3dl_dbt_keys_current(SecDbConnectionRef dbt, uint32_t current_generation, 
     };
 
     for (size_t class_ix = 0; class_ix < array_size(classes); ++class_ix) {
-        Query *q = query_create(classes[class_ix], NULL, NULL, &localError);
+        Query *q = query_create(classes[class_ix], NULL, NULL, NULL, &localError);
         if (!q)
             return false;
 

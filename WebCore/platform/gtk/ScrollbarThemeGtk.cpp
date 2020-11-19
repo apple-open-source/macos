@@ -21,16 +21,18 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "ScrollbarThemeGtk.h"
 
+#if !USE(GTK4)
+
 #include "GRefPtrGtk.h"
 #include "PlatformContextCairo.h"
 #include "PlatformMouseEvent.h"
-#include "RenderThemeWidget.h"
+#include "RenderThemeScrollbar.h"
 #include "ScrollView.h"
 #include "Scrollbar.h"
 #include <cstdlib>
@@ -53,8 +55,6 @@ static void themeChangedCallback()
 
 ScrollbarThemeGtk::ScrollbarThemeGtk()
 {
-    m_usesOverlayScrollbars = g_strcmp0(g_getenv("GTK_OVERLAY_SCROLLING"), "0");
-
     static bool themeMonitorInitialized = false;
     if (!themeMonitorInitialized) {
         g_signal_connect(gtk_settings_get_default(), "notify::gtk-theme-name", G_CALLBACK(themeChangedCallback), nullptr);
@@ -63,15 +63,31 @@ ScrollbarThemeGtk::ScrollbarThemeGtk()
     }
 }
 
+void ScrollbarThemeGtk::setUseSystemAppearance(bool useSystemAppearance)
+{
+    if (m_useSystemAppearance == useSystemAppearance)
+        return;
+
+    m_useSystemAppearance = useSystemAppearance;
+
+    RenderThemeScrollbar::clearCache();
+    if (m_useSystemAppearance)
+        updateThemeProperties();
+}
+
 void ScrollbarThemeGtk::themeChanged()
 {
-    RenderThemeWidget::clearCache();
+    if (!m_useSystemAppearance)
+        return;
+
+    RenderThemeScrollbar::clearCache();
     updateThemeProperties();
 }
 
 void ScrollbarThemeGtk::updateThemeProperties()
 {
-    auto& scrollbar = static_cast<RenderThemeScrollbar&>(RenderThemeWidget::getOrCreate(RenderThemeWidget::Type::VerticalScrollbarRight));
+    RELEASE_ASSERT(m_useSystemAppearance);
+    auto& scrollbar = static_cast<RenderThemeScrollbar&>(RenderThemeScrollbar::getOrCreate(RenderThemeScrollbar::Type::VerticalScrollbarRight));
     m_hasBackButtonStartPart = scrollbar.stepper(RenderThemeScrollbarGadget::Steppers::Backward);
     m_hasForwardButtonEndPart = scrollbar.stepper(RenderThemeScrollbarGadget::Steppers::Forward);
     m_hasBackButtonEndPart = scrollbar.stepper(RenderThemeScrollbarGadget::Steppers::SecondaryBackward);
@@ -80,6 +96,9 @@ void ScrollbarThemeGtk::updateThemeProperties()
 
 bool ScrollbarThemeGtk::hasButtons(Scrollbar& scrollbar)
 {
+    if (!m_useSystemAppearance)
+        return ScrollbarThemeAdwaita::hasButtons(scrollbar);
+
     return scrollbar.enabled() && (m_hasBackButtonStartPart || m_hasForwardButtonEndPart || m_hasBackButtonEndPart || m_hasForwardButtonStartPart);
 }
 
@@ -120,14 +139,14 @@ static GtkStateFlags scrollbarPartStateFlags(Scrollbar& scrollbar, ScrollbarPart
     return static_cast<GtkStateFlags>(stateFlags);
 }
 
-static RenderThemeWidget::Type widgetTypeForScrollbar(Scrollbar& scrollbar, GtkStateFlags scrollbarState)
+static RenderThemeScrollbar::Type widgetTypeForScrollbar(Scrollbar& scrollbar, GtkStateFlags scrollbarState)
 {
     if (scrollbar.orientation() == VerticalScrollbar) {
         if (scrollbar.scrollableArea().shouldPlaceBlockDirectionScrollbarOnLeft())
-            return scrollbarState & GTK_STATE_FLAG_PRELIGHT ? RenderThemeWidget::Type::VerticalScrollbarLeft : RenderThemeWidget::Type::VerticalScrollIndicatorLeft;
-        return scrollbarState & GTK_STATE_FLAG_PRELIGHT ? RenderThemeWidget::Type::VerticalScrollbarRight : RenderThemeWidget::Type::VerticalScrollIndicatorRight;
+            return scrollbarState & GTK_STATE_FLAG_PRELIGHT ? RenderThemeScrollbar::Type::VerticalScrollbarLeft : RenderThemeScrollbar::Type::VerticalScrollIndicatorLeft;
+        return scrollbarState & GTK_STATE_FLAG_PRELIGHT ? RenderThemeScrollbar::Type::VerticalScrollbarRight : RenderThemeScrollbar::Type::VerticalScrollIndicatorRight;
     }
-    return scrollbarState & GTK_STATE_FLAG_PRELIGHT ? RenderThemeWidget::Type::HorizontalScrollbar : RenderThemeWidget::Type::HorizontalScrollIndicator;
+    return scrollbarState & GTK_STATE_FLAG_PRELIGHT ? RenderThemeScrollbar::Type::HorizontalScrollbar : RenderThemeScrollbar::Type::HorizontalScrollIndicator;
 }
 
 static IntRect contentsRectangle(Scrollbar& scrollbar, RenderThemeScrollbar& scrollbarWidget)
@@ -145,10 +164,13 @@ static IntRect contentsRectangle(Scrollbar& scrollbar, RenderThemeScrollbar& scr
     return contentsRect;
 }
 
-IntRect ScrollbarThemeGtk::trackRect(Scrollbar& scrollbar, bool /*painting*/)
+IntRect ScrollbarThemeGtk::trackRect(Scrollbar& scrollbar, bool painting)
 {
+    if (!m_useSystemAppearance)
+        return ScrollbarThemeAdwaita::trackRect(scrollbar, painting);
+
     auto scrollbarState = scrollbarPartStateFlags(scrollbar, AllParts);
-    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeWidget::getOrCreate(widgetTypeForScrollbar(scrollbar, scrollbarState)));
+    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeScrollbar::getOrCreate(widgetTypeForScrollbar(scrollbar, scrollbarState)));
     scrollbarWidget.scrollbar().setState(scrollbarState);
 
     IntRect rect = contentsRectangle(scrollbar, scrollbarWidget);
@@ -195,21 +217,17 @@ IntRect ScrollbarThemeGtk::trackRect(Scrollbar& scrollbar, bool /*painting*/)
     return scrollbar.width() < rect.width() ? IntRect() : rect;
 }
 
-bool ScrollbarThemeGtk::hasThumb(Scrollbar& scrollbar)
+IntRect ScrollbarThemeGtk::backButtonRect(Scrollbar& scrollbar, ScrollbarPart part, bool painting)
 {
-    // This method is just called as a paint-time optimization to see if
-    // painting the thumb can be skipped. We don't have to be exact here.
-    return thumbLength(scrollbar) > 0;
-}
+    if (!m_useSystemAppearance)
+        return ScrollbarThemeAdwaita::backButtonRect(scrollbar, part, painting);
 
-IntRect ScrollbarThemeGtk::backButtonRect(Scrollbar& scrollbar, ScrollbarPart part, bool /*painting*/)
-{
     ASSERT(part == BackButtonStartPart || part == BackButtonEndPart);
     if ((part == BackButtonEndPart && !m_hasBackButtonEndPart) || (part == BackButtonStartPart && !m_hasBackButtonStartPart))
         return IntRect();
 
     auto scrollbarState = scrollbarPartStateFlags(scrollbar, AllParts);
-    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeWidget::getOrCreate(widgetTypeForScrollbar(scrollbar, scrollbarState)));
+    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeScrollbar::getOrCreate(widgetTypeForScrollbar(scrollbar, scrollbarState)));
     scrollbarWidget.scrollbar().setState(scrollbarState);
 
     IntRect rect = contentsRectangle(scrollbar, scrollbarWidget);
@@ -252,14 +270,17 @@ IntRect ScrollbarThemeGtk::backButtonRect(Scrollbar& scrollbar, ScrollbarPart pa
     return IntRect(rect.location(), preferredSize);
 }
 
-IntRect ScrollbarThemeGtk::forwardButtonRect(Scrollbar& scrollbar, ScrollbarPart part, bool /*painting*/)
+IntRect ScrollbarThemeGtk::forwardButtonRect(Scrollbar& scrollbar, ScrollbarPart part, bool painting)
 {
+    if (!m_useSystemAppearance)
+        return ScrollbarThemeAdwaita::forwardButtonRect(scrollbar, part, painting);
+
     ASSERT(part == ForwardButtonStartPart || part == ForwardButtonEndPart);
     if ((part == ForwardButtonStartPart && !m_hasForwardButtonStartPart) || (part == ForwardButtonEndPart && !m_hasForwardButtonEndPart))
         return IntRect();
 
     auto scrollbarState = scrollbarPartStateFlags(scrollbar, AllParts);
-    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeWidget::getOrCreate(widgetTypeForScrollbar(scrollbar, scrollbarState)));
+    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeScrollbar::getOrCreate(widgetTypeForScrollbar(scrollbar, scrollbarState)));
     scrollbarWidget.scrollbar().setState(scrollbarState);
 
     IntRect rect = contentsRectangle(scrollbar, scrollbarWidget);
@@ -304,6 +325,9 @@ IntRect ScrollbarThemeGtk::forwardButtonRect(Scrollbar& scrollbar, ScrollbarPart
 
 bool ScrollbarThemeGtk::paint(Scrollbar& scrollbar, GraphicsContext& graphicsContext, const IntRect& damageRect)
 {
+    if (!m_useSystemAppearance)
+        return ScrollbarThemeAdwaita::paint(scrollbar, graphicsContext, damageRect);
+
     if (graphicsContext.paintingDisabled())
         return false;
 
@@ -319,10 +343,10 @@ bool ScrollbarThemeGtk::paint(Scrollbar& scrollbar, GraphicsContext& graphicsCon
         return true;
 
     auto scrollbarState = scrollbarPartStateFlags(scrollbar, AllParts, true);
-    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeWidget::getOrCreate(widgetTypeForScrollbar(scrollbar, scrollbarState)));
+    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeScrollbar::getOrCreate(widgetTypeForScrollbar(scrollbar, scrollbarState)));
     auto& scrollbarGadget = scrollbarWidget.scrollbar();
     scrollbarGadget.setState(scrollbarState);
-    if (m_usesOverlayScrollbars)
+    if (usesOverlayScrollbars())
         opacity *= scrollbarGadget.opacity();
     if (!opacity)
         return true;
@@ -496,9 +520,12 @@ ScrollbarButtonPressAction ScrollbarThemeGtk::handleMousePressEvent(Scrollbar&, 
     return ScrollbarButtonPressAction::None;
 }
 
-int ScrollbarThemeGtk::scrollbarThickness(ScrollbarControlSize, ScrollbarExpansionState)
+int ScrollbarThemeGtk::scrollbarThickness(ScrollbarControlSize controlSize, ScrollbarExpansionState expansionState)
 {
-    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeWidget::getOrCreate(RenderThemeWidget::Type::VerticalScrollbarRight));
+    if (!m_useSystemAppearance)
+        return ScrollbarThemeAdwaita::scrollbarThickness(controlSize, expansionState);
+
+    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeScrollbar::getOrCreate(RenderThemeScrollbar::Type::VerticalScrollbarRight));
     scrollbarWidget.scrollbar().setState(GTK_STATE_FLAG_PRELIGHT);
     IntSize contentsPreferredSize = scrollbarWidget.contents().preferredSize();
     contentsPreferredSize = contentsPreferredSize.expandedTo(scrollbarWidget.slider().preferredSize());
@@ -508,10 +535,15 @@ int ScrollbarThemeGtk::scrollbarThickness(ScrollbarControlSize, ScrollbarExpansi
 
 int ScrollbarThemeGtk::minimumThumbLength(Scrollbar& scrollbar)
 {
-    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeWidget::getOrCreate(RenderThemeWidget::Type::VerticalScrollbarRight));
+    if (!m_useSystemAppearance)
+        return ScrollbarThemeAdwaita::minimumThumbLength(scrollbar);
+
+    auto& scrollbarWidget = static_cast<RenderThemeScrollbar&>(RenderThemeScrollbar::getOrCreate(RenderThemeScrollbar::Type::VerticalScrollbarRight));
     scrollbarWidget.scrollbar().setState(GTK_STATE_FLAG_PRELIGHT);
     IntSize minSize = scrollbarWidget.slider().minimumSize();
     return scrollbar.orientation() == VerticalScrollbar ? minSize.height() : minSize.width();
 }
 
 } // namespace WebCore
+
+#endif // !USE(GTK4)

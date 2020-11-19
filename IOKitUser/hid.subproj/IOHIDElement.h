@@ -308,6 +308,8 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
 /*!
 	@function   IOHIDElementGetReportCount
 	@abstract   Returns the report count for the element.
+    @discussion If the report count is greater than one and the element does not represent an array then it is a
+                repeated set of value usages, the size of each report is the report size divided by the report count.
     @param      element The element to be queried. If this parameter is not a valid IOHIDElementRef, the behavior is undefined.
     @result     Returns the report count.
 */

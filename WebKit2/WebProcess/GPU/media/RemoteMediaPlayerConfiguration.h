@@ -35,21 +35,25 @@ namespace WebKit {
 
 struct RemoteMediaPlayerConfiguration {
     String engineDescription;
+    double maximumDurationToCacheMediaTime;
     bool supportsScanning { false };
     bool supportsFullscreen { false };
     bool supportsPictureInPicture { false };
     bool supportsAcceleratedRendering { false };
     bool canPlayToWirelessPlaybackTarget { false };
+    bool shouldIgnoreIntrinsicSize { false };
 
     template<class Encoder>
     void encode(Encoder& encoder) const
     {
         encoder << engineDescription;
+        encoder << maximumDurationToCacheMediaTime;
         encoder << supportsScanning;
         encoder << supportsFullscreen;
         encoder << supportsPictureInPicture;
         encoder << supportsAcceleratedRendering;
         encoder << canPlayToWirelessPlaybackTarget;
+        encoder << shouldIgnoreIntrinsicSize;
     }
 
     template <class Decoder>
@@ -58,6 +62,11 @@ struct RemoteMediaPlayerConfiguration {
         Optional<String> engineDescription;
         decoder >> engineDescription;
         if (!engineDescription)
+            return WTF::nullopt;
+
+        Optional<double> maximumDurationToCacheMediaTime;
+        decoder >> maximumDurationToCacheMediaTime;
+        if (!maximumDurationToCacheMediaTime)
             return WTF::nullopt;
 
         Optional<bool> supportsScanning;
@@ -85,12 +94,20 @@ struct RemoteMediaPlayerConfiguration {
         if (!canPlayToWirelessPlaybackTarget)
             return WTF::nullopt;
 
+        Optional<bool> shouldIgnoreIntrinsicSize;
+        decoder >> shouldIgnoreIntrinsicSize;
+        if (!shouldIgnoreIntrinsicSize)
+            return WTF::nullopt;
+
         return {{
             WTFMove(*engineDescription),
+            *maximumDurationToCacheMediaTime,
             *supportsScanning,
+            *supportsFullscreen,
             *supportsPictureInPicture,
             *supportsAcceleratedRendering,
             *canPlayToWirelessPlaybackTarget,
+            *shouldIgnoreIntrinsicSize,
         }};
     }
 };

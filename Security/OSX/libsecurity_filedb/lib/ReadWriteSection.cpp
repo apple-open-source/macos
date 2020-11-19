@@ -49,9 +49,10 @@ void WriteSection::grow(size_t inNewCapacity)
 	size_t aNewCapacity = max(n, inNewCapacity);
 	mAddress = reinterpret_cast<uint8 *>(mAllocator.realloc(mAddress, aNewCapacity));
 
-    if (mAddress == NULL)
+    if (mAddress == NULL) {
         CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
+    }
 
-	memset(mAddress + mCapacity, 0, aNewCapacity - mCapacity);
-	mCapacity = aNewCapacity;
+    memset(mAddress + mCapacity, 0, aNewCapacity - mCapacity);
+    mCapacity = aNewCapacity;
 }

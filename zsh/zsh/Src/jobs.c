@@ -1085,7 +1085,7 @@ printjob(Job jn, int lng, int synch)
 	{
 	    /*
 	     * A subjob still has process, which must finish before
-	     * further excution of the superjob, which the user wants to
+	     * further execution of the superjob, which the user wants to
 	     * know about.  So report the status of the subjob as if it
 	     * were the user-visible superjob.
 	     */
@@ -1932,7 +1932,7 @@ getjob(const char *s, const char *prog)
     /* a digit here means we have a job number */
     if (idigit(*s)) {
 	jobnum = atoi(s);
-	if (jobnum && jobnum <= mymaxjob && myjobtab[jobnum].stat &&
+	if (jobnum > 0 && jobnum <= mymaxjob && myjobtab[jobnum].stat &&
 	    !(myjobtab[jobnum].stat & STAT_SUBJOB) &&
 	    /*
 	     * If running jobs in a subshell, we are allowed to
@@ -2933,6 +2933,7 @@ acquire_pgrp(void)
 	sigaddset(&blockset, SIGTTOU);
 	sigaddset(&blockset, SIGTSTP);
 	oldset = signal_block(blockset);
+	int loop_count = 0;
 	while ((ttpgrp = gettygrp()) != -1 && ttpgrp != mypgrp) {
 	    mypgrp = GETPGRP();
 	    if (mypgrp == mypid) {
@@ -2948,8 +2949,21 @@ acquire_pgrp(void)
 	    if (read(0, NULL, 0) != 0) {} /* Might generate SIGT* */
 	    signal_block(blockset);
 	    mypgrp = GETPGRP();
-	    if (mypgrp == lastpgrp && !interact)
-		break; /* Unlikely that pgrp will ever change */
+	    if (mypgrp == lastpgrp) {
+		if (!interact)
+		    break; /* Unlikely that pgrp will ever change */
+		if (++loop_count == 100)
+		{
+		    /*
+		     * It's time to give up.  The count is arbitrary;
+		     * this is just to fix up unusual cases, so it's
+		     * left large in an attempt not to break normal
+		     * cases where there's some delay in the system
+		     * setting up the terminal.
+		     */
+		    break;
+		}
+	    }
 	    lastpgrp = mypgrp;
 	}
 	if (mypgrp != mypid) {

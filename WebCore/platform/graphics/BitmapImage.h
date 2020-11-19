@@ -130,6 +130,9 @@ public:
 
 #if PLATFORM(GTK)
     GdkPixbuf* getGdkPixbuf() override;
+#if USE(GTK4)
+    GdkTexture* gdkTexture() override;
+#endif
 #endif
 
     WEBCORE_EXPORT NativeImagePtr nativeImage(const GraphicsContext* = nullptr) override;
@@ -143,7 +146,7 @@ public:
     void imageFrameAvailableAtIndex(size_t);
     void decode(Function<void()>&&);
 
-protected:
+private:
     WEBCORE_EXPORT BitmapImage(NativeImagePtr&&, ImageObserver* = nullptr);
     WEBCORE_EXPORT BitmapImage(ImageObserver* = nullptr);
 
@@ -187,7 +190,7 @@ protected:
     // Handle platform-specific data
     void invalidatePlatformData();
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     bool notSolidColor() override;
 #endif
 
@@ -195,7 +198,6 @@ protected:
     RetainPtr<CFDataRef> tiffRepresentation(const Vector<NativeImagePtr>&);
 #endif
 
-private:
     void clearTimer();
     void startTimer(Seconds delay);
     SubsamplingLevel subsamplingLevelForScaleFactor(GraphicsContext&, const FloatSize& scaleFactor);
@@ -233,7 +235,7 @@ private:
     bool m_clearDecoderAfterAsyncFrameRequestForTesting { false };
     bool m_largeImageAsyncDecodingEnabledForTesting { false };
 
-#if !LOG_DISABLED
+#if ASSERT_ENABLED || !LOG_DISABLED
     size_t m_lateFrameCount { 0 };
     size_t m_earlyFrameCount { 0 };
     size_t m_cachedFrameCount { 0 };

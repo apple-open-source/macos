@@ -32,7 +32,7 @@
  */
 
 #include "test_locl.h"
-#include <gssapi.h>
+#include "gssapi.h"
 #include "nt_gss_common.h"
 
 RCSID("$Id$");

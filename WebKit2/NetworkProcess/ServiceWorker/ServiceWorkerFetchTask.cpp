@@ -29,7 +29,6 @@
 #if ENABLE(SERVICE_WORKER)
 
 #include "Connection.h"
-#include "DataReference.h"
 #include "FormDataReference.h"
 #include "Logging.h"
 #include "NetworkProcess.h"
@@ -94,6 +93,7 @@ void ServiceWorkerFetchTask::start(WebSWServerToContextConnection& serviceWorker
 void ServiceWorkerFetchTask::contextClosed()
 {
     RELEASE_LOG_IF_ALLOWED("contextClosed: (m_isDone=%d, m_wasHandled=%d)", m_isDone, m_wasHandled);
+    m_serviceWorkerConnection = nullptr;
     if (m_isDone)
         return;
 
@@ -140,7 +140,7 @@ void ServiceWorkerFetchTask::didReceiveResponse(ResourceResponse&& response, boo
     if (m_isDone)
         return;
 
-    RELEASE_LOG_IF_ALLOWED("didReceiveResponse: (httpStatusCode=%d, MIMEType=%{public}s, expectedContentLength=%" PRId64 ", needsContinueDidReceiveResponseMessage=%d)", response.httpStatusCode(), response.mimeType().utf8().data(), response.expectedContentLength(), needsContinueDidReceiveResponseMessage);
+    RELEASE_LOG_IF_ALLOWED("didReceiveResponse: (httpStatusCode=%d, MIMEType=%" PUBLIC_LOG_STRING ", expectedContentLength=%" PRId64 ", needsContinueDidReceiveResponseMessage=%d, source=%u)", response.httpStatusCode(), response.mimeType().utf8().data(), response.expectedContentLength(), needsContinueDidReceiveResponseMessage, static_cast<unsigned>(response.source()));
     m_wasHandled = true;
     m_timeoutTimer.stop();
     softUpdateIfNeeded();
@@ -155,7 +155,7 @@ void ServiceWorkerFetchTask::didReceiveData(const IPC::DataReference& data, int6
         return;
 
     ASSERT(!m_timeoutTimer.isActive());
-    sendToClient(Messages::WebResourceLoader::DidReceiveData { IPC::SharedBufferDataReference { data.data(), data.size() }, encodedDataLength });
+    sendToClient(Messages::WebResourceLoader::DidReceiveData { data, encodedDataLength });
 }
 
 void ServiceWorkerFetchTask::didReceiveFormData(const IPC::FormDataReference& formData)
@@ -184,7 +184,7 @@ void ServiceWorkerFetchTask::didFail(const ResourceError& error)
         m_timeoutTimer.stop();
         softUpdateIfNeeded();
     }
-    RELEASE_LOG_ERROR_IF_ALLOWED("didFail: (error.domain=%{public}s, error.code=%d)", error.domain().utf8().data(), error.errorCode());
+    RELEASE_LOG_ERROR_IF_ALLOWED("didFail: (error.domain=%" PUBLIC_LOG_STRING ", error.code=%d)", error.domain().utf8().data(), error.errorCode());
     m_loader.didFailLoading(error);
 }
 
@@ -237,11 +237,13 @@ void ServiceWorkerFetchTask::continueFetchTaskWith(ResourceRequest&& request)
 
 void ServiceWorkerFetchTask::timeoutTimerFired()
 {
-    softUpdateIfNeeded();
-
+    ASSERT(!m_isDone);
+    ASSERT(!m_wasHandled);
     RELEASE_LOG_ERROR_IF_ALLOWED("timeoutTimerFired: (hasServiceWorkerConnection=%d)", !!m_serviceWorkerConnection);
 
-    contextClosed();
+    softUpdateIfNeeded();
+
+    cannotHandle();
 
     if (m_swServerConnection)
         m_swServerConnection->fetchTaskTimedOut(serviceWorkerIdentifier());

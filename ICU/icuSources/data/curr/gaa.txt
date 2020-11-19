@@ -2,10 +2,682 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 gaa{
     Currencies{
+        ALL{
+            "ALL",
+            "Albania Leki",
+        }
+        ANG{
+            "ANG",
+            "Netherlands Antillea Guilda",
+        }
+        AOA{
+            "AOA",
+            "Angola Kwanza",
+        }
+        ARS{
+            "ARS",
+            "Argentina Peso",
+        }
+        AWG{
+            "AWG",
+            "Aruba Florin",
+        }
+        BAM{
+            "BAM",
+            "Bosnia-Herzegovina Marki Ni Hiɔ Tsakemɔ",
+        }
+        BBD{
+            "BBD",
+            "Barbados Dɔla",
+        }
+        BGN{
+            "BGN",
+            "Bulgaria Levi",
+        }
+        BIF{
+            "BIF",
+            "Burundi Franki",
+        }
+        BMD{
+            "BMD",
+            "Bermuda Dɔla",
+        }
+        BOB{
+            "BOB",
+            "Bolivia Boliviano",
+        }
+        BRL{
+            "R$",
+            "Brazil Real",
+        }
+        BSD{
+            "BSD",
+            "Bahamas Dɔla",
+        }
+        BWP{
+            "BWP",
+            "Botswana Pula",
+        }
+        BYN{
+            "BYN",
+            "Belarus Rubol",
+        }
+        BZD{
+            "BZD",
+            "Belize Dɔla",
+        }
+        CAD{
+            "KA$",
+            "Kanada Dɔla",
+        }
+        CDF{
+            "KDF",
+            "Kongo Franki",
+        }
+        CHF{
+            "SZF",
+            "Switzerland Frank",
+        }
+        CLP{
+            "CLP",
+            "Tsili Peso",
+        }
+        COP{
+            "KOP",
+            "Kolombia Peso",
+        }
+        CRC{
+            "KRK",
+            "Kosta Rika Kolón",
+        }
+        CUC{
+            "KUK",
+            "Kuba Peso Ni Hiɔ Tsakemɔ",
+        }
+        CUP{
+            "KUP",
+            "Kuba Peso",
+        }
+        CZK{
+            "TSK",
+            "Tsek Koruna",
+        }
+        DJF{
+            "DJF",
+            "Djibouti Franki",
+        }
+        DKK{
+            "DKK",
+            "Denmark Krone",
+        }
+        DOP{
+            "DOP",
+            "Dominika Peso",
+        }
+        DZD{
+            "DZD",
+            "Algeria Dinar",
+        }
+        EGP{
+            "EGP",
+            "Ejipt Pound",
+        }
+        ERN{
+            "ERN",
+            "Eritrea Nakfa",
+        }
+        ETB{
+            "ETB",
+            "Ethiopia Birr",
+        }
+        EUR{
+            "€",
+            "Yuro",
+        }
+        FKP{
+            "FKP",
+            "Falkland Ŋshɔkpɔi Pound",
+        }
+        GBP{
+            "£",
+            "Britain Pound",
+        }
         GHC{
             "GHC",
             "Sidi",
         }
+        GHS{
+            "GHS",
+            "Ghana Sidi",
+        }
+        GIP{
+            "GIP",
+            "Gibraltar Pound",
+        }
+        GMD{
+            "GMD",
+            "Gambia Dalasi",
+        }
+        GNF{
+            "GNF",
+            "Guinea Franki",
+        }
+        GTQ{
+            "GTK",
+            "Guatemala Kuetzal",
+        }
+        GYD{
+            "GYD",
+            "Guyana Dɔla",
+        }
+        HNL{
+            "HNL",
+            "Hondura Lempira",
+        }
+        HRK{
+            "HRK",
+            "Kroatia Kuna",
+        }
+        HTG{
+            "HTG",
+            "Haiti Gourde",
+        }
+        HUF{
+            "HUF",
+            "Hungary Forinti",
+        }
+        ISK{
+            "ISK",
+            "Aisland Króna",
+        }
+        JMD{
+            "JMD",
+            "Jamaika Dɔla",
+        }
+        KES{
+            "KES",
+            "Kenya Sheleŋ",
+        }
+        KMF{
+            "KMF",
+            "Komoros Franki",
+        }
+        KYD{
+            "KYD",
+            "Kayman Ŋshɔkpɔi Dɔla",
+        }
+        LRD{
+            "LRD",
+            "Liberia Dɔla",
+        }
+        LYD{
+            "LYD",
+            "Libia Dinar",
+        }
+        MAD{
+            "MAD",
+            "Moroko Dirham",
+        }
+        MDL{
+            "MDL",
+            "Moldova Leu",
+        }
+        MGA{
+            "MGA",
+            "Madagaska Ariari",
+        }
+        MKD{
+            "MKD",
+            "Makedonia Denari",
+        }
+        MRU{
+            "MRU",
+            "Mauritania Ouguiya",
+        }
+        MUR{
+            "MUR",
+            "Mauritius Rupi",
+        }
+        MWK{
+            "MWK",
+            "Malawi Kwatsa",
+        }
+        MXN{
+            "MZ$",
+            "Meziko Peso",
+        }
+        MZN{
+            "MZN",
+            "Mozambik Metikal",
+        }
+        NAD{
+            "NAD",
+            "Namibia Dɔla",
+        }
+        NGN{
+            "NGN",
+            "Anago Naira",
+        }
+        NIO{
+            "NIO",
+            "Nikaragua Kórdoba",
+        }
+        NOK{
+            "NOK",
+            "Norway Krone",
+        }
+        PAB{
+            "PAB",
+            "Panama Balboa",
+        }
+        PEN{
+            "PEN",
+            "Peru Sol",
+        }
+        PLN{
+            "PLN",
+            "Poland Zloti",
+        }
+        PYG{
+            "PYG",
+            "Paraguay Guarani",
+        }
+        RON{
+            "RON",
+            "Romania Leu",
+        }
+        RSD{
+            "RSD",
+            "Serbia Dinari",
+        }
+        RUB{
+            "RUB",
+            "Russia Rubol",
+        }
+        RWF{
+            "RWF",
+            "Rwanda Franki",
+        }
+        SCR{
+            "SSR",
+            "Seyshɛl Rupi",
+        }
+        SDG{
+            "SDG",
+            "Sudan Pound",
+        }
+        SEK{
+            "SEK",
+            "Sweden Krona",
+        }
+        SHP{
+            "SHP",
+            "St. Helena Pound",
+        }
+        SLL{
+            "SLL",
+            "Sierra Leone Leone",
+        }
+        SOS{
+            "SOS",
+            "Somali Sheleŋ",
+        }
+        SRD{
+            "SRD",
+            "Surinam Dɔla",
+        }
+        SSP{
+            "SSP",
+            "Sudan Anai Pound",
+        }
+        SZL{
+            "SZL",
+            "Swazi Lilangeni",
+        }
+        TND{
+            "TND",
+            "Tunisia Dinar",
+        }
+        TTD{
+            "TTD",
+            "Trinidad Kɛ Tobago Dɔla",
+        }
+        TZS{
+            "TZS",
+            "Tanzania Sheleŋ",
+        }
+        UAH{
+            "UAH",
+            "Ukrainia Hryvnia",
+        }
+        UGX{
+            "UGS",
+            "Uganda Sjeleŋ",
+        }
+        USD{
+            "$",
+            "US Dɔla",
+        }
+        UYU{
+            "UYU",
+            "Uruguay Peso",
+        }
+        VES{
+            "VES",
+            "Venezuela Bolívar",
+        }
+        XCD{
+            "KB$",
+            "Karibbean Bokã Dɔla",
+        }
+        XOF{
+            "SFA",
+            "Afrika Anai Sefa Franki",
+        }
+        XXX{
+            "¤",
+            "Shika Ko Ni Gbɛ́i Bɛ Mli",
+        }
+        ZAR{
+            "ZAR",
+            "South Afrika Randi",
+        }
+        ZMW{
+            "ZMW",
+            "Zambia Kwatsa",
+        }
     }
-    Version{"2.1.48.13"}
+    Currencies%narrow{
+        GTQ{"K"}
+        KMF{"KF"}
+        NIO{"K$"}
+    }
+    CurrencyPlurals{
+        ALL{
+            other{"Albania lekii"}
+        }
+        ANG{
+            other{"Netherlands Antillea guildai"}
+        }
+        AOA{
+            other{"Angola kwanzai"}
+        }
+        ARS{
+            other{"Argentina pesoi"}
+        }
+        AWG{
+            other{"Aruba florinii"}
+        }
+        BAM{
+            other{"Bosnia-Herzegovina markii ni hiɔ tsakemɔ"}
+        }
+        BBD{
+            other{"Barbados dɔlai"}
+        }
+        BGN{
+            other{"Bulgaria levii"}
+        }
+        BIF{
+            other{"Burundi frankii"}
+        }
+        BMD{
+            other{"Bermuda dɔlai"}
+        }
+        BOB{
+            other{"Bolivia bolivianoi"}
+        }
+        BRL{
+            other{"Brazil realii"}
+        }
+        BSD{
+            other{"Bahamas dɔlai"}
+        }
+        BWP{
+            other{"Botswana pulai"}
+        }
+        BYN{
+            other{"Belarus rubolii"}
+        }
+        BZD{
+            other{"Belize dɔlai"}
+        }
+        CAD{
+            other{"Kanada dɔlai"}
+        }
+        CDF{
+            other{"Kongo frankii"}
+        }
+        CHF{
+            other{"Switzerland frankii"}
+        }
+        CLP{
+            other{"Tsili pesoi"}
+        }
+        COP{
+            other{"Kolombia pesoi"}
+        }
+        CRC{
+            other{"Kosta Rika kolónii"}
+        }
+        CUC{
+            other{"Kuba pesoi ni hiɔ tsakemɔ"}
+        }
+        CUP{
+            other{"Kuba pesoi"}
+        }
+        CZK{
+            other{"Tsek korunai"}
+        }
+        DJF{
+            other{"Djibouti frankii"}
+        }
+        DKK{
+            other{"Denmark kronei"}
+        }
+        DOP{
+            other{"Dominika pesoi"}
+        }
+        DZD{
+            other{"Algeria dinarii"}
+        }
+        EGP{
+            other{"Ejipt pounds"}
+        }
+        ERN{
+            other{"Eritrea nakfai"}
+        }
+        ETB{
+            other{"Ethiopia birri"}
+        }
+        EUR{
+            other{"yuro"}
+        }
+        FKP{
+            other{"Falkland Ŋshɔkpɔi pounds"}
+        }
+        GBP{
+            other{"Britain pounds"}
+        }
+        GHS{
+            other{"Ghana sidii"}
+        }
+        GIP{
+            other{"Gibraltar pounds"}
+        }
+        GMD{
+            other{"Gambia dalasii"}
+        }
+        GNF{
+            other{"Guinea frankii"}
+        }
+        GTQ{
+            other{"Guatemala kuetzalii"}
+        }
+        GYD{
+            other{"Guyan dɔlai"}
+        }
+        HNL{
+            other{"Hondura lempirai"}
+        }
+        HRK{
+            other{"Kroatia kunai"}
+        }
+        HTG{
+            other{"Haiti gourdei"}
+        }
+        HUF{
+            other{"Hungary forintii"}
+        }
+        ISK{
+            other{"Aisland krónai"}
+        }
+        JMD{
+            other{"Jamaika dɔlai"}
+        }
+        KES{
+            other{"Kenya sheleŋ"}
+        }
+        KMF{
+            other{"Komoros frankii"}
+        }
+        KYD{
+            other{"Kayman Ŋshɔkpɔi dɔlai"}
+        }
+        LRD{
+            other{"Liberia dɔlai"}
+        }
+        LYD{
+            other{"Libia dinarii"}
+        }
+        MAD{
+            other{"Moroko dirhamii"}
+        }
+        MDL{
+            other{"Moldova leuii"}
+        }
+        MGA{
+            other{"Madagaska ariarii"}
+        }
+        MKD{
+            other{"Makedonia denarii"}
+        }
+        MRU{
+            other{"Mauritania ouguiyai"}
+        }
+        MUR{
+            other{"Mauritius rupii"}
+        }
+        MWK{
+            other{"Malawi kwatsai"}
+        }
+        MXN{
+            other{"Meziko pesoi"}
+        }
+        MZN{
+            other{"Mozambik metikalii"}
+        }
+        NAD{
+            other{"Namibia dɔlai"}
+        }
+        NGN{
+            other{"Anago nairai"}
+        }
+        NIO{
+            other{"Nikaragua kórdobai"}
+        }
+        NOK{
+            other{"Norway kronei"}
+        }
+        PAB{
+            other{"Panama balboai"}
+        }
+        PEN{
+            other{"Peru solii"}
+        }
+        PLN{
+            other{"Poland zlotii"}
+        }
+        PYG{
+            other{"Paraguay guaranii"}
+        }
+        RON{
+            other{"Romania leuii"}
+        }
+        RSD{
+            other{"Serbia dinarii"}
+        }
+        RUB{
+            other{"Russia rubolii"}
+        }
+        RWF{
+            other{"Rwanda frankii"}
+        }
+        SCR{
+            other{"Seyshɛl rupii"}
+        }
+        SDG{
+            other{"Sudan pounds"}
+        }
+        SEK{
+            other{"Sweden kronai"}
+        }
+        SHP{
+            other{"St. Helena pounds"}
+        }
+        SLL{
+            other{"Sierra Leone leonei"}
+        }
+        SOS{
+            other{"Somali sheleŋ"}
+        }
+        SRD{
+            other{"Surinam dɔlai"}
+        }
+        SSP{
+            other{"Sudan Anai pounds"}
+        }
+        SZL{
+            other{"Swazi lilangenii"}
+        }
+        TND{
+            other{"Tunisia dinarii"}
+        }
+        TTD{
+            other{"Trinidad Kɛ Tobago dɔlai"}
+        }
+        TZS{
+            other{"Tanzania sheleŋ"}
+        }
+        UAH{
+            other{"Ukrainia hryvniai"}
+        }
+        UGX{
+            other{"Uganda sheleŋ"}
+        }
+        USD{
+            other{"US dɔlai"}
+        }
+        UYU{
+            other{"Uruguay pesoi"}
+        }
+        VES{
+            other{"Venezuela bolívarii"}
+        }
+        XCD{
+            other{"Karibbean Bokã dɔlai"}
+        }
+        XOF{
+            other{"Afrika Anai Sefa Frankii"}
+        }
+        XXX{
+            other{"(shika ko ni gbɛ́i bɛ mli)"}
+        }
+        ZAR{
+            other{"South Afrika randii"}
+        }
+        ZMW{
+            other{"Zambia kwatsai"}
+        }
+    }
+    Version{"36.1"}
 }

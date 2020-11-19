@@ -26,6 +26,7 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSResultOperation.h"
 #import "keychain/ckks/CKKSFetchAllRecordZoneChangesOperation.h"
+#import "keychain/ckks/OctagonAPSReceiver.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -39,7 +40,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSReachabilityTracker;
 @class CKKSNearFutureScheduler;
 
-@interface CKKSZoneChangeFetcher : NSObject
+@interface CKKSZoneChangeFetcher : NSObject <CKKSZoneUpdateReceiverProtocol>
 @property (readonly) Class<CKKSFetchRecordZoneChangesOperation> fetchRecordZoneChangesOperationClass;
 @property (readonly) CKContainer* container;
 @property CKKSReachabilityTracker* reachabilityTracker;
@@ -56,8 +57,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (CKKSResultOperation*)requestSuccessfulFetch:(CKKSFetchBecause*)why;
 - (CKKSResultOperation*)requestSuccessfulFetchForManyReasons:(NSSet<CKKSFetchBecause*>*)why;
 
-// let server know we seen this push and if zones are ready actually perform a fetch
-- (CKKSResultOperation* _Nullable)requestFetchDueToAPNS:(CKRecordZoneNotification*)notification;
+// Returns the next fetch, if one is scheduled, or the last/currently executing fetch if not.
+- (CKKSResultOperation* _Nullable)inflightFetch;
+
+// CKKSZoneUpdateReceiverProtocol
+- (void)notifyZoneChange:(CKRecordZoneNotification* _Nullable)notification;
 
 // We don't particularly care what this does, as long as it finishes
 - (void)holdFetchesUntil:(CKKSResultOperation* _Nullable)holdOperation;

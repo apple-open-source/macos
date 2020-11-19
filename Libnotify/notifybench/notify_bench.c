@@ -117,7 +117,6 @@ main(int argc, char *argv[])
 {
 	uint32_t r;
 	kern_return_t kr;
-	unsigned i, j;
 
 	kr = mach_timebase_info(&tbi);
 	assert(!kr);
@@ -140,7 +139,7 @@ main(int argc, char *argv[])
 
 	dispatch_queue_t disp_q = dispatch_queue_create("Notify.Test", NULL);
 
-	for (i = 1; i < argc; i++)
+	for (int i = 1; i < argc; i++)
 	{
 		if (!strcmp(argv[i], "-c")) cnt = atoi(argv[++i]);
 		else if (!strcmp(argv[i], "-s")) spl = atoi(argv[++i]) + 1;
@@ -149,12 +148,12 @@ main(int argc, char *argv[])
 	if (cnt > MAX_CNT) cnt = MAX_CNT;
 	if (spl > MAX_SPL) spl = MAX_SPL + 1;
 
-	for (j = 0 ; j < spl; j++)
+	for (uint32_t j = 0 ; j < spl; j++)
 	{
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = asprintf(&n[i], "dummy.test.%d", i);
-			assert(r != -1);
+			assert(r != (uint32_t)~0);
 			l[i] = strlen(n[i]);
 			kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &p[i]);
 			assert(kr == 0);
@@ -162,7 +161,7 @@ main(int argc, char *argv[])
 
 		/* Empty Loop */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			spin++;
 		}
@@ -170,7 +169,7 @@ main(int argc, char *argv[])
 
 #ifdef NO_OP_TESTS
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_no_op_str_sync(n[i], l[i]);
 			assert(r == 0);
@@ -178,7 +177,7 @@ main(int argc, char *argv[])
 		nss[j] = mach_absolute_time() - s;
 
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_no_op_str_async(n[i], l[i]);
 			assert(r == 0);
@@ -186,7 +185,7 @@ main(int argc, char *argv[])
 		nsa[j] = mach_absolute_time() - s;
 
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_no_op_int_sync(i);
 			assert(r == 0);
@@ -208,7 +207,7 @@ main(int argc, char *argv[])
 
 		/* Register Plain */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_register_plain(n[i], &t[i]);
 			assert(r == 0);
@@ -217,7 +216,7 @@ main(int argc, char *argv[])
 
 		/* Post 1 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_post(n[i]);
 			assert(r == 0);
@@ -226,7 +225,7 @@ main(int argc, char *argv[])
 		
 		/* Post 2 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_post(n[i]);
 			assert(r == 0);
@@ -235,7 +234,7 @@ main(int argc, char *argv[])
 		
 		/* Post 3 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_post(n[i]);
 			assert(r == 0);
@@ -244,7 +243,7 @@ main(int argc, char *argv[])
 		
 		/* Cancel Plain */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_cancel(t[i]);
 			assert(r == 0);
@@ -253,7 +252,7 @@ main(int argc, char *argv[])
 
 		/* Register Mach Port */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_register_mach_port(n[i], &p[i], NOTIFY_REUSE, &t[i]);
 			assert(r == 0);
@@ -263,7 +262,7 @@ main(int argc, char *argv[])
 
 		/* Set State 1 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_set_state(t[i], 1);
 			assert(r == 0);
@@ -272,7 +271,7 @@ main(int argc, char *argv[])
 
 		/* Get State */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			uint64_t dummy;
 			r = notify_get_state(t[i], &dummy);
@@ -282,7 +281,7 @@ main(int argc, char *argv[])
 		
 		/* Set State 2 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_set_state(t[i], 2);
 			assert(r == 0);
@@ -291,7 +290,7 @@ main(int argc, char *argv[])
 		
 		/* Cancel Port */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_cancel(t[i]);
 			assert(r == 0);
@@ -302,7 +301,7 @@ main(int argc, char *argv[])
 
 		/* Register Check */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_register_check("com.apple.notify.test.check", &t[i]);
 			assert(r == 0);
@@ -311,7 +310,7 @@ main(int argc, char *argv[])
 
 		/* Check 1 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_check(t[i], &check);
 			assert(r == 0);
@@ -321,7 +320,7 @@ main(int argc, char *argv[])
 
 		/* Check 2 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_check(t[i], &check);
 			assert(r == 0);
@@ -331,7 +330,7 @@ main(int argc, char *argv[])
 
 		/* Check 3 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_check(t[i], &check);
 			assert(r == 0);
@@ -345,7 +344,7 @@ main(int argc, char *argv[])
 
 		/* Check 4 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_check(t[i], &check);
 			assert(r == 0);
@@ -355,7 +354,7 @@ main(int argc, char *argv[])
 
 		/* Check 5 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_check(t[i], &check);
 			assert(r == 0);
@@ -365,7 +364,7 @@ main(int argc, char *argv[])
 
 		/* Cancel Check */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_cancel(t[i]);
 			assert(r == 0);
@@ -374,7 +373,7 @@ main(int argc, char *argv[])
 
 		/* Register Dispatch 1 */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_register_dispatch(n[i], &t[i], disp_q, ^(int x){
 				dispatch_changer = x;
@@ -385,7 +384,7 @@ main(int argc, char *argv[])
 
 		/* Register Dispatch 2 (Coalesced) */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_register_dispatch(n[i], &t_2[i], disp_q, ^(int x){
 				dispatch_changer = x;
@@ -397,7 +396,7 @@ main(int argc, char *argv[])
 
 		/* Cancel Dispatch */
 		s = mach_absolute_time();
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			r = notify_cancel(t[i]);
 			assert(r == 0);
@@ -406,7 +405,7 @@ main(int argc, char *argv[])
 		}
 		cancel_disp[j] = mach_absolute_time() - s;
 
-		for (i = 0; i < cnt; i++)
+		for (uint32_t i = 0; i < cnt; i++)
 		{
 			free(n[i]);
 			kr = mach_port_mod_refs(mach_task_self(), p[i], MACH_PORT_RIGHT_RECEIVE, -1);

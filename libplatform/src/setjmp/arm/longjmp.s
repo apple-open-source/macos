@@ -54,12 +54,17 @@ ENTRY_POINT(_longjmp)
 #endif
 	mov	r6, r0						// preserve args across _sigprocmask
 	mov	r8, r1
-	ldr	r0, [ r6, #JMP_sig ]		// restore the signal mask
+	ldr	r0, [ r6, #JMP_sigmask ]	// restore the signal mask
 	mov	r1, sp						// set
 	str	r0, [sp]
 	movs	r0, #3					// SIG_SETMASK
 	movs	r2, #0					// oset
 	CALL_EXTERNAL(_sigprocmask)
+
+	// Restore the sigaltstack status
+	ldr		r0, [r6, JMP_sigonstack] // r0 = saved sigonstack info
+	CALL_EXTERNAL(__sigunaltstack)
+
 	mov	r0, r6
 	mov	r1, r8
 #ifdef __ARM_ARCH_7K__

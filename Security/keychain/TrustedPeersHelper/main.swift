@@ -59,11 +59,42 @@ class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     }
 }
 
+#if os(macOS)
+public func withArrayOfCStrings<R>(
+    _ args: [String],
+    _ body: ([UnsafePointer<CChar>?]) -> R
+) -> R {
+    var mutableCStrings = args.map { strdup($0) }
+    mutableCStrings.append(nil)
+
+    let cStrings = mutableCStrings.map { UnsafePointer($0) }
+
+    defer {
+        mutableCStrings.forEach { free($0) }
+    }
+    return body(cStrings)
+}
+
+withArrayOfCStrings(["HOME", NSHomeDirectory()]) { parameters in
+    var sandboxErrors: UnsafeMutablePointer<CChar>?
+
+    let rc = sandbox_init_with_parameters("com.apple.TrustedPeersHelper", UInt64(SANDBOX_NAMED), parameters, &sandboxErrors)
+    guard rc == 0 else {
+        let printableMessage = sandboxErrors.map { String(cString: $0 ) }
+        os_log("Unable to enter sandbox. Error code:%d message: %@", log: tplogDebug, type: .default, rc, printableMessage ?? "no printable message")
+        sandbox_free_error(sandboxErrors)
+        abort()
+    }
+    os_log("Sandbox entered", log: tplogDebug, type: .default)
+}
+#endif
+
 os_log("Starting up", log: tplogDebug, type: .default)
 
 ValueTransformer.setValueTransformer(SetValueTransformer(), forName: SetValueTransformer.name)
 
 let delegate = ServiceDelegate()
 let listener = NSXPCListener.service()
+
 listener.delegate = delegate
 listener.resume()

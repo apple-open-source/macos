@@ -22,8 +22,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           osVersion: "asdf",
                           policyVersion: nil,
                           policySecrets: nil,
+                          syncUserControllableViews: .UNKNOWN,
                           signingPrivKeyPersistentRef: nil,
-                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
+                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
                             XCTAssertNotNil(peerID, "Should be a peer ID")
                             XCTAssertNotNil(permanentInfo, "Should have a permenent info")
@@ -85,8 +86,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           osVersion: "asdf",
                           policyVersion: nil,
                           policySecrets: nil,
+                          syncUserControllableViews: .UNKNOWN,
                           signingPrivKeyPersistentRef: nil,
-                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
+                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
                             XCTAssertNotNil(peerID, "Should be a peer ID")
                             XCTAssertNotNil(permanentInfo, "Should have a permenent info")
@@ -118,7 +120,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         // Since SOS isn't around to help, Octagon should post a CFU
         #if os(tvOS)
-        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), false, "Should not have posted a CFU on aTV (due to having no peers to join)")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Should not have posted a CFU on aTV (due to having no peers to join)")
         #else
         XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should have posted an repair CFU, as SOS can't help")
         #endif
@@ -150,8 +152,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           osVersion: "asdf",
                           policyVersion: nil,
                           policySecrets: nil,
+                          syncUserControllableViews: .UNKNOWN,
                           signingPrivKeyPersistentRef: nil,
-                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
+                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
                             XCTAssertNotNil(peerID, "Should be a peer ID")
                             XCTAssertNotNil(permanentInfo, "Should have a permenent info")
@@ -229,8 +232,9 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           osVersion: "asdf",
                           policyVersion: nil,
                           policySecrets: nil,
+                          syncUserControllableViews: .UNKNOWN,
                           signingPrivKeyPersistentRef: nil,
-                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
+                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
                             XCTAssertNotNil(peerID, "Should be a peer ID")
                             XCTAssertNotNil(permanentInfo, "Should have a permenent info")
@@ -323,12 +327,12 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
 
         // Now, a mac appears! macs cannot fix apple TVs.
         let mac = self.manager.context(forContainerName: OTCKContainerName,
-                                          contextID: "asdf",
-                                          sosAdapter: self.mockSOSAdapter,
-                                          authKitAdapter: self.mockAuthKit2,
-                                          lockStateTracker: self.lockStateTracker,
-                                          accountStateTracker: self.accountStateTracker,
-                                          deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iMac7,1", deviceName: "test-mac", serialNumber: "456", osVersion: "macOS (fake version)"))
+                                       contextID: "asdf",
+                                       sosAdapter: self.mockSOSAdapter,
+                                       authKitAdapter: self.mockAuthKit2,
+                                       lockStateTracker: self.lockStateTracker,
+                                       accountStateTracker: self.accountStateTracker,
+                                       deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iMac7,1", deviceName: "test-mac", serialNumber: "456", osVersion: "macOS (fake version)"))
         mac.startOctagonStateMachine()
 
         let resetAndEstablishExpectation = self.expectation(description: "resetAndEstablishExpectation returns")
@@ -429,7 +433,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
 
         #if os(tvOS)
-        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), false, "Should not have posted a CFU on aTV (due to having no peers to join)")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Should not have posted a CFU on aTV (due to having no peers to join)")
         #else
         XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "should have posted an repair CFU, as SOS can't help")
         #endif

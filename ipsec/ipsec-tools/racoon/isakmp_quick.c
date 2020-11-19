@@ -88,8 +88,6 @@
 #include "sainfo.h"
 #include "strnames.h"
 #include "nattraversal.h"
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
 #ifndef HAVE_OPENSSL
 #include <Security/SecDH.h>
 #endif
@@ -356,19 +354,7 @@ quick_i1send(iph2, msg)
     fsm_set_state(&iph2->status, IKEV1_STATE_QUICK_I_MSG1SENT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph2->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Initiator, Quick-Mode message 1"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Initiator, Quick-Mode Message 1"),
-								CONSTSTR("Failed to transmit Quick-Mode Message 1"));
-	}
 	if (body != NULL)
 		vfree(body);
 	if (hash != NULL)
@@ -711,19 +697,7 @@ quick_i2recv(iph2, msg0)
 	fsm_set_state(&iph2->status, IKEV1_STATE_QUICK_I_MSG2RCVD);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph2->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Initiator, Quick-Mode message 2"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Initiator, Quick-Mode Message 2"),
-								CONSTSTR("Failed to process Quick-Mode Message 2 "));
-	}
 	if (hbuf)
 		vfree(hbuf);
 	if (pbuf)
@@ -857,10 +831,6 @@ quick_i3send(iph2, msg0)
 		goto end;
 	}
 
-	IPSECSESSIONTRACEREVENT(iph2->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Initiator, Quick-Mode message 3"),
-							CONSTSTR(NULL));
 	packet_error = 0;
 
 	/* compute both of KEYMATs */
@@ -897,12 +867,6 @@ quick_i3send(iph2, msg0)
 	error = 0;
 
 end:
-	if (packet_error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Initiator, Quick-Mode Message 3"),
-								CONSTSTR("Failed to transmit Quick-Mode Message 3"));
-	}
 	if (buf != NULL)
 		vfree(buf);
 	if (msg != NULL)
@@ -1028,10 +992,6 @@ quick_i4recv(iph2, msg0)
 	}
     }
 
-	IPSECSESSIONTRACEREVENT(iph2->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Initiator, Quick-Mode message 4"),
-							CONSTSTR(NULL));
 	packet_error = 0;
 
 	fsm_set_state(&iph2->status, IKEV1_STATE_QUICK_I_ADDSA);
@@ -1062,12 +1022,6 @@ quick_i4recv(iph2, msg0)
 	error = 0;
 
 end:
-	if (packet_error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Initiator, Quick-Mode Message 4"),
-								CONSTSTR("Failed to process Quick-Mode Message 4"));
-	}
 	if (msg != NULL)
 		vfree(msg);
 	if (pbuf != NULL)
@@ -1427,19 +1381,7 @@ quick_r1recv(iph2, msg0)
 	fsm_set_state(&iph2->status, IKEV1_STATE_QUICK_R_MSG1RCVD);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph2->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Responder, Quick-Mode message 1"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Responder, Quick-Mode Message 1"),
-								CONSTSTR("Failed to process Quick-Mode Message 1"));
-	}
 	if (hbuf)
 		vfree(hbuf);
 	if (msg)
@@ -1764,19 +1706,7 @@ quick_r2send(iph2, msg)
     fsm_set_state(&iph2->status, IKEV1_STATE_QUICK_R_MSG2SENT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph2->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Responder, Quick-Mode message 2"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Responder, Quick-Mode Message 2"),
-								CONSTSTR("Failed to transmit Quick-Mode Message 2"));
-	}
 	if (body != NULL)
 		vfree(body);
 	if (hash != NULL)
@@ -1907,19 +1837,7 @@ quick_r3recv(iph2, msg0)
 		fsm_set_state(&iph2->status, IKEV1_STATE_QUICK_R_COMMIT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph2->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Responder, Quick-Mode message 3"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Responder, Quick-Mode Message 3"),
-								CONSTSTR("Failed to process Quick-Mode Message 3"));
-	}
 	if (pbuf != NULL)
 		vfree(pbuf);
 	if (msg != NULL)
@@ -2035,19 +1953,7 @@ quick_r4send(iph2, msg0)
 	fsm_set_state(&iph2->status, IKEV1_STATE_QUICK_R_COMMIT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph2->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Responder, Quick-Mode message 4"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Responder, Quick-Mode Message 4"),
-								CONSTSTR("Failed to transmit Quick-Mode Message 4"));
-	}
 	if (buf != NULL)
 		vfree(buf);
 	if (myhash != NULL)

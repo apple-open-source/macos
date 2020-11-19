@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1120"
+   LastUpgradeVersion = "1200"
    version = "2.0">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -27,23 +27,14 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "0C0BDB2E175685B000BC1A7E"
-            BuildableName = "secdtests"
-            BlueprintName = "secdtests_ios"
-            ReferencedContainer = "container:Security.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
       <Testables>
          <TestableReference
             skipped = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "4727FBB61F9918580003AE36"
-               BuildableName = "secdxctests_ios.xctest"
-               BlueprintName = "secdxctests_ios"
+               BuildableName = "secdxctests.xctest"
+               BlueprintName = "secdxctests"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </TestableReference>

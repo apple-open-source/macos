@@ -842,6 +842,7 @@ initContext(struct updatingVol *up, CFURLRef srcVol, CFStringRef helperBSDName,
 {
     int opres, result = ELAST + 1;      // all paths should reset
     const void  *values[BOOTCOUNT] = { helperBSDName };
+    struct statfs fs = { };
 
     // start fresh (all booleans to default false values)
     bzero(up, sizeof(struct updatingVol));
@@ -860,6 +861,21 @@ initContext(struct updatingVol *up, CFURLRef srcVol, CFStringRef helperBSDName,
                              (UInt8 *)up->srcRoot,sizeof(up->srcRoot))){
         OSKextLogStringError(NULL);
         result = ENOMEM; goto finish;
+    }
+
+    if (statfs(up->srcRoot, &fs) < 0) {
+        OSKextLog(NULL, up->errLogSpec,
+                "Error initializing volume update context: %d (%s)",
+                errno, strerror(errno));
+        result = errno; goto finish;
+    }
+
+    // We should never try to update read-only APFS snapshots, but producing
+    // an error when attempting this would break many kext installers.
+    if ((fs.f_flags & (MNT_RDONLY | MNT_SNAPSHOT)) == (MNT_RDONLY | MNT_SNAPSHOT) &&
+            strcmp(fs.f_fstypename, "apfs") == 0)
+    {
+        result = EROFS; goto finish;
     }
 
     // Theoretically we don't need to lock to read bootcaches.plist, but
@@ -1007,7 +1023,9 @@ createBootPrefData(struct updatingVol *up, uuid_string_t root_uuid,
         }
         pathcat(kpath, up->flatTarget);
         pathcat(kpath, "/");
-        if (up->caches->readonly_kext_boot_cache_file) {
+        if (up->caches->prefer_fileset && up->caches->fileset_bootkc) {
+            pathcat(kpath, basename(up->caches->fileset_bootkc->rpath));
+        } else if (up->caches->readonly_kext_boot_cache_file) {
             pathcat(kpath, basename(up->caches->readonly_kext_boot_cache_file->rpath));
         } else {
             pathcat(kpath, basename(up->caches->kext_boot_cache_file->rpath));
@@ -1106,6 +1124,7 @@ checkUpdateCachesAndBoots(CFURLRef volumeURL, BRUpdateOpts_t opts)
         switch (opres) {        // describe known problems
             case ENOENT: bcmsg = "no " kBootCachesPath; break;
             case EFTYPE: bcmsg = "unrecognized " kBootCachesPath; break;
+            case EROFS:  bcmsg = "Not updating APFS snapshot"; break;
             default:     break;
         }
         if ((opts & kBRUForceUpdateHelpers) &&
@@ -1443,7 +1462,9 @@ BRCopyBootFilesToDir(CFURLRef srcVol,
 
     // configure a single-helper context
     errnum = initContext(&up, srcVol, targetBSDName, opts);
-    if (errnum) {
+    if (errnum == EROFS) {
+        result = 0; goto finish;
+    } else if (errnum) {
         result = errnum; goto finish;
     }
 
@@ -2571,7 +2592,15 @@ ucopyRPS(struct updatingVol *up)
             pathcpy(srcpath, up->caches->root);
             pathcat(srcpath, curItem->rpath);
             pathcpy(dstpath, up->dstdir);
-            pathcat(dstpath, curItem->rpath);
+            if (up->flatTarget[0] || up->useOnceDir) {
+                pathcat(dstpath, "/");
+                pathcat(dstpath, basename(curItem->rpath));
+            } else {
+                if (up->caches->prefer_fileset) {
+                    pathcat(dstpath, kPrebootKCPrefix);
+                }
+                pathcat(dstpath, curItem->rpath);
+            }
             OSKextLog(NULL, kOSKextLogGeneralFlag|kOSKextLogDetailLevel,
                       "copying %s to %s", srcpath, up->dstdir);
             bsderr = scopyitem(up->caches->cachefd,
@@ -2593,10 +2622,14 @@ ucopyRPS(struct updatingVol *up)
     for (i = 0; i < up->caches->nrps; i++) {
         cachedPath *curItem = &up->caches->rpspaths[i];
 
+        bool is_plk = ((curItem == up->caches->readonly_kext_boot_cache_file) ||
+                       (curItem == up->caches->kext_boot_cache_file));
+
         // 15860955: skip release kernel if preferred has already been copied
         if (copiedPrefKernel && (curItem == up->caches->readonly_kext_boot_cache_file ||
                                     (up->caches->readonly_kext_boot_cache_file == NULL &&
-                                     curItem == up->caches->kext_boot_cache_file))) {
+                                     curItem == up->caches->kext_boot_cache_file) ||
+                                    (up->caches->prefer_fileset && curItem == up->caches->fileset_bootkc))) {
            continue;
         }
 
@@ -2611,6 +2644,9 @@ ucopyRPS(struct updatingVol *up)
             pathcat(dstpath, "/");
             pathcat(dstpath, basename(curItem->rpath));
         } else {
+            if (up->caches->prefer_fileset) {
+                pathcat(dstpath, kPrebootKCPrefix);
+            }
             pathcat(dstpath, curItem->rpath);
         }
 
@@ -2642,15 +2678,20 @@ ucopyRPS(struct updatingVol *up)
             // scopyitem creates any intermediate directories
             OSKextLog(NULL, kOSKextLogGeneralFlag|kOSKextLogDetailLevel,
                       "copying %s to %s", srcpath, up->dstdir);
-            bsderr=scopyitem(up->caches->cachefd,srcpath,up->curbootfd,dstpath);
+            bsderr = scopyitem(up->caches->cachefd, srcpath, up->curbootfd, dstpath);
             if (bsderr) {
                 rval = bsderr == -1 ? errno : bsderr;
                 // erpropcache, efiloccache are optional
                 if (((curItem == up->caches->erpropcache) || (curItem == up->caches->efiloccache)) && (rval == ENOENT)) {
                     // ENOENT for these items is fine
                     continue;
+                } else if ((rval == ENOENT) && up->caches->prefer_fileset && is_plk) {
+                    // older prelinked/immutable kernels are also optional if we are preferring filesets
+                    OSKextLog(NULL, up->errLogSpec, "Skipping copy of %s to %s",
+                              srcpath, dstpath);
+                    continue;
                 } else {
-                    OSKextLog(0,up->errLogSpec,"Error %d copying %s to %s: %s",
+                    OSKextLog(NULL, up->errLogSpec,"Error %d copying %s to %s: %s",
                               rval, srcpath, dstpath, strerror(rval));
                     goto finish;
                 }
@@ -3440,6 +3481,11 @@ takeVolumeForPath(const char *path)
     const char    *volPath = "<unknown>";  // llvm can't track lckres/macherr
     mach_port_t   taskport = MACH_PORT_NULL;
     struct statfs sfs;
+
+    if (disableKextTools()) {
+        rval = 0;
+        goto finish;
+    }
 
     if (getenv("_com_apple_kextd_skiplocks")) {
         /* Skip locking if we've already taken it */

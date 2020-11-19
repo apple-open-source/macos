@@ -2816,14 +2816,14 @@ On Windows, from Apache 2.3.3 and later.</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">説明:</a></th><td>Controls whether the REDIRECT_URL environment variable is
              fully qualified</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">構文:</a></th><td><code>QualifyRedirectURL ON|OFF</code></td></tr>
-<tr><th><a href="directive-dict.html#Default">デフォルト:</a></th><td><code>QualifyRedirectURL OFF</code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">構文:</a></th><td><code>QualifyRedirectURL On|Off</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">デフォルト:</a></th><td><code>QualifyRedirectURL Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">コンテキスト:</a></th><td>サーバ設定ファイル, バーチャルホスト, ディレクトリ</td></tr>
 <tr><th><a href="directive-dict.html#Override">上書き:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">ステータス:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">モジュール:</a></th><td>core</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">互換性:</a></th><td>Directive supported in 2.4.18 and later. 2.4.17 acted
-as if 'QualifyRedirectURL ON' was configured.</td></tr>
+as if 'QualifyRedirectURL On' was configured.</td></tr>
 </table><p>このディレクティブの解説文書は
             まだ翻訳されていません。英語版をご覧ください。
             </p></div>
@@ -3738,7 +3738,7 @@ of a request or the last 63, assuming the request itself is greater than
 <a href="../fr/mod/core.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/core.html" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
@@ -3756,7 +3756,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

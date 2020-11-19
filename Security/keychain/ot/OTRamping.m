@@ -87,8 +87,7 @@ static NSString* kRampPriorityKey =         @"RampPriority";
 fetchRecordRecordsOperationClass:(Class<CKKSFetchRecordsOperation>) fetchRecordRecordsOperationClass
 
 {
-    self = [super init];
-    if(self){
+    if ((self = [super init])) {
         _container = container;
         _recordName = [recordName copy];
         _localSettingName = [localSettingName copy];

@@ -304,6 +304,18 @@ If an export is available to all clients, the group list is usually
 empty.  But if additional status information is returned in the group
 list, then the list will also contain an explicit "(Everyone)" entry
 to indicate that the export is available to all clients.
+.Pp
+If
+.Nm nfsd
+does not have read access to an export, mount would fail with "Permission denied" and
+.Nm checkexports
+command would report the following error:
+.Dl sandbox_check failed. nfsd has no read access to "<path>"
+This could be resolved by granting
+.NM nfsd
+"Full Disk Access" under "Privacy" tab of the "Security & Privacy" preference in the "System Preferences" followed by restart of
+.Nm nfsd
+service.
 .Sh FILES
 .Bl -tag -width /var/run/mountdexptab -compact
 .It Pa /etc/exports
@@ -316,8 +328,7 @@ compatibility with scripts that may HUP mountd to update exports).
 .It Pa /var/run/mountdtab
 The current list of outstanding mounts served.
 .It Pa /var/run/mountdexptab
-Information about exported file systems and directories (UUIDs, handles,
-...).
+Information about exported file systems and directories (UUIDs, handles, ...).
 .It Pa /System/Library/LaunchDaemons/com.apple.nfsd.plist
 The
 .Nm

@@ -14,7 +14,7 @@
 #include <xpc/xpc.h>
 #include <xpc/private.h>
 #include <dispatch/dispatch.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <sandbox.h>
 
 #if DEBUG
@@ -109,9 +109,12 @@ security_auth_peer_event_handler(xpc_connection_t connection, xpc_object_t event
                 }
                 status = errAuthorizationSuccess;
                 break;
-			case AUTHORIZATION_PREAUTHORIZE_CREDENTIALS:
-				status = authorization_preauthorize_credentials(conn,event,reply);
+			case AUTHORIZATION_COPY_RIGHT_PROPERTIES:
+				status = authorization_copy_right_properties(conn,event,reply);
 				break;
+            case AUTHORIZATION_COPY_PRELOGIN_USERDB:
+                status = authorization_copy_prelogin_userdb(conn,event,reply);
+                break;
 #if DEBUG
             case AUTHORIZATION_DEV:
                 server_dev();

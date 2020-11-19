@@ -62,6 +62,7 @@
 #include <sys/param.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/errno.h>
 
 #include <net/if.h>
 #include <net/if_var.h>
@@ -226,13 +227,16 @@ pr_rthdr(int af)
 void
 routepr(void)
 {
+	size_t extra_space;
 	size_t needed;
 	int mib[6];
 	char *buf, *next, *lim;
 	struct rt_msghdr2 *rtm;
+	int try = 1;
 
 	printf("Routing tables\n");
 
+ again:
 	mib[0] = CTL_NET;
 	mib[1] = PF_ROUTE;
 	mib[2] = 0;
@@ -242,11 +246,22 @@ routepr(void)
 	if (sysctl(mib, 6, NULL, &needed, NULL, 0) < 0) {
 		err(1, "sysctl: net.route.0.0.dump estimate");
 	}
-
+	/* allocate extra space in case the table grows */
+	extra_space = needed / 2;
+	if (needed <= (SIZE_MAX - extra_space)) {
+		needed += extra_space;
+	}
 	if ((buf = malloc(needed)) == 0) {
 		err(2, "malloc(%lu)", (unsigned long)needed);
 	}
 	if (sysctl(mib, 6, buf, &needed, NULL, 0) < 0) {
+#define MAX_TRIES	10
+		if (errno == ENOMEM && try < MAX_TRIES) {
+			/* the buffer we provided was too small, try again */
+			free(buf);
+			try++;
+			goto again;
+		}
 		err(1, "sysctl: net.route.0.0.dump");
 	}
 	lim  = buf + needed;

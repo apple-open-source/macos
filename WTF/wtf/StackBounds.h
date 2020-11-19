@@ -104,6 +104,12 @@ public:
         return startOfUserStack - maxUserStackWithReservedZone;
     }
 
+    StackBounds withSoftOrigin(void* origin) const
+    {
+        ASSERT(contains(origin));
+        return StackBounds(origin, m_bound);
+    }
+
 private:
     StackBounds(void* origin, void* end)
         : m_origin(origin)
@@ -128,7 +134,7 @@ private:
 
     void checkConsistency() const
     {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         void* currentPosition = currentStackPointer();
         ASSERT(m_origin != m_bound);
         ASSERT(currentPosition < m_origin && currentPosition > m_bound);

@@ -264,25 +264,6 @@ udata_openChoice(const char *path, const char *type, const char *name,
 U_STABLE void U_EXPORT2
 udata_close(UDataMemory *pData);
 
-#if U_SHOW_CPLUSPLUS_API
-
-U_NAMESPACE_BEGIN
-
-/**
- * \class LocalUDataMemoryPointer
- * "Smart pointer" class, closes a UDataMemory via udata_close().
- * For most methods see the LocalPointerBase base class.
- *
- * @see LocalPointerBase
- * @see LocalPointer
- * @stable ICU 4.4
- */
-U_DEFINE_LOCAL_OPEN_POINTER(LocalUDataMemoryPointer, UDataMemory, udata_close);
-
-U_NAMESPACE_END
-
-#endif // U_SHOW_CPLUSPLUS_API
-
 /**
  * Get the pointer to the actual data inside the data memory.
  * The data is read-only.
@@ -401,10 +382,17 @@ udata_setAppData(const char *packageName, const void *data, UErrorCode *err);
 typedef enum UDataFileAccess {
     /** ICU looks for data in single files first, then in packages. (default) @stable ICU 3.4 */
     UDATA_FILES_FIRST,
+#if U_PLATFORM!=U_PF_IPHONE
     /** An alias for the default access mode. @stable ICU 3.4 */
     UDATA_DEFAULT_ACCESS = UDATA_FILES_FIRST,
+#endif
     /** ICU only loads data from packages, not from single files. @stable ICU 3.4 */
     UDATA_ONLY_PACKAGES,
+#if U_PLATFORM==U_PF_IPHONE
+    /** An alias for the default access mode. For iOS, Apple modifies UDATA_DEFAULT_ACCESS
+        to be UDATA_ONLY_PACKAGES, not UDATA_FILES_FIRST. @stable ICU 3.4 */
+    UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES,
+#endif
     /** ICU loads data from packages first, and only from single files
         if the data cannot be found in a package. @stable ICU 3.4 */
     UDATA_PACKAGES_FIRST,
@@ -433,5 +421,24 @@ U_STABLE void U_EXPORT2
 udata_setFileAccess(UDataFileAccess access, UErrorCode *status);
 
 U_CDECL_END
+
+#if U_SHOW_CPLUSPLUS_API
+
+U_NAMESPACE_BEGIN
+
+/**
+ * \class LocalUDataMemoryPointer
+ * "Smart pointer" class, closes a UDataMemory via udata_close().
+ * For most methods see the LocalPointerBase base class.
+ *
+ * @see LocalPointerBase
+ * @see LocalPointer
+ * @stable ICU 4.4
+ */
+U_DEFINE_LOCAL_OPEN_POINTER(LocalUDataMemoryPointer, UDataMemory, udata_close);
+
+U_NAMESPACE_END
+
+#endif  // U_SHOW_CPLUSPLUS_API
 
 #endif

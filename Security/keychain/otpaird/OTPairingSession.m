@@ -22,8 +22,7 @@
 {
     KCPairingChannelContext *channelContext = nil;
 
-    self = [super init];
-    if (self != nil) {
+    if ((self = [super init])) {
         self.identifier = identifier;
 
         channelContext = [KCPairingChannelContext new];

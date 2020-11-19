@@ -59,7 +59,6 @@ int test_strict_bats = 1;
 int test_verbose = 0;
 int test_onebatstest = 0;
 int test_check_leaks = 0;
-char **test_skip_leaks_test = NULL;
 
 #ifdef NO_SERVER
 #include "keychain/securityd/spi.h"
@@ -210,34 +209,8 @@ static int tests_run_test(struct one_test_s *test, int argc, char * const *argv)
             free(cmd);
         }
         if (ret != 0) {
-            unsigned n = 0;
             fprintf(stdout, "leaks found in test %s\n", test->name);
-
-            if (test_skip_leaks_test) {
-                while (test_skip_leaks_test[n]) {
-                    if (strcmp(test_skip_leaks_test[n], test->name) == 0) {
-                        fprintf(stdout, "test %s known to be leaky, skipping\n", test->name);
-                        ret = 0;
-                        break;
-                    }
-                }
-            }
-            if (ret) {
-                token = "FAIL";
-            }
-        } else {
-            if (test_skip_leaks_test) {
-                unsigned n = 0;
-
-                while (test_skip_leaks_test[n]) {
-                    if (strcmp(test_skip_leaks_test[n], test->name) == 0) {
-                        fprintf(stdout, "leaks didn't find leak in test %s, yet it was ignore\n", test->name);
-                        token = "FAIL";
-                        break;
-                    }
-                }
-            }
-
+            token = "FAIL";
         }
     }
 

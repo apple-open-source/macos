@@ -44,16 +44,17 @@ Optional<WebUserScriptData> WebUserScriptData::decode(IPC::Decoder& decoder)
     if (!identifier)
         return WTF::nullopt;
     
-    Optional<uint64_t> worldIdentifier;
+    Optional<ContentWorldIdentifier> worldIdentifier;
     decoder >> worldIdentifier;
     if (!worldIdentifier)
         return WTF::nullopt;
     
-    WebCore::UserScript userScript;
-    if (!decoder.decode(userScript))
+    Optional<WebCore::UserScript> userScript;
+    decoder >> userScript;
+    if (!userScript)
         return WTF::nullopt;
     
-    return {{ WTFMove(*identifier), WTFMove(*worldIdentifier), WTFMove(userScript) }};
+    return {{ WTFMove(*identifier), WTFMove(*worldIdentifier), WTFMove(*userScript) }};
 }
 
 void WebUserStyleSheetData::encode(IPC::Encoder& encoder) const
@@ -70,7 +71,7 @@ Optional<WebUserStyleSheetData> WebUserStyleSheetData::decode(IPC::Decoder& deco
     if (!identifier)
         return WTF::nullopt;
     
-    Optional<uint64_t> worldIdentifier;
+    Optional<ContentWorldIdentifier> worldIdentifier;
     decoder >> worldIdentifier;
     if (!worldIdentifier)
         return WTF::nullopt;
@@ -97,7 +98,7 @@ Optional<WebScriptMessageHandlerData> WebScriptMessageHandlerData::decode(IPC::D
     if (!identifier)
         return WTF::nullopt;
     
-    Optional<uint64_t> worldIdentifier;
+    Optional<ContentWorldIdentifier> worldIdentifier;
     decoder >> worldIdentifier;
     if (!worldIdentifier)
         return WTF::nullopt;

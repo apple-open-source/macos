@@ -1,7 +1,7 @@
 #build the Ethernet Mac Driver
-sudo xbs buildit -archive -mergeToSDKs -update PrevailingmacOSJazz -project IONetworkingFamily -target InstallHeaders .
+sudo xbs buildit -archive -mergeToSDKs -update PrevailingGoldenGate -project IONetworkingFamily -target InstallHeaders .
 
-sudo xbs buildit -archive -update PrevailingmacOSJazz -project IONetworkingFamily -target IONetworkingFamily .
+sudo xbs buildit -archive -update PrevailingGoldenGate -project IONetworkingFamily -target IONetworkingFamily .
 
 #
 # Use Xcode build to build the kext.

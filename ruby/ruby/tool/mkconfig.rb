@@ -116,7 +116,7 @@ File.foreach "config.status" do |line|
     when /^prefix$/
       val = "(TOPDIR || DESTDIR + #{val})"
     when /^ARCH_FLAG$/
-      val = "arch_flag || #{val}" if universal
+      val = "arch_flag || \"\"" if universal
     when /^UNIVERSAL_ARCHNAMES$/
       universal, val = val, 'universal' if universal
     when /^includedir$/

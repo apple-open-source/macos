@@ -124,7 +124,7 @@ SOSGenCountRef SOSGenerationCreateWithBaseline(SOSGenCountRef reference) {
 SOSGenCountRef SOSGenCountCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
                                         const uint8_t** der_p, const uint8_t *der_end) {
     SOSGenCountRef retval = NULL;
-    *der_p = der_decode_number(allocator, 0, &retval, error, *der_p, der_end);
+    *der_p = der_decode_number(allocator, &retval, error, *der_p, der_end);
     if(retval == NULL)
         retval = SOSGenerationCreate();
     return retval;

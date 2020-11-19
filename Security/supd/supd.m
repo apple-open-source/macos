@@ -43,6 +43,7 @@
 
 #if TARGET_OS_OSX
 #include "dirhelper_priv.h"
+#include <membership.h>
 #endif
 
 #if TARGET_OS_OSX
@@ -58,6 +59,8 @@
 #import <AppleAccount/AppleAccount.h>
 #import <AppleAccount/ACAccount+AppleAccount.h>
 #import <AppleAccount/ACAccountStore+AppleAccount.h>
+
+#import "utilities/simulatecrash_assert.h"
 
 
 NSString* const SFAnalyticsSplunkTopic = @"topic";
@@ -341,18 +344,18 @@ _isiCloudAnalyticsEnabled()
                                                         deviceAnalytics:YES
                                                         iCloudAnalytics:NO]];
     } else if ([topicName isEqualToString:SFAnalyticsTopicTrust]) {
-#if TARGET_OS_OSX
-        _set_user_dir_suffix("com.apple.trustd"); // supd needs to read trustd's cache dir for these
-#endif
         [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForTrust]
                                                                    name:@"trust" deviceAnalytics:YES iCloudAnalytics:NO]];
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForTrustdHealth]
-                                                                   name:@"trustdHealth" deviceAnalytics:YES iCloudAnalytics:NO]];
-        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForTLS]
-                                                                   name:@"tls" deviceAnalytics:YES iCloudAnalytics:NO]];
-
 #if TARGET_OS_OSX
-        _set_user_dir_suffix(NULL); // set back to the default cache dir
+        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForRootTrust]
+                                                                   name:@"rootTrust" deviceAnalytics:YES iCloudAnalytics:NO]];
+#endif
+    } else if ([topicName isEqualToString:SFAnalyticsTopicNetworking]) {
+        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForNetworking]
+                                                                   name:@"networking" deviceAnalytics:YES iCloudAnalytics:NO]];
+#if TARGET_OS_OSX
+        [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForRootNetworking]
+                                                                   name:@"rootNetworking" deviceAnalytics:YES iCloudAnalytics:NO]];
 #endif
     } else if ([topicName isEqualToString:SFAnalyticsTopicTransparency]) {
         [clients addObject:[[SFAnalyticsClient alloc] initWithStorePath:[self.class databasePathForTransparency]
@@ -890,48 +893,50 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
         accountID = accountAltDSID();
     }
     for (SFAnalyticsClient* client in self->_topicClients) {
-        if (!force && [client requireDeviceAnalytics] && !_isDeviceAnalyticsEnabled()) {
-            // Client required device analytics, yet the user did not opt in.
-            secnotice("getLoggingJSON", "Client '%@' requires device analytics yet user did not opt in.", [client name]);
-            continue;
-        }
-        if (!force && [client requireiCloudAnalytics] && !_isiCloudAnalyticsEnabled()) {
-            // Client required iCloud analytics, yet the user did not opt in.
-            secnotice("getLoggingJSON", "Client '%@' requires iCloud analytics yet user did not opt in.", [client name]);
-            continue;
-        }
-
-        SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
-
-        if (upload) {
-            NSDate* uploadDate = store.uploadDate;
-            if (!force && uploadDate && [[NSDate date] timeIntervalSinceDate:uploadDate] < _secondsBetweenUploads) {
-                secnotice("json", "ignoring client '%@' for %@ because last upload too recent: %@",
-                          client.name, _internalTopicName, uploadDate);
+        @autoreleasepool {
+            if (!force && [client requireDeviceAnalytics] && !_isDeviceAnalyticsEnabled()) {
+                // Client required device analytics, yet the user did not opt in.
+                secnotice("getLoggingJSON", "Client '%@' requires device analytics yet user did not opt in.", [client name]);
+                continue;
+            }
+            if (!force && [client requireiCloudAnalytics] && !_isiCloudAnalyticsEnabled()) {
+                // Client required iCloud analytics, yet the user did not opt in.
+                secnotice("getLoggingJSON", "Client '%@' requires iCloud analytics yet user did not opt in.", [client name]);
                 continue;
             }
 
-            if (force) {
-                secnotice("json", "client '%@' for topic '%@' force-included", client.name, _internalTopicName);
-            } else {
-                secnotice("json", "including client '%@' for topic '%@' for upload", client.name, _internalTopicName);
-            }
-            [localClients addObject:client];
-        }
+            SFAnalyticsSQLiteStore* store = [SFAnalyticsSQLiteStore storeWithPath:client.storePath schema:SFAnalyticsTableSchema];
 
-        NSMutableDictionary* healthSummary = [self healthSummaryWithName:client.name store:store uuid:linkedUUID];
-        if (healthSummary) {
-            if (ckdeviceID) {
-                healthSummary[SFAnalyticsDeviceID] = ckdeviceID;
-            }
-            if (accountID) {
-                healthSummary[SFAnalyticsAltDSID] = accountID;
-            }
-            [localHealthSummaries addObject:healthSummary];
-        }
+            if (upload) {
+                NSDate* uploadDate = store.uploadDate;
+                if (!force && uploadDate && [[NSDate date] timeIntervalSinceDate:uploadDate] < _secondsBetweenUploads) {
+                    secnotice("json", "ignoring client '%@' for %@ because last upload too recent: %@",
+                              client.name, _internalTopicName, uploadDate);
+                    continue;
+                }
 
-        [hardFailures addObject:store.hardFailures];
-        [softFailures addObject:store.softFailures];
+                if (force) {
+                    secnotice("json", "client '%@' for topic '%@' force-included", client.name, _internalTopicName);
+                } else {
+                    secnotice("json", "including client '%@' for topic '%@' for upload", client.name, _internalTopicName);
+                }
+                [localClients addObject:client];
+            }
+
+            NSMutableDictionary* healthSummary = [self healthSummaryWithName:client.name store:store uuid:linkedUUID];
+            if (healthSummary) {
+                if (ckdeviceID) {
+                    healthSummary[SFAnalyticsDeviceID] = ckdeviceID;
+                }
+                if (accountID) {
+                    healthSummary[SFAnalyticsAltDSID] = accountID;
+                }
+                [localHealthSummaries addObject:healthSummary];
+            }
+
+            [hardFailures addObject:store.hardFailures];
+            [softFailures addObject:store.softFailures];
+        }
     }
 
     if (upload && [localClients count] == 0) {
@@ -1255,32 +1260,49 @@ participatingClients:(NSMutableArray<SFAnalyticsClient*>**)clients
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)@"Analytics/localkeychain.db") path];
 }
 
-+ (NSString*)databasePathForTrustdHealth
-{
-#if TARGET_OS_IPHONE
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/trustd_health_analytics.db")) path];
-#else
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInUserCacheDirectory(CFSTR("Analytics/trustd_health_analytics.db")) path];
-#endif
-}
-
 + (NSString*)databasePathForTrust
 {
 #if TARGET_OS_IPHONE
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/trust_analytics.db")) path];
 #else
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInUserCacheDirectory(CFSTR("Analytics/trust_analytics.db")) path];
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"trust_analytics"];
 #endif
 }
 
-+ (NSString*)databasePathForTLS
+#if TARGET_OS_OSX
++ (NSUUID *)rootUUID
+{
+    uuid_t rootUuid;
+    int ret = mbr_uid_to_uuid(0, rootUuid);
+    if (ret != 0) {
+        return nil;
+    }
+    return [[NSUUID alloc] initWithUUIDBytes:rootUuid];
+}
+#endif
+
+#if TARGET_OS_OSX
++ (NSString*)databasePathForRootTrust
+{
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"trust_analytics" uuid:[SFAnalyticsTopic rootUUID]];
+}
+#endif
+
++ (NSString*)databasePathForNetworking
 {
 #if TARGET_OS_IPHONE
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/TLS_analytics.db")) path];
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory(CFSTR("Analytics/networking_analytics.db")) path];
 #else
-    return [(__bridge_transfer NSURL*)SecCopyURLForFileInUserCacheDirectory(CFSTR("Analytics/TLS_analytics.db")) path];
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"networking_analytics"];
 #endif
 }
+
+#if TARGET_OS_OSX
++ (NSString*)databasePathForRootNetworking
+{
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:@"networking_analytics" uuid:[SFAnalyticsTopic rootUUID]];
+}
+#endif
 
 + (NSString*)databasePathForSignIn
 {

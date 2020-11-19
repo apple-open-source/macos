@@ -201,7 +201,7 @@ class IOFWDCL : public OSObject
 	public :
 	
 		// dump DCL info...
-		virtual void					debug() ;
+		virtual void					debug(void) ;
 
 	public:
 		

@@ -68,6 +68,7 @@ extern const char *_path_syslogd_log;
 #define _PATH_SYSLOGD_LOG	"/var/log/syslogd.log"
 #endif
 
+
 #define NOTIFY_PATH_SERVICE "com.apple.system.notify.service.path:0x87:"
 
 #define DB_TYPE_FILE	0x00000001

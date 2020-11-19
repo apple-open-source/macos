@@ -306,7 +306,7 @@ static apr_status_t do_pattmatch(ap_filter_t *f, apr_bucket *inb,
                         }
                         else {
                             apr_size_t repl_len;
-                            /* acount for string before the match */
+                            /* account for string before the match */
                             if (space_left <= regm[0].rm_so)
                                 return APR_ENOMEM;
                             space_left -= regm[0].rm_so;
@@ -667,8 +667,10 @@ static const char *set_pattern(cmd_parms *cmd, void *cfg, const char *line)
 
     /* first see if we can compile the regex */
     if (!is_pattern) {
-        r = ap_pregcomp(cmd->pool, from, AP_REG_EXTENDED |
-                        (ignore_case ? AP_REG_ICASE : 0));
+        int flags = AP_REG_NO_DEFAULT
+                    | (ap_regcomp_get_default_cflags() & AP_REG_DOLLAR_ENDONLY)
+                    | (ignore_case ? AP_REG_ICASE : 0);
+        r = ap_pregcomp(cmd->pool, from, flags);
         if (!r)
             return "Substitute could not compile regex";
     }

@@ -64,7 +64,7 @@ public:
 
     void markPagesForDeviceOrPageScaleChanged(Page&);
     void markPagesForContentsSizeChanged(Page&);
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
     void markPagesForCaptionPreferencesChanged();
 #endif
 
@@ -80,7 +80,7 @@ private:
     ListHashSet<RefPtr<HistoryItem>> m_items;
     unsigned m_maxSize {0};
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     bool m_isInRemoveAllItemsForPage { false };
 #endif
 

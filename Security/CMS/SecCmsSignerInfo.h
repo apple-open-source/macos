@@ -44,13 +44,13 @@ __BEGIN_DECLS
 #if TARGET_OS_OSX
 extern SecCmsSignerInfoRef
 SecCmsSignerInfoCreate(SecCmsMessageRef cmsg, SecIdentityRef identity, SECOidTag digestalgtag)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 
 #else // !TARGET_OSX
 
 extern SecCmsSignerInfoRef
 SecCmsSignerInfoCreate(SecCmsSignedDataRef sigd, SecIdentityRef identity, SECOidTag digestalgtag)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
@@ -58,12 +58,12 @@ SecCmsSignerInfoCreate(SecCmsSignedDataRef sigd, SecIdentityRef identity, SECOid
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern SecCmsSignerInfoRef
 SecCmsSignerInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg, CSSM_DATA_PTR subjKeyID, SecPublicKeyRef pubKey, SecPrivateKeyRef signingKey, SECOidTag digestalgtag)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 extern SecCmsSignerInfoRef
 SecCmsSignerInfoCreateWithSubjKeyID(SecCmsSignedDataRef sigd, const SecAsn1Item *subjKeyID, SecPublicKeyRef pubKey, SecPrivateKeyRef signingKey, SECOidTag digestalgtag)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
@@ -73,7 +73,7 @@ SecCmsSignerInfoCreateWithSubjKeyID(SecCmsSignedDataRef sigd, const SecAsn1Item 
  */
 extern void
 SecCmsSignerInfoDestroy(SecCmsSignerInfoRef si)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #endif
 
 /*!
@@ -291,26 +291,26 @@ SecCertificateRef SecCmsSignerInfoCopyCertFromEncryptionKeyPreference(SecCmsSign
 
 extern OSStatus
 SecCmsSignerInfoVerifyUnAuthAttrs(SecCmsSignerInfoRef signerinfo)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 extern OSStatus
 SecCmsSignerInfoVerifyUnAuthAttrsWithPolicy(SecCmsSignerInfoRef signerinfo,CFTypeRef timeStampPolicy)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern CSSM_DATA *
 SecCmsSignerInfoGetEncDigest(SecCmsSignerInfoRef signerinfo)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #pragma clang diagnostic pop
 
 extern CFArrayRef
 SecCmsSignerInfoGetTimestampCertList(SecCmsSignerInfoRef signerinfo)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 extern SecCertificateRef
 SecCmsSignerInfoGetTimestampSigningCert(SecCmsSignerInfoRef signerinfo)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
      @function
@@ -321,7 +321,7 @@ SecCmsSignerInfoGetTimestampSigningCert(SecCmsSignerInfoRef signerinfo)
  */
 OSStatus
 SecCmsSignerInfoGetTimestampTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *stime)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
      @function
@@ -332,7 +332,7 @@ SecCmsSignerInfoGetTimestampTime(SecCmsSignerInfoRef sinfo, CFAbsoluteTime *stim
  */
 OSStatus
 SecCmsSignerInfoGetTimestampTimeWithPolicy(SecCmsSignerInfoRef sinfo, CFTypeRef timeStampPolicy, CFAbsoluteTime *stime)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
      @function
@@ -342,7 +342,7 @@ SecCmsSignerInfoGetTimestampTimeWithPolicy(SecCmsSignerInfoRef sinfo, CFTypeRef 
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 OSStatus
 SecCmsSignerInfoAddTimeStamp(SecCmsSignerInfoRef signerinfo, CSSM_DATA *tstoken)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #pragma clang diagnostic pop
 #endif // TARGET_OS_OSX
 

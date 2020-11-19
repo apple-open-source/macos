@@ -36,6 +36,7 @@
 #include <bsm/libbsm.h>
 #include <servers/bootstrap.h>  // bootstrap mach ports
 #include <sandbox.h>
+#include <os/variant_private.h>
 
 #include <IOKit/kext/kextmanager_types.h>
 #include <IOKit/kext/OSKext.h>
@@ -524,6 +525,11 @@ bool kextd_process_kernel_requests(void)
     char          * scratchCString             = NULL;  // must free
     CFIndex         count, i;
 
+
+    if (disableKextTools()) {
+        return false;
+    }
+
    /* Stay in the while loop until _OSKextCopyKernelRequests() returns
     * no more requests.
     */
@@ -678,9 +684,11 @@ kextdProcessDaemonLaunchRequest(CFDictionaryRef request)
     CFStringRef      serverName      = NULL;  // do not release
     CFNumberRef      serverTag       = NULL;  // do not release
     OSKextRef        osKext          = NULL;  // do not release
+    CFNumberRef      checkInPortNum  = NULL; // do not release
     char           * kext_id         = NULL;  // must free
     bool             result          = false;
     os_signpost_id_t spid            = generate_signpost_id();
+    mach_port_t      checkInPort     = MACH_PORT_NULL; // must release
 
     os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTD_DEXT_LAUNCH);
 
@@ -692,6 +700,8 @@ kextdProcessDaemonLaunchRequest(CFDictionaryRef request)
         CFSTR(kKextRequestArgumentDriverExtensionServerName)) : NULL;
     serverTag = requestArgs ? CFDictionaryGetValue(requestArgs,
         CFSTR(kKextRequestArgumentDriverExtensionServerTag)) : NULL;
+    checkInPortNum = requestArgs ? CFDictionaryGetValue(requestArgs,
+        CFSTR(kKextRequestArgumentCheckInToken)) : NULL;
 
     if (!requestArgs) {
         OSKextLog(/* kext */ NULL,
@@ -715,6 +725,12 @@ kextdProcessDaemonLaunchRequest(CFDictionaryRef request)
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
             "No server tag in kernel daemon launch request.\n");
+        goto finish;
+    }
+    if (!checkInPortNum) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
+            "No check in port in kernel daemon launch request.\n");
         goto finish;
     }
 
@@ -768,7 +784,23 @@ kextdProcessDaemonLaunchRequest(CFDictionaryRef request)
         goto finish;
     }
 
-    if (!startUserExtension(osKext, serverName, serverTag)) {
+    /* CFNumber does not support unsigned values <rdar://problem/6473890> */
+    if (!CFNumberGetValue(checkInPortNum, kCFNumberIntType, (int *)&checkInPort)) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s: failed to extract mach_port_t from CFNumber %p.", kext_id, checkInPortNum);
+        goto finish;
+    }
+    if (!MACH_PORT_VALID(checkInPort)) {
+        OSKextLog(NULL,
+                  kOSKextLogErrorLevel | kOSKextLogArchiveFlag |
+                  kOSKextLogValidationFlag | kOSKextLogGeneralFlag,
+                  "%s did not have a valid check-in mach port.", kext_id);
+        goto finish;
+    }
+
+    if (!startUserExtension(osKext, serverName, serverTag, checkInPort)) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                 "Failed to start dext %s", kext_id);
@@ -783,6 +815,9 @@ finish:
     os_signpost_interval_end(get_signpost_log(), spid, SIGNPOST_KEXTD_DEXT_LAUNCH);
 
     SAFE_FREE(kext_id);
+    if (MACH_PORT_VALID(checkInPort)) {
+        mach_port_deallocate(mach_task_self(), checkInPort);
+    }
     return;
 }
 
@@ -1299,7 +1334,7 @@ static CFURLRef createAbsOrRealURLForURL(
                               strlen(_kSystemFilesystemsDirSlash)));
         inExtensions = inExtensionsDir(realpathCString);
 
-        if (!inSLF && !inExtensions) {
+        if (!os_variant_is_basesystem("com.apple.kextd") && !inSLF && !inExtensions) {
 
             localError = kOSKextReturnNotPrivileged;
             OSKextLog(/* kext */ NULL,

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,10 +23,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKit/WKUIDelegate.h>
-
 #import <WebKit/WKDragDestinationAction.h>
 #import <WebKit/WKSecurityOrigin.h>
+#import <WebKit/WKUIDelegate.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/_WKActivatedElementInfo.h>
 #import <WebKit/_WKWebAuthenticationPanel.h>
@@ -39,23 +38,19 @@
 @class _WKActivatedElementInfo;
 @class _WKElementAction;
 @class _WKFrameHandle;
-@class _WKInspector;
 
 #if TARGET_OS_IOS
+
 @class UIContextMenuConfiguration;
 @class UIDragItem;
 @class UITargetedDragPreview;
 @class WKContextMenuElementInfo;
+
 @protocol UIContextMenuInteractionCommitAnimating;
 @protocol UIDragSession;
 @protocol UIDropSession;
+
 #else
-typedef NS_ENUM(NSInteger, _WKAutoplayEvent) {
-    _WKAutoplayEventDidPreventFromAutoplaying,
-    _WKAutoplayEventDidPlayMediaWithUserGesture,
-    _WKAutoplayEventDidAutoplayMediaPastThresholdWithoutUserInterference,
-    _WKAutoplayEventUserDidInterfereWithPlayback,
-} WK_API_AVAILABLE(macos(10.13.4));
 
 typedef NS_ENUM(NSInteger, _WKResourceLimit) {
     _WKResourceLimitMemory,
@@ -68,13 +63,21 @@ typedef NS_ENUM(NSInteger, _WKPlugInUnavailabilityReason) {
     _WKPlugInUnavailabilityReasonInsecurePluginVersion
 } WK_API_AVAILABLE(macos(10.13.4));
 
+#endif
+
+typedef NS_ENUM(NSInteger, _WKAutoplayEvent) {
+    _WKAutoplayEventDidPreventFromAutoplaying,
+    _WKAutoplayEventDidPlayMediaWithUserGesture,
+    _WKAutoplayEventDidAutoplayMediaPastThresholdWithoutUserInterference,
+    _WKAutoplayEventUserDidInterfereWithPlayback,
+} WK_API_AVAILABLE(macos(10.13.4), ios(WK_IOS_TBA));
+
 typedef NS_OPTIONS(NSUInteger, _WKAutoplayEventFlags) {
     _WKAutoplayEventFlagsNone = 0,
     _WKAutoplayEventFlagsHasAudio = 1 << 0,
     _WKAutoplayEventFlagsPlaybackWasPrevented = 1 << 1,
     _WKAutoplayEventFlagsMediaIsMainContent = 1 << 2,
-} WK_API_AVAILABLE(macos(10.13.4));
-#endif
+} WK_API_AVAILABLE(macos(10.13.4), ios(WK_IOS_TBA));
 
 typedef NS_ENUM(NSInteger, _WKFocusDirection) {
     _WKFocusDirectionBackward,
@@ -101,6 +104,7 @@ struct UIEdgeInsets;
 - (void)_webView:(WKWebView *)webView decideWebApplicationCacheQuotaForSecurityOrigin:(WKSecurityOrigin *)securityOrigin currentQuota:(unsigned long long)currentQuota totalBytesNeeded:(unsigned long long)totalBytesNeeded decisionHandler:(void (^)(unsigned long long newQuota))decisionHandler;
 
 - (void)_webView:(WKWebView *)webView printFrame:(_WKFrameHandle *)frame;
+- (void)_webView:(WKWebView *)webView printFrame:(_WKFrameHandle *)frame completionHandler:(void (^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 - (void)_webViewClose:(WKWebView *)webView;
 - (void)_webViewFullscreenMayReturnToInline:(WKWebView *)webView;
@@ -111,6 +115,7 @@ struct UIEdgeInsets;
 - (void)_webViewDidShowSafeBrowsingWarning:(WKWebView *)webView WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 - (void)_webViewDidLosePointerLock:(WKWebView *)webView WK_API_AVAILABLE(macos(10.12.3));
 - (void)_webView:(WKWebView *)webView hasVideoInPictureInPictureDidChange:(BOOL)hasVideoInPictureInPicture WK_API_AVAILABLE(macos(10.13), ios(11.0));
+- (void)_webView:(WKWebView *)webView shouldAllowPDFAtURL:(NSURL *)fileURL toOpenFromFrame:(WKFrameInfo *)frame completionHandler:(void (^)(BOOL))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 - (void)_webView:(WKWebView *)webView imageOrMediaDocumentSizeChanged:(CGSize)size WK_API_AVAILABLE(macos(10.12), ios(10.0));
 - (NSDictionary *)_dataDetectionContextForWebView:(WKWebView *)webView WK_API_AVAILABLE(macos(10.12), ios(10.0));
@@ -140,12 +145,18 @@ struct UIEdgeInsets;
 
 - (void)_webView:(WKWebView *)webView runWebAuthenticationPanel:(_WKWebAuthenticationPanel *)panel initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(_WKWebAuthenticationPanelResult))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
+- (void)_webView:(WKWebView *)webView handleAutoplayEvent:(_WKAutoplayEvent)event withFlags:(_WKAutoplayEventFlags)flags WK_API_AVAILABLE(macos(10.13.4), ios(WK_IOS_TBA));
+
+- (void)_webView:(WKWebView *)webView willShareActivityItems:(NSArray *)activityItems WK_API_AVAILABLE(ios(WK_IOS_TBA));
+
 #if TARGET_OS_IPHONE
+
 - (BOOL)_webView:(WKWebView *)webView shouldIncludeAppLinkActionsForElement:(_WKActivatedElementInfo *)element WK_API_AVAILABLE(ios(9.0));
 - (NSArray *)_webView:(WKWebView *)webView actionsForElement:(_WKActivatedElementInfo *)element defaultActions:(NSArray<_WKElementAction *> *)defaultActions;
 - (void)_webView:(WKWebView *)webView didNotHandleTapAsClickAtPoint:(CGPoint)point;
 - (BOOL)_webView:(WKWebView *)webView shouldRequestGeolocationAuthorizationForURL:(NSURL *)url isMainFrame:(BOOL)isMainFrame mainFrameURL:(NSURL *)mainFrameURL;
 - (void)_webView:(WKWebView *)webView requestGeolocationAuthorizationForURL:(NSURL *)url frame:(WKFrameInfo *)frame decisionHandler:(void (^)(BOOL authorized))decisionHandler WK_API_AVAILABLE(ios(11.0));
+- (BOOL)_webView:(WKWebView *)webView fileUploadPanelContentIsManagedWithInitiatingFrame:(WKFrameInfo *)frame;
 
 - (UIViewController *)_webView:(WKWebView *)webView previewViewControllerForURL:(NSURL *)url WK_API_DEPRECATED_WITH_REPLACEMENT("webView:contextMenuConfigurationForElement:completionHandler:", ios(9.0, 13.0));
 - (void)_webView:(WKWebView *)webView commitPreviewedViewController:(UIViewController *)previewedViewController WK_API_DEPRECATED_WITH_REPLACEMENT("webView:contextMenuForElement:willCommitWithAnimator:", ios(9.0, 13.0));
@@ -217,7 +228,6 @@ struct UIEdgeInsets;
 - (void)_webViewDidScroll:(WKWebView *)webView WK_API_AVAILABLE(macos(10.13.4));
 - (void)_webViewRunModal:(WKWebView *)webView WK_API_AVAILABLE(macos(10.13.4));
 - (void)_webView:(WKWebView *)webView didNotHandleWheelEvent:(NSEvent *)event WK_API_AVAILABLE(macos(10.13.4));
-- (void)_webView:(WKWebView *)webView handleAutoplayEvent:(_WKAutoplayEvent)event withFlags:(_WKAutoplayEventFlags)flags WK_API_AVAILABLE(macos(10.13.4));
 - (void)_webView:(WKWebView *)webView didClickAutoFillButtonWithUserInfo:(id <NSSecureCoding>)userInfo WK_API_AVAILABLE(macos(10.13.4));
 - (void)_webView:(WKWebView *)webView getToolbarsAreVisibleWithCompletionHandler:(void(^)(BOOL))completionHandler WK_API_AVAILABLE(macos(10.13.4));
 - (void)_webView:(WKWebView *)webView saveDataToFile:(NSData *)data suggestedFilename:(NSString *)suggestedFilename mimeType:(NSString *)mimeType originatingURL:(NSURL *)url WK_API_AVAILABLE(macos(10.13.4));
@@ -236,11 +246,6 @@ struct UIEdgeInsets;
 - (NSMenu *)_webView:(WKWebView *)webView contextMenu:(NSMenu *)menu forElement:(_WKContextMenuElementInfo *)element userInfo:(id <NSSecureCoding>)userInfo WK_API_DEPRECATED_WITH_REPLACEMENT("_webView:getContextMenuFromProposedMenu:forElement:userInfo:completionHandler:", macos(10.12, 10.14.4));
 - (void)_webView:(WKWebView *)webView getContextMenuFromProposedMenu:(NSMenu *)menu forElement:(_WKContextMenuElementInfo *)element userInfo:(id <NSSecureCoding>)userInfo completionHandler:(void (^)(NSMenu *))completionHandler WK_API_AVAILABLE(macos(10.14));
 - (void)_webView:(WKWebView *)webView didPerformDragOperation:(BOOL)handled WK_API_AVAILABLE(macos(10.14.4));
-
-/*! @abstract Called when a Web Inspector instance is attached to this WKWebView. This is not called in the case of remote inspection.
-    @param inspector The Web Inspector instance attached to this WKWebView.
-*/
-- (void)_webView:(WKWebView *)webView didAttachInspector:(_WKInspector *)inspector WK_API_AVAILABLE(macos(WK_MAC_TBA));
 
 #endif // !TARGET_OS_IPHONE
 

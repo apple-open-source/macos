@@ -71,8 +71,7 @@
 
 -(instancetype)initWithPeer:(SOSPeerRef)peer
 {
-    self = [super initWithConfig:[self setUpConfigForPeer]];
-    if(self){
+    if ((self = [super initWithConfig:[self setUpConfigForPeer]])) {
         self.peerID = (__bridge NSString *)(SOSPeerGetID(peer));
         self.accessGroupRateLimitState = [[NSMutableDictionary alloc] init];
         self.accessGroupToTimer = [[NSMutableDictionary alloc]init];
@@ -102,8 +101,7 @@
 
 -(instancetype)initWithAccessGroup:(NSString *)accessGroup
 {
-    self = [super init];
-    if(self){
+    if ((self = [super init])) {
         _accessGroup = accessGroup;
     }
     return self;

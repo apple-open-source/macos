@@ -27,6 +27,7 @@
  */
 
 /** Apache headers */
+#include "ap_config.h"
 #include "httpd.h"
 #include "http_config.h"
 #include "http_core.h"
@@ -554,6 +555,7 @@ typedef struct {
     
     const char *cipher_suite; /* cipher suite used in last reneg */
     int service_unavailable;  /* thouugh we negotiate SSL, no requests will be served */
+    int vhost_found;          /* whether we found vhost from SNI already */
 } SSLConnRec;
 
 /* BIG FAT WARNING: SSLModConfigRec has unusual memory lifetime: it is
@@ -928,6 +930,9 @@ void         ssl_callback_Info(const SSL *, int, int);
 #ifdef HAVE_TLSEXT
 int          ssl_callback_ServerNameIndication(SSL *, int *, modssl_ctx_t *);
 #endif
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L && !defined(LIBRESSL_VERSION_NUMBER)
+int          ssl_callback_ClientHello(SSL *, int *, void *);
+#endif
 #ifdef HAVE_TLS_SESSION_TICKETS
 int         ssl_callback_SessionTicket(SSL *, unsigned char *, unsigned char *,
                                        EVP_CIPHER_CTX *, HMAC_CTX *, int);
@@ -1002,21 +1007,28 @@ BOOL         ssl_util_vhost_matches(const char *servername, server_rec *s);
 apr_status_t ssl_load_encrypted_pkey(server_rec *, apr_pool_t *, int,
                                      const char *, apr_array_header_t **);
 
+/* Load public and/or private key from the configured ENGINE. Private
+ * key returned as *pkey.  certid can be NULL, in which case *pubkey
+ * is not altered.  Errors logged on failure. */
+apr_status_t modssl_load_engine_keypair(server_rec *s, apr_pool_t *p,
+                                        const char *vhostid,
+                                        const char *certid, const char *keyid,
+                                        X509 **pubkey, EVP_PKEY **privkey);
+
 /**  Diffie-Hellman Parameter Support  */
 DH           *ssl_dh_GetParamFromFile(const char *);
 #ifdef HAVE_ECC
 EC_GROUP     *ssl_ec_GetParamFromFile(const char *);
 #endif
 
-unsigned char *ssl_asn1_table_set(apr_hash_t *table,
-                                  const char *key,
-                                  long int length);
-
-ssl_asn1_t *ssl_asn1_table_get(apr_hash_t *table,
-                               const char *key);
-
-void ssl_asn1_table_unset(apr_hash_t *table,
-                          const char *key);
+/* Store the EVP_PKEY key (serialized into DER) in the hash table with
+ * key, returning the ssl_asn1_t structure pointer. */
+ssl_asn1_t *ssl_asn1_table_set(apr_hash_t *table, const char *key,
+                               EVP_PKEY *pkey);
+/* Retrieve the ssl_asn1_t structure with given key from the hash. */
+ssl_asn1_t *ssl_asn1_table_get(apr_hash_t *table, const char *key);
+/* Remove and free the ssl_asn1_t structure with given key. */
+void ssl_asn1_table_unset(apr_hash_t *table, const char *key);
 
 /**  Mutex Support  */
 int          ssl_mutex_init(server_rec *, apr_pool_t *);
@@ -1108,6 +1120,10 @@ int modssl_request_is_tls(const request_rec *r, SSLConnRec **sslconn);
 
 int ssl_is_challenge(conn_rec *c, const char *servername, 
                      X509 **pcert, EVP_PKEY **pkey);
+
+/* Returns non-zero if the cert/key filename should be handled through
+ * the configured ENGINE. */
+int modssl_is_engine_id(const char *name);
 
 #endif /* SSL_PRIVATE_H */
 /** @} */

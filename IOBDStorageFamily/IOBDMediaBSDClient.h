@@ -48,6 +48,7 @@
  *         in /System/Library/Frameworks/Kernel.framework/Headers/IOKit/storage/
  */
 
+__exported_push
 typedef struct
 {
     uint8_t  format;
@@ -116,6 +117,7 @@ typedef struct
     uint16_t bufferLength;                         /* actual length on return */
     void *   buffer;
 } dk_bd_read_track_info_t;
+__exported_pop
 
 #define DKIOCBDREADSTRUCTURE   _IOW('d', 160, dk_bd_read_structure_t)
 #define DKIOCBDREPORTKEY       _IOW('d', 161, dk_bd_report_key_t)
@@ -143,7 +145,7 @@ typedef struct
  * Class
  */
 
-class IOBDMediaBSDClient : public IOMediaBSDClient
+class __exported IOBDMediaBSDClient : public IOMediaBSDClient
 {
     OSDeclareDefaultStructors(IOBDMediaBSDClient)
 

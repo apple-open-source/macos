@@ -34,6 +34,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		1864C88E23F227D200A383C1 /* notify_test_helper.c in Sources */ = {isa = PBXBuildFile; fileRef = 1864C88223F2174E00A383C1 /* notify_test_helper.c */; };
 		1886391920E1A2BF00C8BEA9 /* notify_bench.c in Sources */ = {isa = PBXBuildFile; fileRef = 727C90371B9A372700D5B754 /* notify_bench.c */; };
 		2D312B76102CA2E300F90022 /* libnotify.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B73102CA2E300F90022 /* libnotify.c */; };
 		2D312B77102CA2E300F90022 /* notify_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D312B74102CA2E300F90022 /* notify_client.c */; };
@@ -60,7 +61,6 @@
 		3FA21AD0148AAA5000099D2F /* notifyd.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21A9E148AA7FA00099D2F /* notifyd.c */; };
 		3FA21AD1148AAA5000099D2F /* pathwatch.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21AA0148AA7FA00099D2F /* pathwatch.c */; };
 		3FA21AD2148AAA5000099D2F /* service.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21AA2148AA7FA00099D2F /* service.c */; };
-		3FA21AD3148AAA5000099D2F /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21AA5148AA7FA00099D2F /* timer.c */; };
 		3FA21AD4148AAA5D00099D2F /* notifyd.8 in Install man page */ = {isa = PBXBuildFile; fileRef = 3FA21A9D148AA7FA00099D2F /* notifyd.8 */; };
 		3FA21AD5148AAA6E00099D2F /* notifyutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FA21AA9148AA82700099D2F /* notifyutil.c */; };
 		3FA21AD6148AAA7500099D2F /* notifyutil.1 in Install man page */ = {isa = PBXBuildFile; fileRef = 3FA21AA8148AA82700099D2F /* notifyutil.1 */; };
@@ -81,6 +81,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1864C88C23F227C200A383C1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1864C88323F227AC00A383C1;
+			remoteInfo = notfity_test_helper;
+		};
 		3FA21ACA148AA94A00099D2F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -185,14 +192,20 @@
 
 /* Begin PBXFileReference section */
 		180F8D3E21136EBF009A472B /* notify_pathwatch.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_pathwatch.c; sourceTree = "<group>"; };
+		18177A7123612EDC008CCFDE /* notify_register_mach_port.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_register_mach_port.c; sourceTree = "<group>"; };
 		182FD2C2210BB0F600BF263C /* notify_benchmark.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_benchmark.c; sourceTree = "<group>"; };
 		18314CC821FF867600FEB43D /* notifyutil_entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = notifyutil_entitlements.plist; sourceTree = "<group>"; };
 		18383C6720F909A300D5C465 /* notify_regenerate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_regenerate.c; sourceTree = "<group>"; };
 		18383C6820F909A300D5C465 /* notify_register_signal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_register_signal.c; sourceTree = "<group>"; };
 		18383C6920F909A300D5C465 /* notify_sigusr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_sigusr.c; sourceTree = "<group>"; };
+		183F91E32357FCEB009A1BFC /* notify_suspend.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_suspend.c; sourceTree = "<group>"; };
+		1846D85A24AAC578001D052D /* notify_register_file_desc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_register_file_desc.c; sourceTree = "<group>"; };
+		1864C88123F216CB00A383C1 /* notify_exec.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_exec.c; sourceTree = "<group>"; };
+		1864C88223F2174E00A383C1 /* notify_test_helper.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_test_helper.c; sourceTree = "<group>"; };
+		1864C88B23F227AC00A383C1 /* notify_test_helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notify_test_helper; sourceTree = BUILT_PRODUCTS_DIR; };
 		1886391720E1A22F00C8BEA9 /* notifybench */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notifybench; sourceTree = BUILT_PRODUCTS_DIR; };
 		2D312B73102CA2E300F90022 /* libnotify.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = libnotify.c; sourceTree = "<group>"; usesTabs = 1; };
-		2D312B74102CA2E300F90022 /* notify_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_client.c; sourceTree = "<group>"; usesTabs = 1; };
+		2D312B74102CA2E300F90022 /* notify_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_client.c; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 		2D312B75102CA2E300F90022 /* table.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = table.c; sourceTree = "<group>"; };
 		2D312B79102CA30200F90022 /* notify_ipc.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = notify_ipc.defs; sourceTree = "<group>"; };
 		2D312B7C102CA32500F90022 /* notify_keys.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; path = notify_keys.h; sourceTree = "<group>"; };
@@ -217,7 +230,6 @@
 		3F82235D12B18551005DD509 /* libnotify.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = libnotify.xcconfig; sourceTree = "<group>"; };
 		3F8223B412B18877005DD509 /* libsystem_notify.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_notify.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		3F947780191C322100A93E8E /* no-sim-man.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "no-sim-man.sh"; sourceTree = "<group>"; };
-		3F947781191C322100A93E8E /* sim-compat-symlink.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "sim-compat-symlink.sh"; sourceTree = "<group>"; };
 		3F999961185C474E00EAD3A0 /* base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = base.xcconfig; sourceTree = "<group>"; };
 		3F999963185C474E00EAD3A0 /* notifyd.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = notifyd.xcconfig; sourceTree = "<group>"; };
 		3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = notifyutil.xcconfig; sourceTree = "<group>"; };
@@ -232,8 +244,6 @@
 		3FA21AA1148AA7FA00099D2F /* pathwatch.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pathwatch.h; sourceTree = "<group>"; };
 		3FA21AA2148AA7FA00099D2F /* service.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = service.c; sourceTree = "<group>"; usesTabs = 1; };
 		3FA21AA3148AA7FA00099D2F /* service.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = service.h; sourceTree = "<group>"; };
-		3FA21AA5148AA7FA00099D2F /* timer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = timer.c; sourceTree = "<group>"; };
-		3FA21AA6148AA7FA00099D2F /* timer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = timer.h; sourceTree = "<group>"; };
 		3FA21AA8148AA82700099D2F /* notifyutil.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = notifyutil.1; sourceTree = "<group>"; };
 		3FA21AA9148AA82700099D2F /* notifyutil.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notifyutil.c; sourceTree = "<group>"; };
 		3FA21AB0148AA8E300099D2F /* notifyd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = notifyd; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -252,11 +262,14 @@
 		727C90391B9A372700D5B754 /* notify_disable_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_disable_test.c; sourceTree = "<group>"; };
 		727C903A1B9A372700D5B754 /* notify_many_dups.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_many_dups.c; sourceTree = "<group>"; };
 		727C903B1B9A372700D5B754 /* random_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = random_test.c; sourceTree = "<group>"; };
+		7875226923A34F3B002B6F1D /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = entitlements.plist; sourceTree = "<group>"; };
 		94099C732087E7D50004B6BC /* xctests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = xctests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		94099C752087E7D50004B6BC /* RegisterTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = RegisterTests.m; sourceTree = "<group>"; };
 		94099C772087E7D50004B6BC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = parallel_register_cancel.c; sourceTree = "<group>"; };
 		9B71D22F206AB52200BB9574 /* notify_qos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_qos.c; sourceTree = "<group>"; };
+		C0FF3C23234516ED00ABBA89 /* notify_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = notify_matching.c; sourceTree = "<group>"; };
+		C0FF3C242345172700ABBA89 /* notify_leaks.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = notify_leaks.c; sourceTree = "<group>"; };
 		E6481E7E2165785F00C04412 /* notify_probes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; path = notify_probes.d; sourceTree = "<group>"; };
 		FC7B7A52155781930064D203 /* notify_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_internal.h; sourceTree = "<group>"; usesTabs = 1; };
 /* End PBXFileReference section */
@@ -320,6 +333,7 @@
 				94099C732087E7D50004B6BC /* xctests.xctest */,
 				1886391720E1A22F00C8BEA9 /* notifybench */,
 				6EC91ED32178FF7100F11587 /* Frameworks */,
+				1864C88B23F227AC00A383C1 /* notify_test_helper */,
 			);
 			name = Libnotify;
 			sourceTree = "<group>";
@@ -383,7 +397,6 @@
 			isa = PBXGroup;
 			children = (
 				3F947780191C322100A93E8E /* no-sim-man.sh */,
-				3F947781191C322100A93E8E /* sim-compat-symlink.sh */,
 			);
 			path = xcodescripts;
 			sourceTree = "<group>";
@@ -415,12 +428,13 @@
 		3FA21A98148AA7FA00099D2F /* notifyd */ = {
 			isa = PBXGroup;
 			children = (
+				7875226923A34F3B002B6F1D /* entitlements.plist */,
 				2DD962061B14E6560040D341 /* com.apple.notifyd.sb */,
-				3FA21ADC148AABA900099D2F /* Build Support */,
 				3FA21A99148AA7FA00099D2F /* com.apple.notifyd.plist */,
 				3FA21A9A148AA7FA00099D2F /* notify.conf */,
-				3FA21AAA148AA85300099D2F /* Source */,
 				3FA21A9D148AA7FA00099D2F /* notifyd.8 */,
+				3FA21ADC148AABA900099D2F /* Build Support */,
+				3FA21AAA148AA85300099D2F /* Source */,
 				3FA21AAB148AA86600099D2F /* Private Headers */,
 			);
 			path = notifyd;
@@ -443,7 +457,6 @@
 				3FA21A9E148AA7FA00099D2F /* notifyd.c */,
 				3FA21AA0148AA7FA00099D2F /* pathwatch.c */,
 				3FA21AA2148AA7FA00099D2F /* service.c */,
-				3FA21AA5148AA7FA00099D2F /* timer.c */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -454,7 +467,6 @@
 				3FA21A9F148AA7FA00099D2F /* notifyd.h */,
 				3FA21AA1148AA7FA00099D2F /* pathwatch.h */,
 				3FA21AA3148AA7FA00099D2F /* service.h */,
-				3FA21AA6148AA7FA00099D2F /* timer.h */,
 			);
 			name = "Private Headers";
 			sourceTree = "<group>";
@@ -492,7 +504,12 @@
 		727C902F1B9A372700D5B754 /* tests */ = {
 			isa = PBXGroup;
 			children = (
+				1864C88123F216CB00A383C1 /* notify_exec.c */,
+				1864C88223F2174E00A383C1 /* notify_test_helper.c */,
+				C0FF3C23234516ED00ABBA89 /* notify_matching.c */,
 				18383C6720F909A300D5C465 /* notify_regenerate.c */,
+				1846D85A24AAC578001D052D /* notify_register_file_desc.c */,
+				18177A7123612EDC008CCFDE /* notify_register_mach_port.c */,
 				18383C6820F909A300D5C465 /* notify_register_signal.c */,
 				18383C6920F909A300D5C465 /* notify_sigusr.c */,
 				727C90341B9A372700D5B754 /* Makefile */,
@@ -501,10 +518,12 @@
 				727C90381B9A372700D5B754 /* notify_control.c */,
 				727C90391B9A372700D5B754 /* notify_disable_test.c */,
 				727C903A1B9A372700D5B754 /* notify_many_dups.c */,
+				183F91E32357FCEB009A1BFC /* notify_suspend.c */,
 				727C903B1B9A372700D5B754 /* random_test.c */,
 				9487BF2820882DAD0043BF74 /* parallel_register_cancel.c */,
 				182FD2C2210BB0F600BF263C /* notify_benchmark.c */,
 				180F8D3E21136EBF009A472B /* notify_pathwatch.c */,
+				C0FF3C242345172700ABBA89 /* notify_leaks.c */,
 			);
 			path = tests;
 			sourceTree = "<group>";
@@ -564,6 +583,7 @@
 			buildToolPath = /usr/bin/make;
 			buildWorkingDirectory = tests;
 			dependencies = (
+				1864C88D23F227C200A383C1 /* PBXTargetDependency */,
 			);
 			name = darwintests;
 			passBuildSettingsInEnvironment = 1;
@@ -572,6 +592,21 @@
 /* End PBXLegacyTarget section */
 
 /* Begin PBXNativeTarget section */
+		1864C88323F227AC00A383C1 /* notify_test_helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1864C88823F227AC00A383C1 /* Build configuration list for PBXNativeTarget "notify_test_helper" */;
+			buildPhases = (
+				1864C88423F227AC00A383C1 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = notify_test_helper;
+			productName = notifyutil;
+			productReference = 1864C88B23F227AC00A383C1 /* notify_test_helper */;
+			productType = "com.apple.product-type.tool";
+		};
 		1886390E20E1A22F00C8BEA9 /* notifybench */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 1886391420E1A22F00C8BEA9 /* Build configuration list for PBXNativeTarget "notifybench" */;
@@ -652,7 +687,6 @@
 				D289987405E68DCB004EDB86 /* Frameworks */,
 				2D38AA09102CD87C00D3D622 /* Copy man3 Files */,
 				3F947782191C324900A93E8E /* No Simulator Man Pages */,
-				3F947783191C327700A93E8E /* Sim compat symlink */,
 			);
 			buildRules = (
 			);
@@ -669,6 +703,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 1100;
 				TargetAttributes = {
 					72FA84F61BD6E9DF00A4CC6F = {
 						CreatedOnToolsVersion = 7.1;
@@ -683,13 +718,10 @@
 			};
 			buildConfigurationList = 1DEB91EF08733DB70010E9CD /* Build configuration list for PBXProject "Libnotify" */;
 			compatibilityVersion = "Xcode 3.1";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
+				en,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* Libnotify */;
 			productRefGroup = 08FB7794FE84155DC02AAC07 /* Libnotify */;
@@ -700,6 +732,7 @@
 				3FA21AAF148AA8E300099D2F /* notifyd */,
 				3FA21ABD148AA8F000099D2F /* notifyutil */,
 				1886390E20E1A22F00C8BEA9 /* notifybench */,
+				1864C88323F227AC00A383C1 /* notify_test_helper */,
 				3FA21AC7148AA93000099D2F /* cli_apps */,
 				72FA84F61BD6E9DF00A4CC6F /* darwintests */,
 				72FA84FB1BD6EAB900A4CC6F /* tests */,
@@ -728,21 +761,6 @@
 				"$(SRCROOT)/xcodescripts/no-sim-man.sh",
 			);
 			name = "No Simulator Man Pages";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = "/bin/bash -e -x";
-			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
-		};
-		3F947783191C327700A93E8E /* Sim compat symlink */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/xcodescripts/sim-compat-symlink.sh",
-			);
-			name = "Sim compat symlink";
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -782,6 +800,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1864C88423F227AC00A383C1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1864C88E23F227D200A383C1 /* notify_test_helper.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1886390F20E1A22F00C8BEA9 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -802,7 +828,6 @@
 				9456B8522023CAB300CF7D27 /* libnotify.c in Sources */,
 				3FA21AD1148AAA5000099D2F /* pathwatch.c in Sources */,
 				3FA21AD2148AAA5000099D2F /* service.c in Sources */,
-				3FA21AD3148AAA5000099D2F /* timer.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -841,6 +866,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1864C88D23F227C200A383C1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1864C88323F227AC00A383C1 /* notify_test_helper */;
+			targetProxy = 1864C88C23F227C200A383C1 /* PBXContainerItemProxy */;
+		};
 		3FA21ACB148AA94A00099D2F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3FA21AAF148AA8E300099D2F /* notifyd */;
@@ -859,10 +889,31 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1864C88923F227AC00A383C1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				INSTALL_PATH = /AppleInternal/Tests/Libnotify/;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		1864C88A23F227AC00A383C1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				INSTALL_PATH = /AppleInternal/Tests/Libnotify/;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
 		1886391520E1A22F00C8BEA9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -872,6 +923,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -881,6 +933,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Release;
 		};
@@ -888,18 +941,41 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = "";
+				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_NULLABLE_TO_NONNULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LLVM_LTO = YES;
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				SUPPORTED_PLATFORMS = "watchsimulator watchos iphonesimulator iphoneos macosx bridgeos appletvsimulator appletvos";
 				WARNING_CFLAGS = "-Wno-dollar-in-identifier-extension";
 			};
@@ -909,6 +985,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = notifyd/entitlements.plist;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-DSINGLE_THREADED_NOTIFY_STATE=1",
@@ -921,6 +999,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = notifyutil/notifyutil_entitlements.plist;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -930,6 +1009,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999961185C474E00EAD3A0 /* base.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -937,6 +1017,7 @@
 		72FA84F81BD6E9DF00A4CC6F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -947,6 +1028,7 @@
 		72FA84FD1BD6EAB900A4CC6F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "macosx iphoneos watchos appletvos";
 			};
@@ -1017,18 +1099,43 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = "";
+				CLANG_STATIC_ANALYZER_MODE = deep;
 				CLANG_WARN_ASSIGN_ENUM = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_NULLABLE_TO_NONNULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_LABEL = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				LLVM_LTO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				SUPPORTED_PLATFORMS = "watchsimulator watchos iphonesimulator iphoneos macosx bridgeos appletvsimulator appletvos";
 				WARNING_CFLAGS = "-Wno-dollar-in-identifier-extension";
 			};
@@ -1038,6 +1145,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 			};
 			name = Debug;
 		};
@@ -1045,6 +1153,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999963185C474E00EAD3A0 /* notifyd.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_ENTITLEMENTS = notifyd/entitlements.plist;
 				OTHER_CFLAGS = (
 					"$(inherited)",
 					"-DSINGLE_THREADED_NOTIFY_STATE=1",
@@ -1057,6 +1167,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999964185C474E00EAD3A0 /* notifyutil.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				CODE_SIGN_ENTITLEMENTS = notifyutil/notifyutil_entitlements.plist;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1066,6 +1177,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F999961185C474E00EAD3A0 /* base.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1073,6 +1185,7 @@
 		949B7842208BE1F2002AD6AF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
@@ -1083,6 +1196,7 @@
 		949B7843208BE1F2002AD6AF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "macosx iphoneos watchos appletvos";
 			};
@@ -1154,6 +1268,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1864C88823F227AC00A383C1 /* Build configuration list for PBXNativeTarget "notify_test_helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1864C88923F227AC00A383C1 /* Release */,
+				1864C88A23F227AC00A383C1 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		1886391420E1A22F00C8BEA9 /* Build configuration list for PBXNativeTarget "notifybench" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

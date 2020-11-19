@@ -167,11 +167,13 @@ struct sockaddr_dl;
 #if __APPLE__
 
 #include <xpc/xpc.h>
-#if !TARGET_OS_SIMULATOR && !TARGET_OS_OSX
+#if !TARGET_OS_SIMULATOR
 #include <NEHelperClient.h>
 #include <nw/private.h>
 #include <ne_session.h>
-#endif /* !TARGET_OS_SIMULATOR && !TARGET_OS_OSX */
+#endif /* !TARGET_OS_SIMULATOR */
+
+#include <bsm/libbsm.h>
 
 #endif /* __APPLE__ */
 

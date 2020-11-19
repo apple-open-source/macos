@@ -53,12 +53,10 @@
 
 #include "keychain/securityd/SOSCloudCircleServer.h"
 
-#if !TARGET_OS_SIMULATOR
-#include "SOSAccountTesting.h"
-#endif
-#include "SecdTestKeychainUtilities.h"
 
-#if !TARGET_OS_SIMULATOR
+#include "SOSAccountTesting.h"
+#include "SecdTestKeychainUtilities.h"
+#if SOS_ENABLED
 
 static CFDataRef CopyBackupKeyForString(CFStringRef string, CFErrorRef *error)
 {
@@ -68,12 +66,9 @@ static CFDataRef CopyBackupKeyForString(CFStringRef string, CFErrorRef *error)
     });
     return result;
 }
-#endif
 
 static void tests(void)
 {
-#if !TARGET_OS_SIMULATOR
-        
     __block CFErrorRef error = NULL;
     CFDataRef cfpassword = CFDataCreate(NULL, (uint8_t *) "FooFooFoo", 10);
     CFStringRef cfaccount = CFSTR("test@test.org");
@@ -156,7 +151,7 @@ static void tests(void)
     ok([bob_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
 
-    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 5, "updates");
+    is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 4, "updates");
 
 
     ok([alice_account.trust checkForRings:&error], "Alice_account is good");
@@ -248,22 +243,18 @@ static void tests(void)
     alice_account = nil;
     bob_account = nil;
     SOSTestCleanup();
-#endif
-
 }
+#endif
 
 int secd_62_account_backup(int argc, char *const *argv)
 {
-#if !TARGET_OS_SIMULATOR
+#if SOS_ENABLED
     plan_tests(98);
-#else
-    plan_tests(1);
-#endif
-
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     secd_test_setup_testviews(); // for running this test solo
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

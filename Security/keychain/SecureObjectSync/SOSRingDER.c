@@ -35,7 +35,6 @@
 #include <utilities/der_date.h>
 
 #include <stdlib.h>
-#include <assert.h>
 
 #include "SOSRingUtils.h"
 
@@ -79,10 +78,10 @@ SOSRingRef SOSRingCreateFromDER(CFErrorRef* error, const uint8_t** der_p, const 
 
     require_action_quiet(ring, errOut, secnotice("ring", "Unable to allocate ring"));
     *der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, *der_p, der_end);
-    *der_p = der_decode_dictionary(ALLOCATOR, kCFPropertyListImmutable, &unSignedInformation, error, *der_p, sequence_end);
-    *der_p = der_decode_dictionary(ALLOCATOR, kCFPropertyListImmutable, &signedInformation, error, *der_p, sequence_end);
-    *der_p = der_decode_dictionary(ALLOCATOR, kCFPropertyListImmutable, &signatures, error, *der_p, sequence_end);
-    *der_p = der_decode_dictionary(ALLOCATOR, kCFPropertyListImmutable, &data, error, *der_p, sequence_end);
+    *der_p = der_decode_dictionary(ALLOCATOR, &unSignedInformation, error, *der_p, sequence_end);
+    *der_p = der_decode_dictionary(ALLOCATOR, &signedInformation, error, *der_p, sequence_end);
+    *der_p = der_decode_dictionary(ALLOCATOR, &signatures, error, *der_p, sequence_end);
+    *der_p = der_decode_dictionary(ALLOCATOR, &data, error, *der_p, sequence_end);
 
     require_action_quiet(*der_p, errOut, secnotice("ring", "Unable to decode DER"));
     require_action_quiet(*der_p == der_end, errOut, secnotice("ring", "Unable to decode DER"));

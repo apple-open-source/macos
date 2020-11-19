@@ -5,5 +5,8 @@ sd_Deva{
     Languages{
         sd{"सिन्धी"}
     }
-    Version{"2.1.49.82"}
+    Scripts{
+        Deva{"देवनागिरी"}
+    }
+    Version{"36.1"}
 }

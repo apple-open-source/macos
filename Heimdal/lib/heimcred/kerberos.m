@@ -35,7 +35,8 @@
 
 #import "heimcred.h"
 #import "heimbase.h"
-
+#import "common.h"
+#import "gsscred.h"
 /*
  *
  */
@@ -56,9 +57,9 @@ _HeimCredRegisterKerberos(void)
     CFDictionarySetValue(schema, kHEIMAttrKerberosTicketGrantingTicket, CFSTR("b"));
 
     CFSetAddValue(set, schema);
-    CFRelease(schema);
+    CFRELEASE_NULL(schema);
 
 
-    _HeimCredRegisterMech(kHEIMTypeKerberos, set, NULL, NULL);
-    CFRelease(set);
+    _HeimCredRegisterMech(kHEIMTypeKerberos, set, KerberosStatusCallback, NULL, HeimCredGlobalCTX.notifyCaches, false, NULL);
+    CFRELEASE_NULL(set);
 }

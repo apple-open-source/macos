@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,11 +37,10 @@ struct WebsitePoliciesData;
     
 class WebFrameLoaderClient final : public WebCore::FrameLoaderClient {
 public:
-    WebFrameLoaderClient();
+    explicit WebFrameLoaderClient(Ref<WebFrame>&&);
     ~WebFrameLoaderClient();
 
-    void setWebFrame(WebFrame* webFrame) { m_frame = webFrame; }
-    WebFrame* webFrame() const { return m_frame; }
+    WebFrame& webFrame() const { return m_frame.get(); }
 
     bool frameHasCustomContentProvider() const { return m_frameHasCustomContentProvider; }
 
@@ -61,11 +60,13 @@ public:
         WebCore::PageIdentifier pageID;
     };
     void setHasFrameSpecificStorageAccess(FrameSpecificStorageAccessIdentifier&&);
+    void didLoadFromRegistrableDomain(WebCore::RegistrableDomain&&) final;
+    Vector<WebCore::RegistrableDomain> loadedSubresourceDomains() const final;
 #endif
-    
-private:
-    void frameLoaderDestroyed() final;
 
+    WebCore::AllowsContentJavaScript allowsContentJavaScriptFromMostRecentNavigation() const final;
+
+private:
     bool hasHTMLView() const final;
     bool hasWebView() const final;
     
@@ -122,6 +123,7 @@ private:
     void dispatchDidExplicitOpen(const URL&, const String& mimeType) final;
 
     void dispatchDidReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone>) final;
+    void dispatchDidReachVisuallyNonEmptyState() final;
     void dispatchDidLayout() final;
 
     WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&) final;
@@ -162,20 +164,20 @@ private:
     void didRunInsecureContent(WebCore::SecurityOrigin&, const URL&) final;
     void didDetectXSS(const URL&, bool didBlockEntirePage) final;
 
-    WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&) final;
-    WebCore::ResourceError blockedError(const WebCore::ResourceRequest&) final;
-    WebCore::ResourceError blockedByContentBlockerError(const WebCore::ResourceRequest&) final;
-    WebCore::ResourceError cannotShowURLError(const WebCore::ResourceRequest&) final;
-    WebCore::ResourceError interruptedForPolicyChangeError(const WebCore::ResourceRequest&) final;
+    WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError blockedError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError blockedByContentBlockerError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError cannotShowURLError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError interruptedForPolicyChangeError(const WebCore::ResourceRequest&) const final;
 #if ENABLE(CONTENT_FILTERING)
-    WebCore::ResourceError blockedByContentFilterError(const WebCore::ResourceRequest&) final;
+    WebCore::ResourceError blockedByContentFilterError(const WebCore::ResourceRequest&) const final;
 #endif
     
-    WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&) final;
-    WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&) final;
-    WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&) final;
+    WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&) const final;
+    WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&) const final;
+    WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&) const final;
     
-    bool shouldFallBack(const WebCore::ResourceError&) final;
+    bool shouldFallBack(const WebCore::ResourceError&) const final;
     
     bool canHandleRequest(const WebCore::ResourceRequest&) const final;
     bool canShowMIMEType(const String& MIMEType) const final;
@@ -195,7 +197,7 @@ private:
 
     void setTitle(const WebCore::StringWithDirection&, const URL&) final;
     
-    String userAgent(const URL&) final;
+    String userAgent(const URL&) const final;
 
     String overrideContentSecurityPolicy() const final;
 
@@ -208,12 +210,10 @@ private:
 
     void didRestoreFromBackForwardCache() final;
 
-    void dispatchDidBecomeFrameset(bool) final;
-
     bool canCachePage() const final;
     void convertMainResourceLoadToDownload(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&) final;
 
-    RefPtr<WebCore::Frame> createFrame(const URL&, const String& name, WebCore::HTMLFrameOwnerElement&, const String& referrer) final;
+    RefPtr<WebCore::Frame> createFrame(const String& name, WebCore::HTMLFrameOwnerElement&) final;
 
     RefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement&, const URL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) final;
     void redirectDataToPlugin(WebCore::Widget&) final;
@@ -253,7 +253,7 @@ private:
 
     Ref<WebCore::FrameNetworkingContext> createNetworkingContext() final;
 
-    void forcePageTransitionIfNeeded() final;
+    void completePageTransitionIfNeeded() final;
 
 #if USE(QUICK_LOOK)
     RefPtr<WebCore::LegacyPreviewLoaderClient> createPreviewLoaderClient(const String& fileName, const String& uti) final;
@@ -264,6 +264,7 @@ private:
 #endif
 
     void prefetchDNS(const String&) final;
+    void sendH2Ping(const URL&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&) final;
 
     void didRestoreScrollPosition() final;
 
@@ -276,16 +277,19 @@ private:
     void finishedLoadingApplicationManifest(uint64_t, const Optional<WebCore::ApplicationManifest>&) final;
 #endif
 
-    WebFrame* m_frame;
+    Ref<WebFrame> m_frame;
     RefPtr<PluginView> m_pluginView;
-    bool m_hasSentResponseToPluginView;
-    bool m_didCompletePageTransition;
-    bool m_frameHasCustomContentProvider;
-    bool m_frameCameFromBackForwardCache;
+    bool m_hasSentResponseToPluginView { false };
+    bool m_didCompletePageTransition { false };
+    bool m_frameHasCustomContentProvider { false };
+    bool m_frameCameFromBackForwardCache { false };
     bool m_useIconLoadingClient { false };
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     Optional<FrameSpecificStorageAccessIdentifier> m_frameSpecificStorageAccessIdentifier;
 #endif
+
+    bool shouldEnableInAppBrowserPrivacyProtections() const final;
+    void notifyPageOfAppBoundBehavior() final;
 };
 
 // As long as EmptyFrameLoaderClient exists in WebCore, this can return 0.

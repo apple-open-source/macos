@@ -39,11 +39,11 @@ be familiar to most command line users.
 
 Typically, options are single letters preceded by a hyphen (tt(-)).
 Options that take an argument accept it either immediately following the
-option letter or after white space, for example `tt(print -C3 *)' or
-`tt(print -C 3 *)' are equivalent.  Arguments to options are not the
+option letter or after white space, for example `tt(print -C3 {1..9})' or
+`tt(print -C 3 {1..9})' are equivalent.  Arguments to options are not the
 same as arguments to the command; the documentation indicates which is
 which.  Options that do not take an argument may be combined in a single
-word, for example `tt(print -ca *)' and `tt(print -c -a *)' are
+word, for example `tt(print -rca -- *)' and `tt(print -r -c -a -- *)' are
 equivalent.
 
 Some shell builtin commands also take options that begin with `tt(+)'
@@ -54,14 +54,14 @@ Options (together with their individual arguments, if any) must appear
 in a group before any non-option arguments; once the first non-option
 argument has been found, option processing is terminated.
 
-All builtin commands other than precommand modifiers, even those that
-have no options, can be given the argument `tt(-)tt(-)' to terminate option
-processing.  This indicates that the following words are non-option
-arguments, but is otherwise ignored.  This is useful in cases where
-arguments to the command may begin with `tt(-)'.  For historical
-reasons, most builtin commands also recognize a single `tt(-)' in a
-separate word for this purpose; note that this is less standard and
-use of `tt(-)tt(-)' is recommended.
+All builtin commands other than `tt(echo)' and precommand modifiers,
+even those that have no options, can be given the argument `tt(-)tt(-)'
+to terminate option processing.  This indicates that the following words
+are non-option arguments, but is otherwise ignored.  This is useful in
+cases where arguments to the command may begin with `tt(-)'.  For
+historical reasons, most builtin commands (including `tt(echo)') also
+recognize a single `tt(-)' in a separate word for this purpose; note
+that this is less standard and use of `tt(-)tt(-)' is recommended.
 
 startitem()
 prefix(-)
@@ -114,9 +114,9 @@ var(text) is any non-empty string, it is replaced by the text
 a literal string, not a pattern.  A trailing space in var(value) is not
 special in this case.  For example,
 
-example(alias -s ps=gv)
+example(alias -s ps='gv --')
 
-will cause the command `tt(*.ps)' to be expanded to `tt(gv *.ps)'.  As
+will cause the command `tt(*.ps)' to be expanded to `tt(gv -- *.ps)'.  As
 alias expansion is carried out earlier than globbing, the `tt(*.ps)' will
 then be expanded.  Suffix aliases constitute a different name space from
 other aliases (so in the above example it is still possible
@@ -290,6 +290,8 @@ of the list shown by the tt(dirs) command, starting with zero.
 An argument of the form `tt(-)var(n)' counts from the right.
 If the tt(PUSHD_MINUS) option is set, the meanings of `tt(PLUS())'
 and `tt(-)' in this context are swapped.
+If the tt(POSIX_CD) option is set, this form of tt(cd) is not recognised
+and will be interpreted as the first form.
 
 If the tt(-q) (quiet) option is specified, the hook function tt(chpwd)
 and the functions in the array tt(chpwd_functions) are not called.
@@ -768,8 +770,8 @@ However, if the current event has added entries to the history with
 includes all new history entries since the current event began.
 
 When the tt(-l) flag is given, the resulting events are listed on
-standard output.  Otherwise the editor program var(ename) is invoked on a
-file containing these history events.  If var(ename) is not given, the
+standard output.  Otherwise the editor program specified by tt(-e) var(ename)
+is invoked on a file containing these history events.  If tt(-e) is not given, the
 value of the parameter tt(FCEDIT) is used; if that is not set the value of
 the parameter tt(EDITOR) is used; if that is not set a builtin default,
 usually `tt(vi)' is used.  If var(ename) is `tt(-)', no editor is invoked.
@@ -858,10 +860,11 @@ point numbers are not permitted.
 )
 findex(functions)
 xitem(tt(functions) [ {tt(PLUS())|tt(-)}tt(UkmtTuWz) ] [ tt(-x) var(num) ] [ var(name) ... ])
+xitem(tt(functions -c) var(oldfn) var(newfn))
 xitem(tt(functions -M) [tt(-s)] var(mathfn) [ var(min) [ var(max) [ var(shellfn) ] ] ])
 xitem(tt(functions -M) [ tt(-m) var(pattern) ... ])
 item(tt(functions +M) [ tt(-m) ] var(mathfn) ... )(
-Equivalent to tt(typeset -f), with the exception of the tt(-x),
+Equivalent to tt(typeset -f), with the exception of the tt(-c), tt(-x),
 tt(-M) and tt(-W) options.  For tt(functions -u) and tt(functions -U),
 see tt(autoload), which provides additional options.
 
@@ -874,6 +877,14 @@ The tt(-W) option turns on the option tt(WARN_NESTED_VAR) for the named
 function or functions only.  The option is turned off at the start of
 nested functions (apart from anonoymous functions) unless the called
 function also has the tt(-W) attribute.
+
+The tt(-c) option causes var(oldfn) to be copied to var(newfn).  The
+copy is efficiently handled internally by reference counting.  If
+var(oldfn) was marked for autoload it is first loaded and if this
+fails the copy fails.  Either function may subsequently be redefined
+without affecting the other.  A typical idiom is that var(oldfn) is the
+name of a library shell function which is then redefined to call
+tt(newfn), thereby installing a modified version of the function.
 
 Use of the tt(-M) option may not be combined with any of the options
 handled by tt(typeset -f).
@@ -987,6 +998,10 @@ modify these tables by modifying one's tt(PATH)
 The choice of hash table to work on is determined by the tt(-d) option;
 without the option the command hash table is used, and with the option the
 named directory hash table is used.
+
+A command var(name) starting with a tt(/) is never hashed, whether by
+explicit use of the tt(hash) command or otherwise.  Such a command
+is always found by direct look up in the file system.
 
 Given no arguments, and neither the tt(-r) or tt(-f) options,
 the selected hash table will be listed in full.
@@ -1243,7 +1258,10 @@ If given together with tt(-o) or tt(-O), sorting is performed
 case-independently.
 )
 item(tt(-l))(
-Print the arguments separated by newlines instead of spaces.
+Print the arguments separated by newlines instead of spaces.  Note: if
+the list of arguments is empty, tt(print -l) will still output one empty
+line. To print a possibly-empty list of arguments one per line, use
+tt(print -C1), as in `tt(print -rC1 -- "$list[@]")'.
 )
 item(tt(-m))(
 Take the first argument as a pattern (should be quoted), and remove
@@ -1254,7 +1272,9 @@ item(tt(-n))(
 Do not add a newline to the output.
 )
 item(tt(-N))(
-Print the arguments separated and terminated by nulls.
+Print the arguments separated and terminated by nulls. Again,
+tt(print -rNC1 -- "$list[@]") is a canonical way to print an
+arbitrary list as null-delimited records.
 )
 item(tt(-o))(
 Print the arguments sorted in ascending order.

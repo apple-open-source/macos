@@ -33,6 +33,7 @@
 #include <Security/SecIdentityPriv.h>
 #include <Security/SecItem.h>
 #include <Security/SecBase.h>
+#include <security_utilities/simulatecrash_assert.h>
 using namespace Security;
 using namespace KeychainCore;
 

@@ -29,6 +29,7 @@
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
 #include "DisplayBox.h"
+#include "FloatingState.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -51,7 +52,9 @@ Display::Box& FormattingState::displayBox(const Box& layoutBox)
 {
     // Should never need to mutate a display box outside of the formatting context.
     ASSERT(&layoutState().establishedFormattingState(layoutBox.formattingContextRoot()) == this);
-    return layoutState().displayBoxForLayoutBox(layoutBox);
+    // Anonymous text wrappers/line break boxes should not need display boxes.
+    ASSERT(!layoutBox.isInlineTextBox() && (!layoutBox.isLineBreakBox() || layoutBox.isOutOfFlowPositioned()));
+    return layoutState().ensureDisplayBoxForLayoutBox(layoutBox);
 }
 
 }

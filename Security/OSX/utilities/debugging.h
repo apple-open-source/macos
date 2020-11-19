@@ -144,6 +144,9 @@ void __security_stackshotreport(CFStringRef reason, uint32_t code);
 #define __sec_exception_code_SQLiteBusy             __sec_exception_code(10)
 #define __sec_exception_code_CorruptDb(rc)          __sec_exception_code(11|((rc)<<8))
 #define __sec_exception_code_Watchdog               __sec_exception_code(12)
+#define __sec_exception_code_BadStash               __sec_exception_code(13)
+#define __sec_exception_code_UnexpectedState        __sec_exception_code(14)
+#define __sec_exception_code_RateLimit              __sec_exception_code(15)
 
 /* For testing only, turns off/on simulated crashes, when turning on, returns number of
    simulated crashes which were not reported since last turned off. */

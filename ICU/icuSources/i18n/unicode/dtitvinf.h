@@ -16,6 +16,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Date/Time interval patterns for formatting date/time interval
@@ -28,7 +30,6 @@
 #include "unicode/ucal.h"
 #include "unicode/dtptngen.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -196,7 +197,7 @@ public:
      * @return   a copy of the object
      * @stable ICU 4.0
      */
-    virtual DateIntervalInfo* clone(void) const;
+    virtual DateIntervalInfo* clone() const;
 
     /**
      * Destructor.
@@ -513,9 +514,10 @@ DateIntervalInfo::operator!=(const DateIntervalInfo& other) const {
 
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif
 

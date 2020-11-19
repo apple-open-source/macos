@@ -29,7 +29,7 @@
 #include "pkcs12Debug.h"
 #include "pkcs12Utils.h"
 #include <string.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <Security/Security.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecAsn1Templates.h>

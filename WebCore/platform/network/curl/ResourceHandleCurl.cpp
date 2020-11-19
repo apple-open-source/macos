@@ -33,7 +33,6 @@
 #if USE(CURL)
 
 #include "CookieJar.h"
-#include "CookieJarCurl.h"
 #include "CredentialStorage.h"
 #include "CurlCacheManager.h"
 #include "CurlContext.h"
@@ -128,10 +127,10 @@ void ResourceHandle::addCacheValidationHeaders(ResourceRequest& request)
     URL cacheUrl = request.url();
     cacheUrl.removeFragmentIdentifier();
 
-    if (cache.isCached(cacheUrl)) {
-        cache.addCacheEntryClient(cacheUrl, this);
+    if (cache.isCached(cacheUrl.string())) {
+        cache.addCacheEntryClient(cacheUrl.string(), this);
 
-        for (const auto& entry : cache.requestHeaders(cacheUrl))
+        for (const auto& entry : cache.requestHeaders(cacheUrl.string()))
             request.addHTTPHeaderField(entry.key, entry.value);
 
         d->m_addedCacheValidationHeaders = true;
@@ -145,17 +144,15 @@ Ref<CurlRequest> ResourceHandle::createCurlRequest(ResourceRequest&& request, Re
     if (status == RequestStatus::NewRequest) {
         addCacheValidationHeaders(request);
 
-        auto& storageSession = *d->m_context->storageSession();
-        auto& cookieJar = storageSession.cookieStorage();
         auto includeSecureCookies = request.url().protocolIs("https") ? IncludeSecureCookies::Yes : IncludeSecureCookies::No;
-        String cookieHeaderField = cookieJar.cookieRequestHeaderFieldValue(storageSession, request.firstPartyForCookies(), SameSiteInfo::create(request), request.url(), WTF::nullopt, WTF::nullopt, includeSecureCookies).first;
+        String cookieHeaderField = d->m_context->storageSession()->cookieRequestHeaderFieldValue(request.firstPartyForCookies(), SameSiteInfo::create(request), request.url(), WTF::nullopt, WTF::nullopt, includeSecureCookies, ShouldAskITP::Yes, ShouldRelaxThirdPartyCookieBlocking::No).first;
         if (!cookieHeaderField.isEmpty())
             request.addHTTPHeaderField(HTTPHeaderName::Cookie, cookieHeaderField);
     }
 
     CurlRequest::ShouldSuspend shouldSuspend = d->m_defersLoading ? CurlRequest::ShouldSuspend::Yes : CurlRequest::ShouldSuspend::No;
-    auto curlRequest = CurlRequest::create(request, *delegate(), shouldSuspend, CurlRequest::EnableMultipart::Yes, CurlRequest::CaptureNetworkLoadMetrics::Basic, d->m_messageQueue);
-    
+    auto curlRequest = CurlRequest::create(request, *delegate(), shouldSuspend, CurlRequest::EnableMultipart::Yes, CurlRequest::CaptureNetworkLoadMetrics::Basic, RefPtr<SynchronousLoaderMessageQueue>(d->m_messageQueue));
+
     return curlRequest;
 }
 
@@ -217,8 +214,8 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
 
     String partition = firstRequest().cachePartition();
 
-    if (!d->m_user.isNull() && !d->m_pass.isNull()) {
-        Credential credential(d->m_user, d->m_pass, CredentialPersistenceNone);
+    if (!d->m_user.isNull() && !d->m_password.isNull()) {
+        Credential credential(d->m_user, d->m_password, CredentialPersistenceNone);
 
         URL urlToStore;
         if (challenge.failureResponse().httpStatusCode() == 401)
@@ -228,7 +225,7 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
         restartRequestWithCredential(challenge.protectionSpace(), credential);
 
         d->m_user = String();
-        d->m_pass = String();
+        d->m_password = String();
         // FIXME: Per the specification, the user shouldn't be asked for credentials if there were incorrect ones provided explicitly.
         return;
     }
@@ -330,7 +327,7 @@ void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge&)
 Optional<Credential> ResourceHandle::getCredential(const ResourceRequest& request, bool redirect)
 {
     // m_user/m_pass are credentials given manually, for instance, by the arguments passed to XMLHttpRequest.open().
-    Credential credential { d->m_user, d->m_pass, CredentialPersistenceNone };
+    Credential credential { d->m_user, d->m_password, CredentialPersistenceNone };
 
     if (shouldUseCredentialStorage()) {
         String partition = request.cachePartition();
@@ -479,7 +476,7 @@ void ResourceHandle::willSendRequest()
         newRequest.clearHTTPReferrer();
 
     d->m_user = newURL.user();
-    d->m_pass = newURL.pass();
+    d->m_password = newURL.password();
     newRequest.removeCredentials();
 
     if (crossOrigin) {

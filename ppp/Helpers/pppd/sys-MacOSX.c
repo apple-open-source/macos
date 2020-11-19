@@ -81,11 +81,11 @@
 #include <SystemConfiguration/SCPrivate.h>
 #include <CoreFoundation/CFBundle.h>
 #include <CoreFoundation/CFXPCBridge.h>
-#include <ppp_defs.h>
-#include <ppp_domain.h>
-#include <ppp_msg.h>
-#include <ppp_privmsg.h>
-#include <if_ppp.h>
+#include "ppp_defs.h"
+#include "ppp_domain.h"
+#include "ppp_msg.h"
+#include "ppp_privmsg.h"
+#include "if_ppp.h"
 #include <net/route.h>
 #include <net/if_dl.h>
 #include <netinet/in.h>
@@ -123,6 +123,7 @@
 #include "lcp.h"
 #include "eap.h"
 #include "../vpnd/RASSchemaDefinitions.h"
+#include "ppp_option.h"
 
 #include "acscp.h"
 
@@ -3437,7 +3438,7 @@ int sys_loadplugin(char *arg)
         strlcpy(path, arg, sizeof(path));
     }
     else {
-        strlcpy(path, "/System/Library/Extensions/", sizeof(path));
+        strlcpy(path, DIR_KEXT, sizeof(path));
         strlcat(path, arg, sizeof(path));
     } 
 
@@ -3473,7 +3474,7 @@ int sys_eaploadplugin(char *arg, eap_ext *eap)
         strlcpy(path, arg, sizeof(path));
     }
     else {
-        strlcpy(path, "/System/Library/Extensions/", sizeof(path));
+        strlcpy(path, DIR_KEXT, sizeof(path));
         strlcat(path, arg, sizeof(path));
     } 
 

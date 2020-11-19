@@ -40,13 +40,13 @@ struct _PyObjC_ArgDescr {
 	int16_t         arrayArg;
 	int16_t         arrayArgOut;
 	const char*	sel_type;
-	BOOL            allowNULL:1;
-	BOOL            typeOverride:1;
-	BOOL		arraySizeInRetval:1;
-	BOOL		printfFormat:1;
-	BOOL 		alreadyRetained:1;
-	BOOL 		alreadyCFRetained:1;
-	BOOL		callableRetained:1; /* False iff the closure can be cleaned up after the call */
+	unsigned int    allowNULL:1;
+	unsigned int    typeOverride:1;
+	unsigned int	arraySizeInRetval:1;
+	unsigned int	printfFormat:1;
+	unsigned int 	alreadyRetained:1;
+	unsigned int 	alreadyCFRetained:1;
+	unsigned int	callableRetained:1; /* False iff the closure can be cleaned up after the call */
 };
 
 struct _PyObjCMethodSignature {
@@ -54,9 +54,9 @@ struct _PyObjCMethodSignature {
 
 	const char* signature;
 	int  arrayArg;
-	BOOL variadic:1;
-	BOOL null_terminated_array:1;
-	BOOL		free_result:1;
+	unsigned char variadic:1;
+	unsigned char null_terminated_array:1;
+	unsigned char free_result:1;
 	PyObject*   suggestion;
 	struct _PyObjC_ArgDescr rettype;
 	struct _PyObjC_ArgDescr argtype[1];

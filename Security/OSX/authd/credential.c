@@ -2,6 +2,8 @@
 
 #include "credential.h"
 #include "authutilities.h"
+#include "authitems.h"
+#include <Security/AuthorizationTagsPriv.h>
 #include "debugging.h"
 #include "crc.h"
 
@@ -101,7 +103,7 @@ static credential_t
 _credential_create()
 {
     credential_t cred = NULL;
-    
+
     cred = (credential_t)_CFRuntimeCreateInstance(kCFAllocatorDefault, credential_get_type_id(), AUTH_CLASS_SIZE(credential), NULL);
     require(cred != NULL, done);
     
@@ -137,6 +139,23 @@ credential_create(uid_t uid)
         endpwent();
     }
     
+done:
+    return cred;
+}
+
+credential_t
+credential_create_lwos(auth_items_t context, bool session)
+{
+    credential_t cred = NULL;
+    
+    cred = _credential_create();
+    require(cred != NULL, done);
+
+    const char *username = session ? "system session" : auth_items_get_string(context, AGENT_USERNAME);
+    cred->uid = session ? 0 : -500;
+    cred->name = _copy_string(username);
+    cred->realName = _copy_string(username);
+    cred->valid = false;
 done:
     return cred;
 }
@@ -220,9 +239,14 @@ credential_is_right(credential_t cred)
 }
 
 bool
-credential_check_membership(credential_t cred,const char* group)
+credential_check_membership(credential_t cred, const char* group)
 {
     bool result = false;
+    
+    if (isInLWOS()) {
+       return false; // cannot succeed in LWOS as we do not have group data
+    }
+    
     CFStringRef cachedGroup = NULL;
     require(group != NULL, done);
     require(cred->uid != 0 || cred->uid != (uid_t)-2, done);

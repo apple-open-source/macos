@@ -118,14 +118,19 @@ main (int argc, char **argv)
 
     ret = krb5_cc_cache_match(context, client, &id);
     if (ret) {
+#ifdef XCACHE_IS_API_CACHE
+	ret = krb5_cc_new_unique(context, "XCACHE", NULL, &id);
+#else
 	ret = krb5_cc_new_unique(context, "KCM", NULL, &id);
+#endif
 	if (ret)
 	    krb5_err (context, 1, ret, "krb5_cc_new_unique");
-
-	ret = krb5_cc_initialize(context, id, client);
-	if (ret)
-	    krb5_err (context, 1, ret, "krb5_cc_initialize");
     }
+    
+    ret = krb5_cc_initialize(context, id, client);
+    if (ret)
+	krb5_err (context, 1, ret, "krb5_cc_initialize");
+    
 
 #if defined(__APPLE__) && !defined(__APPLE_TARGET_EMBEDDED__)
     {

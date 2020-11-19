@@ -237,7 +237,7 @@ enum {
 /*
  * We keep an fd open for communication between the main shell
  * and forked off bits and pieces.  This allows us to know
- * if something happend in a subshell:  mode changed, type changed,
+ * if something happened in a subshell:  mode changed, type changed,
  * connection was closed.  If something too substantial happened
  * in a subshell --- connection opened, ZFTP_USER and ZFTP_PWD changed
  * --- we don't try to track it because it's too complicated.
@@ -1257,14 +1257,8 @@ zfstats(char *fnam, int remote, off_t *retsize, char **retmdtm, int fd)
 	if (retmdtm) {
 	    /* use gmtime() rather than localtime() for consistency */
 	    tm = gmtime(&statbuf.st_mtime);
-	    /*
-	     * FTP format for data is YYYYMMDDHHMMSS
-	     * Using tm directly is easier than worrying about
-	     * incompatible strftime()'s.
-	     */
-	    sprintf(tmbuf, "%04d%02d%02d%02d%02d%02d",
-		    tm->tm_year + 1900, tm->tm_mon+1, tm->tm_mday,
-		    tm->tm_hour, tm->tm_min, tm->tm_sec);
+	    /* FTP format for date is YYYYMMDDHHMMSS */
+	    ztrftime(tmbuf, sizeof(tmbuf), "%Y%m%d%H%M%S", tm, 0L);
 	    mt = ztrdup(tmbuf);
 	}
     }
@@ -2518,7 +2512,8 @@ zftp_local(UNUSED(char *name), char **args, int flags)
 #ifdef OFF_T_IS_64_BIT
 	printf("%s %s\n", output64(sz), mt);
 #else
-	DPUTS(sizeof(sz) > 4, "Shell compiled with wrong off_t size");
+	DPUTS(sizeof(sz) > sizeof(long),
+		"Shell compiled with wrong off_t size");
 	printf("%ld %s\n", (long)sz, mt);
 #endif
 	zsfree(mt);

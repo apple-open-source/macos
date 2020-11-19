@@ -30,19 +30,7 @@
 #include "KCCursor.h"
 #include <os/activity.h>
 
-/* I'm not sure we need this */
-#if 0
-CFTypeID SecKeychainItemExtendedAttributesGetTypeID(void);
-
-static CFTypeID SecKeychainItemExtendedAttributesGetTypeID(void)
-{
-	BEGIN_SECAPI
-
-	return gTypes().ExtendedAttribute.typeID;
-
-	END_SECAPI1(_kCFRuntimeNotATypeID)
-}
-#endif
+#include "LegacyAPICounts.h"
 
 extern "C" Boolean SecKeyIsCDSAKey(SecKeyRef ref);
 

@@ -12,7 +12,7 @@
 
 #import "keychain/ot/OTDefines.h"
 #import "keychain/ot/OTConstants.h"
-#import <TrustedPeers/TPPolicy.h>
+#import <TrustedPeers/TPSyncingPolicy.h>
 
 @implementation OTAccountMetadataClassC (KeychainSupport)
 
@@ -161,7 +161,7 @@
 
 #pragma mark - Field Coding support
 
-- (void)setTPPolicy:(TPPolicy*)policy
+- (void)setTPSyncingPolicy:(TPSyncingPolicy*)policy
 {
     if(policy) {
         NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
@@ -172,10 +172,10 @@
     }
 }
 
-- (TPPolicy* _Nullable)getTPPolicy
+- (TPSyncingPolicy* _Nullable)getTPSyncingPolicy
 {
     NSKeyedUnarchiver *coder = [[NSKeyedUnarchiver alloc] initForReadingFromData:self.syncingPolicy error:nil];
-    TPPolicy* policy = [[TPPolicy alloc] initWithCoder:coder];
+    TPSyncingPolicy* policy = [[TPSyncingPolicy alloc] initWithCoder:coder];
     [coder finishDecoding];
 
     return policy;

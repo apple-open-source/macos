@@ -290,6 +290,19 @@ static void checkURLArgument(NSURL *url)
     _configuration->setMediaKeysStorageDirectory(url.path);
 }
 
+- (NSURL *)alternativeServicesStorageDirectory
+{
+    return [NSURL fileURLWithPath:_configuration->alternativeServicesDirectory() isDirectory:YES];
+}
+
+- (void)setAlternativeServicesStorageDirectory:(NSURL *)url
+{
+    if (!_configuration->isPersistent())
+        [NSException raise:NSInvalidArgumentException format:@"Cannot set alternativeServicesDirectory on a non-persistent _WKWebsiteDataStoreConfiguration."];
+    checkURLArgument(url);
+    _configuration->setAlternativeServicesDirectory(url.path);
+}
+
 - (BOOL)deviceManagementRestrictionsEnabled
 {
     return _configuration->deviceManagementRestrictionsEnabled();
@@ -405,9 +418,39 @@ static void checkURLArgument(NSURL *url)
     _configuration->setDataConnectionServiceType(type);
 }
 
+- (BOOL)preventsSystemHTTPProxyAuthentication
+{
+    return _configuration->preventsSystemHTTPProxyAuthentication();
+}
+
+- (void)setPreventsSystemHTTPProxyAuthentication:(BOOL)prevents
+{
+    _configuration->setPreventsSystemHTTPProxyAuthentication(prevents);
+}
+
+- (BOOL)requiresSecureHTTPSProxyConnection
+{
+    return _configuration->requiresSecureHTTPSProxyConnection();
+}
+
+- (void)setRequiresSecureHTTPSProxyConnection:(BOOL)requires
+{
+    _configuration->setRequiresSecureHTTPSProxyConnection(requires);
+}
+
 - (void)setProxyConfiguration:(NSDictionary *)configuration
 {
     _configuration->setProxyConfiguration((__bridge CFDictionaryRef)[configuration copy]);
+}
+
+- (NSURL *)standaloneApplicationURL
+{
+    return _configuration->standaloneApplicationURL();
+}
+
+- (void)setStandaloneApplicationURL:(NSURL *)url
+{
+    _configuration->setStandaloneApplicationURL(url);
 }
 
 - (BOOL)allLoadsBlockedByDeviceManagementRestrictionsForTesting

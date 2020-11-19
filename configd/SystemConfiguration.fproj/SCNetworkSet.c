@@ -76,6 +76,9 @@ __SCNetworkSetCopyDescription(CFTypeRef cf)
 	if (setPrivate->name != NULL) {
 		CFStringAppendFormat(result, NULL, CFSTR(", name = %@"), setPrivate->name);
 	}
+	if (setPrivate->established) {
+		CFStringAppendFormat(result, NULL, CFSTR(", new"));
+	}
 	if (!__SCNetworkSetExists(set)) {
 		CFStringAppendFormat(result, NULL, CFSTR(", REMOVED"));
 	}
@@ -169,7 +172,7 @@ __SCNetworkSetCreatePrivate(CFAllocatorRef      allocator,
 #pragma mark -
 
 
-static int
+static CFIndex
 _serviceOrder(SCNetworkServiceRef service)
 {
 	SCNetworkInterfaceRef	interface;
@@ -216,11 +219,11 @@ _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 {
 	CFIndex			n;
 	CFMutableArrayRef	newOrder;
+	CFIndex			newSlot;
 	CFArrayRef		order;
 	CFStringRef		serviceID	= SCNetworkServiceGetServiceID(service);
 	CFIndex			serviceOrder	= _serviceOrder(service);
 	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
-	CFIndex			slot;
 
 	order = SCNetworkSetGetServiceOrder(set);
 	if (order != NULL) {
@@ -238,10 +241,10 @@ _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 		_SC_crash_once("SCNetworkSetAddService() w/service already in ServiceOrder", NULL, NULL);
 	}
 
-	slot = 0;
+	newSlot = 0;
 	n = CFArrayGetCount(newOrder);
 	for (CFIndex i = 0; i < n; i++) {
-		int			slotOrder;
+		CFIndex			slotOrder;
 		SCNetworkServiceRef	slotService;
 		CFStringRef		slotServiceID;
 
@@ -260,13 +263,13 @@ _serviceOrder_add(SCNetworkSetRef set, SCNetworkServiceRef service)
 		slotOrder = _serviceOrder(slotService);
 		if (serviceOrder >= slotOrder) {
 			// add the service *after* this one
-			slot = i + 1;
+			newSlot = i + 1;
 		}
 
 		CFRelease(slotService);
 	}
 
-	CFArrayInsertValueAtIndex(newOrder, slot, serviceID);
+	CFArrayInsertValueAtIndex(newOrder, newSlot, serviceID);
 	(void) SCNetworkSetSetServiceOrder(set, newOrder);
 	CFRelease(newOrder);
 
@@ -488,6 +491,7 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 		       service);
 		_SC_crash_once("SCNetworkSetAddService() w/removed set", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
 	}
 
 	if (!__SCNetworkServiceExists(service)) {
@@ -586,7 +590,7 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 	_serviceOrder_add(set, service);
 
 	// mark set as no longer "new"
-	setPrivate->established	= TRUE;
+	setPrivate->established = TRUE;
 
     done :
 
@@ -1168,6 +1172,7 @@ SCNetworkSetRemove(SCNetworkSetRef set)
 		SC_log(LOG_ERR, "SCNetworkSetRemove() w/removed set\n  set = %@", set);
 		_SC_crash_once("SCNetworkSetRemove() w/removed set", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
 	}
 
 #if	TARGET_OS_IPHONE
@@ -1224,6 +1229,7 @@ SCNetworkSetRemoveService(SCNetworkSetRef set, SCNetworkServiceRef service)
 		       service);
 		_SC_crash_once("SCNetworkSetRemoveService() w/removed set", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
 	}
 
 	if (!__SCNetworkServiceExists(service)) {

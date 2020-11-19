@@ -361,7 +361,7 @@ uint32_t IOHIDElementGetReportSize(IOHIDElementRef element)
 //------------------------------------------------------------------------------
 uint32_t IOHIDElementGetReportCount(IOHIDElementRef element)
 {
-    uint32_t reportCount = element->elementStructPtr->reportCount;
+    uint32_t reportCount = element->elementStructPtr->rawReportCount;
 
     if ( element->elementStructPtr->duplicateValueSize && (element->index != 0))
         reportCount = 1;

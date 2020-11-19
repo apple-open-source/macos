@@ -88,7 +88,7 @@ private:
 
     JS_EXPORT_PRIVATE void grow();
     
-#if ENABLE(GC_VALIDATION) || !ASSERT_DISABLED
+#if ENABLE(GC_VALIDATION) || ASSERT_ENABLED
     bool isLiveNode(Node*);
 #endif
 
@@ -139,14 +139,14 @@ inline void HandleSet::deallocate(HandleSlot handle)
 }
 
 inline HandleNode::HandleNode()
-    : m_prev(0)
-    , m_next(0)
+    : m_prev(nullptr)
+    , m_next(nullptr)
 {
 }
 
 inline HandleNode::HandleNode(WTF::SentinelTag)
-    : m_prev(0)
-    , m_next(0)
+    : m_prev(nullptr)
+    , m_next(nullptr)
 {
 }
 

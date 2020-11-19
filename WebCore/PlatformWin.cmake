@@ -37,21 +37,22 @@ list(APPEND WebCore_SOURCES
 
     platform/audio/PlatformMediaSessionManager.cpp
 
-    platform/graphics/GraphicsContext3DPrivate.cpp
-
     platform/graphics/egl/GLContextEGL.cpp
 
-    platform/graphics/opengl/Extensions3DOpenGLCommon.cpp
-    platform/graphics/opengl/Extensions3DOpenGLES.cpp
-    platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp
-    platform/graphics/opengl/GraphicsContext3DOpenGLES.cpp
+    platform/graphics/opengl/ExtensionsGLOpenGLCommon.cpp
+    platform/graphics/opengl/ExtensionsGLOpenGLES.cpp
+    platform/graphics/opengl/GraphicsContextGLOpenGLCommon.cpp
+    platform/graphics/opengl/GraphicsContextGLOpenGLES.cpp
+    platform/graphics/opengl/GraphicsContextGLOpenGLPrivate.cpp
     platform/graphics/opengl/TemporaryOpenGLSetting.cpp
 
     platform/graphics/opentype/OpenTypeUtilities.cpp
 
     platform/graphics/win/ColorDirect2D.cpp
     platform/graphics/win/ComplexTextControllerDirectWrite.cpp
+    platform/graphics/win/ComplexTextControllerUniscribe.cpp
     platform/graphics/win/DIBPixelData.cpp
+    platform/graphics/win/DisplayRefreshMonitorWin.cpp
     platform/graphics/win/FloatPointDirect2D.cpp
     platform/graphics/win/FloatRectDirect2D.cpp
     platform/graphics/win/FloatSizeDirect2D.cpp
@@ -69,7 +70,6 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/SimpleFontDataWin.cpp
     platform/graphics/win/TransformationMatrixDirect2D.cpp
     platform/graphics/win/TransformationMatrixWin.cpp
-    platform/graphics/win/UniscribeController.cpp
 
     platform/network/win/DownloadBundleWin.cpp
     platform/network/win/NetworkStateNotifierWin.cpp
@@ -97,7 +97,6 @@ list(APPEND WebCore_SOURCES
     platform/win/SearchPopupMenuDB.cpp
     platform/win/SearchPopupMenuWin.cpp
     platform/win/SharedBufferWin.cpp
-    platform/win/StructuredExceptionHandlerSuppressor.cpp
     platform/win/SystemInfo.cpp
     platform/win/UserAgentWin.cpp
     platform/win/WCDataObject.cpp
@@ -120,7 +119,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/win/DIBPixelData.h
     platform/graphics/win/FullScreenController.h
     platform/graphics/win/FullScreenControllerClient.h
-    platform/graphics/win/ImageBufferDataDirect2D.h
     platform/graphics/win/LocalWindowsContext.h
     platform/graphics/win/MediaPlayerPrivateFullscreenWindow.h
     platform/graphics/win/SharedGDIObject.h
@@ -201,15 +199,6 @@ else ()
         platform/generic/KeyedDecoderGeneric.cpp
         platform/generic/KeyedEncoderGeneric.cpp
     )
-endif ()
-
-if (CMAKE_SIZEOF_VOID_P EQUAL 4)
-    list(APPEND WebCore_SOURCES ${WebCore_DERIVED_SOURCES_DIR}/makesafeseh.obj)
-    add_custom_command(
-        OUTPUT ${WebCore_DERIVED_SOURCES_DIR}/makesafeseh.obj
-        DEPENDS ${WEBCORE_DIR}/platform/win/makesafeseh.asm
-        COMMAND ml /safeseh /c /Fo ${WebCore_DERIVED_SOURCES_DIR}/makesafeseh.obj ${WEBCORE_DIR}/platform/win/makesafeseh.asm
-        VERBATIM)
 endif ()
 
 if (${WTF_PLATFORM_WIN_CAIRO})

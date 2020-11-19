@@ -82,7 +82,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUFieldPositionIteratorPointer, UFieldPositionIt
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Get information for the next field in the formatted string to which this

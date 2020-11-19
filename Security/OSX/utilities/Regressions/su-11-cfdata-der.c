@@ -120,14 +120,14 @@ static void one_test(const struct test_case * thisCase)
 #endif
 
     CFDataRef decoded = NULL;
-    const uint8_t* decode_end = der_decode_data(NULL, kCFPropertyListMutableContainersAndLeaves,
+    const uint8_t* decode_end = der_decode_data(NULL,
                                                 &decoded, NULL, encoded, buffer_end);
 
     ok(decode_end == buffer_end);
     ok((decoded != NULL) && CFEqual(decoded, start));
 
     CFTypeRef decoded_type = NULL;
-    decode_end = der_decode_plist(NULL, kCFPropertyListMutableContainersAndLeaves,
+    decode_end = der_decode_plist(NULL,
                                   &decoded_type, NULL, encoded, buffer_end);
 
     ok(decode_end == buffer_end);

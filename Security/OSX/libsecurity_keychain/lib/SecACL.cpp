@@ -30,6 +30,8 @@
 
 #include "SecBridge.h"
 
+#include "LegacyAPICounts.h"
+
 // Forward reference
 /*!
 	@function GetACLAuthorizationTagFromString
@@ -89,6 +91,7 @@ OSStatus SecACLCreateWithSimpleContents(SecAccessRef access,
 										SecKeychainPromptSelector promptSelector,
 										SecACLRef *newAcl)
 {
+	COUNTLEGACYAPI
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR cdsaPromptSelector;
 	cdsaPromptSelector.version = CSSM_ACL_KEYCHAIN_PROMPT_CURRENT_VERSION;
 	cdsaPromptSelector.flags = promptSelector;
@@ -156,6 +159,7 @@ OSStatus SecACLCopyContents(SecACLRef acl,
 							CFStringRef *description, 
 							SecKeychainPromptSelector *promptSelector)
 {
+	COUNTLEGACYAPI
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR cdsaPromptSelector;
 	memset(&cdsaPromptSelector, 0, sizeof(cdsaPromptSelector));
 	OSStatus err = errSecSuccess;
@@ -208,6 +212,7 @@ OSStatus SecACLSetContents(SecACLRef acl,
 						   CFStringRef description, 
 						   SecKeychainPromptSelector promptSelector)
 {
+	COUNTLEGACYAPI
 	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR cdsaPromptSelector;
 	cdsaPromptSelector.version = CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION;
 	cdsaPromptSelector.flags = promptSelector;
@@ -248,6 +253,7 @@ OSStatus SecACLGetAuthorizations(SecACLRef acl,
 
 CFArrayRef SecACLCopyAuthorizations(SecACLRef acl)
 {
+	COUNTLEGACYAPI
 	CFArrayRef result = NULL;
 	if (NULL == acl)
 	{
@@ -310,6 +316,7 @@ OSStatus SecACLSetAuthorizations(SecACLRef aclRef,
 
 OSStatus SecACLUpdateAuthorizations(SecACLRef acl, CFArrayRef authorizations)
 {
+	COUNTLEGACYAPI
 	if (NULL == acl || NULL == authorizations)
 	{
 		return errSecParam;

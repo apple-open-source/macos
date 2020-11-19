@@ -243,7 +243,7 @@ public:
 	void *data() const					{ return get().data(); }
 	size_t length() const				{ return get().length(); }
 	
-	virtual CssmData &get() const throw() = 0; // get shared copy, no ownership change
+	virtual CssmData &get() const _NOEXCEPT = 0; // get shared copy, no ownership change
 	virtual CssmData release() = 0;		// give up copy, ownership is transferred
 	virtual void reset() = 0;			// give up copy, data is discarded
 };
@@ -372,7 +372,7 @@ public:
 	void operator = (CssmOwnedData &source) { set(source); }
 	void operator = (const CSSM_DATA &source) { copy(source); }
 	
-	CssmData &get() const throw();
+	CssmData &get() const _NOEXCEPT;
 	
 public:
 	void fromOid(const char *oid);		// fill from text OID form (1.2.3...)

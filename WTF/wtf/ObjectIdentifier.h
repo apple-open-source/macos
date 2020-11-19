@@ -44,12 +44,19 @@ template<typename T> class ObjectIdentifier : private ObjectIdentifierBase {
 public:
     static ObjectIdentifier generate()
     {
+        RELEASE_ASSERT(!m_generationProtected);
         return ObjectIdentifier { generateIdentifierInternal() };
     }
 
     static ObjectIdentifier generateThreadSafe()
     {
+        RELEASE_ASSERT(!m_generationProtected);
         return ObjectIdentifier { generateThreadSafeIdentifierInternal() };
+    }
+
+    static void enableGenerationProtection()
+    {
+        m_generationProtected = true;
     }
 
     ObjectIdentifier() = default;
@@ -62,6 +69,7 @@ public:
         ASSERT(isValidIdentifier(m_identifier));
         encoder << m_identifier;
     }
+
     template<typename Decoder> static Optional<ObjectIdentifier> decode(Decoder& decoder)
     {
         Optional<uint64_t> identifier;
@@ -115,6 +123,7 @@ private:
     }
 
     uint64_t m_identifier { 0 };
+    inline static bool m_generationProtected { false };
 };
 
 template<typename T> inline ObjectIdentifier<T> makeObjectIdentifier(uint64_t identifier)
@@ -130,9 +139,7 @@ template<typename T> struct ObjectIdentifierHash {
 
 template<typename T> struct HashTraits<ObjectIdentifier<T>> : SimpleClassHashTraits<ObjectIdentifier<T>> { };
 
-template<typename T> struct DefaultHash<ObjectIdentifier<T>> {
-    typedef ObjectIdentifierHash<T> Hash;
-};
+template<typename T> struct DefaultHash<ObjectIdentifier<T>> : ObjectIdentifierHash<T> { };
 
 template<typename T>
 TextStream& operator<<(TextStream& ts, const ObjectIdentifier<T>& identifier)

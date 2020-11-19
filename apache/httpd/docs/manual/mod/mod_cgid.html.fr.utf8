@@ -87,13 +87,12 @@ utilisateurs différents</a></li>
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Durée maximale d'attente de la prochaine sortie du
 programme CGI</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>CGIDScriptTimeout <var>time</var>[s|ms]</code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>Valeur de la directive <code class="directive"><a href="../mod/core.html#timeout">Timeout</a></code></code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>Si non définie ou définie à 0, valeur de la directive <code class="directive"><a href="../mod/core.html#timeout">Timeout</a></code></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>configuration globale, serveur virtuel, répertoire, .htaccess</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_cgid</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>La valeur de CGIDScriptTimeout est 0 dans les versions
-2.4 et antérieures
-</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibilité:</a></th><td>Disponible à partir de la version 2.4.10 du serveur HTTP Apache ;
+dans les versions précédentes, aucune durée d'attente n'était définie</td></tr>
 </table>
     <p>Cette directive permet de limiter la durée d'attente avant les prochaines données
     reçues en sortie du programme CGI. Si ce temps est dépassé, la requête et le
@@ -138,7 +137,7 @@ communiquer avec le démon CGI</td></tr>
 <a href="../fr/mod/mod_cgid.html" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_cgid.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_cgid.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_cgid.html';
@@ -156,7 +155,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_cgid.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

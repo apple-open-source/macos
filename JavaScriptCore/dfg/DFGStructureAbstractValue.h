@@ -90,10 +90,10 @@ public:
         m_set.m_pointer = topValue;
     }
     
-#if ASSERT_DISABLED
-    void assertIsRegistered(Graph&) const { }
-#else
+#if ASSERT_ENABLED
     void assertIsRegistered(Graph&) const;
+#else
+    void assertIsRegistered(Graph&) const { }
 #endif
     
     void clobber();
@@ -247,6 +247,7 @@ public:
     bool overlaps(const StructureAbstractValue& other) const;
 
     bool isSubClassOf(const ClassInfo*) const;
+    bool isNotSubClassOf(const ClassInfo*) const;
     
     void validateReferences(const TrackedReferences&) const;
     

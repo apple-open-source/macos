@@ -31,8 +31,7 @@
 #import "keychain/ckks/CKKSControl.h"
 #import "keychain/ckks/CKKSControlProtocol.h"
 #import "keychain/ckks/CKKSControlServer.h"
-
-#include <security_utilities/debugging.h>
+#import "utilities/debugging.h"
 
 @interface CKKSControl ()
 @property (readwrite,assign) BOOL synchronous;
@@ -47,6 +46,10 @@
         _connection = connection;
     }
     return self;
+}
+
+- (void)dealloc {
+    [self.connection invalidate];
 }
 
 - (id<CKKSControlProtocol>)objectProxyWithErrorHandler:(void(^)(NSError * _Nonnull error))failureHandler
@@ -78,6 +81,7 @@
 
 
 - (void)rpcResetLocal:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+    secnotice("ckkscontrol", "Requesting a local reset for view %@", viewName);
     [[self objectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
     }] rpcResetLocal:viewName reply:^(NSError* error){
@@ -86,6 +90,7 @@
 }
 
 - (void)rpcResetCloudKit:(NSString*)viewName reason:(NSString *)reason reply:(void(^)(NSError* error))reply {
+    secnotice("ckkscontrol", "Requesting a CloudKit reset for view %@", viewName);
     [[self objectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
     }] rpcResetCloudKit:viewName reason:reason reply:^(NSError* error){
@@ -93,8 +98,17 @@
     }];
 }
 
-
+- (void)rpcResyncLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply
+{
+    secnotice("ckkscontrol", "Requesting a local resync for view %@", viewName);
+    [[self objectProxyWithErrorHandler:^(NSError* error) {
+        reply(error);
+    }] rpcResyncLocal:viewName reply:^(NSError* error){
+        reply(error);
+    }];
+}
 - (void)rpcResync:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+    secnotice("ckkscontrol", "Requesting a resync for view %@", viewName);
     [[self objectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
     }] rpcResync:viewName reply:^(NSError* error){
@@ -102,6 +116,7 @@
     }];
 }
 - (void)rpcFetchAndProcessChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+    secnotice("ckkscontrol", "Requesting a fetch for view %@", viewName);
     [[self objectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
     }] rpcFetchAndProcessChanges:viewName reply:^(NSError* error){
@@ -109,6 +124,7 @@
     }];
 }
 - (void)rpcFetchAndProcessClassAChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+    secnotice("ckkscontrol", "Requesting a fetch(classA) for view %@", viewName);
     [[self objectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
     }] rpcFetchAndProcessClassAChanges:viewName reply:^(NSError* error){
@@ -116,6 +132,7 @@
     }];
 }
 - (void)rpcPushOutgoingChanges:(NSString*)viewName reply:(void(^)(NSError* error))reply {
+    secnotice("ckkscontrol", "Requesting a push for view %@", viewName);
     [[self objectProxyWithErrorHandler:^(NSError* error) {
         reply(error);
     }] rpcPushOutgoingChanges:viewName reply:^(NSError* error){
@@ -174,6 +191,7 @@
         bool tlkMissing = false;
         bool waitForUnlock = false;
         bool waitForOctagon = false;
+        bool noAccount = false;
 
         CKKSKnownBadState response = CKKSKnownStatePossiblyGood;
 
@@ -194,15 +212,21 @@
             }
 
             if([keystate isEqualToString:@"waitfortlkcreation"] ||
-               [keystate isEqualToString:@"waitfortlkupload"]) {
+               [keystate isEqualToString:@"waitfortlkupload"] ||
+               [keystate isEqualToString:@"waitfortrust"]) {
                 waitForOctagon = true;
+            }
+
+            if([keystate isEqualToString:@"loggedout"]) {
+                noAccount = true;
             }
         }
 
-        response = (tlkMissing ? CKKSKnownStateTLKsMissing :
-                   (waitForUnlock ? CKKSKnownStateWaitForUnlock :
-                    (waitForOctagon ? CKKSKnownStateWaitForOctagon :
-                    CKKSKnownStatePossiblyGood)));
+        response = (noAccount ? CKKSKnownStateNoCloudKitAccount :
+                    (tlkMissing ? CKKSKnownStateTLKsMissing :
+                     (waitForUnlock ? CKKSKnownStateWaitForUnlock :
+                      (waitForOctagon ? CKKSKnownStateWaitForOctagon :
+                       CKKSKnownStatePossiblyGood))));
 
         reply(response);
     }];

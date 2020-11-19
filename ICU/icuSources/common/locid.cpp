@@ -62,10 +62,7 @@ static Locale   *gLocaleCache = NULL;
 static UInitOnce gLocaleCacheInitOnce = U_INITONCE_INITIALIZER;
 
 // gDefaultLocaleMutex protects all access to gDefaultLocalesHashT and gDefaultLocale.
-static UMutex *gDefaultLocaleMutex() {
-    static UMutex *m = STATIC_NEW(UMutex);
-    return m;
-}
+static UMutex gDefaultLocaleMutex;
 static UHashtable *gDefaultLocalesHashT = NULL;
 static Locale *gDefaultLocale = NULL;
 
@@ -174,7 +171,7 @@ U_NAMESPACE_BEGIN
 
 Locale *locale_set_default_internal(const char *id, UErrorCode& status) {
     // Synchronize this entire function.
-    Mutex lock(gDefaultLocaleMutex());
+    Mutex lock(&gDefaultLocaleMutex);
 
     UBool canonicalize = FALSE;
 
@@ -711,7 +708,7 @@ const Locale& U_EXPORT2
 Locale::getDefault()
 {
     {
-        Mutex lock(gDefaultLocaleMutex());
+        Mutex lock(&gDefaultLocaleMutex);
         if (gDefaultLocale != NULL) {
             return *gDefaultLocale;
         }
@@ -1343,7 +1340,31 @@ Locale::getUnicodeKeywordValue(StringPiece keywordName,
 void
 Locale::setKeywordValue(const char* keywordName, const char* keywordValue, UErrorCode &status)
 {
-    uloc_setKeywordValue(keywordName, keywordValue, fullName, ULOC_FULLNAME_CAPACITY, &status);
+    if (U_FAILURE(status)) {
+        return;
+    }
+    int32_t bufferLength = uprv_max((int32_t)(uprv_strlen(fullName) + 1), ULOC_FULLNAME_CAPACITY);
+    int32_t newLength = uloc_setKeywordValue(keywordName, keywordValue, fullName,
+                                             bufferLength, &status) + 1;
+    /* Handle the case the current buffer is not enough to hold the new id */
+    if (status == U_BUFFER_OVERFLOW_ERROR) {
+        U_ASSERT(newLength > bufferLength);
+        char* newFullName = (char *)uprv_malloc(newLength);
+        if (newFullName == nullptr) {
+            status = U_MEMORY_ALLOCATION_ERROR;
+            return;
+        }
+        uprv_strcpy(newFullName, fullName);
+        if (fullName != fullNameBuffer) {
+            // if full Name is already on the heap, need to free it.
+            uprv_free(fullName);
+        }
+        fullName = newFullName;
+        status = U_ZERO_ERROR;
+        uloc_setKeywordValue(keywordName, keywordValue, fullName, newLength, &status);
+    } else {
+        U_ASSERT(newLength <= bufferLength);
+    }
     if (U_SUCCESS(status) && baseName == fullName) {
         // May have added the first keyword, meaning that the fullName is no longer also the baseName.
         initBaseName(status);
@@ -1398,6 +1419,8 @@ const char *
 Locale::getBaseName() const {
     return baseName;
 }
+
+Locale::Iterator::~Iterator() = default;
 
 //eof
 U_NAMESPACE_END

@@ -53,6 +53,8 @@
 
 #include "SecdTestKeychainUtilities.h"
 
+#if SOS_ENABLED
+
 static int kTestTestCount = 257;
 
 static void tests(void)
@@ -325,7 +327,7 @@ static void tests(void)
                                                          carol_account.peerInfo,
                                                          NULL);
 
-    ok(SOSAccountRemovePeersFromCircle(bob_account, peers_to_remove_array, nil, NULL));
+    ok(SOSAccountRemovePeersFromCircle(bob_account, peers_to_remove_array, NULL));
 
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, carol_account, NULL), 4, "Remove peers");
 
@@ -343,14 +345,16 @@ static void tests(void)
     
     SOSTestCleanup();
 }
+#endif
 
 int secd_55_account_circle(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

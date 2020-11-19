@@ -57,7 +57,7 @@ extension Container {
 
         // Once we run this upgrade, we will set the allowed bool to false, since it's unused.
         // Therefore, if we have a single record with "allowed" set, we haven't run the upgrade.
-        let runUpgrade = !knownMachineMOs.filter { $0.allowed }.isEmpty
+        let runUpgrade = knownMachineMOs.contains { $0.allowed }
         if runUpgrade {
             knownMachineMOs.forEach { mo in
                 if mo.allowed {
@@ -132,7 +132,6 @@ extension Container {
                                 machine.modified = Date()
                                 os_log("Newly distrusted machine ID: %{public}@", log: tplogDebug, type: .default, String(describing: machine.machineID))
                                 differences = true
-
                             } else {
                                 if machine.modifiedInPast(hours: cutoffHours) {
                                     os_log("Allowed-but-unseen machine ID isn't on full list, last modified %{public}@, ignoring: %{public}@", log: tplogDebug, type: .default, machine.modifiedDate(), String(describing: machine.machineID))
@@ -143,7 +142,6 @@ extension Container {
                                     differences = true
                                 }
                             }
-
                         } else if machine.status == TPMachineIDStatus.unknown.rawValue {
                             if machine.modifiedInPast(hours: cutoffHours) {
                                 os_log("Unknown machine ID last modified %{public}@; leaving unknown: %{public}@", log: tplogDebug, type: .default, machine.modifiedDate(), String(describing: machine.machineID))
@@ -235,7 +233,6 @@ extension Container {
                                 os_log("Continue to trust machine ID: %{public}@", log: tplogDebug, type: .default, String(describing: machine.machineID))
                             }
                         }
-
                     } else {
                         let machine = MachineMO(context: self.moc)
                         machine.machineID = machineID
@@ -285,7 +282,6 @@ extension Container {
                                 os_log("Now suspicious of machine ID: %{public}@", log: tplogDebug, type: .default, String(describing: machine.machineID))
                             }
                         }
-
                     } else {
                         let machine = MachineMO(context: self.moc)
                         machine.machineID = machineID

@@ -33,6 +33,7 @@
 #import "WKConnectionInternal.h"
 #import "WKContentRuleListInternal.h"
 #import "WKContentRuleListStoreInternal.h"
+#import "WKContentWorldInternal.h"
 #import "WKContextMenuElementInfoInternal.h"
 #import "WKFrameInfoInternal.h"
 #import "WKHTTPCookieStoreInternal.h"
@@ -75,18 +76,21 @@
 #import "_WKDownloadInternal.h"
 #import "_WKExperimentalFeatureInternal.h"
 #import "_WKFrameHandleInternal.h"
+#import "_WKFrameTreeNodeInternal.h"
 #import "_WKGeolocationPositionInternal.h"
 #import "_WKHitTestResultInternal.h"
 #import "_WKInspectorDebuggableInfoInternal.h"
 #import "_WKInspectorInternal.h"
 #import "_WKInternalDebugFeatureInternal.h"
 #import "_WKProcessPoolConfigurationInternal.h"
+#import "_WKResourceLoadInfoInternal.h"
 #import "_WKResourceLoadStatisticsFirstPartyInternal.h"
 #import "_WKResourceLoadStatisticsThirdPartyInternal.h"
 #import "_WKUserContentWorldInternal.h"
 #import "_WKUserInitiatedActionInternal.h"
 #import "_WKUserStyleSheetInternal.h"
 #import "_WKVisitedLinkStoreInternal.h"
+#import "_WKWebAuthenticationAssertionResponseInternal.h"
 #import "_WKWebAuthenticationPanelInternal.h"
 #import "_WKWebsiteDataStoreConfigurationInternal.h"
 
@@ -150,7 +154,7 @@ void* Object::newObject(size_t size, Type type)
 
     case Type::AuthenticationChallenge:
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        wrapper = allocateWKObject([WKNSURLAuthenticationChallenge self], size);
+        wrapper = allocateWKObject([WKNSURLAuthenticationChallenge class], size);
         ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
@@ -186,7 +190,7 @@ void* Object::newObject(size_t size, Type type)
         // While not actually a WKObject instance, WKConnection uses allocateWKObject to allocate extra space
         // instead of using ObjectStorage because the wrapped C++ object is a subclass of WebConnection.
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        wrapper = allocateWKObject([WKConnection self], size);
+        wrapper = allocateWKObject([WKConnection class], size);
         ALLOW_DEPRECATED_DECLARATIONS_END
         break;
 
@@ -227,7 +231,7 @@ void* Object::newObject(size_t size, Type type)
         break;
 
     case Type::Error:
-        wrapper = allocateWKObject([WKNSError self], size);
+        wrapper = allocateWKObject([WKNSError class], size);
         break;
 
     case Type::FrameHandle:
@@ -238,6 +242,9 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [WKFrameInfo alloc];
         break;
 
+    case Type::FrameTreeNode:
+        wrapper = [_WKFrameTreeNode alloc];
+        break;
 #if PLATFORM(IOS_FAMILY)
     case Type::GeolocationPosition:
         wrapper = [_WKGeolocationPosition alloc];
@@ -291,15 +298,15 @@ void* Object::newObject(size_t size, Type type)
         break;
 
     case Type::String:
-        wrapper = allocateWKObject([WKNSString self], size);
+        wrapper = allocateWKObject([WKNSString class], size);
         break;
 
     case Type::URL:
-        wrapper = allocateWKObject([WKNSURL self], size);
+        wrapper = allocateWKObject([WKNSURL class], size);
         break;
 
     case Type::URLRequest:
-        wrapper = allocateWKObject([WKNSURLRequest self], size);
+        wrapper = allocateWKObject([WKNSURLRequest class], size);
         break;
 
     case Type::URLSchemeTask:
@@ -332,6 +339,10 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [_WKCustomHeaderFields alloc];
         break;
 
+    case Type::ResourceLoadInfo:
+        wrapper = [_WKResourceLoadInfo alloc];
+        break;
+            
     case Type::ResourceLoadStatisticsFirstParty:
         wrapper = [_WKResourceLoadStatisticsFirstParty alloc];
         break;
@@ -340,8 +351,8 @@ void* Object::newObject(size_t size, Type type)
         wrapper = [_WKResourceLoadStatisticsThirdParty alloc];
         break;
 
-    case Type::UserContentWorld:
-        wrapper = [_WKUserContentWorld alloc];
+    case Type::ContentWorld:
+        wrapper = [WKContentWorld alloc];
         break;
 
     case Type::UserInitiatedAction:
@@ -384,6 +395,9 @@ void* Object::newObject(size_t size, Type type)
     case Type::WebAuthenticationPanel:
         wrapper = [_WKWebAuthenticationPanel alloc];
         break;
+    case Type::WebAuthenticationAssertionResponse:
+        wrapper = [_WKWebAuthenticationAssertionResponse alloc];
+        break;
 #endif
 
     case Type::BundleFrame:
@@ -411,7 +425,7 @@ void* Object::newObject(size_t size, Type type)
         break;
 
     default:
-        wrapper = allocateWKObject([WKObject self], size);
+        wrapper = allocateWKObject([WKObject class], size);
         break;
     }
 

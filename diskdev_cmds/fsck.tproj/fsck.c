@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -259,9 +259,9 @@ int main (int argc, char** argv) {
 				assume_no = 0;
 				break;
 
-            case 'L':
-                live_check = 1;
-                break;
+			case 'L':
+				live_check = 1;
+				break;
 
 			default:
 				errx(EEXIT, "%c option?", ch);
@@ -311,53 +311,56 @@ int main (int argc, char** argv) {
 }
 
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#include <APFS/APFSConstants.h> // EDT_OS_ENV_MAIN
+
 static int check_boot_container(void)
 {
-    int error = 0;
-    uint32_t os_env = 0;
-    const char *boot_container = get_boot_container(&os_env);
-    char *rcontainer = NULL;
-    char *container = NULL;
+	int error = 0;
+	uint32_t os_env = 0;
+	const char *boot_container = get_boot_container(&os_env);
+	char *rcontainer = NULL;
+	char *container = NULL;
 
-    if (os_env != EDT_OS_ENV_MAIN) {
-        fprintf(stdout, "fsck: not booting main OS. Skipping fsck on OS container\n");
-        return (0);
-    }
+	if ((os_env != EDT_OS_ENV_MAIN) &&
+		(os_env != EDT_OS_ENV_DIAGS)) {
+		fprintf(stdout, "fsck: not booting main or diagnostic OS. Skipping fsck on OS container\n");
+		return (0);
+	}
 
-    if (!boot_container) {
-        fprintf(stderr, "fsck: failed to get boot container\n");
-        return (EEXIT);
-    }
+	if (!boot_container) {
+		fprintf(stderr, "fsck: failed to get boot container\n");
+		return (EEXIT);
+	}
 
-    /* get a non-const copy */
-    container = strdup(boot_container);
-    if (!container) {
-        fprintf(stderr, "fsck: failed to copy boot container\n");
-        return (EEXIT);
-    }
+	/* get a non-const copy */
+	container = strdup(boot_container);
+	if (!container) {
+		fprintf(stderr, "fsck: failed to copy boot container\n");
+		return (EEXIT);
+	}
 
-    /* Take the special device name, and do some cursory checks */
-    if ((rcontainer = blockcheck(container)) != 0) {
-        /* Construct a temporary disk_t for checkfilesys */
-        disk_t disk;
-        part_t part;
+	/* Take the special device name, and do some cursory checks */
+	if ((rcontainer = blockcheck(container)) != 0) {
+		/* Construct a temporary disk_t for checkfilesys */
+		disk_t disk;
+		part_t part;
 
-        disk.name = NULL;
-        disk.next = NULL;
-        disk.part = &part;
-        disk.pid = 0;
+		disk.name = NULL;
+		disk.next = NULL;
+		disk.part = &part;
+		disk.pid = 0;
 
-        part.next = NULL;
-        part.name = rcontainer;
-        part.vfstype = "apfs";
+		part.next = NULL;
+		part.name = rcontainer;
+		part.vfstype = "apfs";
 
-        /* Run the filesystem check against the filesystem in question */
-        error = checkfilesys(&disk, 0);
-    }
+		/* Run the filesystem check against the filesystem in question */
+		error = checkfilesys(&disk, 0);
+	}
 
-    free(container);
+	free(container);
 
-    return (error);
+	return (error);
 }
 #endif
 
@@ -372,23 +375,23 @@ int checkfstab(void) {
 	int running_status = 0;
 	int ret;
 
-    /*
-     * fsck boot-task (fsck -q):
-     *      iOS - fsck_apfs -q will quick-check the container and volumes.
-     *          So no need to obtain and check the fstab entries from EDT,
-     *          just check the container.
-     *      OSX - See comment in build_disklist(). In short - during early boot
-     *          getfsent() will only return a synthetic entry for the root volume ("/")
-     *          and additional fstab entries. An invalid entry will fail boot.
-     *          To avoid this we require passing the "-R 1" flag to only check
-     *          the root volume, which per fsck_apfs behaviour will quick-check the container and
-     *          the root volume. We dont need to check the other volumes for boot
-     *          (except perhaps for the VM and Data volumes but those are mounted earlier anyway).
-     */
+	/*
+	 * fsck boot-task (fsck -q):
+	 *      iOS - fsck_apfs -q will quick-check the container and volumes.
+	 *          So no need to obtain and check the fstab entries from EDT,
+	 *          just check the container.
+	 *      OSX - See comment in build_disklist(). In short - during early boot
+	 *          getfsent() will only return a synthetic entry for the root volume ("/")
+	 *          and additional fstab entries. An invalid entry will fail boot.
+	 *          To avoid this we require passing the "-R 1" flag to only check
+	 *          the root volume, which per fsck_apfs behaviour will quick-check the container and
+	 *          the root volume. We dont need to check the other volumes for boot
+	 *          (except perhaps for the VM and Data volumes but those are mounted earlier anyway).
+	 */
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-    if (quick_check && (requested_passno == 0)) {
-        return check_boot_container();
-    }
+	if (quick_check && (requested_passno == 0)) {
+		return check_boot_container();
+	}
 #endif
 
 	ret = build_disklist ();	
@@ -422,7 +425,7 @@ int checkfstab(void) {
 		return (running_status);
 	}
 	
-	end_fsent();
+	endfsent();
 	return (0);
 	
 }
@@ -478,12 +481,12 @@ int build_disklist(void) {
 
 	for (passno = starting_passno; passno <= ending_passno; passno++) {
 		/* Open or reset the fstab entry */
-		if (setup_fsent() == 0) {
+		if (setfsent() == 0) {
 			fprintf(stderr, "Can't get filesystem checklist: %s\n", strerror(errno));
 			return EEXIT;
 		}
 		/* Iterate through the fs entries returned from fstab */
-		while ((fsp = get_fsent()) != 0) {
+		while ((fsp = getfsent()) != 0) {
 			/* 
 			 * Determine if the filesystem is worth checking. Ignore it if it
 			 * is not checkable. 

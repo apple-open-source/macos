@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if PLATFORM(IOS_FAMILY) && HAVE(AVKIT)
+#if PLATFORM(COCOA) && HAVE(AVKIT)
 
 #import <pal/spi/cocoa/AVKitSPI.h>
 
@@ -36,12 +36,14 @@ class PlaybackSessionInterfaceAVKit;
 @property (retain) NSString *localizedDisplayName;
 @end
 
-@interface WebAVPlayerController : NSObject {
+WEBCORE_EXPORT @interface WebAVPlayerController : NSObject {
     WebAVMediaSelectionOption *_currentAudioMediaSelectionOption;
     WebAVMediaSelectionOption *_currentLegibleMediaSelectionOption;
     BOOL _pictureInPictureInterrupted;
     BOOL _muted;
 }
+
+- (void)setAllowsPictureInPicture:(BOOL)allowsPictureInPicture;
 
 @property (retain) AVPlayerController* playerControllerProxy;
 @property (assign) WebCore::PlaybackSessionModel* delegate;
@@ -52,6 +54,9 @@ class PlaybackSessionInterfaceAVKit;
 @property (readonly) BOOL canSeekToBeginning;
 @property (readonly) BOOL canSeekToEnd;
 @property (readonly) BOOL isScrubbing;
+@property (readonly) BOOL canSeekFrameBackward;
+@property (readonly) BOOL canSeekFrameForward;
+@property (readonly) BOOL hasContentChapters;
 
 @property BOOL canPlay;
 @property (getter=isPlaying) BOOL playing;
@@ -89,7 +94,7 @@ class PlaybackSessionInterfaceAVKit;
 @property AVPlayerControllerExternalPlaybackType externalPlaybackType;
 @property (retain) NSString *externalPlaybackAirPlayDeviceLocalizedName;
 @property BOOL allowsExternalPlayback;
-@property (getter=isPictureInPicturePossible) BOOL pictureInPicturePossible;
+@property (readonly, getter=isPictureInPicturePossible) BOOL pictureInPicturePossible;
 @property (getter=isPictureInPictureInterrupted) BOOL pictureInPictureInterrupted;
 
 @property NSTimeInterval seekableTimeRangesLastModifiedTime;
@@ -100,4 +105,3 @@ class PlaybackSessionInterfaceAVKit;
 @end
 
 #endif
-

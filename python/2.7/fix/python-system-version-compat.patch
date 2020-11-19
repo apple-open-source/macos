@@ -1,0 +1,43 @@
+diff --git a/Mac/Tools/pythonw.c b/Mac/Tools/pythonw.c
+index 3a4dc84..27bc53a 100644
+--- a/Mac/Tools/pythonw.c
++++ b/Mac/Tools/pythonw.c
+@@ -151,6 +151,12 @@ int
+ main(int argc, char **argv) {
+     char* exec_path = get_python_path();
+ 
++    if (getenv("SYSTEM_VERSION_COMPAT") == NULL) {
++        setenv("SYSTEM_VERSION_COMPAT", "1", 1);
++        setenv("PYTHON_UNSET_SYSTEM_VERSION_COMPAT", "1", 1);
++    }
++    setenv("PYTHON_LAUNCHED_FROM_WRAPPER", "1", 1);
++
+     /*
+      * Let argv[0] refer to the new interpreter. This is needed to
+      * get the effect we want on OSX 10.5 or earlier. That is, without
+diff --git a/Modules/python.c b/Modules/python.c
+index 968173e..836cb55 100644
+--- a/Modules/python.c
++++ b/Modules/python.c
+@@ -167,6 +167,21 @@ main(int argc, char **argv)
+ #endif
+ 	setenv("VERSIONER_PYTHON_VERSION", "2.7", 1);
+ #ifdef __APPLE__                                         
++	if (getenv("PYTHON_LAUNCHED_FROM_WRAPPER") == NULL) {
++		if (getenv("SYSTEM_VERSION_COMPAT") == NULL) {
++			setenv("SYSTEM_VERSION_COMPAT", "1", 1);
++			setenv("PYTHON_UNSET_SYSTEM_VERSION_COMPAT", "1", 1);
++		}
++		setenv("PYTHON_LAUNCHED_FROM_WRAPPER", "1", 1);
++		execvp(argv[0], argv);
++		err(1, "execv: %s", argv[0]);
++	}
++
++	unsetenv("PYTHON_LAUNCHED_FROM_WRAPPER");
++	if (getenv("PYTHON_UNSET_SYSTEM_VERSION_COMPAT")) {
++	    unsetenv("PYTHON_UNSET_SYSTEM_VERSION_COMPAT");
++	    unsetenv("SYSTEM_VERSION_COMPAT");
++	}
+ 	mt_log_BSDServices_ScriptingLanguageUse("python");
+ #endif
+ 

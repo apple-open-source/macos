@@ -34,9 +34,19 @@
 #include <sys/csr.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOCFUnserialize.h>
+#include <libDER/oids.h>
 #include "csutilities.h"
 #include "notarization.h"
 #include "legacydevid.h"
+
+#define WAITING_FOR_LIB_AMFI_INTERFACE 1
+
+#if WAITING_FOR_LIB_AMFI_INTERFACE
+#define __mac_syscall __sandbox_ms
+#include <security/mac.h>
+
+#define AMFI_INTF_CD_HASH_LEN 20
+#endif
 
 namespace Security {
 namespace CodeSigning {
@@ -242,7 +252,6 @@ bool Requirement::Interpreter::entitlementValue(const string &key, const Match &
 
 bool Requirement::Interpreter::certFieldValue(const string &key, const Match &match, SecCertificateRef cert)
 {
-// XXX: Not supported on embedded yet due to lack of supporting API
 #if TARGET_OS_OSX
 	// no cert, no chance
 	if (cert == NULL)
@@ -251,32 +260,31 @@ bool Requirement::Interpreter::certFieldValue(const string &key, const Match &ma
 	// a table of recognized keys for the "certificate[foo]" syntax
 	static const struct CertField {
 		const char *name;
-		const CSSM_OID *oid;
+		const DERItem *oid;
 	} certFields[] = {
-		{ "subject.C", &CSSMOID_CountryName },
-		{ "subject.CN", &CSSMOID_CommonName },
-		{ "subject.D", &CSSMOID_Description },
-		{ "subject.L", &CSSMOID_LocalityName },
+		{ "subject.C", &oidCountryName},
+		{ "subject.CN", &oidCommonName },
+		{ "subject.D", &oidDescription },
+		{ "subject.L", &oidLocalityName },
 //		{ "subject.C-L", &CSSMOID_CollectiveLocalityName },	// missing from Security.framework headers
-		{ "subject.O", &CSSMOID_OrganizationName },
-		{ "subject.C-O", &CSSMOID_CollectiveOrganizationName },
-		{ "subject.OU", &CSSMOID_OrganizationalUnitName },
-		{ "subject.C-OU", &CSSMOID_CollectiveOrganizationalUnitName },
-		{ "subject.ST", &CSSMOID_StateProvinceName },
-		{ "subject.C-ST", &CSSMOID_CollectiveStateProvinceName },
-		{ "subject.STREET", &CSSMOID_StreetAddress },
-		{ "subject.C-STREET", &CSSMOID_CollectiveStreetAddress },
-		{ "subject.UID", &CSSMOID_UserID },
+		{ "subject.O", &oidOrganizationName },
+		{ "subject.C-O", &oidCollectiveOrganizationName },
+		{ "subject.OU", &oidOrganizationalUnitName},
+		{ "subject.C-OU", &oidCollectiveOrganizationalUnitName},
+		{ "subject.ST", &oidStateOrProvinceName},
+		{ "subject.C-ST", &oidCollectiveStateOrProvinceName },
+		{ "subject.STREET", &oidStreetAddress },
+		{ "subject.C-STREET", &oidCollectiveStreetAddress },
+		{ "subject.UID", &oidUserId },
 		{ NULL, NULL }
 	};
 
 	// DN-component single-value match
 	for (const CertField *cf = certFields; cf->name; cf++)
 		if (cf->name == key) {
-			CFRef<CFStringRef> value;
-            OSStatus rc = SecCertificateCopySubjectComponent(cert, cf->oid, &value.aref());
-			if (rc) {
-				secinfo("csinterp", "cert %p lookup for DN.%s failed rc=%d", cert, key.c_str(), (int)rc);
+			CFRef<CFStringRef> value(SecCertificateCopySubjectAttributeValue(cert, (DERItem *)cf->oid));
+			if (!value.get()) {
+				secinfo("csinterp", "cert %p lookup for DN.%s failed", cert, key.c_str());
 				return false;
 			}
 			return match(value);
@@ -403,14 +411,15 @@ CFArrayRef Requirement::Interpreter::getAdditionalTrustedAnchors()
 
 bool Requirement::Interpreter::appleLocalAnchored()
 {
-    static CFArrayRef additionalTrustedCertificates = NULL;
+	static CFArrayRef additionalTrustedCertificates = NULL;
 
-    if (csr_check(CSR_ALLOW_APPLE_INTERNAL))
+    if (csr_check(CSR_ALLOW_APPLE_INTERNAL)) {
         return false;
+    }
 
-	if (mContext->forcePlatform) {
-		return true;
-	}
+    if (mContext->forcePlatform) {
+        return true;
+    }
 
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
@@ -430,18 +439,76 @@ bool Requirement::Interpreter::appleLocalAnchored()
     return false;
 }
 
+#if WAITING_FOR_LIB_AMFI_INTERFACE
+// These bits are here until we get get a new build alias for libamfi-interface.
+
+#define MAC_AMFI_POLICY_NAME "AMFI"
+
+#define AMFI_SYSCALL_CDHASH_IN_TRUSTCACHE  95
+
+typedef struct amfi_cdhash_in_trustcache_ {
+    uint8_t cdhash[20];
+    uint64_t result;
+} amfi_cdhash_in_trustcache_t;
+
+static int
+__amfi_interface_cdhash_in_trustcache(const uint8_t cdhash[], uint64_t* trustcache_result)
+{
+    amfi_cdhash_in_trustcache_t args;
+    static_assert(AMFI_INTF_CD_HASH_LEN == sizeof(args.cdhash), "Error: cdhash length mismatch");
+    int err;
+    memcpy(args.cdhash, cdhash, sizeof(args.cdhash));
+    args.result = 0;
+    err = __mac_syscall(MAC_AMFI_POLICY_NAME, AMFI_SYSCALL_CDHASH_IN_TRUSTCACHE, &args);
+    if (err) {
+        err = errno;
+    }
+    *trustcache_result = args.result;
+    return err;
+}
+
+static int
+amfi_interface_cdhash_in_trustcache(const uint8_t cdhash[], size_t cdhash_len, uint64_t* trustcache_result)
+{
+    int err = EINVAL;
+
+    if (cdhash == nullptr || cdhash_len != AMFI_INTF_CD_HASH_LEN || trustcache_result == nullptr) {
+        goto lb_end;
+    }
+    *trustcache_result = 0;
+
+    err = __amfi_interface_cdhash_in_trustcache(cdhash, trustcache_result);
+
+lb_end:
+    return err;
+}
+#endif
+
+bool Requirement::Interpreter::inTrustCache()
+{
+    uint64_t result = 0;
+    CFRef<CFDataRef> cdhashRef = mContext->directory->cdhash(true);
+    const uint8_t *cdhash = CFDataGetBytePtr(cdhashRef);
+    size_t cdhash_len = CFDataGetLength(cdhashRef);
+    int err = amfi_interface_cdhash_in_trustcache(cdhash, cdhash_len, &result);
+    return (err == 0) && (result != 0);
+}
+
 bool Requirement::Interpreter::appleSigned()
 {
-    if (appleAnchored()) {
-		if (SecCertificateRef intermed = mContext->cert(-2))	// first intermediate
-			// first intermediate common name match (exact)
-			if (certFieldValue("subject.CN", Match(appleIntermediateCN, matchEqual), intermed)
-					&& certFieldValue("subject.O", Match(appleIntermediateO, matchEqual), intermed))
-				return true;
+    if (inTrustCache()) {
+        return true;
+    }
+    else if (appleAnchored()) {
+        if (SecCertificateRef intermed = mContext->cert(-2))	// first intermediate
+            // first intermediate common name match (exact)
+            if (certFieldValue("subject.CN", Match(appleIntermediateCN, matchEqual), intermed)
+                && certFieldValue("subject.O", Match(appleIntermediateO, matchEqual), intermed))
+                return true;
     } else if (appleLocalAnchored()) {
         return true;
-	}
-	return false;
+    }
+    return false;
 }
 
 
@@ -453,15 +520,7 @@ bool Requirement::Interpreter::verifyAnchor(SecCertificateRef cert, const unsign
 	// get certificate bytes
 	if (cert) {
         SHA1 hasher;
-#if TARGET_OS_OSX
-		CSSM_DATA certData;
-		MacOSError::check(SecCertificateGetData(cert, &certData));
-		
-		// verify hash
-		hasher(certData.Data, certData.Length);
-#else
         hasher(SecCertificateGetBytePtr(cert), SecCertificateGetLength(cert));
-#endif
 		return hasher.verify(digest);
 	}
 	return false;

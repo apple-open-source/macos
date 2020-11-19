@@ -340,7 +340,7 @@ init_context_from_config_file(krb5_context context)
 	    krb5_addlog_dest(context, context->debug_dest, logline);
 	    free(logline);
 	} else {
-	    krb5_addlog_dest(context, context->debug_dest, "0-1/OSLOG:debug:libkrb5");
+	    krb5_addlog_dest(context, context->debug_dest, "0-10/OSLOG:normal:libkrb5");
 	}
     }
 

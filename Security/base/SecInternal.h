@@ -29,7 +29,7 @@
 #ifndef _SECURITY_SECINTERNAL_H_
 #define _SECURITY_SECINTERNAL_H_
 
-#include <assert.h>
+#include "utilities/simulatecrash_assert.h"
 #include <CoreFoundation/CFNumber.h>
 #include <CoreFoundation/CFString.h>
 

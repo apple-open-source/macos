@@ -33,13 +33,13 @@ enum RecoveryKeyType: Int {
 }
 
 class RecoveryKeySet: NSObject {
-    public var encryptionKey: _SFECKeyPair
-    public var signingKey: _SFECKeyPair
+    var encryptionKey: _SFECKeyPair
+    var signingKey: _SFECKeyPair
 
-    public var secret: Data
-    public var recoverySalt: String
+    var secret: Data
+    var recoverySalt: String
 
-    public init (secret: Data, recoverySalt: String) throws {
+    init (secret: Data, recoverySalt: String) throws {
         self.secret = secret
         self.recoverySalt = recoverySalt
 
@@ -49,7 +49,9 @@ class RecoveryKeySet: NSObject {
         let signingKeyData = try RecoveryKeySet.generateRecoveryKey(keyType: RecoveryKeyType.kOTRecoveryKeySigning, masterSecret: secret, recoverySalt: recoverySalt)
         self.signingKey = _SFECKeyPair.init(secKey: try RecoveryKeySet.createSecKey(keyData: signingKeyData))
 
-        let RecoverySigningPubKeyHash = try RecoveryKeySet.hashRecoveryedSigningPublicKey(keyData: self.signingKey.publicKey().spki())
+        // Note: this uses the SPKI hash, and not the key data hash
+        // So, this will not match the RK's peer ID
+        let RecoverySigningPubKeyHash = RecoveryKeySet.hashRecoveryedSigningPublicKey(keyData: self.signingKey.publicKey().spki())
         _ = try RecoveryKeySet.storeRecoveryedSigningKeyPair(keyData: self.signingKey.keyData, label: RecoverySigningPubKeyHash)
         _ = try RecoveryKeySet.storeRecoveryedEncryptionKeyPair(keyData: self.encryptionKey.keyData, label: RecoverySigningPubKeyHash)
     }
@@ -76,7 +78,6 @@ class RecoveryKeySet: NSObject {
 
             let infoString = Array("Recovery Signing Private Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
-
         }
 
         guard let cp = ccec_cp_384() else {
@@ -109,7 +110,7 @@ class RecoveryKeySet: NSObject {
                         if keyType == RecoveryKeyType.kOTRecoveryKeyEncryption || keyType == RecoveryKeyType.kOTRecoveryKeySigning {
                             status = ccec_generate_key_deterministic(cp,
                                                                      derivedKeyBytes.count, derivedKeyBytes.bindMemory(to: UInt8.self).baseAddress!,
-                                                                     ccDRBGGetRngState(),
+                                                                     ccrng(nil),
                                                                      UInt32(CCEC_GENKEY_DETERMINISTIC_FIPS),
                                                                      fullKey)
 
@@ -167,7 +168,7 @@ class RecoveryKeySet: NSObject {
         return result
     }
 
-    class func hashRecoveryedSigningPublicKey(keyData: Data) throws -> (String) {
+    class func hashRecoveryedSigningPublicKey(keyData: Data) -> (String) {
         let di = ccsha384_di()
         var result = Data(count: TPHObjectiveC.ccsha384_diSize())
 
@@ -183,7 +184,6 @@ class RecoveryKeySet: NSObject {
     }
 
     class func storeRecoveryedEncryptionKeyPair(keyData: Data, label: String) throws -> (Bool) {
-
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
             kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
@@ -257,11 +257,11 @@ class RecoveryKeySet: NSObject {
             let keyTypeData = item[kSecAttrApplicationLabel as CFString] as! Data
             let keyType = String(data: keyTypeData, encoding: .utf8)!
 
-            if keyType.range(of: "Encryption") != nil {
+            if keyType.contains("Encryption") {
                 let keyData = item[kSecValueData as CFString] as! Data
                 let encryptionSecKey = try RecoveryKeySet.createSecKey(keyData: keyData)
                 encryptionKey = _SFECKeyPair.init(secKey: encryptionSecKey)
-            } else if keyType.range(of: "Signing") != nil {
+            } else if keyType.contains("Signing") {
                 let keyData = item[kSecValueData as CFString] as! Data
                 let signingSecKey = try RecoveryKeySet.createSecKey(keyData: keyData)
                 signingKey = _SFECKeyPair.init(secKey: signingSecKey)
@@ -300,7 +300,6 @@ extension RecoveryKeySetError: LocalizedError {
 }
 
 extension RecoveryKeySetError: CustomNSError {
-
     public static var errorDomain: String {
         return "com.apple.security.trustedpeers.RecoveryKeySetError"
     }

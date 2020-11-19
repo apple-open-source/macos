@@ -40,6 +40,8 @@
 #include "SOSRegressionUtilities.h"
 #include "keychain/SecureObjectSync/SOSInternal.h"
 
+#if SOS_ENABLED
+
 #if 0
 static inline CFMutableDataRef CFDataCreateMutableWithRandom(CFAllocatorRef allocator, CFIndex size) {
     CFMutableDataRef result = NULL;
@@ -68,8 +70,6 @@ static const uint8_t sEntropy2[] = {   0xef, 0xbd, 0x72, 0x57, 0x02, 0xe6, 0xbd,
 
 static const uint8_t sEntropy3[] = {   0xea, 0x06, 0x34, 0x93, 0xd7, 0x8b, 0xd6, 0x0d, 0xce, 0x83, 0x00 };
 
-
-#define tests_count (6)
 static void tests(void)
 {
     ccec_const_cp_t cp = SOSGetBackupKeyCurveParameters();
@@ -112,14 +112,16 @@ static void tests(void)
     CFReleaseNull(entropy2);
     CFReleaseNull(entropy3);
 }
+#endif
 
-static int kTestTestCount = tests_count;
 
 int sc_150_backupkeyderivation(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
-
+#if SOS_ENABLED
+    plan_tests(6);
     tests();
-
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

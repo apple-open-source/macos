@@ -61,18 +61,20 @@ void PluginSession::detach()
 //
 // Allocation management
 //
-void *PluginSession::malloc(size_t size) throw(std::bad_alloc)
+void *PluginSession::malloc(size_t size)
 {
-    if (void *addr = upcalls.malloc_func(handle(), size))
+    if (void *addr = upcalls.malloc_func(handle(), size)) {
         return addr;
-	throw std::bad_alloc();
+    }
+    throw std::bad_alloc();
 }
 
-void *PluginSession::realloc(void *oldAddr, size_t size) throw(std::bad_alloc)
+void *PluginSession::realloc(void *oldAddr, size_t size)
 {
-    if (void *addr = upcalls.realloc_func(handle(), oldAddr, size))
+    if (void *addr = upcalls.realloc_func(handle(), oldAddr, size)) {
         return addr;
-	throw std::bad_alloc();
+    }
+    throw std::bad_alloc();
 }
 
 

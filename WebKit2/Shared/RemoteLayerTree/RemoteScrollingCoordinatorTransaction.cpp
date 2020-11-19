@@ -24,6 +24,9 @@
  */
 
 #include "config.h"
+
+#if ENABLE(UI_SIDE_COMPOSITING)
+
 #include "RemoteScrollingCoordinatorTransaction.h"
 
 #include "ArgumentCoders.h"
@@ -42,59 +45,57 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/TextStream.h>
 
-#if ENABLE(ASYNC_SCROLLING)
-
 namespace IPC {
 using namespace WebCore;
 
 template<> struct ArgumentCoder<ScrollingStateNode> {
     static void encode(Encoder&, const ScrollingStateNode&);
-    static bool decode(Decoder&, ScrollingStateNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStateNode&);
 };
 
 template<> struct ArgumentCoder<ScrollingStateScrollingNode> {
     static void encode(Encoder&, const ScrollingStateScrollingNode&);
-    static bool decode(Decoder&, ScrollingStateScrollingNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStateScrollingNode&);
 };
 
 template<> struct ArgumentCoder<ScrollingStateFrameHostingNode> {
     static void encode(Encoder&, const ScrollingStateFrameHostingNode&);
-    static bool decode(Decoder&, ScrollingStateFrameHostingNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStateFrameHostingNode&);
 };
 
 template<> struct ArgumentCoder<ScrollingStateFrameScrollingNode> {
     static void encode(Encoder&, const ScrollingStateFrameScrollingNode&);
-    static bool decode(Decoder&, ScrollingStateFrameScrollingNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStateFrameScrollingNode&);
 };
 
 template<> struct ArgumentCoder<ScrollingStateOverflowScrollingNode> {
     static void encode(Encoder&, const ScrollingStateOverflowScrollingNode&);
-    static bool decode(Decoder&, ScrollingStateOverflowScrollingNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStateOverflowScrollingNode&);
 };
 
 template<> struct ArgumentCoder<ScrollingStateOverflowScrollProxyNode> {
     static void encode(Encoder&, const ScrollingStateOverflowScrollProxyNode&);
-    static bool decode(Decoder&, ScrollingStateOverflowScrollProxyNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStateOverflowScrollProxyNode&);
 };
 
 template<> struct ArgumentCoder<ScrollingStateFixedNode> {
     static void encode(Encoder&, const ScrollingStateFixedNode&);
-    static bool decode(Decoder&, ScrollingStateFixedNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStateFixedNode&);
 };
 
 template<> struct ArgumentCoder<ScrollingStateStickyNode> {
     static void encode(Encoder&, const ScrollingStateStickyNode&);
-    static bool decode(Decoder&, ScrollingStateStickyNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStateStickyNode&);
 };
 
 template<> struct ArgumentCoder<ScrollingStatePositionedNode> {
     static void encode(Encoder&, const ScrollingStatePositionedNode&);
-    static bool decode(Decoder&, ScrollingStatePositionedNode&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, ScrollingStatePositionedNode&);
 };
 
 template<> struct ArgumentCoder<RequestedScrollData> {
     static void encode(Encoder&, const RequestedScrollData&);
-    static bool decode(Decoder&, RequestedScrollData&);
+    static WARN_UNUSED_RETURN bool decode(Decoder&, RequestedScrollData&);
 };
 
 } // namespace IPC
@@ -103,7 +104,7 @@ using namespace IPC;
 
 void ArgumentCoder<ScrollingStateNode>::encode(Encoder& encoder, const ScrollingStateNode& node)
 {
-    encoder.encodeEnum(node.nodeType());
+    encoder << node.nodeType();
     encoder << node.scrollingNodeID();
     encoder << node.parentNodeID();
     encoder << node.changedProperties();
@@ -136,7 +137,7 @@ bool ArgumentCoder<ScrollingStateNode>::decode(Decoder& decoder, ScrollingStateN
 
 #define SCROLLING_NODE_ENCODE_ENUM(property, getter) \
     if (node.hasChangedProperty(property)) \
-        encoder.encodeEnum(node.getter());
+        encoder << node.getter();
 
 void ArgumentCoder<ScrollingStateScrollingNode>::encode(Encoder& encoder, const ScrollingStateScrollingNode& node)
 {
@@ -156,6 +157,7 @@ void ArgumentCoder<ScrollingStateScrollingNode>::encode(Encoder& encoder, const 
     SCROLLING_NODE_ENCODE(ScrollingStateScrollingNode::CurrentVerticalSnapOffsetIndex, currentVerticalSnapPointIndex)
 #endif
     SCROLLING_NODE_ENCODE(ScrollingStateScrollingNode::ScrollableAreaParams, scrollableAreaParameters)
+    // UI-side compositing can't do synchronous scrolling so don't encode synchronousScrollingReasons.
     SCROLLING_NODE_ENCODE(ScrollingStateScrollingNode::RequestedScrollPosition, requestedScrollData)
 
     if (node.hasChangedProperty(ScrollingStateScrollingNode::ScrollContainerLayer))
@@ -177,7 +179,6 @@ void ArgumentCoder<ScrollingStateFrameScrollingNode>::encode(Encoder& encoder, c
 
     SCROLLING_NODE_ENCODE(ScrollingStateFrameScrollingNode::FrameScaleFactor, frameScaleFactor)
     SCROLLING_NODE_ENCODE(ScrollingStateFrameScrollingNode::EventTrackingRegion, eventTrackingRegions)
-    SCROLLING_NODE_ENCODE(ScrollingStateFrameScrollingNode::ReasonsForSynchronousScrolling, synchronousScrollingReasons)
     SCROLLING_NODE_ENCODE_ENUM(ScrollingStateFrameScrollingNode::BehaviorForFixedElements, scrollBehaviorForFixedElements)
     SCROLLING_NODE_ENCODE(ScrollingStateFrameScrollingNode::HeaderHeight, headerHeight)
     SCROLLING_NODE_ENCODE(ScrollingStateFrameScrollingNode::FooterHeight, footerHeight)
@@ -206,7 +207,6 @@ void ArgumentCoder<ScrollingStateFrameScrollingNode>::encode(Encoder& encoder, c
 void ArgumentCoder<ScrollingStateFrameHostingNode>::encode(Encoder& encoder, const ScrollingStateFrameHostingNode& node)
 {
     encoder << static_cast<const ScrollingStateNode&>(node);
-    // ParentRelativeScrollableRect isn't used so we don't encode it.
 }
 
 void ArgumentCoder<ScrollingStateOverflowScrollingNode>::encode(Encoder& encoder, const ScrollingStateOverflowScrollingNode& node)
@@ -231,7 +231,7 @@ void ArgumentCoder<ScrollingStateOverflowScrollProxyNode>::encode(Encoder& encod
 #define SCROLLING_NODE_DECODE_ENUM(property, type, setter) \
     if (node.hasChangedProperty(property)) { \
         type decodedValue; \
-        if (!decoder.decodeEnum(decodedValue)) \
+        if (!decoder.decode(decodedValue)) \
             return false; \
         node.setter(decodedValue); \
     }
@@ -295,7 +295,6 @@ bool ArgumentCoder<ScrollingStateFrameScrollingNode>::decode(Decoder& decoder, S
 
     SCROLLING_NODE_DECODE(ScrollingStateFrameScrollingNode::FrameScaleFactor, float, setFrameScaleFactor);
     SCROLLING_NODE_DECODE(ScrollingStateFrameScrollingNode::EventTrackingRegion, EventTrackingRegions, setEventTrackingRegions);
-    SCROLLING_NODE_DECODE(ScrollingStateFrameScrollingNode::ReasonsForSynchronousScrolling, SynchronousScrollingReasons, setSynchronousScrollingReasons);
     SCROLLING_NODE_DECODE_ENUM(ScrollingStateFrameScrollingNode::BehaviorForFixedElements, ScrollBehaviorForFixedElements, setScrollBehaviorForFixedElements);
 
     SCROLLING_NODE_DECODE(ScrollingStateFrameScrollingNode::HeaderHeight, int, setHeaderHeight);
@@ -447,8 +446,8 @@ bool ArgumentCoder<ScrollingStatePositionedNode>::decode(Decoder& decoder, Scrol
 void ArgumentCoder<RequestedScrollData>::encode(Encoder& encoder, const RequestedScrollData& scrollData)
 {
     encoder << scrollData.scrollPosition;
-    encoder.encodeEnum(scrollData.scrollType);
-    encoder.encodeEnum(scrollData.clamping);
+    encoder << scrollData.scrollType;
+    encoder << scrollData.clamping;
 }
 
 bool ArgumentCoder<RequestedScrollData>::decode(Decoder& decoder, RequestedScrollData& scrollData)
@@ -456,10 +455,10 @@ bool ArgumentCoder<RequestedScrollData>::decode(Decoder& decoder, RequestedScrol
     if (!decoder.decode(scrollData.scrollPosition))
         return false;
 
-    if (!decoder.decodeEnum(scrollData.scrollType))
+    if (!decoder.decode(scrollData.scrollType))
         return false;
 
-    if (!decoder.decodeEnum(scrollData.clamping))
+    if (!decoder.decode(scrollData.clamping))
         return false;
 
     return true;
@@ -548,7 +547,7 @@ bool RemoteScrollingCoordinatorTransaction::decode(IPC::Decoder& decoder)
 
     for (int i = 0; i < numNodes; ++i) {
         ScrollingNodeType nodeType;
-        if (!decoder.decodeEnum(nodeType))
+        if (!decoder.decode(nodeType))
             return false;
 
         ScrollingNodeID nodeID;
@@ -633,6 +632,20 @@ static void dump(TextStream& ts, const ScrollingStateScrollingNode& node, bool c
 
     if (!changedPropertiesOnly || node.hasChangedProperty(ScrollingStateScrollingNode::ScrolledContentsLayer))
         ts.dumpProperty("scrolled-contents-layer", static_cast<GraphicsLayer::PlatformLayerID>(node.scrolledContentsLayer()));
+
+#if ENABLE(CSS_SCROLL_SNAP)
+    if (!changedPropertiesOnly || node.hasChangedProperty(ScrollingStateScrollingNode::HorizontalSnapOffsets))
+        ts.dumpProperty("horizontal snap offsets", node.horizontalSnapOffsets());
+
+    if (!changedPropertiesOnly || node.hasChangedProperty(ScrollingStateScrollingNode::VerticalSnapOffsets))
+        ts.dumpProperty("vertical snap offsets", node.verticalSnapOffsets());
+
+    if (!changedPropertiesOnly || node.hasChangedProperty(ScrollingStateScrollingNode::CurrentHorizontalSnapOffsetIndex))
+        ts.dumpProperty("current horizontal snap point index", node.currentHorizontalSnapPointIndex());
+
+    if (!changedPropertiesOnly || node.hasChangedProperty(ScrollingStateScrollingNode::CurrentVerticalSnapOffsetIndex))
+        ts.dumpProperty("current vertical snap point index", node.currentVerticalSnapPointIndex());
+#endif
 }
 
 static void dump(TextStream& ts, const ScrollingStateFrameHostingNode& node, bool changedPropertiesOnly)
@@ -668,7 +681,6 @@ static void dump(TextStream& ts, const ScrollingStateFrameScrollingNode& node, b
         }
     }
 
-    // FIXME: dump synchronousScrollingReasons
     // FIXME: dump scrollableAreaParameters
     // FIXME: dump scrollBehaviorForFixedElements
 
@@ -814,19 +826,4 @@ void RemoteScrollingCoordinatorTransaction::dump() const
 
 } // namespace WebKit
 
-#else // !ENABLE(ASYNC_SCROLLING)
-
-namespace WebKit {
-
-void RemoteScrollingCoordinatorTransaction::encode(IPC::Encoder&) const
-{
-}
-
-bool RemoteScrollingCoordinatorTransaction::decode(IPC::Decoder& decoder, RemoteScrollingCoordinatorTransaction& transaction)
-{
-    return true;
-}
-
-} // namespace WebKit
-
-#endif // ENABLE(ASYNC_SCROLLING)
+#endif // ENABLE(UI_SIDE_COMPOSITING)

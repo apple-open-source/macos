@@ -33,7 +33,7 @@ legacy_valloc(szone_t *szone, size_t size)
 	void *ptr;
 	size_t num_kernel_pages;
 
-	num_kernel_pages = round_page_quanta(size) >> vm_page_quanta_shift;
+	num_kernel_pages = round_large_page_quanta(size) >> large_vm_page_quanta_shift;
 	ptr = large_malloc(szone, num_kernel_pages, 0, TRUE);
 #if DEBUG_MALLOC
 	if (LOG(szone, ptr)) {

@@ -63,7 +63,7 @@ static void one_test(const struct test_case * thisCase)
 
     CFStringRef decoded = NULL;
 
-    const uint8_t* decode_end = der_decode_string(NULL, kCFPropertyListMutableContainersAndLeaves,
+    const uint8_t* decode_end = der_decode_string(NULL,
                                                   &decoded, NULL, encoded, buffer_end);
 
     ok(decode_end == buffer_end);
@@ -77,7 +77,7 @@ static void one_test(const struct test_case * thisCase)
 
     CFTypeRef decoded_type = NULL;
 
-    decode_end = der_decode_plist(NULL, kCFPropertyListMutableContainersAndLeaves,
+    decode_end = der_decode_plist(NULL,
                                   &decoded_type, NULL, encoded, buffer_end);
 
     ok(decode_end == buffer_end);

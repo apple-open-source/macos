@@ -163,11 +163,13 @@ parse_time(const char *time, CFAbsoluteTime *ptime)
 		sec_error("%s is not a valid date", time);
 		result = 1;
 	}
-    if (formatter)
+    if (formatter) {
         CFRelease(formatter);
-    if (time_string)
+    }
+    if (time_string) {
         CFRelease(time_string);
-	return result;
+    }
+    return result;
 }
 
 int

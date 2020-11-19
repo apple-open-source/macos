@@ -124,6 +124,7 @@ int		elf_errno	_((void));
 size_t		elf32_fsize	_((Elf_Type, size_t, unsigned));
 Elf_Data	*elf_getdata	_((Elf_Scn *, Elf_Data *));
 Elf32_Ehdr	*elf32_getehdr	_((Elf *));
+char		*elf_getimage	_((Elf *, size_t *));
 char		*elf_getident	_((Elf *, size_t *));
 Elf_Scn		*elf_getscn	_((Elf *elf, size_t));
 Elf32_Shdr	*elf32_getshdr	_((Elf_Scn *));

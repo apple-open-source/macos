@@ -33,7 +33,6 @@
 #include <WebCore/ResourceLoaderOptions.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/StoredCredentialsPolicy.h>
-#include <WebCore/Timer.h>
 #include <pal/SessionID.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -71,6 +70,8 @@ public:
     virtual void wasBlockedByRestrictions() = 0;
 
     virtual bool shouldCaptureExtraNetworkLoadMetrics() const { return false; }
+
+    virtual void didNegotiateModernTLS(const WebCore::AuthenticationChallenge&) { }
 
     void didCompleteWithError(const WebCore::ResourceError& error)
     {
@@ -131,6 +132,7 @@ public:
     bool isTopLevelNavigation() const { return m_dataTaskIsForMainFrameNavigation; }
 
     virtual String description() const;
+    virtual void setH2PingCallback(const URL&, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&&);
 
     PAL::SessionID sessionID() const;
 
@@ -140,16 +142,15 @@ protected:
     NetworkDataTask(NetworkSession&, NetworkDataTaskClient&, const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation);
 
     enum FailureType {
-        NoFailure,
         BlockedFailure,
         InvalidURLFailure,
         RestrictedURLFailure
     };
-    void failureTimerFired();
     void scheduleFailure(FailureType);
 
-    FailureType m_scheduledFailureType { NoFailure };
-    WebCore::Timer m_failureTimer;
+    bool isThirdPartyRequest(const WebCore::ResourceRequest&) const;
+    void restrictRequestReferrerToOriginIfNeeded(WebCore::ResourceRequest&);
+
     WeakPtr<NetworkSession> m_session;
     NetworkDataTaskClient* m_client { nullptr };
     PendingDownload* m_pendingDownload { nullptr };

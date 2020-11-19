@@ -109,7 +109,7 @@ const NSString* SWC_SERVER_KEY   = @"srvr";
         self.backgroundView = [[UIView alloc] init];
         self.backgroundView.backgroundColor = [UIColor systemBackgroundColor];
 
-        self.imageView.image = [UIImage symbolImageNamed:@"checkmark"];
+        self.imageView.image = [UIImage systemImageNamed:@"checkmark"];
         self.imageView.hidden = YES;
     }
     

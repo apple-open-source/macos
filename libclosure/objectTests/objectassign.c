@@ -17,7 +17,7 @@
 // This just tests that the compiler is issuing the proper helper routines
 
 #include <stdio.h>
-#include <Block_private.h>
+#include "Block_private.h"
 #include "test.h"
 
 int AssignCalled = 0;
@@ -57,10 +57,10 @@ int main() {
     long destBuffer[256];
     //printf("destbuffer is at %p, block at %p\n", destBuffer, (void *)bl);
     //printf("dump is %s\n", _Block_dump(myBlock));
-    struct Block_descriptor_2 *desc2 = 
-        (struct Block_descriptor_2 *)(bl->descriptor + 1);
-    desc2->copy(destBuffer, bl);
-    desc2->dispose(bl);
+
+    _Block_get_copy_function(bl)(destBuffer, bl);
+    _Block_get_dispose_function(bl)(bl);
+
     if (AssignCalled == 0) {
         fail("did not call assign helper!");
     }

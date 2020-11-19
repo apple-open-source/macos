@@ -145,7 +145,7 @@ test_fuzz(const struct files *filesets)
 		srand((unsigned)time(NULL));
 
 		for (i = 0; i < 1000; ++i) {
-			FILE *f;
+            FILE *f = NULL;
 			int j, numbytes, trycnt;
 
 			/* Fuzz < 1% of the bytes in the archive. */

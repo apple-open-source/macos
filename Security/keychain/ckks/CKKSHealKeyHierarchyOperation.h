@@ -23,6 +23,8 @@
 
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSOperationDependencies.h"
+#import "keychain/ot/OctagonStateMachineHelpers.h"
 
 #if OCTAGON
 
@@ -30,12 +32,16 @@ NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 
-@interface CKKSHealKeyHierarchyOperation : CKKSGroupOperation
+@interface CKKSHealKeyHierarchyOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
 @property (weak) CKKSKeychainView* ckks;
+@property OctagonState* nextState;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
-
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks
+                           intending:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -3,6 +3,7 @@
 hh="/System/Library/PrivateFrameworks/Heimdal.framework/Helpers"
 tt="/usr/local/libexec/heimdal/bin"
 testbase="/usr/local/libexec/heimdal/tests"
+batsbase="/AppleInternal/CoreOS/tests/Heimdal/bin"
 EGREP="/usr/bin/grep -E"
 
 # Meant to be sourced (source or .) by the tester application, offers
@@ -29,6 +30,7 @@ kswitch="${TESTS_ENVIRONMENT} ${kcc_binary} kswitch"
 ktutil="${TESTS_ENVIRONMENT} /usr/sbin/ktutil${asan}"
 hodadmin="${TESTS_ENVIRONMENT} ${hh}/hod-admin${asan}"
 gsstool="${TESTS_ENVIRONMENT} ${hh}/gsstool${asan}"
+kcminit="${TESTS_ENVIRONMENT} ${hh}/kcminit${asan}"
 
 # regression test tools
 test_ap_req="${TESTS_ENVIRONMENT} ${tt}/test_ap-req${asan}"
@@ -48,6 +50,7 @@ test_sendto="${TESTS_ENVIRONMENT} ${tt}/test_sendto${asan}"
 http_client="${TESTS_ENVIRONMENT} ${tt}/http_client${asan}"
 winmount="${TESTS_ENVIRONMENT} ${tt}/heimdal-win-mount.py"
 test_gsscf="${TESTS_ENVIRONMENT} ${tt}/test_gsscf${asan}"
+test_wait_cred="${TESTS_ENVIRONMENT} ${batsbase}/test_wait_cred${asan}"
 
 # misc apps
 have_db="${testbase}/db/have-db"

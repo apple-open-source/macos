@@ -56,7 +56,9 @@
 
 - (WKSecurityOrigin *)securityOrigin
 {
-    return wrapper(_frameInfo->securityOrigin());
+    auto& data = _frameInfo->securityOrigin();
+    auto apiOrigin = API::SecurityOrigin::create(data.protocol, data.host, data.port);
+    return [[wrapper(apiOrigin.get()) retain] autorelease];
 }
 
 - (WKWebView *)webView
@@ -84,7 +86,12 @@
 
 - (_WKFrameHandle *)_handle
 {
-    return wrapper(_frameInfo->handle());
+    return [[wrapper(_frameInfo->handle()) retain] autorelease];
+}
+
+- (_WKFrameHandle *)_parentFrameHandle
+{
+    return [[wrapper(_frameInfo->parentFrameHandle()) retain] autorelease];
 }
 
 @end

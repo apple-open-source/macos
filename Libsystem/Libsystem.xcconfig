@@ -10,10 +10,13 @@ ASAN_IN_NORMAL_VARIANT_RC_1 = $(ASAN_IN_NORMAL_VARIANT_DK_$(DRIVERKIT))
 ASAN_IN_NORMAL_VARIANT_RC_ = NO
 ASAN_IN_NORMAL_VARIANT = $(ASAN_IN_NORMAL_VARIANT_RC_$(RC_SUPPORT_ADDRESS_SANITIZATION))
 
+// Apple Internal Sanitizer dylib path
+SANITIZER_DYLIB_DIR = /usr/appleinternal/lib/sanitizers
+
 ASAN_CFLAGS_ =
 ASAN_CFLAGS_YES = -DCURRENT_VARIANT_asan=1
 ASAN_LDFLAGS_ =
-SHARED_ASAN_LDFLAGS = -L $(SDKROOT)/usr/local/lib/sanitizers -Xlinker -not_for_dyld_shared_cache -rpath /usr/local/lib/sanitizers/
+SHARED_ASAN_LDFLAGS = -L $(SDKROOT)$(SANITIZER_DYLIB_DIR) -Xlinker -not_for_dyld_shared_cache -rpath $(SANITIZER_DYLIB_DIR)/
 ASAN_LDFLAGS_YES[sdk=macosx*] = $(SHARED_ASAN_LDFLAGS) -Xlinker -upward-lclang_rt.asan_osx_dynamic
 ASAN_LDFLAGS_YES[sdk=iphoneos*] = $(SHARED_ASAN_LDFLAGS) -Xlinker -upward-lclang_rt.asan_ios_dynamic
 ASAN_LDFLAGS_YES[sdk=watchos*] = $(SHARED_ASAN_LDFLAGS) -Xlinker -upward-lclang_rt.asan_watchos_dynamic
@@ -74,6 +77,10 @@ APPLY_RULES_IN_COPY_FILES = YES
 PLIST_FILE_OUTPUT_FORMAT = binary
 PLIST_FILE_OUTPUT_FORMAT[sdk=macosx*] = xml
 EXCLUDED_SOURCE_FILE_NAMES[sdk=driverkit*] = Info.plist
+
+EXCLUDED_SOURCE_FILE_NAMES = $(inherited) i386.c
+INCLUDED_SOURCE_FILE_NAMES[sdk=macos*][arch=i386] = $(inherited) i386.c
+EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*][arch=i386] = $(inherited) init.c CompatibilityHacks.c
 
 // override presence of $(EXECUTABLE_VARIANT_SUFFIX) in the default EXECUTABLE_NAME rdar://26234727
 DYLIB_INSTALL_NAME_EXECUTABLE_NAME = $(EXECUTABLE_PREFIX)$(PRODUCT_NAME)$(EXECUTABLE_SUFFIX)

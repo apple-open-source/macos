@@ -51,7 +51,7 @@ ns(_rehash)(struct ns() *t, int direction)
 
 	if (direction > 0) {
 		t->size += (1 << t->grow_shift);
-		if (t->size == (8 << t->grow_shift)) {
+		if (t->size == ((uint32_t)8 << t->grow_shift)) {
 			t->grow_shift++;
 		}
 	} else if (direction < 0) {

@@ -58,7 +58,7 @@ CFTypeID SecTrustedApplicationGetTypeID(void);
 */
 OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTrustedApplicationRef * __nonnull CF_RETURNS_RETAINED app)
     API_DEPRECATED("No longer supported", macos(10.0, 10.15))
-    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecTrustedApplicationCopyData
@@ -69,7 +69,7 @@ OSStatus SecTrustedApplicationCreateFromPath(const char * __nullable path, SecTr
 */
 OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRef * __nonnull CF_RETURNS_RETAINED data)
     API_DEPRECATED("No longer supported", macos(10.0, 10.15))
-    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecTrustedApplicationSetData
@@ -80,7 +80,7 @@ OSStatus SecTrustedApplicationCopyData(SecTrustedApplicationRef appRef, CFDataRe
 */
 OSStatus SecTrustedApplicationSetData(SecTrustedApplicationRef appRef, CFDataRef data)
     API_DEPRECATED("No longer supported", macos(10.0, 10.15))
-    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 CF_ASSUME_NONNULL_END
 

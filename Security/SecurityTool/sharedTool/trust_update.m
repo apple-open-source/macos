@@ -80,6 +80,26 @@ static int check_OTA_sec_experiment_asset(void) {
     return 0;
 }
 
+static int check_valid_update(void) {
+    CFErrorRef error = NULL;
+    bool result = SecTrustTriggerValidUpdate(&error);
+    if (!result) {
+        CFStringRef errorDescription = error ? CFErrorCopyDescription(error) : NULL;
+        if (errorDescription) {
+            char *errMsg = CFStringToCString(errorDescription);
+            fprintf(stdout, "Update failed: %s\n", errMsg ? errMsg : "no error message");
+            free(errMsg);
+            CFRelease(errorDescription);
+        } else {
+            fprintf(stdout, "Update failed: no description\n");
+        }
+        CFReleaseNull(error);
+    } else {
+        fprintf(stdout, "Updated triggered\n");
+    }
+    return 0;
+}
+
 int check_trust_update(int argc, char * const *argv) {
     int arg;
 
@@ -87,12 +107,14 @@ int check_trust_update(int argc, char * const *argv) {
         return SHOW_USAGE_MESSAGE;
     }
 
-    while ((arg = getopt(argc, argv, "se")) != -1) {
+    while ((arg = getopt(argc, argv, "ser")) != -1) {
         switch(arg) {
             case 's':
                 return check_OTA_Supplementals_asset();
             case 'e':
                 return check_OTA_sec_experiment_asset();
+            case 'r':
+                return check_valid_update();
             case '?':
             default:
                 return SHOW_USAGE_MESSAGE;

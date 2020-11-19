@@ -64,10 +64,11 @@ CFTypeRef                           connection; \
 void                                *target; \
 void                                *refcon; \
 IOHIDServiceVirtualCallbacksV2      *callbacks; \
-} virtual; \
+} virtualService; \
 CFTypeRef                   *connections; \
 uint64_t                    propertySetTime; \
 uint64_t                    propertyGetTime; \
+uint64_t                    elementSetTime; \
 uint64_t                    regID; \
 IOHIDSimpleQueueRef         eventLog; \
 uint64_t                    *eventTypeCnt; \

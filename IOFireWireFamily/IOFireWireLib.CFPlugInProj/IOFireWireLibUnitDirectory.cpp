@@ -124,7 +124,7 @@ namespace IOFireWireLib {
 
 		::CFStringGetBytes( string, ::CFRangeMake( 0, stringLength ), kCFStringEncodingUTF8, 0xFF, false, inlineBuffer, bufferSize, NULL ) ;
 		
-		outLen = bufferSize ;
+		outLen = (unsigned)bufferSize ;
 		return result ;
 	}
 	

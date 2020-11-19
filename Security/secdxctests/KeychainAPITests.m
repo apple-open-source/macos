@@ -27,6 +27,7 @@
 #import "CKKS.h"
 #import "SecDbKeychainItemV7.h"
 #import "SecItemPriv.h"
+#include "SecItemInternal.h"
 #import "SecItemServer.h"
 #import "spi.h"
 #import "SecDbKeychainSerializedItemV7.h"
@@ -41,8 +42,8 @@
 #include <utilities/SecDb.h>
 #include <sys/stat.h>
 #include <utilities/SecFileLocations.h>
-
-void* testlist = NULL;
+#include "der_plist.h"
+#import "SecItemRateLimit_tests.h"
 
 #if USE_KEYSTORE
 
@@ -54,8 +55,6 @@ void* testlist = NULL;
 + (void)setUp
 {
     [super setUp];
-    SecCKKSDisable();
-    securityd_init(NULL);
 }
 
 - (NSString*)nameOfTest
@@ -150,6 +149,52 @@ void* testlist = NULL;
     attrs[(id)kSecAttrAccessControl] = @"string, no SecAccessControlRef!";
     XCTAssertEqual(errSecParam, SecItemAdd((CFDictionaryRef)attrs, NULL));
     XCTAssertEqual(errSecParam, SecItemDelete((CFDictionaryRef)attrs));
+}
+
+- (BOOL)passInternalAttributeToKeychainAPIsWithKey:(id)key value:(id)value {
+     NSDictionary* badquery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrService : @"AppClipTestService",
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        key : value,
+    };
+    NSDictionary* badupdate = @{key : value};
+
+    NSDictionary* okquery = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrService : @"AppClipTestService",
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+    NSDictionary* okupdate = @{(id)kSecAttrService : @"DifferentService"};
+
+    if (SecItemAdd((__bridge CFDictionaryRef)badquery, NULL) != errSecParam) {
+        XCTFail("SecItemAdd did not return errSecParam");
+        return NO;
+    }
+    if (SecItemCopyMatching((__bridge CFDictionaryRef)badquery, NULL) != errSecParam) {
+        XCTFail("SecItemCopyMatching did not return errSecParam");
+        return NO;
+    }
+    if (SecItemUpdate((__bridge CFDictionaryRef)badquery, (__bridge CFDictionaryRef)okupdate) != errSecParam) {
+        XCTFail("SecItemUpdate with bad query did not return errSecParam");
+        return NO;
+    }
+    if (SecItemUpdate((__bridge CFDictionaryRef)okquery, (__bridge CFDictionaryRef)badupdate) != errSecParam) {
+        XCTFail("SecItemUpdate with bad update did not return errSecParam");
+        return NO;
+    }
+    if (SecItemDelete((__bridge CFDictionaryRef)badquery) != errSecParam) {
+        XCTFail("SecItemDelete did not return errSecParam");
+        return NO;
+    }
+    return YES;
+}
+
+// Expand this, rdar://problem/59297616
+- (void)testNotAllowedToPassInternalAttributes {
+    XCTAssert([self passInternalAttributeToKeychainAPIsWithKey:(__bridge NSString*)kSecAttrAppClipItem value:@YES], @"Expect errSecParam for 'clip' attribute");
 }
 
 #pragma mark - Corruption Tests
@@ -278,6 +323,313 @@ static void SecDbTestCorruptionHandler(void)
     } else {
         XCTAssertLessThan(before.st_birthtimespec.tv_sec, after.st_birthtimespec.tv_sec, "db was not deleted and recreated");
     }
+}
+
+- (void)testInetBinaryFields {
+    NSData* note = [@"OBVIOUS_NOTES_DATA" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* history = [@"OBVIOUS_HISTORY_DATA" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* client0 = [@"OBVIOUS_CLIENT0_DATA" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* client1 = [@"OBVIOUS_CLIENT1_DATA" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* client2 = [@"OBVIOUS_CLIENT2_DATA" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData* client3 = [@"OBVIOUS_CLIENT3_DATA" dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSData* originalPassword = [@"asdf" dataUsingEncoding:NSUTF8StringEncoding];
+    NSMutableDictionary* query = [@{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrDescription : @"desc",
+        (id)kSecAttrServer : @"server",
+        (id)kSecAttrAccount : @"test-account",
+        (id)kSecValueData : originalPassword,
+        (id)kSecDataInetExtraNotes : note,
+        (id)kSecDataInetExtraHistory : history,
+        (id)kSecDataInetExtraClientDefined0 : client0,
+        (id)kSecDataInetExtraClientDefined1 : client1,
+        (id)kSecDataInetExtraClientDefined2 : client2,
+        (id)kSecDataInetExtraClientDefined3 : client3,
+
+        (id)kSecReturnAttributes : @YES,
+    } mutableCopy];
+
+    CFTypeRef cfresult = nil;
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, &cfresult), errSecSuccess, "Should be able to add an item using new binary fields");
+    NSDictionary* result = (NSDictionary*)CFBridgingRelease(cfresult);
+    XCTAssertNotNil(result, "Should have some sort of result");
+
+    XCTAssertNil(result[(id)kSecDataInetExtraNotes], "Notes field should not be returned as an attribute from add");
+    XCTAssertNil(result[(id)kSecDataInetExtraHistory], "Notes field should not be returned as an attribute from add");
+
+    NSDictionary* queryFind = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrAccount : @"test-account",
+    };
+
+    NSMutableDictionary* queryFindOneWithJustAttributes = [[NSMutableDictionary alloc] initWithDictionary:queryFind];
+    queryFindOneWithJustAttributes[(id)kSecReturnAttributes] = @YES;
+
+    NSMutableDictionary* queryFindAllWithJustAttributes = [[NSMutableDictionary alloc] initWithDictionary:queryFindOneWithJustAttributes];
+    queryFindAllWithJustAttributes[(id)kSecMatchLimit] = (id)kSecMatchLimitAll;
+
+    NSDictionary* queryFindOneWithAttributesAndData = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecReturnAttributes : @YES,
+        (id)kSecReturnData: @YES,
+        (id)kSecAttrAccount : @"test-account",
+    };
+
+    NSDictionary* queryFindAllWithAttributesAndData = @{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecReturnAttributes : @YES,
+        (id)kSecReturnData: @YES,
+        (id)kSecMatchLimit : (id)kSecMatchLimitAll,
+        (id)kSecAttrAccount : @"test-account",
+    };
+
+    /* Copy with a single record limite, but with attributes only */
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)queryFindOneWithJustAttributes, &cfresult), errSecSuccess, "Should be able to find an item");
+
+    result = (NSDictionary*)CFBridgingRelease(cfresult);
+    XCTAssertNotNil(result, "Should have some sort of result");
+
+    XCTAssertNil(result[(id)kSecDataInetExtraNotes], "Notes field should not be returned as an attribute from copymatching when finding a single item");
+    XCTAssertNil(result[(id)kSecDataInetExtraHistory], "Notes field should not be returned as an attribute from copymatching when finding a single item");
+    XCTAssertNil(result[(id)kSecDataInetExtraClientDefined0], "ClientDefined0 field should not be returned as an attribute from copymatching when finding a single item");
+    XCTAssertNil(result[(id)kSecDataInetExtraClientDefined1], "ClientDefined1 field should not be returned as an attribute from copymatching when finding a single item");
+    XCTAssertNil(result[(id)kSecDataInetExtraClientDefined2], "ClientDefined2 field should not be returned as an attribute from copymatching when finding a single item");
+    XCTAssertNil(result[(id)kSecDataInetExtraClientDefined3], "ClientDefined3 field should not be returned as an attribute from copymatching when finding a single item");
+
+    /* Copy with no limit, but with attributes only */
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)queryFindAllWithJustAttributes, &cfresult), errSecSuccess, "Should be able to find an item");
+    NSArray* arrayResult = (NSArray*)CFBridgingRelease(cfresult);
+    XCTAssertNotNil(arrayResult, "Should have some sort of result");
+    XCTAssertTrue([arrayResult isKindOfClass:[NSArray class]], "Should have received an array back from copymatching");
+    XCTAssertEqual(arrayResult.count, 1, "Array should have one element");
+
+    result = arrayResult[0];
+    XCTAssertNil(result[(id)kSecDataInetExtraNotes], "Notes field should not be returned as an attribute from copymatching when finding all items");
+    XCTAssertNil(result[(id)kSecDataInetExtraHistory], "Notes field should not be returned as an attribute from copymatching when finding all items");
+    XCTAssertNil(result[(id)kSecDataInetExtraClientDefined0], "ClientDefined0 field should not be returned as an attribute from copymatching when finding all items");
+    XCTAssertNil(result[(id)kSecDataInetExtraClientDefined1], "ClientDefined1 field should not be returned as an attribute from copymatching when finding all items");
+    XCTAssertNil(result[(id)kSecDataInetExtraClientDefined2], "ClientDefined2 field should not be returned as an attribute from copymatching when finding all items");
+    XCTAssertNil(result[(id)kSecDataInetExtraClientDefined3], "ClientDefined3 field should not be returned as an attribute from copymatching when finding all items");
+
+    /* Copy with single-record limit, but with attributes and data */
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)queryFindOneWithAttributesAndData, &cfresult), errSecSuccess, "Should be able to find an item");
+    result = (NSDictionary*)CFBridgingRelease(cfresult);
+    XCTAssertNotNil(result, "Should have some sort of result");
+
+    XCTAssertEqualObjects(note, result[(id)kSecDataInetExtraNotes], "Notes field should be returned as data");
+    XCTAssertEqualObjects(history, result[(id)kSecDataInetExtraHistory], "History field should be returned as data");
+    XCTAssertEqualObjects(client0, result[(id)kSecDataInetExtraClientDefined0], "Client Defined 0 field should be returned as data");
+    XCTAssertEqualObjects(client1, result[(id)kSecDataInetExtraClientDefined1], "Client Defined 1 field should be returned as data");
+    XCTAssertEqualObjects(client2, result[(id)kSecDataInetExtraClientDefined2], "Client Defined 2 field should be returned as data");
+    XCTAssertEqualObjects(client3, result[(id)kSecDataInetExtraClientDefined3], "Client Defined 3 field should be returned as data");
+
+    /* Copy with no limit, but with attributes and data */
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)queryFindAllWithAttributesAndData, &cfresult), errSecSuccess, "Should be able to find an item");
+    arrayResult = (NSArray*)CFBridgingRelease(cfresult);
+    XCTAssertNotNil(arrayResult, "Should have some sort of result");
+    XCTAssertTrue([arrayResult isKindOfClass:[NSArray class]], "Should have received an array back from copymatching");
+    XCTAssertEqual(arrayResult.count, 1, "Array should have one element");
+    result = arrayResult[0];
+    XCTAssertEqualObjects(note, result[(id)kSecDataInetExtraNotes], "Notes field should be returned as data");
+    XCTAssertEqualObjects(history, result[(id)kSecDataInetExtraHistory], "History field should be returned as data");
+    XCTAssertEqualObjects(client0, result[(id)kSecDataInetExtraClientDefined0], "Client Defined 0 field should be returned as data");
+    XCTAssertEqualObjects(client1, result[(id)kSecDataInetExtraClientDefined1], "Client Defined 1 field should be returned as data");
+    XCTAssertEqualObjects(client2, result[(id)kSecDataInetExtraClientDefined2], "Client Defined 2 field should be returned as data");
+    XCTAssertEqualObjects(client3, result[(id)kSecDataInetExtraClientDefined3], "Client Defined 3 field should be returned as data");
+
+    /* Copy just looking for the password */
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)@{
+        (id)kSecClass : (id)kSecClassInternetPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecReturnData: @YES,
+        (id)kSecAttrAccount : @"test-account",
+    }, &cfresult), errSecSuccess, "Should be able to find an item");
+
+    NSData* password = (NSData*)CFBridgingRelease(cfresult);
+    XCTAssertNotNil(password, "Should have some sort of password");
+    XCTAssertTrue([password isKindOfClass:[NSData class]], "Password is a data");
+    XCTAssertEqualObjects(originalPassword, password, "Should still be able to fetch the original password");
+
+    NSData* newHistoryContents = [@"gone" dataUsingEncoding:NSUTF8StringEncoding];
+
+    NSDictionary* updateQuery = @{
+        (id)kSecDataInetExtraHistory : newHistoryContents,
+    };
+
+    XCTAssertEqual(SecItemUpdate((__bridge CFDictionaryRef)queryFind, (__bridge CFDictionaryRef)updateQuery), errSecSuccess, "Should be able to update a history field");
+
+    // And find it again
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)queryFindOneWithAttributesAndData, &cfresult), errSecSuccess, "Should be able to find an item");
+    result = (NSDictionary*)CFBridgingRelease(cfresult);
+    XCTAssertNotNil(result, "Should have some sort of result");
+
+    XCTAssertEqualObjects(note, result[(id)kSecDataInetExtraNotes], "Notes field should be returned as data");
+    XCTAssertEqualObjects(newHistoryContents, result[(id)kSecDataInetExtraHistory], "History field should be updated");
+    XCTAssertEqualObjects(client0, result[(id)kSecDataInetExtraClientDefined0], "Client Defined 0 field should be returned as data");
+    XCTAssertEqualObjects(client1, result[(id)kSecDataInetExtraClientDefined1], "Client Defined 1 field should be returned as data");
+    XCTAssertEqualObjects(client2, result[(id)kSecDataInetExtraClientDefined2], "Client Defined 2 field should be returned as data");
+    XCTAssertEqualObjects(client3, result[(id)kSecDataInetExtraClientDefined3], "Client Defined 3 field should be returned as data");
+}
+
+// When this test starts failing, hopefully rdar://problem/60332379 got fixed
+- (void)testBadDateCausesDERDecodeValidationError {
+    // Wonky time calculation hastily stolen from SecGregorianDateGetAbsoluteTime and tweaked
+    // As of right now this causes CFCalendarDecomposeAbsoluteTime with Zulu calendar to give a seemingly incorrect date which then causes DER date validation issues
+    CFAbsoluteTime absTime = (CFAbsoluteTime)(((-(1902 * 365) + -38) * 24 + 0) * 60 + -1) * 60 + 1;
+    absTime -= 0.0004;  // Just to make sure the nanoseconds keep getting encoded/decoded properly
+    CFDateRef date = CFDateCreate(NULL, absTime);
+
+    CFErrorRef error = NULL;
+    size_t plistSize = der_sizeof_plist(date, &error);
+    XCTAssert(error == NULL);
+    XCTAssertGreaterThan(plistSize, 0);
+
+    // Encode without repair does not validate dates because that changes behavior I do not want to fiddle with
+    uint8_t* der = calloc(1, plistSize);
+    uint8_t* der_end = der + plistSize;
+    uint8_t* result = der_encode_plist(date, &error, der, der_end);
+    XCTAssert(error == NULL);
+    XCTAssertEqual(der, result);
+
+    // ...but decoding does and will complain
+    CFPropertyListRef decoded = NULL;
+    XCTAssert(der_decode_plist(NULL, &decoded, &error, der, der_end) == NULL);
+    XCTAssert(error != NULL);
+    XCTAssertEqual(CFErrorGetDomain(error), kCFErrorDomainOSStatus);
+    NSString* description = CFBridgingRelease(CFErrorCopyDescription(error));
+    XCTAssert([description containsString:@"Invalid date"]);
+
+    CFReleaseNull(error);
+    free(der);
+}
+
+// When this test starts failing, hopefully rdar://problem/60332379 got fixed
+- (void)testBadDateWithDEREncodingRepairProducesDefaultValue {
+    // Wonky time calculation hastily stolen from SecGregorianDateGetAbsoluteTime and tweaked
+    // As of right now this causes CFCalendarDecomposeAbsoluteTime with Zulu calendar to give a seemingly incorrect date which then causes DER date validation issues
+    CFAbsoluteTime absTime = (CFAbsoluteTime)(((-(1902 * 365) + -38) * 24 + 0) * 60 + -1) * 60 + 1;
+    absTime -= 0.0004;  // Just to make sure the nanoseconds keep getting encoded/decoded properly
+    CFDateRef date = CFDateCreate(NULL, absTime);
+
+    CFErrorRef error = NULL;
+    size_t plistSize = der_sizeof_plist(date, &error);
+    XCTAssert(error == NULL);
+    XCTAssertGreaterThan(plistSize, 0);
+
+    uint8_t* der = calloc(1, plistSize);
+    uint8_t* der_end = der + plistSize;
+    uint8_t* encoderesult = der_encode_plist_repair(date, &error, true, der, der_end);
+    XCTAssert(error == NULL);
+    XCTAssertEqual(der, encoderesult);
+
+    CFPropertyListRef decoded = NULL;
+    const uint8_t* decoderesult = der_decode_plist(NULL, &decoded, &error, der, der_end);
+    XCTAssertEqual(der_end, decoderesult);
+    XCTAssertEqual(CFGetTypeID(decoded), CFDateGetTypeID());
+    XCTAssertEqualWithAccuracy(CFDateGetAbsoluteTime(decoded), 0, 60 * 60 * 24);
+}
+
+#pragma mark - SecItemRateLimit
+
+// This is not super accurate in BATS, so put some margin around what you need
+- (void)sleepAlternativeForXCTest:(double)interval
+{
+    dispatch_semaphore_t localsema = dispatch_semaphore_create(0);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * interval), dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+        dispatch_semaphore_signal(localsema);
+    });
+    dispatch_semaphore_wait(localsema, DISPATCH_TIME_FOREVER);
+}
+
+- (void)testSecItemRateLimitTimePasses {
+    SecItemRateLimit* rl = [SecItemRateLimit getStaticRateLimit];
+    [rl forceEnabled: true];
+
+    for (int idx = 0; idx < rl.roCapacity; ++idx) {
+        XCTAssertTrue(isReadOnlyAPIRateWithinLimits());
+    }
+
+    for (int idx = 0; idx < rl.rwCapacity; ++idx) {
+        XCTAssertTrue(isModifyingAPIRateWithinLimits());
+    }
+
+    [self sleepAlternativeForXCTest: 2];
+    XCTAssertTrue(isReadOnlyAPIRateWithinLimits());
+    XCTAssertTrue(isModifyingAPIRateWithinLimits());
+
+    [SecItemRateLimit resetStaticRateLimit];
+}
+
+- (void)testSecItemRateLimitResetAfterExceed {
+    SecItemRateLimit* rl = [SecItemRateLimit getStaticRateLimit];
+	[rl forceEnabled: true];
+
+    for (int idx = 0; idx < rl.roCapacity; ++idx) {
+        XCTAssertTrue(isReadOnlyAPIRateWithinLimits());
+    }
+    XCTAssertFalse(isReadOnlyAPIRateWithinLimits());
+	XCTAssertTrue(isReadOnlyAPIRateWithinLimits());
+
+    for (int idx = 0; idx < rl.rwCapacity; ++idx) {
+        XCTAssertTrue(isModifyingAPIRateWithinLimits());
+    }
+    XCTAssertFalse(isModifyingAPIRateWithinLimits());
+    XCTAssertTrue(isModifyingAPIRateWithinLimits());
+
+    [SecItemRateLimit resetStaticRateLimit];
+}
+
+- (void)testSecItemRateLimitMultiplier {
+    SecItemRateLimit* rl = [SecItemRateLimit getStaticRateLimit];
+    [rl forceEnabled: true];
+
+    int ro_iterations_before = 0;
+    for (; ro_iterations_before < rl.roCapacity; ++ro_iterations_before) {
+        XCTAssertTrue(isReadOnlyAPIRateWithinLimits());
+    }
+    XCTAssertFalse(isReadOnlyAPIRateWithinLimits());
+
+    int rw_iterations_before = 0;
+    for (; rw_iterations_before < rl.rwCapacity; ++rw_iterations_before) {
+        XCTAssertTrue(isModifyingAPIRateWithinLimits());
+    }
+    XCTAssertFalse(isModifyingAPIRateWithinLimits());
+
+
+    int ro_iterations_after = 0;
+    for (; ro_iterations_after < rl.roCapacity; ++ro_iterations_after) {
+        XCTAssertTrue(isReadOnlyAPIRateWithinLimits());
+    }
+    XCTAssertFalse(isReadOnlyAPIRateWithinLimits());
+
+    int rw_iterations_after = 0;
+    for (; rw_iterations_after < rl.rwCapacity; ++rw_iterations_after) {
+        XCTAssertTrue(isModifyingAPIRateWithinLimits());
+    }
+    XCTAssertFalse(isModifyingAPIRateWithinLimits());
+
+    XCTAssertEqualWithAccuracy(rl.limitMultiplier * ro_iterations_before, ro_iterations_after, 1);
+    XCTAssertEqualWithAccuracy(rl.limitMultiplier * rw_iterations_before, rw_iterations_after, 1);
+    [SecItemRateLimit resetStaticRateLimit];
+}
+
+// We stipulate that this test is run on an internal release.
+// If this were a platform binary limits would be enforced, but it should not be so they should not.
+- (void)testSecItemRateLimitInternalPlatformBinariesOnly {
+    SecItemRateLimit* rl = [SecItemRateLimit getStaticRateLimit];
+
+    for (int idx = 0; idx < 3 * MAX(rl.roCapacity, rl.rwCapacity); ++idx) {
+        XCTAssertTrue(isReadOnlyAPIRateWithinLimits());
+        XCTAssertTrue(isModifyingAPIRateWithinLimits());
+    }
+
+    [SecItemRateLimit resetStaticRateLimit];
 }
 
 @end

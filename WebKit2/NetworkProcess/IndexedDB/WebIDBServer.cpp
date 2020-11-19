@@ -36,12 +36,12 @@
 
 namespace WebKit {
 
-Ref<WebIDBServer> WebIDBServer::create(PAL::SessionID sessionID, const String& directory, IDBServer::IDBServer::StorageQuotaManagerSpaceRequester&& spaceRequester)
+Ref<WebIDBServer> WebIDBServer::create(PAL::SessionID sessionID, const String& directory, WebCore::IDBServer::IDBServer::StorageQuotaManagerSpaceRequester&& spaceRequester)
 {
     return adoptRef(*new WebIDBServer(sessionID, directory, WTFMove(spaceRequester)));
 }
 
-WebIDBServer::WebIDBServer(PAL::SessionID sessionID, const String& directory, IDBServer::IDBServer::StorageQuotaManagerSpaceRequester&& spaceRequester)
+WebIDBServer::WebIDBServer(PAL::SessionID sessionID, const String& directory, WebCore::IDBServer::IDBServer::StorageQuotaManagerSpaceRequester&& spaceRequester)
     : CrossThreadTaskHandler("com.apple.WebKit.IndexedDBServer", WTF::CrossThreadTaskHandler::AutodrainedPoolForRunLoop::Use)
 {
     ASSERT(RunLoop::isMain());
@@ -74,7 +74,7 @@ void WebIDBServer::closeAndDeleteDatabasesModifiedSince(WallTime modificationTim
     });
 }
 
-void WebIDBServer::closeAndDeleteDatabasesForOrigins(const Vector<SecurityOriginData>& originDatas, CompletionHandler<void()>&& callback)
+void WebIDBServer::closeAndDeleteDatabasesForOrigins(const Vector<WebCore::SecurityOriginData>& originDatas, CompletionHandler<void()>&& callback)
 {
     ASSERT(RunLoop::isMain());
 
@@ -89,12 +89,22 @@ void WebIDBServer::closeAndDeleteDatabasesForOrigins(const Vector<SecurityOrigin
     });
 }
 
-void WebIDBServer::suspend(ShouldForceStop shouldForceStop)
+void WebIDBServer::renameOrigin(const WebCore::SecurityOriginData& oldOrigin, const WebCore::SecurityOriginData& newOrigin, CompletionHandler<void()>&& callback)
 {
     ASSERT(RunLoop::isMain());
 
-    if (shouldForceStop == ShouldForceStop::No && SQLiteDatabaseTracker::hasTransactionInProgress())
-        return;
+    postTask([this, protectedThis = makeRef(*this), oldOrigin = oldOrigin.isolatedCopy(), newOrigin = newOrigin.isolatedCopy(), callback = WTFMove(callback)] () mutable {
+        ASSERT(!RunLoop::isMain());
+
+        LockHolder locker(m_server->lock());
+        m_server->renameOrigin(oldOrigin, newOrigin);
+        postTaskReply(CrossThreadTask(WTFMove(callback)));
+    });
+}
+
+void WebIDBServer::suspend()
+{
+    ASSERT(RunLoop::isMain());
 
     if (m_isSuspended)
         return;
@@ -299,7 +309,7 @@ void WebIDBServer::abortOpenAndUpgradeNeeded(uint64_t databaseConnectionIdentifi
     m_server->abortOpenAndUpgradeNeeded(databaseConnectionIdentifier, transactionIdentifier);
 }
 
-void WebIDBServer::didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& requestIdentifier, IndexedDB::ConnectionClosedOnBehalfOfServer connectionClosed)
+void WebIDBServer::didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& requestIdentifier, WebCore::IndexedDB::ConnectionClosedOnBehalfOfServer connectionClosed)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -315,7 +325,7 @@ void WebIDBServer::openDBRequestCancelled(const WebCore::IDBRequestData& request
     m_server->openDBRequestCancelled(requestData);
 }
 
-void WebIDBServer::getAllDatabaseNames(IPC::Connection& connection, const WebCore::SecurityOriginData& mainFrameOrigin, const WebCore::SecurityOriginData& openingOrigin, uint64_t callbackID)
+void WebIDBServer::getAllDatabaseNamesAndVersions(IPC::Connection& connection, const WebCore::IDBResourceIdentifier& requestIdentifier, const WebCore::ClientOrigin& origin)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -323,7 +333,7 @@ void WebIDBServer::getAllDatabaseNames(IPC::Connection& connection, const WebCor
     ASSERT(webIDBConnection);
 
     LockHolder locker(m_server->lock());
-    m_server->getAllDatabaseNames(webIDBConnection->identifier(), mainFrameOrigin, openingOrigin, callbackID);
+    m_server->getAllDatabaseNamesAndVersions(webIDBConnection->identifier(), requestIdentifier, origin);
 }
 
 void WebIDBServer::addConnection(IPC::Connection& connection, WebCore::ProcessIdentifier processIdentifier)

@@ -41,7 +41,8 @@ NS_ASSUME_NONNULL_BEGIN
                               errorState:(OctagonState*)errorState
                             bottleID:(NSString*)bottleID
                              entropy:(NSData*)entropy
-                          bottleSalt:(NSString*)bottleSalt;
+                          bottleSalt:(NSString*)bottleSalt
+                         saveVoucher:(BOOL)saveVoucher;
 
 @property (weak) OTCuttlefishContext* cuttlefishContext;
 @property (nonatomic) NSString* bottleID;
@@ -50,6 +51,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic) NSData* voucher;
 @property (nonatomic) NSData* voucherSig;
+
+// Controls whether or not to save the received voucher in the state handler.
+@property (readonly) BOOL saveVoucher;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
-<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
 <!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
@@ -28,9 +28,9 @@
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../de/mod/mpm_common.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="../en/mod/mpm_common.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/mod/mpm_common.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
+<a href="../fr/mod/mpm_common.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mpm_common.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
-<a href="../tr/mod/mpm_common.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
+<a href="../tr/mod/mpm_common.html" hreflang="tr" rel="alternate" title="TÃ¼rkÃ§e">&nbsp;tr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>A collection of directives that are implemented by
 more than one multi-processing module (MPM)</td></tr>
@@ -255,8 +255,8 @@ including other causes.</a></li>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td><code class="module"><a href="../mod/event.html">event</a></code>, <code class="module"><a href="../mod/worker.html">worker</a></code>, <code class="module"><a href="../mod/prefork.html">prefork</a></code>, <code class="module"><a href="../mod/mpm_winnt.html">mpm_winnt</a></code>, <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>, <code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code></td></tr>
 </table>
     <p>The maximum length of the queue of pending connections.
-    Generally no tuning is needed or desired, however on some
-    systems it is desirable to increase this when under a TCP SYN
+    Generally no tuning is needed or desired; however on some
+    systems, it is desirable to increase this when under a TCP SYN
     flood attack. See the backlog parameter to the
     <code>listen(2)</code> system call.</p>
 
@@ -327,7 +327,7 @@ in *BSDs.</td></tr>
     <p>This also means that multiple instances of Apache httpd configured on a
     same <code>IP:port</code> and with a positive <code class="directive">ListenCoresBucketsRatio</code>
     would start without an error too, and then run with incoming connections
-    evenly distributed accross both instances (this is NOT a recommendation or
+    evenly distributed across both instances (this is NOT a recommendation or
     a sensible usage in any case, but just a notice that it would prevent such
     possible issues to be detected).</p>
     <p>Within the same instance, Apache httpd will check and fail to start if
@@ -360,7 +360,7 @@ will handle during its life</td></tr>
     <code>0</code>, then the process will never expire.</p>
 
     <p>Setting <code class="directive">MaxConnectionsPerChild</code> to a
-    non-zero value limits the amount of memory that process can consume
+    non-zero value limits the amount of memory that a process can consume
     by (accidental) memory leakage.</p>
 
 </div>
@@ -408,9 +408,9 @@ simultaneously</td></tr>
     <code class="directive"><a href="#serverlimit">ServerLimit</a></code>.</p>
 
     <p>For threaded and hybrid servers (<em>e.g.</em> <code class="module"><a href="../mod/event.html">event</a></code>
-    or <code class="module"><a href="../mod/worker.html">worker</a></code>) <code class="directive">MaxRequestWorkers</code> restricts
+    or <code class="module"><a href="../mod/worker.html">worker</a></code>), <code class="directive">MaxRequestWorkers</code> restricts
     the total number of threads that will be available to serve clients.
-    For hybrid MPMs the default value is <code>16</code> (<code class="directive"><a href="#serverlimit">ServerLimit</a></code>) multiplied by the value of
+    For hybrid MPMs, the default value is <code>16</code> (<code class="directive"><a href="#serverlimit">ServerLimit</a></code>) multiplied by the value of
     <code>25</code> (<code class="directive"><a href="#threadsperchild">ThreadsPerChild</a></code>). Therefore, to increase <code class="directive">MaxRequestWorkers</code> to a value that requires more than 16 processes,
     you must also raise <code class="directive"><a href="#serverlimit">ServerLimit</a></code>.</p>
 
@@ -435,7 +435,7 @@ simultaneously</td></tr>
     <p>For <code class="module"><a href="../mod/worker.html">worker</a></code> and <code class="module"><a href="../mod/event.html">event</a></code>, the default is
     <code>MaxSpareThreads 250</code>. These MPMs deal with idle threads
     on a server-wide basis. If there are too many idle threads in the
-    server then child processes are killed until the number of idle
+    server, then child processes are killed until the number of idle
     threads is less than this number. Additional processes/threads
     might be created if <code class="directive"><a href="#listencoresbucketsratio">ListenCoresBucketsRatio</a></code> 
     is enabled.</p>
@@ -486,7 +486,7 @@ spikes</td></tr>
 
     <p><code class="module"><a href="../mod/worker.html">worker</a></code> and <code class="module"><a href="../mod/event.html">event</a></code> use a default of
     <code>MinSpareThreads 75</code> and deal with idle threads on a server-wide
-    basis. If there aren't enough idle threads in the server then child
+    basis. If there aren't enough idle threads in the server, then child
     processes are created until the number of idle threads is greater
     than <var>number</var>. Additional processes/threads
     might be created if <code class="directive"><a href="#listencoresbucketsratio">ListenCoresBucketsRatio</a></code> 
@@ -494,7 +494,7 @@ spikes</td></tr>
 
     <p><code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code> uses a default of
     <code>MinSpareThreads 10</code> and, since it is a single-process
-    MPM, tracks this on a server-wide bases.</p>
+    MPM, tracks this on a server-wide basis.</p>
 
     <p><code class="module"><a href="../mod/mpmt_os2.html">mpmt_os2</a></code> works
     similar to <code class="module"><a href="../mod/mpm_netware.html">mpm_netware</a></code>.  For
@@ -520,7 +520,7 @@ of the daemon</td></tr>
 </table>
     <p>The <code class="directive">PidFile</code> directive sets the file to
     which the server records the process id of the daemon. If the
-    filename is not absolute then it is assumed to be relative to the
+    filename is not absolute, then it is assumed to be relative to the
     <code class="directive"><a href="../mod/core.html#serverroot">ServerRoot</a></code>.</p>
 
     <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">PidFile /var/run/apache.pid</pre>
@@ -583,7 +583,7 @@ the child processes</td></tr>
     <p>File-based shared memory is useful for third-party applications
     that require direct access to the scoreboard.</p>
 
-    <p>If you use a <code class="directive">ScoreBoardFile</code> then
+    <p>If you use a <code class="directive">ScoreBoardFile</code>, then
     you may see improved speed by placing it on a RAM disk. But be
     careful that you heed the same warnings about log file placement
     and <a href="../misc/security_tips.html">security</a>.</p>
@@ -838,7 +838,7 @@ client connections</td></tr>
       will be achievable if <code class="directive">ThreadStackSize</code> is
       set to a value lower than the operating system default.  This type
       of adjustment should only be made in a test environment which allows
-      the full set of web server processing can be exercised, as there
+      the full set of web server processing to be exercised, as there
       may be infrequent requests which require more stack to process.
       The minimum required stack size strongly depends on the modules
       used, but any change in the web server configuration can invalidate
@@ -861,10 +861,10 @@ client connections</td></tr>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../de/mod/mpm_common.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="../en/mod/mpm_common.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/mod/mpm_common.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
+<a href="../fr/mod/mpm_common.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mpm_common.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
-<a href="../tr/mod/mpm_common.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<a href="../tr/mod/mpm_common.html" hreflang="tr" rel="alternate" title="TÃ¼rkÃ§e">&nbsp;tr&nbsp;</a></p>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mpm_common.html';
@@ -882,7 +882,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mpm_common.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

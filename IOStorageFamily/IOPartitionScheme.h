@@ -106,7 +106,7 @@
  * such as RAID will want to do extra processing for reads and writes.
  */
 
-class IOPartitionScheme : public IOStorage
+class __exported IOPartitionScheme : public IOStorage
 {
     OSDeclareDefaultStructors(IOPartitionScheme);
 

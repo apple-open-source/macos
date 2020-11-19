@@ -52,7 +52,6 @@
  */
 
 #include "internal.h"
-#include <TargetConditionals.h>
 
 #ifndef PTHREAD_KEY_LEGACY_SUPPORT
 #if TARGET_OS_DRIVERKIT
@@ -151,7 +150,7 @@ pthread_key_create(pthread_key_t *key, void (*destructor)(void *))
 	int res = EAGAIN; // Returns EAGAIN if key cannot be allocated.
 	pthread_key_t k;
 
-	_PTHREAD_LOCK(__pthread_tsd_lock);
+	_pthread_lock_lock(&__pthread_tsd_lock);
 	for (k = __pthread_tsd_start; k < __pthread_tsd_end; k++) {
 		if (_pthread_key_set_destructor(k, destructor)) {
 			*key = k;
@@ -159,7 +158,7 @@ pthread_key_create(pthread_key_t *key, void (*destructor)(void *))
 			break;
 		}
 	}
-	_PTHREAD_UNLOCK(__pthread_tsd_lock);
+	_pthread_lock_unlock(&__pthread_tsd_lock);
 
 	return res;
 }
@@ -169,20 +168,44 @@ pthread_key_delete(pthread_key_t key)
 {
 	int res = EINVAL; // Returns EINVAL if key is not allocated.
 
-	_PTHREAD_LOCK(__pthread_tsd_lock);
+	_pthread_lock_lock(&__pthread_tsd_lock);
 	if (key >= __pthread_tsd_start && key < __pthread_tsd_end) {
 		if (_pthread_key_unset_destructor(key)) {
-			struct _pthread *p;
-			_PTHREAD_LOCK(_pthread_list_lock);
+			pthread_t p;
+			_pthread_lock_lock(&_pthread_list_lock);
 			TAILQ_FOREACH(p, &__pthread_head, tl_plist) {
 				// No lock for word-sized write.
 				p->tsd[key] = 0;
 			}
-			_PTHREAD_UNLOCK(_pthread_list_lock);
+			_pthread_lock_unlock(&_pthread_list_lock);
 			res = 0;
 		}
 	}
-	_PTHREAD_UNLOCK(__pthread_tsd_lock);
+	_pthread_lock_unlock(&__pthread_tsd_lock);
+
+	return res;
+}
+
+static inline int
+_pthread_setspecific(pthread_t thread, pthread_key_t key, const void *value)
+{
+	int res = EINVAL;
+
+	if (key >= __pthread_tsd_first && key < __pthread_tsd_end) {
+		bool created = _pthread_key_get_destructor(key, NULL);
+		if (key < __pthread_tsd_start || created) {
+			thread->tsd[key] = (void *)value;
+			res = 0;
+
+			if (key < __pthread_tsd_start) {
+				// XXX: is this really necessary?
+				_pthread_key_set_destructor(key, NULL);
+			}
+			if (key > thread->max_tsd_key) {
+				thread->max_tsd_key = (uint16_t)key;
+			}
+		}
+	}
 
 	return res;
 }
@@ -191,28 +214,11 @@ pthread_key_delete(pthread_key_t key)
 int
 pthread_setspecific(pthread_key_t key, const void *value)
 {
-	int res = EINVAL;
-
-#if !VARIANT_DYLD
-	if (key >= __pthread_tsd_first && key < __pthread_tsd_end) {
-		bool created = _pthread_key_get_destructor(key, NULL);
-		if (key < __pthread_tsd_start || created) {
-			struct _pthread *self = pthread_self();
-			self->tsd[key] = (void *)value;
-			res = 0;
-
-			if (key < __pthread_tsd_start) {
-				// XXX: is this really necessary?
-				_pthread_key_set_destructor(key, NULL);
-			}
-			if (key > self->max_tsd_key) {
-				self->max_tsd_key = (uint16_t)key;
-			}
-		}
-	}
+#if VARIANT_DYLD
+	return ENOTSUP;
+#else
+	return _pthread_setspecific(pthread_self(), key, value);
 #endif // !VARIANT_DYLD
-
-	return res;
 }
 
 int
@@ -237,6 +243,30 @@ pthread_getspecific(pthread_key_t key)
 }
 
 #if !VARIANT_DYLD
+int
+pthread_introspection_setspecific_np(pthread_t thread,
+		pthread_key_t key, const void *value)
+{
+	pthread_t self = _pthread_self();
+	if (os_unlikely(self->introspection != PTHREAD_INTROSPECTION_THREAD_CREATE)) {
+		PTHREAD_CLIENT_CRASH(0, "Calling pthread_introspection_setspecific_np "
+				"outside of a CREATE introspection hook");
+	}
+	return _pthread_setspecific(thread, key, value);
+
+}
+
+void *
+pthread_introspection_getspecific_np(pthread_t thread, pthread_key_t key)
+{
+	pthread_t self = _pthread_self();
+	if (os_unlikely(self->introspection != PTHREAD_INTROSPECTION_THREAD_DESTROY)) {
+		PTHREAD_CLIENT_CRASH(0, "Calling pthread_introspection_getspecific_np "
+				"outside of a DESTROY introspection hook");
+	}
+	return thread->tsd[key];
+}
+
 static void
 _pthread_tsd_cleanup_key(pthread_t self, pthread_key_t key)
 {
@@ -252,9 +282,7 @@ _pthread_tsd_cleanup_key(pthread_t self, pthread_key_t key)
 		}
 	}
 }
-#endif // !VARIANT_DYLD
 
-#if !VARIANT_DYLD
 static void
 _pthread_tsd_cleanup_new(pthread_t self)
 {
@@ -284,7 +312,6 @@ _pthread_tsd_behaviour_check(pthread_t self)
 	// Iterate from dynamic-key start to dynamic-key end, if the key has both
 	// a desctructor and a value then _pthread_tsd_cleanup_key would cause
 	// us to re-trigger the destructor.
-	Dl_info i;
 	pthread_key_t k;
 
 	for (k = __pthread_tsd_start; k < __pthread_tsd_end; k++) {
@@ -295,11 +322,14 @@ _pthread_tsd_behaviour_check(pthread_t self)
 			if (value && destructor) {
 				_simple_asl_log(ASL_LEVEL_ERR, "pthread_tsd",
 						"warning: dynamic tsd keys dirty after static key cleanup loop.");
-
+#if 0
+				// enable this for debugging
+				Dl_info i;
 				if (dladdr(destructor, &i) == 0) {
 					_simple_asl_log(ASL_LEVEL_ERR, "pthread_tsd", i.dli_fname);
 					_simple_asl_log(ASL_LEVEL_ERR, "pthread_tsd", i.dli_saddr);
 				}
+#endif
 			}
 		}
 	}
@@ -361,12 +391,12 @@ pthread_key_init_np(int key, void (*destructor)(void *))
 {
 	int res = EINVAL; // Returns EINVAL if key is out of range.
 	if (key >= __pthread_tsd_first && key < __pthread_tsd_start) {
-		_PTHREAD_LOCK(__pthread_tsd_lock);
+		_pthread_lock_lock(&__pthread_tsd_lock);
 		_pthread_key_set_destructor(key, destructor);
 		if (key > __pthread_tsd_max) {
 			__pthread_tsd_max = key;
 		}
-		_PTHREAD_UNLOCK(__pthread_tsd_lock);
+		_pthread_lock_unlock(&__pthread_tsd_lock);
 		res = 0;
 	}
 	return res;
@@ -380,4 +410,11 @@ pthread_self(void)
 	pthread_t self = _pthread_self_direct();
 	_pthread_validate_signature(self);
 	return self;
+}
+
+// rdar://57406917
+pthread_t
+_pthread_self(void)
+{
+	return pthread_self();
 }

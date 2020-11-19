@@ -109,7 +109,7 @@ typedef struct IOGReport {
     uint32_t        workloopGatedCount;
 
     char            objectName[64];
-    char            framebufferName[8];
+    char            framebufferName[64];
 
     IONotify        notifications[IOGRAPHICS_MAXIMUM_REPORTS];
 

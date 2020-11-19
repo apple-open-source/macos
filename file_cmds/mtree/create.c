@@ -63,6 +63,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/create.c,v 1.37 2005/03/29 11:44:17 tobez
 #include <time.h>
 #include <unistd.h>
 #include <vis.h>
+#include "metrics.h"
 #include "mtree.h"
 #include "extern.h"
 
@@ -79,15 +80,17 @@ static mode_t mode;
 static u_long flags = 0xffffffff;
 static char *xattrs = kNone;
 static char *acl = kNone;
+static u_quad_t xdstream_id;
 
 static int	dsort(const FTSENT **, const FTSENT **);
 static void	output(int, int *, const char *, ...) __printflike(3, 4);
-static int	statd(FTS *, FTSENT *, uid_t *, gid_t *, mode_t *, u_long *, char **, char **);
+static int	statd(FTS *, FTSENT *, uid_t *, gid_t *, mode_t *, u_long *, char **, char **, u_quad_t *);
 static void	statf(int, FTSENT *);
 
 void
 cwalk(void)
 {
+	int error = 0;
 	FTS *t;
 	FTSENT *p;
 	time_t cl;
@@ -109,8 +112,11 @@ cwalk(void)
 
 	argv[0] = dot;
 	argv[1] = NULL;
-	if ((t = fts_open(argv, ftsoptions, dsort)) == NULL)
-		err(1, "fts_open()");
+	if ((t = fts_open(argv, ftsoptions, dsort)) == NULL) {
+		error = errno;
+		RECORD_FAILURE(76, error);
+		errc(1, error, "fts_open()");
+	}
 	while ((p = fts_read(t))) {
 		if (iflag)
 			indent = p->fts_level * 4;
@@ -127,7 +133,7 @@ cwalk(void)
 				(void)printf("# %s\n", path);
 				free(path);
 			}
-			statd(t, p, &uid, &gid, &mode, &flags, &xattrs, &acl);
+			statd(t, p, &uid, &gid, &mode, &flags, &xattrs, &acl, &xdstream_id);
 			statf(indent, p);
 			break;
 		case FTS_DP:
@@ -153,13 +159,16 @@ cwalk(void)
 		}
 	}
 	(void)fts_close(t);
-	if (sflag && keys & F_CKSUM)
+	if (sflag && keys & F_CKSUM) {
+		RECORD_FAILURE(77, WARN_CHECKSUM);
 		warnx("%s checksum: %lu", fullpath, (unsigned long)crc_total);
+	}
 }
 
 static void
 statf(int indent, FTSENT *p)
 {
+	int error = 0;
 	struct group *gr;
 	struct passwd *pw;
 	uint32_t val;
@@ -169,8 +178,10 @@ statf(int indent, FTSENT *p)
 	char *escaped_name;
 
 	escaped_name = calloc(1, p->fts_namelen * 4  +  1);
-	if (escaped_name == NULL)
+	if (escaped_name == NULL) {
+		RECORD_FAILURE(78, ENOMEM);
 		errx(1, "statf(): calloc() failed");
+	}
 	strvis(escaped_name, p->fts_name, VIS_WHITE | VIS_OCTAL | VIS_GLOB);
 
 	if (iflag || S_ISDIR(p->fts_statp->st_mode))
@@ -190,15 +201,18 @@ statf(int indent, FTSENT *p)
 	if (p->fts_statp->st_uid != uid) {
 		if (keys & F_UNAME) {
 			pw = getpwuid(p->fts_statp->st_uid);
-			if (pw != NULL)
+			if (pw != NULL) {
 				output(indent, &offset, "uname=%s", pw->pw_name);
-			else if (wflag)
+			} else if (wflag) {
+				RECORD_FAILURE(27448, WARN_UNAME);
 				warnx("Could not get uname for uid=%u",
 				    p->fts_statp->st_uid);
-			else
+			} else {
+				RECORD_FAILURE(79, EINVAL);
 				errx(1,
 				    "Could not get uname for uid=%u",
 				    p->fts_statp->st_uid);
+			}
 		}
 		if (keys & F_UID)
 			output(indent, &offset, "uid=%u", p->fts_statp->st_uid);
@@ -206,15 +220,18 @@ statf(int indent, FTSENT *p)
 	if (p->fts_statp->st_gid != gid) {
 		if (keys & F_GNAME) {
 			gr = getgrgid(p->fts_statp->st_gid);
-			if (gr != NULL)
+			if (gr != NULL) {
 				output(indent, &offset, "gname=%s", gr->gr_name);
-			else if (wflag)
+			} else if (wflag) {
+				RECORD_FAILURE(27449, WARN_UNAME);
 				warnx("Could not get gname for gid=%u",
 				    p->fts_statp->st_gid);
-			else
+			} else {
+				RECORD_FAILURE(80, EINVAL);
 				errx(1,
 				    "Could not get gname for gid=%u",
 				    p->fts_statp->st_gid);
+			}
 		}
 		if (keys & F_GID)
 			output(indent, &offset, "gid=%u", p->fts_statp->st_gid);
@@ -226,44 +243,79 @@ statf(int indent, FTSENT *p)
 	if (keys & F_SIZE)
 		output(indent, &offset, "size=%jd",
 		    (intmax_t)p->fts_statp->st_size);
-	if (keys & F_TIME)
-		output(indent, &offset, "time=%ld.%09ld",
-		    (long)p->fts_statp->st_mtimespec.tv_sec,
-		    p->fts_statp->st_mtimespec.tv_nsec);
+	if (keys & F_TIME) {
+		if (tflag && !insert_mod) {
+			output(indent, &offset, "time=%ld.%09ld",
+			       (long)ts.tv_sec, ts.tv_nsec);
+			insert_mod = 1;
+		}
+		if (!tflag) {
+			output(indent, &offset, "time=%ld.%09ld",
+			       (long)p->fts_statp->st_mtimespec.tv_sec,
+			       p->fts_statp->st_mtimespec.tv_nsec);
+		}
+	}
 	if (keys & F_CKSUM && S_ISREG(p->fts_statp->st_mode)) {
 		if ((fd = open(p->fts_accpath, O_RDONLY, 0)) < 0 ||
-		    crc(fd, &val, &len))
-			err(1, "%s", p->fts_accpath);
+		    crc(fd, &val, &len)) {
+			error = errno;
+			RECORD_FAILURE(27450, error);
+			errc(1, error, "%s", p->fts_accpath);
+		}
 		(void)close(fd);
 		output(indent, &offset, "cksum=%lu", (unsigned long)val);
 	}
 #ifdef ENABLE_MD5
 	if (keys & F_MD5 && S_ISREG(p->fts_statp->st_mode)) {
 		char *digest, buf[33];
-
+#ifdef __clang__
+/* clang doesn't like MD5 due to security concerns, but it's used for file data/metadata integrity.. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		digest = MD5File(p->fts_accpath, buf);
-		if (!digest)
-			err(1, "%s", p->fts_accpath);
+#pragma clang diagnostic pop
+#endif
+		if (!digest) {
+			error = errno;
+			RECORD_FAILURE(81, error);
+			errc(1, error, "%s", p->fts_accpath);
+		}
 		output(indent, &offset, "md5digest=%s", digest);
 	}
 #endif /* ENABLE_MD5 */
 #ifdef ENABLE_SHA1
 	if (keys & F_SHA1 && S_ISREG(p->fts_statp->st_mode)) {
 		char *digest, buf[41];
-
+#ifdef __clang__
+/* clang doesn't like SHA1 due to security concerns, but it's used for file data/metadata integrity.. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		digest = SHA1_File(p->fts_accpath, buf);
-		if (!digest)
-			err(1, "%s", p->fts_accpath);
+#pragma clang diagnostic pop
+#endif
+		if (!digest) {
+			error = errno;
+			RECORD_FAILURE(82, error);
+			errc(1, error, "%s", p->fts_accpath);
+		}
 		output(indent, &offset, "sha1digest=%s", digest);
 	}
 #endif /* ENABLE_SHA1 */
 #ifdef ENABLE_RMD160
 	if (keys & F_RMD160 && S_ISREG(p->fts_statp->st_mode)) {
 		char *digest, buf[41];
-
+#ifdef __clang__
+/* clang doesn't like RIPEMD160 due to security concerns, but it's used for file data/metadata integrity.. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		digest = RIPEMD160_File(p->fts_accpath, buf);
-		if (!digest)
-			err(1, "%s", p->fts_accpath);
+#pragma clang diagnostic pop
+#endif
+		if (!digest) {
+			error = errno;
+			RECORD_FAILURE(83, error);
+			errc(1, error, "%s", p->fts_accpath);
+		}
 		output(indent, &offset, "ripemd160digest=%s", digest);
 	}
 #endif /* ENABLE_RMD160 */
@@ -272,8 +324,11 @@ statf(int indent, FTSENT *p)
 		char *digest, buf[kSHA256NullTerminatedBuffLen];
 
 		digest = SHA256_File(p->fts_accpath, buf);
-		if (!digest)
-			err(1, "%s", p->fts_accpath);
+		if (!digest) {
+			error = errno;
+			RECORD_FAILURE(84, error);
+			errc(1, error, "%s", p->fts_accpath);
+		}
 		output(indent, &offset, "sha256digest=%s", digest);
 	}
 #endif /* ENABLE_SHA256 */
@@ -290,38 +345,69 @@ statf(int indent, FTSENT *p)
 		free(fflags);
 	}
 	if (keys & F_BTIME) {
-		output(indent, &offset, "btime=%ld.%09ld",
-		       p->fts_statp->st_birthtimespec.tv_sec,
-		       p->fts_statp->st_birthtimespec.tv_nsec);
+		if (tflag && !insert_birth) {
+			output(indent, &offset, "btime=%ld.%09ld",
+			       ts.tv_sec, ts.tv_nsec);
+			insert_birth = 1;
+		}
+		if (!tflag) {
+			output(indent, &offset, "btime=%ld.%09ld",
+			       p->fts_statp->st_birthtimespec.tv_sec,
+			       p->fts_statp->st_birthtimespec.tv_nsec);
+		}
 	}
 	// only check access time on regular files, as traversing a folder will update its access time
 	if (keys & F_ATIME && S_ISREG(p->fts_statp->st_mode)) {
-		output(indent, &offset, "atime=%ld.%09ld",
-		       p->fts_statp->st_atimespec.tv_sec,
-		       p->fts_statp->st_atimespec.tv_nsec);
+		if (tflag && !insert_access) {
+			output(indent, &offset, "atime=%ld.%09ld",
+			       ts.tv_sec, ts.tv_nsec);
+			insert_access = 1;
+		}
+		if (!tflag) {
+			output(indent, &offset, "atime=%ld.%09ld",
+			       p->fts_statp->st_atimespec.tv_sec,
+			       p->fts_statp->st_atimespec.tv_nsec);
+		}
 	}
 	if (keys & F_CTIME) {
-		output(indent, &offset, "ctime=%ld.%09ld",
-		       p->fts_statp->st_ctimespec.tv_sec,
-		       p->fts_statp->st_ctimespec.tv_nsec);
+		if (tflag && !insert_change) {
+			output(indent, &offset, "ctime=%ld.%09ld",
+			       ts.tv_sec, ts.tv_nsec);
+			insert_change = 1;
+		}
+		if (!tflag) {
+			output(indent, &offset, "ctime=%ld.%09ld",
+			       p->fts_statp->st_ctimespec.tv_sec,
+			       p->fts_statp->st_ctimespec.tv_nsec);
+		}
 	}
 	// date added to parent folder is only supported for files and directories
 	if (keys & F_PTIME && (S_ISREG(p->fts_statp->st_mode) ||
 			       S_ISDIR(p->fts_statp->st_mode))) {
 		int supported;
 		struct timespec ptimespec = ptime(p->fts_accpath, &supported);
-		if (supported) {
+		if (tflag && !insert_parent) {
+			output(indent, &offset, "ptime=%ld.%09ld",
+			       ts.tv_sec, ts.tv_nsec);
+			insert_parent = 1;
+		}
+		if (!tflag && supported) {
 			output(indent, &offset, "ptime=%ld.%09ld",
 			       ptimespec.tv_sec,
 			       ptimespec.tv_nsec);
 		}
 	}
 	if (keys & F_XATTRS) {
-		char *digest, buf[kSHA256NullTerminatedBuffLen];
+		char buf[kSHA256NullTerminatedBuffLen];
+		xattr_info *ai;
 		
-		digest = SHA256_Path_XATTRs(p->fts_accpath, buf);
-		if (digest && (strcmp(digest, xattrs) != 0)) {
-			output(indent, &offset, "xattrsdigest=%s", digest);
+		ai = SHA256_Path_XATTRs(p->fts_accpath, buf);
+		if (ai && ai->digest) {
+			if ((strcmp(ai->digest, xattrs) != 0) || (ai->xdstream_priv_id != xdstream_id)) {
+				output(indent, &offset, "xattrsdigest=%s.%llu", ai->digest, ai->xdstream_priv_id);
+			}
+			free(ai);
+			ai = NULL;
 		}
 	}
 	if (keys & F_INODE) {
@@ -335,6 +421,11 @@ statf(int indent, FTSENT *p)
 			output(indent, &offset, "acldigest=%s", digest);
 		}
 	}
+	if (keys & F_SIBLINGID) {
+		uint64_t sibling_id = get_sibling_id(p->fts_accpath);
+		sibling_id = (sibling_id != p->fts_statp->st_ino) ? sibling_id : 0;
+		output(indent, &offset, "siblingid=%llu", sibling_id);
+	}
 	
 	(void)putchar('\n');
 }
@@ -346,8 +437,9 @@ statf(int indent, FTSENT *p)
 #define	MAXS 16
 
 static int
-statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *pflags, char **pxattrs, char **pacl)
+statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *pflags, char **pxattrs, char **pacl, u_quad_t *xdstream_id)
 {
+	int error = 0;
 	FTSENT *p;
 	gid_t sgid;
 	uid_t suid;
@@ -361,14 +453,18 @@ statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *p
 	u_long saveflags = *pflags;
 	char *savexattrs = *pxattrs;
 	char *saveacl = *pacl;
+	u_quad_t savexdstream_id = *xdstream_id;
 	u_short maxgid, maxuid, maxmode, maxflags;
 	u_short g[MAXGID], u[MAXUID], m[MAXMODE], f[MAXFLAGS];
 	char *fflags;
 	static int first = 1;
 
 	if ((p = fts_children(t, 0)) == NULL) {
-		if (errno)
-			err(1, "%s", RP(parent));
+		error = errno;
+		if (error) {
+			RECORD_FAILURE(85, error);
+			errc(1, error, "%s", RP(parent));
+		}
 		return (1);
 	}
 
@@ -434,23 +530,29 @@ statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *p
 			(void)printf("/set type=file");
 		if (keys & F_UNAME) {
 			pw = getpwuid(saveuid);
-			if (pw != NULL)
+			if (pw != NULL) {
 				(void)printf(" uname=%s", pw->pw_name);
-			else if (wflag)
+			} else if (wflag) {
+				RECORD_FAILURE(27451, WARN_UNAME);
 				warnx( "Could not get uname for uid=%u", saveuid);
-			else
+			} else {
+				RECORD_FAILURE(86, EINVAL);
 				errx(1, "Could not get uname for uid=%u", saveuid);
+			}
 		}
 		if (keys & F_UID)
 			(void)printf(" uid=%lu", (u_long)saveuid);
 		if (keys & F_GNAME) {
 			gr = getgrgid(savegid);
-			if (gr != NULL)
+			if (gr != NULL) {
 				(void)printf(" gname=%s", gr->gr_name);
-			else if (wflag)
+			} else if (wflag) {
+				RECORD_FAILURE(27452, WARN_UNAME);
 				warnx("Could not get gname for gid=%u", savegid);
-			else
+			} else {
+				RECORD_FAILURE(87, EINVAL);
 				errx(1, "Could not get gname for gid=%u", savegid);
+			}
 		}
 		if (keys & F_GID)
 			(void)printf(" gid=%lu", (u_long)savegid);
@@ -464,7 +566,7 @@ statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *p
 			free(fflags);
 		}
 		if (keys & F_XATTRS)
-			(void)printf(" xattrsdigest=%s", savexattrs);
+			(void)printf(" xattrsdigest=%s.%llu", savexattrs, savexdstream_id);
 		if (keys & F_ACL)
 			(void)printf(" acldigest=%s", saveacl);
 		(void)printf("\n");
@@ -474,6 +576,7 @@ statd(FTS *t, FTSENT *parent, uid_t *puid, gid_t *pgid, mode_t *pmode, u_long *p
 		*pflags = saveflags;
 		*pxattrs = savexattrs;
 		*pacl = saveacl;
+		*xdstream_id = savexdstream_id;
 	}
 	return (0);
 }

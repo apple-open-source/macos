@@ -54,7 +54,7 @@ APIPTR handle(bool retain) \
 #define SECCFFUNCTIONS_CREATABLE(OBJTYPE, APIPTR, CFCLASS) \
 SECCFFUNCTIONS_BASE(OBJTYPE, APIPTR)\
 \
-void *operator new(size_t size) throw(std::bad_alloc) \
+void *operator new(size_t size)\
 { return SecCFObject::allocate(size, CFCLASS); }
 
 #define SECCFFUNCTIONS(OBJTYPE, APIPTR, ERRCODE, CFCLASS) \
@@ -79,7 +79,7 @@ struct SecRuntimeBase: CFRuntimeBase
 class SecCFObject
 {
 private:
-	void *operator new(size_t) throw(std::bad_alloc);
+	void *operator new(size_t);
 
 	// Align up to a multiple of 16 bytes
 	static const size_t kAlignedRuntimeSize = SECALIGNUP(sizeof(SecRuntimeBase), 4);
@@ -97,23 +97,23 @@ public:
         return !atomic_flag_test_and_set(&(base->isOld));
 	}
 
-	static SecCFObject *optional(CFTypeRef) throw();
+	static SecCFObject *optional(CFTypeRef) _NOEXCEPT;
 	static SecCFObject *required(CFTypeRef, OSStatus error);
-	static void *allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc);
+	static void *allocate(size_t size, const CFClass &cfclass);
 
     SecCFObject();
 	virtual ~SecCFObject();
     uint32_t updateRetainCount(intptr_t direction, uint32_t *oldCount);
     uint32_t getRetainCount() {return updateRetainCount(0, NULL);}
 
-	static void operator delete(void *object) throw();
-	virtual operator CFTypeRef() const throw()
+	static void operator delete(void *object) _NOEXCEPT;
+	virtual operator CFTypeRef() const _NOEXCEPT
 	{
 		return reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(this) - kAlignedRuntimeSize);
 	}
 
 	// This bumps up the retainCount by 1, by calling CFRetain(), iff retain is true
-	CFTypeRef handle(bool retain = true) throw();
+	CFTypeRef handle(bool retain = true) _NOEXCEPT;
 
     virtual bool equal(SecCFObject &other);
     virtual CFHashCode hash();
@@ -156,10 +156,12 @@ public:
 	T *yield() { T *result = static_cast<T *>(ptr); ptr = NULL; return result; }
 	
 	// dereference operations
-    T* get () const				{ return static_cast<T*>(ptr); }	// mimic auto_ptr
+    T* get () const				{ return static_cast<T*>(ptr); }	// mimic unique_ptr
 	operator T * () const		{ return static_cast<T*>(ptr); }
 	T * operator -> () const	{ return static_cast<T*>(ptr); }
 	T & operator * () const		{ return *static_cast<T*>(ptr); }
+
+    SecPointer& operator=(const SecPointer& other) { SecPointerBase::operator=(other); return *this; }
 };
 
 template <class T>

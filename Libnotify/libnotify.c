@@ -145,6 +145,7 @@ _notify_lib_notify_state_init(notify_state_t * ns, uint32_t flags)
 	_nc_table_init_64(&ns->client_table, offsetof(client_t, cid.hash_key));
 	_nc_table_init_n(&ns->port_table, offsetof(port_data_t, port));
 	_nc_table_init_n(&ns->proc_table, offsetof(proc_data_t, pid));
+	_nc_table_init_64(&ns->event_table, offsetof(event_data_t, event_token));
 }
 
 // We only need to lock in the client
@@ -170,6 +171,8 @@ _internal_client_new(notify_state_t *ns, pid_t pid, int token, name_info_t *n)
 	client_t *c;
 	uint64_t cid = make_client_id(pid, token);
 
+	n->refcount++;
+
 	/* detect duplicates - should never happen, but it would be bad */
 	c = _nc_table_find_64(&ns->client_table, cid);
 	if (c != NULL) return NULL;
@@ -182,7 +185,6 @@ _internal_client_new(notify_state_t *ns, pid_t pid, int token, name_info_t *n)
 	c->name_info = n;
 
 	LIST_INSERT_HEAD(&n->subscriptions, c, client_subscription_entry);
-	n->refcount++;
 
 	_nc_table_insert_64(&ns->client_table, &c->cid.hash_key);
 	return c;
@@ -193,9 +195,9 @@ _internal_client_release(notify_state_t *ns, client_t *c)
 {
 	_nc_table_delete_64(&ns->client_table, c->cid.hash_key);
 
-	if (c->state_and_type & NOTIFY_TYPE_FILE) {
+	if (notify_is_type(c->state_and_type, NOTIFY_TYPE_FILE)) {
 		if (c->deliver.fd >= 0) close(c->deliver.fd);
-	} else if (c->state_and_type & NOTIFY_TYPE_PORT) {
+	} else if (notify_is_type(c->state_and_type, NOTIFY_TYPE_PORT)) {
 		/* release my send right to the port */
 		mach_port_deallocate(mach_task_self(), c->deliver.port);
 	}
@@ -238,7 +240,7 @@ _internal_new_name(notify_state_t *ns, const char *name)
 static void
 _internal_insert_controlled_name(notify_state_t *ns, name_info_t *n)
 {
-	int i, j;
+	uint32_t i, j;
 
 	if (n == NULL) return;
 
@@ -361,6 +363,72 @@ _notify_lib_check_controlled_access(notify_state_t *ns, char *name, uid_t uid, g
 	return status;
 }
 
+static inline uint32_t
+_internal_send_port(notify_state_t *ns, client_t *c, port_data_t *port_data, mach_port_t port)
+{
+	kern_return_t kstatus;
+	mach_msg_empty_send_t msg;
+	mach_msg_option_t opts = MACH_SEND_MSG | MACH_SEND_TIMEOUT;
+
+	if (port_data == NULL)
+	{
+		port_data = _nc_table_find_n(&ns->port_table, port);
+	}
+	if ((port_data != NULL) && (port_data->flags & NOTIFY_PORT_PROC_STATE_SUSPENDED))
+	{
+		c->suspend_count++;
+		c->state_and_type |= NOTIFY_CLIENT_STATE_SUSPENDED;
+		c->state_and_type |= NOTIFY_CLIENT_STATE_PENDING;
+		return NOTIFY_STATUS_OK;
+	}
+
+	if (ns->flags & NOTIFY_STATE_ENABLE_RESEND) opts |= MACH_SEND_NOTIFY;
+
+	memset(&msg, 0, sizeof(mach_msg_empty_send_t));
+	msg.header.msgh_size = sizeof(mach_msg_empty_send_t);
+	msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSGH_BITS_ZERO);
+	msg.header.msgh_local_port = MACH_PORT_NULL;
+	msg.header.msgh_remote_port = port;
+	msg.header.msgh_id = (mach_msg_id_t)c->cid.token;
+
+	kstatus = mach_msg(&msg.header, opts, msg.header.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+
+	if (kstatus == MACH_SEND_TIMED_OUT)
+	{
+		/* deallocate port rights obtained via pseudo-receive after failed mach_msg() send */
+		mach_msg_destroy(&msg.header);
+		if (ns->flags & NOTIFY_STATE_ENABLE_RESEND)
+		{
+			/*
+			 * Suspend on timeout.
+			 * notifyd will get a MACH_NOTIFY_SEND_POSSIBLE and trigger a retry.
+			 * c->suspend_count must be zero, or we would not be trying to send.
+			 */
+			c->suspend_count++;
+			c->state_and_type |= NOTIFY_CLIENT_STATE_SUSPENDED;
+			c->state_and_type |= NOTIFY_CLIENT_STATE_PENDING;
+			c->state_and_type |= NOTIFY_CLIENT_STATE_TIMEOUT;
+
+			if (port_data) {
+				/*
+				 * If we failed to send, stop trying on this port
+				 * and just wait for the send-possible notification
+				 */
+				port_data->flags |= NOTIFY_PORT_PROC_STATE_SUSPENDED;
+			}
+			return NOTIFY_STATUS_OK;
+		}
+
+		return NOTIFY_STATUS_MACH_MSG_TIMEOUT;
+	}
+	else if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_MACH_MSG_FAILED;
+
+	c->state_and_type &= ~NOTIFY_CLIENT_STATE_PENDING;
+	c->state_and_type &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
+
+	return NOTIFY_STATUS_OK;
+}
+
 /*
  * Send notification to a subscriber
  */
@@ -368,7 +436,6 @@ static uint32_t
 _internal_send(notify_state_t *ns, client_t *c,
 		proc_data_t *proc_data, port_data_t *port_data)
 {
-	uint32_t send;
 
 	if (c->state_and_type & NOTIFY_CLIENT_STATE_SUSPENDED)
 	{
@@ -388,9 +455,7 @@ _internal_send(notify_state_t *ns, client_t *c,
 		return NOTIFY_STATUS_OK;
 	}
 
-	send = c->cid.token;
-
-	switch (c->state_and_type & NOTIFY_TYPE_MASK)
+	switch (notify_get_type(c->state_and_type))
 	{
 		case NOTIFY_TYPE_SIGNAL:
 		{
@@ -413,8 +478,8 @@ _internal_send(notify_state_t *ns, client_t *c,
 
 			if (c->deliver.fd >= 0)
 			{
-				send = htonl(send);
-				len = write(c->deliver.fd, &send, sizeof(uint32_t));
+				uint32_t send_value = htonl(c->cid.token);
+				len = write(c->deliver.fd, &send_value, sizeof(uint32_t));
 				if (len != sizeof(uint32_t))
 				{
 					close(c->deliver.fd);
@@ -431,67 +496,38 @@ _internal_send(notify_state_t *ns, client_t *c,
 
 		case NOTIFY_TYPE_PORT:
 		{
-			kern_return_t kstatus;
-			mach_msg_empty_send_t msg;
-			mach_msg_option_t opts = MACH_SEND_MSG | MACH_SEND_TIMEOUT;
+			return _internal_send_port(ns, c, port_data, c->deliver.port);
+		}
 
-			if (port_data == NULL)
-			{
-				port_data = _nc_table_find_n(&ns->port_table, c->deliver.port);
-			}
-			if ((port_data != NULL) && (port_data->flags & NOTIFY_PORT_PROC_STATE_SUSPENDED))
-			{
-				c->suspend_count++;
-				c->state_and_type |= NOTIFY_CLIENT_STATE_SUSPENDED;
-				c->state_and_type |= NOTIFY_CLIENT_STATE_PENDING;
-				return NOTIFY_STATUS_OK;
+		case NOTIFY_TYPE_XPC_EVENT:
+		{
+			xpc_object_t payload = xpc_dictionary_create(NULL, NULL, 0);
+			xpc_dictionary_set_string(payload, NOTIFY_XPC_EVENT_PAYLOAD_KEY_NAME, c->name_info->name);
+
+			name_info_t *n = _nc_table_find_64(&ns->name_id_table, c->name_info->name_id);
+			if (n != NULL) {
+				xpc_dictionary_set_uint64(payload, NOTIFY_XPC_EVENT_PAYLOAD_KEY_STATE, n->state);
 			}
 
-			if (ns->flags & NOTIFY_STATE_ENABLE_RESEND) opts |= MACH_SEND_NOTIFY;
-
-			memset(&msg, 0, sizeof(mach_msg_empty_send_t));
-			msg.header.msgh_size = sizeof(mach_msg_empty_send_t);
-			msg.header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSGH_BITS_ZERO);
-			msg.header.msgh_local_port = MACH_PORT_NULL;
-			msg.header.msgh_remote_port = c->deliver.port;
-			msg.header.msgh_id = (mach_msg_id_t)send;
-
-			kstatus = mach_msg(&msg.header, opts, msg.header.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
-
-			if (kstatus == MACH_SEND_TIMED_OUT)
-			{
-				/* deallocate port rights obtained via pseudo-receive after failed mach_msg() send */
-				mach_msg_destroy(&msg.header);
-				if (ns->flags & NOTIFY_STATE_ENABLE_RESEND)
-				{
-					/*
-					 * Suspend on timeout.
-					 * notifyd will get a MACH_NOTIFY_SEND_POSSIBLE and trigger a retry.
-					 * c->suspend_count must be zero, or we would not be trying to send.
-					 */
-					c->suspend_count++;
-					c->state_and_type |= NOTIFY_CLIENT_STATE_SUSPENDED;
-					c->state_and_type |= NOTIFY_CLIENT_STATE_PENDING;
-					c->state_and_type |= NOTIFY_CLIENT_STATE_TIMEOUT;
-
-					if (port_data) {
-						/*
-						 * If we failed to send, stop trying on this port
-						 * and just wait for the send-possible notification
-						 */
-						port_data->flags |= NOTIFY_PORT_PROC_STATE_SUSPENDED;
-					}
-					return NOTIFY_STATUS_OK;
-				}
-
-				return NOTIFY_STATUS_MACH_MSG_TIMEOUT;
+			int rc = xpc_event_publisher_fire_noboost(ns->event_publisher, c->deliver.event_token, payload);
+			xpc_release(payload);
+			if (rc != 0) {
+				return NOTIFY_STATUS_TOKEN_FIRE_FAILED;
 			}
-			else if (kstatus != KERN_SUCCESS) return NOTIFY_STATUS_MACH_MSG_FAILED;
 
 			c->state_and_type &= ~NOTIFY_CLIENT_STATE_PENDING;
 			c->state_and_type &= ~NOTIFY_CLIENT_STATE_TIMEOUT;
 
 			return NOTIFY_STATUS_OK;
+		}
+
+		case NOTIFY_TYPE_COMMON_PORT:
+		{
+			if (!proc_data || !proc_data->common_port_data)
+			{
+				return NOTIFY_STATUS_OK;
+			}
+			return _internal_send_port(ns, c, port_data, proc_data->common_port_data->port);
 		}
 
 		default:
@@ -845,7 +881,6 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 {
 	client_t *c;
 	name_info_t *n;
-	int is_new_name;
 	uint32_t status;
 
 	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
@@ -855,13 +890,10 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 	if (status != NOTIFY_STATUS_OK) return NOTIFY_STATUS_NOT_AUTHORIZED;
 
 	*outc = NULL;
-	is_new_name = 0;
 
 	n = _nc_table_find(&ns->name_table, name);
 	if (n == NULL)
 	{
-		is_new_name = 1;
-
 		n = _internal_new_name(ns, name);
 		if (n == NULL) return NOTIFY_STATUS_NEW_NAME_FAILED;
 	}
@@ -869,13 +901,7 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 	c = _internal_client_new(ns, pid, token, n);
 	if (c == NULL)
 	{
-		if (is_new_name == 1)
-		{
-			_nc_table_delete(&ns->name_table, n->name);
-			free(n);
-			ns->stat_name_free++;
-		}
-
+		_internal_release_name_info(ns, n);
 		return NOTIFY_STATUS_NEW_CLIENT_FAILED;
 	}
 
@@ -886,7 +912,6 @@ _internal_register_common(notify_state_t *ns, const char *name, pid_t pid, int t
 
 /*
  * Register for signal.
- * Returns the client_id;
  */
 uint32_t
 _notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t pid, int token, uint32_t sig, uid_t uid, gid_t gid, uint64_t *out_nid)
@@ -919,7 +944,6 @@ _notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t pid, int
 
 /*
  * Register for notification on a file descriptor.
- * Returns the client_id;
  */
 uint32_t
 _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, pid_t pid, int token, int fd, uid_t uid, gid_t gid, uint64_t *out_nid)
@@ -952,7 +976,6 @@ _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, pid_t
 
 /*
  * Register for notification on a mach port.
- * Returns the client_id;
  */
 uint32_t
 _notify_lib_register_mach_port(notify_state_t *ns, const char *name, pid_t pid, int token, mach_port_t port, uid_t uid, gid_t gid, uint64_t *out_nid)
@@ -985,7 +1008,6 @@ _notify_lib_register_mach_port(notify_state_t *ns, const char *name, pid_t pid, 
 
 /*
  * Plain registration - only for notify_check()
- * Returns the client_id.
  */
 uint32_t
 _notify_lib_register_plain(notify_state_t *ns, const char *name, pid_t pid, int token, uint32_t slot, uint32_t uid, uint32_t gid, uint64_t *out_nid)
@@ -1018,6 +1040,67 @@ _notify_lib_register_plain(notify_state_t *ns, const char *name, pid_t pid, int 
 		c->name_info->slot = slot;
 	}
 
+	*out_nid = c->name_info->name_id;
+
+	_notify_state_unlock(&ns->lock);
+	return NOTIFY_STATUS_OK;
+}
+
+/*
+ * Register for an XPC event notification
+ */
+uint32_t
+_notify_lib_register_xpc_event(notify_state_t *ns, const char *name, pid_t pid, int token, uint64_t event_token, uid_t uid, gid_t gid, uint64_t *out_nid)
+{
+	client_t *c = NULL;
+	uint32_t status;
+
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
+
+	_notify_state_lock(&ns->lock);
+
+	assert(ns->event_publisher != NULL);
+
+	status = _internal_register_common(ns, name, pid, token, uid, gid, &c);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		_notify_state_unlock(&ns->lock);
+		return status;
+	}
+
+	c->state_and_type &= ~NOTIFY_TYPE_MASK;
+	c->state_and_type |= NOTIFY_TYPE_XPC_EVENT;
+	c->deliver.event_token = event_token;
+	*out_nid = c->name_info->name_id;
+
+	_notify_state_unlock(&ns->lock);
+	return NOTIFY_STATUS_OK;
+}
+
+/*
+ * Register for notification on the common port.
+ */
+uint32_t
+_notify_lib_register_common_port(notify_state_t *ns, const char *name, pid_t pid, int token, uid_t uid, gid_t gid, uint64_t *out_nid)
+{
+	client_t *c;
+	uint32_t status;
+
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
+
+	c = NULL;
+
+	_notify_state_lock(&ns->lock);
+
+	status = _internal_register_common(ns, name, pid, token, uid, gid, &c);
+	if (status != NOTIFY_STATUS_OK)
+	{
+		_notify_state_unlock(&ns->lock);
+		return status;
+	}
+
+	c->state_and_type &= ~NOTIFY_TYPE_MASK;
+	c->state_and_type |= NOTIFY_TYPE_COMMON_PORT;
 	*out_nid = c->name_info->name_id;
 
 	_notify_state_unlock(&ns->lock);

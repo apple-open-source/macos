@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,9 +25,9 @@
 
 #import "config.h"
 #import "WKWebViewConfigurationInternal.h"
-#import <pal/spi/cocoa/NSKeyedArchiverSPI.h>
 
 #import "APIPageConfiguration.h"
+#import "UserInterfaceIdiom.h"
 #import "VersionChecks.h"
 #import "WKPreferences.h"
 #import "WKProcessPool.h"
@@ -47,6 +47,7 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/URLParser.h>
 #import <wtf/WeakObjCPtr.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import "UIKitSPI.h"
@@ -132,6 +133,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     BOOL _convertsPositionStyleOnCopy;
     BOOL _allowsMetaRefresh;
     BOOL _allowUniversalAccessFromFileURLs;
+    BOOL _allowTopNavigationToDataURLs;
 
 #if PLATFORM(IOS_FAMILY)
     LazyInitialized<RetainPtr<WKWebViewContentProviderRegistry>> _contentProviderRegistry;
@@ -191,9 +193,11 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
 #if !PLATFORM(WATCHOS)
     _allowsPictureInPictureMediaPlayback = YES;
 #endif
-    _allowsInlineMediaPlayback = WebCore::deviceClass() == MGDeviceClassiPad;
+
+    _allowsInlineMediaPlayback = WebKit::currentUserInterfaceIdiomIsPadOrMac();
     _inlineMediaPlaybackRequiresPlaysInlineAttribute = !_allowsInlineMediaPlayback;
     _allowsInlineMediaPlaybackAfterFullscreen = !_allowsInlineMediaPlayback;
+
     _mediaDataLoadsAutomatically = NO;
 #if !PLATFORM(WATCHOS)
     if (WebKit::linkedOnOrAfter(WebKit::SDKVersion::FirstWithMediaTypesRequiringUserActionForPlayback))
@@ -236,6 +240,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     _convertsPositionStyleOnCopy = NO;
     _allowsMetaRefresh = YES;
     _allowUniversalAccessFromFileURLs = NO;
+    _allowTopNavigationToDataURLs = NO;
     _needsStorageAccessFromFileURLsQuirk = YES;
 
 #if PLATFORM(IOS_FAMILY)
@@ -257,7 +262,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
 
     _colorFilterEnabled = NO;
     _incompleteImageBorderEnabled = NO;
-    _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad = NO;
+    _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad = YES;
     _drawsBackground = YES;
 
     _editableImagesEnabled = NO;
@@ -319,15 +324,15 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     if (!(self = [self init]))
         return nil;
 
-    self.processPool = decodeObjectOfClassForKeyFromCoder([WKProcessPool class], @"processPool", coder);
-    self.preferences = decodeObjectOfClassForKeyFromCoder([WKPreferences class], @"preferences", coder);
-    self.userContentController = decodeObjectOfClassForKeyFromCoder([WKUserContentController class], @"userContentController", coder);
-    self.websiteDataStore = decodeObjectOfClassForKeyFromCoder([WKWebsiteDataStore class], @"websiteDataStore", coder);
+    self.processPool = [coder decodeObjectOfClass:[WKProcessPool class] forKey:@"processPool"];
+    self.preferences = [coder decodeObjectOfClass:[WKPreferences class] forKey:@"preferences"];
+    self.userContentController = [coder decodeObjectOfClass:[WKUserContentController class] forKey:@"userContentController"];
+    self.websiteDataStore = [coder decodeObjectOfClass:[WKWebsiteDataStore class] forKey:@"websiteDataStore"];
 
     self.suppressesIncrementalRendering = [coder decodeBoolForKey:@"suppressesIncrementalRendering"];
 
     if ([coder containsValueForKey:@"applicationNameForUserAgent"])
-        self.applicationNameForUserAgent = decodeObjectOfClassForKeyFromCoder([NSString class], @"applicationNameForUserAgent", coder);
+        self.applicationNameForUserAgent = [coder decodeObjectOfClass:[NSString class] forKey:@"applicationNameForUserAgent"];
 
     self.allowsAirPlayForMediaPlayback = [coder decodeBoolForKey:@"allowsAirPlayForMediaPlayback"];
 
@@ -383,6 +388,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     configuration->_convertsPositionStyleOnCopy = self->_convertsPositionStyleOnCopy;
     configuration->_allowsMetaRefresh = self->_allowsMetaRefresh;
     configuration->_allowUniversalAccessFromFileURLs = self->_allowUniversalAccessFromFileURLs;
+    configuration->_allowTopNavigationToDataURLs = self->_allowTopNavigationToDataURLs;
 
     configuration->_invisibleAutoplayNotPermitted = self->_invisibleAutoplayNotPermitted;
     configuration->_mediaDataLoadsAutomatically = self->_mediaDataLoadsAutomatically;
@@ -417,7 +423,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
 #if ENABLE(DATA_DETECTION) && PLATFORM(IOS_FAMILY)
     configuration->_dataDetectorTypes = self->_dataDetectorTypes;
 #endif
-#if ENABLE(WIRELESS_TARGET_PLAYBACK)
+#if ENABLE(WIRELESS_PLAYBACK_TARGET)
     configuration->_allowsAirPlayForMediaPlayback = self->_allowsAirPlayForMediaPlayback;
 #endif
 #if ENABLE(APPLE_PAY)
@@ -588,6 +594,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return _pageConfiguration->copy();
 }
 
+- (BOOL)limitsNavigationsToAppBoundDomains
+{
+    return _pageConfiguration->limitsNavigationsToAppBoundDomains();
+}
+
+- (void)setLimitsNavigationsToAppBoundDomains:(BOOL)limitsToAppBoundDomains
+{
+    _pageConfiguration->setLimitsNavigationsToAppBoundDomains(limitsToAppBoundDomains);
+}
+
 @end
 
 @implementation WKWebViewConfiguration (WKPrivate)
@@ -620,16 +636,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_setGroupIdentifier:(NSString *)groupIdentifier
 {
     _groupIdentifier = groupIdentifier;
-}
-
-- (BOOL)_treatsSHA1SignedCertificatesAsInsecure
-{
-    return _pageConfiguration->treatsSHA1SignedCertificatesAsInsecure();
-}
-
-- (void)_setTreatsSHA1SignedCertificatesAsInsecure:(BOOL)insecure
-{
-    _pageConfiguration->setTreatsSHA1SignedCertificatesAsInsecure(insecure);
 }
 
 - (BOOL)_respectsImageOrientation
@@ -682,6 +688,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _allowUniversalAccessFromFileURLs = allowUniversalAccessFromFileURLs;
 }
 
+- (BOOL)_allowTopNavigationToDataURLs
+{
+    return _allowTopNavigationToDataURLs;
+}
+
+- (void)_setAllowTopNavigationToDataURLs:(BOOL)allowTopNavigationToDataURLs
+{
+    _allowTopNavigationToDataURLs = allowTopNavigationToDataURLs;
+}
+
 - (BOOL)_convertsPositionStyleOnCopy
 {
     return _convertsPositionStyleOnCopy;
@@ -715,12 +731,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (BOOL)_alwaysRunsAtForegroundPriority
 {
-    return _pageConfiguration->alwaysRunsAtForegroundPriority();
+    return _pageConfiguration->clientNavigationsRunAtForegroundPriority();
 }
 
 - (void)_setAlwaysRunsAtForegroundPriority:(BOOL)alwaysRunsAtForegroundPriority
 {
-    _pageConfiguration->setAlwaysRunsAtForegroundPriority(alwaysRunsAtForegroundPriority);
+    _pageConfiguration->setClientNavigationsRunAtForegroundPriority(alwaysRunsAtForegroundPriority);
 }
 
 - (BOOL)_inlineMediaPlaybackRequiresPlaysInlineAttribute
@@ -852,7 +868,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (void)_setAttachmentFileWrapperClass:(Class)attachmentFileWrapperClass
 {
-    if (attachmentFileWrapperClass && ![attachmentFileWrapperClass isSubclassOfClass:[NSFileWrapper self]])
+    if (attachmentFileWrapperClass && ![attachmentFileWrapperClass isSubclassOfClass:[NSFileWrapper class]])
         [NSException raise:NSInvalidArgumentException format:@"Class %@ does not inherit from NSFileWrapper", attachmentFileWrapperClass];
 
     _attachmentFileWrapperClass = attachmentFileWrapperClass;
@@ -895,20 +911,52 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (NSArray<NSString *> *)_corsDisablingPatterns
 {
-    auto& vector = _pageConfiguration->corsDisablingPatterns();
-    NSMutableArray *array = [NSMutableArray arrayWithCapacity:vector.size()];
-    for (auto& pattern : vector)
-        [array addObject:pattern];
-    return array;
+    return createNSArray(_pageConfiguration->corsDisablingPatterns()).autorelease();
 }
 
 - (void)_setCORSDisablingPatterns:(NSArray<NSString *> *)patterns
 {
-    Vector<String> vector;
-    vector.reserveInitialCapacity(patterns.count);
-    for (NSString *pattern in patterns)
-        vector.uncheckedAppend(pattern);
-    _pageConfiguration->setCORSDisablingPatterns(WTFMove(vector));
+    _pageConfiguration->setCORSDisablingPatterns(makeVector<String>(patterns));
+}
+
+- (void)_setLoadsFromNetwork:(BOOL)loads
+{
+    _pageConfiguration->setLoadsFromNetwork(loads);
+}
+
+- (BOOL)_loadsFromNetwork
+{
+    return _pageConfiguration->loadsFromNetwork();
+}
+
+- (void)_setLoadsSubresources:(BOOL)loads
+{
+    _pageConfiguration->setLoadsSubresources(loads);
+}
+
+- (BOOL)_loadsSubresources
+{
+    return _pageConfiguration->loadsSubresources();
+}
+
+- (BOOL)_deferrableUserScriptsShouldWaitUntilNotification
+{
+    return _pageConfiguration->userScriptsShouldWaitUntilNotification();
+}
+
+- (void)_setDeferrableUserScriptsShouldWaitUntilNotification:(BOOL)value
+{
+    _pageConfiguration->setUserScriptsShouldWaitUntilNotification(value);
+}
+
+- (void)_setCrossOriginAccessControlCheckEnabled:(BOOL)enabled
+{
+    _pageConfiguration->setCrossOriginAccessControlCheckEnabled(enabled);
+}
+
+- (BOOL)_crossOriginAccessControlCheckEnabled
+{
+    return _pageConfiguration->crossOriginAccessControlCheckEnabled();
 }
 
 - (BOOL)_drawsBackground
@@ -1154,6 +1202,85 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (BOOL)_undoManagerAPIEnabled
 {
     return _undoManagerAPIEnabled;
+}
+
+static WebKit::WebViewCategory toWebKitWebViewCategory(_WKWebViewCategory category)
+{
+    switch (category) {
+    case _WKWebViewCategoryAppBoundDomain:
+        return WebKit::WebViewCategory::AppBoundDomain;
+    case _WKWebViewCategoryHybridApp:
+        return WebKit::WebViewCategory::HybridApp;
+    case _WKWebViewCategoryInAppBrowser:
+        return WebKit::WebViewCategory::InAppBrowser;
+    case _WKWebViewCategoryWebBrowser:
+        return WebKit::WebViewCategory::WebBrowser;
+    }
+    ASSERT_NOT_REACHED();
+    return WebKit::WebViewCategory::AppBoundDomain;
+}
+
+static _WKWebViewCategory toWKWebViewCategory(WebKit::WebViewCategory category)
+{
+    switch (category) {
+    case WebKit::WebViewCategory::AppBoundDomain:
+        return _WKWebViewCategoryAppBoundDomain;
+    case WebKit::WebViewCategory::HybridApp:
+        return _WKWebViewCategoryHybridApp;
+    case WebKit::WebViewCategory::InAppBrowser:
+        return _WKWebViewCategoryInAppBrowser;
+    case WebKit::WebViewCategory::WebBrowser:
+        return _WKWebViewCategoryWebBrowser;
+    }
+    ASSERT_NOT_REACHED();
+    return _WKWebViewCategoryAppBoundDomain;
+}
+
+- (_WKWebViewCategory)_webViewCategory
+{
+    return toWKWebViewCategory(_pageConfiguration->webViewCategory());
+}
+
+- (void)_setWebViewCategory:(_WKWebViewCategory)category
+{
+    _pageConfiguration->setWebViewCategory(toWebKitWebViewCategory(category));
+}
+
+- (BOOL)_ignoresAppBoundDomains
+{
+    return _pageConfiguration->ignoresAppBoundDomains();
+}
+
+- (void)_setIgnoresAppBoundDomains:(BOOL)ignoresAppBoundDomains
+{
+    _pageConfiguration->setIgnoresAppBoundDomains(ignoresAppBoundDomains);
+}
+
+- (BOOL)_shouldRelaxThirdPartyCookieBlocking
+{
+    return _pageConfiguration->shouldRelaxThirdPartyCookieBlocking() == WebCore::ShouldRelaxThirdPartyCookieBlocking::Yes;
+}
+
+- (void)_setShouldRelaxThirdPartyCookieBlocking:(BOOL)relax
+{
+    bool allowed = WebCore::applicationBundleIdentifier() == "com.apple.WebKit.TestWebKitAPI"_s;
+#if PLATFORM(MAC)
+    allowed = allowed || WebCore::MacApplication::isSafari();
+#endif
+    if (!allowed)
+        [NSException raise:NSObjectNotAvailableException format:@"_shouldRelaxThirdPartyCookieBlocking may only be used by Mac Safari."];
+
+    _pageConfiguration->setShouldRelaxThirdPartyCookieBlocking(relax ? WebCore::ShouldRelaxThirdPartyCookieBlocking::Yes : WebCore::ShouldRelaxThirdPartyCookieBlocking::No);
+}
+
+- (NSString *)_processDisplayName
+{
+    return _pageConfiguration->processDisplayName();
+}
+
+- (void)_setProcessDisplayName:(NSString *)lsDisplayName
+{
+    _pageConfiguration->setProcessDisplayName(lsDisplayName);
 }
 
 @end

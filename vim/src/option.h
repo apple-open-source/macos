@@ -10,6 +10,9 @@
  * option.h: definition of global variables for settable options
  */
 
+#ifndef _OPTION_H_
+#define _OPTION_H_
+
 //
 // Flags
 //
@@ -197,7 +200,7 @@
 #define CPO_MINUS	'-'	// "9-" fails at and before line 9
 #define CPO_SPECI	'<'	// don't recognize <> in mappings
 #define CPO_REGAPPEND	'>'	// insert NL when appending to a register
-/* POSIX flags */
+// POSIX flags
 #define CPO_HASH	'#'	// "D", "o" and "O" do not use a count
 #define CPO_PARA	'{'	// "{" is also a paragraph boundary
 #define CPO_TSIZE	'|'	// $LINES and $COLUMNS overrule term size
@@ -207,7 +210,7 @@
 #define CPO_CHDIR	'.'	// don't chdir if buffer is modified
 #define CPO_SCOLON	';'	// using "," and ";" will skip over char if
 				// cursor would not move
-/* default values for Vim, Vi and POSIX */
+// default values for Vim, Vi and POSIX
 #define CPO_VIM		"aABceFs"
 #define CPO_VI		"aAbBcCdDeEfFgHiIjJkKlLmMnoOpPqrRsStuvwWxXyZ$!%*-+<>;"
 #define CPO_ALL		"aAbBcCdDeEfFgHiIjJkKlLmMnoOpPqrRsStuvwWxXyZ$!%*-+<>#{|&/\\.;"
@@ -341,9 +344,14 @@
 #define WIM_BUFLASTUSED	0x08
 
 // arguments for can_bs()
+// each defined char should be unique over all values
+// except for BS_START, that intentionally also matches BS_NOSTOP
+// because BS_NOSTOP behaves exactly the same except it
+// does not stop at the start of the insert point
 #define BS_INDENT	'i'	// "Indent"
-#define BS_EOL		'o'	// "eOl"
+#define BS_EOL		'l'	// "eoL"
 #define BS_START	's'	// "Start"
+#define BS_NOSTOP	'p'	// "nostoP
 
 // flags for the 'culopt' option
 #define CULOPT_LINE	0x01	// Highlight complete line
@@ -401,7 +409,7 @@ EXTERN char_u	*p_bex;		// 'backupext'
 EXTERN char_u	*p_bo;		// 'belloff'
 EXTERN unsigned	bo_flags;
 
-// values for the 'beepon' option
+// values for the 'belloff' option
 #define BO_ALL		0x0001
 #define BO_BS		0x0002
 #define BO_CRSR		0x0004
@@ -569,7 +577,7 @@ EXTERN char_u	*p_fp;		// 'formatprg'
 EXTERN int	p_fs;		// 'fsync'
 #endif
 EXTERN int	p_gd;		// 'gdefault'
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 # ifdef FEAT_QUICKFIX
 EXTERN char_u	*p_cpp;		// 'completepopup'
 # endif
@@ -913,11 +921,13 @@ EXTERN char_u	*p_su;		// 'suffixes'
 EXTERN char_u	*p_sws;		// 'swapsync'
 EXTERN char_u	*p_swb;		// 'switchbuf'
 EXTERN unsigned	swb_flags;
+// Keep in sync with p_swb_values in optionstr.c
 #define SWB_USEOPEN		0x001
 #define SWB_USETAB		0x002
 #define SWB_SPLIT		0x004
 #define SWB_NEWTAB		0x008
 #define SWB_VSPLIT		0x010
+#define SWB_USELAST		0x020
 EXTERN char_u	*p_syn;		// 'syntax'
 EXTERN long	p_ts;		// 'tabstop'
 EXTERN int	p_tbs;		// 'tagbsearch'
@@ -1066,7 +1076,7 @@ EXTERN int	p_wb;		// 'writebackup'
 EXTERN long	p_wd;		// 'writedelay'
 
 /*
- * "indir" values for buffer-local opions.
+ * "indir" values for buffer-local options.
  * These need to be defined globally, so that the BV_COUNT can be used with
  * b_p_scriptID[].
  */
@@ -1290,3 +1300,5 @@ enum
 
 // Value for b_p_ul indicating the global value must be used.
 #define NO_LOCAL_UNDOLEVEL -123456
+
+#endif // _OPTION_H_

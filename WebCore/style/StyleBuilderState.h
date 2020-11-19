@@ -82,11 +82,14 @@ public:
     bool useSVGZoomRulesForLength() const;
     ScopeOrdinal styleScopeOrdinal() const { return m_styleScopeOrdinal; }
 
+    Ref<CSSValue> resolveImageStyles(CSSValue&);
     RefPtr<StyleImage> createStyleImage(CSSValue&);
     bool createFilterOperations(const CSSValue&, FilterOperations& outOperations);
 
     static bool isColorFromPrimitiveValueDerivedFromElement(const CSSPrimitiveValue&);
     Color colorFromPrimitiveValue(const CSSPrimitiveValue&, bool forVisitedLink = false) const;
+    // FIXME: Remove. 'currentcolor' should be resolved at use time. All call sites are broken with inheritance.
+    Color colorFromPrimitiveValueWithResolvedCurrentColor(const CSSPrimitiveValue&) const;
 
     const Vector<AtomString>& registeredContentAttributes() const { return m_registeredContentAttributes; }
     void registerContentAttribute(const AtomString& attributeLocalName);

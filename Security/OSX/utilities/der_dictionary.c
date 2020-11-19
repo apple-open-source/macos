@@ -32,7 +32,7 @@
 #include <corecrypto/ccder.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-static const uint8_t* der_decode_key_value(CFAllocatorRef allocator, CFOptionFlags mutability,
+static const uint8_t* der_decode_key_value(CFAllocatorRef allocator,
                                            CFPropertyListRef* key, CFPropertyListRef* value, CFErrorRef *error,
                                            const uint8_t* der, const uint8_t *der_end)
 {
@@ -48,8 +48,8 @@ static const uint8_t* der_decode_key_value(CFAllocatorRef allocator, CFOptionFla
     CFTypeRef valueObject = NULL;
     
     
-    payload = der_decode_plist(allocator, mutability, &keyObject, error, payload, payload_end);
-    payload = der_decode_plist(allocator, mutability, &valueObject, error, payload, payload_end);
+    payload = der_decode_plist(allocator, &keyObject, error, payload, payload_end);
+    payload = der_decode_plist(allocator, &valueObject, error, payload, payload_end);
 
     if (payload != NULL) {
         *key = keyObject;
@@ -61,12 +61,14 @@ static const uint8_t* der_decode_key_value(CFAllocatorRef allocator, CFOptionFla
     return payload;
 }
 
-const uint8_t* der_decode_dictionary(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_dictionary(CFAllocatorRef allocator,
                                      CFDictionaryRef* dictionary, CFErrorRef *error,
                                      const uint8_t* der, const uint8_t *der_end)
 {
-    if (NULL == der)
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
 
     const uint8_t *payload_end = 0;
     const uint8_t *payload = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SET, &payload_end, der, der_end);
@@ -89,7 +91,7 @@ const uint8_t* der_decode_dictionary(CFAllocatorRef allocator, CFOptionFlags mut
         CFTypeRef key = NULL;
         CFTypeRef value = NULL;
         
-        payload = der_decode_key_value(allocator, mutability, &key, &value, error, payload, payload_end);
+        payload = der_decode_key_value(allocator, &key, &value, error, payload, payload_end);
         
         if (payload) {
             CFDictionaryAddValue(dict, key, value);
@@ -120,10 +122,12 @@ struct size_context {
 static size_t der_sizeof_key_value(CFTypeRef key, CFTypeRef value, CFErrorRef *error) {
     size_t key_size = der_sizeof_plist(key, error);
     if (key_size == 0) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return 0;
     }
     size_t value_size = der_sizeof_plist(value, error);
     if (value_size == 0) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return 0;
     }
     return ccder_sizeof(CCDER_CONSTRUCTED_SEQUENCE, key_size + value_size);
@@ -163,9 +167,10 @@ size_t der_sizeof_dictionary(CFDictionaryRef dict, CFErrorRef *error)
 static uint8_t* der_encode_key_value(CFPropertyListRef key, CFPropertyListRef value, CFErrorRef *error,
                                      const uint8_t* der, uint8_t *der_end)
 {
-    return ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
-           der_encode_plist(key, error, der,
-           der_encode_plist(value, error, der, der_end)));
+    return SecCCDEREncodeHandleResult(ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, der_end, der,
+                                                                  der_encode_plist(key, error, der,
+                                                                                   der_encode_plist(value, error, der, der_end))),
+                                      error);
 }
 
 struct encode_context {
@@ -206,9 +211,9 @@ static void add_sequence_to_array(const void *key_void, const void *value_void, 
     }
 }
 
-static CFComparisonResult cfdata_compare_contents(const void *val1, const void *val2, void *context __unused)
+static CFComparisonResult cfdata_compare_der_contents(const void *val1, const void *val2, void *context __unused)
 {
-    return CFDataCompare((CFDataRef) val1, (CFDataRef) val2);
+    return CFDataCompareDERData((CFDataRef) val1, (CFDataRef) val2);
 }
 
 
@@ -227,7 +232,7 @@ uint8_t* der_encode_dictionary(CFDictionaryRef dictionary, CFErrorRef *error,
     
     CFRange allOfThem = CFRangeMake(0, CFArrayGetCount(elements));
 
-    CFArraySortValues(elements, allOfThem, cfdata_compare_contents, NULL);
+    CFArraySortValues(elements, allOfThem, cfdata_compare_der_contents, NULL);
 
     uint8_t* original_der_end = der_end;
 
@@ -239,6 +244,7 @@ uint8_t* der_encode_dictionary(CFDictionaryRef dictionary, CFErrorRef *error,
 
     CFReleaseNull(elements);
 
-    return ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SET, original_der_end, der, der_end);
+    return SecCCDEREncodeHandleResult(ccder_encode_constructed_tl(CCDER_CONSTRUCTED_SET, original_der_end, der, der_end),
+                                      error);
 
 }

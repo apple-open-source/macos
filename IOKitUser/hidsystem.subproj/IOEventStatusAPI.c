@@ -345,6 +345,9 @@ kern_return_t IOHIDGetParameter( io_connect_t handle, CFStringRef key,
     if( !typeRef )
         return kIOReturnBadArgument;
 
+    // Initialize bytes
+    bzero(bytes, maxSize);
+
     if (CFGetTypeID(typeRef) == CFDataGetTypeID())
     {
         data = (CFDataRef)typeRef;

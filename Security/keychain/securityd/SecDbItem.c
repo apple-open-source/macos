@@ -337,8 +337,20 @@ static CFTypeRef SecDbItemGetCachedValue(SecDbItemRef item, const SecDbAttr *des
 }
 
 CFMutableDictionaryRef SecDbItemCopyPListWithMask(SecDbItemRef item, CFOptionFlags mask, CFErrorRef *error) {
+    return SecDbItemCopyPListWithFlagAndSkip(item, mask, 0, error);
+}
+
+CFMutableDictionaryRef SecDbItemCopyPListWithFlagAndSkip(SecDbItemRef item,
+                                                         CFOptionFlags mask,
+                                                         CFOptionFlags flagsToSkip,
+                                                         CFErrorRef *error)
+{
     CFMutableDictionaryRef dict = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
     SecDbForEachAttrWithMask(item->class, desc, mask) {
+        if((desc->flags & flagsToSkip) != 0) {
+            break;
+        }
+
         CFTypeRef value = SecDbItemGetValue(item, desc, error);
         if (value) {
             if (!CFEqual(kCFNull, value)) {
@@ -559,28 +571,62 @@ static bool SecDbItemGetBoolValue(SecDbItemRef item, const SecDbAttr *desc, bool
     return true;
 }
 
+static void SecDbItemAppendAttributeToDescription(SecDbItemRef item, const SecDbAttr *attr, CFMutableStringRef mdesc)
+{
+    // In non-debug builds, the following attributes aren't very useful.
+#ifndef DEBUG
+    if (CFEqual(CFSTR("data"), attr->name)||
+        CFEqual(CFSTR("v_pk"), attr->name)) {
+        return;
+    }
+#endif
+
+    CFTypeRef value = SecDbItemGetValue(item, attr, NULL);
+    if (value && value != kCFNull) {
+        CFStringAppend(mdesc, CFSTR(","));
+        CFStringAppend(mdesc, attr->name);
+        CFStringAppend(mdesc, CFSTR("="));
+        if (CFEqual(CFSTR("data"), attr->name)) {
+            CFStringAppendEncryptedData(mdesc, value);
+        } else if (CFEqual(CFSTR("v_Data"), attr->name)) {
+            CFStringAppend(mdesc, CFSTR("<?>"));
+        } else if (isData(value)) {
+            CFStringAppendHexData(mdesc, value);
+        } else {
+            CFStringAppendFormat(mdesc, 0, CFSTR("%@"), value);
+        }
+    }
+}
+
 static CFStringRef SecDbItemCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
     CFStringRef desc;
     if (isDictionary(formatOptions) && CFDictionaryContainsKey(formatOptions, kSecDebugFormatOption)) {
         SecDbItemRef item = (SecDbItemRef)cf;
         CFMutableStringRef mdesc = CFStringCreateMutable(CFGetAllocator(cf), 0);
         CFStringAppendFormat(mdesc, NULL, CFSTR("<%@"), item->class->name);
+
+        // First, the primary key attributes
+        SecDbForEachAttrWithMask(item->class, attr, kSecDbPrimaryKeyFlag) {
+            SecDbItemAppendAttributeToDescription(item, attr, mdesc);
+        }
+
+        CFStringAppend(mdesc, CFSTR(", |otherAttr"));
+        // tombstone values are very important, and should print next
         SecDbForEachAttr(item->class, attr) {
-                CFTypeRef value = SecDbItemGetValue(item, attr, NULL);
-                if (value) {
-                    CFStringAppend(mdesc, CFSTR(","));
-                    CFStringAppend(mdesc, attr->name);
-                    CFStringAppend(mdesc, CFSTR("="));
-                    if (CFEqual(CFSTR("data"), attr->name)) {
-                        CFStringAppendEncryptedData(mdesc, value);
-                    } else if (CFEqual(CFSTR("v_Data"), attr->name)) {
-                        CFStringAppend(mdesc, CFSTR("<?>"));
-                    } else if (isData(value)) {
-                        CFStringAppendHexData(mdesc, value);
-                    } else {
-                        CFStringAppendFormat(mdesc, 0, CFSTR("%@"), value);
-                    }
-                }
+            if(CFEqualSafe(CFSTR("tomb"), attr->name)) {
+                SecDbItemAppendAttributeToDescription(item, attr, mdesc);
+            }
+        }
+
+        // And finally, everything else
+        SecDbForEachAttr(item->class, attr) {
+            if((attr->flags & kSecDbPrimaryKeyFlag) != 0) {
+                continue;
+            }
+            if(CFEqualSafe(CFSTR("tomb"), attr->name)) {
+                continue;
+            }
+            SecDbItemAppendAttributeToDescription(item, attr, mdesc);
         }
         CFStringAppend(mdesc, CFSTR(">"));
         desc = mdesc;
@@ -886,6 +932,28 @@ bool SecDbItemSetValueWithName(SecDbItemRef item, CFStringRef name, CFTypeRef va
     return false;
 }
 
+bool SecItemPreserveAttribute(SecDbItemRef target, SecDbItemRef source, const SecDbAttr* attr) {
+    CFErrorRef cferror = nil;
+    CFTypeRef v = SecDbItemGetValue(source, attr, &cferror);
+    if(cferror) {
+        secnotice("secitem", "Merging: unable to get attribute (%@) : %@", attr->name, cferror);
+        CFReleaseNull(cferror);
+        return false;
+    }
+    if(!v || CFEqualSafe(v, kCFNull)) {
+        return true;
+    }
+    secnotice("secitem", "Preserving existing data for %@", attr->name);
+    SecDbItemSetValue(target, attr, v, &cferror);
+    if(cferror) {
+        secnotice("secitem", "Unable to set attribute (%@) : %@", attr->name, cferror);
+        CFReleaseNull(cferror);
+        return false;
+    }
+    return true;
+}
+
+
 bool SecDbItemSetAccessControl(SecDbItemRef item, SecAccessControlRef access_control, CFErrorRef *error) {
     bool ok = true;
     if (item->_edataState == kSecDbItemClean)
@@ -1058,7 +1126,7 @@ static bool SecDbItemMakeYounger(SecDbItemRef new_item, SecDbItemRef old_item, C
     return attr && SecDbItemMakeAttrYounger(new_item, old_item, attr, error);
 }
 
-static SecDbItemRef SecDbItemCopyTombstone(SecDbItemRef item, CFBooleanRef makeTombStone, CFErrorRef *error) {
+static SecDbItemRef SecDbItemCopyTombstone(SecDbItemRef item, CFBooleanRef makeTombStone, bool tombstone_time_from_item, CFErrorRef *error) {
     SecDbItemRef new_item = SecDbItemCreate(CFGetAllocator(item), item->class, item->keybag);
     SecDbForEachAttr(item->class, attr) {
         if (attr->kind == kSecDbTombAttr) {
@@ -1075,6 +1143,10 @@ static SecDbItemRef SecDbItemCopyTombstone(SecDbItemRef item, CFBooleanRef makeT
                 break;
             }
         } else if (attr->kind == kSecDbModificationDateAttr) {
+            if(tombstone_time_from_item) {
+                SecItemPreserveAttribute(new_item, item, attr);
+            }
+
             if (!SecDbItemMakeAttrYounger(new_item, item, attr, error)) {
                 CFReleaseNull(new_item);
                 break;
@@ -1296,7 +1368,7 @@ static SecDbQueryRef SecDbQueryCreateWithItemPrimaryKey(SecDbItemRef item, CFErr
     if (!dict)
         return NULL;
 
-    SecDbQueryRef query = query_create(item->class, NULL, NULL, error);
+    SecDbQueryRef query = query_create(item->class, NULL, NULL, NULL, error);
     if (query) {
         CFReleaseSafe(query->q_item);
         query->q_item = dict;
@@ -1343,7 +1415,8 @@ static bool SecDbItemIsCorrupt(SecDbItemRef item, bool *is_corrupt, CFErrorRef *
     if (storedSHA1 && computedSHA1 && !CFEqual(storedSHA1, computedSHA1)) {
         CFStringRef storedHex = CFDataCopyHexString(storedSHA1), computedHex = CFDataCopyHexString(computedSHA1);
         secerror("error %@ %@ != %@ item %@ (corrupted)", sha1attr->name, storedHex, computedHex, item);
-        __security_simulatecrash(CFSTR("Corrupted item (sha1 mismatch) found in keychain"), __sec_exception_code_CorruptItem);
+        // Do not simulate crash for this condition.
+        // The keychain hashes floating point numbers which causes many false positives, this is not fixable except by major surgery
         CFReleaseSafe(storedHex);
         CFReleaseSafe(computedHex);
         *is_corrupt = true;
@@ -1472,11 +1545,21 @@ bool SecDbItemInsertOrReplace(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
     return ok & SecErrorPropagate(localError, error); // Don't use && here!
 }
 
-bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error) {
+bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_use_uuid_from_new_item, CFErrorRef *error) {
     return SecDbItemInsertOrReplace(item, dbconn, error, ^(SecDbItemRef old_item, SecDbItemRef *replace) {
         if (SecDbItemIsTombstone(old_item)) {
             CFRetain(item);
             *replace = item;
+
+            // If the caller doesn't care about the UUID, then use old_item's UUID
+            // Note: this will modify item!
+            if(!always_use_uuid_from_new_item) {
+                SecDbForEachAttr(SecDbItemGetClass(item), attr) {
+                    if(CFEqual(attr->name, v10itemuuid.name)) {
+                        SecItemPreserveAttribute(item, old_item, attr);
+                    }
+                }
+            }
         }
     });
 }
@@ -1700,7 +1783,7 @@ bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnecti
     if (ok && !pk_equal && !CFEqualSafe(makeTombstone, kCFBooleanFalse)) {
         /* The primary key of new_item is different than that of old_item, we
            have been asked to make a tombstone so leave one for the old_item. */
-        SecDbItemRef tombstone = SecDbItemCopyTombstone(old_item, makeTombstone, error);
+        SecDbItemRef tombstone = SecDbItemCopyTombstone(old_item, makeTombstone, false, error);
         ok = tombstone;
         if (tombstone) {
             ok = (SecDbItemClearRowId(tombstone, error) &&
@@ -1713,10 +1796,10 @@ bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnecti
 }
 
 // Replace the object with a tombstone
-bool SecDbItemDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, CFErrorRef *error) {
+bool SecDbItemDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, bool tombstone_time_from_item, CFErrorRef *error) {
     bool ok = false;
     if (!CFEqualSafe(makeTombstone, kCFBooleanFalse)) {
-        SecDbItemRef tombstone = SecDbItemCopyTombstone(item, makeTombstone, error);
+        SecDbItemRef tombstone = SecDbItemCopyTombstone(item, makeTombstone, tombstone_time_from_item, error);
         if (tombstone) {
             ok = SecDbItemDoUpdate(item, tombstone, dbconn, error, ^bool(const SecDbAttr *attr) {
                 return attr->kind == kSecDbRowIdAttr;

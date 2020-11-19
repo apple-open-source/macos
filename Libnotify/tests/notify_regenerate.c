@@ -116,12 +116,12 @@ T_DECL(notify_regenerate, "Make sure regenerate registrations works",
 
 	T_LOG("Make sure our old registration works");
 	{
+		// No-dispatch mach port registrations don't regenerate
+
 		dispatch_group_enter(dg);
-		has_port_been_notified = false;
 		notify_post(KEY);
 		sleep(1);
 		T_ASSERT_GROUP_WAIT(dg, 5., "we received our own notification");
-		T_ASSERT_EQ(has_port_been_notified, true, "mach port should receive notification");
 	}
 
 	dispatch_release(port_src);

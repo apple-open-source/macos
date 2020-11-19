@@ -33,7 +33,7 @@
 
 #if OCTAGON
 
-@interface CKKSAPSNotificationReceiver : NSObject <CKKSZoneUpdateReceiver>
+@interface CKKSAPSNotificationReceiver : NSObject <CKKSZoneUpdateReceiverProtocol>
 @property XCTestExpectation* expectation;
 @property void (^block)(CKRecordZoneNotification* notification);
 
@@ -107,9 +107,8 @@
 - (void)testRegisterAndReceive {
     __weak __typeof(self)weakSelf = self;
 
-    OctagonAPSReceiver* apsr = [[OctagonAPSReceiver alloc] initWithEnvironmentName:@"testenvironment"
-                                                           namedDelegatePort:SecCKKSAPSNamedPort
-                                                          apsConnectionClass:[FakeAPSConnection class]];
+    OctagonAPSReceiver* apsr = [[OctagonAPSReceiver alloc] initWithNamedDelegatePort:SecCKKSAPSNamedPort
+                                                                  apsConnectionClass:[FakeAPSConnection class]];
 
     XCTAssertNotNil(apsr, "Should have received a OctagonAPSReceiver");
 
@@ -121,7 +120,7 @@
                                             XCTAssertEqual(strongSelf.testZoneID, notification.recordZoneID, "Should have received a notification for the test zone");
                                         }];
 
-    CKKSCondition* registered = [apsr registerReceiver:anr forZoneID:self.testZoneID];
+    CKKSCondition* registered = [apsr registerCKKSReceiver:anr];
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
     APSIncomingMessage* message = [OctagonAPSReceiverTests messageForZoneID:self.testZoneID];
     XCTAssertNotNil(message, "Should have received a APSIncomingMessage");
@@ -131,46 +130,9 @@
     [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
 
-- (void)testRegisterMultipleAndReceive {
-    __weak __typeof(self)weakSelf = self;
-
-    OctagonAPSReceiver* apsr = [[OctagonAPSReceiver alloc] initWithEnvironmentName:@"testenvironment"
-                                                           namedDelegatePort:SecCKKSAPSNamedPort
-                                                          apsConnectionClass:[FakeAPSConnection class]];
-
-    XCTAssertNotNil(apsr, "Should have received a OctagonAPSReceiver");
-
-    CKRecordZoneID* otherZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"otherzone" ownerName:CKCurrentUserDefaultName];
-
-    CKKSAPSNotificationReceiver* anr = [[CKKSAPSNotificationReceiver alloc] initWithExpectation:[self expectationWithDescription:@"receive testZoneID notification"]
-                                                                                          block:
-                                        ^(CKRecordZoneNotification* notification) {
-                                            __strong __typeof(self) strongSelf = weakSelf;
-                                            XCTAssertNotNil(notification, "Should have received a notification");
-                                            XCTAssertEqual(strongSelf.testZoneID, notification.recordZoneID, "Should have received a notification for the test zone");
-                                        }];
-    CKKSAPSNotificationReceiver* anr2 = [[CKKSAPSNotificationReceiver alloc] initWithExpectation:[self expectationWithDescription:@"receive otherzone notification"]
-                                                                                          block:
-                                        ^(CKRecordZoneNotification* notification) {
-                                            XCTAssertNotNil(notification, "Should have received a notification");
-                                            XCTAssertEqual(otherZoneID, notification.recordZoneID, "Should have received a notification for the test zone");
-                                        }];
-
-    CKKSCondition* registered = [apsr registerReceiver:anr forZoneID:self.testZoneID];
-    CKKSCondition* registered2 = [apsr registerReceiver:anr2 forZoneID:otherZoneID];
-    XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
-    XCTAssertEqual(0, [registered2 wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
-
-    [apsr connection:apsr.apsConnection didReceiveIncomingMessage:[OctagonAPSReceiverTests messageForZoneID:self.testZoneID]];
-    [apsr connection:apsr.apsConnection didReceiveIncomingMessage:[OctagonAPSReceiverTests messageForZoneID:otherZoneID]];
-
-    [self waitForExpectationsWithTimeout:5.0 handler:nil];
-}
-
 - (void)testReceiveNotificationIfRegisteredAfterDelivery {
-    OctagonAPSReceiver* apsr = [[OctagonAPSReceiver alloc] initWithEnvironmentName:@"testenvironment"
-                                                           namedDelegatePort:SecCKKSAPSNamedPort
-                                                          apsConnectionClass:[FakeAPSConnection class]];
+    OctagonAPSReceiver* apsr = [[OctagonAPSReceiver alloc] initWithNamedDelegatePort:SecCKKSAPSNamedPort
+                                                                  apsConnectionClass:[FakeAPSConnection class]];
     XCTAssertNotNil(apsr, "Should have received a OctagonAPSReceiver");
 
     // Receives a notification for the test zone
@@ -184,7 +146,7 @@
                                             XCTAssertNotNil(notification, "Should have received a (stored) notification");
                                         }];
 
-    CKKSCondition* registered = [apsr registerReceiver:anr forZoneID:self.testZoneID];
+    CKKSCondition* registered = [apsr registerCKKSReceiver:anr];
     XCTAssertEqual(0, [registered wait:1*NSEC_PER_SEC], "Registration should have completed within a second");
 
     [self waitForExpectationsWithTimeout:5.0 handler:nil];

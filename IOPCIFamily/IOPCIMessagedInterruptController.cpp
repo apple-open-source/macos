@@ -352,6 +352,11 @@ bool IOPCIMessagedInterruptController::addDeviceInterruptProperties(
     return (success);
 }
 
+uint32_t IOPCIMessagedInterruptController::getDeviceMSILimit(__unused IOPCIDevice* device, uint32_t numVectorsRequested)
+{
+    return numVectorsRequested;
+}
+
 IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
                                 IOService * entry, uint32_t numVectors, uint32_t msiCapability,
                                 uint64_t * msiAddress, uint32_t * msiData)
@@ -384,7 +389,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
         else
             msiPhysVectors = 1 << (0x7 & (control >> 1));
 
-	    numVectors = msiPhysVectors;
+        numVectors = msiPhysVectors;
         vendorProd = device->savedConfig[kIOPCIConfigVendorID >> 2];
         revIDClass = device->savedConfig[kIOPCIConfigRevisionID >> 2];
 
@@ -438,6 +443,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
             }
         }
 #endif
+        numVectors = getDeviceMSILimit(device, numVectors);
     }
 
     allocated  = false;
@@ -449,7 +455,7 @@ IOReturn IOPCIMessagedInterruptController::allocateDeviceInterrupts(
     }
     if (!allocated) return (kIOReturnNoSpace);
 
-	firstVector = rangeStart;
+	firstVector = static_cast<uint32_t>(rangeStart);
 	ret = entry->callPlatformFunction(gIOPlatformGetMessagedInterruptAddressKey,
 				/* waitForFunction */ false,
 				/* nub             */ entry,
@@ -742,7 +748,7 @@ void IOPCIMessagedInterruptController::deallocateInterrupt(UInt32 vector)
 
 	rangeStart = vector;
     _messagedInterruptsAllocator->deallocate(rangeStart, 1);
-    IOPCISetMSIInterrupt(rangeStart + _vectorBase, 1, NULL);
+    IOPCISetMSIInterrupt(static_cast<uint32_t>(rangeStart + _vectorBase), 1, NULL);
     setProperty(kMSIFreeCountKey, _messagedInterruptsAllocator->getFreeCount(), 32);
 }
 
@@ -773,7 +779,11 @@ IOPCIMessagedInterruptController::handleInterrupt( void *      state,
 		bits = 0;
 		for (source = 0; source < count; source++)
 		{
-            if (device->reserved->msiEnable == 1) vector = &subVectors[0];
+            if (device->reserved->msiEnable == 1)
+            {
+                vector = &subVectors[0];
+                count = 1;
+            }
             else
             {
                 bit = (source & 63);

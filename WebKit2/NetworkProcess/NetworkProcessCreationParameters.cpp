@@ -39,7 +39,7 @@ NetworkProcessCreationParameters::NetworkProcessCreationParameters() = default;
 
 void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
 {
-    encoder.encodeEnum(cacheModel);
+    encoder << cacheModel;
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     encoder << uiProcessCookieStorageIdentifier;
 #endif
@@ -55,11 +55,10 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << uiProcessSDKVersion;
     IPC::encode(encoder, networkATSContext.get());
     encoder << storageAccessAPIEnabled;
-    encoder << suppressesConnectionTerminationOnSystemChange;
 #endif
     encoder << defaultDataStoreParameters;
 #if USE(SOUP)
-    encoder.encodeEnum(cookieAcceptPolicy);
+    encoder << cookieAcceptPolicy;
     encoder << ignoreTLSErrors;
     encoder << languages;
     encoder << proxySettings;
@@ -71,7 +70,7 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
     encoder << urlSchemesRegisteredAsNoAccess;
 
 #if ENABLE(SERVICE_WORKER)
-    encoder << serviceWorkerRegistrationDirectory << serviceWorkerRegistrationDirectoryExtensionHandle << urlSchemesServiceWorkersCanHandle << shouldDisableServiceWorkerProcessTerminationDelay;
+    encoder << serviceWorkerRegistrationDirectory << serviceWorkerRegistrationDirectoryExtensionHandle << shouldDisableServiceWorkerProcessTerminationDelay;
 #endif
     encoder << shouldEnableITPDatabase;
     encoder << enableAdClickAttributionDebugMode;
@@ -81,7 +80,7 @@ void NetworkProcessCreationParameters::encode(IPC::Encoder& encoder) const
 
 bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProcessCreationParameters& result)
 {
-    if (!decoder.decodeEnum(result.cacheModel))
+    if (!decoder.decode(result.cacheModel))
         return false;
 
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
@@ -120,8 +119,6 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
         return false;
     if (!decoder.decode(result.storageAccessAPIEnabled))
         return false;
-    if (!decoder.decode(result.suppressesConnectionTerminationOnSystemChange))
-        return false;
 #endif
 
     Optional<WebsiteDataStoreParameters> defaultDataStoreParameters;
@@ -131,7 +128,7 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
     result.defaultDataStoreParameters = WTFMove(*defaultDataStoreParameters);
 
 #if USE(SOUP)
-    if (!decoder.decodeEnum(result.cookieAcceptPolicy))
+    if (!decoder.decode(result.cookieAcceptPolicy))
         return false;
     if (!decoder.decode(result.ignoreTLSErrors))
         return false;
@@ -159,10 +156,7 @@ bool NetworkProcessCreationParameters::decode(IPC::Decoder& decoder, NetworkProc
     if (!serviceWorkerRegistrationDirectoryExtensionHandle)
         return false;
     result.serviceWorkerRegistrationDirectoryExtensionHandle = WTFMove(*serviceWorkerRegistrationDirectoryExtensionHandle);
-    
-    if (!decoder.decode(result.urlSchemesServiceWorkersCanHandle))
-        return false;
-    
+
     if (!decoder.decode(result.shouldDisableServiceWorkerProcessTerminationDelay))
         return false;
 #endif

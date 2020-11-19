@@ -23,6 +23,7 @@
 
 #import <Foundation/Foundation.h>
 #import <TrustedPeers/TrustedPeers.h>
+#import <objc/runtime.h>
 
 #import "keychain/ckks/CKKSKeychainBackedKey.h"
 #import "keychain/ckks/CKKSTLKShare.h"
@@ -158,11 +159,12 @@ NS_ASSUME_NONNULL_BEGIN
                   bottleSalt:(NSString *)bottleSalt
                     bottleID:(NSString *)bottleID
                      modelID:(NSString *)modelID
-                  deviceName:(nullable NSString*)deviceName
-                serialNumber:(NSString *)serialNumber
+                  deviceName:(nullable NSString *)deviceName
+                serialNumber:(nullable NSString *)serialNumber
                    osVersion:(NSString *)osVersion
                policyVersion:(nullable TPPolicyVersion *)policyVersion
                policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
+   syncUserControllableViews:(TPPBPeerStableInfo_UserControllableViewStatus)syncUserControllableViews
  signingPrivKeyPersistentRef:(nullable NSData *)spkPr
      encPrivKeyPersistentRef:(nullable NSData*)epkPr
                        reply:(void (^)(NSString * _Nullable peerID,
@@ -170,8 +172,7 @@ NS_ASSUME_NONNULL_BEGIN
                                        NSData * _Nullable permanentInfoSig,
                                        NSData * _Nullable stableInfo,
                                        NSData * _Nullable stableInfoSig,
-                                       NSSet<NSString*>* _Nullable syncingViewList,
-                                       TPPolicy* _Nullable syncingPolicy,
+                                       TPSyncingPolicy* _Nullable syncingPolicy,
                                        NSError * _Nullable error))reply;
 
 // If there already are existing CKKSViews, please pass in their key sets anyway.
@@ -183,6 +184,7 @@ NS_ASSUME_NONNULL_BEGIN
                preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                          reply:(void (^)(NSString * _Nullable peerID,
                                          NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                         TPSyncingPolicy* _Nullable syncingPolicy,
                                          NSError * _Nullable error))reply;
 
 // Returns a voucher for the given peer ID using our own identity
@@ -202,12 +204,13 @@ NS_ASSUME_NONNULL_BEGIN
 // Preflighting a vouch will return the peer ID associated with the bottle you will be recovering, as well as
 // the syncing policy used by that peer, and,
 // You can then use that peer ID to filter the tlkshares provided to vouchWithBottle.
+// If TPH had to refetch anything from the network, it will report that fact as refetchNeeded.
 - (void)preflightVouchWithBottleWithContainer:(NSString *)container
                                       context:(NSString *)context
                                      bottleID:(NSString*)bottleID
                                         reply:(void (^)(NSString* _Nullable peerID,
-                                                        NSSet<NSString*>* _Nullable peerSyncingViewList,
-                                                        TPPolicy * _Nullable peerSyncingPolicy,
+                                                        TPSyncingPolicy* _Nullable syncingPolicy,
+                                                        BOOL refetchWasNeeded,
                                                         NSError * _Nullable error))reply;
 
 // Returns a voucher for our own identity, created by the identity inside this bottle
@@ -230,8 +233,7 @@ NS_ASSUME_NONNULL_BEGIN
                                        recoveryKey:(NSString*)recoveryKey
                                               salt:(NSString*)salt
                                              reply:(void (^)(NSString* _Nullable recoveryKeyID,
-                                                             NSSet<NSString*>* _Nullable peerSyncingViewList,
-                                                             TPPolicy * _Nullable peerSyncingPolicy,
+                                                             TPSyncingPolicy* _Nullable syncingPolicy,
                                                              NSError * _Nullable error))reply;
 
 // Returns a voucher for our own identity, using recovery key
@@ -253,20 +255,21 @@ NS_ASSUME_NONNULL_BEGIN
                voucherSig:(NSData *)voucherSig
                  ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
                 tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-          preapprovedKeys:(NSArray<NSData*> *)preapprovedKeys
+          preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                     reply:(void (^)(NSString * _Nullable peerID,
                                     NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                    NSSet<NSString*>* _Nullable syncingViewList,
-                                    TPPolicy* _Nullable syncingPolicy,
+                                    TPSyncingPolicy* _Nullable syncingPolicy,
                                     NSError * _Nullable error))reply;
 
 // Preflighting a preapproved join suggests whether or not you expect to succeed in an immediate preapprovedJoin() call
 // This only inspects the Octagon model, and ignores the trusted device list, so that you can preflight the preapprovedJoin()
 // before fetching that list.
-// This will return YES if there are no existing peers, or if the existing peers preapprove your prepared identity.
+// This will return YES if there are no existing peers, or if the existing peers preapprove your prepared identity, and
+//   you are intending to trust at least one preapproving peer (so that you don't stomp all over everyone else at join time).
 // This will return NO otherwise.
 - (void)preflightPreapprovedJoinWithContainer:(NSString *)container
                                       context:(NSString *)context
+                              preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                                         reply:(void (^)(BOOL launchOkay,
                                                         NSError * _Nullable error))reply;
 
@@ -276,14 +279,14 @@ NS_ASSUME_NONNULL_BEGIN
                                     context:(NSString *)context
                                    ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
                                   tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-                            preapprovedKeys:(NSArray<NSData*> *)preapprovedKeys
+                            preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                                       reply:(void (^)(NSString * _Nullable peerID,
                                                       NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                                      NSSet<NSString*>* _Nullable syncingViewList,
-                                                      TPPolicy* _Nullable syncingPolicy,
+                                                      TPSyncingPolicy* _Nullable syncingPolicy,
                                                       NSError * _Nullable error))reply;
 
 // TODO: if the new policy causes someone to lose access to a view, how should this API work?
+// syncUserControllableViews should contain the raw value of the TPPBPeerStableInfo_UserControllableViewStatus enum, or be nil
 - (void)updateWithContainer:(NSString *)container
                     context:(NSString *)context
                  deviceName:(nullable NSString *)deviceName
@@ -291,7 +294,10 @@ NS_ASSUME_NONNULL_BEGIN
                   osVersion:(nullable NSString *)osVersion
               policyVersion:(nullable NSNumber *)policyVersion
               policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
-                      reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, NSError * _Nullable error))reply;
+  syncUserControllableViews:(nullable NSNumber *)syncUserControllableViews
+                      reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState,
+                                      TPSyncingPolicy* _Nullable syncingPolicy,
+                                      NSError * _Nullable error))reply;
 
 - (void)setPreapprovedKeysWithContainer:(NSString *)container
                                 context:(NSString *)context
@@ -309,6 +315,11 @@ NS_ASSUME_NONNULL_BEGIN
                                 context:(NSString *)context
                                   reply:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialBottleIDs, NSError* _Nullable error))reply;
 
+- (void)fetchViableEscrowRecordsWithContainer:(NSString *)container
+                                      context:(NSString *)context
+                                   forceFetch:(BOOL)forceFetch
+                                        reply:(void (^)(NSArray<NSData*>* _Nullable records, NSError* _Nullable error))reply;
+
 - (void)fetchEscrowContentsWithContainer:(NSString *)container
                                  context:(NSString *)context
                                    reply:(void (^)(NSData* _Nullable entropy,
@@ -323,10 +334,14 @@ NS_ASSUME_NONNULL_BEGIN
                                                     NSError * _Nullable error))reply;
 
 // Fetch the policy and view list for current peer.
+// Note: userControllableViewStatusOfPeers is not our current peer's view of the world, but rather what
+// our peers believe.
+// If there is no prepared ego peer, the returned policy will be for a device with modelIDOverride
 - (void)fetchCurrentPolicyWithContainer:(NSString*)container
                                 context:(NSString*)context
-                                  reply:(void (^)(NSSet<NSString*>* _Nullable syncingViewList,
-                                                  TPPolicy * _Nullable syncingPolicy,
+                        modelIDOverride:(NSString* _Nullable)modelID
+                                  reply:(void (^)(TPSyncingPolicy* _Nullable syncingPolicy,
+                                                  TPPBPeerStableInfo_UserControllableViewStatus userControllableViewStatusOfPeers,
                                                   NSError * _Nullable error))reply;
 
 - (void)validatePeersWithContainer:(NSString *)container
@@ -346,7 +361,8 @@ NS_ASSUME_NONNULL_BEGIN
                         recoveryKey:(NSString *)recoveryKey
                                salt:(NSString *)salt
                            ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
-                              reply:(void (^)(NSError* _Nullable error))reply;
+                              reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                              NSError* _Nullable error))reply;
 
 - (void)reportHealthWithContainer:(NSString *)container
                           context:(NSString *)context
@@ -366,6 +382,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)getSupportAppInfoWithContainer:(NSString *)container
                                context:(NSString *)context
                                  reply:(void (^)(NSData * _Nullable, NSError * _Nullable))reply;
+
+- (void)removeEscrowCacheWithContainer:(NSString *)container
+                               context:(NSString *)context
+                                 reply:(void (^)(NSError * _Nullable))reply;
 
 @end
 

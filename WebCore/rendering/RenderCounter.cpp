@@ -72,15 +72,31 @@ static inline Element* parentOrPseudoHostElement(const RenderElement& renderer)
 {
     if (renderer.isPseudoElement())
         return renderer.generatingElement();
+    return renderer.element() ? renderer.element()->parentElement() : nullptr;
+}
 
-    ASSERT(renderer.element());
-    auto parent = makeRefPtr(renderer.element()->parentElement());
-    while (parent) {
-        if (!parent->hasDisplayContents())
-            break;
-        parent = parent->parentElement();
+static Element* previousSiblingOrParentElement(const Element& element)
+{
+    if (auto* previous = ElementTraversal::pseudoAwarePreviousSibling(element)) {
+        while (previous && !previous->renderer())
+            previous = ElementTraversal::pseudoAwarePreviousSibling(*previous);
+
+        if (previous)
+            return previous;
     }
-    return parent.get();
+
+    if (is<PseudoElement>(element)) {
+        auto* hostElement = downcast<PseudoElement>(element).hostElement();
+        ASSERT(hostElement);
+        if (hostElement->renderer())
+            return hostElement;
+        return previousSiblingOrParentElement(*hostElement);
+    }
+    
+    auto* parent = element.parentElement();
+    if (parent && !parent->renderer())
+        parent = previousSiblingOrParentElement(*parent);
+    return parent;
 }
 
 // This function processes the renderer tree in the order of the DOM tree
@@ -88,12 +104,8 @@ static inline Element* parentOrPseudoHostElement(const RenderElement& renderer)
 static RenderElement* previousSiblingOrParent(const RenderElement& renderer)
 {
     ASSERT(renderer.element());
-    Element* previous = ElementTraversal::pseudoAwarePreviousSibling(*renderer.element());
-    while (previous && !previous->renderer())
-        previous = ElementTraversal::pseudoAwarePreviousSibling(*previous);
-    if (previous)
-        return previous->renderer();
-    previous = parentOrPseudoHostElement(renderer);
+
+    auto* previous = previousSiblingOrParentElement(*renderer.element());
     return previous ? previous->renderer() : nullptr;
 }
 
@@ -424,14 +436,12 @@ void RenderCounter::updateCounter()
 
 void RenderCounter::computePreferredLogicalWidths(float lead)
 {
-#ifndef NDEBUG
     // FIXME: We shouldn't be modifying the tree in computePreferredLogicalWidths.
     // Instead, we should properly hook the appropriate changes in the DOM and modify
     // the render tree then. When that's done, we also won't need to override
     // computePreferredLogicalWidths at all.
     // https://bugs.webkit.org/show_bug.cgi?id=104829
-    SetLayoutNeededForbiddenScope layoutForbiddenScope(this, false);
-#endif
+    SetLayoutNeededForbiddenScope layoutForbiddenScope(*this, false);
 
     setRenderedText(originalText());
 

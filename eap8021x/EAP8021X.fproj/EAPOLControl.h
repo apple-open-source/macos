@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,11 +29,11 @@
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
 #include <EAP8021X/EAPOLControlTypes.h>
-#if ! TARGET_OS_IPHONE
+#if TARGET_OS_OSX
 #include <EAP8021X/EAPOLClientConfiguration.h>
-#else /* ! TARGET_OS_IPHONE */
+#else /* TARGET_OS_OSX */
 typedef struct __EAPOLClientItemID * EAPOLClientItemIDRef;
-#endif /* ! TARGET_OS_IPHONE */
+#endif /* TARGET_OS_OSX */
 
 /*
  * Function: EAPOLControlKeyCreate

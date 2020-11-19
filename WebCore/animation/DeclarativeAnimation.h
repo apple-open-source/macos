@@ -29,6 +29,7 @@
 #include "AnimationEffectPhase.h"
 #include "WebAnimation.h"
 #include <wtf/Ref.h>
+#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -44,13 +45,13 @@ public:
 
     bool isDeclarativeAnimation() const final { return true; }
 
-    Element* owningElement() const { return m_owningElement; }
+    Element* owningElement() const;
     const Animation& backingAnimation() const { return m_backingAnimation; }
     void setBackingAnimation(const Animation&);
     void cancelFromStyle();
 
-    Optional<double> startTime() const final;
-    void setStartTime(Optional<double>) final;
+    Optional<double> bindingsStartTime() const final;
+    void setBindingsStartTime(Optional<double>) override;
     Optional<double> bindingsCurrentTime() const final;
     ExceptionOr<void> setBindingsCurrentTime(Optional<double>) final;
     WebAnimation::PlayState bindingsPlayState() const final;
@@ -62,11 +63,13 @@ public:
     ExceptionOr<void> bindingsPause() override;
 
     void setTimeline(RefPtr<AnimationTimeline>&&) final;
-    void cancel() final;
+    void cancel(Silently = Silently::No) final;
 
     void tick() override;
 
     bool canHaveGlobalPosition() final;
+
+    void flushPendingStyleChanges() const;
 
 protected:
     DeclarativeAnimation(Element&, const Animation&);
@@ -80,14 +83,13 @@ protected:
 
 private:
     void disassociateFromOwningElement();
-    void flushPendingStyleChanges() const;
     AnimationEffectPhase phaseWithoutEffect() const;
     void enqueueDOMEvent(const AtomString&, Seconds);
 
     bool m_wasPending { false };
     AnimationEffectPhase m_previousPhase { AnimationEffectPhase::Idle };
 
-    Element* m_owningElement;
+    WeakPtr<Element> m_owningElement;
     Ref<Animation> m_backingAnimation;
     double m_previousIteration;
 };

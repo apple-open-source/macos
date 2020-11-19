@@ -22,8 +22,8 @@
  */
 
 #import "RateLimiter.h"
-#import <utilities/debugging.h>
 #import "sec_action.h"
+#import "keychain/ckks/CKKS.h"
 #import <CoreFoundation/CFPreferences.h>   // For clarity. Also included in debugging.h
 
 @interface RateLimiter()
@@ -37,8 +37,7 @@
 @implementation RateLimiter
 
 - (instancetype)initWithConfig:(NSDictionary *)config {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _config = config;
         _assetType = nil;
         [self reset];
@@ -50,8 +49,7 @@
     if (!coder) {
         return nil;
     }
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _groups = [coder decodeObjectOfClasses:[NSSet setWithObjects: [NSArray class],
                                                                       [NSMutableDictionary class],
                                                                       [NSString class],
@@ -87,7 +85,7 @@
         dispatch_once(&token, ^{
             action = sec_action_create("ratelimiterdisabledlogevent", 60);
             sec_action_set_handler(action, ^{
-                secnotice("ratelimit", "Rate limiting disabled, returning automatic all-clear");
+                ckksnotice_global("ratelimit", "Rate limiting disabled, returning automatic all-clear");
           });
         });
         sec_action_perform(action);
@@ -135,7 +133,7 @@
         // approved properties 'accessGroup' and 'uuid' and if the item doesn't have either it's sad times anyway.
         // <rdar://problem/33434425> Improve rate limiter error handling
         if (!name) {
-            secerror("RateLimiter[%@]: Got nil instead of property named %@", self.config[@"general"][@"name"], groupConfig[@"property"]);
+            ckkserror_global("ratelimiter", "RateLimiter[%@]: Got nil instead of property named %@", self.config[@"general"][@"name"], groupConfig[@"property"]);
             continue;
         }
         NSDate *singleTokenTime = [self consumeTokenFromBucket:self.groups[idx]
@@ -205,7 +203,7 @@
     if ([self stateSize] > [self.config[@"general"][@"maxStateSize"] unsignedIntegerValue]) {
         // Trimming did not reduce size (enough), we need to take measures
         self.overloadUntil = [time dateByAddingTimeInterval:[self.config[@"general"][@"overloadDuration"] unsignedIntValue]];
-        secerror("RateLimiter[%@] state size %lu exceeds max %lu, overloaded until %@",
+        ckkserror_global("ratelimiter", "RateLimiter[%@] state size %lu exceeds max %lu, overloaded until %@",
                  self.config[@"general"][@"name"],
                  (unsigned long)[self stateSize],
                  [self.config[@"general"][@"maxStateSize"] unsignedLongValue],

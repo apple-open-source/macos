@@ -25,22 +25,21 @@ import Foundation
 import SecurityFoundation
 
 class BottledPeer: NSObject {
+    var escrowKeys: EscrowKeys
+    var secret: Data
+    var peerID: String
+    var bottleID: String
+    var peerKeys: OctagonSelfPeerKeys
 
-    public var escrowKeys: EscrowKeys
-    public var secret: Data
-    public var peerID: String
-    public var bottleID: String
-    public var peerKeys: OctagonSelfPeerKeys
+    var signatureUsingEscrowKey: Data
+    var signatureUsingPeerKey: Data
+    var escrowSigningPublicKey: Data
+    var escrowSigningSPKI: Data
+    var peersigningSPKI: Data
 
-    public var signatureUsingEscrowKey: Data
-    public var signatureUsingPeerKey: Data
-    public var escrowSigningPublicKey: Data
-    public var escrowSigningSPKI: Data
-    public var peersigningSPKI: Data
+    var contents: Data
 
-    public var contents: Data
-
-    public class func encryptionOperation() -> (_SFAuthenticatedEncryptionOperation) {
+    class func encryptionOperation() -> (_SFAuthenticatedEncryptionOperation) {
         let keySpecifier = _SFAESKeySpecifier.init(bitSize: TPHObjectiveC.aes256BitSize())
         return _SFAuthenticatedEncryptionOperation.init(keySpecifier: keySpecifier)
     }
@@ -48,8 +47,7 @@ class BottledPeer: NSObject {
     // Given a peer's details including private key material, and
     // the keys generated from the escrow secret, encrypt the peer private keys,
     // make a bottled peer object and serialize it into data.
-    public init (peerID: String, bottleID: String, peerSigningKey: _SFECKeyPair, peerEncryptionKey: _SFECKeyPair, bottleSalt: String) throws {
-
+    init (peerID: String, bottleID: String, peerSigningKey: _SFECKeyPair, peerEncryptionKey: _SFECKeyPair, bottleSalt: String) throws {
         let secret = try BottledPeer.makeMeSomeEntropy(requiredLength: Int(OTMasterSecretLength))
 
         self.secret = secret
@@ -130,8 +128,7 @@ class BottledPeer: NSObject {
 
     // Deserialize a bottle (data) and decrypt the contents (peer keys)
     // using the keys generated from the escrow secret, and signatures from signing keys
-    public init (contents: Data, secret: Data, bottleSalt: String, signatureUsingEscrow: Data, signatureUsingPeerKey: Data) throws {
-
+    init (contents: Data, secret: Data, bottleSalt: String, signatureUsingEscrow: Data, signatureUsingPeerKey: Data) throws {
         self.secret = secret
         self.escrowKeys = try EscrowKeys(secret: self.secret, bottleSalt: bottleSalt)
 
@@ -210,24 +207,24 @@ class BottledPeer: NSObject {
         try xso.verify(peerSigned, with: peerPublicKey)
     }
 
-    public func escrowSigningPublicKeyHash() -> String {
+    func escrowSigningPublicKeyHash() -> String {
         return TPHObjectiveC.digest(usingSha384: self.escrowSigningPublicKey)
     }
 
-    public class func signingOperation() -> (_SFEC_X962SigningOperation) {
+    class func signingOperation() -> (_SFEC_X962SigningOperation) {
         let keySpecifier = _SFECKeySpecifier.init(curve: SFEllipticCurve.nistp384)
         let digestOperation = _SFSHA384DigestOperation.init()
         return _SFEC_X962SigningOperation.init(keySpecifier: keySpecifier, digestOperation: digestOperation)
     }
 
-    public class func verifyBottleSignature(data: Data, signature: Data, pubKey: _SFECPublicKey) throws -> (Bool) {
+    class func verifyBottleSignature(data: Data, signature: Data, pubKey: _SFECPublicKey) throws -> (Bool) {
         let xso = BottledPeer.signingOperation()
         let peerSigned = _SFSignedData.init(data: data, signature: signature)
         try xso.verify(peerSigned, with: pubKey)
         return true
     }
 
-    public class func makeMeSomeEntropy(requiredLength: Int) throws -> Data {
+    class func makeMeSomeEntropy(requiredLength: Int) throws -> Data {
         let bytesPointer = UnsafeMutableRawPointer.allocate(byteCount: requiredLength, alignment: 1)
 
         if SecRandomCopyBytes(kSecRandomDefault, requiredLength, bytesPointer) != 0 {
@@ -253,7 +250,7 @@ extension BottledPeer {
 }
 
 extension BottledPeer.Error: LocalizedError {
-    public var errorDescription: String? {
+    var errorDescription: String? {
         switch self {
         case .OTErrorDeserializationFailure:
             return "Failed to deserialize bottle peer"

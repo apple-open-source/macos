@@ -28,7 +28,7 @@
 #include <security_cryptkit/feeDigitalSignature.h>
 #include <security_cryptkit/falloc.h>
 #include <stdexcept>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <security_utilities/debugging.h>
 
 #define feeSigObjDebug(args...)		secinfo("feeSig", ##args)

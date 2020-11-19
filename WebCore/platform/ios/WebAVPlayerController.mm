@@ -27,7 +27,7 @@
 #import "config.h"
 #import "WebAVPlayerController.h"
 
-#if PLATFORM(IOS_FAMILY) && HAVE(AVKIT)
+#if PLATFORM(COCOA) && HAVE(AVKIT)
 
 #import "Logging.h"
 #import "PlaybackSessionInterfaceAVKit.h"
@@ -57,6 +57,7 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
 @implementation WebAVPlayerController {
     BOOL _liveStreamEventModePossible;
     BOOL _isScrubbing;
+    BOOL _allowsPictureInPicture;
 }
 
 - (instancetype)init
@@ -184,7 +185,8 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
 
 - (void)seekToTime:(NSTimeInterval)time toleranceBefore:(NSTimeInterval)before toleranceAfter:(NSTimeInterval)after
 {
-    self.delegate->seekToTime(time, before, after);
+    if (self.delegate)
+        self.delegate->seekToTime(time, before, after);
 }
 
 - (void)seekByTimeInterval:(NSTimeInterval)interval
@@ -397,6 +399,16 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
     [self seekToEnd:sender];
 }
 
+- (BOOL)canSeekFrameBackward
+{
+    return YES;
+}
+
+- (BOOL)canSeekFrameForward
+{
+    return YES;
+}
+
 - (BOOL)hasMediaSelectionOptions
 {
     return [self hasAudioMediaSelectionOptions] || [self hasLegibleMediaSelectionOptions];
@@ -490,6 +502,16 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
 + (NSSet *)keyPathsForValuesAffectingPlayingOnExternalScreen
 {
     return [NSSet setWithObjects:@"externalPlaybackActive", @"playingOnSecondScreen", nil];
+}
+
+- (void)setAllowsPictureInPicture:(BOOL)allowsPictureInPicture
+{
+    _allowsPictureInPicture = allowsPictureInPicture;
+}
+
+- (BOOL)isPictureInPicturePossible
+{
+    return _allowsPictureInPicture && ![self isExternalPlaybackActive];
 }
 
 - (BOOL)isPictureInPictureInterrupted
@@ -650,5 +672,5 @@ static double WebAVPlayerControllerLiveStreamSeekableTimeRangeMinimumDuration = 
 
 @end
 
-#endif // PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(COCOA) && HAVE(AVKIT)
 

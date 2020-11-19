@@ -174,18 +174,16 @@ exit:
     CFReleaseNull(identity);
 }
 
-static int ping_host(char *host_name){
-
+static int ping_host(char *host_name) {
     struct sockaddr_in pin;
     struct hostent *nlp_host;
+    struct in_addr addr;
     int sd;
-    int port;
-    int retries = 5;
+    int port = 80;
+    int retries = 5; // tries 5 times then gived up
+    char **h_addr_list = NULL;
 
-    port=80;
-
-    //tries 5 times then give up
-    while ((nlp_host=gethostbyname(host_name))==0 && retries--){
+    while ((nlp_host=gethostbyname(host_name)) == 0 && retries--) {
         printf("Resolve Error! (%s) %d\n", host_name, h_errno);
         sleep(1);
     }
@@ -196,20 +194,23 @@ static int ping_host(char *host_name){
     bzero(&pin,sizeof(pin));
     pin.sin_family=AF_INET;
     pin.sin_addr.s_addr=htonl(INADDR_ANY);
-    pin.sin_addr.s_addr=((struct in_addr *)(nlp_host->h_addr))->s_addr;
+    h_addr_list = malloc(nlp_host->h_length * sizeof(char *));
+    memcpy(h_addr_list, nlp_host->h_addr_list, nlp_host->h_length * sizeof(char *));
+    memcpy(&addr, h_addr_list[0], sizeof(struct in_addr));
+    pin.sin_addr.s_addr=addr.s_addr;
     pin.sin_port=htons(port);
 
     sd=socket(AF_INET,SOCK_STREAM,0);
 
-    if (connect(sd,(struct sockaddr*)&pin,sizeof(pin))==-1){
+    if (connect(sd,(struct sockaddr*)&pin,sizeof(pin)) == -1) {
         printf("connect error! (%s) %d\n", host_name, errno);
         close(sd);
+        free(h_addr_list);
         return 0;
     }
-    else{
-        close(sd);
-        return 1;
-    }
+    close(sd);
+    free(h_addr_list);
+    return 1;
 }
 
 int si_34_cms_timestamp(int argc, char * const *argv) {

@@ -8,6 +8,7 @@
 #import "keychain/ot/OTUploadNewCKKSTLKsOperation.h"
 #import "keychain/ot/OTCuttlefishAccountStateHolder.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"
+#import "keychain/ot/OTStates.h"
 #import "keychain/ckks/CKKSCurrentKeyPointer.h"
 #import "keychain/ckks/CKKSKeychainView.h"
 #import "keychain/ckks/CKKSNearFutureScheduler.h"
@@ -20,6 +21,7 @@
 @property OTOperationDependencies* deps;
 
 @property OctagonState* ckksConflictState;
+@property OctagonState* peerMissingState;
 
 @property NSOperation* finishedOp;
 @end
@@ -30,6 +32,7 @@
 - (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
                        intendedState:(OctagonState*)intendedState
                    ckksConflictState:(OctagonState*)ckksConflictState
+                    peerMissingState:(OctagonState*)peerMissingState
                           errorState:(OctagonState*)errorState
 {
     if((self = [super init])) {
@@ -37,6 +40,7 @@
 
         _intendedState = intendedState;
         _ckksConflictState = ckksConflictState;
+        _peerMissingState = peerMissingState;
         _nextState = errorState;
     }
     return self;
@@ -44,7 +48,7 @@
 
 - (void)groupStart
 {
-    secnotice("octagon", "Beginning to upload any pending CKKS tlks operation");
+    secnotice("octagon", "Beginning an operation to upload any pending CKKS tlks");
 
     WEAKIFY(self);
 
@@ -53,8 +57,7 @@
     // One (or more) of our sub-CKKSes believes it needs to upload new TLKs.
     CKKSViewManager* viewManager = self.deps.viewManager;
     for(CKKSKeychainView* view in viewManager.currentViews) {
-        if([view.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTLKUpload] ||
-           [view.keyHierarchyState isEqualToString:SecCKKSZoneKeyStateWaitForTLKCreation]) {
+        if([view requiresTLKUpload]) {
             secnotice("octagon-ckks", "CKKS view %@ needs TLK uploads!", view);
             [viewsToUpload addObject: view];
         }
@@ -106,6 +109,11 @@
                 if ([error isCuttlefishError:CuttlefishErrorKeyHierarchyAlreadyExists]) {
                     secnotice("octagon-ckks", "A CKKS key hierarchy is out of date; moving to '%@'", self.ckksConflictState);
                     self.nextState = self.ckksConflictState;
+                } else if ([error isCuttlefishError:CuttlefishErrorUpdateTrustPeerNotFound]) {
+                    secnotice("octagon-ckks", "Cuttlefish reports we no longer exist.");
+                    self.nextState = self.peerMissingState;
+                    self.error = error;
+
                 } else {
                     secerror("octagon: Error calling tlk upload: %@", error);
                     self.error = error;

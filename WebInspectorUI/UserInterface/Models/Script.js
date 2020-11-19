@@ -27,7 +27,7 @@ WI.Script = class Script extends WI.SourceCode
 {
     constructor(target, id, range, url, sourceType, injected, sourceURL, sourceMapURL)
     {
-        super();
+        super(url);
 
         console.assert(target instanceof WI.Target || this instanceof WI.LocalScript);
         console.assert(range instanceof WI.TextRange);
@@ -35,7 +35,6 @@ WI.Script = class Script extends WI.SourceCode
         this._target = target;
         this._id = id || null;
         this._range = range || null;
-        this._url = url || null;
         this._sourceType = sourceType || WI.Script.SourceType.Program;
         this._sourceURL = sourceURL || null;
         this._sourceMappingURL = sourceMapURL || null;
@@ -80,7 +79,6 @@ WI.Script = class Script extends WI.SourceCode
     get target() { return this._target; }
     get id() { return this._id; }
     get range() { return this._range; }
-    get url() { return this._url; }
     get sourceType() { return this._sourceType; }
     get sourceURL() { return this._sourceURL; }
     get sourceMappingURL() { return this._sourceMappingURL; }
@@ -106,13 +104,6 @@ WI.Script = class Script extends WI.SourceCode
             return null;
 
         return this._sourceURL;
-    }
-
-    get urlComponents()
-    {
-        if (!this._urlComponents)
-            this._urlComponents = parseURL(this._url);
-        return this._urlComponents;
     }
 
     get mimeType()
@@ -292,16 +283,20 @@ WI.Script = class Script extends WI.SourceCode
         if (this._target && this._target !== WI.mainTarget)
             resolver = this._target.resourceCollection;
 
+        function isScriptResource(item) {
+            return item.type === WI.Resource.Type.Document || item.type === WI.Resource.Type.Script;
+        }
+
         try {
             // Try with the Script's full URL.
-            let resource = resolver.resourceForURL(this._url);
+            let resource = resolver.resourcesForURL(this._url).find(isScriptResource);
             if (resource)
                 return resource;
 
             // Try with the Script's full decoded URL.
             let decodedURL = decodeURI(this._url);
             if (decodedURL !== this._url) {
-                resource = resolver.resourceForURL(decodedURL);
+                resource = resolver.resourcesForURL(decodedURL).find(isScriptResource);
                 if (resource)
                     return resource;
             }
@@ -309,7 +304,7 @@ WI.Script = class Script extends WI.SourceCode
             // Next try removing any fragment in the original URL.
             let urlWithoutFragment = removeURLFragment(this._url);
             if (urlWithoutFragment !== this._url) {
-                resource = resolver.resourceForURL(urlWithoutFragment);
+                resource = resolver.resourcesForURL(urlWithoutFragment).find(isScriptResource);
                 if (resource)
                     return resource;
             }
@@ -317,7 +312,7 @@ WI.Script = class Script extends WI.SourceCode
             // Finally try removing any fragment in the decoded URL.
             let decodedURLWithoutFragment = removeURLFragment(decodedURL);
             if (decodedURLWithoutFragment !== decodedURL) {
-                resource = resolver.resourceForURL(decodedURLWithoutFragment);
+                resource = resolver.resourcesForURL(decodedURLWithoutFragment).find(isScriptResource);
                 if (resource)
                     return resource;
             }

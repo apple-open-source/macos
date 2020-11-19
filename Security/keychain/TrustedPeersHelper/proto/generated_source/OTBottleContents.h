@@ -6,7 +6,6 @@
 #import <ProtocolBuffer/PBCodable.h>
 
 @class OTPrivateKey;
-@class OTPrivateKey;
 
 #ifdef __cplusplus
 #define OTBOTTLECONTENTS_FUNCTION extern "C" __attribute__((visibility("hidden")))

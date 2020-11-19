@@ -45,3 +45,6 @@
 
 find ${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH} -name \*.c -print0 | \
 	 xargs -0 rm
+
+# Create the symlink for headers
+ln -s Versions/A/Headers ${TARGET_BUILD_DIR}/${WRAPPER_NAME}/Headers

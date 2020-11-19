@@ -45,7 +45,6 @@
 #import "Pasteboard.h"
 #import "PasteboardStrategy.h"
 #import "PlatformStrategies.h"
-#import "Range.h"
 #import "RenderBlock.h"
 #import "RenderImage.h"
 #import "RuntimeApplicationChecks.h"
@@ -58,8 +57,6 @@
 #import <wtf/cocoa/NSURLExtras.h>
 
 namespace WebCore {
-
-using namespace HTMLNames;
 
 void Editor::showFontPanel()
 {
@@ -82,7 +79,7 @@ void Editor::showColorPanel()
 
 void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> options)
 {
-    RefPtr<Range> range = selectedRange();
+    auto range = selectedRange();
 
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     // FIXME: How can this hard-coded pasteboard name be right, given that the passed-in pasteboard has a name?
@@ -95,7 +92,7 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> 
     if (fragment && options.contains(PasteOption::AsQuotation))
         quoteFragmentForPasting(*fragment);
 
-    if (fragment && shouldInsertFragment(*fragment, range.get(), EditorInsertAction::Pasted))
+    if (fragment && shouldInsertFragment(*fragment, range, EditorInsertAction::Pasted))
         pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(*pasteboard), false, options.contains(PasteOption::IgnoreMailBlockquote) ? MailBlockquoteHandling::IgnoreBlockquote : MailBlockquoteHandling::RespectBlockquote );
 
     client()->setInsertionPasteboard(String());
@@ -104,7 +101,7 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> 
 void Editor::readSelectionFromPasteboard(const String& pasteboardName)
 {
     Pasteboard pasteboard(pasteboardName);
-    if (m_frame.selection().selection().isContentRichlyEditable())
+    if (m_document.selection().selection().isContentRichlyEditable())
         pasteWithPasteboard(&pasteboard, { PasteOption::AllowPlainText });
     else
         pasteAsPlainTextWithPasteboard(pasteboard);
@@ -138,16 +135,17 @@ void Editor::replaceNodeFromPasteboard(Node* node, const String& pasteboardName)
 {
     ASSERT(node);
 
-    if (&node->document() != m_frame.document())
+    if (node->document() != m_document)
         return;
 
-    Ref<Frame> protector(m_frame);
-    auto range = Range::create(node->document(), Position(node, Position::PositionIsBeforeAnchor), Position(node, Position::PositionIsAfterAnchor));
-    m_frame.selection().setSelection(VisibleSelection(range.get()), FrameSelection::DoNotSetFocus);
+    Ref<Document> protector(m_document);
+
+    auto range = makeRangeSelectingNodeContents(*node);
+    m_document.selection().setSelection(VisibleSelection(range), FrameSelection::DoNotSetFocus);
 
     Pasteboard pasteboard(pasteboardName);
 
-    if (!m_frame.selection().selection().isContentRichlyEditable()) {
+    if (!m_document.selection().selection().isContentRichlyEditable()) {
         pasteAsPlainTextWithPasteboard(pasteboard);
         return;
     }
@@ -158,9 +156,9 @@ void Editor::replaceNodeFromPasteboard(Node* node, const String& pasteboardName)
     ALLOW_DEPRECATED_DECLARATIONS_END
 
     bool chosePlainText;
-    if (RefPtr<DocumentFragment> fragment = webContentFromPasteboard(pasteboard, range.get(), true, chosePlainText)) {
+    if (auto fragment = webContentFromPasteboard(pasteboard, range, true, chosePlainText)) {
         maybeCopyNodeAttributesToFragment(*node, *fragment);
-        if (shouldInsertFragment(*fragment, range.ptr(), EditorInsertAction::Pasted))
+        if (shouldInsertFragment(*fragment, range, EditorInsertAction::Pasted))
             pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(pasteboard), false, MailBlockquoteHandling::IgnoreBlockquote);
     }
 
@@ -177,11 +175,9 @@ RefPtr<SharedBuffer> Editor::imageInWebArchiveFormat(Element& imageElement)
 
 RefPtr<SharedBuffer> Editor::dataSelectionForPasteboard(const String& pasteboardType)
 {
-    // FIXME: The interface to this function is awkward. We'd probably be better off with three separate functions.
-    // As of this writing, this is only used in WebKit2 to implement the method -[WKView writeSelectionToPasteboard:types:],
-    // which is only used to support OS X services.
+    // FIXME: The interface to this function is awkward. We'd probably be better off with three separate functions. As of this writing, this is only used in WebKit2 to implement the method -[WKView writeSelectionToPasteboard:types:], which is only used to support OS X services.
 
-    // FIXME: Does this function really need to use adjustedSelectionRange()? Because writeSelectionToPasteboard() just uses selectedRange().
+    // FIXME: Does this function really need to use adjustedSelectionRange()? Because writeSelectionToPasteboard() just uses selectedRange(). This is the only function in WebKit that uses adjustedSelectionRange.
     if (!canCopy())
         return nullptr;
 
@@ -189,14 +185,14 @@ RefPtr<SharedBuffer> Editor::dataSelectionForPasteboard(const String& pasteboard
         return selectionInWebArchiveFormat();
 
     if (pasteboardType == String(legacyRTFDPasteboardType()))
-       return dataInRTFDFormat(attributedStringFromRange(*adjustedSelectionRange()));
+        return dataInRTFDFormat(attributedString(*adjustedSelectionRange()).string.get());
 
     if (pasteboardType == String(legacyRTFPasteboardType())) {
-        NSAttributedString* attributedString = attributedStringFromRange(*adjustedSelectionRange());
-        // FIXME: Why is this attachment character stripping needed here, but not needed in writeSelectionToPasteboard?
-        if ([attributedString containsAttachments])
-            attributedString = attributedStringByStrippingAttachmentCharacters(attributedString);
-        return dataInRTFFormat(attributedString);
+        auto string = attributedString(*adjustedSelectionRange()).string;
+        // FIXME: Why is this stripping needed here, but not in writeSelectionToPasteboard?
+        if ([string containsAttachments])
+            string = attributedStringByStrippingAttachmentCharacters(string.get());
+        return dataInRTFFormat(string.get());
     }
 
     return nullptr;
@@ -221,7 +217,7 @@ static void getImage(Element& imageElement, RefPtr<Image>& image, CachedImage*& 
 
 void Editor::selectionWillChange()
 {
-    if (!hasComposition() || ignoreSelectionChanges() || m_frame.selection().isNone())
+    if (!hasComposition() || ignoreSelectionChanges() || m_document.selection().isNone())
         return;
 
     cancelComposition();
@@ -251,7 +247,14 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
         return;
     ASSERT(cachedImage);
 
-    pasteboardImage.dataInWebArchiveFormat = imageInWebArchiveFormat(imageElement);
+    if (!pasteboard.isStatic())
+        pasteboardImage.dataInWebArchiveFormat = imageInWebArchiveFormat(imageElement);
+
+    if (auto imageRange = makeRangeSelectingNode(imageElement)) {
+        auto serializeComposedTree = m_document.settings().selectionAcrossShadowBoundariesEnabled() ? SerializeComposedTree::Yes : SerializeComposedTree::No;
+        pasteboardImage.dataInHTMLFormat = serializePreservingVisualAppearance(VisibleSelection { *imageRange }, ResolveURLs::YesExcludingLocalFileURLsForPrivacy, serializeComposedTree);
+    }
+
     pasteboardImage.url.url = url;
     pasteboardImage.url.title = title;
     pasteboardImage.url.userVisibleForm = WTF::userVisibleString(pasteboardImage.url.url);

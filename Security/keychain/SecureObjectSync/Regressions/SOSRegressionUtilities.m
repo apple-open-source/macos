@@ -220,11 +220,12 @@ CFTypeRef testGetObjectsFromCloud(CFArrayRef keysToGet, dispatch_queue_t process
         dispatch_semaphore_signal(waitSemaphore);
     };
     
-    if (!keysToGet)
+    if (!keysToGet) {
         SOSCloudKeychainGetAllObjectsFromCloud(processQueue, replyBlock);
-    else
+    } else {
         SOSCloudKeychainGetObjectsFromCloud(keysToGet, processQueue, replyBlock);
-    
+    }
+
 	dispatch_semaphore_wait(waitSemaphore, finishTime);
     if (object && (CFGetTypeID(object) == CFNullGetTypeID()))   // return a NULL instead of a CFNull
     {
@@ -315,7 +316,10 @@ SOSPeerInfoRef SOSCreatePeerInfoFromName(CFStringRef name,
     require(gestalt, exit);
 
     result = SOSPeerInfoCreate(NULL, gestalt, NULL, *outSigningKey,
-                               *outOctagonSigningKey, *outOctagonEncryptionKey, error);
+                               *outOctagonSigningKey, *outOctagonEncryptionKey,
+                               // Always support CKKS4All for now
+                               true,
+                               error);
 
 exit:
     CFReleaseNull(gestalt);

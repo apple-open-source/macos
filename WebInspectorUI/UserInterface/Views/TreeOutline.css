@@ -52,6 +52,7 @@
     border-top: 1px solid transparent;
 
     white-space: nowrap;
+    outline: none;
 }
 
 .tree-outline.compact .item {
@@ -119,7 +120,7 @@ body[dir=rtl] [dir=ltr] .tree-outline .item .disclosure-button {
     display: block;
 }
 
-.tree-outline:focus .item.selected .disclosure-button {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus-within .item.selected .disclosure-button {
     background-image: url(../Images/DisclosureTriangles.svg#closed-selected) !important;
 }
 
@@ -127,7 +128,7 @@ body[dir=rtl] [dir=ltr] .tree-outline .item .disclosure-button {
     background-image: url(../Images/DisclosureTriangles.svg#open-normal);
 }
 
-.tree-outline:focus .item.selected.expanded .disclosure-button {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus-within .item.selected.expanded .disclosure-button {
     background-image: url(../Images/DisclosureTriangles.svg#open-selected) !important;
 }
 
@@ -175,7 +176,7 @@ body[dir=rtl] .tree-outline .item .status {
     background-color: var(--selected-background-color-unfocused);
 }
 
-.tree-outline:focus .item.selected {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus-within .item.selected {
     color: var(--selected-foreground-color);
     background-color: var(--selected-background-color);
 }
@@ -220,7 +221,7 @@ body[dir=rtl] .tree-outline .item .status {
     font-size: 9px;
 }
 
-.tree-outline:focus .item.selected .subtitle {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus-within .item.selected .subtitle {
     color: hsla(0, 0%, 100%, 0.9);
 }
 
@@ -235,7 +236,7 @@ body[dir=rtl] .tree-outline .item .status {
     height: 14px;
 }
 
-.tree-outline:not(.large):focus .item.selected .status .indeterminate-progress-spinner {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline:not(.large):focus-within .item.selected .status .indeterminate-progress-spinner {
     filter: invert();
 }
 

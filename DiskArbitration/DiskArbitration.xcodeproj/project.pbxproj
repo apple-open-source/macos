@@ -196,6 +196,7 @@
 		12EFD4EC038AE27403A87B01 /* DALog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DALog.c; path = diskarbitrationd/DALog.c; sourceTree = "<group>"; };
 		2AE465A21CAB11830049D02E /* DiskArbitration.modulemap */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.module-map"; path = DiskArbitration.modulemap; sourceTree = "<group>"; };
 		30B32ACA20EEF86A00D71734 /* DAServer.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.entitlements; name = DAServer.entitlements; path = diskarbitrationd/DAServer.entitlements; sourceTree = "<group>"; };
+		4C18949E246EF975005F7AC6 /* DiskArbitration.private.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = DiskArbitration.private.modulemap; sourceTree = "<group>"; };
 		60077B8112E630AF00D4AE4F /* DiskArbitrationAgent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DiskArbitrationAgent; sourceTree = BUILT_PRODUCTS_DIR; };
 		60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = DiskArbitrationAgent.m; path = DiskArbitrationAgent/DiskArbitrationAgent.m; sourceTree = "<group>"; };
 		60077BD012E6403F00D4AE4F /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
@@ -259,7 +260,7 @@
 		6DF91DF2041D223200A87B01 /* DAMount.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DAMount.c; path = diskarbitrationd/DAMount.c; sourceTree = "<group>"; };
 		6DF96179047A59C000A87B01 /* DADialog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DADialog.h; path = diskarbitrationd/DADialog.h; sourceTree = "<group>"; };
 		6DF9617A047A59C000A87B01 /* DADialog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DADialog.c; path = diskarbitrationd/DADialog.c; sourceTree = "<group>"; };
-		6DF96180047A6C5700A87B01 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = DiskArbitration/English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		6DF96180047A6C5700A87B01 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = DiskArbitration/en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		6DFC226B04E2DCF700A87B01 /* DAThread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DAThread.h; path = diskarbitrationd/DAThread.h; sourceTree = "<group>"; };
 		6DFC226C04E2DCF700A87B01 /* DAThread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DAThread.c; path = diskarbitrationd/DAThread.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -465,8 +466,9 @@
 			isa = PBXGroup;
 			children = (
 				2AE465A21CAB11830049D02E /* DiskArbitration.modulemap */,
+				4C18949E246EF975005F7AC6 /* DiskArbitration.private.modulemap */,
 			);
-			name = Modules;
+			path = Modules;
 			sourceTree = "<group>";
 		};
 		60077B9812E6353500D4AE4F /* DiskArbitrationAgent */ = {
@@ -688,13 +690,10 @@
 			};
 			buildConfigurationList = 60BCD1B1088D46E40091026D /* Build configuration list for PBXProject "DiskArbitration" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
-				English,
-				Japanese,
-				French,
-				German,
+				en,
 			);
 			mainGroup = 12D25927030A908603A87B01;
 			productRefGroup = 124AF309030AD93503A87B01 /* Products */;
@@ -820,7 +819,7 @@
 		6DF96182047A6C7100A87B01 /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				6DF96180047A6C5700A87B01 /* English */,
+				6DF96180047A6C5700A87B01 /* en */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -917,6 +916,7 @@
 					debug,
 					profile,
 				);
+				CLANG_MODULES_ENABLE_VERIFIER_TOOL = YES;
 				COPY_PHASE_STRIP = NO;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
@@ -925,8 +925,10 @@
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
-				"MODULEMAP_FILE[sdk=*]" = $SRCROOT/DiskArbitration.modulemap;
+				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
+				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
 				PRODUCT_NAME = DiskArbitration;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = (
 					"-sectorder",
 					__TEXT,
@@ -945,6 +947,7 @@
 					debug,
 					profile,
 				);
+				CLANG_MODULES_ENABLE_VERIFIER_TOOL = YES;
 				DEFINES_MODULE = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
@@ -953,8 +956,10 @@
 				INFOPLIST_FILE = DiskArbitration/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				IS_ZIPPERED = YES;
-				"MODULEMAP_FILE[sdk=*]" = $SRCROOT/DiskArbitration.modulemap;
+				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
+				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
 				PRODUCT_NAME = DiskArbitration;
+				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = (
 					"-sectorder",
 					__TEXT,
@@ -977,6 +982,177 @@
 			};
 			name = Release;
 		};
+		72BF5C032346A75200054F1E /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = ReleaseCoverage;
+		};
+		72BF5C042346A75200054F1E /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = All;
+			};
+			name = ReleaseCoverage;
+		};
+		72BF5C052346A75200054F1E /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = autodiskmount;
+				VALID_ARCHS = i386;
+			};
+			name = ReleaseCoverage;
+		};
+		72BF5C062346A75200054F1E /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = diskarbitrationd/DAServer.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					__DISKARBITRATIOND__,
+					__CODECOVERAGE__,
+				);
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-fcoverage-mapping",
+					"-fprofile-instr-generate",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = diskarbitrationd;
+			};
+			name = ReleaseCoverage;
+		};
+		72BF5C072346A75200054F1E /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+					profile,
+				);
+				CLANG_MODULES_ENABLE_VERIFIER_TOOL = YES;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = "";
+				INFOPLIST_FILE = DiskArbitration/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				IS_ZIPPERED = YES;
+				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
+				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
+				PRODUCT_NAME = DiskArbitration;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = (
+					"-sectorder",
+					__TEXT,
+					__text,
+					"$(OBJROOT)/DiskArbitration.order",
+				);
+				WRAPPER_EXTENSION = framework;
+			};
+			name = ReleaseCoverage;
+		};
+		72BF5C082346A75200054F1E /* ReleaseCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = DiskArbitrationAgent/DiskArbitrationAgent.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DiskArbitration.framework/Versions/A/Support";
+				PRODUCT_NAME = DiskArbitrationAgent;
+				PROVISIONING_PROFILE = "";
+			};
+			name = ReleaseCoverage;
+		};
+		72BF5C092346A76800054F1E /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = DebugCoverage;
+		};
+		72BF5C0A2346A76800054F1E /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = All;
+			};
+			name = DebugCoverage;
+		};
+		72BF5C0B2346A76800054F1E /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = /sbin;
+				PRODUCT_NAME = autodiskmount;
+				VALID_ARCHS = i386;
+			};
+			name = DebugCoverage;
+		};
+		72BF5C0C2346A76800054F1E /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = diskarbitrationd/DAServer.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					__DISKARBITRATIOND__,
+					__CODECOVERAGE__,
+				);
+				INSTALL_PATH = /usr/libexec;
+				OTHER_CFLAGS = (
+					"-fcoverage-mapping",
+					"-fprofile-instr-generate",
+				);
+				OTHER_LDFLAGS = "-fprofile-instr-generate";
+				PRODUCT_NAME = diskarbitrationd;
+			};
+			name = DebugCoverage;
+		};
+		72BF5C0D2346A76800054F1E /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					debug,
+					profile,
+				);
+				CLANG_MODULES_ENABLE_VERIFIER_TOOL = YES;
+				COPY_PHASE_STRIP = NO;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_VERSION = A;
+				INFOPLIST_FILE = DiskArbitration/Info.plist;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				IS_ZIPPERED = YES;
+				MODULEMAP_FILE = Modules/DiskArbitration.modulemap;
+				MODULEMAP_PRIVATE_FILE = Modules/DiskArbitration.private.modulemap;
+				PRODUCT_NAME = DiskArbitration;
+				SDKROOT = macosx.internal;
+				SECTORDER_FLAGS = (
+					"-sectorder",
+					__TEXT,
+					__text,
+					"$(OBJROOT)/DiskArbitration.order",
+				);
+				WRAPPER_EXTENSION = framework;
+			};
+			name = DebugCoverage;
+		};
+		72BF5C0E2346A76800054F1E /* DebugCoverage */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_ENTITLEMENTS = DiskArbitrationAgent/DiskArbitrationAgent.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DiskArbitration.framework/Versions/A/Support";
+				PRODUCT_NAME = DiskArbitrationAgent;
+				PROVISIONING_PROFILE = "";
+			};
+			name = DebugCoverage;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -984,7 +1160,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60077B8312E630B000D4AE4F /* Debug */,
+				72BF5C0E2346A76800054F1E /* DebugCoverage */,
 				60077B8412E630B000D4AE4F /* Release */,
+				72BF5C082346A75200054F1E /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -993,7 +1171,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				603C87AA08EC8117004474CD /* Debug */,
+				72BF5C0A2346A76800054F1E /* DebugCoverage */,
 				603C87AB08EC8117004474CD /* Release */,
+				72BF5C042346A75200054F1E /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1002,7 +1182,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				603C87BA08EC8117004474CD /* Debug */,
+				72BF5C0B2346A76800054F1E /* DebugCoverage */,
 				603C87BB08EC8117004474CD /* Release */,
+				72BF5C052346A75200054F1E /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1011,7 +1193,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				603C87F808EC8117004474CD /* Debug */,
+				72BF5C0C2346A76800054F1E /* DebugCoverage */,
 				603C87F908EC8117004474CD /* Release */,
+				72BF5C062346A75200054F1E /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1020,7 +1204,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				603C882608EC8117004474CD /* Debug */,
+				72BF5C0D2346A76800054F1E /* DebugCoverage */,
 				603C882708EC8117004474CD /* Release */,
+				72BF5C072346A75200054F1E /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1029,7 +1215,9 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				60BCD1B2088D46E40091026D /* Debug */,
+				72BF5C092346A76800054F1E /* DebugCoverage */,
 				60BCD1B3088D46E40091026D /* Release */,
+				72BF5C032346A75200054F1E /* ReleaseCoverage */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -66,6 +66,8 @@ __FBSDID("$FreeBSD: src/sbin/shutdown/shutdown.c,v 1.28 2005/01/25 08:40:51 delp
 #include <util.h>
 #include <bsm/libbsm.h>
 #include <bsm/audit_uevents.h>
+#include <sys/types.h>
+#include <sys/sysctl.h>
 #include <vproc.h>
 #include <vproc_priv.h>
 
@@ -717,6 +719,18 @@ audit_shutdown(int exitstatus)
 }
 
 
+static bool
+kextdDisabled(void)
+{
+	uint32_t disabled = 0;
+	size_t   sizeOfDisabled = sizeof(disabled);
+	if (sysctlbyname("hw.use_kernelmanagerd", &disabled, &sizeOfDisabled, NULL, 0) != 0) {
+		return false;
+	}
+	return (disabled != 0);
+}
+
+
 // XX copied from reboot.tproj/reboot.c; it would be nice to share the code
 
 #define WAITFORLOCK 1
@@ -731,6 +745,11 @@ reserve_reboot(void)
     mach_port_t kxport, tport = MACH_PORT_NULL, myport = MACH_PORT_NULL;
     int busyStatus = ELAST + 1;
     mountpoint_t busyVol;
+
+    if (kextdDisabled()) {
+        /* no need to talk with kextd if it's not running */
+        return 0;
+    }
 
     macherr = bootstrap_look_up2(bootstrap_port, KEXTD_SERVER_NAME, &kxport, 0, BOOTSTRAP_PRIVILEGED_SERVER);
     if (macherr)  goto finish;

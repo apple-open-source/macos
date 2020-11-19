@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003-2019 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2020 Apple Inc. All rights reserved.
  *  Copyright (C) 2003 Peter Kelly (pmk@post.com)
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
@@ -24,11 +24,6 @@
 #include "JSArray.h"
 
 #include "ArrayPrototype.h"
-#include "ButterflyInlines.h"
-#include "CodeBlock.h"
-#include "Error.h"
-#include "GetterSetter.h"
-#include "IndexingHeaderInlines.h"
 #include "JSArrayInlines.h"
 #include "JSCInlines.h"
 #include "PropertyNameArray.h"
@@ -101,8 +96,7 @@ JSArray* JSArray::tryCreateUninitializedRestricted(ObjectInitializationScope& sc
 
     JSArray* result = createWithButterfly(vm, deferralContext, structure, butterfly);
 
-    const bool createUninitialized = true;
-    scope.notifyAllocated(result, createUninitialized);
+    scope.notifyAllocated(result);
     return result;
 }
 
@@ -306,7 +300,7 @@ bool JSArray::put(JSCell* cell, JSGlobalObject* globalObject, PropertyName prope
     RELEASE_AND_RETURN(scope, JSObject::put(thisObject, globalObject, propertyName, value, slot));
 }
 
-bool JSArray::deleteProperty(JSCell* cell, JSGlobalObject* globalObject, PropertyName propertyName)
+bool JSArray::deleteProperty(JSCell* cell, JSGlobalObject* globalObject, PropertyName propertyName, DeletePropertySlot& slot)
 {
     VM& vm = globalObject->vm();
     JSArray* thisObject = jsCast<JSArray*>(cell);
@@ -314,7 +308,7 @@ bool JSArray::deleteProperty(JSCell* cell, JSGlobalObject* globalObject, Propert
     if (propertyName == vm.propertyNames->length)
         return false;
 
-    return JSObject::deleteProperty(thisObject, globalObject, propertyName);
+    return JSObject::deleteProperty(thisObject, globalObject, propertyName, slot);
 }
 
 static int compareKeysForQSort(const void* a, const void* b)
@@ -419,32 +413,38 @@ bool JSArray::unshiftCountSlowCase(const AbstractLocker&, VM& vm, DeferGC&, bool
 
     Butterfly* newButterfly = Butterfly::fromBase(newAllocBase, preCapacity, propertyCapacity);
 
-    if (addToFront) {
-        ASSERT(count + usedVectorLength <= newVectorLength);
-        gcSafeMemmove(newButterfly->arrayStorage()->m_vector + count, storage->m_vector, sizeof(JSValue) * usedVectorLength);
-        gcSafeMemmove(newButterfly->propertyStorage() - propertySize, butterfly->propertyStorage() - propertySize, sizeof(JSValue) * propertySize + sizeof(IndexingHeader) + ArrayStorage::sizeFor(0));
+    {
+        // When moving Butterfly's head to adjust property-storage, we must take a structure lock.
+        // Otherwise, concurrent JIT compiler accesses to a property storage which is half-baked due to move for shift / unshift.
+        // If the butterfly is newly allocated one, we do not need to take a lock since this is not changing the old butterfly.
+        ConcurrentJSLocker structureLock(allocatedNewStorage ? nullptr : &structure->lock());
+        if (addToFront) {
+            ASSERT(count + usedVectorLength <= newVectorLength);
+            gcSafeMemmove(newButterfly->arrayStorage()->m_vector + count, storage->m_vector, sizeof(JSValue) * usedVectorLength);
+            gcSafeMemmove(newButterfly->propertyStorage() - propertySize, butterfly->propertyStorage() - propertySize, sizeof(JSValue) * propertySize + sizeof(IndexingHeader) + ArrayStorage::sizeFor(0));
 
-        // We don't need to zero the pre-capacity for the concurrent GC because it is not available to use as property storage.
-        gcSafeZeroMemory(static_cast<JSValue*>(newButterfly->base(0, propertyCapacity)), (propertyCapacity - propertySize) * sizeof(JSValue));
+            // We don't need to zero the pre-capacity for the concurrent GC because it is not available to use as property storage.
+            gcSafeZeroMemory(static_cast<JSValue*>(newButterfly->base(0, propertyCapacity)), (propertyCapacity - propertySize) * sizeof(JSValue));
 
-        if (allocatedNewStorage) {
-            // We will set the vectorLength to newVectorLength. We populated requiredVectorLength
-            // (usedVectorLength + count), which is less. Clear the difference.
-            for (unsigned i = requiredVectorLength; i < newVectorLength; ++i)
+            if (allocatedNewStorage) {
+                // We will set the vectorLength to newVectorLength. We populated requiredVectorLength
+                // (usedVectorLength + count), which is less. Clear the difference.
+                for (unsigned i = requiredVectorLength; i < newVectorLength; ++i)
+                    newButterfly->arrayStorage()->m_vector[i].clear();
+            }
+        } else if ((newAllocBase != butterfly->base(structure)) || (preCapacity != storage->m_indexBias)) {
+            gcSafeMemmove(newButterfly->propertyStorage() - propertyCapacity, butterfly->propertyStorage() - propertyCapacity, sizeof(JSValue) * propertyCapacity + sizeof(IndexingHeader) + ArrayStorage::sizeFor(0));
+            gcSafeMemmove(newButterfly->arrayStorage()->m_vector, storage->m_vector, sizeof(JSValue) * usedVectorLength);
+            
+            for (unsigned i = requiredVectorLength; i < newVectorLength; i++)
                 newButterfly->arrayStorage()->m_vector[i].clear();
         }
-    } else if ((newAllocBase != butterfly->base(structure)) || (preCapacity != storage->m_indexBias)) {
-        gcSafeMemmove(newButterfly->propertyStorage() - propertyCapacity, butterfly->propertyStorage() - propertyCapacity, sizeof(JSValue) * propertyCapacity + sizeof(IndexingHeader) + ArrayStorage::sizeFor(0));
-        gcSafeMemmove(newButterfly->arrayStorage()->m_vector, storage->m_vector, sizeof(JSValue) * usedVectorLength);
-        
-        for (unsigned i = requiredVectorLength; i < newVectorLength; i++)
-            newButterfly->arrayStorage()->m_vector[i].clear();
-    }
 
-    newButterfly->arrayStorage()->setVectorLength(newVectorLength);
-    newButterfly->arrayStorage()->m_indexBias = preCapacity;
-    
-    setButterfly(vm, newButterfly);
+        newButterfly->arrayStorage()->setVectorLength(newVectorLength);
+        newButterfly->arrayStorage()->m_indexBias = preCapacity;
+        
+        setButterfly(vm, newButterfly);
+    }
 
     return true;
 }
@@ -853,17 +853,23 @@ bool JSArray::shiftCountWithArrayStorage(VM& vm, unsigned startIndex, unsigned c
                 storage->m_vector,
                 sizeof(JSValue) * startIndex);
         }
-        // Adjust the Butterfly and the index bias. We only need to do this here because we're changing
-        // the start of the Butterfly, which needs to point at the first indexed property in the used
-        // portion of the vector.
-        Butterfly* butterfly = this->butterfly()->shift(structure(vm), count);
-        storage = butterfly->arrayStorage();
-        storage->m_indexBias += count;
+        {
+            // When moving Butterfly's head to adjust property-storage, we must take a structure lock.
+            // Otherwise, concurrent JIT compiler accesses to a property storage which is half-baked due to move for shift / unshift.
+            Structure* structure = this->structure(vm);
+            ConcurrentJSLocker structureLock(structure->lock());
+            // Adjust the Butterfly and the index bias. We only need to do this here because we're changing
+            // the start of the Butterfly, which needs to point at the first indexed property in the used
+            // portion of the vector.
+            Butterfly* butterfly = this->butterfly()->shift(structure, count);
+            storage = butterfly->arrayStorage();
+            storage->m_indexBias += count;
 
-        // Since we're consuming part of the vector by moving its beginning to the left,
-        // we need to modify the vector length appropriately.
-        storage->setVectorLength(vectorLength - count);
-        setButterfly(vm, butterfly);
+            // Since we're consuming part of the vector by moving its beginning to the left,
+            // we need to modify the vector length appropriately.
+            storage->setVectorLength(vectorLength - count);
+            setButterfly(vm, butterfly);
+        }
     } else {
         // The number of elements before the shift region is greater than or equal to the number 
         // of elements after the shift region, so we move the elements after the shift region to the left.
@@ -1015,7 +1021,11 @@ bool JSArray::unshiftCountWithArrayStorage(JSGlobalObject* globalObject, unsigne
     auto locker = holdLock(cellLock());
     
     if (moveFront && storage->m_indexBias >= count) {
-        Butterfly* newButterfly = storage->butterfly()->unshift(structure(vm), count);
+        // When moving Butterfly's head to adjust property-storage, we must take a structure lock.
+        // Otherwise, concurrent JIT compiler accesses to a property storage which is half-baked due to move for shift / unshift.
+        Structure* structure = this->structure(vm);
+        ConcurrentJSLocker structureLock(structure->lock());
+        Butterfly* newButterfly = storage->butterfly()->unshift(structure, count);
         storage = newButterfly->arrayStorage();
         storage->m_indexBias -= count;
         storage->setVectorLength(vectorLength + count);
@@ -1177,7 +1187,7 @@ void JSArray::fillArgList(JSGlobalObject* globalObject, MarkedArgumentBuffer& ar
         return;
         
     case ArrayWithUndecided: {
-        vector = 0;
+        vector = nullptr;
         vectorEnd = 0;
         break;
     }
@@ -1190,7 +1200,7 @@ void JSArray::fillArgList(JSGlobalObject* globalObject, MarkedArgumentBuffer& ar
     }
         
     case ArrayWithDouble: {
-        vector = 0;
+        vector = nullptr;
         vectorEnd = 0;
         for (; i < butterfly->publicLength(); ++i) {
             double v = butterfly->contiguousDouble().at(this, i);
@@ -1230,7 +1240,7 @@ void JSArray::fillArgList(JSGlobalObject* globalObject, MarkedArgumentBuffer& ar
         args.append(get(globalObject, i));
 }
 
-void JSArray::copyToArguments(JSGlobalObject* globalObject, CallFrame* callFrame, VirtualRegister firstElementDest, unsigned offset, unsigned length)
+void JSArray::copyToArguments(JSGlobalObject* globalObject, JSValue* firstElementDest, unsigned offset, unsigned length)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -1249,7 +1259,7 @@ void JSArray::copyToArguments(JSGlobalObject* globalObject, CallFrame* callFrame
         return;
         
     case ArrayWithUndecided: {
-        vector = 0;
+        vector = nullptr;
         vectorEnd = 0;
         break;
     }
@@ -1262,14 +1272,14 @@ void JSArray::copyToArguments(JSGlobalObject* globalObject, CallFrame* callFrame
     }
         
     case ArrayWithDouble: {
-        vector = 0;
+        vector = nullptr;
         vectorEnd = 0;
         for (; i < butterfly->publicLength(); ++i) {
             ASSERT(i < butterfly->vectorLength());
             double v = butterfly->contiguousDouble().at(this, i);
             if (v != v)
                 break;
-            callFrame->r(firstElementDest + i - offset) = JSValue(JSValue::EncodeAsDouble, v);
+            firstElementDest[i - offset] = JSValue(JSValue::EncodeAsDouble, v);
         }
         break;
     }
@@ -1294,11 +1304,11 @@ void JSArray::copyToArguments(JSGlobalObject* globalObject, CallFrame* callFrame
         WriteBarrier<Unknown>& v = vector[i];
         if (!v)
             break;
-        callFrame->r(firstElementDest + i - offset) = v.get();
+        firstElementDest[i - offset] = v.get();
     }
     
     for (; i < length; ++i) {
-        callFrame->r(firstElementDest + i - offset) = get(globalObject, i);
+        firstElementDest[i - offset] = get(globalObject, i);
         RETURN_IF_EXCEPTION(scope, void());
     }
 }

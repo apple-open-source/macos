@@ -32,6 +32,10 @@ LKAnalyticsFailableEvent const LKAEventUpgrade = (LKAnalyticsFailableEvent)@"LKA
 LKAnalyticsFailableEvent const LKAEventBackup = (LKAnalyticsFailableEvent)@"LKAEventBackup";
 LKAnalyticsMetric const LKAMetricBackupDuration = (LKAnalyticsMetric)@"LKAMetricBackupDuration";
 
+// <rdar://problem/60767235> SFAnalytics: Collect keychain masterkey stash success/failure rates and failure codes on macOS SUs
+LKAnalyticsFailableEvent const LKAEventStash = (LKAnalyticsFailableEvent)@"LKAEventStash";
+LKAnalyticsFailableEvent const LKAEventStashLoad = (LKAnalyticsFailableEvent)@"LKAEventStashLoad";
+
 // Internal consts
 NSString* const LKAOldSchemaKey = @"oldschema";
 NSString* const LKANewSchemaKey = @"newschema";

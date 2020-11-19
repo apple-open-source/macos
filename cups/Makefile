@@ -17,13 +17,15 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 ifeq ($(RC_MACOS),YES)
 CUPS_Components=all
 GSSAPI_Options=--enable-gssapi
+CUPS_StaticLibrary=NO
 else
 CUPS_Components=libcupslite
 GSSAPI_Options=--disable-gssapi
+CUPS_StaticLibrary=YES
 endif
 
 Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
-		  --with-cups-build="cups-483.6" \
+		  --with-cups-build="cups-494" \
 		  --with-adminkey="system.print.admin" \
 		  --with-operkey="system.print.operator" \
 		  --with-pam-module=opendirectory \
@@ -32,6 +34,10 @@ Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
 		  $(GSSAPI_Options) \
 		  $(Extra_Configure_Flags)
 
+ifeq ($(CUPS_StaticLibrary),YES)
+Configure_Flags += --enable-static --disable-shared --prefix=/usr/local/
+endif
+
 # Add "--enable-debug-guards" during OS development, remove for production...
 #		  --enable-debug-guards \
 
@@ -39,12 +45,15 @@ Configure_Flags = `$(SRCROOT)/gettargetflags.sh host` \
 # compiler flags in make, just in configure...
 Environment	=	CC=`/usr/bin/xcrun --find clang` \
 			CXX=`/usr/bin/xcrun --find clang++` \
-			CFLAGS="`$(SRCROOT)/gettargetflags.sh cflags`" \
+			CFLAGS="-g `$(SRCROOT)/gettargetflags.sh cflags`" \
 			CPPFLAGS="`$(SRCROOT)/gettargetflags.sh cppflags`" \
 			CXXFLAGS="`$(SRCROOT)/gettargetflags.sh cxxflags`" \
-			DSOFLAGS="`$(SRCROOT)/gettargetflags.sh dsoflags` -dynamiclib -single_module -lc" \
 			LDFLAGS="`$(SRCROOT)/gettargetflags.sh ldflags`" \
 			CODE_SIGN="/usr/bin/true"
+
+ifneq ($(CUPS_StaticLibrary),YES)
+Environment += DSOFLAGS="`$(SRCROOT)/gettargetflags.sh dsoflags` -dynamiclib -single_module -lc"
+endif
 
 # The default target installs programs and data files...
 Install_Target	= install-data install-exec
@@ -107,7 +116,10 @@ install-plist:
 
 
 # InstallAPI stuff...
+# Doesn't apply when building libcups for ios
+ifneq ($(CUPS_StaticLibrary),YES)
 SUPPORTS_TEXT_BASED_API ?= YES
+
 $(info SUPPORTS_TEXT_BASED_API=$(SUPPORTS_TEXT_BASED_API))
 
 ifeq ($(SUPPORTS_TEXT_BASED_API),YES)
@@ -126,6 +138,7 @@ TAPI_COMMON_OPTS	=	`$(SRCROOT)/gettargetflags.sh tapi` \
 TAPI_VERIFY_OPTS	=	$(TAPI_COMMON_OPTS) \
 				--verify-mode=Pedantic \
 				--verify-against=$(TAPI_LIBRARY_PATH)/libcups.2.dylib
+endif
 
 installapi: configure
 	@echo
@@ -134,20 +147,15 @@ installapi: configure
 	@echo ++++++++++++++++++++++
 	@echo
 	$(_v) umask $(Install_Mask) ; $(MAKE) -C $(BuildDirectory) $(Environment) $(Install_Flags) libs install-headers
-
-	@if [ "$(SUPPORTS_TEXT_BASED_API)" != "YES" ]; then \
-		echo "installapi was requested, but SUPPORTS_TEXT_BASED_API has been disabled."; \
-		exit 1; \
-	fi
-
+ifneq ($(CUPS_StaticLibrary),YES)
 	xcrun --sdk $(SDKROOT) tapi installapi $(TAPI_COMMON_OPTS) $(TAPI_INSTALL_PREFIX)
+	$(_v) umask $(Install_Mask) ; $(MAKE) $(Environment) $(Install_Flags) install-tbds
+endif
+
+install-tbds:
 	if test -f $(OBJROOT)/cups/libcupsimage.2.dylib; then \
 		xcrun --sdk $(SDKROOT) tapi stubify --set-installapi-flag $(OBJROOT)/cups/libcupsimage.2.dylib; \
 	fi
-
-	$(_v) umask $(Install_Mask) ; $(MAKE) $(Environment) $(Install_Flags) install-tbds
-
-install-tbds:
 	$(INSTALL) -d -m 0755 $(TAPI_LIBRARY_PATH)
 	$(INSTALL) -c -m 0755 $(OBJROOT)/cups/libcups.2.tbd $(TAPI_LIBRARY_PATH)
 	ln -s libcups.2.tbd $(TAPI_LIBRARY_PATH)/libcups.tbd

@@ -23,13 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #if PLATFORM(WATCHOS)
 
 #import "WKNumberPadView.h"
 #import "WKTextInputListViewController.h"
-#import <PepperUICore/PUICQuickboardViewController.h>
 
 @interface WKNumberPadViewController : PUICQuickboardViewController
 

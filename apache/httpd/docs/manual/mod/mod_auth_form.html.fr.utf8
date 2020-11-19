@@ -432,7 +432,7 @@ des modules de plus bas niveau</td></tr>
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Le nom du champ de formulaire contenant le corps de la
 requête à effectuer en cas de connexion réussie</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormBody <var>nom du champ</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>httpd_body</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormBody httpd_body</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -453,7 +453,7 @@ requête à effectuer en cas de connexion réussie</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Désactive l'en-tête CacheControl no-store sur la page de
 connexion</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormDisableNoStore <var>On|Off</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormDisableNoStore On|Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormDisableNoStore Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
@@ -475,7 +475,7 @@ connexion</td></tr>
 <div class="directive-section"><h2><a name="authformfakebasicauth" id="authformfakebasicauth">Directive</a> <a name="AuthFormFakeBasicAuth" id="AuthFormFakeBasicAuth">AuthFormFakeBasicAuth</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Simule une en-tête d'authentification de base</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormFakeBasicAuth <var>On|Off</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormFakeBasicAuth On|Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormFakeBasicAuth Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
@@ -499,7 +499,7 @@ connexion</td></tr>
 laquelle l'utilisateur sera redirigé en cas de connexion
 réussie</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormLocation <var>nom du champ</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>httpd_location</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormLocation httpd_location</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -614,7 +614,7 @@ depuis la version 2.4.4.</td></tr>
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Le nom du champ de formulaire contenant la méthode de la
 requête à effectuer en cas de connexion réussie</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormMethod <var>nom du champ</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>httpd_method</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormMethod httpd_method</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -637,7 +637,7 @@ requête à effectuer en cas de connexion réussie</td></tr>
 corps de la requête à effectuer en cas de connexion
 réussie</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormMimetype <var>nom du champ</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>httpd_mimetype</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormMimetype httpd_mimetype</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -659,7 +659,7 @@ réussie</td></tr>
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Le nom du champ de formulaire qui contient le mot de passe
 de connexion</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormPassword <var>nom du champ</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>httpd_password</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormPassword httpd_password</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -753,7 +753,7 @@ trafic</td></tr>
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>La taille maximale en octets du formulaire dont seront
 extraites les informations de connexion</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormSize <var>taille</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>8192</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormSize 8192</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -779,7 +779,7 @@ extraites les informations de connexion</td></tr>
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Le nom du champ de formulaire qui contient le nom de
 connexion</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntaxe:</a></th><td><code>AuthFormUsername <var>nom du champ</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>httpd_username</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Défaut:</a></th><td><code>AuthFormUsername httpd_username</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Contexte:</a></th><td>répertoire</td></tr>
 <tr><th><a href="directive-dict.html#Status">Statut:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -794,7 +794,7 @@ connexion</td></tr>
 <div class="bottomlang">
 <p><span>Langues Disponibles: </span><a href="../en/mod/mod_auth_form.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_auth_form.html" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_auth_form.html';
@@ -812,7 +812,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_auth_form.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

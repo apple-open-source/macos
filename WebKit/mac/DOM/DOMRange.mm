@@ -31,8 +31,8 @@
 #import <WebCore/DocumentFragment.h>
 #import "ExceptionHandlers.h"
 #import <WebCore/JSExecState.h>
-#import <WebCore/Node.h>
 #import <WebCore/Range.h>
+#import <WebCore/SimpleRange.h>
 #import <WebCore/ThreadCheck.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebScriptObjectPrivate.h>
@@ -307,6 +307,11 @@ DOMRange *kit(WebCore::Range* value)
     value->ref();
     addDOMWrapper(wrapper, value);
     return [wrapper autorelease];
+}
+
+DOMRange *kit(const Optional<WebCore::SimpleRange>& value)
+{
+    return kit(createLiveRange(value).get());
 }
 
 #undef IMPL

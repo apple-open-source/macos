@@ -268,7 +268,11 @@ _asl_global_init()
 		char *str = getenv("ASL_DISABLE");
 		if ((str == NULL) || strcmp(str, "1"))
 		{
-			bootstrap_look_up2(bootstrap_port, ASL_SERVICE_NAME, &_asl_global.server_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
+			kern_return_t kstatus = bootstrap_look_up2(bootstrap_port, ASL_SERVICE_NAME, &_asl_global.server_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
+			if (kstatus != KERN_SUCCESS)
+			{
+				_asl_global.server_port = MACH_PORT_NULL;
+			}
 		}
 	});
 }

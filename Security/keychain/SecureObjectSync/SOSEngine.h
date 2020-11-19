@@ -135,6 +135,7 @@ bool SOSEnginePeerDidConnect(SOSEngineRef engine, CFStringRef peerID, CFErrorRef
 bool SOSEngineSetPeerConfirmedManifest(SOSEngineRef engine, CFStringRef backupName,
                                        CFDataRef keybagDigest, CFDataRef manifestData, CFErrorRef *error);
 CFArrayRef SOSEngineCopyBackupPeerNames(SOSEngineRef engine, CFErrorRef *error);
+CFStringRef SOSEngineEnsureCopyBackupPeerForView(SOSEngineRef engine, CFStringRef backupPeerID, CFErrorRef *error);
 
 void logRawMessage(CFDataRef message, bool sending, uint64_t seqno);
 

@@ -226,6 +226,41 @@ CCDeriveKey(const CCKDFParametersRef params, CCDigestAlgorithm digest,
 API_AVAILABLE(macos(10.15), ios(13.0), tvos(13.0), watchos(6.0));
 
 
+/*!
+    @function CCHKDFExtract
+    @abstract HKDF-Extract, as per https://tools.ietf.org/html/rfc5869, Section 2.2
+
+    @param params A CCKDFParametersRef with pointers to HKDF's parameters.
+    @param digest The digest algorithm to use.
+    @param keyDerivationKey The input key material to derive from.
+    @param keyDerivationKeyLen Length of the input key material.
+    @param prk Output buffer for the intermediate keying material.
+    @param prkLen Length of the intermediate keying material of length equal to the digest algorithm output size.
+
+    @result kCCSuccess on success, else a different error on failure.
+*/
+CCStatus
+CCHKDFExtract(const CCKDFParametersRef params, CCDigestAlgorithm digest, const void *keyDerivationKey, size_t keyDerivationKeyLen, void *prk, size_t prkLen)
+API_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0));
+
+/*!
+    @function CCHKDFExpand
+    @abstract HKDF-Expand, as per https://tools.ietf.org/html/rfc5869, Section 2.3
+
+    @param params A CCKDFParametersRef with pointers to HKDF's parameters.
+    @param digest The digest algorithm to use.
+    @param prk The input key material to derive from.
+    @param prkLen Length of the input key material.
+    @param derivedKey Output buffer for the derived keying material.
+    @param derivedKeyLen Length of the derived keying material.
+
+    @result kCCSuccess on success, else a different error on failure.
+*/
+CCStatus
+CCHKDFExpand(const CCKDFParametersRef params, CCDigestAlgorithm digest, const void *prk, size_t prkLen, void *derivedKey, size_t derivedKeyLen)
+API_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0));
+
+
 #ifdef __cplusplus
 }
 #endif

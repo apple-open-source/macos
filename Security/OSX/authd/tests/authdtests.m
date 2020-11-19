@@ -4,6 +4,7 @@
 //
 
 #import <Security/Authorization.h>
+#import <Security/AuthorizationPriv.h>
 #import <Security/AuthorizationDB.h>
 #import <Security/AuthorizationTagsPriv.h>
 #import <Foundation/Foundation.h>
@@ -280,5 +281,44 @@ int authd_04_executewithprivileges(int argc, char *const *argv)
     }
     
     AuthorizationFree(authorizationRef, kAuthorizationFlagDestroyRights);
+    return 0;
+}
+
+int authd_05_rightproperties(int argc, char *const *argv)
+{
+    plan_tests(5);
+
+    NSDictionary *properties;
+    CFDictionaryRef cfProperties;
+    NSString *group;
+    NSNumber *passwordOnly;
+    
+    OSStatus status = AuthorizationCopyRightProperties("system.csfde.requestpassword", &cfProperties);
+    properties = CFBridgingRelease(cfProperties);
+    if (status != errAuthorizationSuccess) {
+        fail("AuthorizationCopyRightProperties failed with %d", (int)status);
+        goto done;
+    }
+    
+    pass("AuthorizationCopyRightProperties call succeess");
+    passwordOnly = properties[@(kAuthorizationRuleParameterPasswordOnly)];
+    ok(passwordOnly.boolValue, "Returned system.csfde.requestpassword as password only right");
+    group = properties[@(kAuthorizationRuleParameterGroup)];
+    ok([group isEqualToString:@"admin"], "Returned admin as a required group for system.csfde.requestpassword");
+
+    status = AuthorizationCopyRightProperties("com.apple.Safari.allow-unsigned-app-extensions", &cfProperties);
+    properties = CFBridgingRelease(cfProperties);
+    if (status != errAuthorizationSuccess) {
+        fail("AuthorizationCopyRightProperties failed with %d", (int)status);
+        goto done;
+    }
+    group = properties[@(kAuthorizationRuleParameterGroup)];
+    passwordOnly = properties[@(kAuthorizationRuleParameterPasswordOnly)];
+    ok(group.length == 0 && passwordOnly.boolValue == NO, "Returned safari right as non-password only, no specific group");
+    
+    status = AuthorizationCopyRightProperties("non-existing-right", &cfProperties);
+    ok(status == errAuthorizationSuccess, "Returned success for default for unknown right: %d", (int)status);
+
+done:
     return 0;
 }

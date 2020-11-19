@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -223,7 +223,7 @@ failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  bzero(failover, sizeof(*failover));
 	  service_set_requested_ip_addr(service_p, method_data->manual.addr);
 	  service_set_requested_ip_mask(service_p, method_data->manual.mask);
-	  failover->timer = timer_callout_init();
+	  failover->timer = timer_callout_init("failover");
 	  if (failover->timer == NULL) {
 	      my_log(LOG_NOTICE, "FAILOVER %s: timer_callout_init failed",
 		     if_name(if_p));

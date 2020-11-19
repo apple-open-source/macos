@@ -34,11 +34,11 @@
 /* Text track contains forced subtitles */
 "%@ Forced" = "%@ Forced";
 
-/* visible name of the network process. The argument is the application name. */
-"%@ Networking" = "%@ Networking";
-
 /* visible name of the GPU process. The argument is the application name. */
 "%@ Graphics and Media" = "%@ Graphics and Media";
+
+/* visible name of the network process. The argument is the application name. */
+"%@ Networking" = "%@ Networking";
 
 /* Text track contains subtitles for the deaf and hard of hearing */
 "%@ SDH" = "%@ SDH";
@@ -91,11 +91,17 @@
 /* Menu item title for KEYGEN pop-up menu */
 "2048 (High Grade)" = "2048 (High Grade)";
 
+/* Name of application's single WebCrypto master key in Keychain */
+"<application> WebCrypto Master Key" = "<application> WebCrypto Master Key";
+
 /* window title for a standalone image (uses multiplication symbol, not x) */
 "<filename> %d×%d pixels" = "<filename> %d×%d pixels";
 
 /* WKErrorJavaScriptExceptionOccurred description */
 "A JavaScript exception occurred" = "A JavaScript exception occurred";
+
+/* Label for the add money with Apple Pay button. */
+"Add money with Apple Pay" = "Add money with Apple Pay";
 
 /* Title for Add to Photos action button */
 "Add to Photos" = "Add to Photos";
@@ -151,6 +157,9 @@
 /* Label for the book with Apple Pay button. */
 "Book with Apple Pay" = "Book with Apple Pay";
 
+/* File Upload alert sheet button string for choosing an existing file from the file brower */
+"Browse (file upload action sheet)" = "Browse";
+
 /* Option in segmented control for inserting a bulleted list in text editing */
 "Bulleted list" = "Bulleted list";
 
@@ -199,9 +208,6 @@
 /* Title for file button used in HTML forms for media files */
 "Choose Media (Single)" = "Choose Media (Single)";
 
-/* Clear button in date input popover */
-"Clear Button Date Popover" = "Clear";
-
 /* menu item in Recent Searches menu that empties menu's contents */
 "Clear Recent Searches" = "Clear Recent Searches";
 
@@ -219,6 +225,12 @@
 
 /* Continue */
 "Continue" = "Continue";
+
+/* Continue with Touch ID. */
+"Continue with Touch ID." = "Continue with Touch ID.";
+
+/* Label for the contribute with Apple Pay button. */
+"Contribute with Apple Pay" = "Contribute with Apple Pay";
 
 /* Media Controls context menu item */
 "Controls" = "Controls";
@@ -376,9 +388,6 @@
 /* Hide Media Controls context menu item */
 "Hide Controls" = "Hide Controls";
 
-/* Title for Hide Link Previews action button */
-"Hide Link Previews" = "Hide Link Previews";
-
 /* menu item title */
 "Hide Spelling and Grammar" = "Hide Spelling and Grammar";
 
@@ -535,6 +544,9 @@
 /* OK button label in document password failure alert */
 "OK (document password failure alert)" = "OK";
 
+/* Title of the OK button in date/time form controls. */
+"OK (OK button title in date/time picker)" = "OK";
+
 /* Menu item label for the track that represents disabling closed captions */
 "Off" = "Off";
 
@@ -567,6 +579,9 @@
 
 /* context menu item for PDF */
 "Open with %@" = "Open with %@";
+
+/* Label for the order with Apple Pay button. */
+"Order with Apple Pay" = "Order with Apple Pay";
 
 /* Undo action name */
 "Outdent (Undo action name)" = "Outdent";
@@ -631,11 +646,20 @@
 /* Reload context menu item */
 "Reload" = "Reload";
 
+/* Label for the reload with Apple Pay button. */
+"Reload with Apple Pay" = "Reload with Apple Pay";
+
 /* WKErrorContentRuleListStoreRemoveFailed description */
 "Removing a WKContentRuleList failed" = "Removing a WKContentRuleList failed";
 
+/* Label for the rent with Apple Pay button. */
+"Rent with Apple Pay" = "Rent with Apple Pay";
+
 /* default label for Reset buttons in forms on web pages */
 "Reset" = "Reset";
+
+/* Reset button in date input context menu */
+"Reset Button Date/Time Context Menu" = "Reset";
 
 /* Right to Left context menu item */
 "Right to Left" = "Right to Left";
@@ -688,6 +712,12 @@
 /* Label for the set up with Apple Pay button. */
 "Set up with Apple Pay" = "Set up with Apple Pay";
 
+/* Title for Share context menu item. */
+"Share" = "Share";
+
+/* Default name for the file created for a shared image with no explicit name. */
+"Shared Image" = "Shared Image";
+
 /* Title for Share action button */
 "Share…" = "Share…";
 
@@ -702,9 +732,6 @@
 
 /* Show fonts context menu item */
 "Show Fonts" = "Show Fonts";
-
-/* Title for Show Link Previews action button */
-"Show Link Previews" = "Show Link Previews";
 
 /* menu item title */
 "Show Spelling and Grammar" = "Show Spelling and Grammar";
@@ -760,6 +787,9 @@
 /* Stop speaking context menu item */
 "Stop Speaking" = "Stop Speaking";
 
+/* Undo action name */
+"StrikeThrough (Undo action name)" = "StrikeThrough";
+
 /* Label for strong password. */
 "Strong Password" = "Strong Password";
 
@@ -792,6 +822,9 @@
 
 /* Undo action name */
 "Superscript (Undo action name)" = "Superscript";
+
+/* Label for the support with Apple Pay button. */
+"Support with Apple Pay" = "Support with Apple Pay";
 
 /* File Upload alert sheet camera button string for taking only photos */
 "Take Photo (file upload action sheet)" = "Take Photo";
@@ -868,6 +901,9 @@
 /* WKErrorAttributedStringContentLoadTimedOut description */
 "Timed out while loading attributed string content" = "Timed out while loading attributed string content";
 
+/* Label for the tip with Apple Pay button. */
+"Tip with Apple Pay" = "Tip with Apple Pay";
+
 /* prompt string in authentication panel */
 "To view this page, you must log in to area “%@” on %@." = "To view this page, you must log in to area “%@” on %@.";
 
@@ -876,6 +912,9 @@
 
 /* prompt string in authentication panel */
 "To view this page, you must log in to this area on %@:" = "To view this page, you must log in to this area on %@:";
+
+/* Label for the top up with Apple Pay button. */
+"Top up with Apple Pay" = "Top up with Apple Pay";
 
 /* Transformations context sub-menu item */
 "Transformations" = "Transformations";
@@ -1455,6 +1494,12 @@
 
 /* Message for requesting access to the device motion and orientation */
 "“%@” Would Like to Access Motion and Orientation" = "“%@” Would Like to Access Motion and Orientation";
+
+/* Allow the specified bundle to sign in to the specified website */
+"“%@” would like to sign in to “%@”." = "“%@” would like to sign in to “%@”.";
+
+/* Allow the specified bundle to use Touch ID to sign in to the specified website on this device */
+"“%@” would like to use Touch ID for “%@”." = "“%@” would like to use Touch ID for “%@”.";
 
 /* Option in segmented control for choosing list type in text editing */
 "•" = "•";

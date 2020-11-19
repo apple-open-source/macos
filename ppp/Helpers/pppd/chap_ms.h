@@ -99,7 +99,7 @@ typedef struct {
 
 #ifdef MPPE
 //#include <net/ppp-comp.h>	/* MPPE_MAX_KEY_LEN */
-#include <ppp_comp.h>
+#include "ppp_comp.h"
 extern u_char mppe_send_key[MPPE_MAX_KEY_LEN];
 extern u_char mppe_recv_key[MPPE_MAX_KEY_LEN];
 extern int mppe_keys_set;

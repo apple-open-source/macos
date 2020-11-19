@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014, 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,54 @@
 #import <objc/runtime.h>
 #import <wtf/SoftLinking.h>
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <AVKit/AVPlayerController.h>
+#else
+#if PLATFORM(IOS_FAMILY)
+#import <UIKit/UIResponder.h>
+@interface AVPlayerController : UIResponder
+#else
+#import <AppKit/NSResponder.h>
+@interface AVPlayerController : NSResponder <NSUserInterfaceValidations>
+#endif
+@end
+
+@interface AVPlayerController ()
+typedef NS_ENUM(NSInteger, AVPlayerControllerStatus) {
+    AVPlayerControllerStatusUnknown = 0,
+    AVPlayerControllerStatusReadyToPlay = 2,
+};
+
+typedef NS_ENUM(NSInteger, AVPlayerControllerExternalPlaybackType) {
+    AVPlayerControllerExternalPlaybackTypeNone = 0,
+    AVPlayerControllerExternalPlaybackTypeAirPlay = 1,
+    AVPlayerControllerExternalPlaybackTypeTVOut = 2,
+};
+
+@property (NS_NONATOMIC_IOSONLY, readonly) AVPlayerControllerStatus status;
+@end
+#endif // USE(APPLE_INTERNAL_SDK)
+
+#if HAVE(AVOBSERVATIONCONTROLLER)
+#if USE(APPLE_INTERNAL_SDK)
+#import <AVKit/AVObservationController.h>
+#else
+
+@class AVKeyValueChange;
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface AVObservationController<Owner> : NSObject
+- (instancetype)initWithOwner:(Owner)owner NS_DESIGNATED_INITIALIZER;
+- (id)startObserving:(id)object keyPath:(NSString *)keyPath includeInitialValue:(BOOL)shouldIncludeInitialValue observationHandler:(void (^)(Owner owner, id observed, AVKeyValueChange *change))observationHandler;
+- (void)stopAllObservation;
+@end
+
+NS_ASSUME_NONNULL_END
+
+#endif
+#endif // HAVE(AVOBSERVATIONCONTROLLER)
+
 #if PLATFORM(IOS_FAMILY)
 #import <AVKit/AVKit.h>
 #import <QuartzCore/QuartzCore.h>
@@ -37,7 +85,6 @@
 #import <AVKit/AVBackgroundView.h>
 #endif
 
-#import <AVKit/AVPlayerController.h>
 IGNORE_WARNINGS_BEGIN("objc-property-no-attribute")
 #import <AVKit/AVPlayerLayerView.h>
 IGNORE_WARNINGS_END
@@ -115,24 +162,6 @@ typedef NS_ENUM(NSInteger, AVBackgroundViewTintEffectStyle) {
 - (void)addSubview:(UIView *)subview applyingMaterialStyle:(AVBackgroundViewMaterialStyle)materialStyle tintEffectStyle:(AVBackgroundViewTintEffectStyle)tintEffectStyle;
 @end
 
-@interface AVPlayerController : UIResponder
-@end
-
-@interface AVPlayerController ()
-typedef NS_ENUM(NSInteger, AVPlayerControllerStatus) {
-    AVPlayerControllerStatusUnknown = 0,
-    AVPlayerControllerStatusReadyToPlay = 2,
-};
-
-typedef NS_ENUM(NSInteger, AVPlayerControllerExternalPlaybackType) {
-    AVPlayerControllerExternalPlaybackTypeNone = 0,
-    AVPlayerControllerExternalPlaybackTypeAirPlay = 1,
-    AVPlayerControllerExternalPlaybackTypeTVOut = 2,
-};
-
-@property (NS_NONATOMIC_IOSONLY, readonly) AVPlayerControllerStatus status;
-@end
-
 @class AVPlayerLayer;
 
 @interface AVPictureInPicturePlayerLayerView : UIView
@@ -178,8 +207,27 @@ NS_ASSUME_NONNULL_END
 #endif // USE(APPLE_INTERNAL_SDK)
 #endif // PLATFORM(IOS_FAMILY)
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
+#if PLATFORM(MAC)
+#if USE(APPLE_INTERNAL_SDK)
+#import <AVKit/AVPlayerView_Private.h>
+#else
+#import <AVKit/AVPlayerView.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
+@interface AVPlayerView (WebKitFullscreenSPI)
+@property AVPlayerController *playerController;
+@property (readonly) BOOL isFullScreen;
+- (void)enterFullScreen:(id)sender;
+- (void)exitFullScreen:(id)sender;
+@end
+
+NS_ASSUME_NONNULL_END
+
+#endif // USE(APPLE_INTERNAL_SDK)
+#endif // PLATFORM(MAC)
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 #if USE(APPLE_INTERNAL_SDK)
 
 #import <AVKit/AVOutputDeviceMenuController.h>
@@ -207,7 +255,6 @@ NS_CLASS_AVAILABLE_MAC(10_11)
 NS_ASSUME_NONNULL_END
 
 #endif // USE(APPLE_INTERNAL_SDK)
-
 #endif // ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 
 NS_ASSUME_NONNULL_BEGIN
@@ -309,3 +356,35 @@ NS_ASSUME_NONNULL_END
 #endif
 
 #endif // PLATFORM(MAC) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+
+#if ENABLE(WIRELESS_PLAYBACK_TARGET) && HAVE(AVROUTEPICKERVIEW)
+#if USE(APPLE_INTERNAL_SDK)
+
+#import <AVKit/AVRoutePickerView_Private.h>
+#import <AVKit/AVRoutePickerView_WebKitOnly.h>
+
+#else
+
+NS_ASSUME_NONNULL_BEGIN
+
+@protocol AVRoutePickerViewDelegate;
+
+@interface AVRoutePickerView : NSView
+
+- (void)showRoutePickingControlsForOutputContext:(AVOutputContext *)outputContext relativeToRect:(NSRect)positioningRect ofView:(NSView *)positioningView;
+
+@property (nonatomic, nullable, weak) id<AVRoutePickerViewDelegate> delegate;
+@property (nonatomic) BOOL routeListAlwaysHasDarkAppearance;
+
+@end
+
+@protocol AVRoutePickerViewDelegate <NSObject>
+@optional
+- (void)routePickerViewWillBeginPresentingRoutes:(AVRoutePickerView *)routePickerView;
+- (void)routePickerViewDidEndPresentingRoutes:(AVRoutePickerView *)routePickerView;
+@end
+
+NS_ASSUME_NONNULL_END
+
+#endif // USE(APPLE_INTERNAL_SDK)
+#endif // ENABLE(WIRELESS_PLAYBACK_TARGET) && HAVE(AVROUTEPICKERVIEW)

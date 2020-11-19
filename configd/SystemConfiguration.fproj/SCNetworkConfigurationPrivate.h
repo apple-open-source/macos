@@ -544,6 +544,25 @@ Boolean
 _SCNetworkInterfaceIsHiddenConfiguration		(SCNetworkInterfaceRef		interface)	API_AVAILABLE(macos(10.7), ios(4.0));
 
 /*!
+	@function _SCNetworkInterfaceIsHiddenInterface
+	@discussion Identifies if this is a [fully] hidden network interface.
+	@param interface The network interface.
+	@result TRUE if this is a hidden interface.
+ */
+Boolean
+_SCNetworkInterfaceIsHiddenInterface			(SCNetworkInterfaceRef		interface)	SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0));
+
+
+/*!
+	@function _SCNetworkInterfaceIsQoSMarkingProfileInstalled
+	@discussion Identifies if a network interface has a QoSMarking profile installed
+	@param interface The network interface.
+	@result TRUE if the interface is a tethered device.
+ */
+Boolean
+_SCNetworkInterfaceIsQoSMarkingProfileInstalled		(SCNetworkInterfaceRef		interface)	SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0));
+
+/*!
 	@function _SCNetworkInterfaceIsTethered
 	@discussion Identifies if a network interface is an Apple tethered device (e.g. an iPhone).
 	@param interface The network interface.

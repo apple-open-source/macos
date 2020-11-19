@@ -27,6 +27,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicy.h>
+#include <Security/SecPolicyPriv.h>
 #include <Security/SecTrustSettings.h>
 #include <Security/SecTrustSettingsPriv.h>
 #include "OSX/utilities/SecCFWrappers.h"
@@ -339,11 +340,13 @@ exit:
 
 @end
 
-typedef SecCertificateRef (*create_f)(CFAllocatorRef allocator,
+/* MARK: Framework type conversion functions */
+
+typedef SecCertificateRef (*cert_create_f)(CFAllocatorRef allocator,
                            const UInt8 *der_bytes, CFIndex der_length);
 CF_RETURNS_RETAINED _Nullable
 SecCertificateRef SecFrameworkCertificateCreate(const uint8_t * _Nonnull der_bytes, CFIndex der_length) {
-    static create_f FrameworkCertCreateFunctionPtr = NULL;
+    static cert_create_f FrameworkCertCreateFunctionPtr = NULL;
     static dispatch_once_t onceToken;
 
     dispatch_once(&onceToken, ^{
@@ -363,4 +366,64 @@ SecCertificateRef SecFrameworkCertificateCreate(const uint8_t * _Nonnull der_byt
 
 SecCertificateRef SecFrameworkCertificateCreateFromTestCert(SecCertificateRef cert) {
     return SecFrameworkCertificateCreate(SecCertificateGetBytePtr(cert), SecCertificateGetLength(cert));
+}
+
+typedef  SecPolicyRef (*ssl_policy_create_f)(Boolean server, CFStringRef hostname);
+SecPolicyRef SecFrameworkPolicyCreateSSL(Boolean server, CFStringRef __nullable hostname) {
+    static ssl_policy_create_f FrameworkPolicyCreateFunctionPtr = NULL;
+    static dispatch_once_t onceToken;
+
+    dispatch_once(&onceToken, ^{
+        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
+        if (framework) {
+            FrameworkPolicyCreateFunctionPtr  = dlsym(framework, "SecPolicyCreateSSL");
+        }
+    });
+
+    if (FrameworkPolicyCreateFunctionPtr) {
+        return FrameworkPolicyCreateFunctionPtr(server, hostname);
+    } else {
+        NSLog(@"WARNING: not using Security framework policy");
+        return SecPolicyCreateSSL(server, hostname);
+    }
+}
+
+typedef  SecPolicyRef (*basic_policy_create_f)(void);
+SecPolicyRef SecFrameworkPolicyCreateBasicX509(void) {
+    static basic_policy_create_f FrameworkPolicyCreateFunctionPtr = NULL;
+    static dispatch_once_t onceToken;
+
+    dispatch_once(&onceToken, ^{
+        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
+        if (framework) {
+            FrameworkPolicyCreateFunctionPtr  = dlsym(framework, "SecPolicyCreateBasicX509");
+        }
+    });
+
+    if (FrameworkPolicyCreateFunctionPtr) {
+        return FrameworkPolicyCreateFunctionPtr();
+    } else {
+        NSLog(@"WARNING: not using Security framework policy");
+        return SecPolicyCreateBasicX509();
+    }
+}
+
+typedef  SecPolicyRef (*smime_policy_create_f)(CFIndex smimeUsage, CFStringRef email);
+SecPolicyRef SecFrameworkPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef email) {
+    static smime_policy_create_f FrameworkPolicyCreateFunctionPtr = NULL;
+    static dispatch_once_t onceToken;
+
+    dispatch_once(&onceToken, ^{
+        void *framework = dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_LAZY);
+        if (framework) {
+            FrameworkPolicyCreateFunctionPtr  = dlsym(framework, "SecPolicyCreateSMIME");
+        }
+    });
+
+    if (FrameworkPolicyCreateFunctionPtr) {
+        return FrameworkPolicyCreateFunctionPtr(smimeUsage, email);
+    } else {
+        NSLog(@"WARNING: not using Security framework policy");
+        return SecPolicyCreateSMIME(smimeUsage, email);
+    }
 }

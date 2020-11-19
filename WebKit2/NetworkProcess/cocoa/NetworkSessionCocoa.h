@@ -51,7 +51,7 @@ class NetworkSessionCocoa;
 using HostAndPort = std::pair<String, uint16_t>;
 
 struct SessionWrapper : public CanMakeWeakPtr<SessionWrapper> {
-    void initialize(NSURLSessionConfiguration *, NetworkSessionCocoa&, WebCore::StoredCredentialsPolicy);
+    void initialize(NSURLSessionConfiguration *, NetworkSessionCocoa&, WebCore::StoredCredentialsPolicy, NavigatingToAppBoundDomain);
 
     RetainPtr<NSURLSession> session;
     RetainPtr<WKNetworkSessionDelegate> delegate;
@@ -69,7 +69,7 @@ public:
     NetworkSessionCocoa(NetworkProcess&, NetworkSessionCreationParameters&&);
     ~NetworkSessionCocoa();
 
-    void initializeEphemeralStatelessSession();
+    void initializeEphemeralStatelessSession(NavigatingToAppBoundDomain);
 
     const String& boundInterfaceIdentifier() const;
     const String& sourceApplicationBundleIdentifier() const;
@@ -94,10 +94,14 @@ public:
     bool hasIsolatedSession(const WebCore::RegistrableDomain) const override;
     void clearIsolatedSessions() override;
 
-    SessionWrapper& sessionWrapperForTask(const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy);
+    bool hasAppBoundSession() const override { return !!m_appBoundSession; }
 
+    SessionWrapper& sessionWrapperForTask(const WebCore::ResourceRequest&, WebCore::StoredCredentialsPolicy, Optional<NavigatingToAppBoundDomain>);
+    void clearAppBoundSession() override;
+    bool preventsSystemHTTPProxyAuthentication() const { return m_preventsSystemHTTPProxyAuthentication; }
+    
     void clientCertificateSuggestedForHost(NetworkDataTaskCocoa::TaskIdentifier, NSURLCredential *, const String& host, uint16_t port);
-    void taskReceivedBytes(NetworkDataTaskCocoa::TaskIdentifier);
+    void taskServerConnectionSucceeded(NetworkDataTaskCocoa::TaskIdentifier);
     void taskFailed(NetworkDataTaskCocoa::TaskIdentifier);
     NSURLCredential *successfulClientCertificateForHost(const String& host, uint16_t port) const;
 
@@ -106,7 +110,12 @@ private:
     void clearCredentials() override;
     bool shouldLogCookieInformation() const override { return m_shouldLogCookieInformation; }
     Seconds loadThrottleLatency() const override { return m_loadThrottleLatency; }
-    SessionWrapper& isolatedSession(WebCore::StoredCredentialsPolicy, const WebCore::RegistrableDomain);
+    SessionWrapper& isolatedSession(WebCore::StoredCredentialsPolicy, const WebCore::RegistrableDomain, NavigatingToAppBoundDomain);
+    SessionWrapper& appBoundSession(WebCore::StoredCredentialsPolicy);
+
+    Vector<WebCore::SecurityOriginData> hostNamesWithAlternativeServices() const override;
+    void deleteAlternativeServicesForHostNames(const Vector<String>&) override;
+    void clearAlternativeServices(WallTime) override;
 
 #if HAVE(NSURLSESSION_WEBSOCKET)
     std::unique_ptr<WebSocketTask> createWebSocketTask(NetworkSocketChannel&, const WebCore::ResourceRequest&, const String& protocol) final;
@@ -123,6 +132,7 @@ private:
     };
 
     HashMap<WebCore::RegistrableDomain, std::unique_ptr<IsolatedSession>> m_isolatedSessions;
+    std::unique_ptr<IsolatedSession> m_appBoundSession;
 
     SessionWrapper m_sessionWithCredentialStorage;
     SessionWrapper m_sessionWithoutCredentialStorage;
@@ -139,7 +149,8 @@ private:
     Seconds m_loadThrottleLatency;
     bool m_fastServerTrustEvaluationEnabled { false };
     String m_dataConnectionServiceType;
-    
+    bool m_preventsSystemHTTPProxyAuthentication { false };
+
     struct SuggestedClientCertificate {
         String host;
         uint16_t port { 0 };

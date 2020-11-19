@@ -36,6 +36,9 @@
  *	@(#)options.h	8.2 (Berkeley) 4/18/94
  */
 
+#ifndef _OPTIONS_H_
+#define _OPTIONS_H_
+
 /*
  * argv[0] names. Used for tar and cpio emulation
  */
@@ -111,3 +114,5 @@
 #define	BDARCH	(CF|KF|LF|NF|PF|RF|CDF|CEF|CYF|CZF)
 #define	BDCOPY	(AF|BF|FF|CBF|CEF)
 #define	BDLIST (AF|BF|IF|KF|LF|PF|RF|TF|UF|WF|XF|CBF|CDF|CHF|CLF|CPF|CXF|CYF|CZF)
+
+#endif /* _OPTIONS_H_ */

@@ -129,31 +129,6 @@ dispatch_queue_t  getPMQueue()
     return pmQueue;
 }
 
-bool IOPMUserIsActive(void)
-{
-    io_service_t                service = IO_OBJECT_NULL;
-    CFBooleanRef                userIsActiveBool = NULL;
-    bool                        ret_val = false;
-    
-    service = IORegistryEntryFromPath(kIOMasterPortDefault, 
-            kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
-
-    if (IO_OBJECT_NULL != service) {
-        userIsActiveBool = IORegistryEntryCreateCFProperty(
-                       service,
-                       CFSTR(kIOPMUserIsActiveKey),
-                       kCFAllocatorDefault, 0);
-        IOObjectRelease(service);
-    }
-    
-    ret_val = (kCFBooleanTrue == userIsActiveBool);
-
-    if (userIsActiveBool) {
-        CFRelease(userIsActiveBool);
-    }
-    return ret_val;
-}
-
 typedef struct {
 
     dispatch_queue_t    clientQueue;
@@ -170,28 +145,63 @@ typedef struct {
     uint64_t            levels;
 } _UserActiveNotification;
 
-void IOPMUserDidChangeCallback(
-    void *refcon __unused,
-    io_service_t service __unused,
-    uint32_t messageType,
-    void *messageArgument __unused)
+
+// dictionary to valid refs of _UserActiveNotifications
+CFMutableDictionaryRef getUserActiveValidDict()
 {
-    _UserActiveNotification *_useractive = (_UserActiveNotification *)refcon;
-    
-    if (_useractive && (messageType == kIOPMMessageUserIsActiveChanged))
-    {
-        dispatch_async(_useractive->clientQueue, ^{
-            _useractive->callblock_bool( IOPMUserIsActive() );
+    static dispatch_once_t _token;
+    static CFMutableDictionaryRef _useractiveValid = NULL;
+    if (!_useractiveValid) {
+        dispatch_once(&_token, ^{
+            _useractiveValid = CFDictionaryCreateMutable(kCFAllocatorDefault,
+                                             0,
+                                             &kCFTypeDictionaryKeyCallBacks,
+                                             &kCFTypeDictionaryValueCallBacks);
         });
+        if (!_useractiveValid) {
+            os_log_error(OS_LOG_DEFAULT, "Failed to create useractiveRefs");
+            return NULL;
+        }
     }
+    return _useractiveValid;
 }
 
+// current value of IOPMUserIsActive
+bool gIOPMUserIsActive = false;
+
+bool IOPMUserIsActive(void)
+{
+    // Cannot use IOPMGetUserActivityLevel because that is based on
+    // default HID timeout
+    return gIOPMUserIsActive;
+}
+
+bool decodeIOPMUserIsActive(uint64_t levels, uint64_t most __unused) {
+
+    // IOPMUserIsActive is true when display is on
+    // except for notification wake
+    if (levels & kIOPMUserPresentActive){
+        return true;
+    }
+    return false;
+}
 
 static void unregisterNotification(IOPMNotificationHandle handle)
 {
     _UserActiveNotification *_useractive = (_UserActiveNotification *)handle;
     if (!_useractive)
     {
+        return;
+    }
+    CFMutableDictionaryRef _refs = getUserActiveValidDict();
+    CFNumberRef useractive_cf = CFNumberCreate(0, kCFNumberSInt64Type, _useractive);
+    if (CFDictionaryGetValue(_refs, useractive_cf)) {
+        CFDictionaryRemoveValue(_refs, useractive_cf);
+        if (useractive_cf) {
+            CFRelease(useractive_cf);
+        }
+    } else {
+        os_log_error(OS_LOG_DEFAULT, "unregisterNotification: invalid ref to 0x%lx", (uintptr_t)_useractive);
         return;
     }
     if (_useractive->callblock_bool) {
@@ -222,37 +232,18 @@ static void unregisterNotification(IOPMNotificationHandle handle)
 IOPMNotificationHandle IOPMScheduleUserActiveChangedNotification(dispatch_queue_t queue, void (^block)(bool))
 {
     _UserActiveNotification *_useractive = NULL;
-    io_registry_entry_t     service = IO_OBJECT_NULL;
-    kern_return_t           kr = KERN_INVALID_VALUE;
-    
-    _useractive = calloc(1, sizeof(_UserActiveNotification));
-    
-    if (_useractive)
-    {
-        _useractive->callblock_bool = Block_copy(block);
-        _useractive->clientQueue = queue;
-        dispatch_retain(queue);
-        
-        _useractive->notify = IONotificationPortCreate(MACH_PORT_NULL);
-        if (_useractive->notify) {
-            IONotificationPortSetDispatchQueue(_useractive->notify, getPMQueue());
-        }
-        
-        service = IORegistryEntryFromPath(kIOMasterPortDefault,
-                kIOPowerPlane ":/IOPowerConnection/IOPMrootDomain");
 
-        kr = IOServiceAddInterestNotification(
-                _useractive->notify, service, kIOGeneralInterest,
-                IOPMUserDidChangeCallback, (void *)_useractive, &_useractive->letItGo);
-        
-        IOObjectRelease(service);
-    }
-    
-    if (kIOReturnSuccess != kr) {
-        unregisterNotification((IOPMNotificationHandle)_useractive);
-        _useractive = NULL;
-    }
-    
+    // call IOPMScheduleUserActivityLevelNotificationWithTimeout
+    // Register with max timeout so that we only get call backs when
+    // display state changes instead of HID idle changes
+    _useractive = IOPMScheduleUserActivityLevelNotificationWithTimeout(queue, UINT_MAX,
+                                                                                ^(uint64_t levels, uint64_t most) {
+                                                                                    bool is_active = decodeIOPMUserIsActive(levels, most);
+                                                                                    if (is_active != gIOPMUserIsActive) {
+                                                                                        gIOPMUserIsActive = is_active;
+                                                                                        block(is_active);
+                                                                                    }
+                                                                                });
     return _useractive;
 }
 
@@ -262,7 +253,17 @@ void IOPMUnregisterNotification(IOPMNotificationHandle handle)
     dispatch_sync(getPMQueue(), ^{
         _UserActiveNotification *_useractive = (_UserActiveNotification *)handle;
         if (_useractive && _useractive->connection) {
-            xpc_connection_cancel(_useractive->connection);
+            CFNumberRef useractive_cf = CFNumberCreate(0, kCFNumberSInt64Type, _useractive);
+            CFMutableDictionaryRef _refs = getUserActiveValidDict();
+            if (!CFDictionaryGetValue(_refs, useractive_cf)) {
+                os_log_error(OS_LOG_DEFAULT, "IOPMUnregisterNotification: no valid ref for 0x%lx", (uintptr_t)_useractive);
+            } else {
+                os_log_info(OS_LOG_DEFAULT, "IOPMUnregisterNotification: cancelling connection 0x%lx\n",(uintptr_t) _useractive);
+                xpc_connection_cancel(_useractive->connection);
+            }
+            if (useractive_cf) {
+                CFRelease(useractive_cf);
+            }
         }
     });
 }
@@ -311,6 +312,10 @@ bool sendUserActivityMsg(_UserActiveNotification *_useractive, char *key)
 
 
     dispatch_assert_queue(getPMQueue());
+    if (!_useractive || !_useractive->connection) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to create xpc connection");
+        return false;
+    }
     desc = xpc_dictionary_create(NULL, NULL, 0);
     msg = xpc_dictionary_create(NULL, NULL, 0);
     if (desc && msg) {
@@ -349,7 +354,12 @@ void processUserActivityMsg(_UserActiveNotification *_useractive, xpc_object_t m
             dispatch_async(getPMQueue(), ^{sendUserActivityMsg(_useractive, kUserActivityRegister);});
         }
         else {
-            unregisterNotification(_useractive);
+            if (msg == XPC_ERROR_TERMINATION_IMMINENT) {
+                os_log_error(OS_LOG_DEFAULT, "Received termination imminent error for connection 0x%lx", (uintptr_t)_useractive);
+            } else if (msg == XPC_ERROR_CONNECTION_INVALID) {
+                os_log_error(OS_LOG_DEFAULT, "Received connection invalid error for connection 0x%lx. UnregisterNotification", (uintptr_t)_useractive);
+                unregisterNotification(_useractive);
+            }
         }
     }
 }
@@ -387,9 +397,17 @@ IOPMNotificationHandle IOPMScheduleUserActivityLevelNotificationWithTimeout(
     _useractive->callblock_activity = Block_copy(inblock);
     _useractive->idleTimeout = timeout;
     xpc_connection_resume(connection);
+
     dispatch_sync(getPMQueue(), ^{
+        CFMutableDictionaryRef _refs = getUserActiveValidDict();
+        CFNumberRef useractive_cf = CFNumberCreate(0, kCFNumberSInt64Type, _useractive);
+        CFDictionarySetValue(_refs, useractive_cf, kCFBooleanTrue);
+        if (useractive_cf) {
+            CFRelease(useractive_cf);
+        }
         msgSent = sendUserActivityMsg(_useractive, kUserActivityRegister);
     });
+
     if (msgSent == false) {
         IOPMUnregisterNotification(_useractive);
         return NULL;

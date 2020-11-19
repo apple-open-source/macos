@@ -13,6 +13,10 @@
 #ifndef UNICODESET_H
 #define UNICODESET_H
 
+#include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/ucpmap.h"
 #include "unicode/unifilt.h"
 #include "unicode/unistr.h"
@@ -23,7 +27,6 @@
  * \brief C++ API: Unicode Set
  */
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 // Forward Declarations.
@@ -502,7 +505,7 @@ public:
      * @see cloneAsThawed
      * @stable ICU 2.0
      */
-    virtual UnicodeFunctor* clone() const;
+    virtual UnicodeSet* clone() const;
 
     /**
      * Returns the hash code value for this set.
@@ -580,7 +583,7 @@ public:
      * @see cloneAsThawed
      * @stable ICU 3.8
      */
-    UnicodeFunctor *freeze();
+    UnicodeSet *freeze();
 
     /**
      * Clone the set and make the clone mutable.
@@ -590,7 +593,7 @@ public:
      * @see isFrozen
      * @stable ICU 3.8
      */
-    UnicodeFunctor *cloneAsThawed() const;
+    UnicodeSet *cloneAsThawed() const;
 
     //----------------------------------------------------------------
     // Public API
@@ -1653,11 +1656,10 @@ private:
                      const UnicodeSet* inclusions,
                      UErrorCode &status);
 
-#ifndef U_HIDE_DRAFT_API   // Skipped: ucpmap.h is draft only.
+    // UCPMap is now stable ICU 63
     void applyIntPropertyValue(const UCPMap *map,
                                UCPMapValueFilter *filter, const void *context,
                                UErrorCode &errorCode);
-#endif  /* U_HIDE_DRAFT_API */
 
     /**
      * Set the new pattern to cache.
@@ -1737,6 +1739,7 @@ inline int32_t UnicodeSet::spanBack(const UnicodeString &s, int32_t limit, USetS
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

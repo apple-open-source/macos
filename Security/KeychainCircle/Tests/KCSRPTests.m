@@ -10,7 +10,6 @@
 #include <corecrypto/ccrng.h>
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccdh_gp.h>
-#include <CommonCrypto/CommonRandomSPI.h>
 
 @interface KCSRPTests : XCTestCase
 
@@ -102,7 +101,7 @@
     [self negotiateWithUser: @"TestUser"
                  digestInfo: ccsha256_di()
                       group: ccsrp_gp_rfc5054_3072()
-               randomSource: ccDRBGGetRngState()];
+               randomSource: ccrng(NULL)];
 }
 
 @end

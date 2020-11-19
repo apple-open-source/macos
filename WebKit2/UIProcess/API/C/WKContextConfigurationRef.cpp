@@ -155,16 +155,6 @@ void WKContextConfigurationSetOverrideLanguages(WKContextConfigurationRef config
     toImpl(configuration)->setOverrideLanguages(toImpl(overrideLanguages)->toStringVector());
 }
 
-bool WKContextConfigurationShouldCaptureAudioInUIProcess(WKContextConfigurationRef configuration)
-{
-    return toImpl(configuration)->shouldCaptureAudioInUIProcess();
-}
-
-void WKContextConfigurationSetShouldCaptureAudioInUIProcess(WKContextConfigurationRef configuration, bool should)
-{
-    toImpl(configuration)->setShouldCaptureAudioInUIProcess(should);
-}
-
 bool WKContextConfigurationProcessSwapsOnNavigation(WKContextConfigurationRef configuration)
 {
     return toImpl(configuration)->processSwapsOnNavigation();
@@ -221,6 +211,10 @@ int64_t WKContextConfigurationDiskCacheSizeOverride(WKContextConfigurationRef co
 }
 
 void WKContextConfigurationSetDiskCacheSizeOverride(WKContextConfigurationRef configuration, int64_t size)
+{
+}
+
+void WKContextConfigurationSetShouldCaptureAudioInUIProcess(WKContextConfigurationRef, bool)
 {
 }
 

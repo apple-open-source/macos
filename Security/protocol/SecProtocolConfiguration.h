@@ -143,11 +143,14 @@ sec_protocol_configuration_tls_required(sec_protocol_configuration_t config);
  * @param host
  *      A NULL-terminated C string containing the host endpoint to examine.
  *
+ * @param is_direct
+ *      A flag which indicates if the given hostname is local (direct).
+ *
  * @return True if connections to the endpoint require TLS, and false otherwise.
  */
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 bool
-sec_protocol_configuration_tls_required_for_host(sec_protocol_configuration_t config, const char *host);
+sec_protocol_configuration_tls_required_for_host(sec_protocol_configuration_t config, const char *host, bool is_direct);
 
 /*!
  * @function sec_protocol_configuration_tls_required_for_address

@@ -53,9 +53,7 @@
         }
     } runBeforeFinished:^{}];
 
-    // Trigger a notification (with hilariously fake data)
-    [self.keychainView notifyZoneChange:nil];
-
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -122,9 +120,7 @@
         }
     } runBeforeFinished:^{}];
 
-    // Trigger a notification (with hilariously fake data)
-    [self.keychainView notifyZoneChange:nil];
-
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -177,9 +173,7 @@
         }
     } runBeforeFinished:^{}];
 
-    // Trigger a notification (with hilariously fake data)
-    [self.keychainView notifyZoneChange:nil];
-
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -225,7 +219,7 @@
     }];
 
     // Trigger a notification (with hilariously fake data)
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     // Wait for both fetches....
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -277,7 +271,7 @@
     [self expectCKFetch];
 
     // Trigger a notification (with hilariously fake data)
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
@@ -287,7 +281,7 @@
     // Now, edit the on-disk CKSE
     [self.keychainView halt];
 
-    [self.keychainView dispatchSync: ^bool {
+    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
         CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
 
@@ -297,7 +291,7 @@
         ckse.moreRecordsInCloudKit = YES;
         [ckse saveToDatabase: &error];
         XCTAssertNil(error, "no error saving to database");
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 
     // CKKS should, upon restart, kick off a fetch starting from the previous checkpoint

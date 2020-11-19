@@ -21,7 +21,7 @@ public:
 
 	CharStreamIOException(ANTLR_USE_NAMESPACE(std)exception& e)
 		: CharStreamException(e.what()), io(e) {}
-	~CharStreamIOException() throw() {}
+	~CharStreamIOException() _NOEXCEPT {}
 };
 
 #ifdef ANTLR_CXX_SUPPORTS_NAMESPACE

@@ -51,7 +51,7 @@ __BEGIN_DECLS
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern SecCmsDigestedDataRef
 SecCmsDigestedDataCreate(SecCmsMessageRef cmsg, SECAlgorithmID *digestalg)
-    API_AVAILABLE(macos(10.4), ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4), ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 
 /*!

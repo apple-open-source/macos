@@ -59,7 +59,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.34 2009/12/05 19:31:38 ed Ex
 
 pthread_once_t	__sdidinit;
 
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
 #define	NDYNAMIC 10		/* add ten more whenever necessary */
 #else
 #define	NDYNAMIC 1		/* add one at a time on embedded */
@@ -78,17 +78,17 @@ pthread_once_t	__sdidinit;
   /* set counted */
 #define __sFXInit3      {.fl_mutex = PTHREAD_RECURSIVE_MUTEX_INITIALIZER, .counted = 1}
 
-static int __scounted;		/* streams counted against STREAM_MAX */
-static int __stream_max;
+static int64_t __scounted;		/* streams counted against STREAM_MAX */
+static int64_t __stream_max;
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 /* usual and usual_extra are data pigs. See 7929728. For embedded we should
  * always allocate dynamically, and probably should for desktop too. */
 				/* the usual - (stdin + stdout + stderr) */
 static FILE usual[FOPEN_MAX - 3];
 static struct __sFILEX usual_extra[FOPEN_MAX - 3];
 static struct glue uglue = { NULL, FOPEN_MAX - 3, usual };
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 
 static struct __sFILEX __sFX[3] = {__sFXInit3, __sFXInit3, __sFXInit3};
 
@@ -107,7 +107,7 @@ FILE *__stdinp = &__sF[0];
 FILE *__stdoutp = &__sF[1];
 FILE *__stderrp = &__sF[2];
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 struct glue __sglue = { &uglue, 3, __sF };
 static struct glue *lastglue = &uglue;
 #else
@@ -162,13 +162,19 @@ __sfp(int count)
 	pthread_once(&__sdidinit, __sinit);
 
 	if (count) {
-		int32_t new = OSAtomicIncrement32(&__scounted);
+		int64_t new = OSAtomicIncrement64(&__scounted);
 		if (new > __stream_max) {
+			/* Greater than the saved limit, check again with getrlimit. */
 			if (new > (__stream_max = sysconf(_SC_STREAM_MAX))){
-				OSAtomicDecrement32(&__scounted);
+				OSAtomicDecrement64(&__scounted);
 				errno = EMFILE;
 				return NULL;
 			}
+		}
+		/* Overflowing #streams beyond RLIMIT_INFINITY */
+		if (new < 0) {
+			errno = EOVERFLOW;
+			return NULL;
 		}
 	}
 	/*
@@ -217,7 +223,7 @@ __private_extern__ void
 __sfprelease(FILE *fp)
 {
 	if (fp->_counted) {
-		OSAtomicDecrement32(&__scounted);
+		OSAtomicDecrement64(&__scounted);
 		fp->_counted = 0;
 	}
 	
@@ -278,7 +284,7 @@ _cleanup(void)
 void
 __sinit(void)
 {
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	int i;
 #endif
 
@@ -287,7 +293,7 @@ __sinit(void)
 	__stream_max = sysconf(_SC_STREAM_MAX);
 	__scounted = 3;			/* std{in,out,err} already exists */
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	/* Set _extra for the usual suspects. */
 	for (i = 0; i < FOPEN_MAX - 3; i++) {
 		usual[i]._extra = &usual_extra[i];

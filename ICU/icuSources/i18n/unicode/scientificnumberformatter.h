@@ -11,6 +11,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_FORMATTING
 
 
@@ -21,7 +23,6 @@
  * \brief C++ API: Formats in scientific notation.
  */
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class FieldPositionIterator;
@@ -158,7 +159,7 @@ public:
 
     class U_I18N_API SuperscriptStyle : public Style {
     public:
-        virtual Style *clone() const;
+        virtual SuperscriptStyle *clone() const;
     protected:
         virtual UnicodeString &format(
                 const UnicodeString &original,
@@ -176,7 +177,7 @@ public:
                 : Style(),
                   fBeginMarkup(beginMarkup),
                   fEndMarkup(endMarkup) { }
-        virtual Style *clone() const;
+        virtual MarkupStyle *clone() const;
     protected:
         virtual UnicodeString &format(
                 const UnicodeString &original,
@@ -212,8 +213,10 @@ public:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 
 #endif /* !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif 

@@ -28,12 +28,17 @@
  */
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
+#include <cstddef>
+#include <type_traits>
+
 #include "unicode/uobject.h"
 #include "unicode/std_string.h"
 
 // Arghh!  I wish C++ literals were "string".
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -75,6 +80,33 @@ class U_COMMON_API StringPiece : public UMemory {
    */
   StringPiece(const std::string& str)
     : ptr_(str.data()), length_(static_cast<int32_t>(str.size())) { }
+#ifndef U_HIDE_DRAFT_API
+  /**
+   * Constructs from some other implementation of a string piece class, from any
+   * C++ record type that has these two methods:
+   *
+   * \code{.cpp}
+   *
+   *   struct OtherStringPieceClass {
+   *     const char* data();
+   *     size_t size();
+   *   };
+   *
+   * \endcode
+   *
+   * The other string piece class will typically be std::string_view from C++17
+   * or absl::string_view from Abseil.
+   *
+   * @param str the other string piece
+   * @draft ICU 65
+   */
+  template <typename T,
+            typename = typename std::enable_if<
+                std::is_same<decltype(T().data()), const char*>::value &&
+                std::is_same<decltype(T().size()), size_t>::value>::type>
+  StringPiece(T str)
+      : ptr_(str.data()), length_(static_cast<int32_t>(str.size())) {}
+#endif  // U_HIDE_DRAFT_API
   /**
    * Constructs from a const char * pointer and a specified length.
    * @param offset a const char * pointer (need not be terminated)
@@ -221,6 +253,7 @@ inline UBool operator!=(const StringPiece& x, const StringPiece& y) {
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif  // __STRINGPIECE_H__

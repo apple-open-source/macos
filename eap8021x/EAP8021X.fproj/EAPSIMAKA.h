@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -400,6 +400,7 @@ typedef union {
 } EAPSIMAKAKeyInfo, * EAPSIMAKAKeyInfoRef;
 
 typedef struct {
+    CFStringRef 	oob_pseudonym;
     CFStringRef		anonymous_identity;
     CFDataRef		encrypted_identity;
 } EAPSIMAKAEncryptedIdentityInfo, *EAPSIMAKAEncryptedIdentityInfoRef;

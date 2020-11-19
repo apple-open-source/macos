@@ -77,8 +77,8 @@ SOSPeerInfoRef SOSPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErrorRef* er
     pi->gestalt = NULL;
     pi->version = 0; // TODO: Encode this in the DER
     *der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, *der_p, der_end);
-    *der_p = der_decode_plist(allocator, kCFPropertyListImmutable, &pl, error, *der_p, sequence_end);
-    *der_p = der_decode_data(allocator, kCFPropertyListImmutable, &pi->signature, error, *der_p, sequence_end);
+    *der_p = der_decode_plist(allocator, &pl, error, *der_p, sequence_end);
+    *der_p = der_decode_data(allocator, &pi->signature, error, *der_p, sequence_end);
     
     if (*der_p == NULL || *der_p != sequence_end) {
         SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Format of Peer Info DER"), NULL, error);
@@ -134,7 +134,8 @@ SOSPeerInfoRef SOSPeerInfoCreateFromDER(CFAllocatorRef allocator, CFErrorRef* er
     
     pi->peerID = SOSCopyIDOfKey(pubKey, error);
     require_quiet(pi->peerID, fail);
-    
+    pi->spid = CFStringCreateTruncatedCopy(pi->peerID, 8);
+
     if(pi->version >= 2) SOSPeerInfoExpandV2Data(pi, error);
     
     if(!SOSPeerInfoVerify(pi, error)) {

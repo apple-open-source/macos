@@ -112,7 +112,7 @@ void SecPointerBase::copy(SecCFObject * p)
 // SecCFObject
 //
 SecCFObject *
-SecCFObject::optional(CFTypeRef cfTypeRef) throw()
+SecCFObject::optional(CFTypeRef cfTypeRef) _NOEXCEPT
 {
 	if (!cfTypeRef)
 		return NULL;
@@ -131,7 +131,7 @@ SecCFObject::required(CFTypeRef cfTypeRef, OSStatus error)
 }
 
 void *
-SecCFObject::allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc)
+SecCFObject::allocate(size_t size, const CFClass &cfclass)
 {
 	CFTypeRef p = _CFRuntimeCreateInstance(NULL, cfclass.typeID,
 		size + kAlignedRuntimeSize - sizeof(CFRuntimeBase), NULL);
@@ -146,7 +146,7 @@ SecCFObject::allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc)
 }
 
 void
-SecCFObject::operator delete(void *object) throw()
+SecCFObject::operator delete(void *object) _NOEXCEPT
 {
 	CFTypeRef cfType = reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(object) - kAlignedRuntimeSize);
 
@@ -217,7 +217,7 @@ SecCFObject::copyDebugDesc()
 }
 
 CFTypeRef
-SecCFObject::handle(bool retain) throw()
+SecCFObject::handle(bool retain) _NOEXCEPT
 {
 	CFTypeRef cfType = *this;
 	if (retain && !isNew()) CFRetain(cfType);

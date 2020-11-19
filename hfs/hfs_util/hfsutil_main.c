@@ -55,6 +55,7 @@
 #include <hfs/hfs_format.h>
 #include <hfs/hfs_mount.h>
 #include <err.h>
+#include <assert.h>
 
 #include <ctype.h>
 #include <errno.h>
@@ -280,11 +281,15 @@ static unsigned int __CFStringGetDefaultEncodingForHFSUtil() {
 
         if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
             ssize_t readSize;
+            long encoding;
 
             readSize = read(fd, buffer, MAXPATHLEN);
             buffer[(readSize < 0 ? 0 : readSize)] = '\0';
             close(fd);
-            return strtol(buffer, NULL, 0);
+
+            encoding = strtol(buffer, NULL, 0);
+            assert(encoding > -1 && encoding <= UINT_MAX);
+            return (unsigned int)encoding;
         }
     }
     return 0; // Fallback to smRoman
@@ -803,7 +808,7 @@ DoProbe(char *rawDeviceNamePtr, char *blockDeviceNamePtr)
 	/*
 	 * Read the HFS Master Directory Block from sector 2
 	 */
-	result = readAt(fd, bufPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
+	result = (int)readAt(fd, bufPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
 	if (FSUR_IO_FAIL == result)
 		goto Return;
 
@@ -1129,8 +1134,9 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
 	const char ** mountPointPtr, boolean_t * isEjectablePtr,
           boolean_t * isLockedPtr, boolean_t * isSetuidPtr, boolean_t * isDevPtr)
 {
+    size_t      deviceLength;
     int			result = FSUR_INVAL;
-    int			deviceLength, doLengthCheck = 1;
+    int			doLengthCheck = 1;
     int			index;
     int 		mounting = 0;
 
@@ -1196,7 +1202,10 @@ ParseArgs(int argc, const char *argv[], const char ** actionPtr,
 			doLengthCheck = 0;
 			if (isdigit(argv[2][0])) {
 				char *ptr;
-				gJournalSize = strtoul(argv[2], &ptr, 0);
+                unsigned long size = strtoul(argv[2], &ptr, 0);
+
+                assert(size < INT_MAX);
+				gJournalSize = (int)size;
 				if (ptr) {
 					gJournalSize *= get_multiplier(*ptr);
 				}
@@ -1409,7 +1418,7 @@ ReadHeaderBlock(int fd, void *bufPtr, off_t *startOffset, hfs_UUID_t **finderInf
 	 * Read the HFS Master Directory Block or Volume Header from sector 2
 	 */
 	*startOffset = 0;
-	result = readAt(fd, bufPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
+	result = (int)readAt(fd, bufPtr, (off_t)(2 * HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
 	if (result != FSUR_IO_SUCCESS)
 		goto Err_Exit;
 
@@ -1422,7 +1431,7 @@ ReadHeaderBlock(int fd, void *bufPtr, off_t *startOffset, hfs_UUID_t **finderInf
 		result = GetEmbeddedHFSPlusVol(mdbPtr, startOffset);
 		if (result != FSUR_IO_SUCCESS)
 			goto Err_Exit;
-		result = readAt(fd, bufPtr, *startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
+		result = (int)readAt(fd, bufPtr, *startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
 		if (result != FSUR_IO_SUCCESS)
 			goto Err_Exit;
 	}
@@ -1644,7 +1653,7 @@ SetVolumeUUIDRaw(const char *deviceNamePtr, hfs_UUID_t *volumeUUIDPtr)
 	/*
 	 * Write the modified MDB or VHB back to disk
 	 */
-	result = writeAt(fd, bufPtr, startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
+	result = (int)writeAt(fd, bufPtr, startOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE);
 
 Err_Exit:
 	if (fd > 0) close(fd);
@@ -1976,7 +1985,7 @@ GetNameFromHFSPlusVolumeStartingAt(int fd, off_t hfsPlusVolumeOffset, unsigned c
      * Read the Volume Header
      * (This is a little redundant for a pure, unwrapped HFS+ volume)
      */
-    result = readAt( fd, volHdrPtr, hfsPlusVolumeOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE );
+    result = (int)readAt( fd, volHdrPtr, hfsPlusVolumeOffset + (off_t)(2*HFS_BLOCK_SIZE), HFS_BLOCK_SIZE );
     if (result == FSUR_IO_FAIL) {
 #if TRACE_HFS_UTIL
         fprintf(stderr, "hfs.util: GetNameFromHFSPlusVolumeStartingAt: readAt failed\n");
@@ -2324,7 +2333,7 @@ static int	LogicalToPhysical(off_t offset, ssize_t length, u_int32_t blockSize,
 	u_int32_t	blockCount = 0;
 	
 	/* Determine allocation block containing logicalOffset */
-	logicalBlock = offset / blockSize;	/* This can't overflow for valid volumes */
+	logicalBlock = (u_int32_t)(offset / blockSize);	/* This can't overflow for valid volumes */
 	offset %= blockSize;	/* Offset from start of allocation block */
 	
 	/* Find the extent containing logicalBlock */
@@ -2400,7 +2409,7 @@ static int	ReadFile(int fd, void *buffer, off_t offset, ssize_t length,
 		if (result != FSUR_IO_SUCCESS)
 			break;
 		
-		result = readAt(fd, buffer, volOffset+physOffset, physLength);
+		result = (int)readAt(fd, buffer, volOffset+physOffset, physLength);
 		if (result != FSUR_IO_SUCCESS)
 			break;
 		
@@ -2817,7 +2826,7 @@ int ConvertVolumeStatusDB(VolumeStatusDBHandle DBHandle) {
 	 * converted it then do nothing.
 	 */
     lseek(dbstateptr->dbfile, 0, SEEK_SET);
-    result = read(dbstateptr->dbfile, &entry64, sizeof(entry64));
+    result = (int)read(dbstateptr->dbfile, &entry64, sizeof(entry64));
     if ((result != sizeof(entry64)) ||
         (entry64.keySeparator != DBKEYSEPARATOR) ||
         (entry64.space != DBBLANKSPACE) ||
@@ -2825,9 +2834,15 @@ int ConvertVolumeStatusDB(VolumeStatusDBHandle DBHandle) {
         result = 0;
         goto ErrExit;
     } else {
+        off_t buf_size = dbinfo.st_size;
+
 		/* Read in a giant buffer */
         if ((result = stat(gVSDBPath, &dbinfo)) != 0) goto ErrExit;
-        iobuffersize = dbinfo.st_size;
+        if (buf_size > UINT32_MAX) {
+            result = EINVAL;
+            goto ErrExit;
+        }
+        iobuffersize = (u_int32_t)buf_size;
         iobuffer = malloc(iobuffersize);
         if (iobuffer == NULL) {
             result = ENOMEM;
@@ -2835,7 +2850,7 @@ int ConvertVolumeStatusDB(VolumeStatusDBHandle DBHandle) {
         };
 
         lseek(dbstateptr->dbfile, 0, SEEK_SET);
-        result = read(dbstateptr->dbfile, iobuffer, iobuffersize);
+        result = (int)read(dbstateptr->dbfile, iobuffer, iobuffersize);
         if (result != iobuffersize) {
             result = errno;
             goto ErrExit;
@@ -2860,7 +2875,7 @@ int ConvertVolumeStatusDB(VolumeStatusDBHandle DBHandle) {
             }
 
             ConvertHFSUUIDToUUID(entry64.key.uuid, &volumeID);
-            VolumeStatus = ConvertHexStringToULong(entry64.record.statusFlags, sizeof(entry64.record.statusFlags));
+            VolumeStatus = (u_int32_t)ConvertHexStringToULong(entry64.record.statusFlags, sizeof(entry64.record.statusFlags));
 
             FormatDBEntry(&volumeID, VolumeStatus, &dbentry);
             if ((result = AddVolumeRecord(dbstateptr, &dbentry)) != sizeof(dbentry)) {
@@ -3106,13 +3121,13 @@ static int FindVolumeRecordByUUID(VSDBStatePtr dbstateptr, volUUID_t *volumeID,
 
 static int AddVolumeRecord(VSDBStatePtr dbstateptr, VSDBEntryUUID_t *dbentry) {
 	lseek(dbstateptr->dbfile, 0, SEEK_END);
-	return write(dbstateptr->dbfile, dbentry, sizeof(struct VSDBEntryUUID));
+	return (int)write(dbstateptr->dbfile, dbentry, sizeof(struct VSDBEntryUUID));
 }
 
 
 static int UpdateVolumeRecord(VSDBStatePtr dbstateptr, VSDBEntryUUID_t *dbentry) {
 	lseek(dbstateptr->dbfile, dbstateptr->recordPosition, SEEK_SET);
-	return write(dbstateptr->dbfile, dbentry, sizeof(*dbentry));
+	return (int)write(dbstateptr->dbfile, dbentry, sizeof(*dbentry));
 }
 
 static int GetVSDBEntry(VSDBStatePtr dbstateptr, VSDBEntryUUID_t *dbentry) {
@@ -3120,7 +3135,7 @@ static int GetVSDBEntry(VSDBStatePtr dbstateptr, VSDBEntryUUID_t *dbentry) {
 	int result;
 	
 	dbstateptr->recordPosition = lseek(dbstateptr->dbfile, 0, SEEK_CUR);
-	result = read(dbstateptr->dbfile, &entry, sizeof(entry));
+	result = (int)read(dbstateptr->dbfile, &entry, sizeof(entry));
 	if ((result != sizeof(entry)) ||
 		(entry.keySeparator != DBKEYSEPARATOR) ||
 		(entry.space != DBBLANKSPACE) ||

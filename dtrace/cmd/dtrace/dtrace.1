@@ -975,6 +975,10 @@ Current interrupt level.  On Darwin, either 0 or 1.
 Current
 .Fn mach_absolute_time
 timestamp.
+.It Vt uint64_t Va machctimestamp Po Darwin-specific Pc
+Current
+.Fn mach_continuous_time
+timestamp.
 .It Vt pid_t Va pid
 Process ID of the current process.
 .It Vt pid_t Va ppid
@@ -1000,7 +1004,9 @@ Number of user space stack frames on the current thread.
 The current thread's register values immediately prior to the last
 transition from user to kernel execution.
 .Pa /usr/lib/dtrace/regs*
-provides contstants for the indicies of each register's value in the array.
+provides constants for the indices of each register's value in the array.
+.It Vt uint64_t Va vmregs[]
+The current virtual machine registers if available.
 .It Vt uint64_t Va vcycles Po Darwin-specific Pc
 Number of CPU cycles elapsed while running the current thread.  This value
 includes cycles elapsed while processing interrupts with this thread.  See
@@ -1027,7 +1033,7 @@ arguments accept either D
 .Vt string
 objects or pointers to C strings.  C strings are assumed to be terminated
 with a NUL (0) byte.
-DTrace pointers refer to kernel virtual address space unlesse otherwise
+DTrace pointers refer to kernel virtual address space unless otherwise
 indicated.
 .Pp
 A number of DTrace's subroutines return scratch objects.  These scratch
@@ -1107,14 +1113,14 @@ Convert
 .Fa hostshort
 from host byte order to network byte order.
 .It Ft int Fn index "const char* str, const char* searchstr, [int start]"
-Return the character offset of the first occurence of
+Return the character offset of the first occurrence of
 .Fa searchstr
 within
 .Fa str ,
 optionally starting the search at character offset
 .Fa start .
 .It Ft int Fn rindex "const char* str, const char* searchstr, [int start]"
-Return the character offset of the last occurence of the C string
+Return the character offset of the last occurrence of the C string
 .Fa searchstr
 within
 .Fa str ,
@@ -1127,7 +1133,7 @@ in dotted-decimal notation.
 .It Ft string Fn inet_ntoa6 "struct in6_addr* addr"
 Create a scratch string representing the IPv6 address pointed to by
 .Fa addr
-in zero-compressed double-colon hexadecimal notaion
+in zero-compressed double-colon hexadecimal notation
 .Pq specifically RFC 1884 convention 2 .
 .It Ft string Fn inet_ntop "int addrfamily, void *addr"
 Create a scratch string representing the IP address of type
@@ -1181,7 +1187,7 @@ leading to
 .Fa pid .
 .It Ft int Fn rand
 Return a positive pseudo-random number.  It is easy to predict these
-numbers so they should be be used for cryptographic purposes.
+numbers so they should not be used for cryptographic purposes.
 .It Ft int Fn speculation
 Create a speculative buffer for use with
 .Fn speculate ,
@@ -1202,7 +1208,7 @@ If
 is not present, return NULL.
 .It Ft void* Fn strip "void *ptr, uint8_t key"
 On platforms that support encoded pointers, strips the pointer
-authentification bits from
+authentication bits from
 .Fa ptr
 to produce a valid pointer. Valid values for
 .Fa key
@@ -1271,6 +1277,10 @@ Copy
 .Fa str
 into a new scratch string, replacing all uppercase letters with their
 lowercase equivalents.
+.It Ft uint64_t Fn mtons "uint64_t time" Po Darwin-specific Pc
+Convert
+.Fa time
+from either machtimestamp or machctimestamp, into nanoseconds.
 .It Ft string Fn toupper "const char* str"
 Copy
 .Fa str

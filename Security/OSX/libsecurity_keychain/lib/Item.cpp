@@ -331,7 +331,7 @@ DbAttributes* ItemImpl::getCurrentAttributes() {
 
 void ItemImpl::encodeAttributes(CssmOwnedData &attributeBlob) {
     // Sometimes we don't have our attributes. Find them.
-    auto_ptr<DbAttributes> dbAttributes(getCurrentAttributes());
+    unique_ptr<DbAttributes> dbAttributes(getCurrentAttributes());
     encodeAttributesFromDictionary(attributeBlob, dbAttributes.get());
 
 }
@@ -456,7 +456,7 @@ void ItemImpl::encodeAttributesFromDictionary(CssmOwnedData &attributeBlob, DbAt
 }
 
 void ItemImpl::computeDigest(CssmOwnedData &sha2) {
-    auto_ptr<DbAttributes> dbAttributes(getCurrentAttributes());
+    unique_ptr<DbAttributes> dbAttributes(getCurrentAttributes());
     ItemImpl::computeDigestFromDictionary(sha2, dbAttributes.get());
 }
 
@@ -593,7 +593,7 @@ bool ItemImpl::checkIntegrity(AclBearer& aclBearer) {
         return true;
     }
 
-    auto_ptr<DbAttributes> dbAttributes(getCurrentAttributes());
+    unique_ptr<DbAttributes> dbAttributes(getCurrentAttributes());
     return checkIntegrityFromDictionary(aclBearer, dbAttributes.get());
 }
 
@@ -607,7 +607,7 @@ bool ItemImpl::checkIntegrityFromDictionary(AclBearer& aclBearer, DbAttributes* 
         // them.
 
         AclEntryInfo &info = aclInfos.at(0);
-        auto_ptr<ACL> acl(new ACL(info, Allocator::standard()));
+        unique_ptr<ACL> acl(new ACL(info, Allocator::standard()));
 
         for(int i = 1; i < aclInfos.count(); i++) {
             secnotice("integrity", "*** DUPLICATE INTEGRITY ACL, something has gone wrong");
@@ -1073,7 +1073,7 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
     } catch (CssmError cssme) {
         // If there's a "duplicate" of this item, it might be an item with corrupt/invalid attributes
         // Try to extract the item and check its attributes, then try again if necessary
-        auto_ptr<CssmClient::DbAttributes> primaryKeyAttrs;
+        unique_ptr<CssmClient::DbAttributes> primaryKeyAttrs;
         if(cssme.error == CSSMERR_DL_INVALID_UNIQUE_INDEX_DATA) {
             secnotice("integrity", "possible duplicate, trying to delete invalid items");
 
@@ -1113,7 +1113,7 @@ ItemImpl::doChange(Keychain keychain, CSSM_DB_RECORDTYPE recordType, void (^tryC
 
                     // The item on-disk might have more or different attributes than we do, since we're
                     // only searching via primary key. Fetch all of its attributes.
-                    auto_ptr<DbAttributes>dbDupAttributes (new DbAttributes(kc->database(), 1));
+                    unique_ptr<DbAttributes>dbDupAttributes (new DbAttributes(kc->database(), 1));
                     fillDbAttributesFromSchema(*dbDupAttributes, recordType, kc);
 
                     // Occasionally this cursor won't return the item attributes (for an unknown reason).

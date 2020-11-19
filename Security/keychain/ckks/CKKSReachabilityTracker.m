@@ -71,7 +71,7 @@
                 STRONGIFY(self);
                 bool networkAvailable = (nw_path_get_status(path) == nw_path_status_satisfied);
 
-                secinfo("ckksnetwork", "nw_path update: network is %@", networkAvailable ? @"available" : @"unavailable");
+                ckksinfo_global("ckksnetwork", "nw_path update: network is %@", networkAvailable ? @"available" : @"unavailable");
                 [self _onqueueSetNetworkReachability:networkAvailable];
             });
             nw_path_monitor_start(self.networkMonitor);
@@ -112,14 +112,14 @@
     if(self.reachabilityDependency == nil || ![self.reachabilityDependency isPending]) {
         WEAKIFY(self);
 
-        secnotice("ckksnetwork", "Network unavailable");
+        ckksnotice_global("network", "Network unavailable");
         self.reachabilityDependency = [CKKSResultOperation named:@"network-available-dependency" withBlock: ^{
             STRONGIFY(self);
             if (self.haveNetwork) {
-                secnotice("ckksnetwork", "Network available");
+                ckksnotice_global("network", "Network available");
             } else {
-                secnotice("ckksnetwork", "Network still not available, retrying after waiting %2.1f hours",
-                        ((float)(REACHABILITY_TIMEOUT/NSEC_PER_SEC)) / 3600);
+                ckksnotice_global("network", "Network still not available, retrying after waiting %2.1f hours",
+                                  ((float)(REACHABILITY_TIMEOUT/NSEC_PER_SEC)) / 3600);
             }
         }];
 

@@ -185,7 +185,7 @@ ssl_test_handle_create(int comm, CFArrayRef certs)
 static void *securetransport_ssl_thread(void *arg)
 {
     OSStatus ortn;
-    int sock = (int)arg;
+    int sock = *((int*)arg);
 
     int socket = accept(sock, NULL, NULL);
 
@@ -244,7 +244,7 @@ tests(void)
     }
     //fprintf(stderr, "session_id: %d\n", session_id);
 
-    pthread_create(&server_thread, NULL, securetransport_ssl_thread, (void*)socket);
+    pthread_create(&server_thread, NULL, securetransport_ssl_thread, (void*)&socket);
 
     system("/usr/bin/openssl s_client -msg -debug -connect localhost:4443");
 

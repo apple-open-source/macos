@@ -1,0 +1,2 @@
+g/"-I$(PERL_INC)"/s//-idirafter "$(PERL_INC)"/
+w

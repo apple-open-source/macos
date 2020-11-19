@@ -34,21 +34,19 @@
 namespace WebCore {
 
 Color::Color(D2D1_COLOR_F color)
+    : Color(convertToComponentBytes(SRGBA { color.r, color.g, color.b, color.a }))
 {
-    setRGB(makeRGBA(color.r * 255, color.g * 255, color.b * 255, color.a * 255));
 }
 
 Color::operator D2D1_COLOR_F() const
 {
-    float colorAlpha = alpha() / 255.0f;
-
-    return D2D1::ColorF(rgb(), colorAlpha);
+    auto [r, g, b, a] = toSRGBALossy<float>();
+    return D2D1::ColorF(r, g, b, a);
 }
 
 Color::operator D2D1_VECTOR_4F() const
 {
-    float r, g, b, a;
-    getRGBA(r, g, b, a);
+    auto [r, g, b, a] = toSRGBALossy<float>();
     return D2D1::Vector4F(r, g, b, a);
 }
 

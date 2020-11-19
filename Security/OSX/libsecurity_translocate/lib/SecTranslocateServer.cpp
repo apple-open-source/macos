@@ -103,6 +103,28 @@ string TranslocatorServer::translocatePathForUser(const TranslocationPath &origi
     return newPath;
 }
 
+string TranslocatorServer::translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath)
+{
+    __block string newPath;
+    __block exception_ptr exception(0);
+    
+    dispatch_sync(syncQ, ^{
+        try
+        {
+            newPath = Security::SecTranslocate::translocatePathForUser(originalPath,destPath);
+        }
+        catch (...)
+        {
+            exception = current_exception();
+        }
+    });
+    if (exception)
+    {
+        rethrow_exception(exception);
+    }
+    return newPath;
+}
+
 // This is intended for use by the host process of the server if necessary
 // Destroy the translocation mount at translocatedPath if allowed
 bool TranslocatorServer::destroyTranslocatedPathForUser(const string &translocatedPath)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016, 2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2016, 2017, 2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,9 +23,13 @@
 
 #import "SCTest.h"
 #import "SCTestUtils.h"
+#import <notify.h>
+#import <SystemConfiguration/scprefs_observer.h>
 
 @interface SCTestPreferences : SCTest
 @property SCPreferencesRef prefs;
+@property dispatch_semaphore_t sem;
+@property int counter;
 @end
 
 @implementation SCTestPreferences
@@ -99,6 +103,8 @@
 	BOOL allUnitTestsPassed = YES;
 	allUnitTestsPassed &= [self unitTestNetworkServicesSanity];
 	allUnitTestsPassed &= [self unitTestPreferencesAPI];
+	allUnitTestsPassed &= [self unitTestPreferencesNotifications];
+	allUnitTestsPassed &= [self unitTestPreferencesObserver];
 	allUnitTestsPassed &= [self unitTestPreferencesSession];
 	return  allUnitTestsPassed;
 
@@ -234,32 +240,252 @@
 	return YES;
 }
 
+static void
+myNotificationsCallback(SCPreferencesRef prefs, SCPreferencesNotification notificationType, void *ctx)
+{
+#pragma unused(prefs)
+#pragma unused(notificationType)
+	SCTestPreferences *test = (__bridge SCTestPreferences *)ctx;
+	test.counter++;
+	if (test.sem != NULL) {
+		dispatch_semaphore_signal(test.sem);
+	}
+}
+
+- (BOOL)unitTestPreferencesNotifications
+{
+	dispatch_queue_t	callbackQ;
+	const int		iterations	= 10;
+	BOOL			ok		= FALSE;
+	SCTestPreferences	*test;
+	const int		timeout		= 1;	// second
+
+	test = [[SCTestPreferences alloc] initWithOptions:self.options];
+	if (test.prefs != NULL) {
+		CFRelease(test.prefs);
+		test.prefs = NULL;
+	}
+
+	test.sem = dispatch_semaphore_create(0);
+
+	SCPreferencesContext ctx = {0, (__bridge void * _Nullable)(test), CFRetain, CFRelease, NULL};
+	NSDictionary *prefsOptions = @{(__bridge NSString *)kSCPreferencesOptionRemoveWhenEmpty:(__bridge NSNumber *)kCFBooleanTrue};
+	test.prefs = SCPreferencesCreateWithOptions(NULL,
+						    CFSTR("SCTest"),
+						    CFSTR("SCTestPreferences.plist"),
+						    kSCPreferencesUseEntitlementAuthorization,
+						    (__bridge CFDictionaryRef)prefsOptions);
+	if (test.prefs == NULL) {
+		SCTestLog("Failed to create SCPreferences. Error: %s", SCErrorString(SCError()));
+		ok = FALSE;
+		goto done;
+	}
+
+	ok = SCPreferencesSetCallback(test.prefs, myNotificationsCallback, &ctx);
+	if (!ok) {
+		SCTestLog("Failed to set callback. Error: %s", SCErrorString(SCError()));
+		goto done;
+	}
+
+	callbackQ = dispatch_queue_create("SCTestPreferences callback queue", NULL);
+	ok = SCPreferencesSetDispatchQueue(test.prefs, callbackQ);
+	if (!ok) {
+		SCTestLog("Failed to set dispatch queue. Error: %s", SCErrorString(SCError()));
+		goto done;
+	}
+
+	for (int i = 0; i < iterations; i++) {
+		NSUUID *uuid = [NSUUID UUID];
+		ok = SCPreferencesSetValue(test.prefs, CFSTR("test"), (__bridge CFStringRef)uuid.UUIDString);
+		if (!ok) {
+			SCTestLog("Failed to set value. Error: %s", SCErrorString(SCError()));
+			goto done;
+		}
+		ok = SCPreferencesCommitChanges(test.prefs);
+		if (!ok) {
+			SCTestLog("Failed to commit change. Error: %s", SCErrorString(SCError()));
+			goto done;
+		}
+		if (dispatch_semaphore_wait(test.sem, dispatch_time(DISPATCH_TIME_NOW, timeout * NSEC_PER_SEC))) {
+			SCTestLog("Failed to get SCPreferences notification callback: #%d", i);
+			ok = FALSE;
+			goto done;
+		}
+	}
+
+	ok = SCPreferencesRemoveValue(test.prefs, CFSTR("test"));
+	if (!ok) {
+		SCTestLog("Failed to remove value. Error: %s", SCErrorString(SCError()));
+		goto done;
+	}
+	ok = SCPreferencesCommitChanges(test.prefs);
+	if (!ok) {
+		SCTestLog("Failed to commit change. Error: %s", SCErrorString(SCError()));
+		goto done;
+	}
+	if (dispatch_semaphore_wait(test.sem, dispatch_time(DISPATCH_TIME_NOW, timeout * NSEC_PER_SEC))) {
+		SCTestLog("Failed to get SCPreferences notification callback: cleanup");
+		ok = FALSE;
+		goto done;
+	}
+
+	ok = SCPreferencesSetDispatchQueue(test.prefs, NULL);
+	if (!ok) {
+		SCTestLog("Failed to clear dispatch queue. Error: %s", SCErrorString(SCError()));
+		goto done;
+	}
+
+	SCTestLog("Verified that %d SCPreferences notification callbacks were delivered", iterations);
+
+    done :
+
+	CFRelease(test.prefs);
+	test.prefs = NULL;
+
+	return ok;
+}
+
+#define	PREFS_OBSERVER_DOMAIN		"com.apple.sctest"
+#define	PREFS_OBSERVER_PLIST		PREFS_OBSERVER_DOMAIN ".plist"
+#define	MANAGED_PREFERENCES_PATH	"/Library/Managed Preferences"
+#if	!TARGET_OS_IPHONE
+#define	PREFS_OBSERVER_KEY		"com.apple.MCX._managementStatusChangedForDomains"
+#define PREFS_OBSERVER_TYPE		scprefs_observer_type_mcx
+#define MANAGED_PREFERENCES_USER	kCFPreferencesAnyUser
+#else
+#define	PREFS_OBSERVER_KEY		"com.apple.ManagedConfiguration.profileListChanged"
+#define PREFS_OBSERVER_TYPE		scprefs_observer_type_global
+#define	MANAGED_PREFERENCES_MOBILE_PATH	MANAGED_PREFERENCES_PATH "/mobile"
+#define MANAGED_PREFERENCES_USER	CFSTR("mobile")
+#endif
+
+#import <CoreFoundation/CFPreferences_Private.h>
+
+- (BOOL)unitTestPreferencesObserver
+{
+	dispatch_queue_t	callbackQ;
+	const int		iterations	= 10;
+	scprefs_observer_t	observer;
+	Boolean			ok		= FALSE;
+	SCTestPreferences	*test;
+	const int		timeout		= 1;	// second
+
+	test = [[SCTestPreferences alloc] initWithOptions:self.options];
+	if (test.prefs != NULL) {
+		CFRelease(test.prefs);
+		test.prefs = NULL;
+	}
+
+	test.sem = dispatch_semaphore_create(0);
+
+	callbackQ = dispatch_queue_create("SCTestPreferences callback queue", NULL);
+	observer = _scprefs_observer_watch(PREFS_OBSERVER_TYPE, PREFS_OBSERVER_PLIST, callbackQ, ^{
+		test.counter++;
+		if (test.sem != NULL) {
+			dispatch_semaphore_signal(test.sem);
+		}
+	});
+
+	NSDictionary *prefsOptions = @{(__bridge NSString *)kSCPreferencesOptionRemoveWhenEmpty:(__bridge NSNumber *)kCFBooleanTrue};
+	test.prefs = SCPreferencesCreateWithOptions(NULL,
+						    CFSTR("SCTest"),
+						    CFSTR(MANAGED_PREFERENCES_PATH "/" PREFS_OBSERVER_PLIST),
+						    NULL,
+						    (__bridge CFDictionaryRef)prefsOptions);
+	if (test.prefs == NULL) {
+		SCTestLog("Failed to create SCPreferences. Error: %s", SCErrorString(SCError()));
+		goto done;
+	}
+
+	// let's make sure that the "/Library/Managed Configuration[/mobile]" directory exists
+	mkdir(MANAGED_PREFERENCES_PATH, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+#if	TARGET_OS_IPHONE
+	mkdir(MANAGED_PREFERENCES_MOBILE_PATH, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH);
+#endif	// TARGET_OS_IPHONE
+
+	for (int i = 0; i < iterations; i++) {
+		// update prefs
+		NSUUID *uuid = [NSUUID UUID];
+		NSDictionary *keysAndValues = @{@"test" : uuid.UUIDString};
+		ok = _CFPreferencesWriteManagedDomain((__bridge CFDictionaryRef)keysAndValues,
+						      MANAGED_PREFERENCES_USER,
+						      FALSE,
+						      CFSTR(PREFS_OBSERVER_DOMAIN));
+		if (!ok) {
+			SCTestLog("Failed to write (update) managed preferences");
+			goto done;
+		}
+#if	TARGET_OS_IPHONE
+		notify_post(PREFS_OBSERVER_KEY);
+#endif	// TARGET_OS_IPHONE
+		if (dispatch_semaphore_wait(test.sem, dispatch_time(DISPATCH_TIME_NOW, timeout * NSEC_PER_SEC))) {
+			SCTestLog("Failed to get SCPreferences observer callback: #%d", i);
+			ok = FALSE;
+			goto done;
+		}
+	}
+
+	// post w/no changes
+	notify_post(PREFS_OBSERVER_KEY);
+	[test waitFor:0.01];		// delay after unrelated change
+
+	// zap prefs
+	ok = _CFPreferencesWriteManagedDomain((__bridge CFDictionaryRef)[NSDictionary dictionary],
+					      MANAGED_PREFERENCES_USER,
+					      FALSE,
+					      CFSTR(PREFS_OBSERVER_DOMAIN));
+	if (!ok) {
+		SCTestLog("Failed to write (remove) managed preferences");
+		goto done;
+	}
+#if	TARGET_OS_IPHONE
+	notify_post(PREFS_OBSERVER_KEY);
+#endif	// TARGET_OS_IPHONE
+	if (dispatch_semaphore_wait(test.sem, dispatch_time(DISPATCH_TIME_NOW, timeout * NSEC_PER_SEC))) {
+		SCTestLog("Failed to get SCPreferences observer callback: cleanup");
+		ok = FALSE;
+		goto done;
+	}
+
+	SCTestLog("Verified that %d CF/SCPreferences observer callbacks were delivered", iterations);
+
+    done :
+
+	_scprefs_observer_cancel(observer);
+
+	// cleanup the "/Library/Managed Configuration[/mobile]" directory
+#if	TARGET_OS_IPHONE
+	rmdir(MANAGED_PREFERENCES_MOBILE_PATH);
+#endif	// TARGET_OS_IPHONE
+	rmdir(MANAGED_PREFERENCES_PATH);
+
+	return ok;
+}
+
 - (BOOL)unitTestPreferencesSession
 {
 	SCPreferencesRef prefs;
+
 	prefs = SCPreferencesCreate(kCFAllocatorDefault, CFSTR("SCTest"), NULL);
 	if (prefs == NULL) {
 		SCTestLog("Failed to create SCPreferences. Error: %s", SCErrorString(SCError()));
 		return NO;
-	} else {
-		CFRelease(prefs);
 	}
+	CFRelease(prefs);
 
 	prefs = SCPreferencesCreateWithOptions(kCFAllocatorDefault, CFSTR("SCTest"), NULL, kSCPreferencesUseEntitlementAuthorization, NULL);
 	if (prefs == NULL) {
 		SCTestLog("Failed to create SCPreferences w/options. Error: %s", SCErrorString(SCError()));
 		return NO;
-	} else {
-		CFRelease(prefs);
 	}
+	CFRelease(prefs);
 
 	prefs = SCPreferencesCreateWithAuthorization(kCFAllocatorDefault, CFSTR("SCTest"), NULL, kSCPreferencesUseEntitlementAuthorization);
 	if (prefs == NULL) {
 		SCTestLog("Failed to create SCPreferences w/options. Error: %s", SCErrorString(SCError()));
 		return NO;
-	} else {
-		CFRelease(prefs);
 	}
+	CFRelease(prefs);
 
 	SCTestLog("Verified that the preferences session can be created");
 	return YES;
@@ -283,10 +509,10 @@
 
 	prefsOptions = @{(__bridge NSString *)kSCPreferencesOptionRemoveWhenEmpty:(__bridge NSNumber *)kCFBooleanTrue};
 	test.prefs = SCPreferencesCreateWithOptions(kCFAllocatorDefault,
-							CFSTR("SCTest"),
-							CFSTR("SCTestPreferences.plist"),
-							kSCPreferencesUseEntitlementAuthorization,
-							(__bridge CFDictionaryRef)prefsOptions);
+						    CFSTR("SCTest"),
+						    CFSTR("SCTestPreferences.plist"),
+						    kSCPreferencesUseEntitlementAuthorization,
+						    (__bridge CFDictionaryRef)prefsOptions);
 	if (test.prefs == NULL) {
 		SCTestLog("Failed to create a preferences session. Error: %s", SCErrorString(SCError()));
 		return NO;
@@ -328,10 +554,10 @@
 
 	CFRelease(test.prefs);
 	test.prefs = SCPreferencesCreateWithOptions(kCFAllocatorDefault,
-							CFSTR("SCTest"),
-							CFSTR("SCTestPreferences.plist"),
-							kSCPreferencesUseEntitlementAuthorization,
-							(__bridge CFDictionaryRef)prefsOptions);
+						    CFSTR("SCTest"),
+						    CFSTR("SCTestPreferences.plist"),
+						    kSCPreferencesUseEntitlementAuthorization,
+						    (__bridge CFDictionaryRef)prefsOptions);
 	if (test.prefs == NULL) {
 		SCTestLog("Failed to create a preferences session. Error: %s", SCErrorString(SCError()));
 		return NO;
@@ -371,10 +597,10 @@
 
 	CFRelease(test.prefs);
 	test.prefs = SCPreferencesCreateWithOptions(kCFAllocatorDefault,
-							CFSTR("SCTest"),
-							CFSTR("SCTestPreferences.plist"),
-							kSCPreferencesUseEntitlementAuthorization,
-							(__bridge CFDictionaryRef)prefsOptions);
+						    CFSTR("SCTest"),
+						    CFSTR("SCTestPreferences.plist"),
+						    kSCPreferencesUseEntitlementAuthorization,
+						    (__bridge CFDictionaryRef)prefsOptions);
 	if (test.prefs == NULL) {
 		SCTestLog("Failed to create a preferences session. Error: %s", SCErrorString(SCError()));
 		return NO;

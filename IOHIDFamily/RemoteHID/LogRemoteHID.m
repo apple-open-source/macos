@@ -45,6 +45,12 @@ NSString * RemoteHIDCommandTypeToString (uint32_t cmdType)
         case HIDPacketTypeGetReport:
             cmdTypeStr= @"HIDPacketTypeGetReport";
             break;
+        case HIDPacketTypeAFKCommand:
+            cmdTypeStr= @"HIDPacketTypeAFKCommand";
+            break;
+        case HIDPacketTypeAFKReport:
+            cmdTypeStr= @"HIDPacketTypeAFKReport";
+            break;
         default:
             cmdTypeStr = [NSString stringWithFormat:@"Unknown (%d)", cmdType] ;
             break;
@@ -88,8 +94,10 @@ NSString * RemoteHIDPacketToString (NSData * data)
     NSMutableString * pktStr = [[NSMutableString alloc] initWithCapacity:4096];
     
     require_action_quiet(data.length >= (sizeof(HIDTransportHeader) + sizeof(HIDDeviceHeader)), exit, pktStr = nil);
+
+    HIDTransportHeader * transportHeader = (HIDTransportHeader *) (data.bytes);
     
-    [pktStr appendFormat:@"{id:%u, len:%lu, ", *(uint32_t *)(data.bytes), (unsigned long)data.length];
+    [pktStr appendFormat:@"{v:%u id:%u, len:%lu, ", transportHeader->version.version, transportHeader->generation, (unsigned long)data.length];
     
     HIDDeviceHeader * packet =  (HIDDeviceHeader *) (data.bytes + sizeof(HIDTransportHeader));
     

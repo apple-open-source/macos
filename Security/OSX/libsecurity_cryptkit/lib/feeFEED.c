@@ -925,14 +925,6 @@ feeReturn feeFEEDDecryptBlock(feeFEED feed,
 		}
 
 		/*
-		 * we already know how long this should be...
-		 */
-		if(finst->initialRSSize != finst->initialRSSize) {
-   		    dbgLog(("feeFEEDDecryptBlock: initialRS sync error\n"));
-		    return FR_BadCipherText;
-		}
-
-		/*
 		 * Set up clues
 		 */
 		if(initFromRS(finst)) {

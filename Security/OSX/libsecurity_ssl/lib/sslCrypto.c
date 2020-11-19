@@ -32,7 +32,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
+#include "utilities/simulatecrash_assert.h"
 
 #include <Security/SecTrustPriv.h>
 #include <Security/SecPolicy.h>

@@ -84,40 +84,20 @@ exit:
     return iErr;
 }
 
-static void FATMOD_CopyFATCacheToAlter(FileSystemRecord_s *psFSRecord)
-{
-    for ( uint8_t FATCacheCounter = 0; FATCacheCounter < FAT_CACHE_SIZE; FATCacheCounter++ )
-    {
-        psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].bIsDirty = psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter].bIsDirty;
-        if (psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].bIsDirty) {
-            memcpy(psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].pvFatEntryCache, psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter].pvFatEntryCache, FAT_BLOCK_SIZE);
-            psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].uFatCacheEntryOffset = psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter].uFatCacheEntryOffset;
-            
-            psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter].bIsDirty = false;
-        } else {
-            psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter].uFatCacheEntryOffset = INVALID_CACHE_OFFSET(psFSRecord);
-        }
-    }
-}
-
 int
 FATMOD_FlushAllCacheEntries(FileSystemRecord_s *psFSRecord)
 {
     int iErr = 0;
-
-    pthread_mutex_lock(&psFSRecord->sFATCache.sAlterFatMutex);
     FAT_ACCESS_LOCK(psFSRecord);
-    FATMOD_CopyFATCacheToAlter(psFSRecord);
-    FAT_ACCESS_FREE(psFSRecord);
     
     // Flush all dirty entries that are in the cache
     for ( uint8_t FATCacheCounter = 0; FATCacheCounter < FAT_CACHE_SIZE; FATCacheCounter++ )
     {
         // Even if failed in writing one of the cache parts, continue try to flush all the rest in order to save as much as possible
-        iErr |= FAT_Access_M_FlushCacheEntry( psFSRecord, &psFSRecord->sFATCache.psAlterFATCacheEntries[FATCacheCounter] );
+        iErr |= FAT_Access_M_FlushCacheEntry( psFSRecord, &psFSRecord->sFATCache.psFATCacheEntries[FATCacheCounter] );
     }
 
-    pthread_mutex_unlock(&psFSRecord->sFATCache.sAlterFatMutex);
+    FAT_ACCESS_FREE(psFSRecord);
     return iErr;
 }
 
@@ -125,7 +105,7 @@ static int
 FAT_Access_M_GetFATCluster( FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psCacheEntry, uint32_t uBlockSize, uint64_t uBlockOffset )
 {
     int iErr = 0;
-
+    FAT_ACCESS_LOCK(psFSRecord);
     iErr = FAT_Access_M_FlushCacheEntry( psFSRecord, psCacheEntry );
     if ( iErr != 0 )
     {
@@ -144,6 +124,7 @@ FAT_Access_M_GetFATCluster( FileSystemRecord_s *psFSRecord, FatCacheEntry_s* psC
     psCacheEntry->uFatCacheEntryOffset = uBlockOffset;
     
 exit:
+    FAT_ACCESS_FREE(psFSRecord);
     return iErr;
 }
 
@@ -414,7 +395,7 @@ FAT_Access_M_SetClustersFatEntryContent( FileSystemRecord_s *psFSRecord, uint32_
 {
     int iErr            = 0;
     uint8_t* puEntry    = NULL;
-
+    FAT_ACCESS_LOCK(psFSRecord);
     iErr = FAT_Access_M_GetFatEntry( psFSRecord, uCluster, &puEntry );
     if ( iErr != 0 )
     {
@@ -426,6 +407,7 @@ FAT_Access_M_SetClustersFatEntryContent( FileSystemRecord_s *psFSRecord, uint32_
     FAT_Access_M_SetCacheEntryAsDirty( psFSRecord, uCluster );
 
 exit:
+    FAT_ACCESS_FREE(psFSRecord);
     return iErr;
 }
 
@@ -648,7 +630,7 @@ FAT_Access_M_GetFatEntry( FileSystemRecord_s *psFSRecord,uint32_t uClusterNum, u
     iErr = FAT_Access_M_GetFATCluster( psFSRecord, &psFATCache->psFATCacheEntries[uFATCacheCounter], uBlockSize, uBlockOffset );
     if (iErr)
     {
-        MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_GetFatEntry: fail to get fat cluster\n");
+        MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_GetFATCluster: fail to get fat cluster\n");
         *puEntry = NULL;
         goto exit;
     }
@@ -676,26 +658,12 @@ FAT_Access_M_FATInit(FileSystemRecord_s *psFSRecord)
     // Set attr to mutex_recursive.. as the lock can be call on the same thread recursively.
     pthread_mutexattr_settype( &sAttr, PTHREAD_MUTEX_RECURSIVE );
     pthread_mutex_init( &psFATCache->sFatMutex, &sAttr );
-    pthread_mutex_init( &psFATCache->sAlterFatMutex, &sAttr );
     
     pthread_mutexattr_destroy( &sAttr );
     
     for ( uint8_t uIdx = 0; uIdx < FAT_CACHE_SIZE; uIdx++ )
     {
         FatCacheEntry_s* psCacheEntry = &psFATCache->psFATCacheEntries[uIdx];
-
-        psCacheEntry->pvFatEntryCache       = NULL;
-        psCacheEntry->uLRUCounter           = 0;
-        psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
-        psCacheEntry->bIsDirty              = false;
-        psCacheEntry->pvFatEntryCache       = malloc(FAT_BLOCK_SIZE);
-        if ( psCacheEntry->pvFatEntryCache == NULL )
-        {
-            iErr = ENOMEM;
-            goto exit;
-        }
-        
-        psCacheEntry = &psFATCache->psAlterFATCacheEntries[uIdx];
 
         psCacheEntry->pvFatEntryCache       = NULL;
         psCacheEntry->uLRUCounter           = 0;
@@ -734,17 +702,10 @@ FAT_Access_M_FATFini(FileSystemRecord_s *psFSRecord)
         psCacheEntry->pvFatEntryCache       = NULL;
         psCacheEntry->uLRUCounter           = 0;
         psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
-        
-        psCacheEntry = &psFATCache->psAlterFATCacheEntries[uIdx];
-        if (psCacheEntry->pvFatEntryCache) free(psCacheEntry->pvFatEntryCache);
-        psCacheEntry->pvFatEntryCache       = NULL;
-        psCacheEntry->uLRUCounter           = 0;
-        psCacheEntry->uFatCacheEntryOffset  = INVALID_CACHE_OFFSET(psFSRecord);
     }
     
     //Destroy FAT mutex
     pthread_mutex_destroy( &psFATCache->sFatMutex );
-    pthread_mutex_destroy( &psFATCache->sAlterFatMutex );
 }
 
 /*
@@ -1022,6 +983,8 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
     uint32_t uCounter                       = 0;
     uint32_t uStartCluster                  = uLastKnownCluster;
 
+    *puFirstAllocatedCluster = 0;
+
     FAT_ACCESS_LOCK(psFSRecord);
     NewAllocatedClusterInfo_s* psNewAllocatedClusterInfo = NULL;
     bool bShouldStopAllocation = false;
@@ -1030,7 +993,7 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
     {
         iErr = FAT_Access_M_ContClusterAllocate( psFSRecord, uStartCluster, uClustToAlloc, FAT_EOF(psFSRecord), &uFirstNewCluster, &uSucNum, bMustBeContiguousAllocation);
         
-        if ( iErr != 0 )
+        if ( iErr != 0 || !CLUSTER_IS_VALID(uFirstNewCluster, psFSRecord))
         {
             if ( uCounter > 0 )
             {
@@ -1158,16 +1121,20 @@ FAT_Access_M_AllocateClusters( FileSystemRecord_s *psFSRecord, uint32_t uClustTo
     goto exit;
     
 fail:
-    FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
+    MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_AllocateClusters: got error during cluster allocation\n");
+    if (CLUSTER_IS_VALID(*puFirstAllocatedCluster, psFSRecord)) {
+        FAT_Access_M_FATChainFree( psFSRecord, *puFirstAllocatedCluster, false );
+    } else {
+        MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_AllocateClusters: got bad cluster\n");
+    }
 
-    if ( uLastKnownCluster != 0 )
-    {
+    if ( uLastKnownCluster != 0 ) {
         FAT_Access_M_SetClustersFatEntryContent( psFSRecord, uLastKnownCluster, FAT_EOF(psFSRecord));
     }
-    
+
 exit:
     FAT_ACCESS_FREE(psFSRecord);
-        
+
     return iErr;
 }
 

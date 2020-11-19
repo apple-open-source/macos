@@ -40,6 +40,29 @@
 #define kBuiltinStartSection               "__kmod_start"
 #endif
 
+#ifndef LC_REQ_DYLD
+#define LC_REQ_DYLD 0x80000000
+#endif
+
+#ifndef LC_FILESET_ENTRY
+#define LC_FILESET_ENTRY      (0x35 | LC_REQ_DYLD) /* used with fileset_entry_command */
+struct fileset_entry_command {
+    uint32_t        cmd;        /* LC_FILESET_ENTRY */
+    uint32_t        cmdsize;    /* includes id string */
+    uint64_t        vmaddr;     /* memory address of the dylib */
+    uint64_t        fileoff;    /* file offset of the dylib */
+    union lc_str    entry_id;   /* contained entry id */
+    uint32_t        reserved;   /* entry_id is 32-bits long, so this is the reserved padding */
+};
+#endif
+#ifndef LC_DYLD_CHAINED_FIXUPS
+#define LC_DYLD_CHAINED_FIXUPS (0x34 | LC_REQ_DYLD) /* used with linkedit_data_command */
+#endif
+
+#ifndef MH_FILESET
+#define MH_FILESET 0xc
+#endif
+
 struct ImageInfo
 {
     const UInt8 * kcImagePtr;
@@ -81,7 +104,7 @@ static void printPrelinkInfoDict(KclistArgs *toolArgs, CFDictionaryRef prelinkIn
 static void printJSON(KclistArgs *toolArgs, struct ImageInfo * ki, struct kcmap *kcmap, CFPropertyListRef kcInfoPlist);
 static void printJSONSegments(KclistArgs *toolArgs, void *mhpv, bool mh_is_64);
 static off_t getKCFileOffset(struct kcmap *kcmap, uint64_t va_ofst);
-static void printMachOHeader(const UInt8 *imagePtr, CFIndex imageSize);
+static void printMachOHeader(KclistArgs *toolArgs, const UInt8 *imagePtr, CFIndex imageSize, const char *descrip, const char *_pfx);
 
 /*******************************************************************************
 * Program Globals
@@ -213,7 +236,7 @@ int main(int argc, char * const argv[])
         ki->kcImageSize = CFDataGetLength(kernelcacheImage);
 
         if (toolArgs.printMachO)
-            printMachOHeader(ki->kcImagePtr, CFDataGetLength(kernelcacheImage));
+            printMachOHeader(&toolArgs, ki->kcImagePtr, CFDataGetLength(kernelcacheImage), "kernelcache", "");
 
         if (ISMACHO64(MAGIC32(ki->kcImagePtr))) {
             ki->machoBits = 64;
@@ -1733,6 +1756,18 @@ static const char * getSegmentCommandName(uint32_t theSegCommand)
         case LC_SEGMENT_SPLIT_INFO:
             theResult = "LC_SEGMENT_SPLIT_INFO";
             break;
+        case LC_FILESET_ENTRY:
+            theResult = "LC_FILESET_ENTRY";
+            break;
+        case LC_UNIXTHREAD:
+            theResult = "LC_UNIXTHREAD";
+            break;
+        case LC_BUILD_VERSION:
+            theResult = "LC_BUILD_VERSION";
+            break;
+        case LC_DYLD_CHAINED_FIXUPS:
+            theResult = "LC_DYLD_CHAINED_FIXUPS";
+            break;
         default:
             theResult = "Unknown";
             break;
@@ -1912,27 +1947,29 @@ static off_t getKCFileOffset(struct kcmap *kcmap, uint64_t va_ofst)
     return 0;
 }
 
-
-static void printMachOHeader(const UInt8 *imagePtr, CFIndex imageSize)
+static void printMachOHeader(KclistArgs *toolArgs, const UInt8 *imagePtr, CFIndex imageSize, const char *descrip, const char *_pfx)
 {
     uint64_t i;
 
-    printf("[macho] kernelcache @%p + %d\n", imagePtr, (uint32_t)imageSize);
+    printf("%s[macho] %s @%p + %d\n", _pfx, descrip, imagePtr, (uint32_t)imageSize);
 
     if (ISMACHO64(MAGIC32(imagePtr))) {
-        struct mach_header_64 *     kext_header;
-        struct segment_command_64 * seg_cmd;
+        struct mach_header_64 *kext_header;
+        struct load_command *lc;
         uintptr_t last_cmd;
 
         kext_header = (struct mach_header_64 *)imagePtr;
-        seg_cmd = (struct segment_command_64 *) ((uintptr_t)kext_header + sizeof(*kext_header));
-        printf("[macho] header: "
-               "magic = 0x%0.4x, "
-               "ncmds = %d, "
-               "sizeofcmds = %d\n",
-               kext_header->magic, kext_header->ncmds, kext_header->sizeofcmds);
+        lc = (struct load_command *)((uintptr_t)kext_header + sizeof(*kext_header));
+        printf("%s[macho] header: "
+               "magic:0x%0.4x, "
+               "ncmds:%d, "
+               "sizeofcmds:%d, "
+               "filetype:0x%x, "
+               "flags:0x%x"
+               "\n", _pfx,
+               kext_header->magic, kext_header->ncmds, kext_header->sizeofcmds, kext_header->filetype, kext_header->flags);
 
-        last_cmd = (uintptr_t)seg_cmd + (kext_header->ncmds * sizeof(*seg_cmd));
+        last_cmd = (uintptr_t)lc + (kext_header->ncmds * sizeof(*lc));
         if (last_cmd > (uintptr_t)imagePtr + imageSize) {
             fprintf(stderr, "[macho] ERROR: header points off the end of the image!\n");
             fprintf(stderr, "[macho] header@%p, sz:%d, ncmds:%d, last_cmd@%p\n",
@@ -1941,32 +1978,41 @@ static void printMachOHeader(const UInt8 *imagePtr, CFIndex imageSize)
         }
 
         for (i = 0; i < kext_header->ncmds; i++) {
-            if (seg_cmd->cmd == LC_SEGMENT_64) {
-                printf("[macho] cmd 0x%02X '%s' segment '%s' vmaddr %p vmsize %llu fileoff %llu filesize %llu nsects %u\n",
+	    if (lc->cmd == LC_SEGMENT_64) {
+		struct segment_command_64 *seg_cmd = (struct segment_command_64 *)(uintptr_t)lc;
+                printf("%s[macho] cmd 0x%02X '%s' segment '%s' vmaddr:%p vmsize:%llu initprot:0x%x maxprot:0x%x fileoff:%llu filesize:%llu nsects:%u flags:0x%x\n",
+                       _pfx,
                        seg_cmd->cmd,
                        getSegmentCommandName(seg_cmd->cmd),
-                       seg_cmd->segname[0] ? seg_cmd->segname : "none",
+                       seg_cmd->segname[0] ? seg_cmd->segname : "<none>",
                        (void *)seg_cmd->vmaddr,
                        seg_cmd->vmsize,
+                       seg_cmd->initprot,
+                       seg_cmd->maxprot,
                        seg_cmd->fileoff,
                        seg_cmd->filesize,
-                       seg_cmd->nsects);
+                       seg_cmd->nsects,
+                       seg_cmd->flags);
 
                 struct section_64 *sect = NULL;
                 u_int j = 0;
-                sect = (struct section_64 *) (&seg_cmd[1]);
+                sect = (struct section_64 *)(&seg_cmd[1]);
                 for (j = 0; j < seg_cmd->nsects; ++j, ++sect) {
-                    printf("[macho]   `-> sectname '%s' addr %p size %llu offset %u reloff %u nreloc %u\n",
-                           sect->sectname[0] ? sect->sectname : "none",
+                    printf("%s[macho]   `-> sectname '%s,%s' addr:%p size:%llu offset:%u reloff:%u nreloc:%u flags:0x%x\n",
+                           _pfx,
+                           sect->segname[0] ? sect->segname : "<none>",
+                           sect->sectname[0] ? sect->sectname : "<none>",
                            (void *)sect->addr,
                            sect->size,
                            sect->offset,
                            sect->reloff,
-                           sect->nreloc);
+                           sect->nreloc,
+                           sect->flags);
                 }
-            } else if (seg_cmd->cmd == LC_SYMTAB) {
-                struct symtab_command * symtab_cmd = (struct symtab_command *) seg_cmd;
-                printf("[macho] cmd 0x%02X '%s' cmdsize %u symoff %u nsyms %u stroff %u strsize %u\n",
+            } else if (lc->cmd == LC_SYMTAB) {
+                struct symtab_command * symtab_cmd = (struct symtab_command *)(uintptr_t)lc;
+                printf("%s[macho] cmd 0x%02X '%s' cmdsize:%u symoff:%u nsyms:%u stroff:%u strsize:%u\n",
+                       _pfx,
                        symtab_cmd->cmd,
                        getSegmentCommandName(symtab_cmd->cmd),
                        symtab_cmd->cmdsize,
@@ -1974,9 +2020,10 @@ static void printMachOHeader(const UInt8 *imagePtr, CFIndex imageSize)
                        symtab_cmd->nsyms,
                        symtab_cmd->stroff,
                        symtab_cmd->strsize);
-            } else if (seg_cmd->cmd == LC_DYSYMTAB) {
-                struct dysymtab_command * dsymtab_cmd = (struct dysymtab_command *) seg_cmd;
-                printf("[macho] cmd 0x%02X '%s' cmdsize %u ilocalsym %u nlocalsym %u iextdefsym %u nextdefsym %u\n",
+            } else if (lc->cmd == LC_DYSYMTAB) {
+                struct dysymtab_command * dsymtab_cmd = (struct dysymtab_command *)(uintptr_t)lc;
+                printf("%s[macho] cmd 0x%02X '%s' cmdsize:%u ilocalsym:%u nlocalsym:%u iextdefsym:%u nextdefsym:%u\n",
+                       _pfx,
                        dsymtab_cmd->cmd,
                        getSegmentCommandName(dsymtab_cmd->cmd),
                        dsymtab_cmd->cmdsize,
@@ -1984,7 +2031,8 @@ static void printMachOHeader(const UInt8 *imagePtr, CFIndex imageSize)
                        dsymtab_cmd->nlocalsym,
                        dsymtab_cmd->iextdefsym,
                        dsymtab_cmd->nextdefsym);
-                printf("                 '%s' iundefsym %u nundefsym %u tocoff %u ntoc %u modtaboff %u nmodtab %u\n",
+                printf("%s                 '%s' iundefsym:%u nundefsym:%u tocoff:%u ntoc:%u modtaboff:%u nmodtab:%u\n",
+                       _pfx,
                        getSegmentCommandName(dsymtab_cmd->cmd),
                        dsymtab_cmd->iundefsym,
                        dsymtab_cmd->nundefsym,
@@ -1992,35 +2040,83 @@ static void printMachOHeader(const UInt8 *imagePtr, CFIndex imageSize)
                        dsymtab_cmd->ntoc,
                        dsymtab_cmd->modtaboff,
                        dsymtab_cmd->nmodtab);
-                printf("                 '%s' extrefsymoff %u nextrefsyms %u indirectsymoff %u nindirectsyms %u\n",
+                printf("%s                 '%s' extrefsymoff:%u nextrefsyms:%u indirectsymoff:%u nindirectsyms:%u\n",
+                       _pfx,
                        getSegmentCommandName(dsymtab_cmd->cmd),
                        dsymtab_cmd->extrefsymoff,
                        dsymtab_cmd->nextrefsyms,
                        dsymtab_cmd->indirectsymoff,
                        dsymtab_cmd->nindirectsyms);
-                printf("                 '%s' extreloff %u nextrel %u locreloff %u nlocrel %u\n",
+                printf("%s                 '%s' extreloff:%u nextrel:%u locreloff:%u nlocrel:%u\n",
+                       _pfx,
                        getSegmentCommandName(dsymtab_cmd->cmd),
                        dsymtab_cmd->extreloff,
                        dsymtab_cmd->nextrel,
                        dsymtab_cmd->locreloff,
                        dsymtab_cmd->nlocrel);
-            } else if (seg_cmd->cmd == LC_SEGMENT_SPLIT_INFO) {
-                struct linkedit_data_command * lc = (struct linkedit_data_command *) seg_cmd;
-                printf("[macho] cmd 0x%02X '%s' cmdsize %u dataoff %u datasize %u\n",
-                       seg_cmd->cmd,
-                       getSegmentCommandName(seg_cmd->cmd),
-                       lc->cmdsize,
-                       lc->dataoff,
-                       lc->datasize);
+            } else if (lc->cmd == LC_SEGMENT_SPLIT_INFO ||lc->cmd == LC_DYLD_CHAINED_FIXUPS) {
+                struct linkedit_data_command *ldc = (struct linkedit_data_command *)(uintptr_t)lc;
+                printf("%s[macho] cmd 0x%02X '%s' cmdsize:%u dataoff:%u datasize:%u\n",
+                       _pfx,
+                       ldc->cmd,
+                       getSegmentCommandName(ldc->cmd),
+                       ldc->cmdsize,
+                       ldc->dataoff,
+                       ldc->datasize);
+            } else if (lc->cmd == LC_FILESET_ENTRY) {
+	            struct fileset_entry_command *fse = (struct fileset_entry_command *)(uintptr_t)lc;
+	            const char *fse_entry = (const char *)((uintptr_t)fse + (uintptr_t)fse->entry_id.offset);
+                printf("%s[macho] cmd 0x%02X '%s' cmdsize:%u vmaddr:%p fileoff:%llu entry:%s\n",
+                       _pfx,
+                       fse->cmd,
+                       getSegmentCommandName(fse->cmd),
+                       fse->cmdsize,
+                       (void *)fse->vmaddr,
+                       fse->fileoff,
+                       fse_entry);
+                if (toolArgs->verbose) {
+                    struct mach_header_64 *_mh = (uintptr_t)imagePtr + (uintptr_t)fse->fileoff;
+                    printMachOHeader(toolArgs, (const UInt8 *)(uintptr_t)_mh, imageSize, fse_entry, "        |");
+                }
+            } else if (lc->cmd == LC_UUID) {
+                struct uuid_command *uc = (struct uuid_command *)(uintptr_t)lc;
+                printf("%s[macho] cmd 0x%02X '%s' cmdsize:%u ",
+                       _pfx,
+                       uc->cmd,
+                       getSegmentCommandName(uc->cmd),
+                       uc->cmdsize);
+                for (unsigned long b = 0; b < sizeof(uc->uuid); b++) {
+                    printf("%02X", uc->uuid[b]);
+                    if (b > 0 && b % 4 == 0) { printf("-"); }
+                }
+                printf("\n");
+            } else if (lc->cmd == LC_BUILD_VERSION) {
+                struct build_version_command *bvc = (struct build_version_command *)(uintptr_t)lc;
+                uint32_t minX, minY, minZ;
+                uint32_t sdkX, sdkY, sdkZ;
+                minX = (bvc->minos & 0xffff0000) >> 16;
+                minY = (bvc->minos & 0x0000ff00) >> 8;
+                minZ = (bvc->minos & 0x000000ff);
+                sdkX = (bvc->sdk & 0xffff0000) >> 16;
+                sdkY = (bvc->sdk & 0x0000ff00) >> 8;
+                sdkZ = (bvc->sdk & 0x000000ff);
+                printf("%s[macho] cmd 0x%02X '%s' cmdsize:%u platform:%d minos:%d.%d.%d sdk %d.%d.%d ntools:%d\n",
+                       _pfx,
+                       bvc->cmd,
+                       getSegmentCommandName(bvc->cmd),
+                       bvc->cmdsize,
+                       bvc->platform,
+                       minX, minY, minZ,
+                       sdkX, sdkY, sdkZ,
+                       bvc->ntools);
             } else {
-                printf("[macho] cmd 0x%02X '%s' cmdsize:%u vmaddr:0x%llx vmsize:0x%llx\n",
-                       seg_cmd->cmd,
-                       getSegmentCommandName(seg_cmd->cmd),
-                       seg_cmd->cmdsize,
-                       seg_cmd->vmaddr,
-                       seg_cmd->vmsize);
+                printf("%s[macho] cmd 0x%02X '%s' cmdsize:%u\n",
+                       _pfx,
+                       lc->cmd,
+                       getSegmentCommandName(lc->cmd),
+                       lc->cmdsize);
             }
-            seg_cmd = (struct segment_command_64 *) ((uintptr_t)seg_cmd + seg_cmd->cmdsize);
+            lc = (struct load_command *)((uintptr_t)lc + lc->cmdsize);
         } // for each macho command
     } else {
         struct mach_header *kext_header;

@@ -44,8 +44,6 @@ namespace fido {
 using namespace WebCore;
 using CBOR = cbor::CBORValue;
 
-constexpr size_t kResponseCodeLength = 1;
-
 static ProtocolVersion convertStringToProtocolVersion(const String& version)
 {
     if (version == kCtap2Version)
@@ -54,6 +52,19 @@ static ProtocolVersion convertStringToProtocolVersion(const String& version)
         return ProtocolVersion::kU2f;
 
     return ProtocolVersion::kUnknown;
+}
+
+Optional<cbor::CBORValue> decodeResponseMap(const Vector<uint8_t>& inBuffer)
+{
+    if (inBuffer.size() <= kResponseCodeLength || getResponseCode(inBuffer) != CtapDeviceResponseCode::kSuccess)
+        return WTF::nullopt;
+
+    Vector<uint8_t> buffer;
+    buffer.append(inBuffer.data() + 1, inBuffer.size() - 1);
+    Optional<CBOR> decodedResponse = cbor::CBORReader::read(buffer);
+    if (!decodedResponse || !decodedResponse->isMap())
+        return WTF::nullopt;
+    return decodedResponse;
 }
 
 CtapDeviceResponseCode getResponseCode(const Vector<uint8_t>& buffer)
@@ -87,23 +98,18 @@ static Vector<uint8_t> getCredentialId(const Vector<uint8_t>& authenticatorData)
 // checks for correct encoding format.
 RefPtr<AuthenticatorAttestationResponse> readCTAPMakeCredentialResponse(const Vector<uint8_t>& inBuffer, const AttestationConveyancePreference& attestation)
 {
-    if (inBuffer.size() <= kResponseCodeLength)
+    auto decodedMap = decodeResponseMap(inBuffer);
+    if (!decodedMap)
         return nullptr;
+    const auto& responseMap = decodedMap->getMap();
 
-    Vector<uint8_t> buffer;
-    buffer.append(inBuffer.data() + 1, inBuffer.size() - 1);
-    Optional<CBOR> decodedResponse = cbor::CBORReader::read(buffer);
-    if (!decodedResponse || !decodedResponse->isMap())
-        return nullptr;
-    const auto& decodedMap = decodedResponse->getMap();
-
-    auto it = decodedMap.find(CBOR(1));
-    if (it == decodedMap.end() || !it->second.isString())
+    auto it = responseMap.find(CBOR(1));
+    if (it == responseMap.end() || !it->second.isString())
         return nullptr;
     auto format = it->second.clone();
 
-    it = decodedMap.find(CBOR(2));
-    if (it == decodedMap.end() || !it->second.isByteString())
+    it = responseMap.find(CBOR(2));
+    if (it == responseMap.end() || !it->second.isByteString())
         return nullptr;
     auto authenticatorData = it->second.clone();
 
@@ -111,8 +117,8 @@ RefPtr<AuthenticatorAttestationResponse> readCTAPMakeCredentialResponse(const Ve
     if (credentialId.isEmpty())
         return nullptr;
 
-    it = decodedMap.find(CBOR(3));
-    if (it == decodedMap.end() || !it->second.isMap())
+    it = responseMap.find(CBOR(3));
+    if (it == responseMap.end() || !it->second.isMap())
         return nullptr;
     auto attStmt = it->second.clone();
 
@@ -135,17 +141,10 @@ RefPtr<AuthenticatorAttestationResponse> readCTAPMakeCredentialResponse(const Ve
 
 RefPtr<AuthenticatorAssertionResponse> readCTAPGetAssertionResponse(const Vector<uint8_t>& inBuffer)
 {
-    if (inBuffer.size() <= kResponseCodeLength)
+    auto decodedMap = decodeResponseMap(inBuffer);
+    if (!decodedMap)
         return nullptr;
-
-    Vector<uint8_t> buffer;
-    buffer.append(inBuffer.data() + 1, inBuffer.size() - 1);
-    Optional<CBOR> decodedResponse = cbor::CBORReader::read(buffer);
-
-    if (!decodedResponse || !decodedResponse->isMap())
-        return nullptr;
-
-    auto& responseMap = decodedResponse->getMap();
+    const auto& responseMap = decodedMap->getMap();
 
     auto it = responseMap.find(CBOR(1));
     if (it == responseMap.end() || !it->second.isMap())
@@ -166,6 +165,7 @@ RefPtr<AuthenticatorAssertionResponse> readCTAPGetAssertionResponse(const Vector
         return nullptr;
     auto& signature = it->second.getByteString();
 
+    RefPtr<AuthenticatorAssertionResponse> response;
     it = responseMap.find(CBOR(4));
     if (it != responseMap.end() && it->second.isMap()) {
         auto& user = it->second.getMap();
@@ -173,23 +173,38 @@ RefPtr<AuthenticatorAssertionResponse> readCTAPGetAssertionResponse(const Vector
         if (itr == user.end() || !itr->second.isByteString())
             return nullptr;
         auto& userHandle = itr->second.getByteString();
-        return AuthenticatorAssertionResponse::create(credentialId, authData, signature, userHandle);
+        response = AuthenticatorAssertionResponse::create(credentialId, authData, signature, userHandle);
+
+        itr = user.find(CBOR(kEntityNameMapKey));
+        if (itr != user.end()) {
+            if (!itr->second.isString())
+                return nullptr;
+            response->setName(itr->second.getString());
+        }
+
+        itr = user.find(CBOR(kDisplayNameMapKey));
+        if (itr != user.end()) {
+            if (!itr->second.isString())
+                return nullptr;
+            response->setDisplayName(itr->second.getString());
+        }
+    } else {
+        response = AuthenticatorAssertionResponse::create(credentialId, authData, signature, { });
     }
 
-    return AuthenticatorAssertionResponse::create(credentialId, authData, signature, { });
+    it = responseMap.find(CBOR(5));
+    if (it != responseMap.end() && it->second.isUnsigned())
+        response->setNumberOfCredentials(it->second.getUnsigned());
+
+    return response;
 }
 
 Optional<AuthenticatorGetInfoResponse> readCTAPGetInfoResponse(const Vector<uint8_t>& inBuffer)
 {
-    if (inBuffer.size() <= kResponseCodeLength || getResponseCode(inBuffer) != CtapDeviceResponseCode::kSuccess)
+    auto decodedMap = decodeResponseMap(inBuffer);
+    if (!decodedMap)
         return WTF::nullopt;
-
-    Vector<uint8_t> buffer;
-    buffer.append(inBuffer.data() + 1, inBuffer.size() - 1);
-    Optional<CBOR> decodedResponse = cbor::CBORReader::read(buffer);
-    if (!decodedResponse || !decodedResponse->isMap())
-        return WTF::nullopt;
-    const auto& responseMap = decodedResponse->getMap();
+    const auto& responseMap = decodedMap->getMap();
 
     auto it = responseMap.find(CBOR(1));
     if (it == responseMap.end() || !it->second.isArray())

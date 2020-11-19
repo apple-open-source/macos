@@ -74,9 +74,7 @@
 {
     [super reset];
     [_resetTarget performSelector:_resetAction withObject:self];
-#if ENABLE(POINTER_EVENTS) 
     _lastActiveTouchIdentifier = nil;
-#endif
     _lastTouchedScrollView = nil;
 }
 
@@ -95,11 +93,9 @@
 - (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
     [super touchesEnded:touches withEvent:event];
-#if ENABLE(POINTER_EVENTS)
     if (!_supportingWebTouchEventsGestureRecognizer)
         return;
 
-    // FIXME: <rdar://problem/48035706>
     NSMapTable<NSNumber *, UITouch *> *activeTouches = [_supportingWebTouchEventsGestureRecognizer activeTouchesByIdentifier];
     for (NSNumber *touchIdentifier in activeTouches) {
         UITouch *touch = [activeTouches objectForKey:touchIdentifier];
@@ -108,7 +104,6 @@
             break;
         }
     }
-#endif
 }
 
 - (UIScrollView *)lastTouchedScrollView

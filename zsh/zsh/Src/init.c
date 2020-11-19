@@ -45,7 +45,10 @@ int noexitct = 0;
 char *zunderscore;
 
 /**/
-int underscorelen, underscoreused;
+size_t underscorelen;
+
+/**/
+int underscoreused;
 
 /* what level of sourcing we are at */
  
@@ -134,7 +137,7 @@ loop(int toplevel, int justonce)
 		else
 		    stophist = hstop;
 		/*
-		 * Reset all errors, including user interupts.
+		 * Reset all errors, including user interrupts.
 		 * This is what allows ^C in an interactive shell
 		 * to return us to the command line.
 		 */
@@ -158,7 +161,7 @@ loop(int toplevel, int justonce)
 		 * Handle that now.
 		 */
 		stopmsg = 1;
-		zexit(exit_val, 0);
+		zexit(exit_val, ZEXIT_NORMAL);
 	    }
 	    if (tok == LEXERR && !lastval)
 		lastval = 1;
@@ -200,7 +203,7 @@ loop(int toplevel, int justonce)
 		 * that would be inconsistent with the case where
 		 * we didn't execute a preexec function.  This is
 		 * an implementation detail that an interrupting user
-		 * does't care about.
+		 * doesn't care about.
 		 */
 		errflag &= ~ERRFLAG_ERROR;
 	    }
@@ -359,7 +362,7 @@ static void parseopts_setemulate(char *nam, int flags)
  * Parse shell options.
  *
  * If (flags & PARSEARGS_TOPLEVEL):
- * - we are doing shell initilisation
+ * - we are doing shell initialisation
  * - nam is the name under which the shell was started
  * - set up emulation and standard options based on that.
  * Otherwise:
@@ -879,7 +882,7 @@ setupvals(char *cmd, char *runscript, char *zsh_name)
     char *ptr;
     int i, j;
 #if defined(SITEFPATH_DIR) || defined(FPATH_DIR) || defined (ADDITIONAL_FPATH) || defined(FIXED_FPATH_DIR)
-#define FPATH_NEEDS_INIT 1
+# define FPATH_NEEDS_INIT 1
     char **fpathptr;
 # if defined(FPATH_DIR) && defined(FPATH_SUBDIRS)
     char *fpath_subdirs[] = FPATH_SUBDIRS;
@@ -991,18 +994,29 @@ setupvals(char *cmd, char *runscript, char *zsh_name)
 # endif /* ADDITONAL_FPATH */
     fpath = fpathptr = (char **)zalloc((fpathlen+1)*sizeof(char *));
 # ifdef FIXED_FPATH_DIR
+    /* Zeroth: /usr/local/share/zsh/site-functions */
     *fpathptr++ = ztrdup(FIXED_FPATH_DIR);
     fpathlen--;
 # endif
 # ifdef SITEFPATH_DIR
+    /* First: the directory from --enable-site-fndir
+     *
+     * default: /usr/local/share/zsh/site-functions
+     * (but changeable by passing --prefix or --datadir to configure) */
     *fpathptr++ = ztrdup(SITEFPATH_DIR);
     fpathlen--;
 # endif /* SITEFPATH_DIR */
 # if defined(ADDITIONAL_FPATH)
+    /* Second: the directories from --enable-additional-fpath
+     * 
+     * default: empty list */
     for (j = 0; j < more_fndirs_len; j++)
 	*fpathptr++ = ztrdup(more_fndirs[j]);
 # endif
 # ifdef FPATH_DIR
+    /* Third: The directory from --enable-fndir
+     *
+     * default: /usr/local/share/zsh/${ZSH_VERSION}/functions */
 #  ifdef FPATH_SUBDIRS
 #   ifdef ADDITIONAL_FPATH
     for (j = more_fndirs_len; j < fpathlen; j++)
@@ -1010,7 +1024,7 @@ setupvals(char *cmd, char *runscript, char *zsh_name)
 #   else
     for (j = 0; j < fpathlen; j++)
 	*fpathptr++ = tricat(FPATH_DIR, "/", fpath_subdirs[j]);
-#endif
+#   endif
 #  else
     *fpathptr++ = ztrdup(FPATH_DIR);
 #  endif
@@ -1234,6 +1248,15 @@ init_signals(void)
 
     intr();
 
+#ifdef POSIX_SIGNALS
+    {
+	struct sigaction act;
+	if (!sigaction(SIGQUIT, NULL, &act) &&
+	    act.sa_handler == SIG_IGN)
+	    sigtrapped[SIGQUIT] = ZSIG_IGNORED;
+    }
+#endif
+
 #ifndef QDEBUG
     signal_ignore(SIGQUIT);
 #endif
@@ -1359,7 +1382,7 @@ init_misc(char *cmd, char *zsh_name)
 	bshin = fdopen(SHIN, "r");
 	execstring(cmd, 0, 1, "cmdarg");
 	stopmsg = 1;
-	zexit((exit_pending || shell_exiting) ? exit_val : lastval, 0);
+	zexit((exit_pending || shell_exiting) ? exit_val : lastval, ZEXIT_NORMAL);
     }
 
     if (interact && isset(RCS))
@@ -1772,20 +1795,20 @@ zsh_main(int argc, char **argv)
 	    if (!lastval)
 		lastval = 1;
 	    stopmsg = 1;
-	    zexit(lastval, 0);
+	    zexit(lastval, ZEXIT_NORMAL);
 	}
 	if (!(isset(IGNOREEOF) && interact)) {
 #if 0
 	    if (interact)
 		fputs(islogin ? "logout\n" : "exit\n", shout);
 #endif
-	    zexit(lastval, 0);
+	    zexit(lastval, ZEXIT_NORMAL);
 	    continue;
 	}
 	noexitct++;
 	if (noexitct >= 10) {
 	    stopmsg = 1;
-	    zexit(lastval, 0);
+	    zexit(lastval, ZEXIT_NORMAL);
 	}
 	/*
 	 * Don't print the message if it was already handled by

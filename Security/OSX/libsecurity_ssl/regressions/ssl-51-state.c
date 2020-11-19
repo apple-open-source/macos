@@ -46,9 +46,8 @@
 
 #define test_printf(x...)
 
-/* extern struct ccrng_state *ccDRBGGetRngState(); */
-#include <CommonCrypto/CommonRandomSPI.h>
-#define CCRNGSTATE ccDRBGGetRngState()
+#include <corecrypto/ccrng.h>
+#define CCRNGSTATE ccrng(NULL)
 
 struct RecQueueItem {
     STAILQ_ENTRY(RecQueueItem) next; /* link to next queued entry or NULL */

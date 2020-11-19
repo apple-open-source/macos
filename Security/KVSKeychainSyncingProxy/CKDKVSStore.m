@@ -19,6 +19,9 @@
 
 #import "Analytics/Clients/SOSAnalytics.h"
 
+#include "keychain/SecureObjectSync/SOSKVSKeys.h"
+#include <Security/OTConstants.h>
+
 struct CKDKVSCounters {
     uint64_t synchronize;
     uint64_t synchronizeWithCompletionHandler;
@@ -28,8 +31,6 @@ struct CKDKVSCounters {
     uint64_t longestWaittimeSynchronize;
     uint64_t synchronizeFailures;
 };
-
-
 
 @interface CKDKVSStore ()
 @property (readwrite, weak) UbiqitousKVSProxy* proxy;
@@ -45,20 +46,20 @@ struct CKDKVSCounters {
 }
 
 - (instancetype)init {
-    self = [super init];
+    if ((self = [super init])) {
 
-    self->_cloudStore = [NSUbiquitousKeyValueStore defaultStore];
-    self->_proxy = nil;
+        self->_cloudStore = [NSUbiquitousKeyValueStore defaultStore];
+        self->_proxy = nil;
 
-    if (!self.cloudStore) {
-        secerror("NO NSUbiquitousKeyValueStore defaultStore!!!");
-        return nil;
-    }
-    self.perfQueue = dispatch_queue_create("CKDKVSStorePerfQueue", NULL);
-    self.perfCounters = calloc(1, sizeof(struct CKDKVSCounters));
+        if (!self.cloudStore) {
+            secerror("NO NSUbiquitousKeyValueStore defaultStore!!!");
+            return nil;
+        }
+        self.perfQueue = dispatch_queue_create("CKDKVSStorePerfQueue", NULL);
+        self.perfCounters = calloc(1, sizeof(struct CKDKVSCounters));
     
-    [self setupSamplers];
-
+        [self setupSamplers];
+    }
     return self;
 }
 
@@ -106,11 +107,68 @@ struct CKDKVSCounters {
     }];
 }
 
-- (void)pushWrites {
-    [[self cloudStore] synchronize];
+
+- (void)forceSynchronizeWithKVS
+{
+    secnoticeq("pushWrites", "requesting force synchronization with KVS on CloudKit");
+
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+        NSError *error = nil;
+        bool success = [self pullUpdates:&error];
+        if(!success || error != nil) {
+            secerror("pushWrites: failed to synchronize with KVS: %@", error);
+        } else {
+            secnoticeq("pushWrites", "successfully synced with KVS!");
+        }
+    });
     dispatch_async(self.perfQueue, ^{
         self.perfCounters->synchronize++;
     });
+}
+
+- (void)pushWrites:(NSArray<NSString*>*)keys requiresForceSync:(BOOL)requiresForceSync
+{
+    secnoticeq("pushWrites", "Push writes");
+
+    if (SecKVSOnCloudKitIsEnabled() == NO) {
+        secnoticeq("pushWrites", "KVS on CloudKit not enabled");
+
+        [[self cloudStore] synchronize];
+        dispatch_async(self.perfQueue, ^{
+            self.perfCounters->synchronize++;
+        });
+        return;
+    }
+
+    if(requiresForceSync == YES) {
+        secnoticeq("pushWrites", "requested to force synchronize");
+        [self forceSynchronizeWithKVS];
+        return;
+    }
+    
+    //if KVS on CK is enabled we should only force sync rings, circles, and key parameters
+    secnoticeq("pushWrites", "KVS on CloudKit enabled. Evaluating changed keys");
+
+    if (keys == nil || [keys count] == 0){
+        secnoticeq("pushWrites", "key set is empty, returning");
+        return;
+    }
+
+    __block BOOL proceedWithSync = NO;
+    [keys enumerateObjectsUsingBlock:^(NSString *kvsKey, NSUInteger idx, BOOL *stop) {
+        if ([kvsKey containsString:(__bridge_transfer NSString*)sRingPrefix] ||
+            [kvsKey containsString:(__bridge_transfer NSString*)sCirclePrefix] ||
+            [kvsKey containsString:(__bridge_transfer NSString*)kSOSKVSKeyParametersKey]) {
+            proceedWithSync = YES;
+        }
+    }];
+
+    if (proceedWithSync == NO) {
+        secnoticeq("pushWrites", "no keys to force push, returning");
+        return;
+    }
+
+    [self forceSynchronizeWithKVS];
 }
 
 // Runs on the same thread that posted the notification, and that thread _may_ be the
@@ -217,8 +275,10 @@ struct CKDKVSCounters {
                 self.perfCounters->synchronize++;
             });
             secnotice("fresh", "%s RETURNING FROM syncdefaultsd SWCH: %@", kWAIT2MINID, self);
-            [[self cloudStore] synchronize]; // Per olivier in <rdar://problem/13412631>, sync before getting values
-            secnotice("fresh", "%s RETURNING FROM syncdefaultsd SYNC: %@", kWAIT2MINID, self);
+            if(SecKVSOnCloudKitIsEnabled() == NO) {
+                [[self cloudStore] synchronize]; // Per olivier in <rdar://problem/13412631>, sync before getting values
+                secnotice("fresh", "%s RETURNING FROM syncdefaultsd SYNC: %@", kWAIT2MINID, self);
+            }
         }
         dispatch_semaphore_signal(freshSemaphore);
     }];

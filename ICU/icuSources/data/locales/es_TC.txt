@@ -1,12 +1,15 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 Apple Inc. All Rights Reserved.
-// * Apple custom addition
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 es_TC{
     %%Parent{"es_419"}
-    Version{"2.1.22.17"}
+    NumberElements{
+        latn{
+            patterns{
+                percentFormat{"#,##0%"}
+            }
+        }
+    }
+    Version{"36.1"}
     calendar{
         gregorian{
             DateTimePatterns{

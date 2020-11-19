@@ -74,7 +74,7 @@ static void dispatchChildRemovalEvents(Ref<Node>&);
 ChildNodesLazySnapshot* ChildNodesLazySnapshot::latestSnapshot;
 
 unsigned ScriptDisallowedScope::s_count = 0;
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 ScriptDisallowedScope::EventAllowedScope* ScriptDisallowedScope::EventAllowedScope::s_currentScope = nullptr;
 #endif
 
@@ -630,12 +630,9 @@ void ContainerNode::replaceAllChildren(std::nullptr_t)
 }
 
 // https://dom.spec.whatwg.org/#concept-node-replace-all
-void ContainerNode::replaceAllChildren(Ref<Node>&& node)
+void ContainerNode::replaceAllChildrenWithNewText(const String& text)
 {
-    // This function assumes the input node is not a DocumentFragment and is parentless to decrease complexity.
-    ASSERT(!is<DocumentFragment>(node));
-    ASSERT(!node->parentNode());
-
+    auto node = document().createTextNode(text);
     if (!hasChildNodes()) {
         // appendChildWithoutPreInsertionValidityCheck() can only throw when node has a parent and we already asserted it doesn't.
         auto result = appendChildWithoutPreInsertionValidityCheck(node);
@@ -923,7 +920,7 @@ Element* ContainerNode::lastElementChild() const
 unsigned ContainerNode::childElementCount() const
 {
     auto children = childrenOfType<Element>(*this);
-    return std::distance(children.begin(), children.end());
+    return std::distance(children.begin(), { });
 }
 
 ExceptionOr<void> ContainerNode::append(Vector<NodeOrString>&& vector)
@@ -950,6 +947,38 @@ ExceptionOr<void> ContainerNode::prepend(Vector<NodeOrString>&& vector)
         return { };
 
     return insertBefore(*node, firstChild());
+}
+
+// https://dom.spec.whatwg.org/#dom-parentnode-replacechildren
+ExceptionOr<void> ContainerNode::replaceChildren(Vector<NodeOrString>&& vector)
+{
+    // step 1
+    auto result = convertNodesOrStringsIntoNode(WTFMove(vector));
+    if (result.hasException())
+        return result.releaseException();
+
+    RefPtr<Node> node = result.releaseReturnValue();
+    if (!node)
+        return { };
+
+    // step 2
+    auto validityCheckResult = ensurePreInsertionValidity(*node, nullptr);
+    if (validityCheckResult.hasException())
+        return validityCheckResult.releaseException();
+
+    // step 3
+    Ref<ContainerNode> protectedThis(*this);
+    ChildListMutationScope mutation(*this);
+    removeAllChildrenWithScriptAssertion(ChildChangeSource::API, DeferChildrenChanged::No);
+
+    auto insertResult = appendChildWithoutPreInsertionValidityCheck(*node);
+    if (insertResult.hasException())
+        return insertResult.releaseException();
+
+    rebuildSVGExtensionsElementsIfNecessary();
+    dispatchSubtreeModifiedEvent();
+
+    return { };
 }
 
 HTMLCollection* ContainerNode::cachedHTMLCollection(CollectionType type)

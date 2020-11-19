@@ -26,6 +26,7 @@
 #pragma once
 
 #include "DataReference.h"
+#include "PolicyDecision.h"
 #include "SandboxExtension.h"
 #include "UserData.h"
 #include "WebsitePoliciesData.h"
@@ -43,10 +44,10 @@ namespace WebKit {
 
 struct LoadParameters {
     void encode(IPC::Encoder&) const;
-    static bool decode(IPC::Decoder&, LoadParameters&);
+    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, LoadParameters&);
 
     void platformEncode(IPC::Encoder&) const;
-    static bool platformDecode(IPC::Decoder&, LoadParameters&);
+    static WARN_UNUSED_RETURN bool platformDecode(IPC::Decoder&, LoadParameters&);
 
     uint64_t navigationID;
 
@@ -69,9 +70,16 @@ struct LoadParameters {
     WebCore::LockHistory lockHistory { WebCore::LockHistory::No };
     WebCore::LockBackForwardList lockBackForwardList { WebCore::LockBackForwardList::No };
     String clientRedirectSourceForHistory;
+    Optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain;
 
 #if PLATFORM(COCOA)
     RetainPtr<NSDictionary> dataDetectionContext;
+    Optional<SandboxExtension::Handle> neHelperExtensionHandle;
+    Optional<SandboxExtension::Handle> neSessionManagerExtensionHandle;
+#endif
+#if PLATFORM(IOS)
+    Optional<SandboxExtension::Handle> contentFilterExtensionHandle;
+    Optional<SandboxExtension::Handle> frontboardServiceExtensionHandle;
 #endif
 };
 

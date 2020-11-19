@@ -79,6 +79,16 @@ command = {
 		type = "string"
 		argument = "server name used for validation"
 	}
+	option = {
+		long = "source-app-identifier"
+		type = "string"
+		argument = "source app identifier for per app vpn"
+	}
+	option = {
+		long = "source-app-audit-token"
+		type = "string"
+		argument = "file containing the audit token"
+	}
 	min_args = "0"
 	max_args = "1"
 	argument = "[user name]"
@@ -114,6 +124,11 @@ command = {
 		long = "all"
 		short = "A"
 		type = "flag"
+	}
+	option = {
+		long = "uuid"
+		type = "string"
+		argument = "cache entry"
 	}
 	name = "destroy"
 	argument = "[user name]"
@@ -225,6 +240,13 @@ command = {
 	}
 	name = "credentials-status"
 	help = "dump status of credentials available in caches"
+}
+command = {
+	name = "delete-all"
+	argument = "alt-dsid"
+	help = "delete all the credentials for the supplied altdsid"
+	max_args = "1"
+	min_args = "1"
 }
 command = {
 	name = "help"

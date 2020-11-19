@@ -240,6 +240,10 @@ static AvoidanceReasonFlags canUseForStyle(const RenderStyle& style, IncludeReas
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasNonAutoLineBreak, reasons, includeReasons);
     if (style.nbspMode() != NBSPMode::Normal)
         SET_REASON_AND_RETURN_IF_NEEDED(FlowHasWebKitNBSPMode, reasons, includeReasons);
+    // Special handling of text-security:disc is not yet implemented in the simple line layout code path.
+    // See RenderBlock::updateSecurityDiscCharacters.
+    if (style.textSecurity() != TextSecurity::None)
+        SET_REASON_AND_RETURN_IF_NEEDED(FlowHasTextSecurity, reasons, includeReasons);
     if (style.hyphens() == Hyphens::Auto) {
         auto textReasons = canUseForText(style.hyphenString(), style.fontCascade(), WTF::nullopt, false, includeReasons);
         if (textReasons != NoReason)
@@ -307,7 +311,7 @@ AvoidanceReasonFlags canUseForWithReason(const RenderBlockFlow& flow, IncludeRea
     // This currently covers <blockflow>#text</blockflow>, <blockflow>#text<br></blockflow> and mutiple (sibling) RenderText cases.
     // The <blockflow><inline>#text</inline></blockflow> case is also popular and should be relatively easy to cover.
     for (const auto* child = flow.firstChild(); child;) {
-        if (child->selectionState() != RenderObject::SelectionNone)
+        if (child->selectionState() != RenderObject::HighlightState::None)
             SET_REASON_AND_RETURN_IF_NEEDED(FlowChildIsSelected, reasons, includeReasons);
         if (is<RenderText>(*child)) {
             const auto& renderText = downcast<RenderText>(*child);
@@ -353,6 +357,30 @@ AvoidanceReasonFlags canUseForWithReason(const RenderBlockFlow& flow, IncludeRea
 bool canUseFor(const RenderBlockFlow& flow)
 {
     return canUseForWithReason(flow, IncludeReasons::First) == NoReason;
+}
+
+bool canUseForAfterStyleChange(const RenderBlockFlow& blockContainer, StyleDifference diff)
+{
+    switch (diff) {
+    case StyleDifference::Equal:
+    case StyleDifference::RecompositeLayer:
+        return true;
+    case StyleDifference::Repaint:
+    case StyleDifference::RepaintIfTextOrBorderOrOutline:
+    case StyleDifference::RepaintLayer:
+        // FIXME: We could do a more focused style check by matching RendererStyle::changeRequiresRepaint&co.
+        return canUseForStyle(blockContainer.style(), IncludeReasons::First) == NoReason;
+    case StyleDifference::LayoutPositionedMovementOnly:
+        return true;
+    case StyleDifference::SimplifiedLayout:
+    case StyleDifference::SimplifiedLayoutAndPositionedMovement:
+        return canUseForStyle(blockContainer.style(), IncludeReasons::First) == NoReason;
+    case StyleDifference::Layout:
+    case StyleDifference::NewStyle:
+        return canUseFor(blockContainer);
+    }
+    ASSERT_NOT_REACHED();
+    return canUseFor(blockContainer);
 }
 
 static void revertAllRunsOnCurrentLine(Layout::RunVector& runs)
@@ -789,7 +817,7 @@ static bool createLineRuns(LineState& line, const LineState& previousLine, Layou
         // Hard and soft linebreaks.
         if (fragment.isLineBreak()) {
             // Add the new line fragment only if there's nothing on the line. (otherwise the extra new line character would show up at the end of the content.)
-            if (line.isEmpty() || fragment.type() == TextFragmentIterator::TextFragment::HardLineBreak || preWrap(style)) {
+            if (line.isEmpty() || fragment.type() == TextFragmentIterator::TextFragment::HardLineBreak || preWrap(style) || style.preserveNewline) {
                 if (style.textAlign == TextAlignMode::Right || style.textAlign == TextAlignMode::WebKitRight)
                     line.removeTrailingWhitespace(runs);
                 line.appendFragmentAndCreateRunIfNeeded(fragment, runs);
@@ -874,8 +902,8 @@ static bool createLineRuns(LineState& line, const LineState& previousLine, Layou
 static ExpansionBehavior expansionBehavior(bool isAfterExpansion, bool lastRunOnLine)
 {
     ExpansionBehavior expansionBehavior;
-    expansionBehavior = isAfterExpansion ? ForbidLeadingExpansion : AllowLeadingExpansion;
-    expansionBehavior |= lastRunOnLine ? ForbidTrailingExpansion : AllowTrailingExpansion;
+    expansionBehavior = isAfterExpansion ? ForbidLeftExpansion : AllowLeftExpansion;
+    expansionBehavior |= lastRunOnLine ? ForbidRightExpansion : AllowRightExpansion;
     return expansionBehavior;
 }
 

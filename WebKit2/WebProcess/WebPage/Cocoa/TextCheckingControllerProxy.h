@@ -27,10 +27,10 @@
 
 #if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
 
-#include "AttributedString.h"
 #include "Connection.h"
 #include "EditingRange.h"
 #include "MessageReceiver.h"
+#include <WebCore/SimpleRange.h>
 #include <wtf/Vector.h>
 
 namespace IPC {
@@ -40,6 +40,7 @@ class Encoder;
 
 namespace WebCore {
 class VisiblePosition;
+struct AttributedString;
 }
 
 namespace WebKit {
@@ -52,21 +53,21 @@ public:
     TextCheckingControllerProxy(WebPage&);
     ~TextCheckingControllerProxy();
 
-    AttributedString annotatedSubstringBetweenPositions(const WebCore::VisiblePosition&, const WebCore::VisiblePosition&);
+    static WebCore::AttributedString annotatedSubstringBetweenPositions(const WebCore::VisiblePosition&, const WebCore::VisiblePosition&);
 
 private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
     struct RangeAndOffset {
-        RefPtr<WebCore::Range> range;
+        WebCore::SimpleRange range;
         size_t locationInRoot;    
     };
     Optional<RangeAndOffset> rangeAndOffsetRelativeToSelection(int64_t offset, uint64_t length);
 
     // Message handlers.
-    void replaceRelativeToSelection(AttributedString, int64_t selectionOffset, uint64_t length, uint64_t relativeReplacementLocation, uint64_t relativeReplacementLength);
-    void removeAnnotationRelativeToSelection(String annotationName, int64_t selectionOffset, uint64_t length);
+    void replaceRelativeToSelection(const WebCore::AttributedString&, int64_t selectionOffset, uint64_t length, uint64_t relativeReplacementLocation, uint64_t relativeReplacementLength);
+    void removeAnnotationRelativeToSelection(const String& annotationName, int64_t selectionOffset, uint64_t length);
 
     WebPage& m_page;
 };

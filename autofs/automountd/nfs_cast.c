@@ -120,7 +120,7 @@ enum clnt_stat
 nfs_cast(struct mapfs *mfs_in, struct mapfs **mfs_out, int timeout)
 {
 	struct servent *portmap;
-	enum clnt_stat clnt_stat;
+	enum clnt_stat clnt_stat = RPC_FAILED;
 	AUTH *sys_auth = authunix_create_default();
 	XDR xdr_stream;
 	register XDR *xdrs = &xdr_stream;
@@ -555,7 +555,7 @@ sort_responses(trans)
 	if (trace > 3) {
 		trace_prt(1, "  sort_responses: before host sort:\n");
 		for (i = 0; i < size; i++)
-			trace_prt(1, "    %s %d.%d\n", buffer[i].mfs->mfs_host,
+            trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
 			buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
 		trace_prt(0, "\n");
 	}
@@ -586,7 +586,7 @@ sort_responses(trans)
 	if (trace > 3) {
 		trace_prt(1, "  sort_responses: before time sort:\n");
 		for (i = 0; i < size; i++)
-			trace_prt(1, "    %s %d.%d\n", buffer[i].mfs->mfs_host,
+            trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
 			buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
 		trace_prt(0, "\n");
 	}
@@ -598,7 +598,7 @@ sort_responses(trans)
 	if (trace > 3) {
 		trace_prt(1, "  sort_responses: after sort:\n");
 		for (i = 0; i < size; i++)
-			trace_prt(1, "    %s %d.%d\n", buffer[i].mfs->mfs_host,
+            trace_prt(1, "    %s %ld.%d\n", buffer[i].mfs->mfs_host,
 			buffer[i].timeval.tv_sec, buffer[i].timeval.tv_usec);
 		trace_prt(0, "\n");
 	}

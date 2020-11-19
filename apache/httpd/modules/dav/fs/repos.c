@@ -1663,7 +1663,7 @@ static dav_error * dav_fs_walker(dav_fs_walker_context *fsctx, int depth)
         /* put a slash back on the end of the directory */
         fsctx->path1.buf[fsctx->path1.cur_len - 1] = '/';
 
-        /* these are all non-existant (files) */
+        /* these are all non-existent (files) */
         fsctx->res1.exists = 0;
         fsctx->res1.collection = 0;
         memset(&fsctx->info1.finfo, 0, sizeof(fsctx->info1.finfo));
@@ -2002,10 +2002,12 @@ static dav_prop_insert dav_fs_insert_prop(const dav_resource *resource,
     }
     else {
         /* assert: what == DAV_PROP_INSERT_SUPPORTED */
-        s = apr_psprintf(p,
-                         "<D:supported-live-property D:name=\"%s\" "
-                         "D:namespace=\"%s\"/>" DEBUG_CR,
-                         info->name, dav_fs_namespace_uris[info->ns]);
+        s = apr_pstrcat(p,
+                        "<D:supported-live-property D:name=\"",
+                        info->name,
+                        "\" D:namespace=\"",
+                        dav_fs_namespace_uris[info->ns],
+                        "\"/>" DEBUG_CR, NULL);
     }
     apr_text_append(p, phdr, s);
 

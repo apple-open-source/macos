@@ -39,10 +39,11 @@ static int
 do_lock_all(void)
 {
 	OSStatus result = SecKeychainLockAll();
-    if (result)
+    if (result) {
         sec_perror("SecKeychainLockAll", result);
+    }
 
-	return result;
+    return result;
 }
 
 static int

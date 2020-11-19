@@ -30,7 +30,6 @@ SOFT_LINK_CLASS(AuthKit, AKAccountManager);
 SOFT_LINK_CLASS(AuthKit, AKAnisetteProvisioningController);
 SOFT_LINK_CLASS(AuthKit, AKAppleIDAuthenticationController);
 SOFT_LINK_CLASS(AuthKit, AKDeviceListRequestContext);
-SOFT_LINK_CLASS(Accounts, Accounts);
 SOFT_LINK_CLASS(Accounts, ACAccountStore);
 SOFT_LINK_CONSTANT(AuthKit, AKServiceNameiCloud, const NSString *);
 #pragma clang diagnostic pop
@@ -189,29 +188,27 @@ static ACAccount *GetPrimaryAccount(void) {
 
 -(id) initWithActiveMIDS: (NSSet <SOSTrustedDeviceAttributes *> *) theMidList
 {
-    self = [super init];
-    if(!self){
-        return nil;
-    }
-    NSMutableSet *MmachineIDs = [[NSMutableSet alloc] init];
-    NSMutableSet *MserialNumbers = [[NSMutableSet alloc] init];
-    _machineIDs = [[NSSet alloc] init];
-    _serialNumbers = [[NSSet alloc] init];
+    if ((self = [super init])) {
+        NSMutableSet *MmachineIDs = [[NSMutableSet alloc] init];
+        NSMutableSet *MserialNumbers = [[NSMutableSet alloc] init];
+        _machineIDs = [[NSSet alloc] init];
+        _serialNumbers = [[NSSet alloc] init];
 
-    if(!theMidList) return nil;
-    _midList = theMidList;
+        if(!theMidList) return nil;
+        _midList = theMidList;
 
-    for(SOSTrustedDeviceAttributes *dev in _midList) {
-        if(dev.machineID) {
-            [MmachineIDs addObject:dev.machineID];
+        for(SOSTrustedDeviceAttributes *dev in _midList) {
+            if(dev.machineID) {
+                [MmachineIDs addObject:dev.machineID];
+            }
+            if(dev.serialNumber) {
+                [MserialNumbers addObject:dev.serialNumber];
+            }
+
         }
-        if(dev.serialNumber) {
-            [MserialNumbers addObject:dev.serialNumber];
-        }
-
+        _machineIDs = MmachineIDs;
+        _serialNumbers = MserialNumbers;
     }
-    _machineIDs = MmachineIDs;
-    _serialNumbers = MserialNumbers;
     return self;
 }
 

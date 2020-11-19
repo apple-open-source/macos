@@ -252,7 +252,7 @@ ExceptionOr<void> PropertySetCSSStyleDeclaration::setProperty(const String& prop
 
         if (parentElement())
             document = &parentElement()->document();
-        else
+        else if (parentStyleSheet())
             document = parentStyleSheet()->ownerDocument();
 
         changed = m_propertySet->setCustomProperty(document, propertyName, value, important, cssParserContext());
@@ -300,9 +300,14 @@ RefPtr<CSSValue> PropertySetCSSStyleDeclaration::getPropertyCSSValueInternal(CSS
 String PropertySetCSSStyleDeclaration::getPropertyValueInternal(CSSPropertyID propertyID)
 {
     String value = m_propertySet->getPropertyValue(propertyID);
+    CSSPropertyID relatedPropertyID = getRelatedPropertyId(propertyID);
+    String relatedValue = m_propertySet->getPropertyValue(relatedPropertyID);
+        
     if (!value.isEmpty())
         return value;
-
+    if (!relatedValue.isEmpty())
+        return relatedValue;
+    
     return String();
 }
 

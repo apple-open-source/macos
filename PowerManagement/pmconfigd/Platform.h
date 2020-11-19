@@ -54,6 +54,7 @@ typedef struct {
  */
 __private_extern__ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen);
 __private_extern__ long getTCPKeepAliveOverrideSec(void);
+__private_extern__ void setTCPKeepAliveOverrideSec(long value);
 
 __private_extern__ void startTCPKeepAliveExpTimer(void);
 __private_extern__ void cancelTCPKeepAliveExpTimer(void);
@@ -61,7 +62,7 @@ __private_extern__ CFTimeInterval getTcpkaTurnOffTime(void);
 
 __private_extern__ void enableTCPKeepAlive(void);
 __private_extern__ void disableTCPKeepAlive(void);
-__private_extern__ void evalTcpkaForPSChange(void);
+__private_extern__ void evalTcpkaForPSChange(int pwrSrc);
 
 
 __private_extern__ void setPushConnectionState(bool active);

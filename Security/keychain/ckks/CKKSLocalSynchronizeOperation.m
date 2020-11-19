@@ -74,10 +74,10 @@
     CKKSKeychainView* ckks = self.ckks;
 
     // Synchronous, on some thread. Get back on the CKKS queue for SQL thread-safety.
-    [ckks dispatchSync: ^bool{
+    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         if(self.cancelled) {
             ckksnotice("ckksresync", ckks, "CKKSSynchronizeOperation cancelled, quitting");
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         //ckks.lastLocalSynchronizeOperation = self;
@@ -94,7 +94,13 @@
         [self dependOnBeforeGroupFinished:outgoingOp];
 
         // Step 2
-        CKKSIncomingQueueOperation* incomingOp = [[CKKSIncomingQueueOperation alloc] initWithCKKSKeychainView:ckks errorOnClassAFailure:true];
+        CKKSIncomingQueueOperation* incomingOp = [[CKKSIncomingQueueOperation alloc] initWithDependencies:ckks.operationDependencies
+                                                                                                     ckks:ckks
+                                                                                                intending:SecCKKSZoneKeyStateReady
+                                                                                               errorState:SecCKKSZoneKeyStateUnhealthy
+                                                                                     errorOnClassAFailure:true
+                                                                                handleMismatchedViewItems:false];
+
         incomingOp.name = [NSString stringWithFormat: @"resync-step%u-incoming", self.restartCount * steps + 2];
         [incomingOp addSuccessDependency:outgoingOp];
         [self runBeforeGroupFinished:incomingOp];
@@ -105,13 +111,23 @@
         [self runBeforeGroupFinished:reloadOp];
 
         // Step 4
-        CKKSIncomingQueueOperation* incomingResyncOp = [[CKKSIncomingQueueOperation alloc] initWithCKKSKeychainView:ckks errorOnClassAFailure:true];
+        CKKSIncomingQueueOperation* incomingResyncOp = [[CKKSIncomingQueueOperation alloc] initWithDependencies:ckks.operationDependencies
+                                                                                                           ckks:ckks
+                                                                                                      intending:SecCKKSZoneKeyStateReady
+                                                                                                     errorState:SecCKKSZoneKeyStateUnhealthy
+                                                                                           errorOnClassAFailure:true
+                                                                                      handleMismatchedViewItems:false];
+
         incomingResyncOp.name = [NSString stringWithFormat: @"resync-step%u-incoming-again", self.restartCount * steps + 4];
         [incomingResyncOp addSuccessDependency: reloadOp];
         [self runBeforeGroupFinished:incomingResyncOp];
 
         // Step 5
-        CKKSScanLocalItemsOperation* scan = [[CKKSScanLocalItemsOperation alloc] initWithCKKSKeychainView:ckks ckoperationGroup:operationGroup];
+        CKKSScanLocalItemsOperation* scan = [[CKKSScanLocalItemsOperation alloc] initWithDependencies:ckks.operationDependencies
+                                                                                                 ckks:ckks
+                                                                                            intending:SecCKKSZoneKeyStateReady
+                                                                                           errorState:SecCKKSZoneKeyStateError
+                                                                                     ckoperationGroup:operationGroup];
         scan.name = [NSString stringWithFormat: @"resync-step%u-scan", self.restartCount * steps + 5];
         [scan addSuccessDependency: incomingResyncOp];
         [self runBeforeGroupFinished: scan];
@@ -122,7 +138,7 @@
         [restart addExecutionBlock:^{
             STRONGIFY(self);
             if(!self) {
-                secerror("ckksresync: received callback for released object");
+                ckkserror("ckksresync", ckks, "received callback for released object");
                 return;
             }
 
@@ -151,7 +167,7 @@
         [restart addSuccessDependency: scan];
         [self runBeforeGroupFinished: restart];
 
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 }
 
@@ -175,14 +191,14 @@
 - (void)main {
     CKKSKeychainView* strongCKKS = self.ckks;
 
-    [strongCKKS dispatchSync: ^bool{
+    [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
        NSError* error = nil;
        NSArray<CKKSMirrorEntry*>* mirrorItems = [CKKSMirrorEntry all:strongCKKS.zoneID error:&error];
 
        if(error) {
            ckkserror("ckksresync", strongCKKS, "Couldn't fetch mirror items: %@", error);
            self.error = error;
-           return false;
+           return CKKSDatabaseTransactionRollback;
        }
 
        // Reload all entries back into the local keychain
@@ -198,7 +214,7 @@
            [strongCKKS _onqueueCKRecordChanged:ckmeRecord resync:true];
        }
 
-       return true;
+       return CKKSDatabaseTransactionCommit;
     }];
 }
 @end

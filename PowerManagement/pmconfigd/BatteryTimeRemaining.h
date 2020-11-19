@@ -34,7 +34,12 @@
 #include "PrivateLib.h"
 #include "XCTest_FunctionDefinitions.h"
 
-#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
+// kMinTimeDeltaForBattRead - Minimum time(in seconds) between reading battery data for battery health evaluation
+#define kMinTimeDeltaForBattRead           (24*60*60)  // 24hrs
+
+#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST || TARGET_OS_OSX
+#define kBatteryHealthUsesUPO        0x594553 // YES
+#define kBatteryHealthWithoutUPO     0x4e4f   // NO
 
 #define kBHSvcFlagsVerison0     0
 #define kBHSvcFlagsVersion1     1
@@ -42,10 +47,8 @@
 #define kBHSvcFlagsVersion3     3
 #define kBatteryHealthCurrentVersion        kBHSvcFlagsVersion3
 
-#define kMinNominalCapacityPercentage       1
-#define kMaxNominalCapacityPercentage       150
-#define kNominalCapacityPercetageThreshold  80
-#define kInitialNominalCapacityPercentage   104
+#endif
+#if TARGET_OS_IPHONE || POWERD_IOS_XCTEST
 
 // kTrueNCCCycleCountThreshold - If previously calculated NCCP is not available, NCCP is set to h/w specified value only if
 // battery cycle count is above kTrueNCCCycleCountThreshold. Otherwise, NCCP is set to kInitialNominalCapacityPercentage
@@ -57,12 +60,6 @@
 // kNCCChangeLimit - Percentage by which NCCP is reduced after kNCCMinCycleCountChange change in cycle count
 #define kNCCChangeLimit                     1
 
-// kMinTimeDeltaForBattRead - Minimum time(in seconds) between reading battery data for battery health evaluation
-#define kMinTimeDeltaForBattRead           (24*60*60)  // 24hrs
-
-#define kBatteryHealthUsesUPO        0x594553 // YES
-#define kBatteryHealthWithoutUPO     0x4e4f   // NO
-
 #define kMitigatedUPOCountThreshold         0
 #define kBatteryCellDisconnectThreshold     10
 
@@ -70,20 +67,15 @@
 #define kCFPrefsMitigatedUPOCountKey        "mitigatedUPOCount"
 
 #define kSmcKeyBatteryFeatureSet                'BFS0'
-#define BATTERY_FEATURE_HEATMAP_VOLTAGE_TEMP    (1 << 0)
-#define BATTERY_FEATURE_HEATMAP_SOC_TEMP        (1 << 1)
-#define BATTERY_FEATURE_NCC_FILTERING           (1 << 2)
 
-#endif
+#endif // TARGET_OS_IPHONE || POWERD_IOS_XCTEST
 
+__private_extern__ IOPMBattery **_batteries(void);
+__private_extern__ int _batteryCount(void);
 __private_extern__ void BatteryTimeRemaining_prime(void);
 __private_extern__ void BatteryTimeRemaining_finish(void);
-__private_extern__ void BatteryTimeRemainingSleepWakeNotification(natural_t messageType);
+__private_extern__ void BatteryTimeRemainingWakeNotification(void);
 
-__private_extern__ void BatteryTimeRemainingRTCDidResync(void);
-
-__private_extern__ void readAndPublishACAdapter(bool adapterExists, CFDictionaryRef batteryACDict);
-__private_extern__ void  initializeBatteryCalculations(void);
 /*!
  * Pass kInternalBattery to kernelPowerSourcesDidChange when you need 
  * PM to re-evaluate the single internal battery (modeled as an IOPMPowerSource)
@@ -94,25 +86,30 @@ __private_extern__ void kernelPowerSourcesDidChange(IOPMBattery *battery_info);
 
 __private_extern__ bool BatteryHandleDeadName(mach_port_t deadName);
 
-__private_extern__ void BatterySetNoPoll(bool noPoll);
-
 __private_extern__ bool isFullyCharged(IOPMBattery *b);
 
 __private_extern__ void sendAdapterDetails(xpc_object_t remoteConnection, xpc_object_t msg);
+
+#if TARGET_OS_OSX
+__private_extern__ void getBatteryHealthPersistentData(xpc_object_t remoteConnection, xpc_object_t msg);
+#endif
 
 /* getActivePSType
  * returns one of AC, Internal Battery, or External Battery
  */
 __private_extern__ int getActivePSType(void);
-__private_extern__ CFDictionaryRef getActiveBatteryDictionary(void);
-__private_extern__ CFDictionaryRef getActiveUPSDictionary(void);
+__private_extern__ bool getPowerState(PowerSources *source, uint32_t *percentage);
+__private_extern__ PowerSources _getPowerSource(void);
+__private_extern__ CFDictionaryRef CF_RETURNS_RETAINED getActiveUPSDictionary(void);
+__private_extern__ void batteryTimeRemaining_setCustomBatteryProps(CFDictionaryRef batteryProps);
+__private_extern__ void batteryTimeRemaining_resetCustomBatteryProps(void);
 
+// needed to untanble some cross calls, please don't expand usage of it
+__private_extern__ dispatch_queue_t BatteryTimeRemaining_getQ(void);
 
 #ifndef kIOPSFailureKey
 #define kIOPSFailureKey                         "Failure"
 #endif
-
-#define kBatteryPermFailureString               "Permanent Battery Failure"
 
 #ifndef kIOPMBatteryPercentageFactors
 #define kIOPMBatteryPercentageFactors           CFSTR("IOPMBatteryPercentageFactors")
@@ -141,22 +138,30 @@ typedef enum {
  */
 typedef struct {
     // powerd will assign a unique psid to all sources.
-    long                psid;
-    
+    int                 psid;
     psTypes_t           psType;
-    
+
     // Ensure that only the process that created
     // a ps may modify it or destroy it, by recording caller's pid.
     int                 pid;
     XCT_UNSAFE_UNRETAINED dispatch_source_t   procdeathsrc;
-    
+
     // This is the most current recorded state of this power source.
     CFDictionaryRef     description;
-    
-    // log of previous battery updates, maintained as ring buffer
-    CFMutableArrayRef       log;
-    CFIndex                 logIdx;         // Index for next record
-    uint64_t                logUpdate_ts;   // Timestamp of last log
 } PSStruct;
 
+// Returns the current version of IOPMPowerSource dictionary in memory. Can return NULL.
+__private_extern__ CFDictionaryRef batteryTimeRemaining_copyIOPMPowerSourceDictionary(void);
+// Get current UI SOC (battery percent)
+__private_extern__ int batteryTimeRemaining_getPercentRemaining(void);
+__private_extern__ CFStringRef batteryTimeRemaining_getBatterySerialNumber(void);
+
+#if TARGET_OS_IOS || TARGET_OS_WATCH || TARGET_OS_OSX
+void setBHUpdateTimeDelta(xpc_object_t remoteConnection, xpc_object_t msg);
+#endif
+
+#if XCTEST
+void xctSetPowerSource(PowerSources src);
+void xctSetCapacity(uint32_t capacity);
+#endif
 #endif //_BatteryTimeRemaining_h_

@@ -26,7 +26,6 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 bool_t
 xdr_AuthorizationItem(XDR *xdrs, AuthorizationItem *objp)

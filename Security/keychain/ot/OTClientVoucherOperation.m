@@ -77,7 +77,8 @@
     WEAKIFY(self);
 
     // Acquire the CKKS TLKs to pass in
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.operationDependencies];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.operationDependencies
+                                                                                     refetchNeeded:NO];
     [self runBeforeGroupFinished:fetchKeysOp];
 
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"vouch-with-keys"

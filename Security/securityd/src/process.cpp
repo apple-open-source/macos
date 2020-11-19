@@ -69,6 +69,9 @@ Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCri
 		CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);
 	}
 	
+	// This is a "retain", matched by the deallocate call in ~Process
+	mTaskPort.modRefs(MACH_PORT_RIGHT_SEND, 1);
+
     // NB: ServerChild::find() should only be used to determine
     // *existence*.  Don't use the returned Child object for anything else, 
     // as it is not protected against its underlying process's destruction.  

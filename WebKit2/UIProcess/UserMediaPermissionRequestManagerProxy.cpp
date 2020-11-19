@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 Igalia S.L.
- * Copyright (C) 2016-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2020 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -152,7 +152,7 @@ void UserMediaPermissionRequestManagerProxy::captureDevicesChanged(PermissionInf
     if (!m_page.hasRunningProcess())
         return;
 
-    m_page.process().send(Messages::WebPage::CaptureDevicesChanged(), m_page.webPageID());
+    m_page.send(Messages::WebPage::CaptureDevicesChanged());
 }
 #endif
 
@@ -198,7 +198,7 @@ void UserMediaPermissionRequestManagerProxy::denyRequest(UserMediaPermissionRequ
         m_deniedRequests.append(DeniedRequest { request.mainFrameID(), request.userMediaDocumentSecurityOrigin(), request.topLevelDocumentSecurityOrigin(), request.requiresAudioCapture(), request.requiresVideoCapture(), request.requiresDisplayCapture() });
 
 #if ENABLE(MEDIA_STREAM)
-    m_page.process().send(Messages::WebPage::UserMediaAccessWasDenied(request.userMediaID(), toWebCore(reason), invalidConstraint), m_page.webPageID());
+    m_page.send(Messages::WebPage::UserMediaAccessWasDenied(request.userMediaID(), toWebCore(reason), invalidConstraint));
 #else
     UNUSED_PARAM(reason);
     UNUSED_PARAM(invalidConstraint);
@@ -236,32 +236,39 @@ void UserMediaPermissionRequestManagerProxy::finishGrantingRequest(UserMediaPerm
         return;
     }
 
-    if (request.requestType() == MediaStreamRequest::Type::UserMedia)
-        m_grantedRequests.append(makeRef(request));
-
-    // FIXME: m_hasFilteredDeviceList will trigger ondevicechange events for various documents from different origins.
-    if (m_hasFilteredDeviceList)
-        captureDevicesChanged(PermissionInfo::Granted);
-    m_hasFilteredDeviceList = false;
-
-    ++m_hasPendingCapture;
-
-    SandboxExtension::Handle handle;
-#if PLATFORM(IOS)
-    if (!m_hasCreatedSandboxExtensionForTCCD) {
-        SandboxExtension::createHandleForMachLookup("com.apple.tccd", m_page.process().connection()->getAuditToken(), handle);
-        m_hasCreatedSandboxExtensionForTCCD = true;
-    }
-#endif
-
-    m_page.process().connection()->sendWithAsyncReply(Messages::WebPage::UserMediaAccessWasGranted { request.userMediaID(), request.audioDevice(), request.videoDevice(), request.deviceIdentifierHashSalt(), handle }, [this, weakThis = makeWeakPtr(this)] {
+    m_page.willStartCapture(request, [this, weakThis = makeWeakPtr(this), strongRequest = makeRef(request)]() mutable {
         if (!weakThis)
             return;
-        if (!--m_hasPendingCapture)
-            UserMediaProcessManager::singleton().revokeSandboxExtensionsIfNeeded(page().process());
-    }, m_page.webPageID());
 
-    processNextUserMediaRequestIfNeeded();
+        auto& request = strongRequest.get();
+
+        if (request.requestType() == MediaStreamRequest::Type::UserMedia)
+            m_grantedRequests.append(makeRef(request));
+
+        // FIXME: m_hasFilteredDeviceList will trigger ondevicechange events for various documents from different origins.
+        if (m_hasFilteredDeviceList)
+            captureDevicesChanged(PermissionInfo::Granted);
+        m_hasFilteredDeviceList = false;
+
+        ++m_hasPendingCapture;
+
+        SandboxExtension::Handle handle;
+#if PLATFORM(COCOA)
+        if (!m_hasCreatedSandboxExtensionForTCCD) {
+            SandboxExtension::createHandleForMachLookup("com.apple.tccd"_s, m_page.process().connection()->getAuditToken(), handle);
+            m_hasCreatedSandboxExtensionForTCCD = true;
+        }
+#endif
+
+        m_page.sendWithAsyncReply(Messages::WebPage::UserMediaAccessWasGranted { request.userMediaID(), request.audioDevice(), request.videoDevice(), request.deviceIdentifierHashSalt(), handle }, [this, weakThis = WTFMove(weakThis)] {
+            if (!weakThis)
+                return;
+            if (!--m_hasPendingCapture)
+                UserMediaProcessManager::singleton().revokeSandboxExtensionsIfNeeded(page().process());
+        });
+
+        processNextUserMediaRequestIfNeeded();
+    });
 }
 
 void UserMediaPermissionRequestManagerProxy::resetAccess(Optional<FrameIdentifier> frameID)
@@ -636,7 +643,7 @@ void UserMediaPermissionRequestManagerProxy::enumerateMediaDevicesForFrame(Frame
 #if ENABLE(MEDIA_STREAM)
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    auto callback = [this, frameID, userMediaDocumentOrigin = userMediaDocumentOrigin.copyRef(), topLevelDocumentOrigin = topLevelDocumentOrigin.copyRef(), completionHandler = WTFMove(completionHandler)](PermissionInfo permissionInfo) mutable {
+    auto callback = [this, frameID, userMediaDocumentOrigin, topLevelDocumentOrigin, completionHandler = WTFMove(completionHandler)](PermissionInfo permissionInfo) mutable {
         auto callCompletionHandler = makeScopeExit([&completionHandler] {
             completionHandler({ }, { });
         });
@@ -704,13 +711,15 @@ void UserMediaPermissionRequestManagerProxy::syncWithWebCorePrefs() const
     // Enable/disable the mock capture devices for the UI process as per the WebCore preferences. Note that
     // this is a noop if the preference hasn't changed since the last time this was called.
     bool mockDevicesEnabled = m_mockDevicesEnabledOverride ? *m_mockDevicesEnabledOverride : m_page.preferences().mockCaptureDevicesEnabled();
+
+#if ENABLE(GPU_PROCESS)
+    if (m_page.preferences().captureAudioInGPUProcessEnabled() || m_page.preferences().captureVideoInGPUProcessEnabled())
+        GPUProcessProxy::singleton().setUseMockCaptureDevices(mockDevicesEnabled);
+#endif
+
     if (MockRealtimeMediaSourceCenter::mockRealtimeMediaSourceCenterEnabled() == mockDevicesEnabled)
         return;
     MockRealtimeMediaSourceCenter::setMockRealtimeMediaSourceCenterEnabled(mockDevicesEnabled);
-#if ENABLE(GPU_PROCESS)
-    if (m_page.preferences().captureAudioInGPUProcessEnabled())
-        GPUProcessProxy::singleton().send(Messages::GPUProcess::SetMockCaptureDevicesEnabled { mockDevicesEnabled }, 0);
-#endif
 #endif
 }
 

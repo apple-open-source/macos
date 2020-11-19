@@ -29,6 +29,10 @@
 
 #import "keychain/ot/OTConstants.h"
 #import "keychain/ot/OTDefines.h"
+#import "keychain/ot/proto/generated_source/OTEscrowRecord.h"
+#import "keychain/ot/proto/generated_source/OTEscrowRecordMetadata.h"
+#import "keychain/ot/proto/generated_source/OTEscrowRecordMetadataClientMetadata.h"
+
 #import "keychain/TrustedPeersHelper/TPHObjcTranslation.h"
 #import "keychain/TrustedPeersHelper/proto/generated_source/OTBottleContents.h"
 #import "keychain/TrustedPeersHelper/proto/generated_source/OTBottle.h"
@@ -52,7 +56,11 @@
 #import <corecrypto/cchkdf.h>
 #import <corecrypto/ccsha2.h>
 #import <corecrypto/ccec.h>
+#import <corecrypto/ccrng.h>
 
-#import <CommonCrypto/CommonRandomSPI.h>
 #import <Security/SecCFAllocator.h>
 #include <Security/SecRecoveryKey.h>
+
+#if TARGET_OS_OSX
+#include <sandbox.h>
+#endif

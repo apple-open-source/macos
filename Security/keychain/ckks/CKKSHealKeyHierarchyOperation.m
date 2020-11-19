@@ -28,6 +28,7 @@
 #import "CKKSGroupOperation.h"
 #import "CKKSAnalytics.h"
 #import "keychain/ckks/CloudKitCategories.h"
+#import "keychain/ckks/CKKSHealTLKSharesOperation.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/ObjCImprovements.h"
 
@@ -35,18 +36,26 @@
 
 @interface CKKSHealKeyHierarchyOperation ()
 @property NSBlockOperation* cloudkitModifyOperationFinished;
-@property CKOperationGroup* ckoperationGroup;
 @end
 
 @implementation CKKSHealKeyHierarchyOperation
+@synthesize intendedState = _intendedState;
 
 - (instancetype)init {
     return nil;
 }
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup {
-    if(self = [super init]) {
+
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks
+                           intending:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState
+{
+    if((self = [super init])) {
+        _deps = dependencies;
         _ckks = ckks;
-        _ckoperationGroup = ckoperationGroup;
+
+        _intendedState = intendedState;
+        _nextState = errorState;
     }
     return self;
 }
@@ -73,11 +82,13 @@
         return;
     }
 
+    NSArray<CKKSPeerProviderState*>* currentTrustStates = self.deps.currentTrustStates;
+
     // Synchronous, on some thread. Get back on the CKKS queue for SQL thread-safety.
-    [ckks dispatchSyncWithAccountKeys: ^bool{
+    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         if(self.cancelled) {
             ckksnotice("ckksheal", ckks, "CKKSHealKeyHierarchyOperation cancelled, quitting");
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         NSError* error = nil;
@@ -109,8 +120,8 @@
             // If we haven't done one yet, initiate a refetch of everything from cloudkit, and write down that we did so
             if(!ckks.keyStateMachineRefetched) {
                 ckksnotice("ckksheal", ckks, "Have current key pointers, but no keys. This is exceptional; requesting full refetch");
-                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateNeedFullRefetch withError:nil];
-                return true;
+                self.nextState = SecCKKSZoneKeyStateNeedFullRefetch;
+                return CKKSDatabaseTransactionCommit;
             }
         }
 
@@ -150,39 +161,42 @@
                     newTLK = topKey;
                 } else if(![newTLK.uuid isEqualToString: topKey.uuid]) {
                     ckkserror("ckksheal", ckks, "key hierarchy has split: there's two top keys. Currently we don't handle this situation.");
-                    [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: [NSError errorWithDomain:CKKSErrorDomain
-                                                                                                                         code:CKKSSplitKeyHierarchy
-                                                                                                                     userInfo:@{NSLocalizedDescriptionKey:
-                                                                                                                                    [NSString stringWithFormat:@"Key hierarchy has split: %@ and %@ are roots", newTLK, topKey]}]];
-                    return true;
+                    self.error = [NSError errorWithDomain:CKKSErrorDomain
+                                                     code:CKKSSplitKeyHierarchy
+                                              description:[NSString stringWithFormat:@"Key hierarchy has split: %@ and %@ are roots", newTLK, topKey]];
+                    self.nextState = SecCKKSZoneKeyStateError;
+                    return CKKSDatabaseTransactionCommit;
                 }
             }
 
             if(!newTLK) {
                 // We don't have any TLKs lying around, but we're supposed to heal the key hierarchy. This isn't any good; let's wait for TLK creation.
                 ckkserror("ckksheal", ckks, "No possible TLK found. Waiting for creation.");
-                [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForTLKCreation withError:nil];
-                return true;
+                self.nextState = SecCKKSZoneKeyStateWaitForTLKCreation;
+                return CKKSDatabaseTransactionCommit;
             }
 
-            if(![ckks _onqueueWithAccountKeysCheckTLK: newTLK error: &error]) {
-                // Was this error "I've never seen that TLK before in my life"? If so, enter the "wait for TLK sync" state.
-                if(error && [error.domain isEqualToString: @"securityd"] && error.code == errSecItemNotFound) {
-                    ckksnotice("ckksheal", ckks, "Received a TLK which we don't have in the local keychain(%@). Entering waitfortlk.", newTLK);
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForTLK withError:nil];
-                    return true;
-                } else if(error && [ckks.lockStateTracker isLockedError:error]) {
-                    ckksnotice("ckkskey", ckks, "Received a TLK(%@), but keybag appears to be locked. Entering WaitForUnlock.", newTLK);
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:nil];
-                    return true;
+            if(![newTLK validTLK:&error]) {
+                // Something has gone horribly wrong. Enter error state.
+                ckkserror("ckkskey", ckks, "CKKS claims %@ is not a valid TLK: %@", newTLK, error);
+                self.error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"Invalid TLK from CloudKit (during heal)" underlying:error];
+                self.nextState = SecCKKSZoneKeyStateError;
+                return CKKSDatabaseTransactionCommit;
+            }
 
+            // This key is our proposed TLK.
+            if(![newTLK tlkMaterialPresentOrRecoverableViaTLKShare:currentTrustStates
+                                                          error:&error]) {
+                // TLK is valid, but not present locally
+                if(error && [self.deps.lockStateTracker isLockedError:error]) {
+                    ckksnotice("ckkskey", ckks, "Received a TLK(%@), but keybag appears to be locked. Entering a waiting state.", newTLK);
+                    self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
                 } else {
-                    // Otherwise, something has gone horribly wrong. enter error state.
-                    ckkserror("ckksheal", ckks, "CKKS claims %@ is not a valid TLK: %@", newTLK, error);
-                    NSError* newError = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"Invalid TLK from CloudKit (during heal)" underlying:error];
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:newError];
-                    return true;
+                    ckksnotice("ckkskey", ckks, "Received a TLK(%@) which we don't have in the local keychain: %@", newTLK, error);
+                    self.error = error;
+                    self.nextState = SecCKKSZoneKeyStateTLKMissing;
                 }
+                return CKKSDatabaseTransactionCommit;
             }
 
             // We have our new TLK.
@@ -224,12 +238,14 @@
 
                 if(error && [ckks.lockStateTracker isLockedError:error]) {
                     ckksnotice("ckksheal", ckks, "Couldn't create a new class A key, but keybag appears to be locked. Entering waitforunlock.");
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:error];
-                    return true;
+                    self.error = error;
+                    self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
+                    return CKKSDatabaseTransactionCommit;
                 } else if(error) {
                     ckkserror("ckksheal", ckks, "couldn't create new classA key: %@", error);
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:error];
-                    return true;
+                    self.error = error;
+                    self.nextState = SecCKKSZoneKeyStateError;
+                    return CKKSDatabaseTransactionCommit;
                 }
 
                 keyset.classA = newClassAKey;
@@ -242,12 +258,14 @@
 
                 if(error && [ckks.lockStateTracker isLockedError:error]) {
                     ckksnotice("ckksheal", ckks, "Couldn't create a new class C key, but keybag appears to be locked. Entering waitforunlock.");
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:error];
-                    return true;
+                    self.error = error;
+                    self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
+                    return CKKSDatabaseTransactionCommit;
                 } else if(error) {
                     ckkserror("ckksheal", ckks, "couldn't create new class C key: %@", error);
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:error];
-                    return true;
+                    self.error = error;
+                    self.nextState = SecCKKSZoneKeyStateError;
+                    return CKKSDatabaseTransactionCommit;
                 }
 
                 keyset.classC = newClassCKey;
@@ -279,11 +297,12 @@
             }
 
             // We've selected a new TLK. Compute any TLKShares that should go along with it.
-            NSSet<CKKSTLKShareRecord*>* tlkShares = [ckks _onqueueCreateMissingKeyShares:keyset.tlk
-                                                                             error:&error];
+            NSSet<CKKSTLKShareRecord*>* tlkShares = [CKKSHealTLKSharesOperation createMissingKeyShares:keyset
+                                                                                           trustStates:currentTrustStates
+                                                                                                 error:&error];
             if(error) {
                 ckkserror("ckksshare", ckks, "Unable to create TLK shares for new tlk: %@", error);
-                return false;
+                return CKKSDatabaseTransactionRollback;
             }
 
             for(CKKSTLKShareRecord* share in tlkShares) {
@@ -316,8 +335,8 @@
             modifyRecordsOp.configuration.discretionaryNetworkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
             modifyRecordsOp.configuration.isCloudKitSupportOperation = YES;
 
-            modifyRecordsOp.group = self.ckoperationGroup;
-            ckksnotice("ckksheal", ckks, "Operation group is %@", self.ckoperationGroup);
+            modifyRecordsOp.group = self.deps.ckoperationGroup;
+            ckksnotice("ckksheal", ckks, "Operation group is %@", self.deps.ckoperationGroup);
 
             modifyRecordsOp.perRecordCompletionBlock = ^(CKRecord *record, NSError * _Nullable error) {
                 STRONGIFY(self);
@@ -335,15 +354,15 @@
                 STRONGIFY(self);
                 CKKSKeychainView* strongCKKS = self.ckks;
                 if(!self) {
-                    secerror("ckks: received callback for released object");
+                    ckkserror_global("ckks", "received callback for released object");
                     return;
                 }
 
                 ckksnotice("ckksheal", strongCKKS, "Completed Key Heal CloudKit operation with error: %@", error);
 
-                [strongCKKS dispatchSyncWithAccountKeys: ^bool{
+                [strongCKKS dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
                     if(error == nil) {
-                        [[CKKSAnalytics logger] logSuccessForEvent:CKKSEventProcessHealKeyHierarchy inView:ckks];
+                        [[CKKSAnalytics logger] logSuccessForEvent:CKKSEventProcessHealKeyHierarchy zoneName:ckks.zoneName];
                         // Success. Persist the keys to the CKKS database.
 
                         // Save the new CKRecords to the before persisting to database
@@ -381,20 +400,22 @@
 
                         if(localerror != nil) {
                             ckkserror("ckksheal", strongCKKS, "couldn't save new key hierarchy to database; this is very bad: %@", localerror);
-                            [strongCKKS _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: localerror];
-                            return false;
+                            self.error = localerror;
+                            self.nextState = SecCKKSZoneKeyStateError;
+                            return CKKSDatabaseTransactionRollback;
                         } else {
                             // Everything is groovy. HOWEVER, we might still not have processed the keys. Ask for that!
-                            [strongCKKS _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateProcess withError: nil];
+                            self.nextState = SecCKKSZoneKeyStateProcess;
                         }
                     } else {
                         // ERROR. This isn't a total-failure error state, but one that should kick off a healing process.
-                        [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:CKKSEventProcessHealKeyHierarchy inView:ckks withAttributes:NULL];
+                        [[CKKSAnalytics logger] logUnrecoverableError:error forEvent:CKKSEventProcessHealKeyHierarchy zoneName:ckks.zoneName withAttributes:NULL];
                         ckkserror("ckksheal", strongCKKS, "couldn't save new key hierarchy to CloudKit: %@", error);
                         [strongCKKS _onqueueCKWriteFailed:error attemptedRecordsChanged:attemptedRecords];
-                        [strongCKKS _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateNewTLKsFailed withError: nil];
+
+                        self.nextState = SecCKKSZoneKeyStateNewTLKsFailed;
                     }
-                    return true;
+                    return CKKSDatabaseTransactionCommit;
                 }];
 
                 // Notify that we're done
@@ -406,37 +427,46 @@
         }
 
         // Check if CKKS can recover this TLK.
-        bool haveTLK = [ckks _onqueueWithAccountKeysCheckTLK:keyset.tlk error:&error];
-        if(error && [ckks.lockStateTracker isLockedError:error]) {
-            ckksnotice("ckkskey", ckks, "Failed to load TLK from keychain, keybag is locked. Entering waitforunlock: %@", error);
-            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForUnlock withError:nil];
-            return false;
-        } else if(error && [error.domain isEqualToString: @"securityd"] && error.code == errSecItemNotFound) {
-            ckkserror("ckksheal", ckks, "CKKS couldn't find TLK, triggering move to wait state: %@", error);
-            [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateWaitForTLK withError: nil];
 
-        } else if(!haveTLK) {
-            ckkserror("ckksheal", ckks, "CKKS errored examining TLK, triggering move to bad state: %@", error);
-            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:error];
-            return false;
+        if(![keyset.tlk validTLK:&error]) {
+            // Something has gone horribly wrong. Enter error state.
+            ckkserror("ckkskey", ckks, "CKKS claims %@ is not a valid TLK: %@", keyset.tlk, error);
+            self.error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSInvalidTLK description:@"Invalid TLK from CloudKit (during heal)" underlying:error];
+            self.nextState = SecCKKSZoneKeyStateError;
+            return CKKSDatabaseTransactionCommit;
+        }
+
+        // This key is our proposed TLK.
+        if(![keyset.tlk tlkMaterialPresentOrRecoverableViaTLKShare:currentTrustStates
+                                                             error:&error]) {
+            // TLK is valid, but not present locally
+            if(error && [self.deps.lockStateTracker isLockedError:error]) {
+                ckksnotice("ckkskey", ckks, "Received a TLK(%@), but keybag appears to be locked. Entering a waiting state.", keyset.tlk);
+                self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
+            } else {
+                ckksnotice("ckkskey", ckks, "Received a TLK(%@) which we don't have in the local keychain: %@", keyset.tlk, error);
+                self.error = error;
+                self.nextState = SecCKKSZoneKeyStateTLKMissing;
+            }
+            return CKKSDatabaseTransactionCommit;
         }
 
         if(![self ensureKeyPresent:keyset.tlk]) {
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         if(![self ensureKeyPresent:keyset.classA]) {
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         if(![self ensureKeyPresent:keyset.classC]) {
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         // Seems good to us. Check if we're ready?
-        [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateReady withError: nil];
+        self.nextState = self.intendedState;
 
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 }
 
@@ -450,16 +480,29 @@
         error = nil;
         [key unwrapViaKeyHierarchy: &error];
         if(error) {
+            if([ckks.lockStateTracker isLockedError:error]) {
+                ckkserror("ckksheal", ckks, "Couldn't unwrap key(%@) using key hierarchy due to the lock state: %@", key, error);
+                self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
+                self.error = error;
+                return false;
+            }
             ckkserror("ckksheal", ckks, "Couldn't unwrap key(%@) using key hierarchy. Keys are broken, quitting: %@", key, error);
-            [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
+            self.error = error;
+            self.nextState = SecCKKSZoneKeyStateError;
             self.error = error;
             return false;
         }
         [key saveKeyMaterialToKeychain:&error];
         if(error) {
+            if([ckks.lockStateTracker isLockedError:error]) {
+                ckkserror("ckksheal", ckks, "Couldn't save key(%@) to keychain due to the lock state: %@", key, error);
+                self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
+                self.error = error;
+                return false;
+            }
             ckkserror("ckksheal", ckks, "Couldn't save key(%@) to keychain: %@", key, error);
-            [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
             self.error = error;
+            self.nextState = SecCKKSZoneKeyStateError;
             return false;
         }
     }

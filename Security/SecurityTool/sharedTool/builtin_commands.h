@@ -23,6 +23,7 @@
 
 
 #include "SecurityTool/sharedTool/security_tool_commands.h"
+#include <TargetConditionals.h>
 
 SECURITY_COMMAND("help", help,
                  "[command ...]",
@@ -40,6 +41,7 @@ SECURITY_COMMAND("whoami", command_whoami,
                  "",
                  "Ask securityd who you are.")
 
+#if !TARGET_OS_BRIDGE
 SECURITY_COMMAND("sos-stats", command_sos_stats,
                  "",
                  "SOS for performance numbers.")
@@ -60,6 +62,7 @@ SECURITY_COMMAND("watchdog", command_watchdog,
                      "    check-period <x>\n"
                      "    graceful-exit-time <x>\n",
                      "Show current watchdog parameters or set an individual parameter")
+#endif
 
 SECURITY_COMMAND("keychain-check", command_keychain_check,
                     "",

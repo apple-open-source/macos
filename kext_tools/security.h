@@ -109,12 +109,12 @@ typedef struct AuthOptions {
 // context is expected to be a pointer to an AuthOptions_t structure.
 Boolean authenticateKext(OSKextRef theKext, void *context);
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #include <dz/dz.h>
 #if DZ_API_VERSION >= 20170214
 #define HAVE_DANGERZONE 1
 #endif // DZ_API_VERSION
-#endif // !TARGET_OS_EMBEDDED
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #if HAVE_DANGERZONE
 void dzRecordKextLoadUser(OSKextRef kext, bool allowed);

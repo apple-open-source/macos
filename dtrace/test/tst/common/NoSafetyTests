@@ -235,6 +235,7 @@ builtinvar/tst.ipl.d
 builtinvar/tst.ipl1.d
 builtinvar/tst.lwpsinfo.d
 builtinvar/tst.lwpsinfo1.d
+builtinvar/tst.machctimestamp.d
 builtinvar/tst.machtimestamp.d
 builtinvar/tst.pid.d
 builtinvar/tst.pid1.d
@@ -443,6 +444,8 @@ funcs/err.D_PROTO_LEN.copyoutstrbadarg.d
 funcs/err.D_PROTO_LEN.copyoutstrtoofew.d
 funcs/err.D_PROTO_LEN.copyouttoofew.d
 funcs/err.D_PROTO_LEN.copyouttoomany.d
+funcs/err.D_PROTO_LEN.mtonstoofew.d
+funcs/err.D_PROTO_LEN.mtonstoomany.d
 funcs/err.D_PROTO_LEN.panicbadarg.d
 funcs/err.D_PROTO_LEN.progenyofbad2.d
 funcs/err.D_PROTO_LEN.stopbadarg.d
@@ -465,6 +468,8 @@ funcs/tst.ftruncate.ksh
 funcs/tst.index.d
 funcs/tst.lltostr.d
 funcs/tst.lltostrbase.d
+funcs/tst.mtons.d
+funcs/tst.physmem.destruct.d
 funcs/tst.progenyof.d
 funcs/tst.rand.d
 funcs/tst.strchr.d
@@ -538,6 +543,12 @@ llquantize/tst.normal.d
 llquantize/tst.range.d
 llquantize/tst.steps.d
 llquantize/tst.trunc.d
+lockstat/tst.adaptiveprobes.d
+lockstat/tst.lockprof.spin.ksh
+lockstat/tst.lockprof.ticket.ksh
+lockstat/tst.rwprobes.d
+lockstat/tst.spinprobes.d
+lockstat/tst.ticketprobes.d
 misc/err.D_PRAGMA_OPTSET.d
 misc/tst.badopt.d
 misc/tst.boolopt.d
@@ -1134,4 +1145,5 @@ vars/tst.walltimestamp.d
 #version/tst.1.0.d /* only support DOF version 3 on Darwin */
 ../i386/pid/tst.nop.d
 ../i386/pid/tst.sse3.movshdup.d
+../i386/arrays/tst.vmregsarray.d
 

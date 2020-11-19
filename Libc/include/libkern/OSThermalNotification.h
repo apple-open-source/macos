@@ -40,7 +40,7 @@ __BEGIN_DECLS
 
 /* Define pressure levels usable by OSThermalPressureLevel */
 typedef enum {
-#if TARGET_OS_OSX || TARGET_OS_IOSMAC
+#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
 	kOSThermalPressureLevelNominal = 0,
 	kOSThermalPressureLevelModerate,
 	kOSThermalPressureLevelHeavy,

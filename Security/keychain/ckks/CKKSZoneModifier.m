@@ -8,7 +8,6 @@
 #import "keychain/ckks/CKKSReachabilityTracker.h"
 #import "keychain/ckks/CKKSZoneModifier.h"
 
-#import "utilities/debugging.h"
 #import "keychain/ot/ObjCImprovements.h"
 
 @implementation CKKSZoneModifyOperations
@@ -99,11 +98,11 @@
 
     if(!self.pendingOperations) {
         CKKSResultOperation* zoneModificationOperationDependency = [CKKSResultOperation named:@"zone-modification" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
-            secnotice("ckkszonemodifier", "finished creating zones");
+            ckksnotice_global("ckkszonemodifier", "finished creating zones");
         }];
 
         CKKSResultOperation* zoneSubscriptionOperationDependency = [CKKSResultOperation named:@"zone-subscription" withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
-            secnotice("ckkszonemodifier", "finished subscribing to zones");
+            ckksnotice_global("ckkszonemodifier", "finished subscribing to zones");
         }];
 
         self.pendingOperations = [[CKKSZoneModifyOperations alloc] initWithZoneModificationOperation:zoneModificationOperationDependency
@@ -158,19 +157,19 @@
 {
     dispatch_sync(self.queue, ^{
         if(self.halted) {
-            secnotice("ckkszonemodifier", "Halted; not launching operations");
+            ckksnotice_global("ckkszonemodifier", "Halted; not launching operations");
             return;
         }
 
         CKKSZoneModifyOperations* ops = self.pendingOperations;
         if(!ops) {
-            secinfo("ckkszonemodifier", "No pending zone modification operations; quitting");
+            ckksinfo_global("ckkszonemodifier", "No pending zone modification operations; quitting");
             return;
         }
 
         if(self.inflightOperations && (![self.inflightOperations.zoneModificationOperation isFinished] ||
                                        ![self.inflightOperations.zoneSubscriptionOperation isFinished])) {
-            secnotice("ckkszonemodifier", "Have in-flight zone modification operations, will retry later");
+            ckksnotice_global("ckkszonemodifier", "Have in-flight zone modification operations, will retry later");
 
             WEAKIFY(self);
             CKKSResultOperation* retrigger = [CKKSResultOperation named:@"retry" withBlock:^{
@@ -198,7 +197,7 @@
 
 - (CKDatabaseOperation<CKKSModifyRecordZonesOperation>*)createModifyZonesOperation:(CKKSZoneModifyOperations*)ops
 {
-    secnotice("ckkszonemodifier", "Attempting to create zones %@, delete zones %@", ops.zonesToCreate, ops.zoneIDsToDelete);
+    ckksnotice_global("ckkszonemodifier", "Attempting to create zones %@, delete zones %@", ops.zonesToCreate, ops.zoneIDsToDelete);
 
     CKDatabaseOperation<CKKSModifyRecordZonesOperation>* zoneModifyOperation = [[self.cloudKitClassDependencies.modifyRecordZonesOperationClass alloc] initWithRecordZonesToSave:ops.zonesToCreate recordZoneIDsToDelete:ops.zoneIDsToDelete];
     [zoneModifyOperation linearDependencies:self.ckOperations];
@@ -219,15 +218,15 @@
         STRONGIFY(self);
 
         if(operationError) {
-            secerror("ckkszonemodifier: Zone modification failed: %@", operationError);
+            ckkserror_global("ckkszonemodifier", "Zone modification failed: %@", operationError);
             [self inspectErrorForRetryAfter:operationError];
 
             if ([self.reachabilityTracker isNetworkError:operationError]){
                 self.networkFailure = true;
             }
         }
-        secnotice("ckkszonemodifier", "created zones: %@", savedRecordZones);
-        secnotice("ckkszonemodifier", "deleted zones: %@", deletedRecordZoneIDs);
+        ckksnotice_global("ckkszonemodifier", "created zones: %@", savedRecordZones);
+        ckksnotice_global("ckkszonemodifier", "deleted zones: %@", deletedRecordZoneIDs);
 
         ops.savedRecordZones = savedRecordZones;
         ops.deletedRecordZoneIDs = deletedRecordZoneIDs;
@@ -237,7 +236,7 @@
     };
 
     if(self.networkFailure) {
-        secnotice("ckkszonemodifier", "Waiting for reachabilty before issuing zone creation");
+        ckksnotice_global("ckkszonemodifier", "Waiting for reachabilty before issuing zone creation");
         [zoneModifyOperation addNullableDependency:self.reachabilityTracker.reachabilityDependency];
     }
 
@@ -246,7 +245,7 @@
 
 - (CKDatabaseOperation<CKKSModifySubscriptionsOperation>* _Nullable)createModifySubscriptionsOperation:(CKKSZoneModifyOperations*)ops
 {
-    secnotice("ckkszonemodifier", "Attempting to subscribe to zones %@", ops.subscriptionsToSubscribe);
+    ckksnotice_global("ckkszonemodifier", "Attempting to subscribe to zones %@", ops.subscriptionsToSubscribe);
 
     if(ops.subscriptionsToSubscribe.count == 0) {
         [self.operationQueue addOperation: ops.zoneSubscriptionOperation];
@@ -269,14 +268,14 @@
         STRONGIFY(self);
 
         if(operationError) {
-            secerror("ckkszonemodifier: Couldn't create cloudkit zone subscription; keychain syncing is severely degraded: %@", operationError);
+            ckkserror_global("ckkszonemodifier", "Couldn't create cloudkit zone subscription; keychain syncing is severely degraded: %@", operationError);
             [self inspectErrorForRetryAfter:operationError];
 
             if ([self.reachabilityTracker isNetworkError:operationError]){
                 self.networkFailure = true;
             }
         }
-        secnotice("ckkszonemodifier", "Successfully subscribed to %@", savedSubscriptions);
+        ckksnotice_global("ckkszonemodifier", "Successfully subscribed to %@", savedSubscriptions);
 
         ops.savedSubscriptions = savedSubscriptions;
         ops.deletedSubscriptionIDs = deletedSubscriptionIDs;
@@ -288,7 +287,7 @@
     [zoneSubscriptionOperation addNullableDependency:ops.zoneModificationOperation];
 
     if(self.networkFailure) {
-        secnotice("ckkszonemodifier", "Waiting for reachabilty before issuing zone subscription");
+        ckksnotice_global("ckkszonemodifier", "Waiting for reachabilty before issuing zone subscription");
         [zoneSubscriptionOperation addNullableDependency:self.reachabilityTracker.reachabilityDependency];
     }
 
@@ -300,7 +299,7 @@
     NSTimeInterval delay = CKRetryAfterSecondsForError(ckerror);
     if(delay) {
         uint64_t ns_delay = NSEC_PER_SEC * ((uint64_t) delay);
-        secnotice("ckkszonemodifier", "CK operation failed with rate-limit, scheduling delay for %.1f seconds: %@", delay, ckerror);
+        ckksnotice_global("ckkszonemodifier", "CK operation failed with rate-limit, scheduling delay for %.1f seconds: %@", delay, ckerror);
         [self.cloudkitRetryAfter waitUntil:ns_delay];
     }
 }

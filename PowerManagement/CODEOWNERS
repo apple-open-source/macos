@@ -1,0 +1,23 @@
+# CODEOWNERS
+# Maintainers, owners, and mandatory code reviewers for this repo
+#
+# Comments with a "Radar: " prefix indicate the radar component for all files
+# grouped before the first subsequent newline.
+#
+# The first element on each line is a file pattern, as accepted by git ls-files.
+# Subsequent elements are @stash_usernames for each owner.
+#
+
+#Radar: PowerManagement | all
+*							@archana_venkatesh @jliu @saurabh_shah @vlingutla @kartik_venkatraman
+
+CODEOWNERS					@kartik_venkatraman @archana_venkatesh @jliu @saurabh_shah @vlingutla @pranay_prabhakar @dtundlam @ananny @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel
+
+#Radar: PowerManagement | (BatteryDataCollection|Health)
+*Battery*					@archana_venkatesh @jliu @vlingutla @pranay_prabhakar @dtundlam @ananny @sbrinkmann @nwidzer
+
+#Radar: PowerManagement | Batteries
+AppleSmartBatteryManager/*	@archana_venkatesh @jliu @vlingutla @pranay_prabhakar @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel @fisiaka
+
+#Radar: PowerManagement | PowerSources
+ioupsd/*					@archana_venkatesh @jliu @vlingutla @pranay_prabhakar @sbrinkmann @vvodela @mrecheromera @daniel_ye @mansi_patel @fisiaka

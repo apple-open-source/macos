@@ -27,9 +27,17 @@
 
 #if ENABLE(WEBGL)
 
-#include "GraphicsContext3D.h"
+#include "GraphicsContextGLOpenGL.h"
 #include "WebGLBuffer.h"
 #include "WebGLContextObject.h"
+
+namespace JSC {
+class SlotVisitor;
+}
+
+namespace WTF {
+class AbstractLocker;
+}
 
 namespace WebCore {
 
@@ -44,14 +52,14 @@ public:
 
         bool enabled { false };
         RefPtr<WebGLBuffer> bufferBinding;
-        GC3Dsizei bytesPerElement { 0 };
-        GC3Dint size { 4 };
-        GC3Denum type { GraphicsContext3D::FLOAT };
+        GCGLsizei bytesPerElement { 0 };
+        GCGLint size { 4 };
+        GCGLenum type { GraphicsContextGL::FLOAT };
         bool normalized { false };
-        GC3Dsizei stride { 16 };
-        GC3Dsizei originalStride { 0 };
-        GC3Dintptr offset { 0 };
-        GC3Duint divisor { 0 };
+        GCGLsizei stride { 16 };
+        GCGLsizei originalStride { 0 };
+        GCGLintptr offset { 0 };
+        GCGLuint divisor { 0 };
     };
 
     bool isDefaultObject() const { return m_type == Type::Default; }
@@ -60,17 +68,19 @@ public:
     void setHasEverBeenBound() { m_hasEverBeenBound = true; }
 
     WebGLBuffer* getElementArrayBuffer() const { return m_boundElementArrayBuffer.get(); }
-    void setElementArrayBuffer(WebGLBuffer*);
+    void setElementArrayBuffer(const WTF::AbstractLocker&, WebGLBuffer*);
 
     VertexAttribState& getVertexAttribState(int index) { return m_vertexAttribState[index]; }
-    void setVertexAttribState(GC3Duint, GC3Dsizei, GC3Dint, GC3Denum, GC3Dboolean, GC3Dsizei, GC3Dintptr, WebGLBuffer*);
-    void unbindBuffer(WebGLBuffer&);
+    void setVertexAttribState(const WTF::AbstractLocker&, GCGLuint, GCGLsizei, GCGLint, GCGLenum, GCGLboolean, GCGLsizei, GCGLintptr, WebGLBuffer*);
+    void unbindBuffer(const WTF::AbstractLocker&, WebGLBuffer&);
 
-    void setVertexAttribDivisor(GC3Duint index, GC3Duint divisor);
+    void setVertexAttribDivisor(GCGLuint index, GCGLuint divisor);
+
+    void addMembersToOpaqueRoots(const WTF::AbstractLocker&, JSC::SlotVisitor&);
 
 protected:
     WebGLVertexArrayObjectBase(WebGLRenderingContextBase&, Type);
-    void deleteObjectImpl(GraphicsContext3D*, Platform3DObject) override = 0;
+    void deleteObjectImpl(const WTF::AbstractLocker&, GraphicsContextGLOpenGL*, PlatformGLObject) override = 0;
 
     Type m_type;
     bool m_hasEverBeenBound { false };

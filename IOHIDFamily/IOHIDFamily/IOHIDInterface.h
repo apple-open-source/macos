@@ -52,7 +52,7 @@ public:
     /*! @typedef IOHIDInterface::InterruptReportAction
         @abstract Callback to handle an asynchronous report received from 
         the HID device.
-        @discussion This callback is set when calling IOHIDInterface::open.  
+        @discussion This callback is  set when calling IOHIDInterface::open.  
         @param target Pointer to your data object.
         @param timestamp Time when the report was delivered.
         @param report A memory descriptor that describes the report. 
@@ -110,6 +110,7 @@ private:
         OSSet                     	*reportPool;
         bool                        opened;
         bool                        sleeping;
+		bool                        terminated;
     };
 
     /*! @var reserved

@@ -31,6 +31,9 @@
 #include <utilities/der_plist.h>
 #include "keychain/SecureObjectSync/SOSDigestVector.h"
 #include "keychain/securityd/SecDbItem.h"
+#include "SOSAccountTesting.h"
+
+#if SOS_ENABLED
 
 static void testNullMessage(uint64_t msgid)
 {
@@ -241,12 +244,15 @@ static void tests(void)
     testFlaggedMessage(test_directive, test_reason, ++msgid, 0x865);
     testFlaggedMessage(test_directive, test_reason, ++msgid, 0xdeadbeef);
 }
+#endif
 
 int secd_50_message(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(26);
-
     tests();
-
+#else
+    plan_tests(0);
+#endif
 	return 0;
 }

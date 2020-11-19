@@ -62,6 +62,10 @@ static bool keyusage_allows(SecKeyUsage keyUsage, CFTypeRef xku) {
     SInt32 dku;
     CFNumberGetValue((CFNumberRef)xku, kCFNumberSInt32Type, &dku);
     SecKeyUsage ku = (SecKeyUsage)dku;
+    /* kSecKeyUsageUnspecified is a special sentinel for allowing a missing KU extension */
+    if (ku == kSecKeyUsageUnspecified) {
+        return (keyUsage == ku);
+    }
     return (keyUsage & ku) == ku;
 }
 
@@ -303,15 +307,13 @@ bool SecPolicyCheckCertSSLHostname(SecCertificateRef cert, CFTypeRef pvcValue) {
                obtained by SecCertificateCopyIPAddresses. Comparisons
                must always use the canonical data representation of the
                address, since string notation may omit zeros, etc. */
-            CFArrayRef ipAddresses = SecCertificateCopyIPAddresses(cert);
+            CFArrayRef ipAddresses = SecCertificateCopyIPAddressDatas(cert);
             CFIndex ix, count = (ipAddresses) ? CFArrayGetCount(ipAddresses) : 0;
             for (ix = 0; ix < count && !dnsMatch; ++ix) {
-                CFStringRef ipAddress = (CFStringRef)CFArrayGetValueAtIndex(ipAddresses, ix);
-                CFDataRef addrData = SecFrameworkCopyIPAddressData(ipAddress);
-                if (CFEqualSafe(hostIPData, addrData)) {
+                CFDataRef ipAddress = (CFDataRef)CFArrayGetValueAtIndex(ipAddresses, ix);
+                if (CFEqualSafe(hostIPData, ipAddress)) {
                     dnsMatch = true;
                 }
-                CFReleaseSafe(addrData);
             }
             CFReleaseSafe(ipAddresses);
             CFReleaseSafe(hostIPData);
@@ -688,6 +690,13 @@ bool SecPolicyCheckCertSignatureHashAlgorithms(SecCertificateRef cert, CFTypeRef
 
 bool SecPolicyCheckCertUnparseableExtension(SecCertificateRef cert, CFTypeRef pvcValue) {
     if (SecCertificateGetUnparseableKnownExtension(cert) != kCFNotFound) {
+        return false;
+    }
+    return true;
+}
+
+bool SecPolicyCheckCertNotCA(SecCertificateRef cert, CFTypeRef pvcValue) {
+    if (SecCertificateIsCA(cert)) {
         return false;
     }
     return true;

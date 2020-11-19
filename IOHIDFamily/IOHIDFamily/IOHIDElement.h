@@ -95,7 +95,8 @@ public:
     OSMetaClassDeclareReservedUsed(IOHIDElement,  7);
     virtual IOFixed                         getScaledFixedValue(IOHIDValueScaleType type, IOOptionBits options)  = 0;
 
-    OSMetaClassDeclareReservedUnused(IOHIDElement,  8);
+    OSMetaClassDeclareReservedUsed(IOHIDElement,  8);
+    virtual void                            setValue(UInt32 value, IOOptionBits options) = 0;
     OSMetaClassDeclareReservedUnused(IOHIDElement,  9);
     OSMetaClassDeclareReservedUnused(IOHIDElement, 10);
     OSMetaClassDeclareReservedUnused(IOHIDElement, 11);

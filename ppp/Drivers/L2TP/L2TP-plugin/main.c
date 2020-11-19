@@ -1217,7 +1217,6 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
     char 		dev[32], name[MAXPATHLEN], c; 
     int 		err = 0, rcvlen;  
 	socklen_t	optlen;
-    CFURLRef		url;
     CFDictionaryRef	dict;
     CFStringRef		string, key;
     struct kev_request	kev_req;
@@ -1330,24 +1329,13 @@ static int l2tp_connect_internal(int *errorcode, int *aggressive_mode, int dhgro
         ctrlsockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP);
         if (ctrlsockfd < 0) {
             if (!opt_noload) {
-                if ((url = CFBundleCopyBundleURL(bundle))) {
-                    name[0] = 0;
-                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
-                    CFRelease(url);
-                    strlcat(name, "/", sizeof(name));
-                    if ((url = CFBundleCopyBuiltInPlugInsURL(bundle))) {
-                        CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
-                                MAXPATHLEN - strlen(name) - strlen(L2TP_NKE) - 1);
-                        CFRelease(url);
-                        strlcat(name, "/", sizeof(name));
-                        strlcat(name, L2TP_NKE, sizeof(name));
+                strlcpy(name, L2TP_NKE, sizeof(name)-1);
 #if TARGET_OS_OSX
-                        if (!load_kext(name, 0))
+                if (!load_kext(name, 0)) {
 #else
-                        if (!load_kext(L2TP_NKE_ID, 1))
+                if (!load_kext(L2TP_NKE_ID, 1)) {
 #endif
-                            ctrlsockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP);
-                    }	
+                    ctrlsockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP);
                 }
             }
             if (ctrlsockfd < 0) {

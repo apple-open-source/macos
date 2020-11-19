@@ -78,7 +78,7 @@ CertificateValues::CertificateValues(SecCertificateRef certificateRef) : mCertif
 		CFRetain(mCertificateRef);
 }
 
-CertificateValues::~CertificateValues() throw()
+CertificateValues::~CertificateValues() _NOEXCEPT
 {
 	if (mCertificateProperties)
 		CFRelease(mCertificateProperties);

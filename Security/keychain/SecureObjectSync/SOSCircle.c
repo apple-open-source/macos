@@ -59,7 +59,7 @@
 #include <corecrypto/ccsha2.h>
 
 #include <stdlib.h>
-#include <assert.h>
+#include <utilities/simulatecrash_assert.h>
 
 CFGiblisWithCompareFor(SOSCircle);
 

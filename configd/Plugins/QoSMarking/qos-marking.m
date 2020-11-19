@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2016-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -748,6 +748,9 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 	BOOL		reqEnabled	= false;
 	BOOL		reqAppleAV	= false;
 
+	// overall policy change
+	BOOL		notify		= false;
+
 	if (nowPolicy != nil) {
 		if ([self qosMarkingIsEnabled:nowPolicy]) {
 			// if we have an enabled QoS marking policy
@@ -811,6 +814,8 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 		} else {
 			SC_log(LOG_ERR, "socket() failed: %s", strerror(errno));
 		}
+
+		notify = true;
 	}
 
 	if (reqEnabled) {
@@ -923,6 +928,21 @@ qosMarkingSetEnabled(int s, const char *ifname, BOOL enabled)
 	if (_enabled.count == 0) {
 		qosMarkingSetRestrictAVApps(false);
 		qosMarkingSetHavePolicies(false);
+	}
+
+	if (notify) {
+		CFStringRef	key;
+
+		key = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
+								    kSCDynamicStoreDomainState,
+								    (__bridge CFStringRef)interface,
+								    kSCEntNetQoSMarkingPolicy);
+		if (reqEnabled && (reqPolicy != nil)) {
+			(void) SCDynamicStoreSetValue(NULL, key, (__bridge CFDictionaryRef)reqPolicy);
+		} else {
+			(void) SCDynamicStoreRemoveValue(NULL, key);
+		}
+		CFRelease(key);
 	}
 }
 

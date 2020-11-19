@@ -83,7 +83,7 @@
 
             if([cuttlefishError.domain isEqualToString:CuttlefishErrorDomain]) {
                 NSNumber* val = cuttlefishError.userInfo[CuttlefishErrorRetryAfterKey];
-                if (val) {
+                if (val != nil) {
                     return (NSTimeInterval)val.doubleValue;
                 }
             }

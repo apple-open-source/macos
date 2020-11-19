@@ -9,11 +9,11 @@
 
 #include <AssertMacros.h>
 
-#include <CommonCrypto/CommonRandomSPI.h>
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecBuffer.h>
-#include <corecrypto/ccec.h>
+#import <corecrypto/ccec.h>
+#import <corecrypto/ccrng.h>
 
 
 #if 0 && defined(CCEC_RFC6637_DEBUG_KEYS)
@@ -46,7 +46,7 @@ SOSCopyECWrappedData(ccec_pub_ctx_t ec_ctx, CFDataRef data, CFErrorRef *error)
     res = ccec_rfc6637_wrap_key(ec_ctx, CFDataGetMutableBytePtr(output), CCEC_RFC6637_COMPACT_KEYS | DEBUGKEYS, kAlgorithmID,
                                 CFDataGetLength(data), CFDataGetBytePtr(data), &ccec_rfc6637_dh_curve_p256,
                                 &ccec_rfc6637_wrap_sha256_kek_aes128, (const uint8_t *)fingerprint,
-                                ccDevRandomGetRngState());
+                                ccrng(NULL));
     require_noerr_action(res, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("Wrap failed with %d"), res));
 
     CFTransferRetained(result, output);

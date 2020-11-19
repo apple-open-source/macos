@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -658,14 +658,6 @@ tcp_stats(uint32_t off , char *name, int af)
 	p(tcps_sack_send_blocks, "\t%u SACK option%s (SACK blocks) sent\n"); 
 	p1a(tcps_sack_sboverflow, "\t%u SACK scoreboard overflow\n"); 
 #endif /* TCP_MAX_SACK */
-
-	p(tcps_coalesced_pack, "\t%u LRO coalesced packet%s\n");
-	p(tcps_flowtbl_full, "\t\t%u time%s LRO flow table was full\n");
-	p(tcps_flowtbl_collision, "\t\t%u collision%s in LRO flow table\n");
-	p(tcps_lro_twopack, "\t\t%u time%s LRO coalesced 2 packets\n");
-	p(tcps_lro_multpack, "\t\t%u time%s LRO coalesced 3 or 4 packets\n");
-	p(tcps_lro_largepack, "\t\t%u time%s LRO coalesced 5 or more packets\n");
-
 	p(tcps_limited_txt, "\t%u limited transmit%s done\n");
 	p(tcps_early_rexmt, "\t%u early retransmit%s done\n");
 	p(tcps_sack_ackadv, "\t%u time%s cumulative ack advanced along with SACK\n");
@@ -999,6 +991,11 @@ ip_stats(uint32_t off , char *name, int af )
 	  "\t\t%u input packet chain%s processed with length greater than 4\n");
 	p(ips_rxc_notlist,
 	  "\t\t%u input packet%s did not go through list processing path\n");
+
+	p(ips_rcv_if_weak_match,
+	  "\t\t%u input packet%s that passed the weak ES interface address match\n");
+	p(ips_rcv_if_no_match,
+	  "\t\t%u input packet%s with no interface address match\n");
 
 #define INPERFDIFF(f) (in_net_perf.f - pin_net_perf.f)
 	if (INPERFDIFF(np_total_pkts) > 0 && in_net_perf.np_total_usecs > 0) {

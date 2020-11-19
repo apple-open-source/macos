@@ -62,10 +62,10 @@ public:
 
     void connectionToServerLost();
 
-    void syncTerminateWorker(WebCore::ServiceWorkerIdentifier) final;
-
     bool isThrottleable() const { return m_isThrottleable; }
     void updateThrottleState();
+
+    void terminateWorkerForTesting(WebCore::ServiceWorkerIdentifier, CompletionHandler<void()>&&);
 
 private:
     WebSWClientConnection();
@@ -75,6 +75,7 @@ private:
     void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destinationIdentifier, WebCore::MessageWithMessagePorts&&, const WebCore::ServiceWorkerOrClientIdentifier& source) final;
     void registerServiceWorkerClient(const WebCore::SecurityOrigin& topOrigin, const WebCore::ServiceWorkerClientData&, const Optional<WebCore::ServiceWorkerRegistrationIdentifier>&, const String& userAgent) final;
     void unregisterServiceWorkerClient(WebCore::DocumentIdentifier) final;
+    void scheduleUnregisterJobInServer(WebCore::ServiceWorkerRegistrationIdentifier, WebCore::DocumentOrWorkerIdentifier, CompletionHandler<void(WebCore::ExceptionOr<bool>&&)>&&) final;
 
     void matchRegistration(WebCore::SecurityOriginData&& topOrigin, const URL& clientURL, RegistrationCallback&&) final;
     void didMatchRegistration(uint64_t matchRequestIdentifier, Optional<WebCore::ServiceWorkerRegistrationData>&&);
@@ -85,7 +86,7 @@ private:
     void setDocumentIsControlled(WebCore::DocumentIdentifier, WebCore::ServiceWorkerRegistrationData&&, CompletionHandler<void(bool)>&&);
 
     void getRegistrations(WebCore::SecurityOriginData&& topOrigin, const URL& clientURL, GetRegistrationsCallback&&) final;
-    void isServiceWorkerRunning(WebCore::ServiceWorkerIdentifier, CompletionHandler<void(bool)>&&) final;
+    void whenServiceWorkerIsTerminatedForTesting(WebCore::ServiceWorkerIdentifier, CompletionHandler<void()>&&) final;
 
     void didResolveRegistrationPromise(const WebCore::ServiceWorkerRegistrationKey&) final;
     void storeRegistrationsOnDiskForTesting(CompletionHandler<void()>&&) final;
@@ -97,7 +98,7 @@ private:
     IPC::Connection* messageSenderConnection() const final;
     uint64_t messageSenderDestinationID() const final { return 0; }
 
-    void setSWOriginTableSharedMemory(const SharedMemory::Handle&);
+    void setSWOriginTableSharedMemory(const SharedMemory::IPCHandle&);
     void setSWOriginTableIsImported();
 
     void clear();

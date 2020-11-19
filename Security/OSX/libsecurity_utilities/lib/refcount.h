@@ -112,7 +112,7 @@ public:
 	RefPointer& operator = (const RefPointer<Sub>& p) { setPointer(p.ptr); return *this; }
 
 	// dereference operations
-    T* get () const				{ _check(); return ptr; }	// mimic auto_ptr
+    T* get () const				{ _check(); return ptr; }	// mimic unique_ptr
 	operator T * () const		{ _check(); return ptr; }
 	T * operator -> () const	{ _check(); return ptr; }
 	T & operator * () const		{ _check(); return *ptr; }

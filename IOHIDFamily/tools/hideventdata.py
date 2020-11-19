@@ -1210,7 +1210,7 @@ def GenEventAccessors(events):
 
 def getFieldType(type):
     dataTypeToNativeTypeMap = {"IOHIDGenericGestureType" : "Integer", "IOFixed" : "IOFixed", "uint8_t" : "Integer",
-        "IOHIDDouble" : "Double", "Boolean" : "Integer", "boolean_t" : "Integer", "uint32_t" : "Integer" , "IOHIDEventColorSpace" : "Integer" , "IOHIDGestureMotion" : "Integer" , "uint64_t" : "Integer" , "uint16_t" : "Integer", "IOHIDGestureFlavor" : "Integer", "IOHIDSwipeMask" : "Integer"
+        "IOHIDDouble" : "Double", "Boolean" : "Integer", "boolean_t" : "Integer", "bool" : "Integer", "uint32_t" : "Integer" , "IOHIDEventColorSpace" : "Integer" , "IOHIDGestureMotion" : "Integer" , "uint64_t" : "Integer" , "uint16_t" : "Integer", "IOHIDGestureFlavor" : "Integer", "IOHIDSwipeMask" : "Integer"
         }
     if type in dataTypeToNativeTypeMap.keys():
         return dataTypeToNativeTypeMap[type]

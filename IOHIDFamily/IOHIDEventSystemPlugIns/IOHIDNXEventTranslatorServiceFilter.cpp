@@ -289,7 +289,7 @@ CFTypeRef IOHIDNXEventTranslatorServiceFilter::copyPropertyForClient(CFStringRef
         result = CFRetain(serializer.Reference());
       }
   } else if (CFEqual(key, CFSTR(kIOHIDNXEventTranslation))) {
-      result = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &_isTranslationEnabled);
+      result = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt8Type, &_isTranslationEnabled);
   }
 
   return result;

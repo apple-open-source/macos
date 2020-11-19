@@ -32,11 +32,12 @@
 #include "sslDebug.h"
 #include "sslCipherSpecs.h"
 
-#include <assert.h>
+#include <utilities/simulatecrash_assert.h>
 #include <string.h>
 
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecCFWrappers.h>
+#import <utilities/SecCoreAnalytics.h>
 
 #include <CommonCrypto/CommonDigest.h>
 #include <Security/SecCertificatePriv.h>
@@ -476,14 +477,12 @@ SSLHandshake(SSLContext *ctx)
 
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
-#include "SecADWrapper.h"
-
 static void ad_log_SecureTransport_early_fail(long signature)
 {
     CFStringRef key = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("com.apple.SecureTransport.early_fail.%ld"), signature);
 
     if (key) {
-        SecADAddValueForScalarKey(key, 1);
+        SecCoreAnalyticsSendValue(key, 1);
         CFRelease(key);
     }
 }

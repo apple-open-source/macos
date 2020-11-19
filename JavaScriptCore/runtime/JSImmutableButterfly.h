@@ -142,12 +142,12 @@ public:
         double value = toButterfly()->contiguousDouble().at(this, index);
         // Holes are not supported yet.
         ASSERT(!std::isnan(value));
-        return jsNumber(value);
+        return jsDoubleNumber(value);
     }
 
     static void visitChildren(JSCell*, SlotVisitor&);
 
-    void copyToArguments(JSGlobalObject*, CallFrame*, VirtualRegister firstElementDest, unsigned offset, unsigned length);
+    void copyToArguments(JSGlobalObject*, JSValue* firstElementDest, unsigned offset, unsigned length);
 
     template<typename, SubspaceAccess>
     static CompleteSubspace* subspaceFor(VM& vm)

@@ -274,7 +274,7 @@ addpath(char *s, int l)
 }
 
 /* stat the filename s appended to pathbuf.  l should be true for lstat,    *
- * false for stat.  If st is NULL, the file is only checked for existance.  *
+ * false for stat.  If st is NULL, the file is only checked for existence.  *
  * s == "" is treated as s == ".".  This is necessary since on most systems *
  * foo/ can be used to reference a non-directory foo.  Returns nonzero if   *
  * the file does not exists.                                                */
@@ -400,7 +400,7 @@ insert(char *s, int checked)
 	if (colonmod) {
 	    /* Handle the remainder of the qualifier:  e.g. (:r:s/foo/bar/). */
 	    char *mod = colonmod;
-	    modify(&news, &mod);
+	    modify(&news, &mod, 1);
 	}
 	if (!statted && (gf_sorts & GS_NORMAL)) {
 	    statfullpath(s, &buf, 1);
@@ -566,7 +566,7 @@ scanner(Complist q, int shortcircuit)
 		continue;
 	    errsfound = errssofar;
 	    if (pattry(p, fn)) {
-		/* if this name matchs the pattern... */
+		/* if this name matches the pattern... */
 		if (pbcwdsav == pathbufcwd &&
 		    strlen(fn) + pathpos - pathbufcwd >= PATH_MAX) {
 		    int err;
@@ -2909,6 +2909,12 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	     */
 	    mb_charinit();
 	    tmatch = NULL;
+	    set_pat_start(p, l);
+	    if (pattrylen(p, send, 0, 0, &patstralloc, umltot) &&
+		!--n) {
+		*sp = get_match_ret(&imd, umltot, umltot);
+		return 1;
+	    }
 	    for (ioff = 0, t = s, umlen = umltot; t < send; ioff++) {
 		set_pat_start(p, t-s);
 		if (pattrylen(p, t, umlen, 0, &patstralloc, ioff))
@@ -3053,7 +3059,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	case (SUB_END|SUB_SUBSTR):
 	case (SUB_END|SUB_LONG|SUB_SUBSTR):
 	    /* Longest/shortest at end, matching substrings.       */
-	    if (!(fl & SUB_LONG)) {
+	    {
 		set_pat_start(p, l);
 		if (pattrylen(p, send, 0, 0, &patstralloc, umltot) &&
 		    !--n) {
@@ -3391,7 +3397,7 @@ igetmatch(char **sp, Patprog p, int fl, int n, char *replstr,
 	case (SUB_END|SUB_SUBSTR):
 	case (SUB_END|SUB_LONG|SUB_SUBSTR):
 	    /* Longest/shortest at end, matching substrings.       */
-	    if (!(fl & SUB_LONG)) {
+	    {
 		set_pat_start(p, l);
 		if (pattrylen(p, send, 0, 0, &patstralloc, uml) && !--n) {
 		    *sp = get_match_ret(&imd, uml, uml);

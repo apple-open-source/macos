@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -441,6 +441,19 @@ my_CFDictionarySetTypeAsArrayValue(CFMutableDictionaryRef dict,
 }
 
 PRIVATE_EXTERN void
+my_CFDictionarySetIPAddressAsArrayValue(CFMutableDictionaryRef dict,
+					CFStringRef prop,
+					struct in_addr ip_addr)
+{
+    CFStringRef		str;
+
+    str = my_CFStringCreateWithIPAddress(ip_addr);
+    my_CFDictionarySetTypeAsArrayValue(dict, prop, str);
+    CFRelease(str);
+    return;
+}
+
+PRIVATE_EXTERN void
 my_CFDictionarySetIPAddressAsString(CFMutableDictionaryRef dict,
 				    CFStringRef prop,
 				    struct in_addr ip_addr)
@@ -454,16 +467,74 @@ my_CFDictionarySetIPAddressAsString(CFMutableDictionaryRef dict,
 }
 
 PRIVATE_EXTERN void
-my_CFDictionarySetIPAddressAsArrayValue(CFMutableDictionaryRef dict,
-					CFStringRef prop,
-					struct in_addr ip_addr)
+my_CFDictionarySetIPv6Addresses(CFMutableDictionaryRef dict,
+				CFStringRef prop,
+				const struct in6_addr * ip6_addrs,
+				int count)
+{
+    CFMutableArrayRef	addresses;
+    int			i;
+
+    addresses = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+    for (i = 0; i < count; i++) {
+	CFStringRef		str;
+
+	str = my_CFStringCreateWithIPv6Address(ip6_addrs + i);
+	CFArrayAppendValue(addresses, str);
+	CFRelease(str);
+    }
+    CFDictionarySetValue(dict, prop, addresses);
+    CFRelease(addresses);
+    return;
+}
+
+PRIVATE_EXTERN void
+my_CFDictionarySetIPv6AddressAsString(CFMutableDictionaryRef dict,
+				      CFStringRef prop,
+				      const struct in6_addr * ip6_addr)
 {
     CFStringRef		str;
 
-    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
-				   IP_LIST(&ip_addr));
-    my_CFDictionarySetTypeAsArrayValue(dict, prop, str);
+    str = my_CFStringCreateWithIPv6Address(ip6_addr);
+    CFDictionarySetValue(dict, prop, str);
     CFRelease(str);
+    return;
+}
+
+PRIVATE_EXTERN void
+my_CFDictionarySetCString(CFMutableDictionaryRef dict, CFStringRef prop,
+			  const char * str)
+{
+    CFStringRef		cfstr;
+
+    cfstr = CFStringCreateWithCString(NULL, str, kCFStringEncodingUTF8);
+    CFDictionarySetValue(dict, prop, cfstr);
+    CFRelease(cfstr);
+    return;
+}
+
+PRIVATE_EXTERN void
+my_CFDictionarySetAbsoluteTime(CFMutableDictionaryRef dict,
+			       CFStringRef prop,
+			       CFAbsoluteTime the_time)
+{
+    CFDateRef	date;
+
+    date = CFDateCreate(NULL, the_time);
+    CFDictionarySetValue(dict, prop, date);
+    CFRelease(date);
+    return;
+}
+
+PRIVATE_EXTERN void
+my_CFDictionarySetUInt64(CFMutableDictionaryRef dict, CFStringRef prop,
+			 UInt64 val)
+{
+    CFNumberRef		num;
+
+    num = CFNumberCreate(NULL, kCFNumberSInt64Type, &val);
+    CFDictionarySetValue(dict, prop, num);
+    CFRelease(num);
     return;
 }
 
@@ -604,6 +675,15 @@ my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
     return (my_CFStringToCStringWithRange(cfstr, range, encoding));
 }
 
+PRIVATE_EXTERN CFDataRef
+my_CFStringCreateData(CFStringRef str)
+{
+    return (CFStringCreateExternalRepresentation(NULL,
+						 str,
+						 kCFStringEncodingUTF8,
+						 0));
+}
+
 PRIVATE_EXTERN CFStringRef
 my_CFUUIDStringCreate(CFAllocatorRef alloc)
 {
@@ -625,4 +705,73 @@ my_CFStringPrint(FILE * f, CFStringRef str)
     fprintf(f, "%s", cstr);
     free(cstr);
     return;
+}
+
+PRIVATE_EXTERN CFStringRef
+my_CFStringCreateWithBytes(const uint8_t * bytes, int bytes_length)
+{
+    CFStringRef		str;
+
+    if (bytes != NULL && bytes_length > 0) {
+	str = CFStringCreateWithBytes(kCFAllocatorDefault,
+				      (UInt8 *)bytes,
+				      bytes_length,
+				      kCFStringEncodingUTF8,
+				      FALSE);
+    }
+    else {
+	str = NULL;
+    }
+    return (str);
+}
+
+PRIVATE_EXTERN vm_address_t
+my_CFPropertyListCreateVMData(CFPropertyListRef plist,
+			      mach_msg_type_number_t * 	ret_data_len)
+{
+    vm_address_t	data;
+    int			data_len;
+    kern_return_t	status;
+    CFDataRef		xml_data;
+
+    data = 0;
+    *ret_data_len = 0;
+    xml_data = CFPropertyListCreateData(NULL, plist,
+					kCFPropertyListBinaryFormat_v1_0,
+					0, NULL);
+    if (xml_data == NULL) {
+	goto done;
+    }
+    data_len = (int)CFDataGetLength(xml_data);
+    status = vm_allocate(mach_task_self(), &data, data_len, TRUE);
+    if (status != KERN_SUCCESS) {
+	goto done;
+    }
+    bcopy((char *)CFDataGetBytePtr(xml_data), (char *)data, data_len);
+    *ret_data_len = data_len;
+
+ done:
+    my_CFRelease(&xml_data);
+    return (data);
+}
+
+PRIVATE_EXTERN CFPropertyListRef
+my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
+{
+    CFPropertyListRef	plist;
+    CFDataRef		xml_data;
+
+    xml_data = CFDataCreateWithBytesNoCopy(NULL,
+					   (const UInt8 *)data, data_len,
+					   kCFAllocatorNull);
+    if (xml_data == NULL) {
+	return (NULL);
+    }
+    plist = CFPropertyListCreateWithData(NULL,
+					 xml_data,
+					 kCFPropertyListImmutable,
+					 NULL,
+					 NULL);
+    CFRelease(xml_data);
+    return (plist);
 }

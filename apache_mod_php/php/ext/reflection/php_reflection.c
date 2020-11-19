@@ -4588,6 +4588,8 @@ ZEND_METHOD(reflection_class, isCloneable)
 			if (UNEXPECTED(object_init_ex(&obj, ce) != SUCCESS)) {
 				return;
 			}
+			/* We're not calling the constructor, so don't call the destructor either. */
+			zend_object_store_ctor_failed(Z_OBJ(obj));
 			RETVAL_BOOL(Z_OBJ_HANDLER(obj, clone_obj) != NULL);
 			zval_ptr_dtor(&obj);
 		}
@@ -5087,7 +5089,7 @@ ZEND_METHOD(reflection_class, implementsInterface)
 
 	if (!(interface_ce->ce_flags & ZEND_ACC_INTERFACE)) {
 		zend_throw_exception_ex(reflection_exception_ptr, 0,
-				"Interface %s is a Class", ZSTR_VAL(interface_ce->name));
+				"%s is not an interface", ZSTR_VAL(interface_ce->name));
 		return;
 	}
 	RETURN_BOOL(instanceof_function(ce, interface_ce));

@@ -283,25 +283,43 @@ mDNSlocal mDNSBool HasReplyWithInterfaceIndex(reply_state * reply, mDNSu32 inter
 {
     request_state* req = client_request_message;
 
+    fprintf(stdout, "testLocalOnlyWithInterfacesTestSeries: primary_interfaceID %d\n", primary_interfaceID);
+
     // Verify Any index returns 2 results.
-    [self _executeClientQueryRequest: req andMsgBuf: test_query_any_msgbuf];
-    XCTAssertEqual(NumReplies(req->replies), 2);
-    XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, kDNSServiceInterfaceIndexP2P));
-    XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, kDNSServiceInterfaceIndexLocalOnly));
+ #if !TARGET_OS_WATCH
+    if (primary_interfaceID)
+    {
+        // Path evaluation on watch causes this query to get scoped to en0 (primary_interfaceID) so it's the same as #3
+        [self _executeClientQueryRequest: req andMsgBuf: test_query_any_msgbuf];
+        XCTAssertEqual(NumReplies(req->replies), 2);
+        XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, kDNSServiceInterfaceIndexP2P));
+        XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, kDNSServiceInterfaceIndexLocalOnly));
+    }
+    else
+    {
+        fprintf(stdout, "testLocalOnlyWithInterfacesTestSeries: skipping test_query_any_msgbuf test because interface not found\n");
+    }
+#endif
 
     // Verify LocalOnly index returns 3 results.
     [self _executeClientQueryRequest: req andMsgBuf: test_query_local_msgbuf];
     XCTAssertEqual(NumReplies(req->replies), 3);
     XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, kDNSServiceInterfaceIndexP2P));
     XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, kDNSServiceInterfaceIndexLocalOnly));
-    XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, primary_interfaceID));
+    if (primary_interfaceID) XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, primary_interfaceID));
 
-    // Verify en0 index returns 1 result.
-    test_query_interface_msgbuf[7] = primary_interfaceID;
-    [self _executeClientQueryRequest: req andMsgBuf: test_query_interface_msgbuf];
-    XCTAssertEqual(NumReplies(req->replies), 1);
-    XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, primary_interfaceID));
-
+    if (primary_interfaceID)
+    {
+        // Verify en0 index returns 1 result.
+        test_query_interface_msgbuf[7] = primary_interfaceID;
+        [self _executeClientQueryRequest: req andMsgBuf: test_query_interface_msgbuf];
+        XCTAssertEqual(NumReplies(req->replies), 1);
+        XCTAssertTrue(HasReplyWithInterfaceIndex(req->replies, primary_interfaceID));
+    }
+    else
+    {
+        fprintf(stdout, "testLocalOnlyWithInterfacesTestSeries: skipping primary_interfaceID test because interface not found\n");
+    }
 }
 
 // Simulate a uds client request by setting up a client request and then
@@ -374,12 +392,8 @@ mDNSlocal mDNSBool HasReplyWithInterfaceIndex(reply_state * reply, mDNSu32 inter
     XCTAssertEqual(q->TimeoutQuestion, 0);
     XCTAssertEqual(q->WakeOnResolve, 0);
     XCTAssertEqual(q->UseBackgroundTraffic, 0);
-    XCTAssertEqual(q->ValidationRequired, 0);
-    XCTAssertEqual(q->ValidatingResponse, 0);
     XCTAssertEqual(q->ProxyQuestion, 0);
     XCTAssertNotEqual((void*)q->QuestionCallback, (void*)mDNSNULL);
-    XCTAssertNil((__bridge id)q->DNSSECAuthInfo);
-    XCTAssertNil((__bridge id)(void*)q->DAIFreeCallback);
     XCTAssertEqual(q->AppendSearchDomains, 0);
     XCTAssertNil((__bridge id)q->DuplicateOf);
     

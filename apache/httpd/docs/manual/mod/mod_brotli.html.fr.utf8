@@ -204,14 +204,14 @@ compression</td></tr>
     <dt>AddSuffix</dt>
     <dd><p>Ajoute la méthode de compression à la fin de l'en-tête ETag, ce qui
     implique que les représentations compressées et non compressées possèderont
-    des en-têtes ETag uniques. C'était le comportement par défaut depuis la
+    des en-têtes ETag uniques. C'est le comportement par défaut depuis la
     version 2.4.0 avec un autre module de compression dynamique,
     mod-deflate. Ce paramètre permet d'éviter l'envoi de messages
     "HTTP Not Modified" (304) en réponse aux requêtes conditionnelles pour des
     contenus compressés.</p></dd>
     <dt>NoChange</dt>
     <dd><p>Ne modifie pas l'en-tête ETag d'une réponse compressée. C'était le
-    comportement par défaut depuis la version 2.4.0 avec un autre module de
+    comportement par défaut avant la version 2.4.0 avec un autre module de
     compression dynamique, mod-deflate. Ce paramètre ne respecte pas la
     propriété HTTP/1.1 selon laquelle toutes les représentations d'une même
     ressource ont des en-têtes ETag uniques.</p></dd>
@@ -333,7 +333,7 @@ CustomLog "logs/brotli_log" brotli</pre>
 <div class="bottomlang">
 <p><span>Langues Disponibles: </span><a href="../en/mod/mod_brotli.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_brotli.html" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_brotli.html';
@@ -351,7 +351,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_brotli.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

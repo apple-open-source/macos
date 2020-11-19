@@ -80,8 +80,7 @@ HeimCredMessageCopyAttributes(xpc_object_t object, const char *key, CFTypeID typ
 	return NULL;
     item = _CFXPCCreateCFObjectFromXPCObject(xpcattrs);
     if (item && CFGetTypeID(item) != type) {
-	CFRelease(item);
-	item = NULL;
+	CFRELEASE_NULL(item);
     }
     return item;	
 }
@@ -121,12 +120,14 @@ HeimCredCopyDebugName(CFTypeRef cf)
 	CFTypeRef server = CFDictionaryGetValue(cred->attributes, kHEIMAttrServerName);
 	CFTypeRef parent = CFDictionaryGetValue(cred->attributes, kHEIMAttrParentCredential);
 	CFTypeRef group = CFDictionaryGetValue(cred->attributes, kHEIMAttrLeadCredential);
+	CFTypeRef altDSID = CFDictionaryGetValue(cred->attributes, kHEIMAttrAltDSID);
 	CFTypeRef uid = CFDictionaryGetValue(cred->attributes, kHEIMAttrUserID);
+	CFTypeRef asid = CFDictionaryGetValue(cred->attributes, kHEIMAttrASID);
 	
 	int lead = group ? CFBooleanGetValue(group) : false;
 	CFTypeRef acl = CFDictionaryGetValue(cred->attributes, kHEIMAttrBundleIdentifierACL);
-	return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@ group: %@ parent: %@ client: %@ server: %@ lead: %s ACL: %@, UID: %@>"),
-					cred->uuid, group, parent, client, server, lead ? "yes" : "no", acl ? acl : CFSTR(""), uid);
+	return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@ group: %@ parent: %@ client: %@ server: %@ lead: %s ACL: %@, altDSID: %@, Uid: %@, asid: %@>"),
+					cred->uuid, group, parent, client, server, lead ? "yes" : "no", acl ? acl : CFSTR(""), altDSID ? : CFSTR(""), uid ? : CFSTR(""), asid ? : CFSTR(""));
     } else {
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("HeimCred<%@>"), cred->uuid);
     }
@@ -138,6 +139,19 @@ HeimCredReleaseItem(CFTypeRef item)
     HeimCredRef cred = (HeimCredRef)item;
     CFRELEASE_NULL(cred->uuid);
     CFRELEASE_NULL(cred->attributes);
+#if HEIMCRED_SERVER
+    if (cred->renew_event) {
+	heim_ipc_event_cancel(cred->renew_event);
+	heim_ipc_event_free(cred->renew_event);
+	cred->renew_event = NULL;
+    }
+    if (cred->expire_event) {
+	heim_ipc_event_cancel(cred->expire_event);
+	heim_ipc_event_free(cred->expire_event);
+	cred->expire_event = NULL;
+    }
+    HEIMDAL_MUTEX_destroy(&cred->event_mutex);
+#endif
 }
 
 void
@@ -186,6 +200,11 @@ HeimCredCreateItem(CFUUIDRef uuid)
     
     CFRetain(uuid);
     cred->uuid = uuid;
+#if HEIMCRED_SERVER
+    cred->acquire_status = CRED_STATUS_ACQUIRE_INITIAL;
+    cred->expire_event = NULL;
+    cred->renew_event = NULL;
+    HEIMDAL_MUTEX_init(&cred->event_mutex);
+#endif
     return cred;
 }
-

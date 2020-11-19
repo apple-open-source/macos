@@ -377,10 +377,11 @@ CFArrayRef potentialEVChainWithCertificates(CFArrayRef certificates)
 //
 static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificateRef certificate)
 {
-    if (!certificate)
+    if (!certificate) {
         return NULL;
+    }
 
-	StLock<Mutex> _(SecTrustKeychainsGetMutex());
+    StLock<Mutex> _(SecTrustKeychainsGetMutex());
 
     // get data+length for the provided certificate
     CSSM_CL_HANDLE clHandle = 0;
@@ -519,8 +520,9 @@ static SecCertificateRef _rootCertificateWithSubjectKeyIDOfCertificate(SecCertif
     SecCertificateRef resultCert = NULL;
 	OSStatus status = errSecSuccess;
 
-    if (!certificate)
+    if (!certificate) {
         return NULL;
+    }
 
 	StLock<Mutex> _(SecTrustKeychainsGetMutex());
 
@@ -557,8 +559,9 @@ CFArrayRef CF_RETURNS_RETAINED _possibleRootCertificatesForOidString(CFStringRef
 {
 	StLock<Mutex> _(SecTrustKeychainsGetMutex());
 
-    if (!oidString)
+    if (!oidString) {
         return NULL;
+    }
 	CFDictionaryRef evOidDict = _evCAOidDict();
 	if (!evOidDict)
 		return NULL;

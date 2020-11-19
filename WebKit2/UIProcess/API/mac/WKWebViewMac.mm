@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,7 +30,9 @@
 
 #import "AppKitSPI.h"
 #import "VersionChecks.h"
+#import "WKContentViewMac.h"
 #import "WKSafeBrowsingWarning.h"
+#import "WKScrollViewMac.h"
 #import "WKTextFinderClient.h"
 #import "WKUIDelegatePrivate.h"
 #import "WebBackForwardList.h"
@@ -133,21 +135,23 @@ Optional<WebCore::ScrollbarOverlayStyle> toCoreScrollbarStyle(_WKOverlayScrollba
 {
     [super setFrameSize:size];
     [_safeBrowsingWarning setFrame:self.bounds];
-    _impl->setFrameSize(NSSizeToCGSize(size));
+    if (_impl)
+        _impl->setFrameSize(NSSizeToCGSize(size));
 }
 
 - (void)setUserInterfaceLayoutDirection:(NSUserInterfaceLayoutDirection)userInterfaceLayoutDirection
 {
     [super setUserInterfaceLayoutDirection:userInterfaceLayoutDirection];
-
-    _impl->setUserInterfaceLayoutDirection(userInterfaceLayoutDirection);
+    if (_impl)
+        _impl->setUserInterfaceLayoutDirection(userInterfaceLayoutDirection);
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)renewGState
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
-    _impl->renewGState();
+    if (_impl)
+        _impl->renewGState();
     [super renewGState];
 }
 
@@ -1207,6 +1211,34 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     _impl->insertText(string, replacementRange);
 }
 
+#pragma mark - WKScrollViewDelegate
+
+- (void)scrollViewDidScroll:(NSScrollView *)scrollView
+{
+    // Only called with UI-side compositing.
+}
+
+- (void)scrollViewContentInsetsDidChange:(NSScrollView *)scrollView
+{
+    // Only called with UI-side compositing.
+}
+
+#pragma mark -
+
+- (void)_setupScrollAndContentViews
+{
+    if (!_impl->isUsingUISideCompositing())
+        return;
+
+    _scrollView = adoptNS([[WKScrollView alloc] initWithFrame:[self bounds]]);
+    [_scrollView setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
+    [self addSubview:_scrollView.get() positioned:NSWindowBelow relativeTo:nil];
+
+    // The content view will get resized to fit the content.
+    [_scrollView setDocumentView:_contentView.get()];
+    [_scrollView setDelegate:self];
+}
+
 @end
 
 #pragma mark -
@@ -1368,6 +1400,31 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     _impl->setClipsToVisibleRect(expandsToFit);
 }
 
+- (CGSize)_sizeToContentAutoSizeMaximumSize
+{
+    return _page->minimumSizeForAutoLayout();
+}
+
+- (void)_setSizeToContentAutoSizeMaximumSize:(CGSize)size
+{
+    BOOL expandsToFit = size.width > 0 && size.height > 0;
+
+    _page->setSizeToContentAutoSizeMaximumSize(WebCore::IntSize(size.width, size.height));
+    _page->setMainFrameIsScrollable(!expandsToFit);
+
+    _impl->setClipsToVisibleRect(expandsToFit);
+}
+
+- (BOOL)_clipsToVisibleRect
+{
+    return _impl->clipsToVisibleRect();
+}
+
+- (void)_setClipsToVisibleRect:(BOOL)clipsToVisibleRect
+{
+    _impl->setClipsToVisibleRect(clipsToVisibleRect);
+}
+
 - (BOOL)_alwaysShowsHorizontalScroller
 {
     return _page->alwaysShowsHorizontalScroller();
@@ -1461,7 +1518,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (BOOL)_canChangeFrameLayout:(_WKFrameHandle *)frameHandle
 {
-    if (auto* webFrameProxy = _page->process().webFrame(WebCore::frameIdentifierFromID(frameHandle._frameID)))
+    if (auto* webFrameProxy = _page->process().webFrame(frameHandle->_frameHandle->frameID()))
         return _impl->canChangeFrameLayout(*webFrameProxy);
     return false;
 }
@@ -1543,14 +1600,12 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (NSPrintOperation *)_printOperationWithPrintInfo:(NSPrintInfo *)printInfo
 {
-    if (auto webFrameProxy = _page->mainFrame())
-        return _impl->printOperationWithPrintInfo(printInfo, *webFrameProxy);
-    return nil;
+    return [self printOperationWithPrintInfo:printInfo];
 }
 
 - (NSPrintOperation *)_printOperationWithPrintInfo:(NSPrintInfo *)printInfo forFrame:(_WKFrameHandle *)frameHandle
 {
-    if (auto* webFrameProxy = _page->process().webFrame(WebCore::frameIdentifierFromID(frameHandle._frameID)))
+    if (auto* webFrameProxy = _page->process().webFrame(frameHandle->_frameHandle->frameID()))
         return _impl->printOperationWithPrintInfo(printInfo, *webFrameProxy);
     return nil;
 }

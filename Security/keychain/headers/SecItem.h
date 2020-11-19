@@ -1026,12 +1026,12 @@ extern const CFStringRef kSecValuePersistentRef
 */
 extern const CFStringRef kSecUseItemList
     API_AVAILABLE(macos(10.6))
-    API_DEPRECATED("Not implemented on this platform", ios(2.0, 12.0), tvos(9.0, 12.0), watchos(1.0, 5.0))
-    API_UNAVAILABLE(bridgeos, iosmac);
+    API_DEPRECATED("Not implemented on this platform", ios(2.0, 12.0), tvos(9.0, 12.0), watchos(1.0, 5.0), macCatalyst(13.0, 13.0))
+    API_UNAVAILABLE(bridgeos);
 extern const CFStringRef kSecUseKeychain
     API_AVAILABLE(macos(10.7), ios(NA), bridgeos(NA));
 extern const CFStringRef kSecUseOperationPrompt
-    API_AVAILABLE(macos(10.10), ios(8.0));
+    API_DEPRECATED("Use kSecUseAuthenticationContext and set LAContext.localizedReason property", macos(10.10, 10.16), ios(8.0, 14.0));
 extern const CFStringRef kSecUseNoAuthenticationUI
     API_DEPRECATED("Use kSecUseAuthenticationUI instead.", macos(10.10, 10.11), ios(8.0, 9.0));
 extern const CFStringRef kSecUseAuthenticationUI
@@ -1057,9 +1057,9 @@ extern const CFStringRef kSecUseDataProtectionKeychain
         only with SecItemCopyMatching.
 */
 extern const CFStringRef kSecUseAuthenticationUIAllow
-    API_AVAILABLE(macos(10.11), ios(9.0));
+    API_DEPRECATED("Instead of kSecUseAuthenticationUI, use kSecUseAuthenticationContext and set LAContext.interactionNotAllowed property", macos(10.11, 10.16), ios(9.0, 14.0));
 extern const CFStringRef kSecUseAuthenticationUIFail
-    API_AVAILABLE(macos(10.11), ios(9.0));
+    API_DEPRECATED("Instead of kSecUseAuthenticationUI, use kSecUseAuthenticationContext and set LAContext.interactionNotAllowed property", macos(10.11, 10.16), ios(9.0, 14.0));
 extern const CFStringRef kSecUseAuthenticationUISkip
     API_AVAILABLE(macos(10.11), ios(9.0));
 

@@ -25,13 +25,13 @@
 
 #import "CKKSNotifier.h"
 #import <notify.h>
-#import <utilities/debugging.h>
+#import "keychain/ckks/CKKS.h"
 
 @implementation CKKSNotifyPostNotifier
 
 +(void)post:(NSString*)notification {
     if(notification) {
-        secnotice("ckks", "posting notification %@", notification);
+        ckksnotice_global("ckks", "posting notification %@", notification);
         notify_post([notification UTF8String]);
     }
 }

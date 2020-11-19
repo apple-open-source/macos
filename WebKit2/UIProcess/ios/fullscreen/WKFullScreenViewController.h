@@ -23,8 +23,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #if ENABLE(FULLSCREEN_API) && PLATFORM(IOS_FAMILY)
 
 #import <UIKit/UIViewController.h>
@@ -35,7 +33,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface WKFullScreenViewController : UIViewController
 @property (retain, nonatomic) id target;
-@property (assign, nonatomic) SEL action;
+@property (assign, nonatomic) SEL exitFullScreenAction;
 @property (copy, nonatomic) NSString *location;
 @property (assign, nonatomic) BOOL prefersStatusBarHidden;
 @property (assign, nonatomic) BOOL prefersHomeIndicatorAutoHidden;
@@ -47,6 +45,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)showUI;
 - (void)hideUI;
 - (void)videoControlsManagerDidChange;
+- (void)setAnimatingViewAlpha:(CGFloat)alpha;
 @end
 
 NS_ASSUME_NONNULL_END

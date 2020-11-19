@@ -229,6 +229,7 @@
 					"-lsystem_malloc",
 					"-lsystem_c",
 				);
+				OTHER_TAPI_FLAGS = "-umbrella System";
 				"SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\")))";
 				WARNING_CFLAGS = "-Wall";

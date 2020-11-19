@@ -27,7 +27,7 @@
 #include "WebEditorClient.h"
 
 #include "EditorState.h"
-#include "SharedBufferDataReference.h"
+#include "SharedBufferCopy.h"
 #include "UndoOrRedo.h"
 #include "WKBundlePageEditorClient.h"
 #include "WebCoreArgumentCoders.h"
@@ -50,6 +50,7 @@
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
+#include <WebCore/Range.h>
 #include <WebCore/SerializedAttachmentData.h>
 #include <WebCore/SpellChecker.h>
 #include <WebCore/StyleProperties.h>
@@ -74,11 +75,9 @@ static uint64_t generateTextCheckingRequestID()
     return uniqueTextCheckingRequestID++;
 }
 
-bool WebEditorClient::shouldDeleteRange(Range* range)
+bool WebEditorClient::shouldDeleteRange(const Optional<SimpleRange>& range)
 {
-    bool result = m_page->injectedBundleEditorClient().shouldDeleteRange(*m_page, range);
-    notImplemented();
-    return result;
+    return m_page->injectedBundleEditorClient().shouldDeleteRange(*m_page, range);
 }
 
 bool WebEditorClient::smartInsertDeleteEnabled()
@@ -114,50 +113,37 @@ void WebEditorClient::toggleGrammarChecking()
 int WebEditorClient::spellCheckerDocumentTag()
 {
     notImplemented();
-    return false;
+    return 0;
 }
 
-bool WebEditorClient::shouldBeginEditing(Range* range)
+bool WebEditorClient::shouldBeginEditing(const SimpleRange& range)
 {
-    bool result = m_page->injectedBundleEditorClient().shouldBeginEditing(*m_page, range);
-    notImplemented();
-    return result;
+    return m_page->injectedBundleEditorClient().shouldBeginEditing(*m_page, range);
 }
 
-bool WebEditorClient::shouldEndEditing(Range* range)
+bool WebEditorClient::shouldEndEditing(const SimpleRange& range)
 {
-    bool result = m_page->injectedBundleEditorClient().shouldEndEditing(*m_page, range);
-    notImplemented();
-    return result;
+    return m_page->injectedBundleEditorClient().shouldEndEditing(*m_page, range);
 }
 
-bool WebEditorClient::shouldInsertNode(Node* node, Range* rangeToReplace, EditorInsertAction action)
+bool WebEditorClient::shouldInsertNode(Node& node, const Optional<SimpleRange>& rangeToReplace, EditorInsertAction action)
 {
-    bool result = m_page->injectedBundleEditorClient().shouldInsertNode(*m_page, node, rangeToReplace, action);
-    notImplemented();
-    return result;
+    return m_page->injectedBundleEditorClient().shouldInsertNode(*m_page, node, rangeToReplace, action);
 }
 
-bool WebEditorClient::shouldInsertText(const String& text, Range* rangeToReplace, EditorInsertAction action)
+bool WebEditorClient::shouldInsertText(const String& text, const Optional<SimpleRange>& rangeToReplace, EditorInsertAction action)
 {
-    bool result = m_page->injectedBundleEditorClient().shouldInsertText(*m_page, text.impl(), rangeToReplace, action);
-    notImplemented();
-    return result;
+    return m_page->injectedBundleEditorClient().shouldInsertText(*m_page, text, rangeToReplace, action);
 }
 
-bool WebEditorClient::shouldChangeSelectedRange(Range* fromRange, Range* toRange, EAffinity affinity, bool stillSelecting)
+bool WebEditorClient::shouldChangeSelectedRange(const Optional<SimpleRange>& fromRange, const Optional<SimpleRange>& toRange, EAffinity affinity, bool stillSelecting)
 {
-    bool result = m_page->injectedBundleEditorClient().shouldChangeSelectedRange(*m_page, fromRange, toRange, affinity, stillSelecting);
-    notImplemented();
-    return result;
+    return m_page->injectedBundleEditorClient().shouldChangeSelectedRange(*m_page, fromRange, toRange, affinity, stillSelecting);
 }
     
-bool WebEditorClient::shouldApplyStyle(StyleProperties* style, Range* range)
+bool WebEditorClient::shouldApplyStyle(const StyleProperties& style, const Optional<SimpleRange>& range)
 {
-    Ref<MutableStyleProperties> mutableStyle(style->isMutable() ? Ref<MutableStyleProperties>(static_cast<MutableStyleProperties&>(*style)) : style->mutableCopy());
-    bool result = m_page->injectedBundleEditorClient().shouldApplyStyle(*m_page, &mutableStyle->ensureCSSStyleDeclaration(), range);
-    notImplemented();
-    return result;
+    return m_page->injectedBundleEditorClient().shouldApplyStyle(*m_page, style, range);
 }
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -169,7 +155,7 @@ void WebEditorClient::registerAttachmentIdentifier(const String& identifier, con
 
 void WebEditorClient::registerAttachments(Vector<WebCore::SerializedAttachmentData>&& data)
 {
-    m_page->send(Messages::WebPageProxy::registerAttachmentsFromSerializedData(WTFMove(data)));
+    m_page->send(Messages::WebPageProxy::RegisterAttachmentsFromSerializedData(WTFMove(data)));
 }
 
 void WebEditorClient::registerAttachmentIdentifier(const String& identifier, const String& contentType, const String& filePath)
@@ -211,9 +197,8 @@ void WebEditorClient::didApplyStyle()
     m_page->didApplyStyle();
 }
 
-bool WebEditorClient::shouldMoveRangeAfterDelete(Range*, Range*)
+bool WebEditorClient::shouldMoveRangeAfterDelete(const SimpleRange&, const SimpleRange&)
 {
-    notImplemented();
     return true;
 }
 
@@ -222,7 +207,6 @@ void WebEditorClient::didBeginEditing()
     // FIXME: What good is a notification name, if it's always the same?
     static NeverDestroyed<String> WebViewDidBeginEditingNotification(MAKE_STATIC_STRING_IMPL("WebViewDidBeginEditingNotification"));
     m_page->injectedBundleEditorClient().didBeginEditing(*m_page, WebViewDidBeginEditingNotification.get().impl());
-    notImplemented();
 }
 
 void WebEditorClient::respondToChangedContents()
@@ -275,7 +259,6 @@ void WebEditorClient::didEndEditing()
 {
     static NeverDestroyed<String> WebViewDidEndEditingNotification(MAKE_STATIC_STRING_IMPL("WebViewDidEndEditingNotification"));
     m_page->injectedBundleEditorClient().didEndEditing(*m_page, WebViewDidEndEditingNotification.get().impl());
-    notImplemented();
 }
 
 void WebEditorClient::didWriteSelectionToPasteboard()
@@ -283,17 +266,17 @@ void WebEditorClient::didWriteSelectionToPasteboard()
     m_page->injectedBundleEditorClient().didWriteToPasteboard(*m_page);
 }
 
-void WebEditorClient::willWriteSelectionToPasteboard(Range* range)
+void WebEditorClient::willWriteSelectionToPasteboard(const Optional<SimpleRange>& range)
 {
     m_page->injectedBundleEditorClient().willWriteToPasteboard(*m_page, range);
 }
 
-void WebEditorClient::getClientPasteboardDataForRange(Range* range, Vector<String>& pasteboardTypes, Vector<RefPtr<SharedBuffer>>& pasteboardData)
+void WebEditorClient::getClientPasteboardData(const Optional<SimpleRange>& range, Vector<String>& pasteboardTypes, Vector<RefPtr<SharedBuffer>>& pasteboardData)
 {
     m_page->injectedBundleEditorClient().getPasteboardDataForRange(*m_page, range, pasteboardTypes, pasteboardData);
 }
 
-bool WebEditorClient::performTwoStepDrop(DocumentFragment& fragment, Range& destination, bool isMove)
+bool WebEditorClient::performTwoStepDrop(DocumentFragment& fragment, const SimpleRange& destination, bool isMove)
 {
     return m_page->injectedBundleEditorClient().performTwoStepDrop(*m_page, fragment, destination, isMove);
 }
@@ -360,7 +343,8 @@ WebCore::DOMPasteAccessResponse WebEditorClient::requestDOMPasteAccess(const Str
     return m_page->requestDOMPasteAccess(originIdentifier);
 }
 
-#if PLATFORM(WIN)
+#if !PLATFORM(COCOA) && !USE(GLIB)
+
 void WebEditorClient::handleKeyboardEvent(KeyboardEvent& event)
 {
     if (m_page->handleEditingKeyboardEvent(event))
@@ -371,7 +355,8 @@ void WebEditorClient::handleInputMethodKeydown(KeyboardEvent&)
 {
     notImplemented();
 }
-#endif // PLATFORM(WIN)
+
+#endif // !PLATFORM(COCOA) && !USE(GLIB)
 
 void WebEditorClient::textFieldDidBeginEditing(Element* element)
 {
@@ -420,15 +405,15 @@ void WebEditorClient::textDidChangeInTextArea(Element* element)
 }
 
 #if !PLATFORM(IOS_FAMILY)
+
 void WebEditorClient::overflowScrollPositionChanged()
 {
-    notImplemented();
 }
 
 void WebEditorClient::subFrameScrollPositionChanged()
 {
-    notImplemented();
 }
+
 #endif
 
 static bool getActionTypeForKeyEvent(KeyboardEvent* event, WKInputFieldActionType& type)
@@ -549,20 +534,22 @@ void WebEditorClient::checkGrammarOfString(StringView text, Vector<WebCore::Gram
     *badGrammarLength = resultLength;
 }
 
-static int32_t insertionPointFromCurrentSelection(const VisibleSelection& currentSelection)
+static uint64_t insertionPointFromCurrentSelection(const VisibleSelection& currentSelection)
 {
-    VisiblePosition selectionStart = currentSelection.visibleStart();
-    VisiblePosition paragraphStart = startOfParagraph(selectionStart);
-    return TextIterator::rangeLength(makeRange(paragraphStart, selectionStart).get());
+    auto selectionStart = currentSelection.visibleStart();
+    auto range = makeSimpleRange(selectionStart, startOfParagraph(selectionStart));
+    return range ? characterCount(*range) : 0;
 }
 
 #if USE(UNIFIED_TEXT_CHECKING)
+
 Vector<TextCheckingResult> WebEditorClient::checkTextOfParagraph(StringView stringView, OptionSet<WebCore::TextCheckingType> checkingTypes, const VisibleSelection& currentSelection)
 {
     Vector<TextCheckingResult> results;
     m_page->sendSync(Messages::WebPageProxy::CheckTextOfParagraph(stringView.toStringWithoutCopying(), checkingTypes, insertionPointFromCurrentSelection(currentSelection)), Messages::WebPageProxy::CheckTextOfParagraph::Reply(results));
     return results;
 }
+
 #endif
 
 void WebEditorClient::updateSpellingUIWithGrammarString(const String& badGrammarPhrase, const GrammarDetail& grammarDetail)
@@ -604,27 +591,24 @@ void WebEditorClient::willSetInputMethodState()
 {
 }
 
-void WebEditorClient::setInputMethodState(bool enabled)
+void WebEditorClient::setInputMethodState(Element* element)
 {
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    m_page->setInputMethodState(enabled);
+    m_page->setInputMethodState(element);
 #else
-    notImplemented();
-    UNUSED_PARAM(enabled);
+    UNUSED_PARAM(element);
 #endif
 }
 
 bool WebEditorClient::supportsGlobalSelection()
 {
-#if PLATFORM(GTK)
-#if PLATFORM(X11)
+#if PLATFORM(GTK) && PLATFORM(X11)
     if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::X11)
         return true;
 #endif
-#if PLATFORM(WAYLAND)
+#if PLATFORM(GTK) && PLATFORM(WAYLAND)
     if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland)
         return true;
-#endif
 #endif
     return false;
 }

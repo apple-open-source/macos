@@ -23,11 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#import <WebKitLegacy/DOMRange.h>
+#import "DOMRange.h"
+#import <wtf/Forward.h>
 
 namespace WebCore {
 class Range;
+struct SimpleRange;
 }
 
 WebCore::Range* core(DOMRange *);
 DOMRange *kit(WebCore::Range*);
+DOMRange *kit(const Optional<WebCore::SimpleRange>&);

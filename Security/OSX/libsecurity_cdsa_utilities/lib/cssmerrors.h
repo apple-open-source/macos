@@ -46,7 +46,7 @@ public:
     const CSSM_RETURN error;
     virtual OSStatus osStatus() const;
 	virtual int unixError() const;
-    virtual const char *what () const throw ();
+    virtual const char *what () const _NOEXCEPT;
 
     static CSSM_RETURN merge(CSSM_RETURN error, CSSM_RETURN base);
     

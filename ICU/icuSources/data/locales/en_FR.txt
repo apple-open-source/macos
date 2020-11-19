@@ -1,10 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Apple addition, not in CLDR
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_FR{
     %%Parent{"en_150"}
     NumberElements{
@@ -15,11 +10,11 @@ en_FR{
             }
             symbols{
                 decimal{","}
-                group{" "}
+                group{" "}
             }
         }
     }
-    Version{"2.1.11.50"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -56,14 +51,14 @@ en_FR{
             intervalFormats{
                 fallback{"{0} – {1}"}
                 yMEd{
-                    M{"E dd/MM/y – E dd/MM/y G"}
-                    d{"E dd/MM/y – E dd/MM/y G"}
-                    y{"E dd/MM/y – E dd/MM/y G"}
+                    M{"E dd/MM/y – E dd/MM/y G"}
+                    d{"E dd/MM/y – E dd/MM/y G"}
+                    y{"E dd/MM/y – E dd/MM/y G"}
                 }
                 yMMMEd{
-                    M{"E d MMM – E d MMM y G"}
-                    d{"E d – E d MMM y G"}
-                    y{"E d MMM y – E d MMM y G"}
+                    M{"E d MMM – E d MMM y G"}
+                    d{"E d – E d MMM y G"}
+                    y{"E d MMM y – E d MMM y G"}
                 }
             }
         }
@@ -94,14 +89,14 @@ en_FR{
             }
             intervalFormats{
                 yMEd{
-                    M{"E dd/MM/y – E dd/MM/y"}
-                    d{"E dd/MM/y – E dd/MM/y"}
-                    y{"E dd/MM/y – E dd/MM/y"}
+                    M{"E dd/MM/y – E dd/MM/y"}
+                    d{"E dd/MM/y – E dd/MM/y"}
+                    y{"E dd/MM/y – E dd/MM/y"}
                 }
                 yMMMEd{
-                    M{"E d MMM – E d MMM y"}
-                    d{"E d – E d MMM y"}
-                    y{"E d MMM y – E d MMM y"}
+                    M{"E d MMM – E d MMM y"}
+                    d{"E d – E d MMM y"}
+                    y{"E d MMM y – E d MMM y"}
                 }
             }
         }

@@ -23,11 +23,15 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 	my $platformName = $ENV{"VARIANT_PLATFORM_NAME"};
 	$platformName =~ s/simulator/os/;
 
+	# Try to find a platform+arch config file. If not found, try just
+	# a platform config file.
+	my $platformArchPath = $ENV{"SRCROOT"} . "/Platforms/" . $platformName . "/Makefile." . $arch . ".inc";
 	my $platformPath = $ENV{"SRCROOT"} . "/Platforms/" . $platformName . "/Makefile.inc";
+
 	my $featuresHeaderDir = $ENV{"DERIVED_FILES_DIR"}."/".$arch;
 	my $featuresHeader = $featuresHeaderDir."/libc-features.h";
 
-	open FEATURESFILE, "<$platformPath" or die "Unable to open: $platformPath";
+	open FEATURESFILE, "<$platformArchPath" or open FEATURESFILE, "<$platformPath" or die "Unable to open: $platformArchPath nor $platformPath";
 
 	my %features = ();
 	my $skip = 0;
@@ -94,7 +98,11 @@ for my $arch (split(/ /, $ENV{"ARCHS"}))
 	
 	elsif ($unifdef == 0) {
 		# If we touch this file on every build, then every other iterative build in Xcode will rebuild *everything*
-		my $platform_mtime = (stat($platformPath))[9];
+		my $platform_mtime = (stat($platformArchPath))[9];
+		if (!defined($platform_mtime)) {
+			# try the other one
+			$platform_mtime = (stat($platformPath))[9];
+		}
 		my $header_mtime = (stat($featuresHeader))[9];
 
 		if (defined($header_mtime) && defined($platform_mtime) && ($header_mtime > $platform_mtime)) {

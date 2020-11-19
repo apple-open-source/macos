@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Specio</string>
+        <key>OpenSourceVersion</key>
+        <string>0.46</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/Specio-0.46.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-14</string>
+</dict>

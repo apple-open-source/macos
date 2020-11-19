@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -105,10 +105,6 @@ static CFMutableArrayRef	allBundles		= NULL;
 
 // exiting bundles
 static CFMutableDictionaryRef	exiting			= NULL;
-
-// plugin CFRunLoopRef
-__private_extern__
-CFRunLoopRef			plugin_runLoop		= NULL;
 
 
 extern SCDynamicStoreBundleLoadFunction		load_IPMonitor;
@@ -697,32 +693,11 @@ stopBundles()
 #pragma mark term
 
 
-static CFStringRef
-termRLSCopyDescription(const void *info)
-{
-#pragma unused(info)
-	return CFStringCreateWithFormat(NULL, NULL, CFSTR("<SIGTERM RLS>"));
-}
-
-
 __private_extern__
 Boolean
 plugin_term(int *status)
 {
-	CFRunLoopSourceContext	termContext = { 0			// version
-					      , (void *)1		// info
-					      , NULL			// retain
-					      , NULL			// release
-					      , termRLSCopyDescription	// copyDescription
-					      , NULL			// equal
-					      , NULL			// hash
-					      , NULL			// schedule
-					      , NULL			// cancel
-					      , stopBundles		// perform
-					      };
-	CFRunLoopSourceRef	termRls;
-
-	if (plugin_runLoop == NULL) {
+	if (CFArrayGetCount(allBundles) == 0) {
 		// if no plugins
 		*status = EX_OK;
 		return FALSE;	// don't delay shutdown
@@ -740,12 +715,7 @@ plugin_term(int *status)
 					    &kCFTypeDictionaryKeyCallBacks,
 					    &kCFTypeDictionaryValueCallBacks);
 
-	termRls = CFRunLoopSourceCreate(NULL, 0, &termContext);
-	CFRunLoopAddSource(plugin_runLoop, termRls, kCFRunLoopDefaultMode);
-	CFRunLoopSourceSignal(termRls);
-	CFRelease(termRls);
-	CFRunLoopWakeUp(plugin_runLoop);
-
+	stopBundles();
 	return TRUE;
 }
 
@@ -866,7 +836,7 @@ ALT_CFRelease(CFTypeRef cf)
 
 
 __private_extern__
-void *
+void
 plugin_exec(void *arg)
 {
 	CFIndex		nLoaded		= 0;
@@ -897,7 +867,7 @@ plugin_exec(void *arg)
 			CFArrayRef	bundles;
 			CFURLRef	url;
 
-#if	TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
+#if	TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST
 			const char	*path_sim_prefix;
 
 			path_sim_prefix = getenv("IPHONE_SIMULATOR_ROOT");
@@ -910,7 +880,7 @@ plugin_exec(void *arg)
 			} else {
 				path[0] = '\0';
 			}
-#endif	// TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
+#endif	// TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST
 
 			/* load any available bundle */
 			strlcat(path, BUNDLE_DIRECTORY, sizeof(path));
@@ -1029,7 +999,7 @@ plugin_exec(void *arg)
 
 	if (nLoaded == 0) {
 		// if no bundles loaded
-		goto done;
+		return;
 	}
 
 	/*
@@ -1063,40 +1033,15 @@ plugin_exec(void *arg)
 			     NULL);
 
 	/*
-	 * The assumption is that each loaded plugin will establish CFMachPortRef,
-	 * CFSocketRef, and CFRunLoopTimerRef input sources to handle any events
-	 * and register these sources with this threads run loop. If the plugin
-	 * needs to wait and/or block at any time it should do so only in its a
-	 * private thread.
+	 * At this point, the assumption is that each loaded plugin will have
+	 * established CFMachPort, CFSocket, and CFRunLoopTimer input sources
+	 * to handle any events and registered these sources with this threads
+	 * run loop and we're ready to go.
+	 *
+	 * Note: it is also assumed that any plugin needing to wait and/or block
+	 * will do so only a private thread (or asynchronously on a non-main
+	 * dispatch queue).
 	 */
-	SC_log(LOG_DEBUG, "starting plugin CFRunLoop");
-	plugin_runLoop = CFRunLoopGetCurrent();
-	pthread_setname_np("Main plugin thread");
-	CFRunLoopRun();
-
-    done :
-
-	SC_log(LOG_INFO, "No more work for the \"configd\" plugin thread");
-	plugin_runLoop = NULL;
-	return NULL;
-}
-
-
-__private_extern__
-void
-plugin_init()
-{
-	pthread_attr_t	tattr;
-	pthread_t	tid;
-
-	SC_log(LOG_DEBUG, "Starting \"configd\" plugin thread");
-	pthread_attr_init(&tattr);
-	pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
-	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
-//      pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
-	pthread_create(&tid, &tattr, plugin_exec, NULL);
-	pthread_attr_destroy(&tattr);
-	SC_log(LOG_DEBUG, "  thread id=%p", tid);
 
 	return;
 }

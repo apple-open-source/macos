@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,20 +23,35 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MessageFlags_h
-#define MessageFlags_h
+#pragma once
 
 namespace IPC {
 
-enum MessageFlags {
+enum class MessageFlags : uint8_t {
     SyncMessage = 1 << 0,
     DispatchMessageWhenWaitingForSyncReply = 1 << 1,
     DispatchMessageWhenWaitingForUnboundedSyncReply = 1 << 2,
     UseFullySynchronousModeForTesting = 1 << 3,
 };
 
-enum class ShouldDispatchWhenWaitingForSyncReply { No, Yes, YesDuringUnboundedIPC };
+enum class ShouldDispatchWhenWaitingForSyncReply : uint8_t {
+    No,
+    Yes,
+    YesDuringUnboundedIPC,
+};
 
 } // namespace IPC
 
-#endif // MessageFlags_h
+namespace WTF {
+
+template<> struct EnumTraits<IPC::MessageFlags> {
+    using values = EnumValues<
+        IPC::MessageFlags,
+        IPC::MessageFlags::SyncMessage,
+        IPC::MessageFlags::DispatchMessageWhenWaitingForSyncReply,
+        IPC::MessageFlags::DispatchMessageWhenWaitingForUnboundedSyncReply,
+        IPC::MessageFlags::UseFullySynchronousModeForTesting
+    >;
+};
+
+} // namespace WTF

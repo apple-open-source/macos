@@ -71,6 +71,8 @@
 			buildConfigurationList = BA4FD2FF1372FE4E0025925C /* Build configuration list for PBXAggregateTarget "All_MacOSX" */;
 			buildPhases = (
 				C9D64CD21B91066B00CFA43B /* CopyFiles */,
+				587B8CAD2489CB170001CD8D /* Copy internal getty */,
+				587B8CAE2489CB9C0001CD8D /* Copy Files */,
 			);
 			dependencies = (
 				358407D22245AD40006A0D8E /* PBXTargetDependency */,
@@ -329,6 +331,7 @@
 		55CCB16E16B84EDA00B56979 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
 		55CCB17416B84EF800B56979 /* vm_purgeable_stat.c in Sources */ = {isa = PBXBuildFile; fileRef = 55CCB16916B84ED100B56979 /* vm_purgeable_stat.c */; };
 		55CCB17616B84F3600B56979 /* vm_purgeable_stat.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 55CCB16816B84ED100B56979 /* vm_purgeable_stat.1 */; };
+		587B8CAF2489CBAD0001CD8D /* com.apple.serialdebugconsole.plist in Copy Files */ = {isa = PBXBuildFile; fileRef = 58775F6D2489B8CE0098F7DE /* com.apple.serialdebugconsole.plist */; };
 		72D1FDD918C4140600C1E05F /* task_details.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D1FDD818C4140600C1E05F /* task_details.c */; };
 		72F9316D18C26A8600D804C5 /* port_details.c in Sources */ = {isa = PBXBuildFile; fileRef = 72F9316C18C26A8600D804C5 /* port_details.c */; };
 		78DE9DFE1B504D7F00FE6DF5 /* wait4path.c in Sources */ = {isa = PBXBuildFile; fileRef = 78DE9DFC1B504D7F00FE6DF5 /* wait4path.c */; };
@@ -346,7 +349,7 @@
 		B3F0E6DD16E9706E008FAD09 /* memory_pressure.c in Sources */ = {isa = PBXBuildFile; fileRef = B3F0E6DC16E9706E008FAD09 /* memory_pressure.c */; };
 		BA0A860B13968E8500D2272C /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
 		BA0A861313968EAD00D2272C /* zprint.c in Sources */ = {isa = PBXBuildFile; fileRef = BA4FD2E61372FAFA0025925C /* zprint.c */; };
-		BA0A861413968EB100D2272C /* zprint.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA4FD2E51372FAFA0025925C /* zprint.1 */; };
+		BA0A861413968EB100D2272C /* zprint.1 in Copy man page */ = {isa = PBXBuildFile; fileRef = BA4FD2E51372FAFA0025925C /* zprint.1 */; };
 		BA28FB891396DA8A004986CB /* private in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA28FB851396DA01004986CB /* private */; };
 		BA4B79CF1373A74B00003422 /* dmesg.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA4FD2201372FAFA0025925C /* dmesg.8 */; };
 		BA4B79D01373A74F00003422 /* dmesg.c in Sources */ = {isa = PBXBuildFile; fileRef = BA4FD2211372FAFA0025925C /* dmesg.c */; };
@@ -517,12 +520,15 @@
 		C96F50BD15BDFEFB008682F7 /* lsmp.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C96F50AC15BDCBF0008682F7 /* lsmp.1 */; };
 		C96F50BE15BDFF03008682F7 /* lsmp.c in Sources */ = {isa = PBXBuildFile; fileRef = C96F50AD15BDCE8E008682F7 /* lsmp.c */; };
 		C9779F6E159A2A0C009436FD /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA4B7A091373BA4600003422 /* libutil.dylib */; };
-		C99490E52090F56F00246D9D /* zprint.lua in CopyFiles */ = {isa = PBXBuildFile; fileRef = C99490E32090F55D00246D9D /* zprint.lua */; };
+		C99490E52090F56F00246D9D /* zprint.lua in Copy Lua library */ = {isa = PBXBuildFile; fileRef = C99490E32090F55D00246D9D /* zprint.lua */; };
 		C9D64CD11B91065D00CFA43B /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
 		C9D64CD31B91067500CFA43B /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
 		C9E0691A1C58BD7E00C956EB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BA9B766D13739D27001BB39F /* CoreFoundation.framework */; };
 		C9E0691C1C58BDA000C956EB /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C9E0691B1C58BDA000C956EB /* CoreSymbolication.framework */; };
 		C9E0691E1C58BDB800C956EB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C9E0691D1C58BDB800C956EB /* IOKit.framework */; };
+		CEB165CC246C599A00228592 /* test_zprint.lua in CopyFiles */ = {isa = PBXBuildFile; fileRef = CEB165CB246C599A00228592 /* test_zprint.lua */; };
+		CEB165CE246C59C100228592 /* test_zprint.lua in Copy test */ = {isa = PBXBuildFile; fileRef = CEB165CB246C599A00228592 /* test_zprint.lua */; };
+		D37CC32C2395D9F100288C74 /* mslutil.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0D06BC671E8F0B4100C6EC2D /* mslutil.1 */; };
 		F2291F551FFEBB6A00161936 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C9E0691B1C58BDA000C956EB /* CoreSymbolication.framework */; };
 		F2291F601FFEBB9E00161936 /* zlog.c in Sources */ = {isa = PBXBuildFile; fileRef = F2291F5F1FFEBB9E00161936 /* zlog.c */; };
 		F27B70282044CB40003C04FC /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F27B70272044CB40003C04FC /* CoreFoundation.framework */; };
@@ -535,6 +541,8 @@
 			isa = PBXBuildRule;
 			compilerSpec = com.apple.compilers.proxy.script;
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(DERIVED_SOURCES_DIR)/$(CURRENT_ARCH)/darwin_version.c",
@@ -1731,9 +1739,10 @@
 		0D06BC5C1E8F08CB00C6EC2D /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
-			dstPath = /usr/share/man/man1/;
+			dstPath = /usr/local/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
+				D37CC32C2395D9F100288C74 /* mslutil.1 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -1787,6 +1796,17 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		587B8CAE2489CB9C0001CD8D /* Copy Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				587B8CAF2489CBAD0001CD8D /* com.apple.serialdebugconsole.plist in Copy Files */,
+			);
+			name = "Copy Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		78DE9DDE1B5045DE00FE6DF5 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1837,14 +1857,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		BA0A860C13968E8500D2272C /* CopyFiles */ = {
+		BA0A860C13968E8500D2272C /* Copy man page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = /usr/share/man/man1;
 			dstSubfolderSpec = 0;
 			files = (
-				BA0A861413968EB100D2272C /* zprint.1 in CopyFiles */,
+				BA0A861413968EB100D2272C /* zprint.1 in Copy man page */,
 			);
+			name = "Copy man page";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		BA28FB881396DA67004986CB /* CopyFiles */ = {
@@ -2310,14 +2331,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		C99490E22090F53B00246D9D /* CopyFiles */ = {
+		C99490E22090F53B00246D9D /* Copy Lua library */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /usr/local/share/recon;
 			dstSubfolderSpec = 0;
 			files = (
-				C99490E52090F56F00246D9D /* zprint.lua in CopyFiles */,
+				C99490E52090F56F00246D9D /* zprint.lua in Copy Lua library */,
 			);
+			name = "Copy Lua library";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		C9D64CD01B91064700CFA43B /* CopyFiles */ = {
@@ -2337,7 +2359,19 @@
 			dstSubfolderSpec = 0;
 			files = (
 				C9D64CD31B91067500CFA43B /* system_cmds.plist in CopyFiles */,
+				CEB165CC246C599A00228592 /* test_zprint.lua in CopyFiles */,
 			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		CEB165CD246C599F00228592 /* Copy test */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /AppleInternal/Tests/system_cmds;
+			dstSubfolderSpec = 0;
+			files = (
+				CEB165CE246C59C100228592 /* test_zprint.lua in Copy test */,
+			);
+			name = "Copy test";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		F29F5A5E203E532B005B0099 /* CopyFiles */ = {
@@ -2377,6 +2411,8 @@
 		55CCB16816B84ED100B56979 /* vm_purgeable_stat.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = vm_purgeable_stat.1; sourceTree = "<group>"; };
 		55CCB16916B84ED100B56979 /* vm_purgeable_stat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vm_purgeable_stat.c; sourceTree = "<group>"; };
 		55CCB17316B84EDA00B56979 /* vm_purgeable_stat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vm_purgeable_stat; sourceTree = BUILT_PRODUCTS_DIR; };
+		58775F6B2489B8AA0098F7DE /* com.apple.getty.internal.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.getty.internal.plist; sourceTree = "<group>"; };
+		58775F6D2489B8CE0098F7DE /* com.apple.serialdebugconsole.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.serialdebugconsole.plist; sourceTree = "<group>"; };
 		72D1FDD818C4140600C1E05F /* task_details.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = task_details.c; path = lsmp.tproj/task_details.c; sourceTree = SOURCE_ROOT; };
 		72F9316B18C269E500D804C5 /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = common.h; path = lsmp.tproj/common.h; sourceTree = SOURCE_ROOT; };
 		72F9316C18C26A8600D804C5 /* port_details.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = port_details.c; path = lsmp.tproj/port_details.c; sourceTree = SOURCE_ROOT; };
@@ -2477,7 +2513,7 @@
 		BA4FD22C1372FAFA0025925C /* dynamic_pager.8 */ = {isa = PBXFileReference; lastKnownFileType = text; path = dynamic_pager.8; sourceTree = "<group>"; };
 		BA4FD22D1372FAFA0025925C /* dynamic_pager.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dynamic_pager.c; sourceTree = "<group>"; };
 		BA4FD2301372FAFA0025925C /* fs_usage.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = fs_usage.1; sourceTree = "<group>"; };
-		BA4FD2311372FAFA0025925C /* fs_usage.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fs_usage.c; sourceTree = "<group>"; };
+		BA4FD2311372FAFA0025925C /* fs_usage.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fs_usage.c; sourceTree = "<group>"; usesTabs = 1; };
 		BA4FD2351372FAFA0025925C /* confstr.gperf */ = {isa = PBXFileReference; lastKnownFileType = text; path = confstr.gperf; sourceTree = "<group>"; };
 		BA4FD2361372FAFA0025925C /* fake-gperf.awk */ = {isa = PBXFileReference; lastKnownFileType = text; path = "fake-gperf.awk"; sourceTree = "<group>"; };
 		BA4FD2371372FAFA0025925C /* getconf.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = getconf.1; sourceTree = "<group>"; };
@@ -2651,6 +2687,7 @@
 		C9D64CCF1B91063200CFA43B /* system_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = system_cmds.plist; path = tests/system_cmds.plist; sourceTree = "<group>"; };
 		C9E0691B1C58BDA000C956EB /* CoreSymbolication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSymbolication.framework; path = System/Library/PrivateFrameworks/CoreSymbolication.framework; sourceTree = SDKROOT; };
 		C9E0691D1C58BDB800C956EB /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		CEB165CB246C599A00228592 /* test_zprint.lua */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = test_zprint.lua; sourceTree = "<group>"; };
 		F2291F5D1FFEBB6A00161936 /* zlog */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = zlog; sourceTree = BUILT_PRODUCTS_DIR; };
 		F2291F5F1FFEBB9E00161936 /* zlog.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zlog.c; sourceTree = "<group>"; };
 		F27B70272044CB40003C04FC /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
@@ -3461,6 +3498,8 @@
 			children = (
 				BA4FD2401372FAFA0025925C /* chat.c */,
 				BA4FD2411372FAFA0025925C /* com.apple.getty.plist */,
+				58775F6D2489B8CE0098F7DE /* com.apple.serialdebugconsole.plist */,
+				58775F6B2489B8AA0098F7DE /* com.apple.getty.internal.plist */,
 				BA4FD2421372FAFA0025925C /* extern.h */,
 				BA4FD2431372FAFA0025925C /* getty.8 */,
 				BA4FD2441372FAFA0025925C /* gettytab.5 */,
@@ -3741,6 +3780,7 @@
 		BA4FD2E31372FAFA0025925C /* zprint.tproj */ = {
 			isa = PBXGroup;
 			children = (
+				CEB165CB246C599A00228592 /* test_zprint.lua */,
 				C99490E32090F55D00246D9D /* zprint.lua */,
 				FEBEE5CF1B0EACEB00166A8B /* entitlements.plist */,
 				BA4FD2E51372FAFA0025925C /* zprint.1 */,
@@ -4149,8 +4189,9 @@
 			buildPhases = (
 				BA0A860813968E8500D2272C /* Sources */,
 				BA0A860A13968E8500D2272C /* Frameworks */,
-				BA0A860C13968E8500D2272C /* CopyFiles */,
-				C99490E22090F53B00246D9D /* CopyFiles */,
+				BA0A860C13968E8500D2272C /* Copy man page */,
+				C99490E22090F53B00246D9D /* Copy Lua library */,
+				CEB165CD246C599F00228592 /* Copy test */,
 			);
 			buildRules = (
 			);
@@ -4846,7 +4887,6 @@
 		BA2DE9181372FA9100D1913C /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				DefaultBuildSystemTypeForWorkspace = Original;
 				LastUpgradeCheck = 0600;
 				TargetAttributes = {
 					08CE3D281E6E22A200DF1B78 = {
@@ -5054,6 +5094,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = BA2DE9161372FA9100D1913C;
@@ -5131,6 +5172,26 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		587B8CAD2489CB170001CD8D /* Copy internal getty */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/getty.tproj/com.apple.getty.internal.plist",
+			);
+			name = "Copy internal getty";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/Library/LaunchDaemons/com.apple.getty.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "cp -f \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+		};
 		BA4B79F91373B6A400003422 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -5183,7 +5244,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = ". \"${SRCROOT}/getty.tproj/generate_plist.sh\"";
+			shellScript = ". \"${SRCROOT}/getty.tproj/generate_plist.sh\"\n";
 		};
 		BA4FD335137306050025925C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;

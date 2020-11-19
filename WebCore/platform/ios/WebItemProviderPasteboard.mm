@@ -23,10 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
+#import "config.h"
 #import "WebItemProviderPasteboard.h"
 
-#if ENABLE(DATA_INTERACTION)
+#if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
 
 #import <Foundation/NSItemProvider.h>
 #import <Foundation/NSProgress.h>
@@ -518,7 +518,7 @@ static UIPreferredPresentationStyle uiPreferredPresentationStyle(WebPreferredPre
 
 - (void)setItemProviders:(NSArray<__kindof NSItemProvider *> *)itemProviders
 {
-    itemProviders = itemProviders ?: [NSArray array];
+    itemProviders = itemProviders ?: @[ ];
     if (_itemProviders == itemProviders || [_itemProviders isEqualToArray:itemProviders])
         return;
 
@@ -708,7 +708,7 @@ static NSURL *linkTemporaryItemProviderFilesToDropStagingDirectory(NSURL *url, N
     if (!suggestedName)
         suggestedName = url.lastPathComponent ?: (isFolder ? defaultDropFolderName : defaultDropFileName);
 
-    if (![suggestedName containsString:@"."] && !isFolder)
+    if ([suggestedName.pathExtension caseInsensitiveCompare:url.pathExtension] != NSOrderedSame && !isFolder)
         suggestedName = [suggestedName stringByAppendingPathExtension:url.pathExtension];
 
     destination = [NSURL fileURLWithPath:[temporaryDropDataDirectory stringByAppendingPathComponent:suggestedName]];
@@ -871,4 +871,4 @@ static NSURL *linkTemporaryItemProviderFilesToDropStagingDirectory(NSURL *url, N
 
 @end
 
-#endif // ENABLE(DATA_INTERACTION)
+#endif // PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)

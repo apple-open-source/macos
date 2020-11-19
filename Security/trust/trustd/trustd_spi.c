@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2018-2020 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -73,6 +73,9 @@ struct trustd trustd_spi = {
     .sec_trust_get_exception_reset_count    = SecTrustServerGetExceptionResetCount,
     .sec_trust_increment_exception_reset_count = SecTrustServerIncrementExceptionResetCount,
 #endif
+    .sec_trust_store_set_ca_revocation_additions = _SecTrustStoreSetCARevocationAdditions,
+    .sec_trust_store_copy_ca_revocation_additions = _SecTrustStoreCopyCARevocationAdditions,
+    .sec_valid_update = SecRevocationDbUpdate,
 };
 #endif
 

@@ -666,7 +666,8 @@ void
 write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
     caddr_t ctfdata, size_t ctfsize, int flags)
 {
-	struct mach_header *mh = (struct mach_header *)src->ed_image;
+	size_t imagesz = 0;
+	struct mach_header *mh = (struct mach_header *)elf_getimage(src, &imagesz);
 	struct mach_header newhdr;
 	struct segment_command ctfseg_command;
 	struct section ctf_sect; 
@@ -751,7 +752,7 @@ write_file(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 		int ctfhdrsz = sizeof(ctfseg_command) + sizeof(ctf_sect);
 
 		dataoffset = sizeof(*mh) + mh->sizeofcmds; // where all real data starts
-		datalength = src->ed_imagesz - dataoffset;
+		datalength = imagesz - dataoffset;
 
 		cmdlength = origcmdsize;
 		cmdlength += ctfhdrsz;
@@ -877,7 +878,8 @@ static void
 write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
     caddr_t ctfdata, size_t ctfsize, int flags)
 {
-	struct mach_header_64 *mh = (struct mach_header_64 *)src->ed_image;
+	size_t imagesz;
+	struct mach_header_64 *mh = (struct mach_header_64 *)elf_getimage(src, &imagesz);
 	struct mach_header_64 newhdr;
 	struct segment_command_64 ctfseg_command;
 	struct section_64 ctf_sect; 
@@ -962,7 +964,7 @@ write_file_64(Elf *src, const char *srcname, Elf *dst, const char *dstname,
 		int ctfhdrsz = sizeof(ctfseg_command) + sizeof(ctf_sect);
 
 		dataoffset = sizeof(*mh) + mh->sizeofcmds; // where all real data starts
-		datalength = src->ed_imagesz - dataoffset;
+		datalength = imagesz - dataoffset;
 
 		cmdlength = origcmdsize;
 		cmdlength += ctfhdrsz;

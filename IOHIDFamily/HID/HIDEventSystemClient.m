@@ -20,6 +20,7 @@
     HIDEventFilterHandler       _filterHandler;
     HIDServiceHandler           _serviceHandler;
     HIDPropertyChangedHandler   _propertyChangedHandler;
+    HIDBlock                    _cancelHandler;
 }
 
 - (nullable instancetype)initWithType:(HIDEventSystemClientType)type
@@ -102,7 +103,7 @@
 
 - (void)setCancelHandler:(HIDBlock)handler
 {
-    IOHIDEventSystemClientSetCancelHandler(_client, handler);
+    _cancelHandler = handler;
 }
 
 - (void)setDispatchQueue:(dispatch_queue_t)queue
@@ -233,6 +234,14 @@ static void _propertiesChangedCallback(void *target,
 
 - (void)activate
 {
+    IOHIDEventSystemClientSetCancelHandler(_client, ^{
+        // Block captures reference to self while cancellation hasn't completed.
+        if (self->_cancelHandler) {
+            self->_cancelHandler();
+            self->_cancelHandler = nil;
+        }
+    });
+
     IOHIDEventSystemClientActivate(_client);
 }
 

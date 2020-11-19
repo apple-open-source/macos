@@ -22,19 +22,17 @@
 
 #pragma once
 
-#if ENABLE(IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
-#include "Autocapitalize.h"
-#endif
-
 #include "InputMode.h"
 #include "StyledElement.h"
 
+#if ENABLE(AUTOCAPITALIZE)
+#include "Autocapitalize.h"
+#endif
+
 namespace WebCore {
 
-class DocumentFragment;
 class FormAssociatedElement;
 class FormNamedItem;
-class HTMLCollection;
 class HTMLFormElement;
 
 enum class EnterKeyHint : uint8_t;
@@ -68,7 +66,9 @@ public:
 
     WEBCORE_EXPORT void click();
 
-    void accessKeyAction(bool sendMouseEvents) override;
+    bool accessKeyAction(bool sendMouseEvents) override;
+
+    String accessKeyLabel() const;
 
     RenderPtr<RenderElement> createElementRenderer(RenderStyle&&, const RenderTreePosition&) override;
     bool rendererIsEverNeeded() final;
@@ -102,11 +102,13 @@ public:
     bool canBeActuallyDisabled() const;
     bool isActuallyDisabled() const;
 
-#if ENABLE(IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
+#if ENABLE(AUTOCAPITALIZE)
     WEBCORE_EXPORT virtual AutocapitalizeType autocapitalizeType() const;
     WEBCORE_EXPORT const AtomString& autocapitalize() const;
     WEBCORE_EXPORT void setAutocapitalize(const AtomString& value);
+#endif
 
+#if ENABLE(AUTOCORRECT)
     bool autocorrect() const { return shouldAutocorrect(); }
     WEBCORE_EXPORT virtual bool shouldAutocorrect() const;
     WEBCORE_EXPORT void setAutocorrect(bool);

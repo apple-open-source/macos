@@ -52,6 +52,7 @@
 
 #include "SecdTestKeychainUtilities.h"
 
+#if SOS_ENABLED
 
 static void tests(void)
 {
@@ -128,7 +129,7 @@ static void tests(void)
 
     SOSCircleSetGeneration(carolTrust.trustedCircle, gencount);
     
-    SecKeyRef user_privkey = SOSUserKeygen(cfpassword, (__bridge CFDataRef)(carol_account.accountKeyDerivationParamters), &error);
+    SecKeyRef user_privkey = SOSUserKeygen(cfpassword, (__bridge CFDataRef)(carol_account.accountKeyDerivationParameters), &error);
     CFNumberRef genCountTest = SOSCircleGetGeneration(carolTrust.trustedCircle);
     CFIndex testPtr;
     CFNumberGetValue(genCountTest, kCFNumberCFIndexType, &testPtr);
@@ -158,7 +159,11 @@ static void tests(void)
     is([alice_account getCircleStatus:&error],kSOSCCNotInCircle,"alice is not in the account (%@)", error);
     is([bob_account getCircleStatus:&error], kSOSCCNotInCircle,"bob is not in the account (%@)", error);
     is([carol_account getCircleStatus:&error], kSOSCCInCircle,"carol is in the account (%@)", error);
-
+    secLogEnable();
+    [carol_account iCloudIdentityStatus:^(NSData *json, NSError *error) {
+        diag("icloud identity JSON\n%s\n", [[[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding] UTF8String]);
+    }];
+    secLogDisable();
     CFReleaseNull(gencount);
     CFReleaseNull(cfpassword);
     CFReleaseNull(user_privkey);
@@ -168,14 +173,16 @@ static void tests(void)
 
     SOSTestCleanup();
 }
+#endif
 
 int secd_52_offering_gencount_reset(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(63);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

@@ -48,7 +48,6 @@
 
 #include <corecrypto/ccder.h>
 #include <utilities/iCloudKeychainTrace.h>
-#include <utilities/SecADWrapper.h>
 
 #include "AssertMacros.h"
 
@@ -274,7 +273,7 @@ SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error) {
 
     switch (SOSCoderGetExportedVersion(der, der_end)) {
         case kCoderAsOTRDataOnly:
-            der = der_decode_data(kCFAllocatorDefault, 0, &otr_data, error, der, der_end);
+            der = der_decode_data(kCFAllocatorDefault, &otr_data, error, der, der_end);
             p->waitingForDataPacket = false;
             break;
 
@@ -285,10 +284,10 @@ SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error) {
 
             require_action_quiet(sequence_end == der_end, fail, SecCFDERCreateError(kSOSErrorDecodeFailure, CFSTR("Extra data in SOS coder"), NULL, error));
 
-            der = der_decode_data(kCFAllocatorDefault, 0, &otr_data, error, der, sequence_end);
+            der = der_decode_data(kCFAllocatorDefault, &otr_data, error, der, sequence_end);
             der = ccder_decode_bool(&p->waitingForDataPacket, der, sequence_end);
             if (der != sequence_end) { // optionally a pending response
-                der = der_decode_data(kCFAllocatorDefault, 0, &p->pendingResponse, error, der, sequence_end);
+                der = der_decode_data(kCFAllocatorDefault, &p->pendingResponse, error, der, sequence_end);
             }
         }
             break;
@@ -307,12 +306,12 @@ SOSCoderRef SOSCoderCreateFromData(CFDataRef exportedData, CFErrorRef *error) {
                 goto fail;
             }
 
-            der = der_decode_data(kCFAllocatorDefault, 0, &otr_data, error, der, sequence_end);
+            der = der_decode_data(kCFAllocatorDefault, &otr_data, error, der, sequence_end);
             der = ccder_decode_bool(&p->waitingForDataPacket, der, sequence_end);
             der = ccder_decode_bool(&p->lastReceivedWasOld, der, sequence_end);
-            der = der_decode_data(kCFAllocatorDefault, 0, &p->hashOfLastReceived, error, der, sequence_end);
+            der = der_decode_data(kCFAllocatorDefault, &p->hashOfLastReceived, error, der, sequence_end);
             if (der != sequence_end) { // optionally a pending response
-                der = der_decode_data(kCFAllocatorDefault, 0, &p->pendingResponse, error, der, sequence_end);
+                der = der_decode_data(kCFAllocatorDefault, &p->pendingResponse, error, der, sequence_end);
             }
         }
             break;
@@ -356,7 +355,7 @@ SOSCoderRef SOSCoderCreate(SOSPeerInfoRef peerInfo, SOSFullPeerInfoRef myPeerInf
         privateKey = SOSFullPeerInfoCopyDeviceKey(myPeerInfo, &localError);
         require_quiet(privateKey, errOut);
 
-        myRef = SecOTRFullIdentityCreateFromSecKeyRef(allocator, privateKey, &localError);
+        myRef = SecOTRFullIdentityCreateFromSecKeyRefSOS(allocator, privateKey, &localError);
         require_quiet(myRef, errOut);
         
         CFReleaseNull(privateKey);
@@ -566,7 +565,6 @@ SOSCoderStatus SOSCoderUnwrap(SOSCoderRef coder, CFDataRef codedMessage, CFMutab
                     case errSecDecode:
                         CFStringAppend(action, CFSTR("resending dh"));
                         result = SOSCoderResendDH(coder, error);
-                        SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.restartotrnegotiation"), 1);
                         break;
                     default:
                         SOSCreateErrorWithFormat(kSOSErrorEncodeFailure, (error != NULL) ? *error : NULL, error, NULL, CFSTR("%@ Cannot negotiate session (%ld)"), clientId, (long)ppstatus);
@@ -592,7 +590,6 @@ SOSCoderStatus SOSCoderUnwrap(SOSCoderRef coder, CFDataRef codedMessage, CFMutab
 
             if(!SecOTRSGetIsReadyForMessages(coder->sessRef)) {
                 CFStringAppend(action, CFSTR("not ready for data; resending DH packet"));
-                SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.restartotrnegotiation"), 1);
                 result = SOSCoderResendDH(coder, error);
             } else {
                 if (coder->waitingForDataPacket) {

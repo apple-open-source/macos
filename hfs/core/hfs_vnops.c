@@ -4672,16 +4672,6 @@ relock:
 	tdcp = VTOC(tdvp);
 	tcp = tvp ? VTOC(tvp) : NULL;
 
-
-	/*
-	 * If caller requested an exclusive rename (VFS_RENAME_EXCL) and 'tcp' exists
-	 * then we must fail the operation. 
-	 */
-	if (tcp && rename_exclusive) {
-		error = EEXIST;
-		goto out;
-	}
-
 	//
 	// if the item is tracked but doesn't have a document_id, assign one and generate an fsevent for it
 	//
@@ -5102,9 +5092,24 @@ relock:
 			struct FndrExtendedDirInfo *tfip = (struct FndrExtendedDirInfo *)((char *)&tcp->c_attr.ca_finderinfo + 16);
 			
 			if (ffip->document_id && tfip->document_id) {
-				// both documents are tracked.  only save a tombstone from tcp and do nothing else.
-				doc_tombstone_save(tdvp, tvp, tcnp, hfs_get_document_id(tcp),
-								   tcp->c_fileid);
+				// Both documents are tracked.  `tvp` is deleted and `fvp` is
+				// renamed on top of it.  Send FSE_DOCID_CHANGED for both inodes,
+				// clear tombstone of `old_doc_vp` and save tombstone of `fvp`.
+				add_fsevent(FSE_DOCID_CHANGED, vfs_context_current(),
+						FSE_ARG_DEV, hfsmp->hfs_raw_dev,
+						FSE_ARG_INO, (ino64_t)tcp->c_fileid,           // src inode #
+						FSE_ARG_INO, (ino64_t)0ULL,                    // dst inode #
+						FSE_ARG_INT32, (uint32_t)tfip->document_id,
+						FSE_ARG_DONE);
+				add_fsevent(FSE_DOCID_CHANGED, vfs_context_current(),
+						FSE_ARG_DEV, hfsmp->hfs_raw_dev,
+						FSE_ARG_INO, (ino64_t)fcp->c_fileid,           // src inode #
+						FSE_ARG_INO, (ino64_t)tcp->c_fileid,           // dst inode #
+						FSE_ARG_INT32, (uint32_t)ffip->document_id,
+						FSE_ARG_DONE);
+				doc_tombstone_clear(doc_tombstone_get(), &old_doc_vp);
+				doc_tombstone_save(tdvp, fvp, tcnp, hfs_get_document_id(fcp),
+								   fcp->c_fileid);
 			} else {
 				struct  doc_tombstone *ut;
 				ut = doc_tombstone_get();
@@ -5148,9 +5153,16 @@ relock:
 		/*
 		 * When fvp matches tvp they could be case variants
 		 * or matching hard links.
+		 * If the caller requested an exclusive rename (VFS_RENAME_EXCL),
+		 * we allow rename when the target already exists when the following
+		 * conditions are met:
+		 * 1. the volume is case insensitive
+		 * 2. source and target directories are the same
+		 * 3. source and target files are the same
+		 * 4. name only differs in case
 		 */
 		if (fvp == tvp) {
-			if (!(fcp->c_flag & C_HARDLINK)) {
+			if (!rename_exclusive && !(fcp->c_flag & C_HARDLINK)) {
 				/* 
 				 * If they're not hardlinks, then fvp == tvp must mean we 
 				 * are using case-insensitive HFS because case-sensitive would
@@ -5193,8 +5205,12 @@ relock:
 				 * op was dir1/fred -> dir1/bob
 				 * That would fail/do nothing.
 				 */
+
 				goto skip_rm;  /* case-variant hardlink in the same dir */
-			} else {
+			} else if (rename_exclusive) {
+				error = EEXIST;
+				goto out;
+			} else  {
 				goto out;  /* matching hardlink, nothing to do */
 			}
 		}
@@ -6353,12 +6369,17 @@ hfs_update(struct vnode *vp, int options)
 
 	if (__builtin_expect(kdebug_enable & KDEBUG_TRACE, 0)) {
 		long dbg_parms[NUMPARMS];
-		int  dbg_namelen;
+		int err;
+#ifdef VN_GETPATH_NEW
+		size_t dbg_namelen;
+#else  // VN_GETPATH_NEW
+		int dbg_namelen;
+#endif // VN_GETPATH_NEW
 
 		dbg_namelen = NUMPARMS * sizeof(long);
-		vn_getpath(vp, (char *)dbg_parms, &dbg_namelen);
+		err = vn_getpath_ext(vp, NULLVP,  (char *)dbg_parms, &dbg_namelen, 0);
 
-		if (dbg_namelen < (int)sizeof(dbg_parms))
+		if (!err && (dbg_namelen < (int)sizeof(dbg_parms)))
 			memset((char *)dbg_parms + dbg_namelen, 0, sizeof(dbg_parms) - dbg_namelen);
 
 		kdebug_lookup_gen_events(dbg_parms, dbg_namelen, (void *)vp, TRUE);

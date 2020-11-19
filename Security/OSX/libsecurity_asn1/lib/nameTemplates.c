@@ -28,7 +28,7 @@
 #include "X509Templates.h"
 #include "keyTemplates.h"
 #include <stddef.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 typedef struct {
     SecAsn1Oid typeId;

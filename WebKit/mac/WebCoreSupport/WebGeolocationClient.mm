@@ -37,6 +37,8 @@
 #import <WebCore/Frame.h>
 #import <WebCore/Geolocation.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/NakedPtr.h>
+#import <wtf/NakedRef.h>
 
 #if PLATFORM(IOS_FAMILY)
 #import <WebCore/WAKResponder.h>
@@ -50,7 +52,7 @@ using namespace WebCore;
 {
     RefPtr<Geolocation> _geolocation;
 }
-- (id)initWithGeolocation:(Geolocation&)geolocation;
+- (id)initWithGeolocation:(NakedRef<Geolocation>)geolocation;
 @end
 #else
 @interface WebGeolocationPolicyListener : NSObject <WebAllowDenyPolicyListener>
@@ -58,7 +60,7 @@ using namespace WebCore;
     RefPtr<Geolocation> _geolocation;
     RetainPtr<WebView> _webView;
 }
-- (id)initWithGeolocation:(Geolocation*)geolocation forWebView:(WebView*)webView;
+- (id)initWithGeolocation:(NakedPtr<Geolocation>)geolocation forWebView:(WebView*)webView;
 @end
 #endif
 
@@ -67,7 +69,7 @@ using namespace WebCore;
 @private
     RefPtr<Geolocation> m_geolocation;
 }
-- (id)initWithGeolocation:(Geolocation&)geolocation;
+- (id)initWithGeolocation:(NakedRef<Geolocation>)geolocation;
 @end
 #endif
 
@@ -95,15 +97,15 @@ void WebGeolocationClient::stopUpdating()
 #if PLATFORM(IOS_FAMILY)
 void WebGeolocationClient::setEnableHighAccuracy(bool wantsHighAccuracy)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [[m_webView _geolocationProvider] setEnableHighAccuracy:wantsHighAccuracy];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 #endif
 
 void WebGeolocationClient::requestPermission(Geolocation& geolocation)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     SEL selector = @selector(webView:decidePolicyForGeolocationRequestFromOrigin:frame:listener:);
     if (![[m_webView UIDelegate] respondsToSelector:selector]) {
@@ -130,7 +132,7 @@ void WebGeolocationClient::requestPermission(Geolocation& geolocation)
     RetainPtr<WebGeolocationProviderInitializationListener> listener = adoptNS([[WebGeolocationProviderInitializationListener alloc] initWithGeolocation:geolocation]);
     [[m_webView _geolocationProvider] initializeGeolocationForWebView:m_webView listener:listener.get()];
 #endif
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 Optional<GeolocationPositionData> WebGeolocationClient::lastPosition()
@@ -141,11 +143,11 @@ Optional<GeolocationPositionData> WebGeolocationClient::lastPosition()
 #if !PLATFORM(IOS_FAMILY)
 @implementation WebGeolocationPolicyListener
 
-- (id)initWithGeolocation:(Geolocation&)geolocation
+- (id)initWithGeolocation:(NakedRef<Geolocation>)geolocation
 {
     if (!(self = [super init]))
         return nil;
-    _geolocation = &geolocation;
+    _geolocation = geolocation.ptr();
     return self;
 }
 
@@ -163,12 +165,12 @@ Optional<GeolocationPositionData> WebGeolocationClient::lastPosition()
 
 #else
 @implementation WebGeolocationPolicyListener
-- (id)initWithGeolocation:(Geolocation*)geolocation forWebView:(WebView*)webView
+- (id)initWithGeolocation:(NakedPtr<Geolocation>)geolocation forWebView:(WebView*)webView
 {
     self = [super init];
     if (!self)
         return nil;
-    _geolocation = geolocation;
+    _geolocation = geolocation.get();
     _webView = webView;
     return self;
 }
@@ -207,17 +209,17 @@ Optional<GeolocationPositionData> WebGeolocationClient::lastPosition()
 @end
 
 @implementation WebGeolocationProviderInitializationListener
-- (id)initWithGeolocation:(Geolocation&)geolocation
+- (id)initWithGeolocation:(NakedRef<Geolocation>)geolocation
 {
     self = [super init];
     if (self)
-        m_geolocation = &geolocation;
+        m_geolocation = geolocation.ptr();
     return self;
 }
 
 - (void)initializationAllowedWebView:(WebView *)webView
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     Frame* frame = m_geolocation->frame();
     if (!frame)
@@ -229,7 +231,7 @@ Optional<GeolocationPositionData> WebGeolocationClient::lastPosition()
     [webOrigin release];
     [listener release];
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 - (void)initializationDeniedWebView:(WebView *)webView

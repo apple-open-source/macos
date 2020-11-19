@@ -68,6 +68,16 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_read_support_format_zip.c 201102
 #include "archive_crc32.h"
 #endif
 
+#define ZIP_LOCAL_HEADER_LENGTH (30U)
+
+struct bomb_entry {
+    struct archive_rb_node    node;
+    struct bomb_entry         *next;
+    struct bomb_entry         *prev;
+    int64_t                   local_entry_offset_begin;
+    int64_t                   local_entry_offset_end;
+};
+
 struct zip_entry {
 	struct archive_rb_node	node;
 	struct zip_entry	*next;
@@ -141,8 +151,10 @@ struct zip {
 
 	/* List of entries (seekable Zip only) */
 	struct zip_entry	*zip_entries;
+    struct bomb_entry   *bomb_entries;
 	struct archive_rb_tree	tree;
 	struct archive_rb_tree	tree_rsrc;
+    struct archive_rb_tree  tree_bomb;
 
 	/* Bytes read but not yet consumed via __archive_read_consume() */
 	size_t			unconsumed;
@@ -177,6 +189,7 @@ struct zip {
 	struct archive_string_conv *sconv_utf8;
 	int			init_default_conversion;
 	int			process_mac_extensions;
+    int         check_for_overlapping_files;
 
 	char			init_decryption;
 
@@ -328,6 +341,31 @@ crypt_derive_key_sha1(const void *p, int size, unsigned char *key,
 #undef MD_SIZE
 }
 #endif
+
+/* GCC 5 and later has __builtin_add_overflow() */
+#if (defined(__GNUC__) && (__GNUC__ >= 5))\
+    || (defined(__clang__) && __has_builtin(__builtin_add_overflow))
+#define add_overflow(x,y,s) __builtin_add_overflow(x,y,s)
+#else
+#define add_overflow(x,y,s) sadd_overflow64(x,y,s)
+static bool
+sadd_overflow64(int64_t a, int64_t b, int64_t *r)
+{
+    if (r != NULL
+        || (b >= 0 && a > INT64_MAX - b)
+        || (b <= 0 && a < INT64_MIN - b)) {
+        return true;
+    } else {
+        *r = a+b;
+        return false;
+    }
+}
+#endif /* (defined(__GNUC__) && (__GNUC__ >= 5))
+          || (defined(__clang__) && __has_builtin(__builtin_add_overflow)) */
+
+static int
+bomb_detect_overlap(struct zip *zip,
+    struct zip_entry *zip_entry, int64_t local_header_length);
 
 /*
  * Common code for streaming or seeking modes.
@@ -795,7 +833,7 @@ zip_read_local_file_header(struct archive_read *a, struct archive_entry *entry,
 		zip->init_default_conversion = 1;
 	}
 
-	if ((p = __archive_read_ahead(a, 30, NULL)) == NULL) {
+	if ((p = __archive_read_ahead(a, ZIP_LOCAL_HEADER_LENGTH, NULL)) == NULL) {
 		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
 		    "Truncated ZIP file header");
 		return (ARCHIVE_FATAL);
@@ -831,7 +869,7 @@ zip_read_local_file_header(struct archive_read *a, struct archive_entry *entry,
 	filename_length = archive_le16dec(p + 26);
 	extra_length = archive_le16dec(p + 28);
 
-	__archive_read_consume(a, 30);
+	__archive_read_consume(a, ZIP_LOCAL_HEADER_LENGTH);
 
 	/* Read the filename. */
 	if ((h = __archive_read_ahead(a, filename_length, NULL)) == NULL) {
@@ -880,6 +918,17 @@ zip_read_local_file_header(struct archive_read *a, struct archive_entry *entry,
 	if (ARCHIVE_OK != process_extra(a, h, extra_length, zip_entry)) {
 		return ARCHIVE_FATAL;
 	}
+    
+    if (zip->check_for_overlapping_files
+        && bomb_detect_overlap(zip, zip_entry,
+        ZIP_LOCAL_HEADER_LENGTH+filename_length+extra_length)
+        != ARCHIVE_OK) {
+        archive_set_error(&a->archive,
+            ARCHIVE_ERRNO_FILE_FORMAT,
+            "Invalid header");
+        return ARCHIVE_FATAL;
+    }
+    
 	__archive_read_consume(a, extra_length);
 
 	/* Work around a bug in Info-Zip: When reading from a pipe, it
@@ -999,7 +1048,7 @@ zip_read_local_file_header(struct archive_read *a, struct archive_entry *entry,
 	archive_entry_set_atime(entry, zip_entry->atime, 0);
 
 	if ((zip->entry->mode & AE_IFMT) == AE_IFLNK) {
-		size_t linkname_length, size = 0;
+        size_t linkname_length = 0, size = 0;
 		const void *buff;
 		char inflated_target = 0;
 
@@ -2004,6 +2053,7 @@ archive_read_format_zip_cleanup(struct archive_read *a)
 {
 	struct zip *zip;
 	struct zip_entry *zip_entry, *next_zip_entry;
+    struct bomb_entry *bomb_entry, *next_bomb_entry;
 
 	zip = (struct zip *)(a->format->data);
 #ifdef HAVE_ZLIB_H
@@ -2020,6 +2070,14 @@ archive_read_format_zip_cleanup(struct archive_read *a)
 			zip_entry = next_zip_entry;
 		}
 	}
+    if (zip->bomb_entries) {
+        bomb_entry = zip->bomb_entries;
+        while (bomb_entry != NULL) {
+            next_bomb_entry = bomb_entry->next;
+            free(bomb_entry);
+            bomb_entry = next_bomb_entry;
+        }
+    }
 	free(zip->decrypted_buffer);
 	if (zip->cctx_valid)
 		archive_decrypto_aes_ctr_release(&zip->cctx);
@@ -2184,13 +2242,13 @@ archive_read_format_zip_streamable_read_header(struct archive_read *a,
 		zip->zip_entries = malloc(sizeof(struct zip_entry));
 		if (zip->zip_entries == NULL) {
 			archive_set_error(&a->archive, ENOMEM,
-			    "Out  of memory");
+			    "Out of memory");
 			return ARCHIVE_FATAL;
 		}
 	}
 	zip->entry = zip->zip_entries;
 	memset(zip->entry, 0, sizeof(struct zip_entry));
-
+    
 	if (zip->cctx_valid)
 		archive_decrypto_aes_ctr_release(&zip->cctx);
 	if (zip->hctx_valid)
@@ -2361,6 +2419,9 @@ archive_read_support_format_zip_streamable(struct archive *_a)
 
 	/* Streamable reader doesn't support mac extensions. */
 	zip->process_mac_extensions = 0;
+    
+    /* Overlap detection is only provided for seekable archives */
+    zip->check_for_overlapping_files = 0;
 
 	/*
 	 * Until enough data has been read, we cannot tell about
@@ -2606,7 +2667,220 @@ rsrc_basename(const char *name, size_t name_length)
 	return (r);
 }
 
+static int
+bomb_cmp_node(const struct archive_rb_node *n1,
+    const struct archive_rb_node *n2)
+{
+    const struct bomb_entry *e1 = (const struct bomb_entry *)n1;
+    const struct bomb_entry *e2 = (const struct bomb_entry *)n2;
+
+    if (e1->local_entry_offset_begin > e2->local_entry_offset_begin)
+        return -1;
+    if (e1->local_entry_offset_begin < e2->local_entry_offset_begin)
+        return 1;
+    return 0;
+}
+
+static int
+bomb_cmp_key(const struct archive_rb_node *n, const void *key)
+{
+    const struct bomb_entry *e = (const struct bomb_entry *)n;
+    int64_t k = (int64_t)key;
+
+    if (e->local_entry_offset_begin > k)
+        return -1;
+    if (e->local_entry_offset_begin < k)
+        return 1;
+    return 0;
+}
+
+static const struct archive_rb_tree_ops rb_bomb_ops = {
+    &bomb_cmp_node, &bomb_cmp_key
+};
+
+static int
+_bomb_create_and_insert_node(struct zip *zip, int64_t begin, int64_t end)
+{
+    struct archive_rb_tree *tree_bomb = &zip->tree_bomb;
+    struct bomb_entry *bomb_entry = (struct bomb_entry *)
+        calloc(1, sizeof(struct bomb_entry));
+    if (bomb_entry == NULL)
+        return ARCHIVE_FATAL;
+    bomb_entry->next = zip->bomb_entries;
+    if (bomb_entry->next != NULL)
+        bomb_entry->next->prev = bomb_entry;
+    zip->bomb_entries = bomb_entry;
+    bomb_entry->prev = NULL;
+    bomb_entry->local_entry_offset_begin = begin;
+    bomb_entry->local_entry_offset_end = end;
+    if (__archive_rb_tree_insert_node(tree_bomb, &(bomb_entry->node))
+        == 0)
+        return ARCHIVE_FATAL;
+    
+    return ARCHIVE_OK;
+}
+
 static void
+_bomb_delete_node(struct zip *zip, struct bomb_entry *node)
+{
+    if (zip->bomb_entries == NULL || node == NULL)
+        return;
+    
+    if (zip->bomb_entries == node)
+        zip->bomb_entries = node->next;
+    
+    if (node->next != NULL)
+        node->next->prev = node->prev;
+    
+    if (node->prev != NULL)
+        node->prev->next = node->next;
+    
+    free(node);
+}
+
+static int
+_bomb_get_begin_and_end(struct zip_entry *zip_entry,
+    int64_t local_header_length, int64_t *beginPt, int64_t *endPt)
+{
+    if (zip_entry == NULL)
+        return ARCHIVE_FATAL;
+    
+    int64_t begin = zip_entry->local_header_offset;
+    if (zip_entry->compressed_size < 0
+        || begin < 0
+        || local_header_length < 1)
+        return ARCHIVE_FATAL;
+    
+    int64_t entry_length;
+    if (add_overflow(zip_entry->compressed_size, local_header_length-1,
+        &entry_length)
+        == true)
+        return ARCHIVE_FATAL;
+
+    int64_t end;
+    if (add_overflow(begin, entry_length, &end) == true)
+        return ARCHIVE_FATAL;
+    
+    if (begin > end)
+        return ARCHIVE_FATAL;
+    
+    *beginPt = begin;
+    *endPt = end;
+    
+    return ARCHIVE_OK;
+}
+
+static int
+bomb_detect_overlap(struct zip *zip,
+    struct zip_entry *zip_entry, int64_t local_header_length)
+{
+    struct archive_rb_tree *tree_bomb = &zip->tree_bomb;
+    int64_t begin, end;
+    
+    begin = end = 0;
+    if (_bomb_get_begin_and_end(zip_entry, local_header_length, &begin,
+        &end)
+        != ARCHIVE_OK)
+        return ARCHIVE_FATAL;
+    
+    struct bomb_entry *leq = (struct bomb_entry *)
+        __archive_rb_tree_find_node_leq(tree_bomb, begin);
+    struct bomb_entry *geq = (struct bomb_entry *)
+        __archive_rb_tree_find_node_geq(tree_bomb, begin);
+    
+    if (leq != NULL && leq->local_entry_offset_end >= begin)
+        return ARCHIVE_FATAL;
+    
+    if (geq != NULL && geq->local_entry_offset_begin <= end)
+        return ARCHIVE_FATAL;
+    
+    bool prev = leq
+        && leq->local_entry_offset_end >= 0
+        && begin == leq->local_entry_offset_end+1;
+    bool next = geq
+        && geq->local_entry_offset_begin > 0
+        && end == geq->local_entry_offset_begin-1;
+    
+    if (prev && next) {
+        /*
+         * This bridges the gap between leq and geq.
+         * Merge the two and delete geq.
+         */
+        leq->local_entry_offset_end = geq->local_entry_offset_end;
+        __archive_rb_tree_remove_node(tree_bomb, &geq->node);
+        _bomb_delete_node(zip, geq);
+    } else if (prev) {
+        /* Extend leq forwards */
+        leq->local_entry_offset_end = end;
+    } else if (next) {
+        /* Extend geq backwards and re-sort the node */
+        __archive_rb_tree_remove_node(tree_bomb, &geq->node);
+        geq->local_entry_offset_begin = begin;
+        if (__archive_rb_tree_insert_node(tree_bomb, &geq->node) == 0)
+            return ARCHIVE_FATAL;
+    } else {
+        /* This isn't next to any of the current spans */
+        if (_bomb_create_and_insert_node(zip, begin, end) != ARCHIVE_OK)
+            return ARCHIVE_FATAL;
+    }
+
+    return ARCHIVE_OK;
+}
+
+static int
+bomb_insert_central_node_and_detect_overlap(struct archive_rb_tree *tree,
+    struct zip_entry *zip_entry)
+{
+    if (tree == NULL || zip_entry == NULL)
+        return ARCHIVE_FATAL;
+    
+    /*
+     * We can use the central directory header to check for the minimum size
+     * of a local file entry. The header is 30 bytes, plus we add the stated
+     * compressed size in _bomb_get_begin_and_end.
+     *
+     * Because the variable length fields (name & extra) aren't guaranteed to
+     * match, we don't account for them. Therefore, it's possible to have false
+     * negatives. Those will be caught in the second overlap detection pass.
+     */
+    
+    int64_t begin, end;
+    if (_bomb_get_begin_and_end(zip_entry, ZIP_LOCAL_HEADER_LENGTH, &begin,
+        &end) != ARCHIVE_OK)
+        return ARCHIVE_FATAL;
+    
+    if (__archive_rb_tree_insert_node(tree, &zip_entry->node) == 0)
+        /* Protect against duplicate entries */
+        return ARCHIVE_FATAL;
+    
+    struct zip_entry *prev = (struct zip_entry *)__archive_rb_tree_iterate(
+        tree, &(zip_entry->node), ARCHIVE_RB_DIR_LEFT);
+    if (prev != NULL) {
+        int64_t begin_prev, end_prev;
+        if (_bomb_get_begin_and_end(prev, ZIP_LOCAL_HEADER_LENGTH, &begin_prev,
+            &end_prev) != ARCHIVE_OK)
+            return ARCHIVE_FATAL;
+        
+        if (end_prev >= begin)
+            return ARCHIVE_FATAL;
+    }
+ 
+    struct zip_entry *next = (struct zip_entry *)__archive_rb_tree_iterate(
+        tree, &(zip_entry->node), ARCHIVE_RB_DIR_RIGHT);
+    if (next != NULL) {
+        int64_t begin_next, end_next;
+        if (_bomb_get_begin_and_end(next, ZIP_LOCAL_HEADER_LENGTH, &begin_next,
+            &end_next) != ARCHIVE_OK)
+            return ARCHIVE_FATAL;
+        
+        if (begin_next <= end)
+            return ARCHIVE_FATAL;
+    }
+    
+    return ARCHIVE_OK;
+}
+
+static int
 expose_parent_dirs(struct zip *zip, const char *name, size_t name_length)
 {
 	struct archive_string str;
@@ -2628,9 +2902,12 @@ expose_parent_dirs(struct zip *zip, const char *name, size_t name_length)
 			break;
 		__archive_rb_tree_remove_node(&zip->tree_rsrc, &dir->node);
 		archive_string_free(&dir->rsrcname);
-		__archive_rb_tree_insert_node(&zip->tree, &dir->node);
+        if (bomb_insert_central_node_and_detect_overlap(&zip->tree, dir)
+            != ARCHIVE_OK)
+            return ARCHIVE_FATAL;
 	}
 	archive_string_free(&str);
+    return ARCHIVE_OK;
 }
 
 static int
@@ -2692,6 +2969,7 @@ slurp_central_directory(struct archive_read *a, struct zip *zip)
 
 	__archive_rb_tree_init(&zip->tree, &rb_ops);
 	__archive_rb_tree_init(&zip->tree_rsrc, &rb_rsrc_ops);
+    __archive_rb_tree_init(&zip->tree_bomb, &rb_bomb_ops);
 
 	zip->central_directory_entries_total = 0;
 	while (1) {
@@ -2787,8 +3065,14 @@ slurp_central_directory(struct archive_read *a, struct zip *zip)
 		 */
 		if (!zip->process_mac_extensions) {
 			/* Treat every entry as a regular entry. */
-			__archive_rb_tree_insert_node(&zip->tree,
-			    &zip_entry->node);
+            if (bomb_insert_central_node_and_detect_overlap(&zip->tree,
+                zip_entry)
+                != ARCHIVE_OK) {
+                archive_set_error(&a->archive,
+                    ARCHIVE_ERRNO_FILE_FORMAT,
+                    "Invalid header");
+                return ARCHIVE_FATAL;
+            }
 		} else {
 			name = p;
 			r = rsrc_basename(name, filename_length);
@@ -2799,11 +3083,22 @@ slurp_central_directory(struct archive_read *a, struct zip *zip)
 				 * resource fork file to expose it. */
 				if (name[filename_length-1] != '/' &&
 				    (r - name < 3 || r[0] != '.' || r[1] != '_')) {
-					__archive_rb_tree_insert_node(
-					    &zip->tree, &zip_entry->node);
+                    if (bomb_insert_central_node_and_detect_overlap(&zip->tree,
+                        zip_entry)
+                        != ARCHIVE_OK) {
+                        archive_set_error(&a->archive,
+                            ARCHIVE_ERRNO_FILE_FORMAT,
+                            "Invalid header");
+                        return ARCHIVE_FATAL;
+                    }
 					/* Expose its parent directories. */
-					expose_parent_dirs(zip, name,
-					    filename_length);
+					if (expose_parent_dirs(zip, name, filename_length)
+                        != ARCHIVE_OK) {
+                        archive_set_error(&a->archive,
+                            ARCHIVE_ERRNO_FILE_FORMAT,
+                            "Invalid header");
+                        return ARCHIVE_FATAL;
+                    }
 				} else {
 					/* This file is a resource fork file or
 					 * a directory. */
@@ -2836,8 +3131,14 @@ slurp_central_directory(struct archive_read *a, struct zip *zip)
 				    tmp_length - (r - name));
 				/* Register an entry to RB tree to sort it by
 				 * file offset. */
-				__archive_rb_tree_insert_node(&zip->tree,
-				    &zip_entry->node);
+                if (bomb_insert_central_node_and_detect_overlap(&zip->tree,
+                    zip_entry)
+                    != ARCHIVE_OK) {
+                    archive_set_error(&a->archive,
+                        ARCHIVE_ERRNO_FILE_FORMAT,
+                        "Invalid header");
+                    return ARCHIVE_FATAL;
+                }
 			}
 		}
 
@@ -2855,7 +3156,8 @@ zip_get_local_file_header_size(struct archive_read *a, size_t extra)
 	const char *p;
 	ssize_t filename_length, extra_length;
 
-	if ((p = __archive_read_ahead(a, extra + 30, NULL)) == NULL) {
+	if ((p = __archive_read_ahead(a, extra + ZIP_LOCAL_HEADER_LENGTH, NULL))
+        == NULL) {
 		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
 		    "Truncated ZIP file header");
 		return (ARCHIVE_WARN);
@@ -2869,7 +3171,7 @@ zip_get_local_file_header_size(struct archive_read *a, size_t extra)
 	filename_length = archive_le16dec(p + 26);
 	extra_length = archive_le16dec(p + 28);
 
-	return (30 + filename_length + extra_length);
+	return (ZIP_LOCAL_HEADER_LENGTH + filename_length + extra_length);
 }
 
 static int
@@ -2904,15 +3206,15 @@ zip_read_mac_metadata(struct archive_read *a, struct archive_entry *entry,
 		return (ARCHIVE_WARN);
 	}
 
-	if (rsrc->uncompressed_size > (4 * 1024 * 1024)) {
+	if (rsrc->uncompressed_size > (10 * 1024 * 1024)) {
 		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
-		    "Mac metadata is too large: %jd > 4M bytes",
+		    "Mac metadata is too large: %jd > 10M bytes",
 		    (intmax_t)rsrc->uncompressed_size);
 		return (ARCHIVE_WARN);
 	}
-	if (rsrc->compressed_size > (4 * 1024 * 1024)) {
+	if (rsrc->compressed_size > (10 * 1024 * 1024)) {
 		archive_set_error(&a->archive, ARCHIVE_ERRNO_FILE_FORMAT,
-		    "Mac metadata is too large: %jd > 4M bytes",
+		    "Mac metadata is too large: %jd > 10M bytes",
 		    (intmax_t)rsrc->compressed_size);
 		return (ARCHIVE_WARN);
 	}
@@ -2931,6 +3233,16 @@ zip_read_mac_metadata(struct archive_read *a, struct archive_entry *entry,
 	}
 
 	hsize = zip_get_local_file_header_size(a, 0);
+    if (zip->check_for_overlapping_files
+        && bomb_detect_overlap(zip, rsrc, hsize)
+        != ARCHIVE_OK) {
+        archive_set_error(&a->archive,
+            ARCHIVE_ERRNO_FILE_FORMAT,
+            "Invalid header");
+        ret = ARCHIVE_FATAL;
+        goto exit_mac_metadata;
+    }
+    
 	__archive_read_consume(a, hsize);
 
 	remaining_bytes = (size_t)rsrc->compressed_size;
@@ -3133,6 +3445,8 @@ archive_read_support_format_zip_seekable(struct archive *_a)
 	/* Set this by default on Mac OS. */
 	zip->process_mac_extensions = 1;
 #endif
+    
+    zip->check_for_overlapping_files = 1;
 
 	/*
 	 * Until enough data has been read, we cannot tell about

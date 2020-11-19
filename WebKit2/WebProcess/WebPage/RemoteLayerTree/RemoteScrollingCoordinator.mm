@@ -33,6 +33,7 @@
 #import "RemoteLayerTreeDrawingArea.h"
 #import "RemoteScrollingCoordinatorMessages.h"
 #import "RemoteScrollingCoordinatorTransaction.h"
+#import "RemoteScrollingUIState.h"
 #import "WebCoreArgumentCoders.h"
 #import "WebPage.h"
 #import "WebProcess.h"
@@ -43,6 +44,7 @@
 #import <WebCore/RenderView.h>
 #import <WebCore/ScrollingTreeFixedNode.h>
 #import <WebCore/ScrollingTreeStickyNode.h>
+
 
 namespace WebKit {
 using namespace WebCore;
@@ -61,7 +63,7 @@ RemoteScrollingCoordinator::~RemoteScrollingCoordinator()
 
 void RemoteScrollingCoordinator::scheduleTreeStateCommit()
 {
-    m_webPage->drawingArea()->scheduleCompositingLayerFlush();
+    m_webPage->drawingArea()->scheduleRenderingUpdate();
 }
 
 bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(const FrameView& frameView) const
@@ -70,16 +72,25 @@ bool RemoteScrollingCoordinator::coordinatesScrollingForFrameView(const FrameVie
     return renderView && renderView->usesCompositing();
 }
 
-bool RemoteScrollingCoordinator::isRubberBandInProgress() const
+bool RemoteScrollingCoordinator::isRubberBandInProgress(ScrollingNodeID nodeID) const
 {
-    // FIXME: need to maintain state in the web process?
-    return false;
+    if (!nodeID)
+        return false;
+    return m_nodesWithActiveRubberBanding.contains(nodeID);
 }
 
-bool RemoteScrollingCoordinator::isScrollSnapInProgress() const
+bool RemoteScrollingCoordinator::isUserScrollInProgress(ScrollingNodeID nodeID) const
 {
-    // FIXME: need to maintain state in the web process?
-    return false;
+    if (!nodeID)
+        return false;
+    return m_nodesWithActiveUserScrolls.contains(nodeID);
+}
+
+bool RemoteScrollingCoordinator::isScrollSnapInProgress(ScrollingNodeID nodeID) const
+{
+    if (!nodeID)
+        return false;
+    return m_nodesWithActiveScrollSnap.contains(nodeID);
 }
 
 void RemoteScrollingCoordinator::setScrollPinningBehavior(ScrollPinningBehavior)
@@ -102,6 +113,16 @@ void RemoteScrollingCoordinator::scrollPositionChangedForNode(ScrollingNodeID no
 void RemoteScrollingCoordinator::currentSnapPointIndicesChangedForNode(ScrollingNodeID nodeID, unsigned horizontal, unsigned vertical)
 {
     setActiveScrollSnapIndices(nodeID, horizontal, vertical);
+}
+
+void RemoteScrollingCoordinator::scrollingStateInUIProcessChanged(const RemoteScrollingUIState& uiState)
+{
+    // FIXME: Also track m_nodesWithActiveRubberBanding.
+    if (uiState.changes().contains(RemoteScrollingUIState::Changes::ScrollSnapNodes))
+        m_nodesWithActiveScrollSnap = uiState.nodesWithActiveScrollSnap();
+
+    if (uiState.changes().contains(RemoteScrollingUIState::Changes::UserScrollNodes))
+        m_nodesWithActiveUserScrolls = uiState.nodesWithActiveUserScrolls();
 }
 
 } // namespace WebKit

@@ -116,6 +116,11 @@ SOSRingRef SOSAccountCopyRingNamed(SOSAccount* a, CFStringRef ringName, CFErrorR
 }
 
 bool SOSAccountUpdateRingFromRemote(SOSAccount* account, SOSRingRef newRing, CFErrorRef *error) {
+    if(account && account.accountIsChanging) {
+        secnotice("circleOps", "SOSAccountUpdateRingFromRemote called before signing in to new account");
+        return true; // we want to drop circle notifications when account is changing
+    }
+
     require_quiet(SOSAccountHasPublicKey(account, error), errOut);
   
     return [account.trust handleUpdateRing:account prospectiveRing:newRing transport:account.circle_transport userPublicKey:account.accountKey writeUpdate:false err:error];
@@ -135,25 +140,22 @@ errOut:
 bool SOSAccountUpdateNamedRing(SOSAccount* account, CFStringRef ringName, CFErrorRef *error,
                                       SOSRingRef (^create)(CFStringRef ringName, CFErrorRef *error),
                                       SOSRingRef (^copyModified)(SOSRingRef existing, CFErrorRef *error)) {
+    if(![account isInCircle:NULL]) {
+        return false;
+    }
     bool result = false;
-    SOSRingRef found = [account.trust copyRing:ringName err:error];
-
+    SOSRingRef found = NULL;
     SOSRingRef newRing = NULL;
+    found = [account.trust copyRing:ringName err:error];
     if(!found) {
         found = create(ringName, error);
     }
-    require_quiet(found, errOut);
-    newRing = copyModified(found, error);
-    CFReleaseNull(found);
-    
-    require_quiet(newRing, errOut);
-
-    require_quiet(SOSAccountHasPublicKey(account, error), errOut);
-    require_quiet(SOSAccountHasCircle(account, error), errOut);
-
-    result = [account.trust handleUpdateRing:account prospectiveRing:newRing transport:account.circle_transport userPublicKey:account.accountKey writeUpdate:true err:error];
-    
-errOut:
+    if(found) {
+        newRing = copyModified(found, error);
+        if(newRing) {
+            result = [account.trust handleUpdateRing:account prospectiveRing:newRing transport:account.circle_transport userPublicKey:account.accountKey writeUpdate:true err:error];
+        }
+    }
     CFReleaseNull(found);
     CFReleaseNull(newRing);
     return result;

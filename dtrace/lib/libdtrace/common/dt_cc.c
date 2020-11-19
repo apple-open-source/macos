@@ -2674,7 +2674,7 @@ dt_compile(dtrace_hdl_t *dtp, int context, dtrace_probespec_t pspec, void *arg,
 	 * existing clause chain with the new one.
 	 */
 	if (context == DT_CTX_DPROG) {
-		dt_node_t *dnp, *next_dnp;
+		dt_node_t *next_dnp;
 		dt_node_t *new_list = NULL;
 
 		for (dnp = yypcb->pcb_root->dn_list;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2020 Apple Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,6 @@
 - (void)testPathDeny
 {
     if(!getenv("DNSSDUTIL_XCTEST")) return;   //   Don't run without this environment variable
-    mDNSBool        isBlocked;
     DNSQuestion     q;
     mDNSInterfaceID routableIndex;
 
@@ -53,8 +52,8 @@
     routableIndex = IndexForInterfaceByName_ut( "pdp_ip0" );
     fprintf(stdout, "Testing blocked by (%s)\n", routableIndex ? "policy" : "no route");
 
-    mDNSPlatformGetDNSRoutePolicy(&q, &isBlocked);
-    XCTAssertFalse(isBlocked);
+    mDNSPlatformGetDNSRoutePolicy(&q);
+    XCTAssertFalse(q.BlockedByPolicy);
 
     // Now block it
     NSMutableArray *routeRules = [NSMutableArray array];
@@ -73,10 +72,10 @@
     [policySession addPolicy:policy];
     [policySession apply];
 
-    mDNSPlatformGetDNSRoutePolicy(&q, &isBlocked);
+    mDNSPlatformGetDNSRoutePolicy(&q);
     //  Either if these asserts indicate a regression in mDNSPlatformGetDNSRoutePolicy
-    if (routableIndex)  XCTAssertTrue(isBlocked, "blocked by (policy) test failure");
-    else                XCTAssertFalse(isBlocked, "blocked by (no route) test failure");
+    if (routableIndex)  XCTAssertTrue(q.BlockedByPolicy, "blocked by (policy) test failure");
+    else                XCTAssertFalse(q.BlockedByPolicy, "blocked by (no route) test failure");
 
     [policySession removeAllPolicies];
     [policySession apply];

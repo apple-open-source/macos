@@ -88,6 +88,21 @@ tt(AUTO_CD) option set) is not a directory, and does not begin with a
 slash, try to expand the expression as if it were preceded by a `tt(~)' (see
 noderef(Filename Expansion)).
 )
+pindex(CD_SILENT)
+pindex(NO_CD_SILENT)
+pindex(CDSILENT)
+pindex(NOCDSILENT)
+cindex(cd, silencing)
+cindex(autocd, silencing)
+item(tt(CD_SILENT))(
+Never print the working directory after a tt(cd) (whether explicit or
+implied with the tt(AUTO_CD) option set). tt(cd) normally prints the
+working directory when the argument given to it was tt(-), a stack entry, or
+the name of a directory found under tt(CDPATH). Note that this is distinct
+from tt(pushd)'s stack-printing behaviour, which is controlled by
+tt(PUSHD_SILENT). This option overrides the printing-related effects of
+tt(POSIX_CD).
+)
 pindex(CHASE_DOTS)
 pindex(NO_CHASE_DOTS)
 pindex(CHASEDOTS)
@@ -133,7 +148,8 @@ ifzman(zmanref(zshbuiltins))\
 ifnzman(noderef(Shell Builtin Commands)).
 If the option is set, the shell does not test for directories beneath
 the local directory (`tt(.)') until after all directories in tt(cdpath)
-have been tested.
+have been tested, and the tt(cd) and tt(chdir) commands do not recognise
+arguments of the form `{tt(PLUS())|tt(-)}var(n)' as directory stack entries.
 
 Also, if the option is set, the conditions under which the shell
 prints the new directory after changing to it are modified.  It is
@@ -2318,7 +2334,9 @@ cindex(sh, field splitting style)
 item(tt(SH_WORD_SPLIT) (tt(-y)) <K> <S>)(
 Causes field splitting to be performed on unquoted parameter expansions.
 Note that this option has nothing to do with word splitting.
-(See noderef(Parameter Expansion).)
+(See 
+ifzman(zmanref(zshexpn))\
+ifnzman(noderef(Parameter Expansion)).)
 )
 pindex(TRAPS_ASYNC)
 pindex(NO_TRAPS_ASYNC)

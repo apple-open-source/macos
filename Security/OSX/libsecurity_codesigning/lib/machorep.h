@@ -71,6 +71,7 @@ public:
 	void flush();		// flush cache
 
 	static bool candidate(UnixPlusPlus::FileDesc &fd);
+	void registerStapledTicket();
 	
 public:
 	static CFDataRef identificationFor(MachO *macho);

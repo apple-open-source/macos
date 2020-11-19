@@ -46,8 +46,9 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype _Nullable)tryFromDatabase:(NSString*)uuid zoneID:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 
 + (NSArray<CKKSIncomingQueueEntry*>* _Nullable)fetch:(ssize_t)n
-                                      startingAtUUID:(NSString*)uuid
+                                      startingAtUUID:(NSString* _Nullable)uuid
                                                state:(NSString*)state
+                                              action:(NSString* _Nullable)action
                                               zoneID:(CKRecordZoneID*)zoneID
                                                error:(NSError* __autoreleasing*)error;
 

@@ -2204,8 +2204,7 @@ again:
 		ptr = nanov2_slot_in_block_ptr(blockp, size_class, slot);
 	}
 
-	nanov2_free_slot_t *slotp =
-			(nanov2_free_slot_t *)os_atomic_force_dependency_on(ptr,
+	nanov2_free_slot_t *slotp = os_atomic_inject_dependency(ptr,
 			(unsigned long)old_meta_view.bits);
 	if (from_free_list) {
 		// We grabbed the item from the free list. Check the free list canary
@@ -2214,7 +2213,7 @@ again:
 		// write to it.
 		uintptr_t guard = os_atomic_load(&slotp->double_free_guard, relaxed);
 		if ((guard ^ nanozone->slot_freelist_cookie) != (uintptr_t)ptr) {
-			malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, false,
+			malloc_zone_error(MALLOC_ABORT_ON_CORRUPTION, true,
 					"Heap corruption detected, free list is damaged at %p\n"
 					"*** Incorrect guard value: %lu\n", ptr, guard);
 			__builtin_unreachable();

@@ -32,18 +32,24 @@
 
 namespace IPC {
 
-std::unique_ptr<MachMessage> MachMessage::create(CString&& messageReceiverName, CString&& messageName, size_t size)
+// Version of round_msg() using CheckedSize for extra safety.
+static inline CheckedSize safeRoundMsg(CheckedSize value)
+{
+    constexpr size_t alignment = sizeof(natural_t);
+    return ((value + (alignment - 1)) / alignment) * alignment;
+}
+
+std::unique_ptr<MachMessage> MachMessage::create(MessageName messageName, size_t size)
 {
     auto bufferSize = CheckedSize(sizeof(MachMessage)) + size;
     if (bufferSize.hasOverflowed())
         return nullptr;
     void* memory = WTF::fastZeroedMalloc(bufferSize.unsafeGet());
-    return std::unique_ptr<MachMessage> { new (NotNull, memory) MachMessage { WTFMove(messageReceiverName), WTFMove(messageName), size } };
+    return std::unique_ptr<MachMessage> { new (NotNull, memory) MachMessage { messageName, size } };
 }
 
-MachMessage::MachMessage(CString&& messageReceiverName, CString&& messageName, size_t size)
-    : m_messageReceiverName(WTFMove(messageReceiverName))
-    , m_messageName(WTFMove(messageName))
+MachMessage::MachMessage(MessageName messageName, size_t size)
+    : m_messageName { messageName }
     , m_size { size }
 {
 }
@@ -54,9 +60,10 @@ MachMessage::~MachMessage()
         ::mach_msg_destroy(header());
 }
 
-size_t MachMessage::messageSize(size_t bodySize, size_t portDescriptorCount, size_t memoryDescriptorCount)
+CheckedSize MachMessage::messageSize(size_t bodySize, size_t portDescriptorCount, size_t memoryDescriptorCount)
 {
-    size_t messageSize = sizeof(mach_msg_header_t) + bodySize;
+    CheckedSize messageSize = sizeof(mach_msg_header_t);
+    messageSize += bodySize;
 
     if (portDescriptorCount || memoryDescriptorCount) {
         messageSize += sizeof(mach_msg_body_t);
@@ -64,7 +71,7 @@ size_t MachMessage::messageSize(size_t bodySize, size_t portDescriptorCount, siz
         messageSize += (memoryDescriptorCount * sizeof(mach_msg_ool_descriptor_t));
     }
 
-    return round_msg(messageSize);
+    return safeRoundMsg(messageSize);
 }
 
 void MachMessage::leakDescriptors()

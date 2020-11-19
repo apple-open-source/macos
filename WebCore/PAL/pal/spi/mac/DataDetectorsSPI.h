@@ -23,8 +23,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #import <wtf/Platform.h>
 
 #if ENABLE(DATA_DETECTION)
@@ -89,7 +87,7 @@ enum {
 
 #endif // !USE(APPLE_INTERNAL_SDK)
 
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
+#if PLATFORM(MAC)
 
 WTF_EXTERN_C_BEGIN
 CFTypeID DDResultGetCFTypeID(void);
@@ -114,8 +112,11 @@ SOFT_LINK_CLASS_OPTIONAL(DataDetectors, DDActionContext)
 SOFT_LINK_CLASS_OPTIONAL(DataDetectors, DDActionsManager)
 
 SOFT_LINK_CONSTANT(DataDetectorsCore, DDBinderPhoneNumberKey, CFStringRef)
-
+#if HAVE(DD_HIGHLIGHT_CREATE_WITH_SCALE)
+SOFT_LINK(DataDetectors, DDHighlightCreateWithRectsInVisibleRectWithStyleScaleAndDirection, DDHighlightRef, (CFAllocatorRef allocator, CGRect* rects, CFIndex count, CGRect globalVisibleRect, DDHighlightStyle style, Boolean withButton, NSWritingDirection writingDirection, Boolean endsWithEOL, Boolean flipped, CGFloat scale), (allocator, rects, count, globalVisibleRect, style, withButton, writingDirection, endsWithEOL, flipped, scale))
+#else
 SOFT_LINK(DataDetectors, DDHighlightCreateWithRectsInVisibleRectWithStyleAndDirection, DDHighlightRef, (CFAllocatorRef allocator, CGRect* rects, CFIndex count, CGRect globalVisibleRect, DDHighlightStyle style, Boolean withArrow, NSWritingDirection writingDirection, Boolean endsWithEOL, Boolean flipped), (allocator, rects, count, globalVisibleRect, style, withArrow, writingDirection, endsWithEOL, flipped))
+#endif
 SOFT_LINK(DataDetectors, DDHighlightGetLayerWithContext, CGLayerRef, (DDHighlightRef highlight, CGContextRef context), (highlight, context))
 SOFT_LINK(DataDetectors, DDHighlightGetBoundingRect, CGRect, (DDHighlightRef highlight), (highlight))
 SOFT_LINK(DataDetectors, DDHighlightPointIsOnHighlight, Boolean, (DDHighlightRef highlight, CGPoint point, Boolean* onButton), (highlight, point, onButton))

@@ -72,20 +72,25 @@ bool SharedMemory::Handle::isNull() const
     return m_attachment.fileDescriptor() == -1;
 }
 
-void SharedMemory::Handle::encode(IPC::Encoder& encoder) const
+void SharedMemory::IPCHandle::encode(IPC::Encoder& encoder) const
 {
-    encoder << releaseAttachment();
+    encoder << handle.releaseAttachment();
+    encoder << dataSize;
 }
 
-bool SharedMemory::Handle::decode(IPC::Decoder& decoder, Handle& handle)
+bool SharedMemory::IPCHandle::decode(IPC::Decoder& decoder, IPCHandle& ipcHandle)
 {
-    ASSERT_ARG(handle, handle.isNull());
-
+    ASSERT_ARG(ipcHandle.handle, ipcHandle.handle.isNull());
     IPC::Attachment attachment;
     if (!decoder.decode(attachment))
         return false;
 
-    handle.adoptAttachment(WTFMove(attachment));
+    uint64_t dataSize;
+    if (!decoder.decode(dataSize))
+        return false;
+
+    ipcHandle.handle.adoptAttachment(WTFMove(attachment));
+    ipcHandle.dataSize = dataSize;
     return true;
 }
 

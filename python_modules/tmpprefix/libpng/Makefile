@@ -27,7 +27,8 @@ $(PNGDIR)/darwin:
 	cd $(PNGDIR) && \
 	mkdir darwin && \
 	cd darwin && \
-	CFLAGS='$(RC_CFLAGS)' LDFLAGS='$(RC_CFLAGS)' ../configure --disable-dependency-tracking --disable-shared --enable-static --prefix=$(TMPPREFIX) && \
+	CFLAGS='$(RC_CFLAGS)' LDFLAGS='$(RC_CFLAGS)' ../configure --disable-dependency-tracking --disable-shared --enable-static --prefix=$(TMPPREFIX) --enable-arm-neon && \
+	sed -e '/PNG_ARM_NEON_OPT/ s/^/\/\//' -i '.orig' config.h && \
 	make libpng16.la && \
 	make install-nodist_pkgincludeHEADERS pkgincludedir="$(TMPPREFIX)/include" && \
 	make install-pkgincludeHEADERS pkgincludedir="$(TMPPREFIX)/include" && \

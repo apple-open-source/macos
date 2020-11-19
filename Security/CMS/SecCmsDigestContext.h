@@ -44,7 +44,7 @@ __BEGIN_DECLS
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern SecCmsDigestContextRef
 SecCmsDigestContextStartMultiple(SECAlgorithmID **digestalgs)
-    API_AVAILABLE(macos(10.4), ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4), ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 
 /*!
@@ -70,7 +70,7 @@ SecCmsDigestContextCancel(SecCmsDigestContextRef cmsdigcx);
  */
 extern void
 SecCmsDigestContextDestroy(SecCmsDigestContextRef cmsdigcx)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // TARGET_OS_IPHONE
 
 #if TARGET_OS_OSX
@@ -83,7 +83,7 @@ SecCmsDigestContextDestroy(SecCmsDigestContextRef cmsdigcx)
 extern OSStatus
 SecCmsDigestContextFinishMultiple(SecCmsDigestContextRef cmsdigcx, SecArenaPoolRef arena,
                                   CSSM_DATA_PTR **digestsp)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #endif // TARGET_OS_OSX
 

@@ -82,7 +82,7 @@ endif
 	$(RM) "$(DSTROOT)/usr/lib/libtidy.a"
 
 	$(MKDIR) "$(DSTROOT)/usr/include/$(Project)"
-	$(INSTALL_FILE) "$(SRCROOT)/$(Project).modulemap" "$(DSTROOT)/usr/include/$(Project)/module.modulemap"
+	$(INSTALL_FILE) "$(SRCROOT)/module.modulemap" "$(DSTROOT)/usr/include/$(Project)/module.modulemap"
 
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist

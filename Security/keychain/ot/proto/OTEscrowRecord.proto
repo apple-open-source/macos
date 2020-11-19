@@ -1,0 +1,74 @@
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+
+package OT;
+
+message EscrowRecord {
+    optional uint64 creation_date = 1;
+    optional uint64 remaining_attempts = 2;
+    message Metadata {
+        optional bytes backup_keybag_digest = 1;
+        message ClientMetadata {
+            optional uint64 secure_backup_metadata_timestamp = 1;
+            optional uint64 secure_backup_numeric_passphrase_length = 2;
+            optional uint64 secure_backup_uses_complex_passphrase = 3;
+            optional uint64 secure_backup_uses_numeric_passphrase = 4;
+            optional string device_color = 5;
+            optional string device_enclosure_color = 6;
+            optional string device_mid = 7;
+            optional string device_model = 8;
+            optional string device_model_class = 9;
+            optional string device_model_version = 10;
+            optional string device_name = 11;
+            optional uint64 device_platform = 12;
+        }
+        optional ClientMetadata client_metadata = 2;
+        optional uint64 secure_backup_uses_multiple_icscs = 3;
+        optional string bottle_id = 4;
+        optional uint64 secure_backup_timestamp = 5;
+        optional bytes escrowed_spki = 6;
+        optional bytes peer_info = 7;
+        optional string bottle_validity = 8;
+        optional string serial = 9;
+    }
+    optional Metadata escrow_information_metadata = 3;
+    optional string label = 4;
+    // optional reserved string reserved5 = 5;
+    // optional reserved string reserved6 = 6;
+    // optional reserved string reserved7 = 7;
+    // optional reserved string reserved8 = 8;
+
+    optional uint64 silent_attempt_allowed = 9;
+
+    enum RecordStatus {
+        RECORD_STATUS_VALID = 0;
+        RECORD_STATUS_INVALID = 1;
+    }
+
+    optional RecordStatus record_status = 10;
+    optional string record_id = 11;
+
+    enum RecoveryStatus {
+        RECOVERY_STATUS_VALID = 0;
+        RECOVERY_STATUS_SOFT_LIMIT_REACHED = 1;
+        RECOVERY_STATUS_HARD_LIMIT_REACHED = 2;
+    }
+    optional RecoveryStatus recovery_status = 12;
+    optional uint64 cool_off_end = 13;
+    optional string serial_number = 14;
+
+    enum RecordViability {
+        RECORD_VIABILITY_FULLY_VIABLE = 0;
+        RECORD_VIABILITY_PARTIALLY_VIABLE = 1;
+        RECORD_VIABILITY_LEGACY = 2;
+    }
+    optional RecordViability record_viability = 15;
+
+    enum SOSViability {
+        SOS_VIABLE_UNKNOWN = 0;
+        SOS_VIABLE = 1;
+        SOS_NOT_VIABLE = 2;
+    }
+    optional SOSViability viability_status = 16;
+}

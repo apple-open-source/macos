@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011, 2012, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011, 2012, 2015, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,7 +44,8 @@ Boolean	dns_configuration_set		(CFDictionaryRef	defaultResolver,
 					 CFDictionaryRef	services,
 					 CFArrayRef		serviceOrder,
 					 CFArrayRef		multicastResolvers,
-					 CFArrayRef		privateResolvers);
+					 CFArrayRef		privateResolvers,
+					 CFDictionaryRef	*globalResolver);
 
 __END_DECLS
 

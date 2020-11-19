@@ -17,7 +17,7 @@
 
 #include <kern/kcdata.h>
 
-uint64_t
+static uint64_t
 stackshot_get_mach_absolute_time(void *buffer, uint32_t size)
 {
     kcdata_iter_t iter = kcdata_iter_find_type(kcdata_iter(buffer, size), KCDATA_TYPE_MACH_ABSOLUTE_TIME);
@@ -28,9 +28,9 @@ stackshot_get_mach_absolute_time(void *buffer, uint32_t size)
     return *(uint64_t *)kcdata_iter_payload(iter);
 }
 
-static void usage(char **argv)
+__dead2 static void usage(char **argv)
 {
-    fprintf (stderr, "usage: %s [-d] [-t] >file\n", argv[0]);
+    fprintf (stderr, "usage: %s [options] [file]\n", argv[0]);
     fprintf (stderr, "    -d      : take delta stackshot\n");
     fprintf (stderr, "    -b      : get bootprofile\n");
     fprintf (stderr, "    -c      : get coalition data\n");
@@ -43,10 +43,11 @@ static void usage(char **argv)
     fprintf (stderr, "    -S      : stress test: while(1) stackshot; \n");
     fprintf (stderr, "    -p PID  : target a pid\n");
     fprintf (stderr, "    -E      : grab existing kernel buffer\n");
+    fprintf (stderr, "If no file is provided and stdout is not a TTY, the stackshot will be written to stdout.\n");
     exit(1);
 }
 
-void forksleep() {
+static void forksleep() {
     pid_t pid = fork();
     if (pid < 0) {
         perror("fork");
@@ -76,8 +77,10 @@ int main(int argc, char **argv) {
     boolean_t stress = FALSE;
     pid_t pid = -1;
     int c;
+    FILE *file;
+    bool closefile;
 
-    while ((c = getopt(argc, argv, "SgIikbcLdtsp:E")) != EOF) {
+    while ((c = getopt(argc, argv, "SgIikbcLdtsp:E")) != -1) {
         switch(c) {
         case 'I':
             iostats |= STACKSHOT_NO_IO_STATS;
@@ -129,7 +132,19 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if (optind < argc) {
+    if (optind == argc - 1) {
+        const char *const filename = argv[optind];
+        file = fopen(filename, "wx");
+        closefile = true;
+
+        if (file == NULL) {
+            perror("fopen");
+            return EX_CANTCREAT;
+        }
+    } else if (optind == argc && !isatty(STDOUT_FILENO)) {
+        file = stdout;
+        closefile = false;
+    } else {
         usage(argv);
     }
 
@@ -215,7 +230,6 @@ top:
 
     }
 
-
     if (stress) {
         if (config) {
             stackshot_config_dealloc(config);
@@ -224,5 +238,11 @@ top:
         goto top;
     }
 
-    fwrite(buf, size, 1, stdout);
+    fwrite(buf, size, 1, file);
+
+    if (closefile) {
+        fclose(file);
+    }
+
+    return 0;
 }

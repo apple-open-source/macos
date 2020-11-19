@@ -578,14 +578,17 @@ See remaining rules for examples.
 		</dict>
 		<key>com.apple.trust-settings.admin</key>
 		<dict>
-			<key>allow-root</key>
-			<true/>
-			<key>class</key>
-			<string>user</string>
 			<key>comment</key>
-			<string>For modifying Trust Settings in the Local Admin domain.</string>
-			<key>group</key>
-			<string>admin</string>
+			<string>For modifying Trust Settings in the Admin domain. Requires entitlement or admin authentication.</string>
+			<key>class</key>
+			<string>rule</string>
+			<key>k-of-n</key>
+			<integer>1</integer>
+			<key>rule</key>
+			<array>
+				<string>entitled</string>
+				<string>authenticate-admin</string>
+			</array>
 		</dict>
 		<key>com.apple.trust-settings.user</key>
 		<dict>
@@ -596,10 +599,14 @@ See remaining rules for examples.
 		</dict>
 		<key>com.apple.uninstalld.uninstall</key>
 		<dict>
+			<key>authenticate-user</key>
+			<false/>
 			<key>class</key>
-			<string>rule</string>
-			<key>rule</key>
-			<string>entitled-admin-or-authenticate-admin</string>
+			<string>user</string>
+			<key>entitled</key>
+			<true/>
+			<key>version</key>
+			<integer>1</integer>
 		</dict>
 		<key>config.add.</key>
 		<dict>
@@ -674,6 +681,23 @@ See remaining rules for examples.
 			<string>allow</string>
 			<key>comment</key>
 			<string>For burning media.</string>
+		</dict>
+		<key>com.apple.installassistant.requestpassword</key>
+		<dict>
+			<key>authenticate-user</key>
+			<true/>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>Authenticate as an administrator, password only.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>password-only</key>
+			<true/>
+			<key>shared</key>
+			<false/>
+			<key>timeout</key>
+			<integer>0</integer>
 		</dict>
 		<key>system.csfde.requestpassword.weak</key>
 		<dict>
@@ -825,7 +849,7 @@ See remaining rules for examples.
 			<key>class</key>
 			<string>rule</string>
 			<key>comment</key>
-			<string>Checked when user is installing Apple-provided software.</string>
+			<string>Checked when user is installing Apple software.</string>
 			<key>rule</key>
 			<string>root-or-entitled-admin-or-authenticate-admin</string>
 		</dict>
@@ -914,6 +938,7 @@ See remaining rules for examples.
 			<key>mechanisms</key>
 			<array>
 				<string>builtin:policy-banner</string>
+				<string>builtin:prelogin</string>
 				<string>loginwindow:login</string>
 				<string>builtin:login-begin</string>
 				<string>builtin:reset-password,privileged</string>
@@ -931,7 +956,24 @@ See remaining rules for examples.
 				<string>loginwindow:done</string>
 			</array>
 			<key>version</key>
-			<integer>7</integer>
+			<integer>8</integer>
+		</dict>
+		<key>system.login.filevault</key>
+		<dict>
+			<key>class</key>
+			<string>evaluate-mechanisms</string>
+			<key>comment</key>
+			<string>Login mechanism based rule for Filevault.</string>
+			<key>mechanisms</key>
+			<array>
+				<string>builtin:policy-banner</string>
+				<string>loginwindow:login</string>
+				<string>builtin:login-begin</string>
+				<string>builtin:authenticate,privileged</string>
+				<string>builtin:login-success</string>
+				<string>loginwindow:success</string>
+				<string>loginwindow:done</string>
+			</array>
 		</dict>
 		<key>system.login.fus</key>
 		<dict>
@@ -1601,6 +1643,36 @@ See remaining rules for examples.
 			<key>version</key>
 			<integer>1</integer>
 		</dict>
+		<key>com.apple.configurationprofiles.deviceenrollment.install</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>This right is used by UserManagement to ask for an admin password.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>password-only</key>
+			<true/>
+			<key>shared</key>
+			<false/>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
+		<key>com.apple.configurationprofiles.deviceenrollment.uninstall</key>
+		<dict>
+			<key>class</key>
+			<string>user</string>
+			<key>comment</key>
+			<string>This right is used by UserManagement to ask for an admin password.</string>
+			<key>group</key>
+			<string>admin</string>
+			<key>password-only</key>
+			<true/>
+			<key>shared</key>
+			<false/>
+			<key>version</key>
+			<integer>1</integer>
+		</dict>
 		<key>com.apple.safaridriver.allow</key>
 		<dict>
 			<key>comment</key>
@@ -1692,7 +1764,29 @@ See remaining rules for examples.
 			<key>shared</key>
 			<false/>
 		</dict>
-	</dict>
+        <key>com.apple.system-migration.launch</key>
+        <dict>
+            <key>comment</key>
+            <string>Used by Migration Assistant.</string>
+            <key>class</key>
+            <string>rule</string>
+            <key>rule</key>
+            <string>authenticate-admin-nonshared</string>
+            <key>shared</key>
+            <false/>
+        </dict>
+        <key>com.apple.system-migration.cleanup</key>
+        <dict>
+            <key>comment</key>
+            <string>Used by System Migration.</string>
+            <key>class</key>
+            <string>rule</string>
+            <key>rule</key>
+            <string>authenticate-admin-nonshared</string>
+            <key>shared</key>
+            <false/>
+        </dict>
+    </dict>
 	<key>rules</key>
 	<dict>
 		<key>admin</key>
@@ -1741,8 +1835,9 @@ See remaining rules for examples.
 				<string>builtin:authenticate</string>
 				<string>builtin:reset-password,privileged</string>
 				<string>builtin:authenticate,privileged</string>
-				<string>PKINITMechanism:auth,privileged</string>
 			</array>
+			<key>version</key>
+			<integer>1</integer>			
 		</dict>
 		<key>kcunlock</key>
 		<dict>

@@ -39,6 +39,7 @@
 #include <krb5-types.h>
 #include <asn1-common.h>
 #include <bsm/libbsm.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 typedef struct heim_ipc *heim_ipc;
 typedef struct heim_sipc *heim_sipc;
@@ -158,6 +159,9 @@ typedef void (*heim_ipc_event_final_t)(void *);
 heim_event_t
 heim_ipc_event_create_f(heim_ipc_event_callback_t, void *);
 
+heim_event_t
+heim_ipc_event_cf_create_f(heim_ipc_event_callback_t cb, CFTypeRef ctx);
+
 int
 heim_ipc_event_set_final(heim_event_t, heim_ipc_event_final_t);
 
@@ -167,12 +171,23 @@ heim_ipc_event_set_time(heim_event_t, time_t);
 void
 heim_ipc_event_cancel(heim_event_t);
 
+bool
+heim_ipc_event_is_cancelled(heim_event_t e);
+
 void
 heim_ipc_event_set_final_f(heim_event_t, heim_ipc_event_final_t );
 
 void
 heim_ipc_event_free(heim_event_t);
 
+void
+heim_ipc_init_globals(void);
+
+void
+heim_ipc_resume_events(void);
+
+void
+heim_ipc_suspend_events(void);
 /*
  * Signal helpers
  */

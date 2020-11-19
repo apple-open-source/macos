@@ -641,6 +641,8 @@ read_execout(const char *key, char **lp, char *fname, char *line, int linesz)
 	switch ((child_pid = fork())) {
 	case -1:
 		syslog(LOG_ERR, "read_execout: Cannot fork");
+		free(args[0]); args[0] = NULL;
+		free(args[1]); args[1] = NULL;
 		return (-1);
 	case 0:
 		/*
@@ -739,6 +741,7 @@ read_execoutreaddir(struct dir_entry **list, char *fname, char *linebuf, int lin
 	case -1:
 		error = errno;
 		syslog(LOG_ERR, "read_execoutreaddir: Cannot fork");
+		free(args[0]); args[0] = NULL;
 		break;
 	case 0:
 		/*

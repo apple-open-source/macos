@@ -28,8 +28,8 @@
 			dependencies = (
 				DBB91EE51FBCD25C006380E0 /* PBXTargetDependency */,
 				DBB91EE71FBCD35B006380E0 /* PBXTargetDependency */,
-				4D5A7D141816FB9200D5FE60 /* PBXTargetDependency */,
 				4D5A7D121816FB8D00D5FE60 /* PBXTargetDependency */,
+				F9E147F523A7EA1400047008 /* PBXTargetDependency */,
 			);
 			name = "msdosfs iOS";
 			productName = "msdosfs iOS";
@@ -95,7 +95,6 @@
 		4D3DCF1A08E0BBF700C78A0B /* fsutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0C08E0BBF700C78A0B /* fsutil.c */; };
 		4D3DCF1B08E0BBF700C78A0B /* fsutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D3DCF0D08E0BBF700C78A0B /* fsutil.h */; };
 		4D3DCF1C08E0BBF700C78A0B /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D3DCF0E08E0BBF700C78A0B /* main.c */; };
-		4D46803317FC871600AAC579 /* msdosfs.c in Sources */ = {isa = PBXBuildFile; fileRef = 4D46803217FC871600AAC579 /* msdosfs.c */; };
 		4D91A5630920294E0067C87B /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4D91A5610920294E0067C87B /* InfoPlist.strings */; };
 		4D93F090137DD814007F8174 /* msdosfs_kdebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D93F08F137DD814007F8174 /* msdosfs_kdebug.h */; };
 		4DDD3EF60BB0466300CCD5E1 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4DDD3EF50BB0466300CCD5E1 /* IOKit.framework */; };
@@ -187,13 +186,6 @@
 			remoteGlobalIDString = 4D3DCEF608E0BB1B00C78A0B;
 			remoteInfo = fsck_msdos;
 		};
-		4D5A7D131816FB9200D5FE60 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4D46802C17FB978D00AAC579;
-			remoteInfo = msdosfs;
-		};
 		4D9CE47F15007F8C00186084 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
@@ -256,6 +248,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = D77EE2431F69585600DB5C41;
 			remoteInfo = usbstorage_tester;
+		};
+		F9E147F423A7EA1400047008 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7D8BA340010E490C02CA2964 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4D3DCC4208E0B73400C78A0B;
+			remoteInfo = newfs_msdos;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -363,9 +362,6 @@
 		4D3DCF0C08E0BBF700C78A0B /* fsutil.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fsutil.c; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCF0D08E0BBF700C78A0B /* fsutil.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = fsutil.h; sourceTree = "<group>"; tabWidth = 4; };
 		4D3DCF0E08E0BBF700C78A0B /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; tabWidth = 4; };
-		4D46802D17FB978D00AAC579 /* msdosfs.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = msdosfs.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		4D46803217FC871600AAC579 /* msdosfs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = msdosfs.c; sourceTree = "<group>"; };
-		4D46803517FCDCD300AAC579 /* Notes.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Notes.txt; sourceTree = "<group>"; };
 		4D71368E112F748200BC4A72 /* msdosfs.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = msdosfs.xcconfig; sourceTree = "<group>"; };
 		4D8BCB260A0278BC008334F3 /* Locking.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; path = Locking.rtf; sourceTree = "<group>"; };
 		4D91A5620920294E0067C87B /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = en; path = msdos_util.tproj/en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
@@ -486,13 +482,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4D46802A17FB978D00AAC579 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D12A839D1FFCC4CE00A02A42 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -601,15 +590,6 @@
 			path = fsck_msdos.tproj;
 			sourceTree = "<group>";
 		};
-		4D46803417FC872200AAC579 /* userfs_plugin */ = {
-			isa = PBXGroup;
-			children = (
-				4D46803517FCDCD300AAC579 /* Notes.txt */,
-				4D46803217FC871600AAC579 /* msdosfs.c */,
-			);
-			path = userfs_plugin;
-			sourceTree = "<group>";
-		};
 		7D8BA341010E490C02CA2964 /* msdosfs */ = {
 			isa = PBXGroup;
 			children = (
@@ -621,7 +601,6 @@
 				4D3DCC3008E0B53A00C78A0B /* msdos.util */,
 				4D3DCC5608E0B79E00C78A0B /* newfs_msdos.tproj */,
 				4D3DCF0408E0BBF700C78A0B /* fsck_msdos.tproj */,
-				4D46803417FC872200AAC579 /* userfs_plugin */,
 				D12A83A31FFCC4CE00A02A42 /* LiveFilesTester */,
 				7D8BA376010E490C02CA2964 /* Products */,
 				7D88539B010E5E2C02CA2964 /* CoreFoundation.framework */,
@@ -649,7 +628,6 @@
 				4D3DCB7408E084D400C78A0B /* msdos.util */,
 				4D3DCC5008E0B73400C78A0B /* newfs_msdos */,
 				4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */,
-				4D46802D17FB978D00AAC579 /* msdosfs.dylib */,
 				D77EE2321F69579900DB5C41 /* livefiles_msdos.dylib */,
 				D77EE2441F69585600DB5C41 /* livefiles_msdos_tester */,
 				D1DE093D1FAF1E03006B288F /* LiveFiles_Tester */,
@@ -812,13 +790,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		4D46802B17FB978D00AAC579 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		D77EE2301F69579900DB5C41 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -964,23 +935,6 @@
 			productReference = 4D3DCF0208E0BB1B00C78A0B /* fsck_msdos */;
 			productType = "com.apple.product-type.tool";
 		};
-		4D46802C17FB978D00AAC579 /* msdosfs */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 4D46802E17FB978D00AAC579 /* Build configuration list for PBXNativeTarget "msdosfs" */;
-			buildPhases = (
-				4D46802917FB978D00AAC579 /* Sources */,
-				4D46802A17FB978D00AAC579 /* Frameworks */,
-				4D46802B17FB978D00AAC579 /* Headers */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = msdosfs;
-			productName = msdosfs;
-			productReference = 4D46802D17FB978D00AAC579 /* msdosfs.dylib */;
-			productType = "com.apple.product-type.library.dynamic";
-		};
 		D12A839F1FFCC4CE00A02A42 /* LiveFilesTester */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = D12A83AB1FFCC4CE00A02A42 /* Build configuration list for PBXNativeTarget "LiveFilesTester" */;
@@ -1107,7 +1061,6 @@
 				4D3DCB4708E084D400C78A0B /* mount_msdos */,
 				4D3DCC4208E0B73400C78A0B /* newfs_msdos */,
 				4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */,
-				4D46802C17FB978D00AAC579 /* msdosfs */,
 				D77EE2311F69579900DB5C41 /* livefiles_msdos */,
 				D77EE2431F69585600DB5C41 /* livefiles_msdos_tester */,
 				D12A839F1FFCC4CE00A02A42 /* LiveFilesTester */,
@@ -1213,7 +1166,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/mount_msdos ${DSTROOT}/sbin/mount_msdos\nchgrp -h wheel ${DSTROOT}/sbin/mount_msdos\n";
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/mount_msdos \"${DSTROOT}/sbin/mount_msdos\"\nchgrp -h wheel \"${DSTROOT}/sbin/mount_msdos\"\n";
 			showEnvVarsInLog = 0;
 		};
 		4D42A02C1505621500720D1A /* ShellScript */ = {
@@ -1229,8 +1182,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/newfs_msdos ${DSTROOT}/sbin/newfs_msdos\nchgrp -h wheel ${DSTROOT}/sbin/newfs_msdos\n";
-			showEnvVarsInLog = 0;
+			shellScript = "case \"${SDK_NAME}\" in\nmacos*)\n\tln -sfhv ${FS_BUNDLE_BIN_PATH}/newfs_msdos \"${DSTROOT}/sbin/newfs_msdos\"\n\tchgrp -h wheel \"${DSTROOT}/sbin/newfs_msdos\"\nesac\n";
 		};
 		4D42A02D1505622800720D1A /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1245,7 +1197,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_msdos ${DSTROOT}/sbin/fsck_msdos\nchgrp -h wheel ${DSTROOT}/sbin/fsck_msdos\n";
+			shellScript = "ln -sfhv ${FS_BUNDLE_BIN_PATH}/fsck_msdos \"${DSTROOT}/sbin/fsck_msdos\"\nchgrp -h wheel \"${DSTROOT}/sbin/fsck_msdos\"\n";
 			showEnvVarsInLog = 0;
 		};
 		D1AC333C1FFCC8800066739C /* ShellScript */ = {
@@ -1318,14 +1270,6 @@
 				4D3DCF1808E0BBF700C78A0B /* fat.c in Sources */,
 				4D3DCF1A08E0BBF700C78A0B /* fsutil.c in Sources */,
 				4D3DCF1C08E0BBF700C78A0B /* main.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4D46802917FB978D00AAC579 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				4D46803317FC871600AAC579 /* msdosfs.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1421,11 +1365,6 @@
 			target = 4D3DCEF608E0BB1B00C78A0B /* fsck_msdos */;
 			targetProxy = 4D5A7D111816FB8D00D5FE60 /* PBXContainerItemProxy */;
 		};
-		4D5A7D141816FB9200D5FE60 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4D46802C17FB978D00AAC579 /* msdosfs */;
-			targetProxy = 4D5A7D131816FB9200D5FE60 /* PBXContainerItemProxy */;
-		};
 		4D9CE48015007F8C00186084 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4D3DCB6708E084D400C78A0B /* msdos.util */;
@@ -1470,6 +1409,11 @@
 			isa = PBXTargetDependency;
 			target = D77EE2431F69585600DB5C41 /* livefiles_msdos_tester */;
 			targetProxy = DBB91EE61FBCD35B006380E0 /* PBXContainerItemProxy */;
+		};
+		F9E147F523A7EA1400047008 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4D3DCC4208E0B73400C78A0B /* newfs_msdos */;
+			targetProxy = F9E147F423A7EA1400047008 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -1691,6 +1635,8 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				"INSTALL_PATH[sdk=iphoneos*]" = /usr/local/sbin;
+				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = Debug;
@@ -1701,6 +1647,8 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				"INSTALL_PATH[sdk=iphoneos*]" = /usr/local/sbin;
+				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = Release;
@@ -1725,73 +1673,6 @@
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = fsck_msdos;
-			};
-			name = Release;
-		};
-		4D46802F17FB978D00AAC579 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
-					"$(inherited)",
-				);
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = Debug;
-		};
-		4D46803017FB978D00AAC579 /* CodeCoverage */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				COPY_PHASE_STRIP = YES;
-				ENABLE_NS_ASSERTIONS = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-			};
-			name = CodeCoverage;
-		};
-		4D46803117FB978D00AAC579 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
-				CLANG_CXX_LIBRARY = "libc++";
-				CLANG_ENABLE_OBJC_ARC = YES;
-				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
-				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
-				COPY_PHASE_STRIP = YES;
-				ENABLE_NS_ASSERTIONS = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/UserFS.framework/PlugIns;
-				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -2066,6 +1947,8 @@
 				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = $FS_BUNDLE_BIN_PATH;
+				"INSTALL_PATH[sdk=iphoneos*]" = /usr/local/sbin;
+				"INSTALL_PATH[sdk=macosx*]" = $FS_BUNDLE_BIN_PATH;
 				PRODUCT_NAME = newfs_msdos;
 			};
 			name = CodeCoverage;
@@ -2518,6 +2401,10 @@
 					"DEBUG=1",
 					"$(inherited)",
 				);
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
+					"DEBUG=1",
+					"DIAGNOSTIC=1",
+				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
@@ -2559,6 +2446,10 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS_NOT_USED_IN_PRECOMPS = (
+					"DEBUG=1",
+					"DIAGNOSTIC=1",
+				);
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
@@ -2701,16 +2592,6 @@
 				4D3DCEFF08E0BB1B00C78A0B /* Debug */,
 				4DD6995A0D6A5A24007E8D14 /* CodeCoverage */,
 				4D3DCF0008E0BB1B00C78A0B /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		4D46802E17FB978D00AAC579 /* Build configuration list for PBXNativeTarget "msdosfs" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				4D46802F17FB978D00AAC579 /* Debug */,
-				4D46803017FB978D00AAC579 /* CodeCoverage */,
-				4D46803117FB978D00AAC579 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

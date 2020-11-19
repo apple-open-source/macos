@@ -33,7 +33,6 @@ CFTypeID
 SecPolicySearchGetTypeID(void)
 {
 	BEGIN_SECAPI
-
 	return gTypes().PolicyCursor.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
@@ -67,7 +66,6 @@ SecPolicySearchCopyNext(
             SecPolicyRef* policyRef)
 {
 	BEGIN_SECAPI
-
 	RequiredParam(policyRef);
 	SecPointer<Policy> policy;
 

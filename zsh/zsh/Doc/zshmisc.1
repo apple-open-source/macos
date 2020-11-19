@@ -1,4 +1,4 @@
-.TH "ZSHMISC" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHMISC" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshmisc \- everything and then some
 .\" Yodl file: Zsh/grammar.yo
@@ -262,11 +262,11 @@ are reset to their default values while executing \fIlist\fP\&.
 Execute \fIlist\fP\&.
 .TP
 \fB{\fP \fItry\-list\fP \fB} always {\fP \fIalways\-list\fP \fB}\fP
-First execute \fItry\-list\fP\&.  Regardless of errors, or \fBbreak\fP,
-\fBcontinue\fP, or \fBreturn\fP commands encountered within \fItry\-list\fP,
+First execute \fItry\-list\fP\&.  Regardless of errors, or \fBbreak\fP or
+\fBcontinue\fP commands encountered within \fItry\-list\fP,
 execute \fIalways\-list\fP\&.  Execution then continues from the
 result of the execution of \fItry\-list\fP; in other words, any error,
-or \fBbreak\fP, \fBcontinue\fP, or \fBreturn\fP command is treated in the
+or \fBbreak\fP or \fBcontinue\fP command is treated in the
 normal way, as if \fIalways\-list\fP were not present\&.  The two
 chunks of code are referred to as the `try block\&' and the `always block'\&.
 .RS
@@ -279,23 +279,23 @@ An `error\&' in this context is a condition such as a syntax error which
 causes the shell to abort execution of the current function, script, or
 list\&.  Syntax errors encountered while the shell is parsing the
 code do not cause the \fIalways\-list\fP to be executed\&.  For example,
-an erroneously constructed \fBif\fP block in \fBtry\-list\fP would cause the
-shell to abort during parsing, so that \fBalways\-list\fP would not be
+an erroneously constructed \fBif\fP block in \fItry\-list\fP would cause the
+shell to abort during parsing, so that \fIalways\-list\fP would not be
 executed, while an erroneous substitution such as \fB${*foo*}\fP would
-cause a run\-time error, after which \fBalways\-list\fP would be executed\&.
+cause a run\-time error, after which \fIalways\-list\fP would be executed\&.
 .PP
 An error condition can be tested and reset with the special integer
-variable \fBTRY_BLOCK_ERROR\fP\&.  Outside an \fBalways\-list\fP the value is
-irrelevant, but it is initialised to \fB\-1\fP\&.  Inside \fBalways\-list\fP, the
-value is 1 if an error occurred in the \fBtry\-list\fP, else 0\&.  If
-\fBTRY_BLOCK_ERROR\fP is set to 0 during the \fBalways\-list\fP, the error
-condition caused by the \fBtry\-list\fP is reset, and shell execution
-continues normally after the end of \fBalways\-list\fP\&.  Altering the value
-during the \fBtry\-list\fP is not useful (unless this forms part of an
+variable \fBTRY_BLOCK_ERROR\fP\&.  Outside an \fIalways\-list\fP the value is
+irrelevant, but it is initialised to \fB\-1\fP\&.  Inside \fIalways\-list\fP, the
+value is 1 if an error occurred in the \fItry\-list\fP, else 0\&.  If
+\fBTRY_BLOCK_ERROR\fP is set to 0 during the \fIalways\-list\fP, the error
+condition caused by the \fItry\-list\fP is reset, and shell execution
+continues normally after the end of \fIalways\-list\fP\&.  Altering the value
+during the \fItry\-list\fP is not useful (unless this forms part of an
 enclosing \fBalways\fP block)\&.
 .PP
-Regardless of \fBTRY_BLOCK_ERROR\fP, after the end of \fBalways\-list\fP the
-normal shell status \fB$?\fP is the value returned from \fBtry\-list\fP\&.
+Regardless of \fBTRY_BLOCK_ERROR\fP, after the end of \fIalways\-list\fP the
+normal shell status \fB$?\fP is the value returned from \fItry\-list\fP\&.
 This will be non\-zero if there was an error, even if \fBTRY_BLOCK_ERROR\fP
 was set to zero\&.
 .PP
@@ -315,10 +315,14 @@ executing it in a subshell\&.
 .fi
 .RE
 .PP
-An \fBexit\fP command (or a \fBreturn\fP command executed at the outermost
-function level of a script) encountered in \fBtry\-list\fP does \fInot\fP cause
+When a \fBtry\fP block occurs outside of any function, 
+a \fBreturn\fP or a \fBexit\fP encountered in \fItry\-list\fP does \fInot\fP cause
 the execution of \fIalways\-list\fP\&.  Instead, the shell exits immediately
 after any \fBEXIT\fP trap has been executed\&.
+Otherwise, a \fBreturn\fP command encountered in \fItry\-list\fP will cause the
+execution of \fIalways\-list\fP, just like \fBbreak\fP and \fBcontinue\fP\&.
+.PP
+
 .RE
 .TP
 .PD 0
@@ -757,12 +761,12 @@ otherwise, it is truncated to zero length\&.
 .PD
 \fB>!\fP \fIword\fP
 Same as \fB>\fP, except that the file is truncated to zero length
-if it exists, even if \fBCLOBBER\fP is unset\&.
+if it exists, regardless of \fBCLOBBER\fP\&.
 .TP
 \fB>>\fP \fIword\fP
 Open file \fIword\fP for writing in append mode as standard output\&.
-If the file does not exist, and the \fBCLOBBER\fP
-option is unset, this causes an error;
+If the file does not exist, and the \fBCLOBBER\fP and \fBAPPEND_CREATE\fP
+options are both unset, this causes an error;
 otherwise, the file is created\&.
 .TP
 .PD 0
@@ -771,7 +775,7 @@ otherwise, the file is created\&.
 .PD
 \fB>>!\fP \fIword\fP
 Same as \fB>>\fP, except that the file is created if it does not
-exist, even if \fBCLOBBER\fP is unset\&.
+exist, regardless of \fBCLOBBER\fP and \fBAPPEND_CREATE\fP\&.
 .TP
 \fB<<\fP[\fB\-\fP] \fIword\fP
 The shell input is read up to a line that is the same as
@@ -931,7 +935,8 @@ between the closing brace and the redirection character\&.  For example:
 This opens a new file descriptor that is a duplicate of file descriptor
 1 and sets the parameter \fBmyfd\fP to the number of the file descriptor,
 which will be at least 10\&.  The new file descriptor can be written to using
-the syntax \fB>&$myfd\fP\&.
+the syntax \fB>&$myfd\fP\&.  The file descriptor remains open in subshells
+and forked external executables\&.
 .PP
 The syntax \fB{\fP\fIvarid\fP\fB}>&\-\fP, for example \fB{myfd}>&\-\fP, may be used
 to close a file descriptor opened in this fashion\&.  Note that the
@@ -2214,7 +2219,7 @@ of the option \fBKSH_ARRAYS\fP is respected\&.  Likewise, the array
 subexpressions and the arrays \fBmbegin\fP and \fBmend\fP to the indices of
 the start and end positions, respectively, of the substrings within
 \fIstring\fP\&.  The arrays are not set if there were no parenthesised
-subexpresssions\&.  For example, if the string `\fBa short string\fP\&' is matched
+subexpressions\&.  For example, if the string `\fBa short string\fP\&' is matched
 against the regular expression `\fBs(\&.\&.\&.)t\fP\&', then (assuming the
 option \fBKSH_ARRAYS\fP is not set) \fBMATCH\fP, \fBMBEGIN\fP
 and \fBMEND\fP are `\fBshort\fP\&', \fB3\fP and \fB7\fP, respectively, while \fBmatch\fP,

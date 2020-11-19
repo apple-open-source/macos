@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003, 2005, 2007, 2013, 2015, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003, 2005, 2007, 2013, 2015, 2018-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,8 @@
 #ifndef _CONFIG_TYPES_H
 #define _CONFIG_TYPES_H
 
+#include <TargetConditionals.h>
+
 /*
  * Keep IPC functions private to the framework
  */
@@ -41,12 +43,12 @@
 /*
  * Mach server port name
  */
-#if	!TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#if	!TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 #define SCD_SERVER	"com.apple.SystemConfiguration.configd"
-#else	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#else	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 #define SCD_SERVER_HOST	"com.apple.SystemConfiguration.configd"
 #define SCD_SERVER	"com.apple.SystemConfiguration.configd_sim"
-#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_IOSMAC
+#endif	// !TARGET_OS_SIMULATOR || TARGET_OS_MACCATALYST
 
 /*
  * Input arguments: serialized key's, list delimiters, ...

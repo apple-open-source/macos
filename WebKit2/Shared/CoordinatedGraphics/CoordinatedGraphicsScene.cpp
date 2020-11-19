@@ -152,7 +152,7 @@ void updateImageBacking(TextureMapperLayer& layer,
     Nicosia::ImageBackingTextureMapperImpl::Update& update)
 {
     if (!update.isVisible) {
-        layer.setBackingStore(nullptr);
+        layer.setContentsLayer(nullptr);
         return;
     }
 
@@ -271,7 +271,7 @@ void CoordinatedGraphicsScene::updateSceneState()
             for (auto& compositionLayer : m_nicosia.state.layers) {
                 auto& layer = texmapLayer(*compositionLayer);
                 compositionLayer->commitState(
-                    [this, &layer, &compositionLayer, &layersByBacking]
+                    [&layer, &layersByBacking]
                     (const Nicosia::CompositionLayer::LayerState& layerState)
                     {
                         if (layerState.delta.positionChanged)
@@ -294,6 +294,8 @@ void CoordinatedGraphicsScene::updateSceneState()
                             layer.setContentsTilePhase(layerState.contentsTilePhase);
                             layer.setContentsTileSize(layerState.contentsTileSize);
                         }
+                        if (layerState.delta.contentsClippingRectChanged)
+                            layer.setContentsClippingRect(layerState.contentsClippingRect);
 
                         if (layerState.delta.opacityChanged)
                             layer.setOpacity(layerState.opacity);
@@ -302,6 +304,8 @@ void CoordinatedGraphicsScene::updateSceneState()
 
                         if (layerState.delta.filtersChanged)
                             layer.setFilters(layerState.filters);
+                        if (layerState.delta.backdropFiltersChanged)
+                            layer.setBackdropLayer(layerState.backdropLayer ? &texmapLayer(*layerState.backdropLayer) : nullptr);
                         if (layerState.delta.animationsChanged)
                             layer.setAnimations(layerState.animations);
 

@@ -40,12 +40,10 @@
 #include "keychain/SecureObjectSync/SOSARCDefines.h"
 #include "keychain/SecureObjectSync/SOSKVSKeys.h"
 #include <utilities/SecCFWrappers.h>
-#include <utilities/SecPLWrappers.h>
 
 #include "SOSCloudKeychainConstants.h"
 
 #include <utilities/SecAKSWrappers.h>
-#include <utilities/SecADWrapper.h>
 #include <utilities/SecNSAdditions.h>
 #import "XPCNotificationDispatcher.h"
 
@@ -202,7 +200,7 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
 }
 
 - (void)synchronizeStore {
-    [self.store pushWrites];
+    [self.store pushWrites:[NSArray array] requiresForceSync:YES];
 }
 
 - (id) objectForKey: (NSString*) key {
@@ -336,9 +334,9 @@ static NSString *kMonitorWroteInTimeSlice = @"TimeSlice";
              [[self store] addOneToOutGoing];
              [self.store setObject:obj forKey:key];
          }
-     }];
-    
-    [self.store pushWrites];
+    }];
+
+    [self.store pushWrites:[mutableValues allKeys] requiresForceSync:NO];
 }
 
 - (void)setObjectsFromDictionary:(NSDictionary<NSString*, NSObject*> *)values

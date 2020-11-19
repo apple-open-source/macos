@@ -26,16 +26,21 @@
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSProvideKeySetOperation.h"
+#import "keychain/ckks/CKKSOperationDependencies.h"
+#import "keychain/ot/OctagonStateMachine.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 
-@interface CKKSNewTLKOperation : CKKSGroupOperation <CKKSKeySetContainerProtocol>
+@interface CKKSNewTLKOperation : CKKSGroupOperation <CKKSKeySetContainerProtocol,
+                                                     OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
 @property (weak) CKKSKeychainView* ckks;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks;
 
 @end
 

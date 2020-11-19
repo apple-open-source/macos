@@ -31,6 +31,24 @@
 #include <xpc/xpc.h>
 #include <Security/SecKey.h>
 
+#if TARGET_OS_TV
+#define SOS_AVAILABLE false
+#elif TARGET_OS_WATCH
+#define SOS_AVAILABLE false
+#elif TARGET_OS_BRIDGE
+#define SOS_AVAILABLE false
+#elif TARGET_OS_IOS
+#define SOS_AVAILABLE true
+#elif TARGET_OS_OSX
+#define SOS_AVAILABLE true
+#elif TARGET_OS_SIMULATOR
+#define SOS_AVAILABLE true
+#else
+#define SOS_AVAILABLE false
+#endif
+
+#define IF_SOS_DISABLED if(!SOS_AVAILABLE)
+
 __BEGIN_DECLS
 
 // Use the kSecAttrViewHint* constants in SecItemPriv.h instead

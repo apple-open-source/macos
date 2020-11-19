@@ -25,8 +25,6 @@
 
 #import "config.h"
 
-#if ENABLE(MEDIA_CONTROLS_SCRIPT)
-
 #import "QuickTimePluginReplacement.h"
 
 #import "CommonVM.h"
@@ -137,7 +135,7 @@ RenderPtr<RenderElement> QuickTimePluginReplacement::createElementRenderer(HTMLP
 
 DOMWrapperWorld& QuickTimePluginReplacement::isolatedWorld()
 {
-    static DOMWrapperWorld& isolatedWorld = DOMWrapperWorld::create(commonVM()).leakRef();
+    static DOMWrapperWorld& isolatedWorld = DOMWrapperWorld::create(commonVM(), DOMWrapperWorld::Type::Internal, "QuickTimePluginReplacement"_s).leakRef();
     return isolatedWorld;
 }
 
@@ -155,7 +153,7 @@ bool QuickTimePluginReplacement::ensureReplacementScriptInjected()
     JSC::JSGlobalObject* lexicalGlobalObject = globalObject;
     
     JSC::JSValue replacementFunction = globalObject->get(lexicalGlobalObject, JSC::Identifier::fromString(vm, "createPluginReplacement"));
-    if (replacementFunction.isFunction(vm))
+    if (replacementFunction.isCallable(vm))
         return true;
     
     scriptController.evaluateInWorldIgnoringException(ScriptSourceCode(quickTimePluginReplacementScript()), world);
@@ -190,9 +188,8 @@ bool QuickTimePluginReplacement::installReplacement(ShadowRoot& root)
         return false;
     JSC::JSObject* replacementObject = replacementFunction.toObject(lexicalGlobalObject);
     scope.assertNoException();
-    JSC::CallData callData;
-    JSC::CallType callType = replacementObject->methodTable(vm)->getCallData(replacementObject, callData);
-    if (callType == JSC::CallType::None)
+    auto callData = getCallData(vm, replacementObject);
+    if (callData.type == JSC::CallData::Type::None)
         return false;
 
     JSC::MarkedArgumentBuffer argList;
@@ -202,7 +199,7 @@ bool QuickTimePluginReplacement::installReplacement(ShadowRoot& root)
     argList.append(toJS<IDLSequence<IDLNullable<IDLDOMString>>>(*lexicalGlobalObject, *globalObject, m_names));
     argList.append(toJS<IDLSequence<IDLNullable<IDLDOMString>>>(*lexicalGlobalObject, *globalObject, m_values));
     ASSERT(!argList.hasOverflowed());
-    JSC::JSValue replacement = call(lexicalGlobalObject, replacementObject, callType, callData, globalObject, argList);
+    JSC::JSValue replacement = call(lexicalGlobalObject, replacementObject, callData, globalObject, argList);
     if (UNLIKELY(scope.exception())) {
         scope.clearException();
         return false;
@@ -437,4 +434,3 @@ JSC::JSValue JSQuickTimePluginReplacement::errorLog(JSC::JSGlobalObject& state) 
 
 }
 
-#endif

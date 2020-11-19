@@ -119,10 +119,6 @@ WebFrameLoaderClient::~WebFrameLoaderClient()
 {
 }
 
-void WebFrameLoaderClient::frameLoaderDestroyed()
-{
-}
-
 Optional<WebCore::PageIdentifier> WebFrameLoaderClient::pageID() const
 {
     return WTF::nullopt;
@@ -705,8 +701,7 @@ void WebFrameLoaderClient::updateGlobalHistory()
         COMPtr<IWebURLResponse> urlResponse(AdoptCOM, WebURLResponse::createInstance(loader->response()));
         COMPtr<IWebURLRequest> urlRequest(AdoptCOM, WebMutableURLRequest::createInstance(loader->originalRequestCopy()));
         
-        COMPtr<IWebNavigationData> navigationData(AdoptCOM, WebNavigationData::createInstance(
-            loader->urlForHistory(), loader->title().string, urlRequest.get(), urlResponse.get(), loader->substituteData().isValid(), loader->clientRedirectSourceForHistory()));
+        COMPtr<IWebNavigationData> navigationData(AdoptCOM, WebNavigationData::createInstance(loader->urlForHistory().string(), loader->title().string, urlRequest.get(), urlResponse.get(), loader->substituteData().isValid(), loader->clientRedirectSourceForHistory()));
 
         historyDelegate->didNavigateWithNavigationData(webView, navigationData.get(), m_webFrame);
         return;
@@ -785,49 +780,49 @@ void WebFrameLoaderClient::didDetectXSS(const URL&, bool)
     // FIXME: propogate call into the private delegate.
 }
 
-ResourceError WebFrameLoaderClient::cancelledError(const ResourceRequest& request)
+ResourceError WebFrameLoaderClient::cancelledError(const ResourceRequest& request) const
 {
     // FIXME: Need ChickenCat to include CFNetwork/CFURLError.h to get these values
     // Alternatively, we could create our own error domain/codes.
     return ResourceError(String(WebURLErrorDomain), -999, request.url(), String("Cancelled"));
 }
 
-ResourceError WebFrameLoaderClient::blockedError(const ResourceRequest& request)
+ResourceError WebFrameLoaderClient::blockedError(const ResourceRequest& request) const
 {
     return ResourceError(String(WebKitErrorDomain), WebKitErrorCannotUseRestrictedPort, request.url(), WEB_UI_STRING("Not allowed to use restricted network port", "WebKitErrorCannotUseRestrictedPort description"));
 }
 
-ResourceError WebFrameLoaderClient::blockedByContentBlockerError(const ResourceRequest& request)
+ResourceError WebFrameLoaderClient::blockedByContentBlockerError(const ResourceRequest& request) const
 {
     RELEASE_ASSERT_NOT_REACHED(); // Content Blockers are not enabled for WK1.
 }
 
-ResourceError WebFrameLoaderClient::cannotShowURLError(const ResourceRequest& request)
+ResourceError WebFrameLoaderClient::cannotShowURLError(const ResourceRequest& request) const
 {
     return ResourceError(String(WebKitErrorDomain), WebKitErrorCannotShowURL, request.url(), WEB_UI_STRING("The URL can\xE2\x80\x99t be shown", "WebKitErrorCannotShowURL description"));
 }
 
-ResourceError WebFrameLoaderClient::interruptedForPolicyChangeError(const ResourceRequest& request)
+ResourceError WebFrameLoaderClient::interruptedForPolicyChangeError(const ResourceRequest& request) const
 {
     return ResourceError(String(WebKitErrorDomain), WebKitErrorFrameLoadInterruptedByPolicyChange, request.url(), WEB_UI_STRING("Frame load interrupted", "WebKitErrorFrameLoadInterruptedByPolicyChange description"));
 }
 
-ResourceError WebFrameLoaderClient::cannotShowMIMETypeError(const ResourceResponse& response)
+ResourceError WebFrameLoaderClient::cannotShowMIMETypeError(const ResourceResponse& response) const
 {
     return ResourceError(String(), WebKitErrorCannotShowMIMEType, response.url(), WEB_UI_STRING("Content with specified MIME type can\xE2\x80\x99t be shown", "WebKitErrorCannotShowMIMEType description"));
 }
 
-ResourceError WebFrameLoaderClient::fileDoesNotExistError(const ResourceResponse& response)
+ResourceError WebFrameLoaderClient::fileDoesNotExistError(const ResourceResponse& response) const
 {
     return ResourceError(String(WebURLErrorDomain), -1100, response.url(), String("File does not exist."));
 }
 
-ResourceError WebFrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse& response)
+ResourceError WebFrameLoaderClient::pluginWillHandleLoadError(const ResourceResponse& response) const
 {
     return ResourceError(String(WebKitErrorDomain), WebKitErrorPlugInWillHandleLoad, response.url(), WEB_UI_STRING("Plug-in handled load", "WebKitErrorPlugInWillHandleLoad description"));
 }
 
-bool WebFrameLoaderClient::shouldFallBack(const ResourceError& error)
+bool WebFrameLoaderClient::shouldFallBack(const ResourceError& error) const
 {
     if (error.errorCode() == WebURLErrorCancelled && error.domain() == String(WebURLErrorDomain))
         return false;
@@ -965,7 +960,7 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     view->frameRect(&pixelRect);
     Optional<Color> backgroundColor;
     if (view->transparent())
-        backgroundColor = Color(Color::transparent);
+        backgroundColor = Color(Color::transparentBlack);
     FloatRect logicalFrame(pixelRect);
     logicalFrame.scale(1.0f / view->deviceScaleFactor());
     core(m_webFrame)->createView(enclosingIntRect(logicalFrame).size(), backgroundColor, /* fixedLayoutSize */ { }, /* fixedVisibleContentRect */ { });
@@ -975,11 +970,7 @@ void WebFrameLoaderClient::didRestoreFromBackForwardCache()
 {
 }
 
-void WebFrameLoaderClient::dispatchDidBecomeFrameset(bool)
-{
-}
-
-String WebFrameLoaderClient::userAgent(const URL& url)
+String WebFrameLoaderClient::userAgent(const URL& url) const
 {
     return m_webFrame->webView()->userAgentForKURL(url);
 }
@@ -989,8 +980,7 @@ bool WebFrameLoaderClient::canCachePage() const
     return true;
 }
 
-RefPtr<Frame> WebFrameLoaderClient::createFrame(const URL& url, const String& name, HTMLFrameOwnerElement& ownerElement,
-    const String& referrer)
+RefPtr<Frame> WebFrameLoaderClient::createFrame(const String& name, HTMLFrameOwnerElement& ownerElement)
 {
     Frame* coreFrame = core(m_webFrame);
     ASSERT(coreFrame);
@@ -1003,12 +993,6 @@ RefPtr<Frame> WebFrameLoaderClient::createFrame(const URL& url, const String& na
     coreFrame->tree().appendChild(*childFrame);
     childFrame->init();
 
-    coreFrame->loader().loadURLIntoChildFrame(url, referrer, childFrame.get());
-
-    // The frame's onload handler may have removed it from the document.
-    if (!childFrame->tree().parent())
-        return nullptr;
-
     return childFrame;
 }
 
@@ -1018,7 +1002,7 @@ ObjectContentType WebFrameLoaderClient::objectContentType(const URL& url, const 
 
     if (mimeType.isEmpty()) {
         String decodedPath = decodeURLEscapeSequences(url.path());
-        mimeType = PluginDatabase::installedPlugins()->MIMETypeForExtension(decodedPath.substring(decodedPath.reverseFind('.') + 1));
+        mimeType = PluginDatabase::installedPlugins()->MIMETypeForExtension(StringView { decodedPath }.substring(decodedPath.reverseFind('.') + 1));
     }
 
     if (mimeType.isEmpty())
@@ -1299,4 +1283,10 @@ void WebFrameLoaderClient::receivedPolicyDecision(PolicyAction action)
 void WebFrameLoaderClient::prefetchDNS(const String& hostname)
 {
     WebCore::prefetchDNS(hostname);
+}
+
+void WebFrameLoaderClient::sendH2Ping(const URL& url, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>&&)>&& completionHandler)
+{
+    ASSERT_NOT_REACHED();
+    completionHandler(makeUnexpected(WebCore::internalError(url)));
 }

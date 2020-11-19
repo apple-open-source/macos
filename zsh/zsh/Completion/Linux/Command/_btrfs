@@ -109,16 +109,16 @@ while (( $#state )); do
             '(-u --uuid)'{-u,--uuid}'[uuid of the subvolume]'
             '1:subvolume path:_directories'
           )
-        ;;
+        ;|
         subvolume:sync) args+=( '-s[sleep between checks]:delay (seconds) [1]' );;
         subvolume:find-new) args+=( '1:subvol:_files -/' '2:lastgen: _message "last gen"' );;
-        (device|filesystem|qgroup):(df|du|show|usage))
+        (device|filesystem|qgroup|subvolume):(df|du|show|usage))
           args+=(
             '--iec[use 1024 as a base]'
             '--si[use 1000 as a base]'
           )
         ;|
-        (device|filesystem):(df|usage))
+        (device|filesystem):(df|usage)|subvolume:show)
           args+=(
             '(-b --raw)'{-b,--raw}'[output raw numbers in bytes]'
             '(-h --human-readable -H)'{-h,--human-readable}'[output human friendly numbers, base 1024]'
@@ -172,11 +172,17 @@ while (( $#state )); do
             )
           [[ ${${(P)group}[cmd]} == add ]] &&
             args+=(
-              {-K,--nodiscard}"[don't perform discard]"
+              {-K,--nodiscard}"[don't perform whole device TRIM]"
               {-f,--force}'[force overwrite of existing filesystem]'
             )
         ;;
-        device:scan) args+=( '(1 -)'{-d,--all-devices}'[scan all devices in /dev]' '1:device:_files -g "*(-%)"' );;
+        device:scan)
+          args+=(
+            '(-)'{-u,--forget}'[unregister all stale devices or a given device]'
+            '(1 -)'{-d,--all-devices}'[enumerate and register all devices]'
+            '1:device:_files -g "*(-%)"'
+          )
+        ;;
         device:stats)
           args+=(
             '(-c --check)'{-c,--check}'[return non-zero if any stat counter is not zero]'
@@ -214,7 +220,7 @@ while (( $#state )); do
             '(-d -s)-m+[act on metadata chunks]:filter:->filters'
             '(-d -m)-s+[act on system chunks (only under -f)]:filters:->filters'
             '-v[verbose mode]'
-            '-f[force reducing of metadata integrity]'
+            '-f[force a reduction of metadata integrity]'
             "--full-balance[don't print warning and don't delay start]"
             '(--background --bg)'{--background,--bg}'[run balance operation asynchronously in the background]'
             '1:path:_files -/'
@@ -227,7 +233,7 @@ while (( $#state )); do
         property:list)
           args+=(
             '-t[specify object type]:object type:(subvol filesystem inode device)'
-            '1:object'
+            '1: : _guard "^-*" object'
           )
         ;;
         quota:(enable|disable)) args+=( '1:path:_files -/' );;
@@ -241,7 +247,7 @@ while (( $#state )); do
         qgroup:(assign|remove)) args+=( '1:source path:_files -/'
           '2:destination path:_files -/' '3:path:_files -/' );|
         qgroup:assign) args+=( \!--rescan
-          "--no-rescan[don't do a rescan, even if the assignment will make the quotas inconsitent]" )
+          "--no-rescan[don't do a rescan, even if the assignment will make the quotas inconsistent]" )
         ;;
         qgroup:(create|destroy)) args+=( '1:qgroupid:' '2:path:_files -/' );;
         qgroup:show)
@@ -286,9 +292,10 @@ while (( $#state )); do
             '(-r --roots)'{-r,--roots}'[print only short root node info]'
             '(-R --backups)'{-R,--backups}'[same as --roots plus print backup root info]'
             '(-u --uuid)'{-u,--uuid}'[print only the uuid tree]'
-            '(-b --block)'{-b,--block}'[print info from the specified block only]:block'
+            \*{-b,--block}'[print info from the specified block only]:block number'
             '(-t --tree)'{-t,--tree}'[print only tree with the given id (string or number)]:tree id'
             '--follow[use with -b, to show all children tree blocks of the block]'
+            "--noscan[don't scan devices from the filesystem, use only the listed ones]"
           )
         ;;
         inspect*:dump-super)
@@ -337,7 +344,7 @@ while (( $#state )); do
             '--init-csum-tree[create a new CRC tree]'
             '--init-extent-tree[create a new extent tree]'
             '--clear-space-cache[clear space cache for v1 or v2]:version:(v1 v2)'
-            '--check-data-csum[verify checkums of data blocks]'
+            '--check-data-csum[verify checksums of data blocks]'
             '(-Q --qgroup-report)'{-Q,--qgroup-report}'[verify qgroup accounting and compare against filesystem accounting]'
             '(-E --subvol-extents)'{-E,--subvol-extents}'[show extent state for the given subvolume]:subvolume id'
             '(-p --progress)'{-p,--progress}'[indicate progress at various checking phases]'
@@ -366,6 +373,9 @@ while (( $#state )); do
             '2:path:_files -/'
           )
         ;;
+        send|receive)
+          args+=( '(-q --quiet)'{-q,--quiet}'[suppress all messages except errors]' )
+        ;|
         send)
           args+=(
             '*-v[verbose mode]'
@@ -375,7 +385,6 @@ while (( $#state )); do
             '-f[specify output file]:file:_files'
             '--no-data[send in NO_FILE_DATA mode]'
             '(-v --verbose)'{-v,--verbose}'[enable verbose output]'
-            '(-q --quiet)'{-q,--quiet}'[suppress all messages except errors]'
             '1:subvolume:_files -/'
           )
         ;;
@@ -391,7 +400,11 @@ while (( $#state )); do
             '1:mount:->mounts'
           )
         ;;
-        h(|e(|l(|p)))) args+=( '--full[display detailed help]' );;
+        h(|e(|l(|p)))) args+=(
+            '--full[display detailed help on every command]'
+            '--box[show list of built-in tools (busybox style)]'
+          )
+        ;;
         *) args+=( '*: :_default' );; # fallback for unknown subcommands
       esac
       if ! (( shift )); then

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011,2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -340,7 +340,7 @@ kern_return_t ocsp_server_trustSettingsWrite(
 	if(ortn) {
 		ocspdErrorLog("trustSettingsWrite: AuthorizationCopyRights failure\n");
 	}
-	/* fixme - destroy rights? Really? */
+	/* authorization is for a one-time use, so we destroy right after obtaining it */
 	AuthorizationFree(authRef, kAuthorizationFlagDestroyRights);
 	if(ortn) {
 		*rcode = ortn;
@@ -373,7 +373,6 @@ kern_return_t ocsp_server_trustSettingsWrite(
 		}
 		return 0;
 	}
-
 
 	/*
 	 * Create TRUST_SETTINGS_PATH if necessary.

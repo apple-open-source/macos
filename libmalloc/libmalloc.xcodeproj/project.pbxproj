@@ -75,6 +75,12 @@
 		3FE9200216A9109E00D1238A /* magmallocProvider.d in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FD716A90A8D00D1238A /* magmallocProvider.d */; };
 		3FE9200316A9109E00D1238A /* malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FD816A90A8D00D1238A /* malloc.c */; };
 		3FE9200416A9109E00D1238A /* nano_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE91FDA16A90A8D00D1238A /* nano_malloc.c */; };
+		4D4812BE23D7C99D00FE6CC3 /* pguard_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF318FF23D796550064A673 /* pguard_malloc.c */; };
+		4D4812BF23D7C99E00FE6CC3 /* pguard_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF318FF23D796550064A673 /* pguard_malloc.c */; };
+		4D4812C023D7C99F00FE6CC3 /* pguard_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF318FF23D796550064A673 /* pguard_malloc.c */; };
+		4D4812C123D7C99F00FE6CC3 /* pguard_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF318FF23D796550064A673 /* pguard_malloc.c */; };
+		4DF3190123D796550064A673 /* pguard_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DF318FF23D796550064A673 /* pguard_malloc.c */; };
+		4DF3190223D796550064A673 /* pguard_malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DF3190023D796550064A673 /* pguard_malloc.h */; };
 		925383DA1BD03D5100F745DB /* stress_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 925383D11BD03B4A00F745DB /* stress_test.c */; };
 		B61341DE20114B660038D163 /* ktrace.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B61341DD20114B070038D163 /* ktrace.framework */; };
 		B629CF28202BA149007719B9 /* nanov2_malloc.c in Sources */ = {isa = PBXBuildFile; fileRef = B68B7FA41FCDD9A500BAD1AA /* nanov2_malloc.c */; };
@@ -152,7 +158,7 @@
 		C0CE45461C52C90500C24048 /* magazine_malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = C95742951BF41E480027269A /* magazine_malloc.h */; };
 		C0CE45471C52C90500C24048 /* purgeable_malloc.h in Headers */ = {isa = PBXBuildFile; fileRef = C957429F1BF681B00027269A /* purgeable_malloc.h */; };
 		C0CE45481C52C90500C24048 /* base.h in Headers */ = {isa = PBXBuildFile; fileRef = C95742891BF3FD290027269A /* base.h */; };
-		C0CE454E1C52C9E600C24048 /* libmalloc.a in CopyFiles */ = {isa = PBXBuildFile; fileRef = C0CE454C1C52C90500C24048 /* libmalloc.a */; };
+		C901C4BF23EDEADD00E9E7EB /* libmalloc.plist in Install FeatureFlags */ = {isa = PBXBuildFile; fileRef = C901C4BD23EDEAAA00E9E7EB /* libmalloc.plist */; };
 		C932D2681D6B8D840063B19E /* vm.c in Sources */ = {isa = PBXBuildFile; fileRef = C932D2661D6B8D840063B19E /* vm.c */; };
 		C932D2691D6B8D840063B19E /* vm.h in Headers */ = {isa = PBXBuildFile; fileRef = C932D2671D6B8D840063B19E /* vm.h */; };
 		C938BBD31C74F7A400522BBD /* trace.h in Headers */ = {isa = PBXBuildFile; fileRef = C938BBD21C74F7A400522BBD /* trace.h */; };
@@ -279,14 +285,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		C0CE454D1C52C9D900C24048 /* CopyFiles */ = {
+		C901C4BE23EDEABF00E9E7EB /* Install FeatureFlags */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
-			dstPath = /usr/local/lib/loaderd;
+			dstPath = /System/Library/FeatureFlags/Domain;
 			dstSubfolderSpec = 0;
 			files = (
-				C0CE454E1C52C9E600C24048 /* libmalloc.a in CopyFiles */,
+				C901C4BF23EDEADD00E9E7EB /* libmalloc.plist in Install FeatureFlags */,
 			);
+			name = "Install FeatureFlags";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
@@ -317,6 +324,11 @@
 		3FE91FFB16A90E6C00D1238A /* legacy_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = legacy_malloc.h; sourceTree = "<group>"; };
 		3FE9201016A9109E00D1238A /* libmalloc_eOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmalloc_eOS.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		456E51C9197DF0D600A7E488 /* libmalloc_stress_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libmalloc_stress_test; sourceTree = BUILT_PRODUCTS_DIR; };
+		4D87505A23F1D680005E25AA /* pguard_testing.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pguard_testing.h; sourceTree = "<group>"; tabWidth = 2; };
+		4D87505B23F1DB2E005E25AA /* pguard_allocator.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pguard_allocator.c; sourceTree = "<group>"; tabWidth = 2; };
+		4DD5962D23E22A3D00D573D2 /* pguard_internals.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pguard_internals.c; sourceTree = "<group>"; tabWidth = 2; };
+		4DF318FF23D796550064A673 /* pguard_malloc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pguard_malloc.c; sourceTree = "<group>"; tabWidth = 2; };
+		4DF3190023D796550064A673 /* pguard_malloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pguard_malloc.h; sourceTree = "<group>"; };
 		875E02E32125B62300A7FE8A /* aligned_alloc_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = aligned_alloc_test.c; sourceTree = "<group>"; };
 		875E02E42125C1D100A7FE8A /* posix_memalign_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = posix_memalign_test.c; sourceTree = "<group>"; };
 		8CB962B01F7E9F610046942E /* asan.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = asan.c; sourceTree = "<group>"; };
@@ -363,6 +375,7 @@
 		C0352EC61C3F3C3600DB5126 /* malloc_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = malloc_private.h; sourceTree = "<group>"; };
 		C0CE450E1C52B9E300C24048 /* libmalloc_static.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmalloc_static.xcconfig; sourceTree = "<group>"; };
 		C0CE454C1C52C90500C24048 /* libmalloc.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libmalloc.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		C901C4BD23EDEAAA00E9E7EB /* libmalloc.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libmalloc.plist; sourceTree = "<group>"; };
 		C92853A01C767F08001FEAF3 /* install-codes.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "install-codes.sh"; sourceTree = "<group>"; };
 		C931B58F1C81248100D0D230 /* madvise.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = madvise.c; sourceTree = "<group>"; };
 		C932D2631D6B6ED40063B19E /* magazine_tiny_test.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = magazine_tiny_test.c; sourceTree = "<group>"; };
@@ -525,6 +538,8 @@
 				B68B7FA41FCDD9A500BAD1AA /* nanov2_malloc.c */,
 				B68B7FA21FCDD60F00BAD1AA /* nanov2_malloc.h */,
 				B6CA644D1FCE2C0A00DEBA12 /* nanov2_zone.h */,
+				4DF318FF23D796550064A673 /* pguard_malloc.c */,
+				4DF3190023D796550064A673 /* pguard_malloc.h */,
 				C9F77BBA1BF2B84800812E13 /* platform.h */,
 				3FE91FD916A90A8D00D1238A /* printf.h */,
 				C957429E1BF681B00027269A /* purgeable_malloc.c */,
@@ -593,6 +608,7 @@
 		3FFC1BE416A908F800027192 = {
 			isa = PBXGroup;
 			children = (
+				C901C4BC23EDEAAA00E9E7EB /* featureflags */,
 				3FE91FF716A90BEF00D1238A /* include */,
 				3FE91FC816A90A8D00D1238A /* man */,
 				C9571C381C18AA0A00A67EE3 /* private */,
@@ -633,6 +649,9 @@
 				B6536A6320475BA4005FBE22 /* basic_malloc_free_perf.c */,
 				B675F74520213D0A00B5038B /* nano_tests.c */,
 				B6C1C9C720D9B70F002CCC0B /* nano_trace_replay.c */,
+				4D87505A23F1D680005E25AA /* pguard_testing.h */,
+				4DD5962D23E22A3D00D573D2 /* pguard_internals.c */,
+				4D87505B23F1DB2E005E25AA /* pguard_allocator.c */,
 				B6536A62204754B6005FBE22 /* perf_contended_malloc_free.c */,
 				B670DABD2072D0BB00139A1D /* perf_realloc.c */,
 				B6D59B0E225EA90E009E5896 /* reallocarray.c */,
@@ -650,6 +669,14 @@
 				B6D5C7ED202E26CA0035E376 /* resolver.c */,
 			);
 			path = resolver;
+			sourceTree = "<group>";
+		};
+		C901C4BC23EDEAAA00E9E7EB /* featureflags */ = {
+			isa = PBXGroup;
+			children = (
+				C901C4BD23EDEAAA00E9E7EB /* libmalloc.plist */,
+			);
+			path = featureflags;
 			sourceTree = "<group>";
 		};
 		C9571C381C18AA0A00A67EE3 /* private */ = {
@@ -693,6 +720,7 @@
 				2B67B5682040B3AF0003E78F /* _malloc.h in Headers */,
 				C95742961BF41E480027269A /* magazine_malloc.h in Headers */,
 				3FE91FFA16A90BEF00D1238A /* malloc.h in Headers */,
+				4DF3190223D796550064A673 /* pguard_malloc.h in Headers */,
 				C95742871BF3F9550027269A /* magazine_zone.h in Headers */,
 				C95742771BF2C2880027269A /* legacy_malloc.h in Headers */,
 				C95742A21BF681B00027269A /* purgeable_malloc.h in Headers */,
@@ -766,6 +794,7 @@
 				3FE91FE516A90AEC00D1238A /* Frameworks */,
 				3FE91FE616A90AEC00D1238A /* Headers */,
 				C92853A11C767F78001FEAF3 /* Install Codes File */,
+				C901C4BE23EDEABF00E9E7EB /* Install FeatureFlags */,
 			);
 			buildRules = (
 			);
@@ -869,7 +898,6 @@
 				C0CE45301C52C90500C24048 /* Sources */,
 				C0CE453E1C52C90500C24048 /* Frameworks */,
 				C0CE453F1C52C90500C24048 /* Headers */,
-				C0CE454D1C52C9D900C24048 /* CopyFiles */,
 			);
 			buildRules = (
 			);
@@ -1046,6 +1074,7 @@
 				C932D2681D6B8D840063B19E /* vm.c in Sources */,
 				3FE91FF116A90B9200D1238A /* magmallocProvider.d in Sources */,
 				B6AFD93C214C6198007983DA /* msl_lite_support.c in Sources */,
+				4DF3190123D796550064A673 /* pguard_malloc.c in Sources */,
 				B68B7FA51FCDD9A500BAD1AA /* nanov2_malloc.c in Sources */,
 				B6D5C7F1202E26F80035E376 /* resolver.c in Sources */,
 				B68B7F9F1FCDCBC600BAD1AA /* nano_malloc_common.c in Sources */,
@@ -1078,6 +1107,7 @@
 				3FE9200416A9109E00D1238A /* nano_malloc.c in Sources */,
 				C95742911BF419DF0027269A /* magazine_tiny.c in Sources */,
 				B6D5C7F4202E26F90035E376 /* resolver.c in Sources */,
+				4D4812C023D7C99F00FE6CC3 /* pguard_malloc.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1109,6 +1139,7 @@
 				B629CF39202BB337007719B9 /* nano_malloc.c in Sources */,
 				B629CF3B202BB337007719B9 /* magazine_tiny.c in Sources */,
 				B629CF3C202BB337007719B9 /* nano_malloc_common.c in Sources */,
+				4D4812BF23D7C99E00FE6CC3 /* pguard_malloc.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1132,6 +1163,7 @@
 				B6910F73202B630D00FF2EB0 /* nano_malloc.c in Sources */,
 				B6910F75202B630D00FF2EB0 /* magazine_tiny.c in Sources */,
 				B6910F76202B630D00FF2EB0 /* nano_malloc_common.c in Sources */,
+				4D4812BE23D7C99D00FE6CC3 /* pguard_malloc.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1155,6 +1187,7 @@
 				C0CE45341C52C90500C24048 /* magazine_malloc.c in Sources */,
 				C9ABCA051CB6FC6800ECB399 /* empty.s in Sources */,
 				C0CE45351C52C90500C24048 /* magazine_small.c in Sources */,
+				4D4812C123D7C99F00FE6CC3 /* pguard_malloc.c in Sources */,
 				C0CE45361C52C90500C24048 /* legacy_malloc.c in Sources */,
 				C0CE45371C52C90500C24048 /* magmallocProvider.d in Sources */,
 				C0CE45381C52C90500C24048 /* malloc.c in Sources */,

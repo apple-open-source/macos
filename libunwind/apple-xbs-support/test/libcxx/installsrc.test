@@ -1,0 +1,36 @@
+RUN: rm -rf %t
+RUN: mkdir -p %t/dest
+RUN: make -C %src_root installsrc "SRCROOT=%t/dest" "RC_ProjectName=libcxx"
+
+# Verify that we got all the subdirs we wanted, but not others.
+
+RUN: stat %t/dest/Makefile
+RUN: stat %t/dest/apple-xbs-support
+RUN: stat %t/dest/libcxx
+RUN: ! stat %t/dest/llvm
+RUN: ! stat %t/dest/clang
+RUN: ! stat %t/dest/libcxxabi
+
+RUN: mkdir -p %t/Sim
+RUN: make -C %src_root installsrc "SRCROOT=%t/Sim" "RC_ProjectName=libcxx_Sim"
+
+# Verify that we got all the subdirs we wanted, but not others.
+
+RUN: stat %t/Sim/Makefile
+RUN: stat %t/Sim/apple-xbs-support
+RUN: stat %t/Sim/libcxx
+RUN: ! stat %t/Sim/llvm
+RUN: ! stat %t/Sim/clang
+RUN: ! stat %t/Sim/libcxxabi
+
+RUN: mkdir -p %t/driverkit
+RUN: make -C %src_root installsrc "SRCROOT=%t/driverkit" "RC_ProjectName=libcxx_driverkit"
+
+# Verify that we got all the subdirs we wanted, but not others.
+
+RUN: stat %t/driverkit/Makefile
+RUN: stat %t/driverkit/apple-xbs-support
+RUN: stat %t/driverkit/libcxx
+RUN: ! stat %t/driverkit/llvm
+RUN: ! stat %t/driverkit/clang
+RUN: ! stat %t/driverkit/libcxxabi

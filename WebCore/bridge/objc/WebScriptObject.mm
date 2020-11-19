@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,7 +58,6 @@ using namespace JSC::Bindings;
 using namespace WebCore;
 
 using JSC::CallData;
-using JSC::CallType;
 using JSC::Identifier;
 using JSC::JSLockHolder;
 using JSC::JSObject;
@@ -165,7 +164,7 @@ void disconnectWindowWrapper(WebScriptObject *windowWrapper)
 + (void)initialize
 {
 #if !USE(WEB_THREAD)
-    JSC::initializeThreading();
+    JSC::initialize();
     WTF::initializeMainThread();
 #endif
 }
@@ -276,10 +275,17 @@ void disconnectWindowWrapper(WebScriptObject *windowWrapper)
     // It's not actually correct to call shouldAllowAccessToFrame in this way because
     // JSDOMWindowBase* isn't the right object to represent the currently executing
     // JavaScript. Instead, we should use JSGlobalObject, like we do elsewhere.
-    auto* target = JSC::jsDynamicCast<JSDOMWindowBase*>(root->globalObject()->vm(), root->globalObject());
+    JSC::JSGlobalObject* globalObject = root->globalObject();
+    JSC::VM& vm = globalObject->vm();
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+
+    auto* target = JSC::jsDynamicCast<JSDOMWindowBase*>(vm, globalObject);
     if (!target)
         return false;
-    return BindingSecurity::shouldAllowAccessToDOMWindow(_private->originRootObject->globalObject(), target->wrapped());
+    
+    bool isSafe = BindingSecurity::shouldAllowAccessToDOMWindow(_private->originRootObject->globalObject(), target->wrapped());
+    EXCEPTION_ASSERT_UNUSED(scope, !scope.exception());
+    return isSafe;
 }
 
 - (JSGlobalContextRef)_globalContextRef
@@ -347,9 +353,8 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
     UNUSED_PARAM(scope);
 
     JSC::JSValue function = [self _imp]->get(lexicalGlobalObject, Identifier::fromString(vm, String(name)));
-    CallData callData;
-    CallType callType = getCallData(vm, function, callData);
-    if (callType == CallType::None)
+    auto callData = getCallData(vm, function);
+    if (callData.type == CallData::Type::None)
         return nil;
 
     MarkedArgumentBuffer argList;
@@ -360,7 +365,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
         return nil;
 
     NakedPtr<JSC::Exception> exception;
-    JSC::JSValue result = JSExecState::profiledCall(lexicalGlobalObject, JSC::ProfilingReason::Other, function, callType, callData, [self _imp], argList, exception);
+    JSC::JSValue result = JSExecState::profiledCall(lexicalGlobalObject, JSC::ProfilingReason::Other, function, callData, [self _imp], argList, exception);
 
     if (exception) {
         addExceptionToConsole(lexicalGlobalObject, exception);
@@ -458,7 +463,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
     auto scope = DECLARE_CATCH_SCOPE(vm);
     JSC::JSGlobalObject* lexicalGlobalObject = globalObject;
 
-    [self _imp]->methodTable(vm)->deleteProperty([self _imp], lexicalGlobalObject, Identifier::fromString(vm, String(key)));
+    JSC::JSCell::deleteProperty([self _imp], lexicalGlobalObject, Identifier::fromString(vm, String(key)));
 
     if (UNLIKELY(scope.exception())) {
         addExceptionToConsole(lexicalGlobalObject);
@@ -586,7 +591,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
         return asString(value)->value(rootObject->globalObject());
 
     if (value.isNumber())
-        return [NSNumber numberWithDouble:value.asNumber()];
+        return @(value.asNumber());
 
     if (value.isBoolean())
         return [NSNumber numberWithBool:value.asBoolean()];
@@ -647,13 +652,11 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
 
 @implementation WebUndefined
 
-+ (id)allocWithZone:(NSZone *)unusedZone
++ (instancetype)allocWithZone:(NSZone *)zone
 {
-    UNUSED_PARAM(unusedZone);
-
     static NeverDestroyed<RetainPtr<WebUndefined>> sharedUndefined;
     if (!sharedUndefined.get())
-        sharedUndefined.get() = adoptNS([super allocWithZone:nullptr]);
+        sharedUndefined.get() = adoptNS([super allocWithZone:zone]);
     return [sharedUndefined.get() retain];
 }
 
@@ -662,7 +665,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
     return @"undefined";
 }
 
-- (id)initWithCoder:(NSCoder *)unusedCoder
+- (nullable instancetype)initWithCoder:(NSCoder *)unusedCoder
 {
     UNUSED_PARAM(unusedCoder);
 
@@ -681,7 +684,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
     return self;
 }
 
-- (id)retain
+- (instancetype)retain
 {
     return self;
 }
@@ -695,7 +698,7 @@ static void getListFromNSArray(JSC::JSGlobalObject* lexicalGlobalObject, NSArray
     return NSUIntegerMax;
 }
 
-- (id)autorelease
+- (instancetype)autorelease
 {
     return self;
 }
@@ -709,7 +712,7 @@ IGNORE_WARNINGS_END
 
 + (WebUndefined *)undefined
 {
-    return [[WebUndefined allocWithZone:NULL] autorelease];
+    return [[[WebUndefined alloc] init] autorelease];
 }
 
 @end

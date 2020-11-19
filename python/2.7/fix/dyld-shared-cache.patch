@@ -1,0 +1,85 @@
+From 919f48b55dd4e97ead3e6851f164862256fcdffc Mon Sep 17 00:00:00 2001
+From: Anthony Chivetta <achivetta@apple.com>
+Date: Sat, 11 Apr 2020 17:21:58 -0700
+Subject: [PATCH] <rdar://problem/61622185> python3 ctypes doesn't like the MRM
+ shared cache
+
+---
+ Lib/ctypes/macholib/dyld.py |  7 +++++++
+ Modules/_ctypes/callproc.c  | 32 ++++++++++++++++++++++++++++++++
+ 2 files changed, 39 insertions(+)
+
+diff --git a/Lib/ctypes/macholib/dyld.py b/Lib/ctypes/macholib/dyld.py
+index 1fdf8d6..e0fa577 100644
+--- a/Lib/ctypes/macholib/dyld.py
++++ b/Lib/ctypes/macholib/dyld.py
+@@ -3,6 +3,7 @@ dyld emulation
+ """
+ 
+ import os
++from _ctypes import _dyld_shared_cache_contains_path
+ from framework import framework_info
+ from dylib import dylib_info
+ from itertools import *
+@@ -132,6 +133,12 @@ def dyld_find(name, executable_path=None, env=None):
+             ), env):
+         if os.path.isfile(path):
+             return path
++        try:
++            if _dyld_shared_cache_contains_path(path):
++                return path
++        except NotImplementedError:
++            pass
++
+     raise ValueError("dylib %s could not be found" % (name,))
+ 
+ def framework_find(fn, executable_path=None, env=None):
+diff --git a/Modules/_ctypes/callproc.c b/Modules/_ctypes/callproc.c
+index 2097342..ea15ba4 100644
+--- a/Modules/_ctypes/callproc.c
++++ b/Modules/_ctypes/callproc.c
+@@ -70,6 +70,8 @@
+ #include "ctypes_dlfcn.h"
+ #endif
+ 
++extern bool _dyld_shared_cache_contains_path(const char* path) __attribute__((weak_import));
++
+ #ifdef MS_WIN32
+ #include <malloc.h>
+ #endif
+@@ -1414,6 +1416,24 @@ copy_com_pointer(PyObject *self, PyObject *args)
+ }
+ #else
+ 
++static PyObject *py_dyld_shared_cache_contains_path(PyObject *self, PyObject *args)
++{
++    char *name;
++
++    if (_dyld_shared_cache_contains_path == NULL) {
++        PyErr_SetString(PyExc_NotImplementedError, "_dyld_shared_cache_contains_path symbol is missing");
++        return NULL;
++    }
++
++    if (!PyArg_ParseTuple(args, "z", &name))
++        return NULL;
++
++    if (_dyld_shared_cache_contains_path(name))
++        Py_RETURN_TRUE;
++    else
++        Py_RETURN_FALSE;
++}
++
+ static PyObject *py_dl_open(PyObject *self, PyObject *args)
+ {
+     char *name;
+@@ -1937,6 +1957,7 @@ PyMethodDef _ctypes_module_methods[] = {
+      "dlopen(name, flag={RTLD_GLOBAL|RTLD_LOCAL}) open a shared library"},
+     {"dlclose", py_dl_close, METH_VARARGS, "dlclose a library"},
+     {"dlsym", py_dl_sym, METH_VARARGS, "find symbol in shared library"},
++    {"_dyld_shared_cache_contains_path", py_dyld_shared_cache_contains_path, METH_VARARGS, "check if path is in the shared cache"},
+ #endif
+     {"alignment", align_func, METH_O, alignment_doc},
+     {"sizeof", sizeof_func, METH_O, sizeof_doc},
+-- 
+2.24.1 (Apple Git-126)
+

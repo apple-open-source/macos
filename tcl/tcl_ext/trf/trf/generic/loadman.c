@@ -20,7 +20,7 @@
 #    define SSL_LIB_NAME "crypto32.dll"
 #    endif /* __WIN32__ */
 #    ifdef __APPLE__
-#    define SSL_LIB_NAME "libcrypto.dylib"
+#    define SSL_LIB_NAME "libcrypto.44.dylib"
 #    endif /* __APPLE__ */
 #    ifndef SSL_LIB_NAME
 #    define SSL_LIB_NAME "libcrypto.so"
@@ -33,7 +33,7 @@
 #    define CRYPT_LIB_NAME "crypt.dll"
 #    endif /* __WIN32__ */
 #    ifdef __APPLE__
-#    define CRYPT_LIB_NAME "libcrypto.dylib"
+#    define CRYPT_LIB_NAME "libcrypto.44.dylib"
 #    endif /* __APPLE__ */
 #    ifndef CRYPT_LIB_NAME
 #    define CRYPT_LIB_NAME "libcrypt.so"

@@ -25,6 +25,7 @@
 // machorep - DiskRep mix-in for handling Mach-O main executables
 //
 #include "machorep.h"
+#include "notarization.h"
 #include "StaticCode.h"
 #include "reqmaker.h"
 #include <security_utilities/logging.h>
@@ -53,7 +54,7 @@ MachORep::MachORep(const char *path, const Context *ctx)
 		if (ctx->offset)
 			mExecutable = new Universal(fd(), (size_t)ctx->offset, ctx->size);
 		else if (ctx->arch) {
-			auto_ptr<Universal> full(new Universal(fd()));
+			unique_ptr<Universal> full(new Universal(fd()));
 			mExecutable = new Universal(fd(), full->archOffset(ctx->arch), full->archLength(ctx->arch));
 		} else
 			mExecutable = new Universal(fd());
@@ -109,7 +110,7 @@ Universal *MachORep::mainExecutableImage()
 void MachORep::prepareForSigning(SigningContext &context)
 {
 	if (context.digestAlgorithms().empty()) {
-        auto_ptr<MachO> macho(mainExecutableImage()->architecture());
+        unique_ptr<MachO> macho(mainExecutableImage()->architecture());
 		
 		uint32_t limit = 0;
 		switch (macho->platform()) {
@@ -150,19 +151,22 @@ size_t MachORep::signingBase()
 	
 size_t MachORep::signingLimit()
 {
-	auto_ptr<MachO> macho(mExecutable->architecture());
+	unique_ptr<MachO> macho(mExecutable->architecture());
 	return macho->signingExtent();
 }
 
 bool MachORep::needsExecSeg(const MachO& macho) {
 	uint32_t platform = macho.platform();
-	// Everything embedded gets an exec segment.
-	return platform != 0 && platform != PLATFORM_MACOS;
+	
+	// Everything gets an exec segment. This is ignored
+	// on non-PPL devices, and explicitly wastes some
+	// space on those devices, but is simpler logic.
+	return platform != 0;
 }
 
 size_t MachORep::execSegBase(const Architecture *arch)
 {
-	auto_ptr<MachO> macho(arch ? mExecutable->architecture(*arch) : mExecutable->architecture());
+	unique_ptr<MachO> macho(arch ? mExecutable->architecture(*arch) : mExecutable->architecture());
 
 	if (!needsExecSeg(*macho)) {
 		return 0;
@@ -187,7 +191,7 @@ size_t MachORep::execSegBase(const Architecture *arch)
 
 size_t MachORep::execSegLimit(const Architecture *arch)
 {
-	auto_ptr<MachO> macho(arch ? mExecutable->architecture(*arch) : mExecutable->architecture());
+	unique_ptr<MachO> macho(arch ? mExecutable->architecture(*arch) : mExecutable->architecture());
 
 	if (!needsExecSeg(*macho)) {
 		return 0;
@@ -218,7 +222,7 @@ size_t MachORep::execSegLimit(const Architecture *arch)
 //
 CFDataRef MachORep::identification()
 {
-	std::auto_ptr<MachO> macho(mainExecutableImage()->architecture());
+	std::unique_ptr<MachO> macho(mainExecutableImage()->architecture());
 	return identificationFor(macho.get());
 }
 
@@ -271,6 +275,12 @@ CFDataRef MachORep::component(CodeDirectory::SpecialSlot slot)
 EditableDiskRep::RawComponentMap MachORep::createRawComponents()
 {
 	EditableDiskRep::RawComponentMap  blobMap;
+
+	// First call to signingData() caches the result, so this
+	// _should_ not cause performance issues.
+	if (NULL == signingData()) {
+		MacOSError::throwMe(errSecCSUnsigned);
+	}
 	const EmbeddedSignatureBlob &blobs = *signingData();
 	
 	for (unsigned int i = 0; i < blobs.count(); ++i) {
@@ -304,7 +314,7 @@ CFDataRef MachORep::embeddedComponent(CodeDirectory::SpecialSlot slot)
 EmbeddedSignatureBlob *MachORep::signingData()
 {
 	if (!mSigningData) {		// fetch and cache
-		auto_ptr<MachO> macho(mainExecutableImage()->architecture());
+		unique_ptr<MachO> macho(mainExecutableImage()->architecture());
 		if (macho.get())
 			if (const linkedit_data_command *cs = macho->findCodeSignature()) {
 				size_t offset = macho->flip(cs->dataoff);
@@ -332,7 +342,7 @@ CFDataRef MachORep::infoPlist()
 {
 	CFRef<CFDataRef> info;
 	try {
-		auto_ptr<MachO> macho(mainExecutableImage()->architecture());
+		unique_ptr<MachO> macho(mainExecutableImage()->architecture());
 		if (const section *sect = macho->findSection("__TEXT", "__info_plist")) {
 			if (macho->is64()) {
 				const section_64 *sect64 = reinterpret_cast<const section_64 *>(sect);
@@ -391,7 +401,7 @@ void MachORep::flush()
 
 CFDictionaryRef MachORep::diskRepInformation()
 {
-    auto_ptr<MachO> macho (mainExecutableImage()->architecture());
+    unique_ptr<MachO> macho (mainExecutableImage()->architecture());
     CFRef<CFDictionaryRef> info;
 
 	uint32_t platform = 0;
@@ -469,7 +479,7 @@ const Requirements *MachORep::defaultRequirements(const Architecture *arch, cons
 
 Requirement *MachORep::libraryRequirements(const Architecture *arch, const SigningContext &ctx)
 {
-	auto_ptr<MachO> macho(mainExecutableImage()->architecture(*arch));
+	unique_ptr<MachO> macho(mainExecutableImage()->architecture(*arch));
 	Requirement::Maker maker;
 	Requirement::Maker::Chain chain(maker, opOr);
 
@@ -564,6 +574,14 @@ void MachORep::Writer::component(CodeDirectory::SpecialSlot slot, CFDataRef data
 	MacOSError::throwMe(errSecCSInternalError);
 }
 
+void MachORep::registerStapledTicket()
+{
+	CFRef<CFDataRef> data = NULL;
+	if (mSigningData) {
+		data.take(mSigningData->component(cdTicketSlot));
+		registerStapledTicketInMachO(data);
+	}
+}
 
 } // end namespace CodeSigning
 } // end namespace Security

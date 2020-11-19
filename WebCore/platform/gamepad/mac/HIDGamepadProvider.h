@@ -31,9 +31,11 @@
 #include "HIDGamepad.h"
 #include "Timer.h"
 #include <IOKit/hid/IOHIDManager.h>
+#include <pal/spi/mac/IOKitSPIMac.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/WorkQueue.h>
 
 namespace WebCore {
 
@@ -51,10 +53,14 @@ public:
 
     WEBCORE_EXPORT void stopMonitoringInput();
     WEBCORE_EXPORT void startMonitoringInput();
-    
+
     void deviceAdded(IOHIDDeviceRef);
     void deviceRemoved(IOHIDDeviceRef);
     void valuesChanged(IOHIDValueRef);
+
+    void ignoreGameControllerFrameworkDevices() { m_ignoresGameControllerFrameworkDevices = true; }
+
+    size_t numberOfConnectedGamepads() const { return m_gamepadMap.size(); };
 
 private:
     HIDGamepadProvider();
@@ -64,7 +70,7 @@ private:
     void openAndScheduleManager();
     void closeAndUnscheduleManager();
 
-    void connectionDelayTimerFired();
+    void initialGamepadsConnectedTimerFired();
     void inputNotificationTimerFired();
 
     unsigned indexForNewlyConnectedDevice();
@@ -74,10 +80,15 @@ private:
 
     RetainPtr<IOHIDManagerRef> m_manager;
 
-    bool m_shouldDispatchCallbacks;
+    bool m_initialGamepadsConnected { false };
+    bool m_ignoresGameControllerFrameworkDevices { false };
 
-    Timer m_connectionDelayTimer;
+    Timer m_initialGamepadsConnectedTimer;
     Timer m_inputNotificationTimer;
+
+#if HAVE(MULTIGAMEPADPROVIDER_SUPPORT)
+    HashSet<IOHIDDeviceRef> m_gameControllerManagedGamepads;
+#endif // HAVE(MULTIGAMEPADPROVIDER_SUPPORT)
 };
 
 } // namespace WebCore

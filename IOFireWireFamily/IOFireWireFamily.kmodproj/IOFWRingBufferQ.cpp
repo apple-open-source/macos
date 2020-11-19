@@ -33,10 +33,9 @@
 
 // system
 #import <IOKit/IOTypes.h>
-//#import <IOKit/firewire/FireLog.h>
 
 // IOFWRingBufferQ class
-// *** This class is not multithread safe ***
+// ### This class is not multithread safe ###
 // Its usage must be lock protected to ensure only one consumer at a time
 
 #define super OSObject
@@ -144,7 +143,7 @@ bool IOFWRingBufferQ::dequeueBytesWithCopy( void * copy, IOByteCount size )
 		// should have checks to make sure numbers are sensible, if not success=false
 	}
 	
-	DebugLog("<<< IOFWRingBufferQ::dequeueBytesWithCopy BSize: %u Length: %u Front: %u Size: %u Copy: %p\n", fBufferSize, fQueueLength, fFrontOffset, size, copy);
+	DebugLog("<<< IOFWRingBufferQ::dequeueBytesWithCopy BSize: %llu Length: %llu Front: %llu Size: %llu Copy: %p\n", fBufferSize, fQueueLength, fFrontOffset, size, copy);
 
 	return success;
 }
@@ -168,7 +167,7 @@ bool IOFWRingBufferQ::enqueueBytes( void * bytes, IOByteCount size )
 	IOByteCount paddingBytes = 0;
 	
 	// determine if 'bytes' will fit in queue and get the appropriate insertion offset
-	if ( success = willFitAtEnd(size, &offset, &paddingBytes) )
+	if ( ( success = willFitAtEnd(size, &offset, &paddingBytes) ) )
 	{
 		if ( bytes )
 		{
@@ -182,7 +181,7 @@ bool IOFWRingBufferQ::enqueueBytes( void * bytes, IOByteCount size )
 		}
 	}
 	
-	DebugLog(">>> IOFWRingBufferQ::enqueueBytes BSize: %u Length: %u Front: %u Insert: %u/%u\n", fBufferSize, fQueueLength, fFrontOffset, offset, paddingBytes);
+	DebugLog(">>> IOFWRingBufferQ::enqueueBytes BSize: %llu Length: %llu Front: %llu Insert: %llu/%llu\n", fBufferSize, fQueueLength, fFrontOffset, offset, paddingBytes);
 	return success;
 }
 
@@ -192,7 +191,7 @@ bool IOFWRingBufferQ::enqueueBytes( void * bytes, IOByteCount size )
 bool IOFWRingBufferQ::isSpaceAvailable( IOByteCount size, IOByteCount * offset )
 {
 #if 0
-	FireLog("[");
+	kprintf("[");
 	UInt16 i;
 	UInt16 drawBufferWidth = 64;
 	UInt32 drawBufferSize = fBufferSize;
@@ -207,15 +206,15 @@ bool IOFWRingBufferQ::isSpaceAvailable( IOByteCount size, IOByteCount * offset )
 	for ( i=0; i < drawBufferWidth; i++ )
 	{
 		if ( i == drawStartOff )
-			FireLog("s");
+			kprintf("s");
 		else if ( i == drawDestOff )
-			FireLog("d");
+			kprintf("d");
 		else if ( drawFilled )
-			FireLog("o");
+			kprintf("o");
 		else if ( drawBufAvail <= (drawBufferWidth/2) )
-			FireLog("?");
+			kprintf("?");
 		else
-			FireLog(".");
+			kprintf(".");
 
 		if ( i == drawStartOff )
 			drawFilled = true;
@@ -223,8 +222,8 @@ bool IOFWRingBufferQ::isSpaceAvailable( IOByteCount size, IOByteCount * offset )
 			drawFilled = false;
 	}
 	
-	FireLog("]\n");
-	FireLog("-- Units Available: %lu  StartPtr: %lu  DestinationPtr: %lu --\n", drawBufAvail, drawStartOff, drawDestOff );
+	kprintf("]\n");
+	kprintf("-- Units Available: %lu  StartPtr: %lu  DestinationPtr: %lu --\n", drawBufAvail, drawStartOff, drawDestOff );
 #endif
 	
 	return willFitAtEnd(size, offset, NULL);
@@ -235,7 +234,7 @@ bool IOFWRingBufferQ::isSpaceAvailable( IOByteCount size, IOByteCount * offset )
 
 bool IOFWRingBufferQ::front( void * copy, IOByteCount size, IOByteCount * paddingBytes )
 {
-	//FireLog("IOFWRingBufferQ::front\n");
+	//kprintf("IOFWRingBufferQ::front\n");
 	bool success = true;
 	
 	if ( isEmpty() )
@@ -307,7 +306,7 @@ bool IOFWRingBufferQ::willFitAtEnd( IOByteCount sizeOfEntry, IOByteCount * offse
 	}
 	else if ( fQueueLength > fBufferSize )
 	{
-		//FireLog("IOFWRingBufferQ::willFitAtEnd queue has grown larger (%u) than buffer size (%u)!\n", fQueueLength, fBufferSize);
+		//kprintf("IOFWRingBufferQ::willFitAtEnd queue has grown larger (%u) than buffer size (%u)!\n", fQueueLength, fBufferSize);
 		success = false;
 	}
 	else
@@ -319,7 +318,7 @@ bool IOFWRingBufferQ::willFitAtEnd( IOByteCount sizeOfEntry, IOByteCount * offse
 	if ( offset )
 		*offset = endOffset;
 	
-	DebugLog("IOFWRingBufferQ::willFitAtEnd BSize: %u Length: %u Front: %u Insert: %u EntrySize: %u\n", fBufferSize, fQueueLength, fFrontOffset, endOffset, sizeOfEntry);
+	DebugLog("IOFWRingBufferQ::willFitAtEnd BSize: %llu Length: %llu Front: %llu Insert: %llu EntrySize: %llu\n", fBufferSize, fQueueLength, fFrontOffset, endOffset, sizeOfEntry);
 	
 	return success;
 }

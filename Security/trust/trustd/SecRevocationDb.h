@@ -36,6 +36,7 @@
 #include <CoreFoundation/CFDate.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFError.h>
 #include <dispatch/dispatch.h>
 #include <Security/SecBase.h>
 
@@ -104,6 +105,12 @@ void SecValidInfoSetAnchor(SecValidInfoRef validInfo, SecCertificateRef anchor);
 	@abstract Periodic hook to poll for updates.
  */
 void SecRevocationDbCheckNextUpdate(void);
+
+/*!
+    @function SecRevocationDbUpdate
+    @abstract Trigger update now. For use in testing and tools.
+ */
+bool SecRevocationDbUpdate(CFErrorRef *error);
 
 /*!
 	@function SecRevocationDbCopyMatching
@@ -177,7 +184,7 @@ extern const CFStringRef kValidUpdateCarryServer;
  @abstract Returns the server source for updates of the revocation database.
  @result The base string of the server URI.
  */
-CFStringRef SecRevocationDbCopyUpdateSource(void);
+CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyUpdateSource(void);
 
 
 __END_DECLS

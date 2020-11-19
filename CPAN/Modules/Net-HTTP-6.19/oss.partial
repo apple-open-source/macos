@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Net-HTTP</string>
+        <key>OpenSourceVersion</key>
+        <string>6.19</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/O/OA/OALDERS/Net-HTTP-6.19.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-10</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -26,7 +26,7 @@
 #include "config.h"
 #include "AsyncRevalidation.h"
 
-#if ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
+#if ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)
 #include <WebCore/CacheValidation.h>
 #include <WebCore/ResourceRequest.h>
 
@@ -54,13 +54,19 @@ static inline WebCore::ResourceRequest constructRevalidationRequest(const Key& k
     return revalidationRequest;
 }
 
+void AsyncRevalidation::cancel()
+{
+    if (m_load)
+        m_load->cancel();
+}
+
 void AsyncRevalidation::staleWhileRevalidateEnding()
 {
     if (m_completionHandler)
         m_completionHandler(Result::Timeout);
 }
 
-AsyncRevalidation::AsyncRevalidation(Cache& cache, const GlobalFrameID& frameID, const WebCore::ResourceRequest& request, std::unique_ptr<NetworkCache::Entry>&& entry, CompletionHandler<void(Result)>&& handler)
+AsyncRevalidation::AsyncRevalidation(Cache& cache, const GlobalFrameID& frameID, const WebCore::ResourceRequest& request, std::unique_ptr<NetworkCache::Entry>&& entry, Optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, CompletionHandler<void(Result)>&& handler)
     : m_timer(*this, &AsyncRevalidation::staleWhileRevalidateEnding)
     , m_completionHandler(WTFMove(handler))
 {
@@ -71,7 +77,7 @@ AsyncRevalidation::AsyncRevalidation(Cache& cache, const GlobalFrameID& frameID,
     auto responseMaxStaleness = entry->response().cacheControlStaleWhileRevalidate();
     ASSERT(responseMaxStaleness);
     m_timer.startOneShot(*responseMaxStaleness + (lifetime - age));
-    m_load = makeUnique<SpeculativeLoad>(cache, frameID, WTFMove(revalidationRequest), WTFMove(entry), [this, key, revalidationRequest](auto&& revalidatedEntry) {
+    m_load = makeUnique<SpeculativeLoad>(cache, frameID, WTFMove(revalidationRequest), WTFMove(entry), isNavigatingToAppBoundDomain, [this, key, revalidationRequest](auto&& revalidatedEntry) {
         ASSERT(!revalidatedEntry || !revalidatedEntry->needsValidation());
         ASSERT(!revalidatedEntry || revalidatedEntry->key() == key);
         if (m_completionHandler)
@@ -82,4 +88,4 @@ AsyncRevalidation::AsyncRevalidation(Cache& cache, const GlobalFrameID& frameID,
 } // namespace NetworkCache
 } // namespace WebKit
 
-#endif // ENABLE(NETWORK_CACHE_SPECULATIVE_REVALIDATION)
+#endif // ENABLE(NETWORK_CACHE_STALE_WHILE_REVALIDATE)

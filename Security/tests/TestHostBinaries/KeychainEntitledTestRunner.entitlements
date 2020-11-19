@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.application-identifier</key>
+	<string>com.apple.security.KeychainEntitledTestRunner</string>
+	<key>application-identifier</key>
+	<string>com.apple.security.KeychainEntitledTestRunner</string>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
+	<key>com.apple.private.cloudkit.masquerade</key>
+	<true/>
+	<key>com.apple.private.cloudkit.customAccounts</key>
+	<true/>
+	<key>com.apple.developer.icloud-container-environment</key>
+	<string>Development</string>
+	<key>com.apple.private.aps-connection-initiate</key>
+	<true/>
+	<key>aps-connection-initiate</key>
+	<true/>
+	<key>aps-environment</key>
+	<string>serverPreferred</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>com.apple.security.ckks</string>
+		<string>SecDbBackupManager-UnitTests</string>
+	</array>
+	<key>keychain-cloud-circle</key>
+	<true/>
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+    <key>com.apple.keystore.access-keychain-keys</key>
+    <true/>
+    <key>com.apple.keystore.lockassertion</key>
+    <true/>
+    <key>com.apple.private.associated-domains</key>
+    <true/>
+    <key>com.apple.private.necp.match</key>
+    <true/>
+    <key>com.apple.mkb.usersession.info</key>
+    <true/>
+</dict>
+</plist>

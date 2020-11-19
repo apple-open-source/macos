@@ -15,10 +15,11 @@ Extra_Configure_Flags = --enable-shared --disable-static \
                         --with-apr-util=$(APR_TOOLCHAIN_DIR) \
                         --with-serf=$(SDKROOT)/usr/local \
                         --with-swig=$(shell test -e /usr/bin/swig && echo /usr || echo /usr/local) \
-                        --with-ruby-sitedir=$(RBLIBDIR)/ruby \
                         --with-sasl=$(SDKROOT)/usr \
                         --includedir=$(Install_Prefix)/include \
                         --without-libmagic
+
+Extra_Make_Flags = V=1
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 

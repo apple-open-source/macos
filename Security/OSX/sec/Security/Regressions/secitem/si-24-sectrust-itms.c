@@ -151,7 +151,7 @@ static void tests(void)
 		"trust is kSecTrustResultUnspecified");
     is(SecTrustGetCertificateCount(trust), 2, "cert count is 2");
 	SecKeyRef pub_key_leaf;
-	isnt(pub_key_leaf = SecTrustCopyPublicKey(trust), NULL, "get leaf pub key");
+	isnt(pub_key_leaf = SecTrustCopyKey(trust), NULL, "get leaf pub key");
     if (!pub_key_leaf) { goto errOut; }
     CFErrorRef error = NULL;
     ok(SecKeyVerifySignature(pub_key_leaf, kSecKeyAlgorithmRSASignatureDigestPKCS1v15SHA1, sha1Data, signature, &error),

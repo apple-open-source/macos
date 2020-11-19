@@ -41,9 +41,14 @@
 #include "CryptoKeyAES.h"
 #include "CryptoKeyEC.h"
 #include "CryptoKeyHMAC.h"
+#include "DeviceResponseConverter.h"
+#include "WebAuthenticationConstants.h"
 #include <pal/crypto/CryptoDigest.h>
 
 namespace fido {
+using namespace WebCore;
+using CBOR = cbor::CBORValue;
+
 namespace pin {
 using namespace cbor;
 
@@ -97,7 +102,6 @@ static Vector<uint8_t> encodePinCommand(Subcommand subcommand, Function<void(CBO
     if (addAdditional)
         addAdditional(&map);
 
-    // FIXME(205375)
     auto serializedParam = CBORWriter::write(CBORValue(WTFMove(map)));
     ASSERT(serializedParam);
 
@@ -110,23 +114,17 @@ RetriesResponse::RetriesResponse() = default;
 
 Optional<RetriesResponse> RetriesResponse::parse(const Vector<uint8_t>& inBuffer)
 {
-    // FIXME(205375)
-    if (inBuffer.size() <= kResponseCodeLength || getResponseCode(inBuffer) != CtapDeviceResponseCode::kSuccess)
+    auto decodedMap = decodeResponseMap(inBuffer);
+    if (!decodedMap)
         return WTF::nullopt;
-
-    Vector<uint8_t> buffer;
-    buffer.append(inBuffer.data() + 1, inBuffer.size() - 1);
-    Optional<CBOR> decodedResponse = cbor::CBORReader::read(buffer);
-    if (!decodedResponse || !decodedResponse->isMap())
-        return WTF::nullopt;
-    const auto& responseMap = decodedResponse->getMap();
+    const auto& responseMap = decodedMap->getMap();
 
     auto it = responseMap.find(CBORValue(static_cast<int64_t>(ResponseKey::kRetries)));
     if (it == responseMap.end() || !it->second.isUnsigned())
         return WTF::nullopt;
 
     RetriesResponse ret;
-    ret.retries = static_cast<int64_t>(it->second.getUnsigned());
+    ret.retries = static_cast<uint64_t>(it->second.getUnsigned());
     return ret;
 }
 
@@ -137,16 +135,10 @@ KeyAgreementResponse::KeyAgreementResponse(Ref<CryptoKeyEC>&& peerKey)
 
 Optional<KeyAgreementResponse> KeyAgreementResponse::parse(const Vector<uint8_t>& inBuffer)
 {
-    // FIXME(205375)
-    if (inBuffer.size() <= kResponseCodeLength || getResponseCode(inBuffer) != CtapDeviceResponseCode::kSuccess)
+    auto decodedMap = decodeResponseMap(inBuffer);
+    if (!decodedMap)
         return WTF::nullopt;
-
-    Vector<uint8_t> buffer;
-    buffer.append(inBuffer.data() + 1, inBuffer.size() - 1);
-    auto decodedResponse = cbor::CBORReader::read(buffer);
-    if (!decodedResponse || !decodedResponse->isMap())
-        return WTF::nullopt;
-    const auto& responseMap = decodedResponse->getMap();
+    const auto& responseMap = decodedMap->getMap();
 
     // The ephemeral key is encoded as a COSE structure.
     auto it = responseMap.find(CBORValue(static_cast<int64_t>(ResponseKey::kKeyAgreement)));
@@ -211,23 +203,17 @@ TokenResponse::TokenResponse(Ref<WebCore::CryptoKeyHMAC>&& token)
 
 Optional<TokenResponse> TokenResponse::parse(const WebCore::CryptoKeyAES& sharedKey, const Vector<uint8_t>& inBuffer)
 {
-    // FIXME(205375)
-    if (inBuffer.size() <= kResponseCodeLength || getResponseCode(inBuffer) != CtapDeviceResponseCode::kSuccess)
+    auto decodedMap = decodeResponseMap(inBuffer);
+    if (!decodedMap)
         return WTF::nullopt;
-
-    Vector<uint8_t> buffer;
-    buffer.append(inBuffer.data() + 1, inBuffer.size() - 1);
-    auto decodedResponse = cbor::CBORReader::read(buffer);
-    if (!decodedResponse || !decodedResponse->isMap())
-        return WTF::nullopt;
-    const auto& responseMap = decodedResponse->getMap();
+    const auto& responseMap = decodedMap->getMap();
 
     auto it = responseMap.find(CBORValue(static_cast<int64_t>(ResponseKey::kPinToken)));
     if (it == responseMap.end() || !it->second.isByteString())
         return WTF::nullopt;
     const auto& encryptedToken = it->second.getByteString();
 
-    auto tokenResult = CryptoAlgorithmAES_CBC::platformDecrypt({ }, sharedKey, encryptedToken);
+    auto tokenResult = CryptoAlgorithmAES_CBC::platformDecrypt({ }, sharedKey, encryptedToken, CryptoAlgorithmAES_CBC::Padding::No);
     if (tokenResult.hasException())
         return WTF::nullopt;
     auto token = tokenResult.releaseReturnValue();
@@ -267,11 +253,16 @@ Optional<TokenRequest> TokenRequest::tryCreate(const CString& pin, const CryptoK
     ASSERT(!keyPairResult.hasException());
     auto keyPair = keyPairResult.releaseReturnValue();
 
-    // 2. Use ECDH to compute the shared AES-CBC key.
+    // 2. Use ECDH and SHA-256 to compute the shared AES-CBC key.
     auto sharedKeyResult = CryptoAlgorithmECDH::platformDeriveBits(downcast<CryptoKeyEC>(*keyPair.privateKey), peerKey);
     if (!sharedKeyResult)
         return WTF::nullopt;
-    auto sharedKey = CryptoKeyAES::importRaw(CryptoAlgorithmIdentifier::AES_CBC, WTFMove(*sharedKeyResult), true, CryptoKeyUsageEncrypt | CryptoKeyUsageDecrypt);
+
+    auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
+    crypto->addBytes(sharedKeyResult->data(), sharedKeyResult->size());
+    auto sharedKeyHash = crypto->computeHash();
+
+    auto sharedKey = CryptoKeyAES::importRaw(CryptoAlgorithmIdentifier::AES_CBC, WTFMove(sharedKeyHash), true, CryptoKeyUsageEncrypt | CryptoKeyUsageDecrypt);
     ASSERT(sharedKey);
 
     // The following encodes the public key of the above key pair into COSE format.
@@ -280,7 +271,7 @@ Optional<TokenRequest> TokenRequest::tryCreate(const CString& pin, const CryptoK
     auto coseKey = encodeCOSEPublicKey(rawPublicKeyResult.returnValue());
 
     // The following calculates a SHA-256 digest of the PIN, and shrink to the left 16 bytes.
-    auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
+    crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
     crypto->addBytes(pin.data(), pin.length());
     auto pinHash = crypto->computeHash();
     pinHash.shrink(16);
@@ -302,7 +293,7 @@ const CryptoKeyAES& TokenRequest::sharedKey() const
 
 Vector<uint8_t> encodeAsCBOR(const TokenRequest& request)
 {
-    auto result = CryptoAlgorithmAES_CBC::platformEncrypt({ }, request.sharedKey(), request.m_pinHash);
+    auto result = CryptoAlgorithmAES_CBC::platformEncrypt({ }, request.sharedKey(), request.m_pinHash, CryptoAlgorithmAES_CBC::Padding::No);
     ASSERT(!result.hasException());
 
     return encodePinCommand(Subcommand::kGetPinToken, [coseKey = WTFMove(request.m_coseKey), encryptedPin = result.releaseReturnValue()] (CBORValue::MapValue* map) mutable {

@@ -55,6 +55,14 @@
 #define IO_REPARSE_TAG_ONEDRIVE   (0x80000021L)
 #endif
 
+# ifndef IO_REPARSE_TAG_ACTIVISION_HSM
+#  define IO_REPARSE_TAG_ACTIVISION_HSM (0x00000047L)
+# endif
+
+# ifndef IO_REPARSE_TAG_PROJFS
+#  define IO_REPARSE_TAG_PROJFS (0x9000001CL)
+# endif
+
 # ifndef VOLUME_NAME_NT
 #  define VOLUME_NAME_NT 0x2
 # endif
@@ -837,6 +845,7 @@ static size_t tsrm_realpath_r(char *path, size_t start, size_t len, int *ll, tim
 		}
 
 #ifdef ZEND_WIN32
+retry_reparse_point:
 		if (save) {
 			pathw = php_win32_ioutil_any_to_w(path);
 			if (!pathw) {
@@ -859,7 +868,7 @@ static size_t tsrm_realpath_r(char *path, size_t start, size_t len, int *ll, tim
 		tmp = do_alloca(len+1, use_heap);
 		memcpy(tmp, path, len+1);
 
-retry:
+retry_reparse_tag_cloud:
 		if(save &&
 				!(IS_UNC_PATH(path, len) && len >= 3 && path[2] != '?') &&
                                (dataw.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT)
@@ -920,7 +929,7 @@ retry:
 					dataw.dwFileAttributes = fileInformation.dwFileAttributes;
 					CloseHandle(hLink);
 					(*ll)--;
-					goto retry;
+					goto retry_reparse_tag_cloud;
 				}
 				free_alloca(tmp, use_heap);
 				CloseHandle(hLink);
@@ -1002,7 +1011,9 @@ retry:
 			else if (pbuffer->ReparseTag == IO_REPARSE_TAG_DEDUP ||
 					/* Starting with 1709. */
 					(pbuffer->ReparseTag & ~IO_REPARSE_TAG_CLOUD_MASK) == IO_REPARSE_TAG_CLOUD ||
-					IO_REPARSE_TAG_ONEDRIVE == pbuffer->ReparseTag) {
+					IO_REPARSE_TAG_ONEDRIVE == pbuffer->ReparseTag ||
+					IO_REPARSE_TAG_ACTIVISION_HSM == pbuffer->ReparseTag ||
+					IO_REPARSE_TAG_PROJFS == pbuffer->ReparseTag) {
 				isabsolute = 1;
 				substitutename = malloc((len + 1) * sizeof(char));
 				if (!substitutename) {
@@ -1064,6 +1075,22 @@ retry:
 #endif
 			free_alloca(pbuffer, use_heap_large);
 			free(substitutename);
+
+			{
+				DWORD attrs;
+
+				FREE_PATHW()
+				pathw = php_win32_ioutil_any_to_w(path);
+				if (!pathw) {
+					return (size_t)-1;
+				}
+				attrs = GetFileAttributesW(pathw);
+				if (!isVolume && attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_REPARSE_POINT)) {
+					free_alloca(tmp, use_heap);
+					FREE_PATHW()
+					goto retry_reparse_point;
+				}
+			}
 
 			if(isabsolute == 1) {
 				if (!((j == 3) && (path[1] == ':') && (path[2] == '\\'))) {

@@ -201,8 +201,10 @@ _krb5_get_cached_forward_creds(krb5_context context,
 
     ret = krb5_ret_creds(sp, *creds);
     if (ret) {
-	krb5_free_creds(context, *creds);
-	*creds = NULL;
+	if (*creds) {
+	    krb5_free_creds(context, *creds);
+	    *creds = NULL;
+	}
 	goto out;
     }
 

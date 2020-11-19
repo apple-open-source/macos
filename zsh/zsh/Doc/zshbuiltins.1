@@ -1,4 +1,4 @@
-.TH "ZSHBUILTINS" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHBUILTINS" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshbuiltins \- zsh built\-in commands
 .\" Yodl file: Zsh/builtins.yo
@@ -13,11 +13,11 @@ be familiar to most command line users\&.
 .PP
 Typically, options are single letters preceded by a hyphen (\fB\-\fP)\&.
 Options that take an argument accept it either immediately following the
-option letter or after white space, for example `\fBprint \-C3 *\fP\&' or
-`\fBprint \-C 3 *\fP\&' are equivalent\&.  Arguments to options are not the
+option letter or after white space, for example `\fBprint \-C3 {1\&.\&.9}\fP\&' or
+`\fBprint \-C 3 {1\&.\&.9}\fP\&' are equivalent\&.  Arguments to options are not the
 same as arguments to the command; the documentation indicates which is
 which\&.  Options that do not take an argument may be combined in a single
-word, for example `\fBprint \-ca *\fP\&' and `\fBprint \-c \-a *\fP' are
+word, for example `\fBprint \-rca \-\- *\fP\&' and `\fBprint \-r \-c \-a \-\- *\fP' are
 equivalent\&.
 .PP
 Some shell builtin commands also take options that begin with `\fB+\fP\&'
@@ -28,14 +28,14 @@ Options (together with their individual arguments, if any) must appear
 in a group before any non\-option arguments; once the first non\-option
 argument has been found, option processing is terminated\&.
 .PP
-All builtin commands other than precommand modifiers, even those that
-have no options, can be given the argument `\fB\-\fP\fB\-\fP\&' to terminate option
-processing\&.  This indicates that the following words are non\-option
-arguments, but is otherwise ignored\&.  This is useful in cases where
-arguments to the command may begin with `\fB\-\fP\&'\&.  For historical
-reasons, most builtin commands also recognize a single `\fB\-\fP\&' in a
-separate word for this purpose; note that this is less standard and
-use of `\fB\-\fP\fB\-\fP\&' is recommended\&.
+All builtin commands other than `\fBecho\fP\&' and precommand modifiers,
+even those that have no options, can be given the argument `\fB\-\fP\fB\-\fP\&'
+to terminate option processing\&.  This indicates that the following words
+are non\-option arguments, but is otherwise ignored\&.  This is useful in
+cases where arguments to the command may begin with `\fB\-\fP\&'\&.  For
+historical reasons, most builtin commands (including `\fBecho\fP\&') also
+recognize a single `\fB\-\fP\&' in a separate word for this purpose; note
+that this is less standard and use of `\fB\-\fP\fB\-\fP\&' is recommended\&.
 .PP
 .PD 0
 .TP
@@ -89,11 +89,11 @@ special in this case\&.  For example,
 .PP
 .RS
 .nf
-\fBalias \-s ps=gv\fP
+\fBalias \-s ps=\&'gv \-\-'\fP
 .fi
 .RE
 .PP
-will cause the command `\fB*\&.ps\fP\&' to be expanded to `\fBgv *\&.ps\fP'\&.  As
+will cause the command `\fB*\&.ps\fP\&' to be expanded to `\fBgv \-\- *\&.ps\fP'\&.  As
 alias expansion is carried out earlier than globbing, the `\fB*\&.ps\fP\&' will
 then be expanded\&.  Suffix aliases constitute a different name space from
 other aliases (so in the above example it is still possible
@@ -275,6 +275,8 @@ of the list shown by the \fBdirs\fP command, starting with zero\&.
 An argument of the form `\fB\-\fP\fIn\fP\&' counts from the right\&.
 If the \fBPUSHD_MINUS\fP option is set, the meanings of `\fB+\fP\&'
 and `\fB\-\fP\&' in this context are swapped\&.
+If the \fBPOSIX_CD\fP option is set, this form of \fBcd\fP is not recognised
+and will be interpreted as the first form\&.
 .PP
 If the \fB\-q\fP (quiet) option is specified, the hook function \fBchpwd\fP
 and the functions in the array \fBchpwd_functions\fP are not called\&.
@@ -824,8 +826,8 @@ However, if the current event has added entries to the history with
 includes all new history entries since the current event began\&.
 .PP
 When the \fB\-l\fP flag is given, the resulting events are listed on
-standard output\&.  Otherwise the editor program \fIename\fP is invoked on a
-file containing these history events\&.  If \fIename\fP is not given, the
+standard output\&.  Otherwise the editor program specified by \fB\-e\fP \fIename\fP
+is invoked on a file containing these history events\&.  If \fB\-e\fP is not given, the
 value of the parameter \fBFCEDIT\fP is used; if that is not set the value of
 the parameter \fBEDITOR\fP is used; if that is not set a builtin default,
 usually `\fBvi\fP\&' is used\&.  If \fIename\fP is `\fB\-\fP', no editor is invoked\&.
@@ -922,6 +924,9 @@ point numbers are not permitted\&.
 \fBfunctions\fP [ {\fB+\fP|\fB\-\fP}\fBUkmtTuWz\fP ] [ \fB\-x\fP \fInum\fP ] [ \fIname\fP \&.\&.\&. ]
 .TP
 .PD 0
+\fBfunctions \-c\fP \fIoldfn\fP \fInewfn\fP
+.TP
+.PD 0
 \fBfunctions \-M\fP [\fB\-s\fP] \fImathfn\fP [ \fImin\fP [ \fImax\fP [ \fIshellfn\fP ] ] ]
 .TP
 .PD 0
@@ -929,7 +934,7 @@ point numbers are not permitted\&.
 .TP
 .PD
 \fBfunctions +M\fP [ \fB\-m\fP ] \fImathfn\fP \&.\&.\&. 
-Equivalent to \fBtypeset \-f\fP, with the exception of the \fB\-x\fP,
+Equivalent to \fBtypeset \-f\fP, with the exception of the \fB\-c\fP, \fB\-x\fP,
 \fB\-M\fP and \fB\-W\fP options\&.  For \fBfunctions \-u\fP and \fBfunctions \-U\fP,
 see \fBautoload\fP, which provides additional options\&.
 .RS
@@ -943,6 +948,14 @@ The \fB\-W\fP option turns on the option \fBWARN_NESTED_VAR\fP for the named
 function or functions only\&.  The option is turned off at the start of
 nested functions (apart from anonoymous functions) unless the called
 function also has the \fB\-W\fP attribute\&.
+.PP
+The \fB\-c\fP option causes \fIoldfn\fP to be copied to \fInewfn\fP\&.  The
+copy is efficiently handled internally by reference counting\&.  If
+\fIoldfn\fP was marked for autoload it is first loaded and if this
+fails the copy fails\&.  Either function may subsequently be redefined
+without affecting the other\&.  A typical idiom is that \fIoldfn\fP is the
+name of a library shell function which is then redefined to call
+\fBnewfn\fP, thereby installing a modified version of the function\&.
 .PP
 Use of the \fB\-M\fP option may not be combined with any of the options
 handled by \fBtypeset \-f\fP\&.
@@ -1060,6 +1073,10 @@ The choice of hash table to work on is determined by the \fB\-d\fP option;
 without the option the command hash table is used, and with the option the
 named directory hash table is used\&.
 .RS
+.PP
+A command \fIname\fP starting with a \fB/\fP is never hashed, whether by
+explicit use of the \fBhash\fP command or otherwise\&.  Such a command
+is always found by direct look up in the file system\&.
 .PP
 Given no arguments, and neither the \fB\-r\fP or \fB\-f\fP options,
 the selected hash table will be listed in full\&.
@@ -1373,7 +1390,10 @@ If given together with \fB\-o\fP or \fB\-O\fP, sorting is performed
 case\-independently\&.
 .TP
 \fB\-l\fP
-Print the arguments separated by newlines instead of spaces\&.
+Print the arguments separated by newlines instead of spaces\&.  Note: if
+the list of arguments is empty, \fBprint \-l\fP will still output one empty
+line\&. To print a possibly\-empty list of arguments one per line, use
+\fBprint \-C1\fP, as in `\fBprint \-rC1 \-\- "$list[@]"\fP\&'\&.
 .TP
 \fB\-m\fP
 Take the first argument as a pattern (should be quoted), and remove
@@ -1384,7 +1404,9 @@ do not match this pattern\&.
 Do not add a newline to the output\&.
 .TP
 \fB\-N\fP
-Print the arguments separated and terminated by nulls\&.
+Print the arguments separated and terminated by nulls\&. Again,
+\fBprint \-rNC1 \-\- "$list[@]"\fP is a canonical way to print an
+arbitrary list as null\-delimited records\&.
 .TP
 \fB\-o\fP
 Print the arguments sorted in ascending order\&.

@@ -443,6 +443,7 @@ BreakIterator::makeInstance(const Locale& loc, int32_t kind, UErrorCode& status)
                 }
             }
             result->setLineWordOpts(lineWordOpts);
+            ((RuleBasedBreakIterator *)result)->setCategoryOverrides(loc); // <rdar://problem/51193810>
         }
         break;
     case UBRK_SENTENCE:

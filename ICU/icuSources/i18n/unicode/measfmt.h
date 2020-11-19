@@ -15,6 +15,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/format.h"
@@ -83,7 +85,6 @@ enum UMeasureFormatWidth {
 /** @stable ICU 53 */
 typedef enum UMeasureFormatWidth UMeasureFormatWidth; 
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class Measure;
@@ -164,7 +165,7 @@ class U_I18N_API MeasureFormat : public Format {
      * Clones this object polymorphically.
      * @stable ICU 53
      */
-    virtual Format *clone() const;
+    virtual MeasureFormat *clone() const;
 
     /**
      * Formats object to produce a string.
@@ -176,6 +177,7 @@ class U_I18N_API MeasureFormat : public Format {
             FieldPosition &pos,
             UErrorCode &status) const;
 
+#ifndef U_FORCE_HIDE_DRAFT_API
     /**
      * Parse a string to produce an object. This implementation sets
      * status to U_UNSUPPORTED_ERROR.
@@ -186,6 +188,7 @@ class U_I18N_API MeasureFormat : public Format {
             const UnicodeString &source,
             Formattable &reslt,
             ParsePosition &pos) const;
+#endif  // U_FORCE_HIDE_DRAFT_API
 
     /**
      * Formats measure objects to produce a string. An example of such a
@@ -462,21 +465,13 @@ class U_I18N_API MeasureFormat : public Format {
                                  // minute; [2] is second.
         int32_t bitMap,   // 1=hour set, 2=minute set, 4=second set
         UnicodeString &appendTo,
-        FieldPositionHandler& handler,
-        UErrorCode &status) const;
-
-    UnicodeString &formatNumeric(
-        UDate date,
-        const DateFormat &dateFmt,
-        UDateFormatField smallestField,
-        const Formattable &smallestAmount,
-        UnicodeString &appendTo,
-        FieldPositionHandler& handler,
         UErrorCode &status) const;
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif // #if !UCONFIG_NO_FORMATTING
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif // #ifndef MEASUREFORMAT_H

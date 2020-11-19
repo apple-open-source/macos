@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2011, 2012, 2014, 2015, 2017-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2011, 2012, 2014, 2015, 2017-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -34,10 +34,12 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <SystemConfiguration/SCPrivate.h>	// for SC_log
 
-#ifdef	MAIN
-#define	my_log(__level, __format, ...)	SCPrint(TRUE, stdout, CFSTR(__format "\n"), ## __VA_ARGS__)
-#endif	// MAIN
+#ifdef	SC_LOG_HANDLE
+#include <os/log.h>
+os_log_t	SC_LOG_HANDLE(void);
+#endif	//SC_LOG_HANDLE
 
 #include "dnsinfo.h"
 #include "dnsinfo_private.h"
@@ -333,6 +335,10 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 		}
 		if (token == -1) {
 			// if not a recognized token
+			SC_log(LOG_NOTICE,
+			       "Unrecognized token (%s) found in: %s",
+			       word,
+			       filename);
 			continue;
 		}
 

@@ -454,6 +454,7 @@ static void
 testLCID(UResourceBundle *currentBundle,
          const char *localeName)
 {
+    (void)currentBundle; // suppress compiler warnings about unused variables
     UErrorCode status = U_ZERO_ERROR;
     uint32_t expectedLCID;
     char lcidStringC[64] = {0};
@@ -988,8 +989,8 @@ static void VerifyTranslation(void) {
                     uprv_strncmp(currLoc,"kaj",3) == 0 || uprv_strncmp(currLoc,"kpe",3) == 0 ||
                     uprv_strncmp(currLoc,"nqo",3) == 0 || uprv_strncmp(currLoc,"sat",3) == 0 ||
                     uprv_strncmp(currLoc,"syr",3) == 0 ||
-                    uprv_strcmp(currLoc,"ks_Deva") == 0 || uprv_strncmp(currLoc,"mni_Mtei",8) == 0 ||
-                    uprv_strcmp(currLoc,"sd_Deva") == 0 ) { // Apple xtra locales
+                    uprv_strncmp(currLoc,"ks_Deva",7) == 0 || uprv_strncmp(currLoc,"mni_Mtei",8) == 0 ||
+                    uprv_strncmp(currLoc,"sd_Deva",7) == 0 ) {
                 log_verbose("skipping day/month tests for %s, missing some translated names\n", currLoc);
             } else {
                 UResourceBundle* cal = ures_getByKey(currentLocale, "calendar", NULL, &errorCode);

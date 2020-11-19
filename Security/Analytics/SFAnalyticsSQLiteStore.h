@@ -23,8 +23,8 @@
 
 #if __OBJC2__
 
-#import "Analytics/SQLite/SFSQLite.h"
-#import "SFAnalytics.h"
+#import <Security/SFSQLite.h>
+#import <Security/SFAnalytics.h>
 
 @interface SFAnalyticsSQLiteStore : SFSQLite
 

@@ -7,5 +7,8 @@
 (allow file-write-create file-write-unlink
     (literal "/private/var/db/timezone/localtime"))
 
+(allow file-write-create file-write-unlink
+    (literal "/private/etc/localtime"))
+
 (allow file-read*
     (literal "/private/var/db/timezone/zoneinfo"))

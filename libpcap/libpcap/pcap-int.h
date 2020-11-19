@@ -40,7 +40,7 @@
 
 #ifdef __APPLE__
 #include <stdbool.h>
-#include "pcap-ng.h"
+#include "pcap/pcap-ng.h"
 #include "pcap-util.h"
 #endif /* __APPLE__ */
 #include "varattrs.h"

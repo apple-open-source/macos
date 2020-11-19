@@ -29,6 +29,7 @@
 #import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"
+#import "keychain/ot/OTStates.h"
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
@@ -48,6 +49,7 @@
                             bottleID:(NSString*)bottleID
                              entropy:(NSData*)entropy
                           bottleSalt:(NSString*)bottleSalt
+                         saveVoucher:(BOOL)saveVoucher
 {
     if((self = [super init])) {
         _deps = dependencies;
@@ -57,6 +59,8 @@
         _bottleID = bottleID;
         _entropy = entropy;
         _bottleSalt = bottleSalt;
+
+        _saveVoucher = saveVoucher;
     }
     return self;
 }
@@ -101,8 +105,8 @@
                                                                   context:self.deps.contextID
                                                                  bottleID:self.bottleID
                                                                     reply:^(NSString * _Nullable peerID,
-                                                                            NSSet<NSString*>* peerSyncingViews,
-                                                                            TPPolicy* peerSyncingPolicy,
+                                                                            TPSyncingPolicy* peerSyncingPolicy,
+                                                                            BOOL refetchWasNeeded,
                                                                             NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventPreflightVouchWithBottle hardFailure:true result:error];
@@ -118,18 +122,19 @@
 
         // Tell CKKS to spin up the new views and policy
         // But, do not persist this view set! We'll do that when we actually manager to join
-        [self.deps.viewManager setSyncingViews:peerSyncingViews sortingPolicy:peerSyncingPolicy];
+        [self.deps.viewManager setCurrentSyncingPolicy:peerSyncingPolicy];
 
-        [self proceedWithPeerID:peerID];
+        [self proceedWithPeerID:peerID refetchWasNeeded:refetchWasNeeded];
     }];
 }
 
-- (void)proceedWithPeerID:(NSString*)peerID
+- (void)proceedWithPeerID:(NSString*)peerID refetchWasNeeded:(BOOL)refetchWasNeeded
 {
     WEAKIFY(self);
 
     // After a vouch, we also want to acquire all TLKs that the bottled peer might have had
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
+                                                                                     refetchNeeded:refetchWasNeeded];
     [self runBeforeGroupFinished:fetchKeysOp];
 
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"bottle-tlks"
@@ -142,6 +147,15 @@
             if(peerID == nil || [share.receiverPeerID isEqualToString:peerID]) {
                 [filteredTLKShares addObject:share];
             }
+        }
+
+        if(fetchKeysOp.viewsTimedOutWithoutKeysets.count > 0) {
+            // At least one view failed to find a keyset in time.
+            // Set up a retry with this bottle, once CKKS is done fetching
+            secnotice("octagon", "Timed out fetching key hierarchy for CKKS views; marking for TLK recovery follow up: %@", fetchKeysOp.viewsTimedOutWithoutKeysets);
+            OctagonPendingFlag* flag = [[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptBottleTLKExtraction
+                                                                          after:self.deps.viewManager.zoneChangeFetcher.inflightFetch];
+            [self.deps.flagHandler handlePendingFlag:flag];
         }
 
         [self proceedWithKeys:fetchKeysOp.viewKeySets filteredTLKShares:filteredTLKShares];
@@ -207,10 +221,25 @@
             }
             [self noteMetric:OctagonAnalyticsBottledTLKUniqueViewCount count:views.count];
 
-            secnotice("octagon", "Received bottle voucher");
-
             self.voucher = voucher;
             self.voucherSig = voucherSig;
+
+            if(self.saveVoucher) {
+                secnotice("octagon", "Saving voucher for later use...");
+                NSError* saveError = nil;
+                [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
+                    metadata.voucher = voucher;
+                    metadata.voucherSignature = voucherSig;
+                    return metadata;
+                } error:&saveError];
+                if(saveError) {
+                    secnotice("octagon", "unable to save voucher: %@", saveError);
+                    [self runBeforeGroupFinished:self.finishedOp];
+                    return;
+                }
+            }
+
+            secnotice("octagon", "Successfully vouched with a bottle: %@, %@", voucher, voucherSig);
             self.nextState = self.intendedState;
             [self runBeforeGroupFinished:self.finishedOp];
         }];

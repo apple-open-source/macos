@@ -46,6 +46,8 @@
 #define kCacheDirMode       0755        // Sec reviewed
 #define kCacheFileMode      0644
 
+#define kPrebootKCPrefix    "/boot"
+
 // bootcaches.plist and keys
 
 #define kBootCachesPath             "/usr/standalone/bootcaches.plist"
@@ -55,6 +57,7 @@
 #define kBCEFIBooterKey              CFSTR("EFIBooter")       // "boot.efi"
 #define kBCOFBooterKey               CFSTR("OFBooter")        // "BootX"
 #define kBCPostBootKey               CFSTR("PostBootPaths")   // dict
+#define kBCBless2Key                 CFSTR("bless2")          // dict
 #define kBCMKextKey                  CFSTR("MKext")           // dict
 #define kBCMKext2Key                 CFSTR("MKext2")          // dict
 #define kBCKernelcacheV1Key          CFSTR("Kernelcache v1.1")// dict
@@ -62,6 +65,7 @@
 #define kBCKernelcacheV3Key          CFSTR("Kernelcache v1.3")// dict
 #define kBCKernelcacheV4Key          CFSTR("Kernelcache v1.4")// dict
 #define kBCKernelcacheV5Key          CFSTR("Kernelcache v1.5")// dict
+#define kBCKernelcacheV6Key          CFSTR("Kernelcache v1.6")// dict
 #define kBCKernelPathKey             CFSTR("KernelPath")      //   m_k | kernel
 #define kBCPreferredCompressionKey   CFSTR("Preferred Compression") // "lzvn"
 #if DEV_KERNEL_SUPPORT
@@ -72,6 +76,11 @@
 #define kBCUnwatchedExtensionsDirKey CFSTR("UnwatchedExtensionsDir") // /L/DE
 #define kBCPathKey                   CFSTR("Path")        // /L/A/S/L/PLKs/prelinkedkernel
 #define kBCReadOnlyPathKey           CFSTR("ReadOnlyPath") // /S/L/PLKs/prelinkedkernel
+// MH_FILESET KC Keys (Kernelcache v1.6)
+#define kBCPreferFilesetKey          CFSTR("PreferBootKernelExtensions") // bool
+#define kBCFilesetBootKCKey          CFSTR("BootKernelExtensions") // /S/L/KC/BootKernelExtensions.kc
+#define kBCFilesetSysKCKey           CFSTR("SystemKernelExtensions") // /S/L/KC/SystemKernelExtensions.kc
+#define kBCFilesetBaseSysKCKey       CFSTR("BaseSystemKernelExtensions") // /S/L/KC/BaseSystemKernelExtensions.kc
 // AdditionalPaths are optional w/PreBootPaths, required w/PostBootPaths
 #define kBCAdditionalPathsKey        CFSTR("AdditionalPaths") // array
 #define kBCBootConfigKey             CFSTR("BootConfig")      // bc.plist
@@ -140,6 +149,12 @@ struct bootCaches {
     cachedPath *label;          // -> .../S/L/CS/.disk_label (in miscPaths)
     cachedPath *erpropcache;    // crypto metadata gets special treatment
     Boolean erpropTSOnly;       // whether props expected in root fsys
+
+    // new MH_FILESET paths
+    cachedPath *fileset_bootkc;       // -> /S/L/KernelCollections/BootKernelExtensions.kc
+    cachedPath *fileset_systemkc;     // -> /S/L/KernelCollections/SystemKernelExtensions.kc
+    cachedPath *fileset_basesystemkc; // -> /S/L/KernelCollections/BaseSystemKernelExtensions.kc
+    Boolean prefer_fileset;
 #if DEV_KERNEL_SUPPORT
     int kernelsCount;           // count of valid kernels in /System/Library/Kernels
                                 // This will be 0 for volumes that do not support

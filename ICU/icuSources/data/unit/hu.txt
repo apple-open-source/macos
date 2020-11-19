@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 hu{
-    Version{"2.1.48.42"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -84,6 +84,7 @@ hu{
                 dnam{"négyzetkilométer"}
                 one{"{0} négyzetkilométer"}
                 other{"{0} négyzetkilométer"}
+                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"négyzetméter"}
@@ -246,6 +247,11 @@ hu{
                 other{"{0} nap"}
                 per{"{0}/nap"}
             }
+            decade{
+                dnam{"évtized"}
+                one{"{0} évtized"}
+                other{"{0} évtized"}
+            }
             hour{
                 dnam{"óra"}
                 one{"{0} óra"}
@@ -361,6 +367,11 @@ hu{
                 one{"{0} kilowattóra"}
                 other{"{0} kilowattóra"}
             }
+            therm-us{
+                dnam{"amerikai therm"}
+                one{"{0} amerikai therm"}
+                other{"{0} amerikai therm"}
+            }
         }
         force{
             newton{
@@ -394,6 +405,43 @@ hu{
                 dnam{"megahertz"}
                 one{"{0} megahertz"}
                 other{"{0} megahertz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"pont per centiméter"}
+                one{"{0} pont per centiméter"}
+                other{"{0} pont per centiméter"}
+            }
+            dot-per-inch{
+                dnam{"pont per hüvelyk"}
+                one{"{0} pont per hüvelyk"}
+                other{"{0} pont per hüvelyk"}
+            }
+            em{
+                dnam{"nyomdai em"}
+                one{"{0} kvirt"}
+                other{"{0} kvirt"}
+            }
+            megapixel{
+                dnam{"millió képpont"}
+                one{"{0} millió képpont"}
+                other{"{0} millió képpont"}
+            }
+            pixel{
+                dnam{"képpont"}
+                one{"{0} képpont"}
+                other{"{0} képpont"}
+            }
+            pixel-per-centimeter{
+                dnam{"képpont per centiméter"}
+                one{"{0} képpont per centiméter"}
+                other{"{0} képpont per centiméter"}
+            }
+            pixel-per-inch{
+                dnam{"képpont per hüvelyk"}
+                one{"{0} képpont per hüvelyk"}
+                other{"{0} képpont per hüvelyk"}
             }
         }
         length{
@@ -575,6 +623,11 @@ hu{
                 one{"{0} Nap-tömeg"}
                 other{"{0} Nap-tömeg"}
             }
+            stone{
+                dnam{"stone"}
+                one{"{0} stone"}
+                other{"{0} stone"}
+            }
             ton{
                 dnam{"tonna"}
                 one{"{0} tonna"}
@@ -645,9 +698,14 @@ hu{
                 other{"{0} millibar"}
             }
             millimeter-of-mercury{
-                dnam{"mm Hg"}
+                dnam{"higanymilliméter"}
                 one{"{0} higanymilliméter"}
                 other{"{0} higanymilliméter"}
+            }
+            pascal{
+                dnam{"pascal"}
+                one{"{0} pascal"}
+                other{"{0} pascal"}
             }
             pound-per-square-inch{
                 dnam{"font per négyzethüvelyk"}
@@ -850,6 +908,12 @@ hu{
         }
     }
     unitsNarrow{
+        acceleration{
+            g-force{
+                one{"{0} G"}
+                other{"{0} G"}
+            }
+        }
         angle{
             arc-minute{
                 one{"{0}′"}
@@ -899,6 +963,9 @@ hu{
                 one{"{0}%"}
                 other{"{0}%"}
             }
+            permille{
+                dnam{"‰"}
+            }
         }
         consumption{
             liter-per-100kilometers{
@@ -913,6 +980,12 @@ hu{
             north{"{0} É"}
             south{"{0} D"}
             west{"{0} Ny"}
+        }
+        digital{
+            byte{
+                one{"{0} B"}
+                other{"{0} B"}
+            }
         }
         duration{
             century{
@@ -930,6 +1003,7 @@ hu{
                 dnam{"ó"}
                 one{"{0} ó"}
                 other{"{0} ó"}
+                per{"{0}/ó"}
             }
             millisecond{
                 dnam{"ms"}
@@ -940,6 +1014,7 @@ hu{
                 dnam{"p"}
                 one{"{0} p"}
                 other{"{0} p"}
+                per{"{0}/p"}
             }
             month{
                 dnam{"hónap"}
@@ -950,6 +1025,7 @@ hu{
                 dnam{"mp"}
                 one{"{0} mp"}
                 other{"{0} mp"}
+                per{"{0}/mp"}
             }
             week{
                 dnam{"hét"}
@@ -967,6 +1043,12 @@ hu{
                 dnam{"cm"}
                 one{"{0} cm"}
                 other{"{0} cm"}
+                per{"{0}/cm"}
+            }
+            decimeter{
+                dnam{"dm"}
+                one{"{0} dm"}
+                other{"{0} dm"}
             }
             foot{
                 dnam{"láb"}
@@ -978,11 +1060,13 @@ hu{
                 dnam{"hüvelyk"}
                 one{"{0} hüvelyk"}
                 other{"{0} hüvelyk"}
+                per{"{0}/hüvelyk"}
             }
             kilometer{
                 dnam{"km"}
                 one{"{0} km"}
                 other{"{0} km"}
+                per{"{0}/km"}
             }
             light-year{
                 one{"{0} fényév"}
@@ -992,6 +1076,7 @@ hu{
                 dnam{"m"}
                 one{"{0} m"}
                 other{"{0} m"}
+                per{"{0}/m"}
             }
             mile{
                 dnam{"mf"}
@@ -1017,6 +1102,7 @@ hu{
                 other{"{0}p."}
             }
             yard{
+                dnam{"yd"}
                 one{"{0} yd"}
                 other{"{0} yd"}
             }
@@ -1026,19 +1112,30 @@ hu{
                 dnam{"g"}
                 one{"{0} g"}
                 other{"{0} g"}
+                per{"{0}/g"}
             }
             kilogram{
                 dnam{"kg"}
                 one{"{0} kg"}
                 other{"{0} kg"}
+                per{"{0}/kg"}
             }
             ounce{
+                dnam{"uncia"}
                 one{"{0} uncia"}
                 other{"{0} uncia"}
+                per{"{0}/uncia"}
             }
             pound{
+                dnam{"font"}
                 one{"{0} font"}
                 other{"{0} font"}
+                per{"{0}/font"}
+            }
+            stone{
+                dnam{"st"}
+                one{"{0} st"}
+                other{"{0} st"}
             }
         }
         power{
@@ -1057,6 +1154,7 @@ hu{
         }
         pressure{
             hectopascal{
+                dnam{"hPa"}
                 one{"{0} hPa"}
                 other{"{0} hPa"}
             }
@@ -1073,6 +1171,11 @@ hu{
                 one{"{0} Hgmm"}
                 other{"{0} Hgmm"}
             }
+            pound-per-square-inch{
+                dnam{"psi"}
+                one{"{0} psi"}
+                other{"{0} psi"}
+            }
         }
         speed{
             kilometer-per-hour{
@@ -1081,6 +1184,7 @@ hu{
                 other{"{0} km/h"}
             }
             meter-per-second{
+                dnam{"m/s"}
                 one{"{0} m/s"}
                 other{"{0} m/s"}
             }
@@ -1097,14 +1201,29 @@ hu{
                 other{"{0} °C"}
             }
             fahrenheit{
+                dnam{"°F"}
                 one{"{0} °F"}
                 other{"{0} °F"}
+            }
+            generic{
+                dnam{"°"}
+                one{"{0}°"}
+                other{"{0}°"}
+            }
+            kelvin{
+                dnam{"K"}
+                one{"{0} K"}
+                other{"{0} K"}
             }
         }
         volume{
             cubic-kilometer{
                 one{"{0} km³"}
                 other{"{0} km³"}
+            }
+            cubic-mile{
+                one{"{0} mi³"}
+                other{"{0} mi³"}
             }
             liter{
                 dnam{"l"}
@@ -1190,6 +1309,7 @@ hu{
                 dnam{"km²"}
                 one{"{0} km²"}
                 other{"{0} km²"}
+                per{"{0}/km²"}
             }
             square-meter{
                 dnam{"m²"}
@@ -1213,6 +1333,11 @@ hu{
             per{"{0}/{1}"}
         }
         concentr{
+            karat{
+                dnam{"kt"}
+                one{"{0} kt"}
+                other{"{0} kt"}
+            }
             milligram-per-deciliter{
                 dnam{"mg/dl"}
                 one{"{0} mg/dl"}
@@ -1347,6 +1472,11 @@ hu{
                 other{"{0} nap"}
                 per{"{0}/nap"}
             }
+            decade{
+                dnam{"dek"}
+                one{"{0} dek"}
+                other{"{0} dek"}
+            }
             hour{
                 dnam{"ó"}
                 one{"{0} ó"}
@@ -1462,6 +1592,11 @@ hu{
                 one{"{0} kWh"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"USA therm"}
+                one{"{0} USA therm"}
+                other{"{0} USA therm"}
+            }
         }
         force{
             newton{
@@ -1495,6 +1630,24 @@ hu{
                 dnam{"MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                one{"{0} dpcm"}
+                other{"{0} dpcm"}
+            }
+            em{
+                dnam{"em"}
+                one{"{0} em"}
+                other{"{0} em"}
+            }
+            megapixel{
+                dnam{"megapixel"}
+            }
+            pixel{
+                dnam{"képpont"}
             }
         }
         length{
@@ -1749,6 +1902,11 @@ hu{
                 dnam{"mm Hg"}
                 one{"{0} mm Hg"}
                 other{"{0} mm Hg"}
+            }
+            pascal{
+                dnam{"Pa"}
+                one{"{0} Pa"}
+                other{"{0} Pa"}
             }
             pound-per-square-inch{
                 dnam{"psi"}

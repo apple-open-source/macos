@@ -102,10 +102,10 @@ static SecTrustRef trust = nil;
 @implementation ValidityPeriodRestrictionTests
 // Note that the dates described in the test names are the issuance date not the VerifyDate
 
-- (BOOL)runTrustEvaluation:(NSArray *)certs anchors:(NSArray *)anchors error:(NSError **)error
+- (BOOL)runTrustEvaluation:(NSArray *)certs anchors:(NSArray *)anchors verifyTime:(NSTimeInterval)time error:(NSError **)error
 {
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("example.com"));
-    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:590000000.0]; // September 12, 2019 at 9:53:20 AM PDT
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:time];
     SecTrustRef trustRef = NULL;
     BOOL result = NO;
     CFErrorRef cferror = NULL;
@@ -127,6 +127,11 @@ errOut:
     CFReleaseNull(trustRef);
     CFReleaseNull(cferror);
     return result;
+}
+
+- (BOOL)runTrustEvaluation:(NSArray *)certs anchors:(NSArray *)anchors error:(NSError **)error
+{
+    return [self runTrustEvaluation:certs anchors:anchors verifyTime:590000000.0 error:error]; // September 12, 2019 at 9:53:20 AM PDT
 }
 
 - (void)testSystemTrust_MoreThan5Years
@@ -214,6 +219,42 @@ errOut:
     NSError *error = nil;
     XCTAssertTrue([self runTrustEvaluation:@[(__bridge id)leaf] anchors:@[(__bridge id)root] error:&error],
                   "system-trusted 825 day cert issued after 1 Mar 2018 failed: %@", error);
+
+    [self removeTestRootAsSystem];
+    CFReleaseNull(root);
+    CFReleaseNull(leaf);
+}
+
+- (void)testSystemTrust_MoreThan398Days_AfterSep2020
+{
+    [self setTestRootAsSystem:_testValidityPeriodsRootHash];
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _testValidityPeriodsRoot, sizeof(_testValidityPeriodsRoot));
+    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_2Years, sizeof(_testLeaf_2Years));
+
+    NSError *error = nil;
+    XCTAssertFalse([self runTrustEvaluation:@[(__bridge id)leaf]
+                                    anchors:@[(__bridge id)root]
+                                 verifyTime:621000000.0 // September 5, 2020 at 5:00:00 AM PDT
+                                      error:&error],
+                  "system-trusted 2 year cert issued after 1 Sept 2020 failed: %@", error);
+
+    [self removeTestRootAsSystem];
+    CFReleaseNull(root);
+    CFReleaseNull(leaf);
+}
+
+- (void)testSystemTrust_398Days_AfterSep2020
+{
+    [self setTestRootAsSystem:_testValidityPeriodsRootHash];
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _testValidityPeriodsRoot, sizeof(_testValidityPeriodsRoot));
+    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_398Days, sizeof(_testLeaf_398Days));
+
+    NSError *error = nil;
+    XCTAssertTrue([self runTrustEvaluation:@[(__bridge id)leaf]
+                                   anchors:@[(__bridge id)root]
+                                verifyTime:621000000.0 // September 5, 2020 at 5:00:00 AM PDT
+                                     error:&error],
+                  "system-trusted 398 day cert issued after 1 Sept 2020 failed: %@", error);
 
     [self removeTestRootAsSystem];
     CFReleaseNull(root);

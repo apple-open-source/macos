@@ -517,6 +517,12 @@ llquantize/tst.normal.d
 llquantize/tst.range.d
 llquantize/tst.steps.d
 llquantize/tst.trunc.d
+lockstat/tst.adaptiveprobes.d
+lockstat/tst.lockprof.spin.ksh
+lockstat/tst.lockprof.ticket.ksh
+lockstat/tst.rwprobes.d
+lockstat/tst.spinprobes.d
+lockstat/tst.ticketprobes.d
 misc/err.D_PRAGMA_OPTSET.d
 misc/tst.badopt.d
 misc/tst.boolopt.d
@@ -1092,4 +1098,5 @@ vars/tst.walltimestamp.d
 version/tst.1.0.d
 ../i386/pid/tst.nop.d
 ../i386/pid/tst.sse3.movshdup.d
+../i386/arrays/tst.vmregsarray.d
 

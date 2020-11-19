@@ -102,7 +102,7 @@ void paintFlow(const RenderBlockFlow& flow, const Layout& layout, PaintInfo& pai
 
     std::unique_ptr<ShadowData> debugShadow = nullptr;
     if (flow.settings().simpleLineLayoutDebugBordersEnabled()) {
-        debugShadow = makeUnique<ShadowData>(IntPoint(0, 0), 10, 20, ShadowStyle::Normal, true, Color(0, 255, 0, 200));
+        debugShadow = makeUnique<ShadowData>(IntPoint(0, 0), 10, 20, ShadowStyle::Normal, true, Color::green.colorWithAlphaByte(200));
         textPainter.setShadow(debugShadow.get());
     }
 
@@ -170,7 +170,7 @@ bool hitTestFlow(const RenderBlockFlow& flow, const Layout& layout, const HitTes
         if (!locationInContainer.intersects(lineRect))
             continue;
         renderer.updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
-        if (result.addNodeToListBasedTestResult(renderer.node(), request, locationInContainer, lineRect) == HitTestProgress::Stop)
+        if (result.addNodeToListBasedTestResult(renderer.nodeForHitTest(), request, locationInContainer, lineRect) == HitTestProgress::Stop)
             return true;
     }
     return false;
@@ -183,15 +183,6 @@ void collectFlowOverflow(RenderBlockFlow& flow, const Layout& layout)
         flow.addLayoutOverflow(LayoutRect(lineRect));
         flow.addVisualOverflow(visualOverflowRect);
     }
-}
-
-Vector<FloatQuad> collectAbsoluteQuads(const RenderObject& renderer, const Layout& layout, bool* wasFixed)
-{
-    Vector<FloatQuad> quads;
-    auto& resolver = layout.runResolver();
-    for (auto run : resolver.rangeForRenderer(renderer))
-        quads.append(renderer.localToAbsoluteQuad(FloatQuad(run.rect()), UseTransforms, wasFixed));
-    return quads;
 }
 
 unsigned textOffsetForPoint(const LayoutPoint& point, const RenderText& renderer, const Layout& layout)
@@ -209,12 +200,14 @@ unsigned textOffsetForPoint(const LayoutPoint& point, const RenderText& renderer
     return run.start() + style.fontCascade().offsetForPosition(textRun, point.x() - run.logicalLeft(), true);
 }
 
-Vector<FloatQuad> collectAbsoluteQuadsForRange(const RenderObject& renderer, unsigned start, unsigned end, const Layout& layout, bool* wasFixed)
+Vector<FloatQuad> collectAbsoluteQuadsForRange(const RenderObject& renderer, unsigned start, unsigned end, const Layout& layout, bool ignoreEmptyTextSelections, bool* wasFixed)
 {
     auto& style = downcast<RenderBlockFlow>(*renderer.parent()).style();
     Vector<FloatQuad> quads;
     auto& resolver = layout.runResolver();
     for (auto run : resolver.rangeForRendererWithOffsets(renderer, start, end)) {
+        if (ignoreEmptyTextSelections && run.start() == run.end())
+            continue;
         // This run is fully contained.
         if (start <= run.start() && end >= run.end()) {
             quads.append(renderer.localToAbsoluteQuad(FloatQuad(run.rect()), UseTransforms, wasFixed));
@@ -234,6 +227,7 @@ Vector<FloatQuad> collectAbsoluteQuadsForRange(const RenderObject& renderer, uns
         auto localEnd = std::min(run.end(), end) - run.start();
         ASSERT(localStart <= localEnd);
         style.fontCascade().adjustSelectionRectForText(textRun, runRect, localStart, localEnd);
+        runRect = snappedSelectionRect(runRect, run.logicalRight(), runRect.y(), runRect.height(), true /* isHorizontal */);
         quads.append(renderer.localToAbsoluteQuad(FloatQuad(runRect), UseTransforms, wasFixed));
     }
     return quads;
@@ -283,12 +277,12 @@ static void initializeInlineTextBox(RenderBlockFlow& flow, InlineTextBox& inline
     inlineTextBox.setExpansionWithoutGrowing(run.expansion());
 
     auto expansionBehavior = run.expansionBehavior();
-    inlineTextBox.setCanHaveLeadingExpansion(expansionBehavior & AllowLeadingExpansion);
-    inlineTextBox.setCanHaveTrailingExpansion(expansionBehavior & AllowTrailingExpansion);
-    if (expansionBehavior & ForceTrailingExpansion)
-        inlineTextBox.setForceTrailingExpansion();
-    if (expansionBehavior & ForceLeadingExpansion)
-        inlineTextBox.setForceLeadingExpansion();
+    inlineTextBox.setCanHaveLeftExpansion(expansionBehavior & AllowLeftExpansion);
+    inlineTextBox.setCanHaveRightExpansion(expansionBehavior & AllowRightExpansion);
+    if (expansionBehavior & ForceRightExpansion)
+        inlineTextBox.setForceRightExpansion();
+    if (expansionBehavior & ForceLeftExpansion)
+        inlineTextBox.setForceLeftExpansion();
 }
 
 void generateLineBoxTree(RenderBlockFlow& flow, const Layout& layout)

@@ -23,8 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
-
 #import "SecurityOrigin.h"
 #import <Foundation/NSURLSession.h>
 #import <wtf/HashSet.h>
@@ -32,6 +30,7 @@
 #import <wtf/OSObjectPtr.h>
 #import <wtf/RefPtr.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
 
 @class NSNetService;
 @class NSOperationQueue;
@@ -58,10 +57,10 @@ NS_ASSUME_NONNULL_BEGIN
 WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 @private
     RefPtr<WebCore::PlatformMediaResourceLoader> _loader;
-    RetainPtr<id<NSURLSessionDelegate>> _delegate;
+    WeakObjCPtr<id<NSURLSessionDelegate>> _delegate;
     RetainPtr<NSOperationQueue> _queue;
     RetainPtr<NSString> _sessionDescription;
-    HashSet<RetainPtr<CFTypeRef>> _dataTasks;
+    HashSet<RetainPtr<WebCoreNSURLSessionDataTask>> _dataTasks;
     HashSet<RefPtr<WebCore::SecurityOrigin>> _origins;
     Lock _dataTasksLock;
     BOOL _invalidated;
@@ -71,7 +70,7 @@ WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 }
 - (id)initWithResourceLoader:(WebCore::PlatformMediaResourceLoader&)loader delegate:(id<NSURLSessionTaskDelegate>)delegate delegateQueue:(NSOperationQueue*)queue;
 @property (readonly, retain) NSOperationQueue *delegateQueue;
-@property (nullable, readonly, retain) id <NSURLSessionDelegate> delegate;
+@property (nullable, readonly) id <NSURLSessionDelegate> delegate;
 @property (readonly, copy) NSURLSessionConfiguration *configuration;
 @property (copy) NSString *sessionDescription;
 @property (readonly) BOOL didPassCORSAccessChecks;
@@ -104,6 +103,10 @@ WEBCORE_EXPORT @interface WebCoreNSURLSession : NSObject {
 - (NSURLSessionDownloadTask *)downloadTaskWithRequest:(NSURLRequest *)request completionHandler:(void (^)(NSURL * location, NSURLResponse * response, NSError * error))completionHandler;
 - (NSURLSessionDownloadTask *)downloadTaskWithURL:(NSURL *)url completionHandler:(void (^)(NSURL * location, NSURLResponse * response, NSError * error))completionHandler;
 - (NSURLSessionDownloadTask *)downloadTaskWithResumeData:(NSData *)resumeData completionHandler:(void (^)(NSURL * location, NSURLResponse * response, NSError * error))completionHandler;
+@end
+
+@interface WebCoreNSURLSession (WebKitAwesomeness)
+- (void)sendH2Ping:(NSURL *)url pongHandler:(void (^)(NSError * _Nullable error, NSTimeInterval interval))pongHandler;
 @end
 
 @interface WebCoreNSURLSessionDataTask : NSObject {

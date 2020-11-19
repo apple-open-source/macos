@@ -27,6 +27,7 @@
 #import "keychain/ckks/CKKS.h"
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSTLKShareRecord.h"
+#import "keychain/ckks/CKKSSQLDatabaseObject.h"
 #import "keychain/ckks/CKKSPeer.h"
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 
@@ -58,13 +59,13 @@
                                                        viewList:self.managedViewList];
     XCTAssertNotNil(self.localPeer, "Should be able to make a new local peer");
 
-    self.remotePeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote"
+    self.remotePeer = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote1"
                                                    encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
                                                       signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
                                                         viewList:self.managedViewList];
     XCTAssertNotNil(self.remotePeer, "Should be able to make a new remote peer");
 
-    self.remotePeer2 = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote"
+    self.remotePeer2 = [[CKKSSOSSelfPeer alloc] initWithSOSPeerID:@"remote2"
                                                     encryptionKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
                                                        signingKey:[[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]]
                                                          viewList:self.managedViewList];
@@ -214,8 +215,12 @@
                                         error:&error];
     XCTAssertNil(error, "Should have been no error sharing a CKKSKey");
 
-    [share saveToDatabase:&error];
-    XCTAssertNil(error, "Shouldn't be an error saving a TLKShare record to the database");
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* saveError = nil;
+        [share saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "Shouldn't be an error saving a TLKShare record to the database");
+        return CKKSDatabaseTransactionCommit;
+    }];
 
     CKKSTLKShareRecord* loadedShare = [CKKSTLKShareRecord fromDatabase:self.tlk.uuid
                                             receiverPeerID:self.remotePeer.peerID
@@ -235,6 +240,58 @@
     XCTAssertNotNil(fromCKRecord, "Should be able to turn a CKRecord into a TLK share");
 
     XCTAssertEqualObjects(share, fromCKRecord, "TLK shares sent through CloudKit should be identical");
+}
+
+- (void)testKeyExtractFromTrustState {
+    NSError* error = nil;
+    CKKSTLKShareRecord* share = [CKKSTLKShareRecord share:self.tlk
+                                           as:self.remotePeer
+                                           to:self.localPeer
+                                        epoch:-1
+                                     poisoned:0
+                                        error:&error];
+    XCTAssertNotNil(share, "Should have a TLKShare");
+    XCTAssertNil(error, "Should have been no error sharing a CKKSKey from a remote peer to a local peer");
+
+    CKKSPeerProviderState* trustState = [[CKKSPeerProviderState alloc] initWithPeerProviderID:@"test-provider"
+                                                                                    essential:YES
+                                                                                    selfPeers:[[CKKSSelves alloc] initWithCurrent:self.localPeer allSelves:nil]
+                                                                               selfPeersError:nil
+                                                                                 trustedPeers:[NSSet setWithArray:@[
+                                                                                     self.localPeer,
+                                                                                     self.remotePeer,
+                                                                                     self.remotePeer2,
+                                                                                 ]]
+                                                                            trustedPeersError:nil];
+    CKKSKey* shareExtraction = [share recoverTLK:self.localPeer
+                                    trustedPeers:trustState.currentTrustedPeers
+                                           error:&error];
+    XCTAssertNotNil(shareExtraction, "Should be able to recover the share from the currently trusted peers");
+    XCTAssertNil(error, "Should be no error extracting TLK");
+
+    BOOL extracted = [trustState unwrapKey:self.tlk
+                                fromShares:@[share]
+                                     error:&error];
+
+    XCTAssertTrue(extracted, "Should be able to extract the TLK via a share");
+    XCTAssertNil(error, "Should be no error extracting TLK");
+
+    CKKSPeerProviderState* remotePeer2TrustState = [[CKKSPeerProviderState alloc] initWithPeerProviderID:@"test-provider"
+                                                                                               essential:YES
+                                                                                               selfPeers:[[CKKSSelves alloc] initWithCurrent:self.remotePeer2 allSelves:nil]
+                                                                                          selfPeersError:nil
+                                                                                            trustedPeers:[NSSet setWithArray:@[
+                                                                                                self.localPeer,
+                                                                                                self.remotePeer,
+                                                                                                self.remotePeer2,
+                                                                                            ]]
+                                                                                       trustedPeersError:nil];
+
+    BOOL remotePeerExtracted = [remotePeer2TrustState unwrapKey:self.tlk
+                                                     fromShares:@[share]
+                                                          error:&error];
+    XCTAssertFalse(remotePeerExtracted, "Should not be able to extract the TLK if there's no share to the self peer");
+    XCTAssertNotNil(error, "Should be an error when failing to extract TLK");
 }
 
 - (void)testKeyShareSignExtraFieldsInCKRecord {
@@ -282,8 +339,13 @@
     // And verify that saving to disk and reloading is successful
     share2.storedCKRecord = record;
     XCTAssert([share2 verifySignature:share2.signature verifyingPeer:self.localPeer error:&error], "Signature with extra data should verify");
-    [share2 saveToDatabase:&error];
-    XCTAssertNil(error, "No error saving share2 to database");
+
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* saveError = nil;
+        [share2 saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "No error saving share2 to database");
+        return CKKSDatabaseTransactionCommit;
+    }];
 
     CKKSTLKShareRecord* loadedShare2 = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:record.recordID error:&error];
     XCTAssertNil(error, "No error loading loadedShare2 from database");

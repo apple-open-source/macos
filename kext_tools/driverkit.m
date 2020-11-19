@@ -10,6 +10,8 @@
 #include <SystemExtensions/SystemExtensions.h>
 #include <SystemExtensions/SystemExtensions_Private.h>
 
+#include <xpc/private.h>
+
 #include "driverkit.h"
 #include "signposts.h"
 #include "security.h"
@@ -35,6 +37,7 @@ static OSSystemExtensionClient *gSysextClient = nil;
 bool submitJob(CFStringRef     serverName,
                CFNumberRef     serverTag,
                CFURLRef        executableURL,
+               mach_port_t     checkInPort,
                CFDictionaryRef extraEnvVars,
                Boolean         enableCoreDump,
                Boolean         asDriver)
@@ -140,6 +143,7 @@ bool submitJob(CFStringRef     serverName,
             "Could not create launchd job for dext.");
         goto finish;
     }
+    xpc_dictionary_set_mach_send(xjob, "_DextCheckInPort", checkInPort);
 
     ldrequest = xpc_dictionary_create(NULL, NULL, 0);
     if (!ldrequest) {
@@ -184,7 +188,7 @@ finish:
  * in kextd_request.c. It should only be called
  * AFTER all security and staging has taken place.
  */
-bool startUserExtension(OSKextRef aDext, CFStringRef serverName, CFNumberRef serverTag)
+bool startUserExtension(OSKextRef aDext, CFStringRef serverName, CFNumberRef serverTag, mach_port_t checkInPort)
 {
     bool            result        = false;
     bool            coreDumps     = false;
@@ -261,7 +265,7 @@ bool startUserExtension(OSKextRef aDext, CFStringRef serverName, CFNumberRef ser
         coreDumps    = (coreDumpsRef && CFEqual(coreDumpsRef, kCFBooleanTrue));
     }
 
-    if (!submitJob(serverName, serverTag, executableURL, envVars, coreDumps, asDriver)) {
+    if (!submitJob(serverName, serverTag, executableURL, checkInPort, envVars, coreDumps, asDriver)) {
         OSKextLog(aDext,
             kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
             "Unable to start user extension daemon.");

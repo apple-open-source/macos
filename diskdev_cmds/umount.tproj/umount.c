@@ -2,7 +2,7 @@
 # define _DARWIN_USE_64_BIT_INODE 1
 #endif
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -215,10 +215,10 @@ main(int argc, char *argv[])
 		}
 		break;
 	case 1:
-        if ((setup_fsent() == 0)) {
-            fprintf(stderr, "Can't get filesystem checklist: %s\n", strerror(errno));
-            exit(1);
-        }
+		if ((setfsent() == 0)) {
+			fprintf(stderr, "Can't get filesystem checklist: %s\n", strerror(errno));
+			exit(1);
+		}
 		errs = umountall(typelist);
 		break;
 	case 0:
@@ -234,11 +234,11 @@ int
 umountall(char **typelist)
 {
 	struct fstab *fs;
-    int rval;
-    size_t cp_len;
+	int rval;
+	size_t cp_len;
 	char *cp;
 
-	while ((fs = get_fsent()) != NULL) {
+	while ((fs = getfsent()) != NULL) {
 		/* Ignore the root. */
 		if (strcmp(fs->fs_file, "/") == 0)
 			continue;

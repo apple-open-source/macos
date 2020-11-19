@@ -586,7 +586,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUConverterPointer, UConverter, ucnv_close);
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Fills in the output parameter, subChars, with the substitution characters

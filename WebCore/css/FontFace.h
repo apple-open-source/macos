@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "ActiveDOMObject.h"
 #include "CSSFontFace.h"
 #include "CSSPropertyNames.h"
 #include "IDLTypes.h"
@@ -41,7 +42,7 @@ namespace WebCore {
 
 template<typename IDLType> class DOMPromiseProxyWithResolveCallback;
 
-class FontFace final : public RefCounted<FontFace>, public CanMakeWeakPtr<FontFace>, private CSSFontFace::Client {
+class FontFace final : public RefCounted<FontFace>, public CanMakeWeakPtr<FontFace>, public ActiveDOMObject, private CSSFontFace::Client {
 public:
     struct Descriptors {
         String style;
@@ -53,7 +54,7 @@ public:
     };
     
     using Source = Variant<String, RefPtr<JSC::ArrayBuffer>, RefPtr<JSC::ArrayBufferView>>;
-    static ExceptionOr<Ref<FontFace>> create(Document&, const String& family, Source&&, const Descriptors&);
+    static Ref<FontFace> create(Document&, const String& family, Source&&, const Descriptors&);
     static Ref<FontFace> create(CSSFontFace&);
     virtual ~FontFace();
 
@@ -77,8 +78,8 @@ public:
     LoadStatus status() const;
 
     using LoadedPromise = DOMPromiseProxyWithResolveCallback<IDLInterface<FontFace>>;
-    LoadedPromise& loaded() { return m_loadedPromise.get(); }
-    LoadedPromise& load();
+    LoadedPromise& loadedForBindings();
+    LoadedPromise& loadForBindings();
 
     void adopt(CSSFontFace&);
 
@@ -95,11 +96,16 @@ private:
     explicit FontFace(CSSFontSelector&);
     explicit FontFace(CSSFontFace&);
 
+    // ActiveDOMObject.
+    const char* activeDOMObjectName() const final;
+    bool virtualHasPendingActivity() const final;
+
     // Callback for LoadedPromise.
     FontFace& loadedPromiseResolve();
-
+    void setErrorState();
     Ref<CSSFontFace> m_backing;
     UniqueRef<LoadedPromise> m_loadedPromise;
+    bool m_mayLoadedPromiseBeScriptObservable { false };
 };
 
 }

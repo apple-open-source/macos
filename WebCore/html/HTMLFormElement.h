@@ -31,10 +31,6 @@
 #include <wtf/IsoMalloc.h>
 #include <wtf/WeakHashSet.h>
 
-#if ENABLE(IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
-#include "Autocapitalize.h"
-#endif
-
 namespace WebCore {
 
 class Event;
@@ -67,7 +63,7 @@ public:
     WEBCORE_EXPORT void setAutocomplete(const AtomString&);
     WEBCORE_EXPORT const AtomString& autocomplete() const;
 
-#if ENABLE(IOS_AUTOCORRECT_AND_AUTOCAPITALIZE)
+#if ENABLE(AUTOCORRECT)
     WEBCORE_EXPORT bool shouldAutocorrect() const final;
 #endif
 
@@ -119,7 +115,7 @@ public:
 
     RadioButtonGroups& radioButtonGroups() { return m_radioButtonGroups; }
 
-    WEBCORE_EXPORT const Vector<FormAssociatedElement*>& unsafeAssociatedElements() const;
+    WEBCORE_EXPORT const Vector<WeakPtr<HTMLElement>>& unsafeAssociatedElements() const;
     Vector<Ref<FormAssociatedElement>> copyAssociatedElementsVector() const;
     const Vector<WeakPtr<HTMLImageElement>>& imageElements() const { return m_imageElements; }
 
@@ -160,7 +156,9 @@ private:
 
     RefPtr<HTMLElement> elementFromPastNamesMap(const AtomString&) const;
     void addToPastNamesMap(FormNamedItem*, const AtomString& pastName);
+#if ASSERT_ENABLED
     void assertItemCanBeInPastNamesMap(FormNamedItem*) const;
+#endif
     void removeFromPastNamesMap(FormNamedItem*);
 
     bool matchesValidPseudoClass() const final;
@@ -168,17 +166,15 @@ private:
 
     void resetAssociatedFormControlElements();
 
-    typedef HashMap<RefPtr<AtomStringImpl>, FormNamedItem*> PastNamesMap;
-
     FormSubmission::Attributes m_attributes;
-    std::unique_ptr<PastNamesMap> m_pastNamesMap;
+    HashMap<AtomString, WeakPtr<HTMLElement>> m_pastNamesMap;
 
     RadioButtonGroups m_radioButtonGroups;
     mutable WeakPtr<HTMLFormControlElement> m_defaultButton;
 
     unsigned m_associatedElementsBeforeIndex { 0 };
     unsigned m_associatedElementsAfterIndex { 0 };
-    Vector<FormAssociatedElement*> m_associatedElements;
+    Vector<WeakPtr<HTMLElement>> m_associatedElements;
     Vector<WeakPtr<HTMLImageElement>> m_imageElements;
     WeakHashSet<HTMLFormControlElement> m_invalidAssociatedFormControls;
     WeakPtr<FormSubmission> m_plannedFormSubmission;

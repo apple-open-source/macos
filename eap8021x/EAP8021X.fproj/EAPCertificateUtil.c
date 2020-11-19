@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -559,7 +559,7 @@ EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
     SecTrustResultType 		trust_result;
 
     *ret_chain = NULL;
-    policy = SecPolicyCreateEAP(TRUE, NULL);
+    policy = SecPolicyCreateEAP(FALSE, NULL);
     if (policy == NULL) {
 	EAPLOG_FL(LOG_NOTICE, "SecPolicyCreateEAP failed");
 	goto done;
@@ -850,6 +850,25 @@ isA_SecIdentity(CFTypeRef obj)
     return (isA_CFType(obj, SecIdentityGetTypeID()));
 }
 
+CFStringRef
+EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert)
+{
+    const UInt8 *	bytes;
+    CFIndex		count;
+    CFIndex		i;
+    CFDataRef 		hash;
+    CFMutableStringRef	str;
+
+    hash = SecCertificateGetSHA1Digest(cert);
+    count = CFDataGetLength(hash);
+    bytes = CFDataGetBytePtr(hash);
+    str = CFStringCreateMutable(NULL, 0);
+    for (i = 0; i < count; i++) {
+	CFStringAppendFormat(str, NULL, CFSTR("%02x"), bytes[i]);
+    }
+    return (str);
+}
+
 #if TARGET_OS_IPHONE
 
 typedef CFArrayRef (*cert_names_func_t)(SecCertificateRef cert);
@@ -912,25 +931,6 @@ EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
 	dict = NULL;
     }
     return (dict);
-}
-
-CFStringRef
-EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert)
-{
-    const UInt8 *	bytes;
-    CFIndex		count;
-    CFIndex		i;
-    CFDataRef 		hash;
-    CFMutableStringRef	str;
-
-    hash = SecCertificateGetSHA1Digest(cert);
-    count = CFDataGetLength(hash);
-    bytes = CFDataGetBytePtr(hash);
-    str = CFStringCreateMutable(NULL, 0);
-    for (i = 0; i < count; i++) {
-	CFStringAppendFormat(str, NULL, CFSTR("%02x"), bytes[i]);
-    }
-    return (str);
 }
 
 #else /* TARGET_OS_IPHONE */

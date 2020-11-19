@@ -53,7 +53,7 @@ DumpData(const void *data, size_t len)
 			if (*tmp)
 				allzeroes = 0;
 		}
-		for (i = gap; i >= 0; i--) {
+		for (i = (int)gap; i >= 0; i--) {
 			printf("  ");
 			if (i % 2 == 1)
 				printf(" ");

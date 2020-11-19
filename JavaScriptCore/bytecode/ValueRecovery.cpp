@@ -26,8 +26,7 @@
 #include "config.h"
 #include "ValueRecovery.h"
 
-#include "CodeBlock.h"
-#include "JSCInlines.h"
+#include "JSCJSValueInlines.h"
 
 namespace JSC {
 
@@ -35,22 +34,22 @@ JSValue ValueRecovery::recover(CallFrame* callFrame) const
 {
     switch (technique()) {
     case DisplacedInJSStack:
-        return callFrame->r(virtualRegister().offset()).jsValue();
+        return callFrame->r(virtualRegister()).jsValue();
     case Int32DisplacedInJSStack:
-        return jsNumber(callFrame->r(virtualRegister().offset()).unboxedInt32());
+        return jsNumber(callFrame->r(virtualRegister()).unboxedInt32());
     case Int52DisplacedInJSStack:
-        return jsNumber(callFrame->r(virtualRegister().offset()).unboxedInt52());
+        return jsNumber(callFrame->r(virtualRegister()).unboxedInt52());
     case StrictInt52DisplacedInJSStack:
-        return jsNumber(callFrame->r(virtualRegister().offset()).unboxedStrictInt52());
+        return jsNumber(callFrame->r(virtualRegister()).unboxedStrictInt52());
     case DoubleDisplacedInJSStack:
-        return jsNumber(purifyNaN(callFrame->r(virtualRegister().offset()).unboxedDouble()));
+        return jsNumber(purifyNaN(callFrame->r(virtualRegister()).unboxedDouble()));
     case CellDisplacedInJSStack:
-        return callFrame->r(virtualRegister().offset()).unboxedCell();
+        return callFrame->r(virtualRegister()).unboxedCell();
     case BooleanDisplacedInJSStack:
 #if USE(JSVALUE64)
-        return callFrame->r(virtualRegister().offset()).jsValue();
+        return callFrame->r(virtualRegister()).jsValue();
 #else
-        return jsBoolean(callFrame->r(virtualRegister().offset()).unboxedBoolean());
+        return jsBoolean(callFrame->r(virtualRegister()).unboxedBoolean());
 #endif
     case Constant:
         return constant();
@@ -133,7 +132,7 @@ void ValueRecovery::dumpInContext(PrintStream& out, DumpContext* context) const
 
 void ValueRecovery::dump(PrintStream& out) const
 {
-    dumpInContext(out, 0);
+    dumpInContext(out, nullptr);
 }
 #endif // ENABLE(JIT)
 

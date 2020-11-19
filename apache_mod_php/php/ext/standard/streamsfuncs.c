@@ -295,6 +295,9 @@ PHP_FUNCTION(stream_socket_accept)
 		}
 		php_stream_to_zval(clistream, return_value);
 	} else {
+		if (peername) {
+			zend_string_release(peername);
+		}
 		php_error_docref(NULL, E_WARNING, "accept failed: %s", errstr ? ZSTR_VAL(errstr) : "Unknown error");
 		RETVAL_FALSE;
 	}
@@ -366,7 +369,7 @@ PHP_FUNCTION(stream_socket_sendto)
 		}
 	}
 
-	RETURN_LONG(php_stream_xport_sendto(stream, data, datalen, (int)flags, target_addr ? &sa : NULL, sl));
+	RETURN_LONG(php_stream_xport_sendto(stream, data, datalen, (int)flags, target_addr_len ? &sa : NULL, sl));
 }
 /* }}} */
 

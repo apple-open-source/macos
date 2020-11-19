@@ -32,7 +32,7 @@
 
 namespace JSC {
 
-class GetterSetterAccessCase : public ProxyableAccessCase {
+class GetterSetterAccessCase final : public ProxyableAccessCase {
 public:
     typedef ProxyableAccessCase Base;
     friend class AccessCase;
@@ -48,8 +48,8 @@ public:
     JSObject* customSlotBase() const { return m_customSlotBase.get(); }
     Optional<DOMAttributeAnnotation> domAttribute() const { return m_domAttribute; }
 
-    bool hasAlternateBase() const override;
-    JSObject* alternateBase() const override;
+    bool hasAlternateBase() const final;
+    JSObject* alternateBase() const final;
 
     void emitDOMJITGetter(AccessGenerationState&, const DOMJIT::GetterSetter*, GPRReg baseForGetGPR);
 
@@ -59,13 +59,13 @@ public:
         JSObject* customSlotBase, Optional<DOMAttributeAnnotation>, std::unique_ptr<PolyProtoAccessChain>);
 
     static std::unique_ptr<AccessCase> create(VM&, JSCell* owner, AccessType, Structure*, CacheableIdentifier, PropertyOffset,
-        const ObjectPropertyConditionSet&, std::unique_ptr<PolyProtoAccessChain>,
+        const ObjectPropertyConditionSet&, std::unique_ptr<PolyProtoAccessChain>, bool viaProxy = false,
         FunctionPtr<OperationPtrTag> customSetter = nullptr, JSObject* customSlotBase = nullptr);
 
-    void dumpImpl(PrintStream&, CommaPrinter&) const override;
-    std::unique_ptr<AccessCase> clone() const override;
+    void dumpImpl(PrintStream&, CommaPrinter&) const final;
+    std::unique_ptr<AccessCase> clone() const final;
 
-    ~GetterSetterAccessCase();
+    ~GetterSetterAccessCase() final;
 
     FunctionPtr<OperationPtrTag> customAccessor() const { return m_customAccessor; }
 

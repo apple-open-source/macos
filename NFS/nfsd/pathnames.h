@@ -82,6 +82,7 @@
 
 /* not really pathnames, but... */
 #define _NFSD_SERVICE_LABEL		"com.apple.nfsd"
+#define _NFSD_KICKSTART_LABEL		"system/com.apple.nfsd"
 #define _LOCKD_SERVICE_LABEL		"com.apple.lockd"
 #define _STATD_NOTIFY_SERVICE_LABEL	"com.apple.statd.notify"
 #define _STATD_SERVICE_LABEL		"com.apple.statd"

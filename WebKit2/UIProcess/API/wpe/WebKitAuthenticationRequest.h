@@ -26,6 +26,7 @@
 
 #include <wpe/WebKitCredential.h>
 #include <wpe/WebKitDefines.h>
+#include <wpe/WebKitSecurityOrigin.h>
 
 G_BEGIN_DECLS
 
@@ -91,14 +92,25 @@ webkit_authentication_request_get_type                (void);
 WEBKIT_API gboolean
 webkit_authentication_request_can_save_credentials    (WebKitAuthenticationRequest *request);
 
+WEBKIT_API void
+webkit_authentication_request_set_can_save_credentials(WebKitAuthenticationRequest *request,
+                                                       gboolean                     enabled);
+
 WEBKIT_API WebKitCredential *
 webkit_authentication_request_get_proposed_credential (WebKitAuthenticationRequest *request);
+
+WEBKIT_API void
+webkit_authentication_request_set_proposed_credential (WebKitAuthenticationRequest *request,
+                                                       WebKitCredential            *credential);
 
 WEBKIT_API const gchar *
 webkit_authentication_request_get_host                (WebKitAuthenticationRequest *request);
 
 WEBKIT_API guint
 webkit_authentication_request_get_port                (WebKitAuthenticationRequest *request);
+
+WEBKIT_API WebKitSecurityOrigin *
+webkit_authentication_request_get_security_origin     (WebKitAuthenticationRequest *request);
 
 WEBKIT_API const gchar *
 webkit_authentication_request_get_realm               (WebKitAuthenticationRequest *request);

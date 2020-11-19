@@ -17,7 +17,7 @@ static uint8_t descriptor[] = {
     HIDKeyboardDescriptor
 };
 
-static int _setReportCount;
+static int _setCapsLockCount;
 static int _getReportCount;
 static int _queueCallbackCount;
 static int _removalCallbackCount;
@@ -39,7 +39,7 @@ static HIDKeyboardDescriptorInputReport _inputReportBuffer;
 {
     [super setUp];
     
-    _setReportCount = 0;
+    _setCapsLockCount = 0;
     _getReportCount = 0;
     _queueCallbackCount = 0;
     _removalCallbackCount = 0;
@@ -92,9 +92,12 @@ static HIDKeyboardDescriptorInputReport _inputReportBuffer;
     {
         
         NSData *reportData = [[NSData alloc] initWithBytes:report length:reportLength];
+        const HIDKeyboardDescriptorOutputReport *kbReport = [reportData bytes];
         
-        NSLog(@"Set Report Count type : %d  ID : %ld report : %@ count %d",(int)type, reportID, reportData, _setReportCount);
-        _setReportCount++;
+        NSLog(@"Set Report Count type : %d  ID : %ld report : %@ count %d",(int)type, reportID, reportData, _setCapsLockCount);
+        if (kbReport->LED_KeyboardCapsLock == 1) {
+            _setCapsLockCount++;
+        }
         return kIOReturnSuccess;
     }];
     
@@ -227,28 +230,17 @@ static void _inputReportCallback(void *target __unused,
                                NULL,
                                NULL,
                                NULL);
-    
-    // Additional report is backboard attempt to set intial value 0
-    // 57612353
-    NSLog(@"set report ret %x count %d",ret, _setReportCount);
-#if TARGET_OS_OSX
-    XCTAssert(ret == kIOReturnSuccess && _setReportCount == 1);
-#else
-    XCTAssert(ret == kIOReturnSuccess && _setReportCount == 2);
-#endif
+
+    NSLog(@"set report ret %x count %d",ret, _setCapsLockCount);
+    XCTAssert(ret == kIOReturnSuccess && _setCapsLockCount == 1);
 
     ret = (*device)->getElementValue(device, cookie, &eventStruct);
     XCTAssert(ret == kIOReturnSuccess && eventStruct.value == 1);
     
 
     ret = (*device)->setElementValue(device, cookie, &eventStruct, 0, 0, 0, 0);
-    NSLog(@"set element ret %x count %d",ret, _setReportCount);
-    // Additinal report is backboardd trying to set capslock 0 on seeing keyboard device with given usage
-#if TARGET_OS_OSX
-    XCTAssert(ret == kIOReturnSuccess && _setReportCount == 2);
-#else
-    XCTAssert(ret == kIOReturnSuccess && _setReportCount == 3);
-#endif
+    NSLog(@"set element ret %x count %d",ret, _setCapsLockCount);
+    XCTAssert(ret == kIOReturnSuccess && _setCapsLockCount == 2);
     
     kbdReport.LED_KeyboardCapsLock = 0;
     ret = (*device)->getReport(device,
@@ -324,6 +316,7 @@ static void _inputReportCallback(void *target __unused,
     NSLog(@"_queueCallbackCount  %d, _inputReportCount %d",_queueCallbackCount, _inputReportCount);
     XCTAssert(_queueCallbackCount == 2);
     XCTAssert(_inputReportCount == 2);
+    XCTAssert(_setCapsLockCount == 3);
     
     ret = (*queue)->stop(queue);
     XCTAssert(ret == kIOReturnSuccess);
@@ -411,13 +404,8 @@ static void _inputReportCallback(void *target __unused,
     XCTAssert(ret == kIOReturnSuccess);
     
     ret = (*transaction)->commit(transaction, 0, 0, 0, 0);
-    NSLog(@"commit  ret %x count %d",ret, _setReportCount);
-    // Additinal report is backboardd trying to set capslock state for keyboard device
-#if TARGET_OS_OSX
-    XCTAssert(ret == kIOReturnSuccess && _setReportCount == 3);
-#else
-    XCTAssert(ret == kIOReturnSuccess && _setReportCount == 4);
-#endif
+    NSLog(@"commit  ret %x count %d",ret, _setCapsLockCount);
+    XCTAssert(ret == kIOReturnSuccess && _setCapsLockCount == 4);
     
     ret = (*transaction)->getElementValue(transaction, cookie, &eventStruct);
     XCTAssert(ret == kIOReturnSuccess && eventStruct.value ==1 );

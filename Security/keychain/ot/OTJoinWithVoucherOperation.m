@@ -53,8 +53,6 @@
                        intendedState:(OctagonState*)intendedState
                    ckksConflictState:(OctagonState*)ckksConflictState
                           errorState:(OctagonState*)errorState
-                         voucherData:(NSData*)voucherData
-                          voucherSig:(NSData*)voucherSig
 {
     if((self = [super init])) {
         _deps = dependencies;
@@ -63,22 +61,39 @@
         _nextState = errorState;
         _ckksConflictState = ckksConflictState;
 
-        _voucherData = voucherData;
-        _voucherSig = voucherSig;
+        _peerID = nil;
+        _voucherData = nil;
+        _voucherSig = nil;
     }
     return self;
 }
 
 - (void)groupStart
 {
-    secnotice("octagon", "joining");
+    // Load the voucher from the state handler
+    NSError* error = nil;
+    OTAccountMetadataClassC* metadata = [self.deps.stateHolder loadOrCreateAccountMetadata:&error];
+
+    if(!metadata.voucher || !metadata.voucherSignature || error) {
+        secnotice("octagon", "No voucher available: %@", error);
+        self.error = error;
+        return;
+    }
+
+    self.voucherData = metadata.voucher;
+    self.voucherSig = metadata.voucherSignature;
+
+    secnotice("octagon", "joining with a voucher: %@", self.voucherData);
 
     self.finishedOp = [[NSOperation alloc] init];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
 
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
+                                                                                     refetchNeeded:NO];
+    // We only care about TLKs that are ready for upload. Don't wait long.
+    fetchKeysOp.desiredTimeout = 2*NSEC_PER_SEC;
     [self runBeforeGroupFinished:fetchKeysOp];
 
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"vouch-with-keys"
@@ -120,8 +135,7 @@
                                       preapprovedKeys:publicSigningSPKIs
                                                 reply:^(NSString * _Nullable peerID,
                                                         NSArray<CKRecord*>* keyHierarchyRecords,
-                                                        NSSet<NSString*>* _Nullable syncingViews,
-                                                        TPPolicy* _Nullable syncingPolicy,
+                                                        TPSyncingPolicy* _Nullable syncingPolicy,
                                                         NSError * _Nullable error) {
             STRONGIFY(self);
             if(error){
@@ -144,14 +158,17 @@
 
                 [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventJoinWithVoucher];
 
-                [self.deps.viewManager setSyncingViews:syncingViews sortingPolicy:syncingPolicy];
+                [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
 
                 NSError* localError = nil;
                 BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
                     metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
                     metadata.peerID = peerID;
-                    metadata.syncingViews = [syncingViews mutableCopy];
-                    [metadata setTPPolicy:syncingPolicy];
+
+                    metadata.voucher = nil;
+                    metadata.voucherSignature = nil;
+
+                    [metadata setTPSyncingPolicy:syncingPolicy];
                     return metadata;
                 } error:&localError];
                 if(!persisted || localError) {

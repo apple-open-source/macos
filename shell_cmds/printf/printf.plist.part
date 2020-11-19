@@ -2,15 +2,16 @@
 		<key>OpenSourceProject</key>
 		<string>printf</string>
 		<key>OpenSourceVersion</key>
-		<string>2015-03-01</string>
+		<string>2020-07-01</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://svnweb.freebsd.org/base/head/usr.bin/printf/</string>
+		<string>https://github.com/freebsd/freebsd/tree/master/usr.bin/printf</string>
 		<key>OpenSourceSCM</key>
-		<string>svn co http://svn.freebsd.org/base/head/usr.bin/printf/</string>
+		<string>https://github.com/freebsd/freebsd/tree/master/usr.bin/printf</string>
 		<key>OpenSourceImportDate</key>
-		<string>2015-07-23</string>
+		<string>2020-07-23</string>
 		<key>OpenSourceModifications</key>
 		<array>
+			<string>65959587: UNIX Conformance | /usr/bin/printf, multiple format assertion failures in VSC</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>bsd</string>

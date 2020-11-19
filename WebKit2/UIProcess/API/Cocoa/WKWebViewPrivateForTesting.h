@@ -26,6 +26,12 @@
 #import "WKWebViewPrivateForTestingIOS.h"
 #import "WKWebViewPrivateForTestingMac.h"
 
+typedef enum {
+    WKWebViewAudioRoutingArbitrationStatusNone,
+    WKWebViewAudioRoutingArbitrationStatusPending,
+    WKWebViewAudioRoutingArbitrationStatusActive,
+} WKWebViewAudioRoutingArbitrationStatus;
+
 @interface WKWebView (WKTesting)
 
 - (void)_setPageScale:(CGFloat)scale withOrigin:(CGPoint)origin;
@@ -45,6 +51,7 @@
 
 - (BOOL)_beginBackSwipeForTesting;
 - (BOOL)_completeBackSwipeForTesting;
+- (void)_resetNavigationGestureStateForTesting;
 - (void)_setDefersLoadingForTesting:(BOOL)defersLoading;
 
 - (void)_setShareSheetCompletesImmediatelyWithResolutionForTesting:(BOOL)resolved;
@@ -53,11 +60,19 @@
 
 @property (nonatomic, setter=_setScrollingUpdatesDisabledForTesting:) BOOL _scrollingUpdatesDisabledForTesting;
 
+- (void)_processWillSuspendForTesting:(void (^)(void))completionHandler;
 - (void)_processWillSuspendImminentlyForTesting;
 - (void)_processDidResumeForTesting;
 @property (nonatomic, readonly) BOOL _hasServiceWorkerBackgroundActivityForTesting;
 @property (nonatomic, readonly) BOOL _hasServiceWorkerForegroundActivityForTesting;
-- (void)_setAssertionStateForTesting:(int)state;
+- (void)_setAssertionTypeForTesting:(int)type;
 
 - (void)_doAfterProcessingAllPendingMouseEvents:(dispatch_block_t)action;
+
++ (void)_setApplicationBundleIdentifier:(NSString *)bundleIdentifier;
++ (void)_clearApplicationBundleIdentifierTestingOverride;
+
+- (BOOL)_hasSleepDisabler;
+- (WKWebViewAudioRoutingArbitrationStatus)_audioRoutingArbitrationStatus;
+- (double)_audioRoutingArbitrationUpdateTime;
 @end

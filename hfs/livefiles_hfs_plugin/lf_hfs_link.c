@@ -558,7 +558,7 @@ hfs_privatedir_init(struct hfsmount * hfsmp, enum privdirtype type)
 
     /* Get the CNID for use */
     cnid_t new_id;
-    if ((error = cat_acquire_cnid(hfsmp, &new_id))) {
+    if (cat_acquire_cnid(hfsmp, &new_id)) {
         hfs_systemfile_unlock (hfsmp, lockflags);
         goto exit;
     }

@@ -75,7 +75,6 @@ namespace WebKit {
 using namespace WebCore;
 
 WebKitProtocolHandler::WebKitProtocolHandler(WebKitWebContext* context)
-    : m_context(context)
 {
     webkit_web_context_register_uri_scheme(context, "webkit", [](WebKitURISchemeRequest* request, gpointer userData) {
         static_cast<WebKitProtocolHandler*>(userData)->handleRequest(request);
@@ -287,7 +286,14 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
         "  <td><div class=\"titlename\">Type</div></td>"
         "  <td>%s</td>"
         " </tbody></tr>",
-        PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland ? "Wayland" : "X11");
+#if PLATFORM(WAYLAND)
+        PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland ? "Wayland" :
+#endif
+#if PLATFORM(X11)
+        PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::X11 ? "X11" :
+#endif
+        "Unknown"
+    );
 #endif
 
     auto rect = IntRect(screenRect(nullptr));
@@ -340,6 +346,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
         " </tbody></tr>",
         hardwareAccelerationPolicy(request));
 
+#if ENABLE(GRAPHICS_CONTEXT_GL)
     g_string_append_printf(html,
         " <tbody><tr>"
         "  <td><div class=\"titlename\">WebGL enabled</div></td>"
@@ -473,6 +480,7 @@ void WebKitProtocolHandler::handleGPU(WebKitURISchemeRequest* request)
             eglQueryString(eglDisplay, EGL_EXTENSIONS));
     }
 #endif
+#endif // ENABLE(GRAPHICS_CONTEXT_GL)
 
     g_string_append(html, "<table>");
 

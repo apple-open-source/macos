@@ -603,7 +603,7 @@ ALUTAPI ALvoid ALUTAPIENTRY alutLoadWAVMemory(ALbyte *memory,ALenum *format,ALvo
 							memset(*data,0,ChunkHdr.Size+31);
 						}
 						else{
-							realloc(*data,ChunkHdr.Size + 31);
+							*data = realloc(*data,ChunkHdr.Size + 31);
 							memset(*data,0,ChunkHdr.Size+31);
 						}
 						if (*data) 
@@ -782,42 +782,3 @@ AL_API ALvoid AL_APIENTRY alExit(void)
 #ifdef __cplusplus
 }
 #endif
-
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#pragma mark ***** OALRingBuffer *****
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// count the leading zeroes in a word
-static __inline__ int CountLeadingZeroes(int arg) {
-
-#if TARGET_CPU_X86 || TARGET_CPU_X86_64
-	__asm__ volatile(
-				"bsrl %0, %0\n\t"
-				"movl $63, %%ecx\n\t"
-				"cmove %%ecx, %0\n\t"
-				"xorl $31, %0" 
-				: "=r" (arg) 
-				: "0" (arg)
-			);
-#elif TARGET_CPU_PPC || TARGET_CPU_PPC64	
-	__asm__ volatile("cntlzw %0, %1" : "=r" (arg) : "r" (arg));
-#else
-	#error "ERROR - assembly instructions for counting leading zeroes not present"
-#endif
-         return arg;
-}
-
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// base 2 log of next power of two greater or equal to x
-inline UInt32 Log2Ceil(UInt32 x)
-{
-	return 32 - CountLeadingZeroes(x - 1);
-}
-
-// ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-// next power of two greater or equal to x
-inline UInt32 NextPowerOfTwo(UInt32 x)
-{
-	return 1L << Log2Ceil(x);
-}

@@ -49,7 +49,7 @@ public:
 	SECCFFUNCTIONS(SecCode, SecCodeRef, errSecCSInvalidObjectRef, gCFObjects().Code)
 
 	SecCode(SecCode *host);
-    virtual ~SecCode() throw();
+    virtual ~SecCode() _NOEXCEPT;
 	
     bool equal(SecCFObject &other);
     CFHashCode hash();

@@ -50,7 +50,7 @@
 #include <security_keychain/KCCursor.h>
 #include <security_ocspd/ocspdClient.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <dispatch/dispatch.h>
 #include <sys/stat.h>
 #include <syslog.h>
@@ -1017,6 +1017,14 @@ CFDateRef TrustSettings::copyModDate(
 	/* this only works becuase there is no mutable CFDateRef */
 	CFRetain(modDate);
 	return modDate;
+}
+
+bool TrustSettings::contains(SecCertificateRef certRef)
+{
+    if(findDictionaryForCert(certRef) != NULL) {
+        return true;
+    }
+    return false;
 }
 
 /*

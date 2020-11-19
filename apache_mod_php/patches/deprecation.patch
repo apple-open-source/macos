@@ -1,0 +1,110 @@
+--- /php/configure.orig	2019-11-19 02:24:52.000000000 -0800
++++ php/configure	2019-12-16 11:39:48.000000000 -0800
+@@ -780,6 +780,7 @@
+ AR
+ ECHO
+ PHP_VERSION_ID
++PHP_DEPRECATION_NOTICE
+ PHP_VERSION
+ PHP_LIBS
+ PHP_LDFLAGS
+@@ -3664,9 +3665,10 @@
+ PHP_MAJOR_VERSION=7
+ PHP_MINOR_VERSION=3
+ PHP_RELEASE_VERSION=22
+-PHP_EXTRA_VERSION=""
++PHP_EXTRA_VERSION="-(to be removed in future macOS)"
+ PHP_VERSION="$PHP_MAJOR_VERSION.$PHP_MINOR_VERSION.$PHP_RELEASE_VERSION$PHP_EXTRA_VERSION"
+ PHP_VERSION_ID=`expr $PHP_MAJOR_VERSION \* 10000 + $PHP_MINOR_VERSION \* 100 + $PHP_RELEASE_VERSION`
++PHP_DEPRECATION_NOTICE="WARNING: PHP is not recommended\\\\nPHP is included in macOS for compatibility with legacy software.\\\\nFuture versions of macOS will not include PHP."
+ 
+ 
+   PHP_VAR_SUBST="$PHP_VAR_SUBST PHP_MAJOR_VERSION"
+@@ -3691,6 +3693,7 @@
+ echo "#define PHP_EXTRA_VERSION \"$PHP_EXTRA_VERSION\"" >> php_version.h.new
+ echo "#define PHP_VERSION \"$PHP_VERSION\"" >> php_version.h.new
+ echo "#define PHP_VERSION_ID $PHP_VERSION_ID" >> php_version.h.new
++echo "#define PHP_DEPRECATION_NOTICE \"$PHP_DEPRECATION_NOTICE\"" >> php_version.h.new
+ cmp php_version.h.new $srcdir/main/php_version.h >/dev/null 2>&1
+ if test $? -ne 0 ; then
+   rm -f $srcdir/main/php_version.h && mv php_version.h.new $srcdir/main/php_version.h && \
+
+--- php/configure.ac.orig	2019-11-19 02:24:52.000000000 -0800
++++ php/configure.ac	2019-12-16 11:40:09.000000000 -0800
+@@ -108,9 +108,10 @@
+ PHP_MAJOR_VERSION=7
+ PHP_MINOR_VERSION=3
+ PHP_RELEASE_VERSION=22
+-PHP_EXTRA_VERSION=""
++PHP_EXTRA_VERSION="-(to be removed in future macOS)"
+ PHP_VERSION="$PHP_MAJOR_VERSION.$PHP_MINOR_VERSION.$PHP_RELEASE_VERSION$PHP_EXTRA_VERSION"
+ PHP_VERSION_ID=`expr [$]PHP_MAJOR_VERSION \* 10000 + [$]PHP_MINOR_VERSION \* 100 + [$]PHP_RELEASE_VERSION`
++PHP_DEPRECATION_NOTICE="WARNING: PHP is not recommended\\\\nPHP is included in macOS for compatibility with legacy software.\\\\nFuture versions of macOS will not include PHP."
+ 
+ dnl Allow version values to be used in Makefile
+ PHP_SUBST(PHP_MAJOR_VERSION)
+
+--- php/sapi/cli/php.1.in.orig	2019-11-19 02:24:52.000000000 -0800
++++ php/sapi/cli/php.1.in	2019-12-16 10:59:30.000000000 -0800
+@@ -453,6 +453,9 @@
+ contributors all around the world.
+ .SH VERSION INFORMATION
+ This manpage describes \fBphp\fP, version @PHP_VERSION@.
++
++WARNING: PHP is included in macOS for compatibility with legacy software.
++Future versions of macOS will not include PHP.
+ .SH COPYRIGHT
+ Copyright \(co 1997\-2018 The PHP Group
+ .LP
+--- php/sapi/cli/php_cli.c.orig	2019-11-19 02:24:52.000000000 -0800
++++ php/sapi/cli/php_cli.c	2019-12-15 18:02:43.000000000 -0800
+@@ -683,8 +683,8 @@
+ 				goto out;
+ 
+ 			case 'v': /* show php version & quit */
+-				php_printf("PHP %s (%s) (built: %s %s) ( %s)\nCopyright (c) 1997-2018 The PHP Group\n%s",
+-					PHP_VERSION, cli_sapi_module.name, __DATE__, __TIME__,
++				php_printf("%s\nPHP %s (%s) (built: %s %s) ( %s)\nCopyright (c) 1997-2018 The PHP Group\n%s",
++					PHP_DEPRECATION_NOTICE, PHP_VERSION, cli_sapi_module.name, __DATE__, __TIME__,
+ #if ZTS
+ 					"ZTS "
+ #else
+--- php/sapi/fpm/fpm/fpm_main.c.orig	2019-11-19 02:24:52.000000000 -0800
++++ php/sapi/fpm/fpm/fpm_main.c	2019-12-15 18:03:46.000000000 -0800
+@@ -1730,7 +1730,7 @@
+ #if ZEND_DEBUG
+ 				php_printf("PHP %s (%s) (built: %s %s) (DEBUG)\nCopyright (c) 1997-2018 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__,        __TIME__, get_zend_version());
+ #else
+-				php_printf("PHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2018 The PHP Group\n%s", PHP_VERSION, sapi_module.name, __DATE__, __TIME__,      get_zend_version());
++				php_printf("%s\nPHP %s (%s) (built: %s %s)\nCopyright (c) 1997-2018 The PHP Group\n%s", PHP_DEPRECATION_NOTICE, PHP_VERSION, sapi_module.name, __DATE__, __TIME__,      get_zend_version());
+ #endif
+ 				php_request_shutdown((void *) 0);
+ 				fcgi_shutdown();
+--- php/sapi/fpm/php-fpm.8.in.orig	2019-11-19 02:24:52.000000000 -0800
++++ php/sapi/fpm/php-fpm.8.in	2019-12-16 11:01:11.000000000 -0800
+@@ -212,6 +212,10 @@
+ contributors all around the world.
+ .SH VERSION INFORMATION
+ This manpage describes \fBphp-fpm\fP, version @PHP_VERSION@.
++
++WARNING: PHP is included in macOS for compatibility with legacy software.
++Future versions of macOS will not include PHP.
++
+ .SH COPYRIGHT
+ Copyright \(co 1997\-2018 The PHP Group
+ .PD 0
+
+--- php/scripts/man1/phpize.1.in.orig	2019-11-19 02:24:52.000000000 -0800
++++ php/scripts/man1/phpize.1.in	2019-12-16 12:29:39.000000000 -0800
+@@ -31,6 +31,10 @@
+ .BR @program_prefix@php (1)
+ .SH VERSION INFORMATION
+ This manpage describes \fBphp\fP, version @PHP_VERSION@.
++
++WARNING: PHP is not recommended.
++PHP is included in macOS for compatibility with legacy software.
++Future versions of macOS will not include PHP.
+ .SH COPYRIGHT
+ Copyright \(co 1997\-2018 The PHP Group
+ .LP
+

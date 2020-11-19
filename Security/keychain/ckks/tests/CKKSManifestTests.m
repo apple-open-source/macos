@@ -53,7 +53,7 @@
     NSMutableArray* items = [[NSMutableArray alloc] init];
     __weak __typeof(self) weakSelf = self;
     __block NSError* error = nil;
-    [self.keychainView dispatchSync:^bool(void) {
+    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         for (CKRecord* record in records) {
             CKKSMirrorEntry* mirrorEntry = [CKKSMirrorEntry tryFromDatabase:record.recordID.recordName zoneID:weakSelf.keychainZoneID error:&error];
             XCTAssertNil(error, @"error encountered trying to generate CKKSMirrorEntry: %@", error);
@@ -63,7 +63,7 @@
             }
         }
         
-        return YES;
+        return CKKSDatabaseTransactionCommit;
     }];
     
     return items;
@@ -82,11 +82,11 @@
     SFECKeyPair* keyPair = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
     [CKKSManifestInjectionPointHelper registerEgoPeerID:@"MeMyselfAndI" keyPair:keyPair];
 
-    // Always sync manifests, and never enforce them
-    SecCKKSSetSyncManifests(true);
+    // We've now disabled manifests.
+    SecCKKSSetSyncManifests(false);
     SecCKKSSetEnforceManifests(false);
 
-    XCTAssertTrue([CKKSManifest shouldSyncManifests], "Manifests syncing is enabled");
+    XCTAssertFalse([CKKSManifest shouldSyncManifests], "Manifests syncing is disabled");
     XCTAssertFalse([CKKSManifest shouldEnforceManifests], "Manifests enforcement is disabled");
 
     NSError* error = nil;
@@ -280,9 +280,7 @@
         [self.keychainZone addToZone:record];
     }
     
-    // Trigger a notification (with hilariously fake data)
-    [self.keychainView notifyZoneChange:nil];
-    
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
     
     return query;
@@ -329,12 +327,15 @@
 
 - (void)testSaveManifestWithNilValues
 {
-    SFECKeyPair* keyPair = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
-    CKKSManifest* manifest = [CKKSEgoManifest newFakeManifestForZone:@"SomeZone" withItemRecords:@[] currentItems:@{} signerID:@"BadBoy" keyPair:keyPair error:nil];
-    [manifest nilAllIvars];
-    XCTAssertNil(manifest.zoneID);
-    XCTAssertNil(manifest.signerID);
-    XCTAssertNoThrow([manifest saveToDatabase:nil]);
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        SFECKeyPair* keyPair = [[SFECKeyPair alloc] initRandomKeyPairWithSpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
+        CKKSManifest* manifest = [CKKSEgoManifest newFakeManifestForZone:@"SomeZone" withItemRecords:@[] currentItems:@{} signerID:@"BadBoy" keyPair:keyPair error:nil];
+        [manifest nilAllIvars];
+        XCTAssertNil(manifest.zoneID);
+        XCTAssertNil(manifest.signerID);
+        XCTAssertNoThrow([manifest saveToDatabase:nil]);
+        return CKKSDatabaseTransactionRollback;
+    }];
 }
 
 @end

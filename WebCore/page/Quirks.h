@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,8 +32,10 @@ namespace WebCore {
 
 class Document;
 class Element;
+class EventListener;
 class EventTarget;
 class HTMLElement;
+class HTMLVideoElement;
 class LayoutUnit;
 
 class Quirks {
@@ -42,12 +44,15 @@ public:
     Quirks(Document&);
     ~Quirks();
 
+    bool shouldSilenceWindowResizeEvents() const;
+    bool shouldSilenceMediaQueryListChangeEvents() const;
     bool shouldIgnoreInvalidSignal() const;
     bool needsFormControlToBeMouseFocusable() const;
     bool needsAutoplayPlayPauseEvents() const;
     bool needsSeekingSupportDisabled() const;
     bool needsPerDocumentAutoplayBehavior() const;
     bool shouldAutoplayForArbitraryUserGesture() const;
+    bool shouldAutoplayWebAudioForArbitraryUserGesture() const;
     bool hasBrokenEncryptedMediaAPISupportQuirk() const;
     bool shouldStripQuotationMarkInFontFaceSetFamily() const;
 #if ENABLE(TOUCH_EVENTS)
@@ -55,11 +60,18 @@ public:
     bool shouldDispatchedSimulatedMouseEventsAssumeDefaultPrevented(EventTarget*) const;
     Optional<Event::IsCancelable> simulatedMouseEventTypeForTarget(EventTarget*) const;
     bool shouldMakeTouchEventNonCancelableForTarget(EventTarget*) const;
+    bool shouldPreventPointerMediaQueryFromEvaluatingToCoarse() const;
+    bool shouldPreventDispatchOfTouchEvent(const AtomString&, EventTarget*) const;
+#endif
+#if ENABLE(IOS_TOUCH_EVENTS)
+    WEBCORE_EXPORT bool shouldSynthesizeTouchEvents() const;
 #endif
     bool shouldDisablePointerEventsQuirk() const;
     bool needsInputModeNoneImplicitly(const HTMLElement&) const;
     bool needsDeferKeyDownAndKeyPressTimersUntilNextEditingCommand() const;
     bool shouldDisableContentChangeObserverTouchEventAdjustment() const;
+
+    bool needsMillisecondResolutionForHighResTimeStamp() const;
 
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
     WEBCORE_EXPORT bool shouldSuppressAutocorrectionAndAutocaptializationInHiddenEditableAreas() const;
@@ -69,6 +81,8 @@ public:
     WEBCORE_EXPORT bool shouldAvoidScrollingWhenFocusedContentIsVisible() const;
     WEBCORE_EXPORT bool shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation() const;
     WEBCORE_EXPORT bool shouldIgnoreAriaForFastPathContentObservationCheck() const;
+    WEBCORE_EXPORT bool shouldLayOutAtMinimumWindowWidthWhenIgnoringScalingConstraints() const;
+    WEBCORE_EXPORT bool shouldIgnoreContentObservationForSyntheticClick(bool isFirstSyntheticClickOnPage) const;
 
     WEBCORE_EXPORT bool needsYouTubeMouseOutQuirk() const;
     
@@ -76,17 +90,34 @@ public:
 
     bool needsGMailOverflowScrollQuirk() const;
     bool needsYouTubeOverflowScrollQuirk() const;
+    bool needsFullscreenDisplayNoneQuirk() const;
 
     bool shouldOpenAsAboutBlank(const String&) const;
 
     bool needsPreloadAutoQuirk() const;
-    bool needsFullWidthHeightFullscreenStyleQuirk() const;
 
     bool shouldBypassBackForwardCache() const;
+    bool shouldBypassAsyncScriptDeferring() const;
+
+    static bool shouldMakeEventListenerPassive(const EventTarget&, const AtomString& eventType, const EventListener&);
 
 #if ENABLE(MEDIA_STREAM)
     bool shouldEnableLegacyGetUserMedia() const;
 #endif
+
+    bool shouldDisableElementFullscreenQuirk() const;
+
+    bool needsCanPlayAfterSeekedQuirk() const;
+
+    bool shouldAvoidPastingImagesAsWebContent() const;
+
+    enum StorageAccessResult : bool { ShouldNotCancelEvent, ShouldCancelEvent };
+    StorageAccessResult triggerOptionalStorageAccessQuirk(const Element&, const AtomString& eventType) const;
+
+    bool needsVP9FullRangeFlagQuirk() const;
+    bool needsHDRPixelDepthQuirk() const;
+    
+    bool needsAkamaiMediaPlayerQuirk(const HTMLVideoElement&) const;
 
 private:
     bool needsQuirks() const;
@@ -104,7 +135,20 @@ private:
     mutable Optional<bool> m_needsGMailOverflowScrollQuirk;
     mutable Optional<bool> m_needsYouTubeOverflowScrollQuirk;
     mutable Optional<bool> m_needsPreloadAutoQuirk;
+    mutable Optional<bool> m_needsFullscreenDisplayNoneQuirk;
+    mutable Optional<bool> m_shouldAvoidPastingImagesAsWebContent;
 #endif
+    mutable Optional<bool> m_shouldDisableElementFullscreenQuirk;
+#if ENABLE(TOUCH_EVENTS)
+    mutable Optional<bool> m_shouldDispatchSimulatedMouseEventsQuirk;
+#endif
+#if ENABLE(IOS_TOUCH_EVENTS)
+    mutable Optional<bool> m_shouldSynthesizeTouchEventsQuirk;
+#endif
+    mutable Optional<bool> m_needsCanPlayAfterSeekedQuirk;
+    mutable Optional<bool> m_shouldBypassAsyncScriptDeferring;
+    mutable Optional<bool> m_needsVP9FullRangeFlagQuirk;
+    mutable Optional<bool> m_needsHDRPixelDepthQuirk;
 };
 
 }

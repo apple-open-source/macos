@@ -26,10 +26,12 @@
 #include "HeapCell.h"
 #include "IterationStatus.h"
 #include "WeakSet.h"
+#include <algorithm>
 #include <wtf/Atomics.h>
 #include <wtf/Bitmap.h>
-#include <wtf/HashFunctions.h>
 #include <wtf/CountingLock.h>
+#include <wtf/HashFunctions.h>
+#include <wtf/PageBlock.h>
 #include <wtf/StdLibExtras.h>
 
 namespace JSC {
@@ -70,11 +72,7 @@ public:
     static constexpr size_t atomSize = 16; // bytes
 
     // Block size must be at least as large as the system page size.
-#if CPU(PPC64) || CPU(PPC64LE) || CPU(PPC) || CPU(UNKNOWN)
-    static constexpr size_t blockSize = 64 * KB;
-#else
-    static constexpr size_t blockSize = 16 * KB;
-#endif
+    static constexpr size_t blockSize = std::max(16 * KB, CeilingOnPageSize);
 
     static constexpr size_t blockMask = ~(blockSize - 1); // blockSize must be a power of two.
 
@@ -352,10 +350,10 @@ public:
     
     bool hasAnyMarked() const;
     void noteMarked();
-#if ASSERT_DISABLED
-    void assertValidCell(VM&, HeapCell*) const { }
-#else
+#if ASSERT_ENABLED
     void assertValidCell(VM&, HeapCell*) const;
+#else
+    void assertValidCell(VM&, HeapCell*) const { }
 #endif
         
     WeakSet& weakSet();
@@ -365,10 +363,10 @@ public:
     
     Dependency aboutToMark(HeapVersion markingVersion);
         
-#if ASSERT_DISABLED
-    void assertMarksNotStale() { }
-#else
+#if ASSERT_ENABLED
     JS_EXPORT_PRIVATE void assertMarksNotStale();
+#else
+    void assertMarksNotStale() { }
 #endif
         
     void resetMarks();
@@ -687,9 +685,7 @@ struct MarkedBlockHash : PtrHash<JSC::MarkedBlock*> {
     }
 };
 
-template<> struct DefaultHash<JSC::MarkedBlock*> {
-    typedef MarkedBlockHash Hash;
-};
+template<> struct DefaultHash<JSC::MarkedBlock*> : MarkedBlockHash { };
 
 void printInternal(PrintStream& out, JSC::MarkedBlock::Handle::SweepMode);
 

@@ -6,13 +6,8 @@
 //
 
 import CloudKitCode
+import CloudKitCodeProtobuf
 import Foundation
-
-enum FakeCuttlefishError: Error {
-    case notEmpty
-    case unknownChangeToken
-    case unknownPeerID
-}
 
 enum FakeCuttlefishOpinion {
     case trusts
@@ -70,6 +65,7 @@ struct FakeCuttlefishAssertion: CustomStringConvertible {
 class FakeCuttlefishNotify: NSObject {
     let pushes: (Data) -> Void
     let containerName: String
+
     @objc
     init(_ containerName: String, pushes: @escaping (Data) -> Void) {
         self.containerName = containerName
@@ -77,7 +73,7 @@ class FakeCuttlefishNotify: NSObject {
     }
 
     @objc
-    public func notify(_ function: String) throws {
+    func notify(_ function: String) throws {
         let notification: [String: [String: Any]] = [
             "aps": ["content-available": 1],
             "cf": [
@@ -168,12 +164,12 @@ extension TLKShare {
 }
 
 class FakeCuttlefishServer: CuttlefishAPIAsync {
-
     struct State {
         var peersByID: [String: Peer] = [:]
         var recoverySigningPubKey: Data?
         var recoveryEncryptionPubKey: Data?
         var bottles: [Bottle] = []
+        var escrowRecords: [EscrowInformation] = []
 
         var viewKeys: [CKRecordZone.ID: ViewKeys] = [:]
         var tlkShares: [CKRecordZone.ID: [TLKShare]] = [:]
@@ -194,6 +190,9 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     // @property (nullable) NSMutableDictionary<CKRecordZoneID*, ZoneKeys*>* keys;
     var ckksZoneKeys: NSMutableDictionary
 
+    var injectLegacyEscrowRecords: Bool = false
+    var includeEscrowRecords: Bool = true
+
     var nextFetchErrors: [Error] = []
     var fetchViableBottlesError: [Error] = []
     var nextJoinErrors: [Error] = []
@@ -205,6 +204,9 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     var returnLeaveTrustResponse: Bool = false
     var returnRepairErrorResponse: Error?
     var fetchChangesCalledCount: Int = 0
+    var fetchChangesReturnEmptyResponse: Bool = false
+
+    var fetchViableBottlesEscrowRecordCacheTimeout: TimeInterval = 2.0
 
     var nextEstablishReturnsMoreChanges: Bool = false
 
@@ -282,7 +284,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 }
             }
             snapshot.peersByID.forEach { (key: String, _: Peer) in
-                if nil == self.state.peersByID[key] {
+                if self.state.peersByID[key] == nil {
                     changes.differences.append(PeerDifference.with {
                         $0.remove = Peer.with {
                             $0.peerID = key
@@ -297,7 +299,6 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             if self.state.recoveryEncryptionPubKey != snapshot.recoveryEncryptionPubKey {
                 changes.recoveryEncryptionPubKey = self.state.recoveryEncryptionPubKey ?? Data()
             }
-
         }
     }
 
@@ -410,7 +411,6 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 let record = share.fakeRecord(zoneID: rzid)
                 fakeZone.add(toZone: record)
                 allRecords.append(record)
-
             } else {
                 print("Received an unexpected zone id: \(rzid)")
             }
@@ -422,7 +422,7 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
     func establish(_ request: EstablishRequest, completion: @escaping (EstablishResponse?, Error?) -> Void) {
         print("FakeCuttlefish: establish called")
         if !self.state.peersByID.isEmpty {
-            completion(nil, FakeCuttlefishError.notEmpty)
+            completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .establishFailed))
         }
 
         // Before performing write, check if we should error
@@ -442,6 +442,38 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
         self.state.peersByID[request.peer.peerID] = request.peer
         self.state.bottles.append(request.bottle)
+        let escrowInformation = EscrowInformation.with {
+            $0.label = "com.apple.icdp.record." + request.bottle.bottleID
+            $0.creationDate = Google_Protobuf_Timestamp(date: Date())
+            $0.remainingAttempts = 10
+            $0.silentAttemptAllowed = 1
+            $0.recordStatus = .valid
+            let e = EscrowInformation.Metadata.with {
+                $0.backupKeybagDigest = Data()
+                $0.secureBackupUsesMultipleIcscs = 1
+                $0.secureBackupTimestamp = Google_Protobuf_Timestamp(date: Date())
+                $0.peerInfo = Data()
+                $0.bottleID = request.bottle.bottleID
+                $0.escrowedSpki = request.bottle.escrowedSigningSpki
+                let cm = EscrowInformation.Metadata.ClientMetadata.with {
+                    $0.deviceColor = "#202020"
+                    $0.deviceEnclosureColor = "#020202"
+                    $0.deviceModel = "model"
+                    $0.deviceModelClass = "modelClass"
+                    $0.deviceModelVersion = "modelVersion"
+                    $0.deviceMid = "mid"
+                    $0.deviceName = "my device"
+                    $0.devicePlatform = 1
+                    $0.secureBackupNumericPassphraseLength = 6
+                    $0.secureBackupMetadataTimestamp = Google_Protobuf_Timestamp(date: Date())
+                    $0.secureBackupUsesNumericPassphrase = 1
+                    $0.secureBackupUsesComplexPassphrase = 1
+                }
+                $0.clientMetadata = cm
+            }
+            $0.escrowInformationMetadata = e
+        }
+        self.state.escrowRecords.append(escrowInformation)
 
         var keyRecords: [CKRecord] = []
         keyRecords.append(contentsOf: store(viewKeys: request.viewKeys))
@@ -490,12 +522,43 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         }
 
         guard let snapshot = self.snapshotsByChangeToken[request.changeToken] else {
-            completion(nil, FakeCuttlefishError.unknownChangeToken)
+            completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
             return
         }
         self.state.peersByID[request.peer.peerID] = request.peer
         self.state.bottles.append(request.bottle)
-
+        let escrowInformation = EscrowInformation.with {
+            $0.label = "com.apple.icdp.record." + request.bottle.bottleID
+            $0.creationDate = Google_Protobuf_Timestamp(date: Date())
+            $0.remainingAttempts = 10
+            $0.silentAttemptAllowed = 1
+            $0.recordStatus = .valid
+            let e = EscrowInformation.Metadata.with {
+                $0.backupKeybagDigest = Data()
+                $0.secureBackupUsesMultipleIcscs = 1
+                $0.secureBackupTimestamp = Google_Protobuf_Timestamp(date: Date())
+                $0.peerInfo = Data()
+                $0.bottleID = request.bottle.bottleID
+                $0.escrowedSpki = request.bottle.escrowedSigningSpki
+                let cm = EscrowInformation.Metadata.ClientMetadata.with {
+                    $0.deviceColor = "#202020"
+                    $0.deviceEnclosureColor = "#020202"
+                    $0.deviceModel = "model"
+                    $0.deviceModelClass = "modelClass"
+                    $0.deviceModelVersion = "modelVersion"
+                    $0.deviceMid = "mid"
+                    $0.deviceName = "my device"
+                    $0.devicePlatform = 1
+                    $0.secureBackupNumericPassphraseLength = 6
+                    $0.secureBackupMetadataTimestamp = Google_Protobuf_Timestamp(date: Date())
+                    $0.secureBackupUsesNumericPassphrase = 1
+                    $0.secureBackupUsesComplexPassphrase = 1
+                }
+                $0.clientMetadata = cm
+            }
+            $0.escrowInformationMetadata = e
+        }
+        self.state.escrowRecords.append(escrowInformation)
         var keyRecords: [CKRecord] = []
         keyRecords.append(contentsOf: store(viewKeys: request.viewKeys))
         keyRecords.append(contentsOf: store(tlkShares: request.tlkShares))
@@ -520,11 +583,11 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         }
 
         guard let snapshot = self.snapshotsByChangeToken[request.changeToken] else {
-            completion(nil, FakeCuttlefishError.unknownChangeToken)
+            completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
             return
         }
         guard var peer = self.state.peersByID[request.peerID] else {
-            completion(nil, FakeCuttlefishError.unknownPeerID)
+            completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .updateTrustPeerNotFound))
             return
         }
         if request.hasStableInfoAndSig {
@@ -580,15 +643,21 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         }
 
         guard let snapshot = self.snapshotsByChangeToken[request.changeToken] else {
-            completion(nil, FakeCuttlefishError.unknownChangeToken)
+            completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
             return
         }
         self.state.recoverySigningPubKey = request.recoverySigningPubKey
         self.state.recoveryEncryptionPubKey = request.recoveryEncryptionPubKey
         self.state.peersByID[request.peerID]?.stableInfoAndSig = request.stableInfoAndSig
+
+        var keyRecords: [CKRecord] = []
+        //keyRecords.append(contentsOf: store(viewKeys: request.viewKeys))
+        keyRecords.append(contentsOf: store(tlkShares: request.tlkShares))
+
         self.makeSnapshot()
         completion(SetRecoveryKeyResponse.with {
             $0.changes = self.changesSince(snapshot: snapshot)
+            $0.zoneKeyHierarchyRecords = keyRecords.map { try! CloudKitCode.Ckcode_RecordTransport($0) }
         }, nil)
         self.pushNotify("setRecoveryKey")
     }
@@ -604,6 +673,10 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
                 completion(nil, possibleError)
                 return
             }
+            if fetchChangesReturnEmptyResponse == true {
+                completion(FetchChangesResponse(), nil)
+                return
+            }
         }
 
         if let injectedError = self.nextFetchErrors.first {
@@ -614,11 +687,11 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
         }
 
         let snapshot: State
-        if request.changeToken == "" {
+        if request.changeToken.isEmpty {
             snapshot = State()
         } else {
             guard let s = self.snapshotsByChangeToken[request.changeToken] else {
-                completion(nil, FakeCuttlefishError.unknownChangeToken)
+                completion(nil, FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
                 return
             }
             snapshot = s
@@ -648,13 +721,28 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
             return
         }
 
+        var legacy: [EscrowInformation] = []
+        if self.injectLegacyEscrowRecords {
+            print("FakeCuttlefish: fetchViableBottles injecting legacy records")
+            let record = EscrowInformation.with {
+                $0.label = "fake-label"
+            }
+            legacy.append(record)
+        }
         let bottles = self.state.bottles.filter { $0.bottleID != fetchViableBottlesDontReturnBottleWithID }
+
         completion(FetchViableBottlesResponse.with {
             $0.viableBottles = bottles.compactMap { bottle in
                 EscrowPair.with {
                     $0.escrowRecordID = bottle.bottleID
                     $0.bottle = bottle
+                    if self.includeEscrowRecords {
+                        $0.record = self.state.escrowRecords.first { $0.escrowInformationMetadata.bottleID == bottle.bottleID } ?? EscrowInformation()
+                    }
                 }
+            }
+            if self.injectLegacyEscrowRecords {
+                $0.legacyRecords = legacy
             }
         }, nil)
     }
@@ -753,6 +841,10 @@ class FakeCuttlefishServer: CuttlefishAPIAsync {
 
     func getSupportAppInfo(_: GetSupportAppInfoRequest, completion: @escaping (GetSupportAppInfoResponse?, Error?) -> Void) {
         completion(GetSupportAppInfoResponse(), nil)
+    }
+
+    func fetchSosiCloudIdentity(_: FetchSOSiCloudIdentityRequest, completion: @escaping (FetchSOSiCloudIdentityResponse?, Error?) -> Void) {
+        completion(FetchSOSiCloudIdentityResponse(), nil)
     }
 }
 

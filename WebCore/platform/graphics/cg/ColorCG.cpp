@@ -51,8 +51,13 @@ RetainPtr<CGColorRef> TinyLRUCachePolicy<WebCore::Color, RetainPtr<CGColorRef>>:
 
 namespace WebCore {
 
-static RGBA32 makeRGBAFromCGColor(CGColorRef color)
+static Optional<SRGBA<uint8_t>> roundAndClampToSRGBALossy(CGColorRef color)
 {
+    // FIXME: ExtendedColor - needs to handle color spaces.
+
+    if (!color)
+        return WTF::nullopt;
+
     size_t numComponents = CGColorGetNumberOfComponents(color);
     const CGFloat* components = CGColorGetComponents(color);
 
@@ -76,75 +81,57 @@ static RGBA32 makeRGBAFromCGColor(CGColorRef color)
         ASSERT_NOT_REACHED();
     }
 
-    static const double scaleFactor = nextafter(256.0, 0.0);
-    return makeRGBA(r * scaleFactor, g * scaleFactor, b * scaleFactor, a * scaleFactor);
+    return convertToComponentBytes(SRGBA { r, g, b, a });
 }
 
 Color::Color(CGColorRef color)
+    : Color(roundAndClampToSRGBALossy(color))
 {
-    if (!color) {
-        m_colorData.rgbaAndFlags = invalidRGBAColor;
-        return;
-    }
-
-    setRGB(makeRGBAFromCGColor(color));
 }
 
-Color::Color(CGColorRef color, SemanticTag)
+Color::Color(CGColorRef color, SemanticTag tag)
+    : Color(roundAndClampToSRGBALossy(color), tag)
 {
-    if (!color) {
-        m_colorData.rgbaAndFlags = invalidRGBAColor;
-        return;
-    }
-
-    setRGB(makeRGBAFromCGColor(color));
-    setIsSemantic();
 }
 
 static CGColorRef leakCGColor(const Color& color)
 {
-    CGFloat components[4];
-    if (color.isExtended()) {
-        ExtendedColor& extendedColor = color.asExtended();
-        components[0] = extendedColor.red();
-        components[1] = extendedColor.green();
-        components[2] = extendedColor.blue();
-        components[3] = extendedColor.alpha();
-        switch (extendedColor.colorSpace()) {
-        case ColorSpace::SRGB:
-            return CGColorCreate(sRGBColorSpaceRef(), components);
-        case ColorSpace::DisplayP3:
-            return CGColorCreate(displayP3ColorSpaceRef(), components);
-        case ColorSpace::LinearRGB:
-            // FIXME: Do we ever create CGColorRefs in these spaces? It may only be ImageBuffers.
-            return CGColorCreate(sRGBColorSpaceRef(), components);
-        }
+    auto [colorSpace, components] = color.colorSpaceAndComponents();
+    auto [r, g, b, a] = components;
+    CGFloat cgFloatComponents[4] { r, g, b, a };
+
+    switch (colorSpace) {
+    case ColorSpace::SRGB:
+        return CGColorCreate(sRGBColorSpaceRef(), cgFloatComponents);
+    case ColorSpace::DisplayP3:
+        return CGColorCreate(displayP3ColorSpaceRef(), cgFloatComponents);
+    case ColorSpace::LinearRGB:
+        // FIXME: Do we ever create CGColorRefs in these spaces? It may only be ImageBuffers.
+        return CGColorCreate(sRGBColorSpaceRef(), cgFloatComponents);
     }
 
-    color.getRGBA(components[0], components[1], components[2], components[3]);
-    return CGColorCreate(sRGBColorSpaceRef(), components);
+    ASSERT_NOT_REACHED();
+    return nullptr;
 }
 
 CGColorRef cachedCGColor(const Color& color)
 {
-    if (!color.isExtended()) {
-        switch (color.rgb()) {
-        case Color::transparent: {
+    if (color.isInline()) {
+        switch (Packed::RGBA { color.asInline() }.value) {
+        case Packed::RGBA { Color::transparentBlack }.value: {
             static CGColorRef transparentCGColor = leakCGColor(color);
             return transparentCGColor;
         }
-        case Color::black: {
+        case Packed::RGBA { Color::black }.value: {
             static CGColorRef blackCGColor = leakCGColor(color);
             return blackCGColor;
         }
-        case Color::white: {
+        case Packed::RGBA { Color::white }.value: {
             static CGColorRef whiteCGColor = leakCGColor(color);
             return whiteCGColor;
         }
         }
     }
-
-    ASSERT(color.isExtended() || color.rgb());
 
     static NeverDestroyed<TinyLRUCache<Color, RetainPtr<CGColorRef>, 32>> cache;
     return cache.get().get(color).get();

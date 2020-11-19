@@ -22,15 +22,19 @@
 #include "JSTestClassWithJSBuiltinConstructor.h"
 
 #include "ActiveDOMObject.h"
+#include "DOMIsoSubspaces.h"
 #include "JSDOMBinding.h"
 #include "JSDOMBuiltinConstructor.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
 #include "TestClassWithJSBuiltinConstructorBuiltins.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
+#include <JavaScriptCore/SubspaceInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
 #include <wtf/URL.h>
@@ -44,7 +48,7 @@ using namespace JSC;
 JSC::EncodedJSValue jsTestClassWithJSBuiltinConstructorConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
 bool setJSTestClassWithJSBuiltinConstructorConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 
-class JSTestClassWithJSBuiltinConstructorPrototype : public JSC::JSNonFinalObject {
+class JSTestClassWithJSBuiltinConstructorPrototype final : public JSC::JSNonFinalObject {
 public:
     using Base = JSC::JSNonFinalObject;
     static JSTestClassWithJSBuiltinConstructorPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
@@ -55,6 +59,12 @@ public:
     }
 
     DECLARE_INFO;
+    template<typename CellType, JSC::SubspaceAccess>
+    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestClassWithJSBuiltinConstructorPrototype, Base);
+        return &vm.plainObjectSpace;
+    }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
@@ -81,7 +91,7 @@ template<> JSValue JSTestClassWithJSBuiltinConstructorConstructor::prototypeForS
 template<> void JSTestClassWithJSBuiltinConstructorConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestClassWithJSBuiltinConstructor::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestClassWithJSBuiltinConstructor"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestClassWithJSBuiltinConstructor"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -99,12 +109,13 @@ static const HashTableValue JSTestClassWithJSBuiltinConstructorPrototypeTableVal
     { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestClassWithJSBuiltinConstructorConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestClassWithJSBuiltinConstructorConstructor) } },
 };
 
-const ClassInfo JSTestClassWithJSBuiltinConstructorPrototype::s_info = { "TestClassWithJSBuiltinConstructorPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestClassWithJSBuiltinConstructorPrototype) };
+const ClassInfo JSTestClassWithJSBuiltinConstructorPrototype::s_info = { "TestClassWithJSBuiltinConstructor", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestClassWithJSBuiltinConstructorPrototype) };
 
 void JSTestClassWithJSBuiltinConstructorPrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSTestClassWithJSBuiltinConstructor::info(), JSTestClassWithJSBuiltinConstructorPrototypeTableValues, *this);
+    JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
 const ClassInfo JSTestClassWithJSBuiltinConstructor::s_info = { "TestClassWithJSBuiltinConstructor", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestClassWithJSBuiltinConstructor) };
@@ -167,6 +178,27 @@ bool setJSTestClassWithJSBuiltinConstructorConstructor(JSGlobalObject* lexicalGl
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
+JSC::IsoSubspace* JSTestClassWithJSBuiltinConstructor::subspaceForImpl(JSC::VM& vm)
+{
+    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
+    auto& spaces = clientData.subspaces();
+    if (auto* space = spaces.m_subspaceForTestClassWithJSBuiltinConstructor.get())
+        return space;
+    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestClassWithJSBuiltinConstructor> || !JSTestClassWithJSBuiltinConstructor::needsDestruction);
+    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestClassWithJSBuiltinConstructor>)
+        spaces.m_subspaceForTestClassWithJSBuiltinConstructor = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestClassWithJSBuiltinConstructor);
+    else
+        spaces.m_subspaceForTestClassWithJSBuiltinConstructor = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestClassWithJSBuiltinConstructor);
+    auto* space = spaces.m_subspaceForTestClassWithJSBuiltinConstructor.get();
+IGNORE_WARNINGS_BEGIN("unreachable-code")
+IGNORE_WARNINGS_BEGIN("tautological-compare")
+    if (&JSTestClassWithJSBuiltinConstructor::visitOutputConstraints != &JSC::JSCell::visitOutputConstraints)
+        clientData.outputConstraintSpaces().append(space);
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
+    return space;
+}
+
 void JSTestClassWithJSBuiltinConstructor::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
 {
     auto* thisObject = jsCast<JSTestClassWithJSBuiltinConstructor*>(cell);
@@ -204,11 +236,11 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObj
 {
 
 #if ENABLE(BINDING_INTEGRITY)
-    void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
+    const void* actualVTablePointer = getVTablePointer(impl.ptr());
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(__identifier("??_7TestClassWithJSBuiltinConstructor@WebCore@@6B@"));
+    void* expectedVTablePointer = __identifier("??_7TestClassWithJSBuiltinConstructor@WebCore@@6B@");
 #else
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(&_ZTVN7WebCore33TestClassWithJSBuiltinConstructorE[2]);
+    void* expectedVTablePointer = &_ZTVN7WebCore33TestClassWithJSBuiltinConstructorE[2];
 #endif
 
     // If this fails TestClassWithJSBuiltinConstructor does not have a vtable, so you need to add the

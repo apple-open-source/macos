@@ -148,6 +148,7 @@ struct afswtch {
 				struct addrinfo *dstres);
 
 	void		(*af_setrouter)(int, int);
+	int		(*af_routermode)(int, int, char *const *);
 };
 void	af_register(struct afswtch *);
 

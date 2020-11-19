@@ -35,12 +35,14 @@
 #include "CSSUnicodeRangeValue.h"
 #include "CSSValue.h"
 #include "CSSValueList.h"
+#include "CachedFont.h"
 #include "Document.h"
 #include "Font.h"
 #include "FontCache.h"
 #include "FontDescription.h"
 #include "FontFace.h"
 #include "Settings.h"
+#include "SharedBuffer.h"
 #include "StyleBuilderConverter.h"
 #include "StyleProperties.h"
 #include "StyleRule.h"
@@ -90,7 +92,7 @@ void CSSFontFace::appendSources(CSSFontFace& fontFace, CSSValueList& srcList, Do
 }
 
 CSSFontFace::CSSFontFace(CSSFontSelector* fontSelector, StyleRuleFontFace* cssConnection, FontFace* wrapper, bool isLocalFallback)
-    : m_fontSelector(fontSelector)
+    : m_fontSelector(makeWeakPtr(fontSelector))
     , m_cssConnection(cssConnection)
     , m_wrapper(makeWeakPtr(wrapper))
     , m_isLocalFallback(isLocalFallback)
@@ -344,8 +346,8 @@ void CSSFontFace::fontLoadEventOccurred()
     if (m_sourcesPopulated)
         pump(ExternalResourceDownloadPolicy::Forbid);
 
-    ASSERT(m_fontSelector);
-    m_fontSelector->fontLoaded();
+    if (m_fontSelector)
+        m_fontSelector->fontLoaded();
 
     iterateClients(m_clients, [&](Client& client) {
         client.fontLoaded(*this);
@@ -445,6 +447,11 @@ void CSSFontFace::adoptSource(std::unique_ptr<CSSFontFaceSource>&& source)
 
     // We should never add sources in the middle of loading.
     ASSERT(!m_sourcesPopulated);
+}
+
+Document* CSSFontFace::document() const
+{
+    return m_fontSelector ? m_fontSelector->document() : nullptr;
 }
 
 AllowUserInstalledFonts CSSFontFace::allowUserInstalledFonts() const
@@ -673,8 +680,11 @@ RefPtr<Font> CSSFontFace::font(const FontDescription& fontDescription, bool synt
             return Font::create(FontCache::singleton().lastResortFallbackFont(fontDescription)->platformData(), Font::Origin::Local, Font::Interstitial::Yes, visibility);
         }
         case CSSFontFaceSource::Status::Success:
-            if (RefPtr<Font> result = source->font(fontDescription, syntheticBold, syntheticItalic, m_featureSettings, m_fontSelectionCapabilities))
+            if (auto result = source->font(fontDescription, syntheticBold, syntheticItalic, m_featureSettings, m_fontSelectionCapabilities)) {
+                auto* cachedFont = source->cachedFont();
+                result->setFontFaceData(cachedFont ? cachedFont->resourceBuffer() : nullptr);
                 return result;
+            }
             break;
         case CSSFontFaceSource::Status::Failure:
             break;
@@ -706,5 +716,23 @@ bool CSSFontFace::hasSVGFontFaceSource() const
     return false;
 }
 #endif
+
+void CSSFontFace::setErrorState()
+{
+    switch (m_status) {
+    case Status::Pending:
+        setStatus(Status::Loading);
+        break;
+    case Status::Success:
+        ASSERT_NOT_REACHED();
+        break;
+    case Status::Failure:
+        return;
+    default:
+        break;
+    }
+    
+    setStatus(Status::Failure);
+}
 
 }

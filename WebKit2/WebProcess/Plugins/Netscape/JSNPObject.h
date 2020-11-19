@@ -44,7 +44,7 @@ class NPRuntimeObjectMap;
 class JSNPObject final : public JSC::JSDestructibleObject {
 public:
     using Base = JSC::JSDestructibleObject;
-    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::OverridesGetOwnPropertySlot | JSC::OverridesGetPropertyNames | JSC::OverridesGetCallData;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::OverridesGetOwnPropertySlot | JSC::OverridesAnyFormOfGetPropertyNames | JSC::OverridesGetCallData;
 
     template<typename CellType, JSC::SubspaceAccess>
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
@@ -76,26 +76,24 @@ public:
 
     NPObject* npObject() const { return m_npObject; }
 
-protected:
-    void finishCreation(JSC::JSGlobalObject*);
-
 private:
     static JSC::IsoSubspace* subspaceForImpl(JSC::VM&);
     
     JSNPObject(JSC::JSGlobalObject*, JSC::Structure*, NPRuntimeObjectMap*, NPObject*);
+    void finishCreation(JSC::JSGlobalObject*);
     
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
     }
 
-    static JSC::CallType getCallData(JSC::JSCell*, JSC::CallData&);
-    static JSC::ConstructType getConstructData(JSC::JSCell*, JSC::ConstructData&);
+    static JSC::CallData getCallData(JSC::JSCell*);
+    static JSC::CallData getConstructData(JSC::JSCell*);
 
     static bool getOwnPropertySlot(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::PropertySlot&);
     static bool put(JSC::JSCell*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::JSValue, JSC::PutPropertySlot&);
 
-    static bool deleteProperty(JSC::JSCell*, JSC::JSGlobalObject*, JSC::PropertyName);
+    static bool deleteProperty(JSC::JSCell*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::DeletePropertySlot&);
     static bool deletePropertyByIndex(JSC::JSCell*, JSC::JSGlobalObject*, unsigned propertyName);
 
     bool deleteProperty(JSC::JSGlobalObject*, NPIdentifier propertyName);

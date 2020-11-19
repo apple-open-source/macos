@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,7 @@
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOBlockStorageDriver.h>
 #include <IOKit/storage/IOMedia.h>
+#include <IOKit/storage/IOBlockStoragePerfControlExports.h>
 #include <kern/energy_perf.h>
 #include <kern/thread_call.h>
 
@@ -123,6 +124,7 @@ bool IOBlockStorageDriver::init(OSDictionary * properties)
     _contextsLock                    = IOSimpleLockAlloc();
     _contextsCount                   = 0;
     _contextsMaxCount                = 32;
+    _perfControlClient               = NULL;
 
     if (_contextsLock == 0)
         return false;
@@ -227,14 +229,14 @@ bool IOBlockStorageDriver::didTerminate(IOService *  provider,
     return super::didTerminate(provider, options, defer);
 }
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 bool IOBlockStorageDriver::yield(IOService *  provider,
                                  IOOptionBits options,
                                  void *       argument)
 {
     return false;
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
 void IOBlockStorageDriver::free()
 {
@@ -249,6 +251,9 @@ void IOBlockStorageDriver::free()
         _contexts = context->next;
         _contextsCount--;
 
+        if (context->perfControlContext)
+            context->perfControlContext->release();
+
         IODelete(context, Context, 1);
     }
 
@@ -259,6 +264,12 @@ void IOBlockStorageDriver::free()
 
     for (unsigned index = 0; index < kStatisticsCount; index++)
         if (_statistics[index])  _statistics[index]->release();
+
+    if (_perfControlClient) {
+        _perfControlClient->unregisterDevice(this, this);
+        _perfControlClient->release();
+        _perfControlClient = NULL;
+    }
 
     if (_expansionData)  IODelete(_expansionData, ExpansionData, 1);
 
@@ -557,11 +568,21 @@ IOBlockStorageDriver::Context * IOBlockStorageDriver::allocateContext()
     if (context == 0)
     {
         context = IONew(Context, 1);
+        if (context)
+        {
+            bzero(context, sizeof(Context));
+            if  (_perfControlClient) {
+                context->perfControlContext = _perfControlClient->copyWorkContext();
+            }
+        }
     }
-
-    if (context)
+    else
     {
+        auto perfControlContext = context->perfControlContext;
         bzero(context, sizeof(Context));
+        if (perfControlContext) {
+            context->perfControlContext = perfControlContext;
+        }
     }
 
     return context;
@@ -590,6 +611,9 @@ void IOBlockStorageDriver::deleteContext(
 
     if (context)
     {
+        if (context->perfControlContext)
+            context->perfControlContext->release();
+
         IODelete(context, Context, 1);
     }
 }
@@ -626,6 +650,15 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     // Update the total number of bytes transferred and the total transfer time.
 
     clock_get_uptime(&time);
+
+    auto perfControlClient = driver->_perfControlClient;
+    if (perfControlClient && context->perfControlContext) {
+        IOPerfControlClient::WorkEndArgs end_args;
+        end_args.end_time = time;
+
+        perfControlClient->workEndWithContext(driver, context->perfControlContext, &end_args);
+    }
+
     SUB_ABSOLUTETIME(&time, &context->timeStart);
     absolutetime_to_nanoseconds(time, &timeInNanoseconds);
 
@@ -651,7 +684,7 @@ void IOBlockStorageDriver::prepareRequestCompletion(void *   target,
     driver->release();
 }
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 void IOBlockStorageDriver::schedulePoller()
 {
 
@@ -661,7 +694,7 @@ void IOBlockStorageDriver::unschedulePoller()
 {
 
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
 IOReturn IOBlockStorageDriver::message(UInt32      type,
                                        IOService * provider,
@@ -927,7 +960,7 @@ IOBlockStorageDriver::mediaStateHasChanged(IOMediaState state)
     }
 }
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 UInt64
 IOBlockStorageDriver::constrainByteCount(UInt64 /* requestedCount */ ,bool isWrite)
 {
@@ -937,7 +970,7 @@ IOBlockStorageDriver::constrainByteCount(UInt64 /* requestedCount */ ,bool isWri
         return(_maxReadByteTransfer);
     }
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
 /* Decommission a piece of media that has become unavailable either due to
  * ejection or some outside force (e.g. the Giant Hand of the User).
@@ -1348,7 +1381,19 @@ IOBlockStorageDriver::handleStart(IOService * provider)
         object->release();
     }
 
-    /* Check for the device being ready with media inserted: */
+    /* Set up perfcontrol client to track IO */
+    _perfControlClient = IOPerfControlClient::copyClient(this, 0);
+    if (_perfControlClient ) {
+        IOReturn ret = _perfControlClient->registerDevice(this, this);
+        if ( ret != kIOReturnSuccess ) {
+            _perfControlClient->release();
+            _perfControlClient = NULL;
+        }
+    }
+
+    /* Check for the device being ready with media inserted:
+     * This will likely initiate IO if the device is found.
+     */
 
     result = checkForMedia();
 
@@ -1370,7 +1415,7 @@ IOBlockStorageDriver::handleStart(IOService * provider)
     return(true);
 }
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 bool
 IOBlockStorageDriver::handleYield(IOService *  provider,
                                   IOOptionBits options,
@@ -1378,7 +1423,7 @@ IOBlockStorageDriver::handleYield(IOService *  provider,
 {
     return false;
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
 void
 IOBlockStorageDriver::initMediaState(void)
@@ -1484,7 +1529,7 @@ IOBlockStorageDriver::isMediaRemovable(void) const
     return(_removable);
 }
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 bool
 IOBlockStorageDriver::isMediaPollExpensive(void) const
 {
@@ -1496,7 +1541,7 @@ IOBlockStorageDriver::isMediaPollRequired(void) const
 {
     return(false);
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
 bool
 IOBlockStorageDriver::isMediaWritable(void) const
@@ -1504,7 +1549,7 @@ IOBlockStorageDriver::isMediaWritable(void) const
     return(!_writeProtected);
 }
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 IOReturn
 IOBlockStorageDriver::lockMedia(bool locked)
 {
@@ -1516,7 +1561,7 @@ IOBlockStorageDriver::pollMedia(void)
 {
     return(kIOReturnUnsupported);
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
 IOReturn
 IOBlockStorageDriver::recordMediaParameters(void)
@@ -1568,6 +1613,12 @@ IOBlockStorageDriver::stop(IOService * provider)
         _powerEventNotifier = NULL;
         release();
     }
+    
+    if (_perfControlClient) {
+        _perfControlClient->unregisterDevice(this, this);
+        _perfControlClient->release();
+        _perfControlClient = NULL;
+    }
     super::stop(provider);
 }
 
@@ -1580,7 +1631,7 @@ IOBlockStorageDriver::synchronize(IOService *                 client,
     UInt64 blockStart;
     UInt64 blockCount;
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     if ( _respondsTo_synchronizeCache )
     {
         if ( options == _kIOStorageSynchronizeOption_super__synchronizeCache )
@@ -1592,7 +1643,7 @@ IOBlockStorageDriver::synchronize(IOService *                 client,
             return IOStorage::synchronize( client, byteStart, byteCount, options );
         }
     }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     if ( ( options & kIOStorageSynchronizeOptionReserved ) )
     {
@@ -1796,31 +1847,45 @@ IOBlockStorageDriver::validateNewMedia(void)
 
 	bool boot_arg_found = PE_parse_boot_argn("disable_external_storage", &boot_arg_value, sizeof(boot_arg_value));
 
-	if (!boot_arg_found) {
+	if (!boot_arg_found)
+	{
 		return(true);
 	}
 
-	if (boot_arg_value == 0) {
+	if (boot_arg_value == 0)
+	{
 		return(true);
 	}
 
-	if (_removable || _ejectable) {
-		return(false);
-	}
+	OSDictionary *protocol_characteristics_dictionary = OSDynamicCast(OSDictionary, getProvider()->getProperty(kIOPropertyProtocolCharacteristicsKey));
 
-	OSDictionary *dictionary = OSDynamicCast(OSDictionary, getProvider()->getProperty(kIOPropertyProtocolCharacteristicsKey));
-
-	if (dictionary) {
-		OSString *string = OSDynamicCast(OSString, dictionary->getObject(kIOPropertyPhysicalInterconnectLocationKey));
-
-		if (string) {
-			if (string->isEqualTo(kIOPropertyInternalKey)) {
+	if (protocol_characteristics_dictionary)
+	{
+		OSString *interconnect_type_string = OSDynamicCast(
+			OSString,
+			protocol_characteristics_dictionary->getObject(kIOPropertyPhysicalInterconnectTypeKey));
+		if (interconnect_type_string)
+		{
+			if ( interconnect_type_string->isEqualTo(kIOPropertyPhysicalInterconnectTypeVirtual) )
+			{
 				return(true);
+			}
+		}
+
+		OSString *interconnect_location_string = OSDynamicCast(
+			OSString,
+			protocol_characteristics_dictionary->getObject(kIOPropertyPhysicalInterconnectLocationKey));
+		if (interconnect_location_string)
+		{
+			if (interconnect_location_string->isEqualTo(kIOPropertyInternalExternalKey) ||
+				interconnect_location_string->isEqualTo(kIOPropertyExternalKey))
+			{
+				return(false);
 			}
 		}
 	}
 
-	return(false);
+	return(true);
 
 }
 
@@ -1829,7 +1894,7 @@ IOBlockStorageDriver::validateNewMedia(void)
 
 #include <IOKit/IOBufferMemoryDescriptor.h>
 
-class IODeblocker : public IOMemoryDescriptor
+class __exported IODeblocker : public IOMemoryDescriptor
 {
     OSDeclareDefaultStructors(IODeblocker);
 
@@ -1875,7 +1940,7 @@ protected:
 
 public:
 
-    static IODeblocker * withBlockSize(
+    static  IODeblocker * withBlockSize(
                                   UInt64                blockSize,
                                   UInt64                withRequestStart,
                                   IOMemoryDescriptor *  withRequestBuffer,
@@ -1883,7 +1948,7 @@ public:
                                   IOStorageCompletion * withRequestCompletion,
                                   void *                withRequestContext );
 
-    virtual bool initWithBlockSize(
+    virtual  bool initWithBlockSize(
                                   UInt64                blockSize,
                                   UInt64                withRequestStart,
                                   IOMemoryDescriptor *  withRequestBuffer,
@@ -2544,7 +2609,6 @@ void IOBlockStorageDriver::deblockRequestCompletion( void *   target,
 
     callback = deblocker->getThreadCallback();
 
-#if TARGET_OS_OSX
     if ( callback == 0 )
     {
         if ( deblocker->setThreadCallback(deblockRequestExecute) == false )
@@ -2552,7 +2616,6 @@ void IOBlockStorageDriver::deblockRequestCompletion( void *   target,
             status = kIOReturnNoMemory;
         }
     }
-#endif /* TARGET_OS_OSX */
 
     // Determine whether an error occurred or whether there are no more stages.
 
@@ -2637,7 +2700,7 @@ void IOBlockStorageDriver::deblockRequestExecute(void * parameter, void * target
 // -----------------------------------------------------------------------------
 // Breaker Implementation
 
-class IOBreaker : public IOSubMemoryDescriptor
+class __exported IOBreaker : public IOSubMemoryDescriptor
 {
     OSDeclareDefaultStructors(IOBreaker);
 
@@ -3268,7 +3331,6 @@ void IOBlockStorageDriver::breakUpRequestCompletion( void *   target,
 
     callback = breaker->getThreadCallback();
 
-#if TARGET_OS_OSX
     if ( callback == 0 )
     {
         if ( breaker->setThreadCallback(breakUpRequestExecute) == false )
@@ -3276,7 +3338,6 @@ void IOBlockStorageDriver::breakUpRequestCompletion( void *   target,
             status = kIOReturnNoMemory;
         }
     }
-#endif /* TARGET_OS_OSX */
 
     // Determine whether an error occurred or whether there are no more stages.
 
@@ -3412,6 +3473,22 @@ void IOBlockStorageDriver::prepareRequest(UInt64                byteStart,
     completionOut.action    = prepareRequestCompletion;
     completionOut.parameter = context;
 
+    if (_perfControlClient && context->perfControlContext) {
+        IOPerfControlClient::WorkSubmitArgs submitArgs;
+        submitArgs.submit_time = context->timeStart;
+
+        IOBlockStorageWorkFlags flags;
+        flags.isRead = (buffer->getDirection() == kIODirectionIn);
+
+        if (attributes)
+            flags.isLowPriority = (attributes->priority > kIOStoragePriorityDefault);
+
+        flags.ioSize = buffer->getLength();
+
+        submitArgs.driver_data = reinterpret_cast<void*>(&flags);
+        _perfControlClient->workSubmitAndBeginWithContext(this, context->perfControlContext, &submitArgs, nullptr);
+    }
+
     // Deblock the transfer.
 
     deblockRequest(byteStart, buffer, attributes, &completionOut, context);
@@ -3456,9 +3533,9 @@ OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 29);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 30);
 OSMetaClassDefineReservedUnused(IOBlockStorageDriver, 31);
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 extern "C" void _ZN20IOBlockStorageDriver16synchronizeCacheEP9IOService( IOBlockStorageDriver * driver, IOService * client )
 {
     driver->synchronize( client, 0, 0 );
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */

@@ -127,7 +127,9 @@ IOHIDPointerScrollFilter::IOHIDPointerScrollFilter(CFUUIDRef factoryID):
   _service(NULL),
   _pointerAcceleration(-1),
   _scrollAcceleration(-1),
-  _leagacyShim(false)
+  _leagacyShim(false),
+  _pointerAccelerationSupported(true),
+  _scrollAccelerationSupported(true)
 {
   for (size_t index = 0; index < sizeof(_scrollAccelerators)/sizeof(_scrollAccelerators[0]); index++) {
     _scrollAccelerators[index] = NULL;
@@ -337,7 +339,9 @@ CFStringRef IOHIDPointerScrollFilter::_cachedPropertyList[] = {
     CFSTR(kIOHIDPointerAccelerationTypeKey),
     CFSTR(kIOHIDUserPointerAccelCurvesKey),
     CFSTR(kIOHIDUserScrollAccelCurvesKey),
-    CFSTR(kIOHIDPointerAccelerationMultiplierKey)
+    CFSTR(kIOHIDPointerAccelerationMultiplierKey),
+    CFSTR(kIOHIDPointerAccelerationSupportKey),
+    CFSTR(kIOHIDScrollAccelerationSupportKey)
 };
 
 //------------------------------------------------------------------------------
@@ -430,6 +434,7 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
   IOHIDEventRef accelEvent;
 
   if (_pointerAccelerator &&
+      _pointerAccelerationSupported &&
       IOHIDEventGetType(event) == kIOHIDEventTypePointer &&
       !(IOHIDEventGetEventFlags(event) & kIOHIDPointerEventOptionsNoAcceleration)) {
     double xy[2];
@@ -454,7 +459,8 @@ void IOHIDPointerScrollFilter::accelerateEvent(IOHIDEventRef event) {
       }
     }
   }
-  if (IOHIDEventGetType(event) == kIOHIDEventTypeScroll &&
+  if (_scrollAccelerationSupported &&
+      IOHIDEventGetType(event) == kIOHIDEventTypeScroll &&
       !(IOHIDEventGetEventFlags(event) & kIOHIDScrollEventOptionsNoAcceleration)) {
     if ((IOHIDEventGetEventFlags(event) & kIOHIDAccelerated) == 0) {
       static int axis [3] = {kIOHIDEventFieldScrollX, kIOHIDEventFieldScrollY, kIOHIDEventFieldScrollZ};
@@ -507,6 +513,14 @@ void IOHIDPointerScrollFilter::setupPointerAcceleration(double pointerAccelerati
 
   if (tmp) {
     delete tmp;
+  }
+
+
+  CFBooleanRefWrap enabled = CFBooleanRefWrap((CFBooleanRef)copyCachedProperty(CFSTR(kIOHIDPointerAccelerationSupportKey)), true);
+  if (enabled.Reference() == NULL || (bool)enabled) {
+    _pointerAccelerationSupported = true;
+  } else {
+    _pointerAccelerationSupported = false;
   }
   
   CFNumberRefWrap resolution = CFNumberRefWrap((CFNumberRef)IOHIDServiceCopyProperty (_service, CFSTR(kIOHIDPointerResolutionKey)), true);
@@ -617,6 +631,13 @@ void IOHIDPointerScrollFilter::setupScrollAcceleration(double scrollAcceleration
       }
     }
     return;
+  }
+
+  CFBooleanRefWrap enabled = CFBooleanRefWrap((CFBooleanRef)copyCachedProperty(CFSTR(kIOHIDScrollAccelerationSupportKey)), true);
+  if (enabled.Reference() == NULL || (bool)enabled) {
+    _scrollAccelerationSupported = true;
+  } else {
+    _scrollAccelerationSupported = false;
   }
   
   CFNumberRefWrap scrollAcceleration;

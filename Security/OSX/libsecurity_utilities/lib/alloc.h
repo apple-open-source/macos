@@ -43,18 +43,18 @@ namespace Security
 class Allocator {
 public:
 	virtual ~Allocator();
-	virtual void *malloc(size_t) throw(std::bad_alloc) = 0;
-	virtual void free(void *) throw() = 0;
-	virtual void *realloc(void *, size_t) throw(std::bad_alloc) = 0;
+	virtual void *malloc(size_t)= 0;
+	virtual void free(void *) _NOEXCEPT = 0;
+	virtual void *realloc(void *, size_t)= 0;
 
 	//
 	// Template versions for added expressiveness.
 	// Note that the integers are element counts, not byte sizes.
 	//
-	template <class T> T *alloc() throw(std::bad_alloc)
+	template <class T> T *alloc()
 	{ return reinterpret_cast<T *>(malloc(sizeof(T))); }
 
-	template <class T> T *alloc(UInt32 count) throw(std::bad_alloc)
+	template <class T> T *alloc(UInt32 count)
 	{
         size_t bytes = 0;
         if (__builtin_mul_overflow(sizeof(T), count, &bytes)) {
@@ -64,7 +64,7 @@ public:
 
     }
 
-	template <class T> T *alloc(T *old, UInt32 count) throw(std::bad_alloc)
+	template <class T> T *alloc(T *old, UInt32 count)
 	{
         size_t bytes = 0;
         if (__builtin_mul_overflow(sizeof(T), count, &bytes)) {
@@ -78,14 +78,14 @@ public:
 	// Happier malloc/realloc for any type. Note that these still have
 	// the original (byte-sized) argument profile.
 	//
-	template <class T> T *malloc(size_t size) throw(std::bad_alloc)
+	template <class T> T *malloc(size_t size)
 	{ return reinterpret_cast<T *>(malloc(size)); }
 	
-	template <class T> T *realloc(void *addr, size_t size) throw(std::bad_alloc)
+	template <class T> T *realloc(void *addr, size_t size)
 	{ return reinterpret_cast<T *>(realloc(addr, size)); }
 
 	// All right, if you *really* have to have calloc...
-	void *calloc(size_t size, size_t count) throw(std::bad_alloc)
+	void *calloc(size_t size, size_t count)
 	{
         size_t bytes = 0;
         if(__builtin_mul_overflow(size, count, &bytes)) {
@@ -98,7 +98,7 @@ public:
 	}
 	
 	// compare Allocators for identity
-	virtual bool operator == (const Allocator &alloc) const throw();
+	virtual bool operator == (const Allocator &alloc) const _NOEXCEPT;
 
 public:
 	// allocator chooser options
@@ -117,14 +117,14 @@ public:
 // Use this to cleanly destroy things.
 //
 template <class T>
-inline void destroy(T *obj, Allocator &alloc) throw()
+inline void destroy(T *obj, Allocator &alloc) _NOEXCEPT
 {
 	obj->~T();
 	alloc.free(obj);
 }
 
 // untyped (release memory only, no destructor call)
-inline void destroy(void *obj, Allocator &alloc) throw()
+inline void destroy(void *obj, Allocator &alloc) _NOEXCEPT
 {
 	alloc.free(obj);
 }
@@ -145,17 +145,17 @@ inline void destroy(void *obj, Allocator &alloc) throw()
 //
 class CssmHeap {
 public:    
-	void *operator new (size_t size, Allocator *alloc = NULL) throw(std::bad_alloc);
-	void operator delete (void *addr, size_t size) throw();
-	void operator delete (void *addr, size_t size, Allocator *alloc) throw();
+	void *operator new (size_t size, Allocator *alloc = NULL);
+	void operator delete (void *addr, size_t size) _NOEXCEPT;
+	void operator delete (void *addr, size_t size, Allocator *alloc) _NOEXCEPT;
 };
 
 
 //
-// Here is a version of auto_ptr that works with Allocators. It is designed
+// Here is a version of unique_ptr that works with Allocators. It is designed
 // to be pretty much a drop-in replacement. It requires an allocator as a constructor
 // argument, of course.
-// Note that CssmAutoPtr<void> is perfectly valid, unlike its auto_ptr look-alike.
+// Note that CssmAutoPtr<void> is perfectly valid, unlike its unique_ptr look-alike.
 // You can't dereference it, naturally.
 //
 template <class T>
@@ -176,7 +176,7 @@ public:
 	
 	~CssmAutoPtr()				{ allocator.free(mine); }
 	
-	T *get() const throw()		{ return mine; }
+	T *get() const _NOEXCEPT		{ return mine; }
 	T *release()				{ T *result = mine; mine = NULL; return result; }
 	void reset()				{ allocator.free(mine); mine = NULL; }
 
@@ -203,7 +203,7 @@ public:
 	
 	~CssmAutoPtr()				{ destroy(mine, allocator); }
 	
-	void *get() throw()		{ return mine; }
+	void *get() _NOEXCEPT		{ return mine; }
 	void *release()				{ void *result = mine; mine = NULL; return result; }
 	void reset()				{ allocator.free(mine); mine = NULL; }
 
@@ -248,10 +248,10 @@ public:
 //
 // Global C++ allocation hooks to use Allocators (global namespace)
 //
-inline void *operator new (size_t size, Allocator &allocator) throw (std::bad_alloc)
+inline void *operator new (size_t size, Allocator &allocator)
 { return allocator.malloc(size); }
 
-inline void *operator new[] (size_t size, Allocator &allocator) throw (std::bad_alloc)
+inline void *operator new[] (size_t size, Allocator &allocator)
 { return allocator.malloc(size); }
 
 

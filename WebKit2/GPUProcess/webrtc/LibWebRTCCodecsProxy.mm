@@ -23,19 +23,20 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "LibWebRTCCodecsProxy.h"
+#import "config.h"
+#import "LibWebRTCCodecsProxy.h"
 
 #if USE(LIBWEBRTC) && PLATFORM(COCOA) && ENABLE(GPU_PROCESS)
 
-#include "DataReference.h"
-#include "GPUConnectionToWebProcess.h"
-#include "LibWebRTCCodecsMessages.h"
-#include "WebCoreArgumentCoders.h"
-#include <WebCore/LibWebRTCMacros.h>
-#include <WebCore/RemoteVideoSample.h>
-#include <webrtc/sdk/WebKit/WebKitUtilities.h>
-#include <wtf/MediaTime.h>
+#import "DataReference.h"
+#import "GPUConnectionToWebProcess.h"
+#import "LibWebRTCCodecsMessages.h"
+#import "WebCoreArgumentCoders.h"
+#import <WebCore/LibWebRTCMacros.h>
+#import <WebCore/RemoteVideoSample.h>
+#import <webrtc/sdk/WebKit/WebKitDecoder.h>
+#import <webrtc/sdk/WebKit/WebKitEncoder.h>
+#import <wtf/MediaTime.h>
 
 namespace WebKit {
 
@@ -48,12 +49,23 @@ LibWebRTCCodecsProxy::~LibWebRTCCodecsProxy()
 {
     for (auto decoder : m_decoders.values())
         webrtc::releaseLocalDecoder(decoder);
+    for (auto encoder : m_encoders.values())
+        webrtc::releaseLocalEncoder(encoder);
 }
 
-void LibWebRTCCodecsProxy::createDecoder(RTCDecoderIdentifier identifier)
+void LibWebRTCCodecsProxy::createH264Decoder(RTCDecoderIdentifier identifier)
 {
     ASSERT(!m_decoders.contains(identifier));
-    m_decoders.add(identifier, webrtc::createLocalDecoder(^(CVPixelBufferRef pixelBuffer, uint32_t timeStampNs, uint32_t timeStamp) {
+    m_decoders.add(identifier, webrtc::createLocalH264Decoder(^(CVPixelBufferRef pixelBuffer, uint32_t timeStampNs, uint32_t timeStamp) {
+        if (auto sample = WebCore::RemoteVideoSample::create(pixelBuffer, MediaTime(timeStampNs, 1)))
+            m_gpuConnectionToWebProcess.connection().send(Messages::LibWebRTCCodecs::CompletedDecoding { identifier, timeStamp, *sample }, 0);
+    }));
+}
+
+void LibWebRTCCodecsProxy::createH265Decoder(RTCDecoderIdentifier identifier)
+{
+    ASSERT(!m_decoders.contains(identifier));
+    m_decoders.add(identifier, webrtc::createLocalH265Decoder(^(CVPixelBufferRef pixelBuffer, uint32_t timeStampNs, uint32_t timeStamp) {
         if (auto sample = WebCore::RemoteVideoSample::create(pixelBuffer, MediaTime(timeStampNs, 1)))
             m_gpuConnectionToWebProcess.connection().send(Messages::LibWebRTCCodecs::CompletedDecoding { identifier, timeStamp, *sample }, 0);
     }));
@@ -75,6 +87,79 @@ void LibWebRTCCodecsProxy::decodeFrame(RTCDecoderIdentifier identifier, uint32_t
 
     if (webrtc::decodeFrame(decoder, timeStamp, data.data(), data.size()))
         m_gpuConnectionToWebProcess.connection().send(Messages::LibWebRTCCodecs::FailedDecoding { identifier }, 0);
+}
+
+void LibWebRTCCodecsProxy::createEncoder(RTCEncoderIdentifier identifier, const String& formatName, const Vector<std::pair<String, String>>& parameters)
+{
+    ASSERT(!m_encoders.contains(identifier));
+
+    std::map<std::string, std::string> rtcParameters;
+    for (auto& parameter : parameters)
+        rtcParameters.emplace(parameter.first.utf8().data(), parameter.second.utf8().data());
+    
+    m_encoders.add(identifier, webrtc::createLocalEncoder(webrtc::SdpVideoFormat { formatName.utf8().data(), rtcParameters }, ^(const uint8_t* buffer, size_t size, const webrtc::WebKitEncodedFrameInfo& info, webrtc::RTPFragmentationHeader* header) {
+        
+        m_gpuConnectionToWebProcess.connection().send(Messages::LibWebRTCCodecs::CompletedEncoding { identifier, IPC::DataReference { buffer, size }, info, webrtc::WebKitRTPFragmentationHeader { header } }, 0);
+    }));
+}
+
+void LibWebRTCCodecsProxy::releaseEncoder(RTCEncoderIdentifier identifier)
+{
+    ASSERT(m_encoders.contains(identifier));
+    if (auto encoder = m_encoders.take(identifier))
+        webrtc::releaseLocalEncoder(encoder);
+}
+
+void LibWebRTCCodecsProxy::initializeEncoder(RTCEncoderIdentifier identifier, uint16_t width, uint16_t height, unsigned startBitrate, unsigned maxBitrate, unsigned minBitrate, uint32_t maxFramerate)
+{
+    ASSERT(m_encoders.contains(identifier));
+    auto encoder = m_encoders.get(identifier);
+    if (!encoder)
+        return;
+
+    webrtc::initializeLocalEncoder(encoder, width, height, startBitrate, maxBitrate, minBitrate, maxFramerate);
+}
+
+static inline webrtc::VideoRotation toWebRTCVideoRotation(MediaSample::VideoRotation rotation)
+{
+    switch (rotation) {
+    case MediaSample::VideoRotation::None:
+        return webrtc::kVideoRotation_0;
+    case MediaSample::VideoRotation::UpsideDown:
+        return webrtc::kVideoRotation_180;
+    case MediaSample::VideoRotation::Right:
+        return webrtc::kVideoRotation_90;
+    case MediaSample::VideoRotation::Left:
+        return webrtc::kVideoRotation_270;
+    }
+    ASSERT_NOT_REACHED();
+    return webrtc::kVideoRotation_0;
+}
+
+void LibWebRTCCodecsProxy::encodeFrame(RTCEncoderIdentifier identifier, WebCore::RemoteVideoSample&& sample, bool shouldEncodeAsKeyFrame)
+{
+    ASSERT(m_encoders.contains(identifier));
+    auto encoder = m_encoders.get(identifier);
+    if (!encoder)
+        return;
+
+    if (!m_imageTransferSession || m_imageTransferSession->pixelFormat() != sample.videoFormat())
+        m_imageTransferSession = WebCore::ImageTransferSessionVT::create(sample.videoFormat());
+
+#if !PLATFORM(MACCATALYST)
+    auto pixelBuffer = m_imageTransferSession->createPixelBuffer(sample.surface());
+    webrtc::encodeLocalEncoderFrame(encoder, pixelBuffer.get(), sample.time().toTimeScale(1000000).timeValue(), toWebRTCVideoRotation(sample.rotation()), shouldEncodeAsKeyFrame);
+#endif
+}
+
+void LibWebRTCCodecsProxy::setEncodeRates(RTCEncoderIdentifier identifier, uint32_t bitRate, uint32_t frameRate)
+{
+    ASSERT(m_encoders.contains(identifier));
+    auto encoder = m_encoders.get(identifier);
+    if (!encoder)
+        return;
+
+    webrtc::setLocalEncoderRates(encoder, bitRate, frameRate);
 }
 
 }

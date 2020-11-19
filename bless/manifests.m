@@ -18,7 +18,7 @@
 #include "protos.h"
 
 
-int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPath)
+int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPath, const char *srcSystemPath)
 {
     int							ret = 0;
     OSPersonalizationController	*pc;
@@ -43,6 +43,7 @@ int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPat
 	char						prebootSrcFolder[MAXPATHLEN] = "";
 	char						prebootBSD[64];
 	struct statfs				sfs;
+	struct statfs				sysSfs;
 	CFStringRef					volUUID = NULL;
 	CFStringRef					groupUUID = NULL;
 	bool						mustUnmountPreboot = false;
@@ -79,8 +80,14 @@ int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPat
 		blesscontextprintf(context, kBLLogLevelError, "Couldn't get volume information for path %s: %d\n", srcPath, ret);
 		return ret;
 	}
-	if (strcmp(sfs.f_fstypename, "apfs") == 0) {
-		ret = BLRoleForAPFSVolumeDev(context, sfs.f_mntfromname, &role);
+
+	if (statfs(srcSystemPath, &sysSfs) < 0) {
+		ret = errno;
+		blesscontextprintf(context, kBLLogLevelError, "Couldn't get volume information for system src path %s: %d\n", srcSystemPath, ret);
+		return ret;
+	}
+	if (strcmp(sysSfs.f_fstypename, "apfs") == 0) {
+		ret = BLRoleForAPFSVolumeDev(context, sysSfs.f_mntfromname, &role);
 		if (ret) {
 			blesscontextprintf(context, kBLLogLevelError, "Couldn't get role for volume at %s: %d\n", srcPath, ret);
 			return ret;
@@ -89,10 +96,10 @@ int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPat
 	}
 	
 	pc = [OSPersonalizationController sharedController];
-    srcDir = [[NSString stringWithUTF8String:canonicalSrc] stringByDeletingLastPathComponent];
-    destDir = [[NSString stringWithUTF8String:canonicalDest] stringByDeletingLastPathComponent];
-    srcName = [[NSString stringWithUTF8String:canonicalSrc] lastPathComponent];
-    destName = [[NSString stringWithUTF8String:canonicalDest] lastPathComponent];
+	srcDir = [[NSString stringWithUTF8String:canonicalSrc] stringByDeletingLastPathComponent];
+	destDir = [[NSString stringWithUTF8String:canonicalDest] stringByDeletingLastPathComponent];
+	srcName = [[NSString stringWithUTF8String:canonicalSrc] lastPathComponent];
+	destName = [[NSString stringWithUTF8String:canonicalDest] lastPathComponent];
     manifestNames = [pc requiredManifestPathsForBootFile:[NSString stringWithUTF8String:canonicalDest]];
     for (manifestPath in manifestNames) {
         newDestName = [manifestPath lastPathComponent];
@@ -113,13 +120,13 @@ int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPat
 			if (!extraSrcDir) {
 				// Most errors in here should not be fatal.  They just mean that we
 				// can't find the manifests in an alternate preboot directory.
-				ret = GetPrebootBSDForVolumeBSD(context, sfs.f_mntfromname + strlen(_PATH_DEV), prebootBSD, sizeof prebootBSD);
+				ret = GetPrebootBSDForVolumeBSD(context, sysSfs.f_mntfromname + strlen(_PATH_DEV), prebootBSD, sizeof prebootBSD);
 				if (ret) { ret = 0; break; }
 				if (strncmp(sfs.f_mntonname, canonicalSrc, strlen(sfs.f_mntonname)) != 0) {
 					blesscontextprintf(context, kBLLogLevelVerbose, "Bad path for boot item: %s\n", canonicalSrc);
 					break;
 				}
-				ret = GetVolumeUUIDs(context, sfs.f_mntfromname + strlen(_PATH_DEV), &volUUID, &groupUUID);
+				ret = GetVolumeUUIDs(context, sysSfs.f_mntfromname + strlen(_PATH_DEV), &volUUID, &groupUUID);
 				if (ret) { ret = 0; break; }
 				if (!volUUID) {
 					blesscontextprintf(context, kBLLogLevelVerbose, "No UUID for volume at %s\n", srcPath);

@@ -254,7 +254,7 @@ static void v4MulPointByMatrix(const Vector4 p, const TransformationMatrix::Matr
 
 static double v3Length(Vector3 a)
 {
-    return sqrt((a[0] * a[0]) + (a[1] * a[1]) + (a[2] * a[2]));
+    return std::hypot(a[0], a[1], a[2]);
 }
 
 static void v3Scale(Vector3 v, double desiredLength)
@@ -300,8 +300,8 @@ static bool decompose2(const TransformationMatrix::Matrix4& matrix, Transformati
     result.translateY = matrix[3][1];
 
     // Compute scaling factors.
-    result.scaleX = sqrt(row0x * row0x + row0y * row0y);
-    result.scaleY = sqrt(row1x * row1x + row1y * row1y);
+    result.scaleX = std::hypot(row0x, row0y);
+    result.scaleY = std::hypot(row1x, row1y);
 
     // If determinant is negative, one axis was flipped.
     double determinant = row0x * row1y - row0y * row1x;
@@ -751,20 +751,70 @@ LayoutRect TransformationMatrix::mapRect(const LayoutRect& r) const
 
 FloatRect TransformationMatrix::mapRect(const FloatRect& r) const
 {
-    if (isIdentityOrTranslation()) {
+    auto type = this->type();
+    if (type == Type::IdentityOrTranslation) {
         FloatRect mappedRect(r);
         mappedRect.move(static_cast<float>(m_matrix[3][0]), static_cast<float>(m_matrix[3][1]));
         return mappedRect;
     }
 
-    FloatQuad result;
-
+    float minX = r.x();
+    float minY = r.y();
     float maxX = r.maxX();
     float maxY = r.maxY();
-    result.setP1(internalMapPoint(FloatPoint(r.x(), r.y())));
-    result.setP2(internalMapPoint(FloatPoint(maxX, r.y())));
+
+    if (type == Type::Affine) {
+        double a = m11();
+        double b = m12();
+        double c = m21();
+        double d = m22();
+
+        double minResultX;
+        double minResultY;
+        double maxResultX;
+        double maxResultY;
+
+        if (a > 0) {
+            maxResultX = a * maxX;
+            minResultX = a * minX;
+        } else {
+            maxResultX = a * minX;
+            minResultX = a * maxX;
+        }
+
+        if (b > 0) {
+            maxResultY = b * maxX;
+            minResultY = b * minX;
+        } else {
+            maxResultY = b * minX;
+            minResultY = b * maxX;
+        }
+
+        if (c > 0) {
+            maxResultX += c * maxY;
+            minResultX += c * minY;
+        } else {
+            maxResultX += c * minY;
+            minResultX += c * maxY;
+        }
+
+        if (d > 0) {
+            maxResultY += d * maxY;
+            minResultY += d * minY;
+        } else {
+            maxResultY += d * minY;
+            minResultY += d * maxY;
+        }
+
+        return FloatRect(minResultX + m41(), minResultY + m42(), maxResultX - minResultX, maxResultY - minResultY);
+    }
+
+    FloatQuad result;
+
+    result.setP1(internalMapPoint(FloatPoint(minX, minY)));
+    result.setP2(internalMapPoint(FloatPoint(maxX, minY)));
     result.setP3(internalMapPoint(FloatPoint(maxX, maxY)));
-    result.setP4(internalMapPoint(FloatPoint(r.x(), maxY)));
+    result.setP4(internalMapPoint(FloatPoint(minX, maxY)));
 
     return result.boundingBox();
 }
@@ -813,7 +863,7 @@ TransformationMatrix& TransformationMatrix::scale3d(double sx, double sy, double
 TransformationMatrix& TransformationMatrix::rotate3d(double x, double y, double z, double angle)
 {
     // Normalize the axis of rotation
-    double length = sqrt(x * x + y * y + z * z);
+    double length = std::hypot(x, y, z);
     if (length == 0) {
         // A direction vector that cannot be normalized, such as [0, 0, 0], will cause the rotation to not be applied.
         return *this;
@@ -894,6 +944,15 @@ TransformationMatrix& TransformationMatrix::rotate3d(double x, double y, double 
         mat.m_matrix[3][3] = 1.0;
     }
     multiply(mat);
+    return *this;
+}
+
+TransformationMatrix& TransformationMatrix::rotate(double angle)
+{
+    angle = deg2rad(angle);
+    double sinZ = sin(angle);
+    double cosZ = cos(angle);
+    multiply({ cosZ, sinZ, -sinZ, cosZ, 0, 0 });
     return *this;
 }
 
@@ -1450,20 +1509,17 @@ void TransformationMatrix::multVecMatrix(double x, double y, double z, double& r
 
 bool TransformationMatrix::isInvertible() const
 {
-    if (isIdentityOrTranslation())
+    auto type = this->type();
+    if (type == Type::IdentityOrTranslation)
         return true;
 
-    double det = WebCore::determinant4x4(m_matrix);
-
-    if (fabs(det) < SMALL_NUMBER)
-        return false;
-
-    return true;
+    return fabs(type == Type::Affine ? (m11() * m22() - m12() * m21()) : WebCore::determinant4x4(m_matrix)) >= SMALL_NUMBER;
 }
 
 Optional<TransformationMatrix> TransformationMatrix::inverse() const
 {
-    if (isIdentityOrTranslation()) {
+    auto type = this->type();
+    if (type == Type::IdentityOrTranslation) {
         // identity matrix
         if (m_matrix[3][0] == 0 && m_matrix[3][1] == 0 && m_matrix[3][2] == 0)
             return TransformationMatrix();
@@ -1473,6 +1529,28 @@ Optional<TransformationMatrix> TransformationMatrix::inverse() const
                                     0, 1, 0, 0,
                                     0, 0, 1, 0,
                                     -m_matrix[3][0], -m_matrix[3][1], -m_matrix[3][2], 1);
+    }
+
+    if (type == Type::Affine) {
+        double a = m11();
+        double b = m12();
+        double c = m21();
+        double d = m22();
+        double e = m41();
+        double f = m42();
+        double determinant = a * d - b * c;
+        if (fabs(determinant) < SMALL_NUMBER)
+            return WTF::nullopt;
+
+        double inverseDeterminant = 1 / determinant;
+        return {{
+            d * inverseDeterminant,
+            -b * inverseDeterminant,
+            -c * inverseDeterminant,
+            a * inverseDeterminant,
+            (c * f - d * e) * inverseDeterminant,
+            (b * e - a * f) * inverseDeterminant
+        }};
     }
 
     TransformationMatrix invMat;

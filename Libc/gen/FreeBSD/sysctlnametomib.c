@@ -31,8 +31,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/sysctlnametomib.c,v 1.4 2003/01/04 00:11:11
 #include <sys/sysctl.h>
 #include <string.h>
 
-extern int __sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
-					void *newp, size_t newlen);
+#include "sysctl_internal.h"
 
 /*
  * This function uses a presently undocumented interface to the kernel

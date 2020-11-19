@@ -26,7 +26,7 @@
 #include "config.h"
 #include <wtf/threads/Signals.h>
 
-#if USE(PTHREADS) && HAVE(MACHINE_CONTEXT)
+#if OS(UNIX)
 
 #if HAVE(MACH_EXCEPTIONS)
 extern "C" {
@@ -46,14 +46,17 @@ extern "C" {
 
 #include <wtf/Atomics.h>
 #include <wtf/DataLog.h>
-#include <wtf/LocklessBag.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/PlatformRegisters.h>
 #include <wtf/ThreadGroup.h>
-#include <wtf/ThreadMessage.h>
 #include <wtf/Threading.h>
 #include <wtf/WTFConfig.h>
 
 namespace WTF {
+
+#if HAVE(MACH_EXCEPTIONS)
+static exception_mask_t toMachMask(Signal);
+#endif
 
 void SignalHandlers::add(Signal signal, SignalHandler&& handler)
 {
@@ -63,6 +66,10 @@ void SignalHandlers::add(Signal signal, SignalHandler&& handler)
 
     size_t signalIndex = static_cast<size_t>(signal);
     size_t nextFree = numberOfHandlers[signalIndex];
+#if HAVE(MACH_EXCEPTIONS)
+    if (signal != Signal::Usr)
+        addedExceptions |= toMachMask(signal);
+#endif
     RELEASE_ASSERT(nextFree < maxNumberOfHandlers);
     SignalHandlerMemory* memory = &handlers[signalIndex][nextFree];
     new (memory) SignalHandler(WTFMove(handler));
@@ -127,8 +134,10 @@ void startMachExceptionHandlerThread()
 static Signal fromMachException(exception_type_t type)
 {
     switch (type) {
-    case EXC_BAD_ACCESS: return Signal::BadAccess;
-    case EXC_BAD_INSTRUCTION: return Signal::Ill;
+    case EXC_BAD_ACCESS: return Signal::AccessFault;
+    case EXC_BAD_INSTRUCTION: return Signal::IllegalInstruction;
+    case EXC_ARITHMETIC: return Signal::FloatingPoint;
+    case EXC_BREAKPOINT: return Signal::Breakpoint;
     default: break;
     }
     return Signal::Unknown;
@@ -137,8 +146,10 @@ static Signal fromMachException(exception_type_t type)
 static exception_mask_t toMachMask(Signal signal)
 {
     switch (signal) {
-    case Signal::BadAccess: return EXC_MASK_BAD_ACCESS;
-    case Signal::Ill: return EXC_MASK_BAD_INSTRUCTION;
+    case Signal::AccessFault: return EXC_MASK_BAD_ACCESS;
+    case Signal::IllegalInstruction: return EXC_MASK_BAD_INSTRUCTION;
+    case Signal::FloatingPoint: return EXC_MASK_ARITHMETIC;
+    case Signal::Breakpoint: return EXC_MASK_BREAKPOINT;
     default: break;
     }
     RELEASE_ASSERT_NOT_REACHED();
@@ -201,13 +212,13 @@ kern_return_t catch_mach_exception_raise_state(
 #endif
 
     SigInfo info;
-    if (signal == Signal::BadAccess) {
+    if (signal == Signal::AccessFault) {
         ASSERT_UNUSED(dataCount, dataCount == 2);
         info.faultingAddress = reinterpret_cast<void*>(exceptionData[1]);
 #if CPU(ADDRESS64)
         // If the faulting address is out of the range of any valid memory, we would
         // not have any reason to handle it. Just let the default handler take care of it.
-        static constexpr unsigned validAddressBits = WTF_CPU_EFFECTIVE_ADDRESS_WIDTH;
+        static constexpr unsigned validAddressBits = OS_CONSTANT(EFFECTIVE_ADDRESS_WIDTH);
         static constexpr uintptr_t invalidAddressMask = ~((1ull << validAddressBits) - 1);
         if (bitwise_cast<uintptr_t>(info.faultingAddress) & invalidAddressMask)
             return KERN_FAILURE;
@@ -233,11 +244,12 @@ void handleSignalsWithMach()
     g_wtfConfig.signalHandlers.useMach = true;
 }
 
+static exception_mask_t activeExceptions;
 inline void setExceptionPorts(const AbstractLocker& threadGroupLocker, Thread& thread)
 {
     UNUSED_PARAM(threadGroupLocker);
     SignalHandlers& handlers = g_wtfConfig.signalHandlers;
-    kern_return_t result = thread_set_exception_ports(thread.machThread(), handlers.activeExceptions, handlers.exceptionPort, EXCEPTION_STATE | MACH_EXCEPTION_CODES, MACHINE_THREAD_STATE);
+    kern_return_t result = thread_set_exception_ports(thread.machThread(), handlers.addedExceptions &activeExceptions, handlers.exceptionPort, EXCEPTION_STATE | MACH_EXCEPTION_CODES, MACHINE_THREAD_STATE);
     if (result != KERN_SUCCESS) {
         dataLogLn("thread set port failed due to ", mach_error_string(result));
         CRASH();
@@ -246,14 +258,13 @@ inline void setExceptionPorts(const AbstractLocker& threadGroupLocker, Thread& t
 
 static ThreadGroup& activeThreads()
 {
+    static LazyNeverDestroyed<std::shared_ptr<ThreadGroup>> activeThreads;
     static std::once_flag initializeKey;
-    static ThreadGroup* activeThreadsPtr = nullptr;
     std::call_once(initializeKey, [&] {
         Config::AssertNotFrozenScope assertScope;
-        static NeverDestroyed<std::shared_ptr<ThreadGroup>> activeThreads { ThreadGroup::create() };
-        activeThreadsPtr = activeThreads.get().get();
+        activeThreads.construct(ThreadGroup::create());
     });
-    return *activeThreadsPtr;
+    return (*activeThreads.get());
 }
 
 void registerThreadForMachExceptionHandling(Thread& thread)
@@ -263,10 +274,7 @@ void registerThreadForMachExceptionHandling(Thread& thread)
         setExceptionPorts(locker, thread);
 }
 
-#else
-static constexpr bool useMach = false;
 #endif // HAVE(MACH_EXCEPTIONS)
-
 
 inline size_t offsetForSystemSignal(int sig)
 {
@@ -276,14 +284,14 @@ inline size_t offsetForSystemSignal(int sig)
 
 static void jscSignalHandler(int, siginfo_t*, void*);
 
-void installSignalHandler(Signal signal, SignalHandler&& handler)
+void addSignalHandler(Signal signal, SignalHandler&& handler)
 {
     Config::AssertNotFrozenScope assertScope;
     SignalHandlers& handlers = g_wtfConfig.signalHandlers;
     ASSERT(signal < Signal::Unknown);
-#if HAVE(MACH_EXCEPTIONS)
     ASSERT(!handlers.useMach || signal != Signal::Usr);
 
+#if HAVE(MACH_EXCEPTIONS)
     if (handlers.useMach)
         startMachExceptionHandlerThread();
 #endif
@@ -291,10 +299,7 @@ void installSignalHandler(Signal signal, SignalHandler&& handler)
     static std::once_flag initializeOnceFlags[static_cast<size_t>(Signal::NumberOfSignals)];
     std::call_once(initializeOnceFlags[static_cast<size_t>(signal)], [&] {
         Config::AssertNotFrozenScope assertScope;
-#if HAVE(MACH_EXCEPTIONS)
-        bool useMach = handlers.useMach;
-#endif
-        if (!useMach) {
+        if (!handlers.useMach) {
             struct sigaction action;
             action.sa_sigaction = jscSignalHandler;
             auto result = sigfillset(&action.sa_mask);
@@ -312,11 +317,19 @@ void installSignalHandler(Signal signal, SignalHandler&& handler)
     });
 
     handlers.add(signal, WTFMove(handler));
+}
 
+void activateSignalHandlersFor(Signal signal)
+{
+    UNUSED_PARAM(signal);
 #if HAVE(MACH_EXCEPTIONS)
+    const SignalHandlers& handlers = g_wtfConfig.signalHandlers;
+    ASSERT(signal < Signal::Unknown);
+    ASSERT(!handlers.useMach || signal != Signal::Usr);
+
     auto locker = holdLock(activeThreads().getLock());
     if (handlers.useMach) {
-        handlers.activeExceptions |= toMachMask(signal);
+        activeExceptions |= toMachMask(signal);
 
         for (auto& thread : activeThreads().threads(locker))
             setExceptionPorts(locker, thread.get());
@@ -346,10 +359,14 @@ void jscSignalHandler(int sig, siginfo_t* info, void* ucontext)
     }
 
     SigInfo sigInfo;
-    if (signal == Signal::BadAccess)
+    if (signal == Signal::AccessFault)
         sigInfo.faultingAddress = info->si_addr;
 
+#if HAVE(MACHINE_CONTEXT)
     PlatformRegisters& registers = registersFromUContext(reinterpret_cast<ucontext_t*>(ucontext));
+#else
+    PlatformRegisters registers { };
+#endif
 
     bool didHandle = false;
     bool restoreDefaultHandler = false;
@@ -404,4 +421,4 @@ void SignalHandlers::initialize()
 
 } // namespace WTF
 
-#endif // USE(PTHREADS) && HAVE(MACHINE_CONTEXT)
+#endif // OS(UNIX)

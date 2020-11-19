@@ -8,29 +8,45 @@
 #include "HIDAnalyticsCAPI.h"
 #include "HIDAnalyticsEvent.h"
 #include "HIDAnalyticsHistogramEvent.h"
+#include <AssertMacros.h>
+
 
 HIDAnalyticsEventRef HIDAnalyticsEventCreate(CFStringRef eventName, CFDictionaryRef description)
 {
     
     HIDAnalyticsEvent *event = nil;
+    NSDictionary * _description  = nil;
     
-    event = [[HIDAnalyticsEvent alloc] initWithAttributes:(__bridge NSString*)eventName description:(__bridge NSDictionary*)description];
+    NSString * _eventName = [NSString stringWithString:(__bridge NSString*)eventName];
+    __Require_Quiet(_eventName, exit);
     
-    if (!event) {
-        return NULL;
-    }
+    _description = description ? (__bridge_transfer NSDictionary *)CFPropertyListCreateDeepCopy(kCFAllocatorDefault, description, kCFPropertyListMutableContainersAndLeaves) : nil;
     
+    event = [[HIDAnalyticsEvent alloc] initWithAttributes:_eventName description:_description];
+    __Require_Quiet(event, exit);
+    
+exit:
     return (__bridge_retained HIDAnalyticsEventRef)event;
 }
 
 void HIDAnalyticsEventAddHistogramField(HIDAnalyticsEventRef event, CFStringRef fieldName, HIDAnalyticsHistogramSegmentConfig* segments, CFIndex count)
 {
-    [(__bridge HIDAnalyticsEvent*)event addHistogramFieldWithSegments:(__bridge NSString*)fieldName segments:segments count:(NSInteger)count];
+    NSString *_fieldName = [NSString stringWithString:(__bridge NSString*)fieldName];
+    __Require_Quiet(_fieldName, exit);
+    
+    [(__bridge HIDAnalyticsEvent*)event addHistogramFieldWithSegments:_fieldName segments:segments count:(NSInteger)count];
+exit:
+    return;
 }
 
 void HIDAnalyticsEventAddField(HIDAnalyticsEventRef  event, CFStringRef  fieldName)
 {
-    [(__bridge HIDAnalyticsEvent*)event addField:(__bridge NSString*)fieldName];
+    NSString *_fieldName = [NSString stringWithString:(__bridge NSString*)fieldName];
+    __Require_Quiet(_fieldName, exit);
+    
+    [(__bridge HIDAnalyticsEvent*)event addField:_fieldName];
+exit:
+    return;
 }
 
 void HIDAnalyticsEventActivate(HIDAnalyticsEventRef event)
@@ -45,6 +61,8 @@ void HIDAnalyticsEventCancel(HIDAnalyticsEventRef event)
 
 void HIDAnalyticsEventSetIntegerValueForField(CFTypeRef event, CFStringRef fieldName, uint64_t value)
 {
+    // We just search for field name in fields list, so NULL won't be problem here.
+    // We can't afford to create copy here, since this is critical path
     [(__bridge HIDAnalyticsEvent*)event setIntegerValue:value forField:(__bridge NSString*)fieldName];
 }
 
@@ -52,15 +70,20 @@ HIDAnalyticsHistogramEventRef __nullable HIDAnalyticsHistogramEventCreate(CFStri
 {
     
     HIDAnalyticsHistogramEvent *event = nil;
+    NSDictionary * _description = nil;
     
-    event = [[HIDAnalyticsHistogramEvent alloc] initWithAttributes:(__bridge NSString*)eventName description:(__bridge NSDictionary*)description];
     
-    if (!event) {
-        return NULL;
-    }
+    NSString * _eventName = [NSString stringWithString:(__bridge NSString*)eventName];
+    __Require_Quiet(_eventName, exit);
+    
+    _description = description ? (__bridge_transfer NSDictionary *)CFPropertyListCreateDeepCopy(kCFAllocatorDefault, description, kCFPropertyListMutableContainersAndLeaves) : nil;
+    
+    event = [[HIDAnalyticsHistogramEvent alloc] initWithAttributes:_eventName description:_description];
+    
+    __Require_Quiet(event, exit);
     
     [event addHistogramFieldWithSegments:(__bridge NSString*)fieldName segments:segments count:(NSInteger)count];
-    
+exit:
     return (__bridge_retained HIDAnalyticsHistogramEventRef)event;
 }
 

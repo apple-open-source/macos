@@ -613,10 +613,50 @@ bin_rm(char *nam, char **args, Options ops, UNUSED(int func))
     rmm.opt_interact = OPT_ISSET(ops,'i') && !OPT_ISSET(ops,'f');
     rmm.opt_unlinkdir = OPT_ISSET(ops,'d');
     err = recursivecmd(nam, OPT_ISSET(ops,'f'), 
-		       OPT_ISSET(ops,'r') && !OPT_ISSET(ops,'d'),
+		       !OPT_ISSET(ops,'d') && (OPT_ISSET(ops,'R') ||
+		                               OPT_ISSET(ops,'r')),
 		       OPT_ISSET(ops,'s'),
 	args, recurse_donothing, rm_dirpost, rm_leaf, &rmm);
     return OPT_ISSET(ops,'f') ? 0 : err;
+}
+
+/* chmod builtin */
+
+struct chmodmagic {
+    char *nam;
+    mode_t mode;
+};
+
+/**/
+static int
+chmod_dochmod(char *arg, char *rp, UNUSED(struct stat const *sp), void *magic)
+{
+    struct chmodmagic *chm = magic;
+
+    if(chmod(rp, chm->mode)) {
+	zwarnnam(chm->nam, "%s: %e", arg, errno);
+	return 1;
+    }
+    return 0;
+}
+
+/**/
+static int
+bin_chmod(char *nam, char **args, Options ops, int func)
+{
+    struct chmodmagic chm;
+    char *str = args[0], *ptr;
+
+    chm.nam = nam;
+
+    chm.mode = zstrtol(str, &ptr, 8);
+    if(!*str || *ptr) {
+	zwarnnam(nam, "invalid mode `%s'", str);
+	return 1;
+    }
+
+    return recursivecmd(nam, 0, OPT_ISSET(ops,'R'), OPT_ISSET(ops,'s'),
+	args + 1, chmod_dochmod, recurse_donothing, chmod_dochmod, &chm);
 }
 
 /* chown builtin */
@@ -754,20 +794,22 @@ static struct builtin bintab[] = {
     /* The names which overlap commands without necessarily being
      * fully compatible. */
     BUILTIN("chgrp", 0, bin_chown, 2, -1, BIN_CHGRP, "hRs",    NULL),
+    BUILTIN("chmod", 0, bin_chmod, 2, -1, 0,         "Rs",    NULL),
     BUILTIN("chown", 0, bin_chown, 2, -1, BIN_CHOWN, "hRs",    NULL),
     BUILTIN("ln",    0, bin_ln,    1, -1, BIN_LN,    LN_OPTS, NULL),
     BUILTIN("mkdir", 0, bin_mkdir, 1, -1, 0,         "pm:",   NULL),
     BUILTIN("mv",    0, bin_ln,    2, -1, BIN_MV,    "fi",    NULL),
-    BUILTIN("rm",    0, bin_rm,    1, -1, 0,         "dfirs", NULL),
+    BUILTIN("rm",    0, bin_rm,    1, -1, 0,         "dfiRrs", NULL),
     BUILTIN("rmdir", 0, bin_rmdir, 1, -1, 0,         NULL,    NULL),
     BUILTIN("sync",  0, bin_sync,  0,  0, 0,         NULL,    NULL),
     /* The "safe" zsh-only names */
     BUILTIN("zf_chgrp", 0, bin_chown, 2, -1, BIN_CHGRP, "hRs",    NULL),
+    BUILTIN("zf_chmod", 0, bin_chmod, 2, -1, 0,         "Rs",    NULL),
     BUILTIN("zf_chown", 0, bin_chown, 2, -1, BIN_CHOWN, "hRs",    NULL),
     BUILTIN("zf_ln",    0, bin_ln,    1, -1, BIN_LN,    LN_OPTS, NULL),
     BUILTIN("zf_mkdir", 0, bin_mkdir, 1, -1, 0,         "pm:",   NULL),
     BUILTIN("zf_mv",    0, bin_ln,    2, -1, BIN_MV,    "fi",    NULL),
-    BUILTIN("zf_rm",    0, bin_rm,    1, -1, 0,         "dfirs", NULL),
+    BUILTIN("zf_rm",    0, bin_rm,    1, -1, 0,         "dfiRrs", NULL),
     BUILTIN("zf_rmdir", 0, bin_rmdir, 1, -1, 0,         NULL,    NULL),
     BUILTIN("zf_sync",  0, bin_sync,  0,  0, 0,         NULL,    NULL),
 

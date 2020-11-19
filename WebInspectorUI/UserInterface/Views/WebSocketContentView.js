@@ -45,12 +45,16 @@ WI.WebSocketContentView = class WebSocketContentView extends WI.ContentView
         this.element.classList.add("web-socket", "resource");
 
         let columns = {data: {}};
+
         columns.data.title = WI.UIString("Data");
         columns.data.sortable = false;
         columns.data.width = "85%";
 
-        if (this._showTimeColumn)
-            columns.time = {title: WI.UIString("Time"), sortable: true};
+        if (this._showTimeColumn) {
+            columns.time = {};
+            columns.time.title = WI.UIString("Time");
+            columns.time.sortable = true;
+        }
 
         this._dataGrid = new WI.DataGrid(columns);
         this._dataGrid.variableHeightRows = true;

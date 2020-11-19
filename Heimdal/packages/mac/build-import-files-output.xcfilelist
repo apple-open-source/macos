@@ -1,0 +1,9 @@
+${HEIMDAL_TMPDIR}/sym_hcrypto.c
+${HEIMDAL_TMPDIR}/sym_roken.c
+${HEIMDAL_TMPDIR}/sym_krb5.c
+${HEIMDAL_TMPDIR}/sym_hx509.c
+${HEIMDAL_TMPDIR}/sym_pkinit.c
+${HEIMDAL_TMPDIR}/sym_gss.c
+${HEIMDAL_TMPDIR}/sym_asn1.c
+${HEIMDAL_TMPDIR}/sym_base.c
+

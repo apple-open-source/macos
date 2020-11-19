@@ -315,7 +315,7 @@ OSStatus	ExtendBTree	(BTreeControlBlockPtr	btreePtr,
 	
 	//////////////////// Calc New Total Number Of Nodes /////////////////////////
 	
-	newTotalNodes = filePtr->fcbLogicalSize / nodeSize;		//¥¥ hack!
+	newTotalNodes = (UInt32)(filePtr->fcbLogicalSize / nodeSize);		//¥¥ hack!
 	//¥¥ do we wish to perform any verification of newTotalNodes at this point?
 
 	btreePtr->totalNodes = newTotalNodes;		//¥¥ do we need to update freeNodes here too?
@@ -534,7 +534,7 @@ UInt32		CalcMapBits	(BTreeControlBlockPtr	 btreePtr)
 {
 	UInt32		mapBits;
 	
-	mapBits		= M_HeaderMapRecordSize (btreePtr->nodeSize) << 3;
+	mapBits		= (UInt32)(M_HeaderMapRecordSize (btreePtr->nodeSize) << 3);
 	
 	while (mapBits < btreePtr->totalNodes)
 		mapBits	+= M_MapRecordSize (btreePtr->nodeSize) << 3;

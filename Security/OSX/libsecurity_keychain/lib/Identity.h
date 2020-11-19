@@ -47,7 +47,7 @@ public:
     Identity(const SecKeyRef privateKey,
              const SecPointer<Certificate> &certificate);
     Identity(const StorageManager::KeychainList &keychains, const SecPointer<Certificate> &certificate);
-    virtual ~Identity() throw();
+    virtual ~Identity() _NOEXCEPT;
 
 	SecPointer<KeyItem> privateKey() const;
 	SecPointer<Certificate> certificate() const;

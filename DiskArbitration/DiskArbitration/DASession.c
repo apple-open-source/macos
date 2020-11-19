@@ -634,7 +634,7 @@ void DASessionUnscheduleFromRunLoop( DASessionRef session, CFRunLoopRef runLoop,
     }
 }
 
-CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator,
+__private_extern__ CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator,
                                 mach_vm_offset_t address,
                                 mach_vm_offset_t context)
 {
@@ -651,10 +651,10 @@ CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator,
     return  callback;
 }
 
-SInt32 DAAddCallbackToSession(DASessionRef session, CFMutableDictionaryRef callback)
+__private_extern__ SInt32 DAAddCallbackToSession(DASessionRef session, CFMutableDictionaryRef callback)
 {
     SInt32 currentIndex = 0;
-    
+
     /*
      * Add the callback dict object to the session's register queue
      */
@@ -688,7 +688,7 @@ SInt32 DAAddCallbackToSession(DASessionRef session, CFMutableDictionaryRef callb
     return currentIndex;
 }
 
-void DARemoveCallbackFromSessionWithKey(DASessionRef session, SInt32 index)
+__private_extern__ void DARemoveCallbackFromSessionWithKey(DASessionRef session, SInt32 index)
 {
     /*
      * Remove the callback dict object from the session's register queue
@@ -704,7 +704,7 @@ void DARemoveCallbackFromSessionWithKey(DASessionRef session, SInt32 index)
     }
 }
 
-SInt32 DARemoveCallbackFromSession(DASessionRef session, mach_vm_offset_t address,
+__private_extern__ SInt32 DARemoveCallbackFromSession(DASessionRef session, mach_vm_offset_t address,
                                 mach_vm_offset_t context)
 {
     SInt32 matchingKey = 0;
@@ -746,7 +746,7 @@ SInt32 DARemoveCallbackFromSession(DASessionRef session, mach_vm_offset_t addres
     return matchingKey;
 }
 
-CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef session, SInt32 index)
+__private_extern__ CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef session, SInt32 index)
 {
     CFMutableDictionaryRef callback = 0;
     
@@ -758,7 +758,7 @@ CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef session, SInt32 ind
     {
         CFNumberRef number = CFNumberCreate( NULL, kCFNumberSInt32Type, &index );
         pthread_mutex_lock( &session->_registerLock );
-        callback =  CFDictionaryGetValue( session->_register , number );
+        callback =  ( CFMutableDictionaryRef ) CFDictionaryGetValue( session->_register , number );
         pthread_mutex_unlock( &session->_registerLock );
         CFRelease( number );
     }

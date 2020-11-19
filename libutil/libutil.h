@@ -58,6 +58,7 @@ struct in_addr;
 struct sockaddr;
 
 __BEGIN_DECLS
+int	expand_number(const char *_buf, uint64_t *_num);
 int	humanize_number(char *_buf, size_t _len, int64_t _number,
 	    const char *_suffix, int _scale, int _flags);
 

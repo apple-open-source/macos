@@ -109,33 +109,6 @@ void Listener::sendNotification(Notification *message)
 	}
 }
 
-
-//
-// Handle a port death or deallocation by removing all Listeners using that port.
-// Returns true iff we had one.
-//
-bool Listener::remove(Port port)
-{
-    typedef ListenerMap::iterator Iterator;
-    StLock<Mutex> _(setLock);
-    pair<Iterator, Iterator> range = listeners.equal_range(port);
-    if (range.first == range.second)
-        return false;	// not one of ours
-
-	assert(range.first != listeners.end());
-	secinfo("notify", "remove port %d", port.port());
-#if !defined(NDEBUG)
-    for (Iterator it = range.first; it != range.second; it++) {
-		assert(it->first == port);
-		secinfo("notify", "%p listener removed", it->second.get());
-	}
-#endif //NDEBUG
-    listeners.erase(range.first, range.second);
-	port.destroy();
-    return true;	// got it
-}
-
-
 //
 // Notification message objects
 //

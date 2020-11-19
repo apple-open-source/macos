@@ -4032,20 +4032,20 @@ Mutex fcntl:/var/httpd/locks mpm-accept</pre>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>REDIRECT_URL ortam değişkeninin tamamen nitelenmiş olup
 olmayacağını denetler</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>QualifyRedirectURL ON|OFF</code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>QualifyRedirectURL OFF</code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>QualifyRedirectURL On|Off</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>QualifyRedirectURL Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli, sanal konak, dizin</td></tr>
 <tr><th><a href="directive-dict.html#Override">Geçersizleştirme:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Yönerge 2.4.18 ve sonrasında desteklenmektedir. 2.4.17
-sürümünde 'QualifyRedirectURL ON' yapılandırması mevcutmuş gibi
+sürümünde 'QualifyRedirectURL On' yapılandırması mevcutmuş gibi
 davranılır.</td></tr>
 </table>
     <p>Bu yönerge sunucuya REDIRECT_URL ortam değişkenin tamamen nitelenmiş
       olacağını temin eder. Değişken öntanımlı olarak istemci tarafından talep
       edilen URL'yi harfi harfine içerir, "/index.html" gibi.
-      <code class="directive"><a href="#qualifyredirecturl on">QualifyRedirectURL ON</a></code> belirtilseydi
+      <code class="directive"><a href="#qualifyredirecturl on">QualifyRedirectURL On</a></code> belirtilseydi
       aynı istek "http://www.example.com/index.html" gibi bir değerle
       sonuçlanırdı.</p>
 
@@ -4059,7 +4059,7 @@ davranılır.</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Açıklama:</a></th><td>Regex düzenli ifadeleri için öntanımlı/küresel seçenekleri yapılandırır</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Sözdizimi:</a></th><td><code>RegexDefaultOptions [none] [+|-]<var>seçenek</var> [[+|-]<var>seçenek</var>] ...</code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>RegexDefaultOptions DOLLAR_ENDONLY</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Öntanımlı:</a></th><td><code>RegexDefaultOptions DOTALL DOLLAR_ENDONLY</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Bağlam:</a></th><td>sunucu geneli</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Çekirdek</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>core</td></tr>
@@ -4081,20 +4081,24 @@ davranılır.</td></tr>
             <dt><code>ICASE</code></dt>
             <dd>Harf büyüklüğüne duyarlı eşleşmeler kullanılır.</dd>
 
+            <dt><code>EXTENDED</code></dt>
+            <dd>Perl'ün /x seçeneği; kalıp içindeki açıklamaları ve 
+            (öncelenmemiş) boşlukları yoksayar.</dd>
+
             <dt><code>DOTALL</code></dt>
-            <dd>Perl'ün /s seçeneği.</dd>
+            <dd>Perl'ün /s seçeneği; '.' karakteri, satırsonu karakteri ile 
+             eşleşir.</dd>
 
             <dt><code>DOLLAR_ENDONLY</code></dt>
             <dd>'$' dizgenin sonu ile eşleşir.</dd>
-            <dd>.</dd>
         </dl>
-        <pre class="prettyprint lang-config"># 
-RegexDefaultOptions +ICASE +DOLLAR_ENDONLY
+        <pre class="prettyprint lang-config"># Tüm düzenli ifadeler için öntanımlı olarak ICASE seçeneğini ekler:
+RegexDefaultOptions +ICASE
 ...
-# ICASE seçeneği silinir, diğer seçenekler tutulur:
-RegexDefaultOptions -ICASE
+# Öntanımlı DOLLAR_ENDONLY seçeneği silinir, diğer seçenekler tutulur:
+RegexDefaultOptions -DOLLAR_ENDONLY
 ...
-# Atanmuş seçenekler silinir, DOTALL öntanımlı seçenek yapılır:
+# Atanmış seçenekler silinir, DOTALL öntanımlı seçenek yapılır:
 RegexDefaultOptions DOTALL
 ...
 # Tüm seçenekler silinir, öntanımlı seçenek kalmaz.
@@ -4292,8 +4296,8 @@ RegexDefaultOptions none
       içinde çökertmek için iyi bir yoldur.</p>
     </div>
 
-    <p><code>Registry-Strict</code> seçeneği Apache HTTP Sunucusunun 2.0
-      sürümünde yeni olup <code>Registry</code> seçeneğinin yaptığını
+    <p><code>Registry-Strict</code> seçeneği <code>Registry</code> 
+      seçeneğinin yaptığını
       <code>Shell\ExecCGI\Command</code> yolu için yapar. <code>ExecCGI</code>
       sistem tarafından bilinen bir anahtar olmadığından Windows Siciline elle
       kaydedilmesi gerekir ve dolayısıyla sisteminiz üzerinde istenmeyen
@@ -4568,14 +4572,14 @@ kullanılacak konak adları için başka isimler belirtebilmeyi sağlar.
       aslında hangi sunucu tarafından üretildiğini kullanıcıya bildirmektir.</p>
 
     <p><code>Off</code> değeri öntanımlı değer olup dipnot satırının
-      gösterilmemesini sağlar (Apache-1.2 ve öncesi ile uyumluluk).
+      gösterilmemesini sağlar.
       <code>On</code> değeri, sunucu sürüm numarası ve hizmeti sunan sanal
       konağın isminden (<code class="directive"><a href="#servername">ServerName</a></code>) oluşan
       bir dipnot satırı oluşturulmasını sağlar; <code>EMail</code> değeri bu
       ikisine ek olarak satıra <code class="directive"><a href="#serveradmin">ServerAdmin</a></code>
       ile belirtilen adres için bir "mailto:" bağı ekler.</p>
 
-    <p>2.0.44 sürümünden beri sunucu sürüm numarasının ayrıntıları <code class="directive"><a href="#servertokens">ServerTokens</a></code> yönergesi ile belirlenmektedir.</p>
+    <p>Sunucu sürüm numarasının ayrıntıları <code class="directive"><a href="#servertokens">ServerTokens</a></code> yönergesi ile belirlenmektedir.</p>
 
 <h3>Ayrıca bakınız:</h3>
 <ul>
@@ -4627,8 +4631,8 @@ kullanılacak konak adları için başka isimler belirtebilmeyi sağlar.
     <p>Bu ayarlama sunucunun tamamını etkiler ve her sanal konak için
       farklılaştırılamaz.</p>
 
-    <p>2.0.44 sürümünden itibaren bu yönerge <code class="directive"><a href="#serversignature">ServerSignature</a></code> yönergesi tarafından sunulan
-      bilgiyi de etkilemektedir.</p>
+    <p>Bu yönerge <code class="directive"><a href="#serversignature">ServerSignature</a></code> 
+      yönergesi tarafından sunulan bilgiyi de etkilemektedir.</p>
 
     <div class="note"><code class="directive">ServerTokens</code> yönergesinde
     <code>minimal</code>'den azının belirtilmesi önerilmez. Bunun sebebi ara
@@ -5096,7 +5100,7 @@ gerçekleşmesi için sunucunun geçmesini bekleyeceği süre.</td></tr>
 <a href="../fr/mod/core.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorumlar</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Yorumlar</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
@@ -5114,7 +5118,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/core.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="http://wiki.apache.org/httpd/FAQ">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

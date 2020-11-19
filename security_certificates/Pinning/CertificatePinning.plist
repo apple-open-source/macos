@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>47</integer>
+	<integer>55</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -105,13 +105,13 @@
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>registration|aggregator|profile|query|identity|sms|group|invitation|junction|^pds$|^pds-</string>
+				<string>^(?!.*(init|support|splunk)).*</string>
 				<key>suffix</key>
 				<string>ess.apple.com</string>
 			</dict>
 			<dict>
 				<key>labelRegex</key>
-				<string>ps2ls|sc5mv|^init-kt$|^init-kt-|^kt-prod$|^kt-carry$|^kt-test$|^kt-qa1$|^kt-qa2$</string>
+				<string>ps2ls|sc5mv|^kt-prod$|^kt-carry$|^kt-test$|^kt-qa1$|^kt-qa2$</string>
 				<key>suffix</key>
 				<string>apple.com</string>
 			</dict>
@@ -1178,6 +1178,7 @@
 					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
 					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
@@ -1219,13 +1220,13 @@
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^guzzoni$</string>
+				<string>^guzzoni$|^dejavu$|^sequoia$|^swallow$</string>
 				<key>suffix</key>
 				<string>apple.com</string>
 			</dict>
 			<dict>
 				<key>labelRegex</key>
-				<string>^carry$|^seed$</string>
+				<string>^carry$|^seed$|^(carry|seed)-(dejavu|sequoia|swallow)$</string>
 				<key>suffix</key>
 				<string>siri.apple.com</string>
 			</dict>
@@ -1283,6 +1284,7 @@
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
 					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
+					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
@@ -1425,6 +1427,7 @@
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
 					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
+					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
 					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
 					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
@@ -1605,6 +1608,7 @@
 					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
 					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
 					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
 					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
 					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
 					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
@@ -1646,13 +1650,58 @@
 		<array>
 			<dict>
 				<key>labelRegex</key>
+				<string>^adm-axm$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>Olympus</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.39</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.39</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.39</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.39</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
 				<string>^api-sk$</string>
 				<key>suffix</key>
 				<string>shazam.com</string>
 			</dict>
 		</array>
 		<key>policyName</key>
-		<string>Shazam</string>
+		<string>ShazamKit</string>
 		<key>rules</key>
 		<array>
 			<dict>
@@ -1678,6 +1727,51 @@
 						<dict>
 							<key>1.2.840.113635.100.6.48.1</key>
 							<string>1.2.840.113635.100.6.27.52</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^ipcdn$|^ipcdn-uat$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>InstructionalContent</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.54</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.54</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.54</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.54</string>
 						</dict>
 					</array>
 				</dict>
@@ -1763,6 +1857,297 @@
 						<dict>
 							<key>1.2.840.113635.100.6.48.1</key>
 							<string>1.2.840.113635.100.6.27.41.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^identity$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>PushCertPortal</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.42.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.42.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.42.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.42.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+			<dict>
+				<key>AnchorSHA256</key>
+				<array>
+					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
+					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
+					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
+					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
+					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
+					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
+					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+				</array>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateCountry</key>
+				<string>US</string>
+				<key>CheckIntermediateOrganization</key>
+				<string>Apple Inc.</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.42.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.42.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.42.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.42.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^pba$|^pba0$|^ma-pba-prod$|^pr-pba-prod$|^msc-pba-prod$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^pba0-test$</string>
+				<key>suffix</key>
+				<string>corp.apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^idem-pba-test$</string>
+				<key>suffix</key>
+				<string>rno.apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>PBA</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.55</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.55</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.55</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.55</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>smp-device(-dr|-content)?$|pod[0-9]-smp-dr$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>smp-device(-dr)?$</string>
+				<key>suffix</key>
+				<string>asia.apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>ApplePay</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>SubjectOrganization</key>
+				<string>Apple Inc.</string>
+				<key>CertificatePolicy</key>
+				<string>2.23.140.1.1</string>
+				<key>AnchorSHA256</key>
+				<array>
+					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
+					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
+					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+				</array>
+			</dict>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.72.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.72.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.72.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.72.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+			<dict>
+				<key>AnchorSHA256</key>
+				<array>
+					<data>/4VqLSUdzYjTZlb0UBJnmM+rqt5AeZxyLeTStds2pzo=</data>
+					<data>Fq9XqfZ2sKsSYJWqXrre8iqzERnWRKyVzUuT2/Pyaus=</data>
+					<data>Ma1mSPgQQTjHOPOepDIBMzk+OhjMAilu+Xwqye9nMdA=</data>
+					<data>Xtt6xDuCoGqHYejXvkl56/JhH33Xm/kcHGtWaiGe12Y=</data>
+					<data>yzzLt2Ax5eATj43TmiP53kf/w15DwRRM6ifUalqxy18=</data>
+					<data>dDHl9MPBzkaQd08LYeBUQIg7qaAe0Aumq9eAbtOxGM8=</data>
+					<data>16eg+11+JzHXcelITrze9x1fDD4KKUh4K8g+4OppnvQ=</data>
+					<data>F5OSegYUVJeJrc4vjzT38LZtDzrjo7hNIewV27pPrcc=</data>
+					<data>55PJsC/YqhPiHDEiisywgRlkO3SciYlksXRtRsPUy9I=</data>
+				</array>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateCountry</key>
+				<string>US</string>
+				<key>CheckIntermediateOrganization</key>
+				<string>Apple Inc.</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.72.2</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.72.2</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.72.1</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.72.1</string>
+						</dict>
+					</array>
+				</dict>
+				<key>Revocation</key>
+				<string>AnyRevocationMethod</string>
+			</dict>
+		</array>
+	</dict>
+	<dict>
+		<key>domains</key>
+		<array>
+			<dict>
+				<key>labelRegex</key>
+				<string>^cl[1-5]$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+		</array>
+		<key>policyName</key>
+		<string>CoreLocationTiles</string>
+		<key>rules</key>
+		<array>
+			<dict>
+				<key>AnchorApple</key>
+				<dict/>
+				<key>ChainLength</key>
+				<integer>3</integer>
+				<key>CheckIntermediateMarkerOid</key>
+				<string>1.2.840.113635.100.6.2.12</string>
+				<key>CheckLeafMarkersProdAndQA</key>
+				<dict>
+					<key>ProdMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.56</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.56</string>
+						</dict>
+					</array>
+					<key>QAMarker</key>
+					<array>
+						<string>1.2.840.113635.100.6.27.56</string>
+						<dict>
+							<key>1.2.840.113635.100.6.48.1</key>
+							<string>1.2.840.113635.100.6.27.56</string>
 						</dict>
 					</array>
 				</dict>

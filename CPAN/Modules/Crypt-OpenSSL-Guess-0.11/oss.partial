@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-12</string>
+        <key>OpenSourceProject</key>
+        <string>Crypt-OpenSSL-Guess</string>
+        <key>OpenSourceVersion</key>
+        <string>0.11</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/A/AK/AKIYM/Crypt-OpenSSL-Guess-0.11.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -8,18 +8,6 @@
 	<array>
 		<dict>
 			<key>AsRoot</key>
-			<false/>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/kext_tools/security_test</string>
-			</array>
-			<key>ShowSubtestResults</key>
-			<false/>
-			<key>TestName</key>
-			<string>security_test</string>
-		</dict>
-		<dict>
-			<key>AsRoot</key>
 			<true/>
 			<key>Command</key>
 			<array>

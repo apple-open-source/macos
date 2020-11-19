@@ -1,0 +1,16 @@
+--- Makefile.PL.orig	2020-04-12 10:32:37.000000000 -0700
++++ Makefile.PL	2020-04-12 10:34:20.000000000 -0700
+@@ -285,6 +285,13 @@
+ sub find_openssl_exec {
+     my ($prefix) = @_;
+ 
++    if (defined $ENV{OPENSSL_BINDIR}) {
++        my $path = File::Spec->catfile($ENV{OPENSSL_BINDIR}, "openssl$Config{_exe}");
++        if ( -x $path ) {
++            return $path;
++        }
++    }
++
+     my $exe_path;
+     for my $subdir (qw( bin sbin out32dll ia64_exe alpha_exe )) {
+         my $path = File::Spec->catfile($prefix, $subdir, "openssl$Config{_exe}");

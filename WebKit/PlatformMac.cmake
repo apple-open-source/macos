@@ -147,7 +147,6 @@ list(APPEND WebKitLegacy_SOURCES
     mac/WebView/WebTextCompletionController.mm
     mac/WebView/WebTextIterator.mm
     mac/WebView/WebVideoFullscreenController.mm
-    mac/WebView/WebVideoFullscreenHUDWindowController.mm
     mac/WebView/WebViewData.mm
     mac/WebView/WebWindowAnimation.mm
 )
@@ -531,7 +530,6 @@ set(WebKitLegacy_LEGACY_FORWARDING_HEADERS_FILES
     mac/WebView/WebResourceInternal.h
     mac/WebView/WebResourceLoadDelegate.h
     mac/WebView/WebJSPDFDoc.h
-    mac/WebView/WebVideoFullscreenHUDWindowController.h
     mac/WebView/WebDeviceOrientation.h
     mac/WebView/WebUIDelegatePrivate.h
     mac/WebView/WebScriptDebugger.h
@@ -682,7 +680,6 @@ WEBKIT_MAKE_FORWARDING_HEADERS(WebKitLegacy
     FILES ${WebKitLegacy_FORWARDING_HEADERS_FILES}
     FLATTENED
 )
-add_dependencies(WebKitLegacyFrameworkHeaders WebCorePrivateFrameworkHeaders)
 
 set(WebKitLegacy_OUTPUT_NAME WebKitLegacy)
 

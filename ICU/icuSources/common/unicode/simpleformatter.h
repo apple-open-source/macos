@@ -17,9 +17,11 @@
  */
 
 #include "unicode/utypes.h"
-#include "unicode/unistr.h"
 
 #if U_SHOW_CPLUSPLUS_API
+
+#include "unicode/unistr.h"
+
 U_NAMESPACE_BEGIN
 
 // Forward declaration:
@@ -94,8 +96,34 @@ public:
      */
     SimpleFormatter(const UnicodeString& pattern, int32_t min, int32_t max,
                     UErrorCode &errorCode) {
-        applyPatternMinMaxArguments(pattern, min, max, errorCode);
+        applyPatternMinMaxArguments(pattern, min, max, FALSE, errorCode);
     }
+
+#ifndef U_HIDE_INTERNAL_API
+    /**
+     * Constructs a formatter from the pattern string.
+     * The number of arguments checked against the given limits is the
+     * highest argument number plus one, not the number of occurrences of arguments.
+     *
+     * @param pattern The pattern string.
+     * @param min The pattern must have at least this many arguments.
+     * @param max The pattern must have at most this many arguments.
+     * @param removeSingleQuotes If TRUE, single quotes are treated as syntax characters even
+     *                          when they don't appear adjacent to other syntax characters
+     *                          (The old default UMSGPAT_APOS_DOUBLE_REQUIRED behavior.)
+     *                          If FALSE, single quotes not adjacent to syntax characters are treated
+     *                          as literal text (the current default).
+     * @param errorCode ICU error code in/out parameter.
+     *                  Must fulfill U_SUCCESS before the function call.
+     *                  Set to U_ILLEGAL_ARGUMENT_ERROR for bad argument syntax and
+     *                  too few or too many arguments.
+     * @internal Apple only
+     */
+    SimpleFormatter(const UnicodeString& pattern, int32_t min, int32_t max,
+                    UBool removeSingleQuotes, UErrorCode &errorCode) {
+        applyPatternMinMaxArguments(pattern, min, max, removeSingleQuotes, errorCode);
+    }
+#endif  /* U_HIDE_INTERNAL_API */
 
     /**
      * Copy constructor.
@@ -127,7 +155,7 @@ public:
      * @stable ICU 57
      */
     UBool applyPattern(const UnicodeString &pattern, UErrorCode &errorCode) {
-        return applyPatternMinMaxArguments(pattern, 0, INT32_MAX, errorCode);
+        return applyPatternMinMaxArguments(pattern, 0, INT32_MAX, FALSE, errorCode);
     }
 
     /**
@@ -146,7 +174,35 @@ public:
      * @stable ICU 57
      */
     UBool applyPatternMinMaxArguments(const UnicodeString &pattern,
-                                      int32_t min, int32_t max, UErrorCode &errorCode);
+                                      int32_t min, int32_t max, UErrorCode &errorCode) {
+        return applyPatternMinMaxArguments(pattern, min, max, FALSE, errorCode);
+    }
+
+#ifndef U_HIDE_INTERNAL_API
+    /**
+     * Changes this object according to the new pattern.
+     * The number of arguments checked against the given limits is the
+     * highest argument number plus one, not the number of occurrences of arguments.
+     *
+     * @param pattern The pattern string.
+     * @param min The pattern must have at least this many arguments.
+     * @param max The pattern must have at most this many arguments.
+     * @param removeSingleQuotes If TRUE, single quotes are treated as syntax characters even
+     *                          when they don't appear adjacent to other syntax characters
+     *                          (The old default UMSGPAT_APOS_DOUBLE_REQUIRED behavior.)
+     *                          If FALSE, single quotes not adjacent to syntax characters are treated
+     *                          as literal text (the current default).
+     * @param errorCode ICU error code in/out parameter.
+     *                  Must fulfill U_SUCCESS before the function call.
+     *                  Set to U_ILLEGAL_ARGUMENT_ERROR for bad argument syntax and
+     *                  too few or too many arguments.
+     * @return TRUE if U_SUCCESS(errorCode).
+     * @internal Apple only
+     */
+    UBool applyPatternMinMaxArguments(const UnicodeString &pattern,
+                                      int32_t min, int32_t max, UBool removeSingleQuotes,
+                                      UErrorCode &errorCode);
+#endif  /* U_HIDE_INTERNAL_API */
 
     /**
      * @return The max argument number + 1.
@@ -333,6 +389,7 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif  // __SIMPLEFORMATTER_H__

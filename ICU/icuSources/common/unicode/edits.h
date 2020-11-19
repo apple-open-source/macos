@@ -8,6 +8,9 @@
 #define __EDITS_H__
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/uobject.h"
 
 /**
@@ -15,7 +18,6 @@
  * \brief C++ API: C++ class Edits for low-level string transformations on styled text.
  */
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class UnicodeString;
@@ -160,7 +162,7 @@ public:
      * @return TRUE if U_FAILURE(outErrorCode)
      * @stable ICU 59
      */
-    UBool copyErrorTo(UErrorCode &outErrorCode);
+    UBool copyErrorTo(UErrorCode &outErrorCode) const;
 
     /**
      * How much longer is the new text compared with the old text?
@@ -523,6 +525,7 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif  // __EDITS_H__

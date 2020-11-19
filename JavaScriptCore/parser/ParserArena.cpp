@@ -26,8 +26,10 @@
 #include "config.h"
 #include "ParserArena.h"
 
-#include "Nodes.h"
+#include "CatchScope.h"
+#include "JSBigInt.h"
 #include "JSCInlines.h"
+#include "Nodes.h"
 
 namespace JSC {
 
@@ -35,8 +37,8 @@ DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(IdentifierArena);
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(ParserArena);
 
 ParserArena::ParserArena()
-    : m_freeableMemory(0)
-    , m_freeablePoolEnd(0)
+    : m_freeableMemory(nullptr)
+    , m_freeablePoolEnd(nullptr)
 {
 }
 
@@ -74,6 +76,35 @@ void ParserArena::allocateFreeablePool()
     m_freeableMemory = pool;
     m_freeablePoolEnd = pool + freeablePoolSize;
     ASSERT(freeablePool() == pool);
+}
+
+const Identifier& IdentifierArena::makeBigIntDecimalIdentifier(VM& vm, const Identifier& identifier, uint8_t radix)
+{
+    if (radix == 10)
+        return identifier;
+
+    auto scope = DECLARE_CATCH_SCOPE(vm);
+    JSValue bigInt = JSBigInt::parseInt(nullptr, vm, identifier.string(), radix, JSBigInt::ErrorParseMode::ThrowExceptions, JSBigInt::ParseIntSign::Unsigned);
+    scope.assertNoException();
+
+    // FIXME: We are allocating a JSBigInt just to be able to use
+    // JSBigInt::tryGetString when radix is not 10.
+    // This creates some GC pressure, but since these identifiers
+    // will only be created when BigInt literal is used as a property name,
+    // it wont be much problematic, given such cases are very rare.
+    // There is a lot of optimizations we can apply here when necessary.
+    // https://bugs.webkit.org/show_bug.cgi?id=207627
+    JSBigInt* heapBigInt;
+#if USE(BIGINT32)
+    if (bigInt.isBigInt32()) {
+        heapBigInt = JSBigInt::tryCreateFrom(vm, bigInt.bigInt32AsInt32());
+        RELEASE_ASSERT(heapBigInt);
+    } else
+#endif
+        heapBigInt = bigInt.asHeapBigInt();
+
+    m_identifiers.append(Identifier::fromString(vm, JSBigInt::tryGetString(vm, heapBigInt, 10)));
+    return m_identifiers.last();
 }
 
 }

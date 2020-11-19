@@ -46,6 +46,7 @@
 #include <Security/cssmkrapi.h>
 #include <Security/cssmkrspi.h>
 #include <security_cdsa_utilities/cssmbridge.h>
+#include "LegacyAPICounts.h"
 
 
 //

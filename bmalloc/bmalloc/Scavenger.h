@@ -42,7 +42,7 @@ namespace bmalloc {
 
 class Scavenger : public StaticPerProcess<Scavenger> {
 public:
-    BEXPORT Scavenger(const std::lock_guard<Mutex>&);
+    BEXPORT Scavenger(const LockHolder&);
     
     ~Scavenger() = delete;
     
@@ -74,13 +74,16 @@ public:
 
     void enableMiniMode();
 
+    // Used for debugging only.
+    void disable() { m_isEnabled = false; }
+
 private:
     enum class State { Sleep, Run, RunSoon };
     
-    void runHoldingLock();
-    void runSoonHoldingLock();
+    void run(const LockHolder&);
+    void runSoon(const LockHolder&);
 
-    void scheduleIfUnderMemoryPressureHoldingLock(size_t bytes);
+    void scheduleIfUnderMemoryPressure(const LockHolder&, size_t bytes);
 
     BNO_RETURN static void threadEntryPoint(Scavenger*);
     BNO_RETURN void threadRunLoop();
@@ -115,6 +118,7 @@ private:
 #endif
     
     Vector<DeferredDecommit> m_deferredDecommits;
+    bool m_isEnabled { true };
 };
 DECLARE_STATIC_PER_PROCESS_STORAGE(Scavenger);
 

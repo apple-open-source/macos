@@ -38,6 +38,7 @@
 #include <utilities/SecCFRelease.h>
 #include "../TestMacroConversions.h"
 #include "TrustFrameworkTestCase.h"
+#include <libDER/oids.h>
 
 #include "CertificateInterfaceTests_data.h"
 
@@ -499,6 +500,40 @@ errOut:
     XCTAssertTrue(CFEqual(result6, data6));
     CFRelease(data6);
     CFRelease(result6);
+}
+
+- (void)testCopyIPAddresses {
+    SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, _IPAddressCert, sizeof(_IPAddressCert));
+    NSArray *ipAddresses = CFBridgingRelease(SecCertificateCopyIPAddresses(cert));
+    XCTAssertNotNil(ipAddresses);
+    XCTAssertEqual(ipAddresses.count, 1);
+    XCTAssertEqualObjects(ipAddresses[0], @"10.0.0.1");
+    CFReleaseNull(cert);
+
+    cert = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1));
+    ipAddresses = CFBridgingRelease(SecCertificateCopyIPAddresses(cert));
+    XCTAssertNil(ipAddresses);
+    CFReleaseNull(cert);
+}
+
+- (void)testCopySubjectAttributeValue {
+    // ATV not present
+    SecCertificateRef devCert = SecCertificateCreateWithBytes(NULL, _new_developer_cert, sizeof(_new_developer_cert));
+    NSString *locality = CFBridgingRelease(SecCertificateCopySubjectAttributeValue(devCert, (DERItem *)&oidLocalityName));
+    XCTAssertNil(locality);
+
+    // ATV present
+    NSString *ou = CFBridgingRelease(SecCertificateCopySubjectAttributeValue(devCert, (DERItem *)&oidOrganizationalUnitName));
+    XCTAssertNotNil(ou);
+    XCTAssert([ou isEqualToString:@"PV45XFU466"]);
+    CFReleaseNull(devCert);
+
+    // pick the last value for multiple attributes
+    SecCertificateRef multipleValues = SecCertificateCreateWithBytes(NULL, two_common_names, sizeof(two_common_names));
+    NSString *commonName = CFBridgingRelease(SecCertificateCopySubjectAttributeValue(multipleValues, (DERItem *)&oidCommonName));
+    XCTAssertNotNil(commonName);
+    XCTAssert([commonName isEqualToString:@"certxauthsplit"]);
+    CFReleaseNull(multipleValues);
 }
 
 @end

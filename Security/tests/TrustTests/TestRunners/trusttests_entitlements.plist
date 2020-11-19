@@ -14,5 +14,15 @@
 	<array>
 		<string>com.apple.MobileAsset.PKITrustSupplementals</string>
 	</array>
+	<key>com.apple.security.exception.files.absolute-path.read-only</key>
+	<array>
+		<string>/System/Library/Caches/apticket.der</string>
+	</array>
+	<key>com.apple.system.diagnostics.iokit-properties</key>
+	<true/>
+	<key>com.apple.private.AuthorizationServices</key>
+	<array>
+		<string>com.apple.trust-settings.admin</string>
+	</array>
 </dict>
 </plist>

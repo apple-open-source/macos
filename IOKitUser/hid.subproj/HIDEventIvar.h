@@ -19,7 +19,7 @@
  */
 
 #define HIDEventIvar \
-uint64_t                timeStamp; \
+uint64_t                timeStamp; /* Clock ticks from mach_absolute_time */ \
 uint64_t                senderID; \
 uint64_t                typeMask; \
 uint32_t                options; \

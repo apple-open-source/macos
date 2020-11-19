@@ -10,6 +10,15 @@
  */
 #import "pyobjc.h"
 
+#import <Block_private.h>
+
+#if __has_include(<ptrauth.h>)
+#include <ptrauth.h>
+#endif
+#ifndef __ptrauth_objc_isa_pointer
+#define __ptrauth_objc_isa_pointer
+#endif
+
 /*
  * Definitions for block functions. These definitions are technically
  * private, but are the only way to interact with the block machinary.
@@ -46,14 +55,6 @@ enum {
 void _Block_object_assign(void *destAddr, const void *object, const int flags) BLOCK_FUNC_ATTRIBUTE;
 void _Block_object_dispose(const void *object, const int flags) BLOCK_FUNC_ATTRIBUTE;
 
-#else
-	/* minimal definition, only contains the definitions we actually use */
-
-enum {
-	BLOCK_HAS_COPY_DISPOSE =  (1 << 25),
-   	BLOCK_HAS_SIGNATURE  =    (1 << 30) // interim until complete world build is accomplished
-};
-
 #endif
 
 
@@ -78,7 +79,7 @@ struct block_descriptor_basic {
 };
 
 struct block_literal {
-	void* isa;
+	void* __ptrauth_objc_isa_pointer isa;
 	int   flags;
 	int   reserved;
 	void (*invoke)(void*, ...);
@@ -352,7 +353,7 @@ PyObjCBlock_Create(PyObjCMethodSignature* signature, PyObject* callable)
 	*block = gLiteralTemplate;
 	/* XXX: block->descriptor needs to be copied to be able to add a signature to it */
 	block->isa = gStackBlockClass;
-	block->invoke = PyObjCFFI_MakeBlockFunction(signature, callable);
+	_Block_set_function_pointer(block->invoke, PyObjCFFI_MakeBlockFunction(signature, callable));
 	if (block->invoke == NULL) {
 		PyMem_Free(block);
 		return NULL;
@@ -360,7 +361,7 @@ PyObjCBlock_Create(PyObjCMethodSignature* signature, PyObject* callable)
 	block->invoke_cleanup = PyCapsule_New(block->invoke, "objc.__block_release__", 
 			PyObjCBlock_CleanupCapsule);
 	if (block->invoke_cleanup == NULL) {
-		PyObjCFFI_FreeBlockFunction(block->invoke);
+		PyObjCFFI_FreeBlockFunction(_Block_get_function_pointer(block->invoke));
 		PyMem_Free(block);
 		return NULL;
 	}
@@ -387,5 +388,5 @@ PyObjCBlock_Setup(void)
 _block_func_ptr
 PyObjCBlock_GetFunction(void* block)
 {
-	return ((struct block_literal*)block)->invoke;
+	return _Block_get_function_pointer(((struct block_literal*)block)->invoke);
 }

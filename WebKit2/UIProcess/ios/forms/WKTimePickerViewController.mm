@@ -23,15 +23,14 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "WKTimePickerViewController.h"
+#import "config.h"
+#import "WKTimePickerViewController.h"
 
 #if PLATFORM(WATCHOS)
 
-#import <ClockKitUI/CLKUIWheelsOfTimeView.h>
-#import <PepperUICore/PUICQuickboardViewController.h>
-#import <PepperUICore/PUICQuickboardViewController_Private.h>
-#import <UIKit/UIResponder_Private.h>
+#import "ClockKitSPI.h"
+#import "UIKitSPI.h"
+
 #import <WebCore/LocalizedStrings.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/text/WTFString.h>

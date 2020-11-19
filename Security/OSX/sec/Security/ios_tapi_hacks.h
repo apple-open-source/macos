@@ -76,6 +76,9 @@ bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error);
 
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
 CFArrayRef SecAccessGroupsGetCurrent(void);
+void SecSecurityClientRegularToAppClip(void);
+void SecSecurityClientAppClipToRegular(void);
+void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier);
 
 #include <os/log_private.h>
 extern os_log_t secLogObjForScope(const char *scope);

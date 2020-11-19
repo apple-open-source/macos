@@ -33,9 +33,10 @@ using LowLevelMemoryUtilities::increment;
 CSPFullPluginSession::Writer::Writer(CssmData *v, uint32 n, CssmData *rem)
 : vec(v), firstVec(v), lastVec(v + n - 1), remData(rem)
 {
-    if (vec == NULL || n == 0)
+    if (vec == NULL || n == 0) {
         CssmError::throwMe(CSSMERR_CSP_INVALID_OUTPUT_VECTOR);	// CDSA p.253, amended
-	useData(vec);
+    }
+    useData(vec);
     written = 0;
 }
 

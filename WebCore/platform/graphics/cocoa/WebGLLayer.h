@@ -23,15 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
-
 #import "IOSurface.h"
 #import "IntSize.h"
 #import <QuartzCore/QuartzCore.h>
+#import <wtf/NakedPtr.h>
 
 namespace WebCore {
 class GraphicsLayer;
-class GraphicsContext3D;
+class GraphicsContextGLOpenGL;
 }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -45,40 +44,23 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 #else
 #error Unsupported platform
 #endif
-{
-    WebCore::GraphicsContext3D* _context;
-    float _devicePixelRatio;
-#if HAVE(IOSURFACE) && (USE(OPENGL) || USE(ANGLE))
-    std::unique_ptr<WebCore::IOSurface> _contentsBuffer;
-    std::unique_ptr<WebCore::IOSurface> _drawingBuffer;
-    std::unique_ptr<WebCore::IOSurface> _spareBuffer;
-    WebCore::IntSize _bufferSize;
-    BOOL _usingAlpha;
-#endif
-#if USE(ANGLE)
-    void* _eglDisplay;
-    void* _eglConfig;
-    void* _contentsPbuffer;
-    void* _drawingPbuffer;
-    void* _sparePbuffer;
-    void* _latchedPbuffer;
-#endif
-}
 
-@property (nonatomic) WebCore::GraphicsContext3D* context;
+@property (nonatomic) NakedPtr<WebCore::GraphicsContextGLOpenGL> context;
 
-- (id)initWithGraphicsContext3D:(WebCore::GraphicsContext3D*)context;
+- (id)initWithGraphicsContextGL:(NakedPtr<WebCore::GraphicsContextGLOpenGL>)context;
 
 - (CGImageRef)copyImageSnapshotWithColorSpace:(CGColorSpaceRef)colorSpace;
 
-#if HAVE(IOSURFACE) && (USE(OPENGL) || USE(ANGLE))
-- (void)allocateIOSurfaceBackingStoreWithSize:(WebCore::IntSize)size usingAlpha:(BOOL)usingAlpha;
+- (void)prepareForDisplay;
+
+#if USE(OPENGL) || USE(ANGLE)
+- (bool)allocateIOSurfaceBackingStoreWithSize:(WebCore::IntSize)size usingAlpha:(BOOL)usingAlpha;
 - (void)bindFramebufferToNextAvailableSurface;
 #endif
 
 #if USE(ANGLE)
 - (void)setEGLDisplay:(void*)eglDisplay config:(void*)eglConfig;
-- (void)dealloc;
+- (void)releaseGLResources;
 #endif
 
 @end

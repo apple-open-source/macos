@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GStreamerCommon.h"
 #include "TrackPrivateBaseGStreamer.h"
@@ -53,7 +53,6 @@ public:
 
     void disconnect() override;
 
-    void markAsActive();
     void setSelected(bool) override;
     void setActive(bool enabled) override { setSelected(enabled); }
 
@@ -73,4 +72,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
+#endif // ENABLE(VIDEO) && USE(GSTREAMER)

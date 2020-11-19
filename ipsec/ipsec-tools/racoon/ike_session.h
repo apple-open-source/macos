@@ -31,16 +31,11 @@
 #include <netinet/in.h>
 #include <dispatch/dispatch.h>
 #include "handler.h"
-#include "ipsecSessionTracer.h"
 
 typedef struct ike_session_id {
 	struct sockaddr_storage local;
 	struct sockaddr_storage remote;
 } ike_session_id_t;
-
-typedef struct ike_session_stats {
-	u_int32_t							 counters[IPSECSESSIONEVENTCODE_MAX];
-} ike_session_stats_t;
 
 typedef struct ike_session_ikev1 {
 	/* list of ph1s */
@@ -98,8 +93,6 @@ struct ike_session {
 	struct timeval						 estab_timestamp;
 	struct timeval						 stop_timestamp;
 	ike_session_ikev1_t					 ikev1_state;
-
-	ike_session_stats_t					 stats;
 
     ike_sesssion_sastats_t               traffic_monitor;
     schedule_ref                         sc_idle;

@@ -49,7 +49,7 @@ void Download::resume(const IPC::DataReference& resumeData, const String& path, 
     auto nsData = adoptNS([[NSData alloc] initWithBytes:resumeData.data() length:resumeData.size()]);
 
     // FIXME: This is a temporary workaround for <rdar://problem/34745171>. Fixed in iOS 13 and macOS 10.15, but we still need to support macOS 10.14 for now.
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400 && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
     static NSSet<Class> *plistClasses = nil;
     static dispatch_once_t onceToken;
 
@@ -95,7 +95,7 @@ void Download::platformCancelNetworkLoad()
 void Download::platformDestroyDownload()
 {
     if (m_progress)
-#if USE(NSPROGRESS_PUBLISHING_SPI)
+#if HAVE(NSPROGRESS_PUBLISHING_SPI)
         [m_progress _unpublish];
 #else
         [m_progress unpublish];
@@ -114,7 +114,7 @@ void Download::publishProgress(const URL& url, SandboxExtension::Handle&& sandbo
         return;
 
     m_progress = adoptNS([[WKDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:(NSURL *)url sandboxExtension:sandboxExtension]);
-#if USE(NSPROGRESS_PUBLISHING_SPI)
+#if HAVE(NSPROGRESS_PUBLISHING_SPI)
     [m_progress _publish];
 #else
     [m_progress publish];

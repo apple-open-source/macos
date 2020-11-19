@@ -353,6 +353,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 				openpam_log(PAM_LOG_DEBUG, "%s - Smartcard verification result %d", PM_DISPLAY_NAME, (int)status);
 				if (status == errSecSuccess) {
 					CFReleaseSafe(error);
+                    // after successfull auth, cache pubkeyhash in OD for FVUnlock mode
+                    // TKBindUserAm checks if caching is necessary
+                    TKBindUserAm(cf_user, pub_key_hash, NULL);
 					retval = PAM_SUCCESS;
 					break;
 				} else if (status == kTKErrorCodeAuthenticationFailed && keychain == NULL) {

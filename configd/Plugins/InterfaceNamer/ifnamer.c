@@ -50,10 +50,10 @@
  * ifnamer.c
  * - module that receives IOKit Network Interface messages
  *   and names any interface that currently does not have a name
- * - uses Interface Type and MACAddress as the unique identifying
+ * - uses InterfaceNamePrefix and MACAddress as the unique identifying
  *   keys; any interface that doesn't contain both of these properties
  *   is ignored and not processed
- * - stores the Interface Type, MACAddress, and Unit in permanent storage
+ * - stores the InterfaceNamePrefix, MACAddress, and Unit in permanent storage
  *   to give persistent interface names
  */
 
@@ -294,17 +294,17 @@ static CFComparisonResult
 if_unit_compare(const void *val1, const void *val2, void *context)
 {
 #pragma unused(context)
+    CFStringRef		prefix1;
+    CFStringRef		prefix2;
     CFComparisonResult	res;
-    CFNumberRef		type1;
-    CFNumberRef		type2;
     CFNumberRef		unit1;
     CFNumberRef		unit2;
 
-    type1 = CFDictionaryGetValue((CFDictionaryRef)val1,
-				 CFSTR(kIOInterfaceType));
-    type2 = CFDictionaryGetValue((CFDictionaryRef)val2,
-				 CFSTR(kIOInterfaceType));
-    res = CFNumberCompare(type1, type2, NULL);
+    prefix1 = CFDictionaryGetValue((CFDictionaryRef)val1,
+				   CFSTR(kIOInterfaceNamePrefix));
+    prefix2 = CFDictionaryGetValue((CFDictionaryRef)val2,
+				   CFSTR(kIOInterfaceNamePrefix));
+    res = CFStringCompare(prefix1, prefix2, 0);
     if (res != kCFCompareEqualTo) {
 	return (res);
     }
@@ -453,7 +453,7 @@ readInterfaceList()
 
 	    dict = CFArrayGetValueAtIndex(if_list, i);
 	    if (isA_CFDictionary(dict) &&
-		CFDictionaryContainsKey(dict, CFSTR(kIOInterfaceType)) &&
+		CFDictionaryContainsKey(dict, CFSTR(kIOInterfaceNamePrefix)) &&
 		CFDictionaryContainsKey(dict, CFSTR(kIOInterfaceUnit)) &&
 		CFDictionaryContainsKey(dict, CFSTR(kIOMACAddress))) {
 		    CFArrayAppendValue(db_list, dict);
@@ -745,6 +745,10 @@ createInterfaceDict(SCNetworkInterfaceRef interface, CFArrayRef matchingMACs)
 	CFDictionarySetValue(new_if, kSCNetworkInterfaceHiddenConfigurationKey, kCFBooleanTrue);
     }
 
+    if (_SCNetworkInterfaceIsHiddenInterface(interface)) {
+	CFDictionarySetValue(new_if, kSCNetworkInterfaceHiddenInterfaceKey, kCFBooleanTrue);
+    }
+
     CFDictionarySetValue(new_if, CFSTR(kSCNetworkInterfaceActive), kCFBooleanTrue);
 
     if (matchingMACs != NULL) {
@@ -759,30 +763,30 @@ lookupInterfaceByAddress(CFArrayRef db_list, SCNetworkInterfaceRef interface, CF
 {
     CFDataRef	addr;
     CFIndex	n;
-    CFNumberRef	type;
+    CFStringRef	prefix;
 
     if (db_list == NULL) {
 	return (NULL);
     }
-    type = _SCNetworkInterfaceGetIOInterfaceType(interface);
+    prefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
     addr = _SCNetworkInterfaceGetHardwareAddress(interface);
-    if (type == NULL || addr == NULL) {
+    if (prefix == NULL || addr == NULL) {
 	return (NULL);
     }
 
     n = CFArrayGetCount(db_list);
     for (CFIndex i = 0; i < n; i++) {
-	CFDataRef	a;
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(db_list, i);
-	CFNumberRef	t;
+	CFDataRef	this_addr;
+	CFStringRef	this_prefix;
 
-	t = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceType));
-	a = CFDictionaryGetValue(dict, CFSTR(kIOMACAddress));
-	if (t == NULL || a == NULL)
+	this_prefix = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceNamePrefix));
+	this_addr = CFDictionaryGetValue(dict, CFSTR(kIOMACAddress));
+	if (this_prefix == NULL || this_addr == NULL)
 	    continue;
 
-	if (CFEqual(type, t) && CFEqual(addr, a)) {
-	    if (where) {
+	if (CFEqual(prefix, this_prefix) && CFEqual(addr, this_addr)) {
+	    if (where != NULL) {
 		*where = i;
 	    }
 	    return (dict);
@@ -807,7 +811,7 @@ lookupInterfaceByName(CFArrayRef db_list, CFStringRef bsdName, CFIndex * where)
 
 	name = CFDictionaryGetValue(dict, CFSTR(kIOBSDNameKey));
 	if (_SC_CFEqual(name, bsdName)) {
-	    if (where) {
+	    if (where != NULL) {
 		*where = i;
 	    }
 	    return (dict);
@@ -820,33 +824,34 @@ static CFDictionaryRef
 lookupInterfaceByUnit(CFArrayRef db_list, SCNetworkInterfaceRef interface, CFIndex * where)
 {
     CFIndex	n;
-    CFNumberRef	type;
+    CFStringRef	prefix;
     CFNumberRef	unit;
 
     if (db_list == NULL) {
 	return (NULL);
     }
-    type = _SCNetworkInterfaceGetIOInterfaceType(interface);
+    prefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
     unit = _SCNetworkInterfaceGetIOInterfaceUnit(interface);
-    if (type == NULL || unit == NULL) {
+    if (prefix == NULL || unit == NULL) {
 	return (NULL);
     }
 
     n = CFArrayGetCount(db_list);
     for (CFIndex i = 0; i < n; i++) {
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(db_list, i);
-	CFNumberRef	t;
-	CFNumberRef	u;
+	CFStringRef	this_prefix;
+	CFNumberRef	this_unit;
 
-	t = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceType));
-	u = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceUnit));
-	if (t == NULL || u == NULL) {
+	this_prefix = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceNamePrefix));
+	this_unit = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceUnit));
+	if (this_prefix == NULL || this_unit == NULL) {
 	    continue;
 	}
 
-	if (CFEqual(type, t) && CFEqual(unit, u)) {
-	    if (where)
+	if (CFEqual(prefix, this_prefix) && CFEqual(unit, this_unit)) {
+	    if (where != NULL) {
 		*where = i;
+	    }
 	    return (dict);
 	}
     }
@@ -856,6 +861,7 @@ lookupInterfaceByUnit(CFArrayRef db_list, SCNetworkInterfaceRef interface, CFInd
 typedef struct {
     CFDictionaryRef	    match_info;
     CFStringRef		    match_type;
+    CFStringRef		    match_prefix;
     CFBooleanRef	    match_builtin;
     CFMutableArrayRef	    matches;
 } matchContext, *matchContextRef;
@@ -910,6 +916,18 @@ matchKnown(const void *value, void *context)
 {
     CFDictionaryRef	known_dict	= (CFDictionaryRef)value;
     matchContextRef	match_context	= (matchContextRef)context;
+
+    // match prefix
+    {
+	CFStringRef	known_prefix;
+
+	known_prefix
+	    = CFDictionaryGetValue(known_dict,
+				   CFSTR(kIOInterfaceNamePrefix));
+	if (!_SC_CFEqual(known_prefix, match_context->match_prefix)) {
+	    return;
+	}
+    }
 
     // match interface type
     {
@@ -1101,6 +1119,7 @@ lookupMatchingInterface(SCNetworkInterfaceRef	interface,
 			CFBooleanRef		builtin)
 {
     CFStringRef	    if_type;
+    CFStringRef	    if_prefix;
     CFDictionaryRef match	    = NULL;
     matchContext    match_context;
 
@@ -1108,8 +1127,13 @@ lookupMatchingInterface(SCNetworkInterfaceRef	interface,
     if (if_type == NULL) {
 	return NULL;
     }
+    if_prefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
+    if (if_prefix == NULL) {
+	return NULL;
+    }
 
     match_context.match_type	= if_type;
+    match_context.match_prefix	= if_prefix;
     match_context.match_info	= _SCNetworkInterfaceCopyInterfaceInfo(interface);
     match_context.match_builtin	= builtin;
     match_context.matches	= NULL;
@@ -1179,7 +1203,7 @@ insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface, CFDi
     CFIndex		i;
     CFDictionaryRef	if_dict;
     CFStringRef		if_name;
-    CFNumberRef		if_type;
+    CFStringRef		if_prefix;
     CFNumberRef		if_unit;
     CFArrayRef		matchingMACs	= NULL;
     CFIndex		n		= CFArrayGetCount(db_list);
@@ -1240,21 +1264,21 @@ insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface, CFDi
 	CFRelease(matchingMACs);
     }
 
-    if_type = _SCNetworkInterfaceGetIOInterfaceType(interface);
+    if_prefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
     if_unit = _SCNetworkInterfaceGetIOInterfaceUnit(interface);
-    if ((if_type == NULL) || (if_unit == NULL)) {
+    if ((if_prefix == NULL) || (if_unit == NULL)) {
 	CFRelease(if_dict);
 	return;
     }
 
     for (i = 0; i < n; i++) {
-	CFNumberRef	db_type;
+	CFStringRef	db_prefix;
 	CFNumberRef	db_unit;
 	CFDictionaryRef	dict	= CFArrayGetValueAtIndex(db_list, i);
 
-	db_type = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceType));
+	db_prefix = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceNamePrefix));
 	db_unit = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceUnit));
-	res = CFNumberCompare(if_type, db_type, NULL);
+	res = CFStringCompare(if_prefix, db_prefix, 0);
 	if (res == kCFCompareLessThan
 	    || (res == kCFCompareEqualTo
 		&& (CFNumberCompare(if_unit, db_unit, NULL)
@@ -1282,7 +1306,7 @@ removeInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface, CFDi
     int			n		= 0;
     CFIndex		where;
 
-    // remove any dict that has our type/addr
+    // remove any dict that has our prefix+addr
     while (TRUE) {
 	db_dict = lookupInterfaceByAddress(db_list, interface, &where);
 	if (db_dict == NULL) {
@@ -1295,7 +1319,7 @@ removeInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface, CFDi
 	n++;
     }
 
-    // remove any dict that has the same type/unit
+    // remove any dict that has the same prefix+unit
     while (TRUE) {
 	db_dict = lookupInterfaceByUnit(db_list, interface, &where);
 	if (db_dict == NULL) {
@@ -1338,7 +1362,7 @@ replaceInterface(SCNetworkInterfaceRef interface)
 }
 
 static int
-getNextUnitForType(CFNumberRef if_type, int requested)
+getNextUnitForPrefix(CFStringRef if_prefix, int requested)
 {
     CFIndex	n;
 
@@ -1349,10 +1373,10 @@ getNextUnitForType(CFNumberRef if_type, int requested)
     n = CFArrayGetCount(S_dblist);
     for (CFIndex i = 0; i < n; i++) {
 	CFDictionaryRef	dict = CFArrayGetValueAtIndex(S_dblist, i);
-	CFNumberRef	type;
+	CFStringRef	prefix;
 
-	type = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceType));
-	if (CFEqual(type, if_type)) {
+	prefix = CFDictionaryGetValue(dict, CFSTR(kIOInterfaceNamePrefix));
+	if (CFEqual(prefix, if_prefix)) {
 	    int		u;
 	    CFNumberRef	unit;
 
@@ -1561,19 +1585,19 @@ displayInterface(SCNetworkInterfaceRef interface)
 {
     CFStringRef		addr;
     CFStringRef		name;
-    CFNumberRef		type;
+    CFStringRef		prefix;
     CFNumberRef		unit;
 
     name = SCNetworkInterfaceGetBSDName(interface);
     unit = _SCNetworkInterfaceGetIOInterfaceUnit(interface);
-    type = _SCNetworkInterfaceGetIOInterfaceType(interface);
+    prefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
     addr = SCNetworkInterfaceGetHardwareAddressString(interface);
 
-    SC_log(LOG_INFO, "  %s%@%sType: %@, %s%@%sMAC address: %@",
+    SC_log(LOG_INFO, "  %s%@%sPrefix: %@, %s%@%sMAC address: %@",
 	  (name != NULL) ? "BSD Name: " : "",
 	  (name != NULL) ? name : CFSTR(""),
 	  (name != NULL) ? ", " : "",
-	  type,
+	  prefix,
 	  (unit != NULL) ? "Unit: " : "",
 	  (unit != NULL) ? (CFTypeRef)unit : (CFTypeRef)CFSTR(""),
 	  (unit != NULL) ? ", " : "",
@@ -1585,7 +1609,7 @@ builtinAvailable(SCNetworkInterfaceRef	interface,	// new interface
 		 CFNumberRef		if_unit)	// desired unit
 {
     CFIndex	i;
-    CFNumberRef if_type	= _SCNetworkInterfaceGetIOInterfaceType(interface);
+    CFStringRef if_prefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
     CFIndex	n;
 
     n = (S_dblist != NULL) ? CFArrayGetCount(S_dblist) : 0;
@@ -1593,12 +1617,12 @@ builtinAvailable(SCNetworkInterfaceRef	interface,	// new interface
 	CFStringRef	    if_path;
 	CFDictionaryRef	    known_dict	    = CFArrayGetValueAtIndex(S_dblist, i);
 	CFStringRef	    known_path;
-	CFNumberRef	    known_type;
+	CFStringRef	    known_prefix;
 	CFNumberRef	    known_unit;
 
-	known_type = CFDictionaryGetValue(known_dict, CFSTR(kIOInterfaceType));
-	if (!_SC_CFEqual(if_type, known_type)) {
-	    continue;	// if not the same interface type
+	known_prefix = CFDictionaryGetValue(known_dict, CFSTR(kIOInterfaceNamePrefix));
+	if (!_SC_CFEqual(if_prefix, known_prefix)) {
+	    continue;	// if not the same interface prefix
 	}
 
 	known_unit = CFDictionaryGetValue(known_dict, CFSTR(kIOInterfaceUnit));
@@ -1613,27 +1637,27 @@ builtinAvailable(SCNetworkInterfaceRef	interface,	// new interface
 	    return FALSE;
 	}
 
-	// if same type, same unit, same path
+	// if same prefix+unit+path
 	return TRUE;
     }
 
-    // if interface type/unit not found
+    // if interface prefix+unit not found
     return TRUE;
 }
 
 static int
-builtinCount(CFArrayRef if_list, CFIndex last, CFNumberRef if_type)
+builtinCount(CFArrayRef if_list, CFIndex last, CFStringRef if_prefix)
 {
     CFIndex	i;
     int		n	= 0;
 
     for (i = 0; i < last; i++) {
 	SCNetworkInterfaceRef	builtin_if;
-	CFNumberRef		builtin_type;
+	CFStringRef		builtin_prefix;
 
 	builtin_if   = CFArrayGetValueAtIndex(if_list, i);
-	builtin_type = _SCNetworkInterfaceGetIOInterfaceType(builtin_if);
-	if (CFEqual(if_type, builtin_type)) {
+	builtin_prefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(builtin_if);
+	if (CFEqual(if_prefix, builtin_prefix)) {
 	    if (_SCNetworkInterfaceIsBuiltin(builtin_if)) {
 		n++;	// if built-in interface
 	    }
@@ -2217,7 +2241,7 @@ lockedNotification_add(void)
 	WatchedInfo		*watchedInfo	= (WatchedInfo *)(void *)CFDataGetBytePtr(watched);
 
 	name = SCNetworkInterfaceGetLocalizedDisplayName(watchedInfo->interface);
-	str = CFStringCreateWithFormat(NULL, NULL, CFSTR("\r\t%@"), name);
+	str = CFStringCreateWithFormat(NULL, NULL, CFSTR("\n\t%@"), name);
 	CFArrayAppendValue(message, str);
 	CFRelease(str);
     }
@@ -2339,6 +2363,7 @@ watchLockedInterface(SCNetworkInterfaceRef interface)
 	    S_locked = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	}
 	CFArrayAppendValue(S_locked, watched);
+	CFRelease(watched);
 	updated = TRUE;
     }
 
@@ -2586,6 +2611,7 @@ updateTrustRequiredInterfaces(CFArrayRef interfaces)
 		    S_trustRequired = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		}
 		CFArrayAppendValue(S_trustRequired, watched);
+		CFRelease(watched);
 		updated = TRUE;
 	    }
 	}
@@ -2744,6 +2770,7 @@ updatePreConfiguredInterfaces(CFArrayRef interfaces)
 		    S_preconfigured = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		}
 		CFArrayAppendValue(S_preconfigured, watched);
+		CFRelease(watched);
 		updated = TRUE;
 	    }
 	}
@@ -2800,13 +2827,13 @@ nameInterfaces(CFMutableArrayRef if_list)
 	SCNetworkInterfaceRef	interface;
 	SCNetworkInterfaceRef	new_interface;
 	CFStringRef		path;
-	CFNumberRef		type;
+	CFStringRef		prefix;
 	CFNumberRef		unit;
 	CFIndex			where;
 
 	interface = CFArrayGetValueAtIndex(if_list, i);
 	path = _SCNetworkInterfaceGetIOPath(interface);
-	type = _SCNetworkInterfaceGetIOInterfaceType(interface);
+	prefix = _SCNetworkInterfaceGetIOInterfaceNamePrefix(interface);
 	unit = _SCNetworkInterfaceGetIOInterfaceUnit(interface);
 	entryID = _SCNetworkInterfaceGetIORegistryEntryID(interface);
 
@@ -2905,7 +2932,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 
 		if (is_builtin) {
 		    // built-in interface, try to use the reserved slots
-		    next_unit = builtinCount(if_list, i, type);
+		    next_unit = builtinCount(if_list, i, prefix);
 
 		    // But, before claiming a reserved slot we check to see if the
 		    // slot had previously been used.  If so, and if the slot had been
@@ -2946,8 +2973,8 @@ nameInterfaces(CFMutableArrayRef if_list)
 		if (unit == NULL) {
 		    // not built-in (or built-in unit not available), allocate from
 		    // the non-reserved slots
-		    next_unit = builtinCount(if_list, n, type);
-		    next_unit = getNextUnitForType(type, next_unit);
+		    next_unit = builtinCount(if_list, n, prefix);
+		    next_unit = getNextUnitForPrefix(prefix, next_unit);
 		    unit = CFNumberCreate(NULL, kCFNumberIntType, &next_unit);
 		}
 
@@ -3031,8 +3058,8 @@ nameInterfaces(CFMutableArrayRef if_list)
 
 		new_unit = _SCNetworkInterfaceGetIOInterfaceUnit(new_interface);
 		if (!CFEqual(unit, new_unit)) {
-		    SC_log(LOG_INFO, "interface type %@ assigned unit %@ instead of %@",
-			   type, new_unit, unit);
+		    SC_log(LOG_INFO, "interface prefix %@ assigned unit %@ instead of %@",
+			   prefix, new_unit, unit);
 		}
 
 		displayInterface(new_interface);
@@ -3309,18 +3336,18 @@ reportInactiveInterfaces(void)
     for (CFIndex i = 0; i < n; i++) {
 	CFDictionaryRef		if_dict;
 	CFStringRef		name;
-	CFNumberRef		type;
+	CFStringRef		prefix;
 	CFNumberRef		unit;
 
 	if_dict = CFArrayGetValueAtIndex(S_prev_active_list, i);
 	name = CFDictionaryGetValue(if_dict, CFSTR(kIOBSDNameKey));
-	type = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceType));
+	prefix = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceNamePrefix));
 	unit = CFDictionaryGetValue(if_dict, CFSTR(kIOInterfaceUnit));
-	SC_log(LOG_INFO, "  %s%@%sType: %@, Unit: %@",
+	SC_log(LOG_INFO, "  %s%@%sPrefix: %@, Unit: %@",
 	       (name != NULL) ? "BSD Name: " : "",
 	       (name != NULL) ? name : CFSTR(""),
 	       (name != NULL) ? ", " : "",
-	       type,
+	       prefix,
 	       unit);
     }
 
@@ -4017,8 +4044,8 @@ main(int argc, char ** argv)
 	SCNetworkInterfaceRef		interface		= CFArrayGetValueAtIndex(interfaces_all, i);
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
-	if (interfacePrivate->type == NULL) {
-	    // skip interfaces with a kIOInterfaceType property
+	if (interfacePrivate->prefix == NULL) {
+	    // skip interfaces with no kIOInterfaceNamePrefix property
 	    continue;
 	}
 

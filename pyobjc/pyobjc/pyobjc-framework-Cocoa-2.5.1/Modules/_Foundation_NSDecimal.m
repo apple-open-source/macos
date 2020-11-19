@@ -1139,6 +1139,9 @@ call_NSDecimalNumber_decimalValue(
 		 * really a problem.
 		 */
 		aDecimal = [PyObjCObject_GetObject(self) decimalValue];
+#elif defined(__arm64__)
+		/* No _stret variant on arm64 */
+		aDecimal = ((NSDecimal (*)(struct objc_super *, SEL))objc_msgSendSuper)(&super, PyObjCSelector_GetSelector(method));
 #else
 		((void(*)(void*, struct objc_super*, SEL))objc_msgSendSuper_stret)(&aDecimal, &super,
 				PyObjCSelector_GetSelector(method));

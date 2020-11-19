@@ -105,7 +105,7 @@ namespace IOFireWireLib {
 		DebugLog( "TraditionalDCLCommandPool::TraditionalDCLCommandPool mStorage=%p, mStorageSize=%lu\n", mStorage, (UInt32)mStorageSize ) ;
 #endif
 		::CFArrayAppendValue ( mFreeBlocks, mStorage ) ;
-		::CFArrayAppendValue ( mFreeBlockSizes, (const void *) inSize ) ;
+		::CFArrayAppendValue ( mFreeBlockSizes, (const void *)(uintptr_t)inSize ) ;
 		
 		pthread_mutex_init( & mMutex, nil ) ;
 	}
@@ -147,14 +147,14 @@ namespace IOFireWireLib {
 		UInt32 				index			= 0 ;
 		const UInt8*		foundFreeBlock	= 0 ;
 		DCLCommand*	allocatedBlock	= nil ;
-		UInt32				freeBlockCount	= CFArrayGetCount(mFreeBlocks) ;
+		UInt32				freeBlockCount	= (UInt32)CFArrayGetCount(mFreeBlocks) ;
 	
 		Lock() ;
 		
 		do
 		{
 			blockSize	= (unsigned long) CFArrayGetValueAtIndex(mFreeBlockSizes, index) ;
-			remainder	= blockSize - inSize ;
+			remainder	= (UInt32)(blockSize - inSize) ;
 	
 			if ( blockSize >= inSize )
 			{
@@ -163,7 +163,7 @@ namespace IOFireWireLib {
 				foundFreeBlock	= (const UInt8*) CFArrayGetValueAtIndex(mFreeBlocks, index) ;
 				allocatedBlock	= (DCLCommand*) (foundFreeBlock + remainder) ;
 				
-				CFArrayAppendValue(mAllocatedBlockSizes, (const void*) inSize) ;
+				CFArrayAppendValue(mAllocatedBlockSizes, (const void*)(uintptr_t)inSize) ;
 				CFArrayAppendValue(mAllocatedBlocks, allocatedBlock ) ;
 	
 				if (remainder > 0)
@@ -172,7 +172,7 @@ namespace IOFireWireLib {
 					// if we didn't use up all of this free block,
 					// resize the block to reflect the new size
 	//				CFArraySetValueAtIndex(mFreeBlocks, index, (UInt32) CFArrayGetValueAtIndex(mFreeBlocks, index)) ;
-					CFArraySetValueAtIndex(mFreeBlockSizes, index, (const void*) remainder) ;
+					CFArraySetValueAtIndex(mFreeBlockSizes, index, (const void*)(uintptr_t)remainder) ;
 				}
 				else
 				{
@@ -220,7 +220,7 @@ namespace IOFireWireLib {
 		newDCL->compilerData	= 0 ;
 		newDCL->opcode 			= inOpcode ;
 		newDCL->buffer 			= inBuffer ;
-		newDCL->size 			= inSize ;	
+		newDCL->size 			= (UInt32)inSize ;
 		
 		if (inDCL)
 			inDCL->pNextDCLCommand = (DCLCommand*) newDCL ;
@@ -246,7 +246,7 @@ namespace IOFireWireLib {
 		newDCL->compilerData	= 0 ;
 		newDCL->opcode 			= inOpcode ;
 		newDCL->buffer 			= inBuffer ;
-		newDCL->size 			= inSize ;	
+		newDCL->size 			= (UInt32)inSize ;
 		newDCL->packetSize		= inPacketSize ;
 		newDCL->bufferOffset	= inBufferOffset ;
 		
@@ -506,7 +506,7 @@ namespace IOFireWireLib {
 			Lock() ;
 			
 			::CFArrayAppendValue ( mFreeBlocks, mStorage + mStorageSize ) ;
-			::CFArrayAppendValue ( mFreeBlockSizes, (const void *)( inSize - mStorageSize ) ) ;
+			::CFArrayAppendValue ( mFreeBlockSizes, (const void *)(uintptr_t)( inSize - mStorageSize ) ) ;
 			
 			CoalesceFreeBlocks() ;			
 	
@@ -541,7 +541,7 @@ namespace IOFireWireLib {
 	void
 	TraditionalDCLCommandPool::CoalesceFreeBlocks()
 	{		
-		UInt32			freeBlockCount	 	= CFArrayGetCount(mFreeBlocks) ;
+		UInt32			freeBlockCount	 	= (UInt32)CFArrayGetCount(mFreeBlocks) ;
 		UInt32			index				= 1 ;
 		unsigned long		preceedingBlockSize = (unsigned long) CFArrayGetValueAtIndex(mFreeBlockSizes, 0) ;
 		unsigned long		blockSize ;

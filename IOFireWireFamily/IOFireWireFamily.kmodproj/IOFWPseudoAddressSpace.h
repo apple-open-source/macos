@@ -74,8 +74,8 @@ protected:
 
 public:
      
-	virtual bool init( IOFWAddressSpace * primary );
-	virtual	void free();
+	virtual bool init( IOFWAddressSpace * primary ) APPLE_KEXT_OVERRIDE;
+	virtual	void free() APPLE_KEXT_OVERRIDE;
 
 protected:
 
@@ -94,7 +94,7 @@ public:
 	@result none.	*/	
 	virtual void setARxReqIntCompleteHandler( void * refcon, IOFWARxReqIntCompleteHandler handler );
 
-	virtual bool intersects( IOFWAddressSpace * space );
+	virtual bool intersects( IOFWAddressSpace * space ) APPLE_KEXT_OVERRIDE;
 	
 private:
 
@@ -142,7 +142,7 @@ protected:
 
     static	OSData *	allocatedAddresses; // unused
     
-    virtual	void 					free();
+    virtual	void	free() APPLE_KEXT_OVERRIDE;
 	
 public:
 
@@ -309,7 +309,7 @@ public:
 											UInt32 					len,
                                				IOMemoryDescriptor **	buf, 
 											IOByteCount * 			offset,
-                                            IOFWRequestRefCon		reqrefcon);
+                                            IOFWRequestRefCon		reqrefcon) APPLE_KEXT_OVERRIDE;
 /*!	@function	doWrite
 	@abstract	A method for processing an address space write request
 	@param		nodeID	FireWire Write to nodeID.
@@ -325,13 +325,13 @@ public:
 											FWAddress 				addr,
 											UInt32 					len, 
 											const void*				buf,
-                                            IOFWRequestRefCon		reqrefcon);
+                                            IOFWRequestRefCon		reqrefcon) APPLE_KEXT_OVERRIDE;
 
 /*!	@function	contains
 	@abstract	returns number of bytes starting at addr in this space
 	@result		0 if it doesn't contain the address
 	*/
-    virtual UInt32					contains(FWAddress addr);
+    virtual UInt32					contains(FWAddress addr) APPLE_KEXT_OVERRIDE;
 
 /*!	@function	simpleRWFixed
 	@abstract	Create a Read/Write fixed address space at top of kCSRRegisterSpaceBaseAddressHi.
@@ -344,7 +344,7 @@ public:
 
 protected:
 	
-	virtual IOFWAddressSpaceAux * createAuxiliary( void );
+	virtual IOFWAddressSpaceAux * createAuxiliary( void ) APPLE_KEXT_OVERRIDE;
 
 protected:
 	inline void handleARxReqIntComplete( void )

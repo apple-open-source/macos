@@ -74,7 +74,7 @@ static struct builtin builtins[] =
     BUILTIN("fc", 0, bin_fc, 0, -1, BIN_FC, "aAdDe:EfiIlLmnpPrRt:W", NULL),
     BUILTIN("fg", 0, bin_fg, 0, -1, BIN_FG, NULL, NULL),
     BUILTIN("float", BINF_PLUSOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL | BINF_ASSIGN, (HandlerFunc)bin_typeset, 0, -1, 0, "E:%F:%HL:%R:%Z:%ghlp:%rtux", "E"),
-    BUILTIN("functions", BINF_PLUSOPTS, bin_functions, 0, -1, 0, "kmMstTuUWx:z", NULL),
+    BUILTIN("functions", BINF_PLUSOPTS, bin_functions, 0, -1, 0, "ckmMstTuUWx:z", NULL),
     BUILTIN("getln", 0, bin_read, 0, -1, 0, "ecnAlE", "zr"),
     BUILTIN("getopts", 0, bin_getopts, 2, -1, 0, NULL, NULL),
     BUILTIN("hash", BINF_MAGICEQUALS, bin_hash, 0, -1, 0, "Ldfmrv", NULL),
@@ -720,7 +720,7 @@ bin_set(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 /**** directory-handling builtins ****/
 
 /**/
-int doprintdir = 0;		/* set in exec.c (for autocd) */
+int doprintdir = 0;		/* set in exec.c (for autocd, cdpath, etc.) */
 
 /* pwd: display the name of the current directory */
 
@@ -912,7 +912,7 @@ cd_get_dest(char *nam, char **argv, int hard, int func)
 	char *end;
 
 	doprintdir++;
-	if (argv[0][1] && (argv[0][0] == '+' || argv[0][0] == '-')
+	if (!isset(POSIXCD) && argv[0][1] && (argv[0][0] == '+' || argv[0][0] == '-')
 	    && strspn(argv[0]+1, "0123456789") == strlen(argv[0]+1)) {
 	    dd = zstrtol(argv[0] + 1, &end, 10);
 	    if (*end == '\0') {
@@ -1251,7 +1251,7 @@ cd_new_pwd(int func, LinkNode dir, int quiet)
 	if (func != BIN_CD && isset(INTERACTIVE)) {
             if (unset(PUSHDSILENT) && !quiet)
 	        printdirstack();
-        } else if (doprintdir) {
+	} else if (unset(CDSILENT) && doprintdir) {
 	    fprintdir(pwd, stdout);
 	    putchar('\n');
 	}
@@ -1718,7 +1718,7 @@ fcsubs(char **sp, struct asgment *sub)
 	newstr = sub->value.scalar;
 	sub = (Asgment)sub->node.next;
 	oldpos = s;
-	/* loop over occurences of oldstr in s, replacing them with newstr */
+	/* loop over occurrences of oldstr in s, replacing them with newstr */
 	while ((newpos = (char *)strstr(oldpos, oldstr))) {
 	    newmem = (char *) zhalloc(1 + (newpos - s)
 				      + strlen(newstr) + strlen(newpos + strlen(oldstr)));
@@ -2171,7 +2171,7 @@ typeset_single(char *cname, char *pname, Param pm, UNUSED(int func),
 	    !ASG_VALUEP(asg))
 	    on |= PM_UNSET;
 	else if (usepm && (pm->node.flags & PM_READONLY) &&
-		 !(on & PM_READONLY)) {
+		 !(on & PM_READONLY) && func != BIN_EXPORT) {
 	    zerr("read-only variable: %s", pm->node.nam);
 	    return NULL;
 	}
@@ -2526,7 +2526,7 @@ typeset_single(char *cname, char *pname, Param pm, UNUSED(int func),
 		 * Attempt to assign a scalar value to an array.
 		 * This can happen if the array is special.
 		 * We'll be lenient and guess what the user meant.
-		 * This is how normal assigment works.
+		 * This is how normal assignment works.
 		 */
 		if (*asg->value.scalar) {
 		    /* Array with one value */
@@ -2582,9 +2582,7 @@ typeset_single(char *cname, char *pname, Param pm, UNUSED(int func),
 	}
     }
     pm->node.flags |= (on & PM_READONLY);
-
-    if (OPT_ISSET(ops,'p'))
-	paramtab->printnode(&pm->node, PRINT_TYPESET);
+    DPUTS(OPT_ISSET(ops,'p'), "BUG: -p not handled");
 
     return pm;
 }
@@ -2714,7 +2712,7 @@ bin_typeset(char *name, char **argv, LinkList assigns, Options ops, int func)
 	(!isset(GLOBALEXPORT) && !OPT_ISSET(ops,'g')))
 	on |= PM_LOCAL;
 
-    if (on & PM_TIED) {
+    if ((on & PM_TIED) && !OPT_ISSET(ops, 'p')) {
 	Param apm;
 	struct asgment asg0, asg2;
 	char *oldval = NULL, *joinstr;
@@ -3031,7 +3029,7 @@ eval_autoload(Shfunc shf, char *name, Options ops, int func)
     }
     if (OPT_MINUS(ops,'X')) {
 	char *fargv[3];
-	fargv[0] = name;
+	fargv[0] = quotestring(name, QT_SINGLE_OPTIONAL);
 	fargv[1] = "\"$@\"";
 	fargv[2] = 0;
 	shf->funcdef = mkautofn(shf);
@@ -3249,9 +3247,48 @@ bin_functions(char *name, char **argv, Options ops, int func)
     }
 
     if ((off & PM_UNDEFINED) || (OPT_ISSET(ops,'k') && OPT_ISSET(ops,'z')) ||
-	(OPT_MINUS(ops,'X') && (OPT_ISSET(ops,'m') || !scriptname))) {
+	(OPT_MINUS(ops,'X') && (OPT_ISSET(ops,'m') || !scriptname)) ||
+	(OPT_ISSET(ops,'c') && (OPT_ISSET(ops,'x') || OPT_ISSET(ops,'X') ||
+				OPT_ISSET(ops,'m')))) {
 	zwarnnam(name, "invalid option(s)");
 	return 1;
+    }
+
+    if (OPT_ISSET(ops,'c')) {
+	Shfunc newsh;
+	if (!*argv || !argv[1] || argv[2]) {
+	    zwarnnam(name, "-c: requires two arguments");
+	    return 1;
+	}
+	shf = (Shfunc) shfunctab->getnode(shfunctab, *argv);
+	if (!shf) {
+	    zwarnnam(name, "no such function: %s", *argv);
+	    return 1;
+	}
+	if (shf->node.flags & PM_UNDEFINED) {
+	    if (shf->funcdef) {
+		freeeprog(shf->funcdef);
+		shf->funcdef = &dummy_eprog;
+	    }
+	    shf = loadautofn(shf, 1, 0, 0);
+	    if (!shf)
+		return 1;
+	}
+	newsh = zalloc(sizeof(*newsh));
+	memcpy(newsh, shf, sizeof(*newsh));
+	if (newsh->node.flags & PM_LOADDIR) {
+	    /* Expand original location of autoloaded file */
+	    newsh->node.flags &= ~PM_LOADDIR;
+	    newsh->filename = tricat(shf->filename, "/", shf->node.nam);
+	} else
+	    newsh->filename = ztrdup(shf->filename);
+	newsh->funcdef->nref++;
+	if (newsh->redir)
+	    newsh->redir->nref++;
+	if (shf->sticky)
+	    newsh->sticky = sticky_emulation_dup(sticky, 0);
+	shfunctab->addnode(shfunctab, ztrdup(argv[1]), &newsh->node);
+	return 0;
     }
 
     if (OPT_ISSET(ops,'x') && OPT_HASARG(ops,'x')) {
@@ -4992,8 +5029,7 @@ bin_print(char *name, char **args, Options ops, int func)
 	    	narg = strtoul(c, &endptr, 0);
 		if (*endptr == '$') {
 		    c = endptr + 1;
-		    DPUTS(narg <= 0, "specified zero or negative arg");
-		    if (narg > argc) {
+		    if (narg <= 0 || narg > argc) {
 		    	zwarnnam(name, "%d: argument specifier out of range",
 				 narg);
 			if (fout != stdout)
@@ -5513,14 +5549,12 @@ bin_getopts(UNUSED(char *name), char **argv, UNUSED(Options ops), UNUSED(int fun
     /* check for legality */
     if(opch == ':' || !(p = memchr(optstr, opch, lenoptstr))) {
 	p = "?";
-    err:
 	zsfree(zoptarg);
 	setsparam(var, ztrdup(p));
 	if(quiet) {
 	    zoptarg = metafy(optbuf, lenoptbuf, META_DUP);
 	} else {
-	    zwarn(*p == '?' ? "bad option: %c%c" :
-		  "argument expected after %c%c option",
+	    zwarn("bad option: %c%c",
 		  "?-+"[lenoptbuf], opch);
 	    zoptarg=ztrdup("");
 	}
@@ -5531,8 +5565,17 @@ bin_getopts(UNUSED(char *name), char **argv, UNUSED(Options ops), UNUSED(int fun
     if(p[1] == ':') {
 	if(optcind == lenstr) {
 	    if(!args[zoptind]) {
-		p = ":";
-		goto err;
+		zsfree(zoptarg);
+		if(quiet) {
+		    setsparam(var, ztrdup(":"));
+		    zoptarg = metafy(optbuf, lenoptbuf, META_DUP);
+		} else {
+		    setsparam(var, ztrdup("?"));
+		    zoptarg = ztrdup("");
+		    zwarn("argument expected after %c%c option",
+			  "?-+"[lenoptbuf], opch);
+		}
+		return 0;
 	    }
 	    p = ztrdup(args[zoptind++]);
 	} else
@@ -5557,7 +5600,11 @@ bin_getopts(UNUSED(char *name), char **argv, UNUSED(Options ops), UNUSED(int fun
     return 0;
 }
 
-/* Flag that we should exit the shell as soon as all functions return. */
+/* Boolean flag that we should exit the shell as soon as all functions return.
+ *
+ * Set by the 'exit' builtin.
+ */
+
 /**/
 mod_export int
 exit_pending;
@@ -5621,7 +5668,7 @@ bin_break(char *name, char **argv, UNUSED(Options ops), int func)
 	    }
 	    return lastval;
 	}
-	zexit(num, 0);	/* else treat return as logout/exit */
+	zexit(num, ZEXIT_NORMAL);	/* else treat return as logout/exit */
 	break;
     case BIN_LOGOUT:
 	if (unset(LOGINSHELL)) {
@@ -5643,7 +5690,7 @@ bin_break(char *name, char **argv, UNUSED(Options ops), int func)
 	     * If we are already exiting... give this all up as
 	     * a bad job.
 	     */
-	    if (stopmsg || (zexit(0,2), !stopmsg)) {
+	    if (stopmsg || (zexit(0, ZEXIT_DEFERRED), !stopmsg)) {
 		retflag = 1;
 		breaks = loops;
 		exit_pending = 1;
@@ -5651,7 +5698,7 @@ bin_break(char *name, char **argv, UNUSED(Options ops), int func)
 		exit_val = num;
 	    }
 	} else
-	    zexit(num, 0);
+	    zexit(num, ZEXIT_NORMAL);
 	break;
     }
     return 0;
@@ -5736,14 +5783,15 @@ _realexit(void)
 
 /* exit the shell.  val is the return value of the shell.  *
  * from_where is
- *   1   if zexit is called because of a signal
- *   2   if we can't actually exit yet (e.g. functions need
- *       terminating) but should perform the usual interactive tests.
+ *   ZEXIT_SIGNAL   if zexit is called because of a signal
+ *   ZEXIT_DEFERRED if we can't actually exit yet (e.g., functions need
+ *                  terminating) but should perform the usual interactive
+ *                  tests.
  */
 
 /**/
 mod_export void
-zexit(int val, int from_where)
+zexit(int val, enum zexit_t from_where)
 {
     /*
      * Don't do anything recursively:  see below.
@@ -5754,7 +5802,7 @@ zexit(int val, int from_where)
     if (shell_exiting == -1)
 	return;
 
-    if (isset(MONITOR) && !stopmsg && from_where != 1) {
+    if (isset(MONITOR) && !stopmsg && from_where != ZEXIT_SIGNAL) {
 	scanjobs();    /* check if jobs need printing           */
 	if (isset(CHECKJOBS))
 	    checkjobs();   /* check if any jobs are running/stopped */
@@ -5763,8 +5811,9 @@ zexit(int val, int from_where)
 	    return;
 	}
     }
-    /* Positive in_exit means we have been here before */
-    if (from_where == 2 || (shell_exiting++ && from_where))
+    /* Positive shell_exiting means we have been here before */
+    if (from_where == ZEXIT_DEFERRED ||
+	(shell_exiting++ && from_where != ZEXIT_NORMAL))
 	return;
 
     /*
@@ -5780,12 +5829,12 @@ zexit(int val, int from_where)
 
     if (isset(MONITOR)) {
 	/* send SIGHUP to any jobs left running  */
-	killrunjobs(from_where == 1);
+	killrunjobs(from_where == ZEXIT_SIGNAL);
     }
     if (isset(RCS) && interact) {
 	if (!nohistsave) {
 	    int writeflags = HFILE_USE_OPTIONS;
-	    if (from_where == 1)
+	    if (from_where == ZEXIT_SIGNAL)
 		writeflags |= HFILE_NO_REWRITE;
 	    saveandpophiststack(1, writeflags);
 	    savehistfile(NULL, 1, writeflags);
@@ -7237,8 +7286,11 @@ bin_umask(char *nam, char **args, Options ops, UNUSED(int func))
     char *s = *args;
 
     /* Get the current umask. */
-    um = umask(0);
+    queue_signals();
+    um = umask(0777);
     umask(um);
+    unqueue_signals();
+
     /* No arguments means to display the current setting. */
     if (!s) {
 	if (OPT_ISSET(ops,'S')) {

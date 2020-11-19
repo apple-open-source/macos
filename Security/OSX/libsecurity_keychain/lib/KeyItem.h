@@ -46,7 +46,7 @@ public:
     // SECCFUNCTIONS macro to retarget SecKeyRef to foreign object instead of normal way through SecCFObject.
     static KeyItem *required(SecKeyRef ptr);
     static KeyItem *optional(SecKeyRef ptr);
-    operator CFTypeRef() const throw();
+    operator CFTypeRef() const _NOEXCEPT;
     static SecCFObject *fromSecKeyRef(CFTypeRef ref);
     void attachSecKeyRef() const;
     void initializeWithSecKeyRef(SecKeyRef ref);

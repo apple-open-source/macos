@@ -32,6 +32,7 @@
 #include "ContentData.h"
 #include "DocumentTimeline.h"
 #include "InspectorInstrumentation.h"
+#include "KeyframeEffectStack.h"
 #include "RenderElement.h"
 #include "RenderImage.h"
 #include "RenderQuote.h"
@@ -90,16 +91,24 @@ void PseudoElement::clearHostElement()
     InspectorInstrumentation::pseudoElementDestroyed(document().page(), *this);
 
     if (auto* timeline = document().existingTimeline())
-        timeline->removeAnimationsForElement(*this);
+        timeline->elementWasRemoved(*this);
+    
     if (auto* frame = document().frame())
-        frame->animation().cancelAnimations(*this);
+        frame->legacyAnimation().cancelAnimations(*this);
 
     m_hostElement = nullptr;
 }
 
 bool PseudoElement::rendererIsNeeded(const RenderStyle& style)
 {
-    return pseudoElementRendererIsNeeded(&style);
+    return pseudoElementRendererIsNeeded(&style) || isTargetedByKeyframeEffectRequiringPseudoElement();
+}
+
+bool PseudoElement::isTargetedByKeyframeEffectRequiringPseudoElement()
+{
+    if (auto* stack = keyframeEffectStack())
+        return stack->requiresPseudoElement();
+    return false;
 }
 
 } // namespace

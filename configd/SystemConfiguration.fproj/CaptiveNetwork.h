@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2016, 2018, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2016, 2018, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -145,15 +145,18 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID
 
 /*!
  @function CNCopyCurrentNetworkInfo
- @discussion Returns the network information for the specified interface when the requesting application meets one of following 3 requirements -.
-	1. application is using CoreLocation API and has user's authorization to access location.
-	2. application has used NEHotspotConfiguration API to configure the current Wi-Fi network.
+ @discussion Returns the network information for the specified interface when the requesting application meets one of following 4 requirements -.
+	1. application is using CoreLocation API and has the user's authorization to access location.
+	2. application has used the NEHotspotConfiguration API to configure the current Wi-Fi network.
 	3. application has active VPN configurations installed.
+	4. application has active NEDNSSettingsManager configurations installed.
 
 	- An application that is linked against iOS 12.0 SDK and above must have the "com.apple.developer.networking.wifi-info" entitlement.
 	- An application will receive a pseudo network information if it is linked against an SDK before iOS 13.0, and if it fails to meet any of the
-	  above 3 requirements.
-	- An application will receive NULL if it is linked against iOS 13.0 SDK or above, and if it fails to meet any of the above 3 requirements..
+	  above requirements.
+	- An application will receive NULL if it is linked against iOS 13.0 SDK (or newer), and if it fails to meet any of the above requirements.
+	- On Mac Catalyst platform, to receive current Wi-Fi network information, an application must have "com.apple.developer.networking.wifi-info"
+	 entitlement and user's authorization to access location.
 
 	Network Information dictionary will contain the following keys, and values:
 	<pre>
@@ -174,8 +177,8 @@ extern const CFStringRef kCNNetworkInfoKeyBSSID
  */
 CFDictionaryRef __nullable
 CNCopyCurrentNetworkInfo	(CFStringRef	interfaceName)
-    API_AVAILABLE(ios(4.1))
-    SPI_AVAILABLE(macos(10.6), tvos(9.0), watchos(1.0), bridgeos(1.0));
+API_DEPRECATED_WITH_REPLACEMENT("[NEHotspotNetwork fetchCurrentWithCompletionHandler:]", ios(4.1, API_TO_BE_DEPRECATED), macCatalyst(14.0, API_TO_BE_DEPRECATED))
+SPI_AVAILABLE(macos(10.6), tvos(9.0), watchos(1.0), bridgeos(1.0));
 
 __END_DECLS
 

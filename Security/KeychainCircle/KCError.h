@@ -18,6 +18,8 @@ typedef enum {
     kUnexpectedMessage,
     kInternalError,
     kDERUnknownVersion,
+    kProcessApplicationFailure,
+    kUnsupportedTrustPlatform,
 } KCJoiningError;
 
 @interface NSError(KCJoiningError)

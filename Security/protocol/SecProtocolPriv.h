@@ -232,6 +232,59 @@ void
 sec_protocol_options_set_quic_transport_parameters(sec_protocol_options_t options, dispatch_data_t transport_parameters);
 
 /*!
+ * @enum sec_protocol_transport_t
+ *
+ * @abstract An enumeration of the different transport protocols that can have specific security options.
+ */
+typedef enum {
+    sec_protocol_transport_any = 0,
+    sec_protocol_transport_tcp,
+    sec_protocol_transport_quic,
+} sec_protocol_transport_t;
+
+#define SEC_PROTOCOL_HAS_TRANSPORT_SPECIFIC_ALPN 1
+
+/*!
+ * @function sec_protocol_options_add_transport_specific_application_protocol
+ *
+ * @abstract
+ *      Add an application protocol supported by clients of this protocol instance, specific
+ *      to a transport protocol.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param application_protocol
+ *      A NULL-terminated string defining the application protocol.
+ *
+ * @param specific_transport
+ *      A specific transport to which to bind the application protocol.
+ */
+API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+void
+sec_protocol_options_add_transport_specific_application_protocol(sec_protocol_options_t options, const char *application_protocol, sec_protocol_transport_t specific_transport);
+
+/*!
+ * @function sec_protocol_options_copy_transport_specific_application_protocol
+ *
+ * @abstract
+ *      Return the application protocols configured by clients of this protocol instance, specific
+ *      to a transport protocol if applicable.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param specific_transport
+ *      A specific transport to which to bind the application protocol.
+ *
+ * @return An `xpc_object_t` instance carrying an array of application protocol strings, or nil.
+ */
+#define SEC_PROTOCOL_HAS_TRANSPORT_SPECIFIC_ALPN_GETTER 1 /* rdar://problem/63987477 */
+SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+SEC_RETURNS_RETAINED __nullable xpc_object_t
+sec_protocol_options_copy_transport_specific_application_protocol(sec_protocol_options_t options, sec_protocol_transport_t specific_transport);
+
+/*!
  * @enum sec_protocol_tls_encryption_level_t
  *
  * @abstract An enumeration of the different TLS encryption levels.
@@ -280,6 +333,43 @@ API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 void
 sec_protocol_options_set_tls_encryption_secret_update_block(sec_protocol_options_t options,
                                                             sec_protocol_tls_encryption_secret_update_t update_block,
+                                                            dispatch_queue_t update_queue);
+
+/*!
+ * @block sec_protocol_tls_encryption_level_update_t
+ *
+ * @abstract
+ *      Block to be invoked when the encryption level is updated.
+ *
+ * @param level
+ *      The new `sec_protocol_tls_encryption_level_t`.
+ *
+ * @param is_write
+ *      True if this is a write level and false if it's a read.
+ *
+ */
+typedef void (^sec_protocol_tls_encryption_level_update_t)(sec_protocol_tls_encryption_level_t level, bool is_write);
+
+/*!
+ * @function sec_protocol_options_set_tls_encryption_level_update_block
+ *
+ * @abstract
+ *      Set the TLS encryption level update block. It is invoked whenever the encryption level is updated.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param update_block
+ *      A `sec_protocol_tls_encryption_level_update_t` instance.
+ *
+ * @params update_queue
+ *      A `dispatch_queue_t` on which the update block should be called.
+ */
+#define SEC_PROTOCOL_HAS_TLS_ENCRYPTION_LEVEL_UPDATE_BLOCK 1 /* rdar://problem/63986462 */
+SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+void
+sec_protocol_options_set_tls_encryption_level_update_block(sec_protocol_options_t options,
+                                                            sec_protocol_tls_encryption_level_update_t update_block,
                                                             dispatch_queue_t update_queue);
 
 /*!
@@ -469,45 +559,6 @@ void
 sec_protocol_options_add_tls_key_exchange_group_set(sec_protocol_options_t options, SSLKeyExchangeGroupSet set);
 
 /*!
- * @function sec_protocol_options_set_tls_SIKE503_exchange_enabled
- *
- * @abstract
- *      Enable SIKE using P503 for TLS 1.3 key exchange.
- *
- *      DO NOT DEPEND ON THIS SPI. IT IS FOR EXPERIMENTAL PURPOSES AND SUBJECT TO REMOVAL WITHOUT ADVANCE NOTICE.
- *      BUILD BREAKAGE ISSUES WILL BE SENT TO THE CALLING PROJECT.
- *
- * @param options
- *      A `sec_protocol_options_t` instance.
- *
- * @param tls_SIKE503_exchange_enabled
- *      Flag to enable SIKE with P503.
- */
-#define SEC_PROTOCOL_HAS_PQ_TLS_HANDLES 1
-API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
-void
-sec_protocol_options_set_tls_SIKE503_exchange_enabled(sec_protocol_options_t options, bool tls_SIKE503_exchange_enabled);
-
-/*!
- * @function sec_protocol_options_set_tls_HRSS_exchange_enabled
- *
- * @abstract
- *      Enable HRSS for TLS 1.3 key exchange.
- *
- *      DO NOT DEPEND ON THIS SPI. IT IS FOR EXPERIMENTAL PURPOSES AND SUBJECT TO REMOVAL WITHOUT ADVANCE NOTICE.
- *      BUILD BREAKAGE ISSUES WILL BE SENT TO THE CALLING PROJECT.
- *
- * @param options
- *      A `sec_protocol_options_t` instance.
- *
- * @param tls_HRSS_exchange_enabled
- *      Flag to enable HRSS.
- */
-API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
-void
-sec_protocol_options_set_tls_HRSS_exchange_enabled(sec_protocol_options_t options, bool tls_HRSS_exchange_enabled);
-
-/*!
  * @function sec_protocol_options_set_eddsa_enabled
  *
  * @abstract
@@ -580,6 +631,23 @@ sec_protocol_options_set_tls_ticket_request_count(sec_protocol_options_t options
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 void
 sec_protocol_options_set_tls_grease_enabled(sec_protocol_options_t options, bool tls_grease_enabled);
+
+/*!
+ * @function sec_protocol_options_set_allow_unknown_alpn_protos
+ *
+ * @abstract
+ *      Configure clients to accept server ALPN values they did not advertise.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param allow_unknown_alpn_protos
+ *      Flag to enable or disable the use of unknown ALPN values.
+ */
+#define SEC_PROTOCOL_HAS_ALLOW_UNKNOWN_ALPN_PROTOS_SETTER 1 /* rdar://problem/64449512 */
+SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+void
+sec_protocol_options_set_allow_unknown_alpn_protos(sec_protocol_options_t options, bool allow_unknown_alpn_protos);
 
 /*!
  * @function sec_protocol_options_set_experiment_identifier
@@ -1171,7 +1239,95 @@ API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 const tls_ciphersuite_t * __nullable
 sec_protocol_helper_ciphersuite_group_to_ciphersuite_list(tls_ciphersuite_group_t group, size_t *list_count);
 
+typedef CF_ENUM(uint16_t, sec_protocol_block_length_padding_t) {
+    SEC_PROTOCOL_BLOCK_LENGTH_PADDING_NONE = 0,
+    SEC_PROTOCOL_BLOCK_LENGTH_PADDING_DEFAULT = 16,
+};
+
+/*!
+ * @function sec_protocol_options_set_tls_block_length_padding
+ *
+ * @abstract
+ *      Pad TLS messages to a multiple of the specified block length. By default, padding is disabled.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param block_length_padding
+ *      A sec_protocol_block_length_padding_t variable specifying the block length padding. Setting the block length padding to 0 disables padding.
+ *
+ * @return True if the padding policy has been successfully set, false otherwise.
+ */
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
+bool
+sec_protocol_options_set_tls_block_length_padding(sec_protocol_options_t options, sec_protocol_block_length_padding_t block_length_padding);
+
+/*!
+ * @function sec_protocol_helper_ciphersuite_group_contains_ciphersuite
+ *
+ * @abstract
+ *      This function is exposed for testing purposes only. It MUST NOT be called by clients.
+ *
+ * @param group
+ *      A `tls_ciphersuite_group_t` instance.
+ *
+ * @param suite
+ *      A `tls_ciphersuite_t` instance.
+ *
+ * @return True if the ciphersuite group contains the given ciphersuite, false otherwise.
+*/
+API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+bool
+sec_protocol_helper_ciphersuite_group_contains_ciphersuite(tls_ciphersuite_group_t group, tls_ciphersuite_t suite);
+
+/*!
+ * @function sec_protocol_helper_ciphersuite_minimum_TLS_version
+ *
+ * @abstract
+ *      This function is exposed for testing purposes only. It MUST NOT be called by clients.
+ *
+ * @param ciphersuite
+ *      A `tls_ciphersuite_t` instance.
+ *
+ * @return The `tls_protocol_version_t` pertaining to the minimum TLS version designated for the given ciphersuite.
+*/
+API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+tls_protocol_version_t
+sec_protocol_helper_ciphersuite_minimum_TLS_version(tls_ciphersuite_t ciphersuite);
+
+/*!
+ * @function sec_protocol_helper_ciphersuite_maximum_TLS_version
+ *
+ * @abstract
+ *      This function is exposed for testing purposes only. It MUST NOT be called by clients.
+ *
+ * @param ciphersuite
+ *      A `tls_ciphersuite_t` instance.
+ *
+ * @return The `tls_protocol_version_t` pertaining to the maximum TLS version designated for the given ciphersuite.
+*/
+API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+tls_protocol_version_t
+sec_protocol_helper_ciphersuite_maximum_TLS_version(tls_ciphersuite_t ciphersuite);
+
+/*!
+ * @function sec_protocol_helper_get_ciphersuite_name
+ *
+ * @abstract
+ *      This function is exposed for testing purposes only. It MUST NOT be called by clients.
+ *
+ * @param ciphersuite
+ *      A `tls_ciphersuite_t` instance.
+ *
+ * @return A string representation of the given ciphersuite, or NULL if it does not exist.
+*/
+API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+const char * __nullable
+sec_protocol_helper_get_ciphersuite_name(tls_ciphersuite_t ciphersuite);
+
 #define SEC_PROTOCOL_HAS_MULTI_PSK_SUPPORT 1
+
+#define SEC_PROTOCOL_HAS_PEER_AUTHENTICATION_OPTIONAL 1
 
 struct sec_protocol_options_content {
     SSLProtocol min_version;
@@ -1195,6 +1351,8 @@ struct sec_protocol_options_content {
     dispatch_data_t quic_transport_parameters;
     sec_protocol_tls_encryption_secret_update_t tls_secret_update_block;
     dispatch_queue_t tls_secret_update_queue;
+    sec_protocol_tls_encryption_level_update_t tls_encryption_level_update_block;
+    dispatch_queue_t tls_encryption_level_update_queue;
     sec_protocol_session_update_t session_update_block;
     dispatch_queue_t session_update_queue;
     dispatch_data_t session_state;
@@ -1246,13 +1404,16 @@ struct sec_protocol_options_content {
     unsigned enable_early_data : 1;
     unsigned enable_early_data_override : 1;
     unsigned peer_authentication_required : 1;
+    unsigned peer_authentication_optional : 1;
     unsigned peer_authentication_override : 1;
     unsigned certificate_compression_enabled : 1;
-    unsigned tls_SIKE503_exchange_enabled : 1;
-    unsigned tls_HRSS_exchange_enabled : 1;
     unsigned eddsa_enabled : 1;
     unsigned tls_delegated_credentials_enabled : 1;
     unsigned tls_grease_enabled : 1;
+    unsigned allow_unknown_alpn_protos : 1;
+    unsigned allow_unknown_alpn_protos_override : 1;
+
+    sec_protocol_block_length_padding_t tls_block_length_padding;
 };
 
 struct sec_protocol_metadata_content {

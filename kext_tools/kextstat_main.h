@@ -77,9 +77,9 @@ kOSBundleMetaClassesKey
 // and can cause confusion
 #define kLongOptLongindexHack (-2)
 
-int longopt = 0;
+static int longopt = 0;
 
-struct option sOptInfo[] = {
+static struct option sOptInfo[] = {
     { kOptNameHelp,               no_argument,        NULL,     kOptHelp },
     { kOptNameBundleIdentifier,   required_argument,  NULL,     kOptBundleIdentifier },
     { kOptNameNoKernelComponents, no_argument,        NULL,     kOptNoKernelComponents },
@@ -121,6 +121,6 @@ CFComparisonResult compareNumbers(
     const void * val2,
           void * context);
 
-static void usage(UsageLevel usageLevel);
+void usage(UsageLevel usageLevel);
 
 #endif /* _KEXTSTAT_MAIN_H */

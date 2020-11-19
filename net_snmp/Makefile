@@ -7,7 +7,7 @@ Project		= net-snmp
 ProjectName	= net_snmp
 UserType	= Administration
 ToolType	= Commands
-Submission	= 167
+Submission	= 171
 
 
 #
@@ -52,7 +52,11 @@ CFLAGS += -DNETSNMP_NO_INLINE
 
 DEFINES			= -DBUILD=$(Submission) \
 			-DMACOSX_DEPLOYMENT_TARGET=$(MACOSX_DEPLOYMENT_TARGET)
-INCLUDES		= -F$(SDKROOT)/System/Library/PrivateFrameworks/ -F$(SDKROOT)/System/Library/Frameworks/ -I$(SDKROOT)/usr/local/libressl-2.2/include
+INCLUDES		= -F$(SDKROOT)/System/Library/PrivateFrameworks/ -F$(SDKROOT)/System/Library/Frameworks/ \
+				-iwithsysroot /usr/local/libressl/include -L$(SDKROOT)/usr/local/libressl/lib
+
+# make sure that all the weird configure tools can find the correct compilers 
+PATH			+=:$(DT_TOOLCHAIN_DIR)/usr/bin/
 
 # For Perl to build correctly, both CFLAGS (CC_Flags) and CCFLAGS (Cxx_Flags)
 # must be properly defined.
@@ -158,10 +162,11 @@ MIBDIR		= $(SHAREDIR)/snmp/mibs
 AEP		= YES
 AEP_Version	= 5.6.2.1
 AEP_Patches    = diskio.patch IPv6.patch universal_builds.patch \
-			container.patch darwin-header.patch 10268440.patch \
+			container.patch darwin-header.patch 68295833.patch \
 			host.patch CVE-2012-6151.patch CVE-2014-3565.patch \
-			lmsensors.patch darwin-sensors.patch sanitize.patch 34748495.patch 34782045.patch 34782700.patch \
-			34806284.patch warnings1.patch crTest.patch \
+			lmsensors.patch darwin-sensors.patch sanitize.patch\
+			34748495.patch 34782045.patch 34782700.patch \
+			34806284.patch warnings1.patch crTest.patch mandoc1.patch \
 			darwin64.patch disk_label.patch 22291336.patch perl-cc.patch namespace.patch 
 AEP_LaunchdConfigs	= org.net-snmp.snmpd.plist
 AEP_ConfigDir	= $(ETCDIR)/snmp

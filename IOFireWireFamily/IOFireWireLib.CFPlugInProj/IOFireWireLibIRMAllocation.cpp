@@ -175,7 +175,7 @@ namespace IOFireWireLib {
 		if (result)
 		{
 			*pAllocatedIsochChannel = outputVal[0];
-			*pAllocatedBandwidthUnits = outputVal[1];
+			*pAllocatedBandwidthUnits = (UInt32)outputVal[1];
 		}
 		return result;
 	}

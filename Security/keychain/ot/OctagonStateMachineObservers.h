@@ -44,7 +44,13 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 
-@interface OctagonStateTransitionWatcher : NSObject
+
+@protocol OctagonStateTransitionWatcherProtocol
+@property (readonly) CKKSResultOperation* result;
+- (void)onqueueHandleTransition:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)attempt;
+@end
+
+@interface OctagonStateTransitionWatcher : NSObject <OctagonStateTransitionWatcherProtocol>
 @property (readonly) NSString* name;
 @property (readonly) CKKSResultOperation* result;
 @property (readonly) OctagonStateTransitionPath* intendedPath;
@@ -57,7 +63,22 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (instancetype)timeout:(dispatch_time_t)timeout;
 
-- (void)onqueueHandleTransition:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)attempt;
+@end
+
+// Reports on if any of the given states are entered
+@interface OctagonStateMultiStateArrivalWatcher : NSObject <OctagonStateTransitionWatcherProtocol>
+@property (readonly) NSString* name;
+@property (readonly) CKKSResultOperation* result;
+@property (readonly) NSSet<OctagonState*>* states;
+
+- (instancetype)initNamed:(NSString*)name
+              serialQueue:(dispatch_queue_t)queue
+                   states:(NSSet<OctagonState*>*)states;
+
+// Called by the state machine if it's already in a state at registration time
+- (void)onqueueEnterState:(OctagonState*)state;
+
+- (instancetype)timeout:(dispatch_time_t)timeout;
 @end
 
 NS_ASSUME_NONNULL_END

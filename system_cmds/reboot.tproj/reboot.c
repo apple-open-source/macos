@@ -304,6 +304,17 @@ get_pageins(void)
 #if defined(__APPLE__) && !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 // XX this routine is also in shutdown.tproj; it would be nice to share
 
+static bool
+kextdDisabled(void)
+{
+	uint32_t disabled = 0;
+	size_t   sizeOfDisabled = sizeof(disabled);
+	if (sysctlbyname("hw.use_kernelmanagerd", &disabled, &sizeOfDisabled, NULL, 0) != 0) {
+		return false;
+	}
+	return (disabled != 0);
+}
+
 #define WAITFORLOCK 1
 /*
  * contact kextd to lock for reboot
@@ -316,6 +327,11 @@ reserve_reboot(void)
 	mach_port_t kxport, tport = MACH_PORT_NULL, myport = MACH_PORT_NULL;
 	int busyStatus = ELAST + 1;
 	mountpoint_t busyVol;
+
+	if (kextdDisabled()) {
+		/* no need to talk with kextd if it's not running */
+		return 0;
+	}
 
 	macherr = bootstrap_look_up2(bootstrap_port, KEXTD_SERVER_NAME, &kxport, 0, BOOTSTRAP_PRIVILEGED_SERVER);
 	if (macherr)  goto finish;

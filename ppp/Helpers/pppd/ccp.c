@@ -64,7 +64,7 @@
 #include "fsm.h"
 #include "ccp.h"
 //#include <net/ppp-comp.h>
-#include <ppp_comp.h>
+#include "ppp_comp.h"
 
 #ifdef MPPE
 #include "chap_ms.h"	/* mppe_xxxx_key, mppe_keys_set */

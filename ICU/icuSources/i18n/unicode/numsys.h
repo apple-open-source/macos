@@ -20,6 +20,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: NumberingSystem object
@@ -30,7 +32,6 @@
 #include "unicode/format.h"
 #include "unicode/uobject.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 // can't be #ifndef U_HIDE_INTERNAL_API; needed for char[] field size
@@ -208,9 +209,10 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // _NUMSYS
 //eof

@@ -688,7 +688,7 @@ static struct vimoption options[] =
 			    {(char_u *)"menu,preview", (char_u *)0L}
 			    SCTX_INIT},
     {"completepopup", "cpp", P_STRING|P_VI_DEF|P_COMMA|P_NODUP,
-#if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+#if defined(FEAT_PROP_POPUP) && defined(FEAT_QUICKFIX)
 			    (char_u *)&p_cpp, PV_NONE,
 			    {(char_u *)"", (char_u *)0L}
 #else
@@ -1897,7 +1897,7 @@ static struct vimoption options[] =
 #endif
 			    {(char_u *)12L, (char_u *)0L} SCTX_INIT},
     {"previewpopup", "pvp", P_STRING|P_VI_DEF|P_COMMA|P_NODUP,
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 			    (char_u *)&p_pvp, PV_NONE,
 			    {(char_u *)"", (char_u *)0L}
 #else
@@ -2837,7 +2837,7 @@ static struct vimoption options[] =
     {"wildmode",    "wim",  P_STRING|P_VI_DEF|P_ONECOMMA|P_NODUP,
 			    (char_u *)&p_wim, PV_NONE,
 			    {(char_u *)"full", (char_u *)0L} SCTX_INIT},
-    {"wildoptions", "wop",  P_STRING|P_VI_DEF,
+    {"wildoptions", "wop",  P_STRING|P_VI_DEF|P_ONECOMMA|P_NODUP,
 			    (char_u *)&p_wop, PV_NONE,
 			    {(char_u *)"", (char_u *)0L}
 			    SCTX_INIT},
@@ -3009,7 +3009,7 @@ static struct vimoption options[] =
     {NULL, NULL, 0, NULL, PV_NONE, {NULL, NULL} SCTX_INIT}
 };
 
-#define PARAM_COUNT (sizeof(options) / sizeof(struct vimoption))
+#define OPTION_COUNT (sizeof(options) / sizeof(struct vimoption))
 
 // The following is needed to make the gen_opt_test.vim script work.
 // {"

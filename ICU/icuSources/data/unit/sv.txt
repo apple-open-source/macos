@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 sv{
-    Version{"2.1.48.90"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -106,6 +106,7 @@ sv{
         }
         compound{
             per{"{0} per {1}"}
+            times{"{0}-{1}"}
         }
         concentr{
             karat{
@@ -122,11 +123,6 @@ sv{
                 dnam{"millimol per liter"}
                 one{"{0} millimol per liter"}
                 other{"{0} millimol per liter"}
-            }
-            mole{
-                dnam{"mol"}
-                one{"{0} mol"}
-                other{"{0} mol"}
             }
             part-per-million{
                 dnam{"miljondelar"}
@@ -246,6 +242,11 @@ sv{
                 one{"{0} dygn"}
                 other{"{0} dygn"}
                 per{"{0} per dygn"}
+            }
+            decade{
+                dnam{"årtionden"}
+                one{"{0} årtionde"}
+                other{"{0} årtionden"}
             }
             hour{
                 dnam{"timmar"}
@@ -395,6 +396,41 @@ sv{
                 dnam{"megahertz"}
                 one{"{0} megahertz"}
                 other{"{0} megahertz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"bildpunkter per centimeter"}
+                one{"{0} bildpunkt per centimeter"}
+                other{"{0} bildpunkter per centimeter"}
+            }
+            dot-per-inch{
+                dnam{"bildpunkter per tum"}
+                one{"{0} bildpunkt per tum"}
+                other{"{0} bildpunkter per tum"}
+            }
+            em{
+                dnam{"typografisk em"}
+            }
+            megapixel{
+                dnam{"megapixel"}
+                one{"{0} megapixel"}
+                other{"{0} megapixel"}
+            }
+            pixel{
+                dnam{"pixel"}
+                one{"{0} pixel"}
+                other{"{0} pixel"}
+            }
+            pixel-per-centimeter{
+                dnam{"pixel per centimeter"}
+                one{"{0} pixel per centimeter"}
+                other{"{0} pixel per centimeter"}
+            }
+            pixel-per-inch{
+                dnam{"pixel per tum"}
+                one{"{0} pixel per tum"}
+                other{"{0} pixel per tum"}
             }
         }
         length{
@@ -664,6 +700,11 @@ sv{
                 dnam{"millimeter kvicksilver"}
                 one{"{0} millimeter kvicksilver"}
                 other{"{0} millimeter kvicksilver"}
+            }
+            pascal{
+                dnam{"pascal"}
+                one{"{0} pascal"}
+                other{"{0} pascal"}
             }
             pound-per-square-inch{
                 dnam{"pund per kvadrattum"}
@@ -996,6 +1037,11 @@ sv{
                 one{"{0} %"}
                 other{"{0} %"}
             }
+            permille{
+                dnam{"‰"}
+                one{"{0}‰"}
+                other{"{0}‰"}
+            }
             permyriad{
                 dnam{"‱"}
                 one{"{0}‱"}
@@ -1075,6 +1121,10 @@ sv{
                 other{"{0}d"}
                 per{"{0}/d"}
             }
+            decade{
+                one{"{0}årt"}
+                other{"{0}årt"}
+            }
             hour{
                 dnam{"h"}
                 one{"{0}h"}
@@ -1150,8 +1200,12 @@ sv{
             }
         }
         energy{
+            calorie{
+                dnam{"cal"}
+                one{"{0} cal"}
+                other{"{0} cal"}
+            }
             electronvolt{
-                dnam{"eV"}
                 one{"{0}eV"}
                 other{"{0}eV"}
             }
@@ -1164,6 +1218,11 @@ sv{
                 dnam{"J"}
                 one{"{0}J"}
                 other{"{0}J"}
+            }
+            kilocalorie{
+                dnam{"kcal"}
+                one{"{0} kcal"}
+                other{"{0} kcal"}
             }
             kilojoule{
                 dnam{"kJ"}
@@ -1300,6 +1359,11 @@ sv{
                 dnam{"pm"}
                 one{"{0}pm"}
                 other{"{0}pm"}
+            }
+            point{
+                dnam{"pt"}
+                one{"{0} pt"}
+                other{"{0} pt"}
             }
             solar-radius{
                 dnam{"R☉"}
@@ -1565,7 +1629,7 @@ sv{
             cubic-meter{
                 dnam{"m³"}
                 one{"{0}m³"}
-                other{"{0} m³"}
+                other{"{0}m³"}
                 per{"{0}/m³"}
             }
             cubic-mile{
@@ -1898,6 +1962,11 @@ sv{
                 other{"{0} d"}
                 per{"{0}/d"}
             }
+            decade{
+                dnam{"årt"}
+                one{"{0} årt"}
+                other{"{0} årt"}
+            }
             hour{
                 dnam{"tim"}
                 one{"{0} tim"}
@@ -2046,6 +2115,33 @@ sv{
                 dnam{"MHz"}
                 one{"{0} MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"d/cm"}
+                one{"{0} d/cm"}
+                other{"{0} d/cm"}
+            }
+            dot-per-inch{
+                dnam{"d/tum"}
+                one{"{0} d/tum"}
+                other{"{0} d/tum"}
+            }
+            megapixel{
+                dnam{"Mpx"}
+                one{"{0} Mpx"}
+                other{"{0} Mpx"}
+            }
+            pixel-per-centimeter{
+                dnam{"px/cm"}
+                one{"{0} px/cm"}
+                other{"{0} px/cm"}
+            }
+            pixel-per-inch{
+                dnam{"px/tum"}
+                one{"{0} px/tum"}
+                other{"{0} px/tum"}
             }
         }
         length{

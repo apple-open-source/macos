@@ -90,6 +90,8 @@ typedef struct {
 
 __BEGIN_DECLS
 
+SecSignatureHashAlgorithm SecSignatureHashAlgorithmForAlgorithmOid(const DERItem *algOid);
+
 CFDataRef SecCertificateGetAuthorityKeyID(SecCertificateRef certificate);
 CFDataRef SecCertificateGetSubjectKeyID(SecCertificateRef certificate);
 
@@ -245,11 +247,9 @@ bool SecCertificateIsOidString(CFStringRef oid);
 
 DERItem *SecCertificateGetExtensionValue(SecCertificateRef certificate, CFTypeRef oid);
 
-CFArrayRef SecCertificateCopyDNSNamesFromSubject(SecCertificateRef certificate);
-CFArrayRef SecCertificateCopyIPAddressesFromSubject(SecCertificateRef certificate);
 CFArrayRef SecCertificateCopyRFC822NamesFromSubject(SecCertificateRef certificate);
-
 CFArrayRef SecCertificateCopyDNSNamesFromSAN(SecCertificateRef certificate);
+CFArrayRef SecCertificateCopyIPAddressDatas(SecCertificateRef certificate);
 
 CFIndex SecCertificateGetUnparseableKnownExtension(SecCertificateRef certificate);
 

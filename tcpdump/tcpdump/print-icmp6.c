@@ -1355,11 +1355,19 @@ icmp6_opt_print(netdissect_options *ndo, const u_char *bp, int resid)
 				break;
 			case 2:
 				ND_TCHECK2(*in6p, 8);
+#ifdef __APPLE__
+				UNALIGNED_MEMCPY(&in6, opri + 1, 8);
+#else
 				memcpy(&in6, opri + 1, 8);
+#endif
 				break;
 			case 3:
 				ND_TCHECK(*in6p);
+#ifdef __APPLE__
+				UNALIGNED_MEMCPY(&in6, opri + 1, sizeof(in6));
+#else
 				memcpy(&in6, opri + 1, sizeof(in6));
+#endif
 				break;
 			default:
 				goto trunc;

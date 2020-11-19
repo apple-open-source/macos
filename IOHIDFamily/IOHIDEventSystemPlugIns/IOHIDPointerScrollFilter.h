@@ -90,6 +90,8 @@ private:
     double                      _pointerAcceleration;
     double                      _scrollAcceleration;
     boolean_t                   _leagacyShim;
+    bool                        _pointerAccelerationSupported;
+    bool                        _scrollAccelerationSupported;
   
     void serialize (CFMutableDictionaryRef dict) const;
   

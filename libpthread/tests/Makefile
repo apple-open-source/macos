@@ -55,6 +55,8 @@ TARGETS += setrlimit_sigsegv
 TARGETS += wq_limits
 TARGETS += add_timer_termination
 TARGETS += perf_contended_mutex_rwlock
+TARGETS += pthread_jit_write_protection
+pthread_jit_write_protection: CODE_SIGN_ENTITLEMENTS=pthread_jit_write_protection-entitlements.plist
 
 # this should be CUSTOM_TARGETS, see "Compatibility defines" in Makefile.targets
 OTHER_TARGETS := stackoverflow_crash
@@ -65,7 +67,8 @@ OTHER_LTE_INCLUDE_FILES += \
 OTHER_CFLAGS := -DDARWINTEST -Weverything \
 		-Wno-vla -Wno-bad-function-cast -Wno-missing-noreturn \
 		-Wno-missing-field-initializers -Wno-format-pedantic \
-		-Wno-gnu-folding-constant -Wno-used-but-marked-unused
+		-Wno-gnu-folding-constant -Wno-used-but-marked-unused \
+		-Wno-padded
 OTHER_LDFLAGS := -ldarwintest_utils
 
 #TARGETS += main_stack_legacy // Disabled by default due to linker warnings
@@ -89,3 +92,4 @@ stackoverflow_crash: helpers/stackoverflow_crash.c
 install-stackoverflow_crash: stackoverflow_crash
 	mkdir -p $(INSTALLDIR)/assets
 	@cp $(SYMROOT)/assets/stackoverflow_crash $(INSTALLDIR)/assets
+

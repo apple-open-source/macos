@@ -1,15 +1,15 @@
 /*
  * Copyright (c) 1999-2008 Apple Computer, Inc.  All Rights Reserved.
- * 
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -29,6 +29,14 @@
 #include <IOKit/hid/IOHIDElement.h>
 #include <IOKit/hid/IOHIDLibUserClient.h>
 #include <IOKit/hid/IOHIDLibPrivate.h>
+#if __has_include(<Rosetta/Rosetta.h>)
+#  include <Rosetta/Rosetta.h>
+#endif
+
+IOHID_DYN_LINK_DYLIB(/usr/lib, Rosetta)
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_is_current_process_translated, dyn_rosetta_is_current_process_translated, bool, false, (void), ())
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_rosetta_convert_to_rosetta_absolute_time, uint64_t, system_time, (uint64_t system_time), (system_time))
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_system_absolute_time, dyn_rosetta_convert_to_system_absolute_time, uint64_t, rosetta_time, (uint64_t rosetta_time), (rosetta_time))
 
 #ifndef min
     #define min(a,b) (a<b?a:b)
@@ -43,11 +51,12 @@ static void __IOHIDValueConvertLongWordToByte(const uint64_t * src, UInt8 * dst,
 typedef struct __IOHIDValue
 {
     CFRuntimeBase               cfBase;   // base CFType information
-    
+
     IOHIDElementRef             element;
     bool                        weakElementRef;
-    uint64_t                    timeStamp;
+    uint64_t                    timeStamp;  /* Clock ticks from mach_absolute_time */
     uint32_t                    length;
+    uint8_t                     flags;
     uint8_t *                   bytePtr;
     uint8_t                     bytes[];
 } __IOHIDValue, *__IOHIDValueRef;
@@ -114,21 +123,31 @@ IOHIDValueRef _IOHIDValueCreateWithElementValuePtr(CFAllocatorRef allocator, IOH
     IOHIDValueRef   event   = NULL;
     uint32_t        length  = 0;
 
-    if ( !element || !pElementValue )
+    if (!element || !pElementValue)
         return (_Nonnull IOHIDValueRef)NULL;
-        
+
     length  =  min(_IOHIDElementGetLength(element), (CFIndex)(pElementValue->totalSize - sizeof(*pElementValue) + sizeof(pElementValue->value)));
+
     event   = __IOHIDValueCreatePrivate(allocator, NULL, length);
 
     if (!event)
         return (_Nonnull IOHIDValueRef)NULL;
-        
+
     event->element      = (IOHIDElementRef)CFRetain(element);
+    // Note: event is expected to come from the kernel, and therefore
+    // the timestamp does not require conversion
     event->timeStamp    = *((uint64_t *)&(pElementValue->timestamp));
+    event->flags        = pElementValue->flags;
     event->length       = length;
-  
-    __IOHIDValueConvertWordToByte((const uint32_t *)&(pElementValue->value[0]), event->bytes, length);
-    
+
+
+    if (pElementValue->flags & kIOHIDElementValueOOBReport) {
+        uint64_t *reportPtr = (uint64_t*)pElementValue->value;
+        __IOHIDValueConvertWordToByte((const uint32_t *)*reportPtr, event->bytes, length);
+    } else {
+        __IOHIDValueConvertWordToByte((const uint32_t *)&(pElementValue->value[0]), event->bytes, length);
+    }
+
     return event;
 }
 
@@ -140,24 +159,28 @@ IOHIDValueRef _IOHIDValueCreateWithStruct(CFAllocatorRef allocator, IOHIDElement
 
     if ( !element || !pEventStruct )
         return (_Nonnull IOHIDValueRef)NULL;
-        
+
     isLongValue = (pEventStruct->longValue && pEventStruct->longValueSize);
     length  = _IOHIDElementGetLength(element);
-    event   = __IOHIDValueCreatePrivate(allocator, NULL, isLongValue ? 0 : length);
+    event   = __IOHIDValueCreatePrivate(allocator, NULL, length);
 
     if (!event)
         return (_Nonnull IOHIDValueRef)NULL;
-        
+
     event->element      = (IOHIDElementRef)CFRetain(element);
     event->timeStamp    = *((uint64_t *)&(pEventStruct->timestamp));
+    event->timeStamp = dyn_rosetta_is_current_process_translated() ?
+        dyn_rosetta_convert_to_system_absolute_time(event->timeStamp) : event->timeStamp;
     event->length       = length;
 
     if ( isLongValue )
     {
-        event->bytePtr  = pEventStruct->longValue;
+        bcopy(pEventStruct->longValue, event->bytes, length);
     }
     else
+    {
         __IOHIDValueConvertWordToByte((const uint32_t *)&(pEventStruct->value), event->bytes, min(sizeof(uint32_t), event->length));
+    }
 
     return event;
 }
@@ -168,7 +191,7 @@ IOHIDValueRef IOHIDValueCreateWithIntegerValue(CFAllocatorRef allocator, IOHIDEl
     uint32_t        length  = 0;
     uint64_t        tempValue;
 
-    if ( !element )
+    if (!element)
         return (_Nonnull IOHIDValueRef)NULL;
 
     length  = _IOHIDElementGetLength(element);
@@ -176,15 +199,17 @@ IOHIDValueRef IOHIDValueCreateWithIntegerValue(CFAllocatorRef allocator, IOHIDEl
 
     if (!event)
         return (_Nonnull IOHIDValueRef)NULL;
-        
+
     event->element      = (IOHIDElementRef)CFRetain(element);
     event->timeStamp    = timeStamp;
+    event->timeStamp = dyn_rosetta_is_current_process_translated() ?
+        dyn_rosetta_convert_to_system_absolute_time(event->timeStamp) : event->timeStamp;
     event->length       = length;
-        
+
     tempValue = value;
-    
+
     __IOHIDValueConvertLongWordToByte((const uint64_t *)&tempValue, event->bytes, min(length, sizeof(uint64_t)));
-    
+
     return event;
 }
 
@@ -201,11 +226,13 @@ IOHIDValueRef IOHIDValueCreateWithBytes(CFAllocatorRef allocator, IOHIDElementRe
 
     if (!event)
         return NULL;
-        
+
     event->element      = (IOHIDElementRef)CFRetain(element);
     event->timeStamp    = timeStamp;
+    event->timeStamp = dyn_rosetta_is_current_process_translated() ?
+        dyn_rosetta_convert_to_system_absolute_time(event->timeStamp) : event->timeStamp;
     event->length       = length;
-    
+
     bcopy(bytes, event->bytes, min(length, byteLength));
 
     return event;
@@ -222,12 +249,14 @@ IOHIDValueRef IOHIDValueCreateWithBytesNoCopy(CFAllocatorRef allocator, IOHIDEle
 
     if (!event)
         return NULL;
-        
+
     event->element      = (IOHIDElementRef)CFRetain(element);
     event->timeStamp    = timeStamp;
+    event->timeStamp = dyn_rosetta_is_current_process_translated() ?
+        dyn_rosetta_convert_to_system_absolute_time(event->timeStamp) : event->timeStamp;
     event->length       = min(length, _IOHIDElementGetLength(element));
     event->bytePtr      = (uint8_t *)bytes;
-    
+
     return event;
 }
 
@@ -261,11 +290,17 @@ IOHIDElementRef IOHIDValueGetElement(IOHIDValueRef event)
 
 uint64_t IOHIDValueGetTimeStamp(IOHIDValueRef event)
 {
-    return event->timeStamp;
+    return dyn_rosetta_is_current_process_translated() ?
+        dyn_rosetta_convert_to_rosetta_absolute_time(event->timeStamp) : event->timeStamp;
+}
+
+uint8_t _IOHIDValueGetFlags(IOHIDValueRef event)
+{
+    return event->flags;
 }
 
 CFIndex IOHIDValueGetIntegerValue(IOHIDValueRef event)
-{    
+{
     uint64_t value = 0;
     IOHIDElementRef element = event->element;
     __IOHIDValueConvertByteToLongWord(IOHIDValueGetBytePtr(event), &value, MIN(event->length, sizeof(value)), IOHIDElementGetLogicalMin(element) < 0 || IOHIDElementGetLogicalMax(element) < 0);
@@ -365,6 +400,16 @@ void _IOHIDValueCopyToElementValuePtr(IOHIDValueRef value, IOHIDElementValue * p
     IOHIDElementRef element = IOHIDValueGetElement(value);
     
     __IOHIDValueConvertByteToWord(IOHIDValueGetBytePtr(value), (uint32_t *)(pElementValue->value), value->length, IOHIDElementGetLogicalMin(element) < 0 || IOHIDElementGetLogicalMax(element) < 0);
+}
+
+void _IOHIDValueCopyToElementValueHeader(IOHIDValueRef value, IOHIDElementValueHeader * pElementHeader)
+{
+    IOHIDElementRef element = IOHIDValueGetElement(value);
+    pElementHeader->cookie = IOHIDElementGetCookie(element);
+    pElementHeader->length = IOHIDValueGetLength(value);
+    
+    __IOHIDValueConvertByteToWord(IOHIDValueGetBytePtr(value), pElementHeader->value, value->length,
+                                  IOHIDElementGetLogicalMin(element) < 0 || IOHIDElementGetLogicalMax(element) < 0);
 }
 
 #if defined (__LITTLE_ENDIAN__) 

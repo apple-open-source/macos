@@ -62,6 +62,7 @@ static void nosig(const char *);
 static void printsignals(FILE *);
 static int signame_to_signum(const char *);
 static void usage(void);
+static void print_signum(int, FILE *, char);
 
 #ifdef __APPLE__
 #define sys_nsig NSIG
@@ -93,7 +94,7 @@ main(int argc, char *argv[])
 				numsig -= 128;
 			if (numsig <= 0 || numsig >= sys_nsig)
 				nosig(*argv);
-			printf("%s\n", sys_signame[numsig]);
+			print_signum(numsig, stdout, '\n');
 			return (0);
 		}
 		printsignals(stdout);
@@ -155,6 +156,23 @@ main(int argc, char *argv[])
 	return (errors);
 }
 
+static void
+print_signum(int numsig, FILE *fp, char separator)
+{
+	char *signame;
+	int i;
+
+	signame = strdup(sys_signame[numsig]);
+
+	for(i = 0; signame[i] != '\0'; i++) {
+		char upper = toupper(signame[i]);
+		signame[i] = upper;
+	}
+	fprintf(fp, "%s%c", signame, separator);
+
+	free(signame);
+}
+
 static int
 signame_to_signum(const char *sig)
 {
@@ -188,11 +206,10 @@ printsignals(FILE *fp)
 	int n;
 
 	for (n = 1; n < sys_nsig; n++) {
-		(void)fprintf(fp, "%s", sys_signame[n]);
+		char sep = ' ';
 		if (n == (sys_nsig / 2) || n == (sys_nsig - 1))
-			(void)fprintf(fp, "\n");
-		else
-			(void)fprintf(fp, " ");
+			sep = '\n';
+		print_signum(n, fp, sep);
 	}
 }
 

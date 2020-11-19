@@ -80,13 +80,13 @@ namespace RegisterNames {
 
     inline FPSingleRegisterID asSingle(FPDoubleRegisterID reg)
     {
-        ASSERT(reg < d16);
+        ASSERT(reg <= d15);
         return (FPSingleRegisterID)(reg << 1);
     }
 
     inline FPSingleRegisterID asSingleUpper(FPDoubleRegisterID reg)
     {
-        ASSERT(reg < d16);
+        ASSERT(reg <= d15);
         return (FPSingleRegisterID)((reg << 1) + 1);
     }
 
@@ -595,6 +595,8 @@ private:
         OP_VSQRT_T1     = 0xEEB0,
         OP_VCVTSD_T1    = 0xEEB0,
         OP_VCVTDS_T1    = 0xEEB0,
+        OP_VAND_T1      = 0xEF00,
+        OP_VORR_T1      = 0xEF20,
         OP_B_T3a        = 0xF000,
         OP_B_T4a        = 0xF000,
         OP_AND_imm_T1   = 0xF000,
@@ -653,6 +655,8 @@ private:
     } OpcodeID1;
 
     typedef enum {
+        OP_VAND_T1b      = 0x0010,
+        OP_VORR_T1b      = 0x0010,
         OP_VADD_T2b      = 0x0A00,
         OP_VDIVb         = 0x0A00,
         OP_FLDSb         = 0x0A00,
@@ -1029,9 +1033,13 @@ public:
         ASSERT(rn != ARMRegisters::pc); // LDR (literal)
         ASSERT(imm.isUInt12());
 
-        if (!((rt | rn) & 8) && imm.isUInt7())
+        if (!((rt | rn) & 8) && imm.isUInt7() && !(imm.getUInt7() % 4)) {
+            // We can only use Encoding T1 when imm is a multiple of 4.
+            // For details see A8.8.63 on ARM Architecture Reference
+            // Manual ARMv7-A and ARMv7-R edition available on
+            // https://static.docs.arm.com/ddi0406/cd/DDI0406C_d_armv7ar_arm.pdf
             m_formatter.oneWordOp5Imm5Reg3Reg3(OP_LDR_imm_T1, imm.getUInt7() >> 2, rn, rt);
-        else if ((rn == ARMRegisters::sp) && !(rt & 8) && imm.isUInt10())
+        } else if ((rn == ARMRegisters::sp) && !(rt & 8) && imm.isUInt10())
             m_formatter.oneWordOp5Reg3Imm8(OP_LDR_imm_T2, rt, static_cast<uint8_t>(imm.getUInt10() >> 2));
         else
             m_formatter.twoWordOp12Reg4Reg4Imm12(OP_LDR_imm_T3, rn, rt, imm.getUInt12());
@@ -1819,6 +1827,16 @@ public:
     }
 #endif
 
+    void vand(FPDoubleRegisterID rd, FPDoubleRegisterID rn, FPDoubleRegisterID rm)
+    {
+        m_formatter.vfpOp(OP_VAND_T1, OP_VAND_T1b, true, rn, rd, rm);
+    }
+
+    void vorr(FPDoubleRegisterID rd, FPDoubleRegisterID rn, FPDoubleRegisterID rm)
+    {
+        m_formatter.vfpOp(OP_VORR_T1, OP_VORR_T1b, true, rn, rd, rm);
+    }
+
     void vadd(FPDoubleRegisterID rd, FPDoubleRegisterID rn, FPDoubleRegisterID rm)
     {
         m_formatter.vfpOp(OP_VADD_T2, OP_VADD_T2b, true, rn, rd, rm);
@@ -1972,7 +1990,7 @@ public:
     using CopyFunction = void*(&)(void*, const void*, size_t);
 
     template <CopyFunction copy>
-    static void fillNops(void* base, size_t size)
+    ALWAYS_INLINE static void fillNops(void* base, size_t size)
     {
         RELEASE_ASSERT(!(size % sizeof(int16_t)));
 
@@ -2376,7 +2394,7 @@ public:
 
     static void cacheFlush(void* code, size_t size)
     {
-#if OS(IOS_FAMILY)
+#if OS(DARWIN)
         sys_cache_control(kCacheFunctionPrepareForExecution, code, size);
 #elif OS(LINUX)
         size_t page = pageSize();

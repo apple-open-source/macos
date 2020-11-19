@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="15504" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
+<document type="com.apple.InterfaceBuilder3.Cocoa.XIB" version="3.0" toolsVersion="17053.1" targetRuntime="MacOSX.Cocoa" propertyAccessControl="none" useAutolayout="YES">
     <dependencies>
-        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="15504"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.CocoaPlugin" version="17053.1"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
@@ -17,7 +17,7 @@
             <windowStyleMask key="styleMask" titled="YES" closable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="538" y="186" width="522" height="405"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1417"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="1680" height="1025"/>
             <value key="minSize" type="size" width="520" height="400"/>
             <view key="contentView" id="8">
                 <rect key="frame" x="0.0" y="0.0" width="522" height="405"/>
@@ -46,15 +46,15 @@
                     <scrollView horizontalLineScroll="10" horizontalPageScroll="10" verticalLineScroll="10" verticalPageScroll="10" hasHorizontalScroller="NO" usesPredominantAxisScrolling="NO" translatesAutoresizingMaskIntoConstraints="NO" id="10">
                         <rect key="frame" x="19" y="65" width="483" height="209"/>
                         <clipView key="contentView" id="rcq-D6-aSJ">
-                            <rect key="frame" x="1" y="1" width="481" height="207"/>
+                            <rect key="frame" x="1" y="1" width="470" height="207"/>
                             <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                             <subviews>
                                 <textView importsGraphics="NO" richText="NO" verticallyResizable="YES" usesFontPanel="YES" usesRuler="YES" spellingCorrection="YES" smartInsertDelete="YES" id="11">
-                                    <rect key="frame" x="0.0" y="0.0" width="481" height="207"/>
+                                    <rect key="frame" x="0.0" y="0.0" width="470" height="207"/>
                                     <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
                                     <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
-                                    <size key="minSize" width="481" height="207"/>
+                                    <size key="minSize" width="470" height="207"/>
                                     <size key="maxSize" width="953" height="10000000"/>
                                     <attributedString key="textStorage">
                                         <fragment content=" ">
@@ -77,7 +77,7 @@
                             <autoresizingMask key="autoresizingMask"/>
                         </scroller>
                         <scroller key="verticalScroller" wantsLayer="YES" verticalHuggingPriority="750" doubleValue="1" controlSize="small" horizontal="NO" id="100010">
-                            <rect key="frame" x="468" y="1" width="14" height="207"/>
+                            <rect key="frame" x="471" y="1" width="11" height="207"/>
                             <autoresizingMask key="autoresizingMask"/>
                         </scroller>
                     </scrollView>
@@ -101,7 +101,7 @@ the source code for this application.</string>
                         </constraints>
                         <textFieldCell key="cell" sendsActionOnEndEditing="YES" alignment="left" id="100013">
                             <font key="font" metaFont="smallToolbarLabel"/>
-                            <string key="title">© 2003–2016
+                            <string key="title">© 2003–2017
 © 2000
 © 2002</string>
                             <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -145,7 +145,7 @@ R. Ancell &amp; M. Duelli</string>
                         </textFieldCell>
                     </textField>
                     <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" preferredMaxLayoutWidth="161" translatesAutoresizingMaskIntoConstraints="NO" id="200014">
-                        <rect key="frame" x="327" y="0.0" width="165" height="16"/>
+                        <rect key="frame" x="325" y="0.0" width="165" height="16"/>
                         <constraints>
                             <constraint firstAttribute="height" constant="16" id="200026"/>
                             <constraint firstAttribute="width" constant="161" id="200027"/>

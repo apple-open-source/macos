@@ -53,7 +53,7 @@ static int printUsage()
 int main(int argc, const char * argv[]) {
     
     int   result = STATUS_SUCCESS;
- 
+    
     if (argc < 2) {
         return printUsage();
     }

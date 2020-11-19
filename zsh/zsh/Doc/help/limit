@@ -1,17 +1,17 @@
 limit [ -hs ] [ resource [ limit ] ] ...
-       Set or display resource limits.  Unless the -s  flag  is  given,
-       the  limit  applies  only  the  children of the shell.  If -s is
-       given without other arguments, the resource limits of  the  cur-
-       rent  shell  is set to the previously set resource limits of the
+       Set  or  display  resource limits.  Unless the -s flag is given,
+       the limit applies only the children of  the  shell.   If  -s  is
+       given  without  other arguments, the resource limits of the cur-
+       rent shell is set to the previously set resource limits  of  the
        children.
 
        If limit is not specified, print the current limit placed on re-
-       source,  otherwise set the limit to the specified value.  If the
+       source, otherwise set the limit to the specified value.  If  the
        -h flag is given, use hard limits instead of soft limits.  If no
        resource is given, print all limits.
 
        When looping over multiple resources, the shell will abort imme-
-       diately if it detects a badly formed argument.  However,  if  it
+       diately  if  it detects a badly formed argument.  However, if it
        fails to set a limit for some other reason it will continue try-
        ing to set the remaining limits.
 
@@ -20,7 +20,7 @@ limit [ -hs ] [ resource [ limit ] ] ...
        addressspace
               Maximum amount of address space used.
        aiomemorylocked
-              Maximum amount of memory locked in  RAM  for  AIO  opera-
+              Maximum  amount  of  memory  locked in RAM for AIO opera-
               tions.
        aiooperations
               Maximum number of AIO operations.
@@ -71,10 +71,10 @@ limit [ -hs ] [ resource [ limit ] ] ...
        for the resource by the operating system.
 
        If argument corresponds to a number which is out of the range of
-       the  resources  configured into the shell, the shell will try to
+       the resources configured into the shell, the shell will  try  to
        read or write the limit anyway, and will report an error if this
-       fails.   As  the shell does not store such resources internally,
-       an attempt to set the limit will fail unless the  -s  option  is
+       fails.  As the shell does not store such  resources  internally,
+       an  attempt  to  set the limit will fail unless the -s option is
        present.
 
        limit is a number, with an optional scaling factor, as follows:
@@ -86,6 +86,6 @@ limit [ -hs ] [ resource [ limit ] ] ...
        [mm:]ss
               minutes and seconds
 
-       The  limit  command  is  not  made available by default when the
-       shell starts in a mode emulating another shell.  It can be  made
+       The limit command is not made  available  by  default  when  the
+       shell  starts in a mode emulating another shell.  It can be made
        available with the command `zmodload -F zsh/rlimits b:limit'.

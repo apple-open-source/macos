@@ -299,5 +299,15 @@ registerStapledTicketInDMG(CFDataRef ticketData)
 	registerStapledTicketWithSystem(ticketData);
 }
 
+void
+registerStapledTicketInMachO(CFDataRef ticketData)
+{
+	if (ticketData == NULL) {
+		return;
+	}
+	secinfo("notarization", "successfully found stapled ticket in MachO");
+	registerStapledTicketWithSystem(ticketData);
+}
+
 }
 }

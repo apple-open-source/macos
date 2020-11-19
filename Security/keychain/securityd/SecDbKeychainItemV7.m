@@ -109,7 +109,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 @property (readonly) NSData* serializedRepresentation;
 
 - (instancetype)initWithData:(NSData*)data;
-- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey tamperCheck:(NSString*)tamperCheck backupWrappedKey:(SecDbBackupWrappedItemKey*)backupWrappedKey error:(NSError**)error;
+- (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey tamperCheck:(NSString*)tamperCheck backupWrappedKey:(SecDbBackupWrappedKey*)backupWrappedKey error:(NSError**)error;
 
 @end
 
@@ -249,7 +249,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 - (instancetype)initWithCiphertext:(SFAuthenticatedCiphertext*)ciphertext
                         wrappedKey:(SecDbKeychainAKSWrappedKey*)wrappedKey
                        tamperCheck:(NSString*)tamperCheck
-                  backupWrappedKey:(SecDbBackupWrappedItemKey*)backupWrappedKey
+                  backupWrappedKey:(SecDbBackupWrappedKey*)backupWrappedKey
                              error:(NSError**)error
 {
     if (self = [super init]) {
@@ -412,8 +412,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 {
     if (!_metadataAttributes) {
         SFAESKey* metadataClassKey = [self metadataClassKeyWithKeybag:_keybag
-                                                   createKeyIfMissing:false
-                                                  overwriteCorruptKey:false
+                                                          allowWrites:false
                                                                 error:error];
         if (metadataClassKey) {
             NSError* localError = nil;
@@ -569,8 +568,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     SFAuthenticatedCiphertext* ciphertext = [encryptionOperation encrypt:metadata withKey:key error:error];
 
     SFAESKey* metadataClassKey = [self metadataClassKeyWithKeybag:keybag
-                                               createKeyIfMissing:true
-                                              overwriteCorruptKey:true
+                                                      allowWrites:true
                                                             error:error];
     if (metadataClassKey) {
         SFAuthenticatedCiphertext* wrappedKey = [encryptionOperation encrypt:key.keyData withKey:metadataClassKey error:error];
@@ -607,7 +605,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     SFAuthenticatedCiphertext* ciphertext = [encryptionOperation encrypt:secretData withKey:key error:error];
     SecDbKeychainAKSWrappedKey* wrappedKey = [self wrapToAKS:key withKeybag:keybag accessControl:accessControl acmContext:acmContext error:error];
 
-    SecDbBackupWrappedItemKey* backupWrappedKey;
+    SecDbBackupWrappedKey* backupWrappedKey;
     if (checkV12DevEnabled()) {
         backupWrappedKey = [[SecDbBackupManager manager] wrapItemKey:key forKeyclass:_keyclass error:error];
         if (backupWrappedKey) {
@@ -629,15 +627,13 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
 }
 
 - (SFAESKey*)metadataClassKeyWithKeybag:(keybag_handle_t)keybag
-                     createKeyIfMissing:(bool)createIfMissing
-                    overwriteCorruptKey:(bool)force
+                            allowWrites:(bool)allowWrites
                                   error:(NSError**)error
 {
     return [[SecDbKeychainMetadataKeyStore sharedStore] keyForKeyclass:_keyclass
                                                                 keybag:keybag
                                                           keySpecifier:[self.class keySpecifier]
-                                                    createKeyIfMissing:(bool)createIfMissing
-                                                   overwriteCorruptKey:force
+                                                           allowWrites:allowWrites
                                                                  error:error];
 }
 
@@ -703,12 +699,12 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         return [[SecDbKeychainAKSWrappedKey alloc] initRefKeyWrappedKeyWithData:wrappedKey refKeyBlob:refKeyBlob];
     }
     else {
-        NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:(size_t)keyData.length + 40];
+        NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
         bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey error:error];
         return success ? [[SecDbKeychainAKSWrappedKey alloc] initRegularWrappedKeyWithData:wrappedKey] : nil;
     }
 #else
-    NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:(size_t)keyData.length + 40];
+    NSMutableData* wrappedKey = [[NSMutableData alloc] initWithLength:APPLE_KEYSTORE_MAX_SYM_WRAPPED_KEY_LEN];
     bool success = [SecAKSObjCWrappers aksEncryptWithKeybag:keybag keyclass:_keyclass plaintext:keyData outKeyclass:&_keyclass ciphertext:wrappedKey error:error];
     return success ? [[SecDbKeychainAKSWrappedKey alloc] initRegularWrappedKeyWithData:wrappedKey] : nil;
 #endif
@@ -719,8 +715,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
     NSData* wrappedKeyData = wrappedKey.wrappedKey;
 
     if (wrappedKey.type == SecDbKeychainAKSWrappedKeyTypeRegular) {
-        NSMutableData* unwrappedKey = [NSMutableData dataWithCapacity:wrappedKeyData.length + 40];
-        unwrappedKey.length = wrappedKeyData.length + 40;
+        NSMutableData* unwrappedKey = [NSMutableData dataWithLength:APPLE_KEYSTORE_MAX_KEY_LEN];
         bool result = [SecAKSObjCWrappers aksDecryptWithKeybag:_keybag keyclass:_keyclass ciphertext:wrappedKeyData outKeyclass:&_keyclass plaintext:unwrappedKey error:error];
         if (result) {
             return [[SFAESKey alloc] initWithData:unwrappedKey specifier:[self.class keySpecifier] error:error];
@@ -742,7 +737,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
             return nil;
         }
         NSDictionary* aclDict = nil;
-        der_decode_plist(NULL, kCFPropertyListImmutable, (CFPropertyListRef*)(void*)&aclDict, &cfError, refKeyExternalDataBytes, refKeyExternalDataBytes + refKeyExternalDataLength);
+        der_decode_plist(NULL, (CFPropertyListRef*)(void*)&aclDict, &cfError, refKeyExternalDataBytes, refKeyExternalDataBytes + refKeyExternalDataLength);
         if (!aclDict) {
             SecError(errSecDecode, &cfError, CFSTR("SecDbKeychainItemV7: failed to decode acl dict"));
         }
@@ -779,7 +774,7 @@ typedef NS_ENUM(uint32_t, SecDbKeychainAKSWrappedKeyType) {
         }
 
         CFPropertyListRef unwrappedKeyData = NULL;
-        der_decode_plist(NULL, kCFPropertyListImmutable, &unwrappedKeyData, &cfError, unwrappedKeyDERData, unwrappedKeyDERData + unwrappedKeyDERLength);
+        der_decode_plist(NULL, &unwrappedKeyData, &cfError, unwrappedKeyDERData, unwrappedKeyDERData + unwrappedKeyDERLength);
         SFAESKey* result = nil;
         if ([(__bridge NSData*)unwrappedKeyData isKindOfClass:[NSData class]]) {
             result = [[SFAESKey alloc] initWithData:(__bridge NSData*)unwrappedKeyData specifier:[self.class keySpecifier] error:error];

@@ -298,7 +298,7 @@ mapAndSwapFatHeaderPage(
     }
 
     /* mmap will happily lie if the file is there, but smaller than a page. */
-    if (sb.st_size < PAGE_SIZE) {
+    if (sb.st_size < (long long)PAGE_SIZE) {
         OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
                 "Prelinked kernel looks invalid (smaller than a page?)");

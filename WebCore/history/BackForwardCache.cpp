@@ -361,7 +361,7 @@ void BackForwardCache::markPagesForContentsSizeChanged(Page& page)
     }
 }
 
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
 void BackForwardCache::markPagesForCaptionPreferencesChanged()
 {
     for (auto& item : m_items) {
@@ -506,7 +506,7 @@ std::unique_ptr<CachedPage> BackForwardCache::take(HistoryItem& item, Page* page
 
 void BackForwardCache::removeAllItemsForPage(Page& page)
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     ASSERT_WITH_MESSAGE(!m_isInRemoveAllItemsForPage, "We should not reenter this method");
     SetForScope<bool> inRemoveAllItemsForPageScope { m_isInRemoveAllItemsForPage, true };
 #endif

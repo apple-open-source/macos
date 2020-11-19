@@ -25,22 +25,15 @@
 
 namespace WebCore {
 
-Color::Color(const GdkRGBA& c)
+Color::Color(const GdkRGBA& color)
+    : Color(convertToComponentBytes(SRGBA { static_cast<float>(color.red), static_cast<float>(color.green), static_cast<float>(color.blue), static_cast<float>(color.alpha) }))
 {
-    setRGB(makeRGBA(static_cast<int>(c.red * 255),
-        static_cast<int>(c.green * 255),
-        static_cast<int>(c.blue * 255),
-        static_cast<int>(c.alpha * 255)));
 }
 
 Color::operator GdkRGBA() const
 {
-    if (isExtended())
-        return { asExtended().red(), asExtended().green(), asExtended().blue(), asExtended().alpha() };
-
-    double red, green, blue, alpha;
-    getRGBA(red, green, blue, alpha);
-    return { red, green, blue, alpha };
+    auto [r, g, b, a] = toSRGBALossy<float>();
+    return { r, g, b, a };
 }
 
 }

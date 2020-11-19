@@ -47,6 +47,7 @@
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/UTIUtilities.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/WeakObjCPtr.h>
 #import <wtf/text/StringView.h>
 
 using namespace WebKit;
@@ -67,25 +68,13 @@ static bool arrayContainsUTIThatConformsTo(NSArray<NSString *> *typeIdentifiers,
     return false;
 }
 
-#pragma mark - Document picker icons
-
-static inline UIImage *photoLibraryIcon()
-{
-    return _UIImageGetWebKitPhotoLibraryIcon();
-}
-
-static inline UIImage *cameraIcon()
-{
-    return _UIImageGetWebKitTakePhotoOrVideoIcon();
-}
-
 #pragma mark - _WKFileUploadItem
 
 @interface _WKFileUploadItem : NSObject
 - (instancetype)initWithFileURL:(NSURL *)fileURL;
 @property (nonatomic, readonly, getter=isVideo) BOOL video;
 @property (nonatomic, readonly) NSURL *fileURL;
-@property (nonatomic, readonly) UIImage *displayImage;
+@property (nonatomic, readonly) RetainPtr<UIImage> displayImage;
 @end
 
 @implementation _WKFileUploadItem {
@@ -114,7 +103,7 @@ static inline UIImage *cameraIcon()
     return _fileURL.get();
 }
 
-- (UIImage *)displayImage
+- (RetainPtr<UIImage>)displayImage
 {
     ASSERT_NOT_REACHED();
     return nil;
@@ -133,7 +122,7 @@ static inline UIImage *cameraIcon()
     return NO;
 }
 
-- (UIImage *)displayImage
+- (RetainPtr<UIImage>)displayImage
 {
     return iconForImageFile(self.fileURL);
 }
@@ -151,7 +140,7 @@ static inline UIImage *cameraIcon()
     return YES;
 }
 
-- (UIImage *)displayImage
+- (RetainPtr<UIImage>)displayImage
 {
     return iconForVideoFile(self.fileURL);
 }
@@ -161,11 +150,16 @@ static inline UIImage *cameraIcon()
 
 #pragma mark - WKFileUploadPanel
 
-@interface WKFileUploadPanel () <UIPopoverControllerDelegate, UINavigationControllerDelegate, UIImagePickerControllerDelegate, UIDocumentPickerDelegate, UIDocumentMenuDelegate>
+
+@interface WKFileUploadPanel () <UIPopoverControllerDelegate, UINavigationControllerDelegate, UIImagePickerControllerDelegate, UIDocumentPickerDelegate, UIAdaptivePresentationControllerDelegate
+#if USE(UICONTEXTMENU)
+, UIContextMenuInteractionDelegate
+#endif
+>
 @end
 
 @implementation WKFileUploadPanel {
-    WKContentView *_view;
+    WeakObjCPtr<WKContentView> _view;
     RefPtr<WebKit::WebOpenPanelResultListenerProxy> _listener;
     RetainPtr<NSArray> _mimeTypes;
     CGPoint _interactionPoint;
@@ -175,8 +169,11 @@ static inline UIImage *cameraIcon()
     RetainPtr<UIViewController> _presentationViewController; // iPhone always. iPad for Fullscreen Camera.
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     RetainPtr<UIPopoverController> _presentationPopover; // iPad for action sheet and Photo Library.
+    BOOL _isPresentingSubMenu;
     ALLOW_DEPRECATED_DECLARATIONS_END
-    RetainPtr<UIDocumentMenuViewController> _documentMenuController;
+#if USE(UICONTEXTMENU)
+    RetainPtr<UIContextMenuInteraction> _documentContextMenuInteraction;
+#endif
     RetainPtr<UIDocumentPickerViewController> _documentPickerController;
     WebCore::MediaCaptureType _mediaCaptureType;
 }
@@ -193,9 +190,10 @@ static inline UIImage *cameraIcon()
 {
     [_imagePicker setDelegate:nil];
     [_presentationPopover setDelegate:nil];
-    [_documentMenuController setDelegate:nil];
     [_documentPickerController setDelegate:nil];
-
+#if USE(UICONTEXTMENU)
+    [self removeContextMenuInteraction];
+#endif
     [super dealloc];
 }
 
@@ -252,7 +250,7 @@ static inline UIImage *cameraIcon()
 
     Ref<API::Array> acceptFileExtensions = parameters->acceptFileExtensions();
     for (auto extension : acceptFileExtensions->elementsOfType<API::String>()) {
-        String mimeType = WebCore::MIMETypeRegistry::getMIMETypeForExtension(extension->stringView().substring(1).toString());
+        String mimeType = WebCore::MIMETypeRegistry::mimeTypeForExtension(extension->stringView().substring(1).toString());
         if (!mimeType.isEmpty())
             [mimeTypes addObject:mimeType];
     }
@@ -278,20 +276,21 @@ static inline UIImage *cameraIcon()
         return;
     }
 
-    [self _showDocumentPickerMenu];
+    [self showDocumentPickerMenu];
 }
 
 - (void)dismiss
 {
     // Dismiss any view controller that is being presented. This works for all types of view controllers, popovers, etc.
     // If there is any kind of view controller presented on this view, it will be removed.
-    
-    [[UIViewController _viewControllerForFullScreenPresentationFromView:_view] dismissViewControllerAnimated:NO completion:nil];
+
+    if (auto view = _view.get())
+        [[UIViewController _viewControllerForFullScreenPresentationFromView:view.get()] dismissViewControllerAnimated:NO completion:nil];
     
     [_presentationPopover setDelegate:nil];
     _presentationPopover = nil;
     _presentationViewController = nil;
-    
+
     [self _cancel];
 }
 
@@ -318,13 +317,13 @@ static inline UIImage *cameraIcon()
     NSMutableArray<NSString *> *actionTitles = [NSMutableArray array];
 
     NSArray *mediaTypes = UTIsForMIMETypes(_mimeTypes.get()).allObjects;
-    BOOL containsImageMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeImage);
-    BOOL containsVideoMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeMovie);
-    if (containsImageMediaType || containsVideoMediaType) {
+    BOOL allowsImageMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeImage);
+    BOOL allowsVideoMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeMovie);
+    if (allowsImageMediaType || allowsVideoMediaType) {
         [actionTitles addObject:@"Photo Library"];
-        if (containsImageMediaType && containsVideoMediaType)
+        if (allowsImageMediaType && allowsVideoMediaType)
             [actionTitles addObject:@"Take Photo or Video"];
-        else if (containsVideoMediaType)
+        else if (allowsVideoMediaType)
             [actionTitles addObject:@"Take Video"];
         else
             [actionTitles addObject:@"Take Photo"];
@@ -386,6 +385,11 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 
 #pragma mark - Source selection menu
 
+- (NSString *)_browseFilesButtonLabel
+{
+    return WEB_UI_STRING_KEY("Browse", "Browse (file upload action sheet)", "File Upload alert sheet button string for choosing an existing file from the file brower");
+}
+
 - (NSString *)_photoLibraryButtonLabel
 {
     return WEB_UI_STRING_KEY("Photo Library", "Photo Library (file upload action sheet)", "File Upload alert sheet button string for choosing an existing media item from the Photo Library");
@@ -403,48 +407,120 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
     return WEB_UI_STRING_KEY("Take Photo", "Take Photo (file upload action sheet)", "File Upload alert sheet camera button string for taking only photos");
 }
 
-- (void)_showDocumentPickerMenu
+#if USE(UICONTEXTMENU)
+
+- (UITargetedPreview *)contextMenuInteraction:(UIContextMenuInteraction *)interaction previewForHighlightingMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
 {
-    NSArray *mediaTypes = UTIsForMIMETypes(_mimeTypes.get()).allObjects;
+    return [_view _createTargetedContextMenuHintPreviewIfPossible];
+}
 
-    BOOL containsImageMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeImage);
-    BOOL containsVideoMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeMovie);
+- (_UIContextMenuStyle *)_contextMenuInteraction:(UIContextMenuInteraction *)interaction styleForMenuWithConfiguration:(UIContextMenuConfiguration *)configuration
+{
+    _UIContextMenuStyle *style = [_UIContextMenuStyle defaultStyle];
+    style.preferredLayout = _UIContextMenuLayoutCompactMenu;
+    return style;
+}
 
-#if PLATFORM(MACCATALYST)
-    // FIXME 49961589: Support picking media with UIImagePickerController
-    BOOL shouldPresentDocumentMenuViewController = NO;
-#else
-    BOOL shouldPresentDocumentMenuViewController = containsImageMediaType || containsVideoMediaType;
-#endif
+- (UIContextMenuConfiguration *)contextMenuInteraction:(UIContextMenuInteraction *)interaction configurationForMenuAtLocation:(CGPoint)location {
 
-    NSArray *documentTypes = mediaTypes.count ? mediaTypes : @[(__bridge NSString *)kUTTypeItem];
-    if (shouldPresentDocumentMenuViewController) {
-        // FIXME 49979442: UIDocumentMenuViewController is deprecated. Use UIDocumentPickerViewController instead to support multiple file selection.
-        _documentMenuController = adoptNS([[UIDocumentMenuViewController alloc] _initIgnoringApplicationEntitlementForImportOfTypes:documentTypes]);
-        [_documentMenuController setDelegate:self];
+    UIContextMenuActionProvider actionMenuProvider = [self, weakSelf = WeakObjCPtr<WKFileUploadPanel>(self)] (NSArray<UIMenuElement *> *) -> UIMenu * {
+        NSArray *actions;
+        NSArray *mediaTypes = UTIsForMIMETypes(_mimeTypes.get()).allObjects;
 
-        [_documentMenuController addOptionWithTitle:[self _photoLibraryButtonLabel] image:photoLibraryIcon() order:UIDocumentMenuOrderFirst handler:^{
+        BOOL allowsImageMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeImage);
+        BOOL allowsVideoMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeMovie);
+        auto strongSelf = weakSelf.get();
+        
+        if (!strongSelf)
+            return nil;
+        
+        self->_isPresentingSubMenu = NO;
+        UIAction *browseAction = [UIAction actionWithTitle:[strongSelf _browseFilesButtonLabel] image:[UIImage systemImageNamed:@"ellipsis"] identifier:@"browse" handler:^(__kindof UIAction *action) {
+            self->_isPresentingSubMenu = YES;
+            [self showFilePickerMenu];
+        }];
+
+        UIAction *photoAction = [UIAction actionWithTitle:[strongSelf _photoLibraryButtonLabel] image:[UIImage systemImageNamed:@"rectangle.on.rectangle"] identifier:@"photo" handler:^(__kindof UIAction *action) {
+            self->_isPresentingSubMenu = YES;
             [self _showPhotoPickerWithSourceType:UIImagePickerControllerSourceTypePhotoLibrary];
         }];
 
         if ([UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera]) {
-            NSString *cameraString = [self _cameraButtonLabelAllowingPhoto:containsImageMediaType allowingVideo:containsVideoMediaType];
-            [_documentMenuController addOptionWithTitle:cameraString image:cameraIcon() order:UIDocumentMenuOrderFirst handler:^{
+            NSString *cameraString = [strongSelf _cameraButtonLabelAllowingPhoto:allowsImageMediaType allowingVideo:allowsVideoMediaType];
+            UIAction *cameraAction = [UIAction actionWithTitle:cameraString image:[UIImage systemImageNamed:@"camera.fill"] identifier:@"camera" handler:^(__kindof UIAction *action) {
                 _usingCamera = YES;
+                self->_isPresentingSubMenu = YES;
                 [self _showPhotoPickerWithSourceType:UIImagePickerControllerSourceTypeCamera];
             }];
-        }
+            actions = @[photoAction, cameraAction, browseAction];
+        } else
+            actions = @[photoAction, browseAction];
 
-        [self _presentMenuOptionForCurrentInterfaceIdiom:_documentMenuController.get()];
-    } else {
-        // Image and Video types are not accepted so bypass the menu and open the file picker directly.
-        _documentPickerController = adoptNS([[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeImport]);
-        [_documentPickerController setAllowsMultipleSelection:_allowMultipleFiles];
-        [_documentPickerController setDelegate:self];
-        [self _presentFullscreenViewController:_documentPickerController.get() animated:YES];
+        return [UIMenu menuWithTitle:@"" children:actions];
+    };
+    
+    return [UIContextMenuConfiguration configurationWithIdentifier:nil previewProvider:nil actionProvider:actionMenuProvider];
+}
+
+- (void)contextMenuInteraction:(UIContextMenuInteraction *)interaction willEndForConfiguration:(UIContextMenuConfiguration *)configuration animator:(id<UIContextMenuInteractionAnimating>)animator
+{
+    [animator addCompletion:^{
+        [self removeContextMenuInteraction];
+        if (!self->_isPresentingSubMenu)
+            [self _cancel];
+    }];
+}
+
+- (void)removeContextMenuInteraction
+{
+    if (_documentContextMenuInteraction) {
+        [_view removeInteraction:_documentContextMenuInteraction.get()];
+        _documentContextMenuInteraction = nil;
+        [_view _removeContextMenuViewIfPossible];
     }
+}
 
-    // Clear out the view controller we just presented. Don't save a reference to the UIDocumentMenuViewController / UIDocumentPickerViewController as it is self dismissing.
+- (void)ensureContextMenuInteraction
+{
+    if (!_documentContextMenuInteraction) {
+        _documentContextMenuInteraction = adoptNS([[UIContextMenuInteraction alloc] initWithDelegate:self]);
+        [_view addInteraction:_documentContextMenuInteraction.get()];
+        self->_isPresentingSubMenu = NO;
+    }
+}
+
+#endif
+
+- (void)showFilePickerMenu
+{
+    NSArray *mediaTypes = UTIsForMIMETypes(_mimeTypes.get()).allObjects;
+    NSArray *documentTypes = mediaTypes.count ? mediaTypes : @[(__bridge NSString *)kUTTypeItem];
+    
+    _documentPickerController = adoptNS([[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeImport]);
+    [_documentPickerController setAllowsMultipleSelection:_allowMultipleFiles];
+    [_documentPickerController setDelegate:self];
+    [_documentPickerController presentationController].delegate = self;
+    if ([_delegate respondsToSelector:@selector(fileUploadPanelDestinationIsManaged:)])
+        [_documentPickerController _setIsContentManaged:[_delegate fileUploadPanelDestinationIsManaged:self]];
+    [self _presentFullscreenViewController:_documentPickerController.get() animated:YES];
+}
+
+- (void)showDocumentPickerMenu
+{
+    // FIXME 49961589: Support picking media with UIImagePickerController
+#if HAVE(UICONTEXTMENU_LOCATION)
+    NSArray *mediaTypes = UTIsForMIMETypes(_mimeTypes.get()).allObjects;
+    BOOL allowsImageMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeImage);
+    BOOL allowsVideoMediaType = !mediaTypes.count || arrayContainsUTIThatConformsTo(mediaTypes, kUTTypeMovie);
+    BOOL shouldPresentDocumentMenuViewController = allowsImageMediaType || allowsVideoMediaType;
+    if (shouldPresentDocumentMenuViewController) {
+        [self ensureContextMenuInteraction];
+        [_documentContextMenuInteraction _presentMenuAtLocation:_interactionPoint];
+    } else // Image and Video types are not accepted so bypass the menu and open the file picker directly.
+#endif
+        [self showFilePickerMenu];
+    
+    // Clear out the view controller we just presented. Don't save a reference to the UIDocumentPickerViewController as it is self dismissing.
     _presentationViewController = nil;
 }
 
@@ -484,7 +560,7 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 
     // Use a popover on the iPad if the source type is not the camera.
     // The camera will use a fullscreen, modal view controller.
-    BOOL usePopover = currentUserInterfaceIdiomIsPad() && sourceType != UIImagePickerControllerSourceTypeCamera;
+    BOOL usePopover = currentUserInterfaceIdiomIsPadOrMac() && sourceType != UIImagePickerControllerSourceTypeCamera;
     if (usePopover)
         [self _presentPopoverWithContentViewController:_imagePicker.get() animated:YES];
     else
@@ -506,7 +582,7 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 
 - (void)_presentMenuOptionForCurrentInterfaceIdiom:(UIViewController *)viewController
 {
-    if (currentUserInterfaceIdiomIsPad())
+    if (currentUserInterfaceIdiomIsPadOrMac())
         [self _presentPopoverWithContentViewController:viewController animated:YES];
     else
         [self _presentFullscreenViewController:viewController animated:YES];
@@ -520,15 +596,22 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
     _presentationPopover = adoptNS([[UIPopoverController alloc] initWithContentViewController:contentViewController]);
     ALLOW_DEPRECATED_DECLARATIONS_END
     [_presentationPopover setDelegate:self];
-    [_presentationPopover presentPopoverFromRect:CGRectIntegral(CGRectMake(_interactionPoint.x, _interactionPoint.y, 1, 1)) inView:_view permittedArrowDirections:UIPopoverArrowDirectionAny animated:animated];
+    [_presentationPopover presentPopoverFromRect:CGRectIntegral(CGRectMake(_interactionPoint.x, _interactionPoint.y, 1, 1)) inView:_view.getAutoreleased() permittedArrowDirections:UIPopoverArrowDirectionAny animated:animated];
 }
 
 - (void)_presentFullscreenViewController:(UIViewController *)viewController animated:(BOOL)animated
 {
     [self _dismissDisplayAnimated:animated];
 
-    _presentationViewController = [UIViewController _viewControllerForFullScreenPresentationFromView:_view];
+    _presentationViewController = [UIViewController _viewControllerForFullScreenPresentationFromView:_view.getAutoreleased()];
     [_presentationViewController presentViewController:viewController animated:animated completion:nil];
+}
+
+#pragma mark - UIAdaptivePresentationControllerDelegate
+
+- (void)presentationControllerDidDismiss:(UIPresentationController *)presentationController
+{
+    [self _cancel];
 }
 
 #pragma mark - UIPopoverControllerDelegate
@@ -537,20 +620,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)popoverControllerDidDismissPopover:(UIPopoverController *)popoverController
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
-    [self _cancel];
-}
-
-#pragma mark - UIDocumentMenuDelegate implementation
-
-- (void)documentMenu:(UIDocumentMenuViewController *)documentMenu didPickDocumentPicker:(UIDocumentPickerViewController *)documentPicker
-{
-    documentPicker.delegate = self;
-    [self _presentFullscreenViewController:documentPicker animated:YES];
-}
-
-- (void)documentMenuWasCancelled:(UIDocumentMenuViewController *)documentMenu
-{
-    [self _dismissDisplayAnimated:YES];
     [self _cancel];
 }
 
@@ -570,7 +639,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
 {
     ASSERT(urls.count);
     [self _dismissDisplayAnimated:YES];
-    [self _chooseFiles:urls displayString:displayStringForDocumentsAtURLs(urls) iconImage:iconForFile(urls[0])];
+    [self _chooseFiles:urls displayString:displayStringForDocumentsAtURLs(urls) iconImage:iconForFile(urls[0]).get()];
 }
 
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)documentPicker
@@ -603,12 +672,12 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
 
     [self _dismissDisplayAnimated:YES];
 
-    [self _processMediaInfoDictionaries:[NSArray arrayWithObject:info]
+    [self _processMediaInfoDictionaries:@[info]
         successBlock:^(NSArray *processedResults, NSString *displayString) {
             ASSERT([processedResults count] == 1);
             _WKFileUploadItem *result = [processedResults objectAtIndex:0];
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self _chooseFiles:[NSArray arrayWithObject:result.fileURL] displayString:displayString iconImage:result.displayImage];
+                [self _chooseFiles:@[result.fileURL] displayString:displayString iconImage:result.displayImage.get()];
             });
         }
         failureBlock:^{
@@ -625,7 +694,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
 
     [self _processMediaInfoDictionaries:infos
         successBlock:^(NSArray *processedResults, NSString *displayString) {
-            UIImage *iconImage = nil;
+            RetainPtr<UIImage> iconImage = nil;
             NSMutableArray *fileURLs = [NSMutableArray array];
             for (_WKFileUploadItem *result in processedResults) {
                 NSURL *fileURL = result.fileURL;
@@ -637,7 +706,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
             }
 
             dispatch_async(dispatch_get_main_queue(), ^{
-                [self _chooseFiles:fileURLs displayString:displayString iconImage:iconImage];
+                [self _chooseFiles:fileURLs displayString:displayString iconImage:iconImage.get()];
             });
         }
         failureBlock:^{

@@ -55,7 +55,7 @@ NSString* OTFollowupContextTypeToString(OTFollowupContextType contextType);
 - (BOOL)clearFollowUp:(OTFollowupContextType)contextType
                 error:(NSError **)error;
 
-- (NSDictionary *)sysdiagnoseStatus;
+- (NSDictionary *_Nullable)sysdiagnoseStatus;
 - (NSDictionary<NSString*,NSNumber*> *)sfaStatus;
 @end
 

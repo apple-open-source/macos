@@ -38,23 +38,29 @@
 .Sh NAME
 .Nm htonl ,
 .Nm htons ,
+.Nm htonll ,
 .Nm ntohl ,
-.Nm ntohs
+.Nm ntohs ,
+.Nm ntohll
 .Nd convert values between host and network byte order
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
 .In arpa/inet.h
+.Ft uint64_t
+.Fn htonll "uint64_t hostlonglong"
 .Ft uint32_t
 .Fn htonl "uint32_t hostlong"
 .Ft uint16_t
 .Fn htons "uint16_t hostshort"
+.Ft uint64_t
+.Fn ntohll "uint64_t netlonglong"
 .Ft uint32_t
 .Fn ntohl "uint32_t netlong"
 .Ft uint16_t
 .Fn ntohs "uint16_t netshort"
 .Sh DESCRIPTION
-These routines convert 16 and 32 bit quantities between network
+These routines convert 16 bit, 32 bit, and 64 bit quantities between network
 byte order and host byte order.
 (Network byte order is big endian, or most significant byte first.)
 On machines which have a byte order which is the same as the network
@@ -71,13 +77,27 @@ and
 .Sh STANDARDS
 The
 .Nm byteorder
-functions are expected to conform with IEEE Std POSIX.1-200x
-.Pq Dq POSIX.1 .
+functions except
+.Nm htonll
+and
+.Nm ntohll
+are expected to conform with IEEE Std POSIX.1-200x
+.Pq Dq POSIX.1
 .Sh HISTORY
 The
-.Nm byteorder
-functions appeared in
+functions
+.Nm htonl,
+.Nm htons,
+.Nm ntohl,
+.Nm ntohs
+appeared in
 .Bx 4.2 .
+.Pp
+The functions
+.Nm htonll
+and
+.Nm ntohll
+first appeared in OS X 10.10 (Yosemite).
 .Sh BUGS
 On the
 .Tn VAX

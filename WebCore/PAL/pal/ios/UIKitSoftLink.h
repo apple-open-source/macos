@@ -41,6 +41,7 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, UIKit, UIApplicationDidBecomeActiveNotificati
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, UIKit, UIApplicationDidEnterBackgroundNotification, NSNotificationName)
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, UIKit, UIContentSizeCategoryDidChangeNotification, NSNotificationName)
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, UIKit, UIFontTextStyleCallout, UIFontTextStyle)
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, UIKit, UIPasteboardNameGeneral, UIPasteboardName)
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, UIKit, UITextEffectsBeneathStatusBarWindowLevel, UIWindowLevel)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, NSParagraphStyle)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, NSShadow)
@@ -66,5 +67,9 @@ SOFT_LINK_FUNCTION_FOR_HEADER(PAL, UIKit, UIAccessibilityIsGrayscaleEnabled, BOO
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, UIKit, UIAccessibilityIsInvertColorsEnabled, BOOL, (void), ())
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, UIKit, UIAccessibilityIsReduceMotionEnabled, BOOL, (void), ())
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, UIKit, UIAccessibilityPostNotification, void, (UIAccessibilityNotifications n, id argument), (n, argument))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, UIKit, UIGraphicsGetCurrentContext, CGContextRef, (void), ())
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, UIKit, UIGraphicsPopContext, void, (void), ())
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, UIKit, UIGraphicsPushContext, void, (CGContextRef context), (context))
+SOFT_LINK_FUNCTION_FOR_HEADER(PAL, UIKit, UIImagePNGRepresentation, NSData *, (UIImage *image), (image))
 
 #endif

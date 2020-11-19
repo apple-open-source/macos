@@ -2,9 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.keystore.console</key>
+	<true/>
 	<key>com.apple.private.LocalAuthentication.ExtractCredential</key>
 	<true/>
-	<key>com.apple.keystore.console</key>
+	<key>com.apple.private.security.clear-library-validation</key>
+	<true/>
+	<key>com.apple.keystore.filevault</key>
 	<true/>
 </dict>
 </plist>

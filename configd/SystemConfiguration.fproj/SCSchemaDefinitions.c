@@ -63,6 +63,7 @@ const CFStringRef kSCEntNetSMB                                     = CFSTR("SMB"
 
 const CFStringRef kSCEntNet6to4                                    = CFSTR("6to4");
 const CFStringRef kSCEntNetAppLayer                                = CFSTR("AppLayer");
+const CFStringRef kSCEntNetCaptivePortal                           = CFSTR("CaptivePortal");
 
 
 const CFStringRef kSCEntNetEAPOL                                   = CFSTR("EAPOL");
@@ -127,6 +128,7 @@ const CFStringRef kSCPropNetDNSSupplementalMatchOrders             = CFSTR("Supp
 const CFStringRef kSCPropNetDNSConfirmedServiceID                  = CFSTR("ConfirmedServiceID");
 const CFStringRef kSCPropNetDNSServiceIdentifier                   = CFSTR("ServiceIdentifier");
 const CFStringRef kSCPropNetDNSSupplementalMatchDomainsNoSearch    = CFSTR("SupplementalMatchDomainsNoSearch");
+const CFStringRef kSCPropNetCaptivePortalURL                       = CFSTR("URL");
 const CFStringRef kSCPropNetEthernetMediaSubType                   = CFSTR("MediaSubType");
 const CFStringRef kSCPropNetEthernetMediaOptions                   = CFSTR("MediaOptions");
 const CFStringRef kSCPropNetEthernetMTU                            = CFSTR("MTU");
@@ -200,6 +202,8 @@ const CFStringRef kSCValNetIPv4ConfigMethodLinkLocal               = CFSTR("Link
 const CFStringRef kSCValNetIPv4ConfigMethodManual                  = CFSTR("Manual");
 const CFStringRef kSCValNetIPv4ConfigMethodPPP                     = CFSTR("PPP");
 const CFStringRef kSCPropNetIPv4AdditionalRoutes                   = CFSTR("AdditionalRoutes");
+const CFStringRef kSCPropNetIPv4ARPResolvedHardwareAddress         = CFSTR("ARPResolvedHardwareAddress");
+const CFStringRef kSCPropNetIPv4ARPResolvedIPAddress               = CFSTR("ARPResolvedIPAddress");
 const CFStringRef kSCPropNetIPv4CLAT46                             = CFSTR("CLAT46");
 const CFStringRef kSCPropNetIPv4ExcludedRoutes                     = CFSTR("ExcludedRoutes");
 const CFStringRef kSCPropNetIPv4IncludedRoutes                     = CFSTR("IncludedRoutes");
@@ -208,8 +212,6 @@ const CFStringRef kSCPropNetIPv4RouteDestinationAddress            = CFSTR("Dest
 const CFStringRef kSCPropNetIPv4RouteSubnetMask                    = CFSTR("SubnetMask");
 const CFStringRef kSCPropNetIPv4RouteGatewayAddress                = CFSTR("GatewayAddress");
 const CFStringRef kSCPropNetIPv4RouteInterfaceName                 = CFSTR("InterfaceName");
-const CFStringRef kSCPropNetIPv4ARPResolvedHardwareAddress         = CFSTR("ARPResolvedHardwareAddress");
-const CFStringRef kSCPropNetIPv4ARPResolvedIPAddress               = CFSTR("ARPResolvedIPAddress");
 const CFStringRef kSCPropNetIPv6Addresses                          = CFSTR("Addresses");
 const CFStringRef kSCPropNetIPv6ConfigMethod                       = CFSTR("ConfigMethod");
 const CFStringRef kSCPropNetIPv6DestAddresses                      = CFSTR("DestAddresses");

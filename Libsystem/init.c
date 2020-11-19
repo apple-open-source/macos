@@ -225,6 +225,7 @@ libSystem_initializer(int argc,
 	_libSystem_ktrace_init_func(LIBC);
 
 	// TODO: Move __malloc_init before __libc_init after breaking malloc's upward link to Libc
+	// Note that __malloc_init() will also initialize ASAN when it is present
 	__malloc_init(apple);
 	_libSystem_ktrace_init_func(MALLOC);
 
@@ -233,9 +234,6 @@ libSystem_initializer(int argc,
 	__keymgr_initializer();
 	_libSystem_ktrace_init_func(KEYMGR);
 #endif
-
-	// No ASan interceptors are invoked before this point. ASan is normally initialized via the malloc interceptor:
-	// _dyld_initializer() -> tlv_load_notification -> wrap_malloc -> ASanInitInternal
 
 	_dyld_initializer();
 	_libSystem_ktrace_init_func(DYLD);
@@ -284,6 +282,37 @@ libSystem_initializer(int argc,
 		}
 	}
 #endif
+
+#if TARGET_OS_OSX && !defined(__i386__)
+	bool enable_system_version_compat = false;
+	bool enable_ios_version_compat = false;
+	char *system_version_compat_override = getenv("SYSTEM_VERSION_COMPAT");
+	if (system_version_compat_override != NULL) {
+		long override = strtol(system_version_compat_override, NULL, 0);
+		if (override == 1) {
+			enable_system_version_compat = true;
+		} else if (override == 2) {
+			enable_ios_version_compat = true;
+		}
+	} else if (dyld_get_active_platform() == PLATFORM_MACCATALYST) {
+		if (!dyld_program_sdk_at_least(dyld_platform_version_iOS_14_0)) {
+			enable_system_version_compat = true;
+		}
+	} else if (dyld_get_active_platform() == PLATFORM_IOS) {
+		enable_ios_version_compat = true;
+	} else if (!dyld_program_sdk_at_least(dyld_platform_version_macOS_10_16)) {
+		enable_system_version_compat = true;
+	}
+
+	if (enable_system_version_compat || enable_ios_version_compat) {
+		struct _libkernel_late_init_config config = {
+			.version = 2,
+			.enable_system_version_compat = enable_system_version_compat,
+			.enable_ios_version_compat = enable_ios_version_compat,
+		};
+		__libkernel_init_late(&config);
+	}
+#endif // TARGET_OS_OSX && !defined(__i386__)
 
 	_libSystem_ktrace0(ARIADNE_LIFECYCLE_libsystem_init | DBG_FUNC_END);
 

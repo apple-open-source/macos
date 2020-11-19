@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,13 +25,11 @@
 
 #pragma once
 
-#include "SandboxExtension.h"
+#include "ResourceLoadStatisticsParameters.h"
 #include <WebCore/NetworkStorageSession.h>
-#include <WebCore/RegistrableDomain.h>
 #include <pal/SessionID.h>
 #include <wtf/Seconds.h>
 #include <wtf/URL.h>
-#include <wtf/text/WTFString.h>
 
 #if USE(SOUP)
 #include "SoupCookiePersistentStorageType.h"
@@ -40,11 +38,6 @@
 #if USE(CURL)
 #include <WebCore/CurlProxySettings.h>
 #endif
-
-namespace IPC {
-class Encoder;
-class Decoder;
-}
 
 #if PLATFORM(COCOA)
 extern "C" CFStringRef const WebKit2HTTPProxyDefaultsKey;
@@ -71,25 +64,22 @@ struct NetworkSessionCreationParameters {
     URL httpProxy;
     URL httpsProxy;
 #endif
+#if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
+    String alternativeServiceDirectory;
+    SandboxExtension::Handle alternativeServiceDirectoryExtensionHandle;
+    bool http3Enabled { false };
+#endif
 #if USE(SOUP)
     String cookiePersistentStoragePath;
     SoupCookiePersistentStorageType cookiePersistentStorageType { SoupCookiePersistentStorageType::Text };
+    bool persistentCredentialStorageEnabled { true };
 #endif
 #if USE(CURL)
     String cookiePersistentStorageFile;
     WebCore::CurlProxySettings proxySettings;
 #endif
-    String resourceLoadStatisticsDirectory;
-    SandboxExtension::Handle resourceLoadStatisticsDirectoryExtensionHandle;
-    bool enableResourceLoadStatistics { false };
-    bool enableResourceLoadStatisticsLogTestingEvent { false };
-    bool shouldIncludeLocalhostInResourceLoadStatistics { true };
-    bool enableResourceLoadStatisticsDebugMode { false };
-    WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode { WebCore::ThirdPartyCookieBlockingMode::All };
-    WebCore::FirstPartyWebsiteDataRemovalMode firstPartyWebsiteDataRemovalMode { WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies };
     bool deviceManagementRestrictionsEnabled { false };
     bool allLoadsBlockedByDeviceManagementRestrictionsForTesting { false };
-    WebCore::RegistrableDomain resourceLoadStatisticsManualPrevalentResource { };
 
     String networkCacheDirectory;
     SandboxExtension::Handle networkCacheDirectoryExtensionHandle;
@@ -101,6 +91,11 @@ struct NetworkSessionCreationParameters {
     unsigned testSpeedMultiplier { 1 };
     bool suppressesConnectionTerminationOnSystemChange { false };
     bool allowsServerPreconnect { true };
+    bool requiresSecureHTTPSProxyConnection { false };
+    bool preventsSystemHTTPProxyAuthentication { false };
+    bool appHasRequestedCrossWebsiteTrackingPermission { false };
+
+    ResourceLoadStatisticsParameters resourceLoadStatisticsParameters;
 };
 
 } // namespace WebKit

@@ -110,7 +110,7 @@ Table::readIndexSection()
 		uint32 indexOffset = mTableSection.at(indexSectionOffset + (i + 2) * AtomSize);
 		ReadSection indexSection(mTableSection.subsection(indexOffset));
 
-		auto_ptr<DbConstIndex> index(new DbConstIndex(*this, indexSection));
+		unique_ptr<DbConstIndex> index(new DbConstIndex(*this, indexSection));
 		mIndexMap.insert(ConstIndexMap::value_type(index->indexId(), index.get()));
 		index.release();
 	}
@@ -289,7 +289,7 @@ ModifiedTable::insertRecord(uint32 inVersionId,
 {
 	modifyTable();
 
-	auto_ptr<WriteSection> aWriteSection(new WriteSection());
+	unique_ptr<WriteSection> aWriteSection(new WriteSection());
 	getMetaRecord().packRecord(*aWriteSection, inAttributes, inData);
     uint32 aRecordNumber = nextRecordNumber();
 
@@ -341,7 +341,7 @@ ModifiedTable::updateRecord(const RecordId &inRecordId,
 #endif
 
 	// Update the actual packed record.
-    auto_ptr<WriteSection> aDbRecord(new WriteSection());
+    unique_ptr<WriteSection> aDbRecord(new WriteSection());
 	getMetaRecord().updateRecord(anOldDbRecord, *aDbRecord,
 		CssmDbRecordAttributeData::overlay(inAttributes), inData, inModifyMode);
 
@@ -507,7 +507,7 @@ ModifiedTable::createMutableIndexes()
 
 	Table::ConstIndexMap::const_iterator it;
 	for (it = mTable->mIndexMap.begin(); it != mTable->mIndexMap.end(); it++) {
-		auto_ptr<DbMutableIndex> mutableIndex(new DbMutableIndex(*it->second));
+		unique_ptr<DbMutableIndex> mutableIndex(new DbMutableIndex(*it->second));
 		mIndexMap.insert(MutableIndexMap::value_type(it->first, mutableIndex.get()));
 		mutableIndex.release();
 	}
@@ -522,7 +522,7 @@ ModifiedTable::findIndex(uint32 indexId, const MetaRecord &metaRecord, bool isUn
 
 	if (it == mIndexMap.end()) {
 		// create the new index
-		auto_ptr<DbMutableIndex> index(new DbMutableIndex(metaRecord, indexId, isUniqueIndex));
+		unique_ptr<DbMutableIndex> index(new DbMutableIndex(metaRecord, indexId, isUniqueIndex));
 		it = mIndexMap.insert(MutableIndexMap::value_type(indexId, index.get())).first;
 		index.release();
 	}
@@ -932,7 +932,7 @@ DbVersion::open()
 			// XXX Set the size boundary on aTableSection.
 			const ReadSection aTableSection =
 				aSchemaSection.subsection(aTableOffset);
-			auto_ptr<Table> aTable(new Table(aTableSection));
+			unique_ptr<Table> aTable(new Table(aTableSection));
 			Table::Id aTableId = aTable->getMetaRecord().dataRecordType();
 			mTableMap.insert(TableMap::value_type(aTableId, aTable.get()));
 			aTable.release();
@@ -1048,7 +1048,7 @@ DbVersion::open()
 			uint32 anAttributeId = aRecordData[1];
 			uint32 anAttributeNameFormat = aRecordData[2];
 			uint32 anAttributeFormat = aRecordData[5];
-			auto_ptr<string> aName;
+			unique_ptr<string> aName;
 			const CssmData *aNameID = NULL;
 
 			if (aRecordData[3].size() == 1)
@@ -1056,8 +1056,8 @@ DbVersion::open()
 				if (aRecordData[3].format() != CSSM_DB_ATTRIBUTE_FORMAT_STRING)
 					CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 
-				auto_ptr<string> aName2(new string(static_cast<string>(aRecordData[3])));
-				aName = aName2;
+				unique_ptr<string> aName2(new string(static_cast<string>(aRecordData[3])));
+				aName = std::move(aName2);
 			}
 
 			if (aRecordData[4].size() == 1)
@@ -1300,7 +1300,7 @@ IndexCursor::IndexCursor(DbQueryKey *queryKey, const DbVersion &inDbVersion,
 
 IndexCursor::~IndexCursor()
 {
-	// the query key will be deleted automatically, since it's an auto_ptr
+	// the query key will be deleted automatically, since it's an unique_ptr
 }
 
 bool
@@ -1554,7 +1554,7 @@ DbModifier::modifyDatabase()
 			mDbVersion->mTableMap.end();
 		for (; anIt != anEnd; ++anIt)
 		{
-			auto_ptr<ModifiedTable> aTable(new ModifiedTable(anIt->second));
+			unique_ptr<ModifiedTable> aTable(new ModifiedTable(anIt->second));
 			mModifiedTableMap.insert(ModifiedTableMap::value_type(anIt->first,
 																  aTable.get()));
 			aTable.release();
@@ -1601,8 +1601,8 @@ DbModifier::updateRecord(Table::Id inTableId, const RecordId &inRecordId,
 ModifiedTable *
 DbModifier::createTable(MetaRecord *inMetaRecord)
 {
-	auto_ptr<MetaRecord> aMetaRecord(inMetaRecord);
-	auto_ptr<ModifiedTable> aModifiedTable(new ModifiedTable(inMetaRecord));
+	unique_ptr<MetaRecord> aMetaRecord(inMetaRecord);
+	unique_ptr<ModifiedTable> aModifiedTable(new ModifiedTable(inMetaRecord));
 	// Now that aModifiedTable is fully constructed it owns inMetaRecord
 	aMetaRecord.release();
 
@@ -1744,7 +1744,7 @@ DbModifier::commit()
 }
 
 void
-DbModifier::rollback() throw()
+DbModifier::rollback() _NOEXCEPT
 {
 	// This will destroy the AtomicTempFile if we have one causing it to rollback.
 	mAtomicTempFile = NULL;
@@ -2367,7 +2367,7 @@ AppleDatabase::dataGetFirst(DbContext &inDbContext,
 {
 	// XXX: register Cursor with DbContext and have DbContext call
 	// dataAbortQuery for all outstanding Query objects on close.
-	auto_ptr<Cursor> aCursor(mDbModifier.createCursor(inQuery));
+	unique_ptr<Cursor> aCursor(mDbModifier.createCursor(inQuery));
 	Table::Id aTableId;
 	RecordId aRecordId;
 
@@ -2387,7 +2387,7 @@ AppleDatabase::dataGetNext(DbContext &inDbContext,
                            CssmData *inoutData,
                            CSSM_DB_UNIQUE_RECORD_PTR &outUniqueRecord)
 {
-	auto_ptr<Cursor> aCursor(&HandleObject::find<Cursor>(inResultsHandle, CSSMERR_DL_INVALID_RESULTS_HANDLE));
+	unique_ptr<Cursor> aCursor(&HandleObject::find<Cursor>(inResultsHandle, CSSMERR_DL_INVALID_RESULTS_HANDLE));
 	Table::Id aTableId;
 	RecordId aRecordId;
 

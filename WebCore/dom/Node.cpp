@@ -47,7 +47,6 @@
 #include "FrameView.h"
 #include "HTMLAreaElement.h"
 #include "HTMLBodyElement.h"
-#include "HTMLCollection.h"
 #include "HTMLElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLSlotElement.h"
@@ -60,11 +59,11 @@
 #include "NodeRenderStyle.h"
 #include "ProcessingInstruction.h"
 #include "ProgressEvent.h"
-#include "Range.h"
 #include "RenderBlock.h"
 #include "RenderBox.h"
 #include "RenderTextControl.h"
 #include "RenderView.h"
+#include "RuntimeEnabledFeatures.h"
 #include "SVGElement.h"
 #include "ScopedEventQueue.h"
 #include "ScriptDisallowedScope.h"
@@ -73,17 +72,20 @@
 #include "StyleSheetContents.h"
 #include "TemplateContentDocumentFragment.h"
 #include "TextEvent.h"
+#include "TextManipulationController.h"
 #include "TouchEvent.h"
 #include "WheelEvent.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
 #include <JavaScriptCore/HeapInlines.h>
+#include <wtf/HexNumber.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/SHA1.h>
 #include <wtf/Variant.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -129,6 +131,8 @@ static const char* stringForRareDataUseType(NodeRareData::UseType useType)
         return "InteractionObserver";
     case NodeRareData::UseType::PseudoElements:
         return "PseudoElements";
+    case NodeRareData::UseType::Animations:
+        return "Animations";
     }
     return nullptr;
 }
@@ -356,6 +360,10 @@ Node::~Node()
     if (hasRareData())
         clearRareData();
 
+    auto* textManipulationController = document().textManipulationControllerIfExists();
+    if (UNLIKELY(textManipulationController))
+        textManipulationController->removeNode(this);
+
     if (!isContainerNode())
         willBeDeletedFrom(document());
 
@@ -364,7 +372,7 @@ Node::~Node()
 
     document().decrementReferencingNodeCount();
 
-#if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY) && (!ASSERT_DISABLED || ENABLE(SECURITY_ASSERTIONS))
+#if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY) && (ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS))
     for (auto* document : Document::allDocuments()) {
         ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventListenersContain(*this));
         ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventHandlersContain(*this));
@@ -670,8 +678,13 @@ void Node::normalize()
 
             // Both non-empty text nodes. Merge them.
             unsigned offset = text->length();
-            text->appendData(nextText->data());
+
+            // Update start/end for any affected Ranges before appendData since modifying contents might trigger mutation events that modify ordering.
             document().textNodesMerged(nextText, offset);
+
+            // FIXME: DOM spec requires contents to be replaced all at once (see https://dom.spec.whatwg.org/#dom-node-normalize).
+            // Appending once per sibling may trigger mutation events too many times.
+            text->appendData(nextText->data());            
             nextText->remove();
         }
 
@@ -1094,12 +1107,6 @@ const RenderStyle* Node::computedStyle(PseudoId pseudoElementSpecifier)
     return composedParent->computedStyle(pseudoElementSpecifier);
 }
 
-int Node::maxCharacterOffset() const
-{
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
 // FIXME: Shouldn't these functions be in the editing code?  Code that asks questions about HTML in the core DOM class
 // is obviously misplaced.
 bool Node::canStartSelection() const
@@ -1130,7 +1137,7 @@ ShadowRoot* Node::containingShadowRoot() const
     return is<ShadowRoot>(root) ? downcast<ShadowRoot>(&root) : nullptr;
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 // https://dom.spec.whatwg.org/#concept-closed-shadow-hidden
 static bool isClosedShadowHiddenUsingSpecDefinition(const Node& A, const Node& B)
 {
@@ -1297,10 +1304,8 @@ void Node::removedFromAncestor(RemovalType removalType, ContainerNode& oldParent
     if (isInShadowTree() && !treeScope().rootNode().isShadowRoot())
         clearFlag(IsInShadowTreeFlag);
     if (removalType.disconnectedFromDocument) {
-        if (auto* document = &oldParentOfRemovedTree.treeScope().documentScope()) {
-            if (auto* cache = document->existingAXObjectCache())
-                cache->remove(*this);
-        }
+        if (auto* cache = oldParentOfRemovedTree.document().existingAXObjectCache())
+            cache->remove(*this);
     }
 }
 
@@ -1333,7 +1338,7 @@ Document* Node::ownerDocument() const
 const URL& Node::baseURI() const
 {
     auto& url = document().baseURL();
-    return url.isNull() ? WTF::blankURL() : url;
+    return url.isNull() ? aboutBlankURL() : url;
 }
 
 bool Node::isEqualNode(Node* other) const
@@ -1579,7 +1584,7 @@ ExceptionOr<void> Node::setTextContent(const String& text)
         if (text.isEmpty())
             container.replaceAllChildren(nullptr);
         else
-            container.replaceAllChildren(document().createTextNode(text));
+            container.replaceAllChildrenWithNewText(text);
         return { };
     }
     case DOCUMENT_NODE:
@@ -1744,6 +1749,13 @@ FloatPoint Node::convertFromPage(const FloatPoint& p) const
 
     // No parent - no conversion needed
     return p;
+}
+
+String Node::debugDescription() const
+{
+    StringBuilder builder;
+    builder.append(nodeName(), " 0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase));
+    return builder.toString();
 }
 
 #if ENABLE(TREE_DEBUGGING)
@@ -2051,10 +2063,17 @@ void Node::moveNodeToNewDocument(Document& oldDocument, Document& newDocument)
 
     oldDocument.moveNodeIteratorsToNewDocument(*this, newDocument);
 
+    if (!parentNode())
+        oldDocument.parentlessNodeMovedToNewDocument(*this);
+
     if (AXObjectCache::accessibilityEnabled()) {
         if (auto* cache = oldDocument.existingAXObjectCache())
             cache->remove(*this);
     }
+
+    auto* textManipulationController = oldDocument.textManipulationControllerIfExists();
+    if (UNLIKELY(textManipulationController))
+        textManipulationController->removeNode(this);
 
     if (auto* eventTargetData = this->eventTargetData()) {
         if (!eventTargetData->eventListenerMap.isEmpty()) {
@@ -2102,7 +2121,7 @@ void Node::moveNodeToNewDocument(Document& oldDocument, Document& newDocument)
 #endif
     }
 
-#if !ASSERT_DISABLED || ENABLE(SECURITY_ASSERTIONS)
+#if ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)
 #if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
     ASSERT_WITH_SECURITY_IMPLICATION(!oldDocument.touchEventListenersContain(*this));
     ASSERT_WITH_SECURITY_IMPLICATION(!oldDocument.touchEventHandlersContain(*this));
@@ -2403,6 +2422,9 @@ void Node::dispatchDOMActivateEvent(Event& underlyingClickEvent)
 
 bool Node::dispatchBeforeLoadEvent(const String& sourceURL)
 {
+    if (!RuntimeEnabledFeatures::sharedFeatures().legacyBeforeLoadEventEnabled())
+        return true;
+
     if (!document().hasListenerType(Document::BEFORELOAD_LISTENER))
         return true;
 
@@ -2541,17 +2563,10 @@ void Node::removedLastRef()
     if (is<SVGElement>(*this))
         downcast<SVGElement>(*this).detachAllProperties();
 
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     m_deletionHasBegun = true;
 #endif
     delete this;
-}
-
-void Node::textRects(Vector<IntRect>& rects) const
-{
-    auto range = Range::create(document());
-    range->selectNodeContents(const_cast<Node&>(*this));
-    range->absoluteTextRects(rects);
 }
 
 unsigned Node::connectedSubframeCount() const
@@ -2610,6 +2625,122 @@ void* Node::opaqueRootSlow() const
         node = nextNode;
     }
     return const_cast<void*>(static_cast<const void*>(node));
+}
+
+static size_t depth(Node& node)
+{
+    size_t depth = 0;
+    auto ancestor = &node;
+    while ((ancestor = ancestor->parentNode()))
+        ++depth;
+    return depth;
+}
+
+static size_t depthInComposedTree(const Node& node)
+{
+    size_t depth = 0;
+    auto ancestor = &node;
+    while ((ancestor = ancestor->parentInComposedTree()))
+        ++depth;
+    return depth;
+}
+
+struct AncestorAndChildren {
+    const Node* commonAncestor;
+    const Node* distinctAncestorA;
+    const Node* distinctAncestorB;
+};
+
+// FIXME: This function's name is not explicit about the fact that it's the common inclusive ancestor in the composed tree.
+static AncestorAndChildren commonInclusiveAncestorAndChildren(const Node& a, const Node& b)
+{
+    // This check isn't needed for correctness, but it is cheap and likely to be
+    // common enough to be worth optimizing so we don't have to walk to the root.
+    if (&a == &b)
+        return { &a, nullptr, nullptr };
+    // FIXME: Could optimize cases where nodes are both in the same shadow tree.
+    // FIXME: Could optimize cases where nodes are in different documents to quickly return false.
+    // FIXME: Could optimize cases where one node is connected and the other is not to quickly return false.
+    auto [depthA, depthB] = std::make_tuple(depthInComposedTree(a), depthInComposedTree(b));
+    auto [x, y, difference] = depthA >= depthB
+        ? std::make_tuple(&a, &b, depthA - depthB)
+        : std::make_tuple(&b, &a, depthB - depthA);
+    decltype(x) distinctAncestorA = nullptr;
+    for (decltype(difference) i = 0; i < difference; ++i) {
+        distinctAncestorA = x;
+        x = x->parentInComposedTree();
+    }
+    decltype(y) distinctAncestorB = nullptr;
+    while (x != y) {
+        distinctAncestorA = x;
+        distinctAncestorB = y;
+        x = x->parentInComposedTree();
+        y = y->parentInComposedTree();
+    }
+    if (depthA < depthB)
+        std::swap(distinctAncestorA, distinctAncestorB);
+    return { x, distinctAncestorA, distinctAncestorB };
+}
+
+RefPtr<Node> commonInclusiveAncestor(Node& a, Node& b)
+{
+    // This first check isn't needed for correctness, but it is cheap and likely to be
+    // common enough to be worth optimizing so we don't have to walk to the root.
+    if (&a == &b)
+        return &a;
+    auto [depthA, depthB] = std::make_tuple(depth(a), depth(b));
+    auto [x, y, difference] = depthA > depthB
+        ? std::make_tuple(&a, &b, depthA - depthB)
+        : std::make_tuple(&b, &a, depthB - depthA);
+    for (decltype(difference) i = 0; i < difference; ++i)
+        x = x->parentNode();
+    while (x != y) {
+        x = x->parentNode();
+        y = y->parentNode();
+    }
+    return x;
+}
+
+static bool isSiblingSubsequent(const Node& siblingA, const Node& siblingB)
+{
+    ASSERT(siblingA.parentNode());
+    ASSERT(siblingA.parentNode() == siblingB.parentNode());
+    ASSERT(&siblingA != &siblingB);
+    for (auto sibling = &siblingA; sibling; sibling = sibling->nextSibling()) {
+        if (sibling == &siblingB)
+            return true;
+    }
+    return false;
+}
+
+PartialOrdering documentOrder(const Node& a, const Node& b)
+{
+    if (&a == &b)
+        return PartialOrdering::equivalent;
+    auto result = commonInclusiveAncestorAndChildren(a, b);
+    if (!result.commonAncestor)
+        return PartialOrdering::unordered;
+    if (!result.distinctAncestorA)
+        return PartialOrdering::less;
+    if (!result.distinctAncestorB)
+        return PartialOrdering::greater;
+    bool isShadowRootA = result.distinctAncestorA->isShadowRoot();
+    bool isShadowRootB = result.distinctAncestorB->isShadowRoot();
+    if (isShadowRootA || isShadowRootB) {
+        if (!isShadowRootB)
+            return PartialOrdering::less;
+        if (!isShadowRootA)
+            return PartialOrdering::greater;
+        ASSERT_NOT_REACHED();
+        return PartialOrdering::unordered;
+    }
+    return isSiblingSubsequent(*result.distinctAncestorA, *result.distinctAncestorB) ? PartialOrdering::less : PartialOrdering::greater;
+}
+
+TextStream& operator<<(TextStream& ts, const Node& node)
+{
+    ts << "node " << &node << " " << node.debugDescription();
+    return ts;
 }
 
 } // namespace WebCore

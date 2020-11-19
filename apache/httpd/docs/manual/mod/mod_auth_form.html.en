@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
-<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
 <!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
@@ -27,12 +27,12 @@
 <div id="preamble"><h1>Apache Module mod_auth_form</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_auth_form.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/mod/mod_auth_form.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
+<a href="../fr/mod/mod_auth_form.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Form authentication</td></tr>
 <tr><th><a href="module-dict.html#Status">Status:</a></th><td>Base</td></tr>
-<tr><th><a href="module-dict.html#ModuleIdentifier">Module Identifier:</a></th><td>auth_form_module</td></tr>
-<tr><th><a href="module-dict.html#SourceFile">Source File:</a></th><td>mod_auth_form.c</td></tr>
+<tr><th><a href="module-dict.html#ModuleIdentifier">ModuleÂ Identifier:</a></th><td>auth_form_module</td></tr>
+<tr><th><a href="module-dict.html#SourceFile">SourceÂ File:</a></th><td>mod_auth_form.c</td></tr>
 <tr><th><a href="module-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.3 and later</td></tr></table>
 <h3>Summary</h3>
 
@@ -298,9 +298,9 @@ SessionCookieName session path=/</pre>
       <p>Another option is to render the login form using a CGI script or other dynamic
       technology.</p>
 
-      <div class="example"><h3>CGI example</h3><pre class="prettyprint lang-config">        AuthFormProvider file
-        ErrorDocument 401 "/cgi-bin/login.cgi"
-        ...</pre>
+      <div class="example"><h3>CGI example</h3><pre class="prettyprint lang-config">AuthFormProvider file
+ErrorDocument 401 "/cgi-bin/login.cgi"
+...</pre>
 </div>
 
     </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -379,14 +379,14 @@ lower level modules</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>The name of a form field carrying the body of the request to attempt on successful login</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormBody <var>fieldname</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>httpd_body</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormBody httpd_body</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache HTTP Server 2.3.0 and later</td></tr>
 </table>
-    <p>The <code class="directive"><a href="#authformmethod">AuthFormMethod</a></code> directive specifies
-    the name of an HTML field which, if present, will contain the method of the request to
+    <p>The <code class="directive"><a href="#authformbody">AuthFormBody</a></code> directive specifies
+    the name of an HTML field which, if present, will contain the body of the request
     to submit should login be successful.</p>
 
     <p>By populating the form with fields described by
@@ -401,7 +401,7 @@ lower level modules</td></tr>
 <div class="directive-section"><h2><a name="AuthFormDisableNoStore" id="AuthFormDisableNoStore">AuthFormDisableNoStore</a> <a name="authformdisablenostore" id="authformdisablenostore">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Disable the CacheControl no-store header on the login page</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormDisableNoStore <var>On|Off</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormDisableNoStore On|Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormDisableNoStore Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
@@ -421,7 +421,7 @@ lower level modules</td></tr>
 <div class="directive-section"><h2><a name="AuthFormFakeBasicAuth" id="AuthFormFakeBasicAuth">AuthFormFakeBasicAuth</a> <a name="authformfakebasicauth" id="authformfakebasicauth">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Fake a Basic Authentication header</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormFakeBasicAuth <var>On|Off</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormFakeBasicAuth On|Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormFakeBasicAuth Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
@@ -441,7 +441,7 @@ lower level modules</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>The name of a form field carrying a URL to redirect to on successful login</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormLocation <var>fieldname</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>httpd_location</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormLocation httpd_location</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -539,14 +539,14 @@ parser has been added in 2.4.4.</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>The name of a form field carrying the method of the request to attempt on successful login</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormMethod <var>fieldname</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>httpd_method</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormMethod httpd_method</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache HTTP Server 2.3.0 and later</td></tr>
 </table>
     <p>The <code class="directive"><a href="#authformmethod">AuthFormMethod</a></code> directive specifies
-    the name of an HTML field which, if present, will contain the method of the request to
+    the name of an HTML field which, if present, will contain the method of the request
     to submit should login be successful.</p>
 
     <p>By populating the form with fields described by
@@ -562,13 +562,13 @@ parser has been added in 2.4.4.</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>The name of a form field carrying the mimetype of the body of the request to attempt on successful login</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormMimetype <var>fieldname</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>httpd_mimetype</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormMimetype httpd_mimetype</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache HTTP Server 2.3.0 and later</td></tr>
 </table>
-    <p>The <code class="directive"><a href="#authformmethod">AuthFormMethod</a></code> directive specifies
+    <p>The <code class="directive"><a href="#authformmimetype">AuthFormMimetype</a></code> directive specifies
     the name of an HTML field which, if present, will contain the
     mimetype of the request to submit should login be successful.</p>
 
@@ -585,7 +585,7 @@ parser has been added in 2.4.4.</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>The name of a form field carrying the login password</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormPassword <var>fieldname</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>httpd_password</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormPassword httpd_password</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -667,7 +667,7 @@ parser has been added in 2.4.4.</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>The largest size of the form in bytes that will be parsed for the login details</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormSize <var>size</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>8192</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormSize 8192</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -693,7 +693,7 @@ parser has been added in 2.4.4.</td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>The name of a form field carrying the login username</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AuthFormUsername <var>fieldname</var></code></td></tr>
-<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>httpd_username</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AuthFormUsername httpd_username</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>directory</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_auth_form</td></tr>
@@ -707,8 +707,8 @@ parser has been added in 2.4.4.</td></tr>
 </div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_auth_form.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/mod/mod_auth_form.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<a href="../fr/mod/mod_auth_form.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a></p>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_auth_form.html';
@@ -726,7 +726,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_auth_form.ht
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

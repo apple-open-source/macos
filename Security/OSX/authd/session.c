@@ -6,6 +6,8 @@
 #include <dispatch/dispatch.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+#include <security_utilities/simulatecrash_assert.h>
+
 AUTHD_DEFINE_LOG
 
 struct _session_s {

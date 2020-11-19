@@ -377,15 +377,17 @@ create_purgeable_zone(size_t initial_size, malloc_zone_t *malloc_default_zone, u
 	rack_init(&szone->small_rack, RACK_TYPE_SMALL, 0, debug_flags | MALLOC_PURGEABLE);
 
 #if CONFIG_LARGE_CACHE
-	// madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
-	szone->large_entry_cache_reserve_limit = (size_t)(hw_memsize >> 10);
+	if (large_cache_enabled) {
+		// madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
+		szone->large_entry_cache_reserve_limit = (size_t)(hw_memsize >> 10);
 
-	/* <rdar://problem/6610904> Reset protection when returning a previous large allocation? */
-	int32_t libSystemVersion = NSVersionOfLinkTimeLibrary("System");
-	if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 112) /* CFSystemVersionSnowLeopard */) {
-		szone->large_legacy_reset_mprotect = TRUE;
-	} else {
-		szone->large_legacy_reset_mprotect = FALSE;
+		/* <rdar://problem/6610904> Reset protection when returning a previous large allocation? */
+		int32_t libSystemVersion = NSVersionOfLinkTimeLibrary("System");
+		if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 112) /* CFSystemVersionSnowLeopard */) {
+			szone->large_legacy_reset_mprotect = TRUE;
+		} else {
+			szone->large_legacy_reset_mprotect = FALSE;
+		}
 	}
 #endif
 

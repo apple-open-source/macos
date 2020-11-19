@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnablePressuredExit</key>
+	<false/>
+	<key>EnableTransactions</key>
+	<false/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>Label</key>
+	<string>com.apple.serialdebugconsole</string>
+	<key>POSIXSpawnType</key>
+	<string>Interactive</string>
+	<key>_LimitLoadToVariant</key>
+	<string>AllowsInternalSecurityPolicies</string>
+	<key>LimitLoadToHardware</key>
+	<dict>
+		<key>serialdebugmode</key>
+		<array>
+			<integer>2</integer>
+		</array>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/bin/sh</string>
+		<string>-i</string>
+		<string>-l</string>
+	</array>
+	<key>StandardInPath</key>
+	<string>/dev/console</string>
+	<key>StandardOutPath</key>
+	<string>/dev/console</string>
+	<key>StandardErrorPath</key>
+	<string>/dev/console</string>
+	<key>SessionCreate</key>
+	<true/>
+</dict>
+</plist>

@@ -23,6 +23,7 @@
 
 
 #include "SecDb.h"
+#include "SecDbInternal.h"
 #include "debugging.h"
 
 #include <sqlite3.h>
@@ -87,9 +88,13 @@ struct __OpaqueSecDb {
     CFStringRef db_path;
     dispatch_queue_t queue;
     dispatch_queue_t commitQueue;
-    CFMutableArrayRef connections;
-    dispatch_semaphore_t write_semaphore;
-    dispatch_semaphore_t read_semaphore;
+
+    CFMutableArrayRef idleWriteConnections;     // up to kSecDbMaxWriters of them (currently 1, requires locking change for >1)
+    CFMutableArrayRef idleReadConnections;      // up to kSecDbMaxReaders of them
+    pthread_mutex_t writeMutex;
+    // TODO: Replace after we have rdar://problem/60961964
+    dispatch_semaphore_t readSemaphore;
+
     bool didFirstOpen;
     bool (^opened)(SecDbRef db, SecDbConnectionRef dbconn, bool didCreate, bool *callMeAgainForNextConnection, CFErrorRef *error);
     bool callOpenedHandlerForNextConnection;
@@ -200,7 +205,7 @@ static CFStringRef
 SecDbCopyFormatDescription(CFTypeRef value, CFDictionaryRef formatOptions)
 {
     SecDbRef db = (SecDbRef)value;
-    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SecDb path:%@ connections: %@>"), db->db_path, db->connections);
+    return CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<SecDb path:%@ connections: %@>"), db->db_path, db->idleReadConnections);
 }
 
 
@@ -208,8 +213,13 @@ static void
 SecDbDestroy(CFTypeRef value)
 {
     SecDbRef db = (SecDbRef)value;
-    CFReleaseNull(db->connections);
+
     CFReleaseNull(db->db_path);
+    dispatch_sync(db->queue, ^{
+        CFReleaseNull(db->idleWriteConnections);
+        CFReleaseNull(db->idleReadConnections);
+    });
+
     if (db->queue) {
         dispatch_release(db->queue);
         db->queue = NULL;
@@ -218,14 +228,14 @@ SecDbDestroy(CFTypeRef value)
         dispatch_release(db->commitQueue);
         db->commitQueue = NULL;
     }
-    if (db->read_semaphore) {
-        dispatch_release(db->read_semaphore);
-        db->read_semaphore = NULL;
+
+    pthread_mutex_destroy(&(db->writeMutex));
+
+    if (db->readSemaphore) {
+        dispatch_release(db->readSemaphore);
+        db->readSemaphore = NULL;
     }
-    if (db->write_semaphore) {
-        dispatch_release(db->write_semaphore);
-        db->write_semaphore = NULL;
-    }
+
     if (db->opened) {
         Block_release(db->opened);
         db->opened = NULL;
@@ -252,9 +262,12 @@ SecDbCreate(CFStringRef dbName, mode_t mode, bool readWrite, bool allowRepair, b
         db->commitQueue = dispatch_queue_create(cqNameStr, DISPATCH_QUEUE_CONCURRENT);
     });
     CFReleaseNull(commitQueueStr);
-    db->read_semaphore = dispatch_semaphore_create(kSecDbMaxReaders);
-    db->write_semaphore = dispatch_semaphore_create(kSecDbMaxWriters);
-    db->connections = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+    db->readSemaphore = dispatch_semaphore_create(kSecDbMaxReaders);
+    if (pthread_mutex_init(&(db->writeMutex), NULL) != 0) {
+        seccritical("SecDb: SecDbCreate failed to init the write mutex, this will end badly");
+    }
+    db->idleWriteConnections = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
+    db->idleReadConnections = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
     db->opened = opened ? Block_copy(opened) : NULL;
     if (getenv("__OSINSTALL_ENVIRONMENT") != NULL) {
         // TODO: Move this code out of this layer
@@ -280,13 +293,15 @@ CFIndex
 SecDbIdleConnectionCount(SecDbRef db) {
     __block CFIndex count = 0;
     dispatch_sync(db->queue, ^{
-        count = CFArrayGetCount(db->connections);
+        count = CFArrayGetCount(db->idleReadConnections);
+        count += CFArrayGetCount(db->idleWriteConnections);
     });
     return count;
 }
 
 void SecDbAddNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase)
 {
+#if !TARGET_OS_BRIDGE
     // SecDbNotifyPhase seems to mostly be called on the db's commitQueue, and not the db's queue. Therefore, protect the array with that queue.
     dispatch_sync(db->commitQueue, ^{
         SecDBNotifyBlock block = Block_copy(notifyPhase); /* Force the block off the stack */
@@ -296,9 +311,11 @@ void SecDbAddNotifyPhaseBlock(SecDbRef db, SecDBNotifyBlock notifyPhase)
         CFArrayAppendValue(db->notifyPhase, block);
         Block_release(block);
     });
+#endif
 }
 
 static void SecDbNotifyPhase(SecDbConnectionRef dbconn, SecDbTransactionPhase phase) {
+#if !TARGET_OS_BRIDGE
     if (CFArrayGetCount(dbconn->changes)) {
         CFArrayRef changes = dbconn->changes;
         dbconn->changes = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -310,6 +327,7 @@ static void SecDbNotifyPhase(SecDbConnectionRef dbconn, SecDbTransactionPhase ph
         }
         CFReleaseSafe(changes);
     }
+#endif
 }
 
 static void SecDbOnNotify(SecDbConnectionRef dbconn, void (^perform)(void)) {
@@ -784,10 +802,6 @@ bool SecDbCheckpoint(SecDbConnectionRef dbconn, CFErrorRef *error)
     return SecDbConnectionCheckCode(dbconn, sqlite3_wal_checkpoint(dbconn->handle, NULL), error, CFSTR("wal_checkpoint"));
 }
 
-static bool SecDbFileControl(SecDbConnectionRef dbconn, int op, void *arg, CFErrorRef *error) {
-    return SecDbConnectionCheckCode(dbconn, sqlite3_file_control(dbconn->handle, NULL, op, arg), error, CFSTR("file_control"));
-}
-
 static sqlite3 *_SecDbOpenV2(const char *path,
                              int flags,
                              int useWAL,
@@ -986,19 +1000,24 @@ SecDbProfileMask(void)
 static int
 SecDbTraceV2(unsigned mask, void *ctx, void *p, void *x) {
     SecDbConnectionRef dbconn __unused = ctx;
+
+#if SECDB_DEBUGGING
     const char *trace = "unknown";
+    char *tofree = NULL;
 
     if (mask == SQLITE_TRACE_PROFILE)
         trace = sqlite3_sql(p);
     else if (mask == SQLITE_TRACE_STMT) {
         trace = sqlite3_sql(p);
     } else if (mask == SQLITE_TRACE_ROW) {
-        trace = sqlite3_expanded_sql(p);
+        trace = tofree = sqlite3_expanded_sql(p);
     }
 
-#if SECDB_DEBUGGING
     secinfo("#SecDB", "#SecDB %{public}s", trace);
+
+    sqlite3_free(tofree);
 #endif
+
     return 0;
 }
 
@@ -1089,12 +1108,26 @@ static void SecDbConectionSetReadOnly(SecDbConnectionRef dbconn, bool readOnly) 
     dbconn->readOnly = readOnly;
 }
 
-/* Read only connections go to the end of the queue, writeable connections
- go to the start of the queue. */
 SecDbConnectionRef SecDbConnectionAcquire(SecDbRef db, bool readOnly, CFErrorRef *error) {
     SecDbConnectionRef dbconn = NULL;
     SecDbConnectionAcquireRefMigrationSafe(db, readOnly, &dbconn, error);
     return dbconn;
+}
+
+static void SecDbConnectionConsumeResource(SecDbRef db, bool readOnly) {
+    if (readOnly) {
+        dispatch_semaphore_wait(db->readSemaphore, DISPATCH_TIME_FOREVER);
+    } else {
+        pthread_mutex_lock(&(db->writeMutex));
+    }
+}
+
+static void SecDbConnectionMakeResourceAvailable(SecDbRef db, bool readOnly) {
+    if (readOnly) {
+        dispatch_semaphore_signal(db->readSemaphore);
+    } else {
+        pthread_mutex_unlock(&(db->writeMutex));
+    }
 }
 
 bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbConnectionRef* dbconnRef, CFErrorRef *error)
@@ -1103,7 +1136,8 @@ bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbCon
 #if SECDB_DEBUGGING
     secinfo("dbconn", "acquire %s connection", readOnly ? "ro" : "rw");
 #endif
-    dispatch_semaphore_wait(readOnly ? db->read_semaphore : db->write_semaphore, DISPATCH_TIME_FOREVER);
+    SecDbConnectionConsumeResource(db, readOnly);
+
     __block SecDbConnectionRef dbconn = NULL;
     __block bool ok = true;
     __block bool ranOpenedHandler = false;
@@ -1140,36 +1174,29 @@ bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbCon
             if (ok) {
                 db->didFirstOpen = ok = SecDbDidCreateFirstConnection(dbconn, didCreate, error);
                 ranOpenedHandler = true;
-            }
-            if (!ok)
+                SecDbConectionSetReadOnly(dbconn, readOnly);    // first connection always created "rw", so set to real value
+            } else {
                 CFReleaseNull(dbconn);
+            }
         } else {
             /* Try to get one from the cache */
-            CFIndex count = CFArrayGetCount(db->connections);
-            while (count && !dbconn) {
-                CFIndex ix = readOnly ? count - 1 : 0;
-                if (assignDbConn((SecDbConnectionRef)CFArrayGetValueAtIndex(db->connections, ix)))
+            CFMutableArrayRef cache = readOnly ? db->idleReadConnections : db->idleWriteConnections;
+            if (CFArrayGetCount(cache) && !dbconn) {
+                if (assignDbConn((SecDbConnectionRef)CFArrayGetValueAtIndex(cache, 0))) {
                     CFRetainSafe(dbconn);
-                else
-                    secerror("got NULL dbconn at index: %" PRIdCFIndex " skipping", ix);
-                CFArrayRemoveValueAtIndex(db->connections, ix);
+                }
+                CFArrayRemoveValueAtIndex(cache, 0);
             }
         }
     });
 
-    if (dbconn) {
-        /* Make sure the connection we found has the right access */
-        if (SecDbConnectionIsReadOnly(dbconn) != readOnly) {
-            SecDbConectionSetReadOnly(dbconn, readOnly);
-        }
-    } else if (ok) {
+    if (ok && !dbconn) {
         /* Nothing found in cache, create a new connection */
         bool created = false;
         if (assignDbConn(SecDbConnectionCreate(db, readOnly, error)) && !SecDbOpenHandle(dbconn, &created, error)) {
             CFReleaseNull(dbconn);
         }
     }
-
 
     if (dbconn && !ranOpenedHandler && dbconn->db->opened) {
         dispatch_sync(db->queue, ^{
@@ -1189,8 +1216,8 @@ bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbCon
     }
 
     if (!dbconn) {
-        // If acquire fails we need to signal the semaphore again.
-        dispatch_semaphore_signal(readOnly ? db->read_semaphore : db->write_semaphore);
+        // Caller doesn't get (to use) a connection so the backing synchronization primitive is available again
+        SecDbConnectionMakeResourceAvailable(db, readOnly);
         CFRelease(db);
     }
 
@@ -1199,33 +1226,38 @@ bool SecDbConnectionAcquireRefMigrationSafe(SecDbRef db, bool readOnly, SecDbCon
 
 void SecDbConnectionRelease(SecDbConnectionRef dbconn) {
     if (!dbconn) {
-        secerror("called with NULL dbconn");
+        secerror("SecDbConnectionRelease called with NULL dbconn");
         return;
     }
     SecDbRef db = dbconn->db;
 #if SECDB_DEBUGGING
     secinfo("dbconn", "release %@", dbconn);
 #endif
+
+    bool readOnly = SecDbConnectionIsReadOnly(dbconn);
     dispatch_sync(db->queue, ^{
-        bool readOnly = SecDbConnectionIsReadOnly(dbconn);
         if (dbconn->hasIOFailure) {
             // Something wrong on the file layer (e.g. revoked file descriptor for networked home)
-            // so we don't trust our existing connections anymore.
-            CFArrayRemoveAllValues(db->connections);
+            secwarning("SecDbConnectionRelease: IO failure reported in connection, throwing away currently idle caches");
+            // Any other checked-out connections are beyond our grasp. If they did not have IO failures they'll come back,
+            // otherwise this branch gets taken more than once and gradually those connections die off
+            CFArrayRemoveAllValues(db->idleWriteConnections);
+            CFArrayRemoveAllValues(db->idleReadConnections);
         } else {
-            CFIndex count = CFArrayGetCount(db->connections);
-            // Add back possible writable dbconn to the pool.
-            CFArrayInsertValueAtIndex(db->connections, readOnly ? count : 0, dbconn);
-            // Remove the last (probably read-only) dbconn from the pool.
-            if (count >= db->maxIdleHandles) {
-                CFArrayRemoveValueAtIndex(db->connections, count);
+            CFMutableArrayRef cache = readOnly ? db->idleReadConnections : db->idleWriteConnections;
+            CFIndex count = CFArrayGetCount(cache);
+            if ((unsigned long)count < (readOnly ? kSecDbMaxReaders : kSecDbMaxWriters)) {
+                CFArrayAppendValue(cache, dbconn);
+            } else {
+                secerror("dbconn: did not expect to run out of room in the %s cache when releasing connection", readOnly ? "ro" : "rw");
             }
         }
-        // Signal after we have put the connection back in the pool of connections
-        dispatch_semaphore_signal(readOnly ? db->read_semaphore : db->write_semaphore);
-        CFRelease(dbconn);
-        CFRelease(db);
     });
+
+    // Signal after we have put the connection back in the pool of connections
+    SecDbConnectionMakeResourceAvailable(db, readOnly);
+    CFRelease(dbconn);
+    CFRelease(db);
 }
 
 void SecDbReleaseAllConnections(SecDbRef db) {
@@ -1235,29 +1267,31 @@ void SecDbReleaseAllConnections(SecDbRef db) {
         return;
     }
     dispatch_sync(db->queue, ^{
-        CFArrayRemoveAllValues(db->connections);
-        dispatch_semaphore_signal(db->write_semaphore);
-        dispatch_semaphore_signal(db->read_semaphore);
+        CFArrayRemoveAllValues(db->idleReadConnections);
+        CFArrayRemoveAllValues(db->idleWriteConnections);
     });
+}
+
+static void onQueueSecDbForceCloseForCache(CFMutableArrayRef cache) {
+    CFArrayForEach(cache, ^(const void* ptr) {
+        SecDbConnectionRef connection = (SecDbConnectionRef)ptr;
+
+        // this pointer is claimed to be nonretained
+        connection->db = NULL;
+
+        if(connection->handle) {
+            sqlite3_close(connection->handle);
+            connection->handle = NULL;
+        }
+    });
+    CFArrayRemoveAllValues(cache);
 }
 
 // Please make sure you want to do this. Any use of the outstanding connections to this DB will cause a crash.
 void SecDbForceClose(SecDbRef db) {
     dispatch_sync(db->queue, ^{
-        CFArrayForEach(db->connections, ^(const void* p) {
-            SecDbConnectionRef connection = (SecDbConnectionRef)p;
-
-            // this pointer is claimed to be nonretained
-            connection->db = NULL;
-
-            if(connection->handle) {
-                sqlite3_close(connection->handle);
-                connection->handle = NULL;
-            }
-        });
-        CFArrayRemoveAllValues(db->connections);
-        dispatch_semaphore_signal(db->write_semaphore);
-        dispatch_semaphore_signal(db->read_semaphore);
+        onQueueSecDbForceCloseForCache(db->idleReadConnections);
+        onQueueSecDbForceCloseForCache(db->idleWriteConnections);
     });
 }
 

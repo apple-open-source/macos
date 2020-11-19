@@ -181,7 +181,7 @@ mod_export char *chline;
  * To avoid having to modify this every time we modify chline,
  * we set it when we push the stack, and unset it when we pop
  * the appropriate value off the stack.  As it's never modified
- * on the stack this is the only maintainance we ever do on it.
+ * on the stack this is the only maintenance we ever do on it.
  * In return, ZLE has to check both zle_chline and (if that's
  * NULL) chline to get the current value.
  */
@@ -216,6 +216,7 @@ static struct histfile_stats {
     char *text;
     time_t stim, mtim;
     off_t fpos, fsiz;
+    int interrupted;
     zlong next_write_ev;
 } lasthist;
 
@@ -475,7 +476,7 @@ herrflush(void)
      *
      * Note that this is a side effect --- this is not the usual reason
      * for testing lex_add_raw which is to add the text to a different
-     * buffer used when we are actually parsing the command substituion
+     * buffer used when we are actually parsing the command substitution
      * (nothing to do with ZLE).  Sorry.
      */
     while (inbufct && (!strin || lex_add_raw)) {
@@ -552,6 +553,27 @@ substfailed(void)
     herrflush();
     zerr("substitution failed");
     return -1;
+}
+
+/*
+ * Return a count given by decimal digits after a modifier.
+ */
+static int
+digitcount(void)
+{
+    int c = ingetc(), count;
+
+    if (idigit(c)) {
+	count = 0;
+	do {
+	    count = 10 * count + (c - '0');
+	    c = ingetc();
+	} while (idigit(c));
+    }
+    else
+	count = 0;
+    inungetc(c);
+    return count;
 }
 
 /* Perform history substitution, returning the next character afterwards. */
@@ -834,7 +856,7 @@ histsubchar(int c)
 		}
 		break;
 	    case 'h':
-		if (!remtpath(&sline)) {
+		if (!remtpath(&sline, digitcount())) {
 		    herrflush();
 		    zerr("modifier failed: h");
 		    return -1;
@@ -855,7 +877,7 @@ histsubchar(int c)
 		}
 		break;
 	    case 't':
-		if (!remlpaths(&sline)) {
+		if (!remlpaths(&sline, digitcount())) {
 		    herrflush();
 		    zerr("modifier failed: t");
 		    return -1;
@@ -897,6 +919,16 @@ histsubchar(int c)
 		break;
 	    case 'u':
 		sline = casemodify(sline, CASMOD_UPPER);
+		break;
+	    case 'P':
+		if (*sline != '/') {
+		    char *here = zgetcwd();
+		    if (here[strlen(here)-1] != '/')
+			sline = zhtricat(metafy(here, -1, META_HEAPDUP), "/", sline);
+		    else
+			sline = dyncat(here, sline);
+		}
+		sline = xsymlink(sline, 1);
 		break;
 	    default:
 		herrflush();
@@ -1197,8 +1229,9 @@ histreduceblanks(void)
 	chline[pos] = '\0';
     } else {
 	ptr = chline + pos;
-	while ((*ptr++ = *lastptr++))
-	    ;
+	if (ptr < lastptr)
+	    while ((*ptr++ = *lastptr++))
+		;
     }
 }
 
@@ -1972,16 +2005,18 @@ chrealpath(char **junkptr)
 
 /**/
 int
-remtpath(char **junkptr)
+remtpath(char **junkptr, int count)
 {
     char *str = strend(*junkptr);
 
     /* ignore trailing slashes */
     while (str >= *junkptr && IS_DIRSEP(*str))
 	--str;
-    /* skip filename */
-    while (str >= *junkptr && !IS_DIRSEP(*str))
-	--str;
+    if (!count) {
+	/* skip filename */
+	while (str >= *junkptr && !IS_DIRSEP(*str))
+	    --str;
+    }
     if (str < *junkptr) {
 	if (IS_DIRSEP(**junkptr))
 	    *junkptr = dupstring ("/");
@@ -1990,6 +2025,34 @@ remtpath(char **junkptr)
 
 	return 0;
     }
+
+    if (count)
+    {
+	/*
+	 * Return this many components, so start from the front.
+	 * Leading slash counts as one component, consistent with
+	 * behaviour of repeated applications of :h.
+	 */
+	char *strp = *junkptr;
+	while (strp < str) {
+	    if (IS_DIRSEP(*strp)) {
+		if (--count <= 0) {
+		    if (strp == *junkptr)
+			++strp;
+		    *strp = '\0';
+		    return 1;
+		}
+		/* Count consecutive separators as one */
+		while (IS_DIRSEP(strp[1]))
+		    ++strp;
+	    }
+	    ++strp;
+	}
+
+	/* Full string needed */
+	return 1;
+    }
+
     /* repeated slashes are considered like a single slash */
     while (str > *junkptr && IS_DIRSEP(str[-1]))
 	--str;
@@ -2038,7 +2101,7 @@ rembutext(char **junkptr)
 
 /**/
 mod_export int
-remlpaths(char **junkptr)
+remlpaths(char **junkptr, int count)
 {
     char *str = strend(*junkptr);
 
@@ -2048,12 +2111,29 @@ remlpaths(char **junkptr)
 	    --str;
 	str[1] = '\0';
     }
-    for (; str >= *junkptr; --str)
-	if (IS_DIRSEP(*str)) {
-	    *str = '\0';
-	    *junkptr = dupstring(str + 1);
-	    return 1;
+    for (;;) {
+	for (; str >= *junkptr; --str) {
+	    if (IS_DIRSEP(*str)) {
+		if (--count > 0) {
+		    if (str > *junkptr) {
+			--str;
+			break;
+		    } else {
+			/* Whole string needed */
+			return 1;
+		    }
+		}
+		*str = '\0';
+		*junkptr = dupstring(str + 1);
+		return 1;
+	    }
 	}
+	/* Count consecutive separators as 1 */
+	while (str >= *junkptr && IS_DIRSEP(*str))
+	    --str;
+	if (str <= *junkptr)
+	    break;
+    }
     return 0;
 }
 
@@ -2544,11 +2624,13 @@ readhistfile(char *fn, int err, int readflags)
 	sb.st_size == 0)
 	return;
     if (readflags & HFILE_FAST) {
-	if ((lasthist.fsiz == sb.st_size && lasthist.mtim == sb.st_mtime)
-	    || lockhistfile(fn, 0))
+	if (!lasthist.interrupted &&
+	    ((lasthist.fsiz == sb.st_size && lasthist.mtim == sb.st_mtime)
+	     || lockhistfile(fn, 0)))
 	    return;
 	lasthist.fsiz = sb.st_size;
 	lasthist.mtim = sb.st_mtime;
+	lasthist.interrupted = 0;
     } else if ((ret = lockhistfile(fn, 1))) {
 	if (ret == 2) {
 	    zwarn("locking failed for %s: %e: reading anyway", fn, errno);
@@ -2694,8 +2776,11 @@ readhistfile(char *fn, int err, int readflags)
 	     */
 	    if (uselex || remeta)
 		freeheap();
-	    if (errflag & ERRFLAG_INT)
+	    if (errflag & ERRFLAG_INT) {
+		/* Can't assume fast read next time if interrupted. */
+		lasthist.interrupted = 1;
 		break;
+	    }
 	}
 	if (start && readflags & HFILE_USE_OPTIONS) {
 	    zsfree(lasthist.text);
@@ -3236,6 +3321,7 @@ bufferwords(LinkList list, char *buf, int *index, int flags)
     int owb = wb, owe = we, oadx = addedx, onc = nocomments;
     int ona = noaliases, ocs = zlemetacs, oll = zlemetall;
     int forloop = 0, rcquotes = opts[RCQUOTES];
+    int envarray = 0;
     char *p, *addedspaceptr;
 
     if (!list)
@@ -3319,6 +3405,14 @@ bufferwords(LinkList list, char *buf, int *index, int flags)
 	ctxtlex();
 	if (tok == ENDINPUT || tok == LEXERR)
 	    break;
+	/*
+	 * After an array assignment, return to the initial
+	 * start-of-command state.  There could be a second ENVARRAY.
+	 */
+	if (tok == OUTPAR && envarray) {
+	    incmdpos = 1;
+	    envarray = 0;
+	}
 	if (tok == FOR) {
 	    /*
 	     * The way for (( expr1 ; expr2; expr3 )) is parsed is:
@@ -3356,6 +3450,7 @@ bufferwords(LinkList list, char *buf, int *index, int flags)
 	    switch (tok) {
 	    case ENVARRAY:
 		p = dyncat(tokstr, "=(");
+		envarray = 1;
 		break;
 
 	    case DINPAR:

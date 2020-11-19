@@ -11,6 +11,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file 
  * \brief C++ API: Rule for specifying date and time in an year
@@ -20,7 +22,6 @@
 
 #include "unicode/uobject.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 /**
  * <code>DateTimeRule</code> is a class representing a time in a year by
@@ -127,7 +128,7 @@ public:
      * @return    A copy of the object.
      * @stable ICU 3.8
      */
-    DateTimeRule* clone(void) const;
+    DateTimeRule* clone() const;
 
     /**
      * Assignment operator.
@@ -246,9 +247,10 @@ public:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // DTRULE_H
 //eof

@@ -241,6 +241,8 @@ template <> WTF_EXPORT_PRIVATE GRegex* refGPtr(GRegex*);
 template <> WTF_EXPORT_PRIVATE void derefGPtr(GRegex*);
 template <> WTF_EXPORT_PRIVATE GMappedFile* refGPtr(GMappedFile*);
 template <> WTF_EXPORT_PRIVATE void derefGPtr(GMappedFile*);
+template <> WTF_EXPORT_PRIVATE GDateTime* refGPtr(GDateTime* ptr);
+template <> WTF_EXPORT_PRIVATE void derefGPtr(GDateTime* ptr);
 
 template <typename T> inline T* refGPtr(T* ptr)
 {
@@ -255,7 +257,7 @@ template <typename T> inline void derefGPtr(T* ptr)
         g_object_unref(ptr);
 }
 
-template<typename P> struct DefaultHash<GRefPtr<P>> { typedef PtrHash<GRefPtr<P>> Hash; };
+template<typename P> struct DefaultHash<GRefPtr<P>> : PtrHash<GRefPtr<P>> { };
 
 template<typename P> struct HashTraits<GRefPtr<P>> : SimpleClassHashTraits<GRefPtr<P>> {
     static P* emptyValue() { return nullptr; }

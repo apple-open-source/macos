@@ -38,6 +38,11 @@
 #include <unistd.h>
 #include <sys/mount.h>
 
+///w:start
+void ___os_transaction_begin( void );
+void ___os_transaction_end( void );
+///w:end
+
 const CFTimeInterval __kDABusyTimerGrace = 1;
 const CFTimeInterval __kDABusyTimerLimit = 10;
 
@@ -431,7 +436,7 @@ static void __DAStageDispatch( void * info )
 
         DAIdleCallback( );
 
-        ___vproc_transaction_end( );
+        ___os_transaction_end( );
 
         if ( gDAConsoleUser )
         {
@@ -499,7 +504,14 @@ static void __DAStageMount( DADiskRef disk )
 
     DADiskSetState( disk, kDADiskStateStagedMount, TRUE );
 
-    DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
+    /*
+     * Skip the mount stage if auto mounts are disabled in preferences.
+     */
+    if ( DAMountGetPreference( disk, kDAMountPreferenceDisableAutoMount ) == false )
+    {
+
+        DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
+    }
 
     DAStageSignal( );
 }
@@ -834,7 +846,7 @@ void DAStageSignal( void )
 
     if ( gDAIdle )
     {
-        ___vproc_transaction_begin( );
+        ___os_transaction_begin( );
     }
 
     gDAIdle = FALSE;

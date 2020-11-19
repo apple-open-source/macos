@@ -41,12 +41,15 @@
 #import <WebCore/Page.h>
 #import <WebCore/ScrollView.h>
 #import <WebCore/Scrollbar.h>
-#import <wtf/ObjCRuntimeExtras.h>
+
+namespace ax = WebCore::Accessibility;
 
 @implementation WKAccessibilityWebPageObjectBase
 
-- (WebCore::AXObjectCache*)axObjectCache
+- (NakedPtr<WebCore::AXObjectCache>)axObjectCache
 {
+    ASSERT(isMainThread());
+
     if (!m_page)
         return nullptr;
 
@@ -63,6 +66,7 @@
 
 - (id)accessibilityPluginObject
 {
+    ASSERT(isMainThread());
     auto retrieveBlock = [&self]() -> id {
         id axPlugin = nil;
         auto dispatchBlock = [&axPlugin, &self] {
@@ -85,22 +89,26 @@
 
 - (id)accessibilityRootObjectWrapper
 {
-    if (!WebCore::AXObjectCache::accessibilityEnabled())
-        WebCore::AXObjectCache::enableAccessibility();
+    return ax::retrieveAutoreleasedValueFromMainThread<id>([protectedSelf = retainPtr(self)] () -> RetainPtr<id> {
+        if (!WebCore::AXObjectCache::accessibilityEnabled())
+            WebCore::AXObjectCache::enableAccessibility();
 
-    if (m_hasMainFramePlugin)
-        return self.accessibilityPluginObject;
+        if (protectedSelf.get()->m_hasMainFramePlugin)
+            return protectedSelf.get().accessibilityPluginObject;
 
-    if (auto cache = [self axObjectCache]) {
-        if (WebCore::AXCoreObject* root = cache->rootObject())
-            return root->wrapper();
-    }
+        if (auto cache = protectedSelf.get().axObjectCache) {
+            if (auto* root = cache->rootObject())
+                return root->wrapper();
+        }
 
-    return nil;
+        return nil;
+    });
 }
 
-- (void)setWebPage:(WebKit::WebPage*)page
+- (void)setWebPage:(NakedPtr<WebKit::WebPage>)page
 {
+    ASSERT(isMainThread());
+
     m_page = page;
 
     if (page) {
@@ -116,11 +124,13 @@
 
 - (void)setHasMainFramePlugin:(bool)hasPlugin
 {
+    ASSERT(isMainThread());
     m_hasMainFramePlugin = hasPlugin;
 }
 
 - (void)setRemoteParent:(id)parent
 {
+    ASSERT(isMainThread());
     if (parent != m_parent) {
         [m_parent release];
         m_parent = [parent retain];
@@ -131,6 +141,5 @@
 {
     return [[self accessibilityRootObjectWrapper] accessibilityFocusedUIElement];
 }
-
 
 @end

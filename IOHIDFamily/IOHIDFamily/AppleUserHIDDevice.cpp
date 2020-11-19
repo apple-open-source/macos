@@ -144,6 +144,17 @@ IOService * AppleUserHIDDevice::probe(IOService *provider, SInt32 *score)
 }
 
 //----------------------------------------------------------------------------------------------------
+// AppleUserHIDDevice::willTerminate
+//----------------------------------------------------------------------------------------------------
+bool AppleUserHIDDevice::willTerminate( IOService *provider,
+                                IOOptionBits options )
+{
+    messageClients(kIOHIDDeviceWillTerminate);
+
+    return super::willTerminate(provider, options);
+}
+
+//----------------------------------------------------------------------------------------------------
 // AppleUserHIDDevice::start
 //----------------------------------------------------------------------------------------------------
 bool AppleUserHIDDevice::start(IOService * provider)

@@ -26,8 +26,6 @@
 #import <IOKit/firewire/IOFireWireNub.h>
 #import <IOKit/firewire/IOFWPHYPacketListener.h>
 
-//#import <IOKit/firewire/FireLog.h>
-
 // ============================================================
 //	IOFWUserPHYPacketListener methods
 // ============================================================
@@ -137,7 +135,7 @@ IOFWUserPHYPacketListener::setPacketCallback(	OSAsyncReference64		async_ref,
 												mach_vm_address_t		callback,
 												io_user_reference_t		refCon )
 {
-//	FireLog( "IOFWUserPHYPacketListener::setPacketCallback - asyncref = 0x%016llx callback = 0x%016llx, refcon = 0x%016llx\n", async_ref[0], callback, refCon );
+//	kprintf( "IOFWUserPHYPacketListener::setPacketCallback - asyncref = 0x%016llx callback = 0x%016llx, refcon = 0x%016llx\n", async_ref[0], callback, refCon );
 	
 	if( callback )
 	{
@@ -160,7 +158,7 @@ IOFWUserPHYPacketListener::setSkippedCallback(	OSAsyncReference64		async_ref,
 												mach_vm_address_t		callback,
 												io_user_reference_t		refCon )
 {
-//	FireLog( "IOFWUserPHYPacketListener::setSkippedCallback - asyncref = 0x%016llx callback = 0x%016llx, refcon = 0x%016llx\n", async_ref[0], callback, refCon );
+//	kprintf( "IOFWUserPHYPacketListener::setSkippedCallback - asyncref = 0x%016llx callback = 0x%016llx, refcon = 0x%016llx\n", async_ref[0], callback, refCon );
 	
 	if( callback )
 	{
@@ -184,7 +182,7 @@ void IOFWUserPHYPacketListener::processPHYPacket( UInt32 data1, UInt32 data2 )
 
 	PHYRxElement * element = NULL;
 	
-//	FireLog( "IOFWUserPHYPacketListener::processPHYPacket - 0x%08lx %08lx\n", data1, data2 );
+//	kprintf( "IOFWUserPHYPacketListener::processPHYPacket - 0x%08lx %08lx\n", data1, data2 );
 	
 	// try to get a data element
 	
@@ -200,13 +198,13 @@ void IOFWUserPHYPacketListener::processPHYPacket( UInt32 data1, UInt32 data2 )
 		// tell user space if it's not already busy
 		if( fElementWaitingCompletion == NULL )
 		{
-		//	FireLog( "IOFWUserPHYPacketListener::processPHYPacket - data element - send notification\n" );
+		//	kprintf( "IOFWUserPHYPacketListener::processPHYPacket - data element - send notification\n" );
 
 			sendPacketNotification( element );
 		}
 		else
 		{
-		//	FireLog( "IOFWUserPHYPacketListener::processPHYPacket - data element - queue - fElementWaitingCompletion = 0x%08lx\n", fElementWaitingCompletion );
+		//	kprintf( "IOFWUserPHYPacketListener::processPHYPacket - data element - queue - fElementWaitingCompletion = 0x%08lx\n", fElementWaitingCompletion );
 
 			// else queue it up
 			addElementToPendingList( element );
@@ -246,7 +244,7 @@ void IOFWUserPHYPacketListener::processPHYPacket( UInt32 data1, UInt32 data2 )
 				// set our skipped count
 				element->setSkippedCount( 1 );
 
-		//		FireLog( "IOFWUserPHYPacketListener::processPHYPacket - skip element - queue\n" );
+		//		kprintf( "IOFWUserPHYPacketListener::processPHYPacket - skip element - queue\n" );
 
 				// queue it up
 				addElementToPendingList( element );
@@ -271,7 +269,7 @@ IOFWUserPHYPacketListener::clientCommandIsComplete( FWClientCommandID commandID 
 {
 	IOLockLock( fLock );
 
-//	FireLog( "IOFWUserPHYPacketListener::clientCommandIsComplete - commandID = 0x%08lx\n", commandID );
+//	kprintf( "IOFWUserPHYPacketListener::clientCommandIsComplete - commandID = 0x%08lx\n", commandID );
 
 	// verify we're completing the right command
 	if( fElementWaitingCompletion == commandID )
@@ -281,7 +279,7 @@ IOFWUserPHYPacketListener::clientCommandIsComplete( FWClientCommandID commandID 
 	
 		fElementWaitingCompletion = NULL;
 
-	//	FireLog( "IOFWUserPHYPacketListener::clientCommandIsComplete - element = 0x%08lx fElementWaitingCompletion = 0x%08lx\n", commandID, fElementWaitingCompletion );
+	//	kprintf( "IOFWUserPHYPacketListener::clientCommandIsComplete - element = 0x%08lx fElementWaitingCompletion = 0x%08lx\n", commandID, fElementWaitingCompletion );
 			
 		// if we've got another one on the pending list, send it off
 		PHYRxElement * element = fPendingListHead;
@@ -313,9 +311,9 @@ IOFWUserPHYPacketListener::sendPacketNotification( IOFWUserPHYPacketListener::PH
 			args[1] = element->data1;					// data1
 			args[2] = element->data2;					// data2
 	
-		//	FireLog( "IOFWUserPHYPacketListener::sendPacketNotification - kTypeData fElementWaitingCompletion = 0x%08lx\n", fElementWaitingCompletion );
+		//	kprintf( "IOFWUserPHYPacketListener::sendPacketNotification - kTypeData fElementWaitingCompletion = 0x%08lx\n", fElementWaitingCompletion );
 	
-		//	FireLog( "IOFWUserPHYPacketListener::sendPacketNotification - fCallbackAsyncRef[0] = 0x%016llx\n", fCallbackAsyncRef[0] );
+		//	kprintf( "IOFWUserPHYPacketListener::sendPacketNotification - fCallbackAsyncRef[0] = 0x%016llx\n", fCallbackAsyncRef[0] );
 
 			IOFireWireUserClient::sendAsyncResult64( fCallbackAsyncRef, kIOReturnSuccess, args, 3 );
 		}
@@ -329,9 +327,9 @@ IOFWUserPHYPacketListener::sendPacketNotification( IOFWUserPHYPacketListener::PH
 			args[2] = 0;								//zzz for some reason I need to send an arg count of 3 for my data to make it to user space 
 														//zzz sounds like a kernel bug. pad it for now
 														
-		//	FireLog( "IOFWUserPHYPacketListener::sendPacketNotification - kTypeSkipped count = %d, fElementWaitingCompletion = 0x%08lx\n", element->getSkippedCount(), (UInt32)fElementWaitingCompletion );
+		//	kprintf( "IOFWUserPHYPacketListener::sendPacketNotification - kTypeSkipped count = %d, fElementWaitingCompletion = 0x%08lx\n", element->getSkippedCount(), (UInt32)fElementWaitingCompletion );
 
-		//	FireLog( "IOFWUserPHYPacketListener::sendPacketNotification - fSkippedAsyncRef[0] = 0x%016llx\n", fSkippedAsyncRef[0] );
+		//	kprintf( "IOFWUserPHYPacketListener::sendPacketNotification - fSkippedAsyncRef[0] = 0x%016llx\n", fSkippedAsyncRef[0] );
 		
 			IOFireWireUserClient::sendAsyncResult64( fSkippedAsyncRef, kIOReturnSuccess, args, 3 );
 		}
@@ -503,7 +501,7 @@ void IOFWUserPHYPacketListener::deallocateElement( PHYRxElement * element )
 	}
 	else
 	{
-		FWKLOGASSERT( fFreeListHead == NULL )
+		FWKLOGASSERT( fFreeListHead == NULL );
 		
 		fFreeListHead = element;
 	}

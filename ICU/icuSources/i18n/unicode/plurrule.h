@@ -20,6 +20,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: PluralRules object
@@ -40,7 +42,6 @@
  */
 #define UPLRULES_NO_UNIQUE_VALUE ((double)-0.00123456777)
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class Hashtable;
@@ -531,9 +532,10 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // _PLURRULE
 //eof

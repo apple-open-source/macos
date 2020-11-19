@@ -1,17 +1,19 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 sat{
-    ExemplarCharacters{
-        "[ᱚ ᱛ ᱜ ᱝ ᱞ ᱟ ᱠ ᱡ ᱢ ᱣ ᱤ ᱥ ᱦ ᱧ ᱨ ᱩ ᱪ ᱫ ᱬ ᱭ ᱮ ᱯ ᱰ ᱱ ᱲ ᱳ ᱴ ᱵ ᱶ ᱷ ᱸ ᱹ ᱺ ᱻ ᱼ ᱽ]"
-    }
-    ExemplarCharactersNumbers{"[\\- , . % + 0᱐ 1᱑ 2᱒ 3᱓ 4᱔ 5᱕ 6᱖ 7᱗ 8᱘ 9᱙]"}
-    ExemplarCharactersPunctuation{"[, ! ? ' ‘ ’ \u0022 “ ” ᱾ ᱿]"}
+    ExemplarCharacters{"[ᱚ ᱛ ᱜ ᱝ ᱞ ᱟ ᱠ ᱡ ᱢ ᱣ ᱤ ᱥ ᱦ ᱧ ᱨ ᱩ ᱪ ᱫ ᱬ ᱭ ᱮ ᱯ ᱰ ᱱ ᱲ ᱳ ᱴ ᱵ ᱶ ᱷ ᱸ ᱹ ᱺ ᱻ ᱼ ᱽ]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % + 0᱐ 1᱑ 2᱒ 3᱓ 4᱔ 5᱕ 6᱖ 7᱗ 8᱘ 9᱙]"}
+    ExemplarCharactersPunctuation{"[, ! ? ᱾ ᱿ ' ‘ ’ \u0022 “ ”]"}
     NumberElements{
         default{"olck"}
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     calendar{
         gregorian{
+            AmPmMarkers{
+                "ᱥᱤᱧ/ᱥᱮᱛᱟᱜ",
+                "ᱟᱹᱭᱩᱵ/ᱧᱤᱫᱟ",
+            }
             DateTimePatterns{
                 "h:mm:ss a zzzz",
                 "h:mm:ss a z",
@@ -28,5 +30,16 @@ sat{
                 "{1} {0}",
             }
         }
+    }
+    delimiters{
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
+    }
+    measurementSystemNames{
+        UK{"ᱭᱩᱠᱮ"}
+        US{"ᱭᱩᱮᱥ"}
+        metric{"ᱢᱤᱴᱨᱤᱠ"}
     }
 }

@@ -26,7 +26,7 @@
  * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 
-#include "pcap-ng.h"
+#include "pcap/pcap-ng.h"
 #include <stdio.h>
 #include <err.h>
 #include <stdlib.h>
@@ -449,6 +449,14 @@ read_callback(u_char *user, const struct pcap_pkthdr *hdr, const u_char *bytes)
 				printf("# Name Record Block\n");
 				break;
 			}
+			case PCAPNG_BT_OSEV: {
+				printf("# Name Record Block\n");
+				break;
+			}
+			case PCAPNG_BT_DSB: {
+				printf("# Decryption Secrets Block\n");
+				break;
+			}
 			default:
 				printf("# Unknown Block\n");
 				break;
@@ -555,10 +563,27 @@ break;
 				       osev_fields->len);				
 				break;
 			}
+			case PCAPNG_BT_DSB: {
+				struct pcapng_decryption_secrets_fields *dsb_fields;
+
+				printf("# Decryption Secrets Block\n");
+
+				dsb_fields = pcap_ng_get_decryption_secrets_fields(block);
+
+				printf("  secrets_type 0x%x secrets_length %u\n",
+				       dsb_fields->secrets_type,
+				       dsb_fields->secrets_length);
+
+				break;
+			}
 			default:
 				printf("# Unknown Block\n");
 				break;
 		}
+		if (pcap_ng_block_does_support_data(block)) {
+			hex_and_ascii_print("", pcap_ng_block_packet_get_data_ptr(block), pcap_ng_block_packet_get_data_len(block), "\n");
+		}
+
 		pcnapng_block_iterate_options(block, block_option_iterator, NULL);
 	}
 }

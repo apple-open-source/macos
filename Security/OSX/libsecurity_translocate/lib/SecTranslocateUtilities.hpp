@@ -91,7 +91,7 @@ void* checkedDlsym(void* handle, const char* symbol);
 //Path parsing functions
 vector<string> splitPath(const string &path);
 string joinPath(vector<string>& path);
-    string joinPathUpTo(vector<string> &path, size_t index);
+string joinPathUpTo(vector<string> &path, size_t index);
 
 //File system utlities
 string getRealPath(const string &path);

@@ -41,6 +41,8 @@ protected:
     IONotifier *_notifier;
     uuid_t      _uuid;
     OSString   *_uuidString;
+    OSString   *_apfsPrebootUUIDString;
+    UInt32      _matched;
     
     struct ExpansionData { /* */ };
     ExpansionData * _expansionData;

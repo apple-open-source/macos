@@ -33,6 +33,7 @@ static char sccsid[] = "@(#)misc.c	8.1 (Berkeley) 6/6/93";
 #endif /*not lint */
 #endif
 #include <sys/cdefs.h>
+#include <errno.h>
 __FBSDID("$FreeBSD: src/usr.sbin/mtree/misc.c,v 1.16 2005/03/29 11:44:17 tobez Exp $");
 
 #include <sys/types.h>
@@ -42,6 +43,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/misc.c,v 1.16 2005/03/29 11:44:17 tobez E
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "metrics.h"
 #include "mtree.h"
 #include "extern.h"
 #import <sys/attr.h>
@@ -84,6 +86,7 @@ static KEY keylist[] = {
 #ifdef ENABLE_SHA256
 	{"sha256digest",	F_SHA256,	NEEDVALUE},
 #endif
+	{"siblingid",		F_SIBLINGID,	NEEDVALUE},
 	{"size",		F_SIZE,		NEEDVALUE},
 	{"time",		F_TIME,		NEEDVALUE},
 	{"type",		F_TYPE,		NEEDVALUE},
@@ -102,8 +105,10 @@ parsekey(char *name, int *needvaluep)
 	tmp.name = name;
 	k = (KEY *)bsearch(&tmp, keylist, sizeof(keylist) / sizeof(KEY),
 	    sizeof(KEY), keycompare);
-	if (k == NULL)
+	if (k == NULL) {
+		RECORD_FAILURE(107, EINVAL);
 		errx(1, "line %d: unknown keyword %s", lineno, name);
+	}
 
 	if (needvaluep)
 		*needvaluep = k->flags & NEEDVALUE ? 1 : 0;
@@ -119,6 +124,7 @@ keycompare(const void *a, const void *b)
 char *
 flags_to_string(u_long fflags)
 {
+	int error = 0;
 	char *string;
 
 	string = fflagstostr(fflags);
@@ -126,8 +132,11 @@ flags_to_string(u_long fflags)
 		free(string);
 		string = strdup("none");
 	}
-	if (string == NULL)
-		err(1, NULL);
+	if (string == NULL) {
+		error = errno;
+		RECORD_FAILURE(108, error);
+		errc(1, error, NULL);
+	}
 
 	return string;
 }
@@ -137,8 +146,10 @@ char *
 escape_path(char *string)
 {
 	char *escapedPath = calloc(1, strlen(string) * 4  +  1);
-	if (escapedPath == NULL)
+	if (escapedPath == NULL) {
+		RECORD_FAILURE(109, ENOMEM);
 		errx(1, "escape_path(): calloc() failed");
+	}
 	strvis(escapedPath, string, VIS_NL | VIS_CSTYLE | VIS_OCTAL);
 	
 	return escapedPath;
@@ -154,6 +165,7 @@ struct ptimebuf {
 struct timespec
 ptime(char *path, int *supported) {
 	
+	int error = 0;
 	int ret = 0;
 	struct ptimebuf buf;
 	struct attrlist list = {
@@ -162,7 +174,9 @@ ptime(char *path, int *supported) {
 	};
 	ret = getattrlist(path, &list, &buf, sizeof(buf), FSOPT_NOFOLLOW);
 	if (ret) {
-		err(1, "ptime: getattrlist");
+		error = errno;
+		RECORD_FAILURE(110, error);
+		errc(1, error, "ptime: getattrlist");
 	}
 	
 	*supported = 0;

@@ -1,0 +1,24 @@
+{
+  "configurations" : [
+    {
+      "id" : "5A402836-E1DD-4825-904B-BFAEC12C977B",
+      "name" : "Configuration 1",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+
+  },
+  "testTargets" : [
+    {
+      "target" : {
+        "containerPath" : "container:Security.xcodeproj",
+        "identifier" : "3DD1FFAC201FDB1D0086D049",
+        "name" : "SecureTransportTests_ios"
+      }
+    }
+  ],
+  "version" : 1
+}

@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <DriverKit/DriverKit.h>
 #include <DriverKit/OSCollections.h>
+#include <DriverKit/IOService.h>
 #include <DriverKit/IODispatchQueue.h>
 #include <DriverKit/IOTimerDispatchSource.h>
 #include <DriverKit/IOBufferMemoryDescriptor.h>
@@ -46,12 +47,20 @@ enum {
 
 #define kUSBHostHIDDevicePipeIdlePolicyKey                      "kUSBHIDDevicePipeIdlePolicy"
 
+#ifndef kIOHIDBulkPipeSupportKey
+#define kIOHIDBulkPipeSupportKey                                "HIDBulkPipeSupport"
+#endif
+
 #ifndef kUSBHostClassRequestCompletionTimeout
 #define kUSBHostClassRequestCompletionTimeout                   5000ULL
 #endif
 
 #ifndef kHIDDriverRetryCount
 #define kHIDDriverRetryCount                                    3
+#endif
+
+#ifndef kIOServicePlane
+#define kIOServicePlane                 "IOService"
 #endif
 
 #define DISPATCH_TIME_FOREVER (~0ull)
@@ -197,6 +206,9 @@ struct IOUserUSBHostHIDDevice_IVars
     IOUSBHostPipe                       * outPipe;
     uint32_t                            outMaxPacketSize;
     const IOUSBEndpointDescriptor *     outDescriptor;
+    // Array of OSActions for outstanding async USB IO requests.
+    // All the actions's should have IOUSBHIDCompletion as their internal reference.
+    OSArray                             * outputActions;
 
     IOBufferMemoryDescriptor            *zlpBuffer;
     IOBufferMemoryDescriptor            *reportBuffer;
@@ -206,6 +218,7 @@ struct IOUserUSBHostHIDDevice_IVars
     OSAction                            * timerAction;
     IODispatchQueue                     * queue;
     bool                                termination;
+    bool                                bulkPipeSupport;
 };
 
 
@@ -221,6 +234,7 @@ struct IOUserUSBHostHIDDevice_IVars
 #define _outPipe                    (ivars->outPipe)
 #define _inBufferSize               (ivars->inBufferSize)
 #define _outMaxPacketSize           (ivars->outMaxPacketSize)
+#define _outputActions              (ivars->outputActions)
 #define _zlpBuffer                  (ivars->zlpBuffer)
 #define _reportBuffer               (ivars->reportBuffer)
 #define _ioAction                   (ivars->ioAction)
@@ -229,6 +243,7 @@ struct IOUserUSBHostHIDDevice_IVars
 #define _inDescriptor               (ivars->inDescriptor)
 #define _outDescriptor              (ivars->outDescriptor)
 #define _termination                (ivars->termination)
+#define _bulkPipeSupport            (ivars->bulkPipeSupport)
 
 
 
@@ -256,6 +271,7 @@ kern_return_t
 IMPL(IOUserUSBHostHIDDevice, Start)
 {
     OSDictionary *                      properties          = NULL;
+    OSDictionary *                      temp_dictionary     = NULL;
     kern_return_t                       ret;
     uint8_t                             speed;
     uint64_t                            inputReportSize;
@@ -284,6 +300,12 @@ IMPL(IOUserUSBHostHIDDevice, Start)
     deviceDescriptor = _device->CopyDeviceDescriptor();
     require_action (deviceDescriptor, exit, ret = kIOReturnNoResources; HIDServiceLogError("CopyDeviceDescriptor"));
 
+    // Workaround instead of SearchProperty due to rdar://problem/67564616
+    ret = CopyProperties(&temp_dictionary, SUPERDISPATCH);
+    if (ret == kIOReturnSuccess) {
+        _bulkPipeSupport = OSDictionaryGetValue(temp_dictionary, kIOHIDBulkPipeSupportKey) == kOSBooleanTrue;
+    }
+
     ret = Start(provider, SUPERDISPATCH);
     require_noerr_action (ret, exit, HIDServiceLogError("Start(SUPERDISPATCH):%x", ret));
 
@@ -302,6 +324,8 @@ IMPL(IOUserUSBHostHIDDevice, Start)
     require_action (inputReportSize, exit, ret = kIOReturnError; HIDServiceLogError("inputReportSize"));
     
     _inBufferSize = ((inputReportSize + (inMaxPacketSize - 1)) / inMaxPacketSize) * inMaxPacketSize;
+
+    _outputActions = OSArray::withCapacity(2);
     
     HIDServiceLog ("inPipe:%d  inputReportSize:%d inMaxPacketSize:%d inBufferSize:%d",
                    _inPipe ? 1 : 0,
@@ -327,7 +351,7 @@ IMPL(IOUserUSBHostHIDDevice, Start)
             break;
         }
         _outMaxPacketSize =  IOUSBGetEndpointMaxPacketSize (speed, _outDescriptor);
-        
+
     } while (false);
 
     HIDServiceLog ("outPipe:%d  outMaxPacketSize:%d",
@@ -338,20 +362,20 @@ IMPL(IOUserUSBHostHIDDevice, Start)
     if (  (_interfaceDescriptor->bInterfaceClass == kUSBHIDDKClass)
        && (_interfaceDescriptor->bInterfaceSubClass == kUSBHIDDKBootInterfaceSubClass)
        && (_interfaceDescriptor->bInterfaceProtocol == kHIDDKKeyboardInterfaceProtocol)) {
-        
+
         setIdle (USBToHost16(deviceDescriptor->idVendor) == kIOUSBAppleVendorID ? 0 : 24);
     }
-    
+
     if(kUSBHIDDKBootInterfaceSubClass == _interfaceDescriptor->bInterfaceSubClass) {
         setProtocol(kHIDDKReportProtocolValue);
     }
-    
+
     idlePolicy = OSDictionaryGetUInt64Value (properties, kUSBHostHIDDevicePropertyIdlePolicy);
     if (idlePolicy) {
         setIdlePolicy (USBIdlePolicyTypeInterface, idlePolicy);
         setIdlePolicy (USBIdlePolicyTypePipe, idlePolicy);
     }
-    
+
     idlePolicy = OSDictionaryGetUInt64Value (properties, kUSBHostHIDDeviceInterfaceIdlePolicyKey);
     if (idlePolicy) {
         setIdlePolicy (USBIdlePolicyTypeInterface, idlePolicy);
@@ -378,7 +402,8 @@ exit:
     if (ret != kIOReturnSuccess) {
         HIDServiceLogFault("Start failed: 0x%x", ret);
     }
-    
+
+    OSSafeReleaseNULL(temp_dictionary);
     OSSafeReleaseNULL(properties);
     
     if (deviceDescriptor) {
@@ -400,20 +425,23 @@ IMPL(IOUserUSBHostHIDDevice, Stop)
     
     provider->GetRegistryEntryID(&regID);
     HIDTrace(kHIDDK_Dev_Stop, getRegistryID(), regID, 0, 0);
-    
-    __block _Atomic uint32_t cancelCount = 0;
-    
+
     _termination = true;
+
+    _Atomic uint32_t __block cancelCount = 0;
     
     if (_interface) {
         IOReturn close = _interface->Close(this, 0);
         HIDServiceLog("Close interface: 0x%llx 0x%x", regID, close);
     }
-    
+    if (_outputActions) {
+        cancelCount += _outputActions->getCount();
+    }
+
     cancelCount += ShouldCancel (_timerSource);
     cancelCount += ShouldCancel (_ioAction);
-    
-    void (^finalize)(void) = ^{
+
+    void(^finalize)(void) = ^{
         if (__c11_atomic_fetch_sub(&cancelCount, 1U, __ATOMIC_RELAXED) <= 1) {
             IOReturn status;
             status = Stop(provider, SUPERDISPATCH);
@@ -423,6 +451,18 @@ IMPL(IOUserUSBHostHIDDevice, Stop)
     if (!cancelCount) {
         ret = Stop(provider, SUPERDISPATCH);
     } else {
+        if (_outputActions) {
+            _outputActions->iterateObjects(^(OSObject* obj) {
+                OSAction *action = (OSAction*) obj;
+                IOUSBHIDCompletion * __block hidCompletion = static_cast<IOUSBHIDCompletion*>(action->GetReference());
+                DoCancel(action, ^{
+                    OSSafeReleaseNULL(hidCompletion->hidAction);
+                    OSSafeReleaseNULL(hidCompletion->report);
+                    finalize();
+                });
+                return true;
+            });
+        }
         DoCancel (_timerSource, finalize);
         DoCancel (_ioAction, finalize);
     }
@@ -449,6 +489,7 @@ void IOUserUSBHostHIDDevice::free()
     OSSafeReleaseNULL(_queue);
     OSSafeReleaseNULL(_reportBuffer);
     OSSafeReleaseNULL(_ioAction);
+    OSSafeReleaseNULL(_outputActions);
     IOSafeDeleteNULL(ivars, IOUserUSBHostHIDDevice_IVars, 1);
     super::free ();
 }
@@ -547,7 +588,7 @@ OSDictionary * IOUserUSBHostHIDDevice::newDeviceDescription ()
     }
     
 exit:
-    
+
     OSSafeReleaseNULL(properties);
     if (deviceDescriptor) {
         IOUSBHostFreeDescriptor(deviceDescriptor);
@@ -709,13 +750,165 @@ kern_return_t IOUserUSBHostHIDDevice::setReport(IOMemoryDescriptor      * report
                                                 uint32_t                completionTimeout,
                                                 OSAction                * action)
 {
-    kern_return_t ret = setReport(report, reportType, options, completionTimeout);
-    CompleteReport(action, ret, 0);
+    kern_return_t           ret              = kIOReturnNotReady;
+    uint64_t                reportLength     = 0;
+    OSAction *              outputAction     = NULL;
+    IOUSBHIDCompletion *    completeInfo     = NULL;
+    uint8_t                 reportID;
+    uint8_t                 usbReportType;
 
+    require_action(!_termination, exit, ret = kIOReturnOffline);
+
+    if (!completionTimeout) {
+        completionTimeout = kUSBHostClassRequestCompletionTimeout;
+    }
+
+    report->GetLength(&reportLength);
+
+    usbReportType = HID_MGR_2_USB_REPORT_TYPE(reportType);
+
+    do {
+        if (usbReportType != kHIDOutputReport) {
+            break;
+        }
+
+        if (_outPipe == NULL || _outMaxPacketSize == 0) {
+            break;
+        }
+
+        ret = CreateActionCompleteOutputReport(sizeof(IOUSBHIDCompletion), &outputAction);
+        require_noerr_action(ret, exit, HIDServiceLogError("CreateActionCompleteOuputReport:%x", ret));
+
+        completeInfo = (IOUSBHIDCompletion*)outputAction->GetReference();
+        completeInfo->hidAction = action;
+        completeInfo->report = report;
+        report->retain();
+        action->retain();
+
+        require_action(_outputActions->setObject(outputAction), exit, ret = kIOReturnNoMemory);
+
+        ret = _outPipe->AsyncIO(report,
+                                (uint32_t)(reportLength),
+                                outputAction,
+                                0);
+        require_noerr_action(ret, exit, HIDServiceLogError("_outPipe->AsyncIO(%d):0x%x", (int)reportLength, ret));
+
+        outputAction->release();
+
+        return ret;
+    } while (false);
+
+    reportID = (uint8_t)(options & 0xff);
+    ret = CreateActionCompleteOutputRequest(sizeof(IOUSBHIDCompletion), &outputAction);
+    require_noerr_action(ret, exit, HIDServiceLogError("CreateActionCompleteOuputRequest:%x", ret));
+
+    completeInfo = (IOUSBHIDCompletion*)outputAction->GetReference();
+    completeInfo->hidAction = action;
+    completeInfo->report = report;
+    report->retain();
+    action->retain();
+
+    require_action(_outputActions->setObject(outputAction), exit, ret = kIOReturnNoMemory);
+
+    ret = _device->AsyncDeviceRequest (_interface,
+                                       kIOUSBDeviceRequestDirectionOut | kIOUSBDeviceRequestTypeClass | kIOUSBDeviceRequestRecipientInterface,
+                                       kHIDDKRqSetReport,
+                                       (uint16_t)((usbReportType << 8) | reportID),
+                                       _bInterfaceNumber,
+                                       (uint16_t)(reportLength),
+                                       report,
+                                       outputAction,
+                                       completionTimeout);
+
+    if (ret != kIOReturnSuccess) {
+        HIDServiceLogError("_device->AsyncDeviceRequest(%d):0x%x", (int)reportLength, ret);
+    }
+
+exit:
+    if (ret != kIOReturnSuccess) {
+        // Send status to action to complete report.
+        CompleteReport(action, ret, 0);
+
+        // Release unused action
+        if (outputAction) {
+            size_t index = 0;
+            size_t count = _outputActions->getCount();
+            for (; index < count; ++index) {
+                OSObject *obj = _outputActions->getObject(index);
+                if (obj->isEqualTo(outputAction)) {
+                    IOUSBHIDCompletion *hidCompletion = (IOUSBHIDCompletion*)((OSAction*)obj)->GetReference();
+                    OSSafeReleaseNULL(hidCompletion->hidAction);
+                    OSSafeReleaseNULL(hidCompletion->report);
+                    _outputActions->removeObject(index);
+                    break;
+                }
+            }
+        }
+    }
+    // Release create reference, _outputActions owns action now.
+    OSSafeReleaseNULL(outputAction);
     return ret;
 }
 
 
+void
+IMPL(IOUserUSBHostHIDDevice, CompleteOutputReport)
+{
+    IOUSBHIDCompletion *hidCompletion = (IOUSBHIDCompletion*)action->GetReference();
+    IOMemoryDescriptor *report = hidCompletion->report;
+    OSAction *reportAction = hidCompletion->hidAction;
+    uint64_t reportLength;
+    uint32_t bytesTransferred;
+
+    require_action(report && reportAction, abort, HIDServiceLogError("ComleteOutputReport: Missing completion info, cannot complete callback."));
+    require_noerr_action(status, exit, HIDServiceLogDebug("CompleteOutputReport:0x%x", status));
+
+    report->GetLength(&reportLength);
+
+    if (reportLength != _outMaxPacketSize && (reportLength % _outMaxPacketSize) == 0) {
+        _outPipe->IO(_zlpBuffer, 0, &bytesTransferred, 0);
+    }
+
+exit:
+    CompleteReport(reportAction, status, actualByteCount);
+abort:
+    OSSafeReleaseNULL(hidCompletion->hidAction);
+    OSSafeReleaseNULL(hidCompletion->report);
+    size_t index = 0;
+    size_t count = _outputActions->getCount();
+    for (; index < count; ++index) {
+        OSObject *obj = _outputActions->getObject(index);
+        if (obj->isEqualTo(action)) {
+            _outputActions->removeObject(index);
+            break;
+        }
+    }
+}
+
+void
+IMPL(IOUserUSBHostHIDDevice, CompleteOutputRequest)
+{
+    IOUSBHIDCompletion *hidCompletion = (IOUSBHIDCompletion*)action->GetReference();
+    IOMemoryDescriptor *report = hidCompletion->report;
+    OSAction *reportAction = hidCompletion->hidAction;
+
+    require_action(report && reportAction, abort, HIDServiceLogError("CompleteOutputRequest: Missing completion info, cannot complete callback."));
+    require_noerr_action(status, abort, HIDServiceLogDebug("CompleteOutputRequest:0x%x", status));
+
+abort:
+    CompleteReport(reportAction, status, bytesTransferred);
+    OSSafeReleaseNULL(hidCompletion->hidAction);
+    OSSafeReleaseNULL(hidCompletion->report);
+    size_t index = 0;
+    size_t count = _outputActions->getCount();
+    for (; index < count; ++index) {
+        OSObject *obj = _outputActions->getObject(index);
+        if (obj->isEqualTo(action)) {
+            _outputActions->removeObject(index);
+            break;
+        }
+    }
+}
 
 kern_return_t IOUserUSBHostHIDDevice::setProtocol (uint16_t protocol)
 {
@@ -755,10 +948,15 @@ IMPL(IOUserUSBHostHIDDevice, CompleteInputReport)
     //HIDServiceLogDebug("CompleteInReport actualByteCount:%d", actualByteCount);
     
     require(_termination == false, exit);
-
+    
+    
     if (status == kIOReturnSuccess) {
         cancelInputReportRetry();
-        handleReport(completionTimestamp, _reportBuffer, actualByteCount, kIOHIDReportTypeInput, 0);
+        if (_inBufferSize < actualByteCount) {
+            HIDServiceLogError("CompleteInputReport actualByteCount:%d inBufferSize:%d", (int)actualByteCount, (int)_inBufferSize);
+        } else {
+            handleReport(completionTimestamp, _reportBuffer, actualByteCount, kIOHIDReportTypeInput, 0);
+        }
         status = initInputReport();
     }
     
@@ -857,15 +1055,29 @@ kern_return_t IOUserUSBHostHIDDevice::initPipes ()
     while ((endpointDescriptor = IOUSBGetNextEndpointDescriptor (_configurationDescriptor,
                                                                 _interfaceDescriptor,
                                                                 (const IOUSBDescriptorHeader *)endpointDescriptor)) != NULL) {
-        
-        if (IOUSBGetEndpointType (endpointDescriptor) == kIOUSBEndpointTypeInterrupt) {
-            IOUSBHostPipe ** pipe = (IOUSBGetEndpointDirection(endpointDescriptor) == kIOUSBEndpointDirectionIn) ? &_inPipe : &_outPipe;
-            const IOUSBEndpointDescriptor **  decriptor = (IOUSBGetEndpointDirection(endpointDescriptor) == kIOUSBEndpointDirectionIn) ? &_inDescriptor : &_outDescriptor;
+        uint8_t endpointType = IOUSBGetEndpointType (endpointDescriptor);
 
-            *decriptor = endpointDescriptor;
+        if (endpointType == kIOUSBEndpointTypeBulk && !_bulkPipeSupport) {
+            // Skip Bulk Pipe support if the BulkPipe key isn't set
+            HIDServiceLogInfo("Bulk pipe found but ignored due to no HIDBulkPipeSupport.");
+            continue;
+        }
+        if (endpointType == kIOUSBEndpointTypeInterrupt ||
+                endpointType == kIOUSBEndpointTypeBulk) {
+            bool endpointIn = IOUSBGetEndpointDirection(endpointDescriptor) == kIOUSBEndpointDirectionIn;
+            IOUSBHostPipe ** pipe = endpointIn ? &_inPipe : &_outPipe;
+            const IOUSBEndpointDescriptor **  descriptor = endpointIn ? &_inDescriptor : &_outDescriptor;
+
+            if (*pipe) {
+                // Release old pipe, use current endpoint and pipe.
+                OSSafeReleaseNULL(*pipe);
+            }
+
+            *descriptor = endpointDescriptor;
             
             ret  = _interface->CopyPipe (IOUSBGetEndpointAddress(endpointDescriptor), pipe);
             require_noerr_action (ret, exit, HIDServiceLogError("CopyPipe:%x", ret));
+
             if (_inPipe != NULL && _outPipe != NULL) {
                 break;
             }
@@ -974,71 +1186,6 @@ IOUserUSBHostHIDDevice::getReport (IOMemoryDescriptor      * report,
 exit:
     return ret;
 }
-
-
-kern_return_t
-IOUserUSBHostHIDDevice::setReport (IOMemoryDescriptor      * report,
-                                   IOHIDReportType         reportType,
-                                   IOOptionBits            options,
-                                   uint32_t                completionTimeout)
-{
-    kern_return_t           ret              = kIOReturnNotReady;
-    uint64_t                reportLength     = 0;
-    uint8_t                 reportID;
-    uint8_t                 usbReportType;
-    uint32_t                bytesTransferred = 0;
-    
-    require_action(!_termination, exit, ret = kIOReturnOffline);
-    
-    if (!completionTimeout) {
-        completionTimeout = kUSBHostClassRequestCompletionTimeout;
-    }
-    
-    report->GetLength(&reportLength);
-    
-    usbReportType = HID_MGR_2_USB_REPORT_TYPE(reportType);
-    
-    do {
-        if (usbReportType != kHIDOutputReport) {
-            break;
-        }
-        
-        if (_outPipe == NULL || _outMaxPacketSize == 0) {
-            break;
-        }
-        
-        ret = _outPipe->IO(report,
-                           (uint32_t)(reportLength),
-                           &bytesTransferred,
-                           0);
-        if (ret != kIOReturnSuccess) {
-            HIDServiceLogError("_outPipe->IO(%d):0x%x", (int)reportLength, ret);
-            break;
-        }
-        
-        if (reportLength != _outMaxPacketSize && (reportLength % _outMaxPacketSize) == 0) {
-            _outPipe->IO(_zlpBuffer, 0, &bytesTransferred, 0);
-        }
-        
-        return ret;
-    } while (false);
-    
-    reportID = (uint8_t)(options & 0xff);
-    bytesTransferred = 0;
-    ret = _device->DeviceRequest (_interface,
-                                  kIOUSBDeviceRequestDirectionOut | kIOUSBDeviceRequestTypeClass | kIOUSBDeviceRequestRecipientInterface,
-                                  kHIDDKRqSetReport,
-                                  (uint16_t)((usbReportType << 8) | reportID),
-                                  _bInterfaceNumber,
-                                  (uint16_t)(reportLength),
-                                  report,
-                                  (uint16_t*)&bytesTransferred,
-                                  completionTimeout);
-    
-exit:
-    return ret;
-}
-
 
 void  IOUserUSBHostHIDDevice::setProperty(OSObject * key, OSObject * value)
 {

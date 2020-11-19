@@ -1,18 +1,23 @@
-﻿// ***************************************************************************
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved. Apple addition.
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_BG{
     %%Parent{"en_150"}
     NumberElements{
         latn{
+            patterns{
+                accountingFormat{"0.00 ¤;(0.00 ¤)"}
+                currencyFormat{"0.00 ¤"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0%"}
+                scientificFormat{"#E0"}
+            }
             symbols{
                 decimal{","}
                 group{" "}
             }
         }
     }
-    Version{"2.1.11.50"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -44,26 +49,26 @@ en_BG{
             }
             intervalFormats{
                 MEd{
-                    M{"E, d.MM – E, d.MM"}
-                    d{"E, d.MM – E, d.MM"}
+                    M{"E, d.MM – E, d.MM"}
+                    d{"E, d.MM – E, d.MM"}
                 }
                 Md{
-                    M{"d.MM – d.MM"}
-                    d{"d.MM – d.MM"}
+                    M{"d.MM – d.MM"}
+                    d{"d.MM – d.MM"}
                 }
                 yM{
-                    M{"MM – MM.y G"}
-                    y{"MM.y – MM.y G"}
+                    M{"MM – MM.y G"}
+                    y{"MM.y – MM.y G"}
                 }
                 yMEd{
-                    M{"E, d.MM – E, d.MM.y G"}
-                    d{"E, d.MM – E, d.MM.y G"}
-                    y{"E, d.MM.y – E, d.MM.y G"}
+                    M{"E, d.MM – E, d.MM.y G"}
+                    d{"E, d.MM – E, d.MM.y G"}
+                    y{"E, d.MM.y – E, d.MM.y G"}
                 }
                 yMd{
-                    M{"d.MM – d.MM.y G"}
-                    d{"d.MM – d.MM.y G"}
-                    y{"d.MM.y – d.MM.y G"}
+                    M{"d.MM – d.MM.y G"}
+                    d{"d.MM – d.MM.y G"}
+                    y{"d.MM.y – d.MM.y G"}
                 }
             }
         }
@@ -92,26 +97,26 @@ en_BG{
             }
             intervalFormats{
                 MEd{
-                    M{"E, d.MM – E, d.MM"}
-                    d{"E, d.MM – E, d.MM"}
+                    M{"E, d.MM – E, d.MM"}
+                    d{"E, d.MM – E, d.MM"}
                 }
                 Md{
-                    M{"d.MM – d.MM"}
-                    d{"d.MM – d.MM"}
+                    M{"d.MM – d.MM"}
+                    d{"d.MM – d.MM"}
                 }
                 yM{
-                    M{"MM – MM.y"}
-                    y{"MM.y – MM.y"}
+                    M{"MM – MM.y"}
+                    y{"MM.y – MM.y"}
                 }
                 yMEd{
-                    M{"E, d.MM – E, d.MM.y"}
-                    d{"E, d.MM – E, d.MM.y"}
-                    y{"E, d.MM.y – E, d.MM.y"}
+                    M{"E, d.MM – E, d.MM.y"}
+                    d{"E, d.MM – E, d.MM.y"}
+                    y{"E, d.MM.y – E, d.MM.y"}
                 }
                 yMd{
-                    M{"d.MM – d.MM.y"}
-                    d{"d.MM – d.MM.y"}
-                    y{"d.MM.y – d.MM.y"}
+                    M{"d.MM – d.MM.y"}
+                    d{"d.MM – d.MM.y"}
+                    y{"d.MM.y – d.MM.y"}
                 }
             }
         }

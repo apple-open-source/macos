@@ -67,7 +67,7 @@ int     MSDOS_Rename (UVFSFileNode fromDirNode, UVFSFileNode fromNode, const cha
 void        MSDOS_GetAtrrFromDirEntry (NodeRecord_s* psNodeRecord, UVFSFileAttributes *outAttrs);
 uint64_t    MSDOS_GetFileID (NodeRecord_s* psNodeRecord);
 
-int  FILEOPS_UpdateLastModifiedTime( NodeRecord_s* psNodeRecord );
+int  FILEOPS_UpdateLastModifiedTime(NodeRecord_s* psNodeRecord, bool *pbShouldFlush);
 int  FILEOPS_PreAllocateClusters(NodeRecord_s* psNodeRecord, LIFilePreallocateArgs_t* psPreAllocReq, LIFilePreallocateArgs_t* psPreAllocRes);
 void FILEOPS_FreeUnusedPreAllocatedClusters(NodeRecord_s* psNodeRecord);
 

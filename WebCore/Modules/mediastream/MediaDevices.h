@@ -79,7 +79,13 @@ public:
         Variant<bool, MediaTrackConstraints> audio;
     };
     void getUserMedia(const StreamConstraints&, Promise&&);
-    void getDisplayMedia(const StreamConstraints&, Promise&&);
+
+    struct DisplayMediaStreamConstraints {
+        Variant<bool, MediaTrackConstraints> video;
+        Variant<bool, MediaTrackConstraints> audio;
+    };
+    void getDisplayMedia(const DisplayMediaStreamConstraints&, Promise&&);
+
     void enumerateDevices(EnumerateDevicesPromise&&);
     MediaTrackSupportedConstraints getSupportedConstraints();
 
@@ -100,7 +106,7 @@ private:
     // ActiveDOMObject
     const char* activeDOMObjectName() const final;
     void stop() final;
-    bool hasPendingActivity() const final;
+    bool virtualHasPendingActivity() const final;
 
     // EventTargetWithInlineData.
     EventTargetInterface eventTargetInterface() const final { return MediaDevicesEventTargetInterfaceType; }

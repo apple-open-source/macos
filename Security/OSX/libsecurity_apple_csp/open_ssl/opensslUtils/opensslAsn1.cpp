@@ -35,7 +35,7 @@
 #include <Security/oidsalg.h>
 #include <Security/SecAsn1Templates.h>
 
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 #define sslAsn1Debug(args...)	secinfo("sslAsn1", ##args)
 

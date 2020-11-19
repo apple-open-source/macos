@@ -59,32 +59,36 @@ large_debug_print(task_t task, unsigned level, vm_address_t zone_address,
 		}
 
 #if CONFIG_LARGE_CACHE
-		_simple_sprintf(b, "\nLarge allocator death row cache, %d entries\n"
-				"\tMax cached size:\t%y\n",
-				mapped_szone->large_cache_depth,
-				(uint64_t)mapped_szone->large_cache_entry_limit);
-		_simple_sprintf(b, "\tCurrent size:\t\t%y\n\tReserve size:\t\t%y\n"
-				"\tReserve limit:\t\t%y\n",
-				mapped_szone->large_entry_cache_bytes,
-				mapped_szone->large_entry_cache_reserve_bytes,
-				mapped_szone->large_entry_cache_reserve_limit);
-		for (index = 0, range = mapped_szone->large_entry_cache;
-				index < mapped_szone->large_cache_depth; index++, range++) {
-			_simple_sprintf(b, "   Slot %5d: %p, size %y", index,
-					(void *)range->address, range->size);
-			char *age = "";
-			if (index == mapped_szone->large_entry_cache_newest) {
-				age = "[newest]";
-			} else if (index == mapped_szone->large_entry_cache_oldest) {
-				age = "[oldest]";
+		if (large_cache_enabled) {
+			_simple_sprintf(b, "\nLarge allocator death row cache, %d entries\n"
+					"\tMax cached size:\t%y\n",
+					mapped_szone->large_cache_depth,
+					(uint64_t)mapped_szone->large_cache_entry_limit);
+			_simple_sprintf(b, "\tCurrent size:\t\t%y\n\tReserve size:\t\t%y\n"
+					"\tReserve limit:\t\t%y\n",
+					mapped_szone->large_entry_cache_bytes,
+					mapped_szone->large_entry_cache_reserve_bytes,
+					mapped_szone->large_entry_cache_reserve_limit);
+			for (index = 0, range = mapped_szone->large_entry_cache;
+					index < mapped_szone->large_cache_depth; index++, range++) {
+				_simple_sprintf(b, "   Slot %5d: %p, size %y", index,
+						(void *)range->address, range->size);
+				char *age = "";
+				if (index == mapped_szone->large_entry_cache_newest) {
+					age = "[newest]";
+				} else if (index == mapped_szone->large_entry_cache_oldest) {
+					age = "[oldest]";
+				}
+				_simple_sprintf(b, " %s %s\n", age,
+					(range->did_madvise_reusable ? " madvised" : ""));
 			}
-			_simple_sprintf(b, " %s %s\n", age,
-				(range->did_madvise_reusable ? " madvised" : ""));
+			_simple_sprintf(b, "\n");
 		}
-		_simple_sprintf(b, "\n");
-#else 	// CONFIG_LARGE_CACHE
-		_simple_sprintf(b, "Large allocator death row cache not configured\n");
-#endif	// CONFIG_LARGE_CACHE
+		else
+#endif 	// CONFIG_LARGE_CACHE
+		{
+			_simple_sprintf(b, "Large allocator death row cache not configured\n");
+		}
 		printer("%s\n", _simple_string(b));
 		_simple_sfree(b);
 	}
@@ -238,7 +242,7 @@ large_entries_alloc_no_lock(szone_t *szone, unsigned num)
 	// That is certainly evil, however it's very rare in the lifetime of a process
 	// The alternative would slow down the normal case
 	unsigned flags = MALLOC_APPLY_LARGE_ASLR(szone->debug_flags & (DISABLE_ASLR | DISABLE_LARGE_ASLR));
-	return mvm_allocate_pages(round_page_quanta(size), 0, flags, VM_MEMORY_MALLOC_LARGE);
+	return mvm_allocate_pages(round_large_page_quanta(size), 0, flags, VM_MEMORY_MALLOC_LARGE);
 }
 
 void
@@ -247,7 +251,7 @@ large_entries_free_no_lock(szone_t *szone, large_entry_t *entries, unsigned num,
 	size_t size = num * sizeof(large_entry_t);
 
 	range_to_deallocate->address = (vm_address_t)entries;
-	range_to_deallocate->size = round_page_quanta(size);
+	range_to_deallocate->size = round_large_page_quanta(size);
 }
 
 static large_entry_t *
@@ -258,7 +262,7 @@ large_entries_grow_no_lock(szone_t *szone, vm_range_t *range_to_deallocate)
 	large_entry_t *old_entries = szone->large_entries;
 	// always an odd number for good hashing
 	unsigned new_num_entries =
-	(old_num_entries) ? old_num_entries * 2 + 1 : (unsigned)((vm_page_quanta_size / sizeof(large_entry_t)) - 1);
+	(old_num_entries) ? old_num_entries * 2 + 1 : (unsigned)((large_vm_page_quanta_size / sizeof(large_entry_t)) - 1);
 	large_entry_t *new_entries = large_entries_alloc_no_lock(szone, new_num_entries);
 	unsigned index = old_num_entries;
 	large_entry_t oldRange;
@@ -303,8 +307,8 @@ large_entry_free_no_lock(szone_t *szone, large_entry_t *entry)
 
 	if (szone->debug_flags & MALLOC_ADD_GUARD_PAGE_FLAGS) {
 		mvm_protect((void *)range.address, range.size, PROT_READ | PROT_WRITE, szone->debug_flags);
-		range.address -= vm_page_quanta_size;
-		range.size += 2 * vm_page_quanta_size;
+		range.address -= large_vm_page_quanta_size;
+		range.size += 2 * large_vm_page_quanta_size;
 	}
 
 	entry->address = 0;
@@ -346,7 +350,7 @@ large_in_use_enumerator(task_t task,
 	index = num_entries;
 	if (type_mask & MALLOC_ADMIN_REGION_RANGE_TYPE) {
 		range.address = large_entries_address;
-		range.size = round_page_quanta(num_entries * sizeof(large_entry_t));
+		range.size = round_large_page_quanta(num_entries * sizeof(large_entry_t));
 		recorder(task, context, MALLOC_ADMIN_REGION_RANGE_TYPE, &range, 1);
 	}
 	if (type_mask & (MALLOC_PTR_IN_USE_RANGE_TYPE | MALLOC_PTR_REGION_RANGE_TYPE)) {
@@ -382,12 +386,12 @@ large_malloc(szone_t *szone, size_t num_kernel_pages, unsigned char alignment, b
 	if (!num_kernel_pages) {
 		num_kernel_pages = 1; // minimal allocation size for this szone
 	}
-	size = (size_t)num_kernel_pages << vm_page_quanta_shift;
+	size = (size_t)num_kernel_pages << large_vm_page_quanta_shift;
 	range_to_deallocate.size = 0;
 	range_to_deallocate.address = 0;
 
 #if CONFIG_LARGE_CACHE
-	if (size <= szone->large_cache_entry_limit) { // Look for a large_entry_t on the death-row cache?
+	if (large_cache_enabled && size <= szone->large_cache_entry_limit) { // Look for a large_entry_t on the death-row cache?
 		SZONE_LOCK(szone);
 
 		int i, best = -1, idx = szone->large_entry_cache_newest, stop_idx = szone->large_entry_cache_oldest;
@@ -563,7 +567,8 @@ free_large(szone_t *szone, void *ptr)
 	entry = large_entry_for_pointer_no_lock(szone, ptr);
 	if (entry) {
 #if CONFIG_LARGE_CACHE
-		if (entry->size <= szone->large_cache_entry_limit &&
+		if (large_cache_enabled &&
+			entry->size <= szone->large_cache_entry_limit &&
 			-1 != madvise((void *)(entry->address), entry->size,
 						  MADV_CAN_REUSE)) { // Put the large_entry_t on the death-row cache?
 				int idx = szone->large_entry_cache_newest, stop_idx = szone->large_entry_cache_oldest;
@@ -779,13 +784,13 @@ large_try_shrink_in_place(szone_t *szone, void *ptr, size_t old_size, size_t new
 			// Keep the page above the new end of the allocation as the
 			// postlude guard page.
 			kern_return_t err;
-			err = mprotect((void *)((uintptr_t)ptr + new_good_size), vm_page_quanta_size, 0);
+			err = mprotect((void *)((uintptr_t)ptr + new_good_size), large_vm_page_quanta_size, 0);
 			if (err) {
 				malloc_report(ASL_LEVEL_ERR, "*** can't mvm_protect(0x0) region for new postlude guard page at %p\n",
 						  ptr + new_good_size);
 			}
-			new_good_size += vm_page_quanta_size;
-			shrinkage -= vm_page_quanta_size;
+			new_good_size += large_vm_page_quanta_size;
+			shrinkage -= large_vm_page_quanta_size;
 		}
 
 		mvm_deallocate_pages((void *)((uintptr_t)ptr + new_good_size), shrinkage, 0);
@@ -808,7 +813,7 @@ large_try_realloc_in_place(szone_t *szone, void *ptr, size_t old_size, size_t ne
 		return 0;	  // large pointer already exists in table - extension is not going to work
 	}
 
-	new_size = round_page_quanta(new_size);
+	new_size = round_large_page_quanta(new_size);
 	/*
 	 * Ask for allocation at a specific address, and mark as realloc
 	 * to request coalescing with previous realloc'ed extensions.

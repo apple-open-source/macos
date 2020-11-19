@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, 2013, 2015-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,20 +37,18 @@ os_log_t	SC_LOG_HANDLE(void);
 #include <SystemConfiguration/SCPrivate.h>
 #include <SystemConfiguration/scprefs_observer.h>
 
-#define	MANAGED_PREFERENCES_PATH	"/Library/Managed Preferences"
-#if	TARGET_OS_IPHONE
-#define	MOBILE_PREFERENCES_PATH		"/var/mobile/Library/Preferences"
-#endif	// TARGET_OS_IPHONE
-
 #if	!TARGET_OS_IPHONE
-#define	PREFS_OBSERVER_KEY		"com.apple.MCX._managementStatusChangedForDomains"
+#define	MANAGED_PREFERENCES_PATH	"/Library/Managed Preferences"
+#define	PREFS_OBSERVER_KEY		"com.apple.MCX._managementStatusChangedForDomains"	// posted by CF (OK for macOS, iOS)
 #else	// !TARGET_OS_IPHONE
-#define	PREFS_OBSERVER_KEY		"com.apple.ManagedConfiguration.profileListChanged"
+#define	MANAGED_PREFERENCES_MOBILE_PATH	"/Library/Managed Preferences/mobile"
+#define	PREFS_OBSERVER_KEY		"com.apple.ManagedConfiguration.profileListChanged"	// posted by ManagedConfiguration
 #endif	// !TARGET_OS_IPHONE
 
 #pragma mark -
 #pragma mark Utils
 
+#if	!TARGET_OS_IPHONE
 static void
 iterate_dir(const char *d_name, const char *f_name,
 	    CC_SHA256_CTX *ctxP, Boolean *found)
@@ -88,8 +86,8 @@ iterate_dir(const char *d_name, const char *f_name,
 				*/
 				CC_SHA256_Update(ctxP, full_path, (CC_LONG)strlen(full_path));
 				CC_SHA256_Update(ctxP,
-					       (void *)&s.st_mtimespec.tv_sec,
-					       sizeof(s.st_mtimespec.tv_sec));
+						 (void *)&s.st_mtimespec,
+						 sizeof(s.st_mtimespec));
 				*found = TRUE;
 			}
 		}
@@ -97,6 +95,26 @@ iterate_dir(const char *d_name, const char *f_name,
 	closedir(dir);
 	return;
 }
+#else	// !TARGET_OS_IPHONE
+static void
+observe_plist(const char *d_name, const char *f_name,
+	      CC_SHA256_CTX *ctxP, Boolean *found)
+{
+	char		full_path[MAXPATHLEN];
+	struct stat	s;
+
+	snprintf(full_path, sizeof(full_path), "%s/%s", d_name, f_name);
+	if ((stat(full_path, &s) == 0) && S_ISREG(s.st_mode)) {
+		CC_SHA256_Update(ctxP, full_path, (CC_LONG)strlen(full_path));
+		CC_SHA256_Update(ctxP,
+				 (void *)&s.st_mtimespec,
+				 sizeof(s.st_mtimespec));
+		*found = TRUE;
+	}
+
+	return;
+}
+#endif	// !TARGET_OS_IPHONE
 
 static CF_RETURNS_RETAINED CFDataRef
 build_digest(const char *top_dir, const char *file)
@@ -107,7 +125,11 @@ build_digest(const char *top_dir, const char *file)
 	Boolean		found = FALSE;
 
 	CC_SHA256_Init(&ctx);
+#if	!TARGET_OS_IPHONE
 	iterate_dir(top_dir, file, &ctx, &found);
+#else	// !TARGET_OS_IPHONE
+	observe_plist(top_dir, file, &ctx, &found);
+#endif	// !TARGET_OS_IPHONE
 	CC_SHA256_Final(bytes, &ctx);
 	if (found) {
 		digest = CFDataCreate(NULL, bytes, sizeof(bytes));
@@ -136,9 +158,7 @@ prefs_observer_get_prefs_path(scprefs_observer_t observer)
 		return MANAGED_PREFERENCES_PATH;
 #else	// !TARGET_OS_IPHONE
 	case scprefs_observer_type_global:
-		return MANAGED_PREFERENCES_PATH;
-	case scprefs_observer_type_profile:
-		return MOBILE_PREFERENCES_PATH;
+		return MANAGED_PREFERENCES_MOBILE_PATH;
 #endif	// !TARGET_OS_IPHONE
 	default:
 		return (NULL);

@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>Children</key>
+		<array>
+			<dict>
+				<key>Name</key>
+				<string>handleVBL</string>
+				<key>Type</key>
+				<string>Interval</string>
+				<key>KTraceCodeBegin</key>
+				<string>0x05320011</string>
+				<key>KTraceCodeEnd</key>
+				<string>0x05320012</string>
+				<key>ArgNamesBegin</key>
+				<dict>
+					<key>Arg1</key>
+					<string>RegID</string>
+					<key>Arg2</key>
+					<string>Delta</string>
+					<key>Arg3</key>
+					<string>Calculated Delta</string>
+					<key>Arg4</key>
+					<string>Now</string>
+				</dict>
+				<key>ArgNamesEnd</key>
+				<dict>
+					<key>Arg1</key>
+					<string>RegID</string>
+					<key>Arg2</key>
+					<string>Count</string>
+					<key>Arg3</key>
+					<string>Delta</string>
+					<key>Arg4</key>
+					<string>Bits</string>
+				</dict>
+			</dict>
+			<dict>
+				<key>Name</key>
+				<string>handleVBL - no shmem(!)</string>
+				<key>Type</key>
+				<string>Impulse</string>
+				<key>KTraceCode</key>
+				<string>0x05320010</string>
+				<key>ArgNames</key>
+				<dict>
+					<key>Arg1</key>
+					<string>RegID</string>
+				</dict>
+			</dict>
+		</array>
+		<key>Name</key>
+		<string>IOGraphics Events</string>
+	</dict>
+</array>
+</plist>

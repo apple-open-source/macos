@@ -60,6 +60,7 @@ static CFMachPortRef         __gDAVolumeUpdatedPort   = NULL;
 
 const char * kDAMainMountPointFolder           = "/Volumes";
 const char * kDAMainMountPointFolderCookieFile = ".autodiskmounted";
+const char * kDAMainDataVolumeMountPointFolder = "/System/Volumes/Data";
 
 CFURLRef               gDABundlePath                   = NULL;
 CFStringRef            gDAConsoleUser                  = NULL;
@@ -84,6 +85,31 @@ CFMutableArrayRef      gDARequestList                  = NULL;
 CFMutableArrayRef      gDAResponseList                 = NULL;
 CFMutableArrayRef      gDASessionList                  = NULL;
 CFMutableDictionaryRef gDAUnitList                     = NULL;
+
+#if __CODECOVERAGE__
+#define __segment_start_sym(_sym, _seg) extern void *_sym __asm("segment$start$" #_seg)
+#define __segment_end_sym(_sym, _seg) extern void *_sym __asm("segment$end$" #_seg)
+#define __section_start_sym(_sym, _seg, _sec) extern void *_sym __asm("section$start$" #_seg "$" #_sec)
+#define __section_end_sym(_sym, _seg, _sec) extern void *_sym __asm("section$end$" #_seg "$" #_sec)
+
+uint64_t __llvm_profile_get_size_for_buffer_internal(const char *DataBegin,
+                                                     const char *DataEnd,
+                                                     const char *CountersBegin,
+                                                     const char *CountersEnd ,
+                                                     const char *NamesBegin,
+                                                     const char *NamesEnd);
+int __llvm_profile_write_buffer_internal(char *Buffer,
+                                         const char *DataBegin,
+                                         const char *DataEnd,
+                                         const char *CountersBegin,
+                                         const char *CountersEnd ,
+                                         const char *NamesBegin,
+                                         const char *NamesEnd);
+
+#define DUMP_PROFILE_DATA_SIGNAL    SIGUSR1
+#define CLEAR_PROFILE_DATA_SIGNAL   SIGUSR2
+
+#endif
 
 static void __usage( void )
 {
@@ -196,13 +222,71 @@ static Boolean __DAMainCreateMountPointFolder( void )
     return status ? FALSE : TRUE;
 }
 
+#if __CODECOVERAGE__
+static void clear_profile_data(void)
+{
+    __llvm_profile_reset_counters();
+}
+
+static void dump_profile_data(void)
+{
+    size_t size = 0;
+
+    __section_start_sym(sect_prf_data_start, __DATA, __llvm_prf_data);
+    __section_end_sym(sect_prf_data_end, __DATA, __llvm_prf_data);
+    __section_start_sym(sect_prf_cnts_start, __DATA, __llvm_prf_cnts);
+    __section_end_sym(sect_prf_cnts_end, __DATA, __llvm_prf_cnts);
+    __section_start_sym(sect_prf_name_start, __DATA, __llvm_prf_names);
+    __section_end_sym(sect_prf_name_end, __DATA, __llvm_prf_names);
+
+    size = __llvm_profile_get_size_for_buffer_internal((const char *) &sect_prf_data_start, (const char *) &sect_prf_data_end,
+                                                       (const uint64_t *) &sect_prf_cnts_start,            (const uint64_t *) &sect_prf_cnts_end,
+                                                       (const char *) &sect_prf_name_start,                (const char *)&sect_prf_name_end);
+    void *outputBuffer = malloc(size);
+    if (outputBuffer == NULL) goto exit;
+
+    int err = 0;
+    memset(outputBuffer, 0x00, size);
+
+    err = __llvm_profile_write_buffer_internal((char *)outputBuffer,
+                                               (const char *) &sect_prf_data_start, (const char *) &sect_prf_data_end,
+                                               (const uint64_t *) &sect_prf_cnts_start,            (const uint64_t *) &sect_prf_cnts_end,
+                                               (const char *) &sect_prf_name_start,                (const char *)&sect_prf_name_end);
+
+    if (err) goto exit;
+
+    int f = open ( "/tmp/diskarb.profraw", O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH );
+    if (f<0) goto exit;
+
+    write(f, outputBuffer, size);
+exit:
+    if (f>=0) close (f);
+    if (outputBuffer) free(outputBuffer);
+}
+#endif
+
 static void __DAMainSignal( int sig )
 {
     /*
-     * Process a SIGTERM signal.
+     * Process SIGTERM/SIGUSR1/SIGUSR2 signals.
+     * DUMP_PROFILE_DATA_SIGNAL(SIGUSR1) is used to dump the llvm code coverage data into /tmp/diskarb.profraw
+     * CLEAR_PROFILE_DATA_SIGNAL(SIGUSR2) is used to clear the llvm code coverage data
      */
 
-    gDAExit = TRUE;
+    if (sig == SIGTERM)
+    {
+        gDAExit = TRUE;
+    }
+#if __CODECOVERAGE__
+    else if (sig == DUMP_PROFILE_DATA_SIGNAL)
+    {
+        dump_profile_data();
+    }
+    else
+    {
+        clear_profile_data();
+    }
+#endif
 }
 
 static void __DAMain( void )
@@ -721,6 +805,10 @@ int main( int argc, char * argv[], char * envp[] )
      */
 
     signal( SIGTERM, __DAMainSignal );
+#if __CODECOVERAGE__
+    signal( DUMP_PROFILE_DATA_SIGNAL, __DAMainSignal );
+    signal( CLEAR_PROFILE_DATA_SIGNAL, __DAMainSignal );
+#endif
 
     __DAMain( );
 

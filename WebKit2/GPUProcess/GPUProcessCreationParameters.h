@@ -27,6 +27,8 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "SandboxExtension.h"
+#include <wtf/ProcessID.h>
 namespace IPC {
 class Decoder;
 class Encoder;
@@ -37,10 +39,18 @@ namespace WebKit {
 struct GPUProcessCreationParameters {
     GPUProcessCreationParameters();
 
+#if ENABLE(MEDIA_STREAM)
     bool useMockCaptureDevices { false };
+    SandboxExtension::Handle cameraSandboxExtensionHandle;
+    SandboxExtension::Handle microphoneSandboxExtensionHandle;
+#if PLATFORM(IOS)
+    SandboxExtension::Handle tccSandboxExtensionHandle;
+#endif
+#endif
+    ProcessID parentPID;
 
     void encode(IPC::Encoder&) const;
-    static bool decode(IPC::Decoder&, GPUProcessCreationParameters&);
+    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, GPUProcessCreationParameters&);
 };
 
 } // namespace WebKit

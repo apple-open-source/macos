@@ -2,7 +2,7 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 es_CA{
     %%Parent{"es_419"}
-    Version{"2.1.31.74"}
+    Version{"36.1"}
     zoneStrings{
         "meta:Alaska"{
             sd{"AKDT"}

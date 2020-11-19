@@ -143,6 +143,13 @@ bool AppleRAIDMirrorSet::addMember(AppleRAIDMember * member)
 
 bool AppleRAIDMirrorSet::removeMember(AppleRAIDMember * member, IOOptionBits options)
 {
+	if (member == arRebuildingMember) {
+		UInt32 memberIndex = member->getMemberIndex();
+		arMembers[memberIndex] = 0;
+		arRebuildingMember = 0;
+		IOLog("AppleRAIDMirrorSet::removeMember arRebuildingMember getting removed");
+	}
+
     if (!super::removeMember(member, options)) return false;
 
     // if the set is not currently in use act like we are still gathering members
@@ -242,6 +249,12 @@ bool AppleRAIDMirrorSet::isSetComplete(void)
 
     // set specific checks
     return arActiveCount != 0;
+}
+
+bool AppleRAIDMirrorSet::isSetEmpty(void)
+{
+    if (super::isSetEmpty() && arRebuildingMember == 0) return true;
+    return false;
 }
 
 bool AppleRAIDMirrorSet::bumpOnError(void)
@@ -902,13 +915,21 @@ void AppleRAIDMirrorSet::rebuild()
 
 void AppleRAIDMirrorSet::rebuildComplete(bool rebuiltComplete)
 {
-    AppleRAIDMember * target = arRebuildingMember;
-    UInt32 memberIndex = target->getMemberIndex();
-
     // this is running in the workloop
     // target is closed
 
     pauseSet(false);
+	AppleRAIDMember * target = arRebuildingMember;
+
+	// target could be ejected while rebuild is in progress.
+	// make sure it is valid
+	if (0 == target) {
+		IOLog("AppleRAIDMirrorSet::rebuild complete target removed");
+		unpauseSet();
+		return;
+	}
+
+	UInt32 memberIndex = target->getMemberIndex();
 
     // clear rebuild progress from target
     target->removeProperty(kAppleRAIDRebuildStatus);

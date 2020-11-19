@@ -1,4 +1,4 @@
-.TH "ZSHCOMPSYS" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHCOMPSYS" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshcompsys \- zsh completion system
 .\" Yodl file: Zsh/compsys.yo
@@ -1575,15 +1575,10 @@ certain types of match\&.
 If this is set for the \fBdescriptions\fP tag, its value is used as a
 string to display above matches in completion lists\&.  The sequence
 `\fB%d\fP\&' in this string will be replaced with a short description of
-what these matches are\&.  This string may also contain the following
-sequences to specify output attributes
-as described in the section EXPANSION OF PROMPT SEQUENCES in
-\fIzshmisc\fP(1):
-`\fB%B\fP\&', `\fB%S\fP', `\fB%U\fP', `\fB%F\fP', `\fB%K\fP' and their lower case
-counterparts, as well as `\fB%{\fP\&.\&.\&.\fB%}\fP\&'\&.  `\fB%F\fP', `\fB%K\fP' and
-`\fB%{\fP\&.\&.\&.\fB%}\fP\&' take arguments in the same form as prompt
-expansion\&.  Note that the sequence `\fB%G\fP\&' is not available; an argument
-to `\fB%{\fP\&' should be used instead\&.
+what these matches are\&.  This string may also contain the output
+attribute sequences understood by \fBcompadd \-X\fP
+(see
+\fIzshcompwid\fP(1))\&.
 .RS
 .PP
 The style is tested with each tag valid for the current completion
@@ -2036,6 +2031,11 @@ context\&.  Its value is placed before any match specifications given by the
 \fBmatcher\-list\fP style so can override them via the use of an \fBx:\fP
 specification\&.  The value should be in the form described in
 the section `Completion Matching Control\&' in \fIzshcompwid\fP(1)\&.  For examples of this, see the description of the \fBtag\-order\fP style\&.
+.RS
+.PP
+For notes comparing the use of this and the \fBmatcher\-list\fP style, see
+under the description of the \fBtag\-order\fP style\&.
+.RE
 .TP
 \fBmatcher\-list\fP
 This style can be set to a list of match specifications that are to
@@ -2114,6 +2114,9 @@ If there is no current matcher or it is empty, and the option
 \fBNO_CASE_GLOB\fP is in effect, the matching for files is performed
 case\-insensitively in any case\&.  However, any matcher must
 explicitly specify case\-insensitive matching if that is required\&.
+.PP
+For notes comparing the use of this and the \fBmatcher\fP style, see
+under the description of the \fBtag\-order\fP style\&.
 .RE
 .TP
 \fBmax\-errors\fP
@@ -2528,21 +2531,21 @@ match and the original string are both added as matches and menu completion
 is started, making it easy to select either of them\&.
 .TP
 \fBsort\fP
-Many completion widgets call \fB_description\fP at some point which
-decides whether the matches are added sorted or unsorted (often
-indirectly via \fB_wanted\fP or \fB_requested\fP)\&.  This style can be set
-explicitly to one of the usual `true\&' or `false' values as an override\&.
-If it is not set for the context, the standard behaviour of the
-calling widget is used\&.
+This allows the standard ordering of matches to be overridden\&.
 .RS
+.PP
+If its value is `\fBtrue\fP\&' or `\fBfalse\fP', sorting is enabled or disabled\&.
+Additionally the values associated with the `\fB\-o\fP\&' option to \fBcompadd\fP can
+also be listed: \fBmatch\fP, \fBnosort\fP, \fBnumeric\fP, \fBreverse\fP\&.  If it is not
+set for the context, the standard behaviour of the calling widget is used\&.
 .PP
 The style is tested first against the full context including the tag, and
 if that fails to produce a value against the context without the tag\&.
 .PP
-If the calling widget explicitly requests unsorted matches, this is usually
-honoured\&.  However, the default (unsorted) behaviour of completion
-for the command history may be overridden by setting the style to
-`true\&'\&.
+In many cases where a calling widget explicitly selects a particular ordering
+in lieu of the default, a value of `\fBtrue\fP\&' is not honoured\&.  An example of
+where this is not the case is for command history where the default of sorting
+matches chronologically may be overridden by setting the style to `true\&'\&.
 .PP
 In the \fB_expand\fP completer, if it is set to
 `true\&', the expansions generated will always be sorted\&.  If it is set
@@ -4592,11 +4595,11 @@ convention is not enforced)\&.  The description for the corresponding set
 of matches is passed to the function in \fIdescr\fP\&.
 .PP
 The styles tested are: \fBformat\fP, \fBhidden\fP, \fBmatcher\fP,
-\fBignored\-patterns\fP and \fBgroup\-name\fP\&.  The \fBformat\fP style is first
-tested for the given \fItag\fP and then for the \fBdescriptions\fP tag if
-no value was found, while the remainder are only tested for the tag
-given as the first argument\&.  The function also calls \fB_setup\fP
-which tests some more styles\&.
+\fBignore\-line\fP, \fBignored\-patterns\fP, \fBgroup\-name\fP and \fBsort\fP\&.
+The \fBformat\fP style is first tested for the given \fItag\fP and then for
+the \fBdescriptions\fP tag if no value was found, while the remainder are
+only tested for the tag given as the first argument\&.  The function also
+calls \fB_setup\fP which tests some more styles\&.
 .PP
 The string returned by the \fBformat\fP style (if any) will be modified so
 that the sequence `\fB%d\fP\&' is replaced by the \fIdescr\fP given as the third
@@ -4711,9 +4714,12 @@ New plugins will be picked up and run automatically\&.
 .RE
 .TP
 \fB_files\fP
-The function \fB_files\fP calls \fB_path_files\fP with all the arguments it
-was passed except for \fB\-g\fP and \fB\-/\fP\&.  The use of these two options
-depends on the setting of the  \fBfile\-patterns\fP style\&.
+The function \fB_files\fP is a wrapper around \fB_path_files\fP\&. It supports
+all of the same functionality, with some enhancements \-\- notably, it
+respects the \fBlist\-dirs\-first\fP style, and it allows users to override
+the behaviour of the \fB\-g\fP and \fB\-/\fP options with the \fBfile\-patterns\fP
+style\&. \fB_files\fP should therefore be preferred over \fB_path_files\fP in
+most cases\&.
 .RS
 .PP
 This function accepts the full set of options allowed by
@@ -4793,7 +4799,9 @@ not set with the former\&.
 If the \fB\-r\fP option is given, no style is used; the \fIdescr\fP is
 taken literally as the string to display\&.  This is most useful
 when the \fIdescr\fP comes from a pre\-processed argument list
-which already contains an expanded description\&.
+which already contains an expanded description\&.  Note that this
+option does not disable the `\fB%\fP\&'\-sequence parsing done by
+\fBcompadd\fP\&.
 .PP
 The \fB\-12VJ\fP options and the \fIgroup\fP are passed to \fBcompadd\fP and
 hence determine the group the message string is added to\&.
@@ -4872,7 +4880,7 @@ return ret\fP
 .RE
 .RE
 .TP
-\fB_normal\fP
+\fB_normal\fP [ \fB\-P\fP | \fB\-p\fP \fIprecommand\fP ]
 This is the standard function called to handle completion outside
 any special \fB\-\fP\fIcontext\fP\fB\-\fP\&.  It is called both to complete the command
 word and also the arguments for a command\&.  In the second case,
@@ -4883,10 +4891,22 @@ there is none it uses the completion for the \fB\-default\-\fP context\&.
 A second use is to reexamine the command line specified by the \fB$words\fP
 array and the \fB$CURRENT\fP parameter after those have been modified\&.
 For example, the function \fB_precommand\fP, which
-completes after pre\-command specifiers such as \fBnohup\fP, removes the
+completes after precommand specifiers such as \fBnohup\fP, removes the
 first word from the \fBwords\fP array, decrements the \fBCURRENT\fP parameter,
-then calls \fB_normal\fP again\&.  The effect is that `\fBnohup\fP \fIcmd \&.\&.\&.\fP\&'
-is treated in the same way as `\fIcmd \&.\&.\&.\fP\&'\&.
+then calls `\fB_normal \-p $service\fP\&'\&.  The effect is that
+`\fBnohup\fP \fIcmd \&.\&.\&.\fP\&' is treated in the same way as `\fIcmd \&.\&.\&.\fP'\&.
+.PP
+.PD 0
+.TP
+.PD
+\fB\-P\fP
+Reset the list of precommands\&. This option should be used if completing
+a command line which allows internal commands (e\&.g\&. builtins and
+functions) regardless of prior precommands (e\&.g\&. `\fBzsh \-c\fP\&')\&.
+.TP
+\fB\-p\fP \fIprecommand\fP
+Append \fIprecommand\fP to the list of precommands\&. This option should be
+used in nearly all cases in which \fB\-P\fP is not applicable\&.
 .PP
 If the command name matches one of the patterns given by one of the
 options \fB\-p\fP or \fB\-P\fP to \fBcompdef\fP, the corresponding completion
@@ -5392,7 +5412,7 @@ which values are already present on the command line and hence are not
 to be completed again\&.  If the \fB\-w\fP option is given, other arguments
 are examined as well\&.
 .PP
-The first non\-option argument is used as a string to print as a
+The first non\-option argument, \fIdesc\fP, is used as a string to print as a
 description before listing the values\&.
 .PP
 All other arguments describe the possible values and their

@@ -106,6 +106,10 @@
     -webkit-appearance: none;
 }
 
+.sidebar > .panel.details.css-style > .content ~ .options-container > .toggle-class-toggle:focus {
+    outline-offset: var(--focus-ring-outline-offset);
+}
+
 .sidebar > .panel.details.css-style > .content ~ .options-container > .toggle-class-toggle::before {
     position: absolute;
     content: "";
@@ -144,7 +148,7 @@
     max-height: 75px;
     padding: 3px 2px;
     background-color: var(--panel-background-color);
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 
 .sidebar > .panel.details.css-style > .content ~ .class-list-container[hidden] {

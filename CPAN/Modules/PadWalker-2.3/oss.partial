@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>PadWalker</string>
+        <key>OpenSourceVersion</key>
+        <string>2.3</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/R/RO/ROBIN/PadWalker-2.3.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2019-12-05</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

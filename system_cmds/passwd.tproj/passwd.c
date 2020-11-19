@@ -170,6 +170,7 @@ main(int argc, char *argv[])
 	char* auth = NULL;
 	int infosystem, ch;
 	int free_user = 0;
+	int res = -1;
 
 #ifdef INFO_PAM
 	infosystem = INFO_PAM;
@@ -264,23 +265,34 @@ main(int argc, char *argv[])
 	switch (infosystem)
 	{
 		case INFO_FILE:
-			file_passwd(user, locn);
+			res = file_passwd(user, locn);
 			break;
 #ifdef INFO_NIS
 		case INFO_NIS:
-			nis_passwd(user, locn);
+			res = nis_passwd(user, locn);
 			break;
 #endif
 #ifdef INFO_OPEN_DIRECTORY
 		case INFO_OPEN_DIRECTORY:
-			od_passwd(user, locn, auth);
+			res = od_passwd(user, locn, auth);
 			break;
 #endif
 #ifdef INFO_PAM
 		case INFO_PAM:
-			pam_passwd(user);
+			res = pam_passwd(user);
 			break;
 #endif
+	}
+
+	if (res == 0)
+	{
+		printf("\n");
+		printf("################################### WARNING ###################################\n");
+		printf("# This tool does not update the login keychain password.                      #\n");
+		printf("# To update it, run `security set-keychain-password` as the user in question, #\n");
+		printf("# or as root providing a path to such user's login keychain.                  #\n");
+		printf("###############################################################################\n");
+		printf("\n");
 	}
 
 	if (free_user == 1)

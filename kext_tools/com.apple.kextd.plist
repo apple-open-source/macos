@@ -26,5 +26,12 @@
 			<integer>15</integer>
 		</dict>
 	</dict>
+	<key>LimitLoadToHardware</key>
+	<dict>
+		<key>use_kernelmanagerd</key>
+		<array>
+			<integer>0</integer>
+		</array>
+	</dict>
 </dict>
 </plist>

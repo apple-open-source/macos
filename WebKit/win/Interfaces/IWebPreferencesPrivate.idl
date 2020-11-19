@@ -223,6 +223,8 @@ interface IWebPreferencesPrivate6 : IWebPreferencesPrivate5
     HRESULT setVisualViewportAPIEnabled([in] BOOL enabled);
     HRESULT CSSOMViewScrollingAPIEnabled([out, retval] BOOL*);
     HRESULT setCSSOMViewScrollingAPIEnabled([in] BOOL enabled);
+    HRESULT CSSOMViewSmoothScrollingEnabled([out, retval] BOOL*);
+    HRESULT setCSSOMViewSmoothScrollingEnabled([in] BOOL enabled);
     HRESULT fetchAPIKeepAliveEnabled([out, retval] BOOL* enabled);
     HRESULT setFetchAPIKeepAliveEnabled([in] BOOL enabled);
     HRESULT spatialNavigationEnabled([out, retval] BOOL *enabled);
@@ -252,6 +254,19 @@ interface IWebPreferencesPrivate7 : IWebPreferencesPrivate6
     HRESULT setWebAnimationsCompositeOperationsEnabled([in] BOOL enabled);
     HRESULT webAnimationsMutableTimelinesEnabled([out, retval] BOOL*);
     HRESULT setWebAnimationsMutableTimelinesEnabled([in] BOOL enabled);
-    HRESULT setRenderingUpdateThrottlingEnabled([in] BOOL enabled);
-    HRESULT renderingUpdateThrottlingEnabled([out, retval] BOOL* enabled);
+    HRESULT CSSCustomPropertiesAndValuesEnabled([out, retval] BOOL*);
+    HRESULT setCSSCustomPropertiesAndValuesEnabled([in] BOOL enabled);
+    HRESULT aspectRatioOfImgFromWidthAndHeightEnabled([out, retval] BOOL*);
+    HRESULT setAspectRatioOfImgFromWidthAndHeightEnabled([in] BOOL enabled);
+    HRESULT setWebSQLEnabled([in] BOOL enabled);
+    HRESULT webSQLEnabled([out, retval] BOOL* enabled);
+}
+
+[uuid(04D4AAE1-5D01-4CCD-B46E-C022F10A6826)]
+interface IWebPreferencesPrivate8 : IWebPreferencesPrivate7
+{
+    HRESULT allowTopNavigationToDataURLs([out, retval] BOOL* enabled);
+    HRESULT setAllowTopNavigationToDataURLs([in] BOOL enabled);
+    HRESULT modernUnprefixedWebAudioEnabled([out, retval] BOOL* enabled);
+    HRESULT setModernUnprefixedWebAudioEnabled([in] BOOL enabled);
 }

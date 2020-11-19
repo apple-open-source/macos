@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2019 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2020 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -22,20 +22,20 @@
 
 messages -> WebPageProxy {
     # UI messages
-    CreateNewPage(struct WebKit::FrameInfoData originatingFrameInfoData, Optional<WebKit::WebPageProxyIdentifier> originatingPageID, WebCore::ResourceRequest request, struct WebCore::WindowFeatures windowFeatures, struct WebKit::NavigationActionData navigationActionData) -> (Optional<WebCore::PageIdentifier> newPageID, Optional<WebKit::WebPageCreationParameters> newPageParameters) Synchronous
+    CreateNewPage(struct WebKit::FrameInfoData originatingFrameInfoData, WebKit::WebPageProxyIdentifier originatingPageID, WebCore::ResourceRequest request, struct WebCore::WindowFeatures windowFeatures, struct WebKit::NavigationActionData navigationActionData) -> (Optional<WebCore::PageIdentifier> newPageID, Optional<WebKit::WebPageCreationParameters> newPageParameters) Synchronous
     ShowPage()
     ClosePage()
-    RunJavaScriptAlert(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, String message) -> () Synchronous
-    RunJavaScriptConfirm(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, String message) -> (bool result) Synchronous
-    RunJavaScriptPrompt(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, String message, String defaultValue) -> (String result) Synchronous
+    RunJavaScriptAlert(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, String message) -> () Synchronous
+    RunJavaScriptConfirm(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, String message) -> (bool result) Synchronous
+    RunJavaScriptPrompt(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, String message, String defaultValue) -> (String result) Synchronous
     MouseDidMoveOverElement(struct WebKit::WebHitTestResultData hitTestResultData, uint32_t modifiers, WebKit::UserData userData)
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
     UnavailablePluginButtonClicked(uint32_t pluginUnavailabilityReason, String mimeType, String pluginURLString, String pluginspageAttributeURLString, String frameURLString, String pageURLString)
 #endif // ENABLE(NETSCAPE_PLUGIN_API)
 #if ENABLE(WEBGL)
-    WebGLPolicyForURL(URL url) -> (uint32_t loadPolicy) Synchronous
-    ResolveWebGLPolicyForURL(URL url) -> (uint32_t loadPolicy) Synchronous
+    WebGLPolicyForURL(URL url) -> (enum:uint8_t WebCore::WebGLLoadPolicy loadPolicy) Synchronous
+    ResolveWebGLPolicyForURL(URL url) -> (enum:uint8_t WebCore::WebGLLoadPolicy loadPolicy) Synchronous
 #endif // ENABLE(WEBGL)
     DidChangeViewportProperties(struct WebCore::ViewportAttributes attributes)
     DidReceiveEvent(uint32_t type, bool handled)
@@ -45,7 +45,6 @@ messages -> WebPageProxy {
     SetFocus(bool focused)
     TakeFocus(uint32_t direction)
     FocusedFrameChanged(Optional<WebCore::FrameIdentifier> frameID)
-    FrameSetLargestFrameChanged(Optional<WebCore::FrameIdentifier> frameID)
     SetRenderTreeSize(uint64_t treeSize)
     SetToolbarsAreVisible(bool toolbarsAreVisible)
     GetToolbarsAreVisible() -> (bool toolbarsAreVisible) Synchronous
@@ -66,10 +65,10 @@ messages -> WebPageProxy {
     HideValidationMessage()
 #endif
 
-    RunBeforeUnloadConfirmPanel(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, String message) -> (bool shouldClose) Synchronous
+    RunBeforeUnloadConfirmPanel(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, String message) -> (bool shouldClose) Synchronous
     PageDidScroll()
-    RunOpenPanel(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, struct WebCore::FileChooserSettings parameters)
-    ShowShareSheet(struct WebCore::ShareDataWithParsedURL shareData, uint64_t callbackID)
+    RunOpenPanel(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, struct WebCore::FileChooserSettings parameters)
+    ShowShareSheet(struct WebCore::ShareDataWithParsedURL shareData) -> (bool granted) Async
     PrintFrame(WebCore::FrameIdentifier frameID) -> () Synchronous
     RunModal()
     NotifyScrollerThumbIsVisibleInRect(WebCore::IntRect scrollerThumb)
@@ -100,10 +99,10 @@ messages -> WebPageProxy {
 #endif
 
     # Policy messages
-    DecidePolicyForResponse(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, WebCore::PolicyCheckIdentifier policyCheckIdentifier, uint64_t navigationID, WebCore::ResourceResponse response, WebCore::ResourceRequest request, bool canShowMIMEType, String downloadAttribute, uint64_t listenerID, WebKit::UserData userData)
-    DecidePolicyForNavigationActionAsync(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, WebCore::PolicyCheckIdentifier policyCheckIdentifier, uint64_t navigationID, struct WebKit::NavigationActionData navigationActionData, struct WebKit::FrameInfoData originatingFrameInfoData, Optional<WebKit::WebPageProxyIdentifier> originatingPageID, WebCore::ResourceRequest originalRequest, WebCore::ResourceRequest request, IPC::FormDataReference requestBody, WebCore::ResourceResponse redirectResponse, WebKit::UserData userData, uint64_t listenerID)
-    DecidePolicyForNavigationActionSync(WebCore::FrameIdentifier frameID, bool isMainFrame, struct WebCore::SecurityOriginData frameSecurityOrigin, WebCore::PolicyCheckIdentifier policyCheckIdentifier, uint64_t navigationID, struct WebKit::NavigationActionData navigationActionData, struct WebKit::FrameInfoData originatingFrameInfoData, Optional<WebKit::WebPageProxyIdentifier> originatingPageID, WebCore::ResourceRequest originalRequest, WebCore::ResourceRequest request, IPC::FormDataReference requestBody, WebCore::ResourceResponse redirectResponse, WebKit::UserData userData) -> (WebCore::PolicyCheckIdentifier policyCheckIdentifier, enum:uint8_t WebCore::PolicyAction policyAction, uint64_t newNavigationID, WebKit::DownloadID downloadID, Optional<WebKit::WebsitePoliciesData> websitePolicies, Optional<WebKit::SandboxExtension::Handle> sandboxExtensionHandle) Synchronous
-    DecidePolicyForNewWindowAction(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, WebCore::PolicyCheckIdentifier policyCheckIdentifier, struct WebKit::NavigationActionData navigationActionData, WebCore::ResourceRequest request, String frameName, uint64_t listenerID, WebKit::UserData userData)
+    DecidePolicyForResponse(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, WebCore::PolicyCheckIdentifier policyCheckIdentifier, uint64_t navigationID, WebCore::ResourceResponse response, WebCore::ResourceRequest request, bool canShowMIMEType, String downloadAttribute, uint64_t listenerID, WebKit::UserData userData)
+    DecidePolicyForNavigationActionAsync(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, WebCore::PolicyCheckIdentifier policyCheckIdentifier, uint64_t navigationID, struct WebKit::NavigationActionData navigationActionData, struct WebKit::FrameInfoData originatingFrameInfoData, Optional<WebKit::WebPageProxyIdentifier> originatingPageID, WebCore::ResourceRequest originalRequest, WebCore::ResourceRequest request, IPC::FormDataReference requestBody, WebCore::ResourceResponse redirectResponse, WebKit::UserData userData, uint64_t listenerID)
+    DecidePolicyForNavigationActionSync(WebCore::FrameIdentifier frameID, bool isMainFrame, struct WebKit::FrameInfoData frameInfo, WebCore::PolicyCheckIdentifier policyCheckIdentifier, uint64_t navigationID, struct WebKit::NavigationActionData navigationActionData, struct WebKit::FrameInfoData originatingFrameInfoData, Optional<WebKit::WebPageProxyIdentifier> originatingPageID, WebCore::ResourceRequest originalRequest, WebCore::ResourceRequest request, IPC::FormDataReference requestBody, WebCore::ResourceResponse redirectResponse, WebKit::UserData userData) -> (struct WebKit::PolicyDecision PolicyDecision) Synchronous
+    DecidePolicyForNewWindowAction(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, WebCore::PolicyCheckIdentifier policyCheckIdentifier, struct WebKit::NavigationActionData navigationActionData, WebCore::ResourceRequest request, String frameName, uint64_t listenerID, WebKit::UserData userData)
     UnableToImplementPolicy(WebCore::FrameIdentifier frameID, WebCore::ResourceError error, WebKit::UserData userData)
 
     # Progress messages
@@ -120,16 +119,16 @@ messages -> WebPageProxy {
     DidCreateWindow(WebCore::FrameIdentifier frameID, struct WebCore::GlobalWindowIdentifier windowIdentifier)
 
     # Frame load messages
-    DidStartProvisionalLoadForFrame(WebCore::FrameIdentifier frameID, uint64_t navigationID, URL url, URL unreachableURL, WebKit::UserData userData)
+    DidStartProvisionalLoadForFrame(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, WebCore::ResourceRequest request, uint64_t navigationID, URL url, URL unreachableURL, WebKit::UserData userData)
     DidReceiveServerRedirectForProvisionalLoadForFrame(WebCore::FrameIdentifier frameID, uint64_t navigationID, WebCore::ResourceRequest request, WebKit::UserData userData)
     WillPerformClientRedirectForFrame(WebCore::FrameIdentifier frameID, String url, double delay, enum:bool WebCore::LockBackForwardList lockBackForwardList)
     DidCancelClientRedirectForFrame(WebCore::FrameIdentifier frameID)
     DidChangeProvisionalURLForFrame(WebCore::FrameIdentifier frameID, uint64_t navigationID, URL url)
-    DidFailProvisionalLoadForFrame(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData frameSecurityOrigin, uint64_t navigationID, String provisionalURL, WebCore::ResourceError error, enum:bool WebCore::WillContinueLoading willContinueLoading, WebKit::UserData userData)
-    DidCommitLoadForFrame(WebCore::FrameIdentifier frameID, uint64_t navigationID, String mimeType, bool hasCustomContentProvider, uint32_t loadType, WebCore::CertificateInfo certificateInfo, bool usedLegacyTLS, bool containsPluginDocument, Optional<WebCore::HasInsecureContent> forcedHasInsecureContent, WebKit::UserData userData)
-    DidFailLoadForFrame(WebCore::FrameIdentifier frameID, uint64_t navigationID, WebCore::ResourceError error, WebKit::UserData userData)
+    DidFailProvisionalLoadForFrame(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, WebCore::ResourceRequest request, uint64_t navigationID, String provisionalURL, WebCore::ResourceError error, enum:bool WebCore::WillContinueLoading willContinueLoading, WebKit::UserData userData)
+    DidCommitLoadForFrame(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, WebCore::ResourceRequest request, uint64_t navigationID, String mimeType, bool hasCustomContentProvider, enum:uint8_t WebCore::FrameLoadType loadType, WebCore::CertificateInfo certificateInfo, bool usedLegacyTLS, bool containsPluginDocument, Optional<WebCore::HasInsecureContent> forcedHasInsecureContent, enum:uint8_t WebCore::MouseEventPolicy mouseEventPolicy, WebKit::UserData userData)
+    DidFailLoadForFrame(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, WebCore::ResourceRequest request, uint64_t navigationID, WebCore::ResourceError error, WebKit::UserData userData)
     DidFinishDocumentLoadForFrame(WebCore::FrameIdentifier frameID, uint64_t navigationID, WebKit::UserData userData)
-    DidFinishLoadForFrame(WebCore::FrameIdentifier frameID, uint64_t navigationID, WebKit::UserData userData)
+    DidFinishLoadForFrame(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, WebCore::ResourceRequest request, uint64_t navigationID, WebKit::UserData userData)
     DidFirstLayoutForFrame(WebCore::FrameIdentifier frameID, WebKit::UserData userData)
     DidFirstVisuallyNonEmptyLayoutForFrame(WebCore::FrameIdentifier frameID, WebKit::UserData userData)
     DidReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone> layoutMilestones)
@@ -142,11 +141,7 @@ messages -> WebPageProxy {
     DidExplicitOpenForFrame(WebCore::FrameIdentifier frameID, URL url, String mimeType)
     DidDestroyNavigation(uint64_t navigationID)
 
-    HasInsecureContent() -> (enum:bool WebCore::HasInsecureContent hasInsecureContent, enum:bool WebCore::UsedLegacyTLS usedLegacyTLS) Synchronous
-
     MainFramePluginHandlesPageScaleGestureDidChange(bool mainFramePluginHandlesPageScaleGesture)
-
-    FrameDidBecomeFrameSet(WebCore::FrameIdentifier frameID, bool value)
 
     # History client messages.
     DidNavigateWithNavigationData(struct WebKit::WebNavigationDataStore store, WebCore::FrameIdentifier frameID)
@@ -170,24 +165,23 @@ messages -> WebPageProxy {
     ScriptValueCallback(IPC::DataReference resultData, Optional<WebCore::ExceptionDetails> details, WebKit::CallbackID callbackID)
     ComputedPagesCallback(Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, WebCore::RectEdges<float> computedPageMargin, WebKit::CallbackID callbackID)
     ValidateCommandCallback(String command, bool isEnabled, int32_t state, WebKit::CallbackID callbackID)
-    EditingRangeCallback(struct WebKit::EditingRange range, WebKit::CallbackID callbackID)
     UnsignedCallback(uint64_t result, WebKit::CallbackID callbackID)
     RectForCharacterRangeCallback(WebCore::IntRect rect, struct WebKit::EditingRange actualRange, WebKit::CallbackID callbackID)
 #if ENABLE(APPLICATION_MANIFEST)
     ApplicationManifestCallback(Optional<WebCore::ApplicationManifest> manifest, WebKit::CallbackID callbackID)
 #endif
 #if PLATFORM(MAC)
-    AttributedStringForCharacterRangeCallback(struct WebKit::AttributedString string, struct WebKit::EditingRange actualRange, WebKit::CallbackID callbackID)
+    AttributedStringForCharacterRangeCallback(struct WebCore::AttributedString string, struct WebKit::EditingRange actualRange, WebKit::CallbackID callbackID)
     FontAtSelectionCallback(struct WebKit::FontInfo fontInfo, double fontSize, bool selectionHasMultipleFonts, WebKit::CallbackID callbackID)
 #endif
     FontAttributesCallback(struct WebCore::FontAttributes attributes, WebKit::CallbackID callbackID)
 #if PLATFORM(IOS_FAMILY)
-    GestureCallback(WebCore::IntPoint point, uint32_t gestureType, uint32_t gestureState, uint32_t flags, WebKit::CallbackID callbackID)
-    TouchesCallback(WebCore::IntPoint point, uint32_t touches, uint32_t flags, WebKit::CallbackID callbackID)
+    GestureCallback(WebCore::IntPoint point, enum:uint8_t WebKit::GestureType gestureType, enum:uint8_t WebKit::GestureRecognizerState gestureState, OptionSet<WebKit::SelectionFlags> flags, WebKit::CallbackID callbackID)
+    TouchesCallback(WebCore::IntPoint point, enum:uint8_t WebKit::SelectionTouch touches, OptionSet<WebKit::SelectionFlags> flags, WebKit::CallbackID callbackID)
     SelectionContextCallback(String selectedText, String beforeText, String afterText, WebKit::CallbackID callbackID)
     InterpretKeyEvent(struct WebKit::EditorState state, bool isCharEvent) -> (bool handled) Synchronous
     DidReceivePositionInformation(struct WebKit::InteractionInformationAtPosition information)
-    SaveImageToLibrary(WebKit::SharedMemory::Handle handle, uint64_t size)
+    SaveImageToLibrary(WebKit::SharedMemory::IPCHandle handle)
     ShowPlaybackTargetPicker(bool hasVideo, WebCore::IntRect elementRect, enum:uint8_t WebCore::RouteSharingPolicy policy, String routingContextUID)
     CommitPotentialTapFailed()
     DidNotHandleTapAsClick(WebCore::IntPoint point)
@@ -204,10 +198,8 @@ messages -> WebPageProxy {
 #endif
 #if PLATFORM(COCOA)
     DrawToPDFCallback(IPC::DataReference pdfData, WebKit::CallbackID callbackID)
-    MachSendRightCallback(MachSendRight sendRight, WebKit::CallbackID callbackID)
     NowPlayingInfoCallback(bool active, bool registeredAsNowPlayingApplication, String title, double duration, double elapsedTime, uint64_t uniqueIdentifier, WebKit::CallbackID callbackID)
 #endif
-    FindStringCallback(bool found, WebKit::CallbackID callbackID)
 
     PageScaleFactorDidChange(double scaleFactor)
     PluginScaleFactorDidChange(double zoomFactor)
@@ -219,15 +211,14 @@ messages -> WebPageProxy {
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
-    SetInputMethodState(bool enabled);
+    SetInputMethodState(Optional<WebKit::InputMethodState> state);
 #endif
 
     # BackForward messages
     BackForwardAddItem(struct WebKit::BackForwardListItemState itemState)
-    BackForwardGoToItem(struct WebCore::BackForwardItemIdentifier itemID) -> () Synchronous
+    BackForwardGoToItem(struct WebCore::BackForwardItemIdentifier itemID) -> (struct WebKit::WebBackForwardListCounts counts) Synchronous
     BackForwardItemAtIndex(int32_t itemIndex) -> (Optional<WebCore::BackForwardItemIdentifier> itemID) Synchronous
-    BackForwardBackListCount() -> (uint32_t count) Synchronous
-    BackForwardForwardListCount() -> (uint32_t count) Synchronous
+    BackForwardListCounts() -> (struct WebKit::WebBackForwardListCounts counts) Synchronous
     BackForwardClear()
     WillGoToBackForwardListItem(struct WebCore::BackForwardItemIdentifier itemID, bool inBackForwardCache)
 
@@ -252,8 +243,12 @@ messages -> WebPageProxy {
     EditorStateChanged(struct WebKit::EditorState editorState)
     CompositionWasCanceled()
     SetHasHadSelectionChangesFromUserInteraction(bool hasHadUserSelectionChanges)
+
+#if HAVE(TOUCH_BAR)
     SetIsTouchBarUpdateSupressedForHiddenContentEditable(bool isTouchBarUpdateSupressed)
     SetIsNeverRichlyEditableForTouchBar(bool isNeverRichlyEditable)
+#endif
+
     RequestDOMPasteAccess(WebCore::IntRect elementRect, String originIdentifier) -> (enum:uint8_t WebCore::DOMPasteAccessResponse response) Synchronous
 
     # Find messages
@@ -280,7 +275,7 @@ messages -> WebPageProxy {
     ReachedApplicationCacheOriginQuota(String originIdentifier, uint64_t currentQuota, uint64_t totalBytesNeeded) -> (uint64_t newQuota) Synchronous
 
     # Geolocation messages
-    RequestGeolocationPermissionForFrame(uint64_t geolocationID, WebCore::FrameIdentifier frameID, String originIdentifier)
+    RequestGeolocationPermissionForFrame(WebKit::GeolocationIdentifier geolocationID, struct WebKit::FrameInfoData frameInfo)
     RevokeGeolocationAuthorizationToken(String authorizationToken);
 
 #if ENABLE(MEDIA_STREAM)
@@ -313,22 +308,22 @@ messages -> WebPageProxy {
 
     # Drag and drop messages
 #if ENABLE(DRAG_SUPPORT)
-    DidPerformDragControllerAction(uint64_t dragOperation, enum:uint8_t WebCore::DragHandlingMethod dragHandlingMethod, bool mouseIsOverFileInput, unsigned numberOfItemsToBeAccepted, WebCore::IntRect insertionRect, WebCore::IntRect editableElementRect)
+    DidPerformDragControllerAction(Optional<WebCore::DragOperation> dragOperation, enum:uint8_t WebCore::DragHandlingMethod dragHandlingMethod, bool mouseIsOverFileInput, unsigned numberOfItemsToBeAccepted, WebCore::IntRect insertionRect, WebCore::IntRect editableElementRect)
     DidEndDragging();
 #endif
 #if PLATFORM(COCOA) && ENABLE(DRAG_SUPPORT)
     StartDrag(struct WebCore::DragItem dragItem, WebKit::ShareableBitmap::Handle dragImage)
-    SetPromisedDataForImage(String pasteboardName, WebKit::SharedMemory::Handle imageHandle, uint64_t imageSize, String filename, String extension, String title, String url, String visibleURL, WebKit::SharedMemory::Handle archiveHandle, uint64_t archiveSize)
+    SetPromisedDataForImage(String pasteboardName, WebKit::SharedMemory::IPCHandle imageHandle, String filename, String extension, String title, String url, String visibleURL, WebKit::SharedMemory::IPCHandle archiveHandle)
 #endif
 #if PLATFORM(GTK) && ENABLE(DRAG_SUPPORT)
-    StartDrag(struct WebKit::WebSelectionData selection, uint64_t dragOperation, WebKit::ShareableBitmap::Handle dragImage)
+    StartDrag(WebCore::SelectionData selectionData, OptionSet<WebCore::DragOperation> dragOperationMask, WebKit::ShareableBitmap::Handle dragImage)
 #endif
 
 #if ENABLE(DRAG_SUPPORT)
     DidPerformDragOperation(bool handled)
 #endif
 
-#if ENABLE(DATA_INTERACTION)
+#if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
     DidHandleDragStartRequest(bool started)
     DidHandleAdditionalDragItemsRequest(bool added)
     WillReceiveEditDragSnapshot()
@@ -361,7 +356,9 @@ messages -> WebPageProxy {
     SearchWithSpotlight(String string)
 
     SearchTheWeb(String string)
+#endif
 
+#if HAVE(TOUCH_BAR)
     TouchBarMenuDataChanged(WebKit::TouchBarMenuData touchBarMenuData)
     TouchBarMenuItemDataAdded(struct WebKit::TouchBarMenuItemData touchBarMenuItemData)
     TouchBarMenuItemDataRemoved(struct WebKit::TouchBarMenuItemData touchBarMenuItemData)
@@ -388,16 +385,9 @@ messages -> WebPageProxy {
 #endif
 
 #if USE(DICTATION_ALTERNATIVES)
-    ShowDictationAlternativeUI(WebCore::FloatRect boundingBoxOfDictatedText, uint64_t dictationContext)
-    RemoveDictationAlternatives(uint64_t dictationContext)
-    DictationAlternatives(uint64_t dictationContext) -> (Vector<String> alternatives) Synchronous
-#endif
-
-#if PLATFORM(X11)
-    # X11 windowed plugin messages
-    CreatePluginContainer() -> (uint64_t windowID) Synchronous
-    WindowedPluginGeometryDidChange(WebCore::IntRect frameRect, WebCore::IntRect clipRect, uint64_t windowID)
-    WindowedPluginVisibilityDidChange(bool isVisible, uint64_t windowID)
+    ShowDictationAlternativeUI(WebCore::FloatRect boundingBoxOfDictatedText, WebCore::DictationContext dictationContext)
+    RemoveDictationAlternatives(WebCore::DictationContext dictationContext)
+    DictationAlternatives(WebCore::DictationContext dictationContext) -> (Vector<String> alternatives) Synchronous
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -424,6 +414,8 @@ messages -> WebPageProxy {
 
     UpdateStringForFind(String findString)
     HandleAutocorrectionContext(struct WebKit::WebAutocorrectionContext context)
+
+    ShowDataDetectorsUIForPositionInformation(struct WebKit::InteractionInformationAtPosition information)
 #endif
 
     DidChangeInspectorFrontendCount(uint64_t count)
@@ -439,8 +431,8 @@ messages -> WebPageProxy {
     SavePDFToFileInDownloadsFolder(String suggestedFilename, URL originatingURL, IPC::DataReference data)
 
 #if PLATFORM(COCOA)
-    SavePDFToTemporaryFolderAndOpenWithNativeApplication(String suggestedFilename, String originatingURLString, IPC::DataReference data, String pdfUUID)
-    OpenPDFFromTemporaryFolderWithNativeApplication(String pdfUUID)
+    SavePDFToTemporaryFolderAndOpenWithNativeApplication(String suggestedFilename, struct WebKit::FrameInfoData sourceFrameInfo, IPC::DataReference data, String pdfUUID)
+    OpenPDFFromTemporaryFolderWithNativeApplication(struct WebKit::FrameInfoData sourceFrameInfo, String pdfUUID)
 #endif
 
 #if ENABLE(PDFKIT_PLUGIN)
@@ -448,7 +440,7 @@ messages -> WebPageProxy {
 #endif
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    FindPlugin(String mimeType, uint32_t processType, String urlString, String frameURLString, String pageURLString, bool allowOnlyApplicationPlugins) -> (uint64_t pluginProcessToken, String newMIMEType, uint32_t pluginLoadPolicy, String unavailabilityDescription, bool isUnsupported) Synchronous
+    FindPlugin(String mimeType, WebKit::PluginProcessType processType, String urlString, String frameURLString, String pageURLString, bool allowOnlyApplicationPlugins) -> (uint64_t pluginProcessToken, String newMIMEType, uint32_t pluginLoadPolicy, String unavailabilityDescription, bool isUnsupported) Synchronous
 #endif
 
     DidUpdateActivityState()
@@ -497,13 +489,17 @@ messages -> WebPageProxy {
     ContentRuleListNotification(URL url, struct WebCore::ContentRuleListResults results)
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
-    AddPlaybackTargetPickerClient(uint64_t contextId)
-    RemovePlaybackTargetPickerClient(uint64_t contextId)
-    ShowPlaybackTargetPicker(uint64_t clientId, WebCore::FloatRect pickerLocation, bool hasVideo)
-    PlaybackTargetPickerClientStateDidChange(uint64_t contextId, unsigned mediaState)
+    AddPlaybackTargetPickerClient(WebCore::PlaybackTargetClientContextIdentifier contextId)
+    RemovePlaybackTargetPickerClient(WebCore::PlaybackTargetClientContextIdentifier contextId)
+    ShowPlaybackTargetPicker(WebCore::PlaybackTargetClientContextIdentifier contextId, WebCore::FloatRect pickerLocation, bool hasVideo)
+    PlaybackTargetPickerClientStateDidChange(WebCore::PlaybackTargetClientContextIdentifier contextId, unsigned mediaState)
     SetMockMediaPlaybackTargetPickerEnabled(bool enabled)
     SetMockMediaPlaybackTargetPickerState(String name, unsigned pickerState)
     MockMediaPlaybackTargetPickerDismissPopup()
+#endif
+
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    SetMockVideoPresentationModeEnabled(bool enabled)
 #endif
 
 #if ENABLE(POINTER_LOCK)
@@ -526,7 +522,7 @@ messages -> WebPageProxy {
     DidRestoreScrollPosition()
 
     GetLoadDecisionForIcon(struct WebCore::LinkIcon icon, WebKit::CallbackID callbackID)
-    FinishedLoadingIcon(WebKit::CallbackID callbackID, IPC::DataReference data);
+    FinishedLoadingIcon(WebKit::CallbackID callbackID, IPC::SharedBufferDataReference data);
 
 #if PLATFORM(MAC)
     DidHandleAcceptedCandidate()
@@ -539,18 +535,19 @@ messages -> WebPageProxy {
     LoadSynchronousURLSchemeTask(struct WebKit::URLSchemeTaskParameters parameters) -> (WebCore::ResourceResponse response, WebCore::ResourceError error, Vector<char> data) Synchronous
 
 #if ENABLE(DEVICE_ORIENTATION)
-    ShouldAllowDeviceOrientationAndMotionAccess(WebCore::FrameIdentifier frameID, struct WebCore::SecurityOriginData origin, bool mayPrompt) -> (enum:uint8_t WebCore::DeviceOrientationOrMotionPermissionState permissionState) Async
+    ShouldAllowDeviceOrientationAndMotionAccess(WebCore::FrameIdentifier frameID, struct WebKit::FrameInfoData frameInfo, bool mayPrompt) -> (enum:uint8_t WebCore::DeviceOrientationOrMotionPermissionState permissionState) Async
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
-    RegisterAttachmentIdentifierFromData(String identifier, String contentType, String preferredFileName, IPC::SharedBufferDataReference data)
+    RegisterAttachmentIdentifierFromData(String identifier, String contentType, String preferredFileName, IPC::SharedBufferCopy data)
     RegisterAttachmentIdentifierFromFilePath(String identifier, String contentType, String filePath)
     RegisterAttachmentIdentifier(String identifier)
-    registerAttachmentsFromSerializedData(Vector<WebCore::SerializedAttachmentData> data)
+    RegisterAttachmentsFromSerializedData(Vector<WebCore::SerializedAttachmentData> data)
     CloneAttachmentData(String fromIdentifier, String toIdentifier)
     DidInsertAttachmentWithIdentifier(String identifier, String source, bool hasEnclosingImage)
     DidRemoveAttachmentWithIdentifier(String identifier)
     SerializedAttachmentDataForIdentifiers(Vector<String> identifiers) -> (Vector<WebCore::SerializedAttachmentData> seralizedData) Synchronous
+    WritePromisedAttachmentToPasteboard(struct WebCore::PromisedAttachmentInfo info)
 #endif
 
     SignedPublicKeyAndChallengeString(unsigned keySizeIndex, String challengeString, URL url) -> (String result) Synchronous
@@ -583,6 +580,13 @@ messages -> WebPageProxy {
     SendMessageToWebViewWithReply(struct WebKit::UserMessage userMessage) -> (struct WebKit::UserMessage replyMessage) Async
 #endif
 
-    DidFindTextManipulationItem(WebCore::TextManipulationController::ItemIdentifier itemID, Vector<WebCore::TextManipulationController::ManipulationToken> tokens)
+    DidFindTextManipulationItems(Vector<WebCore::TextManipulationController::ManipulationItem> items)
 
+#if ENABLE(MEDIA_USAGE)
+    AddMediaUsageManagerSession(WebCore::MediaSessionIdentifier identifier, String bundleIdentifier, URL pageURL);
+    UpdateMediaUsageManagerSessionState(WebCore::MediaSessionIdentifier identifier, struct WebCore::MediaUsageInfo info);
+    RemoveMediaUsageManagerSession(WebCore::MediaSessionIdentifier identifier);
+#endif
+
+    SetHasExecutedAppBoundBehaviorBeforeNavigation()
 }

@@ -18,6 +18,7 @@ list(APPEND WTF_PUBLIC_HEADERS
     cocoa/NSURLExtras.h
     cocoa/RuntimeApplicationChecksCocoa.h
     cocoa/SoftLinking.h
+    cocoa/VectorCocoa.h
 
     darwin/WeakLinking.h
 
@@ -32,6 +33,7 @@ list(APPEND WTF_PUBLIC_HEADERS
     spi/cocoa/objcSPI.h
 
     spi/darwin/DataVaultSPI.h
+    spi/darwin/OSVariantSPI.h
     spi/darwin/ProcessMemoryFootprint.h
     spi/darwin/SandboxSPI.h
     spi/darwin/XPCSPI.h
@@ -49,7 +51,6 @@ list(APPEND WTF_SOURCES
     cf/FileSystemCF.cpp
     cf/LanguageCF.cpp
     cf/RunLoopCF.cpp
-    cf/RunLoopTimerCF.cpp
     cf/SchedulePairCF.cpp
     cf/URLCF.cpp
 
@@ -66,10 +67,10 @@ list(APPEND WTF_SOURCES
     cocoa/NSURLExtras.mm
     cocoa/ResourceUsageCocoa.cpp
     cocoa/RuntimeApplicationChecksCocoa.cpp
+    cocoa/SystemTracingCocoa.cpp
     cocoa/URLCocoa.mm
     cocoa/WorkQueueCocoa.cpp
 
-    mac/DeprecatedSymbolsUsedBySafari.mm
     mac/FileSystemMac.mm
     mac/SchedulePairMac.mm
 

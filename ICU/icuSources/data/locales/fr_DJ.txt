@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 fr_DJ{
-    Version{"2.1.47.70"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -30,10 +30,10 @@ fr_DJ{
                 "d MMMM y",
                 "d MMM y",
                 "dd/MM/y",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
-                "{1} 'à' {0}",
+                "{1} à {0}",
+                "{1} à {0}",
+                "{1} à {0}",
+                "{1} à {0}",
                 "{1} {0}",
             }
         }

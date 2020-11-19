@@ -2246,21 +2246,23 @@ SSLCopyPeerTrust(
     SSLContextRef 		ctx,
     SecTrustRef        *trust)	/* RETURNED */
 {
-	OSStatus status = errSecSuccess;
-	if (ctx == NULL || trust == NULL)
-		return errSecParam;
-
-	/* Create a SecTrustRef if this was a resumed session and we
-	   didn't have one yet. */
-	if (!ctx->peerSecTrust) {
-		status = sslCreateSecTrust(ctx, &ctx->peerSecTrust);
+    OSStatus status = errSecSuccess;
+    if (ctx == NULL || trust == NULL) {
+        return errSecParam;
     }
 
-	*trust = ctx->peerSecTrust;
-    if (ctx->peerSecTrust)
-        CFRetain(ctx->peerSecTrust);
+    /* Create a SecTrustRef if this was a resumed session and we
+     didn't have one yet. */
+    if (!ctx->peerSecTrust) {
+        status = sslCreateSecTrust(ctx, &ctx->peerSecTrust);
+    }
 
-	return status;
+    *trust = ctx->peerSecTrust;
+    if (ctx->peerSecTrust) {
+        CFRetain(ctx->peerSecTrust);
+    }
+
+    return status;
 }
 
 OSStatus SSLGetPeerSecTrust(

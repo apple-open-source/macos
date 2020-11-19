@@ -35,7 +35,6 @@
 #include <CommonCrypto/CommonDigestSPI.h>
 #include "CommonRSACryptor.h"
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -71,6 +70,84 @@ enum {
     kCCImportKeyCompact = 2,
 };
 typedef uint32_t CCECKeyExternalFormat;
+
+enum {
+    CCH2C_P256_SHA256 = 0,
+    CCH2C_P384_SHA512 = 1,
+    CCH2C_P521_SHA512 = 2,
+};
+typedef uint32_t CCH2CParams;
+
+enum {
+    CCECCurveP192 = 192,
+    CCECCurveP224 = 224,
+    CCECCurveP256 = 256,
+    CCECCurveP384 = 384,
+    CCECCurveP521 = 521,
+};
+typedef size_t CCECCurveParams;
+
+typedef struct cc_blinding_keys_ctx {
+    CCECCurveParams curve_params;
+    CCECCryptorRef k;
+    CCECCryptorRef kinv;
+} CCBlindingKeys;
+typedef CCBlindingKeys *CCBlindingKeysRef;
+
+
+/*!
+    @function   CCECCryptorH2C
+    @abstract   Hash input data and dst using the hash-to-curve type h2c_type.
+
+    @param      h2c_params      A CCH2CParams designating the hash-to-curve parameters
+    @param      dst_nbytes    Length in bytes of dst
+    @param      dst           DST parameter to diversify the hash-to-curve operation
+    @param      data_nbytes   Length in bytes of data
+    @param      data          Data to hash to an elliptic curve.
+
+    @result     CCECCryptorRef or NULL on error.
+*/
+CCECCryptorRef CCECCryptorH2C(CCH2CParams h2c_params, size_t dst_nbytes, const void *dst, size_t data_nbytes, const void *data);
+
+/*!
+    @function   CCECCryptorGenerateBlindingKeys
+    @abstract   Generate new blinding and unblinding keys
+
+    @param      curve_params      A CCECCurveParams designating an elliptic curve
+
+    @result     CCBlindingKeysRef or NULL on error.
+*/
+CCBlindingKeysRef CCECCryptorGenerateBlindingKeys(CCECCurveParams curve_params);
+
+/*!
+    @function   CCECCryptorBlindingKeysRelease
+    @abstract   Free a CCBlindingKeysRef
+
+    @param      bk      CCBlindingKeysRef to free
+*/
+void CCECCryptorBlindingKeysRelease(CCBlindingKeysRef bk);
+
+/*!
+    @function   CCECCryptorBlind
+    @abstract   Blind an input CCECCryptorRef
+
+    @param      bk      CCBlindingKeysRef blinding keys
+    @param      pk      CCECCryptorRef public key to blind
+
+    @result     A public key blinded by the bk blinding key
+*/
+CCECCryptorRef CCECCryptorBlind(CCBlindingKeysRef bk, CCECCryptorRef pk);
+
+/*!
+    @function   CCECCryptorUnblind
+    @abstract   Unblind an input CCECCryptorRef
+
+    @param      bk      CCBlindingKeysRef blinding keys
+    @param      pk      CCECCryptorRef public key to unblind
+
+    @result     A public key unblinded by the bk unblinding key
+*/
+CCECCryptorRef CCECCryptorUnblind(CCBlindingKeysRef bk, CCECCryptorRef pk);
 
 /*!
 	@discussion

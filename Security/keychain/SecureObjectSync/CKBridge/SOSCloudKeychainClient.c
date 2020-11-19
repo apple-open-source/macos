@@ -145,7 +145,7 @@ static SOSCloudTransportRef SOSCloudTransportDefaultTransport(void)
         if (defaultTransport == NULL) {
             defaultTransport = SOSCloudTransportCreateXPCTransport();
             // provide state handler to sysdiagnose and logging
-            os_state_add_handler(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), kvsStateBlock);
+            os_state_add_handler(dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), kvsStateBlock);
         }
     });
     return defaultTransport;
@@ -490,7 +490,7 @@ static bool SOSCloudTransportHasPendingKey(SOSCloudTransportRef transport, CFStr
     SecXPCDictionarySetCFObject(xpcmessage, kMessageKeyKey, keyName);
 
     dispatch_semaphore_t kvsWait = dispatch_semaphore_create(0);
-    bool kvsSent = messageToProxy(xpcTransport, xpcmessage, error, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(xpc_object_t reply) {
+    bool kvsSent = messageToProxy(xpcTransport, xpcmessage, error, dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), ^(xpc_object_t reply) {
         kvsHasMessage = xpc_dictionary_get_bool(reply, kMessageKeyValue);
         dispatch_semaphore_signal(kvsWait);
     });

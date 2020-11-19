@@ -469,7 +469,8 @@ SecCmsSignerInfoSign(SecCmsSignerInfoRef signerinfo, SecAsn1Item * digest, SecAs
 
     SECITEM_FreeItem(&signature, PR_FALSE);
 
-    if (SECOID_SetAlgorithmID(poolp, &(signerinfo->digestEncAlg), pubkAlgTag, 
+    SECOidTag sigAlgTag = SecCmsUtilMakeSignatureAlgorithm(digestalgtag, pubkAlgTag);
+    if (SECOID_SetAlgorithmID(poolp, &(signerinfo->digestEncAlg), sigAlgTag,
                               NULL) != SECSuccess)
 	goto loser;
 
@@ -1131,21 +1132,18 @@ SecCmsSignerInfoGetSignerEmailAddress(SecCmsSignerInfoRef sinfo)
     SecCertificateRef signercert;
     CFStringRef emailAddress = NULL;
 
-    if ((signercert = SecCmsSignerInfoGetSigningCertificate(sinfo, NULL)) == NULL)
-	return NULL;
+    if ((signercert = SecCmsSignerInfoGetSigningCertificate(sinfo, NULL)) == NULL) {
+        return NULL;
+    }
 
-#if USE_CDSA_CRYPTO
-    SecCertificateGetEmailAddress(signercert, &emailAddress);
-#else
     CFArrayRef names = SecCertificateCopyRFC822Names(signercert);
     if (names) {
-        if (CFArrayGetCount(names) > 0)
+        if (CFArrayGetCount(names) > 0) {
             emailAddress = (CFStringRef)CFArrayGetValueAtIndex(names, 0);
-        if (emailAddress)
-            CFRetain(emailAddress);
+        }
+        CFRetainSafe(emailAddress);
         CFRelease(names);
     }
-#endif
     return emailAddress;
 }
 

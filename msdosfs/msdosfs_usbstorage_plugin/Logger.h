@@ -15,9 +15,11 @@
 typedef enum
 {
     LEVEL_DEBUG,
+    LEVEL_INFO,
     LEVEL_DEFAULT,
     LEVEL_ERROR,
-    
+    LEVEL_FAULT,
+
     LEVEL_AMOUNT,
     
 } MsDosLogsLevel_e;

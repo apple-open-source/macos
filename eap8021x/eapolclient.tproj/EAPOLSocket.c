@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,6 +71,7 @@
 #include "mylog.h"
 #include "printdata.h"
 #include "symbol_scope.h"
+#include "LinkAddresses.h"
 #include <TargetConditionals.h>
 
 #define ALIGNED_BUF(name, size, type)	type 	name[(size) / (sizeof(type))]
@@ -1087,6 +1088,42 @@ is_link_active(const char * name)
     return (active);
 }
 
+PRIVATE_EXTERN void
+EAPOLSocketSourceUpdateWiFiLocalMACAddress(EAPOLSocketRef sock)
+{
+#if TARGET_OS_IOS || TARGET_OS_WATCH
+    LinkAddressesRef 		link_addrs = NULL;
+    EAPOLSocketSourceRef	source = sock->source;
+
+    if (source == NULL || source->is_wireless == FALSE) {
+	return;
+    }
+    link_addrs = LinkAddresses_create();
+    if (link_addrs != NULL) {
+	struct sockaddr_dl *link = NULL;
+
+	link = LinkAddresses_lookup(link_addrs, source->if_name);
+	if (link == NULL) {
+	    EAPLOG(LOG_ERR, "interface '%s' does not exist", source->if_name);
+	    goto failed;
+	}
+	if (link->sdl_type != IFT_ETHER) {
+	    EAPLOG(LOG_ERR, "interface '%s' is not ethernet", source->if_name);
+	    goto failed;
+	}
+	EAPLOG(LOG_INFO, "current local MAC address: [%s]", ether_ntoa(&source->ether));
+	source->ether = *((struct ether_addr *)(link->sdl_data + link->sdl_nlen));
+	EAPLOG(LOG_INFO, "new local MAC address: [%s]", ether_ntoa(&source->ether));
+    }
+
+failed:
+    if (link_addrs != NULL) {
+	LinkAddresses_free(&link_addrs);
+    }
+#endif /* TARGET_OS_IOS || TARGET_OS_WATCH */
+    return;
+}
+
 static void
 EAPOLSocketSourceLinkStatusChanged(SCDynamicStoreRef session,
 				   CFArrayRef _not_used,
@@ -1535,7 +1572,6 @@ EAPOLSocketSourceCreate(const char * if_name,
     Timer_free(&scan_timer);
     return (NULL);
 }
-
 
 static void
 EAPOLSocketSourceRemoveSocketWithBSSID(EAPOLSocketSourceRef source,

@@ -47,10 +47,20 @@
 #import <WebCore/Scrollbar.h>
 #import <WebCore/WebAccessibilityObjectWrapperMac.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
-#import <wtf/ObjCRuntimeExtras.h>
+#import <pal/spi/mac/HIServicesSPI.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
+namespace ax = WebCore::Accessibility;
+
+@interface WKAccessibilityWebPageObject()
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+@property (nonatomic, strong) NSArray *cachedParameterizedAttributeNames;
+#endif
+@end
 
 @implementation WKAccessibilityWebPageObject
+
+#define PROTECTED_SELF protectedSelf = RetainPtr<WKAccessibilityWebPageObject>(self)
 
 - (void)dealloc
 {
@@ -79,33 +89,32 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     return m_attributeNames.get();
 }
 
-template<typename T, typename U> inline T retrieveAccessibilityValueFromMainThread(U&& lambda)
-{
-    if (isMainThread())
-        return lambda();
-
-    T value;
-    callOnMainThreadAndWait([&value, &lambda] {
-        value = lambda();
-    });
-    return value;
-}
-
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (NSArray *)accessibilityParameterizedAttributeNames
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
-    return retrieveAccessibilityValueFromMainThread<id>([&self] () -> id {
-        NSMutableArray *names = [NSMutableArray array];
-        if (!m_page)
-            return names;
-        
-        if (auto corePage = m_page->corePage()) {
-            for (auto& name : corePage->pageOverlayController().copyAccessibilityAttributesNames(true))
-                [names addObject:(NSString *)name];
-        }
-        return names;
-    });
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (id cachedNames = self.cachedParameterizedAttributeNames)
+        return cachedNames;
+#endif
+
+    id names = ax::retrieveValueFromMainThread<RetainPtr<id>>([PROTECTED_SELF] () -> RetainPtr<id> {
+        auto page = protectedSelf->m_page;
+        if (!page)
+            return @[];
+
+        auto corePage = page->corePage();
+        if (!corePage)
+            return @[];
+
+        return createNSArray(corePage->pageOverlayController().copyAccessibilityAttributesNames(true));
+    }).autorelease();
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    self.cachedParameterizedAttributeNames = names;
+#endif
+
+    return names;
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -123,8 +132,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (NSPoint)convertScreenPointToRootView:(NSPoint)point
 {
-    return retrieveAccessibilityValueFromMainThread<NSPoint>([&self, &point] () -> NSPoint {
-        return m_page->screenToRootView(WebCore::IntPoint(point.x, point.y));
+    return ax::retrieveValueFromMainThread<NSPoint>([&point, PROTECTED_SELF] () -> NSPoint {
+        if (!protectedSelf->m_page)
+            return point;
+        return protectedSelf->m_page->screenToRootView(WebCore::IntPoint(point.x, point.y));
     });
 }
 
@@ -132,16 +143,16 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (NSArray *)accessibilityActionNames
 ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 {
-    return [NSArray array];
+    return @[];
 }
 
 - (NSArray *)accessibilityChildren
 {
     id wrapper = [self accessibilityRootObjectWrapper];
     if (!wrapper)
-        return [NSArray array];
+        return @[];
     
-    return [NSArray arrayWithObject:wrapper];
+    return @[wrapper];
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -189,34 +200,40 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 - (NSValue *)accessibilityAttributeSizeValue
 {
-    return retrieveAccessibilityValueFromMainThread<id>([&self] () -> id {
-        return [NSValue valueWithSize:(NSSize)m_page->size()];
-    });
+    return ax::retrieveValueFromMainThread<RetainPtr<id>>([PROTECTED_SELF] () -> RetainPtr<id> {
+        if (!protectedSelf->m_page)
+            return nil;
+        return [NSValue valueWithSize:(NSSize)protectedSelf->m_page->size()];
+    }).autorelease();
 }
 
 - (NSValue *)accessibilityAttributePositionValue
 {
-    return retrieveAccessibilityValueFromMainThread<id>([&self] () -> id {
-        return [NSValue valueWithPoint:(NSPoint)m_page->accessibilityPosition()];
-    });
+    return ax::retrieveValueFromMainThread<RetainPtr<id>>([PROTECTED_SELF] () -> RetainPtr<id> {
+        if (!protectedSelf->m_page)
+            return nil;
+        return [NSValue valueWithPoint:(NSPoint)protectedSelf->m_page->accessibilityPosition()];
+    }).autorelease();
 }
 
 - (id)accessibilityDataDetectorValue:(NSString *)attribute point:(WebCore::FloatPoint&)point
 {
-    return retrieveAccessibilityValueFromMainThread<id>([&self, &attribute, &point] () -> id {
+    return ax::retrieveValueFromMainThread<RetainPtr<id>>([&attribute, &point, PROTECTED_SELF] () -> RetainPtr<id> {
+        if (!protectedSelf->m_page)
+            return nil;
         id value = nil;
         if ([attribute isEqualToString:@"AXDataDetectorExistsAtPoint"] || [attribute isEqualToString:@"AXDidShowDataDetectorMenuAtPoint"]) {
             bool boolValue;
-            if (m_page->corePage()->pageOverlayController().copyAccessibilityAttributeBoolValueForPoint(attribute, point, boolValue))
+            if (protectedSelf->m_page->corePage()->pageOverlayController().copyAccessibilityAttributeBoolValueForPoint(attribute, point, boolValue))
                 value = [NSNumber numberWithBool:boolValue];
         }
         if ([attribute isEqualToString:@"AXDataDetectorTypeAtPoint"]) {
             String stringValue;
-            if (m_page->corePage()->pageOverlayController().copyAccessibilityAttributeStringValueForPoint(attribute, point, stringValue))
+            if (protectedSelf->m_page->corePage()->pageOverlayController().copyAccessibilityAttributeStringValueForPoint(attribute, point, stringValue))
                 value = [NSString stringWithString:stringValue];
         }
         return value;
-    });
+    }).autorelease();
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -243,29 +260,28 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (id)accessibilityHitTest:(NSPoint)point
 {
-    auto convertedPoint = retrieveAccessibilityValueFromMainThread<WebCore::IntPoint>([&self, &point] () -> WebCore::IntPoint {
-        if (!m_page)
+    auto convertedPoint = ax::retrieveValueFromMainThread<WebCore::IntPoint>([&point, PROTECTED_SELF] () -> WebCore::IntPoint {
+        if (!protectedSelf->m_page)
             return WebCore::IntPoint(point);
-        
-        auto convertedPoint = m_page->screenToRootView(WebCore::IntPoint(point));
-        
+
+        auto convertedPoint = protectedSelf->m_page->screenToRootView(WebCore::IntPoint(point));
+
         // Some plugins may be able to figure out the scroll position and inset on their own.
         bool applyContentOffset = true;
 
         // Isolated tree frames have the offset encoded into them so we don't need to undo here.
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-        bool queryingIsolatedTree = WebCore::AXObjectCache::clientSupportsIsolatedTree() && _AXUIElementRequestServicedBySecondaryAXThread();
-        applyContentOffset = !queryingIsolatedTree;
+        applyContentOffset = !WebCore::AXObjectCache::isIsolatedTreeEnabled() || !_AXUIElementRequestServicedBySecondaryAXThread();
 #endif
-        if (auto pluginView = WebKit::WebPage::pluginViewForFrame(m_page->mainFrame()))
+        if (auto pluginView = WebKit::WebPage::pluginViewForFrame(protectedSelf->m_page->mainFrame()))
             applyContentOffset = !pluginView->plugin()->pluginHandlesContentOffsetForAccessibilityHitTest();
         
         if (!applyContentOffset)
             return convertedPoint;
 
-        if (WebCore::FrameView* frameView = m_page->mainFrameView())
+        if (auto* frameView = protectedSelf->m_page->mainFrameView())
             convertedPoint.moveBy(frameView->scrollPosition());
-        if (WebCore::Page* page = m_page->corePage())
+        if (auto* page = protectedSelf->m_page->corePage())
             convertedPoint.move(0, -page->topContentInset());
         return convertedPoint;
     });

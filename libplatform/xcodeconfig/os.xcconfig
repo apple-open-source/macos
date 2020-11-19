@@ -14,7 +14,7 @@ CLANG_WARN_EMPTY_BODY = YES
 CLANG_WARN_IMPLICIT_SIGN_CONVERSION = YES
 CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = YES
 GCC_TREAT_WARNINGS_AS_ERRORS = YES
-WARNING_CFLAGS = -Wall -Wextra -Waggregate-return -Wfloat-equal -Wpacked -Wmissing-declarations -Wstrict-overflow=4 -Wstrict-aliasing=2 -Wno-unknown-warning-option
+WARNING_CFLAGS = -Wall -Wextra -Waggregate-return -Wfloat-equal -Wpacked -Wmissing-declarations -Wstrict-overflow=4 -Wstrict-aliasing=2 -Wno-unknown-warning-option -Wno-atomic-implicit-seq-cst
 
 COMPILER_CFLAGS = -momit-leaf-frame-pointer
 OTHER_CFLAGS_debug =

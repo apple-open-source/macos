@@ -11,67 +11,57 @@ index 69651a89cd..e25b60c79c 100644
  
    dnl
    dnl SASL check
-diff --git a/ext/ldap/ldap.c b/ext/ldap/ldap.c
-index 30923b3350..cb533a8521 100644
---- a/ext/ldap/ldap.c
-+++ b/ext/ldap/ldap.c
-@@ -148,6 +148,7 @@ static void _php_ldap_control_to_array(LDAP *ld, LDAPControl* ctrl, zval* array,
- 
- 	// If it is a known oid, parse to values
- 	if (strcmp(ctrl->ldctl_oid, LDAP_CONTROL_PASSWORDPOLICYRESPONSE) == 0) {
-+#ifdef HAVE_LDAP_PARSE_PASSWORDPOLICY_CONTROL
+--- php/ext/ldap/ldap.c.orig	2020-09-23 07:05:46.000000000 -0700
++++ php/ext/ldap/ldap.c	2020-09-23 07:03:23.000000000 -0700
+@@ -151,8 +151,11 @@
  		int expire = 0, grace = 0, rc;
  		LDAPPasswordPolicyError pperr;
  		zval value;
-@@ -165,6 +166,13 @@ static void _php_ldap_control_to_array(LDAP *ld, LDAPControl* ctrl, zval* array,
- 		} else {
- 			add_assoc_null(array, "value");
- 		}
+-
++#ifdef HAVE_LDAP_PARSE_PASSWORDPOLICY_CONTROL
+ 		rc = ldap_parse_passwordpolicy_control(ld, ctrl, &expire, &grace, &pperr);
 +#else
-+		if (ctrl->ldctl_value.bv_len) {
-+			add_assoc_stringl(array, "value", ctrl->ldctl_value.bv_val, ctrl->ldctl_value.bv_len);
-+		} else {
-+			add_assoc_null(array, "value");
-+		}
++        rc = LDAP_NOT_SUPPORTED;
 +#endif
- 	} else if (strcmp(ctrl->ldctl_oid, LDAP_CONTROL_PAGEDRESULTS) == 0) {
- 		int lestimated, rc;
- 		struct berval lcookie;
-@@ -464,7 +472,11 @@ static int _php_ldap_control_from_array(LDAP *ld, LDAPControl** ctrl, zval* arra
- 				}
- 			}
+ 		if ( rc == LDAP_SUCCESS ) {
+ 			array_init(&value);
+ 			add_assoc_long(&value, "expire", expire);
+@@ -496,7 +499,11 @@
  			sort_keys[num_keys] = NULL;
+ 			/* ldap_create_sort_control_value() allocates memory for control_value.bv_val */
+ 			control_value_alloc = 1;
 +#ifdef HAVE_LDAP_CREATE_SORT_CONTROL_VALUE
- 			control_value = ber_memalloc(sizeof * control_value);
+ 			rc = ldap_create_sort_control_value(ld, sort_keys, &control_value);
 +#else
-+			control_value = NULL;
++            rc = LDAP_NOT_SUPPORTED;
 +#endif
- 			if (control_value == NULL) {
- 				rc = -1;
- 				php_error_docref(NULL, E_WARNING, "Failed to allocate control value");
-@@ -526,7 +538,11 @@ static int _php_ldap_control_from_array(LDAP *ld, LDAPControl** ctrl, zval* arra
- 				vlvInfo.ldvlv_context = NULL;
+ 			if (rc != LDAP_SUCCESS) {
+ 				php_error_docref(NULL, E_WARNING, "Failed to create sort control value: %s (%d)", ldap_err2string(rc), rc);
  			}
+@@ -562,7 +569,11 @@
  
+ 			/* ldap_create_vlv_control_value() allocates memory for control_value.bv_val */
+ 			control_value_alloc = 1;
 +#ifdef HAVE_LDAP_CREATE_VLV_CONTROL_VALUE
- 			control_value = ber_memalloc(sizeof * control_value);
+ 			rc = ldap_create_vlv_control_value(ld, &vlvInfo, &control_value);
 +#else
-+			control_value = NULL;
++            rc = LDAP_NOT_SUPPORTED;
 +#endif
- 			if (control_value == NULL) {
- 				rc = -1;
- 				php_error_docref(NULL, E_WARNING, "Failed to allocate control value");
-@@ -4239,10 +4255,12 @@ PHP_FUNCTION(ldap_exop_passwd)
- 			*requestctrls = NULL;
- 			ctrlp = requestctrls;
- 
-+#ifdef HAVE_LDAP_CREATE_PASSWORD_POLICY_CONTROL
- 			if (ldap_create_passwordpolicy_control(ld->link, &ctrl) == LDAP_SUCCESS) {
- 				*ctrlp = ctrl;
- 				++ctrlp;
+ 			if (rc != LDAP_SUCCESS) {
+ 				php_error_docref(NULL, E_WARNING, "Failed to create VLV control value: %s (%d)", ldap_err2string(rc), rc);
  			}
-+#endif
+@@ -4320,10 +4331,14 @@
  
- 			*ctrlp = NULL;
- 		case 4:
-
+ 	switch (myargcount) {
+ 		case 5:
++#ifdef HAVE_LDAP_CREATE_PASSWORDPOLICY_CONTROL
+ 			/* ldap_create_passwordpolicy_control() allocates ctrl */
+ 			if (ldap_create_passwordpolicy_control(ld->link, &ctrl) == LDAP_SUCCESS) {
+ 				requestctrls[0] = ctrl;
+ 			}
++#else
++			requestctrls[0] = NULL;
++#endif
+ 	}
+ 
+ 	/* asynchronous call to get result and controls */

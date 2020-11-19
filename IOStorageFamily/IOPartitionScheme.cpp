@@ -318,7 +318,7 @@ IOReturn IOPartitionScheme::synchronize(IOService *                 client,
     // Flush the cached data in the storage object, if any.
     //
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     if ( _respondsTo_synchronizeCache )
     {
         if ( options == _kIOStorageSynchronizeOption_super__synchronizeCache )
@@ -330,7 +330,7 @@ IOReturn IOPartitionScheme::synchronize(IOService *                 client,
             return IOStorage::synchronize( client, byteStart, byteCount, options );
         }
     }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     return getProvider( )->synchronize( this, byteStart, byteCount, options );
 }
@@ -783,9 +783,9 @@ OSMetaClassDefineReservedUnused(IOPartitionScheme, 29);
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 30);
 OSMetaClassDefineReservedUnused(IOPartitionScheme, 31);
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 extern "C" void _ZN17IOPartitionScheme16synchronizeCacheEP9IOService( IOPartitionScheme * scheme, IOService * client )
 {
     scheme->synchronize( client, 0, 0 );
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */

@@ -13,14 +13,10 @@
 
 -(id)initWithPeerInfo:(SOSPeerInfoRef)peerInfo
 {
-    self = [super init];
-    if (!self) {
-        return self;
-    }
-    
-    self.rawPeerInfo = CFRetainSafe(peerInfo);
-    self.applicantUIState = ApplicantWaiting;
-    
+    if ((self = [super init])) {
+        self.rawPeerInfo = CFRetainSafe(peerInfo);
+        self.applicantUIState = ApplicantWaiting;
+    }    
     return self;
 }
 

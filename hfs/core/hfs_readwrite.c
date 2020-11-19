@@ -354,7 +354,7 @@ hfs_vnop_write(struct vnop_write_args *ap)
 	off_t filebytes;
 	off_t offset;
 	ssize_t resid;
-	int eflags;
+	int eflags = 0;
 	int ioflag = ap->a_ioflag;
 	int retval = 0;
 	int lockflags;
@@ -1556,10 +1556,14 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 	{
 		struct vnode *file_vp;
 		cnid_t  cnid;
-		int  outlen;
-		char *bufptr;
 		int error;
 		int flags = 0;
+		char *bufptr;
+#ifdef VN_GETPATH_NEW
+		size_t outlen;
+#else  // VN_GETPATH_NEW
+		int outlen;
+#endif // VN_GETPATH_NEW
 
 		/* Caller must be owner of file system. */
 		vfsp = vfs_statfs(HFSTOVFS(hfsmp));
@@ -1579,14 +1583,15 @@ hfs_vnop_ioctl( struct vnop_ioctl_args /* {
 
 		/* We need to call hfs_vfs_vget to leverage the code that will
 		 * fix the origin list for us if needed, as opposed to calling
-		 * hfs_vget, since we will need the parent for build_path call.
+		 * hfs_vget, since we will need the parent for vn_getpath_ext call.
 		 */
 
 		if ((error = hfs_vfs_vget(HFSTOVFS(hfsmp), cnid, &file_vp, context))) {
 			return (error);
 		}
 
-		error = build_path(file_vp, bufptr, sizeof(pathname_t), &outlen, flags, context);
+		outlen = sizeof(pathname_t);
+		error = vn_getpath_ext(file_vp, NULLVP,  bufptr, &outlen, flags);
 		vnode_put(file_vp);
 
 		return (error);
@@ -5364,7 +5369,7 @@ hfs_relocate(struct  vnode *vp, u_int32_t  blockHint, kauth_cred_t cred,
 	u_int32_t  growsize;
 	u_int32_t  nextallocsave;
 	daddr64_t  sector_a,  sector_b;
-	int eflags;
+	int eflags = 0;
 	off_t  newbytes;
 	int  retval;
 	int lockflags = 0;

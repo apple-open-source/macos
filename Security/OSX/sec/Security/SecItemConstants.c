@@ -120,6 +120,13 @@ SEC_CONST_DECL (kSecAttrPCSPlaintextServiceIdentifier, "pcss");
 SEC_CONST_DECL (kSecAttrPCSPlaintextPublicKey, "pcsk");
 SEC_CONST_DECL (kSecAttrPCSPlaintextPublicIdentity, "pcsi");
 
+SEC_CONST_DECL (kSecDataInetExtraNotes, "binn");
+SEC_CONST_DECL (kSecDataInetExtraHistory, "bini");
+SEC_CONST_DECL (kSecDataInetExtraClientDefined0, "bin0");
+SEC_CONST_DECL (kSecDataInetExtraClientDefined1, "bin1");
+SEC_CONST_DECL (kSecDataInetExtraClientDefined2, "bin2");
+SEC_CONST_DECL (kSecDataInetExtraClientDefined3, "bin3");
+
 /* Predefined access groups constants */
 SEC_CONST_DECL (kSecAttrAccessGroupToken, "com.apple.token");
 

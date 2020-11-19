@@ -57,17 +57,6 @@
 
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
 
-
-long     physicalBatteriesCount = 0;
-
-/*
- * _batteryCount
- */
-__private_extern__ int  _batteryCount(void)
-{
-    return ((int)physicalBatteriesCount);
-}
-
 __private_extern__
 const char *stringForLWCode(uint8_t code)
 {

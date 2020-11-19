@@ -32,6 +32,7 @@
  */
 
 #include "krb5_locl.h"
+#include "HeimCred.h"
 
 struct request {
     krb5_auth_context ac;
@@ -453,6 +454,40 @@ change_password_loop(krb5_context	context,
     }
 
     _krb5_sendto_ctx_set_prexmit(ctx, proc->prexmit, request);
+
+    /*
+     * Gross hack to make AppVPN to work
+     */
+    const char *delegate_bundle;
+    pid_t pid = 0;
+    
+    delegate_bundle = HeimCredGetImpersonateBundle();
+#if TARGET_OS_OSX
+    CFDataRef token = HeimCredGetImpersonateAuditToken();
+    if (token && CFDataGetLength(token) == sizeof(audit_token_t)) {
+	audit_token_t auditToken = {0};
+	memcpy(&auditToken, CFDataGetBytePtr(token), sizeof(auditToken));
+	pid = audit_token_to_pid(auditToken);
+    }
+#endif
+    if (delegate_bundle) {
+	//ONLY set the delegate identifier when it doesn't match the current process.
+	CFBundleRef appBundle = CFBundleGetMainBundle();
+	if (appBundle) {
+	    CFStringRef currentBundleIdentifier = CFBundleGetIdentifier(appBundle);
+	    CFStringRef delegateBundleIdentifier = CFStringCreateWithCString(NULL, delegate_bundle, kCFStringEncodingUTF8);
+	    if (delegateBundleIdentifier && currentBundleIdentifier) {
+		if (CFEqual(currentBundleIdentifier, delegateBundleIdentifier)) {
+		    _krb5_debugx(context, 5, "Bundle identifiers match, not setting delegate");
+		} else {
+		    krb5_sendto_set_delegated_app(NULL, ctx, NULL, pid, delegate_bundle);
+		}
+	    }
+	    if (delegateBundleIdentifier) {
+		CFRelease(delegateBundleIdentifier);
+	    }
+	}
+    }
 
     ret = krb5_sendto_context(context, ctx, &zero, realm, &zero2);
 

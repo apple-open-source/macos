@@ -96,6 +96,7 @@ static void spl_filesystem_object_destroy_object(zend_object *object) /* {{{ */
 				php_stream_pclose(intern->u.file.stream);
 			}
 			intern->u.file.stream = NULL;
+			ZVAL_UNDEF(&intern->u.file.zresource);
 		}
 		break;
 	default:
@@ -708,10 +709,10 @@ void spl_filesystem_object_construct(INTERNAL_FUNCTION_PARAMETERS, zend_long cto
 
 	if (SPL_HAS_FLAG(ctor_flags, DIT_CTOR_FLAGS)) {
 		flags = SPL_FILE_DIR_KEY_AS_PATHNAME|SPL_FILE_DIR_CURRENT_AS_FILEINFO;
-		parsed = zend_parse_parameters(ZEND_NUM_ARGS(), "s|l", &path, &len, &flags);
+		parsed = zend_parse_parameters(ZEND_NUM_ARGS(), "p|l", &path, &len, &flags);
 	} else {
 		flags = SPL_FILE_DIR_KEY_AS_PATHNAME|SPL_FILE_DIR_CURRENT_AS_SELF;
-		parsed = zend_parse_parameters(ZEND_NUM_ARGS(), "s", &path, &len);
+		parsed = zend_parse_parameters(ZEND_NUM_ARGS(), "p", &path, &len);
 	}
 	if (SPL_HAS_FLAG(ctor_flags, SPL_FILE_DIR_SKIPDOTS)) {
 		flags |= SPL_FILE_DIR_SKIPDOTS;
@@ -2062,12 +2063,16 @@ static int spl_filesystem_file_call(spl_filesystem_object *intern, zend_function
 {
 	zend_fcall_info fci;
 	zend_fcall_info_cache fcic;
-	zval *zresource_ptr = &intern->u.file.zresource, retval;
+	zval *zresource_ptr = &intern->u.file.zresource, *params, retval;
 	int result;
 	int num_args = pass_num_args + (arg2 ? 2 : 1);
 
-	zval *params = (zval*)safe_emalloc(num_args, sizeof(zval), 0);
+	if (Z_ISUNDEF_P(zresource_ptr)) {
+		zend_throw_exception_ex(spl_ce_RuntimeException, 0, "Object not initialized");
+		return FAILURE;
+	}
 
+	params = (zval*)safe_emalloc(num_args, sizeof(zval), 0);
 	params[0] = *zresource_ptr;
 
 	if (arg2) {

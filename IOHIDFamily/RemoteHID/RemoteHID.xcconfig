@@ -35,11 +35,10 @@ _INSTALL_PATH_RemoteHID = $(SYSTEM_LIBRARY_DIR)/PrivateFrameworks
 _INSTALL_PATH_log_RemoteHID_internal = /usr/local/lib/log
 _INSTALL_PATH_log_RemoteHID = /usr/local/lib/log
 
-_PATH_1 = _internal
-_PATH_0 =
-_PATH_ =
-
 INSTALL_PATH = $(_INSTALL_PATH_$(PRODUCT_NAME)_internal)
+INSTALL_PATH[sdk=iphoneos*] = $(_INSTALL_PATH_$(PRODUCT_NAME))
+INSTALL_PATH[sdk=watchos*] = $(_INSTALL_PATH_$(PRODUCT_NAME))
+INSTALL_PATH[sdk=appletvos*] = $(_INSTALL_PATH_$(PRODUCT_NAME))
 
 SUPPORTS_TEXT_BASED_API = $(_SUPPORTS_TEXT_BASED_API_$(PRODUCT_NAME))
 TAPI_VERIFY_MODE = Pedantic

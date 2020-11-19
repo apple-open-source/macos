@@ -1,11 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Tool: org.unicode.cldr.icu.NewLdml2IcuConverter
-// * Source File: <path>/common/rbnf/es_003.xml
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 es_003{
     RBNFRules{
         OrdinalRules{
@@ -285,5 +279,5 @@ es_003{
             "1000000000000000000: =#,##0=\u00AA;",
         }
     }
-    Version{"2.1.19.14"}
+    Version{"36.1"}
 }

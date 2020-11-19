@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,7 +87,7 @@ TrustDialogueRef
 TrustDialogue_create(TrustDialogueResponseCallBack func,
 		     const void * arg1, const void * arg2,
 		     CFDictionaryRef trust_info,
-		     CFTypeRef ssid);
+		     CFTypeRef ssid, CFStringRef interface);
 
 CFDictionaryRef
 TrustDialogue_trust_info(TrustDialogueRef dialogue);

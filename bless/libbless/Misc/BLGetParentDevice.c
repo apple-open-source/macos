@@ -39,7 +39,7 @@
 #include <sys/mount.h>
 
 #import <mach/mach_error.h>
-
+#import <APFS/APFS.h>
 #import <IOKit/IOKitLib.h>
 #import <IOKit/IOBSD.h>
 #import <IOKit/storage/IOMedia.h>
@@ -97,7 +97,7 @@ int BLGetParentDeviceAndPartitionType(BLContextPtr context,   const char * parti
 
     // we have the IOMedia for the partition.
 
-    if (IOObjectConformsTo(obj, "AppleAPFSVolume")) {
+    if (IOObjectConformsTo(obj, APFS_VOLUME_OBJECT)) {
         result = 10;
         goto finish;
     }

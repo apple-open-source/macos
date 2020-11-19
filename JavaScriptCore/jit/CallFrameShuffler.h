@@ -35,6 +35,8 @@
 
 namespace JSC {
 
+class CCallHelpers;
+
 class CallFrameShuffler {
     WTF_MAKE_FAST_ALLOCATED;
 public:
@@ -105,7 +107,7 @@ public:
         data.callee = getNew(VirtualRegister { CallFrameSlot::callee })->recovery();
         data.args.resize(argCount());
         for (size_t i = 0; i < argCount(); ++i)
-            data.args[i] = getNew(virtualRegisterForArgument(i))->recovery();
+            data.args[i] = getNew(virtualRegisterForArgumentIncludingThis(i))->recovery();
         for (Reg reg = Reg::first(); reg <= Reg::last(); reg = reg.next()) {
             CachedRecovery* cachedRecovery { m_newRegisters[reg] };
             if (!cachedRecovery)
@@ -128,7 +130,7 @@ public:
     {
         ASSERT(isUndecided());
         ASSERT(!getNew(jsValueRegs));
-        CachedRecovery* cachedRecovery { getNew(VirtualRegister(CallFrameSlot::callee)) };
+        CachedRecovery* cachedRecovery { getNew(CallFrameSlot::callee) };
         ASSERT(cachedRecovery);
         addNew(jsValueRegs, cachedRecovery->recovery());
     }
@@ -141,7 +143,7 @@ public:
     void assumeCalleeIsCell()
     {
 #if USE(JSVALUE32_64)
-        CachedRecovery& calleeCachedRecovery = *getNew(VirtualRegister(CallFrameSlot::callee));
+        CachedRecovery& calleeCachedRecovery = *getNew(CallFrameSlot::callee);
         switch (calleeCachedRecovery.recovery().technique()) {
         case InPair:
             updateRecovery(

@@ -27,7 +27,6 @@
 #import <CloudKit/CloudKit.h>
 #endif
 
-#include <utilities/debugging.h>
 #include "keychain/securityd/SecItemServer.h"
 #include <Security/SecItemPriv.h>
 
@@ -38,6 +37,7 @@
 #import "keychain/ckks/CKKSKey.h"
 
 #import "keychain/ot/OTManager.h"
+#import "keychain/ot/OctagonStateMachineHelpers.h"
 
 NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
     static NSDictionary<CKKSZoneKeyState*, NSNumber*>* map = nil;
@@ -46,7 +46,7 @@ NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
         map = @{
           SecCKKSZoneKeyStateReady:              @0U,
           SecCKKSZoneKeyStateError:              @1U,
-          SecCKKSZoneKeyStateCancelled:          @2U,
+          //SecCKKSZoneKeyStateCancelled:          @2U,
 
           SecCKKSZoneKeyStateInitializing:       @3U,
           SecCKKSZoneKeyStateInitialized:        @4U,
@@ -70,6 +70,11 @@ NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
           SecCKKSZoneKeyStateWaitForTLKUpload:   @22U,
           SecCKKSZoneKeyStateWaitForTLKCreation: @23U,
           SecCKKSZoneKeyStateProcess:            @24U,
+          SecCKKSZoneKeyStateBecomeReady:        @25U,
+          SecCKKSZoneKeyStateLoseTrust:          @26U,
+          SecCKKSZoneKeyStateTLKMissing:         @27U,
+          SecCKKSZoneKeyStateWaitForCloudKitAccountStatus:@28U,
+          SecCKKSZoneKeyStateBeginFetch:         @29U,
         };
     });
     return map;
@@ -106,18 +111,27 @@ CKKSZoneKeyState* CKKSZoneKeyRecover(NSNumber* stateNumber) {
     return SecCKKSZoneKeyStateError;
 }
 
-bool CKKSKeyStateTransient(CKKSZoneKeyState* state) {
-    // Easier to compare against a blacklist of end states
-    bool nontransient = [state isEqualToString:SecCKKSZoneKeyStateReady] ||
-        [state isEqualToString:SecCKKSZoneKeyStateReadyPendingUnlock] ||
-        [state isEqualToString:SecCKKSZoneKeyStateWaitForTrust] ||
-        [state isEqualToString:SecCKKSZoneKeyStateWaitForTLK] ||
-        [state isEqualToString:SecCKKSZoneKeyStateWaitForTLKCreation] ||
-        [state isEqualToString:SecCKKSZoneKeyStateWaitForTLKUpload] ||
-        [state isEqualToString:SecCKKSZoneKeyStateWaitForUnlock] ||
-        [state isEqualToString:SecCKKSZoneKeyStateError] ||
-        [state isEqualToString:SecCKKSZoneKeyStateCancelled];
-    return !nontransient;
+NSSet<CKKSZoneKeyState*>* CKKSKeyStateNonTransientStates()
+{
+    static NSSet<CKKSZoneKeyState*>* states = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        states = [NSSet setWithArray:@[
+             SecCKKSZoneKeyStateReady,
+             SecCKKSZoneKeyStateReadyPendingUnlock,
+             SecCKKSZoneKeyStateWaitForTrust,
+             SecCKKSZoneKeyStateWaitForTLK,
+             SecCKKSZoneKeyStateWaitForTLKCreation,
+             SecCKKSZoneKeyStateWaitForTLKUpload,
+             SecCKKSZoneKeyStateWaitForUnlock,
+             SecCKKSZoneKeyStateError,
+             SecCKKSZoneKeyStateLoggedOut,
+#if OCTAGON
+             OctagonStateMachineHalted,
+#endif
+        ]];
+    });
+    return states;
 }
 
 #if OCTAGON
@@ -128,7 +142,7 @@ static bool testCKKS = false;
 bool SecCKKSIsEnabled(void) {
     if([CKDatabase class] == nil) {
         // CloudKit is not linked. We cannot bring CKKS up; disable it with prejudice.
-        secerror("CKKS: CloudKit.framework appears to not be linked. Cannot enable CKKS (on pain of crash).");
+        ckkserror_global("ckks", "CloudKit.framework appears to not be linked. Cannot enable CKKS (on pain of crash).");
         return false;
     }
 
@@ -158,7 +172,7 @@ bool SecCKKSTestsEnabled(void) {
 bool SecCKKSTestsEnable(void) {
     if([CKDatabase class] == nil) {
         // CloudKit is not linked. We cannot bring CKKS up; disable it with prejudice.
-        secerror("CKKS: CloudKit.framework appears to not be linked. Cannot enable CKKS testing.");
+        ckkserror_global("ckks", "CloudKit.framework appears to not be linked. Cannot enable CKKS testing.");
         testCKKS = false;
         return false;
     }
@@ -210,7 +224,7 @@ bool SecCKKSReduceRateLimiting(void) {
         [defaults registerDefaults: @{key: CKKSReduceRateLimiting ? @YES : @NO}];
 
         CKKSReduceRateLimiting = !![defaults boolForKey:@"reduce-rate-limiting"];
-        secnotice("ckks", "reduce-rate-limiting is %@", CKKSReduceRateLimiting ? @"on" : @"off");
+        ckksnotice_global("ratelimit", "reduce-rate-limiting is %@", CKKSReduceRateLimiting ? @"on" : @"off");
     });
 
     return CKKSReduceRateLimiting;
@@ -219,7 +233,7 @@ bool SecCKKSReduceRateLimiting(void) {
 bool SecCKKSSetReduceRateLimiting(bool value) {
     (void) SecCKKSReduceRateLimiting(); // Call this once to read the defaults write
     CKKSReduceRateLimiting = value;
-    secnotice("ckks", "reduce-rate-limiting is now %@", CKKSReduceRateLimiting ? @"on" : @"off");
+    ckksnotice_global("ratelimit", "reduce-rate-limiting is now %@", CKKSReduceRateLimiting ? @"on" : @"off");
     return CKKSReduceRateLimiting;
 }
 
@@ -234,7 +248,7 @@ bool SecCKKSShareTLKs(void) {
         [defaults registerDefaults: @{@"tlksharing": CKKSShareTLKs ? @YES : @NO}];
 
         CKKSShareTLKs = !![defaults boolForKey:@"tlksharing"];
-        secnotice("ckksshare", "TLK sharing is %@", CKKSShareTLKs ? @"on" : @"off");
+        ckksnotice_global("ckksshare", "TLK sharing is %@", CKKSShareTLKs ? @"on" : @"off");
     });
 
     return CKKSShareTLKs;
@@ -278,16 +292,26 @@ void SecCKKSTestSetDisableKeyNotifications(bool set) {
     CKKSDisableKeyNotifications = set;
 }
 
+static bool CKKSSkipScan = false;
+bool SecCKKSTestSkipScan(void) {
+    return CKKSSkipScan;
+}
+bool SecCKKSSetTestSkipScan(bool value) {
+    CKKSSkipScan = value;
+    return CKKSSkipScan;
+}
+
 void SecCKKSTestResetFlags(void) {
     SecCKKSTestSetDisableAutomaticUUID(false);
     SecCKKSTestSetDisableSOS(false);
     SecCKKSTestSetDisableKeyNotifications(false);
+    SecCKKSSetTestSkipScan(false);
 }
 
 #else /* NO OCTAGON */
 
 bool SecCKKSIsEnabled(void) {
-    secerror("CKKS was disabled at compile time.");
+    ckkserror_global("ckks", "CKKS was disabled at compile time.");
     return false;
 }
 
@@ -323,7 +347,7 @@ void SecCKKSInitialize(SecDbRef db) {
         if(!SecCKKSTestsEnabled()) {
             static dispatch_once_t onceToken;
             dispatch_once(&onceToken, ^{
-                [OctagonAPSReceiver receiverForEnvironment:APSEnvironmentProduction namedDelegatePort:SecCKKSAPSNamedPort apsConnectionClass:[APSConnection class]];
+                [[OctagonAPSReceiver receiverForNamedDelegatePort:SecCKKSAPSNamedPort apsConnectionClass:[APSConnection class]] registerForEnvironment:APSEnvironmentProduction];
             });
         }
     }
@@ -338,7 +362,7 @@ void SecCKKSNotifyBlock(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, 
 
     // Ignore our own changes, otherwise we'd infinite-loop.
     if(source == kSecDbCKKSTransaction) {
-        secinfo("ckks", "Ignoring kSecDbCKKSTransaction notification");
+        ckksinfo_global("ckks", "Ignoring kSecDbCKKSTransaction notification");
         return;
     }
 
@@ -349,7 +373,7 @@ void SecCKKSNotifyBlock(SecDbConnectionRef dbconn, SecDbTransactionPhase phase, 
         SecDbEventTranslateComponents(r, (CFTypeRef*) &deleted, (CFTypeRef*) &added);
 
         if(!added && !deleted) {
-            secerror("CKKS: SecDbEvent gave us garbage: %@", r);
+            ckkserror_global("ckks", "SecDbEvent gave us garbage: %@", r);
             return;
         }
 
@@ -380,12 +404,12 @@ void CKKSRegisterSyncStatusCallback(CFStringRef cfuuid, SecBoolCFErrorCallback c
 void SecCKKSPerformLocalResync() {
 #if OCTAGON
     if(SecCKKSIsEnabled()) {
-        secnotice("ckks", "Local keychain was reset; performing local resync");
+        ckksnotice_global("reset", "Local keychain was reset; performing local resync");
         [[CKKSViewManager manager] rpcResyncLocal:nil reply:^(NSError *result) {
             if(result) {
-                secnotice("ckks", "Local keychain reset resync finished with an error: %@", result);
+                ckksnotice_global("reset", "Local keychain reset resync finished with an error: %@", result);
             } else {
-                secnotice("ckks", "Local keychain reset resync finished successfully");
+                ckksnotice_global("reset", "Local keychain reset resync finished successfully");
             }
         }];
     }

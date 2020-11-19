@@ -964,8 +964,7 @@ void TY_(ParseBlock)( TidyDocImpl* doc, Node *element, GetTokenMode mode)
             {
                 /* special case </tr> etc. for stuff moved in front of table */
                 if ( lexer->exiled
-                     && node->tag->model
-                     && (node->tag->model & CM_TABLE) )
+                     && (TY_(nodeHasCM)(node, CM_TABLE) || nodeIsTABLE(node)) )
                 {
                     TY_(UngetToken)( doc );
                     TrimSpaces( doc, element );
@@ -1549,8 +1548,7 @@ void TY_(ParseInline)( TidyDocImpl* doc, Node *element, GetTokenMode mode )
                 continue;
             }  /* special case </tr> etc. for stuff moved in front of table */
             else if ( lexer->exiled
-                      && node->tag->model
-                      && (node->tag->model & CM_TABLE) )
+                      && (TY_(nodeHasCM)(node, CM_TABLE) || nodeIsTABLE(node)) )
             {
                 TY_(UngetToken)( doc );
                 TrimSpaces(doc, element);
@@ -2063,8 +2061,9 @@ void TY_(ParseList)(TidyDocImpl* doc, Node *list, GetTokenMode ARG_UNUSED(mode))
             }
             /* http://tidy.sf.net/issue/1316307 */
             /* In exiled mode, return so table processing can continue. */
-            else if ( lexer->exiled && node->tag
-                      && TY_(nodeHasCM)(node, CM_TABLE|CM_ROWGRP|CM_ROW) )
+            else if ( lexer->exiled
+                      && (TY_(nodeHasCM)(node, CM_TABLE|CM_ROWGRP|CM_ROW)
+                          || nodeIsTABLE(node)) )
                 return;
 
             node = TY_(InferredTag)(doc, TidyTag_LI);
@@ -2692,10 +2691,31 @@ void TY_(ParsePre)( TidyDocImpl* doc, Node *pre, GetTokenMode ARG_UNUSED(mode) )
             /* fix for http://tidy.sf.net/bug/772205 */
             if (node->type == EndTag)
             {
+                /* http://tidy.sf.net/issue/1590220 */ 
+               if ( doc->lexer->exiled
+                   && (TY_(nodeHasCM)(node, CM_TABLE) || nodeIsTABLE(node)) )
+               {
+                  TY_(UngetToken)(doc);
+                  TrimSpaces(doc, pre);
+                  return;
+               }
+
                TY_(ReportError)(doc, pre, node, DISCARDING_UNEXPECTED);
                TY_(FreeNode)(doc, node);
                continue;
             }
+            /* http://tidy.sf.net/issue/1590220 */
+            else if (TY_(nodeHasCM)(node, CM_TABLE|CM_ROW)
+                     || nodeIsTABLE(node) )
+            {
+                if (!doc->lexer->exiled)
+                    /* No missing close warning if exiled. */
+                    TY_(ReportError)(doc, pre, node, MISSING_ENDTAG_BEFORE);
+
+                TY_(UngetToken)(doc);
+                return;
+            }
+
             /*
               This is basically what Tidy 04 August 2000 did and far more accurate
               with respect to browser behaivour than the code commented out above.

@@ -26,6 +26,18 @@ for arch in ${ARCHS}; do
 
 	SDK_INSTALL_VARIANT="${DRIVERKIT:+_driverkit}"
 
+	# Unwinding i386 dependencies.
+	# there are no more "real" uses of i386 Libsystem, only dependency
+	# cycles from within the umbrella (plus libobjc and libc++).
+	# We will remove non-critical dylibs (that have no real dependents
+	# anymore) from the umbrella to decrease the overall size of the
+	# i386 umbrella.
+	# (Note that there is no i386 driverkit so this does not conflict
+	# with the preceding rule)
+	if [ "$arch" = "i386" ]; then
+		SDK_INSTALL_VARIANT="_i386"
+	fi
+
 	mkdir -p "${TEMPDIR}"
 
 	ACTUALLIBS="${TEMPDIR}/${arch}.${variant}.actuallibs"

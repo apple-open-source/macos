@@ -901,7 +901,7 @@ rrl_done:
         else if (deferred_error == rrl_excesswhitespace)
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(03448)
                           "HTTP Request Line; Excess whitespace "
-                          "(disallowed by HttpProtocolOptions Strict");
+                          "(disallowed by HttpProtocolOptions Strict)");
         else if (deferred_error == rrl_trailingtext)
             ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(03449)
                           "HTTP Request Line; Extraneous text found '%.*s' "
@@ -1367,7 +1367,7 @@ request_rec *ap_read_request(conn_rec *conn)
     }
 
     if (!r->assbackwards) {
-        const char *tenc;
+        const char *tenc, *clen;
 
         ap_get_mime_headers_core(r, tmp_bb);
         if (r->status != HTTP_OK) {
@@ -1380,16 +1380,33 @@ request_rec *ap_read_request(conn_rec *conn)
             goto traceout;
         }
 
+        clen = apr_table_get(r->headers_in, "Content-Length");
+        if (clen) {
+            apr_off_t cl;
+
+            if (!ap_parse_strict_length(&cl, clen)) {
+                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(10242)
+                              "client sent invalid Content-Length "
+                              "(%s): %s", clen, r->uri);
+                r->status = HTTP_BAD_REQUEST;
+                conn->keepalive = AP_CONN_CLOSE;
+                ap_send_error_response(r, 0);
+                ap_update_child_status(conn->sbh, SERVER_BUSY_LOG, r);
+                ap_run_log_transaction(r);
+                apr_brigade_destroy(tmp_bb);
+                goto traceout;
+            }
+        }
+
         tenc = apr_table_get(r->headers_in, "Transfer-Encoding");
         if (tenc) {
-            /* http://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
+            /* https://tools.ietf.org/html/rfc7230
              * Section 3.3.3.3: "If a Transfer-Encoding header field is
              * present in a request and the chunked transfer coding is not
              * the final encoding ...; the server MUST respond with the 400
              * (Bad Request) status code and then close the connection".
              */
-            if (!(strcasecmp(tenc, "chunked") == 0 /* fast path */
-                    || ap_find_last_token(r->pool, tenc, "chunked"))) {
+            if (!ap_is_chunked(r->pool, tenc)) {
                 ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(02539)
                               "client sent unknown Transfer-Encoding "
                               "(%s): %s", tenc, r->uri);
@@ -1402,13 +1419,20 @@ request_rec *ap_read_request(conn_rec *conn)
                 goto traceout;
             }
 
-            /* http://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-23
+            /* https://tools.ietf.org/html/rfc7230
              * Section 3.3.3.3: "If a message is received with both a
              * Transfer-Encoding and a Content-Length header field, the
              * Transfer-Encoding overrides the Content-Length. ... A sender
              * MUST remove the received Content-Length field".
              */
-            apr_table_unset(r->headers_in, "Content-Length");
+            if (clen) {
+                apr_table_unset(r->headers_in, "Content-Length");
+
+                /* Don't reuse this connection anyway to avoid confusion with
+                 * intermediaries and request/reponse spltting.
+                 */
+                conn->keepalive = AP_CONN_CLOSE;
+            }
         }
     }
 
@@ -2036,7 +2060,7 @@ static int r_flush(apr_vformatter_buff_t *buff)
 
 AP_DECLARE(int) ap_vrprintf(request_rec *r, const char *fmt, va_list va)
 {
-    apr_size_t written;
+    int written;
     struct ap_vrprintf_data vd;
     char vrprintf_buf[AP_IOBUFSIZE];
 
@@ -2054,7 +2078,7 @@ AP_DECLARE(int) ap_vrprintf(request_rec *r, const char *fmt, va_list va)
         int n = vd.vbuff.curpos - vrprintf_buf;
 
         /* last call to buffer_output, to finish clearing the buffer */
-        if (buffer_output(r, vrprintf_buf,n) != APR_SUCCESS)
+        if (buffer_output(r, vrprintf_buf, n) != APR_SUCCESS)
             return -1;
 
         written += n;
@@ -2100,6 +2124,7 @@ AP_DECLARE_NONSTD(int) ap_rvputs(request_rec *r, ...)
 
         len = strlen(s);
         if (buffer_output(r, s, len) != APR_SUCCESS) {
+            va_end(va);
             return -1;
         }
 
@@ -2241,7 +2266,7 @@ static int protocol_cmp(const apr_array_header_t *preferences,
             return (index2 >= 0) ? -1 : 1;
         }
     }
-    /* both have the same index (mabye -1 or no pref configured) and we compare
+    /* both have the same index (maybe -1 or no pref configured) and we compare
      * the names so that spdy3 gets precedence over spdy2. That makes
      * the outcome at least deterministic. */
     return strcmp(proto1, proto2);

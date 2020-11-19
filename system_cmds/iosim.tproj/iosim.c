@@ -38,8 +38,9 @@
 #define BLOCKSIZE		1024
 #define MAX_CMD_SIZE		256
 #define PG_MASK			~(0xFFF)
-#define kIONVMeANS2ControllerString     "AppleANS2Controller"
-#define kIONVMeControllerString     	"AppleNVMeController"
+#define kIONVMeANS2ControllerString         "AppleANS2Controller"
+#define kIONVMeANS2EmbeddedControllerString "AppleANS2NVMeController"
+#define kIONVMeControllerString             "AppleNVMeController"
 
 typedef enum {
 	kDefaultDevice    = 0,
@@ -217,22 +218,34 @@ void setup_qos_device(void)
 	if ( iterator != IO_OBJECT_NULL ) {
 		printf ( "Found NVMe ANS2 Device \n" );
 		qos_device = kNVMeDeviceANS2;
-	} else {
-
-		status= IOServiceGetMatchingServices ( kIOMasterPortDefault, IOServiceMatching ( kIONVMeControllerString ), &iterator );
-
-		if ( status != kIOReturnSuccess )
-			return;
-
-		if ( iterator != IO_OBJECT_NULL ) {
-			printf ( "Found NVMe Device \n" );
-			qos_device = kNVMeDevice;
-		}
-		else {
-			printf ( "NVMe Device not found, not setting qos timeout\n" );
-			qos_device = kDefaultDevice;
-		}
+		return;
 	}
+
+	status = IOServiceGetMatchingServices ( kIOMasterPortDefault, IOServiceMatching ( kIONVMeANS2EmbeddedControllerString ), &iterator );
+
+	if ( status != kIOReturnSuccess )
+		return;
+
+	if ( iterator != IO_OBJECT_NULL ) {
+		printf ( "Found NVMe ANS2 Embedded Device \n" );
+		qos_device = kNVMeDeviceANS2;
+		return;
+	}
+
+	status= IOServiceGetMatchingServices ( kIOMasterPortDefault, IOServiceMatching ( kIONVMeControllerString ), &iterator );
+
+	if ( status != kIOReturnSuccess )
+		return;
+
+	if ( iterator != IO_OBJECT_NULL ) {
+		printf ( "Found NVMe Device \n" );
+		qos_device = kNVMeDevice;
+		return;
+	}
+
+	printf ( "NVMe Device not found, not setting qos timeout\n" );
+	qos_device = kDefaultDevice;
+	return;
 }
 
 void assertASP(CFRunLoopTimerRef timer, void *info )

@@ -120,6 +120,9 @@ typedef NSMutableDictionary<CKRecordZoneID*, FakeCKZone*> FakeCKDatabase;
 // Serial queue. Use this for transactionality.
 @property dispatch_queue_t queue;
 
+// Set this to run some code after a write operation has started, but before any results are delivered
+@property (nullable) void (^blockBeforeWriteOperation)(void);
+
 - (instancetype)initZone:(CKRecordZoneID*)zoneID;
 
 // Always Succeed

@@ -114,6 +114,11 @@ WI.NetworkObserver = class NetworkObserver extends InspectorBackend.Dispatcher
         // FIXME: Not implemented.
     }
 
+    requestIntercepted(requestId, request)
+    {
+        WI.networkManager.requestIntercepted(this._target, requestId, request);
+    }
+
     responseIntercepted(requestId, response)
     {
         WI.networkManager.responseIntercepted(this._target, requestId, response);

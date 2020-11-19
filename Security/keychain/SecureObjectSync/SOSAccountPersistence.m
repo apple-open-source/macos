@@ -24,7 +24,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <AssertMacros.h>
 #include "SOSViews.h"
 
@@ -65,7 +64,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v6(CFAllocatorRef allocator,
     
     {
         CFDictionaryRef decoded_gestalt = NULL;
-        *der_p = der_decode_dictionary(kCFAllocatorDefault, kCFPropertyListImmutable, &decoded_gestalt, error,
+        *der_p = der_decode_dictionary(kCFAllocatorDefault, &decoded_gestalt, error,
                                        *der_p, der_end);
         
         if (*der_p == 0)
@@ -77,7 +76,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v6(CFAllocatorRef allocator,
     }
     SOSAccountTrustClassic *trust = account.trust;
 
-    *der_p = der_decode_array(kCFAllocatorDefault, 0, &array, error, *der_p, der_end);
+    *der_p = der_decode_array(kCFAllocatorDefault, &array, error, *der_p, der_end);
     
     uint64_t tmp_departure_code = kSOSNeverAppliedToCircle;
     *der_p = ccder_decode_uint64(&tmp_departure_code, *der_p, der_end);
@@ -99,10 +98,10 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v6(CFAllocatorRef allocator,
     {
         CFDataRef parms = NULL;
         *der_p = der_decode_data_or_null(kCFAllocatorDefault, &parms, error, *der_p, der_end);
-        [account setAccountKeyDerivationParamters:(__bridge_transfer NSData*) parms];
+        [account setAccountKeyDerivationParameters:(__bridge_transfer NSData*) parms];
     }
 
-    *der_p = der_decode_dictionary(kCFAllocatorDefault, kCFPropertyListMutableContainers, (CFDictionaryRef *) &retiredPeers, error, *der_p, der_end);
+    *der_p = der_decode_dictionary(kCFAllocatorDefault, (CFDictionaryRef *) &retiredPeers, error, *der_p, der_end);
 
     if(*der_p != der_end) {
         *der_p = NULL;
@@ -173,11 +172,11 @@ fail:
     return result;
 }
 
-static const uint8_t* der_decode_data_optional(CFAllocatorRef allocator, CFOptionFlags mutability,
+static const uint8_t* der_decode_data_optional(CFAllocatorRef allocator,
                                         CFDataRef* data, CFErrorRef *error,
                                         const uint8_t* der, const uint8_t *der_end)
 {
-    const uint8_t *dt_end = der_decode_data(allocator, mutability, data, NULL, der, der_end);
+    const uint8_t *dt_end = der_decode_data(allocator, data, NULL, der, der_end);
 
     return dt_end ? dt_end : der;
 }
@@ -192,7 +191,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v7(CFAllocatorRef allocator,
     
     {
         CFDictionaryRef decoded_gestalt = NULL;
-        *der_p = der_decode_dictionary(kCFAllocatorDefault, kCFPropertyListImmutable, &decoded_gestalt, error,
+        *der_p = der_decode_dictionary(kCFAllocatorDefault, &decoded_gestalt, error,
                                        *der_p, der_end);
         
         if (*der_p == 0)
@@ -242,7 +241,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v7(CFAllocatorRef allocator,
     {
         CFDataRef parms = NULL;
         *der_p = der_decode_data_or_null(kCFAllocatorDefault, &parms, error, *der_p, der_end);
-        account.accountKeyDerivationParamters = (__bridge_transfer NSData*)parms;
+        account.accountKeyDerivationParameters = (__bridge_transfer NSData*)parms;
     }
 
     {
@@ -252,7 +251,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v7(CFAllocatorRef allocator,
 
     {
         CFDataRef bKey = NULL;
-        *der_p = der_decode_data_optional(kCFAllocatorDefault, kCFPropertyListImmutable, &bKey, error, *der_p, der_end);
+        *der_p = der_decode_data_optional(kCFAllocatorDefault, &bKey, error, *der_p, der_end);
         if(bKey != NULL)
             [account setBackup_key:(__bridge_transfer NSData *)bKey];
     }
@@ -280,7 +279,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v8(CFAllocatorRef allocator,
 
     {
         CFDictionaryRef decoded_gestalt = NULL;
-        *der_p = der_decode_dictionary(kCFAllocatorDefault, kCFPropertyListImmutable, &decoded_gestalt, error,
+        *der_p = der_decode_dictionary(kCFAllocatorDefault, &decoded_gestalt, error,
                                        *der_p, der_end);
         
         if (*der_p == 0) {
@@ -332,7 +331,7 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v8(CFAllocatorRef allocator,
     {
         CFDataRef parms;
         *der_p = der_decode_data_or_null(kCFAllocatorDefault, &parms, error, *der_p, der_end);
-        account.accountKeyDerivationParamters = (__bridge_transfer NSData*)parms;
+        account.accountKeyDerivationParameters = (__bridge_transfer NSData*)parms;
         parms = NULL;
     }
 
@@ -343,10 +342,10 @@ static SOSAccount* SOSAccountCreateFromRemainingDER_v8(CFAllocatorRef allocator,
     }
 
     CFDataRef bKey = NULL;
-    *der_p = der_decode_data_optional(kCFAllocatorDefault, kCFPropertyListImmutable, &bKey, error, *der_p, der_end);
+    *der_p = der_decode_data_optional(kCFAllocatorDefault, &bKey, error, *der_p, der_end);
     {
         CFDictionaryRef expansion = NULL;
-        *der_p = der_decode_dictionary(kCFAllocatorDefault, kCFPropertyListImmutable, &expansion, error,
+        *der_p = der_decode_dictionary(kCFAllocatorDefault, &expansion, error,
                                        *der_p, der_end);
         
         if (*der_p == 0) {
@@ -440,9 +439,12 @@ static SOSAccount* SOSAccountCreateFromDER(CFAllocatorRef allocator,
             SOSUnregisterTransportKeyParameter(account.key_transport);
             SOSUnregisterTransportCircle((SOSCircleStorageTransport*)account.circle_transport);
             SOSUnregisterTransportMessage(account.kvs_message_transport);
-
             secnotice("account", "No private key associated with my_identity, resetting");
             return nil;
+        } else {
+            SecKeyRef ppk = SOSFullPeerInfoCopyPubKey(identity, NULL);
+            account.peerPublicKey = ppk;
+            CFReleaseNull(ppk);
         }
     }
 
@@ -457,9 +459,10 @@ static SOSAccount* SOSAccountCreateFromDER(CFAllocatorRef allocator,
     }
     CFReleaseNull(oldPI);
 
-    SOSAccountEnsureRecoveryRing(account);
 
     [account performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
+        SOSAccountEnsureRecoveryRing(account);
+
         secnotice("circleop", "Setting account.key_interests_need_updating to true in SOSAccountCreateFromDER");
         account.key_interests_need_updating = true;
     }];

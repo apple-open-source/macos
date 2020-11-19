@@ -68,7 +68,7 @@
 
     attrs = [self addGenericPassword:@"delete-me" service:@"delete-me"];
     XCTAssertNotNil(attrs, "should create genp");
-    XCTAssertEqual(attrs[@"OSStatus"], @(errSecDuplicateItem), "should have duplicate item");
+    XCTAssertEqual([attrs[@"OSStatus"] integerValue], errSecDuplicateItem, "should have duplicate item");
 }
 
 
@@ -80,7 +80,7 @@
 
     attrs = [self addGenericPassword:@"delete-me" service:@"delete-me"];
     XCTAssertNotNil(attrs, "should create genp");
-    XCTAssertEqual(attrs[@"OSStatus"], @(errSecDuplicateItem), "should have duplicate item");
+    XCTAssertEqual([attrs[@"OSStatus"] integerValue], errSecDuplicateItem, "should have duplicate item");
 
     XCTAssertEqual([self moveGenericPassword:@"delete-me" service:@"delete-me"
                                   newAccount:@"delete-me2" newService:@"delete-me2"],

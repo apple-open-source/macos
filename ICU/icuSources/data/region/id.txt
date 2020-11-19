@@ -42,7 +42,7 @@ id{
         AL{"Albania"}
         AM{"Armenia"}
         AO{"Angola"}
-        AQ{"Antartika"}
+        AQ{"Antarktika"}
         AR{"Argentina"}
         AS{"Samoa Amerika"}
         AT{"Austria"}
@@ -88,7 +88,7 @@ id{
         CU{"Kuba"}
         CV{"Tanjung Verde"}
         CW{"Curaçao"}
-        CX{"Pulau Christmas"}
+        CX{"Pulau Natal"}
         CY{"Siprus"}
         CZ{"Ceko"}
         DE{"Jerman"}
@@ -110,7 +110,7 @@ id{
         EZ{"Zona Euro"}
         FI{"Finlandia"}
         FJ{"Fiji"}
-        FK{"Kepulauan Malvinas"}
+        FK{"Kepulauan Falkland"}
         FM{"Mikronesia"}
         FO{"Kepulauan Faroe"}
         FR{"Prancis"}
@@ -139,7 +139,7 @@ id{
         HR{"Kroasia"}
         HT{"Haiti"}
         HU{"Hungaria"}
-        IC{"Kepulauan Canary"}
+        IC{"Kepulauan Canaria"}
         ID{"Indonesia"}
         IE{"Irlandia"}
         IL{"Israel"}
@@ -257,7 +257,7 @@ id{
         TA{"Tristan da Cunha"}
         TC{"Kepulauan Turks dan Caicos"}
         TD{"Cad"}
-        TF{"Wilayah Kutub Selatan Prancis"}
+        TF{"Wilayah Selatan Perancis"}
         TG{"Togo"}
         TH{"Thailand"}
         TJ{"Tajikistan"}
@@ -279,10 +279,10 @@ id{
         UY{"Uruguay"}
         UZ{"Uzbekistan"}
         VA{"Vatikan"}
-        VC{"Saint Vincent dan Grenadines"}
+        VC{"Saint Vincent dan Grenadine"}
         VE{"Venezuela"}
-        VG{"Kepulauan Virgin Inggris"}
-        VI{"Kepulauan Virgin A.S."}
+        VG{"Kepulauan Virgin Britania Raya"}
+        VI{"Kepulauan Virgin Amerika Serikat"}
         VN{"Vietnam"}
         VU{"Vanuatu"}
         WF{"Kepulauan Wallis dan Futuna"}
@@ -308,9 +308,9 @@ id{
         CG{"Kongo (Republik)"}
         CI{"Pantai Gading"}
         CZ{"Republik Ceko"}
-        FK{"Kepulauan Malvinas (Falkland)"}
+        FK{"Kepulauan Falkland (Malvinas)"}
         SZ{"Swaziland"}
-        TL{"TL"}
+        TL{"Timor Timur"}
     }
-    Version{"2.1.48.42"}
+    Version{"36.1"}
 }

@@ -112,8 +112,9 @@ ThresholdAclSubject *ThresholdAclSubject::Maker::make(const TypedList &list) con
     // now compile the subSubjects
     AclSubjectVector elements(totalSubjects);
     const ListElement *subSubject = &list[3];
-    for (uint32 n = 0; n < totalSubjects; n++, subSubject = subSubject->next())
+    for (uint32 n = 0; n < totalSubjects; n++, subSubject = subSubject->next()) {
         elements[n] = ObjectAcl::make(subSubject->typedList());
+    }
 	return new ThresholdAclSubject(totalSubjects, minimumNeeded, elements);
 }
 

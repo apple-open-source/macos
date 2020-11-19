@@ -34,7 +34,12 @@
  * $FreeBSD: src/bin/mv/pathnames.h,v 1.6 2002/05/17 11:38:48 jmallett Exp $
  */
 
+#ifndef _MV_PATHNAMES_H_
+#define _MV_PATHNAMES_H_
+
 #define	_PATH_RM	"/bin/rm"
 #ifdef __APPLE__
 #define _PATH_CP	"/bin/cp"
 #endif /* __APPLE__ */
+
+#endif /* _MV_PATHNAMES_H_ */

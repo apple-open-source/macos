@@ -38,9 +38,6 @@ realloc_by_amount(const char *base_metric_name, size_t size, ssize_t amount,
 	dt_stat_time_t s = dt_stat_time_create(name);
 	dt_stat_set_variable((dt_stat_t)s, "size (bytes)", (unsigned int)size);
 	dt_stat_set_variable((dt_stat_t)s, "amount (bytes)", (int)amount);
-	// rdar://problem/40417821: disable thresholds for now.
-	//dt_stat_set_variable((dt_stat_t)s, kPCFailureThresholdPctVar,
-	//		PERFCHECK_THRESHOLD_PCT);
 	dt_stat_token now = dt_stat_time_begin(s);
 
 	for (;;) {

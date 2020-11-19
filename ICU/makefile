@@ -1,6 +1,6 @@
 ##
 # Wrapper makefile for ICU
-# Copyright (C) 2003-2018 Apple Inc. All rights reserved.
+# Copyright (C) 2003-2020 Apple Inc. All rights reserved.
 #
 # See http://www.gnu.org/manual/make/html_chapter/make_toc.html#SEC_Contents
 # for documentation on makefiles. Most of this was culled from the ncurses makefile.
@@ -35,6 +35,9 @@
 #    are formed from U_ICU_VERSION_MAJOR_NUM, U_ICU_VERSION_MINOR_NUM, and
 #    U_ICU_VERSION_PATCHLEVEL_NUM; the 4th value is ICU_BUILD, formed from AA and B as
 #    ICU_BUILD = 100*AA + B.
+#
+#################################
+# The following is obsolete after ICU-66002:
 #
 # The B&I submission version always has 3 parts separated by '.':
 # MMmAA.(0 | B).T
@@ -229,7 +232,7 @@ $(info # SDKPATH=$(SDKPATH))
 # m  is U_ICU_VERSION_MINOR_NUM
 # AA is the Apple delta version
 # B  is the Apple branch version (1 or 2 digits)
-# T  is the Apple train code for submissions.
+# T  is the Apple train code for submissions. [obsolete after ICU-66002]
 # Note The value for the SourceVersion property in version.plists will be calculated as
 # (X*10000 + Y*100 + Z).
 # We want ICU_BUILD = 100*AA + B.
@@ -280,7 +283,8 @@ endif
 
 # Determine build type. In some cases (e.g. running installsrc for submitproject)
 # the only accurate information we may have about build type is from ICU_TRAIN_CODE,
-# so give priority to that if nonzero.
+# so give priority to that if nonzero. [though it is mostly obsolete after ICU-66002
+# it might possibly be used for non-Apple-platform builds]
 # The values currently defined for ICU_TRAIN_CODE and corresponding ICU_BUILD_TYPE are
 # 1  OSX trains
 # 2  embedded trains (iOS, tvos, watchos) including simulator versions thereof.
@@ -309,6 +313,9 @@ endif
 # 	exactly one of the following is 1: TARGET_OS_SIMULATOR, TARGET_OS_EMBEDDED (i.e. device)
 # 	exactly one of the following is 1: TARGET_OS_IOS, TARGET_OS_TV, TARGET_OS_WATCH, TARGET_OS_BRIDGE
 #
+# if SDKPATH is / then we are doing something like a make check against host SDK and not building
+# for embedded, so ICU_FOR_EMBEDDED_TRAINS must be NO
+#
 ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
 	HOSTCC := $(shell xcrun --sdk macosx --find cc)
 	HOSTCXX := $(shell xcrun --sdk macosx --find c++)
@@ -320,11 +327,7 @@ ifeq "$(ICU_FOR_APPLE_PLATFORMS)" "YES"
 		CXX := $(HOSTCXX)
 		NM := $(shell xcrun --sdk macosx --find nm)
 		STRIPCMD := $(shell xcrun --sdk macosx --find strip)
-		ifeq "$(ICU_TRAIN_CODE)" "2"
-		    export ICU_FOR_EMBEDDED_TRAINS:=YES
-		else
-		    export ICU_FOR_EMBEDDED_TRAINS:=NO
-		endif
+		export ICU_FOR_EMBEDDED_TRAINS:=NO
 	else
 		ISYSROOT:= -isysroot $(SDKPATH)
 		CC := $(shell xcrun --sdk $(SDKPATH) --find cc)
@@ -396,45 +399,45 @@ $(error Cross-builds currently not allowed on Linux)
 endif
 endif
 
-MAC_OS_X_VERSION_MIN_REQUIRED=101400
-OSX_HOST_VERSION_MIN_STRING=10.14
+MAC_OS_X_VERSION_MIN_REQUIRED=101504
+OSX_HOST_VERSION_MIN_STRING=10.15.4
 
 ifndef IPHONEOS_DEPLOYMENT_TARGET
-	IOS_VERSION_TARGET_STRING=13.0
+	IOS_VERSION_TARGET_STRING=14.0
 else ifeq "$(IPHONEOS_DEPLOYMENT_TARGET)" ""
-	IOS_VERSION_TARGET_STRING=13.0
+	IOS_VERSION_TARGET_STRING=14.0
 else
 	IOS_VERSION_TARGET_STRING=$(IPHONEOS_DEPLOYMENT_TARGET)
 endif
 
 ifndef MACOSX_DEPLOYMENT_TARGET
-	OSX_VERSION_TARGET_STRING=10.15
+	OSX_VERSION_TARGET_STRING=11.0
 else ifeq "$(MACOSX_DEPLOYMENT_TARGET)" ""
-	OSX_VERSION_TARGET_STRING=10.15
+	OSX_VERSION_TARGET_STRING=11.0
 else
 	OSX_VERSION_TARGET_STRING=$(MACOSX_DEPLOYMENT_TARGET)
 endif
 
 ifndef WATCHOS_DEPLOYMENT_TARGET
-	WATCHOS_VERSION_TARGET_STRING=6.0
+	WATCHOS_VERSION_TARGET_STRING=7.0
 else ifeq "$(WATCHOS_DEPLOYMENT_TARGET)" ""
-	WATCHOS_VERSION_TARGET_STRING=6.0
+	WATCHOS_VERSION_TARGET_STRING=7.0
 else
 	WATCHOS_VERSION_TARGET_STRING=$(WATCHOS_DEPLOYMENT_TARGET)
 endif
 
 ifndef TVOS_DEPLOYMENT_TARGET
-	TVOS_VERSION_TARGET_STRING=13.0
+	TVOS_VERSION_TARGET_STRING=14.0
 else ifeq "$(TVOS_DEPLOYMENT_TARGET)" ""
-	TVOS_VERSION_TARGET_STRING=13.0
+	TVOS_VERSION_TARGET_STRING=14.0
 else
 	TVOS_VERSION_TARGET_STRING=$(TVOS_DEPLOYMENT_TARGET)
 endif
 
 ifndef BRIDGEOS_DEPLOYMENT_TARGET
-	BRIDGEOS_VERSION_TARGET_STRING=3.0
+	BRIDGEOS_VERSION_TARGET_STRING=4.0
 else ifeq "$(BRIDGEOS_DEPLOYMENT_TARGET)" ""
-	BRIDGEOS_VERSION_TARGET_STRING=3.0
+	BRIDGEOS_VERSION_TARGET_STRING=4.0
 else
 	BRIDGEOS_VERSION_TARGET_STRING=$(BRIDGEOS_DEPLOYMENT_TARGET)
 endif
@@ -500,17 +503,14 @@ $(info # buildhost=$(UNAME_PROCESSOR))
 # data file initially built big-endian.
 #
 # darwin releases
-# darwin 17.0.0 2017-Sep: macOS 10.13, iOS 11
-# darwin 17.5.0 2018-Mar: macOS 10.13.4
-# darwin 17.6.0 2018-Jun: macOS 10.13.5
-# darwin 17.7.0 2018-Jul: macOS 10.13.6, iOS 11.4.1
 # darwin 18.0.0 2018-Sep: macOS 10.14, iOS 12
 # darwin 18.2.0 2018-Oct: macOS 10.14.1, iOS 12.1
 # darwin 19.0.0 2019-fall: macOS 10.15, iOS 13
+# darwin 20.0.0 2020-fall: macOS 10.16, iOS 14
 #
 ifeq "$(CROSS_BUILD)" "YES"
 	RC_ARCHS_FIRST=$(shell echo $(RC_ARCHS) | cut -d' ' -f1)
-	TARGET_SPEC=$(RC_ARCHS_FIRST)-apple-darwin19.0.0
+	TARGET_SPEC=$(RC_ARCHS_FIRST)-apple-darwin20.0.0
 	ENV_CONFIGURE_ARCHS=-arch $(RC_ARCHS_FIRST)
 	ICUPKGTOOLIBS="$(CROSSHOST_OBJROOT)/lib:$(CROSSHOST_OBJROOT)/stubdata"
 	ICUPKGTOOL=$(CROSSHOST_OBJROOT)/bin/icupkg
@@ -526,7 +526,7 @@ else ifeq "$(LINUX)" "YES"
 	ICUPKGTOOL=$(OBJROOT_CURRENT)/bin/icupkg
 	FORCEENDIAN=
 else
-	TARGET_SPEC=$(UNAME_PROCESSOR)-apple-darwin19.0.0
+	TARGET_SPEC=$(UNAME_PROCESSOR)-apple-darwin20.0.0
 	ENV_CONFIGURE_ARCHS=
 	ICUPKGTOOLIBS="$(OBJROOT_CURRENT)/lib:$(OBJROOT_CURRENT)/stubdata"
 	ICUPKGTOOL=$(OBJROOT_CURRENT)/bin/icupkg
@@ -638,7 +638,7 @@ endif
 # may be a different environment than the one for a which a build is targeted.
 
 INSTALLSRC_VARFILES=./ICU_embedded.order \
-	./minimalapis.txt ./minimalapisTest.c ./minimalpatchconfig.txt ./windowspatchconfig.txt ./patchconfig.txt ./crosshostpatchconfig.txt \
+	./minimalapis.txt ./minimalapisTest.c \
 	BuildICUForAAS_script.bat EXPORT.APPLE
 
 #################################
@@ -703,8 +703,8 @@ endif
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 64
-ICU_SUBVERS = 2
+ICU_VERS = 66
+ICU_SUBVERS = 1
 CORE_VERS = A
 
 ifeq "$(WINDOWS)" "YES"
@@ -913,6 +913,8 @@ ifeq ($(RC_ENABLE_THREAD_SANITIZATION),1)
 endif
 LDFLAGS += $(LDFLAGS_SANITIZER)
 
+APPLE_HARDENING_OPTS := -DFORTIFY_SOURCE=2 -fstack-protector-strong
+
 # For normal Windows builds set the ENV= options here; for debug Windows builds set the ENV_DEBUG=
 # options here and also the update the LINK.EXE lines in the TARGETS section below.
 ifeq "$(WINDOWS)" "YES"
@@ -1014,7 +1016,7 @@ else
 		CPPFLAGS="$(DEFINE_BUILD_LEVEL) -DSTD_INSPIRED -DMAC_OS_X_VERSION_MIN_REQUIRED=$(MAC_OS_X_VERSION_MIN_REQUIRED) $(ISYSROOT) $(ENV_CONFIGURE_ARCHS)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
 		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(ENV_CONFIGURE_ARCHS) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		RC_ARCHS="$(RC_ARCHS)" $(FORCEENDIAN)\
 		TZDATA="$(TZDATA)" \
@@ -1023,7 +1025,7 @@ else
 	ENV= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
 		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1032,7 +1034,7 @@ else
 	ENV_DEBUG= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
 		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -O0 -gfull -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1041,7 +1043,7 @@ else
 	ENV_PROFILE= APPLE_INTERNAL_DIR="$(APPLE_INTERNAL_DIR)" \
 		CC="$(CC)" \
 		CXX="$(CXX)" \
-		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
+		CFLAGS="-DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(APPLE_HARDENING_OPTS) $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden $(ISYSROOT) $(THUMB_FLAG) $(CFLAGS_SANITIZER)" \
 		CXXFLAGS="--std=c++11 -DU_SHOW_CPLUSPLUS_API=1 -DU_SHOW_INTERNAL_API=1 -DU_TIMEZONE=timezone -DICU_DATA_DIR=\"\\\"$(DATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_FILES_DIR=\"\\\"$(TZDATA_LOOKUP_DIR)\\\"\" -DU_TIMEZONE_PACKAGE=\"\\\"$(TZDATA_PACKAGE)\\\"\" $(RC_ARCHS:%=-arch %) $(ICU_TARGET_VERSION) -g -Os -pg -Wglobal-constructors -fno-exceptions -fvisibility=hidden -fvisibility-inlines-hidden $(ISYSROOT) $(THUMB_FLAG) $(CXXFLAGS_SANITIZER)" \
 		RC_ARCHS="$(RC_ARCHS)" \
 		TZDATA="$(TZDATA)" \
@@ -1105,7 +1107,7 @@ crossbuildhost icutztoolsforsdk
 # Note that if sources have been installed by installsrc (only run as part of buildit or
 # submitproject for Apple platforms, not for Windows/Linux), then
 #    $(SRCROOT)/installsrcNotRunFlag is not present, and
-#    ADJUST_SOURCES has already have been run.
+#    ADJUST_SOURCES has already been run.
 # Otherwise, if we are doing a local build (e.g. make check, make install), or if
 # sources were submitted using submitproject for non-Apple platforms (Windows/Linux) then
 #    $(SRCROOT)/installsrcNotRunFlag is present, and
@@ -1113,13 +1115,6 @@ crossbuildhost icutztoolsforsdk
 #
 
 ADJUST_SOURCES = \
-		if test "$(ICU_FOR_EMBEDDED_TRAINS)" = "YES"; then \
-			patch -p1 <$(SRCROOT)/minimalpatchconfig.txt; \
-		elif test "$(WINDOWS)" = "YES"; then \
-			patch -p1 <$(SRCROOT)/windowspatchconfig.txt; \
-		else \
-			patch -p1 <$(SRCROOT)/patchconfig.txt; \
-		fi; \
 		if test "$(WINDOWS)" = "YES"; then \
 			mv data/unidata/base_unidata/*.txt data/unidata/; \
 			mv data/unidata/norm2/base_norm2/*.txt data/unidata/norm2/; \
@@ -1242,13 +1237,9 @@ crossbuildhost : $(CROSSHOST_OBJROOT)/Makefile
 	);
 
 # For the install-icutztoolsforsdk target, SDKROOT will always be an OSX SDK root.
-# If the sources were installed using the minimalpatchconfig.txt patch, then
-# we need to patch using crosshostpatchconfig.txt as for $(CROSSHOST_OBJROOT)/Makefile
-# (otherwise we ignore the patch in crosshostpatchconfig.txt, using -N)
 icutztoolsforsdk : $(OBJROOT_CURRENT)/Makefile
 	echo "# make icutztoolsforsdk";
 	(cd $(OBJROOT_CURRENT); \
-		if test ! -e $(SRCROOT)/installsrcNotRunFlag ; then patch -N -p1 <$(SRCROOT)/crosshostpatchconfig.txt; fi; \
 		$(MAKE) $($(ENV)) || exit 1; \
 		echo '# build' $(TOOLS_DYLIB_FORTOOLS) 'linked against' $(LIB_NAME) ; \
 		$($(ENV)) $(CXX) -current_version $(ICU_VERS).$(ICU_SUBVERS) -compatibility_version 1 -dynamiclib -dynamic \
@@ -1331,10 +1322,6 @@ endif
 		fi; \
 	);
 
-# for the tools that build the data file, cannot set UDATA_DEFAULT_ACCESS = UDATA_ONLY_PACKAGES
-# as minimalpatchconfig.txt does; need different patches for the host build. Thus
-# we have to use crosshostpatchconfig.txt to undo the udata.h changes that would have
-# been made for ICU_FOR_EMBEDDED_TRAINS builds.
 $(CROSSHOST_OBJROOT)/Makefile :
 	if test ! -d $(CROSSHOST_OBJROOT); then \
 		mkdir -p $(CROSSHOST_OBJROOT); \
@@ -1347,9 +1334,6 @@ $(CROSSHOST_OBJROOT)/Makefile :
 		if test -f $(TZAUXFILESDIR)/windowsZones.txt ; then cp -p $(TZAUXFILESDIR)/windowsZones.txt data/misc/; fi; \
 		if test -f $(TZAUXFILESDIR)/icuregions ; then cp -p $(TZAUXFILESDIR)/icuregions tools/tzcode/; fi; \
 		if test -f $(TZAUXFILESDIR)/icuzones ; then cp -p $(TZAUXFILESDIR)/icuzones tools/tzcode/; fi; \
-		if test "$(ICU_FOR_EMBEDDED_TRAINS)" = "YES"; then \
-			patch -p1 <$(SRCROOT)/crosshostpatchconfig.txt; \
-		fi; \
 		echo "# configure for crossbuild host"; \
 		$(ENV_CONFIGURE_BUILDHOST) ./runConfigureICU MacOSX $(CONFIG_FLAGS); \
 	);

@@ -25,6 +25,9 @@
 #include "keychain/SecureObjectSync/Regressions/SOSTestDevice.h"
 #include "secd_regressions.h"
 #include "SecdTestKeychainUtilities.h"
+#include "SOSAccountTesting.h"
+
+#if SOS_ENABLED
 
 static int kTestTestCount = 581;
 
@@ -48,15 +51,17 @@ static void smash(void) {
         return false;
     }, CFSTR("alice"), CFSTR("bob"), NULL);
 }
+#endif
 
 int secd_70_engine_smash(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     smash();
-
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

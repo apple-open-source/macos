@@ -172,7 +172,7 @@ KCCursorImpl::KCCursorImpl(const StorageManager::KeychainList &searchList, const
 	}
 }
 
-KCCursorImpl::~KCCursorImpl() throw()
+KCCursorImpl::~KCCursorImpl() _NOEXCEPT
 {
 }
 

@@ -144,22 +144,27 @@ SCSIParallelTask::InitWithSize (
 	
 	fHBADataSize = sizeOfHBAData;
 	
-	buffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask (
-		kernel_task,
-		kIODirectionOutIn | kIOMemoryPhysicallyContiguous,
-		fHBADataSize,
-		alignmentMask );
-	require_nonzero ( buffer, ErrorExit );
-	
-	status = buffer->prepare ( kIODirectionOutIn );
-	require_success ( status, FreeHBAData );
-	
-	fHBAData = buffer->getBytesNoCopy ( );
-	require_nonzero ( fHBAData, CompleteHBAData );
-	
-	bzero ( fHBAData, fHBADataSize );
-	
-	fHBADataDescriptor = buffer;
+	if ( fHBADataSize > 0 )
+	{
+		
+		buffer = IOBufferMemoryDescriptor::inTaskWithPhysicalMask (
+																   kernel_task,
+																   kIODirectionOutIn | kIOMemoryPhysicallyContiguous,
+																   fHBADataSize,
+																   alignmentMask );
+		require_nonzero ( buffer, ErrorExit );
+		
+		status = buffer->prepare ( kIODirectionOutIn );
+		require_success ( status, FreeHBAData );
+		
+		fHBAData = buffer->getBytesNoCopy ( );
+		require_nonzero ( fHBAData, CompleteHBAData );
+		
+		bzero ( fHBAData, fHBADataSize );
+		
+		fHBADataDescriptor = buffer;
+		
+	}
 	
 	return true;
 	
@@ -219,8 +224,8 @@ SCSIParallelTask::ResetForNewTask ( void )
 	fDevice						= NULL;
 	fSCSITask					= NULL;
 	fRealizedTransferCount		= 0;
-	fControllerTaskIdentifier	= 0;
 	fTaskRetryCount				= 0;
+	fTaskSubmitted				= false;
 	
 	fSCSIParallelFeatureRequestCount		= 0;
 	fSCSIParallelFeatureRequestResultCount	= 0;

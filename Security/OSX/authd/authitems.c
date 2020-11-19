@@ -6,8 +6,11 @@
 
 #include "authutilities.h"
 #include <Security/AuthorizationTags.h>
+#include <Security/AuthorizationTagsPriv.h>
 #include <dispatch/private.h>
 #include <CommonCrypto/CommonCrypto.h>
+
+#include <security_utilities/simulatecrash_assert.h>
 
 AUTHD_DEFINE_LOG
 
@@ -48,7 +51,7 @@ auth_item_copy_auth_item_xpc(auth_item_t item)
     xpc_dictionary_set_string(xpc_data, AUTH_XPC_ITEM_NAME, item->data.name);
     if (item->data.value) {
         // <rdar://problem/13033889> authd is holding on to multiple copies of my password in the clear
-        bool sensitive = strcmp(item->data.name, "password") == 0;
+        bool sensitive = strcmp(item->data.name, AGENT_PASSWORD) == 0;
         if (sensitive) {
             vm_address_t vmBytes = 0;
             size_t xpcOutOfBandBlockSize = (item->data.valueLength > 32768 ? item->data.valueLength : 32768); // min 16K on 64-bit systems and 12K on 32-bit systems

@@ -105,13 +105,13 @@ std::unique_ptr<ImageBuffer> snapshotFrameRectWithClip(Frame& frame, const IntRe
 
     float scaleFactor = frame.page()->deviceScaleFactor();
 
-    if (frame.view()->delegatesPageScaling())
+    if (frame.page()->delegatesScaling())
         scaleFactor *= frame.page()->pageScaleFactor();
 
     if (options & SnapshotOptionsPaintWithIntegralScaleFactor)
         scaleFactor = ceilf(scaleFactor);
 
-    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(imageRect.size(), Unaccelerated, scaleFactor);
+    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(imageRect.size(), RenderingMode::Unaccelerated, scaleFactor);
     if (!buffer)
         return nullptr;
     buffer->context().translate(-imageRect.x(), -imageRect.y());
@@ -151,7 +151,7 @@ std::unique_ptr<ImageBuffer> snapshotNode(Frame& frame, Node& node)
 
     ScopedFramePaintingState state(frame, &node);
 
-    frame.view()->setBaseBackgroundColor(Color::transparent);
+    frame.view()->setBaseBackgroundColor(Color::transparentBlack);
     frame.view()->setNodeToDraw(&node);
 
     LayoutRect topLevelRect;

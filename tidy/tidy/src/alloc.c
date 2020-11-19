@@ -12,6 +12,7 @@
 */
 
 #include "tidy.h"
+#include "forward.h"
 
 static TidyMalloc  g_malloc  = NULL;
 static TidyRealloc g_realloc = NULL;

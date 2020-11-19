@@ -69,6 +69,8 @@ public:
     void Test4147315(void);
     void Test4147317(void);
     void Test4147552(void);
+
+    void Test20639_DeprecatesISO3Language();
     
     void TestVariantParsing(void);
 
@@ -79,7 +81,9 @@ public:
    /* Test getting keyword values */
    void TestKeywordVariantParsing(void);
    void TestCreateKeywordSet(void);
+   void TestCreateKeywordSetEmpty(void);
    void TestCreateUnicodeKeywordSet(void);
+   void TestCreateUnicodeKeywordSetEmpty(void);
    void TestGetKeywordValueStdString(void);
    void TestGetUnicodeKeywordValueStdString(void);
 
@@ -115,6 +119,7 @@ public:
     void TestBug13277();
     void TestBug13554();
     void TestBug20410();
+    void TestConstructorAcceptsBCP47();
 
     void TestAddLikelySubtags();
     void TestMinimizeSubtags();
@@ -136,6 +141,12 @@ public:
     void TestUndScript();
     void TestUndRegion();
     void TestUndCAPI();
+    void TestRangeIterator();
+    void TestPointerConvertingIterator();
+    void TestTagConvertingIterator();
+    void TestCapturingTagConvertingIterator();
+    void TestSetUnicodeKeywordValueInLongLocale();
+    void TestSetUnicodeKeywordValueNullInLongLocale();
 
 private:
     void _checklocs(const char* label,

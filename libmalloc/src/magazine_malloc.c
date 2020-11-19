@@ -56,6 +56,14 @@ uint64_t magazine_medium_active_threshold = MEDIUM_ACTIVATION_THRESHOLD;
 // Control the DRAM limit at which the expanded large cache kicks in.
 uint64_t magazine_large_expanded_cache_threshold = LARGE_CACHE_EXPANDED_THRESHOLD;
 
+#if CONFIG_AGGRESSIVE_MADVISE
+bool aggressive_madvise_enabled = DEFAULT_AGGRESSIVE_MADVISE_ENABLED;
+#endif // CONFIG_AGGRESSIVE_MADVISE
+
+#if CONFIG_LARGE_CACHE
+bool large_cache_enabled = DEFAULT_LARGE_CACHE_ENABLED;
+#endif // CONFIG_LARGE_CACHE
+
 // <rdar://problem/47353961> Maximum number of magzines that the medium
 // allocator will use. This addresses a 32-bit load-offset range issue found
 // in some apps when introducing medium.
@@ -237,7 +245,7 @@ szone_malloc_should_clear(szone_t *szone, size_t size, boolean_t cleared_request
 		ptr = medium_malloc_should_clear(&szone->medium_rack, msize, cleared_requested);
 #endif
 	} else {
-		size_t num_kernel_pages = round_page_quanta(size) >> vm_page_quanta_shift;
+		size_t num_kernel_pages = round_large_page_quanta(size) >> large_vm_page_quanta_shift;
 		if (num_kernel_pages == 0) { /* Overflowed */
 			ptr = 0;
 		} else {
@@ -285,7 +293,7 @@ szone_valloc(szone_t *szone, size_t size)
 	} else {
 		size_t num_kernel_pages;
 
-		num_kernel_pages = round_page_quanta(size) >> vm_page_quanta_shift;
+		num_kernel_pages = round_large_page_quanta(size) >> large_vm_page_quanta_shift;
 		ptr = large_malloc(szone, num_kernel_pages, 0, 0);
 	}
 
@@ -593,8 +601,8 @@ szone_memalign(szone_t *szone, size_t alignment, size_t size)
 		return szone_malloc(szone, size);
 	}
 	// ensure block allocated by large does not have a small-possible size
-	size_t num_kernel_pages = round_page_quanta(MAX(LARGE_THRESHOLD(szone) + 1,
-			size)) >> vm_page_quanta_shift;
+	size_t num_kernel_pages = round_large_page_quanta(MAX(LARGE_THRESHOLD(szone) + 1,
+			size)) >> large_vm_page_quanta_shift;
 	if (num_kernel_pages == 0) { /* Overflowed */
 		return NULL;
 	} else {
@@ -654,34 +662,36 @@ szone_destroy(szone_t *szone)
 	vm_range_t range_to_deallocate;
 
 #if CONFIG_LARGE_CACHE
-	SZONE_LOCK(szone);
+	if (large_cache_enabled) {
+		SZONE_LOCK(szone);
 
-	/* disable any memory pressure responder */
-	szone->flotsam_enabled = FALSE;
+		/* disable any memory pressure responder */
+		szone->flotsam_enabled = FALSE;
 
-	// stack allocated copy of the death-row cache
-	int idx = szone->large_entry_cache_oldest, idx_max = szone->large_entry_cache_newest;
-	large_entry_t local_entry_cache[LARGE_ENTRY_CACHE_SIZE_HIGH];
+		// stack allocated copy of the death-row cache
+		int idx = szone->large_entry_cache_oldest, idx_max = szone->large_entry_cache_newest;
+		large_entry_t local_entry_cache[LARGE_ENTRY_CACHE_SIZE_HIGH];
 
-	memcpy((void *)local_entry_cache, (void *)szone->large_entry_cache, sizeof(local_entry_cache));
+		memcpy((void *)local_entry_cache, (void *)szone->large_entry_cache, sizeof(local_entry_cache));
 
-	szone->large_entry_cache_oldest = szone->large_entry_cache_newest = 0;
-	szone->large_entry_cache[0].address = 0x0;
-	szone->large_entry_cache[0].size = 0;
-	szone->large_entry_cache_bytes = 0;
-	szone->large_entry_cache_reserve_bytes = 0;
+		szone->large_entry_cache_oldest = szone->large_entry_cache_newest = 0;
+		szone->large_entry_cache[0].address = 0x0;
+		szone->large_entry_cache[0].size = 0;
+		szone->large_entry_cache_bytes = 0;
+		szone->large_entry_cache_reserve_bytes = 0;
 
-	SZONE_UNLOCK(szone);
+		SZONE_UNLOCK(szone);
 
-	// deallocate the death-row cache outside the zone lock
-	while (idx != idx_max) {
-		mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
-		if (++idx == szone->large_cache_depth) {
-			idx = 0;
+		// deallocate the death-row cache outside the zone lock
+		while (idx != idx_max) {
+			mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
+			if (++idx == szone->large_cache_depth) {
+				idx = 0;
+			}
 		}
-	}
-	if (0 != local_entry_cache[idx].address && 0 != local_entry_cache[idx].size) {
-		mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
+		if (0 != local_entry_cache[idx].address && 0 != local_entry_cache[idx].size) {
+			mvm_deallocate_pages((void *)local_entry_cache[idx].address, local_entry_cache[idx].size, szone->debug_flags);
+		}
 	}
 #endif
 
@@ -752,7 +762,7 @@ szone_good_size(szone_t *szone, size_t size)
 
 	// Check for integer overflow on the size, since unlike the two cases above,
 	// there is no upper bound on allocation size at this point.
-	if (size > round_page_quanta(size)) {
+	if (size > round_large_page_quanta(size)) {
 		return (size_t)(-1LL);
 	}
 
@@ -764,7 +774,7 @@ szone_good_size(szone_t *szone, size_t size)
 		malloc_report(ASL_LEVEL_INFO, "szone_good_size() invariant broken %y\n", size);
 	}
 #endif
-	return round_page_quanta(size);
+	return round_large_page_quanta(size);
 }
 
 boolean_t
@@ -1426,7 +1436,7 @@ szone_pressure_relief(szone_t *szone, size_t goal)
 #endif // CONFIG_MADVISE_PRESSURE_RELIEF
 
 #if CONFIG_LARGE_CACHE
-	if (szone->flotsam_enabled) {
+	if (large_cache_enabled && szone->flotsam_enabled) {
 		SZONE_LOCK(szone);
 
 		// stack allocated copy of the death-row cache
@@ -1697,22 +1707,24 @@ create_scalable_szone(size_t initial_size, unsigned debug_flags)
 #endif // CONFIG_MEDIUM_ALLOCATOR
 
 #if CONFIG_LARGE_CACHE
-	// madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
-	szone->large_entry_cache_reserve_limit = (size_t)(memsize >> 10);
-	if (memsize >= magazine_large_expanded_cache_threshold) {
-		szone->large_cache_depth = LARGE_ENTRY_CACHE_SIZE_HIGH;
-		szone->large_cache_entry_limit = LARGE_ENTRY_SIZE_ENTRY_LIMIT_HIGH;
-	} else {
-		szone->large_cache_depth = LARGE_ENTRY_CACHE_SIZE_LOW;
-		szone->large_cache_entry_limit = LARGE_ENTRY_SIZE_ENTRY_LIMIT_LOW;
-	}
+	if (large_cache_enabled) {
+		// madvise(..., MADV_REUSABLE) death-row arrivals above this threshold [~0.1%]
+		szone->large_entry_cache_reserve_limit = (size_t)(memsize >> 10);
+		if (memsize >= magazine_large_expanded_cache_threshold) {
+			szone->large_cache_depth = LARGE_ENTRY_CACHE_SIZE_HIGH;
+			szone->large_cache_entry_limit = LARGE_ENTRY_SIZE_ENTRY_LIMIT_HIGH;
+		} else {
+			szone->large_cache_depth = LARGE_ENTRY_CACHE_SIZE_LOW;
+			szone->large_cache_entry_limit = LARGE_ENTRY_SIZE_ENTRY_LIMIT_LOW;
+		}
 
-	/* <rdar://problem/6610904> Reset protection when returning a previous large allocation? */
-	int32_t libSystemVersion = NSVersionOfLinkTimeLibrary("System");
-	if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 112) /* CFSystemVersionSnowLeopard */) {
-		szone->large_legacy_reset_mprotect = TRUE;
-	} else {
-		szone->large_legacy_reset_mprotect = FALSE;
+		/* <rdar://problem/6610904> Reset protection when returning a previous large allocation? */
+		int32_t libSystemVersion = NSVersionOfLinkTimeLibrary("System");
+		if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 112) /* CFSystemVersionSnowLeopard */) {
+			szone->large_legacy_reset_mprotect = TRUE;
+		} else {
+			szone->large_legacy_reset_mprotect = FALSE;
+		}
 	}
 #endif
 

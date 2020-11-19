@@ -14,7 +14,7 @@ add_definitions(-DWK_XPC_SERVICE_SUFFIX=".Development")
 
 set(MACOSX_FRAMEWORK_IDENTIFIER com.apple.WebKit)
 
-list(APPEND WebKit_LIBRARIES
+list(APPEND WebKit_PRIVATE_LIBRARIES
     WebKitLegacy
     ${APPLICATIONSERVICES_LIBRARY}
     ${DEVICEIDENTITY_LIBRARY}
@@ -43,6 +43,12 @@ list(APPEND WebKit_SOURCES
     WebProcess/InjectedBundle/API/c/mac/WKBundlePageMac.mm
 )
 
+list(APPEND WebKit_SOURCES
+    UIProcess/API/Cocoa/WKContentWorld.mm
+    UIProcess/API/Cocoa/_WKResourceLoadStatisticsFirstParty.mm
+    UIProcess/API/Cocoa/_WKResourceLoadStatisticsThirdParty.mm
+)
+
 list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${ICU_INCLUDE_DIRS}"
     "${WEBKIT_DIR}/NetworkProcess/cocoa"
@@ -52,9 +58,12 @@ list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/UIProcess/API/C/mac"
     "${WEBKIT_DIR}/UIProcess/API/Cocoa"
     "${WEBKIT_DIR}/UIProcess/API/mac"
+    "${WEBKIT_DIR}/UIProcess/API/ios"
     "${WEBKIT_DIR}/UIProcess/Authentication/cocoa"
     "${WEBKIT_DIR}/UIProcess/Cocoa"
     "${WEBKIT_DIR}/UIProcess/Cocoa/SOAuthorization"
+    "${WEBKIT_DIR}/UIProcess/Inspector/Cocoa"
+    "${WEBKIT_DIR}/UIProcess/Inspector/mac"
     "${WEBKIT_DIR}/UIProcess/Launcher/mac"
     "${WEBKIT_DIR}/UIProcess/RemoteLayerTree"
     "${WEBKIT_DIR}/UIProcess/RemoteLayerTree/ios"
@@ -89,6 +98,7 @@ list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/WebAuthentication"
     "${WEBKIT_DIR}/WebProcess/cocoa"
     "${WEBKIT_DIR}/WebProcess/mac"
+    "${WEBKIT_DIR}/WebProcess/Inspector/mac"
     "${WEBKIT_DIR}/WebProcess/InjectedBundle/API/Cocoa"
     "${WEBKIT_DIR}/WebProcess/InjectedBundle/API/mac"
     "${WEBKIT_DIR}/WebProcess/Plugins/PDF"
@@ -118,6 +128,11 @@ set(PluginProcess_SOURCES
     ${XPCService_SOURCES}
 )
 
+set(GPUProcess_SOURCES
+    GPUProcess/EntryPoint/Cocoa/XPCService/GPUServiceEntryPoint.mm
+    ${XPCService_SOURCES}
+)
+
 list(APPEND NetworkProcess_SOURCES
     NetworkProcess/EntryPoint/Cocoa/XPCService/NetworkServiceEntryPoint.mm
     ${XPCService_SOURCES}
@@ -128,8 +143,8 @@ list(APPEND NetworkProcess_LIBRARIES
 )
 
 # FIXME: These should not have Development in production builds.
-set(WebKit_WebProcess_OUTPUT_NAME com.apple.WebKit.WebContent.Development)
-set(WebKit_NetworkProcess_OUTPUT_NAME com.apple.WebKit.Networking.Development)
+set(WebProcess_OUTPUT_NAME com.apple.WebKit.WebContent.Development)
+set(NetworkProcess_OUTPUT_NAME com.apple.WebKit.Networking.Development)
 
 set(WebProcess_INCLUDE_DIRECTORIES ${CMAKE_BINARY_DIR})
 set(NetworkProcess_INCLUDE_DIRECTORIES ${CMAKE_BINARY_DIR})
@@ -148,6 +163,8 @@ set(WebKit_FORWARDING_HEADERS_FILES
 )
 
 list(APPEND WebKit_MESSAGES_IN_FILES
+    GPUProcess/media/ios/RemoteMediaSessionHelperProxy.messages.in
+
     NetworkProcess/CustomProtocols/LegacyCustomProtocolManager.messages.in
 
     Shared/ApplePay/WebPaymentCoordinatorProxy.messages.in
@@ -173,10 +190,14 @@ list(APPEND WebKit_MESSAGES_IN_FILES
     WebProcess/ApplePay/WebPaymentCoordinator.messages.in
 
     WebProcess/cocoa/PlaybackSessionManager.messages.in
+    WebProcess/cocoa/RemoteCaptureSampleManager.messages.in
     WebProcess/cocoa/UserMediaCaptureManager.messages.in
     WebProcess/cocoa/VideoFullscreenManager.messages.in
 
+    WebProcess/GPU/media/ios/RemoteMediaSessionHelper.messages.in
+
     WebProcess/WebPage/ViewGestureGeometryCollector.messages.in
+    WebProcess/WebPage/ViewUpdateDispatcher.messages.in
 
     WebProcess/WebPage/Cocoa/TextCheckingControllerProxy.messages.in
 
@@ -207,6 +228,7 @@ set(WebKit_FORWARDING_HEADERS_DIRECTORIES
     UIProcess/API/C/Cocoa
     UIProcess/API/C/mac
     UIProcess/API/cpp
+    UIProcess/API/ios
 
     WebProcess/InjectedBundle/API/Cocoa
     WebProcess/InjectedBundle/API/c
@@ -224,6 +246,12 @@ foreach (_file ${ObjCHeaders})
         file(WRITE ${FORWARDING_HEADERS_DIR}/WebKit/${_name} "#import <WebKit/UIProcess/API/Cocoa/${_name}>")
     endif ()
 endforeach ()
+if (NOT EXISTS ${FORWARDING_HEADERS_DIR}/WebKit/WKWebViewPrivateForTestingIOS.h)
+    file(WRITE ${FORWARDING_HEADERS_DIR}/WebKit/WKWebViewPrivateForTestingIOS.h "#import <WebKit/UIProcess/API/ios/WKWebViewPrivateForTestingIOS.h>")
+endif ()
+if (NOT EXISTS ${FORWARDING_HEADERS_DIR}/WebKit/WKWebViewPrivateForTestingMac.h)
+    file(WRITE ${FORWARDING_HEADERS_DIR}/WebKit/WKWebViewPrivateForTestingMac.h "#import <WebKit/UIProcess/API/mac/WKWebViewPrivateForTestingMac.h>")
+endif ()
 
 # FIXME: Forwarding headers should be complete copies of the header.
 set(WebKitLegacyForwardingHeaders
@@ -431,10 +459,6 @@ foreach (_file ${ObjCForwardingHeaders})
     file(WRITE ${FORWARDING_HEADERS_DIR}/WebKit/${_file} "#import <WebKitLegacy/${_file}>")
 endforeach ()
 
-list(APPEND WebKit_AUTOMATION_PROTOCOL_GENERATOR_EXTRA_FLAGS
-    --platform=macOS
-)
-
 set(SecItemShimDirectory ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/WebKit.framework/Versions/A/Frameworks)
 add_library(SecItemShim SHARED WebProcess/mac/SecItemShimLibrary.mm)
 WEBKIT_CREATE_SYMLINK(SecItemShim ${SecItemShimDirectory} ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/WebKit.framework/Frameworks)
@@ -484,12 +508,12 @@ function(WEBKIT_DEFINE_XPC_SERVICES)
     WEBKIT_XPC_SERVICE(WebProcess
         "com.apple.WebKit.WebContent"
         ${WEBKIT_DIR}/WebProcess/EntryPoint/Cocoa/XPCService/WebContentService/Info-OSX.plist
-        ${WebKit_WebProcess_OUTPUT_NAME})
+        ${WebProcess_OUTPUT_NAME})
 
     WEBKIT_XPC_SERVICE(NetworkProcess
         "com.apple.WebKit.Networking"
         ${WEBKIT_DIR}/NetworkProcess/EntryPoint/Cocoa/XPCService/NetworkService/Info-OSX.plist
-        ${WebKit_NetworkProcess_OUTPUT_NAME})
+        ${NetworkProcess_OUTPUT_NAME})
 
     set(WebKit_RESOURCES_DIR ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/WebKit.framework/Versions/A/Resources)
     add_custom_command(OUTPUT ${WebKit_RESOURCES_DIR}/com.apple.WebProcess.sb COMMAND

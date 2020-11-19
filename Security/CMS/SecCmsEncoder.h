@@ -77,7 +77,7 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
                     SecCmsGetDecryptKeyCallback encrypt_key_cb, void *encrypt_key_cb_arg,
                     SECAlgorithmID **detached_digestalgs, CSSM_DATA_PTR *detached_digests,
                     SecCmsEncoderRef *outEncoder)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
@@ -107,7 +107,7 @@ SecCmsEncoderCreate(SecCmsMessageRef cmsg,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback encrypt_key_cb, void *encrypt_key_cb_arg,
                     SecCmsEncoderRef *outEncoder)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
     
 /*!
@@ -157,7 +157,7 @@ SecCmsEncoderFinish(SecCmsEncoderRef encoder);
 extern OSStatus
 SecCmsMessageEncode(SecCmsMessageRef cmsg, const CSSM_DATA *input, SecArenaPoolRef arena,
                     CSSM_DATA_PTR outBer)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
@@ -172,7 +172,7 @@ SecCmsMessageEncode(SecCmsMessageRef cmsg, const CSSM_DATA *input, SecArenaPoolR
 extern OSStatus
 SecCmsMessageEncode(SecCmsMessageRef cmsg, const SecAsn1Item *input,
                     CFMutableDataRef outBer)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 __END_DECLS

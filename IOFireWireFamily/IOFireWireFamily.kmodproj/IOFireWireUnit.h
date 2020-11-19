@@ -63,13 +63,13 @@ protected:
 	ExpansionData * reserved;
 
     virtual bool init( IOFireWireUnit * primary );
-	virtual	void free();
+	virtual	void free() APPLE_KEXT_OVERRIDE;
 
-	virtual bool isPhysicalAccessEnabled( void );
+	virtual bool isPhysicalAccessEnabled( void ) APPLE_KEXT_OVERRIDE;
 
-	virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction );
+	virtual IOFWSimpleContiguousPhysicalAddressSpace * createSimpleContiguousPhysicalAddressSpace( vm_size_t size, IODirection direction ) APPLE_KEXT_OVERRIDE;
 		
-    virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction );
+    virtual IOFWSimplePhysicalAddressSpace * createSimplePhysicalAddressSpace( vm_size_t size, IODirection direction ) APPLE_KEXT_OVERRIDE;
 	
 private:
     OSMetaClassDeclareReservedUnused(IOFireWireUnitAux, 0);
@@ -110,8 +110,8 @@ public:
     /*
      * Standard nub initialization
      */
-    virtual bool attach(IOService * provider );
-	virtual void free();
+    virtual bool attach(IOService * provider ) APPLE_KEXT_OVERRIDE;
+	virtual void free() APPLE_KEXT_OVERRIDE;
 
     /*
      * Matching language support
@@ -121,35 +121,35 @@ public:
      * Unit_Spec_ID
      * Unit_SW_Version
      */
-    virtual bool matchPropertyTable(OSDictionary * table);
+    virtual bool matchPropertyTable(OSDictionary * table) APPLE_KEXT_OVERRIDE;
 
 
-    virtual IOReturn message( UInt32 type, IOService * provider, void * argument );
+    virtual IOReturn message( UInt32 type, IOService * provider, void * argument ) APPLE_KEXT_OVERRIDE;
 
     // Override handleOpen() and handleClose() to pass on to device
     virtual bool handleOpen( 	IOService *	  forClient,
                                 IOOptionBits	  options,
-                                void *		  arg );
+                                void *		  arg ) APPLE_KEXT_OVERRIDE;
 
     virtual void handleClose(   IOService *	  forClient,
-                                IOOptionBits	  options );
+                                IOOptionBits	  options ) APPLE_KEXT_OVERRIDE;
     
-    virtual void setNodeFlags( UInt32 flags );
-	virtual void clearNodeFlags( UInt32 flags );
-    virtual UInt32 getNodeFlags( void );
+    virtual void setNodeFlags( UInt32 flags ) APPLE_KEXT_OVERRIDE;
+	virtual void clearNodeFlags( UInt32 flags ) APPLE_KEXT_OVERRIDE;
+    virtual UInt32 getNodeFlags( void ) APPLE_KEXT_OVERRIDE;
 
-	virtual IOReturn setConfigDirectory( IOConfigDirectory *directory );
+	virtual IOReturn setConfigDirectory( IOConfigDirectory *directory ) APPLE_KEXT_OVERRIDE;
 
     /*
      * Create local FireWire address spaces for the device to access
      */
-    virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem);
+    virtual IOFWPhysicalAddressSpace *createPhysicalAddressSpace(IOMemoryDescriptor *mem) APPLE_KEXT_OVERRIDE;
     virtual IOFWPseudoAddressSpace *createPseudoAddressSpace(FWAddress *addr, UInt32 len,
-                    FWReadCallback reader, FWWriteCallback writer, void *refcon);
+                    FWReadCallback reader, FWWriteCallback writer, void *refcon) APPLE_KEXT_OVERRIDE;
 
 protected:
 	
-	virtual IOFireWireNubAux * createAuxiliary( void );
+	virtual IOFireWireNubAux * createAuxiliary( void ) APPLE_KEXT_OVERRIDE;
 
 public:
 	void setMaxSpeed( IOFWSpeed speed );

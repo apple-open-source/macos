@@ -179,6 +179,11 @@ inline WKURLRef toCopiedURLAPI(const String& string)
     return toAPI(&API::URL::create(string).leakRef());
 }
 
+inline WKURLRef toCopiedURLAPI(const URL& url)
+{
+    return toCopiedURLAPI(url.string());
+}
+
 inline String toWTFString(WKStringRef stringRef)
 {
     if (!stringRef)
@@ -748,28 +753,28 @@ inline WKContextMenuItemType toAPI(WebCore::ContextMenuItemType type)
     }
 }
 
-inline FindOptions toFindOptions(WKFindOptions wkFindOptions)
+inline OptionSet<FindOptions> toFindOptions(WKFindOptions wkFindOptions)
 {
-    unsigned findOptions = 0;
+    OptionSet<FindOptions> findOptions;
 
     if (wkFindOptions & kWKFindOptionsCaseInsensitive)
-        findOptions |= FindOptionsCaseInsensitive;
+        findOptions.add(FindOptions::CaseInsensitive);
     if (wkFindOptions & kWKFindOptionsAtWordStarts)
-        findOptions |= FindOptionsAtWordStarts;
+        findOptions.add(FindOptions::AtWordStarts);
     if (wkFindOptions & kWKFindOptionsTreatMedialCapitalAsWordStart)
-        findOptions |= FindOptionsTreatMedialCapitalAsWordStart;
+        findOptions.add(FindOptions::TreatMedialCapitalAsWordStart);
     if (wkFindOptions & kWKFindOptionsBackwards)
-        findOptions |= FindOptionsBackwards;
+        findOptions.add(FindOptions::Backwards);
     if (wkFindOptions & kWKFindOptionsWrapAround)
-        findOptions |= FindOptionsWrapAround;
+        findOptions.add(FindOptions::WrapAround);
     if (wkFindOptions & kWKFindOptionsShowOverlay)
-        findOptions |= FindOptionsShowOverlay;
+        findOptions.add(FindOptions::ShowOverlay);
     if (wkFindOptions & kWKFindOptionsShowFindIndicator)
-        findOptions |= FindOptionsShowFindIndicator;
+        findOptions.add(FindOptions::ShowFindIndicator);
     if (wkFindOptions & kWKFindOptionsShowHighlight)
-        findOptions |= FindOptionsShowHighlight;
+        findOptions.add(FindOptions::ShowHighlight);
 
-    return static_cast<FindOptions>(findOptions);
+    return findOptions;
 }
 
 inline WKFrameNavigationType toAPI(WebCore::NavigationType type)
@@ -993,21 +998,21 @@ inline WebCore::UserScriptInjectionTime toUserScriptInjectionTime(_WKUserScriptI
 {
     switch (wkInjectedTime) {
     case kWKInjectAtDocumentStart:
-        return WebCore::InjectAtDocumentStart;
+        return WebCore::UserScriptInjectionTime::DocumentStart;
     case kWKInjectAtDocumentEnd:
-        return WebCore::InjectAtDocumentEnd;
+        return WebCore::UserScriptInjectionTime::DocumentEnd;
     }
 
     ASSERT_NOT_REACHED();
-    return WebCore::InjectAtDocumentStart;
+    return WebCore::UserScriptInjectionTime::DocumentStart;
 }
 
 inline _WKUserScriptInjectionTime toWKUserScriptInjectionTime(WebCore::UserScriptInjectionTime injectedTime)
 {
     switch (injectedTime) {
-    case WebCore::InjectAtDocumentStart:
+    case WebCore::UserScriptInjectionTime::DocumentStart:
         return kWKInjectAtDocumentStart;
-    case WebCore::InjectAtDocumentEnd:
+    case WebCore::UserScriptInjectionTime::DocumentEnd:
         return kWKInjectAtDocumentEnd;
     }
 
@@ -1019,13 +1024,13 @@ inline WebCore::UserContentInjectedFrames toUserContentInjectedFrames(WKUserCont
 {
     switch (wkInjectedFrames) {
     case kWKInjectInAllFrames:
-        return WebCore::InjectInAllFrames;
+        return WebCore::UserContentInjectedFrames::InjectInAllFrames;
     case kWKInjectInTopFrameOnly:
-        return WebCore::InjectInTopFrameOnly;
+        return WebCore::UserContentInjectedFrames::InjectInTopFrameOnly;
     }
 
     ASSERT_NOT_REACHED();
-    return WebCore::InjectInAllFrames;
+    return WebCore::UserContentInjectedFrames::InjectInAllFrames;
 }
 
 } // namespace WebKit

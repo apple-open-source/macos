@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992 Diomidis Spinellis.
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -14,7 +16,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -32,7 +34,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/sed/compile.c,v 1.28 2005/08/04 10:05:11 dds Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)compile.c	8.1 (Berkeley) 6/6/93";
@@ -55,12 +57,6 @@ static const char sccsid[] = "@(#)compile.c	8.1 (Berkeley) 6/6/93";
 #include "defs.h"
 #include "extern.h"
 
-#ifdef __APPLE__
-#include <get_compat.h>
-#else
-#define COMPAT_MODE(a,b) (1)
-#endif /* __APPLE__ */
-
 #define LHSZ	128
 #define	LHMASK	(LHSZ - 1)
 static struct labhash {
@@ -74,7 +70,7 @@ static char	 *compile_addr(char *, struct s_addr *);
 static char	 *compile_ccl(char **, char *);
 static char	 *compile_delimited(char *, char *, int);
 static char	 *compile_flags(char *, struct s_subst *);
-static char	 *compile_re(char *, regex_t **);
+static regex_t	 *compile_re(char *, int);
 static char	 *compile_subst(char *, struct s_subst *);
 static char	 *compile_text(void);
 static char	 *compile_tr(char *, struct s_tr **);
@@ -163,12 +159,13 @@ compile_stream(struct s_command **link)
 	static char lbuf[_POSIX2_LINE_MAX + 1];	/* To save stack */
 	struct s_command *cmd, *cmd2, *stack;
 	struct s_format *fp;
+	char re[_POSIX2_LINE_MAX + 1];
 	int naddr;				/* Number of addresses */
 
-	stack = 0;
+	stack = NULL;
 	for (;;) {
 		if ((p = cu_fgets(lbuf, sizeof(lbuf), NULL)) == NULL) {
-			if (stack != 0)
+			if (stack != NULL)
 				errx(1, "%lu: %s: unexpected EOF (pending }'s)",
 							linenum, fname);
 			return (link);
@@ -186,7 +183,7 @@ semicolon:	EATSPACE();
 		if ((*link = cmd = malloc(sizeof(struct s_command))) == NULL)
 			err(1, "malloc");
 		link = &cmd->next;
-		cmd->nonsel = cmd->inrange = 0;
+		cmd->startline = cmd->nonsel = 0;
 		/* First parse the addresses */
 		naddr = 0;
 
@@ -208,9 +205,9 @@ semicolon:	EATSPACE();
 				p = compile_addr(p, cmd->a2);
 				EATSPACE();
 			} else
-				cmd->a2 = 0;
+				cmd->a2 = NULL;
 		} else
-			cmd->a1 = cmd->a2 = 0;
+			cmd->a1 = cmd->a2 = NULL;
 
 nonsel:		/* Now parse the command */
 		if (!*p)
@@ -229,7 +226,7 @@ nonsel:		/* Now parse the command */
 		case NONSEL:			/* ! */
 			p++;
 			EATSPACE();
-			cmd->nonsel = ! cmd->nonsel;
+			cmd->nonsel = 1;
 			goto nonsel;
 		case GROUP:			/* { */
 			p++;
@@ -246,7 +243,7 @@ nonsel:		/* Now parse the command */
 			 * group is really just a noop.
 			 */
 			cmd->nonsel = 1;
-			if (stack == 0)
+			if (stack == NULL)
 				errx(1, "%lu: %s: unexpected }", linenum, fname);
 			cmd2 = stack;
 			stack = cmd2->next;
@@ -323,15 +320,27 @@ nonsel:		/* Now parse the command */
 				errx(1,
 "%lu: %s: substitute pattern can not be delimited by newline or backslash",
 					linenum, fname);
-			if ((cmd->u.s = malloc(sizeof(struct s_subst))) == NULL)
+			if ((cmd->u.s = calloc(1, sizeof(struct s_subst))) == NULL)
 				err(1, "malloc");
-			p = compile_re(p, &cmd->u.s->re);
+			p = compile_delimited(p, re, 0);
 			if (p == NULL)
 				errx(1,
 				"%lu: %s: unterminated substitute pattern", linenum, fname);
+
+			/* Compile RE with no case sensitivity temporarily */
+			if (*re == '\0')
+				cmd->u.s->re = NULL;
+			else
+				cmd->u.s->re = compile_re(re, 0);
 			--p;
 			p = compile_subst(p, cmd->u.s);
 			p = compile_flags(p, cmd->u.s);
+
+			/* Recompile RE with case sensitivity from "I" flag if any */
+			if (*re == '\0')
+				cmd->u.s->re = NULL;
+			else
+				cmd->u.s->re = compile_re(re, cmd->u.s->icase);
 			EATSPACE();
 			if (*p == ';') {
 				p++;
@@ -357,7 +366,7 @@ nonsel:		/* Now parse the command */
 }
 
 /*
- * Get a delimited string.  P points to the delimeter of the string; d points
+ * Get a delimited string.  P points to the delimiter of the string; d points
  * to a buffer area.  Newline and delimiter escapes are processed; other
  * escapes are ignored.
  *
@@ -380,25 +389,35 @@ compile_delimited(char *p, char *d, int is_tr)
 		errx(1, "%lu: %s: newline can not be used as a string delimiter",
 				linenum, fname);
 	while (*p) {
-		if (*p == '[' && c != *p) {
+		if (*p == '[' && *p != c) {
 			if ((d = compile_ccl(&p, d)) == NULL)
 				errx(1, "%lu: %s: unbalanced brackets ([])", linenum, fname);
 			continue;
 		} else if (*p == '\\' && p[1] == '[') {
 			*d++ = *p++;
-		} else if (*p == '\\' && p[1] == c)
+		} else if (*p == '\\' && p[1] == c) {
 			p++;
-		else if (*p == '\\' && p[1] == 'n') {
-			*d++ = '\n';
+		} else if (*p == '\\' &&
+		    (p[1] == 'n' || p[1] == 'r' || p[1] == 't')) {
+			switch (p[1]) {
+			case 'n':
+				*d++ = '\n';
+				break;
+			case 'r':
+				*d++ = '\r';
+				break;
+			case 't':
+				*d++ = '\t';
+				break;
+			}
 			p += 2;
 			continue;
-		} else if (*p == '\\' && p[1] == '\\')
-			if (COMPAT_MODE("bin/sed", "Unix2003") && is_tr) {
+		} else if (*p == '\\' && p[1] == '\\') {
+			if (is_tr)
 				p++;
-			} else {
+			else
 				*d++ = *p++;
-			}
-		else if (*p == c) {
+		} else if (*p == c) {
 			*d = '\0';
 			return (p + 1);
 		}
@@ -420,44 +439,46 @@ compile_ccl(char **sp, char *t)
 		*t++ = *s++;
 	if (*s == ']')
 		*t++ = *s++;
-	for (; *s && (*t = *s) != ']'; s++, t++)
+	for (; *s && (*t = *s) != ']'; s++, t++) {
 		if (*s == '[' && ((d = *(s+1)) == '.' || d == ':' || d == '=')) {
 			*++t = *++s, t++, s++;
 			for (c = *s; (*t = *s) != ']' || c != d; s++, t++)
 				if ((c = *s) == '\0')
 					return NULL;
 		}
+		/*
+		 * Apple Note: FreeBSD treats the backslash character as the start of
+		 * several possible escape sequences here, but this is not POSIX-
+		 * compliant.  See XBD 9.3.3: "The period, left-bracket, and backslash
+		 * shall be special except when used in a bracket expression".
+		 */
+	}
 	return (*s == ']') ? *sp = ++s, ++t : NULL;
 }
 
 /*
- * Get a regular expression.  P points to the delimiter of the regular
- * expression; repp points to the address of a regexp pointer.  Newline
- * and delimiter escapes are processed; other escapes are ignored.
- * Returns a pointer to the first character after the final delimiter
- * or NULL in the case of a non terminated regular expression.  The regexp
- * pointer is set to the compiled regular expression.
+ * Compiles the regular expression in RE and returns a pointer to the compiled
+ * regular expression.
  * Cflags are passed to regcomp.
  */
-static char *
-compile_re(char *p, regex_t **repp)
+static regex_t *
+compile_re(char *re, int case_insensitive)
 {
-	int eval;
-	char re[_POSIX2_LINE_MAX + 1];
+	regex_t *rep;
+	int eval, flags;
 
-	p = compile_delimited(p, re, 0);
-	if (p && strlen(re) == 0) {
-		*repp = NULL;
-		return (p);
-	}
-	if ((*repp = malloc(sizeof(regex_t))) == NULL)
+
+	flags = rflags;
+	if (case_insensitive)
+		flags |= REG_ICASE;
+	if ((rep = malloc(sizeof(regex_t))) == NULL)
 		err(1, "malloc");
-	if (p && (eval = regcomp(*repp, re, rflags)) != 0)
+	if ((eval = regcomp(rep, re, flags)) != 0)
 		errx(1, "%lu: %s: RE error: %s",
-				linenum, fname, strregerror(eval, *repp));
-	if (maxnsub < (*repp)->re_nsub)
-		maxnsub = (*repp)->re_nsub;
-	return (p);
+				linenum, fname, strregerror(eval, rep));
+	if (maxnsub < rep->re_nsub)
+		maxnsub = rep->re_nsub;
+	return (rep);
 }
 
 /*
@@ -518,8 +539,23 @@ compile_subst(char *p, struct s_subst *s)
 								linenum, fname, *p);
 					if (s->maxbref < ref)
 						s->maxbref = ref;
-				} else if (*p == '&' || *p == '\\')
-					*sp++ = '\\';
+				} else {
+					switch (*p) {
+					case '&':
+					case '\\':
+						*sp++ = '\\';
+						break;
+					case 'n':
+						*p = '\n';
+						break;
+					case 'r':
+						*p = '\r';
+						break;
+					case 't':
+						*p = '\t';
+						break;
+					}
+				}
 			} else if (*p == c) {
 				if (*++p == '\0' && more) {
 					if (cu_fgets(lbuf, sizeof(lbuf), &more))
@@ -543,7 +579,7 @@ compile_subst(char *p, struct s_subst *s)
 			if ((text = realloc(text, asize)) == NULL)
 				err(1, "realloc");
 		}
-	} while (cu_fgets(p = lbuf, sizeof(lbuf), &more));
+	} while (cu_fgets(p = lbuf, sizeof(lbuf), &more) != NULL);
 	errx(1, "%lu: %s: unterminated substitute in regular expression",
 			linenum, fname);
 	/* NOTREACHED */
@@ -557,12 +593,13 @@ compile_flags(char *p, struct s_subst *s)
 {
 	int gn;			/* True if we have seen g or n */
 	unsigned long nval;
-	char wfile[_POSIX2_LINE_MAX + 1], *q;
+	char wfile[_POSIX2_LINE_MAX + 1], *q, *eq;
 
 	s->n = 1;				/* Default */
 	s->p = 0;
 	s->wfile = NULL;
 	s->wfd = -1;
+	s->icase = 0;
 	for (gn = 0;;) {
 		EATSPACE();			/* EXTENSION */
 		switch (*p) {
@@ -579,6 +616,10 @@ compile_flags(char *p, struct s_subst *s)
 			return (p);
 		case 'p':
 			s->p = 1;
+			break;
+		case 'i':
+		case 'I':
+			s->icase = 1;
 			break;
 		case '1': case '2': case '3':
 		case '4': case '5': case '6':
@@ -605,9 +646,12 @@ compile_flags(char *p, struct s_subst *s)
 #endif
 			EATSPACE();
 			q = wfile;
+			eq = wfile + sizeof(wfile) - 1;
 			while (*p) {
 				if (*p == '\n')
 					break;
+				if (q >= eq)
+					err(1, "wfile too long");
 				*q++ = *p++;
 			}
 			*q = '\0';
@@ -721,7 +765,7 @@ compile_tr(char *p, struct s_tr **py)
 }
 
 /*
- * Compile the text following an a or i command.
+ * Compile the text following an a, c, or i command.
  */
 static char *
 compile_text(void)
@@ -734,10 +778,12 @@ compile_text(void)
 	if ((text = malloc(asize)) == NULL)
 		err(1, "malloc");
 	size = 0;
-	while (cu_fgets(lbuf, sizeof(lbuf), NULL)) {
+	while (cu_fgets(lbuf, sizeof(lbuf), NULL) != NULL) {
 		op = s = text + size;
 		p = lbuf;
+#ifdef LEGACY_BSDSED_COMPAT
 		EATSPACE();
+#endif
 		for (esc_nl = 0; *p != '\0'; p++) {
 			if (*p == '\\' && p[1] != '\0' && *++p == '\n')
 				esc_nl = 1;
@@ -767,26 +813,45 @@ compile_text(void)
 static char *
 compile_addr(char *p, struct s_addr *a)
 {
-	char *end;
+	char *end, re[_POSIX2_LINE_MAX + 1];
+	int icase;
 
+	icase = 0;
+
+	a->type = 0;
 	switch (*p) {
 	case '\\':				/* Context address */
 		++p;
 		/* FALLTHROUGH */
 	case '/':				/* Context address */
-		p = compile_re(p, &a->u.r);
+		p = compile_delimited(p, re, 0);
 		if (p == NULL)
 			errx(1, "%lu: %s: unterminated regular expression", linenum, fname);
+		/* Check for case insensitive regexp flag */
+		if (*p == 'I') {
+			icase = 1;
+			p++;
+		}
+		if (*re == '\0')
+			a->u.r = NULL;
+		else
+			a->u.r = compile_re(re, icase);
 		a->type = AT_RE;
 		return (p);
 
 	case '$':				/* Last line */
 		a->type = AT_LAST;
 		return (p + 1);
+
+	case '+':				/* Relative line number */
+		a->type = AT_RELLINE;
+		p++;
+		/* FALLTHROUGH */
 						/* Line number */
 	case '0': case '1': case '2': case '3': case '4':
 	case '5': case '6': case '7': case '8': case '9':
-		a->type = AT_LINE;
+		if (a->type == 0)
+			a->type = AT_LINE;
 		a->u.l = strtol(p, &end, 10);
 		return (end);
 	default:
@@ -913,17 +978,6 @@ uselabel(void)
 	for (i = 0; i < LHSZ; i++) {
 		for (lh = labels[i]; lh != NULL; lh = next) {
 			next = lh->lh_next;
-			/*
-			 * The following exists only to pass VSC test 101, which expects
-			 * stderr to be empty. The standard actually says:
-			 *
-			 * "Implementors are encouraged to provide warning messages about
-			 * labels that are never used or jumps to labels that do not exist."
-			 */
-			if (COMPAT_MODE("bin/sed", "Unix2003")) {
-				free(lh);
-				continue;
-			}
 			if (!lh->lh_ref)
 				warnx("%lu: %s: unused label '%s'",
 				    linenum, fname, lh->lh_cmd->t);

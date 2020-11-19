@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-10</string>
+        <key>OpenSourceProject</key>
+        <string>XML-XPath</string>
+        <key>OpenSourceVersion</key>
+        <string>1.44</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/M/MA/MANWAR/XML-XPath-1.44.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -54,8 +54,7 @@
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         NSMutableSet *attributeClasses = [[[self class] supportedAttributeClasses] mutableCopy];
         [attributeClasses addObject:[NSDictionary class]];
 

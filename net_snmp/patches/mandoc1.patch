@@ -1,0 +1,66 @@
+diff -Naur ./net-snmp-5.6.2.1.orig/man/netsnmp_agent_api.3.def net-snmp-5.6.2.1.work/man/netsnmp_agent_api.3.def
+--- ./net-snmp-5.6.2.1.orig/man/netsnmp_agent_api.3.def	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.work/man/netsnmp_agent_api.3.def	2020-02-24 20:24:13.000000000 -0800
+@@ -84,7 +84,8 @@
+ In order to make use of any of the above API, you will need to link
+ against at least the four libraries listed above.
+ .SH FUNCTIONS
+-.PP This is a brief description of the functions called above and
++.PP 
++This is a brief description of the functions called above and
+ where to find out more information on them.  It is certainly not a
+ complete list of what is available within all the net-snmp libraries. 
+ .IP "snmp_enable_stderrlog()"
+diff -Naur ./net-snmp-5.6.2.1.orig/man/snmpd.conf.5.def net-snmp-5.6.2.1.work/man/snmpd.conf.5.def
+--- ./net-snmp-5.6.2.1.orig/man/snmpd.conf.5.def	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.work/man/snmpd.conf.5.def	2020-02-24 20:36:26.000000000 -0800
+@@ -860,6 +860,7 @@
+ .IP "authtrapenable {1|2}"
+ determines whether to generate authentication failure traps
+ (\fIenabled(1)\fR) or not (\fIdisabled(2)\fR - the default).
++.RS
+ Ordinarily the corresponding MIB
+ object (\fCsnmpEnableAuthenTraps.0\fR) is read-write, but specifying
+ this directive makes this object read-only, and attempts to set the
+@@ -1458,7 +1459,6 @@
+ .IP "Note:"
+ The proxied request will \fInot\fR use the administrative
+ settings from the original request.
+-.RE
+ .PP
+ If a CONTEXTNAME is specified, this will register the proxy
+ delegation within the named context in the local agent.
+diff -Naur ./net-snmp-5.6.2.1.orig/man/snmpd.examples.5.def net-snmp-5.6.2.1.work/man/snmpd.examples.5.def
+--- ./net-snmp-5.6.2.1.orig/man/snmpd.examples.5.def	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.work/man/snmpd.examples.5.def	2020-02-24 20:39:44.000000000 -0800
+@@ -102,7 +102,6 @@
+ .RE
+ Remember that these \fIcreateUser\fR directives should be defined in the
+ PERSISTENT_DIRECTORY/snmpd.conf file, rather than the usual location.
+-.RE
+ .\"
+ .\"  ??? Illustrate "-e", "-l" and "-m" forms ??
+ .\"
+diff -Naur ./net-snmp-5.6.2.1.orig/man/snmptrapd.conf.5.def net-snmp-5.6.2.1.work/man/snmptrapd.conf.5.def
+--- ./net-snmp-5.6.2.1.orig/man/snmptrapd.conf.5.def	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.work/man/snmptrapd.conf.5.def	2020-02-24 20:44:03.000000000 -0800
+@@ -159,11 +159,9 @@
+ There are two configuration variables that work together to control
+ when queued traps are logged to the MySQL database. A non-zero
+ value must be specified for sqlSaveInterval to enable MySQL logging.
+-.RE
+ .IP "sqlMaxQueue max"
+ specifies the maximum number of traps to queue before a forced flush
+ to the MySQL database.
+-.RE
+ .IP "sqlSaveInterval seconds"
+ specified the number of seconds between periodic queue flushes.
+ A value of 0 for will disable MySQL logging.
+@@ -245,7 +243,6 @@
+ .I snmpd(8)
+ manual page for more information about the format of listening
+ addresses.
+-.RE
+ .SH NOTES
+ .IP o
+ The daemon blocks while executing the \fItraphandle\fR commands.

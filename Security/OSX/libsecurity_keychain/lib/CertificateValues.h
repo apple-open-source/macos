@@ -43,7 +43,7 @@ class CertificateValues
 public:
 
 	CertificateValues(SecCertificateRef certificateRef);
-	virtual ~CertificateValues() throw();
+	virtual ~CertificateValues() _NOEXCEPT;
 
 	static CFStringRef remapLabelToKey(CFStringRef label);
 	CFArrayRef copyPropertyValues(CFErrorRef *error);

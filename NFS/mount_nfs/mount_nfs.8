@@ -604,7 +604,7 @@ and 32K when using
 .Tn TCP .
 Values over 16K are only supported for
 .Tn TCP ,
-where 64K is the maximum.
+where 2M is the maximum.
 .Pp
 Any value over 32K is unlikely to get you more performance, unless
 you have a very fast network.
@@ -699,13 +699,22 @@ and rpc.lockd it would display:
 .Dl " 100021    3   tcp    917  nlockmgr
 .Dl " 100021    4   tcp    917  nlockmgr
 .Pp
-The error:
+The following error:
 .Pp
 .Dl "mount_nfs: can't resolve host
 .Pp
 indicates that
 .Nm
 could not resolve the name of the remote host.
+.Pp
+The following error:
+.Pp
+.D1 "mount_nfs: can't mount <dst-path> from <dst-ip> onto <local-path>: RPC prog. not avail
+.Pp
+In case the remote host is not running rpc.statd and the client is mounting the NFS directory with remote locks (enabled by default),
+.Nm
+should fail with EPROGUNAVAIL. rpc.statd status can be verified using rpcinfo (see above).
+.Pp
 .Sh SEE ALSO
 .Xr mount 2 ,
 .Xr unmount 2 ,

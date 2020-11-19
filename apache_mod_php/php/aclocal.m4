@@ -329,8 +329,8 @@ dnl
 dnl PHP_CHECK_GCC_ARG(arg, action-if-found, action-if-not-found)
 dnl
 AC_DEFUN([PHP_CHECK_GCC_ARG],[
-  gcc_arg_name=[ac_cv_gcc_arg]translit($1,A-Z-,a-z_)
-  AC_CACHE_CHECK([whether $CC supports $1], [ac_cv_gcc_arg]translit($1,A-Z-,a-z_), [
+  gcc_arg_name=[ac_cv_gcc_arg]translit($1,A-Z=-,a-z__)
+  AC_CACHE_CHECK([whether $CC supports $1], [ac_cv_gcc_arg]translit($1,A-Z=-,a-z__), [
   echo 'void somefunc() { };' > conftest.c
   cmd='$CC $1 -c conftest.c'
   if eval $cmd 2>&1 | $EGREP -e $1 >/dev/null ; then
@@ -395,6 +395,8 @@ AC_DEFUN([PHP_EVAL_LIBLINE],[
         $2="[$]$2 -pthread"
       else
         PHP_RUN_ONCE(EXTRA_LDFLAGS, [$ac_i], [EXTRA_LDFLAGS="$EXTRA_LDFLAGS $ac_i"])
+        PHP_RUN_ONCE(EXTRA_LDFLAGS_PROGRAM, [$ac_i],
+            [EXTRA_LDFLAGS_PROGRAM="$EXTRA_LDFLAGS_PROGRAM $ac_i"])
       fi
     ;;
     -l*[)]
@@ -2082,7 +2084,7 @@ dnl Search for the sendmail binary
 dnl
 AC_DEFUN([PHP_PROG_SENDMAIL], [
   PHP_ALT_PATH=/usr/bin:/usr/sbin:/usr/etc:/etc:/usr/ucblib:/usr/lib
-  AC_PATH_PROG(PROG_SENDMAIL, sendmail,[], $PATH:$PHP_ALT_PATH)
+  AC_PATH_PROG(PROG_SENDMAIL, sendmail, /usr/sbin/sendmail, $PATH:$PHP_ALT_PATH)
   PHP_SUBST(PROG_SENDMAIL)
 ])
 
@@ -2191,7 +2193,8 @@ AC_DEFUN([PHP_SETUP_ICU],[
 
       ICU_LIBS=`$PKG_CONFIG --libs icu-uc icu-io icu-i18n`
       ICU_INCS=`$PKG_CONFIG --cflags-only-I icu-uc icu-io icu-i18n`
-      ICU_CXXFLAGS="-DU_USING_ICU_NAMESPACE=1"
+      ICU_CXXFLAGS=`$PKG_CONFIG --variable=CXXFLAGS icu-uc`
+      ICU_CXXFLAGS="$ICU_CXXFLAGS -DU_USING_ICU_NAMESPACE=1"
 
       AC_MSG_RESULT([found $ICU_VERSION])
 

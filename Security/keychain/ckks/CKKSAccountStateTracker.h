@@ -83,6 +83,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status);
 @end
 @protocol CKKSCloudKitAccountStateTrackingProvider <NSObject>
 - (dispatch_semaphore_t)registerForNotificationsOfCloudKitAccountStatusChange:(id<CKKSCloudKitAccountStateListener>)listener;
+- (BOOL)notifyCKAccountStatusChangeAndWait:(dispatch_time_t)timeout;
 @end
 
 #pragma mark -- Tracker

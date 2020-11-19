@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,19 +26,13 @@
 #include "config.h"
 #include <wtf/Threading.h>
 
-#include <algorithm>
-#include <cmath>
 #include <cstring>
-#include <thread>
 #include <wtf/DateMath.h>
 #include <wtf/PrintStream.h>
 #include <wtf/RandomNumberSeed.h>
 #include <wtf/ThreadGroup.h>
-#include <wtf/ThreadMessage.h>
 #include <wtf/ThreadingPrimitives.h>
 #include <wtf/WTFConfig.h>
-#include <wtf/text/AtomStringTable.h>
-#include <wtf/text/StringView.h>
 #include <wtf/threads/Signals.h>
 
 #if HAVE(QOS_CLASSES)
@@ -46,6 +40,29 @@
 #endif
 
 namespace WTF {
+
+static Optional<size_t> stackSize(ThreadType threadType)
+{
+    // Return the stack size for the created thread based on its type.
+    // If the stack size is not specified, then use the system default. Platforms can tune the values here.
+    // Enable STACK_STATS in StackStats.h to create a build that will track the information for tuning.
+#if PLATFORM(PLAYSTATION)
+    if (threadType == ThreadType::JavaScript)
+        return 512 * KB;
+#elif OS(DARWIN) && ASAN_ENABLED
+    if (threadType == ThreadType::Compiler)
+        return 1 * MB; // ASan needs more stack space (especially on Debug builds).
+#else
+    UNUSED_PARAM(threadType);
+#endif
+
+#if defined(DEFAULT_THREAD_STACK_SIZE_IN_KB) && DEFAULT_THREAD_STACK_SIZE_IN_KB > 0
+    return DEFAULT_THREAD_STACK_SIZE_IN_KB * 1024;
+#else
+    // Use the platform's default stack size
+    return WTF::nullopt;
+#endif
+}
 
 struct Thread::NewThreadContext : public ThreadSafeRefCounted<NewThreadContext> {
 public:
@@ -70,7 +87,11 @@ public:
 
 HashSet<Thread*>& Thread::allThreads(const LockHolder&)
 {
-    static NeverDestroyed<HashSet<Thread*>> allThreads;
+    static LazyNeverDestroyed<HashSet<Thread*>> allThreads;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [&] {
+        allThreads.construct();
+    });
     return allThreads;
 }
 
@@ -117,7 +138,11 @@ void Thread::initializeInThread()
 #if USE(WEB_THREAD)
     // On iOS, one AtomStringTable is shared between the main UI thread and the WebThread.
     if (isWebThread() || isUIThread()) {
-        static NeverDestroyed<AtomStringTable> sharedStringTable;
+        static LazyNeverDestroyed<AtomStringTable> sharedStringTable;
+        static std::once_flag onceKey;
+        std::call_once(onceKey, [&] {
+            sharedStringTable.construct();
+        });
         m_currentAtomStringTable = &sharedStringTable.get();
     }
 #endif
@@ -150,9 +175,9 @@ void Thread::entryPoint(NewThreadContext* newThreadContext)
     function();
 }
 
-Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint)
+Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint, ThreadType threadType)
 {
-    WTF::initializeThreading();
+    WTF::initialize();
     Ref<Thread> thread = adoptRef(*new Thread());
     Ref<NewThreadContext> context = adoptRef(*new NewThreadContext { name, WTFMove(entryPoint), thread.copyRef() });
     // Increment the context ref on behalf of the created thread. We do not just use a unique_ptr and leak it to the created thread because both the creator and created thread has a need to keep the context alive:
@@ -163,7 +188,7 @@ Ref<Thread> Thread::create(const char* name, Function<void()>&& entryPoint)
     context->ref();
     {
         MutexLocker locker(context->mutex);
-        bool success = thread->establishHandle(context.ptr());
+        bool success = thread->establishHandle(context.ptr(), stackSize(threadType));
         RELEASE_ASSERT(success);
         context->stage = NewThreadContext::Stage::EstablishedHandle;
 
@@ -335,7 +360,7 @@ void Thread::dump(PrintStream& out) const
 ThreadSpecificKey Thread::s_key = InvalidThreadSpecificKey;
 #endif
 
-void initializeThreading()
+void initialize()
 {
     static std::once_flag onceKey;
     std::call_once(onceKey, [] {
@@ -350,6 +375,15 @@ void initializeThreading()
         SignalHandlers::initialize();
 #endif
     });
+}
+
+// This is a compatibility hack to prevent linkage errors when launching older
+// versions of Safari. initialize() used to be named initializeThreading(), and
+// Safari.framework used to call it directly from NotificationAgentMain.
+WTF_EXPORT_PRIVATE void initializeThreading();
+void initializeThreading()
+{
+    initialize();
 }
 
 } // namespace WTF

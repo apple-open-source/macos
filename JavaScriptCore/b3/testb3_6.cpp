@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1679,7 +1679,7 @@ void testInterpreter()
             GPRReg scratch = params.gpScratch(0);
 
             jit.move(CCallHelpers::TrustedImmPtr(jumpTable), scratch);
-            jit.load64(CCallHelpers::BaseIndex(scratch, params[0].gpr(), CCallHelpers::timesPtr()), scratch);
+            jit.load64(CCallHelpers::BaseIndex(scratch, params[0].gpr(), CCallHelpers::ScalePtr), scratch);
             jit.farJump(scratch, B3CompilationPtrTag);
 
             jit.addLinkTask(
@@ -1768,7 +1768,7 @@ void testInterpreter()
     print->appendNew<CCallValue>(
         proc, Void, Origin(),
         print->appendNew<ConstPtrValue>(
-            proc, Origin(), tagCFunctionPtr<void*>(interpreterPrint, B3CCallPtrTag)),
+            proc, Origin(), tagCFunction<B3CCallPtrTag>(interpreterPrint)),
         context,
         print->appendNew<MemoryValue>(proc, Load, pointerType(), Origin(), dataPointerValue));
     print->appendNew<VariableValue>(
@@ -1936,9 +1936,9 @@ void testEntrySwitchSimple()
     CCallHelpers jit;
     generate(proc, jit);
     LinkBuffer linkBuffer(jit, nullptr);
-    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(0));
-    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(1));
-    CodeLocationLabel<B3CompilationPtrTag> labelThree = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(2));
+    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(0));
+    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(1));
+    CodeLocationLabel<B3CompilationPtrTag> labelThree = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(2));
 
     MacroAssemblerCodeRef<B3CompilationPtrTag> codeRef = FINALIZE_CODE(linkBuffer, B3CompilationPtrTag, "testb3 compilation");
 
@@ -1969,9 +1969,9 @@ void testEntrySwitchNoEntrySwitch()
     CCallHelpers jit;
     generate(proc, jit);
     LinkBuffer linkBuffer(jit, nullptr);
-    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(0));
-    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(1));
-    CodeLocationLabel<B3CompilationPtrTag> labelThree = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(2));
+    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(0));
+    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(1));
+    CodeLocationLabel<B3CompilationPtrTag> labelThree = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(2));
 
     MacroAssemblerCodeRef<B3CompilationPtrTag> codeRef = FINALIZE_CODE(linkBuffer, B3CompilationPtrTag, "testb3 compilation");
 
@@ -2056,9 +2056,9 @@ void testEntrySwitchWithCommonPaths()
     CCallHelpers jit;
     generate(proc, jit);
     LinkBuffer linkBuffer(jit, nullptr);
-    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(0));
-    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(1));
-    CodeLocationLabel<B3CompilationPtrTag> labelThree = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(2));
+    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(0));
+    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(1));
+    CodeLocationLabel<B3CompilationPtrTag> labelThree = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(2));
 
     MacroAssemblerCodeRef<B3CompilationPtrTag> codeRef = FINALIZE_CODE(linkBuffer, B3CompilationPtrTag, "testb3 compilation");
 
@@ -2173,9 +2173,9 @@ void testEntrySwitchWithCommonPathsAndNonTrivialEntrypoint()
     CCallHelpers jit;
     generate(proc, jit);
     LinkBuffer linkBuffer(jit, nullptr);
-    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(0));
-    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(1));
-    CodeLocationLabel<B3CompilationPtrTag> labelThree = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(2));
+    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(0));
+    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(1));
+    CodeLocationLabel<B3CompilationPtrTag> labelThree = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(2));
 
     MacroAssemblerCodeRef<B3CompilationPtrTag> codeRef = FINALIZE_CODE(linkBuffer, B3CompilationPtrTag, "testb3 compilation");
 
@@ -2251,8 +2251,8 @@ void testEntrySwitchLoop()
     CCallHelpers jit;
     generate(proc, jit);
     LinkBuffer linkBuffer(jit, nullptr);
-    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(0));
-    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.entrypointLabel(1));
+    CodeLocationLabel<B3CompilationPtrTag> labelOne = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(0));
+    CodeLocationLabel<B3CompilationPtrTag> labelTwo = linkBuffer.locationOf<B3CompilationPtrTag>(proc.code().entrypointLabel(1));
 
     MacroAssemblerCodeRef<B3CompilationPtrTag> codeRef = FINALIZE_CODE(linkBuffer, B3CompilationPtrTag, "testb3 compilation");
 

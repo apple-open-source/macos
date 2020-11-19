@@ -26,6 +26,7 @@
 #include "config.h"
 #include "PageClientImpl.h"
 
+#include "APIViewClient.h"
 #include "DrawingAreaProxyCoordinatedGraphics.h"
 #include "NativeWebMouseEvent.h"
 #include "NativeWebWheelEvent.h"
@@ -33,6 +34,7 @@
 #include "WPEView.h"
 #include "WebContextMenuProxy.h"
 #include "WebContextMenuProxyWPE.h"
+#include "WebKitPopupMenu.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/NotImplemented.h>
@@ -45,7 +47,6 @@ namespace WebKit {
 
 PageClientImpl::PageClientImpl(WKWPE::View& view)
     : m_view(view)
-    , m_scrollGestureController(makeUnique<ScrollGestureController>())
 {
 }
 
@@ -211,11 +212,12 @@ void PageClientImpl::doneWithTouchEvent(const NativeWebTouchEvent& touchEvent, b
         return;
 
     auto& page = m_view.page();
+    auto& scrollGestureController = m_view.scrollGestureController();
 
-    if (m_scrollGestureController->handleEvent(touchPoint)) {
-        struct wpe_input_axis_event* axisEvent = m_scrollGestureController->axisEvent();
+    if (scrollGestureController.handleEvent(touchPoint)) {
+        struct wpe_input_axis_event* axisEvent = scrollGestureController.axisEvent();
         if (axisEvent->type != wpe_input_axis_event_type_null)
-            page.handleWheelEvent(WebKit::NativeWebWheelEvent(axisEvent, m_view.page().deviceScaleFactor()));
+            page.handleWheelEvent(WebKit::NativeWebWheelEvent(axisEvent, m_view.page().deviceScaleFactor(), WebWheelEvent::Phase::PhaseNone, WebWheelEvent::Phase::PhaseNone));
         return;
     }
 
@@ -253,15 +255,17 @@ void PageClientImpl::wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&
 {
 }
 
-RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy&)
+RefPtr<WebPopupMenuProxy> PageClientImpl::createPopupMenuProxy(WebPageProxy& page)
 {
-    return nullptr;
+    if (!m_view.client().isGLibBasedAPI())
+        return nullptr;
+    return WebKitPopupMenu::create(m_view, page);
 }
 
 #if ENABLE(CONTEXT_MENUS)
-Ref<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy&, ContextMenuContextData&& context, const UserData& userData)
+Ref<WebContextMenuProxy> PageClientImpl::createContextMenuProxy(WebPageProxy& page, ContextMenuContextData&& context, const UserData& userData)
 {
-    return WebContextMenuProxyWPE::create(WTFMove(context), userData);
+    return WebContextMenuProxyWPE::create(page, WTFMove(context), userData);
 }
 #endif
 
@@ -314,11 +318,11 @@ void PageClientImpl::didFirstVisuallyNonEmptyLayoutForMainFrame()
 {
 }
 
-void PageClientImpl::didFinishLoadForMainFrame()
+void PageClientImpl::didFinishNavigation(API::Navigation*)
 {
 }
 
-void PageClientImpl::didFailLoadForMainFrame()
+void PageClientImpl::didFailNavigation(API::Navigation*)
 {
 }
 
@@ -430,9 +434,9 @@ void PageClientImpl::sendMessageToWebView(UserMessage&& message, CompletionHandl
     m_view.didReceiveUserMessage(WTFMove(message), WTFMove(completionHandler));
 }
 
-void PageClientImpl::setInputMethodState(bool enabled)
+void PageClientImpl::setInputMethodState(Optional<InputMethodState>&& state)
 {
-    m_view.setInputMethodState(enabled);
+    m_view.setInputMethodState(WTFMove(state));
 }
 
 void PageClientImpl::selectionDidChange()

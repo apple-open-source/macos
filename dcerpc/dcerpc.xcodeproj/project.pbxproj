@@ -168,7 +168,6 @@
 		D67F763D11068B71003C1D11 /* rpcrand.c in Sources */ = {isa = PBXBuildFile; fileRef = DD3DB262100408FD0080B762 /* rpcrand.c */; };
 		D67F763E11068B71003C1D11 /* rpctimer.c in Sources */ = {isa = PBXBuildFile; fileRef = DD3DB266100408FD0080B762 /* rpctimer.c */; };
 		D69F92761108BD9500DDCD00 /* lrpc.idl in Sources */ = {isa = PBXBuildFile; fileRef = D6AE33151108BA6D0050828C /* lrpc.idl */; };
-		D6B20416118F93F600CFFEC6 /* junk.c in Headers */ = {isa = PBXBuildFile; fileRef = DD9D320C107D51CF00FA8214 /* junk.c */; settings = {ATTRIBUTES = (Public, ); }; };
 		DD0435211076A0D60010E492 /* libidl.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DDE0178F106C2FFD00A5E41A /* libidl.a */; };
 		DD0435221076A0D60010E492 /* libnck.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DD10F5D6106D341E005F1EF3 /* libnck.a */; };
 		DD0435231076A0D60010E492 /* libuuid.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DDE017DE106C334200A5E41A /* libuuid.a */; };
@@ -414,6 +413,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.idl";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"${SHARED_DERIVED_FILE_DIR}/dce/${INPUT_FILE_BASE}.h",
@@ -425,6 +426,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*ep.idl";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"${SHARED_DERIVED_FILE_DIR}/dce/${INPUT_FILE_BASE}_cstub.c",
@@ -436,6 +439,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.idl";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(SHARED_DERIVED_FILE_DIR)/dce/$(INPUT_FILE_BASE)_cstub.c",
@@ -448,6 +453,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*pickle.idl";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"${SHARED_DERIVED_FILE_DIR}/dce/${INPUT_FILE_BASE}_cstub.c",
@@ -460,6 +467,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*m.idl";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(SHARED_DERIVED_FILE_DIR)/dce/$(INPUT_FILE_BASE).h",
@@ -471,6 +480,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*p.idl";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(SHARED_DERIVED_FILE_DIR)/dce/$(INPUT_FILE_BASE).h",
@@ -483,6 +494,8 @@
 			compilerSpec = com.apple.compilers.proxy.script;
 			filePatterns = "*.idl";
 			fileType = pattern.proxy;
+			inputFiles = (
+			);
 			isEditable = 1;
 			outputFiles = (
 				"$(SHARED_DERIVED_FILE_DIR)/$(INPUT_FILE_BASE).h",
@@ -2690,7 +2703,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D6B20416118F93F600CFFEC6 /* junk.c in Headers */,
 				DD55CA1511C2FF090095BC61 /* wc16str.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3775,7 +3787,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CURRENT_PROJECT_VERSION = 69;
+				CURRENT_PROJECT_VERSION = 71;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu99;
@@ -3810,7 +3822,7 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CURRENT_PROJECT_VERSION = 69;
+				CURRENT_PROJECT_VERSION = 71;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
@@ -3845,7 +3857,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 69;
+				DYLIB_CURRENT_VERSION = 71;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
 				INSTALL_GROUP = "$(GROUP)";
@@ -3872,7 +3884,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 69;
+				DYLIB_CURRENT_VERSION = 71;
 				FRAMEWORK_VERSION = A;
 				INFOPLIST_FILE = "DCERPC-Info.plist";
 				INSTALL_GROUP = "$(GROUP)";

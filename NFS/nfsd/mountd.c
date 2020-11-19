@@ -99,6 +99,7 @@ int bindresvport_sa(int sd, struct sockaddr *sa);
 #include <unistd.h>
 #include <pthread.h>
 
+#include <sandbox.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <DiskArbitration/DiskArbitration.h>
 
@@ -377,6 +378,7 @@ struct expfstqh xfshead;		/* list of exported file systems */
 struct dirlist *xpaths;			/* list of exported paths */
 int xpaths_complete = 1;
 struct mountlist *mlhead;		/* remote mount list */
+pthread_mutex_t ml_mutex;		/* lock for remote mount list */
 struct grouplist *grpcache;		/* host/net group cache */
 struct xucred def_anon = {		/* default map credential: "nobody" */
 	XUCRED_VERSION,
@@ -524,6 +526,12 @@ mountd_init(void)
 	error = pthread_mutex_init(&export_mutex, NULL);
 	if (error) {
 		log(LOG_ERR, "export mutex init failed: %s (%d)", strerror(error), error);
+		exit(1);
+	}
+
+	error = pthread_mutex_init(&ml_mutex, NULL);
+	if (error) {
+		log(LOG_ERR, "remote mount list mutex init failed: %s (%d)", strerror(error), error);
 		exit(1);
 	}
 
@@ -994,6 +1002,28 @@ unlock_exports(void)
 }
 
 /*
+ * functions for locking/unlocking the remote mount list
+ */
+void
+lock_mlist(void)
+{
+	int error;
+
+	error = pthread_mutex_lock(&ml_mutex);
+	if (error)
+		log(LOG_ERR, "remote mount list mutex lock failed: %s (%d)", strerror(error), error);
+}
+void
+unlock_mlist(void)
+{
+	int error;
+
+	error = pthread_mutex_unlock(&ml_mutex);
+	if (error)
+		log(LOG_ERR, "remote mount list mutex unlock failed: %s (%d)", strerror(error), error);
+}
+
+/*
  * The mount rpc service
  */
 void
@@ -1095,8 +1125,11 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			}
 			if (!svc_sendreply(transp, (xdrproc_t)xdr_fhs, (caddr_t)&fhr))
 				log(LOG_ERR, "Can't send mount reply");
-			if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0))
+			if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0)) {
+				lock_mlist();
 				add_mlist(hostbuf, mlistpath);
+				unlock_mlist();
+			}
 			log(LOG_INFO, "Mount successful: %s %s", hostbuf, dirpath);
 		} else {
 			bad = EACCES;
@@ -1110,8 +1143,10 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 		unlock_exports();
 		return;
 	case RPCMNT_DUMP:
+		lock_mlist();
 		if (!svc_sendreply(transp, (xdrproc_t)xdr_mlist, (caddr_t)NULL))
 			log(LOG_ERR, "Can't send MOUNT dump reply");
+		unlock_mlist();
 		if (config.verbose >= 3) {
 			getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
 			DEBUG(1, "dump: %s", addrbuf);
@@ -1132,12 +1167,14 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			log(LOG_ERR, "realpath(%s) failed", rpcpath);
 			return;
 		}
+		lock_mlist();
 		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD))
 			del_mlist(hostbuf, mlistpath);
 		else
 			hostbuf[0] = '\0';
 		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST))
 			del_mlist(addrbuf, mlistpath);
+		unlock_mlist();
 		log(LOG_INFO, "umount: %s %s", hostbuf[0] ? hostbuf : addrbuf, mlistpath);
 		return;
 	case RPCMNT_UMNTALL:
@@ -1147,12 +1184,14 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 		}
 		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL))
 			log(LOG_ERR, "Can't send UMNTALL reply");
+		lock_mlist();
 		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD))
 			del_mlist(hostbuf, NULL);
 		else
 			hostbuf[0] = '\0';
 		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST))
 			del_mlist(addrbuf, (char *)NULL);
+		unlock_mlist();
 		log(LOG_INFO, "umount all: %s", hostbuf[0] ? hostbuf : addrbuf);
 		return;
 	case RPCMNT_EXPORT:
@@ -1223,6 +1262,7 @@ xdr_fhs(XDR *xdrsp, caddr_t cp)
 	return (0);
 }
 
+/* This function must be called with ml_mutex locked */
 int
 xdr_mlist(XDR *xdrsp, __unused caddr_t cp)
 {
@@ -2211,6 +2251,7 @@ get_exportlist(void)
 	char buf[64], buf2[64];
 	int error, opt_flags, need_export, saved_errors;
 	u_int non_loopback_exports = 0;
+	pid_t nfsd_pid = get_nfsd_pid();
 
 	lock_exports();
 
@@ -2253,6 +2294,10 @@ get_exportlist(void)
 		log(LOG_WARNING, "Can't open %s", exportsfilepath);
 		export_errors = 1;
 		goto exports_read;
+	}
+
+	if (nfsd_pid <= 0) {
+		export_error(LOG_WARNING, "nfsd is not running, can't verify exports permissions");
 	}
 
 	/*
@@ -2556,6 +2601,11 @@ get_exportlist(void)
 		if (mountd_statfs(dirl->dl_realpath, &fsb) < 0) {
 			export_error(LOG_ERR, "statfs failed (%s (%d)) for path: %s (%s)",
 				strerror(errno), errno, dirl->dl_dir, dirl->dl_realpath);
+			export_error_cleanup(xf);
+			goto nextline;
+		}
+		if (nfsd_pid > 0 && sandbox_check(nfsd_pid, "file-read-data", SANDBOX_FILTER_PATH | SANDBOX_CHECK_NO_REPORT, dirl->dl_dir)) {
+			export_error(LOG_ERR, "sandbox_check failed. nfsd has no read access to \"%s\"", dirl->dl_dir);
 			export_error_cleanup(xf);
 			goto nextline;
 		}
@@ -5178,6 +5228,7 @@ get_mountlist(void)
 		return;
 	}
 	lastmlp = NULL;
+	lock_mlist();
 	while (fgets(str, STRSIZ, mlfile) != NULL) {
 		cp = str;
 		host = strsep(&cp, " \t\n");
@@ -5218,9 +5269,11 @@ get_mountlist(void)
 			mlhead = mlp;
 		lastmlp = mlp;
 	}
+	unlock_mlist();
 	fclose(mlfile);
 }
 
+/* This function must be called with ml_mutex locked */
 void
 del_mlist(char *host, char *dir)
 {
@@ -5260,6 +5313,7 @@ del_mlist(char *host, char *dir)
 	}
 }
 
+/* This function must be called with ml_mutex locked */
 void
 add_mlist(char *host, char *dir)
 {

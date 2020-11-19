@@ -23,7 +23,6 @@
 
 #include "DAServer.h"
 #include "DAServerServer.h"
-
 #include "DABase.h"
 #include "DACallback.h"
 #include "DADialog.h"
@@ -46,10 +45,14 @@
 #include <sys/stat.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/storage/IOMedia.h>
+#include <os/log.h>
 ///w:start
 #include <dlfcn.h>
 #include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
+
+void ___os_transaction_begin( void );
+void ___os_transaction_end( void );
 ///w:end
 
 ///w:start
@@ -175,7 +178,9 @@ static void __DAMediaChangedCallback( void * context, io_service_t service, natu
 
 static void __DAMediaPropertyChangedCallback( void * context, io_service_t service, void * argument )
 {
-    DADiskRef disk;
+    DADiskRef   disk;
+    bool        volumeNameChanged = false;
+    CFStringRef name;
 
     disk = __DADiskListGetDiskWithIOMedia( service );
 
@@ -218,47 +223,75 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
 
                     if ( path && (mountListIndex != mountListCount) )
                     {
-                        CFStringRef name = _DAFileSystemCopyName( DADiskGetFileSystem( disk ), path );
+                        name = _DAFileSystemCopyName( DADiskGetFileSystem( disk ), path );
                         if ( name )
                         {
                             if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) )
                             {
-                                DALogDebug( " volume name changed for %@ ", disk);
+                                DALogDebug( " volume name changed for %@ ", disk );
                                 DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
-
                                 CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
-                                CFURLRef mountpoint;
-                                if ( CFEqual( CFURLGetString( path ), CFSTR( "file:///" ) ) )
-                                {
-                                    mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
-
-                                    if ( mountpoint )
-                                    {
-                                        DADiskSetBypath( disk, mountpoint );
-
-                                        CFRelease( mountpoint );
-                                    }
-                                }
-                                else
-                                {
-                                    mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
-
-                                    if ( mountpoint )
-                                    {
-                                        DADiskSetBypath( disk, mountpoint );
-
-                                        DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
-
-                                        CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
-
-                                        CFRelease( mountpoint );
-                                    }
-                                }
+                                CFRelease( name );
+                                volumeNameChanged = true;
                             }
-                            CFRelease( name );
                         }
                     }
-               }
+///w:start
+                    else if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
+                    {
+                        io_name_t medianame;
+                        
+                        kern_return_t status = IORegistryEntryGetName( service, medianame );
+                        if ( status == KERN_SUCCESS )
+                        {
+                            name = CFStringCreateWithCString( kCFAllocatorDefault, medianame, kCFStringEncodingUTF8 );
+                            if ( name )
+                            {
+                                if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) )
+                                {
+                                    DALogDebug( " volume name changed for %@ ", disk);
+                                    DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
+                                    CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
+                                    DADiskSetDescription( disk, kDADiskDescriptionMediaNameKey, name );
+                                    CFRelease( name );
+                                    volumeNameChanged = true;
+                                }
+                            }
+                        }
+                    }
+///w:stop
+                    if ( ( true == volumeNameChanged ) && path && (mountListIndex != mountListCount) )
+                    {
+                       
+                        CFURLRef mountpoint;
+                        if ( CFEqual( CFURLGetString( path ), CFSTR( "file:///" ) ) )
+                        {
+                            mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+
+                            if ( mountpoint )
+                            {
+                                DADiskSetBypath( disk, mountpoint );
+
+                                CFRelease( mountpoint );
+                            }
+                        }
+                        else
+                        {
+                            mountpoint = DAMountCreateMountPointWithAction( disk, kDAMountPointActionMove );
+
+                            if ( mountpoint )
+                            {
+                                DADiskSetBypath( disk, mountpoint );
+
+                                DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, mountpoint );
+
+                                CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
+
+                                CFRelease( mountpoint );
+                            }
+                        }
+                    }
+                }
 
                 CFTypeRef object;
 
@@ -665,9 +698,12 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
             {
                 if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
                 {
-                    if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
+                    if ( DAMountGetPreference( disk, kDAMountPreferenceDisableAutoMount ) == false )
                     {
-                        DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
+                        if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
+                        {
+                            DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
+                        }
                     }
                 }
             }
@@ -1058,6 +1094,8 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
      */
 
     io_service_t media;
+    SInt32 prevDeviceUnit = -1;
+    CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
 
     /*
      * Iterate through the media objects.
@@ -1135,6 +1173,72 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
                 DADiskSetState( disk, kDADiskStateStagedAppear, TRUE );
 
                 DADiskUnmount( disk, kDADiskUnmountOptionForce, NULL );
+
+                /*
+                 Determine whether the disk is mountable.
+                 */
+                Boolean  dialog = TRUE;
+
+                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanFalse )
+                {
+                    dialog = FALSE;
+                }
+
+                /*
+                 * Determine whether the disk is mounted.
+                 */
+
+                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ) == NULL )
+                {
+                    dialog = FALSE;
+                }
+
+                 if ( ( dialog == TRUE ) && DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
+                {
+                    CFURLRef mountpoint;
+                    char *   path;
+
+                    mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
+
+                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
+
+                    if ( path )
+                    {
+                        struct statfs fs;
+                        int           status;
+
+                        status = ___statfs( path, &fs, MNT_NOWAIT );
+
+                        if ( status == 0 )
+                        {
+                            if ( ( fs.f_flags & MNT_RDONLY ) )
+                            {
+                                dialog = FALSE;
+                            }
+                        }
+
+                        free( path );
+                    }
+
+                    if ( dialog )
+                    {
+                        CFDataRef serialization;
+
+                        serialization = DADiskGetSerialization( disk );
+
+                        if ((prevDeviceUnit == -1) || prevDeviceUnit == DADiskGetBSDUnit( disk ))
+                        {
+                            CFArrayAppendValue(diskInfoArray, serialization);
+                            prevDeviceUnit = DADiskGetBSDUnit( disk );
+                        }
+                        else
+                        {
+                            DADialogShowDeviceRemoval(  diskInfoArray );
+                            CFArrayAppendValue(diskInfoArray, serialization);
+                            prevDeviceUnit = DADiskGetBSDUnit( disk );
+                        }
+                    }
+                }
             }
 
             if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
@@ -1158,7 +1262,12 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
 
         IOObjectRelease( media );
     }
+    if ( 0 != CFArrayGetCount(  diskInfoArray) )
+    {
+        DADialogShowDeviceRemoval(  diskInfoArray);
+    }
 
+    CFRelease( diskInfoArray );
     DAStageSignal( );
 }
 
@@ -1229,22 +1338,60 @@ kern_return_t _DAServermkdir( mach_port_t _session, ___path_t _path, audit_token
         if ( session )
         {
             /*
-             * Determine whether the mount point path is within the mount point folder.
+             * Get the path prefix to be used in realpath
              */
-
-            if ( strncmp( _path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
+            char dirPath[MAXPATHLEN];
+            char resolvedPath[MAXPATHLEN];
+            char dirName[MAXPATHLEN];
+            size_t len = strlen(_path);
+             
+            if ( len >= MAXPATHLEN )
             {
-                if ( strrchr( _path + strlen( kDAMainMountPointFolder ), '/' ) == _path + strlen( kDAMainMountPointFolder ) )
+                goto exit;
+            }
+            char *newPath = strrchr( _path , '/' );
+            if ( newPath )
+            {
+                len =  newPath  - _path;
+            }
+            else
+            {
+                goto exit;
+            }
+            strlcpy( dirPath, _path, len + 1 );
+            strlcpy( dirName, _path + len + 1, MAXPATHLEN);
+
+            /*
+             * Get the real path to compare with kDAMainMountPointFolder
+             */
+            if (NULL == realpath( dirPath, resolvedPath ))
+            {
+                goto exit;
+            }
+
+            /*
+            * Determine whether the mount point path is within the mount point folder.
+            */
+            if ( strncmp( resolvedPath, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
+            {
+                if ( strlen( resolvedPath ) == strlen( kDAMainMountPointFolder ) )
                 {
                     /*
                      * Create the mount point.
                      */
-
-                    status = mkdir( _path, 0111 );
+                    if ( strlcat( resolvedPath, "/", MAXPATHLEN ) >= MAXPATHLEN )
+                    {
+                        goto exit;
+                    }
+                    if ( strlcat( resolvedPath, dirName, MAXPATHLEN ) >= MAXPATHLEN )
+                    {
+                        goto exit;
+                    }
+                    status = mkdir( resolvedPath, 0111 );
 
                     if ( status == 0 )
                     {
-                        chown( _path, audit_token_to_euid( _token ), -1 );
+                        lchown( resolvedPath, audit_token_to_euid( _token ), -1 );
                     }
                     else
                     {
@@ -1252,9 +1399,10 @@ kern_return_t _DAServermkdir( mach_port_t _session, ___path_t _path, audit_token
                     }
                 }
             }
+
         }
     }
-
+exit:
     return status;
 }
 
@@ -1273,27 +1421,67 @@ kern_return_t _DAServerrmdir( mach_port_t _session, ___path_t _path, audit_token
 
         if ( session )
         {
+
+            /*
+             * Get the path prefix to be used in realpath
+             */
+            char dirPath[MAXPATHLEN];
+            char resolvedPath[MAXPATHLEN];
+            char dirName[MAXPATHLEN];
+            size_t len = strlen(_path);
+            
+            if ( len >= MAXPATHLEN )
+            {
+                goto exit;
+            }
+            char *newPath = strrchr( _path , '/' );
+            if ( newPath )
+            {
+                len =  newPath  - _path;
+            }
+            else
+            {
+                goto exit;
+            }
+            strlcpy( dirPath, _path, len + 1 );
+            strlcpy( dirName, _path + len + 1, MAXPATHLEN);
+            
+            /*
+             * Get the real path to compare with kDAMainMountPointFolder
+             */
+            if (NULL == realpath( dirPath, resolvedPath ))
+            {
+                goto exit;
+            }
+
             /*
              * Determine whether the mount point path is within the mount point folder.
              */
-
-            if ( strncmp( _path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
+            if ( strncmp( resolvedPath, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
             {
-                if ( strrchr( _path + strlen( kDAMainMountPointFolder ), '/' ) == _path + strlen( kDAMainMountPointFolder ) )
+                if (  strlen( resolvedPath ) ==  strlen( kDAMainMountPointFolder ) )
                 {
                     /*
                      * Remove the mount point.
                      */
-                    status = stat( _path, &path_info);
+                    if ( strlcat( resolvedPath, "/", MAXPATHLEN ) >= MAXPATHLEN )
+                    {
+                        goto exit;
+                    }
+                    if ( strlcat( resolvedPath, dirName, MAXPATHLEN ) >= MAXPATHLEN )
+                    {
+                        goto exit;
+                    }
+                    status = stat( resolvedPath, &path_info);
 
                     if ( status != 0 )
                     {
                         status = unix_err( errno );
                     } else {
-
-                        if ( audit_token_to_euid( _token ) == 0 || audit_token_to_euid( _token ) == path_info.st_uid ) // only allow root or owner to delete directory
+                        if ( ( audit_token_to_euid( _token ) == 0 || audit_token_to_euid( _token ) == path_info.st_uid ) &&
+                             S_ISDIR( path_info.st_mode )  )// only allow root or owner to delete directory
                         {
-                            status = rmdir( _path );
+                            status = rmdir( resolvedPath );
 
                             if ( status != 0 )
                             {
@@ -1308,6 +1496,7 @@ kern_return_t _DAServerrmdir( mach_port_t _session, ___path_t _path, audit_token
         }
     }
 
+exit:
     return status;
 }
 
@@ -1761,7 +1950,7 @@ kern_return_t _DAServerSessionCreate( mach_port_t   _session,
              * Add the session object to our tables.
              */
 
-            ___vproc_transaction_begin( );
+            ___os_transaction_begin( );
 
             CFArrayAppendValue( gDASessionList, session );
 
@@ -2107,6 +2296,8 @@ kern_return_t _DAServerSessionRegisterCallback( mach_port_t            _session,
                         }
                     }
 
+                    DAQueueCallbacks( session, _kDADiskListCompleteCallback, NULL, NULL );
+
                     if ( gDAIdle )
                     {
                         DAQueueCallbacks( session, _kDAIdleCallback, NULL, NULL );
@@ -2235,7 +2426,7 @@ kern_return_t _DAServerSessionRelease( mach_port_t _session )
 
             ___CFArrayRemoveValue( gDASessionList, session );
 
-            ___vproc_transaction_end( );
+            ___os_transaction_end( );
 
             status = kDAReturnSuccess;
         }

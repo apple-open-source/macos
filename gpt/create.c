@@ -51,7 +51,7 @@ usage_create(void)
 	exit(1);
 }
 
-static void
+static int 
 create(int fd)
 {
 	uuid_t uuid;
@@ -69,13 +69,12 @@ create(int fd)
 	if (map_find(MAP_TYPE_PRI_GPT_HDR) != NULL ||
 	    map_find(MAP_TYPE_SEC_GPT_HDR) != NULL) {
 		warnx("%s: error: device already contains a GPT", device_name);
-		return;
+		return 1;
 	}
-	map = map_find(MAP_TYPE_MBR);
 	if (map != NULL) {
 		if (!force) {
 			warnx("%s: error: device contains a MBR", device_name);
-			return;
+			return 1;
 		}
 
 		/* Nuke the MBR in our internal map. */
@@ -88,7 +87,7 @@ create(int fd)
 	if (map_find(MAP_TYPE_PMBR) == NULL) {
 		if (map_free(0LL, 1LL) == 0) {
 			warnx("%s: error: no room for the PMBR", device_name);
-			return;
+			return 1;
 		}
 		mbr = gpt_read(fd, 0LL, 1);
 		bzero(mbr, sizeof(*mbr));
@@ -116,7 +115,7 @@ create(int fd)
 	blocks = map_free(1LL, 0LL);
 	if (blocks == 0LL) {
 		warnx("%s: error: no room for the GPT header", device_name);
-		return;
+		return 1;
 	}
 
 	/* Don't create more than parts entries. */
@@ -138,14 +137,14 @@ create(int fd)
 	map = map_last();
 	if (map->map_type != MAP_TYPE_UNUSED) {
 		warnx("%s: error: no room for the backup header", device_name);
-		return;
+		return 1;
 	}
 
 	if (map->map_size < blocks)
 		blocks = map->map_size;
 	if (blocks == 1LL) {
 		warnx("%s: error: no room for the GPT table", device_name);
-		return;
+		return 1;
 	}
 
 	blocks--;		/* Number of blocks in the GPT table. */
@@ -153,7 +152,7 @@ create(int fd)
 	tbl = map_add(2LL, blocks, MAP_TYPE_PRI_GPT_TBL,
 	    calloc(blocks, secsz));
 	if (gpt == NULL || tbl == NULL)
-		return;
+		return 1;
 
 	hdr = gpt->map_data;
 	memcpy(hdr->hdr_sig, GPT_HDR_SIG, sizeof(hdr->hdr_sig));
@@ -206,12 +205,14 @@ create(int fd)
 		gpt_write(fd, lbt);
 		gpt_write(fd, tpg);
 	}
+	return 0;
 }
 
 int
 cmd_create(int argc, char *argv[])
 {
 	int ch, fd;
+	int ret = 0;
 
 	while ((ch = getopt(argc, argv, "fp")) != -1) {
 		switch(ch) {
@@ -236,10 +237,10 @@ cmd_create(int argc, char *argv[])
 			return (1);
 		}
 
-		create(fd);
+		ret = create(fd);
 
 		gpt_close(fd);
 	}
 
-	return (0);
+	return (ret);
 }

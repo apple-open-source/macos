@@ -113,7 +113,7 @@ Identity::Identity(const StorageManager::KeychainList &keychains, const SecPoint
     }
 }
 
-Identity::~Identity() throw()
+Identity::~Identity() _NOEXCEPT
 {
     if (mPrivateKey)
         CFRelease(mPrivateKey);

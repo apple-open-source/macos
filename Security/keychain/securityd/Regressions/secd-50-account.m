@@ -45,6 +45,8 @@
 #include "SecdTestKeychainUtilities.h"
 #include "SOSAccountTesting.h"
 
+#if SOS_ENABLED
+
 static int kTestTestCount = 9 + kSecdTestSetupTestCount;
 static void tests(void)
 {
@@ -96,6 +98,15 @@ static void tests(void)
     is([account getCircleStatus:&cfError], kSOSCCInCircle, "Still in Circle  (%@)", error);
     CFReleaseNull(cfError);
     
+    SecKeyRef userKey = SOSAccountCopyStashedUserPrivateKey(account, &cfError);
+    ok(userKey, "retrieved userKey");
+    CFReleaseNull(userKey);
+    
+    SecKeyRef deviceKey = SOSAccountCopyDevicePrivateKey(account, &cfError);
+    ok(deviceKey, "retrieved deviceKey");
+    CFReleaseNull(deviceKey);
+    
+    
     CFReleaseNull(new_gestalt);
 
     SOSDataSourceFactoryRelease(test_factory);
@@ -107,13 +118,16 @@ static void tests(void)
     SOSTestCleanup();
 }
 
+#endif
+
 int secd_50_account(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

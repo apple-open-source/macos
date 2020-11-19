@@ -242,6 +242,7 @@ endif
 ##---------------------------------------------------------------------
 custominstallsrc:
 	gnutar $(TARARGS) '$(TARBALL)'
+	(cd $(PROJVERS) ; patch -p1 -F0 < $(SRCROOT)/fix/regen_perly.patch)
 	(cd $(PROJVERS) && perl regen_perly.pl)
 	gnutar $(RETARARGS) '$(RETARBALL)' $(PROJVERS)
 	rm -rf $(PROJVERS) '$(TARBALL)'

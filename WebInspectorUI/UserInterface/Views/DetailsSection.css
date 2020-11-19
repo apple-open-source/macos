@@ -33,7 +33,7 @@
 }
 
 .details-section .details-section {
-    background-color: hsl(0, 0%, 100%);
+    background-color: var(--background-color-content);
     border-color: var(--text-color-quaternary);
 }
 
@@ -48,8 +48,8 @@
 .details-section > .header {
     position: sticky;
     top: var(--details-section-header-top);
-    height: 23px;
-    padding: 4px 0;
+    height: var(--details-section-header-height);
+    padding: var(--details-section-header-vertical-padding) 0;
     -webkit-padding-end: 5px;
     font-size: 11px;
     font-weight: bold;
@@ -61,6 +61,9 @@
 
     /* Ensure the headers are displayed above scrollbars. */
     z-index: var(--z-index-header);
+
+    --details-section-header-height: 23px;
+    --details-section-header-vertical-padding: 4px;
 }
 
 .details-section > .header > .options > .navigation-bar {
@@ -86,7 +89,7 @@ body[dir=rtl] .details-section > .header > .options {
 
 .details-section .details-section > .header {
     top: 21px;
-    background-color: hsl(0, 0%, 100%);
+    background-color: var(--background-color-content);
     font-weight: 500;
 
     /* Ensure these headers are displayed below the parent header but above scrollbars. */
@@ -94,18 +97,29 @@ body[dir=rtl] .details-section > .header > .options {
 }
 
 .details-section .details-section:not(.collapsed) > .header {
-    border-bottom: 1px solid hsl(0, 0%, 87%);
+    border-bottom: 1px solid var(--border-color-secondary);
 }
 
 .details-section > .header::before {
     display: block;
     width: 21px;
-    height: 100%;
+    height: var(--details-section-header-height);
+    margin-top: calc(-1 * var(--details-section-header-vertical-padding));
     content: "";
     background-image: url(../Images/DisclosureTriangles.svg#open-normal);
     background-repeat: no-repeat;
     background-position: center;
     background-size: 13px 13px;
+}
+
+.details-section .header:focus {
+    outline: none;
+}
+
+.details-section .header:focus::before {
+    outline: auto -webkit-focus-ring-color;
+    outline-offset: -5px;
+    border-radius: 9px;
 }
 
 body[dir=rtl] .details-section > .header::before {
@@ -168,7 +182,7 @@ body[dir=rtl] .details-section > .header::before {
 }
 
 .details-section > .content > .group:nth-child(even) {
-    background-color: hsl(0, 0%, 97%);
+    background-color: var(--background-color-intermediate);
 }
 
 .details-section > .content > .group:nth-child(even) > .row:matches(.simple:first-child > *, :not(.simple):first-child) {
@@ -242,7 +256,7 @@ body[dir=rtl] .details-section > .header::before {
 .details-section > .content > .group > .row:matches(.empty, .text) {
     padding: 0 6px 7px 6px;
     text-align: center;
-    color: gray;
+    color: var(--text-color-secondary);
 }
 
 .details-section > .content > .group > .row.text {
@@ -289,28 +303,8 @@ body[dir=rtl] .details-section > .header::before {
         color: var(--text-color);
     }
 
-    .details-section > .header > label {
-        color: var(--text-color-secondary);
-    }
-
-    .details-section .details-section,
-    .details-section .details-section > .header {
-        background-color: var(--background-color-content);
-    }
-
-    .details-section .details-section:not(.collapsed) > .header {
-        border-bottom-color: var(--border-color-secondary);
-    }
-
+    .details-section > .header > label,
     .details-section > .content > .group > .row.simple > .label {
-        color: var(--text-color-secondary);
-    }
-
-    .details-section > .content > .group:nth-child(even) {
-        background-color: unset;
-    }
-
-    .details-section > .content > .group > .row:matches(.empty, .text) {
         color: var(--text-color-secondary);
     }
 }

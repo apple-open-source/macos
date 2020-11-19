@@ -237,7 +237,7 @@ kern_return_t collect_per_task_info(my_per_task_info_t *taskinfo, task_t target_
 
     ret = mach_port_kernel_object(mach_task_self(), taskinfo->task, &kotype, (unsigned *)&kobject);
 
-    if (ret == KERN_SUCCESS && kotype == IKOT_TASK) {
+    if (ret == KERN_SUCCESS && kotype == IKOT_TASK_CONTROL) {
         taskinfo->task_kobject = kobject;
         taskinfo->valid = TRUE;
     }

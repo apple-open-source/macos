@@ -1,3 +1,6 @@
 #include "../test_executable.xcconfig"
 INSTALL_PATH = $(I386_TEST_PATH)/pid
 
+EXCLUDED_SOURCE_FILE_NAMES = *
+EXCLUDED_SOURCE_FILE_NAMES[arch=x86_64] =
+

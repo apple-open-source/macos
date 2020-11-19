@@ -89,7 +89,8 @@ public:
     WEBCORE_EXPORT void didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const IDBResourceIdentifier& requestIdentifier, IndexedDB::ConnectionClosedOnBehalfOfServer);
     WEBCORE_EXPORT void openDBRequestCancelled(const IDBRequestData&);
 
-    WEBCORE_EXPORT void getAllDatabaseNames(IDBConnectionIdentifier serverConnectionIdentifier, const SecurityOriginData& mainFrameOrigin, const SecurityOriginData& openingOrigin, uint64_t callbackID);
+    WEBCORE_EXPORT void getAllDatabaseNamesAndVersions(IDBConnectionIdentifier, const IDBResourceIdentifier&, const ClientOrigin&);
+
 
     void registerDatabaseConnection(UniqueIDBDatabaseConnection&);
     void unregisterDatabaseConnection(UniqueIDBDatabaseConnection&);
@@ -102,6 +103,8 @@ public:
 
     WEBCORE_EXPORT void closeAndDeleteDatabasesModifiedSince(WallTime);
     WEBCORE_EXPORT void closeAndDeleteDatabasesForOrigins(const Vector<SecurityOriginData>&);
+    void closeDatabasesForOrigins(const Vector<SecurityOriginData>&, Function<bool(const SecurityOriginData&, const ClientOrigin&)>&&);
+    WEBCORE_EXPORT void renameOrigin(const WebCore::SecurityOriginData&, const WebCore::SecurityOriginData&);
 
     StorageQuotaManager::Decision requestSpace(const ClientOrigin&, uint64_t taskSize);
     WEBCORE_EXPORT static uint64_t diskUsage(const String& rootDirectory, const ClientOrigin&);

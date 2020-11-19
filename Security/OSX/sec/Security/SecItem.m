@@ -30,6 +30,7 @@
 #include <Security/SecItemPriv.h>
 #include <Security/SecItemInternal.h>
 #include <utilities/SecCFRelease.h>
+#import <utilities/debugging.h>
 
 #include <os/activity.h>
 
@@ -52,7 +53,7 @@ OSStatus _SecItemAddAndNotifyOnSync(CFDictionaryRef attributes, CFTypeRef * CF_R
             __block CFTypeRef raw_result = NULL;
             __block CFErrorRef raw_error = NULL;
 
-            id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+            id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(false, ^(NSError *error) {
                 syncCallback(false, (__bridge CFErrorRef)error);
             });
             if (rpc == NULL) {
@@ -103,7 +104,7 @@ void SecItemSetCurrentItemAcrossAllDevices(CFStringRef accessGroup,
     os_activity_scope(activity);
 
     @autoreleasepool {
-        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(false, ^(NSError *error) {
             complete((__bridge CFErrorRef) error);
         });
         [rpc secItemSetCurrentItemAcrossAllDevices:(__bridge NSData*)newCurrentItemReference
@@ -129,7 +130,7 @@ void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
     os_activity_scope(activity);
 
     @autoreleasepool {
-        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(false, ^(NSError *error) {
             complete(NULL, (__bridge CFErrorRef) error);
         });
         [rpc secItemFetchCurrentItemAcrossAllDevices:(__bridge NSString*)accessGroup
@@ -147,7 +148,7 @@ void _SecItemFetchDigests(NSString *itemClass, NSString *accessGroup, void (^com
     os_activity_t activity = os_activity_create("_SecItemFetchDigests", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
 
-    id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+    id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(false, ^(NSError *error) {
         complete(NULL, error);
     });
     [rpc secItemDigest:itemClass accessGroup:accessGroup complete:complete];
@@ -167,7 +168,7 @@ void _SecKeychainDeleteMultiUser(NSString *musr, void (^complete)(bool, NSError 
     uuid_t musrUUID;
     [uuid getUUIDBytes:musrUUID];
 
-    id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+    id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(false, ^(NSError *error) {
         complete(false, error);
     });
     [rpc secKeychainDeleteMultiuser:[NSData dataWithBytes:musrUUID length:sizeof(uuid_t)] complete:^(bool status, NSError *error) {
@@ -179,9 +180,28 @@ void SecItemVerifyBackupIntegrity(BOOL lightweight,
                                   void(^completion)(NSDictionary<NSString*, NSString*>* results, NSError* error))
 {
     @autoreleasepool {
-        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(^(NSError *error) {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(true, ^(NSError *error) {
             completion(@{@"summary" : @"XPC Error"}, error);
         });
         [rpc secItemVerifyBackupIntegrity:lightweight completion:completion];
     }
+}
+
+OSStatus SecItemDeleteKeychainItemsForAppClip(CFStringRef applicationIdentifier)
+{
+    __block OSStatus status = errSecInternal;
+    @autoreleasepool {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(true, ^(NSError *error) {
+            secerror("xpc: failure to obtain XPC proxy object for app clip deletion, %@", error);
+        });
+        [rpc secItemDeleteForAppClipApplicationIdentifier:(__bridge NSString*)applicationIdentifier
+                                               completion:^(OSStatus xpcStatus) {
+            // Other errors turn into errSecInternal for caller
+            secnotice("xpc", "app clip deletion result: %i", (int)xpcStatus);
+            if (xpcStatus == errSecMissingEntitlement || xpcStatus == errSecSuccess) {
+                status = xpcStatus;
+            }
+        }];
+    }
+    return status;
 }

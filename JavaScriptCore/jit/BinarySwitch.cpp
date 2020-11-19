@@ -28,7 +28,6 @@
 
 #if ENABLE(JIT)
 
-#include "JSCInlines.h"
 #include <wtf/ListDump.h>
 
 namespace JSC {
@@ -60,7 +59,7 @@ BinarySwitch::BinarySwitch(GPRReg value, const Vector<int64_t>& cases, Type type
     if (BinarySwitchInternal::verbose)
         dataLog("Sorted cases: ", listDump(m_cases), "\n");
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     for (unsigned i = 1; i < m_cases.size(); ++i)
         ASSERT(m_cases[i - 1] < m_cases[i], i, m_cases.size(), m_cases[i].value, m_cases[i].index);
 #endif

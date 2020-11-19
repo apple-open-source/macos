@@ -42,8 +42,6 @@
 #include "schedule.h"
 #include "pfkey.h"
 #include "ipsec_doi.h"
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
 #include "isakmp_inf.h"
 #include "localconf.h"
 #include "remoteconf.h"
@@ -96,7 +94,6 @@ new_ike_session (ike_session_id_t *id)
 		LIST_INIT(&session->ph1tree);
 		LIST_INIT(&session->ph2tree);	
 		LIST_INSERT_HEAD(&ike_session_tree, session, chain);
-		IPSECSESSIONTRACERSTART(session);
 	}
 	return session;
 }
@@ -119,9 +116,6 @@ free_ike_session (ike_session_t *session)
                 session->term_reason != ike_session_stopped_by_idle) {
                 is_failure = FALSE;
             }
-			IPSECSESSIONTRACERSTOP(session,
-								   is_failure,
-								   session->term_reason);
 		}
 		// do MessageTracer cleanup here
 		plog(ASL_LEVEL_NOTICE,
@@ -865,7 +859,6 @@ ike_session_ph2_established (phase2_handle_t *iph2)
 	if (!iph2->parent_session->established) {
 		gettimeofday(&iph2->parent_session->estab_timestamp, NULL);
 		iph2->parent_session->established = 1;
-		IPSECSESSIONTRACERESTABLISHED(iph2->parent_session);
 		ike_session_start_traffic_mon(iph2->parent_session);
 	} else if (iph2->parent_session->is_asserted) {
 		ike_session_start_traffic_mon(iph2->parent_session);

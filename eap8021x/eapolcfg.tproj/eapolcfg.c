@@ -2548,12 +2548,14 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 	{ "default", 		no_argument,		NULL, 	'D' },
 	{ "domain",		required_argument,	NULL,	'd' },
 	{ "interface",		required_argument,	NULL,	'i' },
+	{ "no-ui",		no_argument,		NULL,	'n' },
 	{ "profileID",		required_argument,	NULL,	'p' },
 	{ "profileid",		required_argument,	NULL,	'p' },
 	{ "SSID",		required_argument,	NULL,	's' },
 	{ "ssid",		required_argument,	NULL,	's' },
 	{ NULL,			0,			NULL,	0 }
     };
+    bool			no_ui = FALSE;
     CFStringRef			profileID = NULL;
     int				ret = 1;
     CFDataRef			ssid = NULL;
@@ -2591,6 +2593,9 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 	case 'd':
 	    domain = CFStringCreateWithCString(NULL, optarg,
 					       kCFStringEncodingUTF8);
+	    break;
+	case 'n':
+	    no_ui = TRUE;
 	    break;
 	case 'p':
 	    profileID = CFStringCreateWithCString(NULL, optarg,
@@ -2633,7 +2638,24 @@ S_authentication_start(const char * command, int argc, char * const * argv)
 	ret = EAPOLControlStartSystemWithClientItemID(ifn, itemID);
     }
     else {
-	ret = EAPOLControlStartWithClientItemID(ifn, itemID, NULL);
+	CFDictionaryRef		auth_info;
+
+	if (no_ui) {
+	    CFStringRef		key = kEAPClientPropDisableUserInteraction;
+	    CFBooleanRef	val = kCFBooleanTrue;
+
+	    auth_info = CFDictionaryCreate(NULL,
+					   (const void * *)&key,
+					   (const void * *)&val,
+					   1,
+					   &kCFTypeDictionaryKeyCallBacks,
+					   &kCFTypeDictionaryValueCallBacks);
+	}
+	else {
+	    auth_info = NULL;
+	}
+	ret = EAPOLControlStartWithClientItemID(ifn, itemID, auth_info);
+	my_CFRelease(&auth_info);
     }
     if (ret != 0) {
 	fprintf(stderr, "Failed to start authentication client, %s (%d)\n",
@@ -2763,7 +2785,7 @@ STATIC struct command_info 	commands[] = {
     { kCommandGetSystemInterfaces, S_get_system_loginwindow_interfaces, 0,
       "--details" },
     { kCommandStartAuthentication, S_authentication_start, 1,
-      "[ --system ] --interface <ifname> "
+      "--interface <ifname> [ --system ] [ --no-ui ]"
       "( --profileID <profileID> | --SSID <SSID> | --domain <domain> | --default )"
     },
     { NULL, NULL, 0, NULL },

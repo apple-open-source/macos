@@ -16,6 +16,7 @@ CKKSItemState* const SecCKKSStateInFlight = (CKKSItemState*) @"inflight";
 CKKSItemState* const SecCKKSStateReencrypt = (CKKSItemState*) @"reencrypt";
 CKKSItemState* const SecCKKSStateError = (CKKSItemState*) @"error";
 CKKSItemState* const SecCKKSStateDeleted = (CKKSItemState*) @"deleted";
+CKKSItemState* const SecCKKSStateMismatchedView = (CKKSItemState*) @"mismatched_view";
 
 CKKSProcessedState* const SecCKKSProcessedStateLocal = (CKKSProcessedState*) @"local";
 CKKSProcessedState* const SecCKKSProcessedStateRemote = (CKKSProcessedState*) @"remote";
@@ -87,21 +88,27 @@ NSString* const SecCKRecordManifestLeafType = @"manifest_leaf";
 NSString* const SecCKRecordManifestLeafDERKey = @"der";
 NSString* const SecCKRecordManifestLeafDigestKey = @"digest";
 
+CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForCloudKitAccountStatus = (CKKSZoneKeyState*)@"wait_for_ck_account_status";
+
 CKKSZoneKeyState* const SecCKKSZoneKeyStateReady = (CKKSZoneKeyState*) @"ready";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateBecomeReady = (CKKSZoneKeyState*) @"become_ready";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateReadyPendingUnlock = (CKKSZoneKeyState*) @"readypendingunlock";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateError = (CKKSZoneKeyState*) @"error";
-CKKSZoneKeyState* const SecCKKSZoneKeyStateCancelled = (CKKSZoneKeyState*) @"cancelled";
 
 CKKSZoneKeyState* const SecCKKSZoneKeyStateInitializing = (CKKSZoneKeyState*) @"initializing";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateInitialized = (CKKSZoneKeyState*) @"initialized";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateBeginFetch = (CKKSZoneKeyState*) @"begin_fetch";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateFetch = (CKKSZoneKeyState*) @"fetching";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateFetchComplete = (CKKSZoneKeyState*) @"fetchcomplete";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateNeedFullRefetch = (CKKSZoneKeyState*) @"needrefetch";
+
+CKKSZoneKeyState* const SecCKKSZoneKeyStateTLKMissing = (CKKSZoneKeyState*) @"tlkmissing";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTLK = (CKKSZoneKeyState*) @"waitfortlk";
 
 CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTLKCreation = (CKKSZoneKeyState*) @"waitfortlkcreation";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTLKUpload = (CKKSZoneKeyState*) @"waitfortlkupload";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForUnlock = (CKKSZoneKeyState*) @"waitforunlock";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateLoseTrust = (CKKSZoneKeyState*) @"lose_trust";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateWaitForTrust = (CKKSZoneKeyState*) @"waitfortrust";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateUnhealthy = (CKKSZoneKeyState*) @"unhealthy";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateBadCurrentPointers = (CKKSZoneKeyState*) @"badcurrentpointers";
@@ -113,7 +120,7 @@ CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingZone = (CKKSZoneKeyState*) @
 CKKSZoneKeyState* const SecCKKSZoneKeyStateResettingLocalData = (CKKSZoneKeyState*) @"resetlocal";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateLoggedOut = (CKKSZoneKeyState*) @"loggedout";
 CKKSZoneKeyState* const SecCKKSZoneKeyStateZoneCreationFailed = (CKKSZoneKeyState*) @"zonecreationfailed";
-CKKSZoneKeyState* const SecCKKSZoneKeyStateProcess = (CKKSZoneKeyState*) @"process";
+CKKSZoneKeyState* const SecCKKSZoneKeyStateProcess = (CKKSZoneKeyState*) @"process_key_hierarchy";
 
 NSString* const CKKSErrorDomain = @"CKKSErrorDomain";
 NSString* const CKKSServerExtensionErrorDomain = @"CKKSServerExtensionErrorDomain";

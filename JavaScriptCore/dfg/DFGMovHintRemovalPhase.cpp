@@ -28,14 +28,12 @@
 
 #if ENABLE(DFG_JIT)
 
-#include "BytecodeLivenessAnalysisInlines.h"
 #include "DFGEpoch.h"
 #include "DFGForAllKills.h"
 #include "DFGGraph.h"
-#include "DFGInsertionSet.h"
 #include "DFGMayExit.h"
 #include "DFGPhase.h"
-#include "JSCInlines.h"
+#include "JSCJSValueInlines.h"
 #include "OperandsInlines.h"
 
 namespace JSC { namespace DFG {
@@ -85,12 +83,12 @@ private:
         m_state.fill(Epoch());
         m_graph.forAllLiveInBytecode(
             block->terminal()->origin.forExit,
-            [&] (VirtualRegister reg) {
+            [&] (Operand reg) {
                 m_state.operand(reg) = currentEpoch;
             });
         
         if (DFGMovHintRemovalPhaseInternal::verbose)
-            dataLog("    Locals: ", m_state, "\n");
+            dataLog("    Locals at ", block->terminal()->origin.forExit, ": ", m_state, "\n");
         
         // Assume that blocks after us exit.
         currentEpoch.bump();
@@ -99,15 +97,15 @@ private:
             Node* node = block->at(nodeIndex);
             
             if (node->op() == MovHint) {
-                Epoch localEpoch = m_state.operand(node->unlinkedLocal());
+                Epoch localEpoch = m_state.operand(node->unlinkedOperand());
                 if (DFGMovHintRemovalPhaseInternal::verbose)
-                    dataLog("    At ", node, ": current = ", currentEpoch, ", local = ", localEpoch, "\n");
+                    dataLog("    At ", node, " (", node->unlinkedOperand(), "): current = ", currentEpoch, ", local = ", localEpoch, "\n");
                 if (!localEpoch || localEpoch == currentEpoch) {
                     node->setOpAndDefaultFlags(ZombieHint);
                     node->child1() = Edge();
                     m_changed = true;
                 }
-                m_state.operand(node->unlinkedLocal()) = Epoch();
+                m_state.operand(node->unlinkedOperand()) = Epoch();
             }
             
             if (mayExit(m_graph, node) != DoesNotExit)
@@ -116,15 +114,15 @@ private:
             if (nodeIndex) {
                 forAllKilledOperands(
                     m_graph, block->at(nodeIndex - 1), node,
-                    [&] (VirtualRegister reg) {
+                    [&] (Operand operand) {
                         // This function is a bit sloppy - it might claim to kill a local even if
                         // it's still live after. We need to protect against that.
-                        if (!!m_state.operand(reg))
+                        if (!!m_state.operand(operand))
                             return;
                         
                         if (DFGMovHintRemovalPhaseInternal::verbose)
-                            dataLog("    Killed operand at ", node, ": ", reg, "\n");
-                        m_state.operand(reg) = currentEpoch;
+                            dataLog("    Killed operand at ", node, ": ", operand, "\n");
+                        m_state.operand(operand) = currentEpoch;
                     });
             }
         }

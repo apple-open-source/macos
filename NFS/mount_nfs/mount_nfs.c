@@ -84,6 +84,8 @@
 #include <mntopts.h>
 #include <util.h>
 
+#include <oncrpc/rpc.h>
+
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
 #include <nfs/nfs.h>
@@ -263,6 +265,9 @@ struct mntopt *mopts_switches_no = NULL;
 char *mntfromarg = NULL;
 int nfsproto = 0;
 
+#define SENDSZ	65536
+#define RECVSZ	65536
+
 /* flags controlling mount_nfs behavior */
 #define BGRND		0x1
 #define ISBGRND		0x2
@@ -330,28 +335,25 @@ struct nfs_fs_location {
 #define AOK	(void *)	// assert alignment is OK
 
 /* function prototypes */
-void	setNFSVersion(uint32_t, uint32_t);
-void	dump_mount_options(struct nfs_fs_location *, char *);
-void	set_krb5_sec_flavor_for_principal(void);
-void	handle_mntopts(char *);
-void	warn_badoptions(char *);
-int	config_read(struct nfs_conf_client *);
-void	config_sysctl(void);
-int	parse_fs_locations(const char *, struct nfs_fs_location **);
-int	getaddresslist(struct nfs_fs_server *);
-void	getaddresslists(struct nfs_fs_location *, int *);
-void	freeaddresslists(struct nfs_fs_location *);
-int	assemble_mount_args(struct nfs_fs_location *, char **);
-void	usage(void);
-int	nfsparsevers(const char *, uint32_t *, uint32_t *);
-int	hexstr2fh(const char *, fhandle_t *);
-char *	fh2hexstr(fhandle_t *fh);
+void		setNFSVersion(uint32_t, uint32_t);
+void		dump_mount_options(struct nfs_fs_location *, char *);
+void		set_krb5_sec_flavor_for_principal(void);
+void		handle_mntopts(char *);
+void		warn_badoptions(char *);
+int		config_read(struct nfs_conf_client *);
+void		config_sysctl(void);
+int		parse_fs_locations(const char *, struct nfs_fs_location **);
+int		getaddresslist(struct nfs_fs_server *);
+void		getaddresslists(struct nfs_fs_location *, int *);
+void		freeaddresslists(struct nfs_fs_location *);
+int		assemble_mount_args(struct nfs_fs_location *, char **);
+void		usage(void);
+int		nfsparsevers(const char *, uint32_t *, uint32_t *);
+int		hexstr2fh(const char *, fhandle_t *);
+char *		fh2hexstr(fhandle_t *);
+enum clnt_stat	ping_rpc_statd(struct sockaddr *);
 
-#ifdef TARGET_OS_IOS
-#define MAX_IO_SIZE (512 * 1024)
-#else
-#define MAX_IO_SIZE (64 * 1024)
-#endif
+#define MAX_IO_SIZE (8 * 64 * PAGE_SIZE)
 
 uint32_t
 strtouint32(const char *str, char **eptr, int base)
@@ -584,7 +586,7 @@ main(int argc, char *argv[])
 		exit(0);
 	}
 
-	if (!mntfromarg && (argc > 1)) {
+	if (!mntfromarg && (argc > 0)) {
 		mntfromarg = *argv++;
 		argc--;
 	}
@@ -660,6 +662,15 @@ main(int argc, char *argv[])
 			error = errno;
 			/* Give up or keep trying... depending on the error. */
 			switch (error) {
+			case EPROGUNAVAIL:
+			/* NFSv3: mount_nfs should fail when server is not running rpc.statd */
+			if (!NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_VERSION) || options.nfs_version < NFS_VER4) {
+				if (ping_rpc_statd(nfsl->nl_servers->ns_ailist->ai_addr) == RPC_PROGNOTREGISTERED) {
+					errc(error, error, "can't mount with remote locks when server (%s) is not running rpc.statd", nfsl->nl_servers->ns_name);
+					/*NOTREACHED*/
+					break;
+				}
+			}
 			case ETIMEDOUT:
 			case EAGAIN:
 			case EPIPE:
@@ -792,6 +803,7 @@ get_socket_type_mount_arg(void)
 			break;
 		}
 		break;
+	case AF_UNSPEC:
 	case AF_INET:
 	case AF_INET6:
 		if (options.socket_family == AF_INET)
@@ -823,9 +835,9 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 {
 	struct xdrbuf xb;
 	int error, i, numlocs, numcomps, numaddrs;
-	char uaddr[128], *p, *cp;
-	uint32_t argslength_offset, attrslength_offset, end_offset;
-	uint32_t mattrs[NFS_MATTR_BITMAP_LEN];
+	char uaddr[128], ifnamebuf[IFNAMSIZ], *p, *cp;
+	size_t argslength_offset, attrslength_offset, end_offset;
+	uint32_t mattrs[NFS_MATTR_BITMAP_LEN], scopeid;
 	struct addrinfo *ai;
 	void *sinaddr;
 	struct nfs_fs_location *nfsl;
@@ -952,6 +964,14 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 					if (inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr)) != uaddr) {
 						warn("unable to convert server address to string");
 						error = errno;
+					}
+					if (ai->ai_family == AF_INET6 && (scopeid = ((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_scope_id)) {
+						if (if_indextoname(scopeid, ifnamebuf)) {
+							snprintf(uaddr + strlen(uaddr), MIN(sizeof(ifnamebuf), sizeof(uaddr) - strlen(uaddr)), "%%%s", ifnamebuf);
+						} else {
+							warn("unable to convert scope_id %u to interface name", scopeid);
+							error = errno;
+						}
 					}
 					break;
 				default:
@@ -1742,7 +1762,6 @@ handle_mntopts(char *opts)
 	if (altflags & ALTF_SOFT)
 		SETFLAG(NFS_MFLAG_SOFT, 1);
 	if (altflags & ALTF_TCP) {
-		options.socket_family = AF_INET; /*XXX !!!!!!!!!fixme */
 		options.socket_type = SOCK_STREAM;
 	}
 	if (altflags & ALTF_UDP)
@@ -2744,4 +2763,23 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOOPAQUE_AUTH) || (verbose > 1))
 		printf(",%sopaque_auth", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOOPAQUE_AUTH) ? "no" : "");
 	printf("\n");
+}
+
+enum clnt_stat
+ping_rpc_statd(struct sockaddr *raddr)
+{
+	CLIENT *clnt;
+	struct timeval to = {10, 0};
+	int sock = RPC_ANYSOCK;
+	rpc_createerr.cf_stat = RPC_SUCCESS;
+
+	if (options.socket_type == SOCK_DGRAM)
+		clnt = clntudp_bufcreate_timeout(raddr, RPCPROG_STAT, RPCMNT_VER1,  &sock, SENDSZ, RECVSZ, NULL, &to);
+	else
+		clnt = clnttcp_create_timeout(raddr, RPCPROG_STAT, RPCMNT_VER1,  &sock, SENDSZ, RECVSZ, NULL, &to);
+
+	if (clnt != NULL)
+		clnt_destroy(clnt);
+
+	return rpc_createerr.cf_stat;
 }

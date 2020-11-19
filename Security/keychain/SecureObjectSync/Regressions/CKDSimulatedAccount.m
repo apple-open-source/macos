@@ -20,8 +20,7 @@
     return [[CKDSimulatedAccount alloc] init];
 }
 - (instancetype) init {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         self.keysToNotHandle = [NSMutableSet<NSString*> set];
         self.keyChanges = [NSMutableDictionary<NSString*, NSObject*> dictionary];
 

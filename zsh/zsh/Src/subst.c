@@ -91,7 +91,7 @@ keyvalpairelement(LinkList list, LinkNode node)
  * "flag"s contains PREFORK_* flags, defined in zsh.h.
  *
  * "ret_flags" is used to return PREFORK_* values from nested parameter
- * substitions.  It may be NULL in which case PREFORK_SUBEXP must not
+ * substitutions.  It may be NULL in which case PREFORK_SUBEXP must not
  * appear in flags; any return value from below will be discarded.
  */
 
@@ -1548,7 +1548,7 @@ untok_and_escape(char *s, int escapes, int tok_arg)
 /*
  * See if an argument str looks like a subscript or length following
  * a colon and parse it.  It must be followed by a ':' or nothing.
- * If this succeeds, expand and return the evaulated expression if
+ * If this succeeds, expand and return the evaluated expression if
  * found, else return NULL.
  *
  * We assume this is what is meant if the first character is not
@@ -1682,7 +1682,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
      */
     int wantt = 0;
     /*
-     * Indicates spliting a string into an array.  There aren't
+     * Indicates splitting a string into an array.  There aren't
      * actually that many special cases for this --- which may
      * be why it doesn't work properly; we split in some cases
      * where we shouldn't, in particular on the multsubs for
@@ -1732,7 +1732,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
     int mods = 0;
     /*
      * The (z) flag, nothing to do with SH_WORD_SPLIT which is tied
-     * spbreak, see above; fairly straighforward in use but c.f.
+     * spbreak, see above; fairly straightforward in use but cf.
      * the comment for mods.
      *
      * This gets set to one of the LEXFLAGS_* values.
@@ -2725,7 +2725,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
      * substitution is in quotes) always good enough?  Potentially
      * we may be OK by now --- all potential `@'s and subexpressions
      * have been handled, including any [@] index which comes up
-     * by virture of v->isarr being set to SCANPM_ISVAR_AT which
+     * by virtue of v->isarr being set to SCANPM_ISVAR_AT which
      * is now in isarr.
      *
      * However, if we are replacing multsub() with something that
@@ -3044,7 +3044,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
                              * shouldn't be any if not interactive.
                              */
                             stopmsg = 1;
-                            zexit(1, 0);
+                            zexit(1, ZEXIT_NORMAL);
                         } else
                             _exit(1);
                     }
@@ -3110,7 +3110,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 
 	    /*
 	     * Either loop over an array doing replacements or
-	     * do the replacment on a string.
+	     * do the replacement on a string.
 	     *
 	     * We need an untokenized value for matching.
 	     */
@@ -3438,7 +3438,7 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 	    s--;
 	    if (unset(KSHARRAYS) || inbrace) {
 		if (!isarr)
-		    modify(&val, &s);
+		    modify(&val, &s, inbrace);
 		else {
 		    char *ss;
 		    char **ap = aval;
@@ -3447,12 +3447,12 @@ paramsubst(LinkList l, LinkNode n, char **str, int qt, int pf_flags,
 
 		    while ((*pp = *ap++)) {
 			ss = s;
-			modify(pp++, &ss);
+			modify(pp++, &ss, inbrace);
 		    }
 		    if (pp == aval) {
 			char *t = "";
 			ss = s;
-			modify(&t, &ss);
+			modify(&t, &ss, inbrace);
 		    }
 		    s = ss;
 		}
@@ -4182,6 +4182,12 @@ arithsubst(char *a, char **bptr, char *rest)
  * PTR is an in/out parameter.  On entry it contains the string of colon
  * modifiers.  On return it points past the last recognised modifier.
  *
+ * INBRACE is non-zero if we are in some form of a bracketed or
+ * parenthesised expression; it is zero for modifiers ocurring
+ * in an an unbracketed variable substitution.  This means that
+ * $foo:t222 is treated ias ${foo:t}222 rather than ${foo:t222}
+ * for backward compatibility.
+ *
  * Example:
  *     ENTRY:   *str is "."   *ptr is ":AN"
  *     RETURN:  *str is "/home/foobar" (equal to $PWD)   *ptr points to the "N"
@@ -4189,7 +4195,7 @@ arithsubst(char *a, char **bptr, char *rest)
 
 /**/
 void
-modify(char **str, char **ptr)
+modify(char **str, char **ptr, int inbrace)
 {
     char *ptr1, *ptr2, *ptr3, *lptr, c, *test, *sep, *t, *tt, tc, *e;
     char *copy, *all, *tmp, sav, sav1, *ptr1end;
@@ -4202,6 +4208,8 @@ modify(char **str, char **ptr)
 	*str = dupstring(*str);
 
     while (**ptr == ':') {
+	int count = 0;
+
 	lptr = *ptr;
 	(*ptr)++;
 	wall = gbal = 0;
@@ -4214,16 +4222,25 @@ modify(char **str, char **ptr)
             case 'a':
             case 'A':
 	    case 'c':
-	    case 'h':
 	    case 'r':
 	    case 'e':
-	    case 't':
 	    case 'l':
 	    case 'u':
 	    case 'q':
 	    case 'Q':
 	    case 'P':
 		c = **ptr;
+		break;
+
+	    case 'h':
+	    case 't':
+		c = **ptr;
+		if (inbrace && idigit((*ptr)[1])) {
+		    do {
+			count = 10 * count + ((*ptr)[1] - '0');
+			++(*ptr);
+		    } while (idigit((*ptr)[1]));
+		}
 		break;
 
 	    case 's':
@@ -4392,7 +4409,7 @@ modify(char **str, char **ptr)
 			break;
 		    }
 		    case 'h':
-			remtpath(&copy);
+			remtpath(&copy, count);
 			break;
 		    case 'r':
 			remtext(&copy);
@@ -4401,7 +4418,7 @@ modify(char **str, char **ptr)
 			rembutext(&copy);
 			break;
 		    case 't':
-			remlpaths(&copy);
+			remlpaths(&copy, count);
 			break;
 		    case 'l':
 			copy = casemodify(tt, CASMOD_LOWER);
@@ -4478,7 +4495,7 @@ modify(char **str, char **ptr)
 		    break;
 		}
 		case 'h':
-		    remtpath(str);
+		    remtpath(str, count);
 		    break;
 		case 'r':
 		    remtext(str);
@@ -4487,7 +4504,7 @@ modify(char **str, char **ptr)
 		    rembutext(str);
 		    break;
 		case 't':
-		    remlpaths(str);
+		    remlpaths(str, count);
 		    break;
 		case 'l':
 		    *str = casemodify(*str, CASMOD_LOWER);

@@ -112,6 +112,12 @@ BCMath:
   . bcmul() and bcpow() now return numbers with the requested scale. Formerly,
     the returned numbers may have omitted trailing decimal zeroes.
 
+DOM:
+  . As of PHP 7.3.16, the value of the $childNodes property of DOMDocument,
+    DOMNode, DOMProcessingInstruction, DOMComment, DOMText, DOMCdataSection and
+    DOMNotation is now an empty DOMNodeList instead of NULL, according to the
+    W3C and WHATWG standards and the PHP manual.
+
 IMAP:
   rsh/ssh logins are disabled by default. Use imap.enable_insecure_rsh if you want
   to enable them. Note that the IMAP library does not filter mailbox names before
@@ -489,6 +495,12 @@ JSON:
 
  Curl:
   . libcurl >= 7.15.5 is now required.
+
+ DBA:
+   . As of PHP 7.3.14, dba_open() accepts a fifth optional parameter for lmdb
+     databases which allows to specify the mapsize. The parameter defaults to
+     zero, in which case the compiled in default mapsize (usually 1048576) will
+     be used. The mapsize should be a multiple of the page size of the OS.
 
  Filter:
   . FILTER_VALIDATE_FLOAT now also supports a `thousand` option, which

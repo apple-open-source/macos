@@ -463,7 +463,22 @@ OSStatus SecTrustGetTrustResult(SecTrustRef trust,
  */
 __nullable
 SecKeyRef SecTrustCopyPublicKey(SecTrustRef trust)
-    __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_2_0);
+    API_DEPRECATED_WITH_REPLACEMENT("SecTrustCopyKey", macos(10.7, 10.16), ios(2.0, 14.0), watchos(1.0, 7.0), tvos(9.0, 14.0));
+
+/*!
+    @function SecTrustCopyKey
+    @abstract Return the public key for a leaf certificate after it has
+    been evaluated.
+    @param trust A reference to the trust object which has been evaluated.
+    @result The certificate's public key, or NULL if it the public key could
+    not be extracted (this can happen if the public key algorithm is not
+    supported).  The caller is responsible for calling CFRelease on the
+    returned key when it is no longer needed.
+    @discussion RSA and ECDSA public keys are supported. All other public key algorithms are unsupported.
+ */
+__nullable
+SecKeyRef SecTrustCopyKey(SecTrustRef trust)
+    API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0));
 
 /*!
     @function SecTrustGetCertificateCount

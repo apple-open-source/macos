@@ -215,6 +215,18 @@ HGLOBAL createGlobalData(const Vector<char>& vector)
     return vm;
 }
 
+HGLOBAL createGlobalData(const uint8_t* data, size_t length)
+{
+    HGLOBAL vm = ::GlobalAlloc(GPTR, length + 1);
+    if (!vm)
+        return 0;
+    uint8_t* buffer = static_cast<uint8_t*>(GlobalLock(vm));
+    memcpy(buffer, data, length);
+    buffer[length] = 0;
+    GlobalUnlock(vm);
+    return vm;
+}
+
 static String getFullCFHTML(IDataObject* data)
 {
     STGMEDIUM store;
@@ -272,7 +284,7 @@ void markupToCFHTML(const String& markup, const String& srcURL, Vector<char>& re
     const char* startMarkup = "<HTML>\n<BODY>\n<!--StartFragment-->\n";
     const char* endMarkup = "\n<!--EndFragment-->\n</BODY>\n</HTML>";
 
-    CString sourceURLUTF8 = srcURL == WTF::blankURL() ? "" : srcURL.utf8();
+    CString sourceURLUTF8 = srcURL == aboutBlankURL() ? "" : srcURL.utf8();
     CString markupUTF8 = markup.utf8();
 
     // calculate offsets

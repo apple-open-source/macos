@@ -1,0 +1,15 @@
+${HEIMDAL_TMPDIR}/GSS/gssapi.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_krb5.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_netlogon.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_ntlm.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_scram.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_spnego.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_spi.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_oid.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_plugin.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_private.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_protos.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_apple.h
+${HEIMDAL_TMPDIR}/GSS/GSS.h
+${HEIMDAL_TMPDIR}/GSS/GSSPrivate.h
+${HEIMDAL_TMPDIR}/GSS/gssapi_rewrite.h

@@ -29,7 +29,6 @@
 #include <corecrypto/ccec.h>
 #include <corecrypto/ccdigest.h>
 #include <corecrypto/ccsha2.h>
-#include <CommonCrypto/CommonRandomSPI.h>
 #include <Security/SecKey.h>
 #include <Security/SecKeyPriv.h>
 #include <Security/SecFramework.h>
@@ -197,8 +196,8 @@ CFDataRef SOSUserKeyCreateGenerateParameters(CFErrorRef *error) {
     size_t iterations = ITERATIONMIN;
     size_t keysize = 256;
 
-    if(CCRandomCopyBytes(kCCRandomDefault, salt, sizeof(salt)) != kCCSuccess) {
-        SOSCreateError(kSOSErrorProcessingFailure, CFSTR("CCRandomCopyBytes failed"), NULL, error);
+    if (SecRandomCopyBytes(NULL, sizeof(salt), salt) != 0) {
+        SOSCreateError(kSOSErrorProcessingFailure, CFSTR("SecRandomCopyBytes failed"), NULL, error);
         return NULL;
     }
 
@@ -213,7 +212,7 @@ CFDataRef SOSUserKeyCreateGenerateParameters(CFErrorRef *error) {
         CFReleaseNull(result);
 
     if (result) {
-        secnotice("circleOps", "Created new parameters: iterations %zd, keysize %zd: %@", iterations, keysize, result);
+        debugDumpUserParameters(CFSTR("SOSUserKeyCreateGenerateParameters created new parameters:"), result);
     }
 
     return result;
@@ -259,7 +258,7 @@ SecKeyRef SOSUserKeygen(CFDataRef password, CFDataRef parameters, CFErrorRef *er
     ccec_const_cp_t cp = ccec_get_cp(keysize);
     ccec_full_ctx_decl_cp(cp, tmpkey);
 
-    secnotice("circleOps", "Generating key for: iterations %zd, keysize %zd: %@", iterations, keysize, parameters);
+    debugDumpUserParameters(CFSTR("SOSUserKeygen generating key for:"), parameters);
 
     size_t drbg_output_size=128;
     uint8_t drbg_output[drbg_output_size];
@@ -297,51 +296,28 @@ void debugDumpUserParameters(CFStringRef message, CFDataRef parameters)
 
 CF_RETURNS_RETAINED CFStringRef UserParametersDescription(CFDataRef parameters){
 
-    __block CFStringRef description = NULL;
-    CFDataRef newParameters = NULL;
-    SecKeyRef newKey = NULL;
-    
-    CFErrorRef error = NULL;
-    const uint8_t *parse_end = der_decode_cloud_parameters(kCFAllocatorDefault, kSecECDSAAlgorithmID,
-                                                           &newKey, &newParameters, &error,
-                                                           CFDataGetBytePtr(parameters), CFDataGetPastEndPtr(parameters));
-
-    if (parse_end != CFDataGetPastEndPtr(parameters)){
-        secdebug("circleOps", "failed to decode cloud parameters");
-        CFReleaseNull(newParameters);
-        CFReleaseNull(newKey);
+    if(parameters == NULL) {
         return NULL;
     }
-
+    __block CFStringRef description = NULL;
     size_t saltlen = 0;
     const uint8_t *salt = NULL;
-    
     size_t iterations = 0;
     size_t keysize = 0;
     
-    const uint8_t *der = CFDataGetBytePtr(newParameters);
-    const uint8_t *der_end = der + CFDataGetLength(newParameters);
+    const uint8_t *der = CFDataGetBytePtr(parameters);
+    const uint8_t *der_end = der + CFDataGetLength(parameters);
     
     der = der_decode_pbkdf2_params(&saltlen, &salt, &iterations, &keysize, der, der_end);
-    if (der != NULL) {
+    if (der != der_end) {
         secdebug("circleOps", "failed to decode pbkdf2 params");
-        CFReleaseNull(newParameters);
-        CFReleaseNull(newKey);
         return NULL;
     }
-    
-    CFStringRef userPubKeyID = SOSCopyIDOfKeyWithLength(newKey, 8, NULL);
-    
+
     BufferPerformWithHexString(salt, 4, ^(CFStringRef saltHex) { // Only dump 4 bytes worth of salthex
-        CFDataPerformWithHexString(newParameters, ^(CFStringRef parametersHex) {
-            description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<Params: iter: %zd, size: %zd, salt: %@> <keyid: %@>"), iterations, keysize, saltHex, userPubKeyID);
-        });
+        description = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("<Params: iter: %zd, size: %zd, salt: %@>"), iterations, keysize, saltHex);
     });
-    
-    CFReleaseNull(newParameters);
-    CFReleaseNull(newKey);
-    CFReleaseNull(userPubKeyID);
-    
+        
     return description;
 }
 

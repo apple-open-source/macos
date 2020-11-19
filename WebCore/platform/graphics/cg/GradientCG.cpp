@@ -35,18 +35,14 @@
 
 namespace WebCore {
 
-void Gradient::platformDestroy()
+void Gradient::stopsChanged()
 {
-    CGGradientRelease(m_gradient);
     m_gradient = nullptr;
 }
 
-CGGradientRef Gradient::platformGradient()
+void Gradient::createCGGradient()
 {
-    if (m_gradient)
-        return m_gradient;
-
-    sortStopsIfNecessary();
+    sortStops();
 
     auto colorsArray = adoptCF(CFArrayCreateMutable(0, m_stops.size(), &kCFTypeArrayCallBacks));
     unsigned numStops = m_stops.size();
@@ -70,11 +66,8 @@ CGGradientRef Gradient::platformGradient()
         if (stop.color.isExtended())
             hasExtendedColors = true;
 
-        float r;
-        float g;
-        float b;
-        float a;
-        stop.color.getRGBA(r, g, b, a);
+        auto [colorSpace, components] = stop.color.colorSpaceAndComponents();
+        auto [r, g, b, a] = components;
         colorComponents.uncheckedAppend(r);
         colorComponents.uncheckedAppend(g);
         colorComponents.uncheckedAppend(b);
@@ -85,11 +78,9 @@ CGGradientRef Gradient::platformGradient()
     }
 
     if (hasExtendedColors)
-        m_gradient = CGGradientCreateWithColors(extendedSRGBColorSpaceRef(), colorsArray.get(), locations.data());
+        m_gradient = adoptCF(CGGradientCreateWithColors(extendedSRGBColorSpaceRef(), colorsArray.get(), locations.data()));
     else
-        m_gradient = CGGradientCreateWithColorComponents(sRGBColorSpaceRef(), colorComponents.data(), locations.data(), numStops);
-
-    return m_gradient;
+        m_gradient = adoptCF(CGGradientCreateWithColorComponents(sRGBColorSpaceRef(), colorComponents.data(), locations.data(), numStops));
 }
 
 void Gradient::fill(GraphicsContext& context, const FloatRect& rect)
@@ -106,13 +97,15 @@ void Gradient::paint(GraphicsContext& context)
 void Gradient::paint(CGContextRef platformContext)
 {
     CGGradientDrawingOptions extendOptions = kCGGradientDrawsBeforeStartLocation | kCGGradientDrawsAfterEndLocation;
-    CGGradientRef gradient = platformGradient();
+
+    if (!m_gradient)
+        createCGGradient();
 
     WTF::switchOn(m_data,
         [&] (const LinearData& data) {
             switch (m_spreadMethod) {
-            case SpreadMethodRepeat:
-            case SpreadMethodReflect: {
+            case GradientSpreadMethod::Repeat:
+            case GradientSpreadMethod::Reflect: {
                 CGContextStateSaver saveState(platformContext);
 
                 FloatPoint gradientVectorNorm(data.point1 - data.point0);
@@ -135,7 +128,7 @@ void Gradient::paint(CGContextRef platformContext)
 
                     CGFloat gradientStart = point0.x();
                     CGFloat gradientEnd = point1.x();
-                    bool flip = m_spreadMethod == SpreadMethodReflect;
+                    bool flip = m_spreadMethod == GradientSpreadMethod::Reflect;
 
                     // Find first gradient position to the left of the bounding box
                     int n = CGFloor((boundingBox.origin.x - gradientStart) / width);
@@ -149,9 +142,9 @@ void Gradient::paint(CGContextRef platformContext)
                         CGPoint left = CGPointMake(flip ? start + width : start, boundingBox.origin.y);
                         CGPoint right = CGPointMake(flip ? start : start + width, boundingBox.origin.y);
 
-                        CGContextDrawLinearGradient(platformContext, gradient, left, right, extendOptions);
+                        CGContextDrawLinearGradient(platformContext, m_gradient.get(), left, right, extendOptions);
 
-                        if (m_spreadMethod == SpreadMethodReflect)
+                        if (m_spreadMethod == GradientSpreadMethod::Reflect)
                             flip = !flip;
                     }
 
@@ -160,8 +153,8 @@ void Gradient::paint(CGContextRef platformContext)
 
                 FALLTHROUGH;
             }
-            case SpreadMethodPad:
-                CGContextDrawLinearGradient(platformContext, gradient, data.point0, data.point1, extendOptions);
+            case GradientSpreadMethod::Pad:
+                CGContextDrawLinearGradient(platformContext, m_gradient.get(), data.point0, data.point1, extendOptions);
             }
         },
         [&] (const RadialData& data) {
@@ -176,18 +169,20 @@ void Gradient::paint(CGContextRef platformContext)
                 CGContextTranslateCTM(platformContext, -data.point0.x(), -data.point0.y());
             }
 
-            CGContextDrawRadialGradient(platformContext, gradient, data.point0, data.startRadius, data.point1, data.endRadius, extendOptions);
+            CGContextDrawRadialGradient(platformContext, m_gradient.get(), data.point0, data.startRadius, data.point1, data.endRadius, extendOptions);
 
             if (needScaling)
                 CGContextRestoreGState(platformContext);
         },
         [&] (const ConicData& data) {
-#if (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || PLATFORM(WATCHOS)
+// FIXME: Seems like this should be HAVE(CG_CONTEXT_DRAW_CONIC_GRADIENT).
+// FIXME: Can we change tvOS to be like the other Cocoa platforms?
+#if PLATFORM(COCOA) && !PLATFORM(APPLETV)
             CGContextSaveGState(platformContext);
             CGContextTranslateCTM(platformContext, data.point0.x(), data.point0.y());
             CGContextRotateCTM(platformContext, (CGFloat)-M_PI_2);
             CGContextTranslateCTM(platformContext, -data.point0.x(), -data.point0.y());
-            CGContextDrawConicGradient(platformContext, platformGradient(), data.point0, data.angleRadians);
+            CGContextDrawConicGradient(platformContext, m_gradient.get(), data.point0, data.angleRadians);
             CGContextRestoreGState(platformContext);
 #else
             UNUSED_PARAM(data);

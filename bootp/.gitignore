@@ -1,9 +1,0 @@
-.DS_Store
-*.xcodeproj/project.xcworkspace
-*.xcodeproj/xcuserdata
-.svn
-build
-*~
-*~.c
-*~.h
-*~.m

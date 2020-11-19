@@ -52,7 +52,6 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage)
     , m_surface(AcceleratedSurface::create(webPage, *this))
     , m_viewportController(webPage.size())
     , m_layerFlushTimer(RunLoop::main(), this, &LayerTreeHost::layerFlushTimerFired)
-    , m_sceneIntegration(Nicosia::SceneIntegration::create(*this))
     , m_coordinator(webPage, *this)
     , m_displayID(std::numeric_limits<uint32_t>::max() - m_webPage.identifier().toUInt64())
 {
@@ -86,7 +85,6 @@ LayerTreeHost::~LayerTreeHost()
 {
     cancelPendingLayerFlush();
 
-    m_sceneIntegration->invalidate();
     m_coordinator.invalidate();
     m_compositor->invalidate();
     m_surface = nullptr;
@@ -137,10 +135,6 @@ void LayerTreeHost::layerFlushTimerFired()
 {
     if (m_isSuspended || m_isWaitingForRenderer)
         return;
-
-    m_coordinator.syncDisplayState();
-    m_webPage.updateRendering();
-    m_webPage.flushPendingEditorStateUpdate();
 
     if (!m_coordinator.rootCompositingLayer())
         return;
@@ -340,12 +334,10 @@ void LayerTreeHost::deviceOrPageScaleFactorChanged()
     m_compositor->setScaleFactor(m_webPage.deviceScaleFactor() * m_viewportController.pageScaleFactor());
 }
 
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
 RefPtr<DisplayRefreshMonitor> LayerTreeHost::createDisplayRefreshMonitor(PlatformDisplayID displayID)
 {
     return m_compositor->displayRefreshMonitor(displayID);
 }
-#endif
 
 void LayerTreeHost::didFlushRootLayer(const FloatRect& visibleContentRect)
 {
@@ -360,19 +352,14 @@ void LayerTreeHost::commitSceneState(const CoordinatedGraphicsState& state)
     m_compositor->updateSceneState(state);
 }
 
-RefPtr<Nicosia::SceneIntegration> LayerTreeHost::sceneIntegration()
+void LayerTreeHost::updateScene()
 {
-    return m_sceneIntegration.copyRef();
+    m_compositor->updateScene();
 }
 
 void LayerTreeHost::frameComplete()
 {
     m_compositor->frameComplete();
-}
-
-void LayerTreeHost::requestUpdate()
-{
-    m_compositor->updateScene();
 }
 
 uint64_t LayerTreeHost::nativeSurfaceHandleForCompositing()

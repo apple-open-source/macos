@@ -1,0 +1,15 @@
+${SRCROOT}/lib/gssapi/gssapi/gssapi.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_krb5.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_netlogon.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_ntlm.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_scram.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_spnego.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_spi.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_oid.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_plugin.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_private.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_protos.h
+${SRCROOT}/lib/gssapi/gssapi/gssapi_apple.h
+${SRCROOT}/lib/gssapi/gssapi/GSS.h
+${SRCROOT}/lib/gssapi/gssapi/GSSPrivate.h
+${HEIMDAL_TMPDIR}/gssapi_rewrite.h

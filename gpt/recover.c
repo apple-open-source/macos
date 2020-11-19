@@ -50,7 +50,7 @@ usage_recover(void)
 	exit(1);
 }
 
-static void
+static int 
 recover(int fd)
 {
 	off_t last;
@@ -60,7 +60,7 @@ recover(int fd)
 
 	if (map_find(MAP_TYPE_MBR) != NULL) {
 		warnx("%s: error: device contains a MBR", device_name);
-		return;
+		return 1;
 	}
 
 	gpt = map_find(MAP_TYPE_PRI_GPT_HDR);
@@ -71,12 +71,12 @@ recover(int fd)
 	if (gpt == NULL && tpg == NULL) {
 		warnx("%s: no primary or secondary GPT headers, can't recover",
 		    device_name);
-		return;
+		return 1;
 	}
 	if (tbl == NULL && lbt == NULL) {
 		warnx("%s: no primary or secondary GPT tables, can't recover",
 		    device_name);
-		return;
+		return 1;
 	}
 
 	last = mediasz / secsz - 1LL;
@@ -87,7 +87,7 @@ recover(int fd)
 		if (lbt == NULL) {
 			warnx("%s: adding secondary GPT table failed",
 			    device_name);
-			return;
+			return 1;
 		}
 		gpt_write(fd, lbt);
 		warnx("%s: recovered secondary GPT table from primary",
@@ -98,7 +98,7 @@ recover(int fd)
 		if (tbl == NULL) {
 			warnx("%s: adding primary GPT table failed",
 			    device_name);
-			return;
+			return 1;
 		}
 		gpt_write(fd, tbl);
 		warnx("%s: recovered primary GPT table from secondary",
@@ -111,7 +111,7 @@ recover(int fd)
 		if (tpg == NULL) {
 			warnx("%s: adding secondary GPT header failed",
 			    device_name);
-			return;
+			return 1;
 		}
 		memcpy(tpg->map_data, gpt->map_data, secsz);
 		hdr = tpg->map_data;
@@ -129,7 +129,7 @@ recover(int fd)
 		if (gpt == NULL) {
 			warnx("%s: adding primary GPT header failed",
 			    device_name);
-			return;
+			return 1;
 		}
 		memcpy(gpt->map_data, tpg->map_data, secsz);
 		hdr = gpt->map_data;
@@ -142,12 +142,14 @@ recover(int fd)
 		warnx("%s: recovered primary GPT header from secondary",
 		    device_name);
 	}
+	return 0;
 }
 
 int
 cmd_recover(int argc, char *argv[])
 {
 	int ch, fd;
+	int ret = 0;
 
 	while ((ch = getopt(argc, argv, "r")) != -1) {
 		switch(ch) {
@@ -169,10 +171,10 @@ cmd_recover(int argc, char *argv[])
 			return (1);
 		}
 
-		recover(fd);
+		ret = recover(fd);
 
 		gpt_close(fd);
 	}
 
-	return (0);
+	return (ret);
 }

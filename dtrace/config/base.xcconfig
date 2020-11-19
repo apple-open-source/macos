@@ -45,6 +45,7 @@ GCC_ENABLE_PASCAL_STRINGS = NO
 GCC_TREAT_WARNINGS_AS_ERRORS = NO
 
 WARNING_CFLAGS = -Wall -Wextra -Warray-bounds-pointer-arithmetic -Watomic-properties -Wcomma -Wconditional-uninitialized -Wcovered-switch-default -Wdate-time -Wdeprecated -Wdouble-promotion -Wduplicate-enum -Wfloat-equal -Widiomatic-parentheses -Wignored-qualifiers -Wimplicit-fallthrough -Wnullable-to-nonnull-conversion -Wobjc-interface-ivars -Wover-aligned -Wpacked -Wpointer-arith -Wselector -Wstatic-in-inline -Wsuper-class-method-mismatch -Wswitch-enum -Wtautological-compare -Wcast-align -Wunguarded-availability -Wunused $(NO_WARNING_CFLAGS)
+ERROR_WARNING_CFLAGS = -Werror=shadow-all
 NO_WARNING_CFLAGS = -Wno-pedantic -Wno-unknown-warning-option -Wno-bad-function-cast -Wno-c++-compat -Wno-c++98-compat -Wno-c++98-compat-pedantic -Wno-cast-align -Wno-cast-qual -Wno-disabled-macro-expansion -Wno-documentation-unknown-command -Wno-format-nonliteral -Wno-missing-variable-declarations -Wno-old-style-cast -Wno-padded -Wno-reserved-id-macro -Wno-shift-sign-overflow -Wno-undef -Wno-unreachable-code-aggressive -Wno-unused-macros -Wno-used-but-marked-unused -Wno-vla
 
 OTHER_CFLAGS = -momit-leaf-frame-pointer
@@ -88,5 +89,4 @@ CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES
 CLANG_WARN_OBJC_IMPLICIT_ATOMIC_PROPERTIES = YES
 CLANG_WARN_OBJC_MISSING_PROPERTY_SYNTHESIS = YES
 
-WARNING_CFLAGS = $(NO_WARNING_CFLAGS)
-
+WARNING_CFLAGS = $(NO_WARNING_CFLAGS) $(ERROR_WARNING_CFLAGS)

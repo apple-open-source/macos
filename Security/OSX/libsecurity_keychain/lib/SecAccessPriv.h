@@ -39,9 +39,6 @@
 extern "C" {
 #endif
 
-OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNameLength, const char *accountName,
-    UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef) __deprecated_msg("iTools is no longer supported") API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
-
 /*!
 	@function SecAccessCreateWithTrustedApplications
 	@abstract Creates a SecAccess object with the specified trusted applications.
@@ -53,7 +50,7 @@ OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNam
 	@discussion The SecAccessCreateWithPList creates a SecAccess with the provided list of trusted applications.
 */
 
-OSStatus SecAccessCreateWithTrustedApplications(CFStringRef trustedApplicationsPListPath, CFStringRef accessLabel, Boolean allowAny, SecAccessRef* returnedAccess) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecAccessCreateWithTrustedApplications(CFStringRef trustedApplicationsPListPath, CFStringRef accessLabel, Boolean allowAny, SecAccessRef* returnedAccess) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 #if defined(__cplusplus)

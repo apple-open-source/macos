@@ -268,4 +268,91 @@
 
 @end
 
+#pragma mark - OctagonStateMultiStateArrivalWatcher
+
+@interface OctagonStateMultiStateArrivalWatcher ()
+@property BOOL completed;
+@property NSOperationQueue* operationQueue;
+
+@property (nullable) CKKSResultOperation* initialTimeoutListenerOp;
+
+@property bool timeoutCanOccur;
+@property dispatch_queue_t queue;
+@end
+
+
+@implementation OctagonStateMultiStateArrivalWatcher
+- (instancetype)initNamed:(NSString*)name
+              serialQueue:(dispatch_queue_t)queue
+                   states:(NSSet<OctagonState*>*)states
+{
+    if((self = [super init])) {
+        _name = name;
+        _states = states;
+
+        _result = [CKKSResultOperation named:[NSString stringWithFormat:@"watcher-%@", name] withBlock:^{}];
+        _operationQueue = [[NSOperationQueue alloc] init];
+
+        _queue = queue;
+        _timeoutCanOccur = true;
+
+        _completed = NO;
+    }
+    return self;
+}
+
+- (void)onqueueHandleTransition:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)attempt
+{
+    dispatch_assert_queue(self.queue);
+    [self onqueueEnterState:attempt.nextState];
+}
+
+- (void)onqueueEnterState:(OctagonState*)state
+{
+    if(!self.completed) {
+        if([self.states containsObject:state]) {
+            [self onqueueStartFinishOperation];
+        }
+    }
+}
+
+- (void)_onqueuePerformTimeoutWithUnderlyingError
+{
+    dispatch_assert_queue(self.queue);
+
+    if(self.timeoutCanOccur) {
+        self.timeoutCanOccur = false;
+
+        NSString* description = [NSString stringWithFormat:@"Operation(%@) timed out waiting to start for any state in [%@]",
+                                 self.name,
+                                 self.states];
+
+        self.result.error = [NSError errorWithDomain:CKKSResultErrorDomain
+                                                code:CKKSResultTimedOut
+                                         description:description];
+        [self onqueueStartFinishOperation];
+    }
+}
+
+- (instancetype)timeout:(dispatch_time_t)timeout
+{
+    WEAKIFY(self);
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, timeout), self.queue, ^{
+        STRONGIFY(self);
+        [self _onqueuePerformTimeoutWithUnderlyingError];
+    });
+
+    return self;
+}
+
+- (void)onqueueStartFinishOperation {
+    dispatch_assert_queue(self.queue);
+
+    self.timeoutCanOccur = false;
+    [self.operationQueue addOperation:self.result];
+    self.completed = TRUE;
+}
+@end
+
+
 #endif

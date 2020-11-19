@@ -18,7 +18,6 @@
 #include <corecrypto/ccsha2.h>
 #include <corecrypto/ccdh_gp.h>
 #include <corecrypto/ccder.h>
-#include <CommonCrypto/CommonRandomSPI.h>
 #import <Security/SecureObjectSync/SOSTypes.h>
 #include <utilities/debugging.h>
 
@@ -33,6 +32,9 @@
 #import "keychain/ot/proto/generated_source/OTApplicantToSponsorRound2M1.h"
 #import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound2M2.h"
 #import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound1M2.h"
+#import "keychain/ot/proto/generated_source/OTGlobalEnums.h"
+#import "keychain/ot/proto/generated_source/OTSupportSOSMessage.h"
+#import "keychain/ot/proto/generated_source/OTSupportOctagonMessage.h"
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
 #endif
 #import <KeychainCircle/NSError+KCCreationHelpers.h>
@@ -70,9 +72,9 @@ bool KCJoiningOctagonPiggybackingEnabled() {
 @property (readwrite) uint64_t epoch;
 @property (readwrite) NSData* challenge;
 @property (readwrite) NSData* salt;
-#if OCTAGON
 @property (readwrite) NSString* sessionUUID;
 
+#if OCTAGON
 @property (nonatomic, strong) OTControl *otControl;
 #endif
 @property (nonatomic, strong) NSMutableDictionary *defaults;
@@ -212,15 +214,15 @@ bool KCJoiningOctagonPiggybackingEnabled() {
     }
 #if OCTAGON
     //handle octagon data if it exists
-    if(KCJoiningOctagonPiggybackingEnabled()){
+    if (KCJoiningOctagonPiggybackingEnabled()){
         self.piggy_version = [message secondData] ? kPiggyV2 : kPiggyV1;
 
         // The session may or may not exist at this point. If it doesn't, the version will be set at object creation time.
         self.session.piggybackingVersion = self.piggy_version;
 
-        if(self.piggy_version == kPiggyV2){
+        if (self.piggy_version == kPiggyV2){
             OTPairingMessage* pairingMessage = [[OTPairingMessage alloc]initWithData: [message secondData]];
-            if(pairingMessage.hasEpoch) {
+            if (pairingMessage.hasEpoch) {
                 secnotice("octagon", "received epoch message: %@", [pairingMessage.epoch dictionaryRepresentation]);
                 self.epoch = pairingMessage.epoch.epoch;
             }
@@ -340,31 +342,30 @@ bool KCJoiningOctagonPiggybackingEnabled() {
                                             rng: (struct ccrng_state *)rng
                                           error: (NSError**)error {
     secnotice("joining", "joining: initWithSecretDelegate called");
-    self = [super init];
-
-    self->_secretDelegate = secretDelegate;
-    self->_state = kExpectingB;
-    self->_dsid = dsid;
-    self->_defaults = [NSMutableDictionary dictionary];
+    if ((self = [super init])) {
+        self->_secretDelegate = secretDelegate;
+        self->_state = kExpectingB;
+        self->_dsid = dsid;
+        self->_defaults = [NSMutableDictionary dictionary];
 
 #if OCTAGON
-    self->_piggy_version = KCJoiningOctagonPiggybackingEnabled() ? kPiggyV2 : kPiggyV1;
-    self->_otControl = [OTControl controlObject:true error:error];
+        self->_piggy_version = KCJoiningOctagonPiggybackingEnabled() ? kPiggyV2 : kPiggyV1;
+        self->_otControl = [OTControl controlObject:true error:error];
 
-    _sessionUUID = [[NSUUID UUID] UUIDString];
+        _sessionUUID = [[NSUUID UUID] UUIDString];
 #else
-    self->_piggy_version = kPiggyV1;
+        self->_piggy_version = kPiggyV1;
 #endif
 
-    secnotice("joining", "joining: initWithSecretDelegate called, uuid=%@", self.sessionUUID);
+        secnotice("joining", "joining: initWithSecretDelegate called, uuid=%@", self.sessionUUID);
 
-    NSString* name = [NSString stringWithFormat: @"%llu", dsid];
+        NSString* name = [NSString stringWithFormat: @"%llu", dsid];
     
-    self->_context = [[KCSRPClientContext alloc] initWithUser: name
-                                                   digestInfo: ccsha256_di()
-                                                        group: ccsrp_gp_rfc5054_3072()
-                                                 randomSource: rng];
-
+        self->_context = [[KCSRPClientContext alloc] initWithUser: name
+                                                       digestInfo: ccsha256_di()
+                                                            group: ccsrp_gp_rfc5054_3072()
+                                                     randomSource: rng];
+    }
     return self;
 }
 

@@ -91,9 +91,6 @@
 #include "localconf.h"
 #include "vpn_control.h"
 #include "vpn_control_var.h"
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
-
 
 void 
 xauth_sendreq(iph1)
@@ -759,11 +756,7 @@ isakmp_xauth_set(iph1, attr)
 	vchar_t *mdata = NULL;
 
 	if ((iph1->mode_cfg->flags & ISAKMP_CFG_VENDORID_XAUTH) == 0) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_XAUTH_DROP,
-								CONSTSTR("XAUTH is not supported by peer"),
-								CONSTSTR("XAUTH dropped (not supported by peer)"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 		    "Xauth mode config set but peer "
 		    "did not declare itself as Xauth capable\n");
 		return NULL;
@@ -781,11 +774,7 @@ isakmp_xauth_set(iph1, attr)
 		switch(AUTHMETHOD(iph1)) {
         case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
             if (!iph1->is_rekey) {
-                IPSECSESSIONTRACEREVENT(iph1->parent_session,
-                                        IPSECSESSIONEVENTCODE_IKEV1_XAUTH_DROP,
-                                        CONSTSTR("Unexpected XAUTH Status"),
-                                        CONSTSTR("Xauth dropped (unexpected Xauth status)... not a Phase 1 rekey"));
-                plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
                      "Unexpected XAUTH_STATUS_OK... not a Phase 1 rekey\n");
                 return NULL;
             }
@@ -797,11 +786,7 @@ isakmp_xauth_set(iph1, attr)
 		case OAKLEY_ATTR_AUTH_METHOD_XAUTH_RSAREV_I:
 			break;
 		default:
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKEV1_XAUTH_DROP,
-									CONSTSTR("Unexpected XAUTH Status"),
-									CONSTSTR("Xauth dropped (unexpected Xauth status)"));
-			plog(ASL_LEVEL_ERR, 
+			plog(ASL_LEVEL_ERR,
 			    "Unexpected XAUTH_STATUS_OK\n");
 			return NULL;
 			break;
@@ -809,11 +794,7 @@ isakmp_xauth_set(iph1, attr)
 
 		/* If we got a failure, delete iph1 */
 		if (ntohs(attr->lorv) != XAUTH_STATUS_OK) {
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKEV1_XAUTH_FAIL,
-									CONSTSTR("XAUTH Status is not OK"),
-									CONSTSTR("Xauth Failed (status not ok)"));
-			plog(ASL_LEVEL_ERR, 
+			plog(ASL_LEVEL_ERR,
 			    "Xauth authentication failed\n");
 
 			vpncontrol_notify_ike_failed(VPNCTL_NTYPE_AUTHENTICATION_FAILED, FROM_LOCAL,
@@ -823,10 +804,6 @@ isakmp_xauth_set(iph1, attr)
 
 			IPSECLOGASLMSG("IPSec Extended Authentication Failed.\n");
 		} else {
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKEV1_XAUTH_SUCC,
-									CONSTSTR("XAUTH Status is OK"),
-									CONSTSTR(NULL));
             if (iph1->is_rekey) {
                 xst->status = XAUTHST_OK;
             }
@@ -855,21 +832,13 @@ isakmp_xauth_set(iph1, attr)
 		}
 
 	default:
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_XAUTH_DROP,
-								CONSTSTR("ignored attribute"),
-								CONSTSTR("Xauth dropped (ignored attribute)"));
-		plog(ASL_LEVEL_WARNING, 
+		plog(ASL_LEVEL_WARNING,
 		    "Ignored attribute %s\n", s_isakmp_cfg_type(type));
 		return NULL;
 		break;
 	}
 
 	if ((buffer = vmalloc(sizeof(*attr))) == NULL) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_XAUTH_DROP,
-								CONSTSTR("Failed to allocate attribute"),
-								CONSTSTR("Xauth dropped (failed to allocate attribute)"));
 		plog(ASL_LEVEL_ERR, 
 		    "Cannot allocate memory\n");
 		return NULL;

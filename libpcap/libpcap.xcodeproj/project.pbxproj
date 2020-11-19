@@ -49,6 +49,7 @@
 
 
 		72011B262356B3C6003A5F22 /* unix.h in Headers */ = {isa = PBXBuildFile; fileRef = 725D580523452FBD0023A8CB /* unix.h */; };
+		7208CF912403399200AA0E42 /* pcapng-private.h in Headers */ = {isa = PBXBuildFile; fileRef = 7208CF902403399200AA0E42 /* pcapng-private.h */; };
 		720914CC234562EE003B403A /* fmtutils.c in Sources */ = {isa = PBXBuildFile; fileRef = 721769222344379500731290 /* fmtutils.c */; };
 		721463AC1F6898C200D74814 /* hex_and_ascii_print.c in Sources */ = {isa = PBXBuildFile; fileRef = 72D13B1B16BDF7D2009B01B1 /* hex_and_ascii_print.c */; };
 		721463AE1F6898CF00D74814 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
@@ -100,7 +101,6 @@
 		727A86AC16CEF6D700048C5E /* pcap-util.h in Headers */ = {isa = PBXBuildFile; fileRef = 727A86AB16CEECD100048C5E /* pcap-util.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		727B12D9162745460039A877 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
 		727B12E116278ACD0039A877 /* pcap-ng.h in Headers */ = {isa = PBXBuildFile; fileRef = 727B12DF16278ACD0039A877 /* pcap-ng.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		727B12E216278ACD0039A877 /* pcapng_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 727B12E016278ACD0039A877 /* pcapng_private.h */; };
 		727B12E416278AEF0039A877 /* pcapng.c in Sources */ = {isa = PBXBuildFile; fileRef = 727B12E316278AEF0039A877 /* pcapng.c */; };
 		727B12E51627A9080039A877 /* pcapng.c in Sources */ = {isa = PBXBuildFile; fileRef = 727B12E316278AEF0039A877 /* pcapng.c */; };
 		727B12FB1628C06F0039A877 /* libpcap_static.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7244CBDD1624FBE400141ECF /* libpcap_static.a */; };
@@ -529,6 +529,7 @@
 		568DEF0D14BE09EC005DEBAE /* pcap_ng.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pcap_ng.3; path = libpcap/pcap_ng.3; sourceTree = "<group>"; };
 
 
+		7208CF902403399200AA0E42 /* pcapng-private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "pcapng-private.h"; path = "libpcap/pcapng-private.h"; sourceTree = "<group>"; };
 		721463A31F68984600D74814 /* offlinereadtest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = offlinereadtest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7217691C23442F2500731290 /* sf-pcapng.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "sf-pcapng.h"; path = "libpcap/sf-pcapng.h"; sourceTree = "<group>"; };
 		7217691E23442F5A00731290 /* sf-pcapng.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "sf-pcapng.c"; path = "libpcap/sf-pcapng.c"; sourceTree = "<group>"; };
@@ -576,7 +577,6 @@
 		727A86A816CEECB700048C5E /* pcap-util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "pcap-util.c"; path = "libpcap/pcap-util.c"; sourceTree = "<group>"; };
 		727A86AB16CEECD100048C5E /* pcap-util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "pcap-util.h"; path = "libpcap/pcap-util.h"; sourceTree = "<group>"; };
 		727B12DF16278ACD0039A877 /* pcap-ng.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "pcap-ng.h"; path = "libpcap/pcap/pcap-ng.h"; sourceTree = "<group>"; };
-		727B12E016278ACD0039A877 /* pcapng_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pcapng_private.h; path = libpcap/pcap/pcapng_private.h; sourceTree = "<group>"; };
 		727B12E316278AEF0039A877 /* pcapng.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pcapng.c; path = libpcap/pcapng.c; sourceTree = "<group>"; };
 		727B12F21628BF800039A877 /* ngdumptest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ngdumptest; sourceTree = BUILT_PRODUCTS_DIR; };
 		729DE1E316CB05F700195247 /* pcap-darwin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "pcap-darwin.c"; path = "libpcap/pcap-darwin.c"; sourceTree = "<group>"; };
@@ -866,6 +866,7 @@
 				729DE1E316CB05F700195247 /* pcap-darwin.c */,
 
 				727A86A816CEECB700048C5E /* pcap-util.c */,
+				7208CF902403399200AA0E42 /* pcapng-private.h */,
 				FCDE3594103676CF00CC3DD8 /* pcap.c */,
 				727B12E316278AEF0039A877 /* pcapng.c */,
 				FCDE3595103676CF00CC3DD8 /* savefile.c */,
@@ -1014,7 +1015,6 @@
 				72717799234C0CBC000D8DF1 /* pcap-inttypes.h */,
 				727B12DF16278ACD0039A877 /* pcap-ng.h */,
 				FCDE3680103681F900CC3DD8 /* pcap.h */,
-				727B12E016278ACD0039A877 /* pcapng_private.h */,
 				7271779D234C11C0000D8DF1 /* socket.h */,
 				FCDE3681103681F900CC3DD8 /* sll.h */,
 				FCDE3682103681F900CC3DD8 /* usb.h */,
@@ -1155,6 +1155,7 @@
 				72E2AB661E456FE600AEFE80 /* nflog.h in Headers */,
 				FC293B26103695150055686E /* pcap.h in Headers */,
 				7271779A234C0CBD000D8DF1 /* pcap-inttypes.h in Headers */,
+				7208CF912403399200AA0E42 /* pcapng-private.h in Headers */,
 				727B12E116278ACD0039A877 /* pcap-ng.h in Headers */,
 				727A86AC16CEF6D700048C5E /* pcap-util.h in Headers */,
 				FCDE3686103681F900CC3DD8 /* sll.h in Headers */,
@@ -1175,7 +1176,6 @@
 				724FC91812331FDD003B8C19 /* pcap-common.h in Headers */,
 				72E2AB581E45022C00AEFE80 /* pcap-pktap.h in Headers */,
 
-				727B12E216278ACD0039A877 /* pcapng_private.h in Headers */,
 				72B903861CE015A0008DB2D2 /* ppp.h in Headers */,
 				724FC92312332337003B8C19 /* sf-pcap.h in Headers */,
 				7217691D23442F2500731290 /* sf-pcapng.h in Headers */,
@@ -1524,9 +1524,9 @@
 			projectRoot = "";
 			targets = (
 				D2AAC0620554660B00DB518D /* libpcap */,
+				72E2AB3F1E43BD4E00AEFE80 /* gen_libpcap_version */,
 				727B12E61627AF810039A877 /* all */,
 				72441EE415D323A7007A9F70 /* tests */,
-				72E2AB3F1E43BD4E00AEFE80 /* gen_libpcap_version */,
 				7244CBDC1624FBE400141ECF /* libpcap_static */,
 				725D5818234530040023A8CB /* can_set_rfmon_test */,
 				72B9035D1CE00CEC008DB2D2 /* capturetest */,
@@ -1912,6 +1912,7 @@
 		1DEB915008733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPRESSION = "respect-asset-catalog";
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -1947,6 +1948,7 @@
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				USER_HEADER_SEARCH_PATHS = "$(SHARED_DERIVED_FILE_DIR)";
+				USE_HEADERMAP = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -1954,7 +1956,6 @@
 		721463A71F68984600D74814 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -1985,7 +1986,6 @@
 		721463A81F68984600D74814 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2019,7 +2019,6 @@
 		72441E9C15D322C1007A9F70 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2032,7 +2031,6 @@
 		72441EAA15D32317007A9F70 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2045,7 +2043,6 @@
 		72441EC415D3233B007A9F70 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2058,7 +2055,6 @@
 		72441ED115D3234A007A9F70 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2071,7 +2067,6 @@
 		72441EDE15D32357007A9F70 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2121,7 +2116,6 @@
 		725032F815F6E5C000BDA576 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
@@ -2137,7 +2131,6 @@
 		725032F915F6E5C000BDA576 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -2158,6 +2151,7 @@
 		7257836A15D333E800712E55 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPRESSION = lossless;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
@@ -2197,6 +2191,7 @@
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos macosx";
 				USER_HEADER_SEARCH_PATHS = "$(SHARED_DERIVED_FILE_DIR)";
+				USE_HEADERMAP = NO;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -2230,7 +2225,6 @@
 		7257836D15D333E800712E55 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2243,7 +2237,6 @@
 		7257836E15D333E800712E55 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2256,7 +2249,6 @@
 		7257837015D333E800712E55 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2269,7 +2261,6 @@
 		7257837115D333E800712E55 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2282,7 +2273,6 @@
 		7257837215D333E800712E55 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				GCC_ENABLE_OBJC_EXCEPTIONS = YES;
@@ -2295,7 +2285,6 @@
 		725D581E234530040023A8CB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2332,7 +2321,6 @@
 		725D581F234530040023A8CB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2372,7 +2360,6 @@
 		725D5830234531AF0023A8CB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2409,7 +2396,6 @@
 		725D5831234531AF0023A8CB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2449,7 +2435,6 @@
 		725D583F234531FC0023A8CB /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2486,7 +2471,6 @@
 		725D5840234531FC0023A8CB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2540,7 +2524,6 @@
 		727B12F91628BF800039A877 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				COPY_PHASE_STRIP = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/libpcap",
@@ -2553,7 +2536,6 @@
 		727B12FA1628BF800039A877 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(PROJECT_DIR)/libpcap",
 					"$(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders",
@@ -2565,7 +2547,6 @@
 		72B903631CE00CEC008DB2D2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
@@ -2595,7 +2576,6 @@
 		72B903641CE00CEC008DB2D2 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
@@ -2628,7 +2608,6 @@
 		72C52988202543F2005DB7E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2665,7 +2644,6 @@
 		72C52989202543F2005DB7E4 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
@@ -2705,7 +2683,6 @@
 		72E2AB441E43BD4E00AEFE80 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
@@ -2746,7 +2723,6 @@
 		72E2AB451E43BD4E00AEFE80 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";

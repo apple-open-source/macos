@@ -110,7 +110,10 @@ IOFindPlugIns( io_service_t service,
         if ( pluginTypes == NULL ) {
             continue;
         }
-        
+	if (CFDictionaryGetTypeID() != CFGetTypeID(pluginTypes)) {
+            continue;
+        }
+
         context.key = pluginType;
         context.result = 0;
         CFDictionaryApplyFunction( pluginTypes, &_IOGetWithUUIDKey, &context);

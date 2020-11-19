@@ -22,11 +22,12 @@
  */
 
 #import "SecDbBackupManager.h"
+#import "sec_action.h"
 
 NSString* const KeychainBackupsErrorDomain = @"com.apple.security.keychain.backups";
 
 // oink oink
-@implementation SecDbBackupWrappedItemKey
+@implementation SecDbBackupWrappedKey
 + (BOOL)supportsSecureCoding {
     return YES;
 }
@@ -44,36 +45,7 @@ NSString* const KeychainBackupsErrorDomain = @"com.apple.security.keychain.backu
 }
 @end
 
-#if !SECDB_BACKUPS_ENABLED
-
-@implementation SecDbBackupManager
-
-+ (instancetype)manager
-{
-    return nil;
-}
-
-- (void)verifyBackupIntegrity:(bool)lightweight
-                   completion:(void (^)(NSDictionary<NSString*, NSString*>* results, NSError* _Nullable error))completion
-{
-    completion(nil, [NSError errorWithDomain:KeychainBackupsErrorDomain
-                                        code:SecDbBackupNotSupported
-                                    userInfo:@{NSLocalizedDescriptionKey : @"platform doesn't do backups"}]);
-}
-
-- (SecDbBackupWrappedItemKey* _Nullable)wrapItemKey:(id)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error
-{
-    return nil;
-}
-
-@end
-
-bool SecDbBackupCreateOrLoadBackupInfrastructure(CFErrorRef* error)
-{
-    return true;
-}
-
-#else   // SECDB_BACKUPS_ENABLED is true, roll out the code
+#if SECDB_BACKUPS_ENABLED   // The bottom of this file contains stubs in case the feature is disabled
 
 #import "SecDbBackupManager_Internal.h"
 #include <CommonCrypto/CommonRandom.h>
@@ -99,6 +71,11 @@ bool SecDbBackupCreateOrLoadBackupInfrastructure(CFErrorRef* error)
         }
     }
     return ok;
+}
+
+void SecDbResetBackupManager() {
+    secnotice("SecDbBackup", "Resetting backup manager");
+    [SecDbBackupManager resetManager];
 }
 
 // Reading from disk is relatively expensive. Keep wrapped key in memory and just delete the unwrapped copy on lock
@@ -190,7 +167,8 @@ static SecDbBackupManager* staticManager;
 + (void)resetManager
 {
     if (staticManager) {
-        staticManager = [SecDbBackupManager new];
+        secnotice("SecDbBackup", "Resetting backup manager");
+        staticManager = [[SecDbBackupManager alloc] init];
     }
 }
 
@@ -215,7 +193,7 @@ static SecDbBackupManager* staticManager;
     }
     CFTypeRef cftype = NULL;
     CFErrorRef cferr = NULL;
-    const uint8_t* derp = der_decode_plist(kCFAllocatorDefault, NSPropertyListImmutable, &cftype, &cferr, bytes, bytes + len);
+    const uint8_t* derp = der_decode_plist(kCFAllocatorDefault, &cftype, &cferr, bytes, bytes + len);
     free(bytes);
     if (derp == NULL || derp != (bytes + len) || cftype == NULL) {
         [self fillError:error code:SecDbBackupMalformedKCSKDataOnDisk underlying:CFBridgingRelease(cferr) description:@"Unable to parse der data"];
@@ -225,6 +203,11 @@ static SecDbBackupManager* staticManager;
     return [[SFECKeyPair alloc] initWithData:(__bridge_transfer NSData*)cftype
                                    specifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]
                                        error:error];
+}
+
+- (NSData*)currentBackupBagUUID
+{
+    return [_bagIdentity.baguuid copy];
 }
 
 #pragma mark - Fixup And Verification
@@ -438,8 +421,6 @@ static SecDbBackupManager* staticManager;
         return bad_keybag_handle;
     }
 
-    // TODO: verify that bag is still signed, rdar://problem/46702467
-
     secnotice("SecDbBackup", "Backup bag loaded and verified.");
 
     // Must load readBag's identity because the hash from AKS is unstable.
@@ -451,6 +432,7 @@ static SecDbBackupManager* staticManager;
 
 - (BOOL)onQueueReloadDefaultBackupBagWithError:(NSError**)error
 {
+    dispatch_assert_queue(_queue);
     if (_handle != bad_keybag_handle) {
         aks_unload_bag(_handle);
     }
@@ -541,6 +523,7 @@ static SecDbBackupManager* staticManager;
 
 - (InMemoryKCSK*)onQueueReadKCSKFromDiskForClass:(keyclass_t)keyclass error:(NSError**)error
 {
+    dispatch_assert_queue(_queue);
     __block bool ok = true;
     __block CFErrorRef cfError = NULL;
     __block NSData* readUUID;
@@ -610,6 +593,7 @@ static SecDbBackupManager* staticManager;
 
 - (SFECKeyPair*)onQueueFetchKCSKForKeyclass:(keyclass_t)keyclass error:(NSError**)error
 {
+    dispatch_assert_queue(_queue);
     assert(error);
     assert(_bagIdentity);
     assert(_handle != bad_keybag_handle);
@@ -889,9 +873,23 @@ static SecDbBackupManager* staticManager;
 
 #pragma mark - Item Encryption
 
-- (SecDbBackupWrappedItemKey*)wrapItemKey:(SFAESKey*)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error
+- (SecDbBackupWrappedKey*)wrapItemKey:(SFAESKey*)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error
 {
     assert(error);
+    // We don't care about rolled keyclasses; we care about semantic classes
+    if (keyclass > key_class_last) {
+        static dispatch_once_t rolledkeyclassnotifytoken;
+        static sec_action_t rolledkeyclassnotifyaction;
+        dispatch_once(&rolledkeyclassnotifytoken, ^{
+            rolledkeyclassnotifyaction = sec_action_create("rolledkeyclassnotifyaction", 300);
+            sec_action_set_handler(rolledkeyclassnotifyaction, ^{
+                secnotice("SecDbBackup", "Rolled keyclass for item wrap, %d -> %d", keyclass, SecAKSSanitizedKeyclass(keyclass));
+            });
+        });
+        sec_action_perform(rolledkeyclassnotifyaction);
+        keyclass = SecAKSSanitizedKeyclass(keyclass);
+    }
+
     if (keyclass == key_class_akpu) {
         secwarning("SecDbBackup: Don't tempt me Frodo!");
         [self fillError:error code:SecDbBackupInvalidArgument underlying:nil description:@"Do not call wrapItemKey with class akpu"];
@@ -905,7 +903,7 @@ static SecDbBackupManager* staticManager;
         return nil;
     }
 
-    __block SecDbBackupWrappedItemKey* backupWrappedKey;
+    __block SecDbBackupWrappedKey* backupWrappedKey;
 
     __block NSMutableData* wrappedKey = [NSMutableData dataWithLength:APPLE_KEYSTORE_MAX_ASYM_WRAPPED_KEY_LEN];
     __block NSError* localError;
@@ -928,7 +926,7 @@ static SecDbBackupManager* staticManager;
                 return;
             }
         }
-        backupWrappedKey = [SecDbBackupWrappedItemKey new];
+        backupWrappedKey = [SecDbBackupWrappedKey new];
         backupWrappedKey.wrappedKey = [NSKeyedArchiver archivedDataWithRootObject:wrappedAndSigned requiringSecureCoding:YES error:&localError];
         backupWrappedKey.baguuid = self->_bagIdentity.baguuid;
     });
@@ -944,6 +942,7 @@ static SecDbBackupManager* staticManager;
 
 - (SFSignedData*)onQueueSignData:(NSMutableData*)data withKCSKForKeyclass:(keyclass_t)keyclass error:(NSError**)error
 {
+    dispatch_assert_queue(_queue);
     SFECKeyPair* kcsk = [self onQueueFetchKCSKForKeyclass:keyclass error:error];
     if (!kcsk) {
         return nil;
@@ -951,6 +950,19 @@ static SecDbBackupManager* staticManager;
 
     SFEC_X962SigningOperation* op = [[SFEC_X962SigningOperation alloc] initWithKeySpecifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]];
     return [op sign:data withKey:kcsk error:error];
+}
+
+#pragma mark - Metadata Key Encryption
+
+- (SecDbBackupWrappedKey*)wrapMetadataKey:(_SFAESKey *)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error
+{
+    // We don't care about rolled keyclasses; we care about semantic classes
+    if (keyclass > key_class_last) {
+        secnotice("SecDbBackup", "Rolled keyclass for metadata wrap, %d -> %d", keyclass, SecAKSSanitizedKeyclass(keyclass));
+        keyclass = SecAKSSanitizedKeyclass(keyclass);
+    }
+    // For now, this is identical to item encryption. This will likely change when ACLs are implemented
+    return [self wrapItemKey:key forKeyclass:keyclass error:error];
 }
 
 #pragma mark - Testing Helpers
@@ -1052,4 +1064,30 @@ static SecDbBackupManager* staticManager;
 
 @end
 
-#endif // SECDB_BACKUPS_ENABLED
+#else // SECDB_BACKUPS_ENABLED is false
+#pragma mark - Stubs for when backups are disabled
+
+@implementation SecDbBackupManager
+
++ (instancetype)manager
+{
+    return nil;
+}
+
+- (NSData* _Nullable)currentBackupBagUUID {return nil;}
+- (SecDbBackupWrappedKey* _Nullable)wrapItemKey:(id)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error {return nil;}
+- (SecDbBackupWrappedKey* _Nullable)wrapMetadataKey:(SFAESKey*)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error {return nil;}
+- (void)verifyBackupIntegrity:(bool)lightweight
+                   completion:(void (^)(NSDictionary<NSString*, NSString*>* results, NSError* _Nullable error))completion
+{
+    completion(nil, [NSError errorWithDomain:KeychainBackupsErrorDomain
+                                        code:SecDbBackupNotSupported
+                                    userInfo:@{NSLocalizedDescriptionKey : @"platform doesn't do backups"}]);
+}
+
+@end
+
+bool SecDbBackupCreateOrLoadBackupInfrastructure(CFErrorRef* error) {return true;}
+void SecDbResetBackupManager() {}
+
+#endif   // SECDB_BACKUPS_ENABLED

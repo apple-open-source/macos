@@ -225,6 +225,8 @@ private:
 	Dispatch::Semaphore *mResourceSemaphore;
 };
 
+// Check if the path is on the root filesystem, protected by the OS.
+bool isOnRootFilesystem(const char *path);
 
 
 } // end namespace CodeSigning

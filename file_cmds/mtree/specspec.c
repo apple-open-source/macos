@@ -34,6 +34,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/specspec.c,v 1.6 2005/03/29 11:44:17 tobe
 #include <stdio.h>
 #include <stdint.h>
 #include <unistd.h>
+#include "metrics.h"
 #include "mtree.h"
 #include "extern.h"
 
@@ -98,11 +99,13 @@ shownode(NODE *n, int f, char const *path)
 	if (f & F_PTIME)
 		printf(" ptime=%ld.%09ld", n->st_ptimespec.tv_sec, n->st_ptimespec.tv_nsec);
 	if (f & F_XATTRS)
-		printf(" xattrsdigest=%s", n->xattrsdigest);
+		printf(" xattrsdigest=%s.%llu", n->xattrsdigest, n->xdstream_priv_id);
 	if (f & F_INODE)
 		printf(" inode=%llu", n->st_ino);
 	if (f & F_ACL)
 		printf(" acldigest=%s", n->acldigest);
+	if (f & F_SIBLINGID)
+		printf(" siblingid=%llu", n->sibling_id);
 	
 	printf("\n");
 }
@@ -143,14 +146,17 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 		return 0;
 	} else if (n1 == NULL) {
 		differs = n2->flags;
+		RECORD_FAILURE(111, WARN_MISMATCH);
 		mismatch(n1, n2, differs, path);
 		return (1);
 	} else if (n2 == NULL) {
 		differs = n1->flags;
+		RECORD_FAILURE(112, WARN_MISMATCH);
 		mismatch(n1, n2, differs, path);
 		return (1);
 	} else if (n1->type != n2->type) {
 		differs = 0;
+		RECORD_FAILURE(113, WARN_MISMATCH);
 		mismatch(n1, n2, differs, path);
 		return (1);
 	}
@@ -198,8 +204,11 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 		differs |= F_INODE;
 	if (FS(n1, n2, F_ACL, acldigest))
 		differs |= F_ACL;
+	if (FF(n1, n2, F_SIBLINGID, sibling_id))
+		differs |= F_SIBLINGID;
 	
 	if (differs) {
+		RECORD_FAILURE(114, WARN_MISMATCH);
 		mismatch(n1, n2, differs, path);
 		return (1);
 	}
@@ -208,7 +217,7 @@ compare_nodes(NODE *n1, NODE *n2, char const *path)
 static int
 walk_in_the_forest(NODE *t1, NODE *t2, char const *path)
 {
-	int r, i;
+	int r, i, c;
 	NODE *c1, *c2, *n1, *n2;
 	char *np;
 
@@ -249,22 +258,49 @@ walk_in_the_forest(NODE *t1, NODE *t2, char const *path)
 		if (c1 == NULL && c2->type == F_DIR) {
 			asprintf(&np, "%s%s/", path, c2->name);
 			i = walk_in_the_forest(c1, c2, np);
+			if (i) {
+				RECORD_FAILURE(115, WARN_MISMATCH);
+			}
 			free(np);
-			i += compare_nodes(c1, c2, path);
+			c = compare_nodes(c1, c2, path);
+			if (c) {
+				RECORD_FAILURE(116, WARN_MISMATCH);
+			}
+			i += c;
 		} else if (c2 == NULL && c1->type == F_DIR) {
 			asprintf(&np, "%s%s/", path, c1->name);
 			i = walk_in_the_forest(c1, c2, np);
+			if (i) {
+				RECORD_FAILURE(117, WARN_MISMATCH);
+			}
 			free(np);
-			i += compare_nodes(c1, c2, path);
+			c = compare_nodes(c1, c2, path);
+			if (c) {
+				RECORD_FAILURE(118, WARN_MISMATCH);
+			}
+			i += c;
 		} else if (c1 == NULL || c2 == NULL) {
 			i = compare_nodes(c1, c2, path);
+			if (i) {
+				RECORD_FAILURE(119, WARN_MISMATCH);
+			}
 		} else if (c1->type == F_DIR && c2->type == F_DIR) {
 			asprintf(&np, "%s%s/", path, c1->name);
 			i = walk_in_the_forest(c1, c2, np);
+			if (i) {
+				RECORD_FAILURE(120, WARN_MISMATCH);
+			}
 			free(np);
-			i += compare_nodes(c1, c2, path);
+			c = compare_nodes(c1, c2, path);
+			if (c) {
+				RECORD_FAILURE(121, WARN_MISMATCH);
+			}
+			i += c;
 		} else {
 			i = compare_nodes(c1, c2, path);
+			if (i) {
+				RECORD_FAILURE(122, WARN_MISMATCH);
+			}
 		}
 		r += i;
 		c1 = n1;
@@ -283,7 +319,9 @@ mtree_specspec(FILE *fi, FILE *fj)
 	root2 = mtree_readspec(fj);
 	rval = walk_in_the_forest(root1, root2, "");
 	rval += compare_nodes(root1, root2, "");
-	if (rval > 0)
+	if (rval > 0) {
+		RECORD_FAILURE(123, WARN_MISMATCH);
 		return (MISMATCHEXIT);
+	}
 	return (0);
 }

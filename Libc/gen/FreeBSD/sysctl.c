@@ -43,8 +43,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/sysctl.c,v 1.6 2007/01/09 00:27:55 imp Exp 
 #include <unistd.h>
 #include <string.h>
 
-extern int __sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp,
-    void *newp, size_t newlen);
+#include "sysctl_internal.h"
+
 
 int
 sysctl(int *name, u_int namelen, void *oldp, size_t *oldlenp, void *newp, size_t newlen)
@@ -76,7 +76,15 @@ __attribute__((disable_tail_calls))
 			*oldlenp = 2;
 			return 0;
 		}
-		return (__sysctl(name, namelen, oldp, oldlenp, newp, newlen));
+
+
+		int error = __sysctl(name, namelen, oldp, oldlenp, newp, newlen);
+		if (error < 0) {
+			return error;
+		}
+
+
+		return error;
 	}
 
 	if (newp != NULL) {

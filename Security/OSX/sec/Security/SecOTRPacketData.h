@@ -39,80 +39,84 @@
 
 #include <AssertMacros.h>
 
+#include <security_utilities/simulatecrash_assert.h>
+
 __BEGIN_DECLS
 
-static CC_NONNULL((1,2))
-OSStatus ReadAndVerifyByte(const uint8_t**bytes, size_t*size, uint8_t expected);
+CF_ASSUME_NONNULL_BEGIN
 
-static CC_NONNULL((1,2))
-OSStatus ReadAndVerifyShort(const uint8_t**bytes, size_t*size, uint16_t expected);
+static
+OSStatus ReadAndVerifyByte(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, uint8_t expected);
 
-static CC_NONNULL((1,2))
-OSStatus ReadAndVerifyMessageType(const uint8_t**bytes, size_t*size, OTRMessageType expected);
+static
+OSStatus ReadAndVerifyShort(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, uint16_t expected);
 
-static CC_NONNULL((1,2,3,4))
-OSStatus SizeAndSkipDATA(const uint8_t **bytes, size_t *size,
-                         const uint8_t **dataBytes, size_t *dataSize);
-static CC_NONNULL((1,2,3,4))
-OSStatus SizeAndSkipMPI(const uint8_t **bytes, size_t *size,
-                        const uint8_t **mpiBytes, size_t *mpiSize);
+static
+OSStatus ReadAndVerifyMessageType(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, OTRMessageType expected);
+
+static
+OSStatus SizeAndSkipDATA(const uint8_t *_Nonnull *_Nonnull bytes, size_t *size,
+                         const uint8_t *_Nonnull *_Nonnull dataBytes, size_t *dataSize);
+static
+OSStatus SizeAndSkipMPI(const uint8_t *_Nonnull *_Nonnull bytes, size_t *size,
+                        const uint8_t *_Nonnull *_Nonnull mpiBytes, size_t *mpiSize);
 
 
-static CC_NONNULL((1,2,3))
-OSStatus ReadLongLongCompact(const uint8_t**bytesPtr, size_t*sizePtr, uint64_t* value);
+static
+OSStatus ReadLongLongCompact(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint64_t* value);
 
-static CC_NONNULL((1,2,3))
-OSStatus ReadLongLong(const uint8_t**bytesPtr, size_t*sizePtr, uint64_t* value);
+static
+OSStatus ReadLongLong(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint64_t* value);
 
-static CC_NONNULL((1,2,3))
-OSStatus ReadLong(const uint8_t**bytesPtr, size_t*sizePtr, uint32_t* value);
+static
+OSStatus ReadLong(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint32_t* value);
 
-static CC_NONNULL((1,2,3))
-OSStatus ReadShort(const uint8_t**bytesPtr, size_t*sizePtr, uint16_t* value);
+static
+OSStatus ReadShort(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint16_t* value);
 
-static CC_NONNULL((1,2,3))
-OSStatus ReadByte(const uint8_t**bytesPtr, size_t*sizePtr, uint8_t* value);
+static
+OSStatus ReadByte(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint8_t* value);
 
-static CC_NONNULL((1,2,3))
-OSStatus ReadMessageType(const uint8_t**bytesPtr, size_t*sizePtr, OTRMessageType* type);
+static
+OSStatus ReadMessageType(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, OTRMessageType* type);
 
-static CC_NONNULL((1,2,4))
-OSStatus ReadMPI(const uint8_t**bytesPtr, size_t*sizePtr, cc_size n, cc_unit *x);
+static
+OSStatus ReadMPI(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, cc_size n, cc_unit *x);
 
-static CC_NONNULL((1,2,3,4))
-OSStatus ReadDATA(const uint8_t**bytesPtr, size_t*sizePtr, size_t* dataSize, uint8_t* data);
+static
+OSStatus ReadDATA(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, size_t* dataSize, uint8_t* data);
 
-static CC_NONNULL((1,2,3))
-OSStatus CreatePublicKey(const uint8_t**bytesPtr, size_t*sizePtr, SecOTRPublicIdentityRef* publicId);
+static
+OSStatus CreatePublicKey(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, _Nonnull SecOTRPublicIdentityRef *_Nonnull publicId);
 
-static CC_NONNULL((2,3))
-CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef allocator, const uint8_t**bytesPtr, size_t*sizePtr);
+static
+CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef _Nullable allocator, const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr);
 
-static CC_NONNULL((1))
+static
 void AppendLongLongCompact(CFMutableDataRef appendTo, uint64_t value);
 
-static CC_NONNULL((1))
+static
 void AppendLongLong(CFMutableDataRef appendTo, uint64_t value);
 
-static CC_NONNULL((1))
+static
 void AppendLong(CFMutableDataRef appendTo, uint32_t value);
 
-static CC_NONNULL((1))
+static
 void AppendShort(CFMutableDataRef appendTo, uint16_t value);
 
-static CC_NONNULL((1))
+static
 void AppendByte(CFMutableDataRef appendTo, uint8_t type);
 
-static CC_NONNULL((1))
+static
 void AppendMessageType(CFMutableDataRef appendTo, OTRMessageType type);
 
-static CC_NONNULL((1,3))
+static
 void AppendMPI(CFMutableDataRef appendTo, cc_size n, const cc_unit *x);
 
-static CC_NONNULL((1,3))
+static
 void AppendDATA(CFMutableDataRef appendTo, size_t size, const uint8_t*data);
 
-static CC_NONNULL((1,2))
+static
 void AppendPublicKey(CFMutableDataRef appendTo, SecOTRPublicIdentityRef publicId);
 
     
@@ -122,7 +126,7 @@ void AppendPublicKey(CFMutableDataRef appendTo, SecOTRPublicIdentityRef publicId
 
 static uint16_t kCurrentOTRVersion = 0x2;
     
-static inline OSStatus ReadLongLong(const uint8_t**bytesPtr, size_t*sizePtr, uint64_t* value)
+static inline OSStatus ReadLongLong(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint64_t* value)
 {
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
@@ -146,7 +150,7 @@ fail:
     return errSecParam;
 }
 
-static inline OSStatus ReadLongLongCompact(const uint8_t**bytesPtr, size_t*sizePtr, uint64_t* value)
+static inline OSStatus ReadLongLongCompact(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint64_t* value)
 {
     bool moreBytes = true;
 
@@ -172,7 +176,7 @@ fail:
     return !moreBytes ? errSecSuccess : errSecDecode;
 }
 
-static inline OSStatus ReadLong(const uint8_t**bytesPtr, size_t*sizePtr, uint32_t* value)
+static inline OSStatus ReadLong(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint32_t* value)
 {
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
@@ -192,7 +196,7 @@ fail:
     return errSecParam;
 }
     
-static inline OSStatus ReadShort(const uint8_t**bytesPtr, size_t*sizePtr, uint16_t* value)
+static inline OSStatus ReadShort(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint16_t* value)
 {
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
@@ -210,7 +214,7 @@ fail:
     return errSecParam;
 }
 
-static inline OSStatus ReadByte(const uint8_t**bytesPtr, size_t*sizePtr, uint8_t* value)
+static inline OSStatus ReadByte(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, uint8_t* value)
 {
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
@@ -227,7 +231,7 @@ fail:
     return errSecParam;
 }
 
-static inline OSStatus ReadByteAsBool(const uint8_t**bytesPtr, size_t*sizePtr, bool* value)
+static inline OSStatus ReadByteAsBool(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, bool* value)
 {
     uint8_t byte = 0;
 
@@ -239,7 +243,7 @@ static inline OSStatus ReadByteAsBool(const uint8_t**bytesPtr, size_t*sizePtr, b
     return result;
 }
     
-static inline OSStatus ReadMessageType(const uint8_t**bytesPtr, size_t*sizePtr, OTRMessageType* type)
+static inline OSStatus ReadMessageType(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, OTRMessageType* type)
 {
     OSStatus result = errSecParam;
     uint8_t value;
@@ -252,7 +256,7 @@ fail:
     return result;
 }
 
-static inline OSStatus ReadMPI(const uint8_t**bytesPtr, size_t*sizePtr, cc_size n, cc_unit *x)
+static inline OSStatus ReadMPI(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, cc_size n, cc_unit *x)
 {
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
@@ -276,7 +280,7 @@ fail:
     
 }
     
-static inline OSStatus ReadDATA(const uint8_t**bytesPtr, size_t*sizePtr, size_t* dataSize, uint8_t* data)
+static inline OSStatus ReadDATA(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, size_t* dataSize, uint8_t* data)
 {
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
@@ -301,7 +305,7 @@ fail:
     
 }
     
-static inline OSStatus CreatePublicKey(const uint8_t**bytesPtr, size_t*sizePtr, SecOTRPublicIdentityRef* publicId)
+static inline OSStatus CreatePublicKey(const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr, _Nonnull SecOTRPublicIdentityRef *_Nonnull publicId)
 {
     require(bytesPtr != NULL, fail);
     require(sizePtr != NULL, fail);
@@ -336,7 +340,7 @@ fail:
     
 }
     
-static inline CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef allocator, const uint8_t**bytesPtr, size_t*sizePtr)
+static inline CFMutableDataRef CFDataCreateMutableFromOTRDATA(CFAllocatorRef _Nullable allocator, const uint8_t *_Nonnull *_Nonnull bytesPtr, size_t*sizePtr)
 {
     CFMutableDataRef result = NULL;
     uint32_t sizeInStream;
@@ -359,7 +363,7 @@ exit:
 //
 // Parse and verify functions
 //
-static inline OSStatus ReadAndVerifyByte(const uint8_t**bytes, size_t*size, uint8_t expected)
+static inline OSStatus ReadAndVerifyByte(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, uint8_t expected)
 {
     uint8_t found;
     OSStatus result = ReadByte(bytes, size, &found);
@@ -369,7 +373,7 @@ exit:
     return result;
 }
 
-static inline OSStatus ReadAndVerifyShort(const uint8_t**bytes, size_t*size, uint16_t expected)
+static inline OSStatus ReadAndVerifyShort(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, uint16_t expected)
 {
     uint16_t found;
     OSStatus result = ReadShort(bytes, size, &found);
@@ -379,7 +383,7 @@ exit:
     return result;
 }
 
-static inline OSStatus ReadAndVerifyMessageType(const uint8_t**bytes, size_t*size, OTRMessageType expected)
+static inline OSStatus ReadAndVerifyMessageType(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, OTRMessageType expected)
 {
     OTRMessageType found;
     OSStatus result = ReadMessageType(bytes, size, &found);
@@ -389,12 +393,12 @@ exit:
     return result;
 }
 
-static inline OSStatus ReadAndVerifyVersion(const uint8_t**bytes, size_t*size)
+static inline OSStatus ReadAndVerifyVersion(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size)
 {
     return ReadAndVerifyShort(bytes, size, kCurrentOTRVersion);
 }
 
-static inline OSStatus ReadAndVerifyHeader(const uint8_t**bytes, size_t*size, OTRMessageType expected)
+static inline OSStatus ReadAndVerifyHeader(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, OTRMessageType expected)
 {
     OSStatus result = ReadAndVerifyVersion(bytes, size);
     require_noerr_quiet(result, exit);
@@ -406,7 +410,7 @@ exit:
     return result;
 }
 
-static inline OSStatus ReadHeader(const uint8_t**bytes, size_t*size, OTRMessageType *messageType)
+static inline OSStatus ReadHeader(const uint8_t *_Nonnull *_Nonnull bytes, size_t*size, OTRMessageType *messageType)
 {
     OSStatus result = ReadAndVerifyVersion(bytes, size);
     require_noerr_quiet(result, exit);
@@ -418,8 +422,8 @@ exit:
     return result;
 }
 
-static inline OSStatus SizeAndSkipDATA(const uint8_t **bytes, size_t *size,
-                                const uint8_t **dataBytes, size_t *dataSize)
+static inline OSStatus SizeAndSkipDATA(const uint8_t *_Nonnull *_Nonnull bytes, size_t *size,
+                                const uint8_t *_Nonnull *_Nonnull dataBytes, size_t *dataSize)
 {
     OSStatus result;
     uint32_t sizeRead;
@@ -436,8 +440,8 @@ exit:
     return result;
 }
 
-static inline OSStatus SizeAndSkipMPI(const uint8_t **bytes, size_t *size,
-                               const uint8_t **mpiBytes, size_t *mpiSize)
+static inline OSStatus SizeAndSkipMPI(const uint8_t *_Nonnull *_Nonnull bytes, size_t *size,
+                               const uint8_t *_Nonnull *_Nonnull mpiBytes, size_t *mpiSize)
 {
     // MPIs looke like data for skipping.
     return SizeAndSkipDATA(bytes, size, mpiBytes, mpiSize);
@@ -549,6 +553,8 @@ static inline void AppendHeader(CFMutableDataRef appendTo, OTRMessageType type)
     AppendVersion(appendTo);
     AppendMessageType(appendTo, type);
 }
+
+CF_ASSUME_NONNULL_END
 
 __END_DECLS
 

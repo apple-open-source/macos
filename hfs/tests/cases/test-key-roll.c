@@ -112,7 +112,7 @@ void *append_to_file(void *param)
 		assert_no_err(msync(p + total - round, todo + round, 
 							MS_ASYNC | MS_INVALIDATE));
 
-		CC_MD5_Update(&md5_ctx, buf1, todo);
+		CC_MD5_Update(&md5_ctx, buf1, (CC_LONG)todo);
 
 		total += todo;
 	}
@@ -192,10 +192,10 @@ static void fill_disk(int *fd, uint64_t *size)
 	struct statfs sfs;
 	assert_no_err(fstatfs(*fd, &sfs));
 
-	uint32_t blocks = sfs.f_bfree;
+	uint64_t blocks = sfs.f_bfree;
 
 	for (;;) {
-		uint64_t size = (uint64_t)blocks * sfs.f_bsize;
+		uint64_t size = blocks * sfs.f_bsize;
 
 		if (!fcntl(*fd, F_SETSIZE, &size))
 			break;
@@ -206,15 +206,15 @@ static void fill_disk(int *fd, uint64_t *size)
 	}
 
 	// Now increase the size until we hit no space
-	uint32_t upper = sfs.f_bfree + 128;
+	uint64_t upper = sfs.f_bfree + 128;
 
 	for (;;) {
-		uint32_t try = (upper + blocks) / 2;
+		uint64_t try = (upper + blocks) / 2;
 
 		if (try <= blocks)
 			try = blocks + 1;
 
-		uint64_t size = (uint64_t)try * sfs.f_bsize;
+		uint64_t size = try * sfs.f_bsize;
 		if (!fcntl(*fd, F_SETSIZE, &size)) {
 			blocks = try;
 			if (try >= upper) {
@@ -231,7 +231,7 @@ static void fill_disk(int *fd, uint64_t *size)
 		}
 	}
 
-	*size = (uint64_t)blocks * sfs.f_bsize;
+	*size = blocks * sfs.f_bsize;
 }
 
 volatile int32_t threads_running;

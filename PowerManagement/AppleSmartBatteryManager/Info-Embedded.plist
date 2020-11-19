@@ -28,11 +28,6 @@
 			<string>com.apple.driver.AppleSmartBatteryManagerEmbedded</string>
 			<key>IOClass</key>
 			<string>AppleSmartBatteryManager</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>Generation</key>
-				<integer>3</integer>
-			</dict>
 			<key>IOProviderClass</key>
 			<string>AppleSMC</string>
 			<key>IOMatchCategory</key>

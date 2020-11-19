@@ -99,8 +99,6 @@
 #include "vpn_control.h"
 #include "vpn_control_var.h"
 #include "ike_session.h"
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
 #include "nattraversal.h"
 
 struct isakmp_cfg_config isakmp_cfg_config;
@@ -144,10 +142,6 @@ isakmp_cfg_r(iph1, msg)
 
 	/* Check that the packet is long enough to have a header */
 	if (msg->l < sizeof(*packet)) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("MODE-Config. Unexpected short packet"),
-								CONSTSTR("Failed to process short MODE-Config packet"));
 		plog(ASL_LEVEL_ERR, "Unexpected short packet\n");
 		return;
 	}
@@ -156,11 +150,7 @@ isakmp_cfg_r(iph1, msg)
 
 	/* Is it encrypted? It should be encrypted */
 	if ((packet->flags & ISAKMP_FLAG_E) == 0) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("MODE-Config. User credentials sent in cleartext"),
-								CONSTSTR("Dropped cleattext User credentials"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 		    "User credentials sent in cleartext!\n");
 		return;
 	}
@@ -177,11 +167,7 @@ isakmp_cfg_r(iph1, msg)
 
 	dmsg = oakley_do_decrypt(iph1, msg, ivm->iv, ivm->ive);
 	if (dmsg == NULL) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("MODE-Config. Failed to decrypt packet"),
-								CONSTSTR("Failed to decrypt MODE-Config packet"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 		    "failed to decrypt message\n");
 		return;
 	}
@@ -285,18 +271,7 @@ isakmp_cfg_r(iph1, msg)
 		goto out;		/* no resend scheduled */
 	SCHED_KILL(iph2->scr);	/* turn off schedule */
 	ike_session_unlink_phase2(iph2);
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("MODE-Config"),
-							CONSTSTR(NULL));
 out:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("MODE-Config"),
-								CONSTSTR("Failed to process Mode-Config packet"));
-	}
 	vfree(dmsg);
 }
 
@@ -1313,10 +1288,6 @@ isakmp_cfg_send(iph1, payload, np, flags, new_exchange, retry_count, msg)
 			VPTRINIT(iph2->sendbuf);
 			goto err;
 		}
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_CFG_RETRANSMIT,
-								CONSTSTR("Mode-Config retransmit"),
-								CONSTSTR(NULL));
 		error = 0;
 		goto end;
 	}
@@ -1345,19 +1316,7 @@ isakmp_cfg_send(iph1, payload, np, flags, new_exchange, retry_count, msg)
 
 	error = 0;
 	VPTRINIT(iph2->sendbuf);
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Mode-Config message"),
-							CONSTSTR(NULL));
-	
 err:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Mode-Config message"),
-								CONSTSTR("Failed to transmit Mode-Config message"));
-	}
 	ike_session_unlink_phase2(iph2);
 end:
 	if (hash)

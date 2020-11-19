@@ -126,6 +126,7 @@ main(argc, argv)
 	extern int optind;
 	extern char *optarg;
 	char * lastChar;
+	long mode;
 
 	if ((progname = strrchr(*argv, '/')))
 		++progname;
@@ -219,10 +220,11 @@ main(argc, argv)
 			
 		case 'm':
 			modeSetting++;
-			lostAndFoundMode = strtol( optarg, NULL, 8 );
-			if ( lostAndFoundMode == 0 )
+			mode = strtol( optarg, NULL, 8 );
+			lostAndFoundMode = (int)mode;
+			if ( lostAndFoundMode == 0 || mode < INT_MIN || mode > INT_MAX)
 			{
-				(void) fplog(stderr, "%s: invalid mode argument \n", progname);
+				(void) fplog(stderr, "%s: %ld is invalid mode argument\n", progname, mode);
 				usage();
 			}
 			break;
@@ -705,7 +707,7 @@ setup( char *dev, int *canWritePtr )
             err(1, "fsck_hfs: fstat %s", dev);
         }
         
-        error = lseek(fswritefd, 0, SEEK_SET);
+        error = (int)lseek(fswritefd, 0, SEEK_SET);
         if (error == -1)
         {
             err(1, "fsck_hfs: Could not seek %d for dev: %s, errorno %d", fswritefd, dev, errno);

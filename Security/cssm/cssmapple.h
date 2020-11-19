@@ -570,6 +570,8 @@ enum
 	CSSMERR_APPLETP_IDENTIFIER_MISSING =            -2147408837,
 	/* Certificate authority pinning mismatch */
 	CSSMERR_APPLETP_CA_PIN_MISMATCH =               -2147408836,
+	/* Leaf pinning mismatch */
+	CSSMERR_APPLETP_LEAF_PIN_MISMATCH =             -2147408835,
 };
 
 /* Apple .mac TP private error codes. */
@@ -605,7 +607,7 @@ enum
 
 enum
 {
-	CSSM_APPLEDL_OPEN_PARAMETERS_VERSION =			1
+	CSSM_APPLEDL_OPEN_PARAMETERS_VERSION =			1u
 };
 
 enum cssm_appledl_open_parameters_mask

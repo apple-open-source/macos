@@ -62,7 +62,7 @@ SecRequirement::SecRequirement(const Requirement *req, bool transferOwnership)
 //
 // Clean up a SecRequirement object
 //
-SecRequirement::~SecRequirement() throw()
+SecRequirement::~SecRequirement() _NOEXCEPT
 try {
 	::free((void *)mReq);
 } catch (...) {

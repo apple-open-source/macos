@@ -43,14 +43,34 @@ namespace WebCore {
 
 class LayoutSize;
 class PlatformWheelEvent;
+class ScrollController;
 class ScrollableArea;
 class WheelEventTestMonitor;
+
+class ScrollControllerTimer : public RunLoop::TimerBase {
+public:
+    ScrollControllerTimer(RunLoop& runLoop, Function<void()>&& callback)
+        : RunLoop::TimerBase(runLoop)
+        , m_callback(WTFMove(callback))
+    {
+    }
+
+    void fired() final
+    {
+        m_callback();
+    }
+
+private:
+    Function<void()> m_callback;
+};
 
 class ScrollControllerClient {
 protected:
     virtual ~ScrollControllerClient() = default;
 
 public:
+    virtual std::unique_ptr<ScrollControllerTimer> createTimer(Function<void()>&&) = 0;
+
 #if ENABLE(RUBBER_BANDING)
     virtual bool allowsHorizontalStretching(const PlatformWheelEvent&) const = 0;
     virtual bool allowsVerticalStretching(const PlatformWheelEvent&) const = 0;
@@ -63,16 +83,12 @@ public:
     // FIXME: use ScrollClamping to collapse these to one.
     virtual void immediateScrollBy(const FloatSize&) = 0;
     virtual void immediateScrollByWithoutContentEdgeConstraints(const FloatSize&) = 0;
-    virtual void startSnapRubberbandTimer()
-    {
-        // Override to perform client-specific snap start logic
-    }
-
-    virtual void stopSnapRubberbandTimer()
-    {
-        // Override to perform client-specific snap end logic
-    }
     
+    virtual void willStartRubberBandSnapAnimation() { }
+    virtual void didStopRubberbandSnapAnimation() { }
+
+    virtual void rubberBandingStateChanged(bool) { }
+
     // If the current scroll position is within the overhang area, this function will cause
     // the page to scroll to the nearest boundary point.
     virtual void adjustScrollPositionToBoundsIfNecessary() = 0;
@@ -84,15 +100,8 @@ public:
 #if ENABLE(CSS_SCROLL_SNAP)
     virtual FloatPoint scrollOffset() const = 0;
     virtual void immediateScrollOnAxis(ScrollEventAxis, float delta) = 0;
-    virtual void startScrollSnapTimer()
-    {
-        // Override to perform client-specific scroll snap point start logic
-    }
-
-    virtual void stopScrollSnapTimer()
-    {
-        // Override to perform client-specific scroll snap point end logic
-    }
+    virtual void willStartScrollSnapAnimation() { }
+    virtual void didStopScrollSnapAnimation() { }
 
     virtual float pageScaleFactor() const
     {
@@ -113,9 +122,9 @@ enum class WheelEventStatus {
     UserScrollBegin,
     UserScrolling,
     UserScrollEnd,
-    InertialScrollBegin,
-    InertialScrolling,
-    InertialScrollEnd,
+    MomentumScrollBegin,
+    MomentumScrolling,
+    MomentumScrollEnd,
     StatelessScrollEvent,
     Unknown
 };
@@ -125,26 +134,42 @@ class ScrollController {
 
 public:
     explicit ScrollController(ScrollControllerClient&);
+    ~ScrollController();
 
 #if PLATFORM(MAC)
     bool handleWheelEvent(const PlatformWheelEvent&);
 #endif
 
+    bool usesScrollSnap() const;
+
+    bool isUserScrollInProgress() const;
     bool isRubberBandInProgress() const;
     bool isScrollSnapInProgress() const;
+    
+    void scrollPositionChanged();
 
 #if ENABLE(CSS_SCROLL_SNAP)
     void updateScrollSnapPoints(ScrollEventAxis, const Vector<LayoutUnit>&, const Vector<ScrollOffsetRange<LayoutUnit>>&);
     void setActiveScrollSnapIndexForAxis(ScrollEventAxis, unsigned);
-    void setActiveScrollSnapIndicesForOffset(int x, int y);
+    void setActiveScrollSnapIndicesForOffset(ScrollOffset);
     bool activeScrollSnapIndexDidChange() const { return m_activeScrollSnapIndexDidChange; }
     void setScrollSnapIndexDidChange(bool state) { m_activeScrollSnapIndexDidChange = state; }
     unsigned activeScrollSnapIndexForAxis(ScrollEventAxis) const;
     void updateScrollSnapState(const ScrollableArea&);
+
+    void updateGestureInProgressState(const PlatformWheelEvent&);
+
 #if PLATFORM(MAC)
     bool processWheelEventForScrollSnap(const PlatformWheelEvent&);
 #endif
 #endif
+
+    static FloatSize wheelDeltaBiasingTowardsVertical(const PlatformWheelEvent&);
+
+    enum class WheelAxisBias { None, Vertical };
+    static Optional<ScrollDirection> directionFromEvent(const PlatformWheelEvent&, Optional<ScrollEventAxis>, WheelAxisBias = WheelAxisBias::None);
+
+    void stopAllTimers();
 
 private:
 #if ENABLE(RUBBER_BANDING)
@@ -153,7 +178,11 @@ private:
     void snapRubberBand();
     void snapRubberBandTimerFired();
 
-    bool shouldRubberBandInHorizontalDirection(const PlatformWheelEvent&);
+    bool shouldRubberBandInHorizontalDirection(const PlatformWheelEvent&) const;
+    bool shouldRubberBandInDirection(ScrollDirection) const;
+
+    bool isRubberBandInProgressInternal() const;
+    void updateRubberBandingState();
 #endif
 
 #if ENABLE(CSS_SCROLL_SNAP)
@@ -163,7 +192,7 @@ private:
     void startScrollSnapTimer();
     void stopScrollSnapTimer();
 
-    bool shouldOverrideInertialScrolling() const;
+    bool shouldOverrideMomentumScrolling() const;
     void statelessSnapTransitionTimerFired();
     void scheduleStatelessScrollSnap();
 
@@ -175,7 +204,7 @@ private:
     ScrollControllerClient& m_client;
 
 #if PLATFORM(MAC)
-    CFTimeInterval m_lastMomentumScrollTimestamp { 0 };
+    WallTime m_lastMomentumScrollTimestamp;
 #endif
     FloatSize m_overflowScrollDelta;
     FloatSize m_stretchScrollForce;
@@ -183,18 +212,18 @@ private:
 
 #if ENABLE(RUBBER_BANDING)
     // Rubber band state.
-    CFTimeInterval m_startTime { 0 };
+    MonotonicTime m_startTime;
     FloatSize m_startStretch;
     FloatSize m_origVelocity;
-    RunLoop::Timer<ScrollController> m_snapRubberbandTimer;
+    std::unique_ptr<ScrollControllerTimer> m_snapRubberbandTimer;
 #endif
 
 #if ENABLE(CSS_SCROLL_SNAP)
     std::unique_ptr<ScrollSnapAnimatorState> m_scrollSnapState;
 #if PLATFORM(MAC)
     FloatSize m_dragEndedScrollingVelocity;
-    RunLoop::Timer<ScrollController> m_statelessSnapTransitionTimer;
-    RunLoop::Timer<ScrollController> m_scrollSnapTimer;
+    std::unique_ptr<ScrollControllerTimer> m_statelessSnapTransitionTimer;
+    std::unique_ptr<ScrollControllerTimer> m_scrollSnapTimer;
 #endif
 #endif
 
@@ -202,7 +231,11 @@ private:
     bool m_inScrollGesture { false };
     bool m_momentumScrollInProgress { false };
     bool m_ignoreMomentumScrolls { false };
-    bool m_snapRubberbandTimerIsActive { false };
+    bool m_isRubberBanding { false };
+#endif
+
+#if ASSERT_ENABLED
+    bool m_timersWereStopped { false };
 #endif
 
     bool m_activeScrollSnapIndexDidChange { false };

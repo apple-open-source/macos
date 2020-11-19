@@ -1,0 +1,24 @@
+diff --git a/Lib/_osx_support.py b/Lib/_osx_support.py
+index 405a67b..59997e3 100644
+--- a/Lib/_osx_support.py
++++ b/Lib/_osx_support.py
+@@ -459,6 +459,7 @@ def get_platform_osx(_config_vars, osname, release, machine):
+             # The universal build will build fat binaries, but not on
+             # systems before 10.4
+ 
++            prevmachine = machine
+             machine = 'fat'
+ 
+             archs = re.findall('-arch\s+(\S+)', cflags)
+@@ -476,6 +477,11 @@ def get_platform_osx(_config_vars, osname, release, machine):
+                 machine = 'fat64'
+             elif archs == ('i386', 'ppc', 'ppc64', 'x86_64'):
+                 machine = 'universal'
++            elif archs == ('arm64e', 'x86_64'):
++                # 11.0 introduces a new architecture and the universal2 format for arm64e + x86_64,
++                # but since Python 2.7 is EOL, we don't want to start returning a new value here.
++                # Instead, directly return the runtime machine type that was passed to us.
++                machine = prevmachine
+             else:
+                 raise ValueError(
+                    "Don't know machine value for archs=%r" % (archs,))

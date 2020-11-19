@@ -136,6 +136,7 @@ protected:
     virtual IOStorage * getTarget(void) const;
     virtual bool isRAIDSet(void);
     virtual bool isSetComplete(void);
+    virtual bool isSetEmpty(void);
     virtual bool bumpOnError(void);
     virtual UInt64 getSize(void) const;
     virtual IOWorkLoop *getWorkLoop(void);

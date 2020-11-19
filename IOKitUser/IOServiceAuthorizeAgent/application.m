@@ -98,9 +98,12 @@ CFStringRef _ApplicationCopyIdentifier( pid_t processID, const audit_token_t *au
                     CFDictionarySetValue( attributes, kSecGuestAttributePid, number );
                     CFDictionarySetValue( attributes, kSecGuestAttributeAudit, auditTokenData );
 
-                    SecCodeCopyGuestWithAttributes( 0, attributes, kSecCSDefaultFlags, &code );
-
-                    if ( code )
+                    OSStatus status = SecCodeCopyGuestWithAttributes( 0, attributes, kSecCSDefaultFlags, &code );
+                    if ( status == noErr )
+                    {
+						status = SecCodeCheckValidity(code, kSecCSDefaultFlags, NULL);
+					}
+                    if ( status == noErr )
                     {
                         CFDictionaryRef information = 0;
 

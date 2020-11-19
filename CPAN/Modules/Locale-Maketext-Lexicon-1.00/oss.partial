@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Locale-Maketext-Lexicon</string>
+        <key>OpenSourceVersion</key>
+        <string>1.00</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/D/DR/DRTECH/Locale-Maketext-Lexicon-1.00.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-10</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -25,11 +25,13 @@
 #include "JSTestInterface.h"
 
 #include "ActiveDOMObject.h"
+#include "DOMIsoSubspaces.h"
 #include "HTMLNames.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructor.h"
 #include "JSDOMConvertInterface.h"
+#include "JSDOMConvertStrings.h"
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMIterator.h"
 #include "JSDOMOperation.h"
@@ -38,17 +40,16 @@
 #include "JSTestObj.h"
 #include "ScriptExecutionContext.h"
 #include "TestSupplemental.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/BuiltinNames.h>
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
+#include <JavaScriptCore/SubspaceInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
 #include <wtf/URL.h>
-
-#if ENABLE(Condition1) || ENABLE(Condition11) || ENABLE(Condition12) || ENABLE(Condition2) || ENABLE(Condition22) || ENABLE(Condition23)
-#include "JSDOMConvertStrings.h"
-#endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
 #include "TestSupplementalBuiltins.h"
@@ -157,7 +158,7 @@ JSC::EncodedJSValue jsTestInterfaceReflectAttribute(JSC::JSGlobalObject*, JSC::E
 bool setJSTestInterfaceReflectAttribute(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 #endif
 
-class JSTestInterfacePrototype : public JSC::JSNonFinalObject {
+class JSTestInterfacePrototype final : public JSC::JSNonFinalObject {
 public:
     using Base = JSC::JSNonFinalObject;
     static JSTestInterfacePrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
@@ -168,6 +169,12 @@ public:
     }
 
     DECLARE_INFO;
+    template<typename CellType, JSC::SubspaceAccess>
+    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestInterfacePrototype, Base);
+        return &vm.plainObjectSpace;
+    }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
@@ -258,7 +265,6 @@ template<> EncodedJSValue JSC_HOST_CALL JSTestInterfaceConstructor::construct(JS
 {
     VM& vm = lexicalGlobalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    UNUSED_PARAM(throwScope);
     auto* castedThis = jsCast<JSTestInterfaceConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
     if (UNLIKELY(callFrame->argumentCount() < 1))
@@ -266,12 +272,20 @@ template<> EncodedJSValue JSC_HOST_CALL JSTestInterfaceConstructor::construct(JS
     auto* context = castedThis->scriptExecutionContext();
     if (UNLIKELY(!context))
         return throwConstructorScriptExecutionContextUnavailableError(*lexicalGlobalObject, throwScope, "TestInterface");
-    auto str1 = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto str1 = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    auto str2 = callFrame->argument(1).isUndefined() ? "defaultString"_s : convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(1));
+    EnsureStillAliveScope argument1 = callFrame->argument(1);
+    auto str2 = argument1.value().isUndefined() ? "defaultString"_s : convert<IDLDOMString>(*lexicalGlobalObject, argument1.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
     auto object = TestInterface::create(*context, WTFMove(str1), WTFMove(str2));
-    return JSValue::encode(toJSNewlyCreated<IDLInterface<TestInterface>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WTFMove(object)));
+    static_assert(IsExceptionOr<decltype(object)>::value);
+    static_assert(decltype(object)::ReturnType::isRef);
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestInterface>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WTFMove(object));
+    RETURN_IF_EXCEPTION(throwScope, { });
+    setSubclassStructureIfNeeded<TestInterface>(lexicalGlobalObject, callFrame, asObject(jsValue));
+    RETURN_IF_EXCEPTION(throwScope, { });
+    return JSValue::encode(jsValue);
 }
 
 template<> JSValue JSTestInterfaceConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
@@ -283,7 +297,7 @@ template<> JSValue JSTestInterfaceConstructor::prototypeForStructure(JSC::VM& vm
 template<> void JSTestInterfaceConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestInterface::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestInterface"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestInterface"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(1), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     reifyStaticProperties(vm, JSTestInterface::info(), JSTestInterfaceConstructorTableValues, *this);
 }
@@ -411,13 +425,14 @@ static const HashTableValue JSTestInterfacePrototypeTableValues[] =
 #endif
 };
 
-const ClassInfo JSTestInterfacePrototype::s_info = { "TestInterfacePrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestInterfacePrototype) };
+const ClassInfo JSTestInterfacePrototype::s_info = { "TestInterface", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestInterfacePrototype) };
 
 void JSTestInterfacePrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSTestInterface::info(), JSTestInterfacePrototypeTableValues, *this);
     putDirect(vm, vm.propertyNames->iteratorSymbol, getDirect(vm, vm.propertyNames->builtinNames().entriesPublicName()), static_cast<unsigned>(JSC::PropertyAttribute::DontEnum));
+    JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
 const ClassInfo JSTestInterface::s_info = { "TestInterface", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestInterface) };
@@ -491,12 +506,11 @@ bool setJSTestInterfaceConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJ
 }
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSValue jsTestInterfaceConstructorImplementsStaticReadOnlyAttrGetter(JSGlobalObject& lexicalGlobalObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceConstructorImplementsStaticReadOnlyAttrGetter(JSGlobalObject& lexicalGlobalObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
-    JSValue result = toJS<IDLLong>(lexicalGlobalObject, throwScope, TestInterface::implementsStaticReadOnlyAttr());
-    return result;
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLLong>(lexicalGlobalObject, throwScope, TestInterface::implementsStaticReadOnlyAttr())));
 }
 
 EncodedJSValue jsTestInterfaceConstructorImplementsStaticReadOnlyAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -507,12 +521,11 @@ EncodedJSValue jsTestInterfaceConstructorImplementsStaticReadOnlyAttr(JSGlobalOb
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSValue jsTestInterfaceConstructorImplementsStaticAttrGetter(JSGlobalObject& lexicalGlobalObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceConstructorImplementsStaticAttrGetter(JSGlobalObject& lexicalGlobalObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, TestInterface::implementsStaticAttr());
-    return result;
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, TestInterface::implementsStaticAttr())));
 }
 
 EncodedJSValue jsTestInterfaceConstructorImplementsStaticAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -523,10 +536,10 @@ EncodedJSValue jsTestInterfaceConstructorImplementsStaticAttr(JSGlobalObject* le
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline bool setJSTestInterfaceConstructorImplementsStaticAttrSetter(JSGlobalObject& lexicalGlobalObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceConstructorImplementsStaticAttrSetter(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto nativeValue = convert<IDLDOMString>(lexicalGlobalObject, value);
     RETURN_IF_EXCEPTION(throwScope, false);
     AttributeSetter::call(lexicalGlobalObject, throwScope, [&] {
@@ -543,13 +556,12 @@ bool setJSTestInterfaceConstructorImplementsStaticAttr(JSGlobalObject* lexicalGl
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSValue jsTestInterfaceImplementsStr1Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceImplementsStr1Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.implementsStr1());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.implementsStr1())));
 }
 
 EncodedJSValue jsTestInterfaceImplementsStr1(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -560,13 +572,12 @@ EncodedJSValue jsTestInterfaceImplementsStr1(JSGlobalObject* lexicalGlobalObject
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSValue jsTestInterfaceImplementsStr2Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceImplementsStr2Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.implementsStr2());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.implementsStr2())));
 }
 
 EncodedJSValue jsTestInterfaceImplementsStr2(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -577,10 +588,10 @@ EncodedJSValue jsTestInterfaceImplementsStr2(JSGlobalObject* lexicalGlobalObject
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline bool setJSTestInterfaceImplementsStr2Setter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceImplementsStr2Setter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
     auto nativeValue = convert<IDLDOMString>(lexicalGlobalObject, value);
     RETURN_IF_EXCEPTION(throwScope, false);
@@ -598,9 +609,8 @@ bool setJSTestInterfaceImplementsStr2(JSGlobalObject* lexicalGlobalObject, Encod
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSValue jsTestInterfaceImplementsStr3Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceImplementsStr3Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
     UNUSED_PARAM(lexicalGlobalObject);
     return thisObject.implementsStr3(lexicalGlobalObject);
 }
@@ -613,10 +623,9 @@ EncodedJSValue jsTestInterfaceImplementsStr3(JSGlobalObject* lexicalGlobalObject
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline bool setJSTestInterfaceImplementsStr3Setter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceImplementsStr3Setter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
     thisObject.setImplementsStr3(lexicalGlobalObject, value);
     return true;
 }
@@ -629,13 +638,12 @@ bool setJSTestInterfaceImplementsStr3(JSGlobalObject* lexicalGlobalObject, Encod
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSValue jsTestInterfaceImplementsNodeGetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceImplementsNodeGetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLInterface<Node>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.implementsNode());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLInterface<Node>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.implementsNode())));
 }
 
 EncodedJSValue jsTestInterfaceImplementsNode(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -646,10 +654,10 @@ EncodedJSValue jsTestInterfaceImplementsNode(JSGlobalObject* lexicalGlobalObject
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline bool setJSTestInterfaceImplementsNodeSetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceImplementsNodeSetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
     auto nativeValue = convert<IDLInterface<Node>>(lexicalGlobalObject, value, [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwAttributeTypeError(lexicalGlobalObject, scope, "TestInterface", "implementsNode", "Node"); });
     RETURN_IF_EXCEPTION(throwScope, false);
@@ -667,12 +675,11 @@ bool setJSTestInterfaceImplementsNode(JSGlobalObject* lexicalGlobalObject, Encod
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSValue jsTestInterfaceConstructorSupplementalStaticReadOnlyAttrGetter(JSGlobalObject& lexicalGlobalObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceConstructorSupplementalStaticReadOnlyAttrGetter(JSGlobalObject& lexicalGlobalObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
-    JSValue result = toJS<IDLLong>(lexicalGlobalObject, throwScope, WebCore::TestSupplemental::supplementalStaticReadOnlyAttr());
-    return result;
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLLong>(lexicalGlobalObject, throwScope, WebCore::TestSupplemental::supplementalStaticReadOnlyAttr())));
 }
 
 EncodedJSValue jsTestInterfaceConstructorSupplementalStaticReadOnlyAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -683,12 +690,11 @@ EncodedJSValue jsTestInterfaceConstructorSupplementalStaticReadOnlyAttr(JSGlobal
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSValue jsTestInterfaceConstructorSupplementalStaticAttrGetter(JSGlobalObject& lexicalGlobalObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceConstructorSupplementalStaticAttrGetter(JSGlobalObject& lexicalGlobalObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, WebCore::TestSupplemental::supplementalStaticAttr());
-    return result;
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, WebCore::TestSupplemental::supplementalStaticAttr())));
 }
 
 EncodedJSValue jsTestInterfaceConstructorSupplementalStaticAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -699,10 +705,10 @@ EncodedJSValue jsTestInterfaceConstructorSupplementalStaticAttr(JSGlobalObject* 
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline bool setJSTestInterfaceConstructorSupplementalStaticAttrSetter(JSGlobalObject& lexicalGlobalObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceConstructorSupplementalStaticAttrSetter(JSGlobalObject& lexicalGlobalObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto nativeValue = convert<IDLDOMString>(lexicalGlobalObject, value);
     RETURN_IF_EXCEPTION(throwScope, false);
     AttributeSetter::call(lexicalGlobalObject, throwScope, [&] {
@@ -719,13 +725,12 @@ bool setJSTestInterfaceConstructorSupplementalStaticAttr(JSGlobalObject* lexical
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSValue jsTestInterfaceSupplementalStr1Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceSupplementalStr1Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, WebCore::TestSupplemental::supplementalStr1(impl));
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, WebCore::TestSupplemental::supplementalStr1(impl))));
 }
 
 EncodedJSValue jsTestInterfaceSupplementalStr1(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -736,13 +741,12 @@ EncodedJSValue jsTestInterfaceSupplementalStr1(JSGlobalObject* lexicalGlobalObje
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSValue jsTestInterfaceSupplementalStr2Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceSupplementalStr2Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, WebCore::TestSupplemental::supplementalStr2(impl));
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, WebCore::TestSupplemental::supplementalStr2(impl))));
 }
 
 EncodedJSValue jsTestInterfaceSupplementalStr2(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -753,10 +757,10 @@ EncodedJSValue jsTestInterfaceSupplementalStr2(JSGlobalObject* lexicalGlobalObje
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline bool setJSTestInterfaceSupplementalStr2Setter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceSupplementalStr2Setter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
     auto nativeValue = convert<IDLDOMString>(lexicalGlobalObject, value);
     RETURN_IF_EXCEPTION(throwScope, false);
@@ -774,9 +778,8 @@ bool setJSTestInterfaceSupplementalStr2(JSGlobalObject* lexicalGlobalObject, Enc
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSValue jsTestInterfaceSupplementalStr3Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceSupplementalStr3Getter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
     UNUSED_PARAM(lexicalGlobalObject);
     return thisObject.supplementalStr3(lexicalGlobalObject);
 }
@@ -789,10 +792,9 @@ EncodedJSValue jsTestInterfaceSupplementalStr3(JSGlobalObject* lexicalGlobalObje
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline bool setJSTestInterfaceSupplementalStr3Setter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceSupplementalStr3Setter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
     thisObject.setSupplementalStr3(lexicalGlobalObject, value);
     return true;
 }
@@ -805,13 +807,12 @@ bool setJSTestInterfaceSupplementalStr3(JSGlobalObject* lexicalGlobalObject, Enc
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSValue jsTestInterfaceSupplementalNodeGetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceSupplementalNodeGetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLInterface<Node>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, WebCore::TestSupplemental::supplementalNode(impl));
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLInterface<Node>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, WebCore::TestSupplemental::supplementalNode(impl))));
 }
 
 EncodedJSValue jsTestInterfaceSupplementalNode(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -822,10 +823,10 @@ EncodedJSValue jsTestInterfaceSupplementalNode(JSGlobalObject* lexicalGlobalObje
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline bool setJSTestInterfaceSupplementalNodeSetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceSupplementalNodeSetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
     auto nativeValue = convert<IDLInterface<Node>>(lexicalGlobalObject, value, [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwAttributeTypeError(lexicalGlobalObject, scope, "TestInterface", "supplementalNode", "Node"); });
     RETURN_IF_EXCEPTION(throwScope, false);
@@ -843,13 +844,12 @@ bool setJSTestInterfaceSupplementalNode(JSGlobalObject* lexicalGlobalObject, Enc
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSValue jsTestInterfaceReflectAttributeGetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestInterfaceReflectAttributeGetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.attributeWithoutSynchronization(WebCore::HTMLNames::reflectattributeAttr));
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.attributeWithoutSynchronization(WebCore::HTMLNames::reflectattributeAttr))));
 }
 
 EncodedJSValue jsTestInterfaceReflectAttribute(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -860,10 +860,10 @@ EncodedJSValue jsTestInterfaceReflectAttribute(JSGlobalObject* lexicalGlobalObje
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline bool setJSTestInterfaceReflectAttributeSetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value, ThrowScope& throwScope)
+static inline bool setJSTestInterfaceReflectAttributeSetter(JSGlobalObject& lexicalGlobalObject, JSTestInterface& thisObject, JSValue value)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(throwScope);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
     auto nativeValue = convert<IDLDOMString>(lexicalGlobalObject, value);
     RETURN_IF_EXCEPTION(throwScope, false);
@@ -881,12 +881,14 @@ bool setJSTestInterfaceReflectAttribute(JSGlobalObject* lexicalGlobalObject, Enc
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionImplementsMethod1Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionImplementsMethod1Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
+    throwScope.release();
     impl.implementsMethod1();
     return JSValue::encode(jsUndefined());
 }
@@ -899,22 +901,25 @@ EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionImplementsMethod1(J
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionImplementsMethod2Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionImplementsMethod2Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
     if (UNLIKELY(callFrame->argumentCount() < 2))
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     auto* context = jsCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext();
     if (UNLIKELY(!context))
         return JSValue::encode(jsUndefined());
-    auto strArg = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto strArg = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    auto objArg = convert<IDLInterface<TestObj>>(*lexicalGlobalObject, callFrame->uncheckedArgument(1), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 1, "objArg", "TestInterface", "implementsMethod2", "TestObj"); });
+    EnsureStillAliveScope argument1 = callFrame->uncheckedArgument(1);
+    auto objArg = convert<IDLInterface<TestObj>>(*lexicalGlobalObject, argument1.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 1, "objArg", "TestInterface", "implementsMethod2", "TestObj"); });
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLInterface<TestObj>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, impl.implementsMethod2(*context, WTFMove(strArg), *objArg)));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLInterface<TestObj>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, impl.implementsMethod2(*context, WTFMove(strArg), *objArg))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionImplementsMethod2(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -925,12 +930,13 @@ EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionImplementsMethod2(J
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionImplementsMethod3Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionImplementsMethod3Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
-    return JSValue::encode(castedThis->implementsMethod3(*lexicalGlobalObject, *callFrame));
+    UNUSED_PARAM(callFrame);
+    RELEASE_AND_RETURN(throwScope, (JSValue::encode(castedThis->implementsMethod3(*lexicalGlobalObject, *callFrame))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionImplementsMethod3(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -941,11 +947,13 @@ EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionImplementsMethod3(J
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSC::EncodedJSValue jsTestInterfaceConstructorFunctionImplementsMethod4Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfaceConstructorFunctionImplementsMethod4Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
+    throwScope.release();
     TestInterface::implementsMethod4();
     return JSValue::encode(jsUndefined());
 }
@@ -958,14 +966,15 @@ EncodedJSValue JSC_HOST_CALL jsTestInterfaceConstructorFunctionImplementsMethod4
 #endif
 
 #if ENABLE(Condition22) || ENABLE(Condition23)
-static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionTakeNodesBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionTakeNodesBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
     auto implResult = impl.takeNodes();
-    return JSValue::encode(toJS<IDLSequence<IDLInterface<Node>>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(implResult.nodes)));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLSequence<IDLInterface<Node>>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(implResult.nodes))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionTakeNodes(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -976,12 +985,14 @@ EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionTakeNodes(JSGlobalO
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionSupplementalMethod1Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionSupplementalMethod1Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
+    throwScope.release();
     WebCore::TestSupplemental::supplementalMethod1(impl);
     return JSValue::encode(jsUndefined());
 }
@@ -994,22 +1005,25 @@ EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionSupplementalMethod1
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionSupplementalMethod2Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionSupplementalMethod2Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
     if (UNLIKELY(callFrame->argumentCount() < 2))
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
     auto* context = jsCast<JSDOMGlobalObject*>(lexicalGlobalObject)->scriptExecutionContext();
     if (UNLIKELY(!context))
         return JSValue::encode(jsUndefined());
-    auto strArg = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto strArg = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    auto objArg = convert<IDLInterface<TestObj>>(*lexicalGlobalObject, callFrame->uncheckedArgument(1), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 1, "objArg", "TestInterface", "supplementalMethod2", "TestObj"); });
+    EnsureStillAliveScope argument1 = callFrame->uncheckedArgument(1);
+    auto objArg = convert<IDLInterface<TestObj>>(*lexicalGlobalObject, argument1.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 1, "objArg", "TestInterface", "supplementalMethod2", "TestObj"); });
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLInterface<TestObj>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WebCore::TestSupplemental::supplementalMethod2(impl, *context, WTFMove(strArg), *objArg)));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLInterface<TestObj>>(*lexicalGlobalObject, *castedThis->globalObject(), throwScope, WebCore::TestSupplemental::supplementalMethod2(impl, *context, WTFMove(strArg), *objArg))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionSupplementalMethod2(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -1020,12 +1034,13 @@ EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionSupplementalMethod2
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionSupplementalMethod3Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfacePrototypeFunctionSupplementalMethod3Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestInterface>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
-    return JSValue::encode(castedThis->supplementalMethod3(*lexicalGlobalObject, *callFrame));
+    UNUSED_PARAM(callFrame);
+    RELEASE_AND_RETURN(throwScope, (JSValue::encode(castedThis->supplementalMethod3(*lexicalGlobalObject, *callFrame))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionSupplementalMethod3(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -1036,11 +1051,13 @@ EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionSupplementalMethod3
 #endif
 
 #if ENABLE(Condition11) || ENABLE(Condition12)
-static inline JSC::EncodedJSValue jsTestInterfaceConstructorFunctionSupplementalMethod4Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestInterfaceConstructorFunctionSupplementalMethod4Body(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
+    throwScope.release();
     WebCore::TestSupplemental::supplementalMethod4();
     return JSValue::encode(jsUndefined());
 }
@@ -1058,18 +1075,66 @@ struct TestInterfaceIteratorTraits {
     using ValueType = IDLInterface<TestObj>;
 };
 
-using TestInterfaceIterator = JSDOMIterator<JSTestInterface, TestInterfaceIteratorTraits>;
+using TestInterfaceIteratorBase = JSDOMIteratorBase<JSTestInterface, TestInterfaceIteratorTraits>;
+class TestInterfaceIterator final : public TestInterfaceIteratorBase {
+public:
+    using Base = TestInterfaceIteratorBase;
+    DECLARE_INFO;
+
+    template<typename, JSC::SubspaceAccess mode> static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        if constexpr (mode == JSC::SubspaceAccess::Concurrently)
+            return nullptr;
+        auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
+        auto& spaces = clientData.subspaces();
+        if (auto* space = spaces.m_subspaceForTestInterfaceIterator.get())
+            return space;
+        static_assert(std::is_base_of_v<JSC::JSDestructibleObject, TestInterfaceIterator> || !TestInterfaceIterator::needsDestruction);
+        if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, TestInterfaceIterator>)
+            spaces.m_subspaceForTestInterfaceIterator = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), TestInterfaceIterator);
+        else
+            spaces.m_subspaceForTestInterfaceIterator = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), TestInterfaceIterator);
+        auto* space = spaces.m_subspaceForTestInterfaceIterator.get();
+IGNORE_WARNINGS_BEGIN("unreachable-code")
+IGNORE_WARNINGS_BEGIN("tautological-compare")
+        if (&TestInterfaceIterator::visitOutputConstraints != &JSC::JSCell::visitOutputConstraints)
+            clientData.outputConstraintSpaces().append(space);
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
+        return space;
+    }
+
+    static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
+    {
+        return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
+    }
+
+    static TestInterfaceIterator* create(JSC::VM& vm, JSC::Structure* structure, JSTestInterface& iteratedObject, IterationKind kind)
+    {
+        auto* instance = new (NotNull, JSC::allocateCell<TestInterfaceIterator>(vm.heap)) TestInterfaceIterator(structure, iteratedObject, kind);
+        instance->finishCreation(vm);
+        return instance;
+    }
+
+private:
+    TestInterfaceIterator(JSC::Structure* structure, JSTestInterface& iteratedObject, IterationKind kind)
+        : Base(structure, iteratedObject, kind)
+    {
+    }
+};
+
 using TestInterfaceIteratorPrototype = JSDOMIteratorPrototype<JSTestInterface, TestInterfaceIteratorTraits>;
 
 template<>
+const JSC::ClassInfo TestInterfaceIteratorBase::s_info = { "TestInterface Iterator", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(TestInterfaceIteratorBase) };
 const JSC::ClassInfo TestInterfaceIterator::s_info = { "TestInterface Iterator", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(TestInterfaceIterator) };
 
 template<>
 const JSC::ClassInfo TestInterfaceIteratorPrototype::s_info = { "TestInterface Iterator", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(TestInterfaceIteratorPrototype) };
 
-static inline EncodedJSValue jsTestInterfacePrototypeFunctionEntriesCaller(JSGlobalObject*, CallFrame*, JSTestInterface* thisObject, JSC::ThrowScope&)
+static inline EncodedJSValue jsTestInterfacePrototypeFunctionEntriesCaller(JSGlobalObject*, CallFrame*, JSTestInterface* thisObject)
 {
-    return JSValue::encode(iteratorCreate<TestInterfaceIterator>(*thisObject, IterationKind::KeyValue));
+    return JSValue::encode(iteratorCreate<TestInterfaceIterator>(*thisObject, IterationKind::Entries));
 }
 
 JSC::EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionEntries(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame)
@@ -1077,9 +1142,9 @@ JSC::EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionEntries(JSC::J
     return IDLOperation<JSTestInterface>::call<jsTestInterfacePrototypeFunctionEntriesCaller>(*lexicalGlobalObject, *callFrame, "entries");
 }
 
-static inline EncodedJSValue jsTestInterfacePrototypeFunctionKeysCaller(JSGlobalObject*, CallFrame*, JSTestInterface* thisObject, JSC::ThrowScope&)
+static inline EncodedJSValue jsTestInterfacePrototypeFunctionKeysCaller(JSGlobalObject*, CallFrame*, JSTestInterface* thisObject)
 {
-    return JSValue::encode(iteratorCreate<TestInterfaceIterator>(*thisObject, IterationKind::Key));
+    return JSValue::encode(iteratorCreate<TestInterfaceIterator>(*thisObject, IterationKind::Keys));
 }
 
 JSC::EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionKeys(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame)
@@ -1087,9 +1152,9 @@ JSC::EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionKeys(JSC::JSGl
     return IDLOperation<JSTestInterface>::call<jsTestInterfacePrototypeFunctionKeysCaller>(*lexicalGlobalObject, *callFrame, "keys");
 }
 
-static inline EncodedJSValue jsTestInterfacePrototypeFunctionValuesCaller(JSGlobalObject*, CallFrame*, JSTestInterface* thisObject, JSC::ThrowScope&)
+static inline EncodedJSValue jsTestInterfacePrototypeFunctionValuesCaller(JSGlobalObject*, CallFrame*, JSTestInterface* thisObject)
 {
-    return JSValue::encode(iteratorCreate<TestInterfaceIterator>(*thisObject, IterationKind::Value));
+    return JSValue::encode(iteratorCreate<TestInterfaceIterator>(*thisObject, IterationKind::Values));
 }
 
 JSC::EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionValues(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame)
@@ -1097,14 +1162,35 @@ JSC::EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionValues(JSC::JS
     return IDLOperation<JSTestInterface>::call<jsTestInterfacePrototypeFunctionValuesCaller>(*lexicalGlobalObject, *callFrame, "values");
 }
 
-static inline EncodedJSValue jsTestInterfacePrototypeFunctionForEachCaller(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame, JSTestInterface* thisObject, JSC::ThrowScope& throwScope)
+static inline EncodedJSValue jsTestInterfacePrototypeFunctionForEachCaller(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame, JSTestInterface* thisObject)
 {
-    return JSValue::encode(iteratorForEach<TestInterfaceIterator>(*lexicalGlobalObject, *callFrame, *thisObject, throwScope));
+    return JSValue::encode(iteratorForEach<TestInterfaceIterator>(*lexicalGlobalObject, *callFrame, *thisObject));
 }
 
 JSC::EncodedJSValue JSC_HOST_CALL jsTestInterfacePrototypeFunctionForEach(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame)
 {
     return IDLOperation<JSTestInterface>::call<jsTestInterfacePrototypeFunctionForEachCaller>(*lexicalGlobalObject, *callFrame, "forEach");
+}
+
+JSC::IsoSubspace* JSTestInterface::subspaceForImpl(JSC::VM& vm)
+{
+    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
+    auto& spaces = clientData.subspaces();
+    if (auto* space = spaces.m_subspaceForTestInterface.get())
+        return space;
+    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestInterface> || !JSTestInterface::needsDestruction);
+    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestInterface>)
+        spaces.m_subspaceForTestInterface = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestInterface);
+    else
+        spaces.m_subspaceForTestInterface = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestInterface);
+    auto* space = spaces.m_subspaceForTestInterface.get();
+IGNORE_WARNINGS_BEGIN("unreachable-code")
+IGNORE_WARNINGS_BEGIN("tautological-compare")
+    if (&JSTestInterface::visitOutputConstraints != &JSC::JSCell::visitOutputConstraints)
+        clientData.outputConstraintSpaces().append(space);
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
+    return space;
 }
 
 void JSTestInterface::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
@@ -1119,7 +1205,8 @@ void JSTestInterface::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
 bool JSTestInterfaceOwner::isReachableFromOpaqueRoots(JSC::Handle<JSC::Unknown> handle, void*, SlotVisitor& visitor, const char** reason)
 {
     auto* jsTestInterface = jsCast<JSTestInterface*>(handle.slot()->asCell());
-    if (jsTestInterface->wrapped().hasPendingActivity()) {
+    auto& wrapped = jsTestInterface->wrapped();
+    if (!wrapped.isContextStopped() && wrapped.hasPendingActivity()) {
         if (UNLIKELY(reason))
             *reason = "ActiveDOMObject with pending activity";
         return true;

@@ -102,21 +102,26 @@ pthread_cond_t cleanup_done_cv = PTHREAD_COND_INITIALIZER;
 static int
 make_ephemeral_link(struct autodir *dir)
 {
+	bool_t hidden = FALSE;
 	int rv;
+
+	if (verbose > 2) {
+		printf("debug[%d]:%s:%s:start\n", verbose, __FUNCTION__, dir->dir_name);
+	}
 
 	if (dir->dir_linkname == NULL) {
 		/* Nothing to do. */
-		return 0;
+		rv = 0;
+		goto out;
 	}
 
-	bool_t hidden = FALSE;
 
 	if (dir->dir_linktarget == NULL) {
 		asprintf(&dir->dir_linktarget, "%s%s",
 			 rosv_data_volume_prefix(NULL), dir->dir_linkname);
 		if (dir->dir_linktarget == NULL) {
-			errno = ENOMEM;
-			return -1;
+			rv = ENOMEM;
+			goto out;
 		}
 	}
 
@@ -130,37 +135,47 @@ make_ephemeral_link(struct autodir *dir)
 		 * If not, then report an error.  We also report an error if
 		 * it's any other kind of file system object.
 		 */
+		if (verbose > 3) {
+			printf("debug[%d]:%s:%s:exists\n", verbose, __FUNCTION__, dir->dir_linkname);
+		}
+
+		char link_target[PATH_MAX];
+		memset(link_target, 0, sizeof(link_target));
+
 		if (S_ISLNK(sb.st_mode)) {
-			char link_target[PATH_MAX];
-			memset(link_target, 0, sizeof(link_target));
-			if (readlink(dir->dir_linkname, link_target,
-				     sizeof(link_target)) == -1) {
-				pr_msg(LOG_ERR,
-				       "Unable to read symlink at '%s': %s",
-				       dir->dir_linkname, strerror(errno));
+			if (readlink(dir->dir_linkname, link_target, sizeof(link_target)) == -1) {
+				pr_msg(LOG_ERR, "Unable to read symlink at '%s': %s", dir->dir_linkname, strerror(errno));
 				rv = -1;
-				goto out;
 			}
-			if (strcmp(dir->dir_linktarget, link_target) != 0) {
-				pr_msg(LOG_ERR, "Conflicting symlink at '%s'.",
-				       dir->dir_linkname);
+		} else if (S_ISDIR(sb.st_mode)) {
+			/*
+			 * We might be dealing with firmlink as the first component of the -static map
+			 */
+			if (automount_realpath(dir->dir_linkname, link_target) == NULL)
+			{
+				pr_msg(LOG_ERR, "Conflicting file system object at '%s'[0x%x].", dir->dir_linkname, sb.st_mode & S_IFMT);
 				rv = -1;
-				goto out;
 			}
 		} else {
-			pr_msg(LOG_ERR,
-			       "Conflicting file system object at '%s'.",
-			       dir->dir_linkname);
+			pr_msg(LOG_ERR, "Conflicting file system object at '%s' [0x%x].", dir->dir_linkname, sb.st_mode & S_IFMT);
 			rv = -1;
-			goto out;
 		}
-		/*
-		 * Symlink exists that already points to the right place?
-		 * Sweet!  No work to do!
-		 */
+
+		if (verbose > 3) {
+			printf("debug[%d]:%s:%s->%s\n", verbose, __FUNCTION__, dir->dir_linkname, dir->dir_linktarget);
+		}
+
+		if (!rv && strcmp(dir->dir_linktarget, link_target) != 0) {
+			pr_msg(LOG_ERR, "%s points to unexpected location %s, instead of %s", dir->dir_linkname, link_target, dir->dir_linktarget);
+			rv = -1;
+		}
+
 		goto out;
 	}
 
+	if (verbose > 3) {
+		printf("debug[%d]:%s:creating:%s->%s", verbose, __FUNCTION__, dir->dir_linkname, dir->dir_linktarget);
+	}
 	if ((rv = synthetic_symlink(dir->dir_linkname,
 				    dir->dir_linktarget, hidden)) != 0) {
 		const char *link_type = "ephemeral";
@@ -187,9 +202,15 @@ make_ephemeral_link(struct autodir *dir)
 			pr_msg(LOG_WARNING, "making %s link: %s: %m", link_type,
 			       dir->dir_linkname);
 		}
+	} else {
+		/* if we were succeful in creating ephemeral symlink, we already set hidden flag on it*/
+		hidden = FALSE;
 	}
  out:
 
+	if (verbose > 2) {
+		printf("debug[%d]:%s:%s:%d:finish\n", verbose, __FUNCTION__, dir->dir_name, rv);
+	}
 	return rv;
 }
 
@@ -731,7 +752,10 @@ main(int argc, char *argv[])
 			else
 				st_flags &= ~UF_HIDDEN;
 			if (chflags(dir->dir_name, st_flags) < 0)
-				pr_msg(LOG_WARNING, "%s: can't set hidden", dir->dir_name);
+			{
+				pr_msg(LOG_WARNING, "(%s -> %s): can't set hidden", dir->dir_name, dir->dir_realpath ? dir->dir_realpath : "null");
+			}
+
 
 			/*
 			 * Mount it.  Use the real path (symlink-free),
@@ -935,13 +959,24 @@ find_mount(mntpnt)
 {
 	int i;
 	struct statfs *mnt;
+	char curr_mnt_fullpath[PATH_MAX] = {0};
+	char mntpnt_fullpath[PATH_MAX] = {0};
+
+	if (!automount_realpath(mntpnt, mntpnt_fullpath)) {
+		goto out;
+	}
 
 	for (i = 0; i < num_current_mounts; i++) {
 		mnt = &current_mounts[i];
-		if (strcmp(mntpnt, mnt->f_mntonname) == 0)
+		if (!automount_realpath(mnt->f_mntonname, curr_mnt_fullpath)) {
+			goto out;
+		}
+		if (strcmp(curr_mnt_fullpath, mntpnt_fullpath) == 0) {
 			return (mnt);
+		}
 	}
 
+out:
 	return (NULL);
 }
 
@@ -1031,10 +1066,16 @@ do_unmounts(void)
 
 		current = 0;
 		for (dir = dir_head; dir; dir = dir->dir_next) {
-			if (dir->dir_realpath != NULL &&
-			    strcmp(dir->dir_realpath, mnt->f_mntonname) == 0) {
-				current = strcmp(dir->dir_map, "-null");
-				break;
+			char dir_realpath[PATH_MAX] = {0};
+			char mnt_realpath[PATH_MAX] = {0};
+
+			if (dir->dir_realpath != NULL) {
+				automount_realpath(dir->dir_realpath, dir_realpath);
+				automount_realpath(mnt->f_mntonname, mnt_realpath);
+			    if (strcmp(dir_realpath, mnt_realpath) == 0) {
+					current = strcmp(dir->dir_map, "-null");
+					break;
+				}
 			}
 		}
 		if (current)

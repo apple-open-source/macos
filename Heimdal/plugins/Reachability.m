@@ -45,8 +45,8 @@
 
 #import <Foundation/Foundation.h>
 #import <SystemConfiguration/SystemConfiguration.h>
-#import <krb5.h>
-#import <locate_plugin.h>
+#import <Heimdal/krb5.h>
+#import <Heimdal/locate_plugin.h>
 
 /**
  * Reachablity plugin reads System Configuration to pick up the realm

@@ -60,6 +60,8 @@ __unused static const char rcsid[] =
 #include <errno.h>
 #include <inttypes.h>
 #include <locale.h>
+#ifdef __APPLE__
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -748,6 +750,14 @@ show_var(int *oid, int nlen)
 	bzero(name, BUFSIZ);
 	qoid[0] = 0;
 	memcpy(qoid + 2, oid, nlen * sizeof(int));
+	fmt = (char *)buf;
+	oidfmt(oid, nlen, fmt, &kind);
+
+#ifdef __APPLE__
+	if (!show_masked && (kind & CTLFLAG_MASKED)) {
+		return (1);
+	}
+#endif
 
 #ifdef __APPLE__
 	// Support for CTL_USER
@@ -815,19 +825,10 @@ show_var(int *oid, int nlen)
 		return (0);
 	}
 	val[len] = '\0';
-	fmt = (char *)buf;
-	oidfmt(oid, nlen, fmt, &kind);
 	p = val;
 	ctltype = (kind & CTLTYPE);
 	sign = ctl_sign[ctltype];
 	intlen = ctl_size[ctltype];
-
-#ifdef __APPLE__
-	if (!show_masked && (kind & CTLFLAG_MASKED)) {
-		free(oval);
-		return (1);
-	}
-#endif
 
 	switch (ctltype) {
 	case CTLTYPE_STRING:
@@ -954,6 +955,9 @@ sysctl_all_user(int *oid, int len)
 static int
 sysctl_all(int *oid, int len)
 {
+#ifdef __APPLE__
+#endif
+
 	int name1[22], name2[22];
 	int i, j;
 	size_t l1, l2;

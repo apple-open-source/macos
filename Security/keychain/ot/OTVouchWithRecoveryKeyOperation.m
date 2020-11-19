@@ -29,6 +29,7 @@
 #import "keychain/ot/OTClientStateMachine.h"
 #import "keychain/ot/OTCuttlefishContext.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"
+#import "keychain/ot/OTStates.h"
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
@@ -49,6 +50,7 @@
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState
                          recoveryKey:(NSString*)recoveryKey
+                         saveVoucher:(BOOL)saveVoucher
 {
     if((self = [super init])) {
         _deps = dependencies;
@@ -56,6 +58,8 @@
         _nextState = errorState;
 
         _recoveryKey = recoveryKey;
+
+        _saveVoucher = saveVoucher;
     }
     return self;
 }
@@ -92,8 +96,7 @@
                                                                    recoveryKey:self.recoveryKey
                                                                           salt:self.salt
                                                                     reply:^(NSString * _Nullable recoveryKeyID,
-                                                                            NSSet<NSString*>* peerSyncingViews,
-                                                                            TPPolicy* peerSyncingPolicy,
+                                                                            TPSyncingPolicy* _Nullable peerSyncingPolicy,
                                                                             NSError * _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventPreflightVouchWithRecoveryKey hardFailure:true result:error];
@@ -109,7 +112,7 @@
 
         // Tell CKKS to spin up the new views and policy
         // But, do not persist this view set! We'll do that when we actually manage to join
-        [self.deps.viewManager setSyncingViews:peerSyncingViews sortingPolicy:peerSyncingPolicy];
+        [self.deps.viewManager setCurrentSyncingPolicy:peerSyncingPolicy];
 
         [self proceedWithRecoveryKeyID:recoveryKeyID];
     }];
@@ -120,7 +123,8 @@
     WEAKIFY(self);
 
     // After a vouch, we also want to acquire all TLKs that the bottled peer might have had
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
+                                                                                     refetchNeeded:NO];
     [self runBeforeGroupFinished:fetchKeysOp];
 
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"recovery-tlks"
@@ -133,6 +137,15 @@
             if(recoveryKeyID == nil || [share.receiverPeerID isEqualToString:recoveryKeyID]) {
                 [filteredTLKShares addObject:share];
             }
+        }
+
+        if(fetchKeysOp.viewsTimedOutWithoutKeysets.count > 0) {
+            // At least one view failed to find a keyset in time.
+            // Set up a retry with this recovery key, once CKKS is done fetching
+            secnotice("octagon", "Timed out fetching key hierarchy for CKKS views; marking for TLK recovery follow up: %@", fetchKeysOp.viewsTimedOutWithoutKeysets);
+            OctagonPendingFlag* flag = [[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptRecoveryKeyTLKExtraction
+                                                                          after:self.deps.viewManager.zoneChangeFetcher.inflightFetch];
+            [self.deps.flagHandler handlePendingFlag:flag];
         }
 
         [self proceedWithKeys:fetchKeysOp.viewKeySets tlkShares:filteredTLKShares salt:self.salt];
@@ -162,6 +175,23 @@
             }
             self.voucher = voucher;
             self.voucherSig = voucherSig;
+
+            if(self.saveVoucher) {
+                secnotice("octagon", "Saving voucher for later use...");
+                NSError* saveError = nil;
+                [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
+                    metadata.voucher = voucher;
+                    metadata.voucherSignature = voucherSig;
+                    return metadata;
+                } error:&saveError];
+                if(saveError) {
+                    secnotice("octagon", "unable to save voucher: %@", saveError);
+                    [self runBeforeGroupFinished:self.finishOp];
+                    return;
+                }
+            }
+
+            secnotice("octagon", "Successfully vouched with a recovery key: %@, %@", voucher, voucherSig);
             self.nextState = self.intendedState;
             [self runBeforeGroupFinished:self.finishOp];
         }];

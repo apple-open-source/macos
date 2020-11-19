@@ -12,6 +12,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_NORMALIZATION
 
 #include "unicode/uobject.h"
@@ -30,7 +32,6 @@
 #define CANITER_SKIP_ZEROES TRUE
 #endif
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class Hashtable;
@@ -205,8 +206,9 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_NORMALIZATION */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

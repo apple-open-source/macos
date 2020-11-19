@@ -2223,7 +2223,7 @@ static PHP_FUNCTION(session_regenerate_id)
 		RETURN_FALSE;
 	}
 	if (PS(use_strict_mode) && PS(mod)->s_validate_sid &&
-		PS(mod)->s_validate_sid(&PS(mod_data), PS(id)) == FAILURE) {
+		PS(mod)->s_validate_sid(&PS(mod_data), PS(id)) == SUCCESS) {
 		zend_string_release_ex(PS(id), 0);
 		PS(id) = PS(mod)->s_create_sid(&PS(mod_data));
 		if (!PS(id)) {
@@ -2285,8 +2285,9 @@ static PHP_FUNCTION(session_create_id)
 				break;
 			} else {
 				/* Detect collision and retry */
-				if (PS(mod)->s_validate_sid(&PS(mod_data), new_id) == FAILURE) {
+				if (PS(mod)->s_validate_sid(&PS(mod_data), new_id) == SUCCESS) {
 					zend_string_release_ex(new_id, 0);
+                    new_id = NULL;
 					continue;
 				}
 				break;
@@ -3307,10 +3308,12 @@ static int php_session_rfc1867_callback(unsigned int event, void *event_data, vo
 				if (PS(rfc1867_cleanup)) {
 					php_session_rfc1867_cleanup(progress);
 				} else {
-					SEPARATE_ARRAY(&progress->data);
-					add_assoc_bool_ex(&progress->data, "done", sizeof("done") - 1, 1);
-					Z_LVAL_P(progress->post_bytes_processed) = data->post_bytes_processed;
-					php_session_rfc1867_update(progress, 1);
+					if (!Z_ISUNDEF(progress->data)) {
+						SEPARATE_ARRAY(&progress->data);
+						add_assoc_bool_ex(&progress->data, "done", sizeof("done") - 1, 1);
+						Z_LVAL_P(progress->post_bytes_processed) = data->post_bytes_processed;
+						php_session_rfc1867_update(progress, 1);
+					}
 				}
 				php_rshutdown_session_globals();
 			}

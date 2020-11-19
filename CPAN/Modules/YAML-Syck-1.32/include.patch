@@ -1,0 +1,21 @@
+diff -Nurp YAML-Syck-1.32-orig/inc/ExtUtils/HasCompiler.pm YAML-Syck-1.32/inc/ExtUtils/HasCompiler.pm
+--- YAML-Syck-1.32-orig/inc/ExtUtils/HasCompiler.pm	2020-01-27 11:50:49.000000000 -0800
++++ YAML-Syck-1.32/inc/ExtUtils/HasCompiler.pm	2020-04-27 19:25:17.000000000 -0700
+@@ -114,7 +114,7 @@ sub can_compile_loadable_object {
+ 		elsif ($^O eq 'android') {
+ 			push @extra, qq{"-L$incdir"}, '-lperl', $perllibs;
+ 		}
+-		push @commands, qq{$cc $ccflags $optimize "-I$incdir" $cccdlflags -c $source_name -o $object_file};
++		push @commands, qq{$cc $ccflags $optimize -iwithsysroot "$incdir" $cccdlflags -c $source_name -o $object_file};
+ 		push @commands, qq{$ld $object_file -o $loadable_object $lddlflags @extra};
+ 	}
+ 
+@@ -177,7 +177,7 @@ sub can_compile_static_library {
+ 	}
+ 	else {
+ 		my $my_ar = length $full_ar ? $full_ar : $ar;
+-		push @commands, qq{$cc $ccflags $optimize "-I$incdir" -c $source_name -o $object_file};
++		push @commands, qq{$cc $ccflags $optimize -iwithsysroot "$incdir" -c $source_name -o $object_file};
+ 		push @commands, qq{$my_ar cr $static_library $object_file};
+ 		push @commands, qq{$ranlib $static_library} if $ranlib ne ':';
+ 	}

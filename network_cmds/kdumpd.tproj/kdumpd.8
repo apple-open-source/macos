@@ -32,7 +32,7 @@
 .\"	@(#)tftpd.8	8.1 (Berkeley) 6/4/93
 .\" $FreeBSD: src/libexec/tftpd/tftpd.8,v 1.15 2001/07/15 07:53:42 dd Exp $
 .\"
-.Dd August 29, 2003
+.Dd June 10, 2020
 .Dt KDUMPD 8
 .Os
 .Sh NAME
@@ -53,16 +53,18 @@ server operates
 on UDP port 1069, although this
 may be configurable in the future.
 The server should be started by
-.Xr inetd 8 .
+.Xr launchctl 1 .
 .Pp
 The server should have the user ID
 with the lowest possible privilege,
 usually the user "nobody". 
-The directory specified as a server 
-program argument in
-.Pa /etc/inetd.conf
-directs the server to store kernel cores
-in that directory and nowhere else. 
+.Pp
+By default the server stores kernel cores
+in the directory
+.Pa /var/tmp/PanicDumps .
+The directory needs to already exist for kdumpd
+to save core dumps.
+.Pp
 The server returns an EEXIST error
 to the remote kernel if it receives a
 request for an existing file - i.e.
@@ -73,5 +75,9 @@ incoming file name.
 The
 .Nm
 command is based on Berkeley
-.Xr tftpd 8
+.Xr tftpd 8 ,
 by way of FreeBSD, with several modifications.
+.Sh SEE ALSO
+.Xr launchd 8 ,
+.Xr launchctl 1 ,
+.Xr launchd.plist 5

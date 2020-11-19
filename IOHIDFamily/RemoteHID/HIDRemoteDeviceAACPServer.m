@@ -17,7 +17,7 @@
 #pragma clang diagnostic pop
 #import "HIDRemoteSimpleProtocol.h"
 #import "RemoteHIDPrivate.h"
-#import <IOKit/hid/IOHIDKeys.h>
+#import <IOKit/hid/IOHIDPrivateKeys.h>
 #import <mach/mach_time.h>
 #import <TimeSync/TimeSync.h>
 
@@ -35,6 +35,7 @@ static uint16_t generation;
     dispatch_queue_t        _queue;
     TSClockManager          *_coreTimeSyncManager;
     TSUserFilteredClock     *_timeSyncClock;
+    NSMutableDictionary     *_endpointTimeSyncEnabled;
 }
 
 @end
@@ -49,13 +50,14 @@ static uint16_t generation;
     }
     
     _queue = dispatch_queue_create("com.apple.hidrc.bluetooth", DISPATCH_QUEUE_SERIAL);
+
+    self->_endpointTimeSyncEnabled = [[NSMutableDictionary alloc] init];
     
     return self;
 }
 
 - (NSString *)description
 {
-    uint64_t serviceID = 0;
     return [NSString stringWithFormat:@"<HIDRemoteDeviceAACPServer timeSync:%s %@>",
             (_timeSyncClock ? "YES" : "NO"), [super description]];
 }
@@ -182,17 +184,6 @@ static uint16_t generation;
         os_log_error (RemoteHIDLog (), "BTAccessoryManagerRegisterCustomMessageClient:%d", status);
         return;
     }
-
-    // XXX Workaround until BT allows TimeSyncEnable after audio has started.
-    // TimeSync Setup
-    // Will fail if BT TimeSync is not enabled, so ignore errors
-    status = BTAccessoryManagerRemoteTimeSyncEnable(_manager, device, BT_TRUE);
-    if (status != BT_SUCCESS) {
-        os_log(RemoteHIDLog(), "Couldn't enable timesync for device:%p status:%d", device, status);
-    }
-    else {
-        os_log(RemoteHIDLog(), "Enabled timesync for device:%p", device);
-    }
  
     endpoint =  [NSValue valueWithPointer:device];
     
@@ -226,7 +217,6 @@ exit:
 
 -(BTResult) sendMessageBTDevice:(BTDevice) device data:(BTData) data size:(size_t) size
 {
-    
     os_log_debug (RemoteHIDLogPackets (), "[%p] send packet:%{RemoteHID:packet}.*P", device, (int)size , data);
 
     BTResult status = BTAccessoryManagerSendCustomMessage (_manager, HID_AACP_MESSAGE_TYPE, device, data,  size);
@@ -239,12 +229,19 @@ exit:
 
 -(void) removeBTDevice:(BTDevice) device
 {
-    BTResult status;
-
     os_log (RemoteHIDLog (), "HID AACP device remove:%p", device);
     
     NSValue * endpoint = [NSValue valueWithPointer:device];
     [self disconnectEndpoint:endpoint];
+
+    id timeSyncEnabled = _endpointTimeSyncEnabled[endpoint];
+    if ([@(YES) isEqual:timeSyncEnabled]) {
+        BTResult status = BTAccessoryManagerRemoteTimeSyncEnable(_manager, device, BT_FALSE);
+        if (status != BT_SUCCESS) {
+            os_log(RemoteHIDLog(), "Couldn't disable timesync for device:%p status:%d", device, status);
+        }
+        _endpointTimeSyncEnabled[endpoint] = @(NO);
+    }
 }
 
 -(void) btDeviceMessageHandler:(BTDevice) device type:(BTAccessoryCustomMessageType) type data:(BTData) data size:(size_t)dataSize
@@ -353,6 +350,29 @@ exit:
         }
     }
 
+    // Enable Timesync if property is set for this device.
+    // Also enable if "ProtUpdate" transitionary property is missing, to support backwards compatibility.
+    // TODO: Remove "ProtUpdate" property after transitionary period.
+    id prop1 = property[@kIOHIDTimeSyncEnabledKey];
+    id prop2 = property[@"ProtUpdate"];
+    if (([prop1 isKindOfClass:[NSNumber class]] && ((NSNumber *)prop1).unsignedIntValue != 0) ||
+        (!prop2 || ![prop2 isKindOfClass:[NSNumber class]] || ((NSNumber *)prop2).unsignedIntValue == 0)) {
+        id timeSyncEnabled = _endpointTimeSyncEnabled[endpoint];
+        if (![@(YES) isEqual:timeSyncEnabled]) {
+            BTDevice btDevice =  (BTDevice) ((NSValue *)endpoint).pointerValue;
+            // TimeSync Setup
+            // Will fail if BT TimeSync is not enabled, so ignore errors
+            status = BTAccessoryManagerRemoteTimeSyncEnable(_manager, btDevice, BT_TRUE);
+            if (status != BT_SUCCESS) {
+                os_log(RemoteHIDLog(), "Couldn't enable timesync for device:%p status:%d", btDevice, status);
+            }
+            else {
+                _endpointTimeSyncEnabled[endpoint] = @(YES);
+                os_log(RemoteHIDLog(), "Enabled timesync for device:%p", btDevice);
+            }
+        }
+    }
+
     return [super createRemoteDevice:endpoint deviceID:deviceID property:property];
 }
 
@@ -395,7 +415,6 @@ exit:
 
 -(uint64_t) syncRemoteTimestamp:(uint64_t)inTimestamp forEndpoint:(__nonnull id)endpoint
 {
-    BTDevice btDevice = (BTDevice)((NSValue *)endpoint).pointerValue;
     mach_timebase_info_data_t timeBase;
     uint64_t localAbs = mach_absolute_time();
     uint64_t syncedAbs = 0;

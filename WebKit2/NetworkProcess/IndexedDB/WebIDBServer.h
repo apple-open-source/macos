@@ -49,9 +49,9 @@ public:
 
     void closeAndDeleteDatabasesModifiedSince(WallTime, CompletionHandler<void()>&& callback);
     void closeAndDeleteDatabasesForOrigins(const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&& callback);
+    void renameOrigin(const WebCore::SecurityOriginData&, const WebCore::SecurityOriginData&, CompletionHandler<void()>&&);
 
-    enum class ShouldForceStop : bool { No, Yes };
-    void suspend(ShouldForceStop);
+    void suspend();
     void resume();
 
     // Message handlers.
@@ -80,7 +80,7 @@ public:
     void abortOpenAndUpgradeNeeded(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& transactionIdentifier);
     void didFireVersionChangeEvent(uint64_t databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& requestIdentifier, const WebCore::IndexedDB::ConnectionClosedOnBehalfOfServer);
     void openDBRequestCancelled(const WebCore::IDBRequestData&);
-    void getAllDatabaseNames(IPC::Connection&, const WebCore::SecurityOriginData&, const WebCore::SecurityOriginData&, uint64_t callbackID);
+    void getAllDatabaseNamesAndVersions(IPC::Connection&, const WebCore::IDBResourceIdentifier&, const WebCore::ClientOrigin&);
 
     void addConnection(IPC::Connection&, WebCore::ProcessIdentifier);
     void removeConnection(IPC::Connection&);
@@ -89,6 +89,7 @@ public:
     void dispatchToThread(WTF::Function<void()>&&);
     void close();
 
+    bool hasConnection() const { return !m_connections.isEmpty(); }
 private:
     WebIDBServer(PAL::SessionID, const String& directory, WebCore::IDBServer::IDBServer::StorageQuotaManagerSpaceRequester&&);
     ~WebIDBServer();

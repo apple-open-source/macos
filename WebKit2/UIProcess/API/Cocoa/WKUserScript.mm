@@ -27,15 +27,21 @@
 #import "WKUserScriptInternal.h"
 
 #import "_WKUserContentWorldInternal.h"
+#import <wtf/cocoa/VectorCocoa.h>
 
 @implementation WKUserScript
 
 - (instancetype)initWithSource:(NSString *)source injectionTime:(WKUserScriptInjectionTime)injectionTime forMainFrameOnly:(BOOL)forMainFrameOnly
 {
+    return [self initWithSource:source injectionTime:injectionTime forMainFrameOnly:forMainFrameOnly inContentWorld:WKContentWorld.pageWorld];
+}
+
+- (instancetype)initWithSource:(NSString *)source injectionTime:(WKUserScriptInjectionTime)injectionTime forMainFrameOnly:(BOOL)forMainFrameOnly inContentWorld:(WKContentWorld *)contentWorld
+{
     if (!(self = [super init]))
         return nil;
 
-    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { WTF::String(source), API::UserScript::generateUniqueURL(), { }, { }, API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::InjectInTopFrameOnly : WebCore::InjectInAllFrames }, API::UserContentWorld::normalWorld());
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, API::UserScript::generateUniqueURL(), { }, { }, API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames, WebCore::WaitForNotificationBeforeInjecting::No }, *contentWorld->_contentWorld);
 
     return self;
 }
@@ -59,7 +65,7 @@
 
 - (BOOL)isForMainFrameOnly
 {
-    return _userScript->userScript().injectedFrames() == WebCore::InjectInTopFrameOnly;
+    return _userScript->userScript().injectedFrames() == WebCore::UserContentInjectedFrames::InjectInTopFrameOnly;
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -78,12 +84,13 @@
 
 @implementation WKUserScript (WKPrivate)
 
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
 - (instancetype)_initWithSource:(NSString *)source injectionTime:(WKUserScriptInjectionTime)injectionTime forMainFrameOnly:(BOOL)forMainFrameOnly legacyWhitelist:(NSArray *)legacyWhitelist legacyBlacklist:(NSArray *)legacyBlacklist userContentWorld:(_WKUserContentWorld *)userContentWorld
 {
     if (!(self = [super init]))
         return nil;
 
-    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { WTF::String(source), API::UserScript::generateUniqueURL(), API::toStringVector(legacyWhitelist), API::toStringVector(legacyBlacklist), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::InjectInTopFrameOnly : WebCore::InjectInAllFrames }, *userContentWorld->_userContentWorld);
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, API::UserScript::generateUniqueURL(), makeVector<String>(legacyWhitelist), makeVector<String>(legacyBlacklist), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames, WebCore::WaitForNotificationBeforeInjecting::No }, *userContentWorld->_contentWorld->_contentWorld);
 
     return self;
 }
@@ -93,14 +100,60 @@
     if (!(self = [super init]))
         return nil;
 
-    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { WTF::String(source), URL(associatedURL), API::toStringVector(legacyWhitelist), API::toStringVector(legacyBlacklist), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::InjectInTopFrameOnly : WebCore::InjectInAllFrames }, *userContentWorld->_userContentWorld);
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, associatedURL, makeVector<String>(legacyWhitelist), makeVector<String>(legacyBlacklist), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames, WebCore::WaitForNotificationBeforeInjecting::No }, *userContentWorld->_contentWorld->_contentWorld);
 
     return self;
 }
 
 - (_WKUserContentWorld *)_userContentWorld
 {
-    return wrapper(_userScript->userContentWorld());
+    return [[[_WKUserContentWorld alloc] _initWithContentWorld:wrapper(_userScript->contentWorld())] autorelease];
+}
+ALLOW_DEPRECATED_DECLARATIONS_END
+
+- (instancetype)_initWithSource:(NSString *)source injectionTime:(WKUserScriptInjectionTime)injectionTime forMainFrameOnly:(BOOL)forMainFrameOnly legacyWhitelist:(NSArray *)legacyWhitelist legacyBlacklist:(NSArray *)legacyBlacklist contentWorld:(WKContentWorld *)contentWorld
+{
+    if (!(self = [super init]))
+        return nil;
+
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, API::UserScript::generateUniqueURL(), makeVector<String>(legacyWhitelist), makeVector<String>(legacyBlacklist), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames, WebCore::WaitForNotificationBeforeInjecting::No }, *contentWorld->_contentWorld);
+
+    return self;
+}
+
+- (instancetype)_initWithSource:(NSString *)source injectionTime:(WKUserScriptInjectionTime)injectionTime forMainFrameOnly:(BOOL)forMainFrameOnly legacyWhitelist:(NSArray *)legacyWhitelist legacyBlacklist:(NSArray *)legacyBlacklist associatedURL:(NSURL *)associatedURL contentWorld:(WKContentWorld *)contentWorld
+{
+    if (!(self = [super init]))
+        return nil;
+
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, associatedURL, makeVector<String>(legacyWhitelist), makeVector<String>(legacyBlacklist), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames, WebCore::WaitForNotificationBeforeInjecting::No }, *contentWorld->_contentWorld);
+
+    return self;
+}
+
+- (instancetype)_initWithSource:(NSString *)source injectionTime:(WKUserScriptInjectionTime)injectionTime forMainFrameOnly:(BOOL)forMainFrameOnly legacyWhitelist:(NSArray<NSString *> *)legacyWhitelist legacyBlacklist:(NSArray<NSString *> *)legacyBlacklist associatedURL:(NSURL *)associatedURL contentWorld:(WKContentWorld *)contentWorld deferRunningUntilNotification:(BOOL)deferRunningUntilNotification
+{
+    if (!(self = [super init]))
+        return nil;
+
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, associatedURL, makeVector<String>(legacyWhitelist), makeVector<String>(legacyBlacklist), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames, deferRunningUntilNotification ? WebCore::WaitForNotificationBeforeInjecting::Yes : WebCore::WaitForNotificationBeforeInjecting::No }, *contentWorld->_contentWorld);
+
+    return self;
+}
+
+- (instancetype)_initWithSource:(NSString *)source injectionTime:(WKUserScriptInjectionTime)injectionTime forMainFrameOnly:(BOOL)forMainFrameOnly includeMatchPatternStrings:(NSArray<NSString *> *)includeMatchPatternStrings excludeMatchPatternStrings:(NSArray<NSString *> *)excludeMatchPatternStrings associatedURL:(NSURL *)associatedURL contentWorld:(WKContentWorld *)contentWorld deferRunningUntilNotification:(BOOL)deferRunningUntilNotification
+{
+    if (!(self = [super init]))
+        return nil;
+
+    API::Object::constructInWrapper<API::UserScript>(self, WebCore::UserScript { source, associatedURL, makeVector<String>(includeMatchPatternStrings), makeVector<String>(excludeMatchPatternStrings), API::toWebCoreUserScriptInjectionTime(injectionTime), forMainFrameOnly ? WebCore::UserContentInjectedFrames::InjectInTopFrameOnly : WebCore::UserContentInjectedFrames::InjectInAllFrames, deferRunningUntilNotification ? WebCore::WaitForNotificationBeforeInjecting::Yes : WebCore::WaitForNotificationBeforeInjecting::No }, contentWorld ? *contentWorld->_contentWorld : API::ContentWorld::pageContentWorld());
+
+    return self;
+}
+
+- (WKContentWorld *)_contentWorld
+{
+    return wrapper(_userScript->contentWorld());
 }
 
 @end

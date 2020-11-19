@@ -61,10 +61,7 @@ static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptio
         return "com.apple.WebKit.GPU";
 #endif
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    case ProcessLauncher::ProcessType::Plugin32:
-        ASSERT_NOT_REACHED();
-        return nullptr;
-    case ProcessLauncher::ProcessType::Plugin64:
+    case ProcessLauncher::ProcessType::Plugin:
         return "com.apple.WebKit.Plugin.64";
 #endif
     }
@@ -222,7 +219,7 @@ void ProcessLauncher::launchProcess()
         if (!processLauncher->isLaunching())
             return;
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         mach_port_urefs_t sendRightCount = 0;
         mach_port_get_refs(mach_task_self(), listeningPort, MACH_PORT_RIGHT_SEND, &sendRightCount);
         ASSERT(sendRightCount >= 1);
@@ -241,18 +238,28 @@ void ProcessLauncher::launchProcess()
         processLauncher->didFinishLaunchingProcess(0, IPC::Connection::Identifier());
     };
 
-    auto errorHandler = [errorHandlerImpl = WTFMove(errorHandlerImpl)] (xpc_object_t event) mutable {
-        RunLoop::main().dispatch([errorHandlerImpl = WTFMove(errorHandlerImpl), event] {
-            errorHandlerImpl(event);
-        });
+    auto eventHandler = [errorHandlerImpl = WTFMove(errorHandlerImpl), eventHandler = m_client->xpcEventHandler()] (xpc_object_t event) mutable {
+
+        if (!event || xpc_get_type(event) == XPC_TYPE_ERROR) {
+            RunLoop::main().dispatch([errorHandlerImpl = WTFMove(errorHandlerImpl), event = OSObjectPtr(event)] {
+                errorHandlerImpl(event.get());
+            });
+            return;
+        }
+
+        if (eventHandler) {
+            RunLoop::main().dispatch([eventHandler = eventHandler, event = OSObjectPtr(event)] {
+                eventHandler->handleXPCEvent(event.get());
+            });
+        }
     };
 
-    xpc_connection_set_event_handler(m_xpcConnection.get(), errorHandler);
+    xpc_connection_set_event_handler(m_xpcConnection.get(), eventHandler);
 
     xpc_connection_resume(m_xpcConnection.get());
 
     if (UNLIKELY(m_launchOptions.shouldMakeProcessLaunchFailForTesting)) {
-        errorHandler(nullptr);
+        eventHandler(nullptr);
         return;
     }
 
@@ -265,7 +272,7 @@ void ProcessLauncher::launchProcess()
             ASSERT(xpc_get_type(reply) == XPC_TYPE_DICTIONARY);
             ASSERT(!strcmp(xpc_dictionary_get_string(reply, "message-name"), "process-finished-launching"));
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
             mach_port_urefs_t sendRightCount = 0;
             mach_port_get_refs(mach_task_self(), listeningPort, MACH_PORT_RIGHT_SEND, &sendRightCount);
             ASSERT(sendRightCount >= 1);

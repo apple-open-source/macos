@@ -882,9 +882,7 @@ repeat:
 		case IS_OBJECT:
 			if (Z_TYPE(val_free) == IS_UNDEF) {
 				if (Z_OBJ_HT_P(val)->get) {
-					zval rv;
-					val = Z_OBJ_HT_P(val)->get(val, &rv);
-					ZVAL_COPY_VALUE(&val_free, val);
+					val = Z_OBJ_HT_P(val)->get(val, &val_free);
 					goto repeat;
 				} else if (Z_OBJ_HT_P(val)->cast_object) {
 					if (Z_OBJ_HT_P(val)->cast_object(val, &val_free, IS_STRING) == SUCCESS) {
@@ -1665,10 +1663,10 @@ ZEND_FUNCTION(set_error_handler)
 
 	if (Z_TYPE(EG(user_error_handler)) != IS_UNDEF) {
 		ZVAL_COPY(return_value, &EG(user_error_handler));
-
-		zend_stack_push(&EG(user_error_handlers_error_reporting), &EG(user_error_handler_error_reporting));
-		zend_stack_push(&EG(user_error_handlers), &EG(user_error_handler));
 	}
+
+	zend_stack_push(&EG(user_error_handlers_error_reporting), &EG(user_error_handler_error_reporting));
+	zend_stack_push(&EG(user_error_handlers), &EG(user_error_handler));
 
 	if (Z_TYPE_P(error_handler) == IS_NULL) { /* unset user-defined handler */
 		ZVAL_UNDEF(&EG(user_error_handler));
@@ -1732,9 +1730,9 @@ ZEND_FUNCTION(set_exception_handler)
 
 	if (Z_TYPE(EG(user_exception_handler)) != IS_UNDEF) {
 		ZVAL_COPY(return_value, &EG(user_exception_handler));
-
-		zend_stack_push(&EG(user_exception_handlers), &EG(user_exception_handler));
 	}
+
+	zend_stack_push(&EG(user_exception_handlers), &EG(user_exception_handler));
 
 	if (Z_TYPE_P(exception_handler) == IS_NULL) { /* unset user-defined handler */
 		ZVAL_UNDEF(&EG(user_exception_handler));
@@ -1847,16 +1845,9 @@ static int copy_function_name(zval *zv, int num_args, va_list args, zend_hash_ke
 		return 0;
 	}
 
-	if (func->type == ZEND_INTERNAL_FUNCTION) {
-		char *disable_functions = INI_STR("disable_functions");
-
-		if ((*exclude_disabled == 1) && (disable_functions != NULL)) {
-			if (strstr(disable_functions, func->common.function_name->val) == NULL) {
-				add_next_index_str(internal_ar, zend_string_copy(hash_key->key));
-			}
-		} else {
-			add_next_index_str(internal_ar, zend_string_copy(hash_key->key));
-		}
+	if (func->type == ZEND_INTERNAL_FUNCTION
+		&& (!*exclude_disabled || func->internal_function.handler != ZEND_FN(display_disabled_function))) {
+		add_next_index_str(internal_ar, zend_string_copy(hash_key->key));
 	} else if (func->type == ZEND_USER_FUNCTION) {
 		add_next_index_str(user_ar, zend_string_copy(hash_key->key));
 	}

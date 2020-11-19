@@ -380,7 +380,7 @@ namespace IOFireWireLib {
 			IOReturn				ClipMaxRec2K( Boolean clipMaxRec ) ;
 			IOFireWireSessionRef	GetSessionRef() ;
 
-			static inline MethodSelector	MakeSelectorWithObject( MethodSelector selector, UserObjectHandle obj )		{ return (MethodSelector)( (unsigned long)obj << 16 | selector & 0xFFFF ) ; }		
+			static inline MethodSelector	MakeSelectorWithObject( MethodSelector selector, UserObjectHandle obj )		{ return (MethodSelector)( ( (unsigned long)obj << 16 ) | ( selector & 0xFFFF ) ) ; }
 			
 			IOFireWireLibVectorCommandRef CreateVectorCommand( IOFireWireLibCommandCallback callback, void* inRefCon,  REFIID iid );
 			

@@ -266,7 +266,7 @@ public:
 
 	// --- getters ----------
     const FWAddress& 				getBase() { return fAddress ; }
-	const UInt32					getUserRefCon() { return fUserRefCon ;}
+	const UInt32					getUserRefCon() { return (UInt32)fUserRefCon ;}
 	const IOFireWireUserClient&				getUserClient(void) { return *fUserClient ;}
 
 	// --- readers/writers ----------

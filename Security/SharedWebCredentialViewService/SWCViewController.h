@@ -6,7 +6,9 @@
 //
 
 #import <UIKit/UIKit.h>
+#if !TARGET_OS_TV
 #import <SpringBoardUIServices/SBSUIRemoteAlertItemContentViewController.h>
+#endif
 
 @interface SWCViewController : SBSUIRemoteAlertItemContentViewController <UITableViewDelegate, UITableViewDataSource>
 

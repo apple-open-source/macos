@@ -35,6 +35,15 @@ WI.TargetManager = class TargetManager extends WI.Object
         this._transitionTimeoutIdentifier = undefined;
     }
 
+    // Target
+
+    initializeTarget(target)
+    {
+        // COMPATIBILITY (iOS 13): Target.setPauseOnStart did not exist yet.
+        if (target.hasCommand("Target.setPauseOnStart"))
+            target.TargetAgent.setPauseOnStart(true);
+    }
+
     // Public
 
     get targets()
@@ -42,6 +51,11 @@ WI.TargetManager = class TargetManager extends WI.Object
         if (!this._cachedTargetsList)
             this._cachedTargetsList = Array.from(this._targets.values()).filter((target) => !(target instanceof WI.MultiplexingBackendTarget));
         return this._cachedTargetsList;
+    }
+
+    get workerTargets()
+    {
+        return this.targets.filter((target) => target.type === WI.TargetType.Worker);
     }
 
     get allTargets()
@@ -107,7 +121,7 @@ WI.TargetManager = class TargetManager extends WI.Object
 
         this._initializeBackendTarget(target);
 
-        if (WI.sharedApp.debuggableType === WI.DebuggableType.Page)
+        if (WI.sharedApp.debuggableType === WI.DebuggableType.ITML || WI.sharedApp.debuggableType === WI.DebuggableType.Page)
             this._initializePageTarget(target);
 
         this.addTarget(target);
@@ -241,7 +255,7 @@ WI.TargetManager = class TargetManager extends WI.Object
 
     _initializePageTarget(target)
     {
-        console.assert(WI.sharedApp.isWebDebuggable());
+        console.assert(WI.sharedApp.isWebDebuggable() || WI.sharedApp.debuggableType === WI.DebuggableType.ITML);
         console.assert(target.type === WI.TargetType.Page || target instanceof WI.DirectBackendTarget);
 
         WI.pageTarget = target;
@@ -275,8 +289,7 @@ WI.TargetManager = class TargetManager extends WI.Object
         console.assert(WI.sharedApp.debuggableType === WI.DebuggableType.WebPage);
 
         // Remove any Worker targets associated with this page.
-        let workerTargets = WI.targets.filter((x) => x.type === WI.TargetType.Worker);
-        for (let workerTarget of workerTargets)
+        for (let workerTarget of this.workerTargets)
             WI.workerManager.workerTerminated(workerTarget.identifier);
 
         WI.pageTarget = null;

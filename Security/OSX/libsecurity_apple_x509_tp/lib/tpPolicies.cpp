@@ -36,7 +36,7 @@
 #include <Security/SecCertificatePriv.h>
 #include <string.h>
 #include <ctype.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <CoreFoundation/CFString.h>
 #include <CommonCrypto/CommonDigest.h>
 

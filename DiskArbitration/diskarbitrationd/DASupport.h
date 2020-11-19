@@ -70,6 +70,7 @@ extern const CFStringRef kDAPreferenceMountDeferRemovableKey; /* ( CFBoolean ) *
 extern const CFStringRef kDAPreferenceMountTrustExternalKey;  /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceMountTrustInternalKey;  /* ( CFBoolean ) */
 extern const CFStringRef kDAPreferenceMountTrustRemovableKey; /* ( CFBoolean ) */
+extern const CFStringRef kDAPreferenceAutoMountDisableKey;    /* ( CFBoolean ) */
 
 extern void DAPreferenceListRefresh( void );
 

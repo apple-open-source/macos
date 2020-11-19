@@ -36,10 +36,7 @@ extern NSString* const OctagonEventAttributeTimeSinceLastPostedFollowUp;
 
 extern NSString* OTCKContainerName;
 extern NSString* const CuttlefishTrustZone;
-extern NSString* const CuttlefishErrorDomain;
 extern NSString* const TrustedPeersHelperErrorDomain;
-
-extern NSString* const CuttlefishErrorRetryAfterKey;
 
 /* Octagon Errors */
 typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
@@ -91,6 +88,7 @@ typedef NS_ERROR_ENUM(OctagonErrorDomain, OctagonError) {
     OTAuthKitMachineIDMissing               = 46,
     OTAuthKitPrimaryAccountHaveNoDSID       = 47,
     OTErrorFailedToLeaveClique              = 48,
+    OTErrorSyncPolicyMissing                = 49,
 };
 
 #define OTMasterSecretLength 72
@@ -100,6 +98,7 @@ typedef NS_ENUM(NSInteger, TrustedPeersHelperErrorCode) {
     TrustedPeersHelperErrorNoPeersPreapprovePreparedIdentity = 14,
     TrustedPeersHelperErrorCodeUntrustedRecoveryKeys    = 32,
     TrustedPeersHelperErrorCodeNotEnrolled   = 34,
+    TrustedPeersHelperErrorNoPeersPreapprovedBySelf = 47,
 };
 
 // See cuttlefish/CuttlefishService/Sources/CuttlefishService/CuttlefishError.swift
@@ -127,6 +126,9 @@ typedef NS_ENUM(NSInteger, CuttlefishErrorCode) {
     CuttlefishErrorPreflightGraphValidationError = 1022,
     CuttlefishErrorKeyHierarchyAlreadyExists = 1033,
     CuttlefishErrorDuplicatePeerIdUnderConsideration = 1034,
+    CuttlefishErrorIneligibleExclusionDenied = 1035,
+    CuttlefishErrorMultiplePreapprovedJoinDenied = 1036,
+    CuttlefishErrorUpdateTrustPeerNotFound = 1037,
 };
 
 NS_ASSUME_NONNULL_END

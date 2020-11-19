@@ -57,7 +57,7 @@ SVGTransformDistance::SVGTransformDistance(const SVGTransformValue& fromSVGTrans
     switch (m_type) {
     case SVGTransformValue::SVG_TRANSFORM_MATRIX:
         ASSERT_NOT_REACHED();
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
         FALLTHROUGH;
 #endif
     case SVGTransformValue::SVG_TRANSFORM_UNKNOWN:
@@ -92,7 +92,7 @@ SVGTransformDistance SVGTransformDistance::scaledDistance(float scaleFactor) con
     switch (m_type) {
     case SVGTransformValue::SVG_TRANSFORM_MATRIX:
         ASSERT_NOT_REACHED();
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
         FALLTHROUGH;
 #endif
     case SVGTransformValue::SVG_TRANSFORM_UNKNOWN:
@@ -125,7 +125,7 @@ SVGTransformValue SVGTransformDistance::addSVGTransforms(const SVGTransformValue
     switch (first.type()) {
     case SVGTransformValue::SVG_TRANSFORM_MATRIX:
         ASSERT_NOT_REACHED();
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
         FALLTHROUGH;
 #endif
     case SVGTransformValue::SVG_TRANSFORM_UNKNOWN:
@@ -167,7 +167,7 @@ SVGTransformValue SVGTransformDistance::addToSVGTransform(const SVGTransformValu
     switch (m_type) {
     case SVGTransformValue::SVG_TRANSFORM_MATRIX:
         ASSERT_NOT_REACHED();
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
         FALLTHROUGH;
 #endif
     case SVGTransformValue::SVG_TRANSFORM_UNKNOWN:
@@ -211,17 +211,17 @@ float SVGTransformDistance::distance() const
     switch (m_type) {
     case SVGTransformValue::SVG_TRANSFORM_MATRIX:
         ASSERT_NOT_REACHED();
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
         FALLTHROUGH;
 #endif
     case SVGTransformValue::SVG_TRANSFORM_UNKNOWN:
         return 0;
     case SVGTransformValue::SVG_TRANSFORM_ROTATE:
-        return sqrtf(m_angle * m_angle + m_cx * m_cx + m_cy * m_cy);
+        return std::hypot(m_angle, m_cx, m_cy);
     case SVGTransformValue::SVG_TRANSFORM_SCALE:
-        return static_cast<float>(sqrt(m_transform.a() * m_transform.a() + m_transform.d() * m_transform.d()));
+        return static_cast<float>(std::hypot(m_transform.a(), m_transform.d()));
     case SVGTransformValue::SVG_TRANSFORM_TRANSLATE:
-        return static_cast<float>(sqrt(m_transform.e() * m_transform.e() + m_transform.f() * m_transform.f()));
+        return static_cast<float>(std::hypot(m_transform.e(), m_transform.f()));
     case SVGTransformValue::SVG_TRANSFORM_SKEWX:
     case SVGTransformValue::SVG_TRANSFORM_SKEWY:
         return m_angle;

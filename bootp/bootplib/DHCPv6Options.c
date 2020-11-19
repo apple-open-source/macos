@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,6 +59,7 @@
 
 #define kDHCPv6OPTIONSTR_DNS_SERVERS		"DNS_SERVERS"
 #define kDHCPv6OPTIONSTR_DOMAIN_LIST		"DOMAIN_LIST"
+#define kDHCPv6OPTIONSTR_CAPTIVE_PORTAL_URL	"CAPTIVE_PORTAL_URL"
 
 STATIC void
 DHCPv6OptionIA_NAPrintLevelToString(CFMutableStringRef str,
@@ -97,9 +98,11 @@ DHCPv6OptionCodeGetType(DHCPv6OptionCode option_code)
     case kDHCPv6OPTION_RAPID_COMMIT:
 	type = kDHCPv6OptionTypeNone; /* i.e. no data */
 	break;
+    case kDHCPv6OPTION_SIP_SERVER_A:
     case kDHCPv6OPTION_DNS_SERVERS:
 	type = kDHCPv6OptionTypeIPv6Address;
 	break;
+    case kDHCPv6OPTION_SIP_SERVER_D:
     case kDHCPv6OPTION_DOMAIN_LIST:
 	type = kDHCPv6OptionTypeDNSNameList;
 	break;
@@ -111,6 +114,9 @@ DHCPv6OptionCodeGetType(DHCPv6OptionCode option_code)
 	break;
     case kDHCPv6OPTION_STATUS_CODE:
 	type = kDHCPv6OptionTypeStatusCode;
+	break;
+    case kDHCPv6OPTION_CAPTIVE_PORTAL_URL:
+	type = kDHCPv6OptionTypeString;
 	break;
     case kDHCPv6OPTION_IA_TA:
     case kDHCPv6OPTION_PREFERENCE:
@@ -141,6 +147,10 @@ STATIC OptionCodeName option_code_names[] = {
     {
 	kDHCPv6OPTION_DOMAIN_LIST,
 	kDHCPv6OPTIONSTR_DOMAIN_LIST
+    },
+    {
+	kDHCPv6OPTION_CAPTIVE_PORTAL_URL,
+	kDHCPv6OPTIONSTR_CAPTIVE_PORTAL_URL
     },
 };
 
@@ -223,11 +233,20 @@ DHCPv6OptionCodeGetName(DHCPv6OptionCode code)
     case kDHCPv6OPTION_RECONF_ACCEPT:
 	str = "RECONF_ACCEPT";
 	break;
+    case kDHCPv6OPTION_SIP_SERVER_D:
+	str = "SIP_SERVER_D";
+	break;
+    case kDHCPv6OPTION_SIP_SERVER_A:
+	str = "SIP_SERVER_A";
+	break;
     case kDHCPv6OPTION_DNS_SERVERS:
 	str = kDHCPv6OPTIONSTR_DNS_SERVERS;
 	break;
     case kDHCPv6OPTION_DOMAIN_LIST:
 	str = kDHCPv6OPTIONSTR_DOMAIN_LIST;
+	break;
+    case kDHCPv6OPTION_CAPTIVE_PORTAL_URL:
+	str = kDHCPv6OPTIONSTR_CAPTIVE_PORTAL_URL;
 	break;
     default:
 	str = "<unknown>";
@@ -495,6 +514,12 @@ DHCPv6OptionPrintToString(CFMutableStringRef str,
 	STRING_APPEND(str, "\n");
 	break;
     }
+    case kDHCPv6OptionTypeString: {
+	CFStringRef string = CFStringCreateWithBytes(kCFAllocatorDefault, option_data, (CFIndex)option_length, kCFStringEncodingUTF8, FALSE);
+	STRING_APPEND(str, " %@\n", string);
+	my_CFRelease(&string);
+	break;
+    }
     case kDHCPv6OptionTypeIA_NA:
 	DHCPv6OptionIA_NAPrintLevelToString(str,
 					    (DHCPv6OptionIA_NARef)
@@ -659,7 +684,9 @@ DHCPv6OptionDataCreate(DHCPv6OptionCode option_code, CFTypeRef value)
 	case kDHCPv6OptionTypeDNSNameList:
 	    data = DNSNameListDataCreateWithString(str);
 	    break;
+	case kDHCPv6OptionTypeString:
 	default:
+	    data = my_CFStringCreateData(str);
 	    break;
 	}
     }
@@ -737,9 +764,10 @@ DHCPv6OptionsDictionaryCreate(CFDictionaryRef dict)
 	    /* not a DHCP option */
 	    continue;
 	}
-	range = CFRangeMake(OPTION_PREFIX_LENGTH, CFStringGetLength(this_key));
+	range = CFRangeMake(OPTION_PREFIX_LENGTH,
+			    CFStringGetLength(this_key) - OPTION_PREFIX_LENGTH);
 	option_name = my_CFStringToCStringWithRange(this_key, range,
-						    kCFStringEncodingASCII);
+						    kCFStringEncodingUTF8);
 	if (option_name == NULL) {
 	    continue;
 	}
@@ -810,6 +838,7 @@ DHCPv6OptionsDictionaryPrintToString(CFMutableStringRef str,
 	DHCPv6OptionPrintToString(str, option_code, option_length, option_data,
 				  0);
     }
+    free(keys);
     return;
 }
 
@@ -1145,7 +1174,7 @@ run_config_tests(bool verbose)
 	    }
 	    else {
 		SCPrint(TRUE, stdout,
-			CFSTR("can't parse config %@"), config);
+			CFSTR("can't parse config %@\n"), config);
 
 	    }
 	}

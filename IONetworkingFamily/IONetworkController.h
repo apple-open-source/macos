@@ -309,7 +309,8 @@ extern const OSSymbol *  gIONetworkFilterGroup;
 	messages and pass them to super::message() 	
     */
 
-class IONetworkController : public IOService
+
+class __exported IONetworkController : public IOService
 {
     OSDeclareAbstractStructors( IONetworkController )
 

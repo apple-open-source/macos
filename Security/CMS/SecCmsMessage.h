@@ -55,7 +55,7 @@ __BEGIN_DECLS
  */
 extern SecCmsMessageRef
 SecCmsMessageCreate(SecArenaPoolRef poolp)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 
 #else // !TARGET_OS_OSX
 
@@ -69,7 +69,7 @@ SecCmsMessageCreate(SecArenaPoolRef poolp)
  */
 extern SecCmsMessageRef
 SecCmsMessageCreate(void)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 
 #endif // !TARGET_OS_OSX
 
@@ -119,7 +119,7 @@ SecCmsMessageGetContentInfo(SecCmsMessageRef cmsg);
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern CSSM_DATA_PTR
 SecCmsMessageGetContent(SecCmsMessageRef cmsg)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
@@ -130,7 +130,7 @@ SecCmsMessageGetContent(SecCmsMessageRef cmsg)
  */
 extern const SecAsn1Item *
 SecCmsMessageGetContent(SecCmsMessageRef cmsg)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 /*!

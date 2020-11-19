@@ -51,6 +51,7 @@ static const char sccsid[] = "@(#)str.c	8.2 (Berkeley) 4/28/95";
 #include <string.h>
 #include <wchar.h>
 #include <wctype.h>
+#include <xlocale.h>
 
 #include "extern.h"
 
@@ -60,6 +61,19 @@ static void	genclass(STR *);
 static void	genequiv(STR *);
 static int      genrange(STR *, int);
 static void	genseq(STR *);
+
+/*
+ * Using libc internal function __collate_lookup_l for character
+ * equivalence
+ */
+void __collate_lookup_l(const __darwin_wchar_t *, int *, int *, int *,
+locale_t);
+/*
+ * Cache for primary collation weight of each single byte character
+ * used in static void genequiv(s)
+ */
+int collation_weight_cache[NCHARS_SB];
+int is_weight_cached = 0;
 
 wint_t
 next(s)
@@ -210,7 +224,6 @@ genequiv(s)
 	STR *s;
 {
 	int i, p;
-	char collelem[2], chk[2];
 	size_t clen;
 	wchar_t wc;
 
@@ -229,19 +242,54 @@ genequiv(s)
 		s->str += clen + 2;
 	}
 
-	/*
-	 * XXX Only supports locales in which primary & secondary orders match.
-	 * XXX Equivalence classes not supported in multibyte locales.
-	 */
-	if (MB_CUR_MAX == 1) {
-		for (p = 1, i = 1; i < NCHARS_SB; i++) {
-			if (charcoll((const void *)s->equiv, (const void *)&i) == 0)
-			{
-				s->equiv[p++] = i;
-			}
-		}
-		s->equiv[p] = OOBCH;
-	}
+    /*
+     * Partially supporting multi-byte locales; only finds equivalent
+     * characters within the first NCHARS_SB entries of the
+     * collation table
+     */
+    int tprim, tsec;
+    int len;
+    __collate_lookup_l(s->equiv, &len, &tprim, &tsec, LC_GLOBAL_LOCALE);
+    
+    if (tprim != -1) {
+        for (p = 1, i = 1; i < NCHARS_SB; i++) {
+            int cprim;
+            if (is_weight_cached) {
+                /*
+                 * retrieve primary weight from cache
+                 */
+                cprim = collation_weight_cache[i];
+            } else {
+                /*
+                 * perform lookup of primary weight and fill cache
+                 */
+                int csec;
+                __collate_lookup_l((__darwin_wchar_t *)&i, &len, &cprim, &csec, LC_GLOBAL_LOCALE);
+                collation_weight_cache[i] = cprim;
+            }
+            
+            /*
+             * If a character does not exist in the collation
+             * table, just skip it
+             */
+            if (cprim == -1) {
+                continue;
+            }
+
+            /*
+             * Only compare primary weights to determine multi-byte
+             * character equivalence
+             */
+            if (cprim == tprim) {
+                s->equiv[p++] = i;
+            }
+        }
+        s->equiv[p] = OOBCH;
+        
+        if (!is_weight_cached) {
+            is_weight_cached = 1;
+        }
+    }
 
 	s->cnt = 0;
 	s->state = SET;

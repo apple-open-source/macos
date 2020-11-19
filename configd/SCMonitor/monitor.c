@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -41,7 +41,7 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOKitKeysPrivate.h>
 #include <IOKit/IOMessage.h>
-#include <ApplicationServices/ApplicationServices.h>
+#include <CoreServices/CoreServices.h>
 #include "UserEventAgentInterface.h"
 
 #define MY_BUNDLE_ID    "com.apple.SystemConfiguration.SCMonitor"
@@ -419,7 +419,7 @@ notify_add(MyType *myInstance)
 
 			interface = CFArrayGetValueAtIndex(myInstance->interfaces_prompt, i);
 			name = SCNetworkInterfaceGetLocalizedDisplayName(interface);
-			str = CFStringCreateWithFormat(NULL, NULL, CFSTR("\r\t%@"), name);
+			str = CFStringCreateWithFormat(NULL, NULL, CFSTR("\n\t%@"), name);
 			CFArrayAppendValue(message, str);
 			CFRelease(str);
 		}
@@ -476,6 +476,7 @@ static void
 notify_configure(MyType *myInstance)
 {
 	CFIndex			i;
+	Boolean			locked;
 	CFIndex			n		= CFArrayGetCount(myInstance->interfaces_configure);
 	Boolean			ok;
 	SCPreferencesRef	prefs		= NULL;
@@ -492,6 +493,14 @@ notify_configure(MyType *myInstance)
 		}
 
 		prefs = SCPreferencesCreateWithAuthorization(NULL, CFSTR("SCMonitor"), NULL, authorization);
+	}
+
+	locked = SCPreferencesLock(prefs, TRUE);
+	if (!locked) {
+		SC_log(LOG_ERR,
+		       "SCPreferencesLock() failed: %s",
+		       SCErrorString(SCError()));
+		goto done;
 	}
 
 	set = SCNetworkSetCopyCurrent(prefs);
@@ -540,10 +549,12 @@ notify_configure(MyType *myInstance)
 		set = NULL;
 	}
 
-	if (prefs != NULL) {
-		CFRelease(prefs);
-		prefs = NULL;
+	if (locked) {
+		SCPreferencesUnlock(prefs);
 	}
+
+	CFRelease(prefs);
+	prefs = NULL;
 
 	CFRelease(myInstance->interfaces_configure);
 	myInstance->interfaces_configure = NULL;

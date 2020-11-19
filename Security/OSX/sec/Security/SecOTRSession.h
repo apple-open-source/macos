@@ -80,10 +80,6 @@ OSStatus SecOTRSProcessPacket(SecOTRSessionRef session,
                               CFDataRef incomingPacket,
                               CFMutableDataRef negotiationResponse);
     
-OSStatus SecOTRSEndSession(SecOTRSessionRef session,
-                           CFMutableDataRef messageToSend);
-
-
 bool SecOTRSIsForKeys(SecOTRSessionRef session, SecKeyRef myPublic, SecKeyRef theirPublic);
 bool SecOTRSGetIsReadyForMessages(SecOTRSessionRef session);
 bool SecOTRSGetIsIdle(SecOTRSessionRef session);

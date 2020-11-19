@@ -32,12 +32,12 @@
  */
 
 #include "test_locl.h"
-#include <gssapi.h>
-#include <gssapi_krb5.h>
-#include <gssapi_spnego.h>
-#include <gssapi_ntlm.h>
+#include "gssapi.h"
+#include "gssapi_krb5.h"
+#include "gssapi_spnego.h"
+#include "gssapi_ntlm.h"
 #include "gss_common.h"
-#include <base64.h>
+#include "base64.h"
 
 static void
 storage_printf(krb5_storage *sp, const char *fmt, ...)

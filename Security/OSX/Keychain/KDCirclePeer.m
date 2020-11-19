@@ -38,16 +38,12 @@
 
 -(id)initWithPeerObject:(id)peerObject
 {
-	self = [super init];
-	if (!self) {
-		return self;
-	}
-	
-	self.peerObject = peerObject;
-	self.name = (__bridge NSString *)(SOSPeerInfoGetPeerName((__bridge SOSPeerInfoRef)peerObject));
-	self.idString = (__bridge NSString *)(SOSPeerInfoGetPeerID((__bridge SOSPeerInfoRef)peerObject));
-	
-	return self;
+    if ((self = [super init])) {
+        self.peerObject = peerObject;
+        self.name = (__bridge NSString *)(SOSPeerInfoGetPeerName((__bridge SOSPeerInfoRef)peerObject));
+        self.idString = (__bridge NSString *)(SOSPeerInfoGetPeerID((__bridge SOSPeerInfoRef)peerObject));
+    }
+    return self;
 }
 
 -(NSString*)description

@@ -12,9 +12,17 @@
 #include <IOKit/hid/IOHIDKeys.h>
 
 //
+// # of times to retry set report
+//
+#define kRemoteHIDDeviceSetRetries  3
+//
+// # Timeout on set report in sec
+//
+#define kRemoteHIDDeviceSetTimeout  0.1
+//
 // Timeout on get report in sec
 //
-#define kRemoteHIDDeviceTimeout    2
+#define kRemoteHIDDeviceTimeout  1
 
 @interface HIDRemoteDevice : HIDUserDevice
 
@@ -22,6 +30,9 @@
 @property               uint64_t               deviceID;
 
 -(nullable instancetype)initWithProperties:(nonnull NSDictionary *)properties;
+-(IOReturn) setReportHandler:(IOHIDReportType) type
+                    reportID:(uint8_t) reportID
+                      status:(IOReturn) status;
 -(IOReturn) getReportHandler:(IOHIDReportType) type
                     reportID:(uint8_t) reportID
                       report:( uint8_t * _Nonnull ) report
@@ -54,8 +65,6 @@
 -(BOOL) createRemoteDevice:(__nonnull id) endpoint  deviceID:(uint64_t) deviceID property:(NSMutableDictionary * __nonnull) property;
 
 -(uint64_t) syncRemoteTimestamp:(uint64_t)inTimestamp forEndpoint:(__nonnull id)endpoint;
-
--(BOOL) setTimeSync:(BOOL)state forDevice:(HIDRemoteDevice * __nonnull)device;
 
 @end
 

@@ -67,6 +67,9 @@ struct UResourceBundle {
     char *fVersion;
     UResourceDataEntry *fTopLevelData; /* for getting the valid locale */
     char *fResPath; /* full path to the resource: "zh_TW/CollationElements/Sequence" */
+    // TODO(ICU-20769): Try to change the by-value fResData into a pointer,
+    // with the struct in only one place for each bundle.
+    // Also replace class ResourceDataValue.resData with a pResData pointer again.
     ResourceData fResData;
     char fResBuf[RES_BUFSIZE];
     int32_t fResPathLen;
@@ -282,6 +285,11 @@ ures_getStringByKeyWithFallback(const UResourceBundle *resB,
 #ifdef __cplusplus
 
 U_CAPI void U_EXPORT2
+ures_getValueWithFallback(const UResourceBundle *bundle, const char *path,
+                          UResourceBundle *tempFillIn,
+                          icu::ResourceDataValue &value, UErrorCode &errorCode);
+
+U_CAPI void U_EXPORT2
 ures_getAllItemsWithFallback(const UResourceBundle *bundle, const char *path,
                              icu::ResourceSink &sink, UErrorCode &errorCode);
 
@@ -352,5 +360,56 @@ ures_openDirectFillIn(UResourceBundle *r,
                       const char *packageName,
                       const char *locale,
                       UErrorCode *status);
+
+/**
+ * Same as ures_open(), except that if no resource bundle for the specified package name and locale exists,
+ * and the incoming locale specifies a country, this will fall back to the resource bundle for the specified country
+ * and the specified country's default language.  For example, if caller asks for fr_JP and no bundle for fr_JP exists,
+ * ures_open() will fall back to fr and this function will fall back to ja_JP.
+ * @param packageName   The packageName and locale together point to an ICU udata object,
+ *                      as defined by <code> udata_open( packageName, "res", locale, err) </code>
+ *                      or equivalent.  Typically, packageName will refer to a (.dat) file, or to
+ *                      a package registered with udata_setAppData(). Using a full file or directory
+ *                      pathname for packageName is deprecated. If NULL, ICU data will be used.
+ * @param locale  specifies the locale for which we want to open the resource
+ *                if NULL, the default locale will be used. If strlen(locale) == 0
+ *                root locale will be used.
+ * @param didFallBackByCountry If not NULL, filled in with a Boolean value that indicates whether we actually
+ *                            did fall back by country.  If this value is FALSE, the result of calling this function
+ *                            is the same as the caller would have gotten from ures_open().
+ * @param status  fills in the outgoing error code.
+ * @return      a newly allocated resource bundle.
+ * @see ures_open
+ * @internal
+ */
+U_CAPI UResourceBundle*  U_EXPORT2
+ures_openWithCountryFallback(const char*  packageName,
+                             const char*  locale,
+                             UBool*       didFallBackByCountry,
+                             UErrorCode*  status);
+
+/**
+ * If localeID has a parent in parentLocale data, return that.
+ * Otherwise return empty string.
+ *
+ * A more general version of this might then itself call
+ * uloc_getParent, but that is not what we want for ualoc usage.
+ *
+ * Some version of this (perhaps more general) should eventually move
+ * (with new name) to ulocimp.h, or perhaps uloc.h.
+ *
+ * @param localeID Input locale ID string.
+ * @param parent   Output string buffer for the parent locale ID.
+ * @param parentCapacity Size of the output buffer.
+ * @param err A UErrorCode value.
+ * @return The length of the parent locale ID.
+ * @see uloc_getParent
+ * @internal Apple <rdar://problem/63880069>
+ */
+U_CAPI int32_t U_EXPORT2
+ures_getLocParent(const char* localeID,
+                 char* parent,
+                 int32_t parentCapacity,
+                 UErrorCode* err);
 
 #endif /*URESIMP_H*/

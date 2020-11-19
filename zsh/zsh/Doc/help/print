@@ -1,39 +1,42 @@
 print [ -abcDilmnNoOpPrsSz ] [ -u n ] [ -f format ] [ -C cols ]
       [ -v name ] [ -xX tabstop ] [ -R [ -en ]] [ arg ... ]
-       With the `-f' option the arguments are printed as  described  by
-       printf.   With  no flags or with the flag `-', the arguments are
-       printed on the standard output as described by  echo,  with  the
-       following  differences:  the  escape  sequence `\M-x' (or `\Mx')
-       metafies the character x (sets  the  highest  bit),  `\C-x'  (or
-       `\Cx')  produces a control character (`\C-@' and `\C-?' give the
+       With  the  `-f' option the arguments are printed as described by
+       printf.  With no flags or with the flag `-', the  arguments  are
+       printed  on  the  standard output as described by echo, with the
+       following differences: the escape  sequence  `\M-x'  (or  `\Mx')
+       metafies  the  character  x  (sets  the highest bit), `\C-x' (or
+       `\Cx') produces a control character (`\C-@' and `\C-?' give  the
        characters NULL and delete), a character code in octal is repre-
        sented by `\NNN' (instead of `\0NNN'), and `\E' is a synonym for
-       `\e'.  Finally, if not in an escape sequence,  `\'  escapes  the
+       `\e'.   Finally,  if  not in an escape sequence, `\' escapes the
        following character and is not printed.
 
        -a     Print arguments with the column incrementing first.  Only
               useful with the -c and -C options.
 
-       -b     Recognize all the escape sequences defined for the  bind-
+       -b     Recognize  all the escape sequences defined for the bind-
               key command, see the section `Zle Builtins' in zshzle(1).
 
        -c     Print the arguments in columns.  Unless -a is also given,
               arguments are printed with the row incrementing first.
 
        -C cols
-              Print the arguments in cols columns.  Unless -a  is  also
-              given,  arguments  are  printed with the row incrementing
+              Print  the  arguments in cols columns.  Unless -a is also
+              given, arguments are printed with  the  row  incrementing
               first.
 
-       -D     Treat the arguments as paths,  replacing  directory  pre-
+       -D     Treat  the  arguments  as paths, replacing directory pre-
               fixes  with  ~  expressions  corresponding  to  directory
               names, as appropriate.
 
-       -i     If given together with -o or  -O,  sorting  is  performed
+       -i     If  given  together  with  -o or -O, sorting is performed
               case-independently.
 
        -l     Print the arguments separated by newlines instead of spa-
-              ces.
+              ces.   Note:  if the list of arguments is empty, print -l
+              will still output one  empty  line.  To  print  a  possi-
+              bly-empty  list of arguments one per line, use print -C1,
+              as in `print -rC1 -- "$list[@]"'.
 
        -m     Take the first argument as a pattern (should be  quoted),
               and remove it from the argument list together with subse-
@@ -41,7 +44,9 @@ print [ -abcDilmnNoOpPrsSz ] [ -u n ] [ -f format ] [ -C cols ]
 
        -n     Do not add a newline to the output.
 
-       -N     Print the arguments separated and terminated by nulls.
+       -N     Print the arguments separated and  terminated  by  nulls.
+              Again,  print  -rNC1  -- "$list[@]" is a canonical way to
+              print an arbitrary list as null-delimited records.
 
        -o     Print the arguments sorted in ascending order.
 

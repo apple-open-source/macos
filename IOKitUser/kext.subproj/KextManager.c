@@ -41,6 +41,8 @@
 #include "KextManagerPriv.h"
 #include "kextmanager_mig.h"
 
+#include "kernelmanagement_shims.h"
+
 #define ARRAY_COUNT(array) (sizeof((array)) / sizeof((array[0])))
 
 /*********************************************************************
@@ -72,40 +74,49 @@ CFURLRef KextManagerCreateURLForBundleIdentifier(
         goto finish;
     }
 
-    if (!CFStringGetCString(bundleIdentifier,
-        bundle_id, sizeof(bundle_id) - 1, kCFStringEncodingUTF8)) {
-        goto finish;
-    }
+    if (shimmingEnabled()) {
+        bundlePath = kernelmanagement_path_for_bundle_id(bundleIdentifier);
+        if (!bundlePath) {
+                goto finish;
+        }
 
-    kern_result = get_kextd_port(&kextd_port);
-    if (kern_result != kOSReturnSuccess) {
-        goto finish;
-    }
+        bundleURL = CFURLCreateWithFileSystemPath(allocator,
+            bundlePath, kCFURLPOSIXPathStyle, true);
+        CFRelease(bundlePath);
+    } else {
+        if (!CFStringGetCString(bundleIdentifier,
+            bundle_id, sizeof(bundle_id) - 1, kCFStringEncodingUTF8)) {
+            goto finish;
+        }
 
-    kern_result = kextmanager_path_for_bundle_id(
-        kextd_port, bundle_id, bundle_path, &tmpRes);
-    kext_result = tmpRes;
-    if (kern_result != kOSReturnSuccess) {
-        goto finish;
-    }
+        kern_result = get_kextd_port(&kextd_port);
+        if (kern_result != kOSReturnSuccess) {
+            goto finish;
+        }
 
-    if (kext_result != kOSReturnSuccess) {
-        goto finish;
-    }
+        kern_result = kextmanager_path_for_bundle_id(
+            kextd_port, bundle_id, bundle_path, &tmpRes);
+        kext_result = tmpRes;
+        if (kern_result != kOSReturnSuccess) {
+            goto finish;
+        }
 
-    bundlePath = CFStringCreateWithCString(kCFAllocatorDefault,
-        bundle_path, kCFStringEncodingUTF8);
-    if (!bundlePath) {
-        goto finish;
-    }
+        if (kext_result != kOSReturnSuccess) {
+            goto finish;
+        }
 
-    bundleURL = CFURLCreateWithFileSystemPath(allocator,
-        bundlePath, kCFURLPOSIXPathStyle, true);
+        bundlePath = CFStringCreateWithCString(kCFAllocatorDefault,
+            bundle_path, kCFStringEncodingUTF8);
+	if (!bundlePath) {
+		goto finish;
+	}
+
+	bundleURL = CFURLCreateWithFileSystemPath(allocator,
+	    bundlePath, kCFURLPOSIXPathStyle, true);
+	CFRelease(bundlePath);
+    }
 
 finish:
-
-    if (bundlePath)  CFRelease(bundlePath);
-
     return bundleURL;
 }
 
@@ -211,19 +222,23 @@ OSReturn KextManagerLoadKextWithIdentifier(
         goto finish;
     }
 
-    requestDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
-        /* capacity */ 0, &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!requestDict) {
-        result = kOSKextReturnNoMemory;
-        goto finish;
+    if (shimmingEnabled()) {
+        result = kernelmanagement_load_kext_identifier(kextIdentifier);
+    } else {
+        requestDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
+            /* capacity */ 0, &kCFTypeDictionaryKeyCallBacks,
+            &kCFTypeDictionaryValueCallBacks);
+        if (!requestDict) {
+            result = kOSKextReturnNoMemory;
+            goto finish;
+        }
+
+        CFDictionarySetValue(requestDict, kKextLoadIdentifierKey,
+            kextIdentifier);
+
+        result = __KextManagerSendLoadKextRequest(requestDict,
+            dependencyKextAndFolderURLs);
     }
-
-    CFDictionarySetValue(requestDict, kKextLoadIdentifierKey,
-        kextIdentifier);
-
-    result = __KextManagerSendLoadKextRequest(requestDict,
-        dependencyKextAndFolderURLs);
 
 finish:
     SAFE_RELEASE(requestDict);
@@ -246,29 +261,33 @@ OSReturn KextManagerLoadKextWithURL(
         goto finish;
     }
 
-    requestDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
-        /* capacity */ 0, &kCFTypeDictionaryKeyCallBacks,
-        &kCFTypeDictionaryValueCallBacks);
-    if (!requestDict) {
-        result = kOSKextReturnNoMemory;
-        goto finish;
-    }
+    if (shimmingEnabled()) {
+        result = kernelmanagement_load_kext_url(kextURL);
+    } else {
+        requestDict = CFDictionaryCreateMutable(kCFAllocatorDefault,
+            /* capacity */ 0, &kCFTypeDictionaryKeyCallBacks,
+            &kCFTypeDictionaryValueCallBacks);
+        if (!requestDict) {
+            result = kOSKextReturnNoMemory;
+            goto finish;
+        }
 
-    absURL = CFURLCopyAbsoluteURL(kextURL);
-    if (!absURL) {
-        result = kOSKextReturnNoMemory;
-        goto finish;
-    }
+        absURL = CFURLCopyAbsoluteURL(kextURL);
+        if (!absURL) {
+            result = kOSKextReturnNoMemory;
+            goto finish;
+        }
 
-    kextPath = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle);
-    if (!kextPath) {
-        result = kOSKextReturnSerialization;
-        goto finish;
-    }
-    CFDictionarySetValue(requestDict, kKextLoadPathKey, kextPath);
+        kextPath = CFURLCopyFileSystemPath(absURL, kCFURLPOSIXPathStyle);
+        if (!kextPath) {
+            result = kOSKextReturnSerialization;
+            goto finish;
+        }
+        CFDictionarySetValue(requestDict, kKextLoadPathKey, kextPath);
 
-    result = __KextManagerSendLoadKextRequest(requestDict,
-        dependencyKextAndFolderURLs);
+        result = __KextManagerSendLoadKextRequest(requestDict,
+            dependencyKextAndFolderURLs);
+    }
 
 finish:
     SAFE_RELEASE(requestDict);

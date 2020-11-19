@@ -36,7 +36,7 @@
 #include <copyfile.h>
 #include <sandbox.h>
 #include <set>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 #define kAtomicFileMaxBlockSize INT_MAX
 
@@ -391,8 +391,8 @@ AtomicBufferedFile::~AtomicBufferedFile()
 {
 	if (mFileRef >= 0)
 	{
-	  	// In release mode, the assert() is compiled out so rv may be unused.
-	        __unused int rv = AtomicFile::rclose(mFileRef);
+		// In release mode, the assert() is compiled out so rv may be unused.
+		__unused int rv = AtomicFile::rclose(mFileRef);
 		assert(rv == 0);
 		secinfo("atomicfile", "%p closed %s", this, mPath.c_str());
 	}
@@ -830,7 +830,7 @@ AtomicTempFile::commit()
 
 // Rollback the current create or write (happens automatically if commit() isn't called before the destructor is.
 void
-AtomicTempFile::rollback() throw()
+AtomicTempFile::rollback() _NOEXCEPT
 {
 	if (mFileRef >= 0)
 	{
@@ -1240,7 +1240,7 @@ AtomicLockedFile::lock(mode_t mode)
 
 
 
-void AtomicLockedFile::unlock() throw()
+void AtomicLockedFile::unlock() _NOEXCEPT
 {
 	mFileLocker->unlock();
 }

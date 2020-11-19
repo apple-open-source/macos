@@ -37,7 +37,7 @@ public:
     explicit RemoteInspectorProtocolHandler(WebKitWebContext* context);
     ~RemoteInspectorProtocolHandler();
 
-    void inspect(const String& hostAndPort, uint64_t connectionID, uint64_t targetID);
+    void inspect(const String& hostAndPort, uint64_t connectionID, uint64_t targetID, const String& targetType);
 
 private:
     static void webViewDestroyed(RemoteInspectorProtocolHandler*, WebKitWebView*);
@@ -49,7 +49,6 @@ private:
     void targetListChanged(RemoteInspectorClient&) override;
     void connectionClosed(RemoteInspectorClient&) override;
 
-    WebKitWebContext* m_context { nullptr };
     HashMap<String, std::unique_ptr<RemoteInspectorClient>> m_inspectorClients;
     HashSet<WebKitUserContentManager*> m_userContentManagers;
     HashSet<WebKitWebView*> m_webViews;

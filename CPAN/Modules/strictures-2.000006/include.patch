@@ -1,0 +1,12 @@
+diff -Nurp strictures-2.000006-orig/inc/ExtUtils/HasCompiler.pm strictures-2.000006/inc/ExtUtils/HasCompiler.pm
+--- strictures-2.000006-orig/inc/ExtUtils/HasCompiler.pm	2016-04-18 13:22:54.000000000 -0700
++++ strictures-2.000006/inc/ExtUtils/HasCompiler.pm	2020-04-26 11:24:56.000000000 -0700
+@@ -121,7 +121,7 @@ sub can_compile_loadable_object {
+ 		elsif ($^O eq 'android') {
+ 			push @extra, qq{"-L$incdir"}, '-lperl', $perllibs;
+ 		}
+-		push @commands, qq{$cc $ccflags $optimize "-I$incdir" $cccdlflags -c $source_name -o $object_file};
++		push @commands, qq{$cc $ccflags $optimize -iwithsysroot "$incdir" $cccdlflags -c $source_name -o $object_file};
+ 		push @commands, qq{$cc $optimize $object_file -o $loadable_object $lddlflags @extra};
+ 	}
+ 

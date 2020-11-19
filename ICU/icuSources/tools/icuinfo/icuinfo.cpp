@@ -306,6 +306,7 @@ main(int argc, char* argv[]) {
     return U_FAILURE(errorCode);
 }
 
+#if defined(__APPLE__) && defined(__MACH__)
 // Apple addition
 #include <unistd.h>
 #include <mach/mach_time.h>
@@ -351,4 +352,9 @@ static void cmd_perf() {
         }
     }
 }
+#else
+static void cmd_perf() {
+    printf("This feature is unsupported on this platform\n");
+}
+#endif
 

@@ -1,11 +1,6 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Apple custom addition
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_GR{
     %%Parent{"en_150"}
-    Version{"2.1.13.48"}
+    Version{"36.1"}
 }

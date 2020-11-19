@@ -62,6 +62,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		352152AA24AD15B70003876C /* test_zip_bomb.c in Install BATS plist */ = {isa = PBXBuildFile; fileRef = 352152A924AD15B70003876C /* test_zip_bomb.c */; };
+		352152AB24AD15DB0003876C /* test_zip_bomb.c in Sources */ = {isa = PBXBuildFile; fileRef = 352152A924AD15B70003876C /* test_zip_bomb.c */; };
 		3EE6CF021FA8CFD60018AA21 /* archive_acl.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CED51FA8CFB70018AA21 /* archive_acl.c */; };
 		3EE6CF031FA8CFD60018AA21 /* archive_cmdline.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEC71FA8CFB50018AA21 /* archive_cmdline.c */; };
 		3EE6CF041FA8CFD60018AA21 /* archive_cryptor.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EE6CEFC1FA8CFBD0018AA21 /* archive_cryptor.c */; };
@@ -526,6 +528,7 @@
 		CA0BE38A2212136100E93D29 /* test_main.c in Sources */ = {isa = PBXBuildFile; fileRef = CA0BE0A7220E6A5C00E93D29 /* test_main.c */; };
 		CA0BE38C2212140400E93D29 /* err.c in Sources */ = {isa = PBXBuildFile; fileRef = FDE953B21148815D0033A30A /* err.c */; };
 		CA0BE38D2212154800E93D29 /* cmdline.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8A58104DCC930096D791 /* cmdline.c */; };
+		CAC43C8D2343EE980076863B /* test_read_format_zip_multithread.c in Sources */ = {isa = PBXBuildFile; fileRef = CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */; };
 		FD22F8B71D6FA2FE0046F7FF /* libarchive.plist in Install BATS plist */ = {isa = PBXBuildFile; fileRef = FD22F8B41D6FA2F00046F7FF /* libarchive.plist */; };
 		FD7846531537B5F3003C8F36 /* liblzma.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FD7846521537B5F3003C8F36 /* liblzma.dylib */; };
 		FD9B899E104DC7F10096D791 /* archive_check_magic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9B8969104DC7F00096D791 /* archive_check_magic.c */; };
@@ -707,6 +710,7 @@
 				CA0BE0A8220E6A5C00E93D29 /* test_common.h in Install BATS plist */,
 				CA0BE31C220E754700E93D29 /* test.h in Install BATS plist */,
 				CA0BE0A9220E6A5C00E93D29 /* test_utils.h in Install BATS plist */,
+				352152AA24AD15B70003876C /* test_zip_bomb.c in Install BATS plist */,
 			);
 			name = "Install BATS plist";
 			runOnlyForDeploymentPostprocessing = 1;
@@ -736,6 +740,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		352152A924AD15B70003876C /* test_zip_bomb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_zip_bomb.c; path = libarchive/tar/test/test_zip_bomb.c; sourceTree = SOURCE_ROOT; };
 		3EE6CEBD1FA8CFB30018AA21 /* archive_read_support_filter_gzip.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_read_support_filter_gzip.c; path = libarchive/libarchive/archive_read_support_filter_gzip.c; sourceTree = "<group>"; };
 		3EE6CEBE1FA8CFB30018AA21 /* archive_write_add_filter_xz.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_write_add_filter_xz.c; path = libarchive/libarchive/archive_write_add_filter_xz.c; sourceTree = "<group>"; };
 		3EE6CEBF1FA8CFB40018AA21 /* archive_read_support_format_lha.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = archive_read_support_format_lha.c; path = libarchive/libarchive/archive_read_support_format_lha.c; sourceTree = "<group>"; };
@@ -1197,6 +1202,7 @@
 		CA0BE3562212129200E93D29 /* test_option_xz.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_xz.c; path = libarchive/cpio/test/test_option_xz.c; sourceTree = SOURCE_ROOT; };
 		CA0BE3572212129200E93D29 /* test_option_uuencode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_uuencode.c; path = libarchive/cpio/test/test_option_uuencode.c; sourceTree = SOURCE_ROOT; };
 		CA0BE3582212129200E93D29 /* test_option_J_upper.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_option_J_upper.c; path = libarchive/cpio/test/test_option_J_upper.c; sourceTree = SOURCE_ROOT; };
+		CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = test_read_format_zip_multithread.c; path = libarchive/libarchive/test/test_read_format_zip_multithread.c; sourceTree = SOURCE_ROOT; };
 		FD22F8B41D6FA2F00046F7FF /* libarchive.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = libarchive.plist; sourceTree = "<group>"; };
 		FD7846521537B5F3003C8F36 /* liblzma.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = liblzma.dylib; path = /usr/lib/liblzma.dylib; sourceTree = "<absolute>"; };
 		FD9B8961104D9F050096D791 /* libarchive.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libarchive.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1405,6 +1411,7 @@
 				CA0BE048220E6A1700E93D29 /* test_symlink_dir.c */,
 				CA0BE040220E6A1500E93D29 /* test_version.c */,
 				CA0BE047220E6A1600E93D29 /* test_windows.c */,
+				352152A924AD15B70003876C /* test_zip_bomb.c */,
 				CA0BE051220E6A1800E93D29 /* test.h */,
 			);
 			path = bsdtar_test;
@@ -1601,6 +1608,7 @@
 				CA0BE258220E702300E93D29 /* test_read_format_zip_with_invalid_traditional_eocd.c */,
 				CA0BE280220E702800E93D29 /* test_read_format_zip_zip64.c */,
 				CA0BE298220E702B00E93D29 /* test_read_format_zip.c */,
+				CAC43C8C2343EE980076863B /* test_read_format_zip_multithread.c */,
 				CA0BE24D220E702200E93D29 /* test_read_large.c */,
 				CA0BE274220E702600E93D29 /* test_read_pax_schily_xattr.c */,
 				CA0BE25C220E702400E93D29 /* test_read_pax_truncated.c */,
@@ -2238,6 +2246,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				352152AB24AD15DB0003876C /* test_zip_bomb.c in Sources */,
 				CA0BE0AC220E6A6300E93D29 /* test_utils.c in Sources */,
 				CA0BE080220E6A2100E93D29 /* test_option_H_upper.c in Sources */,
 				CA0BE087220E6A2100E93D29 /* test_option_lzma.c in Sources */,
@@ -2565,6 +2574,7 @@
 				CA0BE205220E6F8000E93D29 /* test_read_format_isorr_rr_moved.c in Sources */,
 				CA0BE207220E6F8000E93D29 /* test_read_format_tar_empty_pax.c in Sources */,
 				CA0BE152220E6DEA00E93D29 /* test_archive_read_next_header_empty.c in Sources */,
+				CAC43C8D2343EE980076863B /* test_read_format_zip_multithread.c in Sources */,
 				CA0BE2DA220E702B00E93D29 /* test_write_format_mtree.c in Sources */,
 				CA0BE2FE220E702B00E93D29 /* test_write_format_7zip.c in Sources */,
 				CA0BE15D220E6DEA00E93D29 /* test_archive_write_add_filter_by_name.c in Sources */,

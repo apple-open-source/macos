@@ -31,7 +31,7 @@
 extern "C" {
 #endif
 
-#define IOGRAPHICSTYPES_REV     71
+#define IOGRAPHICSTYPES_REV     72
 
 typedef SInt32  IOIndex;
 typedef UInt32  IOSelect;
@@ -578,12 +578,14 @@ enum {
 };
 
 enum {
+    // dynamicRange - should be in sync with "supportedDynamicRangeModes" enum below
     kIODynamicRangeNotSupported         = 0x0000,
     kIODynamicRangeSDR                  = 0x0001,
     kIODynamicRangeHDR10                = 0x0002,
     kIODynamicRangeDolbyNormalMode      = 0x0004,
     kIODynamicRangeDolbyTunnelMode      = 0x0008,
-    kIODynamicRangeTraditionalGammaHDR  = 0x0010
+    kIODynamicRangeTraditionalGammaHDR  = 0x0010,
+    kIODynamicRangeTraditionalGammaSDR  = 0x0020,   // as of IOGRAPHICSTYPES_REV 72
 };
 
 #pragma pack(push, 4)
@@ -929,13 +931,14 @@ enum {
 };
 
 enum {
-    // supportedDynamicRange
+    // supportedDynamicRangeModes - should be in sync with "dynamicRange" enum above
     kIORangeDynamicRangeNotSupported        = 0x0000,
     kIORangeDynamicRangeSDR                 = 0x0001,
     kIORangeDynamicRangeHDR10               = 0x0002,
     kIORangeDynamicRangeDolbyNormalMode     = 0x0004,
     kIORangeDynamicRangeDolbyTunnelMode     = 0x0008,
-    kIORangeDynamicRangeTraditionalGammaHDR = 0x0010
+    kIORangeDynamicRangeTraditionalGammaHDR = 0x0010,
+    kIORangeDynamicRangeTraditionalGammaSDR = 0x0020,   // as of IOGRAPHICSTYPES_REV 72
 };
 
 enum {

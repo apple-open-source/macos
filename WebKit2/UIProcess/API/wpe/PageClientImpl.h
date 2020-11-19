@@ -41,7 +41,7 @@ enum class DOMPasteAccessResponse : uint8_t;
 
 namespace WebKit {
 
-class ScrollGestureController;
+struct InputMethodState;
 struct UserMessage;
 
 enum class UndoOrRedo : bool;
@@ -62,7 +62,7 @@ public:
 #endif
 
     void sendMessageToWebView(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&);
-    void setInputMethodState(bool enabled);
+    void setInputMethodState(Optional<InputMethodState>&&);
 
 private:
     // PageClient
@@ -129,8 +129,8 @@ private:
 
     void didStartProvisionalLoadForMainFrame() override;
     void didFirstVisuallyNonEmptyLayoutForMainFrame() override;
-    void didFinishLoadForMainFrame() override;
-    void didFailLoadForMainFrame() override;
+    void didFinishNavigation(API::Navigation*) override;
+    void didFailNavigation(API::Navigation*) override;
     void didSameDocumentNavigationForMainFrame(SameDocumentNavigationType) override;
 
     void didChangeBackgroundColor() override;
@@ -167,8 +167,6 @@ private:
     void selectionDidChange() override;
 
     WKWPE::View& m_view;
-
-    std::unique_ptr<ScrollGestureController> m_scrollGestureController;
 };
 
 } // namespace WebKit

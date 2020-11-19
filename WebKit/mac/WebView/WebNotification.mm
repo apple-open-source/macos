@@ -62,7 +62,7 @@ Notification* core(WebNotification *notification)
     return notification->_private->_internal.get();
 }
 
-- (id)initWithCoreNotification:(Notification*)coreNotification notificationID:(uint64_t)notificationID
+- (id)initWithCoreNotification:(NakedPtr<Notification>)coreNotification notificationID:(uint64_t)notificationID
 {
     if (!(self = [super init]))
         return nil;
@@ -116,7 +116,7 @@ Notification* core(WebNotification *notification)
 - (NSString *)iconURL
 {
 #if ENABLE(NOTIFICATIONS)
-    return core(self)->icon();
+    return core(self)->icon().string();
 #else
     return nil;
 #endif
@@ -190,6 +190,13 @@ Notification* core(WebNotification *notification)
 {
 #if ENABLE(NOTIFICATIONS)
     core(self)->dispatchErrorEvent();
+#endif
+}
+
+- (void)finalize
+{
+#if ENABLE(NOTIFICATIONS)
+    core(self)->finalize();
 #endif
 }
 

@@ -111,12 +111,7 @@ static void catchalarm (int);
 static char *sec2str(time_t);
 static void llreach_sysctl(uint32_t);
 static char *nsec_to_str(unsigned long long);
-static char *qtype2str(classq_type_t);
 static char *sched2str(unsigned int);
-static char *qid2str(unsigned int);
-static char *qstate2str(unsigned int);
-static char *tcqslot2str(unsigned int);
-static char *rate2str(long double);
 static char *pri2str(unsigned int i);
 
 #define AVGN_MAX	8
@@ -127,15 +122,9 @@ struct queue_stats {
 	double			 avg_packets;
 	u_int64_t		 prev_bytes;
 	u_int64_t		 prev_packets;
-	unsigned int		 printed;
 	unsigned int		 handle;
 };
 
-static void print_tcqstats(int slot, struct tcq_classstats *,
-    struct queue_stats *);
-static void print_qfqstats(int slot, struct qfq_classstats *,
-    struct queue_stats *);
-static void print_sfbstats(struct sfb_stats *);
 static void update_avg(struct if_ifclassq_stats *, struct queue_stats *);
 static void print_fq_codel_stats(int slot, struct fq_codel_classstats *,
     struct queue_stats *);
@@ -196,7 +185,7 @@ multipr(int family, char *buf, char *lim)
 		struct sockaddr *rti_info[RTAX_MAX];
 		struct sockaddr *sa;
 		const char *fmt = 0;
-		
+
 		next += ifmam->ifmam_msglen;
 		if (ifmam->ifmam_type == RTM_IFINFO2)
 			break;
@@ -204,13 +193,13 @@ multipr(int family, char *buf, char *lim)
 			continue;
 		get_rti_info(ifmam->ifmam_addrs, (struct sockaddr*)(ifmam + 1), rti_info);
 		sa = rti_info[RTAX_IFA];
-		
+
 		if (sa->sa_family != family)
 			continue;
 		switch (sa->sa_family) {
 			case AF_INET: {
 				struct sockaddr_in *sin = (struct sockaddr_in *)sa;
-				
+
 				fmt = routename(sin->sin_addr.s_addr);
 				break;
 			}
@@ -237,7 +226,7 @@ multipr(int family, char *buf, char *lim)
 	#endif /* INET6 */
 			case AF_LINK: {
 				struct sockaddr_dl *sdl = (struct sockaddr_dl *)sa;
-				
+
 				switch (sdl->sdl_type) {
 				case IFT_ETHER:
 				case IFT_FDDI:
@@ -1072,7 +1061,7 @@ loop:
 				    sum->ift_fb - total->ift_fb);
 		}
 		*total = *sum;
-		
+
 		free(ifmsuppall);
 	}
 	if (!first)
@@ -1363,7 +1352,7 @@ aqstatpr(void)
 	struct if_ifclassq_stats *ifcqs;
 	sigset_t sigset, oldsigset;
 	u_int32_t scheduler;
-	int s, n, tcq = 0;
+	int s, n;
 
 	if (cq < -1 || cq >= IFCQ_SC_MAX) {
 		fprintf(stderr, "Invalid classq index (range is 0-%d)\n",
@@ -1416,30 +1405,15 @@ loop:
 		goto done;
 	}
 	scheduler = ifcqs->ifqs_scheduler;
-	tcq = (scheduler == PKTSCHEDT_TCQ);
 
 	printf("%s:\n"
-	    "%s     [ sched: %9s %sqlength:  %3d/%3d ]\n",
-	    interface, tcq ? "  " : "", sched2str(ifcqs->ifqs_scheduler),
-	    tcq ? "" : " ", ifcqs->ifqs_len, ifcqs->ifqs_maxlen);
-	printf("%s     [ pkts: %10llu %sbytes: %10llu "
-	    "%sdropped pkts: %6llu bytes: %6llu ]\n",
-	    (scheduler != PKTSCHEDT_TCQ) ? "" : "  ",
-	    ifcqs->ifqs_xmitcnt.packets, tcq ? "" : " ",
-	    ifcqs->ifqs_xmitcnt.bytes, tcq ? "" : " ",
+	    "     [ sched: %9s  qlength:  %3d/%3d ]\n",
+	    interface, sched2str(ifcqs->ifqs_scheduler),
+	    ifcqs->ifqs_len, ifcqs->ifqs_maxlen);
+	printf("     [ pkts: %10llu  bytes: %10llu "
+	    " dropped pkts: %6llu bytes: %6llu ]\n",
+	    ifcqs->ifqs_xmitcnt.packets, ifcqs->ifqs_xmitcnt.bytes,
 	    ifcqs->ifqs_dropcnt.packets, ifcqs->ifqs_dropcnt.bytes);
-
-	for (n = 0; n < IFCQ_SC_MAX; n++) {
-		qstats[n].printed = 0;
-		if (!tcq)
-			continue;
-		ifqr.ifqr_slot = n;
-		if (ioctl(s, SIOCGIFQUEUESTATS, (char *)&ifqr) < 0) {
-			perror("Warning: ioctl(SIOCGIFQUEUESTATS)");
-			goto done;
-		}
-		qstats[n].handle = ifcqs->ifqs_tcq_stats.class_handle;
-	}
 
 	for (n = 0; n < IFCQ_SC_MAX && scheduler != PKTSCHEDT_NONE; n++) {
 		if (cq >= 0 && cq != n)
@@ -1454,14 +1428,6 @@ loop:
 		update_avg(ifcqs, &qstats[n]);
 
 		switch (scheduler) {
-			case PKTSCHEDT_TCQ:
-				print_tcqstats(n, &ifcqs->ifqs_tcq_stats,
-				    &qstats[n]);
-				break;
-			case PKTSCHEDT_QFQ:
-				print_qfqstats(n, &ifcqs->ifqs_qfq_stats,
-				    &qstats[n]);
-				break;
 			case PKTSCHEDT_FQ_CODEL:
 				print_fq_codel_stats(n,
 				    &ifcqs->ifqs_fq_codel_stats,
@@ -1492,85 +1458,6 @@ loop:
 done:
 	free(ifcqs);
 	close(s);
-}
-
-static void
-print_tcqstats(int slot, struct tcq_classstats *cs, struct queue_stats *qs)
-{
-	int n;
-
-	if (qs->printed)
-		return;
-
-	qs->handle = cs->class_handle;
-	qs->printed++;
-
-	for (n = 0; n < IFCQ_SC_MAX; n++) {
-		if (&qstats[n] != qs && qstats[n].handle == qs->handle)
-			qstats[n].printed++;
-	}
-
-	printf("%5s: [ pkts: %10llu bytes: %10llu "
-	    "dropped pkts: %6llu bytes: %6llu ]\n", tcqslot2str(slot),
-	    (unsigned long long)cs->xmitcnt.packets,
-	    (unsigned long long)cs->xmitcnt.bytes,
-	    (unsigned long long)cs->dropcnt.packets,
-	    (unsigned long long)cs->dropcnt.bytes);
-	printf("       [ qlength: %3d/%3d qalg: %11s "
-	    "svc class: %9s %-13s ]\n", cs->qlength, cs->qlimit,
-	    qtype2str(cs->qtype), qid2str(cs->class_handle),
-	    qstate2str(cs->qstate));
-
-	if (qs->avgn >= 2) {
-		printf("       [ measured: %7.1f packets/s, %s/s ]\n",
-		    qs->avg_packets / interval,
-		    rate2str((8 * qs->avg_bytes) / interval));
-	}
-
-	if (qflag < 2)
-		return;
-
-	switch (cs->qtype) {
-	case Q_SFB:
-		print_sfbstats(&cs->sfb);
-		break;
-	default:
-		break;
-	}
-}
-
-static void
-print_qfqstats(int slot, struct qfq_classstats *cs, struct queue_stats *qs)
-{
-	printf(" %2d: [ pkts: %10llu  bytes: %10llu  "
-	    "dropped pkts: %6llu bytes: %6llu ]\n", slot,
-	    (unsigned long long)cs->xmitcnt.packets,
-	    (unsigned long long)cs->xmitcnt.bytes,
-	    (unsigned long long)cs->dropcnt.packets,
-	    (unsigned long long)cs->dropcnt.bytes);
-	printf("     [ qlength: %3d/%3d  index: %10u  weight: %12u "
-	    "lmax: %7u ]\n", cs->qlength, cs->qlimit, cs->index,
-	    cs->weight, cs->lmax);
-	printf("     [ qalg: %10s  svc class: %6s %-35s ]\n",
-	    qtype2str(cs->qtype), qid2str(cs->class_handle),
-	    qstate2str(cs->qstate));
-
-	if (qs->avgn >= 2) {
-		printf("     [ measured: %7.1f packets/s, %s/s ]\n",
-		    qs->avg_packets / interval,
-		    rate2str((8 * qs->avg_bytes) / interval));
-	}
-
-	if (qflag < 2)
-		return;
-
-	switch (cs->qtype) {
-	case Q_SFB:
-		print_sfbstats(&cs->sfb);
-		break;
-	default:
-		break;
-	}
 }
 
 static void
@@ -1606,6 +1493,8 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
 	printf("     [ throttle on: %u\toff: %u\tdrop: %u ]\n",
 	    fqst->fcls_throttle_on, fqst->fcls_throttle_off,
 	    fqst->fcls_throttle_drops);
+	printf("     [ compressible pkts: %u compressed pkts: %u]\n",
+	    fqst->fcls_pkts_compressible, fqst->fcls_pkts_compressed);
 
 	if (qflag < 2)
 		return;
@@ -1638,82 +1527,6 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
 }
 
 static void
-print_sfbstats(struct sfb_stats *sfb)
-{
-	struct sfbstats *sp = &sfb->sfbstats;
-	int i, j, cur = sfb->current;
-
-	printf("\n");
-	printf("     [target delay: %14s   ",
-	    nsec_to_str(sfb->target_qdelay));
-	printf("update interval: %14s]\n",
-	    nsec_to_str(sfb->update_interval));
-	printf("     [ early drop: %12llu  rlimit drop: %11llu  "
-	    "marked: %11llu ]\n",
-	    sp->drop_early, sp->drop_pbox, sp->marked_packets);
-	printf("     [ penalized: %13llu  rehash cnt: %12llu  "
-	    "current: %10u ]\n", sp->pbox_packets, sp->num_rehash, cur);
-	printf("     [ deque avg: %13s  ", nsec_to_str(sp->dequeue_avg));
-	printf("rehash intvl: %11s]\n", nsec_to_str(sp->rehash_intval));
-	printf("     [ holdtime: %14s  ", nsec_to_str(sp->hold_time));
-	printf("pboxtime: %14s ]\n", nsec_to_str(sp->pbox_time));
-	printf("     [ allocation: %12u  drop thresh: %11u ]\n",
-	    sfb->allocation, sfb->dropthresh);
-	printf("     [ flow controlled: %7llu  adv feedback: %10llu ]\n",
-	    sp->flow_controlled, sp->flow_feedback);
-	printf("     [ min queue delay: %10s   delay_fcthreshold: %12u]\n "
-	    "     [stalls: %12llu]\n",
-	    nsec_to_str(sfb->min_estdelay), sfb->delay_fcthreshold,
-	    sp->dequeue_stall);
-
-	printf("\n\t\t\t\tCurrent bins (set %d)", cur);
-	for (i = 0; i < SFB_LEVELS; ++i) {
-		unsigned int q;
-		double p;
-
-		printf("\n\tLevel: %d\n", i);
-		for (j = 0; j < SFB_BINS; ++j) {
-			if ((j % 4) == 0)
-				printf("\t%6d:\t", j + 1);
-			p = sfb->binstats[cur].stats[i][j].pmark;
-			q = sfb->binstats[cur].stats[i][j].pkts;
-			if (p > 0) {
-				p /= (1 << SFB_FP_SHIFT);
-				printf("[%1.4f %4u]", p, q);
-			} else {
-				printf("[           ]");
-			}
-			if (j > 0 && ((j + 1) % 4) == 0)
-				printf("\n");
-		}
-	}
-
-	cur ^= 1;
-	printf("\n\t\t\t\tWarm up bins (set %d)", cur);
-	for (i = 0; i < SFB_LEVELS; ++i) {
-		unsigned int q;
-		double p;
-
-		printf("\n\tLevel: %d\n", i);
-		for (j = 0; j < SFB_BINS; ++j) {
-			if ((j % 4) == 0)
-				printf("\t%6d:\t", j + 1);
-			p = sfb->binstats[cur].stats[i][j].pmark;
-			q = sfb->binstats[cur].stats[i][j].pkts;
-			if (p > 0) {
-				p /= (1 << SFB_FP_SHIFT);
-				printf("[%1.4f %4u]", p, q);
-			} else {
-				printf("[           ]");
-			}
-			if (j > 0 && ((j + 1) % 4) == 0)
-				printf("\n");
-		}
-	}
-	printf("\n");
-}
-
-static void
 update_avg(struct if_ifclassq_stats *ifcqs, struct queue_stats *qs)
 {
 	u_int64_t		 b, p;
@@ -1722,14 +1535,6 @@ update_avg(struct if_ifclassq_stats *ifcqs, struct queue_stats *qs)
 	n = qs->avgn;
 
 	switch (ifcqs->ifqs_scheduler) {
-	case PKTSCHEDT_TCQ:
-		b = ifcqs->ifqs_tcq_stats.xmitcnt.bytes;
-		p = ifcqs->ifqs_tcq_stats.xmitcnt.packets;
-		break;
-	case PKTSCHEDT_QFQ:
-		b = ifcqs->ifqs_qfq_stats.xmitcnt.bytes;
-		p = ifcqs->ifqs_qfq_stats.xmitcnt.packets;
-		break;
 	case PKTSCHEDT_FQ_CODEL:
 		b = ifcqs->ifqs_fq_codel_stats.fcls_dequeue_bytes;
 		p = ifcqs->ifqs_fq_codel_stats.fcls_dequeue;
@@ -1759,29 +1564,6 @@ update_avg(struct if_ifclassq_stats *ifcqs, struct queue_stats *qs)
 	qs->prev_packets = p;
 	if (n < AVGN_MAX)
 		qs->avgn++;
-}
-
-static char *
-qtype2str(classq_type_t t)
-{
-	char *c;
-
-	switch (t) {
-        case Q_DROPHEAD:
-		c = "DROPHEAD";
-		break;
-        case Q_DROPTAIL:
-		c = "DROPTAIL";
-		break;
-        case Q_SFB:
-		c = "SFB";
-		break;
-	default:
-		c = "UNKNOWN";
-		break;
-	}
-
-	return (c);
 }
 
 #define NSEC_PER_SEC    1000000000      /* nanoseconds per second */
@@ -1822,93 +1604,11 @@ sched2str(unsigned int s)
 	case PKTSCHEDT_NONE:
 		c = "NONE";
 		break;
-	case PKTSCHEDT_TCQ:
-		c = "TCQ";
-		break;
-	case PKTSCHEDT_QFQ:
-		c = "QFQ";
-		break;
 	case PKTSCHEDT_FQ_CODEL:
 		c = "FQ_CODEL";
 		break;
 	default:
 		c = "UNKNOWN";
-		break;
-	}
-
-	return (c);
-}
-
-static char *
-qid2str(unsigned int s)
-{
-	char *c;
-
-	switch (s) {
-	case 0:
-		c = "BE";
-		break;
-	case 1:
-		c = "BK_SYS";
-		break;
-	case 2:
-		c = "BK";
-		break;
-	case 3:
-		c = "RD";
-		break;
-	case 4:
-		c = "OAM";
-		break;
-	case 5:
-		c = "AV";
-		break;
-	case 6:
-		c = "RV";
-		break;
-	case 7:
-		c = "VI";
-		break;
-	case 8:
-		c = "VO";
-		break;
-	case 9:
-		c = "CTL";
-		break;
-	default:
-		c = "UNKNOWN";
-		break;
-	}
-
-	return (c);
-}
-
-static char *
-tcqslot2str(unsigned int s)
-{
-	char *c;
-
-	switch (s) {
-	case 0:
-	case 3:
-	case 4:
-		c = "0,3,4";
-		break;
-	case 1:
-	case 2:
-		c = "1,2";
-		break;
-	case 5:
-	case 6:
-	case 7:
-		c = "5-7";
-		break;
-	case 8:
-	case 9:
-		c = "8,9";
-		break;
-	default:
-		c = "?";
 		break;
 	}
 
@@ -1955,53 +1655,6 @@ pri2str(unsigned int i)
 		break;
 	}
 	return (c);
-}
-
-static char *
-qstate2str(unsigned int s)
-{
-	char *c;
-
-	switch (s) {
-	case QS_RUNNING:
-		c = "(RUNNING)";
-		break;
-	case QS_SUSPENDED:
-		c = "(SUSPENDED)";
-		break;
-	default:
-		c = "(UNKNOWN)";
-		break;
-	}
-
-	return (c);
-}
-
-#define	R2S_BUFS	8
-#define	RATESTR_MAX	16
-
-static char *
-rate2str(long double rate)
-{
-	char		*buf;
-	static char	 r2sbuf[R2S_BUFS][RATESTR_MAX];  /* ring bufer */
-	static int	 idx = 0;
-	int		 i;
-	static const char unit[] = " KMG";
-
-	buf = r2sbuf[idx++];
-	if (idx == R2S_BUFS)
-		idx = 0;
-
-	for (i = 0; rate >= 1000 && i <= 3; i++)
-		rate /= 1000;
-
-	if ((int)(rate * 100) % 100)
-		snprintf(buf, RATESTR_MAX, "%.2Lf%cb", rate, unit[i]);
-	else
-		snprintf(buf, RATESTR_MAX, "%lld%cb", (int64_t)rate, unit[i]);
-
-	return (buf);
 }
 
 void

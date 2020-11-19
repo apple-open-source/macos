@@ -63,7 +63,7 @@ public:
     CMClockRef timebaseClock();
 
 protected:
-    CoreAudioCaptureSource(String&& deviceID, String&& label, String&& hashSalt, uint32_t persistentID);
+    CoreAudioCaptureSource(String&& deviceID, String&& label, String&& hashSalt, uint32_t persistentID, BaseAudioSharedUnit* = nullptr);
     virtual ~CoreAudioCaptureSource();
     BaseAudioSharedUnit& unit();
     const BaseAudioSharedUnit& unit() const;
@@ -90,6 +90,7 @@ private:
     CaptureDevice::DeviceType deviceType() const final { return CaptureDevice::DeviceType::Microphone; }
 
     void initializeToStartProducingData();
+    void audioUnitWillStart();
 
 #if !RELEASE_LOG_DISABLED
     const char* logClassName() const override { return "CoreAudioCaptureSource"; }
@@ -114,16 +115,6 @@ public:
     void scheduleReconfiguration();
 
     void devicesChanged(const Vector<CaptureDevice>&);
-
-#if PLATFORM(IOS_FAMILY)
-    void setCoreAudioActiveSource(CoreAudioCaptureSource& source) { setActiveSource(source); }
-    void unsetCoreAudioActiveSource(CoreAudioCaptureSource& source) { unsetActiveSource(source); }
-    CoreAudioCaptureSource* coreAudioActiveSource() { return static_cast<CoreAudioCaptureSource*>(activeSource()); }
-
-    void setAudioCapturePageState(bool interrupted, bool pageMuted) final;
-#else
-    CoreAudioCaptureSource* coreAudioActiveSource() { return nullptr; }
-#endif
 
 private:
     CaptureSourceOrError createAudioCaptureSource(const CaptureDevice& device, String&& hashSalt, const MediaConstraints* constraints) final

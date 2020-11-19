@@ -21,7 +21,7 @@ else
 CONTENT_PLATFORM=osx
 # <rdar://problem/19355870> buildit doesn't set XBS_PROJECT_CONTENT_PLATFORMS nor XBS_PROJECT_COMPILATION_PLATFORM
 ifeq "$(RC_TARGET_CONFIG)" "iPhone"
-ifeq "$(RC_ProjectName)" "files_Sim"
+ifeq "$(subst Bridge_,,$(RC_ProjectName))" "files_Sim"
 CONTENT_PLATFORM=ios_sim
 else
 CONTENT_PLATFORM=ios
@@ -48,6 +48,13 @@ else
 SRC_HIERARCHY=hierarchy hierarchy.not_sim hierarchy.$(CONTENT_PLATFORM)
 endif
 
+ifeq "$(CONTENT_PLATFORM)" "osx"
+# This really should go to /AppleInternal, but can't because of rdar://9402760.
+DATA_SYMLINK_PREFIX=/DataVolumeSymlinks
+# No leading / since this is relative
+DATA_SYMLINK_DEST=System/Volumes/Data
+endif
+
 install::
 
 	# The hierarchy files REQUIRE that their columns be TAB-SEPARATED. Using
@@ -61,6 +68,17 @@ install::
 		print sprintf("install -d -m %s -o %s -g %s \"$(Destination)/%s\";", $$1, $$2, $$3, $$4); \
 		print sprintf("[ ! -f \"%s/Makefile\" ] || make -C \"%s\" CONTENT_PLATFORM=\"$(CONTENT_PLATFORM)\" Destination=\"$(Destination)/%s\" $@ ;", $$4, $$4, $$4); \
 	}' | sh -x -e
+
+ifeq "$(CONTENT_PLATFORM)" "osx"
+	# Create symlinks at the firmlink paths, but prepend a fixed prefix
+	# which will be removed at Mastering time to avoid any overlapping
+	# files issues.
+	$(_v) set -o pipefail && cat usr/share/firmlinks | awk -F '\t' '{ \
+		if (NF!=2) { print sprintf("echo \"\033[0;31mMake sure to use tabs instead of spaces for firmlinks\033[0m\"; exit 1;"); exit 1}; \
+		print "mkdir -p", "$(Destination)/\$$(dirname $(DATA_SYMLINK_PREFIX)"$$1")"; \
+		relpath=$$2; sub("[^/]*$$", "", relpath); gsub("[^/]+", "..", relpath); \
+		print "ln -s", relpath "$(DATA_SYMLINK_DEST)/" $$2, "$(Destination)/" "$(DATA_SYMLINK_PREFIX)" $$1}' | sh -x -e
+endif
 
 install::
 	$(_v) $(LN) -fs private/etc "$(Destination)/etc"
@@ -85,6 +103,9 @@ ifeq "$(CONTENT_PLATFORM)" "osx"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/.DS_Store"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/Applications/.DS_Store"
 	$(_v) $(INSTALL) -m 0664 -o root -g admin -c /dev/null "$(Destination)/Applications/Utilities/.DS_Store"
+
+	# <rdar://problem/63655752>
+	$(_v) $(LN) -fs SystemVersion.plist "$(Destination)/System/Library/CoreServices/.SystemVersionPlatform.plist"
 endif
 ifneq "$(CONTENT_PLATFORM)" "ios_sim"
 	$(_v) $(CHOWN) -h root:wheel "$(Destination)/tmp"

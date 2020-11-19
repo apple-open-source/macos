@@ -34,7 +34,7 @@
 #include <security_asn1/SecNssCoder.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
 
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 using namespace Security;
 using namespace KeychainCore;

@@ -23,18 +23,16 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #if PLATFORM(IOS_FAMILY) && ENABLE(ASYNC_SCROLLING)
 
-#include <UIKit/UIScrollView.h>
-#include <WebCore/ScrollingCoordinator.h>
-#include <WebCore/ScrollingTreeScrollingNode.h>
-#include <WebCore/ScrollingTreeScrollingNodeDelegate.h>
+#import <UIKit/UIScrollView.h>
+#import <WebCore/ScrollingCoordinator.h>
+#import <WebCore/ScrollingTreeScrollingNode.h>
+#import <WebCore/ScrollingTreeScrollingNodeDelegate.h>
 
-OBJC_CLASS CALayer;
-OBJC_CLASS UIScrollView;
-OBJC_CLASS WKScrollingNodeScrollViewDelegate;
+@class CALayer;
+@class UIScrollView;
+@class WKScrollingNodeScrollViewDelegate;
 
 namespace WebCore {
 
@@ -67,12 +65,10 @@ public:
 
     void repositionScrollingLayers();
 
-#if ENABLE(POINTER_EVENTS)
     OptionSet<WebCore::TouchAction> activeTouchActions() const { return m_activeTouchActions; }
     void computeActiveTouchActionsForGestureRecognizer(UIGestureRecognizer*);
     void clearActiveTouchActions() { m_activeTouchActions = { }; }
     void cancelPointersForGestureRecognizer(UIGestureRecognizer*);
-#endif
 
     UIScrollView *findActingScrollParent(UIScrollView *);
     UIScrollView *scrollView() const;
@@ -81,9 +77,7 @@ private:
     RetainPtr<CALayer> m_scrollLayer;
     RetainPtr<CALayer> m_scrolledContentsLayer;
     RetainPtr<WKScrollingNodeScrollViewDelegate> m_scrollViewDelegate;
-#if ENABLE(POINTER_EVENTS)
     OptionSet<WebCore::TouchAction> m_activeTouchActions { };
-#endif
     bool m_updatingFromStateNode { false };
 };
 

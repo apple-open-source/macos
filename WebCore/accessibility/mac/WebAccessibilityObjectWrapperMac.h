@@ -26,8 +26,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #import "WebAccessibilityObjectWrapperBase.h"
 
 #if PLATFORM(MAC)
@@ -48,3 +46,11 @@
 @end
 
 #endif // PLATFORM(MAC)
+
+namespace WebCore {
+
+id textMarkerRangeFromMarkers(id textMarker1, id textMarker2);
+id textMarkerForVisiblePosition(AXObjectCache*, const VisiblePosition&);
+id textMarkerRangeFromVisiblePositions(AXObjectCache*, const VisiblePosition&, const VisiblePosition&);
+
+}

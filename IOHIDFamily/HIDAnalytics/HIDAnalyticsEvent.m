@@ -124,6 +124,8 @@ static HIDAnalyticsReporter *__hidAnalyticsReporter = NULL;
     
     _isUpdated = NO;
     
+    _isLogged |= (ret.count == 0);
+    
     return ret.count == 0 ? NULL : ret;
     
 }

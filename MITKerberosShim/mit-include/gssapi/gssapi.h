@@ -67,7 +67,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#if TARGET_OS_MAC
+#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
 #    pragma pack(push,2)
 #endif
 
@@ -804,7 +804,7 @@ gss_canonicalize_name(
     const gss_OID,      /* mech_type */
     gss_name_t *) GSSKRB_APPLE_DEPRECATED("use GSS.framework") __API_DEPRECATED("Use GSS.framework", macos(10.0, 10.8)) __API_UNAVAILABLE(iosmac);      /* output_name */
 
-#if TARGET_OS_MAC
+#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
 #    pragma pack(pop)
 #endif
 

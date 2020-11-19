@@ -103,7 +103,8 @@ enum {
     @discussion The discovery of an AGP master device by the PCI bus family results in an instance of the IOAGPDevice being created and published. It provides services specific to AGP, in addition to the PCI services supplied by its superclass IOPCIDevice.
 */
 
-class IOAGPDevice : public IOPCIDevice
+__exported_push
+class __kpi_deprecated("Use PCIDriverKit") IOAGPDevice : public IOPCIDevice
 {
     OSDeclareDefaultStructors(IOAGPDevice)
 
@@ -218,5 +219,6 @@ public:
     OSMetaClassDeclareReservedUnused(IOAGPDevice, 15);
     OSMetaClassDeclareReservedUnused(IOAGPDevice, 16);
 };
+__exported_pop
 
 #endif /* ! _IOKIT_IOAGPDEVICE_H */

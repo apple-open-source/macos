@@ -109,14 +109,16 @@
 
 - (id)initWithURLString:(const char *)urlstr verbose:(int)level
 {
-    _url = [[NSURL alloc] initWithString:[NSString stringWithFormat:@"%s", urlstr]];
-    _udp = NO;
-    _finished = NO;
-    _verbose = level;
-    _error = nil;
-    _trust = NULL;
-    _queue = dispatch_get_main_queue();
-    _connection = [self createConnection];
+    if ((self = [super init])) {
+        _url = [[NSURL alloc] initWithString:[NSString stringWithFormat:@"%s", urlstr]];
+        _udp = NO;
+        _finished = NO;
+        _verbose = level;
+        _error = nil;
+        _trust = NULL;
+        _queue = dispatch_get_main_queue();
+        _connection = [self createConnection];
+    }
 
     return self;
 }

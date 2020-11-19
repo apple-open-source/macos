@@ -47,6 +47,14 @@ __FBSDID("$FreeBSD: src/lib/libc/string/strsignal.c,v 1.9 2010/01/24 10:35:26 um
 
 #define	UPREFIX		"Unknown signal"
 
+/*
+ * Define a buffer size big enough to describe a 64-bit signed integer
+ * converted to ASCII decimal (19 bytes), with an optional leading sign
+ * (1 byte); delimiter (": ", 2 bytes); and a trailing NUL (1 byte).
+ */
+#define TMPSIZE	(19 + 1 + 2 + 1)
+#define EBUFSIZE NL_TEXTMAX * sizeof(char)
+
 static once_t		sig_init_once = ONCE_INITIALIZER;
 static thread_key_t	sig_key;
 static int		sig_keycreated = 0;
@@ -66,7 +74,7 @@ sig_tlsalloc(void)
 	    !sig_keycreated)
 		goto thr_err;
 	if ((ebuf = thr_getspecific(sig_key)) == NULL) {
-		if ((ebuf = malloc(NL_TEXTMAX * sizeof(char))) == NULL)
+		if ((ebuf = malloc(EBUFSIZE)) == NULL)
 			goto thr_err;
 		if (thr_setspecific(sig_key, ebuf) != 0) {
 			free(ebuf);
@@ -78,71 +86,74 @@ thr_err:
 	return (ebuf);
 }
 
-/* XXX: negative 'num' ? (REGR) */
-char *
-strsignal(int num)
+int
+strsignal_r(int num, char *strsignalbuf, size_t buflen)
 {
-	char *ebuf;
-	char tmp[20];
+	int retval = 0;
+	char tmp[TMPSIZE] = { 0 };
 	size_t n;
 	int signum;
 	char *t, *p;
 
-#if defined(NLS)
-	int saved_errno = errno;
-	nl_catd catd;
-	catd = catopen("libc", NL_CAT_LOCALE);
-#endif
-
-	ebuf = sig_tlsalloc();
-	if(ebuf == NULL) {
-		errno = ENOMEM;
-		return NULL;
-	}
-
-	if (num > 0 && num < NSIG) {
-		n = strlcpy(ebuf,
-#if defined(NLS)
-			catgets(catd, 2, num, sys_siglist[num]),
-#else
-			sys_siglist[num],
-#endif
-			NL_TEXTMAX * sizeof(char));
-	} else {
-		n = strlcpy(ebuf,
-#if defined(NLS)
-			catgets(catd, 2, 0xffff, UPREFIX),
-#else
-			UPREFIX,
-#endif
-			NL_TEXTMAX * sizeof(char));
-	}
-
 	signum = num;
-	if (num < 0)
+	if (num < 0) {
 		signum = -signum;
+	}
 
 	t = tmp;
 	do {
 		*t++ = "0123456789"[signum % 10];
 	} while (signum /= 10);
-	if (num < 0)
+	if (num < 0) {
 		*t++ = '-';
-
-	p = (ebuf + n);
-	*p++ = ':';
-	*p++ = ' ';
-
-	for (;;) {
-		*p++ = *--t;
-		if (t <= tmp)
-			break;
 	}
-	*p = '\0';
+	int suffixlen = strlen(tmp) + 2;
 
-#if defined(NLS)
-	catclose(catd);
-	errno = saved_errno;
-#endif
+	if (num > 0 && num < NSIG) {
+		n = strlcpy(strsignalbuf,
+			sys_siglist[num],
+			buflen);
+		if (n >= (buflen - suffixlen)) {
+			retval = ERANGE;
+		}
+	} else {
+		n = strlcpy(strsignalbuf,
+			UPREFIX,
+			buflen);
+		retval = EINVAL;
+	}
+
+	if (n < (buflen - suffixlen)) {
+		p = (strsignalbuf + n);
+		*p++ = ':';
+		*p++ = ' ';
+
+		for (;;) {
+			*p++ = *--t;
+			if (t <= tmp)
+				break;
+		}
+		*p = '\0';
+	}
+
+	return retval;
+}
+
+/* XXX: negative 'num' ? (REGR) */
+char *
+strsignal(int num)
+{
+	char *ebuf;
+
+	ebuf = sig_tlsalloc();
+	if (ebuf == NULL) {
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	if (strsignal_r(num, ebuf, EBUFSIZE)) {
+		errno = EINVAL;
+	}
+
 	return (ebuf);
 }

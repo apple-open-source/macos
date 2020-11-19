@@ -42,9 +42,9 @@ public:
 	ArenaAllocator(SecNssCoder &coder)
 		: mCoder(coder) { }
 	~ArenaAllocator() { }
-	void *malloc(size_t) throw(std::bad_alloc) ;
-	void free(void *) throw() ;
-	void *realloc(void *, size_t) throw(std::bad_alloc);
+	void *malloc(size_t);
+	void free(void *) _NOEXCEPT ;
+	void *realloc(void *, size_t);
 private:
 	SecNssCoder		&mCoder;
 };

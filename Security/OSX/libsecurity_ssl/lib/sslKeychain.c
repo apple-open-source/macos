@@ -41,7 +41,7 @@
 #include "sslDebug.h"
 #include "sslKeychain.h"
 #include <string.h>
-#include <assert.h>
+#include "utilities/simulatecrash_assert.h"
 
 
 #include <Security/Security.h>

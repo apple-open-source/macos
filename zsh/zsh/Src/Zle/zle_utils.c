@@ -1607,7 +1607,11 @@ static int
 unapplychange(struct change *ch)
 {
     if(ch->hist != histline) {
-	zle_setline(quietgethist(ch->hist));
+	Histent he = quietgethist(ch->hist);
+	DPUTS(he == NULL, "quietgethist(ch->hist) returned NULL");
+	if(he == NULL)
+	    return 1;
+	zle_setline(he);
 	zlecs = ch->new_cs;
 	return 0;
     }
@@ -1647,7 +1651,11 @@ static int
 applychange(struct change *ch)
 {
     if(ch->hist != histline) {
-	zle_setline(quietgethist(ch->hist));
+	Histent he = quietgethist(ch->hist);
+	DPUTS(he == NULL, "quietgethist(ch->hist) returned NULL");
+	if(he == NULL)
+	    return 1;
+	zle_setline(he);
 	zlecs = ch->old_cs;
 	return 0;
     }
@@ -1733,7 +1741,7 @@ zlecallhook(char *name, char *arg)
 
     args[0] = arg;
     args[1] = NULL;
-    execzlefunc(thingy, args, 1);
+    execzlefunc(thingy, args, 1, 0);
     unrefthingy(thingy);
 
     /* Retain any user interrupt error status */

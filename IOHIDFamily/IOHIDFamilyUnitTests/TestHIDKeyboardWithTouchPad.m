@@ -253,6 +253,7 @@ static NSArray<NSData*> *createMultiContactReports(NSUInteger count, uint16_t X,
    result = [XCTWaiter waitForExpectations:@[_eventDispatchedCallback] timeout:10];
    HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_ALL,
                               result == XCTWaiterResultCompleted);
+     
 }
 
 

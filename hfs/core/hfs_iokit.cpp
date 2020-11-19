@@ -37,6 +37,7 @@
 #include "hfs_iokit.h"
 #include "hfs.h"
 #include "hfs_dbg.h"
+#include "hfs_cnode.h"
 
 #ifndef panic_on_assert
 bool panic_on_assert;
@@ -121,6 +122,18 @@ bool com_apple_filesystems_hfs::start(IOService *provider)
 	hfs_init_zones();
 	
 	hfs_sysctl_register();
+
+	uint32_t num_cpus;
+	size_t sz = sizeof(num_cpus);
+
+	if (sysctlbyname("hw.physicalcpu", &num_cpus,  &sz, NULL, 0) == 0) {
+		if ((2 * num_cpus) > MAX_CACHED_ORIGINS_DEFAULT) {
+			_hfs_max_origins = 2 * num_cpus;
+			_hfs_max_file_origins = 2 * num_cpus;
+		} else if ((2 * num_cpus) > MAX_CACHED_FILE_ORIGINS_DEFAULT) {
+			_hfs_max_file_origins = 2 * num_cpus;
+		}
+	}
 
 	return true;
 }

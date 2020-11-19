@@ -51,6 +51,7 @@
 #include "SOSAccountTesting.h"
 
 #include "SecdTestKeychainUtilities.h"
+#if SOS_ENABLED
 
 
 typedef void (^stir_block)(int expected_iterations);
@@ -198,14 +199,16 @@ static void tests(void)
     bob_account = nil;
     SOSTestCleanup();
 }
+#endif
 
 int secd_63_account_resurrection(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(73);
-
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

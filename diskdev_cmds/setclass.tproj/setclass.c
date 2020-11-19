@@ -1,14 +1,12 @@
 /*
- * Copyright (c) 2010-2013 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2020 Apple Inc. All rights reserved.
  */
+#include <err.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <dirent.h>
 #include <unistd.h>
-#include <string.h>
-#include <sys/stat.h>
+#include <sys/attr.h>
 
 /* from sys/cprotect.h */
 
@@ -79,8 +77,11 @@ classtochar(int class)
 int 
 main(int argc, char **argv)
 {
-	int error = 0, class = 0, do_set = 0, fd = 0;
-	struct stat buf = {0};
+	int error = 0, class = 0, do_set = 0;
+	static struct attrlist req = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.commonattr = ATTR_CMN_DATA_PROTECT_FLAGS
+	};
 
 	if ((argc < 2) || (argc > 3))
 		usage();
@@ -90,79 +91,54 @@ main(int argc, char **argv)
 		class = chartoclass(*argv[2]);
 	}
 
-	error = stat(argv[1], &buf);
-	if (error) {
-		printf("Error - could not stat path %s\n", argv[1]);
-		exit(0);		
-	}
-
 	/*
-	 * If we're trying to set the protection class, go through normal open(2).
-	 * This will deny opens on protected files if the device is locked.
+	 * setclass and getclass for `argv[1]` using setattrlist(2) and
+	 * getattrlist(2) respectively.
 	 */
 	if (do_set) {
-		fd = open (argv[1], O_RDONLY);
+		struct {
+			uint32_t prot_class;
+		} __attribute__((packed, aligned(4))) attrs = {
+			.prot_class = class
+		};
 
-		if (fd < 0) {
-			if (S_ISDIR(buf.st_mode)) {
-				printf("Error - could not open directory %s\n", argv[1]);
-			}
-			else if (S_ISREG(buf.st_mode)){
-				printf("Error - could not open file %s\n", argv[1]);
-			}
-			else {
-				printf("Error - path is not a regular file or directory %s\n", argv[1]);
-			}
-			exit(0);
-		}
-	}
-	else {
-		/*
-		 * The open_dprotected_np syscall allows us to acquire an FD to query the
-		 * protection class even if the device is locked.
-		 */
-		fd = open_dprotected_np (argv[1], O_RDONLY, 0, O_DP_GETRAWENCRYPTED);
-
-		if (fd < 0) {
-			if (S_ISDIR(buf.st_mode)) {
-				printf("Error - could not open directory %s\n", argv[1]);
-			}
-			else if (S_ISREG(buf.st_mode)){
-				printf("Error - could not open file %s\n", argv[1]);
-			}
-			else {
-				printf("Error - path is not a regular file or directory %s\n", argv[1]);
-			}
-			exit(0);
-		}
-	}
-
-	/* Now make the fcntl call */
-	if (do_set) {
-		error = fcntl(fd, F_SETPROTECTIONCLASS, class);
+		error = setattrlist(argv[1], (void *)&req, &attrs, sizeof(attrs),
+							 FSOPT_NOFOLLOW);
 		if (error) {
 			char new_class = classtochar(class);
 			if (new_class == 0) {
-				printf("could not set protection class (directory none):  %s\n", strerror(errno));
+				warn("could not set protection class of %s to (directory none)",
+					 argv[1]);
 			}
 			else {
-				printf("could not set protection class %c: %s\n", new_class, strerror(errno));
+				warn("could not set protection class of %s to %c", argv[1],
+					 new_class);
 			}
 		}
-	} 
+	}
 	else {
-		class = fcntl(fd, F_GETPROTECTIONCLASS);
-		if (class < 0) {
-			if ((errno == EFAULT) && (S_ISDIR(buf.st_mode))) {
-				/* Directories are allowed to not have a class set. */
-				printf("%s has no protection class set\n", argv[1]);
-			} 
-			else {
-				printf("could not get protection class: %s\n", strerror(errno));
-				error = class;
+		req.commonattr |= ATTR_CMN_RETURNED_ATTRS;
+
+		struct {
+			uint32_t len;
+			attribute_set_t returned;
+			uint32_t prot_class;
+		} __attribute__((packed, aligned(4))) attrs;
+
+		error = getattrlist(argv[1], (void *)&req, &attrs, sizeof(attrs),
+							 FSOPT_NOFOLLOW);
+		if (error == -1 || attrs.len != sizeof(attrs) ||
+			attrs.returned.commonattr != req.commonattr) {
+			if (error == -1) {
+				error = errno;
 			}
-		} 
+			else {
+				error = EINVAL;
+			}
+			err(error, "could not get protection class");
+		}
 		else {
+			class = attrs.prot_class;
 			char new_class = classtochar(class);
 			if (new_class == 0) {
 				printf("%s is in protection class (directory none) \n", argv[1]);
@@ -171,10 +147,6 @@ main(int argc, char **argv)
 				printf("%s is in protection class %c\n", argv[1], new_class);
 			}
 		}
-	}
-	
-	if (fd >= 0) {
-		close(fd);
 	}
 
 	return error;

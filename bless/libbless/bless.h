@@ -137,6 +137,18 @@ typedef struct {
 #define kBL_PATH_CORESERVICES "/System/Library/CoreServices"
 
 /*!
+ * @define kBL_PATH_KERNELCOLLECTIONS
+ * @discussion Location of the kernel collection files
+ */
+#define kBL_PATH_KERNELCOLLECTIONS "/System/Library/KernelCollections"
+
+/*!
+ * @define kBL_NAME_BOOTKERNELEXTENSIONS
+ * @discussion Specific set of kernel collection files
+ */
+#define kBL_NAME_BOOTKERNELEXTENSIONS "BootKernelExtensions.kc"
+
+/*!
  * @define kBL_PATH_I386_BOOT0
  * @discussion MBR boot code
  */
@@ -188,15 +200,15 @@ typedef struct {
  * @define kBL_PATH_SYSTEM_VERSION_PLIST
  * @discussion OS version information
  */
-#define kBL_PATH_SYSTEM_VERSION_PLIST "/System/Library/CoreServices/SystemVersion.plist"
+#define kBL_PATH_SYSTEM_VERSION_PLIST kBL_PATH_CORESERVICES "/SystemVersion.plist"
 
 
 /*!
  * @define kBL_PATH_BRIDGE_VERSION_*
  * @discussion SecureBoot-related files
  */
-#define kBL_PATH_BRIDGE_VERSION_BIN         "/System/Library/CoreServices/BridgeVersion.bin"
-#define kBL_PATH_BRIDGE_VERSION_PLIST       "/System/Library/CoreServices/BridgeVersion.plist"
+#define kBL_PATH_BRIDGE_VERSION_BIN         kBL_PATH_CORESERVICES "/BridgeVersion.bin"
+#define kBL_PATH_BRIDGE_VERSION_PLIST       kBL_PATH_CORESERVICES "/BridgeVersion.plist"
 
 
 /*!
@@ -527,6 +539,22 @@ int BLGetAPFSBlessData(BLContextPtr context, const char *mountpoint, uint64_t *w
 int BLGetAPFSSnapshotBlessData(BLContextPtr context, const char *mountpoint, uuid_string_t snap_uuid);
 
 
+/*!
+ * @function BLCreateAndSetSnapshotBoot
+ * @abstract Create a snapshot and set it to boot an APFS volume
+ * @discussion Make the necessary calls to
+ *    set blessed snapshot information
+ *    from the volume mounted at <b>mountpoint</b>.
+ *    snapName should be at least 64 bytes.
+ * @param context Bless Library context
+ * @param mountpoint Mountpoint of volume
+ * @param snapName name of newly created snapshot
+ * @param nameLen size of buffer to hold snapshot name
+ */
+int BLCreateAndSetSnapshotBoot(BLContextPtr context, const char *mountpoint, char *snapName, int nameLen);
+
+
+
 
 /*!
  * @function BLSetAPFSSnapshotBlessData
@@ -650,6 +678,44 @@ int BLRoleForAPFSVolumeDev(BLContextPtr context, const char *volumeDev, uint16_t
 int BLIsDataRoleForAPFSVolumeDev(BLContextPtr context, const char *volumeDev, bool *isDataRole);
 
 
+
+/*!
+* @function BLIsVolumeARV
+* @abstract Determine if a mounted volume is an ARV
+* @discussion Given a mounted volume, return whether or not this volume
+*				is an Authenticated Root Volume.  The volume need not be
+*				sealed for this to return true.
+* @param context Bless Library context (input)
+* @param mountPoint Mount point of the volume in question
+ @param volBSD  disk* device BSD of the volume in question
+* @param arv	Returns result
+* @return	Error code, 0 on successfully determining answer.
+*/
+
+int BLIsVolumeARV(BLContextPtr context, const char *mountPoint, const char* volBSD, bool *arv);
+
+/*!
+* @function BLAPFSSnapshotToVolume
+* @abstract Resolve an IOReg APFS snapshot object to its corresponding APFS volume object
+* @discussion Given an io_service_t object representing an APFS snapshot, return the object
+*				corresponding to the underlying APFS volume.  The newly returned object must
+*				be released by the caller.
+* @param context Bless Library context (input)
+* @param snapshotDev io_service_t for an APFS snapshot (input)
+* @param volumeDev returned io_service_t for the underlying APFS volume (output)
+*/
+int BLAPFSSnapshotToVolume(BLContextPtr context, io_service_t snapshotDev, io_service_t *volumeDev);
+
+/*!
+* @function BLAPFSSnapshotAsRoot
+* @abstract Returns the root snapshot name if available
+* @discussion Given an mountpoint representing an APFS system volume, return the root snapshot if available.
+* @param context Bless Library context (input)
+* @param mountPoint mountPoint to APFS system volume
+* @param snapName returned name of of the snapshot (output)
+ @param nameLen number of bytes to copy in snapName
+ */
+int BLAPFSSnapshotAsRoot(BLContextPtr context, const char *mountPoint, char *snapName, int nameLen);
 
 /***** FileID *****/
 

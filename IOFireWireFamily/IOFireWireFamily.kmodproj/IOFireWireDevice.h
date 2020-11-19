@@ -154,14 +154,14 @@ protected:
     
     void	processROM(RomScan *romScan);
     
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
     
 public:
     virtual IOReturn message( UInt32 type, IOService * provider, void * argument ) APPLE_KEXT_OVERRIDE;
 
     virtual bool handleOpen( IOService * forClient, IOOptionBits options, void * arg ) APPLE_KEXT_OVERRIDE;
 
-    virtual void handleClose( IOService * forClient, IOOptionBits options );
+    virtual void handleClose( IOService * forClient, IOOptionBits options ) APPLE_KEXT_OVERRIDE;
 
     virtual bool handleIsOpen( const IOService * forClient ) const APPLE_KEXT_OVERRIDE;
 

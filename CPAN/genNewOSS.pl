@@ -63,10 +63,30 @@ my %modules = (
 	license => 'Apache 2.0',
 	licensestr => $Apache20License,
     },
+    'Devel-CallChecker-0.008' => {
+	copyright => 'This software is copyright (c) 2011, 2012, 2013, 2015, 2017 Andrew Main (Zefram) <zefram@fysh.org>',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Devel-Declare-0.006019' => {
+	copyright => 'This software is copyright (c) 2007, 2008, 2009 by Matt S Trout, 2008, 2009 by Florian Ragwitz.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'Devel-StackTrace-1.31' => {
 	copyright => 'This software is Copyright (c) 2014 by Dave Rolsky.',
 	license => 'ArtisticLicense',
 	licensestr => $ArtisticLicense,
+    },
+    'DynaLoader-Functions-0.003' => {
+	copyright => 'This software is copyright (C) 2011, 2012, 2013, 2017 Andrew Main (Zefram) <zefram@fysh.org>',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Exporter-Tiny-1.002001' => {
+	copyright => 'This software is copyright (c) 2013-2014, 2017 by Toby Inkster.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
     },
     'ExtUtils-Config-0.007' => {
 	copyright => 'This software is copyright (c) 2006 by Ken Williams, Leon Timmermans.',
@@ -83,8 +103,23 @@ my %modules = (
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
+    'File-Remove-1.58' => {
+	copyright => 'This software is copyright (c) 1998 by Gabor Egressy.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'HTML-Tree-5.07' => {
+	copyright => 'This software is copyright (c) 1995-1998 by Gisle Aas, 1999-2004 by Sean M. Burke, 2005 by Andy Lester, 2006 by Pete Krawczyk, 2010 by Jeff Fearn, 2012 by Christopher J. Madsen. (Except the articles contained in HTML::Tree::AboutObjects, HTML::Tree::AboutTrees, and HTML::Tree::Scanning, which are all copyright (c) 2000 by The Perl Journal.)',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
     'Import-Into-1.002000' => {
 	copyright => 'Copyright (c) 2012 mst - Matt S. Trout (cpan:MSTROUT) <mst@shadowcat.co.uk>, haarg - Graham Knop (cpan:HAARG) <haarg@haarg.org>',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'IPC-System-Simple-1.26' => {
+	copyright => 'This software is copyright (c) 2006-2008 by Paul Fenwick.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
@@ -93,23 +128,83 @@ my %modules = (
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
+    'List-MoreUtils-XS-0.428' => {
+	copyright => 'This software is copyright (c) 2011 by Aaron Crane, 2004-2010 by Tassilo von Parseval, 2013-2017 by Jens Rehsack.',
+	license => 'Apache 2.0',
+	licensestr => $Apache20License,
+    },
+    'List-MoreUtils-0.428' => {
+	copyright => 'This software is copyright (c) 2011 by Aaron Crane, 2004-2010 by Tassilo von Parseval, 2013-2017 by Jens Rehsack.',
+	license => 'Apache 2.0',
+	licensestr => $Apache20License,
+    },
     'Module-Build-Tiny-0.034' => {
 	copyright => 'This software is copyright (c) 2011 by Leon Timmermans, David Golden.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'bareword-filehandles-0.003' => {
-	copyright => 'This software is copyright (c) 2011 by Dagfinn Ilmari Mannsåker.',
+    'Module-Build-0.4229' => {
+	copyright => 'This software is copyright (c) 2001-2006 by Ken Williams.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'indirect-0.31' => {
-	copyright => 'Copyright 2008,2009,2010,2011,2012,2013 Vincent Pit, all rights reserved.',
+    'Module-Install-1.19' => {
+	copyright => 'This software is copyright (c) 2002-2012 by Brian Ingerson, Audrey Tang and Adam Kennedy.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'multidimensional-0.011' => {
-	copyright => 'This software is copyright (c) 2010 by Dagfinn Ilmari Mannsåker.',
+    'Module-Package-0.30' => {
+	copyright => 'This software is copyright (c) 2011 Ingy döt Net.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'PadWalker-2.3' => {
+	copyright => 'This software is copyright (c) 2000-2009 by Robin Houston.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Params-Classify-0.015' => {
+	copyright => 'This software is copyright (c) 2004, 2006, 2007, 2009, 2010, 2017 by Andrew Main (Zefram) <zefram@fysh.org>, 2009, 2010 by PhotoBox Ltd.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'Scope-Guard-0.21' => {
+	copyright => 'This software is copyright (c) 2005-2015, chocolateboy.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'TermReadKey-2.38' => {
+	copyright => 'This software is copyright (c) 1994-1999 by Kenneth Albanowski, 2001-2016 by Jonathan Stowe and others.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'XSLoader-0.24' => {
+	copyright => 'Copyright (c) 1990-2011 by Larry Wall and others.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'YAML-Tiny-1.73' => {
+	copyright => 'This software is copyright (c) 2006-2013 Adam Kennedy.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'autobox-2.86' => {
+	copyright => 'This software is copyright (c) 2003-2018 by chocolateboy.',
+	license => 'ArtisticLicense',
+	licensestr => $ArtisticLicense,
+    },
+    'bareword-filehandles-0.007' => {
+	copyright => 'This software is copyright (c) 2011-2016 by Dagfinn Ilmari Mannsåker.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'indirect-0.39' => {
+	copyright => 'Copyright 2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2019 Vincent Pit, all rights reserved.',
+	license => 'Perl',
+	licensestr => $PerlLicense,
+    },
+    'multidimensional-0.014' => {
+	copyright => 'This software is copyright (c) 2010-2016 by Dagfinn Ilmari Mannsåker.',
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },

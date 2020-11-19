@@ -39,15 +39,11 @@ static CFStringRef kicloud_identity_name = CFSTR("Cloud Identity");
 
 SecKeyRef SOSAccountCopyDeviceKey(SOSAccount* account, CFErrorRef *error) {
     SecKeyRef privateKey = NULL;
-    SOSFullPeerInfoRef identity = NULL;
-
-    SOSAccountTrustClassic *trust = account.trust;
-    identity = trust.fullPeerInfo;
-    require_action_quiet(identity, fail, SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("No identity to get key from")));
-
-    privateKey = SOSFullPeerInfoCopyDeviceKey(identity, error);
-
-fail:
+    if(account.peerPublicKey) {
+        privateKey = SecKeyCopyMatchingPrivateKey(account.peerPublicKey, error);
+    } else {
+        SOSErrorCreate(kSOSErrorPeerNotFound, error, NULL, CFSTR("No identity to get key from"));
+    }
     return privateKey;
 }
 
@@ -59,13 +55,13 @@ SOSFullPeerInfoRef CopyCloudKeychainIdentity(SOSPeerInfoRef cloudPeer, CFErrorRe
 static CF_RETURNS_RETAINED SecKeyRef GeneratePermanentFullECKey_internal(int keySize, CFStringRef name, CFTypeRef accessibility, CFBooleanRef sync,  CFErrorRef* error)
 {
     SecKeyRef full_key = NULL;
-    
+
     CFNumberRef key_size_num = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &keySize);
-    
+
     CFDictionaryRef priv_key_attrs = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                                                   kSecAttrIsPermanent,    kCFBooleanTrue,
                                                                   NULL);
-    
+
     CFDictionaryRef keygen_parameters = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                                                      kSecAttrKeyType,        kSecAttrKeyTypeEC,
                                                                      kSecAttrKeySizeInBits,  key_size_num,
@@ -76,19 +72,19 @@ static CF_RETURNS_RETAINED SecKeyRef GeneratePermanentFullECKey_internal(int key
                                                                      kSecAttrSynchronizable, sync,
                                                                      kSecUseTombstones,      kCFBooleanTrue,
                                                                      NULL);
-    
+
     CFReleaseNull(priv_key_attrs);
-    
+
     CFReleaseNull(key_size_num);
     OSStatus status = SecKeyGeneratePair(keygen_parameters, NULL, &full_key);
     CFReleaseNull(keygen_parameters);
-    
+
     if (status)
         secerror("status: %ld", (long)status);
     if (status != errSecSuccess && error != NULL && *error == NULL) {
         *error = CFErrorCreate(kCFAllocatorDefault, kCFErrorDomainOSStatus, status, NULL);
     }
-    
+
     return full_key;
 }
 
@@ -98,6 +94,69 @@ CF_RETURNS_RETAINED SecKeyRef GeneratePermanentFullECKey(int keySize, CFStringRe
 
 static CF_RETURNS_RETAINED SecKeyRef GeneratePermanentFullECKeyForCloudIdentity(int keySize, CFStringRef name, CFErrorRef* error) {
     return GeneratePermanentFullECKey_internal(keySize, name, kSecAttrAccessibleWhenUnlocked, kCFBooleanTrue, error);
+}
+
+static SecKeyRef sosKeyForLabel(CFStringRef label) {
+    CFTypeRef queryResult = NULL;
+    SecKeyRef retval = NULL;
+    CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+        kSecMatchLimit,            kSecMatchLimitOne,
+        kSecClass,                 kSecClassKey,
+        kSecAttrKeyClass,          kSecAttrKeyClassPrivate,
+        kSecAttrSynchronizable,    kSecAttrSynchronizableAny,
+        kSecAttrAccessGroup,       kSOSInternalAccessGroup,
+        kSecAttrLabel,              label,
+        kSecReturnRef,             kCFBooleanTrue,
+        NULL);
+    OSStatus stat = SecItemCopyMatching(query, &queryResult);
+    if(errSecSuccess == stat) {
+        retval = (SecKeyRef) queryResult;
+        secnotice("iCloudIdentity", "Got key for label (%@)", label);
+    } else {
+        secnotice("iCloudIdentity", "Failed query(%d) for %@", (int) stat, label);
+    }
+    CFReleaseNull(query);
+    return retval;
+}
+
+void SOSiCloudIdentityPrivateKeyForEach(void (^complete)(SecKeyRef privKey)) {
+    CFTypeRef queryResult = NULL;
+    CFArrayRef iCloudPrivKeys = NULL;
+
+    CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+        kSecMatchLimit,            kSecMatchLimitAll,
+        kSecClass,                 kSecClassKey,
+        kSecAttrKeyClass,          kSecAttrKeyClassPrivate,
+        kSecAttrSynchronizable,    kSecAttrSynchronizableAny,
+        kSecAttrAccessGroup,       kSOSInternalAccessGroup,
+        kSecReturnAttributes,      kCFBooleanTrue,
+        NULL);
+
+    if((errSecSuccess == SecItemCopyMatching(query, &queryResult)) && (iCloudPrivKeys = asArray(queryResult, NULL))) {
+        secnotice("iCloudIdentity", "Screening %ld icloud private key candidates", (long)CFArrayGetCount(iCloudPrivKeys));
+        CFReleaseNull(query);
+    } else {
+        secnotice("iCloudIdentity", "Can't get iCloud Identity private key candidates");
+        CFReleaseNull(query);
+        CFReleaseNull(queryResult);
+        return;
+    }
+
+    CFArrayForEach(iCloudPrivKeys, ^(const void *value) {
+        CFDictionaryRef privKeyDict = (CFDictionaryRef) value;
+        CFStringRef label = CFDictionaryGetValue(privKeyDict, kSecAttrLabel);
+        if(!label) {
+            return;
+        }
+        if(CFStringHasPrefix(label, CFSTR("Cloud Identity"))) {
+            SecKeyRef privKey = sosKeyForLabel(label);
+            if(privKey) {
+                complete(privKey);
+                CFReleaseNull(privKey);
+            }
+        }
+    });
+    CFReleaseNull(queryResult);
 }
 
 bool SOSAccountHasCircle(SOSAccount* account, CFErrorRef* error) {

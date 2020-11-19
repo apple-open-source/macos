@@ -13,6 +13,22 @@
 
 #include "vim.h"
 
+#ifdef CHECK_DOUBLE_CLICK
+/*
+ * Return the duration from t1 to t2 in milliseconds.
+ */
+    static long
+time_diff_ms(struct timeval *t1, struct timeval *t2)
+{
+    // This handles wrapping of tv_usec correctly without any special case.
+    // Example of 2 pairs (tv_sec, tv_usec) with a duration of 5 ms:
+    //	   t1 = (1, 998000) t2 = (2, 3000) gives:
+    //	   (2 - 1) * 1000 + (3000 - 998000) / 1000 -> 5 ms.
+    return (t2->tv_sec - t1->tv_sec) * 1000
+	 + (t2->tv_usec - t1->tv_usec) / 1000;
+}
+#endif
+
 /*
  * Get class of a character for selection: same class means same word.
  * 0: blank
@@ -275,7 +291,7 @@ do_mouse(
 	    bevalexpr_due_set = TRUE;
 	}
 #endif
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	popup_handle_mouse_moved();
 #endif
 	return FALSE;
@@ -522,7 +538,7 @@ do_mouse(
 		    // menu on the button down event.
 		    return FALSE;
 #  endif
-#  if defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_MSWIN)
+#  if defined(FEAT_GUI_ATHENA) || defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_HAIKU)
 		if (is_click || is_drag)
 		    // Ignore right button down and drag mouse events.  Windows
 		    // only shows the popup menu on the button up event.
@@ -1088,7 +1104,7 @@ ins_mousescroll(int dir)
 			(long)(curwin->w_botline - curwin->w_topline));
 	    else
 		scroll_redraw(dir, 3L);
-# ifdef FEAT_TEXT_PROP
+# ifdef FEAT_PROP_POPUP
 	if (WIN_IS_POPUP(curwin))
 	    popup_set_firstline(curwin);
 # endif
@@ -1484,7 +1500,7 @@ jump_to_mouse(
 #ifdef FEAT_MENU
     static int  in_winbar = FALSE;
 #endif
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     static int   in_popup_win = FALSE;
     static win_T *click_in_popup_win = NULL;
 #endif
@@ -1514,7 +1530,7 @@ jump_to_mouse(
 	    flags &= ~(MOUSE_FOCUS | MOUSE_DID_MOVE);
 	dragwin = NULL;
 	did_drag = FALSE;
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	if (click_in_popup_win != NULL && popup_dragwin == NULL)
 	    popup_close_for_mouse_click(click_in_popup_win);
 
@@ -1559,7 +1575,7 @@ retnomove:
 	if (cmdwin_type != 0 && row < curwin->w_winrow)
 	    return IN_OTHER_WIN;
 #endif
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	// Continue a modeless selection in a popup window or dragging it.
 	if (in_popup_win)
 	{
@@ -1607,7 +1623,7 @@ retnomove:
 	    return IN_UNKNOWN;
 	dragwin = NULL;
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	// Click in a popup window may start dragging or modeless selection,
 	// but not much else.
 	if (WIN_IS_POPUP(wp))
@@ -1720,6 +1736,11 @@ retnomove:
 # endif
 	}
 #endif
+#if defined(FEAT_PROP_POPUP) && defined(FEAT_TERMINAL)
+	if (popup_is_popup(curwin) && curbuf->b_term != NULL)
+	    // terminal in popup window: don't jump to another window
+	    return IN_OTHER_WIN;
+#endif
 	// Only change window focus when not clicking on or dragging the
 	// status line.  Do change focus when releasing the mouse button
 	// (MOUSE_FOCUS was set above if we dragged first).
@@ -1808,7 +1829,7 @@ retnomove:
 	if (cmdwin_type != 0 && row < curwin->w_winrow)
 	    return IN_OTHER_WIN;
 #endif
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	if (in_popup_win)
 	{
 	    if (popup_dragwin != NULL)
@@ -1998,7 +2019,7 @@ nv_mousescroll(cmdarg_T *cap)
 	wp = mouse_find_win(&row, &col, FIND_POPUP);
 	if (wp == NULL)
 	    return;
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	if (WIN_IS_POPUP(wp) && !wp->w_has_scrollbar)
 	    return;
 #endif
@@ -2033,7 +2054,7 @@ nv_mousescroll(cmdarg_T *cap)
 	    cap->count0 = cap->count1;
 	    nv_scroll_line(cap);
 	}
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	if (WIN_IS_POPUP(curwin))
 	    popup_set_firstline(curwin);
 #endif
@@ -2713,14 +2734,7 @@ check_termcode_mouse(
 			timediff = p_mouset;
 		    }
 		    else
-		    {
-			timediff = (mouse_time.tv_usec
-				- orig_mouse_time.tv_usec) / 1000;
-			if (timediff < 0)
-			    --orig_mouse_time.tv_sec;
-			timediff += (mouse_time.tv_sec
-				- orig_mouse_time.tv_sec) * 1000;
-		    }
+			timediff = time_diff_ms(&orig_mouse_time, &mouse_time);
 		    orig_mouse_time = mouse_time;
 		    if (mouse_code == orig_mouse_code
 			    && timediff < p_mouset
@@ -2916,13 +2930,13 @@ mouse_find_win(int *rowp, int *colp, mouse_find_T popup UNUSED)
     frame_T	*fp;
     win_T	*wp;
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     win_T	*pwp = NULL;
 
     if (popup != IGNORE_POPUP)
     {
-	popup_reset_handled();
-	while ((wp = find_next_popup(TRUE)) != NULL)
+	popup_reset_handled(POPUP_HANDLED_1);
+	while ((wp = find_next_popup(TRUE, POPUP_HANDLED_1)) != NULL)
 	{
 	    if (*rowp >= wp->w_winrow && *rowp < wp->w_winrow + popup_height(wp)
 		    && *colp >= wp->w_wincol
@@ -2978,7 +2992,7 @@ mouse_find_win(int *rowp, int *colp, mouse_find_T popup UNUSED)
     return NULL;
 }
 
-#if defined(NEED_VCOL2COL) || defined(FEAT_BEVAL) || defined(FEAT_TEXT_PROP) \
+#if defined(NEED_VCOL2COL) || defined(FEAT_BEVAL) || defined(FEAT_PROP_POPUP) \
 	|| defined(PROTO)
 /*
  * Convert a virtual (screen) column to a character column.
@@ -2999,5 +3013,73 @@ vcol2col(win_T *wp, linenr_T lnum, int vcol)
 	MB_PTR_ADV(ptr);
     }
     return (int)(ptr - line);
+}
+#endif
+
+#if defined(FEAT_EVAL) || defined(PROTO)
+    void
+f_getmousepos(typval_T *argvars UNUSED, typval_T *rettv)
+{
+    dict_T	*d;
+    win_T	*wp;
+    int		row = mouse_row;
+    int		col = mouse_col;
+    varnumber_T winid = 0;
+    varnumber_T winrow = 0;
+    varnumber_T wincol = 0;
+    linenr_T	line = 0;
+    varnumber_T column = 0;
+
+    if (rettv_dict_alloc(rettv) != OK)
+	return;
+    d = rettv->vval.v_dict;
+
+    dict_add_number(d, "screenrow", (varnumber_T)mouse_row + 1);
+    dict_add_number(d, "screencol", (varnumber_T)mouse_col + 1);
+
+    wp = mouse_find_win(&row, &col, FIND_POPUP);
+    if (wp != NULL)
+    {
+	int	top_off = 0;
+	int	left_off = 0;
+	int	height = wp->w_height + wp->w_status_height;
+
+#ifdef FEAT_PROP_POPUP
+	if (WIN_IS_POPUP(wp))
+	{
+	    top_off = popup_top_extra(wp);
+	    left_off = popup_left_extra(wp);
+	    height = popup_height(wp);
+	}
+#endif
+	if (row < height)
+	{
+	    winid = wp->w_id;
+	    winrow = row + 1;
+	    wincol = col + 1;
+	    row -= top_off;
+	    col -= left_off;
+	    if (row >= 0 && row < wp->w_height && col >= 0 && col < wp->w_width)
+	    {
+		char_u	*p;
+		int	count;
+
+		mouse_comp_pos(wp, &row, &col, &line, NULL);
+
+		// limit to text length plus one
+		p = ml_get_buf(wp->w_buffer, line, FALSE);
+		count = (int)STRLEN(p);
+		if (col > count)
+		    col = count;
+
+		column = col + 1;
+	    }
+	}
+    }
+    dict_add_number(d, "winid", winid);
+    dict_add_number(d, "winrow", winrow);
+    dict_add_number(d, "wincol", wincol);
+    dict_add_number(d, "line", (varnumber_T)line);
+    dict_add_number(d, "column", column);
 }
 #endif

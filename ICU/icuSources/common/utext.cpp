@@ -572,7 +572,7 @@ enum {
 
 struct ExtendedUText {
     UText          ut;
-    UAlignedMemory extension;
+    max_align_t    extension;
 };
 
 static const UText emptyText = UTEXT_INITIALIZER;
@@ -587,7 +587,7 @@ utext_setup(UText *ut, int32_t extraSpace, UErrorCode *status) {
         // We need to heap-allocate storage for the new UText
         int32_t spaceRequired = sizeof(UText);
         if (extraSpace > 0) {
-            spaceRequired = sizeof(ExtendedUText) + extraSpace - sizeof(UAlignedMemory);
+            spaceRequired = sizeof(ExtendedUText) + extraSpace - sizeof(max_align_t);
         }
         ut = (UText *)uprv_malloc(spaceRequired);
         if (ut == NULL) {

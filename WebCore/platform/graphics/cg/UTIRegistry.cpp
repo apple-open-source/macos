@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Apple Inc.  All rights reserved.
+ * Copyright (C) 2017-2020 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,41 +35,45 @@
 #include <wtf/NeverDestroyed.h>
 #include <ImageIO/ImageIO.h>
 
-#if ENABLE(WEB_ARCHIVE) || ENABLE(MHTML)
-#include "ArchiveFactory.h"
-#endif
-
 namespace WebCore {
 
 const HashSet<String>& defaultSupportedImageTypes()
 {
-    // CG at least supports the following standard image types:
-    static NeverDestroyed<HashSet<String>> defaultSupportedImageTypes = std::initializer_list<String> {
-        "com.compuserve.gif",
-        "com.microsoft.bmp",
-        "com.microsoft.cur",
-        "com.microsoft.ico",
-        "public.jpeg",
-        "public.png",
-        "public.tiff",
+    static const auto defaultSupportedImageTypes = makeNeverDestroyed([] {
+        HashSet<String> defaultSupportedImageTypes = {
+            "com.compuserve.gif"_s,
+            "com.microsoft.bmp"_s,
+            "com.microsoft.cur"_s,
+            "com.microsoft.ico"_s,
+            "public.jpeg"_s,
+            "public.png"_s,
+            "public.tiff"_s,
 #if !PLATFORM(WIN)
-        "public.jpeg-2000",
-        "public.mpo-image",
+            "public.jpeg-2000"_s,
+            "public.mpo-image"_s,
 #endif
-    };
+#if HAVE(WEBP)
+            "public.webp"_s,
+            "com.google.webp"_s,
+            "org.webmproject.webp"_s,
+#endif
+        };
 
-#ifndef NDEBUG
-    // Make sure that CG supports them.
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
-        RetainPtr<CFArrayRef> systemImageTypes = adoptCF(CGImageSourceCopyTypeIdentifiers());
-        CFIndex count = CFArrayGetCount(systemImageTypes.get());
-        for (auto& imageType : defaultSupportedImageTypes.get()) {
-            RetainPtr<CFStringRef> string = imageType.createCFString();
-            ASSERT(CFArrayContainsValue(systemImageTypes.get(), CFRangeMake(0, count), string.get()));
-        }
-    });
-#endif
+        auto systemSupportedCFImageTypes = adoptCF(CGImageSourceCopyTypeIdentifiers());
+        CFIndex count = CFArrayGetCount(systemSupportedCFImageTypes.get());
+
+        HashSet<String> systemSupportedImageTypes;
+        CFArrayApplyFunction(systemSupportedCFImageTypes.get(), CFRangeMake(0, count), [](const void *value, void *context) {
+            String imageType = static_cast<CFStringRef>(value);
+            static_cast<HashSet<String>*>(context)->add(imageType);
+        }, &systemSupportedImageTypes);
+
+        defaultSupportedImageTypes.removeIf([&systemSupportedImageTypes](const String& imageType) {
+            return !systemSupportedImageTypes.contains(imageType);
+        });
+
+        return defaultSupportedImageTypes;
+    }());
 
     return defaultSupportedImageTypes;
 }
@@ -101,6 +105,11 @@ bool isSupportedImageType(const String& imageType)
     if (imageType.isEmpty())
         return false;
     return defaultSupportedImageTypes().contains(imageType) || additionalSupportedImageTypes().contains(imageType);
+}
+
+bool isGIFImageType(StringView imageType)
+{
+    return imageType == "com.compuserve.gif";
 }
 
 }

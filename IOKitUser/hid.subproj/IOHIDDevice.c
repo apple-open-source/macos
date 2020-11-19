@@ -46,6 +46,7 @@
 #include <os/assumes.h>
 #include <dispatch/private.h>
 #include "HIDDeviceIvar.h"
+#include <IOKit/hid/IOHIDPreferences.h>
 
 typedef struct  __IOHIDDevice {
     struct objc_object base;
@@ -389,16 +390,22 @@ IOHIDDeviceRef IOHIDDeviceCreate(
     IOHIDDeviceTimeStampedDeviceInterface **   deviceTimeStampedInterface     = NULL;
     IOHIDDeviceRef                  device              = NULL;
     SInt32                          score               = 0;
+    uint64_t                        serviceID           = 0;
     HRESULT                         result;
+    kern_return_t                   kr;
     
     dispatch_once(&__deviceInit, ^{
         __callbackBaseSetCallbacks = kCFTypeSetCallBacks;
         __callbackBaseSetCallbacks.equal = __IOHIDDeviceCallbackBaseDataIsEqual;
     });
 
-    require_noerr(IOObjectRetain(service), retain_fail);
-    require_noerr(IOCreatePlugInInterfaceForService(service, kIOHIDDeviceTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score), plugin_fail);
-    require_noerr((*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID), (LPVOID)&deviceInterface), query_fail);
+    kr = IOObjectRetain(service);
+    require_noerr_action(kr, retain_fail,  os_log_error(_IOHIDLog(), "IOObjectRetain:0x%x", kr));
+    kr = IORegistryEntryGetRegistryEntryID(service, &serviceID);
+    kr = IOCreatePlugInInterfaceForService(service, kIOHIDDeviceTypeID, kIOCFPlugInInterfaceID, &plugInInterface, &score);
+    require_noerr_action(kr, plugin_fail, os_log_error(_IOHIDLog(), "IOCreatePlugInInterfaceForService:0x%x for serviceID:%#llx", kr, serviceID));
+    result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID), (LPVOID)&deviceInterface);
+    require_noerr_action(result, query_fail, os_log_error(_IOHIDLog(),"QueryInterface(kIOHIDDeviceDeviceInterfaceID):0x%x", (int)result));
     result = (*plugInInterface)->QueryInterface(plugInInterface, CFUUIDGetUUIDBytes(kIOHIDDeviceDeviceInterfaceID2), (LPVOID)&deviceTimeStampedInterface);
     if (result != S_OK) {
         deviceTimeStampedInterface = NULL;
@@ -2082,7 +2089,7 @@ void __IOHIDDeviceSaveProperties(IOHIDDeviceRef device, __IOHIDPropertyContext *
 {
     if (device->isDirty && device->properties) {
         CFStringRef uuidStr = __IOHIDDeviceGetUUIDString(device);
-        CFArrayRef uuids = (CFArrayRef)CFPreferencesCopyAppValue(__IOHIDDeviceGetRootKey(device), kCFPreferencesCurrentApplication);
+        CFArrayRef uuids = (CFArrayRef)IOHIDPreferencesCopyDomain(__IOHIDDeviceGetRootKey(device), kCFPreferencesCurrentApplication);
         CFArrayRef uuidsToWrite = NULL;
         if (uuids && (CFGetTypeID(uuids) == CFArrayGetTypeID())) {
             CFRange range = { 0, CFArrayGetCount(uuids) };
@@ -2125,7 +2132,7 @@ void __IOHIDDeviceLoadProperties(IOHIDDeviceRef device)
         // Is there a UUID in the device properties?
         if (!uuidStr || (CFGetTypeID(uuidStr) != CFStringGetTypeID())) {
             // Are there any UUIDs for this device?
-            CFArrayRef uuids = (CFArrayRef)CFPreferencesCopyAppValue(__IOHIDDeviceGetRootKey(device), kCFPreferencesCurrentApplication);
+            CFArrayRef uuids = (CFArrayRef)IOHIDPreferencesCopyDomain(__IOHIDDeviceGetRootKey(device), kCFPreferencesCurrentApplication);
             if (uuids && (CFGetTypeID(uuids) == CFArrayGetTypeID()) && CFArrayGetCount(uuids)) {
                 // VTN3 ¥ TODO: Add optional matching based on location ID and anything else you can think of
                 uuidStr = (CFStringRef)CFArrayGetValueAtIndex(uuids, 0);

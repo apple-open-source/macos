@@ -442,23 +442,32 @@ static void ParseXMLFile(char *fileName)
 
 // SetOrGetOFVariable(str)
 //
-//   Parse the input string, then set or get the specified
-//   firmware variable.
+//   Parse the input string, then set, append or get
+//   the specified firmware variable.
 //
 static void SetOrGetOFVariable(char *str)
 {
   long          set = 0;
+  long          append = 0;
   char          *name;
   char          *value;
-  CFStringRef   nameRef;
-  CFTypeRef     valueRef;
+  CFStringRef        nameRef = NULL;
+  CFTypeRef          valueRef = NULL;
+  CFMutableStringRef appended = NULL;
   kern_return_t result;
 
   // OF variable name is first.
   name = str;
 
-  // Find the equal sign for set
+  // Find the equal sign for set or += for append
   while (*str) {
+    if (*str == '+' && *(str+1) == '=') {
+      append = 1;
+      *str++ = '\0';
+      *str++ = '\0';
+      break;
+    }
+
     if (*str == '=') {
       set = 1;
       *str++ = '\0';
@@ -467,24 +476,8 @@ static void SetOrGetOFVariable(char *str)
     str++;
   }
 
-  if (set == 1) {
-    // On sets, the OF variable's value follows the equal sign.
-    value = str;
-#if TARGET_OS_BRIDGE
-    if (gBridgeToIntel) {
-      result = SetMacOFVariable(name, value);
-    }
-    else
-#endif
-    {
-      result = SetOFVariable(name, value);
-      NVRamSyncNow(name);            /* Try syncing the new data to device, best effort! */
-    }
-    if (result != KERN_SUCCESS) {
-      errx(1, "Error setting variable - '%s': %s", name,
-           mach_error_string(result));
-    }
-  } else {
+  // Read the current value if appending or if no =/+=
+  if (append == 1 || (set == 0 && append == 0)) {
 #if TARGET_OS_BRIDGE
     if (gBridgeToIntel) {
       result = GetMacOFVariable(name, &value);
@@ -505,11 +498,41 @@ static void SetOrGetOFVariable(char *str)
              mach_error_string(result));
       }
     }
-
-    PrintOFVariable(nameRef, valueRef, 0);
-    CFRelease(nameRef);
-    CFRelease(valueRef);
   }
+
+  if (set == 1) {
+    // On sets, the OF variable's value follows the equal sign.
+    value = str;
+  }
+
+  if (append == 1) {
+    // On append, the value to append follows the += substring
+    appended = CFStringCreateMutableCopy(NULL, 0, valueRef);
+    CFStringAppendCString(appended, str, kCFStringEncodingUTF8);
+    value = (char*)CFStringGetCStringPtr(appended, kCFStringEncodingUTF8);
+  }
+
+  if (set == 1 || append == 1) {
+#if TARGET_OS_BRIDGE
+    if (gBridgeToIntel) {
+      result = SetMacOFVariable(name, value);
+    }
+    else
+#endif
+    {
+      result = SetOFVariable(name, value);
+      NVRamSyncNow(name);            /* Try syncing the new data to device, best effort! */
+    }
+    if (result != KERN_SUCCESS) {
+      errx(1, "Error setting variable - '%s': %s", name,
+           mach_error_string(result));
+    }
+  } else {
+    PrintOFVariable(nameRef, valueRef, 0);
+  }
+  if ( nameRef ) CFRelease(nameRef);
+  if ( valueRef ) CFRelease(valueRef);
+  if ( appended ) CFRelease(appended);
 }
 
 #if TARGET_OS_BRIDGE
@@ -853,7 +876,25 @@ static void ClearOFVariable(const void *key, const void *value, void *context)
   result = IORegistryEntrySetCFProperty(gOptionsRef,
                                         CFSTR(kIONVRAMDeletePropertyKey), key);
   if (result != KERN_SUCCESS) {
-    errx(1, "Error clearing firmware variables: %s", mach_error_string(result));
+    assert(CFGetTypeID(key) == CFStringGetTypeID());
+    const char *keyStr = CFStringGetCStringPtr(key, kCFStringEncodingUTF8);
+    char *keyBuffer = NULL;
+    size_t keyBufferLen = 0;
+    if (!keyStr) {
+      keyBufferLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(key), kCFStringEncodingUTF8) + 1;
+      keyBuffer = (char *)malloc(keyBufferLen);
+      if (keyBuffer != NULL && CFStringGetCString(key, keyBuffer, keyBufferLen, kCFStringEncodingUTF8)) {
+        keyStr = keyBuffer;
+      } else {
+        warnx("Unable to convert property name to C string");
+        keyStr = "<UNPRINTABLE>";
+      }
+    }
+
+    warnx("Error clearing firmware variable %s: %s", keyStr, mach_error_string(result));
+    if (keyBuffer) {
+      free(keyBuffer);
+    }
   }
 }
 

@@ -52,7 +52,7 @@ void webkitWebViewLoadFailedWithTLSErrors(WebKitWebView*, const char* failingURI
 void webkitWebViewGetLoadDecisionForIcon(WebKitWebView*, const WebCore::LinkIcon&, Function<void(bool)>&&);
 void webkitWebViewSetIcon(WebKitWebView*, const WebCore::LinkIcon&, API::Data&);
 #endif
-WebKit::WebPageProxy* webkitWebViewCreateNewPage(WebKitWebView*, const WebCore::WindowFeatures&, WebKitNavigationAction*);
+RefPtr<WebKit::WebPageProxy> webkitWebViewCreateNewPage(WebKitWebView*, const WebCore::WindowFeatures&, WebKitNavigationAction*);
 void webkitWebViewReadyToShowPage(WebKitWebView*);
 void webkitWebViewRunAsModal(WebKitWebView*);
 void webkitWebViewClosePage(WebKitWebView*);
@@ -100,6 +100,10 @@ bool webkitWebViewEmitRunColorChooser(WebKitWebView*, WebKitColorChooserRequest*
 bool webkitWebViewShowOptionMenu(WebKitWebView*, const WebCore::IntRect&, WebKitOptionMenu*, const GdkEvent*);
 #endif
 
+#if PLATFORM(WPE)
+bool webkitWebViewShowOptionMenu(WebKitWebView*, const WebCore::IntRect&, WebKitOptionMenu*);
+#endif
+
 gboolean webkitWebViewAuthenticate(WebKitWebView*, WebKitAuthenticationRequest*);
 gboolean webkitWebViewScriptDialog(WebKitWebView*, WebKitScriptDialog*);
 gboolean webkitWebViewRunFileChooser(WebKitWebView*, WebKitFileChooserRequest*);
@@ -115,3 +119,4 @@ void webkitWebViewDidLosePointerLock(WebKitWebView*);
 void webkitWebViewSetComposition(WebKitWebView*, const String&, const Vector<WebCore::CompositionUnderline>&, WebKit::EditingRange&&);
 void webkitWebViewConfirmComposition(WebKitWebView*, const String&);
 void webkitWebViewCancelComposition(WebKitWebView*, const String&);
+void webkitWebViewDeleteSurrounding(WebKitWebView*, int offset, unsigned characterCount);

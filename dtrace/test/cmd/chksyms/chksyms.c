@@ -10,6 +10,7 @@
 #include <string.h>
 #include <unistd.h>
 
+
 static Elf_Scn *
 findelfscn(Elf *elf, GElf_Ehdr *ehdr, char *secname)
 {

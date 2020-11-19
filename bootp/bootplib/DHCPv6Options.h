@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,8 +65,11 @@ typedef CF_ENUM(uint16_t, DHCPv6OptionCode) {
     kDHCPv6OPTION_INTERFACE_ID		= 18,
     kDHCPv6OPTION_RECONF_MSG		= 19,
     kDHCPv6OPTION_RECONF_ACCEPT		= 20,
+    kDHCPv6OPTION_SIP_SERVER_D		= 21,
+    kDHCPv6OPTION_SIP_SERVER_A		= 22,
     kDHCPv6OPTION_DNS_SERVERS		= 23,
     kDHCPv6OPTION_DOMAIN_LIST		= 24,
+    kDHCPv6OPTION_CAPTIVE_PORTAL_URL	= 103,
 };
 
 typedef struct {
@@ -125,6 +128,7 @@ typedef CF_ENUM(uint32_t, DHCPv6OptionType) {
     kDHCPv6OptionTypeIA_NA = 7,
     kDHCPv6OptionTypeIAADDR = 8,
     kDHCPv6OptionTypeStatusCode = 9,
+    kDHCPv6OptionTypeString = 10,
 };
 
 DHCPv6OptionType

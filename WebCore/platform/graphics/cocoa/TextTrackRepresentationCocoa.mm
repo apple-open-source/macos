@@ -23,33 +23,32 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
+#import "config.h"
 
-#if (PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))) && ENABLE(VIDEO_TRACK)
-#include "TextTrackRepresentationCocoa.h"
+#if (PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))) && ENABLE(VIDEO)
+#import "TextTrackRepresentationCocoa.h"
 
-#include "FloatRect.h"
-#include "GraphicsContextCG.h"
-#include "IntRect.h"
+#import "FloatRect.h"
+#import "GraphicsContextCG.h"
+#import "IntRect.h"
 
 #if PLATFORM(IOS_FAMILY)
-#include "WebCoreThread.h"
-#include "WebCoreThreadRun.h"
+#import "WebCoreThread.h"
+#import "WebCoreThreadRun.h"
 #endif
 
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 
-using namespace WebCore;
 
 @interface WebCoreTextTrackRepresentationCocoaHelper : NSObject <CALayerDelegate> {
-    TextTrackRepresentationCocoa* _parent;
+    WebCore::TextTrackRepresentationCocoa* _parent;
 }
-- (id)initWithParent:(TextTrackRepresentationCocoa*)parent;
-@property (assign) TextTrackRepresentationCocoa* parent;
+- (id)initWithParent:(WebCore::TextTrackRepresentationCocoa*)parent;
+@property (assign) WebCore::TextTrackRepresentationCocoa* parent;
 @end
 
 @implementation WebCoreTextTrackRepresentationCocoaHelper
-- (id)initWithParent:(TextTrackRepresentationCocoa*)parent
+- (id)initWithParent:(WebCore::TextTrackRepresentationCocoa*)parent
 {
     if (!(self = [super init]))
         return nil;
@@ -65,7 +64,7 @@ using namespace WebCore;
     [super dealloc];
 }
 
-- (void)setParent:(TextTrackRepresentationCocoa*)parent
+- (void)setParent:(WebCore::TextTrackRepresentationCocoa*)parent
 {
     if (_parent)
         [_parent->platformLayer() removeObserver:self forKeyPath:@"bounds"];
@@ -76,7 +75,7 @@ using namespace WebCore;
         [_parent->platformLayer() addObserver:self forKeyPath:@"bounds" options:0 context:0];
 }
 
-- (TextTrackRepresentationCocoa*)parent
+- (WebCore::TextTrackRepresentationCocoa*)parent
 {
     return _parent;
 }
@@ -105,6 +104,8 @@ using namespace WebCore;
 }
 
 @end
+
+namespace WebCore {
 
 std::unique_ptr<TextTrackRepresentation> TextTrackRepresentation::create(TextTrackRepresentationClient& client)
 {
@@ -154,4 +155,6 @@ void TextTrackRepresentationCocoa::boundsChanged()
     });
 }
 
-#endif // (PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))) && ENABLE(VIDEO_TRACK)
+} // namespace WebCore
+
+#endif // (PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))) && ENABLE(VIDEO)

@@ -193,7 +193,7 @@
  *   kSCPropNetIPv6Addresses                            "Addresses"                    CFArray[CFString]
  *   kSCPropNetIPv6ConfigMethod                         "ConfigMethod"                 CFString
  *   kSCPropNetIPv6DestAddresses                        "DestAddresses"                CFArray[CFString]
- *   kSCPropNetIPv6Flags                                "Flags"                        CFNumber
+ *   kSCPropNetIPv6Flags                                "Flags"                        CFArray[CFNumber]
  *   kSCPropNetIPv6PrefixLength                         "PrefixLength"                 CFArray[CFNumber]
  *   kSCPropNetIPv6Router                               "Router"                       CFString
  *
@@ -1276,7 +1276,7 @@ extern const CFStringRef kSCPropNetIPv6DestAddresses                        API_
 
 /*!
   @const kSCPropNetIPv6Flags
-  @discussion Value is a CFNumber
+  @discussion Value is a CFArray[CFNumber]
  */
 extern const CFStringRef kSCPropNetIPv6Flags                                API_AVAILABLE(macos(10.3)) SPI_AVAILABLE(ios(2.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetIPv6Flags kSCPropNetIPv6Flags

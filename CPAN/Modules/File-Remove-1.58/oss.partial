@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>File-Remove</string>
+        <key>OpenSourceVersion</key>
+        <string>1.58</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/S/SH/SHLOMIF/File-Remove-1.58.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2019-12-04</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

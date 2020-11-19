@@ -45,7 +45,7 @@ int find_address(const struct sockaddr_in *address, char *interface); /* check i
 #define EXIT_USER_REQUEST	5
 
 
-#define	PLUGINS_DIR 	"/System/Library/Extensions/"
+#define	PLUGINS_DIR 	"/System/Library/SystemConfiguration/PPPController.bundle/Contents/PlugIns/"
 
 void vpnlog(int nSyslogPriority, char *format_str, ...)  __printflike(2,3);
 int update_prefs(void);

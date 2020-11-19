@@ -12,6 +12,8 @@
 #include "IOHIDUserDeviceTestController.h"
 #include "IOHIDUnitTestDescriptors.h"
 #include <IOKit/hid/IOHIDEventSystemPrivate.h>
+#include <IOKit/hid/IOHIDUsageTables.h>
+#include <IOKit/hid/AppleHIDUsageTables.h>
 #include "HIDEventAccessors_Private.h"
 
 

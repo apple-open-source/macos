@@ -8,9 +8,19 @@ dv{
     }
     ExemplarCharactersIndex{"[ހ ށ ނ ރ ބ ޅ ކ އ ވ މ ފ ދ ތ ލ ގ ޏ ސ ޑ ޒ ޓ ޔ ޕ ޖ ޗ]"}
     NumberElements{
+        arab{
+            symbols{
+                list{"،"}
+            }
+        }
+        latn{
+            symbols{
+                list{","}
+            }
+        }
         native{"arab"}
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

@@ -472,7 +472,7 @@ gcore_main(int argc, char *const *argv)
     if (!opt->extended && opt->allfilerefs)
         errx(EX_USAGE, "unknown flag");
 
-	setpageshift();
+    setpageshift();
 
 	if (opt->ncthresh < ((vm_offset_t)1 << pageshift_host))
 		errx(EX_USAGE, "threshold %lu less than host pagesize", opt->ncthresh);
@@ -812,8 +812,8 @@ gcore_conv_main(int argc, char *argv[])
 		errx(EX_USAGE, "no input corefile");
     if (optind == argc - 1)
         errx(EX_USAGE, "no output corefile");
-	if (optind < argc - 2)
-		errx(EX_USAGE, "too many arguments");
+    if (optind < argc - 2)
+        errx(EX_USAGE, "too many arguments");
 
     const char *incore = argv[optind];
     char *corefname = strdup(argv[optind+1]);

@@ -38,6 +38,7 @@ const NSString *kSecTestParseSuccessResources = @"si-18-certificate-parse/ParseS
 const NSString *kSecTestKeyFailureResources = @"si-18-certificate-parse/KeyFailureCerts";
 const NSString *kSecTestTODOFailureResources = @"si-18-certificate-parse/TODOFailureCerts";
 const NSString *kSecTestExtensionFailureResources = @"si-18-certificate-parse/ExtensionFailureCerts";
+const NSString *kSecTestNameFailureResources = @"si-18-certificate-parse/NameFailureCerts";
 
 @interface CertificateParseTests : TrustFrameworkTestCase
 
@@ -124,6 +125,22 @@ const NSString *kSecTestExtensionFailureResources = @"si-18-certificate-parse/Ex
             SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certData);
             isnt(cert, NULL, "Failed to parse bad cert with unparseable extension: %@", url);
             isnt(SecCertificateGetUnparseableKnownExtension(cert), kCFNotFound, "Unable to find unparseable extension: %@", url);
+            CFReleaseNull(cert);
+        }];
+    }
+}
+
+- (void)testUnparseableSubjectName {
+    /* A bunch of certificates with different parsing errors the subject name */
+    NSArray <NSURL *>* certURLs = [[NSBundle bundleForClass:[self class]]URLsForResourcesWithExtension:@".cer" subdirectory:(NSString *)kSecTestNameFailureResources];
+    XCTAssertTrue([certURLs count] > 0, "Unable to find parse test name failure certs in bundle.");
+
+    if ([certURLs count] > 0) {
+        [certURLs enumerateObjectsUsingBlock:^(NSURL *url, __unused NSUInteger idx, __unused BOOL *stop) {
+            NSData *certData = [NSData dataWithContentsOfURL:url];
+            SecCertificateRef cert = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)certData);
+            isnt(cert, NULL, "Failed to parse bad cert with unparseable name: %@", url);
+            is(CFBridgingRelease(SecCertificateCopyCountry(cert)), nil, "Success parsing name for failure cert: %@", url);
             CFReleaseNull(cert);
         }];
     }

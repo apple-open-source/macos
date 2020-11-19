@@ -57,8 +57,9 @@
     WEAKIFY(self);
     [self.deps.cuttlefishXPCWrapper fetchCurrentPolicyWithContainer:self.deps.containerName
                                                             context:self.deps.contextID
-                                                              reply:^(NSSet<NSString*>* _Nullable viewList,
-                                                                      TPPolicy* _Nullable policy,
+                                                    modelIDOverride:nil
+                                                              reply:^(TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                      TPPBPeerStableInfo_UserControllableViewStatus userControllableViewStatusOfPeers,
                                                                       NSError* _Nullable error) {
         STRONGIFY(self);
         [[CKKSAnalytics logger] logResultForEvent:OctagonEventFetchViews hardFailure:true result:error];
@@ -69,13 +70,12 @@
             return;
         }
 
-        secnotice("octagon-ckks", "Received policy %@ with view list: %@", policy, viewList);
+        secnotice("octagon-ckks", "Received syncing policy %@ with view list: %@", syncingPolicy, syncingPolicy.viewList);
         // Write them down before continuing
 
         NSError* stateError = nil;
         [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
-            metadata.syncingViews = [viewList mutableCopy];
-            [metadata setTPPolicy:policy];
+            [metadata setTPSyncingPolicy:syncingPolicy];
             return metadata;
         } error:&stateError];
 
@@ -85,7 +85,7 @@
             return;
         }
 
-        [self.deps.viewManager setSyncingViews:viewList sortingPolicy:policy];
+        [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
 
         self.nextState = self.intendedState;
     }];

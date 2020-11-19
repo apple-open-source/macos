@@ -304,6 +304,8 @@ private:
     LocalPointer<UVector> fPatterns;
 };
 
+extern UBool datePatternHasNumericCore(const UnicodeString& datePattern);
+
 U_NAMESPACE_END
 
 #endif

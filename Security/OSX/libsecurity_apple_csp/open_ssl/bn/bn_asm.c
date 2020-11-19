@@ -80,7 +80,7 @@
 #endif
 
 #include <stdio.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include "cryptlib.h"
 #include "bn_lcl.h"
 

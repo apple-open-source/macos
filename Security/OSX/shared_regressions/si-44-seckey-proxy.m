@@ -54,11 +54,12 @@ static void test_key_proxy_connect() {
 
     // Create new proxy and invalidate it (idempotent, so we try invalidate multiple times).
     keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
+    endpoint = keyProxy.endpoint;
     [keyProxy invalidate];
     [keyProxy invalidate];
-    secondKey = [SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error];
+    secondKey = [SecKeyProxy createKeyFromEndpoint:endpoint error:&error];
     is(secondKey, NULL, "connection to invalidated proxy should be refused.");
-    
+
     // Invalidate connected proxy, make sure that remote key does not work as expected.
     keyProxy = [[SecKeyProxy alloc] initWithKey:(SecKeyRef)serverKey];
     secondKey = [SecKeyProxy createKeyFromEndpoint:keyProxy.endpoint error:&error];

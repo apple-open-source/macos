@@ -1,0 +1,13 @@
+diff --git a/Lib/_osx_support.py b/Lib/_osx_support.py
+index 59997e3..0617b51 100644
+--- a/Lib/_osx_support.py
++++ b/Lib/_osx_support.py
+@@ -15,7 +15,7 @@ __all__ = [
+ # like "-arch" or "-isdkroot", that may need customization for
+ # the user environment
+ _UNIVERSAL_CONFIG_VARS = ('CFLAGS', 'LDFLAGS', 'CPPFLAGS', 'BASECFLAGS',
+-                            'BLDSHARED', 'LDSHARED', 'CC', 'CXX',
++                            'BLDSHARED', 'LDSHARED', 'CC', 'CCSHARED', 'CXX',
+                             'PY_CFLAGS', 'PY_LDFLAGS', 'PY_CPPFLAGS',
+                             'PY_CORE_CFLAGS')
+ 

@@ -41,12 +41,12 @@ public:
 	CFTypeID typeID;
 
 private:
-	static void finalizeType(CFTypeRef cf) throw();
-    static Boolean equalType(CFTypeRef cf1, CFTypeRef cf2) throw();
-    static CFHashCode hashType(CFTypeRef cf) throw();
-	static CFStringRef copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict) throw();
-	static CFStringRef copyDebugDescType(CFTypeRef cf) throw();
-    static uint32_t refCountForType(intptr_t op, CFTypeRef cf) throw();
+	static void finalizeType(CFTypeRef cf) _NOEXCEPT;
+    static Boolean equalType(CFTypeRef cf1, CFTypeRef cf2) _NOEXCEPT;
+    static CFHashCode hashType(CFTypeRef cf) _NOEXCEPT;
+	static CFStringRef copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict) _NOEXCEPT;
+	static CFStringRef copyDebugDescType(CFTypeRef cf) _NOEXCEPT;
+    static uint32_t refCountForType(intptr_t op, CFTypeRef cf) _NOEXCEPT;
     static uint32_t cleanupObject(intptr_t op, CFTypeRef cf, bool &zap);
 };
 

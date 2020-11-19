@@ -13,6 +13,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) NSError* selfPeerError;
 @property (nullable) NSError* trustedPeersError;
 
+@property BOOL aksLocked;
+
 @property bool excludeSelfPeerFromTrustSet;
 
 @property SOSCCStatus circleStatus;
@@ -20,6 +22,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property CKKSSOSSelfPeer* selfPeer;
 @property NSMutableSet<id<CKKSSOSPeerProtocol>>* trustedPeers;
+
+@property BOOL safariViewEnabled;
+
+@property BOOL ckks4AllStatus;
+@property BOOL ckks4AllStatusIsSet;
 
 @property (nullable) void (^updateOctagonKeySetListener)(id<CKKSSelfPeer>);
 

@@ -53,6 +53,8 @@
 
 #include "SecdTestKeychainUtilities.h"
 
+#if SOS_ENABLED
+
 static int kTestTestCount = 10;
 
 static void tests(void)
@@ -101,14 +103,16 @@ static void tests(void)
     carol_account = nil;
     SOSTestCleanup();
 }
+#endif
 
 int secd_55_account_incompatibility(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

@@ -1002,7 +1002,6 @@ typedef struct hfs_zone_entry {
 	hfs_zone_kind_t	hze_kind;
 	size_t			hze_elem_size;
 	const char *	hze_name;
-	boolean_t		hze_noencrypt;
 } hfs_zone_entry_t;
 
 typedef struct hfs_zone {

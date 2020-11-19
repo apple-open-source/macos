@@ -21,7 +21,7 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include "offsets.h"
+#include "offsets_internal.h"
 
 #if defined(__x86_64__)
 

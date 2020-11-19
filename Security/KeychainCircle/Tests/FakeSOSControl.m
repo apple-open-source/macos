@@ -4,8 +4,7 @@
 @implementation FakeNSXPCConnection
 - (instancetype) initWithControl:(id<SOSControlProtocol>)control
 {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _control = control;
     }
     return self;
@@ -156,7 +155,7 @@
     complete(true, nil);
 }
 
-- (void)triggerSync:(NSArray<NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
+- (void)rpcTriggerSync:(NSArray<NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
 {
     complete(true, NULL);
 }
@@ -345,7 +344,19 @@
     complete(nil, nil);
 }
 
-- (void)triggerBackup:(NSArray<NSString *> *)backupPeers complete:(void (^)(NSError *))complete {
+- (void)iCloudIdentityStatus_internal: (void(^)(NSDictionary *tableSpid, NSError *error))complete {
+    complete(nil, nil);
+}
+
+- (void) iCloudIdentityStatus: (void(^)(NSData *json, NSError *error))complete {
+    complete(nil, nil);
+}
+
+- (void)rpcTriggerBackup:(NSArray<NSString *> *)backupPeers complete:(void (^)(NSError *))complete {
+    complete(nil);
+}
+
+- (void)rpcTriggerRingUpdate:(void (^)(NSError *))complete {
     complete(nil);
 }
 

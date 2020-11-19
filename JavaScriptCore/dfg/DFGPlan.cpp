@@ -74,7 +74,7 @@
 #include "DFGVarargsForwardingPhase.h"
 #include "DFGVirtualRegisterAllocationPhase.h"
 #include "DFGWatchpointCollectionPhase.h"
-#include "JSCInlines.h"
+#include "JSCJSValueInlines.h"
 #include "OperandsInlines.h"
 #include "ProfilerDatabase.h"
 #include "TrackedReferences.h"
@@ -238,7 +238,10 @@ void Plan::compileInThread(ThreadData* threadData)
 
 Plan::CompilationPath Plan::compileInThreadImpl()
 {
-    cleanMustHandleValuesIfNecessary();
+    {
+        CompilerTimingScope timingScope("DFG", "clean must handle values");
+        cleanMustHandleValuesIfNecessary();
+    }
 
     if (verboseCompilationEnabled(m_mode) && m_osrEntryBytecodeIndex) {
         dataLog("\n");
@@ -247,7 +250,11 @@ Plan::CompilationPath Plan::compileInThreadImpl()
     }
 
     Graph dfg(*m_vm, *this);
-    parse(dfg);
+
+    {
+        CompilerTimingScope timingScope("DFG", "bytecode parser");
+        parse(dfg);
+    }
 
     m_codeBlock->setCalleeSaveRegisters(RegisterSet::dfgCalleeSaveRegisters());
 
@@ -384,11 +391,15 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         RUN_PHASE(performWatchpointCollection);
         dumpAndVerifyGraph(dfg, "Graph after optimization:");
         
-        JITCompiler dataFlowJIT(dfg);
-        if (m_codeBlock->codeType() == FunctionCode)
-            dataFlowJIT.compileFunction();
-        else
-            dataFlowJIT.compile();
+        {
+            CompilerTimingScope timingScope("DFG", "machine code generation");
+
+            JITCompiler dataFlowJIT(dfg);
+            if (m_codeBlock->codeType() == FunctionCode)
+                dataFlowJIT.compileFunction();
+            else
+                dataFlowJIT.compile();
+        }
         
         return DFGPath;
     }
@@ -499,7 +510,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         if (UNLIKELY(computeCompileTimes()))
             m_timeBeforeFTL = MonotonicTime::now();
         
-        if (Options::b3AlwaysFailsBeforeCompile()) {
+        if (UNLIKELY(Options::b3AlwaysFailsBeforeCompile())) {
             FTL::fail(state);
             return FTLPath;
         }
@@ -508,7 +519,7 @@ Plan::CompilationPath Plan::compileInThreadImpl()
         if (safepointResult.didGetCancelled())
             return CancelPath;
         
-        if (Options::b3AlwaysFailsBeforeLink()) {
+        if (UNLIKELY(Options::b3AlwaysFailsBeforeLink())) {
             FTL::fail(state);
             return FTLPath;
         }
@@ -614,6 +625,12 @@ CompilationResult Plan::finalizeWithoutNotifyingCallback()
             ConcurrentJSLocker locker(m_codeBlock->m_lock);
             m_codeBlock->jitCode()->shrinkToFit(locker);
             m_codeBlock->shrinkToFit(locker, CodeBlock::ShrinkMode::LateShrink);
+        }
+
+        // Since Plan::reallyAdd could fire watchpoints (see ArrayBufferViewWatchpointAdaptor::add), it is possible that the current CodeBlock is now invalidated.
+        if (!m_codeBlock->jitCode()->dfgCommon()->isStillValid) {
+            CODEBLOCK_LOG_EVENT(m_codeBlock, "dfgFinalize", ("invalidated"));
+            return CompilationInvalidated;
         }
 
         if (validationEnabled()) {
@@ -741,7 +758,7 @@ void Plan::cleanMustHandleValuesIfNecessary()
         return;
 
     CodeBlock* alternative = m_codeBlock->alternative();
-    FastBitVector liveness = alternative->livenessAnalysis().getLivenessInfoAtBytecodeIndex(alternative, m_osrEntryBytecodeIndex);
+    FastBitVector liveness = alternative->livenessAnalysis().getLivenessInfoAtInstruction(alternative, m_osrEntryBytecodeIndex);
 
     for (unsigned local = m_mustHandleValues.numberOfLocals(); local--;) {
         if (!liveness[local])

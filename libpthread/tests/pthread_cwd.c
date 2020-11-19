@@ -11,8 +11,6 @@
 
 #include "darwintest_defaults.h"
 
-#include "../src/pthread_cwd.c"
-
 // /tmp is a symlink, so use full path for strict compare
 #define WORKDIR		"/private/var/tmp/ptwork"
 #define	WORKDIR1	WORKDIR "/one"

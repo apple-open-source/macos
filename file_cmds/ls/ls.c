@@ -89,6 +89,8 @@ __RCSID("$FreeBSD: src/bin/ls/ls.c,v 1.66 2002/09/21 01:28:36 wollman Exp $");
  */
 #define	STRBUF_SIZEOF(t)	(1 + CHAR_BIT * sizeof(t) / 3 + 1)
 
+#define	IS_DATALESS(sp)		(f_dataless && (sp) && ((sp)->st_flags & SF_DATALESS))
+
 static void	 display(FTSENT *, FTSENT *);
 static u_quad_t	 makenines(u_quad_t);
 static int	 mastercmp(const FTSENT **, const FTSENT **);
@@ -417,11 +419,11 @@ main(int argc, char *argv[])
 #endif
 
 	/*
-	 * If not -F, -i, -l, -s or -t options, don't require stat
+	 * If not -F, -i, -l, -s, -t or -% options, don't require stat
 	 * information, unless in color mode in which case we do
 	 * need this to determine which colors to display.
 	 */
-	if (!f_inode && !f_longform && !f_size && !f_timesort && !f_type && !f_sizesort
+	if (!f_inode && !f_longform && !f_size && !f_timesort && !f_type && !f_sizesort && !f_dataless
 #ifdef COLORLS
 	    && !f_color
 #endif
@@ -556,6 +558,11 @@ traverse(int argc, char *argv[], int options)
 		case FTS_D:
 			if (p->fts_level != FTS_ROOTLEVEL &&
 			    p->fts_name[0] == '.' && !f_listdot) {
+				fts_set(ftsp, p, FTS_SKIP);
+				break;
+			}
+
+			if (IS_DATALESS(p->fts_statp)) {
 				fts_set(ftsp, p, FTS_SKIP);
 				break;
 			}
@@ -851,7 +858,7 @@ display(FTSENT *p, FTSENT *list)
 				} else {
 					np->mode_suffix = ' ';
 				}
-				if (f_dataless && (sp->st_flags & SF_DATALESS)) {
+				if (IS_DATALESS(sp)) {
 					np->mode_suffix = '%';
 				}
 				if (!f_acl) {

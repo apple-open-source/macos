@@ -88,7 +88,7 @@ void AppleCSPSession::pkcs8InferKeyHeader(
 	 */
 	CSSM_KEY_SIZE keySize;
 	try {
-		auto_ptr<CSPKeyInfoProvider> provider(infoProvider(key));
+		unique_ptr<CSPKeyInfoProvider> provider(infoProvider(key));
 		provider->QueryKeySizeInBits(keySize);
 	}
 	catch(const CssmError &cerror) {
@@ -103,7 +103,7 @@ void AppleCSPSession::pkcs8InferKeyHeader(
 		   (hdr.AlgorithmId == CSSM_ALGID_DSA)) {
 			hdr.Format = CSSM_KEYBLOB_RAW_FORMAT_FIPS186;
 			try {
-				auto_ptr<CSPKeyInfoProvider> provider(infoProvider(key));
+				unique_ptr<CSPKeyInfoProvider> provider(infoProvider(key));
 				provider->QueryKeySizeInBits(keySize);
 			}
 			catch(...) {
@@ -198,7 +198,7 @@ void AppleCSPSession::opensslInferKeyHeader(
 	/* now figure out the key size by finding a provider for this key */
 	CSSM_KEY_SIZE keySize;
 	try {
-		auto_ptr<CSPKeyInfoProvider> provider(infoProvider(key));
+		unique_ptr<CSPKeyInfoProvider> provider(infoProvider(key));
 		provider->QueryKeySizeInBits(keySize);
 	}
 	catch(...) {

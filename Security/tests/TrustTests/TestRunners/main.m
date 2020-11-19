@@ -23,8 +23,7 @@
 @implementation TestRunner
 - (instancetype)initWithBundlePath:(NSString *)path andTestNames:(NSArray *)names
 {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         NSError *error = nil;
         
         _bundle = [NSBundle bundleWithPath:path];
@@ -112,8 +111,11 @@
     [self testLogWithFormat:@"Test Suite '%@' started at %@\n", testSuite.name, [self.dateFormatter stringFromDate:testSuite.testRun.startDate]];
 }
 
-- (void)testSuite:(XCTestSuite *)testSuite didFailWithDescription:(NSString *)description inFile:(nullable NSString *)filePath atLine:(NSUInteger)lineNumber
+- (void)testSuite:(XCTestSuite *)testSuite didRecordIssue:(XCTIssue *)issue
 {
+    NSString *filePath = [issue.sourceCodeContext.location.fileURL absoluteString];
+    NSInteger lineNumber = issue.sourceCodeContext.location.lineNumber;
+    NSString *description = issue.description;
     [self testLogWithFormat:@"%@:%lu: error: %@ : %@\n", ((nil != filePath) ? filePath : @"<unknown>"), ((unsigned long)((nil != filePath) ? lineNumber : 0)), testSuite.name, description];
 }
 
@@ -136,8 +138,11 @@
     [self testLogWithFormat:@"Test Case '%@' started.\n", testCase.name];
 }
 
-- (void)testCase:(XCTestCase *)testCase didFailWithDescription:(NSString *)description inFile:(nullable NSString *)filePath atLine:(NSUInteger)lineNumber
+- (void)testCase:(XCTestCase *)testCase didRecordIssue:(XCTIssue *)issue
 {
+    NSString *filePath = [issue.sourceCodeContext.location.fileURL absoluteString];
+    NSInteger lineNumber = issue.sourceCodeContext.location.lineNumber;
+    NSString *description = issue.description;
     [self testLogWithFormat:@"%@:%lu: error: %@ : %@\n", ((nil != filePath) ? filePath : @"<unknown>"), ((unsigned long)((nil != filePath) ? lineNumber : 0)), testCase.name, description];
 }
 

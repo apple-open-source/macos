@@ -87,6 +87,11 @@ std::unique_ptr<TextureMapperPlatformLayerBuffer> TextureMapperPlatformLayerBuff
         {
             notImplemented();
             return nullptr;
+        },
+        [](const ExternalOESTexture&)
+        {
+            notImplemented();
+            return nullptr;
         });
 }
 
@@ -108,7 +113,7 @@ void TextureMapperPlatformLayerBuffer::paintToTextureMapper(TextureMapper& textu
         ASSERT(!m_texture);
         if (m_holePunchClient)
             m_holePunchClient->setVideoRectangle(enclosingIntRect(modelViewMatrix.mapRect(targetRect)));
-        texmapGL.drawSolidColor(targetRect, modelViewMatrix, Color(0, 0, 0, 0), false);
+        texmapGL.drawSolidColor(targetRect, modelViewMatrix, Color::transparentBlack, false);
         return;
     }
 
@@ -141,6 +146,10 @@ void TextureMapperPlatformLayerBuffer::paintToTextureMapper(TextureMapper& textu
                     texture.yuvToRgbMatrix, m_extraFlags, m_size, targetRect, modelViewMatrix, opacity);
                 break;
             }
+        },
+        [&](const ExternalOESTexture& texture) {
+            ASSERT(texture.id);
+            texmapGL.drawTextureExternalOES(texture.id, m_extraFlags, m_size, targetRect, modelViewMatrix, opacity);
         });
 }
 

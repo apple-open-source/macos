@@ -35,7 +35,9 @@
 #define DIFF_PATH				"/usr/bin/diff"
 
 // Test routine helpers.
+bool verify_fd_xattr_contents(int orig_fd, int copy_fd);
 bool verify_st_flags(struct stat *sb, uint32_t flags_to_expect);
+bool verify_contents_with_buf(int orig_fd, off_t orig_pos, const char *expected, size_t length);
 bool verify_fd_contents(int orig_fd, off_t orig_pos, int copy_fd, off_t copy_pos, size_t length);
 bool verify_copy_contents(const char *orig_name, const char *copy_name);
 bool verify_copy_sizes(struct stat *orig_sb, struct stat *copy_sb, copyfile_state_t cpf_state,

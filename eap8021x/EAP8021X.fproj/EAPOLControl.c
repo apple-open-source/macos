@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -149,7 +149,7 @@ EAPOLControlAuthInfoIsValid(CFDictionaryRef * dict_p)
 {
     int				count;
     CFDictionaryRef		dict;
-    const void *		keys[4];
+    const void *		keys[5];
     int				keys_count = sizeof(keys) / sizeof(keys[0]);
 
     dict = *dict_p;
@@ -184,7 +184,8 @@ EAPOLControlAuthInfoIsValid(CFDictionaryRef * dict_p)
 	    }
 	    else if (!CFEqual(keys[i], kEAPClientPropUserName)
 		     && !CFEqual(keys[i], kEAPClientPropUserPassword)
-		     && !CFEqual(keys[i], kEAPClientPropTLSIdentityHandle)) {
+		     && !CFEqual(keys[i], kEAPClientPropTLSIdentityHandle)
+		     && !CFEqual(keys[i], kEAPClientPropDisableUserInteraction)) {
 		return (FALSE);
 	    }
 	}

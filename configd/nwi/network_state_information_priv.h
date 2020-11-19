@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2013, 2016-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -223,6 +223,10 @@ nwi_state_get_ifstate_with_index(nwi_state_t state, int af, int idx)
 {
 	int i_idx = idx;
 
+	if (idx >= state->max_if_count) {
+		return (NULL);
+	}
+
 	if (idx >= nwi_state_get_ifstate_count(state, af)) {
 		return (NULL);
 	}
@@ -252,12 +256,13 @@ nwi_state_get_ifstate_with_name(nwi_state_t state,
 	nwi_ifstate_t ifstate = NULL;
 
 	if (state == NULL) {
-		return NULL;
+		return (NULL);
 	}
 
-	count = (af == AF_INET)
-	?state->ipv4_count:state->ipv6_count;
-
+	count = (af == AF_INET) ? state->ipv4_count : state->ipv6_count;
+	if (count > state->max_if_count) {
+		return (NULL);
+	}
 
 	while (idx < count) {
 		ifstate = nwi_state_get_ifstate_with_index(state, af, idx);

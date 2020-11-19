@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>CGI</string>
+        <key>OpenSourceVersion</key>
+        <string>4.48</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/L/LE/LEEJO/CGI-4.48.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-06-02</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

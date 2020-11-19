@@ -15,24 +15,6 @@
 
 #include <CommonCrypto/CommonRandomSPI.h>
 
-
-static SecKeyRef GenerateFullECKey_internal(int keySize,  NSError** error)
-{
-    SecKeyRef full_key = NULL;
-
-    NSDictionary* keygen_parameters = @{ (__bridge NSString*)kSecAttrKeyType:(__bridge NSString*) kSecAttrKeyTypeEC,
-                                         (__bridge NSString*)kSecAttrKeySizeInBits: [NSNumber numberWithInt: keySize] };
-
-
-    (void) OSStatusError(SecKeyGeneratePair((__bridge CFDictionaryRef)keygen_parameters, NULL, &full_key), error, @"Generate Key failed");
-
-    return full_key;
-}
-
-static SecKeyRef GenerateFullECKey(int keySize, NSError** error) {
-    return GenerateFullECKey_internal(keySize, error);
-}
-
 static NSData* createTlkRequestMessage (KCAESGCMDuplexSession* aesSession) {
     char someData[] = {1,2,3,4,5,6};
     NSError* error = NULL;
@@ -165,18 +147,17 @@ static NSData* createTlkRequestMessage (KCAESGCMDuplexSession* aesSession) {
 }
 
 - (id) initWithSecrets: (NSArray<NSString*>*) secrets retries: (int) retries code: (NSString*) code {
-    self = [super init];
+    if ((self = [super init])) {
+        self->_secrets = secrets;
+        self.currentSecret = 0;
+        self->_retriesPerSecret = retries;
+        self->_retriesLeft = self.retriesPerSecret;
 
-    self->_secrets = secrets;
-    self.currentSecret = 0;
-    self->_retriesPerSecret = retries;
-    self->_retriesLeft = self.retriesPerSecret;
+        self->_codeToUse = code;
 
-    self->_codeToUse = code;
-
-    uint8_t joinDataBuffer[] = { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
-    self->_circleJoinData = [NSData dataWithBytes: joinDataBuffer length: sizeof(joinDataBuffer) ];
-
+        uint8_t joinDataBuffer[] = { 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+        self->_circleJoinData = [NSData dataWithBytes: joinDataBuffer length: sizeof(joinDataBuffer) ];
+    }
     return self;
 }
 

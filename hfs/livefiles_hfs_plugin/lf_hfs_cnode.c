@@ -94,7 +94,6 @@ hfs_getnewvnode(struct hfsmount *hfsmp, struct vnode *dvp, struct componentname 
     struct mount *mp = HFSTOVFS(hfsmp);
     struct vnode *vp = NULL;
     struct vnode **cvpp;
-    struct vnode *tvp = NULL;
     struct cnode *cp = NULL;
     struct filefork *fp = NULL;
     struct vnode *provided_vp = NULL;
@@ -439,7 +438,7 @@ hfs_getnewvnode(struct hfsmount *hfsmp, struct vnode *dvp, struct componentname 
             }
             cp->c_rsrcfork = fp;
             cvpp = &cp->c_rsrc_vp;
-            if ( (tvp = cp->c_vp) != NULL )
+            if (cp->c_vp != NULL )
             {
                 cp->c_flag |= C_NEED_DVNODE_PUT;
             }
@@ -459,7 +458,7 @@ hfs_getnewvnode(struct hfsmount *hfsmp, struct vnode *dvp, struct componentname 
 
             cp->c_datafork = fp;
             cvpp = &cp->c_vp;
-            if ( (tvp = cp->c_rsrc_vp) != NULL)
+            if (cp->c_rsrc_vp != NULL)
             {
                 cp->c_flag |= C_NEED_RVNODE_PUT;
             }
@@ -489,7 +488,7 @@ hfs_getnewvnode(struct hfsmount *hfsmp, struct vnode *dvp, struct componentname 
                 retval = ENOMEM;
                 goto gnv_exit;
             }
-
+            bzero(vfsp.vnfs_cnp, sizeof(struct componentname));
             memcpy((void*) vfsp.vnfs_cnp, (void*)cnp, sizeof(struct componentname));
             vfsp.vnfs_cnp->cn_nameptr = lf_hfs_utils_allocate_and_copy_string( (char*) cnp->cn_nameptr, cnp->cn_namelen );
 
@@ -1871,9 +1870,12 @@ hfs_fork_release(struct cnode* cp, struct vnode *vp, bool bIsRsc, int* piErr)
     
     if (vp->sFSParams.vnfs_cnp)
     {
-        if (vp->sFSParams.vnfs_cnp->cn_nameptr)
+        if (vp->sFSParams.vnfs_cnp->cn_nameptr) {
             hfs_free(vp->sFSParams.vnfs_cnp->cn_nameptr);
+            vp->sFSParams.vnfs_cnp->cn_nameptr = NULL;
+        }
         hfs_free(vp->sFSParams.vnfs_cnp);
+        vp->sFSParams.vnfs_cnp = NULL;
     }
     
     
@@ -1931,6 +1933,8 @@ hfs_fork_release(struct cnode* cp, struct vnode *vp, bool bIsRsc, int* piErr)
 int
 hfs_vnop_reclaim(struct vnode *vp)
 {
+    if (!vp) return EINVAL;
+
     struct cnode* cp = VTOC(vp);
     struct hfsmount *hfsmp = VTOHFS(vp);
     struct vnode *altvp = NULL;

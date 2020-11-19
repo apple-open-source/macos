@@ -26,6 +26,10 @@
 #include <objc/objc-internal.h>
 #include <TargetConditionals.h>
 
+#if __has_include(<ptrauth.h>)
+#include <ptrauth.h>
+#endif
+
 #if !TARGET_OS_OSX
 static OBJC_INLINE malloc_zone_t *objc_collectableZone(void) { return nil; }
 #endif

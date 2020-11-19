@@ -641,7 +641,9 @@ static IPv6RouteListRef		S_ipv6_routelist = NULL;
 
 static boolean_t		S_append_state = FALSE;
 
-static CFDictionaryRef		S_dns_dict = NULL;
+static CFDictionaryRef		S_dns_global_dict = NULL;
+
+static CFDictionaryRef		S_dns_primary_dict = NULL;
 
 static Boolean			S_dnsinfo_synced = TRUE;
 
@@ -1530,9 +1532,10 @@ RouteListAddRouteAtIndex(RouteListInfoRef info, RouteListRef routes,
     else {
 	/* make space at [where] */
 	insert_route = RouteListGetRouteAtIndexSimple(info, routes, where);
-	memcpy((void *)insert_route + info->element_size,
-	       insert_route,
-	       info->element_size * (routes->count - where));
+	/* overlapping copy requires memmove */
+	memmove((void *)insert_route + info->element_size,
+		insert_route,
+		info->element_size * (routes->count - where));
     }
     /* copy the route */
     memcpy(insert_route, this_route, info->element_size);
@@ -1556,9 +1559,10 @@ RouteListRemoveRouteAtIndex(RouteListInfoRef info, RouteListRef routes,
 	RouteRef	remove_route;
 
 	remove_route = RouteListGetRouteAtIndexSimple(info, routes, where);
-	memcpy(remove_route,
-	       (void *)remove_route + info->element_size,
-	       info->element_size * (routes->count - where));
+	/* overlapping copy requires memmove */
+	memmove(remove_route,
+		(void *)remove_route + info->element_size,
+		info->element_size * (routes->count - where));
     }
     return;
 }
@@ -3976,10 +3980,9 @@ log_service_entity(int level, CFStringRef serviceID, CFStringRef entity,
 
     if (val != NULL) {
 	boolean_t	is_ipv4;
-	boolean_t	is_ipv6;
 
 	if ((is_ipv4 = CFEqual(entity, kSCEntNetIPv4))
-	    || (is_ipv6 = CFEqual(entity, kSCEntNetIPv6))) {
+	    || CFEqual(entity, kSCEntNetIPv6)) {
 	    RouteListUnion	routes;
 
 	    routes.ptr = ipdict_get_routelist(val);
@@ -4625,13 +4628,13 @@ get_ipv6_changes(CFStringRef serviceID, CFDictionaryRef state_dict,
 __private_extern__ CFDictionaryRef
 ipv4_dict_create(CFDictionaryRef state_dict)
 {
-    return (IPDictCreate(AF_INET, state_dict, NULL, NULL, NULL));
+    return (IPDictCreate(AF_INET, state_dict, NULL, NULL));
 }
 
 __private_extern__ CFDictionaryRef
 ipv6_dict_create(CFDictionaryRef state_dict)
 {
-    return (IPDictCreate(AF_INET6, state_dict, NULL, NULL, NULL));
+    return (IPDictCreate(AF_INET6, state_dict, NULL, NULL));
 }
 
 #endif /* TEST_DNS */
@@ -5747,15 +5750,10 @@ get_rank_changes(CFStringRef serviceID, CFDictionaryRef state_options,
 
 static void
 add_service_keys(CFStringRef		serviceID,
-		 CFMutableArrayRef	keys,
-		 CFMutableArrayRef	patterns)
+		 CFMutableArrayRef	keys)
 {
     int			i;
     CFStringRef		key;
-
-    if (CFEqual(serviceID, kSCCompAnyRegex)) {
-	keys = patterns;
-    }
 
     for (i = 0; i < ENTITY_TYPES_COUNT; i++) {
 	CFStringRef	name	= *entityTypeNames[i];
@@ -5784,13 +5782,8 @@ add_service_keys(CFStringRef		serviceID,
 
 static void
 add_transient_status_keys(CFStringRef		serviceID,
-			  CFMutableArrayRef	keys,
-			  CFMutableArrayRef	patterns)
+			  CFMutableArrayRef	keys)
 {
-    if (CFEqual(serviceID, kSCCompAnyRegex)) {
-	keys = patterns;
-    }
-
     for (size_t i = 0; i < countof(transientServiceInfo); i++) {
 	CFStringRef	key;
 
@@ -5862,8 +5855,8 @@ services_info_copy(SCDynamicStoreRef session, CFArrayRef service_list)
     for (CFIndex s = 0; s < count; s++) {
 	CFStringRef	serviceID = CFArrayGetValueAtIndex(service_list, s);
 
-	add_service_keys(serviceID, keys, patterns);
-	add_transient_status_keys(serviceID, keys, patterns);
+	add_service_keys(serviceID, keys);
+	add_transient_status_keys(serviceID, keys);
     }
 
     add_reachability_patterns(patterns);
@@ -6243,6 +6236,7 @@ update_dns(CFDictionaryRef	services_info,
 	   keyChangeListRef	keys)
 {
 #pragma unused(services_info)
+#pragma unused(keys)
     Boolean		changed	= FALSE;
     CFDictionaryRef	dict	= NULL;
 
@@ -6255,37 +6249,67 @@ update_dns(CFDictionaryRef	services_info,
 	}
     }
 
-    if (!_SC_CFEqual(S_dns_dict, dict)) {
-	if (dict == NULL) {
-#if	!TARGET_OS_IPHONE
-	    empty_dns();
-#endif	/* !TARGET_OS_IPHONE */
-	    keyChangeListRemoveValue(keys, S_state_global_dns);
-	} else {
-	    CFMutableDictionaryRef	new_dict;
-
-#if	!TARGET_OS_IPHONE
-	    set_dns(CFDictionaryGetValue(dict, kSCPropNetDNSSearchDomains),
-		    CFDictionaryGetValue(dict, kSCPropNetDNSDomainName),
-		    CFDictionaryGetValue(dict, kSCPropNetDNSServerAddresses),
-		    CFDictionaryGetValue(dict, kSCPropNetDNSSortList));
-#endif	/* !TARGET_OS_IPHONE */
-	    new_dict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
-	    CFDictionaryRemoveValue(new_dict, kSCPropInterfaceName);
-	    CFDictionaryRemoveValue(new_dict, kSCPropNetDNSSupplementalMatchDomains);
-	    CFDictionaryRemoveValue(new_dict, kSCPropNetDNSSupplementalMatchOrders);
-	    CFDictionaryRemoveValue(new_dict, DNS_CONFIGURATION_SCOPED_QUERY_KEY);
-	    keyChangeListSetValue(keys, S_state_global_dns, new_dict);
-	    CFRelease(new_dict);
-	}
+    if (!_SC_CFEqual(S_dns_primary_dict, dict)) {
 	changed = TRUE;
     }
 
     if (dict != NULL) CFRetain(dict);
-    if (S_dns_dict != NULL) CFRelease(S_dns_dict);
-    S_dns_dict = dict;
+    if (S_dns_primary_dict != NULL) CFRelease(S_dns_primary_dict);
+    S_dns_primary_dict = dict;
 
     return changed;
+}
+
+static Boolean
+update_dns_global_resolver(CFDictionaryRef	dict,
+			   keyChangeListRef	keys)
+{
+    if (_SC_CFEqual(S_dns_global_dict, dict)) {
+	// if no changes
+	return FALSE;
+    }
+
+    if (dict != NULL) CFRetain(dict);
+    if (S_dns_global_dict != NULL) CFRelease(S_dns_global_dict);
+    S_dns_global_dict = dict;
+
+    if (dict == NULL) {
+#if	!TARGET_OS_IPHONE
+	/*
+	 * remove /etc/resolv.conf
+	 */
+	empty_dns();
+#endif	/* !TARGET_OS_IPHONE */
+	/*
+	 * remove State:/Network/Global/DNS
+	 */
+	keyChangeListRemoveValue(keys, S_state_global_dns);
+    } else {
+	CFMutableDictionaryRef	new_dict;
+
+#if	!TARGET_OS_IPHONE
+	/*
+	 * update /etc/resolv.conf
+	 */
+	set_dns(CFDictionaryGetValue(dict, kSCPropNetDNSSearchDomains),
+		CFDictionaryGetValue(dict, kSCPropNetDNSDomainName),
+		CFDictionaryGetValue(dict, kSCPropNetDNSServerAddresses),
+		CFDictionaryGetValue(dict, kSCPropNetDNSSortList));
+#endif	/* !TARGET_OS_IPHONE */
+
+	/*
+	 * update State:/Network/Global/DNS
+	 */
+	new_dict = CFDictionaryCreateMutableCopy(NULL, 0, dict);
+	CFDictionaryRemoveValue(new_dict, kSCPropInterfaceName);
+	CFDictionaryRemoveValue(new_dict, kSCPropNetDNSSupplementalMatchDomains);
+	CFDictionaryRemoveValue(new_dict, kSCPropNetDNSSupplementalMatchOrders);
+	CFDictionaryRemoveValue(new_dict, DNS_CONFIGURATION_SCOPED_QUERY_KEY);
+	keyChangeListSetValue(keys, S_state_global_dns, new_dict);
+	CFRelease(new_dict);
+    }
+
+    return TRUE;
 }
 
 static Boolean
@@ -6295,7 +6319,8 @@ update_dnsinfo(CFDictionaryRef	services_info,
 	       CFArrayRef	service_order)
 {
     Boolean		changed;
-    CFDictionaryRef	dict	= NULL;
+    CFDictionaryRef	dict		= NULL;
+    CFDictionaryRef	globalResolver	= NULL;
     CFArrayRef		multicastResolvers;
     CFArrayRef		privateResolvers;
 
@@ -6315,10 +6340,21 @@ update_dnsinfo(CFDictionaryRef	services_info,
 				    S_service_state_dict,
 				    service_order,
 				    multicastResolvers,
-				    privateResolvers);
+				    privateResolvers,
+				    &globalResolver);
     if (changed) {
-	keyChangeListNotifyKey(keys, S_state_global_dns);
+	if (!update_dns_global_resolver(globalResolver, keys)) {
+	    /*
+	     * There was no change to the default/global resolver
+	     * configuration.  Even so, we still want to strobe
+	     * the State:/Network/Global/DNS key to indicate that
+	     * "a" change had occured.
+	     */
+	    keyChangeListNotifyKey(keys, S_state_global_dns);
+	}
     }
+    if (globalResolver != NULL) CFRelease(globalResolver);
+
     return changed;
 }
 
@@ -6341,11 +6377,11 @@ update_nwi(nwi_state_t state)
     my_log(LOG_INFO, "Updating network information");
     _nwi_state_log(state, TRUE, NULL);
 
-#if !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST
+#if !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST && !TEST_DNS && !TEST_DNS_ORDER
     if (!_nwi_state_store(state)) {
 	my_log(LOG_ERR, "Notifying nwi_state_store failed");
     }
-#endif /* !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST */
+#endif /* !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST && !TEST_DNS && !TEST_DNS_ORDER */
 
     return TRUE;
 }
@@ -8846,15 +8882,63 @@ flush_inet_routes(void)
 #endif	/* !TARGET_OS_SIMULATOR */
 
 
+static CFArrayRef
+ip_plugin_copy_keys(void)
+{
+    const void *	values[]
+	= {
+	   S_setup_global_ipv4, /* serviceOrder/PPPOverridePrimary */
+	   S_private_resolvers,	/* private DNS config (Back to My Mac) */
+	   S_multicast_resolvers,/* multicast DNS config (Bonjour/.local) */
+    };
+    const CFIndex	values_count = sizeof(values) / sizeof(values[0]);
+
+    return (CFArrayCreate(NULL, values, values_count,
+			  &kCFTypeArrayCallBacks));
+}
+
+static CFArrayRef
+ip_plugin_copy_patterns(void)
+{
+    CFStringRef		pattern;
+    CFMutableArrayRef	patterns;
+
+    patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+
+    /* State: and Setup: per-service notifications */
+    add_service_keys(kSCCompAnyRegex, patterns);
+
+    pattern = setup_service_key(kSCCompAnyRegex, kSCEntNetPPP);
+    CFArrayAppendValue(patterns, pattern);
+    CFRelease(pattern);
+
+    pattern = setup_service_key(kSCCompAnyRegex, kSCEntNetVPN);
+    CFArrayAppendValue(patterns, pattern);
+    CFRelease(pattern);
+
+    pattern = setup_service_key(kSCCompAnyRegex, kSCEntNetInterface);
+    CFArrayAppendValue(patterns, pattern);
+    CFRelease(pattern);
+
+    /* State: per-service PPP/VPN/IPSec status notifications */
+    add_transient_status_keys(kSCCompAnyRegex, patterns);
+
+#if !TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST
+    /* NAT64 prefix request pattern */
+    nat64_prefix_request_add_pattern(patterns);
+#endif /* TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST */
+
+    /* interface delegation pattern */
+    pattern = interface_entity_key_copy(kSCCompAnyRegex,
+					kSCEntNetInterfaceDelegation);
+    CFArrayAppendValue(patterns, pattern);
+    CFRelease(pattern);
+    return (patterns);
+}
 
 static void
 ip_plugin_init()
 {
-    CFMutableArrayRef	keys = NULL;
-    CFStringRef		pattern;
-    CFMutableArrayRef	patterns = NULL;
-    CFRunLoopSourceRef	rls = NULL;
-
     if (S_is_network_boot() != 0) {
 	S_netboot = TRUE;
     }
@@ -8863,6 +8947,9 @@ ip_plugin_init()
 	flush_inet_routes();
     }
 
+    /*
+     * Initialize globals
+     */
     S_session = SCDynamicStoreCreate(NULL, CFSTR("IPMonitor"),
 				   IPMonitorNotify, NULL);
     if (S_session == NULL) {
@@ -8910,90 +8997,30 @@ ip_plugin_init()
     S_interface_delegation_prefix
 	= SCDynamicStoreKeyCreateNetworkInterface(NULL,
 						  kSCDynamicStoreDomainState);
-
     S_service_state_dict
 	= CFDictionaryCreateMutable(NULL, 0,
 				    &kCFTypeDictionaryKeyCallBacks,
 				    &kCFTypeDictionaryValueCallBacks);
-
     S_ipv4_service_rank_dict
 	= CFDictionaryCreateMutable(NULL, 0,
 				    &kCFTypeDictionaryKeyCallBacks,
 				    &kCFTypeDictionaryValueCallBacks);
-
     S_ipv6_service_rank_dict
 	= CFDictionaryCreateMutable(NULL, 0,
 				    &kCFTypeDictionaryKeyCallBacks,
 				    &kCFTypeDictionaryValueCallBacks);
-
-    keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-
-    /* register for State: and Setup: per-service notifications */
-    add_service_keys(kSCCompAnyRegex, keys, patterns);
-
-    pattern = setup_service_key(kSCCompAnyRegex, kSCEntNetPPP);
-    CFArrayAppendValue(patterns, pattern);
-    CFRelease(pattern);
-
-    pattern = setup_service_key(kSCCompAnyRegex, kSCEntNetVPN);
-    CFArrayAppendValue(patterns, pattern);
-    CFRelease(pattern);
-
-    pattern = setup_service_key(kSCCompAnyRegex, kSCEntNetInterface);
-    CFArrayAppendValue(patterns, pattern);
-    CFRelease(pattern);
-
-    /* register for State: per-service PPP/VPN/IPSec status notifications */
-    add_transient_status_keys(kSCCompAnyRegex, NULL, patterns);
-
-    /* add notifier for ServiceOrder/PPPOverridePrimary changes for IPv4 */
-    CFArrayAppendValue(keys, S_setup_global_ipv4);
-
-    /* add notifier for multicast DNS configuration (Bonjour/.local) */
-    S_multicast_resolvers = SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@"),
-						    kSCDynamicStoreDomainState,
-						    kSCCompNetwork,
-						    CFSTR(kDNSServiceCompMulticastDNS));
-    CFArrayAppendValue(keys, S_multicast_resolvers);
-
-    /* add notifier for private DNS configuration (Back to My Mac) */
-    S_private_resolvers = SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@"),
-						  kSCDynamicStoreDomainState,
-						  kSCCompNetwork,
-						  CFSTR(kDNSServiceCompPrivateDNS));
-    CFArrayAppendValue(keys, S_private_resolvers);
-
-#if	!TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST
-    /* add NAT64 prefix request pattern */
-    nat64_prefix_request_add_pattern(patterns);
-#endif	/* TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST */
-
-    /* add interface delegation pattern */
-    pattern = interface_entity_key_copy(kSCCompAnyRegex, kSCEntNetInterfaceDelegation);
-    CFArrayAppendValue(patterns, pattern);
-    CFRelease(pattern);
-
-    if (!SCDynamicStoreSetNotificationKeys(S_session, keys, patterns)) {
-	my_log(LOG_ERR,
-	       "SCDynamicStoreSetNotificationKeys() failed: %s",
-	       SCErrorString(SCError()));
-	goto done;
-    }
-
-    rls = SCDynamicStoreCreateRunLoopSource(NULL, S_session, 0);
-    if (rls == NULL) {
-	my_log(LOG_ERR,
-	       "SCDynamicStoreCreateRunLoopSource() failed: %s",
-	       SCErrorString(SCError()));
-	goto done;
-    }
-
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-    CFRelease(rls);
-
+    S_multicast_resolvers
+	= SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@"),
+				  kSCDynamicStoreDomainState,
+				  kSCCompNetwork,
+				  CFSTR(kDNSServiceCompMulticastDNS));
+    S_private_resolvers
+	= SCDynamicStoreKeyCreate(NULL, CFSTR("%@/%@/%@"),
+				  kSCDynamicStoreDomainState,
+				  kSCCompNetwork,
+				  CFSTR(kDNSServiceCompPrivateDNS));
     /* initialize dns configuration */
-    (void)dns_configuration_set(NULL, NULL, NULL, NULL, NULL);
+    (void)dns_configuration_set(NULL, NULL, NULL, NULL, NULL, NULL);
 #if	!TARGET_OS_IPHONE
     empty_dns();
 #endif	/* !TARGET_OS_IPHONE */
@@ -9006,18 +9033,107 @@ ip_plugin_init()
 
     watch_proxies();
 
-  done:
-    my_CFRelease(&keys);
-    my_CFRelease(&patterns);
+    return;
+}
+
+static CFArrayRef
+copy_dictionary_keys(CFDictionaryRef dict)
+{
+    CFIndex		count;
+    CFArrayRef		ret_keys;
+
+    count = CFDictionaryGetCount(dict);
+    if (count > 0) {
+	const void * 	keys[count];
+
+	CFDictionaryGetKeysAndValues(dict, keys, NULL);
+	ret_keys = CFArrayCreate(NULL, keys, count, &kCFTypeArrayCallBacks);
+    }
+    else {
+	ret_keys = NULL;
+    }
+    return (ret_keys);
+}
+
+static void
+prime_notifications(CFArrayRef keys, CFArrayRef patterns)
+{
+    CFArrayRef		changed_keys;
+    CFDictionaryRef	info;
+
+    info = SCDynamicStoreCopyMultiple(S_session, keys, patterns);
+    if (info == NULL) {
+	my_log(LOG_NOTICE, "%s: no content", __func__);
+	return;
+    }
+    changed_keys = copy_dictionary_keys(info);
+    CFRelease(info);
+    if (changed_keys == NULL) {
+	my_log(LOG_NOTICE, "%s: no keys", __func__);
+	return;
+    }
+    my_log(LOG_NOTICE,
+	   "IPMonitor prime %ld keys %@",
+	   (long)CFArrayGetCount(changed_keys), changed_keys);
+    IPMonitorProcessChanges(S_session, changed_keys, NULL);
+    CFRelease(changed_keys);
+    return;
+}
+
+static void
+initialize_notifications(void)
+{
+    CFArrayRef		keys;
+    CFArrayRef		patterns;
+    Boolean		success;
+
+    /* register for notifications */
+    keys = ip_plugin_copy_keys();
+    patterns = ip_plugin_copy_patterns();
+    success = SCDynamicStoreSetNotificationKeys(S_session, keys, patterns);
+    if (!success) {
+	my_log(LOG_ERR,
+	       "SCDynamicStoreSetNotificationKeys() failed: %s",
+	       SCErrorString(SCError()));
+    }
+    else {
+	CFRunLoopSourceRef	rls;
+
+	rls = SCDynamicStoreCreateRunLoopSource(NULL, S_session, 0);
+	if (rls == NULL) {
+	    my_log(LOG_ERR,
+		   "SCDynamicStoreCreateRunLoopSource() failed: %s",
+		   SCErrorString(SCError()));
+	}
+	else {
+	    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls,
+			       kCFRunLoopDefaultMode);
+	    CFRelease(rls);
+
+	    /* catch any changes that happened before registering */
+	    prime_notifications(keys, patterns);
+	}
+    }
+    CFRelease(keys);
+    CFRelease(patterns);
     return;
 }
 
 __private_extern__
 void
-prime_IPMonitor()
+prime_IPMonitor(void)
 {
     /* initialize multicast route */
     update_ipv4(NULL, NULL, NULL);
+
+    if (S_session == NULL) {
+	return;
+    }
+
+    /* initialize notifications */
+    CFRunLoopPerformBlock(CFRunLoopGetCurrent(),
+			  kCFRunLoopDefaultMode,
+			  ^{ initialize_notifications(); });
 
 #if	!TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST
     process_AgentMonitor();
@@ -9040,7 +9156,7 @@ S_get_plist_boolean(CFDictionaryRef plist, CFStringRef key,
     return (ret);
 }
 
-#if	!TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST
+#if	!TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST && !TEST_DNS && !TEST_DNS_ORDER
 #include "IPMonitorControlServer.h"
 
 static void
@@ -9085,7 +9201,7 @@ StartIPMonitorControlServer(void)
     return;
 }
 
-#endif	/* !TARGET_OS_SIMULATOR */
+#endif	/* !TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST && !TEST_DNS && !TEST_DNS_ORDER */
 
 __private_extern__
 void
@@ -9110,7 +9226,7 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
     /* register to receive changes to the "verbose" flag and read the initial setting  */
     prefs_changed_callback_init();
 
-#if !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST
+#if !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST && !TEST_DNS && !TEST_DNS_ORDER
     /* start DNS configuration (dnsinfo) server */
     load_DNSConfiguration(bundle,			// bundle
 			  ^(Boolean inSync) {		// syncHandler
@@ -9136,12 +9252,12 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
 				    post_network_change_when_ready();
 				});
 			    });
-#endif /* !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST */
+#endif /* !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST && !TEST_DNS && !TEST_DNS_ORDER */
 
-#if	!TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST
+#if	!TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST && !TEST_DNS && !TEST_DNS_ORDER
     /* start IPMonitor Control (InterfaceRank) server */
     StartIPMonitorControlServer();
-#endif	/* !TARGET_OS_IPHONE */
+#endif	/* !TARGET_OS_SIMULATOR && !TEST_IPV4_ROUTELIST && !TEST_IPV6_ROUTELIST && !TEST_DNS && !TEST_DNS_ORDER */
 
     /* initialize DNS configuration */
     dns_configuration_init(bundle);
@@ -9193,7 +9309,32 @@ main(int argc, char **argv)
 }
 #endif /* TEST_IPMONITOR */
 
-#ifdef TEST_ROUTELIST
+#if defined(TEST_ROUTELIST) || defined(TEST_DNS_ORDER)
+
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define TEST_ROUTELIST_RUN_LEAKS	FALSE
+#endif /* if __has_feature(address_sanitizer) */
+#endif /* if defined(__has_feature) */
+
+#ifndef TEST_ROUTELIST_RUN_LEAKS
+#define TEST_ROUTELIST_RUN_LEAKS	TRUE
+#endif
+
+static boolean_t	S_run_leaks = TEST_ROUTELIST_RUN_LEAKS;
+
+static void
+test_complete(void)
+{
+    printf("\nTest Complete\n");
+    if (S_run_leaks) {
+	char    cmd[128];
+
+	sprintf(cmd, "leaks %d 2>&1", getpid());
+	fflush(stdout);
+	(void)system(cmd);
+    }
+}
 
 struct route {
     const char *	dest;
@@ -10000,15 +10141,7 @@ main(int argc, char **argv)
 	    apply_test(*test2, *test);
 	}
     }
-
-    {
-	char    cmd[128];
-
-	printf("\nChecking for leaks\n");
-	sprintf(cmd, "leaks %d 2>&1", getpid());
-	fflush(stdout);
-	(void)system(cmd);
-    }
+    test_complete();
     exit(0);
     return (0);
 }
@@ -10665,15 +10798,7 @@ main(int argc, char **argv)
 	    apply_test(*test2, *test);
 	}
     }
-
-    {
-	char    cmd[128];
-
-	printf("\nChecking for leaks\n");
-	sprintf(cmd, "leaks %d 2>&1", getpid());
-	fflush(stdout);
-	(void)system(cmd);
-    }
+    test_complete();
     exit(0);
     return (0);
 }
@@ -10902,6 +11027,7 @@ apply_test(DNSOrderTestRef test)
 int
 main(int argc, char **argv)
 {
+
     _sc_log     = kSCLogDestinationFile;
     _sc_verbose = (argc > 1) ? TRUE : FALSE;
     S_IPMonitor_debug = kDebugFlag1 | kDebugFlag2 | kDebugFlag4;
@@ -10912,16 +11038,7 @@ main(int argc, char **argv)
     for (DNSOrderTestRef * test = dns_order_tests; *test != NULL; test++) {
 	apply_test(*test);
     }
-
-    {
-	char    cmd[128];
-
-	printf("\nChecking for leaks\n");
-	sprintf(cmd, "leaks %d 2>&1", getpid());
-	fflush(stdout);
-	(void)system(cmd);
-    }
-
+    test_complete();
     exit(0);
     return (0);
 }

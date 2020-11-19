@@ -34,6 +34,7 @@
 #include <TargetConditionals.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <os/state_private.h>
 #include <sys/types.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
@@ -44,11 +45,31 @@
 #include "config.h"		/* MiG generated file */
 #include "SCD.h"
 
-static pthread_mutex_t		_sc_lock	= PTHREAD_MUTEX_INITIALIZER;
-static mach_port_t		_sc_server	= MACH_PORT_NULL;
-static unsigned int		_sc_store_cnt	= 0;
-static unsigned int		_sc_store_max	= 50;	/* complain if SCDynamicStore objects exceeds this [soft-]limit */
+#define	N_SESSIONS_WARN_DEFAULT	50	// complain if SCDynamicStore session count exceeds this [soft-]limit
+#define	N_SESSIONS_WARN_MAX	5000	// stop complaining when # sessions exceeds this [hard-]limit
 
+static pthread_mutex_t	_sc_lock		= PTHREAD_MUTEX_INITIALIZER;
+static mach_port_t	_sc_server		= MACH_PORT_NULL;
+static CFIndex		_sc_store_advise	= N_SESSIONS_WARN_DEFAULT / 2;	// when snapshots should log
+static CFIndex		_sc_store_max		= N_SESSIONS_WARN_DEFAULT;
+static CFMutableSetRef	_sc_store_sessions	= NULL;	// sync w/storeQueue()
+
+static dispatch_queue_t
+storeQueue(void)
+{
+	static dispatch_once_t	once;
+	static dispatch_queue_t	q;
+
+	dispatch_once(&once, ^{
+		// allocate mapping between [client] sessions and session info
+		_sc_store_sessions = CFSetCreateMutable(NULL, 0, NULL);
+
+		// and a queue to synchronize access to the mapping
+		q = dispatch_queue_create("SCDynamicStore/client sessions", NULL);
+	});
+
+	return q;
+}
 
 static const char	*notifyType[] = {
 	"",
@@ -61,10 +82,132 @@ static const char	*notifyType[] = {
 };
 
 
+#pragma mark -
+#pragma mark SCDynamicStore state handler
+
+
+static void
+addSessionReference(const void *value, void *context)
+{
+	CFMutableDictionaryRef		dict		= (CFMutableDictionaryRef)context;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)value;
+
+	if (!storePrivate->serverNullSession &&
+	    (storePrivate->name != NULL)) {
+		int			cnt;
+		CFMutableStringRef	key;
+		CFIndex			n;
+		CFNumberRef		num;
+
+		// create [key] signature
+		key = CFStringCreateMutableCopy(NULL, 0, storePrivate->name);
+		n = (storePrivate->keys != NULL) ? CFArrayGetCount(storePrivate->keys) : 0;
+		if (n > 0) {
+			CFStringAppendFormat(key, NULL, CFSTR(":k[0/%ld]=%@"),
+					     n,
+					     CFArrayGetValueAtIndex(storePrivate->keys, 0));
+		}
+		n = (storePrivate->patterns != NULL) ? CFArrayGetCount(storePrivate->patterns) : 0;
+		if (n > 0) {
+			CFStringAppendFormat(key, NULL, CFSTR(":p[0/%ld]=%@"),
+					     n,
+					     CFArrayGetValueAtIndex(storePrivate->patterns, 0));
+		}
+
+		// bump [key] count
+		if (!CFDictionaryGetValueIfPresent(dict,
+						   key,
+						   (const void **)&num) ||
+		    !CFNumberGetValue(num, kCFNumberIntType, &cnt)) {
+			// if first session
+			cnt = 0;
+		}
+		cnt++;
+		num = CFNumberCreate(NULL, kCFNumberIntType, &cnt);
+		CFDictionarySetValue(dict, key, num);	// do we want to include name+keys[0]/patterns[0] ?
+		CFRelease(num);
+
+		CFRelease(key);
+	}
+
+	return;
+}
+
+
+static void
+add_state_handler()
+{
+	os_state_block_t	state_block;
+
+	state_block = ^os_state_data_t(os_state_hints_t hints) {
+#pragma unused(hints)
+		CFDataRef		data	= NULL;
+		CFMutableDictionaryRef	dict;
+		CFIndex			n;
+		Boolean			ok;
+		os_state_data_t		state_data;
+		size_t			state_data_size;
+		CFIndex			state_len;
+
+		n = CFSetGetCount(_sc_store_sessions);
+		if ((_sc_store_max <= 0) || (n == 0) || (n < _sc_store_advise)) {
+			return NULL;
+		}
+
+		dict = CFDictionaryCreateMutable(NULL,
+						 0,
+						 &kCFTypeDictionaryKeyCallBacks,
+						 &kCFTypeDictionaryValueCallBacks);
+		CFSetApplyFunction(_sc_store_sessions, addSessionReference, dict);
+		if (CFDictionaryGetCount(dict) == 0) {
+			CFRelease(dict);
+			return NULL;
+		}
+		ok = _SCSerialize(dict, &data, NULL, NULL);
+		CFRelease(dict);
+
+		state_len = (ok && (data != NULL)) ? CFDataGetLength(data) : 0;
+		state_data_size = OS_STATE_DATA_SIZE_NEEDED(state_len);
+		if (state_data_size > MAX_STATEDUMP_SIZE) {
+			SC_log(LOG_ERR, "SCDynamicStore/client sessions : state data too large (%zd > %zd)",
+			       state_data_size,
+			       (size_t)MAX_STATEDUMP_SIZE);
+			if (data != NULL) CFRelease(data);
+			return NULL;
+		}
+
+		state_data = calloc(1, state_data_size);
+		if (state_data == NULL) {
+			SC_log(LOG_ERR, "SCDynamicStore/client sessions: could not allocate state data");
+			if (data != NULL) CFRelease(data);
+			return NULL;
+		}
+
+		state_data->osd_type = OS_STATE_DATA_SERIALIZED_NSCF_OBJECT;
+		state_data->osd_data_size = (uint32_t)state_len;
+		strlcpy(state_data->osd_title, "SCDynamicStore/client sessions", sizeof(state_data->osd_title));
+		if (state_len > 0) {
+			memcpy(state_data->osd_data, CFDataGetBytePtr(data), state_len);
+		}
+		if (data != NULL) CFRelease(data);
+
+		return state_data;
+	};
+
+	(void) os_state_add_handler(storeQueue(), state_block);
+	return;
+}
+
+
+#pragma mark -
+#pragma mark SCDynamicStore APIs
+
+
 void
 _SCDynamicStoreSetSessionWatchLimit(unsigned int limit)
 {
 	_sc_store_max = limit;
+	_sc_store_advise = limit;
 	return;
 }
 
@@ -145,6 +288,11 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 
 	(void) pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &oldThreadState);
 
+	dispatch_sync(storeQueue(), ^{
+		// remove session tracking
+		CFSetRemoveValue(_sc_store_sessions, storePrivate);
+	});
+
 	/* Remove/cancel any outstanding notification requests. */
 	(void) SCDynamicStoreNotifyCancel(store);
 
@@ -183,8 +331,6 @@ __SCDynamicStoreDeallocate(CFTypeRef cf)
 	if (storePrivate->cache_active) {
 		_SCDynamicStoreCacheClose(store);
 	}
-
-	_SC_ATOMIC_DEC(&_sc_store_cnt);
 
 	return;
 }
@@ -226,6 +372,8 @@ __SCDynamicStoreInitialize(void)
 
 	/* add handler to cleanup after fork() */
 	(void) pthread_atfork(NULL, NULL, childForkHandler);
+
+	add_state_handler();
 
 	return;
 }
@@ -289,15 +437,27 @@ __SCDynamicStoreServerPort(SCDynamicStorePrivateRef storePrivate, kern_return_t 
 }
 
 
+static void
+logSessionReference(const void *key, const void *value, void *context)
+{
+#pragma unused(context)
+	CFNumberRef	cnt	= (CFNumberRef)value;
+	CFStringRef	name	= (CFStringRef)key;
+
+	SC_log(LOG_ERR, "  %@ sessions w/name = \"%@\"", cnt, name);
+	return;
+}
+
+
 SCDynamicStorePrivateRef
 __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 			     const CFStringRef		name,
 			     SCDynamicStoreCallBack	callout,
 			     SCDynamicStoreContext	*context)
 {
-	unsigned int			n;
 	uint32_t			size;
 	SCDynamicStorePrivateRef	storePrivate;
+	__block Boolean			tooManySessions	= FALSE;
 
 	/* initialize runtime */
 	pthread_once(&initialized, __SCDynamicStoreInitialize);
@@ -334,13 +494,39 @@ __SCDynamicStoreCreatePrivate(CFAllocatorRef		allocator,
 	storePrivate->notifyFile			= -1;
 
 	/* watch for excessive SCDynamicStore usage */
-	n = _SC_ATOMIC_INC(&_sc_store_cnt);
-	if (n > _sc_store_max) {
-		if (_sc_store_max > 0) {
-			SC_log(LOG_ERR, "SCDynamicStoreCreate(): number of SCDynamicStore objects now exceeds %u", n - 1);
-			_sc_store_max = (_sc_store_max < 5000) ? (_sc_store_max * 2) : 0;
-			_SC_crash_once("Excessive number of SCDynamicStore objects", NULL, NULL);
+	dispatch_sync(storeQueue(), ^{
+		CFIndex		n;
+
+		// track the session
+		CFSetAddValue(_sc_store_sessions, storePrivate);
+		n = CFSetGetCount(_sc_store_sessions);
+		if (n > _sc_store_max) {
+			if (_sc_store_max > 0) {
+				CFMutableDictionaryRef	dict;
+
+				dict = CFDictionaryCreateMutable(NULL,
+								 0,
+								 &kCFTypeDictionaryKeyCallBacks,
+								 &kCFTypeDictionaryValueCallBacks);
+				CFSetApplyFunction(_sc_store_sessions, addSessionReference, dict);
+				SC_log(LOG_ERR,
+				       "SCDynamicStoreCreate(): number of SCDynamicStore sessions %sexceeds %ld",
+				       (n != N_SESSIONS_WARN_DEFAULT) ? "now " : "",
+				       _sc_store_max);
+				CFDictionaryApplyFunction(dict, logSessionReference, NULL);
+				CFRelease(dict);
+
+				// yes, we should complain
+				tooManySessions = TRUE;
+
+				// bump the threshold before we complain again
+				_sc_store_max = (_sc_store_max < N_SESSIONS_WARN_MAX) ? (_sc_store_max * 2) : 0;
+			}
 		}
+	});
+
+	if (tooManySessions) {
+		_SC_crash_once("Excessive number of SCDynamicStore sessions", NULL, NULL);
 	}
 
 	return storePrivate;

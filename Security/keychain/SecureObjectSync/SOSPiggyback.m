@@ -262,7 +262,7 @@ SOSPiggyCreateDecodedTLKs(const uint8_t *der, const uint8_t *der_end)
             CFErrorRef localError = NULL;
             CFStringRef string = NULL;
 
-            choice_der = der_decode_string(NULL, 0, &string, &localError, item_der, end_item_der);
+            choice_der = der_decode_string(NULL, &string, &localError, item_der, end_item_der);
             if (choice_der == NULL || string == NULL) {
                 CFReleaseNull(string);
                 secnotice("piggy", "Failed to parse view name");
@@ -365,7 +365,7 @@ SOSPiggyBackBlobCreateFromDER(SOSGenCountRef  *retGencount,
     *der_p = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_SEQUENCE, &sequence_end, *der_p, der_end);
     require_action_quiet(sequence_end != NULL, errOut,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Blob DER"), (error != NULL) ? *error : NULL, error));
-    *der_p = der_decode_number(kCFAllocatorDefault, 0, &gencount, error, *der_p, sequence_end);
+    *der_p = der_decode_number(kCFAllocatorDefault, &gencount, error, *der_p, sequence_end);
     *der_p = der_decode_data_or_null(kCFAllocatorDefault, &publicBytes, error, *der_p, sequence_end);
     *der_p = der_decode_data_or_null(kCFAllocatorDefault, &signature, error, *der_p, sequence_end);
     

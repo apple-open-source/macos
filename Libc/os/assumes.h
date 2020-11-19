@@ -43,8 +43,11 @@ __BEGIN_DECLS
 #define os_constant(x) __builtin_constant_p((x))
 #define os_hardware_trap() __asm__ __volatile__ (""); __builtin_trap()
 #define __OS_COMPILETIME_ASSERT__(e) __extension__({ \
+	_Pragma("clang diagnostic push") \
+	_Pragma("clang diagnostic ignored \"-Wvla\"") \
 	char __compile_time_assert__[(e) ? 1 : -1];	\
 	(void)__compile_time_assert__; \
+	_Pragma("clang diagnostic pop") \
 })
 #else /* __GNUC__ */
 #define os_constant(x) ((long)0)

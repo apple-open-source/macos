@@ -429,7 +429,7 @@ RegexMatcher &RegexMatcher::appendReplacement(UText *dest,
                                (nextChar >= 0x31 && nextChar <= 0x39)) {       // 0..9
                         groupName.append(nextChar);
                     } else if (nextChar == RIGHTBRACKET) {
-                        groupNum = uhash_geti(fPattern->fNamedCaptureMap, &groupName);
+                        groupNum = fPattern->fNamedCaptureMap ? uhash_geti(fPattern->fNamedCaptureMap, &groupName) : 0;
                         if (groupNum == 0) {
                             status = U_REGEX_INVALID_CAPTURE_GROUP_NAME;
                         }
@@ -2078,7 +2078,7 @@ int32_t  RegexMatcher::split(UText *input,
     //
     if (U_FAILURE(status)) {
         return 0;
-    };
+    }
 
     if (destCapacity < 1) {
         status = U_ILLEGAL_ARGUMENT_ERROR;
@@ -3814,11 +3814,13 @@ GC_Done:
 
         case URX_LA_START:
             {
-                // Entering a lookahead block.
+                // Entering a look around block.
                 // Save Stack Ptr, Input Pos.
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+3<fPattern->fDataSize);
                 fData[opValue]   = fStack->size();
                 fData[opValue+1] = fp->fInputIdx;
+                fData[opValue+2] = fActiveStart;
+                fData[opValue+3] = fActiveLimit;
                 fActiveStart     = fLookStart;          // Set the match region change for
                 fActiveLimit     = fLookLimit;          //   transparent bounds.
             }
@@ -3828,7 +3830,7 @@ GC_Done:
             {
                 // Leaving a look-ahead block.
                 //  restore Stack Ptr, Input Pos to positions they had on entry to block.
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+3<fPattern->fDataSize);
                 int32_t stackSize = fStack->size();
                 int32_t newStackSize =(int32_t)fData[opValue];
                 U_ASSERT(stackSize >= newStackSize);
@@ -3848,8 +3850,10 @@ GC_Done:
 
                 // Restore the active region bounds in the input string; they may have
                 //    been changed because of transparent bounds on a Region.
-                fActiveStart = fRegionStart;
-                fActiveLimit = fRegionLimit;
+                fActiveStart = fData[opValue+2];
+                fActiveLimit = fData[opValue+3];
+                U_ASSERT(fActiveStart >= 0);
+                U_ASSERT(fActiveLimit <= fInputLength);
             }
             break;
 
@@ -3925,17 +3929,19 @@ GC_Done:
         case URX_LB_START:
             {
                 // Entering a look-behind block.
-                // Save Stack Ptr, Input Pos.
+                // Save Stack Ptr, Input Pos and active input region.
                 //   TODO:  implement transparent bounds.  Ticket #6067
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
                 fData[opValue]   = fStack->size();
                 fData[opValue+1] = fp->fInputIdx;
-                // Init the variable containing the start index for attempted matches.
-                fData[opValue+2] = -1;
                 // Save input string length, then reset to pin any matches to end at
                 //   the current position.
+                fData[opValue+2] = fActiveStart;
                 fData[opValue+3] = fActiveLimit;
+                fActiveStart     = fRegionStart;
                 fActiveLimit     = fp->fInputIdx;
+                // Init the variable containing the start index for attempted matches.
+                fData[opValue+4] = -1;
             }
             break;
 
@@ -3958,8 +3964,8 @@ GC_Done:
                 U_ASSERT(minML >= 0);
 
                 // Fetch (from data) the last input index where a match was attempted.
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
-                int64_t  &lbStartIdx = fData[opValue+2];
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
+                int64_t  &lbStartIdx = fData[opValue+4];
                 if (lbStartIdx < 0) {
                     // First time through loop.
                     lbStartIdx = fp->fInputIdx - minML;
@@ -3985,10 +3991,10 @@ GC_Done:
                     //  getting a match.  Backtrack out, and out of the
                     //   Look Behind altogether.
                     fp = (REStackFrame *)fStack->popFrame(fFrameSize);
-                    int64_t restoreInputLen = fData[opValue+3];
-                    U_ASSERT(restoreInputLen >= fActiveLimit);
-                    U_ASSERT(restoreInputLen <= fInputLength);
-                    fActiveLimit = restoreInputLen;
+                    fActiveStart = fData[opValue+2];
+                    fActiveLimit = fData[opValue+3];
+                    U_ASSERT(fActiveStart >= 0);
+                    U_ASSERT(fActiveLimit <= fInputLength);
                     break;
                 }
 
@@ -4002,7 +4008,7 @@ GC_Done:
         case URX_LB_END:
             // End of a look-behind block, after a successful match.
             {
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
                 if (fp->fInputIdx != fActiveLimit) {
                     //  The look-behind expression matched, but the match did not
                     //    extend all the way to the point that we are looking behind from.
@@ -4013,13 +4019,13 @@ GC_Done:
                     break;
                 }
 
-                // Look-behind match is good.  Restore the orignal input string length,
+                // Look-behind match is good.  Restore the orignal input string region,
                 //   which had been truncated to pin the end of the lookbehind match to the
                 //   position being looked-behind.
-                int64_t originalInputLen = fData[opValue+3];
-                U_ASSERT(originalInputLen >= fActiveLimit);
-                U_ASSERT(originalInputLen <= fInputLength);
-                fActiveLimit = originalInputLen;
+                fActiveStart = fData[opValue+2];
+                fActiveLimit = fData[opValue+3];
+                U_ASSERT(fActiveStart >= 0);
+                U_ASSERT(fActiveLimit <= fInputLength);
             }
             break;
 
@@ -4044,8 +4050,8 @@ GC_Done:
                 U_ASSERT(continueLoc > fp->fPatIdx);
 
                 // Fetch (from data) the last input index where a match was attempted.
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
-                int64_t  &lbStartIdx = fData[opValue+2];
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
+                int64_t  &lbStartIdx = fData[opValue+4];
                 if (lbStartIdx < 0) {
                     // First time through loop.
                     lbStartIdx = fp->fInputIdx - minML;
@@ -4070,10 +4076,10 @@ GC_Done:
                     // We have tried all potential match starting points without
                     //  getting a match, which means that the negative lookbehind as
                     //  a whole has succeeded.  Jump forward to the continue location
-                    int64_t restoreInputLen = fData[opValue+3];
-                    U_ASSERT(restoreInputLen >= fActiveLimit);
-                    U_ASSERT(restoreInputLen <= fInputLength);
-                    fActiveLimit = restoreInputLen;
+                    fActiveStart = fData[opValue+2];
+                    fActiveLimit = fData[opValue+3];
+                    U_ASSERT(fActiveStart >= 0);
+                    U_ASSERT(fActiveLimit <= fInputLength);
                     fp->fPatIdx = continueLoc;
                     break;
                 }
@@ -4088,7 +4094,7 @@ GC_Done:
         case URX_LBN_END:
             // End of a negative look-behind block, after a successful match.
             {
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
                 if (fp->fInputIdx != fActiveLimit) {
                     //  The look-behind expression matched, but the match did not
                     //    extend all the way to the point that we are looking behind from.
@@ -4105,10 +4111,10 @@ GC_Done:
                 //   Restore the orignal input string length, which had been truncated
                 //   inorder to pin the end of the lookbehind match
                 //   to the position being looked-behind.
-                int64_t originalInputLen = fData[opValue+3];
-                U_ASSERT(originalInputLen >= fActiveLimit);
-                U_ASSERT(originalInputLen <= fInputLength);
-                fActiveLimit = originalInputLen;
+                fActiveStart = fData[opValue+2];
+                fActiveLimit = fData[opValue+3];
+                U_ASSERT(fActiveStart >= 0);
+                U_ASSERT(fActiveLimit <= fInputLength);
 
                 // Restore original stack position, discarding any state saved
                 //   by the successful pattern match.
@@ -5345,11 +5351,13 @@ GC_Done:
 
         case URX_LA_START:
             {
-                // Entering a lookahead block.
+                // Entering a look around block.
                 // Save Stack Ptr, Input Pos.
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+3<fPattern->fDataSize);
                 fData[opValue]   = fStack->size();
                 fData[opValue+1] = fp->fInputIdx;
+                fData[opValue+2] = fActiveStart;
+                fData[opValue+3] = fActiveLimit;
                 fActiveStart     = fLookStart;          // Set the match region change for
                 fActiveLimit     = fLookLimit;          //   transparent bounds.
             }
@@ -5357,9 +5365,9 @@ GC_Done:
 
         case URX_LA_END:
             {
-                // Leaving a look-ahead block.
+                // Leaving a look around block.
                 //  restore Stack Ptr, Input Pos to positions they had on entry to block.
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+3<fPattern->fDataSize);
                 int32_t stackSize = fStack->size();
                 int32_t newStackSize = (int32_t)fData[opValue];
                 U_ASSERT(stackSize >= newStackSize);
@@ -5379,8 +5387,10 @@ GC_Done:
 
                 // Restore the active region bounds in the input string; they may have
                 //    been changed because of transparent bounds on a Region.
-                fActiveStart = fRegionStart;
-                fActiveLimit = fRegionLimit;
+                fActiveStart = fData[opValue+2];
+                fActiveLimit = fData[opValue+3];
+                U_ASSERT(fActiveStart >= 0);
+                U_ASSERT(fActiveLimit <= fInputLength);
             }
             break;
 
@@ -5443,17 +5453,19 @@ GC_Done:
         case URX_LB_START:
             {
                 // Entering a look-behind block.
-                // Save Stack Ptr, Input Pos.
+                // Save Stack Ptr, Input Pos and active input region.
                 //   TODO:  implement transparent bounds.  Ticket #6067
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
                 fData[opValue]   = fStack->size();
                 fData[opValue+1] = fp->fInputIdx;
-                // Init the variable containing the start index for attempted matches.
-                fData[opValue+2] = -1;
                 // Save input string length, then reset to pin any matches to end at
                 //   the current position.
+                fData[opValue+2] = fActiveStart;
                 fData[opValue+3] = fActiveLimit;
+                fActiveStart     = fRegionStart;
                 fActiveLimit     = fp->fInputIdx;
+                // Init the variable containing the start index for attempted matches.
+                fData[opValue+4] = -1;
             }
             break;
 
@@ -5471,8 +5483,8 @@ GC_Done:
                 U_ASSERT(minML >= 0);
 
                 // Fetch (from data) the last input index where a match was attempted.
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
-                int64_t  &lbStartIdx = fData[opValue+2];
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
+                int64_t  &lbStartIdx = fData[opValue+4];
                 if (lbStartIdx < 0) {
                     // First time through loop.
                     lbStartIdx = fp->fInputIdx - minML;
@@ -5494,10 +5506,10 @@ GC_Done:
                     //  getting a match.  Backtrack out, and out of the
                     //   Look Behind altogether.
                     fp = (REStackFrame *)fStack->popFrame(fFrameSize);
-                    int64_t restoreInputLen = fData[opValue+3];
-                    U_ASSERT(restoreInputLen >= fActiveLimit);
-                    U_ASSERT(restoreInputLen <= fInputLength);
-                    fActiveLimit = restoreInputLen;
+                    fActiveStart = fData[opValue+2];
+                    fActiveLimit = fData[opValue+3];
+                    U_ASSERT(fActiveStart >= 0);
+                    U_ASSERT(fActiveLimit <= fInputLength);
                     break;
                 }
 
@@ -5511,7 +5523,7 @@ GC_Done:
         case URX_LB_END:
             // End of a look-behind block, after a successful match.
             {
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
                 if (fp->fInputIdx != fActiveLimit) {
                     //  The look-behind expression matched, but the match did not
                     //    extend all the way to the point that we are looking behind from.
@@ -5522,13 +5534,13 @@ GC_Done:
                     break;
                 }
 
-                // Look-behind match is good.  Restore the orignal input string length,
+                // Look-behind match is good.  Restore the orignal input string region,
                 //   which had been truncated to pin the end of the lookbehind match to the
                 //   position being looked-behind.
-                int64_t originalInputLen = fData[opValue+3];
-                U_ASSERT(originalInputLen >= fActiveLimit);
-                U_ASSERT(originalInputLen <= fInputLength);
-                fActiveLimit = originalInputLen;
+                fActiveStart = fData[opValue+2];
+                fActiveLimit = fData[opValue+3];
+                U_ASSERT(fActiveStart >= 0);
+                U_ASSERT(fActiveLimit <= fInputLength);
             }
             break;
 
@@ -5548,8 +5560,8 @@ GC_Done:
                 U_ASSERT(continueLoc > fp->fPatIdx);
 
                 // Fetch (from data) the last input index where a match was attempted.
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
-                int64_t  &lbStartIdx = fData[opValue+2];
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
+                int64_t  &lbStartIdx = fData[opValue+4];
                 if (lbStartIdx < 0) {
                     // First time through loop.
                     lbStartIdx = fp->fInputIdx - minML;
@@ -5570,10 +5582,10 @@ GC_Done:
                     // We have tried all potential match starting points without
                     //  getting a match, which means that the negative lookbehind as
                     //  a whole has succeeded.  Jump forward to the continue location
-                    int64_t restoreInputLen = fData[opValue+3];
-                    U_ASSERT(restoreInputLen >= fActiveLimit);
-                    U_ASSERT(restoreInputLen <= fInputLength);
-                    fActiveLimit = restoreInputLen;
+                    fActiveStart = fData[opValue+2];
+                    fActiveLimit = fData[opValue+3];
+                    U_ASSERT(fActiveStart >= 0);
+                    U_ASSERT(fActiveLimit <= fInputLength);
                     fp->fPatIdx = continueLoc;
                     break;
                 }
@@ -5588,7 +5600,7 @@ GC_Done:
         case URX_LBN_END:
             // End of a negative look-behind block, after a successful match.
             {
-                U_ASSERT(opValue>=0 && opValue+1<fPattern->fDataSize);
+                U_ASSERT(opValue>=0 && opValue+4<fPattern->fDataSize);
                 if (fp->fInputIdx != fActiveLimit) {
                     //  The look-behind expression matched, but the match did not
                     //    extend all the way to the point that we are looking behind from.
@@ -5605,10 +5617,10 @@ GC_Done:
                 //   Restore the orignal input string length, which had been truncated
                 //   inorder to pin the end of the lookbehind match
                 //   to the position being looked-behind.
-                int64_t originalInputLen = fData[opValue+3];
-                U_ASSERT(originalInputLen >= fActiveLimit);
-                U_ASSERT(originalInputLen <= fInputLength);
-                fActiveLimit = originalInputLen;
+                fActiveStart = fData[opValue+2];
+                fActiveLimit = fData[opValue+3];
+                U_ASSERT(fActiveStart >= 0);
+                U_ASSERT(fActiveLimit <= fInputLength);
 
                 // Restore original stack position, discarding any state saved
                 //   by the successful pattern match.

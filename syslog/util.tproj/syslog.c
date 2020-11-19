@@ -130,7 +130,7 @@ static char *last_printmsg_str = NULL;
 static int last_printmsg_count = 0;
 static const char *tfmt = NULL;
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 static uint32_t dbselect = DB_SELECT_SYSLOGD;
 #else
 static uint32_t dbselect = DB_SELECT_ASL;
@@ -1118,7 +1118,7 @@ asl_stats(int argc, char *argv[])
 		}
 	}
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (store == NULL) store = asl_open_path(ASL_IOS_STATS_DIR, 0);
 	if (store == NULL)
 	{
@@ -1728,6 +1728,7 @@ syslogd_query(asl_msg_list_t *q, uint64_t start, int count, int dir, uint64_t *l
 		if (kstatus != KERN_SUCCESS)
 		{
 			fprintf(stderr, "query failed: can't contact syslogd\n");
+			asl_server_port = MACH_PORT_NULL;
 			return NULL;
 		}
 	}
@@ -1785,7 +1786,7 @@ filter_and_print(asl_msg_t *msg, asl_msg_list_t *ql, FILE *f, char *pfmt, int pf
 	if (did_match != 0) printmsg(f, msg, pfmt, pflags);
 }
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 void
 syslogd_direct_watch(FILE *f, char *pfmt, int pflags, asl_msg_list_t *ql)
 {
@@ -2818,7 +2819,7 @@ main(int argc, char *argv[])
 	{
 		if (dbselect == DB_SELECT_SYSLOGD)
 		{
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 			syslogd_direct_watch(outfile, pfmt, pflags, qlist);
 #else
 			fprintf(stderr, "Warning: -w flag cannot be used when querying syslogd directly\n");

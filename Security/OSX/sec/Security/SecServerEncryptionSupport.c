@@ -327,11 +327,7 @@ CFDataRef SecCopyDecryptedForServer(SecKeyRef serverFullKey, CFDataRef blob, CFE
 CFDataRef SecCopyEncryptedToServer(SecTrustRef trustedEvaluation, CFDataRef dataToEncrypt, CFErrorRef *error)
 {
     CFDataRef result = NULL;
-#if TARGET_OS_OSX
-    SecKeyRef trustKey = SecTrustCopyPublicKey_ios(trustedEvaluation);
-#else
-    SecKeyRef trustKey = SecTrustCopyPublicKey(trustedEvaluation);
-#endif
+    SecKeyRef trustKey = SecTrustCopyKey(trustedEvaluation);
 
     require_action_quiet(trustKey, fail,
                          SecError(errSecInteractionNotAllowed, error, CFSTR("Failed to get key out of trust ref, was it evaluated?")));

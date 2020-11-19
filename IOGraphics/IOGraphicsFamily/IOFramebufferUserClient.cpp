@@ -340,7 +340,7 @@ IOReturn IOFramebufferUserClient::externalMethod( uint32_t selector, IOExternalM
         /*[12]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorVisible,
             1, 0, 0, 0 },
         /*[13]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetCursorPosition,
-            2, 0, 0, 0 },
+            3, 0, 0, 0 },
         /*[14]*/ { (IOExternalMethodAction) &IOFramebuffer::extAcknowledgeNotification,
             kIOUCVariableStructureSize, 0, 0, 0 },
         /*[15]*/ { (IOExternalMethodAction) &IOFramebuffer::extSetColorConvertTable,

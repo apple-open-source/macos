@@ -148,12 +148,18 @@ private:
                                     IOOptionBits         options = 0 );
 
     IOBufferMemoryDescriptor * createMemoryForElementValues();
+    
+    bool validateMatchingTable(OSDictionary * table);
+
+    OSBoolean * newIsAccessProtected();
 
     OSNumber * newPrimaryUsageNumber(UInt32 interfaceIdx) const;
 
     OSNumber * newPrimaryUsagePageNumber(UInt32 interfaceIdx) const;
 
     OSArray * newDeviceUsagePairs(OSArray * elements, UInt32 start);
+
+    IOReturn postElementTransaction(const void* elementData, UInt32 dataSize);
 
     static bool _publishDeviceNotificationHandler(void * target,
                                                   void * refCon,
@@ -436,7 +442,6 @@ public:
 
 /*! @function getReport
     @abstract Get a report from the HID device.
-    @discussion A completion parameter may be added in the future.
     @param report A memory descriptor that describes the memory to store
     the report read from the HID device.
     @param reportType The report type.
@@ -450,7 +455,6 @@ public:
 
 /*! @function setReport
     @abstract Send a report to the HID device.
-    @discussion A completion parameter may be added in the future.
     @param report A memory descriptor that describes the report to send
     to the HID device.
     @param reportType The report type.
@@ -555,7 +559,6 @@ public:
 
 /*! @function updateElementValues
     @abstract Updates element values from a HID device via getReport.
-    @discussion A completion parameter may be added in the future.
     @param cookies A list of element cookies who's values need to be
     set on the device.
     @param cookieCount The number of element cookies.
@@ -565,7 +568,6 @@ public:
 
 /*! @function postElementValues
     @abstract Posts element values to a HID device via setReport.
-    @discussion A completion parameter may be added in the future.
     @param cookies A list of element cookies who's values need to be
     set on the device.
     @param cookieCount The number of element cookies.
@@ -591,7 +593,6 @@ public:
 
 /*! @function getReport
     @abstract Get a report from the HID device.
-    @discussion A completion parameter may be added in the future.
     @param report A memory descriptor that describes the memory to store
     the report read from the HID device.
     @param reportType The report type.
@@ -612,7 +613,6 @@ public:
 
 /*! @function setReport
     @abstract Send a report to the HID device.
-    @discussion A completion parameter may be added in the future.
     @param report A memory descriptor that describes the report to send
     to the HID device.
     @param reportType The report type.

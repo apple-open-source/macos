@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2019 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -203,6 +203,14 @@ static double htond(double h) {
     return n;
 }
 
+/* Obtain swapped value of the 32-bit integer referenced by the given pointer.
+   Since a generic void or char pointer may not be aligned on a 4-byte boundary,
+   the UB sanitizer does not let us directly dereference it as *(uint32_t*).
+*/
+static uint32_t SecSwapInt32Ptr(const void* P) {
+    uint32_t _i=0; memcpy(&_i,P,sizeof(_i)); return OSSwapInt32(_i);
+}
+
 
 // MARK: -
 // MARK: Valid definitions
@@ -250,7 +258,7 @@ typedef CF_OPTIONS(CFOptionFlags, SecValidInfoFlags) {
 /* maximum allowed interval */
 #define kSecMaxUpdateInterval           (60.0 * 60 * 24 * 7)
 
-#define kSecRevocationBasePath          "/Library/Keychains/crls"
+/* filenames we use, relative to revocation info directory */
 #define kSecRevocationCurUpdateFile     "update-current"
 #define kSecRevocationDbFileName        "valid.sqlite3"
 #define kSecRevocationDbReplaceFile     ".valid_replace"
@@ -319,7 +327,7 @@ bool SecRevocationDbUpdateSchema(SecRevocationDbRef rdb);
 CFIndex SecRevocationDbGetUpdateFormat(void);
 bool _SecRevocationDbSetUpdateSource(SecRevocationDbConnectionRef dbc, CFStringRef source, CFErrorRef *error);
 bool SecRevocationDbSetUpdateSource(SecRevocationDbRef rdb, CFStringRef source);
-CFStringRef SecRevocationDbCopyUpdateSource(void);
+CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyUpdateSource(void);
 bool SecRevocationDbSetNextUpdateTime(CFAbsoluteTime nextUpdate, CFErrorRef *error);
 CFAbsoluteTime SecRevocationDbGetNextUpdateTime(void);
 dispatch_queue_t SecRevocationDbGetUpdateQueue(void);
@@ -623,8 +631,7 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
         SecError(errSecParam, error, CFSTR("SecValidUpdateProcessData: data length is too short"));
         return result;
     }
-    /* get length of signed data */
-    uint32_t dataLength = OSSwapInt32(*((uint32_t *)p));
+    uint32_t dataLength = SecSwapInt32Ptr(p);
     bytesRemaining -= sizeof(uint32_t);
     p += sizeof(uint32_t);
 
@@ -632,7 +639,7 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
     uint32_t plistCount = 1;
     uint32_t plistTotal = 1;
     if (format > kSecValidUpdateFormatG2) {
-        plistCount = OSSwapInt32(*((uint32_t *)p));
+        plistCount = SecSwapInt32Ptr(p);
         plistTotal = plistCount;
         bytesRemaining -= sizeof(uint32_t);
         p += sizeof(uint32_t);
@@ -652,7 +659,7 @@ static bool SecValidUpdateProcessData(SecRevocationDbConnectionRef dbc, CFIndex 
         CFPropertyListRef propertyList = NULL;
         uint32_t plistLength = dataLength;
         if (format > kSecValidUpdateFormatG2) {
-            plistLength = OSSwapInt32(*((uint32_t *)p));
+            plistLength = SecSwapInt32Ptr(p);
             bytesRemaining -= sizeof(uint32_t);
             p += sizeof(uint32_t);
         }
@@ -942,9 +949,15 @@ static CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyServer(void) {
     /* Prefer a in-process setting for the update server, as used in testing */
     CFTypeRef value = CFPreferencesCopyAppValue(kUpdateServerKey, kSecPrefsDomain);
     if (!value) {
-        value = (CFStringRef)CFPreferencesCopyValue(kUpdateServerKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+        value = CFPreferencesCopyValue(kUpdateServerKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
     }
-    CFStringRef server = (isString(value)) ? (CFStringRef)value : CFRetainSafe(SecRevocationDbGetDefaultServer());
+    CFStringRef server = NULL;
+    if (isString(value)) {
+        server = (CFStringRef)value;
+    } else {
+        CFReleaseNull(value);
+        server = CFRetainSafe(SecRevocationDbGetDefaultServer());
+    }
     return server;
 }
 
@@ -1125,6 +1138,56 @@ static CFStringRef SecValidInfoCopyFormatDescription(CFTypeRef cf, CFDictionaryR
  ==============================================================================
 */
 
+static CFIndex _SecRevocationDbGetUpdateVersion(CFStringRef server) {
+    // determine version of our current database
+    CFIndex version = SecRevocationDbGetVersion();
+    secdebug("validupdate", "got version %ld from db", (long)version);
+    if (version <= 0) {
+        if (gLastVersion > 0) {
+            secdebug("validupdate", "error getting version; using last good version: %ld", (long)gLastVersion);
+        }
+        version = gLastVersion;
+    }
+
+    // determine source of our current database
+    // (if this ever changes, we will need to reload the db)
+    CFStringRef db_source = SecRevocationDbCopyUpdateSource();
+    if (!db_source) {
+        db_source = (CFStringRef) CFRetain(kValidUpdateProdServer);
+    }
+
+    // determine whether we need to recreate the database
+    CFIndex db_version = SecRevocationDbGetSchemaVersion();
+    CFIndex db_format = SecRevocationDbGetUpdateFormat();
+    if (db_version < kSecRevocationDbSchemaVersion ||
+        db_format < kSecRevocationDbUpdateFormat ||
+        kCFCompareEqualTo != CFStringCompare(server, db_source, kCFCompareCaseInsensitive)) {
+        // we need to fully rebuild the db contents, so we set our version to 0.
+        version = gLastVersion = 0;
+    }
+    CFReleaseNull(db_source);
+    return version;
+}
+
+static bool _SecRevocationDbIsUpdateEnabled(void) {
+    CFTypeRef value = NULL;
+    // determine whether update fetching is enabled
+#if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
+    // Valid update fetching was initially enabled on macOS 10.13 and iOS 11.0.
+    // This conditional has been changed to include every platform and version
+    // except for those where the db should not be updated over the air.
+    bool updateEnabled = true;
+#else
+    bool updateEnabled = false;
+#endif
+    value = (CFBooleanRef)CFPreferencesCopyValue(kUpdateEnabledKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    if (isBoolean(value)) {
+        updateEnabled = CFBooleanGetValue((CFBooleanRef)value);
+    }
+    CFReleaseNull(value);
+    return updateEnabled;
+}
+
 /* SecRevocationDbCheckNextUpdate returns true if we dispatched an
    update request, otherwise false.
 */
@@ -1183,52 +1246,15 @@ static bool _SecRevocationDbCheckNextUpdate(void) {
     // determine which server to query
     CFStringRef server = SecRevocationDbCopyServer();
 
-    // determine version of our current database
-    CFIndex version = SecRevocationDbGetVersion();
-    secdebug("validupdate", "got version %ld from db", (long)version);
-    if (version <= 0) {
-        if (gLastVersion > 0) {
-            secdebug("validupdate", "error getting version; using last good version: %ld", (long)gLastVersion);
-        }
-        version = gLastVersion;
-    }
+    // determine version to update from
+    CFIndex version = _SecRevocationDbGetUpdateVersion(server);
 
-    // determine source of our current database
-    // (if this ever changes, we will need to reload the db)
-    CFStringRef db_source = SecRevocationDbCopyUpdateSource();
-    if (!db_source) {
-        db_source = (CFStringRef) CFRetain(kValidUpdateProdServer);
-    }
-
-    // determine whether we need to recreate the database
-    CFIndex db_version = SecRevocationDbGetSchemaVersion();
-    CFIndex db_format = SecRevocationDbGetUpdateFormat();
-    if (db_version < kSecRevocationDbSchemaVersion ||
-        db_format < kSecRevocationDbUpdateFormat ||
-        kCFCompareEqualTo != CFStringCompare(server, db_source, kCFCompareCaseInsensitive)) {
-        // we need to fully rebuild the db contents, so we set our version to 0.
-        version = gLastVersion = 0;
-    }
-
-    // determine whether update fetching is enabled
-#if !TARGET_OS_WATCH && !TARGET_OS_BRIDGE
-    // Valid update fetching was initially enabled on macOS 10.13 and iOS 11.0.
-    // This conditional has been changed to include every platform and version
-    // except for those where the db should not be updated over the air.
-    bool updateEnabled = true;
-#else
-    bool updateEnabled = false;
-#endif
-    value = (CFBooleanRef)CFPreferencesCopyValue(kUpdateEnabledKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    if (isBoolean(value)) {
-        updateEnabled = CFBooleanGetValue((CFBooleanRef)value);
-    }
-    CFReleaseNull(value);
+    // determine if update is enabled for this device
+    bool updateEnabled = _SecRevocationDbIsUpdateEnabled();
 
     // Schedule maintenance work
     bool result = SecValidUpdateSchedule(updateEnabled, server, version);
     CFReleaseNull(server);
-    CFReleaseNull(db_source);
     return result;
 }
 
@@ -1248,6 +1274,26 @@ void SecRevocationDbCheckNextUpdate(void) {
     sec_action_perform(action);
 }
 
+bool SecRevocationDbUpdate(CFErrorRef *error)
+{
+    // are we the db owner instance?
+    if (!isDbOwner()) {
+        return SecError(errSecWrPerm, error, CFSTR("Unable to update Valid DB from user agent"));
+    }
+
+    if (!_SecRevocationDbIsUpdateEnabled()) {
+        return SecError(errSecWrPerm, error, CFSTR("Valid updates not enabled on this device"));
+    }
+
+    CFStringRef server = SecRevocationDbCopyServer();
+    CFIndex version = _SecRevocationDbGetUpdateVersion(server);
+
+    secdebug("validupdate", "will fetch v%lu from \"%@\" now", (unsigned long)version, server);
+    bool result = SecValidUpdateUpdateNow(SecRevocationDbGetUpdateQueue(), server, version);
+    CFReleaseNull(server);
+    return result;
+}
+
 /*  This function verifies an update, in this format:
     1) unsigned 32-bit network-byte-order length of binary plist
     2) binary plist data
@@ -1260,7 +1306,7 @@ bool SecRevocationDbVerifyUpdate(void *update, CFIndex length) {
     if (!update || length <= (CFIndex)sizeof(uint32_t)) {
         return false;
     }
-    uint32_t plistLength = OSSwapInt32(*((uint32_t *)update));
+    uint32_t plistLength = SecSwapInt32Ptr(update);
     if ((plistLength + (CFIndex)(sizeof(uint32_t)*2)) > (uint64_t) length) {
         secdebug("validupdate", "ERROR: reported plist length (%lu)+%lu exceeds total length (%lu)\n",
                 (unsigned long)plistLength, (unsigned long)sizeof(uint32_t)*2, (unsigned long)length);
@@ -1268,7 +1314,7 @@ bool SecRevocationDbVerifyUpdate(void *update, CFIndex length) {
     }
     uint8_t *plistData = (uint8_t *)update + sizeof(uint32_t);
     uint8_t *sigData = (uint8_t *)plistData + plistLength;
-    uint32_t sigLength = OSSwapInt32(*((uint32_t *)sigData));
+    uint32_t sigLength = SecSwapInt32Ptr(sigData);
     sigData += sizeof(uint32_t);
     if ((plistLength + sigLength + (CFIndex)(sizeof(uint32_t) * 2)) != (uint64_t) length) {
         secdebug("validupdate", "ERROR: reported lengths do not add up to total length\n");
@@ -2389,10 +2435,10 @@ static bool _SecRevocationDbUpdateIssuers(SecRevocationDbConnectionRef dbc, int6
 }
 
 static SecValidInfoFormat _SecRevocationDbGetGroupFormatForData(SecRevocationDbConnectionRef dbc, int64_t groupId, CFDataRef data) {
-    /* determine existing format if groupId is supplied and this is a partial update,
+    /* determine existing format if groupId is supplied,
        otherwise return the expected format for the given data. */
     SecValidInfoFormat format = kSecValidInfoFormatUnknown;
-    if (groupId >= 0 && !dbc->fullUpdate) {
+    if (groupId >= 0) {
         format = _SecRevocationDbGetGroupFormat(dbc, groupId, NULL, NULL, NULL, NULL);
     }
     if (format == kSecValidInfoFormatUnknown && data != NULL) {
@@ -2587,7 +2633,7 @@ static bool _SecRevocationDbUpdateDateConstraints(SecRevocationDbConnectionRef d
         return ok; /* no dates supplied, so we have nothing to update for this issuer */
     }
 
-    if (!(notBeforeDate && notAfterDate) && !dbc->fullUpdate) {
+    if (!(notBeforeDate && notAfterDate)) {
         /* only one date was supplied, so check for existing date constraints */
         CFDateRef curNotBeforeDate = NULL;
         CFDateRef curNotAfterDate = NULL;
@@ -3170,8 +3216,8 @@ static bool _SecRevocationDbApplyGroupUpdate(SecRevocationDbConnectionRef dbc, C
     __block CFErrorRef localError = NULL;
 
     CFArrayRef issuers = (dict) ? (CFArrayRef)CFDictionaryGetValue(dict, CFSTR("issuer-hash")) : NULL;
-    /* if this is not a full update, then look for existing group id */
-    if (ok && isArray(issuers) && !dbc->fullUpdate) {
+    /* look for existing group id */
+    if (ok && isArray(issuers)) {
         CFIndex issuerIX, issuerCount = CFArrayGetCount(issuers);
         /* while we have issuers and haven't found a matching group id */
         for (issuerIX=0; issuerIX<issuerCount && groupId < 0; issuerIX++) {
@@ -3515,7 +3561,7 @@ static SecValidInfoRef _SecRevocationDbCopyMatching(SecRevocationDbConnectionRef
     CFErrorRef error = NULL;
     CFDataRef issuerHash = NULL;
 
-    require(dbc && certificate && issuer, errOut);
+    require_quiet(dbc && certificate && issuer, errOut);
     require(issuerHash = SecCertificateCopySHA256Digest(issuer), errOut);
 
     /* Check for the result in the cache. */
@@ -3536,7 +3582,7 @@ errOut:
 /* Return the update source as a retained CFStringRef.
    If the value cannot be obtained, NULL is returned.
 */
-CFStringRef SecRevocationDbCopyUpdateSource(void) {
+CF_RETURNS_RETAINED CFStringRef SecRevocationDbCopyUpdateSource(void) {
     __block CFStringRef result = NULL;
     SecRevocationDbWith(^(SecRevocationDbRef db) {
         (void) SecRevocationDbPerformRead(db, NULL, ^bool(SecRevocationDbConnectionRef dbc, CFErrorRef *blockError) {

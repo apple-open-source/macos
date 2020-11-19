@@ -39,7 +39,7 @@
         _currentKeyUUID = currentKeyUUID;
 
         if(self.currentKeyUUID == nil) {
-            secerror("ckkscurrentkey: created a CKKSCurrentKey with a nil currentKeyUUID. Why?");
+            ckkserror_global("currentkey", "created a CKKSCurrentKey with a nil currentKeyUUID. Why?");
         }
     }
     return self;
@@ -126,7 +126,7 @@
     self.currentKeyUUID = [record[SecCKRecordParentKeyRefKey] recordID].recordName;
 
     if(self.currentKeyUUID == nil) {
-        secerror("ckkscurrentkey: No current key UUID in record! How/why? %@", record);
+        ckkserror_global("currentkey", "No current key UUID in record! How/why? %@", record);
     }
 }
 

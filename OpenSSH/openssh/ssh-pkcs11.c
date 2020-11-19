@@ -32,6 +32,11 @@
 #include <string.h>
 #include <dlfcn.h>
 
+#include <fcntl.h>
+#include <mach-o/dyld_priv.h>
+#include <System/sys/codesign.h>
+#include <unistd.h>
+
 #include "openbsd-compat/sys-queue.h"
 #include "openbsd-compat/openssl-compat.h"
 
@@ -1435,6 +1440,55 @@ pkcs11_ecdsa_generate_private_key(struct pkcs11_provider *p, CK_ULONG slotidx,
 }
 #endif /* WITH_PKCS11_KEYGEN */
 
+#ifdef __APPLE_CLEAR_LV__
+/*
+ * <rdar://problem/65693657> [sshd] Adopt com.apple.private.security.clear-library-validation
+ * Attempt to dynamically load a module. Disable LV on the process if necessary.
+ * NB: Code is based on OpenPAM's openpam_dlopen().
+ */
+
+static void *
+pkcs11_dlopen(const char *path, int mode)
+{
+	/* Fast path: dyld shared cache. */
+	if (_dyld_shared_cache_contains_path(path))
+		return dlopen(path, mode);
+
+	/* Slow path: check file on disk. */
+	if (faccessat(AT_FDCWD, path, R_OK, AT_EACCESS) != 0)
+		return NULL;
+
+	void *dlh = dlopen(path, mode);
+	if (dlh != NULL)
+		return dlh;
+
+	/*
+	 * The module exists and is readable, but failed to load.
+	 * If library validation is enabled, try disabling it and then try again.
+	 */
+	int   csflags = 0;
+	pid_t pid     = getpid();
+	csops(pid, CS_OPS_STATUS, &csflags, sizeof(csflags));
+	if ((csflags & (CS_FORCED_LV | CS_REQUIRE_LV)) == 0)
+		return NULL;
+
+	int rv = csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0);
+	if (rv != 0) {
+		error("csops(CS_OPS_CLEAR_LV) failed: %d", rv);
+		return NULL;
+	}
+
+	dlh = dlopen(path, mode);
+	if (dlh == NULL) {
+		/* Failed to load even with LV disabled: re-enable LV. */
+		csflags = CS_REQUIRE_LV;
+		csops(pid, CS_OPS_SET_STATUS, &csflags, sizeof(csflags));
+	}
+
+	return dlh;
+}
+#endif /* __APPLE_CLEAR_LV__ */
+
 /*
  * register a new provider, fails if provider already exists. if
  * keyp is provided, fetch keys.
@@ -1466,7 +1520,11 @@ pkcs11_register_provider(char *provider_id, char *pin, struct sshkey ***keyp,
 		goto fail;
 	}
 	/* open shared pkcs11-library */
+#ifdef __APPLE_CLEAR_LV__
+	if ((handle = pkcs11_dlopen(provider_id, RTLD_NOW)) == NULL) {
+#else
 	if ((handle = dlopen(provider_id, RTLD_NOW)) == NULL) {
+#endif
 		error("dlopen %s failed: %s", provider_id, dlerror());
 		goto fail;
 	}

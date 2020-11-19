@@ -2,6 +2,7 @@
 int edit(int cmdchar, int startln, long count);
 int ins_need_undo_get(void);
 void ins_redraw(int ready);
+int decodeModifyOtherKeys(int c);
 void edit_putchar(int c, int highlight);
 char_u *prompt_text(void);
 int prompt_curpos_editable(void);
@@ -12,8 +13,6 @@ void truncate_spaces(char_u *line);
 void backspace_until_column(int col);
 int get_literal(void);
 void insertchar(int c, int flags, int second_indent);
-void auto_format(int trailblank, int prev_line);
-int comp_textwidth(int ff);
 void start_arrow(pos_T *end_insert_pos);
 int stop_arrow(void);
 void set_last_insert(int c);

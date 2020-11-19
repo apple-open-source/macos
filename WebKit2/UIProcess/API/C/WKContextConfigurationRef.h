@@ -72,7 +72,7 @@ WK_EXPORT void WKContextConfigurationSetIgnoreSynchronousMessagingTimeoutsForTes
 WK_EXPORT WKArrayRef WKContextConfigurationCopyOverrideLanguages(WKContextConfigurationRef configuration);
 WK_EXPORT void WKContextConfigurationSetOverrideLanguages(WKContextConfigurationRef configuration, WKArrayRef overrideLanguages);
 
-WK_EXPORT bool WKContextConfigurationShouldCaptureAudioInUIProcess(WKContextConfigurationRef configuration);
+// FIXME: https://bugs.webkit.org/show_bug.cgi?id=209155. Remove this function once no longer useful to run latest WebKit with older Safari.
 WK_EXPORT void WKContextConfigurationSetShouldCaptureAudioInUIProcess(WKContextConfigurationRef configuration, bool allowed);
 
 WK_EXPORT bool WKContextConfigurationProcessSwapsOnNavigation(WKContextConfigurationRef configuration);

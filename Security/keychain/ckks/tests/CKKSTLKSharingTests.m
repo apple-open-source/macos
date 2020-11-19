@@ -134,7 +134,7 @@
 
     // Verify that there are three local keys, and three local current key records
     __weak __typeof(self) weakSelf = self;
-    [self.keychainView dispatchSync: ^bool{
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
 
@@ -147,8 +147,6 @@
         NSArray<CKKSCurrentKeyPointer*>* currentkeys = [CKKSCurrentKeyPointer all:&error];
         XCTAssertNil(error, "no error fetching current keys");
         XCTAssertEqual(currentkeys.count, 3u, "Three current key pointers in local database");
-
-        return false;
     }];
 }
 
@@ -183,7 +181,7 @@
 
     // Verify that there are three local keys, and three local current key records
     __weak __typeof(self) weakSelf = self;
-    [self.keychainView dispatchSync: ^bool{
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
 
@@ -196,8 +194,6 @@
         NSArray<CKKSCurrentKeyPointer*>* currentkeys = [CKKSCurrentKeyPointer all:&error];
         XCTAssertNil(error, "no error fetching current keys");
         XCTAssertEqual(currentkeys.count, 3u, "Three current key pointers in local database");
-
-        return false;
     }];
 }
 
@@ -250,7 +246,7 @@
 
     // Verify that making a new share will have the old share's change tag
     __weak __typeof(self) weakSelf = self;
-    [self.keychainView dispatchSyncWithAccountKeys: ^bool{
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
 
@@ -272,8 +268,6 @@
         XCTAssertNotNil(cloudKitRecord.recordChangeTag, "Existing record should have a change tag");
 
         XCTAssertEqualObjects(cloudKitRecord.recordChangeTag, newRecord.recordChangeTag, "Change tags on existing and new records should match");
-
-        return false;
     }];
 }
 
@@ -308,31 +302,28 @@
     CKRecord* shareCKRecord = [share CKRecordWithZoneID: self.keychainZoneID];
     XCTAssertNotNil(shareCKRecord, "Should have been able to create a CKRecord");
     [self.keychainZone addToZone:shareCKRecord];
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
-    [self.keychainView dispatchSync:^bool {
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* blockerror = nil;
         CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
         XCTAssertNil(blockerror, "Shouldn't error finding TLKShare record in database");
         XCTAssertNotNil(localshare, "Should be able to find a TLKShare record in database");
-        return true;
     }];
 
     // Delete the record in CloudKit...
     [self.keychainZone deleteCKRecordIDFromZone:shareCKRecord.recordID];
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     // Should be gone now.
-    [self.keychainView dispatchSync:^bool {
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* blockerror = nil;
         CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
 
         XCTAssertNil(blockerror, "Shouldn't error trying to find non-existent TLKShare record in database");
         XCTAssertNil(localshare, "Shouldn't be able to find a TLKShare record in database");
-
-        return true;
     }];
 }
 
@@ -352,7 +343,7 @@
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
 
     [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
@@ -424,7 +415,7 @@
     [self waitForCKModifications];
 
     // Now, delete all the TLK Shares, so CKKS will upload them again
-    [self.keychainView dispatchSync:^bool {
+    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
         [CKKSTLKShareRecord deleteAll:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Shouldn't be an error deleting all TLKShares");
@@ -436,7 +427,7 @@
             }
         }
 
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 
     // Restart. We expect an upload of 3 TLK shares.
@@ -467,7 +458,7 @@
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
 
     // Trigger a notification
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
@@ -502,7 +493,7 @@
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
 
     // Trigger a notification
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
@@ -572,7 +563,7 @@
 
     // The CKKS subsystem should go into waitfortlk, since it doesn't trust this peer, but the peer is active
     [self startCKKSSubsystem];
-    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become ready");
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLK] wait:20*NSEC_PER_SEC], "Key state should become waitfortlk");
 }
 
 - (void)testAcceptSharedTLKOnTrustSetAdditionOfSharer {
@@ -631,7 +622,7 @@
 
     // step 2: add a new peer who already has a share; no share should be created
     [self putTLKShareInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 to:self.remotePeer2 zoneID:self.keychainZoneID];
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     // CKKS should not upload a tlk share for this peer
@@ -796,7 +787,7 @@
                }];
 
     [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
 
@@ -1123,7 +1114,7 @@
     NSMutableArray<CKKSResultOperation<CKKSKeySetProviderOperationProtocol>*>* keysetOps = [NSMutableArray array];
     for(CKKSKeychainView* view in self.ckksViews) {
         XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkcreation' (view %@)", view);
-        [keysetOps addObject: [view findKeySet]];
+        [keysetOps addObject: [view findKeySet:NO]];
     }
 
     // Now that we've kicked them all off, wait for them to not crash
@@ -1246,7 +1237,9 @@
     [self.keychainView endTrustedOperation];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
 
-    [self.keychainView beginTrustedOperation:@[self.mockSOSAdapter, brokenAdapter] suggestTLKUpload:self.suggestTLKUpload];
+    [self.keychainView beginTrustedOperation:@[self.mockSOSAdapter, brokenAdapter]
+                            suggestTLKUpload:self.suggestTLKUpload
+                          requestPolicyCheck:self.requestPolicyCheck];
 
     // CKKS should ignore the non-essential and broken peer adapter
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become 'ready'");
@@ -1269,11 +1262,29 @@
 
     // Spin up Octagon. We expect an upload of 3 TLK shares, this time for the octagon peer
     [self expectCKModifyKeyRecords: 0 currentKeyPointerRecords:0 tlkShareRecords:1 zoneID:self.keychainZoneID];
-    [self.keychainView beginTrustedOperation:@[self.mockSOSAdapter, self.mockOctagonAdapter] suggestTLKUpload:self.suggestTLKUpload];
+    [self.keychainView beginTrustedOperation:@[self.mockSOSAdapter, self.mockOctagonAdapter]
+                            suggestTLKUpload:self.suggestTLKUpload
+                          requestPolicyCheck:self.requestPolicyCheck];
     [self.mockOctagonAdapter sendTrustedPeerSetChangedUpdate];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
+}
+
+- (void)testQuiesceOnTrustLossDuringInitialFetch {
+    // Test starts with no keys in CKKS database, but one in our fake CloudKit.
+    [self putFakeKeyHierarchyInCloudKit:self.keychainZoneID];
+    [self putTLKSharesInCloudKit:self.keychainZoneKeys.tlk from:self.remotePeer1 zoneID:self.keychainZoneID];
+
+    [self holdCloudKitFetches];
+
+    [self startCKKSSubsystem];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateFetch] wait:20*NSEC_PER_SEC], "Key state should become 'fetch'");
+
+    [self endSOSTrustedOperationForAllViews];
+
+    [self releaseCloudKitFetchHold];
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] wait:20*NSEC_PER_SEC], "Key state should become 'waitfortrust'");
 }
 
 @end

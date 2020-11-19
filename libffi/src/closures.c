@@ -1,5 +1,6 @@
 /* -----------------------------------------------------------------------
-   closures.c - Copyright (c) 2007, 2009, 2010  Red Hat, Inc.
+   closures.c - Copyright (c) 2019 Anthony Green
+                Copyright (c) 2007, 2009, 2010 Red Hat, Inc.
                 Copyright (C) 2007, 2009, 2010 Free Software Foundation, Inc
                 Copyright (c) 2011 Plausible Labs Cooperative, Inc.
 
@@ -840,7 +841,13 @@ dlmmap_locked (void *start, size_t length, int prot, int flags, off_t offset)
 	  close (execfd);
 	  goto retry_open;
 	}
-      ftruncate (execfd, offset);
+      if (ftruncate (execfd, offset) != 0)
+      {
+        /* Fixme : Error logs can be added here. Returning an error for
+         * ftruncte() will not add any advantage as it is being
+         * validating in the error case. */
+      }
+
       return MFAIL;
     }
   else if (!offset
@@ -852,7 +859,12 @@ dlmmap_locked (void *start, size_t length, int prot, int flags, off_t offset)
   if (start == MFAIL)
     {
       munmap (ptr, length);
-      ftruncate (execfd, offset);
+      if (ftruncate (execfd, offset) != 0)
+      {
+        /* Fixme : Error logs can be added here. Returning an error for
+         * ftruncte() will not add any advantage as it is being
+         * validating in the error case. */
+      }
       return start;
     }
 
@@ -976,7 +988,14 @@ void *
 ffi_data_to_code_pointer (void *data)
 {
   msegmentptr seg = segment_holding (gm, data);
-  return add_segment_exec_offset (data, seg);
+  /* We expect closures to be allocated with ffi_closure_alloc(), in
+     which case seg will be non-NULL.  However, some users take on the
+     burden of managing this memory themselves, in which case this
+     we'll just return data. */
+  if (seg)
+    return add_segment_exec_offset (data, seg);
+  else
+    return data;
 }
 
 /* Release a chunk of memory allocated with ffi_closure_alloc.  If

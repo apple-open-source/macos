@@ -226,6 +226,10 @@
 		F92660191ABCBD01001F39AE /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E0930AC4FBF900CF228A /* SystemConfiguration.framework */; };
 		F92ABDA214291492002AC181 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9D847251428FEFB0030CF23 /* Security.framework */; };
 		F92F728A22012F7100D8B8CD /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 1562E1770AC4FE1100CF228A /* Localizable.strings */; };
+		F93AB5CA2450C10500451B4E /* RouterAdvertisement.c in Sources */ = {isa = PBXBuildFile; fileRef = F93AB5C92450C10500451B4E /* RouterAdvertisement.c */; };
+		F93AB5CB2450C10500451B4E /* RouterAdvertisement.c in Sources */ = {isa = PBXBuildFile; fileRef = F93AB5C92450C10500451B4E /* RouterAdvertisement.c */; };
+		F93AB5CD2450C14200451B4E /* RouterAdvertisement.h in Headers */ = {isa = PBXBuildFile; fileRef = F93AB5CC2450C12100451B4E /* RouterAdvertisement.h */; };
+		F93AB5CE2450C14C00451B4E /* RouterAdvertisement.h in Headers */ = {isa = PBXBuildFile; fileRef = F93AB5CC2450C12100451B4E /* RouterAdvertisement.h */; };
 		F93B0C43207BD5FE0070AD9B /* IPConfigurationUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F93B0C42207BD5FE0070AD9B /* IPConfigurationUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F93B0C45207BD6080070AD9B /* IPConfigurationUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F93B0C44207BD6080070AD9B /* IPConfigurationUtil.c */; };
 		F93B0C48207BD6290070AD9B /* IPConfigurationUtil.h in Headers */ = {isa = PBXBuildFile; fileRef = F93B0C42207BD5FE0070AD9B /* IPConfigurationUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -394,6 +398,10 @@
 		F97EB4D61C80FC0400BB4592 /* report_symptoms.c in Sources */ = {isa = PBXBuildFile; fileRef = F9465CED1C80FBB900AF5739 /* report_symptoms.c */; };
 		F97EB4D71C80FC0D00BB4592 /* report_symptoms.h in Headers */ = {isa = PBXBuildFile; fileRef = F9465CEF1C80FBC700AF5739 /* report_symptoms.h */; };
 		F97EB4D81C80FC0F00BB4592 /* report_symptoms.h in Headers */ = {isa = PBXBuildFile; fileRef = F9465CEF1C80FBC700AF5739 /* report_symptoms.h */; };
+		F9804F1D24B3E331002C3B6A /* wireless.c in Sources */ = {isa = PBXBuildFile; fileRef = F9804F1C24B3E331002C3B6A /* wireless.c */; };
+		F9804F1E24B3E331002C3B6A /* wireless.c in Sources */ = {isa = PBXBuildFile; fileRef = F9804F1C24B3E331002C3B6A /* wireless.c */; };
+		F9804F2024B3E341002C3B6A /* wireless.h in Headers */ = {isa = PBXBuildFile; fileRef = F9804F1F24B3E341002C3B6A /* wireless.h */; };
+		F9804F2124B3E341002C3B6A /* wireless.h in Headers */ = {isa = PBXBuildFile; fileRef = F9804F1F24B3E341002C3B6A /* wireless.h */; };
 		F98249B5107E402500B96585 /* DHCPDUID.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B2107E402500B96585 /* DHCPDUID.c */; };
 		F98249B6107E402500B96585 /* DHCPv6.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B3107E402500B96585 /* DHCPv6.c */; };
 		F98249B7107E402500B96585 /* DHCPv6Options.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B4107E402500B96585 /* DHCPv6Options.c */; };
@@ -969,6 +977,8 @@
 		F918987E17010F1E005DD2A7 /* IPConfigurationLog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IPConfigurationLog.h; path = bootplib/IPConfigurationLog.h; sourceTree = "<group>"; };
 		F92520F41ED3A965006EBFE4 /* ProtocolBuffer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ProtocolBuffer.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.12.Internal.sdk/System/Library/PrivateFrameworks/ProtocolBuffer.framework; sourceTree = DEVELOPER_DIR; };
 		F926601D1ABCBD01001F39AE /* libipconfig.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libipconfig.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		F93AB5C92450C10500451B4E /* RouterAdvertisement.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RouterAdvertisement.c; path = bootplib/RouterAdvertisement.c; sourceTree = "<group>"; };
+		F93AB5CC2450C12100451B4E /* RouterAdvertisement.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = RouterAdvertisement.h; path = bootplib/RouterAdvertisement.h; sourceTree = "<group>"; };
 		F93B0C42207BD5FE0070AD9B /* IPConfigurationUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPConfigurationUtil.h; sourceTree = "<group>"; };
 		F93B0C44207BD6080070AD9B /* IPConfigurationUtil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = IPConfigurationUtil.c; sourceTree = "<group>"; };
 		F93B0C4A207BD64A0070AD9B /* IPConfigurationUtilPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPConfigurationUtilPrivate.h; sourceTree = "<group>"; };
@@ -1006,6 +1016,8 @@
 		F9772EB21076CD24005C97AE /* DHCPv6Client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPv6Client.h; path = IPConfiguration.bproj/DHCPv6Client.h; sourceTree = "<group>"; };
 		F9772EB41076CD24005C97AE /* DHCPv6Socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPv6Socket.h; path = IPConfiguration.bproj/DHCPv6Socket.h; sourceTree = "<group>"; };
 		F9772EB51076CD24005C97AE /* ipconfigd_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ipconfigd_types.h; path = IPConfiguration.bproj/ipconfigd_types.h; sourceTree = "<group>"; };
+		F9804F1C24B3E331002C3B6A /* wireless.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = wireless.c; path = IPConfiguration.bproj/wireless.c; sourceTree = "<group>"; };
+		F9804F1F24B3E341002C3B6A /* wireless.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = wireless.h; path = IPConfiguration.bproj/wireless.h; sourceTree = "<group>"; };
 		F98249B2107E402500B96585 /* DHCPDUID.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPDUID.c; path = bootplib/DHCPDUID.c; sourceTree = "<group>"; };
 		F98249B3107E402500B96585 /* DHCPv6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPv6.c; path = bootplib/DHCPv6.c; sourceTree = "<group>"; };
 		F98249B4107E402500B96585 /* DHCPv6Options.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPv6Options.c; path = bootplib/DHCPv6Options.c; sourceTree = "<group>"; };
@@ -1300,6 +1312,7 @@
 		1562DF930AC4F42A00CF228A /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				F93AB5CC2450C12100451B4E /* RouterAdvertisement.h */,
 				F9B8230A214345A00034F1A6 /* IPv6Sock_Compat.h */,
 				F9B823002143417D0034F1A6 /* IPv6Socket.h */,
 				F958DA081952037000118978 /* IPv4ClasslessRoute.h */,
@@ -1354,6 +1367,7 @@
 		1562DF940AC4F43000CF228A /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				F93AB5C92450C10500451B4E /* RouterAdvertisement.c */,
 				F9B82303214341970034F1A6 /* IPv6Socket.c */,
 				F958DA051952034300118978 /* IPv4ClasslessRoute.c */,
 				F93D2263170204D90003DC48 /* IPConfigurationControlPrefs.c */,
@@ -1520,6 +1534,7 @@
 		1562E1300AC4FCA100CF228A /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				F9804F1F24B3E341002C3B6A /* wireless.h */,
 				F9096F2F1EE0E18200CCA89C /* IPv6AWDReport.h */,
 				F9465CEF1C80FBC700AF5739 /* report_symptoms.h */,
 				F9BBE03817557C310000FDF9 /* ICMPv6Socket.h */,
@@ -1553,6 +1568,7 @@
 		1562E1310AC4FCAC00CF228A /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				F9804F1C24B3E331002C3B6A /* wireless.c */,
 				F9096F2D1EE0E16E00CCA89C /* IPv6AWDReport.m */,
 				F9465CED1C80FBB900AF5739 /* report_symptoms.c */,
 				F9BBE03517557C190000FDF9 /* ICMPv6Socket.c */,
@@ -1829,6 +1845,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F93AB5CD2450C14200451B4E /* RouterAdvertisement.h in Headers */,
 				F9B8230D214346500034F1A6 /* nbo.h in Headers */,
 				F9B8230B214345B50034F1A6 /* IPv6Sock_Compat.h in Headers */,
 				1562DFE80AC4F4F800CF228A /* afp.h in Headers */,
@@ -1898,6 +1915,7 @@
 				1562E16D0AC4FD8900CF228A /* ipconfigd.h in Headers */,
 				1562E16E0AC4FD8900CF228A /* ipconfigd_globals.h in Headers */,
 				1562E16F0AC4FD8900CF228A /* ipconfigd_threads.h in Headers */,
+				F9804F2024B3E341002C3B6A /* wireless.h in Headers */,
 				1562E1740AC4FD8900CF228A /* server.h in Headers */,
 				1562E1760AC4FD8900CF228A /* timer.h in Headers */,
 				1562E1B10AC5017800CF228A /* ipconfig_types.h in Headers */,
@@ -2014,6 +2032,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F93AB5CE2450C14C00451B4E /* RouterAdvertisement.h in Headers */,
 				F9B8230E214346690034F1A6 /* nbo.h in Headers */,
 				F9B8230C214346110034F1A6 /* IPv6Sock_Compat.h in Headers */,
 				F9694B580D340C0000FA3943 /* arp.h in Headers */,
@@ -2082,6 +2101,7 @@
 				F9C8ECC70D3306F50047CE42 /* ipconfigd.h in Headers */,
 				F9C8ECC80D3306F50047CE42 /* ipconfigd_globals.h in Headers */,
 				F9C8ECC90D3306F50047CE42 /* ipconfigd_threads.h in Headers */,
+				F9804F2124B3E341002C3B6A /* wireless.h in Headers */,
 				F9C8ECCA0D3306F50047CE42 /* server.h in Headers */,
 				F9C8ECCB0D3306F50047CE42 /* timer.h in Headers */,
 				F9C8ECCC0D3306F50047CE42 /* ipconfig_types.h in Headers */,
@@ -2636,6 +2656,7 @@
 				1562DFF30AC4F4F800CF228A /* cfutil.c in Sources */,
 				1562DFF60AC4F4F800CF228A /* dhcp_options.c in Sources */,
 				1562DFF80AC4F4F800CF228A /* dhcplib.c in Sources */,
+				F93AB5CA2450C10500451B4E /* RouterAdvertisement.c in Sources */,
 				F9908CD51CAD7EA50063D0D0 /* udp_transmit.c in Sources */,
 				1562DFFA0AC4F4F800CF228A /* DNSNameList.c in Sources */,
 				1562DFFD0AC4F4F800CF228A /* dynarray.c in Sources */,
@@ -2691,6 +2712,7 @@
 				1562E1670AC4FD8900CF228A /* dhcp.c in Sources */,
 				1562E1690AC4FD8900CF228A /* FDSet.c in Sources */,
 				1562E16C0AC4FD8900CF228A /* ipconfigd.c in Sources */,
+				F9804F1D24B3E331002C3B6A /* wireless.c in Sources */,
 				1562E1710AC4FD8900CF228A /* linklocal.c in Sources */,
 				F9A24D75171C65D6003F7EE2 /* CGA.c in Sources */,
 				1562E1720AC4FD8900CF228A /* manual.c in Sources */,
@@ -2825,6 +2847,7 @@
 				F9694B830D340C0000FA3943 /* cfutil.c in Sources */,
 				F9694B840D340C0000FA3943 /* dhcp_options.c in Sources */,
 				F9694B850D340C0000FA3943 /* dhcplib.c in Sources */,
+				F93AB5CB2450C10500451B4E /* RouterAdvertisement.c in Sources */,
 				F9694B860D340C0000FA3943 /* DNSNameList.c in Sources */,
 				F958DA071952034300118978 /* IPv4ClasslessRoute.c in Sources */,
 				F9694B870D340C0000FA3943 /* dynarray.c in Sources */,
@@ -2892,6 +2915,7 @@
 				F9C8ECD60D3306F50047CE42 /* FDSet.c in Sources */,
 				F9C8ECD70D3306F50047CE42 /* ipconfigd.c in Sources */,
 				F9C8ECD80D3306F50047CE42 /* linklocal.c in Sources */,
+				F9804F1E24B3E331002C3B6A /* wireless.c in Sources */,
 				F9C8ECD90D3306F50047CE42 /* manual.c in Sources */,
 				F9A24D76171C65D6003F7EE2 /* CGA.c in Sources */,
 				F9C8ECDA0D3306F50047CE42 /* server.c in Sources */,
@@ -3076,6 +3100,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_IDENTITY = "-";
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_TESTABILITY = YES;
@@ -3104,6 +3129,7 @@
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CODE_SIGN_IDENTITY = "-";
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
@@ -3526,7 +3552,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -3573,7 +3598,6 @@
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -3721,8 +3745,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -3781,8 +3803,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -3920,8 +3940,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -3980,8 +3998,6 @@
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "-";
-				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;

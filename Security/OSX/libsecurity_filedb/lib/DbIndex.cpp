@@ -64,8 +64,8 @@ DbKeyComparator::operator () (uint32 offset1, uint32 offset2) const
 	
 	for (uint32 i = 0; i < mKey.mNumKeyValues; i++) {
 		const MetaAttribute &metaAttribute = *mKey.mIndex.mAttributes[i];
-		auto_ptr<DbValue> value1(metaAttribute.createValue(*key1, valueOffset1));
-		auto_ptr<DbValue> value2(metaAttribute.createValue(*key2, valueOffset2));
+		unique_ptr<DbValue> value1(metaAttribute.createValue(*key1, valueOffset1));
+		unique_ptr<DbValue> value2(metaAttribute.createValue(*key2, valueOffset2));
 		
 		if (metaAttribute.evaluate(value1.get(), value2.get(), CSSM_DB_LESS_THAN))
 			return true;
@@ -92,9 +92,9 @@ DbIndexKey::operator < (const DbIndexKey &other) const
 	
 	for (uint32 i = 0; i < numAttributes; i++) {
 		const MetaAttribute &metaAttribute = *mIndex.mAttributes[i];
-		auto_ptr<DbValue> value1(metaAttribute.createValue(mKeySection.subsection(mKeyRange),
+		unique_ptr<DbValue> value1(metaAttribute.createValue(mKeySection.subsection(mKeyRange),
 			valueOffset1));
-		auto_ptr<DbValue> value2(metaAttribute.createValue(other.mKeySection.subsection(other.mKeyRange),
+		unique_ptr<DbValue> value2(metaAttribute.createValue(other.mKeySection.subsection(other.mKeyRange),
 			valueOffset2));
 		
 		if (metaAttribute.evaluate(value1.get(), value2.get(), CSSM_DB_LESS_THAN))

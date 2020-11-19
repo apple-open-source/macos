@@ -16,13 +16,15 @@
 	<true/>
 	<key>com.apple.private.security.no-sandbox</key>
 	<true/>
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
 	<key>keychain-cloud-circle</key>
 	<true/>
 	<key>com.apple.keystore.access-keychain-keys</key>
 	<true/>
 	<key>com.apple.keystore.device</key>
 	<true/>
-	<key>com.apple.private.applecredentialmanager.allow</key>
+	<key>com.apple.keystore.lockassertion</key>
 	<true/>
 	<key>restore-keychain</key>
 	<true/>
@@ -51,5 +53,7 @@
 		<string>com.apple.ProtectedCloudStorage</string>
 		<string>com.apple.security.ckks</string>
 	</array>
+	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
 </dict>
 </plist>

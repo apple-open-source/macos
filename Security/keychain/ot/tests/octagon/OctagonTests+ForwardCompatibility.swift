@@ -8,7 +8,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let peer1ID = self.assertResetAndBecomeTrustedInDefaultContext()
 
         // Now, we'll approve a new peer with a new policy! First, make that new policy.
-        let currentPolicyOptional = builtInPolicyDocuments().filter { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }.first
+        let currentPolicyOptional = builtInPolicyDocuments().first { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }
         XCTAssertNotNil(currentPolicyOptional, "Should have one current policy")
         let currentPolicy = currentPolicyOptional!
 
@@ -46,8 +46,9 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                osVersion: "something",
                                policyVersion: newPolicy.version,
                                policySecrets: nil,
+                               syncUserControllableViews: .UNKNOWN,
                                signingPrivKeyPersistentRef: nil,
-                               encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
+                               encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                                 XCTAssertNil(error, "Should be no error preparing the second peer")
                                 XCTAssertNotNil(peerID, "Should have a peerID")
                                 peer2ID = peerID!
@@ -91,7 +92,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                                                             voucherSig: voucherSig!,
                                                                             ckksKeys: [],
                                                                             tlkShares: [],
-                                                                            preapprovedKeys: []) { peerID, _, _, _, error in
+                                                                            preapprovedKeys: []) { peerID, _, _, error in
                                                                                 XCTAssertNil(error, "Should be no error joining")
                                                                                 XCTAssertNotNil(peerID, "Should have a peerID")
                                                                                 joinExpectation.fulfill()
@@ -118,9 +119,13 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
             return nil
         }
 
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
+
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.wait(for: [updateTrustExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
     }
 
     func testRejectVouchingForPeerWithUnknownNewPolicy() throws {
@@ -128,7 +133,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         _ = self.assertResetAndBecomeTrustedInDefaultContext()
 
         // Now, a new peer joins with a policy we can't fetch
-        let currentPolicyOptional = builtInPolicyDocuments().filter { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }.first
+        let currentPolicyOptional = builtInPolicyDocuments().first { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }
         XCTAssertNotNil(currentPolicyOptional, "Should have one current policy")
         let currentPolicy = currentPolicyOptional!
 
@@ -166,8 +171,9 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                osVersion: "something",
                                policyVersion: newPolicy.version,
                                policySecrets: nil,
+                               syncUserControllableViews: .UNKNOWN,
                                signingPrivKeyPersistentRef: nil,
-                               encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error in
+                               encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                                 XCTAssertNil(error, "Should be no error preparing the second peer")
                                 XCTAssertNotNil(peerID, "Should have a peerID")
 
@@ -204,7 +210,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let peer1ID = self.assertResetAndBecomeTrustedInDefaultContext()
 
         // Now, a new peer joins with a policy we can't fetch
-        let currentPolicyOptional = builtInPolicyDocuments().filter { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }.first
+        let currentPolicyOptional = builtInPolicyDocuments().first { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }
         XCTAssertNotNil(currentPolicyOptional, "Should have one current policy")
         let currentPolicy = currentPolicyOptional!
 
@@ -268,12 +274,13 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
     func createOctagonAndCKKSUsingFuturePolicy() throws -> (TPPolicyDocument, CKRecordZone.ID) {
         // We want to set up a world with a peer, in Octagon, with TLKs for zones that don't even exist in our current policy.
         // First, make a new policy.
-        let currentPolicyOptional = builtInPolicyDocuments().filter { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }.first
+        let currentPolicyOptional = builtInPolicyDocuments().first { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }
         XCTAssertNotNil(currentPolicyOptional, "Should have one current policy")
         let currentPolicyDocument = currentPolicyOptional!
 
@@ -289,16 +296,41 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         XCTAssertFalse(currentPolicyDocument.categoriesByView.keys.contains(futureViewName), "Current policy should not include future view")
 
         let newPolicyDocument = try TPPolicyDocument(internalVersion: currentPolicyDocument.version.versionNumber + 1,
-            modelToCategory: currentPolicyDocument.modelToCategory,
-            categoriesByView: currentPolicyDocument.categoriesByView.merging([futureViewName: Set(["watch", "full", "tv"])]) { _, new in new },
-            introducersByCategory: currentPolicyDocument.introducersByCategory,
-            redactions: [:],
-            keyViewMapping: [futureViewMapping] + currentPolicyDocument.keyViewMapping,
-            hashAlgo: .SHA256)
+                                                     modelToCategory: currentPolicyDocument.modelToCategory,
+                                                     categoriesByView: currentPolicyDocument.categoriesByView.merging([futureViewName: Set(["watch", "full", "tv"])]) { _, new in new },
+                                                     introducersByCategory: currentPolicyDocument.introducersByCategory,
+                                                     redactions: [:],
+                                                     keyViewMapping: [futureViewMapping] + currentPolicyDocument.keyViewMapping,
+                                                     userControllableViewList: currentPolicyDocument.userControllableViewList,
+                                                     piggybackViews: currentPolicyDocument.piggybackViews,
+                                                     hashAlgo: .SHA256)
 
         self.fakeCuttlefishServer.policyOverlay.append(newPolicyDocument)
 
         return (newPolicyDocument, futureViewZoneID)
+    }
+
+    func createFuturePolicyMovingAllItemsToLimitedPeers() throws -> (TPPolicyDocument) {
+        let currentPolicyOptional = builtInPolicyDocuments().first { $0.version.versionNumber == prevailingPolicyVersion.versionNumber }
+        XCTAssertNotNil(currentPolicyOptional, "Should have one current policy")
+        let currentPolicyDocument = currentPolicyOptional!
+
+        let limitedPeersViewMapping = TPPBPolicyKeyViewMapping(view: "LimitedPeersAllowed",
+                                                               matchingRule: TPDictionaryMatchingRule.trueMatch())
+
+        let newPolicyDocument = try TPPolicyDocument(internalVersion: currentPolicyDocument.version.versionNumber + 1,
+                                                     modelToCategory: currentPolicyDocument.modelToCategory,
+                                                     categoriesByView: currentPolicyDocument.categoriesByView,
+                                                     introducersByCategory: currentPolicyDocument.introducersByCategory,
+                                                     redactions: [:],
+                                                     keyViewMapping: [limitedPeersViewMapping] + currentPolicyDocument.keyViewMapping,
+                                                     userControllableViewList: currentPolicyDocument.userControllableViewList,
+                                                     piggybackViews: currentPolicyDocument.piggybackViews,
+                                                     hashAlgo: .SHA256)
+
+        self.fakeCuttlefishServer.policyOverlay.append(newPolicyDocument)
+
+        return newPolicyDocument
     }
 
     func testRestoreBottledPeerUsingFuturePolicy() throws {
@@ -312,11 +344,9 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         self.putFakeKeyHierarchiesInCloudKit()
         try self.putSelfTLKSharesInCloudKit(context: futurePeerContext)
-        XCTAssertTrue(try self.tlkShareInCloudKit(receiverPeerID: futurePeerID, senderPeerID: futurePeerID, zoneID: futureViewZoneID))
+        XCTAssertTrue(self.tlkShareInCloudKit(receiverPeerID: futurePeerID, senderPeerID: futurePeerID, zoneID: futureViewZoneID))
 
         // Now, our peer (with no inbuilt knowledge of newPolicyDocument) joins via escrow recovery.
-        // It should be able to recover the FutureView TLK
-        self.assertAllCKKSViewsUpload(tlkShares: 1)
 
         let serverJoinExpectation = self.expectation(description: "peer1 joins successfully")
         self.fakeCuttlefishServer.joinListener = { joinRequest in
@@ -333,12 +363,13 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         let peerID = self.assertJoinViaEscrowRecovery(joiningContext: self.cuttlefishContext, sponsor: futurePeerContext)
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         XCTAssertEqual(self.injectedManager!.policy?.version, newPolicyDocument.version, "CKKS should be configured with new policy")
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
         self.verifyDatabaseMocks()
 
         self.wait(for: [serverJoinExpectation], timeout: 10)
 
         // And the joined peer should have recovered the TLK, and uploaded itself a share
-        XCTAssertTrue(try self.tlkShareInCloudKit(receiverPeerID: peerID, senderPeerID: peerID, zoneID: futureViewZoneID))
+        XCTAssertTrue(self.tlkShareInCloudKit(receiverPeerID: peerID, senderPeerID: peerID, zoneID: futureViewZoneID))
     }
 
     func testPairingJoinUsingFuturePolicy() throws {
@@ -352,7 +383,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         self.putFakeKeyHierarchiesInCloudKit()
         try self.putSelfTLKSharesInCloudKit(context: futurePeerContext)
-        XCTAssertTrue(try self.tlkShareInCloudKit(receiverPeerID: futurePeerID, senderPeerID: futurePeerID, zoneID: futureViewZoneID))
+        XCTAssertTrue(self.tlkShareInCloudKit(receiverPeerID: futurePeerID, senderPeerID: futurePeerID, zoneID: futureViewZoneID))
 
         // Now, our peer (with no inbuilt knowledge of newPolicyDocument) joins via pairing
         // It should be able to recover the FutureView TLK
@@ -374,7 +405,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         // And then fake like the other peer uploaded TLKShares after the join succeeded (it would normally happen during, but that's okay)
         try self.putAllTLKSharesInCloudKit(to: self.cuttlefishContext, from: futurePeerContext)
-        self.sendAllCKKSViewsZoneChanged()
+        self.injectedManager!.zoneChangeFetcher.notifyZoneChange(nil)
 
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         XCTAssertEqual(self.injectedManager!.policy?.version, newPolicyDocument.version, "CKKS should be configured with new policy")
@@ -383,7 +414,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.wait(for: [serverJoinExpectation], timeout: 10)
 
         // And the joined peer should have recovered the TLK, and uploaded itself a share
-        XCTAssertTrue(try self.tlkShareInCloudKit(receiverPeerID: peerID, senderPeerID: peerID, zoneID: futureViewZoneID))
+        XCTAssertTrue(self.tlkShareInCloudKit(receiverPeerID: peerID, senderPeerID: peerID, zoneID: futureViewZoneID))
     }
 
     func testRecoveryKeyJoinUsingFuturePolicy() throws {
@@ -397,7 +428,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         self.putFakeKeyHierarchiesInCloudKit()
         try self.putSelfTLKSharesInCloudKit(context: futurePeerContext)
-        XCTAssertTrue(try self.tlkShareInCloudKit(receiverPeerID: futurePeerID, senderPeerID: futurePeerID, zoneID: futureViewZoneID))
+        XCTAssertTrue(self.tlkShareInCloudKit(receiverPeerID: futurePeerID, senderPeerID: futurePeerID, zoneID: futureViewZoneID))
 
         // Create the recovery key
         let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
@@ -428,9 +459,6 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
             return nil
         }
 
-        // It should recover and upload the FutureView TLK
-        self.assertAllCKKSViewsUpload(tlkShares: 1)
-
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
@@ -439,10 +467,15 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
             XCTAssertNil(error, "error should be nil")
             joinWithRecoveryKeyExpectation.fulfill()
         }
-        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 10)
+        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 20)
 
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         XCTAssertEqual(self.injectedManager!.policy?.version, newPolicyDocument.version, "CKKS should be configured with new policy")
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+
+        // And double-check that the future view is covered
+        let accountMetadata = try self.cuttlefishContext.accountMetadataStore.loadOrCreateAccountMetadata()
+        XCTAssertTrue(self.tlkShareInCloudKit(receiverPeerID: accountMetadata.peerID, senderPeerID: accountMetadata.peerID, zoneID: futureViewZoneID))
         self.verifyDatabaseMocks()
 
         self.wait(for: [serverJoinExpectation], timeout: 10)
@@ -513,28 +546,49 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
         self.assertResetAndBecomeTrustedInDefaultContext()
 
         // Now, another peer comes along and joins via BP recovery, using a new policy
-        let (newPolicyDocument, _) = try self.createOctagonAndCKKSUsingFuturePolicy()
+        let (newPolicyDocument, futureZoneID) = try self.createOctagonAndCKKSUsingFuturePolicy()
 
         let futurePeerContext = self.makeInitiatorContext(contextID: "futurePeer")
         futurePeerContext.policyOverride = newPolicyDocument.version
 
         let serverJoinExpectation = self.expectation(description: "futurePeer joins successfully")
-         self.fakeCuttlefishServer.joinListener = { joinRequest in
-             XCTAssertTrue(joinRequest.peer.hasStableInfoAndSig, "Joining peer should have a stable info")
-             let newStableInfo = joinRequest.peer.stableInfoAndSig.stableInfo()
+        self.fakeCuttlefishServer.joinListener = { joinRequest in
+            XCTAssertTrue(joinRequest.peer.hasStableInfoAndSig, "Joining peer should have a stable info")
+            let newStableInfo = joinRequest.peer.stableInfoAndSig.stableInfo()
 
-             XCTAssertEqual(newStableInfo.frozenPolicyVersion, frozenPolicyVersion, "Policy version in peer should match frozen policy version")
-             XCTAssertEqual(newStableInfo.flexiblePolicyVersion, newPolicyDocument.version, "Prevailing policy version in peer should match new policy version")
-             serverJoinExpectation.fulfill()
-             return nil
-         }
+            XCTAssertEqual(newStableInfo.frozenPolicyVersion, frozenPolicyVersion, "Policy version in peer should match frozen policy version")
+            XCTAssertEqual(newStableInfo.flexiblePolicyVersion, newPolicyDocument.version, "Prevailing policy version in peer should match new policy version")
+            serverJoinExpectation.fulfill()
+            return nil
+        }
 
         let peer2ID = self.assertJoinViaEscrowRecovery(joiningContext: futurePeerContext, sponsor: self.cuttlefishContext)
         self.wait(for: [serverJoinExpectation], timeout: 10)
 
+        // And the other peer creates the new View, and shares it with us
+        self.putFakeKeyHierarchiesInCloudKit { zoneID in
+            return zoneID.zoneName == futureZoneID.zoneName
+        }
+
+        // The remote peer uploads tlkshares for itself, because it received them during its escrow recovery
+        try self.putSelfTLKSharesInCloudKit(context: futurePeerContext) //, filter)
+        try self.putTLKShareInCloudKit(to: self.cuttlefishContext, from: futurePeerContext, zoneID: futureZoneID)
+
+        // First, tell all existing CKKS views to fetch, and wait for it to do so. This will ensure that it receives the tlkshares uploaded above, and
+        // won't immediately upload new ones when the peer list changes.
+        self.silentFetchesAllowed = false
+        self.expectCKFetch()
+        try XCTUnwrap(self.injectedManager).zoneChangeFetcher.notifyZoneChange(nil)
+        self.verifyDatabaseMocks()
+        self.silentFetchesAllowed = true
+
         // Now, tell our first peer about the new changes. It should trust the new peer, and update its policy
+        // It should also upload itself a TLKShare for the future view
+        self.assertAllCKKSViewsUpload(tlkShares: 1, filter: { $0.zoneName == futureZoneID.zoneName })
+
         let updateTrustExpectation = self.expectation(description: "updateTrustExpectation successfully")
-        self.fakeCuttlefishServer.updateListener = { request in
+        self.fakeCuttlefishServer.updateListener = {
+            request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
 
             XCTAssertEqual(newStableInfo.frozenPolicyVersion, frozenPolicyVersion, "Policy version in peer should match frozen policy version")
@@ -549,6 +603,201 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
         self.wait(for: [updateTrustExpectation], timeout: 10)
+
+        // Once we've uploaded the TLKShare for the future view, then we're fairly sure the view object has been created locally.
+        self.verifyDatabaseMocks()
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testRecoverFromPeerUsingOldPolicy() throws {
+        self.startCKAccountStatusMock()
+
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+
+        let policyV6Document = builtInPolicyDocuments().filter { $0.version.versionNumber == 6 }.first!
+        pastPeerContext.policyOverride = policyV6Document.version
+
+        let serverEstablishExpectation = self.expectation(description: "futurePeer establishes successfully")
+        self.fakeCuttlefishServer.establishListener = { establishRequest in
+            XCTAssertTrue(establishRequest.peer.hasStableInfoAndSig, "Establishing peer should have a stable info")
+            let newStableInfo = establishRequest.peer.stableInfoAndSig.stableInfo()
+
+            XCTAssertEqual(newStableInfo.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in peer should be frozen version")
+            XCTAssertEqual(newStableInfo.flexiblePolicyVersion, policyV6Document.version, "Prevailing policy version in peer should be v6")
+            serverEstablishExpectation.fulfill()
+            return nil
+        }
+
+        self.assertResetAndBecomeTrusted(context: pastPeerContext)
+        self.wait(for: [serverEstablishExpectation], timeout: 10)
+
+        self.putFakeKeyHierarchiesInCloudKit(filter: { zoneID in policyV6Document.keyViewMapping.contains { $0.view == zoneID.zoneName } })
+        try self.putSelfTLKSharesInCloudKit(context: pastPeerContext, filter: { zoneID in policyV6Document.keyViewMapping.contains { $0.view == zoneID.zoneName } })
+
+        // Ensure that CKKS will bring up the Backstop view
+        self.injectedManager!.setSyncingViewsAllowList(Set(["Backstop"] + self.intendedCKKSZones!.map { $0.zoneName }))
+
+        // Now, Octagon comes along and recovers the bottle.
+
+        // Right now, Octagon will join and then immediately updateTrust to upload the new set of TLKs
+        // This probably can be reworked for performance.
+        let serverJoinExpectation = self.expectation(description: "joins successfully")
+        self.fakeCuttlefishServer.joinListener = { joinRequest in
+            XCTAssertEqual(joinRequest.viewKeys.count, 0, "Should have zero sets of new viewkeys during join")
+            serverJoinExpectation.fulfill()
+            return nil
+        }
+
+        // TVs do not participate in the backstop view, and so won't upload anything
+        #if !os(tvOS)
+        let serverUpdateTrustExpectation = self.expectation(description: "updateTrust successfully")
+        self.fakeCuttlefishServer.updateListener = { updateRequest in
+            XCTAssertEqual(updateRequest.viewKeys.count, 1, "Should have one new set of viewkeys during update")
+            serverUpdateTrustExpectation.fulfill()
+            return nil
+        }
+        #endif
+
+        self.assertJoinViaEscrowRecovery(joiningContext: self.cuttlefishContext, sponsor: pastPeerContext)
+        self.wait(for: [serverJoinExpectation], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        #if !os(tvOS)
+        self.wait(for: [serverUpdateTrustExpectation], timeout: 10)
+        #endif
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+    }
+
+    func testRecoverFromPeerUsingExtremelyOldPolicy() throws {
+        self.startCKAccountStatusMock()
+
+        let pastPeerContext = self.makeInitiatorContext(contextID: "pastPeer")
+
+        let policyV1Document = builtInPolicyDocuments().filter { $0.version.versionNumber == 1 }.first!
+        pastPeerContext.policyOverride = policyV1Document.version
+
+        let serverEstablishExpectation = self.expectation(description: "futurePeer establishes successfully")
+        self.fakeCuttlefishServer.establishListener = { establishRequest in
+            XCTAssertTrue(establishRequest.peer.hasStableInfoAndSig, "Establishing peer should have a stable info")
+            let newStableInfo = establishRequest.peer.stableInfoAndSig.stableInfo()
+
+            XCTAssertNil(newStableInfo.flexiblePolicyVersion, "Peer should be from before prevailing policy version were set")
+            XCTAssertEqual(newStableInfo.frozenPolicyVersion, policyV1Document.version, "Frozen policy version in peer should be v1 - a very old peer")
+            serverEstablishExpectation.fulfill()
+            return nil
+        }
+
+        self.assertResetAndBecomeTrusted(context: pastPeerContext)
+        self.wait(for: [serverEstablishExpectation], timeout: 10)
+
+        // This filtering should only add Manatee
+        self.putFakeKeyHierarchiesInCloudKit(filter: { zoneID in policyV1Document.keyViewMapping.contains { $0.view == zoneID.zoneName } })
+        try self.putSelfTLKSharesInCloudKit(context: pastPeerContext, filter: { zoneID in policyV1Document.keyViewMapping.contains { $0.view == zoneID.zoneName } })
+
+        // Ensure that CKKS will bring up the Backstop view, and allow it to bring up PCSEscrow if that's what it wants (it shouldn't)
+        self.injectedManager!.setSyncingViewsAllowList(Set(["Backstop", "PCSEscrow"] + self.intendedCKKSZones!.map { $0.zoneName }))
+
+        // Now, Octagon comes along and recovers the bottle.
+
+        // Right now, Octagon will join and then immediately updateTrust to upload the new set of TLKs
+        // This probably can be reworked for performance.
+        let serverJoinExpectation = self.expectation(description: "joins successfully")
+        self.fakeCuttlefishServer.joinListener = { joinRequest in
+            // Since Octagon ignores the other peer's policy, it will create the TLKs at establish time
+            let zones = Set(joinRequest.viewKeys.map { $0.view })
+
+            #if !os(tvOS)
+            XCTAssertEqual(zones.count, 3, "Should have three sets of new viewkeys during join")
+            XCTAssertTrue(zones.contains("Manatee"), "Should have a TLK for the manatee view")
+            #else
+            XCTAssertEqual(zones.count, 1, "Should have one set of new viewkeys during join")
+            #endif
+            XCTAssertTrue(zones.contains("LimitedPeersAllowed"), "Should have a TLK for the LimitedPeersAllowed view")
+
+            XCTAssertFalse(zones.contains("PCSEscrow"), "Should not have a TLK for the PCSEscrow view")
+
+            let joiningPeer = joinRequest.peer.stableInfoAndSig.stableInfo()
+            XCTAssertEqual(joiningPeer.flexiblePolicyVersion, prevailingPolicyVersion, "Our current policy should be the prevailing policy - the sponsor peer should be ignored")
+            XCTAssertEqual(joiningPeer.frozenPolicyVersion, frozenPolicyVersion, "Frozen policy version in peer should be the real policy")
+
+            serverJoinExpectation.fulfill()
+            return nil
+        }
+
+        self.assertJoinViaEscrowRecovery(joiningContext: self.cuttlefishContext, sponsor: pastPeerContext)
+        self.wait(for: [serverJoinExpectation], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+    }
+
+    func testCKKSRequestPolicyCheck() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let newPolicyDocument = try self.createFuturePolicyMovingAllItemsToLimitedPeers()
+
+        let futurePeerContext = self.makeInitiatorContext(contextID: "futurePeer")
+        futurePeerContext.policyOverride = newPolicyDocument.version
+
+        let serverJoinExpectation = self.expectation(description: "futurePeer joins successfully")
+        self.fakeCuttlefishServer.joinListener = { joinRequest in
+            XCTAssertTrue(joinRequest.peer.hasStableInfoAndSig, "Joining peer should have a stable info")
+            let newStableInfo = joinRequest.peer.stableInfoAndSig.stableInfo()
+
+            XCTAssertEqual(newStableInfo.frozenPolicyVersion, frozenPolicyVersion, "Policy version in peer should match frozen policy version")
+            XCTAssertEqual(newStableInfo.flexiblePolicyVersion, newPolicyDocument.version, "Prevailing policy version in peer should match new policy version")
+            serverJoinExpectation.fulfill()
+            return nil
+        }
+
+        self.assertJoinViaEscrowRecovery(joiningContext: futurePeerContext, sponsor: self.cuttlefishContext)
+        self.wait(for: [serverJoinExpectation], timeout: 10)
+
+        // And the peer adds a new item to the LimitedPeersAllowed view, but one that didn't used to go there
+        var item = self.fakeRecordDictionary("account0", zoneID: self.limitedPeersAllowedZoneID)
+        item["vwht"] = "asdf"
+
+        self.addItem(toCloudKitZone: item, recordName: "7B598D31-F9C5-481E-98AC-5A507ACB2D85", zoneID: self.limitedPeersAllowedZoneID)
+
+        let limitedPeersView = self.injectedManager?.findView("LimitedPeersAllowed")
+        XCTAssertNotNil(limitedPeersView, "Should have a LimitedPeersAllowed view")
+
+        // This CKKS notification should cause Octagon to update trust, and then fill CKKS in (which should then accept the item)
+
+        let updateExpectation = self.expectation(description: "peer updates successfully")
+        self.fakeCuttlefishServer.updateListener = { request in
+            let newStableInfo = request.stableInfoAndSig.stableInfo()
+
+            XCTAssertEqual(newStableInfo.frozenPolicyVersion, frozenPolicyVersion, "Policy version in peer should match frozen policy version")
+            XCTAssertEqual(newStableInfo.flexiblePolicyVersion, newPolicyDocument.version, "Prevailing policy version in peer should match new policy version")
+
+            updateExpectation.fulfill()
+            return nil
+        }
+
+        // CKKS will also upload TLKShares for the new peer
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
+
+        try XCTUnwrap(self.injectedManager).zoneChangeFetcher.notifyZoneChange(nil)
+        limitedPeersView!.waitForFetchAndIncomingQueueProcessing()
+
+        // And wait for the updateTrust to occur, then for Octagon to return to ready, then for any incoming queue processing in ckks
+        self.wait(for: [updateExpectation], timeout: 10)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        limitedPeersView!.waitForOperations(of: CKKSIncomingQueueOperation.self)
+        self.verifyDatabaseMocks()
+
+        // The item should be found
+        self.findGenericPassword("account0", expecting: errSecSuccess)
     }
 }
 

@@ -31,8 +31,7 @@
 #include "SOSCircle_regressions.h"
 
 #include "SOSRegressionUtilities.h"
-
-static int kTestTestCount = 7;
+#if SOS_ENABLED
 
 static void tests(void)
 {
@@ -66,12 +65,15 @@ static void tests(void)
     
     CFReleaseNull(circle);
 }
+#endif
 
 int sc_42_circlegencount(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
-    
+#if SOS_ENABLED
+    plan_tests(7);
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

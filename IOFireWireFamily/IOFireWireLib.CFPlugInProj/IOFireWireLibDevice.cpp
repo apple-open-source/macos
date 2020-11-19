@@ -825,7 +825,7 @@ namespace IOFireWireLib {
 			params.swapVal			= *(UInt64*)newVal ;
 		}
 	
-		params.size				= size >> 2 ;
+		params.size				= (UInt32)(size >> 2) ;
 		params.failOnReset		= failOnReset ;
 		params.generation		= generation ;
 		params.isAbs			= device == 0 ;
@@ -1204,6 +1204,7 @@ namespace IOFireWireLib {
 			return 0 ;
 		}
 		
+		// *** WARNING: ambigious / needs parentheses
 		if ( !inBackingStore && ( (inFlags & kFWAddressSpaceAutoWriteReply != 0) || (inFlags & kFWAddressSpaceAutoReadReply != 0) || (inFlags & kFWAddressSpaceAutoCopyOnWrite != 0) ) )
 		{
 			DebugLog( "Can't create address space with nil backing store!\n" ) ;
@@ -1281,7 +1282,7 @@ namespace IOFireWireLib {
 		const char *	inMsg)
 	{
 		IOReturn result = kIOReturnSuccess ;
-		UInt32 size = strlen(inMsg) + 1 ;
+		UInt32 size = (UInt32)(strlen(inMsg) + 1) ;
 		
 		if (!mIsOpen)
 			result = kIOReturnNotOpen ;

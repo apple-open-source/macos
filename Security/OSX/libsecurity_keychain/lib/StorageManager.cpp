@@ -1356,10 +1356,11 @@ void StorageManager::login(ConstStringPtr name, ConstStringPtr password)
 {
 	StLock<Mutex>_(mMutex);
 
-    if ( name == NULL || password == NULL )
+    if ( name == NULL || password == NULL ) {
         MacOSError::throwMe(errSecParam);
+    }
 
-	login(name[0], name + 1, password[0], password + 1, false);
+    login(name[0], name + 1, password[0], password + 1, false);
 }
 
 void StorageManager::login(UInt32 nameLength, const void *name,

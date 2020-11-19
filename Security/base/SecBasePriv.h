@@ -125,7 +125,7 @@ OSStatus SecKeychainErrFromOSStatus(OSStatus osStatus)
  * This only apply to MacOS where background session exists.
  */
 void _SecSetSecuritydTargetUID(uid_t uid)
-    API_AVAILABLE(macos(10.13.5)) API_UNAVAILABLE(ios, iosmac, watchos, tvos, bridgeos);
+    API_AVAILABLE(macos(10.13.5)) API_UNAVAILABLE(ios, macCatalyst, watchos, tvos, bridgeos);
 
 
 

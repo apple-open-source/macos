@@ -121,7 +121,7 @@
 {
     [super setUp];
     self.keychainPartialMock = OCMPartialMock([(SFKeychainServer*)[[self.class serverProxyWithError:nil] server] _keychain]);
-    [[[[self.keychainPartialMock stub] andCall:@selector(getDatabaseKeyDataithError:) onObject:self] ignoringNonObjectArgs] _onQueueGetDatabaseKeyDataWithError:NULL];
+    [[[[self.keychainPartialMock stub] andCall:@selector(getDatabaseKeyDataWithError:) onObject:self] ignoringNonObjectArgs] _onQueueGetDatabaseKeyDataWithError:NULL];
 
     _credentialStore = [[SFCredentialStore alloc] _init];
 }

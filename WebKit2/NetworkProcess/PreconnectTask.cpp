@@ -39,28 +39,28 @@ namespace WebKit {
 
 using namespace WebCore;
 
-PreconnectTask::PreconnectTask(NetworkProcess& networkProcess, PAL::SessionID sessionID, NetworkLoadParameters&& parameters, CompletionHandler<void(const ResourceError&)>&& completionHandler)
+PreconnectTask::PreconnectTask(NetworkSession& networkSession, NetworkLoadParameters&& parameters, CompletionHandler<void(const ResourceError&)>&& completionHandler)
     : m_completionHandler(WTFMove(completionHandler))
     , m_timeoutTimer([this] { didFinish(ResourceError { String(), 0, m_networkLoad->parameters().request.url(), "Preconnection timed out"_s, ResourceError::Type::Timeout }); })
 {
     RELEASE_LOG(Network, "%p - PreconnectTask::PreconnectTask()", this);
 
-    auto* networkSession = networkProcess.networkSession(sessionID);
-    if (!networkSession) {
-        ASSERT_NOT_REACHED();
-        m_completionHandler(internalError(parameters.request.url()));
-        return;
-    }
-
     ASSERT(parameters.shouldPreconnectOnly == PreconnectOnly::Yes);
-    m_networkLoad = makeUnique<NetworkLoad>(*this, nullptr, WTFMove(parameters), *networkSession);
-
+    m_networkLoad = makeUnique<NetworkLoad>(*this, nullptr, WTFMove(parameters), networkSession);
     m_timeoutTimer.startOneShot(60000_s);
 }
 
-PreconnectTask::~PreconnectTask()
+void PreconnectTask::setH2PingCallback(const URL& url, CompletionHandler<void(Expected<WTF::Seconds, WebCore::ResourceError>&&)>&& completionHandler)
 {
+    m_networkLoad->setH2PingCallback(url, WTFMove(completionHandler));
 }
+
+void PreconnectTask::start()
+{
+    m_networkLoad->start();
+}
+
+PreconnectTask::~PreconnectTask() = default;
 
 void PreconnectTask::willSendRedirectedRequest(ResourceRequest&&, ResourceRequest&& redirectRequest, ResourceResponse&& redirectResponse)
 {

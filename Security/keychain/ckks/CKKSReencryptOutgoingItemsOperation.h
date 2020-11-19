@@ -25,17 +25,23 @@
 #import <CloudKit/CloudKit.h>
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSOperationDependencies.h"
+#import "keychain/ot/OctagonStateMachineHelpers.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 
-@interface CKKSReencryptOutgoingItemsOperation : CKKSResultOperation
-
+@interface CKKSReencryptOutgoingItemsOperation : CKKSResultOperation <OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
 @property (weak) CKKSKeychainView* ckks;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks
+                       intendedState:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState;
+
 
 @end
 

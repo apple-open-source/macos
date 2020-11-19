@@ -120,8 +120,11 @@ void dtrace_update_kernel_symbols(dtrace_hdl_t* dtp);
 #define	DT_VERS_1_13	DT_VERSION_NUMBER(1, 13, 0)
 #define	DT_VERS_1_14	DT_VERSION_NUMBER(1, 14, 0)
 #define	DT_VERS_1_15	DT_VERSION_NUMBER(1, 15, 0)
-#define	DT_VERS_LATEST	DT_VERS_1_14
-#define	DT_VERS_STRING	"Sun D 1.15"
+#define	DT_VERS_1_16	DT_VERSION_NUMBER(1, 16, 0)
+#define	DT_VERS_1_17	DT_VERSION_NUMBER(1, 17, 0)
+#define	DT_VERS_1_18	DT_VERSION_NUMBER(1, 18, 0)
+#define	DT_VERS_LATEST	DT_VERS_1_18
+#define	DT_VERS_STRING	"Sun D 1.18"
 
 const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_0,	/* D API 1.0.0 (PSARC 2001/466) Solaris 10 FCS */
@@ -146,6 +149,8 @@ const dt_version_t _dtrace_versions[] = {
 	DT_VERS_1_13,	/* D API 1.13 */
 	DT_VERS_1_14,	/* D API 1.14 */
 	DT_VERS_1_15,	/* D API 1.15 */
+	DT_VERS_1_16,	/* D API 1.16 */
+	DT_VERS_1_17,	/* D API 1.17 */
 	0
 };
 
@@ -280,6 +285,10 @@ static const dt_ident_t _dtrace_globals[] = {
 #endif /* defined(DIF_SUBR_JSON) */
 { "jstack", DT_IDENT_ACTFUNC, 0, DT_ACT_JSTACK, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "stack(...)" },
+#if defined(DIF_SUBR_KVTOPHYS)
+{ "kvtophys", DT_IDENT_FUNC, 0, DIF_SUBR_KVTOPHYS, DT_ATTR_EVOLCMN, DT_VERS_1_17,
+	&dt_idops_func, "uint64_t(void*)" },
+#endif /* defined(DIF_SUBR_KVTOPHYS) */
 { "lltostr", DT_IDENT_FUNC, 0, DIF_SUBR_LLTOSTR, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "string(int64_t, [int])" },
 { "llquantize", DT_IDENT_AGGFUNC, 0, DTRACEAGG_LLQUANTIZE,
@@ -304,6 +313,14 @@ static const dt_ident_t _dtrace_globals[] = {
 	DT_VERS_1_0, &dt_idops_func, "void(...)" },
 { "panic", DT_IDENT_ACTFUNC, 0, DT_ACT_PANIC, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_func, "void()" },
+#ifdef DIF_SUBR_PHYSMEM_READ
+{ "physmem_read", DT_IDENT_FUNC, 0, DIF_SUBR_PHYSMEM_READ, DT_ATTR_EVOLCMN, DT_VERS_1_17,
+	&dt_idops_func, "uint64_t(uint64_t, int)" },
+#endif /* DIF_SUBR_PHYSMEM_READ */
+#if defined(DIF_SUBR_PHYSMEM_WRITE)
+{ "physmem_write", DT_IDENT_FUNC, 0, DIF_SUBR_PHYSMEM_WRITE, DT_ATTR_EVOLCMN, DT_VERS_1_17,
+	&dt_idops_func, "uint64_t(uint64_t, uint64_t, int)" },
+#endif /* defined(DIF_SUBR_PHYSMEM_WRITE) */
 { "pid", DT_IDENT_SCALAR, 0, DIF_VAR_PID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "pid_t" },
 { "pidresume", DT_IDENT_ACTFUNC, 0, DT_ACT_PIDRESUME, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -404,6 +421,10 @@ static const dt_ident_t _dtrace_globals[] = {
 { "tolower", DT_IDENT_FUNC, 0, DIF_SUBR_TOLOWER,
 	DT_ATTR_STABCMN, DT_VERS_1_8,
 	&dt_idops_func, "string(const char *)" },
+#if defined(DIF_SUBR_MTONS)
+{ "mtons", DT_IDENT_FUNC, 0, DIF_SUBR_MTONS, DT_ATTR_STABCMN, DT_VERS_1_16,
+	&dt_idops_func, "uint64_t(uint64_t)" },
+#endif
 { "toupper", DT_IDENT_FUNC, 0, DIF_SUBR_TOUPPER,
 	DT_ATTR_STABCMN, DT_VERS_1_8,
 	&dt_idops_func, "string(const char *)" },
@@ -433,6 +454,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_type, "uint32_t" },
 { "usym", DT_IDENT_ACTFUNC, 0, DT_ACT_USYM, DT_ATTR_STABCMN,
 	DT_VERS_1_2, &dt_idops_func, "_usymaddr(user_addr_t)" },
+#if defined(DIF_VAR_VMREGS)
+{ "vmregs", DT_IDENT_ARRAY, 0, DIF_VAR_VMREGS, DT_ATTR_STABCMN, DT_VERS_1_18,
+	&dt_idops_regs, NULL },
+#endif
 { "vtimestamp", DT_IDENT_SCALAR, 0, DIF_VAR_VTIMESTAMP,
 	DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "uint64_t" },
@@ -441,6 +466,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_type, "int64_t" },
 { "zonename", DT_IDENT_SCALAR, 0, DIF_VAR_ZONENAME,
 	DT_ATTR_STABCMN, DT_VERS_1_0, &dt_idops_type, "string" },
+#if defined(DIF_VAR_MACHCTIMESTAMP)
+{ "machctimestamp", DT_IDENT_SCALAR, 0, DIF_VAR_MACHCTIMESTAMP,
+	DT_ATTR_STABCMN, DT_VERS_1_16, &dt_idops_type, "uint64_t" },
+#endif
 { "machtimestamp", DT_IDENT_SCALAR, 0, DIF_VAR_MACHTIMESTAMP,
 	DT_ATTR_STABCMN, DT_VERS_1_7, &dt_idops_type, "uint64_t" },
 { "kdebug_trace", DT_IDENT_FUNC, 0, DIF_SUBR_KDEBUG_TRACE, DT_ATTR_EVOLCMN, DT_VERS_1_6_2,

@@ -25,6 +25,15 @@
 #ifndef OTClique_h
 #define OTClique_h
 
+#if __OBJC2__
+
+#import <Foundation/Foundation.h>
+#import <Security/SecureObjectSync/SOSCloudCircleInternal.h>
+#import <Security/SecureObjectSync/SOSPeerInfo.h>
+#import <Security/SecureObjectSync/SOSTypes.h>
+#import <Security/OTConstants.h>
+#import <Security/SecRecoveryKey.h>
+
 typedef NS_ENUM(NSInteger, CliqueStatus) {
     CliqueStatusIn         = 0, /*There is a clique and I am in it*/
     CliqueStatusNotIn      = 1, /*There is a clique and I am not in it - you should get a voucher to join or tell another peer to trust us*/
@@ -33,16 +42,6 @@ typedef NS_ENUM(NSInteger, CliqueStatus) {
     CliqueStatusNoCloudKitAccount = 4, /* no cloudkit account present */
     CliqueStatusError      = -1 /*unable to determine circle status, inspect CFError to find out why */
 };
-
-#import <Security/SecRecoveryKey.h>
-
-#if __OBJC2__
-
-#import <Foundation/Foundation.h>
-#import <Security/SecureObjectSync/SOSCloudCircleInternal.h>
-#import <Security/SecureObjectSync/SOSPeerInfo.h>
-#import <Security/SecureObjectSync/SOSTypes.h>
-#import <Security/OTConstants.h>
 
 typedef NS_ENUM(NSInteger, OTCDPStatus) {
     OTCDPStatusUnknown = 0,
@@ -67,11 +66,12 @@ extern NSString* kSecEntitlementPrivateOctagonEscrow;
 
 @interface OTConfigurationContext : NSObject
 @property (nonatomic, copy) NSString* context;
+@property (nonatomic, copy) NSString* containerName;
 @property (nonatomic, copy, nullable) NSString* dsid;
 @property (nonatomic, copy, nullable) NSString* altDSID;
-@property (nonatomic, strong, nullable) SFSignInAnalytics* analytics;
 @property (nonatomic, copy, nullable) NSString* authenticationAppleID;
 @property (nonatomic, copy, nullable) NSString* passwordEquivalentToken;
+@property (nonatomic) BOOL overrideEscrowCache;
 
 // Use this to inject your own OTControl object. It must be configured as synchronous.
 @property (nullable, strong) OTControl* otControl;
@@ -128,11 +128,6 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
  * @return an instance of octagon trust
  */
 - (instancetype)initWithContextData:(OTConfigurationContext *)ctx;
-
-/*
- * Much like initWithContextData, but might fail. There are currently no failures possible.
- */
-- (instancetype _Nullable)initWithContextData:(OTConfigurationContext *)ctx error:(NSError**)error __deprecated_msg("Use initWithContextData instead");
 
 /* *
  * @abstract   Establish a new clique, reset protected data
@@ -247,7 +242,6 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
  */
 - (NSDictionary<NSString*,NSString*>* _Nullable)peerDeviceNamesByPeerID:(NSError * __autoreleasing *)error;
 
-
 /*
  * CDP bit handling
  */
@@ -258,11 +252,31 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 + (OTCDPStatus)getCDPStatus:(OTConfigurationContext*)arguments
                       error:(NSError* __autoreleasing *)error;
 
+/*
+ * User view handling
+ */
+
+/* *
+ * @abstract Set the current status of user-controllable views. This is unavailable on TV and Watch, and will error.
+ * @param error, This will return an error if anything goes wrong
+ * @return success
+ */
+- (BOOL)setUserControllableViewsSyncStatus:(BOOL)enabled
+                                     error:(NSError* __autoreleasing *)error;
+
+/* *
+ * @abstract Fetch the current status of user-controllable views
+ * @param   error, This will return an error if anything goes wrong
+ * @return status, The status of syncing. Note that in the success case, this can be NO while error remains empty.
+ */
+- (BOOL)fetchUserControllableViewsSyncingEnabled:(NSError* __autoreleasing *)error __attribute__((swift_error(nonnull_error)));
+
 /* SOS glue */
 
 - (BOOL)joinAfterRestore:(NSError * __autoreleasing *)error;
 
-- (BOOL)safariPasswordSyncingEnabled:(NSError *__autoreleasing*)error;
+- (BOOL)safariPasswordSyncingEnabled:(NSError *__autoreleasing*)error
+API_DEPRECATED_WITH_REPLACEMENT("fetchUserControllableViewsSyncingEnabled",macos(10.15, 10.16), ios(13.0, 14.0), watchos(6.0, 7.0), tvos(13.0,14.0));
 
 - (BOOL)isLastFriend:(NSError *__autoreleasing*)error;
 
@@ -270,7 +284,9 @@ extern OTCliqueCDPContextType OTCliqueCDPContextTypeUpdatePasscode;
 
 - (NSArray* _Nullable)copyViewUnawarePeerInfo:(NSError *__autoreleasing*)error;
 
-- (BOOL)viewSet:(NSSet*)enabledViews disabledViews:(NSSet*)disabledViews;
+- (BOOL)viewSet:(NSSet*)enabledViews disabledViews:(NSSet*)disabledViews
+API_DEPRECATED_WITH_REPLACEMENT("setUserControllableViewsSyncStatus",macos(10.15, 10.16), ios(13.0, 14.0), watchos(6.0, 7.0), tvos(13.0,14.0));
+
 
 - (BOOL)setUserCredentialsAndDSID:(NSString*)userLabel
                               password:(NSData*)userPassword

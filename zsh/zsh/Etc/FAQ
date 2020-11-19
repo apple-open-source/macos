@@ -72,6 +72,7 @@ Chapter 3:  How to get various things to work
 3.27. What are these `^' and `~' pattern characters, anyway?
 3.28. How do I edit the input buffer in $EDITOR?
 3.29. Why does `which' output for missing commands go to stdout?
+3.30. Why doesn't the expansion `*.{tex,aux,pdf}' do what I expect?
 
 Chapter 4:  The mysteries of completion
 4.1. What is completion?
@@ -251,7 +252,7 @@ To get it to work, retrieve the source distribution (see question
 1.5: What's the latest version?
 
 
-Zsh 5.7.1 is the latest production version.  For details of all the
+Zsh 5.8 is the latest production version.  For details of all the
   changes, see the NEWS file in the source distribution.
 
 A beta of the next version is sometimes available.  Development of zsh is
@@ -1348,7 +1349,7 @@ In version 3.0.x, the second behaviour is activated if the file
   redefine the function when you called it.
 
 From version 3.1, there is an option KSH_AUTOLOAD to allow full ksh
-  compatiblity, i.e. the function _must_ be in the second form
+  compatibility, i.e. the function _must_ be in the second form
   above.  If that is not set, zsh tries to guess which form you are
   using:  if the file contains only a complete definition of the
   function in the second form, and nothing else apart from comments
@@ -1908,7 +1909,7 @@ Here are some examples with files to illustrate the points.  We'll
      operator.  As the `**' operator cannot be grouped (inside
      parentheses it is treated as `*'), this is one way to exclude some
      subdirectories from matching a `**'.  Note that this can be quite
-     inefficent because the shell performs a complete search for
+     inefficient because the shell performs a complete search for
      `**/foo' before it uses the pattern after the `~' to exclude
      files from the match.  The file is excluded if `bar' occurs
      anywhere, in any directory segment or the final file name.
@@ -1968,6 +1969,45 @@ If you want some further rationalisation, you might note that
   where the command is to be executed.  So although it differs from
   other Bourne-style shells it is in fact self-consistent.  Note that
   the exit status does reflect the fact the command can't be found.
+
+
+3.30: Why doesn't the expansion `*.{tex,aux,pdf}' do what I expect?
+
+
+Based on the behaviour of some other shells, you might guess that the
+  following expression:
+  
+    echo *.{tex,aux,pdf}
+  
+  would be the way to echo any files ending in `.tex', `.aux' or
+  `.pdf' in the current directory.  Depending on your settings for
+  matching (see 2.1, in particular NO_NOMATCH), you may
+  see something else, in particular an error about (say) `*.aux' if
+  there were no files ending `.aux'.
+
+The reason for this is that the brace expansion isn't actually
+  a form of pattern matching.  Instead, the line above is equivalent to
+  
+    echo *.tex *.aux *.pdf
+  
+  giving you three separate patterns.  With the default `NOMATCH'
+  behaviour in effect, any pattern that fails to match is an error.
+
+However, there is a way of doing exactly what you want, using
+  parentheses instead of braces:
+  
+    echo *.(tex|aux|pdf)
+  
+  This is now a pattern matching expression, so is considered as a
+  single pattern.  Now any file that exists will suppress the
+  `NOMATCH' behaviour, but you'll still get all the files that do
+  match.
+
+This use of parentheses is special to zsh.  Modern Bourne-like shells
+  have a syntax like this, too, but with an `@' in front of the
+  parentheses: again, see 2.1, and search for `@('.
+  This is harder for the user to remember but easier for the shell to
+  parse!
 
 
 Chapter 4: The mysteries of completion
@@ -2190,7 +2230,7 @@ The way this is done is called UTF-8.  Multibyte encodings of other
   zsh will be able to use any such encoding as long as it contains ASCII as
   a single-octet subset and the system can provide information about other
   characters.  However, in the case of Unicode, UTF-8 is the only one you
-  are likely to enounter that is useful in zsh.
+  are likely to encounter that is useful in zsh.
 
 (In case you're confused: Unicode is the character set, while UTF-8 is
   an encoding of it.  You might hear about other encodings, such as UCS-2
@@ -2210,22 +2250,21 @@ Until version 4.3, zsh didn't handle multibyte input properly at all.
   cause all sorts of odd effects.  (It was possible to edit in zsh using
   single-byte extensions of ASCII such as the ISO 8859 family, however.)
 
-From version 4.3.4, multibyte input is handled in the line editor if zsh
-  has been compiled with the appropriate definitions, and is automatically
-  activated.  This is indicated by the option MULTIBYTE, which is
-  set by default on shells that support multibyte mode.  Hence you
-  can test this with a standard option test:  `[[ -o multibyte ]]'.
+From version 4.3.4 (stable versions starting from 5.0), multibyte
+  input is handled in the line editor if zsh has been compiled with the
+  appropriate definitions, and is automatically activated.  This is
+  indicated by the option MULTIBYTE, which is set by default on
+  shells that support multibyte mode.  Hence you can test this with a
+  standard option test: `[[ -o multibyte ]]'.
 
 The MULTIBYTE option affects the entire shell: parameter expansion,
   pattern matching, etc. count valid multibyte character strings as a
   single character.  You can unset the option locally in a function to
   revert to single-byte operation.
 
-Note that if the shell is emulating a Bourne shell the MULTIBYTE
-  option is unset by default.  This allows various POSIX modes to
-  work normally (POSIX does not deal with multibyte characters).  If
-  you use a "sh" or "ksh" emulation interactively you should probably
-  set the MULTIBYTE option.
+As multibyte characters are nowadays standard across most utilities,
+  since 5.1 the MULTBYTE option has been turned on when emulating
+  other shells.
 
 The other option that affects multibyte support is COMBINING_CHARS,
   new in version 4.3.9.  When this is set, any zero-length punctuation
@@ -2259,17 +2298,19 @@ There are basically three components.
 
 
    o  The locale.  This describes a whole series of features specific
-      to countries or regions of which the character set is one.  Usually
-      it is controlled by the environment variable LANG (there are
-      others but this is the one to start with).  You need to find a
-      locale whose name contains `UTF-8'.  This will be a variant on
-      your usual locale, which typically indicates the language and
-      country; for example, mine is `en_GB.UTF-8'.  Luckily, zsh can
-      complete locale names, so if you have the new completion system
-      loaded you can type `export LANG=' and attempt to complete a
-      suitable locale.  It's the locale that tells the shell to expect the
-      right form of multibyte input.  (However, there's no guarantee that
-      the shell is actually going to get this input: for example, if you
+      to countries or regions of which the character set is one.
+      Usually it is controlled by the environment variable LANG
+      (there are others but this is the one to start with).  If you have
+      a recent operating system, very likely it is already set
+      appropriately.  Otherwise, you need to find a locale whose name
+      contains `UTF-8'.  This will be a variant on your usual
+      locale, which typically indicates the language and country; for
+      example, mine is `en_GB.UTF-8'.  Luckily, zsh can complete
+      locale names, so if you have the new completion system loaded you
+      can type `export LANG=' and attempt to complete a suitable
+      locale.  It's the locale that tells the shell to expect the right
+      form of multibyte input.  (However, there's no guarantee that the
+      shell is actually going to get this input: for example, if you
       edit file names that have been created using a different character
       set it won't work properly.)
    o  The terminal emulator.  Those that are supplied with a recent
@@ -2432,7 +2473,7 @@ To join zsh-workers, send email to
   unsubscribe to unsubscribe.  The mailing software (ezlm) has
   various bells and whistles: you can retrieve archived messages.
   Mail zsh-workers-help@zsh.org <zsh-workers-help@zsh.org> for detailed information.
-  Adminstrative matters are best sent to
+  Administrative matters are best sent to
   zsh-workers-owner@zsh.org <zsh-workers-owner@zsh.org>.
   real name is Geoff Wing <gcw@zsh.org> <Geoff Wing <gcw@zsh.org>>.
 

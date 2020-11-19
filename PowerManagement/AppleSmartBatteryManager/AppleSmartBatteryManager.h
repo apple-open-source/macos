@@ -26,10 +26,16 @@
 
 #include <IOKit/IOService.h>
 
-#if TARGET_OS_OSX
+#define TARGET_OS_OSX_X86   (TARGET_OS_OSX && !TARGET_CPU_ARM64)    // Non-Apple Silicon Mac platforms
+#define TARGET_OS_OSX_AS    (TARGET_OS_OSX && TARGET_CPU_ARM64)     // Apple Silicon Mac platforms
+
+#if TARGET_OS_OSX_X86
 #include <IOKit/smbus/IOSMBusController.h>
 #include "SmbusHandler.h"
+#else
+#include <IOKit/smc/AppleSMCFamily.h>
 #endif
+
 #include <os/log.h>
 
 #include "AppleSmartBattery.h"
@@ -37,7 +43,7 @@
 
 class AppleSmartBattery;
 class AppleSmartBatteryManagerUserClient;
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
 class SmbusHandler;
 #endif
 class AppleSMC;
@@ -78,7 +84,7 @@ enum {
 
 class AppleSmartBatteryManager : public IOService {
     friend class AppleSmartBatteryManagerUserClient;
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     friend class SmbusHandler;
 #endif
 
@@ -92,7 +98,6 @@ public:
 
     IOReturn message(UInt32 type, IOService *provider, void * argument) APPLE_KEXT_OVERRIDE;
     virtual IOWorkLoop *getWorkLoop() const APPLE_KEXT_OVERRIDE;
-    void messageSMC(const OSSymbol *event, OSObject *val, uintptr_t refcon);
 
     // Called by AppleSmartBattery
     // Re-enables AC inflow if appropriate
@@ -115,12 +120,13 @@ public:
     IOReturn performTransaction(ASBMgrRequest *req, OSObject * target, void * reference);
 
     // transactionCompletion is the guts of the state machine
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     bool    transactionCompletion(void *ref, IOSMBusTransaction *transaction);
 #endif
     IOReturn inhibitChargingGated(uint64_t level);
     IOReturn disableInflowGated(uint64_t level);
-
+    bool smbusSupported();
+    
 private:
     // Called by AppleSmartBatteryManagerUserClient
     IOReturn inhibitCharging(int level);
@@ -149,15 +155,15 @@ private:
 
 private:
     bool                        _started;
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     IOSMBusController           * fProvider;
     SmbusHandler                * fSmbus;
     ASBMgrTransactionCompletion fAsbmCompletion;
     OSObject                    *fAsbmTarget;
     void                        *fAsbmReference;
-#else
+#endif
+#if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
     IOTimerEventSource          * fBatteryPollSMC;
-    thread_call_t               fSMCCallout;
     AppleSMCFamily              * fProvider;
 #endif
     IOCommandGate               * fManagerGate;
@@ -166,7 +172,12 @@ private:
     bool                        fSystemSleeping;
     bool                        fInacessible;
     IOWorkLoop                  *fWorkLoop;
+    bool                        fSmbusSupport;
 
+#if TARGET_OS_BRIDGE || TARGET_OS_OSX_AS
+public:
+    IOService *probe(IOService *provider, SInt32 *score) APPLE_KEXT_OVERRIDE;
+#endif
 };
 
 #endif

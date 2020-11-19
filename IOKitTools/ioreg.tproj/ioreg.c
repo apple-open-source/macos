@@ -85,6 +85,8 @@ static void cfstringshow(CFStringRef object);
 
 static CFStringRef createInheritanceStringForIORegistryClassName(CFStringRef name);
 
+static void replaceNestedSetsWithArrays(CFTypeRef rootObject);
+
 static void printProp(CFStringRef key, CFTypeRef value, struct context * context);
 static void printPhysAddr(CFTypeRef value, struct context * context);
 static void printSlotNames(CFTypeRef value, struct context * context);
@@ -274,7 +276,7 @@ int main(int argc, char ** argv)
 
         if (object)
         {
-            CFErrorRef err;
+            CFErrorRef err = NULL;
 
             path = CFURLCreateWithFileSystemPath( /* allocator   */ kCFAllocatorDefault,
                                                   /* filePath    */ CFSTR("/dev/stdout"),
@@ -288,12 +290,12 @@ int main(int argc, char ** argv)
             success = CFWriteStreamOpen(file);
             assertion_fatal(success, "can't open file");
 
-            err = CFPropertyListWrite( /* propertyList */ object,
+            CFPropertyListWrite( /* propertyList */ object,
                                  /* stream       */ file,
                                  /* format       */ kCFPropertyListXMLFormat_v1_0,
                                  /* options      */ 0,
                                  /* error        */ &err );
-            assertion_fatal(err != 0, "CFPropertyListWrite(): error");
+            assertion_fatal(err == NULL, "CFPropertyListWrite(): error");
 
             CFWriteStreamClose(file);
 
@@ -339,10 +341,13 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
     io_name_t              class;          // (don't release)
     uint32_t               count      = 0;
     CFMutableDictionaryRef dictionary = 0; // (needs release)
+    CFMutableArrayRef      array      = 0; // (needs release)
     uint64_t               identifier = 0;
     io_name_t              location;       // (don't release)
     io_name_t              name;           // (don't release)
     CFTypeRef              object     = 0; // (needs release)
+    CFStringRef            className  = 0; // (needs release)
+    CFStringRef            superName  = 0; // (needs release)
     uint64_t               state      = 0;
     kern_return_t          status     = KERN_SUCCESS;
     uint64_t               time       = 0;
@@ -351,11 +356,6 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
 
     if (options.list || compare(service, options))
     {
-        Size        keycount;
-        CFTypeRef   *keys_refs;
-        CFTypeRef   *values_refs;
-        int         i;
-
         // Obtain the service's properties.
         status = IORegistryEntryCreateCFProperties( service,
                                                     &dictionary,
@@ -367,35 +367,7 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
          * CF does not support OSSet in plists, so replace any occurrences in the plist we've received
          * with an OSArray containing the same data.
          */
-        keycount = CFDictionaryGetCount(dictionary);
-        keys_refs = (CFTypeRef *) malloc(keycount * sizeof(CFTypeRef));
-        values_refs = (CFTypeRef *) malloc(keycount * sizeof(CFTypeRef));
-
-        CFDictionaryGetKeysAndValues(dictionary, (const void **) keys_refs, (const void **) values_refs);
-        const void **keys = (const void **) keys_refs;
-        const void **values = (const void **) values_refs;
-
-        for (i = 0; i < keycount; i++) {
-            if (CFGetTypeID(values[i]) == CFSetGetTypeID()) {
-                CFIndex set_length;
-                CFArrayRef replacement_array = 0;
-                CFTypeRef *set_values;
-
-                set_length = CFSetGetCount(values[i]);
-                set_values = (CFTypeRef *)malloc(set_length * sizeof(CFTypeRef));
-
-                CFSetGetValues(values_refs[i], set_values);
-                replacement_array = CFArrayCreate(kCFAllocatorDefault, (const void **)set_values, set_length, &kCFTypeArrayCallBacks);
-                assertion_fatal(replacement_array != NULL, "can't create array for set replacement");
-
-                CFDictionaryReplaceValue(dictionary, keys[i], replacement_array);
-
-                CFRelease(replacement_array);
-                free(set_values);
-            }
-        }
-        free(keys_refs);
-        free(values_refs);
+        replaceNestedSetsWithArrays(dictionary);
     }
     if (!dictionary)
     {
@@ -445,11 +417,38 @@ static CFMutableDictionaryRef archive( io_registry_entry_t service,
     status = _IOObjectGetClass(service, kIOClassNameOverrideNone, class);
     assertion(status == KERN_SUCCESS, "can't obtain class", strcpy(class, "<class error>"));
 
-    object = CFStringCreateWithCString(kCFAllocatorDefault, class, kCFStringEncodingUTF8);
-    assertion_fatal(object != NULL, "can't create class");
+    className = CFStringCreateWithCString(kCFAllocatorDefault, class, kCFStringEncodingUTF8);
+    assertion_fatal(className != NULL, "can't create class");
 
-    CFDictionarySetValue(dictionary, CFSTR("IOObjectClass"), object);
-    CFRelease(object);
+    CFDictionarySetValue(dictionary, CFSTR("IOObjectClass"), className);
+    // Keep a reference to the class name CFString until we've processed the inheritance
+
+    // Obtain the inheritance of the service.
+
+    if (options.inheritance)
+    {
+        array = CFArrayCreateMutable(kCFAllocatorDefault, 1, &kCFTypeArrayCallBacks);
+        assertion_fatal(array != NULL, "can't create array");
+
+        do
+        {
+            CFArrayInsertValueAtIndex(array, 0, className);
+
+            superName = IOObjectCopySuperclassForClass (className);
+            CFRelease (className);
+            className = superName;
+            superName = NULL;
+        }
+        while(className && (false == CFEqual(className, CFSTR("OSObject"))));
+
+        CFDictionarySetValue(dictionary, CFSTR("IOObjectInheritance"), array);
+        CFRelease(array);
+    }
+
+    // Now we're done with the className
+    if (className) {
+        CFRelease(className);
+    }
 
     // Obtain the retain count of the service.
 
@@ -1582,6 +1581,81 @@ static void printProp(CFStringRef key, CFTypeRef value, struct context * context
             println("");
         }
     }
+}
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+static void replaceNestedSetsWithArrays(CFTypeRef rootObject)
+{
+    CFTypeID rootTypeID = CFGetTypeID(rootObject);
+    // If the root object is a set, we can't do anything about it from here.  This shouldn't
+    // be an issue since we're starting this recursive call from the return value of
+    // IORegistryEntryCreateCFProperties which should always be a CFDictionary.
+    assertion_fatal(rootTypeID != CFSetGetTypeID(), "Root object is cannot be a CFSet");
+
+    if (rootTypeID == CFDictionaryGetTypeID())
+    {
+        CFMutableDictionaryRef dictionary = (CFMutableDictionaryRef)rootObject;
+        CFIndex keycount = CFDictionaryGetCount(dictionary);
+        CFTypeRef *keys_refs = (CFTypeRef *) malloc(keycount * sizeof(CFTypeRef));
+        CFTypeRef *values_refs = (CFTypeRef *) malloc(keycount * sizeof(CFTypeRef));
+
+        CFDictionaryGetKeysAndValues(dictionary, (const void **) keys_refs, (const void **) values_refs);
+
+        for (CFIndex i = 0; i < keycount; i++)
+        {
+            if (CFGetTypeID(values_refs[i]) == CFSetGetTypeID())
+            {
+                CFIndex set_length = CFSetGetCount(values_refs[i]);
+                CFTypeRef *set_values = (CFTypeRef *)malloc(set_length * sizeof(CFTypeRef));
+
+                CFSetGetValues(values_refs[i], set_values);
+                CFArrayRef replacement_array = CFArrayCreate(kCFAllocatorDefault, (const void **)set_values, set_length, &kCFTypeArrayCallBacks);
+                assertion_fatal(replacement_array != NULL, "can't create array for set replacement");
+
+                CFDictionaryReplaceValue(dictionary, keys_refs[i], replacement_array);
+                values_refs[i] = replacement_array; // update our local array to pass to next recursive call
+
+                CFRelease(replacement_array);
+                free(set_values);
+            }
+
+            replaceNestedSetsWithArrays(values_refs[i]);
+        }
+        free(keys_refs);
+        free(values_refs);
+    }
+    else if (rootTypeID == CFArrayGetTypeID())
+    {
+        CFMutableArrayRef array = (CFMutableArrayRef)rootObject;
+        CFIndex elementCount = CFArrayGetCount(array);
+
+        for (CFIndex i = 0; i < elementCount; i++)
+        {
+            CFTypeRef value = CFArrayGetValueAtIndex(array, i);
+            if (CFGetTypeID(value) == CFSetGetTypeID())
+            {
+                CFIndex set_length = CFSetGetCount(value);
+                CFTypeRef *set_values = (CFTypeRef *)malloc(set_length * sizeof(CFTypeRef));
+
+                CFSetGetValues(value, set_values);
+                CFArrayRef replacement_array = CFArrayCreate(kCFAllocatorDefault, (const void **)set_values, set_length, &kCFTypeArrayCallBacks);
+                assertion_fatal(replacement_array != NULL, "can't create array for set replacement");
+
+                CFArraySetValueAtIndex(array, i, replacement_array);
+                value = replacement_array;  // update our local pointer to pass to next recursive call
+
+                CFRelease(replacement_array);
+                free(set_values);
+            }
+
+            replaceNestedSetsWithArrays(value);
+        }
+    }
+    // else:
+    // CFDictionary and CFArray are the only two container types (other than CFSet),
+    // so we can safely ignore any other types.  We don't need to handle CFSet since they
+    // will have been converted to an array by the time we get here.
 }
 
 /* The following data structures, masks and shift values are used to decode

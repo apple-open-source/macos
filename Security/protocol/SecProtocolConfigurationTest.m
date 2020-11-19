@@ -350,22 +350,47 @@ protocol_string_to_version(const char *protocol)
     return (sec_protocol_options_t)_nw_protocol_create_options(mock_protocol_copy_definition());
 }
 
+static bool
+isLocalTLD(NSString *host)
+{
+    if ([host length] == 0) {
+        return false;
+    }
+    if ([host hasSuffix:@".local"] || [host hasSuffix:@".local."]) {
+        return true;
+    }
+    if ([host rangeOfString:@"."].location == NSNotFound) {
+        return true;
+    }
+    return false;
+}
+
 - (void)testExampleFile:(NSURL *)path
 {
-    NSDictionary *dictionary = [[NSDictionary alloc] init];
-    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)dictionary, true);
-    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
-    XCTAssertTrue(configuration != nil, @"failed to build configuration");
-    if (!configuration) {
-        return;
-    }
-
     NSData *exampleData = [[NSData alloc] initWithContentsOfURL:path];
     NSDictionary *exampleATS = [NSJSONSerialization JSONObjectWithData:exampleData options:kNilOptions error:nil];
     XCTAssertNotNil(exampleATS, @"Loading %@ failed", path);
     if (!exampleATS) {
         return;
     }
+
+    sec_protocol_configuration_builder_t builder = sec_protocol_configuration_builder_create((__bridge CFDictionaryRef)exampleATS, true);
+    sec_protocol_configuration_t configuration = sec_protocol_configuration_create_with_builder(builder);
+    XCTAssertTrue(configuration != nil, @"failed to build configuration");
+    if (!configuration) {
+        return;
+    }
+
+    __block bool allows_local_networking = false;
+    [exampleATS enumerateKeysAndObjectsUsingBlock:^(id _key, id _obj, BOOL *stop) {
+        NSString *key = (NSString *)_key;
+        if ([key isEqualToString:@"NSAllowsLocalNetworking"]) {
+            NSNumber *value = (NSNumber *)_obj;
+            if (value) {
+                allows_local_networking = [value boolValue];
+            }
+        }
+    }];
 
     [exampleATS enumerateKeysAndObjectsUsingBlock:^(id _key, id _obj, BOOL *stop) {
         NSString *key = (NSString *)_key;
@@ -415,7 +440,15 @@ protocol_string_to_version(const char *protocol)
                     }
                 });
 
-                XCTAssertTrue(allows_http != sec_protocol_configuration_tls_required_for_host(configuration, [domain cStringUsingEncoding:NSUTF8StringEncoding]));
+                bool is_direct = isLocalTLD(domain);
+                bool tls_required = sec_protocol_configuration_tls_required_for_host(configuration, [domain cStringUsingEncoding:NSUTF8StringEncoding], is_direct);
+                if (is_direct) {
+                    // If the hostname is direct, then we permit it if the NSAllowsLocalNetworking exception is set.
+                    XCTAssertTrue(allows_local_networking != tls_required);
+                } else {
+                    // Otherwise, we require TLS it the NSExceptionAllowsInsecureHTTPLoads flag is set.
+                    XCTAssertTrue(allows_http != tls_required);
+                }
             }];
         }
     }];

@@ -26,6 +26,7 @@
 
 // private
 #include "IOFWSimpleContiguousPhysicalAddressSpace.h"
+#include "FWDebugging.h"
 
 // fun with binary compatibility
 
@@ -55,6 +56,8 @@ struct MemberVariables
 
 bool IOFWSimpleContiguousPhysicalAddressSpace::init( IOFireWireBus * control, vm_size_t size, IODirection direction )
 {
+	DebugLog("IOFWSimpleContiguousPhysicalAddressSpace<%p>::init\n", this );
+	
 	fSimpleContigPhysSpaceMembers = NULL;
 	
 	bool success = IOFWSimplePhysicalAddressSpace::init( control, size, direction, true );

@@ -68,7 +68,7 @@ public:
 	virtual void SetRefCon(void* refCon); 
 
 	// Override the base-class release function for special processing
-	virtual void release() const;
+	virtual void release() const APPLE_KEXT_OVERRIDE;
 	
 protected:
 
@@ -82,7 +82,7 @@ protected:
 		ExpansionData *reserved;
 
 		// Free the allocation object (and release IRM resources if needed)
-		virtual void free( void );
+		virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
 		// Controller will call this to notify about bus-reset complete.
 		virtual void handleBusReset(UInt32 generation);

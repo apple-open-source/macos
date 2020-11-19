@@ -53,8 +53,8 @@ class SafeBrowsingWarning;
 class WebCertificateInfo;
 class WebFramePolicyListenerProxy;
 class WebsiteDataStore;
-enum class ShouldExpectSafeBrowsingResult;
-enum class ProcessSwapRequestedByClient;
+enum class ShouldExpectSafeBrowsingResult : bool;
+enum class ProcessSwapRequestedByClient : bool;
 struct WebsitePoliciesData;
 
 class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame> {
@@ -74,9 +74,6 @@ public:
     void webProcessWillShutDown();
 
     bool isMainFrame() const;
-
-    void setIsFrameSet(bool value) { m_isFrameSet = value; }
-    bool isFrameSet() const { return m_isFrameSet; }
 
     FrameLoadState& frameLoadState() { return m_frameLoadState; }
 
@@ -120,7 +117,7 @@ public:
     void didSameDocumentNavigation(const URL&); // eg. anchor navigation, session state change.
     void didChangeTitle(const String&);
 
-    WebFramePolicyListenerProxy& setUpPolicyListenerProxy(CompletionHandler<void(WebCore::PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, RefPtr<SafeBrowsingWarning>&&)>&&, ShouldExpectSafeBrowsingResult);
+    WebFramePolicyListenerProxy& setUpPolicyListenerProxy(CompletionHandler<void(WebCore::PolicyAction, API::WebsitePolicies*, ProcessSwapRequestedByClient, RefPtr<SafeBrowsingWarning>&&, Optional<NavigatingToAppBoundDomain>)>&&, ShouldExpectSafeBrowsingResult, ShouldExpectAppBoundDomainResult);
 
 #if ENABLE(CONTENT_FILTERING)
     void contentFilterDidBlockLoad(WebCore::ContentFilterUnblockHandler contentFilterUnblockHandler) { m_contentFilterUnblockHandler = WTFMove(contentFilterUnblockHandler); }
@@ -140,7 +137,6 @@ private:
 
     String m_MIMEType;
     String m_title;
-    bool m_isFrameSet { false };
     bool m_containsPluginDocument { false };
     RefPtr<WebCertificateInfo> m_certificateInfo;
     RefPtr<WebFramePolicyListenerProxy> m_activeListener;

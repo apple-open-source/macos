@@ -47,8 +47,10 @@ typedef CFTypeRef HIDDisplayUserAdjustmentInterfaceRef;
  * Create hidDisplayInterface object backed by actual hid device matching
  * given container ID. If no corresponding
  * HID device matches container ID  , this will return NULL.
- * Caller should create only  single instance of HIDDisplayCreateUserAdjustmentInterfaceWithContainerID  per system for all HIDDisplayCreateUserAdjustmentInterfaceWithContainerID APIs
- * as these APIs are not thread safe.
+ * Caller should create only  single instance of HIDDisplayCreateUserAdjustmentInterfaceWithContainerID  per system for all
+ * HIDDisplayCreateUserAdjustmentInterfaceWithContainerID APIs as these APIs are not thread safe.  This api shouldn't be used
+ * in case underlying service is expected to terminate / add while api is in process. Calling this for terminated or in progress
+ * termination service containerID may have undesirable results. Use HIDDisplayCreateUserAdjustmentInterfaceWithService instead.
  *
  * @param containerID
  * Attributes which can uniquely identify display device.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009, 2010, 2012, 2013, 2015, 2018, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2009, 2010, 2012, 2013, 2015, 2018, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -93,18 +93,13 @@ CNCopySupportedInterfaces(void)
 }
 
 CFDictionaryRef
-CNCopyCurrentNetworkInfo(CFStringRef	interfaceName)
+CNCopyCurrentNetworkInfo(CFStringRef interfaceName)
 {
-#if	TARGET_OS_IPHONE && !TARGET_OS_IOSMAC
 	static typeof (CNCopyCurrentNetworkInfo) *dyfunc = NULL;
 	if (!dyfunc) {
 		void *image = __loadCaptiveNetwork();
 		if (image) dyfunc = dlsym(image, "__CNCopyCurrentNetworkInfo");
 	}
 	return dyfunc ? dyfunc(interfaceName) : NULL;
-#else	// TARGET_OS_IPHONE && !TARGET_OS_IOSMAC
-#pragma unused(interfaceName)
-	return NULL;
-#endif	// TARGET_OS_IPHONE && !TARGET_OS_IOSMAC
 }
 

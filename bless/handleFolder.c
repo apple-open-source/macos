@@ -71,7 +71,8 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 	CFDataRef labeldata2 = NULL;
 	struct statfs sb;
 	BLVersionRec	osVersion;
-
+    uint16_t role = APFS_VOL_ROLE_NONE;
+    bool     isARV = false;
     BLPreBootEnvType	preboot;
 	bool				useFullPath = false;
 	
@@ -229,19 +230,42 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 						   actargs[kmount].argument);
 		return 1;
 	}
-	
+    
+    if (isAPFS) {
+        if (APFSVolumeRole(sb.f_mntfromname + 5, &role, NULL)) {
+            blesscontextprintf(context, kBLLogLevelError, "Couldn't get role for volume %s\n", actargs[kmount].argument);
+            return 2;
+        }
+    
+        if (BLIsVolumeARV(context, sb.f_mntonname, sb.f_mntfromname + strlen(_PATH_DEV), &isARV)) {
+            blesscontextprintf(context, kBLLogLevelError, "Couldn't check if volume %s is ARV\n", actargs[kmount].argument);
+            return 2;
+        }
+    }
+    
+    if ((actargs[kcreatesnapshot].present) || (actargs[klastsealedsnapshot].present)) {
+        if ((role != APFS_VOL_ROLE_SYSTEM)) {
+            blesscontextprintf(context, kBLLogLevelError, "Can't use last-sealed-snapshot or create-snapshot on non system volume\n");
+            return 2;
+        }
+        if (false == isARV) {
+            blesscontextprintf(context, kBLLogLevelError, "Can't use last-sealed-snapshot or create-snapshot on non ARV volume\nq");
+            return 2;
+        }
+    }
+        
     /* If user gave options that require boot.efi creation, do it now. */
     if(actargs[kbootefi].present) {
         if(!actargs[kbootefi].hasArg) {
 			// Let's see what OS we're on
 			BLGetOSVersion(context, actargs[kmount].argument, &osVersion);
-			if (osVersion.major != 10) {
+			if (osVersion.major < 10) {
 				// Uh-oh, what do we do with this?
 				blesscontextprintf(context, kBLLogLevelError, "OS Major version unrecognized\n");
 				return 2;
 			}
 			actargs[kbootefi].argument[0] = '\0';
-			if (osVersion.minor >= 11) {
+			if (osVersion.major > 10 || osVersion.minor >= 11) {	// v10.11 and later
 				// use bootdev.efi by default if it exists
 				snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s%s", actargs[kmount].argument, kBL_PATH_I386_BOOTDEV_EFI);
 				if (access(actargs[kbootefi].argument, R_OK) != 0) {
@@ -252,8 +276,14 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 				snprintf(actargs[kbootefi].argument, kMaxArgLength-1, "%s%s", actargs[kmount].argument, kBL_PATH_I386_BOOT_EFI);
 			}
         }
+        else {
+            if (actargs[kcreatesnapshot].present || actargs[klastsealedsnapshot].present) {
+                blesscontextprintf(context, kBLLogLevelError,  "Can't use last-sealed-snapshot or create-snapshot along with an argument to --bootefi.\n" );
+                return 1;
+            }
+        }
 		
-		if (!(sb.f_flags & MNT_RDONLY)) {
+		if (!isAPFS || !(sb.f_flags & MNT_RDONLY)) {
 		
 			ret = BLLoadFile(context, actargs[kbootefi].argument, 0, &bootEFIdata);
 			if (ret) {
@@ -287,7 +317,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 				}
 				
 				if (oldEFIdata) CFRelease(oldEFIdata);
-				ret = CopyManifests(context, actargs[kfile].argument, actargs[kbootefi].argument);
+				ret = CopyManifests(context, actargs[kfile].argument, actargs[kbootefi].argument, actargs[kbootefi].argument);
 				if (ret) {
 					blesscontextprintf(context, kBLLogLevelError, "Can't copy img4 manifests for file %s\n", actargs[kfile].argument);
 					return 3;
@@ -298,16 +328,12 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		}
     } else {
         blesscontextprintf(context, kBLLogLevelVerbose,  "No boot.efi creation requested\n" );
+        if (actargs[kcreatesnapshot].present || actargs[klastsealedsnapshot].present) {
+            blesscontextprintf(context, kBLLogLevelError,  "Can't use last-sealed-snapshot or create-snapshot without --bootefi.\n" );
+            return 1;
+        }
     }
 	
-	if (actargs[kpersonalize].present) {
-		ret = PersonalizeOSVolume(context, actargs[kmount].argument, NULL, true);
-		if (ret) {
-			blesscontextprintf(context, kBLLogLevelError, "Couldn't personalize volume %s\n", actargs[kmount].argument);
-			return ret;
-		}
-	}
-
     if (isAPFS && !isAPFSDataRolePreSSVToSSVThusDontWriteToVol && actargs[ksetboot].present) {
         char        pathBuf[MAXPATHLEN];
         CFDataRef   apfsDriverData;
@@ -374,7 +400,7 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 		blesscontextprintf(context, kBLLogLevelVerbose,  "Scale 1 label data is valid: %s\n",
 						   isLabel ? "YES" : "NO");
 		
-		if (actargs[kfolder].present) {
+		if (actargs[kfolder].present && (!isAPFS || !(sb.f_flags & MNT_RDONLY))) {
 			char sysfolder[MAXPATHLEN];
 			
 			snprintf(sysfolder, sizeof sysfolder, "%s/.disk_label", actargs[kfolder].argument);
@@ -615,15 +641,9 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
             uint64_t oldWords[2] = { 0, 0 };
             uint64_t folderInum = 0;
             uint64_t fileInum = 0;
-            uint16_t role;
             char     *bootEFISource;
             
             if (shouldBless) {
-                if (APFSVolumeRole(sb.f_mntfromname + 5, &role, NULL)) {
-                    blesscontextprintf(context, kBLLogLevelError, "Couldn't get role for volume %s\n", actargs[kmount].argument);
-                    return 2;
-                }
-                
                 if (role == APFS_VOL_ROLE_PREBOOT || role == APFS_VOL_ROLE_RECOVERY) {
 					if (actargs[kfile].present) useFullPath = true;
 					
@@ -755,17 +775,42 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
             }
 
 
-            bootEFISource = (shouldBless && actargs[kbootefi].present) ? actargs[kbootefi].argument : NULL;
+            bootEFISource =  actargs[kbootefi].present ? actargs[kbootefi].argument : NULL;
+            
+            // If there is no argument for --bootefi, use the default boot efi path
+            if((bootEFISource != NULL) && (!actargs[kbootefi].hasArg)) {
+                bootEFISource = bootEFISource + strlen(actargs[kmount].argument);
+            }
             ret = BlessPrebootVolume(context, sb.f_mntfromname + 5, bootEFISource, labeldata, labeldata2,
-                                     actargs[knextonly].present == 0);
+                                     actargs);
             if (ret) {
                 blesscontextprintf(context, kBLLogLevelError,  "Couldn't bless the APFS preboot volume for volume mounted at %s: %s\n",
                                    actargs[kmount].argument, strerror(errno));
                 return 2;
             }
+			
+			if (actargs[kcreatesnapshot].present) {
+				char snapshotName[64];
+				
+				ret = BLCreateAndSetSnapshotBoot(context, sb.f_mntonname, snapshotName, sizeof snapshotName);
+				if (!ret) {
+					blesscontextprintf(context, kBLLogLevelVerbose, "Volume %s will boot from snapshot %s",
+									   sb.f_mntonname, snapshotName);
+				}
+			}
+			
         }
     }
-    
+	
+	if (actargs[kpersonalize].present) {
+		ret = PersonalizeOSVolume(context, actargs[kmount].argument, NULL, true);
+		if (ret) {
+			blesscontextprintf(context, kBLLogLevelError, "Couldn't personalize volume %s\n", actargs[kmount].argument);
+			return ret;
+		}
+	}
+
+
     /* Set Open Firmware to boot off the specified volume*/
     if(actargs[ksetboot].present) {
         if(preboot == kBLPreBootEnvType_EFI) {
@@ -829,6 +874,3 @@ static int isOFLabel(const char *data, int labelsize)
     // basic sanity checks for version and dimensions were satisfied
     return 1;
 }
-
-
-

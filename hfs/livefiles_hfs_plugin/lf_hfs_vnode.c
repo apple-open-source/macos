@@ -125,10 +125,12 @@ void vnode_update_identity(vnode_t vp, vnode_t dvp, const char *name, int name_l
                 LFHFS_LOG(LEVEL_ERROR, "vnode_update_identity: failed to malloc vnfs_cnp\n");
                 assert(0);
             }
+            bzero(vp->sFSParams.vnfs_cnp, sizeof(struct componentname));
         }
         vp->sFSParams.vnfs_cnp->cn_namelen = name_len;
         if (vp->sFSParams.vnfs_cnp->cn_nameptr) {
             hfs_free(vp->sFSParams.vnfs_cnp->cn_nameptr);
+            vp->sFSParams.vnfs_cnp->cn_nameptr = NULL;
         }
         vp->sFSParams.vnfs_cnp->cn_nameptr = lf_hfs_utils_allocate_and_copy_string( (char*) name, name_len );
         vp->sFSParams.vnfs_cnp->cn_hash = name_hashval;

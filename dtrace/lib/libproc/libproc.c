@@ -59,7 +59,7 @@ extern int _dtrace_mangled;
 #define APPLE_PCREATE_BAD_SYMBOLICATOR		0x0F000001
 #define APPLE_EXECUTABLE_RESTRICTED		0x0F000003
 #define APPLE_EXECUTABLE_NOT_ATTACHABLE		0x0F000004
-
+#define APPLE_TRANSLATED_NOTSUP			0x0F000005
 
 #if DTRACE_USE_CORESYMBOLICATION
 /*
@@ -114,6 +114,22 @@ static int forEachSymbolOwner(CSSymbolicatorRef symbolicator, const char* name, 
 	return found_match ? 0 : -1;
 }
 
+static bool
+procIsTranslated(pid_t pid)
+{
+	int mib[] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, pid };
+	struct kinfo_proc info;
+	size_t size = sizeof(info);
+
+	if (sysctl(mib, (unsigned)(sizeof(mib) / sizeof(int)),
+		&info, &size, NULL, 0) == 0 && size >= sizeof(info)) {
+		return info.kp_proc.p_flag & P_TRANSLATED;
+	}
+
+	return false;
+}
+
+
 //
 // Helper function so that Pcreate & Pgrab can use the same code.
 //
@@ -125,13 +141,19 @@ static int forEachSymbolOwner(CSSymbolicatorRef symbolicator, const char* name, 
 // dyld listener thread. The listener thread does not directly call into dtrace. The reason is that the thread
 // calling into dtrace sometimes gets put to sleep. If dtrace decides to release/deallocate due to a notice
 // from the listener thread, it deadlocks waiting for the listener to acknowledge that it has shut down.
-static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, int* perr, bool should_queue_proc_activity_notices) {
+static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, int* perr, bool read_only) {
 	static os_log_t proc_log;
 	static dispatch_once_t once;
 	dispatch_once(&once, ^{
 		proc_log = os_log_create("com.apple.dtrace", "libproc");
 	});
 
+	if (procIsTranslated(pid) && !read_only) {
+		*perr = APPLE_TRANSLATED_NOTSUP;
+		return NULL;
+	}
+
+	bool should_queue_proc_activity_notices = !read_only;
 	// The symbolicator block captures proc, and actually uses it before completing.
 	// We allocate and initialize it first.
 	struct ps_prochandle* proc = calloc(sizeof(struct ps_prochandle), 1);
@@ -267,7 +289,7 @@ destroy_attr:
 #endif /* DTRACE_TARGET_APPLE_MAC */
 		*perr = task_for_pid(mach_task_self(), pid, &task);
 		if (*perr == KERN_SUCCESS) {
-			proc = createProcAndSymbolicator(pid, task, perr, true);
+			proc = createProcAndSymbolicator(pid, task, perr, false);
 		} else {
 			if (kill(pid, SIGKILL))
 				perror("kill()");
@@ -294,11 +316,15 @@ Pcreate_error(int error)
 			str = "Could not create symbolicator for task";
 			break;
 		case APPLE_EXECUTABLE_RESTRICTED:
-			str = "dtrace cannot control executables signed with restricted entitlements";
+			str = "DTrace cannot control executables signed with restricted entitlements";
 			break;
 		case APPLE_EXECUTABLE_NOT_ATTACHABLE:
-			str= "the current security restriction (system integrity protection enabled) prevents dtrace from attaching to an executable not signed "
+			str = "the current security restriction (system integrity protection enabled) prevents dtrace from attaching to an executable not signed "
 			     "with the [com.apple.security.get-task-allow] entitlement";
+			break;
+		case APPLE_TRANSLATED_NOTSUP:
+			str = "DTrace cannot instrument translated processes";
+			break;
 		default:
 			if (error < 0)
 				str = mach_error_string(-error);
@@ -345,7 +371,7 @@ struct ps_prochandle *Pgrab(pid_t pid, int flags, int *perr) {
 			if (0 == (flags & PGRAB_RDONLY))
 				(void)task_suspend(task);
 			
-			proc = createProcAndSymbolicator(pid, task, perr, (flags & PGRAB_RDONLY) ? false : true);
+			proc = createProcAndSymbolicator(pid, task, perr, flags & PGRAB_RDONLY);
 		}
 	} else {
 		*perr = APPLE_PGRAB_UNSUPPORTED_FLAGS;
@@ -367,6 +393,9 @@ const char *Pgrab_error(int err) {
 		case APPLE_EXECUTABLE_NOT_ATTACHABLE:
 			str = "the current security restriction (system integrity protection enabled) prevents dtrace from attaching to an executable not signed "
 			      "with the [com.apple.security.get-task-allow] entitlement";
+			break;
+		case APPLE_TRANSLATED_NOTSUP:
+			str = "DTrace cannot instrument translated processes";
 			break;
 		default:
 			str = mach_error_string(err);
@@ -495,7 +524,6 @@ update_check_symbol_gen(struct ps_prochandle *P, CSSymbolRef symbol, bool err_on
 	CSSymbolOwnerRef owner = CSSymbolGetSymbolOwner(symbol);
 	return update_check_symbol_owner_gen(P, owner, err_on_mismatched_gen);
 }
-#endif /* DTRACE_USE_CORESYMBOLICATION */
 
 #if defined(__arm__) || defined(__arm64__)
 static uint32_t
@@ -520,6 +548,7 @@ get_arm_arch_subinfo(CSSymbolRef symbol)
 	return 0;
 }
 #endif
+#endif /* DTRACE_USE_CORESYMBOLICATION */
 
 
 /*

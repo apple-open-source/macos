@@ -31,7 +31,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <security_asn1/SecNssCoder.h>
 
 #include <CoreFoundation/CoreFoundation.h>

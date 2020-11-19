@@ -54,17 +54,6 @@
 
 #include <System/sys/kdebug.h>
 
-// TODO: remove these once we have:
-// <rdar://problem/33055720> daemon powerd subclass (DBG_DAEMON_POWERD)
-#ifndef DBG_DAEMON_POWERD
-#define DBG_DAEMON_POWERD 0x2
-#endif
-#ifndef POWERDBG_CODE
-#define POWERDBG_CODE(code) DAEMONDBG_CODE(DBG_DAEMON_POWERD, code)
-#endif
-
-#define POWERD_CLWK_CODE 0x1
-
 
 #include "powermanagementServer.h" // mig generated
 
@@ -83,7 +72,10 @@
 #include "Platform.h"
 #include "StandbyTimer.h"
 #include "PrivateLib.h"
-
+#include "BatteryDataCollectionManager.h"
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+#include "PMDisplay.h"
+#endif
 
 #include "adaptiveDisplay.h"
 
@@ -175,10 +167,9 @@ __private_extern__ void dynamicStoreNotifyCallBack(
                                                    CFArrayRef          changedKeys,
                                                    void                *info);
 
-__private_extern__ void ioregBatteryProcess(IOPMBattery *changed_batt,
-                                            io_service_t batt);
 
-// Reevaluate DW thermal emergency message
-__private_extern__ void evaluateDWThermalMsg(void);
+ // Reevaluate DW thermal emergency message
+ __private_extern__ void evaluateDWThermalMsg(void);
+ 
 
 #endif /* pmconfigd_h */

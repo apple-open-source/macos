@@ -257,6 +257,8 @@ bool IOFWAddressSpace::init(IOFireWireBus *bus)
 {
 	bool success = true;		// assume success
 	
+	DebugLog("IOFWAddressSpace<%p>::init\n", this );
+
 	// init super
 	
     if( !OSObject::init() )

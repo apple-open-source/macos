@@ -179,7 +179,14 @@ static void _XCTAssertTimeDiffWithInterval(CKKSAnalyticsTests* self, const char*
             va_end(args);
             arg = [[NSString alloc] initWithFormat: format arguments: args];
         }
-        [self recordFailureWithDescription: [comparison stringByAppendingString: arg] inFile: [NSString stringWithUTF8String: filename] atLine: line expected: YES];
+
+        XCTIssue* issue = [[XCTIssue alloc] initWithType:XCTIssueTypeAssertionFailure
+                                      compactDescription:[comparison stringByAppendingString: arg]
+                                     detailedDescription:nil
+                                       sourceCodeContext:[[XCTSourceCodeContext alloc] init]
+                                         associatedError:nil
+                                             attachments:@[]];
+        [self recordIssue:issue];
     }
 }
 
@@ -190,24 +197,25 @@ static void _XCTAssertTimeDiffWithInterval(CKKSAnalyticsTests* self, const char*
     CKRecord* ckr = [self createFakeRecord: self.keychainZoneID recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"];
     [self.keychainZone addToZone: ckr];
     
-    // Trigger a notification (with hilariously fake data)
-    [self.keychainView notifyZoneChange:nil];
-    
-    [[[self.keychainView waitForFetchAndIncomingQueueProcessing] completionHandlerDidRunCondition] wait:4 * NSEC_PER_SEC];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+
+    [[self.injectedManager.zoneChangeFetcher inflightFetch] waitUntilFinished];
+    CKKSResultOperation* op = [self.keychainView processIncomingQueue:false];
+    [[op completionHandlerDidRunCondition] wait:4 * NSEC_PER_SEC];
 
     NSDate* nowDate = [NSDate date];
 
     /*
      * Check last sync date for class A
      */
-    NSDate* syncADate = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassA inView:self.keychainView];
+    NSDate* syncADate = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassA zoneName:self.keychainView.zoneName];
     XCTAssertNotNil(syncADate, "Failed to get a last successful A sync date");
     XCTAssertTimeDiffWithInterval(syncADate, nowDate, 15, "Last sync A date should be recent");
 
     /*
      * Check last sync date for class C
      */
-    NSDate *syncCDate = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassC inView:self.keychainView];
+    NSDate *syncCDate = [[CKKSAnalytics logger] dateOfLastSuccessForEvent:CKKSEventProcessIncomingQueueClassC zoneName:self.keychainView.zoneName];
     XCTAssertNotNil(syncCDate, "Failed to get a last successful C sync date");
     XCTAssertTimeDiffWithInterval(syncCDate, nowDate, 15, "Last sync C date should be recent");
 
@@ -246,7 +254,7 @@ static void _XCTAssertTimeDiffWithInterval(CKKSAnalyticsTests* self, const char*
     for (NSInteger i = 0; i < 5; i++) {
         dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
             CKKSAnalytics* logger = [CKKSAnalytics logger];
-            [logger logSuccessForEvent:(CKKSAnalyticsFailableEvent*)@"test_event" inView:self.keychainView];
+            [logger logSuccessForEvent:(CKKSAnalyticsFailableEvent*)@"test_event" zoneName:self.keychainView.zoneName];
             dispatch_semaphore_signal(semaphore);
         });
     }

@@ -35,7 +35,6 @@
 #include <wtf/ASCIICType.h>
 #include <wtf/CryptographicallyRandomNumber.h>
 #include <wtf/HexNumber.h>
-#include <wtf/text/StringBuilder.h>
 
 #if OS(DARWIN)
 #include <sys/sysctl.h>
@@ -49,20 +48,19 @@ String createCanonicalUUIDString()
     cryptographicallyRandomValues(reinterpret_cast<unsigned char*>(randomData), sizeof(randomData));
 
     // Format as Version 4 UUID.
-    StringBuilder builder;
-    builder.reserveCapacity(36);
-    appendUnsignedAsHexFixedSize(randomData[0], builder, 8, Lowercase);
-    builder.append('-');
-    appendUnsignedAsHexFixedSize(randomData[1] >> 16, builder, 4, Lowercase);
-    builder.appendLiteral("-4");
-    appendUnsignedAsHexFixedSize(randomData[1] & 0x00000fff, builder, 3, Lowercase);
-    builder.append('-');
-    appendUnsignedAsHexFixedSize((randomData[2] >> 30) | 0x8, builder, 1, Lowercase);
-    appendUnsignedAsHexFixedSize((randomData[2] >> 16) & 0x00000fff, builder, 3, Lowercase);
-    builder.append('-');
-    appendUnsignedAsHexFixedSize(randomData[2] & 0x0000ffff, builder, 4, Lowercase);
-    appendUnsignedAsHexFixedSize(randomData[3], builder, 8, Lowercase);
-    return builder.toString();
+    return makeString(
+        hex(randomData[0], 8, Lowercase),
+        '-',
+        hex(randomData[1] >> 16, 4, Lowercase),
+        "-4",
+        hex(randomData[1] & 0x00000fff, 3, Lowercase),
+        '-',
+        hex((randomData[2] >> 30) | 0x8, 1, Lowercase),
+        hex((randomData[2] >> 16) & 0x00000fff, 3, Lowercase),
+        '-',
+        hex(randomData[2] & 0x0000ffff, 4, Lowercase),
+        hex(randomData[3], 8, Lowercase)
+    );
 }
 
 String bootSessionUUIDString()
@@ -71,8 +69,9 @@ String bootSessionUUIDString()
     static LazyNeverDestroyed<String> bootSessionUUID;
     static std::once_flag onceKey;
     std::call_once(onceKey, [] {
-        size_t uuidLength = 37;
-        char uuid[uuidLength];
+        constexpr size_t maxUUIDLength = 37;
+        char uuid[maxUUIDLength];
+        size_t uuidLength = maxUUIDLength;
         if (sysctlbyname("kern.bootsessionuuid", uuid, &uuidLength, nullptr, 0))
             return;
         bootSessionUUID.construct(static_cast<const char*>(uuid), uuidLength - 1);

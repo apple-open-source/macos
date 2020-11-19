@@ -29,8 +29,8 @@ namespace IOFireWireLib {
 			bool found = false ;
 			while ( !found && index < rangeCount )
 			{
-				distanceInRange = address - ranges[index].address ;
-				if ( found = ( distanceInRange < ranges[ index ].length ) )
+				distanceInRange = (IOByteCount)(address - ranges[index].address) ;
+				if ( ( found = ( distanceInRange < ranges[ index ].length ) ) )
 					offset += distanceInRange ;
 				else
 					offset += ranges[ index ].length ;
@@ -105,7 +105,7 @@ namespace IOFireWireLib {
 				end = MAX( end, fData.ranges[index].address + fData.ranges[index].length ) ;
 			}
 			
-			result.length = end - result.address ;
+			result.length = (IOByteCount)(end - result.address) ;
 		}
 		else
 		{
@@ -173,7 +173,7 @@ namespace IOFireWireLib {
 			for( unsigned index=0; index < fData.rangeCount; ++index )
 			{
 #ifdef __LP64__
-				fprintf( file, "\t\t\t\t%u: < %llx, %u >\n", index, fData.ranges[index].address, fData.ranges[index].length ) ;
+				fprintf( file, "\t\t\t\t%u: < %llx, %u >\n", index, fData.ranges[index].address, (unsigned int)fData.ranges[index].length ) ;
 #else
 				fprintf( file, "\t\t\t\t%u: < %x, %lu >\n", index, fData.ranges[index].address, fData.ranges[index].length ) ;
 #endif
@@ -256,7 +256,7 @@ namespace IOFireWireLib {
 			if( fData.update.set )
 			{
 				
-				updateSetCount = ::CFSetGetCount( fData.update.set ) ;
+				updateSetCount = (unsigned)(::CFSetGetCount( fData.update.set )) ;
 				exportList = reinterpret_cast<uint64_t *>( *where ) ;
 				*where += sizeof( uint64_t) * updateSetCount ;
 				
@@ -326,7 +326,7 @@ namespace IOFireWireLib {
 #endif			
 		}
 		
-		return  sizeof( NuDCLExportData ) + ( fData.update.set ? ::CFSetGetCount( fData.update.set ) * sizeof( uint64_t ) : 0 ) ;
+		return  (IOByteCount)(sizeof( NuDCLExportData ) + ( fData.update.set ? ::CFSetGetCount( fData.update.set ) * sizeof( uint64_t ) : 0 )) ;
 	}
 
 #pragma mark -

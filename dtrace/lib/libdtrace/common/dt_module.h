@@ -53,6 +53,8 @@ extern void dt_module_get_types(dtrace_hdl_t *,
 	dtrace_argdesc_t *, int *);
 
 
+extern uint64_t dt_module_sym_location(dt_module_t *, uint8_t, uint64_t);
+
 extern void dtrace_update_kernel_symbols(dtrace_hdl_t *);
 #endif /* defined(__APPLE__) */
 

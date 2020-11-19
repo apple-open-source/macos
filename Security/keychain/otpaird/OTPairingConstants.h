@@ -3,10 +3,9 @@
 #define OTPairingIDSServiceName     @"com.apple.private.alloy.octagon"
 
 #define OTPairingIDSKeyMessageType  @"m"
-#define OTPairingIDSKeyError        @"e"
 #define OTPairingIDSKeySession      @"session"
 #define OTPairingIDSKeyPacket       @"packet"
-#define OTPairingIDSKeyErrorDeprecated  @"error"
+#define OTPairingIDSKeyErrorDescription @"error"
 
 enum OTPairingIDSMessageType {
     OTPairingIDSMessageTypePacket = 1,

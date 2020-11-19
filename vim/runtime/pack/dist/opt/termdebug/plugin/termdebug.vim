@@ -2,7 +2,7 @@
 "
 " Author: Bram Moolenaar
 " Copyright: Vim license applies, see ":help license"
-" Last Update: 2018 Jun 3
+" Last Change: 2020 May 22
 "
 " WORK IN PROGRESS - Only the basics work
 " Note: On MS-Windows you need a recent version of gdb.  The one included with
@@ -261,7 +261,7 @@ func s:StartDebug_term(dict)
     sleep 10m
   endwhile
 
-  " Interpret commands while the target is running.  This should usualy only be
+  " Interpret commands while the target is running.  This should usually only be
   " exec-interrupt, since many commands don't work properly while the target is
   " running.
   call s:SendCommand('-gdb-set mi-async on')
@@ -317,7 +317,7 @@ func s:StartDebug_prompt(dict)
   set modified
   let s:gdb_channel = job_getchannel(s:gdbjob)  
 
-  " Interpret commands while the target is running.  This should usualy only
+  " Interpret commands while the target is running.  This should usually only
   " be exec-interrupt, since many commands don't work properly while the
   " target is running.
   call s:SendCommand('-gdb-set mi-async on')
@@ -626,7 +626,7 @@ func s:GotoProgram()
       call system(printf('powershell -Command "add-type -AssemblyName microsoft.VisualBasic;[Microsoft.VisualBasic.Interaction]::AppActivate(%d);"', s:pid))
     endif
   else
-    win_gotoid(s:ptywin)
+    call win_gotoid(s:ptywin)
   endif
 endfunc
 
@@ -657,8 +657,10 @@ func s:InstallCommands()
   command Source call s:GotoSourcewinOrCreateIt()
   command Winbar call s:InstallWinbar()
 
-  " TODO: can the K mapping be restored?
-  nnoremap K :Evaluate<CR>
+  if !exists('g:termdebug_map_K') || g:termdebug_map_K
+    let s:k_map_saved = maparg('K', 'n', 0, 1)
+    nnoremap K :Evaluate<CR>
+  endif
 
   if has('menu') && &mouse != ''
     call s:InstallWinbar()
@@ -708,7 +710,10 @@ func s:DeleteCommands()
   delcommand Source
   delcommand Winbar
 
-  nunmap K
+  if exists('s:k_map_saved')
+    call mapset('n', 0, s:k_map_saved)
+    unlet s:k_map_saved
+  endif
 
   if has('menu')
     " Remove the WinBar entries from all windows where it was added.

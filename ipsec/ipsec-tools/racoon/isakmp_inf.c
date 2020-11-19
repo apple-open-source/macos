@@ -103,8 +103,6 @@
 #include "vpn_control_var.h"
 #include "vpn_control.h"
 #include "ike_session.h"
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
 
 /* information exchange */
 static int isakmp_info_recv_n (phase1_handle_t *, struct isakmp_pl_n *, u_int32_t, int);
@@ -208,10 +206,6 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 
 		if (iph1->ivm == NULL) {
 			plog(ASL_LEVEL_ERR, "iph1->ivm == NULL\n");
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-									CONSTSTR("Information message"),
-									CONSTSTR("Failed to process Information Message (no IV)"));
 			return -1;
 		}
 
@@ -220,10 +214,6 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 		if (ivm == NULL) {
 			plog(ASL_LEVEL_ERR, 
 				 "failed to compute IV\n");
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-									CONSTSTR("Information message"),
-									CONSTSTR("Failed to process Information Message (can't compute IV)"));
 			return -1;
 		}
 
@@ -232,10 +222,6 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 		if (msg == NULL) {
 			plog(ASL_LEVEL_ERR, 
 				 "failed to decrypt packet\n");
-			IPSECSESSIONTRACEREVENT(iph1->parent_session,
-									IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-									CONSTSTR("Information message"),
-									CONSTSTR("Failed to decrypt Information message"));
 			return -1;
 		}
 
@@ -424,18 +410,7 @@ isakmp_info_recv(phase1_handle_t *iph1, vchar_t *msg0)
 			flag |= error;
 		}
 	}
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Information message"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Information message"),
-								CONSTSTR("Failed to process Information Message"));
-	}
 	if (msg != NULL)
 		vfree(msg);
 	if (pbuf != NULL)
@@ -825,18 +800,6 @@ isakmp_info_send_d1(phase1_handle_t *iph1)
 	error = isakmp_info_send_common(iph1, payload,
 					ISAKMP_NPTYPE_D, 0);
 	vfree(payload);
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("Delete ISAKMP-SA"),
-								CONSTSTR("Failed to transmit Delete-ISAKMP-SA message"));
-	} else {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
-								CONSTSTR("Delete ISAKMP-SA"),
-								CONSTSTR(NULL));
-	}
-
 	return error;
 }
 
@@ -867,14 +830,6 @@ isakmp_info_send_d2(phase2_handle_t *iph2)
         iph1 = ike_session_getph1byaddr(iph2->parent_session, iph2->src, iph2->dst);
     }
 	if (iph1 == NULL){
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Information message"),
-								CONSTSTR("Failed to transmit Information message"));
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("Delete IPSEC-SA"),
-								CONSTSTR("Failed to transmit Delete-IPSEC-SA message"));
 		plog(ASL_LEVEL_NOTICE,
 			 "No ph1 handler found, could not send DELETE_SA\n");
 		return 0;
@@ -893,15 +848,7 @@ isakmp_info_send_d2(phase2_handle_t *iph2)
 		tlen = sizeof(*d) + pr->spisize;
 		payload = vmalloc(tlen);
 		if (payload == NULL) {
-			IPSECSESSIONTRACEREVENT(iph2->parent_session,
-									IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-									CONSTSTR("Information message"),
-									CONSTSTR("Failed to transmit Information message"));
-			IPSECSESSIONTRACEREVENT(iph2->parent_session,
-									IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-									CONSTSTR("Delete IPSEC-SA"),
-									CONSTSTR("Failed to transmit Delete-IPSEC-SA message"));
-			plog(ASL_LEVEL_ERR, 
+			plog(ASL_LEVEL_ERR,
 				"failed to get buffer for payload.\n");
 			return errno;
 		}
@@ -925,17 +872,6 @@ isakmp_info_send_d2(phase2_handle_t *iph2)
 		error = isakmp_info_send_common(iph1, payload,
 						ISAKMP_NPTYPE_D, 0);
 		vfree(payload);
-		if (error) {
-			IPSECSESSIONTRACEREVENT(iph2->parent_session,
-									IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-									CONSTSTR("Delete IPSEC-SA"),
-									CONSTSTR("Failed to transmit Delete-IPSEC-SA"));
-		} else {
-			IPSECSESSIONTRACEREVENT(iph2->parent_session,
-									IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
-									CONSTSTR("Delete IPSEC-SA"),
-									CONSTSTR(NULL));
-		}
 	}
 
 	return error;
@@ -960,11 +896,7 @@ isakmp_info_send_nx(struct isakmp *isakmp, struct sockaddr_storage *remote, stru
 	/* search appropreate configuration */
 	rmconf = getrmconf(remote);
 	if (rmconf == NULL) {
-		IPSECSESSIONTRACEREVENT(sess,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Information message"),
-								CONSTSTR("Failed to transmit Information message (no remote configuration)"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"no configuration found for peer address.\n");
 		goto end;
 	}
@@ -972,11 +904,7 @@ isakmp_info_send_nx(struct isakmp *isakmp, struct sockaddr_storage *remote, stru
 	/* add new entry to isakmp status table. */
 	iph1 = ike_session_newph1(ISAKMP_VERSION_NUMBER_IKEV1);
 	if (iph1 == NULL) {
-		IPSECSESSIONTRACEREVENT(sess,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Information message"),
-								CONSTSTR("Failed to transmit Information message (no new Phase 1)"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			 "failed to allocate ph1");
 		return -1;
 	}
@@ -1003,11 +931,7 @@ isakmp_info_send_nx(struct isakmp *isakmp, struct sockaddr_storage *remote, stru
 
 	/* copy remote address */
 	if (copy_ph1addresses(iph1, rmconf, remote, local) < 0) {
-		IPSECSESSIONTRACEREVENT(sess,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Information message"),
-								CONSTSTR("Failed to transmit Information Message (can't copy Phase 1 addresses)"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			 "failed to copy ph1 addresses");
 		error = -1;
 		iph1 = NULL; /* deleted in copy_ph1addresses */
@@ -1019,11 +943,7 @@ isakmp_info_send_nx(struct isakmp *isakmp, struct sockaddr_storage *remote, stru
 		tlen += data->l;
 	payload = vmalloc(tlen);
 	if (payload == NULL) { 
-		IPSECSESSIONTRACEREVENT(sess,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Information message"),
-								CONSTSTR("Failed to transmit Information Message (can't allocate payload)"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"failed to get buffer to send.\n");
 		error = -1;
 		goto end;
@@ -1049,19 +969,7 @@ isakmp_info_send_nx(struct isakmp *isakmp, struct sockaddr_storage *remote, stru
     
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, 0);
 	vfree(payload);
-	if (error) {
-		IPSECSESSIONTRACEREVENT(sess,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("Without ISAKMP-SA"),
-								CONSTSTR("Failed to transmit Without-ISAKMP-SA message"));
-	} else {
-		IPSECSESSIONTRACEREVENT(sess,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
-								CONSTSTR("Without ISAKMP-SA"),
-								CONSTSTR(NULL));
-	}
-	
-    end:
+end:
 	if (iph1 != NULL)
 		ike_session_unlink_phase1(iph1);
 
@@ -1101,11 +1009,7 @@ isakmp_info_send_n1(phase1_handle_t *iph1, int type, vchar_t *data)
 		tlen += data->l;
 	payload = vmalloc(tlen);
 	if (payload == NULL) { 
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("ISAKMP-SA"),
-								CONSTSTR("Failed to transmit ISAKMP-SA message (can't allocate payload)"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"failed to get buffer to send.\n");
 		return errno;
 	}
@@ -1128,18 +1032,6 @@ isakmp_info_send_n1(phase1_handle_t *iph1, int type, vchar_t *data)
 
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, iph1->flags);
 	vfree(payload);
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("ISAKMP-SA"),
-								CONSTSTR("Can't transmit ISAKMP-SA message"));
-	} else {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
-								CONSTSTR("ISAKMP-SA"),
-								CONSTSTR(NULL));
-	}
-
 	return error;
 }
 
@@ -1167,11 +1059,7 @@ isakmp_info_send_n2(phase2_handle_t *iph2, int type, vchar_t *data)
 		tlen += data->l;
 	payload = vmalloc(tlen);
 	if (payload == NULL) { 
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("IPSEC-SA"),
-								CONSTSTR("Failed to transmit IPSEC-SA message (can't allocate payload)"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"failed to get buffer to send.\n");
 		return errno;
 	}
@@ -1190,18 +1078,6 @@ isakmp_info_send_n2(phase2_handle_t *iph2, int type, vchar_t *data)
 	iph2->flags |= ISAKMP_FLAG_E;	/* XXX Should we do FLAG_A ? */
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, iph2->flags);
 	vfree(payload);
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("IPSEC-SA"),
-								CONSTSTR("Failed to transmit IPSEC-SA message"));
-	} else {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
-								CONSTSTR("IPSEC-SA"),
-								CONSTSTR(NULL));
-	}
-	
 	return error;
 }
 
@@ -1377,20 +1253,9 @@ isakmp_info_send_common(phase1_handle_t *iph1, vchar_t *payload, u_int32_t np, i
 	/* XXX If Acknowledged Informational required, don't delete ph2handle */
 	error = 0;
 	VPTRINIT(iph2->sendbuf);
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Information message"),
-							CONSTSTR(NULL));
-	
 	goto err;	/* XXX */
 
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Information message"),
-								CONSTSTR("Failed to transmit Information message"));
-	}
 	if (hash)
 		vfree(hash);
 	return error;
@@ -1911,11 +1776,7 @@ isakmp_info_recv_r_u (phase1_handle_t *iph1, struct isakmp_pl_ru *ru, u_int32_t 
 	tlen = sizeof(*ru_ack);
 	payload = vmalloc(tlen);
 	if (payload == NULL) { 
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("R-U-THERE? ACK"),
-								CONSTSTR("Failed to transmit DPD response"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			"failed to get buffer to send.\n");
 		return errno;
 	}
@@ -1935,18 +1796,6 @@ isakmp_info_recv_r_u (phase1_handle_t *iph1, struct isakmp_pl_ru *ru, u_int32_t 
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N,
 					ISAKMP_FLAG_E);
 	vfree(payload);
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("R-U-THERE? ACK"),
-								CONSTSTR("Failed to transmit DPD ack"));
-	} else {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
-								CONSTSTR("R-U-THERE? ACK"),
-								CONSTSTR(NULL));
-	}
-
 	plog(ASL_LEVEL_NOTICE, "received a valid R-U-THERE, ACK sent\n");
 
 	/* Should we mark tunnel as active ? */
@@ -1988,17 +1837,6 @@ isakmp_info_recv_r_u_ack (phase1_handle_t *iph1, struct isakmp_pl_ru *ru, u_int3
 
 	isakmp_sched_r_u(iph1, 0);
 
-	if (iph1->side == INITIATOR) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_DPD_INIT_RESP,
-								CONSTSTR("Initiator DPD Response"),
-								CONSTSTR(NULL));
-	} else {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_DPD_RESP_RESP,
-								CONSTSTR("Responder DPD Response"),
-								CONSTSTR(NULL));
-	}
 	plog(ASL_LEVEL_NOTICE, "received an R-U-THERE-ACK\n");
 
 #ifdef ENABLE_VPNCONTROL_PORT
@@ -2030,11 +1868,6 @@ isakmp_info_send_r_u(void *arg)
     }
 
 	if (iph1->dpd_fails >= iph1->rmconf->dpd_maxfails) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_DPD_MAX_RETRANSMIT,
-								CONSTSTR("DPD maximum retransmits"),
-								CONSTSTR("maxed-out of DPD requests without receiving an ack"));
-
 		(void)vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PEER_DEAD, FROM_LOCAL, iph1_get_remote_v4_address(iph1), 0, NULL);
 
 		purge_remote(iph1);
@@ -2050,11 +1883,7 @@ isakmp_info_send_r_u(void *arg)
 	tlen = sizeof(*ru);
 	payload = vmalloc(tlen);
 	if (payload == NULL) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("R-U-THERE?"),
-								CONSTSTR("Failed to transmit DPD request"));
-		plog(ASL_LEVEL_ERR, 
+		plog(ASL_LEVEL_ERR,
 			 "failed to get buffer for payload.\n");
 		return;
 	}
@@ -2079,29 +1908,6 @@ isakmp_info_send_r_u(void *arg)
 
 	error = isakmp_info_send_common(iph1, payload, ISAKMP_NPTYPE_N, 0);
 	vfree(payload);
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_FAIL,
-								CONSTSTR("R-U-THERE?"),
-								CONSTSTR("Failed to transmit DPD request"));
-	} else {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_INFO_NOTICE_TX_SUCC,
-								CONSTSTR("R-U-THERE?"),
-								CONSTSTR(NULL));
-	}
-
-	if (iph1->side == INITIATOR) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								iph1->dpd_fails? IPSECSESSIONEVENTCODE_IKEV1_DPD_INIT_RETRANSMIT : IPSECSESSIONEVENTCODE_IKEV1_DPD_INIT_REQ,
-								CONSTSTR("Initiator DPD Request"),
-								CONSTSTR(NULL));
-	} else {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								iph1->dpd_fails? IPSECSESSIONEVENTCODE_IKEV1_DPD_RESP_RETRANSMIT : IPSECSESSIONEVENTCODE_IKEV1_DPD_RESP_REQ,
-								CONSTSTR("Responder DPD Request"),
-								CONSTSTR(NULL));
-	}
 	plog(ASL_LEVEL_NOTICE,
 		 "DPD R-U-There sent (%d)\n", error);
 

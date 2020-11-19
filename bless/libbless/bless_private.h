@@ -59,6 +59,7 @@
 #define USE_DISKARBITRATION		0
 #define USE_CORETEXT			0
 #define USE_COREGRAPHICS		0
+#define USE_HISERVICES		0
 #define USE_MEDIAKIT			0
 #define SUPPORT_RAID			0
 #define	SUPPORT_APPLE_PARTITION_MAP	0
@@ -73,6 +74,7 @@
 #define USE_CORETEXT			0
 #endif
 #define USE_COREGRAPHICS		1
+#define USE_HISERVICES		1
 #define USE_MEDIAKIT			1
 #define SUPPORT_RAID			1
 #define	SUPPORT_APPLE_PARTITION_MAP	1
@@ -145,10 +147,14 @@ int blsustatfs(const char *path, struct statfs *buf);
 // give info that, when converted to XML form and put in the IOReg->NVRAM, will command EFI to boot it.
 bool isDVDWithElToritoWithUEFIBootableOS (BLContextPtr inContext, const char* inDevBSD, int* outBootEntry, int* outPartitionStart, int* outPartitionSize);
 
+int GetPrebootBSDForVolumeBSD(BLContextPtr context, const char *volBSD, char *prebootBSD, int prebootBSDLen);
+int GetMountForBSD(BLContextPtr context, const char *bsd, char *mountPoint, int mountPointLen);
+int GetUUIDFolderPathInPreboot(BLContextPtr context, const char *prebootMountPoint, const char *rootBSD, char *prebootDirPath, int len);
+
 
 int BLAPFSCreatePhysicalStoreBSDsFromVolumeBSD(BLContextPtr context, const char *volBSD, CFArrayRef *physBSDs);
 int BLMountContainerVolume(BLContextPtr context, const char *bsdName, char *mntPoint, int mntPtStrSize, bool readOnly);
 int BLUnmountContainerVolume(BLContextPtr context, char *mntPoint);
-
+int BLMountSnapshot(BLContextPtr context, const char *bsdName, const char *snapName, char *mntPoint, int mntPtStrSize);
 
 #endif // _BLESS_PRIVATE_H_

@@ -1359,12 +1359,6 @@ abort:
 }
 
 
-OSStatus SecOTRSEndSession(SecOTRSessionRef session,
-                           CFMutableDataRef messageToSend)
-{
-    return errSecUnimplemented;
-}
-
 static CFDataRef data_to_data_error_request(enum SecXPCOperation op, CFDataRef publicPeerId, CFErrorRef *error) {
     __block CFDataRef result = NULL;
     securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {

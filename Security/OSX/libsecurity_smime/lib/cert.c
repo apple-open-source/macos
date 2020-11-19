@@ -39,6 +39,7 @@
 #include <Security/cssmapi.h>
 #include <Security/oidscert.h>
 #include <Security/oidscert.h>
+#include <utilities/SecCFWrappers.h>
 #include <syslog.h>
 
 /* for errKCDuplicateItem */
@@ -50,10 +51,6 @@
 #else
 #define dprintf(args...)
 #endif
-
-/* @@@ Remove this once it's back in the appropriate header. */
-static const uint8 X509V1IssuerNameStd[] = {INTEL_X509V3_CERT_R08, 23};
-static const CSSM_OID OID_X509V1IssuerNameStd = {INTEL_X509V3_CERT_R08_LENGTH+1,  (uint8 *)X509V1IssuerNameStd};
 
 /* 
  * Normalize a Printable String. Per RFC2459 (4.1.2.4), printable strings are case 
@@ -579,100 +576,59 @@ SECStatus CERT_FindSubjectKeyIDExtension (SecCertificateRef cert, SECItem *retIt
 // Extract the issuer and serial number from a certificate
 SecCmsIssuerAndSN *CERT_GetCertIssuerAndSN(PRArenaPool *pl, SecCertificateRef cert)
 {
-    OSStatus status;
     SecCmsIssuerAndSN *certIssuerAndSN;
-    SecCertificateRef certRef;
-    SecCertificateRef itemImplRef = NULL;
-    CSSM_CL_HANDLE clHandle = 0;
-    CSSM_DATA_PTR serialNumber = 0;
-    CSSM_DATA_PTR issuer = 0;
-    CSSM_DATA certData = {};
-    CSSM_HANDLE resultsHandle = 0;
-    uint32 numberOfFields = 0;
-    CSSM_RETURN result;
+
     void *mark;
-
     mark = PORT_ArenaMark(pl);
-
-    /* Retain input cert and get pointer to its data */
-    certRef = (SecCertificateRef)((cert) ? CFRetain(cert) : NULL);
-    if (!certRef || SecCertificateGetData(certRef, &certData)) {
+    CFDataRef issuer_data = SecCertificateCopyIssuerSequence(cert);
+    CFDataRef serial_data = SecCertificateCopySerialNumberData(cert, NULL);
+    if (!issuer_data || !serial_data) {
         goto loser;
     }
-#if 1
-    // Convert unified input certRef to itemImpl instance.
-    // note: must not release this instance while we're using its CL handle!
-    itemImplRef = SecCertificateCreateItemImplInstance(cert);
-    status = SecCertificateGetCLHandle_legacy(itemImplRef, &clHandle);
-#else
-    status = SecCertificateGetCLHandle(certRef, &clHandle);
-#endif
-    if (status)
-        goto loser;
 
-    /* Get the issuer from the cert. */
-    result = CSSM_CL_CertGetFirstFieldValue(clHandle, &certData,
-        &OID_X509V1IssuerNameStd, &resultsHandle, &numberOfFields, &issuer);
-
-    if (result || numberOfFields < 1)
-        goto loser;
-    result = CSSM_CL_CertAbortQuery(clHandle, resultsHandle);
-    if (result)
-        goto loser;
-
-    /* Get the serialNumber from the cert. */
-    result = CSSM_CL_CertGetFirstFieldValue(clHandle, &certData,
-        &CSSMOID_X509V1SerialNumber, &resultsHandle, &numberOfFields, &serialNumber);
-    if (result || numberOfFields < 1)
-        goto loser;
-    result = CSSM_CL_CertAbortQuery(clHandle, resultsHandle);
-    if (result)
-        goto loser;
+    SecAsn1Item serialNumber = {
+        .Length = CFDataGetLength(serial_data),
+        .Data = (uint8_t *)CFDataGetBytePtr(serial_data)
+    };
+    SecAsn1Item issuer = {
+        .Length = CFDataGetLength(issuer_data),
+        .Data = (uint8_t *)CFDataGetBytePtr(issuer_data)
+    };
 
     /* Allocate the SecCmsIssuerAndSN struct. */
     certIssuerAndSN = (SecCmsIssuerAndSN *)PORT_ArenaZAlloc (pl, sizeof(SecCmsIssuerAndSN));
-    if (certIssuerAndSN == NULL)
+    if (certIssuerAndSN == NULL) {
         goto loser;
+    }
 
     /* Copy the issuer. */
-    certIssuerAndSN->derIssuer.Data = (uint8 *) PORT_ArenaAlloc(pl, issuer->Length);
-    if (!certIssuerAndSN->derIssuer.Data)
+    certIssuerAndSN->derIssuer.Data = (uint8_t *) PORT_ArenaAlloc(pl, issuer.Length);
+    if (!certIssuerAndSN->derIssuer.Data) {
         goto loser;
-    PORT_Memcpy(certIssuerAndSN->derIssuer.Data, issuer->Data, issuer->Length);
-    certIssuerAndSN->derIssuer.Length = issuer->Length;
+    }
+    PORT_Memcpy(certIssuerAndSN->derIssuer.Data, issuer.Data, issuer.Length);
+    certIssuerAndSN->derIssuer.Length = issuer.Length;
 
     /* Copy the serialNumber. */
-    certIssuerAndSN->serialNumber.Data = (uint8 *) PORT_ArenaAlloc(pl, serialNumber->Length);
-    if (!certIssuerAndSN->serialNumber.Data)
+    certIssuerAndSN->serialNumber.Data = (uint8_t *) PORT_ArenaAlloc(pl, serialNumber.Length);
+    if (!certIssuerAndSN->serialNumber.Data) {
         goto loser;
-    PORT_Memcpy(certIssuerAndSN->serialNumber.Data, serialNumber->Data, serialNumber->Length);
-    certIssuerAndSN->serialNumber.Length = serialNumber->Length;
+    }
+    PORT_Memcpy(certIssuerAndSN->serialNumber.Data, serialNumber.Data, serialNumber.Length);
+    certIssuerAndSN->serialNumber.Length = serialNumber.Length;
+
+    CFRelease(serial_data);
+    CFRelease(issuer_data);
 
     PORT_ArenaUnmark(pl, mark);
-
-    CSSM_CL_FreeFieldValue(clHandle, &CSSMOID_X509V1SerialNumber, serialNumber);
-    CSSM_CL_FreeFieldValue(clHandle, &OID_X509V1IssuerNameStd, issuer);
-
-    if (itemImplRef)
-        CFRelease(itemImplRef);
-    if (certRef)
-        CFRelease(certRef);
-
     return certIssuerAndSN;
 
 loser:
+    CFReleaseNull(serial_data);
+    CFReleaseNull(issuer_data);
     PORT_ArenaRelease(pl, mark);
-
-    if (serialNumber)
-        CSSM_CL_FreeFieldValue(clHandle, &CSSMOID_X509V1SerialNumber, serialNumber);
-    if (issuer)
-        CSSM_CL_FreeFieldValue(clHandle, &OID_X509V1IssuerNameStd, issuer);
-    if (itemImplRef)
-        CFRelease(itemImplRef);
-    if (certRef)
-        CFRelease(certRef);
-
     PORT_SetError(SEC_INTERNAL_ONLY);
+
     return NULL;
 }
 

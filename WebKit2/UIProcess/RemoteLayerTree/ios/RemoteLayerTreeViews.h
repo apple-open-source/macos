@@ -23,8 +23,6 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #if PLATFORM(IOS_FAMILY)
 
 #import "UIKitSPI.h"
@@ -78,10 +76,12 @@ class WebPageProxy;
 
 namespace WebKit {
 
-#if ENABLE(POINTER_EVENTS)
 OptionSet<WebCore::TouchAction> touchActionsForPoint(UIView *rootView, const WebCore::IntPoint&);
-#endif
 UIScrollView *findActingScrollParent(UIScrollView *, const RemoteLayerTreeHost&);
+
+#if ENABLE(EDITABLE_REGION)
+bool mayContainEditableElementsInRect(UIView *rootView, const WebCore::FloatRect&);
+#endif
 
 }
 

@@ -45,12 +45,19 @@ namespace WebCore {
 class ContentSecurityPolicyResponseHeaders;
 class DedicatedWorkerThread;
 class MessagePort;
+class RequestAnimationFrameCallback;
 class SerializedScriptValue;
+
+#if ENABLE(OFFSCREEN_CANVAS)
+class WorkerAnimationController;
+
+using CallbackId = int;
+#endif
 
 class DedicatedWorkerGlobalScope final : public WorkerGlobalScope {
     WTF_MAKE_ISO_ALLOCATED(DedicatedWorkerGlobalScope);
 public:
-    static Ref<DedicatedWorkerGlobalScope> create(const URL&, Ref<SecurityOrigin>&&, const String& name, const String& identifier, const String& userAgent, bool isOnline, DedicatedWorkerThread&, const ContentSecurityPolicyResponseHeaders&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
+    static Ref<DedicatedWorkerGlobalScope> create(const WorkerParameters&, Ref<SecurityOrigin>&&, DedicatedWorkerThread&, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
     virtual ~DedicatedWorkerGlobalScope();
 
     const String& name() const { return m_name; }
@@ -59,16 +66,25 @@ public:
 
     DedicatedWorkerThread& thread();
 
+#if ENABLE(OFFSCREEN_CANVAS)
+    CallbackId requestAnimationFrame(Ref<RequestAnimationFrameCallback>&&);
+    void cancelAnimationFrame(CallbackId);
+#endif
+
 private:
     using Base = WorkerGlobalScope;
 
-    DedicatedWorkerGlobalScope(const URL&, Ref<SecurityOrigin>&&, const String& name, const String& identifier, const String& userAgent, bool isOnline, DedicatedWorkerThread&, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
+    DedicatedWorkerGlobalScope(const WorkerParameters&, Ref<SecurityOrigin>&&, DedicatedWorkerThread&, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
 
     bool isDedicatedWorkerGlobalScope() const final { return true; }
     ExceptionOr<void> importScripts(const Vector<String>& urls) final;
     EventTargetInterface eventTargetInterface() const final;
 
     String m_name;
+
+#if ENABLE(OFFSCREEN_CANVAS)
+    RefPtr<WorkerAnimationController> m_workerAnimationController;
+#endif
 };
 
 } // namespace WebCore

@@ -109,7 +109,7 @@ LEAF(_longjmp, 0)
 	movq	%rsp, %rsi			// set = address where we stored the mask
 	xorq	%rdx, %rdx			// oset = NULL
 	CALL_EXTERN_AGAIN(_sigprocmask)
-	
+
 	// Restore sigaltstack status
 	movq	16(%rsp), %rdi			// Grab jmpbuf but leave it on the stack
 	movl 	JB_ONSTACK(%rdi), %edi		// Pass old state to _sigunaltstack()

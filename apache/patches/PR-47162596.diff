@@ -1,0 +1,216 @@
+--- modules/core/mod_so.c.orig
++++ modules/core/mod_so.c
+@@ -96,6 +96,9 @@
+ 
+ #include "mod_so.h"
+ 
++#include "System/sys/codesign.h"
++#include <unistd.h>
++
+ module AP_MODULE_DECLARE_DATA so_module;
+ 
+ 
+@@ -143,12 +146,84 @@ static apr_status_t unload_module(void *data)
+     return APR_SUCCESS;
+ }
+ 
++static int code_signature_at_path_contains_authority_name(cmd_parms *cmd, const char* module_path, const char* authority_name)
++{
++    char cmd_error[120];
++    apr_procattr_t *attributes;
++    const char *cmd_argv[5];
++    apr_proc_t proc;
++    char buf[1024];
++    int proc_exit_status;
++    apr_exit_why_e why;
++    int first = TRUE;
++    char *line;
++    char *tok_state;
++    char* authority_prefix="Authority=";
++    char* codesign_string_copy;
++    const char* authority_on_file;
++    cmd_argv[0] = "/usr/bin/codesign";
++    cmd_argv[1] = "-d";
++    cmd_argv[2] = "--verbose=2";
++    cmd_argv[3] = module_path;
++    cmd_argv[4] = NULL;
++    char* codesign_string = "";
++    apr_status_t rv;
++    if ((rv = apr_procattr_create(&attributes, cmd->pool) == APR_SUCCESS)
++        && (rv = apr_procattr_io_set(attributes, APR_NO_PIPE, APR_NO_PIPE, APR_FULL_BLOCK) == APR_SUCCESS)
++        && (rv = apr_procattr_cmdtype_set(attributes, APR_PROGRAM) == APR_SUCCESS)
++        && (rv = apr_procattr_detach_set(attributes, FALSE) == APR_SUCCESS)
++        && (rv = apr_proc_create(&proc, cmd_argv[0], cmd_argv, NULL, attributes, cmd->pool) == APR_SUCCESS)) {
++        while (1) {
++            rv = apr_file_gets(buf, sizeof(buf), proc.err);
++            if (APR_STATUS_IS_EOF(rv))
++                break;
++            codesign_string = apr_pstrcat(cmd->pool, codesign_string, buf, NULL);
++        }
++        apr_file_close(proc.err);
++        rv = apr_proc_wait(&proc, &proc_exit_status, &why, APR_WAIT);
++        if (APR_STATUS_IS_CHILD_DONE(rv)) {
++            if ((why != APR_PROC_EXIT) || (proc_exit_status == 2)) {
++                ap_log_perror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->pool, "%s failed; unable to obtain code signature for module", cmd_argv[0]);
++                return FALSE;
++            }
++        } else {
++            ap_log_perror(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->pool, "%s failed to finish; unable to obtain code signature for module", cmd_argv[0]);
++            return FALSE;
++        }
++        codesign_string_copy = apr_pstrdup(cmd->pool, codesign_string);
++        while ((line = apr_strtok(codesign_string_copy, "\n", &tok_state)) != NULL) {
++            if (first) {
++                codesign_string_copy = NULL;
++                first = FALSE;
++            }
++            if (!strncmp(line, authority_prefix, strlen(authority_prefix))) {
++                authority_on_file = ap_stripprefix(line, authority_prefix);
++                if (!strcmp(authority_name, authority_on_file)) {
++                    return TRUE;
++                }
++            }
++        }
++        ap_log_perror(APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, cmd->pool,
++                       "No valid signature authority found for module at %s", module_path);
++        return FALSE;
++    }
++    else {
++        ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(01575) "Could not spawn '%s': %s. Proceeding without codesign check for module at %s.",
++            cmd_argv[0], apr_strerror(rv, cmd_error, sizeof(cmd_error)), module_path);
++        return FALSE;
++    }
++    ap_log_perror(APLOG_MARK, APLOG_NOTICE, 0, cmd->pool, APLOGNO(01575) "Could not find matching signature authority for module at %s.", module_path);
++    return FALSE;
++}
++
+ static const char *dso_load(cmd_parms *cmd, apr_dso_handle_t **modhandlep,
+-                            const char *filename, const char **used_filename)
++                            const char *filename, const char **used_filename, const char *authority_name)
+ {
+     int retry = 0;
+     const char *fullname = ap_server_root_relative(cmd->temp_pool, filename);
+     char my_error[256];
++    char cmd_error[120];
++    uint32_t codeSigningFlags = CS_REQUIRE_LV;
+     if (filename != NULL && ap_strchr_c(filename, '/') == NULL) {
+         /* retry on error without path to use dlopen()'s search path */
+         retry = 1;
+@@ -158,6 +233,11 @@ static const char *dso_load(cmd_parms *cmd, apr_dso_handle_t **modhandlep,
+         return apr_psprintf(cmd->temp_pool, "Invalid %s path %s",
+                             cmd->cmd->name, filename);
+     }
++
++    // Try to load with library validation enabled.
++    if (csops(0, CS_OPS_SET_STATUS, &codeSigningFlags, sizeof(codeSigningFlags)))
++        ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06660)
++                "csops for CS_OPS_SET_STATUS failed; may not be able to manage code signatures.");
+     *used_filename = fullname;
+     if (apr_dso_load(modhandlep, fullname, cmd->pool) == APR_SUCCESS) {
+         return NULL;
+@@ -167,20 +247,56 @@ static const char *dso_load(cmd_parms *cmd, apr_dso_handle_t **modhandlep,
+         if (apr_dso_load(modhandlep, filename, cmd->pool) == APR_SUCCESS)
+             return NULL;
+     }
+-
++    // Failed to load, perhaps due to library validation issue on custom module,
++    // but no reliable way to tell.
++    ap_log_perror(APLOG_MARK, APLOG_INFO, 0, cmd->pool, APLOGNO(06661)
++                "First try to load module failed, error=%s",
++                apr_dso_error(*modhandlep, my_error, sizeof(my_error)), NULL);
++
++    if (authority_name && strcmp(authority_name, "")) {
++        if (code_signature_at_path_contains_authority_name(cmd, *used_filename, authority_name)) {
++            ap_log_perror(APLOG_MARK, APLOG_NOTICE, 0, cmd->pool, APLOGNO(06662)
++                "Allowing module loading process to continue for module at %s because module "
++                "signature matches authority \"%s\" specified in LoadModule directive",
++                 *used_filename, authority_name);
++        }
++        else {
++            ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06663)
++                "Unable to find code signature authority on module at %s that matches authority "
++                "name \"%s\" configured on LoadModule directive. Proceeding with loading "
++                "process, but this will be an error condition in a future version of macOS.",
++                 *used_filename, authority_name);
++        }
++    }
++    else {
++               ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06665)
++                       "No code signing authority for module at %s specified in LoadModule "
++                       "directive. Proceeding with loading process, but this will be an "
++                       "error condition in a future version of macOS.",
++                       *used_filename);
++    }
++       if (csops(getpid(), CS_OPS_CLEAR_LV, NULL, 0))
++               ap_log_perror(APLOG_MARK, APLOG_WARNING, 0, cmd->pool, APLOGNO(06666)
++                       "csops for CS_OPS_CLEAR_LV failed; httpd has unexpected entitlements and "
++                       "may not be able to load custom modules.");
++       if (apr_dso_load(modhandlep, *used_filename, cmd->pool) == APR_SUCCESS) {
++               return NULL;
++       }
++       // Failure to load not related to code signing.
+     return apr_pstrcat(cmd->temp_pool, "Cannot load ", filename,
+                         " into server: ",
+                         apr_dso_error(*modhandlep, my_error, sizeof(my_error)),
+                         NULL);
+ }
+ 
++
+ /*
+  * This is called for the directive LoadModule and actually loads
+  * a shared object file into the address space of the server process.
+  */
+ 
+ static const char *load_module(cmd_parms *cmd, void *dummy,
+-                               const char *modname, const char *filename)
++                               const char *modname, const char *filename, const char *authority_name)
+ {
+     apr_dso_handle_t *modhandle;
+     apr_dso_handle_sym_t modsym;
+@@ -192,6 +308,7 @@ static const char *load_module(cmd_parms *cmd, void *dummy,
+     int i;
+     const char *error;
+ 
++
+     /* we need to setup this value for dummy to make sure that we don't try
+      * to add a non-existent tree into the build when we return to
+      * execute_now.
+@@ -260,7 +377,7 @@ static const char *load_module(cmd_parms *cmd, void *dummy,
+     /*
+      * Load the file into the Apache address space
+      */
+-    error = dso_load(cmd, &modhandle, filename, &module_file);
++    error = dso_load(cmd, &modhandle, filename, &module_file, authority_name);
+     if (error)
+         return error;
+     ap_log_perror(APLOG_MARK, APLOG_DEBUG, 0, cmd->pool, APLOGNO(01575)
+@@ -329,7 +446,7 @@ static const char *load_file(cmd_parms *cmd, void *dummy, const char *filename)
+     apr_dso_handle_t *handle;
+     const char *used_file, *error;
+ 
+-    error = dso_load(cmd, &handle, filename, &used_file);
++    error = dso_load(cmd, &handle, filename, &used_file, NULL);
+     if (error)
+         return error;
+ 
+@@ -406,7 +523,7 @@ static const char *load_file(cmd_parms *cmd, void *dummy, const char *filename)
+ }
+ 
+ static const char *load_module(cmd_parms *cmd, void *dummy,
+-                               const char *modname, const char *filename)
++                               const char *modname, const char *filename, const char *authority_name)
+ {
+     ap_log_perror(APLOG_MARK, APLOG_STARTUP, 0, cmd->pool, APLOGNO(01578)
+                  "WARNING: LoadModule not supported on this platform");
+@@ -424,8 +541,8 @@ static void register_hooks(apr_pool_t *p)
+ }
+ 
+ static const command_rec so_cmds[] = {
+-    AP_INIT_TAKE2("LoadModule", load_module, NULL, RSRC_CONF | EXEC_ON_READ,
+-      "a module name and the name of a shared object file to load it from"),
++    AP_INIT_TAKE23("LoadModule", load_module, NULL, RSRC_CONF | EXEC_ON_READ,
++      "a module name and the name of a shared object file to load it from, optionally followed by the code signature authority name"),
+     AP_INIT_ITERATE("LoadFile", load_file, NULL, RSRC_CONF  | EXEC_ON_READ,
+       "shared object file or library to load into the server at runtime"),
+     { NULL }
+

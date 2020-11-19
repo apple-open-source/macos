@@ -177,7 +177,7 @@ public:
         RenderBoxModelObject* selObj, LayoutUnit logicalLeft, LayoutUnit logicalTop, LayoutUnit logicalHeight, const LogicalSelectionOffsetCaches&, const PaintInfo*);
     LayoutRect logicalRightSelectionGap(RenderBlock& rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock,
         RenderBoxModelObject* selObj, LayoutUnit logicalRight, LayoutUnit logicalTop, LayoutUnit logicalHeight, const LogicalSelectionOffsetCaches&, const PaintInfo*);
-    void getSelectionGapInfo(SelectionState, bool& leftGap, bool& rightGap);
+    void getSelectionGapInfo(HighlightState, bool& leftGap, bool& rightGap);
     bool isSelectionRoot() const;
 
     LayoutRect logicalRectToPhysicalRect(const LayoutPoint& physicalPosition, const LayoutRect& logicalRect);
@@ -299,7 +299,7 @@ public:
 
     LayoutUnit computeStartPositionDeltaForChildAvoidingFloats(const RenderBox& child, LayoutUnit childMarginStart, RenderFragmentContainer* = 0);
 
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     void checkPositionedObjectsNeedLayout();
 #endif
 
@@ -317,6 +317,8 @@ public:
     bool hasDefiniteLogicalHeight() const;
 
     virtual bool shouldResetChildLogicalHeightBeforeLayout(const RenderBox&) const { return false; }
+
+    static String updateSecurityDiscCharacters(const RenderStyle&, String&&);
 
 protected:
     RenderFragmentedFlow* locateEnclosingFragmentedFlow() const override;
@@ -397,6 +399,9 @@ public:
     void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const override;
     void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const override;
 
+    // Public for EllipsisBox
+    Node* nodeForHitTest() const override;
+
 protected:
     virtual void addOverflowFromChildren();
     // FIXME-BLOCKFLOW: Remove virtualization when all callers have moved to RenderBlockFlow
@@ -435,8 +440,6 @@ private:
 
     bool isSelfCollapsingBlock() const override;
     virtual bool childrenPreventSelfCollapsing() const;
-    
-    Node* nodeForHitTest() const;
 
     // FIXME-BLOCKFLOW: Remove virtualizaion when all callers have moved to RenderBlockFlow
     virtual void paintFloats(PaintInfo&, const LayoutPoint&, bool) { }
@@ -449,6 +452,7 @@ private:
     virtual bool hitTestContents(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
     // FIXME-BLOCKFLOW: Remove virtualization when all callers have moved to RenderBlockFlow
     virtual bool hitTestFloats(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint&) { return false; }
+    virtual bool hitTestChildren(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& adjustedLocation, HitTestAction);
     virtual bool hitTestInlineChildren(const HitTestRequest&, HitTestResult&, const HitTestLocation&, const LayoutPoint&, HitTestAction) { return false; }
     bool hitTestExcludedChildrenInBorder(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
 
@@ -458,8 +462,6 @@ private:
     
     LayoutRect rectWithOutlineForRepaint(const RenderLayerModelObject* repaintContainer, LayoutUnit outlineWidth) const final;
     const RenderStyle& outlineStyleForRepaint() const final;
-
-    void updateDragState(bool dragOn) final;
 
     LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool /*clipToVisibleContent*/) final
     {

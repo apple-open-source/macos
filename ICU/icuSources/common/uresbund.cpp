@@ -31,6 +31,7 @@
 #include "ucln_cmn.h"
 #include "cmemory.h"
 #include "cstring.h"
+#include "mutex.h"
 #include "uhash.h"
 #include "unicode/uenum.h"
 #include "uenumimp.h"
@@ -38,6 +39,9 @@
 #include "umutex.h"
 #include "putilimp.h"
 #include "uassert.h"
+#include "uresdata.h"
+
+#include <stdio.h> /* for sprintf */
 
 using namespace icu;
 
@@ -49,10 +53,7 @@ TODO: This cache should probably be removed when the deprecated code is
 static UHashtable *cache = NULL;
 static icu::UInitOnce gCacheInitOnce = U_INITONCE_INITIALIZER;
 
-static UMutex *resbMutex() {
-    static UMutex *m = STATIC_NEW(UMutex);
-    return m;
-}
+static UMutex resbMutex;
 
 /* INTERNAL: hashes an entry  */
 static int32_t U_CALLCONV hashEntry(const UHashTok parm) {
@@ -78,7 +79,7 @@ static UBool U_CALLCONV compareEntries(const UHashTok p1, const UHashTok p2) {
 
 
 /**
- *  Internal function, gets parts of locale name according 
+ *  Internal function, gets parts of locale name according
  *  to the position of '_' character
  */
 static UBool chopLocale(char *name) {
@@ -92,17 +93,163 @@ static UBool chopLocale(char *name) {
     return FALSE;
 }
 
+static icu::UInitOnce parentLocaleInitOnce = U_INITONCE_INITIALIZER;
+static UHashtable* parentLocaleTable = NULL;
+static char* parentLocaleStrings = NULL;
+static const int32_t parentLocaleStringsCapacity = 2350; // actual size is 2292-- leave a little extra space in case the table changes
+
+static void doInitParentLocaleTable() {
+    UErrorCode err = U_ZERO_ERROR;
+    parentLocaleTable = uhash_open(uhash_hashIChars, uhash_compareIChars, uhash_compareIChars, &err);
+    
+    UResourceBundle* curBundle = ures_openDirect(NULL, "supplementalData", &err);
+    curBundle = ures_getByKey(curBundle, "parentLocales", curBundle, &err);
+    parentLocaleStrings = (char*)uprv_malloc(parentLocaleStringsCapacity);
+    const char* parentLocaleStringsEnd = parentLocaleStrings + parentLocaleStringsCapacity;
+    if (U_FAILURE(err) || parentLocaleStrings == NULL) {
+        U_ASSERT(FALSE); // we should never end up in here; make sure
+        uhash_close(parentLocaleTable);
+        parentLocaleTable = NULL;
+        ures_close(curBundle);
+        uprv_free(parentLocaleStrings);
+        return;
+    }
+    
+    char* nextString = parentLocaleStrings;
+    UResourceBundle* localesForParent = NULL;   // localesForParent in the next line is an in/out parameter
+    localesForParent = ures_getNextResource(curBundle, localesForParent, &err);
+    while (U_SUCCESS(err) && localesForParent != NULL) {
+        const char* parentID = ures_getKey(localesForParent);
+        if (nextString + uprv_strlen(parentID) + 1 >= parentLocaleStringsEnd) {
+            // if we can't build this whole table, we're in trouble
+            U_ASSERT(FALSE);
+            break;
+        }
+        uprv_strcpy(nextString, parentID);
+        nextString += uprv_strlen(parentID) + 1;
+        
+        int32_t numChildIDs = ures_getSize(localesForParent);
+        for (int32_t i = 0; i < numChildIDs; i++) {
+            int32_t childLength = parentLocaleStringsEnd - nextString - 1;
+            const char* childID = ures_getUTF8StringByIndex(localesForParent, i, nextString, &childLength, TRUE, &err);
+            nextString += childLength + 1;
+            
+            if (U_SUCCESS(err)) {
+                uhash_put(parentLocaleTable, (void*)childID, (void*)parentID, &err);
+            } else {
+                 // again, if we can't build this whole table, we're in trouble
+                U_ASSERT(FALSE);
+                break;
+            }
+        }
+        localesForParent = ures_getNextResource(curBundle, localesForParent, &err);
+    }
+
+    ures_close(localesForParent);
+    ures_close(curBundle);
+}
+
+static void initParentLocaleTable() {
+    umtx_initOnce(parentLocaleInitOnce, &doInitParentLocaleTable);
+}
+
+/**
+ *  <rdar://problem/63880069>
+ *  Currently internal function which should eventually be moved (with new name) to ulocimp.h, or perhaps uloc.h.
+ *  Somewhat like uloc_getParent, but only returns a parent from parentLocales data.
+ */
+U_CAPI int32_t U_EXPORT2
+ures_getLocParent(const char* localeID,
+                  char* parent,
+                  int32_t parentCapacity,
+                  UErrorCode* err)
+{
+    if (U_FAILURE(*err))
+        return 0;
+    if (localeID == NULL)
+        localeID = uloc_getDefault();
+
+    initParentLocaleTable();
+    U_ASSERT(parentLocaleTable != NULL); // should not get NULL here
+    if (parentLocaleTable != NULL) {
+        const char* parentID = (const char*)uhash_get(parentLocaleTable, localeID);
+        if (parentID != NULL) {
+            int32_t parentLen = uprv_strlen(parentID);
+            uprv_memcpy(parent, parentID, uprv_min(parentLen, parentCapacity));
+            return u_terminateChars(parent, parentCapacity, parentLen, err);
+        }
+    }
+    return 0;
+    // A more general version of this might do the following instead:
+    // return uloc_getParent(localeID, parent, parentCapacity, err);
+}
+
+/**
+ *  Internal function, determines the search path for resource bundle files.
+ *  Currently, this function is used only by findFirstExisting() to help search for resource bundle files when a bundle for the specified
+ *  locale doesn't exist.  The code that supports inheritance of resources between existing resource bundle files continues to
+ *  use chopLocale() below.
+ *  @param name In-out parameter: On input, the locale ID to get a parent locale ID for (this is a locale's base name, without keywords); on output, the
+ *  requested parent locale ID.
+ *  @param savedRegionCode Pointer to a character array where this function can store the region code from the input locale ID for use by future
+ *  calls to this function.  The caller doesn't usually use the contents of this array itself; it's just temporary storage for this function.  The caller can pass NULL,
+ *  but this isn't recommended.
+ */
+static UBool getParentLocaleID(char *name, char* savedRegionCode) {
+    // first look the locale ID up in the parent locale table (if it exists); if that table specifies a parent
+    // for it, return that
+    if (parentLocaleTable != NULL) {
+        const char* parentID = (const char*)uhash_get(parentLocaleTable, name);
+        if (parentID != NULL) {
+            uprv_strcpy(name, parentID);
+            return TRUE;
+        }
+    }
+    
+    // if the parent locale table didn't specify a locale ID for our locale, derive it algorithmically
+    char language[ULOC_LANG_CAPACITY];
+    char script[ULOC_SCRIPT_CAPACITY];
+    char country[ULOC_COUNTRY_CAPACITY];
+    char variant[ULOC_KEYWORD_AND_VALUES_CAPACITY];
+    UErrorCode err = U_ZERO_ERROR;
+    
+    uloc_getLanguage(name, language, ULOC_LANG_CAPACITY, &err);
+    uloc_getScript(name, script, ULOC_SCRIPT_CAPACITY, &err);
+    uloc_getCountry(name, country, ULOC_COUNTRY_CAPACITY, &err);
+    uloc_getVariant(name, variant, ULOC_KEYWORD_AND_VALUES_CAPACITY, &err);
+    
+    if (U_SUCCESS(err)) {
+        // if the locale ID has both script and country codes (and no variant), save the country code in
+        // savedRegionField and chop it off of the locale ID
+        if (variant[0] == '\0' && script[0] != '\0' && country[0] != '\0') {
+            uprv_strcpy(savedRegionCode, country);
+            return chopLocale(name);
+        }
+        
+        // if the locale ID has language and script and we have a saved region code, replace the script code
+        // in the locale ID with the saved region code
+        if (variant[0] == '\0' && country[0] == '\0' && script[0] != '\0') {
+            sprintf(name, "%s_%s", language, savedRegionCode);
+            return TRUE;
+        }
+    }
+    
+    // if we have any other configuration of fields (or couldn't get fields for some reason), clear out the saved
+    // region code and just use chopLocale()
+    *savedRegionCode = '\0';
+    return chopLocale(name);
+}
+
 /**
  *  Internal function
  */
 static void entryIncrease(UResourceDataEntry *entry) {
-    umtx_lock(resbMutex());
+    Mutex lock(&resbMutex);
     entry->fCountExisting++;
     while(entry->fParent != NULL) {
       entry = entry->fParent;
       entry->fCountExisting++;
     }
-    umtx_unlock(resbMutex());
 }
 
 /**
@@ -184,9 +331,8 @@ static int32_t ures_flushCache()
     /*if shared data hasn't even been lazy evaluated yet
     * return 0
     */
-    umtx_lock(resbMutex());
+    Mutex lock(&resbMutex);
     if (cache == NULL) {
-        umtx_unlock(resbMutex());
         return 0;
     }
 
@@ -218,7 +364,6 @@ static int32_t ures_flushCache()
          * got decremented by free_entry().
          */
     } while(deletedMore);
-    umtx_unlock(resbMutex());
 
     return rbDeletedNum;
 }
@@ -232,9 +377,8 @@ U_CAPI UBool U_EXPORT2 ures_dumpCacheContents(void) {
   const UHashElement *e;
   UResourceDataEntry *resB;
   
-    umtx_lock(resbMutex());
+    Mutex lock(&resbMutex);
     if (cache == NULL) {
-      umtx_unlock(resbMutex());
       fprintf(stderr,"%s:%d: RB Cache is NULL.\n", __FILE__, __LINE__);
       return FALSE;
     }
@@ -253,9 +397,6 @@ U_CAPI UBool U_EXPORT2 ures_dumpCacheContents(void) {
     }
     
     fprintf(stderr,"%s:%d: RB Cache still contains %d items.\n", __FILE__, __LINE__, uhash_count(cache));
-
-    umtx_unlock(resbMutex());
-    
     return cacheNotEmpty;
 }
 
@@ -267,6 +408,13 @@ static UBool U_CALLCONV ures_cleanup(void)
         ures_flushCache();
         uhash_close(cache);
         cache = NULL;
+    }
+    if (parentLocaleTable != NULL) {
+        uhash_close(parentLocaleTable);
+        uprv_free(parentLocaleStrings);
+        parentLocaleTable = NULL;
+        parentLocaleStrings = NULL;
+        parentLocaleInitOnce.reset();
     }
     gCacheInitOnce.reset();
     return TRUE;
@@ -401,7 +549,8 @@ static UResourceDataEntry *init_entry(const char *localeID, const char *path, UE
                 /* We'll try to get alias string from the bundle */
                 aliasres = res_getResource(&(r->fData), "%%ALIAS");
                 if (aliasres != RES_BOGUS) {
-                    const UChar *alias = res_getString(&(r->fData), aliasres, &aliasLen);
+                    // No tracing: called during initial data loading
+                    const UChar *alias = res_getStringNoTrace(&(r->fData), aliasres, &aliasLen);
                     if(alias != NULL && aliasLen > 0) { /* if there is actual alias - unload and load new data */
                         u_UCharsToChars(alias, aliasName, aliasLen+1);
                         r->fAlias = init_entry(aliasName, path, status);
@@ -460,13 +609,14 @@ getPoolEntry(const char *path, UErrorCode *status) {
 /*   CAUTION:  resbMutex must be locked when calling this function! */
 static UResourceDataEntry *
 findFirstExisting(const char* path, char* name,
-                  UBool *isRoot, UBool *hasChopped, UBool *isDefault, UErrorCode* status) {
+                  UBool *isRoot, UBool *foundParent, UBool *isDefault, UErrorCode* status) {
     UResourceDataEntry *r = NULL;
     UBool hasRealData = FALSE;
     const char *defaultLoc = uloc_getDefault();
-    *hasChopped = TRUE; /* we're starting with a fresh name */
+    *foundParent = TRUE; /* we're starting with a fresh name */
+    char savedRegionCode[ULOC_COUNTRY_CAPACITY] = "";
 
-    while(*hasChopped && !hasRealData) {
+    while(*foundParent && !hasRealData) {
         r = init_entry(name, path, status);
         /* Null pointer test */
         if (U_FAILURE(*status)) {
@@ -491,8 +641,14 @@ findFirstExisting(const char* path, char* name,
         *isRoot = (UBool)(uprv_strcmp(name, kRootLocaleName) == 0);
 
         /*Fallback data stuff*/
-        *hasChopped = chopLocale(name);
-        if (*hasChopped && *name == '\0') {
+        if (!hasRealData) {
+            *foundParent = getParentLocaleID(name, savedRegionCode);
+        } else {
+            // we've already found a real resource file; what we return to the caller is the parent
+            // locale ID for inheritance, which should come from chopLocale(), not getParentLocaleID()
+            *foundParent = chopLocale(name);
+        }
+        if (*foundParent && *name == '\0') {
             uprv_strcpy(name, "und");
         }
     }
@@ -542,7 +698,8 @@ loadParentsExceptRoot(UResourceDataEntry *&t1,
         Resource parentRes = res_getResource(&t1->fData, "%%Parent");
         if (parentRes != RES_BOGUS) {  // An explicit parent was found.
             int32_t parentLocaleLen = 0;
-            const UChar *parentLocaleName = res_getString(&(t1->fData), parentRes, &parentLocaleLen);
+            // No tracing: called during initial data loading
+            const UChar *parentLocaleName = res_getStringNoTrace(&(t1->fData), parentRes, &parentLocaleLen);
             if(parentLocaleName != NULL && 0 < parentLocaleLen && parentLocaleLen < nameCapacity) {
                 u_UCharsToChars(parentLocaleName, name, parentLocaleLen + 1);
                 if (uprv_strcmp(name, kRootLocaleName) == 0) {
@@ -646,6 +803,7 @@ static UResourceDataEntry *entryOpen(const char* path, const char* localeID,
     char usrDataPath[96];
 
     initCache(status);
+    initParentLocaleTable();
 
     if(U_FAILURE(*status)) {
         return NULL;
@@ -666,107 +824,105 @@ static UResourceDataEntry *entryOpen(const char* path, const char* localeID,
         }
     }
  
-    umtx_lock(resbMutex());
-    { /* umtx_lock */
-        /* We're going to skip all the locales that do not have any data */
-        r = findFirstExisting(path, name, &isRoot, &hasChopped, &isDefault, &intStatus);
+    Mutex lock(&resbMutex);    // Lock resbMutex until the end of this function.
 
+    /* We're going to skip all the locales that do not have any data */
+    r = findFirstExisting(path, name, &isRoot, &hasChopped, &isDefault, &intStatus);
+
+    // If we failed due to out-of-memory, report the failure and exit early.
+    if (intStatus == U_MEMORY_ALLOCATION_ERROR) {
+        *status = intStatus;
+        goto finish;
+    }
+
+    if(r != NULL) { /* if there is one real locale, we can look for parents. */
+        t1 = r;
+        hasRealData = TRUE;
+        if ( usingUSRData ) {  /* This code inserts user override data into the inheritance chain */
+            UErrorCode usrStatus = U_ZERO_ERROR;
+            UResourceDataEntry *u1 = init_entry(t1->fName, usrDataPath, &usrStatus);
+            // If we failed due to out-of-memory, report the failure and exit early.
+            if (intStatus == U_MEMORY_ALLOCATION_ERROR) {
+                *status = intStatus;
+                goto finish;
+            }
+            if ( u1 != NULL ) {
+                if(u1->fBogus == U_ZERO_ERROR) {
+                    u1->fParent = t1;
+                    r = u1;
+                } else {
+                    /* the USR override data wasn't found, set it to be deleted */
+                    u1->fCountExisting = 0;
+                }
+            }
+        }
+        if (hasChopped && !isRoot) {
+            if (!loadParentsExceptRoot(t1, name, UPRV_LENGTHOF(name), usingUSRData, usrDataPath, status)) {
+                goto finish;
+            }
+        }
+    }
+
+    /* we could have reached this point without having any real data */
+    /* if that is the case, we need to chain in the default locale   */
+    if(r==NULL && openType == URES_OPEN_LOCALE_DEFAULT_ROOT && !isDefault && !isRoot) {
+        /* insert default locale */
+        uprv_strcpy(name, uloc_getDefault());
+        r = findFirstExisting(path, name, &isRoot, &hasChopped, &isDefault, &intStatus);
         // If we failed due to out-of-memory, report the failure and exit early.
         if (intStatus == U_MEMORY_ALLOCATION_ERROR) {
             *status = intStatus;
-            goto finishUnlock;
+            goto finish;
         }
-
-        if(r != NULL) { /* if there is one real locale, we can look for parents. */
+        intStatus = U_USING_DEFAULT_WARNING;
+        if(r != NULL) { /* the default locale exists */
             t1 = r;
             hasRealData = TRUE;
-            if ( usingUSRData ) {  /* This code inserts user override data into the inheritance chain */
-                UErrorCode usrStatus = U_ZERO_ERROR;
-                UResourceDataEntry *u1 = init_entry(t1->fName, usrDataPath, &usrStatus);
-                // If we failed due to out-of-memory, report the failure and exit early.
-                if (intStatus == U_MEMORY_ALLOCATION_ERROR) {
-                    *status = intStatus;
-                    goto finishUnlock;
-                }
-                if ( u1 != NULL ) {
-                    if(u1->fBogus == U_ZERO_ERROR) {
-                        u1->fParent = t1;
-                        r = u1;
-                    } else {
-                        /* the USR override data wasn't found, set it to be deleted */
-                        u1->fCountExisting = 0;
-                    }
-                }
-            }
+            isDefault = TRUE;
+            // TODO: Why not if (usingUSRData) { ... } like in the non-default-locale code path?
             if (hasChopped && !isRoot) {
                 if (!loadParentsExceptRoot(t1, name, UPRV_LENGTHOF(name), usingUSRData, usrDataPath, status)) {
-                    goto finishUnlock;
+                    goto finish;
                 }
             }
         }
+    }
 
-        /* we could have reached this point without having any real data */
-        /* if that is the case, we need to chain in the default locale   */
-        if(r==NULL && openType == URES_OPEN_LOCALE_DEFAULT_ROOT && !isDefault && !isRoot) {
-            /* insert default locale */
-            uprv_strcpy(name, uloc_getDefault());
-            r = findFirstExisting(path, name, &isRoot, &hasChopped, &isDefault, &intStatus);
-            // If we failed due to out-of-memory, report the failure and exit early.
-            if (intStatus == U_MEMORY_ALLOCATION_ERROR) {
-                *status = intStatus;
-                goto finishUnlock;
-            }
+    /* we could still have r == NULL at this point - maybe even default locale is not */
+    /* present */
+    if(r == NULL) {
+        uprv_strcpy(name, kRootLocaleName);
+        r = findFirstExisting(path, name, &isRoot, &hasChopped, &isDefault, &intStatus);
+        // If we failed due to out-of-memory, report the failure and exit early.
+        if (intStatus == U_MEMORY_ALLOCATION_ERROR) {
+            *status = intStatus;
+            goto finish;
+        }
+        if(r != NULL) {
+            t1 = r;
             intStatus = U_USING_DEFAULT_WARNING;
-            if(r != NULL) { /* the default locale exists */
-                t1 = r;
-                hasRealData = TRUE;
-                isDefault = TRUE;
-                // TODO: Why not if (usingUSRData) { ... } like in the non-default-locale code path?
-                if (hasChopped && !isRoot) {
-                    if (!loadParentsExceptRoot(t1, name, UPRV_LENGTHOF(name), usingUSRData, usrDataPath, status)) {
-                        goto finishUnlock;
-                    }
-                }
-            } 
+            hasRealData = TRUE;
+        } else { /* we don't even have the root locale */
+            *status = U_MISSING_RESOURCE_ERROR;
+            goto finish;
         }
-
-        /* we could still have r == NULL at this point - maybe even default locale is not */
-        /* present */
-        if(r == NULL) {
-            uprv_strcpy(name, kRootLocaleName);
-            r = findFirstExisting(path, name, &isRoot, &hasChopped, &isDefault, &intStatus);
-            // If we failed due to out-of-memory, report the failure and exit early.
-            if (intStatus == U_MEMORY_ALLOCATION_ERROR) {
-                *status = intStatus;
-                goto finishUnlock;
-            }
-            if(r != NULL) {
-                t1 = r;
-                intStatus = U_USING_DEFAULT_WARNING;
-                hasRealData = TRUE;
-            } else { /* we don't even have the root locale */
-                *status = U_MISSING_RESOURCE_ERROR;
-                goto finishUnlock;
-            }
-        } else if(!isRoot && uprv_strcmp(t1->fName, kRootLocaleName) != 0 &&
-                t1->fParent == NULL && !r->fData.noFallback) {
-            if (!insertRootBundle(t1, status)) {
-                goto finishUnlock;
-            }
-            if(!hasRealData) {
-                r->fBogus = U_USING_DEFAULT_WARNING;
-            }
+    } else if(!isRoot && uprv_strcmp(t1->fName, kRootLocaleName) != 0 &&
+            t1->fParent == NULL && !r->fData.noFallback) {
+        if (!insertRootBundle(t1, status)) {
+            goto finish;
         }
-
-        // TODO: Does this ever loop? A: Yes, it can often loop up to 4 times or so.
-        while(r != NULL && !isRoot && t1->fParent != NULL) {
-            t1->fParent->fCountExisting++;
-            t1 = t1->fParent;
+        if(!hasRealData) {
+            r->fBogus = U_USING_DEFAULT_WARNING;
         }
-    } /* umtx_lock */
-finishUnlock:
-    umtx_unlock(resbMutex());
+    }
 
+    // TODO: Does this ever loop?
+    while(r != NULL && !isRoot && t1->fParent != NULL) {
+        t1->fParent->fCountExisting++;
+        t1 = t1->fParent;
+    }
+
+finish:
     if(U_SUCCESS(*status)) {
         if(intStatus != U_ZERO_ERROR) {
             *status = intStatus;  
@@ -790,7 +946,7 @@ entryOpenDirect(const char* path, const char* localeID, UErrorCode* status) {
         return NULL;
     }
 
-    umtx_lock(resbMutex());
+    Mutex lock(&resbMutex);
     // findFirstExisting() without fallbacks.
     UResourceDataEntry *r = init_entry(localeID, path, status);
     if(U_SUCCESS(*status)) {
@@ -828,7 +984,6 @@ entryOpenDirect(const char* path, const char* localeID, UErrorCode* status) {
             t1 = t1->fParent;
         }
     }
-    umtx_unlock(resbMutex());
     return r;
 }
 
@@ -871,9 +1026,8 @@ static void entryCloseInt(UResourceDataEntry *resB) {
  */
 
 static void entryClose(UResourceDataEntry *resB) {
-  umtx_lock(resbMutex());
+  Mutex lock(&resbMutex);
   entryCloseInt(resB);
-  umtx_unlock(resbMutex());
 }
 
 /*
@@ -1177,6 +1331,7 @@ static UResourceBundle *init_resb_result(const ResourceData *rdata, Resource r,
                     if(mainRes != result) {
                         ures_close(mainRes);
                     }
+                    ResourceTracer(resB).maybeTrace("getalias");
                     return result;
                 }
             } else {
@@ -1256,6 +1411,7 @@ static UResourceBundle *init_resb_result(const ResourceData *rdata, Resource r,
     /*resB->fParent = parent->fRes;*/
     uprv_memmove(&resB->fResData, rdata, sizeof(ResourceData));
     resB->fSize = res_countArrayItems(&(resB->fResData), resB->fRes);
+    ResourceTracer(resB).trace("get");
     return resB;
 }
 
@@ -1304,7 +1460,7 @@ U_CAPI const UChar* U_EXPORT2 ures_getString(const UResourceBundle* resB, int32_
         *status = U_ILLEGAL_ARGUMENT_ERROR;
         return NULL;
     }
-    s = res_getString(&(resB->fResData), resB->fRes, len);
+    s = res_getString({resB}, &(resB->fResData), resB->fRes, len);
     if (s == NULL) {
         *status = U_RESOURCE_TYPE_MISMATCH;
     }
@@ -1393,7 +1549,7 @@ U_CAPI const uint8_t* U_EXPORT2 ures_getBinary(const UResourceBundle* resB, int3
     *status = U_ILLEGAL_ARGUMENT_ERROR;
     return NULL;
   }
-  p = res_getBinary(&(resB->fResData), resB->fRes, len);
+  p = res_getBinary({resB}, &(resB->fResData), resB->fRes, len);
   if (p == NULL) {
     *status = U_RESOURCE_TYPE_MISMATCH;
   }
@@ -1410,7 +1566,7 @@ U_CAPI const int32_t* U_EXPORT2 ures_getIntVector(const UResourceBundle* resB, i
     *status = U_ILLEGAL_ARGUMENT_ERROR;
     return NULL;
   }
-  p = res_getIntVector(&(resB->fResData), resB->fRes, len);
+  p = res_getIntVector({resB}, &(resB->fResData), resB->fRes, len);
   if (p == NULL) {
     *status = U_RESOURCE_TYPE_MISMATCH;
   }
@@ -1431,7 +1587,7 @@ U_CAPI int32_t U_EXPORT2 ures_getInt(const UResourceBundle* resB, UErrorCode *st
     *status = U_RESOURCE_TYPE_MISMATCH;
     return 0xffffffff;
   }
-  return RES_GET_INT(resB->fRes);
+  return res_getInt({resB}, resB->fRes);
 }
 
 U_CAPI uint32_t U_EXPORT2 ures_getUInt(const UResourceBundle* resB, UErrorCode *status) {
@@ -1446,7 +1602,7 @@ U_CAPI uint32_t U_EXPORT2 ures_getUInt(const UResourceBundle* resB, UErrorCode *
     *status = U_RESOURCE_TYPE_MISMATCH;
     return 0xffffffff;
   }
-  return RES_GET_UINT(resB->fRes);
+  return res_getUInt({resB}, resB->fRes);
 }
 
 U_CAPI UResType U_EXPORT2 ures_getType(const UResourceBundle *resB) {
@@ -1457,10 +1613,18 @@ U_CAPI UResType U_EXPORT2 ures_getType(const UResourceBundle *resB) {
 }
 
 U_CAPI const char * U_EXPORT2 ures_getKey(const UResourceBundle *resB) {
+  //
+  // TODO: Trace ures_getKey? I guess not usually.
+  //
+  // We usually get the key string to decide whether we want the value, or to
+  // make a key-value pair. Tracing the value should suffice.
+  //
+  // However, I believe we have some data (e.g., in res_index) where the key
+  // strings are the data. Tracing the enclosing table should suffice.
+  //
   if(resB == NULL) {
     return NULL;
   }
-  
   return(resB->fKey);
 }
 
@@ -1480,7 +1644,7 @@ static const UChar* ures_getStringWithAlias(const UResourceBundle *resB, Resourc
     ures_close(tempRes);
     return result;
   } else {
-    return res_getString(&(resB->fResData), r, len); 
+    return res_getString({resB, sIndex}, &(resB->fResData), r, len); 
   }
 }
 
@@ -1516,7 +1680,7 @@ U_CAPI const UChar* U_EXPORT2 ures_getNextString(UResourceBundle *resB, int32_t*
     switch(RES_GET_TYPE(resB->fRes)) {
     case URES_STRING:
     case URES_STRING_V2:
-      return res_getString(&(resB->fResData), resB->fRes, len); 
+      return res_getString({resB}, &(resB->fResData), resB->fRes, len);
     case URES_TABLE:
     case URES_TABLE16:
     case URES_TABLE32:
@@ -1661,7 +1825,7 @@ U_CAPI const UChar* U_EXPORT2 ures_getStringByIndex(const UResourceBundle *resB,
         switch(RES_GET_TYPE(resB->fRes)) {
         case URES_STRING:
         case URES_STRING_V2:
-            return res_getString(&(resB->fResData), resB->fRes, len);
+            return res_getString({resB}, &(resB->fResData), resB->fRes, len);
         case URES_TABLE:
         case URES_TABLE16:
         case URES_TABLE32:
@@ -1909,7 +2073,7 @@ ures_getByKeyWithFallback(const UResourceBundle *resB,
                               break;
                             }
                         }
-                    } while(*myPath); /* Continue until the whole path is consumed */
+                    } while(res != RES_BOGUS && *myPath); /* Continue until the whole path is consumed */
                 }
             }
             /*const ResourceData *rd = getFallbackData(resB, &key, &realData, &res, status);*/
@@ -1953,10 +2117,10 @@ void getAllItemsWithFallback(
     // When the sink sees the no-fallback/no-inheritance marker,
     // then it would remove the parent's item.
     // We would deserialize parent values even though they are overridden in a child bundle.
-    value.pResData = &bundle->fResData;
+    value.setData(&bundle->fResData);
     UResourceDataEntry *parentEntry = bundle->fData->fParent;
     UBool hasParent = parentEntry != NULL && U_SUCCESS(parentEntry->fBogus);
-    value.setResource(bundle->fRes);
+    value.setResource(bundle->fRes, ResourceTracer(bundle));
     sink.put(bundle->fKey, value, !hasParent, errorCode);
     if (hasParent) {
         // We might try to query the sink whether
@@ -2001,31 +2165,60 @@ void getAllItemsWithFallback(
 
 }  // namespace
 
+// Requires a ResourceDataValue fill-in, so that we need not cast from a ResourceValue.
+// Unfortunately, the caller must know which subclass to make and pass in.
+// Alternatively, we could make it as polymorphic as in Java by
+// returning a ResourceValue pointer (possibly wrapped into a LocalPointer)
+// that the caller then owns.
+//
+// Also requires a UResourceBundle fill-in, so that the value's ResourceTracer
+// can point to a non-local bundle.
+// Without tracing, the child bundle could be a function-local object.
 U_CAPI void U_EXPORT2
-ures_getAllItemsWithFallback(const UResourceBundle *bundle, const char *path,
-                             icu::ResourceSink &sink, UErrorCode &errorCode) {
+ures_getValueWithFallback(const UResourceBundle *bundle, const char *path,
+                          UResourceBundle *tempFillIn,
+                          ResourceDataValue &value, UErrorCode &errorCode) {
     if (U_FAILURE(errorCode)) { return; }
-    if (path == NULL) {
+    if (path == nullptr) {
         errorCode = U_ILLEGAL_ARGUMENT_ERROR;
         return;
     }
-    UResourceBundle stackBundle;
-    ures_initStackObject(&stackBundle);
     const UResourceBundle *rb;
     if (*path == 0) {
         // empty path
         rb = bundle;
     } else {
-        rb = ures_getByKeyWithFallback(bundle, path, &stackBundle, &errorCode);
+        rb = ures_getByKeyWithFallback(bundle, path, tempFillIn, &errorCode);
         if (U_FAILURE(errorCode)) {
-            ures_close(&stackBundle);
+            return;
+        }
+    }
+    value.setData(&rb->fResData);
+    value.setResource(rb->fRes, ResourceTracer(rb));
+}
+
+U_CAPI void U_EXPORT2
+ures_getAllItemsWithFallback(const UResourceBundle *bundle, const char *path,
+                             icu::ResourceSink &sink, UErrorCode &errorCode) {
+    if (U_FAILURE(errorCode)) { return; }
+    if (path == nullptr) {
+        errorCode = U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+    StackUResourceBundle stackBundle;
+    const UResourceBundle *rb;
+    if (*path == 0) {
+        // empty path
+        rb = bundle;
+    } else {
+        rb = ures_getByKeyWithFallback(bundle, path, stackBundle.getAlias(), &errorCode);
+        if (U_FAILURE(errorCode)) {
             return;
         }
     }
     // Get all table items with fallback.
     ResourceDataValue value;
     getAllItemsWithFallback(rb, value, sink, errorCode);
-    ures_close(&stackBundle);
 }
 
 U_CAPI UResourceBundle* U_EXPORT2 ures_getByKey(const UResourceBundle *resB, const char* inKey, UResourceBundle *fillIn, UErrorCode *status) {
@@ -2108,7 +2301,7 @@ U_CAPI const UChar* U_EXPORT2 ures_getStringByKey(const UResourceBundle *resB, c
                     switch (RES_GET_TYPE(res)) {
                     case URES_STRING:
                     case URES_STRING_V2:
-                        return res_getString(rd, res, len);
+                        return res_getString({resB, key}, rd, res, len);
                     case URES_ALIAS:
                       {
                         const UChar* result = 0;
@@ -2130,7 +2323,7 @@ U_CAPI const UChar* U_EXPORT2 ures_getStringByKey(const UResourceBundle *resB, c
             switch (RES_GET_TYPE(res)) {
             case URES_STRING:
             case URES_STRING_V2:
-                return res_getString(&(resB->fResData), res, len);
+                return res_getString({resB, key}, &(resB->fResData), res, len);
             case URES_ALIAS:
               {
                 const UChar* result = 0;
@@ -2151,6 +2344,7 @@ U_CAPI const UChar* U_EXPORT2 ures_getStringByKey(const UResourceBundle *resB, c
         /* here should go a first attempt to locate the key using index table */
         const ResourceData *rd = getFallbackData(resB, &key, &realData, &res, status);
         if(U_SUCCESS(*status)) {
+            // TODO: Tracing
             return res_getString(rd, res, len);
         } else {
             *status = U_MISSING_RESOURCE_ERROR;
@@ -2296,6 +2490,8 @@ ures_openWithType(UResourceBundle *r, const char* path, const char* localeID,
     r->fSize = res_countArrayItems(&(r->fResData), r->fRes);
     r->fIndex = -1;
 
+    ResourceTracer(r).traceOpen();
+
     return r;
 }
 
@@ -2345,6 +2541,126 @@ ures_openDirectFillIn(UResourceBundle *r, const char* path, const char* localeID
         return;
     }
     ures_openWithType(r, path, localeID, URES_OPEN_DIRECT, status);
+}
+
+/**
+ * Same as ures_open(), except that if no resource bundle for the specified package name and locale exists,
+ * and the incoming locale specifies a country, this will fall back to the resource bundle for the specified country
+ * and the specified country's default language.  For example, if caller asks for fr_JP and no bundle for fr_JP exists,
+ * ures_open() will fall back to fr and this function will fall back to ja_JP.
+ */
+U_INTERNAL UResourceBundle*  U_EXPORT2
+ures_openWithCountryFallback(const char*  packageName,
+                             const char*  locale,
+                             UBool*       didFallBackByCountry,
+                             UErrorCode*  status) {
+    // First, call ures_open().
+    UResourceBundle* result = ures_open(packageName, locale, status);
+    if (didFallBackByCountry != NULL) {
+        *didFallBackByCountry = FALSE;
+    }
+    
+    // If the original locale specified a country and the resource bundle we got from ures_open() above
+    // is a fallback locale that throws away the specified country, create a NEW fallback bundle using
+    // the originally-specified country code paired with that country's default language code (as given
+    // by Locale::addLikelySubtags() ).  That is, if the user asks for number patterns for ja_US, use
+    // the patterns for en_US instead of the patterns for ja.
+    char country[ULOC_COUNTRY_CAPACITY];
+    uloc_getCountry(locale, country, ULOC_COUNTRY_CAPACITY, status);
+    
+    // Do the special logic if we got a fallback resource bundle and the original locale specified a country.
+    if (*status == U_USING_FALLBACK_WARNING && uprv_strlen(country) > 0) {
+        // If the fallback bundle's locale *doesn't* specify a country, or specifies a different country
+        // than we originally asked for, do our special fallback logic.
+        char receivedCountry[ULOC_COUNTRY_CAPACITY];
+        uloc_getCountry(ures_getLocaleByType(result, ULOC_ACTUAL_LOCALE, status), receivedCountry, ULOC_COUNTRY_CAPACITY, status);
+        if (uprv_strcmp(country, receivedCountry) != 0) {
+            char language[ULOC_LANG_CAPACITY];
+            char script[ULOC_SCRIPT_CAPACITY];
+            const char* countryAndParameters = locale;    // this changes below
+            char countryLocale[ULOC_FULLNAME_CAPACITY];
+            UBool originalLocaleHasScript = FALSE;
+
+            // Isolate out the fields in the original locale.
+            uloc_getLanguage(locale, language, ULOC_LANG_CAPACITY, status);
+            uloc_getScript(locale, script, ULOC_SCRIPT_CAPACITY, status);
+            originalLocaleHasScript = uprv_strlen(script) > 0;
+            countryAndParameters = locale + uprv_strlen(language) + 1;  // +1 for the _ after the language
+            if (originalLocaleHasScript) {
+                countryAndParameters += uprv_strlen(script) + 1; // +1 for the _ after the script
+            }
+
+            // Get the default language for the specified country by fabricating a locale ID with
+            // that country code and "und" for the language code and calling uloc_addLikelySubtags().
+            sprintf(countryLocale, "und_%s", country);
+            uloc_addLikelySubtags(countryLocale, countryLocale, ULOC_FULLNAME_CAPACITY, status);
+            uloc_getLanguage(countryLocale, language, ULOC_LANG_CAPACITY, status);
+            if (!originalLocaleHasScript) {
+                uloc_getScript(countryLocale, script, ULOC_SCRIPT_CAPACITY, status);
+            }
+
+            if (U_SUCCESS(*status)) {
+                UResourceBundle* newResource = NULL;
+
+                // Create a new locale ID using the language from uloc_addLikelySubtags() and the script (if present),
+                // country, and parameters from the original locale and try opening a resource for it.
+                *status = U_ZERO_ERROR;
+                sprintf(countryLocale, "%s_%s_%s", language, script, countryAndParameters);
+                newResource = ures_open(packageName, countryLocale, status);
+                
+                // If we got back a fallback locale of the default locale, we have more work to do...
+                if (*status == U_USING_FALLBACK_WARNING || *status == U_USING_DEFAULT_WARNING) {
+                    char receivedLanguage[ULOC_LANG_CAPACITY];
+                    uloc_getLanguage(ures_getLocaleByType(newResource, ULOC_ACTUAL_LOCALE, status), receivedLanguage, ULOC_LANG_CAPACITY, status);
+                    
+                    // If we got back a resource for the default locale, or we got back a resource for a locale with
+                    // a different language than the one we asked for, that means uloc_addLikelySubtags() gave us back
+                    // a locale with a language we don't actually have resource bundles for, or it gave us back "und"
+                    // instead of a real language code.  For the non-"und" cases, we're getting back the most important
+                    // spoken language for that country, but we only have resource data for that country's "official"
+                    // language.  Most of the time, that language is English (we also use English for "und"); the table
+                    // below covers the exceptions.  Look up the appropriate language in the table and try again to
+                    // load a resource bundle for that language.
+                    if (*status == U_USING_DEFAULT_WARNING || uprv_strcmp(language, receivedLanguage) != 0) {
+                        static const char* substituteLanguageTable[] = {
+                            "pap_Latn_BQ", "nl",
+                            "pap_Latn_CW", "nl",
+                            "aa_Latn_DJ", "fr",
+                            "ht_Latn_HT", "fr",
+                            "bi_Latn_VU", "fr"
+                        };
+                        uprv_strcpy(language, "en");
+                        for (int32_t i = 0; i < sizeof(substituteLanguageTable) / sizeof(char*); i += 2) {
+                            if (uprv_strncmp(countryLocale, substituteLanguageTable[i], uprv_strlen(substituteLanguageTable[i])) == 0) {
+                                uprv_strcpy(language, substituteLanguageTable[i + 1]);
+                                break;
+                            }
+                        }
+                        sprintf(countryLocale, "%s_%s_%s", language, script, countryAndParameters);
+                        ures_close(newResource);
+                        newResource = ures_open(packageName, countryLocale, status);
+                    }
+                }
+
+                // If that succeeds, that's what we return as our result.
+                if (U_SUCCESS(*status)) {
+                    // If the user passed us a pointer in didFallBackByCountry, set it based on whether our special
+                    // logic actually retrieved a different resource bundle than the ures_open() call at the top
+                    // of the function.
+                    if (didFallBackByCountry != NULL) {
+                        UErrorCode tmpStatus = U_ZERO_ERROR;
+                        const char* languageLocale = ures_getLocaleByType(result, ULOC_ACTUAL_LOCALE, &tmpStatus);
+                        const char* countryLocale = ures_getLocaleByType(newResource, ULOC_ACTUAL_LOCALE, &tmpStatus);
+                        *didFallBackByCountry = U_SUCCESS(tmpStatus) && languageLocale != NULL && countryLocale != NULL && uprv_strcmp(languageLocale, countryLocale) != 0;
+                    }
+                    ures_close(result);
+                    result = newResource;
+                }
+            }
+        }
+    }
+    
+    return result;
 }
 
 /**

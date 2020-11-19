@@ -21,9 +21,13 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#import <Foundation/Foundation.h>
+
+#include <dlfcn.h>
+
 
 void ads_prime(void) {}
-void evaluateADS {}
+void evaluateADS() {}
 
 
 

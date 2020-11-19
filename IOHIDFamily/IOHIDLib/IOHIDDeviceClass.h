@@ -29,11 +29,13 @@
 #import <IOKit/hid/IOHIDElement.h>
 #import <IOKit/hid/IOHIDValue.h>
 #import <IOKit/hid/IOHIDDevicePlugIn.h>
+#import <IOKit/hid/IOHIDLibUserClient.h>
 
 @class IOHIDQueueClass;
 
 enum {
     kHIDSetElementValuePendEvent    = 0x00010000,
+    kHIDGetElementValuePendEvent    = kHIDSetElementValuePendEvent,
     kHIDGetElementValueForcePoll    = 0x00020000,
     kHIDGetElementValuePreventPoll  = 0x00040000,
 };
@@ -54,9 +56,6 @@ enum {
     BOOL                                    _opened;
     BOOL                                    _tccRequested;
     BOOL                                    _tccGranted;
-    
-    mach_vm_address_t                       _sharedMemory;
-    mach_vm_size_t                          _sharedMemorySize;
     
     IOHIDQueueClass                         *_queue;
     NSMutableArray                          *_elements;
@@ -119,6 +118,8 @@ enum {
              options:(IOOptionBits)options;
 
 - (IOHIDElementRef _Nullable)getElement:(uint32_t)cookie;
+
+- (void)releaseOOBReport:(uint64_t)reportAddress;
 
 @property (readonly)            mach_port_t         port;
 @property (readonly, nullable)  CFRunLoopSourceRef  runLoopSource;

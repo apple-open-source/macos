@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009,2012-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2009,2012-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -40,6 +40,7 @@
 #include <vproc_priv.h>
 #include <xpc/xpc.h>
 #include <xpc/private.h>
+#include <os/feature_private.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecItem.h>
@@ -69,27 +70,33 @@ struct trustd *gTrustd;
 
 /* Hardcoded Access Groups for the server itself */
 static CFArrayRef SecServerCopyAccessGroups(void) {
-    return CFArrayCreateForCFTypes(kCFAllocatorDefault,
+    CFArrayRef accessGroups = CFArrayCreateForCFTypes(kCFAllocatorDefault,
 #if NO_SERVER
-                                   CFSTR("test"),
-                                   CFSTR("apple"),
-                                   CFSTR("lockdown-identities"),
-                                   CFSTR("123456.test.group"),
-                                   CFSTR("123456.test.group2"),
-                                   CFSTR("com.apple.cfnetwork"),
-                                   CFSTR("com.apple.bluetooth"),
+                                                      CFSTR("test"),
+                                                      CFSTR("apple"),
+                                                      CFSTR("lockdown-identities"),
+                                                      CFSTR("123456.test.group"),
+                                                      CFSTR("123456.test.group2"),
+                                                      CFSTR("com.apple.cfnetwork"),
+                                                      CFSTR("com.apple.bluetooth"),
 #endif
-                                   CFSTR("sync"),
-                                   CFSTR("com.apple.security.sos"),
-                                   CFSTR("com.apple.security.ckks"),
-                                   CFSTR("com.apple.security.octagon"),
-                                   CFSTR("com.apple.security.egoIdentities"),
-                                   CFSTR("com.apple.security.sos-usercredential"),
-                                   CFSTR("com.apple.sbd"),
-                                   CFSTR("com.apple.lakitu"),
-                                   CFSTR("com.apple.security.securityd"),
-                                   kSecAttrAccessGroupToken,
-                                   NULL);
+                                                      CFSTR("sync"),
+                                                      CFSTR("com.apple.security.sos"),
+                                                      CFSTR("com.apple.security.ckks"),
+                                                      CFSTR("com.apple.security.octagon"),
+                                                      CFSTR("com.apple.security.egoIdentities"),
+                                                      CFSTR("com.apple.security.sos-usercredential"),
+                                                      CFSTR("com.apple.sbd"),
+                                                      CFSTR("com.apple.lakitu"),
+                                                      CFSTR("com.apple.security.securityd"),
+                                                      NULL);
+    if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        CFMutableArrayRef mutableGroups = CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, accessGroups);
+        CFArrayAppendValue(mutableGroups, kSecAttrAccessGroupToken);
+        CFAssignRetained(accessGroups, mutableGroups);
+    }
+
+    return accessGroups;
 }
 
 static SecurityClient gClient;
@@ -137,6 +144,8 @@ SecSecurityClientGet(void)
         gClient.activeUser = 501;
         gClient.musr = NULL;
 #endif
+        gClient.applicationIdentifier = NULL;
+        gClient.isAppClip = false;
     });
     return &gClient;
 }
@@ -150,8 +159,30 @@ CFArrayRef SecAccessGroupsGetCurrent(void) {
 // Only for testing.
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups) {
     // Not thread safe at all, but OK because it is meant to be used only by tests.
-    CFReleaseNull(gClient.accessGroups);
-    gClient.accessGroups = CFRetainSafe(accessGroups);
+    SecurityClient* client = SecSecurityClientGet();
+    CFReleaseNull(client->accessGroups);
+    client->accessGroups = CFRetainSafe(accessGroups);
+}
+
+// Testing
+void SecSecurityClientRegularToAppClip(void) {
+    SecurityClient* client = SecSecurityClientGet();
+    client->isAppClip = true;
+}
+
+// Testing
+void SecSecurityClientAppClipToRegular(void) {
+    SecurityClient* client = SecSecurityClientGet();
+    client->isAppClip = false;
+}
+
+// Testing
+void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier) {
+    SecurityClient* client = SecSecurityClientGet();
+    CFReleaseNull(client->applicationIdentifier);
+    if (identifier) {
+        client->applicationIdentifier = CFRetain(identifier);
+    }
 }
 
 #if !TARGET_OS_IPHONE
@@ -227,6 +258,9 @@ static bool is_trust_operation(enum SecXPCOperation op) {
         case kSecXPCOpCopyCTExceptions:
         case sec_trust_get_exception_reset_count_id:
         case sec_trust_increment_exception_reset_count_id:
+        case kSecXPCOpSetCARevocationAdditions:
+        case kSecXPCOpCopyCARevocationAdditions:
+        case kSecXPCOpValidUpdate:
             return true;
         default:
             break;

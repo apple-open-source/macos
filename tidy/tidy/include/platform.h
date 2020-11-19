@@ -1,5 +1,5 @@
-#ifndef __PLATFORM_H__
-#define __PLATFORM_H__
+#ifndef __TIDY_PLATFORM_H__
+#define __TIDY_PLATFORM_H__
 
 /* platform.h -- Platform specifics
 
@@ -606,16 +606,6 @@ typedef enum
 extern void* null;
 */
 
-#if defined(DMALLOC)
-#include "dmalloc.h"
-#endif
-
-void *MemAlloc(size_t size);
-void *MemRealloc(void *mem, size_t newsize);
-void MemFree(void *mem);
-void ClearMemory(void *, size_t size);
-void FatalError( ctmbstr msg );
-
 /* Opaque data structure.
 *  Cast to implementation type struct within lib.
 *  This will reduce inter-dependencies/conflicts w/ application code.
@@ -638,4 +628,4 @@ opaque_type( TidyIterator );
 } /* extern "C" */
 #endif
 
-#endif /* __PLATFORM_H__ */
+#endif /* __TIDY_PLATFORM_H__ */

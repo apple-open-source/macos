@@ -22,9 +22,9 @@
         _flagConditions = [[NSMutableDictionary alloc] init];
         _allowableFlags = possibleFlags;
 
-        [possibleFlags enumerateObjectsUsingBlock:^(OctagonState * _Nonnull obj, BOOL * _Nonnull stop) {
-            self.flagConditions[obj] = [[CKKSCondition alloc] init];
-        }];
+        for(OctagonFlag* flag in possibleFlags) {
+            self.flagConditions[flag] = [[CKKSCondition alloc] init];
+        }
     }
     return self;
 }

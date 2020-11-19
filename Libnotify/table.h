@@ -26,6 +26,7 @@
 
 #include <os/base.h>
 #include <stdint.h>
+#include <stdbool.h>
 
 #define _nc_table(key_t, _ns) \
 	struct _nc_table##_ns { \
@@ -59,9 +60,11 @@ extern void _nc_table_delete(table_t *t, const char *key);
 extern void _nc_table_delete_n(table_n_t *t, uint32_t key);
 extern void _nc_table_delete_64(table_64_t *t, uint64_t key);
 
-extern void _nc_table_foreach(table_t *t, OS_NOESCAPE bool (^)(void *));
-extern void _nc_table_foreach_n(table_n_t *t, OS_NOESCAPE bool (^)(void *));
-extern void _nc_table_foreach_64(table_64_t *t, OS_NOESCAPE bool (^)(void *));
+typedef bool (^payload_handler_t) (void *);
+
+extern void _nc_table_foreach(table_t *t, OS_NOESCAPE payload_handler_t handler);
+extern void _nc_table_foreach_n(table_n_t *t, OS_NOESCAPE payload_handler_t handler);
+extern void _nc_table_foreach_64(table_64_t *t,OS_NOESCAPE payload_handler_t handler);
 
 __END_DECLS
 

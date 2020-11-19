@@ -308,7 +308,13 @@
     NSData* testCKRecord = [@"nonsense" dataUsingEncoding:NSUTF8StringEncoding];
     CKKSKey* tlk =  [self fakeTLK:self.testZoneID];
 
-    [tlk saveToDatabase:&error];
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* saveError = nil;
+        [tlk saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "tlk saved to database without error");
+        return CKKSDatabaseTransactionCommit;
+    }];
+
     [tlk saveKeyMaterialToKeychain:&error];
     XCTAssertNil(error, "tlk saved to database without error");
 
@@ -317,15 +323,24 @@
     XCTAssertNotNil(level1, "level 1 key created");
     XCTAssertNil(error, "level 1 key created");
 
-    [level1 saveToDatabase:&error];
-    XCTAssertNil(error, "level 1 key saved to database without error");
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* saveError = nil;
+        [level1 saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "level 1 key saved to database without error");
+        return CKKSDatabaseTransactionCommit;
+    }];
 
     CKKSKey* level2 = [CKKSKey randomKeyWrappedByParent: level1 error:&error];
     level2.encodedCKRecord = testCKRecord;
     XCTAssertNotNil(level2, "level 2 key created");
     XCTAssertNil(error, "no error creating level 2 key");
-    [level2 saveToDatabase:&error];
-    XCTAssertNil(error, "level 2 key saved to database without error");
+
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* saveError = nil;
+        [level2 saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "level 2 key saved to database without error");
+        return CKKSDatabaseTransactionCommit;
+    }];
 
     NSString* level2UUID = level2.uuid;
 
@@ -344,8 +359,14 @@
 
 - (void)ensureKeychainSaveLoad: (CKKSKey*) key {
     NSError* error = nil;
-    [key saveToDatabase:&error];
-    XCTAssertNil(error, "no error saving to database");
+
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* saveError = nil;
+        [key saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "no error saving to database");
+        return CKKSDatabaseTransactionCommit;
+    }];
+
     [key saveKeyMaterialToKeychain:&error];
     XCTAssertNil(error, "no error saving to keychain");
 
@@ -421,7 +442,12 @@
     NSString *uuid = @"8b2aeb7f-4af3-43e9-b6e6-70d5c728ebf7";
 
     CKKSKey* key = [self fakeTLK:self.testZoneID];
-    [key saveToDatabase: &error];
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* saveError = nil;
+        [key saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "no error saving to database");
+        return CKKSDatabaseTransactionCommit;
+    }];
     [key saveKeyMaterialToKeychain:&error];
     XCTAssertNil(error, @"could save the fake TLK to the database");
 
@@ -467,9 +493,15 @@
                                                                error:&error];
     XCTAssertNil(error);
     CKKSKey* key = [self fakeTLK:self.testZoneID];
-    [key saveToDatabase: &error];
+
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* saveError = nil;
+        [key saveToDatabase:&saveError];
+        XCTAssertNil(saveError, "could save the fake TLK to the database");
+        return CKKSDatabaseTransactionCommit;
+    }];
     [key saveKeyMaterialToKeychain:&error];
-    XCTAssertNil(error, @"could save the fake TLK to the database");
+    XCTAssertNil(error, @"could save the fake TLK to the keychain");
 
     CKKSAESSIVKey* keyToWrap = [[CKKSAESSIVKey alloc] initWithBase64: @"uImdbZ7Zg+6WJXScTnRBfNmoU1UiMkSYxWc+d1Vuq3IFn2RmTRkTdWTe3HmeWo1pAomqy+upK8KHg2PGiRGhqg=="];
     CKKSWrappedAESSIVKey* wrappedKey = [key wrapAESKey: keyToWrap error:&error];
@@ -735,7 +767,7 @@
 	memset((unsigned char *)[data mutableBytes], 0x55, 23);
 	NSData *padded = [CKKSItemEncrypter padData:data blockSize:0 additionalBlock:extra];
 	XCTAssertNotNil(padded, "Padding never returns nil");
-    XCTAssertTrue(padded.length == data.length + extra ? 2 : 1, "One byte of padding has been added, 2 if extra padding");
+    XCTAssertTrue(padded.length == data.length + (extra ? 2 : 1), "One byte of padding has been added, 2 if extra padding");
 	NSData *unpadded = [CKKSItemEncrypter removePaddingFromData:padded];
 	XCTAssertNotNil(unpadded, "Successfully removed padding again");
 	XCTAssertEqualObjects(data, unpadded, "Data effectively unmodified through padding-unpadding trip");

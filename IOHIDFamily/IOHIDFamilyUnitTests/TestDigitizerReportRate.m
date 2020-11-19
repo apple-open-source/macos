@@ -46,13 +46,14 @@ static uint8_t descriptor[] = {
     
     NSData *desc = [NSData dataWithBytes:descriptor length:sizeof(descriptor)];
     
-    NSDictionary *properties = @{ @kIOHIDPhysicalDeviceUniqueIDKey : _uuid,
-                                  @kIOHIDReportDescriptorKey : desc };
+    NSDictionary *properties = @{@(kIOHIDVendorIDKey) : @(kIOHIDAppleVendorID),
+                                 @(kIOHIDProductIDKey): @(kIOHIDAppleProductID),
+                                 @(kIOHIDPhysicalDeviceUniqueIDKey) : _uuid,
+                                 @(kIOHIDReportDescriptorKey) : desc };
     
     _userDevice = [[HIDUserDevice alloc] initWithProperties:properties];
     
-    HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_LOGARCHIVE,
-    _userDevice != NULL);
+    HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _userDevice != NULL);
     
     [_userDevice setDispatchQueue:dispatch_queue_create("com.apple.HID.UserDeviceTest", nil)];
     [_userDevice setCancelHandler:^{
@@ -82,23 +83,23 @@ static uint8_t descriptor[] = {
     _eventSystemClient = [[HIDEventSystemClient alloc] initWithType:HIDEventSystemClientTypeMonitor];
     
     
-    HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_LOGARCHIVE,
-    _eventSystemClient != NULL);
+    HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_LOGARCHIVE, _eventSystemClient != NULL);
     
     
     [_eventSystemClient setMatching: @{ @kIOHIDPhysicalDeviceUniqueIDKey : _uuid}];
     
     [_eventSystemClient setServiceNotificationHandler:^(HIDServiceClient * _Nonnull service) {
         
-         __strong TestDigitizerReportRate *strongSelf = weakSelf;
-        if (!strongSelf) return;
+        __strong TestDigitizerReportRate *strongSelf = weakSelf;
+        if (!strongSelf) {
+            return;
+        }
         
         NSLog(@"Added : %@",service);
         
         strongSelf->_serviceClient = service;
         [_devAddedExp fulfill];
-        
-        
+
     }];
     
     [_eventSystemClient setCancelHandler:^{
@@ -139,7 +140,7 @@ static uint8_t descriptor[] = {
     
     result = [XCTWaiter waitForExpectations:@[_userDeviceCancelExp, _eventSystemCancelExp] timeout:5];
     HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_ALL,
-    result == XCTWaiterResultCompleted);
+                               result == XCTWaiterResultCompleted);
     
     [super tearDown];
 }
@@ -156,7 +157,7 @@ static uint8_t descriptor[] = {
     NSLog(@"%@",res);
     
     HIDXCTAssertWithParameters(RETURN_FROM_TEST | COLLECT_ALL,
-    res && [res isKindOfClass:[NSNumber class]] && ((NSNumber*)res).intValue == 13513); // 1000000/74
+                               res && [res isKindOfClass:[NSNumber class]] && ((NSNumber*)res).intValue == 13513); // 1000000/74
     
 }
 

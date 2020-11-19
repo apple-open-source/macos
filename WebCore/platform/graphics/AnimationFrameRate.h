@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 
 #include <wtf/OptionSet.h>
 #include <wtf/Seconds.h>
+#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -49,15 +50,15 @@ constexpr const FramesPerSecond FullSpeedFramesPerSecond = 60;
 constexpr const FramesPerSecond HalfSpeedThrottlingFramesPerSecond = 30;
 constexpr const FramesPerSecond ZeroFramesPerSecond = 0;
 
-inline Seconds preferredFrameInterval(const OptionSet<ThrottlingReason>& throttlingReasons)
+inline Seconds preferredFrameInterval(const OptionSet<ThrottlingReason>& reasons)
 {
-    if (throttlingReasons.containsAny({ ThrottlingReason::VisuallyIdle, ThrottlingReason::OutsideViewport }))
+    // FIXME: handle ThrottlingReason::VisuallyIdle
+    if (reasons.contains(ThrottlingReason::OutsideViewport))
         return AggressiveThrottlingAnimationInterval;
-
-    if (throttlingReasons.containsAny({ ThrottlingReason::LowPowerMode, ThrottlingReason::NonInteractedCrossOriginFrame }))
+    
+    if (reasons.containsAny({ ThrottlingReason::LowPowerMode, ThrottlingReason::NonInteractedCrossOriginFrame }))
         return HalfSpeedThrottlingAnimationInterval;
 
-    ASSERT(throttlingReasons.isEmpty());
     return FullSpeedAnimationInterval;
 }
 
@@ -71,6 +72,35 @@ inline FramesPerSecond preferredFramesPerSecond(Seconds preferredFrameInterval)
 
     ASSERT_NOT_REACHED();
     return ZeroFramesPerSecond;
+}
+
+inline TextStream& operator<<(TextStream& ts, const OptionSet<ThrottlingReason>& reasons)
+{
+    bool didAppend = false;
+
+    for (auto reason : reasons) {
+        if (didAppend)
+            ts << "|";
+        switch (reason) {
+        case ThrottlingReason::VisuallyIdle:
+            ts << "VisuallyIdle";
+            break;
+        case ThrottlingReason::OutsideViewport:
+            ts << "OutsideViewport";
+            break;
+        case ThrottlingReason::LowPowerMode:
+            ts << "LowPowerMode";
+            break;
+        case ThrottlingReason::NonInteractedCrossOriginFrame:
+            ts << "NonInteractiveCrossOriginFrame";
+            break;
+        }
+        didAppend = true;
+    }
+
+    if (reasons.isEmpty())
+        ts << "[Unthrottled]";
+    return ts;
 }
 
 }

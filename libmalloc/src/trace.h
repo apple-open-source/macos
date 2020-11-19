@@ -30,8 +30,11 @@
 
 #ifndef _MALLOC_BUILDING_CODES_
 #include <sys/kdebug.h>
+__attribute__((cold))
+extern int
+kdebug_trace(uint32_t, uint64_t, uint64_t, uint64_t, uint64_t);
 #define MALLOC_TRACE(code,arg1,arg2,arg3,arg4) \
-	{ if (malloc_tracing_enabled) { kdebug_trace(code, arg1, arg2, arg3, arg4); } }
+	{ if (malloc_traced()) { kdebug_trace(code, arg1, arg2, arg3, arg4); } }
 #define TRACE_CODE(name, subclass, code) \
 	static const int TRACE_##name = KDBG_EVENTID(DBG_UMALLOC, subclass, code)
 #else

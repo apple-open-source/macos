@@ -16,16 +16,17 @@
  */
 
 #include "unicode/utypes.h"
-#include "unicode/uregion.h"
+
+#if U_SHOW_CPLUSPLUS_API
 
 #if !UCONFIG_NO_FORMATTING
 
+#include "unicode/uregion.h"
 #include "unicode/uobject.h"
 #include "unicode/uniset.h"
 #include "unicode/unistr.h"
 #include "unicode/strenum.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -218,9 +219,11 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif // REGION_H
 
 //eof

@@ -32,15 +32,28 @@
 #include "GPUConnectionToWebProcessMessages.h"
 #include "LibWebRTCCodecs.h"
 #include "LibWebRTCCodecsMessages.h"
+#include "MediaPlayerPrivateRemoteMessages.h"
+#include "RemoteCDMFactory.h"
+#include "RemoteCDMProxy.h"
+#include "RemoteLegacyCDMFactory.h"
 #include "RemoteMediaPlayerManager.h"
 #include "RemoteMediaPlayerManagerMessages.h"
-#include "UserMediaCaptureManager.h"
-#include "UserMediaCaptureManagerMessages.h"
+#include "SampleBufferDisplayLayerMessages.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPage.h"
 #include "WebPageMessages.h"
 #include "WebProcess.h"
+#include <WebCore/PlatformMediaSessionManager.h>
 #include <WebCore/SharedBuffer.h>
+
+#if ENABLE(ENCRYPTED_MEDIA)
+#include "RemoteCDMInstanceSessionMessages.h"
+#endif
+
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+#include "UserMediaCaptureManager.h"
+#include "UserMediaCaptureManagerMessages.h"
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -60,29 +73,82 @@ void GPUProcessConnection::didClose(IPC::Connection&)
 {
 }
 
-void GPUProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::StringReference, IPC::StringReference)
+void GPUProcessConnection::didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName)
 {
 }
 
-void GPUProcessConnection::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+SampleBufferDisplayLayerManager& GPUProcessConnection::sampleBufferDisplayLayerManager()
 {
-    if (decoder.messageReceiverName() == Messages::RemoteMediaPlayerManager::messageReceiverName()) {
-        WebProcess::singleton().supplement<RemoteMediaPlayerManager>()->didReceiveMessageFromGPUProcess(connection, decoder);
-        return;
+    if (!m_sampleBufferDisplayLayerManager)
+        m_sampleBufferDisplayLayerManager = makeUnique<SampleBufferDisplayLayerManager>();
+    return *m_sampleBufferDisplayLayerManager;
+}
+#endif
+
+RemoteMediaPlayerManager& GPUProcessConnection::mediaPlayerManager()
+{
+    return *WebProcess::singleton().supplement<RemoteMediaPlayerManager>();
+}
+
+#if ENABLE(ENCRYPTED_MEDIA)
+RemoteCDMFactory& GPUProcessConnection::cdmFactory()
+{
+    return *WebProcess::singleton().supplement<RemoteCDMFactory>();
+}
+#endif
+
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+RemoteLegacyCDMFactory& GPUProcessConnection::legacyCDMFactory()
+{
+    return *WebProcess::singleton().supplement<RemoteLegacyCDMFactory>();
+}
+#endif
+
+bool GPUProcessConnection::dispatchMessage(IPC::Connection& connection, IPC::Decoder& decoder)
+{
+    if (decoder.messageReceiverName() == Messages::MediaPlayerPrivateRemote::messageReceiverName()) {
+        WebProcess::singleton().supplement<RemoteMediaPlayerManager>()->didReceivePlayerMessage(connection, decoder);
+        return true;
     }
-#if ENABLE(MEDIA_STREAM)
+
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     if (decoder.messageReceiverName() == Messages::UserMediaCaptureManager::messageReceiverName()) {
         if (auto* captureManager = WebProcess::singleton().supplement<UserMediaCaptureManager>())
             captureManager->didReceiveMessageFromGPUProcess(connection, decoder);
-        return;
+        return true;
     }
-#endif
+
+    if (decoder.messageReceiverName() == Messages::SampleBufferDisplayLayer::messageReceiverName()) {
+        sampleBufferDisplayLayerManager().didReceiveLayerMessage(connection, decoder);
+        return true;
+    }
+
+#endif // PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 #if USE(LIBWEBRTC) && PLATFORM(COCOA)
     if (decoder.messageReceiverName() == Messages::LibWebRTCCodecs::messageReceiverName()) {
         WebProcess::singleton().libWebRTCCodecs().didReceiveMessage(connection, decoder);
-        return;
+        return true;
     }
 #endif
+#if ENABLE(ENCRYPTED_MEDIA)
+    if (decoder.messageReceiverName() == Messages::RemoteCDMInstanceSession::messageReceiverName()) {
+        WebProcess::singleton().supplement<RemoteCDMFactory>()->didReceiveSessionMessage(connection, decoder);
+        return true;
+    }
+#endif
+    return messageReceiverMap().dispatchMessage(connection, decoder);
+}
+
+bool GPUProcessConnection::dispatchSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& replyEncoder)
+{
+    return messageReceiverMap().dispatchSyncMessage(connection, decoder, replyEncoder);
+}
+
+void GPUProcessConnection::didReceiveRemoteCommand(PlatformMediaSession::RemoteControlCommandType type, Optional<double> argument)
+{
+    const PlatformMediaSession::RemoteCommandArgument value { argument ? *argument : 0 };
+    PlatformMediaSessionManager::sharedManager().processDidReceiveRemoteControlCommand(type, argument ? &value : nullptr);
 }
 
 } // namespace WebKit

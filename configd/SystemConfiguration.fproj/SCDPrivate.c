@@ -1598,10 +1598,12 @@ void
 _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
 {
 	if (_SC_isAppleInternal()) {
-		if (crash_info != NULL) {
-			CRSetCrashLogMessage(crash_info);
-			SC_log(LOG_NOTICE, "%s", crash_info);
+		if (crash_info == NULL) {
+			crash_info = "_SC_crash() called w/o \"crash_info\"";
 		}
+
+		// augment the crash log message
+		CRSetCrashLogMessage(crash_info);
 
 		// simulate a crash report
 		os_log_with_type(SC_LOG_HANDLE(), OS_LOG_TYPE_FAULT, "%s", crash_info);
@@ -1611,9 +1613,8 @@ _SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMe
 			_SC_ReportCrash(notifyHeader, notifyMessage);
 		}
 
-		if (crash_info != NULL) {
-			CRSetCrashLogMessage(NULL);
-		}
+		// ... and cleanup after the crash report has been generated
+		CRSetCrashLogMessage(NULL);
 	}
 
 	return;

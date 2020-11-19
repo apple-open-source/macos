@@ -34,6 +34,8 @@
 @property NSOperation* finishedOp;
 
 @property OTUpdateTrustedDeviceListOperation* updateOp;
+
+@property (nullable) NSArray<NSData*>* peerPreapprovedSPKIs;
 @end
 
 @implementation OTSOSUpgradeOperation
@@ -163,6 +165,11 @@
                 fatal = true;
             }
 
+            if([self.error.domain isEqualToString:TrustedPeersHelperErrorDomain] && self.error.code == TrustedPeersHelperErrorNoPeersPreapprovedBySelf) {
+                secnotice("octagon-sos", "SOS upgrade error is 'we don't preapprove anyone'; retrying immediately is useless: %@", self.error);
+                fatal = true;
+            }
+
             if(!fatal) {
                 secnotice("octagon-sos", "SOS upgrade error is not fatal: requesting retry in %0.2fs: %@", delay, self.error);
                 [self.deps.flagHandler handlePendingFlag:[[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptSOSUpgrade
@@ -171,6 +178,20 @@
         }
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
+
+    secnotice("octagon-sos", "Fetching trusted peers from SOS");
+
+    NSError* sosPreapprovalError = nil;
+    self.peerPreapprovedSPKIs = [OTSOSAdapterHelpers peerPublicSigningKeySPKIsForCircle:self.deps.sosAdapter error:&sosPreapprovalError];
+
+    if(self.peerPreapprovedSPKIs) {
+        secnotice("octagon-sos", "SOS preapproved keys are %@", self.peerPreapprovedSPKIs);
+    } else {
+        secnotice("octagon-sos", "Unable to fetch SOS preapproved keys: %@", sosPreapprovalError);
+        self.error = sosPreapprovalError;
+        [self runBeforeGroupFinished:self.finishedOp];
+        return;
+    }
 
     NSString* bottleSalt = nil;
     NSError *authKitError = nil;
@@ -192,6 +213,14 @@
         }
     }
 
+    NSError* sosViewError = nil;
+    BOOL safariViewEnabled = [self.deps.sosAdapter safariViewSyncingEnabled:&sosViewError];
+    if(sosViewError) {
+        secnotice("octagon-sos", "Unable to check safari view status: %@", sosViewError);
+    }
+
+    secnotice("octagon-sos", "Safari view is: %@", safariViewEnabled ? @"enabled" : @"disabled");
+
     [self.deps.cuttlefishXPCWrapper prepareWithContainer:self.deps.containerName
                                                  context:self.deps.contextID
                                                    epoch:self.deviceInfo.epoch
@@ -204,6 +233,9 @@
                                                osVersion:self.deviceInfo.osVersion
                                            policyVersion:self.policyOverride
                                            policySecrets:nil
+                               syncUserControllableViews:safariViewEnabled ?
+                                                            TPPBPeerStableInfo_UserControllableViewStatus_ENABLED :
+                                                            TPPBPeerStableInfo_UserControllableViewStatus_DISABLED
                              signingPrivKeyPersistentRef:signingKeyPersistRef
                                  encPrivKeyPersistentRef:encryptionKeyPersistRef
                                                    reply:^(NSString * _Nullable peerID,
@@ -211,8 +243,7 @@
                                                            NSData * _Nullable permanentInfoSig,
                                                            NSData * _Nullable stableInfo,
                                                            NSData * _Nullable stableInfoSig,
-                                                           NSSet<NSString*>* syncingViews,
-                                                           TPPolicy* _Nullable syncingPolicy,
+                                                           TPSyncingPolicy* _Nullable syncingPolicy,
                                                            NSError * _Nullable error) {
             STRONGIFY(self);
 
@@ -231,8 +262,7 @@
 
             NSError* localError = nil;
             BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
-                metadata.syncingViews = [syncingViews mutableCopy];
-                [metadata setTPPolicy:syncingPolicy];
+                [metadata setTPSyncingPolicy:syncingPolicy];
                 return metadata;
             } error:&localError];
 
@@ -244,7 +274,7 @@
                 return;
             }
 
-            [self.deps.viewManager setSyncingViews:syncingViews sortingPolicy:syncingPolicy];
+            [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
 
             [self afterPrepare];
         }];
@@ -255,11 +285,9 @@
     WEAKIFY(self);
     [self.deps.cuttlefishXPCWrapper preflightPreapprovedJoinWithContainer:self.deps.containerName
                                                                   context:self.deps.contextID
+                                                          preapprovedKeys:self.peerPreapprovedSPKIs
                                                                     reply:^(BOOL launchOkay, NSError * _Nullable error) {
             STRONGIFY(self);
-
-            // Preflight preapprovedjoin should return the policy used by the peers we eventually will trust
-            // <rdar://problem/57768490> Octagon: ensure we use appropriate CKKS policy when joining octagon with future policy
 
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreflightPreapprovedJoin hardFailure:true result:error];
             if(error) {
@@ -349,7 +377,8 @@
 {
     WEAKIFY(self);
 
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
+                                                                                     refetchNeeded:NO];
     [self runBeforeGroupFinished:fetchKeysOp];
     
     secnotice("octagon-sos", "Fetching keys from CKKS");
@@ -366,34 +395,16 @@
 {
     WEAKIFY(self);
 
-    secnotice("octagon-sos", "Fetching trusted peers from SOS");
-
-    NSArray<NSData*>* publicSigningSPKIs = nil;
-    if(self.deps.sosAdapter.sosEnabled) {
-        NSError* sosPreapprovalError = nil;
-        publicSigningSPKIs = [OTSOSAdapterHelpers peerPublicSigningKeySPKIsForCircle:self.deps.sosAdapter error:&sosPreapprovalError];
-
-        if(publicSigningSPKIs) {
-            secnotice("octagon-sos", "SOS preapproved keys are %@", publicSigningSPKIs);
-        } else {
-            secnotice("octagon-sos", "Unable to fetch SOS preapproved keys: %@", sosPreapprovalError);
-        }
-
-    } else {
-        secnotice("octagon-sos", "SOS not enabled; no preapproved keys");
-    }
-
-    secnotice("octagon-sos", "Beginning SOS upgrade with %d key sets and %d SOS peers", (int)viewKeySets.count, (int)publicSigningSPKIs.count);
+    secnotice("octagon-sos", "Beginning SOS upgrade with %d key sets and %d SOS peers", (int)viewKeySets.count, (int)self.peerPreapprovedSPKIs.count);
 
     [self.deps.cuttlefishXPCWrapper attemptPreapprovedJoinWithContainer:self.deps.containerName
                                                                 context:self.deps.contextID
                                                                ckksKeys:viewKeySets
                                                               tlkShares:pendingTLKShares
-                                                        preapprovedKeys:publicSigningSPKIs
+                                                        preapprovedKeys:self.peerPreapprovedSPKIs
                                                                   reply:^(NSString * _Nullable peerID,
                                                                           NSArray<CKRecord*>* keyHierarchyRecords,
-                                                                          NSSet<NSString*>* _Nullable syncingViewList,
-                                                                          TPPolicy* _Nullable syncingPolicy,
+                                                                          TPSyncingPolicy* _Nullable syncingPolicy,
                                                                           NSError * _Nullable error) {
         STRONGIFY(self);
 
@@ -415,15 +426,14 @@
         [self requestSilentEscrowUpdate];
 
         secerror("octagon-sos: attemptPreapprovedJoin succeded");
-        [self.deps.viewManager setSyncingViews:syncingViewList sortingPolicy:syncingPolicy];
+        [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
 
         NSError* localError = nil;
         BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC *  _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
             metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
             metadata.peerID = peerID;
-            metadata.syncingViews = [syncingViewList mutableCopy];
-            [metadata setTPPolicy:syncingPolicy];
 
+            [metadata setTPSyncingPolicy:syncingPolicy];
             return metadata;
         } error:&localError];
 

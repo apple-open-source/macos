@@ -30,7 +30,6 @@
 #include <Security/cssmtype.h>
 #include <Security/cssmapple.h>
 #include <Security/oidscert.h>
-#include <assert.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>

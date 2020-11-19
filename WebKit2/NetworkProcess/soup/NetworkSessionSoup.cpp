@@ -42,6 +42,7 @@ using namespace WebCore;
 NetworkSessionSoup::NetworkSessionSoup(NetworkProcess& networkProcess, NetworkSessionCreationParameters&& parameters)
     : NetworkSession(networkProcess, parameters)
     , m_networkSession(makeUnique<SoupNetworkSession>(m_sessionID))
+    , m_persistentCredentialStorageEnabled(parameters.persistentCredentialStorageEnabled)
 {
     auto* storageSession = networkStorageSession();
     ASSERT(storageSession);
@@ -81,11 +82,7 @@ void NetworkSessionSoup::setCookiePersistentStorage(const String& storagePath, S
     case SoupCookiePersistentStorageType::SQLite:
         jar = adoptGRef(soup_cookie_jar_db_new(storagePath.utf8().data(), FALSE));
         break;
-    default:
-        ASSERT_NOT_REACHED();
     }
-
-    soup_cookie_jar_set_accept_policy(jar.get(), soup_cookie_jar_get_accept_policy(storageSession->cookieStorage()));
     storageSession->setCookieStorage(WTFMove(jar));
 
     m_networkSession->setCookieJar(storageSession->cookieStorage());

@@ -12,9 +12,9 @@ en_CO{
                 decimal{","}
                 group{"."}
             }
-       }
+        }
     }
-    Version{"2.1.38.69"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

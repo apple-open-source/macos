@@ -54,6 +54,7 @@
 #include <webkit2/WebKitWebContext.h>
 #include <webkit2/WebKitWebInspector.h>
 #include <webkit2/WebKitWebResource.h>
+#include <webkit2/WebKitWebsitePolicies.h>
 #include <webkit2/WebKitWebViewBase.h>
 #include <webkit2/WebKitWebViewSessionState.h>
 #include <webkit2/WebKitWindowProperties.h>
@@ -350,6 +351,13 @@ webkit_web_view_is_loading                           (WebKitWebView             
 WEBKIT_API gboolean
 webkit_web_view_is_playing_audio                     (WebKitWebView             *web_view);
 
+WEBKIT_API void
+webkit_web_view_set_is_muted                         (WebKitWebView             *web_view,
+                                                      gboolean                   muted);
+
+WEBKIT_API gboolean
+webkit_web_view_get_is_muted                         (WebKitWebView             *web_view);
+
 WEBKIT_API guint64
 webkit_web_view_get_page_id                          (WebKitWebView             *web_view);
 
@@ -576,6 +584,11 @@ webkit_web_view_set_input_method_context             (WebKitWebView             
 
 WEBKIT_API WebKitInputMethodContext *
 webkit_web_view_get_input_method_context             (WebKitWebView             *web_view);
+
+
+WEBKIT_API WebKitWebsitePolicies *
+webkit_web_view_get_website_policies                 (WebKitWebView             *web_view);
+
 
 G_END_DECLS
 

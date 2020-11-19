@@ -62,7 +62,7 @@ SimpleFormatter::~SimpleFormatter() {}
 
 UBool SimpleFormatter::applyPatternMinMaxArguments(
         const UnicodeString &pattern,
-        int32_t min, int32_t max,
+        int32_t min, int32_t max, UBool removeSingleQuotes,
         UErrorCode &errorCode) {
     if (U_FAILURE(errorCode)) {
         return FALSE;
@@ -87,7 +87,7 @@ UBool SimpleFormatter::applyPatternMinMaxArguments(
                 // skip the quote-ending apostrophe
                 inQuote = FALSE;
                 continue;
-            } else if (c == OPEN_BRACE || c == CLOSE_BRACE) {
+            } else if (removeSingleQuotes || c == OPEN_BRACE || c == CLOSE_BRACE) {
                 // Skip the quote-starting apostrophe, find the end of the quoted literal text.
                 ++i;
                 inQuote = TRUE;

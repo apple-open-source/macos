@@ -50,16 +50,6 @@
 /*#define STATIC_HISTORY*/
 
 /*
- * Only cache for the volumes on the root disk
- */
-#define ROOT_DISK_ONLY
-
-/*
- * Don't cache pure SSD volumes
- */
-#define BC_HDD_AND_FUSION_ONLY
-
-/*
  * Keep a log of read history to aid in debugging.
  */
 /*#define READ_HISTORY_BUFFER	1000*/
@@ -188,6 +178,10 @@ static int tag_batch_num = 0;
 struct timeval debug_starttime;
 struct timeval debug_currenttime;
 lck_mtx_t debug_printlock;
+char* debug_print_buffer;
+size_t debug_print_buffer_length;
+size_t debug_print_buffer_capacity;
+bool debug_print_buffer_failed;
 #endif
 
 #define BC_MALLOC(_size, _type, _flags) ((ssize_t)(_size) < 0) ? NULL : _MALLOC((_size), (_type), (_flags))
@@ -196,6 +190,53 @@ lck_mtx_t debug_printlock;
 #ifndef FUSION_TIER2_DEVICE_BYTE_ADDR
 #define FUSION_TIER2_DEVICE_BYTE_ADDR 0x4000000000000000ULL
 #endif
+
+/*
+ * Default is to only cache for the volumes on the root disk, but can be overridden by "bc_cache_nonroot_disks=1" in boot-args
+ */
+static bool cache_nonroot_disks = false;
+
+/*
+ * Default is to only cache HDDs and Fusion, but can be overridden by "bc_cache_ssds=1" in boot-args
+ */
+static bool cache_ssds = false;
+
+/*
+ * rdar://69891587 (Disable BootCache on AS Macs)
+ */
+static bool cache_apple_silicon_macs = false;
+
+static void BC_parse_boot_args(void) {
+	uint32_t val;
+	if (PE_parse_boot_argn("bc_cache_nonroot_disks", &val, sizeof(val))) {
+		if (val == 1) {
+			message("caching nonroot disks");
+			cache_nonroot_disks = true;
+		} else {
+			message("not caching nonroot disks");
+			cache_nonroot_disks = false;
+		}
+	}
+	if (PE_parse_boot_argn("bc_cache_ssds", &val, sizeof(val))) {
+		if (val == 1) {
+			message("caching SSDs");
+			cache_ssds = true;
+		} else {
+			message("not caching SSDs");
+			cache_ssds = false;
+		}
+	}
+	if (PE_parse_boot_argn("bc_cache_apple_silicon_macs", &val, sizeof(val))) {
+		if (val == 1) {
+			message("caching Apple Silicon Macs");
+			cache_apple_silicon_macs = true;
+		} else {
+			message("not caching Apple Silicon Macs");
+			cache_apple_silicon_macs = false;
+		}
+	}
+}
+
 
 /**************************************
  * Structures for the readahead cache *
@@ -1442,9 +1483,10 @@ BC_reader_thread(void *param0, wait_result_t param1)
 					 * not expect errors as a matter of course).
 					 */
 					if (kret != KERN_SUCCESS || buf_error(cm->cm_bp) || (buf_resid(cm->cm_bp) != 0)) {
-						debug("read error: ret %d error %d resid %d "
+						debug("%s read error: ret %d error %d resid %d "
 							  "extent %lu %lu/%lu "
 							  "(error buf %ld/%ld flags %08x)",
+							  uuid_string(cm->cm_uuid),
 							  kret, buf_error(cm->cm_bp), buf_resid(cm->cm_bp),
 							  (unsigned long) ce_idx,
 							  (unsigned long)ce->ce_diskoffset, (unsigned long)ce->ce_length,
@@ -2157,6 +2199,24 @@ BC_strategy(struct buf *bp)
 		goto bypass;
 	}
 	
+#ifdef BC_EXTRA_DEBUG
+	if (!!is_shared != !!(pce[0]->ce_flags & CE_SHARED)) {
+		char procname[128];
+		proc_selfname(procname, sizeof(procname));
+		const char* filename = vp ? vnode_getname(vp) : NULL;
+		debug("%s %sshared cache from app %s for file %s (disk block 0x%llx), satisfied by %sshared cache",
+			  is_read ? "read from" : "write to",
+			  is_shared ? "" : "non-",
+			  procname,
+			  vp ? (filename?:"(unknown)") : "(no vp)",
+			  blkno,
+			  (pce[0]->ce_flags & CE_SHARED) ? "" : "non-");
+		if (filename) {
+			vnode_putname(filename);
+		}
+	}
+#endif
+
 	assert(num_extents > 0);
 	
 	cache_hit = 1;
@@ -3032,7 +3092,7 @@ BC_terminate_cache_async(const char* reason)
 	if ((error = kernel_thread_start(BC_terminate_cache_thread, (void*)reason, &rthread)) == KERN_SUCCESS) {
 		thread_deallocate(rthread);
 	} else {
-		message("Unable to start thread to terminate cache");
+		message("Unable to start thread to terminate cache: %d", error);
 	}
 }
 
@@ -3859,42 +3919,42 @@ BC_fill_in_cache_mount(struct BC_cache_mount *cm, mount_t mount, dev_t dev, vnod
 	u_int64_t throttle_mask = vfs_throttle_mask(mount);
 	u_int64_t disk_id = throttle_mask;
 	
-#ifdef ROOT_DISK_ONLY
-	// Use vfs_devvp to check against rootvp (rather than BC_get_dev)
-	vnode_t rootdevvp = vfs_devvp(mount);
-	if (rootdevvp == NULLVP) {
-		message("mount %s does not have a vnode", uuid_string(cm->cm_uuid));
-		struct discards discards = BC_teardown_mount_and_extents(cm);
-		BC_ADD_SHARED_CACHE_STAT(mounterror_unread, discards.shared_discards);
-		BC_ADD_NON_SHARED_CACHE_STAT(mounterror_unread, discards.nonshared_discards);
-		return EINVAL;
-	}
-	// Unused, so make sure we dont forget to put it
-	vnode_put(rootdevvp);
-	
-	if (rootdevvp == rootvp) {
-		if (BC_cache->c_root_disk_id == 0) {
-			BC_cache->c_root_disk_id = disk_id;
-			if (BC_cache->c_root_disk_id == 0) {
-				message("Root disk is 0");
-			} else {
-				debug("Root disk (via cache) is 0x%llx", BC_cache->c_root_disk_id);
-			}
-		} else if (BC_cache->c_root_disk_id != disk_id) {
-			debug("Root disk 0x%llx doesn't match that found by cache 0x%llx", BC_cache->c_root_disk_id, disk_id);
+	if (!cache_nonroot_disks) {
+		// Use vfs_devvp to check against rootvp (rather than BC_get_dev)
+		vnode_t rootdevvp = vfs_devvp(mount);
+		if (rootdevvp == NULLVP) {
+			message("mount %s does not have a vnode", uuid_string(cm->cm_uuid));
+			struct discards discards = BC_teardown_mount_and_extents(cm);
+			BC_ADD_SHARED_CACHE_STAT(mounterror_unread, discards.shared_discards);
+			BC_ADD_NON_SHARED_CACHE_STAT(mounterror_unread, discards.nonshared_discards);
+			return EINVAL;
 		}
-	} else if (0 == BC_cache->c_root_disk_id) {
-		return EAGAIN; /* we haven't seen the root mount yet, try again later */
+		// Unused, so make sure we dont forget to put it
+		vnode_put(rootdevvp);
 		
-		//rdar://11653286 disk image volumes (FileVault 1) are messing with this check, so we're going back to != rather than !( & )
-	} else if (BC_cache->c_root_disk_id != disk_id) {
-		message("mount %s (disk 0x%llx) is not on the root disk (disk 0x%llx)", uuid_string(cm->cm_uuid), disk_id, BC_cache->c_root_disk_id);
-		struct discards discards = BC_teardown_mount_and_extents(cm);
-		BC_ADD_SHARED_CACHE_STAT(nonroot_unread, discards.shared_discards);
-		BC_ADD_NON_SHARED_CACHE_STAT(nonroot_unread, discards.nonshared_discards);
-		return ENODEV;
+		if (rootdevvp == rootvp) {
+			if (BC_cache->c_root_disk_id == 0) {
+				BC_cache->c_root_disk_id = disk_id;
+				if (BC_cache->c_root_disk_id == 0) {
+					message("Root disk is 0");
+				} else {
+					debug("Root disk (via cache) is 0x%llx", BC_cache->c_root_disk_id);
+				}
+			} else if (BC_cache->c_root_disk_id != disk_id) {
+				debug("Root disk 0x%llx doesn't match that found by cache 0x%llx", BC_cache->c_root_disk_id, disk_id);
+			}
+		} else if (0 == BC_cache->c_root_disk_id) {
+			return EAGAIN; /* we haven't seen the root mount yet, try again later */
+			
+			//rdar://11653286 disk image volumes (FileVault 1) are messing with this check, so we're going back to != rather than !( & )
+		} else if (BC_cache->c_root_disk_id != disk_id) {
+			message("mount %s (disk 0x%llx) is not on the root disk (disk 0x%llx)", uuid_string(cm->cm_uuid), disk_id, BC_cache->c_root_disk_id);
+			struct discards discards = BC_teardown_mount_and_extents(cm);
+			BC_ADD_SHARED_CACHE_STAT(nonroot_unread, discards.shared_discards);
+			BC_ADD_NON_SHARED_CACHE_STAT(nonroot_unread, discards.nonshared_discards);
+			return ENODEV;
+		}
 	}
-#endif
 
 	if (fs_flags & BC_FS_APFS_ENCRYPTION_ROLLING) {
 		// <rdar://problem/32395140> Bootcache needs to be disabled for APFS volumes rolling encryption (and their container)
@@ -4003,15 +4063,15 @@ BC_fill_in_cache_mount_ex(struct BC_cache_mount *cm, dev_t dev, vnode_t devvp, u
 	}
 	
 	
-#ifdef BC_HDD_AND_FUSION_ONLY
-	if ((cm->cm_disk->cd_flags & CD_IS_SSD) &&
-		!(cm->cm_fs_flags & BC_FS_APFS_FUSION) &&
-		!(cm->cm_fs_flags & BC_FS_CS_FUSION)) {
-		debug("BootCache not caching mount %s (SSD)", uuid_string(cm->cm_uuid));
-		error = EINVAL;
-		goto out;
+	if (!cache_ssds) {
+		if ((cm->cm_disk->cd_flags & CD_IS_SSD) &&
+			!(cm->cm_fs_flags & BC_FS_APFS_FUSION) &&
+			!(cm->cm_fs_flags & BC_FS_CS_FUSION)) {
+			debug("BootCache not caching mount %s (SSD)", uuid_string(cm->cm_uuid));
+			error = EINVAL;
+			goto out;
+		}
 	}
-#endif
 	
 	
 	if (VNOP_IOCTL(devvp,
@@ -4172,6 +4232,10 @@ out:
 static void
 BC_teardown_mount(struct BC_cache_mount *cm)
 {
+	if (cm->cm_state == CM_SETUP) {
+		debug("never found mount %s with %d entries", uuid_string(cm->cm_uuid), cm->cm_nextents);
+	}
+	
 	if (cm->cm_bp) {
 		buf_free(cm->cm_bp);
 		cm->cm_bp = NULL;
@@ -4506,7 +4570,7 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 	u_int pm_idx, cm_idx, pm_idx2;
 	u_int64_t pe_idx, ce_idx, max_entries;
 	off_t p;
-	u_int64_t size, num_shared_bytes, num_nonshared_bytes;
+	u_int64_t size, num_shared_bytes = 0, num_nonshared_bytes = 0;
 	u_int64_t actual, remaining_entries;
 	
 	int clipped_extents = 0, enveloped_extents = 0; 
@@ -4651,6 +4715,8 @@ BC_copyin_playlist(size_t mounts_size, user_addr_t mounts_buf, size_t entries_si
 			if ((error = BC_setup_mount(cache_mounts + ncache_mounts, playlist_mounts + pm_idx)) != 0) {
 				goto out;
 			}
+			
+			uuid_copy(BC_cache->c_stats.ss_mount_uuid[ncache_mounts], cache_mounts[ncache_mounts].cm_uuid);
 			
 			pmidx_to_cmidx[pm_idx] = ncache_mounts;
 			ncache_mounts++;
@@ -5433,25 +5499,25 @@ static int check_for_new_mount_itr(mount_t mount, void* arg) {
 		hmd->hmd_is_ssd = 0;
 	}
 	
-#ifdef ROOT_DISK_ONLY
-	// Determine root disk
-	if (BC_cache->c_root_disk_id == 0) {
-		// Use vfs_devvp to compare against rootvp (rather than BC_get_dev)
-		vnode_t rootdevvp = vfs_devvp(mount);
-		if (rootdevvp != NULLVP) {
-			// Unused, so make sure we dont forget to put it
-			vnode_put(rootdevvp);
-		}
-		if (rootdevvp == rootvp) {
-			BC_cache->c_root_disk_id = hmd->hmd_disk_id;
-			if (BC_cache->c_root_disk_id == 0) {
-				message("Root disk is 0");
-			} else {
-				debug("Root disk (via history) is 0x%llx", BC_cache->c_root_disk_id);
+	if (!cache_nonroot_disks) {
+		// Determine root disk
+		if (BC_cache->c_root_disk_id == 0) {
+			// Use vfs_devvp to compare against rootvp (rather than BC_get_dev)
+			vnode_t rootdevvp = vfs_devvp(mount);
+			if (rootdevvp != NULLVP) {
+				// Unused, so make sure we dont forget to put it
+				vnode_put(rootdevvp);
+			}
+			if (rootdevvp == rootvp) {
+				BC_cache->c_root_disk_id = hmd->hmd_disk_id;
+				if (BC_cache->c_root_disk_id == 0) {
+					message("Root disk is 0");
+				} else {
+					debug("Root disk (via history) is 0x%llx", BC_cache->c_root_disk_id);
+				}
 			}
 		}
 	}
-#endif
 
 	
 	/* Found info for our mount */
@@ -5872,32 +5938,31 @@ BC_add_history(vnode_t vp, daddr64_t blkno, u_int64_t length, int pid, int hit, 
 		 * to be contested enough to make a cache worthwhile
 		 */
 		
-#ifdef ROOT_DISK_ONLY
-		if (hmd->hmd_disk_id != BC_cache->c_root_disk_id) {
-			is_rejected = 1;
-			if (BC_cache->c_take_detailed_stats && !write && !tag) {
-				BC_ADD_STAT(shared, history_reads_nonroot, 1);
-				BC_ADD_STAT(shared, history_reads_nonroot_bytes, length);
+		if (!cache_nonroot_disks) {
+			if (hmd->hmd_disk_id != BC_cache->c_root_disk_id) {
+				is_rejected = 1;
+				if (BC_cache->c_take_detailed_stats && !write && !tag) {
+					BC_ADD_STAT(shared, history_reads_nonroot, 1);
+					BC_ADD_STAT(shared, history_reads_nonroot_bytes, length);
+				}
+				goto out;
 			}
-			goto out;
 		}
-#endif
-
-#ifdef BC_HDD_AND_FUSION_ONLY
-		if (hmd->hmd_is_ssd &&
-			!(hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_FUSION) &&
-			!(hmd->hmd_mount.hm_fs_flags & BC_FS_CS_FUSION)) {
-			
-			if (BC_cache->c_take_detailed_stats && !write && !tag) {
-				BC_ADD_STAT(shared, history_reads_ssd, 1);
-				BC_ADD_STAT(shared, history_reads_ssd_bytes, length);
+		
+		if (!cache_ssds) {
+			if (hmd->hmd_is_ssd &&
+				!(hmd->hmd_mount.hm_fs_flags & BC_FS_APFS_FUSION) &&
+				!(hmd->hmd_mount.hm_fs_flags & BC_FS_CS_FUSION)) {
+				
+				if (BC_cache->c_take_detailed_stats && !write && !tag) {
+					BC_ADD_STAT(shared, history_reads_ssd, 1);
+					BC_ADD_STAT(shared, history_reads_ssd_bytes, length);
+				}
+				
+				is_rejected = 1;
+				goto out;
 			}
-
-			is_rejected = 1;
-			goto out;
 		}
-#endif
-
 		
 	}
 	
@@ -6181,30 +6246,37 @@ BC_setup(void)
 		return(ENXIO);
 	}
 	
-#ifdef BC_HDD_AND_FUSION_ONLY
-#ifdef ROOT_DISK_ONLY
-	uint32_t root_disk_is_ssd = false;
-	if (VNOP_IOCTL(rootvp,       /* vnode */
-				   DKIOCISSOLIDSTATE,    /* cmd */
-				   (caddr_t)&root_disk_is_ssd, /* data */
-				   0,
-				   vfs_context_current()))           /* context */
-	{
-		message("can't determine if root disk is an SSD");
-		root_disk_is_ssd = false; // Assume false on failure
-	}
-	if (root_disk_is_ssd) {
-		// Fusion drives are considered SSD by the DKIOCISSOLIDSTATE check above, need to differentiate
-		uint32_t root_mount_flags = 0;
+	BC_parse_boot_args();
+	
+	if (!cache_ssds && !cache_nonroot_disks) {
+		uint32_t root_disk_is_ssd = false;
+		if (VNOP_IOCTL(rootvp,       /* vnode */
+					   DKIOCISSOLIDSTATE,    /* cmd */
+					   (caddr_t)&root_disk_is_ssd, /* data */
+					   0,
+					   vfs_context_current()))           /* context */
+		{
+			message("can't determine if root disk is an SSD");
+			root_disk_is_ssd = false; // Assume false on failure
+		}
+		if (root_disk_is_ssd) {
+			// Fusion drives are considered SSD by the DKIOCISSOLIDSTATE check above, need to differentiate
+			uint32_t root_mount_flags = 0;
 		bc_get_volume_info(rootdev, &root_mount_flags, NULL, NULL, NULL, NULL);
-		if (!(root_mount_flags & BC_FS_APFS_FUSION) &&
-			!(root_mount_flags & BC_FS_CS_FUSION)) {
-			
-			message("Root disk is an SSD, not caching");
-			return(ENOTSUP);
+			if (!(root_mount_flags & BC_FS_APFS_FUSION) &&
+				!(root_mount_flags & BC_FS_CS_FUSION)) {
+				
+				message("Root disk is an SSD, not caching");
+				return(ENOTSUP);
+			}
 		}
 	}
-#endif
+
+#if defined(__arm64__)
+	if (!cache_apple_silicon_macs) {
+		message("Not caching Apple Silicon Mac");
+		return(ENOTSUP);
+	}
 #endif
 	
 	debug("Major of rootdev is %d", major(rootdev));
@@ -6368,6 +6440,39 @@ BC_sysctl SYSCTL_HANDLER_ARGS
 				if ((error = copyout(&BC_cache->c_stats, bc.bc_data1, bc.bc_data1_size)) != 0)
 					debug("could not copy out statistics");
 			}
+			break;
+			
+		case BC_OP_DEBUG_BUFFER:
+			debug("BC_OP_DEBUG_BUFFER by %s [%d], ppid %d", procname, proc_selfpid(), proc_selfppid());
+#ifdef BC_DEBUG
+			lck_mtx_lock(&debug_printlock);
+			/* check buffer size and copy out */
+			if (debug_print_buffer_length == 0) {
+				error = ENOENT;
+			} else {
+				size_t copyout_size = debug_print_buffer_length + 1; // + 1 for terminating NUL character
+				if (copyout_size > UINT_MAX) {
+					error = E2BIG;
+				} else {
+					if (bc.bc_data1 != 0) {
+						if (bc.bc_data1_size < copyout_size) {
+							error = ENOMEM;
+						} else {
+							error = copyout(debug_print_buffer, bc.bc_data1, copyout_size);
+						}
+					}
+					bc.bc_data1_size = (unsigned int)copyout_size;
+				}
+			}
+			lck_mtx_unlock(&debug_printlock);
+			if (!error) {
+				if ((error = SYSCTL_OUT(req, &bc, sizeof(bc))) != 0) {
+					debug("could not return debug buffer size");
+				}
+			}
+#else
+			error = ENODATA;
+#endif
 			break;
 			
 		case BC_OP_SET_USER_OVERSIZE:

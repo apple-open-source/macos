@@ -368,7 +368,7 @@ static void sign_tests(SecIdentityRef identity, bool isRSA) {
     is(sign_please(identity, SEC_OID_SHA1, false, (isRSA) ? rsa_sha1 : NULL,
                    (isRSA) ? sizeof(rsa_sha1) : 0),
        errSecSuccess, "Signed with SHA-1");
-    is(sign_please(identity, SEC_OID_SHA256, false, (isRSA) ? rsa_sha256 : NULL,
+    is(sign_please(identity, SEC_OID_SHA256, false, (isRSA) ? new_sig_alg_rsa_sha256 : NULL,
                    (isRSA) ? sizeof(rsa_sha256) : 0),
        errSecSuccess, "Signed with SHA-256");
     is(sign_please(identity, SEC_OID_SHA384, false, NULL, 0), errSecSuccess, "Signed with SHA-384");

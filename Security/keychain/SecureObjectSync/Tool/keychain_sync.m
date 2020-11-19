@@ -489,7 +489,7 @@ keychain_sync(int argc, char * const *argv)
     CFMutableArrayRef peers2remove = NULL;
     SOSLogSetOutputTo(NULL, NULL);
 
-    while ((ch = getopt_long(argc, argv, "ab:deikmorv:NCDLOP:RT:UWV05", longopts, NULL)) != -1)
+    while ((ch = getopt_long(argc, argv, "ab:deikmorv:NCDLOP:RT:UWV05", longopts, NULL)) != -1) {
         switch  (ch) {
             case 'a':
             {
@@ -635,10 +635,25 @@ keychain_sync(int argc, char * const *argv)
                 }
                 break;
             }
+            case 0:
+            {
+                if (action == SYNC_REMOVE_PEER) {
+                    CFStringRef optstr = CFStringCreateWithCString(NULL, optarg, kCFStringEncodingUTF8);
+                    if (peers2remove == NULL) {
+                        peers2remove = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+                    }
+                    CFArrayAppendValue(peers2remove, optstr);
+                    CFReleaseNull(optstr);
+                } else {
+                    return SHOW_USAGE_MESSAGE;
+                }
+                break;
+            }
             case '?':
             default:
                 return SHOW_USAGE_MESSAGE;
         }
+    }
 
     if (peers2remove != NULL) {
         hadError = !doRemovePeers(peers2remove, &error);

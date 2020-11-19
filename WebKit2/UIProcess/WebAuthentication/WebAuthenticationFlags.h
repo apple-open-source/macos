@@ -40,9 +40,25 @@ enum class WebAuthenticationResult : bool {
     Failed
 };
 
-enum class WebAuthenticationStatus : bool {
+enum class WebAuthenticationStatus : uint8_t {
     MultipleNFCTagsPresent,
-    NoCredentialsFound
+    NoCredentialsFound,
+    PinBlocked,
+    PinAuthBlocked,
+    PinInvalid,
+    LAError,
+    LAExcludeCredentialsMatched,
+    LANoCredential,
+};
+
+enum class LocalAuthenticatorPolicy : bool {
+    Allow,
+    Disallow
+};
+
+enum class WebAuthenticationSource : bool {
+    Local,
+    External
 };
 
 } // namespace WebKit

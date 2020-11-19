@@ -21,6 +21,9 @@
 #define SCHRITER_H
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/chariter.h"
 #include "unicode/uchriter.h"
 
@@ -29,7 +32,6 @@
  * \brief C++ API: String Character Iterator
  */
  
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 /**
  * A concrete subclass of CharacterIterator that iterates over the
@@ -131,7 +133,7 @@ public:
    * @return the newly cloned object.
    * @stable ICU 2.0
    */
-  virtual CharacterIterator* clone(void) const;
+  virtual StringCharacterIterator* clone() const;
 
   /**
    * Sets the iterator to iterate over the provided string.
@@ -187,6 +189,7 @@ protected:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

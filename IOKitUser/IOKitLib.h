@@ -937,7 +937,7 @@ IORegistryGetRootEntry(
     @discussion This function parses paths to lookup registry entries. The path should begin with '<plane name>:' If there are characters remaining unparsed after an entry has been looked up, this is considered an invalid lookup. Paths are further documented in IORegistryEntry.h
     @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param path A C-string path.
-    @result A handle to the IORegistryEntry witch was found with the path, to be released with IOObjectRelease by the caller, or MACH_PORT_NULL on failure. */
+    @result A handle to the IORegistryEntry which was found with the path, to be released with IOObjectRelease by the caller, or MACH_PORT_NULL on failure. */
 
 io_registry_entry_t
 IORegistryEntryFromPath(
@@ -950,7 +950,7 @@ IORegistryEntryFromPath(
     @discussion This function parses paths to lookup registry entries. The path should begin with '<plane name>:' If there are characters remaining unparsed after an entry has been looked up, this is considered an invalid lookup. Paths are further documented in IORegistryEntry.h
     @param masterPort The master port obtained from IOMasterPort(). Pass kIOMasterPortDefault to look up the default master port.
     @param path A CFString path.
-    @result A handle to the IORegistryEntry witch was found with the path, to be released with IOObjectRelease by the caller, or MACH_PORT_NULL on failure. */
+    @result A handle to the IORegistryEntry which was found with the path, to be released with IOObjectRelease by the caller, or MACH_PORT_NULL on failure. */
 
 io_registry_entry_t
 IORegistryEntryCopyFromPath(

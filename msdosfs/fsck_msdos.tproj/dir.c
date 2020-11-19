@@ -120,9 +120,9 @@ static char *fullpath __P((struct dosDirEntry *));
 static u_char calcShortSum __P((u_char *));
 static int delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl, size_t endoff, int notlast);
 static int msdosfs_removede __P((int, struct bootblock *, u_char *,
-    u_char *, cl_t, cl_t, cl_t, char *, int));
+    u_char *, cl_t, cl_t, cl_t, char *, int, int));
 static int checksize __P((struct bootblock *, u_char *, struct dosDirEntry *));
-static int readDosDirSection __P((int, struct bootblock *, struct dosDirEntry *));
+static int readDosDirSection __P((int, struct bootblock *, struct dosDirEntry *, int));
 
 /*
  * Manage free dosDirEntry structures.
@@ -479,7 +479,7 @@ delete(int fd, struct bootblock *boot, cl_t startcl, size_t startoff, cl_t endcl
 }
 
 static int
-msdosfs_removede(f, boot, start, end, startcl, endcl, curcl, path, type)
+msdosfs_removede(f, boot, start, end, startcl, endcl, curcl, path, type, force)
 	int f;
 	struct bootblock *boot;
 	u_char *start;
@@ -500,8 +500,11 @@ msdosfs_removede(f, boot, start, end, startcl, endcl, curcl, path, type)
 	case 2:
 		pwarn("Invalid long filename entry for volume label\n");
 		break;
+    case 3:
+        pwarn("Remove unlinked file entry\n");
+        break;
 	}
-	if (ask(0, "Remove")) {
+	if (force || ask(0, "Remove")) {
 		if (startcl != curcl) {
 			if (delete(f, boot,
 				   startcl, start - buffer,
@@ -670,9 +673,10 @@ fail:
  *   - resolve long name records
  *   - enter file and directory records into the parent's list
  *   - push directories onto the todo-stack
+ *   - remove unlinked files
  */
 static int
-readDosDirSection(f, boot, dir)
+readDosDirSection(f, boot, dir, rdonly)
 	int f;
 	struct bootblock *boot;
 	struct dosDirEntry *dir;
@@ -889,7 +893,7 @@ readDosDirSection(f, boot, dir)
 					mod |= msdosfs_removede(f, boot,
 							invlfn ? invlfn : vallfn, p,
 							invlfn ? invcl : valcl, cl, cl,
-							fullpath(dir), 2);
+							fullpath(dir), 2, 0);
 					vallfn = NULL;
 					invlfn = NULL;
 				}
@@ -936,7 +940,7 @@ readDosDirSection(f, boot, dir)
 				mod |= k = msdosfs_removede(f, boot,
 						    invlfn, vallfn ? vallfn : p,
 						    invcl, vallfn ? valcl : cl, cl,
-						    fullpath(&dirent), 0);
+						    fullpath(&dirent), 0, 0);
 				if (mod & FSFATAL)
 					return FSFATAL;
 				if (vallfn
@@ -945,6 +949,25 @@ readDosDirSection(f, boot, dir)
 					if (k & FSDIRMOD)
 						mod |= THISMOD;
 			}
+            
+            if (!rdonly && !invlfn && vallfn &&
+                !strncmp(dirent.lname, ".nfs.20051",10) &&
+                !(dirent.flags & ATTR_DIRECTORY))
+            {
+                mod |= k = msdosfs_removede(f, boot,
+                            vallfn, p + 32,
+                            valcl, cl, cl,
+                            fullpath(&dirent), 3, 1);
+                if (mod & FSFATAL)
+                    return FSFATAL;
+                if (valcl == cl && vallfn != buffer)
+                    if (k & FSDIRMOD)
+                        mod |= THISMOD;
+                
+                vallfn = NULL; /* not used any longer */
+                invlfn = NULL;
+                continue;
+            }
 
 			vallfn = NULL; /* not used any longer */
 			invlfn = NULL;
@@ -1174,7 +1197,7 @@ MarkedChain:
 		mod |= msdosfs_removede(f, boot,
 				invlfn ? invlfn : vallfn, p,
 				invlfn ? invcl : valcl, last_cl, last_cl,
-				fullpath(dir), 1);
+				fullpath(dir), 1, 0);
 		if (lseek(f, off, SEEK_SET) != off
 			|| write(f, buffer, last*32) != last*32) {
 			perr("Unable to write directory");
@@ -1185,11 +1208,11 @@ MarkedChain:
 }
 
 int
-handleDirTree(int dosfs, struct bootblock *boot)
+handleDirTree(int dosfs, struct bootblock *boot, int rdonly)
 {
 	int mod;
 
-	mod = readDosDirSection(dosfs, boot, rootDir);
+	mod = readDosDirSection(dosfs, boot, rootDir, rdonly);
 	if (mod & FSFATAL)
 		return FSFATAL;
 
@@ -1210,7 +1233,7 @@ handleDirTree(int dosfs, struct bootblock *boot)
 		/*
 		 * handle subdirectory
 		 */
-		mod |= readDosDirSection(dosfs, boot, dir);
+		mod |= readDosDirSection(dosfs, boot, dir, rdonly);
 		if (mod & FSFATAL)
 			return FSFATAL;
 	}

@@ -47,7 +47,7 @@ extern krb5_context milcontext;
 
 #include <syslog.h>
 
-#define LOG_UNIMPLEMENTED() mshim_log_function_missing(__func__)
+#define LOG_UNIMPLEMENTED() do { } while(0)
 #define LOG_ENTRY() mshim_log_entry("MITKerberosShim: %s entered", __func__)
 #define LOG_FAILURE(_r, _s) mshim_failure(__func__, _r, _s)
 
@@ -80,7 +80,6 @@ unsigned long
 	mshim_remap_flags(unsigned long, const struct mshim_map_flags *);
 
 
-void	mshim_log_function_missing(const char *);
 void	mshim_init_context(void);
 
 /* mapping functions */

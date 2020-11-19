@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2016, 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2013-2016, 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -50,7 +50,7 @@ haveMobileWiFi()
 static CFBooleanRef
 is_expensive(SCNetworkInterfaceRef _Nonnull interface)
 {
-	CFBooleanRef	expensive	= NULL;
+	CFBooleanRef	expensive;
 	CFStringRef	interfaceType;
 
 	while (interface != NULL) {
@@ -63,10 +63,8 @@ is_expensive(SCNetworkInterfaceRef _Nonnull interface)
 
 		interface = child;
 	}
-
-	// assume NOT expensive
-	expensive = kCFBooleanFalse;
-
+	// by default, don't set/clear expensive
+	expensive = NULL;
 	interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
 	if (_SCNetworkInterfaceIsTethered(interface)) {
 		// if tethered (to iOS) interface
@@ -86,12 +84,23 @@ is_expensive(SCNetworkInterfaceRef _Nonnull interface)
 static int
 ifexpensive_set(int s, const char * name, uint32_t expensive)
 {
-#if	defined(SIOCSIFEXPENSIVE) && !defined(MAIN)
+#if	defined(SIOCGIFEXPENSIVE) && defined(SIOCSIFEXPENSIVE) && !defined(MAIN)
 	struct ifreq	ifr;
 	int		ret;
 
 	memset(&ifr, 0, sizeof(ifr));
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	ret = ioctl(s, SIOCGIFEXPENSIVE, &ifr);
+	if ((ret == -1) && (errno != EPERM)) {
+		SC_log(LOG_ERR, "%s: ioctl(SIOCGIFEXPENSIVE) failed: %s", name, strerror(errno));
+		return ret;
+	}
+
+	if (ifr.ifr_expensive == expensive) {
+		// if no change
+		return ret;
+	}
+
 	ifr.ifr_expensive = expensive;
 	ret = ioctl(s, SIOCSIFEXPENSIVE, &ifr);
 	if ((ret == -1) && (errno != EPERM)) {
@@ -109,26 +118,28 @@ __private_extern__
 CFBooleanRef
 interface_update_expensive(const char *if_name)
 {
-	CFBooleanRef		expensive	= NULL;
+	CFBooleanRef		expensive;
 	SCNetworkInterfaceRef	interface;
 	CFStringRef		interface_name;
 	int			s;
 
-	interface_name = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingMacRoman);
+	interface_name = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingUTF8);
 	interface = _SCNetworkInterfaceCreateWithBSDName(NULL, interface_name, kIncludeNoVirtualInterfaces);
 	CFRelease(interface_name);
-
-	if (interface != NULL) {
-		expensive = is_expensive(interface);
-		CFRelease(interface);
+	if (interface == NULL) {
+		return NULL;
 	}
-
+	expensive = is_expensive(interface);
+	CFRelease(interface);
+	if (expensive == NULL) {
+		return NULL;
+	}
 	// mark ... or clear ... the [if_name] interface as "expensive"
 	s = dgram_socket(AF_INET);
 	if (s != -1) {
 		ifexpensive_set(s,
 				if_name,
-				((expensive != NULL) && CFBooleanGetValue(expensive)) ? 1 : 0);
+				CFBooleanGetValue(expensive) ? 1 : 0);
 		close(s);
 	}
 
@@ -163,9 +174,9 @@ main(int argc, char **argv)
 
 	expensive = interface_update_expensive(argv[1]);
 	if (expensive != NULL) {
-		SCPrint(TRUE, stdout, CFSTR("interface \"%s\": %@\n"), argv[1], expensive);
+		SCPrint(TRUE, stdout, CFSTR("%s: set expensive to %@\n"), argv[1], expensive);
 	} else {
-		SCPrint(TRUE, stdout, CFSTR("interface \"%s\": could not determine \"expensive\" status\n"), argv[1]);
+		SCPrint(TRUE, stdout, CFSTR("%s: not changing expensive\n"), argv[1]);
 	}
 
 	exit(0);

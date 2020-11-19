@@ -78,13 +78,13 @@
 #include <sys/time.h>		/* for struct timeval */
 #include <netinet/in.h>		/* for struct in_addr */
 #ifdef __APPLE__
-#include <ppp_defs.h>
+#include "ppp_defs.h"
 #else
 #include <net/ppp_defs.h>
 #endif
 #include "patchlevel.h"
 #ifdef __APPLE__
-#include "../../PPP_VERSION.h"
+#include "PPP_VERSION.h"
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <dns_sd.h>
 #include "scnc_main.h"

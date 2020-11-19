@@ -1,0 +1,4 @@
+xargs/pathname.h	freebsd	usr.bin/xargs/pathname.h	872b698bd4a1bfc0bf008c09228e6fd238809c75
+xargs/strnsubst.c	freebsd	usr.bin/xargs/strnsubst.c	56640efcbe39386a0152f14fb18a314b85e7e014
+xargs/xargs.1	freebsd	usr.bin/xargs/xargs.1	7e6cabd06e6caa6a02eeb86308dc0cb3f27e10da
+xargs/xargs.c	freebsd	usr.bin/xargs/xargs.c	872b698bd4a1bfc0bf008c09228e6fd238809c75

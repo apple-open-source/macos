@@ -1,0 +1,26 @@
+diff --git a/configure b/configure
+index fbb6b88..50c1376 100755
+--- a/configure
++++ b/configure
+@@ -3409,7 +3409,7 @@ $as_echo "#define _BSD_SOURCE 1" >>confdefs.h
+   # has no effect, don't bother defining them
+   Darwin/[6789].*)
+     define_xopen_source=no;;
+-  Darwin/1[0-9].*)
++  Darwin/[12][0-9].*)
+     define_xopen_source=no;;
+   # On AIX 4 and 5.1, mbstate_t is defined only when _XOPEN_SOURCE == 500 but
+   # used in wcsnrtombs() and mbsnrtowcs() even if _XOPEN_SOURCE is not defined
+diff --git a/configure.ac b/configure.ac
+index 0c9f839..f1eb83f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -457,7 +457,7 @@ case $ac_sys_system/$ac_sys_release in
+   # has no effect, don't bother defining them
+   Darwin/@<:@6789@:>@.*)
+     define_xopen_source=no;;
+-  Darwin/1@<:@0-9@:>@.*)
++  Darwin/@<:@12@:>@@<:@0-9@:>@.*)
+     define_xopen_source=no;;
+   # On AIX 4 and 5.1, mbstate_t is defined only when _XOPEN_SOURCE == 500 but
+   # used in wcsnrtombs() and mbsnrtowcs() even if _XOPEN_SOURCE is not defined

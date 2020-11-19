@@ -181,6 +181,11 @@ INC_XLOCALE_INSTHDRS=(
 )
 XLOCALE_INSTHDRS=( "${INC_XLOCALE_INSTHDRS[@]/#/${SRCROOT}/include/xlocale/}" )
 
+MODULEMAPS=(
+	${SRCROOT}/include/_types.modulemap
+	${SRCROOT}/include/stdint.modulemap
+)
+
 TYPES_INSTHDRS=(
 	${SRCROOT}/include/_types/_intmax_t.h
 	${SRCROOT}/include/_types/_nl_item.h
@@ -199,6 +204,7 @@ LOCALHDRS=(
 	${SRCROOT}/nls/FreeBSD/msgcat.h
 	${SRCROOT}/gen/thread_stack_pcs.h
 	${SRCROOT}/libdarwin/h/dirstat.h
+	${SRCROOT}/darwin/subsystem.h
 )
 
 OS_LOCALHDRS=( ${SRCROOT}/os/assumes.h ${SRCROOT}/os/debug_private.h )
@@ -217,6 +223,7 @@ SYS_INSTHDRS=(
 	${SRCROOT}/include/sys/rbtree.h
 	${SRCROOT}/include/sys/statvfs.h
 )
+
 PRIVUUID_INSTHDRS=( ${SRCROOT}/uuid/namespace.h )
 
 else # DRIVERKITSDK
@@ -302,6 +309,10 @@ fi
 if [ -n "${TYPES_INSTHDRS}" ]; then
 ${MKDIR} ${INCDIR}/_types
 ${INSTALL} -m ${INSTALLMODE} ${TYPES_INSTHDRS[@]} ${INCDIR}/_types
+fi
+if [ -n "${MODULEMAPS}" ]; then
+${MKDIR} ${INCDIR}
+${INSTALL} -m ${INSTALLMODE} ${MODULEMAPS[@]} ${INCDIR}
 fi
 if [ -n "${LOCALHDRS}" ]; then
 ${MKDIR} ${LOCINCDIR}

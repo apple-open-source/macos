@@ -183,6 +183,8 @@ enum {
  */
 #define kIOHIDReportBufferEntrySizeKey      "ReportBufferEntrySize"
 
+#define kIOHIDMaxReportEnqueueSizeKey        "MaxQueuedReportSize"
+
 #define kIOHIDAppleVendorSupported          "AppleVendorSupported"
 
 #define kIOHIDSetButtonPropertiesKey        "SetButtonProperties"
@@ -217,6 +219,15 @@ typedef uint32_t IOHIDGameControllerType;
 
 
 #define kIOHIDFastPathHasEntitlementKey     "FastPathHasEntitlement"
+
+/*!
+ * @define      kIOHIDFastPathMotionEventEntitlementKey
+ * @abstract    Fast Path User Client has privileges to receive motion events during restricted states.
+ * @discussion  Property published on IOHIDEventServiceFastPathUserClient designating that the driver
+ *              should provide motion events to this client even while in a motion event restricted state
+ *              (kIOHIDMotionEventRestrictedKey).
+ */
+#define kIOHIDFastPathMotionEventEntitlementKey "FastPathMotionEventEntitlement"
 
 
 /*!

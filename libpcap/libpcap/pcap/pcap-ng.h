@@ -294,6 +294,22 @@ struct pcapng_enhanced_packet_fields {
 #define	PCAPNG_PBF_LL_CRC_ERROR		0x01000000 /* Bit 24 CRC Error */
 
 /*
+ * Decryption Secrets Block
+ *
+ * based on: https://tools.ietf.org/html/draft-tuexen-opsawg-pcapng-01#section-4.8
+ */
+#define PCAPNG_BT_DSB			0x0000000A
+
+struct pcapng_decryption_secrets_fields {
+	bpf_u_int32	secrets_type;
+	bpf_u_int32	secrets_length;		/* Nnpadded length of secrets data */
+	/* followed by secrets data, options, and trailer */
+};
+
+#define PCAPNG_DST_TLS_KEY_LOG		0x544c534b /* TLS Key Log secrets type */
+#define PCAPNG_DST_WG_KEY_LOG		0x57474b4c /* WireGuard Key Log secrets type */
+
+/*
  * The following options are experimental Apple additions
  */
 #define	PCAPNG_EPB_PIB_INDEX	0x8001	/* 32 bits number of process information block within the section */
@@ -440,6 +456,7 @@ struct pcapng_simple_packet_fields *pcap_ng_get_simple_packet_fields(pcapng_bloc
 struct pcapng_packet_fields *pcap_ng_get_packet_fields(pcapng_block_t );
 struct pcapng_process_information_fields *pcap_ng_get_process_information_fields(pcapng_block_t );
 struct pcapng_os_event_fields *pcap_ng_get_os_event_fields(pcapng_block_t );
+struct pcapng_decryption_secrets_fields *pcap_ng_get_decryption_secrets_fields(pcapng_block_t );
 
 /*
  * Set the packet data to the passed buffer by copying into the internal block buffer

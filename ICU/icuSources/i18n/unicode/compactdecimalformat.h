@@ -14,6 +14,9 @@
 #define __COMPACT_DECIMAL_FORMAT_H__
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Compatibility APIs for compact decimal number formatting.
@@ -25,7 +28,6 @@
 
 struct UHashtable;
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class PluralRules;
@@ -103,7 +105,7 @@ public:
      * @return    a polymorphic copy of this CompactDecimalFormat.
      * @stable ICU 51
      */
-    Format* clone() const U_OVERRIDE;
+    CompactDecimalFormat* clone() const U_OVERRIDE;
 
     using DecimalFormat::format;
 
@@ -185,9 +187,10 @@ public:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // __COMPACT_DECIMAL_FORMAT_H__
 //eof

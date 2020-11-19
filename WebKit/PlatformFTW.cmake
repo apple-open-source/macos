@@ -6,16 +6,12 @@ list(APPEND WebKitLegacy_SOURCES_Classes
     win/WebDownloadCURL.cpp
     win/WebURLAuthenticationChallengeSenderCURL.cpp
 )
-list(APPEND WebKitLegacy_LIBRARIES
-    ${OPENSSL_LIBRARIES}
-    PRIVATE D3D11.lib
-    PRIVATE Dxgi.lib
-    PRIVATE mfuuid.lib
-    PRIVATE strmiids.lib
-    PRIVATE ${LIBXML2_LIBRARIES}
-    PRIVATE ${LIBXSLT_LIBRARIES}
-    PRIVATE ${SQLITE_LIBRARIES}
-    PRIVATE ${ZLIB_LIBRARIES}
+list(APPEND WebKitLegacy_PRIVATE_LIBRARIES
+    OpenSSL::SSL
+    D3D11.lib
+    Dxgi.lib
+    mfuuid.lib
+    strmiids.lib
 )
 
 add_custom_command(
@@ -413,22 +409,22 @@ add_library(WebKitLegacyGUID STATIC
 )
 set_target_properties(WebKitLegacyGUID PROPERTIES OUTPUT_NAME WebKitGUID${DEBUG_SUFFIX})
 
-list(APPEND WebKitLegacy_LIBRARIES
-    PRIVATE Comctl32
-    PRIVATE Comsupp
-    PRIVATE Crypt32
-    PRIVATE D2d1
-    PRIVATE Dwrite
-    PRIVATE Dxguid
-    PRIVATE Iphlpapi
-    PRIVATE Psapi
-    PRIVATE Rpcrt4
-    PRIVATE Shlwapi
-    PRIVATE Usp10
-    PRIVATE Version
-    PRIVATE WebKitGUID${DEBUG_SUFFIX}
-    PRIVATE WindowsCodecs
-    PRIVATE Winmm
+list(APPEND WebKitLegacy_PRIVATE_LIBRARIES
+    Comctl32
+    Comsupp
+    Crypt32
+    D2d1
+    Dwrite
+    Dxguid
+    Iphlpapi
+    Psapi
+    Rpcrt4
+    Shlwapi
+    Usp10
+    Version
+    WebKitGUID${DEBUG_SUFFIX}
+    WindowsCodecs
+    Winmm
 )
 
 set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /SUBSYSTEM:WINDOWS")
@@ -473,8 +469,12 @@ WEBKIT_MAKE_FORWARDING_HEADERS(WebKitLegacyGUID
     FILES ${WebKitLegacy_PUBLIC_FRAMEWORK_HEADERS}
     FLATTENED
 )
-add_dependencies(WebKitLegacyFrameworkHeaders WebCorePrivateFrameworkHeaders)
 
 set(WebKitLegacy_OUTPUT_NAME
     WebKit${DEBUG_SUFFIX}
+)
+
+list(APPEND WebKitLegacy_PRIVATE_DEFINITIONS
+    STATICALLY_LINKED_WITH_PAL
+    STATICALLY_LINKED_WITH_WebCore
 )

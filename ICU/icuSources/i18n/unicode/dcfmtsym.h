@@ -28,10 +28,12 @@
 #define DCFMTSYM_H
 
 #include "unicode/utypes.h"
-#include "unicode/uchar.h"
+
+#if U_SHOW_CPLUSPLUS_API
 
 #if !UCONFIG_NO_FORMATTING
 
+#include "unicode/uchar.h"
 #include "unicode/uobject.h"
 #include "unicode/locid.h"
 #include "unicode/numsys.h"
@@ -44,7 +46,6 @@
  */
 
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -463,13 +464,11 @@ private:
      * to non-resource bundle strings,
      * then regular UnicodeString copies must be used instead of fastCopyFrom().
      *
-     * @internal
      */
     UnicodeString fSymbols[kFormatSymbolCount];
 
     /**
      * Non-symbol variable for getConstSymbol(). Always empty.
-     * @internal
      */
     UnicodeString fNoSymbol;
 
@@ -593,9 +592,10 @@ DecimalFormatSymbols::getNSName() const {
 #endif /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // _DCFMTSYM
 //eof

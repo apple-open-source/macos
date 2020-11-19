@@ -51,9 +51,6 @@
     <ClCompile Include="..\..\lib\CommonDH.c">
       <Filter>Source Files\lib</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\lib\CommonCryptorRC4.c">
-      <Filter>Source Files\lib</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\lib\CommonCryptorGCM.c">
       <Filter>Source Files\lib</Filter>
     </ClCompile>

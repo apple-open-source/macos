@@ -24,7 +24,7 @@
  */
 
 .tree-outline > .item.thread .icon {
-    content: url(../Images/Thread.svg);
+    content: url(../Images/IdentifierIcons.svg#Thread-light);
     width: 15px;
     height: 15px;
 }
@@ -42,7 +42,7 @@
     fill: hsla(0, 0%, var(--foreground-lightness), 0.7);
 }
 
-.tree-outline:focus > .item.thread.selected .status-button.resume {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline:focus-within > .item.thread.selected .status-button.resume {
     fill: var(--selected-foreground-color);
 }
 
@@ -62,6 +62,16 @@
 
 .tree-outline > .item.thread + ol > .item.truncated-call-frames .icon {
     -webkit-margin-start: 0;
-    content: url(../Images/Function.svg);
+    content: url(../Images/TypeIcons.svg#Function-light);
     opacity: 0.6;
+}
+
+@media (prefers-color-scheme: dark) {
+    .tree-outline > .item.thread .icon {
+        content: url(../Images/IdentifierIcons.svg#Thread-dark);
+    }
+
+    .tree-outline > .item.thread + ol > .item.truncated-call-frames .icon {
+        content: url(../Images/TypeIcons.svg#Function-dark);
+    }    
 }

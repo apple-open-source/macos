@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,45 +39,40 @@ get_if_addr(const char * name, u_int32_t * addr);
 
 ipconfig_status_t
 get_if_option(const char * name, int option_code, 
-	      void * option_data, 
-	      unsigned int * option_dataCnt);
+	      dataOut_t * option_data,
+	      mach_msg_type_number_t *option_dataCnt);
 
 ipconfig_status_t
-get_if_packet(const char * name, void * packet_data,
-	      unsigned int * packet_dataCnt);
+get_if_packet(const char * name, dataOut_t * packet,
+	      mach_msg_type_number_t *packetCnt);
 
 ipconfig_status_t
-get_if_v6_packet(const char * name, void * packet_data,
-		 unsigned int * packet_dataCnt);
+get_if_v6_packet(const char * name, dataOut_t * packet,
+		 mach_msg_type_number_t *packetCnt);
 
 ipconfig_status_t
-set_if(const char * name,
-       ipconfig_method_info_t info);
+set_if(const char * name, ipconfig_method_info_t info);
 
 ipconfig_status_t
 add_service(const char * name,
 	    ipconfig_method_info_t info,
-	    void * service_id, 
-	    unsigned int * service_id_len,
+	    ServiceID service_id,
 	    CFDictionaryRef plist, pid_t pid);
 
 ipconfig_status_t
 set_service(const char * name,
 	    ipconfig_method_info_t info,
-	    void * service_id, 
-	    unsigned int * service_id_len);
+	    ServiceID service_id);
 
 ipconfig_status_t
 remove_service_with_id(const char * name,
-		       void * service_id, 
-		       unsigned int service_id_len);
+		       ServiceID service_id);
 
 ipconfig_status_t
 find_service(const char * name,
 	     boolean_t exact,
 	     ipconfig_method_info_t info,
-	     void * service_id, 
-	     unsigned int * service_id_len);
+	     ServiceID service_id);
 
 ipconfig_status_t
 remove_service(const char * name,
@@ -85,10 +80,13 @@ remove_service(const char * name,
 
 ipconfig_status_t
 refresh_service(const char * name,
-		void * service_id, 
-		unsigned int service_id_len);
+		ServiceID service_id);
 
 ipconfig_status_t
 forget_network(const char * name, CFStringRef ssid);
+
+ipconfig_status_t
+get_if_ra(const char * name, xmlDataOut_t * ra_data,
+	  mach_msg_type_number_t *ra_data_cnt);
 
 #endif /* _S_IPCONFIGD_H */

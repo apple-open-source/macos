@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -58,15 +58,15 @@ extern const CFStringRef kSecCTExceptionsSPKIHashKey;
 /*
  @function SecTrustStoreSetCTExceptions
  @abstract Set the certificate transparency enforcement exceptions
- @param applicationIdentifier Identifier for the caller. If null, the application-identifier will be read from the callers entitlements.
+ @param applicationIdentifier Identifier for the caller. If null, the application-identifier will be read from the caller's entitlements.
  @param exceptions Dictionary of exceptions to set for this application. These exceptions replace existing exceptions for the keys in the dictionary. Exceptions for omitted keys are not affected. Null removes all exceptions for this application. See the discussion sections below for a complete overview of options.
- @param error Upon failure describes cause of the failure.
+ @param error On failure, describes the cause of the failure; otherwise, null.
  @result boolean indicating success of the operation. If false, error will be filled in with a description of the error.
  @discussions An exceptions dictionary has two optional keys:
  kSecCTExceptionsDomainsKey takes an array of strings. These strings are the domains that are excluded from enforcing CT. A leading "." is supported to signify subdomains. Wildcard domains are not supported.
  kSecCTExceptionsCAsKey takes an array of dictionaries. Each dictionary has two required keys:
-    kSecCTExceptionsHashAlgorithmKey takes a string indicating the hash algorithm. Currenlty only "sha256" is supported.
-    kSecCTExceptionsSPKIHashKey takes a data containing hash of a certificates SubjectPublicKeyInfo.
+    kSecCTExceptionsHashAlgorithmKey takes a string indicating the hash algorithm. Currently only "sha256" is supported.
+    kSecCTExceptionsSPKIHashKey takes a data containing hash of a certificate's SubjectPublicKeyInfo.
  */
 bool SecTrustStoreSetCTExceptions(CFStringRef applicationIdentifier, CFDictionaryRef exceptions, CFErrorRef *error);
 
@@ -74,11 +74,40 @@ bool SecTrustStoreSetCTExceptions(CFStringRef applicationIdentifier, CFDictionar
  @function SecTrustStoreCopyCTExceptions
  @abstract Return the certificate transparency enforcement exceptions
  @param applicationIdentifier Identifier for the caller's exceptions to fetch. If null, all set exceptions will be returned (regardless of which caller set them).
- @param error Upon failure describes cause of the failure.
+ @param error On failure, describes the cause of the failure; otherwise, null.
  @result The dictionary of currently set exceptions. Null if none exist or upon failure.
  @discussion The returned exceptions dictionary has the same options as input exceptions. See the discussion of SecTrustStoreSetCTExceptions.
  */
 CF_RETURNS_RETAINED CFDictionaryRef SecTrustStoreCopyCTExceptions(CFStringRef applicationIdentifier, CFErrorRef *error);
+
+
+extern const CFStringRef kSecCARevocationAdditionsKey;
+extern const CFStringRef kSecCARevocationHashAlgorithmKey;
+extern const CFStringRef kSecCARevocationSPKIHashKey;
+
+/*
+ @function SecTrustStoreSetCARevocationAdditions
+ @abstract Set a list of certificate authorities (specified by subject public key info hash) for which revocation should be explicitly checked.
+ @param applicationIdentifier Identifier for the caller. If null, the application-identifier will be read from the caller's entitlements.
+ @param additions Dictionary of SPKI hashes for which revocation should be explicitly checked. Existing entries for the keys in the dictionary will be replaced. Null removes all CA revocation additions for this application. See the discussion sections below for a complete overview of options.
+ @param error On failure, describes the cause of the failure; otherwise, null.
+ @result boolean indicating success of the operation. If false, error will be filled in with a description of the error.
+ @discussions An additions dictionary currently has one defined key:
+ kSecCARevocationAdditionsKey takes an array of dictionaries. Each dictionary has two required keys:
+    kSecCARevocationHashAlgorithmKey takes a string indicating the hash algorithm. Currently only "sha256" is supported.
+    kSecCARevocationSPKIHashKey takes a data containing hash of a certificate's SubjectPublicKeyInfo.
+ */
+bool SecTrustStoreSetCARevocationAdditions(CFStringRef applicationIdentifier, CFDictionaryRef additions, CFErrorRef *error);
+
+/*
+ @function SecTrustStoreCopyCARevocationAdditions
+ @abstract Return the certificate authority SPKI hashes for which revocation should be explicitly checked.
+ @param applicationIdentifier Identifier for the caller's additions to fetch. If null, all set exceptions will be returned (regardless of which caller set them).
+ @param error On failure, describes cause of the failure; otherwise, null.
+ @result The dictionary of currently set CA revocation additions. Null if none exist or upon failure.
+ @discussion The returned additions dictionary has the same options as input additions. See the discussion of SecTrustStoreSetCARevocationAdditions.
+ */
+CF_RETURNS_RETAINED CFDictionaryRef SecTrustStoreCopyCARevocationAdditions(CFStringRef applicationIdentifier, CFErrorRef *error);
 
 #if SEC_OS_OSX
 
@@ -211,6 +240,19 @@ void SecTrustSettingsPurgeUserAdminCertsCache(void);
  */
 OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
     CFArrayRef CF_RETURNS_RETAINED *certArray);
+
+/* Just like the API version (SecTrustSettingsCopyTrustSettings) but
+ * uses the cached version of trust settings to avoid disk reads. */
+OSStatus SecTrustSettingsCopyTrustSettings_Cached(
+    SecCertificateRef certRef,
+    SecTrustSettingsDomain domain,
+    CFArrayRef CF_RETURNS_RETAINED *trustSettings);
+
+/* Purge the trust settings cache (used by the above) */
+void SecTrustSettingsPurgeCache(void);
+
+/* Determines if the given cert has any trust settings in the admin or user domains */
+bool SecTrustSettingsUserAdminDomainsContain(SecCertificateRef certRef);
 #endif /* SEC_OS_OSX_INCLUDES */
 
 __END_DECLS

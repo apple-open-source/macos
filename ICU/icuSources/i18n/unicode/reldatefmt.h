@@ -15,6 +15,9 @@
 #define __RELDATEFMT_H
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/uobject.h"
 #include "unicode/udisplaycontext.h"
 #include "unicode/ureldatefmt.h"
@@ -166,12 +169,24 @@ typedef enum UDateAbsoluteUnit {
      */
     UDAT_ABSOLUTE_NOW,
 
-#ifndef U_HIDE_DRAFT_API
     /**
      * Quarter
-     * @draft ICU 63
+     * @stable ICU 63
      */
     UDAT_ABSOLUTE_QUARTER,
+
+#ifndef U_HIDE_DRAFT_API
+    /**
+     * Hour
+     * @draft ICU 65
+     */
+    UDAT_ABSOLUTE_HOUR,
+
+    /**
+     * Minute
+     * @draft ICU 65
+     */
+    UDAT_ABSOLUTE_MINUTE,
 #endif // U_HIDE_DRAFT_API
 
 #ifndef U_HIDE_DEPRECATED_API
@@ -179,7 +194,7 @@ typedef enum UDateAbsoluteUnit {
      * One more than the highest normal UDateAbsoluteUnit value.
      * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
-    UDAT_ABSOLUTE_UNIT_COUNT = UDAT_ABSOLUTE_NOW + 2
+    UDAT_ABSOLUTE_UNIT_COUNT = UDAT_ABSOLUTE_NOW + 4
 #endif  // U_HIDE_DEPRECATED_API
 } UDateAbsoluteUnit;
 
@@ -237,7 +252,6 @@ typedef enum UDateDirection {
 
 #if !UCONFIG_NO_BREAK_ITERATION
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class BreakIterator;
@@ -247,6 +261,7 @@ class SharedPluralRules;
 class SharedBreakIterator;
 class NumberFormat;
 class UnicodeString;
+class FormattedRelativeDateTime;
 class FormattedRelativeDateTimeData;
 
 #ifndef U_HIDE_DRAFT_API
@@ -741,8 +756,10 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* !UCONFIG_NO_BREAK_ITERATION */
 #endif /* !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif /* __RELDATEFMT_H */

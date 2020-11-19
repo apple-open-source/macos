@@ -415,13 +415,14 @@ DLDbListCFPref::resetCachedValues()
 
 void DLDbListCFPref::save()
 {
-    if (!hasChanged())
+    if (!hasChanged()) {
         return;
+    }
 
-	// Resync from disc to make sure we don't clobber anyone elses changes.
-	// @@@ This is probably already done by the next layer up so we don't
-	// really need to do it here again.
-	loadPropertyList(true);
+    // Resync from disc to make sure we don't clobber anyone elses changes.
+    // @@@ This is probably already done by the next layer up so we don't
+    // really need to do it here again.
+    loadPropertyList(true);
 
     // Do the searchList first since it might end up invoking defaultDLDbIdentifier() which can set
     // mLoginDLDbIdentifierSet and mDefaultDLDbIdentifierSet to true.

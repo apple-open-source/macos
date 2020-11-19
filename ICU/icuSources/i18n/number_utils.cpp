@@ -72,9 +72,16 @@ const char16_t* utils::getPatternForStyle(const Locale& locale, const char* nsNa
             patternKey = "decimalFormat"; // silence compiler error
             UPRV_UNREACHABLE;
     }
-    LocalUResourceBundlePointer res(ures_open(nullptr, locale.getName(), &status));
+    LocalUResourceBundlePointer res;
+    if (style == CLDR_PATTERN_STYLE_PERCENT) {
+        // for percent pattern, always use language fallback (see rdar://63758323)
+        res.adoptInstead(ures_open(nullptr, locale.getName(), &status));
+    } else {
+        // for the other patterns, use country fallback when appropriate
+        res.adoptInstead(ures_openWithCountryFallback(nullptr, locale.getName(), NULL, &status));
+    }
     if (U_FAILURE(status)) { return u""; }
-
+    
     // Attempt to get the pattern with the native numbering system.
     UErrorCode localStatus = U_ZERO_ERROR;
     const char16_t* pattern;
@@ -250,6 +257,17 @@ bool DecNum::isNegative() const {
 
 bool DecNum::isZero() const {
     return decNumberIsZero(fData.getAlias());
+}
+
+void DecNum::toString(ByteSink& output, UErrorCode& status) const {
+    if (U_FAILURE(status)) {
+        return;
+    }
+    // "string must be at least dn->digits+14 characters long"
+    int32_t minCapacity = fData.getAlias()->digits + 14;
+    MaybeStackArray<char, 30> buffer(minCapacity);
+    uprv_decNumberToString(fData, buffer.getAlias());
+    output.Append(buffer.getAlias(), static_cast<int32_t>(uprv_strlen(buffer.getAlias())));
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

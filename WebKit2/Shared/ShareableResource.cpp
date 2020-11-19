@@ -40,19 +40,20 @@ ShareableResource::Handle::Handle()
 
 void ShareableResource::Handle::encode(IPC::Encoder& encoder) const
 {
-    encoder << m_handle;
+    encoder << SharedMemory::IPCHandle { WTFMove(m_handle), m_size };
     encoder << m_offset;
-    encoder << m_size;
 }
 
 bool ShareableResource::Handle::decode(IPC::Decoder& decoder, Handle& handle)
 {
-    if (!decoder.decode(handle.m_handle))
+    SharedMemory::IPCHandle ipcHandle;
+    if (!decoder.decode(ipcHandle))
         return false;
     if (!decoder.decode(handle.m_offset))
         return false;
-    if (!decoder.decode(handle.m_size))
-        return false;
+
+    handle.m_size = ipcHandle.dataSize;
+    handle.m_handle = WTFMove(ipcHandle.handle);
     return true;
 }
 
@@ -106,8 +107,17 @@ RefPtr<SharedBuffer> ShareableResource::Handle::tryWrapInSharedBuffer() const
     return resource->wrapInSharedBuffer();
 }
 
-Ref<ShareableResource> ShareableResource::create(Ref<SharedMemory>&& sharedMemory, unsigned offset, unsigned size)
+RefPtr<ShareableResource> ShareableResource::create(Ref<SharedMemory>&& sharedMemory, unsigned offset, unsigned size)
 {
+    auto totalSize = CheckedSize(offset) + size;
+    if (totalSize.hasOverflowed()) {
+        LOG_ERROR("Failed to create ShareableResource from SharedMemory due to overflow.");
+        return nullptr;
+    }
+    if (totalSize.unsafeGet() > sharedMemory->size()) {
+        LOG_ERROR("Failed to create ShareableResource from SharedMemory due to mismatched buffer size.");
+        return nullptr;
+    }
     return adoptRef(*new ShareableResource(WTFMove(sharedMemory), offset, size));
 }
 
@@ -125,9 +135,6 @@ ShareableResource::ShareableResource(Ref<SharedMemory>&& sharedMemory, unsigned 
     , m_offset(offset)
     , m_size(size)
 {
-    ASSERT(m_offset + m_size <= m_sharedMemory->size());
-    
-    // FIXME (NetworkProcess): This data was received from another process.  If it is bogus, should we assume that process is compromised and we should kill it?
 }
 
 ShareableResource::~ShareableResource()

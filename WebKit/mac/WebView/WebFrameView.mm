@@ -133,7 +133,7 @@ enum {
     return [[self _scrollView] verticalLineScroll];
 }
 
-- (WebCore::Frame*)_web_frame
+- (NakedPtr<WebCore::Frame>)_web_frame
 {
     return core(_private->webFrame);
 }
@@ -258,7 +258,7 @@ enum {
 
         // Since this is a "secret default" we don't bother registering it.
         BOOL omitPDFSupport = [[NSUserDefaults standardUserDefaults] boolForKey:@"WebKitOmitPDFSupport"];
-        if (!omitPDFSupport)
+        if (!omitPDFSupport) {
 #if PLATFORM(IOS_FAMILY)
 #define WebPDFView ([WebView _getPDFViewClass])
 #endif
@@ -266,6 +266,7 @@ enum {
 #if PLATFORM(IOS_FAMILY)
 #undef WebPDFView
 #endif
+        }
     }
     
     if (!addedImageTypes && !allowImageTypeOmission) {
@@ -331,7 +332,7 @@ enum {
     // See WebFrameLoaderClient::provisionalLoadStarted.
     if ([[[self webFrame] webView] drawsBackground])
         [[self _scrollView] setDrawsBackground:YES];
-    if (auto* coreFrame = [self _web_frame]) {
+    if (auto coreFrame = [self _web_frame]) {
         if (auto* coreFrameView = coreFrame->view())
             coreFrameView->availableContentSizeChanged(WebCore::ScrollableArea::AvailableSizeChangeReason::AreaSizeChanged);
     }
@@ -353,6 +354,7 @@ enum {
         
         // Need to tell WebCore what function to call for the "History Item has Changed" notification.
         // Note: We also do this in WebHistoryItem's init method.
+        // FIXME: This means that if we mix legacy WebKit and modern WebKit in the same process, we won't get both notifications.
         WebCore::notifyHistoryItemChanged = WKNotifyHistoryItemChanged;
 
 #if !PLATFORM(IOS_FAMILY)
@@ -613,7 +615,7 @@ enum {
 
 - (BOOL)_isVerticalDocument
 {
-    auto* coreFrame = [self _web_frame];
+    auto coreFrame = [self _web_frame];
     if (!coreFrame)
         return YES;
     auto* document = coreFrame->document();
@@ -627,7 +629,7 @@ enum {
 
 - (BOOL)_isFlippedDocument
 {
-    auto* coreFrame = [self _web_frame];
+    auto coreFrame = [self _web_frame];
     if (!coreFrame)
         return NO;
     auto* document = coreFrame->document();
@@ -895,7 +897,7 @@ enum {
 #endif
     int index, count;
     BOOL callSuper = YES;
-    auto* coreFrame = [self _web_frame];
+    auto coreFrame = [self _web_frame];
     BOOL maintainsBackForwardList = coreFrame && static_cast<BackForwardList&>(coreFrame->page()->backForward().client()).enabled() ? YES : NO;
 
     count = [characters length];

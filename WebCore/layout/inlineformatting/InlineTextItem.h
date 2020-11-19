@@ -29,40 +29,86 @@
 
 #include "InlineFormattingState.h"
 #include "InlineItem.h"
+#include "LayoutInlineTextBox.h"
 
 namespace WebCore {
 namespace Layout {
 
 class InlineTextItem : public InlineItem {
 public:
-    static void createAndAppendTextItems(InlineItems&, const Box&);
+    static void createAndAppendTextItems(InlineItems&, const InlineTextBox&);
 
-    static std::unique_ptr<InlineTextItem> createWhitespaceItem(const Box&, unsigned start, unsigned length, Optional<InlineLayoutUnit> width);
-    static std::unique_ptr<InlineTextItem> createNonWhitespaceItem(const Box&, unsigned start, unsigned length, Optional<InlineLayoutUnit> width);
-    static std::unique_ptr<InlineTextItem> createEmptyItem(const Box&);
-
-    unsigned start() const { return m_start; }
+    unsigned start() const { return m_startOrPosition; }
     unsigned end() const { return start() + length(); }
     unsigned length() const { return m_length; }
 
     bool isWhitespace() const { return m_textItemType == TextItemType::Whitespace; }
-    bool isCollapsible() const { return isWhitespace() && style().collapseWhiteSpace(); }
-    Optional<InlineLayoutUnit> width() const { return m_width; }
+    bool isCollapsible() const { return m_isCollapsible; }
+    Optional<InlineLayoutUnit> width() const { return m_hasWidth ? makeOptional(m_width) : Optional<InlineLayoutUnit> { }; }
     bool isEmptyContent() const;
 
-    std::unique_ptr<InlineTextItem> left(unsigned length) const;
-    std::unique_ptr<InlineTextItem> right(unsigned length) const;
+    const InlineTextBox& inlineTextBox() const { return downcast<InlineTextBox>(layoutBox()); }
 
-    enum class TextItemType { Undefined, Whitespace, NonWhitespace };
-    InlineTextItem(const Box&, unsigned start, unsigned length, Optional<InlineLayoutUnit> width, TextItemType);
-    InlineTextItem(const Box&);
+    InlineTextItem left(unsigned length) const;
+    InlineTextItem right(unsigned length) const;
 
 private:
-    unsigned m_start { 0 };
-    unsigned m_length { 0 };
-    Optional<InlineLayoutUnit> m_width;
-    TextItemType m_textItemType { TextItemType::Undefined };
+    using InlineItem::TextItemType;
+
+    InlineTextItem(const InlineTextBox&, unsigned start, unsigned length, Optional<InlineLayoutUnit> width, TextItemType);
+    InlineTextItem(const InlineTextBox&);
+
+    static InlineTextItem createWhitespaceItem(const InlineTextBox&, unsigned start, unsigned length, Optional<InlineLayoutUnit> width);
+    static InlineTextItem createNonWhitespaceItem(const InlineTextBox&, unsigned start, unsigned length, Optional<InlineLayoutUnit> width);
+    static InlineTextItem createEmptyItem(const InlineTextBox&);
 };
+
+inline InlineTextItem InlineTextItem::createWhitespaceItem(const InlineTextBox& inlineTextBox, unsigned start, unsigned length, Optional<InlineLayoutUnit> width)
+{
+    return { inlineTextBox, start, length, width, TextItemType::Whitespace };
+}
+
+inline InlineTextItem InlineTextItem::createNonWhitespaceItem(const InlineTextBox& inlineTextBox, unsigned start, unsigned length, Optional<InlineLayoutUnit> width)
+{
+    return { inlineTextBox, start, length, width, TextItemType::NonWhitespace };
+}
+
+inline InlineTextItem InlineTextItem::createEmptyItem(const InlineTextBox& inlineTextBox)
+{
+    return { inlineTextBox };
+}
+
+inline InlineTextItem::InlineTextItem(const InlineTextBox& inlineTextBox, unsigned start, unsigned length, Optional<InlineLayoutUnit> width, TextItemType textItemType)
+    : InlineItem(inlineTextBox, Type::Text)
+{
+    m_startOrPosition = start;
+    m_length = length;
+    m_hasWidth = !!width;
+    m_isCollapsible = textItemType == TextItemType::Whitespace && inlineTextBox.style().collapseWhiteSpace();
+    m_width = width.valueOr(0);
+    m_textItemType = textItemType;
+}
+
+inline InlineTextItem::InlineTextItem(const InlineTextBox& inlineTextBox)
+    : InlineItem(inlineTextBox, Type::Text)
+{
+}
+
+inline InlineTextItem InlineTextItem::left(unsigned length) const
+{
+    RELEASE_ASSERT(length <= this->length());
+    ASSERT(m_textItemType != TextItemType::Undefined);
+    ASSERT(length);
+    return { inlineTextBox(), start(), length, WTF::nullopt, m_textItemType };
+}
+
+inline InlineTextItem InlineTextItem::right(unsigned length) const
+{
+    RELEASE_ASSERT(length <= this->length());
+    ASSERT(m_textItemType != TextItemType::Undefined);
+    ASSERT(length);
+    return { inlineTextBox(), end() - length, length, WTF::nullopt, m_textItemType };
+}
 
 }
 }

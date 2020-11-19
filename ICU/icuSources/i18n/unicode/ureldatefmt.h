@@ -330,7 +330,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUFormattedRelativeDateTimePointer, UFormattedRe
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Format a combination of URelativeDateTimeUnit and numeric

@@ -145,7 +145,7 @@ typedef const char *AuthorizationString;
 
 
 /*!
-	@struct AuthorizationItem
+	@typedef AuthorizationItem
 	Each AuthorizationItem describes a single string-named item with optional
 	parameter value. The value must be contiguous memory of valueLength bytes;
 	internal structure is defined separately for each name.
@@ -165,7 +165,7 @@ typedef struct {
 
 
 /*!
-	@struct AuthorizationItemSet
+	@typedef AuthorizationItemSet
 	An AuthorizationItemSet structure represents a set of zero or more AuthorizationItems.  Since it is a set it should not contain any identical AuthorizationItems.
 
 	@field count Number of items identified by items.
@@ -179,7 +179,7 @@ typedef struct {
 
 static const size_t kAuthorizationExternalFormLength = 32;
 /*!
-	@struct AuthorizationExternalForm
+	@typedef AuthorizationExternalForm
 	An AuthorizationExternalForm structure can hold the externalized form of
 	an AuthorizationRef. As such, it can be transmitted across IPC channels
 	to other processes, which can re-internalize it to recover a valid AuthorizationRef

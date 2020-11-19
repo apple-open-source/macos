@@ -28,6 +28,7 @@
 #include <sqlite3.h>
 #include <CommonCrypto/CommonDigest.h>
 #import "utilities/debugging.h"
+#import "utilities/simulatecrash_assert.h"
 #include <os/transaction_private.h>
 
 #define kSFSQLiteBusyTimeout       (5*60*1000)
@@ -911,7 +912,7 @@ done:
 - (NSString *)_tableNameForClass:(Class)objectClass {
     NSString *className = [objectClass SFSQLiteClassName];
     if (![className hasPrefix:_objectClassPrefix]) {
-        secerror("sfsqlite: %@", [NSString stringWithFormat:@"Object class \"%@\" does not have prefix \"%@\"", className, _objectClassPrefix]);
+        secerror("sfsqlite: Object class \"%@\" does not have prefix \"%@\"", className, _objectClassPrefix);
         return nil;
     }
     return [className substringFromIndex:_objectClassPrefix.length];

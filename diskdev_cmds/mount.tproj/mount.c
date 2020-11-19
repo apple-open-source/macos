@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,16 +53,16 @@
  * SUCH DAMAGE.
  */
 
-
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <System/sys/reason.h>
-
 #include <err.h>
 #include <os/errno.h>
+#include <os/bsd.h>
+#include <os/variant_private.h>
 #include <fstab.h>
 #include <pwd.h>
 #include <signal.h>
@@ -73,35 +73,49 @@
 #include <TargetConditionals.h>
 #include <sysexits.h>
 #include <sys/sysctl.h>
-#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#include <APFS/APFS.h>
+#include <APFS/APFSConstants.h>
 #include <pthread.h>
-#include <paths.h>
 #include <spawn.h>
+#include <crt_externs.h>
+
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#include <paths.h>
 #include <sys/socket.h>
 #include <sys/queue.h>
 #include <sys/wait.h>
 #include <sys/param.h>
 #include <sys/cdefs.h>
-#include <crt_externs.h>
 
 /* Some APFS specific goop */
 #include <copyfile.h>
-#include <os/variant_private.h>
-#include <APFS/APFS.h>
 #include <MediaKit/MKMedia.h>
 #include <MediaKit/MKMediaAccess.h>
 #include <MediaKit/GPTTypes.h>
-
 #endif
 
-//get the mount flags (shared with vsdbutil)
-#include "../mount_flags_dir/mount_flags.h"
-#include "../edt_fstab/edt_fstab.h"
+#if TARGET_OS_OSX
+// To unmount the BaseSystem disk image.
+#include <paths.h>
+#include <IOKit/IOBSD.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOMedia.h>
+#endif
+
+#include "mount_flags.h"
+#include "edt_fstab.h"
 #include "pathnames.h"
 #include "fsck.h"
 
+#if TARGET_OS_OSX
+#define APFS_BOOT_UTIL_PATH   "/System/Library/Filesystems/apfs.fs/Contents/Resources/apfs_boot_util"
 #define PLATFORM_DATA_VOLUME_MOUNT_POINT "/System/Volumes/Data"
-#define APFS_UTIL_PATH   "/System/Library/Filesystems/apfs.fs/Contents/Resources/apfs.util"
+#define BASE_SYSTEM_PATH "/System/Volumes/BaseSystem"
+#define RECOVERY_PATH "/System/Volumes/Recovery"
+#else
+#define APFS_BOOT_UTIL_PATH   "/System/Library/Filesystems/apfs.fs/apfs_boot_util"
+#define PLATFORM_DATA_VOLUME_MOUNT_POINT "/private/var"
+#endif
 
 #define environ (*_NSGetEnviron())
 #define COMMAND_OUTPUT_MAX 1024
@@ -109,6 +123,7 @@
 int debug;
 int verbose;
 int bootstrap_macos = 0;
+int passno = 0;
 
 int checkvfsname __P((const char *, const char **));
 char   *catopt __P((char *, const char *));
@@ -117,12 +132,14 @@ int hasopt __P((const char *, const char *));
 const char
       **makevfslist __P((char *));
 void    mangle __P((char *, int *, const char **));
-int mountfs __P((const char *, const char *, const char *,
-            int, const char *, const char *));
 void    prmount __P((struct statfs *));
 void    usage __P((void));
+
+int     run_command(char **command_argv, char *output, int *rc, int *signal_no);
 void    print_mount(const char **vfslist);
 int     ismounted(const char *fs_spec, const char *fs_file, long *flags);
+int     mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags, const char *options, const char *mntopts);
+int     unmount_location(char *mount_point);
 
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
@@ -133,14 +150,10 @@ int _verify_file_flags (char *path, int flags);
 int preflight_create_mount_ramdisk (char *mnt_opts, size_t *ramdisk_size, char *template);
 char* split_ramdisk_params(char *opts);
 int create_mount_ramdisk(struct fstab *fs, int init_flags, char *options);
-int unmount_location(char *mount_point);
 int construct_apfs_volume(char *mounted_device_name);
 int create_partition_table(size_t partition_size, char *device);
 int attach_device(size_t device_size , char* deviceOut);
-int validate_system_devt (void);
-dev_t get_devt_for_path (const char *pathname);
 void truncate_whitespace(char* str);
-int run_command(char **command_argv, char *output, int *rc, int *signal_no);
 
 #define RAMDISK_BLCK_OFFSET 34
 #define RAMDISK_TMP_MOUNT "/mnt2"
@@ -153,11 +166,11 @@ int run_command(char **command_argv, char *output, int *rc, int *signal_no);
 
 //pull in the optnames array from the mount_flags.c file
 extern mountopt_t optnames[];
-static int booted_rosv(void);
-static int upgrade_mount (const char *mountpt, int init_flags, char *options);
 #if TARGET_OS_OSX
+static int booted_rosv(void);
 static int booted_apfs(void);
-#endif
+#endif /* TARGET_OS_OSX */
+static int upgrade_mount(const char *mountpt, int init_flags, char *options);
 
 /*
  * Map a POSIX error code to a representative sysexits(3) code. Can be disabled
@@ -173,52 +186,127 @@ errno_or_sysexit(int err, int sysexit)
     return (ret_errno ? err : sysexit);
 }
 
-dev_t get_devt_for_path(const char *pathname)
-{
-	struct stat statbuf;
-	int flag = 0;
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#define BINDFS_MOUNT_TYPE       "bindfs"
+#define PREBOOT_VOL_MOUNTPOINT  "/private/preboot"
+#define HARDWARE_VOL_MOUNTPOINT "/private/var/hardware"
 
-	int err = fstatat(AT_FDCWD, pathname, &statbuf, flag);
-	if (err) {
-		return 0;
-	}
-	return statbuf.st_dev;
+#define BOOT_MANIFEST_HASH_LEN  256
+
+typedef struct bind_mount {
+    char *bm_mnt_prefix;
+    char *bm_mnt_to;
+    bool bm_mandatory;
+} bind_mount_t;
+
+static void
+do_bindfs_mount(char *from, const char *to, bool required)
+{
+    struct statfs sfs;
+    uint32_t mnt_flags = MNT_RDONLY | MNT_NODEV | MNT_NOSUID | MNT_DONTBROWSE;
+    int err = 0;
+
+    if (debug) {
+        printf("call: mount %s %s %x %s", BINDFS_MOUNT_TYPE, to, mnt_flags, from);
+        return;
+    }
+
+    if ((statfs(from, &sfs) == 0) &&
+        (strncmp(sfs.f_fstypename, BINDFS_MOUNT_TYPE, sizeof(BINDFS_MOUNT_TYPE)) == 0)) {
+        return;
+    }
+
+    err = mount(BINDFS_MOUNT_TYPE, to, mnt_flags, from);
+    if (err) {
+        if ((errno == ENOENT) && !required) {
+            err = 0;
+        } else {
+            errx(errno_or_sysexit(errno, -1), "failed to mount %s -> %s - %s(%d)",
+                 from, to, strerror(errno), errno);
+        }
+    }
 }
 
-/* Assert that the dev_t for "/" is the same as for "/Applications" */
-int validate_system_devt (void)
+static void
+setup_preboot_mounts(int pass)
 {
-	dev_t system = get_devt_for_path ("/");
-	if (system == 0) {
-		return 0;
-	}
+    int err = 0;
+    const char *mnt_to;
+    char mnt_from[MAXPATHLEN], boot_manifest_hash[BOOT_MANIFEST_HASH_LEN];
 
-	dev_t data = get_devt_for_path ("/Applications");
-	if (data == 0) {
-		return 0;
-	}
+    err = get_boot_manifest_hash(boot_manifest_hash, sizeof(boot_manifest_hash));
+    if (err) {
+        errx(errno_or_sysexit(err, -1), "failed to get boot manifest hash - %s",
+             strerror(err));
+    }
 
-	if (memcmp(&system, &data, sizeof(dev_t)) == 0) {
-		return 0;
-	}
+    const bind_mount_t preboot_mnts[] = {
+        {.bm_mnt_prefix = PREBOOT_VOL_MOUNTPOINT,
+         .bm_mnt_to = "/usr/standalone/firmware",
+         .bm_mandatory = true},
+        {.bm_mnt_prefix = PREBOOT_VOL_MOUNTPOINT,
+         .bm_mnt_to = "/usr/local/standalone/firmware",
+         .bm_mandatory = false}
+    };
 
-	return 1;
+    const bind_mount_t hw_mnts[] = {
+        {.bm_mnt_prefix = HARDWARE_VOL_MOUNTPOINT "/Pearl",
+         .bm_mnt_to = "/System/Library/Pearl/ReferenceFrames",
+         .bm_mandatory = false},
+        {.bm_mnt_prefix = HARDWARE_VOL_MOUNTPOINT "/FactoryData",
+         .bm_mnt_to = "/System/Library/Caches/com.apple.factorydata",
+         .bm_mandatory = true}
+    };
+
+    if (pass == ROOT_PASSNO) {
+        for (int i = 0; i < (sizeof(preboot_mnts) / sizeof(preboot_mnts[0])); i++) {
+            mnt_to = preboot_mnts[i].bm_mnt_to;
+            snprintf(mnt_from, sizeof(mnt_from), "%s/%s%s",
+                     preboot_mnts[i].bm_mnt_prefix, boot_manifest_hash, mnt_to);
+
+            do_bindfs_mount(mnt_from, mnt_to, preboot_mnts[i].bm_mandatory);
+        }
+    } else {
+        for (int i = 0; i < (sizeof(hw_mnts) / sizeof(hw_mnts[0])); i++) {
+            mnt_to = hw_mnts[i].bm_mnt_to;
+            snprintf(mnt_from, sizeof(mnt_from), "%s%s",
+                     hw_mnts[i].bm_mnt_prefix, mnt_to);
+
+            do_bindfs_mount(mnt_from, mnt_to, hw_mnts[i].bm_mandatory);
+        }
+    }
 }
+#endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 
 /*
  * mount phases to be used during boot to perform the following operations:
  * first phase:
- *      TARGET_OS_OSX: perform firmlink stitching (ROSV config)
- *      TARGET_OS_IPHONE: mount System and xART volumes (if present)
+ *      TARGET_OS_OSX: (call `apfs_boot_util 1`
+ *      TARGET_OS_IPHONE: mount System, Preboot and xART volumes (if present)
  *
  * second phase:
- *      TARGET_OS_OSX: upgrade System volume to RW or upgrade Data volume to RW (ROSV config)
+ *      TARGET_OS_OSX: unmount base system DMG if needed, upgrade System 
+ *		volume to RW, and call `apfs_boot_util 2` (on ROSV config)
  *      TARGET_OS_IPHONE: mount remaining volumes
+ *
+ * For more info on mount phases, see apfs_boot_util.
  */
 #define MOUNT_PHASE_1      1       /* first phase */
 #define MOUNT_PHASE_2      2       /* second phase */
 
 #define NONFS   "nonfs"
+
+static void
+bootstrap_apfs(int phase)
+{
+    char * const apfs_util_argv[] = {
+        APFS_BOOT_UTIL_PATH,
+        ((phase == MOUNT_PHASE_1) ? "1" : ((phase == MOUNT_PHASE_2) ? "2" : NULL)),
+        NULL,
+    };
+    execv(APFS_BOOT_UTIL_PATH, apfs_util_argv);
+    errx(errno_or_sysexit(errno, -1), "apfs_boot_util exec failed");
+}
 
 int
 main(argc, argv)
@@ -229,7 +317,6 @@ main(argc, argv)
     struct fstab *fs;
     struct statfs *mntbuf;
     int all, ch, init_flags, rval;
-    int passno = 0;
     char *options, *ep;
     int mount_phase = 0;
 
@@ -237,27 +324,6 @@ main(argc, argv)
     options = NULL;
     vfslist = NULL;
     vfstype = NULL;
-
-#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
-#ifndef MOUNT_INTERNAL
-    if (os_variant_has_internal_content(APFS_BUNDLE_ID)) {
-        struct stat stats = {0};
-        if ((stat(MOUNT_INTERNAL_PATH, &stats) == 0)) {
-            char **argv_copy = malloc((argc + 1) * sizeof(*argv_copy));
-            if (!argv_copy) err(errno_or_sysexit(errno, EX_TEMPFAIL), NULL);
-
-            argv_copy[0] = MOUNT_INTERNAL_PATH;
-            for (int i = 1; i < argc; ++i) {
-                argv_copy[i] = argv[i];
-            }
-            argv_copy[argc] = NULL;
-
-            execv(MOUNT_INTERNAL_PATH, argv_copy);
-            errx(errno_or_sysexit(errno, EX_OSERR), "mount_internal exec failed");
-        }
-    }
-#endif
-#endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 
     while ((ch = getopt(argc, argv, "headfo:rwt:uvP:")) != EOF)
         switch (ch) {
@@ -323,40 +389,23 @@ main(argc, argv)
         strcmp(type, FSTAB_RW) && strcmp(type, FSTAB_RQ))
 
 // mount boot tasks
-#if TARGET_OS_OSX
-    if (mount_phase == MOUNT_PHASE_1) {
-        /* apfs.util -B */
-        char * const apfs_util_argv[] = {
-            APFS_UTIL_PATH,
-            "-B",
-            NULL,
-        };
-
-        if (booted_apfs()) {
-            execv(APFS_UTIL_PATH, apfs_util_argv);
-            errx(errno_or_sysexit(errno, -1), "apfs.util exec failed");
-        } else {
-            fprintf(stdout, "Not booted from APFS, skipping apfs.util\n");
-            exit(0);
-        }
-    } else if (mount_phase == MOUNT_PHASE_2) {
-        bootstrap_macos = 1;
-    }
-#else /* !TARGET_OS_OSX */
     if (mount_phase != 0) {
+#if TARGET_OS_OSX
+        bootstrap_macos = 1;
+#else /* !TARGET_OS_OSX */
         if (mount_phase == MOUNT_PHASE_1) {
-            /* mount -vat -nonfs -R 1 */
-            passno = 1;
+            /* mount -vat -nonfs -P 1 */
+            passno = ROOT_PASSNO;
         } else if (mount_phase == MOUNT_PHASE_2) {
             /* mount -vat -nonfs -R 2 */
-            passno = 2;
+            passno = NONROOT_PASSNO;
         }
         verbose = 1;
         all = 1;
         vfslist = makevfslist(NONFS);
         vfstype = NONFS;
-    }
 #endif /* !TARGET_OS_OSX */
+    }
 
     rval = 0;
     switch (argc) {
@@ -370,7 +419,7 @@ main(argc, argv)
             int err = 0;
             long fs_flags = 0;
 
-            if ((setup_fsent() == 0)) {
+            if ((setfsent() == 0)) {
                 errx(errno_or_sysexit(errno ? errno : ENXIO, -1),
                      "mount: can't get filesystem checklist");
             }
@@ -384,7 +433,7 @@ main(argc, argv)
              * in order to locate the data volume.
              *
              * The data volume is required if it is present in the EDT.
-             * This is usually the case when booting the main OS (EDT_OS_ENV_MAIN),
+             * This is always the case when booting the main OS (EDT_OS_ENV_MAIN),
              * however there are some exceptions.
              *
              * When the data volume is required,
@@ -393,18 +442,19 @@ main(argc, argv)
              * MobileObliteration the opportunity to fix the container or fail gracefully.
              */
             if (data_vol_dev) {
-                fprintf(stdout, "mount: found boot container: %s, data volume: %s\n",
-                        container_dev, data_vol_dev);
-            } else if (!needs_data_volume()) {
-                fprintf(stdout, "mount: data volume missing, but not required\n");
+                fprintf(stdout, "mount: found boot container: %s, data volume: %s env: %u\n",
+                        container_dev, data_vol_dev, os_env);
             } else if ((os_env == EDT_OS_ENV_MAIN) &&
                        (passno == MOUNT_PHASE_2)) {
                 errx(errno_or_sysexit(errno ? errno : ENXIO, -1),
                      "mount: missing data volume");
+            } else {
+                fprintf(stdout, "mount: data volume missing, but not required in env: %u\n",
+                        os_env);
             }
 #endif
 
-            while ((fs = get_fsent()) != NULL) {
+            while ((fs = getfsent()) != NULL) {
                 int ro_mount = !strcmp(fs->fs_type, FSTAB_RO);
 
                 if (BADTYPE(fs->fs_type))
@@ -422,15 +472,11 @@ main(argc, argv)
                         ismounted(fs->fs_spec, fs->fs_file, NULL))
                         continue;
                 }
+
+                /* If this volume is not needed for this pass, skip it. */
                 if (passno && fs->fs_passno != passno)
                     continue;
-                /*
-                 * We already have a read-only root, skip it.
-                 * This is needed to prevent trying to mount-upgrade
-                 * the APFS system volume when rooting from a locker
-                 */
-                if (!strcmp(fs->fs_file, "/") && ro_mount)
-                    continue;
+
                 /*
                  * Check if already mounted:
                  *  1) If mounted RW this is either an attempt to
@@ -444,6 +490,7 @@ main(argc, argv)
                 if (ismounted(fs->fs_spec, fs->fs_file, &fs_flags) &&
                     (!(fs_flags & MNT_RDONLY) || ro_mount))
                     continue;
+
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
                 if (!strcmp(fs->fs_spec, RAMDISK_FS_SPEC)) {
                     if (verbose) {
@@ -452,17 +499,16 @@ main(argc, argv)
                     rval = create_mount_ramdisk(fs, init_flags, options);
                     continue;
                 } else if (fs->fs_passno > ROOT_PASSNO &&
-                           !strcmp(fs->fs_vfstype, "apfs") &&
+                           !strcmp(fs->fs_vfstype, EDTVolumeFSType) &&
                            !strcmp(fs->fs_type, FSTAB_RW)) {
 
                     /*
                      * Perform media keys migration if this is the data volume
                      * of the main OS environment
                      */
-                    if (container_dev &&
-                        data_vol_dev &&
+                    if (!debug && data_vol_dev &&
                         (os_env == EDT_OS_ENV_MAIN) &&
-                        strcmp(data_vol_dev, fs->fs_spec) == 0) {
+                        (strcmp(data_vol_dev, fs->fs_spec) == 0)) {
                         kern_return_t mig_err = APFSContainerMigrateMediaKeys(container_dev);
                         if (mig_err) {
                             fprintf(stderr, "mount: failed to migrate Media Keys, error = %x\n", mig_err);
@@ -478,50 +524,47 @@ main(argc, argv)
                                    fs->fs_mntops)))
                     rval = err;
             }
-            end_fsent();
-        }
-        else if (bootstrap_macos) {
-            /*
-             * We centralize the logic for dealing with a read-only system volume here.
-             * If it is not set up, then default to the old logic of a `mount -uw /`
-             * Otherwise prepare the data volume for upgrading to writable.
-             */
-            const char *mount_point;
+            endfsent();
 
-            /*
-             * set to MNT_UPDATE and ignore MNT_RDONLY bit
-             *  Note: We can safely do this boot-task even if we are
-             *      already mounted RW (e.g. boot from single user mode).
-             *      In that case this will effectively be a no-op. We
-             *      only need to avoid downgrading to RO.
-             */
-            init_flags = MNT_UPDATE;
-
-            /* Check to see if we are running in a ROSV config */
-            if (booted_rosv()) {
-                /* upgrade mount the data volume writable */
-                mount_point = PLATFORM_DATA_VOLUME_MOUNT_POINT;
-                init_flags |= MNT_DONTBROWSE;
-            }
-            else {
-                /* upgrade mount "/" read-write */
-                mount_point = "/";
-            }
-
-            rval = upgrade_mount (mount_point, init_flags, options);
-
-			/* Assert that the unified dev_t "lie" was instantiated */
-			if (rval == 0)
-			{
-				if (validate_system_devt()) {
-					/*
-					 * If the two mount points don't unify, then
-					 * exit with a string that launchd can propagate
-					 * on and resolve.
-					 */
-					abort_with_reason(OS_REASON_LIBSYSTEM, 0, "UNEXPECTED: macOS mount-2 APFS dev_t not unified", 0);
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+			/* Setup bindfs mounts */
+			if (os_env != EDT_OS_ENV_OTHER) {
+				setup_preboot_mounts(passno);
+			}
+			/* Hand the rest of the process over to apfs_boot_util */
+			if (os_variant_has_internal_content(APFS_BUNDLE_ID) &&
+				(mount_phase == MOUNT_PHASE_2)) {
+				bootstrap_apfs(MOUNT_PHASE_2);
+			}
+#endif
+		}
+		else if (bootstrap_macos) {
+#if TARGET_OS_OSX
+			if (mount_phase == MOUNT_PHASE_1) {
+				if (booted_apfs()) {
+					bootstrap_apfs(MOUNT_PHASE_1);
+				} else {
+					fprintf(stdout, "Not booted from APFS, skipping apfs_boot_util\n");
+					exit(0);
+				}
+			} else if (mount_phase == MOUNT_PHASE_2) {
+				/*
+				 * We centralize the logic for dealing with a read-only system (ROSV) volume here.
+				 * If it is not set up, then default to the old logic of a `mount -uw /`
+				 *
+				 * Note: We can safely do this boot-task even if we are
+				 *       already mounted RW (e.g. boot from single user mode).
+				 *       In that case this will effectively be a no-op.
+				 */
+				if (booted_rosv()) {
+					/* Hand the rest of the process over to apfs_boot_util */
+					bootstrap_apfs(MOUNT_PHASE_2);
+				} else {
+					/* upgrade mount "/" read-write */
+					rval = upgrade_mount("/", MNT_UPDATE, options);
 				}
 			}
+#endif /* TARGET_OS_OSX */
         } else {
             print_mount(vfslist);
         }
@@ -537,8 +580,8 @@ main(argc, argv)
             break;
         }
 
-        if ((fs = get_fsfile(*argv)) == NULL &&
-            (fs = get_fsspec(*argv)) == NULL)
+        if ((fs = getfsfile(*argv)) == NULL &&
+            (fs = getfsspec(*argv)) == NULL)
             errx(errno_or_sysexit(errno , -1),
                  "%s: unknown special file or file system.",
                  *argv);
@@ -644,10 +687,22 @@ upgrade_mount (const char *mountpt, int init_flags, char *options) {
      */
     mntfromname = mntbuf->f_mntfromname;
     if (strchr(mntfromname, '/') == NULL) {
-        fs = get_fsfile(mntbuf->f_mntonname);
+        fs = getfsfile(mntbuf->f_mntonname);
         if (fs != NULL)
             mntfromname = fs->fs_spec;
     }
+
+	/*
+     * Handle the special case of upgrading a content protected
+     * file system from read-only to read/write. While our caller
+     * is nominally required to pass the protect option to maintain
+     * content protection, the kernel requires it anyway, so just add it
+     * in.
+     */
+    if (mntbuf->f_flags & MNT_CPROTECT) {
+        init_flags |= MNT_CPROTECT;
+    }
+
 
     /* Do the update mount */
     return mountfs(mntbuf->f_fstypename, mntfromname,
@@ -712,10 +767,9 @@ booted_apfs(void) {
 
     return (strcmp(mntbuf->f_fstypename, "apfs") == 0);
 }
-#endif
 
 static int
-booted_rosv (void) {
+booted_rosv(void) {
     /* use sysctl to query kernel */
     uint32_t is_rosp = 0;
     size_t rospsize = sizeof(is_rosp);
@@ -727,6 +781,7 @@ booted_rosv (void) {
 
     return 0;
 }
+#endif /* TARGET_OS_OSX */
 
 // prints currently mounted filesystems
 void
@@ -737,11 +792,11 @@ print_mount(const char **vfslist)
 
     if ( (mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0 )
         err(errno_or_sysexit(errno , -1), "getmntinfo");
-        for (int i = 0; i < mntsize; i++) {
-            if ( checkvfsname(mntbuf[i].f_fstypename, vfslist) )
-                continue;
-            prmount(&mntbuf[i]);
-        }
+    for (int i = 0; i < mntsize; i++) {
+        if ( checkvfsname(mntbuf[i].f_fstypename, vfslist) )
+            continue;
+        prmount(&mntbuf[i]);
+    }
 }
 
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
@@ -819,6 +874,7 @@ preflight_create_mount_ramdisk (char *mnt_opts, size_t *ramdisk_size, char *temp
 
     return 0;
 }
+#endif /* (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 
 /*
  * Helper function that posix_spawn a child process
@@ -836,7 +892,8 @@ preflight_create_mount_ramdisk (char *mnt_opts, size_t *ramdisk_size, char *temp
  *   0, if command exit normally with 0 as return code
  *   1, if command exit abnormally or with a non-zero return code
  */
-int run_command(char **command_argv, char *output, int *rc, int *signal_no)
+int
+run_command(char **command_argv, char *output, int *rc, int *signal_no)
 {
     int error = -1;
     int faulting_errno = 0;
@@ -1004,6 +1061,7 @@ done:
     return error;
 }
 
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 // Helper function that truncates whitespaces
 void
 truncate_whitespace(char* str)
@@ -1172,11 +1230,8 @@ unmount_location(char *mount_point)
         return return_val;
     } else {
         fprintf(stderr, "Failed to execute command %s\n", command[0]);
-        errno_or_sysexit(errno, -1);
+        return errno_or_sysexit(errno, -1);
     }
-
-    // shouldn't reach here. This is to satisfy the compiler
-    return -1;
 }
 
 // The mnt_opts for fstab are standard across the different
@@ -1366,33 +1421,42 @@ create_mount_ramdisk(struct fstab *fs, int init_flags, char *options)
 
 // returns 0 upon success and a valid sysexit or errno code upon failure
 int
-mountfs(vfstype, spec, name, flags, options, mntopts)
-    const char *vfstype, *spec, *name, *options, *mntopts;
-    int flags;
+mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags,
+		const char *options, const char *mntopts)
 {
-    /* List of directories containing mount_xxx subcommands. */
-    static const char *edirs[] = {
-        _PATH_SBIN,
-        _PATH_USRSBIN,
-        NULL
-    };
-    static const char *bdirs[] = {
-        _PATH_FSBNDL,
-        _PATH_USRFSBNDL,
-        NULL
-    };
-    const char *argv[100], **edir, **bdir;
-    struct statfs sf;
-    pid_t pid;
-    int argc, i, status;
-    char *optbuf, execname[MAXPATHLEN + 1], mntpath[MAXPATHLEN];
+	/* List of directories containing mount_xxx subcommands. */
+	static const char *edirs[] = {
+		_PATH_SBIN,
+		_PATH_USRSBIN,
+		NULL
+	};
+	static const char *bdirs[] = {
+		_PATH_FSBNDL,
+		_PATH_USRFSBNDL,
+		NULL
+	};
+	const char *argv[100], **edir, **bdir;
+	struct statfs sf;
+	pid_t pid;
+	int argc, i, status;
+	char *optbuf, execname[MAXPATHLEN + 1], mntpath[MAXPATHLEN];
 
-    if (realpath(name, mntpath) == NULL) {
-        warn("realpath %s", mntpath);
-        return (errno_or_sysexit(errno , -1));
-    }
+	if (realpath(fs_file, mntpath) == NULL) {
+		/* Attempt to create missing mountpoints on Data volume */
+		if ((passno == NONROOT_PASSNO) &&
+			(!strncmp(mntpath, PLATFORM_DATA_VOLUME_MOUNT_POINT,
+					 MIN(strlen(mntpath), strlen(PLATFORM_DATA_VOLUME_MOUNT_POINT))))) {
+			if (mkdir(mntpath, S_IRWXU)) {
+				warn("mkdir %s", mntpath);
+				return (errno_or_sysexit(errno , -1));
+			}
+		} else {
+			warn("realpath %s", mntpath);
+			return (errno_or_sysexit(errno , -1));
+		}
+	}
 
-    name = mntpath;
+	fs_file = mntpath;
 
     if (mntopts == NULL)
         mntopts = "";
@@ -1406,7 +1470,7 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
     }
     optbuf = catopt(strdup(mntopts), options);
 
-    if ((strcmp(name, "/") == 0) && !(flags & MNT_UNION))
+    if ((strcmp(fs_file, "/") == 0) && !(flags & MNT_UNION))
         flags |= MNT_UPDATE;
     if (flags & MNT_FORCE)
         optbuf = catopt(optbuf, "force");
@@ -1416,12 +1480,15 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
         optbuf = catopt(optbuf, "update");
     if (flags & MNT_DONTBROWSE)
         optbuf = catopt(optbuf, "nobrowse");
+    if (flags & MNT_CPROTECT)
+        optbuf = catopt(optbuf, "protect");
+
 
     argc = 0;
     argv[argc++] = vfstype;
     mangle(optbuf, &argc, argv);
-    argv[argc++] = spec;
-    argv[argc++] = name;
+    argv[argc++] = fs_spec;
+    argv[argc++] = fs_file;
     argv[argc] = NULL;
 
     if (debug) {
@@ -1447,7 +1514,7 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
             argv[0] = execname;
             execv(execname, (char * const *)argv);
             if (errno != ENOENT)
-                warn("exec %s for %s", execname, name);
+                warn("exec %s for %s", execname, fs_file);
         } while (*++edir != NULL);
 
         bdir = bdirs;
@@ -1460,11 +1527,11 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
             argv[0] = execname;
             execv(execname, (char * const *)argv);
             if (errno != ENOENT)
-                warn("exec %s for %s", execname, name);
+                warn("exec %s for %s", execname, fs_file);
         } while (*++bdir != NULL);
 
         if (errno == ENOENT) {
-            warn("exec %s for %s", execname, name);
+            warn("exec %s for %s", execname, fs_file);
             return (errno_or_sysexit(errno, EX_OSFILE));
         }
         exit(errno_or_sysexit(errno , -1));
@@ -1479,17 +1546,17 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 
         if (WIFEXITED(status)) {
             if (WEXITSTATUS(status) != 0) {
-                warnx("%s failed with %d", name, WEXITSTATUS(status));
+                warnx("%s failed with %d", fs_file, WEXITSTATUS(status));
                 return (errno_or_sysexit(EINTR, WEXITSTATUS(status)));
             }
         } else if (WIFSIGNALED(status)) {
-            warnx("%s: %s", name, sys_siglist[WTERMSIG(status)]);
+            warnx("%s: %s", fs_file, sys_siglist[WTERMSIG(status)]);
             return (errno_or_sysexit(EINTR, EX_UNAVAILABLE));
         }
 
         if (verbose) {
-            if (statfs(name, &sf) < 0) {
-                warn("statfs %s", name);
+            if (statfs(fs_file, &sf) < 0) {
+                warn("statfs %s", fs_file);
                 return (errno_or_sysexit(errno , -1));
             }
             prmount(&sf);
@@ -1498,6 +1565,26 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
     }
 
     return (EX_OK);
+}
+
+static bool
+is_sealed(const char *mntpt)
+{
+	struct vol_attr {
+		uint32_t len;
+		vol_capabilities_attr_t vol_cap;
+	} vol_attrs = {};
+
+	struct attrlist vol_attr_list = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.volattr = ATTR_VOL_CAPABILITIES
+	};
+
+	if (!getattrlist(mntpt, &vol_attr_list, &vol_attrs, sizeof(vol_attrs), 0) &&
+		vol_attrs.vol_cap.valid[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_SEALED) {
+		return (vol_attrs.vol_cap.capabilities[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_SEALED);
+	}
+	return false;
 }
 
 void
@@ -1511,6 +1598,8 @@ prmount(sfp)
     (void)printf("%s on %s (%s", sfp->f_mntfromname, sfp->f_mntonname,
         sfp->f_fstypename);
 
+    if (is_sealed(sfp->f_mntonname))
+        (void)printf(", sealed");
     flags = sfp->f_flags & MNT_VISFLAGMASK;
     for (o = optnames; flags && o->o_opt; o++)
         if (flags & o->o_opt) {

@@ -23,7 +23,7 @@
 
 #import <os/transaction_private.h>
 #import <Foundation/Foundation.h>
-#import <CFNetwork/CFURLConnection.h>
+#import <CFNetwork/CFNetworkPriv.h>
 #import <Accounts/Accounts.h>
 #import <Accounts/Accounts_Private.h>
 #import <AppleAccount/ACAccount+AppleAccount.h>
@@ -41,6 +41,8 @@
 #import "keychain/analytics/C2Metric/SECC2MPGenericEventMetricValue.h"
 #import "keychain/analytics/C2Metric/SECC2MPDeviceInfo.h"
 #import <utilities/SecCoreAnalytics.h>
+
+#import <utilities/simulatecrash_assert.h>
 
 
 

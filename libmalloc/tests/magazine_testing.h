@@ -29,8 +29,8 @@
 
 #import "../src/magazine_rack.c"
 
-boolean_t
-malloc_tracing_enabled = 0;
+bool
+malloc_tracing_enabled = false;
 
 int
 recirc_retained_regions = DEFAULT_RECIRC_RETAINED_REGIONS;

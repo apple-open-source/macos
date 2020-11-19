@@ -22,7 +22,17 @@
 
 #if ENABLE(GPU_PROCESS)
 
-messages -> GPUConnectionToWebProcess {
+messages -> GPUConnectionToWebProcess WantsDispatchMessage {
+    void CreateRenderingBackend(WebKit::RenderingBackendIdentifier renderingBackendIdentifier)
+    void ReleaseRenderingBackend(WebKit::RenderingBackendIdentifier renderingBackendIdentifier)
+    void ClearNowPlayingInfo();
+    void SetNowPlayingInfo(bool setAsNowPlayingApplication, struct WebCore::NowPlayingInfo nowPlayingInfo);
+#if USE(AUDIO_SESSION)
+    EnsureAudioSession() -> (struct WebKit::RemoteAudioSessionConfiguration configuration) Synchronous
+#endif
+#if PLATFORM(IOS_FAMILY)
+    EnsureMediaSessionHelper()
+#endif
 }
 
 #endif // ENABLE(GPU_PROCESS)

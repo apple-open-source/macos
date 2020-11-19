@@ -24,6 +24,7 @@
 #ifndef _IOKIT_IO_STORAGE_CONTROLLER_CHARACTERISTICS_H_
 #define _IOKIT_IO_STORAGE_CONTROLLER_CHARACTERISTICS_H_
 
+#include <TargetConditionals.h>
 
 /*
  *	Controller Characteristics - Characteristics defined for controllers.

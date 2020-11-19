@@ -51,7 +51,7 @@ enum class IsSuspensionImminent : bool { No, Yes };
 
 class ProcessThrottlerClient;
 
-class ProcessThrottler : public CanMakeWeakPtr<ProcessThrottler>, private ProcessAssertion::Client {
+class ProcessThrottler : public CanMakeWeakPtr<ProcessThrottler> {
 public:
     ProcessThrottler(ProcessThrottlerClient&, bool shouldTakeUIBackgroundAssertion);
     ~ProcessThrottler();
@@ -65,8 +65,10 @@ public:
             , m_name(name)
         {
             throttler.addActivity(*this);
-            PROCESSTHROTTLER_ACTIVITY_RELEASE_LOG("Activity: Starting %{public}s activity / '%{public}s'",
-                type == ActivityType::Foreground ? "foreground" : "background", m_name.characters());
+            if (!isQuietActivity()) {
+                PROCESSTHROTTLER_ACTIVITY_RELEASE_LOG("Activity: Starting %" PUBLIC_LOG_STRING " activity / '%" PUBLIC_LOG_STRING "'",
+                    type == ActivityType::Foreground ? "foreground" : "background", m_name.characters());
+            }
         }
 
         ~Activity()
@@ -80,11 +82,15 @@ public:
     private:
         friend class ProcessThrottler;
 
+        bool isQuietActivity() const { return !m_name.characters(); }
+
         void invalidate()
         {
             ASSERT(isValid());
-            PROCESSTHROTTLER_ACTIVITY_RELEASE_LOG("invalidate: Ending %{public}s activity / '%{public}s'",
-                type == ActivityType::Foreground ? "foreground" : "background", m_name.characters());
+            if (!isQuietActivity()) {
+                PROCESSTHROTTLER_ACTIVITY_RELEASE_LOG("invalidate: Ending %" PUBLIC_LOG_STRING " activity / '%" PUBLIC_LOG_STRING "'",
+                    type == ActivityType::Foreground ? "foreground" : "background", m_name.characters());
+            }
             m_throttler->removeActivity(*this);
             m_throttler = nullptr;
         }
@@ -102,15 +108,29 @@ public:
     using ActivityVariant = Variant<std::nullptr_t, UniqueRef<BackgroundActivity>, UniqueRef<ForegroundActivity>>;
     static bool isValidBackgroundActivity(const ActivityVariant&);
     static bool isValidForegroundActivity(const ActivityVariant&);
+
+    class TimedActivity {
+    public:
+        TimedActivity(Seconds timeout, ActivityVariant&& = nullptr);
+        TimedActivity& operator=(ActivityVariant&&);
+
+    private:
+        void activityTimedOut();
+        void updateTimer();
+
+        RunLoop::Timer<TimedActivity> m_timer;
+        Seconds m_timeout;
+        ActivityVariant m_activity;
+    };
     
     void didConnectToProcess(ProcessID);
     bool shouldBeRunnable() const { return m_foregroundActivities.size() || m_backgroundActivities.size(); }
 
 private:
-    AssertionState expectedAssertionState();
+    ProcessAssertionType expectedAssertionType();
     void updateAssertionIfNeeded();
-    void updateAssertionStateNow();
-    void setAssertionState(AssertionState);
+    void updateAssertionTypeNow();
+    void setAssertionType(ProcessAssertionType);
     void prepareToSuspendTimeoutTimerFired();
     void sendPrepareToSuspendIPC(IsSuspensionImminent);
     void processReadyToSuspend();
@@ -120,9 +140,10 @@ private:
     void removeActivity(ForegroundActivity&);
     void removeActivity(BackgroundActivity&);
     void invalidateAllActivities();
+    String assertionName(ProcessAssertionType) const;
 
-    // ProcessAssertionClient
-    void uiAssertionWillExpireImminently() override;
+    void uiAssertionWillExpireImminently();
+    void assertionWasInvalidated();
 
     void clearPendingRequestToSuspend();
 

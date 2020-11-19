@@ -690,7 +690,7 @@ __archive_rb_tree_iterate(struct archive_rb_tree *rbt,
 	 * opposite direction until our parent is in direction we want to go.
 	 */
 	if (RB_SENTINEL_P(self->rb_nodes[direction])) {
-		while (!RB_ROOT_P(rbt, self)) {
+		while (!RB_ROOT_P(rbt, self) && !RB_SENTINEL_P(self)) {
 			if (other == (unsigned int)RB_POSITION(self))
 				return RB_FATHER(self);
 			self = RB_FATHER(self);

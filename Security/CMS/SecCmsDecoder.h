@@ -68,7 +68,7 @@ SecCmsDecoderCreate(SecArenaPoolRef arena,
                     SecCmsGetDecryptKeyCallback decrypt_key_cb, void
                     *decrypt_key_cb_arg,
                     SecCmsDecoderRef *outDecoder)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -94,7 +94,7 @@ SecCmsDecoderCreate(SecCmsContentCallback cb, void *cb_arg,
                    SecCmsGetDecryptKeyCallback decrypt_key_cb, void
                    *decrypt_key_cb_arg,
                    SecCmsDecoderRef *outDecoder)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 /*!
@@ -161,7 +161,7 @@ SecCmsMessageDecode(const CSSM_DATA *encodedMessage,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg,
                     SecCmsMessageRef *outMessage)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
@@ -190,7 +190,7 @@ SecCmsMessageDecode(const SecAsn1Item *encodedMessage,
                     PK11PasswordFunc pwfn, void *pwfn_arg,
                     SecCmsGetDecryptKeyCallback decrypt_key_cb, void *decrypt_key_cb_arg,
                     SecCmsMessageRef *outMessage)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 

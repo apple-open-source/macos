@@ -29,6 +29,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Calendar object
@@ -41,7 +43,6 @@
 #include "unicode/ucal.h"
 #include "unicode/umisc.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class ICUServiceFactory;
@@ -185,7 +186,7 @@ class BasicTimeZone;
  */
 class U_I18N_API Calendar : public UObject {
 public:
-
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Field IDs for date and time. Used to specify date/time fields. ERA is calendar
      * specific. Example ranges given are for illustration only; see specific Calendar
@@ -228,6 +229,7 @@ public:
         FIELD_COUNT = UCAL_FIELD_COUNT // See ucal.h for other fields.
 #endif /* U_HIDE_DEPRECATED_API */
     };
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
 #ifndef U_HIDE_DEPRECATED_API
     /**
@@ -288,7 +290,7 @@ public:
      * @return    a polymorphic copy of this calendar.
      * @stable ICU 2.0
      */
-    virtual Calendar* clone(void) const = 0;
+    virtual Calendar* clone() const = 0;
 
     /**
      * Creates a Calendar using the default timezone and locale. Clients are responsible
@@ -519,6 +521,7 @@ public:
      */
     UBool after(const Calendar& when, UErrorCode& status) const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * UDate Arithmetic function. Adds the specified (signed) amount of time to the given
      * time field, based on the calendar's rules. For example, to subtract 5 days from
@@ -540,6 +543,7 @@ public:
      * @deprecated ICU 2.6. use add(UCalendarDateFields field, int32_t amount, UErrorCode& status) instead.
      */
     virtual void add(EDateFields field, int32_t amount, UErrorCode& status);
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * UDate Arithmetic function. Adds the specified (signed) amount of time to the given
@@ -633,6 +637,7 @@ public:
      */
     inline void roll(UCalendarDateFields field, UBool up, UErrorCode& status);
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Time Field Rolling function. Rolls by the given amount on the given
      * time field. For example, to roll the current date up by one day, call
@@ -665,6 +670,7 @@ public:
      * @deprecated ICU 2.6. Use roll(UCalendarDateFields field, int32_t amount, UErrorCode& status) instead.
      */
     virtual void roll(EDateFields field, int32_t amount, UErrorCode& status);
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Time Field Rolling function. Rolls by the given amount on the given
@@ -699,6 +705,7 @@ public:
      */
     virtual void roll(UCalendarDateFields field, int32_t amount, UErrorCode& status);
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Return the difference between the given time and the time this
      * calendar object is set to.  If this calendar is set
@@ -755,6 +762,7 @@ public:
      * @deprecated ICU 2.6. Use fieldDifference(UDate when, UCalendarDateFields field, UErrorCode& status).
      */
     virtual int32_t fieldDifference(UDate when, EDateFields field, UErrorCode& status);
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Return the difference between the given time and the time this
@@ -1011,6 +1019,7 @@ public:
      */
     uint8_t getMinimalDaysInFirstWeek(void) const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Gets the minimum value for the given time field. e.g., for Gregorian
      * DAY_OF_MONTH, 1.
@@ -1020,6 +1029,7 @@ public:
      * @deprecated ICU 2.6. Use getMinimum(UCalendarDateFields field) instead.
      */
     virtual int32_t getMinimum(EDateFields field) const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Gets the minimum value for the given time field. e.g., for Gregorian
@@ -1031,6 +1041,7 @@ public:
      */
     virtual int32_t getMinimum(UCalendarDateFields field) const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Gets the maximum value for the given time field. e.g. for Gregorian DAY_OF_MONTH,
      * 31.
@@ -1040,6 +1051,7 @@ public:
      * @deprecated ICU 2.6. Use getMaximum(UCalendarDateFields field) instead.
      */
     virtual int32_t getMaximum(EDateFields field) const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Gets the maximum value for the given time field. e.g. for Gregorian DAY_OF_MONTH,
@@ -1051,6 +1063,7 @@ public:
      */
     virtual int32_t getMaximum(UCalendarDateFields field) const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Gets the highest minimum value for the given field if varies. Otherwise same as
      * getMinimum(). For Gregorian, no difference.
@@ -1060,6 +1073,7 @@ public:
      * @deprecated ICU 2.6. Use getGreatestMinimum(UCalendarDateFields field) instead.
      */
     virtual int32_t getGreatestMinimum(EDateFields field) const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Gets the highest minimum value for the given field if varies. Otherwise same as
@@ -1071,6 +1085,7 @@ public:
      */
     virtual int32_t getGreatestMinimum(UCalendarDateFields field) const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Gets the lowest maximum value for the given field if varies. Otherwise same as
      * getMaximum(). e.g., for Gregorian DAY_OF_MONTH, 28.
@@ -1080,6 +1095,7 @@ public:
      * @deprecated ICU 2.6. Use getLeastMaximum(UCalendarDateFields field) instead.
      */
     virtual int32_t getLeastMaximum(EDateFields field) const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Gets the lowest maximum value for the given field if varies. Otherwise same as
@@ -1905,11 +1921,13 @@ protected:
      */
     int32_t     fFields[UCAL_FIELD_COUNT];
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * The flags which tell if a specified time field for the calendar is set.
      * @deprecated ICU 2.8 use (fStamp[n]!=kUnset)
      */
     UBool      fIsSet[UCAL_FIELD_COUNT];
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /** Special values of stamp[]
      * @stable ICU 2.0
@@ -2291,7 +2309,6 @@ private:
      * should only be called if this calendar is not lenient.
      * @see #isLenient
      * @see #validateField(int, int&)
-     * @internal
      */
     void validateFields(UErrorCode &status);
 
@@ -2301,7 +2318,6 @@ private:
      * <code>U_ILLEGAL_ARGUMENT_ERROR</code> will be set.  Subclasses may
      * use this method in their implementation of {@link
      * #validateField(int, int&)}.
-     * @internal
      */
     void validateField(UCalendarDateFields field, int32_t min, int32_t max, UErrorCode& status);
 
@@ -2536,8 +2552,9 @@ inline int32_t  Calendar::weekNumber(int32_t dayOfPeriod, int32_t dayOfWeek)
 #endif  /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // _CALENDAR

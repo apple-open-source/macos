@@ -75,6 +75,7 @@
 #include "dayperiodrules.h"
 #include "tznames_impl.h"   // ZONE_NAME_U16_MAX
 #include "number_utypes.h"
+#include "dtptngen_impl.h" // for datePatternHasNumericCore()
 
 #define DEBUG_SYNTHETIC_TIMEFMTS 0
 
@@ -276,10 +277,7 @@ static const int32_t gFieldRangeBiasLenient[] = {
 static const int32_t HEBREW_CAL_CUR_MILLENIUM_START_YEAR = 5000;
 static const int32_t HEBREW_CAL_CUR_MILLENIUM_END_YEAR = 6000;
 
-static UMutex *LOCK() {
-    static UMutex *m = STATIC_NEW(UMutex);
-    return m;
-}
+static UMutex LOCK;
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(SimpleDateFormat)
 
@@ -671,7 +669,7 @@ SimpleDateFormat& SimpleDateFormat::operator=(const SimpleDateFormat& other)
 
 //----------------------------------------------------------------------
 
-Format*
+SimpleDateFormat*
 SimpleDateFormat::clone() const
 {
     return new SimpleDateFormat(*this);
@@ -727,17 +725,44 @@ void SimpleDateFormat::construct(EStyle timeStyle,
     if (U_FAILURE(status)) return;
 
     // Load date time patterns directly from resources.
+    // rdar://problem/26911014: If no resource bundle exists for the requested locale, we generally want to bias ourselves
+    // toward preserving the country (rather than the language, which is how things normally work) when retrieving certain
+    // date/time formatting patterns.  We want to do this for date patterns, but not for time and date+time patterns
+    // (this might change-- see rdar://problem/62242807 ).  We use countryBundle below for these patterns.  Note that
+    // countryBundle isn't _always_ what you get from calling ures_openWithCountryFallback() because date patterns are
+    // complicated and sometimes include language-based text.  The openResourceBundleForDatePatterns() function in
+    // dtptngen_impl.h handles the exceptions and goves us either the result of ures_openWithCountryFallback() or
+    // ures_open() depending on the actual patterns.
     const char* cType = fCalendar ? fCalendar->getType() : NULL;
+    UBool fallingBackByCountry = FALSE;
     LocalUResourceBundlePointer bundle(ures_open(NULL, locale.getBaseName(), &status));
+    LocalUResourceBundlePointer countryBundle(ures_openWithCountryFallback(NULL, locale.getBaseName(), &fallingBackByCountry, &status));
     if (U_FAILURE(status)) return;
+    
+    // If we're potentially falling back by country, check to see whether the language and country fallback locales
+    // have the same numbering system.  If they don't, fall back by language instead.  (Many date/time patterns have
+    // embedded assumptions about which numbering system they're being used with and don't behave well with other ones,
+    // especially if different writing directions are involved-- see rdar://69523017.)
+    if (fallingBackByCountry) {
+        int32_t dummy = -1;
+        const UChar* languageLocaleNumbers = ures_getStringByKeyWithFallback(bundle.getAlias(), "NumberElements/default", &dummy, &status);
+        const UChar* countryLocaleNumbers = ures_getStringByKeyWithFallback(countryBundle.getAlias(), "NumberElements/default", &dummy, &status);
+        if (U_FAILURE(status) || u_strcmp(languageLocaleNumbers, countryLocaleNumbers) != 0) {
+            fallingBackByCountry = FALSE;
+        }
+    }
 
     UBool cTypeIsGregorian = TRUE;
     LocalUResourceBundlePointer dateTimePatterns;
+    LocalUResourceBundlePointer countryDateTimePatterns;
     if (cType != NULL && uprv_strcmp(cType, "gregorian") != 0) {
         CharString resourcePath("calendar/", status);
         resourcePath.append(cType, status).append("/DateTimePatterns", status);
         dateTimePatterns.adoptInstead(
             ures_getByKeyWithFallback(bundle.getAlias(), resourcePath.data(),
+                                      (UResourceBundle*)NULL, &status));
+        countryDateTimePatterns.adoptInstead(
+            ures_getByKeyWithFallback(countryBundle.getAlias(), resourcePath.data(),
                                       (UResourceBundle*)NULL, &status));
         cTypeIsGregorian = FALSE;
     }
@@ -749,10 +774,12 @@ void SimpleDateFormat::construct(EStyle timeStyle,
             ures_getByKeyWithFallback(bundle.getAlias(),
                                       "calendar/gregorian/DateTimePatterns",
                                       (UResourceBundle*)NULL, &status));
+        countryDateTimePatterns.adoptInstead(
+            ures_getByKeyWithFallback(countryBundle.getAlias(),
+                                      "calendar/gregorian/DateTimePatterns",
+                                      (UResourceBundle*)NULL, &status));
     }
     if (U_FAILURE(status)) return;
-
-    LocalUResourceBundlePointer currentBundle;
 
     if (ures_getSize(dateTimePatterns.getAlias()) <= kDateTime)
     {
@@ -772,11 +799,69 @@ void SimpleDateFormat::construct(EStyle timeStyle,
         return;
     }
 
-    const UChar *resStr,*ovrStr;
-    int32_t resStrLen,ovrStrLen = 0;
     fDateOverride.setToBogus();
     fTimeOverride.setToBogus();
 
+    // if the pattern should include both date and time information, use the date/time
+    // pattern string as a guide to tell use how to glue together the appropriate date
+    // and time pattern strings.
+    if ((timeStyle != kNone) && (dateStyle != kNone))
+    {
+        UnicodeString ovrStr;
+        UnicodeString tempus1 = getPatternForTimeStyle(timeStyle, locale, dateTimePatterns.getAlias(), ovrStr, status);
+        if (!ovrStr.isEmpty()) {
+            fTimeOverride = ovrStr;
+        }
+        
+        UnicodeString tempus2 = getPatternForDateStyle(dateStyle, dateTimePatterns.getAlias(), countryDateTimePatterns.getAlias(), fallingBackByCountry, ovrStr, status);
+        if (!ovrStr.isEmpty()) {
+            fDateOverride = ovrStr;
+        }
+
+        int32_t glueIndex = kDateTime;
+        int32_t patternsSize = ures_getSize(dateTimePatterns.getAlias());
+        if (patternsSize >= (kDateTimeOffset + kShort + 1)) {
+            // Get proper date time format
+            glueIndex = (int32_t)(kDateTimeOffset + (dateStyle - kDateOffset));
+        }
+
+        UnicodeString resStr(ures_getUnicodeStringByIndex(dateTimePatterns.getAlias(), glueIndex, &status));
+        SimpleFormatter(resStr, 2, 2, status).
+                format(tempus1, tempus2, fPattern, status);
+    }
+    // if the pattern includes just time data or just date date, load the appropriate
+    // pattern string from the resources
+    // setTo() - see DateFormatSymbols::assignArray comments
+    else if (timeStyle != kNone) {
+        UnicodeString ovrStr;
+        UnicodeString timePattern = getPatternForTimeStyle(timeStyle, locale, dateTimePatterns.getAlias(), ovrStr, status);
+        if (!ovrStr.isEmpty()) {
+            fDateOverride = ovrStr; // is this right?  This is what the original code had...
+        }
+        fPattern = timePattern;
+    }
+    else if (dateStyle != kNone) {
+        UnicodeString ovrStr;
+        UnicodeString datePattern = getPatternForDateStyle(dateStyle, dateTimePatterns.getAlias(), countryDateTimePatterns.getAlias(), fallingBackByCountry, ovrStr, status);
+        if (!ovrStr.isEmpty()) {
+            fDateOverride = ovrStr;
+        }
+        fPattern = datePattern;
+    }
+
+    // and if it includes _neither_, that's an error
+    else
+        status = U_INVALID_FORMAT_ERROR;
+
+    initialize(locale, status);
+}
+
+UnicodeString
+SimpleDateFormat::getPatternForTimeStyle(EStyle timeStyle,
+                                         const Locale& locale,
+                                         UResourceBundle* dateTimePatterns,
+                                         UnicodeString& ovrStr,
+                                         UErrorCode& status) {
     UnicodeString timePattern;
     if (timeStyle >= kFull && timeStyle <= kShort) {
         const char* baseLoc = locale.getBaseName();
@@ -817,139 +902,95 @@ void SimpleDateFormat::construct(EStyle timeStyle,
             }
         }
     }
+    
+    if (timePattern.isEmpty()) {
+        timePattern = getPatternString((int32_t)timeStyle, dateTimePatterns, ovrStr, status);
+    }
+    return timePattern;
+}
 
-    // if the pattern should include both date and time information, use the date/time
-    // pattern string as a guide to tell use how to glue together the appropriate date
-    // and time pattern strings.
-    if ((timeStyle != kNone) && (dateStyle != kNone))
-    {
-        UnicodeString tempus1(timePattern);
-        if (tempus1.length() == 0) {
-            currentBundle.adoptInstead(
-                    ures_getByIndex(dateTimePatterns.getAlias(), (int32_t)timeStyle, NULL, &status));
-            if (U_FAILURE(status)) {
-               status = U_INVALID_FORMAT_ERROR;
-               return;
-            }
-            switch (ures_getType(currentBundle.getAlias())) {
-                case URES_STRING: {
-                   resStr = ures_getString(currentBundle.getAlias(), &resStrLen, &status);
-                   break;
-                }
-                case URES_ARRAY: {
-                   resStr = ures_getStringByIndex(currentBundle.getAlias(), 0, &resStrLen, &status);
-                   ovrStr = ures_getStringByIndex(currentBundle.getAlias(), 1, &ovrStrLen, &status);
-                   fTimeOverride.setTo(TRUE, ovrStr, ovrStrLen);
-                   break;
-                }
-                default: {
-                   status = U_INVALID_FORMAT_ERROR;
-                   return;
-                }
-            }
+UnicodeString
+SimpleDateFormat::getPatternForDateStyle(EStyle dateStyle,
+                                         UResourceBundle* languageDateTimePatterns,
+                                         UResourceBundle* countryDateTimePatterns,
+                                         UBool& fallingBackByCountry,
+                                         UnicodeString& ovrStr,
+                                         UErrorCode& status) {
+    UnicodeString languageOverride;
+    UnicodeString languagePattern = getPatternString((int32_t)dateStyle, languageDateTimePatterns, languageOverride, status);
+    
+    // by default, we should fetch the pattern from the language resource
+    UnicodeString result = languagePattern;
+    ovrStr = languageOverride;
+    
+    // but IF the country resource is actually different from the lanuguage resource AND the caller is asking
+    // for a medium or short date format AND that format in the country resource is all-numeric, return the
+    // pattern from the country resource instead
+    if (fallingBackByCountry) {
+        fallingBackByCountry = FALSE;
+        if ((dateStyle == kDateOffset + kMedium || dateStyle == kDateOffset + kShort)) {
+            UnicodeString countryOverride;
+            UnicodeString countryPattern = getPatternString((int32_t)dateStyle, countryDateTimePatterns, countryOverride, status);
+            UBool stripRTLmarks = uloc_isRightToLeft(ures_getLocaleByType(countryDateTimePatterns, ULOC_ACTUAL_LOCALE, &status)) && !uloc_isRightToLeft(ures_getLocaleByType(languageDateTimePatterns, ULOC_ACTUAL_LOCALE, &status));
 
-            tempus1.setTo(TRUE, resStr, resStrLen);
+            if (U_SUCCESS(status)) {
+                if (datePatternHasNumericCore(countryPattern)) {
+                    ovrStr = countryOverride;
+                    result = countryPattern;
+                    fallingBackByCountry = TRUE;
+                    if (stripRTLmarks) {
+                        // the date formats for RTL languages often include Unicode right-to-left marks to get the format
+                        // to lay out correctly.  If we got the pattern from a RTL locale and the requested language is
+                        // not a RTL language, we need to strip those out (same comment below)
+                        result.findAndReplace(UnicodeString(u'\u200f'), UnicodeString());
+                    }
+                } else if (dateStyle == kDateOffset + kMedium && datePatternHasNumericCore(languagePattern)) {
+                    // if the user asked for the MEDIUM format, it's NOT all-numeric in the country resource, but it IS
+                    // all-numeric in the language resource, return the SHORT format from the country resource
+                    countryPattern = getPatternString(kDateOffset + kShort, countryDateTimePatterns, countryOverride, status);
+                    if (datePatternHasNumericCore(countryPattern)) {
+                        ovrStr = countryOverride;
+                        result = countryPattern;
+                        fallingBackByCountry = TRUE;
+                        if (stripRTLmarks) {
+                            result.findAndReplace(UnicodeString(u'\u200f'), UnicodeString());
+                        }
+                    }
+                }
+            }
         }
+    }
+    return result;
+}
 
-        currentBundle.adoptInstead(
-                ures_getByIndex(dateTimePatterns.getAlias(), (int32_t)dateStyle, NULL, &status));
-        if (U_FAILURE(status)) {
+UnicodeString
+SimpleDateFormat::getPatternString(int32_t index,
+                                   UResourceBundle* dateTimePatterns,
+                                   UnicodeString& ovrStr,
+                                   UErrorCode& status) {
+    UnicodeString resStr;
+    LocalUResourceBundlePointer currentBundle(ures_getByIndex(dateTimePatterns, index, NULL, &status));
+    ovrStr.remove();
+    if (U_FAILURE(status)) {
+       status = U_INVALID_FORMAT_ERROR;
+       return resStr;
+    }
+    switch (ures_getType(currentBundle.getAlias())) {
+        case URES_STRING: {
+           resStr = ures_getUnicodeString(currentBundle.getAlias(), &status);
+           break;
+        }
+        case URES_ARRAY: {
+           resStr = ures_getUnicodeStringByIndex(currentBundle.getAlias(), 0, &status);
+           ovrStr = ures_getUnicodeStringByIndex(currentBundle.getAlias(), 1, &status);
+           break;
+        }
+        default: {
            status = U_INVALID_FORMAT_ERROR;
-           return;
-        }
-        switch (ures_getType(currentBundle.getAlias())) {
-            case URES_STRING: {
-               resStr = ures_getString(currentBundle.getAlias(), &resStrLen, &status);
-               break;
-            }
-            case URES_ARRAY: {
-               resStr = ures_getStringByIndex(currentBundle.getAlias(), 0, &resStrLen, &status);
-               ovrStr = ures_getStringByIndex(currentBundle.getAlias(), 1, &ovrStrLen, &status);
-               fDateOverride.setTo(TRUE, ovrStr, ovrStrLen);
-               break;
-            }
-            default: {
-               status = U_INVALID_FORMAT_ERROR;
-               return;
-            }
-        }
-
-        UnicodeString tempus2(TRUE, resStr, resStrLen);
-
-        int32_t glueIndex = kDateTime;
-        int32_t patternsSize = ures_getSize(dateTimePatterns.getAlias());
-        if (patternsSize >= (kDateTimeOffset + kShort + 1)) {
-            // Get proper date time format
-            glueIndex = (int32_t)(kDateTimeOffset + (dateStyle - kDateOffset));
-        }
-
-        resStr = ures_getStringByIndex(dateTimePatterns.getAlias(), glueIndex, &resStrLen, &status);
-        SimpleFormatter(UnicodeString(TRUE, resStr, resStrLen), 2, 2, status).
-                format(tempus1, tempus2, fPattern, status);
-    }
-    // if the pattern includes just time data or just date date, load the appropriate
-    // pattern string from the resources
-    // setTo() - see DateFormatSymbols::assignArray comments
-    else if (timeStyle != kNone) {
-        fPattern.setTo(timePattern);
-        if (fPattern.length() == 0) {
-            currentBundle.adoptInstead(
-                    ures_getByIndex(dateTimePatterns.getAlias(), (int32_t)timeStyle, NULL, &status));
-            if (U_FAILURE(status)) {
-               status = U_INVALID_FORMAT_ERROR;
-               return;
-            }
-            switch (ures_getType(currentBundle.getAlias())) {
-                case URES_STRING: {
-                   resStr = ures_getString(currentBundle.getAlias(), &resStrLen, &status);
-                   break;
-                }
-                case URES_ARRAY: {
-                   resStr = ures_getStringByIndex(currentBundle.getAlias(), 0, &resStrLen, &status);
-                   ovrStr = ures_getStringByIndex(currentBundle.getAlias(), 1, &ovrStrLen, &status);
-                   fDateOverride.setTo(TRUE, ovrStr, ovrStrLen);
-                   break;
-                }
-                default: {
-                   status = U_INVALID_FORMAT_ERROR;
-                   return;
-                }
-            }
-            fPattern.setTo(TRUE, resStr, resStrLen);
+           return resStr;
         }
     }
-    else if (dateStyle != kNone) {
-        currentBundle.adoptInstead(
-                ures_getByIndex(dateTimePatterns.getAlias(), (int32_t)dateStyle, NULL, &status));
-        if (U_FAILURE(status)) {
-           status = U_INVALID_FORMAT_ERROR;
-           return;
-        }
-        switch (ures_getType(currentBundle.getAlias())) {
-            case URES_STRING: {
-               resStr = ures_getString(currentBundle.getAlias(), &resStrLen, &status);
-               break;
-            }
-            case URES_ARRAY: {
-               resStr = ures_getStringByIndex(currentBundle.getAlias(), 0, &resStrLen, &status);
-               ovrStr = ures_getStringByIndex(currentBundle.getAlias(), 1, &ovrStrLen, &status);
-               fDateOverride.setTo(TRUE, ovrStr, ovrStrLen);
-               break;
-            }
-            default: {
-               status = U_INVALID_FORMAT_ERROR;
-               return;
-            }
-        }
-        fPattern.setTo(TRUE, resStr, resStrLen);
-    }
-
-    // and if it includes _neither_, that's an error
-    else
-        status = U_INVALID_FORMAT_ERROR;
-
-    // finally, finish initializing by creating a Calendar and a NumberFormat
-    initialize(locale, status);
+    return resStr;
 }
 
 //----------------------------------------------------------------------
@@ -1347,10 +1388,14 @@ _appendSymbolWithMonthPattern(UnicodeString& dst, int32_t value, const UnicodeSt
 //----------------------------------------------------------------------
 
 static number::LocalizedNumberFormatter*
-createFastFormatter(const DecimalFormat* df, int32_t minInt, int32_t maxInt) {
-    return new number::LocalizedNumberFormatter(
-            df->toNumberFormatter()
-                    .integerWidth(number::IntegerWidth::zeroFillTo(minInt).truncateAt(maxInt)));
+createFastFormatter(const DecimalFormat* df, int32_t minInt, int32_t maxInt, UErrorCode& status) {
+    const number::LocalizedNumberFormatter* lnfBase = df->toNumberFormatter(status);
+    if (U_FAILURE(status)) {
+        return nullptr;
+    }
+    return lnfBase->integerWidth(
+        number::IntegerWidth::zeroFillTo(minInt).truncateAt(maxInt)
+    ).clone().orphan();
 }
 
 void SimpleDateFormat::initFastNumberFormatters(UErrorCode& status) {
@@ -1362,11 +1407,11 @@ void SimpleDateFormat::initFastNumberFormatters(UErrorCode& status) {
         return;
     }
     df->setDFSShallowCopy(TRUE);
-    fFastNumberFormatters[SMPDTFMT_NF_1x10] = createFastFormatter(df, 1, 10);
-    fFastNumberFormatters[SMPDTFMT_NF_2x10] = createFastFormatter(df, 2, 10);
-    fFastNumberFormatters[SMPDTFMT_NF_3x10] = createFastFormatter(df, 3, 10);
-    fFastNumberFormatters[SMPDTFMT_NF_4x10] = createFastFormatter(df, 4, 10);
-    fFastNumberFormatters[SMPDTFMT_NF_2x2] = createFastFormatter(df, 2, 2);
+    fFastNumberFormatters[SMPDTFMT_NF_1x10] = createFastFormatter(df, 1, 10, status);
+    fFastNumberFormatters[SMPDTFMT_NF_2x10] = createFastFormatter(df, 2, 10, status);
+    fFastNumberFormatters[SMPDTFMT_NF_3x10] = createFastFormatter(df, 3, 10, status);
+    fFastNumberFormatters[SMPDTFMT_NF_4x10] = createFastFormatter(df, 4, 10, status);
+    fFastNumberFormatters[SMPDTFMT_NF_2x2] = createFastFormatter(df, 2, 2, status);
     df->setDFSShallowCopy(FALSE);
 }
 
@@ -1392,14 +1437,14 @@ SimpleDateFormat::initNumberFormatters(const Locale &locale,UErrorCode &status) 
     if ( fDateOverride.isBogus() && fTimeOverride.isBogus() ) {
         return;
     }
-    umtx_lock(LOCK());
+    umtx_lock(&LOCK);
     if (fSharedNumberFormatters == NULL) {
         fSharedNumberFormatters = allocSharedNumberFormatters();
         if (fSharedNumberFormatters == NULL) {
             status = U_MEMORY_ALLOCATION_ERROR;
         }
     }
-    umtx_unlock(LOCK());
+    umtx_unlock(&LOCK);
 
     if (U_FAILURE(status)) {
         return;
@@ -2106,9 +2151,11 @@ SimpleDateFormat::subFormat(UnicodeString &appendTo,
                 break;
         }
         if (titlecase) {
+            BreakIterator* const mutableCapitalizationBrkIter = fCapitalizationBrkIter->clone();
             UnicodeString firstField(appendTo, beginOffset);
-            firstField.toTitle(fCapitalizationBrkIter, fLocale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
+            firstField.toTitle(mutableCapitalizationBrkIter, fLocale, U_TITLECASE_NO_LOWERCASE | U_TITLECASE_NO_BREAK_ADJUSTMENT);
             appendTo.replaceBetween(beginOffset, appendTo.length(), firstField);
+            delete mutableCapitalizationBrkIter;
         }
     }
 #endif
@@ -2233,7 +2280,7 @@ SimpleDateFormat::zeroPaddingNumber(
     // Fall back to slow path (clone and mutate the NumberFormat)
     if (currentNumberFormat != nullptr) {
         FieldPosition pos(FieldPosition::DONT_CARE);
-        LocalPointer<NumberFormat> nf(dynamic_cast<NumberFormat*>(currentNumberFormat->clone()));
+        LocalPointer<NumberFormat> nf(currentNumberFormat->clone());
         nf->setMinimumIntegerDigits(minDigits);
         nf->setMaximumIntegerDigits(maxDigits);
         nf->format(value, appendTo, pos);  // 3rd arg is there to speed up processing
@@ -3936,7 +3983,7 @@ void SimpleDateFormat::parseInt(const UnicodeString& text,
     auto* fmtAsDF = dynamic_cast<const DecimalFormat*>(fmt);
     LocalPointer<DecimalFormat> df;
     if (!allowNegative && fmtAsDF != nullptr) {
-        df.adoptInstead(dynamic_cast<DecimalFormat*>(fmtAsDF->clone()));
+        df.adoptInstead(fmtAsDF->clone());
         if (df.isNull()) {
             // Memory allocation error
             return;
@@ -4067,11 +4114,11 @@ SimpleDateFormat::applyPattern(const UnicodeString& pattern)
         } else if (fDateOverride.isBogus() && fHasHanYearChar) {
             // No current override (=> no Gannen numbering) but new pattern needs it;
             // use procedures from initNUmberFormatters / adoptNumberFormat
-            umtx_lock(LOCK());
+            umtx_lock(&LOCK);
             if (fSharedNumberFormatters == NULL) {
                 fSharedNumberFormatters = allocSharedNumberFormatters();
             }
-            umtx_unlock(LOCK());
+            umtx_unlock(&LOCK);
             if (fSharedNumberFormatters != NULL) {
                 Locale ovrLoc(fLocale.getLanguage(),fLocale.getCountry(),fLocale.getVariant(),"numbers=jpanyear");
                 UErrorCode status = U_ZERO_ERROR;
@@ -4165,6 +4212,7 @@ void SimpleDateFormat::adoptCalendar(Calendar* calendarToAdopt)
     calLocale.setKeywordValue("calendar", calendarToAdopt->getType(), status);
     newSymbols = DateFormatSymbols::createForLocale(calLocale, status);
     if (U_FAILURE(status)) {
+        delete calendarToAdopt;
         return;
     }
   }
@@ -4407,7 +4455,7 @@ SimpleDateFormat::skipUWhiteSpace(const UnicodeString& text, int32_t pos) const 
 TimeZoneFormat *
 SimpleDateFormat::tzFormat(UErrorCode &status) const {
     if (fTimeZoneFormat == NULL) {
-        umtx_lock(LOCK());
+        umtx_lock(&LOCK);
         {
             if (fTimeZoneFormat == NULL) {
                 TimeZoneFormat *tzfmt = TimeZoneFormat::createInstance(fLocale, status);
@@ -4418,7 +4466,7 @@ SimpleDateFormat::tzFormat(UErrorCode &status) const {
                 const_cast<SimpleDateFormat *>(this)->fTimeZoneFormat = tzfmt;
             }
         }
-        umtx_unlock(LOCK());
+        umtx_unlock(&LOCK);
     }
     return fTimeZoneFormat;
 }

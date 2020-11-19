@@ -318,10 +318,6 @@ EOF
 	license => 'Perl',
 	licensestr => $PerlLicense,
     },
-    'List-MoreUtils-0.22' => {
-	license => 'Perl',
-	licensestr => $PerlLicense,
-    },
     'Locale-Maketext-Lexicon-0.77' => {
 	license => 'MIT',
 	licensefile => "$CPAN/5.8/Locale-Maketext-Lexicon-0.77/LICENSE",
@@ -364,10 +360,6 @@ EOF
 	license => 'Perl',
 	licensestr => $PerlLicense,
 	date => '2010-03-15',
-    },
-    'Module-Build-0.31012' => {
-	license => 'Perl',
-	licensefile => "$CPAN/5.8/Module-Build-0.31012/LICENSE",
     },
     'Net-CIDR-Lite-0.20' => {
 	license => 'Perl',
@@ -501,16 +493,6 @@ EOF
     'Sys-Hostname-Long-1.4' => {
 	license => 'Perl',
 	licensestr => $PerlLicense,
-    },
-    'TermReadKey-2.30' => {
-	license => 'Other',
-	licensestr => <<EOF,
-Copyright (C) 1994-1999 Kenneth Albanowski. 
-2001-2005 Jonathan Stowe and others
-
-Unlimited distribution and/or modification is allowed as long as this 
-copyright notice remains intact.
-EOF
     },
     'Test-Exception-0.27' => {
 	license => 'Perl',

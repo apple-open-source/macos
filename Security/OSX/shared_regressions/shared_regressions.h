@@ -10,18 +10,12 @@
 
 ONE_TEST(si_21_sectrust_asr)
 ONE_TEST(si_22_sectrust_iap)
-#if !TARGET_OS_WATCH
-ONE_TEST(si_23_sectrust_ocsp)
-#else
-DISABLED_ONE_TEST(si_23_sectrust_ocsp)
-#endif
 ONE_TEST(si_24_sectrust_itms)
 ONE_TEST(si_24_sectrust_diginotar)
 ONE_TEST(si_24_sectrust_digicert_malaysia)
 ONE_TEST(si_24_sectrust_passbook)
 ONE_TEST(si_25_cms_skid)
 ONE_TEST(si_26_sectrust_copyproperties)
-ONE_TEST(si_28_sectrustsettings)
 ONE_TEST(si_29_cms_chain_mode)
 ONE_TEST(si_32_sectrust_pinning_required)
 ONE_TEST(si_34_cms_timestamp)
@@ -41,19 +35,10 @@ ONE_TEST(si_62_csr)
 ONE_TEST(si_64_ossl_cms)
 ONE_TEST(si_65_cms_cert_policy)
 ONE_TEST(si_66_smime)
-#if !TARGET_OS_WATCH
-ONE_TEST(si_67_sectrust_blocklist)
-ONE_TEST(si_84_sectrust_allowlist)
-#else
-DISABLED_ONE_TEST(si_67_sectrust_blocklist)
-DISABLED_ONE_TEST(si_84_sectrust_allowlist)
-#endif
 ONE_TEST(si_68_secmatchissuer)
 ONE_TEST(si_70_sectrust_unified)
 ONE_TEST(si_71_mobile_store_policy)
-ONE_TEST(si_74_OTA_PKI_Signer)
 ONE_TEST(si_83_seccertificate_sighashalg)
-ONE_TEST(si_88_sectrust_valid)
 ONE_TEST(si_89_cms_hash_agility)
 ONE_TEST(rk_01_recoverykey)
 

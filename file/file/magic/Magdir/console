@@ -1,6 +1,6 @@
 
 #------------------------------------------------------------------------------
-# $File: console,v 1.45 2019/04/19 00:42:27 christos Exp $
+# $File: console,v 1.55 2020/04/19 17:30:55 christos Exp $
 # Console game magic
 # Toby Deshane <hac@shoelace.digivill.net>
 
@@ -508,6 +508,8 @@
 #------------------------------------------------------------------------------
 # Microsoft Xbox executables .xbe (Esa Hyytia <ehyytia@cc.hut.fi>)
 0	string	XBEH	Microsoft Xbox executable
+!:mime	audio/x-xbox-executable
+!:ext	xbe
 # expect base address of 0x10000
 >0x0104                 ulelong =0x10000
 >>(0x0118.l-0x0FFF4)    lestring16 x       \b: "%.40s"
@@ -546,25 +548,92 @@
 0		name	xbox-360-xex-execution-id
 >(0.L+0xC)	byte	x	(%c
 >(0.L+0xD)	byte	x	\b%c
->(0.L+0xE)	beshort	x	\b-%04u)
+>(0.L+0xE)	beshort	x	\b-%04u, media ID:
+>(0.L)		belong	x	%08X)
+
+# Region code (part of Security Info)
+0	name	xbox-360-xex-region-code
+>0	ubelong	0xFFFFFFFF	\b, all regions
+>0	ubelong	!0xFFFFFFFF
+>>0	ubelong	>0		(regions:
+>>0	ubelong&0x000000FF	0x000000FF	USA
+>>0	ubelong&0x00000100	0x00000100	Japan
+>>0	ubelong&0x00000200	0x00000200	China
+>>0	ubelong&0x0000FC00	0x0000FC00	Asia
+>>0	ubelong&0x00FF0000	0x00FF0000	PAL
+>>0	ubelong&0x00FF0000	0x00FE0000	PAL [except AU/NZ]
+>>0	ubelong&0x00FF0000	0x00010000	AU/NZ
+>>0	ubelong&0xFF000000	0xFF000000	Other
+>>0	ubelong	>0		\b)
 
 0	string	XEX2	Microsoft Xbox 360 executable
+!:mime	audio/x-xbox360-executable
+!:ext	xex
 >0x18	search/0x100	\x00\x04\x00\x06
 >>&0	use	xbox-360-xex-execution-id
->(0x010.L+0x178)	ubelong	0xFFFFFFFF	\b, all regions
->(0x010.L+0x178)	ubelong	!0xFFFFFFFF
->>(0x010.L+0x178)	ubelong	>0		(regions:
->>(0x010.L+0x178)	ubelong&0x000000FF	0x000000FF	USA
->>(0x010.L+0x178)	ubelong&0x00000100	0x00000100	Japan
->>(0x010.L+0x178)	ubelong&0x00000200	0x00000200	China
->>(0x010.L+0x178)	ubelong&0x0000FC00	0x0000FC00	Asia
->>(0x010.L+0x178)	ubelong&0x00FF0000	0x00FF0000	PAL
->>(0x010.L+0x178)	ubelong&0x00FF0000	0x00FE0000	PAL [except AU/NZ]
->>(0x010.L+0x178)	ubelong&0x00FF0000	0x00010000	AU/NZ
->>(0x010.L+0x178)	ubelong&0xFF000000	0xFF000000	Other
->>(0x010.L+0x178)	ubelong	>0		\b)
+>(0x010.L+0x178)	use	xbox-360-xex-region-code
 
+0	string	XEX1	Microsoft Xbox 360 executable (XEX1)
+!:mime	audio/x-xbox360-executable
+!:ext	xex
+>0x18	search/0x100	\x00\x04\x00\x06
+>>&0	use	xbox-360-xex-execution-id
+>(0x010.L+0x154)	use	xbox-360-xex-region-code
 
+#------------------------------------------------------------------------------
+# Microsoft Xbox 360 packages
+# From: David Korth <gerbilsoft@gerbilsoft.com>
+# References:
+# - https://free60project.github.io/wiki/STFS.html
+# - https://github.com/xenia-project/xenia/blob/HEAD/src/xenia/kernel/util/xex2_info.h
+
+# TODO: More information for console-signed packages.
+
+0	name	xbox-360-package
+>0x360	byte	x	(%c
+>0x361	byte	x	\b%c
+>0x362	beshort	x	\b-%04u, media ID:
+>0x354	belong	x	%08X)
+>0x344	belong	x	\b, content type:
+>>0x344	belong	0x1		Saved Game
+>>0x344	belong	0x2		Marketplace Content
+>>0x344	belong	0x3		Publisher
+>>0x344	belong	0x1000		Xbox 360 Title
+>>0x344	belong	0x2000		IPTV Pause Buffer
+>>0x344	belong	0x4000		Installed Game
+>>0x344	belong	0x5000		Original Xbox Game
+>>0x344	belong	0x9000		Avatar Item
+>>0x344	belong	0x10000		Profile
+>>0x344	belong	0x20000		Gamer Picture
+>>0x344	belong	0x30000		Theme
+>>0x344	belong	0x40000		Cache File
+>>0x344	belong	0x50000		Storage Download
+>>0x344	belong	0x60000		Xbox Saved Game
+>>0x344	belong	0x70000		Xbox Download
+>>0x344	belong	0x80000		Game Demo
+>>0x344	belong	0x90000		Video
+>>0x344	belong	0xA0000		Game
+>>0x344	belong	0xB0000		Installer
+>>0x344	belong	0xC0000		Game Trailer
+>>0x344	belong	0xD0000		Arcade Title
+>>0x344	belong	0xE0000		XNA
+>>0x344	belong	0xF0000		License Store
+>>0x344	belong	0x100000	Movie
+>>0x344	belong	0x200000	TV
+>>0x344	belong	0x300000	Music Video
+>>0x344	belong	0x400000	Game Video
+>>0x344	belong	0x500000	Podcast Video
+>>0x344	belong	0x600000	Viral Video
+>>0x344	belong	0x2000000	Community Game
+
+0	string	CON\x20	Microsoft Xbox 360 package (console-signed)
+>0	use	xbox-360-package
+0	string	PIRS
+>0	belong	0	Microsoft Xbox 360 package (non-Xbox Live)
+>>0	use	xbox-360-package
+0	string	LIVE
+>0x104	belong	0	Microsoft Xbox 360 package (Xbox Live)
+>>0	use	xbox-360-package
 
 # Atari Lynx cartridge dump (EXE/BLL header)
 # From: "Stefan A. Haubenthal" <polluks@web.de>
@@ -600,6 +669,30 @@
 # IPS Patch Files from: From: Thomas Klausner <tk@giga.or.at>
 # see https://zerosoft.zophar.net/ips.php
 0	string	PATCH			IPS patch file
+!:ext	ips
+
+# BPS Patch Files - from: David Korth <gerbilsoft@gerbilsoft.com>
+# Reference: https://www.romhacking.net/documents/746/
+0	string	BPS1			BPS patch file
+!:ext	bps
+
+# APS Patch Files - from: David Korth <gerbilsoft@gerbilsoft.com>
+# Reference: https://github.com/btimofeev/UniPatcher/wiki/APS-(N64)
+0	string	APS10			APS patch file
+!:ext	aps
+>5	byte	0			\b, simple patch
+>5	byte	1			\b, N64-specific patch for
+>>58	byte	x			N%c
+>>59	byte	x			\b%c
+>>60	byte	x			\b%c
+>7	byte	!0x20
+# FIXME: /T specifier isn't working with a fixed-length string.
+>>7	string	x			\b: "%.50s"
+
+# UPS Patch Files - from: David Korth <gerbilsoft@gerbilsoft.com>
+# Reference: http://fileformats.archiveteam.org/wiki/UPS_(binary_patch_format)
+0	string	UPS1			UPS patch file
+!:ext	ups
 
 # Playstations Patch Files from: From: Thomas Klausner <tk@giga.or.at>
 0	string	PPF30			Playstation Patch File version 3.0
@@ -700,6 +793,8 @@
 >0x07	byte	x	\b, Rev.%02u)
 >0x18	belong	0x5D1C9EA3
 >>0x60	beshort	0x0101	\b (Unencrypted)
+>0x200	string	NKIT	\b (NKit compressed)
+
 
 # Type: Nintendo GameCube disc image
 # From: David Korth <gerbilsoft@gerbilsoft.com>
@@ -948,3 +1043,61 @@
 >>>>>>0x5B	byte	0x02
 >>>>>>>0x54	belong	x	Nintendo amiibo NFC dump - amiibo ID: %08X-
 >>>>>>>0x58	belong	x	\b%08X
+
+#------------------------------------------------------------------------------
+# Type: Nintendo Switch XCI (Game Cartridge Image)
+# From: Benjamin Lowry <ben@ben.gmbh>
+# Reference: https://switchbrew.org/wiki/Gamecard_Format
+0x100		string	HEAD
+>0x10D		byte	0xFA	Nintendo Switch cartridge image (XCI), 1GB
+>0x10D		byte	0xF8	Nintendo Switch cartridge image (XCI), 2GB
+>0x10D		byte	0xF0	Nintendo Switch cartridge image (XCI), 4GB
+>0x10D		byte	0xE0	Nintendo Switch cartridge image (XCI), 8GB
+>0x10D		byte	0xE1	Nintendo Switch cartridge image (XCI), 16GB
+>0x10D		byte	0xE2	Nintendo Switch cartridge image (XCI), 32GB
+
+#------------------------------------------------------------------------------
+# Type: Nintendo Switch Executable
+# From: Benjamin Lowry <ben@ben.gmbh>
+# Reference: https://switchbrew.org/wiki/NSO
+0x00		string	NSO0	Nintendo Switch executable (NSO)
+
+#------------------------------------------------------------------------------
+# Type: Nintendo Switch PFS0
+# From: Benjamin Lowry <ben@ben.gmbh>
+# Reference: https://switchbrew.org/wiki/NCA_Format#PFS0
+0x00		string	PFS0	Nintendo Switch partition filesystem (PFS0)
+>0x04		ulelong	x	\b, %d files
+
+#------------------------------------------------------------------------------
+# amiibo: file(1) magic for Nintendo Badge Arcade files.
+# From: David Korth <gerbilsoft@gerbilsoft.com>
+# References:
+# - https://github.com/GerbilSoft/rom-properties/issues/92
+# - https://github.com/CaitSith2/BadgeArcadeTool
+# - https://github.com/TheMachinumps/Advanced-badge-editor
+
+# PRBS: Individual badge and/or mega badge.
+0		string	PRBS
+>0x44		byte	>0x20	Nintendo Badge Arcade
+>>0xB8		ulelong	<2
+>>>0xBC		ulelong	<2	badge:
+>>>0xBC		ulelong	>1	Mega Badge
+>>>>0xB8	ulelong	x	(%ux
+>>>>0xBC	ulelong	x	\b%u):
+>>0xB8		ulelong	>1	Mega Badge
+>>>0xB8		ulelong	x	(%ux
+>>>0xBC		ulelong	x	\b%u):
+>0x44		string	x	"%s"
+>0x3C		ulelong	x	\b, badge ID: %u
+>0x74		byte	>0x20
+>>0x74		string	x	\b, set: "%s"
+>0xA8		ulelong	!0xFFFFFFFF
+>>0xA8		ulelong	x	\b, launch title ID: %08X
+>>0xA4		ulelong	x	\b-%08X
+
+# CABS: Badge set.
+0	string	CABS
+>0x2C	byte	>0x20	Nintendo Badge Arcade badge set:
+>>0x2C	string	x	"%.48s"
+>>0x24	ulelong	x	\b, set ID: %u

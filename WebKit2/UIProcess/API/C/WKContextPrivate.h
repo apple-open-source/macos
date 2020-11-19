@@ -100,7 +100,7 @@ WK_EXPORT void WKContextSetInvalidMessageFunction(WKContextInvalidMessageFunctio
     
 WK_EXPORT void WKContextSetMemoryCacheDisabled(WKContextRef, bool disabled);
 
-WK_EXPORT void WKContextSetFontWhitelist(WKContextRef, WKArrayRef);
+WK_EXPORT void WKContextSetFontAllowList(WKContextRef, WKArrayRef);
 
 WK_EXPORT void WKContextPreconnectToServer(WKContextRef context, WKURLRef serverURL) WK_C_API_DEPRECATED;
 
@@ -118,6 +118,8 @@ typedef void (*WKContextClearLegacyPrivateBrowsingLocalStorageCallback)(void* fu
 WK_EXPORT void WKContextClearLegacyPrivateBrowsingLocalStorage(WKContextRef contextRef, void* context, WKContextClearLegacyPrivateBrowsingLocalStorageCallback callback);
 
 WK_EXPORT void WKContextSetUseSeparateServiceWorkerProcess(WKContextRef context, bool forceServiceWorkerProcess);
+
+WK_EXPORT void WKContextSetPrimaryWebsiteDataStore(WKContextRef context, WKWebsiteDataStoreRef websiteDataStore);
 
 #ifdef __cplusplus
 }

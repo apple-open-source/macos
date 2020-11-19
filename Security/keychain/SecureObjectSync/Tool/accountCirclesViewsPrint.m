@@ -149,7 +149,8 @@ static void printPeerInfos(char *label, CFStringRef mypeerID, CFArrayRef (^copyP
             CFStringRef bufstr = CFStringCreateWithCString(NULL, buf, kCFStringEncodingUTF8);
             CFStringRef pid = SOSPeerInfoGetPeerID(peer);
             CFIndex vers = SOSPeerInfoGetVersion(peer);
-            printmsg(CFSTR("%@ pid:%@ V%d OS:%@\n"), bufstr, pid, vers, osVersion ?: CFSTR(""));
+            bool isCKKSForAll = SOSPeerInfoSupportsCKKSForAll(peer);
+            printmsg(CFSTR("%@ pid:%@ V%d %@ OS:%@\n"), bufstr, pid, vers, isCKKSForAll ? CFSTR("c4a") : CFSTR("SOS"), osVersion ?: CFSTR(""));
             CFRelease(bufstr);
 
             CFReleaseNull(gestalt);

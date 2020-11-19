@@ -181,7 +181,7 @@ enum {
 
 
 /*!
-    @struct
+    @typedef
     Callback API provided by the AuthorizationEngine. 
     
     @field version      Engine callback version.
@@ -289,7 +289,7 @@ typedef struct AuthorizationCallbacks {
 
 
 /*!
-    @struct
+    @typedef
     Interface that must be implemented by each plugin. 
     
     @field version  Must be set to kAuthorizationPluginInterfaceVersion

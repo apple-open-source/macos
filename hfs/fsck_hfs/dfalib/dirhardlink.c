@@ -464,6 +464,8 @@ int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id
 		retval = BTSearchRecord(gptr->calculatedAttributesFCB, &iterator, kNoHint, 
 					&bt_data, NULL, NULL);
 		if (retval == 0) {
+            unsigned long link_id;
+
 			/* Attribute should be an inline attribute */
 			if (rec->recordType != kHFSPlusAttrInlineData) {
 				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
@@ -495,7 +497,16 @@ int get_first_link_id(SGlobPtr gptr, CatalogRecord *inode_rec, uint32_t inode_id
 				}
 			}
 
-			*first_link_id = strtoul((char *)&rec->attrData[0], NULL, 10);
+            link_id = strtoul((char *)&rec->attrData[0], NULL, 10);
+            if (link_id > UINT32_MAX) {
+                if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+                    plog ("\tfirst link ID=%lu is > UINT32_MAX for dirinode=%u\n", link_id, inode_id);
+                }
+                *first_link_id = 0;
+                retval = ENOENT;
+                goto out;
+            }
+			*first_link_id = (uint32_t)link_id;
 			if (*first_link_id < kHFSFirstUserCatalogNodeID) {
 				if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
 					plog ("\tfirst link ID=%u is < 16 for dirinode=%u\n", *first_link_id, inode_id);
@@ -612,11 +623,21 @@ int inode_check(SGlobPtr gptr, PrimeBuckets *bucket,
 		linkCount = rec->hfsPlusFolder.bsdInfo.special.linkCount;
 		parentid = gptr->dirlink_priv_dir_id;
 	} else {
+        unsigned long ref_num;
+
 		inode_id = rec->hfsPlusFile.fileID;
 		flags = rec->hfsPlusFile.flags;
 		linkCount = rec->hfsPlusFile.bsdInfo.special.linkCount;
 		parentid = gptr->filelink_priv_dir_id;
-		link_ref_num = strtoul(&found_name[strlen(HFS_INODE_PREFIX)], NULL, 10);
+        ref_num = strtoul(&found_name[strlen(HFS_INODE_PREFIX)], NULL, 10);
+        if (ref_num > UINT32_MAX) {
+            if (fsckGetVerbosity(gptr->context) >= kDebugLog) {
+                plog ("\tlink reference num=%lu is > UINT32_MAX for inode=%u\n", ref_num, inode_id);
+            }
+            retval = 1;
+            goto out;
+        }
+		link_ref_num = (uint32_t)ref_num;
 	}
 
 	/* inode should only reside in its corresponding private directory */

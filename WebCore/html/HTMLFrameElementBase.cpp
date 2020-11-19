@@ -72,7 +72,7 @@ bool HTMLFrameElementBase::canLoadURL(const String& relativeURL) const
 // Note that unlike HTMLPlugInImageElement::canLoadURL this uses ScriptController::canAccessFromCurrentOrigin.
 bool HTMLFrameElementBase::canLoadURL(const URL& completeURL) const
 {
-    if (WTF::protocolIsJavaScript(completeURL)) {
+    if (completeURL.protocolIsJavaScript()) {
         RefPtr<Document> contentDocument = this->contentDocument();
         if (contentDocument && !ScriptController::canAccessFromCurrentOrigin(contentDocument->frame(), document()))
             return false;
@@ -87,13 +87,13 @@ void HTMLFrameElementBase::openURL(LockHistory lockHistory, LockBackForwardList 
         return;
 
     if (m_URL.isEmpty())
-        m_URL = WTF::blankURL().string();
+        m_URL = aboutBlankURL().string();
 
     RefPtr<Frame> parentFrame = document().frame();
     if (!parentFrame)
         return;
 
-    document().willLoadFrameElement(parentFrame->document()->completeURL(m_URL));
+    document().willLoadFrameElement(document().completeURL(m_URL));
 
     String frameName = getNameAttribute();
     if (frameName.isNull() && UNLIKELY(document().settings().needsFrameNameFallbackToIdQuirk()))
@@ -104,9 +104,14 @@ void HTMLFrameElementBase::openURL(LockHistory lockHistory, LockBackForwardList 
 
 void HTMLFrameElementBase::parseAttribute(const QualifiedName& name, const AtomString& value)
 {
-    if (name == srcdocAttr)
-        setLocation("about:srcdoc");
-    else if (name == srcAttr && !hasAttributeWithoutSynchronization(srcdocAttr))
+    if (name == srcdocAttr) {
+        if (value.isNull()) {
+            const AtomString& srcValue = attributeWithoutSynchronization(srcAttr);
+            if (!srcValue.isNull())
+                setLocation(stripLeadingAndTrailingHTMLSpaces(srcValue));
+        } else
+            setLocation("about:srcdoc");
+    } else if (name == srcAttr && !hasAttributeWithoutSynchronization(srcdocAttr))
         setLocation(stripLeadingAndTrailingHTMLSpaces(value));
     else
         HTMLFrameOwnerElement::parseAttribute(name, value);
@@ -148,7 +153,7 @@ void HTMLFrameElementBase::didAttachRenderers()
 URL HTMLFrameElementBase::location() const
 {
     if (hasAttributeWithoutSynchronization(srcdocAttr))
-        return URL({ }, "about:srcdoc");
+        return aboutSrcDocURL();
     return document().completeURL(attributeWithoutSynchronization(srcAttr));
 }
 
@@ -217,7 +222,10 @@ int HTMLFrameElementBase::height()
 
 ScrollbarMode HTMLFrameElementBase::scrollingMode() const
 {
-    return equalLettersIgnoringASCIICase(attributeWithoutSynchronization(scrollingAttr), "no")
+    auto scrollingAttribute = attributeWithoutSynchronization(scrollingAttr);
+    return equalLettersIgnoringASCIICase(scrollingAttribute, "no")
+        || equalLettersIgnoringASCIICase(scrollingAttribute, "noscroll")
+        || equalLettersIgnoringASCIICase(scrollingAttribute, "off")
         ? ScrollbarAlwaysOff : ScrollbarAuto;
 }
 

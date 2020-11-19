@@ -303,7 +303,7 @@ private:
 	UInt32		fSBP2Revision;
 	
 protected:
-    virtual void free();
+    virtual void free() APPLE_KEXT_OVERRIDE;
     
 public:
 
@@ -814,7 +814,7 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 			
 			thread_t thread;
 			
-			FWTrace( kFWTDevice, kTPDeviceSetNodeROM, (uintptr_t)(fControl->getLink()), localID, (uintptr_t)thread, 3);
+			//FWTrace( kFWTDevice, kTPDeviceSetNodeROM, (uintptr_t)(fControl->getLink()), localID, (uintptr_t)thread, 3);
 			
 			if( kernel_thread_start((thread_continue_t)readROMThreadFunc, romScan, &thread) == KERN_SUCCESS )
 			{
@@ -896,7 +896,7 @@ void IOFireWireDevice::processROM( RomScan *romScan )
 	fControl->openGate();
 
 
-	FWKLOG(( "IOFireWireDevice@%p::processROM generation %ld entered\n", this, generation ));
+	FWKLOG(( "IOFireWireDevice@%p::processROM generation 0x%08x entered\n", this, generation ));
 
 	//
 	// bail if we're on a ROM scan thread for a different generation
@@ -904,7 +904,7 @@ void IOFireWireDevice::processROM( RomScan *romScan )
 	
 	if( romScan->fROMGeneration != generation )
 	{
-		FWKLOG(( "IOFireWireDevice@%p::processROM generation %ld != romScan->fROMGeneration\n", this, generation ));
+		FWKLOG(( "IOFireWireDevice@%p::processROM generation 0x%08x != romScan->fROMGeneration\n", this, generation ));
 		status = kIOReturnError;
 	}
 	
@@ -1062,7 +1062,7 @@ void IOFireWireDevice::processROM( RomScan *romScan )
 		rom->release();
 	}
 	
-	FWKLOG(( "IOFireWireDevice@%p::processROM generation %ld exited\n", this, generation ));
+	FWKLOG(( "IOFireWireDevice@%p::processROM generation 0x%08x exited\n", this, generation ));
 }
 
 // preprocessDirectories
@@ -1396,7 +1396,7 @@ IOReturn IOFireWireDevice::readRootDirectory( IOConfigDirectory * directory, OSD
 		vendorName->release();
 	}
 	
-	FWKLOG(( "IOFireWireDevice@%p::readRootDirectory returned status = 0x%08lx\n", this, (UInt32)status ));
+	FWKLOG(( "IOFireWireDevice@%p::readRootDirectory returned status = 0x%08x\n", this, (UInt32)status ));
 		
 	return status;
 }
@@ -1593,7 +1593,7 @@ IOReturn IOFireWireDevice::readUnitDirectories( IOConfigDirectory * directory, O
 		}
 	}
 
-	FWKLOG(( "IOFireWireDevice@%p::readUnitDirectory returned status = 0x%08lx\n", this, (UInt32)status ));
+	FWKLOG(( "IOFireWireDevice@%p::readUnitDirectory returned status = 0x%08x\n", this, (UInt32)status ));
 	
 	return status;
 }

@@ -165,28 +165,31 @@
 /* #undef BAD_GETCWD */
 
 /* Define if you the function: */
-#define HAVE_BCMP 1
 #define HAVE_FCHDIR 1
 #define HAVE_FCHOWN 1
+#define HAVE_FCHMOD 1
+#define HAVE_FLOAT_FUNCS 1
 #define HAVE_FSEEKO 1
 #define HAVE_FSYNC 1
+#define HAVE_FTRUNCATE 1
 #define HAVE_GETCWD 1
+#define HAVE_GETPGID 1
 /* #undef HAVE_GETPSEUDOTTY */
 #define HAVE_GETPWENT 1
 #define HAVE_GETPWNAM 1
 #define HAVE_GETPWUID 1
 #define HAVE_GETRLIMIT 1
 #define HAVE_GETTIMEOFDAY 1
-#define HAVE_GETWD 1
+/* #undef HAVE_GETWD */
 #define HAVE_ICONV 1
-#define HAVE_NL_LANGINFO_CODESET 1
+#define HAVE_LOCALTIME_R 1
 #define HAVE_LSTAT 1
-#define HAVE_MEMCMP 1
 #define HAVE_MEMSET 1
 #define HAVE_MKDTEMP 1
 #define HAVE_NANOSLEEP 1
+#define HAVE_NL_LANGINFO_CODESET 1
 #define HAVE_OPENDIR 1
-#define HAVE_FLOAT_FUNCS 1
+#define HAVE_POSIX_OPENPT 1
 #define HAVE_PUTENV 1
 #define HAVE_QSORT 1
 #define HAVE_READLINK 1
@@ -201,6 +204,7 @@
 #define HAVE_SIGSET 1
 #define HAVE_SIGSETJMP 1
 /* #undef HAVE_SIGSTACK */
+#define HAVE_SIGPROCMASK 1
 #define HAVE_SIGVEC 1
 /* #undef HAVE_SMACK */
 #define HAVE_STRCASECMP 1
@@ -210,7 +214,9 @@
 #define HAVE_STRNCASECMP 1
 /* #undef HAVE_STRNICMP */
 #define HAVE_STRPBRK 1
+#define HAVE_STRPTIME 1
 #define HAVE_STRTOL 1
+/* #undef HAVE_CANBERRA */
 #define HAVE_ST_BLKSIZE 1
 #define HAVE_SYSCONF 1
 #define HAVE_SYSCTL 1
@@ -220,9 +226,12 @@
 #define HAVE_TOWLOWER 1
 #define HAVE_TOWUPPER 1
 #define HAVE_ISWUPPER 1
+#define HAVE_TZSET 1
+#define HAVE_UNSETENV 1
 #define HAVE_USLEEP 1
 #define HAVE_UTIME 1
 /* #undef HAVE_BIND_TEXTDOMAIN_CODESET */
+#define HAVE_MBLEN 1
 
 /* Define, if needed, for accessing large files. */
 /* #undef _LARGE_FILES */

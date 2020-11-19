@@ -1,8 +1,6 @@
-﻿// ***************************************************************************
-// * Copyright (C) 2016 International Business Machines
-// * Corporation and others. All Rights Reserved. Apple addition.
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_TH{
     %%Parent{"en_001"}
-    Version{"2.1.31.33"}
+    Version{"36.1"}
 }

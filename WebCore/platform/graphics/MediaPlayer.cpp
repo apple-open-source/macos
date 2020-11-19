@@ -38,10 +38,7 @@
 #include "PlatformTimeRanges.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
-
-#if ENABLE(VIDEO_TRACK)
 #include "InbandTextTrackPrivate.h"
-#endif
 
 #if ENABLE(MEDIA_SOURCE)
 #include "MediaSourcePrivateClient.h"
@@ -54,7 +51,7 @@
 #if USE(GSTREAMER)
 #include "MediaPlayerPrivateGStreamer.h"
 #define PlatformMediaEngineClassName MediaPlayerPrivateGStreamer
-#if ENABLE(MEDIA_SOURCE) && ENABLE(VIDEO_TRACK)
+#if ENABLE(MEDIA_SOURCE)
 #include "MediaPlayerPrivateGStreamerMSE.h"
 #endif
 #endif // USE(GSTREAMER)
@@ -108,6 +105,8 @@ public:
     void prepareToPlay() final { }
     void play() final { }
     void pause() final { }
+
+    String engineDescription() const final { return "NullMediaPlayer"; }
 
     PlatformLayer* platformLayer() const final { return nullptr; }
 
@@ -265,7 +264,7 @@ static void buildMediaEnginesVector()
         PlatformMediaEngineClassName::registerMediaEngine(addMediaEngine);
 #endif
 
-#if USE(GSTREAMER) && ENABLE(MEDIA_SOURCE) && ENABLE(VIDEO_TRACK)
+#if USE(GSTREAMER) && ENABLE(MEDIA_SOURCE)
     if (DeprecatedGlobalSettings::isGStreamerEnabled())
         MediaPlayerPrivateGStreamerMSE::registerMediaEngine(addMediaEngine);
 #endif
@@ -295,13 +294,13 @@ static void addMediaEngine(std::unique_ptr<MediaPlayerFactory>&& factory)
 
 static const AtomString& applicationOctetStream()
 {
-    static NeverDestroyed<const AtomString> applicationOctetStream("application/octet-stream", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> applicationOctetStream("application/octet-stream", AtomString::ConstructFromLiteral);
     return applicationOctetStream;
 }
 
 static const AtomString& textPlain()
 {
-    static NeverDestroyed<const AtomString> textPlain("text/plain", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> textPlain("text/plain", AtomString::ConstructFromLiteral);
     return textPlain;
 }
 
@@ -441,11 +440,11 @@ bool MediaPlayer::load(const URL& url, const ContentType& contentType, const Str
         if (m_url.protocolIsData())
             m_contentType = ContentType(mimeTypeFromDataURL(m_url.string()));
         else {
-            String lastPathComponent = url.lastPathComponent();
+            auto lastPathComponent = url.lastPathComponent();
             size_t pos = lastPathComponent.reverseFind('.');
             if (pos != notFound) {
-                String extension = lastPathComponent.substring(pos + 1);
-                String mediaType = MIMETypeRegistry::getMediaMIMETypeForExtension(extension);
+                String extension = lastPathComponent.substring(pos + 1).toString();
+                String mediaType = MIMETypeRegistry::mediaMIMETypeForExtension(extension);
                 if (!mediaType.isEmpty()) {
                     m_contentType = ContentType { WTFMove(mediaType) };
                     m_contentMIMETypeWasInferredFromExtension = true;
@@ -624,6 +623,11 @@ std::unique_ptr<LegacyCDMSession> MediaPlayer::createSession(const String& keySy
     return m_private->createSession(keySystem, client);
 }
 
+void MediaPlayer::setCDM(LegacyCDM* cdm)
+{
+    m_private->setCDM(cdm);
+}
+
 void MediaPlayer::setCDMSession(LegacyCDMSession* session)
 {
     m_private->setCDMSession(session);
@@ -653,6 +657,14 @@ void MediaPlayer::attemptToDecryptWithInstance(CDMInstance& instance)
     m_private->attemptToDecryptWithInstance(instance);
 }
 
+#endif
+
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) && ENABLE(ENCRYPTED_MEDIA)
+void MediaPlayer::setShouldContinueAfterKeyNeeded(bool should)
+{
+    m_shouldContinueAfterKeyNeeded = should;
+    m_private->setShouldContinueAfterKeyNeeded(should);
+}
 #endif
 
 MediaTime MediaPlayer::duration() const
@@ -740,7 +752,12 @@ PlatformLayer* MediaPlayer::platformLayer() const
     return m_private->platformLayer();
 }
     
-#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+
+RetainPtr<PlatformLayer> MediaPlayer::createVideoFullscreenLayer()
+{
+    return m_private->createVideoFullscreenLayer();
+}
 
 void MediaPlayer::setVideoFullscreenLayer(PlatformLayer* layer, WTF::Function<void()>&& completionHandler)
 {
@@ -955,7 +972,7 @@ void MediaPlayer::paintCurrentFrameInContext(GraphicsContext& p, const FloatRect
     m_private->paintCurrentFrameInContext(p, r);
 }
 
-bool MediaPlayer::copyVideoTextureToPlatformTexture(GraphicsContext3D* context, Platform3DObject texture, GC3Denum target, GC3Dint level, GC3Denum internalFormat, GC3Denum format, GC3Denum type, bool premultiplyAlpha, bool flipY)
+bool MediaPlayer::copyVideoTextureToPlatformTexture(GraphicsContextGLOpenGL* context, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
 {
     return m_private->copyVideoTextureToPlatformTexture(context, texture, target, level, internalFormat, format, type, premultiplyAlpha, flipY);
 }
@@ -1003,20 +1020,6 @@ bool MediaPlayer::supportsPictureInPicture() const
     return m_private->supportsPictureInPicture();
 }
 
-#if USE(NATIVE_FULLSCREEN_VIDEO)
-
-void MediaPlayer::enterFullscreen()
-{
-    m_private->enterFullscreen();
-}
-
-void MediaPlayer::exitFullscreen()
-{
-    m_private->exitFullscreen();
-}
-
-#endif
-
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 
 bool MediaPlayer::isCurrentPlaybackTargetWireless() const
@@ -1044,9 +1047,9 @@ void MediaPlayer::setWirelessVideoPlaybackDisabled(bool disabled)
     m_private->setWirelessVideoPlaybackDisabled(disabled);
 }
 
-void MediaPlayer::currentPlaybackTargetIsWirelessChanged()
+void MediaPlayer::currentPlaybackTargetIsWirelessChanged(bool isCurrentPlaybackTargetWireless)
 {
-    client().mediaPlayerCurrentPlaybackTargetIsWirelessChanged();
+    client().mediaPlayerCurrentPlaybackTargetIsWirelessChanged(isCurrentPlaybackTargetWireless);
 }
 
 bool MediaPlayer::canPlayToWirelessPlaybackTarget() const
@@ -1076,15 +1079,6 @@ double MediaPlayer::minFastReverseRate() const
     return m_private->minFastReverseRate();
 }
 
-#if USE(NATIVE_FULLSCREEN_VIDEO)
-
-bool MediaPlayer::canEnterFullscreen() const
-{
-    return m_private->canEnterFullscreen();
-}
-
-#endif
-
 void MediaPlayer::acceleratedRenderingStateChanged()
 {
     m_private->acceleratedRenderingStateChanged();
@@ -1093,11 +1087,6 @@ void MediaPlayer::acceleratedRenderingStateChanged()
 bool MediaPlayer::supportsAcceleratedRendering() const
 {
     return m_private->supportsAcceleratedRendering();
-}
-
-bool MediaPlayer::shouldMaintainAspectRatio() const
-{
-    return m_private->shouldMaintainAspectRatio();
 }
 
 void MediaPlayer::setShouldMaintainAspectRatio(bool maintainAspectRatio)
@@ -1310,9 +1299,9 @@ RefPtr<ArrayBuffer> MediaPlayer::cachedKeyForKeyId(const String& keyId) const
     return client().mediaPlayerCachedKeyForKeyId(keyId);
 }
 
-bool MediaPlayer::keyNeeded(Uint8Array* initData)
+void MediaPlayer::keyNeeded(Uint8Array* initData)
 {
-    return client().mediaPlayerKeyNeeded(initData);
+    client().mediaPlayerKeyNeeded(initData);
 }
 
 String MediaPlayer::mediaKeysStorageDirectory() const
@@ -1385,8 +1374,6 @@ RefPtr<PlatformMediaResourceLoader> MediaPlayer::createResourceLoader()
     return client().mediaPlayerCreateResourceLoader();
 }
 
-#if ENABLE(VIDEO_TRACK)
-
 void MediaPlayer::addAudioTrack(AudioTrackPrivate& track)
 {
     client().mediaPlayerDidAddAudioTrack(track);
@@ -1451,8 +1438,6 @@ Vector<RefPtr<PlatformTextTrack>> MediaPlayer::outOfBandTrackSources()
 }
 
 #endif
-
-#endif // ENABLE(VIDEO_TRACK)
 
 void MediaPlayer::resetMediaEngines()
 {
@@ -1593,7 +1578,7 @@ AVPlayer* MediaPlayer::objCAVFoundationAVPlayer() const
 
 #endif
 
-bool MediaPlayer::performTaskAtMediaTime(WTF::Function<void()>&& task, MediaTime time)
+bool MediaPlayer::performTaskAtMediaTime(WTF::Function<void()>&& task, const MediaTime& time)
 {
     return m_private->performTaskAtMediaTime(WTFMove(task), time);
 }
@@ -1606,6 +1591,17 @@ bool MediaPlayer::shouldIgnoreIntrinsicSize()
 void MediaPlayer::remoteEngineFailedToLoad()
 {
     client().mediaPlayerEngineFailedToLoad();
+}
+
+SecurityOriginData MediaPlayer::documentSecurityOrigin() const
+{
+    return client().documentSecurityOrigin();
+}
+
+void MediaPlayer::setPreferredDynamicRangeMode(DynamicRangeMode mode)
+{
+    m_preferredDynamicRangeMode = mode;
+    m_private->setPreferredDynamicRangeMode(mode);
 }
 
 #if !RELEASE_LOG_DISABLED

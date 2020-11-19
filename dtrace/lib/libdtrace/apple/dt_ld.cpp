@@ -683,8 +683,8 @@ static int register_offsets(dof_hdr_t* header, int count, uint64_t offsetsInDOF[
                                 // DOF section". We stored the relocation_index as a placeholder in the
                                 // register_probes() function.
                                 uint32_t* probe_offsets = (uint32_t*)((char*)header + sections[i].dofs_offset);
-                                uint32_t j, count = sections[i].dofs_size / sizeof(uint32_t);
-                                for (j=0; j<count; j++) {
+                                uint32_t j, sec_count = sections[i].dofs_size / sizeof(uint32_t);
+                                for (j=0; j<sec_count; j++) {
                                         int relocation_index = probe_offsets[j];
                                         offsetsInDOF[relocation_index] = (uint64_t)(unsigned long)((char*)&probe_offsets[j] - (char*)header);
                                 }

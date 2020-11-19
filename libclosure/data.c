@@ -8,8 +8,10 @@
  *
  */
 
+#if !HAVE_OBJC
+
 /********************
-NSBlock support
+NSBlock support (Legacy)
 
 We allocate space and export a symbol to be used as the Class for the on-stack and malloc'ed copies until ObjC arrives on the scene.  These data areas are set up by Foundation to link in as real classes post facto.
 
@@ -22,3 +24,5 @@ void * _NSConcreteAutoBlock[32] = { 0 };
 void * _NSConcreteFinalizingBlock[32] = { 0 };
 void * _NSConcreteGlobalBlock[32] = { 0 };
 void * _NSConcreteWeakBlockVariable[32] = { 0 };
+
+#endif // !HAVE_OBJC

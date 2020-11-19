@@ -365,7 +365,8 @@ get_new_tickets(krb5_context context,
 		krb5_principal principal,
 		krb5_ccache ccache,
 		krb5_deltat ticket_life,
-		int interactive)
+		int interactive,
+		bool empty_placeholder)
 {
     krb5_error_code ret;
     krb5_get_init_creds_opt *opt;
@@ -614,6 +615,10 @@ get_new_tickets(krb5_context context,
 
     memset(passwd, 0, sizeof(passwd));
 
+    if (ret && empty_placeholder) {
+	//remove the placeholder cache since it will not be used
+	(void)krb5_cc_destroy(context, ccache);
+    }
     switch(ret){
     case 0:
 	break;
@@ -688,6 +693,10 @@ get_new_tickets(krb5_context context,
     ret = krb5_cc_move(context, tempccache, ccache);
     if (ret) {
 	(void)krb5_cc_destroy(context, tempccache);
+	if (empty_placeholder) {
+	    //remove the placeholder cache too
+	    (void)krb5_cc_destroy(context, ccache);
+	}
 	krb5_err (context, 1, ret, "krb5_cc_move");
     }
 
@@ -788,7 +797,7 @@ renew_func(void *ptr)
 
     if (new_tickets)
 	get_new_tickets(ctx->context, ctx->principal,
-			ctx->ccache, ctx->ticket_life, 0);
+			ctx->ccache, ctx->ticket_life, 0, false);
 
 #ifndef NO_AFS
     if(do_afslog && k_hasafs())
@@ -810,6 +819,7 @@ main (int argc, char **argv)
     int optidx = 0;
     krb5_deltat ticket_life = 0;
     int parseflags = 0;
+    bool empty_placeholder = false;
 
     setprogname (argv[0]);
 
@@ -918,6 +928,7 @@ main (int argc, char **argv)
 		if (krb5_cc_support_switch(context, type)) {
 		    krb5_cc_close(context, ccache);
 		    ret = krb5_cc_new_unique(context, type, NULL, &ccache);
+		    empty_placeholder = true; //if nothing is stored in it, then it should be removed.
 		}
 	    }
 	}
@@ -963,7 +974,7 @@ main (int argc, char **argv)
 	exit(ret != 0);
     }
 
-    get_new_tickets(context, principal, ccache, ticket_life, 1);
+    get_new_tickets(context, principal, ccache, ticket_life, 1, empty_placeholder);
 
 #ifndef NO_AFS
     if(do_afslog && k_hasafs())

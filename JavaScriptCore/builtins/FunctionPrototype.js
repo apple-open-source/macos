@@ -27,9 +27,9 @@ function call(thisArgument)
 {
     "use strict";
 
-    let argumentValues = [];
+    var argumentValues = [];
     // Start from 1 to ignore thisArgument
-    for (let i = 1; i < arguments.length; i++)
+    for (var i = 1; i < arguments.length; i++)
         @putByValDirect(argumentValues, i-1, arguments[i]);
 
     return this.@apply(thisArgument, argumentValues);
@@ -47,13 +47,13 @@ function symbolHasInstance(value)
 {
     "use strict";
 
-    if (typeof this !== "function")
+    if (!@isCallable(this))
         return false;
 
     if (@isBoundFunction(this))
         return @hasInstanceBoundFunction(this, value);
 
-    let target = this.prototype;
+    var target = this.prototype;
     return @instanceOf(value, target);
 }
 
@@ -62,7 +62,7 @@ function bind(thisValue)
     "use strict";
 
     var target = this;
-    if (typeof target !== "function")
+    if (!@isCallable(target))
         @throwTypeError("|this| is not a function inside Function.prototype.bind");
 
     var argumentCount = @argumentCount();
@@ -77,7 +77,7 @@ function bind(thisValue)
     if (@hasOwnLengthProperty(target)) {
         var lengthValue = target.length;
         if (typeof lengthValue === "number") {
-            lengthValue = lengthValue | 0;
+            lengthValue = @toInteger(lengthValue);
             // Note that we only care about positive lengthValues, however, this comparision
             // against numBoundArgs suffices to prove we're not a negative number.
             if (lengthValue > numBoundArgs)

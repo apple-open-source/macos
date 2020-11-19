@@ -228,7 +228,7 @@ template<typename T, typename U> inline bool operator!=(T* a, const COMPtr<U>& b
     return a != b.get();
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 inline unsigned refCount(IUnknown* ptr)
 {
     if (!ptr)
@@ -255,9 +255,7 @@ template<typename P> struct HashTraits<COMPtr<P> > : SimpleClassHashTraits<COMPt
     static PeekType peek(P* value) { return value; }
 };
 
-template<typename P> struct DefaultHash<COMPtr<P>> {
-    typedef PtrHash<COMPtr<P>> Hash;
-};
+template<typename P> struct DefaultHash<COMPtr<P>> : PtrHash<COMPtr<P>> { };
 
 }
 

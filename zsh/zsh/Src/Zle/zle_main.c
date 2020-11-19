@@ -632,7 +632,11 @@ raw_getbyte(long do_keytmout, char *cptr, int full)
 	     * with all fds, then try unsetting the special ones.
 	     */
 	    if (selret < 0 && !errtry) {
-		errtry = 1;
+		/* Continue after irrelevant interrupt */
+		if (errno != EINTR) {
+		    /* Don't trust special FDs */
+		    errtry = 1;
+		}
 		continue;
 	    }
 	    if (selret == 0) {
@@ -704,7 +708,7 @@ raw_getbyte(long do_keytmout, char *cptr, int full)
 	     */
 	    if (
 # ifdef HAVE_POLL
-		 (fds[0].revents & POLLIN)
+		 (fds[0].revents & (POLLIN|POLLERR|POLLHUP|POLLNVAL))
 # else
 		 FD_ISSET(SHTTY, &foofd)
 # endif
@@ -889,7 +893,7 @@ getbyte(long do_keytmout, int *timeout, int full)
 		break;
 	    if (r == 0) {
 		/* The test for IGNOREEOF was added to make zsh ignore ^Ds
-		   that were typed while commands are running.  Unfortuantely
+		   that were typed while commands are running.  Unfortunately
 		   this caused trouble under at least one system (SunOS 4.1).
 		   Here shells that lost their xterm (e.g. if it was killed
 		   with -9) didn't fail to read from the terminal but instead
@@ -901,7 +905,7 @@ getbyte(long do_keytmout, int *timeout, int full)
 		if ((zlereadflags & ZLRF_IGNOREEOF) && icnt++ < 20)
 		    continue;
 		stopmsg = 1;
-		zexit(1, 0);
+		zexit(1, ZEXIT_NORMAL);
 	    }
 	    icnt = 0;
 	    if (errno == EINTR) {
@@ -924,7 +928,7 @@ getbyte(long do_keytmout, int *timeout, int full)
 	    } else if (errno != 0) {
 		zerr("error on TTY read: %e", errno);
 		stopmsg = 1;
-		zexit(1, 0);
+		zexit(1, ZEXIT_NORMAL);
 	    }
 	}
 	if (cc == '\r')		/* undo the exchange of \n and \r determined by */
@@ -1073,7 +1077,7 @@ redrawhook(void)
 	 * temporarily reset state for special variable handling etc.
 	 */
 	incompfunc = 0;
-	execzlefunc(initthingy, args, 1);
+	execzlefunc(initthingy, args, 1, 0);
 	incompfunc = old_incompfunc;
 
 	/* Restore errflag and retflag as zlecallhook() does */
@@ -1136,7 +1140,7 @@ zlecore(void)
 		eofsent = 1;
 		break;
 	    }
-	    if (execzlefunc(bindk, zlenoargs, 0)) {
+	    if (execzlefunc(bindk, zlenoargs, 0, 0)) {
 		handlefeep(zlenoargs);
 		if (eofsent)
 		    break;
@@ -1256,7 +1260,6 @@ zleread(char **lp, char **rp, int flags, int context, char *init, char *finish)
     resetneeded = 0;
     fetchttyinfo = 0;
     trashedzle = 0;
-    clearflag = 0;
     raw_lp = lp;
     lpromptbuf = promptexpand(lp ? *lp : NULL, 1, NULL, NULL, &pmpt_attr);
     raw_rp = rp;
@@ -1387,7 +1390,7 @@ execimmortal(Thingy func, char **args)
 {
     Thingy immortal = rthingy_nocreate(dyncat(".", func->nam));
     if (immortal)
-	return execzlefunc(immortal, args, 0);
+	return execzlefunc(immortal, args, 0, 0);
     return 1;
 }
 
@@ -1399,13 +1402,14 @@ execimmortal(Thingy func, char **args)
 
 /**/
 int
-execzlefunc(Thingy func, char **args, int set_bindk)
+execzlefunc(Thingy func, char **args, int set_bindk, int set_lbindk)
 {
     int r = 0, ret = 0, remetafy = 0;
     int nestedvichg = vichgflag;
     int isrepeat = (viinrepeat == 3);
     Widget w;
     Thingy save_bindk = bindk;
+    Thingy save_lbindk = lbindk;
 
     if (set_bindk)
 	bindk = func;
@@ -1413,6 +1417,8 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	unmetafy_line();
 	remetafy = 1;
     }
+    if (set_lbindk)
+	refthingy(save_lbindk);
     if (isrepeat)
 	viinrepeat = 2;
 
@@ -1536,7 +1542,10 @@ execzlefunc(Thingy func, char **args, int set_bindk)
 	    redup(osi, 0);
 	}
     }
-    if (r) {
+    if (set_lbindk) {
+	unrefthingy(lbindk);
+	lbindk = save_lbindk;
+    } else if (r) {
 	unrefthingy(lbindk);
 	refthingy(func);
 	lbindk = func;
@@ -1869,13 +1878,17 @@ describekeybriefly(UNUSED(char **args))
 {
     char *seq, *str, *msg, *is;
     Thingy func;
+    Keymap km;
 
     if (statusline)
 	return 1;
     clearlist = 1;
     statusline = "Describe key briefly: _";
     zrefresh();
+    if (invicmdmode() && region_active && (km = openkeymap("visual")))
+        selectlocalmap(km);
     seq = getkeymapcmd(curkeymap, &func, &str);
+    selectlocalmap(NULL);
     statusline = NULL;
     if(!*seq)
 	return 1;

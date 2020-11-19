@@ -30,7 +30,6 @@
 #include "server.h"
 #include "session.h"
 #include "notifications.h"
-#include "pcscmonitor.h"
 #include "auditevents.h"
 #include "self.h"
 #include "util.h"
@@ -66,11 +65,8 @@
 //
 static void usage(const char *me) __attribute__((noreturn));
 static void handleSignals(int sig);
-static PCSCMonitor::ServiceLevel scOptions(const char *optionString);
-static bool legacyTokensEnabled(void);
 
 static Port gMainServerPort;
-PCSCMonitor *gPCSC;
 
 
 //
@@ -87,7 +83,7 @@ int main(int argc, char *argv[])
 	// tell the keychain (client) layer to turn off the server interface
 	SecKeychainSetServerMode();
 
-    const char *params[] = {"LEGACY_TOKENS_ENABLED", legacyTokensEnabled() ? "YES" : "NO", NULL};
+    const char *params[] = {"LEGACY_TOKENS_ENABLED", "NO", NULL};
     char* errorbuf = NULL;
     if (sandbox_init_with_parameters("com.apple.securityd", SANDBOX_NAMED, params, &errorbuf)) {
         seccritical("SecServer: unable to enter sandbox: %{public}s", errorbuf);
@@ -101,32 +97,24 @@ int main(int argc, char *argv[])
 
 	// program arguments (preset to defaults)
 	bool debugMode = false;
-	bool doFork = false;
-	bool reExecute = false;
 	int workerTimeout = 0;
 	int maxThreads = 0;
 	bool waitForClients = true;
     bool mdsIsInstalled = false;
-	const char *tokenCacheDir = "/var/db/TokenCache";
-	const char *smartCardOptions = getenv("SMARTCARDS");
 	uint32_t keychainAclDefault = CSSM_ACL_KEYCHAIN_PROMPT_INVALID | CSSM_ACL_KEYCHAIN_PROMPT_UNSIGNED;
 	unsigned int verbose = 0;
 	
 	// check for the Installation-DVD environment and modify some default arguments if found
 	if (access("/etc/rc.cdrom", F_OK) == 0) {	// /etc/rc.cdrom exists
         secnotice("SecServer", "starting in installmode");
-		smartCardOptions = "off";	// needs writable directories that aren't
 	}
 
 	// parse command line arguments
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "c:dE:ims:t:T:uvWX")) != -1) {
+	while ((arg = getopt(argc, argv, ":dE:im:t:T:uvW")) != -1) {
 		switch (arg) {
-		case 'c':
-			tokenCacheDir = optarg;
-			break;
 		case 'd':
 			debugMode = true;
 			break;
@@ -139,9 +127,6 @@ int main(int argc, char *argv[])
         case 'm':
             mdsIsInstalled = true;
             break;
-		case 's':
-			smartCardOptions = optarg;
-			break;
 		case 't':
 			if ((maxThreads = atoi(optarg)) < 0)
 				maxThreads = 0;
@@ -158,10 +143,6 @@ int main(int argc, char *argv[])
 			break;
 		case 'v':
 			verbose++;
-			break;
-		case 'X':
-			doFork = true;
-			reExecute = true;
 			break;
 		default:
 			usage(argv[0]);
@@ -197,12 +178,8 @@ int main(int argc, char *argv[])
     }
     
     // turn into a properly diabolical daemon unless debugMode is on
-    if (!debugMode && getppid() != 1) {
-		if (!Daemon::incarnate(doFork))
-			exit(1);	// can't daemonize
-		
-		if (reExecute && !Daemon::executeSelf(argv))
-			exit(1);	// can't self-execute
+    if (!debugMode && getppid() != 1 && !Daemon::incarnate(false)) {
+		exit(1);	// can't daemonize
 	}
         
     // arm signal handlers; code below may generate signals we want to see
@@ -253,10 +230,7 @@ int main(int argc, char *argv[])
 	server.floatingThread(true);
 	server.waitForClients(waitForClients);
 	server.verbosity(verbose);
-    
-	// create a smartcard monitor to manage external token devices
-	gPCSC = new PCSCMonitor(server, tokenCacheDir, scOptions(smartCardOptions));
-    
+
     // create the RootSession object (if -d, give it graphics and tty attributes)
     RootSession rootSession(debugMode ? (sessionHasGraphicAccess | sessionHasTTY) : 0, server);
 	
@@ -292,9 +266,7 @@ int main(int argc, char *argv[])
 static void usage(const char *me)
 {
 	fprintf(stderr, "Usage: %s [-dwX]"
-		"\n\t[-c tokencache]                        smartcard token cache directory"
 		"\n\t[-e equivDatabase] 					path to code equivalence database"
-		"\n\t[-s off|on|conservative|aggressive]    smartcard operation level"
 		"\n\t[-t maxthreads] [-T threadTimeout]     server thread control"
 		"\n", me);
 	exit(2);
@@ -302,44 +274,6 @@ static void usage(const char *me)
 
 const CFStringRef kTKSmartCardPreferencesDomain = CFSTR("com.apple.security.smartcard");
 const CFStringRef kTKLegacyTokendPreferencesKey  = CFSTR("Legacy");
-
-static bool legacyTokensEnabled() {
-    bool result = false;
-    CFPropertyListRef value = CFPreferencesCopyValue(kTKLegacyTokendPreferencesKey, kTKSmartCardPreferencesDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    if (value) {
-        if (CFEqual(value, kCFBooleanTrue)) {
-            result = true;
-        }
-        CFRelease(value);
-    }
-    return result;
-}
-
-//
-// Translate strings (e.g. "conservative") into PCSCMonitor service levels
-//
-static PCSCMonitor::ServiceLevel scOptions(const char *optionString)
-{
-    if (!legacyTokensEnabled())
-        return PCSCMonitor::forcedOff;
-
-    if (optionString)
-		if (!strcmp(optionString, "off"))
-			return PCSCMonitor::forcedOff;
-		else if (!strcmp(optionString, "on"))
-			return PCSCMonitor::externalDaemon;
-		else if (!strcmp(optionString, "conservative"))
-			return PCSCMonitor::externalDaemon;
-		else if (!strcmp(optionString, "aggressive"))
-			return PCSCMonitor::externalDaemon;
-		else if (!strcmp(optionString, "external"))
-			return PCSCMonitor::externalDaemon;
-		else
-			usage("securityd");
-	else
-		return PCSCMonitor::externalDaemon;
-}
-
 
 //
 // Handle signals.

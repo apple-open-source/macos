@@ -425,7 +425,7 @@ execwhile(Estate state, UNUSED(int do_exec))
         breaks--;
 
         simple_pline = old_simple_pline;
-    } else
+    } else {
         for (;;) {
             state->pc = loop;
             noerrexit = NOERREXIT_EXIT | NOERREXIT_RETURN;
@@ -445,8 +445,11 @@ execwhile(Estate state, UNUSED(int do_exec))
 		    lastval = oldval;
                 break;
             }
-            if (retflag)
+            if (retflag) {
+		if (breaks)
+		    breaks--;
                 break;
+	    }
 
 	    /* In case the loop body is also a functional no-op,
 	     * make sure signal handlers recognize ^C as above. */
@@ -470,6 +473,7 @@ execwhile(Estate state, UNUSED(int do_exec))
             freeheap();
             oldval = lastval;
         }
+    }
     cmdpop();
     popheap();
     loops--;
@@ -566,7 +570,7 @@ execif(Estate state, int do_exec)
 
     if (run) {
 	/* we need to ignore lastval until we reach execcmd() */
-	if (olderrexit)
+	if (olderrexit || run == 2)
 	    noerrexit = olderrexit;
 	else if (lastval)
 	    noerrexit |= NOERREXIT_EXIT | NOERREXIT_RETURN | NOERREXIT_UNTIL_EXEC;
@@ -728,7 +732,7 @@ exectry(Estate state, int do_exec)
     Wordcode end, always;
     int endval;
     int save_retflag, save_breaks, save_contflag;
-    zlong save_try_errflag, save_try_tryflag, save_try_interrupt;
+    zlong save_try_errflag, save_try_interrupt;
 
     end = state->pc + WC_TRY_SKIP(state->pc[-1]);
     always = state->pc + 1 + WC_TRY_SKIP(*state->pc);
@@ -737,12 +741,9 @@ exectry(Estate state, int do_exec)
     cmdpush(CS_CURSH);
 
     /* The :try clause */
-    save_try_tryflag = try_tryflag;
-    try_tryflag = 1;
-
+    ++try_tryflag;
     execlist(state, 1, do_exec);
-
-    try_tryflag = save_try_tryflag;
+    --try_tryflag;
 
     /* Don't record errflag here, may be reset.  However, */
     /* endval should show failure when there is an error. */

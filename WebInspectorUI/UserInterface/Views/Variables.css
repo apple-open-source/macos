@@ -45,13 +45,17 @@
     /* Dividers, separators, background fills */
     --text-color-quaternary: hsl(0, 0%, 85%);
 
+    --separator-color: hsla(0, 0%, var(--foreground-lightness), 0.15);
+
     --background-color: white;
 
     --background-color-content: white;
-    --background-color-code: white;
+    --background-color-intermediate: hsl(0, 0%, 97%);
 
+    --background-color-unfocused: hsla(0, 0%, calc(100% - var(--foreground-lightness)), 0.8);
     --background-color-alternate: hsla(0, 0%, var(--foreground-lightness), 0.05);
     --background-color-selected: hsla(0, 0%, var(--foreground-lightness), 0.1);
+    --background-color-pressed: hsla(0, 0%, var(--foreground-lightness), 0.05);
 
     /* Gray background with lighter foreground. In dark mode this is lighter. */
     --gray-background-color: hsl(0, 0%, 66%);
@@ -79,7 +83,7 @@
     --glyph-opacity: 1;
 
     --border-color: hsl(0, 0%, 70%);
-    --border-color-dark: hsl(0, 0%, 57%);
+    --border-color-secondary: hsl(0, 0%, 87%);
 
     --button-background-color: white;
     --button-background-color-hover: hsl(0, 0%, 88%);
@@ -123,12 +127,15 @@
 
     --timeline-marker-z-index: 4;
     --timeline-record-z-index: 8;
-    --timeline-selection-z-index: 16;
+    --timeline-current-time-z-index: 16;
+    --timeline-selection-z-index: 32;
 
     --timeline-odd-background-color: var(--background-color-content);
     --timeline-even-background-color: hsl(0, 0%, 96%);
 
     --timeline-scanner-color: hsl(0, 0%, 35%);
+
+    --graph-line-color: hsla(0, 0%, var(--foreground-lightness), 0.07);
 
     --memory-javascript-fill-color: hsl(269, 65%, 75%);
     --memory-javascript-stroke-color: hsl(269, 33%, 50%);
@@ -162,6 +169,8 @@
     --cpu-medium-color: hsl(46, 91%, 62%);
     --cpu-high-color: hsl(6, 79%, 57%);
 
+    --network-statistics-height: var(--navigation-bar-height);
+
     --network-header-color: hsl(204, 52%, 55%);
     --network-system-color: hsl(79, 32%, 50%);
     --network-pseudo-header-color: hsl(312, 35%, 51%);
@@ -175,12 +184,14 @@
     --network-request-color: hsl(118, 56%, 65%);
     --network-response-color: hsl(202, 61%, 59%);
 
-    --even-zebra-stripe-row-background-color: hsl(0, 0%, 95%);
+    --even-zebra-stripe-row-background-color: hsl(0, 0%, 96%);
     --odd-zebra-stripe-row-background-color: white;
     --transparent-stripe-background-gradient: linear-gradient(to bottom, transparent, transparent 50%, hsla(0, 0%, 0%, 0.03) 50%, hsla(0, 0%, 0%, 0.03)) top left / 100% 40px;
 
-    --toolbar-height: 36px;
-    --tab-bar-height: 24px;
+    --focus-ring-outline-offset: -2px;
+
+    --undocked-title-area-height: 0px;
+    --tab-bar-height: var(--navigation-bar-height);
     --navigation-bar-height: 29px;
 
     --slider-width: 11px;
@@ -193,6 +204,10 @@
     --diff-deletion-text-color: hsl(0, 100%, 35%);
     --diff-deletion-background-color: hsl(5, 100%, 94%);
     --diff-addition-border-color: hsl(90, 100%, 40%);
+
+    --color-picker-width: 256px;
+
+    --sorted-header-font-weight: 500;
 }
 
 body.window-inactive {
@@ -202,11 +217,32 @@ body.window-inactive {
     --glyph-color: hsla(0, 0%, 30%, 0.65);
     --glyph-color-disabled: hsla(0, 0%, 30%, 0.35);
     --glyph-opacity: 0.6;
+
+    --border-color: hsl(0, 0%, 85%);
 }
 
-body.window-inactive * {
-    --border-color: hsl(0, 0%, 85%);
-    --border-color-dark: hsl(0, 0%, 72%);
+body.big-sur {
+    --text-color: hsl(0, 0%, 15%);
+
+    --background-color-intermediate: hsl(0, 0%, 98.5%);
+
+    --panel-background-color: hsl(0, 0%, 96%);
+    --panel-background-color-light: hsl(0, 0%, 98%);
+
+    --separator-color: hsla(0, 0%, var(--foreground-lightness), 0.1);
+
+    --border-color: hsl(0, 0%, 87%);
+    --border-color-secondary: hsl(0, 0%, 91%);
+
+    --sorted-header-font-weight: 700;
+}
+
+body.mac-platform:not(.big-sur):not(.docked) {
+    --undocked-title-area-height: calc(22px / var(--zoom-factor));
+}
+
+body.mac-platform.big-sur:not(.docked) {
+    --undocked-title-area-height: calc(27px / var(--zoom-factor));
 }
 
 @media (prefers-color-scheme: dark) {
@@ -234,7 +270,7 @@ body.window-inactive * {
         --background-color-tertiary: hsl(0, 0%, 31%);
 
         --background-color-content: hsl(0, 0%, 21%);
-        --background-color-code: hsl(0, 0%, 21%);
+        --background-color-intermediate: hsl(0, 0%, 23%);
 
         --gray-background-color: hsl(0, 0%, 50%);
 
@@ -261,16 +297,12 @@ body.window-inactive * {
         --glyph-color-inactive: hsl(0, 0%, 36%);
 
         --border-color: hsl(0, 0%, 33%);
-        --border-color-dark: hsl(0, 0%, 37%); /* non-semantic variable names */
-
         --border-color-secondary: hsl(0, 0%, 27%);
 
         --button-background-color: hsl(0, 0%, 43%);
         --button-background-color-hover: var(--button-background-color);
         --button-background-color-pressed: hsl(0, 0%, 55%);
         --button-background-color-inactive: hsl(0, 0%, 28%);
-
-        --dashboard-background-color: hsl(0, 0%, 36%);
 
         --panel-background-color: hsl(0, 0%, 24%);
         --panel-background-color-light: hsl(0, 0%, 29%);
@@ -344,20 +376,35 @@ body.window-inactive * {
         --diff-deletion-background-color: hsl(5, 40%, 28%);
     }
 
+    body.big-sur {
+        --glyph-color: hsl(0, 0%, 69%);
+        --glyph-color-pressed: hsl(0, 0%, 100%);
+    }
+
     body.window-inactive {
+        --border-color: hsl(0, 0%, 33%);
+
         --selected-background-color: hsla(212, 92%, 64%, 0.5);
 
         --glyph-color: hsl(0, 0%, 52%);
         --glyph-color-disabled: hsla(0, 0%, 52%, 0.4);
     }
 
-    body.window-inactive * {
-        /* These properties are duplicated so that they have higher specificity than WebKit's stylesheet.
-        Otherwise, the variable definition inside 'body.window-inactive *' in OpenSource overrides with a lighter color.
-        When merging to open source, we should guard the existing .window-inactive style with
-        '@media not all' to avoid applying the definition too broadly. */
-        --border-color: hsl(0, 0%, 33%);
-        --border-color-dark: hsl(0, 0%, 37%); /* non-semantic variable names */
+    body.big-sur {
+        --text-color: hsl(0, 0%, 85%);
+
+        --background-color: hsl(0, 0%, 20%);
+        --background-color-secondary: hsl(0, 0%, 23%);
+        --background-color-tertiary: hsl(0, 0%, 27%);
+
+        --background-color-content: hsl(0, 0%, 17%);
+        --background-color-intermediate: hsl(0, 0%, 19%);
+
+        --panel-background-color: hsl(0, 0%, 20%);
+        --panel-background-color-light: hsl(0, 0%, 25%);
+
+        --border-color: hsl(0, 0%, 30%);
+        --border-color-secondary: hsl(0, 0%, 24%);
     }
 }
 

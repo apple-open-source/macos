@@ -22,13 +22,11 @@
  */
 
 // For now at least, we'll support backups only on iOS and macOS
-#define SECDB_BACKUPS_ENABLED ((TARGET_OS_OSX || TARGET_OS_IOS || TARGET_OS_IOSMAC) && !TARGET_OS_SIMULATOR && !TARGET_DARWINOS)
+#define SECDB_BACKUPS_ENABLED ((TARGET_OS_OSX || TARGET_OS_IOS || TARGET_OS_MACCATALYST) && !TARGET_OS_SIMULATOR && !TARGET_DARWINOS)
 
 #if __OBJC2__
 #import <Foundation/Foundation.h>
-#if !TARGET_OS_BRIDGE   // Specifically needed until rdar://problem/40583882 lands
 #import <SecurityFoundation/SFKey.h>
-#endif
 #import "SecAKSObjCWrappers.h"
 #import "CheckV12DevEnabled.h"
 
@@ -69,22 +67,20 @@ typedef NS_ENUM(NSInteger, SecDbBackupErrorCode) {
     SecDbBackupTestCodeFailure = 255,     // support code for testing is falling over somehow
 };
 
-@interface SecDbBackupWrappedItemKey : NSObject <NSSecureCoding>
+@interface SecDbBackupWrappedKey : NSObject <NSSecureCoding>
 @property (nonatomic) NSData* wrappedKey;
 @property (nonatomic) NSData* baguuid;
 @end
 
 @interface SecDbBackupManager : NSObject
 
-+ (instancetype)manager;
+// Nullable to make analyzer not complain in the case where the stub returns nil
++ (instancetype _Nullable)manager;
 - (instancetype)init NS_UNAVAILABLE;
 
-#if !TARGET_OS_BRIDGE   // Specifically needed until rdar://problem/40583882 lands
-- (SecDbBackupWrappedItemKey* _Nullable)wrapItemKey:(SFAESKey*)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error;
-#else
-- (SecDbBackupWrappedItemKey* _Nullable)wrapItemKey:(id)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error;
-#endif
-
+- (NSData* _Nullable)currentBackupBagUUID;
+- (SecDbBackupWrappedKey* _Nullable)wrapItemKey:(SFAESKey*)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error;
+- (SecDbBackupWrappedKey* _Nullable)wrapMetadataKey:(SFAESKey*)key forKeyclass:(keyclass_t)keyclass error:(NSError**)error;
 - (void)verifyBackupIntegrity:(bool)lightweight
                    completion:(void (^)(NSDictionary<NSString*, NSString*>* results, NSError* _Nullable error))completion;
 
@@ -96,3 +92,4 @@ NS_ASSUME_NONNULL_END
 // Declare C functions here
 
 bool SecDbBackupCreateOrLoadBackupInfrastructure(CFErrorRef _Nullable * _Nonnull error);
+void SecDbResetBackupManager(void);     // For testing. Here so SecKeychainDbReset can use it.

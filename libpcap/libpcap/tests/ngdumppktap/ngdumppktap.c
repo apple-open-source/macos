@@ -40,7 +40,7 @@
 #include <unistd.h>
 #include <uuid/uuid.h>
 
-#include "pcap-ng.h"
+#include "pcap/pcap-ng.h"
 #include "pcap-util.h"
 #include "pcap-pktap.h"
 

@@ -82,11 +82,19 @@ bool securityd_message_no_error(xpc_object_t message, CFErrorRef *error);
 
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
 CFArrayRef SecAccessGroupsGetCurrent(void);
+void SecSecurityClientRegularToAppClip(void);
+void SecSecurityClientAppClipToRegular(void);
+void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier);
 
 void SecServerSetTrustdMachServiceName(const char *name);
 
 // checkpw.c
 int checkpw_internal( const struct passwd* pw, const char* password );
+
+#ifdef __arm64__
+extern SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate) __asm("_SecCertificateCopyPublicKey");
+extern CFDataRef SecCertificateCopySerialNumber_ios(SecCertificateRef certificate) __asm("_SecCertificateCopySerialNumber");
+#endif
 
 #pragma clang diagnostic pop
 

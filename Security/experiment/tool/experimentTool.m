@@ -22,9 +22,9 @@ run_experiment(const char *experiment_name, size_t num_runs, bool sampling_disab
     for (size_t i = 0; i < num_runs; i++) {
         (void)sec_experiment_run_with_sampling_disabled(experiment_name, ^bool(const char *identifier, xpc_object_t experiment_config) {
             runs++;
-            CFDictionaryRef configuration = (CFDictionaryRef)_CFXPCCreateCFObjectFromXPCObject(experiment_config);
+            NSDictionary* configuration = (__bridge_transfer NSDictionary*)_CFXPCCreateCFObjectFromXPCObject(experiment_config);
             if (configuration != NULL) {
-                [configurations addObject:(__bridge NSDictionary *)configuration];
+                [configurations addObject:configuration];
             }
             return true;
         }, ^(const char * _Nonnull identifier) {
@@ -58,6 +58,7 @@ main(int argc, const char *argv[])
     while ((arg = getopt(argc, gargv, "e:n:sruh")) != -1) {
         switch (arg) {
             case 'e':
+                free(experiment_name);      // Only the last instance of -e counts
                 experiment_name = strdup(optarg);
                 break;
             case 'n':
@@ -77,6 +78,7 @@ main(int argc, const char *argv[])
                 break;
             default:
                 fprintf(stderr, "%s: FAILURE: unknown option \"%c\"\n", argv[0], arg);
+                free(experiment_name);
                 return -1;
         }
     }

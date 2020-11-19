@@ -159,9 +159,17 @@ NS_ASSUME_NONNULL_BEGIN
                                  NSString* _Nullable peerID,
                                  NSDictionary<NSString*, NSNumber*>* _Nullable peerCountByModelID,
                                  BOOL isExcluded,
+                                 BOOL isLocked,
                                  NSError * _Nullable))reply;
 - (void)rpcFetchDeviceNamesByPeerID:(void (^)(NSDictionary<NSString*, NSString*>* _Nullable peers, NSError* _Nullable error))reply;
-- (void)rpcFetchAllViableBottles:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialEscrowRecordIDs, NSError* _Nullable error))reply;
+- (void)rpcFetchAllViableBottles:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs,
+                                           NSArray<NSString*>* _Nullable sortedPartialEscrowRecordIDs,
+                                           NSError* _Nullable error))reply;
+
+- (void)rpcFetchAllViableEscrowRecords:(BOOL)forceFetch reply:(void (^)(NSArray<NSData*>* _Nullable records,
+                                                                        NSError* _Nullable error))reply;
+- (void)rpcInvalidateEscrowCache:(void (^)(NSError* _Nullable error))reply;
+
 - (void)fetchEscrowContents:(void (^)(NSData* _Nullable entropy,
                                       NSString* _Nullable bottleID,
                                       NSData* _Nullable signingPublicKey,
@@ -169,6 +177,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)rpcSetRecoveryKey:(NSString*)recoveryKey reply:(void (^)(NSError * _Nullable error))reply;
 
 - (void)rpcRefetchCKKSPolicy:(void (^)(NSError * _Nullable error))reply;
+
+- (void)rpcFetchUserControllableViewsSyncingStatus:(void (^)(BOOL areSyncing, NSError* _Nullable error))reply;
+- (void)rpcSetUserControllableViewsSyncingStatus:(BOOL)status reply:(void (^)(BOOL areSyncing, NSError* _Nullable error))reply;
 
 - (void)requestTrustedDeviceListRefresh;
 
@@ -179,19 +190,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (OTOperationDependencies*)operationDependencies;
 
-- (void)attemptSOSUpgrade:(void (^)(NSError* _Nullable error))reply;
-
 - (void)waitForOctagonUpgrade:(void (^)(NSError* error))reply NS_SWIFT_NAME(waitForOctagonUpgrade(reply:));
 
 - (BOOL)waitForReady:(int64_t)timeOffset;
-
 
 // For testing.
 - (OTAccountMetadataClassC_AccountState)currentMemoizedAccountState;
 - (OTAccountMetadataClassC_TrustState)currentMemoizedTrustState;
 - (NSDate* _Nullable) currentMemoizedLastHealthCheck;
-- (void) checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, NSError * _Nullable error))reply;
-- (void) setAccountStateHolder:(OTCuttlefishAccountStateHolder*)accountMetadataStore;
+- (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable error))reply;
 
 - (void)clearCKKSViewManager;
 
@@ -199,8 +206,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Octagon Health Check Helpers
 - (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck reply:(void (^)(NSError * _Nullable error))reply;
-- (BOOL)postRepairCFU:(NSError**)error;
-- (void)postConfirmPasscodeCFU:(NSError**)error;
 
 // For reporting
 - (BOOL)machineIDOnMemoizedList:(NSString*)machineID error:(NSError**)error NS_SWIFT_NOTHROW;

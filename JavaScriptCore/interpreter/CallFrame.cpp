@@ -29,11 +29,10 @@
 #include "CodeBlock.h"
 #include "ExecutableAllocator.h"
 #include "InlineCallFrame.h"
-#include "Interpreter.h"
 #include "JSCInlines.h"
 #include "JSWebAssemblyInstance.h"
 #include "LLIntPCRanges.h"
-#include "VMEntryScope.h"
+#include "VMEntryRecord.h"
 #include "WasmContextInlines.h"
 #include "WasmInstance.h"
 #include <wtf/StringPrintStream.h>
@@ -44,7 +43,7 @@ void CallFrame::initDeprecatedCallFrameForDebugger(CallFrame* globalExec, JSCall
 {
     globalExec->setCodeBlock(nullptr);
     globalExec->setCallerFrame(noCaller());
-    globalExec->setReturnPC(0);
+    globalExec->setReturnPC(nullptr);
     globalExec->setArgumentCountIncludingThis(0);
     globalExec->setCallee(globalCallee);
     ASSERT(globalExec->isDeprecatedCallFrameForDebugger());
@@ -90,44 +89,24 @@ bool CallFrame::callSiteBitsAreCodeOriginIndex() const
 
 unsigned CallFrame::callSiteAsRawBits() const
 {
-    return this[CallFrameSlot::argumentCountIncludingThis].tag();
+    return this[static_cast<int>(CallFrameSlot::argumentCountIncludingThis)].tag();
 }
 
 SUPPRESS_ASAN unsigned CallFrame::unsafeCallSiteAsRawBits() const
 {
-    return this[CallFrameSlot::argumentCountIncludingThis].unsafeTag();
+    return this[static_cast<int>(CallFrameSlot::argumentCountIncludingThis)].unsafeTag();
 }
 
 CallSiteIndex CallFrame::callSiteIndex() const
 {
-    return CallSiteIndex(BytecodeIndex(callSiteAsRawBits()));
+    return CallSiteIndex::fromBits(callSiteAsRawBits());
 }
 
 SUPPRESS_ASAN CallSiteIndex CallFrame::unsafeCallSiteIndex() const
 {
-    return CallSiteIndex(BytecodeIndex(unsafeCallSiteAsRawBits()));
+    return CallSiteIndex::fromBits(unsafeCallSiteAsRawBits());
 }
 
-#if USE(JSVALUE32_64)
-const Instruction* CallFrame::currentVPC() const
-{
-    return bitwise_cast<Instruction*>(callSiteIndex().bits());
-}
-
-void CallFrame::setCurrentVPC(const Instruction* vpc)
-{
-    CallSiteIndex callSite(BytecodeIndex(bitwise_cast<uint32_t>(vpc)));
-    this[CallFrameSlot::argumentCountIncludingThis].tag() = callSite.bits();
-}
-
-unsigned CallFrame::callSiteBitsAsBytecodeOffset() const
-{
-    ASSERT(codeBlock());
-    ASSERT(callSiteBitsAreBytecodeOffset());
-    return codeBlock()->bytecodeOffset(currentVPC());     
-}
-
-#else // USE(JSVALUE32_64)
 const Instruction* CallFrame::currentVPC() const
 {
     ASSERT(callSiteBitsAreBytecodeOffset());
@@ -137,7 +116,8 @@ const Instruction* CallFrame::currentVPC() const
 void CallFrame::setCurrentVPC(const Instruction* vpc)
 {
     CallSiteIndex callSite(codeBlock()->bytecodeIndex(vpc));
-    this[CallFrameSlot::argumentCountIncludingThis].tag() = static_cast<int32_t>(callSite.bits());
+    this[static_cast<int>(CallFrameSlot::argumentCountIncludingThis)].tag() = callSite.bits();
+    ASSERT(currentVPC() == vpc);
 }
 
 unsigned CallFrame::callSiteBitsAsBytecodeOffset() const
@@ -147,9 +127,7 @@ unsigned CallFrame::callSiteBitsAsBytecodeOffset() const
     return callSiteIndex().bits();
 }
 
-#endif
-    
-BytecodeIndex CallFrame::bytecodeIndex()
+BytecodeIndex CallFrame::bytecodeIndex() const
 {
     ASSERT(!callee().isWasm());
     if (!codeBlock())
@@ -166,10 +144,10 @@ BytecodeIndex CallFrame::bytecodeIndex()
     }
 #endif
     ASSERT(callSiteBitsAreBytecodeOffset());
-    return BytecodeIndex(callSiteBitsAsBytecodeOffset());
+    return callSiteIndex().bytecodeIndex();
 }
 
-CodeOrigin CallFrame::codeOrigin()
+CodeOrigin CallFrame::codeOrigin() const
 {
     if (!codeBlock())
         return CodeOrigin(BytecodeIndex(0));
@@ -180,7 +158,7 @@ CodeOrigin CallFrame::codeOrigin()
         return codeBlock()->codeOrigin(index);
     }
 #endif
-    return CodeOrigin(BytecodeIndex(callSiteBitsAsBytecodeOffset()));
+    return CodeOrigin(callSiteIndex().bytecodeIndex());
 }
 
 Register* CallFrame::topOfFrameInternal()
@@ -289,7 +267,7 @@ String CallFrame::friendlyFunctionName()
     return emptyString();
 }
 
-void CallFrame::dump(PrintStream& out)
+void CallFrame::dump(PrintStream& out) const
 {
     if (CodeBlock* codeBlock = this->codeBlock()) {
         out.print(codeBlock->inferredName(), "#", codeBlock->hashAsStringIfPossible(), " [", codeBlock->jitType(), " ", bytecodeIndex(), "]");
@@ -313,16 +291,20 @@ void CallFrame::dump(PrintStream& out)
 
 const char* CallFrame::describeFrame()
 {
-    const size_t bufferSize = 200;
-    static char buffer[bufferSize + 1];
-    
+    constexpr size_t bufferSize = 200;
+    static char* buffer = nullptr;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [&] {
+        buffer = static_cast<char*>(fastZeroedMalloc(bufferSize + 1));
+    });
+
     WTF::StringPrintStream stringStream;
 
     dump(stringStream);
 
     strncpy(buffer, stringStream.toCString().data(), bufferSize);
     buffer[bufferSize] = '\0';
-    
+
     return buffer;
 }
 

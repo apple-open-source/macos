@@ -102,13 +102,12 @@ IOReturn IOHIDInterfaceElementContainer::postElementValues(
     OSArray *elements = NULL;
     
     require_action(cookies && cookieCount, exit, ret = kIOReturnBadArgument);
-    
+
     elements = OSArray::withCapacity(cookieCount);
     require_action(elements, exit, ret = kIOReturnNoMemory);
     
     for (uint32_t i = 0; i < cookieCount; i++) {
         IOHIDElement *element = (IOHIDElement *)getElements()->getObject(cookies[i]);
-        
         if (!element) {
             continue;
         }

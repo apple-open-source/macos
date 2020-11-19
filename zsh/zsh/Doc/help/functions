@@ -1,61 +1,70 @@
 functions [ {+|-}UkmtTuWz ] [ -x num ] [ name ... ]
+functions -c oldfn newfn
 functions -M [-s] mathfn [ min [ max [ shellfn ] ] ]
 functions -M [ -m pattern ... ]
 functions +M [ -m ] mathfn ...
-       Equivalent  to  typeset -f, with the exception of the -x, -M and
-       -W options.  For functions -u and functions  -U,  see  autoload,
-       which provides additional options.
+       Equivalent to typeset -f, with the exception of the -c,  -x,  -M
+       and  -W  options.   For  functions  -u and functions -U, see au-
+       toload, which provides additional options.
 
        The -x option indicates that any functions output will have each
-       leading tab for indentation, added by the shell to show  syntac-
-       tic  structure, expanded to the given number num of spaces.  num
+       leading  tab for indentation, added by the shell to show syntac-
+       tic structure, expanded to the given number num of spaces.   num
        can also be 0 to suppress all indentation.
 
-       The -W option turns on the option WARN_NESTED_VAR for the  named
-       function  or  functions  only.   The option is turned off at the
-       start of nested functions (apart from anonoymous functions)  un-
+       The  -W option turns on the option WARN_NESTED_VAR for the named
+       function or functions only.  The option is  turned  off  at  the
+       start  of nested functions (apart from anonoymous functions) un-
        less the called function also has the -W attribute.
+
+       The -c option causes oldfn to be copied to newfn.  The  copy  is
+       efficiently  handled internally by reference counting.  If oldfn
+       was marked for autoload it is first loaded and if this fails the
+       copy fails.  Either function may subsequently be redefined with-
+       out affecting the other.  A typical idiom is that oldfn  is  the
+       name of a library shell function which is then redefined to call
+       newfn, thereby installing a modified version of the function.
 
        Use of the -M option may not be combined with any of the options
        handled by typeset -f.
 
        functions -M mathfn defines mathfn as the name of a mathematical
-       function  recognised  in  all forms of arithmetical expressions;
-       see the section `Arithmetic Evaluation' in zshmisc(1).   By  de-
-       fault  mathfn  may take any number of comma-separated arguments.
-       If min is given, it must have exactly min args; if min  and  max
-       are  both given, it must have at least min and at most max args.
+       function recognised in all forms  of  arithmetical  expressions;
+       see  the  section `Arithmetic Evaluation' in zshmisc(1).  By de-
+       fault mathfn may take any number of  comma-separated  arguments.
+       If  min  is given, it must have exactly min args; if min and max
+       are both given, it must have at least min and at most max  args.
        max may be -1 to indicate that there is no upper limit.
 
-       By default the function is implemented by a  shell  function  of
-       the  same name; if shellfn is specified it gives the name of the
-       corresponding shell function while mathfn remains the name  used
-       in  arithmetical expressions.  The name of the function in $0 is
-       mathfn (not shellfn as would usually be the case), provided  the
+       By  default  the  function is implemented by a shell function of
+       the same name; if shellfn is specified it gives the name of  the
+       corresponding  shell function while mathfn remains the name used
+       in arithmetical expressions.  The name of the function in $0  is
+       mathfn  (not shellfn as would usually be the case), provided the
        option FUNCTION_ARGZERO is in effect.  The positional parameters
-       in the shell function correspond to the arguments of the  mathe-
-       matical  function call.  The result of the last arithmetical ex-
-       pression evaluated inside the shell function (even if  it  is  a
-       form  that  normally  only returns a status) gives the result of
+       in  the shell function correspond to the arguments of the mathe-
+       matical function call.  The result of the last arithmetical  ex-
+       pression  evaluated  inside  the shell function (even if it is a
+       form that normally only returns a status) gives  the  result  of
        the mathematical function.
 
-       If the additional option -s is given to functions -M, the  argu-
-       ment  to  the  function is a single string: anything between the
-       opening and matching closing parenthesis is passed to the  func-
-       tion  as  a single argument, even if it includes commas or white
-       space.  The minimum and maximum argument specifiers must  there-
-       fore  be  1  if  given.   An  empty argument list is passed as a
+       If  the additional option -s is given to functions -M, the argu-
+       ment to the function is a single string:  anything  between  the
+       opening  and matching closing parenthesis is passed to the func-
+       tion as a single argument, even if it includes commas  or  white
+       space.   The minimum and maximum argument specifiers must there-
+       fore be 1 if given.  An empty  argument  list  is  passed  as  a
        zero-length string.
 
        functions -M with no arguments lists all such user-defined func-
        tions in the same form as a definition.  With the additional op-
-       tion -m and a list of  arguments,  all  functions  whose  mathfn
+       tion  -m  and  a  list  of arguments, all functions whose mathfn
        matches one of the pattern arguments are listed.
 
        function +M removes the list of mathematical functions; with the
-       additional option -m the arguments are treated as  patterns  and
-       all  functions  whose  mathfn  matches  the pattern are removed.
-       Note that the shell function implementing the behaviour  is  not
+       additional  option  -m the arguments are treated as patterns and
+       all functions whose mathfn  matches  the  pattern  are  removed.
+       Note  that  the shell function implementing the behaviour is not
        removed (regardless of whether its name coincides with mathfn).
 
        For example, the following prints the cube of 3:

@@ -76,20 +76,17 @@ const NSString *kSecTestPathFailureResources = @"si-18-certificate-parse/PathFai
 
 - (void)testUnparseableExtensions {
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _bad_extension_leaf, sizeof(_bad_extension_leaf));
-    SecCertificateRef root = NULL;
+    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _bad_extension_root, sizeof(_bad_extension_root));
     SecTrustRef trust = NULL;
     SecPolicyRef policy = SecPolicyCreateBasicX509();
     CFErrorRef error = NULL;
-
-    NSURL *rootURL = [[NSBundle bundleForClass:[self class]]URLForResource:@"root" withExtension:@".cer" subdirectory:@"si-18-certificate-parse"];
-    XCTAssert(root = SecCertificateCreateWithData(NULL, (__bridge CFDataRef)[NSData dataWithContentsOfURL:rootURL]), "Unable to create root cert");
     NSArray *anchors = @[(__bridge id)root];
 
     require_noerr_action(SecTrustCreateWithCertificates(leaf, policy, &trust), errOut,
                          fail("Unable to create trust with certificate with unparseable extension"));
     require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)anchors),
                          errOut, fail("Unable to set trust anchors"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:507200000.0]),
+    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)[NSDate dateWithTimeIntervalSinceReferenceDate:620000000.0]),
                          errOut, fail("Unable to set verify date"));
     XCTAssertFalse(SecTrustEvaluateWithError(trust, &error), "Got wrong trust result cert");
     XCTAssert(error != NULL);

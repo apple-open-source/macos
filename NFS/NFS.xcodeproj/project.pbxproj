@@ -54,6 +54,9 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		C434112024ADCCA500C92762 /* printer.c in Sources */ = {isa = PBXBuildFile; fileRef = C434111F24ADCCA500C92762 /* printer.c */; };
+		C4A8EE0E2519EE1D00E2EB6F /* oncrpc.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */; };
+		C4C9E62424B36FE0006667D4 /* json_support.m in Sources */ = {isa = PBXBuildFile; fileRef = C4C9E62324B36FE0006667D4 /* json_support.m */; };
 		D6354ACC1FA3D0F100AACC99 /* mount_nfs.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AC81FA3D0F100AACC99 /* mount_nfs.c */; };
 		D6354AD21FA3D14C00AACC99 /* ncctl.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354ACF1FA3D14C00AACC99 /* ncctl.c */; };
 		D6354AD81FA3D15F00AACC99 /* nfs4mapid.c in Sources */ = {isa = PBXBuildFile; fileRef = D6354AD61FA3D15F00AACC99 /* nfs4mapid.c */; };
@@ -412,6 +415,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C434111E24ADCCA500C92762 /* printer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = printer.h; sourceTree = "<group>"; };
+		C434111F24ADCCA500C92762 /* printer.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = printer.c; sourceTree = "<group>"; };
+		C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = oncrpc.framework; path = System/Library/PrivateFrameworks/oncrpc.framework; sourceTree = SDKROOT; };
+		C4C9E62324B36FE0006667D4 /* json_support.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = json_support.m; sourceTree = "<group>"; };
+		C4C9E62524B36FFC006667D4 /* json_support.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = json_support.h; sourceTree = "<group>"; };
 		D6354A451FA3CDDB00AACC99 /* mount_nfs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_nfs; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6354A501FA3CE5800AACC99 /* ncctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ncctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6354A5B1FA3CE7500AACC99 /* nfs4mapid */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = nfs4mapid; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -523,6 +531,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				D6EA4A4D1FB7FFEA002AF776 /* libutil.tbd in Frameworks */,
+				C4A8EE0E2519EE1D00E2EB6F /* oncrpc.framework in Frameworks */,
 				D6EA4A4E1FB8000C002AF776 /* CoreFoundation.framework in Frameworks */,
 				D6EA4A4F1FB80025002AF776 /* IOKit.framework in Frameworks */,
 			);
@@ -739,6 +748,10 @@
 				D6354AF71FA3D1E700AACC99 /* Makefile */,
 				D6354AF91FA3D1E700AACC99 /* nfsstat.1 */,
 				D6354AF81FA3D1E700AACC99 /* nfsstat.c */,
+				C434111E24ADCCA500C92762 /* printer.h */,
+				C434111F24ADCCA500C92762 /* printer.c */,
+				C4C9E62324B36FE0006667D4 /* json_support.m */,
+				C4C9E62524B36FFC006667D4 /* json_support.h */,
 			);
 			path = nfsstat;
 			sourceTree = "<group>";
@@ -812,6 +825,7 @@
 		D6354B391FA3D25900AACC99 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C4A8EE0C2519EE0000E2EB6F /* oncrpc.framework */,
 				D68656E01FE4ABF0006A28EC /* LiveFS.framework */,
 				D6D3E2CE1FE20B1A0082628F /* UserFS.framework */,
 				F93E0CC21FCE13EF006EA7D9 /* Foundation.framework */,
@@ -1275,6 +1289,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4C9E62424B36FE0006667D4 /* json_support.m in Sources */,
+				C434112024ADCCA500C92762 /* printer.c in Sources */,
 				D6354AFB1FA3D1E700AACC99 /* nfsstat.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1475,7 +1491,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = "";
@@ -1537,7 +1553,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_CFLAGS = "";
@@ -1554,6 +1570,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = Debug;
 		};
@@ -1563,6 +1580,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = Release;
 		};
@@ -1927,7 +1945,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				LIBRARY_SEARCH_PATHS = "";
-				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MACOSX_DEPLOYMENT_TARGET = 10.15;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_CFLAGS = (
@@ -1966,6 +1984,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 			};
 			name = Coverage;
 		};

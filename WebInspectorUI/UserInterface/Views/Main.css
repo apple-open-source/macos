@@ -64,10 +64,6 @@ body {
     background-color: var(--background-color-content);
 }
 
-body.docked.bottom {
-    border-top: 1px solid var(--border-color);
-}
-
 body.docked.right {
     border-left: 1px solid var(--border-color);
 }
@@ -113,12 +109,30 @@ body.docked.left #docked-resizer {
     cursor: col-resize;
 }
 
-body.docked.bottom #toolbar {
-    cursor: row-resize;
+#undocked-title-area {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: var(--undocked-title-area-height);
+    background: var(--undocked-title-area-background);
 }
 
-body.docked.bottom #toolbar .item:not(.flexible-space) {
-    cursor: default;
+body.big-sur #undocked-title-area {
+    --undocked-title-area-background: white;
+}
+
+body:not(.big-sur) #undocked-title-area {
+    --undocked-title-area-background: linear-gradient(to bottom, hsl(0, 0%, 92%), hsl(0, 0%, 87%));
+    box-shadow: inset hsla(0, 0%, 100%, 0.5) 0 1px 1px;
+}
+
+body.docked #undocked-title-area {
+    display: none;
+}
+
+body.window-inactive #undocked-title-area {
+    --undocked-title-area-background: hsl(0, 0%, 96%);
 }
 
 input[type=range] {
@@ -137,7 +151,7 @@ input[type=range]::-webkit-slider-runnable-track {
 
 #main {
     position: absolute;
-    top: calc(var(--toolbar-height) + var(--tab-bar-height));
+    top: calc(var(--undocked-title-area-height) + var(--tab-bar-height));
     left: 0;
     right: 0;
     bottom: 0;
@@ -211,7 +225,6 @@ body.docked:matches(.right, .left) #navigation-sidebar.collapsed > .resizer {
 
 .navigation-item-help {
     display: block;
-    line-height: 22px;
 }
 
 .navigation-item-help > .navigation-bar {
@@ -222,11 +235,19 @@ body.docked:matches(.right, .left) #navigation-sidebar.collapsed > .resizer {
     vertical-align: -3px;
 }
 
-.navigation-item-help > .navigation-bar > .item {
+.navigation-item-help > .navigation-bar > .item.button {
     height: 100%;
-    padding: 0 4px !important;
     font-size: 11px;
     border-radius: 4px;
+    border: solid 1px var(--border-color);
+}
+
+.navigation-item-help > .navigation-bar > .item.button:not(.text-only) {
+    padding: 0 4px !important;
+}
+
+/* Note: this is necessary due to the specificity of `.navigation-bar .item.button.text-only` */
+.navigation-item-help > .navigation-bar > .item.button.text-only {
     border: solid 1px var(--border-color);
 }
 
@@ -300,11 +321,13 @@ body[dir=rtl] [dir=ltr] .go-to-arrow {
     transform: revert;
 }
 
-:focus .selected .go-to-arrow {
+:focus .selected .go-to-arrow,
+.selected:focus .go-to-arrow {
     background-image: url(../Images/GoToArrow.svg#selected);
 }
 
-:focus .selected .go-to-arrow:active {
+:focus .selected .go-to-arrow:active,
+.selected:focus .go-to-arrow:active {
     background-image: url(../Images/GoToArrow.svg#selected-active);
 }
 
@@ -433,13 +456,68 @@ body[dir=rtl] [dir=ltr] .go-to-arrow {
     --checkerboard-dark-square: hsl(0, 0%, 95%);
 }
 
+.reference-page-link {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    line-height: 18px;
+    color: var(--text-color);
+    text-decoration: none;
+    background-color: var(--button-background-color);
+    border: var(--stroke-width) solid var(--border-color);
+    border-radius: 50%;
+    box-shadow: 0 var(--stroke-width) 1px var(--border-color);
+    cursor: default;
+
+    --stroke-width: 0.5px;
+}
+
+.reference-page-link:active {
+    background-color: var(--button-background-color-active);
+}
+
+@media (-webkit-device-pixel-ratio: 1) {
+    .reference-page-link {
+        -webkit-padding-start: 1px;
+
+        --stroke-width: 1px;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    .reference-page-link {
+        border: var(--stroke-width) solid hsl(0, 0%, 20%);
+        box-shadow: 0 var(--stroke-width) 1px hsl(0, 0%, 20%);
+    }
+
+    .reference-page-link:active {
+        background-color: hsl(0, 0%, 50%);
+    }
+}
+
+@keyframes tab-bar-console-item-pulse {
+    50% { opacity: 0.6; }
+}
+
+.tab-bar > .navigation-bar :matches(.console-warnings, .console-errors):not(.disabled).pulsing {
+    animation-name: tab-bar-console-item-pulse;
+    animation-duration: 0.75s;
+}
+
 .device-settings-content {
+    position: relative;
     padding: 0 4px;
+}
+
+.device-settings-content > table {
     border-collapse: separate;
     border-spacing: 4px 8px;
 }
 
-.device-settings-content > tr > td:first-child {
+.device-settings-content > table > tr > td:first-child {
     text-align: end;
     vertical-align: top;
 }
@@ -479,12 +557,46 @@ body[dir=rtl] [dir=ltr] .go-to-arrow {
     -webkit-margin-end: 4px;
 }
 
+.device-settings-content > .reference-page-link-container {
+    position: absolute;
+    bottom: 0.5em;
+}
+
+body[dir=ltr] .device-settings-content > .reference-page-link-container {
+    right: 0.5em;
+}
+
+body[dir=rtl] .device-settings-content > .reference-page-link-container {
+    left: 0.5em;
+}
+
 @media (prefers-color-scheme: dark) {
+    #undocked-title-area {
+        box-shadow: none;
+    }
+
+    body.big-sur #undocked-title-area {
+        --undocked-title-area-background: hsl(0, 0%, 19%);
+    }
+
+    body:not(.big-sur) #undocked-title-area {
+        --undocked-title-area-background: linear-gradient(to bottom, hsl(0, 0%, 26%), hsl(0, 0%, 23%));
+    }
+
+    body.big-sur.window-inactive #undocked-title-area {
+        --undocked-title-area-background: hsl(0, 0%, 11%);
+    }
+
+    body:not(.big-sur).window-inactive #undocked-title-area {
+        --undocked-title-area-background: hsl(0, 0%, 19%);
+    }
+
     .go-to-arrow {
         filter: invert();
     }
 
-    :focus .selected .go-to-arrow {
+    :focus .selected .go-to-arrow,
+    .selected:focus .go-to-arrow {
         filter: unset;
     }
 

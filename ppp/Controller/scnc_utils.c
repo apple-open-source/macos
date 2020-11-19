@@ -1973,8 +1973,8 @@ int create_tun_interface(char *name, int name_max_len, int *index, int flags, in
 
 	struct ctl_info kernctl_info;
 	struct sockaddr_ctl kernctl_addr;
-	u_int32_t optlen;
 	int tunsock = -1;
+	u_int32_t optlen = 0;
 
 	tunsock = socket(PF_SYSTEM, SOCK_DGRAM, SYSPROTO_CONTROL);
 	if (tunsock == -1) {
@@ -1995,34 +1995,38 @@ int create_tun_interface(char *name, int name_max_len, int *index, int flags, in
 	kernctl_addr.ss_sysaddr = AF_SYS_CONTROL;
 	kernctl_addr.sc_id = kernctl_info.ctl_id;
 	kernctl_addr.sc_unit = 0; // we will get the unit number from getpeername
-	if (connect(tunsock, (struct sockaddr *)&kernctl_addr, sizeof(kernctl_addr))) {
-		SCLog(TRUE, LOG_ERR, CFSTR("create_tun_interface: connect failed on kernel control socket (errno = %d)"), errno);
-		goto fail;
+
+	if (flags) {
+		if (bind(tunsock, (struct sockaddr *)&kernctl_addr, sizeof(kernctl_addr))) {
+			SCLog(TRUE, LOG_ERR, CFSTR("create_tun_interface: connect failed on kernel control socket (errno = %d)"), errno);
+			goto fail;
+		}
+
+		int optflags = flags;
+		optlen = sizeof(int);
+		if (setsockopt(tunsock, SYSPROTO_CONTROL, UTUN_OPT_FLAGS, &optflags, optlen)) {
+			SCLog(TRUE, LOG_ERR, CFSTR("create_tun_interface: setsockopt flags failed on kernel control socket (errno = %d)"), errno);
+			goto fail;
+		}
+
+		if (connect(tunsock, (struct sockaddr *)&kernctl_addr, sizeof(kernctl_addr))) {
+			SCLog(TRUE, LOG_ERR, CFSTR("create_tun_interface: connect failed on kernel control socket (errno = %d)"), errno);
+			goto fail;
+		}
+	} else {
+		if (connect(tunsock, (struct sockaddr *)&kernctl_addr, sizeof(kernctl_addr))) {
+			SCLog(TRUE, LOG_ERR, CFSTR("create_tun_interface: connect failed on kernel control socket (errno = %d)"), errno);
+			goto fail;
+		}
 	}
 
 	optlen = name_max_len;
 	if (getsockopt(tunsock, SYSPROTO_CONTROL, UTUN_OPT_IFNAME, name, &optlen)) {
 		SCLog(TRUE, LOG_ERR, CFSTR("create_tun_interface: getsockopt ifname failed on kernel control socket (errno = %d)"), errno);
-		goto fail;	
+		goto fail;
 	}
 
 	*index = if_nametoindex(name);
-
-	if (flags) {
-		int optflags = 0;
-		optlen = sizeof(u_int32_t);
-		if (getsockopt(tunsock, SYSPROTO_CONTROL, UTUN_OPT_FLAGS, &optflags, &optlen)) {
-			SCLog(TRUE, LOG_ERR, CFSTR("create_tun_interface: getsockopt flags failed on kernel control socket (errno = %d)"), errno);
-			goto fail;	
-		}
-		 
-		optflags |= (UTUN_FLAGS_NO_INPUT + UTUN_FLAGS_NO_OUTPUT);
-		optlen = sizeof(u_int32_t);
-		if (setsockopt(tunsock, SYSPROTO_CONTROL, UTUN_OPT_FLAGS, &optflags, optlen)) {
-			SCLog(TRUE, LOG_ERR, CFSTR("create_tun_interface: setsockopt flags failed on kernel control socket (errno = %d)"), errno);
-			goto fail;	
-		}
-	}
 	
 	if (ext_stats) {
 		int optval = 1;

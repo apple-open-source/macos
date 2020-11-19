@@ -1,0 +1,79 @@
+diff --git a/Lib/httplib.py b/Lib/httplib.py
+index 60a8fb4..78e6fef 100644
+--- a/Lib/httplib.py
++++ b/Lib/httplib.py
+@@ -247,6 +247,10 @@ _MAXHEADERS = 100
+ _is_legal_header_name = re.compile(r'\A[^:\s][^:\r\n]*\Z').match
+ _is_illegal_header_value = re.compile(r'\n(?![ \t])|\r(?![ \t\n])').search
+ 
++# These characters are not allowed within HTTP method names
++# to prevent http header injection.
++_contains_disallowed_method_pchar_re = re.compile('[\x00-\x1f]')
++
+ # We always set the Content-Length header for these methods because some
+ # servers will otherwise respond with a 411
+ _METHODS_EXPECTING_BODY = {'PATCH', 'POST', 'PUT'}
+@@ -923,6 +927,8 @@ class HTTPConnection:
+         else:
+             raise CannotSendRequest()
+ 
++        self._validate_method(method)
++
+         # Save the method we use, we need it later in the response phase
+         self._method = method
+         if not url:
+@@ -1002,6 +1008,13 @@ class HTTPConnection:
+             # For HTTP/1.0, the server will assume "not chunked"
+             pass
+ 
++    def _validate_method(self, method):
++        """Validate a method name for putrequest."""
++        # prevent http header injection
++        match = _contains_disallowed_method_pchar_re.search(method)
++        if match:
++            raise ValueError('method can\'t contain control characters. %r (found at least %r)' % (method, match.group(),))
++
+     def putheader(self, header, *values):
+         """Send a request header line to the server.
+ 
+diff --git a/Lib/test/test_httplib.py b/Lib/test/test_httplib.py
+index 44ffac7..d5b3b81 100644
+--- a/Lib/test/test_httplib.py
++++ b/Lib/test/test_httplib.py
+@@ -385,6 +385,28 @@ class HeaderTests(TestCase):
+                 conn.putheader(name, value)
+ 
+ 
++class HttpMethodTests(TestCase):
++    def test_invalid_method_names(self):
++        methods = (
++            'GET\r',
++            'POST\n',
++            'PUT\n\r',
++            'POST\nValue',
++            'POST\nHOST:abc',
++            'GET\nrHost:abc\n',
++            'POST\rRemainder:\r',
++            'GET\rHOST:\n',
++            '\nPUT'
++        )
++
++        for method in methods:
++            with self.assertRaisesRegex(
++                    ValueError, "method can't contain control characters"):
++                conn = httplib.HTTPConnection('example.com')
++                conn.sock = FakeSocket(None)
++                conn.request(method, '/')
++
++
+ class BasicTest(TestCase):
+     def test_status_lines(self):
+         # Test HTTP status lines
+diff --git a/Misc/NEWS.d/next/Security/2020-02-12-14-17-39.bpo-39603.Gt3RSg.rst b/Misc/NEWS.d/next/Security/2020-02-12-14-17-39.bpo-39603.Gt3RSg.rst
+new file mode 100644
+index 0000000..990affc
+--- /dev/null
++++ b/Misc/NEWS.d/next/Security/2020-02-12-14-17-39.bpo-39603.Gt3RSg.rst
+@@ -0,0 +1,2 @@
++Prevent http header injection by rejecting control characters in
++http.client.putrequest(...).

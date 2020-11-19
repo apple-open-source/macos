@@ -98,6 +98,9 @@ do {    \
 #define kIOPMRootDomainWakeTypeNotification CFSTR("Notification")
 #endif
 
+#ifndef kIOPMRootDomainWakeTypeUser
+#define kIOPMRootDomainWakeTypeUser         CFSTR("User")
+#endif
 
 #define  kDisplayTickleDelay  30        // Mininum delay(in secs) between sending tickles
 
@@ -429,6 +432,13 @@ typedef struct {
     uint64_t    count;      // Number of occurrences
 } exceptionStatsBucket_t;
 
+/* Reasons for clamshell sleep disable */
+enum {
+    kClamshellDisableAssertions     = 0x1,
+    kClamshellDisableDesktopMode    = 0x10,
+    kClamshellDisableSystemSleep    = 0x100,
+};
+
 __private_extern__ void logKernelAssertions(CFNumberRef, CFArrayRef);
 __private_extern__ void logChangedSleepPreventers(int preventerType);
 __private_extern__ void PMAssertions_prime(void);
@@ -451,6 +461,9 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
 
 __private_extern__ void PMAssertions_TurnOffAssertions_ApplePushServiceTask(void);
 
+__private_extern__ IOReturn InternalDeclareUserActive(
+                                CFStringRef properties,
+                                IOPMAssertionID *outID);
 __private_extern__ IOReturn InternalCreateAssertion(
                                 CFMutableDictionaryRef properties, 
                                 IOPMAssertionID *outID);
@@ -502,6 +515,14 @@ __private_extern__ void sendActivityTickle (void);
 
 __private_extern__ void logASLAllAssertions(void);
 __private_extern__ IOReturn  copyAssertionActivityAggregate(CFDictionaryRef *data);
+
+__private_extern__ void setClamshellSleepState(void);
+
+__private_extern__ int getClamshellSleepState(void);
+
+__private_extern__ void disableClamshellSleepState(void);
+
+__private_extern__ void delayDisplayTurnOff(void);
 
 void asyncAssertionCreate(xpc_object_t remoteConnection, xpc_object_t msg);
 void asyncAssertionRelease(xpc_object_t remoteConnection, xpc_object_t msg);

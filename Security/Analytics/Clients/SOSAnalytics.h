@@ -26,7 +26,7 @@
 #define SOSAnalytics_h
 
 #import <Foundation/Foundation.h>
-#import "Analytics/SFAnalytics.h"
+#import <Security/SFAnalytics.h>
 
 extern NSString* const CKDKVSPerformanceCountersSampler;
 

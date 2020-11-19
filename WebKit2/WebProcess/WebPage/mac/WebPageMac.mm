@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,6 @@
 
 #if PLATFORM(MAC)
 
-#import "AttributedString.h"
 #import "ContextMenuContextData.h"
 #import "DataReference.h"
 #import "EditingRange.h"
@@ -58,6 +57,7 @@
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/BackForwardController.h>
+#import <WebCore/ColorMac.h>
 #import <WebCore/DataDetection.h>
 #import <WebCore/DictionaryLookup.h>
 #import <WebCore/Editing.h>
@@ -66,9 +66,10 @@
 #import <WebCore/FocusController.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/FrameLoaderTypes.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/GraphicsContext.h>
-#import <WebCore/GraphicsContext3D.h>
+#import <WebCore/GraphicsContextGLOpenGL.h>
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLPlugInImageElement.h>
 #import <WebCore/HitTestResult.h>
@@ -91,10 +92,11 @@
 #import <WebCore/VisibleUnits.h>
 #import <WebCore/WindowsKeyboardCodes.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
+#import <pal/spi/mac/NSApplicationSPI.h>
 #import <wtf/SetForScope.h>
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-#import <WebCore/MediaPlaybackTargetMac.h>
+#import <WebCore/MediaPlaybackTargetCocoa.h>
 #import <WebCore/MediaPlaybackTargetMock.h>
 #endif
 
@@ -133,36 +135,39 @@ void WebPage::platformDetach()
     [m_mockAccessibilityElement setWebPage:nullptr];
 }
 
-void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePostLayoutDataHint shouldIncludePostLayoutData) const
+void WebPage::getPlatformEditorState(Frame& frame, EditorState& result) const
 {
-    if (shouldIncludePostLayoutData == IncludePostLayoutDataHint::No || !frame.view() || frame.view()->needsLayout() || !result.isContentEditable) {
-        result.isMissingPostLayoutData = true;
-        return;
-    }
+    getPlatformEditorStateCommon(frame, result);
 
-    const VisibleSelection& selection = frame.selection().selection();
-    RefPtr<Range> selectedRange = selection.toNormalizedRange();
+    if (result.isMissingPostLayoutData)
+        return;
+
+    auto& selection = frame.selection().selection();
+    auto selectedRange = selection.toNormalizedRange();
     if (!selectedRange)
         return;
 
     auto& postLayoutData = result.postLayoutData();
     VisiblePosition selectionStart = selection.visibleStart();
-    VisiblePosition selectionEnd = selection.visibleEnd();
-    VisiblePosition paragraphStart = startOfParagraph(selectionStart);
-    VisiblePosition paragraphEnd = endOfParagraph(selectionEnd);
+    auto selectionStartBoundary = makeBoundaryPoint(selectionStart);
+    auto selectionEnd = makeBoundaryPoint(selection.visibleEnd());
+    auto paragraphStart = makeBoundaryPoint(startOfParagraph(selectionStart));
 
-    postLayoutData.candidateRequestStartPosition = TextIterator::rangeLength(makeRange(paragraphStart, selectionStart).get());
-    postLayoutData.selectedTextLength = TextIterator::rangeLength(makeRange(paragraphStart, selectionEnd).get()) - postLayoutData.candidateRequestStartPosition;
-    postLayoutData.paragraphContextForCandidateRequest = plainText(frame.editor().contextRangeForCandidateRequest().get());
+    if (!selectionStartBoundary || !selectionEnd || !paragraphStart)
+        return;
+
+    auto contextRangeForCandidateRequest = frame.editor().contextRangeForCandidateRequest();
+
+    postLayoutData.candidateRequestStartPosition = characterCount({ *paragraphStart, *selectionStartBoundary });
+    postLayoutData.selectedTextLength = characterCount({ *selectionStartBoundary, *selectionEnd });
+    postLayoutData.paragraphContextForCandidateRequest = contextRangeForCandidateRequest ? plainText(*contextRangeForCandidateRequest) : String();
     postLayoutData.stringForCandidateRequest = frame.editor().stringForCandidateRequest();
 
-    IntRect rectForSelectionCandidates;
-    Vector<FloatQuad> quads;
-    selectedRange->absoluteTextQuads(quads);
+    auto quads = RenderObject::absoluteTextQuads(*selectedRange);
     if (!quads.isEmpty())
         postLayoutData.focusedElementRect = frame.view()->contentsToWindow(quads[0].enclosingBoundingBox());
     else {
-        // Range::absoluteTextQuads() will be empty at the start of a paragraph.
+        // Quads will be empty at the start of a paragraph.
         if (selection.isCaret())
             postLayoutData.focusedElementRect = frame.view()->contentsToWindow(frame.selection().absoluteCaretBounds());
     }
@@ -291,6 +296,9 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent& event)
     if (platformEvent->type() != PlatformEvent::Char && platformEvent->windowsVirtualKeyCode() == VK_ESCAPE && commands.size() == 1 && commandNameForSelectorName(commands[0].commandName) == "cancelOperation")
         return false;
 
+    if (handleKeyEventByRelinquishingFocusToChrome(event))
+        return true;
+
     bool eventWasHandled = false;
 
     // Are there commands that could just cause text insertion if executed via Editor?
@@ -320,25 +328,6 @@ void WebPage::sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdenti
     }
 }
 
-void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& replacementEditingRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, bool registerUndoGroup)
-{
-    Frame& frame = m_page->focusController().focusedOrMainFrame();
-
-    Ref<Frame> protector(frame);
-
-    if (replacementEditingRange.location != notFound) {
-        RefPtr<Range> replacementRange = EditingRange::toRange(frame, replacementEditingRange);
-        if (replacementRange)
-            frame.selection().setSelection(VisibleSelection(*replacementRange, SEL_DEFAULT_AFFINITY));
-    }
-
-    if (registerUndoGroup)
-        send(Messages::WebPageProxy::RegisterInsertionUndoGrouping());
-    
-    ASSERT(!frame.editor().hasComposition());
-    frame.editor().insertDictatedText(text, dictationAlternativeLocations, nullptr);
-}
-
 void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& editingRange, CallbackID callbackID)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
@@ -349,14 +338,14 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
         return;
     }
 
-    RefPtr<Range> range = EditingRange::toRange(frame, editingRange);
+    auto range = EditingRange::toRange(frame, editingRange);
     if (!range) {
         send(Messages::WebPageProxy::AttributedStringForCharacterRangeCallback({ }, EditingRange(), callbackID));
         return;
     }
 
-    NSAttributedString *attributedString = editingAttributedStringFromRange(*range, IncludeImagesInAttributedString::No);
-    
+    auto attributedString = editingAttributedString(*range, IncludeImages::No).string;
+
     // WebCore::editingAttributedStringFromRange() insists on inserting a trailing
     // whitespace at the end of the string which breaks the ATOK input method.  <rdar://problem/5400551>
     // To work around this we truncate the resultant string to the correct length.
@@ -366,15 +355,15 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
         attributedString = [attributedString attributedSubstringFromRange:NSMakeRange(0, editingRange.length)];
     }
 
-    EditingRange rangeToSend(editingRange.location, attributedString.length);
+    EditingRange rangeToSend(editingRange.location, [attributedString length]);
     ASSERT(rangeToSend.isValid());
     if (!rangeToSend.isValid()) {
         // Send an empty EditingRange as a last resort for <rdar://problem/27078089>.
-        send(Messages::WebPageProxy::AttributedStringForCharacterRangeCallback(attributedString, EditingRange(), callbackID));
+        send(Messages::WebPageProxy::AttributedStringForCharacterRangeCallback({ WTFMove(attributedString), nil }, EditingRange(), callbackID));
         return;
     }
 
-    send(Messages::WebPageProxy::AttributedStringForCharacterRangeCallback(attributedString, rangeToSend, callbackID));
+    send(Messages::WebPageProxy::AttributedStringForCharacterRangeCallback({ WTFMove(attributedString), nil }, rangeToSend, callbackID));
 }
 
 void WebPage::fontAtSelection(CallbackID callbackID)
@@ -567,21 +556,21 @@ void WebPage::getStringSelectionForPasteboard(CompletionHandler<void(String&&)>&
     completionHandler(frame.editor().stringSelectionForPasteboard());
 }
 
-void WebPage::getDataSelectionForPasteboard(const String pasteboardType, CompletionHandler<void(SharedMemory::Handle&&, uint64_t)>&& completionHandler)
+void WebPage::getDataSelectionForPasteboard(const String pasteboardType, CompletionHandler<void(SharedMemory::IPCHandle&&)>&& completionHandler)
 {
     auto& frame = m_page->focusController().focusedOrMainFrame();
     if (frame.selection().isNone())
-        return completionHandler({ }, 0);
+        return completionHandler({ });
 
     RefPtr<SharedBuffer> buffer = frame.editor().dataSelectionForPasteboard(pasteboardType);
     if (!buffer)
-        return completionHandler({ }, 0);
+        return completionHandler({ });
     uint64_t size = buffer->size();
     RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::allocate(size);
     memcpy(sharedMemoryBuffer->data(), buffer->data(), size);
     SharedMemory::Handle handle;
     sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
-    completionHandler(WTFMove(handle), size);
+    completionHandler(SharedMemory::IPCHandle { WTFMove(handle), size });
 }
 
 WKAccessibilityWebPageObject* WebPage::accessibilityRemoteObject()
@@ -604,7 +593,8 @@ void WebPage::shouldDelayWindowOrderingEvent(const WebKit::WebMouseEvent& event,
 
     bool result = false;
 #if ENABLE(DRAG_SUPPORT)
-    HitTestResult hitResult = frame.eventHandler().hitTestResultAtPoint(frame.view()->windowToContents(event.position()), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::AllowChildFrameContent);
+    constexpr OptionSet<HitTestRequest::RequestType> hitType { HitTestRequest::ReadOnly, HitTestRequest::Active, HitTestRequest::AllowChildFrameContent };
+    HitTestResult hitResult = frame.eventHandler().hitTestResultAtPoint(frame.view()->windowToContents(event.position()), hitType);
     if (hitResult.isSelected())
         result = frame.eventHandler().eventMayStartDrag(platform(event));
 #endif
@@ -621,7 +611,8 @@ void WebPage::acceptsFirstMouse(int eventNumber, const WebKit::WebMouseEvent& ev
 
     auto& frame = m_page->focusController().focusedOrMainFrame();
 
-    HitTestResult hitResult = frame.eventHandler().hitTestResultAtPoint(frame.view()->windowToContents(event.position()), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::AllowChildFrameContent);
+    constexpr OptionSet<HitTestRequest::RequestType> hitType { HitTestRequest::ReadOnly, HitTestRequest::Active, HitTestRequest::AllowChildFrameContent };
+    HitTestResult hitResult = frame.eventHandler().hitTestResultAtPoint(frame.view()->windowToContents(event.position()), hitType);
     frame.eventHandler().setActivationEventNumber(eventNumber);
     bool result = false;
 #if ENABLE(DRAG_SUPPORT)
@@ -727,8 +718,8 @@ static void drawPDFPage(PDFDocument *pdfDocument, CFIndex pageIndex, CGContextRe
     }
 
     [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithCGContext:context flipped:NO]];
     ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    [NSGraphicsContext setCurrentContext:[NSGraphicsContext graphicsContextWithGraphicsPort:context flipped:NO]];
     [pdfPage drawWithBox:kPDFDisplayBoxCropBox];
     ALLOW_DEPRECATED_DECLARATIONS_END
     [NSGraphicsContext restoreGraphicsState];
@@ -788,24 +779,18 @@ void WebPage::drawPagesToPDFFromPDFDocument(CGContextRef context, PDFDocument *p
 }
 
 #if ENABLE(WEBGL)
-WebCore::WebGLLoadPolicy WebPage::webGLPolicyForURL(WebFrame* frame, const URL& url)
+WebCore::WebGLLoadPolicy WebPage::webGLPolicyForURL(WebFrame*, const URL& url)
 {
-    uint32_t policyResult = 0;
-
-    if (sendSync(Messages::WebPageProxy::WebGLPolicyForURL(url), Messages::WebPageProxy::WebGLPolicyForURL::Reply(policyResult)))
-        return static_cast<WebGLLoadPolicy>(policyResult);
-
-    return WebGLAllowCreation;
+    WebGLLoadPolicy policyResult = WebGLLoadPolicy::WebGLAllowCreation;
+    sendSync(Messages::WebPageProxy::WebGLPolicyForURL(url), Messages::WebPageProxy::WebGLPolicyForURL::Reply(policyResult));
+    return policyResult;
 }
 
-WebCore::WebGLLoadPolicy WebPage::resolveWebGLPolicyForURL(WebFrame* frame, const URL& url)
+WebCore::WebGLLoadPolicy WebPage::resolveWebGLPolicyForURL(WebFrame*, const URL& url)
 {
-    uint32_t policyResult = 0;
-
-    if (sendSync(Messages::WebPageProxy::ResolveWebGLPolicyForURL(url), Messages::WebPageProxy::ResolveWebGLPolicyForURL::Reply(policyResult)))
-        return static_cast<WebGLLoadPolicy>(policyResult);
-
-    return WebGLAllowCreation;
+    WebGLLoadPolicy policyResult = WebGLLoadPolicy::WebGLAllowCreation;
+    sendSync(Messages::WebPageProxy::ResolveWebGLPolicyForURL(url), Messages::WebPageProxy::ResolveWebGLPolicyForURL::Reply(policyResult));
+    return policyResult;
 }
 #endif // ENABLE(WEBGL)
 
@@ -817,23 +802,26 @@ void WebPage::handleTelephoneNumberClick(const String& number, const IntPoint& p
 #endif
 
 #if ENABLE(SERVICE_CONTROLS)
+
 void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vector<String>& phoneNumbers, const IntPoint& point)
 {
-    RefPtr<Range> range = selection.selection().firstRange();
+    auto range = selection.selection().firstRange();
     if (!range)
         return;
 
-    NSAttributedString *attributedSelection = attributedStringFromRange(*range);
+    auto attributedSelection = attributedString(*range).string;
     if (!attributedSelection)
         return;
 
-    NSData *selectionData = [attributedSelection RTFDFromRange:NSMakeRange(0, attributedSelection.length) documentAttributes:@{ }];
+    NSData *selectionData = [attributedSelection RTFDFromRange:NSMakeRange(0, [attributedSelection length]) documentAttributes:@{ }];
 
     Vector<uint8_t> selectionDataVector;
     selectionDataVector.append(reinterpret_cast<const uint8_t*>(selectionData.bytes), selectionData.length);
 
+    flushPendingEditorStateUpdate();
     send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData(point, selectionDataVector, phoneNumbers, selection.selection().isContentEditable()), UserData()));
 }
+
 #endif
 
 String WebPage::platformUserAgent(const URL&) const
@@ -852,7 +840,8 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
     }
 
     IntPoint locationInContentCoordinates = mainFrame.view()->rootViewToContents(roundedIntPoint(locationInViewCoordinates));
-    HitTestResult hitTestResult = mainFrame.eventHandler().hitTestResultAtPoint(locationInContentCoordinates, HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
+    constexpr OptionSet<HitTestRequest::RequestType> hitType { HitTestRequest::ReadOnly, HitTestRequest::Active, HitTestRequest::DisallowUserAgentShadowContent, HitTestRequest::AllowChildFrameContent };
+    HitTestResult hitTestResult = mainFrame.eventHandler().hitTestResultAtPoint(locationInContentCoordinates, hitType);
 
     bool immediateActionHitTestPreventsDefault = false;
     Element* element = hitTestResult.targetElement();
@@ -863,60 +852,51 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
 
     WebHitTestResultData immediateActionResult(hitTestResult, { });
 
-    RefPtr<Range> selectionRange = corePage()->focusController().focusedOrMainFrame().selection().selection().firstRange();
+    auto selectionRange = corePage()->focusController().focusedOrMainFrame().selection().selection().firstRange();
 
     URL absoluteLinkURL = hitTestResult.absoluteLinkURL();
     Element* URLElement = hitTestResult.URLElement();
     if (!absoluteLinkURL.isEmpty() && URLElement)
-        immediateActionResult.linkTextIndicator = TextIndicator::createWithRange(rangeOfContents(*URLElement), TextIndicatorOptionUseBoundingRectAndPaintAllContentForComplexRanges, TextIndicatorPresentationTransition::FadeIn);
+        immediateActionResult.linkTextIndicator = TextIndicator::createWithRange(makeRangeSelectingNodeContents(*URLElement), { TextIndicatorOption::UseBoundingRectAndPaintAllContentForComplexRanges }, TextIndicatorPresentationTransition::FadeIn);
 
-    auto lookupResult = lookupTextAtLocation(locationInViewCoordinates);
-    if (auto* lookupRange = std::get<RefPtr<Range>>(lookupResult).get()) {
-        immediateActionResult.lookupText = lookupRange->text();
+    if (auto lookupResult = lookupTextAtLocation(locationInViewCoordinates)) {
+        auto [lookupRange, options] = WTFMove(*lookupResult);
+        immediateActionResult.lookupText = plainText(lookupRange);
         if (auto* node = hitTestResult.innerNode()) {
-            if (auto* frame = node->document().frame()) {
-                auto options = std::get<NSDictionary *>(lookupResult);
-                immediateActionResult.dictionaryPopupInfo = dictionaryPopupInfoForRange(*frame, *lookupRange, options, TextIndicatorPresentationTransition::FadeIn);
-            }
+            if (auto* frame = node->document().frame())
+                immediateActionResult.dictionaryPopupInfo = dictionaryPopupInfoForRange(*frame, lookupRange, options, TextIndicatorPresentationTransition::FadeIn);
         }
     }
 
     bool pageOverlayDidOverrideDataDetectors = false;
-    for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
-        WebPageOverlay* webOverlay = WebPageOverlay::fromCoreOverlay(*overlay);
+    for (auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
+        auto webOverlay = WebPageOverlay::fromCoreOverlay(*overlay);
         if (!webOverlay)
             continue;
 
-        RefPtr<Range> mainResultRange;
-        DDActionContext *actionContext = webOverlay->actionContextForResultAtPoint(locationInContentCoordinates, mainResultRange);
-        if (!actionContext || !mainResultRange)
+        auto actionContext = webOverlay->actionContextForResultAtPoint(locationInContentCoordinates);
+        if (!actionContext)
+            continue;
+
+        auto view = actionContext->range.start.container->document().view();
+        if (!view)
             continue;
 
         pageOverlayDidOverrideDataDetectors = true;
-        immediateActionResult.detectedDataActionContext = actionContext;
-
-        Vector<FloatQuad> quads;
-        mainResultRange->absoluteTextQuads(quads);
-        FloatRect detectedDataBoundingBox;
-        FrameView* frameView = mainResultRange->ownerDocument().view();
-        for (const auto& quad : quads)
-            detectedDataBoundingBox.unite(frameView->contentsToWindow(quad.enclosingBoundingBox()));
-
-        immediateActionResult.detectedDataBoundingBox = detectedDataBoundingBox;
-        immediateActionResult.detectedDataTextIndicator = TextIndicator::createWithRange(*mainResultRange, TextIndicatorOptionUseBoundingRectAndPaintAllContentForComplexRanges, TextIndicatorPresentationTransition::FadeIn);
+        immediateActionResult.detectedDataActionContext = actionContext->context.get();
+        immediateActionResult.detectedDataBoundingBox = view->contentsToWindow(enclosingIntRect(unitedBoundingBoxes(RenderObject::absoluteTextQuads(actionContext->range))));
+        immediateActionResult.detectedDataTextIndicator = TextIndicator::createWithRange(actionContext->range, { TextIndicatorOption::UseBoundingRectAndPaintAllContentForComplexRanges }, TextIndicatorPresentationTransition::FadeIn);
         immediateActionResult.detectedDataOriginatingPageOverlay = overlay->pageOverlayID();
-
         break;
     }
 
     // FIXME: Avoid scanning if we will just throw away the result (e.g. we're over a link).
     if (!pageOverlayDidOverrideDataDetectors && hitTestResult.innerNode() && (hitTestResult.innerNode()->isTextNode() || hitTestResult.isOverTextInsideFormControlElement())) {
-        FloatRect detectedDataBoundingBox;
-        RefPtr<Range> detectedDataRange;
-        immediateActionResult.detectedDataActionContext = DataDetection::detectItemAroundHitTestResult(hitTestResult, detectedDataBoundingBox, detectedDataRange);
-        if (immediateActionResult.detectedDataActionContext && detectedDataRange) {
-            immediateActionResult.detectedDataBoundingBox = detectedDataBoundingBox;
-            immediateActionResult.detectedDataTextIndicator = TextIndicator::createWithRange(*detectedDataRange, TextIndicatorOptionUseBoundingRectAndPaintAllContentForComplexRanges, TextIndicatorPresentationTransition::FadeIn);
+        if (auto result = DataDetection::detectItemAroundHitTestResult(hitTestResult)) {
+            immediateActionResult.detectedDataActionContext = WTFMove(result->actionContext);
+            immediateActionResult.detectedDataBoundingBox = result->boundingBox;
+            immediateActionResult.detectedDataTextIndicator = TextIndicator::createWithRange(result->range,
+                { TextIndicatorOption::UseBoundingRectAndPaintAllContentForComplexRanges }, TextIndicatorPresentationTransition::FadeIn);
         }
     }
 
@@ -953,14 +933,15 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
     send(Messages::WebPageProxy::DidPerformImmediateActionHitTest(immediateActionResult, immediateActionHitTestPreventsDefault, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
 }
 
-std::tuple<RefPtr<WebCore::Range>, NSDictionary *> WebPage::lookupTextAtLocation(FloatPoint locationInViewCoordinates)
+Optional<std::tuple<WebCore::SimpleRange, NSDictionary *>> WebPage::lookupTextAtLocation(FloatPoint locationInViewCoordinates)
 {
     auto& mainFrame = corePage()->mainFrame();
     if (!mainFrame.view() || !mainFrame.view()->renderView())
-        return { nullptr, nil };
+        return WTF::nullopt;
 
     auto point = roundedIntPoint(locationInViewCoordinates);
-    auto result = mainFrame.eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(point), HitTestRequest::ReadOnly | HitTestRequest::Active | HitTestRequest::DisallowUserAgentShadowContent | HitTestRequest::AllowChildFrameContent);
+    constexpr OptionSet<HitTestRequest::RequestType> hitType { HitTestRequest::ReadOnly, HitTestRequest::Active, HitTestRequest::DisallowUserAgentShadowContent, HitTestRequest::AllowChildFrameContent };
+    auto result = mainFrame.eventHandler().hitTestResultAtPoint(m_page->mainFrame().view()->windowToContents(point), hitType);
     return DictionaryLookup::rangeAtHitTestResult(result);
 }
 
@@ -1021,12 +1002,16 @@ void WebPage::dataDetectorsDidHideUI(PageOverlay::PageOverlayID overlayID)
     }
 }
 
+void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo&, MonotonicTime)
+{
+}
+
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
-void WebPage::playbackTargetSelected(uint64_t contextId, const WebCore::MediaPlaybackTargetContext& targetContext) const
+void WebPage::playbackTargetSelected(PlaybackTargetClientContextIdentifier contextId, const WebCore::MediaPlaybackTargetContext& targetContext) const
 {
     switch (targetContext.type()) {
     case MediaPlaybackTargetContext::AVOutputContextType:
-        m_page->setPlaybackTarget(contextId, WebCore::MediaPlaybackTargetMac::create(targetContext.avOutputContext()));
+        m_page->setPlaybackTarget(contextId, WebCore::MediaPlaybackTargetCocoa::create(targetContext.avOutputContext()));
         break;
     case MediaPlaybackTargetContext::MockType:
         m_page->setPlaybackTarget(contextId, WebCore::MediaPlaybackTargetMock::create(targetContext.mockDeviceName(), targetContext.mockState()));
@@ -1037,20 +1022,36 @@ void WebPage::playbackTargetSelected(uint64_t contextId, const WebCore::MediaPla
     }
 }
 
-void WebPage::playbackTargetAvailabilityDidChange(uint64_t contextId, bool changed)
+void WebPage::playbackTargetAvailabilityDidChange(PlaybackTargetClientContextIdentifier contextId, bool changed)
 {
     m_page->playbackTargetAvailabilityDidChange(contextId, changed);
 }
 
-void WebPage::setShouldPlayToPlaybackTarget(uint64_t contextId, bool shouldPlay)
+void WebPage::setShouldPlayToPlaybackTarget(PlaybackTargetClientContextIdentifier contextId, bool shouldPlay)
 {
     m_page->setShouldPlayToPlaybackTarget(contextId, shouldPlay);
 }
 
-void WebPage::playbackTargetPickerWasDismissed(uint64_t contextId)
+void WebPage::playbackTargetPickerWasDismissed(PlaybackTargetClientContextIdentifier contextId)
 {
     m_page->playbackTargetPickerWasDismissed(contextId);
 }
+#endif
+
+void WebPage::didEndMagnificationGesture()
+{
+#if ENABLE(MAC_GESTURE_EVENTS)
+    m_page->mainFrame().eventHandler().didEndMagnificationGesture();
+#endif
+}
+
+#if HAVE(APP_ACCENT_COLORS)
+
+void WebPage::setAccentColor(WebCore::Color color)
+{
+    [NSApp _setAccentColor:color.isValid() ? WebCore::nsColor(color) : nil];
+}
+
 #endif
 
 } // namespace WebKit

@@ -172,6 +172,13 @@ static void oneReport(void) {
         NSLog(@"policy is nil");
         return;
     }
+    TPSyncingPolicy* syncingPolicy = [policy syncingPolicyForModel:@"iPhone"
+                                         syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_UNKNOWN
+                                                             error:&error];
+    if(syncingPolicy == nil || error != nil) {
+        NSLog(@"syncing policy is nil: %@", error);
+        return;
+    }
 
     unsigned real_mismatches = 0;
     unsigned expected_mismatches = 0;
@@ -219,7 +226,7 @@ static void oneReport(void) {
             NSMutableDictionary* mutA = [a mutableCopy];
             mutA[(id)kSecClass] = (id)itemClass;
 
-            NSString* newView = [policy mapKeyToView:mutA];
+            NSString* newView = [syncingPolicy mapDictionaryToView:mutA];
             if (newView != nil) {
                 NSLog(@"new: %@", newView);
             }

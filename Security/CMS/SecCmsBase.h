@@ -69,9 +69,9 @@ typedef SecAsn1AlgId SECAlgorithmID;
     @discussion XXX This should probably move to SecKey.h
  */
 #if TARGET_OS_OSX
-typedef SecKeyRef SecSymmetricKeyRef API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+typedef SecKeyRef SecSymmetricKeyRef API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else
-typedef void * SecSymmetricKeyRef API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+typedef void * SecSymmetricKeyRef API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif
 
 /*!
@@ -173,7 +173,7 @@ typedef void (*SecCmsContentCallback)(void *arg, const char *buf, size_t len);
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 typedef SecSymmetricKeyRef(*SecCmsGetDecryptKeyCallback)(void *arg, SECAlgorithmID *algid)
-    API_AVAILABLE(macos(10.4), ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4), ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 
 /*!

@@ -155,6 +155,7 @@
 #define kIOPSAccessoryCategorySpeaker       "Speaker"
 #define kIOPSAccessoryCategoryHeadphone     "Headphone"
 #define kIOPSAccessoryCategoryHeadset       "Headset"
+#define kIOPSAccessoryCategoryHearingAid    "HearingAid"
 #define kIOPSAccessoryCategoryWatch         "Watch"
 #define kIOPSAccessoryCategoryBatteryCase   "Battery Case"
 #define kIOPSAccessoryCategoryKeyboard      "Keyboard"

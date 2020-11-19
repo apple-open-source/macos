@@ -34,6 +34,8 @@
 #include "cintltst.h"
 #include "cmemory.h"
 
+#include <stdio.h>  // for sprintf()
+
 void addDateTimePatternGeneratorTest(TestNode** root);
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/udatpg_test/" #x)
@@ -44,6 +46,8 @@ static void TestBuilder(void);
 static void TestOptions(void);
 static void TestGetFieldDisplayNames(void);
 static void TestJapaneseCalendarItems(void); // rdar://52042600
+static void TestCountryFallback(void);  // rdar://problem/26911014
+static void TestEras(void);
 
 void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestOpenClose);
@@ -52,6 +56,8 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestOptions);
     TESTCASE(TestGetFieldDisplayNames);
     TESTCASE(TestJapaneseCalendarItems);
+    TESTCASE(TestCountryFallback);
+    TESTCASE(TestEras);
 }
 
 /*
@@ -555,6 +561,160 @@ static void TestJapaneseCalendarItems(void) { // rdar://52042600
             }
         }
         udatpg_close(udatpg);
+    }
+}
+
+static void TestCountryFallback(void) {
+    // (The list of test locales here is derived from the one in TestCountryFallback() in cnumtst.c)
+    // column 1 is the locale, column 2 is the input skeleton, column 3 is the expected pattern
+    UChar* testData[] = {
+        // The following locales are specifically mentioned in Radars:
+        u"fr_US", u"GyMMMM", u"MMMM y G", // rdar://problem/54886964
+        u"en_TH", u"GyMMMM", u"MMMM y G", // rdar://problem/29299919
+        u"en_BG", u"GyMMMM", u"MMMM y G", // rdar://problem/29299919
+        u"en_LI", u"GyMMMM", u"MMMM y G", // rdar://problem/29299919
+        u"en_MC", u"GyMMMM", u"MMMM y G", // rdar://problem/29299919
+        u"en_MD", u"GyMMMM", u"MMMM y G", // rdar://problem/29299919
+        u"en_VA", u"GyMMMM", u"MMMM y G", // rdar://problem/29299919
+        u"fr_GB", u"GyMMMM", u"MMMM y G", // rdar://problem/36020946
+        u"fr_CN", u"GyMMMM", u"MMMM y G", // rdar://problem/50083902
+        u"es_IE", u"GyMMMM", u"MMMM 'de' y G", // rdar://problem/58733843
+        // Special for en_SA, date formats should match en_001, other items should match en
+        u"en_SA", u"GyMMMM", u"MMMM y G",
+        // Tests for situations where the default calendar is different depending on whether you
+        // fall back by language or by country:
+        u"ar_US", u"GyMMMM", u"MMMM y G",
+        // Tests for situations where the original locale ID specifies a script:
+        u"sr_Cyrl_SA", u"GyMMMM", u"MMMM y. G",
+        u"ru_Cyrl_BA", u"GyMMMM", u"LLLL y G",
+        // And these are just a few additional arbitrary combinations:
+        u"ja_US", u"GyMMMM", u"Gy年M月",
+        u"fr_DE", u"GyMMMM", u"MMMM y G",
+        u"es_TW", u"GyMMMM", u"MMMM 'de' y G",
+        // Test to make sure that nothing goes wrong if language and country fallback both lead to the same resource
+        // (This won't happen for any "real" locales, because ICU has resources for all of them, but we can fake it with
+        // a nonexistent country code such as QQ.)
+        u"en_QQ", u"GyMMMM", u"MMMM y G",
+
+        // The following locales are specifically mentioned in Radars:
+        u"fr_US", u"yMEd", u"EEE, M/d/y",   // rdar://problem/54886964
+        u"en_TH", u"yMEd", u"EEE, dd/MM/y GGGGG", // rdar://problem/29299919
+        u"en_BG", u"yMEd", u"EEE, d.MM.y",  // rdar://problem/29299919
+        u"en_LI", u"yMEd", u"EEE d.M.y",    // rdar://problem/29299919
+        u"en_MC", u"yMEd", u"EEE dd/MM/y",  // rdar://problem/29299919
+        u"en_MD", u"yMEd", u"EEE, dd.MM.y", // rdar://problem/29299919
+        u"en_VA", u"yMEd", u"EEE d/M/y",    // rdar://problem/29299919
+        u"fr_GB", u"yMEd", u"EEE, dd/MM/y", // rdar://problem/36020946
+        u"fr_CN", u"yMEd", u"y/M/dEEE",     // rdar://problem/50083902
+        u"es_IE", u"yMEd", u"EEE, d/M/y",   // rdar://problem/58733843
+        // Special for en_SA, date formats should match en_001, other items should match en
+        u"en_SA", u"yMEd", u"EEE, dd/MM/y GGGGG",
+        // Tests for situations where the default calendar is different depending on whether you
+        // fall back by language or by country:
+        u"ar_US", u"yMEd", u"EEE, M/d/y",
+        // Tests for situations where the original locale ID specifies a script:
+        u"sr_Cyrl_SA", u"yMEd", u"EEE, d.M.y. GGGGG",
+        u"ru_Cyrl_BA", u"yMEd", u"EEE, dd.MM.y.",
+        // And these are just a few additional arbitrary combinations:
+        u"ja_US", u"yMEd", u"EEE, M/d/y",
+        u"fr_DE", u"yMEd", u"EEE d.M.y",
+        u"es_TW", u"yMEd", u"y/M/d（EEE）",
+        // Test to make sure that nothing goes wrong if language and country fallback both lead to the same resource
+        // (This won't happen for any "real" locales, because ICU has resources for all of them, but we can fake it with
+        // a nonexistent country code such as QQ.)
+        u"en_QQ", u"yMEd", u"EEE, M/d/y",
+
+        // The following locales are specifically mentioned in Radars:
+        u"fr_US", u"Ejm", u"EEE h:mm a", // rdar://problem/54886964
+        u"en_TH", u"Ejm", u"EEE, HH:mm", // rdar://problem/29299919
+        u"en_BG", u"Ejm", u"EEE HH:mm", // rdar://problem/29299919
+        u"en_LI", u"Ejm", u"EEE HH:mm", // rdar://problem/29299919
+        u"en_MC", u"Ejm", u"EEE HH:mm", // rdar://problem/29299919
+        u"en_MD", u"Ejm", u"EEE HH:mm", // rdar://problem/29299919
+        u"en_VA", u"Ejm", u"EEE HH:mm", // rdar://problem/29299919
+        u"fr_GB", u"Ejm", u"EEE HH:mm", // rdar://problem/36020946
+        u"fr_CN", u"Ejm", u"EEE h:mm a", // rdar://problem/50083902
+        u"es_IE", u"Ejm", u"EEE, H:mm", // rdar://problem/58733843
+        // Special for en_SA, date formats should match en_001, other items should match en
+        u"en_SA", u"Ejm", u"EEE, h:mm a",
+        // Tests for situations where the default calendar is different depending on whether you
+        // fall back by language or by country:
+        u"ar_US", u"Ejm", u"EEE h:mm\u00a0a",
+        // Tests for situations where the original locale ID specifies a script:
+        u"sr_Cyrl_SA", u"Ejm", u"EEE hh:mm a",
+        u"ru_Cyrl_BA", u"Ejm", u"EEE HH:mm",
+        // And these are just a few additional arbitrary combinations:
+        u"ja_US", u"Ejm", u"EEE aK:mm",
+        u"fr_DE", u"Ejm", u"EEE HH:mm",
+        u"es_TW", u"Ejm", u"EEE, h:mm a",
+        // Test to make sure that nothing goes wrong if language and country fallback both lead to the same resource
+        // (This won't happen for any "real" locales, because ICU has resources for all of them, but we can fake it with
+        // a nonexistent country code such as QQ.)
+        u"en_QQ", u"Ejm", u"EEE HH:mm",
+
+        // Tests for rdar://64948924 (D431/18A314: Incorrect date format in description: th_US)
+        u"th_TH", u"Gy", u"G y",
+        u"th_TH", u"y", u"G y",
+        u"th_TH@calendar=gregorian", u"Gy", u"G y",
+        u"th_TH@calendar=gregorian", u"y", u"y",
+        u"th_US", u"Gy", u"G y",
+        u"th_US", u"y", u"y"
+    };
+    
+    for (int32_t i = 0; i < (sizeof(testData) / sizeof(UChar*)); i += 3) {
+        UChar* localeU = testData[i];
+        char locale[30];
+        UChar* skeleton = testData[i + 1];
+        UChar* expectedPattern = testData[i + 2];
+        
+        u_austrcpy(locale, localeU);
+        
+        UErrorCode err = U_ZERO_ERROR;
+        UDateTimePatternGenerator* dtpg = udatpg_open(locale, &err);
+        if (assertSuccess("Failed to open UDateTimePatternGenerator", &err)) {
+            UChar actualPattern[200];
+            
+            udatpg_getBestPattern(dtpg, skeleton, -1, actualPattern, 200, &err);
+            
+            if (assertSuccess("Error getting pattern with skeleton", &err)) {
+                char errorMessage[200];
+                sprintf(errorMessage, "In %s, pattern for skeleton %s doesn't match\n", locale, austrdup(skeleton));
+                assertUEquals(errorMessage, expectedPattern, actualPattern);
+            }
+            udatpg_close(dtpg);
+        }
+    }
+}
+
+// Test for rdar://65281358: Make sure DateTimePatternGenerator supplies an era field for year formats using the
+// Buddhist and Japanese calendars for all English-speaking locales.
+static void TestEras(void) {
+    char* localeIDs[] = {
+        "en_US@calendar=japanese",
+        "en_GB@calendar=japanese",
+        "en_150@calendar=japanese",
+        "en_001@calendar=japanese",
+        "en@calendar=japanese",
+        "en_US@calendar=buddhist",
+        "en_GB@calendar=buddhist",
+        "en_150@calendar=buddhist",
+        "en_001@calendar=buddhist",
+        "en@calendar=buddhist",
+    };
+    
+    UErrorCode err = U_ZERO_ERROR;
+    for (int32_t i = 0; i < UPRV_LENGTHOF(localeIDs); i++) {
+        char* locale = localeIDs[i];
+        UDateTimePatternGenerator* dtpg = udatpg_open(locale, &err);
+        if (U_SUCCESS(err)) {
+            UChar pattern[200];
+            udatpg_getBestPattern(dtpg, u"y", 1, pattern, 200, &err);
+            
+            if (u_strchr(pattern, u'G') == NULL) {
+                log_err("missing era field for locale %s\n", locale);
+            }
+        }
+        udatpg_close(dtpg);
     }
 }
 

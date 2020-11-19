@@ -68,3 +68,12 @@ IOReturn AppleRAIDMemoryDescriptor::complete(IODirection forDirection)
     return result;
 }
 
+uint64_t AppleRAIDMemoryDescriptor::getPreparationID( void )
+{
+    if ( mdMemoryDescriptor )
+    {
+        return mdMemoryDescriptor->getPreparationID();
+    }
+
+    return super::getPreparationID();
+}

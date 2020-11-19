@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Data-Dumper-Concise</string>
+        <key>OpenSourceVersion</key>
+        <string>2.023</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/E/ET/ETHER/Data-Dumper-Concise-2.023.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-10</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

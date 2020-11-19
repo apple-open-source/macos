@@ -1,7 +1,6 @@
 #import <TargetConditionals.h>
 #import <Foundation/Foundation.h>
 #import <IDS/IDS.h>
-#import <Security/SecXPCHelper.h>
 
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
@@ -23,8 +22,7 @@
 
 - (instancetype)initWithMessage:(NSDictionary *)message fromID:(NSString *)fromID context:(IDSMessageContext *)context
 {
-    self = [super init];
-    if (self != nil) {
+    if ((self = [super init])) {
         self.message = message;
         self.fromID = fromID;
         self.context = context;
@@ -69,15 +67,8 @@
     }
 
     if (!self->_error) {
-        NSData *errorData = self.message[OTPairingIDSKeyError];
-        if (errorData != NULL) {
-            self->_error = [SecXPCHelper errorFromEncodedData:errorData];
-        } else {
-            // Key from older iOS builds; remove soon
-            // When this is removed, it will still be useful to have a fallback in case errorData is missing or errorFromEncodedData fails
-            NSString *errorString = self.message[OTPairingIDSKeyErrorDeprecated];
-            self->_error = [NSError errorWithDomain:OTPairingErrorDomain code:OTPairingErrorTypeRemote description:errorString];
-        }
+        NSString *errorString = self.message[OTPairingIDSKeyErrorDescription];
+        self->_error = [NSError errorWithDomain:OTPairingErrorDomain code:OTPairingErrorTypeRemote description:errorString];
     }
 
     return self->_error;

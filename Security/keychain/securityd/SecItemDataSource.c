@@ -158,7 +158,7 @@ static SOSManifestRef SecItemDataSourceCopyManifestWithQueries(SecItemDataSource
 }
 
 static Query *SecItemDataSourceAppendQuery(CFMutableArrayRef queries, const SecDbClass *qclass, bool noTombstones, CFErrorRef *error) {
-    Query *q = query_create(qclass, NULL, NULL, error);
+    Query *q = query_create(qclass, NULL, NULL, NULL, error);
     if (q) {
         q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
         q->q_limit = kSecMatchUnlimited;
@@ -304,6 +304,7 @@ static SOSManifestRef SecItemDataSourceCopyManifestWithViewNameSet(SecItemDataSo
 }
 
 // Return the newest object (conflict resolver)
+// Any fields marked as "kSecDbSyncSOSCannotSyncFlag" that are in item2 will be present in the returned item.
 static SecDbItemRef SecItemDataSourceCopyMergedItem(SecDbItemRef item1, SecDbItemRef item2, CFErrorRef *error) {
     CFErrorRef localError = NULL;
     SecDbItemRef result = NULL;
@@ -323,7 +324,7 @@ static SecDbItemRef SecItemDataSourceCopyMergedItem(SecDbItemRef item1, SecDbIte
             // Return the item with the smallest digest.
             CFDataRef digest1 = SecDbItemGetSHA1(item1, &localError);
             CFDataRef digest2 = SecDbItemGetSHA1(item2, &localError);
-            if (digest1 && digest2) switch (CFDataCompare(digest1, digest2)) {
+            if (digest1 && digest2) switch (CFDataCompareDERData(digest1, digest2)) {
                 case kCFCompareGreaterThan:
                 case kCFCompareEqualTo:
                     result = item2;
@@ -350,6 +351,22 @@ static SecDbItemRef SecItemDataSourceCopyMergedItem(SecDbItemRef item1, SecDbIte
         else
             CFRelease(localError);
     }
+
+    // Note, if we chose item2 as result above, there's no need to move attributes from item2 to item2
+    if(result && item2 && result != item2) {
+        // We'd like to preserve our local UUID, no matter what. UUIDs are not sent across SOS channels, and so items
+        // arriving via SOS have randomly generated UUIDs.
+        SecDbForEachAttr(SecDbItemGetClass(result), attr) {
+            if(CFEqualSafe(attr->name, v10itemuuid.name)) {
+                SecItemPreserveAttribute(result, item2, attr);
+            }
+        }
+
+        SecDbForEachAttrWithMask(SecDbItemGetClass(result), attr, kSecDbSyncSOSCannotSyncFlag) {
+            SecItemPreserveAttribute(result, item2, attr);
+        }
+    }
+
     return CFRetainSafe(result);
 }
 
@@ -399,7 +416,7 @@ static bool dsForEachObject(SOSDataSourceRef data_source, SOSTransactionRef txn,
         // Setup
         for (size_t class_ix = 0; class_ix < dsSyncedClassesSize; ++class_ix) {
             result = (result
-                      && (queries[class_ix] = query_create(dsSyncedClasses()[class_ix], NULL, NULL, error))
+                      && (queries[class_ix] = query_create(dsSyncedClasses()[class_ix], NULL, NULL, NULL, error))
                       && (sqls[class_ix] = SecDbItemCopySelectSQL(queries[class_ix], return_attr, use_attr_in_where, NULL))
                       && (stmts[class_ix] = SecDbCopyStmt(dbconn, sqls[class_ix], NULL, error)));
         }
@@ -480,9 +497,9 @@ static CFDateRef copyObjectModDate(SOSObjectRef object, CFErrorRef *error) {
 
 static CFDictionaryRef objectCopyPropertyList(SOSObjectRef object, CFErrorRef *error) {
     SecDbItemRef item = (SecDbItemRef) object;
-    CFMutableDictionaryRef secretDataDict = SecDbItemCopyPListWithMask(item, kSecDbReturnDataFlag, error);
-    CFMutableDictionaryRef cryptoDataDict = SecDbItemCopyPListWithMask(item, kSecDbInCryptoDataFlag, error);
-    CFMutableDictionaryRef authDataDict = SecDbItemCopyPListWithMask(item, kSecDbInAuthenticatedDataFlag, error);
+    CFMutableDictionaryRef secretDataDict = SecDbItemCopyPListWithFlagAndSkip(item, kSecDbReturnDataFlag, kSecDbSyncSOSCannotSyncFlag, error);
+    CFMutableDictionaryRef cryptoDataDict = SecDbItemCopyPListWithFlagAndSkip(item, kSecDbInCryptoDataFlag, kSecDbSyncSOSCannotSyncFlag, error);
+    CFMutableDictionaryRef authDataDict = SecDbItemCopyPListWithFlagAndSkip(item, kSecDbInAuthenticatedDataFlag, kSecDbSyncSOSCannotSyncFlag, error);
     
     if (cryptoDataDict) {
         if (authDataDict) {
@@ -665,7 +682,7 @@ static CFDataRef dsCopyStateWithKey(SOSDataSourceRef data_source, CFStringRef ke
                                                                           NULL);
     CFReleaseSafe(dataSourceID);
     __block CFDataRef data = NULL;
-    SecDbQueryRef query = query_create(genp_class(), NULL, dict, error);
+    SecDbQueryRef query = query_create(genp_class(), NULL, dict, NULL, error);
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;
@@ -710,7 +727,7 @@ static CFDataRef dsCopyItemDataWithKeys(SOSDataSourceRef data_source, CFDictiona
     SecItemDataSourceRef ds = (SecItemDataSourceRef)data_source;
     CFMutableDictionaryRef dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, keys);
     __block CFDataRef data = NULL;
-    SecDbQueryRef query = query_create(genp_class(), NULL, dict, error);
+    SecDbQueryRef query = query_create(genp_class(), NULL, dict, NULL, error);
     if (query) {
         if (query->q_item)  CFReleaseSafe(query->q_item);
         query->q_item = dict;

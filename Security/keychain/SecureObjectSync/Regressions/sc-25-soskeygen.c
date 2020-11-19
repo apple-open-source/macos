@@ -48,6 +48,9 @@
 #include "SOSCircle_regressions.h"
 
 #include "SOSRegressionUtilities.h"
+
+#if SOS_ENABLED
+
 #include <corecrypto/ccrng.h>
 #include <corecrypto/ccrng_pbkdf2_prng.h>
 #include <corecrypto/ccec.h>
@@ -185,7 +188,6 @@ static SecKeyRef SOSOldUserKeygen(CFDataRef password, CFDataRef parameters, CFEr
         return NULL;
     }
 
-    debugDumpUserParameters(CFSTR("params-keygen"), parameters);
 
 
     const uint8_t *password_bytes = CFDataGetBytePtr(password);
@@ -198,7 +200,7 @@ static SecKeyRef SOSOldUserKeygen(CFDataRef password, CFDataRef parameters, CFEr
 
     ccec_full_ctx_decl_cp(cp, tmpkey);
 
-    secnotice("circleOps", "Generating key for: iterations %zd, keysize %zd: %@", iterations, keysize, parameters);
+    debugDumpUserParameters(CFSTR("sc_25_soskeygen: Generating key for:"), parameters);
 
     if (ccrng_pbkdf2_prng_init(&pbkdf2_prng, maxbytes,
                                password_length, password_bytes,
@@ -275,15 +277,15 @@ static void tests(void) {
     CFReleaseNull(cfpassword);
 }
 
+#endif
+
 int sc_25_soskeygen(int argc, char *const *argv)
 {
-#if TARGET_OS_WATCH
-    plan_tests(NKEYS*(4+NPARMS*4));
-#else
+#if SOS_ENABLED
     plan_tests(850);
-#endif
-    
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

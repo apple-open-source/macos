@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2008, 2015 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2020 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,6 +54,7 @@
 #import <WebCore/Settings.h>
 #import <WebKitLegacy/DOMExtensions.h>
 #import <algorithm>
+#import <wtf/NakedPtr.h>
 #import <wtf/text/Base64.h>
 
 using namespace WebCore;
@@ -68,7 +69,7 @@ static const CGFloat initialWindowHeight = 650;
 @private
     RetainPtr<WebView> _inspectedWebView;
     WebView* _frontendWebView;
-    WebInspectorFrontendClient* _frontendClient;
+    NakedPtr<WebInspectorFrontendClient> _frontendClient;
     WebInspectorClient* _inspectorClient;
     BOOL _attachedToInspectedWebView;
     BOOL _shouldAttach;
@@ -82,9 +83,9 @@ static const CGFloat initialWindowHeight = 650;
 - (void)attach;
 - (void)detach;
 - (BOOL)attached;
-- (void)setFrontendClient:(WebInspectorFrontendClient*)frontendClient;
-- (void)setInspectorClient:(WebInspectorClient*)inspectorClient;
-- (WebInspectorClient*)inspectorClient;
+- (void)setFrontendClient:(NakedPtr<WebInspectorFrontendClient>)frontendClient;
+- (void)setInspectorClient:(NakedPtr<WebInspectorClient>)inspectorClient;
+- (NakedPtr<WebInspectorClient>)inspectorClient;
 - (void)setAttachedWindowHeight:(unsigned)height;
 - (void)setDockingUnavailable:(BOOL)unavailable;
 - (void)destroyInspectorView;
@@ -261,11 +262,47 @@ void WebInspectorFrontendClient::resetState()
 {
     InspectorFrontendClientLocal::resetState();
 
-    auto* inspectorClient = [m_frontendWindowController inspectorClient];
+    auto inspectorClient = [m_frontendWindowController inspectorClient];
     inspectorClient->deleteInspectorStartsAttached();
     inspectorClient->deleteInspectorAttachDisabled();
 
     [NSWindow removeFrameUsingName:[[m_frontendWindowController window] frameAutosaveName]];
+}
+
+void WebInspectorFrontendClient::setForcedAppearance(InspectorFrontendClient::Appearance appearance)
+{
+    NSWindow *window = [m_frontendWindowController window];
+    ASSERT(window);
+
+    switch (appearance) {
+    case InspectorFrontendClient::Appearance::System:
+        window.appearance = nil;
+        break;
+
+    case InspectorFrontendClient::Appearance::Light:
+        window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameAqua];
+        break;
+
+    case InspectorFrontendClient::Appearance::Dark:
+        window.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
+        break;
+    }
+}
+
+bool WebInspectorFrontendClient::supportsDockSide(DockSide dockSide)
+{
+    switch (dockSide) {
+    case DockSide::Undocked:
+    case DockSide::Bottom:
+        return true;
+
+    case DockSide::Right:
+    case DockSide::Left:
+        return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 void WebInspectorFrontendClient::attachWindow(DockSide)
@@ -454,6 +491,7 @@ void WebInspectorFrontendClient::append(const String& suggestedURL, const String
     [preferences setUserStyleSheetEnabled:NO];
     [preferences setAllowFileAccessFromFileURLs:YES];
     [preferences setAllowUniversalAccessFromFileURLs:YES];
+    [preferences setAllowTopNavigationToDataURLs:YES];
     [preferences setStorageBlockingPolicy:WebAllowAllStorage];
 
     _frontendWebView = [[WebView alloc] init];
@@ -672,17 +710,17 @@ void WebInspectorFrontendClient::append(const String& suggestedURL, const String
     return _attachedToInspectedWebView;
 }
 
-- (void)setFrontendClient:(WebInspectorFrontendClient*)frontendClient
+- (void)setFrontendClient:(NakedPtr<WebInspectorFrontendClient>)frontendClient
 {
     _frontendClient = frontendClient;
 }
 
-- (void)setInspectorClient:(WebInspectorClient*)inspectorClient
+- (void)setInspectorClient:(NakedPtr<WebInspectorClient>)inspectorClient
 {
     _inspectorClient = inspectorClient;
 }
 
-- (WebInspectorClient*)inspectorClient
+- (NakedPtr<WebInspectorClient>)inspectorClient
 {
     return _inspectorClient;
 }

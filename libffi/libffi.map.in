@@ -71,7 +71,7 @@ LIBFFI_CLOSURE_7.0 {
 } LIBFFI_BASE_7.0;
 #endif
 
-#if FFI_GO_CLOSURES
+#if defined(FFI_GO_CLOSURES) && FFI_GO_CLOSURES
 LIBFFI_GO_CLOSURE_7.0 {
   global:
 	ffi_call_go;

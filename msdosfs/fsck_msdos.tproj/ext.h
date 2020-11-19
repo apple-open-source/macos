@@ -114,7 +114,7 @@ int writefsinfo __P((int, struct bootblock *));
  */
 int resetDosDirSection(struct bootblock *boot);
 void finishDosDirSection __P((void));
-int handleDirTree(int, struct bootblock *boot);
+int handleDirTree(int, struct bootblock *boot, int);
 
 /*
  * Small helper functions

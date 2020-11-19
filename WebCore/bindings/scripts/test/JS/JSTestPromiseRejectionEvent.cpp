@@ -22,6 +22,7 @@
 #include "JSTestPromiseRejectionEvent.h"
 
 #include "ActiveDOMObject.h"
+#include "DOMIsoSubspaces.h"
 #include "DOMPromiseProxy.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
@@ -35,8 +36,11 @@
 #include "JSDOMGlobalObject.h"
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
+#include <JavaScriptCore/SubspaceInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
 #include <wtf/URL.h>
@@ -128,7 +132,7 @@ bool setJSTestPromiseRejectionEventConstructor(JSC::JSGlobalObject*, JSC::Encode
 JSC::EncodedJSValue jsTestPromiseRejectionEventPromise(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
 JSC::EncodedJSValue jsTestPromiseRejectionEventReason(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
 
-class JSTestPromiseRejectionEventPrototype : public JSC::JSNonFinalObject {
+class JSTestPromiseRejectionEventPrototype final : public JSC::JSNonFinalObject {
 public:
     using Base = JSC::JSNonFinalObject;
     static JSTestPromiseRejectionEventPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
@@ -139,6 +143,12 @@ public:
     }
 
     DECLARE_INFO;
+    template<typename CellType, JSC::SubspaceAccess>
+    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestPromiseRejectionEventPrototype, Base);
+        return &vm.plainObjectSpace;
+    }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
@@ -160,17 +170,22 @@ template<> EncodedJSValue JSC_HOST_CALL JSTestPromiseRejectionEventConstructor::
 {
     VM& vm = lexicalGlobalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    UNUSED_PARAM(throwScope);
     auto* castedThis = jsCast<JSTestPromiseRejectionEventConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
     if (UNLIKELY(callFrame->argumentCount() < 2))
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
-    auto type = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto type = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    auto eventInitDict = convert<IDLDictionary<TestPromiseRejectionEvent::Init>>(*lexicalGlobalObject, callFrame->uncheckedArgument(1));
+    EnsureStillAliveScope argument1 = callFrame->uncheckedArgument(1);
+    auto eventInitDict = convert<IDLDictionary<TestPromiseRejectionEvent::Init>>(*lexicalGlobalObject, argument1.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
     auto object = TestPromiseRejectionEvent::create(*castedThis->globalObject(), WTFMove(type), WTFMove(eventInitDict));
-    return JSValue::encode(toJSNewlyCreated<IDLInterface<TestPromiseRejectionEvent>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object)));
+    static_assert(decltype(object)::isRef);
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestPromiseRejectionEvent>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object));
+    setSubclassStructureIfNeeded<TestPromiseRejectionEvent>(lexicalGlobalObject, callFrame, asObject(jsValue));
+    RETURN_IF_EXCEPTION(throwScope, { });
+    return JSValue::encode(jsValue);
 }
 
 template<> JSValue JSTestPromiseRejectionEventConstructor::prototypeForStructure(JSC::VM& vm, const JSDOMGlobalObject& globalObject)
@@ -181,7 +196,7 @@ template<> JSValue JSTestPromiseRejectionEventConstructor::prototypeForStructure
 template<> void JSTestPromiseRejectionEventConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestPromiseRejectionEvent::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestPromiseRejectionEvent"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestPromiseRejectionEvent"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(2), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -196,12 +211,13 @@ static const HashTableValue JSTestPromiseRejectionEventPrototypeTableValues[] =
     { "reason", static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::CustomAccessor | JSC::PropertyAttribute::DOMAttribute), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestPromiseRejectionEventReason), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(0) } },
 };
 
-const ClassInfo JSTestPromiseRejectionEventPrototype::s_info = { "TestPromiseRejectionEventPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestPromiseRejectionEventPrototype) };
+const ClassInfo JSTestPromiseRejectionEventPrototype::s_info = { "TestPromiseRejectionEvent", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestPromiseRejectionEventPrototype) };
 
 void JSTestPromiseRejectionEventPrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSTestPromiseRejectionEvent::info(), JSTestPromiseRejectionEventPrototypeTableValues, *this);
+    JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
 const ClassInfo JSTestPromiseRejectionEvent::s_info = { "TestPromiseRejectionEvent", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestPromiseRejectionEvent) };
@@ -263,13 +279,12 @@ bool setJSTestPromiseRejectionEventConstructor(JSGlobalObject* lexicalGlobalObje
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
-static inline JSValue jsTestPromiseRejectionEventPromiseGetter(JSGlobalObject& lexicalGlobalObject, JSTestPromiseRejectionEvent& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestPromiseRejectionEventPromiseGetter(JSGlobalObject& lexicalGlobalObject, JSTestPromiseRejectionEvent& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLPromise<IDLAny>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.promise());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLPromise<IDLAny>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.promise())));
 }
 
 EncodedJSValue jsTestPromiseRejectionEventPromise(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -277,18 +292,38 @@ EncodedJSValue jsTestPromiseRejectionEventPromise(JSGlobalObject* lexicalGlobalO
     return IDLAttribute<JSTestPromiseRejectionEvent>::get<jsTestPromiseRejectionEventPromiseGetter, CastedThisErrorBehavior::RejectPromise>(*lexicalGlobalObject, thisValue, "promise");
 }
 
-static inline JSValue jsTestPromiseRejectionEventReasonGetter(JSGlobalObject& lexicalGlobalObject, JSTestPromiseRejectionEvent& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestPromiseRejectionEventReasonGetter(JSGlobalObject& lexicalGlobalObject, JSTestPromiseRejectionEvent& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLAny>(lexicalGlobalObject, throwScope, impl.reason());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLAny>(lexicalGlobalObject, throwScope, impl.reason())));
 }
 
 EncodedJSValue jsTestPromiseRejectionEventReason(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
 {
     return IDLAttribute<JSTestPromiseRejectionEvent>::get<jsTestPromiseRejectionEventReasonGetter, CastedThisErrorBehavior::Assert>(*lexicalGlobalObject, thisValue, "reason");
+}
+
+JSC::IsoSubspace* JSTestPromiseRejectionEvent::subspaceForImpl(JSC::VM& vm)
+{
+    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
+    auto& spaces = clientData.subspaces();
+    if (auto* space = spaces.m_subspaceForTestPromiseRejectionEvent.get())
+        return space;
+    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestPromiseRejectionEvent> || !JSTestPromiseRejectionEvent::needsDestruction);
+    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestPromiseRejectionEvent>)
+        spaces.m_subspaceForTestPromiseRejectionEvent = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestPromiseRejectionEvent);
+    else
+        spaces.m_subspaceForTestPromiseRejectionEvent = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestPromiseRejectionEvent);
+    auto* space = spaces.m_subspaceForTestPromiseRejectionEvent.get();
+IGNORE_WARNINGS_BEGIN("unreachable-code")
+IGNORE_WARNINGS_BEGIN("tautological-compare")
+    if (&JSTestPromiseRejectionEvent::visitOutputConstraints != &JSC::JSCell::visitOutputConstraints)
+        clientData.outputConstraintSpaces().append(space);
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
+    return space;
 }
 
 void JSTestPromiseRejectionEvent::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
@@ -313,11 +348,11 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObj
 {
 
 #if ENABLE(BINDING_INTEGRITY)
-    void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
+    const void* actualVTablePointer = getVTablePointer(impl.ptr());
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(__identifier("??_7TestPromiseRejectionEvent@WebCore@@6B@"));
+    void* expectedVTablePointer = __identifier("??_7TestPromiseRejectionEvent@WebCore@@6B@");
 #else
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(&_ZTVN7WebCore25TestPromiseRejectionEventE[2]);
+    void* expectedVTablePointer = &_ZTVN7WebCore25TestPromiseRejectionEventE[2];
 #endif
 
     // If this fails TestPromiseRejectionEvent does not have a vtable, so you need to add the

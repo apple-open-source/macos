@@ -15,7 +15,7 @@ MODULES = \
     python-dateutil-1.5 \
     pyparsing-2.0.1 \
     matplotlib-1.3.1 \
-    cffi-1.12.2 \
+    cffi-1.14.3 \
     pycparser-2.19 \
     asn1crypto-0.24.0 \
     enum34-1.1.6 \

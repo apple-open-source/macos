@@ -62,7 +62,7 @@ ATOMICS_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libatomics_i386_$(CURRENT_VARIANT
 CACHECONTROL_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libcachecontrol_i386_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libcachecontrol_x86_64_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libcachecontrol_arm_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libcachecontrol_arm64_$(CURRENT_VARIANT).a $(EXTRA_CACHECONTROL_LIBRARIES)
 SETJMP_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libsetjmp_i386_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libsetjmp_x86_64_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libsetjmp_arm_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libsetjmp_arm64_$(CURRENT_VARIANT).a $(EXTRA_SETJMP_LIBRARIES)
 STRING_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libstring_i386_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libstring_x86_64_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libstring_arm_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libstring_arm64_$(CURRENT_VARIANT).a $(EXTRA_STRING_LIBRARIES)
-UCONTEXT_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libucontext_i386_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libucontext_x86_64_$(CURRENT_VARIANT).a
+UCONTEXT_LIBRARIES = $(CONFIGURATION_BUILD_DIR)/libucontext_i386_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libucontext_x86_64_$(CURRENT_VARIANT).a $(CONFIGURATION_BUILD_DIR)/libucontext_arm64_$(CURRENT_VARIANT).a
 
 IS_ZIPPERED = YES
 
@@ -70,7 +70,7 @@ SIMULATOR_LDFLAGS =
 SIMULATOR_LDFLAGS[sdk=macosx*] = -Wl,-simulator_support
 
 OTHER_LDFLAGS = $(OTHER_LDFLAGS_$(TARGET_NAME)) $(CR_LDFLAGS)
-OTHER_LDFLAGS_libsystem_platform = -all_load $(PLATFORM_LIBRARIES) -umbrella System -L$(SDK_INSTALL_ROOT)/usr/lib/system -ldyld $(lcompiler_rt) $(lsystem_kernel) -Wl,-alias_list,$(SRCROOT)/xcodeconfig/libplatform.aliases,$(DIRTY_DATA_LDFLAGS) $(SIMULATOR_LDFLAGS)
+OTHER_LDFLAGS_libsystem_platform = -all_load $(PLATFORM_LIBRARIES) -umbrella System -L$(SDK_INSTALL_ROOT)/usr/lib/system $(ldyld) $(lsystem_kernel) -Wl,-alias_list,$(SRCROOT)/xcodeconfig/libplatform.aliases,$(DIRTY_DATA_LDFLAGS) $(SIMULATOR_LDFLAGS)
 
 OTHER_LIBTOOLFLAGS = $(OTHER_LIBTOOLFLAGS_$(TARGET_NAME))
 OTHER_LIBTOOLFLAGS_libplatform_simple_dyld = $(CONFIGURATION_BUILD_DIR)/libsimple_$(CURRENT_VARIANT).a
@@ -87,6 +87,20 @@ OTHER_LIBTOOLFLAGS_libucontext = $(UCONTEXT_LIBRARIES)
 
 lsystem_kernel = -lsystem_kernel
 lsystem_kernel[sdk=iphonesimulator*] = -lsystem_sim_kernel
-lcompiler_rt = -lcompiler_rt
-lcompiler_rt[sdk=driverkit*] =
+
+// rdar://problem/46882983&54282933
+// On macOS, to support the i386 watchOS Simulator, we will continue building
+// libplatform with an i386 slice for the foreseeable future, even though the
+// rest of the OS has dropped i386. (This also applies to libpthread and
+// libsyscall). Normally, dylibs with any dependency on another dylib need
+// to link libdyld for lazy stub binding. libdyld has many dependencies, so
+// that would create a dependency cycle that leads to the whole libSystem
+// umbrella keeping an i386 slice. Instead, ld64 has changed so that the
+// i386 simulator_support slice of libplatform doesn't use lazy binding and so
+// doesn't need -ldyld.
+// So, to break the dependency cycle, macOS libplatform will not link libdyld.
+// All other platforms (including DriverKit on macOS) will continue to link
+// libdyld.
+ldyld = -ldyld
+ldyld[sdk=macos*] =
 

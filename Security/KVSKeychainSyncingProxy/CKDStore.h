@@ -22,7 +22,7 @@
 
 - (NSDictionary<NSString *, id>*) copyAsDictionary;
 
-- (void)pushWrites;
+- (void)pushWrites:(NSArray<NSString*>*)keys requiresForceSync:(BOOL)requiresForceSync;
 - (BOOL)pullUpdates:(NSError**) failure;
 
 - (void)perfCounters:(void(^)(NSDictionary *counters))callback;

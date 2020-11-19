@@ -34,6 +34,7 @@ extern "C" {
 
 extern const char *           kDAMainMountPointFolder;
 extern const char *           kDAMainMountPointFolderCookieFile;
+extern const char *           kDAMainDataVolumeMountPointFolder;
 
 extern CFURLRef               gDABundlePath;
 extern CFStringRef            gDAConsoleUser;

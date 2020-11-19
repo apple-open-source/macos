@@ -18,6 +18,7 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/accessibility/atk"
     "${WEBCORE_DIR}/editing/atk"
     "${WEBCORE_DIR}/page/gtk"
+    "${WEBCORE_DIR}/platform/adwaita"
     "${WEBCORE_DIR}/platform/generic"
     "${WEBCORE_DIR}/platform/gtk"
     "${WEBCORE_DIR}/platform/graphics/egl"
@@ -49,6 +50,8 @@ if (USE_WPE_RENDERER)
 endif ()
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+    platform/adwaita/ScrollbarThemeAdwaita.h
+
     platform/graphics/x11/PlatformDisplayX11.h
     platform/graphics/x11/XErrorTrapper.h
     platform/graphics/x11/XUniquePtr.h
@@ -57,33 +60,31 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/gtk/GRefPtrGtk.h
     platform/gtk/GUniquePtrGtk.h
     platform/gtk/GtkUtilities.h
-    platform/gtk/PasteboardHelper.h
+    platform/gtk/GtkVersioning.h
+    platform/gtk/ScrollbarThemeGtk.h
     platform/gtk/SelectionData.h
 
     platform/text/enchant/TextCheckerEnchant.h
 )
 
 list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
-    ${WEBCORE_DIR}/css/mediaControlsGtk.css
+    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsAdwaita.css
+    ${WEBCORE_DIR}/css/themeAdwaita.css
 )
 
 set(WebCore_USER_AGENT_SCRIPTS
-    ${WEBCORE_DIR}/en.lproj/mediaControlsLocalizedStrings.js
-    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsBase.js
-    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsGtk.js
+    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsAdwaita.js
 )
 
-set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/gtk/RenderThemeGtk.cpp)
+set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/rendering/RenderThemeAdwaita.cpp)
 
 list(APPEND WebCore_LIBRARIES
     ${ATK_LIBRARIES}
     ${ENCHANT_LIBRARIES}
-    ${GDK_LIBRARIES}
     ${GLIB_GIO_LIBRARIES}
     ${GLIB_GMODULE_LIBRARIES}
     ${GLIB_GOBJECT_LIBRARIES}
     ${GLIB_LIBRARIES}
-    ${GTK_LIBRARIES}
     ${LIBSECCOMP_LIBRARIES}
     ${LIBSECRET_LIBRARIES}
     ${LIBTASN1_LIBRARIES}
@@ -94,34 +95,25 @@ list(APPEND WebCore_LIBRARIES
     ${X11_Xdamage_LIB}
     ${X11_Xrender_LIB}
     ${X11_Xt_LIB}
-    ${ZLIB_LIBRARIES}
+    GTK::GTK
 )
 
 if (USE_WPE_RENDERER)
     list(APPEND WebCore_LIBRARIES
-        ${WPE_LIBRARIES}
+        WPE::libwpe
     )
 endif ()
 
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${ATK_INCLUDE_DIRS}
     ${ENCHANT_INCLUDE_DIRS}
-    ${GDK_INCLUDE_DIRS}
     ${GIO_UNIX_INCLUDE_DIRS}
     ${GLIB_INCLUDE_DIRS}
-    ${GTK_INCLUDE_DIRS}
     ${LIBSECCOMP_INCLUDE_DIRS}
     ${LIBSECRET_INCLUDE_DIRS}
     ${LIBTASN1_INCLUDE_DIRS}
     ${UPOWERGLIB_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIRS}
 )
-
-if (USE_WPE_RENDERER)
-    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
-        ${WPE_INCLUDE_DIRS}
-    )
-endif ()
 
 if (USE_OPENGL)
     list(APPEND WebCore_SOURCES
@@ -131,28 +123,28 @@ endif ()
 
 if (USE_ANGLE_WEBGL)
     list(APPEND WebCore_SOURCES
-        platform/graphics/angle/Extensions3DANGLE.cpp
-        platform/graphics/angle/GraphicsContext3DANGLE.cpp
+        platform/graphics/angle/ExtensionsGLANGLE.cpp
+        platform/graphics/angle/GraphicsContextGLANGLE.cpp
         platform/graphics/angle/TemporaryANGLESetting.cpp
     )
 else ()
     list(APPEND WebCore_SOURCES
-        platform/graphics/opengl/Extensions3DOpenGLCommon.cpp
-        platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp
+        platform/graphics/opengl/ExtensionsGLOpenGLCommon.cpp
+        platform/graphics/opengl/GraphicsContextGLOpenGLCommon.cpp
         platform/graphics/opengl/TemporaryOpenGLSetting.cpp
     )
 
     if (USE_OPENGL_ES)
         list(APPEND WebCore_SOURCES
-            platform/graphics/opengl/Extensions3DOpenGLES.cpp
-            platform/graphics/opengl/GraphicsContext3DOpenGLES.cpp
+            platform/graphics/opengl/ExtensionsGLOpenGLES.cpp
+            platform/graphics/opengl/GraphicsContextGLOpenGLES.cpp
         )
     endif ()
 
     if (USE_OPENGL)
         list(APPEND WebCore_SOURCES
-            platform/graphics/opengl/Extensions3DOpenGL.cpp
-            platform/graphics/opengl/GraphicsContext3DOpenGL.cpp
+            platform/graphics/opengl/ExtensionsGLOpenGL.cpp
+            platform/graphics/opengl/GraphicsContextGLOpenGLBase.cpp
         )
     endif ()
 endif ()
@@ -170,12 +162,20 @@ if (ENABLE_WAYLAND_TARGET)
     )
 endif ()
 
+if (ENABLE_GAMEPAD)
+    list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/gamepad/manette/ManetteGamepadProvider.h
+    )
+    list(APPEND WebCore_LIBRARIES
+        Manette::Manette
+    )
+endif ()
+
 include_directories(SYSTEM
     ${WebCore_SYSTEM_INCLUDE_DIRECTORIES}
 )
 
-list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE ${GTK_LIBRARIES})
-list(APPEND WebCoreTestSupport_SYSTEM_INCLUDE_DIRECTORIES ${GTK_INCLUDE_DIRS})
+list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE GTK::GTK)
 
 add_definitions(-DBUILDING_WEBKIT)
 

@@ -22,6 +22,8 @@
 #include <IOKit/kext/kextmanager_types.h>
 #include <IOKit/kext/OSKextPrivate.h>
 
+#include "KernelManagementShims/Shims.h"
+
 #pragma mark Constants
 /*******************************************************************************
 * Constants
@@ -38,11 +40,15 @@ static Boolean    sKextdActive = FALSE;
 /*******************************************************************************
 * Global variables.
 *******************************************************************************/
+
+extern void shimKextloadArgsToKMUtilAndRun(KextloadArgs *);
+
 ExitStatus
 main(int argc, char * const * argv)
 {
     ExitStatus   result = EX_SOFTWARE;
     KextloadArgs toolArgs;
+    boolean_t doShimToKernelManagement = false;
 
    /*****
     * Find out what the program was invoked as.
@@ -74,9 +80,18 @@ main(int argc, char * const * argv)
         goto finish;
     }
 
-    result = checkAccess();
-    if (result != EX_OK) {
-        goto finish;
+    // Determine now if we will be shimming over to KernelManagement,
+    // which allows us to skip some checks that aren't relevant
+    // when they are enforced by kmutil.
+    doShimToKernelManagement = disableKextTools() && isKernelManagementLinked();
+
+    // Access checks only matter if we're doing loads in-process, which isn't
+    // the case if we will shim to kernel management.
+    if (!doShimToKernelManagement) {
+        result = checkAccess();
+        if (result != EX_OK) {
+            goto finish;
+        }
     }
 
    /*****
@@ -109,7 +124,10 @@ main(int argc, char * const * argv)
     CFArrayAppendArray(toolArgs.scanURLs, toolArgs.dependencyURLs,
         RANGE_ALL(toolArgs.dependencyURLs));
 
-    if (sKextdActive) {
+    if (doShimToKernelManagement) {
+        shimKextloadArgsToKMUtilAndRun(&toolArgs);
+        exit(EX_OSERR); // shouldn't get here!
+    } else if (sKextdActive) {
         result = loadKextsViaKextd(&toolArgs);
     } else {
         result = loadKextsIntoKernel(&toolArgs);
@@ -321,7 +339,7 @@ finish:
 ExitStatus checkAccess(void)
 {
     ExitStatus    result         = EX_OK;
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     kern_return_t kern_result    = kOSReturnError;
     mach_port_t   kextd_port     = MACH_PORT_NULL;
 
@@ -358,17 +376,25 @@ ExitStatus checkAccess(void)
         goto finish;
     }
 
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 
 finish:
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     if (kextd_port != MACH_PORT_NULL) {
         mach_port_deallocate(mach_task_self(), kextd_port);
     }
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) */
 
     return result;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+ExitStatus loadKextsViaKernelManagement(KextloadArgs * toolArgs)
+{
+	// todo: load kexts by identifier as well
+	return KernelManagementLoadKextsWithURLs(toolArgs->kextURLs);
 }
 
 /*******************************************************************************
@@ -463,7 +489,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
     char       scratchCString[PATH_MAX];
     CFIndex    count, index;
     OSKextRef ownedKext = NULL;  // must release
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     Boolean         earlyBoot = false;
     Boolean         isNetbootEnvironment = false;
     AuthOptions_t   originalAuthOptions;
@@ -482,7 +508,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
         goto finish;
     }
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     // not perfect, but we check to see if kextd is running to determine
     // if we are in early boot.
     int     skc_result;
@@ -549,7 +575,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             goto finish;
         }
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
         // Diskless netboot environment authentication workaround: 18367703
         isNetbootKext = ((CFStringCompare(kextID, CFSTR("com.apple.nke.asp-tcp"), 0) == kCFCompareEqualTo) ||
                          (CFStringCompare(kextID, CFSTR("com.apple.filesystems.afpfs"), 0) == kCFCompareEqualTo));
@@ -599,7 +625,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             result = exitStatusForOSReturn(kOSKextReturnNotLoadable);
             goto finish;
         }
-#endif // not TARGET_OS_EMBEDDED
+#endif // not (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #if HAVE_DANGERZONE
         // Note: This code path is mainly only used in early boot before daemons aren't
@@ -618,12 +644,12 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             /* personalityNames */ NULL,
             /* delayAutounloadFlag */ false);
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
         if (isNetbootEnvironment && isNetbootKext) {
             // Restore original authentication options for future loads.
             memcpy(&authOptions, &originalAuthOptions, sizeof(AuthOptions_t));
         }
-#endif // not TARGET_OS_EMBEDDED
+#endif // not (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
         if (loadResult != kOSReturnSuccess) {
             OSKextLog(/* kext */ NULL,
@@ -675,7 +701,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             /* The codepath from OSKextLoadWithOptions will do any error logging
              * and cleanup needed.
              */
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
             CFStringRef     myBundleID = NULL;         // do not release
 
             myBundleID = OSKextGetIdentifier(theKext);
@@ -746,7 +772,7 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
             dzRecordKextLoadBypass(theKext, TRUE);
 #endif // HAVE_DANGERZONE
 
-#endif // not TARGET_OS_EMBEDDED
+#endif // not (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
             loadResult = OSKextLoadWithOptions(theKext,
                                                kOSKextExcludeNone,
@@ -754,12 +780,12 @@ ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs)
                                                NULL,
                                                false);
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
             if (isNetbootEnvironment && isNetbootKext) {
                 // Restore original authentication options for future loads.
                 memcpy(&authOptions, &originalAuthOptions, sizeof(AuthOptions_t));
             }
-#endif // not TARGET_OS_EMBEDDED
+#endif // not (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
         }
         if (loadResult != kOSReturnSuccess) {
             OSKextLog(/* kext */ NULL,

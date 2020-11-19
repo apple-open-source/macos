@@ -111,14 +111,8 @@ UPSLowPowerPrefsHaveChanged(void)
 }
 
 
-/* UPSLowPowerPSChange
- *
- * Is the handler that gets notified when power source (battery or UPS)
- * state changes. We might respond to this by posting a user notification
- * or performing emergency shutdown.
- */
-__private_extern__ void
-UPSLowPowerPSChange(void)
+static void
+UPSLowPowerPSChange_sync(void)
 {
     CFDictionaryRef     ups_info = 0;
     int                 t1, t2;
@@ -265,7 +259,11 @@ UPSLowPowerPSChange(void)
     
     // exit point
     _exit_PowerSourcesHaveChanged_:
-    
+
+    if (ups_info) {
+        CFRelease(ups_info);
+    }
+
     if(power_source && CFEqual(power_source, CFSTR(kIOPSBatteryPowerValue))) {
         last_ups_power_source = _kIOUPSInternalPowerBit;
     } else {
@@ -274,7 +272,24 @@ UPSLowPowerPSChange(void)
     
     return;
 }
- 
+
+/* UPSLowPowerPSChange
+ *
+ * Is the handler that gets notified when power source (battery or UPS)
+ * state changes. We might respond to this by posting a user notification
+ * or performing emergency shutdown.
+ *
+ * This is called from BatteryTimeRemaining on its queue but also calls back
+ * into that module. Hence, dispatch in a different queue.
+ */
+__private_extern__ void
+UPSLowPowerPSChange(void)
+{
+    dispatch_async(_getPMMainQueue(), ^() {
+        UPSLowPowerPSChange_sync();
+    });
+}
+
 /* _doPowerEmergencyShutdown()
  *
  Performs a semi-complicated proecdure to get machines experiencing power failure
@@ -554,7 +569,7 @@ _reEvaluatePowerSourcesLater(int seconds)
 {
     dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(seconds * NSEC_PER_SEC));
     dispatch_after(when, _getPMMainQueue(), ^{
-        UPSLowPowerPSChange();
+        UPSLowPowerPSChange_sync();
     });
 }
 

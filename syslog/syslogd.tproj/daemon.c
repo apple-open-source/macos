@@ -42,7 +42,9 @@
 #include <uuid/uuid.h>
 #include <asl_private.h>
 #include <os/transaction_private.h>
+
 #include "daemon.h"
+
 
 #define LIST_SIZE_DELTA 256
 #define STATS_TABLE_SIZE 256
@@ -72,7 +74,7 @@ static int name_change_token = -1;
 
 static OSSpinLock count_lock = 0;
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 static os_transaction_t main_transaction;
 #endif
 
@@ -322,7 +324,7 @@ asl_client_count_increment()
 {
 	OSSpinLockLock(&count_lock);
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (global.client_count == 0) main_transaction = os_transaction_create("com.apple.syslogd");
 #endif
 	global.client_count++;
@@ -336,7 +338,7 @@ asl_client_count_decrement()
 	OSSpinLockLock(&count_lock);
 
 	if (global.client_count > 0) global.client_count--;
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (global.client_count == 0) os_release(main_transaction);
 #endif
 
@@ -655,7 +657,7 @@ init_globals(void)
 	global.debug_file = NULL;
 	global.launchd_enabled = 1;
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	global.dbtype = DB_TYPE_MEMORY;
 #else
 	global.dbtype = DB_TYPE_FILE;
@@ -873,7 +875,7 @@ control_set_param(const char *s, bool eval)
 		}
 		else
 		{
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 			intval = DB_TYPE_MEMORY;
 #else
 			intval = DB_TYPE_FILE;
@@ -913,6 +915,7 @@ control_message(asl_msg_t *msg)
 
 	return 0;
 }
+
 
 void
 process_message(asl_msg_t *msg, uint32_t source)
@@ -971,6 +974,7 @@ process_message(asl_msg_t *msg, uint32_t source)
 		status = aslmsg_verify(msg, source, &kplevel, &uid);
 		if (status == VERIFY_STATUS_OK)
 		{
+
 			if ((source == SOURCE_KERN) && (kplevel >= 0))
 			{
 				if (kplevel > 7) kplevel = 7;

@@ -54,15 +54,16 @@ SOSIntervalEvent fooEvent = [[SOSIntervalEvent alloc] initWithDefaults:account.s
 }
 
 -(id)initWithDefaults:(NSUserDefaults*) defaults dateDescription:(NSString *)dateDescription earliest:(NSTimeInterval) earliest latest: (NSTimeInterval) latest {
-    if(!self) return nil;
-    _defaults = defaults;
-    if(! _defaults) {
-        _defaults =  [[NSUserDefaults alloc] init];
+    if ((self = [super init])) {
+        _defaults = defaults;
+        if(! _defaults) {
+            _defaults =  [[NSUserDefaults alloc] init];
+        }
+        _dateDescription = dateDescription;
+        _earliestDate = earliest;
+        _latestDate = latest;
+        [self schedule];
     }
-    _dateDescription = dateDescription;
-    _earliestDate = earliest;
-    _latestDate = latest;
-    [self schedule];
     return self;
 }
 

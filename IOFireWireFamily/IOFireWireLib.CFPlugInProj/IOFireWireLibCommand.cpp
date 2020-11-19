@@ -496,7 +496,7 @@ namespace IOFireWireLib {
 												 refrncData,kOSAsyncRef64Count,
 												 submit_params,paramsSize,
 												 submitResult,&outputStructCnt);
-			*submitResultSize = outputStructCnt;
+			*submitResultSize = (mach_msg_type_number_t)outputStructCnt;
 		}
 		
 
@@ -590,7 +590,7 @@ namespace IOFireWireLib {
 	Cmd::SetMaxPacket(
 		IOByteCount				inMaxBytes)
 	{
-		mParams->newMaxPacket = inMaxBytes ;
+		mParams->newMaxPacket = (UInt32)inMaxBytes ;
 		// staleFlags will be reset to 0 on each Submit() call,
 		// so we set kFireWireCommandStale_MaxPacket before we submit
 
@@ -666,9 +666,9 @@ namespace IOFireWireLib {
 		Cmd*	me = (Cmd*)refcon ;
 	
 		me->mStatus 			= result ;
-		me->mBytesTransferred 	= (unsigned long)quads[0] ;
-		me->mAckCode			= (unsigned long)quads[1];
-		me->mResponseCode		= (unsigned long)quads[2];
+		me->mBytesTransferred 	= (IOByteCount)((unsigned long)quads[0]) ;
+		me->mAckCode			= (UInt32)((unsigned long)quads[1]) ;
+		me->mResponseCode		= (UInt32)((unsigned long)quads[2]) ;
 		me->mIsExecuting 		= false ;
 		
 		if (me->mCallback)
@@ -687,7 +687,7 @@ namespace IOFireWireLib {
 	Cmd::SGetTransferredBytes(
 		IOFireWireLibCommandRef	self)
 	{
-		return IOFireWireIUnknown::InterfaceMap<Cmd>::GetThis(self)->mBytesTransferred ;
+		return (UInt32)IOFireWireIUnknown::InterfaceMap<Cmd>::GetThis(self)->mBytesTransferred ;
 	}
 	
 	void
@@ -1022,7 +1022,7 @@ namespace IOFireWireLib {
 		IOReturn 					result 			= kIOReturnSuccess ;
 		Boolean						syncFlag = mParams->flags & kFWCommandInterfaceSyncExecute ;
 		UInt8						submitResultExtra[sizeof(CommandSubmitResult) + (syncFlag ? mParams->newBufferSize : 0)] ;
-		mach_msg_type_number_t		submitResultSize = sizeof(submitResultExtra) ;
+		mach_msg_type_number_t		submitResultSize = (mach_msg_type_number_t)sizeof(submitResultExtra) ;
 		CommandSubmitResult*		submitResult = reinterpret_cast<CommandSubmitResult*>(submitResultExtra) ;
 		
 		result = Cmd::Submit(mParams, sizeof(*mParams), submitResult, & submitResultSize) ;
@@ -1051,8 +1051,8 @@ namespace IOFireWireLib {
 	
 		me->mStatus 			= result ;
 		me->mBytesTransferred 	= (numQuads *4) + 2;
-		me->mAckCode			= (unsigned long)quads[2];
-		me->mResponseCode		= (unsigned long)quads[1];
+		me->mAckCode			= (UInt32)(unsigned long)quads[2];
+		me->mResponseCode		= (UInt32)(unsigned long)quads[1];
 		me->mIsExecuting 		= false;
 		
 		//zzz this copy is going to have to change for 64 bit		
@@ -1251,6 +1251,7 @@ namespace IOFireWireLib {
 	//
 	// ============================================================
 #pragma mark -
+	// *** WARNING: it looks like we're over-allocating here, but probably shouldn't fix it just in case it might be hiding other bugs
 	WriteQuadCmd::WriteQuadCmd( Device& userclient, io_object_t device, const FWAddress& addr, UInt32 quads[], UInt32 numQuads,
 										CommandCallback callback, bool failOnReset, UInt32 generation, void* refcon )
 	: Cmd( reinterpret_cast<const IUnknownVTbl &>( sInterface ), userclient, device, addr, callback, failOnReset, generation, refcon, 
@@ -1406,13 +1407,13 @@ namespace IOFireWireLib {
 
 		if (quads == 1)
 		{
-			((UInt32*)(mParams+1))[0] = cmpVal ;
-			((UInt32*)(mParams+1))[2] = newVal ;
+			((UInt32*)(mParams+1))[0] = (UInt32)cmpVal ;
+			((UInt32*)(mParams+1))[2] = (UInt32)newVal ;
 		}
 		else
 		{
-			((UInt64*)(mParams+1))[0] = cmpVal ;
-			((UInt64*)(mParams+1))[1] = newVal ;
+			((UInt64*)(mParams+1))[0] = (UInt32)cmpVal ;
+			((UInt64*)(mParams+1))[1] = (UInt32)newVal ;
 		}
 	}	
 
@@ -1667,7 +1668,7 @@ namespace IOFireWireLib {
 		else
 		{
 			me->mSubmitResult.result = (UserObjectHandle)quads[0];
-			me->mSubmitResult.bytesTransferred = (IOByteCount)quads[1];
+			me->mSubmitResult.bytesTransferred = (UInt32)quads[1];
 			me->mSubmitResult.ackCode = (UInt32)quads[2];
 			me->mSubmitResult.responseCode = (UserObjectHandle)quads[3];
 			me->mSubmitResult.lockInfo.didLock = (UserObjectHandle)quads[4];

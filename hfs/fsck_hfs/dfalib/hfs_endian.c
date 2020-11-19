@@ -577,7 +577,7 @@ hfs_swap_HFSPlusBTInternalNode (
                     	srcKey->nodeName.length*sizeof(srcKey->nodeName.unicode[0]));
                     if (cur_debug_level & d_dump_record) {
                     	plog("Record %u (offset 0x%04X):\n", recordIndex, keyOffset);
-                    	HexDump(srcKey, recordSize, FALSE);
+                    	HexDump(srcKey, (unsigned)recordSize, FALSE);
                     }
                 }
 				WriteError(fcb->fcbVolume->vcbGPtr, E_KeyLen, fcb->fcbFileID, src->blockNum);

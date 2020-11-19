@@ -23,16 +23,13 @@
 * THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "config.h"
-#include "UserInterfaceIdiom.h"
+#import "config.h"
+#import "UserInterfaceIdiom.h"
 
 #if PLATFORM(IOS_FAMILY)
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <UIKit/UIDevice_Private.h>
-#else
-#import <UIKit/UIDevice.h>
-#endif
+#import "UIKitSPI.h"
+#import <WebCore/Device.h>
 
 namespace WebKit {
 
@@ -44,9 +41,20 @@ enum class UserInterfaceIdiomState : uint8_t {
 
 static UserInterfaceIdiomState userInterfaceIdiomIsPadState = UserInterfaceIdiomState::Unknown;
 
-#if PLATFORM(IOS_FAMILY)
 static inline bool userInterfaceIdiomIsPad()
 {
+#if PLATFORM(MACCATALYST)
+    // UIKit varies the UIUserInterfaceIdiom between iPad and macOS in macCatalyst, depending on various settings,
+    // but for the purposes of WebKit we always want to use iPad behavior (vs. iPhone) in macCatalyst.
+    // FIXME: We should get rid of this function and have callers make explicit decisions for all of iPhone/iPad/macOS.
+    return true;
+#else
+    // If we are in a daemon, we cannot use UIDevice. Fall back to checking the hardware itself.
+    // Since daemons don't ever run in an iPhone-app-on-iPad jail, this will be accurate in the daemon case,
+    // but is not sufficient in the application case.
+    if (![UIApplication sharedApplication])
+        return WebCore::deviceClass() == MGDeviceClassiPad;
+
     // This inline function exists to thwart unreachable code
     // detection on platforms where UICurrentUserInterfaceIdiomIsPad
     // is defined directly to false.
@@ -55,18 +63,18 @@ static inline bool userInterfaceIdiomIsPad()
 #else
     return [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPad;
 #endif
-}
 #endif
+}
 
-bool currentUserInterfaceIdiomIsPad()
+bool currentUserInterfaceIdiomIsPadOrMac()
 {
     if (userInterfaceIdiomIsPadState == UserInterfaceIdiomState::Unknown)
-        setCurrentUserInterfaceIdiomIsPad(userInterfaceIdiomIsPad());
+        setCurrentUserInterfaceIdiomIsPadOrMac(userInterfaceIdiomIsPad());
 
     return userInterfaceIdiomIsPadState == UserInterfaceIdiomState::IsPad;
 }
 
-void setCurrentUserInterfaceIdiomIsPad(bool isPad)
+void setCurrentUserInterfaceIdiomIsPadOrMac(bool isPad)
 {
     userInterfaceIdiomIsPadState = isPad ? UserInterfaceIdiomState::IsPad : UserInterfaceIdiomState::IsNotPad;
 }

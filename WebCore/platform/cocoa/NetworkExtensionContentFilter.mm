@@ -26,8 +26,6 @@
 #import "config.h"
 #import "NetworkExtensionContentFilter.h"
 
-#if HAVE(NETWORK_EXTENSION)
-
 #import "ContentFilterUnblockHandler.h"
 #import "Logging.h"
 #import "ResourceRequest.h"
@@ -71,9 +69,9 @@ bool NetworkExtensionContentFilter::enabled()
     return enabled;
 }
 
-std::unique_ptr<NetworkExtensionContentFilter> NetworkExtensionContentFilter::create()
+UniqueRef<NetworkExtensionContentFilter> NetworkExtensionContentFilter::create()
 {
-    return makeUnique<NetworkExtensionContentFilter>();
+    return makeUniqueRef<NetworkExtensionContentFilter>();
 }
 
 void NetworkExtensionContentFilter::initialize(const URL* url)
@@ -230,9 +228,10 @@ void NetworkExtensionContentFilter::handleDecision(NEFilterSourceStatus status, 
 
 void NetworkExtensionContentFilter::setHasConsumedSandboxExtensions(bool hasConsumedSandboxExtensions)
 {
+    if (m_sandboxExtensionsState == SandboxExtensionsState::Consumed)
+        return;
+
     m_sandboxExtensionsState = (hasConsumedSandboxExtensions ? SandboxExtensionsState::Consumed : SandboxExtensionsState::NotConsumed);
 }
 
 } // namespace WebCore
-
-#endif // HAVE(NETWORK_EXTENSION)

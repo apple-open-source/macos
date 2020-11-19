@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 fr_CM{
-    Version{"2.1.47.70"}
+    Version{"36.1"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -43,22 +43,22 @@ fr_CM{
             }
             intervalFormats{
                 h{
-                    a{"h a – h a"}
-                    h{"h – h a"}
+                    a{"h a – h a"}
+                    h{"h – h a"}
                 }
                 hm{
-                    a{"h:mm a – h:mm a"}
-                    h{"h:mm – h:mm a"}
-                    m{"h:mm – h:mm a"}
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm – h:mm a"}
+                    m{"h:mm – h:mm a"}
                 }
                 hmv{
-                    a{"h:mm a – h:mm a v"}
-                    h{"h:mm – h:mm a v"}
-                    m{"h:mm – h:mm a v"}
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm – h:mm a v"}
+                    m{"h:mm – h:mm a v"}
                 }
                 hv{
-                    a{"h a – h a v"}
-                    h{"h – h a v"}
+                    a{"h a – h a v"}
+                    h{"h – h a v"}
                 }
             }
         }

@@ -125,7 +125,7 @@ protected:
 	ExpansionData * reserved;
 
     virtual bool init( IOFWAddressSpace * primary );
-	virtual	void free();
+	virtual	void free() APPLE_KEXT_OVERRIDE;
 
 	virtual bool isTrustedNode( UInt16 nodeID );
 	virtual void addTrustedNode( IOFireWireDevice * device );
@@ -189,7 +189,7 @@ protected:
     ExpansionData * fIOFWAddressSpaceExpansion;
 
     virtual bool init(IOFireWireBus *bus);
-	virtual	void free();
+	virtual	void free() APPLE_KEXT_OVERRIDE;
   
 public:
 

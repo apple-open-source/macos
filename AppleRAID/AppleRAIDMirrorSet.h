@@ -73,6 +73,7 @@ public:
     virtual bool publishSet(void);
 
     virtual bool isSetComplete(void);
+    virtual bool isSetEmpty(void);
     virtual bool bumpOnError(void);
     virtual UInt32 nextSetState(void);
     virtual OSDictionary * getSetProperties(void);

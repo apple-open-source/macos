@@ -49,7 +49,7 @@ OSDefineMetaClassAndStructors( IOFireWireIRM, OSObject )
 IOFireWireIRM * IOFireWireIRM::create( IOFireWireController * controller )
 {
     IOReturn 		status = kIOReturnSuccess;
-    IOFireWireIRM * me;
+    IOFireWireIRM * me = NULL;
         
     if( status == kIOReturnSuccess )
     {

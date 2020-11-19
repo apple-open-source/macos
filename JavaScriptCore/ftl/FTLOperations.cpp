@@ -36,13 +36,16 @@
 #include "FTLLazySlowPath.h"
 #include "FrameTracers.h"
 #include "InlineCallFrame.h"
-#include "Interpreter.h"
+#include "JSArrayIterator.h"
 #include "JSAsyncFunction.h"
 #include "JSAsyncGeneratorFunction.h"
 #include "JSCInlines.h"
 #include "JSGeneratorFunction.h"
 #include "JSImmutableButterfly.h"
+#include "JSInternalPromise.h"
 #include "JSLexicalEnvironment.h"
+#include "JSMapIterator.h"
+#include "JSSetIterator.h"
 #include "RegExpObject.h"
 
 IGNORE_WARNINGS_BEGIN("frame-address")
@@ -114,6 +117,45 @@ extern "C" void JIT_OPERATION operationPopulateObjectInOSR(JSGlobalObject* globa
             activation->variableAt(ScopeOffset(property.location().info())).set(vm, activation, JSValue::decode(values[i]));
         }
 
+        break;
+    }
+
+    case PhantomNewInternalFieldObject: {
+        auto materialize = [&] (auto* target) {
+            using JSCellType = std::remove_reference_t<decltype(*target)>;
+            // Figure out what to populate the iterator with
+            for (unsigned i = materialization->properties().size(); i--;) {
+                const ExitPropertyValue& property = materialization->properties()[i];
+                if (property.location().kind() != InternalFieldObjectPLoc)
+                    continue;
+                ASSERT(property.location().info() < JSCellType::numberOfInternalFields);
+                target->internalField(static_cast<typename JSCellType::Field>(property.location().info())).set(vm, target, JSValue::decode(values[i]));
+            }
+        };
+
+        JSObject* target = jsCast<JSObject*>(JSValue::decode(*encodedValue));
+        switch (target->type()) {
+        case JSArrayIteratorType:
+            materialize(jsCast<JSArrayIterator*>(target));
+            break;
+        case JSMapIteratorType:
+            materialize(jsCast<JSMapIterator*>(target));
+            break;
+        case JSSetIteratorType:
+            materialize(jsCast<JSSetIterator*>(target));
+            break;
+        case JSPromiseType:
+            if (target->classInfo(vm) == JSInternalPromise::info())
+                materialize(jsCast<JSInternalPromise*>(target));
+            else {
+                ASSERT(target->classInfo(vm) == JSPromise::info());
+                materialize(jsCast<JSPromise*>(target));
+            }
+            break;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            break;
+        }
         break;
     }
 
@@ -279,6 +321,54 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(JSGlobalObject*
         return result;
     }
 
+    case PhantomNewInternalFieldObject: {
+        // Figure out what structure.
+        Structure* structure = nullptr;
+        for (unsigned i = materialization->properties().size(); i--;) {
+            const ExitPropertyValue& property = materialization->properties()[i];
+            if (property.location() == PromotedLocationDescriptor(StructurePLoc)) {
+                RELEASE_ASSERT(JSValue::decode(values[i]).asCell()->inherits<Structure>(vm));
+                structure = jsCast<Structure*>(JSValue::decode(values[i]));
+            }
+        }
+        RELEASE_ASSERT(structure);
+
+        // The real values will be put subsequently by
+        // operationPopulateNewObjectInOSR. See the PhantomNewObject
+        // case for details.
+        switch (structure->typeInfo().type()) {
+        case JSArrayIteratorType: {
+            JSArrayIterator* result = JSArrayIterator::createWithInitialValues(vm, structure);
+            RELEASE_ASSERT(materialization->properties().size() - 1 == JSArrayIterator::numberOfInternalFields);
+            return result;
+        }
+        case JSMapIteratorType: {
+            JSMapIterator* result = JSMapIterator::createWithInitialValues(vm, structure);
+            RELEASE_ASSERT(materialization->properties().size() - 1 == JSMapIterator::numberOfInternalFields);
+            return result;
+        }
+        case JSSetIteratorType: {
+            JSSetIterator* result = JSSetIterator::createWithInitialValues(vm, structure);
+            RELEASE_ASSERT(materialization->properties().size() - 1 == JSSetIterator::numberOfInternalFields);
+            return result;
+        }
+        case JSPromiseType: {
+            if (structure->classInfo() == JSInternalPromise::info()) {
+                JSInternalPromise* result = JSInternalPromise::createWithInitialValues(vm, structure);
+                RELEASE_ASSERT(materialization->properties().size() - 1 == JSInternalPromise::numberOfInternalFields);
+                return result;
+            }
+            ASSERT(structure->classInfo() == JSPromise::info());
+            JSPromise* result = JSPromise::createWithInitialValues(vm, structure);
+            RELEASE_ASSERT(materialization->properties().size() - 1 == JSPromise::numberOfInternalFields);
+            return result;
+        }
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+            return nullptr;
+        }
+    }
+
     case PhantomCreateRest:
     case PhantomDirectArguments:
     case PhantomClonedArguments: {
@@ -411,7 +501,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(JSGlobalObject*
                 array->putDirectIndex(globalObject, arrayIndex, JSValue::decode(values[i]));
             }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
             // We avoid this O(n^2) loop when asserts are disabled, but the condition checked here
             // must hold to ensure the correctness of the above loop because of how we allocate the array.
             for (unsigned targetIndex = 0; targetIndex < arraySize; ++targetIndex) {
@@ -434,7 +524,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(JSGlobalObject*
                 }
                 ASSERT(found);
             }
-#endif
+#endif // ASSERT_ENABLED
             return array;
         }
 
@@ -505,7 +595,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(JSGlobalObject*
             // We also cannot allocate a new butterfly from compilation threads since it's invalid to allocate cells from
             // a compilation thread.
             WTF::storeStoreFence();
-            codeBlock->constantRegister(newArrayBuffer.m_immutableButterfly.offset()).set(vm, codeBlock, immutableButterfly);
+            codeBlock->constantRegister(newArrayBuffer.m_immutableButterfly).set(vm, codeBlock, immutableButterfly);
             WTF::storeStoreFence();
         }
 
@@ -540,7 +630,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(JSGlobalObject*
         JSArray* result = JSArray::tryCreate(vm, structure, arraySize);
         RELEASE_ASSERT(result);
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         // Ensure we see indices for everything in the range: [0, numProperties)
         for (unsigned i = 0; i < numProperties; ++i) {
             bool found = false;
@@ -553,7 +643,7 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(JSGlobalObject*
             }
             ASSERT(found);
         }
-#endif
+#endif // ASSERT_ENABLED
 
         Vector<JSValue, 8> arguments;
         arguments.grow(numProperties);
@@ -604,6 +694,35 @@ extern "C" JSCell* JIT_OPERATION operationMaterializeObjectInOSR(JSGlobalObject*
         RELEASE_ASSERT_NOT_REACHED();
         return nullptr;
     }
+}
+
+extern "C" int32_t JIT_OPERATION operationSwitchStringAndGetBranchOffset(JSGlobalObject* globalObject, size_t tableIndex, JSString* string)
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
+
+    StringImpl* strImpl = string->value(globalObject).impl();
+
+    RETURN_IF_EXCEPTION(throwScope, 0);
+
+    return callFrame->codeBlock()->stringSwitchJumpTable(tableIndex).offsetForValue(strImpl, std::numeric_limits<int32_t>::min());
+}
+
+extern "C" int32_t JIT_OPERATION operationTypeOfObjectAsTypeofType(JSGlobalObject* globalObject, JSCell* object)
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+
+    ASSERT(jsDynamicCast<JSObject*>(vm, object));
+
+    if (object->structure(vm)->masqueradesAsUndefined(globalObject))
+        return static_cast<int32_t>(TypeofType::Undefined);
+    if (object->isCallable(vm))
+        return static_cast<int32_t>(TypeofType::Function);
+    return static_cast<int32_t>(TypeofType::Object);
 }
 
 extern "C" void* JIT_OPERATION operationCompileFTLLazySlowPath(CallFrame* callFrame, unsigned index)

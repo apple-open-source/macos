@@ -125,7 +125,6 @@
 
 #import <IOKit/firewire/IOFireWireNub.h>
 #import <IOKit/firewire/IOFireWireController.h>
-//#import <IOKit/firewire/FireLog.h>
 
 // protected
 #import <IOKit/firewire/IOFireWireLink.h>
@@ -422,7 +421,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 	// see if user specified a packet queue and queue size
 	if ( !params->queueBuffer && ( !(fFlags & kFWAddressSpaceAutoWriteReply) || !(fFlags & kFWAddressSpaceAutoReadReply) ) )
 	{
-		DebugLog("IOFWUserPseudoAddressSpace::initAll: address space without queue buffer must have both auto-write and auto-read set\n") ;
+		DebugLog("IOFWUserPseudoAddressSpace::completeInit: address space without queue buffer must have both auto-write and auto-read set\n") ;
 		status = false ;
 	}
 
@@ -431,7 +430,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 	{
 		if ( params->queueBuffer )
 		{			
-			fPacketQueue = IOFWRingBufferQ::withAddressRange( params->queueBuffer, params->queueSize, kIODirectionOutIn, fUserClient->getOwningTask() ) ;
+			fPacketQueue = IOFWRingBufferQ::withAddressRange( params->queueBuffer, params->queueSize, kIODirectionInOut, fUserClient->getOwningTask() ) ;
 			
 			if ( !fPacketQueue )
 			{
@@ -450,7 +449,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 		// init the easy vars
 		fLastReadHeader 			= new IOFWPacketHeader ;
 		fLastWrittenHeader			= fLastReadHeader ;
-		bzero(fLastWrittenHeader, sizeof(fLastWrittenHeader));
+		bzero(fLastWrittenHeader, sizeof(IOFWPacketHeader));
 		
 		// get a lock for the packet queue
 		fLock = IOLockAlloc() ;
@@ -472,7 +471,7 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 			// the backingstore is required to be the same size as the address space, per documentation.
 			fDesc = IOMemoryDescriptor::withAddressRange(	params->backingStore,
 															params->size,
-															kIODirectionOutIn,
+															kIODirectionInOut,
 															userclient->getOwningTask() ) ;
 			if (!fDesc)
 			{
@@ -535,7 +534,7 @@ IOFWUserPseudoAddressSpace::initPseudo(
 	IOFireWireUserClient*		userclient, 
 	IOFireWireLib::AddressSpaceCreateParams* 	params)
 {
-	if ( !IOFWPseudoAddressSpace::initAll( userclient->getOwner()->getController(), & fAddress, params->size, NULL, NULL, this ))
+	if ( !IOFWPseudoAddressSpace::initAll( userclient->getOwner()->getController(), & fAddress, (UInt32)params->size, NULL, NULL, this ))
 	{
 		DebugLog("IOFWUserPseudoAddressSpace::initPseudo: IOFWPseudoAddressSpace::initAll failed\n") ;
 		return false ;
@@ -558,7 +557,7 @@ IOFWUserPseudoAddressSpace::initFixed(
 	if ( addrSpace && !(params->flags & kFWAddressSpaceShareIfExists ) )
 		return false ;
 
-	if ( !IOFWPseudoAddressSpace::initFixed( userclient->getOwner()->getController(), fAddress, params->size, NULL, NULL, this ))
+	if ( !IOFWPseudoAddressSpace::initFixed( userclient->getOwner()->getController(), fAddress, (UInt32)params->size, NULL, NULL, this ))
 		return false ;
 	
 	// mark this address space as exclusve
@@ -627,7 +626,7 @@ IOFWUserPseudoAddressSpace::doPacket(
 		skip = !(fPacketQueue->isSpaceAvailable(len, &destOffset));
 	}
 	
-	DebugLog("\tdP Packet will %s fit. Length: %lu Available: %lu Payload: 0x%lx\n", skip ? "NOT" : " ", len, fPacketQueue->spaceAvailable(), *((UInt32 *)buf));
+	DebugLog("\tdP Packet will %s fit. Length: %d Available: %llu Payload: 0x%x\n", skip ? "NOT" : " ", len, fPacketQueue->spaceAvailable(), *((UInt32 *)buf));
 	
 	IOFWPacketHeader * currentHeader = fLastWrittenHeader;
 	
@@ -852,15 +851,15 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
 		
 		switch(type)
 		{
-			case IOFWPacketHeader::kLockPacket:
+            case IOFWPacketHeader::kLockPacket:
 			{
 				DebugLog("\tCplt lock\n");
-				fUserClient->getOwner()->getController()->asyncLockResponse( oldHeader->IncomingPacket.generation,
+				fUserClient->getOwner()->getController()->asyncLockResponse( (UInt32)oldHeader->IncomingPacket.generation,
 																			oldHeader->IncomingPacket.nodeID, 
-																			oldHeader->IncomingPacket.speed,
+																			(int)oldHeader->IncomingPacket.speed,
 																			fDesc,//fBackingStore
 																			oldHeader->IncomingPacket.addrLo - fAddress.addressLo,
-																			oldHeader->IncomingPacket.packetSize >> 1,
+																			(int)(oldHeader->IncomingPacket.packetSize >> 1),
 																			(void*)oldHeader->IncomingPacket.reqrefcon ) ;
 			}
 			// fall through
@@ -875,19 +874,19 @@ IOFWUserPseudoAddressSpace::clientCommandIsComplete(
 			case IOFWPacketHeader::kReadPacket:
 			{
 				DebugLog("\tCplt read\n");
-                    fUserClient->getOwner()->getController()->asyncReadResponse( oldHeader->ReadPacket.generation,
+                    fUserClient->getOwner()->getController()->asyncReadResponse( (UInt32)oldHeader->ReadPacket.generation,
                                                                                 oldHeader->ReadPacket.nodeID, 
-                                                                                oldHeader->ReadPacket.speed,
+                                                                                (int)oldHeader->ReadPacket.speed,
                                                                                 fDesc,//fBackingStore
                                                                                 oldHeader->ReadPacket.addrLo - fAddress.addressLo,
-                                                                                oldHeader->ReadPacket.packetSize,
+                                                                                (int)oldHeader->ReadPacket.packetSize,
                                                                                 (void*)oldHeader->ReadPacket.reqrefcon ) ;
 				break;
 			}
 				
 			default:
 				// nothing...
-				DebugLog("\tCplt type %u\n", type); 
+				DebugLog("\tCplt type %u\n", type);
 				break ;
 		}
 		
@@ -931,7 +930,7 @@ IOFWUserPseudoAddressSpace::sendPacketNotification(
 			#if 0	// debug logging
 			io_user_reference_t hdrSize = IOFWPacketHeaderGetSize(inPacketHeader);
 			io_user_reference_t hdrOffset = IOFWPacketHeaderGetOffset(inPacketHeader);
-			FireLog("\tsPN hdr: %p off %llu size %llu %s\n", inPacketHeader, hdrOffset, hdrSize, inPacketHeader->CommonHeader.type == IOFWPacketHeader::kSkippedPacket ? "SkippedPkt" : "");
+			kprintf("\tsPN hdr: %p off %llu size %llu %s\n", inPacketHeader, hdrOffset, hdrSize, inPacketHeader->CommonHeader.type == IOFWPacketHeader::kSkippedPacket ? "SkippedPkt" : "");
 			
 			IOByteCount len = IOFWPacketHeaderGetSize(inPacketHeader) ;
 			void * bytes = IOMalloc( len );
@@ -939,7 +938,7 @@ IOFWUserPseudoAddressSpace::sendPacketNotification(
 			if ( inPacketHeader->CommonHeader.type == IOFWPacketHeader::kIncomingPacket || inPacketHeader->CommonHeader.type == IOFWPacketHeader::kLockPacket )
 			{
 				fPacketQueue->readBytes( IOFWPacketHeaderGetOffset( inPacketHeader ), bytes, len );
-				FireLog("\tsPN %lu 0x%x\n", len, *((UInt32 *)bytes));
+				kprintf("\tsPN %lu 0x%x\n", len, *((UInt32 *)bytes));
 			}
 			
 			IOFree( bytes, len );

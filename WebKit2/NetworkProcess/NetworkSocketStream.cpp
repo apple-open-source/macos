@@ -31,19 +31,21 @@
 #include "WebSocketStreamMessages.h"
 #include <WebCore/CookieRequestHeaderFieldProxy.h>
 #include <WebCore/SocketStreamError.h>
+#include <wtf/CryptographicallyRandomNumber.h>
 
 namespace WebKit {
 using namespace WebCore;
 
-Ref<NetworkSocketStream> NetworkSocketStream::create(NetworkProcess& networkProcess, URL&& url, PAL::SessionID sessionID, const String& credentialPartition, uint64_t identifier, IPC::Connection& connection, SourceApplicationAuditToken&& auditData)
+Ref<NetworkSocketStream> NetworkSocketStream::create(NetworkProcess& networkProcess, URL&& url, PAL::SessionID sessionID, const String& credentialPartition, WebSocketIdentifier identifier, IPC::Connection& connection, SourceApplicationAuditToken&& auditData)
 {
     return adoptRef(*new NetworkSocketStream(networkProcess, WTFMove(url), sessionID, credentialPartition, identifier, connection, WTFMove(auditData)));
 }
 
-NetworkSocketStream::NetworkSocketStream(NetworkProcess& networkProcess, URL&& url, PAL::SessionID sessionID, const String& credentialPartition, uint64_t identifier, IPC::Connection& connection, SourceApplicationAuditToken&& auditData)
+NetworkSocketStream::NetworkSocketStream(NetworkProcess& networkProcess, URL&& url, PAL::SessionID sessionID, const String& credentialPartition, WebSocketIdentifier identifier, IPC::Connection& connection, SourceApplicationAuditToken&& auditData)
     : m_identifier(identifier)
     , m_connection(connection)
     , m_impl(SocketStreamHandleImpl::create(url, *this, sessionID, credentialPartition, WTFMove(auditData), NetworkStorageSessionProvider::create(networkProcess, sessionID).ptr()))
+    , m_delayFailTimer(*this, &NetworkSocketStream::sendDelayedFailMessage)
 {
 }
 
@@ -101,10 +103,22 @@ void NetworkSocketStream::didUpdateBufferedAmount(SocketStreamHandle& handle, si
     send(Messages::WebSocketStream::DidUpdateBufferedAmount(amount));
 }
 
+static constexpr auto closedPortErrorCode = 61;
+
+void NetworkSocketStream::sendDelayedFailMessage()
+{
+    send(Messages::WebSocketStream::DidFailSocketStream(m_closedPortError));
+}
+
 void NetworkSocketStream::didFailSocketStream(SocketStreamHandle& handle, const SocketStreamError& error)
 {
     ASSERT_UNUSED(handle, &handle == m_impl.ptr());
-    send(Messages::WebSocketStream::DidFailSocketStream(error));
+    
+    if (error.errorCode() == closedPortErrorCode) {
+        m_closedPortError = error;
+        m_delayFailTimer.startOneShot(NetworkProcess::randomClosedPortDelay());
+    } else
+        send(Messages::WebSocketStream::DidFailSocketStream(error));
 }
 
 IPC::Connection* NetworkSocketStream::messageSenderConnection() const
@@ -114,7 +128,7 @@ IPC::Connection* NetworkSocketStream::messageSenderConnection() const
 
 uint64_t NetworkSocketStream::messageSenderDestinationID() const
 {
-    return m_identifier;
+    return m_identifier.toUInt64();
 }
 
 } // namespace WebKit

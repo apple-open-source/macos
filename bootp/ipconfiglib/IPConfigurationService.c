@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -143,11 +143,11 @@ ObjectWrapperRelease(const void * info)
 struct __IPConfigurationService {
     CFRuntimeBase		cf_base;
 
-    if_name_t			ifname;
+    InterfaceName		ifname;
     mach_port_t			server;
     SCDynamicStoreRef		store;
     dispatch_queue_t		queue;
-    CFDataRef			serviceID_data;
+    ServiceID			service_id;
     CFStringRef			store_key;
     ObjectWrapperRef		wrapper;
     CFDictionaryRef		config_dict;
@@ -185,10 +185,8 @@ __IPConfigurationServiceCopyDebugDesc(CFTypeRef cf)
     CFStringAppendFormat(result, NULL,
 			 CFSTR("<IPConfigurationService %p [%p]> {"),
 			 cf, allocator);
-    CFStringAppendFormat(result, NULL, CFSTR("ifname = %s, serviceID = %.*s"),
-			 service->ifname,
-			 (int)CFDataGetLength(service->serviceID_data),
-			 CFDataGetBytePtr(service->serviceID_data));
+    CFStringAppendFormat(result, NULL, CFSTR("ifname = %s, serviceID = %s"),
+			 service->ifname, service->service_id);
     CFStringAppend(result, CFSTR("}"));
     return (result);
 }
@@ -220,36 +218,30 @@ __IPConfigurationServiceDeallocate(CFTypeRef cf)
     }
     if (service->server != MACH_PORT_NULL) {
 	kern_return_t		kret;
-	inline_data_t 		service_id;
-	int			service_id_len;
 	ipconfig_status_t	status;
 
-	service_id_len = (int)CFDataGetLength(service->serviceID_data);
-	bcopy(CFDataGetBytePtr(service->serviceID_data), &service_id,
-	      service_id_len);
 	kret = ipconfig_remove_service_on_interface(service->server,
 						    service->ifname,
-						    service_id, service_id_len,
+						    service->service_id,
 						    &status);
 	if (kret != KERN_SUCCESS) {
 	    IPConfigLogFL(LOG_NOTICE,
-			  "ipconfig_remove_service_on_interface(%s %.*s) "
+			  "ipconfig_remove_service_on_interface(%s %s) "
 			  "failed, %s",
-			  service->ifname, service_id_len, service_id, 
+			  service->ifname, service->service_id,
 			  mach_error_string(kret));
 	}
 	else if (status != ipconfig_status_success_e) {
 	    IPConfigLogFL(LOG_NOTICE,
-			  "ipconfig_remove_service_on_interface(%s %.*s)"
+			  "ipconfig_remove_service_on_interface(%s %s)"
 			  " failed: %s",
-			  service->ifname, service_id_len, service_id, 
+			  service->ifname, service->service_id,
 			  ipconfig_status_string(status));
 	}
 	mach_port_deallocate(mach_task_self(), service->server);
 	service->server = MACH_PORT_NULL;
     }
     my_CFRelease(&service->config_dict);
-    my_CFRelease(&service->serviceID_data);
     my_CFRelease(&service->store_key);
 
     return;
@@ -475,8 +467,6 @@ create_service(IPConfigurationServiceRef service, mach_port_t server)
 {
     CFDataRef			config_data;
     kern_return_t		kret;
-    inline_data_t 		service_id;
-    mach_msg_type_number_t	service_id_len;
     ipconfig_status_t		status = ipconfig_status_success_e;
     boolean_t			tried_to_delete = FALSE;
     void *			xml_data_ptr = NULL;
@@ -493,7 +483,7 @@ create_service(IPConfigurationServiceRef service, mach_port_t server)
     while (1) {
 	kret = ipconfig_add_service(server, service->ifname,
 				    xml_data_ptr, xml_data_len,
-				    service_id, &service_id_len,
+				    service->service_id,
 				    &status);
 	if (kret != KERN_SUCCESS) {
 	    IPConfigLogFL(LOG_NOTICE,
@@ -642,9 +632,7 @@ IPConfigurationServiceSetServiceID(IPConfigurationServiceRef service,
 							serviceID,
 							kSCEntNetIPv6);
     }
-    service->serviceID_data
-	= CFStringCreateExternalRepresentation(NULL, serviceID,
-					       kCFStringEncodingUTF8, 0);
+    ServiceIDInitWithCFString(service->service_id, serviceID);
     return;
 }
 
@@ -709,8 +697,7 @@ IPConfigurationServiceCreate(CFStringRef interface_name,
     }
 
     /* remember the interface name */
-    my_CFStringToCStringAndLength(interface_name, service->ifname,
-				  sizeof(service->ifname));
+    InterfaceNameInitWithCFString(service->ifname, interface_name);
 
     /* create the configuration, encapsulated as XML plist data */
     if (options != NULL) {
@@ -867,27 +854,22 @@ void
 IPConfigurationServiceRefreshConfiguration(IPConfigurationServiceRef service)
 {
     kern_return_t		kret;
-    inline_data_t 		service_id;
-    int				service_id_len;
     ipconfig_status_t		status;
 
-    service_id_len = (int)CFDataGetLength(service->serviceID_data);
-    bcopy(CFDataGetBytePtr(service->serviceID_data), &service_id,
-	  service_id_len);
     kret = ipconfig_refresh_service(service->server,
 				    service->ifname,
-				    service_id, service_id_len,
+				    service->service_id,
 				    &status);
     if (kret != KERN_SUCCESS) {
 	IPConfigLogFL(LOG_NOTICE,
-		      "ipconfig_refresh_service(%s %.*s) failed, %s",
-		      service->ifname, service_id_len, service_id,
+		      "ipconfig_refresh_service(%s %s) failed, %s",
+		      service->ifname, service->service_id,
 		      mach_error_string(kret));
     }
     else if (status != ipconfig_status_success_e) {
 	IPConfigLogFL(LOG_NOTICE,
-		      "ipconfig_refresh_service(%s %.*s) failed: %s",
-		      service->ifname, service_id_len, service_id,
+		      "ipconfig_refresh_service(%s %s) failed: %s",
+		      service->ifname, service->service_id,
 		      ipconfig_status_string(status));
     }
     return;

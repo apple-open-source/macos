@@ -30,3 +30,6 @@ heim_string_create
 heim_string_get_type_id
 heim_uniq_alloc
 heim_warn_blocking
+heim_number_get_type_id
+heim_number_get_int
+heim_number_create

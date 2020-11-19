@@ -26,6 +26,7 @@
 
 #include <xpc/xpc.h>
 #include <DiskArbitration/DiskArbitrationPrivate.h>
+#include <os/log.h>
 
 static void __DAAgentMessageCallback( xpc_object_t object );
 
@@ -51,66 +52,86 @@ static void __DAAgentMessageCallback( xpc_object_t object )
 
     if ( type == XPC_TYPE_DICTIONARY )
     {
-        const void * _disk;
+        xpc_object_t array;
         size_t       _diskSize;
 
-        _disk = xpc_dictionary_get_data( object, _kDAAgentDiskKey, &_diskSize );
+        array = xpc_dictionary_get_value( object, _kDAAgentDiskKey );
 
-        if ( _disk )
+        if ( array )
         {
-            CFDataRef serialization;
+             CFErrorRef errorRef = NULL;
+             int count;
+             int index;
 
-            serialization = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault, _disk, _diskSize, kCFAllocatorNull );
-
-            if ( serialization )
+            if (XPC_TYPE_ARRAY == xpc_get_type( array ))
             {
+                count = xpc_array_get_count( array );
+
+                CFMutableArrayRef disklist;
+                disklist =  CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
                 DASessionRef session;
 
                 session = DASessionCreate( kCFAllocatorDefault );
-
                 if ( session )
                 {
-                    DADiskRef disk;
-
-                    disk = _DADiskCreateFromSerialization( kCFAllocatorDefault, session, serialization );
-
-                    if ( disk )
+                    for ( index = 0; index < count; index++ )
                     {
-                        _DAAgentAction _action;
+                        xpc_object_t connDict = xpc_array_get_value(array, index);
 
-                        _action = xpc_dictionary_get_uint64( object, _kDAAgentActionKey );
+                        CFDataRef serialization;
+                        const void * _disk = xpc_dictionary_get_data( connDict, _kDAAgentDiskKey, &_diskSize );
+                        serialization = CFDataCreateWithBytesNoCopy( kCFAllocatorDefault, _disk, _diskSize, kCFAllocatorNull );
 
-                        switch ( _action )
+                        if ( serialization )
                         {
-                            case _kDAAgentActionShowDeviceRemoval:
-                            {
-                                DADialogShowDeviceRemoval( disk );
+                       
+                            DADiskRef disk;
 
-                                break;
-                            }
-                            case _kDAAgentActionShowDeviceUnreadable:
-                            {
-                                DADialogShowDeviceUnreadable( disk );
+                            disk = _DADiskCreateFromSerialization( kCFAllocatorDefault, session, serialization );
 
-                                break;
-                            }
-                            case _kDAAgentActionShowDeviceUnrepairable:
+                            if ( disk )
                             {
-                                DADialogShowDeviceUnrepairable( disk );
+                                CFArrayInsertValueAtIndex( disklist, index, disk);
 
-                                break;
+                                CFRelease( disk );
                             }
+
+                            CFRelease( serialization );
                         }
-
-                        CFRelease( disk );
                     }
-
                     CFRelease( session );
                 }
+                if ( 0 != CFArrayGetCount(disklist) )
+                {
+                    _DAAgentAction _action;
 
-                CFRelease( serialization );
+                    _action = xpc_dictionary_get_uint64( object, _kDAAgentActionKey );
+
+                    switch ( _action )
+                    {
+                        case _kDAAgentActionShowDeviceRemoval:
+                        {
+                            DADialogShowDeviceRemoval( disklist);
+                            break;
+                        }
+                        case _kDAAgentActionShowDeviceUnreadable:
+                        {
+                            DADiskRef disk = ( DADiskRef ) CFArrayGetValueAtIndex( disklist, 0 );
+                            DADialogShowDeviceUnreadable( disk);
+                            break;
+                        }
+                        case _kDAAgentActionShowDeviceUnrepairable:
+                        {
+                            DADiskRef disk = ( DADiskRef ) CFArrayGetValueAtIndex( disklist, 0 );
+                            DADialogShowDeviceUnrepairable( disk);
+                            break;
+                        }
+                    }
+                }
+                CFArrayRemoveAllValues( disklist );
+                CFRelease( disklist );
             }
-        }
+      }
     }
 }
 

@@ -35,6 +35,7 @@ static char sccsid[] = "@(#)compare.c	8.1 (Berkeley) 6/6/93";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.34 2005/03/29 11:44:17 tobez Exp $");
 
+#include <CoreFoundation/CoreFoundation.h>
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -63,6 +64,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.34 2005/03/29 11:44:17 tobe
 #include <unistd.h>
 #include <vis.h>
 
+#include "metrics.h"
 #include "mtree.h"
 #include "extern.h"
 
@@ -77,9 +79,79 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/compare.c,v 1.34 2005/03/29 11:44:17 tobe
 		tab = "\t"; \
 	}
 
+extern CFMutableDictionaryRef dict;
+
+// max/min times apfs can store on disk
+#define APFS_MAX_TIME 0x7fffffffffffffffLL
+#define APFS_MIN_TIME (-0x7fffffffffffffffLL-1)
+
+static uint64_t
+timespec_to_apfs_timestamp(struct timespec *ts)
+{
+	int64_t total;
+	int64_t seconds;
+
+	// `tv_nsec' can be > one billion, so we split it into two components:
+	// seconds and actual nanoseconds
+	// this allows us to detect overflow on the *total* number of nanoseconds
+	// e.g. if (MAX_SECONDS+2, -2billion) is passed in, we return MAX_SECONDS
+	seconds = ((int64_t)ts->tv_nsec / (int64_t)NSEC_PER_SEC);
+
+	// compute total nanoseconds, checking for overflow:
+	// seconds = sec + (ns/10e9)
+	// total = seconds*10e9 + ns%10e9
+	if (__builtin_saddll_overflow(ts->tv_sec, seconds, &seconds) ||
+			__builtin_smulll_overflow(seconds, NSEC_PER_SEC, &total) ||
+			__builtin_saddll_overflow(((int64_t)ts->tv_nsec % (int64_t)NSEC_PER_SEC), total, &total)) {
+		// checking the sign of "seconds" tells us whether to cap the value at
+		// the max or min time
+		total = (ts->tv_sec > 0) ? APFS_MAX_TIME : APFS_MIN_TIME;
+	}
+
+	return (uint64_t)total;
+}
+
+static void
+set_key_value_pair(void *in_key, uint64_t *in_val, bool is_string)
+{
+	CFStringRef key;
+	CFNumberRef val;
+
+	if (is_string) {
+		key = CFStringCreateWithCString(NULL, (const char*)in_key, kCFStringEncodingUTF8);
+
+	} else {
+		key = CFStringCreateWithFormat(NULL, NULL, CFSTR("%llu"), *(uint64_t*)in_key);
+	}
+
+	val = CFNumberCreate(NULL, kCFNumberSInt64Type, in_val);
+
+	// we always expect the key to be not present
+	if (key && val) {
+		CFDictionaryAddValue(dict, key, val);
+	} else {
+		if (key) {
+			CFRelease(key);
+		}
+		if (val) {
+			CFRelease(val);
+		}
+		RECORD_FAILURE(1, EINVAL);
+		errx(1, "set_key_value_pair: key/value is null");
+	}
+
+	if (key) {
+		CFRelease(key);
+	}
+	if (val) {
+		CFRelease(val);
+	}
+}
+
 int
 compare(char *name __unused, NODE *s, FTSENT *p)
 {
+	int error = 0;
 	struct timeval tv[2];
 	uint32_t val;
 	int fd, label;
@@ -92,31 +164,44 @@ compare(char *name __unused, NODE *s, FTSENT *p)
 	label = 0;
 	switch(s->type) {
 	case F_BLOCK:
-		if (!S_ISBLK(p->fts_statp->st_mode))
+		if (!S_ISBLK(p->fts_statp->st_mode)) {
+			RECORD_FAILURE(2, EINVAL);
 			goto typeerr;
+		}
 		break;
 	case F_CHAR:
-		if (!S_ISCHR(p->fts_statp->st_mode))
+		if (!S_ISCHR(p->fts_statp->st_mode)) {
+			RECORD_FAILURE(3, EINVAL);
 			goto typeerr;
+		}
 		break;
 	case F_DIR:
-		if (!S_ISDIR(p->fts_statp->st_mode))
+		if (!S_ISDIR(p->fts_statp->st_mode)) {
+			RECORD_FAILURE(4, EINVAL);
 			goto typeerr;
+		}
 		break;
 	case F_FIFO:
-		if (!S_ISFIFO(p->fts_statp->st_mode))
+		if (!S_ISFIFO(p->fts_statp->st_mode)) {
+			RECORD_FAILURE(5, EINVAL);
 			goto typeerr;
+		}
 		break;
 	case F_FILE:
-		if (!S_ISREG(p->fts_statp->st_mode))
+		if (!S_ISREG(p->fts_statp->st_mode)) {
+			RECORD_FAILURE(6, EINVAL);
 			goto typeerr;
+		}
 		break;
 	case F_LINK:
-		if (!S_ISLNK(p->fts_statp->st_mode))
+		if (!S_ISLNK(p->fts_statp->st_mode)) {
+			RECORD_FAILURE(7, EINVAL);
 			goto typeerr;
+		}
 		break;
 	case F_SOCK:
 		if (!S_ISSOCK(p->fts_statp->st_mode)) {
+			RECORD_FAILURE(8, EINVAL);
 typeerr:		LABEL;
 			(void)printf("\ttype expected %s found %s\n",
 			    ftype(s->type), inotype(p->fts_statp->st_mode));
@@ -129,28 +214,36 @@ typeerr:		LABEL;
 		LABEL;
 		(void)printf("%suser expected %lu found %lu",
 		    tab, (u_long)s->st_uid, (u_long)p->fts_statp->st_uid);
-		if (uflag)
-			if (chown(p->fts_accpath, s->st_uid, -1))
+		if (uflag) {
+			if (chown(p->fts_accpath, s->st_uid, -1)) {
+				error = errno;
+				RECORD_FAILURE(9, error);
 				(void)printf(" not modified: %s\n",
-				    strerror(errno));
-			else
+				    strerror(error));
+			} else {
 				(void)printf(" modified\n");
-		else
+			}
+		} else {
 			(void)printf("\n");
+		}
 		tab = "\t";
 	}
 	if (s->flags & (F_GID | F_GNAME) && s->st_gid != p->fts_statp->st_gid) {
 		LABEL;
 		(void)printf("%sgid expected %lu found %lu",
 		    tab, (u_long)s->st_gid, (u_long)p->fts_statp->st_gid);
-		if (uflag)
-			if (chown(p->fts_accpath, -1, s->st_gid))
+		if (uflag) {
+			if (chown(p->fts_accpath, -1, s->st_gid)) {
+				error = errno;
+				RECORD_FAILURE(10, error);
 				(void)printf(" not modified: %s\n",
-				    strerror(errno));
-			else
+				    strerror(error));
+			} else {
 				(void)printf(" modified\n");
-		else
+			}
+		} else {
 			(void)printf("\n");
+		}
 		tab = "\t";
 	}
 	if (s->flags & F_MODE &&
@@ -159,14 +252,18 @@ typeerr:		LABEL;
 		LABEL;
 		(void)printf("%spermissions expected %#o found %#o",
 		    tab, s->st_mode, p->fts_statp->st_mode & MBITS);
-		if (uflag)
-			if (chmod(p->fts_accpath, s->st_mode))
+		if (uflag) {
+			if (chmod(p->fts_accpath, s->st_mode)) {
+				error = errno;
+				RECORD_FAILURE(11, error);
 				(void)printf(" not modified: %s\n",
-				    strerror(errno));
-			else
+				    strerror(error));
+			} else {
 				(void)printf(" modified\n");
-		else
+			}
+		} else {
 			(void)printf("\n");
+		}
 		tab = "\t";
 	}
 	if (s->flags & F_NLINK && s->type != F_DIR &&
@@ -186,35 +283,51 @@ typeerr:		LABEL;
 	if ((s->flags & F_TIME) &&
 	     ((s->st_mtimespec.tv_sec != p->fts_statp->st_mtimespec.tv_sec) ||
 	     (s->st_mtimespec.tv_nsec != p->fts_statp->st_mtimespec.tv_nsec))) {
-		LABEL;
-		(void)printf("%smodification time expected %.24s.%09ld ",
-		    tab, ctime(&s->st_mtimespec.tv_sec), s->st_mtimespec.tv_nsec);
-		(void)printf("found %.24s.%09ld",
-		    ctime(&p->fts_statp->st_mtimespec.tv_sec), p->fts_statp->st_mtimespec.tv_nsec);
-		if (uflag) {
-			tv[0].tv_sec = s->st_mtimespec.tv_sec;
-			tv[0].tv_usec = s->st_mtimespec.tv_nsec / 1000;
-			tv[1] = tv[0];
-			if (utimes(p->fts_accpath, tv))
-				(void)printf(" not modified: %s\n",
-				    strerror(errno));
-			else
-				(void)printf(" modified\n");
-		} else
-			(void)printf("\n");
-		tab = "\t";
+		if (!mflag) {
+			LABEL;
+			(void)printf("%smodification time expected %.24s.%09ld ",
+				     tab, ctime(&s->st_mtimespec.tv_sec), s->st_mtimespec.tv_nsec);
+			(void)printf("found %.24s.%09ld",
+				     ctime(&p->fts_statp->st_mtimespec.tv_sec), p->fts_statp->st_mtimespec.tv_nsec);
+			if (uflag) {
+				tv[0].tv_sec = s->st_mtimespec.tv_sec;
+				tv[0].tv_usec = s->st_mtimespec.tv_nsec / 1000;
+				tv[1] = tv[0];
+				if (utimes(p->fts_accpath, tv)) {
+					error = errno;
+					RECORD_FAILURE(12, error);
+					(void)printf(" not modified: %s\n",
+						     strerror(error));
+				} else {
+					(void)printf(" modified\n");
+				}
+			} else {
+				(void)printf("\n");
+			}
+			tab = "\t";
+		}
+		if (!insert_mod && mflag) {
+			uint64_t s_mod_time = timespec_to_apfs_timestamp(&s->st_mtimespec);
+			char *mod_string = "MODIFICATION";
+			set_key_value_pair(mod_string, &s_mod_time, true);
+			insert_mod = 1;
+		}
 	}
 	if (s->flags & F_CKSUM) {
 		if ((fd = open(p->fts_accpath, O_RDONLY, 0)) < 0) {
 			LABEL;
+			error = errno;
+			RECORD_FAILURE(13, error);
 			(void)printf("%scksum: %s: %s\n",
-			    tab, p->fts_accpath, strerror(errno));
+			    tab, p->fts_accpath, strerror(error));
 			tab = "\t";
 		} else if (crc(fd, &val, &len)) {
 			(void)close(fd);
 			LABEL;
+			error = errno;
+			RECORD_FAILURE(14, error);
 			(void)printf("%scksum: %s: %s\n",
-			    tab, p->fts_accpath, strerror(errno));
+			    tab, p->fts_accpath, strerror(error));
 			tab = "\t";
 		} else {
 			(void)close(fd);
@@ -245,26 +358,37 @@ typeerr:		LABEL;
 			(void)printf(" found \"%s\"", fflags);
 			free(fflags);
 			
-			if (uflag)
-				if (chflags(p->fts_accpath, (u_int)s->st_flags))
+			if (uflag) {
+				if (chflags(p->fts_accpath, (u_int)s->st_flags)) {
+					error = errno;
+					RECORD_FAILURE(15, error);
 					(void)printf(" not modified: %s\n",
-						     strerror(errno));
-				else
+						     strerror(error));
+				} else {
 					(void)printf(" modified\n");
-				else
-					(void)printf("\n");
+				}
+			} else {
+				(void)printf("\n");
+			}
 			tab = "\t";
 		}
 	}
 #ifdef ENABLE_MD5
 	if (s->flags & F_MD5) {
 		char *new_digest, buf[33];
-
+#ifdef __clang__
+/* clang doesn't like MD5 due to security concerns, but it's used for file data/metadata integrity.. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		new_digest = MD5File(p->fts_accpath, buf);
+#pragma clang diagnostic pop
+#endif
 		if (!new_digest) {
 			LABEL;
+			error = errno;
+			RECORD_FAILURE(16, error);
 			printf("%sMD5: %s: %s\n", tab, p->fts_accpath,
-			       strerror(errno));
+			       strerror(error));
 			tab = "\t";
 		} else if (strcmp(new_digest, s->md5digest)) {
 			LABEL;
@@ -277,12 +401,19 @@ typeerr:		LABEL;
 #ifdef ENABLE_SHA1
 	if (s->flags & F_SHA1) {
 		char *new_digest, buf[41];
-
+#ifdef __clang__
+/* clang doesn't like SHA1 due to security concerns, but it's used for file data/metadata integrity.. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		new_digest = SHA1_File(p->fts_accpath, buf);
+#pragma clang diagnostic pop
+#endif
 		if (!new_digest) {
 			LABEL;
+			error = errno;
+			RECORD_FAILURE(17, error);
 			printf("%sSHA-1: %s: %s\n", tab, p->fts_accpath,
-			       strerror(errno));
+			       strerror(error));
 			tab = "\t";
 		} else if (strcmp(new_digest, s->sha1digest)) {
 			LABEL;
@@ -295,12 +426,19 @@ typeerr:		LABEL;
 #ifdef ENABLE_RMD160
 	if (s->flags & F_RMD160) {
 		char *new_digest, buf[41];
-
+#ifdef __clang__
+/* clang doesn't like RIPEMD160 due to security concerns, but it's used for file data/metadata integrity.. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 		new_digest = RIPEMD160_File(p->fts_accpath, buf);
+#pragma clang diagnostic pop
+#endif
 		if (!new_digest) {
 			LABEL;
+			error = errno;
+			RECORD_FAILURE(18, error);
 			printf("%sRIPEMD160: %s: %s\n", tab,
-			       p->fts_accpath, strerror(errno));
+			       p->fts_accpath, strerror(error));
 			tab = "\t";
 		} else if (strcmp(new_digest, s->rmd160digest)) {
 			LABEL;
@@ -317,8 +455,10 @@ typeerr:		LABEL;
 		new_digest = SHA256_File(p->fts_accpath, buf);
 		if (!new_digest) {
 			LABEL;
+			error = errno;
+			RECORD_FAILURE(19, error);
 			printf("%sSHA-256: %s: %s\n", tab, p->fts_accpath,
-			       strerror(errno));
+			       strerror(error));
 			tab = "\t";
 		} else if (strcmp(new_digest, s->sha256digest)) {
 			LABEL;
@@ -338,32 +478,57 @@ typeerr:		LABEL;
 	if ((s->flags & F_BTIME) &&
 	    ((s->st_birthtimespec.tv_sec != p->fts_statp->st_birthtimespec.tv_sec) ||
 	     (s->st_birthtimespec.tv_nsec != p->fts_statp->st_birthtimespec.tv_nsec))) {
-		    LABEL;
-		    (void)printf("%sbirth time expected %.24s.%09ld ",
-				 tab, ctime(&s->st_birthtimespec.tv_sec), s->st_birthtimespec.tv_nsec);
-		    (void)printf("found %.24s.%09ld\n",
-				 ctime(&p->fts_statp->st_birthtimespec.tv_sec), p->fts_statp->st_birthtimespec.tv_nsec);
-		    tab = "\t";
+		    if (!mflag) {
+			    LABEL;
+			    (void)printf("%sbirth time expected %.24s.%09ld ",
+					 tab, ctime(&s->st_birthtimespec.tv_sec), s->st_birthtimespec.tv_nsec);
+			    (void)printf("found %.24s.%09ld\n",
+					 ctime(&p->fts_statp->st_birthtimespec.tv_sec), p->fts_statp->st_birthtimespec.tv_nsec);
+			    tab = "\t";
+		    }
+		    if (!insert_birth && mflag) {
+			    uint64_t s_create_time = timespec_to_apfs_timestamp(&s->st_birthtimespec);
+			    char *birth_string = "BIRTH";
+			    set_key_value_pair(birth_string, &s_create_time, true);
+			    insert_birth = 1;
+		    }
 	    }
 	if ((s->flags & F_ATIME) &&
 	    ((s->st_atimespec.tv_sec != p->fts_statp->st_atimespec.tv_sec) ||
 	     (s->st_atimespec.tv_nsec != p->fts_statp->st_atimespec.tv_nsec))) {
-		    LABEL;
-		    (void)printf("%saccess time expected %.24s.%09ld ",
-				 tab, ctime(&s->st_atimespec.tv_sec), s->st_atimespec.tv_nsec);
-		    (void)printf("found %.24s.%09ld\n",
-				 ctime(&p->fts_statp->st_atimespec.tv_sec), p->fts_statp->st_atimespec.tv_nsec);
-		    tab = "\t";
+		    if (!mflag) {
+			    LABEL;
+			    (void)printf("%saccess time expected %.24s.%09ld ",
+					 tab, ctime(&s->st_atimespec.tv_sec), s->st_atimespec.tv_nsec);
+			    (void)printf("found %.24s.%09ld\n",
+					 ctime(&p->fts_statp->st_atimespec.tv_sec), p->fts_statp->st_atimespec.tv_nsec);
+			    tab = "\t";
+		    }
+		    if (!insert_access && mflag) {
+			    uint64_t s_access_time = timespec_to_apfs_timestamp(&s->st_atimespec);
+			    char *access_string = "ACCESS";
+			    set_key_value_pair(access_string, &s_access_time, true);
+			    insert_access = 1;
+
+		    }
 	    }
 	if ((s->flags & F_CTIME) &&
 	    ((s->st_ctimespec.tv_sec != p->fts_statp->st_ctimespec.tv_sec) ||
 	     (s->st_ctimespec.tv_nsec != p->fts_statp->st_ctimespec.tv_nsec))) {
-		    LABEL;
-		    (void)printf("%smetadata modification time expected %.24s.%09ld ",
-				 tab, ctime(&s->st_ctimespec.tv_sec), s->st_ctimespec.tv_nsec);
-		    (void)printf("found %.24s.%09ld\n",
-				 ctime(&p->fts_statp->st_ctimespec.tv_sec), p->fts_statp->st_ctimespec.tv_nsec);
-		    tab = "\t";
+		    if (!mflag) {
+			    LABEL;
+			    (void)printf("%smetadata modification time expected %.24s.%09ld ",
+					 tab, ctime(&s->st_ctimespec.tv_sec), s->st_ctimespec.tv_nsec);
+			    (void)printf("found %.24s.%09ld\n",
+					 ctime(&p->fts_statp->st_ctimespec.tv_sec), p->fts_statp->st_ctimespec.tv_nsec);
+			    tab = "\t";
+		    }
+		    if (!insert_change && mflag) {
+			    uint64_t s_mod_time = timespec_to_apfs_timestamp(&s->st_ctimespec);
+			    char *change_string = "CHANGE";
+			    set_key_value_pair(change_string, &s_mod_time, true);
+			    insert_change = 1;
+		    }
 	    }
 	if (s->flags & F_PTIME) {
 		int supported;
@@ -371,38 +536,59 @@ typeerr:		LABEL;
 		if (!supported) {
 			LABEL;
 			(void)printf("%stime added to parent folder expected %.24s.%09ld found that it is not supported\n",
-				     tab, ctime(&s->st_ptimespec.tv_sec), s->st_ptimespec.tv_nsec);
+					tab, ctime(&s->st_ptimespec.tv_sec), s->st_ptimespec.tv_nsec);
 			tab = "\t";
-		} else if ((s->st_ptimespec.tv_sec != ptimespec.tv_sec) ||
-		    (s->st_ptimespec.tv_nsec != ptimespec.tv_nsec)) {
-			LABEL;
-			(void)printf("%stime added to parent folder expected %.24s.%09ld ",
-				     tab, ctime(&s->st_ptimespec.tv_sec), s->st_ptimespec.tv_nsec);
-			(void)printf("found %.24s.%09ld\n",
-				     ctime(&ptimespec.tv_sec), ptimespec.tv_nsec);
-			tab = "\t";
+		} else if (supported && ((s->st_ptimespec.tv_sec != ptimespec.tv_sec) ||
+			   (s->st_ptimespec.tv_nsec != ptimespec.tv_nsec))) {
+			if (!mflag) {
+				LABEL;
+				(void)printf("%stime added to parent folder expected %.24s.%09ld ",
+					      tab, ctime(&s->st_ptimespec.tv_sec), s->st_ptimespec.tv_nsec);
+				(void)printf("found %.24s.%09ld\n",
+					      ctime(&ptimespec.tv_sec), ptimespec.tv_nsec);
+				tab = "\t";
+			} else if (!insert_parent && mflag) {
+				uint64_t s_added_time = timespec_to_apfs_timestamp(&s->st_ptimespec);
+				char *added_string = "DATEADDED";
+				set_key_value_pair(added_string, &s_added_time, true);
+				insert_parent = 1;
+			}
 		}
 	}
 	if (s->flags & F_XATTRS) {
-		char *new_digest, buf[kSHA256NullTerminatedBuffLen];
-		new_digest = SHA256_Path_XATTRs(p->fts_accpath, buf);
-		if (!new_digest) {
-			LABEL;
-			printf("%sxattrsdigest missing, expected: %s\n", tab, s->xattrsdigest);
-			tab = "\t";
-		} else if (strcmp(new_digest, s->xattrsdigest)) {
-			LABEL;
-			printf("%sxattrsdigest expected %s found %s\n",
-			       tab, s->xattrsdigest, new_digest);
-			tab = "\t";
+		char buf[kSHA256NullTerminatedBuffLen];
+		xattr_info *ai;
+		ai = SHA256_Path_XATTRs(p->fts_accpath, buf);
+		if (!mflag) {
+			if (ai && !ai->digest) {
+				LABEL;
+				printf("%sxattrsdigest missing, expected: %s\n", tab, s->xattrsdigest);
+				tab = "\t";
+			} else if (ai && strcmp(ai->digest, s->xattrsdigest)) {
+				LABEL;
+				printf("%sxattrsdigest expected %s found %s\n",
+				       tab, s->xattrsdigest, ai->digest);
+				tab = "\t";
+			}
 		}
+		if (mflag) {
+			if (ai && ai->xdstream_priv_id != s->xdstream_priv_id) {
+				set_key_value_pair((void*)&ai->xdstream_priv_id, &s->xdstream_priv_id, false);
+			}
+		}
+		free(ai);
 	}
 	if ((s->flags & F_INODE) &&
 	    (p->fts_statp->st_ino != s->st_ino)) {
-		LABEL;
-		(void)printf("%sinode expected %llu found %llu\n",
-			     tab, s->st_ino, p->fts_ino);
-		tab = "\t";
+		if (!mflag) {
+			LABEL;
+			(void)printf("%sinode expected %llu found %llu\n",
+				     tab, s->st_ino, p->fts_statp->st_ino);
+			tab = "\t";
+		}
+		if (mflag) {
+			set_key_value_pair((void*)&p->fts_statp->st_ino, &s->st_ino, false);
+		}
 	}
 	if (s->flags & F_ACL) {
 		char *new_digest, buf[kSHA256NullTerminatedBuffLen];
@@ -416,6 +602,21 @@ typeerr:		LABEL;
 			printf("%sacldigest expected %s found %s\n",
 			       tab, s->acldigest, new_digest);
 			tab = "\t";
+		}
+	}
+	if (s->flags & F_SIBLINGID) {
+		uint64_t new_sibling_id = get_sibling_id(p->fts_accpath);
+		new_sibling_id = (new_sibling_id != p->fts_statp->st_ino) ? new_sibling_id : 0;
+		if (new_sibling_id != s->sibling_id) {
+			if (!mflag) {
+				LABEL;
+				(void)printf("%ssibling id expected %llu found %llu\n",
+					     tab, s->sibling_id, new_sibling_id);
+				tab = "\t";
+			}
+			if (mflag) {
+				set_key_value_pair((void*)&new_sibling_id, &s->sibling_id, false);
+			}
 		}
 	}
 	
@@ -473,11 +674,15 @@ ftype(u_int type)
 char *
 rlink(char *name)
 {
+	int error = 0;
 	static char lbuf[MAXPATHLEN];
 	ssize_t len;
 
-	if ((len = readlink(name, lbuf, sizeof(lbuf) - 1)) == -1)
-		err(1, "line %d: %s", lineno, name);
+	if ((len = readlink(name, lbuf, sizeof(lbuf) - 1)) == -1) {
+		error = errno;
+		RECORD_FAILURE(20, error);
+		errc(1, error, "line %d: %s", lineno, name);
+	}
 	lbuf[len] = '\0';
 	return (lbuf);
 }

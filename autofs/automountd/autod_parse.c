@@ -261,9 +261,33 @@ parse_entry(const char *key, const char *mapname, const char *mapopts,
 		 * "rw", if nothing else), so the default mapopts are
 		 * ignored.
 		 */
+		if (trace > 5)
+		{
+			trace_prt(5, "trying to resolve static map entry: %s[%d]", key, isdirect);
+		}
 		mapents = do_mapent_static(key, isdirect, err);
-		if (mapents == NULL)		/* nothing to free */
-			return (mapents);
+		if (mapents == NULL) {
+			size_t prefix_len;
+
+			if (trace > 3) {
+				trace_prt(3, "do_mapent_static: returning NULL[%d]", *err);
+			}
+
+			if (*err == ENOENT && has_rosv_data_volume_prefix(key, &prefix_len)) {
+				if (trace > 3) {
+					trace_prt(3, "parse_enry: retrying with prefix stripped[%zu]", prefix_len);
+				}
+
+				mapents = do_mapent_static(key + prefix_len, isdirect, err);
+
+				if (mapents == NULL) {  /* nothing to free */
+					if (trace > 3) {
+						trace_prt(3, "do_mapent_static: returning NULL[%d]", *err);
+					}
+					return (mapents);
+				}
+			}
+		}
 
 		if (trace > 3)
 			trace_mapents("do_mapent_static:(return)", mapents);

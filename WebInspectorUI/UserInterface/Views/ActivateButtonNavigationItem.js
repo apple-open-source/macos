@@ -31,7 +31,6 @@ WI.ActivateButtonNavigationItem = class ActivateButtonNavigationItem extends WI.
 
         this._defaultToolTip = defaultToolTip;
         this._activatedToolTip = activatedToolTip || defaultToolTip;
-        this._role = role;
     }
 
     // Public
@@ -69,17 +68,13 @@ WI.ActivateButtonNavigationItem = class ActivateButtonNavigationItem extends WI.
 
     set activated(flag)
     {
+        flag = !!flag;
         this.element.classList.toggle(WI.ActivateButtonNavigationItem.ActivatedStyleClassName, flag);
 
-        if (flag) {
-            this.tooltip = this._activatedToolTip;
-            if (this._role === "tab")
-                this.element.setAttribute("aria-selected", "true");
-        } else {
-            this.tooltip = this._defaultToolTip;
-            if (this._role === "tab")
-                this.element.removeAttribute("aria-selected");
-        }
+        this.tooltip = flag ? this._activatedToolTip : this._defaultToolTip;
+
+        this.element.ariaPressed = flag;
+        this.element.ariaLabel = this.tooltip;
     }
 
     // Protected

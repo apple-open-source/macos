@@ -8,6 +8,7 @@
 
 #include "udbgutil.h"
 #include <string.h>
+#include <stdio.h>
 #include "ustr_imp.h"
 #include "cmemory.h"
 #include "cstring.h"
@@ -15,6 +16,7 @@
 #include "unicode/ulocdata.h"
 #include "unicode/ucnv.h"
 #include "unicode/unistr.h"
+#include "unicode/ucol.h"
 #include "cstr.h"
 
 /*
@@ -467,6 +469,83 @@ paramCldrVersion(const USystemParams * /* param */, char *target, int32_t target
   }
 }
 
+// Apple addition
+static void versionBinToString(UVersionInfo icu, char* str) {
+    sprintf(str, "%d.%d.%d.%d", icu[0], icu[1], icu[2], icu[3]);
+}
+
+// Apple addition
+U_CAPI  int32_t
+paramCollUCAVersion(const USystemParams * /* param */, char *target, int32_t targetCapacity, UErrorCode *status) {
+  if(U_FAILURE(*status))return 0;
+  char str[200]="";
+  UVersionInfo icu;
+
+  UCollator * ucol = ucol_open("root", status);
+  if(U_SUCCESS(*status)) {
+    ucol_getUCAVersion(ucol, icu);
+    versionBinToString(icu, str);
+    ucol_close(ucol);
+    return stringToStringBuffer(target,targetCapacity,str,status);
+  } else {
+    return 0;
+  }
+}
+
+// Apple addition
+U_CAPI  int32_t
+paramCollRootVersion(const USystemParams * /* param */, char *target, int32_t targetCapacity, UErrorCode *status) {
+  if(U_FAILURE(*status))return 0;
+  char str[200]="";
+  UVersionInfo icu;
+
+  UCollator * ucol = ucol_open("root", status);
+  if(U_SUCCESS(*status)) {
+    ucol_getVersion(ucol, icu);
+    versionBinToString(icu, str);
+    ucol_close(ucol);
+    return stringToStringBuffer(target,targetCapacity,str,status);
+  } else {
+    return 0;
+  }
+}
+
+// Apple addition
+U_CAPI  int32_t
+paramCollEnVersion(const USystemParams * /* param */, char *target, int32_t targetCapacity, UErrorCode *status) {
+  if(U_FAILURE(*status))return 0;
+  char str[200]="";
+  UVersionInfo icu;
+
+  UCollator * ucol = ucol_open("en", status);
+  if(U_SUCCESS(*status)) {
+    ucol_getVersion(ucol, icu);
+    versionBinToString(icu, str);
+    ucol_close(ucol);
+    return stringToStringBuffer(target,targetCapacity,str,status);
+  } else {
+    return 0;
+  }
+}
+
+// Apple addition
+U_CAPI  int32_t
+paramCollZhVersion(const USystemParams * /* param */, char *target, int32_t targetCapacity, UErrorCode *status) {
+  if(U_FAILURE(*status))return 0;
+  char str[200]="";
+  UVersionInfo icu;
+
+  UCollator * ucol = ucol_open("zh", status);
+  if(U_SUCCESS(*status)) {
+    ucol_getVersion(ucol, icu);
+    versionBinToString(icu, str);
+    ucol_close(ucol);
+    return stringToStringBuffer(target,targetCapacity,str,status);
+  } else {
+    return 0;
+  }
+}
+
 
 #if !UCONFIG_NO_FORMATTING
 U_CAPI  int32_t
@@ -527,6 +606,10 @@ static const USystemParams systemParams[] = {
   { "icudata.path", paramIcudataPath, NULL, 0},
 
   { "cldr.version", paramCldrVersion, NULL, 0},
+  { "coll-uca.version", paramCollUCAVersion, NULL, 0},
+  { "coll-root.version", paramCollRootVersion, NULL, 0},
+  { "coll-en.version", paramCollEnVersion, NULL, 0},
+  { "coll-zh.version", paramCollZhVersion, NULL, 0},
 
 #if !UCONFIG_NO_FORMATTING
   { "tz.version", paramTimezoneVersion, NULL, 0},

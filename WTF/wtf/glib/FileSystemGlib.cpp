@@ -326,8 +326,11 @@ Vector<String> listDirectory(const String& path, const String& filter)
     return entries;
 }
 
-String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
+String openTemporaryFile(const String& prefix, PlatformFileHandle& handle, const String& suffix)
 {
+    // FIXME: Suffix is not supported, but OK for now since the code using it is macOS-port-only.
+    ASSERT_UNUSED(suffix, suffix.isEmpty());
+
     GUniquePtr<gchar> filename(g_strdup_printf("%s%s", prefix.utf8().data(), createCanonicalUUIDString().utf8().data()));
     GUniquePtr<gchar> tempPath(g_build_filename(g_get_tmp_dir(), filename.get(), nullptr));
     GRefPtr<GFile> file = adoptGRef(g_file_new_for_path(tempPath.get()));
@@ -338,7 +341,7 @@ String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
     return String::fromUTF8(tempPath.get());
 }
 
-PlatformFileHandle openFile(const String& path, FileOpenMode mode)
+PlatformFileHandle openFile(const String& path, FileOpenMode mode, FileAccessPermission permission, bool failIfFileExists)
 {
     auto filename = fileSystemRepresentation(path);
     if (!validRepresentation(filename))
@@ -346,13 +349,20 @@ PlatformFileHandle openFile(const String& path, FileOpenMode mode)
 
     GRefPtr<GFile> file = adoptGRef(g_file_new_for_path(filename.data()));
     GRefPtr<GFileIOStream> ioStream;
+    GFileCreateFlags permissionFlag = (permission == FileAccessPermission::All) ? G_FILE_CREATE_NONE : G_FILE_CREATE_PRIVATE;
+
+    if (failIfFileExists) {
+        ioStream = adoptGRef(g_file_create_readwrite(file.get(), permissionFlag, nullptr, nullptr));
+        return ioStream.leakRef();
+    }
+
     if (mode == FileOpenMode::Read)
         ioStream = adoptGRef(g_file_open_readwrite(file.get(), nullptr, nullptr));
-    else if (mode == FileOpenMode::Write) {
+    else if (mode == FileOpenMode::Write || mode == FileOpenMode::ReadWrite) {
         if (g_file_test(filename.data(), static_cast<GFileTest>(G_FILE_TEST_EXISTS | G_FILE_TEST_IS_REGULAR)))
             ioStream = adoptGRef(g_file_open_readwrite(file.get(), nullptr, nullptr));
         else
-            ioStream = adoptGRef(g_file_create_readwrite(file.get(), G_FILE_CREATE_NONE, nullptr, nullptr));
+            ioStream = adoptGRef(g_file_create_readwrite(file.get(), permissionFlag, nullptr, nullptr));
     }
 
     return ioStream.leakRef();

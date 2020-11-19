@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,12 +45,6 @@
 #include "dhcp_thread.h"
 #include "DHCPv6Client.h"
 #include "IPConfigurationServiceInternal.h"
-
-STATIC CFDictionaryRef
-DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p);
-
-STATIC CFDictionaryRef
-DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p);
 
 PRIVATE_EXTERN CFDictionaryRef
 my_SCDynamicStoreCopyDictionary(SCDynamicStoreRef session, CFStringRef key)
@@ -246,6 +240,11 @@ my_SCDynamicStorePublish(SCDynamicStoreRef store)
     return;
 }
 
+
+/**
+ ** DHCP
+ **/
+
 PRIVATE_EXTERN CFDictionaryRef
 DHCPInfoDictionaryCreate(ipconfig_method_t method, dhcpol_t * options_p,
 			 absolute_time_t start_time,
@@ -378,6 +377,10 @@ IPv4ARPCollisionKeyParse(CFStringRef cache_key, struct in_addr * ipaddr_p,
     return (NULL);
 }
 
+/**
+ ** DNS
+ **/
+
 static void
 process_domain_name(const uint8_t * dns_domain, int dns_domain_len,
 		    boolean_t search_present, CFMutableDictionaryRef dns_dict)
@@ -450,6 +453,7 @@ process_domain_name(const uint8_t * dns_domain, int dns_domain_len,
     my_CFRelease(&array);
     return;
 }
+
 
 STATIC CFDictionaryRef
 DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p)
@@ -530,18 +534,19 @@ DNSEntityCreateWithDHCPInfo(dhcp_info_t * info_p)
 
 STATIC void
 add_ipv6_addresses_to_array(CFMutableArrayRef array, 
-			    const void * servers, int servers_count)
+			    const struct in6_addr * list,
+			    int list_count)
 {
-    int			i;
-    CFRange		r;
+    int				i;
+    CFRange			r;
+    const struct in6_addr * 	scan;
 
     r.location = 0;
     r.length = CFArrayGetCount(array);
-    for (i = 0; i < servers_count; i++) {
+    for (i = 0, scan = list; i < list_count; i++, scan++) {
 	CFStringRef		ip;
 	    
-	ip = my_CFStringCreateWithIPv6Address(servers + 
-			i * sizeof(struct in6_addr));
+	ip = my_CFStringCreateWithIPv6Address(scan);
 	if (CFArrayContainsValue(array, r, ip) == FALSE) {
 	    CFArrayAppendValue(array, ip);
 	    r.length++;
@@ -551,116 +556,209 @@ add_ipv6_addresses_to_array(CFMutableArrayRef array,
     return;
 }
 
-STATIC CFDictionaryRef
-DNSEntityCreateWithDHCPv6Info(dhcpv6_info_t * info_p)
+STATIC void
+my_CFStringArrayMerge(CFMutableArrayRef merge, CFArrayRef list)
 {
-    CFMutableArrayRef		array = NULL;
-    DHCPv6OptionListRef 	options;
-    CFMutableDictionaryRef	dict;
-    const uint8_t *		search = NULL;
-    int				search_len = 0;
-    const uint8_t *		servers = NULL;
-    int				servers_len = 0;
+    CFIndex	count;
+    CFRange	r;
+
+    count = CFArrayGetCount(list);
+    r.location = 0;
+    r.length = CFArrayGetCount(merge);
+    for (CFIndex i = 0; i < count; i++) {
+	CFStringRef	str;
+
+	str = CFArrayGetValueAtIndex(list, i);
+	if (!CFArrayContainsValue(merge, r, str)) {
+	    CFArrayAppendValue(merge, str);
+	    r.length++;
+	}
+    }
+}
+
+STATIC CFMutableArrayRef
+my_DHCPv6OptionListCopyDNSInfo(DHCPv6OptionListRef options,
+			       CFArrayRef * dns_search_list_p)
+{
+    CFMutableArrayRef		dns_server_list = NULL;
+    CFArrayRef			dns_search_list = NULL;
+    const struct in6_addr *	servers;
+    int				servers_count = 0;
+    int				servers_length;
+
+    /* retrieve the DNS server addresses */
+    servers = (const struct in6_addr *)
+	DHCPv6OptionListGetOptionDataAndLength(options,
+					       kDHCPv6OPTION_DNS_SERVERS,
+					       &servers_length,
+					       NULL);
+    if (servers != NULL) {
+	servers_count = servers_length / sizeof(struct in6_addr);
+    }
+    if (servers_count == 0) {
+	goto done;
+    }
+    dns_server_list = CFArrayCreateMutable(NULL,
+					   servers_count,
+					   &kCFTypeArrayCallBacks);
+    add_ipv6_addresses_to_array(dns_server_list, servers, servers_count);
+
+    /* check for DNS search domains */
+    if (DHCPv6ClientOptionIsOK(kDHCPv6OPTION_DOMAIN_LIST)) {
+	const uint8_t *		search;
+	int			search_length;
+
+	search
+	    = DHCPv6OptionListGetOptionDataAndLength(options,
+						     kDHCPv6OPTION_DOMAIN_LIST,
+						     &search_length,
+						     NULL);
+	if (search != NULL) {
+	    dns_search_list = DNSNameListCreateArray(search, search_length);
+	}
+    }
+
+ done:
+    *dns_search_list_p = dns_search_list;
+    return (dns_server_list);
+}
+
+STATIC CFArrayRef
+my_RouterAdvertisementCopyDNSInfo(RouterAdvertisementRef ra,
+				  const char * if_name,
+				  CFArrayRef * dns_search_list_p)
+{
+    CFMutableArrayRef		dns_server_list = NULL;
+    CFArrayRef			dns_search_list = NULL;
+    uint32_t 			lifetime;
+    CFAbsoluteTime		now;
+    const struct in6_addr *	servers;
     int				servers_count;
 
+    /* retrieve the DNS server addresses */
+    servers = RouterAdvertisementGetRDNSS(ra, &servers_count, &lifetime);
+    if (servers == NULL) {
+	goto done;
+    }
+    now = CFAbsoluteTimeGetCurrent();
+    if (RouterAdvertisementLifetimeHasExpired(ra, now, lifetime)) {
+	if (if_name != NULL) {
+	    my_log(LOG_NOTICE, "%s: RDNSS expired", if_name);
+	}
+	goto done;
+    }
+    dns_server_list = CFArrayCreateMutable(NULL,
+					   servers_count,
+					   &kCFTypeArrayCallBacks);
+    add_ipv6_addresses_to_array(dns_server_list, servers, servers_count);
+
+    /* check for DNS search domains */
+    if (DHCPv6ClientOptionIsOK(kDHCPv6OPTION_DOMAIN_LIST)) {
+	const uint8_t *		search;
+	int			search_length;
+
+	search = RouterAdvertisementGetDNSSL(ra, &search_length, &lifetime);
+	if (search != NULL) {
+	    if (RouterAdvertisementLifetimeHasExpired(ra, now, lifetime)) {
+		if (if_name != NULL) {
+		    my_log(LOG_NOTICE, "%s: DNSSL expired", if_name);
+		}
+	    }
+	    else {
+		dns_search_list
+		    = DNSNameListCreateArray(search, search_length);
+	    }
+	}
+    }
+
+ done:
+    *dns_search_list_p = dns_search_list;
+    return (dns_server_list);
+}
+
+STATIC CFDictionaryRef
+DNSEntityCreateWithIPv6Info(const char * if_name, ipv6_info_t * info_p)
+{
+    CFArrayRef			dns_servers;
+    CFArrayRef			dhcp_dns_search = NULL;
+    CFMutableArrayRef		dhcp_dns_servers = NULL;
+    CFMutableDictionaryRef	dict = NULL;
+    DHCPv6OptionListRef 	options;
+    RouterAdvertisementRef	ra;
+    CFArrayRef			ra_dns_search = NULL;
+    CFArrayRef			ra_dns_servers = NULL;
+
     if (info_p == NULL) {
-	return (NULL);
+	goto done;
     }
     if (DHCPv6ClientOptionIsOK(kDHCPv6OPTION_DNS_SERVERS) == FALSE) {
 	/* don't accept DNS server addresses from the network */
-	return (NULL);
+	goto done;
     }
 
     /* check DHCPv6 options */
     options = info_p->options;
     if (options != NULL) {
-	servers 
-	    = DHCPv6OptionListGetOptionDataAndLength(options,
-						     kDHCPv6OPTION_DNS_SERVERS,
-						     &servers_len, NULL);
-	if (servers != NULL) {
-	    /* retrieve the DNS server addresses */
-	    servers_count = servers_len / sizeof(struct in6_addr);
-	    if (servers_count == 0) {
-		servers = NULL;
-	    }
-	    else if (DHCPv6ClientOptionIsOK(kDHCPv6OPTION_DOMAIN_LIST)) {
-		/* check for DNS search domains */
-		search
-		    = DHCPv6OptionListGetOptionDataAndLength(options,
-							     kDHCPv6OPTION_DOMAIN_LIST,
-							     &search_len, NULL);
-	    }
-	}
+	dhcp_dns_servers
+	    = my_DHCPv6OptionListCopyDNSInfo(options, &dhcp_dns_search);
     }
 
-    /* if no DNS server addresses, ignore DNS altogether */
-    if (servers == NULL && info_p->dns_servers == NULL) {
-	return (NULL);
+    /* check RA */
+    ra = info_p->ra;
+    if (ra != NULL) {
+	ra_dns_servers
+	    = my_RouterAdvertisementCopyDNSInfo(ra, if_name, &ra_dns_search);
     }
 
-    /* create the DNS server address list, merging DHCPv6 and RDNSS */
-    array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    if (servers != NULL) {
-	/* add DHCPv6 addresses */
-	add_ipv6_addresses_to_array(array, servers,
-				    servers_count);
+    /* no DNS servers, no DNS information */
+    if (dhcp_dns_servers == NULL && ra_dns_servers == NULL) {
+	goto done;
     }
-    if (info_p->dns_servers != NULL) {
-	/* add RDNSS addresses */
-	add_ipv6_addresses_to_array(array, info_p->dns_servers,
-				    info_p->dns_servers_count);
-    }
+
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
-    CFDictionarySetValue(dict, kSCPropNetDNSServerAddresses, array);
-    CFRelease(array);
 
-    if (search != NULL || info_p->dns_search_domains != NULL) {
-	CFArrayRef		search_list;
-
-	/* DNS search list is present, merge DHCPv6/RDNS if necessary */
-	search_list = DNSNameListCreateArray(search, search_len);
-	if (search_list != NULL) {
-	    if (info_p->dns_search_domains == NULL) {
-		/* no merge required, just use DHCPv6 values */
-		CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains,
-				     search_list);
-	    }
-	    else {
-		/* both DHCPv6 and RDNSS present, need to merge */
-		CFIndex			count;
-		CFIndex			i;
-		CFMutableArrayRef	merge;
-		CFRange			r;
-
-		merge = CFArrayCreateMutableCopy(NULL, 0, search_list);
-		r.location = 0;
-		r.length = CFArrayGetCount(merge);
-
-		for (i = 0, count = CFArrayGetCount(info_p->dns_search_domains);
-		     i < count; i++) {
-		    CFStringRef		name;
-
-		    name = CFArrayGetValueAtIndex(info_p->dns_search_domains,
-						  i);
-		    if (!CFArrayContainsValue(merge, r, name)) {
-			CFArrayAppendValue(merge, name);
-			r.length++;
-		    }
-		}
-		CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains, merge);
-		CFRelease(merge);
-	    }
-	    CFRelease(search_list);
+    /* DNS Servers */
+    if (dhcp_dns_servers != NULL) {
+	if (ra_dns_servers != NULL) {
+	    /* need to merge */
+	    my_CFStringArrayMerge(dhcp_dns_servers, ra_dns_servers);
 	}
-	else if (info_p->dns_search_domains != NULL) {
-	    /* no merge required, just use RDNSS values */
+	dns_servers = dhcp_dns_servers;
+    }
+    else {
+	dns_servers = ra_dns_servers;
+    }
+    CFDictionarySetValue(dict, kSCPropNetDNSServerAddresses, dns_servers);
+
+    /* DNS Domain Search */
+    if (dhcp_dns_search != NULL) {
+	if (ra_dns_search != NULL) {
+	    /* need to merge */
+	    CFMutableArrayRef	merge;
+
+	    merge = CFArrayCreateMutableCopy(NULL, 0, dhcp_dns_search);
+	    my_CFStringArrayMerge(merge, ra_dns_search);
+	    CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains, merge);
+	    CFRelease(merge);
+	}
+	else {
+	    /* no merge necessary */
 	    CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains,
-				 info_p->dns_search_domains);
+				 dhcp_dns_search);
 	}
     }
+    else if (ra_dns_search != NULL) {
+	/* no merge required, just use DNSSL */
+	CFDictionarySetValue(dict, kSCPropNetDNSSearchDomains, ra_dns_search);
+    }
+    my_CFRelease(&dhcp_dns_search);
+    my_CFRelease(&dhcp_dns_servers);
+    my_CFRelease(&ra_dns_search);
+    my_CFRelease(&ra_dns_servers);
+
+ done:
     return (dict);
 }
 
@@ -706,15 +804,16 @@ merge_dict_arrays(CFMutableDictionaryRef dict, CFDictionaryRef one,
 }
 
 PRIVATE_EXTERN CFDictionaryRef
-DNSEntityCreateWithDHCPv4AndDHCPv6Info(dhcp_info_t * info_p,
-				       dhcpv6_info_t * info_v6_p)
-{
+DNSEntityCreateWithInfo(const char * if_name,
+			dhcp_info_t * info_p,
+			ipv6_info_t * info_v6_p)
+ {
     CFMutableDictionaryRef	dict;
     CFDictionaryRef		dnsv4;
     CFDictionaryRef		dnsv6;
 
     dnsv4 = DNSEntityCreateWithDHCPInfo(info_p);
-    dnsv6 = DNSEntityCreateWithDHCPv6Info(info_v6_p);
+    dnsv6 = DNSEntityCreateWithIPv6Info(if_name, info_v6_p);
     if (dnsv4 == NULL && dnsv6 == NULL) {
 	return (NULL);
     }
@@ -736,6 +835,11 @@ DNSEntityCreateWithDHCPv4AndDHCPv6Info(dhcp_info_t * info_p,
     my_CFRelease(&dnsv6);
     return (dict);
 }
+
+
+/**
+ ** DHCPv6
+ **/
 
 PRIVATE_EXTERN CFDictionaryRef
 DHCPv6InfoDictionaryCreate(DHCPv6OptionListRef options)
@@ -785,3 +889,146 @@ DHCPv6InfoDictionaryCreate(DHCPv6OptionListRef options)
     }
     return (dict);
 }
+
+
+/**
+ ** Captive Portal
+ **/
+
+#ifndef kSCPropNetCaptivePortalURL
+
+PRIVATE_EXTERN CFDictionaryRef
+CaptivePortalEntityCreateWithInfo(dhcp_info_t * info_p,
+				  ipv6_info_t * info_v6_p)
+{
+#pragma unused(info_p)
+#pragma unused(info_v6_p)
+    return (NULL);
+}
+
+#else /* kSCPropNetCaptivePortalURL */
+
+STATIC CFDictionaryRef
+dict_create(CFStringRef key, CFStringRef val)
+{
+    return (CFDictionaryCreate(NULL,
+			       (const void * *)&key,
+			       (const void * *)&val,
+			       1,
+			       &kCFTypeDictionaryKeyCallBacks,
+			       &kCFTypeDictionaryValueCallBacks));
+}
+
+STATIC CFStringRef
+CaptivePortalCopyWithDHCPInfo(dhcp_info_t * info_p)
+{
+    dhcpol_t *			options;
+    const uint8_t *		url = NULL;
+    int				url_len = 0;
+    CFStringRef			url_string = NULL;
+
+    if (info_p == NULL) {
+	goto done;
+    }
+    if (!dhcp_parameter_is_ok(dhcptag_captive_portal_url_e)) {
+	goto done;
+    }
+    options = info_p->options;
+    if (options == NULL) {
+	goto done;
+    }
+    url = (const uint8_t *)
+	dhcpol_find(options, dhcptag_captive_portal_url_e, &url_len, NULL);
+    url_string = my_CFStringCreateWithBytes(url, url_len);
+
+ done:
+    return (url_string);
+}
+
+STATIC CFStringRef
+CaptivePortalCopyWithIPv6Info(ipv6_info_t * info_p)
+{
+    CFStringRef		dhcp_url = NULL;
+    DHCPv6OptionListRef options;
+    CFStringRef		ra_url = NULL;
+    CFStringRef		ret_url = NULL;
+    const uint8_t *	url;
+    int			url_len;
+
+    if (info_p == NULL) {
+	goto done;
+    }
+    if (!DHCPv6ClientOptionIsOK(kDHCPv6OPTION_CAPTIVE_PORTAL_URL)) {
+	/* don't accept Captive Portal URL from the network */
+	goto done;
+    }
+
+    /* check DHCPv6 options */
+    options = info_p->options;
+    if (options != NULL) {
+	url = DHCPv6OptionListGetOptionDataAndLength(options,
+						     kDHCPv6OPTION_CAPTIVE_PORTAL_URL,
+						     &url_len,
+						     NULL);
+	dhcp_url = my_CFStringCreateWithBytes(url, url_len);
+    }
+
+    /* check for RA value */
+    if (info_p->ra != NULL) {
+	ra_url = RouterAdvertisementCopyCaptivePortal(info_p->ra);
+    }
+
+    if (dhcp_url != NULL) {
+	if (ra_url != NULL) {
+	    /* both DHCP and RA specify captive URL, complain if different */
+	    if (CFStringCompare(dhcp_url, ra_url, kCFCompareCaseInsensitive)
+		!= kCFCompareEqualTo) {
+		my_log(LOG_ERR,
+		       "Mismatch in Captive Portal URLs: DHCPv6=%@ RA=%@",
+		       dhcp_url, ra_url);
+	    }
+	    my_CFRelease(&ra_url);
+	}
+	/* prefer DHCP value */
+	ret_url = dhcp_url;
+    }
+    else if (ra_url != NULL) {
+	ret_url = ra_url;
+    }
+
+ done:
+    return (ret_url);
+}
+
+PRIVATE_EXTERN CFDictionaryRef
+CaptivePortalEntityCreateWithInfo(dhcp_info_t * info_p,
+				  ipv6_info_t * info_v6_p)
+{
+    CFStringRef		dhcp_url;
+    CFDictionaryRef	dict = NULL;
+    CFStringRef 	v6_url;
+
+    dhcp_url = CaptivePortalCopyWithDHCPInfo(info_p);
+    v6_url = CaptivePortalCopyWithIPv6Info(info_v6_p);
+    if (dhcp_url != NULL) {
+	if (v6_url != NULL) {
+	    /* both DHCP and V6 have a URL, complain if different */
+	    if (CFStringCompare(dhcp_url, v6_url, kCFCompareCaseInsensitive)
+		!= kCFCompareEqualTo) {
+		my_log(LOG_ERR,
+		       "Mismatch in Captive Portal URLs: IPv4=%@ IPv6=%@",
+		       dhcp_url, v6_url);
+	    }
+	}
+	/* prefer DHCP value */
+	dict = dict_create(kSCPropNetCaptivePortalURL, dhcp_url);
+    }
+    else if (v6_url != NULL) {
+	dict = dict_create(kSCPropNetCaptivePortalURL, v6_url);
+    }
+    my_CFRelease(&dhcp_url);
+    my_CFRelease(&v6_url);
+    return (dict);
+}
+
+#endif /* kSCPropNetCaptivePortalURL */

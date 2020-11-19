@@ -28,6 +28,8 @@
 #include <security_utilities/logging.h>
 #include "dirscanner.h"
 
+#include <sstream>
+
 namespace Security {
 namespace CodeSigning {
 
@@ -157,7 +159,9 @@ void DirValidator::validate(const string &root, OSStatus error)
 			reqMatched.insert(rule);
 	}
 	if (reqMatched.size() != (unsigned long) mRequireCount) {
-		secinfo("dirval", "matched %lu of %d required rules", reqMatched.size(), mRequireCount);
+		ostringstream os;
+		os << "matched " << reqMatched.size() << " of " << mRequireCount << " required rules";
+		secinfo("dirval", "%s", os.str().c_str());
 		MacOSError::throwMe(error);		 // not all required rules were matched
 	}
 }

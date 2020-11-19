@@ -24,6 +24,7 @@
 #import <Foundation/Foundation.h>
 #import "CKKSSQLDatabaseObject.h"
 #include "keychain/securityd/SecItemServer.h"
+#include "keychain/securityd/SecItemDb.h"
 
 #import "keychain/ckks/CKKS.h"
 #import "CKKSKeychainView.h"
@@ -83,10 +84,18 @@
 }
 @end
 
+__thread bool CKKSSQLInTransaction = false;
+__thread bool CKKSSQLInWriteTransaction = false;
+
 @implementation CKKSSQLDatabaseObject
 
 + (bool) saveToDatabaseTable: (NSString*) table row: (NSDictionary*) row connection: (SecDbConnectionRef) dbconn error: (NSError * __autoreleasing *) error {
     __block CFErrorRef cferror = NULL;
+
+#if DEBUG
+    NSAssert(CKKSSQLInTransaction, @"Must be in a transaction to perform database writes");
+    NSAssert(CKKSSQLInWriteTransaction, @"Must be in a write transaction to perform database writes");
+#endif
 
     bool (^doWithConnection)(SecDbConnectionRef) = ^bool (SecDbConnectionRef dbconn) {
         NSString * columns = [row.allKeys componentsJoinedByString:@", "];
@@ -151,6 +160,19 @@
              CKKSSQLWhereComparatorAsString(obj.sqlOp),
              CKKSSQLWhereColumnNameAsString(obj.columnName)];
 
+        } else if([value isMemberOfClass:[CKKSSQLWhereIn class]]) {
+            CKKSSQLWhereIn* obj = (CKKSSQLWhereIn*)value;
+
+            NSMutableArray* q = [NSMutableArray arrayWithCapacity:obj.values.count];
+            for(NSString* value in obj.values) {
+                [q addObject: @"?"];
+                (void)value;
+            }
+
+            NSString* binds = [q componentsJoinedByString:@", "];
+
+            [whereClause appendFormat:@"%@ IN (%@)", key, binds];
+
         } else {
             [whereClause appendFormat: @"%@=(?)", key];
         }
@@ -202,22 +224,38 @@
 
 + (void)bindWhereClause:(sqlite3_stmt*)stmt whereDict:(NSDictionary*)whereDict cferror:(CFErrorRef*)cferror
 {
-    __block int whereObjectsSkipped = 0;
+    __block int whereLocation = 1;
+
     [whereDict.allKeys enumerateObjectsUsingBlock:^(id  _Nonnull key, NSUInteger i, BOOL * _Nonnull stop) {
         if([whereDict[key] class] == [CKKSSQLWhereValue class]) {
             CKKSSQLWhereValue* obj = (CKKSSQLWhereValue*)whereDict[key];
-            SecDbBindObject(stmt, (int)(i+1-whereObjectsSkipped), (__bridge CFStringRef)obj.value, cferror);
+            SecDbBindObject(stmt, whereLocation, (__bridge CFStringRef)obj.value, cferror);
+            whereLocation++;
+
         } else if([whereDict[key] class] == [CKKSSQLWhereColumn class]) {
             // skip
-            whereObjectsSkipped += 1;
+        } else if([whereDict[key] isMemberOfClass:[CKKSSQLWhereIn class]]) {
+            CKKSSQLWhereIn* obj = (CKKSSQLWhereIn*)whereDict[key];
+
+            for(NSString* value in obj.values) {
+                SecDbBindObject(stmt, whereLocation, (__bridge CFStringRef)value, cferror);
+                whereLocation++;
+            }
+
         } else {
-            SecDbBindObject(stmt, (int)(i+1-whereObjectsSkipped), (__bridge CFStringRef) whereDict[key], cferror);
+            SecDbBindObject(stmt, whereLocation, (__bridge CFStringRef) whereDict[key], cferror);
+            whereLocation++;
         }
     }];
 }
 
 + (bool) deleteFromTable: (NSString*) table where: (NSDictionary*) whereDict connection:(SecDbConnectionRef) dbconn error: (NSError * __autoreleasing *) error {
     __block CFErrorRef cferror = NULL;
+
+#if DEBUG
+    NSAssert(CKKSSQLInTransaction, @"Must be in a transaction to perform database writes");
+    NSAssert(CKKSSQLInWriteTransaction, @"Must be in a write transaction to perform database writes");
+#endif
 
     bool (^doWithConnection)(SecDbConnectionRef) = ^bool (SecDbConnectionRef dbconn) {
         NSString* whereClause = [CKKSSQLDatabaseObject makeWhereClause: whereDict];
@@ -342,6 +380,60 @@
     
     bool ret = (cferror == NULL);
     return ret;
+}
+
++ (BOOL)performCKKSTransaction:(CKKSDatabaseTransactionResult (^)(void))block
+{
+    CFErrorRef cferror = NULL;
+    bool ok = kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbconn) {
+        CFErrorRef cferrorInternal = NULL;
+        bool ret = kc_transaction_type(dbconn, kSecDbExclusiveRemoteCKKSTransactionType, &cferrorInternal, ^bool{
+            CKKSDatabaseTransactionResult result = CKKSDatabaseTransactionRollback;
+
+            CKKSSQLInTransaction = true;
+            CKKSSQLInWriteTransaction = true;
+            result = block();
+            CKKSSQLInWriteTransaction = false;
+            CKKSSQLInTransaction = false;
+            return result == CKKSDatabaseTransactionCommit;
+        });
+        if(cferrorInternal) {
+            ckkserror_global("ckkssql",  "error performing database transaction, major problems ahead: %@", cferrorInternal);
+        }
+        CFReleaseNull(cferrorInternal);
+        return ret;
+    });
+
+    if(cferror) {
+        ckkserror_global("ckkssql",  "error performing database operation, major problems ahead: %@", cferror);
+    }
+    CFReleaseNull(cferror);
+    return ok;
+}
+
++ (BOOL)performCKKSReadonlyTransaction:(void(^)(void))block
+{
+    CFErrorRef cferror = NULL;
+    bool ok = kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbconn) {
+        CFErrorRef cferrorInternal = NULL;
+        bool ret = kc_transaction_type(dbconn, kSecDbNormalTransactionType, &cferrorInternal, ^bool{
+            CKKSSQLInTransaction = true;
+            block();
+            CKKSSQLInTransaction = false;
+            return true;
+        });
+        if(cferrorInternal) {
+            ckkserror_global("ckkssql",  "error performing database transaction, major problems ahead: %@", cferrorInternal);
+        }
+        CFReleaseNull(cferrorInternal);
+        return ret;
+    });
+
+    if(cferror) {
+        ckkserror_global("ckkssql",  "error performing database operation, major problems ahead: %@", cferror);
+    }
+    CFReleaseNull(cferror);
+    return ok;
 }
 
 #pragma mark - Instance methods
@@ -577,5 +669,17 @@ NSString* CKKSSQLWhereColumnNameAsString(CKKSSQLWhereColumnName columnName)
 {
     return [[CKKSSQLWhereValue alloc] initWithOperation:op value:value];
 
+}
+@end
+
+#pragma mark - CKKSSQLWhereIn
+
+@implementation CKKSSQLWhereIn : NSObject
+- (instancetype)initWithValues:(NSArray<NSString*>*)values
+{
+    if((self = [super init])) {
+         _values = values;
+    }
+    return self;
 }
 @end

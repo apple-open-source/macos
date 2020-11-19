@@ -75,7 +75,7 @@ const char* IDBObjectStore::activeDOMObjectName() const
     return "IDBObjectStore";
 }
 
-bool IDBObjectStore::hasPendingActivity() const
+bool IDBObjectStore::virtualHasPendingActivity() const
 {
     return m_transaction.hasPendingActivity();
 }
@@ -158,7 +158,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::doOpenCursor(JSGlobalObject& execSt
     auto keyRange = function();
     if (keyRange.hasException())
         return keyRange.releaseException();
-    auto* keyRangePointer = keyRange.returnValue() ? keyRange.releaseReturnValue().get() : nullptr;
+    auto* keyRangePointer = keyRange.returnValue().get();
 
     auto info = IDBCursorInfo::objectStoreCursor(m_transaction, m_info.identifier(), keyRangePointer, direction, IndexedDB::CursorType::KeyAndValue);
     return m_transaction.requestOpenCursor(execState, *this, info);
@@ -197,7 +197,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::doOpenKeyCursor(JSGlobalObject& exe
     if (keyRange.hasException())
         return keyRange.releaseException();
 
-    auto* keyRangePointer = keyRange.returnValue() ? keyRange.releaseReturnValue().get() : nullptr;
+    auto* keyRangePointer = keyRange.returnValue().get();
     auto info = IDBCursorInfo::objectStoreCursor(m_transaction, m_info.identifier(), keyRangePointer, direction, IndexedDB::CursorType::KeyOnly);
     return m_transaction.requestOpenCursor(execState, *this, info);
 }
@@ -409,7 +409,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::doDelete(JSGlobalObject& execState,
     if (keyRange.hasException())
         return keyRange.releaseException();
 
-    IDBKeyRangeData keyRangeData = keyRange.returnValue() ? keyRange.releaseReturnValue().get() : nullptr;
+    IDBKeyRangeData keyRangeData = keyRange.returnValue().get();
     if (!keyRangeData.isValid())
         return Exception { DataError, "Failed to execute 'delete' on 'IDBObjectStore': The parameter is not a valid key range."_s };
 
@@ -475,7 +475,7 @@ ExceptionOr<Ref<IDBIndex>> IDBObjectStore::createIndex(JSGlobalObject&, const St
         return Exception { InvalidAccessError, "Failed to execute 'createIndex' on 'IDBObjectStore': The keyPath argument was an array and the multiEntry option is true."_s };
 
     // Install the new Index into the ObjectStore's info.
-    IDBIndexInfo info = m_info.createNewIndex(name, WTFMove(keyPath), parameters.unique, parameters.multiEntry);
+    IDBIndexInfo info = m_info.createNewIndex(m_transaction.database().info().generateNextIndexID(), name, WTFMove(keyPath), parameters.unique, parameters.multiEntry);
     m_transaction.database().didCreateIndexInfo(info);
 
     // Create the actual IDBObjectStore from the transaction, which also schedules the operation server side.
@@ -610,7 +610,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::doGetAll(JSGlobalObject& execState,
     if (keyRange.hasException())
         return keyRange.releaseException();
 
-    auto* keyRangePointer = keyRange.returnValue() ? keyRange.releaseReturnValue().get() : nullptr;
+    auto* keyRangePointer = keyRange.returnValue().get();
     return m_transaction.requestGetAllObjectStoreRecords(execState, *this, keyRangePointer, IndexedDB::GetAllType::Values, count);
 }
 
@@ -647,7 +647,7 @@ ExceptionOr<Ref<IDBRequest>> IDBObjectStore::doGetAllKeys(JSGlobalObject& execSt
     if (keyRange.hasException())
         return keyRange.releaseException();
 
-    auto* keyRangePointer = keyRange.returnValue() ? keyRange.releaseReturnValue().get() : nullptr;
+    auto* keyRangePointer = keyRange.returnValue().get();
     return m_transaction.requestGetAllObjectStoreRecords(execState, *this, keyRangePointer, IndexedDB::GetAllType::Keys, count);
 }
 

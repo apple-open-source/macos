@@ -32,7 +32,7 @@
 .\"	@(#)ln.1	8.2 (Berkeley) 12/30/93
 .\" $FreeBSD: src/bin/ln/ln.1,v 1.31 2006/02/14 11:08:05 glebius Exp $
 .\"
-.Dd February 14, 2006
+.Dd July 12, 2019
 .Dt LN 1
 .Os
 .Sh NAME
@@ -43,13 +43,13 @@
 .Nm ln
 .Op Fl Ffhinsv
 .Ar source_file
-.Op Ar target_file
+.Op Ar link_name
 .Nm ln
 .Op Fl Ffhinsv
 .Ar source_file ...
-.Ar target_dir
+.Ar link_dirname
 .Nm link
-.Ar source_file Ar target_file
+.Ar source_file Ar link_name
 .Sh DESCRIPTION
 The
 .Nm ln
@@ -70,7 +70,7 @@ The options are as follows:
 .Bl -tag -width flag
 .\" ==========
 .It Fl F
-If the target file already exists and is a directory, then remove it
+If the proposed link (link_name) already exists and is a directory, then remove it
 so that the link may occur.
 The
 .Fl F
@@ -89,16 +89,16 @@ option is a no-op unless
 option is specified.
 .It Fl h
 If the
-.Ar target_file
+.Ar link_name
 or
-.Ar target_dir
+.Ar link_dirname
 is a symbolic link, do not follow it.
 This is most useful with the
 .Fl f
 option, to replace a symlink which may point to a directory.
 .\" ==========
 .It Fl f
-If the target file already exists,
+If the proposed link (link_name) already exists,
 then unlink it so that the link may occur.
 (The
 .Fl f
@@ -109,12 +109,12 @@ options.)
 .It Fl i
 Cause
 .Nm ln
-to write a prompt to standard error if the target file exists.
+to write a prompt to standard error if the proposed link exists.
 If the response from the standard input begins with the character
 .Sq Li y
 or
 .Sq Li Y ,
-then unlink the target file so that the link may occur.
+then unlink the proposed link so that the link may occur.
 Otherwise, do not attempt the link.
 (The
 .Fl i
@@ -168,9 +168,9 @@ Given one or two arguments,
 creates a link to an existing file
 .Ar source_file .
 If
-.Ar target_file
+.Ar link_name
 is given, the link has that name;
-.Ar target_file
+.Ar link_name
 may also be a directory in which to place the link;
 otherwise it is placed in the current directory.
 If only the directory is specified, the link will be made
@@ -180,7 +180,7 @@ to the last component of
 Given more than two arguments,
 .Nm ln
 makes links in
-.Ar target_dir
+.Ar link_dirname
 to all the named source files.
 The links made will have the same name as the files being linked to.
 .Pp

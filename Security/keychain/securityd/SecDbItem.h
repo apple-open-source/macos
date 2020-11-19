@@ -81,6 +81,7 @@ enum {
     kSecDbSyncPrimaryKeyV0  = (1 << 14),
     kSecDbSyncPrimaryKeyV2  = (1 << 15),
     kSecDbSyncFlag          = (1 << 16),
+    kSecDbSyncSOSCannotSyncFlag= (1 << 17),
 };
 
 #define SecVersionDbFlag(v) ((v & 0xFF) << 8)
@@ -176,6 +177,10 @@ bool SecDbItemSetValue(SecDbItemRef item, const SecDbAttr *desc, CFTypeRef value
 bool SecDbItemSetValues(SecDbItemRef item, CFDictionaryRef values, CFErrorRef *error);
 bool SecDbItemSetValueWithName(SecDbItemRef item, CFStringRef name, CFTypeRef value, CFErrorRef *error);
 
+// Copies a given attribute from source to target. If source does not have that atttribute,
+// doesn't modify target.
+bool SecItemPreserveAttribute(SecDbItemRef target, SecDbItemRef source, const SecDbAttr* attr);
+
 sqlite3_int64 SecDbItemGetRowId(SecDbItemRef item, CFErrorRef *error);
 bool SecDbItemSetRowId(SecDbItemRef item, sqlite3_int64 rowid, CFErrorRef *error);
 bool SecDbItemClearRowId(SecDbItemRef item, CFErrorRef *error);
@@ -188,6 +193,14 @@ bool SecDbItemSetSyncable(SecDbItemRef item, bool sync, CFErrorRef *error);
 bool SecDbItemIsTombstone(SecDbItemRef item);
 
 CFMutableDictionaryRef SecDbItemCopyPListWithMask(SecDbItemRef item, CFOptionFlags mask, CFErrorRef *error);
+
+/*
+ * Note that "mask" requires a single option, but flagsToSkip can have any number combined.
+ */
+CFMutableDictionaryRef SecDbItemCopyPListWithFlagAndSkip(SecDbItemRef item,
+                                                         CFOptionFlags mask,
+                                                         CFOptionFlags flagsToSkip,
+                                                         CFErrorRef *error);
 
 CFDataRef SecDbItemGetPrimaryKey(SecDbItemRef item, CFErrorRef *error);
 CFDataRef SecDbItemGetSHA1(SecDbItemRef item, CFErrorRef *error);
@@ -214,9 +227,10 @@ bool SecDbItemInsertOrReplace(SecDbItemRef item, SecDbConnectionRef dbconn, CFEr
 // SecDbItemInsertOrReplace returns an error even when it succeeds; use this to determine if it's spurious
 bool SecErrorIsSqliteDuplicateItemError(CFErrorRef error);
 
-bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error);
+// Note: this function might modify item, unless always_use_uuid_from_new_item is true
+bool SecDbItemInsert(SecDbItemRef item, SecDbConnectionRef dbconn, bool always_use_uuid_from_new_item, CFErrorRef *error);
 
-bool SecDbItemDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, CFErrorRef *error);
+bool SecDbItemDelete(SecDbItemRef item, SecDbConnectionRef dbconn, CFBooleanRef makeTombstone, bool tombstone_time_from_item, CFErrorRef *error);
 
 bool SecDbItemDoDeleteSilently(SecDbItemRef item, SecDbConnectionRef dbconn, CFErrorRef *error);
 

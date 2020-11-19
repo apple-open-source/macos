@@ -3217,7 +3217,7 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
      and clear flags that say whether attributes were specified */
   i = 0;
   if (nPrefixes) {
-    int j; /* hash table index */
+    unsigned long j; /* hash table index */
     unsigned long version = parser->m_nsAttsVersion;
     int nsAttsSize = (int)1 << parser->m_nsAttsPower;
     unsigned char oldNsAttsPower = parser->m_nsAttsPower;
@@ -3285,7 +3285,7 @@ storeAtts(XML_Parser parser, const ENCODING *enc, const char *attStr,
         if (! b)
           return XML_ERROR_UNBOUND_PREFIX;
 
-        for (j = 0; j < b->uriLen; j++) {
+        for (j = 0; j < (unsigned int) b->uriLen; j++) {
           const XML_Char c = b->uri[j];
           if (! poolAppendChar(&parser->m_tempPool, c))
             return XML_ERROR_NO_MEMORY;

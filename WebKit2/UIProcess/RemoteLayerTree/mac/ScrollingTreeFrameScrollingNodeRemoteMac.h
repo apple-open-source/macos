@@ -35,7 +35,7 @@ class ScrollerPairMac;
 
 class ScrollingTreeFrameScrollingNodeRemoteMac : public WebCore::ScrollingTreeFrameScrollingNodeMac {
 public:
-    WEBCORE_EXPORT static Ref<ScrollingTreeFrameScrollingNodeRemoteMac> create(WebCore::ScrollingTree&, WebCore::ScrollingNodeType, WebCore::ScrollingNodeID);
+    static Ref<ScrollingTreeFrameScrollingNodeRemoteMac> create(WebCore::ScrollingTree&, WebCore::ScrollingNodeType, WebCore::ScrollingNodeID);
     virtual ~ScrollingTreeFrameScrollingNodeRemoteMac();
 
     bool handleMouseEvent(const WebCore::PlatformMouseEvent&);
@@ -44,7 +44,7 @@ private:
     ScrollingTreeFrameScrollingNodeRemoteMac(WebCore::ScrollingTree&, WebCore::ScrollingNodeType, WebCore::ScrollingNodeID);
 
     void commitStateBeforeChildren(const WebCore::ScrollingStateNode&) override;
-    WebCore::ScrollingEventResult handleWheelEvent(const WebCore::PlatformWheelEvent&) override;
+    WebCore::WheelEventHandlingResult handleWheelEvent(const WebCore::PlatformWheelEvent&) override;
     void repositionRelatedLayers() override;
 
     std::unique_ptr<ScrollerPairMac> m_scrollerPair;

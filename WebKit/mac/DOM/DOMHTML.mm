@@ -44,6 +44,7 @@
 #import <WebCore/Range.h>
 #import <WebCore/RenderTextControl.h>
 #import <WebCore/Settings.h>
+#import <WebCore/SimpleRange.h>
 #import <WebCore/markup.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -152,7 +153,7 @@
 - (DOMDocumentFragment *)createDocumentFragmentWithText:(NSString *)text
 {
     // FIXME: Since this is not a contextual fragment, it won't handle whitespace properly.
-    return kit(createFragmentFromText(core(self)->createRange(), text).ptr());
+    return kit(createFragmentFromText(makeRangeSelectingNodeContents(*core(self)), text).ptr());
 }
 
 @end
@@ -221,18 +222,18 @@
 
 @end
 
-static WebAutocapitalizeType webAutocapitalizeType(AutocapitalizeType type)
+static WebAutocapitalizeType webAutocapitalizeType(WebCore::AutocapitalizeType type)
 {
     switch (type) {
-    case AutocapitalizeTypeDefault:
+    case WebCore::AutocapitalizeType::Default:
         return WebAutocapitalizeTypeDefault;
-    case AutocapitalizeTypeNone:
+    case WebCore::AutocapitalizeType::None:
         return WebAutocapitalizeTypeNone;
-    case AutocapitalizeTypeWords:
+    case WebCore::AutocapitalizeType::Words:
         return WebAutocapitalizeTypeWords;
-    case AutocapitalizeTypeSentences:
+    case WebCore::AutocapitalizeType::Sentences:
         return WebAutocapitalizeTypeSentences;
-    case AutocapitalizeTypeAllCharacters:
+    case WebCore::AutocapitalizeType::AllCharacters:
         return WebAutocapitalizeTypeAllCharacters;
     }
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2014, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -171,7 +171,6 @@ struct {
     { 79, 	"opaque", 	"slp_service_scope" },
     { 95,	"string",	"ldap_url" },
     { 108,	"string", 	"swap_path" },
-    { 114,	"string", 	"url" },
     { COMMENT, "/* dhcp-specific extensions: 50..61, 66, 67 */", 0 },
     { 50,	"ip",		"requested_ip_address" },
     { 51,	"uint32",	"lease_time" },
@@ -190,6 +189,8 @@ struct {
     { COMMENT, "/* netinfo parent tags: 112, 113 */", 0 },
     { 112, 	"ip_mult",	"netinfo_server_address" },
     { 113, 	"string",	"netinfo_server_tag" },
+    { COMMENT, "/* captive portal uri */", 0 },
+    { 114,	"string", "captive_portal_url" },
     { COMMENT, "/* ad-hoc network disable option */", 0 },
     { 116,	"uint8",	"auto_configure" },
     { COMMENT, "/* DNS domain search option (RFC 3397) */", 0 },

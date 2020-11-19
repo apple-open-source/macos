@@ -33,6 +33,7 @@
 #include <sys/wait.h>
 #include <sys/ioctl.h>
 #include <sys/disk.h>
+#include <assert.h>
 
 #include <ctype.h>
 #include <err.h>
@@ -370,7 +371,7 @@ void syncCreateDate(const char *mntpt, u_int32_t localCreateTime)
 	if (result) return;
 
 	gmtCreateTime = attrReturnBuffer.creationTime.tv_sec;
-	gmtOffset = gmtCreateTime - (int64_t) localCreateTime + 900;
+	gmtOffset = (int32_t)(gmtCreateTime - (int64_t) localCreateTime + 900);
 	if (gmtOffset > 0) {
 		gmtOffset = 1800 * (gmtOffset / 1800);
 	} else {
@@ -747,8 +748,12 @@ a_mask(s)
     done = 0;
     rv = -1;
     if (*s >= '0' && *s <= '7') {
+        long mask;
+
         done = 1;
-        rv = strtol(optarg, &ep, 8);
+        mask = strtol(optarg, &ep, 8);
+        if (mask >= 0 && mask <= INT_MAX)
+            rv = (int)mask;
     }
     if (!done || rv < 0 || *ep)
         errx(1, "invalid file mode: %s", s);
@@ -878,11 +883,14 @@ get_default_encoding()
 
 		if ((fd = open(buffer, O_RDONLY, 0)) > 0) {
 			ssize_t readSize;
+            long encoding;
 
 			readSize = read(fd, buffer, MAXPATHLEN);
 			buffer[(readSize < 0 ? 0 : readSize)] = '\0';
 			close(fd);
-			return strtol(buffer, NULL, 0);
+            encoding = strtol(buffer, NULL, 0);
+            assert(encoding > -1 && encoding <= UINT_MAX);
+			return (unsigned int)encoding;
 		}
 	}
 	return (0);	/* Fallback to smRoman */

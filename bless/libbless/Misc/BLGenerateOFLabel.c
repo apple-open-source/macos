@@ -226,13 +226,20 @@ CFDataRef* data) {
 #define USE_COREGRAPHICS 0
 
 #if USE_COREGRAPHICS
-#include <ApplicationServices/ApplicationServices.h>
+#include <CoreGraphics/CoreGraphics.h>
+#include <SoftLinking/WeakLinking.h>
+WEAK_LINK_FORCE_IMPORT(CGColorSpaceCreateDeviceGray);
 
 static int makeLabelOfSize(const char *label, unsigned char *bitmapData,
 uint16_t width, uint16_t height, int scale, uint16_t *newwidth) {
     
     int bitmapByteCount;
     int bitmapBytesPerRow;
+
+	if (CGColorSpaceCreateDeviceGray == NULL) {
+		fprintf(stderr, "CoreGraphics is not available for rendering\n");
+		return 1;
+	}
     
     CGContextRef    context = NULL;
     CGColorSpaceRef colorSpace = NULL;
@@ -259,6 +266,8 @@ uint16_t width, uint16_t height, int scale, uint16_t *newwidth) {
     
     
 #if USE_CORETEXT
+#include <CoreText/CoreText.h>
+WEAK_LINK_FORCE_IMPORT(CTFontCreateWithName);
     {
         CFStringRef s1;
         CFAttributedStringRef s2;
@@ -267,6 +276,11 @@ uint16_t width, uint16_t height, int scale, uint16_t *newwidth) {
         CFMutableDictionaryRef dict;
         CGColorRef color;
         CTFontRef fontRef;
+
+		if (CTFontCreateWithName == NULL) {
+			fprintf(stderr, "CoreText is not available for rendering\n");
+			return 1;
+		}
         
         // white text on black background, for OF/EFI bitmap
         const CGFloat components[] = {

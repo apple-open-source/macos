@@ -973,7 +973,8 @@ __SCPreferencesAddSession(SCPreferencesRef prefs)
 							     prefsNotify,
 							     &context);
 		if (prefsPrivate->session == NULL) {
-			SC_log(LOG_INFO, "SCDynamicStoreCreate() failed");
+			SC_log(LOG_ERR, "could not add SCDynamicStore session (for prefs): %s",
+			       SCErrorString(SCError()));
 			return FALSE;
 		}
 
@@ -1177,11 +1178,22 @@ __SCPreferencesScheduleWithRunLoop(SCPreferencesRef	prefs,
 		keys = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		CFArrayAppendValue(keys, prefsPrivate->sessionKeyCommit);
 		CFArrayAppendValue(keys, prefsPrivate->sessionKeyApply);
-		(void) SCDynamicStoreSetNotificationKeys(prefsPrivate->session, keys, NULL);
+		ok = SCDynamicStoreSetNotificationKeys(prefsPrivate->session, keys, NULL);
 		CFRelease(keys);
+		if (!ok) {
+			SC_log(LOG_ERR, "could not set SCDynamicStore notification keys (for prefs): %s",
+			       SCErrorString(SCError()));
+			goto done;
+		}
 
 		if (runLoop != NULL) {
 			prefsPrivate->rls = SCDynamicStoreCreateRunLoopSource(NULL, prefsPrivate->session, 0);
+			if (prefsPrivate->rls == NULL) {
+				SC_log(LOG_ERR, "could not create SCDynamicStore runloop source (for prefs): %s",
+				       SCErrorString(SCError()));
+				ok = FALSE;
+				goto done;
+			}
 			prefsPrivate->rlList = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 		}
 

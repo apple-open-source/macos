@@ -55,7 +55,7 @@ public:
     Policy(TP supportingTp, const CssmOid &policyOid);
 
 public:
-    virtual ~Policy() throw();
+    virtual ~Policy() _NOEXCEPT;
 
     TP &tp()							{ return mTp; }
     const TP &tp() const				{ return mTp; }

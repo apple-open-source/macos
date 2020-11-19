@@ -76,6 +76,7 @@ static io_iterator_t            gAddedIter = MACH_PORT_NULL;
 // TypeDefs
 //---------------------------------------------------------------------------
 typedef enum DeviceType {
+    kDeviceTypeNone,
     kDeviceTypeUPS,
     kDeviceTypeAccessoryBattery,
     kDeviceTypeBatteryCase,
@@ -201,33 +202,25 @@ Boolean SetupMIGServer() {
     kern_return_t   kern_result = KERN_SUCCESS;
     CFMachPortRef   upsdMachPort = NULL;  // must release
     mach_port_t     ups_port = MACH_PORT_NULL;
-    
-    /*if (IOUPSMIGServerIsRunning(&bootstrap_port, NULL)) {
-     result = false;
-     goto finish;
-     }*/
-    
+
     kern_result = task_get_bootstrap_port(mach_task_self(), &bootstrap_port);
     if (kern_result != KERN_SUCCESS) {
         result = false;
         goto finish;
     }
-    
+
     gMainRunLoop = CFRunLoopGetCurrent();
     if (!gMainRunLoop) {
         result = false;
         goto finish;
     }
-    
-    
+
     kern_result = bootstrap_check_in(bootstrap_port, kIOUPSPlugInServerName,
                                      &ups_port);
-    
     if (BOOTSTRAP_SUCCESS != kern_result) {
         syslog(LOG_ERR, "ioupsd: bootstrap_check_in \"%s\" error = %d\n",
                kIOUPSPlugInServerName, kern_result);
     } else {
-        
         upsdMachPort = CFMachPortCreateWithPort(kCFAllocatorDefault, ups_port,
                                                 upsd_mach_port_callback, NULL,
                                                 NULL);
@@ -243,7 +236,7 @@ Boolean SetupMIGServer() {
 finish:
     if (gClientRequestRunLoopSource) CFRelease(gClientRequestRunLoopSource);
     if (upsdMachPort) CFRelease(upsdMachPort);
-    
+
     return result;
 }
 
@@ -365,34 +358,38 @@ DeviceType IdentifyDeviceType(io_object_t upsDevice, CFDictionaryRef upsProperti
                                                             CFSTR(kIOHIDDeviceUsagePairsKey),
                                                             kCFAllocatorDefault,
                                                             0);
-    if (usagePairs) {
-        int     i           = 0;
-        CFIndex count       = CFArrayGetCount(usagePairs);
-        int     usagePage   = 0;
-        int     usage       = 0;
 
-        for (;i < count; i++) {
-            CFDictionaryRef usagePair = (CFDictionaryRef)CFArrayGetValueAtIndex(usagePairs, i);
-            if (!usagePair) continue;
+    // rdar://70004538: bail out if the underlying HID device is torn down
+    if (!usagePairs) {
+        return kDeviceTypeNone;
+    }
 
-            CFNumberRef usagePageRef = CFDictionaryGetValue(usagePair, CFSTR(kIOHIDDeviceUsagePageKey));
-            CFNumberRef usageRef = CFDictionaryGetValue(usagePair, CFSTR(kIOHIDDeviceUsageKey));
+    CFIndex count       = CFArrayGetCount(usagePairs);
 
-            if (usagePageRef) {
-                CFNumberGetValue(usagePageRef, kCFNumberIntType, &usagePage);
-            }
-            if (usageRef) {
-                CFNumberGetValue(usageRef, kCFNumberIntType, &usage);
-            }
+    for (int i = 0; i < count; i++) {
+        int usagePage = 0;
+        int usage = 0;
 
-            if (((usagePage == kHIDPage_AppleVendor) && (usage == kHIDUsage_AppleVendor_AccessoryBattery)) ||
-                ((usagePage == kHIDPage_PowerDevice) && (usage == kHIDUsage_PD_PeripheralDevice))){
-                deviceTypeToReturn = kDeviceTypeAccessoryBattery;
-            }
+        CFDictionaryRef usagePair = (CFDictionaryRef)CFArrayGetValueAtIndex(usagePairs, i);
+        if (!usagePair) continue;
+
+        CFNumberRef usagePageRef = CFDictionaryGetValue(usagePair, CFSTR(kIOHIDDeviceUsagePageKey));
+        CFNumberRef usageRef = CFDictionaryGetValue(usagePair, CFSTR(kIOHIDDeviceUsageKey));
+
+        if (usagePageRef) {
+            CFNumberGetValue(usagePageRef, kCFNumberIntType, &usagePage);
+        }
+        if (usageRef) {
+            CFNumberGetValue(usageRef, kCFNumberIntType, &usage);
         }
 
-        CFRelease(usagePairs);
+        if (((usagePage == kHIDPage_AppleVendor) && (usage == kHIDUsage_AppleVendor_AccessoryBattery)) ||
+            ((usagePage == kHIDPage_PowerDevice) && (usage == kHIDUsage_PD_PeripheralDevice))){
+            deviceTypeToReturn = kDeviceTypeAccessoryBattery;
+        }
     }
+
+    CFRelease(usagePairs);
 
     // All game controllers are explicitly labelled as such by HID
     if (upsProperties) {
@@ -527,7 +524,11 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             upsDataRef->upsEventTimer       = upsEventTimer;
             upsDataRef->isPresent           = true;
             upsDataRef->deviceType          = IdentifyDeviceType(upsDevice, upsProperties);
-            
+
+            if (upsDataRef->deviceType == kDeviceTypeNone) {
+                goto UPSDEVICEADDED_FAIL;
+            }
+
             kr = (*upsPlugInInterface)->getCapabilities(upsPlugInInterface, &upsCapabilites);
             
             if (kr != kIOReturnSuccess)
@@ -595,7 +596,13 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
         
     UPSDEVICEADDED_FAIL:
         // Failed to allocate a UPS interface.  Do some cleanup
-        if (upsPlugInInterface) {
+        if (upsDataRef) {
+            // upsDataRef owns the upsPlugInterface once created.
+            RemoveAndReleasePowerManagerUPSEntry(upsDataRef);
+            upsDataRef = NULL;
+            upsPlugInInterface = NULL;
+        } else if (upsPlugInInterface) {
+            // Otherwise we need to release the upsPlugInInterface directly.
             (*upsPlugInInterface)->Release(upsPlugInInterface);
             upsPlugInInterface = NULL;
         }
@@ -610,10 +617,6 @@ void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
             CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), upsEventTimer,
                                  kCFRunLoopDefaultMode);
             upsEventSource = NULL;
-        }
-        if (upsDataRef) {
-            RemoveAndReleasePowerManagerUPSEntry(upsDataRef);
-            upsDataRef = NULL;
         }
         
     UPSDEVICEADDED_CLEANUP:

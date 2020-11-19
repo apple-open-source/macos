@@ -146,7 +146,7 @@ typedef struct {
 
 __private_extern__ void SystemLoad_prime(void);
 
-__private_extern__ void SystemLoadBatteriesHaveChanged(IOPMBattery **batt_stats);
+__private_extern__ void SystemLoadBatteriesHaveChanged(int count);
 
 __private_extern__ void SystemLoadCPUPowerHasChanged(CFDictionaryRef newCPU);
 
@@ -165,7 +165,7 @@ __private_extern__ void SystemLoadUserActiveAssertions(bool _userActiveAssertion
  */
 
 __private_extern__ bool userActiveRootDomain(void);
-__private_extern__ void userActiveHandleRootDomainActivity(void);
+__private_extern__ void userActiveHandleRootDomainActivity(bool active);
 __private_extern__ void userActiveHandleSleep(void);
 __private_extern__ void userActiveHandlePowerAssertionsChanged(void);
 __private_extern__ void resetSessionUserActivity(void);
@@ -181,7 +181,10 @@ __private_extern__ void deRegisterUserActivityClient(xpc_object_t peer);
 
 #ifdef XCTEST
 void xctSetUserActiveRootDomain(bool active);
-
+bool xctGetUserActiveRootDomain(void);
+uint64_t xctGetUserActivityPostedLevels(void);
+void xctUserActive_prime(void);
+void xctSetUserInactiveDuration(uint32_t value);
 #endif
 
 #endif

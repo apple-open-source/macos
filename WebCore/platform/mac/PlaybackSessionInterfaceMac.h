@@ -28,7 +28,6 @@
 #if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
 
 #include "HTMLMediaElementEnums.h"
-#include "PlaybackSessionInterface.h"
 #include "PlaybackSessionModel.h"
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
@@ -43,8 +42,7 @@ class IntRect;
 class PlaybackSessionModel;
 
 class WEBCORE_EXPORT PlaybackSessionInterfaceMac final
-    : public PlaybackSessionInterface
-    , public PlaybackSessionModelClient
+    : public PlaybackSessionModelClient
     , public RefCounted<PlaybackSessionInterfaceMac> {
 public:
     static Ref<PlaybackSessionInterfaceMac> create(PlaybackSessionModel&);
@@ -62,9 +60,8 @@ public:
     void legibleMediaSelectionIndexChanged(uint64_t) final;
     void externalPlaybackChanged(bool /* enabled */, PlaybackSessionModel::ExternalPlaybackTargetType, const String& /* localizedDeviceName */) final;
     void isPictureInPictureSupportedChanged(bool) final;
+    void ensureControlsManager() final;
 
-    void invalidate();
-    void ensureControlsManager();
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
     void setPlayBackControlsManager(WebPlaybackControlsManager *);
     WebPlaybackControlsManager *playBackControlsManager();
@@ -74,6 +71,8 @@ public:
     void beginScrubbing();
     void endScrubbing();
 
+    void invalidate();
+
 private:
     PlaybackSessionInterfaceMac(PlaybackSessionModel&);
     WeakPtr<PlaybackSessionModel> m_playbackSessionModel;
@@ -82,7 +81,6 @@ private:
 
     void updatePlaybackControlsManagerTiming(double currentTime, double anchorTime, double playbackRate, bool isPlaying);
 #endif
-
 };
 
 }

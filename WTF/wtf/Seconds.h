@@ -32,6 +32,7 @@ namespace WTF {
 
 class MonotonicTime;
 class PrintStream;
+class TextStream;
 class TimeWithDynamicClockType;
 class WallTime;
 
@@ -237,7 +238,7 @@ public:
     }
 
     template<class Decoder>
-    static bool decode(Decoder& decoder, Seconds& seconds)
+    static WARN_UNUSED_RETURN bool decode(Decoder& decoder, Seconds& seconds)
     {
         double value;
         if (!decoder.decode(value))
@@ -330,6 +331,18 @@ constexpr Seconds operator"" _ns(unsigned long long nanoseconds)
 }
 
 } // inline seconds_literals
+
+inline Seconds operator*(double scalar, Seconds seconds)
+{
+    return Seconds(scalar * seconds.value());
+}
+
+inline Seconds operator/(double scalar, Seconds seconds)
+{
+    return Seconds(scalar / seconds.value());
+}
+
+WTF_EXPORT_PRIVATE TextStream& operator<<(TextStream&, Seconds);
 
 } // namespace WTF
 

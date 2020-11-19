@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -210,6 +210,69 @@ _SIMCopyRealm(CFDictionaryRef properties)
     }
 }
 
+Boolean
+_SIMIsOOBPseudonymSupported(Boolean *isSupported)
+{
+    @autoreleasepool {
+	NSError 				*error = nil;
+	CTXPCServiceSubscriptionContext 	*userPreferredSubscriptionCtx = nil;
+	CTIdentityProtectionType 		protection_type;
+
+	*isSupported = FALSE;
+	CoreTelephonyClient *coreTelephonyClient = [[CoreTelephonyClient alloc] init];
+	if (coreTelephonyClient == nil) {
+	    EAPLOG_FL(LOG_ERR, "failed to get the CoreTelephonyClient instance");
+	    return FALSE;
+	}
+	userPreferredSubscriptionCtx = SubscriptionContextUserPreferredGet(coreTelephonyClient);
+	if (userPreferredSubscriptionCtx == nil) {
+	    EAPLOG_FL(LOG_ERR, "failed to get the user preferred subscription context");
+	    return FALSE;
+	}
+	protection_type = [coreTelephonyClient context:userPreferredSubscriptionCtx
+			    supportedIdentityProtectionFor:kCTEncryptedIdentityWiFiHotspot error:&error];
+	if (error) {
+	    EAPLOG_FL(LOG_ERR,
+		      "CoreTelephonyClient.supportedIdentityProtectionFor failed with "
+		      "error: %@", error);
+	    return FALSE;
+	}
+	*isSupported = (protection_type == CTIdentityProtectionTypePseudonym);
+	return TRUE;
+    }
+}
+
+CFStringRef
+_SIMCopyOOBPseudonym(void)
+{
+    @autoreleasepool {
+	NSString 				*ret = nil;
+	NSError 				*error = nil;
+	CTXPCServiceSubscriptionContext 	*userPreferredSubscriptionCtx = nil;
+	CTIdentityProtectionType 		protection_type;
+
+	CoreTelephonyClient *coreTelephonyClient = [[CoreTelephonyClient alloc] init];
+	if (coreTelephonyClient == nil) {
+	    EAPLOG_FL(LOG_ERR, "failed to get the CoreTelephonyClient instance");
+	    return NULL;
+	}
+	userPreferredSubscriptionCtx = SubscriptionContextUserPreferredGet(coreTelephonyClient);
+	if (userPreferredSubscriptionCtx == nil) {
+	    EAPLOG_FL(LOG_ERR, "failed to get the user preferred subscription context");
+	    return NULL;
+	}
+	ret = [coreTelephonyClient context:userPreferredSubscriptionCtx
+			    getPseudoIdentityFor:kCTEncryptedIdentityWiFiHotspot error:&error];
+	if (error) {
+	    EAPLOG_FL(LOG_ERR,
+		      "CoreTelephonyClient.getPseudoIdentityFor failed with "
+		      "error: %@", error);
+	    return NULL;
+	}
+	return (__bridge_retained CFStringRef)ret;
+    }
+}
+
 CFDictionaryRef
 _SIMCopyEncryptedIMSIInfo(EAPType type)
 {
@@ -220,7 +283,7 @@ _SIMCopyEncryptedIMSIInfo(EAPType type)
     	NSString				*imsi_to_encrypt = nil;
     	NSString				*realm = nil;
     	CTXPCServiceSubscriptionContext 	*userPreferredSubscriptionCtx = nil;
-    	NSDictionary 			*ret_encrypted = nil;
+	NSDictionary 				*ret_encrypted = nil;
 
     	CoreTelephonyClient *coreTelephonyclient = [[CoreTelephonyClient alloc] init];
     	if (!coreTelephonyclient) {
@@ -319,13 +382,16 @@ _SIMCreateAuthResponse(CFStringRef slotUUID, CFDictionaryRef auth_params)
 	    	EAPLOG_FL(LOG_ERR, "dispatch_semaphore_create() failed");
 	    	return NULL;
 	    }
-	    [coreTelephonyclient generateUICCAuthenticationInfo:preferredSubscriptionCtx authParams:(__bridge NSDictionary *)auth_params completion:^(NSDictionary *authInfo, NSError *error) {
+	    CTSubscriberAuthDataHolder* authInputParams =
+		[[CTSubscriberAuthDataHolder alloc] initWithData:(__bridge NSDictionary *)auth_params];
+	    [coreTelephonyclient generateAuthenticationInfoUsingSim:preferredSubscriptionCtx
+		authParams:authInputParams completion:^(CTSubscriberAuthDataHolder *authInfo, NSError *error) {
 	    	if (error) {
 		    EAPLOG_FL(LOG_ERR,
-			      "CoreTelephonyClient.generateUICCAuthenticationInfo failed with "
+			      "CoreTelephonyClient.generateAuthenticationInfoUsingSim failed with "
 			      "error: %@", error);
 	    	} else {
-		    retAuthInfo = (__bridge_retained CFDictionaryRef)authInfo;
+		    retAuthInfo = (__bridge_retained CFDictionaryRef)authInfo.data;
 	    	}
 	    	dispatch_semaphore_signal(semaphore);
 	    }];

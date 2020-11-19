@@ -1,10 +1,5 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2015 International Business Machines
-// * Corporation and others. All Rights Reserved.
-// * Apple addition, not in CLDR
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_BR{
     %%Parent{"en_001"}
     NumberElements{
@@ -19,7 +14,7 @@ en_BR{
             }
         }
     }
-    Version{"2.1.11.50"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

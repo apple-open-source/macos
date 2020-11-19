@@ -48,10 +48,10 @@
 #include <mach/mach_time.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <CoreFoundation/CFBundle.h>
-#include <ppp_defs.h>
-#include <ppp_domain.h>
-#include <ppp_msg.h>
-#include <ppp_privmsg.h>
+#include "ppp_defs.h"
+#include "ppp_domain.h"
+#include "ppp_msg.h"
+#include "ppp_privmsg.h"
 
 #include "vpnd.h"
 #include "vpnoptions.h"

@@ -53,7 +53,7 @@
 #include <Security/SecKeyPriv.h>
 #include <security_cdsa_utils/cuCdsaUtils.h>
 #include <openssl/pem.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <Security/SecBase.h>
 
 #define SecPkcs8Dbg(args...)	secinfo("SecPkcs8", ## args)

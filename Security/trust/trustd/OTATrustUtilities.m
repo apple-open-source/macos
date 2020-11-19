@@ -272,9 +272,9 @@ static void LogRemotelyWithAttributes(OTATrustLogLevel level, NSError **error, N
 #if ENABLE_TRUSTD_ANALYTICS
     /* only report errors and notices */
     if (error && level == OTATrustLogLevelError) {
-        [[TrustdHealthAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventOTAPKIEvent hardFailure:YES result:*error withAttributes:attributes];
+        [[TrustAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventOTAPKIEvent hardFailure:YES result:*error withAttributes:attributes];
     } else if (error && level == OTATrustLogLevelNotice) {
-        [[TrustdHealthAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventOTAPKIEvent hardFailure:NO result:*error withAttributes:attributes];
+        [[TrustAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventOTAPKIEvent hardFailure:NO result:*error withAttributes:attributes];
     }
 #endif // ENABLE_TRUSTD_ANALYTICS
 }
@@ -536,7 +536,7 @@ static NSNumber *PKIUpdateAndPurgeAsset(MAAsset *asset, NSNumber *asset_version,
         UpdateFromAsset([asset getLocalFileUrl], asset_version, error)) {
         secnotice("OTATrust", "finished update to version %@ from installed asset. purging asset.", asset_version);
 #if ENABLE_TRUSTD_ANALYTICS
-        [[TrustdHealthAnalytics logger] logSuccessForEventNamed:TrustdHealthAnalyticsEventOTAPKIEvent];
+        [[TrustAnalytics logger] logSuccessForEventNamed:TrustdHealthAnalyticsEventOTAPKIEvent];
 #endif // ENABLE_TRUSTD_ANALYTICS
         [asset purge:^(MAPurgeResult purge_result) {
             if (purge_result != MAPurgeSucceeded) {

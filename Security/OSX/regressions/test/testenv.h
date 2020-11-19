@@ -33,7 +33,6 @@ extern "C" {
 extern int test_strict_bats;
 extern int test_verbose;
 extern int test_check_leaks;
-extern char **test_skip_leaks_test;
 
 int tests_begin(int argc, char * const *argv);
 

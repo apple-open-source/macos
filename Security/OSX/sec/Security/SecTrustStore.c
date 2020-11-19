@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2007-2018 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2007-2020 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,11 +17,11 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
-/* 
+/*
  * SecTrustStore.c - CertificateSource API to a system root certificate store
  */
 #include <Security/SecTrustStore.h>
@@ -95,12 +95,12 @@ Boolean SecTrustStoreContains(SecTrustStoreRef ts,
 
 	require(ts, errOut);
 	require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
-    
+
 
     ok = (SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_trust_store_contains, string_data_to_bool_bool_error, ts, digest, &contains, error);
     }) == errSecSuccess);
-    
+
 errOut:
 	return ok && contains;
 }
@@ -206,7 +206,7 @@ OSStatus SecTrustStoreSetTrustSettings(SecTrustStoreRef ts,
     Boolean isSelfSigned = false;
     require_noerr_quiet(result = SecCertificateIsSelfSigned(certificate, &isSelfSigned), out);
     require_noerr_quiet(result = validateTrustSettings(isSelfSigned, trustSettingsDictOrArray, &validatedTrustSettings), out);
-    
+
     os_activity_initiate("SecTrustStoreSetTrustSettings", OS_ACTIVITY_FLAG_DEFAULT, ^{
         result = SecOSStatusWith(^bool (CFErrorRef *error) {
             return TRUSTD_XPC(sec_trust_store_set_trust_settings, string_cert_cftype_to_error, ts, certificate, validatedTrustSettings, error);
@@ -229,7 +229,7 @@ OSStatus SecTrustStoreRemoveCertificate(SecTrustStoreRef ts,
     require(ts, errOut);
     require(digest = SecCertificateGetSHA1Digest(certificate), errOut);
     require(gTrustd || ts == (SecTrustStoreRef)kSecTrustStoreUserName, errOut);
-    
+
     status = SecOSStatusWith(^bool (CFErrorRef *error) {
         return TRUSTD_XPC(sec_trust_store_remove_certificate, string_data_to_bool_error, ts, digest, error);
     });
@@ -262,12 +262,12 @@ OSStatus SecTrustStoreGetSettingsAssetVersionNumber(SecTrustSettingsAssetVersion
     if (NULL == p_settings_asset_version_number) {
         return errSecParam;
     }
-    
+
     OSStatus status = errSecSuccess;
     CFErrorRef error = nil;
     uint64_t versionNumber = SecTrustGetAssetVersionNumber(&error);
     *p_settings_asset_version_number = (SecTrustSettingsAssetVersionNumber)versionNumber;
-    
+
     if (error) {
         status = (OSStatus)CFErrorGetCode(error);
     }
@@ -401,6 +401,76 @@ CFDictionaryRef SecTrustStoreCopyCTExceptions(CFStringRef applicationIdentifier,
     return result;
 #else // TARGET_OS_BRIDGE
     SecError(errSecReadOnly, error, CFSTR("SecTrustStoreCopyCTExceptions not supported on bridgeOS"));
+    return NULL;
+#endif // TARGET_OS_BRIDGE
+}
+
+/* MARK: CA Revocation Additions */
+
+/* Specify explicit additions to the list of known CAs for which revocation will be checked.
+ * Input: dictionary with following key and value:
+ *   Key = kSecCARevocationAdditionsKey; Value = Array of dictionaries
+ * For revocation checking to be enabled for certificates issued by a CA, the CA must be specified as a
+ * dictionary entry containing the hash of the subjectPublicKeyInfo that appears in the CA certificate:
+ *   Key = kSecCARevocationHashAlgorithmKey; Value = String. Currently, must be ”sha256”.
+ *   Key = kSecCARevocationSPKIHashKey; Value = Data. Created by applying the specified hash algorithm
+ *   to the DER encoding of the certificate's subjectPublicKeyInfo.
+*/
+
+const CFStringRef kSecCARevocationAdditionsKey = CFSTR("EnabledForCAs");
+const CFStringRef kSecCARevocationHashAlgorithmKey = CFSTR("HashAlgorithm");
+const CFStringRef kSecCARevocationSPKIHashKey = CFSTR("SubjectPublicKeyInfoHash");
+
+bool SecTrustStoreSetCARevocationAdditions(CFStringRef applicationIdentifier, CFDictionaryRef additions, CFErrorRef *error) {
+#if !TARGET_OS_BRIDGE
+    if (applicationIdentifier && gTrustd && gTrustd->sec_trust_store_set_ca_revocation_additions) {
+        return gTrustd->sec_trust_store_set_ca_revocation_additions(applicationIdentifier, additions, error);
+    } else if (gTrustd && gTrustd->sec_trust_store_set_ca_revocation_additions) {
+        /* When calling from the TrustTests, we need to pass the appID for the tests. Ordinarily,
+         * this is done by trustd using the client's entitlements. */
+        return gTrustd->sec_trust_store_set_ca_revocation_additions(CFSTR("com.apple.trusttests"), additions, error);
+    }
+
+    os_activity_t activity = os_activity_create("SecTrustStoreSetCARevocationAdditions", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block bool result = false;
+    securityd_send_sync_and_do(kSecXPCOpSetCARevocationAdditions, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        SecXPCDictionarySetPListOptional(message, kSecTrustRevocationAdditionsKey, additions, block_error);
+        SecXPCDictionarySetStringOptional(message, kSecTrustEventApplicationID, applicationIdentifier, block_error);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        result = SecXPCDictionaryGetBool(response, kSecXPCKeyResult, block_error);
+        return true;
+    });
+
+    os_release(activity);
+    return result;
+#else // TARGET_OS_BRIDGE
+    return SecError(errSecReadOnly, error, CFSTR("SecTrustStoreSetCARevocationAdditions not supported on bridgeOS"));
+#endif // TARGET_OS_BRIDGE
+}
+
+CFDictionaryRef SecTrustStoreCopyCARevocationAdditions(CFStringRef applicationIdentifier, CFErrorRef *error) {
+#if !TARGET_OS_BRIDGE
+    do_if_registered(sec_trust_store_copy_ca_revocation_additions, applicationIdentifier, error);
+
+    os_activity_t activity = os_activity_create("SecTrustStoreCopyCARevocationAdditions", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_scope(activity);
+
+    __block CFDictionaryRef result = NULL;
+    securityd_send_sync_and_do(kSecXPCOpCopyCARevocationAdditions, error, ^bool(xpc_object_t message, CFErrorRef *block_error) {
+        SecXPCDictionarySetStringOptional(message, kSecTrustEventApplicationID, applicationIdentifier, block_error);
+        return true;
+    }, ^bool(xpc_object_t response, CFErrorRef *block_error) {
+        (void)SecXPCDictionaryCopyDictionaryOptional(response, kSecTrustRevocationAdditionsKey, &result, block_error);
+        return true;
+    });
+
+    os_release(activity);
+    return result;
+#else // TARGET_OS_BRIDGE
+    SecError(errSecReadOnly, error, CFSTR("SecTrustStoreCopyCARevocationAdditions not supported on bridgeOS"));
     return NULL;
 #endif // TARGET_OS_BRIDGE
 }

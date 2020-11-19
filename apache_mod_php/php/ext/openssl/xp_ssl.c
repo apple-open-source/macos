@@ -1912,7 +1912,7 @@ static int php_openssl_enable_crypto(php_stream *stream,
 		}
 
 		timeout = sslsock->is_client ? &sslsock->connect_timeout : &sslsock->s.timeout;
-		has_timeout = !sslsock->s.is_blocked && (timeout->tv_sec || timeout->tv_usec);
+		has_timeout = !sslsock->s.is_blocked && (timeout->tv_sec > 0 || (timeout->tv_sec == 0 && timeout->tv_usec));
 		/* gettimeofday is not monotonic; using it here is not strictly correct */
 		if (has_timeout) {
 			gettimeofday(&start_time, NULL);
@@ -1921,6 +1921,7 @@ static int php_openssl_enable_crypto(php_stream *stream,
 		do {
 			struct timeval cur_time, elapsed_time;
 
+			ERR_clear_error();
 			if (sslsock->is_client) {
 				n = SSL_connect(sslsock->ssl_handle);
 			} else {
@@ -2063,7 +2064,7 @@ static size_t php_openssl_sockop_io(int read, php_stream *stream, char *buf, siz
 			sslsock->s.is_blocked = 0;
 		}
 
-		if (!sslsock->s.is_blocked && timeout && (timeout->tv_sec || timeout->tv_usec)) {
+		if (!sslsock->s.is_blocked && timeout && (timeout->tv_sec > 0 || (timeout->tv_sec == 0 && timeout->tv_usec))) {
 			has_timeout = 1;
 			/* gettimeofday is not monotonic; using it here is not strictly correct */
 			gettimeofday(&start_time, NULL);
@@ -2093,6 +2094,7 @@ static size_t php_openssl_sockop_io(int read, php_stream *stream, char *buf, siz
 			}
 
 			/* Now, do the IO operation. Don't block if we can't complete... */
+			ERR_clear_error();
 			if (read) {
 				nr_bytes = SSL_read(sslsock->ssl_handle, buf, (int)count);
 
@@ -2207,8 +2209,8 @@ static struct timeval php_openssl_subtract_timeval(struct timeval a, struct time
 	difference.tv_usec = a.tv_usec - b.tv_usec;
 
 	if (a.tv_usec < b.tv_usec) {
-	  	b.tv_sec  -= 1L;
-	   	b.tv_usec += 1000000L;
+		difference.tv_sec  -= 1L;
+		difference.tv_usec += 1000000L;
 	}
 
 	return difference;

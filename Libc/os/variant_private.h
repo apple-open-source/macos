@@ -190,7 +190,7 @@ os_variant_is_darwinos(const char *subsystem);
 /*!
  * @function os_variant_uses_ephemeral_storage
  *
- * @abstract returns whether the system is booted from an ephermeral volume
+ * @abstract returns whether the system is booted from an ephemeral volume
  *
  * @result
  * Returns true if the system is booted with ephemeral storage for the data volume.
@@ -201,20 +201,46 @@ bool
 os_variant_uses_ephemeral_storage(const char *subsystem);
 
 /*!
+ * @function os_variant_is_basesystem
+ *
+ * @abstract returns whether this system variant is the macOS BaseSystem
+ *
+ * @description
+ * On macOS, this returns whether the running environment is the BaseSystem.
+ *
+ * The macOS BaseSystem is used for Recovery, Installer, Diagnostics, FileVault
+ * unlock, and more.  This will return true on all of these.
+ *
+ * @result
+ * Returns true if this variant is BaseSystem
+ */
+API_AVAILABLE(macosx(10.16)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos)
+OS_EXPORT OS_WARN_RESULT
+bool
+os_variant_is_basesystem(const char *subsystem);
+
+/*!
  * @function os_variant_is_recovery
  *
  * @abstract returns whether this system variant is the recovery OS.
  *
  * @description
- * On macOS, this returns whether the running environment is the BaseSystem.
- * This will be true in the installer and recovery environments.  On embedded
- * platforms, this returns whether this is the NeRD (Network Recovery on
- * Device) OS.
+ * On macOS, this returns whether the running environment is the BaseSystem, in
+ * a mode where it is independent of a running operating system.  This includes
+ * the installer, local and internet recovery, and diagnostics.  It does not
+ * include modes where the BaseSystem is acting as a mode of the primary OS,
+ * such as FileVault unlock.
+ *
+ * NOTE: this is currently not implemented and simply returns
+ * os_variant_is_basesystem() until it can be implemented.
+ *
+ * On embedded platforms, this returns whether this is the NeRD (Network
+ * Recovery on Device) OS.  It returns false in the restore/OTA ramdisks.
  *
  * @result
  * Returns true if this variant is a recoveryOS
  */
-API_AVAILABLE(macosx(10.15), ios(13.0), tvos(13.0), watchos(6.0))
+API_AVAILABLE(macosx(10.15), ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0))
 OS_EXPORT OS_WARN_RESULT
 bool
 os_variant_is_recovery(const char *subsystem);
@@ -240,10 +266,32 @@ os_variant_is_recovery(const char *subsystem);
  * @result
  * Returns true if the system is of the specified variant.
  */
-API_AVAILABLE(macosx(10.15), ios(13.0), tvos(13.0), watchos(6.0))
+API_AVAILABLE(macosx(10.15), ios(13.0), tvos(13.0), watchos(6.0), bridgeos(4.0))
 OS_EXPORT OS_WARN_RESULT
 bool
 os_variant_check(const char *subsystem, const char *variant);
+
+/*!
+ * @function os_variant_copy_description
+ *
+ * @abstract returns a string describing the current variants
+ *
+ * @description
+ * This returns a string containing the variants of the current system.
+ *
+ * @result
+ * Returns a string that must be freed by the caller if successful.  If an
+ * error occurs, @c NULL is returned and @c errno will be set to indicate the
+ * error.
+ */
+API_AVAILABLE(macosx(10.16), ios(14.0), tvos(13.0), watchos(7.0), bridgeos(4.0))
+OS_EXPORT OS_WARN_RESULT
+char *
+os_variant_copy_description(const char *subsystem);
+
+OS_EXPORT
+void
+os_variant_init_4launchd(const char *boot_mode);
 
 __END_DECLS
 

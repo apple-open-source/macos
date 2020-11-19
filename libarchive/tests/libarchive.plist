@@ -21,6 +21,8 @@
 			</array>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/libarchive</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 		</dict>
 		<dict>
 			<key>Command</key>

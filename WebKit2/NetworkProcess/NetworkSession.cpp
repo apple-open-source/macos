@@ -32,6 +32,7 @@
 #include "NetworkProcessProxyMessages.h"
 #include "NetworkResourceLoadParameters.h"
 #include "NetworkResourceLoader.h"
+#include "NetworkSessionCreationParameters.h"
 #include "PingLoad.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
@@ -80,9 +81,17 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
     : m_sessionID(parameters.sessionID)
     , m_networkProcess(networkProcess)
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-    , m_enableResourceLoadStatisticsLogTestingEvent(parameters.enableResourceLoadStatisticsLogTestingEvent)
+    , m_resourceLoadStatisticsDirectory(parameters.resourceLoadStatisticsParameters.directory)
+    , m_shouldIncludeLocalhostInResourceLoadStatistics(parameters.resourceLoadStatisticsParameters.shouldIncludeLocalhost ? ShouldIncludeLocalhost::Yes : ShouldIncludeLocalhost::No)
+    , m_enableResourceLoadStatisticsDebugMode(parameters.resourceLoadStatisticsParameters.enableDebugMode ? EnableResourceLoadStatisticsDebugMode::Yes : EnableResourceLoadStatisticsDebugMode::No)
+    , m_resourceLoadStatisticsManualPrevalentResource(parameters.resourceLoadStatisticsParameters.manualPrevalentResource)
+    , m_enableResourceLoadStatisticsLogTestingEvent(parameters.resourceLoadStatisticsParameters.enableLogTestingEvent)
+    , m_thirdPartyCookieBlockingMode(parameters.resourceLoadStatisticsParameters.thirdPartyCookieBlockingMode)
+    , m_sameSiteStrictEnforcementEnabled(parameters.resourceLoadStatisticsParameters.sameSiteStrictEnforcementEnabled)
+    , m_firstPartyWebsiteDataRemovalMode(parameters.resourceLoadStatisticsParameters.firstPartyWebsiteDataRemovalMode)
+    , m_standaloneApplicationDomain(parameters.resourceLoadStatisticsParameters.standaloneApplicationDomain)
 #endif
-    , m_adClickAttribution(makeUniqueRef<AdClickAttributionManager>(parameters.sessionID))
+    , m_adClickAttribution(makeUniqueRef<AdClickAttributionManager>(networkProcess, parameters.sessionID))
     , m_testSpeedMultiplier(parameters.testSpeedMultiplier)
     , m_allowsServerPreconnect(parameters.allowsServerPreconnect)
 {
@@ -105,8 +114,8 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
                 RELEASE_LOG_ERROR(NetworkCache, "Failed to initialize the WebKit network disk cache");
         }
 
-        if (!parameters.resourceLoadStatisticsDirectory.isEmpty())
-            SandboxExtension::consumePermanently(parameters.resourceLoadStatisticsDirectoryExtensionHandle);
+        if (!parameters.resourceLoadStatisticsParameters.directory.isEmpty())
+            SandboxExtension::consumePermanently(parameters.resourceLoadStatisticsParameters.directoryExtensionHandle);
     }
 
     m_isStaleWhileRevalidateEnabled = parameters.staleWhileRevalidateEnabled;
@@ -117,23 +126,35 @@ NetworkSession::NetworkSession(NetworkProcess& networkProcess, const NetworkSess
         // PingLoad manages its own lifetime, deleting itself when its purpose has been fulfilled.
         new PingLoad(m_networkProcess, m_sessionID, WTFMove(loadParameters), WTFMove(completionHandler));
     });
+
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    setResourceLoadStatisticsEnabled(parameters.resourceLoadStatisticsParameters.enabled);
+#endif
 }
 
 NetworkSession::~NetworkSession()
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-    destroyResourceLoadStatistics();
+    destroyResourceLoadStatistics([] { });
 #endif
 }
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
-void NetworkSession::destroyResourceLoadStatistics()
+void NetworkSession::destroyResourceLoadStatistics(CompletionHandler<void()>&& completionHandler)
 {
     if (!m_resourceLoadStatistics)
-        return;
+        return completionHandler();
 
-    m_resourceLoadStatistics->didDestroyNetworkSession();
+    m_resourceLoadStatistics->didDestroyNetworkSession(WTFMove(completionHandler));
     m_resourceLoadStatistics = nullptr;
+}
+
+void NetworkSession::flushAndDestroyPersistentStore(CompletionHandler<void()>&& completionHandler)
+{
+    if (!m_resourceLoadStatistics)
+        return completionHandler();
+
+    m_resourceLoadStatistics->flushAndDestroyPersistentStore(WTFMove(completionHandler));
 }
 #endif
 
@@ -145,7 +166,7 @@ void NetworkSession::invalidateAndCancel()
     if (m_resourceLoadStatistics)
         m_resourceLoadStatistics->invalidateAndCancel();
 #endif
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_isInvalidated = true;
 #endif
 }
@@ -157,19 +178,16 @@ void NetworkSession::setResourceLoadStatisticsEnabled(bool enable)
     if (auto* storageSession = networkStorageSession())
         storageSession->setResourceLoadStatisticsEnabled(enable);
     if (!enable) {
-        destroyResourceLoadStatistics();
+        destroyResourceLoadStatistics([] { });
         return;
     }
 
     if (m_resourceLoadStatistics)
         return;
 
-    // FIXME(193728): Support ResourceLoadStatistics for ephemeral sessions, too.
-    if (m_sessionID.isEphemeral())
-        return;
-
-    m_resourceLoadStatistics = WebResourceLoadStatisticsStore::create(*this, m_resourceLoadStatisticsDirectory, m_shouldIncludeLocalhostInResourceLoadStatistics);
-    m_resourceLoadStatistics->populateMemoryStoreFromDisk([] { });
+    m_resourceLoadStatistics = WebResourceLoadStatisticsStore::create(*this, m_resourceLoadStatisticsDirectory, m_shouldIncludeLocalhostInResourceLoadStatistics, (m_sessionID.isEphemeral() ? ResourceLoadStatistics::IsEphemeral::Yes : ResourceLoadStatistics::IsEphemeral::No));
+    if (!m_sessionID.isEphemeral())
+        m_resourceLoadStatistics->populateMemoryStoreFromDisk([] { });
 
     if (m_enableResourceLoadStatisticsDebugMode == EnableResourceLoadStatisticsDebugMode::Yes)
         m_resourceLoadStatistics->setResourceLoadStatisticsDebugMode(true, [] { });
@@ -181,16 +199,24 @@ void NetworkSession::setResourceLoadStatisticsEnabled(bool enable)
 
 void NetworkSession::recreateResourceLoadStatisticStore(CompletionHandler<void()>&& completionHandler)
 {
-    destroyResourceLoadStatistics();
-    m_resourceLoadStatistics = WebResourceLoadStatisticsStore::create(*this, m_resourceLoadStatisticsDirectory, m_shouldIncludeLocalhostInResourceLoadStatistics);
-    m_resourceLoadStatistics->populateMemoryStoreFromDisk(WTFMove(completionHandler));
-    forwardResourceLoadStatisticsSettings();
+    destroyResourceLoadStatistics([this, weakThis = makeWeakPtr(*this), completionHandler = WTFMove(completionHandler)] () mutable {
+        if (!weakThis)
+            return completionHandler();
+        m_resourceLoadStatistics = WebResourceLoadStatisticsStore::create(*this, m_resourceLoadStatisticsDirectory, m_shouldIncludeLocalhostInResourceLoadStatistics, (m_sessionID.isEphemeral() ? ResourceLoadStatistics::IsEphemeral::Yes : ResourceLoadStatistics::IsEphemeral::No));
+        forwardResourceLoadStatisticsSettings();
+        if (!m_sessionID.isEphemeral())
+            m_resourceLoadStatistics->populateMemoryStoreFromDisk(WTFMove(completionHandler));
+        else
+            completionHandler();
+    });
 }
 
 void NetworkSession::forwardResourceLoadStatisticsSettings()
 {
     m_resourceLoadStatistics->setThirdPartyCookieBlockingMode(m_thirdPartyCookieBlockingMode);
+    m_resourceLoadStatistics->setSameSiteStrictEnforcementEnabled(m_sameSiteStrictEnforcementEnabled);
     m_resourceLoadStatistics->setFirstPartyWebsiteDataRemovalMode(m_firstPartyWebsiteDataRemovalMode, [] { });
+    m_resourceLoadStatistics->setStandaloneApplicationDomain(m_standaloneApplicationDomain, [] { });
 }
 
 bool NetworkSession::isResourceLoadStatisticsEnabled() const
@@ -213,9 +239,15 @@ void NetworkSession::notifyPageStatisticsTelemetryFinished(unsigned numberOfPrev
     m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::NotifyResourceLoadStatisticsTelemetryFinished(numberOfPrevalentResources, numberOfPrevalentResourcesWithUserInteraction, numberOfPrevalentResourcesWithoutUserInteraction, topPrevalentResourceWithUserInteractionDaysSinceUserInteraction, medianDaysSinceUserInteractionPrevalentResourceWithUserInteraction, top3NumberOfPrevalentResourcesWithUI, top3MedianSubFrameWithoutUI, top3MedianSubResourceWithoutUI, top3MedianUniqueRedirectsWithoutUI, top3MedianDataRecordsRemovedWithoutUI), 0);
 }
 
-void NetworkSession::deleteWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType> dataTypes, Vector<std::pair<RegistrableDomain, WebsiteDataToRemove>>&& domains, bool shouldNotifyPage, CompletionHandler<void(const HashSet<RegistrableDomain>&)>&& completionHandler)
+void NetworkSession::deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType> dataTypes, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&& domains, bool shouldNotifyPage, CompletionHandler<void(const HashSet<RegistrableDomain>&)>&& completionHandler)
 {
-    m_networkProcess->deleteWebsiteDataForRegistrableDomains(m_sessionID, dataTypes, WTFMove(domains), shouldNotifyPage, WTFMove(completionHandler));
+    if (auto* storageSession = networkStorageSession()) {
+        for (auto& domain : domains.domainsToEnforceSameSiteStrictFor)
+            storageSession->setAllCookiesToSameSiteStrict(domain, [] { });
+    }
+    domains.domainsToEnforceSameSiteStrictFor.clear();
+
+    m_networkProcess->deleteAndRestrictWebsiteDataForRegistrableDomains(m_sessionID, dataTypes, WTFMove(domains), shouldNotifyPage, WTFMove(completionHandler));
 }
 
 void NetworkSession::registrableDomainsWithWebsiteData(OptionSet<WebsiteDataType> dataTypes, bool shouldNotifyPage, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&& completionHandler)
@@ -239,6 +271,49 @@ void NetworkSession::setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMod
     m_thirdPartyCookieBlockingMode = blockingMode;
     if (m_resourceLoadStatistics)
         m_resourceLoadStatistics->setThirdPartyCookieBlockingMode(blockingMode);
+}
+
+void NetworkSession::setShouldEnbleSameSiteStrictEnforcement(WebCore::SameSiteStrictEnforcementEnabled enabled)
+{
+    ASSERT(m_resourceLoadStatistics);
+    m_sameSiteStrictEnforcementEnabled = enabled;
+    if (m_resourceLoadStatistics)
+        m_resourceLoadStatistics->setSameSiteStrictEnforcementEnabled(enabled);
+}
+
+void NetworkSession::setFirstPartyHostCNAMEDomain(String&& firstPartyHost, WebCore::RegistrableDomain&& cnameDomain)
+{
+#if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
+    ASSERT(!firstPartyHost.isEmpty() && !cnameDomain.isEmpty() && firstPartyHost != cnameDomain.string());
+    if (firstPartyHost.isEmpty() || cnameDomain.isEmpty() || firstPartyHost == cnameDomain.string())
+        return;
+    m_firstPartyHostCNAMEDomains.add(WTFMove(firstPartyHost), WTFMove(cnameDomain));
+#else
+    UNUSED_PARAM(firstPartyHost);
+    UNUSED_PARAM(cnameDomain);
+#endif
+}
+
+Optional<WebCore::RegistrableDomain> NetworkSession::firstPartyHostCNAMEDomain(const String& firstPartyHost)
+{
+#if HAVE(CFNETWORK_CNAME_AND_COOKIE_TRANSFORM_SPI)
+    if (!decltype(m_firstPartyHostCNAMEDomains)::isValidKey(firstPartyHost))
+        return WTF::nullopt;
+
+    auto iterator = m_firstPartyHostCNAMEDomains.find(firstPartyHost);
+    if (iterator == m_firstPartyHostCNAMEDomains.end())
+        return WTF::nullopt;
+    return iterator->value;
+#else
+    UNUSED_PARAM(firstPartyHost);
+    return WTF::nullopt;
+#endif
+}
+
+void NetworkSession::resetCNAMEDomainData()
+{
+    m_firstPartyHostCNAMEDomains.clear();
+    m_thirdPartyCNAMEDomainForTesting = WTF::nullopt;
 }
 #endif // ENABLE(RESOURCE_LOAD_STATISTICS)
 

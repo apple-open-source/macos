@@ -39,6 +39,10 @@
 
 __BEGIN_DECLS
 
+#define SOS_ACCOUNT_PRIORITY DISPATCH_QUEUE_PRIORITY_LOW
+#define SOS_ENGINE_PRIORITY DISPATCH_QUEUE_PRIORITY_BACKGROUND
+#define SOS_TRANSPORT_PRIORITY DISPATCH_QUEUE_PRIORITY_LOW
+
 #define ENABLE_IDS 0
 
 #define kSOSPeerIDLengthMax (26)
@@ -82,12 +86,16 @@ enum {
     kSOSErrorParam              = 1045,
     kSOSErrorNotInCircle        = 1046,
     kSOSErrorKeysNeedAttention  = 1047,
+    kSOSErrorNoAccount          = 1048,
 };
 
 extern const CFStringRef SOSTransportMessageTypeIDSV2;
 extern const CFStringRef SOSTransportMessageTypeKVS;
 extern const CFStringRef kSOSDSIDKey;
 extern const SOSCCStatus kSOSNoCachedValue;
+extern const CFStringRef kSOSCountKey;
+
+dispatch_queue_t SOSCCCredentialQueue(void);
 
 // Returns false unless errorCode is 0.
 bool SOSErrorCreate(CFIndex errorCode, CFErrorRef *error, CFDictionaryRef formatOptions, CFStringRef descriptionString, ...);

@@ -16,7 +16,7 @@ static uint8_t descriptor[] = {
     HIDKeyboardDescriptor
 };
 
-static NSInteger _setReportCount;
+static BOOL _ledState = false;
 
 static HIDUserDevice *setupDevice()
 {
@@ -43,13 +43,12 @@ static HIDUserDevice *setupDevice()
         assert(type == HIDReportTypeOutput);
         
         outReport = (HIDKeyboardDescriptorOutputReport *)report;
-        assert(outReport->LED_KeyboardCapsLock == 1);
+        _ledState = outReport->LED_KeyboardCapsLock;
+
         
         NSLog(@"HIDUserDevice setReport type: %lu reportID: %ld",
               (unsigned long)type, (long)reportID);
-        
-        _setReportCount++;
-        
+
         return kIOReturnSuccess;
     }];
     
@@ -71,9 +70,7 @@ static HIDUserDevice *setupDevice()
 - (void)setUp
 {
     [super setUp];
-    
-    _setReportCount = 0;
-    
+
     _userDevice = setupDevice();
     HIDXCTAssertAndThrowTrue(_userDevice);
 }
@@ -100,7 +97,7 @@ static HIDUserDevice *setupDevice()
     [_userDevice handleReport:reportData error:nil];
     CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1.0, false);
     
-    XCTAssert(_setReportCount == 1, "_setReportCount:%ld", _setReportCount);
+    XCTAssert(_ledState == 1, "_ledState:%d", _ledState);
     
     // terminate
     [_userDevice cancel];
@@ -112,7 +109,7 @@ static HIDUserDevice *setupDevice()
     HIDXCTAssertAndThrowTrue(_userDevice);
     
     // verify caps lock on
-    XCTAssert(_setReportCount == 2, "_setReportCount:%ld", _setReportCount);
+    XCTAssert(_ledState == 1, "_ledState:%ld", _ledState);
 }
 
 @end

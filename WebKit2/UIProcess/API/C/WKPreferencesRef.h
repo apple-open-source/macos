@@ -46,7 +46,9 @@ typedef enum WKStorageBlockingPolicy WKStorageBlockingPolicy;
 
 enum WKDebugOverlayRegionFlags {
     kWKNonFastScrollableRegion = 1 << 0,
-    kWKWheelEventHandlerRegion = 1 << 1
+    kWKWheelEventHandlerRegion = 1 << 1,
+    kWKTouchActionRegion = 1 << 2,
+    kWKEditableElementRegion = 1 << 3,
 };
 typedef unsigned WKDebugOverlayRegions;
 
@@ -76,6 +78,10 @@ WK_EXPORT bool WKPreferencesGetLoadsImagesAutomatically(WKPreferencesRef prefere
 // Defaults to false.
 WK_EXPORT void WKPreferencesSetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesRef preferences, bool loadsSiteIconsIgnoringImageLoadingPreference);
 WK_EXPORT bool WKPreferencesGetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesRef preferences);
+
+// Defaults to true.
+WK_EXPORT void WKPreferencesSetIsITPDatabaseEnabled(WKPreferencesRef preferences, bool isITPDatabaseEnabled);
+WK_EXPORT bool WKPreferencesGetIsITPDatabaseEnabled(WKPreferencesRef preferences);
 
 // Defaults to true.
 WK_EXPORT void WKPreferencesSetOfflineWebApplicationCacheEnabled(WKPreferencesRef preferences, bool offlineWebApplicationCacheEnabled);
@@ -339,6 +345,8 @@ WK_EXPORT void WKPreferencesSetCaptureAudioInGPUProcessEnabled(WKPreferencesRef 
 WK_EXPORT bool WKPreferencesGetCaptureAudioInGPUProcessEnabled(WKPreferencesRef preferencesRef);
 WK_EXPORT void WKPreferencesSetCaptureVideoInUIProcessEnabled(WKPreferencesRef preferencesRef, bool flag);
 WK_EXPORT bool WKPreferencesGetCaptureVideoInUIProcessEnabled(WKPreferencesRef preferencesRef);
+WK_EXPORT void WKPreferencesSetCaptureVideoInGPUProcessEnabled(WKPreferencesRef preferencesRef, bool flag);
+WK_EXPORT bool WKPreferencesGetCaptureVideoInGPUProcessEnabled(WKPreferencesRef preferencesRef);
 
 // Defaults to false.
 WK_EXPORT bool WKPreferencesGetRemotePlaybackEnabled(WKPreferencesRef preferencesRef);

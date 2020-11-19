@@ -52,6 +52,10 @@ OctagonState* const OctagonStateRefetchCKKSPolicy = (OctagonState*) @"ckks_fetch
 OctagonState* const OctagonStateDetermineCDPState = (OctagonState*) @"check_cdp_state";
 OctagonState* const OctagonStateCheckTrustState = (OctagonState*) @"check_trust_state";
 
+OctagonState* const OctagonStateEnableUserControllableViews = (OctagonState*) @"ckks_set_user_controllable_views_on";
+OctagonState* const OctagonStateDisableUserControllableViews = (OctagonState*) @"ckks_set_user_controlable_views_off";
+OctagonState* const OctagonStateSetUserControllableViewsToPeerConsensus = (OctagonState*) @"ckks_set_user_controlable_views_peer_consensus";
+
 OctagonState* const OctagonStateUpdateSOSPreapprovals = (OctagonState*) @"update_sos_preapprovals";
 
 /*Piggybacking and ProximitySetup as Initiator Octagon only*/
@@ -66,6 +70,7 @@ OctagonState* const OctagonStateInitiatorJoinAfterCKKSReset = (OctagonState*)@"j
 OctagonState* const OctagonStateBottleJoinCreateIdentity = (OctagonState*)@"bottle_join_create_identity";
 OctagonState* const OctagonStateBottleJoinVouchWithBottle = (OctagonState*)@"bottle_join_vouch_with_bottle";
 OctagonState* const OctagonStateCreateIdentityForRecoveryKey = (OctagonState*)@"vouchWithRecovery";
+OctagonState* const OctagonStateBottlePreloadOctagonKeysInSOS = (OctagonState*)@"bottle_preload_octagon_keys_in_sos";
 
 /* used in resotre (join with recovery key)*/
 OctagonState* const OctagonStateVouchWithRecoveryKey = (OctagonState*)@"vouchWithRecoveryKey";
@@ -84,6 +89,8 @@ OctagonState* const OctagonStateError = (OctagonState*) @"error";
 OctagonState* const OctagonStateDisabled = (OctagonState*) @"disabled";
 
 OctagonState* const OctagonStateDetermineiCloudAccountState = (OctagonState*) @"determine_icloud_account";
+
+OctagonState* const OctagonStateAttemptSOSUpgradeDetermineCDPState = (OctagonState*) @"sosupgrade_cdp_check";
 OctagonState* const OctagonStateAttemptSOSUpgrade = (OctagonState*) @"sosupgrade";
 OctagonState* const OctagonStateSOSUpgradeCKKSReset = (OctagonState*) @"sosupgrade_ckks_reset";
 OctagonState* const OctagonStateSOSUpgradeAfterCKKSReset = (OctagonState*) @"sosupgrade_after_ckks_reset";
@@ -112,6 +119,7 @@ OctagonState* const OctagonStateHealthCheckReset = (OctagonState*) @"health_chec
 OctagonState* const OctagonStateNoAccountDoReset = (OctagonState*) @"no_account_do_reset";
 
 OctagonState* const OctagonStateWaitForUnlock = (OctagonState*) @"wait_for_unlock";
+OctagonState* const OctagonStateWaitForClassCUnlock = (OctagonState*) @"wait_for_class_c_unlock";
 
 OctagonState* const OctagonStateAssistCKKSTLKUpload = (OctagonState*) @"assist_ckks_tlk_upload";
 OctagonState* const OctagonStateAssistCKKSTLKUploadCKKSReset = (OctagonState*) @"assist_ckks_tlk_upload_ckks_reset";
@@ -199,6 +207,12 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonStateMap(void) {
                 OctagonStateCDPHealthCheck:                     @58U,
                 OctagonStateHealthCheckLeaveClique:             @59U,
                 OctagonStateRefetchCKKSPolicy:                  @60U,
+                OctagonStateEnableUserControllableViews:        @61U,
+                OctagonStateDisableUserControllableViews:       @62U,
+                OctagonStateSetUserControllableViewsToPeerConsensus: @63U,
+                OctagonStateWaitForClassCUnlock:                @64U,
+                OctagonStateBottlePreloadOctagonKeysInSOS:      @65U,
+                OctagonStateAttemptSOSUpgradeDetermineCDPState: @66U,
             };
     });
     return map;
@@ -231,6 +245,9 @@ NSSet<OctagonState*>* OctagonInAccountStates(void)
         [sourceStates removeObject:OctagonStateCloudKitNewlyAvailable];
         [sourceStates removeObject:OctagonStateWaitForHSA2];
 
+        // If the device hasn't unlocked yet, we don't know what we wrote down for iCloud account status
+        [sourceStates removeObject:OctagonStateWaitForClassCUnlock];
+
         s = sourceStates;
     });
     return s;
@@ -258,7 +275,9 @@ NSSet<OctagonState *>* OctagonHealthSourceStates(void)
 // Flags
 OctagonFlag* const OctagonFlagIDMSLevelChanged = (OctagonFlag*) @"idms_level";
 OctagonFlag* const OctagonFlagEgoPeerPreapproved = (OctagonFlag*) @"preapproved";
-OctagonFlag* const OctagonFlagCKKSRequestsTLKUpload  = (OctagonFlag*) @"tlk_upload_needed";
+OctagonFlag* const OctagonFlagCKKSRequestsTLKUpload = (OctagonFlag*) @"tlk_upload_needed";
+OctagonFlag* const OctagonFlagCKKSRequestsPolicyCheck = (OctagonFlag*) @"policy_check_needed";;
+OctagonFlag* const OctagonFlagCKKSViewSetChanged = (OctagonFlag*) @"ckks_views_changed";
 OctagonFlag* const OctagonFlagCuttlefishNotification = (OctagonFlag*) @"recd_push";
 OctagonFlag* const OctagonFlagAccountIsAvailable = (OctagonFlag*)@"account_available";
 OctagonFlag* const OctagonFlagCDPEnabled = (OctagonFlag*) @"cdp_enabled";
@@ -268,6 +287,11 @@ OctagonFlag* const OctagonFlagUnlocked = (OctagonFlag*)@"unlocked";
 OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals = (OctagonFlag*)@"attempt_sos_update_preapprovals";
 OctagonFlag* const OctagonFlagAttemptSOSConsistency = (OctagonFlag*)@"attempt_sos_consistency";
 OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation = (OctagonFlag*)@"escrowrequest_inform_cloudservices";
+OctagonFlag* const OctagonFlagWarmEscrowRecordCache = (OctagonFlag*)@"warm_escrow_cache";
+OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction = (OctagonFlag*)@"retry_bottle_tlk_extraction";
+OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction = (OctagonFlag*)@"retry_rk_tlk_extraction";
+
+OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (OctagonFlag*)@"attempt_ucv_upgrade";
 
 NSSet<OctagonFlag *>* AllOctagonFlags(void)
 {
@@ -279,6 +303,8 @@ NSSet<OctagonFlag *>* AllOctagonFlags(void)
         [flags addObject:OctagonFlagIDMSLevelChanged];
         [flags addObject:OctagonFlagEgoPeerPreapproved];
         [flags addObject:OctagonFlagCKKSRequestsTLKUpload];
+        [flags addObject:OctagonFlagCKKSRequestsPolicyCheck];
+        [flags addObject:OctagonFlagCKKSViewSetChanged];
         [flags addObject:OctagonFlagCuttlefishNotification];
         [flags addObject:OctagonFlagAccountIsAvailable];
         [flags addObject:OctagonFlagCDPEnabled];
@@ -287,6 +313,10 @@ NSSet<OctagonFlag *>* AllOctagonFlags(void)
         [flags addObject:OctagonFlagUnlocked];
         [flags addObject:OctagonFlagAttemptSOSUpdatePreapprovals];
         [flags addObject:OctagonFlagAttemptSOSConsistency];
+        [flags addObject:OctagonFlagWarmEscrowRecordCache];
+        [flags addObject:OctagonFlagAttemptUserControllableViewStatusUpgrade];
+        [flags addObject:OctagonFlagAttemptBottleTLKExtraction];
+        [flags addObject:OctagonFlagAttemptRecoveryKeyTLKExtraction];
 
         f = flags;
     });

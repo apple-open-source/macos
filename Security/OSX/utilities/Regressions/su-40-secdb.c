@@ -24,6 +24,7 @@
 
 #include <utilities/SecCFRelease.h>
 #include <utilities/SecDb.h>
+#include <utilities/SecDbInternal.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -71,25 +72,25 @@ static void count_connections(SecDbRef db) {
     dispatch_group_t group = dispatch_group_create();
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
     dispatch_group_async(group, queue, ^{
-        cmp_ok(count_func(db, "writers", &max_conn_count, SecDbPerformWrite), <=, kSecDbMaxWriters, "max writers is %d", kSecDbMaxWriters);
+        cmp_ok(count_func(db, "writers", &max_conn_count, SecDbPerformWrite), <=, kSecDbMaxWriters, "max writers is %zu", kSecDbMaxWriters);
     TODO: {
         todo("can't guarantee all threads used");
-        is(count_func(db, "writers", &max_conn_count, SecDbPerformWrite), kSecDbMaxWriters, "max writers is %d", kSecDbMaxWriters);
+        is(count_func(db, "writers", &max_conn_count, SecDbPerformWrite), kSecDbMaxWriters, "max writers is %zu", kSecDbMaxWriters);
         }
     });
     dispatch_group_async(group, queue, ^{
-        cmp_ok(count_func(db, "readers",  &max_conn_count, SecDbPerformRead), <=, kSecDbMaxReaders, "max readers is %d", kSecDbMaxReaders);
+        cmp_ok(count_func(db, "readers",  &max_conn_count, SecDbPerformRead), <=, kSecDbMaxReaders, "max readers is %zu", kSecDbMaxReaders);
     TODO: {
         todo("can't guarantee all threads used");
-        is(count_func(db, "readers",  &max_conn_count, SecDbPerformRead), kSecDbMaxReaders, "max readers is %d", kSecDbMaxReaders);
+        is(count_func(db, "readers",  &max_conn_count, SecDbPerformRead), kSecDbMaxReaders, "max readers is %zu", kSecDbMaxReaders);
         }
     });
     dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
     dispatch_release(group);
-    cmp_ok(max_conn_count, <=, kSecDbMaxIdleHandles, "max idle connection count is %d", kSecDbMaxIdleHandles);
+    cmp_ok(max_conn_count, <=, kSecDbMaxIdleHandles, "max idle connection count is %zu", kSecDbMaxIdleHandles);
     TODO: {
         todo("can't guarantee all threads idle");
-        is(max_conn_count, kSecDbMaxIdleHandles, "max idle connection count is %d", kSecDbMaxIdleHandles);
+        is(max_conn_count, kSecDbMaxIdleHandles, "max idle connection count is %zu", kSecDbMaxIdleHandles);
     }
 
 }

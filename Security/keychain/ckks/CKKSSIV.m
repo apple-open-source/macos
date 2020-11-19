@@ -155,8 +155,7 @@
 }
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder *)decoder {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         NSUInteger len = 0;
         const uint8_t * bytes = [decoder decodeBytesForKey:@"wrappedkey" returnedLength:&len];
 
@@ -165,6 +164,12 @@
         }
     }
     return self;
+}
+
++ (CKKSWrappedAESSIVKey*)zeroedKey
+{
+    NSData* zeroedData = [NSMutableData dataWithLength:CKKSWrappedKeySize];
+    return [[CKKSWrappedAESSIVKey alloc] initWithData:zeroedData];
 }
 
 @end
@@ -425,6 +430,11 @@ out:
         *error = localerror;
     }
     return localerror == NULL;
+}
+
+- (NSData*)keyMaterial
+{
+    return [NSData _newZeroingDataWithBytes:self->key length:self->size];
 }
 
 

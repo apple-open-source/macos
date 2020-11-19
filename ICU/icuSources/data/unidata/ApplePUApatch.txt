@@ -1,5 +1,5 @@
---- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2019-04-12 09:47:22.000000000 -0700
-+++ icuSources/data/unidata/DerivedCoreProperties.txt	2019-04-13 15:13:06.000000000 -0700
+--- icuSources/data/unidata/base_unidata/DerivedCoreProperties.txt	2020-07-19 22:47:59.000000000 -0700
++++ icuSources/data/unidata/DerivedCoreProperties.txt	2020-07-20 18:24:41.000000000 -0700
 @@ -163,6 +163,9 @@
  29FE..2AFF    ; Math
  2B30..2B44    ; Math
@@ -19,7 +19,7 @@
  
  # ================================================
  
-@@ -924,6 +927,11 @@
+@@ -928,6 +931,11 @@
  AC00..D7A3    ; Alphabetic
  D7B0..D7C6    ; Alphabetic
  D7CB..D7FB    ; Alphabetic
@@ -31,16 +31,16 @@
  F900..FA6D    ; Alphabetic
  FA70..FAD9    ; Alphabetic
  FB00..FB06    ; Alphabetic
-@@ -1319,7 +1327,7 @@
- 2CEB0..2EBE0  ; Alphabetic
+@@ -1345,7 +1353,7 @@
  2F800..2FA1D  ; Alphabetic
+ 30000..3134A  ; Alphabetic
  
--# Total code points: 127256
-+# Total code points: 127256+ApplePUA
+-# Total code points: 132875
++# Total code points: 132875+ApplePUA
  
  # ================================================
  
-@@ -3117,6 +3125,10 @@
+@@ -3155,6 +3163,10 @@
  ABE5          ; Case_Ignorable
  ABE8          ; Case_Ignorable
  ABED          ; Case_Ignorable
@@ -51,16 +51,16 @@
  FB1E          ; Case_Ignorable
  FBB2..FBC1    ; Case_Ignorable
  FE00..FE0F    ; Case_Ignorable
-@@ -3260,7 +3272,7 @@
+@@ -3304,7 +3316,7 @@
  E0020..E007F  ; Case_Ignorable
  E0100..E01EF  ; Case_Ignorable
  
--# Total code points: 2396
-+# Total code points: 2396+ApplePUA
+-# Total code points: 2413
++# Total code points: 2413+ApplePUA
  
  # ================================================
  
-@@ -10045,6 +10057,9 @@
+@@ -10199,6 +10211,9 @@
  ABE5          ; Grapheme_Extend
  ABE8          ; Grapheme_Extend
  ABED          ; Grapheme_Extend
@@ -70,16 +70,16 @@
  FB1E          ; Grapheme_Extend
  FE00..FE0F    ; Grapheme_Extend
  FE20..FE2F    ; Grapheme_Extend
-@@ -10169,7 +10184,7 @@
+@@ -10330,7 +10345,7 @@
  E0020..E007F  ; Grapheme_Extend
  E0100..E01EF  ; Grapheme_Extend
  
--# Total code points: 1965
-+# Total code points: 1965+ApplePUA
+-# Total code points: 1979
++# Total code points: 1979+ApplePUA
  
  # ================================================
  
-@@ -11208,6 +11223,10 @@
+@@ -11374,6 +11389,10 @@
  AC00..D7A3    ; Grapheme_Base
  D7B0..D7C6    ; Grapheme_Base
  D7CB..D7FB    ; Grapheme_Base
@@ -90,18 +90,18 @@
  F900..FA6D    ; Grapheme_Base
  FA70..FAD9    ; Grapheme_Base
  FB00..FB06    ; Grapheme_Base
-@@ -11818,7 +11837,7 @@
- 2CEB0..2EBE0  ; Grapheme_Base
+@@ -12010,7 +12029,7 @@
  2F800..2FA1D  ; Grapheme_Base
+ 30000..3134A  ; Grapheme_Base
  
--# Total code points: 135898
-+# Total code points: 135898+ApplePUA
+-# Total code points: 141814
++# Total code points: 141814+ApplePUA
  
  # ================================================
  
---- icuSources/data/unidata/base_unidata/ppucd.txt	2019-04-12 09:47:23.000000000 -0700
-+++ icuSources/data/unidata/ppucd.txt	2019-04-13 15:14:09.000000000 -0700
-@@ -19274,8 +19274,47 @@
+--- icuSources/data/unidata/base_unidata/ppucd.txt	2020-07-19 22:47:59.000000000 -0700
++++ icuSources/data/unidata/ppucd.txt	2020-07-20 18:29:07.000000000 -0700
+@@ -19338,8 +19338,47 @@
  block;DC00..DFFF;age=2.0;blk=Low_Surrogates;gc=Cs;lb=SG
  # DC00..DFFF Low Surrogates
  
@@ -151,9 +151,9 @@
  
  block;F900..FAFF;age=1.1;Alpha;blk=CJK_Compat_Ideographs;Comp_Ex;CWKCF;dt=Can;ea=W;gc=Lo;Gr_Base;IDC;Ideo;IDS;lb=ID;NFC_QC=N;NFD_QC=N;NFKC_QC=N;NFKD_QC=N;SB=LE;sc=Hani;vo=U;XIDC;XIDS
  # F900..FAFF CJK Compatibility Ideographs
---- icuSources/data/unidata/base_unidata/UnicodeData.txt	2019-04-12 09:47:23.000000000 -0700
-+++ icuSources/data/unidata/UnicodeData.txt	2019-04-13 15:15:21.000000000 -0700
-@@ -15114,7 +15114,65 @@
+--- icuSources/data/unidata/base_unidata/UnicodeData.txt	2020-07-19 22:47:59.000000000 -0700
++++ icuSources/data/unidata/UnicodeData.txt	2020-07-20 13:50:18.000000000 -0700
+@@ -15149,7 +15149,65 @@
  DC00;<Low Surrogate, First>;Cs;0;L;;;;;N;;;;;
  DFFF;<Low Surrogate, Last>;Cs;0;L;;;;;N;;;;;
  E000;<Private Use, First>;Co;0;L;;;;;N;;;;;

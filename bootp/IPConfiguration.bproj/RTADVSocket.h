@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,25 +41,13 @@
 #include <stdbool.h>
 #include "FDSet.h"
 #include "interfaces.h"
-
-typedef struct {
-    const struct in6_addr *		dns_servers;
-    int					dns_servers_count;
-    const uint8_t *			router_hwaddr;
-    int					router_hwaddr_len;
-    bool				managed_bit;
-    bool				other_bit;
-    struct in6_addr			router;
-    const uint8_t *			dns_search_domains;
-    int					dns_search_domains_len;
-} RTADVSocketReceiveData, * RTADVSocketReceiveDataRef;
+#include "RouterAdvertisement.h"
 
 /*
  * Type: RTADVSocketReceiveFunc
  * Purpose:
  *   Called to deliver data to the client.  The first two args are
- *   supplied by the client, the third is a pointer to an
- *   RTADVSocketReceive_data_t.
+ *   supplied by the client, the third is a RouterAdvertisementRef.
  */
 typedef void (RTADVSocketReceiveFunc)(void * arg1, void * arg2, void * arg3);
 typedef RTADVSocketReceiveFunc * RTADVSocketReceiveFuncPtr;
@@ -85,17 +73,5 @@ RTADVSocketDisableReceive(RTADVSocketRef sock);
 
 int
 RTADVSocketSendSolicitation(RTADVSocketRef sock, bool lladdr_ok);
-
-uint16_t
-RTADVSocketGetRouterLifetime(RTADVSocketRef sock);
-
-uint32_t
-RTADVSocketGetPrefixPreferredLifetime(RTADVSocketRef sock);
-
-uint32_t
-RTADVSocketGetPrefixValidLifetime(RTADVSocketRef sock);
-
-bool
-RTADVSocketGetRouterSourceAddressCollision(RTADVSocketRef sock);
 
 #endif /* _S_RTADVSOCKET_H */

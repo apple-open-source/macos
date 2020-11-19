@@ -46,7 +46,7 @@
 #include <unistd.h>
 
 #include "secd_regressions.h"
-#include "SOSTestDataSource.h"
+#include "keychain/SecureObjectSync/Regressions/SOSTestDataSource.h"
 
 #include "SOSRegressionUtilities.h"
 #include <utilities/SecCFWrappers.h>
@@ -57,6 +57,7 @@
 #include "SOSAccountTesting.h"
 
 #include "SecdTestKeychainUtilities.h"
+#if SOS_ENABLED
 
 static bool SOSAccountResetCircleToNastyOffering(SOSAccount* account, SecKeyRef userPriv, SOSPeerInfoRef pi, CFErrorRef *error) {
     bool result = false;
@@ -66,7 +67,7 @@ static bool SOSAccountResetCircleToNastyOffering(SOSAccount* account, SecKeyRef 
         CFReleaseNull(userPub);
         return result;
     }
-    if(![account.trust ensureFullPeerAvailable:(__bridge CFDictionaryRef)(account.gestalt) deviceID:(__bridge CFStringRef)(account.deviceID) backupKey:(__bridge CFDataRef)(account.backup_key) err:error]){
+    if(![account.trust ensureFullPeerAvailable:account err:error]){
         CFReleaseNull(userPub);
         return result;
     }
@@ -219,14 +220,16 @@ static void tests(void)
     bob_account = nil;
     SOSTestCleanup();
 }
+#endif
 
 int secd_60_account_cloud_exposure(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(41);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

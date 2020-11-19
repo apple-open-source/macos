@@ -41,6 +41,7 @@
 #include "WebDatabaseProvider.h"
 #include "WebDocumentLoader.h"
 #include "WebFrameLoaderClient.h"
+#include "WebPage.h"
 #include "WebPreferencesKeys.h"
 #include "WebPreferencesStore.h"
 #include "WebProcess.h"
@@ -72,13 +73,14 @@ namespace WebKit {
 using namespace PAL;
 using namespace WebCore;
 
-ServiceWorkerFrameLoaderClient::ServiceWorkerFrameLoaderClient(WebSWContextManagerConnection& connection, WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, FrameIdentifier frameID, const String& userAgent)
-    : m_connection(connection)
-    , m_webPageProxyID(webPageProxyID)
+
+ServiceWorkerFrameLoaderClient::ServiceWorkerFrameLoaderClient(WebPageProxyIdentifier webPageProxyID, PageIdentifier pageID, FrameIdentifier frameID, const String& userAgent)
+    : m_webPageProxyID(webPageProxyID)
     , m_pageID(pageID)
     , m_frameID(frameID)
     , m_userAgent(userAgent)
 {
+    RELEASE_LOG(ServiceWorker, "ServiceWorkerFrameLoaderClient::ServiceWorkerFrameLoaderClient webPageProxyID %llu, pageID %llu, frameID  %llu", webPageProxyID.toUInt64(), pageID.toUInt64(), frameID.toUInt64());
 }
 
 Ref<DocumentLoader> ServiceWorkerFrameLoaderClient::createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData)
@@ -118,16 +120,7 @@ void WebSWContextManagerConnection::establishConnection(CompletionHandler<void()
 
 void WebSWContextManagerConnection::updatePreferencesStore(const WebPreferencesStore& store)
 {
-    RuntimeEnabledFeatures::sharedFeatures().setServiceWorkerEnabled(true);
-    RuntimeEnabledFeatures::sharedFeatures().setCacheAPIEnabled(store.getBoolValueForKey(WebPreferencesKey::cacheAPIEnabledKey()));
-    RuntimeEnabledFeatures::sharedFeatures().setFetchAPIEnabled(store.getBoolValueForKey(WebPreferencesKey::fetchAPIEnabledKey()));
-    RuntimeEnabledFeatures::sharedFeatures().setUserTimingEnabled(store.getBoolValueForKey(WebPreferencesKey::userTimingEnabledKey()));
-    RuntimeEnabledFeatures::sharedFeatures().setResourceTimingEnabled(store.getBoolValueForKey(WebPreferencesKey::resourceTimingEnabledKey()));
-    RuntimeEnabledFeatures::sharedFeatures().setFetchAPIKeepAliveEnabled(store.getBoolValueForKey(WebPreferencesKey::fetchAPIKeepAliveEnabledKey()));
-    RuntimeEnabledFeatures::sharedFeatures().setRestrictedHTTPResponseAccess(store.getBoolValueForKey(WebPreferencesKey::restrictedHTTPResponseAccessKey()));
-    RuntimeEnabledFeatures::sharedFeatures().setServerTimingEnabled(store.getBoolValueForKey(WebPreferencesKey::serverTimingEnabledKey()));
-    RuntimeEnabledFeatures::sharedFeatures().setIsSecureContextAttributeEnabled(store.getBoolValueForKey(WebPreferencesKey::isSecureContextAttributeEnabledKey()));
-    RuntimeEnabledFeatures::sharedFeatures().setSecureContextChecksEnabled(store.getBoolValueForKey(WebPreferencesKey::secureContextChecksEnabledKey()));
+    WebPage::updatePreferencesGenerated(store);
 
     m_storageBlockingPolicy = static_cast<SecurityOrigin::StorageBlockingPolicy>(store.getUInt32ValueForKey(WebPreferencesKey::storageBlockingPolicyKey()));
     setShouldUseShortTimeout(store.getBoolValueForKey(WebPreferencesKey::shouldUseServiceWorkerShortTimeoutKey()));
@@ -135,8 +128,6 @@ void WebSWContextManagerConnection::updatePreferencesStore(const WebPreferencesS
 
 void WebSWContextManagerConnection::installServiceWorker(const ServiceWorkerContextData& data, String&& userAgent)
 {
-    LOG(ServiceWorker, "WebSWContextManagerConnection::installServiceWorker for worker %s", data.serviceWorkerIdentifier.loggingString().utf8().data());
-
     auto pageConfiguration = pageConfigurationWithEmptyClients(WebProcess::singleton().sessionID());
 
 #if ENABLE(INDEXED_DATABASE)
@@ -149,28 +140,17 @@ void WebSWContextManagerConnection::installServiceWorker(const ServiceWorkerCont
     if (effectiveUserAgent.isNull())
         effectiveUserAgent = m_userAgent;
 
-    // FIXME: This method should be moved directly to WebCore::SWContextManager::Connection
-    // If it weren't for ServiceWorkerFrameLoaderClient's dependence on WebDocumentLoader, this could already happen.
-    // FIXME: Weird to pass m_previousServiceWorkerID as a FrameIdentifier.
-    auto frameLoaderClient = makeUnique<ServiceWorkerFrameLoaderClient>(*this, m_webPageProxyID, m_pageID, frameIdentifierFromID(++m_previousServiceWorkerID), effectiveUserAgent);
-    pageConfiguration.loaderClientForMainFrame = frameLoaderClient.get();
-    m_loaders.add(WTFMove(frameLoaderClient));
+    pageConfiguration.loaderClientForMainFrame = makeUniqueRef<ServiceWorkerFrameLoaderClient>(m_webPageProxyID, m_pageID, FrameIdentifier::generate(), effectiveUserAgent);
 
     auto serviceWorkerThreadProxy = ServiceWorkerThreadProxy::create(WTFMove(pageConfiguration), data, WTFMove(effectiveUserAgent), WebProcess::singleton().cacheStorageProvider(), m_storageBlockingPolicy);
     SWContextManager::singleton().registerServiceWorkerThreadForInstall(WTFMove(serviceWorkerThreadProxy));
 
-    LOG(ServiceWorker, "Context process PID: %i created worker thread\n", getCurrentProcessID());
+    RELEASE_LOG(ServiceWorker, "Created service worker %" PRIu64 " in process PID %i", data.serviceWorkerIdentifier.toUInt64(), getCurrentProcessID());
 }
 
 void WebSWContextManagerConnection::setUserAgent(String&& userAgent)
 {
     m_userAgent = WTFMove(userAgent);
-}
-
-void WebSWContextManagerConnection::removeFrameLoaderClient(ServiceWorkerFrameLoaderClient& client)
-{
-    auto result = m_loaders.remove(&client);
-    ASSERT_UNUSED(result, result);
 }
 
 void WebSWContextManagerConnection::serviceWorkerStarted(Optional<ServiceWorkerJobDataIdentifier> jobDataIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, bool doesHandleFetch)
@@ -220,7 +200,10 @@ void WebSWContextManagerConnection::cancelFetch(SWServerConnectionIdentifier ser
 
 void WebSWContextManagerConnection::continueDidReceiveFetchResponse(SWServerConnectionIdentifier serverConnectionIdentifier, ServiceWorkerIdentifier serviceWorkerIdentifier, FetchIdentifier fetchIdentifier)
 {
-    if (auto* serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxy(serviceWorkerIdentifier))
+    auto* serviceWorkerThreadProxy = SWContextManager::singleton().serviceWorkerThreadProxy(serviceWorkerIdentifier);
+    RELEASE_LOG(ServiceWorker, "ServiceWorkerFrameLoaderClient::continueDidReceiveFetchResponse for service worker %llu, fetch identifier %llu, has service worker %d", serviceWorkerIdentifier.toUInt64(), fetchIdentifier.toUInt64(), !!serviceWorkerThreadProxy);
+
+    if (serviceWorkerThreadProxy)
         serviceWorkerThreadProxy->continueDidReceiveFetchResponse(serverConnectionIdentifier, fetchIdentifier);
 }
 
@@ -264,11 +247,6 @@ void WebSWContextManagerConnection::fireActivateEvent(ServiceWorkerIdentifier id
 void WebSWContextManagerConnection::terminateWorker(ServiceWorkerIdentifier identifier)
 {
     SWContextManager::singleton().terminateWorker(identifier, SWContextManager::workerTerminationTimeout, nullptr);
-}
-
-void WebSWContextManagerConnection::syncTerminateWorker(ServiceWorkerIdentifier identifier, Messages::WebSWContextManagerConnection::SyncTerminateWorker::DelayedReply&& reply)
-{
-    SWContextManager::singleton().terminateWorker(identifier, SWContextManager::syncWorkerTerminationTimeout, WTFMove(reply));
 }
 
 void WebSWContextManagerConnection::postMessageToServiceWorkerClient(const ServiceWorkerClientIdentifier& destinationIdentifier, const MessageWithMessagePorts& message, ServiceWorkerIdentifier sourceIdentifier, const String& sourceOrigin)

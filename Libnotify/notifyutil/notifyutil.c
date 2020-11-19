@@ -209,7 +209,8 @@ process_event(int tid)
 {
 	struct timeval now;
 	char tstr[32];
-	int status, index, needspace;
+	int status, needspace;
+	uint32_t index;
 	uint64_t state;
 
 	gettimeofday(&now, NULL);
@@ -255,7 +256,6 @@ process_event(int tid)
 	{
 		if (needspace) printf(" ");
 		printf("%s", typename[reg[index].type]);
-		needspace = 1;
 	}
 	
 	if (printopt != PRINT_QUIET) printf("\n");
@@ -263,7 +263,7 @@ process_event(int tid)
 	if ((reg[index].count != IndexNull) && (reg[index].count != 0)) reg[index].count--;
 	if (reg[index].count == 0)
 	{
-		status = notify_cancel(tid);
+		(void)notify_cancel(tid);
 		reg_delete(index);
 	}
 	fflush(stdout);
@@ -406,7 +406,7 @@ do_register(const char *name, uint32_t type, uint32_t signum, uint32_t count)
 			status = notify_register_signal(name, signum, &tid);
 			if (status != NOTIFY_STATUS_OK) return status;
 
-			status = notify_check(tid, &check);
+			(void)notify_check(tid, &check);
 
 			if (sig_src[signum] == NULL)
 			{
@@ -432,7 +432,7 @@ do_register(const char *name, uint32_t type, uint32_t signum, uint32_t count)
 			status = notify_register_check(name, &tid);
 			if (status != NOTIFY_STATUS_OK) return status;
 
-			status = notify_check(tid, &check);
+			(void)notify_check(tid, &check);
 
 			if (timer_src == NULL)
 			{
@@ -452,7 +452,7 @@ do_register(const char *name, uint32_t type, uint32_t signum, uint32_t count)
 			status = notify_register_plain(name, &tid);
 			if (status != NOTIFY_STATUS_OK) return status;
 
-			status = notify_check(tid, &check);
+			(void)notify_check(tid, &check);
 
 			if (timer_src == NULL)
 			{
@@ -478,7 +478,8 @@ int
 main(int argc, const char *argv[])
 {
 	const char *name;
-	uint32_t i, n, signum, ntype, status, opts, nap;
+	int i;
+	uint32_t n, signum, ntype, status, opts, nap;
 	int tid;
 	uint64_t state;
 
@@ -639,7 +640,7 @@ main(int argc, const char *argv[])
 		}
 	}
 
-    if (opts != 0) notify_set_options(opts);
+	if (opts != 0) notify_set_options(opts);
 
 	for (i = 1; i < argc; i++)
 	{

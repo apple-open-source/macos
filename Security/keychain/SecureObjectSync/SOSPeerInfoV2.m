@@ -127,7 +127,7 @@ static CFMutableDictionaryRef SOSCreateDictionaryFromDER(CFDataRef v2Data, CFErr
     const uint8_t *der_p = CFDataGetBytePtr(v2Data);
     const uint8_t *der_end = CFDataGetLength(v2Data) + der_p;
     
-    der_p = der_decode_plist(NULL, kCFPropertyListImmutable, &pl, error, der_p, der_end);
+    der_p = der_decode_plist(NULL, &pl, error, der_p, der_end);
 
     if (der_p == NULL || der_p != der_end) {
         SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Format of Dictionary DER"), NULL, error);

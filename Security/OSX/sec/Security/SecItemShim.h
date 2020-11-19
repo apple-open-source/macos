@@ -47,7 +47,6 @@ OSStatus SecItemAdd_ios(CFDictionaryRef attributes, CFTypeRef *result);
 OSStatus SecItemCopyMatching_ios(CFDictionaryRef query, CFTypeRef *result);
 OSStatus SecItemUpdate_ios(CFDictionaryRef query, CFDictionaryRef attributesToUpdate);
 OSStatus SecItemDelete_ios(CFDictionaryRef query);
-OSStatus SecItemUpdateTokenItems_ios(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes);
 
 OSStatus SecKeyGeneratePair_ios(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey);
 SecKeyRef SecKeyCreateRandomKey_ios(CFDictionaryRef parameters, CFErrorRef *error);
@@ -58,7 +57,6 @@ SecKeyRef SecKeyCreateRandomKey_ios(CFDictionaryRef parameters, CFErrorRef *erro
 #define SecItemCopyMatching SecItemCopyMatching_ios
 #define SecItemUpdate SecItemUpdate_ios
 #define SecItemDelete SecItemDelete_ios
-#define SecItemUpdateTokenItems SecItemUpdateTokenItems_ios
 
 #define SecKeyGeneratePair SecKeyGeneratePair_ios
 #define SecKeyCreateRandomKey SecKeyCreateRandomKey_ios

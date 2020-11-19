@@ -23,7 +23,7 @@
 				<string>/Library/Logs/test_bless/bats_bless_presubmit.log</string>
 			</array>
 			<key>Timeout</key>
-			<integer>600</integer>
+			<integer>1200</integer>
 		</dict>
 	</array>
 </dict>

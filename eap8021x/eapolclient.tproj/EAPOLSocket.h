@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -113,6 +113,9 @@ EAPOLSocketReassociate(EAPOLSocketRef sock);
 
 int
 get_plist_int(CFDictionaryRef plist, CFStringRef key, int def);
+
+void
+EAPOLSocketSourceUpdateWiFiLocalMACAddress(EAPOLSocketRef sock);
 
 #endif /* _S_EAPOLSOCKET_H */
 

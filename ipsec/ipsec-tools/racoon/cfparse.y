@@ -93,8 +93,6 @@
 #include "strnames.h"
 #include "gcmalloc.h"
 #include "vendorid.h"
-#include "ipsecConfigTracer.h"
-#include "ipsecMessageTracer.h"
 
 static int num2dhgroup[] = {
 	0,
@@ -2280,10 +2278,6 @@ cfparse()
 	yycf_init_buffer();
 
 	if (yycf_switch_buffer(lcconf->racoon_conf) != 0) {
-        IPSECCONFIGTRACEREVENT(CONSTSTR(lcconf->racoon_conf),
-                               IPSECCONFIGEVENTCODE_PARSE_ERROR,
-                               CONSTSTR("could not read configuration file"),
-                               CONSTSTR("cfparse: yycf_switch_buffer erred"));
 		plog(ASL_LEVEL_ERR, 
 		    "could not read configuration file \"%s\"\n", 
 		    lcconf->racoon_conf);
@@ -2300,10 +2294,6 @@ cfparse()
 			plog(ASL_LEVEL_ERR, 
 				"fatal parse failure.\n");
 		}
-        IPSECCONFIGTRACEREVENT(CONSTSTR(lcconf->racoon_conf),
-                               IPSECCONFIGEVENTCODE_PARSE_ERROR,
-                               CONSTSTR("fatal parse failure"),
-                               CONSTSTR("cfparse: yyparse erred"));
 		yycf_clean_buffer();
 		return -1;
 	}
@@ -2312,10 +2302,6 @@ cfparse()
 		plog(ASL_LEVEL_ERR, 
 			"parse error is nothing, but yyerrorcount is %d.\n",
 				yyerrorcount);
-        IPSECCONFIGTRACEREVENT(CONSTSTR(lcconf->racoon_conf),
-                               IPSECCONFIGEVENTCODE_PARSE_ERROR,
-                               CONSTSTR("ambivalent error code"),
-                               CONSTSTR("cfparse: error == 0 && yerrorcount"));
 		yycf_clean_buffer();
 		exit(1);
 	}
@@ -2337,10 +2323,6 @@ cfreparse(int sig)
 		plog(ASL_LEVEL_DEBUG, "==== Got %s signal - re-parsing configuration.\n", sys_signame[sig]);
 	} else {
 		plog(ASL_LEVEL_ERR, "==== Got Unknown signal - re-parsing configuration.\n");
-        IPSECCONFIGTRACEREVENT(CONSTSTR("reparse"),
-                               IPSECCONFIGEVENTCODE_REPARSE_ERROR,
-                               CONSTSTR("Unknown signal"),
-                               CONSTSTR("cfreparse: triggered by unknown signal"));
 	}
 	plog(ASL_LEVEL_DEBUG, "==== %s sessions.\n", ignore_estab_or_assert_handles? "flush negotiating" : "flush all");
 

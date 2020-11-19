@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -103,8 +103,6 @@
 #define kEAPClientPropTLSTrustExceptionsID \
 	CFSTR("TLSTrustExceptionsID")
 
-#if TARGET_OS_IPHONE
-
 /*
  * kEAPClientPropTLSSaveTrustExceptions
  * - tells the client to save trust exceptions for the current server
@@ -135,7 +133,7 @@
 #define kEAPTLSTrustExceptionsDomainNetworkInterfaceName \
     	CFSTR("NetworkInterfaceName")
 
-#else /* TARGET_OS_IPHONE */
+#if TARGET_OS_OSX
 
 /*
  * kEAPClientPropSaveCredentialsOnSuccessfulAuthentication
@@ -145,7 +143,13 @@
 #define kEAPClientPropSaveCredentialsOnSuccessfulAuthentication \
     CFSTR("SaveCredentialsOnSuccessfulAuthentication")
 
-#endif /* TARGET_OS_IPHONE */
+/*
+ * kEAPClientPropDisableUserInteraction
+ * - when set to TRUE, disables all UI prompts
+ */
+#define kEAPClientPropDisableUserInteraction	CFSTR("DisableUserInteraction") /* boolean (false) */
+
+#endif /* TARGET_OS_OSX */
 
 #define kEAPClientPropTLSVerifyServerCertificate \
 	CFSTR("TLSVerifyServerCertificate") 		/* boolean (true) */

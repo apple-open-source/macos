@@ -47,7 +47,7 @@ __BEGIN_DECLS
  */
 extern SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreate(SecCmsMessageRef cmsg, SecCertificateRef cert)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 
 #else // !TARGET_OS_OSX
 
@@ -59,7 +59,7 @@ SecCmsRecipientInfoCreate(SecCmsMessageRef cmsg, SecCertificateRef cert)
  */
 extern SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreate(SecCmsEnvelopedDataRef envd, SecCertificateRef cert)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 
@@ -70,14 +70,14 @@ extern SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsMessageRef cmsg,
                                        CSSM_DATA_PTR subjKeyID,
                                        SecPublicKeyRef pubKey)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 extern SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsEnvelopedDataRef envd,
                                        const SecAsn1Item *subjKeyID,
                                        SecPublicKeyRef pubKey)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 
@@ -85,12 +85,12 @@ SecCmsRecipientInfoCreateWithSubjKeyID(SecCmsEnvelopedDataRef envd,
 extern SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreateWithSubjKeyIDFromCert(SecCmsMessageRef cmsg,
                                                SecCertificateRef cert)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 extern SecCmsRecipientInfoRef
 SecCmsRecipientInfoCreateWithSubjKeyIDFromCert(SecCmsEnvelopedDataRef envd, 
                                                SecCertificateRef cert)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 

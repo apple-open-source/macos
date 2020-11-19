@@ -27,8 +27,7 @@
 #import "config.h"
 #import "PlaybackSessionInterfaceAVKit.h"
 
-#if PLATFORM(IOS_FAMILY)
-#if HAVE(AVKIT)
+#if PLATFORM(COCOA) && HAVE(AVKIT)
 
 #import "Logging.h"
 #import "MediaSelectionOption.h"
@@ -38,6 +37,7 @@
 #import <AVFoundation/AVTime.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/CString.h>
 #import <wtf/text/WTFString.h>
 
@@ -155,20 +155,18 @@ void PlaybackSessionInterfaceAVKit::canPlayFastReverseChanged(bool canPlayFastRe
     [m_playerController setCanScanBackward:canPlayFastReverse];
 }
 
-static RetainPtr<NSMutableArray> mediaSelectionOptions(const Vector<MediaSelectionOption>& options)
+static RetainPtr<NSArray> mediaSelectionOptions(const Vector<MediaSelectionOption>& options)
 {
-    RetainPtr<NSMutableArray> webOptions = adoptNS([[NSMutableArray alloc] initWithCapacity:options.size()]);
-    for (auto& option : options) {
-        RetainPtr<WebAVMediaSelectionOption> webOption = adoptNS([[WebAVMediaSelectionOption alloc] init]);
+    return createNSArray(options, [] (auto& option) {
+        auto webOption = adoptNS([[WebAVMediaSelectionOption alloc] init]);
         [webOption setLocalizedDisplayName:option.displayName];
-        [webOptions addObject:webOption.get()];
-    }
-    return webOptions;
+        return webOption;
+    });
 }
 
 void PlaybackSessionInterfaceAVKit::audioMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex)
 {
-    RetainPtr<NSMutableArray> webOptions = mediaSelectionOptions(options);
+    auto webOptions = mediaSelectionOptions(options);
     [m_playerController setAudioMediaSelectionOptions:webOptions.get()];
     if (selectedIndex < [webOptions count])
         [m_playerController setCurrentAudioMediaSelectionOption:[webOptions objectAtIndex:static_cast<NSUInteger>(selectedIndex)]];
@@ -176,7 +174,7 @@ void PlaybackSessionInterfaceAVKit::audioMediaSelectionOptionsChanged(const Vect
 
 void PlaybackSessionInterfaceAVKit::legibleMediaSelectionOptionsChanged(const Vector<MediaSelectionOption>& options, uint64_t selectedIndex)
 {
-    RetainPtr<NSMutableArray> webOptions = mediaSelectionOptions(options);
+    auto webOptions = mediaSelectionOptions(options);
     [m_playerController setLegibleMediaSelectionOptions:webOptions.get()];
     if (selectedIndex < [webOptions count])
         [m_playerController setCurrentLegibleMediaSelectionOption:[webOptions objectAtIndex:static_cast<NSUInteger>(selectedIndex)]];
@@ -185,9 +183,9 @@ void PlaybackSessionInterfaceAVKit::legibleMediaSelectionOptionsChanged(const Ve
 void PlaybackSessionInterfaceAVKit::externalPlaybackChanged(bool enabled, PlaybackSessionModel::ExternalPlaybackTargetType targetType, const String& localizedDeviceName)
 {
     AVPlayerControllerExternalPlaybackType externalPlaybackType = AVPlayerControllerExternalPlaybackTypeNone;
-    if (targetType == PlaybackSessionModel::TargetTypeAirPlay)
+    if (enabled && targetType == PlaybackSessionModel::TargetTypeAirPlay)
         externalPlaybackType = AVPlayerControllerExternalPlaybackTypeAirPlay;
-    else if (targetType == PlaybackSessionModel::TargetTypeTVOut)
+    else if (enabled && targetType == PlaybackSessionModel::TargetTypeTVOut)
         externalPlaybackType = AVPlayerControllerExternalPlaybackTypeTVOut;
 
     WebAVPlayerController* playerController = m_playerController.get();
@@ -230,5 +228,4 @@ void PlaybackSessionInterfaceAVKit::modelDestroyed()
 
 }
 
-#endif // HAVE(AVKIT)
-#endif // PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(COCOA) && HAVE(AVKIT)

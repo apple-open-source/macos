@@ -43,7 +43,7 @@ namespace CodeSigning {
 class ProcessCode : public SecCode {
 public:
 	ProcessCode(pid_t pid, const audit_token_t* token, PidDiskRep *pidDiskRep = NULL);
-	~ProcessCode() throw () { delete mAudit; }
+	~ProcessCode() _NOEXCEPT { delete mAudit; }
 	
 	pid_t pid() const { return mPid; }
 	const audit_token_t* audit() const { return mAudit; }

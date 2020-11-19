@@ -85,6 +85,8 @@ The Regents of the University of California.  All rights reserved.\n";
 #ifdef __APPLE__
 #define __APPLE_PCAP_NG_API
 #include <sys/ioctl.h>
+#include <sysexits.h>
+#include <err.h>
 #include "pktmetadatafilter.h"
 #endif /* __APPLE__ */
 
@@ -1199,7 +1201,11 @@ main(int argc, char **argv)
 	pcap_handler callback;
 	int dlt;
 	const char *dlt_name;
-	struct bpf_program fcode;
+#ifdef __APPLE__
+    struct bpf_program fcode = {};
+#else
+    struct bpf_program fcode;
+#endif /* __APPLE__ */
 #ifndef _WIN32
 	RETSIGTYPE (*oldhandler)(int);
 #endif
@@ -2126,7 +2132,7 @@ main(int argc, char **argv)
 	 * whenever a new interface is discovered
 	 */
 	dlt = pcap_datalink(pd);
-	if (dlt == DLT_PCAPNG || dlt == DLT_PKTAP) {
+	if (!dflag && (dlt == DLT_PCAPNG || dlt == DLT_PKTAP)) {
 		if (pcap_set_filter_info(pd, cmdbuf, Oflag, netmask) < 0)
 			error("%s", pcap_geterr(pd));
 	} else {
@@ -2610,6 +2616,7 @@ main(int argc, char **argv)
 		else
 			pcap_dump_close(dumpinfo.p);
 	}
+    pcap_freecode(&fcode);
 #else
 	pcap_freecode(&fcode);
 #endif
@@ -3400,6 +3407,18 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 
 			break;
 		}
+		case PCAPNG_BT_OSEV: {
+			pcap_ng_dump_block(dump_info->p, block);
+
+			goto done;
+		}
+#ifdef PCAPNG_BT_DSB
+		case PCAPNG_BT_DSB: {
+			pcap_ng_dump_block(dump_info->p, block);
+
+			goto done;
+		}
+#endif /* PCAPNG_BT_DSB */
 		default:
 			goto done;
 	}
@@ -3808,6 +3827,41 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			}
 			goto done;
 		}
+#ifdef PCAPNG_BT_DSB
+		case PCAPNG_BT_DSB: {
+			if (ndo->ndo_kflag & PRMD_VERBOSE) {
+				char secrets_type_str[64];
+				struct pcapng_decryption_secrets_fields *dsb_fields = pcap_ng_get_decryption_secrets_fields(block);
+				char *dataptr = pcap_ng_block_packet_get_data_ptr(block);
+				size_t i, datalen = pcap_ng_block_packet_get_data_len(block);
+				char *str = calloc(datalen + 1, sizeof(char)); /* include room for end-of-string */
+				if (str == NULL) {
+					err(EX_OSERR, "calloc()");
+				}
+				memcpy(str, dataptr, datalen);
+				/* remove trailing new lines */
+				for (i = datalen; i > 0; i--) {
+					if (str[i] == '\0') {
+						continue;
+					} else if (str[i] == '\n' || str[i] == '\r') {
+						str[i] = '\0';
+					}
+					break;
+				}
+				if (dsb_fields->secrets_type == PCAPNG_DST_TLS_KEY_LOG) {
+					snprintf(secrets_type_str, sizeof(secrets_type_str), "TLS Key Log (0x%x)", dsb_fields->secrets_type);
+				} else if (dsb_fields->secrets_type == PCAPNG_DST_WG_KEY_LOG) {
+					snprintf(secrets_type_str, sizeof(secrets_type_str), "WireGuard Key Log (0x%x)", dsb_fields->secrets_type);
+				} else {
+					snprintf(secrets_type_str, sizeof(secrets_type_str), "0x%x", dsb_fields->secrets_type);
+				}
+				ND_PRINT((ndo, "Decryption Secrets Block Type: %s Length: %u Data: %s\n",
+					  secrets_type_str, dsb_fields->secrets_length, str));
+				free(str);
+			}
+			goto done;
+		}
+#endif /* PCAPNG_BT_DSB */
 		default:
 			goto done;
 	}

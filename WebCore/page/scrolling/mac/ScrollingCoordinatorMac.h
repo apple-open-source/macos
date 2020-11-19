@@ -25,17 +25,11 @@
 
 #pragma once
 
-#if ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
+#if ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)
 
 #include "AsyncScrollingCoordinator.h"
 
 namespace WebCore {
-
-class Scrollbar;
-class ScrollingStateNode;
-class ScrollingStateScrollingNode;
-class ScrollingStateTree;
-class ThreadedScrollingTree;
 
 class ScrollingCoordinatorMac : public AsyncScrollingCoordinator {
 public:
@@ -44,21 +38,23 @@ public:
 
     void pageDestroyed() override;
 
-    void commitTreeStateIfNeeded() override;
+    void commitTreeStateIfNeeded() final;
 
     // Handle the wheel event on the scrolling thread. Returns whether the event was handled or not.
-    ScrollingEventResult handleWheelEvent(FrameView&, const PlatformWheelEvent&) override;
+    bool handleWheelEvent(FrameView&, const PlatformWheelEvent&, ScrollingNodeID) override;
 
 private:
-    void scheduleTreeStateCommit() override;
+    void scheduleTreeStateCommit() final;
 
-    void commitTreeState();
-    
+    void willStartRenderingUpdate() final;
+    void didCompleteRenderingUpdate() final;
+
     void updateTiledScrollingIndicator();
 
-    Timer m_scrollingStateTreeCommitterTimer;
+    void startMonitoringWheelEvents(bool clearLatchingState) final;
+    void stopMonitoringWheelEvents() final;
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
+#endif // ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)

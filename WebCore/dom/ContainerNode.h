@@ -58,7 +58,7 @@ public:
     ExceptionOr<void> replaceChild(Node& newChild, Node& oldChild);
     WEBCORE_EXPORT ExceptionOr<void> removeChild(Node& child);
     WEBCORE_EXPORT ExceptionOr<void> appendChild(Node& newChild);
-    void replaceAllChildren(Ref<Node>&&);
+    void replaceAllChildrenWithNewText(const String&);
     void replaceAllChildren(std::nullptr_t);
 
     // These methods are only used during parsing.
@@ -127,6 +127,8 @@ public:
     WEBCORE_EXPORT unsigned childElementCount() const;
     ExceptionOr<void> append(Vector<NodeOrString>&&);
     ExceptionOr<void> prepend(Vector<NodeOrString>&&);
+
+    ExceptionOr<void> replaceChildren(Vector<NodeOrString>&&);
 
     ExceptionOr<void> ensurePreInsertionValidity(Node& newChild, Node* refChild);
 

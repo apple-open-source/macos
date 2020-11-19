@@ -7,11 +7,11 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireLib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireFamily version 4.7.5, Copyright © 2000-2019 Apple Inc. All rights reserved.</string>
+	<string>IOFireWireFamily version 4.8.3, Copyright © 2000-2020 Apple Inc. All rights reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
-	<string>com.apple.IOFireWireLib</string>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.7.5</string>
+	<string>4.8.3</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>4.7.5</string>
+	<string>4.8.3</string>
 	<key>CFPlugInFactories</key>
 	<dict>
 		<key>A1478010-F197-11D4-A28B-000502072F80</key>

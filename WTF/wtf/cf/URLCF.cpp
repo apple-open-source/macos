@@ -51,11 +51,11 @@ URL::URL(CFURLRef url)
 RetainPtr<CFURLRef> URL::createCFURL() const
 {
     RetainPtr<CFURLRef> cfURL;
-    if (LIKELY(m_string.is8Bit()))
-        cfURL = WTF::createCFURLFromBuffer(reinterpret_cast<const char*>(m_string.characters8()), m_string.length());
+    if (LIKELY(m_string.is8Bit() && m_string.isAllASCII()))
+        cfURL = adoptCF(CFURLCreateAbsoluteURLWithBytes(nullptr, reinterpret_cast<const UInt8*>(m_string.characters8()), m_string.length(), kCFStringEncodingUTF8, nullptr, true));
     else {
         CString utf8 = m_string.utf8();
-        cfURL = WTF::createCFURLFromBuffer(utf8.data(), utf8.length());
+        cfURL = adoptCF(CFURLCreateAbsoluteURLWithBytes(nullptr, reinterpret_cast<const UInt8*>(utf8.data()), utf8.length(), kCFStringEncodingUTF8, nullptr, true));
     }
 
     if (protocolIsInHTTPFamily() && !isCFURLSameOrigin(cfURL.get(), *this))

@@ -36,7 +36,9 @@ typedef CFTypeRef HIDDisplayDeviceManagementInterfaceRef;
  * given container ID. If no corresponding
  * HID device matches container ID  , this will return NULL.
  * Caller should create only  single instance of HIDDisplayDeviceManagementInterfaceRef  per system for all HIDDisplayDeviceManagementInterface APIs
- * as these APIs are not thread safe.
+ * as these APIs are not thread safe. This api shouldn't be used in case underlying service is expected to terminate / add while
+ * api is in process. Calling this for terminated or in progress termination service containerID may have undesirable results. Use HIDDisplayCreateDeviceManagementInterfaceWithService
+ * instead.
  *
  * @param containerID
  * Attributes which can uniquely identify display device.

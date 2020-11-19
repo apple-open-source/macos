@@ -4,13 +4,13 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2019-10-26</string>
+		<string>2020-9-18</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceSHA256</key>
-		<string>92d1ff4b13c7093635f1ec338a5e6891ca99b10e65fbcadd527e5bb84d11b5e7</string>
+		<string>c790b8172520b2ff773d6cf80774ea0a678a2f16e8ee6b11d68802094448689e</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
@@ -19,13 +19,14 @@
 			<string>Patch for proper building without PCRE JIT support</string>
 			<string>Removed GPLv3 bison-generated parsers</string>
 			<string>Removed install-pear-nozlib.phar</string>
+			<string>Deperecation notices</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceURL</key>
 		<string>http://php.net/downloads.php</string>
 		<key>OpenSourceVersion</key>
-		<string>7.3.11</string>
+		<string>7.3.22</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>

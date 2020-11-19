@@ -25,6 +25,9 @@
 #include "unicode/uchriter.h"
 #include "unicode/uclean.h"
 #include "unicode/udata.h"
+// for <rdar://problem/51193810>
+#include "unicode/ulocdata.h"
+
 
 #include "brkeng.h"
 #include "ucln_cmn.h"
@@ -210,6 +213,11 @@ RuleBasedBreakIterator::~RuleBasedBreakIterator() {
 
     delete [] fLatin1Cat;
     fLatin1Cat = NULL;
+
+    // <rdar://problem/51193810>
+    delete [] fCatOverrides;
+    fCatOverrides = NULL;
+    fCatOverrideCount = 0;
 }
 
 /**
@@ -259,6 +267,17 @@ RuleBasedBreakIterator::operator=(const RuleBasedBreakIterator& that) {
     delete [] fLatin1Cat;
     fLatin1Cat = NULL;
 
+    // <rdar://problem/51193810>
+    delete [] fCatOverrides;
+    fCatOverrides = NULL;
+    fCatOverrideCount = that.fCatOverrideCount;
+    if (fCatOverrideCount != 0) {
+        fCatOverrides = new CategoryOverride[fCatOverrideCount];
+        for (int32_t orItem = 0; orItem < fCatOverrideCount; ++orItem) {
+            fCatOverrides[orItem] = that.fCatOverrides[orItem];
+        }
+    }
+
     fPosition = that.fPosition;
     fRuleStatusIndex = that.fRuleStatusIndex;
     fDone = that.fDone;
@@ -285,6 +304,8 @@ void RuleBasedBreakIterator::init(UErrorCode &status) {
     fCharIter             = NULL;
     fData                 = NULL;
     fLatin1Cat            = NULL;
+    fCatOverrides         = NULL;
+    fCatOverrideCount     = 0;
     fPosition             = 0;
     fRuleStatusIndex      = 0;
     fDone                 = false;
@@ -330,6 +351,80 @@ void RuleBasedBreakIterator::initLatin1Cat(void) {
     }
 }
 
+// <rdar://problem/51193810>
+enum {
+    kUDelimBuf = 3,   // maximum UTF16 length of delimiter to get (1 for all delimiters in ICU 66)
+    kUDelimCount = 4, // maximum number of category overrides for delimiters
+    kPrototypeForOP = 0x007B, // prototype character for linebreak class OP (in Unicode 13)
+    kPrototypeForCL = 0x007D, // prototype character for linebreak class CL (in Unicode 13)
+    kTrueApostrophe = 0x2019, // U+2019 true apostrophe, glottal stop
+};
+void RuleBasedBreakIterator::setCategoryOverrides(Locale locale) {
+    delete [] fCatOverrides;
+    fCatOverrides = NULL;
+    fCatOverrideCount = 0;
+
+    if (uprv_strcmp(locale.getLanguage(),"da") == 0) { // rdar://66836891
+        return; // skip all remapping; U+201C/U+201D and U+2018/U+2019 can be open or close
+    }
+    UErrorCode status = U_ZERO_ERROR;
+    ULocaleData* uldata = ulocdata_open(locale.getName(), &status);
+    if (U_SUCCESS(status)) {
+        static const ULocaleDataDelimiterType delimTypes[][2] = {
+            { ULOCDATA_QUOTATION_START, ULOCDATA_QUOTATION_END },
+            { ULOCDATA_ALT_QUOTATION_START, ULOCDATA_ALT_QUOTATION_END }
+        };
+        CategoryOverride catOverrides[kUDelimCount];
+        int32_t catOverrideCount = 0;
+
+        for (int32_t delimIndex = 0; delimIndex < UPRV_LENGTHOF(delimTypes); delimIndex++) {
+            UChar32 quotOpen = 0, quotClose = 0;
+            UChar uDelim[kUDelimBuf];
+            int32_t uDelimLen;
+
+            // TODO: Currently we assume all delimiters in CLDR data are single BMP characters.
+            // That is currently true but we should at least expand this in the future to handle single
+            // UTF32 characters.
+            status = U_ZERO_ERROR;
+            uDelimLen = ulocdata_getDelimiter(uldata, delimTypes[delimIndex][0], uDelim, kUDelimBuf, &status);
+            if (U_SUCCESS(status) && uDelimLen==1) {
+                quotOpen = uDelim[0];
+            }
+            status = U_ZERO_ERROR;
+            uDelimLen = ulocdata_getDelimiter(uldata, delimTypes[delimIndex][1], uDelim, kUDelimBuf, &status);
+            if (U_SUCCESS(status) && uDelimLen==1) {
+                quotClose = uDelim[0];
+                if (quotClose == 0x201C && // rdar://67787054, rdar://67804156
+                        (uprv_strcmp(locale.getLanguage(),"de") == 0 || uprv_strcmp(locale.getLanguage(),"hr") == 0)) {
+                    quotClose = 0x201D; // In de/hr, 0x201C can be ambiguous, 0x201D is unambiguously close if used
+                }
+            }
+            if (quotOpen != quotClose) { // if they are the same we cannot distinguish OP and CL !
+                // only remap the classes for characters that currently have linebreak class QU
+                // and are not U+2019 (true apostrophe / glottal stop); need to wait to check here
+                // so that the test quotOpen != quotClose is valid.
+                if (u_getIntPropertyValue(quotOpen, UCHAR_LINE_BREAK) == U_LB_QUOTATION && quotOpen != kTrueApostrophe) {
+                    catOverrides[catOverrideCount].c = quotOpen;
+                    catOverrides[catOverrideCount++].category = UTRIE2_GET16(fData->fTrie, kPrototypeForOP);
+                }
+                if (u_getIntPropertyValue(quotClose, UCHAR_LINE_BREAK) == U_LB_QUOTATION && quotClose != kTrueApostrophe) {
+                    catOverrides[catOverrideCount].c = quotClose;
+                    catOverrides[catOverrideCount++].category = UTRIE2_GET16(fData->fTrie, kPrototypeForCL);
+                }
+            }
+        }
+        ulocdata_close(uldata);
+
+        if (catOverrideCount > 0) {
+            fCatOverrideCount = catOverrideCount;
+            fCatOverrides = new CategoryOverride[catOverrideCount];
+            for (int32_t orItem = 0; orItem < catOverrideCount; ++orItem) {
+                fCatOverrides[orItem] = catOverrides[orItem];
+            }
+        }
+    }
+}
+
 //-----------------------------------------------------------------------------
 //
 //    clone - Returns a newly-constructed RuleBasedBreakIterator with the same
@@ -337,8 +432,8 @@ void RuleBasedBreakIterator::initLatin1Cat(void) {
 //            Virtual function: does the right thing with subclasses.
 //
 //-----------------------------------------------------------------------------
-BreakIterator*
-RuleBasedBreakIterator::clone(void) const {
+RuleBasedBreakIterator*
+RuleBasedBreakIterator::clone() const {
     return new RuleBasedBreakIterator(*this);
 }
 
@@ -369,7 +464,7 @@ RuleBasedBreakIterator::operator==(const BreakIterator& that) const {
         //   or have a different iteration position.
         //   Note that fText's position is always the same as the break iterator's position.
         return FALSE;
-    };
+    }
 
     if (!(fPosition == that2.fPosition &&
             fRuleStatusIndex == that2.fRuleStatusIndex &&
@@ -878,7 +973,22 @@ int32_t RuleBasedBreakIterator::handleNextInternal() {
             // Note:  the 16 in UTRIE_GET16 refers to the size of the data being returned,
             //        not the size of the character going in, which is a UChar32.
             //
-            category = (fLatin1Cat!=NULL && c<0x100)? fLatin1Cat[c]: UTRIE2_GET16(fData->fTrie, c);
+            if (fLatin1Cat!=NULL && c<0x100) {
+                category = fLatin1Cat[c]; // fast Latin1 class lookup used for urbtok
+            } else {
+                UBool didOverride = FALSE;
+                for (int32_t orItem = 0; orItem < fCatOverrideCount; ++orItem) {
+                    // <rdar://problem/51193810> delimiter category overrides, max of 4
+                    if (c == fCatOverrides[orItem].c) {
+                        category = fCatOverrides[orItem].category;
+                        didOverride = TRUE;
+                        break;
+                    }
+                }
+                if (!didOverride) {
+                    category = UTRIE2_GET16(fData->fTrie, c);
+                }
+            }
 
             // Check the dictionary bit in the character's category.
             //    Counter is only used by dictionary based iteration.
@@ -1185,10 +1295,8 @@ const uint8_t  *RuleBasedBreakIterator::getBinaryRules(uint32_t &length) {
 }
 
 
-BreakIterator *  RuleBasedBreakIterator::createBufferClone(void * /*stackBuffer*/,
-                                   int32_t &bufferSize,
-                                   UErrorCode &status)
-{
+RuleBasedBreakIterator *RuleBasedBreakIterator::createBufferClone(
+        void * /*stackBuffer*/, int32_t &bufferSize, UErrorCode &status) {
     if (U_FAILURE(status)){
         return NULL;
     }

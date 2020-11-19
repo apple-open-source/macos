@@ -44,5 +44,11 @@
 		<string>123456.test.group2</string>
 		<string>com.apple.bluetooth</string>
 	</array>
+	<key>com.apple.private.AuthorizationServices</key>
+	<array>
+		<string>com.apple.trust-settings.admin</string>
+	</array>
+	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
 </dict>
 </plist>

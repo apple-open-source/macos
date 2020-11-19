@@ -296,6 +296,14 @@ uint64_t SecTrustOTASecExperimentGetUpdatedAsset(CFErrorRef _Nullable * _Nullabl
  */
 CFDictionaryRef SecTrustOTASecExperimentCopyAsset(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
 
+/*
+ @function SecTrustTriggerValidUpdate
+ @abstract Trigger trustd to fetch a valid update.
+ @param error A returned error if trustd failed to trigger the update.
+ @result True if the update was triggered, false if not.
+ */
+bool SecTrustTriggerValidUpdate(CFErrorRef _Nullable * _Nullable CF_RETURNS_RETAINED error);
+
 /*!
  @function SecTrustFlushResponseCache
  @abstract Removes all OCSP responses from the per-user response cache.
@@ -442,7 +450,7 @@ OSStatus SecTrustSetPinningException(SecTrustRef trust)
   @discussion Exceptions tagged with an older epoch are not trusted.
   */
 uint64_t SecTrustGetExceptionResetCount(CFErrorRef *error)
-    API_UNAVAILABLE(macos, iosmac) API_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0));
+    API_UNAVAILABLE(macos, macCatalyst) API_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0));
 
 /*!
   @function SecTrustIncrementExceptionResetCount
@@ -452,7 +460,7 @@ uint64_t SecTrustGetExceptionResetCount(CFErrorRef *error)
   @discussion By increasing the current epoch any existing exceptions, tagged with the old epoch, become distrusted.
   */
 OSStatus SecTrustIncrementExceptionResetCount(CFErrorRef *error)
-    __API_UNAVAILABLE(macos, iosmac) __API_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0));
+    __API_UNAVAILABLE(macos, macCatalyst) __API_AVAILABLE(ios(12.0), tvos(12.0), watchos(5.0));
 #endif
 
 #ifdef __BLOCKS__

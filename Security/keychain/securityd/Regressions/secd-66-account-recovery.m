@@ -62,15 +62,7 @@
 #include "keychain/securityd/SOSCloudCircleServer.h"
 #include "SecdTestKeychainUtilities.h"
 
-#if TARGET_OS_SIMULATOR
-
-int secd_66_account_recovery(int argc, char *const *argv) {
-    plan_tests(1);
-    secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    return 0;
-}
-
-#else
+#if SOS_ENABLED
 
 #include "SOSAccountTesting.h"
 
@@ -346,16 +338,16 @@ static void tests(bool recKeyFirst)
 
     SOSTestCleanup();
 }
+#endif
 
 int secd_66_account_recovery(int argc, char *const *argv) {
+#if SOS_ENABLED
     plan_tests(281);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    
     tests(true);
     tests(false);
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }
-
-#endif

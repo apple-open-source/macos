@@ -197,7 +197,9 @@ mergeman:
 		cd $$d && \
 		for f in *.*; do \
 		    ff=`echo $$f | sed -E "s/\.[^.]*(\.gz)?$$/$$vers&/"` && \
-		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
+		    if [ -s $$f  ]; then \
+		        ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff; \
+		    fi && \
 		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
 			ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
 		    fi || exit 1; \

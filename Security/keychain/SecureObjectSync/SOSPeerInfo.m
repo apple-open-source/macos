@@ -37,7 +37,6 @@
 #include <dispatch/dispatch.h>
 
 #include <stdlib.h>
-#include <assert.h>
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFRelease.h>
@@ -97,6 +96,8 @@ CFStringRef sPreferIDSFragmentation     = CFSTR("PreferIDFragmentation");
 CFStringRef sPreferIDSACKModel          = CFSTR("PreferIDSAckModel");
 CFStringRef sTransportType              = CFSTR("TransportType");
 CFStringRef sDeviceID                   = CFSTR("DeviceID");
+
+CFStringRef sCKKSForAll                 = CFSTR("CKKS4A");
 
 const CFStringRef peerIDLengthKey             = CFSTR("idLength");
 
@@ -158,10 +159,9 @@ static bool SOSDescriptionHash(SOSPeerInfoRef peer, const struct ccdigest_info *
 
 #define SIGLEN 128
 static CFDataRef sosCopySignedHash(SecKeyRef privkey, const struct ccdigest_info *di, uint8_t *hbuf) {
-    OSStatus stat;
     size_t siglen = SIGLEN;
     uint8_t sig[siglen];
-    if((stat = SecKeyRawSign(privkey, kSecPaddingNone, hbuf, di->output_size, sig, &siglen)) != 0) {
+    if(SecKeyRawSign(privkey, kSecPaddingNone, hbuf, di->output_size, sig, &siglen) != 0) {
         return NULL;
     }
     return CFDataCreate(NULL, sig, (CFIndex)siglen);
@@ -230,6 +230,7 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
                                                  SecKeyRef signingKey,
                                                  SecKeyRef octagonPeerSigningKey,
                                                  SecKeyRef octagonPeerEncryptionKey,
+                                                 bool supportsCKKS4All,
                                                  CFErrorRef* error,
                                                  void (^ description_modifier)(CFMutableDictionaryRef description)) {
     SOSPeerInfoRef pi = CFTypeAllocate(SOSPeerInfo, struct __OpaqueSOSPeerInfo, allocator);
@@ -256,6 +257,7 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
         CFReleaseNull(pi);
         goto exit;
     }
+
 
     if (octagonPeerSigningKey) {
         SecKeyRef octagonPeerSigningPublicKey = SecKeyCreatePublicFromPrivate(octagonPeerSigningKey);
@@ -311,6 +313,7 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
     description_modifier(pi->description);
     
     pi->peerID = SOSCopyIDOfKey(publicKey, error);
+    pi->spid = CFStringCreateTruncatedCopy(pi->peerID, 8);
     
     pi->verifiedAppKeyID = NULL;
     pi->verifiedResult = false;
@@ -328,6 +331,8 @@ static SOSPeerInfoRef SOSPeerInfoCreate_Internal(CFAllocatorRef allocator,
     if (backup_key != NULL) SOSPeerInfoV2DictionarySetValue(pi, sBackupKeyKey, backup_key);
     SOSPeerInfoV2DictionarySetValue(pi, sViewsKey, enabledViews);
 
+    SOSPeerInfoSetSupportsCKKSForAll(pi, supportsCKKS4All);
+
     // ================ V2 Additions End
     
     if (!SOSPeerInfoSign(signingKey, pi, error)) {
@@ -344,8 +349,14 @@ exit:
     return pi;
 }
 
-SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey, SecKeyRef octagonPeerSigningKey, SecKeyRef octagonPeerEncryptionKey, CFErrorRef* error) {
-    return SOSPeerInfoCreate_Internal(allocator, gestalt, backup_key, NULL, NULL, NULL, NULL, NULL, NULL, signingKey, octagonPeerSigningKey, octagonPeerEncryptionKey, error, ^(CFMutableDictionaryRef description) {});
+SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey,
+                                 SecKeyRef octagonPeerSigningKey,
+                                 SecKeyRef octagonPeerEncryptionKey,
+                                 bool supportsCKKS4All,
+                                 CFErrorRef* error) {
+    return SOSPeerInfoCreate_Internal(allocator, gestalt, backup_key, NULL, NULL, NULL, NULL, NULL, NULL, signingKey, octagonPeerSigningKey, octagonPeerEncryptionKey,
+                                      supportsCKKS4All,
+                                      error, ^(CFMutableDictionaryRef description) {});
 }
 
 SOSPeerInfoRef SOSPeerInfoCreateWithTransportAndViews(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key,
@@ -354,14 +365,19 @@ SOSPeerInfoRef SOSPeerInfoCreateWithTransportAndViews(CFAllocatorRef allocator, 
                                                       SecKeyRef signingKey,
                                                       SecKeyRef octagonPeerSigningKey,
                                                       SecKeyRef octagonPeerEncryptionKey,
+                                                      bool supportsCKKS4All,
                                                       CFErrorRef* error)
 {
-    return SOSPeerInfoCreate_Internal(allocator, gestalt, backup_key, IDSID, transportType, preferIDS, preferFragmentation, preferAckModel, enabledViews, signingKey, octagonPeerSigningKey, octagonPeerEncryptionKey, error, ^(CFMutableDictionaryRef description) {});
+    return SOSPeerInfoCreate_Internal(allocator, gestalt, backup_key, IDSID, transportType, preferIDS, preferFragmentation, preferAckModel, enabledViews, signingKey,
+                                      octagonPeerSigningKey,
+                                      octagonPeerEncryptionKey,
+                                      supportsCKKS4All,
+                                      error, ^(CFMutableDictionaryRef description) {});
 }
 
 
 SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error) {
-    return SOSPeerInfoCreate_Internal(allocator, gestalt, NULL, NULL, NULL, NULL, NULL, NULL, NULL, signingKey, NULL, NULL, error, ^(CFMutableDictionaryRef description) {
+    return SOSPeerInfoCreate_Internal(allocator, gestalt, NULL, NULL, NULL, NULL, NULL, NULL, NULL, signingKey, NULL, NULL, false, error, ^(CFMutableDictionaryRef description) {
         CFDictionarySetValue(description, sCloudIdentityKey, kCFBooleanTrue);
     });
 
@@ -377,6 +393,7 @@ SOSPeerInfoRef SOSPeerInfoCreateCopy(CFAllocatorRef allocator, SOSPeerInfoRef to
 
     pi->gestalt = CFDictionaryCreateCopy(allocator, toCopy->gestalt);
     pi->peerID = CFStringCreateCopy(allocator, toCopy->peerID);
+    pi->spid = CFStringCreateCopy(allocator, toCopy->spid);
     pi->verifiedAppKeyID = NULL; // The peer resulting from this will need to be re-evaluated for an application signature.
     pi->verifiedResult = false;
 
@@ -414,10 +431,10 @@ SOSPeerInfoRef SOSPeerInfoCreateCurrentCopy(CFAllocatorRef allocator, SOSPeerInf
 }
 
 
-static SOSPeerInfoRef SOSPeerInfoCopyWithModification(CFAllocatorRef allocator, SOSPeerInfoRef original,
-                                                      SecKeyRef signingKey, CFErrorRef *error,
-                                                      bool (^modification)(SOSPeerInfoRef peerToModify, CFErrorRef *error)) {
-
+SOSPeerInfoRef SOSPeerInfoCopyWithModification(CFAllocatorRef allocator, SOSPeerInfoRef original,
+                                               SecKeyRef signingKey, CFErrorRef *error,
+                                               bool (^modification)(SOSPeerInfoRef peerToModify, CFErrorRef *error))
+{
     SOSPeerInfoRef result = NULL;
     SOSPeerInfoRef copy = SOSPeerInfoCreateCopy(allocator, original, error);
 
@@ -507,6 +524,7 @@ SOSPeerInfoRef SOSPeerInfoCopyWithPing(CFAllocatorRef allocator, SOSPeerInfoRef 
     SecKeyRef pub_key = SOSPeerInfoCopyPubKey(pi, error);
     require_quiet(pub_key, exit);
     pi->peerID = SOSCopyIDOfKey(pub_key, error);
+    pi->spid = CFStringCreateTruncatedCopy(pi->peerID, 8);
     require_quiet(pi->peerID, exit);
     require_action_quiet(SOSPeerInfoSign(signingKey, pi, error), exit, CFReleaseNull(pi));
 exit:
@@ -528,8 +546,9 @@ static void SOSPeerInfoDestroy(CFTypeRef aObj) {
     CFReleaseNull(pi->signature);
     CFReleaseNull(pi->gestalt);
     CFReleaseNull(pi->peerID);
-    CFReleaseNull(pi->v2Dictionary);
+    CFReleaseNull(pi->spid);
     CFReleaseNull(pi->verifiedAppKeyID);
+    CFReleaseNull(pi->v2Dictionary);
     pi->verifiedResult = false;
 }
 
@@ -609,19 +628,19 @@ static CFStringRef copyDescriptionWithFormatOptions(CFTypeRef aObj, CFDictionary
     bool selfValid  = SOSPeerInfoVerify(pi, NULL);
     bool backingUp = SOSPeerInfoHasBackupKey(pi);
     bool isKVS = SOSPeerInfoKVSOnly(pi);
+    bool isCKKSForAll = SOSPeerInfoSupportsCKKSForAll(pi);
     CFStringRef osVersion = CFDictionaryGetValue(pi->gestalt, kPIOSVersionKey);
     CFStringRef tmp = SOSPeerInfoV2DictionaryCopyString(pi, sDeviceID);
     CFStringRef deviceID = CFStringCreateTruncatedCopy(tmp, 8);
     CFReleaseNull(tmp);
     CFStringRef serialNum = SOSPeerInfoCopySerialNumber(pi);
-    CFStringRef peerID = CFStringCreateTruncatedCopy(SOSPeerInfoGetPeerID(pi), 8);
 
     // Calculate the truncated length
 
     CFStringRef objectPrefix = CFStringCreateWithFormat(kCFAllocatorDefault, formatOptions, CFSTR("PI@%p"), pi);
     
     description = CFStringCreateWithFormat(kCFAllocatorDefault, formatOptions,
-                                           CFSTR("<%@: [name: %20@] [%c%c%c%c%c%c%c] [type: %-20@] [spid: %8@] [os: %10@] [devid: %10@] [serial: %12@]"),
+                                           CFSTR("<%@: [name: %20@] [%c%c%c%c%c%c%c%c] [type: %-20@] [spid: %8@] [os: %10@] [devid: %10@] [serial: %12@]"),
                                            objectPrefix,
                                            isKnown(SOSPeerInfoGetPeerName(pi)),
                                            '-',
@@ -631,10 +650,10 @@ static CFStringRef copyDescriptionWithFormatOptions(CFTypeRef aObj, CFDictionary
                                            boolToChars(backingUp, 'B', 'b'),
                                            boolToChars(isKVS, 'K', 'I'),
                                            '-',
-                                           isKnown(SOSPeerInfoGetPeerDeviceType(pi)),  isKnown(peerID),
+                                           boolToChars(isCKKSForAll, 'C', '_'),
+                                           isKnown(SOSPeerInfoGetPeerDeviceType(pi)),  isKnown(SOSPeerInfoGetSPID(pi)),
                                            isKnown(osVersion), isKnown(deviceID), isKnown(serialNum));
 
-    CFReleaseNull(peerID);
     CFReleaseNull(deviceID);
     CFReleaseNull(serialNum);
     CFReleaseNull(objectPrefix);
@@ -660,25 +679,25 @@ void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CF
     bool backingUp = SOSPeerInfoHasBackupKey(pi);
     bool isMe = CFEqualSafe(SOSPeerInfoGetPeerID(pi), myPID) == true;
     bool isKVS = SOSPeerInfoKVSOnly(pi);
+    bool isCKKSForAll = SOSPeerInfoSupportsCKKSForAll(pi);
     CFStringRef osVersion = CFDictionaryGetValue(pi->gestalt, kPIOSVersionKey);
     CFStringRef tmp = SOSPeerInfoV2DictionaryCopyString(pi, sDeviceID);
     CFStringRef deviceID = CFStringCreateTruncatedCopy(tmp, 8);
     CFReleaseNull(tmp);
     CFStringRef serialNum = SOSPeerInfoCopySerialNumber(pi);
-    CFStringRef peerID = CFStringCreateTruncatedCopy(SOSPeerInfoGetPeerID(pi), 8);
 
-    secnotice(category, "PI:    [name: %-20@] [%c%c%c%c%c%c%c] [type: %-20@] [spid: %8@] [os: %10@] [devid: %10@] [serial: %12@]", isKnown(SOSPeerInfoGetPeerName(pi)),
+    secnotice(category, "PI:    [name: %-20@] [%c%c%c%c%c%c%c%c] [type: %-20@] [spid: %8@] [os: %10@] [devid: %10@] [serial: %12@]", isKnown(SOSPeerInfoGetPeerName(pi)),
               boolToChars(isMe, 'M', 'm'),
               boolToChars(appValid, 'A', 'a'),
               boolToChars(selfValid, 'S', 's'),
               boolToChars(retired, 'R', 'r'),
               boolToChars(backingUp, 'B', 'b'),
               boolToChars(isKVS, 'K', 'I'),
+              boolToChars(isCKKSForAll, 'C', '_'),
               sigchr,
-              isKnown(SOSPeerInfoGetPeerDeviceType(pi)),  isKnown(peerID),
+              isKnown(SOSPeerInfoGetPeerDeviceType(pi)),  isKnown(SOSPeerInfoGetSPID(pi)),
               isKnown(osVersion), isKnown(deviceID), isKnown(serialNum));
 
-    CFReleaseNull(peerID);
     CFReleaseNull(deviceID);
     CFReleaseNull(serialNum);
 }
@@ -714,6 +733,10 @@ CFTypeRef SOSPeerInfoLookupGestaltValue(SOSPeerInfoRef pi, CFStringRef key) {
 
 CFStringRef SOSPeerInfoGetPeerID(SOSPeerInfoRef pi) {
     return pi ? pi->peerID : NULL;
+}
+
+CFStringRef SOSPeerInfoGetSPID(SOSPeerInfoRef pi) {
+    return pi ? pi->spid : NULL;
 }
 
 bool SOSPeerInfoPeerIDEqual(SOSPeerInfoRef pi, CFStringRef myPeerID) {
@@ -780,7 +803,7 @@ static CFDataRef sosCreateDate() {
 
 static CFDateRef sosCreateCFDate(CFDataRef sosdate) {
     CFDateRef date;
-    der_decode_date(NULL, 0, &date, NULL, CFDataGetBytePtr(sosdate),
+    der_decode_date(NULL, &date, NULL, CFDataGetBytePtr(sosdate),
                     CFDataGetBytePtr(sosdate) + CFDataGetLength(sosdate));
     return date;
 }
@@ -983,9 +1006,10 @@ SOSPeerInfoRef SOSPeerInfoUpgradeSignatures(CFAllocatorRef allocator, SecKeyRef 
     return retval;
 }
 
-void SOSPeerInfoSetOctagonKeysInDescription(SOSPeerInfoRef peer,  SecKeyRef octagonSigningKey,
+bool SOSPeerInfoSetOctagonKeysInDescription(SOSPeerInfoRef peer,  SecKeyRef octagonSigningKey,
                                SecKeyRef octagonEncryptionKey, CFErrorRef *error)
 {
+    bool ret = false;
     CFDataRef signingPublicKeyBytes = NULL;
     CFDataRef encryptionPublicKeyBytes = NULL;
 
@@ -999,9 +1023,13 @@ void SOSPeerInfoSetOctagonKeysInDescription(SOSPeerInfoRef peer,  SecKeyRef octa
     CFDictionarySetValue(peer->description, sOctagonPeerSigningPublicKeyKey, signingPublicKeyBytes);
     CFDictionarySetValue(peer->description, sOctagonPeerEncryptionPublicKeyKey, encryptionPublicKeyBytes);
 
+    ret = true;
+
 fail:
     CFReleaseNull(signingPublicKeyBytes);
     CFReleaseNull(encryptionPublicKeyBytes);
+
+    return ret;
 }
 
 

@@ -238,9 +238,6 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
  * An IOHIDManager should not be associated with both a runloop and
  * dispatch queue. A call to IOHIDManagerSetDispatchQueue should only be made once.
  *
- * If a dispatch queue is set but never used, a call to IOHIDManagerCancel followed
- * by IOHIDManagerActivate should be performed in that order.
- *
  * After a dispatch queue is set, the IOHIDManager must make a call to activate
  * via IOHIDManagerActivate and cancel via IOHIDManagerCancel. All calls to "Register"
  * functions should be done before activation and not after cancellation.

@@ -4,8 +4,6 @@
 <dict>
 	<key>DEFAULT-OPTIONS</key>
 	<dict>
-		<key>Enable-Oversize-Messages</key>
-		<true/>
 		<key>Default-Privacy-Setting</key>
 		<string>Public</string>
 		<key>Level</key>

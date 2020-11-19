@@ -55,6 +55,12 @@
 #include <IOKit/scsi/SCSICmds_REQUEST_SENSE_Defs.h>
 #include <IOKit/scsi/SCSIPort.h>
 
+// SCSI Parallel Interface includes
+#include "IOSCSIParallelControllerCharacteristics.h"
+
+// System includes
+#include <sys/cdefs.h>
+
 //-----------------------------------------------------------------------------
 //	Constants
 //-----------------------------------------------------------------------------
@@ -62,74 +68,6 @@
 
 #define kIOPropertySCSIDeviceFeaturesKey			"SCSI Device Features"
 #define kIOPropertySCSI_I_T_NexusFeaturesKey		"SCSI I_T Nexus Features"
-
-// Set this key with a value of true in ReportHBAConstraints() to indicate support
-// for full 8-byte LUN addressing and use GetLogicalUnitBytes() to obtain the
-// full 8-byte LUN when processing commands in ProcessParallelTask().
-#define kIOHierarchicalLogicalUnitSupportKey		"SCSI Hierarchical Logical Unit Support"
-
-// This is the alignment mask used when allocating per-task HBA data. It allows
-// the HBA to declare whether or not it supports 64-bit addressability and what the
-// minimum byte alignment is for the data. E.g. By specifying 0x0000FFFFFFFFFFFEULL,
-// the controller would be indicating that it supports 48-bits of addressability, but
-// at a minimum of being 2-byte aligned.
-#define kIOMinimumHBADataAlignmentMaskKey			"HBA Data Alignment"
-
-// The Feature Selectors used to identify features of the SCSI Parallel
-// Interface.  These are used by the DoesHBASupportSCSIParallelFeature
-// to report whether the HBA supports a given SCSI Parallel Interface
-// feature and are used for requesting negotiation and reporting negotiation
-// results between the controller and the device.
-
-// When the DoesHBASupportSCSIParallelFeature() member routine of the controller 
-// child class is called, it will return true if the HBA that it controls 
-// supports the specified SCSIParallelFeature or false if it does not.
-typedef enum SCSIParallelFeature
-{
-	// The selector for support of Wide Data Transfers.  Only Wide16 is supported 
-	// as Wide32 has been obsoleted by the SPI-3 specification.
-	kSCSIParallelFeature_WideDataTransfer 					= 0,
-	
-	// The selector for support of Synchronous Data Transfers.
-	kSCSIParallelFeature_SynchronousDataTransfer 			= 1,
-	
-	// The selector for support of Quick Arbitration and Selection (QAS).
-	kSCSIParallelFeature_QuickArbitrationAndSelection 		= 2,
-	
-	// The selector for support of Double Transition (DT) data transfers.
-	kSCSIParallelFeature_DoubleTransitionDataTransfers 		= 3,
-	
-	// The selector for SPI Information Unit (IU) transfers.
-	kSCSIParallelFeature_InformationUnitTransfers 			= 4,
-	
-	// Since the Feature selectors are zero base, this will always have the 
-	// correct total.
-	kSCSIParallelFeature_TotalFeatureCount	
-} SCSIParallelFeature;
-
-
-typedef enum SCSIParallelFeatureRequest
-{
-	// This selector indicates that current negotiation 
-	// should be used. 
-	kSCSIParallelFeature_NoNegotiation 			= 0,
-	
-	// This selector indicates that the controller
-	// should attempt negotiation for the feature
-	kSCSIParallelFeature_AttemptNegotiation 	= 1,
-	
-	// This selector indicates that the controller
-	// should clear any negotiation for the feature
-	kSCSIParallelFeature_ClearNegotiation 		= 2
-} SCSIParallelFeatureRequest;
-	
-typedef enum SCSIParallelFeatureResult
-{
-	kSCSIParallelFeature_NegotitiationUnchanged	= 0,
-	kSCSIParallelFeature_NegotitiationCleared	= 1,
-	kSCSIParallelFeature_NegotitiationSuccess	= 2
-} SCSIParallelFeatureResult;
-
 
 // The SCSI Message Codes used for MESSAGE IN and MESSAGE OUT phases.
 enum SCSIParallelMessages
@@ -194,13 +132,15 @@ typedef OSObject *	SCSIParallelTaskIdentifier;
 //	Class Declarations
 //-----------------------------------------------------------------------------
 
+__exported_push;
+
 /*! @class IOSCSIParallelInterfaceController
 	@abstract Class that represents a SCSI Host Bus Adapter.
 	@discussion Class that represents a SCSI Host Bus Adapter.
 */
-class IOSCSIParallelInterfaceController : public IOService
+class __kpi_deprecated("Use IOUserSCSIParallelInterfaceController with DriverKit, instead") IOSCSIParallelInterfaceController : public IOService
 {
-	
+
 	OSDeclareAbstractStructors ( IOSCSIParallelInterfaceController )
 	
 #if 0
@@ -254,12 +194,12 @@ public:
 		@result returns a valid SCSIParallelTaskIdentifier or NULL if none 
 		found.
 	*/
-	
-	SCSIParallelTaskIdentifier	FindTaskForAddress ( 
+
+	SCSIParallelTaskIdentifier	FindTaskForAddress (
 							SCSIDeviceIdentifier 		theT,
 							SCSILogicalUnitNumber		theL,
 							SCSITaggedTaskIdentifier	theQ );
-	
+
 	
 	/*!
 		@function FindTaskForControllerIdentifier
@@ -1473,7 +1413,6 @@ protected:
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 15 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 16 );
 	
-	
 #if 0
 #pragma mark -
 #pragma mark Internal Use Only
@@ -1558,6 +1497,8 @@ private:
 							IOSCSIParallelInterfaceDevice *	newDevice );
 	void			RemoveDeviceFromTargetList ( 
 							IOSCSIParallelInterfaceDevice * victimDevice );
+	void			CompleteOutstandingTasksForTargetID ( SCSIDeviceIdentifier targetID );
+	void			CompleteOutstandingTasksForTarget ( IOSCSIParallelInterfaceDevice * device );
 	
 	// The Interrupt Service Routine for the controller.
 	static void		ServiceInterrupt (
@@ -1573,7 +1514,7 @@ private:
 	
 	// IOService support methods
 	// These shall not be overridden by the HBA child classes.
-	bool			start ( IOService * 				provider );
+	bool			start ( IOService *                 provider );
 	void			stop ( 	IOService *  				provider );
 	
 	
@@ -1595,10 +1536,9 @@ protected:
 	
 	virtual bool	willTerminate ( IOService * provider, IOOptionBits options );
 	virtual bool	didTerminate ( IOService * provider, IOOptionBits options, bool * defer );
-    virtual void	free ( void );
-
-	
+	virtual void	free ( void );
 };
 
+__exported_pop;
 
 #endif	/* __IOKIT_IO_SCSI_PARALLEL_INTERFACE_CONTROLLER_H__ */

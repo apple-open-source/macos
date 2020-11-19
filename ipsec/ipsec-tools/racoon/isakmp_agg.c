@@ -89,8 +89,6 @@
 
 #include "vpn_control.h"
 #include "vpn_control_var.h"
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
 #ifndef HAVE_OPENSSL
 #include <Security/SecDH.h>
 #endif
@@ -300,19 +298,7 @@ agg_i1send(iph1, msg)
 	fsm_set_state(&iph1->status, IKEV1_STATE_AGG_I_MSG1SENT);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Initiator, Aggressive-Mode message 1"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Initiator, Aggressive-Mode Message 1"),
-								CONSTSTR("Failed to transmit Aggressive-Mode Message 1"));
-	}
 	if (cr)
 		vfree(cr);
 #ifdef ENABLE_FRAG
@@ -648,10 +634,6 @@ agg_i2recv(iph1, msg)
 	/* validate authentication value */
 	ptype = oakley_validate_auth(iph1);
 	if (ptype != 0) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
-								CONSTSTR("Initiator, Aggressive-Mode Message 2"),
-								CONSTSTR("Failed to authenticate, Aggressive-Mode Message 2"));
 		if (ptype == -1) {
 			/* message printed inner oakley_validate_auth() */
 			goto end;
@@ -659,11 +641,7 @@ agg_i2recv(iph1, msg)
 		isakmp_info_send_n1(iph1, ptype, NULL);
 		goto end;
 	}
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
-							CONSTSTR("Initiator, Aggressive-Mode Message 2"),
-							CONSTSTR(NULL));
-	
+
 	if (oakley_checkcr(iph1) < 0) {
 		/* Ignore this error in order to be interoperability. */
 		;
@@ -677,20 +655,7 @@ agg_i2recv(iph1, msg)
 #endif
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Initiator, Aggressive-Mode message 2"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Initiator, Aggressive-Mode Message 2"),
-								CONSTSTR("Failure processing Aggressive-Mode Message 2"));
-	}
-
 	if (pbuf)
 		vfree(pbuf);
 	if (satmp)
@@ -855,25 +820,8 @@ agg_i3send(iph1, msg)
 
 	fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_ESTABLISHED);
 
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKEV1_PH1_INIT_SUCC,
-							CONSTSTR("Initiator, Aggressive-Mode"),
-							CONSTSTR(NULL));
-
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Initiator, Aggressive-Mode message 3"),
-							CONSTSTR(NULL));
-
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Initiator, Aggressive-Mode Message 3"),
-								CONSTSTR("Failed to transmit Aggressive-Mode Message 3"));
-	}
 #ifdef ENABLE_NATT
 	if (natd[0])
 		vfree(natd[0]);
@@ -1068,20 +1016,7 @@ agg_r1recv(iph1, msg)
 	fsm_set_state(&iph1->status, IKEV1_STATE_AGG_R_MSG1RCVD);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Responder, Aggressive-Mode message 1"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Responder, Aggressive-Mode Message 1"),
-								CONSTSTR("Failed to process Aggressive-Mode Message 1"));
-	}
-
 	if (pbuf)
 		vfree(pbuf);
 	if (error) {
@@ -1421,19 +1356,7 @@ agg_r2send(iph1, msg)
 #endif
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_TX_SUCC,
-							CONSTSTR("Responder, Aggressive-Mode message 2"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_TX_FAIL,
-								CONSTSTR("Responder, Aggressive-Mode Message 2"),
-								CONSTSTR("Failed to process Aggressive-Mode Message 2"));
-	}
 	if (cr)
 		vfree(cr);
 #ifdef ENABLE_HYBRID
@@ -1605,10 +1528,6 @@ agg_r3recv(iph1, msg0)
 	/* validate authentication value */
 	ptype = oakley_validate_auth(iph1);
 	if (ptype != 0) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_FAIL,
-								CONSTSTR("Responder, Aggressive-Mode Message 3"),
-								CONSTSTR("Failed to authenticate Aggressive-Mode Message 3"));
 		if (ptype == -1) {
 			/* message printed inner oakley_validate_auth() */
 			goto end;
@@ -1616,27 +1535,10 @@ agg_r3recv(iph1, msg0)
 		isakmp_info_send_n1(iph1, ptype, NULL);
 		goto end;
 	}
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKEV1_PH1_AUTH_SUCC,
-							CONSTSTR("Responder, Aggressive-Mode Message 3"),
-							CONSTSTR(NULL));
-
 	fsm_set_state(&iph1->status, IKEV1_STATE_AGG_R_MSG3RCVD);
 
 	error = 0;
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKE_PACKET_RX_SUCC,
-							CONSTSTR("Responder, Aggressive-Mode message 3"),
-							CONSTSTR(NULL));
-	
 end:
-	if (error) {
-		IPSECSESSIONTRACEREVENT(iph1->parent_session,
-								IPSECSESSIONEVENTCODE_IKE_PACKET_RX_FAIL,
-								CONSTSTR("Responder, Aggressive-Mode Message 3"),
-								CONSTSTR("Failed to process Aggressive-Mode Message 3"));
-	}
 	if (pbuf)
 		vfree(pbuf);
 	if (msg)
@@ -1678,12 +1580,6 @@ agg_rfinalize(iph1, msg)
 	iph1->flags |= ISAKMP_FLAG_E;
 
 	fsm_set_state(&iph1->status, IKEV1_STATE_PHASE1_ESTABLISHED);
-
-	IPSECSESSIONTRACEREVENT(iph1->parent_session,
-							IPSECSESSIONEVENTCODE_IKEV1_PH1_RESP_SUCC,
-							CONSTSTR("Responder, Aggressive-Mode"),
-							CONSTSTR(NULL));
-	
 	error = 0;
 
 end:

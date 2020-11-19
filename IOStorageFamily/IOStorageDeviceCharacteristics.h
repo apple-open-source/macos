@@ -24,7 +24,13 @@
 #ifndef _IOKIT_IO_STORAGE_DEVICE_CHARACTERISTICS_H_
 #define _IOKIT_IO_STORAGE_DEVICE_CHARACTERISTICS_H_
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_DRIVERKIT
+#include <DriverKit/storage/IOStorageProtocolCharacteristics.h>
+#else
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
+#endif
 
 /*
  *	Device Characteristics - Characteristics defined for devices.

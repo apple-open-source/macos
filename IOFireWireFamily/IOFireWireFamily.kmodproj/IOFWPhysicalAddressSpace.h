@@ -75,8 +75,8 @@ protected:
 	bool			fDMACommandPrepared;
 	
 public:
-    virtual bool init( IOFWAddressSpace * primary );
-	virtual	void free();
+	virtual bool init( IOFWAddressSpace * primary ) APPLE_KEXT_OVERRIDE;
+	virtual	void free() APPLE_KEXT_OVERRIDE;
 
 	void setDMACommand( IODMACommand * dma_command );
 	IODMACommand * getDMACommand( void ); 
@@ -121,7 +121,7 @@ protected:
 	IOMemoryDescriptor *	fMem;	// unused
     vm_size_t				fLen;	// unused
 	
-    virtual	void 					free();
+    virtual	void	free() APPLE_KEXT_OVERRIDE;
 
 public:
 
@@ -129,7 +129,7 @@ public:
 	@abstract	Initialize physical address space.
 	@param		bus	Points to IOFireWireBus object.
 	@result		returns true if success, else false */
-	virtual bool init( IOFireWireBus * bus );
+	virtual bool init( IOFireWireBus * bus ) APPLE_KEXT_OVERRIDE;
 	
 /*!	@function	initWithDesc
 	@abstract	Initialize physical address space with IOMemoryDescriptor.
@@ -151,7 +151,7 @@ public:
 	@result		UIn32	returns kFWResponseComplete on success */
     virtual UInt32 doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len, 
 							IOMemoryDescriptor **buf, IOByteCount * offset,
-							IOFWRequestRefCon refcon);
+							IOFWRequestRefCon refcon) APPLE_KEXT_OVERRIDE;
 
 /*!	@function	doWrite
 	@abstract	A method for processing an address space write request
@@ -163,7 +163,7 @@ public:
 	@param		reqrefcon  Can be queried for extra info about the request.
 	@result		UIn32	returns kFWResponseComplete on success */
     virtual UInt32 doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
-                           const void *buf, IOFWRequestRefCon refcon);
+                           const void *buf, IOFWRequestRefCon refcon) APPLE_KEXT_OVERRIDE;
 
 /*!	@function	getMemoryDescriptor
 	@abstract	Gets the memory descriptor, which is associated to this 
@@ -256,7 +256,7 @@ protected:
 	UInt64 getPhysicalSegment( UInt64 offset, UInt64 * length )
 		{ return ((IOFWPhysicalAddressSpaceAux*)fIOFWAddressSpaceExpansion->fAuxiliary)->getPhysicalSegment( offset, length); };
 			
-	virtual IOFWAddressSpaceAux * createAuxiliary( void );
+	virtual IOFWAddressSpaceAux * createAuxiliary( void ) APPLE_KEXT_OVERRIDE;
     	
 };
 

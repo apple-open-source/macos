@@ -42,7 +42,11 @@ static Lock preferredLanguagesMutex;
 
 static Vector<String>& preferredLanguages()
 {
-    static NeverDestroyed<Vector<String>> languages;
+    static LazyNeverDestroyed<Vector<String>> languages;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [&] {
+        languages.construct();
+    });
     return languages;
 }
 
@@ -83,7 +87,7 @@ static String httpStyleLanguageCode(CFStringRef language)
 static void languagePreferencesDidChange(CFNotificationCenterRef, void*, CFStringRef, const void*, CFDictionaryRef)
 {
     {
-        std::lock_guard<Lock> lock(preferredLanguagesMutex);
+        auto locker = holdLock(preferredLanguagesMutex);
         preferredLanguages().clear();
     }
     
@@ -100,7 +104,7 @@ Vector<String> platformUserPreferredLanguages()
     });
 #endif
 
-    std::lock_guard<Lock> lock(preferredLanguagesMutex);
+    auto locker = holdLock(preferredLanguagesMutex);
     Vector<String>& userPreferredLanguages = preferredLanguages();
 
     if (userPreferredLanguages.isEmpty()) {

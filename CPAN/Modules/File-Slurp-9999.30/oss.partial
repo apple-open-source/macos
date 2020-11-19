@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-10</string>
+        <key>OpenSourceProject</key>
+        <string>File-Slurp</string>
+        <key>OpenSourceVersion</key>
+        <string>9999.30</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/C/CA/CAPOEIRAB/File-Slurp-9999.30.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

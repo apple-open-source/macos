@@ -13,7 +13,6 @@
 #include <IOKit/kext/OSKext.h>
 #include <mach/mach_error.h>
 
-#include <getopt.h>
 #include <os/log.h>
 #include <sysexits.h>
 #include <sys/stat.h>
@@ -231,6 +230,8 @@ const char * safe_mach_error_string(mach_error_t error_code);
 #define REPLY_ALL    (2)
 
 int user_approve(Boolean ask_all, int default_answer, const char * format, ...);
+
+uint32_t disableKextTools(void);
 
 const char * user_input(Boolean * eof, const char * format, ...);
 void saveFile(const void * vKey, const void * vValue, void * vContext);

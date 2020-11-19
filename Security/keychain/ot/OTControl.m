@@ -441,15 +441,6 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     }] healthCheck:container context:context skipRateLimitingCheck:skipRateLimitingCheck reply:reply];
 }
 
-- (void)attemptSosUpgrade:(NSString* _Nullable)container
-                  context:(NSString*)context
-                    reply:(void (^)(NSError* _Nullable error))reply
-{
-    [[self getConnection: ^(NSError* error) {
-        reply(error);
-    }] attemptSosUpgrade:container context:context reply:reply];
-}
-
 - (void)waitForOctagonUpgrade:(NSString* _Nullable)container
                       context:(NSString*)context
                         reply:(void (^)(NSError* _Nullable error))reply
@@ -506,6 +497,46 @@ skipRateLimitingCheck:(BOOL)skipRateLimitingCheck
     [[self getConnection: ^(NSError* connectionError) {
         reply(OTCDPStatusUnknown, connectionError);
     }] getCDPStatus:containerName contextID:contextID reply:reply];
+}
+
+- (void)fetchEscrowRecords:(NSString * _Nullable)container
+                 contextID:(NSString*)contextID
+                forceFetch:(BOOL)forceFetch
+                     reply:(void (^)(NSArray<NSData*>* _Nullable records,
+                                     NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* connectionError) {
+        reply(nil, connectionError);
+    }] fetchEscrowRecords:container contextID:contextID forceFetch:forceFetch reply:reply];
+}
+
+- (void)setUserControllableViewsSyncStatus:(NSString* _Nullable)containerName
+                                 contextID:(NSString*)contextID
+                                   enabled:(BOOL)enabled
+                                     reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* connectionError) {
+        reply(NO, connectionError);
+    }] setUserControllableViewsSyncStatus:containerName contextID:contextID enabled:enabled reply:reply];
+
+}
+
+- (void)fetchUserControllableViewsSyncStatus:(NSString* _Nullable)containerName
+                                   contextID:(NSString*)contextID
+                                       reply:(void (^)(BOOL nowSyncing, NSError* _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* connectionError) {
+        reply(NO, connectionError);
+    }] fetchUserControllableViewsSyncStatus:containerName contextID:contextID reply:reply];
+}
+
+- (void)invalidateEscrowCache:(NSString * _Nullable)containerName
+                    contextID:(NSString*)contextID
+                        reply:(nonnull void (^)(NSError * _Nullable error))reply
+{
+    [[self getConnection: ^(NSError* connectionError) {
+        reply(connectionError);
+    }] invalidateEscrowCache:containerName contextID:contextID reply:reply];
 }
 
 + (OTControl*)controlObject:(NSError* __autoreleasing *)error {

@@ -38,6 +38,20 @@
 {
     return [NSString class];
 }
+@synthesize ringUpdateFlag = _ringUpdateFlag;
+- (void)setRingUpdateFlag:(BOOL)v
+{
+    _has.ringUpdateFlag = YES;
+    _ringUpdateFlag = v;
+}
+- (void)setHasRingUpdateFlag:(BOOL)f
+{
+    _has.ringUpdateFlag = f;
+}
+- (BOOL)hasRingUpdateFlag
+{
+    return _has.ringUpdateFlag != 0;
+}
 
 - (NSString *)description
 {
@@ -50,6 +64,10 @@
     if (self->_pendingBackupPeers)
     {
         [dict setObject:self->_pendingBackupPeers forKey:@"pendingBackupPeers"];
+    }
+    if (self->_has.ringUpdateFlag)
+    {
+        [dict setObject:[NSNumber numberWithBool:self->_ringUpdateFlag] forKey:@"ringUpdateFlag"];
     }
     return dict;
 }
@@ -79,6 +97,12 @@ BOOL SOSAccountConfigurationReadFrom(__unsafe_unretained SOSAccountConfiguration
                 }
             }
             break;
+            case 2 /* ringUpdateFlag */:
+            {
+                self->_has.ringUpdateFlag = YES;
+                self->_ringUpdateFlag = PBReaderReadBOOL(reader);
+            }
+            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -101,6 +125,13 @@ BOOL SOSAccountConfigurationReadFrom(__unsafe_unretained SOSAccountConfiguration
             PBDataWriterWriteStringField(writer, s_pendingBackupPeers, 1);
         }
     }
+    /* ringUpdateFlag */
+    {
+        if (self->_has.ringUpdateFlag)
+        {
+            PBDataWriterWriteBOOLField(writer, self->_ringUpdateFlag, 2);
+        }
+    }
 }
 
 - (void)copyTo:(SOSAccountConfiguration *)other
@@ -114,6 +145,11 @@ BOOL SOSAccountConfigurationReadFrom(__unsafe_unretained SOSAccountConfiguration
             [other addPendingBackupPeers:[self pendingBackupPeersAtIndex:i]];
         }
     }
+    if (self->_has.ringUpdateFlag)
+    {
+        other->_ringUpdateFlag = _ringUpdateFlag;
+        other->_has.ringUpdateFlag = YES;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -124,6 +160,11 @@ BOOL SOSAccountConfigurationReadFrom(__unsafe_unretained SOSAccountConfiguration
         NSString *vCopy = [v copyWithZone:zone];
         [copy addPendingBackupPeers:vCopy];
     }
+    if (self->_has.ringUpdateFlag)
+    {
+        copy->_ringUpdateFlag = _ringUpdateFlag;
+        copy->_has.ringUpdateFlag = YES;
+    }
     return copy;
 }
 
@@ -133,6 +174,8 @@ BOOL SOSAccountConfigurationReadFrom(__unsafe_unretained SOSAccountConfiguration
     return [other isMemberOfClass:[self class]]
     &&
     ((!self->_pendingBackupPeers && !other->_pendingBackupPeers) || [self->_pendingBackupPeers isEqual:other->_pendingBackupPeers])
+    &&
+    ((self->_has.ringUpdateFlag && other->_has.ringUpdateFlag && ((self->_ringUpdateFlag && other->_ringUpdateFlag) || (!self->_ringUpdateFlag && !other->_ringUpdateFlag))) || (!self->_has.ringUpdateFlag && !other->_has.ringUpdateFlag))
     ;
 }
 
@@ -141,6 +184,8 @@ BOOL SOSAccountConfigurationReadFrom(__unsafe_unretained SOSAccountConfiguration
     return 0
     ^
     [self->_pendingBackupPeers hash]
+    ^
+    (self->_has.ringUpdateFlag ? PBHashInt((NSUInteger)self->_ringUpdateFlag) : 0)
     ;
 }
 
@@ -149,6 +194,11 @@ BOOL SOSAccountConfigurationReadFrom(__unsafe_unretained SOSAccountConfiguration
     for (NSString *iter_pendingBackupPeers in other->_pendingBackupPeers)
     {
         [self addPendingBackupPeers:iter_pendingBackupPeers];
+    }
+    if (other->_has.ringUpdateFlag)
+    {
+        self->_ringUpdateFlag = other->_ringUpdateFlag;
+        self->_has.ringUpdateFlag = YES;
     }
 }
 

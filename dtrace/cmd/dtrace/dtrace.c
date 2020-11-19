@@ -52,6 +52,7 @@
 
 #include <System/sys/csr.h>
 
+
 typedef struct dtrace_cmd {
 	void (*dc_func)(struct dtrace_cmd *);	/* function to compile arg */
 	dtrace_probespec_t dc_spec;		/* probe specifier context */
@@ -1721,8 +1722,6 @@ main(int argc, char *argv[])
 		}
 
 		if (g_ofile == NULL) {
-			char *p;
-
 			if (g_cmdc > 1) {
 				(void) fprintf(stderr, "%s: -h requires an "
 				    "output file if multiple scripts are "

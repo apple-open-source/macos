@@ -12,7 +12,7 @@ _OS_VERSION = $(shell sw_vers -productVersion | cut -d. -f1-2)
 
 # Project-specific additions.
 #Extra_Environment	= 
-Extra_Configure_Flags	= --enable-static --disable-shared
+Extra_Configure_Flags	= --enable-static --disable-shared --enable-arm-neon
 Extra_Make_Flags        =
 
 # Required or AEP parts won't be picked up.
@@ -27,7 +27,7 @@ Install_Info	= $(Install_Prefix)/info
 AEP			= NO
 # License file must be empty as this is a subproject.
 AEP_LicenseFile		=
-AEP_Patches		=
+AEP_Patches		= arm_neon.patch
 
 
 # Local targets that must be defined before including the following

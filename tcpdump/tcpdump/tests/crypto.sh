@@ -8,7 +8,7 @@ failed=`cat .failed`
 # Only attempt OpenSSL-specific tests when compiled with the library.
 
 #if grep '^#define HAVE_LIBCRYPTO 1$' ../config.h >/dev/null
-if sw_vers -productName|grep -c 'Mac OS X' >/dev/null
+if sw_vers -productName|grep -c -e 'macOS' -e 'Mac OS X' >/dev/null
 then
 	if ./TESTonce.sh esp1 02-sunrise-sunset-esp.pcap esp1.out '-E "0x12345678@192.1.2.45 3des-cbc-hmac96:0x4043434545464649494a4a4c4c4f4f515152525454575758"'
 	then

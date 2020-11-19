@@ -240,7 +240,7 @@ CssmDateData::CssmDateData(const CSSM_DATE &date)
 }
 
 
-CssmData& CssmOwnedData::get() const throw()
+CssmData& CssmOwnedData::get() const _NOEXCEPT
 {
 	return referent;
 }

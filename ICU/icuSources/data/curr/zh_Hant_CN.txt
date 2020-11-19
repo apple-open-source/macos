@@ -15,5 +15,5 @@ zh_Hant_CN{
             "新台幣",
         }
     }
-    Version{"2.1.47.86"}
+    Version{"36.1"}
 }

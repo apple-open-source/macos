@@ -31,5 +31,5 @@ ms_Arab{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
 }

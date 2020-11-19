@@ -578,6 +578,19 @@ Boolean DAMountGetPreference( DADiskRef disk, DAMountPreference preference )
 
             break;
         }
+        case kDAMountPreferenceDisableAutoMount:
+        {
+            /*
+            * Determine whether auto mounts are allowed
+            */
+
+            value = CFDictionaryGetValue( gDAPreferenceList, kDAPreferenceAutoMountDisableKey );
+
+            value = value ? value : kCFBooleanFalse;
+
+            break;
+        }
+
         default:
         {
             value = kCFBooleanFalse;
@@ -604,12 +617,18 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
         if ( ___isautofs( path ) == 0 )
         {
             Boolean remove;
+            char       * p = path;
 
             remove = FALSE;
 
-            if ( strncmp( path, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
+            if ( strncmp( p, kDAMainDataVolumeMountPointFolder, strlen( kDAMainDataVolumeMountPointFolder ) ) == 0 )
             {
-                if ( strrchr( path + strlen( kDAMainMountPointFolder ), '/' ) == path + strlen( kDAMainMountPointFolder ) )
+                p += strlen( kDAMainDataVolumeMountPointFolder );
+            }
+
+            if ( strncmp( p, kDAMainMountPointFolder, strlen( kDAMainMountPointFolder ) ) == 0 )
+            {
+                if ( strrchr( p + strlen( kDAMainMountPointFolder ), '/' ) == p + strlen( kDAMainMountPointFolder ) )
                 {
                     remove = TRUE;
                 }
@@ -645,6 +664,45 @@ void DAMountRemoveMountPoint( CFURLRef mountpoint )
             }
         }
     }
+}
+
+static Boolean DAAPFSCompareVolumeRole(DADiskRef disk, CFStringRef inRole)
+{
+    CFTypeRef              roles;
+    Boolean                matchesRole = FALSE;
+
+    roles = IORegistryEntrySearchCFProperty ( DADiskGetIOMedia( disk ),
+                                            kIOServicePlane,
+                                            CFSTR( "Role" ),
+                                            kCFAllocatorDefault,
+                                            0 );
+
+    if ( roles )
+    {
+
+        if (CFGetTypeID( roles ) == CFArrayGetTypeID())
+        {
+
+            CFIndex count = CFArrayGetCount( roles );
+
+            for ( int i=0; i<count; i++ )
+            {
+                CFStringRef role = CFArrayGetValueAtIndex( roles, i );
+
+                if ( ( CFGetTypeID( role ) == CFStringGetTypeID() ) &&
+                  ( (CFStringCompare( role, inRole, kCFCompareCaseInsensitive ) == 0) ) )
+                {
+                    matchesRole = TRUE;
+                    break;
+                }
+            }
+
+        }
+
+        CFRelease ( roles );
+    }
+
+    return matchesRole;
 }
 
 void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback callback, void * callbackContext, ... )
@@ -746,46 +804,31 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
          */
         if ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) )
         {
-
-            CFTypeRef              roles;
-
-            roles = IORegistryEntrySearchCFProperty ( DADiskGetIOMedia( disk ),
-                                                      kIOServicePlane,
-                                                      CFSTR( "Role" ),
-                                                      kCFAllocatorDefault,
-                                                      0 );
-
-            if ( roles )
+            if ( DAAPFSCompareVolumeRole ( disk, CFSTR("PreBoot") ) == TRUE )
             {
-
-                if (CFGetTypeID( roles ) == CFArrayGetTypeID())
-                {
-
-                    CFIndex count = CFArrayGetCount( roles );
-
-                    for ( int i=0; i<count; i++ )
-                    {
-                        CFStringRef role = CFArrayGetValueAtIndex( roles, i );
-
-                        if ( ( CFGetTypeID( role ) == CFStringGetTypeID() ) &&
-                             ( (CFStringCompare( role, CFSTR("PreBoot"), kCFCompareCaseInsensitive ) == 0) ) )
-                        {
-                            status = 0;
-                            break;
-                        }
-                    }
-
-                }
-
-                CFRelease ( roles );
+                status = 0;
             }
-
         }
 ///w:stop
 
         if ( status )
             goto DAMountWithArgumentsErr;
     }
+
+///w:start
+
+        /*
+        * Mount APFS system volumes as read only.
+        */
+        if ( ( context->automatic == TRUE ) && ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) ) )
+        {
+            if ( DAAPFSCompareVolumeRole ( disk, CFSTR("System") ) == TRUE )
+            {
+                CFStringInsert( options, 0, CFSTR( "," ) );
+                CFStringInsert( options, 0, kDAFileSystemMountArgumentNoWrite );
+            }
+        }
+///w:stop
 
     /*
      * Determine whether the volume is to be updated.

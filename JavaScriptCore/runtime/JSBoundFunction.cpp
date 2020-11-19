@@ -27,8 +27,6 @@
 #include "JSBoundFunction.h"
 
 #include "ExecutableBaseInlines.h"
-#include "GetterSetter.h"
-#include "JSGlobalObject.h"
 #include "JSCInlines.h"
 
 namespace JSC {
@@ -57,10 +55,9 @@ EncodedJSValue JSC_HOST_CALL boundThisNoArgsFunctionCall(JSGlobalObject* globalO
         // Force the executable to cache its arity entrypoint.
         executable->entrypointFor(CodeForCall, MustCheckArity);
     }
-    CallData callData;
-    CallType callType = getCallData(globalObject->vm(), targetFunction, callData);
-    ASSERT(callType != CallType::None);
-    return JSValue::encode(call(globalObject, targetFunction, callType, callData, boundFunction->boundThis(), args));
+    auto callData = getCallData(globalObject->vm(), targetFunction);
+    ASSERT(callData.type != CallData::Type::None);
+    return JSValue::encode(call(globalObject, targetFunction, callData, boundFunction->boundThis(), args));
 }
 
 EncodedJSValue JSC_HOST_CALL boundFunctionCall(JSGlobalObject* globalObject, CallFrame* callFrame)
@@ -85,10 +82,9 @@ EncodedJSValue JSC_HOST_CALL boundFunctionCall(JSGlobalObject* globalObject, Cal
     }
 
     JSObject* targetFunction = boundFunction->targetFunction();
-    CallData callData;
-    CallType callType = getCallData(vm, targetFunction, callData);
-    ASSERT(callType != CallType::None);
-    RELEASE_AND_RETURN(scope, JSValue::encode(call(globalObject, targetFunction, callType, callData, boundFunction->boundThis(), args)));
+    auto callData = getCallData(vm, targetFunction);
+    ASSERT(callData.type != CallData::Type::None);
+    RELEASE_AND_RETURN(scope, JSValue::encode(call(globalObject, targetFunction, callData, boundFunction->boundThis(), args)));
 }
 
 EncodedJSValue JSC_HOST_CALL boundThisNoArgsFunctionConstruct(JSGlobalObject* globalObject, CallFrame* callFrame)
@@ -108,10 +104,13 @@ EncodedJSValue JSC_HOST_CALL boundThisNoArgsFunctionConstruct(JSGlobalObject* gl
     RELEASE_ASSERT(!args.hasOverflowed());
 
     JSFunction* targetFunction = jsCast<JSFunction*>(boundFunction->targetFunction());
-    ConstructData constructData;
-    ConstructType constructType = getConstructData(globalObject->vm(), targetFunction, constructData);
-    ASSERT(constructType != ConstructType::None);
-    return JSValue::encode(construct(globalObject, targetFunction, constructType, constructData, args));
+    auto constructData = getConstructData(globalObject->vm(), targetFunction);
+    ASSERT(constructData.type != CallData::Type::None);
+
+    JSValue newTarget = callFrame->newTarget();
+    if (newTarget == boundFunction)
+        newTarget = targetFunction;
+    return JSValue::encode(construct(globalObject, targetFunction, constructData, args, newTarget));
 }
 
 EncodedJSValue JSC_HOST_CALL boundFunctionConstruct(JSGlobalObject* globalObject, CallFrame* callFrame)
@@ -136,10 +135,13 @@ EncodedJSValue JSC_HOST_CALL boundFunctionConstruct(JSGlobalObject* globalObject
     }
 
     JSObject* targetFunction = boundFunction->targetFunction();
-    ConstructData constructData;
-    ConstructType constructType = getConstructData(vm, targetFunction, constructData);
-    ASSERT(constructType != ConstructType::None);
-    RELEASE_AND_RETURN(scope, JSValue::encode(construct(globalObject, targetFunction, constructType, constructData, args)));
+    auto constructData = getConstructData(vm, targetFunction);
+    ASSERT(constructData.type != CallData::Type::None);
+
+    JSValue newTarget = callFrame->newTarget();
+    if (newTarget == boundFunction)
+        newTarget = targetFunction;
+    RELEASE_AND_RETURN(scope, JSValue::encode(construct(globalObject, targetFunction, constructData, args, newTarget)));
 }
 
 EncodedJSValue JSC_HOST_CALL isBoundFunction(JSGlobalObject* globalObject, CallFrame* callFrame)
@@ -187,7 +189,7 @@ inline Structure* getBoundFunctionStructure(VM& vm, JSGlobalObject* globalObject
     return result;
 }
 
-JSBoundFunction* JSBoundFunction::create(VM& vm, JSGlobalObject* globalObject, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, int length, JSString* nameMayBeNull)
+JSBoundFunction* JSBoundFunction::create(VM& vm, JSGlobalObject* globalObject, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, double length, JSString* nameMayBeNull)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
 
@@ -197,16 +199,14 @@ JSBoundFunction* JSBoundFunction::create(VM& vm, JSGlobalObject* globalObject, J
     }
 
     bool isJSFunction = getJSFunction(targetFunction);
-    ConstructData constructData;
-    ConstructType constructType = JSC::getConstructData(vm, targetFunction, constructData);
-    bool canConstruct = constructType != ConstructType::None;
+    bool canConstruct = targetFunction->isConstructor(vm);
 
     NativeExecutable* executable = vm.getBoundFunction(isJSFunction, canConstruct);
     Structure* structure = getBoundFunctionStructure(vm, globalObject, targetFunction);
     RETURN_IF_EXCEPTION(scope, nullptr);
     JSBoundFunction* function = new (NotNull, allocateCell<JSBoundFunction>(vm.heap)) JSBoundFunction(vm, executable, globalObject, structure, targetFunction, boundThis, boundArgs, nameMayBeNull, length);
 
-    function->finishCreation(vm, executable, length);
+    function->finishCreation(vm);
     return function;
 }
 
@@ -215,7 +215,7 @@ bool JSBoundFunction::customHasInstance(JSObject* object, JSGlobalObject* global
     return jsCast<JSBoundFunction*>(object)->m_targetFunction->hasInstance(globalObject, value);
 }
 
-JSBoundFunction::JSBoundFunction(VM& vm, NativeExecutable* executable, JSGlobalObject* globalObject, Structure* structure, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, JSString* nameMayBeNull, int length)
+JSBoundFunction::JSBoundFunction(VM& vm, NativeExecutable* executable, JSGlobalObject* globalObject, Structure* structure, JSObject* targetFunction, JSValue boundThis, JSImmutableButterfly* boundArgs, JSString* nameMayBeNull, double length)
     : Base(vm, executable, globalObject, structure)
     , m_targetFunction(vm, this, targetFunction)
     , m_boundThis(vm, this, boundThis)
@@ -224,6 +224,7 @@ JSBoundFunction::JSBoundFunction(VM& vm, NativeExecutable* executable, JSGlobalO
     , m_length(length)
 {
     ASSERT(!m_nameMayBeNull || !m_nameMayBeNull->isRope());
+    ASSERT(m_length >= 0);
 }
 
 JSArray* JSBoundFunction::boundArgsCopy(JSGlobalObject* globalObject)
@@ -242,10 +243,9 @@ JSArray* JSBoundFunction::boundArgsCopy(JSGlobalObject* globalObject)
     return result;
 }
 
-void JSBoundFunction::finishCreation(VM& vm, NativeExecutable* executable, int length)
+void JSBoundFunction::finishCreation(VM& vm)
 {
-    String name; // We lazily create our 'name' string property.
-    Base::finishCreation(vm, executable, length, name);
+    Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
 }
 

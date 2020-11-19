@@ -3,8 +3,8 @@
 //
 // File: root.txt
 // Generated from CLDR
-// Plus Apple addition for SoftbankSMS and Simplified-Traditional/UniqueTraditionals
-// Minus transforms not deemed necessary for Apple ICU, whose inclusion would cause perf impacts
+// Apple additions for SoftbankSMS and Simplified-Traditional/UniqueTraditionals
+// Minus transforms/aliases not deemed necessary for Apple ICU, whose inclusion would cause perf impacts
 //
 root {
     RuleBasedTransliteratorIDs {

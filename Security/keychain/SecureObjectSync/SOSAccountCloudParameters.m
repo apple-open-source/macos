@@ -30,14 +30,14 @@ static uint8_t* der_encode_cloud_parameters(SecKeyRef publicKey, CFDataRef param
 
 const uint8_t* der_decode_cloud_parameters(CFAllocatorRef allocator,
                                                   CFIndex algorithmID, SecKeyRef* publicKey,
-                                                  CFDataRef *parameters,
+                                                  CFDataRef *pbkdfParams,
                                                   CFErrorRef* error,
                                                   const uint8_t* der, const uint8_t* der_end)
 {
     const uint8_t *sequence_end;
     der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
     der = der_decode_public_bytes(allocator, algorithmID, publicKey, error, der, sequence_end);
-    der = der_decode_data_or_null(allocator, parameters, error, der, sequence_end);
+    der = der_decode_data_or_null(allocator, pbkdfParams, error, der, sequence_end);
     
     return der;
 }
@@ -46,12 +46,12 @@ const uint8_t* der_decode_cloud_parameters(CFAllocatorRef allocator,
 bool SOSAccountPublishCloudParameters(SOSAccount* account, CFErrorRef* error){
     bool success = false;
     CFIndex cloud_der_len = der_sizeof_cloud_parameters(account.accountKey,
-                                                        (__bridge CFDataRef)(account.accountKeyDerivationParamters),
+                                                        (__bridge CFDataRef)(account.accountKeyDerivationParameters),
                                                         error);
 
     CFMutableDataRef cloudParameters = CFDataCreateMutableWithScratch(kCFAllocatorDefault, cloud_der_len);
     
-    if (der_encode_cloud_parameters(account.accountKey, (__bridge CFDataRef)(account.accountKeyDerivationParamters), error,
+    if (der_encode_cloud_parameters(account.accountKey, (__bridge CFDataRef)(account.accountKeyDerivationParameters), error,
                                     CFDataGetMutableBytePtr(cloudParameters),
                                     CFDataGetMutablePastEndPtr(cloudParameters)) != NULL) {
 
@@ -75,9 +75,9 @@ bool SOSAccountPublishCloudParameters(SOSAccount* account, CFErrorRef* error){
 
 bool SOSAccountRetrieveCloudParameters(SOSAccount* account, SecKeyRef *newKey,
                                        CFDataRef derparms,
-                                       CFDataRef *newParameters, CFErrorRef* error) {
+                                       CFDataRef *pbkdfParams, CFErrorRef* error) {
     const uint8_t *parse_end = der_decode_cloud_parameters(kCFAllocatorDefault, kSecECDSAAlgorithmID,
-                                                           newKey, newParameters, error,
+                                                           newKey, pbkdfParams, error,
                                                            CFDataGetBytePtr(derparms), CFDataGetPastEndPtr(derparms));
     
     if (parse_end == CFDataGetPastEndPtr(derparms)) return true;

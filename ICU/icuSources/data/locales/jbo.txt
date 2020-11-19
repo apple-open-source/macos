@@ -5,5 +5,5 @@ jbo{
     ExemplarCharacters{"[a b c d e f g h i j k l m n o p r s t u v x y z]"}
     ExemplarCharactersIndex{"[a b c d e f g i j k l m n o p r s t u v x y z]"}
     ExemplarCharactersPunctuation{"[, . ']"}
-    Version{"2.1.48.13"}
+    Version{"36.1"}
 }

@@ -27,6 +27,8 @@
 
 #if USE(LIBWEBRTC)
 
+#include "Connection.h"
+#include "LibWebRTCResolverIdentifier.h"
 #include "NetworkRTCMonitor.h"
 #include "RTCNetwork.h"
 #include <WebCore/LibWebRTCMacros.h>
@@ -55,17 +57,16 @@ class SharedBuffer;
 namespace WebKit {
 class NetworkConnectionToWebProcess;
 class NetworkRTCResolver;
-class NetworkRTCSocket;
 class NetworkSession;
+struct RTCPacketOptions;
 
-class NetworkRTCProvider : public ThreadSafeRefCounted<NetworkRTCProvider>, public rtc::MessageHandler {
+class NetworkRTCProvider : public rtc::MessageHandler, public IPC::Connection::ThreadMessageReceiver {
 public:
     static Ref<NetworkRTCProvider> create(NetworkConnectionToWebProcess& connection) { return adoptRef(*new NetworkRTCProvider(connection)); }
     ~NetworkRTCProvider();
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
     void didReceiveNetworkRTCMonitorMessage(IPC::Connection& connection, IPC::Decoder& decoder) { m_rtcMonitor.didReceiveMessage(connection, decoder); }
-    void didReceiveNetworkRTCSocketMessage(IPC::Connection&, IPC::Decoder&);
 
     class Socket {
     public:
@@ -77,7 +78,7 @@ public:
 
         virtual void close() = 0;
         virtual void setOption(int option, int value) = 0;
-        virtual void sendTo(const WebCore::SharedBuffer&, const rtc::SocketAddress&, const rtc::PacketOptions&) = 0;
+        virtual void sendTo(const uint8_t*, size_t, const rtc::SocketAddress&, const rtc::PacketOptions&) = 0;
     };
 
     std::unique_ptr<Socket> takeSocket(WebCore::LibWebRTCSocketIdentifier);
@@ -85,7 +86,6 @@ public:
 
     void close();
 
-    void callSocket(WebCore::LibWebRTCSocketIdentifier, Function<void(Socket&)>&&);
     void callOnRTCNetworkThread(Function<void()>&&);
     void sendFromMainThread(Function<void(IPC::Connection&)>&&);
 
@@ -96,6 +96,8 @@ public:
 
     bool canLog() const { return m_canLog; }
 
+    IPC::Connection& connection() { return m_ipcConnection.get(); }
+
 private:
     explicit NetworkRTCProvider(NetworkConnectionToWebProcess&);
 
@@ -103,26 +105,33 @@ private:
     void createClientTCPSocket(WebCore::LibWebRTCSocketIdentifier, const RTCNetwork::SocketAddress&, const RTCNetwork::SocketAddress&, String&& userAgent, int);
     void createServerTCPSocket(WebCore::LibWebRTCSocketIdentifier, const RTCNetwork::SocketAddress&, uint16_t minPort, uint16_t maxPort, int);
     void wrapNewTCPConnection(WebCore::LibWebRTCSocketIdentifier identifier, WebCore::LibWebRTCSocketIdentifier newConnectionSocketIdentifier);
+    void sendToSocket(WebCore::LibWebRTCSocketIdentifier, const IPC::DataReference&, RTCNetwork::SocketAddress&&, RTCPacketOptions&&);
+    void closeSocket(WebCore::LibWebRTCSocketIdentifier);
+    void setSocketOption(WebCore::LibWebRTCSocketIdentifier, int option, int value);
 
-    void createResolver(uint64_t, const String&);
-    void stopResolver(uint64_t);
+    void createResolver(LibWebRTCResolverIdentifier, String&&);
+    void stopResolver(LibWebRTCResolverIdentifier);
 
     void addSocket(WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<Socket>&&);
 
-    void createSocket(WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<rtc::AsyncPacketSocket>&&, Socket::Type);
+    void createSocket(WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<rtc::AsyncPacketSocket>&&, Socket::Type, Ref<IPC::Connection>&&);
 
     void OnMessage(rtc::Message*);
 
+    // IPC::Connection::ThreadMessageReceiver
+    void dispatchToThread(Function<void()>&&) final;
+
     static rtc::ProxyInfo proxyInfoFromSession(const RTCNetwork::SocketAddress&, NetworkSession&);
 
-    HashMap<uint64_t, std::unique_ptr<NetworkRTCResolver>> m_resolvers;
+    HashMap<LibWebRTCResolverIdentifier, std::unique_ptr<NetworkRTCResolver>> m_resolvers;
     HashMap<WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<Socket>> m_sockets;
     NetworkConnectionToWebProcess* m_connection;
+    Ref<IPC::Connection> m_ipcConnection;
     bool m_isStarted { true };
 
     NetworkRTCMonitor m_rtcMonitor;
 
-    std::unique_ptr<rtc::Thread> m_rtcNetworkThread;
+    rtc::Thread& m_rtcNetworkThread;
     UniqueRef<rtc::BasicPacketSocketFactory> m_packetSocketFactory;
 
     HashMap<WebCore::LibWebRTCSocketIdentifier, std::unique_ptr<rtc::AsyncPacketSocket>> m_pendingIncomingSockets;

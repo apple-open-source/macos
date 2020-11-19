@@ -33,9 +33,11 @@ enum {
 #ifdef KERNEL
 #include <IOKit/hidsystem/ev_keymap.h>
 
+class IOService;
+
 __BEGIN_DECLS
   uint32_t _GetGlobalEventFlags ();
-  void     _sleepDisplayTickle ();
+  void     _sleepDisplayTickle (IOService * requester);
 __END_DECLS
 
 #endif

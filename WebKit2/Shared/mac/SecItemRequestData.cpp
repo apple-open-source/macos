@@ -31,11 +31,6 @@
 
 namespace WebKit {
 
-SecItemRequestData::SecItemRequestData()
-    : m_type(Invalid)
-{
-}
-
 SecItemRequestData::SecItemRequestData(Type type, CFDictionaryRef query)
     : m_type(type)
     , m_queryDictionary(query)
@@ -51,7 +46,7 @@ SecItemRequestData::SecItemRequestData(Type type, CFDictionaryRef query, CFDicti
 
 void SecItemRequestData::encode(IPC::Encoder& encoder) const
 {
-    encoder.encodeEnum(m_type);
+    encoder << m_type;
 
     encoder << static_cast<bool>(m_queryDictionary);
     if (m_queryDictionary)
@@ -64,7 +59,7 @@ void SecItemRequestData::encode(IPC::Encoder& encoder) const
 
 bool SecItemRequestData::decode(IPC::Decoder& decoder, SecItemRequestData& secItemRequestData)
 {
-    if (!decoder.decodeEnum(secItemRequestData.m_type))
+    if (!decoder.decode(secItemRequestData.m_type))
         return false;
 
     bool expectQuery;

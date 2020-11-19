@@ -46,7 +46,7 @@
 .Fn notify_post "const char *name"
 .Ft uint32_t
 .Fn notify_register_check "const char *name, int *out_token"
-.Ft void
+.Ft typedef void
 .Fn (^notify_handler_t) "int token"
 .Ft uint32_t
 .Fn notify_register_dispatch "const char *name, int *out_token" "dispatch_queue_t queue" "notify_handler_t handler"
@@ -317,10 +317,10 @@ name convention used for Java package names and for System Preferences
 on Mac OS X.
 For example, "com.mydomain.example.event".
 .Pp
-Apple reserves the portion
-of the namespace prefixed by "com.apple.".
-This policy is not 
-enforced in the current implementation, but may be in the future.
+Apple reserves the portion of the namespace prefixed by "com.apple.".
+This policy is not enforced in the current implementation, but may be in the
+future. It is enforced that the portion of the namespace prefixed by
+"com.apple.system." is reserved for root system process.
 .Pp
 Names in the space "user.uid.UID", where UID is a numeric user ID number
 are reserved for processes with that UID.

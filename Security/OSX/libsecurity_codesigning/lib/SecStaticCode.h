@@ -178,9 +178,10 @@ CF_ENUM(uint32_t) {
 	kSecCSRestrictSymlinks = 1 << 7,
 	kSecCSRestrictToAppLike = 1 << 8,
 	kSecCSRestrictSidebandData = 1 << 9,
-    kSecCSUseSoftwareSigningCert = 1 << 10,
+	kSecCSUseSoftwareSigningCert = 1 << 10,
 	kSecCSValidatePEH = 1 << 11,
 	kSecCSSingleThreaded = 1 << 12,
+	// NOTE: These values have gaps for internal usage.
 };
 
 OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCode, SecCSFlags flags,

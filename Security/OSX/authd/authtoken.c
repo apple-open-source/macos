@@ -13,6 +13,8 @@
 #include <Security/SecBase.h>
 #include <sandbox.h>
 
+#include <security_utilities/simulatecrash_assert.h>
+
 AUTHD_DEFINE_LOG
 
 static Boolean AuthTokenEqualCallBack(const void *value1, const void *value2)

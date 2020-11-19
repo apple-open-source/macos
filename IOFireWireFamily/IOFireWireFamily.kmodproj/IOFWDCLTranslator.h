@@ -71,11 +71,11 @@ protected:
 
 public:
     virtual bool init(DCLCommand* toInterpret);
-    virtual IOReturn allocateHW(IOFWSpeed speed, UInt32 chan);
-    virtual IOReturn releaseHW();
+    virtual IOReturn allocateHW(IOFWSpeed speed, UInt32 chan) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn releaseHW() APPLE_KEXT_OVERRIDE;
     virtual IOReturn notify(IOFWDCLNotificationType notificationType,
-	DCLCommand** dclCommandList, UInt32 numDCLCommands);
-    virtual void stop();
+	DCLCommand** dclCommandList, UInt32 numDCLCommands) APPLE_KEXT_OVERRIDE;
+    virtual void stop() APPLE_KEXT_OVERRIDE;
 
     DCLCommand* getTranslatorOpcodes();
     void setHWProgram(IODCLProgram *program);
@@ -91,8 +91,8 @@ class IODCLTranslateTalk : public IODCLTranslator
 protected:
 
 public:
-    virtual IOReturn compile(IOFWSpeed speed, UInt32 chan);
-    virtual IOReturn start();
+    virtual IOReturn compile(IOFWSpeed speed, UInt32 chan) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn start() APPLE_KEXT_OVERRIDE;
 
 };
 
@@ -106,8 +106,8 @@ class IODCLTranslateListen : public IODCLTranslator
 protected:
 
 public:
-    virtual IOReturn compile(IOFWSpeed speed, UInt32 chan);
-    virtual IOReturn start();
+    virtual IOReturn compile(IOFWSpeed speed, UInt32 chan) APPLE_KEXT_OVERRIDE;
+    virtual IOReturn start() APPLE_KEXT_OVERRIDE;
 
 };
 #endif /* ! _IOKIT_IOFWDCLPROGRAM_H */

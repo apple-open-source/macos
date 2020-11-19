@@ -109,7 +109,7 @@ self_check_af(char *hostname, struct ifaddrs *ifaddrs, int family)
 			    hostname);
 		else
 			syslog(LOG_DEBUG,
-			    "self_check: unknown host: %s\n", hostname);
+			    "self_check: unknown host: %s[%d]\n", hostname, error_num);
 
 		return (0);
 	}

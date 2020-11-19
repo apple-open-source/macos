@@ -616,6 +616,38 @@
     XCTAssertFalse([group isPending], "group operation isn't pending, as it's cancelled");
 }
 
+- (void)testResultOperationDeepDependencyChain {
+    NSMutableArray<CKKSResultOperation*>* ops = [NSMutableArray array];
+
+    CKKSResultOperation* op = nil;
+
+    for(int i = 0; i < 100; i++) {
+        op = [CKKSResultOperation named:[NSString stringWithFormat:@"operation-%d", i] withBlock:^{}];
+        [op addNullableDependency:[ops lastObject]];
+
+        [ops addObject:op];
+    }
+
+    NSString* description = [op description];
+    XCTAssertNotNil(description, "Should have received some description for the operation");
+}
+
+- (void)testGroupOperationDeepDependencyChain {
+    NSMutableArray<CKKSGroupOperation*>* ops = [NSMutableArray array];
+
+    CKKSGroupOperation* op = nil;
+
+    for(int i = 0; i < 100; i++) {
+        op = [CKKSGroupOperation named:[NSString stringWithFormat:@"operation-%d", i] withBlock:^{}];
+        [op addNullableDependency:[ops lastObject]];
+
+        [ops addObject:op];
+    }
+
+    NSString* description = [op description];
+    XCTAssertNotNil(description, "Should have received some description for the operation");
+}
+
 
 @end
 

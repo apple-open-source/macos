@@ -1,4 +1,4 @@
-.TH "ZSHOPTIONS" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHOPTIONS" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshoptions \- zsh options
 .\" Yodl file: Zsh/options.yo
@@ -65,6 +65,15 @@ If the argument to a \fBcd\fP command (or an implied \fBcd\fP with the
 slash, try to expand the expression as if it were preceded by a `\fB~\fP\&' (see
 the section `Filename Expansion\&')\&.
 .TP
+\fBCD_SILENT\fP
+Never print the working directory after a \fBcd\fP (whether explicit or
+implied with the \fBAUTO_CD\fP option set)\&. \fBcd\fP normally prints the
+working directory when the argument given to it was \fB\-\fP, a stack entry, or
+the name of a directory found under \fBCDPATH\fP\&. Note that this is distinct
+from \fBpushd\fP\&'s stack\-printing behaviour, which is controlled by
+\fBPUSHD_SILENT\fP\&. This option overrides the printing\-related effects of
+\fBPOSIX_CD\fP\&.
+.TP
 \fBCHASE_DOTS\fP
 When changing to a directory containing a path segment `\fB\&.\&.\fP\&' which would
 otherwise be treated as canceling the previous segment in the path (in
@@ -95,7 +104,8 @@ builtin in
 \fIzshbuiltins\fP(1)\&.
 If the option is set, the shell does not test for directories beneath
 the local directory (`\fB\&.\fP\&') until after all directories in \fBcdpath\fP
-have been tested\&.
+have been tested, and the \fBcd\fP and \fBchdir\fP commands do not recognise
+arguments of the form `{\fB+\fP|\fB\-\fP}\fIn\fP\&' as directory stack entries\&.
 .RS
 .PP
 Also, if the option is set, the conditions under which the shell
@@ -1544,7 +1554,8 @@ This also affects the value of the \fB\-\fP special parameter\&.
 \fBSH_WORD_SPLIT\fP (\fB\-y\fP) <K> <S>
 Causes field splitting to be performed on unquoted parameter expansions\&.
 Note that this option has nothing to do with word splitting\&.
-(See the section `Parameter Expansion\&'\&.)
+(See 
+\fIzshexpn\fP(1)\&.)
 .TP
 \fBTRAPS_ASYNC\fP
 While waiting for a program to exit, handle signals and run traps

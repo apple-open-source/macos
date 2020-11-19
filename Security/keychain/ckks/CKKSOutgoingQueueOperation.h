@@ -21,27 +21,34 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#import <Foundation/Foundation.h>
-#import "keychain/ckks/CKKSGroupOperation.h"
 
 #if OCTAGON
 
+#import <Foundation/Foundation.h>
 #import <CloudKit/CloudKit.h>
+
+#import "keychain/ckks/CKKSGroupOperation.h"
+#import "keychain/ckks/CKKSOperationDependencies.h"
+#import "keychain/ot/OctagonStateMachineHelpers.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
 
 
-@interface CKKSOutgoingQueueOperation : CKKSGroupOperation
+@interface CKKSOutgoingQueueOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
+@property CKKSOperationDependencies* deps;
 @property (weak) CKKSKeychainView* ckks;
 @property CKOperationGroup* ckoperationGroup;
 
 @property size_t itemsProcessed;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
-
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks
+                           intending:(OctagonState*)intending
+                          errorState:(OctagonState*)errorState
+                    ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
 
 NS_ASSUME_NONNULL_END

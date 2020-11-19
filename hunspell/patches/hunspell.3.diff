@@ -1,0 +1,8 @@
+--- man/hunspell.3	2008-06-17 01:50:43.000000000 -0700
++++ man/hunspell.3	2020-04-06 13:14:06.000000000 -0700
+@@ -1,5 +1,4 @@
+ .TH hunspell 3 "2008-06-17"
+-.LO 1
+ .hy 0
+ .SH NAME
+ \fBhunspell\fR - spell checking, stemming, morphological generation and analysis

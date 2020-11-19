@@ -3,7 +3,6 @@
 #import "keychain/SecureObjectSync/SOSTransportMessageKVS.h"
 #include "keychain/SecureObjectSync/SOSKVSKeys.h"
 #include <utilities/SecCFWrappers.h>
-#include <utilities/SecADWrapper.h>
 #include "keychain/SecureObjectSync/SOSInternal.h"
 #include <AssertMacros.h>
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
@@ -14,9 +13,7 @@
 
 -(id) initWithAccount:(SOSAccount*)acct andName:(NSString*)name
 {
-    self = [super init];
-    
-    if (self) {
+    if ((self = [super init])) {
         account = acct;
         circleName = [[NSString alloc]initWithString:name];
         SOSEngineRef e = SOSDataSourceFactoryGetEngineForDataSourceName(acct.factory, (__bridge CFStringRef)(circleName), NULL);
@@ -83,16 +80,13 @@ fail:
 }
 
 static bool SOSTransportMessageKVSUpdateKVS(SOSMessageKVS* transport, CFDictionaryRef changes, CFErrorRef *error){
-
-    SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.sendkvs"), 1);
-
     CloudKeychainReplyBlock log_error = ^(CFDictionaryRef returnedValues __unused, CFErrorRef block_error) {
         if (block_error) {
             secerror("Error putting: %@", block_error);
         }
     };
     
-    SOSCloudKeychainPutObjectsInCloud(changes, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), log_error);
+    SOSCloudKeychainPutObjectsInCloud(changes, dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), log_error);
     return true;
 }
 

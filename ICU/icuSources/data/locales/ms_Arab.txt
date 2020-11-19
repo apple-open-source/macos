@@ -78,7 +78,7 @@ ms_Arab{
         native{"arab"}
         traditional{"arab"}
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -147,7 +147,6 @@ ms_Arab{
                 Ed{"d E"}
                 H{"HH"}
                 Hm{"HH:mm"}
-                Hmm{"H:mm"}
                 Hms{"HH:mm:ss"}
                 M{"L"}
                 MEd{"E، d-M"}
@@ -288,7 +287,6 @@ ms_Arab{
                 Ed{"d E"}
                 H{"HH"}
                 Hm{"HH:mm"}
-                Hmm{"H:mm"}
                 Hms{"HH:mm:ss"}
                 M{"L"}
                 MEd{"E، d-M"}
@@ -490,7 +488,6 @@ ms_Arab{
                 Ed{"E، d"}
                 H{"HH"}
                 Hm{"HH:mm"}
-                Hmm{"H:mm"}
                 Hms{"HH:mm:ss"}
                 MEd{"E، d/M"}
                 MMMEd{"E، d MMM"}

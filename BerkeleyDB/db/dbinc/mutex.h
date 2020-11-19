@@ -64,7 +64,7 @@ extern "C" {
 #define	MTX_MAX_ENTRY		31
 
 /* Redirect mutex calls to the correct functions. */
-#if !defined(HAVE_MUTEX_HYBRID) && (					\
+#if (!defined(HAVE_MUTEX_HYBRID) || !(((defined(x86_64) || defined(__x86_64__)) && defined(__GNUC__)))) && (					\
     defined(HAVE_MUTEX_PTHREADS) ||					\
     defined(HAVE_MUTEX_SOLARIS_LWP) ||					\
     defined(HAVE_MUTEX_UI_THREADS))

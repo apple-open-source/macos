@@ -40,10 +40,12 @@ CFURLRef SecCopyURLForFileInUserCacheDirectory(CFStringRef fileName) CF_RETURNS_
 CFURLRef SecCopyURLForFileInPreferencesDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInManagedPreferencesDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 CFURLRef SecCopyURLForFileInRevocationInfoDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
+CFURLRef SecCopyURLForFileInProtectedDirectory(CFStringRef fileName) CF_RETURNS_RETAINED;
 
 void WithPathInKeychainDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 void WithPathInRevocationInfoDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 void WithPathInUserCacheDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
+void WithPathInProtectedDirectory(CFStringRef fileName, void(^operation)(const char *utf8String));
 
 void SetCustomHomePath(const char* path);
 void SetCustomHomeURLString(CFStringRef path);

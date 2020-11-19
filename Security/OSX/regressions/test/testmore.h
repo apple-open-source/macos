@@ -41,12 +41,12 @@ __BEGIN_DECLS
 #define DISABLED_ONE_TEST(x) ONE_TEST(x)
 #define OFF_ONE_TEST(x) ONE_TEST(x)
 
-typedef int (*one_test_entry)(int argc, char *const *argv);
+typedef int (*_Nonnull one_test_entry)(int argc, char *_Nonnull const *_Nonnull argv);
 
 #define ONE_TEST_ENTRY(x) int x(int argc, char *const *argv)
 
 struct one_test_s {
-    char *name;            /* test name. */
+    const char * _Nonnull name; /* test name. */
     one_test_entry entry;  /* entry point. */
     int off;               /* off by default. */
     int sub_tests;         /* number of subtests. */
@@ -55,7 +55,7 @@ struct one_test_s {
     int todo_tests;        /* number of todo tests that failed as expected. */
     int actual_tests;      /* number of tests attempted. */
     int planned_tests;     /* number of planned tests. */
-    const char *plan_file; /* full path to file that called plan_tests() */
+    const char *_Nonnull plan_file; /* full path to file that called plan_tests() */
     int plan_line;         /* line number in plan_file at which plan_tests was called. */
     unsigned long duration; /* test duration in msecs. */
     /* add more later: timing, etc... */
@@ -215,22 +215,22 @@ static void test_failed_noreturn() __attribute((analyzer_noreturn)) {
 })
 
 
-extern const char *test_directive;
-extern const char *test_reason;
+extern const char * _Nonnull test_directive;
+extern const char * _Nonnull test_reason;
 
-void test_bail_out(const char *reason, const char *file, unsigned line);
-int test_diag(const char *directive, const char *reason,
-	const char *file, unsigned line, const char *fmt, ...) __attribute__((format(printf, 5, 6)));
-int test_ok(int passed, __attribute((cf_consumed)) CFStringRef description, const char *directive,
-	const char *reason, const char *file, unsigned line, const char *fmt, ...);
-void test_plan_skip_all(const char *reason);
-void test_plan_tests(int count, const char *file, unsigned line);
+void test_bail_out(const char * _Nonnull reason, const char * _Nonnull file, unsigned line);
+int test_diag(const char *_Nonnull directive, const char *_Nonnull reason,
+	const char *_Nonnull file, unsigned line, const char *_Nonnull fmt, ...) __attribute__((format(printf, 5, 6)));
+int test_ok(int passed, __attribute((cf_consumed)) CFStringRef _Nullable description, const char *_Nonnull directive,
+	const char *_Nonnull reason, const char *_Nonnull file, unsigned line, const char *_Nullable fmt, ...);
+void test_plan_skip_all(const char *_Nonnull reason);
+void test_plan_tests(int count, const char *_Nonnull file, unsigned line);
 int test_plan_ok(void);
-void test_plan_final(int *failed, int *todo_pass, int *todo, int *actual, int *planned, const char **file, int *line);
+void test_plan_final(int *_Nonnull failed, int *_Nonnull todo_pass, int *_Nonnull todo, int *_Nonnull actual, int *_Nonnull planned, const char *_Nonnull *_Nonnull file, int *_Nonnull line);
 
-void test_skip(const char *reason, int how_many, int unless);
+void test_skip(const char *_Nonnull reason, int how_many, int unless);
 
-const char *sec_errstr(int err);
+const char *_Nonnull sec_errstr(int err);
 
 __END_DECLS
 

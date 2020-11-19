@@ -209,14 +209,6 @@ ServerAuditToken token  : audit_token_t;
        out powersources : pointer_t, dealloc;
        out return_code  : int);
 
-routine io_ps_copy_chargelog(
-        server          : mach_port_t;
-ServerAuditToken token  : audit_token_t;
-        in time         : double;
-       out log          : pointer_t, dealloc;
-       out return_code  : int);
-
-
 // IOPMHIDPostEventActivity
 routine io_pm_hid_event_report_activity(
             server      : mach_port_t;

@@ -34,7 +34,7 @@ class ProxyObject final : public JSNonFinalObject {
 public:
     typedef JSNonFinalObject Base;
 
-    static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetCallData | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | OverridesGetPropertyNames | ProhibitsPropertyCaching;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | OverridesGetCallData | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | OverridesGetPropertyNames | OverridesAnyFormOfGetPropertyNames | OverridesGetPrototype | ProhibitsPropertyCaching;
 
     template<typename CellType, SubspaceAccess mode>
     static IsoSubspace* subspaceFor(VM& vm)
@@ -80,12 +80,11 @@ private:
     JS_EXPORT_PRIVATE void finishCreation(VM&, JSGlobalObject*, JSValue target, JSValue handler);
     JS_EXPORT_PRIVATE static Structure* structureForTarget(JSGlobalObject*, JSValue target);
 
-    static String toStringName(const JSObject*, JSGlobalObject*);
     static bool getOwnPropertySlot(JSObject*, JSGlobalObject*, PropertyName, PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSObject*, JSGlobalObject*, unsigned propertyName, PropertySlot&);
-    static CallType getCallData(JSCell*, CallData&);
-    static ConstructType getConstructData(JSCell*, ConstructData&);
-    static bool deleteProperty(JSCell*, JSGlobalObject*, PropertyName);
+    static CallData getCallData(JSCell*);
+    static CallData getConstructData(JSCell*);
+    static bool deleteProperty(JSCell*, JSGlobalObject*, PropertyName, DeletePropertySlot&);
     static bool deletePropertyByIndex(JSCell*, JSGlobalObject*, unsigned propertyName);
     static bool preventExtensions(JSObject*, JSGlobalObject*);
     static bool isExtensible(JSObject*, JSGlobalObject*);
@@ -110,7 +109,8 @@ private:
     bool performPreventExtensions(JSGlobalObject*);
     bool performIsExtensible(JSGlobalObject*);
     bool performDefineOwnProperty(JSGlobalObject*, PropertyName, const PropertyDescriptor&, bool shouldThrow);
-    void performGetOwnPropertyNames(JSGlobalObject*, PropertyNameArray&, EnumerationMode);
+    void performGetOwnPropertyNames(JSGlobalObject*, PropertyNameArray&);
+    void performGetOwnEnumerablePropertyNames(JSGlobalObject*, PropertyNameArray&);
     bool performSetPrototype(JSGlobalObject*, JSValue prototype, bool shouldThrowIfCantSet);
 
     WriteBarrier<JSObject> m_target;

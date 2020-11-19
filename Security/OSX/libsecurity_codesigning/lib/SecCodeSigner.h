@@ -38,7 +38,11 @@ extern "C" {
 	@typedef SecCodeSignerRef
 	This is the type of a reference to a code requirement.
 */
+#ifdef BRIDGED_SECCODESIGNER
+typedef struct CF_BRIDGED_TYPE(id) __SecCodeSigner *SecCodeSignerRef;	/* code signing object */
+#else
 typedef struct __SecCodeSigner *SecCodeSignerRef;	/* code signing object */
+#endif
 
 
 /*!
@@ -215,10 +219,13 @@ enum {
     kSecCSEditSignature = 1 << 10,      // edit existing signature
 };
 
-
+#ifdef BRIDGED_SECCODESIGNER
+OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
+	SecCodeSignerRef * __nonnull CF_RETURNS_RETAINED signer);
+#else
 OSStatus SecCodeSignerCreate(CFDictionaryRef parameters, SecCSFlags flags,
 	SecCodeSignerRef *signer);
-
+#endif
 
 /*!
 	@function SecCodeSignerAddSignature

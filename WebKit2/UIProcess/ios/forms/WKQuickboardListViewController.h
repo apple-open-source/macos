@@ -23,17 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #if PLATFORM(WATCHOS)
 
-#import "UIKitSPI.h"
-#import <PepperUICore/PUICQuickboardListViewController.h>
-#import <PepperUICore/PUICQuickboardListViewControllerSubclass.h>
-#import <PepperUICore/PUICTableViewCell.h>
+#import "PepperUICoreSPI.h"
 
 @interface WKQuickboardListItemCell : PUICQuickboardListItemCell
 @end
+
+#if HAVE(QUICKBOARD_COLLECTION_VIEWS)
+@interface WKQuickboardListCollectionViewItemCell : PUICQuickboardListCollectionViewItemCell
+@end
+#endif
 
 @class WKQuickboardListViewController;
 

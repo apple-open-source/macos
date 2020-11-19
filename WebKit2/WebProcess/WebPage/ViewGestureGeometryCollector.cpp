@@ -39,6 +39,7 @@
 #include <WebCore/HTMLTextFormControlElement.h>
 #include <WebCore/HitTestResult.h>
 #include <WebCore/ImageDocument.h>
+#include <WebCore/Range.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/TextIterator.h>
 
@@ -83,7 +84,7 @@ void ViewGestureGeometryCollector::collectGeometryForSmartMagnificationGesture(F
 {
     FloatRect visibleContentRect = m_webPage.mainFrameView()->unobscuredContentRectIncludingScrollbars();
 
-    if (m_webPage.mainWebFrame()->handlesPageScaleGesture())
+    if (m_webPage.mainWebFrame().handlesPageScaleGesture())
         return;
 
     double viewportMinimumScale;
@@ -155,13 +156,12 @@ Optional<std::pair<double, double>> ViewGestureGeometryCollector::computeTextLeg
 
     document->updateLayoutIgnorePendingStylesheets();
 
-    auto documentRange = Range::create(*document, {{ document->documentElement(), Position::PositionIsBeforeAnchor }}, {{ document->documentElement(), Position::PositionIsAfterAnchor }});
     HashSet<Node*> allTextNodes;
     HashMap<unsigned, unsigned> fontSizeToCountMap;
     unsigned numberOfIterations = 0;
     unsigned totalSampledTextLength = 0;
 
-    for (TextIterator documentTextIterator { documentRange.ptr(), TextIteratorEntersTextControls }; !documentTextIterator.atEnd(); documentTextIterator.advance()) {
+    for (TextIterator documentTextIterator { makeRangeSelectingNodeContents(*document), TextIteratorEntersTextControls }; !documentTextIterator.atEnd(); documentTextIterator.advance()) {
         if (++numberOfIterations >= maximumNumberOfTextRunsToConsider)
             break;
 
@@ -248,7 +248,7 @@ void ViewGestureGeometryCollector::computeMinimumAndMaximumViewportScales(double
 void ViewGestureGeometryCollector::collectGeometryForMagnificationGesture()
 {
     FloatRect visibleContentRect = m_webPage.mainFrameView()->unobscuredContentRectIncludingScrollbars();
-    bool frameHandlesMagnificationGesture = m_webPage.mainWebFrame()->handlesPageScaleGesture();
+    bool frameHandlesMagnificationGesture = m_webPage.mainWebFrame().handlesPageScaleGesture();
     m_webPage.send(Messages::ViewGestureController::DidCollectGeometryForMagnificationGesture(visibleContentRect, frameHandlesMagnificationGesture));
 }
 #endif

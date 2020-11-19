@@ -45,7 +45,7 @@ Error::Error(MSC_RV err) : error(err)
 }
 
 
-const char *Error::what() const throw ()
+const char *Error::what() const _NOEXCEPT
 {
 	return msc_error(error);
 }
@@ -92,7 +92,10 @@ void Connection::open(const PCSC::ReaderState &reader, unsigned share)
 	strncpy(info.slotName, reader.name(), MAX_READERNAME);
 	
 	// set ATR in info
-	assert(reader.length() <= MAX_ATR_SIZE);
+    if (reader.length() > MAX_ATR_SIZE) {
+        Error::throwMe(MSC_INVALID_PARAMETER);
+    }
+    
 	memcpy(info.tokenId, reader.data(), reader.length());
 	info.tokenIdLength = (MSCULong32)reader.length();
 	

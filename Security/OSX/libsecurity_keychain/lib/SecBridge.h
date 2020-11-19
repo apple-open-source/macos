@@ -30,8 +30,12 @@
 #include <Security/SecKeychainPriv.h>
 #include <security_keychain/KCUtilities.h>
 #include <security_cdsa_utilities/cssmbridge.h>
+#include "LegacyAPICounts.h"
 
 using namespace KeychainCore;
+
+#define COUNTLEGACYAPI	static dispatch_once_t countToken; \
+	countLegacyAPI(&countToken, __FUNCTION__);
 
 //
 // API boilerplate macros. These provide a frame for C++ code that is impermeable to exceptions.
@@ -46,6 +50,8 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECAPI \
 	OSStatus __secapiresult = errSecSuccess; \
+	static dispatch_once_t countToken; \
+	countLegacyAPI(&countToken, __FUNCTION__); \
 	try {
 #define END_SECAPI }\
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); } \
@@ -73,6 +79,8 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECKCITEMAPI \
 	OSStatus __secapiresult=errSecSuccess; \
+	static dispatch_once_t countToken; \
+	countLegacyAPI(&countToken, __FUNCTION__); \
 	SecKeychainItemRef __itemImplRef=NULL; \
 	bool __is_certificate=(itemRef && (CFGetTypeID(itemRef) == SecCertificateGetTypeID())); \
 	if (__is_certificate) { \
@@ -108,6 +116,8 @@ using namespace KeychainCore;
 //
 #define BEGIN_SECCERTAPI \
 	OSStatus __secapiresult=errSecSuccess; \
+	static dispatch_once_t countToken; \
+	countLegacyAPI(&countToken, __FUNCTION__); \
 	SecCertificateRef __itemImplRef=NULL; \
 	if (SecCertificateIsItemImplInstance(certificate)) { __itemImplRef=(SecCertificateRef)CFRetain(certificate); } \
 	if (!__itemImplRef && certificate) { __itemImplRef=(SecCertificateRef)SecCertificateCopyKeychainItem(certificate); } \

@@ -71,6 +71,8 @@
 #include "AppleiPhoneDeviceCACertificates.h"
 #include <ipc/securityd_client.h>
 #include <Security/SecKeyInternal.h>
+#include "AppleExternalRootCertificates.h"
+#include <Security/SecInternalReleasePriv.h>
 
 #pragma clang diagnostic ignored "-Wformat=2"
 
@@ -84,6 +86,14 @@
 
 #define IPv4ADDRLEN     4   // 4 octets
 #define IPv6ADDRLEN     16  // 16 octets
+
+#define MAX_EXTENSIONS 10000
+#define MAX_ATTRIBUTE_TYPE_AND_VALUES 1024
+#define MAX_CRL_DPS 1024
+#define MAX_CERTIFICATE_POLICIES 8192
+#define MAX_POLICY_MAPPINGS 8192
+#define MAX_EKUS 8192
+#define MAX_AIAS 1024
 
 typedef struct SecCertificateExtension {
 	DERItem extnID;
@@ -300,8 +310,6 @@ static CFHashCode SecCertificateHash(CFTypeRef cf) {
 	return (hashCode + der_length + sig_length);
 }
 
-#if 1
-
 /************************************************************************/
 /************************* General Name Parsing *************************/
 /************************************************************************/
@@ -390,158 +398,14 @@ OSStatus SecCertificateParseGeneralNames(const DERItem *generalNames, void *cont
     DERDecodedInfo generalNamesContent;
     DERReturn drtn = DERDecodeItem(generalNames, &generalNamesContent);
     require_noerr_quiet(drtn, badDER);
+    // GeneralNames ::= SEQUENCE SIZE (1..MAX)
     require_quiet(generalNamesContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
+    require_quiet(generalNamesContent.content.length > 0, badDER); // not defining a max due to use of large number of SANs
     return parseGeneralNamesContent(&generalNamesContent.content, context,
 		callback);
 badDER:
 	return errSecInvalidCertificate;
 }
-
-#else
-
-/*
-      GeneralName ::= CHOICE {
-           otherName                       [0]     OtherName,
-           rfc822Name                      [1]     IA5String,
-           dNSName                         [2]     IA5String,
-           x400Address                     [3]     ORAddress,
-           directoryName                   [4]     Name,
-           ediPartyName                    [5]     EDIPartyName,
-           uniformResourceIdentifier       [6]     IA5String,
-           iPAddress                       [7]     OCTET STRING,
-           registeredID                    [8]     OBJECT IDENTIFIER}
-
-      EDIPartyName ::= SEQUENCE {
-           nameAssigner            [0]     DirectoryString OPTIONAL,
-           partyName               [1]     DirectoryString }
- */
-static OSStatus parseGeneralNameContentProperty(DERTag tag,
-	const DERItem *generalNameContent, SecCEGeneralName *generalName) {
-	switch (tag) {
-	case ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 0:
-		generalName->nameType = GNT_OtherName;
-		generalName->berEncoded = true;
-		generalName->name = *generalNameContent;
-		break;
-	case ASN1_CONTEXT_SPECIFIC | 1:
-		/* IA5String. */
-		generalName->nameType = GNT_RFC822Name;
-		generalName->berEncoded = false;
-		generalName->name = *generalNameContent;
-		break;
-	case ASN1_CONTEXT_SPECIFIC | 2:
-		/* IA5String. */
-		generalName->nameType = GNT_DNSName;
-		generalName->berEncoded = false;
-		generalName->name = *generalNameContent;
-		break;
-	case ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 3:
-		generalName->nameType = GNT_X400Address;
-		generalName->berEncoded = true;
-		generalName->name = *generalNameContent;
-		break;
-	case ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 4:
-		generalName->nameType = GNT_DirectoryName;
-		generalName->berEncoded = true;
-		generalName->name = *generalNameContent;
-		break;
-	case ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 5:
-		generalName->nameType = GNT_EdiPartyName;
-		generalName->berEncoded = true;
-		generalName->name = *generalNameContent;
-		break;
-	case ASN1_CONTEXT_SPECIFIC | ASN1_CONSTRUCTED | 6:
-	{
-		/* Technically I don't think this is valid, but there are certs out
-		   in the wild that use a constructed IA5String.   In particular the
-		   VeriSign Time Stamping Authority CA.cer does this.  */
-		DERDecodedInfo decoded;
-		require_noerr(DERDecodeItem(generalNameContent, &decoded), badDER);
-		require(decoded.tag == ASN1_IA5_STRING, badDER);
-		generalName->nameType = GNT_URI;
-		generalName->berEncoded = false;
-		generalName->name = decoded.content;
-		break;
-	}
-	case ASN1_CONTEXT_SPECIFIC | 6:
-		generalName->nameType = GNT_URI;
-		generalName->berEncoded = false;
-		generalName->name = *generalNameContent;
-		break;
-	case ASN1_CONTEXT_SPECIFIC | 7:
-		/* @@@ This is the IP Address as an OCTECT STRING. For IPv4 it's
-		   8 octects, addr/mask for ipv6 it's 32.  */
-		generalName->nameType = GNT_IPAddress;
-		generalName->berEncoded = false;
-		generalName->name = *generalNameContent;
-		break;
-	case ASN1_CONTEXT_SPECIFIC | 8:
-		/* name is the content of an OID. */
-		generalName->nameType = GNT_RegisteredID;
-		generalName->berEncoded = false;
-		generalName->name = *generalNameContent;
-		break;
-	default:
-		goto badDER;
-		break;
-	}
-	return errSecSuccess;
-badDER:
-	return errSecInvalidCertificate;
-}
-
-/*
-      GeneralNames ::= SEQUENCE SIZE (1..MAX) OF GeneralName
- */
-static OSStatus parseGeneralNamesContent(const DERItem *generalNamesContent,
-	CFIndex *count, SecCEGeneralName **name) {
-	SecCEGeneralName *generalNames = NULL;
-    DERSequence gnSeq;
-    DERReturn drtn = DERDecodeSeqContentInit(generalNamesContent, &gnSeq);
-    require_noerr_quiet(drtn, badDER);
-    DERDecodedInfo generalNameContent;
-	CFIndex generalNamesCount = 0;
-    while ((drtn = DERDecodeSeqNext(&gnSeq, &generalNameContent)) ==
-		DR_Success) {
-		++generalNamesCount;
-	}
-    require_quiet(drtn == DR_EndOfSequence, badDER);
-
-	require(generalNames = calloc(generalNamesCount, sizeof(SecCEGeneralName)),
-		badDER);
-    DERDecodeSeqContentInit(generalNamesContent, &gnSeq);
-	CFIndex ix = 0;
-    while ((drtn = DERDecodeSeqNext(&gnSeq, &generalNameContent)) ==
-		DR_Success) {
-		if (!parseGeneralNameContentProperty(generalNameContent.tag,
-			&generalNameContent.content, &generalNames[ix])) {
-			goto badDER;
-		}
-		++ix;
-    }
-	*count = generalNamesCount;
-	*name = generalNames;
-	return errSecSuccess;
-
-badDER:
-	if (generalNames)
-		free(generalNames);
-	return errSecInvalidCertificate;
-}
-
-static OSStatus parseGeneralNames(const DERItem *generalNames,
-	CFIndex *count, SecCEGeneralName **name) {
-    DERDecodedInfo generalNamesContent;
-    DERReturn drtn = DERDecodeItem(generalNames, &generalNamesContent);
-    require_noerr_quiet(drtn, badDER);
-    require_quiet(generalNamesContent.tag == ASN1_CONSTR_SEQUENCE,
-        badDER);
-    parseGeneralNamesContent(&generalNamesContent.content, count, name);
-    return errSecSuccess;
-badDER:
-	return errSecInvalidCertificate;
-}
-#endif
 
 /************************************************************************/
 /************************** X.509 Name Parsing **************************/
@@ -579,25 +443,30 @@ badDER:
 }
 
 static OSStatus parseX501NameContent(const DERItem *x501NameContent, void *context,
-	parseX501NameCallback callback, bool localized) {
-	DERSequence derSeq;
-	DERReturn drtn = DERDecodeSeqContentInit(x501NameContent, &derSeq);
-	require_noerr_quiet(drtn, badDER);
-	DERDecodedInfo currDecoded;
-	while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
-		require_quiet(currDecoded.tag == ASN1_CONSTR_SET, badDER);
-		OSStatus status = parseRDNContent(&currDecoded.content, context,
-			callback, localized);
-		if (status) {
-			return status;
-		}
-	}
-	require_quiet(drtn == DR_EndOfSequence, badDER);
+                                     parseX501NameCallback callback, bool localized) {
+    DERSequence derSeq;
+    DERReturn drtn = DERDecodeSeqContentInit(x501NameContent, &derSeq);
+    require_noerr_quiet(drtn, badDER);
+    DERDecodedInfo currDecoded;
+    int atv_count = 0;
+    while ((drtn = DERDecodeSeqNext(&derSeq, &currDecoded)) == DR_Success) {
+        /*  RelativeDistinguishedName ::= SET SIZE (1..MAX) OF AttributeTypeAndValue */
+        require_quiet(currDecoded.tag == ASN1_CONSTR_SET, badDER);
+        require_quiet(currDecoded.content.length > 0, badDER);
+        OSStatus status = parseRDNContent(&currDecoded.content, context,
+                                          callback, localized);
+        if (status) {
+            return status;
+        }
+        atv_count++;
+        require_quiet(atv_count < MAX_ATTRIBUTE_TYPE_AND_VALUES, badDER);
+    }
+    require_quiet(drtn == DR_EndOfSequence, badDER);
 
-	return errSecSuccess;
+    return errSecSuccess;
 
 badDER:
-	return errSecInvalidCertificate;
+    return errSecInvalidCertificate;
 }
 
 static OSStatus parseX501Name(const DERItem *x501Name, void *context,
@@ -676,11 +545,23 @@ static bool SecCEPPrivateKeyUsagePeriod(SecCertificateRef certificate,
     return true;
 }
 
+static OSStatus verifySubjectAltGeneralName(void *context, SecCEGeneralNameType type,
+                                            const DERItem *value) {
+    // Nothing to do for now
+    return errSecSuccess;
+}
+
 static bool SecCEPSubjectAltName(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
+    // Make sure that the SAN is parse-able
+    require_noerr_quiet(SecCertificateParseGeneralNames(&extn->extnValue, NULL, verifySubjectAltGeneralName), badDER);
 	certificate->_subjectAltName = extn;
     return true;
+badDER:
+    certificate->_subjectAltName = NULL;
+    secwarning("Invalid SubjectAltName Extension");
+    return false;
 }
 
 static bool SecCEPIssuerAltName(SecCertificateRef certificate,
@@ -849,7 +730,9 @@ static bool SecCEPCrlDistributionPoints(SecCertificateRef certificate,
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &crlDPSeq);
     require_noerr_quiet(drtn, badDER);
     require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    require_quiet(crlDPSeq.nextItem != crlDPSeq.end, badDER);
     DERDecodedInfo dpContent;
+    int crldp_count = 0;
     while ((drtn = DERDecodeSeqNext(&crlDPSeq, &dpContent)) == DR_Success) {
         require_quiet(dpContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERDistributionPoint dp;
@@ -879,6 +762,8 @@ static bool SecCEPCrlDistributionPoints(SecCertificateRef certificate,
                                                    appendCRLDPFromGeneralNames);
             require_noerr_quiet(drtn, badDER);
         }
+        crldp_count++;
+        require_quiet(crldp_count < MAX_CRL_DPS, badDER);
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
     return true;
@@ -901,8 +786,6 @@ badDER:
         policyQualifierId  PolicyQualifierId,
         qualifier          ANY DEFINED BY policyQualifierId }
 */
-/* maximum number of policies of 8192 seems more than adequate */
-#define MAX_CERTIFICATE_POLICIES 8192
 static bool SecCEPCertificatePolicies(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
@@ -920,14 +803,14 @@ static bool SecCEPCertificatePolicies(SecCertificateRef certificate,
         policy_count++;
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
-    require_quiet(policies = (SecCEPolicyInformation *)malloc(sizeof(SecCEPolicyInformation)
-                                                * (policy_count > 0 ? policy_count : 1)),
+    require_quiet(policy_count > 0, badDER);
+    require_quiet(policies = (SecCEPolicyInformation *)malloc(sizeof(SecCEPolicyInformation) * policy_count),
                   badDER);
     drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &piSeq);
     require_noerr_quiet(drtn, badDER);
     DERSize policy_ix = 0;
-    while ((policy_ix < (policy_count > 0 ? policy_count : 1)) &&
-           (drtn = DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
+    while ((policy_ix < policy_count) &&
+           (DERDecodeSeqNext(&piSeq, &piContent)) == DR_Success) {
         DERPolicyInformation pi;
         drtn = DERParseSequenceContent(&piContent.content,
             DERNumPolicyInformationItemSpecs,
@@ -957,7 +840,6 @@ badDER:
         issuerDomainPolicy      CertPolicyId,
         subjectDomainPolicy     CertPolicyId }
 */
-#define MAX_POLICY_MAPPINGS 8192
 static bool SecCEPPolicyMappings(SecCertificateRef certificate,
 	const SecCertificateExtension *extn) {
 	secdebug("cert", "critical: %s", extn->critical ? "yes" : "no");
@@ -975,14 +857,14 @@ static bool SecCEPPolicyMappings(SecCertificateRef certificate,
         mapping_count++;
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
-    require_quiet(mappings = (SecCEPolicyMapping *)malloc(sizeof(SecCEPolicyMapping)
-                                            * (mapping_count > 0 ? mapping_count : 1)),
+    require_quiet(mapping_count > 0, badDER); // PolicyMappings ::= SEQUENCE SIZE (1..MAX)
+    require_quiet(mappings = (SecCEPolicyMapping *)malloc(sizeof(SecCEPolicyMapping) * mapping_count),
                   badDER);
     drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &pmSeq);
     require_noerr_quiet(drtn, badDER);
     DERSize mapping_ix = 0;
-    while ((mapping_ix < (mapping_count > 0 ? mapping_count : 1)) &&
-           (drtn = DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
+    while ((mapping_ix < mapping_count) &&
+           (DERDecodeSeqNext(&pmSeq, &pmContent)) == DR_Success) {
         require_quiet(pmContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
         DERPolicyMapping pm;
         drtn = DERParseSequenceContent(&pmContent.content,
@@ -1003,7 +885,7 @@ badDER:
         free(mappings);
     }
     certificate->_policyMappings.present = false;
-	secwarning("Invalid CertificatePolicies Extension");
+	secwarning("Invalid PolicyMappings Extension");
     return false;
 }
 
@@ -1085,9 +967,13 @@ static bool SecCEPExtendedKeyUsage(SecCertificateRef certificate,
     DERTag ekuTag;
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &ekuTag, &ekuSeq);
     require_quiet((drtn == DR_Success) && (ekuTag == ASN1_CONSTR_SEQUENCE), badDER);
+    require_quiet(ekuSeq.nextItem != ekuSeq.end, badDER); // ExtKeyUsageSyntax ::= SEQUENCE SIZE (1..MAX) OF KeyPurposeId
     DERDecodedInfo ekuContent;
+    int eku_count = 0;
     while ((drtn = DERDecodeSeqNext(&ekuSeq, &ekuContent)) == DR_Success) {
         require_quiet(ekuContent.tag == ASN1_OBJECT_ID, badDER);
+        eku_count++;
+        require_quiet(eku_count < MAX_EKUS, badDER);
     }
     require_quiet(drtn == DR_EndOfSequence, badDER);
     return true;
@@ -1144,7 +1030,9 @@ static bool SecCEPAuthorityInfoAccess(SecCertificateRef certificate,
     DERReturn drtn = DERDecodeSeqInit(&extn->extnValue, &tag, &adSeq);
     require_noerr_quiet(drtn, badDER);
     require_quiet(tag == ASN1_CONSTR_SEQUENCE, badDER);
+    require_quiet(adSeq.nextItem != adSeq.end, badDER);
     DERDecodedInfo adContent;
+    int aia_count = 0;
     while ((drtn = DERDecodeSeqNext(&adSeq, &adContent)) == DR_Success) {
         require_quiet(adContent.tag == ASN1_CONSTR_SEQUENCE, badDER);
 		DERAccessDescription ad;
@@ -1153,6 +1041,8 @@ static bool SecCEPAuthorityInfoAccess(SecCertificateRef certificate,
 			DERAccessDescriptionItemSpecs,
 			&ad, sizeof(ad));
 		require_noerr_quiet(drtn, badDER);
+        aia_count++;
+        require_quiet(aia_count < MAX_AIAS, badDER);
         CFMutableArrayRef *urls;
         if (DEROidCompare(&ad.accessMethod, &oidAdOCSP))
             urls = &certificate->_ocspResponders;
@@ -1818,9 +1708,10 @@ static bool SecCertificateParse(SecCertificateRef certificate)
             extensionCount++;
         }
         require_quiet(drtn == DR_EndOfSequence, badCert);
+        require_quiet(extensionCount > 0, badCert); // Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
 
         /* Put some upper limit on the number of extensions allowed. */
-        require_quiet(extensionCount < 10000, badCert);
+        require_quiet(extensionCount < MAX_EXTENSIONS, badCert);
         certificate->_extensionCount = extensionCount;
         certificate->_extensions = malloc(sizeof(SecCertificateExtension) * (extensionCount > 0 ? extensionCount : 1));
         require_quiet(certificate->_extensions, badCert);
@@ -3008,7 +2899,7 @@ static void appendSerialNumberProperty(CFMutableArrayRef parent, CFStringRef lab
 
 static void appendBitStringContentNames(CFMutableArrayRef properties,
     CFStringRef label, const DERItem *bitStringContent,
-    const CFStringRef *names, CFIndex namesCount,
+    const __nonnull CFStringRef *names, CFIndex namesCount,
     bool localized) {
     DERSize len = bitStringContent->length - 1;
     require_quiet(len == 1 || len == 2, badDER);
@@ -3039,7 +2930,7 @@ static void appendBitStringContentNames(CFMutableArrayRef properties,
                 string = s;
             } else {
                 string = localizedName;
-                CFRetain(string);
+                CFRetainSafe(string);
             }
         }
         mask >>= 1;
@@ -3056,7 +2947,7 @@ badDER:
 
 static void appendBitStringNames(CFMutableArrayRef properties,
     CFStringRef label, const DERItem *bitString,
-    const CFStringRef *names, CFIndex namesCount,
+    const __nonnull CFStringRef *names, CFIndex namesCount,
     bool localized) {
     DERDecodedInfo bitStringContent;
     DERReturn drtn = DERDecodeItem(bitString, &bitStringContent);
@@ -4429,10 +4320,20 @@ CFDataRef SecCertificateCopySerialNumberData(
 	return certificate->_serialNumber;
 }
 
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+/* force this implementation to be _SecCertificateCopySerialNumber on arm64 macOS.
+   note: the legacy function in SecCertificate.cpp is now _SecCertificateCopySerialNumber$LEGACYMAC
+   when both TARGET_OS_OSX and TARGET_CPU_ARM64 are true.
+ */
+extern CFDataRef SecCertificateCopySerialNumber_ios(SecCertificateRef certificate) __asm("_SecCertificateCopySerialNumber");
+CFDataRef SecCertificateCopySerialNumber_ios(SecCertificateRef certificate) {
+    return SecCertificateCopySerialNumberData(certificate, NULL);
+}
+#endif
+
 #if !TARGET_OS_OSX
-/* On iOS, the SecCertificateCopySerialNumber API takes one argument. */
-CFDataRef SecCertificateCopySerialNumber(
-		SecCertificateRef certificate) {
+CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
+{
 	return SecCertificateCopySerialNumberData(certificate, NULL);
 }
 #endif
@@ -4653,52 +4554,13 @@ CFDataRef SecFrameworkCopyIPAddressData(CFStringRef string) {
     return data;
 }
 
-static OSStatus appendIPAddressesFromGeneralNames(void *context,
-	SecCEGeneralNameType gnType, const DERItem *generalName) {
-	CFMutableArrayRef ipAddresses = (CFMutableArrayRef)context;
-	if (gnType == GNT_IPAddress) {
-		CFStringRef string = copyIPAddressContentDescription(
-			kCFAllocatorDefault, generalName);
-		if (string) {
-			CFArrayAppendValue(ipAddresses, string);
-			CFRelease(string);
-		} else {
-			return errSecInvalidCertificate;
-		}
-	}
-	return errSecSuccess;
-}
-
-CFArrayRef SecCertificateCopyIPAddresses(SecCertificateRef certificate) {
-	/* These can only exist in the subject alt name. */
-	if (!certificate->_subjectAltName)
-		return NULL;
-
-	CFMutableArrayRef ipAddresses = CFArrayCreateMutable(kCFAllocatorDefault,
-		0, &kCFTypeArrayCallBacks);
-	OSStatus status = SecCertificateParseGeneralNames(&certificate->_subjectAltName->extnValue,
-		ipAddresses, appendIPAddressesFromGeneralNames);
-	if (status || CFArrayGetCount(ipAddresses) == 0) {
-		CFRelease(ipAddresses);
-		ipAddresses = NULL;
-	}
-	return ipAddresses;
-}
-
-static OSStatus appendIPAddressesFromX501Name(void *context, const DERItem *type,
-                                              const DERItem *value, CFIndex rdnIX,
-                                              bool localized) {
-    CFMutableArrayRef addrs = (CFMutableArrayRef)context;
-    if (DEROidCompare(type, &oidCommonName)) {
-        CFStringRef string = copyDERThingDescription(kCFAllocatorDefault,
-                                                     value, true, localized);
-        if (string) {
-            CFDataRef data = NULL;
-            if (convertIPAddress(string, &data)) {
-                CFArrayAppendValue(addrs, data);
-                CFReleaseNull(data);
-            }
-            CFRelease(string);
+static OSStatus appendIPAddressesFromGeneralNames(void *context, SecCEGeneralNameType gnType, const DERItem *generalName) {
+    CFMutableArrayRef ipAddresses = (CFMutableArrayRef)context;
+    if (gnType == GNT_IPAddress) {
+        if (generalName->length == IPv4ADDRLEN || generalName->length == IPv6ADDRLEN) {
+            CFDataRef address = CFDataCreate(NULL, generalName->data, generalName->length);
+            CFArrayAppendValue(ipAddresses, address);
+            CFReleaseNull(address);
         } else {
             return errSecInvalidCertificate;
         }
@@ -4706,16 +4568,45 @@ static OSStatus appendIPAddressesFromX501Name(void *context, const DERItem *type
     return errSecSuccess;
 }
 
-CFArrayRef SecCertificateCopyIPAddressesFromSubject(SecCertificateRef certificate) {
-    CFMutableArrayRef addrs = CFArrayCreateMutable(kCFAllocatorDefault,
-                                                      0, &kCFTypeArrayCallBacks);
-    OSStatus status = parseX501NameContent(&certificate->_subject, addrs,
-                                           appendIPAddressesFromX501Name, true);
-    if (status || CFArrayGetCount(addrs) == 0) {
-        CFReleaseNull(addrs);
+CFArrayRef SecCertificateCopyIPAddresses(SecCertificateRef certificate) {
+    CFArrayRef ipAddresses = SecCertificateCopyIPAddressDatas(certificate);
+    if (!ipAddresses) {
         return NULL;
     }
-    return addrs;
+
+    // Convert data IP addresses to strings
+    __block CFMutableArrayRef result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    CFArrayForEach(ipAddresses, ^(const void *value) {
+        CFDataRef address = (CFDataRef)value;
+        DERItem der_address = { (unsigned char *)CFDataGetBytePtr(address), CFDataGetLength(address) };
+        CFStringRef string = copyIPAddressContentDescription(NULL, &der_address);
+        if (string) {
+            CFArrayAppendValue(result, string);
+            CFRelease(string);
+        }
+    });
+    CFReleaseNull(ipAddresses);
+    if (CFArrayGetCount(result) == 0) {
+        CFReleaseNull(result);
+    }
+
+    return result;
+}
+
+CFArrayRef SecCertificateCopyIPAddressDatas(SecCertificateRef certificate) {
+    /* These can only exist in the subject alt name. */
+    if (!certificate->_subjectAltName)
+        return NULL;
+
+    CFMutableArrayRef ipAddresses = CFArrayCreateMutable(kCFAllocatorDefault,
+        0, &kCFTypeArrayCallBacks);
+    OSStatus status = SecCertificateParseGeneralNames(&certificate->_subjectAltName->extnValue,
+        ipAddresses, appendIPAddressesFromGeneralNames);
+    if (status || CFArrayGetCount(ipAddresses) == 0) {
+        CFRelease(ipAddresses);
+        ipAddresses = NULL;
+    }
+    return ipAddresses;
 }
 
 static OSStatus appendDNSNamesFromGeneralNames(void *context, SecCEGeneralNameType gnType,
@@ -4840,21 +4731,12 @@ static OSStatus appendDNSNamesFromX501Name(void *context, const DERItem *type,
 	return errSecSuccess;
 }
 
-CFArrayRef SecCertificateCopyDNSNamesFromSubject(SecCertificateRef certificate) {
-    CFMutableArrayRef dnsNames = CFArrayCreateMutable(kCFAllocatorDefault,
-                                                      0, &kCFTypeArrayCallBacks);
-    OSStatus status = parseX501NameContent(&certificate->_subject, dnsNames,
-                                          appendDNSNamesFromX501Name, true);
-    if (status || CFArrayGetCount(dnsNames) == 0) {
-        CFReleaseNull(dnsNames);
-        return NULL;
-    }
-
-    /* appendDNSNamesFromX501Name allows IP addresses, we don't want those for this function */
+static CF_RETURNS_RETAINED CFArrayRef filterIPAddresses(CFArrayRef CF_CONSUMED dnsNames)
+{
     __block CFMutableArrayRef result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     CFArrayForEach(dnsNames, ^(const void *value) {
         CFStringRef name = (CFStringRef)value;
-        if (!convertIPAddress(name, NULL)) {
+        if (!SecFrameworkIsIPAddress(name)) {
             CFArrayAppendValue(result, name);
         }
     });
@@ -4869,50 +4751,56 @@ CFArrayRef SecCertificateCopyDNSNamesFromSubject(SecCertificateRef certificate) 
 CFArrayRef SecCertificateCopyDNSNamesFromSAN(SecCertificateRef certificate) {
     CFMutableArrayRef dnsNames = CFArrayCreateMutable(kCFAllocatorDefault,
                                                       0, &kCFTypeArrayCallBacks);
-    OSStatus status = errSecSuccess;
     if (certificate->_subjectAltName) {
-        status = SecCertificateParseGeneralNames(&certificate->_subjectAltName->extnValue,
-                                                 dnsNames, appendDNSNamesFromGeneralNames);
+        if (SecCertificateParseGeneralNames(&certificate->_subjectAltName->extnValue,
+                                            dnsNames, appendDNSNamesFromGeneralNames) != errSecSuccess) {
+            CFReleaseNull(dnsNames);
+            return NULL;
+        }
     }
 
-    if (status || CFArrayGetCount(dnsNames) == 0) {
-        CFReleaseNull(dnsNames);
-    }
-    return dnsNames;
+    /* appendDNSNamesFromGeneralNames allows IP addresses, we don't want those for this function */
+    return filterIPAddresses(dnsNames);
 }
 
 /* Not everything returned by this function is going to be a proper DNS name,
    we also return the certificates common name entries from the subject,
-   assuming they look like dns names as specified in RFC 1035. */
+   assuming they look like dns names as specified in RFC 1035.
+
+   To preserve bug for bug compatibility, we can't use SecCertificateCopyDNSNamesFromSAN
+   because that function filters out IP Addresses. This function is Private, but
+   SecCertificateCopyValues uses it and that's Public. */
 CFArrayRef SecCertificateCopyDNSNames(SecCertificateRef certificate) {
-	/* These can exist in the subject alt name or in the subject. */
-    CFArrayRef sanNames = SecCertificateCopyDNSNamesFromSAN(certificate);
-    if (sanNames && CFArrayGetCount(sanNames) > 0) {
-        return sanNames;
+    /* RFC 2818 section 3.1.  Server Identity
+     [...]
+     If a subjectAltName extension of type dNSName is present, that MUST
+     be used as the identity. Otherwise, the (most specific) Common Name
+     field in the Subject field of the certificate MUST be used. Although
+     the use of the Common Name is existing practice, it is deprecated and
+     Certification Authorities are encouraged to use the dNSName instead.
+     [...]
+
+     This implies that if we found 1 or more DNSNames in the
+     subjectAltName, we should not use the Common Name of the subject as
+     a DNSName.
+     */
+
+    /* return SAN DNS names if they exist */
+    if (certificate->_subjectAltName) {
+        CFMutableArrayRef sanNames = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        OSStatus status = SecCertificateParseGeneralNames(&certificate->_subjectAltName->extnValue,
+                                                          sanNames, appendDNSNamesFromGeneralNames);
+        if (status == errSecSuccess && sanNames && CFArrayGetCount(sanNames) > 0) {
+            return sanNames;
+        }
+        CFReleaseNull(sanNames);
     }
-    CFReleaseNull(sanNames);
 
-	/* RFC 2818 section 3.1.  Server Identity
-	  [...]
-	  If a subjectAltName extension of type dNSName is present, that MUST
-	  be used as the identity. Otherwise, the (most specific) Common Name
-	  field in the Subject field of the certificate MUST be used. Although
-	  the use of the Common Name is existing practice, it is deprecated and
-	  Certification Authorities are encouraged to use the dNSName instead.
-	  [...]
-
-	  This implies that if we found 1 or more DNSNames in the
-	  subjectAltName, we should not use the Common Name of the subject as
-	  a DNSName.
-	*/
-
-    /* To preserve bug for bug compatibility, we can't use SecCertificateCopyDNSNamesFromSubject
-     * because that function filters out IP Addresses. This function is Private, but
-     * SecCertificateCopyValues uses it and that's Public. */
+    /* fall back to return DNS names in the Common Name */
     CFMutableArrayRef dnsNames = CFArrayCreateMutable(kCFAllocatorDefault,
                                                       0, &kCFTypeArrayCallBacks);
     OSStatus status = parseX501NameContent(&certificate->_subject, dnsNames,
-            appendDNSNamesFromX501Name, true);
+                                           appendDNSNamesFromX501Name, true);
     if (status || CFArrayGetCount(dnsNames) == 0) {
         CFReleaseNull(dnsNames);
     }
@@ -5131,6 +5019,37 @@ CFArrayRef SecCertificateCopyCountry(SecCertificateRef certificate) {
         countries = NULL;
     }
     return countries;
+}
+
+typedef struct {
+    DERItem *attributeOID;
+    CFStringRef *result;
+} ATV_Context;
+
+static OSStatus copyAttributeValueFromX501Name(void *context, const DERItem *type, const DERItem *value, CFIndex rdnIX, bool localized) {
+    ATV_Context *ctx = (ATV_Context *)context;
+    if (DEROidCompare(type, ctx->attributeOID)) {
+        CFStringRef string = copyDERThingDescription(kCFAllocatorDefault, value, true, localized);
+        if (string) {
+            CFAssignRetained(*ctx->result, string);
+        } else {
+            return errSecInvalidCertificate;
+        }
+    }
+    return errSecSuccess;
+}
+
+CFStringRef SecCertificateCopySubjectAttributeValue(SecCertificateRef cert, DERItem *attributeOID) {
+    CFStringRef result = NULL;
+    ATV_Context context = {
+        .attributeOID = attributeOID,
+        .result = &result,
+    };
+    OSStatus status = parseX501NameContent(&cert->_subject, &context, copyAttributeValueFromX501Name, false);
+    if (status) {
+        CFReleaseNull(result);
+    }
+    return result;
 }
 
 const SecCEBasicConstraints *
@@ -5389,11 +5308,15 @@ const DERItem *SecCertificateGetPublicKeyData(SecCertificateRef certificate) {
 }
 
 #if TARGET_OS_OSX
-/* There is already a SecCertificateCopyPublicKey with different args on OS X,
-   so we will refer to this one internally as SecCertificateCopyPublicKey_ios.
+#if TARGET_CPU_ARM64
+/* force this implementation to be _SecCertificateCopyPublicKey on arm64 macOS.
+   note: the legacy function in SecCertificate.cpp is now _SecCertificateCopyPublicKey$LEGACYMAC
+   when both TARGET_OS_OSX and TARGET_CPU_ARM64 are true.
  */
+extern __nullable SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate) __asm("_SecCertificateCopyPublicKey");
+#endif /* TARGET_CPU_ARM64 */
 __nullable SecKeyRef SecCertificateCopyPublicKey_ios(SecCertificateRef certificate)
-#else
+#else /* !TARGET_OS_OSX */
 __nullable SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
 #endif
 {
@@ -6132,8 +6055,10 @@ static void check_for_marker(const void *key, const void *value, void *context)
 
     CFDataRef key_data = SecCertificateCreateOidDataFromString(NULL, key_string);
 
-    if (!isData(key_data))
+    if (!isData(key_data)) {
+        CFReleaseNull(key_data);
         return;
+    }
 
     if (cert_contains_marker_extension_value(search_ctx->certificate, key_data, value_ref))
         search_ctx->found = true;
@@ -6715,71 +6640,76 @@ SEC_CONST_DECL (kSecSignatureDigestAlgorithmSHA256, "SignatureDigestSHA256");
 SEC_CONST_DECL (kSecSignatureDigestAlgorithmSHA384, "SignatureDigestSHA284");
 SEC_CONST_DECL (kSecSignatureDigestAlgorithmSHA512, "SignatureDigestSHA512");
 
+SecSignatureHashAlgorithm SecSignatureHashAlgorithmForAlgorithmOid(const DERItem *algOid)
+{
+    SecSignatureHashAlgorithm result = kSecSignatureHashAlgorithmUnknown;
+    while (algOid) {
+        if (!algOid->data || !algOid->length) {
+            break;
+        }
+        /* classify the signature algorithm OID into one of our known types */
+        if (DEROidCompare(algOid, &oidSha512Ecdsa) ||
+            DEROidCompare(algOid, &oidSha512Rsa) ||
+            DEROidCompare(algOid, &oidSha512)) {
+            result = kSecSignatureHashAlgorithmSHA512;
+            break;
+        }
+        if (DEROidCompare(algOid, &oidSha384Ecdsa) ||
+            DEROidCompare(algOid, &oidSha384Rsa) ||
+            DEROidCompare(algOid, &oidSha384)) {
+            result = kSecSignatureHashAlgorithmSHA384;
+            break;
+        }
+        if (DEROidCompare(algOid, &oidSha256Ecdsa) ||
+            DEROidCompare(algOid, &oidSha256Rsa) ||
+            DEROidCompare(algOid, &oidSha256)) {
+            result = kSecSignatureHashAlgorithmSHA256;
+            break;
+        }
+        if (DEROidCompare(algOid, &oidSha224Ecdsa) ||
+            DEROidCompare(algOid, &oidSha224Rsa) ||
+            DEROidCompare(algOid, &oidSha224)) {
+            result = kSecSignatureHashAlgorithmSHA224;
+            break;
+        }
+        if (DEROidCompare(algOid, &oidSha1Ecdsa) ||
+            DEROidCompare(algOid, &oidSha1Rsa) ||
+            DEROidCompare(algOid, &oidSha1Dsa) ||
+            DEROidCompare(algOid, &oidSha1DsaOIW) ||
+            DEROidCompare(algOid, &oidSha1DsaCommonOIW) ||
+            DEROidCompare(algOid, &oidSha1RsaOIW) ||
+            DEROidCompare(algOid, &oidSha1Fee) ||
+            DEROidCompare(algOid, &oidSha1)) {
+            result = kSecSignatureHashAlgorithmSHA1;
+            break;
+        }
+        if (DEROidCompare(algOid, &oidMd5Rsa) ||
+            DEROidCompare(algOid, &oidMd5Fee) ||
+            DEROidCompare(algOid, &oidMd5)) {
+            result = kSecSignatureHashAlgorithmMD5;
+            break;
+        }
+        if (DEROidCompare(algOid, &oidMd4Rsa) ||
+            DEROidCompare(algOid, &oidMd4)) {
+            result = kSecSignatureHashAlgorithmMD4;
+            break;
+        }
+        if (DEROidCompare(algOid, &oidMd2Rsa) ||
+            DEROidCompare(algOid, &oidMd2)) {
+            result = kSecSignatureHashAlgorithmMD2;
+            break;
+        }
+        break;
+    }
+
+    return result;
+}
+
 SecSignatureHashAlgorithm SecCertificateGetSignatureHashAlgorithm(SecCertificateRef certificate)
 {
-	SecSignatureHashAlgorithm result = kSecSignatureHashAlgorithmUnknown;
 	DERAlgorithmId *algId = (certificate) ? &certificate->_tbsSigAlg : NULL;
 	const DERItem *algOid = (algId) ? &algId->oid : NULL;
-	while (algOid) {
-		if (!algOid->data || !algOid->length) {
-			break;
-		}
-		/* classify the signature algorithm OID into one of our known types */
-		if (DEROidCompare(algOid, &oidSha512Ecdsa) ||
-			DEROidCompare(algOid, &oidSha512Rsa) ||
-			DEROidCompare(algOid, &oidSha512)) {
-			result = kSecSignatureHashAlgorithmSHA512;
-			break;
-		}
-		if (DEROidCompare(algOid, &oidSha384Ecdsa) ||
-			DEROidCompare(algOid, &oidSha384Rsa) ||
-			DEROidCompare(algOid, &oidSha384)) {
-			result = kSecSignatureHashAlgorithmSHA384;
-			break;
-		}
-		if (DEROidCompare(algOid, &oidSha256Ecdsa) ||
-			DEROidCompare(algOid, &oidSha256Rsa) ||
-			DEROidCompare(algOid, &oidSha256)) {
-			result = kSecSignatureHashAlgorithmSHA256;
-			break;
-		}
-		if (DEROidCompare(algOid, &oidSha224Ecdsa) ||
-			DEROidCompare(algOid, &oidSha224Rsa) ||
-			DEROidCompare(algOid, &oidSha224)) {
-			result = kSecSignatureHashAlgorithmSHA224;
-			break;
-		}
-		if (DEROidCompare(algOid, &oidSha1Ecdsa) ||
-			DEROidCompare(algOid, &oidSha1Rsa) ||
-			DEROidCompare(algOid, &oidSha1Dsa) ||
-			DEROidCompare(algOid, &oidSha1DsaOIW) ||
-			DEROidCompare(algOid, &oidSha1DsaCommonOIW) ||
-			DEROidCompare(algOid, &oidSha1RsaOIW) ||
-			DEROidCompare(algOid, &oidSha1Fee) ||
-			DEROidCompare(algOid, &oidSha1)) {
-			result = kSecSignatureHashAlgorithmSHA1;
-			break;
-		}
-		if (DEROidCompare(algOid, &oidMd5Rsa) ||
-			DEROidCompare(algOid, &oidMd5Fee) ||
-			DEROidCompare(algOid, &oidMd5)) {
-			result = kSecSignatureHashAlgorithmMD5;
-			break;
-		}
-		if (DEROidCompare(algOid, &oidMd4Rsa) ||
-			DEROidCompare(algOid, &oidMd4)) {
-			result = kSecSignatureHashAlgorithmMD4;
-			break;
-		}
-		if (DEROidCompare(algOid, &oidMd2Rsa) ||
-			DEROidCompare(algOid, &oidMd2)) {
-			result = kSecSignatureHashAlgorithmMD2;
-			break;
-		}
-		break;
-	}
-
-	return result;
+    return SecSignatureHashAlgorithmForAlgorithmOid(algOid);
 }
 
 CFArrayRef SecCertificateCopyiPhoneDeviceCAChain(void) {
@@ -6832,4 +6762,26 @@ CFIndex SecCertificateGetUnparseableKnownExtension(SecCertificateRef certificate
         return kCFNotFound;
     }
     return certificate->_unparseableKnownExtensionIndex;
+}
+
+CFArrayRef SecCertificateCopyAppleExternalRoots(void) {
+    CFMutableArrayRef result = NULL;
+    SecCertificateRef appleExternalECRoot = NULL, testAppleExternalECRoot = NULL;
+
+    require_quiet(appleExternalECRoot = SecCertificateCreateWithBytes(NULL, _AppleExternalECRootCA, sizeof(_AppleExternalECRootCA)),
+                  errOut);
+    require_quiet(testAppleExternalECRoot = SecCertificateCreateWithBytes(NULL, _TestAppleExternalECRootCA,
+                                                                          sizeof(_TestAppleExternalECRootCA)),
+                  errOut);
+
+    require_quiet(result = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks), errOut);
+    CFArrayAppendValue(result, appleExternalECRoot);
+    if (SecIsInternalRelease()) {
+        CFArrayAppendValue(result, testAppleExternalECRoot);
+    }
+
+errOut:
+    CFReleaseNull(appleExternalECRoot);
+    CFReleaseNull(testAppleExternalECRoot);
+    return result;
 }

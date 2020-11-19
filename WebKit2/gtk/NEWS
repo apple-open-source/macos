@@ -1,4 +1,81 @@
 ================
+WebKitGTK 2.29.4
+================
+
+What's new in WebKitGTK 2.29.4?
+
+  - Add support for backdrop filters.
+  - Add support for text-underline-offset and text-decoration-thickness.
+  - Add OpenCDM and AV1 support to media backend.
+  - Add new API to get ITP data summary.
+  - Use mobile user-agent on tablets.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.29.3
+================
+
+What's new in WebKitGTK 2.29.3?
+
+  - Add webkit_authentication_request_get_security_origin.
+  - Change the cookies accept policy to always when no-third-party is set and ITP is enabled.
+  - Fix web process hangs on large GitHub pages.
+  - Bubblewrap sandbox should not attempt to bind empty paths.
+  - Add support for sndio to bubblewrap sandbox.
+  - Also handle dark themes when the name ends with -Dark.
+  - Fix a race condition causing a crash in media player.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.29.2
+================
+
+What's new in WebKitGTK 2.29.2?
+
+  - Add Intelligent Tracking Prevention (ITP) support.
+  - Add support for video formats in img elements.
+  - Add API to handle video autoplay policy that now defaults to disallow autoplay videos with audio.
+  - Add API to mute a web view.
+  - Add API to allow applications to handle the HTTP authentication credential storage.
+  - Add a WebKitSetting to set the media content types requiring hardware support.
+  - Fix a crash during drag an drop due to a bug introduced in 2.29.1.
+  - Do not start page load during animation in back/forward gesture.
+  - Fix several crashes and rendering issues.
+  - Translation updates: Ukrainian.
+
+================
+WebKitGTK 2.29.1
+================
+
+What's new in WebKitGTK 2.29.1?
+
+  - Stop using GTK theming to render form controls.
+  - Add API to disable GTK theming for scrollbars too.
+  - Fix several race conditions and threading issues in the media player.
+  - Add USER_AGENT_BRANDING build option.
+  - Add paste as plain text option to the context menu for rich editable content.
+  - Fix several crashes and rendering issues.
+
+================
+WebKitGTK 2.27.4
+================
+
+What's new in WebKitGTK 2.27.4?
+
+  - Add API for input methods.
+  - Add API to serialize/deserialize a JSCValue to/from a JSON string.
+  - Add support for strict secure cookies.
+  - Add support for saving data from remote inspector.
+  - Make ondemand hardware acceleration policy never leave accelerated compositing mode.
+  - Fix rendering of conic gradients in high resolution displays.
+  - Fix special combination characters not respecting the keystroke order when high CPU load.
+  - Honor the IndexedDB directory set in WebsiteDataManager.
+  - Fix rendering of text when there's an initial advance in the text run.
+  - Fix web process crash when displaying a KaTeX formula.
+  - Fix network process crash with PSON enabled.
+  - Fix several crashes and rendering issues.
+
+================
 WebKitGTK 2.27.3
 ================
 

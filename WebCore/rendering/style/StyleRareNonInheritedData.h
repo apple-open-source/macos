@@ -27,7 +27,6 @@
 #include "CSSPropertyNames.h"
 #include "ClipPathOperation.h"
 #include "CounterDirectives.h"
-#include "DataRef.h"
 #include "FillLayer.h"
 #include "GapLength.h"
 #include "LengthPoint.h"
@@ -36,8 +35,11 @@
 #include "ShapeValue.h"
 #include "StyleContentAlignmentData.h"
 #include "StyleSelfAlignmentData.h"
+#include "TouchAction.h"
 #include "WillChangeData.h"
 #include <memory>
+#include <wtf/DataRef.h>
+#include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -84,6 +86,8 @@ public:
     
     bool operator==(const StyleRareNonInheritedData&) const;
     bool operator!=(const StyleRareNonInheritedData& other) const { return !(*this == other); }
+
+    LengthPoint perspectiveOrigin() const { return { perspectiveOriginX, perspectiveOriginY }; }
 
     bool contentDataEquivalent(const StyleRareNonInheritedData&) const;
 
@@ -140,7 +144,7 @@ public:
     RefPtr<AnimationList> animations;
     RefPtr<AnimationList> transitions;
 
-    FillLayer mask;
+    DataRef<FillLayer> mask;
     NinePieceImage maskBoxImage;
 
     LengthSize pageSize;
@@ -149,6 +153,8 @@ public:
     RefPtr<ShapeValue> shapeOutside;
     Length shapeMargin;
     float shapeImageThreshold;
+
+    int order;
 
     RefPtr<ClipPathOperation> clipPath;
 
@@ -161,8 +167,6 @@ public:
     Color visitedLinkBorderTopColor;
     Color visitedLinkBorderBottomColor;
 
-    int order;
-
     StyleContentAlignmentData alignContent;
     StyleSelfAlignmentData alignItems;
     StyleSelfAlignmentData alignSelf;
@@ -173,9 +177,7 @@ public:
     DataRef<StyleCustomPropertyData> customProperties;
     std::unique_ptr<HashSet<String>> customPaintWatchedProperties;
 
-#if ENABLE(POINTER_EVENTS)
-    unsigned touchActions : 6; // TouchAction
-#endif
+    OptionSet<TouchAction> touchActions;
 
     unsigned pageSizeType : 2; // PageSizeType
     unsigned transformStyle3D : 1; // TransformStyle3D
@@ -183,6 +185,7 @@ public:
 
     unsigned userDrag : 2; // UserDrag
     unsigned textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
+    unsigned useSmoothScrolling : 1; // ScrollBehavior
     unsigned marginBeforeCollapse : 2; // MarginCollapse
     unsigned marginAfterCollapse : 2; // MarginCollapse
     unsigned appearance : 6; // EAppearance
@@ -200,7 +203,7 @@ public:
 
 #if ENABLE(APPLE_PAY)
     unsigned applePayButtonStyle : 2;
-    unsigned applePayButtonType : 3;
+    unsigned applePayButtonType : 4;
 #endif
 
     unsigned objectFit : 3; // ObjectFit

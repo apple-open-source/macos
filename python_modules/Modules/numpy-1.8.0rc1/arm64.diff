@@ -1,0 +1,24 @@
+diff -urw numpy-1.8.0rc1.orig/numpy/core/include/numpy/npy_cpu.h numpy-1.8.0rc1/numpy/core/include/numpy/npy_cpu.h
+--- numpy-1.8.0rc1.orig/numpy/core/include/numpy/npy_cpu.h	2013-09-14 05:59:16.000000000 -0700
++++ numpy-1.8.0rc1/numpy/core/include/numpy/npy_cpu.h	2018-09-25 12:37:38.000000000 -0700
+@@ -66,7 +66,7 @@
+     #define NPY_CPU_MIPSEL
+ #elif defined(__MIPSEB__)
+     #define NPY_CPU_MIPSEB
+-#elif defined(__aarch64__)
++#elif defined(__aarch64__) || defined(__arm64__)
+     #define NPY_CPU_AARCH64
+ #elif defined(__mc68000__)
+     #define NPY_CPU_M68K
+diff -urw numpy-1.8.0rc1.orig/numpy/core/src/private/npy_fpmath.h numpy-1.8.0rc1/numpy/core/src/private/npy_fpmath.h
+--- numpy-1.8.0rc1.orig/numpy/core/src/private/npy_fpmath.h	2013-09-14 05:59:17.000000000 -0700
++++ numpy-1.8.0rc1/numpy/core/src/private/npy_fpmath.h	2018-09-25 13:06:30.000000000 -0700
+@@ -29,6 +29,8 @@
+             #define HAVE_LDOUBLE_INTEL_EXTENDED_16_BYTES_LE
+         #elif defined(NPY_CPU_PPC) || defined(NPY_CPU_PPC64)
+             #define HAVE_LDOUBLE_IEEE_DOUBLE_16_BYTES_BE
++        #elif defined(NPY_CPU_AARCH64)
++            #define HAVE_LDOUBLE_IEEE_DOUBLE_LE
+         #endif
+     #endif
+ #endif

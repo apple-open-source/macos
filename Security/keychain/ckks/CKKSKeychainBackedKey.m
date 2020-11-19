@@ -31,7 +31,7 @@
         NSError* error = nil;
         [self wrapUnder:self error:&error];
         if(error != nil) {
-            secerror("CKKSKeychainBackedKey: Couldn't self-wrap key: %@", error);
+            ckkserror_global("ckkskey", "Couldn't self-wrap key: %@", error);
             return nil;
         }
     }
@@ -55,7 +55,7 @@
         NSError* error = nil;
         [self wrapUnder:wrappingKey error:&error];
         if(error != nil) {
-            secerror("CKKSKeychainBackedKey: Couldn't wrap key with key: %@", error);
+            ckkserror_global("ckkskey", "Couldn't wrap key with key: %@", error);
             return nil;
         }
     }
@@ -118,16 +118,18 @@
             error:(NSError* __autoreleasing*)error
 {
     NSError* localError = nil;
-    self.wrappedkey = [wrappingKey wrapAESKey:self.aessivkey error:&localError];
-    if(self.wrappedkey == nil) {
-        secerror("CKKSKeychainBackedKey: couldn't wrap key: %@", localError);
+    CKKSWrappedAESSIVKey* wrappedKey = [wrappingKey wrapAESKey:self.aessivkey error:&localError];
+    if (wrappedKey == nil) {
+        ckkserror_global("ckkskey", "couldn't wrap key: %@", localError);
         if(error) {
             *error = localError;
         }
+        return false;
     } else {
+        self.wrappedkey = wrappedKey;
         self.parentKeyUUID = wrappingKey.uuid;
     }
-    return (self.wrappedkey != nil);
+    return true;
 }
 
 - (bool)unwrapSelfWithAESKey:(CKKSAESSIVKey*)unwrappingKey
@@ -335,7 +337,7 @@
         [CKKSKeychainBackedKey setKeyMaterialInKeychain:query error:&localError];
 
         if(stashError) {
-            secerror("CKKSKeychainBackedKey: Couldn't stash %@ to keychain: %@", self, stashError);
+            ckkserror_global("ckkskey", "Couldn't stash %@ to keychain: %@", self, stashError);
         }
     }
 
@@ -481,7 +483,7 @@
 
         result = [self queryKeyMaterialInKeychain:query error:&localError];
         if(localError == nil) {
-            secnotice("CKKSKeychainBackedKey", "loaded a piggy TLK (%@)", key.uuid);
+            ckksnotice_global("ckkskey", "loaded a piggy TLK (%@)", key.uuid);
 
             if(resavePtr) {
                 *resavePtr = true;
@@ -527,7 +529,7 @@
 
         result = [self queryKeyMaterialInKeychain:query error:&localError];
         if(localError == nil) {
-            secnotice("CKKSKeychainBackedKey", "loaded a stashed TLK (%@)", key.uuid);
+            ckksnotice_global("ckkskey", "loaded a stashed TLK (%@)", key.uuid);
 
             if(resavePtr) {
                 *resavePtr = true;
@@ -579,7 +581,7 @@
     NSMutableData* keymaterial =
         [[NSMutableData alloc] initWithBase64EncodedData:b64keymaterial options:0];
     if(!keymaterial) {
-        secnotice("CKKSKeychainBackedKey", "Unable to unbase64 key: %@", self);
+        ckkserror_global("ckkskey",  "Unable to unbase64 key: %@", self);
         if(error) {
             *error = [NSError
                 errorWithDomain:CKKSErrorDomain
@@ -595,11 +597,11 @@
     self.aessivkey = key;
 
     if(resave) {
-        secnotice("CKKSKeychainBackedKey", "Resaving %@ as per request", self);
+        ckksnotice_global("ckkskey", "Resaving %@ as per request", self);
         NSError* resaveError = nil;
         [self saveKeyMaterialToKeychain:&resaveError];
         if(resaveError) {
-            secnotice("CKKSKeychainBackedKey", "Resaving %@ failed: %@", self, resaveError);
+            ckksnotice_global("ckkskey", "Resaving %@ failed: %@", self, resaveError);
         }
     }
 
@@ -727,8 +729,7 @@
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder*)decoder
 {
-    self = [super init];
-    if(self) {
+    if ((self = [super init])) {
         _uuid = [decoder decodeObjectOfClass:[NSString class] forKey:@"uuid"];
         _parentKeyUUID =
             [decoder decodeObjectOfClass:[NSString class] forKey:@"parentKeyUUID"];
@@ -786,8 +787,7 @@
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder*)decoder
 {
-    self = [super init];
-    if(self) {
+    if ((self = [super init])) {
         _tlk = [decoder decodeObjectOfClass:[CKKSKeychainBackedKey class] forKey:@"tlk"];
         _classA = [decoder decodeObjectOfClass:[CKKSKeychainBackedKey class] forKey:@"classA"];
         _classC = [decoder decodeObjectOfClass:[CKKSKeychainBackedKey class] forKey:@"classC"];

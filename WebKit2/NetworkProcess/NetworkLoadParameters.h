@@ -26,6 +26,7 @@
 #pragma once
 
 #include "NetworkActivityTracker.h"
+#include "PolicyDecision.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/BlobDataFileReference.h>
 #include <WebCore/FrameIdentifier.h>
@@ -33,11 +34,13 @@
 #include <WebCore/ResourceLoaderOptions.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/SecurityOrigin.h>
+#include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
+#include <wtf/EnumTraits.h>
 #include <wtf/ProcessID.h>
 
 namespace WebKit {
 
-enum class PreconnectOnly { No, Yes };
+enum class PreconnectOnly : bool { No, Yes };
 
 class NetworkLoadParameters {
 public:
@@ -58,9 +61,11 @@ public:
     bool needsCertificateInfo { false };
     bool isMainFrameNavigation { false };
     bool isMainResourceNavigationForAnyFrame { false };
+    WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking { WebCore::ShouldRelaxThirdPartyCookieBlocking::No };
     Vector<RefPtr<WebCore::BlobDataFileReference>> blobFileReferences;
     PreconnectOnly shouldPreconnectOnly { PreconnectOnly::No };
     Optional<NetworkActivityTracker> networkActivityTracker;
+    Optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain { NavigatingToAppBoundDomain::No };
 };
 
 } // namespace WebKit

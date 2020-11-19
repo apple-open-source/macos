@@ -34,6 +34,9 @@
  * $FreeBSD: src/bin/ls/extern.h,v 1.19 2002/05/19 02:51:36 tjr Exp $
  */
 
+#ifndef _LS_EXTERN_H_
+#define _LS_EXTERN_H_
+
 int	 acccmp(const FTSENT *, const FTSENT *);
 int	 revacccmp(const FTSENT *, const FTSENT *);
 int	 modcmp(const FTSENT *, const FTSENT *);
@@ -66,3 +69,5 @@ extern  char    *ansi_coloff;
 extern  char    *attrs_off;
 extern  char    *enter_bold;
 #endif
+
+#endif /* _LS_EXTERN_H_ */

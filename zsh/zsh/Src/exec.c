@@ -940,6 +940,8 @@ hashcmd(char *arg0, char **pp)
     char *s, buf[PATH_MAX+1];
     char **pq;
 
+    if (*arg0 == '/')
+        return NULL;
     for (; *pp; pp++)
 	if (**pp == '/') {
 	    s = buf;
@@ -968,6 +970,10 @@ hashcmd(char *arg0, char **pp)
 
     return cn;
 }
+
+/* The value that 'locallevel' had when we forked. When we get back to this
+ * level, the current process (which is a subshell) will terminate.
+ */
 
 /**/
 int
@@ -1688,7 +1694,8 @@ execpline(Estate state, wordcode slcode, int how, int last1)
 
 	    lastwj = thisjob = newjob;
 
-	    if (list_pipe || (pline_level && !(how & Z_TIMED)))
+	    if (list_pipe || (pline_level && !(how & Z_TIMED) &&
+			      !(jn->stat & STAT_NOSTTY)))
 		jn->stat |= STAT_NOPRINT;
 
 	    if (nowait) {
@@ -2533,7 +2540,7 @@ setunderscore(char *str)
 {
     queue_signals();
     if (str && *str) {
-	int l = strlen(str) + 1, nl = (l + 31) & ~31;
+	size_t l = strlen(str) + 1, nl = (l + 31) & ~31;
 
 	if (nl > underscorelen || (underscorelen - nl) > 64) {
 	    zfree(zunderscore, underscorelen);
@@ -2762,9 +2769,12 @@ execcmd_fork(Estate state, int how, int type, Wordcode varspc,
     sigtrapped[SIGEXIT] = 0;
 #ifdef HAVE_NICE
     /* Check if we should run background jobs at a lower priority. */
-    if ((how & Z_ASYNC) && isset(BGNICE))
-	if (nice(5) < 0)
+    if ((how & Z_ASYNC) && isset(BGNICE)) {
+	errno = 0;
+	nice(5);
+	if (errno)
 	    zwarn("nice(5) failed: %e", errno);
+    }
 #endif /* HAVE_NICE */
 
     return 0;
@@ -4293,7 +4303,7 @@ save_params(Estate state, Wordcode pc, LinkList *restore_p, LinkList *remove_p)
 		       (unset(RESTRICTED) || !(pm->node.flags & PM_RESTRICTED))) {
 		/*
 		 * In this case we're just saving parts of
-		 * the parameter in a tempory, so use heap allocation
+		 * the parameter in a temporary, so use heap allocation
 		 * and don't bother copying every detail.
 		 */
 		tpm = (Param) hcalloc(sizeof *tpm);
@@ -4405,8 +4415,10 @@ closem(int how, int all)
 	    /*
 	     * Process substitution needs to be visible to user;
 	     * fd's are explicitly cleaned up by filelist handling.
+	     * External FDs are managed directly by the user.
 	     */
-	    (all || fdtable[i] != FDT_PROC_SUBST) &&
+	    (all || (fdtable[i] != FDT_PROC_SUBST &&
+		     fdtable[i] != FDT_EXTERNAL)) &&
 	    (how == FDT_UNUSED || (fdtable[i] & FDT_TYPE_MASK) == how)) {
 	    if (i == SHTTY)
 		SHTTY = -1;
@@ -4638,19 +4650,25 @@ getoutput(char *cmd, int qt)
     return NULL;
 }
 
-/* read output of command substitution */
+/* read output of command substitution
+ *
+ * The file descriptor "in" is closed by the function.
+ *
+ * "qt" indicates if the substitution was in double quotes.
+ *
+ * "readerror", if not NULL, is used to return any error that
+ * occurred during the read.
+ */
 
 /**/
 mod_export LinkList
 readoutput(int in, int qt, int *readerror)
 {
     LinkList ret;
-    char *buf, *ptr;
-    int bsiz, c, cnt = 0;
-    FILE *fin;
+    char *buf, *bufptr, *ptr, inbuf[64];
+    int bsiz, c, cnt = 0, readret;
     int q = queue_signal_level();
 
-    fin = fdopen(in, "r");
     ret = newlinklist();
     ptr = buf = (char *) hcalloc(bsiz = 64);
     /*
@@ -4662,33 +4680,38 @@ readoutput(int in, int qt, int *readerror)
      */
     dont_queue_signals();
     child_unblock();
-    while ((c = fgetc(fin)) != EOF || errno == EINTR) {
-	if (c == EOF) {
-	    errno = 0;
-	    clearerr(fin);
-	    continue;
+    for (;;) {
+	readret = read(in, inbuf, 64);
+	if (readret <= 0) {
+	    if (readret < 0 && errno == EINTR)
+		continue;
+	    else
+		break;
 	}
-	if (imeta(c)) {
-	    *ptr++ = Meta;
-	    c ^= 32;
-	    cnt++;
-	}
-	if (++cnt >= bsiz) {
-	    char *pp;
-	    queue_signals();
-	    pp = (char *) hcalloc(bsiz *= 2);
-	    dont_queue_signals();
+	for (bufptr = inbuf; bufptr < inbuf + readret; bufptr++) {
+	    c = *bufptr;
+	    if (imeta(c)) {
+		*ptr++ = Meta;
+		c ^= 32;
+		cnt++;
+	    }
+	    if (++cnt >= bsiz) {
+		char *pp;
+		queue_signals();
+		pp = (char *) hcalloc(bsiz *= 2);
+		dont_queue_signals();
 
-	    memcpy(pp, buf, cnt - 1);
-	    ptr = (buf = pp) + cnt - 1;
+		memcpy(pp, buf, cnt - 1);
+		ptr = (buf = pp) + cnt - 1;
+	    }
+	    *ptr++ = c;
 	}
-	*ptr++ = c;
     }
     child_block();
     restore_queue_signals(q);
     if (readerror)
-	*readerror = ferror(fin) ? errno : 0;
-    fclose(fin);
+	*readerror = readret < 0 ? errno : 0;
+    close(in);
     while (cnt && ptr[-1] == '\n')
 	ptr--, cnt--;
     *ptr = '\0';
@@ -4821,6 +4844,7 @@ getoutputfile(char *cmd, char **eptr)
     }
 
     /* pid == 0 */
+    closem(FDT_UNUSED, 0);
     redup(fd, 1);
     entersubsh(ESUB_PGRP|ESUB_NOMONITOR, NULL);
     cmdpush(CS_CMDSUBST);
@@ -4982,7 +5006,7 @@ getpipe(char *cmd, int nullexec)
 	procsubstpid = pid;
 	return pipes[!out];
     }
-    entersubsh(ESUB_PGRP, NULL);
+    entersubsh(ESUB_ASYNC|ESUB_PGRP, NULL);
     redup(pipes[out], out);
     closem(FDT_UNUSED, 0);	/* this closes pipes[!out] as well */
     cmdpush(CS_CMDSUBST);
@@ -5929,7 +5953,7 @@ doshfunc(Shfunc shfunc, LinkList doshargs, int noreturnval)
 	     * exit command was handled.
 	     */
 	    stopmsg = 1;
-	    zexit(exit_val, 0);
+	    zexit(exit_val, ZEXIT_NORMAL);
 	}
     }
 

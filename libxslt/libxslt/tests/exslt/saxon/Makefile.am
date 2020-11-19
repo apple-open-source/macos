@@ -29,15 +29,11 @@ test tests: $(top_builddir)/xsltproc/xsltproc
 			mv $$name.bad $(srcdir)/$$name.err ; \
 		fi ; \
 	  else \
-		if  [ ! -s $$name.res ] ; then \
-			echo "Fatal error, no $$name.res\n" ; \
-	  	else \
-			diff $(srcdir)/$$name.out $$name.res ; \
-			if [ -s $(srcdir)/$$name.err ] ; then \
-	  			diff $(srcdir)/$$name.err $$name.bad; \
-			else \
-				diff /dev/null $$name.bad; \
-			fi ; \
+		diff $(srcdir)/$$name.out $$name.res ; \
+		if [ -s $(srcdir)/$$name.err ] ; then \
+			diff $(srcdir)/$$name.err $$name.bad; \
+		else \
+			diff /dev/null $$name.bad; \
 		fi ; \
 	  fi; \
 	  grep "MORY ALLO" .memdump  | grep -v "MEMORY ALLOCATED : 0" || true`;\

@@ -35,6 +35,14 @@
 			<string>comcast.net</string>
 		</dict>
 		<dict>
+			<key>dhcp_captive_portal_url</key>
+			<string>https://www.somecompany.net/the/url</string>
+		</dict>
+		<dict>
+			<key>dhcp_103</key>
+			<string>https://www.somecompany.net/the/url</string>
+		</dict>
+		<dict>
 			<key>expect_success</key>
 			<false/>
 			<key>dhcp_dns_servers</key>

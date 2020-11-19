@@ -13,6 +13,9 @@
 #define INDEXCHARS_H
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/uobject.h"
 #include "unicode/locid.h"
 #include "unicode/unistr.h"
@@ -69,7 +72,6 @@ typedef enum UAlphabeticIndexLabelType {
 struct UHashtable;
 U_CDECL_END
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 // Forward Declarations
@@ -756,7 +758,9 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif  // !UCONFIG_NO_COLLATION
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif

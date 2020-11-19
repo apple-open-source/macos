@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -459,7 +459,8 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
     linklocal = (Service_linklocal_t *)ServiceGetPrivate(service_p);
     switch (event_id) {
       case IFEventID_start_e: {
-	  ipconfig_method_data_t method_data;
+	  ipconfig_method_data_t	method_data;
+	  char				timer_name[32];
 
 	  if (if_flags(if_p) & IFF_LOOPBACK) {
 	      status = ipconfig_status_invalid_operation_e;
@@ -476,7 +477,9 @@ linklocal_thread(ServiceRef service_p, IFEventID_t event_id, void * event_data)
 	  bzero(linklocal, sizeof(*linklocal));
 	  ServiceSetPrivate(service_p, linklocal);
 
-	  linklocal->timer = timer_callout_init();
+	  snprintf(timer_name, sizeof(timer_name), "linklocal-%s",
+		   if_name(if_p));
+	  linklocal->timer = timer_callout_init(timer_name);
 	  if (linklocal->timer == NULL) {
 	      my_log(LOG_NOTICE, "LINKLOCAL %s: timer_callout_init failed",
 		     if_name(if_p));

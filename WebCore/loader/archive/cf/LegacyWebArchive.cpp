@@ -30,7 +30,6 @@
 #include "LegacyWebArchive.h"
 
 #include "CachedResource.h"
-#include "CustomHeaderFields.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Editor.h"
@@ -49,7 +48,6 @@
 #include "Logging.h"
 #include "MemoryCache.h"
 #include "Page.h"
-#include "Range.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SerializedAttachmentData.h"
 #include "Settings.h"
@@ -418,7 +416,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(Node& node, WTF::Function<bool
     if (!frame)
         return create();
 
-    // If the page was loaded with javascript enabled, we don't want to archive <noscript> tags
+    // If the page was loaded with JavaScript enabled, we don't want to archive <noscript> tags
     // In practice we don't actually know whether scripting was enabled when the page was originally loaded
     // but we can approximate that by checking if scripting is enabled right now.
     std::unique_ptr<Vector<QualifiedName>> tagNamesToFilter;
@@ -455,19 +453,16 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(Frame& frame)
     return create(mainResource.releaseNonNull(), documentLoader->subresources(), WTFMove(subframeArchives));
 }
 
-RefPtr<LegacyWebArchive> LegacyWebArchive::create(Range* range)
+RefPtr<LegacyWebArchive> LegacyWebArchive::create(const SimpleRange& range)
 {
-    if (!range)
-        return nullptr;
-        
-    auto& document = range->startContainer().document();
+    auto& document = range.start.container->document();
     auto* frame = document.frame();
     if (!frame)
         return nullptr;
 
     // FIXME: This is always "for interchange". Is that right?
     Vector<Node*> nodeList;
-    String markupString = documentTypeString(document) + serializePreservingVisualAppearance(*range, &nodeList, AnnotateForInterchange::Yes);
+    String markupString = documentTypeString(document) + serializePreservingVisualAppearance(range, &nodeList, AnnotateForInterchange::Yes);
     return create(markupString, *frame, nodeList, nullptr);
 }
 
@@ -605,14 +600,16 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::createFromSelection(Frame* frame)
     builder.append(serializePreservingVisualAppearance(frame->selection().selection(), ResolveURLs::No, serializeComposedTree, &nodeList));
 
     auto archive = create(builder.toString(), *frame, nodeList, nullptr);
-    
+    if (!archive)
+        return nullptr;
+
     if (!document->isFrameSet())
         return archive;
         
     // Wrap the frameset document in an iframe so it can be pasted into
     // another document (which will have a body or frameset of its own). 
     String iframeMarkup = "<iframe frameborder=\"no\" marginwidth=\"0\" marginheight=\"0\" width=\"98%%\" height=\"98%%\" src=\"" + frame->loader().documentLoader()->response().url().string() + "\"></iframe>";
-    auto iframeResource = ArchiveResource::create(utf8Buffer(iframeMarkup), WTF::blankURL(), "text/html", "UTF-8", String());
+    auto iframeResource = ArchiveResource::create(utf8Buffer(iframeMarkup), aboutBlankURL(), "text/html", "UTF-8", String());
 
     Vector<Ref<LegacyWebArchive>> subframeArchives;
     subframeArchives.reserveInitialCapacity(1);

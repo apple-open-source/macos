@@ -1,7 +1,0 @@
-
-// For frameworks that should only be built when the modern obj-c runtime is available.
-// This file must be updated when new architectures are introduced.
-
-VALID_ARCHS = armv6 armv7 armv7k arm64 x86_64 x86_64h
-
-VALID_ARCHS[sdk=*simulator*] = armv6 armv7 armv7k arm64 i386 x86_64 x86_64h

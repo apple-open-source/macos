@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 
 @interface WKFrameInfo (WKPrivate)
 
-@property (nonatomic, readonly, strong) _WKFrameHandle *_handle WK_API_AVAILABLE(macos(10.12), ios(10.0));
+@property (nonatomic, readonly, copy, nonnull) _WKFrameHandle *_handle WK_API_AVAILABLE(macos(10.12), ios(10.0));
+@property (nonatomic, readonly, copy, nullable) _WKFrameHandle *_parentFrameHandle WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end

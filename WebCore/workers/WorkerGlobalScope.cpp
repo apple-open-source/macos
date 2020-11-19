@@ -62,21 +62,23 @@ using namespace Inspector;
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(WorkerGlobalScope);
 
-WorkerGlobalScope::WorkerGlobalScope(const URL& url, Ref<SecurityOrigin>&& origin, const String& identifier, const String& userAgent, bool isOnline, WorkerThread& thread, bool shouldBypassMainWorldContentSecurityPolicy, Ref<SecurityOrigin>&& topOrigin, MonotonicTime timeOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
-    : m_url(url)
-    , m_identifier(identifier)
-    , m_userAgent(userAgent)
+WorkerGlobalScope::WorkerGlobalScope(const WorkerParameters& params, Ref<SecurityOrigin>&& origin, WorkerThread& thread, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
+    : m_url(params.scriptURL)
+    , m_identifier(params.identifier)
+    , m_userAgent(params.userAgent)
     , m_thread(thread)
     , m_script(makeUnique<WorkerScriptController>(this))
     , m_inspectorController(makeUnique<WorkerInspectorController>(*this))
-    , m_isOnline(isOnline)
-    , m_shouldBypassMainWorldContentSecurityPolicy(shouldBypassMainWorldContentSecurityPolicy)
+    , m_isOnline(params.isOnline)
+    , m_shouldBypassMainWorldContentSecurityPolicy(params.shouldBypassMainWorldContentSecurityPolicy)
     , m_topOrigin(WTFMove(topOrigin))
 #if ENABLE(INDEXED_DATABASE)
     , m_connectionProxy(connectionProxy)
 #endif
     , m_socketProvider(socketProvider)
-    , m_performance(Performance::create(this, timeOrigin))
+    , m_performance(Performance::create(this, params.timeOrigin))
+    , m_referrerPolicy(params.referrerPolicy)
+    , m_requestAnimationFrameEnabled(params.requestAnimationFrameEnabled)
 {
 #if !ENABLE(INDEXED_DATABASE)
     UNUSED_PARAM(connectionProxy);
@@ -167,7 +169,7 @@ void WorkerGlobalScope::applyContentSecurityPolicyResponseHeaders(const ContentS
     contentSecurityPolicy()->didReceiveHeaders(contentSecurityPolicyResponseHeaders, String { });
 }
 
-URL WorkerGlobalScope::completeURL(const String& url) const
+URL WorkerGlobalScope::completeURL(const String& url, ForceUTF8) const
 {
     // Always return a null URL when passed a null string.
     // FIXME: Should we change the URL constructor to have this behavior?
@@ -237,7 +239,7 @@ void WorkerGlobalScope::resume()
 WorkerLocation& WorkerGlobalScope::location() const
 {
     if (!m_location)
-        m_location = WorkerLocation::create(m_url);
+        m_location = WorkerLocation::create(URL { m_url }, origin());
     return *m_location;
 }
 
@@ -441,7 +443,7 @@ bool WorkerGlobalScope::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t
     auto resultContainer = CryptoBooleanContainer::create();
     auto doneContainer = CryptoBooleanContainer::create();
     auto wrappedKeyContainer = CryptoBufferContainer::create();
-    m_thread.workerLoaderProxy().postTaskToLoader([resultContainer = resultContainer.copyRef(), key, wrappedKeyContainer = wrappedKeyContainer.copyRef(), doneContainer = doneContainer.copyRef(), workerMessagingProxy = makeRef(downcast<WorkerMessagingProxy>(m_thread.workerLoaderProxy()))](ScriptExecutionContext& context) {
+    m_thread.workerLoaderProxy().postTaskToLoader([resultContainer, key, wrappedKeyContainer, doneContainer, workerMessagingProxy = makeRef(downcast<WorkerMessagingProxy>(m_thread.workerLoaderProxy()))](ScriptExecutionContext& context) {
         resultContainer->setBoolean(context.wrapCryptoKey(key, wrappedKeyContainer->buffer()));
         doneContainer->setBoolean(true);
         workerMessagingProxy->postTaskForModeToWorkerGlobalScope([](ScriptExecutionContext& context) {
@@ -464,7 +466,7 @@ bool WorkerGlobalScope::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vecto
     auto resultContainer = CryptoBooleanContainer::create();
     auto doneContainer = CryptoBooleanContainer::create();
     auto keyContainer = CryptoBufferContainer::create();
-    m_thread.workerLoaderProxy().postTaskToLoader([resultContainer = resultContainer.copyRef(), wrappedKey, keyContainer = keyContainer.copyRef(), doneContainer = doneContainer.copyRef(), workerMessagingProxy = makeRef(downcast<WorkerMessagingProxy>(m_thread.workerLoaderProxy()))](ScriptExecutionContext& context) {
+    m_thread.workerLoaderProxy().postTaskToLoader([resultContainer, wrappedKey, keyContainer, doneContainer, workerMessagingProxy = makeRef(downcast<WorkerMessagingProxy>(m_thread.workerLoaderProxy()))](ScriptExecutionContext& context) {
         resultContainer->setBoolean(context.unwrapCryptoKey(wrappedKey, keyContainer->buffer()));
         doneContainer->setBoolean(true);
         workerMessagingProxy->postTaskForModeToWorkerGlobalScope([](ScriptExecutionContext& context) {
@@ -533,6 +535,11 @@ CSSValuePool& WorkerGlobalScope::cssValuePool()
     if (!m_cssValuePool)
         m_cssValuePool = makeUnique<CSSValuePool>();
     return *m_cssValuePool;
+}
+
+ReferrerPolicy WorkerGlobalScope::referrerPolicy() const
+{
+    return m_referrerPolicy;
 }
 
 } // namespace WebCore

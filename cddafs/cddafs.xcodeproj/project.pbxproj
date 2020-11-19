@@ -159,7 +159,7 @@
 		0405E03F000A841111CE15C0 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 		0E9C737BFFE598CE11CE15BF /* cddafs_util.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = cddafs_util.cpp; path = FilesystemProber/cddafs_util.cpp; sourceTree = SOURCE_ROOT; };
 		0E9C737CFFE598CE11CE15BF /* cddafs_util.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = cddafs_util.h; path = FilesystemProber/cddafs_util.h; sourceTree = SOURCE_ROOT; };
-		0E9C738BFFE59D1811CE15BF /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0E9C738BFFE59D1811CE15BF /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		52B4035915BF26AE00FD09F4 /* mount_cddafs */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = mount_cddafs; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C596BD800BF099A05CE15C0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		5CC237B40190BA4505CE15BF /* CDDATrackName.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = CDDATrackName.h; path = Classes/CDDATrackName.h; sourceTree = "<group>"; };
@@ -177,7 +177,7 @@
 		ACB746550D621FE1002F4863 /* cddafs.fs */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = cddafs.fs; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACB746720D621FE1002F4863 /* cddafs.util */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cddafs.util; sourceTree = BUILT_PRODUCTS_DIR; };
 		E611F38106FFB15E0058BBBA /* cddafs.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = cddafs.exp; sourceTree = "<group>"; };
-		F72B1239020750BD01B847FC /* Localizable.strings */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		F72B1239020750BD01B847FC /* Localizable.strings */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F7700AE6021C73D601CE15C0 /* iTunesDatabase.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = iTunesDatabase.h; path = Classes/iTunesDatabase.h; sourceTree = "<group>"; };
 		F7700AE7021C73D601CE15C0 /* iTunesDatabase.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; name = iTunesDatabase.cpp; path = Classes/iTunesDatabase.cpp; sourceTree = "<group>"; };
 		F7700AEA021C73FC01CE15C0 /* CDInfo.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = CDInfo.h; path = Classes/CDInfo.h; sourceTree = "<group>"; };
@@ -449,7 +449,7 @@
 			isa = PBXProject;
 			buildConfigurationList = AC21C0890B37668600301821 /* Build configuration list for PBXProject "cddafs" */;
 			compatibilityVersion = "Xcode 2.4";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				en,
@@ -627,7 +627,7 @@
 		0E9C738AFFE59D1811CE15BF /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
-				0E9C738BFFE59D1811CE15BF /* English */,
+				0E9C738BFFE59D1811CE15BF /* en */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";

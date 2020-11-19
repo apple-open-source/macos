@@ -122,13 +122,19 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSCheckGatekeeperArchitectures
 		| kSecCSRestrictSymlinks
 		| kSecCSRestrictToAppLike
-        | kSecCSUseSoftwareSigningCert
-	    | kSecCSValidatePEH
+		| kSecCSUseSoftwareSigningCert
+		| kSecCSValidatePEH
 		| kSecCSSingleThreaded
+		| kSecCSApplyEmbeddedPolicy
+		| kSecCSSkipRootVolumeExceptions
 	);
 
 	if (errors)
 		flags |= kSecCSFullReport;	// internal-use flag
+
+#if !TARGET_OS_OSX
+	flags |= kSecCSApplyEmbeddedPolicy;
+#endif
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(staticCodeRef);
 	code->setValidationFlags(flags);
@@ -136,7 +142,6 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 	DTRACK(CODESIGN_EVAL_STATIC, code, (char*)code->mainExecutablePath().c_str());
 	code->staticValidate(flags, req);
 
-#if TARGET_OS_IPHONE
     // Everything checked out correctly but we need to make sure that when
     // we validated the code directory, we trusted the signer.  We defer this
     // until now because the caller may still trust the signer via a
@@ -144,10 +149,9 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
     // the directory, we potentially skip resource validation even though the
     // caller will go on to trust the signature
     // <rdar://problem/6075501> Applications that are validated against a provisioning profile do not have their resources checked
-    if (code->trustedSigningCertChain() == false) {
+    if ((flags & kSecCSApplyEmbeddedPolicy) && code->trustedSigningCertChain() == false) {
         return CSError::cfError(errors, errSecCSSignatureUntrusted);
     }
-#endif
 
 
 	END_CSAPI_ERRORS
@@ -251,7 +255,7 @@ OSStatus SecCodeMapMemory(SecStaticCodeRef codeRef, SecCSFlags flags)
 				MacOSError::throwMe(errSecCSNoMainExecutable);
 			}
 
-			auto_ptr<MachO> arch(execImage->architecture());
+			unique_ptr<MachO> arch(execImage->architecture());
 			if (arch.get() == NULL) {
 				MacOSError::throwMe(errSecCSNoMainExecutable);
 			}

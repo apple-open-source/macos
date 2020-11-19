@@ -100,11 +100,11 @@ sysctlbyname_get_data_np(const char *mibdesc, void **buff, size_t *buff_len);
  * similar to the PE_parse_boot_argn() kernel routine.
  *
  * @param which
- * The name of the boot-arg whose value is to be obtained. The caller may pass
- * NULL to simply check for the existence of a boot-arg.
+ * The name of the boot-arg whose value is to be obtained.
  *
  * @param where
- * On successful return, the integer value of the given boot-arg.
+ * On successful return, the integer value of the given boot-arg. The caller
+ * may pass NULL to simply check for the existence of a boot-arg.
  *
  * @result
  * A Boolean indicating whether the named argument was found. If the discovered

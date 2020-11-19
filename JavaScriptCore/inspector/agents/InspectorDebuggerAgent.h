@@ -55,7 +55,7 @@ class JS_EXPORT_PRIVATE InspectorDebuggerAgent : public InspectorAgentBase, publ
 public:
     ~InspectorDebuggerAgent() override;
 
-    static const char* backtraceObjectGroup;
+    static const char* const backtraceObjectGroup;
 
     // InspectorAgentBase
     void didCreateFrontendAndBackend(FrontendRouter*, BackendDispatcher*) final;
@@ -72,6 +72,7 @@ public:
     void removeBreakpoint(ErrorString&, const String& breakpointIdentifier) final;
     void continueUntilNextRunLoop(ErrorString&) final;
     void continueToLocation(ErrorString&, const JSON::Object& location) final;
+    void stepNext(ErrorString&) final;
     void stepOver(ErrorString&) final;
     void stepInto(ErrorString&) final;
     void stepOut(ErrorString&) final;
@@ -80,6 +81,7 @@ public:
     void searchInContent(ErrorString&, const String& scriptID, const String& query, const bool* optionalCaseSensitive, const bool* optionalIsRegex, RefPtr<JSON::ArrayOf<Protocol::GenericTypes::SearchMatch>>&) final;
     void getScriptSource(ErrorString&, const String& scriptID, String* scriptSource) final;
     void getFunctionDetails(ErrorString&, const String& functionId, RefPtr<Protocol::Debugger::FunctionDetails>&) final;
+    void setPauseOnDebuggerStatements(ErrorString&, bool enabled) final;
     void setPauseOnExceptions(ErrorString&, const String& pauseState) final;
     void setPauseOnAssertions(ErrorString&, bool enabled) final;
     void setPauseOnMicrotasks(ErrorString&, bool enabled) final;

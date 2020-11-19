@@ -1,5 +1,5 @@
 #define IN_LIBEXSLT
-#include "libexslt/libexslt.h"
+#include "libexslt.h"
 
 #if defined(WIN32) && !defined (__CYGWIN__) && (!__MINGW32__)
 #include <win32config.h>
@@ -56,8 +56,6 @@ struct _exsltFuncImportRegData {
 static void exsltFuncFunctionFunction (xmlXPathParserContextPtr ctxt,
 				       int nargs);
 static exsltFuncFunctionData *exsltFuncNewFunctionData(void);
-
-#define MAX_FUNC_RECURSION 1000
 
 /*static const xmlChar *exsltResultDataID = (const xmlChar *) "EXSLT Result";*/
 
@@ -333,12 +331,19 @@ exsltFuncFunctionFunction (xmlXPathParserContextPtr ctxt, int nargs) {
 			 "param == NULL\n");
 	return;
     }
-    if (tctxt->funcLevel > MAX_FUNC_RECURSION) {
-	xsltGenericError(xsltGenericErrorContext,
-			 "{%s}%s: detected a recursion\n",
-			 ctxt->context->functionURI, ctxt->context->function);
-	ctxt->error = XPATH_MEMORY_ERROR;
-	return;
+
+    /*
+    * When a function is called recursively during evaluation of its
+    * arguments, the recursion check in xsltApplySequenceConstructor
+    * isn't reached.
+    */
+    if (tctxt->funcLevel >= tctxt->maxTemplateDepth) {
+        xsltTransformError(tctxt, NULL, NULL,
+            "exsltFuncFunctionFunction: Potentially infinite recursion "
+            "detected in function {%s}%s.\n",
+            ctxt->context->functionURI, ctxt->context->function);
+        tctxt->state = XSLT_STATE_STOPPED;
+        return;
     }
     tctxt->funcLevel++;
 
@@ -424,7 +429,7 @@ exsltFuncFunctionFunction (xmlXPathParserContextPtr ctxt, int nargs) {
 	xsltFreeStackElemList(params);
 
     if (data->error != 0)
-	goto error;
+        goto error;
 
     if (data->result != NULL) {
 	ret = data->result;

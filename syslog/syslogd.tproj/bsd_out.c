@@ -543,7 +543,7 @@ _bsd_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time_t 
 	}
 	else if (r->type == DST_TYPE_WALL)
 	{
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		FILE *pw = popen(_PATH_WALL, "w");
 		if (pw < 0)
 		{

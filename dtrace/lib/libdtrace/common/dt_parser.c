@@ -793,6 +793,13 @@ dt_node_resolve(const dt_node_t *dnp, uint_t idkind)
 size_t
 dt_node_sizeof(const dt_node_t *dnp)
 {
+#if defined(__APPLE__)
+	/*
+	 * Unlike ELF, the Mach-O symbol table does not contain the
+	 * size of symbols, so use the size from CTF instead.
+	 */
+	return (dt_node_type_size(dnp));
+#else
 	dtrace_syminfo_t *sip;
 	GElf_Sym sym;
 	dtrace_hdl_t *dtp = yypcb->pcb_hdl;
@@ -816,6 +823,7 @@ dt_node_sizeof(const dt_node_t *dnp)
 		return (0);
 
 	return (sym.st_size);
+#endif /* defined(__APPLE__) */
 }
 
 int
@@ -2986,7 +2994,8 @@ dt_cook_op1(dt_node_t *dnp, uint_t idflags)
 			} else
 				type = r.ctr_contents;
 		} else if (kind == CTF_K_PTRAUTH) {
-			type = ctf_type_reference(cp->dn_ctfp, type);
+			type = ctf_type_resolve(cp->dn_ctfp,
+			    ctf_type_reference(cp->dn_ctfp, type));
 			assert(ctf_type_kind(cp->dn_ctfp, type) == CTF_K_POINTER);
 			type = ctf_type_reference(cp->dn_ctfp, type);
 		} else if (kind == CTF_K_POINTER) {
@@ -3730,7 +3739,7 @@ asgn_common:
 
 		kind = ctf_type_kind(ctfp, type);
 		if (kind == CTF_K_PTRAUTH) {
-			type = ctf_type_reference(ctfp, type);
+			type = ctf_type_resolve(ctfp, ctf_type_reference(ctfp, type));
 			kind = ctf_type_kind(ctfp, type);
 		}
 
@@ -4262,7 +4271,7 @@ dt_cook_inline(dt_node_t *dnp, uint_t idflags)
 
 		switch (ctf_type_kind(lctfp, ltype)) {
 		case CTF_K_PTRAUTH:
-			ltype = ctf_type_reference(lctfp, ltype);
+			ltype = ctf_type_resolve(lctfp, ctf_type_reference(lctfp, ltype));
 			assert(ctf_type_kind(lctfp, ltype) == CTF_K_POINTER);
 			/*FALLTHRU*/
 		case CTF_K_POINTER:

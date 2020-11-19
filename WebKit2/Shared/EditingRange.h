@@ -31,7 +31,7 @@
 
 namespace WebCore {
 class Frame;
-class Range;
+struct SimpleRange;
 }
 
 namespace WebKit {
@@ -41,6 +41,7 @@ enum class EditingRangeIsRelativeTo : uint8_t {
     Paragraph,
 };
 
+// FIXME: Replace this with Optional<CharacterRange>.
 struct EditingRange {
     EditingRange()
         : location(notFound)
@@ -57,8 +58,8 @@ struct EditingRange {
     // (notFound, 0) is notably valid.
     bool isValid() const { return location + length >= location; }
 
-    static RefPtr<WebCore::Range> toRange(WebCore::Frame&, const EditingRange&, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot);
-    static EditingRange fromRange(WebCore::Frame&, const WebCore::Range*, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot);
+    static Optional<WebCore::SimpleRange> toRange(WebCore::Frame&, const EditingRange&, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot);
+    static EditingRange fromRange(WebCore::Frame&, const Optional<WebCore::SimpleRange>&, EditingRangeIsRelativeTo = EditingRangeIsRelativeTo::EditableRoot);
 
 #if defined(__OBJC__)
     EditingRange(NSRange range)

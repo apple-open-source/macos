@@ -69,7 +69,7 @@
 - (instancetype)initForKey:(NSString*)tlkUUID
               senderPeerID:(NSString*)senderPeerID
             recieverPeerID:(NSString*)receiverPeerID
-  receiverEncPublicKeySPKI:(NSData*)publicKeySPKI
+  receiverEncPublicKeySPKI:(NSData* _Nullable)publicKeySPKI
                      curve:(SFEllipticCurve)curve
                    version:(SecCKKSTLKShareVersion)version
                      epoch:(NSInteger)epoch
@@ -248,7 +248,7 @@
                   error:(NSError* __autoreleasing*)error
 {
     if(!peer.publicSigningKey) {
-        secerror("ckksshare: no signing key for peer: %@", peer);
+        ckkserror("ckksshare", self.zoneID, "no signing key for peer: %@", peer);
         if(error) {
             *error = [NSError
                 errorWithDomain:CKKSErrorDomain
@@ -283,7 +283,7 @@
                                          ckrecord:ckrecord
                                             error:&localerror];
             if(localerror) {
-                secerror("ckksshare: signature didn't verify for %@ %@: %@", self, peer, localerror);
+                ckkserror("ckksshare", self.zoneID, "signature didn't verify for %@ %@: %@", self, peer, localerror);
                 lastVerificationError = localerror;
             }
             if(isSigned) {
@@ -345,8 +345,7 @@
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder*)decoder
 {
-    self = [super init];
-    if(self) {
+    if ((self = [super init])) {
         _zoneID = [decoder decodeObjectOfClass:[CKRecordZoneID class] forKey:@"zoneID"];
         _curve = (SFEllipticCurve) [decoder decodeInt64ForKey:@"curve"];
         _version = (SecCKKSTLKShareVersion)[decoder decodeInt64ForKey:@"version"];
@@ -405,7 +404,7 @@
     share.wrappedTLK =
         [share wrap:key publicKey:receiver.publicEncryptionKey error:&localerror];
     if(localerror) {
-        secerror("ckksshare: couldn't share %@ (wrap failed): %@", key, localerror);
+        ckkserror("ckksshare", key.zoneID, "couldn't share %@ (wrap failed): %@", key, localerror);
         if(error) {
             *error = localerror;
         }
@@ -416,7 +415,7 @@
                                ckrecord:nil
                                  error:&localerror];
     if(localerror) {
-        secerror("ckksshare: couldn't share %@ (signing failed): %@", key, localerror);
+        ckkserror("ckksshare", key.zoneID, "couldn't share %@ (signing failed): %@", key, localerror);
         if(error) {
             *error = localerror;
         }

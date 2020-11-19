@@ -332,7 +332,7 @@
 			isa = PBXProject;
 			attributes = {
 				DefaultBuildSystemTypeForWorkspace = Latest;
-				LastUpgradeCheck = 1100;
+				LastUpgradeCheck = 1200;
 			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -489,7 +489,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 151;
+				CURRENT_PROJECT_VERSION = 153;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -545,7 +545,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 151;
+				CURRENT_PROJECT_VERSION = 153;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_MODEL_TUNING = "";
@@ -624,16 +624,20 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D3F66E541F9FE76D0024CC3E /* kext.xcconfig */;
 			buildSettings = {
+				CLANG_ANALYZER_DEADCODE_DEADSTORES = NO;
+				CLANG_ANALYZER_DIVIDE_BY_ZERO = NO;
+				CLANG_ANALYZER_NULL_DEREFERENCE = NO;
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 151;
+				MODULE_VERSION = 153;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Development;
@@ -648,7 +652,7 @@
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
-				MODULE_VERSION = 151;
+				MODULE_VERSION = 153;
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.BootCache;
 				PRODUCT_NAME = BootCache;

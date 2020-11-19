@@ -53,21 +53,7 @@
 #define GSS_S_UNAVAILABLE (((uint32_t) 16ul) << GSS_C_ROUTINE_ERROR_OFFSET)
 #define KRB5_CC_READONLY (-1765328138L)
 
-void
-mshim_log_function_missing(const char *func)
-{
-    aslmsg m = asl_new(ASL_TYPE_MSG);
-    asl_set(m, "com.apple.message.domain", "com.apple.kerberos.mshim.missing-function" );
-    asl_set(m, "com.apple.message.signature", func);
-    asl_set(m, "com.apple.message.signature2", getprogname());
-    asl_log(NULL, m, ASL_LEVEL_NOTICE,
-	    "function %s not implemented, but used by %s", func, getprogname());
-    asl_free(m);
-
-    syslog(LOG_ERR, "MITKerberosShim: function %s not implemented", func);
-}
-
-#define dummy(func, ret) int func() { mshim_log_function_missing(__func__); return (ret); }
+#define dummy(func, ret) int func() { return (ret); }
 
 #define quietdummy(func, ret) int func() { return (ret); }
 

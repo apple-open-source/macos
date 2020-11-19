@@ -715,6 +715,8 @@ const CFStringRef kDAPreferenceMountDeferRemovableKey = CFSTR( "DAMountDeferRemo
 const CFStringRef kDAPreferenceMountTrustExternalKey  = CFSTR( "DAMountTrustExternal"  );
 const CFStringRef kDAPreferenceMountTrustInternalKey  = CFSTR( "DAMountTrustInternal"  );
 const CFStringRef kDAPreferenceMountTrustRemovableKey = CFSTR( "DAMountTrustRemovable" );
+const CFStringRef kDAPreferenceAutoMountDisableKey    = CFSTR( "DAAutoMountDisable"    );
+
 
 void DAPreferenceListRefresh( void )
 {
@@ -849,6 +851,15 @@ void DAPreferenceListRefresh( void )
                 }
             }
 
+            value = SCPreferencesGetValue( preferences, kDAPreferenceAutoMountDisableKey );
+
+            if ( value )
+            {
+                if ( CFGetTypeID( value ) == CFBooleanGetTypeID( ) )
+                {
+                    CFDictionarySetValue( gDAPreferenceList, kDAPreferenceAutoMountDisableKey, value );
+                }
+            }
             CFRelease( preferences );
         }
     }

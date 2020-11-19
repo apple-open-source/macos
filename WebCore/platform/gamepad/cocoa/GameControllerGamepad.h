@@ -44,8 +44,10 @@ class GameControllerGamepad : public PlatformGamepad {
 public:
     GameControllerGamepad(GCController *, unsigned index);
 
-    const Vector<double>& axisValues() const final { return m_axisValues; }
-    const Vector<double>& buttonValues() const final { return m_buttonValues; }
+    const Vector<SharedGamepadValue>& axisValues() const final { return m_axisValues; }
+    const Vector<SharedGamepadValue>& buttonValues() const final { return m_buttonValues; }
+
+    const char* source() const final { return "GameController"_s; }
 
 private:
     void setupAsExtendedGamepad();
@@ -53,8 +55,8 @@ private:
 
     RetainPtr<GCController> m_gcController;
 
-    Vector<double> m_axisValues;
-    Vector<double> m_buttonValues;
+    Vector<SharedGamepadValue> m_axisValues;
+    Vector<SharedGamepadValue> m_buttonValues;
 
     RetainPtr<GCGamepad> m_gamepad;
     RetainPtr<GCExtendedGamepad> m_extendedGamepad;

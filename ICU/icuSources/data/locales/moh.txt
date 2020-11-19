@@ -7,7 +7,7 @@ moh{
         " {ì\\:} k n o ó ò {o\\:} {ó\\:} {ò\\:} r s t w y ʼ]"
     }
     ExemplarCharactersIndex{"[A E H I K N O R S T W Y]"}
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     calendar{
         gregorian{
             DateTimePatterns{

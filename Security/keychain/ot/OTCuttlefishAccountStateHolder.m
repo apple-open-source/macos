@@ -99,19 +99,6 @@
     return current.peerID;
 }
 
-- (OTAccountMetadataClassC_AttemptedAJoinState)fetchPersistedJoinAttempt:(NSError * _Nullable *)error {
-    NSError* localError = nil;
-    OTAccountMetadataClassC* current = [self loadOrCreateAccountMetadata:&localError];
-
-    if(localError || !current) {
-        if(error) {
-            *error = localError;
-        }
-        return OTAccountMetadataClassC_AttemptedAJoinState_UNKNOWN;
-    }
-    return current.attemptedJoin;
-}
-
 - (NSDate *)lastHealthCheckupDate:(NSError * _Nullable *)error {
     NSError* localError = nil;
 
@@ -140,26 +127,6 @@
 {
     return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
         metadata.trustState = newState;
-        return metadata;
-    } error:error];
-}
-
-- (BOOL)persistNewAccountState:(OTAccountMetadataClassC_AccountState)newState
-               optionalAltDSID:(NSString* _Nullable)altDSID
-                         error:(NSError**)error
-{
-    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
-        metadata.icloudAccountState = newState;
-        metadata.altDSID = altDSID;
-        return metadata;
-    } error:error];
-}
-
-- (BOOL)persistNewEpoch:(uint64_t)epoch
-                  error:(NSError**)error
-{
-    return [self persistAccountChanges:^(OTAccountMetadataClassC *metadata) {
-        metadata.epoch = epoch;
         return metadata;
     } error:error];
 }
@@ -255,6 +222,5 @@
         }
     });
 }
-
 
 @end

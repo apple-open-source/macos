@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2020 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
@@ -31,17 +31,18 @@
 #include "LengthBox.h"
 #include "MediaProducer.h"
 #include "Pagination.h"
+#include "PlaybackTargetClientContextIdentifier.h"
 #include "RTCController.h"
 #include "Region.h"
 #include "RegistrableDomain.h"
 #include "RenderingUpdateScheduler.h"
 #include "ScrollTypes.h"
+#include "ShouldRelaxThirdPartyCookieBlocking.h"
 #include "Supplementable.h"
 #include "Timer.h"
 #include "UserInterfaceLayoutDirection.h"
 #include "ViewportArguments.h"
 #include "VisibilityState.h"
-#include "WheelEventTestMonitor.h"
 #include <memory>
 #include <pal/SessionID.h>
 #include <wtf/Assertions.h>
@@ -111,6 +112,7 @@ class LibWebRTCProvider;
 class LowPowerModeNotifier;
 class MediaCanStartListener;
 class MediaPlaybackTarget;
+class MediaRecorderProvider;
 class PageConfiguration;
 class PageConsoleClient;
 class PageDebuggable;
@@ -127,7 +129,6 @@ class PluginViewBase;
 class PointerCaptureController;
 class PointerLockController;
 class ProgressTracker;
-class Range;
 class RenderObject;
 class ResourceUsageOverlay;
 class ScrollLatchingState;
@@ -141,13 +142,19 @@ class StorageNamespaceProvider;
 class UserContentProvider;
 class UserContentURLPattern;
 class UserInputBridge;
+class UserScript;
+class UserStyleSheet;
 class ValidationMessageClient;
 class VisibleSelection;
 class VisitedLinkStore;
 class WebGLStateTracker;
 class WheelEventDeltaFilter;
+class WheelEventTestMonitor;
 
-using SharedStringHash = uint64_t;
+struct SimpleRange;
+
+using PlatformDisplayID = uint32_t;
+using SharedStringHash = uint32_t;
 
 enum class CanWrap : bool;
 enum class DidWrap : bool;
@@ -159,6 +166,11 @@ enum class EventThrottlingBehavior : bool { Responsive, Unresponsive };
 enum class CompositingPolicy : bool {
     Normal,
     Conservative, // Used in low memory situations.
+};
+
+enum class FinalizeRenderingUpdateFlags : uint8_t {
+    ApplyScrollingTreeLayerPositions    = 1 << 0,
+    InvalidateImagesWithAsyncDecodes    = 1 << 1,
 };
 
 class Page : public Supplementable<Page>, public CanMakeWeakPtr<Page> {
@@ -213,9 +225,7 @@ public:
 
     WEBCORE_EXPORT static void forEachPage(const WTF::Function<void(Page&)>&);
 
-    void incrementSubframeCount() { ++m_subframeCount; }
-    void decrementSubframeCount() { ASSERT(m_subframeCount); --m_subframeCount; }
-    int subframeCount() const { checkSubframeCountConsistency(); return m_subframeCount; }
+    unsigned subframeCount() const;
 
     void incrementNestedRunLoopCount();
     void decrementNestedRunLoopCount();
@@ -241,9 +251,7 @@ public:
 #endif
     UserInputBridge& userInputBridge() const { return *m_userInputBridge; }
     InspectorController& inspectorController() const { return *m_inspectorController; }
-#if ENABLE(POINTER_EVENTS)
     PointerCaptureController& pointerCaptureController() const { return *m_pointerCaptureController; }
-#endif
 #if ENABLE(POINTER_LOCK)
     PointerLockController& pointerLockController() const { return *m_pointerLockController; }
 #endif
@@ -254,6 +262,7 @@ public:
     bool shouldEnableICECandidateFilteringByDefault() const { return m_shouldEnableICECandidateFilteringByDefault; }
 
     void didChangeMainDocument();
+    void mainFrameDidChangeToNonInitialEmptyDocument();
 
     PerformanceMonitor* performanceMonitor() { return m_performanceMonitor.get(); }
 
@@ -266,10 +275,10 @@ public:
 
     WEBCORE_EXPORT String scrollingStateTreeAsText();
     WEBCORE_EXPORT String synchronousScrollingReasonsAsText();
-    WEBCORE_EXPORT Ref<DOMRectList> nonFastScrollableRects();
+    WEBCORE_EXPORT Ref<DOMRectList> nonFastScrollableRectsForTesting();
 
-    WEBCORE_EXPORT Ref<DOMRectList> touchEventRectsForEvent(const String& eventName);
-    WEBCORE_EXPORT Ref<DOMRectList> passiveTouchEventListenerRects();
+    WEBCORE_EXPORT Ref<DOMRectList> touchEventRectsForEventForTesting(const String& eventName);
+    WEBCORE_EXPORT Ref<DOMRectList> passiveTouchEventListenerRectsForTesting();
 
     Settings& settings() const { return *m_settings; }
     ProgressTracker& progress() const { return *m_progress; }
@@ -281,10 +290,12 @@ public:
     bool tabKeyCyclesThroughElements() const { return m_tabKeyCyclesThroughElements; }
 
     WEBCORE_EXPORT bool findString(const String&, FindOptions, DidWrap* = nullptr);
-    WEBCORE_EXPORT uint32_t replaceRangesWithText(const Vector<Ref<Range>>& rangesToReplace, const String& replacementText, bool selectionOnly);
+    WEBCORE_EXPORT uint32_t replaceRangesWithText(const Vector<SimpleRange>& rangesToReplace, const String& replacementText, bool selectionOnly);
     WEBCORE_EXPORT uint32_t replaceSelectionWithText(const String& replacementText);
 
-    WEBCORE_EXPORT RefPtr<Range> rangeOfString(const String&, Range*, FindOptions);
+    WEBCORE_EXPORT void revealCurrentSelection();
+
+    WEBCORE_EXPORT Optional<SimpleRange> rangeOfString(const String&, const Optional<SimpleRange>& searchRange, FindOptions);
 
     WEBCORE_EXPORT unsigned countFindMatches(const String&, FindOptions, unsigned maxMatchCount);
     WEBCORE_EXPORT unsigned markAllMatchesForText(const String&, FindOptions, bool shouldHighlight, unsigned maxMatchCount);
@@ -294,13 +305,17 @@ public:
     WEBCORE_EXPORT void dispatchBeforePrintEvent();
     WEBCORE_EXPORT void dispatchAfterPrintEvent();
 
-    // Find all the Ranges for the matching text.
+    // Find all the ranges for the matching text.
     // Upon return, indexForSelection will be one of the following:
     // 0 if there is no user selection
     // the index of the first range after the user selection
     // NoMatchAfterUserSelection if there is no matching text after the user selection.
-    enum { NoMatchAfterUserSelection = -1 };
-    WEBCORE_EXPORT void findStringMatchingRanges(const String&, FindOptions, int maxCount, Vector<RefPtr<Range>>&, int& indexForSelection);
+    struct MatchingRanges {
+        Vector<SimpleRange> ranges;
+        int indexForSelection { 0 }; // FIXME: Consider Optional<unsigned> or unsigned for this instead.
+    };
+    static constexpr int NoMatchAfterUserSelection = -1;
+    WEBCORE_EXPORT MatchingRanges findTextMatches(const String&, FindOptions, unsigned maxCount);
 
 #if PLATFORM(COCOA)
     void platformInitialize();
@@ -333,7 +348,11 @@ public:
     WEBCORE_EXPORT void updateMediaElementRateChangeRestrictions();
 
     void didStartProvisionalLoad();
-    void didFinishLoad(); // Called when the load has been committed in the main frame.
+    void didCommitLoad();
+    void didFinishLoad();
+
+    bool delegatesScaling() const { return m_delegatesScaling; }
+    WEBCORE_EXPORT void setDelegatesScaling(bool);
 
     // The view scale factor is multiplied into the page scale factor by all
     // callers of setPageScaleFactor.
@@ -346,8 +365,13 @@ public:
     float deviceScaleFactor() const { return m_deviceScaleFactor; }
     WEBCORE_EXPORT void setDeviceScaleFactor(float);
 
-    float initialScale() const { return m_initialScale; }
-    WEBCORE_EXPORT void setInitialScale(float);
+    float initialScaleIgnoringContentSize() const { return m_initialScaleIgnoringContentSize; }
+    WEBCORE_EXPORT void setInitialScaleIgnoringContentSize(float);
+
+    WEBCORE_EXPORT void screenPropertiesDidChange();
+    void windowScreenDidChange(PlatformDisplayID, Optional<unsigned> nominalFramesPerSecond);
+    PlatformDisplayID displayID() const { return m_displayID; }
+    Optional<unsigned> displayNominalFramesPerSecond() const { return m_displayNominalFramesPerSecond; }
 
     float topContentInset() const { return m_topContentInset; }
     WEBCORE_EXPORT void setTopContentInset(float);
@@ -423,13 +447,14 @@ public:
     ServicesOverlayController& servicesOverlayController() { return *m_servicesOverlayController; }
 #endif
 
-#if PLATFORM(MAC)
+#if ENABLE(WHEEL_EVENT_LATCHING)
     ScrollLatchingState* latchingState();
-    void pushNewLatchingState();
+    const Vector<ScrollLatchingState>& latchingStateStack() const { return m_latchingState; }
+    void pushNewLatchingState(ScrollLatchingState&&);
     void popLatchingState();
     void resetLatchingState();
     void removeLatchingStateForTarget(Element&);
-#endif // PLATFORM(MAC)
+#endif // ENABLE(WHEEL_EVENT_LATCHING)
 
 #if ENABLE(APPLE_PAY)
     PaymentCoordinator& paymentCoordinator() const { return *m_paymentCoordinator; }
@@ -470,7 +495,13 @@ public:
     WEBCORE_EXPORT void layoutIfNeeded();
     WEBCORE_EXPORT void updateRendering();
     
+    WEBCORE_EXPORT void finalizeRenderingUpdate(OptionSet<FinalizeRenderingUpdateFlags>);
+    
+    WEBCORE_EXPORT void scheduleRenderingUpdate();
     void scheduleTimedRenderingUpdate();
+    
+    WEBCORE_EXPORT void startTrackingRenderingUpdates();
+    WEBCORE_EXPORT unsigned renderingUpdateCount() const;
 
     WEBCORE_EXPORT void suspendScriptedAnimations();
     WEBCORE_EXPORT void resumeScriptedAnimations();
@@ -501,6 +532,8 @@ public:
 
     bool hasCustomHTMLTokenizerTimeDelay() const;
     double customHTMLTokenizerTimeDelay() const;
+
+    WEBCORE_EXPORT void setCORSDisablingPatterns(Vector<UserContentURLPattern>&&);
 
     WEBCORE_EXPORT void setMemoryCacheClientCallsEnabled(bool);
     bool areMemoryCacheClientCallsEnabled() const { return m_areMemoryCacheClientCallsEnabled; }
@@ -566,7 +599,7 @@ public:
 
     void hiddenPageCSSAnimationSuspensionStateChanged();
 
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
     void captionPreferencesChanged();
 #endif
 
@@ -587,6 +620,7 @@ public:
     DatabaseProvider& databaseProvider() { return m_databaseProvider; }
     CacheStorageProvider& cacheStorageProvider() { return m_cacheStorageProvider; }
     SocketProvider& socketProvider() { return m_socketProvider; }
+    MediaRecorderProvider& mediaRecorderProvider() { return m_mediaRecorderProvider; }
     CookieJar& cookieJar() { return m_cookieJar.get(); }
 
     StorageNamespaceProvider& storageNamespaceProvider() { return m_storageNamespaceProvider.get(); }
@@ -620,30 +654,36 @@ public:
     WEBCORE_EXPORT void resumeAllMediaBuffering();
     bool mediaBufferingIsSuspended() const { return m_mediaBufferingIsSuspended; }
 
+    void setHasResourceLoadClient(bool has) { m_hasResourceLoadClient = has; }
+    bool hasResourceLoadClient() const { return m_hasResourceLoadClient; }
+
+    void setCanUseCredentialStorage(bool canUse) { m_canUseCredentialStorage = canUse; }
+    bool canUseCredentialStorage() const { return m_canUseCredentialStorage; }
+
 #if ENABLE(MEDIA_SESSION)
     WEBCORE_EXPORT void handleMediaEvent(MediaEventType);
     WEBCORE_EXPORT void setVolumeOfMediaElement(double, uint64_t);
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    void addPlaybackTargetPickerClient(uint64_t);
-    void removePlaybackTargetPickerClient(uint64_t);
-    void showPlaybackTargetPicker(uint64_t, const IntPoint&, bool, RouteSharingPolicy, const String&);
-    void playbackTargetPickerClientStateDidChange(uint64_t, MediaProducer::MediaStateFlags);
+    void addPlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier);
+    void removePlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier);
+    void showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier, const IntPoint&, bool, RouteSharingPolicy, const String&);
+    void playbackTargetPickerClientStateDidChange(PlaybackTargetClientContextIdentifier, MediaProducer::MediaStateFlags);
     WEBCORE_EXPORT void setMockMediaPlaybackTargetPickerEnabled(bool);
     WEBCORE_EXPORT void setMockMediaPlaybackTargetPickerState(const String&, MediaPlaybackTargetContext::State);
     WEBCORE_EXPORT void mockMediaPlaybackTargetPickerDismissPopup();
 
-    WEBCORE_EXPORT void setPlaybackTarget(uint64_t, Ref<MediaPlaybackTarget>&&);
-    WEBCORE_EXPORT void playbackTargetAvailabilityDidChange(uint64_t, bool);
-    WEBCORE_EXPORT void setShouldPlayToPlaybackTarget(uint64_t, bool);
-    WEBCORE_EXPORT void playbackTargetPickerWasDismissed(uint64_t);
+    WEBCORE_EXPORT void setPlaybackTarget(PlaybackTargetClientContextIdentifier, Ref<MediaPlaybackTarget>&&);
+    WEBCORE_EXPORT void playbackTargetAvailabilityDidChange(PlaybackTargetClientContextIdentifier, bool);
+    WEBCORE_EXPORT void setShouldPlayToPlaybackTarget(PlaybackTargetClientContextIdentifier, bool);
+    WEBCORE_EXPORT void playbackTargetPickerWasDismissed(PlaybackTargetClientContextIdentifier);
 #endif
 
-    RefPtr<WheelEventTestMonitor> wheelEventTestMonitor() const { return m_wheelEventTestMonitor; }
-    WEBCORE_EXPORT WheelEventTestMonitor& ensureWheelEventTestMonitor();
-    void clearWheelEventTestMonitor() { m_wheelEventTestMonitor = nullptr; }
-    bool isMonitoringWheelEvents() const { return !!m_wheelEventTestMonitor; }
+    WEBCORE_EXPORT RefPtr<WheelEventTestMonitor> wheelEventTestMonitor() const;
+    WEBCORE_EXPORT void clearWheelEventTestMonitor();
+    WEBCORE_EXPORT void startMonitoringWheelEvents(bool clearLatchingState);
+    WEBCORE_EXPORT bool isMonitoringWheelEvents() const;
 
 #if ENABLE(VIDEO)
     bool allowsMediaDocumentInlinePlayback() const { return m_allowsMediaDocumentInlinePlayback; }
@@ -692,12 +732,16 @@ public:
     bool isOnlyNonUtilityPage() const;
     bool isUtilityPage() const { return m_isUtilityPage; }
 
-    bool isLowPowerModeEnabled() const;
-    WEBCORE_EXPORT void setLowPowerModeEnabledOverrideForTesting(Optional<bool>);
+    bool loadsSubresources() const { return m_loadsSubresources; }
+    bool loadsFromNetwork() const { return m_loadsFromNetwork; }
+    ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking() const { return m_shouldRelaxThirdPartyCookieBlocking; }
 
-    bool renderingUpdateThrottlingEnabled() const;
-    void renderingUpdateThrottlingEnabledChanged();
-    bool isRenderingUpdateThrottled() const;
+    bool isLowPowerModeEnabled() const { return m_throttlingReasons.contains(ThrottlingReason::LowPowerMode); }
+    bool canUpdateThrottlingReason(ThrottlingReason reason) const { return !m_throttlingReasonsOverridenForTesting.contains(reason); }
+    WEBCORE_EXPORT void setLowPowerModeEnabledOverrideForTesting(Optional<bool>);
+    WEBCORE_EXPORT void setOutsideViewportThrottlingEnabledForTesting(bool);
+
+    OptionSet<ThrottlingReason> throttlingReasons() const { return m_throttlingReasons; }
     Seconds preferredRenderingUpdateInterval() const;
 
     WEBCORE_EXPORT void applicationWillResignActive();
@@ -709,6 +753,12 @@ public:
 
     void configureLoggingChannel(const String&, WTFLogChannelState, WTFLogLevel);
 
+#if ENABLE(EDITABLE_REGION)
+    bool shouldBuildEditableRegion() const;
+    bool isEditableRegionEnabled() const { return m_isEditableRegionEnabled; }
+    WEBCORE_EXPORT void setEditableRegionEnabled(bool = true);
+#endif
+
     WEBCORE_EXPORT Vector<Ref<Element>> editableElementsInRect(const FloatRect&) const;
 
 #if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
@@ -719,6 +769,17 @@ public:
     void forEachMediaElement(const WTF::Function<void(HTMLMediaElement&)>&);
 
     bool shouldDisableCorsForRequestTo(const URL&) const;
+
+    WEBCORE_EXPORT void injectUserStyleSheet(UserStyleSheet&);
+    WEBCORE_EXPORT void removeInjectedUserStyleSheet(UserStyleSheet&);
+
+    bool isTakingSnapshotsForApplicationSuspension() const { return m_isTakingSnapshotsForApplicationSuspension; }
+    void setIsTakingSnapshotsForApplicationSuspension(bool isTakingSnapshotsForApplicationSuspension) { m_isTakingSnapshotsForApplicationSuspension = isTakingSnapshotsForApplicationSuspension; }
+
+    bool hasBeenNotifiedToInjectUserScripts() const { return m_hasBeenNotifiedToInjectUserScripts; }
+    WEBCORE_EXPORT void notifyToInjectUserScripts();
+
+    MonotonicTime lastRenderingUpdateTimestamp() const { return m_lastRenderingUpdateTimestamp; }
 
 private:
     struct Navigation {
@@ -732,8 +793,6 @@ private:
     void setIsInWindowInternal(bool);
     void setIsVisibleInternal(bool);
     void setIsVisuallyIdleInternal(bool);
-
-    void checkSubframeCountConsistency() const;
 
     enum ShouldHighlightMatches { DoNotHighlightMatches, HighlightMatches };
     enum ShouldMarkMatches { DoNotMarkMatches, MarkMatches };
@@ -757,6 +816,10 @@ private:
     void updateDOMTimerAlignmentInterval();
     void domTimerAlignmentIntervalIncreaseTimerFired();
 
+    void doAfterUpdateRendering();
+
+    WheelEventTestMonitor& ensureWheelEventTestMonitor();
+
     const std::unique_ptr<Chrome> m_chrome;
     const std::unique_ptr<DragCaretController> m_dragCaretController;
 
@@ -769,9 +832,7 @@ private:
 #endif
     const std::unique_ptr<UserInputBridge> m_userInputBridge;
     const std::unique_ptr<InspectorController> m_inspectorController;
-#if ENABLE(POINTER_EVENTS)
     const std::unique_ptr<PointerCaptureController> m_pointerCaptureController;
-#endif
 #if ENABLE(POINTER_LOCK)
     const std::unique_ptr<PointerLockController> m_pointerLockController;
 #endif
@@ -799,13 +860,16 @@ private:
     std::unique_ptr<SpeechSynthesisClient> m_speechSynthesisClient;
 #endif
 
+    UniqueRef<MediaRecorderProvider> m_mediaRecorderProvider;
     UniqueRef<LibWebRTCProvider> m_libWebRTCProvider;
     RTCController m_rtcController;
+
+    PlatformDisplayID m_displayID { 0 };
+    Optional<unsigned> m_displayNominalFramesPerSecond;
 
     int m_nestedRunLoopCount { 0 };
     WTF::Function<void()> m_unnestCallback;
 
-    int m_subframeCount { 0 };
     String m_groupName;
     bool m_openedByDOM { false };
     bool m_openedByDOMWithOpener { false };
@@ -843,7 +907,7 @@ private:
 #if ENABLE(TEXT_AUTOSIZING)
     float m_textAutosizingWidth { 0 };
 #endif
-    float m_initialScale { 1.0f };
+    float m_initialScaleIgnoringContentSize { 1.0f };
     
     bool m_suppressScrollbarAnimations { false };
     
@@ -924,7 +988,6 @@ private:
     Ref<UserContentProvider> m_userContentProvider;
     Ref<VisitedLinkStore> m_visitedLinkStore;
     RefPtr<WheelEventTestMonitor> m_wheelEventTestMonitor;
-
     HashSet<ActivityStateChangeObserver*> m_activityStateChangeObservers;
 
 #if ENABLE(RESOURCE_USAGE)
@@ -932,6 +995,9 @@ private:
 #endif
 
     PAL::SessionID m_sessionID;
+
+    unsigned m_renderingUpdateCount { 0 };
+    bool m_isTrackingRenderingUpdates { false };
 
     bool m_isClosing { false };
     bool m_isRestoringCachedPage { false };
@@ -948,6 +1014,17 @@ private:
     bool m_controlledByAutomation { false };
     bool m_resourceCachingDisabledByWebInspector { false };
     bool m_isUtilityPage;
+    bool m_shouldEnableICECandidateFilteringByDefault { true };
+    bool m_mediaPlaybackIsSuspended { false };
+    bool m_mediaBufferingIsSuspended { false };
+    bool m_inUpdateRendering { false };
+    bool m_hasResourceLoadClient { false };
+    bool m_delegatesScaling { false };
+
+#if ENABLE(EDITABLE_REGION)
+    bool m_isEditableRegionEnabled { false };
+#endif
+
     UserInterfaceLayoutDirection m_userInterfaceLayoutDirection { UserInterfaceLayoutDirection::LTR };
     
     // For testing.
@@ -956,12 +1033,13 @@ private:
 
     std::unique_ptr<PerformanceMonitor> m_performanceMonitor;
     std::unique_ptr<LowPowerModeNotifier> m_lowPowerModeNotifier;
-    Optional<bool> m_lowPowerModeEnabledOverrideForTesting;
+    OptionSet<ThrottlingReason> m_throttlingReasons;
+    OptionSet<ThrottlingReason> m_throttlingReasonsOverridenForTesting;
 
     Optional<Navigation> m_navigationToLogWhenVisible;
 
     std::unique_ptr<PerformanceLogging> m_performanceLogging;
-#if PLATFORM(MAC)
+#if ENABLE(WHEEL_EVENT_LATCHING)
     Vector<ScrollLatchingState> m_latchingState;
 #endif
 #if PLATFORM(MAC) && (ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION))
@@ -989,12 +1067,16 @@ private:
     RefPtr<DeviceOrientationUpdateProvider> m_deviceOrientationUpdateProvider;
 #endif
 
-    bool m_shouldEnableICECandidateFilteringByDefault { true };
-    bool m_mediaPlaybackIsSuspended { false };
-    bool m_mediaBufferingIsSuspended { false };
-    bool m_inUpdateRendering { false };
     Vector<UserContentURLPattern> m_corsDisablingPatterns;
-    OptionSet<ThrottlingReason> m_throttlingReasons;
+    Vector<UserStyleSheet> m_userStyleSheetsPendingInjection;
+    bool m_isTakingSnapshotsForApplicationSuspension { false };
+    bool m_loadsSubresources { true };
+    bool m_loadsFromNetwork { true };
+    bool m_canUseCredentialStorage { true };
+    ShouldRelaxThirdPartyCookieBlocking m_shouldRelaxThirdPartyCookieBlocking { ShouldRelaxThirdPartyCookieBlocking::No };
+    bool m_hasBeenNotifiedToInjectUserScripts { false };
+
+    MonotonicTime m_lastRenderingUpdateTimestamp;
 };
 
 inline PageGroup& Page::group()
@@ -1003,13 +1085,5 @@ inline PageGroup& Page::group()
         initGroup();
     return *m_group;
 }
-
-#if ASSERT_DISABLED
-
-inline void Page::checkSubframeCountConsistency() const
-{
-}
-
-#endif
 
 } // namespace WebCore

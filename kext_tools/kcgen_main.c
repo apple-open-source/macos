@@ -71,6 +71,11 @@
 #include "kcgen_main.h"
 #include "compression.h"
 
+#if RC_ENABLE_PRODUCT_INFO_FILTER
+// Disable info hiding in this host tool
+static void * product_info_filter_disable __attribute__((section("__INFO_FILTER,__disable"))) __attribute__((used));
+#endif /*  RC_ENABLE_PRODUCT_INFO_FILTER */
+
 /*******************************************************************************
 * Program Globals
 *******************************************************************************/
@@ -450,6 +455,10 @@ ExitStatus readArgs(
 
                     case kLongOptLoadList:
                         toolArgs->loadListPath = optarg;
+                        break;
+
+                    case kLongOptKextVariant:
+                        toolArgs->kextVariant = optarg;
                         break;
 
                     case kLongOptAllPersonalities:
@@ -1134,6 +1143,7 @@ ExitStatus createPrelinkedKernelForArch(
     CFDataRef prelinkedKernel = NULL;
     uint32_t flags = 0;
     Boolean fatalOut = false;
+    char * suffix = NULL;
 
     /* Retrieve the kernel image for the requested architecture.
      */
@@ -1145,9 +1155,17 @@ ExitStatus createPrelinkedKernelForArch(
         goto finish;
     }
 
-    /* Set suffix for kext executables from kernel path
+    if (toolArgs->kextVariant) {
+        if (-1 == asprintf(&suffix, "_%s", toolArgs->kextVariant)) {
+            OSKextLogMemError();
+            result = EX_OSERR;
+            goto finish;
+        }
+    }
+
+    /* Set suffix for kext executables
      */
-    OSKextSetExecutableSuffix(NULL, toolArgs->kernelPath);
+    OSKextSetExecutableSuffix(suffix, toolArgs->kernelPath);
 
     /* Set current target if there is one */
     if (toolArgs->targetForKextVariants) {
@@ -1155,7 +1173,6 @@ ExitStatus createPrelinkedKernelForArch(
     }
 
     /* Set the architecture in the OSKext library */
-
     if (!OSKextSetArchitecture(archInfo)) {
             OSKextLog(/* kext */ NULL,
                       kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
@@ -1236,6 +1253,7 @@ finish:
     SAFE_RELEASE(kernelImage);
     SAFE_RELEASE(prelinkKexts);
     SAFE_RELEASE(prelinkedKernel);
+    SAFE_FREE(suffix);
 
     return result;
 }
@@ -1371,6 +1389,7 @@ loadList(
     char                   path[PATH_MAX];
     char                   kextPath[PATH_MAX];
     u_int                  numArchs;
+    char                 * suffix           = NULL;
 
     result = createPrelinkedKernelArchs(toolArgs, &prelinkArchs);
     if (result != EX_OK) {
@@ -1384,8 +1403,17 @@ loadList(
 
     targetArch = CFArrayGetValueAtIndex(prelinkArchs, 0);
 
-    /* Set suffix for kext executables from kernel path */
-    OSKextSetExecutableSuffix(NULL, toolArgs->kernelPath);
+    if (toolArgs->kextVariant) {
+        if (-1 == asprintf(&suffix, "_%s", toolArgs->kextVariant)) {
+            OSKextLogMemError();
+            result = EX_OSERR;
+            goto finish;
+        }
+    }
+
+    /* Set suffix for kext executables
+     */
+    OSKextSetExecutableSuffix(suffix, toolArgs->kernelPath);
 
     /* Set current target if there is one */
     if (toolArgs->targetForKextVariants) {
@@ -1578,6 +1606,7 @@ finish:
     SAFE_RELEASE(prelinkArchs);
     SAFE_RELEASE(loadList);
     SAFE_RELEASE(prelinkKexts);
+    SAFE_FREE(suffix);
 
     return result;
 }
@@ -1632,6 +1661,10 @@ void usage(UsageLevel usageLevel)
     fprintf(stderr, "-%s <volume>:\n"
         "        Save kext paths in the prelinked kernel relative to <volume>\n",
         kOptNameVolumeRoot);
+    fprintf(stderr, "-%s <variant>:\n"
+        "        Use the given variant for kexts if available, otherwise fall back to release\n",
+        kOptNameKextVariant);
+
     fprintf(stderr, "\n");
 
     fprintf(stderr, "-%s (-%c): quiet mode: print no informational or error messages\n",

@@ -158,7 +158,6 @@ CoreAudioSharedUnit& CoreAudioSharedUnit::unit()
 CoreAudioSharedUnit::CoreAudioSharedUnit()
     : m_verifyCapturingTimer(*this, &CoreAudioSharedUnit::verifyIsCapturing)
 {
-    setSampleRate(AudioSession::sharedSession().sampleRate());
 }
 
 void CoreAudioSharedUnit::setCaptureDevice(String&& persistentID, uint32_t captureDeviceID)
@@ -408,16 +407,23 @@ OSStatus CoreAudioSharedUnit::speakerCallback(void *inRefCon, AudioUnitRenderAct
 
 OSStatus CoreAudioSharedUnit::processMicrophoneSamples(AudioUnitRenderActionFlags& ioActionFlags, const AudioTimeStamp& timeStamp, UInt32 inBusNumber, UInt32 inNumberFrames, AudioBufferList* /*ioData*/)
 {
-    ++m_microphoneProcsCalled;
-
     // Pull through the vpio unit to our mic buffer.
     m_microphoneSampleBuffer->reset();
     AudioBufferList& bufferList = m_microphoneSampleBuffer->bufferList();
     auto err = AudioUnitRender(m_ioUnit, &ioActionFlags, &timeStamp, inBusNumber, inNumberFrames, &bufferList);
     if (err) {
-        RELEASE_LOG_ERROR(WebRTC, "CoreAudioSharedUnit::processMicrophoneSamples(%p) AudioUnitRender failed with error %d (%.4s)", this, (int)err, (char*)&err);
+        RELEASE_LOG_ERROR(WebRTC, "CoreAudioSharedUnit::processMicrophoneSamples(%p) AudioUnitRender failed with error %d (%.4s), bufferList size %d, inNumberFrames %d ", this, (int)err, (char*)&err, (int)bufferList.mBuffers[0].mDataByteSize, (int)inNumberFrames);
+        if (err == kAudio_ParamError) {
+            // Our buffer might be too small, the preferred buffer size or sample rate might have changed.
+            callOnMainThread([] {
+                CoreAudioSharedUnit::singleton().reconfigure();
+            });
+        }
+        // We return early so that if this error happens, we do not increment m_microphoneProcsCalled and fail the capture once timer kicks in.
         return err;
     }
+
+    ++m_microphoneProcsCalled;
 
     double adjustedHostTime = m_DTSConversionRatio * timeStamp.mHostTime;
     uint64_t sampleTime = timeStamp.mSampleTime;
@@ -584,12 +590,6 @@ OSStatus CoreAudioSharedUnit::defaultOutputDevice(uint32_t* deviceID)
 
 static CaptureSourceOrError initializeCoreAudioCaptureSource(Ref<CoreAudioCaptureSource>&& source, const MediaConstraints* constraints)
 {
-#if PLATFORM(IOS_FAMILY)
-    // We ensure that we unsuspend ourselves on the constructor as a capture source
-    // is created when getUserMedia grants access which only happens when the process is foregrounded.
-    CoreAudioSharedUnit::singleton().prepareForNewCapture();
-#endif
-
     if (constraints) {
         if (auto result = source->applyConstraints(*constraints))
             return WTFMove(result->badConstraint);
@@ -602,7 +602,7 @@ CaptureSourceOrError CoreAudioCaptureSource::create(String&& deviceID, String&& 
 #if PLATFORM(MAC)
     auto device = CoreAudioCaptureDeviceManager::singleton().coreAudioDeviceWithUID(deviceID);
     if (!device)
-        return { };
+        return { "No CoreAudioCaptureSource device"_s };
 
     auto source = adoptRef(*new CoreAudioCaptureSource(WTFMove(deviceID), String { device->label() }, WTFMove(hashSalt), device->deviceID()));
 #elif PLATFORM(IOS_FAMILY)
@@ -611,15 +611,17 @@ CaptureSourceOrError CoreAudioCaptureSource::create(String&& deviceID, String&& 
         return { };
 
     auto source = adoptRef(*new CoreAudioCaptureSource(WTFMove(deviceID), String { device->label() }, WTFMove(hashSalt), 0));
+
+    // We ensure that we unsuspend ourselves on the constructor as a capture source
+    // is created when getUserMedia grants access which only happens when the process is foregrounded.
+    source->unit().prepareForNewCapture();
 #endif
     return initializeCoreAudioCaptureSource(WTFMove(source), constraints);
 }
 
 CaptureSourceOrError CoreAudioCaptureSource::createForTesting(String&& deviceID, String&& label, String&& hashSalt, const MediaConstraints* constraints, BaseAudioSharedUnit& overrideUnit)
 {
-    auto source = adoptRef(*new CoreAudioCaptureSource(WTFMove(deviceID), WTFMove(label), WTFMove(hashSalt), 0));
-
-    source->m_overrideUnit = &overrideUnit;
+    auto source = adoptRef(*new CoreAudioCaptureSource(WTFMove(deviceID), WTFMove(label), WTFMove(hashSalt), 0, &overrideUnit));
     return initializeCoreAudioCaptureSource(WTFMove(source), constraints);
 }
 
@@ -694,9 +696,10 @@ void CoreAudioCaptureSourceFactory::devicesChanged(const Vector<CaptureDevice>& 
     CoreAudioSharedUnit::unit().devicesChanged(devices);
 }
 
-CoreAudioCaptureSource::CoreAudioCaptureSource(String&& deviceID, String&& label, String&& hashSalt, uint32_t captureDeviceID)
+CoreAudioCaptureSource::CoreAudioCaptureSource(String&& deviceID, String&& label, String&& hashSalt, uint32_t captureDeviceID, BaseAudioSharedUnit* overrideUnit)
     : RealtimeMediaSource(RealtimeMediaSource::Type::Audio, WTFMove(label), WTFMove(deviceID), WTFMove(hashSalt))
     , m_captureDeviceID(captureDeviceID)
+    , m_overrideUnit(overrideUnit)
 {
     auto& unit = this->unit();
     initializeEchoCancellation(unit.enableEchoCancellation());
@@ -729,7 +732,7 @@ void CoreAudioCaptureSource::initializeToStartProducingData()
 CoreAudioCaptureSource::~CoreAudioCaptureSource()
 {
 #if PLATFORM(IOS_FAMILY)
-    CoreAudioCaptureSourceFactory::singleton().unsetCoreAudioActiveSource(*this);
+    CoreAudioCaptureSourceFactory::singleton().unsetActiveSource(*this);
 #endif
 
     unit().removeClient(*this);
@@ -738,7 +741,7 @@ CoreAudioCaptureSource::~CoreAudioCaptureSource()
 void CoreAudioCaptureSource::startProducingData()
 {
 #if PLATFORM(IOS_FAMILY)
-    CoreAudioCaptureSourceFactory::singleton().setCoreAudioActiveSource(*this);
+    CoreAudioCaptureSourceFactory::singleton().setActiveSource(*this);
 #endif
 
     initializeToStartProducingData();
@@ -810,6 +813,13 @@ bool CoreAudioCaptureSource::interrupted() const
 void CoreAudioCaptureSource::delaySamples(Seconds seconds)
 {
     unit().delaySamples(seconds);
+}
+
+void CoreAudioCaptureSource::audioUnitWillStart()
+{
+    forEachObserver([](auto& observer) {
+        observer.audioUnitWillStart();
+    });
 }
 
 } // namespace WebCore

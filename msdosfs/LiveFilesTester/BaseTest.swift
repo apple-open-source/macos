@@ -45,8 +45,8 @@ class fsAttributesRef  {
         UVFS_FSATTR_PC_LINK_MAX:        [1,1,1,1,1,1,1,1,1,1] ,
         UVFS_FSATTR_PC_NAME_MAX:        [K.FS.WIN_MAXLEN, K.FS.WIN_MAXLEN, K.FS.WIN_MAXLEN, K.FS.WIN_MAXLEN, K.FS.HFS_MAXLEN, K.FS.HFS_MAXLEN, K.FS.HFS_MAXLEN, K.FS.HFS_MAXLEN, K.FS.APFS_MAXLEN, K.FS.APFS_MAXLEN] ,
         UVFS_FSATTR_PC_NO_TRUNC:        [true, true, true, true, true, true, true, true, true, true] ,
-        UVFS_FSATTR_PC_FILESIZEBITS:    [33,33,33,64, 64, 64, 64, 64, 64, 64] ,
-        //            UVFS_FSATTR_PC_XATTR_SIZE_BITS: [nil,nil,nil,nil] ,
+        UVFS_FSATTR_PC_FILESIZEBITS:    [33,33,33,64, 64, 64, 64, 64, 57, 57] ,
+        UVFS_FSATTR_PC_XATTR_SIZE_BITS: [0, 0, 0, 0, 31, 31, 31, 31, 57, 57 ] ,
         //UVFS_FSATTR_BLOCKSIZE:          [4096, 2048, 512, 32768] ,
         
         //            UVFS_FSATTR_BLOCKSIZE:          [4096, 2048, 512, 4096] ,

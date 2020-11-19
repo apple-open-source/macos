@@ -64,6 +64,22 @@ typedef struct _IStack IStack;
 struct _Lexer;
 typedef struct _Lexer Lexer;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+#if defined(DMALLOC)
+#include "dmalloc.h"
+#endif
+
+void *MemAlloc(size_t size);
+void *MemRealloc(void *mem, size_t newsize);
+void MemFree(void *mem);
+void ClearMemory(void *, size_t size);
+void FatalError( ctmbstr msg );
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
 
 #endif /* __FORWARD_H__ */

@@ -2,6 +2,7 @@ include(platform/Curl.cmake)
 if (NOT APPLE_BUILD)
     include(platform/ImageDecoders.cmake)
 endif ()
+include(platform/OpenSSL.cmake)
 include(platform/TextureMapper.cmake)
 
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
@@ -46,16 +47,16 @@ list(APPEND WebCore_SOURCES
     platform/generic/KeyedEncoderGeneric.cpp
 
     platform/graphics/GLContext.cpp
-    platform/graphics/GraphicsContext3DPrivate.cpp
     platform/graphics/GraphicsContextImpl.cpp
     platform/graphics/PlatformDisplay.cpp
 
     platform/graphics/egl/GLContextEGL.cpp
 
-    platform/graphics/opengl/Extensions3DOpenGLCommon.cpp
-    platform/graphics/opengl/Extensions3DOpenGLES.cpp
-    platform/graphics/opengl/GraphicsContext3DOpenGLCommon.cpp
-    platform/graphics/opengl/GraphicsContext3DOpenGLES.cpp
+    platform/graphics/opengl/ExtensionsGLOpenGLCommon.cpp
+    platform/graphics/opengl/ExtensionsGLOpenGLES.cpp
+    platform/graphics/opengl/GraphicsContextGLOpenGLCommon.cpp
+    platform/graphics/opengl/GraphicsContextGLOpenGLES.cpp
+    platform/graphics/opengl/GraphicsContextGLOpenGLPrivate.cpp
     platform/graphics/opengl/TemporaryOpenGLSetting.cpp
 
     platform/graphics/opentype/OpenTypeUtilities.cpp
@@ -78,13 +79,12 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/FontWin.cpp
     platform/graphics/win/GlyphPageTreeNodeDirect2D.cpp
     platform/graphics/win/GradientDirect2D.cpp
-    platform/graphics/win/GraphicsContext3DDirect2D.cpp
+    platform/graphics/win/GraphicsContextGLDirect2D.cpp
     platform/graphics/win/GraphicsContextDirect2D.cpp
     platform/graphics/win/GraphicsContextImplDirect2D.cpp
     platform/graphics/win/GraphicsContextWin.cpp
     platform/graphics/win/IconWin.cpp
-    platform/graphics/win/ImageBufferDataDirect2D.cpp
-    platform/graphics/win/ImageBufferDirect2D.cpp
+    platform/graphics/win/ImageBufferDirect2DBackend.cpp
     platform/graphics/win/ImageDecoderDirect2D.cpp
     platform/graphics/win/ImageDirect2D.cpp
     platform/graphics/win/ImageWin.cpp
@@ -200,7 +200,6 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/win/FullScreenController.h
     platform/graphics/win/FullScreenControllerClient.h
     platform/graphics/win/GraphicsContextImplDirect2D.h
-    platform/graphics/win/ImageBufferDataDirect2D.h
     platform/graphics/win/ImageDecoderDirect2D.h
     platform/graphics/win/LocalWindowsContext.h
     platform/graphics/win/MediaPlayerPrivateFullscreenWindow.h

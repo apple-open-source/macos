@@ -5,6 +5,8 @@
 #include <err.h>
 #include <errno.h>
 #include <zlib.h>
+#include <limits.h>
+#include <assert.h>
 
 #include "hfsmeta.h"
 #include "Data.h"
@@ -51,7 +53,7 @@ WriteExtent(gzFile outf, DeviceInfo_t *devp, off_t start, off_t len)
 		if (nread != amt) {
 			warnx("Tried to read %zu bytes, only read %zd", amt, nread);
 		}
-		nwritten = gzwrite(outf, (char*)buffer, amt);
+		nwritten = gzwrite(outf, (char*)buffer, (unsigned)amt);
 		if (nwritten == -1) {
 			warn("tried to gzwrite %zu bytes", amt);
 			return -1;
@@ -73,6 +75,7 @@ WriteGatheredData(const char *pathname, VolumeObjects_t *vop)
 	HFSDataObject *objs = NULL, *op;
 	ExtentList_t *ep;
 	int i;
+	size_t len;
 
 	hdr.version = S32(kHFSInfoHeaderVersion);
 	hdr.deviceBlockSize = S32((uint32_t)vop->devp->blockSize);
@@ -111,7 +114,9 @@ WriteGatheredData(const char *pathname, VolumeObjects_t *vop)
 	}
 
 	gzwrite(outf, &hdr, sizeof(hdr));
-	gzwrite(outf, objs, sizeof(HFSDataObject) * vop->count);
+	len = sizeof(HFSDataObject) * vop->count;
+	assert(len < UINT_MAX);
+	gzwrite(outf, objs, (unsigned)len);
 
 	int count = 0;
 	for (ep = vop->list;

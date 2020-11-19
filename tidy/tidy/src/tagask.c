@@ -15,27 +15,18 @@
 #include "tags.h"
 #include "tidy.h"
 
-/* Apple Changes:
-   2007-02-20 iccir Export for binary compatibility.
-*/
-#if defined(TIDY_APPLE_CHANGES) && !defined(WIN32)
-#define TIDY_APPLE_EXPORT __attribute__((visibility("default")))
-#else
-#define TIDY_APPLE_EXPORT
-#endif
-
 Bool TIDY_CALL tidyNodeIsText( TidyNode tnod )
 { return TY_(nodeIsText)( tidyNodeToImpl(tnod) );
 }
-TIDY_APPLE_EXPORT Bool tidyNodeCMIsBlock( TidyNode tnod ); /* not exported yet */
+Bool tidyNodeCMIsBlock( TidyNode tnod ); /* not exported yet */
 Bool tidyNodeCMIsBlock( TidyNode tnod )
 { return TY_(nodeCMIsBlock)( tidyNodeToImpl(tnod) );
 }
-TIDY_APPLE_EXPORT Bool tidyNodeCMIsInline( TidyNode tnod ); /* not exported yet */
+Bool tidyNodeCMIsInline( TidyNode tnod ); /* not exported yet */
 Bool tidyNodeCMIsInline( TidyNode tnod )
 { return TY_(nodeCMIsInline)( tidyNodeToImpl(tnod) );
 }
-TIDY_APPLE_EXPORT Bool tidyNodeCMIsEmpty( TidyNode tnod ); /* not exported yet */
+Bool tidyNodeCMIsEmpty( TidyNode tnod ); /* not exported yet */
 Bool tidyNodeCMIsEmpty( TidyNode tnod )
 { return TY_(nodeCMIsEmpty)( tidyNodeToImpl(tnod) );
 }

@@ -22,6 +22,7 @@
 #include "JSTestOverloadedConstructors.h"
 
 #include "ActiveDOMObject.h"
+#include "DOMIsoSubspaces.h"
 #include "JSBlob.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructor.h"
@@ -33,9 +34,12 @@
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
+#include <JavaScriptCore/SubspaceInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
 #include <wtf/URL.h>
@@ -49,7 +53,7 @@ using namespace JSC;
 JSC::EncodedJSValue jsTestOverloadedConstructorsConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
 bool setJSTestOverloadedConstructorsConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 
-class JSTestOverloadedConstructorsPrototype : public JSC::JSNonFinalObject {
+class JSTestOverloadedConstructorsPrototype final : public JSC::JSNonFinalObject {
 public:
     using Base = JSC::JSNonFinalObject;
     static JSTestOverloadedConstructorsPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
@@ -60,6 +64,12 @@ public:
     }
 
     DECLARE_INFO;
+    template<typename CellType, JSC::SubspaceAccess>
+    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestOverloadedConstructorsPrototype, Base);
+        return &vm.plainObjectSpace;
+    }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
@@ -81,65 +91,84 @@ static inline EncodedJSValue constructJSTestOverloadedConstructors1(JSGlobalObje
 {
     VM& vm = lexicalGlobalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    UNUSED_PARAM(throwScope);
     auto* castedThis = jsCast<JSTestOverloadedConstructorsConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
-    auto arrayBuffer = convert<IDLArrayBuffer>(*lexicalGlobalObject, callFrame->uncheckedArgument(0), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "arrayBuffer", "TestOverloadedConstructors", nullptr, "ArrayBuffer"); });
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto arrayBuffer = convert<IDLArrayBuffer>(*lexicalGlobalObject, argument0.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "arrayBuffer", "TestOverloadedConstructors", nullptr, "ArrayBuffer"); });
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
     auto object = TestOverloadedConstructors::create(*arrayBuffer);
-    return JSValue::encode(toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object)));
+    static_assert(decltype(object)::isRef);
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object));
+    setSubclassStructureIfNeeded<TestOverloadedConstructors>(lexicalGlobalObject, callFrame, asObject(jsValue));
+    RETURN_IF_EXCEPTION(throwScope, { });
+    return JSValue::encode(jsValue);
 }
 
 static inline EncodedJSValue constructJSTestOverloadedConstructors2(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
     VM& vm = lexicalGlobalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    UNUSED_PARAM(throwScope);
     auto* castedThis = jsCast<JSTestOverloadedConstructorsConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
-    auto arrayBufferView = convert<IDLArrayBufferView>(*lexicalGlobalObject, callFrame->uncheckedArgument(0), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "arrayBufferView", "TestOverloadedConstructors", nullptr, "ArrayBufferView"); });
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto arrayBufferView = convert<IDLArrayBufferView>(*lexicalGlobalObject, argument0.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "arrayBufferView", "TestOverloadedConstructors", nullptr, "ArrayBufferView"); });
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
     auto object = TestOverloadedConstructors::create(arrayBufferView.releaseNonNull());
-    return JSValue::encode(toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object)));
+    static_assert(decltype(object)::isRef);
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object));
+    setSubclassStructureIfNeeded<TestOverloadedConstructors>(lexicalGlobalObject, callFrame, asObject(jsValue));
+    RETURN_IF_EXCEPTION(throwScope, { });
+    return JSValue::encode(jsValue);
 }
 
 static inline EncodedJSValue constructJSTestOverloadedConstructors3(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
     VM& vm = lexicalGlobalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    UNUSED_PARAM(throwScope);
     auto* castedThis = jsCast<JSTestOverloadedConstructorsConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
-    auto blob = convert<IDLInterface<Blob>>(*lexicalGlobalObject, callFrame->uncheckedArgument(0), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "blob", "TestOverloadedConstructors", nullptr, "Blob"); });
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto blob = convert<IDLInterface<Blob>>(*lexicalGlobalObject, argument0.value(), [](JSC::JSGlobalObject& lexicalGlobalObject, JSC::ThrowScope& scope) { throwArgumentTypeError(lexicalGlobalObject, scope, 0, "blob", "TestOverloadedConstructors", nullptr, "Blob"); });
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
     auto object = TestOverloadedConstructors::create(*blob);
-    return JSValue::encode(toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object)));
+    static_assert(decltype(object)::isRef);
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object));
+    setSubclassStructureIfNeeded<TestOverloadedConstructors>(lexicalGlobalObject, callFrame, asObject(jsValue));
+    RETURN_IF_EXCEPTION(throwScope, { });
+    return JSValue::encode(jsValue);
 }
 
 static inline EncodedJSValue constructJSTestOverloadedConstructors4(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
     VM& vm = lexicalGlobalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    UNUSED_PARAM(throwScope);
     auto* castedThis = jsCast<JSTestOverloadedConstructorsConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
-    auto string = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto string = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
     auto object = TestOverloadedConstructors::create(WTFMove(string));
-    return JSValue::encode(toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object)));
+    static_assert(decltype(object)::isRef);
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object));
+    setSubclassStructureIfNeeded<TestOverloadedConstructors>(lexicalGlobalObject, callFrame, asObject(jsValue));
+    RETURN_IF_EXCEPTION(throwScope, { });
+    return JSValue::encode(jsValue);
 }
 
 static inline EncodedJSValue constructJSTestOverloadedConstructors5(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
     VM& vm = lexicalGlobalObject->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
-    UNUSED_PARAM(throwScope);
     auto* castedThis = jsCast<JSTestOverloadedConstructorsConstructor*>(callFrame->jsCallee());
     ASSERT(castedThis);
     auto longArgs = convertVariadicArguments<IDLLong>(*lexicalGlobalObject, *callFrame, 0);
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
     auto object = TestOverloadedConstructors::create(WTFMove(longArgs));
-    return JSValue::encode(toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object)));
+    static_assert(decltype(object)::isRef);
+    auto jsValue = toJSNewlyCreated<IDLInterface<TestOverloadedConstructors>>(*lexicalGlobalObject, *castedThis->globalObject(), WTFMove(object));
+    setSubclassStructureIfNeeded<TestOverloadedConstructors>(lexicalGlobalObject, callFrame, asObject(jsValue));
+    RETURN_IF_EXCEPTION(throwScope, { });
+    return JSValue::encode(jsValue);
 }
 
 template<> EncodedJSValue JSC_HOST_CALL JSTestOverloadedConstructorsConstructor::construct(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -149,19 +178,19 @@ template<> EncodedJSValue JSC_HOST_CALL JSTestOverloadedConstructorsConstructor:
     UNUSED_PARAM(throwScope);
     size_t argsCount = std::min<size_t>(1, callFrame->argumentCount());
     if (argsCount == 0) {
-        return constructJSTestOverloadedConstructors5(lexicalGlobalObject, callFrame);
+        RELEASE_AND_RETURN(throwScope, (constructJSTestOverloadedConstructors5(lexicalGlobalObject, callFrame)));
     }
     if (argsCount == 1) {
         JSValue distinguishingArg = callFrame->uncheckedArgument(0);
         if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSArrayBuffer>(vm))
-            return constructJSTestOverloadedConstructors1(lexicalGlobalObject, callFrame);
+            RELEASE_AND_RETURN(throwScope, (constructJSTestOverloadedConstructors1(lexicalGlobalObject, callFrame)));
         if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSArrayBufferView>(vm))
-            return constructJSTestOverloadedConstructors2(lexicalGlobalObject, callFrame);
+            RELEASE_AND_RETURN(throwScope, (constructJSTestOverloadedConstructors2(lexicalGlobalObject, callFrame)));
         if (distinguishingArg.isObject() && asObject(distinguishingArg)->inherits<JSBlob>(vm))
-            return constructJSTestOverloadedConstructors3(lexicalGlobalObject, callFrame);
+            RELEASE_AND_RETURN(throwScope, (constructJSTestOverloadedConstructors3(lexicalGlobalObject, callFrame)));
         if (distinguishingArg.isNumber())
-            return constructJSTestOverloadedConstructors5(lexicalGlobalObject, callFrame);
-        return constructJSTestOverloadedConstructors4(lexicalGlobalObject, callFrame);
+            RELEASE_AND_RETURN(throwScope, (constructJSTestOverloadedConstructors5(lexicalGlobalObject, callFrame)));
+        RELEASE_AND_RETURN(throwScope, (constructJSTestOverloadedConstructors4(lexicalGlobalObject, callFrame)));
     }
     return throwVMTypeError(lexicalGlobalObject, throwScope);
 }
@@ -175,7 +204,7 @@ template<> JSValue JSTestOverloadedConstructorsConstructor::prototypeForStructur
 template<> void JSTestOverloadedConstructorsConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestOverloadedConstructors::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestOverloadedConstructors"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestOverloadedConstructors"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -188,12 +217,13 @@ static const HashTableValue JSTestOverloadedConstructorsPrototypeTableValues[] =
     { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestOverloadedConstructorsConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestOverloadedConstructorsConstructor) } },
 };
 
-const ClassInfo JSTestOverloadedConstructorsPrototype::s_info = { "TestOverloadedConstructorsPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestOverloadedConstructorsPrototype) };
+const ClassInfo JSTestOverloadedConstructorsPrototype::s_info = { "TestOverloadedConstructors", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestOverloadedConstructorsPrototype) };
 
 void JSTestOverloadedConstructorsPrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSTestOverloadedConstructors::info(), JSTestOverloadedConstructorsPrototypeTableValues, *this);
+    JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
 const ClassInfo JSTestOverloadedConstructors::s_info = { "TestOverloadedConstructors", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestOverloadedConstructors) };
@@ -256,6 +286,27 @@ bool setJSTestOverloadedConstructorsConstructor(JSGlobalObject* lexicalGlobalObj
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
+JSC::IsoSubspace* JSTestOverloadedConstructors::subspaceForImpl(JSC::VM& vm)
+{
+    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
+    auto& spaces = clientData.subspaces();
+    if (auto* space = spaces.m_subspaceForTestOverloadedConstructors.get())
+        return space;
+    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestOverloadedConstructors> || !JSTestOverloadedConstructors::needsDestruction);
+    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestOverloadedConstructors>)
+        spaces.m_subspaceForTestOverloadedConstructors = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestOverloadedConstructors);
+    else
+        spaces.m_subspaceForTestOverloadedConstructors = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestOverloadedConstructors);
+    auto* space = spaces.m_subspaceForTestOverloadedConstructors.get();
+IGNORE_WARNINGS_BEGIN("unreachable-code")
+IGNORE_WARNINGS_BEGIN("tautological-compare")
+    if (&JSTestOverloadedConstructors::visitOutputConstraints != &JSC::JSCell::visitOutputConstraints)
+        clientData.outputConstraintSpaces().append(space);
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
+    return space;
+}
+
 void JSTestOverloadedConstructors::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
 {
     auto* thisObject = jsCast<JSTestOverloadedConstructors*>(cell);
@@ -293,11 +344,11 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObj
 {
 
 #if ENABLE(BINDING_INTEGRITY)
-    void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
+    const void* actualVTablePointer = getVTablePointer(impl.ptr());
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(__identifier("??_7TestOverloadedConstructors@WebCore@@6B@"));
+    void* expectedVTablePointer = __identifier("??_7TestOverloadedConstructors@WebCore@@6B@");
 #else
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(&_ZTVN7WebCore26TestOverloadedConstructorsE[2]);
+    void* expectedVTablePointer = &_ZTVN7WebCore26TestOverloadedConstructorsE[2];
 #endif
 
     // If this fails TestOverloadedConstructors does not have a vtable, so you need to add the

@@ -28,7 +28,8 @@
 
 #import <IOKit/IOEventSource.h>
 
-class IOFWCmdQ ;
+
+struct IOFWCmdQ ;
 class IOFireWireController ;
 
 class IOFWQEventSource : public IOEventSource

@@ -30,9 +30,8 @@
 #import "utilities/debugging.h"
 
 @interface OTLocalResetOperation ()
-@property NSString* containerName;
-@property NSString* contextID;
-@property CuttlefishXPCWrapper* cuttlefishXPCWrapper;
+@property OTOperationDependencies* deps;
+
 @property NSOperation* finishedOp;
 @end
 
@@ -40,19 +39,15 @@
 @synthesize intendedState = _intendedState;
 @synthesize nextState = _nextState;
 
-- (instancetype)init:(NSString*)containerName
-           contextID:(NSString*)contextID
-       intendedState:(OctagonState*)intendedState
-          errorState:(OctagonState*)errorState
-cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
+- (instancetype)initWithDependencies:(OTOperationDependencies *)deps
+                       intendedState:(OctagonState *)intendedState
+                          errorState:(OctagonState *)errorState
 {
     if((self = [super init])) {
         _intendedState = intendedState;
         _nextState = errorState;
 
-        _containerName = containerName;
-        _contextID = contextID;
-        _cuttlefishXPCWrapper = cuttlefishXPCWrapper;
+        _deps = deps;
     }
     return self;
 }
@@ -65,16 +60,34 @@ cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     WEAKIFY(self);
-    [self.cuttlefishXPCWrapper localResetWithContainer:self.containerName
-                                               context:self.contextID
-                                                 reply:^(NSError * _Nullable error) {
+    [self.deps.cuttlefishXPCWrapper localResetWithContainer:self.deps.containerName
+                                                    context:self.deps.contextID
+                                                      reply:^(NSError * _Nullable error) {
             STRONGIFY(self);
             if(error) {
-                secnotice("octagon", "Unable to reset local cuttlefish for (%@,%@): %@", self.containerName, self.contextID, error);
+                secnotice("octagon", "Unable to reset local cuttlefish for (%@,%@): %@", self.deps.containerName, self.deps.contextID, error);
                 self.error = error;
             } else {
                 secnotice("octagon", "Successfully reset local cuttlefish");
-                self.nextState = self.intendedState;
+
+                NSError* localError = nil;
+                [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
+                    metadata.trustState = OTAccountMetadataClassC_TrustState_UNKNOWN;
+                    metadata.peerID = nil;
+                    metadata.syncingPolicy = nil;
+
+                    // Don't touch the CDP or account states; those can carry over
+
+                    return metadata;
+                } error:&localError];
+
+                if(localError) {
+                    secnotice("octagon", "Error resetting local account state: %@", localError);
+
+                } else {
+                    secnotice("octagon", "Successfully reset local account state");
+                    self.nextState = self.intendedState;
+                }
             }
 
             [self runBeforeGroupFinished:self.finishedOp];

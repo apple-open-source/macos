@@ -1,0 +1,41 @@
+(version 1)
+
+(define (home-subpath home-relative-subpath)
+    (subpath (string-append (param "HOME") home-relative-subpath)))
+
+(deny default)
+(deny file-map-executable iokit-get-properties process-info* nvram*)
+(deny dynamic-code-generation)
+
+(deny mach-priv-host-port)
+(import "system.sb")
+(import "com.apple.corefoundation.sb")
+(corefoundation)
+
+(allow distributed-notification-post)
+
+(allow process-info* (target self))
+(allow process-info-codesignature)
+
+(allow file-read-metadata)
+
+(allow file-read* file-write*
+    (home-subpath "/Library/Keychains/"))
+
+(allow mach-lookup
+    (global-name "com.apple.cloudd")
+    (global-name "com.apple.apsd")
+    (global-name "com.apple.securityd.xpc")
+    (global-name "com.apple.security.sfkeychainserver")
+    (global-name "com.apple.SecurityServer")
+    (global-name "com.apple.lsd.mapdb")
+)
+
+(allow user-preference-read
+    (preference-domain "kCFPreferencesAnyApplication")
+)
+
+(allow file-read* file-write*
+    (subpath "/private/var/db/mds/")
+    (subpath "/Library/Keychains/")
+)

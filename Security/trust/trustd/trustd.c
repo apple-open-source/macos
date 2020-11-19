@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017-2018 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2017-2020 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -305,7 +305,7 @@ static bool SecXPC_OTASecExperiment_GetAsset(SecurityClient * __unused client, x
     return result;
 }
 
-static bool SecXPC_OTAPKI_CopyTrustedCTLogs(SecurityClient * __unused client, xpc_object_t event,
+static bool SecXPC_OTAPKI_CopyTrustedCTLogs(SecurityClient * __unused client, xpc_object_t __unused event,
                                             xpc_object_t reply, CFErrorRef *error) {
     bool result = false;
     CFDictionaryRef trustedLogs = SecOTAPKICopyCurrentTrustedCTLogs(error);
@@ -381,6 +381,33 @@ static bool SecXPCTrustStoreCopyCTExceptions(SecurityClient * __unused client, x
     return false;
 }
 
+static bool SecXPCTrustStoreSetCARevocationAdditions(SecurityClient *client, xpc_object_t event,
+                                                     xpc_object_t reply, CFErrorRef *error) {
+    CFStringRef appID = NULL;
+    CFDictionaryRef additions = NULL;
+    if (!SecXPCDictionaryCopyStringOptional(event, kSecTrustEventApplicationID, &appID, error) || !appID) {
+        /* We always want to set the app ID with the additions */
+        appID = SecTaskCopyApplicationIdentifier(client->task);
+    }
+    (void)SecXPCDictionaryCopyDictionaryOptional(event, kSecTrustRevocationAdditionsKey, &additions, error);
+    bool result = _SecTrustStoreSetCARevocationAdditions(appID, additions, error);
+    xpc_dictionary_set_bool(reply, kSecXPCKeyResult, result);
+    CFReleaseNull(additions);
+    CFReleaseNull(appID);
+    return false;
+}
+
+static bool SecXPCTrustStoreCopyCARevocationAdditions(SecurityClient * __unused client, xpc_object_t event,
+                                                      xpc_object_t reply, CFErrorRef *error) {
+    CFStringRef appID = NULL;
+    (void)SecXPCDictionaryCopyStringOptional(event, kSecTrustEventApplicationID, &appID, error);
+    CFDictionaryRef additions = _SecTrustStoreCopyCARevocationAdditions(appID, error);
+    SecXPCDictionarySetPListOptional(reply, kSecTrustRevocationAdditionsKey, additions, error);
+    CFReleaseNull(additions);
+    CFReleaseNull(appID);
+    return false;
+}
+
 #if TARGET_OS_IPHONE
 static bool SecXPCTrustGetExceptionResetCount(SecurityClient * __unused client, xpc_object_t event, xpc_object_t reply, CFErrorRef *error) {
     uint64_t exceptionResetCount = SecTrustServerGetExceptionResetCount(error);
@@ -403,6 +430,12 @@ static bool SecXPCTrustIncrementExceptionResetCount(SecurityClient * __unused cl
     return result;
 }
 #endif
+
+static bool SecXPC_Valid_Update(SecurityClient * __unused client, xpc_object_t __unused event,
+                                xpc_object_t reply, CFErrorRef *error) {
+    xpc_dictionary_set_uint64(reply, kSecXPCKeyResult, SecRevocationDbUpdate(error));
+    return true;
+}
 
 typedef bool(*SecXPCOperationHandler)(SecurityClient *client, xpc_object_t event, xpc_object_t reply, CFErrorRef *error);
 
@@ -433,6 +466,9 @@ struct trustd_operations {
     SecXPCServerOperation trust_get_exception_reset_count;
     SecXPCServerOperation trust_increment_exception_reset_count;
 #endif
+    SecXPCServerOperation trust_store_set_ca_revocation_additions;
+    SecXPCServerOperation trust_store_copy_ca_revocation_additions;
+    SecXPCServerOperation valid_update;
 };
 
 static struct trustd_operations trustd_ops = {
@@ -457,6 +493,9 @@ static struct trustd_operations trustd_ops = {
     .trust_get_exception_reset_count = { NULL, SecXPCTrustGetExceptionResetCount },
     .trust_increment_exception_reset_count = { kSecEntitlementModifyAnchorCertificates, SecXPCTrustIncrementExceptionResetCount },
 #endif
+    .trust_store_set_ca_revocation_additions = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreSetCARevocationAdditions },
+    .trust_store_copy_ca_revocation_additions = {kSecEntitlementModifyAnchorCertificates, SecXPCTrustStoreCopyCARevocationAdditions },
+    .valid_update = { NULL, SecXPC_Valid_Update },
 };
 
 static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc_object_t event) {
@@ -618,6 +657,15 @@ static void trustd_xpc_dictionary_handler(const xpc_connection_t connection, xpc
                     server_op = &trustd_ops.trust_increment_exception_reset_count;
                     break;
 #endif
+                case kSecXPCOpSetCARevocationAdditions:
+                    server_op = &trustd_ops.trust_store_set_ca_revocation_additions;
+                    break;
+                case kSecXPCOpCopyCARevocationAdditions:
+                    server_op = &trustd_ops.trust_store_copy_ca_revocation_additions;
+                    break;
+                case kSecXPCOpValidUpdate:
+                    server_op = &trustd_ops.valid_update;
+                    break;
                 default:
                     break;
             }

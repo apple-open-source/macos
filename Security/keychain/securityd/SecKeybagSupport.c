@@ -337,7 +337,7 @@ bool ks_decrypt_acl(aks_ref_key_t ref_key, CFDataRef encrypted_data, CFMutableDa
                                                   aks_return, "decrypt"));
 
     CFPropertyListRef decoded_data = NULL;
-    der_decode_plist(kCFAllocatorDefault, kCFPropertyListImmutable, &decoded_data, NULL, der, der + der_len);
+    der_decode_plist(kCFAllocatorDefault, &decoded_data, NULL, der, der + der_len);
     require_action_quiet(decoded_data, out, SecError(errSecDecode, error, CFSTR("ks_crypt_acl: %x failed to '%s' item, Item can't be decrypted due to failed decode der, so drop the item."),
                                                            aks_return, "decrypt"));
     if (CFGetTypeID(decoded_data) == CFDataGetTypeID()) {
@@ -370,7 +370,7 @@ bool ks_delete_acl(aks_ref_key_t ref_key, CFDataRef encrypted_data,
     int aks_return = kAKSReturnSuccess;
     bool ok = false;
 
-    nrequire_action_quiet(CFEqual(SecAccessControlGetConstraint(access_control, kAKSKeyOpDelete), kCFBooleanTrue), out, ok = true);
+    nrequire_action_quiet(CFEqualSafe(SecAccessControlGetConstraint(access_control, kAKSKeyOpDelete), kCFBooleanTrue), out, ok = true);
 
     /* Verify that we have credential handle, otherwise generate proper error containing ACL and operation requested. */
     if (!acm_context) {

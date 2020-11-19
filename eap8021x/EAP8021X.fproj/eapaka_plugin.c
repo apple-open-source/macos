@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -425,15 +425,20 @@ EAPAKAContextSetLastIdentity(EAPAKAContextRef context, CFDataRef identity_data)
 	if (context->encrypted_identity_info != NULL &&
 	    (EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE ||
 	    context->last_identity_type == kAT_PERMANENT_ID_REQ)) {
-	    /* Carrier Hotspot case, for MK computation we need "0<IMSI>@<NAI realm>"
-	     * that eapolclient will get from CT Server.
-	     */
-	    CFStringRef real_identity = sim_identity_create(context->persist,
-							    context->plugin->properties,
-							    kAT_PERMANENT_ID_REQ, NULL, NULL);
-	    context->last_identity = CFStringCreateExternalRepresentation(NULL, real_identity,
+	    if (context->encrypted_identity_info->oob_pseudonym) {
+		/* carrier hotspot case: use oob pseudonym for MK computation */
+		CFStringRef temp_identity = context->encrypted_identity_info->oob_pseudonym;
+		context->last_identity = CFStringCreateExternalRepresentation(NULL, temp_identity,
+									      kCFStringEncodingUTF8, 0);
+	    } else {
+		/* carrier hotspot case: for MK computation we need "0<IMSI>@<NAI realm>" */
+		CFStringRef real_identity = sim_identity_create(context->persist,
+								context->plugin->properties,
+								kAT_PERMANENT_ID_REQ, NULL, NULL);
+		context->last_identity = CFStringCreateExternalRepresentation(NULL, real_identity,
 									  kCFStringEncodingUTF8, 0);
-	    my_CFRelease(&real_identity);
+		my_CFRelease(&real_identity);
+	    }
 	} else {
 	    context->last_identity = CFRetain(identity_data);
 	}
@@ -518,7 +523,6 @@ eapaka_identity(EAPAKAContextRef context,
 		TLVListRef tlvs_p,
 		EAPClientStatus * client_status)
 {
-    CFStringRef		identity = NULL;
     CFDataRef		identity_data = NULL;
     EAPSIMAKAAttributeType identity_req_type;
     EAPPacketRef	pkt = NULL;
@@ -591,12 +595,19 @@ eapaka_identity(EAPAKAContextRef context,
     } else if (context->encrypted_identity_info != NULL &&
 	       (EAPSIMAKAPersistentStateTemporaryUsernameAvailable(context->persist) == FALSE ||
 		identity_req_type == kAT_PERMANENT_ID_REQ)) {
-	/* encrypted IMSI for carrier Wi-Fi hotspots */
-	identity_data = CFRetain(context->encrypted_identity_info->encrypted_identity);
+	if (context->encrypted_identity_info->oob_pseudonym) {
+	    /* oob pseudonym for carrier Wi-Fi hotspots */
+	    CFStringRef	identity = context->encrypted_identity_info->oob_pseudonym;
+	    identity_data = CFStringCreateExternalRepresentation(NULL, identity,
+								 kCFStringEncodingUTF8, 0);
+	} else {
+	    /* encrypted IMSI for carrier Wi-Fi hotspots */
+	    identity_data = CFRetain(context->encrypted_identity_info->encrypted_identity);
+	}
         EAPAKAContextSetLastIdentity(context, identity_data);
     } else {
 	/* legacy */
-	identity = sim_identity_create(context->persist,
+	CFStringRef identity = sim_identity_create(context->persist,
 				       context->plugin->properties,
 				       identity_req_type,
 				       &reauth_id_used,
@@ -613,6 +624,7 @@ eapaka_identity(EAPAKAContextRef context,
 	identity_data = CFStringCreateExternalRepresentation(NULL, identity,
 							     kCFStringEncodingUTF8, 0);
 	EAPAKAContextSetLastIdentity(context, identity_data);
+	my_CFRelease(&identity);
     }
 
     if (!TLVBufferAddIdentity(tb_p, CFDataGetBytePtr(identity_data), (int) CFDataGetLength(identity_data))) {
@@ -622,18 +634,16 @@ eapaka_identity(EAPAKAContextRef context,
 	pkt = NULL;
 	goto done;
     }
-    my_CFRelease(&identity_data);
 
     /* we didn't have a fast re-auth ID */
     if (reauth_id_used == FALSE) {
 	context->key_info_valid = FALSE;
     }
-
     EAPPacketSetLength(pkt,
 		       offsetof(EAPAKAPacket, attrs) + TLVBufferUsed(tb_p));
 
  done:
-    my_CFRelease(&identity);
+    my_CFRelease(&identity_data);
     return (pkt);
 }
 
@@ -1432,6 +1442,7 @@ eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
     CFStringRef			imsi = NULL;
     CFStringRef 		ssid = NULL;
     AKAStaticKeys		static_keys;
+    Boolean			static_config = FALSE;
 
     AKAStaticKeysClear(&static_keys);
     if (AKAStaticKeysInitWithProperties(&static_keys, plugin->properties)) {
@@ -1441,6 +1452,7 @@ eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	    return (kEAPClientStatusConfigurationInvalid);
 	}
 	EAPLOG(LOG_NOTICE, "EAP-AKA: using static information");
+	static_config = TRUE;
     }
     else {
 	/* check for a SIM module */
@@ -1484,8 +1496,16 @@ eapaka_init(EAPClientPluginDataRef plugin, CFArrayRef * require_props,
 	}
     }
     if (plugin->encryptedEAPIdentity == NULL) {
+	Boolean is_privacy_protection_enabled;
 	context->encrypted_identity_info
-	= EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPAKA, plugin->properties, (context->static_keys.ck != NULL));
+	= EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPAKA, plugin->properties,
+					     static_config, &is_privacy_protection_enabled);
+	if (is_privacy_protection_enabled && context->encrypted_identity_info == NULL) {
+	    /* this means we failed to get encrypted-identity/oob-pseudonym from CT */
+	    EAPLOG(LOG_INFO, "EAP-AKA: failed to get privacy protected identity");
+	    EAPAKAContextFree(context);
+	    return (kEAPClientStatusResourceUnavailable);
+	}
     }
     context->plugin = plugin;
     plugin->private = context;
@@ -1531,6 +1551,7 @@ eapaka_process(EAPClientPluginDataRef plugin,
     case kEAPCodeFailure:
 	context->previous_identifier = -1;
 	context->plugin_state = kEAPClientStateFailure;
+	*client_status = kEAPClientStatusFailed;
 	break;
     default:
 	break;
@@ -1601,8 +1622,9 @@ eapaka_user_name_copy(CFDictionaryRef properties)
     CFStringRef				imsi;
     EAPSIMAKAPersistentStateRef		persist;
     CFStringRef				ret_identity = NULL;
-    bool				static_config = true;
+    Boolean				static_config = TRUE;
     EAPSIMAKAEncryptedIdentityInfoRef	encrypted_identity_info = NULL;
+    Boolean 				is_privacy_protection_enabled;
 
     imsi = copy_static_imsi(properties);
     if (imsi == NULL) {
@@ -1610,9 +1632,16 @@ eapaka_user_name_copy(CFDictionaryRef properties)
 	if (imsi == NULL) {
 	    goto done;
 	}
-	static_config = false;
+	static_config = FALSE;
     }
-    encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPAKA, properties, static_config);
+    encrypted_identity_info = EAPSIMAKAInitEncryptedIdentityInfo(kEAPTypeEAPAKA, properties,
+								 static_config, &is_privacy_protection_enabled);
+    if (is_privacy_protection_enabled && encrypted_identity_info == NULL) {
+	/* this means we failed to get encrypted-identity/oob-pseudonym from CT */
+	EAPLOG(LOG_INFO, "EAP-AKA: failed to get privacy protected identity");
+	my_CFRelease(&imsi);
+	return NULL;
+    }
     identity_type = S_get_identity_type(properties);
     persist = EAPSIMAKAPersistentStateCreate(kEAPTypeEAPAKA,
 					     CC_SHA1_DIGEST_LENGTH,
@@ -1621,8 +1650,12 @@ eapaka_user_name_copy(CFDictionaryRef properties)
     if (persist != NULL) {
 	if (encrypted_identity_info != NULL &&
 	    EAPSIMAKAPersistentStateTemporaryUsernameAvailable(persist) == FALSE) {
-	    /* we should send anonymous username in EAP-Response/Identity packet */
-	    ret_identity = CFRetain(encrypted_identity_info->anonymous_identity);
+	    if (encrypted_identity_info->oob_pseudonym) {
+		ret_identity = CFRetain(encrypted_identity_info->oob_pseudonym);
+	    } else {
+		/* we should send anonymous username in EAP-Response/Identity packet */
+		ret_identity = CFRetain(encrypted_identity_info->anonymous_identity);
+	    }
 	} else {
 	    Boolean reauth_id_used = FALSE;
 	    ret_identity = sim_identity_create(persist, properties,

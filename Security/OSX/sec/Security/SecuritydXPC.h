@@ -35,6 +35,7 @@ bool SecXPCDictionarySetDataOptional(xpc_object_t message, const char *key, CFDa
 bool SecXPCDictionarySetBool(xpc_object_t message, const char *key, bool value, CFErrorRef *error);
 
 bool SecXPCDictionarySetPList(xpc_object_t message, const char *key, CFTypeRef object, CFErrorRef *error);
+bool SecXPCDictionarySetPListWithRepair(xpc_object_t message, const char *key, CFTypeRef object, bool repair, CFErrorRef *error);
 bool SecXPCDictionarySetPListOptional(xpc_object_t message, const char *key, CFTypeRef object, CFErrorRef *error);
 
 bool SecXPCDictionarySetString(xpc_object_t message, const char *key, CFStringRef string, CFErrorRef *error);

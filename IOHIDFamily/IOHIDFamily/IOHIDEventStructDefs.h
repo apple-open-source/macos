@@ -188,7 +188,7 @@ typedef struct {
     uint32_t ch1;
     uint32_t ch2;
     uint32_t ch3;
-    Boolean brightnessChanged;
+    bool brightnessChanged;
     IOHIDEventColorSpace colorSpace;
     IOHIDDouble colorComponent0;
     IOHIDDouble colorComponent1;
@@ -496,7 +496,7 @@ typedef struct {
     IOFixed pressure;
     uint8_t number;
     uint8_t clickCount;
-    boolean_t state;
+    uint32_t state;
 } IOHIDButtonEventData;
 
 typedef struct {
@@ -636,7 +636,7 @@ typedef struct {
     uint8_t reserved[3];
     uint32_t mask;
     uint8_t number;
-    boolean_t state;
+    uint32_t state;
 } IOHIDLEDEventData;
 
 typedef struct {
@@ -761,7 +761,7 @@ typedef struct {
     uint8_t reserved[3];
     uint16_t usagePage;
     uint16_t usage;
-    boolean_t down;
+    uint32_t down;
     struct {
         uint32_t longPress:1;
         uint32_t clickSpeed:2;

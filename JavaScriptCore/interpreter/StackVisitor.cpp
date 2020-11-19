@@ -29,8 +29,8 @@
 #include "ClonedArguments.h"
 #include "DebuggerPrimitives.h"
 #include "InlineCallFrame.h"
-#include "Interpreter.h"
 #include "JSCInlines.h"
+#include "RegisterAtOffsetList.h"
 #include "WasmCallee.h"
 #include "WasmIndexOrName.h"
 #include "WebAssemblyFunction.h"
@@ -57,8 +57,8 @@ StackVisitor::StackVisitor(CallFrame* startFrame, VM& vm)
         }
 
     } else {
-        m_frame.m_entryFrame = 0;
-        topFrame = 0;
+        m_frame.m_entryFrame = nullptr;
+        topFrame = nullptr;
     }
     m_frame.m_callerIsEntryFrame = false;
     readFrame(topFrame);
@@ -183,7 +183,7 @@ void StackVisitor::readNonInlinedFrame(CallFrame* callFrame, CodeOrigin* codeOri
     }
 
 #if ENABLE(DFG_JIT)
-    m_frame.m_inlineCallFrame = 0;
+    m_frame.m_inlineCallFrame = nullptr;
 #endif
 }
 
@@ -208,7 +208,7 @@ void StackVisitor::readInlinedFrame(CallFrame* callFrame, CodeOrigin* codeOrigin
         m_frame.m_callFrame = callFrame;
         m_frame.m_inlineCallFrame = inlineCallFrame;
         if (inlineCallFrame->argumentCountRegister.isValid())
-            m_frame.m_argumentCountIncludingThis = callFrame->r(inlineCallFrame->argumentCountRegister.offset()).unboxedInt32();
+            m_frame.m_argumentCountIncludingThis = callFrame->r(inlineCallFrame->argumentCountRegister).unboxedInt32();
         else
             m_frame.m_argumentCountIncludingThis = inlineCallFrame->argumentCountIncludingThis;
         m_frame.m_codeBlock = inlineCallFrame->baselineCodeBlock.get();
@@ -428,9 +428,9 @@ void StackVisitor::Frame::retrieveExpressionInfo(int& divot, int& startOffset, i
 
 void StackVisitor::Frame::setToEnd()
 {
-    m_callFrame = 0;
+    m_callFrame = nullptr;
 #if ENABLE(DFG_JIT)
-    m_inlineCallFrame = 0;
+    m_inlineCallFrame = nullptr;
 #endif
     m_isWasmFrame = false;
 }

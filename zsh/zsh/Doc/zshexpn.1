@@ -1,4 +1,4 @@
-.TH "ZSHEXPN" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHEXPN" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshexpn \- zsh expansion and substitution
 .\" Yodl file: Zsh/expn.yo
@@ -250,9 +250,23 @@ see the definition of the filename extension in the description of the
 \fBr\fP modifier below\&.  Note that according to that definition the result
 will be empty if the string ends with a `\fB\&.\fP\&'\&.
 .TP
-\fBh\fP
-Remove a trailing pathname component, leaving the head\&.  This works
-like `\fBdirname\fP\&'\&.
+\fBh\fP [ \fIdigits\fP ]
+Remove a trailing pathname component, shortening the path by one
+directory level: this is the `head\&' of the pathname\&.  This works like
+`\fBdirname\fP\&'\&.  If the \fBh\fP is followed immediately (with no spaces or
+other separator) by any number of decimal digits, and the value of the
+resulting number is non\-zero, that number of leading components is
+preserved instead of the final component being removed\&.  In an
+absolute path the leading `\fB/\fP\&' is the first component, so,
+for example, if \fBvar=/my/path/to/something\fP, then \fB${var:h3}\fP
+substitutes \fB/my/path\fP\&.  Consecutive `/\&'s are treated the same as
+a single `/\&'\&.  In parameter substitution, digits may only be
+used if the expression is in braces, so for example the short form
+substitution \fB$var:h2\fP is treated as \fB${var:h}2\fP, not as
+\fB${var:h2}\fP\&.  No restriction applies to the use of digits in history
+substitution or globbing qualifiers\&.  If more components are requested
+than are present, the entire path is substituted (so this does not
+trigger a `failed modifier\&' error in history expansion)\&.
 .TP
 \fBl\fP
 Convert the words to all lowercase\&.
@@ -310,9 +324,12 @@ immediately by a \fBg\fP\&.  In parameter expansion the \fB&\fP must appear
 inside braces, and in filename generation it must be quoted with a
 backslash\&.
 .TP
-\fBt\fP
-Remove all leading pathname components, leaving the tail\&.  This works
-like `\fBbasename\fP\&'\&.
+\fBt\fP [ \fIdigits\fP ]
+Remove all leading pathname components, leaving the final component (tail)\&.
+This works like `\fBbasename\fP\&'\&.  Any trailing slashes are first removed\&.
+Decimal digits are handled as described above for (h), but in this
+case that number of trailing components is preserved instead of
+the default 1; 0 is treated the same as 1\&.
 .TP
 \fBu\fP
 Convert the words to all uppercase\&.
@@ -376,7 +393,7 @@ with the \fBEXTENDED_GLOB\fP option:
 .PP
 .RS
 .nf
-\fBprint *\&.c(#q:s/#%(#b)s(*)\&.c/\&'S${match[1]}\&.C'/)\fP
+\fBprint \-r \-\- *\&.c(#q:s/#%(#b)s(*)\&.c/\&'S${match[1]}\&.C'/)\fP
 .fi
 .RE
 .PP
@@ -576,7 +593,29 @@ and subscript notation to access individual array elements\&.
 Note in particular the fact that words of unquoted parameters are not
 automatically split on whitespace unless the option \fBSH_WORD_SPLIT\fP is
 set; see references to this option below for more details\&.  This is an
-important difference from other shells\&.
+important difference from other shells\&.  However, as in other shells,
+null words are elided from unquoted parameters\&' expansions\&.
+.PP
+With default options, after the assignments:
+.PP
+.RS
+.nf
+\fBarray=("first word" "" "third word")
+scalar="only word"\fP
+.fi
+.RE
+.PP
+then \fB$array\fP substitutes two words, `\fBfirst word\fP\&' and `\fBthird
+word\fP\&', and \fB$scalar\fP substitutes a single word `\fBonly word\fP'\&.  Note
+that second element of \fBarray\fP was elided\&.  Scalar parameters can
+be elided too if their value is null (empty)\&.  To avoid elision, use quoting as
+follows: \fB"$scalar"\fP for scalars and \fB"${array[@]}"\fP or \fB"${(@)array}"\fP
+for arrays\&.  (The last two forms are equivalent\&.)
+.PP
+Parameter expansions can involve \fIflags\fP, as in `\fB${(@kv)aliases}\fP\&',
+and other operators, such as `\fB${PREFIX:\-"/usr/local"}\fP\&'\&.  Parameter
+expansions can also be nested\&.  These topics will be introduced below\&.
+The full rules are complicated and are noted at the end\&.
 .PP
 In the expansions discussed below that require a pattern, the form of
 the pattern is the same as that used for filename generation;
@@ -588,21 +627,8 @@ the section `Modifiers\&' in the section `History Expansion' can be
 applied:  for example, \fB${i:s/foo/bar/}\fP performs string
 substitution on the expansion of parameter \fB$i\fP\&.
 .PP
-In the following descriptions, `word\&' refers to a single word
+In the following descriptions, `\fIword\fP\&' refers to a single word
 substituted on the command line, not necessarily a space delimited word\&.
-With default options, after the assignments:
-.PP
-.RS
-.nf
-\fBarray=("first word" "second word")
-scalar="only word"\fP
-.fi
-.RE
-.PP
-then \fB$array\fP substitutes two words, `\fBfirst word\fP\&' and `\fBsecond
-word\fP\&', and \fB$scalar\fP substitutes a single word `\fBonly word\fP'\&.  This
-may be modified by explicit or implicit word\-splitting, however\&.  The
-full rules are complicated and are noted at the end\&.
 .PP
 .PD 0
 .TP
@@ -1204,7 +1230,7 @@ form of single quoting is used that only quotes the string if needed to
 protect special characters\&.  Typically this form gives the most readable
 output\&.
 .PP
-If a \fBq+\fP is given, an extended form of minmal quoting is used that
+If a \fBq+\fP is given, an extended form of minimal quoting is used that
 causes unprintable characters to be rendered using \fB$\&'\fP\fI\&.\&.\&.\fP\fB'\fP\&.
 This quoting is similar to that used by the output of values by the
 \fBtypeset\fP family of commands\&.
@@ -1487,11 +1513,54 @@ used with the \fB${\fP\&.\&.\&.\fB/\fP\&.\&.\&.\fB}\fP forms\&.
 .TP
 .PD
 \fBS\fP
-Search substrings as well as beginnings or ends; with \fB#\fP start
-from the beginning and with \fB%\fP start from the end of the string\&.
+With \fB#\fP or \fB##\fP, search for the match that starts closest to the start of
+the string (a `substring match\&')\&. Of all matches at a particular position,
+\fB#\fP selects the shortest and \fB##\fP the longest:
+.RS
+.PP
+.RS
+.nf
+\fB% str="aXbXc"
+% echo ${(S)str#X*}
+abXc
+% echo ${(S)str##X*}
+a
+% \fP
+.fi
+.RE
+.PP
+With \fB%\fP or \fB%%\fP, search for the match that starts closest to the end of
+the string:
+.PP
+.RS
+.nf
+\fB% str="aXbXc"
+% echo ${(S)str%X*}
+aXbc
+% echo ${(S)str%%X*}
+aXb
+% \fP
+.fi
+.RE
+.PP
+(Note that \fB%\fP and \fB%%\fP don\&'t search for the match that ends closest to the
+end of the string, as one might expect\&.)
+.PP
 With substitution via \fB${\fP\&.\&.\&.\fB/\fP\&.\&.\&.\fB}\fP or
 \fB${\fP\&.\&.\&.\fB//\fP\&.\&.\&.\fB}\fP, specifies non\-greedy matching, i\&.e\&. that the
-shortest instead of the longest match should be replaced\&.
+shortest instead of the longest match should be replaced:
+.PP
+.RS
+.nf
+\fB% str="abab"
+% echo ${str/*b/_}
+_
+% echo ${(S)str/*b/_}
+_ab
+% \fP
+.fi
+.RE
+.RE
 .TP
 \fBI:\fP\fIexpr\fP\fB:\fP
 Search the \fIexpr\fPth match (where \fIexpr\fP evaluates to a number)\&.
@@ -2356,14 +2425,15 @@ For example,
 .PP
 .RS
 .nf
-\fBfoo="a string with a message"
-if [[ $foo = (a|an)\&' '(#b)(*)' '* ]]; then
+\fBfoo="a_string_with_a_message"
+if [[ $foo = (a|an)_(#b)(*) ]]; then
   print ${foo[$mbegin[1],$mend[1]]}
 fi\fP
 .fi
 .RE
 .PP
-prints `\fBstring with a\fP\&'\&.  Note that the first parenthesis is before the
+prints `\fBstring_with_a_message\fP\&'\&.
+Note that the first set of parentheses is before the
 \fB(#b)\fP and does not create a backreference\&.
 .PP
 Backreferences work with all forms of pattern matching other than filename
@@ -2592,7 +2662,7 @@ Thus:
 .PP
 .RS
 .nf
-\fBls (*/)#bar\fP
+\fBls \-ld \-\- (*/)#bar\fP
 .fi
 .RE
 .PP
@@ -2600,7 +2670,7 @@ or
 .PP
 .RS
 .nf
-\fBls **/bar\fP
+\fBls \-ld \-\- **/bar\fP
 .fi
 .RE
 .PP
@@ -2619,7 +2689,7 @@ Hence:
 .RS
 .nf
 \fBsetopt GLOBSTARSHORT
-ls **\&.c\fP
+ls \-ld \-\- **\&.c\fP
 .fi
 .RE
 .PP
@@ -2627,7 +2697,7 @@ is equivalent to
 .PP
 .RS
 .nf
-\fBls **/*\&.c\fP
+\fBls \-ld \-\- **/*\&.c\fP
 .fi
 .RE
 .SS "Glob Qualifiers"
@@ -2826,7 +2896,7 @@ appropriate test\&.  For example,
 .nf
 \fBnt() { [[ $REPLY \-nt $NTREF ]] }
 NTREF=reffile
-ls \-l *(+nt)\fP
+ls \-ld \-\- *(+nt)\fP
 .fi
 .RE
 .PP
@@ -3026,7 +3096,7 @@ options such as \fBNULL_GLOB\fP\&. Thus:
 .PP
 .RS
 .nf
-\fBls *(\-/)\fP
+\fBls \-ld \-\- *(\-/)\fP
 .fi
 .RE
 .PP
@@ -3035,7 +3105,7 @@ and
 .PP
 .RS
 .nf
-\fBls *(\-@)\fP
+\fBls \-ld \-\- *(\-@)\fP
 .fi
 .RE
 .PP
@@ -3043,7 +3113,7 @@ lists all broken symbolic links, and
 .PP
 .RS
 .nf
-\fBls *(%W)\fP
+\fBls \-ld \-\- *(%W)\fP
 .fi
 .RE
 .PP
@@ -3051,7 +3121,7 @@ lists all world\-writable device files in the current directory, and
 .PP
 .RS
 .nf
-\fBls *(W,X)\fP
+\fBls \-ld \-\- *(W,X)\fP
 .fi
 .RE
 .PP
@@ -3060,7 +3130,7 @@ world\-writable or world\-executable, and
 .PP
 .RS
 .nf
-\fBecho /tmp/foo*(u0^@:t)\fP
+\fBprint \-rC1 /tmp/foo*(u0^@:t)\fP
 .fi
 .RE
 .PP
@@ -3069,7 +3139,7 @@ outputs the basename of all root\-owned files beginning with the string
 .PP
 .RS
 .nf
-\fBls *\&.*~(lex|parse)\&.[ch](^D^l1)\fP
+\fBls \-ld \-\- *\&.*~(lex|parse)\&.[ch](^D^l1)\fP
 .fi
 .RE
 .PP
@@ -3079,7 +3149,7 @@ switched off) except for \fBlex\&.c\fP, \fBlex\&.h\fP, \fBparse\&.c\fP and \fBpa
 .PP
 .RS
 .nf
-\fBprint b*\&.pro(#q:s/pro/shmo/)(#q\&.:s/builtin/shmiltin/)\fP
+\fBprint \-rC1 b*\&.pro(#q:s/pro/shmo/)(#q\&.:s/builtin/shmiltin/)\fP
 .fi
 .RE
 .PP

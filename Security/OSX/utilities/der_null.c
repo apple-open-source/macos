@@ -32,12 +32,14 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 
-const uint8_t* der_decode_null(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_null(CFAllocatorRef allocator,
                                   CFNullRef* nul, CFErrorRef *error,
                                   const uint8_t* der, const uint8_t *der_end)
 {
-    if (NULL == der)
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
 	
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_NULL, &payload_size, der, der_end);
@@ -62,5 +64,6 @@ size_t der_sizeof_null(CFNullRef data __unused, CFErrorRef *error)
 uint8_t* der_encode_null(CFNullRef boolean __unused, CFErrorRef *error,
                             const uint8_t *der, uint8_t *der_end)
 {
-	return ccder_encode_tl(CCDER_NULL, 0, der, der_end);
+	return SecCCDEREncodeHandleResult(ccder_encode_tl(CCDER_NULL, 0, der, der_end),
+                                      error);
 }

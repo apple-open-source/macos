@@ -32,6 +32,7 @@
 #import "spi.h"
 #import "SecDbKeychainSerializedItemV7.h"
 #import "SecDbKeychainSerializedMetadata.h"
+#import "SecDbKeychainSerializedMetadataKey.h"
 #import "SecDbKeychainSerializedSecretData.h"
 #import "SecDbKeychainSerializedAKSWrappedKey.h"
 #import <utilities/SecCFWrappers.h>
@@ -138,6 +139,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     SecAccessControlRef ac = NULL;
 
     NSDictionary* secretData = @{(id)kSecValueData : @"secret here"};
+    CFDictionaryRef emptyDict = (__bridge CFDictionaryRef)@{};
 
     ac = SecAccessControlCreate(NULL, &error);
     XCTAssertNotNil((__bridge id)ac, @"failed to create access control with error: %@", (__bridge id)error);
@@ -145,16 +147,19 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     XCTAssertTrue(SecAccessControlSetProtection(ac, kSecAttrAccessibleWhenUnlocked, &error), @"failed to set access control protection with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to set access control protection: %@", (__bridge id)error);
 
-    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, (__bridge CFDictionaryRef)@{}, NULL, &enc, true, &error), @"failed to encrypt data with error: %@", error);
+    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, &error), @"failed to encrypt data with error: %@", error);
     XCTAssertTrue(enc != NULL, @"failed to get encrypted data from encryption function");
     XCTAssertNil((__bridge id)error, @"encountered error attempting to encrypt data: %@", (__bridge id)error);
     CFReleaseNull(ac);
 
     CFMutableDictionaryRef attributes = NULL;
     uint32_t version = 0;
+    NSData* dummyACM = [NSData dataWithBytes:"dummy" length:5];
+    const SecDbClass* class = kc_class_with_name(kSecClassGenericPassword);
+    NSArray* dummyArray = [NSArray array];
 
     keyclass_t keyclass = 0;
-    XCTAssertTrue(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, NULL, enc, NULL, NULL, &attributes, &version, true, &keyclass, &error), @"failed to decrypt data with error: %@", error);
+    XCTAssertTrue(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, &keyclass, &error), @"failed to decrypt data with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to decrypt data: %@", (__bridge id)error);
     XCTAssertEqual(keyclass, key_class_ak, @"failed to get back the keyclass from decryption");
 
@@ -277,9 +282,9 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSError* error;
     SecDbKeychainItemV7* item = [[SecDbKeychainItemV7 alloc] initWithSecretAttributes:@{(id)kSecValueData : password} metadataAttributes:metadata tamperCheck:[[NSUUID UUID] UUIDString] keyclass:9];
     [item encryptMetadataWithKeybag:0 error:&error];
-    XCTAssertNil(error, @"Successfully encrypted metadata");
+    XCTAssertNil(error, "error encrypting metadata with keybag 0");
     [item encryptSecretDataWithKeybag:0 accessControl:SecAccessControlCreate(NULL, NULL) acmContext:nil error:&error];
-    XCTAssertNil(error, @"Successfully encrypted secret data");
+    XCTAssertNil(error, "error encrypting secret data with keybag 0");
     SecDbKeychainSerializedItemV7* serializedItem = [[SecDbKeychainSerializedItemV7 alloc] init];
     serializedItem.encryptedMetadata = item.encryptedMetadataBlob;
     serializedItem.encryptedSecretData = item.encryptedSecretDataBlob;
@@ -342,6 +347,26 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
 - (void)trashMetadataClassAKey
 {
+    __block CFErrorRef cferror = NULL;
+    kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
+        CFStringRef sql = CFSTR("UPDATE metadatakeys SET data = ? WHERE keyclass = '6'");
+        NSData* garbage = [@"super bad key" dataUsingEncoding:NSUTF8StringEncoding];
+        SecDbPrepare(dbt, sql, &cferror, ^(sqlite3_stmt *stmt) {
+            SecDbBindObject(stmt, 1, (__bridge CFDataRef)garbage, &cferror);
+            SecDbStep(dbt, stmt, &cferror, NULL);
+            XCTAssertEqual(cferror, NULL, "Should be no error trashing class A metadatakey");
+            CFReleaseNull(cferror);
+        });
+        XCTAssertEqual(cferror, NULL, "Should be no error completing SecDbPrepare for trashing class A metadatakey");
+        return true;
+    });
+    CFReleaseNull(cferror);
+
+    [[SecDbKeychainMetadataKeyStore sharedStore] dropClassAKeys];
+}
+
+- (void)deleteMetadataClassAKey
+{
     CFErrorRef cferror = NULL;
 
     kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
@@ -356,32 +381,31 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     [[SecDbKeychainMetadataKeyStore sharedStore] dropClassAKeys];
 }
 
-- (void)checkDatabaseExistenceOfMetadataKey:(keyclass_t)keyclass shouldExist:(bool)shouldExist
+- (void)checkDatabaseExistenceOfMetadataKey:(keyclass_t)keyclass shouldExist:(bool)shouldExist value:(NSData*)expectedData
 {
     CFErrorRef cferror = NULL;
-
+    __block NSData* wrappedKey;
     kc_with_dbt(true, &cferror, ^bool(SecDbConnectionRef dbt) {
         __block CFErrorRef errref = NULL;
 
         NSString* sql = [NSString stringWithFormat:@"SELECT data, actualKeyclass FROM metadatakeys WHERE keyclass = %d", keyclass];
         __block bool ok = true;
-        __block bool keyExists = false;
         ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &errref, ^(sqlite3_stmt *stmt) {
             ok &= SecDbStep(dbt, stmt, &errref, ^(bool *stop) {
-                NSData* wrappedKeyData = [[NSData alloc] initWithBytes:sqlite3_column_blob(stmt, 0) length:sqlite3_column_bytes(stmt, 0)];
-                NSMutableData* unwrappedKeyData = [NSMutableData dataWithLength:wrappedKeyData.length];
-
-                keyExists = !!unwrappedKeyData;
+                wrappedKey = [[NSData alloc] initWithBytes:sqlite3_column_blob(stmt, 0) length:sqlite3_column_bytes(stmt, 0)];
             });
         });
 
         XCTAssertTrue(ok, "Should have completed all operations correctly");
-        XCTAssertEqual(errref, NULL, "Should be no error deleting class A metadatakey");
+        XCTAssertEqual(errref, NULL, "Should be no error trying to find class A metadatakey");
 
         if(shouldExist) {
-            XCTAssertTrue(keyExists, "Metadata class key should exist");
+            XCTAssertNotNil(wrappedKey, "Metadata class key should exist");
+            if (expectedData) {
+                XCTAssertEqualObjects(wrappedKey, expectedData);
+            }
         } else {
-            XCTAssertFalse(keyExists, "Metadata class key should not exist");
+            XCTAssertNil(wrappedKey, "Metadata class key should not exist");
         }
         CFReleaseNull(errref);
         return true;
@@ -400,7 +424,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
     OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
     XCTAssertEqual(result, 0, @"failed to add test item to keychain");
-    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:true];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:true value:nil];
 
     NSMutableDictionary* dataQuery = item.mutableCopy;
     [dataQuery removeObjectForKey:(id)kSecValueData];
@@ -413,7 +437,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     CFReleaseNull(foundItem);
 
     [self trashMetadataClassAKey];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:true value:[@"super bad key" dataUsingEncoding:NSUTF8StringEncoding]];
 
     /* when metadata corrupted, we should not find the item */
     result = SecItemCopyMatching((__bridge CFDictionaryRef)dataQuery, &foundItem);
@@ -421,7 +445,46 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     CFReleaseNull(foundItem);
 
     // Just calling SecItemCopyMatching shouldn't have created a new metadata key
-    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:true value:[@"super bad key" dataUsingEncoding:NSUTF8StringEncoding]];
+
+    /* CopyMatching will delete corrupt pre-emptively */
+    result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
+    XCTAssertEqual(result, -25300, @"corrupt item was not deleted for us");
+}
+
+- (void)testKeychainDeletionCopyMatching
+{
+    NSDictionary* item = @{ (id)kSecClass : (id)kSecClassGenericPassword,
+                            (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+                            (id)kSecAttrAccount : @"TestAccount",
+                            (id)kSecAttrService : @"TestService",
+                            (id)kSecAttrAccessible : (id)kSecAttrAccessibleWhenUnlocked,
+                            (id)kSecUseDataProtectionKeychain : @YES };
+
+    OSStatus result = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+    XCTAssertEqual(result, 0, @"failed to add test item to keychain");
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:true value:nil];
+
+    NSMutableDictionary* dataQuery = item.mutableCopy;
+    [dataQuery removeObjectForKey:(id)kSecValueData];
+    dataQuery[(id)kSecReturnData] = @(YES);
+
+    CFTypeRef foundItem = NULL;
+
+    result = SecItemCopyMatching((__bridge CFDictionaryRef)dataQuery, &foundItem);
+    XCTAssertEqual(result, 0, @"failed to find the data for the item we just added in the keychain");
+    CFReleaseNull(foundItem);
+
+    [self deleteMetadataClassAKey];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false value:nil];
+
+    /* when metadata corrupted, we should not find the item */
+    result = SecItemCopyMatching((__bridge CFDictionaryRef)dataQuery, &foundItem);
+    XCTAssertEqual(result, errSecItemNotFound, @"failed to find the data for the item we just added in the keychain");
+    CFReleaseNull(foundItem);
+
+    // Just calling SecItemCopyMatching shouldn't have created a new metadata key
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ak shouldExist:false value:nil];
 
     /* CopyMatching will delete corrupt pre-emptively */
     result = SecItemDelete((__bridge CFDictionaryRef)dataQuery);
@@ -508,6 +571,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     self.allowDecryption = NO;
 
     NSDictionary* secretData = @{(id)kSecValueData : @"secret here"};
+    CFDictionaryRef emptyDict = (__bridge CFDictionaryRef)@{};
 
     ac = SecAccessControlCreate(NULL, &error);
     XCTAssertNotNil((__bridge id)ac, @"failed to create access control with error: %@", (__bridge id)error);
@@ -515,16 +579,19 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     XCTAssertTrue(SecAccessControlSetProtection(ac, kSecAttrAccessibleWhenUnlocked, &error), @"failed to set access control protection with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to set access control protection: %@", (__bridge id)error);
 
-    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, (__bridge CFDictionaryRef)@{}, NULL, &enc, true, &error), @"failed to encrypt data with error: %@", error);
+    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, &error), @"failed to encrypt data with error: %@", error);
     XCTAssertTrue(enc != NULL, @"failed to get encrypted data from encryption function");
     XCTAssertNil((__bridge id)error, @"encountered error attempting to encrypt data: %@", (__bridge id)error);
     CFReleaseNull(ac);
 
     CFMutableDictionaryRef attributes = NULL;
     uint32_t version = 0;
+    NSData* dummyACM = [NSData dataWithBytes:"dummy" length:5];
+    const SecDbClass* class = kc_class_with_name(kSecClassGenericPassword);
+    NSArray* dummyArray = [NSArray array];
 
     keyclass_t keyclass = 0;
-    XCTAssertNoThrow(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, NULL, enc, NULL, NULL, &attributes, &version, true, &keyclass, &error), @"unexpected exception when decryption fails");
+    XCTAssertNoThrow(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, enc, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, true, &keyclass, &error), @"unexpected exception when decryption fails");
     XCTAssertEqual(keyclass, key_class_ak, @"failed to get back the keyclass when decryption failed");
 
     self.allowDecryption = YES;
@@ -744,18 +811,18 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     NSString* otherAccount = @"OtherAccount";
     NSString* thirdAccount = @"ThirdAccount";
     [self addTestItemExpecting:errSecSuccess account:testAccount accessible:(id)kSecAttrAccessibleAfterFirstUnlock];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:false];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true value:nil];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:false value:nil];
 
     // This should fail, and not create a CKU metadata key
     [self addTestItemExpecting:errSecDuplicateItem account:testAccount accessible:(id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:false];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true value:nil];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:false value:nil];
 
     // But successfully creating a new CKU item should create the key
     [self addTestItemExpecting:errSecSuccess account:otherAccount accessible:(id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:true];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true value:nil];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:true value:nil];
 
     // Drop all metadata key caches
     [SecDbKeychainMetadataKeyStore resetSharedStore];
@@ -765,8 +832,8 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
 
     // Adding another CKU item now should be fine
     [self addTestItemExpecting:errSecSuccess account:thirdAccount accessible:(id)kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true];
-    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:true];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_ck shouldExist:true value:nil];
+    [self checkDatabaseExistenceOfMetadataKey:key_class_cku shouldExist:true value:nil];
 
     // Drop all metadata key caches once more, to ensure we can find all three items from the persisted keys
     [SecDbKeychainMetadataKeyStore resetSharedStore];
@@ -796,6 +863,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     CFErrorRef error = NULL;
     
     NSDictionary* secretData = @{(id)kSecValueData : @"secret here"};
+    CFDictionaryRef emptyDict = (__bridge CFDictionaryRef)@{};
     
     ac = SecAccessControlCreate(NULL, &error);
     XCTAssertNotNil((__bridge id)ac, @"failed to create access control with error: %@", (__bridge id)error);
@@ -803,7 +871,7 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     XCTAssertTrue(SecAccessControlSetProtection(ac, accessibility, &error), @"failed to set access control protection with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to set access control protection: %@", (__bridge id)error);
     
-    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, (__bridge CFDictionaryRef)@{}, NULL, &enc, true, &error), @"failed to encrypt data with error: %@", error);
+    XCTAssertTrue(ks_encrypt_data(KEYBAG_DEVICE, ac, NULL, (__bridge CFDictionaryRef)secretData, emptyDict, emptyDict, &enc, true, &error), @"failed to encrypt data with error: %@", error);
     XCTAssertTrue(enc != NULL, @"failed to get encrypted data from encryption function");
     XCTAssertNil((__bridge id)error, @"encountered error attempting to encrypt data: %@", (__bridge id)error);
     CFReleaseNull(ac);
@@ -824,7 +892,11 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     XCTAssertNil((__bridge id)error, @"encountered error attempting to set access control protection: %@", (__bridge id)error);
     
     keyclass_t keyclass = 0;
-    XCTAssertTrue(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, NULL, (__bridge CFDataRef)encryptedData, NULL, NULL, &attributes, &version, false, &keyclass, &error), @"failed to decrypt data with error: %@", error);
+    NSData* dummyACM = [NSData dataWithBytes:"dummy" length:5];
+    const SecDbClass* class = kc_class_with_name(kSecClassGenericPassword);
+    NSArray* dummyArray = [NSArray array];
+
+    XCTAssertTrue(ks_decrypt_data(KEYBAG_DEVICE, kAKSKeyOpDecrypt, &ac, (__bridge CFDataRef _Nonnull)dummyACM, (__bridge CFDataRef)encryptedData, class, (__bridge CFArrayRef)dummyArray, &attributes, &version, false, &keyclass, &error), @"failed to decrypt data with error: %@", error);
     XCTAssertNil((__bridge id)error, @"encountered error attempting to decrypt data: %@", (__bridge id)error);
     XCTAssertEqual(keyclass & key_class_last, parse_keyclass(accessibility), @"failed to get back the keyclass from decryption");
     
@@ -881,13 +953,27 @@ static keyclass_t parse_keyclass(CFTypeRef value) {
     __block CFErrorRef error = NULL;
     __block bool ok = true;
     ok &= kc_with_dbt(true, &error, ^bool(SecDbConnectionRef dbt) {
-        NSString* sql = [NSString stringWithFormat:@"UPDATE metadatakeys SET actualKeyclass = %d WHERE keyclass = %d", 0, key_class_ak];
-        ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt* stmt) {
-            ok &= SecDbStep(dbt, stmt, &error, ^(bool* stop) {
-                // woohoo
+        if (checkV12DevEnabled()) { // item is in new format, turn it into an old format item
+            NSString* sql = [NSString stringWithFormat:@"SELECT metadatakeydata FROM metadatakeys WHERE keyclass = %d", key_class_ak];
+            __block NSData* key;
+            ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt* stmt) {
+                ok &= SecDbStep(dbt, stmt, &error, ^(bool *stop) {
+                    NSData* wrappedKey = [[NSData alloc] initWithBytes:sqlite3_column_blob(stmt, 0) length:sqlite3_column_bytes(stmt, 0)];
+                    SecDbKeychainSerializedMetadataKey* mdkdata = [[SecDbKeychainSerializedMetadataKey alloc] initWithData:wrappedKey];
+                    key = mdkdata.akswrappedkey;
+                });
             });
-        });
-        
+            sql = [NSString stringWithFormat:@"UPDATE metadatakeys SET actualKeyclass = 0, data = ?, metadatakeydata = ? WHERE keyclass = %d", key_class_ak];
+            ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt *stmt) {
+                ok &= SecDbBindBlob(stmt, 1, key.bytes, key.length, SQLITE_TRANSIENT, &error);
+                ok &= SecDbStep(dbt, stmt, &error, NULL);
+            });
+        } else {
+            NSString* sql = [NSString stringWithFormat:@"UPDATE metadatakeys SET actualKeyclass = %d WHERE keyclass = %d", 0, key_class_ak];
+            ok &= SecDbPrepare(dbt, (__bridge CFStringRef)sql, &error, ^(sqlite3_stmt* stmt) {
+                ok &= SecDbStep(dbt, stmt, &error, NULL);
+            });
+        }
         return ok;
     });
 

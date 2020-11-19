@@ -34,6 +34,7 @@ NSString * const kHIDUserDevicePropertyCreateInactiveKey = @"HIDUserDeviceCreate
     HIDUserDeviceGetReportHandler   _getReportHandler;
     HIDUserDeviceSetReportHandler   _setReportHandler;
     io_service_t                    _service;
+    HIDBlock                        _cancelHandler;
 }
 
 - (instancetype)initWithProperties:(NSDictionary *)properties
@@ -93,7 +94,7 @@ NSString * const kHIDUserDevicePropertyCreateInactiveKey = @"HIDUserDeviceCreate
 
 - (void)setCancelHandler:(HIDBlock)handler
 {
-    IOHIDUserDeviceSetCancelHandler(_device, handler);
+    _cancelHandler = handler;
 }
 
 - (void)setDispatchQueue:(dispatch_queue_t)queue
@@ -103,6 +104,14 @@ NSString * const kHIDUserDevicePropertyCreateInactiveKey = @"HIDUserDeviceCreate
 
 - (void)activate
 {
+    IOHIDUserDeviceSetCancelHandler(_device, ^{
+        // Block captures reference to self while cancellation hasn't completed.
+        if (self->_cancelHandler) {
+            self->_cancelHandler();
+            self->_cancelHandler = nil;
+        }
+    });
+
     IOHIDUserDeviceActivate(_device);
 }
 

@@ -121,7 +121,7 @@ SecCodeSigner::SecCodeSigner(SecCSFlags flags)
 //
 // Clean up a SecCodeSigner
 //
-SecCodeSigner::~SecCodeSigner() throw()
+SecCodeSigner::~SecCodeSigner() _NOEXCEPT
 try {
 	delete mLimitedAsync;
 } catch (...) {
@@ -182,9 +182,13 @@ bool SecCodeSigner::valid() const
 //
 void SecCodeSigner::sign(SecStaticCode *code, SecCSFlags flags)
 {
-	code->setValidationFlags(flags);
-	if (code->isSigned() && (flags & kSecCSSignPreserveSignature))
+	//Never preserve a linker signature.
+	if (code->isSigned() &&
+		(flags & kSecCSSignPreserveSignature) &&
+		!code->flag(kSecCodeSignatureLinkerSigned)) {
 		return;
+	}
+	code->setValidationFlags(flags);
 	Signer operation(*this, code);
 	if ((flags | mOpFlags) & kSecCSRemoveSignature) {
 		secinfo("signer", "%p will remove signature from %p", this, code);

@@ -21,6 +21,13 @@ struct IOHIDInterface_IVars
     OSArray                         *elements;
 };
 
+// Redefinition of the IOHIDElementValueHeader for DriverKit
+typedef struct IOHIDElementValueHeader {
+    uint32_t cookie;
+    uint32_t length;
+    uint32_t value[0];
+} IOHIDElementValueHeader;
+
 #define _properties ivars->properties
 #define _container  ivars->container
 #define _elements   ivars->elements
@@ -129,7 +136,9 @@ kern_return_t IOHIDInterface::setElementValues(OSArray *elements)
     for (unsigned int i = 0; i < elements->getCount(); i++) {
         IOHIDElementPrivate *element;
         IOHIDElementValueHeader *header;
+        OSData *elementData;
         uint32_t valueSize = 0;
+        uint32_t copySize = 0;
         
         element = (IOHIDElementPrivate *)elements->getObject(i);
         if (!element) {
@@ -140,9 +149,11 @@ kern_return_t IOHIDInterface::setElementValues(OSArray *elements)
         
         header = (IOHIDElementValueHeader *)buffPtr;
         header->cookie = element->getCookie();
-        
-        bcopy(element->getDataValue()->getBytesNoCopy(), header->value, valueSize);
-        
+        header->length = valueSize;
+        elementData = element->getDataValue();
+
+        copySize = valueSize > elementData->getLength() ? elementData->getLength() : valueSize;
+        memcpy(header->value, elementData->getBytesNoCopy(), copySize);
         buffPtr += sizeof(IOHIDElementValueHeader) + valueSize;
     }
     

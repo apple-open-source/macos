@@ -164,10 +164,10 @@ void ResourceError::platformLazyInit()
     else
         m_failingURL = URL((NSURL *)[[m_platformError.get() userInfo] valueForKey:@"NSErrorFailingURLKey"]);
     // Workaround for <rdar://problem/6554067>
-    m_localizedDescription = m_failingURL;
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    m_localizedDescription = m_failingURL.string();
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     m_localizedDescription = [m_platformError.get() _web_localizedDescription];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     m_dataIsUpToDate = true;
 }

@@ -40,7 +40,7 @@
 #define BOS_DARWIN 1
 #endif
 
-#ifdef __unix
+#if defined(__unix) || defined(__unix__)
 #define BOS_UNIX 1
 #endif
 
@@ -58,9 +58,13 @@
 
 #if BOS(DARWIN) && !defined(BUILDING_WITH_CMAKE)
 #if TARGET_OS_IOS
+#define BOS_IOS 1
 #define BPLATFORM_IOS 1
 #if TARGET_OS_SIMULATOR
 #define BPLATFORM_IOS_SIMULATOR 1
+#endif
+#if defined(TARGET_OS_MACCATALYST) && TARGET_OS_MACCATALYST
+#define BPLATFORM_MACCATALYST 1
 #endif
 #endif
 #if TARGET_OS_IPHONE
@@ -69,6 +73,7 @@
 #define BPLATFORM_IOS_FAMILY_SIMULATOR 1
 #endif
 #elif TARGET_OS_MAC
+#define BOS_MAC 1
 #define BPLATFORM_MAC 1
 #endif
 #endif
@@ -78,11 +83,17 @@
 #endif
 
 #if defined(TARGET_OS_WATCH) && TARGET_OS_WATCH
+#define BOS_WATCHOS 1
 #define BPLATFORM_WATCHOS 1
 #endif
 
 #if defined(TARGET_OS_TV) && TARGET_OS_TV
+#define BOS_APPLETV 1
 #define BPLATFORM_APPLETV 1
+#endif
+
+#if defined(__SCE__)
+#define BPLATORM_PLAYSTATION 1
 #endif
 
 /* ==== Policy decision macros: these define policy choices for a particular port. ==== */
@@ -115,8 +126,8 @@
 #define BCPU_X86_64 1
 #endif
 
-/* BCPU(ARM64) - Apple */
-#if (defined(__arm64__) && defined(__APPLE__)) || defined(__aarch64__)
+/* BCPU(ARM64) */
+#if defined(__arm64__) || defined(__aarch64__)
 #define BCPU_ARM64 1
 #endif
 
@@ -259,7 +270,7 @@
 #endif
 
 #if BCPU(ADDRESS64)
-#if BOS(DARWIN) && BCPU(ARM64)
+#if (BOS(IOS) || BOS(TVOS) || BOS(WATCHOS)) && BCPU(ARM64)
 #define BOS_EFFECTIVE_ADDRESS_WIDTH 36
 #else
 /* We strongly assume that effective address width is <= 48 in 64bit architectures (e.g. NaN boxing). */
@@ -271,12 +282,16 @@
 
 #define BATTRIBUTE_PRINTF(formatStringArgument, extraArguments) __attribute__((__format__(printf, formatStringArgument, extraArguments)))
 
-#if BPLATFORM(MAC) || BPLATFORM(IOS_FAMILY)
-#define BUSE_OS_LOG 1
+/* Export macro support. Detects the attributes available for shared library symbol export
+   decorations. */
+#if BOS(WINDOWS) || (BCOMPILER_HAS_CLANG_DECLSPEC(dllimport) && BCOMPILER_HAS_CLANG_DECLSPEC(dllexport))
+#define BUSE_DECLSPEC_ATTRIBUTE 1
+#elif BCOMPILER(GCC_COMPATIBLE)
+#define BUSE_VISIBILITY_ATTRIBUTE 1
 #endif
 
-#if !defined(BUSE_EXPORT_MACROS) && (BPLATFORM(MAC) || BPLATFORM(IOS_FAMILY))
-#define BUSE_EXPORT_MACROS 1
+#if BPLATFORM(MAC) || BPLATFORM(IOS_FAMILY)
+#define BUSE_OS_LOG 1
 #endif
 
 /* BUNUSED_PARAM */
@@ -289,12 +304,6 @@
 
 /* This is used for debugging when hacking on how bmalloc calculates its physical footprint. */
 #define ENABLE_PHYSICAL_PAGE_MAP 0
-
-#if BPLATFORM(IOS_FAMILY) && (BCPU(ARM64) || BCPU(ARM))
-#define BUSE_CHECK_NANO_MALLOC 1
-#else
-#define BUSE_CHECK_NANO_MALLOC 0
-#endif
 
 #if BPLATFORM(MAC)
 #define BUSE_PARTIAL_SCAVENGE 1

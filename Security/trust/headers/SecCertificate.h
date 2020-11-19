@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -154,7 +154,13 @@ CFDataRef SecCertificateCopyNormalizedSubjectSequence(SecCertificateRef certific
  */
 __nullable CF_RETURNS_RETAINED
 SecKeyRef SecCertificateCopyKey(SecCertificateRef certificate)
-    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0));
+    API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0), bridgeos(3.0));
+
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+#define SEC_SUFFIX_LEGACYMAC(symbol) __asm("_" __STRING(symbol) "$LEGACYMAC")
+#else
+#define SEC_SUFFIX_LEGACYMAC(symbol) /**/
+#endif
 
 #if TARGET_OS_IPHONE
 /*!
@@ -166,7 +172,7 @@ SecKeyRef SecCertificateCopyKey(SecCertificateRef certificate)
  */
 __nullable
 SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
-    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", ios(10.3, 12.0)) API_UNAVAILABLE(macos, iosmac);
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", ios(10.3, 12.0)) API_UNAVAILABLE(macos, macCatalyst);
 #endif
 
 #if TARGET_OS_OSX
@@ -179,7 +185,8 @@ SecKeyRef SecCertificateCopyPublicKey(SecCertificateRef certificate)
  @discussion NOTE: Deprecated in macOS 10.14; use SecCertificateCopyKey instead for cross-platform availability.
  */
 OSStatus SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef * __nonnull CF_RETURNS_RETAINED key)
-    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", macos(10.3, 10.14)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, iosmac);
+    SEC_SUFFIX_LEGACYMAC(SecCertificateCopyPublicKey)
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopyKey", macos(10.3, 10.14)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, macCatalyst);
 #endif
 
 /*!
@@ -191,7 +198,7 @@ OSStatus SecCertificateCopyPublicKey(SecCertificateRef certificate, SecKeyRef * 
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumberData(SecCertificateRef certificate, CFErrorRef *error)
-    __OSX_AVAILABLE_STARTING(__MAC_10_13, __IPHONE_11_0);
+    API_AVAILABLE(macos(10.13), ios(11.0), watchos(4.0), tvos(11.0), bridgeos(3.0));
 
 #if TARGET_OS_IPHONE
 /*!
@@ -202,7 +209,7 @@ CFDataRef SecCertificateCopySerialNumberData(SecCertificateRef certificate, CFEr
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
-    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", ios(10.3, 11.0)) API_UNAVAILABLE(macos, iosmac);
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", ios(10.3, 11.0)) API_UNAVAILABLE(macos, macCatalyst);
 #endif
 
 #if TARGET_OS_OSX
@@ -215,7 +222,8 @@ CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate)
  */
 __nullable
 CFDataRef SecCertificateCopySerialNumber(SecCertificateRef certificate, CFErrorRef *error)
-    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", macos(10.7, 10.13)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, iosmac);
+    SEC_SUFFIX_LEGACYMAC(SecCertificateCopySerialNumber)
+    API_DEPRECATED_WITH_REPLACEMENT("SecCertificateCopySerialNumberData", macos(10.7, 10.13)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, macCatalyst);
 #endif
 
 /*
@@ -463,8 +471,8 @@ extern const CFStringRef kSecPropertyTypeData __OSX_AVAILABLE_STARTING(__MAC_10_
 extern const CFStringRef kSecPropertyTypeString __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFStringRef kSecPropertyTypeURL __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 extern const CFStringRef kSecPropertyTypeDate __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
-extern const CFStringRef kSecPropertyTypeArray API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), watchos(6.0), tvos(13.0), iosmac(13.0));
-extern const CFStringRef kSecPropertyTypeNumber API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), watchos(6.0), tvos(13.0), iosmac(13.0));
+extern const CFStringRef kSecPropertyTypeArray API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), watchos(6.0), tvos(13.0), macCatalyst(13.0));
+extern const CFStringRef kSecPropertyTypeNumber API_AVAILABLE(macos(10.15)) SPI_AVAILABLE(ios(13.0), watchos(6.0), tvos(13.0), macCatalyst(13.0));
 
 /*!
     @function SecCertificateCopyValues

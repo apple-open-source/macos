@@ -249,11 +249,11 @@
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldAmbientLightColorSpace, (CFIndex)ambientLightColorSpace);
 }
 
-- (Boolean)ambientLightDisplayBrightnessChanged {
-    return (Boolean)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldAmbientLightDisplayBrightnessChanged);
+- (bool)ambientLightDisplayBrightnessChanged {
+    return (bool)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldAmbientLightDisplayBrightnessChanged);
 }
 
-- (void)setAmbientLightDisplayBrightnessChanged:(Boolean)ambientLightDisplayBrightnessChanged {
+- (void)setAmbientLightDisplayBrightnessChanged:(bool)ambientLightDisplayBrightnessChanged {
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldAmbientLightDisplayBrightnessChanged, (CFIndex)ambientLightDisplayBrightnessChanged);
 }
 
@@ -1177,11 +1177,11 @@
     IOHIDEventSetFloatValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldButtonPressure, (IOHIDFloat)buttonPressure);
 }
 
-- (boolean_t)buttonState {
-    return (boolean_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldButtonState);
+- (uint32_t)buttonState {
+    return (uint32_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldButtonState);
 }
 
-- (void)setButtonState:(boolean_t)buttonState {
+- (void)setButtonState:(uint32_t)buttonState {
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldButtonState, (CFIndex)buttonState);
 }
 
@@ -1358,7 +1358,7 @@
 
 @implementation HIDEvent (HIDLEDEvent)
 
-+ (instancetype)lEDEvent:(uint64_t)timestamp ledMask:(uint32_t)ledMask number:(uint8_t)number state:(boolean_t)state options:(uint32_t)options
++ (instancetype)lEDEvent:(uint64_t)timestamp ledMask:(uint32_t)ledMask number:(uint8_t)number state:(uint32_t)state options:(uint32_t)options
 {
     CFIndex eventSize = sizeof(IOHIDLEDEventData);
     HIDEvent *event = (__bridge_transfer HIDEvent *)_IOHIDEventCreate(kCFAllocatorDefault, eventSize, kIOHIDEventTypeLED, timestamp, options);
@@ -1366,7 +1366,7 @@
 
     eventData->mask = (uint32_t)ledMask;
     eventData->number = (uint8_t)number;
-    eventData->state = (boolean_t)state;
+    eventData->state = (uint32_t)state;
 
     return event;
 }
@@ -1391,11 +1391,11 @@
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldLEDNumber, (CFIndex)ledNumber);
 }
 
-- (boolean_t)ledState {
-    return (boolean_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldLEDState);
+- (uint32_t)ledState {
+    return (uint32_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldLEDState);
 }
 
-- (void)setLedState:(boolean_t)ledState {
+- (void)setLedState:(uint32_t)ledState {
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldLEDState, (CFIndex)ledState);
 }
 
@@ -1581,7 +1581,7 @@
 
 @implementation HIDEvent (HIDKeyboardEvent)
 
-+ (instancetype)keyboardEvent:(uint64_t)timestamp usagePage:(uint16_t)usagePage usage:(uint16_t)usage down:(boolean_t)down options:(uint32_t)options
++ (instancetype)keyboardEvent:(uint64_t)timestamp usagePage:(uint16_t)usagePage usage:(uint16_t)usage down:(uint32_t)down options:(uint32_t)options
 {
     CFIndex eventSize = sizeof(IOHIDKeyboardEventData);
     HIDEvent *event = (__bridge_transfer HIDEvent *)_IOHIDEventCreate(kCFAllocatorDefault, eventSize, kIOHIDEventTypeKeyboard, timestamp, options);
@@ -1589,7 +1589,7 @@
 
     eventData->usagePage = (uint16_t)usagePage;
     eventData->usage = (uint16_t)usage;
-    eventData->down = (boolean_t)down;
+    eventData->down = (uint32_t)down;
 
     return event;
 }
@@ -1606,11 +1606,11 @@
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldKeyboardClickSpeed, (CFIndex)keyboardClickSpeed);
 }
 
-- (boolean_t)keyboardDown {
-    return (boolean_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldKeyboardDown);
+- (uint32_t)keyboardDown {
+    return (uint32_t)IOHIDEventGetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldKeyboardDown);
 }
 
-- (void)setKeyboardDown:(boolean_t)keyboardDown {
+- (void)setKeyboardDown:(uint32_t)keyboardDown {
     IOHIDEventSetIntegerValue((__bridge IOHIDEventRef)self, kIOHIDEventFieldKeyboardDown, (CFIndex)keyboardDown);
 }
 

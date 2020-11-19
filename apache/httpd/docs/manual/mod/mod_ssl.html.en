@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
-<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
 <!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
@@ -27,13 +27,13 @@
 <div id="preamble"><h1>Apache Module mod_ssl</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_ssl.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/mod/mod_ssl.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
+<a href="../fr/mod/mod_ssl.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a></p>
 </div>
 <table class="module"><tr><th><a href="module-dict.html#Description">Description:</a></th><td>Strong cryptography using the Secure Sockets
 Layer (SSL) and Transport Layer Security (TLS) protocols</td></tr>
 <tr><th><a href="module-dict.html#Status">Status:</a></th><td>Extension</td></tr>
-<tr><th><a href="module-dict.html#ModuleIdentifier">Module Identifier:</a></th><td>ssl_module</td></tr>
-<tr><th><a href="module-dict.html#SourceFile">Source File:</a></th><td>mod_ssl.c</td></tr></table>
+<tr><th><a href="module-dict.html#ModuleIdentifier">ModuleÂ Identifier:</a></th><td>ssl_module</td></tr>
+<tr><th><a href="module-dict.html#SourceFile">SourceÂ File:</a></th><td>mod_ssl.c</td></tr></table>
 <h3>Summary</h3>
 
 <p>This module provides SSL v3 and TLS v1.x support for the Apache
@@ -365,7 +365,7 @@ Require valid-user</pre>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>File of concatenated PEM-encoded CA Certificates
 for Client Auth</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCACertificateFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCACertificateFile <var>file-path</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
@@ -410,7 +410,7 @@ contains the appropriate symbolic links.</p>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>File of concatenated PEM-encoded CA Certificates
 for defining acceptable CA names</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCADNRequestFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCADNRequestFile <var>file-path</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
@@ -521,7 +521,7 @@ CRL checks are applied to all certificates in the chain, while setting it to
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>File of concatenated PEM-encoded CA CRLs for
 Client Auth</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCARevocationFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCARevocationFile <var>file-path</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
@@ -565,7 +565,7 @@ contains the appropriate symbolic links.</p>
 <div class="directive-section"><h2><a name="SSLCertificateChainFile" id="SSLCertificateChainFile">SSLCertificateChainFile</a> <a name="sslcertificatechainfile" id="sslcertificatechainfile">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>File of PEM-encoded Server CA Certificates</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCertificateChainFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCertificateChainFile <var>file-path</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
@@ -607,15 +607,16 @@ confused in this situation.</p>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="SSLCertificateFile" id="SSLCertificateFile">SSLCertificateFile</a> <a name="sslcertificatefile" id="sslcertificatefile">Directive</a></h2>
 <table class="directive">
-<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Server PEM-encoded X.509 certificate data file</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCertificateFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Server PEM-encoded X.509 certificate data file or token identifier</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCertificateFile <var>file-path</var>|<var>certid</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td><var>certid</var> available in 2.4.42 and later.</td></tr>
 </table>
 <p>
-This directive points to a file with certificate data in PEM format.
-At a minimum, the file must include an end-entity (leaf) certificate.
+This directive points to a file with certificate data in PEM format, or the certificate identifier through a configured cryptographic token.
+If using a PEM file, at minimum, the file must include an end-entity (leaf) certificate.
 The directive can be used multiple times (referencing different filenames)
 to support multiple algorithms for server authentication - typically
 RSA, DSA, and ECC. The number of supported algorithms depends on the
@@ -655,6 +656,14 @@ the certificate files using such an embedded key must be configured
 after the certificates using a separate key file. If the private
 key is encrypted, the pass phrase dialog is forced at startup time.
 </p>
+
+<p>As an alternative to storing certificates and private keys in
+files, a certificate identifier can be used to identify a certificate
+stored in a token.  Currently, only <a href="https://tools.ietf.org/html/rfc7512">PKCS#11 URIs</a> are
+recognized as certificate identifiers, and can be used in conjunction
+with the OpenSSL <code>pkcs11</code> engine.  If <code class="directive"><a href="#sslcertificatekeyfile">SSLCertificateKeyFile</a></code> is omitted, the
+certificate and private key can be loaded through the single
+identifier specified with <code class="directive"><a href="#sslcertificatefile">SSLCertificateFile</a></code>.</p>
 
 <div class="note">
 <h3>DH parameter interoperability with primes &gt; 1024 bit</h3>
@@ -699,7 +708,10 @@ thus using a custom/suitable length.
 </p>
 </div>
 
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCertificateFile "/usr/local/apache2/conf/ssl.crt/server.crt"</pre>
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config"># Example using a PEM-encoded file.
+SSLCertificateFile "/usr/local/apache2/conf/ssl.crt/server.crt"
+# Example use of a certificate and private key from a PKCS#11 token:
+SSLCertificateFile "pkcs11:token=My%20Token%20Name;id=45"</pre>
 </div>
 
 </div>
@@ -707,15 +719,17 @@ thus using a custom/suitable length.
 <div class="directive-section"><h2><a name="SSLCertificateKeyFile" id="SSLCertificateKeyFile">SSLCertificateKeyFile</a> <a name="sslcertificatekeyfile" id="sslcertificatekeyfile">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Server PEM-encoded private key file</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCertificateKeyFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLCertificateKeyFile <var>file-path</var>|<var>keyid</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td><var>keyid</var> available in 2.4.42 and later.</td></tr>
 </table>
 <p>
 This directive points to the PEM-encoded private key file for the
-server. If the contained private key is encrypted, the pass phrase
-dialog is forced at startup time.</p>
+server, or the key ID through a configured cryptographic token. If the
+contained private key is encrypted, the pass phrase dialog is forced
+at startup time.</p>
 
 <p>
 The directive can be used multiple times (referencing different filenames)
@@ -731,7 +745,16 @@ is highly discouraged. If it is used, the certificate files using such
 an embedded key must be configured after the certificates using a separate
 key file.</p>
 
-<div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLCertificateKeyFile "/usr/local/apache2/conf/ssl.key/server.key"</pre>
+<p>As an alternative to storing private keys in files, a key
+identifier can be used to identify a private key stored in a
+token.  Currently, only <a href="https://tools.ietf.org/html/rfc7512">PKCS#11 URIs</a> are recognized as private key
+identifiers, and can be used in conjunction with the OpenSSL
+<code>pkcs11</code> engine.</p>
+
+<div class="example"><h3>Example</h3><pre class="prettyprint lang-config"># To use a private key from a PEM-encoded file:
+SSLCertificateKeyFile "/usr/local/apache2/conf/ssl.key/server.key"
+# To use a private key from a PKCS#11 token:
+SSLCertificateKeyFile "pkcs11:token=My%20Token%20Name;id=45"</pre>
 </div>
 
 </div>
@@ -1523,6 +1546,31 @@ The available (case-insensitive) <em>protocol</em>s are:</p>
 </ul>
 <div class="example"><h3>Example</h3><pre class="prettyprint lang-config">SSLProtocol TLSv1</pre>
 </div>
+<div class="note">
+<h3><code class="directive">SSLProtocol</code> for name-based virtual hosts</h3>
+<p>
+Before OpenSSL 1.1.1, even though the Server Name Indication (SNI) allowed to
+determine the targeted virtual host early in the TLS handshake, it was not
+possible to switch the TLS protocol version of the connection at this point,
+and thus the <code class="directive">SSLProtocol</code> negotiated was always based off
+the one of the <em>base virtual host</em> (first virtual host declared on the
+listening <code>IP:port</code> of the connection).
+</p>
+<p>
+Beginning with Apache HTTP server version 2.4.42, when built/linked against
+OpenSSL 1.1.1 or later, and when the SNI is provided by the client in the TLS
+handshake, the <code class="directive">SSLProtocol</code> of each (name-based) virtual
+host can and will be honored.
+</p>
+<p>
+For compatibility with previous versions, if no
+<code class="directive">SSLProtocol</code> is configured in a name-based virtual host,
+the one from the base virtual host still applies, <strong>unless</strong>
+<code class="directive">SSLProtocol</code> is configured globally in which case the
+global value applies (this latter exception is more sensible than compatible,
+though).
+</p>
+</div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1530,7 +1578,7 @@ The available (case-insensitive) <em>protocol</em>s are:</p>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>File of concatenated PEM-encoded CA Certificates
 for Remote Server Auth</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLProxyCACertificateFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLProxyCACertificateFile <var>file-path</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, proxy section</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
@@ -1615,7 +1663,7 @@ to succeed - otherwise it will fail with an
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>File of concatenated PEM-encoded CA CRLs for
 Remote Server Auth</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLProxyCARevocationFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLProxyCARevocationFile <var>file-path</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host, proxy section</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
@@ -2344,7 +2392,7 @@ values like 300 in real life.</p>
 <div class="directive-section"><h2><a name="SSLSessionTicketKeyFile" id="SSLSessionTicketKeyFile">SSLSessionTicketKeyFile</a> <a name="sslsessionticketkeyfile" id="sslsessionticketkeyfile">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Persistent encryption/decryption key for TLS session tickets</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLSessionTicketKeyFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLSessionTicketKeyFile <var>file-path</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
@@ -2425,7 +2473,7 @@ SSLSRPUnknownUserSeed "secret"
 <div class="directive-section"><h2><a name="SSLSRPVerifierFile" id="SSLSRPVerifierFile">SSLSRPVerifierFile</a> <a name="sslsrpverifierfile" id="sslsrpverifierfile">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Path to SRP verifier file</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLSRPVerifierFile <em>file-path</em></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>SSLSRPVerifierFile <var>file-path</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Extension</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_ssl</td></tr>
@@ -2772,8 +2820,8 @@ known to the server (i.e. the CA's certificate is under
 </div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/mod/mod_ssl.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/mod/mod_ssl.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<a href="../fr/mod/mod_ssl.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a></p>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_ssl.html';
@@ -2791,7 +2839,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_ssl.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

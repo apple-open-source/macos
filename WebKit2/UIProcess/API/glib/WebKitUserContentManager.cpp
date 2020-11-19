@@ -190,13 +190,22 @@ public:
     {
     }
 
-    void didPostMessage(WebPageProxy&, FrameInfoData&&, WebCore::SerializedScriptValue& serializedScriptValue) override
+    void didPostMessage(WebPageProxy&, FrameInfoData&&, API::ContentWorld&, WebCore::SerializedScriptValue& serializedScriptValue) override
     {
         WebKitJavascriptResult* jsResult = webkitJavascriptResultCreate(serializedScriptValue);
         g_signal_emit(m_manager, signals[SCRIPT_MESSAGE_RECEIVED], m_handlerName, jsResult);
         webkit_javascript_result_unref(jsResult);
     }
 
+    bool supportsAsyncReply() override
+    {
+        return false;
+    }
+    
+    void didPostMessageWithAsyncReply(WebPageProxy&, FrameInfoData&&, API::ContentWorld&, WebCore::SerializedScriptValue&, WTF::Function<void(API::SerializedScriptValue*, const String&)>&&) override
+    {
+    }
+    
     virtual ~ScriptMessageClientGtk() { }
 
 private:
@@ -239,7 +248,7 @@ gboolean webkit_user_content_manager_register_script_message_handler(WebKitUserC
     g_return_val_if_fail(name, FALSE);
 
     Ref<WebScriptMessageHandler> handler =
-        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), String::fromUTF8(name), API::UserContentWorld::normalWorld());
+        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), String::fromUTF8(name), API::ContentWorld::pageContentWorld());
     return manager->priv->userContentController->addUserScriptMessageHandler(handler.get());
 }
 
@@ -263,7 +272,7 @@ void webkit_user_content_manager_unregister_script_message_handler(WebKitUserCon
 {
     g_return_if_fail(WEBKIT_IS_USER_CONTENT_MANAGER(manager));
     g_return_if_fail(name);
-    manager->priv->userContentController->removeUserMessageHandlerForName(String::fromUTF8(name), API::UserContentWorld::normalWorld());
+    manager->priv->userContentController->removeUserMessageHandlerForName(String::fromUTF8(name), API::ContentWorld::pageContentWorld());
 }
 
 /**
@@ -289,7 +298,7 @@ gboolean webkit_user_content_manager_register_script_message_handler_in_world(We
     g_return_val_if_fail(worldName, FALSE);
 
     Ref<WebScriptMessageHandler> handler =
-        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), String::fromUTF8(name), webkitUserContentWorld(worldName));
+        WebScriptMessageHandler::create(makeUnique<ScriptMessageClientGtk>(manager, name), String::fromUTF8(name), webkitContentWorld(worldName));
     return manager->priv->userContentController->addUserScriptMessageHandler(handler.get());
 }
 
@@ -316,7 +325,7 @@ void webkit_user_content_manager_unregister_script_message_handler_in_world(WebK
     g_return_if_fail(name);
     g_return_if_fail(worldName);
 
-    manager->priv->userContentController->removeUserMessageHandlerForName(String::fromUTF8(name), webkitUserContentWorld(worldName));
+    manager->priv->userContentController->removeUserMessageHandlerForName(String::fromUTF8(name), webkitContentWorld(worldName));
 }
 
 /**

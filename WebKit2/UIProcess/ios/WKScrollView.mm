@@ -36,7 +36,7 @@
 #import <wtf/WeakObjCPtr.h>
 
 #if PLATFORM(WATCHOS)
-#import <PepperUICore/UIScrollView+PUICAdditionsPrivate.h>
+#import "PepperUICoreSPI.h"
 #endif
 
 @interface WKScrollViewDelegateForwarder : NSObject <UIScrollViewDelegate>
@@ -127,7 +127,8 @@ static BOOL shouldForwardScrollViewDelegateMethodToExternalDelegate(SEL selector
     WeakObjCPtr<id <UIScrollViewDelegate>> _externalDelegate;
     WKScrollViewDelegateForwarder *_delegateForwarder;
 
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+// FIXME: Likely we can remove this special case for watchOS and tvOS.
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     BOOL _contentInsetAdjustmentBehaviorWasExternallyOverridden;
 #endif
     CGFloat _keyboardBottomInsetAdjustment;
@@ -153,7 +154,8 @@ static BOOL shouldForwardScrollViewDelegateMethodToExternalDelegate(SEL selector
     self.directionalLockEnabled = YES;
     [self _setIndicatorInsetAdjustmentBehavior:UIScrollViewIndicatorInsetAdjustmentAlways];
 
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+// FIXME: Likely we can remove this special case for watchOS and tvOS.
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     _contentInsetAdjustmentBehaviorWasExternallyOverridden = (self.contentInsetAdjustmentBehavior != UIScrollViewContentInsetAdjustmentAutomatic);
 #endif
     
@@ -278,7 +280,8 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
     [_internalDelegate _scheduleVisibleContentRectUpdate];
 }
 
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+// FIXME: Likely we can remove this special case for watchOS and tvOS.
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
 
 - (BOOL)_contentInsetAdjustmentBehaviorWasExternallyOverridden
 {
@@ -341,7 +344,9 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 {
     CGSize currentContentSize = [self contentSize];
 
-    if (CGSizeEqualToSize(currentContentSize, CGSizeZero) || CGSizeEqualToSize(currentContentSize, contentSize) || self.zoomScale < self.minimumZoomScale) {
+    BOOL mightBeRubberbanding = self.isDragging || self.isVerticalBouncing || self.isHorizontalBouncing;
+    if (!mightBeRubberbanding || CGSizeEqualToSize(currentContentSize, CGSizeZero) || CGSizeEqualToSize(currentContentSize, contentSize) || self.zoomScale < self.minimumZoomScale) {
+        // FIXME: rdar://problem/65277759 Find out why iOS Mail needs this call even when the contentSize has not changed.
         [self setContentSize:contentSize];
         return;
     }

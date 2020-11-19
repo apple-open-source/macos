@@ -1,0 +1,36 @@
+diff -ur a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -13589,8 +13589,6 @@ $as_echo "#define PNG_ARM_NEON_API_SUPPORTED /**/" >>confdefs.h
+ ;;
+       yes|on)
+ 
+-$as_echo "#define PNG_ARM_NEON_OPT 2" >>confdefs.h
+-
+          { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: --enable-arm-neon: please specify 'check' or 'api', if
+             you want the optimizations unconditionally pass -mfpu=neon
+             to the compiler." >&5
+diff -ur a/configure.ac b/configure.ac
+--- a/configure.ac
++++ b/configure.ac
+@@ -375,8 +375,6 @@ AC_ARG_ENABLE([arm-neon],
+          AC_DEFINE([PNG_ARM_NEON_API_SUPPORTED], [],
+                    [Turn on ARM Neon optimizations at run-time]);;
+       yes|on)
+-         AC_DEFINE([PNG_ARM_NEON_OPT], [2],
+-                   [Enable ARM Neon optimizations])
+          AC_MSG_WARN([--enable-arm-neon: please specify 'check' or 'api', if]
+             [you want the optimizations unconditionally pass -mfpu=neon]
+             [to the compiler.]);;
+diff -ur a/pngpriv.h b/pngpriv.h
+--- a/pngpriv.h
++++ b/pngpriv.h
+@@ -174,7 +174,7 @@
+ #     else /* !defined __ARM_NEON__ */
+          /* The 'intrinsics' code simply won't compile without this -mfpu=neon:
+           */
+-#        define PNG_ARM_NEON_IMPLEMENTATION 2
++#        define PNG_ARM_NEON_IMPLEMENTATION 0
+ #     endif /* __ARM_NEON__ */
+ #  endif /* !PNG_ARM_NEON_IMPLEMENTATION */
+ 

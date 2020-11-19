@@ -47,8 +47,11 @@ private:
 	
 	/*! @var reserved
 		Reserved for future use.  (Internal use only)  */
+
+protected:
 	ExpansionData *reserved;
 
+private:
 	IOService*						fProvider;
 
 	static IORecursiveLock *		sIniterLock;

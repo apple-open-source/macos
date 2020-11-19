@@ -40,13 +40,13 @@ class  AnchorTable;
 class  MinorTable;
 struct MinorSlot;
 
-UInt64 _IOMediaBSDClientGetThrottleMask(IOMedia * media);
+__exported UInt64 _IOMediaBSDClientGetThrottleMask(IOMedia * media);
 
 /*
  * Class
  */
 
-class IOMediaBSDClient : public IOService
+class __exported IOMediaBSDClient : public IOService
 {
     OSDeclareDefaultStructors(IOMediaBSDClient)
 

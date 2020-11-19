@@ -58,8 +58,9 @@ struct global_s
 	uint32_t *shared_memory_base;
 	uint32_t *shared_memory_refcount;
 	uint32_t *last_shm_base;
-	uint32_t log_cutoff;
+	int log_cutoff;
 	uint32_t log_default;
+	uint32_t next_no_client_token;
 	uint16_t service_info_count;
 	char *log_path;
 };
@@ -79,6 +80,8 @@ struct call_statistics_s
 	uint64_t reg_signal;
 	uint64_t reg_file;
 	uint64_t reg_port;
+	uint64_t reg_xpc_event;
+	uint64_t reg_common;
 	uint64_t cancel;
 	uint64_t suspend;
 	uint64_t resume;
@@ -96,7 +99,6 @@ struct call_statistics_s
 	uint64_t set_owner;
 	uint64_t set_access;
 	uint64_t monitor_file;
-	uint64_t service_timer;
 	uint64_t service_path;
 	uint64_t cleanup;
 	uint64_t regenerate;
@@ -113,6 +115,9 @@ extern void daemon_set_state(const char *name, uint64_t val);
 extern void dump_status(uint32_t level, int fd);
 extern bool has_entitlement(audit_token_t audit, const char *entitlement);
 extern bool has_root_entitlement(audit_token_t audit);
+
+void notifyd_matching_register(uint64_t event_token, xpc_object_t descriptor);
+void notifyd_matching_unregister(uint64_t event_token);
 
 dispatch_queue_t get_notifyd_workloop(void);
 

@@ -1446,10 +1446,13 @@ medium_free_do_recirc_to_depot(rack_t *rack, magazine_t *medium_mag_ptr, mag_ind
 	MAGMALLOC_RECIRCREGION(MEDIUM_SZONE_FROM_RACK(rack), (int)mag_index, (void *)sparse_region, MEDIUM_REGION_SIZE,
 						   (int)BYTES_USED_FOR_MEDIUM_REGION(sparse_region)); // DTrace USDT Probe
 
-#if !CONFIG_AGGRESSIVE_MADVISE
-	// Mark free'd dirty pages with MADV_FREE to reduce memory pressure
-	medium_free_scan_madvise_free(rack, depot_ptr, sparse_region);
+#if CONFIG_AGGRESSIVE_MADVISE
+	if (!aggressive_madvise_enabled)
 #endif
+	{
+		// Mark free'd dirty pages with MADV_FREE to reduce memory pressure
+		medium_free_scan_madvise_free(rack, depot_ptr, sparse_region);
+	}
 
 	// If the region is entirely empty vm_deallocate() it outside the depot lock
 	region_t r_dealloc = medium_free_try_depot_unmap_no_lock(rack, depot_ptr, node);
@@ -1501,12 +1504,15 @@ medium_free_try_recirc_to_depot(rack_t *rack,
 		}
 
 	} else {
-#if !CONFIG_AGGRESSIVE_MADVISE
-		// We are free'ing into the depot, so madvise as we do so unless we were madvising every incoming
-		// allocation anyway.
-		medium_madvise_free_range_no_lock(rack, medium_mag_ptr,
-				vm_kernel_page_size, region, freee, msize, headptr, headsize);
+#if CONFIG_AGGRESSIVE_MADVISE
+		if (!aggressive_madvise_enabled)
 #endif
+		{
+			// We are free'ing into the depot, so madvise as we do so unless we were madvising every incoming
+			// allocation anyway.
+			medium_madvise_free_range_no_lock(rack, medium_mag_ptr,
+					vm_kernel_page_size, region, freee, msize, headptr, headsize);
+		}
 
 		if (0 < bytes_used || 0 < node->pinned_to_depot) {
 			/* Depot'd region is still live. Leave it in place on the Depot's recirculation list
@@ -1537,9 +1543,7 @@ medium_free_no_lock(rack_t *rack, magazine_t *medium_mag_ptr, mag_index_t mag_in
 
 	MALLOC_TRACE(TRACE_medium_free, (uintptr_t)rack, (uintptr_t)medium_mag_ptr, (uintptr_t)ptr, MEDIUM_BYTES_FOR_MSIZE(msize));
 
-#if CONFIG_AGGRESSIVE_MADVISE || CONFIG_RECIRC_DEPOT
 	void *original_ptr = ptr;
-#endif
 
 #if DEBUG_MALLOC
 	if (!msize) {
@@ -1604,11 +1608,20 @@ medium_free_no_lock(rack_t *rack, magazine_t *medium_mag_ptr, mag_index_t mag_in
 	size_t bytes_used = trailer->bytes_used - original_size;
 	trailer->bytes_used = (unsigned int)bytes_used;
 
-	// Always attempt to madvise free regions that exceed the conditional
-	// madvise limit size.
-	medium_madvise_free_range_conditional_no_lock(rack, medium_mag_ptr,
-			medium_sliding_madvise_granularity(medium_mag_ptr), region, &freee,
-			msize, original_ptr, original_size);
+#if CONFIG_AGGRESSIVE_MADVISE
+	if (aggressive_madvise_enabled) {
+		medium_madvise_free_range_no_lock(rack, medium_mag_ptr,
+				vm_kernel_page_size, region, freee, msize, original_ptr, original_size);
+	}
+	else
+#endif
+	{
+		// Always attempt to madvise free regions that exceed the conditional
+		// madvise limit size.
+		medium_madvise_free_range_conditional_no_lock(rack, medium_mag_ptr,
+				medium_sliding_madvise_granularity(medium_mag_ptr), region, &freee,
+				msize, original_ptr, original_size);
+	}
 
 	// Caller must do SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr) if this function
 	// returns TRUE.
@@ -2491,9 +2504,6 @@ medium_size(rack_t *rack, const void *ptr)
 static MALLOC_NOINLINE void
 free_medium_botch(rack_t *rack, void *ptr)
 {
-	mag_index_t mag_index = MAGAZINE_INDEX_FOR_MEDIUM_REGION(MEDIUM_REGION_FOR_PTR(ptr));
-	magazine_t *medium_mag_ptr = &(rack->magazines[mag_index]);
-	SZONE_MAGAZINE_PTR_UNLOCK(medium_mag_ptr);
 	malloc_zone_error(rack->debug_flags, true, "double free for ptr %p\n", ptr);
 }
 
@@ -2526,6 +2536,7 @@ free_medium(rack_t *rack, void *ptr, region_t medium_region, size_t known_size)
 
 		/* check that we don't already have this pointer in the cache */
 		if (ptr == ptr2) {
+			SZONE_MAGAZINE_PTR_UNLOCK(medium_mag_ptr);
 			free_medium_botch(rack, ptr);
 			return;
 		}

@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Pod-Readme</string>
+        <key>OpenSourceVersion</key>
+        <string>v1.2.3</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/R/RR/RRWO/Pod-Readme-v1.2.3.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-10</string>
+</dict>

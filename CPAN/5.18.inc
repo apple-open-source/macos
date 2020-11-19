@@ -86,7 +86,7 @@ CPAN_PROJECTS := \
     Mail-DKIM-0.40 \
     Try-Tiny-0.19 \
     Sub-Name-0.05 \
-    Scope-Guard-0.20 \
+    Scope-Guard-0.21 \
     Params-Util-1.07 \
     Sub-Install-0.927 \
     Data-OptList-0.109 \
@@ -99,7 +99,10 @@ CPAN_PROJECTS := \
     Task-Weaken-1.04 \
     Test-Fatal-0.013 \
     Test-Requires-0.07 \
-    List-MoreUtils-0.33 \
+    Exporter-Tiny-1.002001 \
+    XSLoader-0.24 \
+    List-MoreUtils-XS-0.428 \
+    List-MoreUtils-0.428 \
     Dist-CheckConflicts-0.10 \
     Package-DeprecationManager-0.13 \
     Package-Stash-XS-0.28 \
@@ -113,7 +116,7 @@ CPAN_PROJECTS := \
     Class-Load-XS-0.06 \
     Devel-StackTrace-1.31 \
     Moose-2.1202 \
-    HTML-Tree-5.03 \
+    HTML-Tree-5.07 \
     Font-AFM-1.20 \
     HTML-Format-2.11 \
     Geography-Countries-2009041301 \
@@ -162,21 +165,23 @@ CPAN_PROJECTS := \
     Class-Method-Modifiers-2.09 \
     Role-Tiny-1.003002 \
     Lexical-SealRequireHints-0.007 \
-    bareword-filehandles-0.003 \
-    indirect-0.31 \
-    multidimensional-0.011 \
+    B-Hooks-OP-Check-0.19 \
+    bareword-filehandles-0.007 \
+    indirect-0.39 \
+    multidimensional-0.014 \
     strictures-1.005002 \
     Import-Into-1.002000 \
     Moo-1.004002 \
     DBIx-Class-0.08270 \
-    autobox-2.82 \
+    IPC-System-Simple-1.26 \
+    autobox-2.86 \
     Perl6-Junction-1.60000 \
     syntax-0.004 \
     Syntax-Keyword-Junction-0.003007 \
     Moose-Autobox-0.15 \
     namespace-autoclean-0.15 \
     MooseX-StrictConstructor-0.19 \
-    PadWalker-1.98 \
+    PadWalker-2.3 \
     Devel-Caller-2.06 \
     MooseX-Params-Validate-0.18 \
     MooseX-Role-Parameterized-1.02 \
@@ -185,7 +190,9 @@ CPAN_PROJECTS := \
     MooseX-Getopt-0.59 \
     MooseX-Singleton-0.29 \
     MooseX-Types-0.41 \
-    Params-Classify-0.013 \
+    DynaLoader-Functions-0.003 \
+    Devel-CallChecker-0.008 \
+    Params-Classify-0.015 \
     Class-Singleton-1.4 \
     DateTime-TimeZone-1.63 \
     DateTime-Locale-0.45 \
@@ -196,7 +203,7 @@ CPAN_PROJECTS := \
     Devel-PartialDump-0.17 \
     MooseX-Types-Structured-0.30 \
     aliased-0.31 \
-    File-Remove-1.52 \
+    File-Remove-1.58 \
     Test-Object-0.07 \
     Hook-LexWrap-0.24 \
     Test-SubCalls-1.09 \
@@ -211,8 +218,7 @@ CPAN_PROJECTS := \
     Test-CheckDeps-0.010 \
     MooseX-LazyRequire-0.10 \
     ExtUtils-Depends-0.306 \
-    B-Hooks-OP-Check-0.19 \
-    Devel-Declare-0.006015 \
+    Devel-Declare-0.006019 \
     MooseX-Meta-TypeConstraint-ForceCoercion-0.01 \
     MooseX-AuthorizedMethods-0.006 \
     MooseX-Method-Signatures-0.47 \
@@ -234,7 +240,7 @@ SVK_PROJECTS := \
     Class-Autouse-2.01 \
     App-CLI-0.313 \
     Class-Data-Inheritable-0.08 \
-    TermReadKey-2.31 \
+    TermReadKey-2.38 \
     Locale-Maketext-Lexicon-0.99 \
     IPC-Run3-0.046 \
     Probe-Perl-0.03 \

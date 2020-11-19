@@ -1807,12 +1807,25 @@ static int zend_infer_ranges(const zend_op_array *op_array, zend_ssa *ssa) /* {{
 				}
 			} WHILE_WORKLIST_END();
 
-			/* Add all SCC entry variables into worklist for narrowing */
+			/* initialize missing ranges */
 			for (j = scc_var[scc]; j >= 0; j = next_scc_var[j]) {
 				if (!ssa->var_info[j].has_range) {
 					zend_inference_init_range(op_array, ssa, j, 1, ZEND_LONG_MIN, ZEND_LONG_MAX, 1);
-				} else if (ssa->vars[j].definition_phi &&
-				           ssa->vars[j].definition_phi->pi < 0) {
+					FOR_EACH_VAR_USAGE(j, ADD_SCC_VAR);
+				}
+			}
+
+			/* widening (second round) */
+			WHILE_WORKLIST(worklist, worklist_len, j) {
+				if (zend_ssa_range_widening(op_array, ssa, j, scc)) {
+					FOR_EACH_VAR_USAGE(j, ADD_SCC_VAR);
+				}
+			} WHILE_WORKLIST_END();
+
+			/* Add all SCC entry variables into worklist for narrowing */
+			for (j = scc_var[scc]; j >= 0; j = next_scc_var[j]) {
+				if (ssa->vars[j].definition_phi
+				 && ssa->vars[j].definition_phi->pi < 0) {
 					/* narrowing Phi functions first */
 					zend_ssa_range_narrowing(op_array, ssa, j, scc);
 				}
@@ -2626,10 +2639,10 @@ static int zend_update_type_info(const zend_op_array *op_array,
 			}
 			if ((t1 & (MAY_BE_ANY|MAY_BE_UNDEF)) == MAY_BE_LONG) {
 				if (!ssa_var_info[ssa_ops[i].op1_use].has_range ||
-				     (opline->opcode == ZEND_PRE_DEC &&
+				     (opline->opcode == ZEND_POST_DEC &&
 				      (ssa_var_info[ssa_ops[i].op1_use].range.underflow ||
 				       ssa_var_info[ssa_ops[i].op1_use].range.min == ZEND_LONG_MIN)) ||
-				      (opline->opcode == ZEND_PRE_INC &&
+				      (opline->opcode == ZEND_POST_INC &&
 				       (ssa_var_info[ssa_ops[i].op1_use].range.overflow ||
 				        ssa_var_info[ssa_ops[i].op1_use].range.max == ZEND_LONG_MAX))) {
 					/* may overflow */
@@ -4145,7 +4158,7 @@ void zend_inference_check_recursive_dependencies(zend_op_array *op_array)
 	memset(worklist, 0, sizeof(zend_ulong) * worklist_len);
 	call_info = info->callee_info;
 	while (call_info) {
-		if (call_info->recursive &&
+		if (call_info->recursive && call_info->caller_call_opline &&
 		    info->ssa.ops[call_info->caller_call_opline - op_array->opcodes].result_def >= 0) {
 			zend_bitset_incl(worklist, info->ssa.ops[call_info->caller_call_opline - op_array->opcodes].result_def);
 		}

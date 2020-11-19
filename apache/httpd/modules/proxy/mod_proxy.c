@@ -149,7 +149,7 @@ static const char *set_worker_param(apr_pool_t *p,
             return "Max must be a positive number";
         worker->s->hmax = ival;
     }
-    /* XXX: More inteligent naming needed */
+    /* XXX: More intelligent naming needed */
     else if (!strcasecmp(key, "smax")) {
         /* Maximum number of connections to remote that
          * will not be destroyed
@@ -308,10 +308,10 @@ static const char *set_worker_param(apr_pool_t *p,
         worker->s->conn_timeout_set = 1;
     }
     else if (!strcasecmp(key, "flusher")) {
-        if (strlen(val) >= sizeof(worker->s->flusher))
-            apr_psprintf(p, "flusher name length must be < %d characters",
-                    (int)sizeof(worker->s->flusher));
-        PROXY_STRNCPY(worker->s->flusher, val);
+        if (PROXY_STRNCPY(worker->s->flusher, val) != APR_SUCCESS) {
+            return apr_psprintf(p, "flusher name length must be < %d characters",
+                                (int)sizeof(worker->s->flusher));
+        }
     }
     else if (!strcasecmp(key, "upgrade")) {
         if (PROXY_STRNCPY(worker->s->upgrade, val) != APR_SUCCESS) {
@@ -326,6 +326,12 @@ static const char *set_worker_param(apr_pool_t *p,
         }
         worker->s->response_field_size = (s ? s : HUGE_STRING_LEN);
         worker->s->response_field_size_set = 1;
+    }
+    else if (!strcasecmp(key, "secret")) {
+        if (PROXY_STRNCPY(worker->s->secret, val) != APR_SUCCESS) {
+            return apr_psprintf(p, "Secret length must be < %d characters",
+                                (int)sizeof(worker->s->secret));
+        }
     }
     else {
         if (set_worker_hc_param_f) {
@@ -1202,7 +1208,6 @@ static int proxy_handler(request_rec *r)
                     /* Did the scheme handler process the request? */
                     if (access_status != DECLINED) {
                         const char *cl_a;
-                        char *end;
                         apr_off_t cl;
 
                         /*
@@ -1212,18 +1217,17 @@ static int proxy_handler(request_rec *r)
                         if (access_status != HTTP_BAD_GATEWAY) {
                             goto cleanup;
                         }
+
                         cl_a = apr_table_get(r->headers_in, "Content-Length");
-                        if (cl_a) {
-                            apr_strtoff(&cl, cl_a, &end, 10);
+                        if (cl_a && (!ap_parse_strict_length(&cl, cl_a)
+                                     || cl > 0)) {
                             /*
                              * The request body is of length > 0. We cannot
                              * retry with a direct connection since we already
                              * sent (parts of) the request body to the proxy
                              * and do not have any longer.
                              */
-                            if (cl > 0) {
-                                goto cleanup;
-                            }
+                            goto cleanup;
                         }
                         /*
                          * Transfer-Encoding was set as input header, so we had
@@ -1374,6 +1378,7 @@ static void * create_proxy_config(apr_pool_t *p, server_rec *s)
     ps->source_address = NULL;
     ps->source_address_set = 0;
     apr_pool_create_ex(&ps->pool, p, NULL, NULL);
+    apr_pool_tag(ps->pool, "proxy_server_conf");
 
     return ps;
 }
@@ -2377,7 +2382,7 @@ static const char *add_member(cmd_parms *cmd, void *dummy, const char *arg)
                          elts[i].key, elts[i].val, ap_proxy_worker_name(cmd->pool, worker));
         } else {
             err = set_worker_param(cmd->pool, cmd->server, worker, elts[i].key,
-                                               elts[i].val);
+                                   elts[i].val);
             if (err)
                 return apr_pstrcat(cmd->temp_pool, "BalancerMember ", err, NULL);
         }
@@ -3022,7 +3027,7 @@ static int proxy_pre_config(apr_pool_t *pconf, apr_pool_t *plog,
 
     APR_OPTIONAL_HOOK(ap, status_hook, proxy_status_hook, NULL, NULL,
                       APR_HOOK_MIDDLE);
-    /* Reset workers count on gracefull restart */
+    /* Reset workers count on graceful restart */
     proxy_lb_workers = 0;
     set_worker_hc_param_f = APR_RETRIEVE_OPTIONAL_FN(set_worker_hc_param);
     return OK;

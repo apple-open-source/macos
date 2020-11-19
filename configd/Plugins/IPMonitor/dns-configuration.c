@@ -41,8 +41,6 @@
 #include <arpa/inet.h>
 #include <arpa/nameser.h>
 #include <resolv.h>
-#include <notify.h>
-#include <notify_private.h>
 #include <CommonCrypto/CommonDigest.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -64,6 +62,12 @@
 
 #include <dns_sd.h>
 #include <dns_sd_private.h>
+
+#if	!TARGET_OS_IPHONE
+#include <CoreServices/CoreServices.h>
+#else	// TARGET_OS_IPHONE
+#include <FSEvents/FSEvents.h>
+#endif	// TARGET_OS_IPHONE
 
 #define DNS_CONFIGURATION_FLAGS_KEY	CFSTR("__FLAGS__")
 #define DNS_CONFIGURATION_IF_INDEX_KEY	CFSTR("__IF_INDEX__")
@@ -1552,7 +1556,8 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 		      CFDictionaryRef   services,
 		      CFArrayRef	serviceOrder,
 		      CFArrayRef	multicastResolvers,
-		      CFArrayRef	privateResolvers)
+		      CFArrayRef	privateResolvers,
+		      CFDictionaryRef	*globalResolver)
 {
 	dns_create_config_t	dns_create_config;
 	Boolean			changed			= FALSE;
@@ -1689,6 +1694,10 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 				resolver = new_resolver;
 			}
 
+			if (i == 0) {
+				*globalResolver = CFRetain(resolver);
+			}
+
 			_resolver = create_resolver(resolver);
 			_dns_configuration_add_resolver(&dns_create_config, _resolver);
 			_dns_resolver_free(&_resolver);
@@ -1757,12 +1766,19 @@ static SCDynamicStoreRef	dns_configuration_store;
 static SCDynamicStoreCallBack	dns_configuration_callout;
 
 static void
-dns_configuration_changed(CFMachPortRef port, void *msg, CFIndex size, void *info)
+dns_configuration_changed(ConstFSEventStreamRef		streamRef,
+			  void				*clientCallBackInfo,
+			  size_t			numEvents,
+			  void				*eventPaths,
+			  const FSEventStreamEventFlags	*eventFlags,
+			  const FSEventStreamEventId	*eventIds)
 {
-#pragma unused(port)
-#pragma unused(msg)
-#pragma unused(size)
-#pragma unused(info)
+#pragma unused(streamRef)
+#pragma unused(clientCallBackInfo)
+#pragma unused(numEvents)
+#pragma unused(eventPaths)
+#pragma unused(eventFlags)
+#pragma unused(eventIds)
 	static const CFStringRef	key	= CFSTR(_PATH_RESOLVER_DIR);
 	CFArrayRef			keys;
 	Boolean				resolvers_now;
@@ -1820,12 +1836,18 @@ __private_extern__
 void
 dns_configuration_monitor(SCDynamicStoreRef store, SCDynamicStoreCallBack callout)
 {
-	CFMachPortRef		mp;
-	mach_port_t		notify_port;
-	int			notify_token;
-	char			resolver_directory_path[PATH_MAX];
-	CFRunLoopSourceRef	rls;
-	uint32_t		status;
+	FSEventStreamContext		context	= { 0,		// version
+						    NULL,	// info
+						    NULL,	// retain
+						    NULL,	// release
+						    NULL };	// copyDescription
+	FSEventStreamCreateFlags	flags	= kFSEventStreamCreateFlagUseCFTypes
+						  | kFSEventStreamCreateFlagFileEvents
+						  | kFSEventStreamCreateFlagWatchRoot;
+	FSEventStreamRef		monitor;
+	CFStringRef			path;
+	CFMutableArrayRef		paths;
+	char				resolver_directory_path[PATH_MAX];
 
 	if (!normalize_path(_PATH_RESOLVER_DIR, resolver_directory_path)) {
 		my_log(LOG_ERR, "Not monitoring \"%s\", could not resolve directory path", _PATH_RESOLVER_DIR);
@@ -1835,38 +1857,24 @@ dns_configuration_monitor(SCDynamicStoreRef store, SCDynamicStoreCallBack callou
 	dns_configuration_store   = store;
 	dns_configuration_callout = callout;
 
-	status = notify_register_mach_port(_PATH_RESOLVER_DIR, &notify_port, 0, &notify_token);
-	if (status != NOTIFY_STATUS_OK) {
-		my_log(LOG_ERR, "notify_register_mach_port() failed");
-		return;
-	}
+	paths = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	path = CFStringCreateWithCString(NULL, resolver_directory_path, kCFStringEncodingUTF8);
+	CFArrayAppendValue(paths, path);
+	CFRelease(path);
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated"
-	status = notify_monitor_file(notify_token, resolver_directory_path, 0);
-#pragma GCC diagnostic pop
-	if (status != NOTIFY_STATUS_OK) {
-		my_log(LOG_ERR, "notify_monitor_file() failed");
-		(void)notify_cancel(notify_token);
-		return;
-	}
+	monitor = FSEventStreamCreate(NULL,				// allocator
+				      dns_configuration_changed,	// callback
+				      &context,				// context
+				      paths,				// pathsToWatch (CFArray)
+				      kFSEventStreamEventIdSinceNow,	// sinceWhen
+				      0.0,				// latency
+				      flags);				// flags
 
-	mp = _SC_CFMachPortCreateWithPort("IPMonitor/dns_configuration",
-					  notify_port,
-					  dns_configuration_changed,
-					  NULL);
+	CFRelease(paths);
 
-	rls = CFMachPortCreateRunLoopSource(NULL, mp, -1);
-	if (rls == NULL) {
-		my_log(LOG_ERR, "SCDynamicStoreCreateRunLoopSource() failed");
-		CFRelease(mp);
-		(void)notify_cancel(notify_token);
-		return;
-	}
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
-	CFRelease(rls);
+	FSEventStreamScheduleWithRunLoop(monitor, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+	FSEventStreamStart(monitor);
 
-	CFRelease(mp);
 	return;
 }
 
@@ -1986,6 +1994,7 @@ int
 main(int argc, char **argv)
 {
 	CFDictionaryRef		entities;
+	CFDictionaryRef		globalResolver	= NULL;
 	CFStringRef		key;
 	CFArrayRef		multicast_resolvers;
 	CFStringRef		pattern;
@@ -2086,13 +2095,15 @@ main(int argc, char **argv)
 				    service_state_dict,
 				    service_order,
 				    multicast_resolvers,
-				    private_resolvers);
+				    private_resolvers,
+				    &globalResolver);
 
 	// cleanup
 	if (setup_global_ipv4 != NULL)	CFRelease(setup_global_ipv4);
 	if (state_global_ipv4 != NULL)	CFRelease(state_global_ipv4);
 	if (multicast_resolvers != NULL) CFRelease(multicast_resolvers);
 	if (private_resolvers != NULL)	CFRelease(private_resolvers);
+	if (globalResolver != NULL)	CFRelease(globalResolver);
 	CFRelease(service_state_dict);
 	CFRelease(store);
 

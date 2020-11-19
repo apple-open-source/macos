@@ -160,7 +160,7 @@ CFTypeID SecKeychainItemGetTypeID(void);
     @result A result code. See "Security Error Codes" (SecBase.h).
 	@discussion The keychain item is written to the keychain's permanent data store. If the keychain item has not previously been added to a keychain, a call to the SecKeychainItemModifyContent function does nothing and returns errSecSuccess.
 */
-OSStatus SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeychainAttributeList * __nullable attrList, UInt32 length, const void * __nullable data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeychainAttributeList * __nullable attrList, UInt32 length, const void * __nullable data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCreateFromContent
@@ -176,7 +176,7 @@ OSStatus SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, cons
 */
 OSStatus SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAttributeList *attrList,
 		UInt32 length, const void * __nullable data, SecKeychainRef __nullable keychainRef,
-		SecAccessRef __nullable initialAccess, SecKeychainItemRef * __nullable CF_RETURNS_RETAINED itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+		SecAccessRef __nullable initialAccess, SecKeychainItemRef * __nullable CF_RETURNS_RETAINED itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemModifyContent
@@ -187,7 +187,7 @@ OSStatus SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAtt
 	@param data A pointer to a buffer containing the data to store. Pass NULL if you don't need to modify the data.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeychainAttributeList * __nullable attrList, UInt32 length, const void * __nullable data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeychainAttributeList * __nullable attrList, UInt32 length, const void * __nullable data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCopyContent
@@ -199,7 +199,7 @@ OSStatus SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeych
 	@param outData On return, a pointer to a buffer containing the data in this item. Pass NULL if you don't need to retrieve the data. You must call SecKeychainItemFreeContent when you no longer need the data.
     @result A result code. See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters are supplied.
 */
-OSStatus SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass * __nullable itemClass, SecKeychainAttributeList * __nullable attrList, UInt32 * __nullable length, void * __nullable * __nullable outData) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass * __nullable itemClass, SecKeychainAttributeList * __nullable attrList, UInt32 * __nullable length, void * __nullable * __nullable outData) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemFreeContent
@@ -207,7 +207,7 @@ OSStatus SecKeychainItemCopyContent(SecKeychainItemRef itemRef, SecItemClass * _
 	@param attrList A pointer to the attribute list to release. Pass NULL to ignore this parameter.
     @param data A pointer to the data buffer to release. Pass NULL to ignore this parameter.
 */
-OSStatus SecKeychainItemFreeContent(SecKeychainAttributeList * __nullable attrList, void * __nullable data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemFreeContent(SecKeychainAttributeList * __nullable attrList, void * __nullable data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCopyAttributesAndData
@@ -220,7 +220,7 @@ OSStatus SecKeychainItemFreeContent(SecKeychainAttributeList * __nullable attrLi
 	@param outData On return, a pointer to a buffer containing the data in this item. Pass NULL if you don't need to retrieve the data. You must call SecKeychainItemFreeAttributesAndData when you no longer need the data.
     @result A result code. See "Security Error Codes" (SecBase.h). In addition, errSecParam (-50) may be returned if not enough valid parameters are supplied.
 */
-OSStatus SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo * __nullable info, SecItemClass * __nullable itemClass, SecKeychainAttributeList * __nullable * __nullable attrList, UInt32 * __nullable length, void * __nullable * __nullable outData) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo * __nullable info, SecItemClass * __nullable itemClass, SecKeychainAttributeList * __nullable * __nullable attrList, UInt32 * __nullable length, void * __nullable * __nullable outData) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemFreeAttributesAndData
@@ -229,7 +229,7 @@ OSStatus SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKey
     @param data A pointer to the data buffer to release. Pass NULL to ignore this parameter.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList * __nullable attrList, void * __nullable data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList * __nullable attrList, void * __nullable data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemDelete
@@ -238,7 +238,7 @@ OSStatus SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList * __nulla
     @result A result code. See "Security Error Codes" (SecBase.h).
 	@discussion If itemRef has not previously been added to the keychain, SecKeychainItemDelete does nothing and returns errSecSuccess. IMPORTANT: SecKeychainItemDelete does not dispose the memory occupied by the item reference itself; use the CFRelease function when you are completely finished with an item.
 */
-OSStatus SecKeychainItemDelete(SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemDelete(SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCopyKeychain
@@ -247,7 +247,7 @@ OSStatus SecKeychainItemDelete(SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, 
 	@param keychainRef On return, the keychain reference for the specified item. Release this reference by calling the CFRelease function.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef * __nonnull CF_RETURNS_RETAINED keychainRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef * __nonnull CF_RETURNS_RETAINED keychainRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCreateCopy
@@ -259,7 +259,7 @@ OSStatus SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef 
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
 OSStatus SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef __nullable destKeychainRef,
-	SecAccessRef __nullable initialAccess, SecKeychainItemRef * __nonnull CF_RETURNS_RETAINED itemCopy) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+	SecAccessRef __nullable initialAccess, SecKeychainItemRef * __nonnull CF_RETURNS_RETAINED itemCopy) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @function SecKeychainItemCreatePersistentReference
@@ -268,7 +268,7 @@ OSStatus SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef __
     @param persistentItemRef On return, a CFDataRef containing a persistent reference. You must release this data reference by calling the CFRelease function.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CFDataRef * __nonnull CF_RETURNS_RETAINED persistentItemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CFDataRef * __nonnull CF_RETURNS_RETAINED persistentItemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 /*!
@@ -278,7 +278,7 @@ OSStatus SecKeychainItemCreatePersistentReference(SecKeychainItemRef itemRef, CF
     @param itemRef On return, a SecKeychainItemRef for the keychain item described by the persistent reference. You must release this item reference by calling the CFRelease function.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef, SecKeychainItemRef * __nonnull CF_RETURNS_RETAINED itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef, SecKeychainItemRef * __nonnull CF_RETURNS_RETAINED itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
 #pragma mark ---- CSSM Bridge Functions ----
@@ -312,7 +312,7 @@ OSStatus SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, const CSSM
     @param access On return, a reference to the keychain item's access.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainItemCopyAccess(SecKeychainItemRef itemRef, SecAccessRef * __nonnull CF_RETURNS_RETAINED access) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemCopyAccess(SecKeychainItemRef itemRef, SecAccessRef * __nonnull CF_RETURNS_RETAINED access) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemSetAccess
@@ -321,7 +321,7 @@ OSStatus SecKeychainItemCopyAccess(SecKeychainItemRef itemRef, SecAccessRef * __
     @param access A reference to an access to replace the keychain item's current access.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecKeychainItemSetAccess(SecKeychainItemRef itemRef, SecAccessRef access) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemSetAccess(SecKeychainItemRef itemRef, SecAccessRef access) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 CF_ASSUME_NONNULL_END
 

@@ -34,7 +34,7 @@
 #include <IOKit/hid/IOHIDInterface.h>
 #include <IOKit/hid/IOHIDElement.h>
 #include <IOKit/hid/IOHIDKeys.h>
-#if TARGET_OS_IPHONE
+#if KERNEL_PRIVATE
 #include <IOKit/hid/IOHIDEvent.h>
 #endif
 #include "IOHIDUtility.h"
@@ -201,13 +201,14 @@ private:
         int                   keyboardShim;
 #endif
         UInt32                debugMask;
+        bool                  powerButtonNmi;
+        bool                  disableAcceleration;
     };
-
 #if TARGET_OS_OSX
     static KeyValueMask   keyMonitorTable[];
     static DebugKeyAction debugKeyActionTable[];
 #endif
-
+    
     ExpansionData *         _reserved;
 
 #ifdef POINTING_SHIM_SUPPORT
@@ -238,6 +239,9 @@ private:
     void                    triggerDebugger();
 
     void                    stackshotTimerCallback(IOTimerEventSource *sender);
+
+#elif TARGET_OS_OSX
+    bool                    isPowerButtonNmiEnabled() const;
 #endif
     
     void                    multiAxisTimerCallback(IOTimerEventSource *sender);
@@ -688,10 +692,10 @@ protected:
     
     OSMetaClassDeclareReservedUsed(IOHIDEventService, 10);
     virtual UInt32          getPrimaryUsage();
- 
 #if TARGET_OS_OSX
     static void debugActionSysdiagnose(IOHIDEventService* self, void *parameter);
     static void debugActionNMI(IOHIDEventService* self, void *parameter);
+    static void powerButtonNMI(IOHIDEventService* self, void *parameter);
 #endif
   
 public:
@@ -907,7 +911,16 @@ protected:
                                                        IOOptionBits                options = 0);
 
     
-    OSMetaClassDeclareReservedUnused(IOHIDEventService, 23);
+    OSMetaClassDeclareReservedUsed(IOHIDEventService, 23);
+    virtual void            dispatchKeyboardEvent(AbsoluteTime                timeStamp,
+                                                  UInt32                      usagePage,
+                                                  UInt32                      usage,
+                                                  UInt32                      value,
+                                                  UInt8                       pressCount,
+                                                  UInt8                       longPress,
+                                                  UInt8                       clickSpeed,
+                                                  IOOptionBits                options = 0 );
+
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 24);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 25);
     OSMetaClassDeclareReservedUnused(IOHIDEventService, 26);

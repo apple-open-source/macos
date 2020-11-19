@@ -9,7 +9,7 @@
 // TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>
-#import <Block_private.h>
+#import "Block_private.h"
 #import "test.h"
 
 int global = 0;
@@ -34,14 +34,11 @@ int main() {
     if (!(layout->flags & BLOCK_HAS_COPY_DISPOSE)) {
         fail("Whoops, no copy dispose!");
     }
-    struct Block_descriptor_2 *desc = 
-        (struct Block_descriptor_2 *)(layout->descriptor + 1);
-    if (!(desc->dispose)) {
-        fail("Whoops, no block dispose helper function!");
-    }
-    desc->dispose(b);
+
+    _Block_get_dispose_function(layout)(layout);
+
     if (global != 1) {
-	fail("Whoops, helper routine didn't release captive object");
+       fail("Whoops, helper routine didn't release captive object");
     }
     [pool drain];
 

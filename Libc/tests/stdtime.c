@@ -146,8 +146,8 @@ T_DECL(strptime_PR_10842560, "strptime() with %W and %U")
 }
 
 #if !TARGET_OS_BRIDGE
-T_DECL(strptime_asctime, "strptime->asctime")
-{
+T_DECL(strptime_asctime, "strptime->asctime",
+       T_META_REQUIRES_OS_VARIANT_NOT("IsDarwinOS")) {
     char *test[] = {
         "Sun,  6 Apr 2003 03:30:00 -0500",
         "Sun,  6 Apr 2003 04:30:00 -0500",

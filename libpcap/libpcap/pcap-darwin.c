@@ -990,13 +990,44 @@ pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
 	return (1);
 }
 
-
-
 int
 pcap_ng_dump_pktap(pcap_t *pcap, pcap_dumper_t *dumper,
 		   const struct pcap_pkthdr *h, const u_char *sp)
 {
 	return (pcap_ng_dump_pktap_comment(pcap, dumper, h, sp, NULL));
+}
+
+int
+pcap_ng_dump_decryption_secrets(pcap_t *pcap, pcap_dumper_t *dumper,
+				const uint32_t type, const size_t len, const uint8_t *sp)
+{
+	int retval;
+	pcapng_block_t block = NULL;
+	struct pcapng_decryption_secrets_fields *dsb_fields;
+
+	if (len > UINT32_MAX) {
+		return 0;
+	}
+
+	if (pcapng_dump_shb(pcap, dumper) == 0)
+		return (0);
+
+	block = dumper->dump_block;
+
+	retval = pcap_ng_block_reset(block, PCAPNG_BT_DSB);
+	if (retval != 0) {
+		snprintf(pcap->errbuf, PCAP_ERRBUF_SIZE,
+			 "%s: pcap_ng_block_reset(PCAPNG_BT_DSB) failed", __func__);
+		return (0);
+	}
+	dsb_fields = pcap_ng_get_decryption_secrets_fields(block);
+	dsb_fields->secrets_type = type;
+	dsb_fields->secrets_length = (uint32_t)len;
+	pcap_ng_block_packet_set_data(block, sp, (uint32_t)len);
+
+	(void) pcap_ng_dump_block(dumper, block);
+
+	return (1);
 }
 
 int
@@ -1372,7 +1403,11 @@ pcap_ng_dump_pktap_v2(pcap_t *pcap, pcap_dumper_t *dumper,
 		pmdflags |= PCAPNG_EPB_PMDF_NEXUS_CHANNEL;
 	}
 #endif /* PTH_FLAG_NEXUS_CHAN */
-	
+
+	if (pmdflags != 0) {
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PMD_FLAGS, &pmdflags, 4);
+	}
+
 	(void) pcap_ng_dump_block(dumper, block);
 	
 	return (1);

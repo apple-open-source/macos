@@ -652,7 +652,7 @@ UTS/cc-assembly)	ADDITIONAL_OBJS="uts4.cc${o} $ADDITIONAL_OBJS"
 			AC_DEFINE(HAVE_MUTEX_X86_GCC_ASSEMBLY)
 			AH_TEMPLATE(HAVE_MUTEX_X86_GCC_ASSEMBLY,
 			    [Define to 1 to use the GCC compiler and 32-bit x86 assembly language mutexes.]);;
-*x86_64/gcc-assembly)	hybrid="$hybrid/tas"
+*)	hybrid="$hybrid/tas"
 			ADDITIONAL_OBJS="mut_tas${o} $ADDITIONAL_OBJS"
 			AC_DEFINE(HAVE_MUTEX_X86_64_GCC_ASSEMBLY)
 			AH_TEMPLATE(HAVE_MUTEX_X86_64_GCC_ASSEMBLY,

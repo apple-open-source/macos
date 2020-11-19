@@ -30,7 +30,7 @@ YEARISTYPE=     ./yearistype
 
 TZDIR=zoneinfo
 
-CFLAGS+=-D_POSIX_C_SOURCE
+CFLAGS+=-D_POSIX_C_SOURCE=200112L
 CPPFLAGS+= -DTZDIR=\"$(TZDIR)\" 
 
 # more data

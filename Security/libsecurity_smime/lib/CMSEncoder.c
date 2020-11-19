@@ -363,7 +363,7 @@ static OSStatus cmsSetupEncoder(
 {
     OSStatus ortn;
 
-    ASSERT(cmsEncoder->arena == NULL);
+    ASSERT(cmsEncoder->cmsMsg != NULL);
     ASSERT(cmsEncoder->encoder == NULL);
 
     cmsEncoder->encoderOut = CFDataCreateMutable(NULL, 0);

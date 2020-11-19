@@ -1,4 +1,4 @@
-.TH "ZSHCOMPWID" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHCOMPWID" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshcompwid \- zsh completion widgets
 .\" Yodl file: Zsh/compwid.yo
@@ -420,7 +420,7 @@ edited\&.
 
 .TP
 .PD 0
-\fBcompadd \fP[ \fB\-akqQfenUlo12C\fP ] [ \fB\-F\fP \fIarray\fP ]
+\fBcompadd \fP[ \fB\-akqQfenUl12C\fP ] [ \fB\-F\fP \fIarray\fP ]
 .TP
 .PD 0
 \fB        \fP[\fB\-P\fP \fIprefix\fP ] [ \fB\-S\fP \fIsuffix\fP ]
@@ -435,7 +435,10 @@ edited\&.
 \fB        \fP[\fB\-W\fP \fIfile\-prefix\fP ] [ \fB\-d\fP \fIarray\fP ]
 .TP
 .PD 0
-\fB        \fP[\fB\-J\fP \fIname\fP ] [ \fB\-V\fP \fIname\fP ] [ \fB\-X\fP \fIexplanation\fP ] [ \fB\-x\fP \fImessage\fP ]
+\fB        \fP[\fB\-J\fP \fIgroup\-name\fP ] [ \fB\-X\fP \fIexplanation\fP ] [ \fB\-x\fP \fImessage\fP ]
+.TP
+.PD 0
+\fB        \fP[\fB\-V\fP \fIgroup\-name\fP ] [ \fB\-o\fP [ \fIorder\fP ] ]
 .TP
 .PD 0
 \fB        \fP[\fB\-r\fP \fIremove\-chars\fP ] [ \fB\-R\fP \fIremove\-func\fP ]
@@ -541,18 +544,42 @@ This option only has an effect if used together with the \fB\-d\fP
 option\&. If it is given, the display strings are listed one per line,
 not arrayed in columns\&.
 .TP
-\fB\-o\fP
-This option only has an effect if used together with the \fB\-d\fP
-option\&.  If it is given, the order of the output is determined by the
-match strings;  otherwise it is determined by the display strings
-(i\&.e\&. the strings given by the \fB\-d\fP option)\&.
+\fB\-o\fP [ \fIorder\fP ]
+This controls the order in which matches are sorted\&. \fIorder\fP is a
+comma\-separated list comprising the following possible values\&.  These values
+can be abbreviated to their initial two or three characters\&.  Note that the
+order forms part of the group name space so matches with different orderings
+will not be in the same group\&.
+.RS
+.PP
+.PD 0
 .TP
-\fB\-J\fP \fIname\fP
+.PD
+\fBmatch\fP
+If given, the order of the output is determined by the match strings;
+otherwise it is determined by the display strings (i\&.e\&. the strings given
+by the \fB\-d\fP option)\&. This is the default if `\fB\-o\fP\&' is specified but
+the \fIorder\fP argument is omitted\&.
+.TP
+\fBnosort\fP
+This specifies that the matches are pre\-sorted and their order should be
+preserved\&.  This value only makes sense alone and cannot be combined with any
+others\&.
+.TP
+\fBnumeric\fP
+If the matches include numbers, sort them numerically rather than
+lexicographically\&.
+.TP
+\fBreverse\fP
+Arrange the matches backwards by reversing the sort ordering\&.
+.RE
+.TP
+\fB\-J\fP \fIgroup\-name\fP
 Gives the name of the group of matches the words should be stored in\&.
 .TP
-\fB\-V\fP \fIname\fP
-Like \fB\-J\fP but naming an unsorted group\&. These are in a different name
-space than groups created with the \fB\-J\fP flag\&.
+\fB\-V\fP \fIgroup\-name\fP
+Like \fB\-J\fP but naming an unsorted group\&. This option is identical to
+the combination of \fB\-J\fP and \fB\-o nosort\fP\&.
 .TP
 \fB\-1\fP
 If given together with the \fB\-V\fP option, makes
@@ -568,6 +595,29 @@ different name spaces\&.
 \fB\-X\fP \fIexplanation\fP
 The \fIexplanation\fP string will be printed with the list of matches,
 above the group currently selected\&.
+.RS
+.PP
+Within the \fIexplanation\fP, the following sequences may be used to
+specify output attributes
+as described in the section EXPANSION OF PROMPT SEQUENCES in
+\fIzshmisc\fP(1):
+`\fB%B\fP\&', `\fB%S\fP', `\fB%U\fP', `\fB%F\fP', `\fB%K\fP' and their lower case
+counterparts, as well as `\fB%{\fP\&.\&.\&.\fB%}\fP\&'\&.  `\fB%F\fP', `\fB%K\fP' and
+`\fB%{\fP\&.\&.\&.\fB%}\fP\&' take arguments in the same form as prompt
+expansion\&.  (Note that the sequence `\fB%G\fP\&' is not available; an
+argument to `\fB%{\fP\&' should be used instead\&.)  The sequence `\fB%%\fP'
+produces a literal `\fB%\fP\&'\&.
+.PP
+These sequences are most often employed by users when customising the
+\fBformat\fP style
+(see
+\fIzshcompsys\fP(1)),
+but they must also be taken into account when writing completion
+functions, as passing descriptions with unescaped `\fB%\fP\&' characters
+to utility functions such as \fB_arguments\fP and \fB_message\fP may
+produce unexpected results\&. If arbitrary text is to be passed in a
+description, it can be escaped using e\&.g\&. \fB${my_str//\e%/%%}\fP\&.
+.RE
 .TP
 \fB\-x\fP \fImessage\fP
 Like \fB\-X\fP, but the \fImessage\fP will be printed even if there are no 
@@ -747,8 +797,8 @@ The options are:
 .TP
 .PD
 \fB\-p\fP \fInumber\fP
-If the contents of the \fBPREFIX\fP parameter is longer than \fInumber\fP
-characters, the first \fInumber\fP characters are removed from it and
+If the value of the \fBPREFIX\fP parameter is at least \fInumber\fP
+characters long, the first \fInumber\fP characters are removed from it and
 appended to the contents of the \fBIPREFIX\fP parameter\&.
 .TP
 \fB\-P\fP [ \fInumber\fP ] \fIpattern\fP

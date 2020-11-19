@@ -341,7 +341,7 @@ static inline bool isNSDictionary(id nsType) {
     if (!ok || error) {
         secerror("SecPinningDb: error installing updated pinning list version %@: %@", [pinningList objectAtIndex:0], error);
 #if ENABLE_TRUSTD_ANALYTICS
-        [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
+        [[TrustAnalytics logger] logHardError:(__bridge NSError *)error
                                        withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                       withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                        TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationWrite) }];
@@ -471,7 +471,7 @@ static inline bool isNSDictionary(id nsType) {
                  if (!ok) {
                      secerror("SecPinningDb: %s failed: %@", didCreate ? "Create" : "Open", error ? *error : NULL);
 #if ENABLE_TRUSTD_ANALYTICS
-                     [[TrustdHealthAnalytics logger] logHardError:(error ? (__bridge NSError *)*error : nil)
+                     [[TrustAnalytics logger] logHardError:(error ? (__bridge NSError *)*error : nil)
                                                     withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                                    withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                                     TrustdHealthAnalyticsAttributeDatabaseOperation : didCreate ? @(TAOperationCreate) : @(TAOperationOpen)}];
@@ -699,7 +699,7 @@ static void verify_create_path(const char *path)
     if (!ok || error) {
         secerror("SecPinningDb: error querying DB for hostname: %@", error);
 #if ENABLE_TRUSTD_ANALYTICS
-        [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
+        [[TrustAnalytics logger] logHardError:(__bridge NSError *)error
                                        withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                       withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                        TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
@@ -774,7 +774,7 @@ static void verify_create_path(const char *path)
     if (!ok || error) {
         secerror("SecPinningDb: error querying DB for policyName: %@", error);
 #if ENABLE_TRUSTD_ANALYTICS
-        [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
+        [[TrustAnalytics logger] logHardError:(__bridge NSError *)error
                                        withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                       withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                        TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
@@ -809,7 +809,7 @@ void SecPinningDbInitialize(void) {
             if (!ok || error) {
                 secerror("SecPinningDb: unable to initialize db: %@", error);
 #if ENABLE_TRUSTD_ANALYTICS
-                [[TrustdHealthAnalytics logger] logHardError:(__bridge NSError *)error
+                [[TrustAnalytics logger] logHardError:(__bridge NSError *)error
                                                withEventName:TrustdHealthAnalyticsEventDatabaseEvent
                                               withAttributes:@{TrustdHealthAnalyticsAttributeAffectedDatabase : @(TAPinningDb),
                                                                TrustdHealthAnalyticsAttributeDatabaseOperation : @(TAOperationRead)}];
@@ -823,15 +823,18 @@ void SecPinningDbInitialize(void) {
 CFDictionaryRef _Nullable SecPinningDbCopyMatching(CFDictionaryRef query) {
     @autoreleasepool {
         SecPinningDbInitialize();
-
         NSDictionary *nsQuery = (__bridge NSDictionary*)query;
-        NSString *hostname = [nsQuery objectForKey:(__bridge NSString*)kSecPinningDbKeyHostname];
 
-        NSDictionary *results = [pinningDb queryForDomain:hostname];
-        if (results) { return CFBridgingRetain(results); }
+        /* prefer rules queried by policy name */
         NSString *policyName = [nsQuery objectForKey:(__bridge NSString*)kSecPinningDbKeyPolicyName];
-        results = [pinningDb queryForPolicyName:policyName];
-        if (!results) { return nil; }
+        NSDictionary *results = [pinningDb queryForPolicyName:policyName];
+        if (results) {
+            return CFBridgingRetain(results);
+        }
+
+        /* then rules queried by hostname */
+        NSString *hostname = [nsQuery objectForKey:(__bridge NSString*)kSecPinningDbKeyHostname];
+        results = [pinningDb queryForDomain:hostname];
         return CFBridgingRetain(results);
     }
 }

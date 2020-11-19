@@ -23,6 +23,151 @@ static garray_T		ga_loaded = {0, 0, sizeof(char_u *), 4, NULL};
 #endif
 
 /*
+ * Initialize the execution stack.
+ */
+    void
+estack_init(void)
+{
+    estack_T *entry;
+
+    if (ga_grow(&exestack, 10) == FAIL)
+	mch_exit(0);
+    entry = ((estack_T *)exestack.ga_data) + exestack.ga_len;
+    entry->es_type = ETYPE_TOP;
+    entry->es_name = NULL;
+    entry->es_lnum = 0;
+#ifdef FEAT_EVAL
+    entry->es_info.ufunc = NULL;
+#endif
+    ++exestack.ga_len;
+}
+
+/*
+ * Add an item to the execution stack.
+ * Returns the new entry or NULL when out of memory.
+ */
+    estack_T *
+estack_push(etype_T type, char_u *name, long lnum)
+{
+    estack_T *entry;
+
+    // If memory allocation fails then we'll pop more than we push, eventually
+    // at the top level it will be OK again.
+    if (ga_grow(&exestack, 1) == OK)
+    {
+	entry = ((estack_T *)exestack.ga_data) + exestack.ga_len;
+	entry->es_type = type;
+	entry->es_name = name;
+	entry->es_lnum = lnum;
+#ifdef FEAT_EVAL
+	entry->es_info.ufunc = NULL;
+#endif
+	++exestack.ga_len;
+	return entry;
+    }
+    return NULL;
+}
+
+#if defined(FEAT_EVAL) || defined(PROTO)
+/*
+ * Add a user function to the execution stack.
+ */
+    void
+estack_push_ufunc(ufunc_T *ufunc, long lnum)
+{
+    estack_T *entry = estack_push(ETYPE_UFUNC,
+	    ufunc->uf_name_exp != NULL
+				  ? ufunc->uf_name_exp : ufunc->uf_name, lnum);
+    if (entry != NULL)
+	entry->es_info.ufunc = ufunc;
+}
+
+/*
+ * Return TRUE if "ufunc" with "lnum" is already at the top of the exe stack.
+ */
+    int
+estack_top_is_ufunc(ufunc_T *ufunc, long lnum)
+{
+    estack_T *entry;
+
+    if (exestack.ga_len == 0)
+	return FALSE;
+    entry = ((estack_T *)exestack.ga_data) + exestack.ga_len - 1;
+    return entry->es_type == ETYPE_UFUNC
+	&& STRCMP( entry->es_name, ufunc->uf_name_exp != NULL
+				    ? ufunc->uf_name_exp : ufunc->uf_name) == 0
+	&& entry->es_lnum == lnum;
+}
+#endif
+
+/*
+ * Take an item off of the execution stack.
+ */
+    void
+estack_pop(void)
+{
+    if (exestack.ga_len > 1)
+	--exestack.ga_len;
+}
+
+/*
+ * Get the current value for <sfile> in allocated memory.
+ */
+    char_u *
+estack_sfile(void)
+{
+    estack_T	*entry;
+#ifdef FEAT_EVAL
+    size_t	len;
+    int		idx;
+    char	*res;
+    size_t	done;
+#endif
+
+    entry = ((estack_T *)exestack.ga_data) + exestack.ga_len - 1;
+    if (entry->es_name == NULL)
+	return NULL;
+#ifdef FEAT_EVAL
+    if (entry->es_info.ufunc == NULL)
+#endif
+	return vim_strsave(entry->es_name);
+
+#ifdef FEAT_EVAL
+    // For a function we compose the call stack, as it was done in the past:
+    //   "function One[123]..Two[456]..Three"
+    len = STRLEN(entry->es_name) + 10;
+    for (idx = exestack.ga_len - 2; idx >= 0; --idx)
+    {
+	entry = ((estack_T *)exestack.ga_data) + idx;
+	if (entry->es_name == NULL || entry->es_info.ufunc == NULL)
+	{
+	    ++idx;
+	    break;
+	}
+	len += STRLEN(entry->es_name) + 15;
+    }
+
+    res = (char *)alloc((int)len);
+    if (res != NULL)
+    {
+	STRCPY(res, "function ");
+	while (idx < exestack.ga_len - 1)
+	{
+	    done = STRLEN(res);
+	    entry = ((estack_T *)exestack.ga_data) + idx;
+	    vim_snprintf(res + done, len - done, "%s[%ld]..",
+					       entry->es_name, entry->es_lnum);
+	    ++idx;
+	}
+	done = STRLEN(res);
+	entry = ((estack_T *)exestack.ga_data) + idx;
+	vim_snprintf(res + done, len - done, "%s", entry->es_name);
+    }
+    return (char_u *)res;
+#endif
+}
+
+/*
  * ":runtime [what] {name}"
  */
     void
@@ -58,9 +203,9 @@ ex_runtime(exarg_T *eap)
 }
 
     static void
-source_callback(char_u *fname, void *cookie UNUSED)
+source_callback(char_u *fname, void *cookie)
 {
-    (void)do_source(fname, FALSE, DOSO_NONE);
+    (void)do_source(fname, FALSE, DOSO_NONE, cookie);
 }
 
 /*
@@ -104,7 +249,7 @@ do_in_path(
     buf = alloc(MAXPATHL);
     if (buf != NULL && rtp_copy != NULL)
     {
-	if (p_verbose > 1 && name != NULL)
+	if (p_verbose > 10 && name != NULL)
 	{
 	    verbose_enter();
 	    smsg(_("Searching for \"%s\" in \"%s\""),
@@ -152,7 +297,7 @@ do_in_path(
 		    copy_option_part(&np, tail, (int)(MAXPATHL - (tail - buf)),
 								       "\t ");
 
-		    if (p_verbose > 2)
+		    if (p_verbose > 10)
 		    {
 			verbose_enter();
 			smsg(_("Searching for \"%s\""), buf);
@@ -275,16 +420,16 @@ do_in_runtimepath(
     int
 source_runtime(char_u *name, int flags)
 {
-    return source_in_path(p_rtp, name, flags);
+    return source_in_path(p_rtp, name, flags, NULL);
 }
 
 /*
  * Just like source_runtime(), but use "path" instead of 'runtimepath'.
  */
     int
-source_in_path(char_u *path, char_u *name, int flags)
+source_in_path(char_u *path, char_u *name, int flags, int *ret_sid)
 {
-    return do_in_path_and_pp(path, name, flags, source_callback, NULL);
+    return do_in_path_and_pp(path, name, flags, source_callback, ret_sid);
 }
 
 
@@ -303,7 +448,7 @@ source_all_matches(char_u *pat)
     if (gen_expand_wildcards(1, &pat, &num_files, &files, EW_FILE) == OK)
     {
 	for (i = 0; i < num_files; ++i)
-	    (void)do_source(files[i], FALSE, DOSO_NONE);
+	    (void)do_source(files[i], FALSE, DOSO_NONE, NULL);
 	FreeWild(num_files, files);
     }
 }
@@ -806,7 +951,7 @@ cmd_source(char_u *fname, exarg_T *eap)
 						 );
 
     // ":source" read ex commands
-    else if (do_source(fname, FALSE, DOSO_NONE) == FAIL)
+    else if (do_source(fname, FALSE, DOSO_NONE, NULL) == FAIL)
 	semsg(_(e_notopen), fname);
 }
 
@@ -843,9 +988,13 @@ ex_source(exarg_T *eap)
 ex_options(
     exarg_T	*eap UNUSED)
 {
-    vim_setenv((char_u *)"OPTWIN_CMD",
-	    (char_u *)(cmdmod.tab ? "tab"
-		: (cmdmod.split & WSP_VERT) ? "vert" : ""));
+    char_u  buf[500];
+    int	    multi_mods = 0;
+
+    buf[0] = NUL;
+    (void)add_win_cmd_modifers(buf, &multi_mods);
+
+    vim_setenv((char_u *)"OPTWIN_CMD", buf);
     cmd_source((char_u *)SYS_OPTWIN_FILE, NULL);
 }
 #endif
@@ -939,20 +1088,22 @@ fopen_noinh_readbin(char *filename)
 
 /*
  * do_source: Read the file "fname" and execute its lines as EX commands.
+ * When "ret_sid" is not NULL and we loaded the script before, don't load it
+ * again.
  *
  * This function may be called recursively!
  *
- * return FAIL if file could not be opened, OK otherwise
+ * Return FAIL if file could not be opened, OK otherwise.
+ * If a scriptitem_T was found or created "*ret_sid" is set to the SID.
  */
     int
 do_source(
     char_u	*fname,
     int		check_other,	    // check for .vimrc and _vimrc
-    int		is_vimrc)	    // DOSO_ value
+    int		is_vimrc,	    // DOSO_ value
+    int		*ret_sid UNUSED)
 {
     struct source_cookie    cookie;
-    char_u		    *save_sourcing_name;
-    linenr_T		    save_sourcing_lnum;
     char_u		    *p;
     char_u		    *fname_exp;
     char_u		    *firstline = NULL;
@@ -963,11 +1114,8 @@ do_source(
     static int		    last_current_SID_seq = 0;
     funccal_entry_T	    funccalp_entry;
     int			    save_debug_break_level = debug_break_level;
+    int			    sid;
     scriptitem_T	    *si = NULL;
-# ifdef UNIX
-    stat_T		    st;
-    int			    stat_ok;
-# endif
 #endif
 #ifdef STARTUPTIME
     struct timeval	    tv_rel;
@@ -977,6 +1125,7 @@ do_source(
     proftime_T		    wait_start;
 #endif
     int			    trigger_source_post = FALSE;
+    ESTACK_CHECK_DECLARATION
 
     p = expand_env_save(fname);
     if (p == NULL)
@@ -990,6 +1139,29 @@ do_source(
 	smsg(_("Cannot source a directory: \"%s\""), fname);
 	goto theend;
     }
+
+#ifdef FEAT_EVAL
+    // See if we loaded this script before.
+    for (sid = script_items.ga_len; sid > 0; --sid)
+    {
+	// We used to check inode here, but that doesn't work:
+	// - If a script is edited and written, it may get a different
+	//   inode number, even though to the user it is the same script.
+	// - If a script is deleted and another script is written, with a
+	//   different name, the inode may be re-used.
+	si = SCRIPT_ITEM(sid);
+	if (si->sn_name != NULL && fnamecmp(si->sn_name, fname_exp) == 0)
+		// Found it!
+		break;
+    }
+    if (sid > 0 && ret_sid != NULL)
+    {
+	// Already loaded and no need to load again, return here.
+	*ret_sid = sid;
+	retval = OK;
+	goto theend;
+    }
+#endif
 
     // Apply SourceCmd autocommands, they should get the file and source it.
     if (has_autocmd(EVENT_SOURCECMD, fname_exp, NULL)
@@ -1057,11 +1229,11 @@ do_source(
 	if (p_verbose > 0)
 	{
 	    verbose_enter();
-	    if (sourcing_name == NULL)
+	    if (SOURCING_NAME == NULL)
 		smsg(_("could not source \"%s\""), fname);
 	    else
 		smsg(_("line %ld: could not source \"%s\""),
-							sourcing_lnum, fname);
+							SOURCING_LNUM, fname);
 	    verbose_leave();
 	}
 	goto theend;
@@ -1073,11 +1245,10 @@ do_source(
     if (p_verbose > 1)
     {
 	verbose_enter();
-	if (sourcing_name == NULL)
+	if (SOURCING_NAME == NULL)
 	    smsg(_("sourcing \"%s\""), fname);
 	else
-	    smsg(_("line %ld: sourcing \"%s\""),
-							sourcing_lnum, fname);
+	    smsg(_("line %ld: sourcing \"%s\""), SOURCING_LNUM, fname);
 	verbose_leave();
     }
     if (is_vimrc == DOSO_VIMRC)
@@ -1108,10 +1279,8 @@ do_source(
 #endif
 
     // Keep the sourcing name/lnum, for recursive calls.
-    save_sourcing_name = sourcing_name;
-    sourcing_name = fname_exp;
-    save_sourcing_lnum = sourcing_lnum;
-    sourcing_lnum = 0;
+    estack_push(ETYPE_SCRIPT, fname_exp, 0);
+    ESTACK_CHECK_SETUP
 
 #ifdef STARTUPTIME
     if (time_fd != NULL)
@@ -1130,62 +1299,80 @@ do_source(
 
     save_current_sctx = current_sctx;
     current_sctx.sc_lnum = 0;
-    current_sctx.sc_version = 1;
+    current_sctx.sc_version = 1;  // default script version
 
     // Check if this script was sourced before to finds its SID.
-    // If it's new, generate a new SID.
     // Always use a new sequence number.
     current_sctx.sc_seq = ++last_current_SID_seq;
-# ifdef UNIX
-    stat_ok = (mch_stat((char *)fname_exp, &st) >= 0);
-# endif
-    for (current_sctx.sc_sid = script_items.ga_len; current_sctx.sc_sid > 0;
-							 --current_sctx.sc_sid)
+    if (sid > 0)
     {
-	si = &SCRIPT_ITEM(current_sctx.sc_sid);
-	if (si->sn_name != NULL
-		&& (
-# ifdef UNIX
-		    // Compare dev/ino when possible, it catches symbolic
-		    // links.  Also compare file names, the inode may change
-		    // when the file was edited.
-		    ((stat_ok && si->sn_dev_valid)
-			&& (si->sn_dev == st.st_dev
-			    && si->sn_ino == st.st_ino)) ||
-# endif
-		fnamecmp(si->sn_name, fname_exp) == 0))
-	    break;
+	hashtab_T	*ht;
+	int		is_vim9 = si->sn_version == SCRIPT_VERSION_VIM9;
+
+	// loading the same script again
+	si->sn_had_command = FALSE;
+	si->sn_version = 1;
+	current_sctx.sc_sid = sid;
+
+	// In Vim9 script all script-local variables are removed when reloading
+	// the same script.  In legacy script they remain but "const" can be
+	// set again.
+	ht = &SCRIPT_VARS(sid);
+	if (is_vim9)
+	    hashtab_free_contents(ht);
+	else
+	{
+	    int		todo = (int)ht->ht_used;
+	    hashitem_T	*hi;
+	    dictitem_T	*di;
+
+	    for (hi = ht->ht_array; todo > 0; ++hi)
+		if (!HASHITEM_EMPTY(hi))
+		{
+		    --todo;
+		    di = HI2DI(hi);
+		    di->di_flags |= DI_FLAGS_RELOAD;
+		}
+	}
+
+	// old imports are no longer valid
+	free_imports(sid);
+
+	// in Vim9 script functions are marked deleted
+	if (is_vim9)
+	    delete_script_functions(sid);
     }
-    if (current_sctx.sc_sid == 0)
+    else
     {
+	// It's new, generate a new SID.
 	current_sctx.sc_sid = ++last_current_SID;
 	if (ga_grow(&script_items,
 		     (int)(current_sctx.sc_sid - script_items.ga_len)) == FAIL)
 	    goto almosttheend;
 	while (script_items.ga_len < current_sctx.sc_sid)
 	{
+	    si = ALLOC_CLEAR_ONE(scriptitem_T);
+	    if (si == NULL)
+		goto almosttheend;
 	    ++script_items.ga_len;
-	    SCRIPT_ITEM(script_items.ga_len).sn_name = NULL;
+	    SCRIPT_ITEM(script_items.ga_len) = si;
+	    si->sn_name = NULL;
+	    si->sn_version = 1;
+
+	    // Allocate the local script variables to use for this script.
+	    new_script_vars(script_items.ga_len);
+	    ga_init2(&si->sn_var_vals, sizeof(typval_T), 10);
+	    ga_init2(&si->sn_imports, sizeof(imported_T), 10);
+	    ga_init2(&si->sn_type_list, sizeof(type_T), 10);
 # ifdef FEAT_PROFILE
-	    SCRIPT_ITEM(script_items.ga_len).sn_prof_on = FALSE;
+	    si->sn_prof_on = FALSE;
 # endif
 	}
-	si = &SCRIPT_ITEM(current_sctx.sc_sid);
+	si = SCRIPT_ITEM(current_sctx.sc_sid);
 	si->sn_name = fname_exp;
 	fname_exp = vim_strsave(si->sn_name);  // used for autocmd
-# ifdef UNIX
-	if (stat_ok)
-	{
-	    si->sn_dev_valid = TRUE;
-	    si->sn_dev = st.st_dev;
-	    si->sn_ino = st.st_ino;
-	}
-	else
-	    si->sn_dev_valid = FALSE;
-# endif
-
-	// Allocate the local script variables to use for this script.
-	new_script_vars(current_sctx.sc_sid);
+	if (ret_sid != NULL)
+	    *ret_sid = current_sctx.sc_sid;
     }
 
 # ifdef FEAT_PROFILE
@@ -1237,7 +1424,7 @@ do_source(
     if (do_profiling == PROF_YES)
     {
 	// Get "si" again, "script_items" may have been reallocated.
-	si = &SCRIPT_ITEM(current_sctx.sc_sid);
+	si = SCRIPT_ITEM(current_sctx.sc_sid);
 	if (si->sn_prof_on)
 	{
 	    profile_end(&si->sn_pr_start);
@@ -1251,14 +1438,14 @@ do_source(
 
     if (got_int)
 	emsg(_(e_interr));
-    sourcing_name = save_sourcing_name;
-    sourcing_lnum = save_sourcing_lnum;
+    ESTACK_CHECK_NOW
+    estack_pop();
     if (p_verbose > 1)
     {
 	verbose_enter();
 	smsg(_("finished sourcing %s"), fname);
-	if (sourcing_name != NULL)
-	    smsg(_("continuing in %s"), sourcing_name);
+	if (SOURCING_NAME != NULL)
+	    smsg(_("continuing in %s"), SOURCING_NAME);
 	verbose_leave();
     }
 #ifdef STARTUPTIME
@@ -1283,6 +1470,15 @@ do_source(
 
 #ifdef FEAT_EVAL
 almosttheend:
+    // Get "si" again, "script_items" may have been reallocated.
+    si = SCRIPT_ITEM(current_sctx.sc_sid);
+    if (si->sn_save_cpo != NULL)
+    {
+	free_string_option(p_cpo);
+	p_cpo = si->sn_save_cpo;
+	si->sn_save_cpo = NULL;
+    }
+
     current_sctx = save_current_sctx;
     restore_funccal();
 # ifdef FEAT_PROFILE
@@ -1320,16 +1516,16 @@ ex_scriptnames(exarg_T *eap)
 	    emsg(_(e_invarg));
 	else
 	{
-	    eap->arg = SCRIPT_ITEM(eap->line2).sn_name;
+	    eap->arg = SCRIPT_ITEM(eap->line2)->sn_name;
 	    do_exedit(eap, NULL);
 	}
 	return;
     }
 
     for (i = 1; i <= script_items.ga_len && !got_int; ++i)
-	if (SCRIPT_ITEM(i).sn_name != NULL)
+	if (SCRIPT_ITEM(i)->sn_name != NULL)
 	{
-	    home_replace(NULL, SCRIPT_ITEM(i).sn_name,
+	    home_replace(NULL, SCRIPT_ITEM(i)->sn_name,
 						    NameBuff, MAXPATHL, TRUE);
 	    smsg("%3d: %s", i, NameBuff);
 	}
@@ -1345,8 +1541,8 @@ scriptnames_slash_adjust(void)
     int i;
 
     for (i = 1; i <= script_items.ga_len; ++i)
-	if (SCRIPT_ITEM(i).sn_name != NULL)
-	    slash_adjust(SCRIPT_ITEM(i).sn_name);
+	if (SCRIPT_ITEM(i)->sn_name != NULL)
+	    slash_adjust(SCRIPT_ITEM(i)->sn_name);
 }
 # endif
 
@@ -1366,7 +1562,7 @@ get_scriptname(scid_T id)
 	return (char_u *)_("environment variable");
     if (id == SID_ERROR)
 	return (char_u *)_("error handler");
-    return SCRIPT_ITEM(id).sn_name;
+    return SCRIPT_ITEM(id)->sn_name;
 }
 
 # if defined(EXITFREE) || defined(PROTO)
@@ -1377,10 +1573,18 @@ free_scriptnames(void)
 
     for (i = script_items.ga_len; i > 0; --i)
     {
-	vim_free(SCRIPT_ITEM(i).sn_name);
+	scriptitem_T *si = SCRIPT_ITEM(i);
+
+	// the variables themselves are cleared in evalvars_clear()
+	vim_free(si->sn_vars);
+
+	vim_free(si->sn_name);
+	free_imports(i);
+	free_string_option(si->sn_save_cpo);
 #  ifdef FEAT_PROFILE
-	ga_clear(&SCRIPT_ITEM(i).sn_prl_ga);
+	ga_clear(&si->sn_prl_ga);
 #  endif
+	vim_free(si);
     }
     ga_clear(&script_items);
 }
@@ -1399,7 +1603,7 @@ get_sourced_lnum(char_u *(*fgetline)(int, void *, int, int), void *cookie)
 {
     return fgetline == getsourceline
 			? ((struct source_cookie *)cookie)->sourcing_lnum
-			: sourcing_lnum;
+			: SOURCING_LNUM;
 }
 
     static char_u *
@@ -1525,7 +1729,7 @@ getsourceline(int c UNUSED, void *cookie, int indent UNUSED, int do_concat)
     // If breakpoints have been added/deleted need to check for it.
     if (sp->dbg_tick < debug_tick)
     {
-	sp->breakpoint = dbg_find_breakpoint(TRUE, sp->fname, sourcing_lnum);
+	sp->breakpoint = dbg_find_breakpoint(TRUE, sp->fname, SOURCING_LNUM);
 	sp->dbg_tick = debug_tick;
     }
 # ifdef FEAT_PROFILE
@@ -1535,7 +1739,7 @@ getsourceline(int c UNUSED, void *cookie, int indent UNUSED, int do_concat)
 #endif
 
     // Set the current sourcing line number.
-    sourcing_lnum = sp->sourcing_lnum + 1;
+    SOURCING_LNUM = sp->sourcing_lnum + 1;
 
     // Get current line.  If there is a read-ahead line, use it, otherwise get
     // one now.
@@ -1620,11 +1824,11 @@ getsourceline(int c UNUSED, void *cookie, int indent UNUSED, int do_concat)
 
 #ifdef FEAT_EVAL
     // Did we encounter a breakpoint?
-    if (sp->breakpoint != 0 && sp->breakpoint <= sourcing_lnum)
+    if (sp->breakpoint != 0 && sp->breakpoint <= SOURCING_LNUM)
     {
-	dbg_breakpoint(sp->fname, sourcing_lnum);
+	dbg_breakpoint(sp->fname, SOURCING_LNUM);
 	// Find next breakpoint.
-	sp->breakpoint = dbg_find_breakpoint(TRUE, sp->fname, sourcing_lnum);
+	sp->breakpoint = dbg_find_breakpoint(TRUE, sp->fname, SOURCING_LNUM);
 	sp->dbg_tick = debug_tick;
     }
 #endif
@@ -1678,6 +1882,11 @@ ex_scriptversion(exarg_T *eap UNUSED)
 	emsg(_("E984: :scriptversion used outside of a sourced file"));
 	return;
     }
+    if (current_sctx.sc_version == SCRIPT_VERSION_VIM9)
+    {
+	emsg(_("E1040: Cannot use :scriptversion after :vim9script"));
+	return;
+    }
 
     nr = getdigits(&eap->arg);
     if (nr == 0 || *eap->arg != NUL)
@@ -1685,7 +1894,10 @@ ex_scriptversion(exarg_T *eap UNUSED)
     else if (nr > 4)
 	semsg(_("E999: scriptversion not supported: %d"), nr);
     else
+    {
 	current_sctx.sc_version = nr;
+	SCRIPT_ITEM(current_sctx.sc_sid)->sn_version = nr;
+    }
 #endif
 }
 

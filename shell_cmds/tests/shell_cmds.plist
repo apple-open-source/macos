@@ -12,10 +12,8 @@
 				<string>/bin/sh</string>
 				<string>/AppleInternal/Tests/shell_cmds/printf/legacy_test.sh</string>
 			</array>
-			<key>IgnoreOutput</key>
-			<true/>
-			<key>TestName</key>
-			<string>shell_cmds: printf</string>
+			<key>IgnoreOutput</key><true/>
+			<key>TestName</key><string>shell_cmds.printf</string>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>
@@ -28,8 +26,20 @@
 				<string>/bin/sh</string>
 				<string>/AppleInternal/Tests/shell_cmds/test/legacy_test.sh</string>
 			</array>
-			<key>TestName</key>
-			<string>shell_cmds: test</string>
+			<key>TestName</key><string>shell_cmds.test</string>
+			<key>WhenToRun</key>
+			<array>
+				<string>PRESUBMISSION</string>
+				<string>NIGHTLY</string>
+			</array>
+		</dict>
+		<dict>
+			<key>Command</key>
+			<array>
+				<string>/bin/sh</string>
+				<string>/AppleInternal/Tests/shell_cmds/time/test_time.sh</string>
+			</array>
+			<key>TestName</key><string>shell_cmds.time</string>
 			<key>WhenToRun</key>
 			<array>
 				<string>PRESUBMISSION</string>

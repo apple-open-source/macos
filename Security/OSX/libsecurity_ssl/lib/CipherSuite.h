@@ -36,7 +36,7 @@
  * Defined as enum for debugging, but in the protocol
  * it is actually exactly two bytes
  */
-#if TARGET_OS_IPHONE && !TARGET_OS_IOSMAC
+#if ((TARGET_OS_IPHONE && !TARGET_OS_MACCATALYST) || (TARGET_OS_OSX && TARGET_CPU_ARM64))
 /* 16-bit value on iOS */
 typedef uint16_t SSLCipherSuite;
 #else

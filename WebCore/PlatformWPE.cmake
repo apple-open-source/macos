@@ -18,6 +18,7 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/accessibility/atk"
+    "${WEBCORE_DIR}/platform/adwaita"
     "${WEBCORE_DIR}/platform/graphics/egl"
     "${WEBCORE_DIR}/platform/graphics/epoxy"
     "${WEBCORE_DIR}/platform/graphics/glx"
@@ -30,6 +31,7 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/mediacapabilities"
     "${WEBCORE_DIR}/platform/mediastream/gstreamer"
     "${WEBCORE_DIR}/platform/text/icu"
+    "${WEBCORE_DIR}/platform/wpe"
 )
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
@@ -38,17 +40,18 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 )
 
 list(APPEND WebCore_USER_AGENT_STYLE_SHEETS
-    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsBase.css
+    ${WEBCORE_DIR}/css/themeAdwaita.css
+    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsAdwaita.css
 )
 
 set(WebCore_USER_AGENT_SCRIPTS
-    ${WEBCORE_DIR}/en.lproj/mediaControlsLocalizedStrings.js
-    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsBase.js
+    ${WEBCORE_DIR}/Modules/mediacontrols/mediaControlsAdwaita.js
 )
 
 set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/wpe/RenderThemeWPE.cpp)
 
 list(APPEND WebCore_LIBRARIES
+    WPE::libwpe
     ${ATK_LIBRARIES}
     ${GLIB_GIO_LIBRARIES}
     ${GLIB_GMODULE_LIBRARIES}
@@ -56,7 +59,7 @@ list(APPEND WebCore_LIBRARIES
     ${GLIB_LIBRARIES}
     ${LIBTASN1_LIBRARIES}
     ${UPOWERGLIB_LIBRARIES}
-    ${WPE_LIBRARIES}
+    ${WPEBACKEND_FDO_LIBRARIES}
 )
 
 list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
@@ -65,5 +68,10 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${GLIB_INCLUDE_DIRS}
     ${LIBTASN1_INCLUDE_DIRS}
     ${UPOWERGLIB_INCLUDE_DIRS}
-    ${WPE_INCLUDE_DIRS}
+    ${WPEBACKEND_FDO_INCLUDE_DIRS}
 )
+
+if (USE_OPENXR)
+    list(APPEND WebCore_LIBRARIES ${OPENXR_LIBRARIES})
+    list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES ${OPENXR_INCLUDE_DIRS})
+endif ()

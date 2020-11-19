@@ -50,7 +50,7 @@
 	methods of this family. 
 */
 
-class IOFireWireSerialBusProtocolTransport : public IOSCSIProtocolServices
+class __exported IOFireWireSerialBusProtocolTransport : public IOSCSIProtocolServices
 {
 	
 	OSDeclareDefaultStructors ( IOFireWireSerialBusProtocolTransport )

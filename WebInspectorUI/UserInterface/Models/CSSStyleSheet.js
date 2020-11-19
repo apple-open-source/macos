@@ -32,7 +32,6 @@ WI.CSSStyleSheet = class CSSStyleSheet extends WI.SourceCode
         console.assert(id);
 
         this._id = id || null;
-        this._url = null;
         this._parentFrame = null;
         this._origin = null;
         this._startLineNumber = 0;
@@ -68,16 +67,14 @@ WI.CSSStyleSheet = class CSSStyleSheet extends WI.SourceCode
         return this._origin;
     }
 
-    get url()
+    get injected()
     {
-        return this._url;
+        return WI.browserManager.isExtensionScheme(this.urlComponents.scheme);
     }
 
-    get urlComponents()
+    get anonymous()
     {
-        if (!this._urlComponents)
-            this._urlComponents = parseURL(this._url);
-        return this._urlComponents;
+        return !this.isInspectorStyleSheet() && !this._url;
     }
 
     get mimeType()
@@ -87,6 +84,9 @@ WI.CSSStyleSheet = class CSSStyleSheet extends WI.SourceCode
 
     get displayName()
     {
+        if (this.isInspectorStyleSheet())
+            return WI.UIString("Inspector Style Sheet");
+
         if (this._url)
             return WI.displayNameForURL(this._url, this.urlComponents);
 
@@ -180,7 +180,8 @@ WI.CSSStyleSheet = class CSSStyleSheet extends WI.SourceCode
             if (error)
                 return;
 
-            target.DOMAgent.markUndoableState();
+            if (target.hasCommand("DOM.markUndoableState"))
+                target.DOMAgent.markUndoableState();
 
             this.dispatchEventToListeners(WI.CSSStyleSheet.Event.ContentDidChange);
         }

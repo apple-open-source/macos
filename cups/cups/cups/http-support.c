@@ -1319,6 +1319,7 @@ _httpSetDigestAuthString(
 		digest[1024];		/* Digest auth data */
   unsigned char	hash[32];		/* Hash buffer */
   size_t	hashsize;		/* Size of hash */
+  _cups_globals_t *cg = _cupsGlobals();	/* Per-thread globals */
 
 
   DEBUG_printf(("2_httpSetDigestAuthString(http=%p, nonce=\"%s\", method=\"%s\", resource=\"%s\")", (void *)http, nonce, method, resource));
@@ -1360,6 +1361,12 @@ _httpSetDigestAuthString(
      /*
       * RFC 2617 Digest with MD5
       */
+
+      if (cg->digestoptions == _CUPS_DIGESTOPTIONS_DENYMD5)
+      {
+	DEBUG_puts("3_httpSetDigestAuthString: MD5 Digest is disabled.");
+	return (0);
+      }
 
       hashalg = "md5";
     }

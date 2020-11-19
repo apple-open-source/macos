@@ -67,9 +67,11 @@ typedef struct {
     const char *     expectFmt_shrtr_1;
     const char *     expectFmt_narr_0;
     const char *     expectFmt_numr_0;
+    const char *     expectFmt_numr_2;
     int32_t          ranges_wide_2[8][3];
     int32_t          ranges_shrtr_1[8][3];
     int32_t          ranges_numr_0[8][3];
+    int32_t          ranges_numr_2[8][3];
 } MultipleUnitFormat;
 
 typedef struct {
@@ -102,6 +104,7 @@ static const SingleUnitFormat en_singFmt[] = {
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37.20 degrees Celsius",     "37 degrees Celsius",     "37.203\\u00B0C",   "37.2\\u00B0C",   "37\\u00B0C",  "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37.20 degrees Fahrenheit",  "37 degrees Fahrenheit",  "37.203\\u00B0F",   "37.2\\u00B0F",   "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20 degrees",             "37 degrees",             "37.203\\u00B0",    "37.2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
+    { UAMEASUNIT_TEMPERATURE_GENERIC,       1.000, "1.00 degrees",              "1 degree",               "1\\u00B0",         "1.0\\u00B0",     "1\\u00B0",    "1\\u00B0",  0,1,    0,1   }, // rdar://65008672
     { UAMEASUNIT_VOLUME_LITER,             37.203, "37.20 liters",              "37 liters",              "37.203 L",         "37.2 L",         "37L",         "37L",       0,2,    0,2   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
     { UAMEASUNIT_ENERGY_JOULE,             37.203, "37.20 joules",              "37 joules",              "37.203 J",         "37.2 J",         "37J",         "37J",       0,2,    0,2   },
@@ -119,6 +122,15 @@ static const SingleUnitFormat en_GB_singFmt[] = {
     { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37.20 degrees Fahrenheit",  "37 degrees Fahrenheit",  "37.203\\u00B0F",   "37.2\\u00B0F",   "37\\u00B0F",  "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37.20 degrees",             "37 degrees",             "37.203\\u00B0",    "37.2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_VOLUME_LITER,             37.203, "37.20 litres",              "37 litres",              "37.203 l",         "37.2 l",         "37l",         "37l",       0,2,    0,2   },
+    { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat en_AU_singFmt[] = {
+//    unit                                 value   wide_2                       wide_0                    shrt_X              shrt_1            narr_0         numr_0       wide_0  narr_0
+    { UAMEASUNIT_ENERGY_KILOCALORIE,       1.0,    "1.00 Calories",             "1 Calorie",              "1 Cal",            "1.0 Cal",        "1Cal",        "1Cal",      0,1,    0,1   },
+    { UAMEASUNIT_ENERGY_KILOCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
+    { UAMEASUNIT_ENERGY_FOODCALORIE,       1.0,    "1.00 Calories",             "1 Calorie",              "1 Cal",            "1.0 Cal",        "1Cal",        "1Cal",      0,1,    0,1   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -169,6 +181,20 @@ static const SingleUnitFormat cs_singFmt[] = {
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
+static const SingleUnitFormat da_singFmt[] = {
+//    unit                                 value   wide_2                           wide_0                        shrt_X              shrt_1            narr_0         numr_0      wide_0  narr_0
+    { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,  1.1,   "1,10 kilometer i timen",        "1 kilometer i timen",        "1,1 km/t.",        "1,1 km/t.",      "1 km/t",      "1 km/t",   0,1,    0,1   }, // other for integer, else many
+    { UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,  2.0,   "2,00 kilometer i timen",        "2 kilometer i timen",        "2 km/t.",          "2,0 km/t.",      "2 km/t",      "2 km/t",   0,1,    0,1   }, // other for integer, else many
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat fi_singFmt[] = {
+//    unit                                 value   wide_2                           wide_0                        shrt_X              shrt_1            narr_0         numr_0      wide_0  narr_0
+    { UAMEASUNIT_DURATION_HOUR,            37.203, "37,20 tuntia",               "37 tuntia",             "37,203 t",              "37,2 t",                 "37 t",       "37 t",      0,2,    0,2 },
+    { UAMEASUNIT_DURATION_MINUTE,          37.203, "37,20 minuuttia",            "37 minuuttia",          "37,203 min",            "37,2 min",            "37 min",       "37 min",      0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
 static const SingleUnitFormat nl_singFmt[] = {
 //    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20 graden Celsius",      "37 graden Celsius",    "37,203\\u00A0\\u00B0C", "37,2\\u00A0\\u00B0C", "37\\u00B0",  "37\\u00B0", 0,2,    0,2 },
@@ -187,6 +213,29 @@ static const SingleUnitFormat nb_singFmt[] = {
 //    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
     { UAMEASUNIT_DURATION_HOUR,            37.203, "37,20 timer",               "37 timer",             "37,203 t",              "37,2 t", 				"37 t",       "37 t",      0,2,    0,2 },
     { UAMEASUNIT_DURATION_MINUTE,          37.203, "37,20 minutter",            "37 minutter",          "37,203 min",            "37,2 min",            "37 m",       "37 m",      0,2,    0,2 },
+    { UAMEASUNIT_LENGTH_INCH,              1.0,    "1,00 tomme",                "1 tomme",              "1 to",                  "1,0 to",              "1 to",       "1 to",      0,1,    0,1 },
+    { UAMEASUNIT_LENGTH_INCH,              37.203, "37,20 tommer",              "37 tommer",            "37,203 to",             "37,2 to",             "37 to",      "37 to",     0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat ro_singFmt[] = {
+//    unit                                 value   wide_2                       wide_0                  shrt_X                   shrt_1                 narr_0        numr_0       wide_0  narr_0
+    { UAMEASUNIT_DURATION_HOUR,            37.203, "37,20 ore",                 "37 de ore",            "37,203 ore",            "37,2 ore", 			"37 h",       "37 h",      0,2,    0,2 },
+    { UAMEASUNIT_DURATION_MINUTE,          37.203, "37,20 minute",              "37 de minute",         "37,203 min.",           "37,2 min.",           "37 m",       "37 m",      0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat uk_singFmt[] = {
+//    unit                                 value   wide_2                                wide_0                                    shrt_X               shrt_1                 narr_0               numr_0               wide_0  narr_0
+    { UAMEASUNIT_LENGTH_FOOT,               1.0,   "1,00 \\u0444\\u0443\\u0442\\u0430",  "1 \\u0444\\u0443\\u0442",                "1 \\u0444\\u0442",  "1,0 \\u0444\\u0442",  "1 \\u0444\\u0442",  "1 \\u0444\\u0442",  0,1,    0,1 },
+    { UAMEASUNIT_LENGTH_FOOT,               10.0,  "10,00 \\u0444\\u0443\\u0442\\u0430", "10 \\u0444\\u0443\\u0442\\u0456\\u0432", "10 \\u0444\\u0442", "10,0 \\u0444\\u0442", "10 \\u0444\\u0442", "10 \\u0444\\u0442", 0,2,    0,2 },
+    { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+};
+
+static const SingleUnitFormat vi_singFmt[] = {
+//    unit                                 value   wide_2                       wide_0                  shrt_X          shrt_1              narr_0          numr_0          wide_0  narr_0
+    { UAMEASUNIT_ENERGY_KILOCALORIE,       123.0,  "123,00 kil\\u00F4calo",     "123 kil\\u00F4calo",   "123 kcal",     "123,0 kcal",       "123 kcal",     "123 kcal",     0,3,    0,3 },
+    { UAMEASUNIT_ENERGY_KILOJOULE,         123.0,  "123,00 kil\\u00F4jun",      "123 kil\\u00F4jun",    "123 kJ",       "123,0 kJ",         "123 kJ",       "123 kJ",       0,3,    0,3 },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -226,65 +275,77 @@ static const UAMeasure meas_2hrMn[]  = { {2.0,UAMEASUNIT_DURATION_HOUR}, {12.1,U
 static const UAMeasure meas_moDys[]  = { {1.0,UAMEASUNIT_DURATION_MONTH}, {2.0,UAMEASUNIT_DURATION_DAY}   };
 
 static const MultipleUnitFormat en_multFmt[] = {
-//    measures     count                       wide_2                                wide_0                             shrt_X                        shrt_1                       shrtr_1                 narr_0        numr_0
-    { meas_hrMnSc, UPRV_LENGTHOF(meas_hrMnSc), "37 hours, 12 minutes, 5.32 seconds", "37 hours, 12 minutes, 5 seconds", "37 hr, 12 min, 5.32 sec",    "37 hr, 12 min, 5.3 sec",    "37hr 12min 5.3sec",    "37h 12m 5s", "13:12:05",
+//    measures     count                       wide_2                                wide_0                             shrt_X                        shrt_1                       shrtr_1                 narr_0        numr_0      numr_2
+    { meas_hrMnSc, UPRV_LENGTHOF(meas_hrMnSc), "37 hours, 12 minutes, 5.32 seconds", "37 hours, 12 minutes, 5 seconds", "37 hr, 12 min, 5.32 sec",    "37 hr, 12 min, 5.3 sec",    "37hr 12min 5.3sec",    "37h 12m 5s", "37:12:05", "37:12:05.32",
         /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,8},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE,10,20},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,10,12},{UAMEASUNIT_DURATION_SECOND,22,34},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG,22,26}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,4},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 5,10},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 5, 7},{UAMEASUNIT_DURATION_SECOND,11,17},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG,11,14}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5},{UAMEASUNIT_DURATION_SECOND, 6, 8},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 8}} },
-    { meas_hrMn,   UPRV_LENGTHOF(meas_hrMn),   "37 hours, 12.10 minutes",            "37 hours, 12 minutes",            "37 hr, 12.1 min",            "37 hr, 12.1 min",           "37hr 12.1min",         "37h 12m",    "13:12",
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5},{UAMEASUNIT_DURATION_SECOND, 6, 8},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 8}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5},{UAMEASUNIT_DURATION_SECOND, 6, 11},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 11}} },
+    { meas_hrMn,   UPRV_LENGTHOF(meas_hrMn),   "37 hours, 12.10 minutes",            "37 hours, 12 minutes",            "37 hr, 12.1 min",            "37 hr, 12.1 min",           "37hr 12.1min",         "37h 12m",    "37:12",    "37:12.10",
         /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,8},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE,10,23},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,10,15}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,4},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 5,12},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 5, 9}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5}} },
-    { meas_mCm,    UPRV_LENGTHOF(meas_mCm),    "37 meters, 12.10 centimeters",       "37 meters, 12 centimeters",       "37 m, 12.1 cm",              "37 m, 12.1 cm",             "37m 12.1cm",           "37m 12cm",   "37m 12cm",
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 8},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 8}} },
+    { meas_mCm,    UPRV_LENGTHOF(meas_mCm),    "37 meters, 12.10 centimeters",       "37 meters, 12 centimeters",       "37 m, 12.1 cm",              "37 m, 12.1 cm",             "37m 12.1cm",           "37m 12cm",   "37m 12cm", "37m 12.10cm",
         /* ranges_wide_2: */                {{UAMEASUNIT_LENGTH_METER,0,9},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER,11,28},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,11,16}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_LENGTH_METER,0,3},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER, 4,10},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG, 4, 8}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_LENGTH_METER,0,3},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER, 4, 8},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG, 4, 6}} },
-    { meas_cm,     UPRV_LENGTHOF(meas_cm),     "12.10 centimeters",                  "12 centimeters",                  "12.1 cm",                    "12.1 cm",                   "12.1cm",               "12cm",       "12cm",
+        /* ranges_numr_0: */                {{UAMEASUNIT_LENGTH_METER,0,3},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER, 4, 8},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG, 4, 6}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_LENGTH_METER,0,3},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER, 4, 11},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG, 4, 9}} },
+    { meas_cm,     UPRV_LENGTHOF(meas_cm),     "12.10 centimeters",                  "12 centimeters",                  "12.1 cm",                    "12.1 cm",                   "12.1cm",               "12cm",       "12cm",     "12.10cm",
         /* ranges_wide_2: */                {{UAMEASUNIT_LENGTH_CENTIMETER,0,17},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,5}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_LENGTH_CENTIMETER,0, 6},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,4}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_LENGTH_CENTIMETER,0, 4},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2}} },
-    { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+        /* ranges_numr_0: */                {{UAMEASUNIT_LENGTH_CENTIMETER,0, 4},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_LENGTH_CENTIMETER,0, 7},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,5}} },
+    { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }
 };
 
 static const MultipleUnitFormat en_GB_multFmt[] = {
-//    measures     count                       wide_2                                wide_0                             shrt_X                        shrt_1                       shrtr_1                 narr_0        numr_0
-    { meas_hrMnSc, UPRV_LENGTHOF(meas_hrMnSc), "37 hours, 12 minutes, 5.32 seconds", "37 hours, 12 minutes, 5 seconds", "37 hrs, 12 min, 5.32 secs",  "37 hrs, 12 min, 5.3 secs",  "37hrs 12min 5.3secs",  "37h 12m 5s", "13:12:05",
+//    measures     count                       wide_2                                wide_0                             shrt_X                        shrt_1                       shrtr_1                 narr_0        numr_0      numr_2
+    { meas_hrMnSc, UPRV_LENGTHOF(meas_hrMnSc), "37 hours, 12 minutes, 5.32 seconds", "37 hours, 12 minutes, 5 seconds", "37 hrs, 12 min, 5.32 secs",  "37 hrs, 12 min, 5.3 secs",  "37hrs 12min 5.3secs",  "37h 12m 5s", "37:12:05", "37:12:05.32",
         /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,8},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE,10,20},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,10,12},{UAMEASUNIT_DURATION_SECOND,22,34},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG,22,26}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,5},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 6,11},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 8},{UAMEASUNIT_DURATION_SECOND,12,19},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG,12,15}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5},{UAMEASUNIT_DURATION_SECOND, 6, 8},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 8}} },
-    { meas_hrMn,   UPRV_LENGTHOF(meas_hrMn),   "37 hours, 12.10 minutes",            "37 hours, 12 minutes",            "37 hrs, 12.1 min",           "37 hrs, 12.1 min",          "37hrs 12.1min",        "37h 12m",    "13:12",
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5},{UAMEASUNIT_DURATION_SECOND, 6, 8},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 8}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5},{UAMEASUNIT_DURATION_SECOND, 6, 11},{UAMEASUNIT_DURATION_SECOND|UAMEASFMT_NUMERIC_FIELD_FLAG, 6, 11}} },
+    { meas_hrMn,   UPRV_LENGTHOF(meas_hrMn),   "37 hours, 12.10 minutes",            "37 hours, 12 minutes",            "37 hrs, 12.1 min",           "37 hrs, 12.1 min",          "37hrs 12.1min",        "37h 12m",    "37:12",    "37:12.10",
         /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,8},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE,10,23},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,10,15}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,5},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 6,13},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 6,10}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5}} },
-    { meas_mCm,    UPRV_LENGTHOF(meas_mCm),    "37 metres, 12.10 centimetres",       "37 metres, 12 centimetres",       "37 m, 12.1 cm",              "37 m, 12.1 cm",             "37m 12.1cm",           "37m 12cm",   "37m 12cm",
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 5},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 5}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_DURATION_HOUR,0,2},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_DURATION_MINUTE, 3, 8},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG, 3, 8}} },
+    { meas_mCm,    UPRV_LENGTHOF(meas_mCm),    "37 metres, 12.10 centimetres",       "37 metres, 12 centimetres",       "37 m, 12.1 cm",              "37 m, 12.1 cm",             "37m 12.1cm",           "37m 12cm",   "37m 12cm", "37m 12.10cm",
         /* ranges_wide_2: */                {{UAMEASUNIT_LENGTH_METER,0,9},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER,11,28},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,11,16}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_LENGTH_METER,0,3},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER, 4,10},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG, 4, 8}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_LENGTH_METER,0,3},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER, 4, 8},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG, 4, 6}} },
-    { meas_cm,     UPRV_LENGTHOF(meas_cm),     "12.10 centimetres",                  "12 centimetres",                  "12.1 cm",                    "12.1 cm",                   "12.1cm",               "12cm",       "12cm",
+        /* ranges_numr_0: */                {{UAMEASUNIT_LENGTH_METER,0,3},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER, 4, 8},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG, 4, 6}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_LENGTH_METER,0,3},{UAMEASUNIT_LENGTH_METER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2},{UAMEASUNIT_LENGTH_CENTIMETER, 4, 11},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG, 4, 9}} },
+    { meas_cm,     UPRV_LENGTHOF(meas_cm),     "12.10 centimetres",                  "12 centimetres",                  "12.1 cm",                    "12.1 cm",                   "12.1cm",               "12cm",       "12cm",     "12.10cm",
         /* ranges_wide_2: */                {{UAMEASUNIT_LENGTH_CENTIMETER,0,17},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,5}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_LENGTH_CENTIMETER,0, 6},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,4}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_LENGTH_CENTIMETER,0, 4},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2}} },
-    { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL }
+        /* ranges_numr_0: */                {{UAMEASUNIT_LENGTH_CENTIMETER,0, 4},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,2}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_LENGTH_CENTIMETER,0, 7},{UAMEASUNIT_LENGTH_CENTIMETER|UAMEASFMT_NUMERIC_FIELD_FLAG,0,5}} },
+    { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }
 };
 
 static const MultipleUnitFormat he_multFmt[] = {
 //    measures     count                       wide_2                                                                                  wide_0 
-    { meas_2hrMn,  UPRV_LENGTHOF(meas_2hrMn),  "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D512.10 \\u05D3\\u05E7\\u05D5\\u05EA", "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D512 \\u05D3\\u05E7\\u05D5\\u05EA",
-        /* shrt_X, shrt_1*/                    "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D512.1 \\u05D3\\u05E7\\u05F3", "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D512.1 \\u05D3\\u05E7\\u05F3",
-        /* shrtr_1, narr_0, numr_0*/           "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D512.1 \\u05D3\\u05E7\\u05F3", "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D512 \\u05D3\\u05E7\\u05F3", "2:12",
-        /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,6},{UAMEASUNIT_DURATION_MINUTE,8,18},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,8,13}},
-        /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,6},{UAMEASUNIT_DURATION_MINUTE,8,16},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,8,12}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,1},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_MINUTE,2,4},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,2,4}} },
+    { meas_2hrMn,  UPRV_LENGTHOF(meas_2hrMn),  "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D5-12.10 \\u05D3\\u05E7\\u05D5\\u05EA", "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D5-12 \\u05D3\\u05E7\\u05D5\\u05EA",
+        /* shrt_X, shrt_1*/                    "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D5-12.1 \\u05D3\\u05E7\\u05F3", "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D5-12.1 \\u05D3\\u05E7\\u05F3",
+        /* shrtr_1, narr_0, numr_0, numr_2*/   "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D5-12.1 \\u05D3\\u05E7\\u05F3", "\\u05E9\\u05E2\\u05EA\\u05D9\\u05D9\\u05DD \\u05D5-12 \\u05D3\\u05E7\\u05F3", "2:12", "2:12.10",
+        /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_HOUR,0,6},{UAMEASUNIT_DURATION_MINUTE,9,19},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,9,14}},
+        /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_HOUR,0,6},{UAMEASUNIT_DURATION_MINUTE,9,17},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,9,13}},
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_HOUR,0,1},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_MINUTE,2,4},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,2,4}},
+        /* ranges_numr_2: */                {{UAMEASUNIT_DURATION_HOUR,0,1},{UAMEASUNIT_DURATION_HOUR|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_MINUTE,2,7},{UAMEASUNIT_DURATION_MINUTE|UAMEASFMT_NUMERIC_FIELD_FLAG,2,7}} },
+    { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }
 };
 
 static const MultipleUnitFormat hi_multFmt[] = {
 //    measures     count                       wide_2                                                                                       wide_0 
     { meas_moDys,  UPRV_LENGTHOF(meas_moDys),  "1 \\u092E\\u093E\\u0939 \\u0914\\u0930 2.00 \\u0926\\u093F\\u0928", "1 \\u092E\\u093E\\u0939 \\u0914\\u0930 2 \\u0926\\u093F\\u0928",
         /* shrt_X, shrt_1*/                    "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2.0 \\u0926\\u093F\\u0928",
-        /* shrtr_1, narr_0, numr_0*/           "1 \\u092E\\u093E\\u0939, 2.0 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",
+        /* shrtr_1, narr_0, numr_0, numr_2*/   "1 \\u092E\\u093E\\u0939, 2.0 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2.00 \\u0926\\u093F\\u0928",
         /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,9,17},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,9,13}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,14},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,10}},
-        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,12},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,8}} },
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,12},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,8}},
+        /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,15},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,11}} },
+    { NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, {{0,0,0}}, {{0,0,0}}, {{0,0,0}}, {{0,0,0}} }
 };
 
 static const UAMeasureUnit unit_hrMnSc[] = { UAMEASUNIT_DURATION_HOUR, UAMEASUNIT_DURATION_MINUTE,  UAMEASUNIT_DURATION_SECOND };
@@ -328,7 +389,7 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     // ============= TIER 0,1 and subocales
     { "en",         en_singFmt,      en_singNam,      en_multFmt,      en_multNam      }, // en: try plural cases for 1, other
     { "en_GB",      en_GB_singFmt,   en_GB_singNam,   en_GB_multFmt,   en_GB_multNam   },
-    { "en_AU",      NULL,            NULL,            NULL,            NULL            },
+    { "en_AU",      en_AU_singFmt,   NULL,            NULL,            NULL            },
     { "de",         NULL,            NULL,            NULL,            NULL            }, // de: try plural cases for 1, other
     { "fr",         fr_singFmt,      NULL,            NULL,            NULL            }, // fr: try plural cases for 1, other
     { "fr_CA",      fr_CA_singFmt,   NULL,            NULL,            NULL            },
@@ -339,11 +400,11 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "ar",         NULL,            NULL,            NULL,            NULL            }, // ar: try plural cases for 0, 1, 2, 3, 11, 100
     { "ca",         NULL,            NULL,            NULL,            NULL            }, // ca: try plural cases for 1, other
     { "cs",         cs_singFmt,      NULL,            NULL,            NULL            }, // cs: try plural cases for 1, 2, 8.5, 5
-    { "da",         NULL,            NULL,            NULL,            NULL            }, // da: try plural cases for 1, other
+    { "da",         da_singFmt,      NULL,            NULL,            NULL            }, // da: try plural cases for 1, other
     { "el",         NULL,            NULL,            NULL,            NULL            }, // el: try plural cases for 1, other
     { "es",         NULL,            NULL,            NULL,            NULL            }, // es: try plural cases for 1, other
     { "es_MX",      NULL,            NULL,            NULL,            NULL            },
-    { "fi",         NULL,            NULL,            NULL,            NULL            }, // fi: try plural cases for 1, other
+    { "fi",         fi_singFmt,      NULL,            NULL,            NULL            }, // fi: try plural cases for 1, other
     { "he",         NULL,            NULL,            he_multFmt,      NULL            }, // he: try plural cases for 1, 2, 20, 3
     { "hi",         NULL,            NULL,            hi_multFmt,      NULL            }, // hi: try plural cases for 1 (covers 0.0-1.0), other
     { "hr",         NULL,            NULL,            NULL,            NULL            }, // hr: try plural cases for 1, 2, 5
@@ -357,14 +418,14 @@ static const LocaleWidthNumFmtItem lwnItems[] = {
     { "pl",         NULL,            NULL,            NULL,            NULL            }, // pl: try plural cases for 1, 2, 5, 8.5
     { "pt",         NULL,            NULL,            NULL,            NULL            }, // pt: try plural cases for 1, other
     { "pt_PT",      NULL,            NULL,            NULL,            NULL            },
-    { "ro",         NULL,            NULL,            NULL,            NULL            }, // ro: try plural cases for 1, 2, 20
+    { "ro",         ro_singFmt,      NULL,            NULL,            NULL            }, // ro: try plural cases for 1, 2, 20
     { "ru",         NULL,            NULL,            NULL,            NULL            }, // ru: try plural cases for 1, 2, 5, 8.5
     { "sk",         NULL,            NULL,            NULL,            NULL            }, // sk: try plural cases for 1, 2, 8.5, 5
     { "sv",         NULL,            NULL,            NULL,            NULL            }, // sv: try plural cases for 1, other
     { "th",         NULL,            NULL,            NULL,            NULL            }, // th: try plural cases for other only
     { "tr",         NULL,            NULL,            NULL,            NULL            }, // tr: try plural cases for 1, other
-    { "uk",         NULL,            NULL,            NULL,            NULL            }, // uk: try plural cases for 1, 2, 5, 8.5
-    { "vi",         NULL,            NULL,            NULL,            NULL            }, // vi: try plural cases for other only
+    { "uk",         uk_singFmt,      NULL,            NULL,            NULL            }, // uk: try plural cases for 1, 2, 5, 8.5
+    { "vi",         vi_singFmt,      NULL,            NULL,            NULL            }, // vi: try plural cases for other only
     { "zh_Hant",    zh_Hant_singFmt, NULL,            NULL,            NULL            }, // zh_Hant: try plural cases for other only
     { "zh_Hant_HK", NULL,            NULL,            NULL,            NULL            }, 
 
@@ -396,6 +457,7 @@ static void TestUAMeasureFormat()
         UAMeasureFormat* measfmt_shrtr_1;
         UAMeasureFormat* measfmt_narr_0;
         UAMeasureFormat* measfmt_numr_0;
+        UAMeasureFormat* measfmt_numr_2;
 
         numfmt_0 = unum_open(UNUM_DECIMAL, NULL, 0, itemPtr->locale, NULL, &status);
         if ( U_FAILURE(status) ) {
@@ -428,6 +490,7 @@ static void TestUAMeasureFormat()
         measfmt_shrtr_1 = uameasfmt_open(itemPtr->locale, UAMEASFMT_WIDTH_SHORTER,   unum_clone(numfmt_1, &status), &status); // shorter, num fmt with 1 decimal
         measfmt_narr_0 = uameasfmt_open(itemPtr->locale, UAMEASFMT_WIDTH_NARROW,  unum_clone(numfmt_0, &status), &status); // narrow, num fmt with 0 decimal
         measfmt_numr_0 = uameasfmt_open(itemPtr->locale, UAMEASFMT_WIDTH_NUMERIC, unum_clone(numfmt_0, &status), &status); // numeric, num fmt with 0 decimal
+        measfmt_numr_2 = uameasfmt_open(itemPtr->locale, UAMEASFMT_WIDTH_NUMERIC, unum_clone(numfmt_2, &status), &status); // numeric, num fmt with 2 decimal
 
         if ( U_FAILURE(status) ) {
             log_data_err("FAIL: uameasfmt_open fails for locale %s, various widths and number formatters: %s\n",
@@ -743,6 +806,33 @@ static void TestUAMeasureFormat()
                             }
                         }
                     }
+                    // numr_2
+                    status = U_ZERO_ERROR;
+                    ugetLen = uameasfmt_formatMultipleForFields(measfmt_numr_2, multFmtPtr->measures, multFmtPtr->measureCount, uget, kUBufMax, fpositer, &status);
+                    if ( U_FAILURE(status) ) {
+                        log_err("FAIL: uameasfmt_formatMultipleForFields locale %s, multiple format numr_2 for measureCount %d, status %s\n",
+                                itemPtr->locale, multFmtPtr->measureCount, u_errorName(status));
+                    } else {
+                        uexpLen = u_unescape(multFmtPtr->expectFmt_numr_2, uexp, kUBufMax);
+                        if (ugetLen != uexpLen || u_strcmp(uget, uexp) != 0 ) {
+                            u_strToUTF8(bexp, kBBufMax, NULL, uexp, uexpLen, &status);
+                            u_strToUTF8(bget, kBBufMax, NULL, uget, ugetLen, &status);
+                            log_err("FAIL: uameasfmt_formatMultipleForFields locale %s, multiple format numr_2 for measureCount %d, expected \"%s\", got \"%s\"\n",
+                                     itemPtr->locale, multFmtPtr->measureCount, bexp, bget);
+                        } else {
+                            // check fpositer
+                            int32_t field, beginIndex, endIndex, count;
+                            for (count = 0; (field = ufieldpositer_next(fpositer, &beginIndex, &endIndex)) >= 0; count++) {
+                                if (field != multFmtPtr->ranges_numr_2[count][0] || beginIndex != multFmtPtr->ranges_numr_2[count][1] || endIndex != multFmtPtr->ranges_numr_2[count][2]) {
+                                    log_err("FAIL: uameasfmt_formatMultipleForFields locale %s, multiple format numr_2 for measureCount %d,\n    expect field %0X range %d..%d,\n    get    field %0X range %d..%d\n",
+                                            itemPtr->locale, multFmtPtr->measureCount,
+                                            multFmtPtr->ranges_numr_2[count][0], multFmtPtr->ranges_numr_2[count][1], multFmtPtr->ranges_numr_2[count][2],
+                                            field, beginIndex, endIndex);
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
                 ufieldpositer_close(fpositer);
             }
@@ -806,6 +896,7 @@ static void TestUAMeasureFormat()
         uameasfmt_close(measfmt_shrtr_1);
         uameasfmt_close(measfmt_narr_0);
         uameasfmt_close(measfmt_numr_0);
+        uameasfmt_close(measfmt_numr_2);
  
         unum_close(numfmt_0);
         unum_close(numfmt_1);
@@ -893,6 +984,22 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "fr_FR",           "length",  "large",           1, { UAMEASUNIT_LENGTH_KILOMETER } },
     { "fr_FR",           "length",  "small",           1, { UAMEASUNIT_LENGTH_CENTIMETER } },
     { "en_US",           "xxxxxxxx","yyyyyyyy",        0, { (UAMeasureUnit)0 } },
+    // <rdar://problem/59634873> kcal: default
+    { "fr_FR",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
+    { "es_ES",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
+    { "zh_CN",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOCALORIE } },
+    // <rdar://problem/59634873> kJ: AU NZ 
+    { "en_AU",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOJOULE } },
+    { "en_NZ",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_KILOJOULE } },
+    // <rdar://problem/59634873> Cal: US CA
+    { "en_US",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
+    { "en_CA",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
+    // <rdar://problem/59634873> Cal: others as requested by Loc
+    { "he_IL",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
+    { "pt_BR",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
+    { "zh_TW",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
+    { "ar_SA",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
+    { "ar_AE",           "energy",  "person-usage",    1, { UAMEASUNIT_ENERGY_FOODCALORIE } },
     // tests for ms=
     { "en_US@ms=metric",   "length", "large",           1, { UAMEASUNIT_LENGTH_KILOMETER } },
     { "fr_FR@ms=ussystem", "length", "large",           1, { UAMEASUNIT_LENGTH_MILE } },

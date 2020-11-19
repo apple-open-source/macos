@@ -373,7 +373,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUBreakIteratorPointer, UBreakIterator, ubrk_clo
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 #ifndef U_HIDE_INTERNAL_API
 /**

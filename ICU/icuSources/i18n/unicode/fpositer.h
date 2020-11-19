@@ -19,6 +19,9 @@
 #define FPOSITER_H
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/uobject.h"
 
 /**
@@ -28,7 +31,6 @@
 
 #if UCONFIG_NO_FORMATTING
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /*
@@ -38,14 +40,12 @@ U_NAMESPACE_BEGIN
 class FieldPositionIterator;
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #else
 
 #include "unicode/fieldpos.h"
 #include "unicode/umisc.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class UVector32;
@@ -116,8 +116,9 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // FPOSITER_H

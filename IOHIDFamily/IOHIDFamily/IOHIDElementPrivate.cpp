@@ -27,12 +27,14 @@
 #include <IOKit/IOLib.h>
 #include "IOHIDElementPrivate.h"
 #include "IOHIDEventQueue.h"
+#include "IOHIDReportElementQueue.h"
 #include "IOHIDDescriptorParserPrivate.h"
 #include "IOHIDPrivateKeys.h"
 #include "IOHIDDebug.h"
 #include "AppleHIDUsageTables.h"
 #include "IOHIDUsageTables.h"
 #include "IOHIDFamilyTrace.h"
+#include "IOHIDFamilyPrivate.h"
 #include "IOHIDElementContainer.h"
 #include "IOHIDDevice.h"
 
@@ -76,7 +78,7 @@ OSMetaClassDefineReservedUsed(IOHIDElement,  4);
 OSMetaClassDefineReservedUsed(IOHIDElement,  5);
 OSMetaClassDefineReservedUsed(IOHIDElement,  6);
 OSMetaClassDefineReservedUsed(IOHIDElement,  7);
-OSMetaClassDefineReservedUnused(IOHIDElement,  8);
+OSMetaClassDefineReservedUsed(IOHIDElement,  8);
 OSMetaClassDefineReservedUnused(IOHIDElement,  9);
 OSMetaClassDefineReservedUnused(IOHIDElement, 10);
 OSMetaClassDefineReservedUnused(IOHIDElement, 11);
@@ -118,7 +120,8 @@ bool IOHIDElementPrivate::init( IOHIDElementContainer * owner, IOHIDElementType 
     _type  = type;
     _reportSize = 0;
     _reportCount = 1;
-    _duplicateReportHandler = 0;    
+    _rawReportCount = 1;
+    _duplicateReportHandler = 0;
     _arrayReportHandler = 0;
     _colArrayReportHandlers = 0;
     _arrayItems = 0;
@@ -208,6 +211,7 @@ IOHIDElementPrivate::buttonElement( IOHIDElementContainer *     owner,
         element->_unitExponent   = button->unitExponent;
     }
     
+    element->_rawReportCount = element->_reportCount;
     element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
 
     // Register with owner and parent, then spawn sub-elements.
@@ -260,6 +264,7 @@ IOHIDElementPrivate::valueElement( IOHIDElementContainer *     owner,
     element->_units          = value->units;
     element->_unitExponent   = value->unitExponent;
     element->_rangeIndex     = 0;
+    element->_rawReportCount = element->_reportCount;
 
     if ( value->isRange )
     {
@@ -274,17 +279,15 @@ IOHIDElementPrivate::valueElement( IOHIDElementContainer *     owner,
         element->_usageMax = value->u.notRange.usage;
     }
     
+    element->_currentReportSizeBits = element->_reportBits *  element->_reportCount;
+    
+    // If not array of usages then we should avoid duplicate here and report
+    // it as single element
     if (element->_reportCount > 1)
     {
-        element->_duplicateReportHandler = element;
-        element->_duplicateElements = OSArray::withCapacity(element->_reportCount);        
-        
-        if (element->_duplicateElements == NULL)
-            goto VALUE_ELEMENT_RELEASE;        
+        element->_reportBits *= element->_reportCount;
+        element->_reportCount = 1;
     }
-
-  
-    element->_currentReportSizeBits = element->_reportBits *  element->_reportCount;
   
     if (parent && parent->getUsagePage() == kHIDPage_AppleVendor &&
        (parent->getUsage() == kHIDUsage_AppleVendor_Message ||
@@ -301,7 +304,6 @@ IOHIDElementPrivate::valueElement( IOHIDElementContainer *     owner,
         return element;
     }
 
-VALUE_ELEMENT_RELEASE:
     element->release();
     element = 0;
 
@@ -393,6 +395,7 @@ IOHIDElementPrivate * IOHIDElementPrivate::reportHandlerElement(
     element->_reportCount		= 1;
     element->_reportID			= reportID;
     element->_reportBits 		= element->_reportSize	= reportBits;
+    element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
     
     // Register with owner.
 
@@ -440,6 +443,7 @@ IOHIDElementPrivate * IOHIDElementPrivate::newSubElement( UInt16 rangeIndex ) co
     element->_physicalMax    		= _physicalMax;
     element->_units          		= _units;
     element->_unitExponent   		= _unitExponent;
+    element->_rawReportCount        = _reportCount;
     element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
 	
     // RY: Special handling for array elements.
@@ -660,7 +664,9 @@ IOHIDElementPrivate * IOHIDElementPrivate::arrayHandlerElement(
     element->_logicalMin     = child->_logicalMin;
     element->_logicalMax     = child->_logicalMax;
     element->_physicalMin    = child->_physicalMin;
-    element->_physicalMax    = child->_physicalMax;    
+    element->_physicalMax    = child->_physicalMax;
+    element->_rawReportCount = child->_reportCount;
+    element->_currentReportSizeBits = child->_reportBits * child->_reportCount;
                 
     // Allocate the array for the array elements.
     element->_arrayItems = OSArray::withCapacity((child->_usageMax - child->_usageMin) + 1);
@@ -841,11 +847,11 @@ bool IOHIDElementPrivate::fillElementStruct( IOHIDElementStruct * element )
     element->size           = _reportBits * _reportCount;
     element->reportSize     = _reportBits;
     element->reportCount    = _reportCount;
+    element->rawReportCount = _rawReportCount;
     element->reportID       = _reportID;
     element->unit           = _units;
     element->unitExponent   = _unitExponent;
     element->bytes          = (UInt32)getByteSize();
-    element->valueLocation  = (UInt32)(uintptr_t)_elementValueLocation;
     element->valueSize      = getElementValueSize();
     
     return true;
@@ -1049,21 +1055,27 @@ static void writeReportBits( const UInt32 * src,
     }
 }
 
-bool IOHIDElementPrivate::enqueueValue(void *value, UInt32 valueSize)
+bool IOHIDElementPrivate::enqueueValue(IOHIDElementValue *value)
 {
     bool result = false;
     IOHIDEventQueue *queue = NULL;
-    
+    IOHIDReportElementQueue *reportQueue = NULL;
+
     require(_queueArray, exit);
-    
+
     for (UInt32 i = 0; i < _queueArray->getCount(); i++) {
         queue = OSDynamicCast(IOHIDEventQueue, _queueArray->getObject(i));
         if (!queue) {
             continue;
         }
-        
-        result = queue->enqueue(value, valueSize);
-        
+
+        reportQueue = OSDynamicCast(IOHIDReportElementQueue, queue);
+        if (reportQueue) {
+            result = reportQueue->enqueue(value);
+        } else {
+            result = queue->enqueue(value, value->totalSize);
+        }
+
         if (!result) {
             IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), 0, 0, 0);
         }
@@ -1090,11 +1102,11 @@ bool IOHIDElementPrivate::processReport(
     if (_type == kIOHIDElementTypeInput_NULL
         && reportID == _reportID) {
         _elementValue->timestamp = *timestamp;
-        enqueueValue((void *)_elementValue, _elementValue->totalSize);
+        enqueueValue(_elementValue);
         *next = NULL;
         goto exit;
     }
-    
+
     // Set next pointer to the next report handler in the chain.
     // If this is an array, set the report handler to the one
     // the array.
@@ -1163,12 +1175,16 @@ bool IOHIDElementPrivate::processReport(
         _previousValue = _elementValue->value[0];
 		
         // Get the element value from the report.
-        uint32_t readSize = _reportBits * _reportCount;
+        uint32_t readSize;
+        if (os_mul_overflow(_reportBits, _reportCount, &readSize)) {
+            HIDLogError("Overflow calculating readsize");
+            break;
+        }
         if (_variableSize & kIOHIDElementVariableSizeElement) {
           uint32_t remainingBitSize = reportBits - _reportStartBit;
           readSize = (remainingBitSize < readSize) ? remainingBitSize : readSize;
         }
-      
+
         readReportBits( (UInt8 *) reportData,  /* source buffer      */
                        _elementValue->value,   /* destination buffer */
                        readSize,               /* bits to copy       */
@@ -1207,11 +1223,17 @@ bool IOHIDElementPrivate::processReport(
             {
                 
                 //Pass actual element size. (different fotr variable lenght reports)
-                _elementValue->totalSize = (_currentReportSizeBits + 7) / 8 + sizeof(*_elementValue) - sizeof(_elementValue->value);
+                _elementValue->totalSize = (_currentReportSizeBits + 7) / 8 + ELEMENT_VALUE_HEADER_SIZE(_elementValue);
                 //enqueueSize dword aligned
-                uint32_t  enqueueSize = ((_elementValue->totalSize + 3) / 4) * 4;
+                uint32_t  enqueueSize = ALIGN_DATA_SIZE(_elementValue->totalSize);
                 if ( shouldProcess || (queue->getOptions() & kIOHIDQueueOptionsTypeEnqueueAll)) {
-                    bool result = queue->enqueue( (void *) _elementValue, enqueueSize);
+                    bool result;
+                    IOHIDReportElementQueue *elementQueue = OSDynamicCast(IOHIDReportElementQueue, queue);
+                    if (elementQueue) {
+                        result = elementQueue->enqueue(_elementValue);
+                    } else {
+                        result = queue->enqueue( (void*) _elementValue, enqueueSize);
+                    }
                     if (!result) {
                         IOHID_DEBUG(kIOHIDDebugCode_HIDDeviceEnqueueFail, mach_continuous_time(), 0, 0, 0);
                     }
@@ -1626,7 +1648,7 @@ void IOHIDElementPrivate::setArrayElementValue(UInt32 index, UInt32 value)
     
     element->_elementValue->generation ++;
 
-    element->enqueueValue((void *)element->_elementValue, element->_elementValue->totalSize);
+    element->enqueueValue(element->_elementValue);
 }
 
 bool IOHIDElementPrivate::processArrayReport(	UInt8			reportID,
@@ -1640,7 +1662,7 @@ bool IOHIDElementPrivate::processArrayReport(	UInt8			reportID,
     UInt32		iOldArray	= 0;
     bool		found		= false;
     bool		changed		= false;
-        
+
     // RY: Process the arry selector elements.  If any of their values
     // haven't changed, don't bother with any further processing.  
     if (_duplicateElements)
@@ -1785,7 +1807,7 @@ UInt32 IOHIDElementPrivate::getValue()
 
 OSData * IOHIDElementPrivate::getDataValue()
 {   
-    UInt32 byteSize = (UInt32)getByteSize();
+    UInt32 byteSize = (UInt32)getCurrentByteSize();
     
 #if defined(__LITTLE_ENDIAN__)
     if ( _dataValue && _dataValue->getLength() == byteSize) {
@@ -1823,27 +1845,33 @@ OSData * IOHIDElementPrivate::getDataValue(IOOptionBits options)
 
 void IOHIDElementPrivate::setValue(UInt32 value)
 { 
+    setValue(value, 0);
+}
+
+void IOHIDElementPrivate::setValue(UInt32 value, IOOptionBits options)
+{
     UInt32  previousValue = _elementValue->value[0];
-    
+
     // If element has not been updated it's generation count
     // would be 0, we shouldn't block first attempt to
     // write element value
-    
-    if (previousValue == value && _elementValue->generation > 0) {
+
+    if ((previousValue == value && !(options & kIOHIDValueOptionsUpdateElementValues)) && _elementValue->generation > 0) {
         return;
     }
-    
+
     _elementValue->generation++;
-    
+
     _elementValue->value[0] = value;
+
     IOReturn status = _owner->postElementValues(&_cookie, 1);
     if (status) {
-         HIDLogError("setValue failed (%lu):%x", (uintptr_t)_cookie, status);
+        HIDLogError("setValue failed (%lu):%x", (uintptr_t)_cookie, status);
         _elementValue->value[0] = previousValue;
     } else {
         _previousValue = previousValue;
     }
-    
+
     _elementValue->generation++;
 }
 
@@ -1868,7 +1896,7 @@ void IOHIDElementPrivate::setDataBits(OSData *value)
 {
     UInt32  bitsToCopy;
 
-    if ( !value ) return;
+    if ( !value || !value->getBytesNoCopy() ) return;
 
     bitsToCopy = min ( (value->getLength() << 3), (_reportBits * _reportCount) );
 	
@@ -1880,14 +1908,25 @@ AbsoluteTime IOHIDElementPrivate::getTimeStamp()
 	return _elementValue->timestamp;
 }
 
-IOByteCount IOHIDElementPrivate::getByteSize()
+IOByteCount IOHIDElementPrivate::getByteSize() const
 {
     IOByteCount byteSize;
-    UInt32      bitCount = _currentReportSizeBits;
+    UInt32      bitCount = _reportBits * _reportCount;
     
     byteSize = bitCount >> 3;
     byteSize += (bitCount % 8) ? 1 : 0;
 	
+    return byteSize;
+}
+
+IOByteCount IOHIDElementPrivate::getCurrentByteSize()
+{
+    IOByteCount byteSize;
+    UInt32      bitCount = _currentReportSizeBits;
+
+    byteSize = bitCount >> 3;
+    byteSize += (bitCount % 8) ? 1 : 0;
+
     return byteSize;
 }
 

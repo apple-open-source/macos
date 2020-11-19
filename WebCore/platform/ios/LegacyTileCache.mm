@@ -23,32 +23,32 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "LegacyTileCache.h"
+#import "config.h"
+#import "LegacyTileCache.h"
 
 #if PLATFORM(IOS_FAMILY)
 
-#include "FontAntialiasingStateSaver.h"
-#include "LegacyTileGrid.h"
-#include "LegacyTileGridTile.h"
-#include "LegacyTileLayer.h"
-#include "LegacyTileLayerPool.h"
-#include "Logging.h"
-#include "SystemMemory.h"
-#include "WAKWindow.h"
-#include "WKGraphics.h"
-#include "WebCoreThreadRun.h"
-#include <CoreText/CoreText.h>
-#include <pal/spi/cocoa/QuartzCoreSPI.h>
-#include <wtf/MemoryPressureHandler.h>
-#include <wtf/RAMSize.h>
+#import "FontAntialiasingStateSaver.h"
+#import "LegacyTileGrid.h"
+#import "LegacyTileGridTile.h"
+#import "LegacyTileLayer.h"
+#import "LegacyTileLayerPool.h"
+#import "Logging.h"
+#import "SystemMemory.h"
+#import "WAKWindow.h"
+#import "WKGraphics.h"
+#import "WebCoreThreadRun.h"
+#import <CoreText/CoreText.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/MemoryPressureHandler.h>
+#import <wtf/RAMSize.h>
 
 @interface WAKView (WebViewExtras)
 - (void)_dispatchTileDidDraw:(CALayer*)tile;
 - (void)_willStartScrollingOrZooming;
 - (void)_didFinishScrollingOrZooming;
 - (void)_dispatchTileDidDraw;
-- (void)_scheduleLayerFlushForPendingTileCacheRepaint;
+- (void)_scheduleRenderingUpdateForPendingTileCacheRepaint;
 @end
 
 @interface LegacyTileCacheTombstone : NSObject {
@@ -462,9 +462,8 @@ unsigned LegacyTileCache::tileCapacityForGrid(LegacyTileGrid* grid)
 Color LegacyTileCache::colorForGridTileBorder(LegacyTileGrid* grid) const
 {
     if (grid == m_zoomedOutTileGrid.get())
-        return Color(0.2f, 1.0f, 0.f, 0.5f);
-
-    return Color(0.2f, 0.9f, 0.f, 0.5f);
+        return SRGBA<uint8_t> { 51, 255, 0, 128 };
+    return SRGBA<uint8_t> { 51, 230, 0, 128 };
 }
 
 static bool shouldRepaintInPieces(const CGRect& dirtyRect, CGSRegionObj dirtyRegion, CGFloat contentsScale)
@@ -609,10 +608,10 @@ void LegacyTileCache::setNeedsDisplay()
     setNeedsDisplayInRect(IntRect(0, 0, std::numeric_limits<int>::max(), std::numeric_limits<int>::max()));
 }
 
-void LegacyTileCache::scheduleLayerFlushForPendingRepaint()
+void LegacyTileCache::scheduleRenderingUpdateForPendingRepaint()
 {
     WAKView* view = [m_window contentView];
-    [view _scheduleLayerFlushForPendingTileCacheRepaint];
+    [view _scheduleRenderingUpdateForPendingTileCacheRepaint];
 }
 
 void LegacyTileCache::setNeedsDisplayInRect(const IntRect& dirtyRect)
@@ -623,7 +622,7 @@ void LegacyTileCache::setNeedsDisplayInRect(const IntRect& dirtyRect)
     if (!addedFirstRect)
         return;
     // Compositing layer flush will call back to doPendingRepaints(). The flush may be throttled and not happen immediately.
-    scheduleLayerFlushForPendingRepaint();
+    scheduleRenderingUpdateForPendingRepaint();
 }
 
 void LegacyTileCache::invalidateTiles(const IntRect& dirtyRect)
@@ -693,7 +692,7 @@ void LegacyTileCache::updateTilingMode()
         createTilesInActiveGrid(CoverVisibleOnly);
 
         if (!m_savedDisplayRects.isEmpty())
-            scheduleLayerFlushForPendingRepaint();
+            scheduleRenderingUpdateForPendingRepaint();
     }
 }
 

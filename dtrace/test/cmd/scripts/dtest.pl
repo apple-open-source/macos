@@ -45,6 +45,9 @@ $USAGE = "Usage: $PNAME [-hlqsx] [-d dir] [-f file]"
 $IS_WATCH = `sw_vers -productName` =~m/^Watch OS/ ? 1 : 0;
 $TIMEOUT = $IS_WATCH ? 480 : 240;
 
+# Destructive actions are enabled when SIP is not enabled
+$DESTRUCT_ON = not(-e '/usr/bin/csrutil' && (`csrutil status` =~/enabled/));
+print($DESTRUCT_ON);
 $dtrace_path = '/usr/sbin/dtrace';
 @dtrace_argv = ();
 
@@ -161,7 +164,9 @@ sub readtestlist
 	while (my $test = <$fd>) {
 		if (not($test =~ /^#/) and length $test > 1) {
 			chomp($test);
-			push(@files, $test);
+			if (not($test =~ /Destruct|destruct|chill/) or $DESTRUCT_ON) {
+				push(@files, $test);
+			}
 		}
 	}
 	chdir dirname($file) or die "Could not change directory";

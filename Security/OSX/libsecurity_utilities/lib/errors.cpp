@@ -60,7 +60,7 @@ CommonError::CommonError(const CommonError &source)
     strlcpy(whatBuffer, source.whatBuffer, whatBufferSize);
 }
 
-CommonError::~CommonError() throw ()
+CommonError::~CommonError() _NOEXCEPT
 {
 }
 
@@ -135,7 +135,7 @@ UnixError::UnixError(int err, bool suppresslogging) : error(err)
     }
 }
 
-const char *UnixError::what() const throw ()
+const char *UnixError::what() const _NOEXCEPT
 {
     return whatBuffer;
 }
@@ -175,7 +175,7 @@ MacOSError::MacOSError(int err) : error(err)
     }
 }
 
-const char *MacOSError::what() const throw ()
+const char *MacOSError::what() const _NOEXCEPT
 {
     return whatBuffer;
 }
@@ -219,7 +219,7 @@ CFError::CFError()
     LogBacktrace();
 }
 
-const char *CFError::what() const throw ()
+const char *CFError::what() const _NOEXCEPT
 { return "CoreFoundation error"; }
 
 OSStatus CFError::osStatus() const

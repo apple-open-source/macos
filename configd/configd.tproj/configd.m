@@ -460,7 +460,7 @@ main(int argc, char * const argv[])
 	CFRelease(rls);
 
 	if (testBundle == NULL) {
-		/* don't complain about having  lots of SCDynamicStore objects */
+		/* don't complain about having  lots of SCDynamicStore sessions */
 		_SCDynamicStoreSetSessionWatchLimit(0);
 
 		/* initialize primary (store management) thread */
@@ -470,19 +470,15 @@ main(int argc, char * const argv[])
 			/* synchronize with parent process */
 			kill(getppid(), SIGTERM);
 		}
+	}
 
-		/* load/initialize/start bundles into the secondary thread */
-		if (loadBundles) {
-			/* start plug-in initialization */
-			plugin_init();
-		}
-
-		/* start main thread */
-		CFRunLoopRun();
-	} else {
-		/* load/initialize/start specified plug-in */
+	if ((testBundle != NULL) || loadBundles) {
+		/* load/initialize/start [specified] plug-ins */
 		plugin_exec((void *)testBundle);
 	}
+
+	SC_log(LOG_DEBUG, "starting main/plugin CFRunLoop");
+	CFRunLoopRun();
 
 	exit (EX_OK);	/* insure the process exit status is 0 */
 	return 0;	/* ...and make main fit the ANSI spec. */

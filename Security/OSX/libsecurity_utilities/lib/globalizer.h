@@ -47,10 +47,10 @@ class GlobalNexus {
 public:
     class Error : public std::exception {
     public:
-        virtual ~Error() throw();
+        virtual ~Error() _NOEXCEPT;
         const char * const message;
         Error(const char *m) : message(m) { }
-        const char *what() const throw() { return message; }
+        const char *what() const _NOEXCEPT { return message; }
     };
 };
 

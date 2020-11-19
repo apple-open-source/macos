@@ -1200,40 +1200,6 @@ static Boolean __DARequestUnmount( DARequestRef request )
             if ( DADiskGetState( disk, kDADiskStateZombie ) )
             {
                 DARequestSetState( request, kDARequestStateStagedApprove, TRUE );
-
-                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
-                {
-                    Boolean  dialog = TRUE;
-                    CFURLRef mountpoint;
-                    char *   path;
-
-                    mountpoint = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
-
-                    path = ___CFURLCopyFileSystemRepresentation( mountpoint );
-
-                    if ( path )
-                    {
-                        struct statfs fs;
-                        int           status;
-
-                        status = ___statfs( path, &fs, MNT_NOWAIT );
-
-                        if ( status == 0 )
-                        {
-                            if ( ( fs.f_flags & MNT_RDONLY ) )
-                            {
-                                dialog = FALSE;
-                            }
-                        }
-
-                        free( path );
-                    }
-
-                    if ( dialog )
-                    {
-                        DADialogShowDeviceRemoval( disk );
-                    }
-                }
             }
             else
             {
@@ -1356,7 +1322,7 @@ static void __DARequestUnmountCallback( int status, void * context )
         {
             DALogDebug( "  unmounted disk, id = %@, failure.", disk );
 
-            DALogDebug( "unable to unmount %@ (status code 0x%08X).", disk, status );
+            DALogError( "unable to unmount %@ (status code 0x%08X).", disk, status );
 
 ///w:start
             status = EBUSY;

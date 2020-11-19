@@ -46,8 +46,7 @@ struct IOMbufQueue;
     target can use to manage the queue when it is running on the
     consumer thread. 
 */
-
-class IOBasicOutputQueue : public IOOutputQueue
+class __exported IOBasicOutputQueue : public IOOutputQueue
 {
     OSDeclareDefaultStructors( IOBasicOutputQueue )
 

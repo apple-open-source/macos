@@ -241,7 +241,7 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 {
 	bool rom_changed = false;	// assume ROM has not changed
 	
-	FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - newBIB = %p, newBIBSize = %d\n", this, newBIB, (int)newBIBSize ));
+	//FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - newBIB = %p, newBIBSize = %d\n", this, newBIB, (int)newBIBSize ));
 
 	FWPANICASSERT( newBIB != NULL );
 	FWPANICASSERT( newBIBSize != 0 );
@@ -318,17 +318,15 @@ bool IOFireWireROMCache::hasROMChanged( const UInt32 * newBIB, UInt32 newBIBSize
 		rom_changed = true;
 	}
 	
-#if FWLOGGING
-	if( rom_changed )
-	{
-		FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - ROM changed\n", this ));
-	}
-	else
-	{
-		FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - ROM unchanged\n", this ));
-	}
-#endif
-
+	//	if( rom_changed )
+	//	{
+	//		FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - ROM changed\n", this ));
+	//	}
+	//	else
+	//	{
+	//		FWKLOG(( "IOFireWireROMCache@%p::hasROMChanged - ROM unchanged\n", this ));
+	//	}
+	
 	unlock();
 	
 	return rom_changed;
@@ -490,7 +488,7 @@ void IOFireWireROMCache::setROMState( ROMState state, UInt32 generation )
 IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 {
     IOReturn status = kIOReturnSuccess;
-	FWKLOG(( "IOFireWireROMCache@%p::updateROMCache entered offset = %ld, length = %ld\n", this, offset, length ));
+	//FWKLOG(( "IOFireWireROMCache@%p::updateROMCache entered offset = 0x%08x, length = 0x%08x\n", this, offset, length ));
 
 	FWKLOGASSERT( fOwner->getController()->inGate() == false );
 	
@@ -512,8 +510,7 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 			int 					bufLen;
 			IOFWReadQuadCommand *	cmd;
 		
-			FWKLOG(( "IOFireWireROMCache %p:Need to extend ROM cache from 0x%lx to 0x%lx quads\n", 
-					this, romLength/sizeof(UInt32), romEnd ));
+			//FWKLOG(( "IOFireWireROMCache@%p:Need to extend ROM cache from 0x%08x to 0x%08x quads\n", this, (UInt32)(romLength/sizeof(UInt32)), romEnd ));
 			
 			//
 			// read the config ROM with the latched generation
@@ -577,7 +574,7 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 		}
 	}
 	
-	FWKLOG(( "IOFireWireROMCache@%08lx::updateROMCache exited status = 0x%08lx\n", this, (UInt32)status ));
+	//FWKLOG(( "IOFireWireROMCache@%p::updateROMCache exited status = 0x%08x\n", this, (UInt32)status ));
     
 	return status;
 }

@@ -654,7 +654,7 @@ zhandler(int sig)
 		_exit(SIGPIPE);
 	    else if (!isatty(SHTTY)) {
 		stopmsg = 1;
-		zexit(SIGPIPE, 1);
+		zexit(SIGPIPE, ZEXIT_SIGNAL);
 	    }
 	}
 	break;
@@ -662,7 +662,7 @@ zhandler(int sig)
     case SIGHUP:
         if (!handletrap(SIGHUP)) {
             stopmsg = 1;
-            zexit(SIGHUP, 1);
+            zexit(SIGHUP, ZEXIT_SIGNAL);
         }
         break;
  
@@ -670,7 +670,7 @@ zhandler(int sig)
         if (!handletrap(SIGINT)) {
 	    if ((isset(PRIVILEGED) || isset(RESTRICTED)) &&
 		isset(INTERACTIVE) && (noerrexit & NOERREXIT_SIGNAL))
-		zexit(SIGINT, 1);
+		zexit(SIGINT, ZEXIT_SIGNAL);
             if (list_pipe || chline || simple_pline) {
                 breaks = loops;
                 errflag |= ERRFLAG_INT;
@@ -703,7 +703,7 @@ zhandler(int sig)
 		errflag = noerrs = 0;
 		zwarn("timeout");
 		stopmsg = 1;
-		zexit(SIGALRM, 1);
+		zexit(SIGALRM, ZEXIT_SIGNAL);
 	    }
         }
         break;
@@ -1011,10 +1011,6 @@ removetrap(int sig)
 	(!trapped || locallevel > (sigtrapped[sig] >> ZSIG_SHIFT)))
 	dosavetrap(sig, locallevel);
 
-    if (!trapped) {
-	unqueue_signals();
-        return NULL;
-    }
     if (sigtrapped[sig] & ZSIG_TRAPPED)
 	nsigtrapped--;
     sigtrapped[sig] = 0;

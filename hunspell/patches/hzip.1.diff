@@ -1,0 +1,8 @@
+--- man/hzip.1	2008-06-12 06:16:54.000000000 -0700
++++ man/hzip.1	2020-04-06 13:14:17.000000000 -0700
+@@ -1,5 +1,4 @@
+ .TH hunzip 1 "2008-06-12"
+-.LO 1
+ .SH NAME
+ hunzip \- compress and encrypt dictionary files
+ .SH SYNOPSIS

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,7 +67,7 @@ typedef enum {
     IFEventID_wake_e,			/* system has awoken */
     IFEventID_power_off_e,		/* system is powering off */
     IFEventID_get_dhcp_info_e,		/* event_data is (dhcp_info_t *) */
-    IFEventID_get_dhcpv6_info_e,	/* event_data is (dhcpv6_info_t *) */
+    IFEventID_get_ipv6_info_e,		/* event_data is (ipv6_info_t *) */
     IFEventID_ipv6_address_changed_e,	/* IPv6 address changed on interface */
     IFEventID_bssid_changed_e, 		/* BSSID has changed */
     IFEventID_active_during_sleep_e,	/* (active_during_sleep_t) */
@@ -205,6 +205,12 @@ ServiceCopyWakeID(ServiceRef service_p);
 CFStringRef
 ServiceGetAPNName(ServiceRef service_p);
 
+boolean_t
+ServiceIsCGAEnabled(ServiceRef service_p);
+
+boolean_t
+ServiceShouldSupplyHostName(ServiceRef service_p);
+
 void
 service_set_requested_ip_addr(ServiceRef service_p, struct in_addr ip);
 
@@ -251,8 +257,8 @@ ServiceDefendIPv4Address(ServiceRef service_p, arp_collision_data_t * arpc);
 void
 ServicePublishSuccessIPv6(ServiceRef service_p,
 			  inet6_addrinfo_t * addr, int addr_count,
-			  struct in6_addr * router, int router_count,
-			  dhcpv6_info_t * dhcp_info_p,
+			  const struct in6_addr * router, int router_count,
+			  ipv6_info_t * dhcp_info_p,
 			  CFStringRef signature);
 boolean_t
 ServiceIsPublished(ServiceRef service_p);
@@ -282,6 +288,9 @@ ServiceDADIsEnabled(ServiceRef service_p);
 
 void
 ServiceGenerateFailureSymptom(ServiceRef service_p);
+
+void
+ServiceSetBusy(ServiceRef service_p, boolean_t busy);
 
 void
 service_publish_failure(ServiceRef service_p, ipconfig_status_t status);

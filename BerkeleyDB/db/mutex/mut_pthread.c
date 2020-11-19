@@ -10,6 +10,10 @@
 
 #include "db_int.h"
 
+#if !(((defined(x86_64) || defined(__x86_64__)) && defined(__GNUC__))) && defined(HAVE_MUTEX_HYBRID)
+#undef HAVE_MUTEX_HYBRID
+#endif
+
 /*
  * This is where we load in architecture/compiler specific mutex code.
  */

@@ -493,7 +493,8 @@ end</pre>
           <td>non</td>
 	  <td>L'en-tête MIME de l'environnement pour la réponse, écrit
 	  même en cas d'erreur et conservé pendant les redirections
-	  internes</td>
+	  internes. Une table lua en lecture seule est disponible pour
+	  l'itération sous la forme r:err_headers_out_table().</td>
         </tr>
 <tr>
           <td><code>filename</code></td>
@@ -525,13 +526,15 @@ end</pre>
           <td>oui</td>
 	  <td>Les en-têtes MIME de l'environnement de la requête. Il
 	  s'agit des en-têtes comme <code>Host, User-Agent,
-	  Referer</code>, etc...</td>
+	  Referer</code>, etc... Une table lua en lecture seule est disponible pour
+	  l'itération sous la forme r:headers_in_table().</td>
         </tr>
 <tr class="odd">
           <td><code>headers_out</code></td>
           <td>table</td>
           <td>oui</td>
-	  <td>Les en-têtes MIME de l'environnement de la réponse.</td>
+	  <td>Les en-têtes MIME de l'environnement de la réponse. Une table lua en lecture seule est disponible pour
+	  l'itération sous la forme r:headers_out_table().</td>
         </tr>
 <tr>
           <td><code>hostname</code></td>
@@ -579,7 +582,8 @@ end</pre>
           <td>table</td>
           <td>oui</td>
 	  <td>Une liste de notes qui peuvent être transmises d'un module
-	  à l'autre.</td>
+	  à l'autre. Une table lua en lecture seule est disponible pour
+	  l'itération sous la forme r:notes_table().</td>
         </tr>
 <tr class="odd">
           <td><code>options</code></td>
@@ -649,7 +653,9 @@ end</pre>
           <td><code>subprocess_env</code></td>
           <td>table</td>
           <td>oui</td>
-	  <td>Le jeu de variables d'environnement pour cette requête.</td>
+	  <td>Le jeu de variables d'environnement pour cette requête. Une table
+	  lua en lecture seule est disponible pour l'itération sous la forme
+	  r:subprocess_env_table().</td>
         </tr>
 <tr>
           <td><code>started</code></td>
@@ -2012,7 +2018,7 @@ relatifs dans les directives de mod_lua</td></tr>
 <div class="bottomlang">
 <p><span>Langues Disponibles: </span><a href="../en/mod/mod_lua.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
 <a href="../fr/mod/mod_lua.html" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_lua.html';
@@ -2030,7 +2036,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_lua.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -74,16 +74,28 @@ public:
     void setFeatureSettings(CSSValue&);
     void setLoadingBehavior(CSSValue&);
 
-    enum class Status : uint8_t;
+    // Pending => Loading  => TimedOut
+    //              ||  \\    //  ||
+    //              ||   \\  //   ||
+    //              ||    \\//    ||
+    //              ||     //     ||
+    //              ||    //\\    ||
+    //              ||   //  \\   ||
+    //              \/  \/    \/  \/
+    //             Success    Failure
+    enum class Status : uint8_t { Pending, Loading, TimedOut, Success, Failure };
+    
     struct UnicodeRange;
-    const CSSValueList* families() const { return m_families.get(); }
-    FontSelectionRange weight() const { return m_fontSelectionCapabilities.computeWeight(); }
-    FontSelectionRange stretch() const { return m_fontSelectionCapabilities.computeWidth(); }
-    FontSelectionRange italic() const { return m_fontSelectionCapabilities.computeSlope(); }
-    FontSelectionCapabilities fontSelectionCapabilities() const { return m_fontSelectionCapabilities.computeFontSelectionCapabilities(); }
-    const Vector<UnicodeRange>& ranges() const { return m_ranges; }
-    const FontFeatureSettings& featureSettings() const { return m_featureSettings; }
-    FontLoadingBehavior loadingBehavior() const { return m_loadingBehavior; }
+    
+    // Optional return values to represent default string for members of FontFace.h
+    const Optional<CSSValueList*> families() const { return m_status == Status::Failure ? WTF::nullopt : static_cast<Optional<CSSValueList*>>(m_families.get()); }
+    Optional<FontSelectionRange> weight() const { return m_status == Status::Failure ? WTF::nullopt : static_cast<Optional<FontSelectionRange>>(m_fontSelectionCapabilities.computeWeight()); }
+    Optional<FontSelectionRange> stretch() const { return m_status == Status::Failure ? WTF::nullopt : static_cast<Optional<FontSelectionRange>>(m_fontSelectionCapabilities.computeWidth()); }
+    Optional<FontSelectionRange> italic() const { return m_status == Status::Failure ? WTF::nullopt : static_cast<Optional<FontSelectionRange>>(m_fontSelectionCapabilities.computeSlope()); }
+    Optional<FontSelectionCapabilities> fontSelectionCapabilities() const { return m_status == Status::Failure ? WTF::nullopt : static_cast<Optional<FontSelectionCapabilities>>(m_fontSelectionCapabilities.computeFontSelectionCapabilities()); }
+    const Optional<Vector<UnicodeRange>> ranges() const { return m_status == Status::Failure ? WTF::nullopt : static_cast<Optional<Vector<UnicodeRange>>>(m_ranges); }
+    const Optional<FontFeatureSettings> featureSettings() const { return m_status == Status::Failure ? WTF::nullopt : static_cast<Optional<FontFeatureSettings>>(m_featureSettings); }
+    Optional<FontLoadingBehavior> loadingBehavior() const { return m_status == Status::Failure ? WTF::nullopt :  static_cast<Optional<FontLoadingBehavior>>(m_loadingBehavior); }
     void setWeight(FontSelectionRange weight) { m_fontSelectionCapabilities.weight = weight; }
     void setStretch(FontSelectionRange stretch) { m_fontSelectionCapabilities.width = stretch; }
     void setStyle(FontSelectionRange italic) { m_fontSelectionCapabilities.slope = italic; }
@@ -121,17 +133,6 @@ public:
         virtual void deref() = 0;
     };
 
-    // Pending => Loading  => TimedOut
-    //              ||  \\    //  ||
-    //              ||   \\  //   ||
-    //              ||    \\//    ||
-    //              ||     //     ||
-    //              ||    //\\    ||
-    //              ||   //  \\   ||
-    //              \/  \/    \/  \/
-    //             Success    Failure
-    enum class Status : uint8_t { Pending, Loading, TimedOut, Success, Failure };
-
     struct UnicodeRange {
         UChar32 from;
         UChar32 to;
@@ -162,6 +163,9 @@ public:
 #if ENABLE(SVG_FONTS)
     bool hasSVGFontFaceSource() const;
 #endif
+    void setErrorState();
+
+    Document* document() const;
 
 private:
     CSSFontFace(CSSFontSelector*, StyleRuleFontFace*, FontFace*, bool isLocalFallback);
@@ -182,7 +186,7 @@ private:
     FontLoadingBehavior m_loadingBehavior { FontLoadingBehavior::Auto };
 
     Vector<std::unique_ptr<CSSFontFaceSource>, 0, CrashOnOverflow, 0> m_sources;
-    RefPtr<CSSFontSelector> m_fontSelector; // FIXME: https://bugs.webkit.org/show_bug.cgi?id=196437 There's a retain cycle: CSSFontSelector -> CSSFontFaceSet -> CSSFontFace -> CSSFontSelector
+    WeakPtr<CSSFontSelector> m_fontSelector; // FIXME: Ideally this data member would go away (https://bugs.webkit.org/show_bug.cgi?id=208351).
     RefPtr<StyleRuleFontFace> m_cssConnection;
     HashSet<Client*> m_clients;
     WeakPtr<FontFace> m_wrapper;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -107,9 +107,9 @@ public:
     void setPopupBlockingEnabled(WebPageGroupProxy*, bool);
     void setAuthorAndUserStylesEnabled(WebPageGroupProxy*, bool);
     void setSpatialNavigationEnabled(WebPageGroupProxy*, bool);
-    void addOriginAccessWhitelistEntry(const String&, const String&, const String&, bool);
-    void removeOriginAccessWhitelistEntry(const String&, const String&, const String&, bool);
-    void resetOriginAccessWhitelists();
+    void addOriginAccessAllowListEntry(const String&, const String&, const String&, bool);
+    void removeOriginAccessAllowListEntry(const String&, const String&, const String&, bool);
+    void resetOriginAccessAllowLists();
     void setAsynchronousSpellCheckingEnabled(WebPageGroupProxy*, bool);
     int numberOfPages(WebFrame*, double, double);
     int pageNumberForElementById(WebFrame*, const String&, double, double);
@@ -123,15 +123,6 @@ public:
     
     typedef HashMap<uint64_t, String> DocumentIDToURLMap;
     DocumentIDToURLMap liveDocumentURLs(WebPageGroupProxy*, bool excludeDocumentsInPageGroupPages);
-
-    // UserContent API
-    void addUserScript(WebPageGroupProxy*, InjectedBundleScriptWorld*, String&& source, String&& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserScriptInjectionTime, WebCore::UserContentInjectedFrames);
-    void addUserStyleSheet(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& source, const String& url, API::Array* whitelist, API::Array* blacklist, WebCore::UserContentInjectedFrames);
-    void removeUserScript(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& url);
-    void removeUserStyleSheet(WebPageGroupProxy*, InjectedBundleScriptWorld*, const String& url);
-    void removeUserScripts(WebPageGroupProxy*, InjectedBundleScriptWorld*);
-    void removeUserStyleSheets(WebPageGroupProxy*, InjectedBundleScriptWorld*);
-    void removeAllUserContent(WebPageGroupProxy*);
 
     // Garbage collection API
     void garbageCollectJavaScriptObjects();
@@ -153,6 +144,7 @@ public:
     void setSerialLoadingEnabled(bool);
     void setWebAnimationsEnabled(bool);
     void setWebAnimationsCSSIntegrationEnabled(bool);
+    void setAccessibilityIsolatedTreeEnabled(bool);
     void dispatchPendingLoadRequests();
 
 #if PLATFORM(COCOA)
@@ -164,6 +156,10 @@ public:
 
 private:
     explicit InjectedBundle(const WebProcessCreationParameters&);
+
+#if PLATFORM(COCOA)
+    bool decodeBundleParameters(API::Data*);
+#endif
 
     String m_path;
     PlatformBundle m_platformBundle; // This is leaked right now, since we never unload the bundle/module.

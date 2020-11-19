@@ -1,0 +1,9 @@
+--- man/hu/hunspell.1	2008-04-11 01:50:43.000000000 -0700
++++ man/hu/hunspell.1	2020-04-06 13:14:00.000000000 -0700
+@@ -1,6 +1,5 @@
+ .hla hu
+ .TH hunspell 1 "2008. április 11."
+-.LO 1
+ .SH NÉV
+ hunspell \- unicode-os helyesírás\-ellenőrző, szótövező és morfológiai elemző program
+ .SH ÁTTEKINTÉS

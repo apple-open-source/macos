@@ -8,11 +8,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <ApplicationServices/ApplicationServices.h>
 #include "bless.h"
 
 
-// cc -o testgenerate testgenerateoflabel.c libbless.a -framework CoreFoundation -framework ApplicationServices
+// cc -o testgenerate testgenerateoflabel.c libbless.a -framework CoreFoundation -framework CoreGraphics -framework CoreText
 
 
 int main(int argc, char *argv[])

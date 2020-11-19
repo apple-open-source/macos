@@ -55,8 +55,8 @@ class feeException
 protected:
 	feeException(feeReturn frtn, const char *op); 	
 public:
-	~feeException() throw() {}
-	feeReturn frtn() const throw() { return mFrtn; }
+	~feeException() _NOEXCEPT {}
+	feeReturn frtn() const _NOEXCEPT { return mFrtn; }
     static void throwMe(feeReturn frtn, const char *op = NULL) __attribute__((noreturn));
 private:
 	feeReturn mFrtn;

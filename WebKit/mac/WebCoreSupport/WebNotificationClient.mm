@@ -36,6 +36,7 @@
 #import <WebCore/NotificationPermissionCallback.h>
 #import <WebCore/ScriptExecutionContext.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 using namespace WebCore;
 
@@ -88,17 +89,14 @@ void WebNotificationClient::clearNotifications(ScriptExecutionContext* context)
     if (it == m_notificationContextMap.end())
         return;
     
-    Vector<RetainPtr<WebNotification>>& webNotifications = it->value;
-    NSMutableArray *nsIDs = [NSMutableArray array];
-    size_t count = webNotifications.size();
-    for (size_t i = 0; i < count; ++i) {
-        WebNotification *webNotification = webNotifications[i].get();
-        [nsIDs addObject:[NSNumber numberWithUnsignedLongLong:[webNotification notificationID]]];
-        core(webNotification)->finalize();
-        m_notificationMap.remove(core(webNotification));
-    }
+    auto finalizedNotificationIDs = createNSArray(it->value, [&] (auto& notification) {
+        auto& coreNotification = *core(notification.get());
+        coreNotification.finalize();
+        m_notificationMap.remove(&coreNotification);
+        return @([notification notificationID]);
+    });
 
-    [[m_webView _notificationProvider] clearNotifications:nsIDs];
+    [[m_webView _notificationProvider] clearNotifications:finalizedNotificationIDs.get()];
     m_notificationContextMap.remove(it);
 }
 
@@ -148,11 +146,11 @@ bool WebNotificationClient::hasPendingPermissionRequests(ScriptExecutionContext*
 
 void WebNotificationClient::requestPermission(ScriptExecutionContext* context, RefPtr<NotificationPermissionCallback>&& callback)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     WebNotificationPolicyListener *listener = [[WebNotificationPolicyListener alloc] initWithCallback:WTFMove(callback)];
     requestPermission(context, listener);
     [listener release];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 NotificationClient::Permission WebNotificationClient::checkPermission(ScriptExecutionContext* context)

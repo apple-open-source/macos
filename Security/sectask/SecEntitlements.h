@@ -47,10 +47,11 @@ __BEGIN_DECLS
  Note that iOS and macOS uses different value for the same constant.
  */
 
-#if TARGET_OS_IPHONE
-#define kSecEntitlementApplicationIdentifier CFSTR("application-identifier")
-#else
 #define kSecEntitlementAppleApplicationIdentifier CFSTR("com.apple.application-identifier")
+#define kSecEntitlementBasicApplicationIdentifier CFSTR("application-identifier")
+#if TARGET_OS_IPHONE
+#define kSecEntitlementApplicationIdentifier kSecEntitlementBasicApplicationIdentifier
+#else
 #define kSecEntitlementApplicationIdentifier kSecEntitlementAppleApplicationIdentifier
 #endif
 
@@ -151,6 +152,9 @@ __BEGIN_DECLS
 /* Entitlement to allow use of CKKS plaintext fields */
 #define kSecEntitlementPrivateCKKSPlaintextFields CFSTR("com.apple.private.ckks.plaintextfields")
 
+/* Entitlement to allow use of inet expansion fields */
+#define kSecEntitlementPrivateInetExpansionFields CFSTR("com.apple.private.keychain.inet_expansion_fields")
+
 /* Entitlement to allow use of CKKS 'current item' changing SPI */
 #define kSecEntitlementPrivateCKKSWriteCurrentItemPointers CFSTR("com.apple.private.ckks.currentitempointers_write")
 
@@ -165,12 +169,24 @@ __BEGIN_DECLS
 /* Entitlement to allow executing keychain control actions */
 #define kSecEntitlementKeychainControl CFSTR("com.apple.private.keychain.keychaincontrol")
 
+/* Entitlement to allow deletion of app clip keychain items */
+#define kSecEntitlementPrivateAppClipDeletion CFSTR("com.apple.private.keychain.appclipdeletion")
+
+/* Entitlements to allow executing SecItemUpdateTokenItemsForAccessGroups SPI */
+#define kSecEntitlementUpdateTokenItems CFSTR("com.apple.private.keychain.allow-update-tokens")
+
+/* Entitlement to control access to login keychain master key stashing (loginwindow) */
+#define kSecEntitlementPrivateStash CFSTR("com.apple.private.securityd.stash")
+
 #if __OBJC__
 /* Entitlement to control use of OT */
 #define kSecEntitlementPrivateOctagon @"com.apple.private.octagon"
 
 /* Entitlement to control use of Escrow Update */
 #define kSecEntitlementPrivateEscrowRequest @"com.apple.private.escrow-update"
+
+/* Entitlement for macOS securityd to connect to stash agent */
+#define kSecEntitlementPrivateStashService @"com.apple.private.securityd.stash-agent-client"
 #endif
 
 __END_DECLS

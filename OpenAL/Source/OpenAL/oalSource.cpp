@@ -1635,7 +1635,7 @@ void OALSource::SetupRogerBeepAU()
 	DebugMessageN1("OALSource::SetupRogerBeepAU called - OALSource = %ld\n", (long int) mSelfToken);
 #endif
 		
-	ComponentDescription desc;
+	AudioComponentDescription desc;
 	desc.componentFlags = 0;        
 	desc.componentFlagsMask = 0;     
 	desc.componentType = kAudioUnitType_Effect;          
@@ -1643,10 +1643,10 @@ void OALSource::SetupRogerBeepAU()
 	desc.componentManufacturer = kAudioUnitManufacturer_Apple;  
 
 	// CREATE NEW NODE FOR THE GRAPH
-	OSStatus result = AUGraphNewNode (mOwningContext->GetGraph(), &desc, 0, NULL, &mRogerBeepNode);
+	OSStatus result = AUGraphAddNode(mOwningContext->GetGraph(), &desc, &mRogerBeepNode);
 		THROW_RESULT
 
-	result = AUGraphGetNodeInfo (mOwningContext->GetGraph(), mRogerBeepNode, 0, 0, 0, &mRogerBeepAU);
+	result = AUGraphNodeInfo (mOwningContext->GetGraph(), mRogerBeepNode, &desc, &mRogerBeepAU);
 		THROW_RESULT   
 }
 
@@ -1655,7 +1655,7 @@ void OALSource::SetupDistortionAU()
 #if LOG_VERBOSE
 	DebugMessageN1("OALSource::SetupDistortionAU called - OALSource = %ld\n", (long int) mSelfToken);
 #endif
-	ComponentDescription desc;
+	AudioComponentDescription desc;
 	desc.componentFlags = 0;        
 	desc.componentFlagsMask = 0;     
 	desc.componentType = kAudioUnitType_Effect;          
@@ -1663,10 +1663,10 @@ void OALSource::SetupDistortionAU()
 	desc.componentManufacturer = kAudioUnitManufacturer_Apple;  
 
 	// CREATE NEW NODE FOR THE GRAPH
-	OSStatus result = AUGraphNewNode (mOwningContext->GetGraph(), &desc, 0, NULL, &mDistortionNode);
+	OSStatus result = AUGraphAddNode (mOwningContext->GetGraph(), &desc, &mDistortionNode);
 		THROW_RESULT
 
-	result = AUGraphGetNodeInfo (mOwningContext->GetGraph(), mDistortionNode, 0, 0, 0, &mDistortionAU);
+	result = AUGraphNodeInfo (mOwningContext->GetGraph(), mDistortionNode, &desc, &mDistortionAU);
 		THROW_RESULT   
 }
 
@@ -1807,7 +1807,7 @@ void	OALSource::Play()
 						if(!mASADistortionEnable)
 						{
 							// connect render proc to unit if distortion is not enabled
-							result = AUGraphGetNodeInfo (mOwningContext->GetGraph(), mRogerBeepNode, 0, 0, 0, &mRenderUnit);
+							result = AUGraphNodeInfo (mOwningContext->GetGraph(), mRogerBeepNode, NULL, &mRenderUnit);
 								THROW_RESULT;
 						}
 					}
@@ -1824,7 +1824,7 @@ void	OALSource::Play()
 							THROW_RESULT
 						
 						// distortion unit will always be first if it exists
-						result = AUGraphGetNodeInfo (mOwningContext->GetGraph(), mDistortionNode, 0, 0, 0, &mRenderUnit);
+						result = AUGraphNodeInfo (mOwningContext->GetGraph(), mDistortionNode, NULL, &mRenderUnit);
 							THROW_RESULT
 						
 						if(mASARogerBeepEnable)

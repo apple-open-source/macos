@@ -34,6 +34,8 @@
 
 namespace JSC {
 
+class BytecodeGraph;
+
 struct Instruction;
 
 class BytecodeDumperBase {
@@ -61,7 +63,7 @@ public:
     void dumpValue(T v) { m_out.print(v); }
 
 protected:
-    virtual CString registerName(int) const = 0;
+    virtual CString registerName(VirtualRegister) const = 0;
     virtual int outOfLineJumpOffset(InstructionStream::Offset) const = 0;
 
     BytecodeDumperBase(PrintStream& out)
@@ -84,26 +86,33 @@ public:
     {
     }
 
-    virtual ~BytecodeDumper() { }
+    ~BytecodeDumper() override { }
 
 protected:
     Block* block() const { return m_block; }
 
     void dumpBytecode(const InstructionStream::Ref& it, const ICStatusMap&);
 
-    CString registerName(int r) const override;
+    CString registerName(VirtualRegister) const override;
     int outOfLineJumpOffset(InstructionStream::Offset offset) const override;
 
 private:
-    virtual CString constantName(int index) const;
+    virtual CString constantName(VirtualRegister) const;
 
     Block* m_block;
 };
 
 template<class Block>
-class CodeBlockBytecodeDumper : public BytecodeDumper<Block> {
+class CodeBlockBytecodeDumper final : public BytecodeDumper<Block> {
 public:
     static void dumpBlock(Block*, const InstructionStream&, PrintStream& out, const ICStatusMap& = ICStatusMap());
+    static void dumpGraph(Block*, const InstructionStream&, BytecodeGraph&, PrintStream& out = WTF::dataFile(), const ICStatusMap& = ICStatusMap());
+
+    void dumpIdentifiers();
+    void dumpConstants();
+    void dumpExceptionHandlers();
+    void dumpSwitchJumpTables();
+    void dumpStringSwitchJumpTables();
 
 private:
     using BytecodeDumper<Block>::BytecodeDumper;
@@ -111,12 +120,6 @@ private:
     ALWAYS_INLINE VM& vm() const;
 
     const Identifier& identifier(int index) const;
-
-    void dumpIdentifiers();
-    void dumpConstants();
-    void dumpExceptionHandlers();
-    void dumpSwitchJumpTables();
-    void dumpStringSwitchJumpTables();
 };
 
 #if ENABLE(WEBASSEMBLY)
@@ -127,7 +130,7 @@ class FunctionCodeBlock;
 struct ModuleInformation;
 enum Type : int8_t;
 
-class BytecodeDumper : public JSC::BytecodeDumper<FunctionCodeBlock> {
+class BytecodeDumper final : public JSC::BytecodeDumper<FunctionCodeBlock> {
 public:
     static void dumpBlock(FunctionCodeBlock*, const ModuleInformation&, PrintStream& out);
 
@@ -135,7 +138,7 @@ private:
     using JSC::BytecodeDumper<FunctionCodeBlock>::BytecodeDumper;
 
     void dumpConstants();
-    CString constantName(int index) const override;
+    CString constantName(VirtualRegister index) const final;
     CString formatConstant(Type, uint64_t) const;
 };
 

@@ -74,6 +74,7 @@ private:
     IOOptionBits                _options;
     IOLock *                    _lock;
     bool                        _fastPathEntitlement;
+    bool                        _motionEventEntitlement;
     OSDictionary *              _properties;
     struct {
         uint32_t                copycount;

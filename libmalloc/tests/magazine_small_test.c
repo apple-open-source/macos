@@ -11,6 +11,9 @@
 #include "../src/magazine_small.c"
 #include "magazine_testing.h"
 
+// Stubs
+bool aggressive_madvise_enabled = DEFAULT_AGGRESSIVE_MADVISE_ENABLED;
+
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 
 static inline void

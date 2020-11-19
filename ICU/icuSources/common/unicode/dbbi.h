@@ -13,6 +13,10 @@
 #ifndef DBBI_H
 #define DBBI_H
 
+#include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/rbbi.h"
 
 #if !UCONFIG_NO_BREAK_ITERATION
@@ -22,7 +26,6 @@
  * \brief C++ API: Dictionary Based Break Iterator
  */
  
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 #ifndef U_HIDE_DEPRECATED_API
@@ -37,8 +40,9 @@ typedef RuleBasedBreakIterator DictionaryBasedBreakIterator;
 #endif  /* U_HIDE_DEPRECATED_API */
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

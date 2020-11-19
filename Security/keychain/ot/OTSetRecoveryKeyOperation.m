@@ -81,7 +81,8 @@
 
     WEAKIFY(self);
 
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
+                                                                                     refetchNeeded:NO];
     [self runBeforeGroupFinished:fetchKeysOp];
 
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"setting-recovery-tlks"
@@ -103,7 +104,8 @@
                                                     recoveryKey:self.recoveryKey
                                                            salt:salt
                                                        ckksKeys:viewKeySets
-                                                          reply:^(NSError * _Nullable setError) {
+                                                          reply:^(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                                  NSError * _Nullable setError) {
             STRONGIFY(self);
             if(setError){
                 [[CKKSAnalytics logger] logResultForEvent:OctagonEventSetRecoveryKey hardFailure:true result:setError];
@@ -112,6 +114,12 @@
                 [self runBeforeGroupFinished:self.finishOp];
             } else {
                 secnotice("octagon", "successfully set recovery key");
+
+                for (id key in self.deps.viewManager.views) {
+                    CKKSKeychainView* view = self.deps.viewManager.views[key];
+                    secnotice("octagon-ckks", "Providing setRecoveryKey() records to %@", view);
+                    [view receiveTLKUploadRecords:keyHierarchyRecords];
+                }
                 [self runBeforeGroupFinished:self.finishOp];
             }
         }];

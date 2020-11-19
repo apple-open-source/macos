@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007-2020 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,9 +46,8 @@
 #import "PlatformStrategies.h"
 #import "Range.h"
 #import "RuntimeEnabledFeatures.h"
-#import "UTIUtilities.h"
 
-#if ENABLE(DATA_INTERACTION)
+#if PLATFORM(IOS_FAMILY)
 #import <MobileCoreServices/MobileCoreServices.h>
 #endif
 
@@ -62,13 +61,13 @@ const float DragController::DragImageAlpha = 0.75f;
 
 bool DragController::isCopyKeyDown(const DragData& dragData)
 {
-    return dragData.flags() & DragApplicationIsCopyKeyDown;
+    return dragData.flags().contains(DragApplicationFlags::IsCopyKeyDown);
 }
     
-DragOperation DragController::dragOperation(const DragData& dragData)
+Optional<DragOperation> DragController::dragOperation(const DragData& dragData)
 {
-    if (dragData.flags() & DragApplicationIsModal)
-        return DragOperationNone;
+    if (dragData.flags().contains(DragApplicationFlags::IsModal))
+        return WTF::nullopt;
 
     bool mayContainURL;
     if (canLoadDataFromDraggingPasteboard())
@@ -77,12 +76,12 @@ DragOperation DragController::dragOperation(const DragData& dragData)
         mayContainURL = dragData.containsURLTypeIdentifier();
 
     if (!mayContainURL && !dragData.containsPromise())
-        return DragOperationNone;
+        return WTF::nullopt;
 
-    if (!m_documentUnderMouse || (!(dragData.flags() & (DragApplicationHasAttachedSheet | DragApplicationIsSource))))
-        return DragOperationCopy;
+    if (!m_documentUnderMouse || (!(dragData.flags().containsAll({ DragApplicationFlags::HasAttachedSheet, DragApplicationFlags::IsSource }))))
+        return DragOperation::Copy;
 
-    return DragOperationNone;
+    return WTF::nullopt;
 }
 
 const IntSize& DragController::maxDragImageSize()
@@ -90,14 +89,6 @@ const IntSize& DragController::maxDragImageSize()
     static const IntSize maxDragImageSize(400, 400);
     
     return maxDragImageSize;
-}
-
-String DragController::platformContentTypeForBlobType(const String& type) const
-{
-    auto utiType = UTIFromMIMEType(type);
-    if (!utiType.isEmpty())
-        return utiType;
-    return type;
 }
 
 void DragController::cleanupAfterSystemDrag()
@@ -114,13 +105,13 @@ void DragController::cleanupAfterSystemDrag()
 #endif
 }
 
-#if ENABLE(DATA_INTERACTION)
+#if PLATFORM(IOS_FAMILY)
 
 DragOperation DragController::platformGenericDragOperation()
 {
     // On iOS, UIKit skips the -performDrop invocation altogether if MOVE is forbidden.
     // Thus, if MOVE is not allowed in the drag source operation mask, fall back to only other allowable action, COPY.
-    return DragOperationCopy;
+    return DragOperation::Copy;
 }
 
 void DragController::updateSupportedTypeIdentifiersForDragHandlingMethod(DragHandlingMethod dragHandlingMethod, const DragData& dragData) const
@@ -155,7 +146,7 @@ void DragController::updateSupportedTypeIdentifiersForDragHandlingMethod(DragHan
     platformStrategies()->pasteboardStrategy()->updateSupportedTypeIdentifiers(supportedTypes, dragData.pasteboardName());
 }
 
-#endif
+#endif // PLATFORM(IOS_FAMILY)
 
 void DragController::declareAndWriteDragImage(DataTransfer& dataTransfer, Element& element, const URL& url, const String& label)
 {

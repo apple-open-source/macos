@@ -24,11 +24,10 @@
 }
 
 - (instancetype)init {
-    self = [super init];
-
-    self.proxy = nil;
-    self.data = [NSMutableDictionary<NSString*, NSObject*> dictionary];
-
+    if ((self = [super init])) {
+        self.proxy = nil;
+        self.data = [NSMutableDictionary<NSString*, NSObject*> dictionary];
+    }
     return self;
 }
 
@@ -62,7 +61,8 @@
     [self.data removeAllObjects];
 }
 
-- (void)pushWrites {
+- (void)pushWrites:(NSArray<NSString*>*)keys requiresForceSync:(BOOL)requiresForceSync
+{
 }
 
 - (void)addOneToOutGoing{

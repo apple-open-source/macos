@@ -1,7 +1,7 @@
 .\"
 .\"     @(#)configd.8
 .\"
-.Dd June 18, 2009
+.Dd April 14, 2020
 .Dt CONFIGD 8
 .Os "Mac OS X"
 .Sh NAME
@@ -73,9 +73,7 @@ This bundle provides a name to each of the system's network interfaces.  The bun
 IOKit Registry for a list of network devices attached to the system and gives them BSD style names such as
 .Qq en0 .
 .Ss IPConfiguration
-This agent is responsible for establishing and maintaining IPv4 addresses on the system.  These addresses may be manually specified in the network preferences or acquired using DHCP (or BOOTP).
-.Ss IP6Configuration
-This agent is responsible for establishing and maintaining IPv6 addresses on the system.
+This agent is responsible for establishing and maintaining IPv4 and IPv6 addresses on the system.  These addresses may be manually specified in the network preferences or acquired using DHCP (or BOOTP), DHCPv6, and RTADV.
 .Ss IPMonitor
 This agent is responsible for establishing and maintaining the primary network service, the default route, the active DNS configuration, and the active network proxies on the system.
 .Ss LinkConfiguration
@@ -92,13 +90,11 @@ Directory of
 bundles
 .It Pa /Library/Preferences/SystemConfiguration/
 Default directory for system configuration persistent store files.
-.Bl -tag -width .../VirtualNetworkInterfaces.plist
+.Bl -tag -width .../NetworkInterfaces.plist
 .It Pa .../preferences.plist
-System configuration
+Network configuration and computer/host names
 .It Pa .../NetworkInterfaces.plist
 Network interface --> BSD interface mappings
-.It Pa .../VirtualNetworkInterfaces.plist
-Virtual network interface (VLAN) configuration
 .El
 .El
 .Sh ERRORS

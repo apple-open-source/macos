@@ -36,7 +36,8 @@
 typedef struct _IOHIDElementValue
 {
     IOHIDElementCookie  cookie;
-    uint32_t            totalSize;
+    uint32_t            flags:8;
+    uint32_t            totalSize:24;
     uint64_t            timestamp;
     uint32_t            generation;
     uint32_t            value[1];
@@ -57,6 +58,7 @@ struct IOHIDElementPrivate_IVars
     
     uint32_t                    reportSize;
     uint32_t                    reportCount;
+    uint32_t                    rawReportCount;
     uint32_t                    reportStartBit;
     uint32_t                    reportBits;
     uint32_t                    reportID;
@@ -143,6 +145,7 @@ struct IOHIDElementPrivate_IVars
 #define _currentReportSizeBits      ivars->currentReportSizeBits
 #define _previousValue              ivars->previousValue
 #define _calibration                ivars->calibration
+#define _rawReportCount             ivars->rawReportCount
 
 #define IsArrayElement(element) \
             ((element->_flags & kHIDDataArrayBit) == kHIDDataArray)
@@ -169,6 +172,7 @@ bool IOHIDElementPrivate::init(IOHIDElementContainer * owner,
     _owner = owner;
     _type = type;
     _reportCount = 1;
+    _rawReportCount = _reportCount;
     
     ret = true;
     
@@ -256,6 +260,7 @@ IOHIDElementPrivate *IOHIDElementPrivate::buttonElement(
         element->_unitExponent = button->unitExponent;
     }
     
+    element->_rawReportCount = element->_reportCount;
     element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
     
     if (parent) {
@@ -303,6 +308,7 @@ IOHIDElementPrivate *IOHIDElementPrivate::valueElement(
     element->_physicalMax = value->physicalMax;
     element->_units = value->units;
     element->_unitExponent = value->unitExponent;
+    element->_rawReportCount = element->_reportCount;
     
     if (value->isRange) {
         element->_usageMin = value->u.range.usageMin;
@@ -316,14 +322,14 @@ IOHIDElementPrivate *IOHIDElementPrivate::valueElement(
     
     element->_usage = element->_usageMin;
     
-    if (element->_reportCount > 1) {
-        element->_duplicateReportHandler = element;
-        
-        element->_duplicateElements = OSArray::withCapacity(element->_reportCount);
-        require(element->_duplicateElements, exit);
-    }
-    
     element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
+    
+    // If we have usage ranges, we set report count as 1
+    if (element->_reportCount > 1)
+    {
+        element->_reportBits *= element->_reportCount;
+        element->_reportCount = 1;
+    }
     
     if (parent && parent->getUsagePage() == kHIDPage_AppleVendor &&
         (parent->getUsage() == kHIDUsage_AppleVendor_Message ||
@@ -439,6 +445,7 @@ IOHIDElementPrivate *IOHIDElementPrivate::reportHandlerElement(
     element->_reportCount = 1;
     element->_reportID = reportID;
     element->_reportBits = element->_reportSize	= reportBits;
+    element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
     
     owner->registerElement(element, &element->_cookie);
     
@@ -475,6 +482,7 @@ IOHIDElementPrivate *IOHIDElementPrivate::newSubElement(uint16_t rangeIndex) con
     element->_physicalMax = _physicalMax;
     element->_units = _units;
     element->_unitExponent = _unitExponent;
+    element->_rawReportCount = _reportCount;
     element->_currentReportSizeBits = element->_reportBits * element->_reportCount;
     
     if (element->_usageMax == element->_usageMin) {
@@ -645,6 +653,8 @@ IOHIDElementPrivate *IOHIDElementPrivate::arrayHandlerElement(
     element->_logicalMax = child->_logicalMax;
     element->_physicalMin = child->_physicalMin;
     element->_physicalMax = child->_physicalMax;
+    element->_rawReportCount = child->_reportCount;
+    element->_currentReportSizeBits = child->_reportBits * child->_reportCount;
     
     // Allocate the array for the array elements.
     element->_arrayItems = OSArray::withCapacity((child->_usageMax - child->_usageMin) + 1);
@@ -723,7 +733,7 @@ static void readReportBits(const uint8_t *src,
     uint32_t word = 0;
     uint8_t bitsProcessed = 0;
     uint32_t totalBitsProcessed = 0;
-    
+
     while (bitsToCopy) {
         uint32_t tmp;
         
@@ -1302,7 +1312,7 @@ bool IOHIDElementPrivate::processArrayReport(uint8_t reportID,
 
 OSData *IOHIDElementPrivate::getDataValue()
 {   
-    uint32_t byteSize = (UInt32)getByteSize();
+    uint32_t byteSize = (UInt32)getCurrentByteSize();
     
 #if defined(__LITTLE_ENDIAN__)
     if (_dataValue && _dataValue->getLength() == byteSize) {
@@ -1324,7 +1334,6 @@ OSData *IOHIDElementPrivate::getDataValue()
         writeReportBits((const UInt32*)_elementValue->value, (uint8_t *)_dataValue->getBytesNoCopy(), bitsToCopy);
     }
 #endif
-    
     return _dataValue;
 }
 
@@ -1377,14 +1386,25 @@ void IOHIDElementPrivate::setDataBits(OSData *value)
     readReportBits((const UInt8*)value->getBytesNoCopy(), _elementValue->value, bitsToCopy);
 }
 
-IOByteCount IOHIDElementPrivate::getByteSize()
+IOByteCount IOHIDElementPrivate::getByteSize() const
+{
+    IOByteCount byteSize;
+    uint32_t bitCount = _reportBits * _reportCount;
+
+    byteSize = bitCount >> 3;
+    byteSize += (bitCount % 8) ? 1 : 0;
+
+    return byteSize;
+}
+
+IOByteCount IOHIDElementPrivate::getCurrentByteSize()
 {
     IOByteCount byteSize;
     uint32_t bitCount = _currentReportSizeBits;
-    
+
     byteSize = bitCount >> 3;
     byteSize += (bitCount % 8) ? 1 : 0;
-	
+
     return byteSize;
 }
 

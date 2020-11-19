@@ -106,13 +106,36 @@ sysconf(name)
 	case _SC_STREAM_MAX:	/* assume fds run out before memory does */
 		if (getrlimit(RLIMIT_NOFILE, &rl) != 0)
 			return (-1);
-		if (rl.rlim_cur == RLIM_INFINITY)
+#if __LP64__
+		/*
+		 * In 64 bit world, sysconf is able to correctly represent
+		 * rlim_t values (8 bytes).
+		 */
+		if (rl.rlim_cur > RLIM_INFINITY)
 			return (-1);
 		if (rl.rlim_cur > LONG_MAX) {
 			errno = EOVERFLOW;
 			return (-1);
 		}
-		return ((long)rl.rlim_cur);
+		lvalue = rl.rlim_cur;
+#else
+		/*
+		 * In 32 bit world (watches), sysconf falls back to the
+		 * old behavior: use (int) OPEN_MAX as max limit.  Ideally
+		 * we would use maxfilesperproc as max limit, which is a
+		 * system value adjusted by the kernel based on available
+		 * RAM size. This value defaults to OPEN_MAX for systems
+		 * with less than 8G of RAM.  So we use OPEN_MAX (defined
+		 * in sys/syslimits.h) as max limit here in case
+		 * applications with strict sandbox rules prevent libc
+		 * from reading maxfilesperproc via sysctl.
+		 */
+		if (rl.rlim_cur > OPEN_MAX)
+			lvalue = OPEN_MAX;
+		else
+			lvalue = (long)rl.rlim_cur;
+#endif
+		return lvalue;
 	case _SC_JOB_CONTROL:
 		return (_POSIX_JOB_CONTROL);
 	case _SC_SAVED_IDS:

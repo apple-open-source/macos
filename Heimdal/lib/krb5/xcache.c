@@ -107,7 +107,7 @@ xcc_alloc(krb5_context context, krb5_ccache *id)
     if ((*id)->data.data == NULL)
 	return krb5_enomem(context);
     (*id)->data.length = sizeof(krb5_xcc);
-
+    
     return 0;
 }
 
@@ -119,6 +119,43 @@ genName(krb5_xcc *x)
     CFUUIDBytes bytes = CFUUIDGetUUIDBytes(x->uuid);
     x->cache_name = malloc(37);
     uuid_unparse((void *)&bytes, x->cache_name);
+}
+
+static krb5_error_code KRB5_CALLCONV
+update_cache_info(krb5_context context,
+		  krb5_xcc *x)
+{
+    if (x->cred == NULL) {
+	//only update x->cred if it exists in GSSCred
+
+	HeimCredRef cred = HeimCredCopyFromUUID(x->uuid);
+	CFDictionaryRef attrs = HeimCredCopyAttributes(cred, NULL, NULL);
+	if (attrs) {
+	    // if there are attrs, then the cache exists on the server.  this means we can save the cred entry for the cache.
+	    x->cred = cred;
+	}
+	CFRELEASE_NULL(attrs);
+	if (x->cred == NULL) {
+	    //if the cred is null, then return not found so that xcc_get_principal can return the error
+	    krb5_set_error_message(context, KRB5_CC_NOTFOUND, "no credential for %s", x->cache_name);
+	    return KRB5_CC_NOTFOUND;
+	}
+    }
+    if (x->clientName == NULL && x->cred) {
+	x->clientName = HeimCredCopyAttribute(x->cred, kHEIMAttrClientName);
+	if (x->clientName == NULL) {
+	    krb5_set_error_message(context, KRB5_CC_NOTFOUND, "no cache for %s", x->cache_name);
+	    return KRB5_CC_NOTFOUND;
+	}
+    }
+    if (x->primary_principal == NULL) {
+	x->primary_principal = PrincipalFromCFString(context, x->clientName);
+	if (x->primary_principal == NULL) {
+	    krb5_set_error_message(context, KRB5_CC_NOTFOUND, "no principal for %s", x->cache_name);
+	    return KRB5_CC_NOTFOUND;
+	}
+    }
+    return 0;
 }
 
 static krb5_error_code KRB5_CALLCONV
@@ -149,6 +186,12 @@ xcc_resolve(krb5_context context, krb5_ccache *id, const char *res)
     
     x->uuid = uuidref;
     genName(x);
+
+    //if the cache already exists, then fetch the values from gsscred to stay in sync
+    ret = update_cache_info(context, x);
+    if (ret) {
+	//ignore errors here, it's expected that the resolved cache may not exist.
+    }
 
     return 0;
 }
@@ -184,10 +227,13 @@ xcc_create(krb5_context context, krb5_xcc *x, CFUUIDRef uuid)
     x->cred = HeimCredCreate(attrs, &error);
     CFRelease(attrs);
     if (x->cred) {
-	heim_assert(x->uuid == NULL, "credential should not already have a UUID");
-	x->uuid = HeimCredGetUUID(x->cred);
-	heim_assert(x->uuid != NULL, "no uuid for credential?");
-	CFRetain(x->uuid);
+	// xcc_gen_new will not send a uuid, however, xcc_initialize after receiving an empty default cache can send a uuid.  This case has a x->uuid but no x-cred.
+	if (!uuid) {
+	    heim_assert(x->uuid == NULL, "credential should not already have a UUID");
+	    x->uuid = HeimCredGetUUID(x->cred);
+	    heim_assert(x->uuid != NULL, "no uuid for credential?");
+	    CFRetain(x->uuid);
+	}
 
 	ret = 0;
 	genName(x);
@@ -311,7 +357,9 @@ xcc_store_cred(krb5_context context,
     krb5_error_code ret;
     CFBooleanRef is_tgt = kCFBooleanFalse;
     CFDateRef authtime = NULL;
-    
+    CFDateRef expiretime = NULL;
+    CFDateRef renew_till = NULL;
+
     krb5_data_zero(&data);
     
     if (creds->times.starttime) {
@@ -324,6 +372,14 @@ xcc_store_cred(krb5_context context,
     if (authtime == NULL) {
 	ret = krb5_enomem(context);
 	goto out;
+    }
+
+    if (creds->times.endtime) {
+	expiretime = CFDateCreate(NULL, (CFTimeInterval)creds->times.endtime - kCFAbsoluteTimeIntervalSince1970);
+    }
+
+    if (creds->times.renew_till) {
+	renew_till = CFDateCreate(NULL, (CFTimeInterval)creds->times.renew_till - kCFAbsoluteTimeIntervalSince1970);
     }
 
     sp = krb5_storage_emem();
@@ -362,6 +418,7 @@ xcc_store_cred(krb5_context context,
 	kHEIMAttrParentCredential,
 	kHEIMAttrLeadCredential,
 	kHEIMAttrAuthTime,
+	kHEIMAttrRenewTill
     };
     const void *add_values[] = {
 	(void *)kHEIMObjectKerberos,
@@ -372,10 +429,21 @@ xcc_store_cred(krb5_context context,
 	x->uuid,
 	is_tgt,
 	authtime,
+	renew_till
     };
+    CFIndex num_keys = sizeof(add_keys)/sizeof(add_keys[0]);
+    if (renew_till == NULL)
+	num_keys -= 1;
     
-    query = CFDictionaryCreate(NULL, add_keys, add_values, sizeof(add_keys) / sizeof(add_keys[0]), NULL, NULL);
+    query = CFDictionaryCreate(NULL, add_keys, add_values, num_keys, NULL, NULL);
     heim_assert(query != NULL, "Failed to create dictionary");
+
+    if (expiretime) {
+	CFMutableDictionaryRef newQuery = CFDictionaryCreateMutableCopy(NULL, 0, query);
+	CFDictionarySetValue(newQuery, kHEIMAttrExpire, expiretime);
+	CFRELEASE_NULL(query);
+	query = newQuery;
+    }
     
     HeimCredRef ccred = HeimCredCreate(query, NULL);
     if (ccred) {
@@ -394,6 +462,8 @@ out:
     CFRELEASE_NULL(dref);
     CFRELEASE_NULL(principal);
     CFRELEASE_NULL(authtime);
+    CFRELEASE_NULL(expiretime);
+    CFRELEASE_NULL(renew_till);
     krb5_data_free(&data);
     
     return ret;
@@ -405,26 +475,10 @@ xcc_get_principal(krb5_context context,
 		  krb5_principal *principal)
 {
     krb5_xcc *x = XCACHE(id);
-    if (x->cred == NULL) {
-	x->cred = HeimCredCopyFromUUID(x->uuid);
-	if (x->cred == NULL) {
-	    krb5_set_error_message(context, KRB5_CC_NOTFOUND, "no credential for %s", x->cache_name);
-	    return KRB5_CC_NOTFOUND;
-	}
-    }
-    if (x->clientName == NULL) {
-	x->clientName = HeimCredCopyAttribute(x->cred, kHEIMAttrClientName);
-	if (x->clientName == NULL) {
-	    krb5_set_error_message(context, KRB5_CC_NOTFOUND, "no cache for %s", x->cache_name);
-	    return KRB5_CC_NOTFOUND;
-	}
-    }
-    if (x->primary_principal == NULL) {
-	x->primary_principal = PrincipalFromCFString(context, x->clientName);
-	if (x->primary_principal == NULL) {
-	    krb5_set_error_message(context, KRB5_CC_NOTFOUND, "no principal for %s", x->cache_name);
-	    return KRB5_CC_NOTFOUND;
-	}
+    krb5_error_code ret;
+    ret = update_cache_info(context, x);
+    if (ret) {
+	return ret;
     }
 	    
     return krb5_copy_principal(context, x->primary_principal, principal);
@@ -437,7 +491,12 @@ xcc_get_first (krb5_context context,
 {
     CFDictionaryRef query;
     krb5_xcc *x = XCACHE(id);
-    CFUUIDRef uuid = HeimCredGetUUID(x->cred);
+
+    CFUUIDRef uuid = x->uuid;
+    if (uuid == NULL) {
+	return KRB5_CC_END;
+    }
+
     struct xcc_cursor *c;
     
     c = calloc(1, sizeof(*c));
@@ -474,7 +533,7 @@ xcc_get_next (krb5_context context,
     krb5_storage *sp;
     HeimCredRef cred;
     CFDataRef data;
-
+    
     if (c->array == NULL)
 	return KRB5_CC_END;
 
@@ -523,7 +582,7 @@ xcc_remove_cred(krb5_context context,
 {
     CFDictionaryRef query;
     krb5_xcc *x = XCACHE(id);
-
+    
     CFStringRef servername = CFStringCreateFromPrincipal(context, cred->server);
     if (servername == NULL)
 	return KRB5_CC_END;
@@ -667,6 +726,9 @@ xcc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
     if (!HeimCredMove(xfrom->uuid, xto->uuid))
 	return KRB5_CC_END;
 
+    if (xfrom->uuid)
+	HeimCredDeleteByUUID(xfrom->uuid);
+    
     CFRELEASE_NULL(xfrom->uuid);
 
     /* cred */
@@ -689,9 +751,11 @@ xcc_move(krb5_context context, krb5_ccache from, krb5_ccache to)
     xto->cache_name = NULL;
     genName(xto);
 
+    free(xfrom->cache_name);
+    
     /* outer foo */
     krb5_data_free(&from->data);
-
+    
     return 0;
 }
 
@@ -714,7 +778,7 @@ get_default_name(krb5_context context,
     uuid_unparse((void *)&bytes, uuidstr);
 
     CFRELEASE_NULL(uuid);
-
+    
     asprintf(str, "%s:%s", ops->prefix, uuidstr);
 
     return 0;
@@ -757,6 +821,42 @@ xcc_lastchange(krb5_context context, krb5_ccache id, krb5_timestamp *mtime)
     *mtime = 0;
     return 0;
 }
+
+static krb5_error_code KRB5_CALLCONV
+xcc_hold(krb5_context context,
+	    krb5_ccache id)
+{
+    krb5_xcc *x = XCACHE(id);
+    if (!x->cred) {
+	x->cred = HeimCredCopyFromUUID(x->uuid);
+    }
+    if (x->cred) {
+	HeimCredRetainTransient(x->cred);
+    } else {
+	return KRB5_CC_NOTFOUND;
+    }
+
+    return 0;
+}
+
+static krb5_error_code KRB5_CALLCONV
+xcc_unhold(krb5_context context,
+	    krb5_ccache id)
+{
+    krb5_xcc *x = XCACHE(id);
+    if (!x->cred) {
+	x->cred = HeimCredCopyFromUUID(x->uuid);
+    }
+    if (x->cred) {
+	HeimCredReleaseTransient(x->cred);
+    } else {
+	return KRB5_CC_NOTFOUND;
+    }
+
+    return 0;
+}
+
+
 
 static krb5_error_code
 xcc_get_uuid(krb5_context context, krb5_ccache id, krb5_uuid uuid)
@@ -858,6 +958,74 @@ xcc_copy_data(krb5_context context, krb5_ccache id, /* heim_dict_t */ void *keys
     return 0;
 }
 
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+_krb5_xcc_get_initial_ticket(krb5_context context,
+			     krb5_ccache id,
+			     krb5_principal client,
+			     krb5_principal server,
+			     const char *password)
+{
+    
+    krb5_xcc *x = XCACHE(id);
+    krb5_error_code ret = 0;
+    CFDataRef dref = NULL;
+    CFDictionaryRef query = NULL;
+    CFStringRef serverStr = NULL;
+    
+    dref = CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)password, strlen(password), kCFAllocatorNull);
+    if (dref == NULL) {
+	ret = krb5_enomem(context);
+	goto out;
+    }
+    
+    if (server) {
+	serverStr = CFStringCreateFromPrincipal(context, server);
+    }
+    
+    const void *add_keys[] = {
+	(void *)kHEIMObjectType,
+	kHEIMAttrType,
+	kHEIMAttrParentCredential,
+	kHEIMAttrClientName,
+	kHEIMAttrData,
+	kHEIMAttrCredential,
+	kHEIMAttrServerName
+    };
+    const void *add_values[] = {
+	(void *)kHEIMObjectKerberosAcquireCred,
+	kHEIMTypeKerberosAcquireCred,
+	x->uuid,
+	x->clientName, 
+	dref,
+	kCFBooleanTrue,
+	serverStr
+    };
+    
+    CFIndex num_keys = sizeof(add_keys)/sizeof(add_keys[0]);
+    if (serverStr == NULL)
+	num_keys -= 1;
+    
+    query = CFDictionaryCreate(NULL, add_keys, add_values, num_keys, NULL, NULL);
+    heim_assert(query != NULL, "Failed to create dictionary");
+    
+    HeimCredRef ccred = HeimCredCreate(query, NULL);
+    if (ccred) {
+	CFRelease(ccred);
+    } else {
+	_krb5_debugx(context, 5, "failed to add initial ticket request to %s\n", x->cache_name);
+	ret = EINVAL;
+	krb5_set_error_message(context, ret, "failed to store initial ticket request to %s", x->cache_name);
+	goto out;
+    }
+
+out:
+    CFRELEASE_NULL(serverStr);
+    CFRELEASE_NULL(query);
+    CFRELEASE_NULL(dref);
+    
+    return ret;
+}
+
 /**
  * Variable containing the XCACHE based credential cache implemention.
  *
@@ -891,8 +1059,8 @@ KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_ops = {
     xcc_lastchange,
     NULL, /* set_kdc_offset */
     NULL, /* get_kdc_offset */
-    NULL, /* hold */
-    NULL, /* unhold */
+    xcc_hold,
+    xcc_unhold,
     xcc_get_uuid,
     xcc_resolve_by_uuid,
     NULL,
@@ -934,8 +1102,8 @@ KRB5_LIB_VARIABLE const krb5_cc_ops krb5_xcc_api_ops = {
     xcc_lastchange,
     NULL, /* set_kdc_offset */
     NULL, /* get_kdc_offset */
-    NULL, /* hold */
-    NULL, /* unhold */
+    xcc_hold,
+    xcc_unhold,
     xcc_get_uuid,
     xcc_api_resolve_by_uuid,
     NULL,

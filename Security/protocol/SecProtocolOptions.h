@@ -129,8 +129,7 @@ sec_protocol_options_append_tls_ciphersuite(sec_protocol_options_t options, tls_
  * @param ciphersuite
  *      A SSLCipherSuite value.
  */
-API_DEPRECATED("Use sec_protocol_options_append_tls_ciphersuite", macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
-API_UNAVAILABLE(iosmac)
+API_DEPRECATED("Use sec_protocol_options_append_tls_ciphersuite", macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0), macCatalyst(13.0, 13.0))
 void
 sec_protocol_options_add_tls_ciphersuite(sec_protocol_options_t options, SSLCipherSuite ciphersuite);
 
@@ -162,8 +161,7 @@ sec_protocol_options_append_tls_ciphersuite_group(sec_protocol_options_t options
  * @param group
  *      A SSLCipherSuiteGroup value.
  */
-API_DEPRECATED("Use sec_protocol_options_append_tls_ciphersuite_group", macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
-API_UNAVAILABLE(iosmac)
+API_DEPRECATED("Use sec_protocol_options_append_tls_ciphersuite_group", macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0), macCatalyst(13.0, 13.0))
 void
 sec_protocol_options_add_tls_ciphersuite_group(sec_protocol_options_t options, SSLCiphersuiteGroup group);
 
@@ -180,8 +178,7 @@ sec_protocol_options_add_tls_ciphersuite_group(sec_protocol_options_t options, S
  *      A SSLProtocol enum value.
  */
 API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_options_set_min_tls_protocol_version",
-                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
-API_UNAVAILABLE(iosmac)
+                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0), macCatalyst(13.0, 13.0))
 void
 sec_protocol_options_set_tls_min_version(sec_protocol_options_t options, SSLProtocol version);
 
@@ -238,8 +235,7 @@ sec_protocol_options_get_default_min_dtls_protocol_version(void);
  *      A SSLProtocol enum value.
  */
 API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_options_set_max_tls_protocol_version",
-                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
-API_UNAVAILABLE(iosmac)
+                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0), macCatalyst(13.0, 13.0))
 void
 sec_protocol_options_set_tls_max_version(sec_protocol_options_t options, SSLProtocol version);
 
@@ -303,14 +299,14 @@ sec_protocol_options_add_tls_application_protocol(sec_protocol_options_t options
  * @function sec_protocol_options_set_tls_server_name
  *
  * @abstract
- *      Set the server (domain) name to be used in the TLS SNI. This will override
+ *      Set the server name to be used when verifying the peer's certificate. This will override
  *      the server name obtained from the endpoint.
  *
  * @param options
  *      A `sec_protocol_options_t` instance.
  *
  * @param server_name
- *      A NULL-terminated string carrying the server (domain) name.
+ *      A NULL-terminated string carrying the server name.
  */
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 void
@@ -552,6 +548,26 @@ sec_protocol_options_set_tls_renegotiation_enabled(sec_protocol_options_t option
 API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
 void
 sec_protocol_options_set_peer_authentication_required(sec_protocol_options_t options, bool peer_authentication_required);
+
+/*!
+ * @function sec_protocol_options_set_peer_authentication_optional
+ *
+ * @abstract
+ *      When this is enabled, the endpoint requests the peer certificate, but if none is provided, the
+ *      endpoint still proceeds with the connection. Default false for servers; always false for clients (this
+ *      function is a no-op for clients). If peer_authentication_required is set to true via
+ *      sec_protocol_options_set_peer_authentication_required(), peer_authentication_optional will be disregarded
+ *      and the peer certificate will be required.
+ *
+ * @param options
+ *      A `sec_protocol_options_t` instance.
+ *
+ * @param peer_authentication_optional
+ *      Flag to enable or disable requested peer authentication.
+ */
+SPI_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0))
+void
+sec_protocol_options_set_peer_authentication_optional(sec_protocol_options_t options, bool peer_authentication_optional);
 
 #ifdef __BLOCKS__
 

@@ -1199,7 +1199,7 @@ OSStatus SecKeyCopyPersistentRef(SecKeyRef key, CFDataRef* persistentRef)
     if (!persistentRef) {
         secerror("SecKeyCopyPersistentRef: Need a persistentRef pointer for this to work");
         return errSecParam;
-    }
+    }    
 
     CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
                                                          kSecReturnPersistentRef,   kCFBooleanTrue,

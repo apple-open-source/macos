@@ -664,7 +664,6 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 	    stp != NULL; stp = dt_list_next(stp), last = edp) {
 
 		dtrace_stmtdesc_t *sdp = stp->ds_desc;
-		dtrace_actdesc_t *ap = sdp->dtsd_action;
 
 		if (sdp->dtsd_fmtdata != NULL) {
 			i = dtrace_printf_format(dtp,
@@ -716,7 +715,6 @@ dtrace_dof_create(dtrace_hdl_t *dtp, dtrace_prog_t *pgp, uint_t flags)
 		dof_stridx_t strndx = 0;
 		dof_probedesc_t dofp;
 		dof_ecbdesc_t dofe;
-		uint_t i;
 
 		if ((edp = stp->ds_desc->dtsd_ecbdesc) == last)
 			continue; /* same ecb as previous statement */

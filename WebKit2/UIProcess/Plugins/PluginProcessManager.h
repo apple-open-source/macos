@@ -47,7 +47,7 @@ namespace WebKit {
 class PluginInfoStore;
 class PluginProcessProxy;
 class WebProcessProxy;
-enum class WebsiteDataFetchOption;
+enum class WebsiteDataFetchOption : uint8_t;
 
 class PluginProcessManager {
     WTF_MAKE_NONCOPYABLE(PluginProcessManager);
@@ -57,7 +57,7 @@ public:
 
     uint64_t pluginProcessToken(const PluginModuleInfo&, PluginProcessType, PluginProcessSandboxPolicy);
 
-    void getPluginProcessConnection(uint64_t pluginProcessToken, Messages::WebProcessProxy::GetPluginProcessConnectionDelayedReply&&);
+    bool getPluginProcessConnection(uint64_t pluginProcessToken, Messages::WebProcessProxy::GetPluginProcessConnectionDelayedReply&&);
     void removePluginProcessProxy(PluginProcessProxy*);
 
     void fetchWebsiteData(const PluginModuleInfo&, OptionSet<WebsiteDataFetchOption>, WTF::Function<void (Vector<String>)>&& completionHandler);

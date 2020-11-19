@@ -177,6 +177,11 @@ public:
 	 */
 	CFDataRef createExternal();
 
+    /*
+     * Indicates whether the trust settings contain any settings for this cert.
+     */
+    bool contains(SecCertificateRef certRef);
+
 private:
 	/* common code to init mPropList from raw data */
 	void initFromData(

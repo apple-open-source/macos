@@ -30,6 +30,10 @@
  * $FreeBSD: src/usr.sbin/mtree/mtree.h,v 1.7 2005/03/29 11:44:17 tobez Exp $
  */
 
+#ifndef _MTREE_H_
+#define _MTREE_H_
+
+#include <sys/time.h>
 #include <string.h>
 #include <stdlib.h>
 
@@ -60,8 +64,10 @@ typedef struct _node {
 	struct timespec st_ctimespec;		/* metadata modification time */
 	struct timespec st_ptimespec;		/* time added to parent folder */
 	char	*xattrsdigest;			/* digest of extended attributes */
+	u_quad_t xdstream_priv_id;		/* private id of the xattr data stream */
 	ino_t	st_ino;				/* inode */
 	char	*acldigest;			/* digest of access control list */
+	u_quad_t  sibling_id;			/* sibling id */
 
 #define	F_CKSUM		0x00000001		/* check sum */
 #define	F_DONE		0x00000002		/* directory done */
@@ -92,6 +98,7 @@ typedef struct _node {
 #define F_XATTRS	0x02000000		/* digest of extended attributes */
 #define F_INODE		0x04000000		/* inode */
 #define F_ACL		0x08000000		/* digest of access control list */
+#define F_SIBLINGID	0x10000000		/* sibling id */
 	u_int	flags;				/* items set */
 
 #define	F_BLOCK	0x001				/* block special */
@@ -109,3 +116,5 @@ typedef struct _node {
 #define	RP(p)	\
 	((p)->fts_path[0] == '.' && (p)->fts_path[1] == '/' ? \
 	    (p)->fts_path + 2 : (p)->fts_path)
+
+#endif /* _MTREE_H_ */

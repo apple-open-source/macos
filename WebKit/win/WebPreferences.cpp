@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2011, 2014-2015 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006-2020 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -231,6 +231,8 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaScriptEnabledPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaScriptRuntimeFlagsPreferenceKey), CFSTR("0"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitWebSecurityEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitAllowTopNavigationToDataURLsPreferenceKey), kCFBooleanFalse);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitWebAudioEnabledPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowUniversalAccessFromFileURLsPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowFileAccessFromFileURLsPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitJavaScriptCanAccessClipboardPreferenceKey), kCFBooleanFalse);
@@ -321,6 +323,8 @@ void WebPreferences::initializeDefaultSettings()
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitWebAnimationsCSSIntegrationEnabledPreferenceKey), kCFBooleanFalse);
 
+    CFDictionaryAddValue(defaults, CFSTR(WebKitCSSCustomPropertiesAndValuesEnabledPreferenceKey), kCFBooleanFalse);
+
     CFDictionaryAddValue(defaults, CFSTR(WebKitUserTimingEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitResourceTimingEnabledPreferenceKey), kCFBooleanFalse);
@@ -341,13 +345,17 @@ void WebPreferences::initializeDefaultSettings()
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitResizeObserverEnabledPreferenceKey), kCFBooleanFalse);
 
+    CFDictionaryAddValue(defaults, CFSTR(WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey), kCFBooleanFalse);
+
     CFDictionaryAddValue(defaults, CFSTR(WebKitCoreMathMLEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitRequestIdleCallbackEnabledPreferenceKey), kCFBooleanFalse);
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitAsyncClipboardAPIEnabledPreferenceKey), kCFBooleanFalse);
 
-    CFDictionaryAddValue(defaults, CFSTR(WebKitRenderingUpdateThrottlingEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitAspectRatioOfImgFromWidthAndHeightEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitWebSQLEnabledPreferenceKey), kCFBooleanFalse);
 
     defaultSettings = defaults;
 #endif
@@ -640,6 +648,8 @@ HRESULT WebPreferences::QueryInterface(_In_ REFIID riid, _COM_Outptr_ void** ppv
         *ppvObject = static_cast<IWebPreferencesPrivate6*>(this);
     else if (IsEqualGUID(riid, IID_IWebPreferencesPrivate7))
         *ppvObject = static_cast<IWebPreferencesPrivate7*>(this);
+    else if (IsEqualGUID(riid, IID_IWebPreferencesPrivate8))
+        *ppvObject = static_cast<IWebPreferencesPrivate8*>(this);
     else if (IsEqualGUID(riid, CLSID_WebPreferences))
         *ppvObject = this;
     else
@@ -1915,7 +1925,7 @@ void WebPreferences::didRemoveFromWebView()
 
 HRESULT WebPreferences::shouldDisplaySubtitles(_Out_ BOOL* enabled)
 {
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
     if (!enabled)
         return E_POINTER;
 
@@ -1928,7 +1938,7 @@ HRESULT WebPreferences::shouldDisplaySubtitles(_Out_ BOOL* enabled)
 
 HRESULT WebPreferences::setShouldDisplaySubtitles(BOOL enabled)
 {
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
     setBoolValue(WebKitShouldDisplaySubtitlesPreferenceKey, enabled);
     return S_OK;
 #else
@@ -1938,7 +1948,7 @@ HRESULT WebPreferences::setShouldDisplaySubtitles(BOOL enabled)
 
 HRESULT WebPreferences::shouldDisplayCaptions(_Out_ BOOL* enabled)
 {
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
     if (!enabled)
         return E_POINTER;
 
@@ -1951,7 +1961,7 @@ HRESULT WebPreferences::shouldDisplayCaptions(_Out_ BOOL* enabled)
 
 HRESULT WebPreferences::setShouldDisplayCaptions(BOOL enabled)
 {
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
     setBoolValue(WebKitShouldDisplayCaptionsPreferenceKey, enabled);
     return S_OK;
 #else
@@ -1961,7 +1971,7 @@ HRESULT WebPreferences::setShouldDisplayCaptions(BOOL enabled)
 
 HRESULT WebPreferences::shouldDisplayTextDescriptions(_Out_ BOOL* enabled)
 {
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
     if (!enabled)
         return E_POINTER;
 
@@ -1974,7 +1984,7 @@ HRESULT WebPreferences::shouldDisplayTextDescriptions(_Out_ BOOL* enabled)
 
 HRESULT WebPreferences::setShouldDisplayTextDescriptions(BOOL enabled)
 {
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
     setBoolValue(WebKitShouldDisplayTextDescriptionsPreferenceKey, enabled);
     return S_OK;
 #else
@@ -2287,6 +2297,20 @@ HRESULT WebPreferences::setCoreMathMLEnabled(BOOL enabled)
     return S_OK;
 }
 
+HRESULT WebPreferences::CSSOMViewSmoothScrollingEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setCSSOMViewSmoothScrollingEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
 HRESULT WebPreferences::requestIdleCallbackEnabled(_Out_ BOOL* enabled)
 {
     if (!enabled)
@@ -2365,6 +2389,20 @@ HRESULT WebPreferences::webAnimationsMutableTimelinesEnabled(_Out_ BOOL* enabled
     return S_OK;
 }
 
+HRESULT WebPreferences::setCSSCustomPropertiesAndValuesEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitCSSCustomPropertiesAndValuesEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::CSSCustomPropertiesAndValuesEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitCSSCustomPropertiesAndValuesEnabledPreferenceKey);
+    return S_OK;
+}
+    
 HRESULT WebPreferences::setUserTimingEnabled(BOOL enabled)
 {
     setBoolValue(WebKitUserTimingEnabledPreferenceKey, enabled);
@@ -2421,17 +2459,58 @@ HRESULT WebPreferences::setResizeObserverEnabled(BOOL enabled)
     return S_OK;
 }
 
-HRESULT WebPreferences::renderingUpdateThrottlingEnabled(_Out_ BOOL* enabled)
+HRESULT WebPreferences::aspectRatioOfImgFromWidthAndHeightEnabled(_Out_ BOOL* enabled)
 {
     if (!enabled)
         return E_POINTER;
-    *enabled = boolValueForKey(WebKitRenderingUpdateThrottlingEnabledPreferenceKey);
+    *enabled = boolValueForKey(WebKitAspectRatioOfImgFromWidthAndHeightEnabledPreferenceKey);
     return S_OK;
 }
 
-HRESULT WebPreferences::setRenderingUpdateThrottlingEnabled(BOOL enabled)
+HRESULT WebPreferences::setAspectRatioOfImgFromWidthAndHeightEnabled(BOOL enabled)
 {
-    setBoolValue(WebKitRenderingUpdateThrottlingEnabledPreferenceKey, enabled);
+    setBoolValue(WebKitAspectRatioOfImgFromWidthAndHeightEnabledPreferenceKey, enabled);
     return S_OK;
 }
 
+HRESULT WebPreferences::webSQLEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitWebSQLEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setWebSQLEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitWebSQLEnabledPreferenceKey, enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::allowTopNavigationToDataURLs(_Out_ BOOL* allowAccess)
+{
+    if (!allowAccess)
+        return E_POINTER;
+    *allowAccess = boolValueForKey(WebKitAllowTopNavigationToDataURLsPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setAllowTopNavigationToDataURLs(BOOL allowAccess)
+{
+    setBoolValue(WebKitAllowTopNavigationToDataURLsPreferenceKey, allowAccess);
+    return S_OK;
+}
+
+HRESULT WebPreferences::modernUnprefixedWebAudioEnabled(_Out_ BOOL* enabled)
+{
+    if (!enabled)
+        return E_POINTER;
+    *enabled = boolValueForKey(WebKitWebAudioEnabledPreferenceKey);
+    return S_OK;
+}
+
+HRESULT WebPreferences::setModernUnprefixedWebAudioEnabled(BOOL enabled)
+{
+    setBoolValue(WebKitWebAudioEnabledPreferenceKey, enabled);
+    return S_OK;
+}

@@ -21,23 +21,23 @@ OCTAGON_ON[sdk=appletv*] = 1
 TRUSTEDPEERS_ON = 0
 TRUSTEDPEERS_ON[sdk=macosx*] = 1
 TRUSTEDPEERS_ON[sdk=iphone*] = 1
-TRUSTEDPEERS_ON[sdk=bridgeos*] = 1
+TRUSTEDPEERS_ON[sdk=bridgeos*] = 0
 TRUSTEDPEERS_ON[sdk=watch*] = 1
 TRUSTEDPEERS_ON[sdk=appletv*] = 1
 
 // SecureObject Sync should only be on on iOS and macOS, but until we have octagon, its on on watch and TV
 SECUREOBJECTSYNC_ON[sdk=iphone*] = 1
-SECUREOBJECTSYNC_ON[sdk=bridgeos*] = 1
+SECUREOBJECTSYNC_ON[sdk=bridgeos*] = 0
 SECUREOBJECTSYNC_ON[sdk=watch*] = 1
 SECUREOBJECTSYNC_ON[sdk=appletv*] = 1
 SECUREOBJECTSYNC_ON[sdk=macos*] = 1
 
-// Shared web credentials is only supported on iOS
+// Shared web credentials is supported on iOS and macOS and Catalyst
 SHAREDWEBCREDENTIALS_ON[sdk=iphone*] = 1
 SHAREDWEBCREDENTIALS_ON[sdk=bridgeos*] = 0
 SHAREDWEBCREDENTIALS_ON[sdk=watch*] = 0
 SHAREDWEBCREDENTIALS_ON[sdk=appletv*] = 0
-SHAREDWEBCREDENTIALS_ON[sdk=macos*] = 0
+SHAREDWEBCREDENTIALS_ON[sdk=macos*] = 1
 
 ABC_BUGCAPTURE_ON[sdk=iphoneos*] = 1
 ABC_BUGCAPTURE_ON[sdk=iphonesimulator*] = 0

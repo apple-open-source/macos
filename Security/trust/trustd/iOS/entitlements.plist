@@ -19,6 +19,12 @@
 		<string>com.apple.MobileAsset.PKITrustSupplementals</string>
 		<string>com.apple.MobileAsset.SecExperimentAssets</string>
 	</array>
+	<key>com.apple.private.security.storage.trustd</key>
+	<true/>
+	<key>com.apple.private.security.storage.trustd-private</key>
+	<true/>
+	<key>com.apple.private.security.storage.SFAnalytics</key>
+	<true/>
 	<key>seatbelt-profiles</key>
 	<array>
 		<string>trustd</string>

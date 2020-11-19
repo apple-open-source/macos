@@ -11,8 +11,6 @@
 			<array>
 				<string>game</string>
 			</array>
-			<key>CFBundleTypeIconFile</key>
-			<string>Game.icns</string>
 			<key>CFBundleTypeName</key>
 			<string>game</string>
 			<key>CFBundleTypeOSTypes</key>
@@ -45,8 +43,6 @@
 			<array>
 				<string>pgn</string>
 			</array>
-			<key>CFBundleTypeIconFile</key>
-			<string>Moves.icns</string>
 			<key>CFBundleTypeName</key>
 			<string>moves</string>
 			<key>CFBundleTypeOSTypes</key>
@@ -66,13 +62,11 @@
 	<key>CFBundleExecutable</key>
 	<string>Chess</string>
 	<key>CFBundleGetInfoString</key>
-	<string>3.17, Copyright 2003–2017 Apple Inc.</string>
+	<string>$(CURRENT_PROJECT_VERSION), Copyright 2003–2017 Apple Inc.</string>
 	<key>CFBundleHelpBookFolder</key>
 	<string>Chess.help</string>
 	<key>CFBundleHelpBookName</key>
 	<string>com.apple.Chess.help</string>
-	<key>CFBundleIconFile</key>
-	<string>Chess.icns</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.Chess</string>
 	<key>CFBundleInfoDictionaryVersion</key>
@@ -82,11 +76,11 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>3.17</string>
+	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleSignature</key>
 	<string>mbch</string>
 	<key>CFBundleVersion</key>
-	<string>3.17</string>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>HPDHelpProjectIdentifier</key>
 	<string>chess</string>
 	<key>LSApplicationCategoryType</key>
@@ -96,7 +90,7 @@
 	<key>LSMinimumSystemVersion</key>
 	<string>10.9.0</string>
 	<key>MBCBuildTag</key>
-	<string>Chess-369</string>
+	<string>Chess-408</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright 2003–2017 Apple Inc.</string>
 	<key>NSMainNibFile</key>
@@ -112,6 +106,8 @@
 			<array>
 				<string>public.utf8-plain-text</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>Composed document icon for the .game document type</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.apple.chess.game</string>
 			<key>UTTypeTagSpecification</key>
@@ -125,6 +121,8 @@
 			<array>
 				<string>public.utf8-plain-text</string>
 			</array>
+			<key>UTTypeDescription</key>
+			<string>Composed document icon for the .pgn document type</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.apple.chess.pgn</string>
 			<key>UTTypeTagSpecification</key>

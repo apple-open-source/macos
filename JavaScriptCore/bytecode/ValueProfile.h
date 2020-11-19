@@ -60,10 +60,10 @@ struct ValueProfileBase {
         JSValue value = JSValue::decode(m_buckets[bucket]);
         if (!!value) {
             if (!value.isCell())
-                return 0;
+                return nullptr;
             return value.asCell()->structure()->classInfo();
         }
-        return 0;
+        return nullptr;
     }
     
     unsigned numberOfSamples() const
@@ -163,12 +163,12 @@ struct ValueProfile : public ValueProfileWithLogNumberOfBuckets<0> {
 struct RareCaseProfile {
     RareCaseProfile(BytecodeIndex bytecodeIndex)
         : m_bytecodeIndex(bytecodeIndex)
-        , m_counter(0)
     {
     }
+    RareCaseProfile() = default;
     
-    BytecodeIndex m_bytecodeIndex;
-    uint32_t m_counter;
+    BytecodeIndex m_bytecodeIndex { };
+    uint32_t m_counter { 0 };
 };
 
 inline BytecodeIndex getRareCaseProfileBytecodeIndex(RareCaseProfile* rareCaseProfile)
@@ -176,28 +176,28 @@ inline BytecodeIndex getRareCaseProfileBytecodeIndex(RareCaseProfile* rareCasePr
     return rareCaseProfile->m_bytecodeIndex;
 }
 
-struct ValueProfileAndOperand : public ValueProfile {
-    int m_operand;
+struct ValueProfileAndVirtualRegister : public ValueProfile {
+    VirtualRegister m_operand;
 };
 
-struct ValueProfileAndOperandBuffer {
+struct ValueProfileAndVirtualRegisterBuffer {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
 
-    ValueProfileAndOperandBuffer(unsigned size)
+    ValueProfileAndVirtualRegisterBuffer(unsigned size)
         : m_size(size)
     {
         // FIXME: ValueProfile has more stuff than we need. We could optimize these value profiles
         // to be more space efficient.
         // https://bugs.webkit.org/show_bug.cgi?id=175413
-        m_buffer = MallocPtr<ValueProfileAndOperand, VMMalloc>::malloc(m_size * sizeof(ValueProfileAndOperand));
+        m_buffer = MallocPtr<ValueProfileAndVirtualRegister, VMMalloc>::malloc(m_size * sizeof(ValueProfileAndVirtualRegister));
         for (unsigned i = 0; i < m_size; ++i)
-            new (&m_buffer.get()[i]) ValueProfileAndOperand();
+            new (&m_buffer.get()[i]) ValueProfileAndVirtualRegister();
     }
 
-    ~ValueProfileAndOperandBuffer()
+    ~ValueProfileAndVirtualRegisterBuffer()
     {
         for (unsigned i = 0; i < m_size; ++i)
-            m_buffer.get()[i].~ValueProfileAndOperand();
+            m_buffer.get()[i].~ValueProfileAndVirtualRegister();
     }
 
     template <typename Function>
@@ -208,7 +208,7 @@ struct ValueProfileAndOperandBuffer {
     }
 
     unsigned m_size;
-    MallocPtr<ValueProfileAndOperand, VMMalloc> m_buffer;
+    MallocPtr<ValueProfileAndVirtualRegister, VMMalloc> m_buffer;
 };
 
 } // namespace JSC

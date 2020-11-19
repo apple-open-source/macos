@@ -38,7 +38,7 @@ using namespace CssmClient;
 // Exception model
 //
 const char *
-Error::what () const throw()
+Error::what () const _NOEXCEPT
 {
 	return "CSSM client library error";
 }

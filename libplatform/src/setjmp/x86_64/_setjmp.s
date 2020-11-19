@@ -104,6 +104,7 @@ LEAF(__longjmp, 0)
 	movq	%rsi, %rbp
 	movq	JB_RSP(%rdi), %rsi
 	_OS_PTR_UNMUNGE(%rsi)
+	movsbq	(%rsi), %r12	// probe to detect absolutely corrupt stack pointers
 	movq	%rsi, %rsp
 	movq	JB_R12(%rdi), %r12
 	movq	JB_R13(%rdi), %r13

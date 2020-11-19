@@ -54,7 +54,7 @@
 #include <utilities/der_date.h>
 
 #include <stdlib.h>
-#include <assert.h>
+#include <utilities/simulatecrash_assert.h>
 
 #include "SOSRing.h"
 #include "SOSRingUtils.h"
@@ -730,16 +730,18 @@ static CFStringRef CreateCommaSeparatedPeerIDs(CFSetRef peers) {
 
     __block bool addSeparator = false;
 
-    CFSetForEachPeerID(peers, ^(CFStringRef peerID) {
-        if (addSeparator) {
-            CFStringAppendCString(result, ", ", kCFStringEncodingUTF8);
-        }
-        CFStringRef spid = CFStringCreateTruncatedCopy(peerID, 8);
-        CFStringAppend(result, spid);
-        CFReleaseNull(spid);
+    if(peers) {
+        CFSetForEachPeerID(peers, ^(CFStringRef peerID) {
+            if (addSeparator) {
+                CFStringAppendCString(result, ", ", kCFStringEncodingUTF8);
+            }
+            CFStringRef spid = CFStringCreateTruncatedCopy(peerID, 8);
+            CFStringAppend(result, spid);
+            CFReleaseNull(spid);
 
-        addSeparator = true;
-    });
+            addSeparator = true;
+        });
+    }
 
     return result;
 }

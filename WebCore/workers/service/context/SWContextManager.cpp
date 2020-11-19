@@ -27,6 +27,7 @@
 #include "SWContextManager.h"
 
 #if ENABLE(SERVICE_WORKER)
+#include "FrameLoaderClient.h"
 #include "Logging.h"
 #include "MessageWithMessagePorts.h"
 #include "ServiceWorkerClientIdentifier.h"
@@ -164,6 +165,7 @@ void SWContextManager::serviceWorkerFailedToTerminate(ServiceWorkerIdentifier se
 {
     UNUSED_PARAM(serviceWorkerIdentifier);
     RELEASE_LOG_ERROR(ServiceWorker, "Failed to terminate service worker with identifier %s, killing the service worker process", serviceWorkerIdentifier.loggingString().utf8().data());
+    ASSERT_NOT_REACHED();
     _exit(EXIT_FAILURE);
 }
 

@@ -1248,7 +1248,7 @@ ms{
     CurrencyUnitPatterns{
         other{"{0} {1}"}
     }
-    Version{"2.1.49.2"}
+    Version{"36.1"}
     currencySpacing{
         afterCurrency{
             currencyMatch{"[]"}

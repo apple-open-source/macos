@@ -145,12 +145,12 @@ CFILES=	$(SRCDIR)access.c       $(SRCDIR)attrs.c        $(SRCDIR)istack.c \
 	$(SRCDIR)\attrdict.c
 
 HFILES=	$(INCLDIR)platform.h $(INCLDIR)buffio.h \
-        $(INCLDIR)fileio.h $(INCLDIR)tidy.h $(INCLDIR)tidyenum.h
+        $(INCLDIR)tidy.h $(INCLDIR)tidyenum.h
 
 LIBHFILES= \
         $(SRCDIR)access.h \
         $(SRCDIR)attrs.h        $(SRCDIR)attrdict.h     $(SRCDIR)clean.h \
-        $(SRCDIR)config.h       $(SRCDIR)entities.h     \
+        $(SRCDIR)config.h       $(SRCDIR)entities.h     $(SRCDIR)fileio.h \
         $(SRCDIR)forward.h      $(SRCDIR)lexer.h        $(SRCDIR)message.h \
         $(SRCDIR)parser.h       $(SRCDIR)pprint.h       $(SRCDIR)streamio.h \
         $(SRCDIR)tags.h \

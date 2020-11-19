@@ -31,44 +31,93 @@
 #import "Logging.h"
 #import <AVFoundation/AVAudioSession.h>
 #import <objc/runtime.h>
-#import <pal/spi/mac/AVFoundationSPI.h>
+#import <pal/spi/cocoa/AVFoundationSPI.h>
+#import <wtf/BlockObjCExceptions.h>
 #import <wtf/OSObjectPtr.h>
 #import <wtf/RetainPtr.h>
 
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
-namespace WebCore {
-
-#if !LOG_DISABLED
-static const char* categoryName(AudioSession::CategoryType category)
-{
-#define CASE(category) case AudioSession::category: return #category
-    switch (category) {
-        CASE(None);
-        CASE(AmbientSound);
-        CASE(SoloAmbientSound);
-        CASE(MediaPlayback);
-        CASE(RecordAudio);
-        CASE(PlayAndRecord);
-        CASE(AudioProcessing);
-    }
-    
-    ASSERT_NOT_REACHED();
-    return "";
+@interface WebInterruptionObserverHelper : NSObject {
+    WebCore::AudioSession* _callback;
 }
-#endif
+
+- (id)initWithCallback:(WebCore::AudioSession*)callback;
+- (void)clearCallback;
+- (void)interruption:(NSNotification *)notification;
+@end
+
+@implementation WebInterruptionObserverHelper
+
+- (id)initWithCallback:(WebCore::AudioSession*)callback
+{
+    if (!(self = [super init]))
+        return nil;
+
+    _callback = callback;
+
+    NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
+    [center addObserver:self selector:@selector(interruption:) name:AVAudioSessionInterruptionNotification object:[PAL::getAVAudioSessionClass() sharedInstance]];
+
+    return self;
+}
+
+- (void)dealloc
+{
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [super dealloc];
+}
+
+- (void)clearCallback
+{
+    _callback = nil;
+}
+
+- (void)interruption:(NSNotification *)notification
+{
+    if (!_callback)
+        return;
+
+    NSUInteger type = [[[notification userInfo] objectForKey:AVAudioSessionInterruptionTypeKey] unsignedIntegerValue];
+    auto flags = (type == AVAudioSessionInterruptionTypeEnded && [[[notification userInfo] objectForKey:AVAudioSessionInterruptionOptionKey] unsignedIntegerValue] == AVAudioSessionInterruptionOptionShouldResume) ? WebCore::AudioSession::MayResume::Yes : WebCore::AudioSession::MayResume::No;
+
+    callOnWebThreadOrDispatchAsyncOnMainThread([protectedSelf = retainPtr(self), type, flags]() mutable {
+        auto* callback = protectedSelf->_callback;
+        if (!callback)
+            return;
+
+        if (type == AVAudioSessionInterruptionTypeBegan)
+            callback->beginInterruption();
+        else
+            callback->endInterruption(flags);
+    });
+}
+@end
+
+namespace WebCore {
 
 class AudioSessionPrivate {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    AudioSessionPrivate(AudioSession*);
+    explicit AudioSessionPrivate(AudioSession*);
+    ~AudioSessionPrivate();
+
     AudioSession::CategoryType m_categoryOverride;
     OSObjectPtr<dispatch_queue_t> m_dispatchQueue;
+    RetainPtr<WebInterruptionObserverHelper> m_interruptionObserverHelper;
 };
 
-AudioSessionPrivate::AudioSessionPrivate(AudioSession*)
+AudioSessionPrivate::AudioSessionPrivate(AudioSession* session)
     : m_categoryOverride(AudioSession::None)
 {
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    m_interruptionObserverHelper = adoptNS([[WebInterruptionObserverHelper alloc] initWithCallback:session]);
+    END_BLOCK_OBJC_EXCEPTIONS
+}
+
+AudioSessionPrivate::~AudioSessionPrivate()
+{
+    [m_interruptionObserverHelper clearCallback];
 }
 
 AudioSession::AudioSession()
@@ -87,7 +136,7 @@ void AudioSession::setCategory(CategoryType newCategory, RouteSharingPolicy poli
         policy = RouteSharingPolicy::LongFormAudio;
 #endif
 
-    LOG(Media, "AudioSession::setCategory() - category = %s", categoryName(newCategory));
+    LOG(Media, "AudioSession::setCategory() - category = %s", convertEnumerationToString(newCategory).ascii().data());
 
     if (categoryOverride() && categoryOverride() != newCategory) {
         LOG(Media, "AudioSession::setCategory() - override set, NOT changing");
@@ -241,6 +290,37 @@ void AudioSession::setPreferredBufferSize(size_t bufferSize)
     float duration = bufferSize / sampleRate();
     [[PAL::getAVAudioSessionClass() sharedInstance] setPreferredIOBufferDuration:duration error:&error];
     ASSERT(!error);
+}
+
+bool AudioSession::isMuted() const
+{
+    return false;
+}
+
+void AudioSession::handleMutedStateChange()
+{
+}
+
+void AudioSession::addInterruptionObserver(InterruptionObserver& observer)
+{
+    m_interruptionObservers.add(observer);
+}
+
+void AudioSession::removeInterruptionObserver(InterruptionObserver& observer)
+{
+    m_interruptionObservers.remove(observer);
+}
+
+void AudioSession::beginInterruption()
+{
+    for (auto& observer : m_interruptionObservers)
+        observer.beginAudioSessionInterruption();
+}
+
+void AudioSession::endInterruption(MayResume mayResume)
+{
+    for (auto& observer : m_interruptionObservers)
+        observer.endAudioSessionInterruption(mayResume);
 }
 
 }

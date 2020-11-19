@@ -52,7 +52,8 @@ struct _SecOTRFullIdentity {
     SecKeyRef   publicSigningKey;
     SecKeyRef   privateSigningKey;
     CFDataRef   privateKeyPersistentRef;
-    
+
+    bool        isMessageProtectionKey;
     uint8_t     publicIDHash[kMPIDHashSize];
 };
 

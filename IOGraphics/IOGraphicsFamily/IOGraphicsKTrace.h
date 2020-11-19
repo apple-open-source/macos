@@ -13,6 +13,12 @@
 
 #include "GTrace.hpp"
 
+#pragma mark - Production ktraces
+
+
+#define IOGDBG_CODE(x)             IOKDBG_CODE(DBG_IOGRAPHICS, x) // 0x05320000
+#define IOGDBG_VBLANK                              IOGDBG_CODE(4) // 0x05320010
+
 
 #pragma mark - Components
 #define kGTRACE_IODISPLAYWRANGLER                           0x0000000001ULL

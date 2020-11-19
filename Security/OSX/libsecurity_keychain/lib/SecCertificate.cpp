@@ -45,6 +45,7 @@
 #include <sys/param.h>
 #include <syslog.h>
 #include "CertificateValues.h"
+#include "LegacyAPICounts.h"
 
 OSStatus SecCertificateGetCLHandle_legacy(SecCertificateRef certificate, CSSM_CL_HANDLE *clHandle);
 extern CSSM_KEYUSE ConvertArrayToKeyUsage(CFArrayRef usage);
@@ -72,13 +73,6 @@ SecCertificateIsItemImplInstance(SecCertificateRef certificate)
 
     CFTypeID typeID = CFGetTypeID(certificate);
 
-#if 0 /* debug code to verify type IDs */
-	syslog(LOG_ERR, "SecCertificate typeID=%d [STU=%d, OSX=%d, SKI=%d]",
-			(int)typeID,
-			(int)SecCertificateGetTypeID(),
-			(int)SecCertificateGetTypeID_osx(),
-			(int)SecKeychainItemGetTypeID());
-#endif
 	if (typeID == _kCFRuntimeNotATypeID) {
 		return false;
 	}
@@ -622,12 +616,14 @@ SecCertificateCopyPreference(
     FourCharCode itemType = 'cprf';
     cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
 	cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecTypeItemAttr), itemType);
-    if (keyUsage)
+    if (keyUsage) {
         cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
+    }
 
-	Item prefItem;
-	if (!cursor->next(prefItem))
-		MacOSError::throwMe(errSecItemNotFound);
+    Item prefItem;
+    if (!cursor->next(prefItem)) {
+        MacOSError::throwMe(errSecItemNotFound);
+    }
 
 	// get persistent certificate reference
 	SecKeychainAttribute itemAttrs[] = { { kSecGenericItemAttr, 0, NULL } };
@@ -707,8 +703,9 @@ SecCertificateFindPreferenceItemWithNameAndKeyUsage(
     CssmData service(const_cast<char *>(idUTF8), idUTF8Len);
     cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
 	cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecTypeItemAttr), (FourCharCode)'cprf');
-    if (keyUsage)
+    if (keyUsage) {
         cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
+    }
 
 	Item item;
 	if (!cursor->next(item))
@@ -814,12 +811,11 @@ OSStatus SecCertificateSetPreference(
     FourCharCode itemType = 'cprf';
     cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecServiceItemAttr), service);
 	cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecTypeItemAttr), itemType);
-    if (keyUsage)
+    if (keyUsage) {
         cursor->add(CSSM_DB_EQUAL, Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
-    if (date)
-        ; // %%%TBI
+    }
 
-	Item item(kSecGenericPasswordItemClass, 'aapl', 0, NULL, false);
+    Item item(kSecGenericPasswordItemClass, 'aapl', 0, NULL, false);
     bool add = (!cursor->next(item));
 	// at this point, we either have a new item to add or an existing item to update
 
@@ -829,10 +825,6 @@ OSStatus SecCertificateSetPreference(
     item->setAttribute(Schema::attributeInfo(kSecAccountItemAttr), account);
     item->setAttribute(Schema::attributeInfo(kSecScriptCodeItemAttr), (sint32)keyUsage);
     item->setAttribute(Schema::attributeInfo(kSecLabelItemAttr), service);
-
-    // date
-    if (date)
-        ; // %%%TBI
 
 	// generic attribute (store persistent certificate reference)
 	CFDataRef pItemRef = nil;
@@ -876,6 +868,7 @@ OSStatus SecCertificateSetPreferred(
 	CFStringRef name,
 	CFArrayRef keyUsage)
 {
+	COUNTLEGACYAPI
 	CSSM_KEYUSE keyUse = ConvertArrayToKeyUsage(keyUsage);
 	return SecCertificateSetPreference(certificate, name, keyUse, NULL);
 }

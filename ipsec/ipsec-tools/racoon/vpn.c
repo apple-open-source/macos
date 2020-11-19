@@ -109,8 +109,6 @@
 #include "vpn_control_var.h"
 #include "strnames.h"
 #include "ike_session.h"
-#include "ipsecMessageTracer.h"
-
 
 static int vpn_get_ph2pfs (phase1_handle_t *);
 

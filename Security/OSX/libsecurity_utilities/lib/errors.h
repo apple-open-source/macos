@@ -50,7 +50,7 @@ protected:
     CommonError();
     CommonError(const CommonError &source);
 public:
-    virtual ~CommonError() throw ();
+    virtual ~CommonError() _NOEXCEPT;
 
     virtual OSStatus osStatus() const = 0;
 	virtual int unixError() const = 0;
@@ -74,7 +74,7 @@ public:
     const int error;
     virtual OSStatus osStatus() const;
 	virtual int unixError() const;
-    virtual const char *what () const throw ();
+    virtual const char *what () const _NOEXCEPT;
     
     static void check(int result)		{ if (result == -1) throwMe(); }
     static void throwMe(int err = errno) __attribute__((noreturn));
@@ -96,7 +96,7 @@ public:
     const int error;
     virtual OSStatus osStatus() const;
 	virtual int unixError() const;
-    virtual const char *what () const throw ();
+    virtual const char *what () const _NOEXCEPT;
     
     static void check(OSStatus status)	{ if (status != errSecSuccess) throwMe(status); }
     static void throwMe(int err) __attribute__((noreturn));
@@ -120,7 +120,7 @@ protected:
 public:
 	virtual OSStatus osStatus() const;
 	virtual int unixError() const;
-	virtual const char *what () const throw ();
+	virtual const char *what () const _NOEXCEPT;
 	
 	template <class T>
 	static void check(const T &p)		{ if (!p) throwMe(); }

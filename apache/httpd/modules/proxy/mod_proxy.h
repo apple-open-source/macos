@@ -287,11 +287,14 @@ typedef struct {
 
 /* Connection pool */
 struct proxy_conn_pool {
-    apr_pool_t     *pool;   /* The pool used in constructor and destructor calls */
-    apr_sockaddr_t *addr;   /* Preparsed remote address info */
-    apr_reslist_t  *res;    /* Connection resource list */
-    proxy_conn_rec *conn;   /* Single connection for prefork mpm */
+    apr_pool_t     *pool;     /* The pool used in constructor and destructor calls */
+    apr_sockaddr_t *addr;     /* Preparsed remote address info */
+    apr_reslist_t  *res;      /* Connection resource list */
+    proxy_conn_rec *conn;     /* Single connection for prefork mpm */
+    apr_pool_t     *dns_pool; /* The pool used for worker scoped DNS resolutions */
 };
+
+#define AP_VOLATILIZE_T(T, x) (*(T volatile *)&(x))
 
 /* worker status bits */
 /*
@@ -359,6 +362,7 @@ PROXY_WORKER_HC_FAIL )
 #define PROXY_WORKER_MAX_HOSTNAME_SIZE  64
 #define PROXY_BALANCER_MAX_HOSTNAME_SIZE PROXY_WORKER_MAX_HOSTNAME_SIZE
 #define PROXY_BALANCER_MAX_STICKY_SIZE  64
+#define PROXY_WORKER_MAX_SECRET_SIZE     64
 
 #define PROXY_RFC1035_HOSTNAME_SIZE	256
 
@@ -461,6 +465,7 @@ typedef struct {
     char      hostname_ex[PROXY_RFC1035_HOSTNAME_SIZE];  /* RFC1035 compliant version of the remote backend address */
     apr_size_t   response_field_size; /* Size of proxy response buffer in bytes. */
     unsigned int response_field_size_set:1;
+    char      secret[PROXY_WORKER_MAX_SECRET_SIZE]; /* authentication secret (e.g. AJP13) */
 } proxy_worker_shared;
 
 #define ALIGNED_PROXY_WORKER_SHARED_SIZE (APR_ALIGN_DEFAULT(sizeof(proxy_worker_shared)))
@@ -472,7 +477,9 @@ struct proxy_worker {
     proxy_conn_pool     *cp;    /* Connection pool to use */
     proxy_worker_shared   *s;   /* Shared data */
     proxy_balancer  *balancer;  /* which balancer am I in? */
+#if APR_HAS_THREADS
     apr_thread_mutex_t  *tmutex; /* Thread lock for updating address cache */
+#endif
     void            *context;   /* general purpose storage */
     ap_conf_vector_t *section_config; /* <Proxy>-section wherein defined */
 };
@@ -531,7 +538,9 @@ struct proxy_balancer {
     apr_time_t      wupdated;    /* timestamp of last change to workers list */
     proxy_balancer_method *lbmethod;
     apr_global_mutex_t  *gmutex; /* global lock for updating list of workers */
+#if APR_HAS_THREADS
     apr_thread_mutex_t  *tmutex; /* Thread lock for updating shm */
+#endif
     proxy_server_conf *sconf;
     void            *context;    /* general purpose storage */
     proxy_balancer_shared *s;    /* Shared data */
@@ -664,7 +673,7 @@ PROXY_DECLARE(int) ap_proxy_checkproxyblock(request_rec *r, proxy_server_conf *c
  * @param conf      server configuration
  * @param hostname  hostname from request URI
  * @param addr      resolved address of hostname, or NULL if not known
- * @return OK on success, or else an errro
+ * @return OK on success, or else an error
  */
 PROXY_DECLARE(int) ap_proxy_checkproxyblock2(request_rec *r, proxy_server_conf *conf, 
                                              const char *hostname, apr_sockaddr_t *addr);

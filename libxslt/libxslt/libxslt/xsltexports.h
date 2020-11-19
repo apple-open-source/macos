@@ -132,6 +132,23 @@
   #define XSLTCALL __cdecl
 #endif
 
+/* Apple/Darwin platforms */
+#ifdef __APPLE__
+#undef XSLTPUBFUN
+#undef XSLTPUBVAR
+#if defined(IN_LIBXSLT) && !defined(LIBXSLT_STATIC)
+  #define XSLTPUBFUN extern __attribute__((visibility ("default")))
+  #define XSLTPUBVAR extern __attribute__((visibility ("default")))
+#else
+  #define XSLTPUBFUN
+  #if !defined(LIBXSLT_STATIC)
+    #define XSLTPUBVAR extern __attribute__((visibility ("default")))
+  #else
+    #define XSLTPUBVAR
+  #endif
+#endif
+#endif /* __APPLE__ */
+
 /* Compatibility */
 #if !defined(LIBXSLT_PUBLIC)
 #define LIBXSLT_PUBLIC XSLTPUBVAR

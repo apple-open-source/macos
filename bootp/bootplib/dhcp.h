@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -123,7 +123,7 @@ typedef uint32_t		dhcp_lease_time_t;
 #define DHCP_FLAGS_BROADCAST	((u_short)0x8000)
 
 typedef enum {
-    dhcp_cstate_none_e 	= 0,
+    dhcp_cstate_inactive_e 	= 0,
     dhcp_cstate_decline_e,
     dhcp_cstate_unbound_e,
     dhcp_cstate_init_e,
@@ -132,23 +132,25 @@ typedef enum {
     dhcp_cstate_init_reboot_e,
     dhcp_cstate_renew_e,
     dhcp_cstate_rebind_e,
-    dhcp_cstate_last_e		= dhcp_cstate_rebind_e,
 } dhcp_cstate_t;
 
 static __inline__ const char *
 dhcp_cstate_str(dhcp_cstate_t state)
 {
-    static const char * list[] = {"<none>", 
+    static const char * list[] = {"INACTIVE",
 				  "DECLINE",
 				  "UNBOUND",
-				  "INIT", 
-				  "SELECT", 
+				  "INIT",
+				  "SELECT",
 				  "BOUND",
-				  "INIT/REBOOT", 
-				  "RENEW", 
+				  "INIT/REBOOT",
+				  "RENEW",
 				  "REBIND"};
-    if (state <= dhcp_cstate_last_e)
+    const int list_count = sizeof(list) / sizeof(list[0]);
+
+    if (state >= 0 && state < list_count) {
 	return list[state];
+    }
     return ("<undefined>");
 }
 

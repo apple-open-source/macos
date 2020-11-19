@@ -30,9 +30,11 @@
 // was asked to file this radar for accounts: <rdar://problem/40176124> Invoke DataclassOwner when enabling or signing into an account
 - (void)account:(ACAccount *)account didChangeWithType:(ACAccountChangeType)changeType inStore:(ACDAccountStore *)store oldAccount:(ACAccount *)oldAccount {
 
-    if((changeType == kACAccountChangeTypeAdded || changeType == kACAccountChangeTypeModified) &&
+    if((changeType == kACAccountChangeTypeAdded || changeType == kACAccountChangeTypeModified || changeType == kACAccountChangeTypeWarmingUp) &&
        [account.accountType.identifier isEqualToString: ACAccountTypeIdentifierAppleAccount] &&
        [self accountIsPrimary:account]) {
+
+        SOSCCLoggedIntoAccount(NULL);
 
 #if OCTAGON
         if(OctagonIsEnabled()){

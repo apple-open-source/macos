@@ -114,7 +114,7 @@ RSAKeySizes::RSAKeySizes()
 
 	if (d->dict())
 	{
-		auto_ptr<Dictionary>apd(d);
+		unique_ptr<Dictionary>apd(d);
 		rsaLookupVal(*apd, kRSAMaxKeySizePref, maxKeySize);
 		rsaLookupVal(*apd, kRSAMaxPublicExponentPref, maxPubExponentSize);
 	}
@@ -223,7 +223,7 @@ RSA *rawCssmKeyToRsa(
 	bool isPub;
 	bool isOaep = false;
 	
-	assert(hdr->BlobType == CSSM_KEYBLOB_RAW); 
+	assert(hdr->BlobType == CSSM_KEYBLOB_RAW);
 	
 	switch(hdr->AlgorithmId) {
 		case CSSM_ALGID_RSA:
@@ -504,7 +504,7 @@ DSA *rawCssmKeyToDsa(
 	const CSSM_KEYHEADER *hdr = &cssmKey.KeyHeader;
 	bool isPub;
 	
-	assert(hdr->BlobType == CSSM_KEYBLOB_RAW); 
+	assert(hdr->BlobType == CSSM_KEYBLOB_RAW);
 	
 	if(hdr->AlgorithmId != CSSM_ALGID_DSA) {
 		// someone else's key (should never happen)

@@ -154,7 +154,7 @@
     id containerIdValue  = nil;
     require(service != IO_OBJECT_NULL, exit);
     
-#if !TARGET_OS_IPHONE || TARGET_OS_IOSMAC
+#if !TARGET_OS_IPHONE || TARGET_OS_MACCATALYST
     containerIDKey = @kUSBDeviceContainerID;
 #elif !TARGET_OS_SIMULATOR
     containerIDKey = @kUSBContainerID;

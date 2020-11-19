@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 @class _WKAutomationSession;
 @class _WKDownload;
 @class _WKProcessPoolConfiguration;
+
 @protocol _WKAutomationDelegate;
 @protocol _WKDownloadDelegate;
 @protocol _WKGeolocationCoreLocationProvider;
@@ -82,14 +83,12 @@
 
 - (void)_registerURLSchemeAsCanDisplayOnlyIfCanRequest:(NSString *)scheme WK_API_AVAILABLE(macos(10.14), ios(12.0));
 
-- (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request originatingWebView:(WKWebView *)webView WK_API_DEPRECATED_WITH_REPLACEMENT("_downloadURLRequest:websiteDataStore:originatingWebView:", macos(10.14.4, WK_MAC_TBA), ios(12.2, WK_IOS_TBA));
-- (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData path:(NSString *)path originatingWebView:(WKWebView *)webView WK_API_DEPRECATED_WITH_REPLACEMENT("_resumeDownloadFromData:websiteDataStore:path:originatingWebView:", macos(10.14.4, WK_MAC_TBA), ios(12.2, WK_IOS_TBA));
-
 - (_WKDownload *)_downloadURLRequest:(NSURLRequest *)request websiteDataStore:(WKWebsiteDataStore *)dataStore originatingWebView:(WKWebView *)webView WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 - (_WKDownload *)_resumeDownloadFromData:(NSData *)resumeData websiteDataStore:(WKWebsiteDataStore *)dataStore  path:(NSString *)path originatingWebView:(WKWebView *)webView WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 // Test only. Should be called only while no web content processes are running.
 - (void)_terminateNetworkProcess WK_API_AVAILABLE(macos(10.15), ios(13.0));
+- (void)_sendNetworkProcessPrepareToSuspend:(void(^)(void))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 - (void)_sendNetworkProcessWillSuspendImminently WK_API_AVAILABLE(macos(10.15), ios(13.0));
 - (void)_sendNetworkProcessDidResume WK_API_AVAILABLE(macos(10.15), ios(13.0));
 - (void)_terminateServiceWorkers WK_API_AVAILABLE(macos(10.14), ios(12.0));
@@ -120,7 +119,7 @@
 // Test only. Should be called before any web content processes are launched.
 + (void)_forceGameControllerFramework WK_API_AVAILABLE(macos(10.13), ios(11.0));
 
-- (void)_preconnectToServer:(NSURL *)serverURL WK_API_DEPRECATED("If needed, SPI should be added to WKWebsiteDataStore", macos(10.13.4, WK_MAC_TBA), ios(11.3, WK_IOS_TBA));
+- (void)_preconnectToServer:(NSURL *)serverURL WK_API_DEPRECATED_WITH_REPLACEMENT("WKWebView._preconnectToServer", macos(10.13.4, WK_MAC_TBA), ios(11.3, WK_IOS_TBA));
 
 // Test only.
 - (void)_setAllowsAnySSLCertificateForServiceWorker:(BOOL)allows WK_API_AVAILABLE(macos(10.13.4), ios(11.3));
@@ -135,5 +134,9 @@
 
 // Test only.
 - (void)_seedResourceLoadStatisticsForTestingWithFirstParty:(NSURL *)firstPartyURL thirdParty:(NSURL *)thirdPartyURL shouldScheduleNotification:(BOOL)shouldScheduleNotification completionHandler:(void(^)(void))completionHandler  WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
-
+- (void)_garbageCollectJavaScriptObjectsForTesting WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (size_t)_numberOfConnectedGamepadsForTesting WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (size_t)_numberOfConnectedHIDGamepadsForTesting WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (size_t)_numberOfConnectedGameControllerFrameworkGamepadsForTesting WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+- (void)_setUsesOnlyHIDGamepadProviderForTesting:(BOOL)usesHIDProvider WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 @end

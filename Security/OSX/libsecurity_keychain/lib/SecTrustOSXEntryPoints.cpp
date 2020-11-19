@@ -43,10 +43,11 @@ void SecTrustLegacySourcesListenForKeychainEvents(void) {
     notify_register_dispatch(kSecServerCertificateTrustNotification, &out_token,
                              dispatch_get_main_queue(),
                              ^(int token __unused) {
-                                 // Purge keychain parent cache
-                                 SecItemParentCachePurge();
-                                 // Purge unrestricted roots cache
-                                 SecTrustSettingsPurgeUserAdminCertsCache();
-
-                             });
+        // Purge keychain parent cache
+        SecItemParentCachePurge();
+        // Purge tust settings cert cache
+        SecTrustSettingsPurgeUserAdminCertsCache();
+        // Purge the trust settings cache
+        SecTrustSettingsPurgeCache();
+    });
 }

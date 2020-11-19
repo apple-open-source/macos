@@ -31,6 +31,7 @@
 #include <IOKit/network/IOUserEthernetController.h>
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 #include <IOKit/usb/USB.h>
+#include "plugin_shared.h"
 
 #define	INTERFACES_KEY			@"State:/Network/Interface"
 #define	PLUGIN_INTERFACE_NAMER_KEY	@"Plugin:InterfaceNamer"
@@ -127,6 +128,9 @@ storeCallback(SCDynamicStoreRef store, CFArrayRef changedKeys, void *info)
 
 	BOOL allUnitTestsPassed = YES;
 	allUnitTestsPassed &= [self unitTestInsertRemoveOneInterface];
+	allUnitTestsPassed &= [self unitTestInsertRemoveMultipleInterfaces];
+	allUnitTestsPassed &= [self unitTestCheckIOKitQuiet];
+	allUnitTestsPassed &= [self unitTestCheckEN0];
 
 	if(![self tearDown]) {
 		return NO;
@@ -548,6 +552,166 @@ create_hidden_interface(u_char ea_unique)
 		if (interfaces[i].controller != NULL) {
 			CFRelease(interfaces[i].controller);
 		}
+	}
+
+	return ok;
+}
+
+#pragma mark -
+#pragma mark unitTestCheckIOKitQuiet
+
+- (BOOL)unitTestCheckIOKitQuiet
+{
+	CFDictionaryRef		dict;
+	const char		*err		= NULL;
+	Boolean			hasNamer	= FALSE;
+	Boolean			hasQuiet	= FALSE;
+	Boolean			hasTimeout	= FALSE;
+	CFArrayRef		interfaces;
+	CFStringRef		key;
+	BOOL			ok		= FALSE;
+
+	SCTestLog("Checking IOKit quiet");
+
+	// first off, we need to wait for *QUIET* or *TIMEOUT*
+	interfaces = SCNetworkInterfaceCopyAll();
+	if (interfaces != NULL) {
+		CFRelease(interfaces);
+	}
+
+	// now, we check the configd/InterfaceNamer status
+	key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@" "InterfaceNamer"), kSCDynamicStoreDomainPlugin);
+	dict = SCDynamicStoreCopyValue(NULL, key);
+	CFRelease(key);
+	if (dict != NULL) {
+		hasNamer   = TRUE;
+		hasQuiet   = CFDictionaryContainsKey(dict, kInterfaceNamerKey_Quiet);
+		hasTimeout = CFDictionaryContainsKey(dict, kInterfaceNamerKey_Timeout);
+		CFRelease(dict);
+	} else {
+		SCTestLog("*** configd/InterfaceNamer status not available");
+	}
+
+	if (hasQuiet) {
+		if (hasTimeout) {
+			err = "*** configd/InterfaceNamer quiet after timeout";
+		} else {
+			// quiet
+			ok = TRUE;
+		}
+	} else {
+		if (hasTimeout) {
+			err = "*** configd/InterfaceNamer timeout, not quiet";
+		} else {
+			kern_return_t	ret;
+			mach_timespec_t	waitTime	= { 60, 0 };
+
+			/*
+			 * Here, we're in limbo.
+			 * 1. InterfaceNamer has not reported that the IORegistry
+			 *    to be quiet
+			 * 2. InterfaceNamer was happy yet quiet, but has not
+			 *    reported the timeout
+			 *
+			 * This likely means that we detected the previousl named
+			 * interfaces and released any waiting processes.  But, we
+			 * don't know if the IORegistry actually quiesced.
+			 *
+			 * So, let's just check/wait.
+			 */
+			ret = IOKitWaitQuiet(kIOMasterPortDefault, &waitTime);
+			if (ret == kIOReturnSuccess) {
+				if (hasNamer) {
+					SCTestLog("*** configd/InterfaceNamer released before quiet");
+					ok = TRUE;
+				} else {
+					err = "*** configd/InterfaceNamer did not report quiet status";
+				}
+			} else {
+				err = "*** IOKit not quiet";
+			}
+		}
+	}
+
+	if (ok) {
+		SCTestLog("IOKit quiesced");
+	} else if (err != NULL) {
+		SCTestLog("%s", err);
+	}
+
+	return ok;
+}
+
+#pragma mark -
+#pragma mark unitTestCheckEN0
+
+- (BOOL)unitTestCheckEN0
+{
+	CFStringRef		en0		= CFSTR("en0");
+	Boolean			en0Found	= FALSE;
+	char			*if_name;
+	CFArrayRef		interfaces;
+	BOOL			ok		= FALSE;
+
+	SCTestLog("Checking interfaces");
+
+	// for debugging, provide a way to use an alternate interface name
+	if_name = getenv("EN0");
+	if (if_name != NULL) {
+		en0 = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingUTF8);
+	} else {
+		CFRetain(en0);
+	}
+
+	interfaces = SCNetworkInterfaceCopyAll();
+	if (interfaces != NULL) {
+		CFIndex		n;
+
+		n = CFArrayGetCount(interfaces);
+		for (CFIndex i = 0; i < n; i++) {
+			CFStringRef		bsdName;
+			SCNetworkInterfaceRef	interface;
+
+			interface = CFArrayGetValueAtIndex(interfaces, i);
+			bsdName = SCNetworkInterfaceGetBSDName(interface);
+			if (_SC_CFEqual(bsdName, en0)) {
+				CFStringRef	interfaceType;
+
+				en0Found = TRUE;
+
+				if (!_SCNetworkInterfaceIsBuiltin(interface)) {
+					SCTestLog("*** Network interface \"%@\" not built-in", en0);
+					break;
+				}
+
+				interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
+				if (CFEqual(interfaceType, kSCNetworkInterfaceTypeEthernet)) {
+					if (!_SCNetworkInterfaceIsThunderbolt(interface) &&
+					    !_SCNetworkInterfaceIsApplePreconfigured(interface)) {
+						// if Ethernet (and not Thunderbolt, Bridge, ...)
+						ok = TRUE;
+						break;
+					}
+				} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeIEEE80211)) {
+					// if Wi-Fi
+					ok = TRUE;
+					break;
+				}
+
+				SCTestLog("*** Network interface \"%@\" not Ethernet or Wi-Fi", en0);
+				break;
+			}
+		}
+
+		CFRelease(interfaces);
+	}
+
+	if (!en0Found) {
+		SCTestLog("*** Network interface \"%@\" not found", en0);
+	}
+
+	if (ok) {
+		SCTestLog("Verified \"%@\"", en0);
 	}
 
 	return ok;

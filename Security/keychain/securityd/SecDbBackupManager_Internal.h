@@ -63,7 +63,7 @@
 
 // Pure utilities
 - (NSData*)getSHA256OfData:(NSData*)data;
-- (SFECKeyPair*)ECKeyPairFromDerBytes:(void*)bytes length:(size_t)len error:(NSError**)error;
+- (SFECKeyPair*)getECKeyPairFromDERBytes:(void*)bytes length:(size_t)len error:(NSError**)error;
 
 @end
 

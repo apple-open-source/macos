@@ -286,7 +286,7 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     [[CKKSEgoManifest egoHelper] performWithSigningKey:^(SFECKeyPair* signingKey, NSError* error) {
         accountInfo.signingKey = signingKey;
         if(error) {
-            secerror("ckksmanifest: cannot get signing key from account: %@", error);
+            ckkserror_global("ckksmanifest", "cannot get signing key from account: %@", error);
             if(accountInfo.setupError == nil) {
                 accountInfo.setupError = error;
             }
@@ -297,7 +297,7 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
         accountInfo.egoPeerID = egoPeerID;
 
         if(error) {
-            secerror("ckksmanifest: cannot get ego peer ID from account: %@", error);
+            ckkserror_global("ckksmanifest", "cannot get ego peer ID from account: %@", error);
             if(accountInfo.setupError == nil) {
                 accountInfo.setupError = error;
             }
@@ -307,7 +307,7 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     [[CKKSEgoManifest egoHelper] performWithPeerVerifyingKeys:^(NSDictionary<NSString*, SFECPublicKey*>* peerKeys, NSError* error) {
         accountInfo.peerVerifyingKeys = peerKeys;
         if(error) {
-            secerror("ckksmanifest: cannot get peer keys from account: %@", error);
+            ckkserror_global("ckksmanifest", "cannot get peer keys from account: %@", error);
             if(accountInfo.setupError == nil) {
                 accountInfo.setupError = error;
             }
@@ -471,11 +471,11 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
 - (instancetype)initWithDigestValue:(NSData*)digestValue zone:(NSString*)zone generationCount:(NSUInteger)generationCount leafRecordIDs:(NSArray<NSString*>*)leafRecordIDs peerManifestIDs:(NSArray<NSString*>*)peerManifestIDs currentItems:(NSDictionary*)currentItems futureData:(NSDictionary*)futureData signatures:(NSDictionary*)signatures signerID:(NSString*)signerID schema:(NSDictionary*)schema helper:(CKKSManifestInjectionPointHelper*)helper
 {
     if ([zone containsString:manifestRecordNameDelimiter]) {
-        secerror("zone contains delimiter: %@", zone);
+        ckkserror_global("ckksmanifest", "zone contains delimiter: %@", zone);
         return nil;
     }
     if ([signerID containsString:manifestRecordNameDelimiter]) {
-        secerror("signerID contains delimiter: %@", signerID);
+        ckkserror_global("ckksmanifest", "signerID contains delimiter: %@", signerID);
         return nil;
     }
 
@@ -687,7 +687,7 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     void (^addValueSafelyToDictionaryAndLogIfNil)(NSMutableDictionary*, NSString*, id) = ^(NSMutableDictionary* dictionary, NSString* key, id value) {
         if (!value) {
             value = [NSNull null];
-            secerror("CKKSManifest: saving manifest to database but %@ is nil", key);
+            ckkserror_global("ckksmanifest", "saving manifest to database but %@ is nil", key);
         }
 
         dictionary[key] = value;
@@ -728,7 +728,7 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
 {
     NSArray* components = [recordName componentsSeparatedByString:manifestRecordNameDelimiter];
     if (components.count < 4) {
-        secerror("CKKSManifest: could not parse components from record name: %@", recordName);
+        ckkserror_global("ckksmanifest", "could not parse components from record name: %@", recordName);
     }
     
     return @{ @"ckzone" : components[1],
@@ -1145,7 +1145,7 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
         if (leafRecord) {
             [leafRecords addObject:leafRecord];
         } else {
-            secerror("ckksmanifest: error loading leaf record from database: %@", error ? *error : nil);
+            ckkserror_global("ckksmanifest", "error loading leaf record from database: %@", error ? *error : nil);
             return false;
         }
     }

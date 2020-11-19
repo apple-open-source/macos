@@ -83,13 +83,24 @@ static UCalendarDateFields gDateFieldMapping[] = {
     UCAL_ZONE_OFFSET,          // UDAT_TIMEZONE_ISO_FIELD = 32 (also UCAL_DST_OFFSET)
     UCAL_ZONE_OFFSET,          // UDAT_TIMEZONE_ISO_LOCAL_FIELD = 33 (also UCAL_DST_OFFSET)
     UCAL_EXTENDED_YEAR,        // UDAT_RELATED_YEAR_FIELD = 34 (not an exact match)
-    UCAL_FIELD_COUNT,          // UDAT_FIELD_COUNT = 35
+    UCAL_FIELD_COUNT,          // UDAT_AM_PM_MIDNIGHT_NOON_FIELD=35 (no match)
+    UCAL_FIELD_COUNT,          // UDAT_FLEXIBLE_DAY_PERIOD_FIELD=36 (no match)
+    UCAL_FIELD_COUNT,          // UDAT_TIME_SEPARATOR_FIELD = 37 (no match)
+                               // UDAT_FIELD_COUNT = 38 as of ICU 66
     // UCAL_IS_LEAP_MONTH is not the target of a mapping
 };
 
 U_CAPI UCalendarDateFields U_EXPORT2
 udat_toCalendarDateField(UDateFormatField field) {
-  return gDateFieldMapping[field];
+  return (field >= UDAT_ERA_FIELD && field < UDAT_FIELD_COUNT)? gDateFieldMapping[field]: UCAL_FIELD_COUNT;
+}
+
+// for Apple <rdar://problem/62136559>
+U_CAPI UDateFormatField U_EXPORT2
+udat_patternCharToDateFormatField(UChar patternChar) {
+    const UChar* patternUChars = (UChar*)DateFormatSymbols::getPatternUChars();
+    UChar* patternOffset = u_strchr(patternUChars, patternChar);
+    return (patternOffset)? (UDateFormatField)(patternOffset-patternUChars): UDAT_FIELD_COUNT;
 }
 
 /* For now- one opener. */
@@ -168,9 +179,13 @@ udat_open(UDateFormatStyle  timeStyle,
         }
     }
 
-    if(fmt == 0) {
+    if(fmt == nullptr) {
         *status = U_MEMORY_ALLOCATION_ERROR;
-        return 0;
+        return nullptr;
+    }
+    if (U_FAILURE(*status)) {
+        delete fmt;
+        return nullptr;
     }
 
     if(tzID != 0) {

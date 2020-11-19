@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -1080,6 +1080,12 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 	
 	/* If it won't fit inline then use extent-based attributes. */
 	if (attrsize > hfsmp->hfs_max_inline_attrsize) {
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+		printf("hfs_setxattr: non-inline attributes are not supported\n");
+		//NOTE: ENOTSUP will fool XNU into thinking we need AppleDouble files...
+		result = EPERM;
+		goto exit;
+#else
 		int blkcnt;
 		int extentblks;
 		u_int32_t *keystartblk;
@@ -1180,6 +1186,7 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 			extentblks = count_extent_blocks(blkcnt, recp->overflowExtents.extents);
 			blkcnt -= extentblks;
 		}
+#endif //(TARGET_OS_OSX && TARGET_CPU_ARM64)
 	} else { /* Inline data */ 
 		if (exists) {
 			result = remove_attribute_records(hfsmp, iterator);
@@ -2429,7 +2436,7 @@ read_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExtent
 /*
  * Write an extent based attribute.
  */
-static int
+__unused static int
 write_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExtentDescriptor *extents)
 {
 	vnode_t evp = hfsmp->hfs_attrdata_vp;
@@ -2479,7 +2486,7 @@ write_attr_data(struct hfsmount *hfsmp, uio_t uio, size_t datasize, HFSPlusExten
 /*
  * Allocate blocks for an extent based attribute.
  */
-static int
+__unused static int
 alloc_attr_blks(struct hfsmount *hfsmp, size_t attrsize, size_t extentbufsize, HFSPlusExtentDescriptor *extents, int *blocks)
 {
 	int blkcnt;

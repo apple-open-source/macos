@@ -2,6 +2,7 @@
 
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSPeer.h"
+#import "keychain/ckks/CKKSCurrentKeyPointer.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -34,6 +35,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - CKKSPeerProviderState
 
+@class CKKSKey;
+@class CKKSTLKShareRecord;
+
 @interface CKKSPeerProviderState : NSObject
 @property NSString* peerProviderID;
 
@@ -53,6 +57,13 @@ NS_ASSUME_NONNULL_BEGIN
                         selfPeersError:(NSError* _Nullable)selfPeersError
                           trustedPeers:(NSSet<id<CKKSPeer>>* _Nullable)currentTrustedPeers
                      trustedPeersError:(NSError* _Nullable)trustedPeersError;
+
+- (NSSet<id<CKKSPeer>>* _Nullable)findPeersMissingTLKSharesFor:(CKKSCurrentKeySet*)keyset
+                                                         error:(NSError**)error;
+
+- (BOOL)unwrapKey:(CKKSKey*)proposedTLK
+       fromShares:(NSArray<CKKSTLKShareRecord*>*)tlkShares
+            error:(NSError**)error;
 
 + (CKKSPeerProviderState*)noPeersState:(id<CKKSPeerProvider>)provider;
 

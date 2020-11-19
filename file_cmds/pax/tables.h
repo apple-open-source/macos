@@ -36,6 +36,9 @@
  *	@(#)tables.h	8.1 (Berkeley) 5/31/93
  */
 
+#ifndef _TABLES_H_
+#define _TABLES_H_
+
 /*
  * data structures and constants used by the different databases kept by pax
  */
@@ -168,3 +171,5 @@ typedef struct dirdata {
 	u_int16_t mode;	/* file mode to restore */
 	u_int16_t frc_mode;	/* do we force mode settings? */
 } DIRDATA;
+
+#endif /* _TABLES_H_ */

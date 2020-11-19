@@ -225,13 +225,8 @@ extern "C" {
 #define Lw(t)    (((BN_ULONG)(t))&BN_MASK2)
 #define Hw(t)    (((BN_ULONG)((t)>>BN_BITS2))&BN_MASK2)
 
-/* This is used for internal error checking and is not normally used */
-#ifdef BN_DEBUG
-# include <assert.h>
-# define bn_check_top(a) assert ((a)->top >= 0 && (a)->top <= (a)->dmax);
-#else
-# define bn_check_top(a)
-#endif
+#include <security_utilities/simulatecrash_assert.h>
+#define bn_check_top(a) assert((a)->top >= 0 && (a)->top <= (a)->max);
 
 /* This macro is to add extra stuff for development checking */
 #ifdef BN_DEBUG

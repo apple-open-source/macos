@@ -74,6 +74,10 @@ static int rep_name(char *, size_t, int *, int);
 int tty_rename(ARCHD *);
 static int fix_path(char *, int *, char *, int);
 static int fn_match(char *, char *, char **);
+#ifdef _HAVE_REGCOMP_
+static char* extract_equiv_pat(char *, char **);
+static int regex_match(char *, char *, char **);
+#endif
 static char * range_match(char *, int);
 static int resub(regex_t *, regmatch_t *, char *, char *, char *, char *);
 
@@ -495,6 +499,10 @@ fn_match(char *pattern, char *string, char **pend)
 {
 	char c;
 	char test;
+#ifdef _HAVE_REGCOMP_
+	char *equiv_pat;
+	char *pat_pend = NULL;
+#endif
 
 	*pend = NULL;
 	for (;;) {
@@ -549,10 +557,33 @@ fn_match(char *pattern, char *string, char **pend)
 			/*
 			 * range match
 			 */
+#ifdef _HAVE_REGCOMP_
+			/*
+			 * Check for equivalence class and use regex_match to
+			 * handle this case. Note pattern should include the
+			 * opening bracket '['
+			 */
+			equiv_pat = extract_equiv_pat(pattern-1, &pat_pend);
+			if (equiv_pat) {
+				if (regex_match(equiv_pat, string, &string) == -1) {
+					free (equiv_pat);
+					return (-1);
+				}
+				
+				free(equiv_pat);
+				
+				/*
+				 * Update the pattern string
+				 */
+				pattern = pat_pend;
+				break;
+			}
+#endif
 			if (((test = *string++) == '\0') ||
 			    ((pattern = range_match(pattern, test)) == NULL))
 				return (-1);
 			break;
+
 		case '\\':
 		default:
 			if (c != *string++)
@@ -562,6 +593,124 @@ fn_match(char *pattern, char *string, char **pend)
 	}
 	/* NOTREACHED */
 }
+
+#ifdef _HAVE_REGCOMP_
+static char*
+extract_equiv_pat(char *pattern, char **pend)
+{
+	int pat_len = 2;
+	int found = 0;
+	int is_double_bracket = 0;
+	char* equiv_pat = NULL;
+	
+	if (*pattern == '\0' || pattern[1] == '\0' || pattern[2] == '\0')
+		return NULL;
+	
+	/*
+	 * check if the pattern is
+	 * "[= =]", "[[= =][= =]]", "[: :]", or "[[: :][: :]]"
+	 * note that the full "pattern" string needs to be passed in
+	 */
+	is_double_bracket = (*pattern == '[' && pattern[1] == '[');
+	if (!(*pattern == '[') && !is_double_bracket) {
+		return NULL;
+	}
+	
+	pattern ++;
+	
+	if (is_double_bracket) {
+		pattern ++;
+		pat_len ++;
+	}
+	
+	if (!(*pattern == ':') && !(*pattern == '=')) {
+		return NULL;
+	}
+	
+	pattern ++;
+	
+
+	for(; *pattern != '\0'; pat_len++, pattern++) {
+		if (!is_double_bracket) {
+			if ((*pattern == '=' || *pattern == ':')
+			    && pattern[1] == ']') {
+				found = 1;
+				pattern += 2;
+				pat_len += 2;
+				break;
+			}
+			
+		} else {
+			if ((*pattern == '=' || *pattern == ':')
+			    && pattern[1] == ']' && pattern[2] == ']') {
+				found = 1;
+				pattern += 3;
+				pat_len += 3;
+				break;
+			}
+			    
+		}
+	}
+	
+	if (!found) {
+		return NULL;
+	}
+	
+	equiv_pat = strndup(pattern-pat_len, pat_len);
+	
+	if (equiv_pat == NULL) {
+		paxwarn(1, "Out of memory");
+		return NULL;
+	}
+	
+	/*
+	 * set pend to the remaining pattern to be matched
+	 */
+	if (pend != NULL) {
+		*pend = pattern;
+	}
+	
+	return equiv_pat;
+}
+
+static int
+regex_match(char *pattern, char *string, char **pend)
+{
+	int res;
+	regex_t preg;
+	regmatch_t pmatch;
+	char rebuf[BUFSIZ];
+	
+	if ((res = regcomp(&(preg), pattern, REG_EXTENDED)) != 0) {
+		regerror(res, &(preg), rebuf, sizeof(rebuf));
+		paxwarn(1, "%s while compiling pattern %s", rebuf, pattern);
+		return(-1);
+	}
+	
+	if (regexec(&(preg), string, 1, &(pmatch), 0) != 0) {
+		regfree(&(preg));
+		return(-1);
+	}
+	
+	regfree(&(preg));
+	
+	/*
+	 * starting position of the match must be 0
+	 */
+	if (pmatch.rm_so != 0) {
+		return(-1);
+	}
+	
+	/*
+	 * set pend to the remaining string to be matched
+	 */
+	if (pend != NULL) {
+		*pend = string + pmatch.rm_eo;
+	}
+	
+	return(0);
+}
+#endif
 
 static char *
 range_match(char *pattern, int test)

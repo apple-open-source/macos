@@ -294,7 +294,7 @@ copyNextRepeatingEvent(CFStringRef type)
         // IOPMScheduleRepeatingPowerEvent() is defined to start week with Monday as "1".
         // Reduce day_of_week by 1 to match with week used by IOPMScheduleRepeatingPowerEvent.
         
-        day_of_week = (day_of_week == 1) ? 7 : --day_of_week;
+        day_of_week = (day_of_week == 1) ? 7 : (day_of_week - 1);
         days_until_event = daysUntil(repeatDict, day_of_week);
 
         adjustedForDays = CFAbsoluteTimeGetCurrent();

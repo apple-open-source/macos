@@ -117,8 +117,8 @@ class OctagonResetTests: OctagonTestsBase {
         self.verifyDatabaseMocks()
 
         // CKKS should pass through "waitfortrust" during a reset
-        let waitfortrusts = self.ckksViews.compactMap { view in
-            (view as! CKKSKeychainView).keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust] as? CKKSCondition
+        let waitfortrusts = self.injectedManager!.views.allValues.map { view in
+            (view as! CKKSKeychainView).keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTrust]!
         }
         XCTAssert(!waitfortrusts.isEmpty, "Should have at least one waitfortrust condition")
 
@@ -148,6 +148,7 @@ class OctagonResetTests: OctagonTestsBase {
 
     func testOctagonResetAlsoResetsCKKSViewsMissingTLKs() {
         self.putFakeKeyHierarchiesInCloudKit()
+        self.putFakeDeviceStatusesInCloudKit()
 
         let zoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
         XCTAssertNotNil(zoneKeys, "Should have some zone keys")
@@ -157,7 +158,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
 
         self.silentZoneDeletesAllowed = true
 
@@ -167,7 +168,7 @@ class OctagonResetTests: OctagonTestsBase {
             XCTFail("failed to make new friends: \(error)")
         }
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         let laterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
         XCTAssertNotNil(laterZoneKeys, "Should have some zone keys")
@@ -239,7 +240,8 @@ class OctagonResetTests: OctagonTestsBase {
     }
 
     func testOctagonResetWithRemoteDevicesWithKeysDoesNotResetCKKS() {
-        // CKKS has no keys, and there's another device claiming to have them already, so CKKS won't immediately reset it
+        // CKKS has no keys, and there's another device claiming to have them already, so CKKS won't immediately reset it.
+        // But, Octagon will!
         self.putFakeKeyHierarchiesInCloudKit()
         self.putFakeDeviceStatusesInCloudKit()
 
@@ -266,13 +268,13 @@ class OctagonResetTests: OctagonTestsBase {
             XCTFail("failed to make new friends: \(error)")
         }
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLK, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         #if !os(tvOS)
         let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
         XCTAssertNotNil(laterZoneKeys, "Should have some zone keys")
         XCTAssertNotNil(laterZoneKeys?.tlk, "Should have a tlk in the newly created keyset")
-        XCTAssertEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should now have the same keys")
+        XCTAssertNotEqual(zoneKeys?.tlk?.uuid, laterZoneKeys?.tlk?.uuid, "CKKS zone should not have the same keys - a reset should have occurred")
         #else
         let laterZoneKeys = self.keys![self.manateeZoneID!] as? ZoneKeys
         XCTAssertNil(laterZoneKeys, "Should have no Manatee zone keys for aTV")
@@ -281,7 +283,7 @@ class OctagonResetTests: OctagonTestsBase {
         let lpLaterZoneKeys = self.keys![self.limitedPeersAllowedZoneID!] as? ZoneKeys
         XCTAssertNotNil(lpLaterZoneKeys, "Should have some zone keys for LimitedPeersAllowed")
         XCTAssertNotNil(lpLaterZoneKeys?.tlk, "Should have a tlk in the newly created keyset for LimitedPeersAllowed")
-        XCTAssertEqual(lpZoneKeys?.tlk?.uuid, lpLaterZoneKeys?.tlk?.uuid, "CKKS zone should now have the same keys for LimitedPeersAllowed")
+        XCTAssertNotEqual(lpZoneKeys?.tlk?.uuid, lpLaterZoneKeys?.tlk?.uuid, "CKKS zone should not have the same keys for LimitedPeersAllowed - a reset should have occurred")
     }
 
     func testOctagonResetWithTLKsDoesNotResetCKKS() {
@@ -357,6 +359,19 @@ class OctagonResetTests: OctagonTestsBase {
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
+
+        // And after this reset, can we put together an escrow record?
+        let escrowContentsExpectation = self.expectation(description: "fetchEscrowContents")
+        self.cuttlefishContext.fetchEscrowContents { entropy, bottleID, signingPubKey, error in
+            XCTAssertNil(error, "Should be no error fetching escrow contents")
+
+            XCTAssertNotNil(entropy, "Should have some entropy")
+            XCTAssertNotNil(bottleID, "Should have some bottleID")
+            XCTAssertNotNil(signingPubKey, "Should have some signing public key")
+
+            escrowContentsExpectation.fulfill()
+        }
+        self.wait(for: [escrowContentsExpectation], timeout: 10)
     }
 
     func testResetReasonUnknown() throws {
@@ -439,15 +454,6 @@ class OctagonResetTests: OctagonTestsBase {
 
         _ = try self.cuttlefishContext.accountAvailable("13453464")
 
-        let resetExpectation = self.expectation(description: "resetExpectation")
-
-        self.fakeCuttlefishServer.resetListener = {  request in
-            self.fakeCuttlefishServer.resetListener = nil
-            resetExpectation.fulfill()
-            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.recoveryKey.rawValue, "reset reason should be recovery key")
-            return nil
-        }
-
         let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
 
@@ -457,15 +463,42 @@ class OctagonResetTests: OctagonTestsBase {
         newCliqueContext.altDSID = self.mockAuthKit.altDSID!
         newCliqueContext.otControl = self.otControl
 
+        // Calling with an unknown RK only resets if the local device is SOS capable, so pretend it is
+        OctagonSetSOSFeatureEnabled(false)
+        #if os(macOS) || os(iOS)
+        OctagonSetPlatformSupportsSOS(true)
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        let resetExpectation = self.expectation(description: "resetExpectation")
+
+        self.fakeCuttlefishServer.resetListener = {  request in
+            self.fakeCuttlefishServer.resetListener = nil
+            resetExpectation.fulfill()
+            XCTAssertTrue(request.resetReason.rawValue == CuttlefishResetReason.recoveryKey.rawValue, "reset reason should be recovery key")
+            return nil
+        }
+        #else
+        self.manager.setSOSEnabledForPlatformFlag(false)
+        OctagonSetPlatformSupportsSOS(false)
+        #endif
+
         let joinWithRecoveryKeyExpectation = self.expectation(description: "joinWithRecoveryKeyExpectation callback occurs")
         TestsObjectiveC.recoverOctagon(usingData: newCliqueContext, recoveryKey: recoveryKey) { error in
+            #if os(macOS) || os(iOS)
             XCTAssertNil(error, "error should be nil")
+            #else
+            XCTAssertNotNil(error, "error should not be nil")
+            #endif
             joinWithRecoveryKeyExpectation.fulfill()
         }
-        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 10)
-        self.wait(for: [resetExpectation], timeout: 10)
+        self.wait(for: [joinWithRecoveryKeyExpectation], timeout: 20)
 
+        #if os(macOS) || os(iOS)
+        self.wait(for: [resetExpectation], timeout: 10)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        #else
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        #endif
         self.verifyDatabaseMocks()
     }
 
@@ -509,11 +542,9 @@ class OctagonResetTests: OctagonTestsBase {
             throw error
         }
         self.wait(for: [resetExpectation], timeout: 10)
-
     }
 
     func testResetReasonHealthCheck() throws {
-
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
@@ -564,7 +595,8 @@ class OctagonResetTests: OctagonTestsBase {
         }
         self.wait(for: [healthCheckCallback, resetExpectation], timeout: 10)
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertEnters(context: cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
 
         let dumpCallback = self.expectation(description: "dumpCallback callback occurs")
@@ -575,9 +607,6 @@ class OctagonResetTests: OctagonTestsBase {
             dumpCallback.fulfill()
         }
         self.wait(for: [dumpCallback], timeout: 10)
-
-        self.verifyDatabaseMocks()
-        self.assertEnters(context: cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
     }
 
     func testLegacyJoinCircleDoesNotReset() throws {
@@ -767,7 +796,7 @@ class OctagonResetTests: OctagonTestsBase {
         self.wait(for: [joinWithBottleExpectation], timeout: 10)
 
         self.assertEnters(context: joinerContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        self.assertConsidersSelfTrusted(context:joinerContext)
+        self.assertConsidersSelfTrusted(context: joinerContext)
 
         self.silentZoneDeletesAllowed = true
 
@@ -783,17 +812,32 @@ class OctagonResetTests: OctagonTestsBase {
 
         self.sendContainerChangeWaitForFetchForStates(context: joinerContext, states: [OctagonStateUntrusted])
         self.sendContainerChangeWaitForFetchForStates(context: self.cuttlefishContext, states: [OctagonStateReady])
-        self.assertConsidersSelfTrusted(context:self.cuttlefishContext)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
         let statusExpectation = self.expectation(description: "status callback occurs")
         let configuration = OTOperationConfiguration()
 
-        joinerContext.rpcTrustStatus(configuration) { egoStatus, _, _, _, _ in
+        joinerContext.rpcTrustStatus(configuration) { egoStatus, _, _, _, _, _ in
             XCTAssertEqual(.notIn, egoStatus, "cliqueStatus should be 'Not In'")
             statusExpectation.fulfill()
         }
         self.wait(for: [statusExpectation], timeout: 10)
+    }
 
+    func testAcceptResetRemovesSelfPeer() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        let otherPeer = self.makeInitiatorContext(contextID: "peer2")
+        self.assertResetAndBecomeTrusted(context: otherPeer)
+
+        // And we get told about the reset
+        self.sendContainerChangeWaitForFetchForStates(context: self.cuttlefishContext,
+                                                      states: [OctagonStateReadyUpdated,
+                                                               OctagonStateUntrusted, ])
+
+        XCTAssertEqual(self.cuttlefishContext.stateMachine.paused.wait(5 * NSEC_PER_SEC), 0, "State machine should have paused")
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 1 * NSEC_PER_SEC)
     }
 }
 

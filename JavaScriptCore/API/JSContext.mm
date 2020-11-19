@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
+#import "config.h"
 
 #import "APICast.h"
 #import "Completion.h"
@@ -172,6 +172,15 @@
     return [JSValue valueWithJSValueRef:toRef(vm, result) inContext:self];
 }
 
+- (void)_setITMLDebuggableType
+{
+    JSC::JSGlobalObject* globalObject = toJS(m_context);
+    JSC::VM& vm = globalObject->vm();
+    JSC::JSLockHolder locker(vm);
+
+    globalObject->setIsITML();
+}
+
 - (void)setException:(JSValue *)value
 {
     JSC::JSGlobalObject* globalObject = toJS(m_context);
@@ -232,10 +241,10 @@
     if (!entry->currentArguments) {
         JSContext *context = [JSContext currentContext];
         size_t count = entry->argumentCount;
-        JSValue * argumentArray[count];
-        for (size_t i =0; i < count; ++i)
-            argumentArray[i] = [JSValue valueWithJSValueRef:entry->arguments[i] inContext:context];
-        entry->currentArguments = [[NSArray alloc] initWithObjects:argumentArray count:count];
+        NSMutableArray *arguments = [[NSMutableArray alloc] initWithCapacity:count];
+        for (size_t i = 0; i < count; ++i)
+            [arguments setObject:[JSValue valueWithJSValueRef:entry->arguments[i] inContext:context] atIndexedSubscript:i];
+        entry->currentArguments = arguments;
     }
 
     return entry->currentArguments;

@@ -39,7 +39,10 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecCFError.h>
 #include <utilities/SecCFRelease.h>
+#include <utilities/der_plist.h>
 #include <Security/SecBase64.h>
+
+#include <os/feature_private.h>
 
 #include <libaks_acl_cf_keys.h>
 
@@ -216,7 +219,7 @@ static void test_item_query() {
                                                                (id)kSecReturnPersistentRef : @YES }, &result));
     is(phase, 0);
     NSData *persistentRef = (__bridge NSData *)result;
-    is(CFDataCompare((__bridge CFDataRef)persistentRefId, (__bridge CFDataRef)[persistentRef subdataWithRange:NSMakeRange(0, 4)]), kCFCompareEqualTo);
+    is(CFEqual((__bridge CFDataRef)persistentRefId, (__bridge CFDataRef)[persistentRef subdataWithRange:NSMakeRange(0, 4)]), TRUE);
     CFReleaseSafe(result);
 
     phase = 0;
@@ -226,7 +229,7 @@ static void test_item_query() {
                                                                (id)kSecReturnPersistentRef : @YES }, &result));
     is(phase, 2);
     persistentRef = ((__bridge NSDictionary *)result)[(id)kSecValuePersistentRef];
-    is(CFDataCompare((__bridge CFDataRef)persistentRefId, (__bridge CFDataRef)[persistentRef subdataWithRange:NSMakeRange(0, 4)]), kCFCompareEqualTo);
+    is(CFEqual((__bridge CFDataRef)persistentRefId, (__bridge CFDataRef)[persistentRef subdataWithRange:NSMakeRange(0, 4)]), TRUE);
     CFReleaseSafe(result);
 
     phase = 0;
@@ -236,7 +239,7 @@ static void test_item_query() {
                                                                (id)kSecReturnPersistentRef : @YES }, &result));
     is(phase, 0);
     persistentRef = ((__bridge NSDictionary *)result)[(id)kSecValuePersistentRef];
-    is(CFDataCompare((__bridge CFDataRef)persistentRefId, (__bridge CFDataRef)[persistentRef subdataWithRange:NSMakeRange(0, 4)]), kCFCompareEqualTo);
+    is(CFEqual((__bridge CFDataRef)persistentRefId, (__bridge CFDataRef)[persistentRef subdataWithRange:NSMakeRange(0, 4)]), TRUE);
     CFReleaseSafe(result);
 
     phase = 0;
@@ -247,7 +250,7 @@ static void test_item_query() {
                                                                (id)kSecReturnPersistentRef : @YES }, &result));
     is(phase, 2);
     persistentRef = ((__bridge NSDictionary *)result)[(id)kSecValuePersistentRef];
-    is(CFDataCompare((__bridge CFDataRef)persistentRefId, (__bridge CFDataRef)[persistentRef subdataWithRange:NSMakeRange(0, 4)]), kCFCompareEqualTo);
+    is(CFEqual((__bridge CFDataRef)persistentRefId, (__bridge CFDataRef)[persistentRef subdataWithRange:NSMakeRange(0, 4)]), TRUE);
     CFReleaseSafe(result);
 
     CFRelease(query);
@@ -775,37 +778,44 @@ static CFMutableDictionaryRef copy_certificate_attributes(const char *base64Cert
     return result;
 }
 
-static CFDictionaryRef copy_certificate_query(const char *base64cert, CFStringRef label, CFStringRef oid, CFStringRef tokenID)
+static CFDictionaryRef copy_certificate_query(const char *base64cert, CFStringRef label, CFDataRef oid, CFStringRef tokenID)
 {
     CFMutableDictionaryRef certAttributes = copy_certificate_attributes(base64cert);
 
     CFDictionarySetValue(certAttributes, kSecAttrLabel, label);
     CFDictionarySetValue(certAttributes, kSecAttrAccessible, kSecAttrAccessibleAlwaysPrivate);
-    CFDictionarySetValue(certAttributes, kSecAttrTokenOID, oid);
+    if (oid != NULL) {
+        CFDictionarySetValue(certAttributes, kSecAttrTokenOID, oid);
+    }
     CFDictionaryRemoveValue(certAttributes, kSecValueData);
 
-    SecAccessControlRef acl = SecAccessControlCreate(kCFAllocatorDefault, NULL);
-    ok(acl);
-    CFTypeRef key[] = { kSecAttrTokenID };
-    CFTypeRef value[] = { tokenID };
-    CFDictionaryRef protection = CFDictionaryCreate(kCFAllocatorDefault, key, value, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    ok(SecAccessControlSetProtection(acl, protection, NULL));
-    CFRelease(protection);
-    ok(SecAccessControlAddConstraintForOperation(acl, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
-    CFDataRef aclData = SecAccessControlCopyData(acl);
-    ok(aclData);
-    if (aclData) {
-        CFDictionarySetValue(certAttributes, kSecAttrAccessControl, aclData);
-        CFRelease(aclData);
-    }
+    if (tokenID != NULL) {
+        SecAccessControlRef acl = SecAccessControlCreate(kCFAllocatorDefault, NULL);
+        ok(acl);
+        CFTypeRef key[] = { kSecAttrTokenID };
+        CFTypeRef value[] = { tokenID };
+        CFDictionaryRef protection = CFDictionaryCreate(kCFAllocatorDefault, key, value, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        ok(SecAccessControlSetProtection(acl, protection, NULL));
+        CFRelease(protection);
+        ok(SecAccessControlAddConstraintForOperation(acl, kAKSKeyOpDefaultAcl, kCFBooleanTrue, NULL));
+        CFDataRef aclData = SecAccessControlCopyData(acl);
+        ok(aclData);
+        if (aclData) {
+            CFDictionarySetValue(certAttributes, kSecAttrAccessControl, aclData);
+            CFRelease(aclData);
+        }
 
-    if (acl)
-        CFRelease(acl);
+        if (acl)
+            CFRelease(acl);
+    } else {
+        NSData *certData = CFBridgingRelease(copy_certificate_data(base64cert));
+        CFDictionarySetValue(certAttributes, kSecValueData, (__bridge CFDataRef)certData);
+    }
 
     return certAttributes;
 }
 
-static CFDictionaryRef copy_key_query(CFDictionaryRef certAttributes, CFStringRef label, CFStringRef oid, CFStringRef tokenID)
+static CFDictionaryRef copy_key_query(CFDictionaryRef certAttributes, CFStringRef label, CFDataRef oid, CFStringRef tokenID)
 {
     CFMutableDictionaryRef keyAttributes = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks) ;
 
@@ -859,20 +869,25 @@ static void check_array_for_type_id(CFArrayRef array, CFTypeID typeID)
 
 static void test_propagate_token_items()
 {
-    CFStringRef cert1OID = CFSTR("oid1");
-    CFStringRef cert2OID = CFSTR("oid2");
-    CFStringRef key1OID = CFSTR("oid3");
-    CFStringRef key2OID = CFSTR("oid4");
+    if (!os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        // This test does not work if tokens cannot be used by keychain.
+        return;
+    }
+
+    NSData *cert1OID = [@"oid1" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *cert2OID = [@"oid2" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *key1OID = [@"oid3" dataUsingEncoding:NSUTF8StringEncoding];
+    NSData *key2OID = [@"oid4" dataUsingEncoding:NSUTF8StringEncoding];
 
     TKTokenTestSetHook(^(CFDictionaryRef attributes, TKTokenTestBlocks *blocks) {
         blocks->copyObjectData = ^CFTypeRef(CFDataRef oid, CFErrorRef *error) {
-            if (CFEqual(oid, cert1OID)) {
+            if (CFEqual(oid, (__bridge CFDataRef)cert1OID)) {
                 return copy_certificate_data(cert1);
             }
-            else if (CFEqual(oid, cert2OID)) {
+            else if (CFEqual(oid, (__bridge CFDataRef)cert2OID)) {
                 return copy_certificate_data(cert2);
             }
-            else if (CFEqual(oid, key1OID) || CFEqual(oid, key2OID)) {
+            else if (CFEqual(oid, (__bridge CFDataRef)key1OID) || CFEqual(oid, (__bridge CFDataRef)key2OID)) {
                 return kCFNull;
             }
             else {
@@ -885,9 +900,9 @@ static void test_propagate_token_items()
 
     CFMutableArrayRef items = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
 
-    CFDictionaryRef certQuery = copy_certificate_query(cert1, CFSTR("test_cert1"), cert1OID, tokenID);
+    CFDictionaryRef certQuery = copy_certificate_query(cert1, CFSTR("test_cert1"), (__bridge CFDataRef)cert1OID, tokenID);
     ok(certQuery);
-    CFDictionaryRef keyQuery = copy_key_query(certQuery, CFSTR("test_key1"), key1OID, tokenID);
+    CFDictionaryRef keyQuery = copy_key_query(certQuery, CFSTR("test_key1"), (__bridge CFDataRef)key1OID, tokenID);
     ok(keyQuery);
 
     CFArrayAppendValue(items, certQuery);
@@ -895,9 +910,9 @@ static void test_propagate_token_items()
     CFReleaseSafe(certQuery);
     CFReleaseSafe(keyQuery);
 
-    certQuery = copy_certificate_query(cert2, CFSTR("test_cert2"), cert2OID, tokenID);
+    certQuery = copy_certificate_query(cert2, CFSTR("test_cert2"), (__bridge CFDataRef)cert2OID, tokenID);
     ok(certQuery);
-    keyQuery = copy_key_query(certQuery, CFSTR("test_key2"), key2OID, tokenID);
+    keyQuery = copy_key_query(certQuery, CFSTR("test_key2"), (__bridge CFDataRef)key2OID, tokenID);
     ok(keyQuery);
 
     CFArrayAppendValue(items, certQuery);
@@ -906,9 +921,9 @@ static void test_propagate_token_items()
     CFReleaseSafe(keyQuery);
 
     OSStatus result;
-    ok_status(result = SecItemUpdateTokenItems(tokenID, NULL), "Failed to delete items.");
+    ok_status(result = SecItemUpdateTokenItemsForAccessGroups(tokenID, (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], NULL), "Failed to delete items.");
 
-    ok_status(result = SecItemUpdateTokenItems(tokenID, items), "Failed to propagate items.");
+    ok_status(result = SecItemUpdateTokenItemsForAccessGroups(tokenID, (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], items), "Failed to propagate items.");
     CFRelease(items);
 
     CFMutableDictionaryRef query = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
@@ -957,7 +972,7 @@ static void test_propagate_token_items()
     ok(queryResult && CFGetTypeID(queryResult) == CFArrayGetTypeID() && CFArrayGetCount(queryResult) == 0, "Expect empty array");
     CFReleaseNull(queryResult);
 
-    ok_status(result = SecItemUpdateTokenItems(tokenID, NULL), "Failed to delete items.");
+    ok_status(result = SecItemUpdateTokenItemsForAccessGroups(tokenID, (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], NULL), "Failed to delete items.");
 
     CFDictionarySetValue(query, kSecReturnRef, kCFBooleanTrue);
     CFDictionarySetValue(query, kSecReturnData, kCFBooleanFalse);
@@ -967,17 +982,10 @@ static void test_propagate_token_items()
 }
 
 static void test_identity_on_two_tokens() {
-    CFStringRef cert3OID = CFSTR("oid1");
-    TKTokenTestSetHook(^(CFDictionaryRef attributes, TKTokenTestBlocks *blocks) {
-
-        blocks->copyObjectData = ^CFTypeRef(CFDataRef oid, CFErrorRef *error) {
-            if (CFEqual(oid, cert3OID))
-                return copy_certificate_data(cert3);
-            else
-                return kCFNull;
-        };
-
-    });
+    if (!os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        // This test does not work if tokens cannot be used by keychains.
+        return;
+    }
 
     @autoreleasepool {
         NSString *tokenID1 = @"com.apple.secdtest:identity_test_token1";
@@ -988,6 +996,25 @@ static void test_identity_on_two_tokens() {
         id privKey = CFBridgingRelease(SecKeyCreateWithData((CFDataRef)privKeyData, (CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate}, (void *)&error));
         id publicKey = CFBridgingRelease(SecKeyCopyPublicKey((__bridge SecKeyRef)privKey));
         NSData *pubKeyHash = CFBridgingRelease(SecKeyCopyPublicKeyHash((__bridge SecKeyRef)publicKey));
+
+        NSData *cert3OID = [@"oid1" dataUsingEncoding:NSUTF8StringEncoding];
+        TKTokenTestSetHook(^(CFDictionaryRef attributes, TKTokenTestBlocks *blocks) {
+
+            blocks->copyObjectData = ^CFTypeRef(CFDataRef oid, CFErrorRef *error) {
+                if (CFEqual(oid, (__bridge CFDataRef)cert3OID))
+                    return copy_certificate_data(cert3);
+                else
+                    return kCFNull;
+            };
+
+            blocks->copyPublicKeyData = ^CFDataRef(CFDataRef oid, CFErrorRef *error) {
+                if ([privKeyData isEqualToData:(__bridge NSData *)oid]) {
+                    return SecKeyCopyExternalRepresentation((SecKeyRef)publicKey, error);
+                }
+                return NULL;
+            };
+
+        });
 
         id ac = CFBridgingRelease(SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlocked, 0, NULL));
         id acData = CFBridgingRelease(SecAccessControlCopyData((__bridge SecAccessControlRef)ac));
@@ -1002,15 +1029,15 @@ static void test_identity_on_two_tokens() {
                                     (id)kSecAttrApplicationLabel : pubKeyHash,
                                    };
         OSStatus result;
-        ok_status(result = SecItemUpdateTokenItems((__bridge CFStringRef)tokenID1, (__bridge CFArrayRef)@[keyQuery]), "Failed to propagate key item.");
+        ok_status(result = SecItemUpdateTokenItemsForAccessGroups((__bridge CFStringRef)tokenID1, (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], (__bridge CFArrayRef)@[keyQuery]), "Failed to propagate key item.");
 
         id privateKey;
         ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)@{(id)kSecClass: (id)kSecClassKey, (id)kSecAttrTokenID: tokenID1, (id)kSecAttrAccessGroup: (id)kSecAttrAccessGroupToken, (id)kSecReturnRef: @YES}, (void *)&privateKey));
 
-        NSDictionary *certQuery = CFBridgingRelease(copy_certificate_query(cert3, CFSTR("test_cert3"), cert3OID, (__bridge CFStringRef)tokenID2));
+        NSDictionary *certQuery = CFBridgingRelease(copy_certificate_query(cert3, CFSTR("test_cert3"), (__bridge CFDataRef)cert3OID, (__bridge CFStringRef)tokenID2));
         ok(certQuery);
 
-        ok_status(result = SecItemUpdateTokenItems((__bridge CFStringRef)tokenID2, (__bridge CFArrayRef)@[certQuery]), "Failed to propagate cert item.");
+        ok_status(result = SecItemUpdateTokenItemsForAccessGroups((__bridge CFStringRef)tokenID2, (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], (__bridge CFArrayRef)@[certQuery]), "Failed to propagate cert item.");
 
         CFTypeRef resultRef;
         NSDictionary *query = @{ (id)kSecClass : (id)kSecClassKey, (id)kSecAttrApplicationLabel : pubKeyHash, (id)kSecReturnRef : @YES, (id)kSecReturnAttributes : @YES,  (id)kSecAttrAccessGroup: (id)kSecAttrAccessGroupToken };
@@ -1024,6 +1051,97 @@ static void test_identity_on_two_tokens() {
         query = @{ (id)kSecClass : (id)kSecClassIdentity, (id)kSecAttrApplicationLabel : pubKeyHash, (id)kSecReturnRef : @YES, (id)kSecReturnAttributes : @YES, (id)kSecAttrAccessGroup: (id)kSecAttrAccessGroupToken };
         ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (CFTypeRef*)&resultRef));
         CFReleaseNull(resultRef);
+
+        NSData *persRef, *persRef2;
+        id newRef;
+
+        // Query persistent reference for key and verify that we can get key back using it.
+        query = @{ (id)kSecValueRef: privateKey, (id)kSecReturnPersistentRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&persRef));
+        query = @{ (id)kSecClass: (id)kSecClassKey, (id)kSecAttrApplicationLabel: pubKeyHash, (id)kSecReturnPersistentRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&persRef2));
+        eq_cf((__bridge CFTypeRef)persRef, (__bridge CFTypeRef)persRef2);
+        query = @{ (id)kSecValuePersistentRef: persRef, (id)kSecReturnRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&newRef));
+        eq_cf((__bridge CFTypeRef)privateKey, (__bridge CFTypeRef)newRef);
+
+        // Query persistent reference for certificate and verify that we can get certificate back using it.
+        id certRef;
+        query = @{ (id)kSecClass: (id)kSecClassCertificate, (id)kSecAttrPublicKeyHash: pubKeyHash, (id)kSecReturnRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&certRef));
+
+        persRef = nil;
+        persRef2 = nil;
+        newRef = nil;
+        query = @{ (id)kSecValueRef: certRef, (id)kSecReturnPersistentRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&persRef));
+        query = @{ (id)kSecClass: (id)kSecClassCertificate, (id)kSecAttrPublicKeyHash: pubKeyHash, (id)kSecReturnPersistentRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&persRef2));
+        eq_cf((__bridge CFTypeRef)persRef, (__bridge CFTypeRef)persRef2);
+        query = @{ (id)kSecValuePersistentRef: persRef, (id)kSecReturnRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&newRef));
+        eq_cf((__bridge CFTypeRef)certRef, (__bridge CFTypeRef)newRef);
+
+        // Query persistent reference for identity and verify that we can get identity back using it.
+        id identityRef;
+        NSDictionary *attrs;
+        query = @{ (id)kSecClass: (id)kSecClassIdentity, (id)kSecAttrApplicationLabel: pubKeyHash, (id)kSecReturnRef: @YES, (id)kSecReturnAttributes: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&attrs));
+        identityRef = attrs[(id)kSecValueRef];
+        eq_cf((__bridge CFTypeRef)attrs[(id)kSecAttrTokenID], (__bridge CFTypeRef)tokenID1);
+
+        persRef = nil;
+        persRef2 = nil;
+        attrs = nil;
+        query = @{ (id)kSecValueRef: identityRef, (id)kSecReturnPersistentRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&persRef));
+        query = @{ (id)kSecClass: (id)kSecClassIdentity, (id)kSecAttrApplicationLabel: pubKeyHash, (id)kSecReturnPersistentRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&persRef2));
+        eq_cf((__bridge CFTypeRef)persRef, (__bridge CFTypeRef)persRef2);
+        query = @{ (id)kSecValuePersistentRef: persRef2, (id)kSecReturnRef: @YES, (id)kSecReturnAttributes: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&attrs));
+        eq_cf((__bridge CFTypeRef)identityRef, (__bridge CFTypeRef)attrs[(id)kSecValueRef]);
+        eq_cf((__bridge CFTypeRef)attrs[(id)kSecAttrTokenID], (__bridge CFTypeRef)tokenID1);
+
+        // Remove certificate from token and add it as regular keychain item (non-token) one. Following tests
+        // repeat identity test for key-on-token, certificate-non-token hybrid identities.
+        ok_status(result = SecItemUpdateTokenItemsForAccessGroups((__bridge CFStringRef)tokenID2, (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], NULL));
+        certQuery = CFBridgingRelease(copy_certificate_query(cert3, CFSTR("reg_cert3"), NULL, NULL));
+        ok_status(result = SecItemAdd((__bridge CFDictionaryRef)certQuery, NULL));
+
+        query = @{ (id)kSecClass: (id)kSecClassIdentity, (id)kSecAttrApplicationLabel: pubKeyHash, (id)kSecReturnRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&identityRef));
+        isnt(identityRef, NULL);
+
+        persRef = nil;
+        persRef2 = nil;
+        attrs = nil;
+        query = @{ (id)kSecValueRef: identityRef, (id)kSecReturnPersistentRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&persRef));
+        query = @{ (id)kSecClass: (id)kSecClassIdentity, (id)kSecAttrApplicationLabel: pubKeyHash, (id)kSecReturnPersistentRef: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&persRef2));
+        eq_cf((__bridge CFTypeRef)persRef, (__bridge CFTypeRef)persRef2);
+        query = @{ (id)kSecValuePersistentRef: persRef, (id)kSecReturnRef: @YES, (id)kSecReturnAttributes: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&attrs));
+        eq_cf((__bridge CFTypeRef)identityRef,  (__bridge CFTypeRef)attrs[(id)kSecValueRef]);
+        eq_cf((__bridge CFTypeRef)attrs[(id)kSecAttrTokenID], (__bridge CFTypeRef)tokenID1);
+
+        // After removing token with key, getting identity from persistent reference must fail gracefully.
+        ok_status(result = SecItemUpdateTokenItemsForAccessGroups((__bridge CFStringRef)tokenID1, (__bridge CFArrayRef)@[(id)kSecAttrAccessGroupToken], NULL));
+        query = @{ (id)kSecValuePersistentRef: persRef, (id)kSecReturnRef: @YES };
+        is_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&newRef), errSecItemNotFound);
+
+        // Getting persistent reference to non-token item with token-like (but malformed) data must not crash.
+        NSData *data = CFBridgingRelease(CFPropertyListCreateDERData(kCFAllocatorDefault, (__bridge CFPropertyListRef)@[], NULL));
+        query = @{ (id)kSecClass: (id)kSecClassGenericPassword, (id)kSecAttrLabel: @"probe", (id)kSecValueData: data};
+        ok_status(result = SecItemAdd((__bridge CFDictionaryRef)query, NULL));
+        NSDictionary *dict;
+        query = @{ (id)kSecClass: (id)kSecClassGenericPassword, (id)kSecAttrLabel: @"probe", (id)kSecReturnPersistentRef: @YES, (id)kSecReturnData: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&dict));
+        NSData *newData;
+        query = @{ (id)kSecValuePersistentRef: dict[(id)kSecValuePersistentRef], (id)kSecReturnData: @YES };
+        ok_status(result = SecItemCopyMatching((__bridge CFDictionaryRef)query, (void *)&newData));
+        eq_cf((__bridge CFTypeRef)data, (__bridge CFTypeRef)newData);
     }
 }
 
@@ -1093,7 +1211,7 @@ static void test_ies(SecKeyRef privateKey, SecKeyAlgorithm algorithm) {
     NSDictionary *params = @{ (id)kSecAttrKeyType : privateParams[(id)kSecAttrKeyType],
                               (id)kSecAttrKeySizeInBits : privateParams[(id)kSecAttrKeySizeInBits],
                               (id)kSecAttrTokenID : @"tid-ies",
-                              (id)kSecPrivateKeyAttrs : @{ (id)kSecAttrIsPermanent : @YES }
+                              (id)kSecPrivateKeyAttrs : @{ (id)kSecAttrIsPermanent : @NO }
                               };
     NSError *error;
     SecKeyRef tokenKey = SecKeyCreateRandomKey((__bridge CFDictionaryRef)params, (void *)&error);
@@ -1165,7 +1283,12 @@ static void tests(void) {
 }
 
 int secd_33_keychain_ctk(int argc, char *const *argv) {
-    plan_tests(491);
+    if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+        plan_tests(539);
+    } else {
+        plan_tests(403);
+    }
+
     tests();
 
     return 0;

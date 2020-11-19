@@ -1,4 +1,4 @@
-.TH "ZSHPARAM" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHPARAM" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshparam \- zsh parameters
 .\" Yodl file: Zsh/params.yo
@@ -124,7 +124,7 @@ both \fIkey\fP and \fIvalue\fP undergo all forms of expansion
 allowed for single word shell expansions (this does not include filename
 generation); these are as performed by the parameter expansion flag
 \fB(e)\fP as described in
-\fIzshparam\fP(1)\&.
+\fIzshexpn\fP(1)\&.
 Nested parentheses may surround \fIvalue\fP and are included as part of the
 value, which is joined into a plain string; this differs from ksh which
 allows the values themselves to be arrays\&.  A future version of zsh may
@@ -697,7 +697,7 @@ The following parameters are automatically set by the shell:
 .PD
 \fB!\fP <S>
 The process ID of the last command started in the background with \fB&\fP,
-or put into the background with the \fBbg\fP builtin\&.
+put into the background with the \fBbg\fP builtin, or spawned with \fBcoproc\fP\&.
 .TP
 \fB#\fP <S>
 The number of positional parameters in decimal\&.  Note that some confusion
@@ -1718,7 +1718,7 @@ For example, with the \fBEXTENDED_GLOB\fP option set, the following:
 .fi
 .RE
 .PP
-causes reports for activity assoicated with any user other than \fBpws\fP
+causes reports for activity associated with any user other than \fBpws\fP
 or \fBbarts\fP\&.
 .RE
 .TP

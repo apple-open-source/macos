@@ -64,9 +64,9 @@ Color nativeImageSinglePixelSolidColor(const NativeImagePtr& image)
     CGContextDrawImage(bitmapContext.get(), CGRectMake(0, 0, 1, 1), image.get());
 
     if (!pixel[3])
-        return Color(0, 0, 0, 0);
+        return Color::transparentBlack;
 
-    return Color(pixel[0] * 255 / pixel[3], pixel[1] * 255 / pixel[3], pixel[2] * 255 / pixel[3], pixel[3]);
+    return clampToComponentBytes<SRGBA>(pixel[0] * 255 / pixel[3], pixel[1] * 255 / pixel[3], pixel[2] * 255 / pixel[3], pixel[3]);
 }
 
 void drawNativeImage(const NativeImagePtr& image, GraphicsContext& context, const FloatRect& destRect, const FloatRect& srcRect, const IntSize& srcSize, const ImagePaintingOptions& options)
@@ -82,6 +82,25 @@ void drawNativeImage(const NativeImagePtr& image, GraphicsContext& context, cons
         adjustedSrcRect = mapRect(srcRect, FloatRect({ }, srcSize), FloatRect({ }, subsampledImageSize));
 
     context.drawNativeImage(image, subsampledImageSize, destRect, adjustedSrcRect, options);
+}
+
+void drawNativeImage(const NativeImagePtr& image, GraphicsContext& context, float scaleFactor, const IntPoint& destination, const IntRect& source)
+{
+    CGContextRef cgContext = context.platformContext();
+    CGContextSaveGState(cgContext);
+
+    CGContextClipToRect(cgContext, CGRectMake(destination.x(), destination.y(), source.width(), source.height()));
+    CGContextScaleCTM(cgContext, 1, -1);
+
+    CGFloat imageHeight = CGImageGetHeight(image.get()) / scaleFactor;
+    CGFloat imageWidth = CGImageGetWidth(image.get()) / scaleFactor;
+
+    CGFloat destX = destination.x() - source.x();
+    CGFloat destY = -imageHeight - destination.y() + source.y();
+
+    CGContextDrawImage(cgContext, CGRectMake(destX, destY, imageWidth, imageHeight), image.get());
+
+    CGContextRestoreGState(cgContext);
 }
 
 void clearNativeImageSubimages(const NativeImagePtr& image)

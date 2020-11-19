@@ -1,0 +1,8 @@
+${SOURCE_ROOT}/packages/mac/framework/hcrypto.sym
+${SOURCE_ROOT}/packages/mac/framework/roken.sym
+${SOURCE_ROOT}/packages/mac/framework/krb5.sym
+${SOURCE_ROOT}/packages/mac/framework/hx509.sym
+${SOURCE_ROOT}/packages/mac/framework/pkinit.sym
+${SOURCE_ROOT}/packages/mac/framework/gss.sym
+${SOURCE_ROOT}/packages/mac/framework/asn1.sym
+${SOURCE_ROOT}/packages/mac/framework/base.sym

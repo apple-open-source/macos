@@ -29,6 +29,7 @@ WI.loaded = function()
     // The initialization order should match the same in Main.js.
     InspectorBackend.registerAnimationDispatcher(WI.AnimationObserver);
     InspectorBackend.registerApplicationCacheDispatcher(WI.ApplicationCacheObserver);
+    InspectorBackend.registerBrowserDispatcher(WI.BrowserObserver);
     InspectorBackend.registerCPUProfilerDispatcher(WI.CPUProfilerObserver);
     InspectorBackend.registerCSSDispatcher(WI.CSSObserver);
     InspectorBackend.registerCanvasDispatcher(WI.CanvasObserver);
@@ -51,6 +52,7 @@ WI.loaded = function()
 
     // Instantiate controllers used by tests.
     WI.managers = [
+        WI.browserManager = new WI.BrowserManager,
         WI.targetManager = new WI.TargetManager,
         WI.networkManager = new WI.NetworkManager,
         WI.domStorageManager = new WI.DOMStorageManager,
@@ -75,6 +77,7 @@ WI.loaded = function()
 
     // Register for events.
     document.addEventListener("DOMContentLoaded", WI.contentLoaded);
+    WI.browserManager.enable();
 
     // Targets.
     WI.backendTarget = null;
@@ -174,6 +177,7 @@ WI.resolvedLayoutDirection = () => { return InspectorFrontendHost.userInterfaceL
 WI.updateDockedState = () => {};
 WI.updateDockingAvailability = () => {};
 WI.updateVisibilityState = () => {};
+WI.updateFindString = () => {};
 
 // FIXME: <https://webkit.org/b/201149> Web Inspector: replace all uses of `window.*Agent` with a target-specific call
 (function() {

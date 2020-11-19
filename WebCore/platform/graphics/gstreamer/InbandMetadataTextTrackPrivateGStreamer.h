@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "InbandTextTrackPrivate.h"
 
@@ -47,13 +47,13 @@ public:
 
     void addDataCue(const MediaTime& start, const MediaTime& end, const void* data, unsigned length)
     {
-        ASSERT(cueFormat() == Data);
+        ASSERT(cueFormat() == CueFormat::Data);
         client()->addDataCue(start, end, data, length);
     }
 
-    void addGenericCue(GenericCueData& data)
+    void addGenericCue(InbandGenericCue& data)
     {
-        ASSERT(cueFormat() == Generic);
+        ASSERT(cueFormat() == CueFormat::Generic);
         client()->addGenericCue(data);
     }
 
@@ -73,4 +73,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
+#endif // ENABLE(VIDEO) && USE(GSTREAMER)

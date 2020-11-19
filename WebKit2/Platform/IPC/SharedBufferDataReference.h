@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,42 +23,32 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// Encodes a SharedBuffer or DataReference that is received as a DataReference to the decoded data.
+
 #pragma once
 
-#include "Encoder.h"
-#include <WebCore/SharedBuffer.h>
-#include <wtf/Variant.h>
+#include "DataReference.h"
+#include "SharedBufferCopy.h"
 
 namespace IPC {
 
-class SharedBufferDataReference {
+class Encoder;
+
+class SharedBufferDataReference : private SharedBufferCopy {
 public:
     SharedBufferDataReference() = default;
-    SharedBufferDataReference(const WebCore::SharedBuffer& buffer)
-        : m_data(buffer) { }
-    SharedBufferDataReference(const uint8_t* data, size_t size)
-        : m_data(std::make_pair(data, size)) { }
+    using SharedBufferCopy::SharedBufferCopy;
 
-    void encode(Encoder& encoder) const
-    {
-        switchOn(m_data,
-            [encoder = &encoder] (const Ref<const WebCore::SharedBuffer>& buffer) mutable {
-                uint64_t bufferSize = buffer->size();
-                encoder->reserve(bufferSize + sizeof(uint64_t));
-                *encoder << bufferSize;
-                for (const auto& element : buffer.get())
-                    encoder->encodeFixedLengthData(reinterpret_cast<const uint8_t*>(element.segment->data()), element.segment->size(), 1);
-            }, [encoder = &encoder] (const std::pair<const uint8_t*, size_t>& pair) mutable {
-                uint64_t bufferSize = pair.second;
-                encoder->reserve(bufferSize + sizeof(uint64_t));
-                *encoder << bufferSize;
-                encoder->encodeFixedLengthData(pair.first, pair.second, 1);
-            }
-        );
-    }
+    SharedBufferDataReference(DataReference data)
+        : m_data(WTFMove(data)) { }
+    SharedBufferDataReference(const uint8_t* data, size_t size)
+        : m_data(data, size) { }
+
+    void encode(Encoder&) const;
+    // Use IPC::DataReference to decode.
 
 private:
-    Variant<std::pair<const uint8_t*, size_t>, Ref<const WebCore::SharedBuffer>> m_data;
+    DataReference m_data;
 };
 
-}
+} // namespace IPC

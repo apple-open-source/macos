@@ -25,39 +25,16 @@ set -e
 
 if [ "$ACTION" = build ]; then exit 0; fi
 
-DSTROOT="${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}"
+install_headers()
+{
+    mkdir -p "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2"
+    cp -r "${SRCROOT}/$1" "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2"
 
-DESTDIR="$DSTROOT/usr/include/sys"
-mkdir -p "$DESTDIR"
-for X in \
-	qos.h \
-	; do
-	cp "sys/$X" "$DESTDIR"
-done
+    find "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2" -type f -name *.h -print0 | \
+        xargs -0I % unifdef -t ${COPY_HEADERS_UNIFDEF_FLAGS} -o "%" "%"
+    find "${DSTROOT}/${SDK_INSTALL_HEADERS_ROOT}$2" -type f -name *.modulemap -print0 | \
+        xargs -0I % unifdef -t ${COPY_HEADERS_UNIFDEF_FLAGS} -o "%" "%"
+}
 
-DESTDIR="$DSTROOT/usr/local/include/sys"
-mkdir -p "$DESTDIR"
-for X in \
-	qos_private.h \
-	; do
-	cp "sys/$X" "$DESTDIR"
-done
-
-DESTDIR="$DSTROOT/usr/include/sys/_pthread"
-mkdir -p "$DESTDIR"
-for X in \
-	_pthread_attr_t.h \
-	_pthread_cond_t.h \
-	_pthread_condattr_t.h \
-	_pthread_key_t.h \
-	_pthread_mutex_t.h \
-	_pthread_mutexattr_t.h \
-	_pthread_once_t.h \
-	_pthread_rwlock_t.h \
-	_pthread_rwlockattr_t.h \
-	_pthread_t.h \
-	_pthread_types.h \
-	; do
-	cp "sys/_pthread/$X" "$DESTDIR"
-done
-
+install_headers "include/sys" "/usr/include"
+install_headers "private/sys" "/usr/local/include"

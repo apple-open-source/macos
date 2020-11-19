@@ -31,6 +31,8 @@
 
 #include "p12pbegen.h"
 
+#include <security_utilities/simulatecrash_assert.h>
+
 static uint8_t *concatenate_to_blocksize(const uint8_t *data, size_t data_length, 
     size_t blocksize, size_t *blocklength)
 {

@@ -26,7 +26,10 @@
 // This file can't be once, it gets included multiple times to get definitions and declarations.
 
 #include "SecurityTool/sharedTool/SecurityCommands.h"
+
+#if !TARGET_OS_BRIDGE
 #include "keychain/SecureObjectSync/Tool/keychain_sync.h"
 #include "keychain/SecureObjectSync/Tool/keychain_sync_test.h"
 #include "keychain/SecureObjectSync/Tool/keychain_log.h"
 #include "keychain/SecureObjectSync/Tool/recovery_key.h"
+#endif

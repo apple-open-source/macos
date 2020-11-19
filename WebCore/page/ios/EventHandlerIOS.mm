@@ -35,6 +35,7 @@
 #import "ContentChangeObserver.h"
 #import "DataTransfer.h"
 #import "DragState.h"
+#import "EventNames.h"
 #import "FocusController.h"
 #import "Frame.h"
 #import "FrameView.h"
@@ -154,7 +155,7 @@ bool EventHandler::tabsToAllFormControls(KeyboardEvent* event) const
 
 bool EventHandler::keyEvent(WebEvent *event)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     ASSERT(event.type == WebEventKeyDown || event.type == WebEventKeyUp);
 
@@ -163,7 +164,7 @@ bool EventHandler::keyEvent(WebEvent *event)
     event.wasHandled = eventWasHandled;
     return eventWasHandled;
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     return false;
 }
@@ -214,13 +215,13 @@ static bool lastEventIsMouseUp()
     // that state. Handling this was critical when we used AppKit widgets for form elements.
     // It's not clear in what cases this is helpful now -- it's possible it can be removed. 
 
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     WebEvent *currentEventAfterHandlingMouseDown = [WAKWindow currentEvent];
     return currentEventAfterHandlingMouseDown
         && EventHandler::currentEvent() != currentEventAfterHandlingMouseDown
         && currentEventAfterHandlingMouseDown.type == WebEventMouseUp
         && currentEventAfterHandlingMouseDown.timestamp >= EventHandler::currentEvent().timestamp;
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     return false;
 }
@@ -242,7 +243,7 @@ bool EventHandler::passMouseDownEventToWidget(Widget* pWidget)
     if (!widget->platformWidget())
         return false;
 
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     NSView *nodeView = widget->platformWidget();
     ASSERT(nodeView);
@@ -300,7 +301,7 @@ bool EventHandler::passMouseDownEventToWidget(Widget* pWidget)
     if (lastEventIsMouseUp())
         m_mousePressed = false;
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     return true;
 }
@@ -310,7 +311,7 @@ bool EventHandler::passMouseDownEventToWidget(Widget* pWidget)
 // tree, and this works in cases where the target has already been deallocated.
 static bool findViewInSubviews(NSView *superview, NSView *target)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     NSEnumerator *e = [[superview subviews] objectEnumerator];
     NSView *subview;
     while ((subview = [e nextObject])) {
@@ -318,7 +319,7 @@ static bool findViewInSubviews(NSView *superview, NSView *target)
             return true;
         }
     }
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     return false;
 }
@@ -355,18 +356,18 @@ bool EventHandler::eventLoopHandleMouseUp(const MouseEventWithHitTestResults&)
     if (!m_mouseDownWasInSubframe) {
         ASSERT(!m_sendingEventToSubview);
         m_sendingEventToSubview = true;
-        BEGIN_BLOCK_OBJC_EXCEPTIONS;
+        BEGIN_BLOCK_OBJC_EXCEPTIONS
         [view mouseUp:currentEvent()];
-        END_BLOCK_OBJC_EXCEPTIONS;
+        END_BLOCK_OBJC_EXCEPTIONS
         m_sendingEventToSubview = false;
     }
  
     return true;
 }
     
-bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& event, Frame* subframe, HitTestResult* hoveredNode)
+bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& event, Frame& subframe, HitTestResult* hitTestResult)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     WebEventType currentEventType = currentEvent().type;
     switch (currentEventType) {
@@ -376,7 +377,7 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
         // currentNSEvent() that mouseMoved() does would have no effect.
         ASSERT(!m_sendingEventToSubview);
         m_sendingEventToSubview = true;
-        subframe->eventHandler().handleMouseMoveEvent(currentPlatformMouseEvent(), hoveredNode);
+        subframe.eventHandler().handleMouseMoveEvent(currentPlatformMouseEvent(), hitTestResult);
         m_sendingEventToSubview = false;
         return true;
     }
@@ -400,7 +401,7 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
             return false;
         ASSERT(!m_sendingEventToSubview);
         m_sendingEventToSubview = true;
-        subframe->eventHandler().handleMouseReleaseEvent(currentPlatformMouseEvent());
+        subframe.eventHandler().handleMouseReleaseEvent(currentPlatformMouseEvent());
         m_sendingEventToSubview = false;
         return true;
     }
@@ -413,14 +414,14 @@ bool EventHandler::passSubframeEventToSubframe(MouseEventWithHitTestResults& eve
     case WebEventTouchEnd:
         return false;
     }
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     return false;
 }
 
-bool EventHandler::widgetDidHandleWheelEvent(const PlatformWheelEvent&, Widget& widget)
+bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent&, Widget& widget)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     NSView* nodeView = widget.platformWidget();
     if (!nodeView) {
@@ -445,7 +446,7 @@ bool EventHandler::widgetDidHandleWheelEvent(const PlatformWheelEvent&, Widget& 
     m_sendingEventToSubview = false;
     return true;
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
     return false;
 }
 
@@ -455,7 +456,7 @@ void EventHandler::mouseDown(WebEvent *event)
     if (!v || m_sendingEventToSubview)
         return;
 
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     // FIXME: Why is this here? EventHandler::handleMousePressEvent() calls it.
     m_frame.loader().resetMultipleFormSubmissionProtection();
@@ -466,7 +467,7 @@ void EventHandler::mouseDown(WebEvent *event)
 
     event.wasHandled = handleMousePressEvent(currentPlatformMouseEvent());
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void EventHandler::mouseUp(WebEvent *event)
@@ -475,7 +476,7 @@ void EventHandler::mouseUp(WebEvent *event)
     if (!v || m_sendingEventToSubview)
         return;
 
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     CurrentEventScope scope(event);
 
@@ -483,7 +484,7 @@ void EventHandler::mouseUp(WebEvent *event)
 
     m_mouseDownView = nil;
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void EventHandler::mouseMoved(WebEvent *event)
@@ -493,7 +494,7 @@ void EventHandler::mouseMoved(WebEvent *event)
     if (!m_frame.document() || !m_frame.view() || m_mousePressed || m_sendingEventToSubview)
         return;
 
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     auto& document = *m_frame.document();
     // Ensure we start mouse move event dispatching on a clear tree.
     document.updateStyleIfNeeded();
@@ -510,7 +511,7 @@ void EventHandler::mouseMoved(WebEvent *event)
         });
     }
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 static bool frameHasPlatformWidget(const Frame& frame)
@@ -525,7 +526,7 @@ static bool frameHasPlatformWidget(const Frame& frame)
 
 void EventHandler::dispatchSyntheticMouseOut(const PlatformMouseEvent& platformMouseEvent)
 {
-    updateMouseEventTargetNode(nullptr, platformMouseEvent, FireMouseOverOut::Yes);
+    updateMouseEventTargetNode(eventNames().mouseoutEvent, nullptr, platformMouseEvent, FireMouseOverOut::Yes);
 }
 
 void EventHandler::dispatchSyntheticMouseMove(const PlatformMouseEvent& platformMouseEvent)
@@ -533,35 +534,35 @@ void EventHandler::dispatchSyntheticMouseMove(const PlatformMouseEvent& platform
     mouseMoved(platformMouseEvent);
 }
 
-bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
+bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mouseEventAndResult, Frame& subframe)
 {
     // WebKit1 code path.
     if (frameHasPlatformWidget(m_frame))
-        return passSubframeEventToSubframe(mev, subframe);
+        return passSubframeEventToSubframe(mouseEventAndResult, subframe);
 
     // WebKit2 code path.
-    subframe->eventHandler().handleMousePressEvent(mev.event());
+    subframe.eventHandler().handleMousePressEvent(mouseEventAndResult.event());
     return true;
 }
 
-bool EventHandler::passMouseMoveEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe, HitTestResult* hoveredNode)
+bool EventHandler::passMouseMoveEventToSubframe(MouseEventWithHitTestResults& mouseEventAndResult, Frame& subframe, HitTestResult* hitTestResult)
 {
     // WebKit1 code path.
     if (frameHasPlatformWidget(m_frame))
-        return passSubframeEventToSubframe(mev, subframe, hoveredNode);
+        return passSubframeEventToSubframe(mouseEventAndResult, subframe, hitTestResult);
 
-    subframe->eventHandler().handleMouseMoveEvent(mev.event(), hoveredNode);
+    subframe.eventHandler().handleMouseMoveEvent(mouseEventAndResult.event(), hitTestResult);
     return true;
 }
 
-bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults& mev, Frame* subframe)
+bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults& mouseEventAndResult, Frame& subframe)
 {
     // WebKit1 code path.
     if (frameHasPlatformWidget(m_frame))
-        return passSubframeEventToSubframe(mev, subframe);
+        return passSubframeEventToSubframe(mouseEventAndResult, subframe);
 
     // WebKit2 code path.
-    subframe->eventHandler().handleMouseReleaseEvent(mev.event());
+    subframe.eventHandler().handleMouseReleaseEvent(mouseEventAndResult.event());
     return true;
 }
 
@@ -708,11 +709,11 @@ bool EventHandler::tryToBeginDragAtPoint(const IntPoint& clientPosition, const I
     PlatformMouseEvent syntheticMousePressEvent(adjustedClientPosition, adjustedGlobalPosition, LeftButton, PlatformEvent::MousePressed, 1, false, false, false, false, WallTime::now(), 0, NoTap);
     PlatformMouseEvent syntheticMouseMoveEvent(adjustedClientPosition, adjustedGlobalPosition, LeftButton, PlatformEvent::MouseMoved, 0, false, false, false, false, WallTime::now(), 0, NoTap);
 
-    HitTestRequest request(HitTestRequest::Active | HitTestRequest::DisallowUserAgentShadowContent);
+    constexpr OptionSet<HitTestRequest::RequestType> hitType { HitTestRequest::Active, HitTestRequest::DisallowUserAgentShadowContent };
     auto documentPoint = protectedFrame->view() ? protectedFrame->view()->windowToContents(syntheticMouseMoveEvent.position()) : syntheticMouseMoveEvent.position();
-    auto hitTestedMouseEvent = document->prepareMouseEvent(request, documentPoint, syntheticMouseMoveEvent);
+    auto hitTestedMouseEvent = document->prepareMouseEvent(hitType, documentPoint, syntheticMouseMoveEvent);
 
-    RefPtr<Frame> subframe = subframeForHitTestResult(hitTestedMouseEvent);
+    auto subframe = subframeForHitTestResult(hitTestedMouseEvent);
     if (subframe && subframe->eventHandler().tryToBeginDragAtPoint(adjustedClientPosition, adjustedGlobalPosition))
         return true;
 

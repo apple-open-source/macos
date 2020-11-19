@@ -64,5 +64,10 @@ int xar_path_issane(char* path);
 // The returned string must be released by the caller.
 char* xar_path_nextcomponent(char** path_to_advance);
 
+/*!
+ @abstract Returns the optimal io size of the filesystem backing the
+ file at the path provided.
+ */
+size_t xar_optimal_io_size_at_path(const char *path);
 
 #endif /* _XAR_UTIL_H_ */

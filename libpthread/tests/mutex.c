@@ -103,7 +103,7 @@ check_process_default_mutex_policy(int expected_policy)
 }
 
 T_DECL(mutex_default_policy,
-		"Tests that the default mutex policy is fairshare")
+		"Tests that the default mutex policy is firstfit")
 {
 	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FIRSTFIT);
 }
@@ -111,10 +111,10 @@ T_DECL(mutex_default_policy,
 T_DECL(mutex_default_policy_sysctl,
 		"Tests that setting the policy sysctl changes the default policy")
 {
-	int firstfit_default = _PTHREAD_MUTEX_POLICY_FIRSTFIT;
+	int fairshare_default = _PTHREAD_MUTEX_POLICY_FAIRSHARE;
 	T_EXPECT_POSIX_ZERO(
-			sysctlbyname("kern.pthread_mutex_default_policy", NULL, NULL, &firstfit_default, sizeof(firstfit_default)),
-			"Changed the default policy sysctl to firstfit");
+			sysctlbyname("kern.pthread_mutex_default_policy", NULL, NULL, &fairshare_default, sizeof(fairshare_default)),
+			"Changed the default policy sysctl to fairshare");
 
 	dt_helper_t helper = dt_child_helper("mutex_default_policy_sysctl_helper");
 	dt_run_helpers(&helper, 1, 5);
@@ -122,19 +122,48 @@ T_DECL(mutex_default_policy_sysctl,
 
 T_HELPER_DECL(mutex_default_policy_sysctl_helper, "sysctl helper")
 {
-	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FIRSTFIT);
+	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FAIRSHARE);
 
-	int default_default = _PTHREAD_MUTEX_POLICY_FAIRSHARE;
+	int default_default = _PTHREAD_MUTEX_POLICY_FIRSTFIT;
 	T_EXPECT_POSIX_ZERO(
 			sysctlbyname("kern.pthread_mutex_default_policy", NULL, NULL, &default_default, sizeof(default_default)),
-			"Restored the default policy to fairshare");
+			"Restored the default policy to firstfit");
 
 	T_END;
 }
 
 T_DECL(mutex_default_policy_envvar,
 		"Tests that setting the policy environment variable changes the default policy",
-		T_META_ENVVAR("PTHREAD_MUTEX_DEFAULT_POLICY=3"))
+		T_META_ENVVAR("PTHREAD_MUTEX_DEFAULT_POLICY=1"))
 {
-	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FIRSTFIT);
+	check_process_default_mutex_policy(_PTHREAD_MUTEX_POLICY_FAIRSHARE);
+}
+
+static void *
+mutex_as_semaphore_signaller(void *arg)
+{
+	pthread_mutex_t *mtx = arg;
+	int rc = pthread_mutex_unlock(mtx);
+	T_ASSERT_POSIX_ZERO(rc, "unlock");
+
+	return NULL;
+}
+
+T_DECL(mutex_as_semaphore_lock_owned, "Recursively lock a normal mutex to use as a semaphore")
+{
+	pthread_t signaller;
+	pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+	int rc = pthread_mutex_lock(&mtx);
+	T_ASSERT_POSIX_ZERO(rc, "lock");
+
+	rc = pthread_create(&signaller, NULL, mutex_as_semaphore_signaller, &mtx);
+	T_ASSERT_POSIX_ZERO(rc, "create");
+
+	rc = pthread_mutex_lock(&mtx);
+	T_ASSERT_POSIX_ZERO(rc, "recursive lock");
+
+	rc = pthread_join(signaller, NULL);
+	T_ASSERT_POSIX_ZERO(rc, "join");
+
+	T_END;
 }

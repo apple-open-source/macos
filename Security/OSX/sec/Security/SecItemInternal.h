@@ -105,6 +105,11 @@ CFArrayRef SecItemCopyParentCertificates_ios(CFDataRef normalizedIssuer, CFArray
 
 bool SecItemCertificateExists(CFDataRef normalizedIssuer, CFDataRef serialNumber, CFArrayRef accessGroups, CFErrorRef *error);
 
+/*!
+    @constant kSecAttrAppClipItem Boolean attribute indicating whether the origin of this item is an App Clip client
+*/
+static const CFStringRef kSecAttrAppClipItem = CFSTR("clip");
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECITEMINTERNAL_H_ */

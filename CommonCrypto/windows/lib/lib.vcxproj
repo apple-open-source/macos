@@ -289,7 +289,6 @@ copy "$(TargetPath)" "$(DSTROOT)\AppleInternal\lib$(PlatformArchitecture)"</Comm
     <ClCompile Include="..\..\lib\CommonCryptor.c" />
     <ClCompile Include="..\..\lib\CommonCryptorDES.c" />
     <ClCompile Include="..\..\lib\CommonCryptorGCM.c" />
-    <ClCompile Include="..\..\lib\CommonCryptorRC4.c" />
     <ClCompile Include="..\..\lib\CommonDH.c" />
     <ClCompile Include="..\..\lib\CommonDigest.c" />
     <ClCompile Include="..\..\lib\CommonECCryptor.c" />

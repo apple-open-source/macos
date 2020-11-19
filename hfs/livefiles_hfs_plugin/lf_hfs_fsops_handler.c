@@ -491,8 +491,11 @@ LFHFS_GetFSAttr ( UVFSFileNode psNode, const char *pcAttr, UVFSFSAttributeValue 
             return E2BIG;
         }
         // A string representing the type of file system
-        strcpy(psAttrVal->fsa_string, "HFS");
-        *(psAttrVal->fsa_string+3) = 0; // Must be null terminated
+        size_t n = strlcpy(psAttrVal->fsa_string, "HFS", *puRetLen);
+        if (n >= *puRetLen)
+        {
+             *(psAttrVal->fsa_string + (*puRetLen - 1)) = '\0'; // Must be null terminated
+        }
         goto end;
     }
 
@@ -523,7 +526,7 @@ LFHFS_GetFSAttr ( UVFSFileNode psNode, const char *pcAttr, UVFSFSAttributeValue 
             return E2BIG;
         }
 
-        strcpy( psAttrVal->fsa_string, pcFSSubType );
+        strlcpy( psAttrVal->fsa_string, pcFSSubType, *puRetLen);
         goto end;
     }
 
@@ -534,7 +537,7 @@ LFHFS_GetFSAttr ( UVFSFileNode psNode, const char *pcAttr, UVFSFSAttributeValue 
         {
             return E2BIG;
         }
-        strcpy(psAttrVal->fsa_string, (char *)psMount->vcbVN);
+        strlcpy(psAttrVal->fsa_string, (char *)psMount->vcbVN, *puRetLen);
         goto end;
     }
 

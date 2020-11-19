@@ -102,6 +102,25 @@ void IOGUIDPartitionScheme::free()
     super::free();
 }
 
+void IOGUIDPartitionScheme::handleClose(IOService * client, IOOptionBits options)
+{
+    super::handleClose(client, options);
+
+    // if the client has been already removed from the partition table
+    // Now is the time to terminate the IOMedia object:
+    OSObject* obj = client->getProperty(kIOMediaLiveKey);
+    if (obj && OSDynamicCast(OSBoolean, obj))
+    {
+        // if kIOMediaLiveKey is 0 and kIOMediaPartitionIDKey is removed
+        // then it means that this partition has been removed from partition table.
+        if (0 == ((OSBoolean *) obj)->getValue() && NULL == client->getProperty(kIOMediaPartitionIDKey))
+        {
+            client->terminate();
+            detachMediaObjectFromDeviceTree(OSDynamicCast(IOMedia, client));
+        }
+    }
+}
+
 IOService * IOGUIDPartitionScheme::probe(IOService * provider, SInt32 * score)
 {
     //

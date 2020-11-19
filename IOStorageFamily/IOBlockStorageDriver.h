@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -249,6 +249,8 @@ typedef UInt32 IOMediaState;
  * Kernel
  */
 
+class IOPerfControlClient;
+
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOStorage.h>
@@ -292,7 +294,7 @@ typedef UInt32 IOMediaState;
  * a subclass of IOBlockStorageDriver, adding CD functions.
  */
 
-class IOBlockStorageDriver : public IOStorage
+class __exported IOBlockStorageDriver : public IOStorage
 {
     OSDeclareDefaultStructors(IOBlockStorageDriver);
 
@@ -358,6 +360,7 @@ protected:
         IOSimpleLock * contextsLock;
         UInt32         contextsCount;
         UInt32         contextsMaxCount;
+        IOPerfControlClient * perfControlClient;
     };
     ExpansionData * _expansionData;
 
@@ -389,6 +392,8 @@ protected:
               IOBlockStorageDriver::_expansionData->contextsCount
     #define _contextsMaxCount                \
               IOBlockStorageDriver::_expansionData->contextsMaxCount
+    #define _perfControlClient                \
+                 IOBlockStorageDriver::_expansionData->perfControlClient
 
     OSSet *         _openClients;
     OSNumber *      _statistics[kStatisticsCount];
@@ -438,7 +443,7 @@ protected:
 
         AbsoluteTime timeStart;
 
-        UInt64 reserved0704;
+        OSObject * perfControlContext;
         UInt64 reserved0768;
         UInt64 reserved0832;
         UInt64 reserved0896;
@@ -679,11 +684,11 @@ protected:
 
     virtual bool handleStart(IOService * provider);
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual bool handleYield(IOService *  provider,
                              IOOptionBits options  = 0,
                              void *       argument = 0) __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     /*!
      * @function getMediaBlockSize
@@ -729,11 +734,11 @@ public:
                               IOOptionBits options,
                               bool *       defer) APPLE_KEXT_OVERRIDE;
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual bool yield(IOService *  provider,
                        IOOptionBits options  = 0,
                        void *       argument = 0) __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     /*!
      * @function read
@@ -974,11 +979,11 @@ public:
 
     virtual IOReturn formatMedia(UInt64 byteCapacity);
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual IOReturn lockMedia(bool lock) __attribute__ ((deprecated));
 
     virtual IOReturn pollMedia() __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     /*!
      * @function isMediaEjectable
@@ -1000,11 +1005,11 @@ public:
 
     virtual bool isMediaRemovable() const;
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual bool isMediaPollExpensive() const __attribute__ ((deprecated));
 
     virtual bool isMediaPollRequired() const __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     /*!
      * @function isMediaWritable
@@ -1145,11 +1150,11 @@ protected:
                                          IOReturn status,
                                          UInt64   actualByteCount);
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual void schedulePoller() __attribute__ ((deprecated));
 
     virtual void unschedulePoller() __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     /*
      * This method is the power event handler for restarts and shutdowns.
@@ -1246,9 +1251,9 @@ protected:
      */
     virtual IOReturn	acceptNewMedia(void);
     
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual UInt64	constrainByteCount(UInt64 requestedCount,bool isWrite) __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     /*!
      * @function decommissionMedia

@@ -54,9 +54,11 @@ extern "C" {
 #ifdef __LP64__
 #define FFI_AVAILABLE_APPLE      API_AVAILABLE(macos(10.0), iosmac(13.0)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0))
 #define FFI_AVAILABLE_APPLE_2019 API_AVAILABLE(macos(10.15), iosmac(13.0)) SPI_AVAILABLE(ios(13.0), tvos(13.0), watchos(6.0))
+#define FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 API_DEPRECATED("Deprecated", macos(10.15, 10.16), iosmac(13.0, 14.0)) SPI_DEPRECATED("Deprecated", ios(13.0, 14.0), tvos(13.0, 14.0), watchos(6.0, 7.0))
 #else
 #define FFI_AVAILABLE_APPLE      API_AVAILABLE(macos(10.0), iosmac(13.0)) SPI_AVAILABLE(ios(13.0), tvos(13.0)) API_UNAVAILABLE(watchos)
 #define FFI_AVAILABLE_APPLE_2019 API_AVAILABLE(macos(10.15), iosmac(13.0)) SPI_AVAILABLE(ios(13.0), tvos(13.0)) API_UNAVAILABLE(watchos)
+#define FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 API_DEPRECATED("Deprecated", macos(10.15, 10.16), iosmac(13.0, 14.0)) SPI_DEPRECATED("Deprecated", ios(13.0, 14.0), tvos(13.0, 14.0)) API_UNAVAILABLE(watchos)
 #endif
 
 /* ---- System configuration information --------------------------------- */
@@ -290,18 +292,18 @@ FFI_AVAILABLE_APPLE_2019 FFI_API size_t ffi_raw_size (ffi_cif *cif);
    and doubles are followed by an empty 64-bit word.  */
 
 #if !FFI_NATIVE_RAW_API
-FFI_AVAILABLE_APPLE_2019 FFI_API
+FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 FFI_API
 void ffi_java_raw_call (ffi_cif *cif,
 			void (*fn)(void),
 			void *rvalue,
 			ffi_java_raw *avalue);
 #endif
 
-FFI_AVAILABLE_APPLE_2019 FFI_API
+FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 FFI_API
 void ffi_java_ptrarray_to_raw (ffi_cif *cif, void **args, ffi_java_raw *raw);
-FFI_AVAILABLE_APPLE_2019 FFI_API
+FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 FFI_API
 void ffi_java_raw_to_ptrarray (ffi_cif *cif, ffi_java_raw *raw, void **args);
-FFI_AVAILABLE_APPLE_2019 FFI_API
+FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 FFI_API
 size_t ffi_java_raw_size (ffi_cif *cif);
 
 /* ---- Definitions for closures ----------------------------------------- */
@@ -430,13 +432,13 @@ ffi_prep_raw_closure_loc (ffi_raw_closure*,
 			  void *codeloc);
 
 #if !FFI_NATIVE_RAW_API
-FFI_AVAILABLE_APPLE_2019 FFI_API ffi_status
+FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 FFI_API ffi_status
 ffi_prep_java_raw_closure (ffi_java_raw_closure*,
 		           ffi_cif *cif,
 		           void (*fun)(ffi_cif*,void*,ffi_java_raw*,void*),
 		           void *user_data);
 
-FFI_AVAILABLE_APPLE_2019 FFI_API ffi_status
+FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 FFI_API ffi_status
 ffi_prep_java_raw_closure_loc (ffi_java_raw_closure*,
 			       ffi_cif *cif,
 			       void (*fun)(ffi_cif*,void*,ffi_java_raw*,void*),
@@ -446,7 +448,7 @@ ffi_prep_java_raw_closure_loc (ffi_java_raw_closure*,
 
 #endif /* FFI_CLOSURES */
 
-#if FFI_GO_CLOSURES
+#if defined(FFI_GO_CLOSURES) && FFI_GO_CLOSURES
 
 typedef struct {
   void      *tramp;

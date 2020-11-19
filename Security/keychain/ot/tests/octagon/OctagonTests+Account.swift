@@ -92,8 +92,8 @@ class OctagonAccountTests: OctagonTestsBase {
 
         self.wait(for: [quiescentExpectation], timeout: 10)
 
-        // CKKS should also be logged out, since Octagon believes there's no account
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateLoggedOut, within: 10 * NSEC_PER_SEC)
+        // Since there's no acocunt, CKKS shouldn't even have any views loaded
+        XCTAssertEqual(self.injectedManager!.views.count, 0, "Should have 0 CKKS views loaded")
     }
 
     func testNoAccountLeadsToInitialize() throws {
@@ -432,6 +432,19 @@ class OctagonAccountTests: OctagonTestsBase {
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
     }
 
+    func testDetermineCDPStateFromSOSError() throws {
+        // If SOS reports that it doesn't have the user key, a circle might exist and it might not
+        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCError)
+        self.mockSOSAdapter.circleStatusError = NSError(domain: kSOSErrorDomain as String, code: kSOSErrorPublicKeyAbsent, userInfo: nil)
+
+        self.startCKAccountStatusMock()
+
+        // Octagon should discover the right CDP state, and end up in untrusted
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(self.fetchCDPStatus(context: self.cuttlefishContext), .unknown, "CDP status should be 'unknown'")
+    }
+
     func testSignOut() throws {
         self.startCKAccountStatusMock()
 
@@ -496,7 +509,7 @@ class OctagonAccountTests: OctagonTestsBase {
         //check trust status
         let checkTrustExpectation = self.expectation(description: "checkTrustExpectation callback occurs")
         let configuration = OTOperationConfiguration()
-        self.cuttlefishContext.rpcTrustStatus(configuration) { _, _, _, _, _ in
+        self.cuttlefishContext.rpcTrustStatus(configuration) { _, _, _, _, _, _ in
             checkTrustExpectation.fulfill()
         }
         self.wait(for: [checkTrustExpectation], timeout: 10)
@@ -562,7 +575,6 @@ class OctagonAccountTests: OctagonTestsBase {
         }
         self.wait(for: [joinWithBottleExpectation], timeout: 3)
     }
-
 }
 
 #endif

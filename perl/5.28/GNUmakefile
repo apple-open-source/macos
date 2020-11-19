@@ -229,7 +229,8 @@ $(OBJROOT)/$(PROJECT)::
 	ed - $(PROJECT)/cpan/ExtUtils-MakeMaker/lib/ExtUtils/MM_Unix.pm < fix/ExtUtils_MM_Unix.pm.ed && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v528-0001-CVE-2020-10543.patch) && \
 	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v528-0002-CVE-2020-10878.patch) && \
-	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v528-0003-CVE-2020-12723.patch)
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/v528-0003-CVE-2020-12723.patch) && \
+	(cd $(PROJECT) ; patch -p1 < $(SRCROOT)/fix/perl-5.28-cannot-locate-strict.patch)
 
 ifneq "$(RC_XBS)" "YES"
 clean:

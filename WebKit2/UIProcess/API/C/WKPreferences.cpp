@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -116,6 +116,16 @@ void WKPreferencesSetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesR
 bool WKPreferencesGetLoadsSiteIconsIgnoringImageLoadingPreference(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->loadsSiteIconsIgnoringImageLoadingPreference();
+}
+
+void WKPreferencesSetIsITPDatabaseEnabled(WKPreferencesRef preferencesRef, bool isITPDatabaseEnabled)
+{
+    toImpl(preferencesRef)->setIsITPDatabaseEnabled(isITPDatabaseEnabled);
+}
+
+bool WKPreferencesGetIsITPDatabaseEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->isITPDatabaseEnabled();
 }
 
 void WKPreferencesSetOfflineWebApplicationCacheEnabled(WKPreferencesRef preferencesRef, bool offlineWebApplicationCacheEnabled)
@@ -728,6 +738,16 @@ bool WKPreferencesGetFileAccessFromFileURLsAllowed(WKPreferencesRef preferencesR
     return toImpl(preferencesRef)->allowFileAccessFromFileURLs();
 }
 
+void WKPreferencesSetTopNavigationToDataURLsAllowed(WKPreferencesRef preferencesRef, bool allowed)
+{
+    toImpl(preferencesRef)->setAllowTopNavigationToDataURLs(allowed);
+}
+
+bool WKPreferencesGetTopNavigationToDataURLsAllowed(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->allowTopNavigationToDataURLs();
+}
+
 void WKPreferencesSetNeedsStorageAccessFromFileURLsQuirk(WKPreferencesRef preferencesRef, bool needsQuirk)
 {
     toImpl(preferencesRef)->setNeedsStorageAccessFromFileURLsQuirk(needsQuirk);
@@ -1299,16 +1319,6 @@ bool WKPreferencesGetHiddenPageCSSAnimationSuspensionEnabled(WKPreferencesRef pr
     return toImpl(preferencesRef)->hiddenPageCSSAnimationSuspensionEnabled();
 }
 
-void WKPreferencesSetRenderingUpdateThrottlingEnabled(WKPreferencesRef preferencesRef, bool enabled)
-{
-    toImpl(preferencesRef)->setRenderingUpdateThrottlingEnabled(enabled);
-}
-
-bool WKPreferencesGetRenderingUpdateThrottlingEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->renderingUpdateThrottlingEnabled();
-}
-
 void WKPreferencesSetIncrementalRenderingSuppressionTimeout(WKPreferencesRef preferencesRef, double timeout)
 {
     toImpl(preferencesRef)->setIncrementalRenderingSuppressionTimeout(timeout);
@@ -1599,14 +1609,15 @@ WKDebugOverlayRegions WKPreferencesGetVisibleDebugOverlayRegions(WKPreferencesRe
     return toImpl(preferencesRef)->visibleDebugOverlayRegions();
 }
 
-void WKPreferencesSetIgnoreViewportScalingConstraints(WKPreferencesRef preferencesRef, bool enabled)
+void WKPreferencesSetIgnoreViewportScalingConstraints(WKPreferencesRef, bool)
 {
-    toImpl(preferencesRef)->setIgnoreViewportScalingConstraints(enabled);
+    // This preference is no longer supported.
 }
 
-bool WKPreferencesGetIgnoreViewportScalingConstraints(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetIgnoreViewportScalingConstraints(WKPreferencesRef)
 {
-    return toImpl(preferencesRef)->ignoreViewportScalingConstraints();
+    // This preference is no longer supported.
+    return false;
 }
 
 void WKPreferencesSetMetaRefreshEnabled(WKPreferencesRef preferencesRef, bool enabled)
@@ -1809,6 +1820,16 @@ bool WKPreferencesGetUserTimingEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->userTimingEnabled();
 }
 
+void WKPreferencesSetPaintTimingEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setPaintTimingEnabled(flag);
+}
+
+bool WKPreferencesGetPaintTimingEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->paintTimingEnabled();
+}
+
 void WKPreferencesSetResourceTimingEnabled(WKPreferencesRef preferencesRef, bool flag)
 {
     toImpl(preferencesRef)->setResourceTimingEnabled(flag);
@@ -1827,6 +1848,16 @@ void WKPreferencesSetIsNSURLSessionWebSocketEnabled(WKPreferencesRef preferences
 bool WKPreferencesGetIsNSURLSessionWebSocketEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->isNSURLSessionWebSocketEnabled();
+}
+
+WK_EXPORT void WKPreferencesSetIsAccessibilityIsolatedTreeEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setIsAccessibilityIsolatedTreeEnabled(flag);
+}
+
+WK_EXPORT bool WKPreferencesGetIsAccessibilityIsolatedTreeEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->isAccessibilityIsolatedTreeEnabled();
 }
 
 void WKPreferencesSetFetchAPIKeepAliveEnabled(WKPreferencesRef preferencesRef, bool flag)
@@ -2167,6 +2198,16 @@ void WKPreferencesSetCaptureVideoInUIProcessEnabled(WKPreferencesRef preferences
 bool WKPreferencesGetCaptureVideoInUIProcessEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->captureVideoInUIProcessEnabled();
+}
+
+void WKPreferencesSetCaptureVideoInGPUProcessEnabled(WKPreferencesRef preferencesRef, bool flag)
+{
+    toImpl(preferencesRef)->setCaptureVideoInGPUProcessEnabled(flag);
+}
+
+bool WKPreferencesGetCaptureVideoInGPUProcessEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->captureVideoInGPUProcessEnabled();
 }
 
 void WKPreferencesSetReferrerPolicyAttributeEnabled(WKPreferencesRef preferencesRef, bool flag)

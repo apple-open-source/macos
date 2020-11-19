@@ -34,11 +34,15 @@
 #include "DataReference.h"
 #include "GPUConnectionToWebProcess.h"
 #include "GPUProcessCreationParameters.h"
+#include "GPUProcessSessionParameters.h"
 #include "Logging.h"
+#include "SandboxExtension.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessPoolMessages.h"
+#include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/LogInitialization.h>
-#include <WebCore/MockAudioSharedUnit.h>
+#include <WebCore/NowPlayingManager.h>
+#include <WebCore/RuntimeApplicationChecks.h>
 #include <wtf/Algorithms.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/OptionSet.h>
@@ -46,6 +50,14 @@
 #include <wtf/RunLoop.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/text/AtomString.h>
+
+#if USE(AUDIO_SESSION)
+#include "RemoteAudioSessionProxyManager.h"
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+#include <WebCore/MockRealtimeMediaSourceCenter.h>
+#endif
 
 namespace WebKit {
 using namespace WebCore;
@@ -69,6 +81,12 @@ void GPUProcess::createGPUConnectionToWebProcess(ProcessIdentifier identifier, P
     }
 
     auto newConnection = GPUConnectionToWebProcess::create(*this, identifier, ipcConnection->first, sessionID);
+
+#if ENABLE(MEDIA_STREAM)
+    // FIXME: We should refactor code to go from WebProcess -> GPUProcess -> UIProcess when getUserMedia is called instead of going from WebProcess -> UIProcess directly.
+    auto access = m_mediaCaptureAccessMap.take(identifier);
+    newConnection->updateCaptureAccess(access.allowAudioCapture, access.allowVideoCapture, access.allowDisplayCapture);
+#endif
 
     ASSERT(!m_webProcessConnections.contains(identifier));
     m_webProcessConnections.add(identifier, WTFMove(newConnection));
@@ -106,7 +124,27 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
     WTF::Thread::setCurrentThreadIsUserInitiated();
     AtomString::init();
 
+#if PLATFORM(IOS_FAMILY) || ENABLE(ROUTING_ARBITRATION)
+    DeprecatedGlobalSettings::setShouldManageAudioSessionCategory(true);
+#endif
+
+#if ENABLE(MEDIA_STREAM)
     setMockCaptureDevicesEnabled(parameters.useMockCaptureDevices);
+    SandboxExtension::consumePermanently(parameters.cameraSandboxExtensionHandle);
+    SandboxExtension::consumePermanently(parameters.microphoneSandboxExtensionHandle);
+#if PLATFORM(IOS)
+    SandboxExtension::consumePermanently(parameters.tccSandboxExtensionHandle);
+#endif
+#endif
+
+#if HAVE(VISIBILITY_PROPAGATION_VIEW)
+    m_contextForVisibilityPropagation = LayerHostingContext::createForExternalHostingProcess({
+        m_canShowWhileLocked
+    });
+    send(Messages::GPUProcessProxy::DidCreateContextForVisibilityPropagation(m_contextForVisibilityPropagation->contextID()));
+#endif
+
+    WebCore::setPresentingApplicationPID(parameters.parentPID);
 }
 
 void GPUProcess::prepareToSuspend(bool isSuspensionImminent, CompletionHandler<void()>&& completionHandler)
@@ -139,14 +177,85 @@ GPUConnectionToWebProcess* GPUProcess::webProcessConnection(ProcessIdentifier id
     return m_webProcessConnections.get(identifier);
 }
 
+#if ENABLE(MEDIA_STREAM)
 void GPUProcess::setMockCaptureDevicesEnabled(bool isEnabled)
 {
-#if ENABLE(MEDIA_STREAM)
-    // FIXME: Enable the audio session check by implementing an AudioSession for the GPUProcess.
-    MockAudioSharedUnit::singleton().setDisableAudioSessionCheck(isEnabled);
     MockRealtimeMediaSourceCenter::setMockRealtimeMediaSourceCenterEnabled(isEnabled);
-#endif
 }
+
+void GPUProcess::setOrientationForMediaCapture(uint64_t orientation)
+{
+    for (auto& connection : m_webProcessConnections.values())
+        connection->setOrientationForMediaCapture(orientation);
+}
+
+void GPUProcess::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, ProcessIdentifier processID, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* connection = webProcessConnection(processID)) {
+        connection->updateCaptureAccess(allowAudioCapture, allowVideoCapture, allowDisplayCapture);
+        return completionHandler();
+    }
+
+    auto& access = m_mediaCaptureAccessMap.add(processID, MediaCaptureAccess { allowAudioCapture, allowVideoCapture, allowDisplayCapture }).iterator->value;
+    access.allowAudioCapture |= allowAudioCapture;
+    access.allowVideoCapture |= allowVideoCapture;
+    access.allowDisplayCapture |= allowDisplayCapture;
+
+    completionHandler();
+}
+#endif
+
+void GPUProcess::addSession(PAL::SessionID sessionID, GPUProcessSessionParameters&& parameters)
+{
+    ASSERT(!m_sessions.contains(sessionID));
+    SandboxExtension::consumePermanently(parameters.mediaCacheDirectorySandboxExtensionHandle);
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+    SandboxExtension::consumePermanently(parameters.mediaKeysStorageDirectorySandboxExtensionHandle);
+#endif
+
+    m_sessions.add(sessionID, GPUSession {
+        WTFMove(parameters.mediaCacheDirectory)
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+        , WTFMove(parameters.mediaKeysStorageDirectory)
+#endif
+    });
+}
+
+void GPUProcess::removeSession(PAL::SessionID sessionID)
+{
+    ASSERT(m_sessions.contains(sessionID));
+    m_sessions.remove(sessionID);
+}
+
+const String& GPUProcess::mediaCacheDirectory(PAL::SessionID sessionID) const
+{
+    ASSERT(m_sessions.contains(sessionID));
+    return m_sessions.find(sessionID)->value.mediaCacheDirectory;
+}
+
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+const String& GPUProcess::mediaKeysStorageDirectory(PAL::SessionID sessionID) const
+{
+    ASSERT(m_sessions.contains(sessionID));
+    return m_sessions.find(sessionID)->value.mediaKeysStorageDirectory;
+}
+#endif
+
+NowPlayingManager& GPUProcess::nowPlayingManager()
+{
+    if (!m_nowPlayingManager)
+        m_nowPlayingManager = makeUnique<NowPlayingManager>();
+    return *m_nowPlayingManager;
+}
+
+#if ENABLE(GPU_PROCESS) && USE(AUDIO_SESSION)
+RemoteAudioSessionProxyManager& GPUProcess::audioSessionManager() const
+{
+    if (!m_audioSessionManager)
+        m_audioSessionManager = WTF::makeUnique<RemoteAudioSessionProxyManager>();
+    return *m_audioSessionManager;
+}
+#endif
 
 } // namespace WebKit
 

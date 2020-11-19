@@ -40,7 +40,7 @@ public:
 
 	// Return maximum speed and channels supported
 	// (bit n set = chan n supported)
-    IOReturn getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSupported);
+    IOReturn getSupported(IOFWSpeed &maxSpeed, UInt64 &chanSupported) APPLE_KEXT_OVERRIDE;
 };
 
 #endif /* _IOKIT_IOFWASYNCSTREAMRECEIVEPORT_H */

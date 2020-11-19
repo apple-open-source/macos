@@ -41,7 +41,8 @@
     is desirable. 
 */
 
-class IOGatedOutputQueue : public IOBasicOutputQueue
+
+class __exported IOGatedOutputQueue : public IOBasicOutputQueue
 {
     OSDeclareDefaultStructors( IOGatedOutputQueue )
 

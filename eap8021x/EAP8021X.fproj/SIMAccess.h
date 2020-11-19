@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,6 +51,12 @@ SIMCopyRealm(CFDictionaryRef properties);
 
 CFDictionaryRef
 SIMCopyEncryptedIMSIInfo(EAPType type);
+
+Boolean
+SIMIsOOBPseudonymSupported(Boolean *isSupported);
+
+CFStringRef
+SIMCopyOOBPseudonym();
 
 void
 SIMReportDecryptionError(CFDataRef encryptedIdentity);

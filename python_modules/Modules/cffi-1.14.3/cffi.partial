@@ -1,0 +1,18 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>cffi</string>
+        <key>OpenSourceVersion</key>
+        <string>1.14.3</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://cffi.readthedocs.org</string>
+        <key>OpenSourceURL</key>
+        <string>https://files.pythonhosted.org/packages/cb/ae/380e33d621ae301770358eb11a896a34c34f30db188847a561e8e39ee866/cffi-1.14.3.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-10-02</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>python_modules.txt</string>
+        <key>OpenSourceSHA256</key>
+        <string>f92f789e4f9241cd262ad7a555ca2c648a98178a953af117ef7fad46aa1d5591</string>
+</dict>

@@ -25,6 +25,7 @@
 
 #import <Foundation/Foundation.h>
 #import "keychain/ckks/CKKSResultOperation.h"
+#import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSAnalytics.h"
 
 NS_ASSUME_NONNULL_BEGIN
@@ -64,6 +65,17 @@ extern OctagonState* const OctagonStateMachineHalted;
 // convenience constructor. Will always succeed at entering the state.
 + (instancetype)named:(NSString*)name
              entering:(OctagonState*)intendedState NS_SWIFT_NAME(init(name:entering:));
+@end
+
+// Just like OctagonStateTransitionOperation, but as a Group Operation
+@interface OctagonStateTransitionGroupOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
+@property OctagonState* nextState;
+@property (readonly) OctagonState* intendedState;
+
++ (instancetype)named:(NSString*)name
+            intending:(OctagonState*)intendedState
+           errorState:(OctagonState*)errorState
+  withBlockTakingSelf:(void(^)(OctagonStateTransitionGroupOperation* op))block;
 @end
 
 

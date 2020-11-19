@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.hidpreferences.privileged</key>
+	<true/>
 	<key>com.apple.hid.manager.user-access-protected</key>
 	<true/>
 	<key>com.apple.hid.manager.user-access-privileged</key>
@@ -14,5 +16,9 @@
 	<array>
 		<string>kTCCServiceListenEvent</string>
 	</array>
+	<key>com.apple.private.hid.client.motion-event-privileged</key>
+	<true/>
+	<key>com.apple.hid.system.fast-path-motion-event-privileged</key>
+	<true/>
 </dict>
 </plist>

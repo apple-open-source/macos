@@ -23,11 +23,14 @@
  
 #include "AppleFileSystemDriver.h"
 
+#include <APFS/APFSConstants.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include <IOKit/IODeviceTreeSupport.h>
 
 #include <libkern/OSByteOrder.h>
+#include <libkern/OSAtomic.h>
 
 #include <sys/param.h>
 #include <hfs/hfs_format.h>
@@ -262,12 +265,34 @@ AppleFileSystemDriver::mediaNotificationHandler(
 		
         // i.e. does it know how big it is / have a block size
         if ( media->isFormatted() == false )  break;
+        
+        // If the media is an AppleAPFSVolume, see if the volume group UUID match the apfs-preboot-uuid
+        if ( ( fs->_apfsPrebootUUIDString != NULL) &&
+             ( media->metaCast(APFS_VOLUME_OBJECT) != NULL ) ) {
+            OSString * group_uuidProperty;
+
+            group_uuidProperty = OSDynamicCast( OSString, media->getProperty(kAPFSVolGroupUUIDKey) );
+            if ( ( group_uuidProperty != NULL ) &&
+                 ( group_uuidProperty->isEqualTo(fs->_apfsPrebootUUIDString) ) ) {
+                
+                // This apfs-preboot-uuid is a volume group, so stop checking
+                // other identifiers. Match only if we found the system volume.
+                uint16_t role = APFS_VOL_ROLE_NONE;
+                OSNumber * roleNumber = OSDynamicCast( OSNumber, media->getProperty(kAPFSRoleValueKey) );
+                if (roleNumber != NULL) {
+                    role = roleNumber->unsigned16BitValue();
+                }
+                VERBOSE_LOG("existing %s property matched (role = 0x%x)\n", kAPFSVolGroupUUIDKey, (unsigned int) role);
+                matched = (role == APFS_VOL_ROLE_SYSTEM);
+                break;
+            }
+        }
 
         // If the media already has a UUID property, try that first.
         uuidProperty = OSDynamicCast( OSString, media->getProperty("UUID") );
         if (uuidProperty != NULL) {
             if (fs->_uuidString && uuidProperty->isEqualTo(fs->_uuidString)) {
-		VERBOSE_LOG("existing UUID property matched\n");
+                VERBOSE_LOG("existing UUID property matched\n");
                 matched = true;
                 break;
             }
@@ -324,6 +349,9 @@ AppleFileSystemDriver::mediaNotificationHandler(
 
     if (matched) {
 			
+        if (OSCompareAndSwap(false, true, &fs->_matched) != true) {
+            return false;
+        }
         // prevent more notifications, if notifier is available
         if (fs->_notifier != NULL) {
             fs->_notifier->remove();
@@ -362,6 +390,7 @@ AppleFileSystemDriver::start(IOService * provider)
     OSString *          uuidString;
     const char *        uuidCString;
     IOService *         resourceService;
+    IORegistryEntry *   chosenEntry;
     OSDictionary *      dict;
 
 
@@ -369,6 +398,7 @@ AppleFileSystemDriver::start(IOService * provider)
 
     DEBUG_LOG("%s provider is '%s'\n", getName(), provider->getName());
 
+    _matched = false;
     do {
         resourceService = getResourceService();
         if (resourceService == 0) break;
@@ -387,7 +417,16 @@ AppleFileSystemDriver::start(IOService * provider)
             IOLog("%s: Error getting boot-uuid property\n", getName());
             break;
         }
-                
+
+        // check if the boot-uuid is set from APFS preboot
+        chosenEntry = IORegistryEntry::fromPath ( "/chosen", gIODTPlane );
+        if ( chosenEntry != NULL ) {
+            OSData *data = OSDynamicCast( OSData, chosenEntry->getProperty( "apfs-preboot-uuid" ) );
+            if ( data ) {
+                _apfsPrebootUUIDString = OSString::withCString( (const char *)data->getBytesNoCopy() );
+            }
+        }
+
         // Match IOMedia objects matching our criteria (from kext .plist)
         dict = OSDynamicCast( OSDictionary, getProperty( kMediaMatchKey ) );
         if (dict == 0) break;
@@ -430,6 +469,7 @@ AppleFileSystemDriver::free()
     
     if (_notifier) _notifier->remove();
     if (_uuidString) _uuidString->release();
+    if (_apfsPrebootUUIDString) _apfsPrebootUUIDString->release();
 
     super::free();
 }

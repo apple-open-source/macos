@@ -25,7 +25,6 @@
 //
 // trampolineClient - Authorization trampoline client-side implementation
 //
-#include <asl.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
@@ -105,13 +104,6 @@ FILE **communicationsPipe)
     os_log(AUTH_LOG, "AuthorizationExecuteWithPrivileges and AuthorizationExecuteWithPrivilegesExternalForm are deprecated and functionality will be removed soon - please update your application");
     if (extForm == NULL)
         return errAuthorizationInvalidPointer;
-    
-    // report the caller to the authorities
-    aslmsg m = asl_new(ASL_TYPE_MSG);
-    asl_set(m, "com.apple.message.domain", "com.apple.libsecurity_authorization.AuthorizationExecuteWithPrivileges");
-    asl_set(m, "com.apple.message.signature", getprogname());
-    asl_log(NULL, m, ASL_LEVEL_NOTICE, "AuthorizationExecuteWithPrivileges!");
-    asl_free(m);
     
     // flags are currently reserved
     if (flags != 0)

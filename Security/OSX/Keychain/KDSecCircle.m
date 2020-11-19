@@ -160,14 +160,15 @@ typedef void (^applicantBlock)(id applicant);
 
 -(id)init
 {
-	self = [super init];
-	int token;
+    if ((self = [super init])) {
+        int token;
     
-    self->_queue_ = dispatch_queue_create([[NSString stringWithFormat:@"KDSecCircle@%p", self] UTF8String], NULL);
-    self->_callbacks = [NSMutableArray new];
-	notify_register_dispatch(kSOSCCCircleChangedNotification, &token, self.queue_, ^(int token1){
-		[self updateCheck];
-	});
+        self->_queue_ = dispatch_queue_create([[NSString stringWithFormat:@"KDSecCircle@%p", self] UTF8String], NULL);
+        self->_callbacks = [NSMutableArray new];
+        notify_register_dispatch(kSOSCCCircleChangedNotification, &token, self.queue_, ^(int token1) {
+                [self updateCheck];
+            });
+    }
     return self;
 }
 

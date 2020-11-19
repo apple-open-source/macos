@@ -1,504 +1,1118 @@
-2020-01-28  Russell Epstein  <repstein@apple.com>
+2020-10-12  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r254764. rdar://problem/58920191
+        Cherry-pick r268330. rdar://problem/70189394
 
-    [bmalloc] Fix IsoHeapImpl's assertion introduced in r254708
-    https://bugs.webkit.org/show_bug.cgi?id=206440
-    <rdar://problem/58688794>
+    Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur
+    or later
+    https://bugs.webkit.org/show_bug.cgi?id=217594
+    rdar://70188497
     
-    Reviewed by Mark Lam.
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-11
+    Reviewed by Darin Adler.
     
-    The assertion introduced in r254708 was wrong.
-    Fixing it to check the invariant we actually want to ensure.
-    This fixes TestWTF crash in Debug build.
+    To ensure successful Mac Catalyst WebKit builds, strip the patch version from
+    TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
     
-    * bmalloc/IsoHeapImplInlines.h:
-    (bmalloc::IsoHeapImpl<Config>::takeFirstEligible):
+    * Configurations/Base.xcconfig:
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@254764 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268330 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2020-01-17  Yusuke Suzuki  <ysuzuki@apple.com>
+    2020-10-11  Luming Yin  <luming_yin@apple.com>
 
-            [bmalloc] Fix IsoHeapImpl's assertion introduced in r254708
-            https://bugs.webkit.org/show_bug.cgi?id=206440
-            <rdar://problem/58688794>
+            Strip patch version from TARGET_MAC_OS_X_VERSION_MAJOR when building for macOS Big Sur
+            or later
+            https://bugs.webkit.org/show_bug.cgi?id=217594
+            rdar://70188497
 
-            Reviewed by Mark Lam.
+            Reviewed by Darin Adler.
 
-            The assertion introduced in r254708 was wrong.
-            Fixing it to check the invariant we actually want to ensure.
-            This fixes TestWTF crash in Debug build.
+            To ensure successful Mac Catalyst WebKit builds, strip the patch version from
+            TARGET_MAC_OS_X_VERSION_MAJOR by using two `base:`s on MACOSX_DEPLOYMENT_TARGET.
 
-            * bmalloc/IsoHeapImplInlines.h:
-            (bmalloc::IsoHeapImpl<Config>::takeFirstEligible):
+            * Configurations/Base.xcconfig:
 
-2020-01-28  Russell Epstein  <repstein@apple.com>
+2020-10-12  Babak Shafiei  <bshafiei@apple.com>
 
-        Cherry-pick r254708. rdar://problem/58945571
+        Cherry-pick r268327. rdar://problem/70189401
 
-    [bmalloc] IsoHeap's initial setup should be small
-    https://bugs.webkit.org/show_bug.cgi?id=206214
+    Ignore deployment suffix and identifier when computing major OS version for macOS
+    Big Sur and newer
+    https://bugs.webkit.org/show_bug.cgi?id=217584
+    rdar://70168426
     
-    Reviewed by Michael Saboff.
+    Patch by Luming Yin <luming_yin@apple.com> on 2020-10-11
+    Reviewed by Darin Adler.
     
-    Source/bmalloc:
+    Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions.
+    Only use the deployment target base for macOS Big Sur and newer. Keep the manual
+    definitions for legacy versions of macOS.
     
-    Keep IsoHeap related data structures small by using Packed technique. We start using IsoHeap for many classes,
-    then it is important that we keep metadata for IsoHeap small because these data persistently exists.
+    * Configurations/Base.xcconfig:
     
-    1. We pass IsoHeapImpl<> as a parameter instead of holding it unnecessarily.
-    2. We make some of pointers Packed so that we can keep sizeof(IsoHeapImpl<Config>) small.
-    3. One of the drawback of PackedPtr is that loading and storing are not atomic. And we pass `const std::lock_guard<Mutex>&`
-       to functions if functions need to be called with lock so that we ensure that PackedPtr are accessed only when lock is
-       held correctly.
-    
-    * CMakeLists.txt:
-    * bmalloc.xcodeproj/project.pbxproj:
-    * bmalloc/Algorithm.h:
-    (bmalloc::ctzConstexpr):
-    (bmalloc::getLSBSetNonZeroConstexpr):
-    * bmalloc/BPlatform.h:
-    * bmalloc/DebugHeap.cpp:
-    (bmalloc::DebugHeap::DebugHeap):
-    * bmalloc/DebugHeap.h:
-    * bmalloc/DeferredTrigger.h:
-    * bmalloc/DeferredTriggerInlines.h:
-    (bmalloc::DeferredTrigger<trigger>::didBecome):
-    (bmalloc::DeferredTrigger<trigger>::handleDeferral):
-    * bmalloc/Environment.cpp:
-    (bmalloc::Environment::Environment):
-    * bmalloc/Environment.h:
-    * bmalloc/Gigacage.cpp:
-    (bmalloc::PrimitiveDisableCallbacks::PrimitiveDisableCallbacks):
-    * bmalloc/Heap.cpp:
-    (bmalloc::Heap::freeableMemory):
-    (bmalloc::Heap::markAllLargeAsEligibile):
-    (bmalloc::Heap::decommitLargeRange):
-    (bmalloc::Heap::scavenge):
-    (bmalloc::Heap::scavengeToHighWatermark):
-    * bmalloc/Heap.h:
-    * bmalloc/HeapConstants.cpp:
-    (bmalloc::HeapConstants::HeapConstants):
-    * bmalloc/HeapConstants.h:
-    * bmalloc/IsoAllocator.h:
-    * bmalloc/IsoAllocatorInlines.h:
-    (bmalloc::IsoAllocator<Config>::IsoAllocator):
-    (bmalloc::IsoAllocator<Config>::allocate):
-    (bmalloc::IsoAllocator<Config>::allocateSlow):
-    (bmalloc::IsoAllocator<Config>::scavenge):
-    * bmalloc/IsoDeallocatorInlines.h:
-    (bmalloc::IsoDeallocator<Config>::scavenge):
-    * bmalloc/IsoDirectory.h:
-    * bmalloc/IsoDirectoryInlines.h:
-    (bmalloc::passedNumPages>::IsoDirectory):
-    (bmalloc::passedNumPages>::takeFirstEligible):
-    (bmalloc::passedNumPages>::didBecome):
-    (bmalloc::passedNumPages>::didDecommit):
-    (bmalloc::passedNumPages>::scavengePage):
-    (bmalloc::passedNumPages>::scavenge):
-    (bmalloc::passedNumPages>::scavengeToHighWatermark):
-    (bmalloc::passedNumPages>::forEachCommittedPage):
-    * bmalloc/IsoHeapImpl.cpp:
-    (bmalloc::IsoHeapImplBase::IsoHeapImplBase):
-    * bmalloc/IsoHeapImpl.h:
-    * bmalloc/IsoHeapImplInlines.h:
-    (bmalloc::IsoHeapImpl<Config>::IsoHeapImpl):
-    (bmalloc::IsoHeapImpl<Config>::takeFirstEligible):
-    (bmalloc::IsoHeapImpl<Config>::didBecomeEligibleOrDecommited):
-    (bmalloc::IsoHeapImpl<Config>::scavenge):
-    (bmalloc::IsoHeapImpl<Config>::scavengeToHighWatermark):
-    (bmalloc::IsoHeapImplBase::freeableMemory):
-    (bmalloc::IsoHeapImpl<Config>::numLiveObjects):
-    (bmalloc::IsoHeapImpl<Config>::numCommittedPages):
-    (bmalloc::IsoHeapImpl<Config>::forEachDirectory):
-    (bmalloc::IsoHeapImpl<Config>::forEachCommittedPage):
-    (bmalloc::IsoHeapImpl<Config>::forEachLiveObject):
-    (bmalloc::IsoHeapImplBase::footprint):
-    (bmalloc::IsoHeapImplBase::didCommit):
-    (bmalloc::IsoHeapImplBase::didDecommit):
-    (bmalloc::IsoHeapImplBase::isNowFreeable):
-    (bmalloc::IsoHeapImplBase::isNoLongerFreeable):
-    (bmalloc::IsoHeapImpl<Config>::allocateFromShared):
-    (bmalloc::IsoHeapImpl<Config>::freeableMemory): Deleted.
-    (bmalloc::IsoHeapImpl<Config>::footprint): Deleted.
-    (bmalloc::IsoHeapImpl<Config>::didCommit): Deleted.
-    (bmalloc::IsoHeapImpl<Config>::didDecommit): Deleted.
-    (bmalloc::IsoHeapImpl<Config>::isNowFreeable): Deleted.
-    (bmalloc::IsoHeapImpl<Config>::isNoLongerFreeable): Deleted.
-    * bmalloc/IsoPage.h:
-    (bmalloc::IsoPageBase::IsoPageBase):
-    * bmalloc/IsoPageInlines.h:
-    (bmalloc::IsoPage<Config>::IsoPage):
-    (bmalloc::IsoPage<Config>::free):
-    (bmalloc::IsoPage<Config>::startAllocating):
-    (bmalloc::IsoPage<Config>::stopAllocating):
-    (bmalloc::IsoPage<Config>::forEachLiveObject):
-    * bmalloc/IsoSharedHeap.h:
-    (bmalloc::IsoSharedHeap::IsoSharedHeap):
-    * bmalloc/IsoSharedHeapInlines.h:
-    (bmalloc::IsoSharedHeap::allocateNew):
-    (bmalloc::IsoSharedHeap::allocateSlow):
-    * bmalloc/IsoSharedPage.h:
-    * bmalloc/IsoSharedPageInlines.h:
-    (bmalloc::IsoSharedPage::free):
-    (bmalloc::IsoSharedPage::startAllocating):
-    (bmalloc::IsoSharedPage::stopAllocating):
-    * bmalloc/IsoTLS.h:
-    * bmalloc/IsoTLSAllocatorEntry.h:
-    * bmalloc/IsoTLSAllocatorEntryInlines.h:
-    (bmalloc::IsoTLSAllocatorEntry<Config>::scavenge):
-    * bmalloc/IsoTLSDeallocatorEntry.h:
-    * bmalloc/IsoTLSDeallocatorEntryInlines.h:
-    (bmalloc::IsoTLSDeallocatorEntry<Config>::scavenge):
-    * bmalloc/IsoTLSEntry.cpp:
-    (bmalloc::IsoTLSEntry::IsoTLSEntry):
-    * bmalloc/IsoTLSEntry.h:
-    * bmalloc/IsoTLSEntryInlines.h:
-    (bmalloc::DefaultIsoTLSEntry<EntryType>::DefaultIsoTLSEntry):
-    (bmalloc::DefaultIsoTLSEntry<EntryType>::~DefaultIsoTLSEntry): Deleted.
-    (bmalloc::DefaultIsoTLSEntry<EntryType>::scavenge): Deleted.
-    * bmalloc/IsoTLSInlines.h:
-    (bmalloc::IsoTLS::scavenge):
-    (bmalloc::IsoTLS::allocateImpl):
-    (bmalloc::IsoTLS::allocateFast):
-    (bmalloc::IsoTLS::allocateSlow):
-    * bmalloc/IsoTLSLayout.cpp:
-    (bmalloc::IsoTLSLayout::add):
-    * bmalloc/Packed.h: Added.
-    (bmalloc::Packed::Packed):
-    (bmalloc::Packed::get const):
-    (bmalloc::Packed::set):
-    (bmalloc::Packed::operator=):
-    (bmalloc::Packed::exchange):
-    (bmalloc::Packed::swap):
-    (bmalloc::alignof):
-    (bmalloc::PackedPtrTraits::exchange):
-    (bmalloc::PackedPtrTraits::swap):
-    (bmalloc::PackedPtrTraits::unwrap):
-    * bmalloc/Scavenger.cpp:
-    (bmalloc::Scavenger::Scavenger):
-    * bmalloc/Scavenger.h:
-    * bmalloc/VMHeap.cpp:
-    (bmalloc::VMHeap::VMHeap):
-    * bmalloc/VMHeap.h:
-    * bmalloc/Zone.cpp:
-    (bmalloc::Zone::Zone):
-    * bmalloc/Zone.h:
-    
-    Tools:
-    
-    * TestWebKitAPI/Tests/WTF/bmalloc/IsoHeap.cpp:
-    (assertHasObjects):
-    (assertHasOnlyObjects):
-    (assertClean):
-    (TEST):
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@254708 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@268327 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2020-01-16  Yusuke Suzuki  <ysuzuki@apple.com>
+    2020-10-11  Luming Yin  <luming_yin@apple.com>
 
-            [bmalloc] IsoHeap's initial setup should be small
-            https://bugs.webkit.org/show_bug.cgi?id=206214
+            Ignore deployment suffix and identifier when computing major OS version for macOS
+            Big Sur and newer
+            https://bugs.webkit.org/show_bug.cgi?id=217584
+            rdar://70168426
 
-            Reviewed by Michael Saboff.
+            Reviewed by Darin Adler.
 
-            Keep IsoHeap related data structures small by using Packed technique. We start using IsoHeap for many classes,
-            then it is important that we keep metadata for IsoHeap small because these data persistently exists.
+            Stop using MACOSX_DEPLOYMENT_TARGET:suffix:identifier to compute major OS versions.
+            Only use the deployment target base for macOS Big Sur and newer. Keep the manual
+            definitions for legacy versions of macOS.
 
-            1. We pass IsoHeapImpl<> as a parameter instead of holding it unnecessarily.
-            2. We make some of pointers Packed so that we can keep sizeof(IsoHeapImpl<Config>) small.
-            3. One of the drawback of PackedPtr is that loading and storing are not atomic. And we pass `const std::lock_guard<Mutex>&`
-               to functions if functions need to be called with lock so that we ensure that PackedPtr are accessed only when lock is
-               held correctly.
+            * Configurations/Base.xcconfig:
 
-            * CMakeLists.txt:
-            * bmalloc.xcodeproj/project.pbxproj:
-            * bmalloc/Algorithm.h:
-            (bmalloc::ctzConstexpr):
-            (bmalloc::getLSBSetNonZeroConstexpr):
-            * bmalloc/BPlatform.h:
-            * bmalloc/DebugHeap.cpp:
-            (bmalloc::DebugHeap::DebugHeap):
-            * bmalloc/DebugHeap.h:
-            * bmalloc/DeferredTrigger.h:
-            * bmalloc/DeferredTriggerInlines.h:
-            (bmalloc::DeferredTrigger<trigger>::didBecome):
-            (bmalloc::DeferredTrigger<trigger>::handleDeferral):
-            * bmalloc/Environment.cpp:
-            (bmalloc::Environment::Environment):
-            * bmalloc/Environment.h:
-            * bmalloc/Gigacage.cpp:
-            (bmalloc::PrimitiveDisableCallbacks::PrimitiveDisableCallbacks):
-            * bmalloc/Heap.cpp:
-            (bmalloc::Heap::freeableMemory):
-            (bmalloc::Heap::markAllLargeAsEligibile):
-            (bmalloc::Heap::decommitLargeRange):
-            (bmalloc::Heap::scavenge):
-            (bmalloc::Heap::scavengeToHighWatermark):
-            * bmalloc/Heap.h:
-            * bmalloc/HeapConstants.cpp:
-            (bmalloc::HeapConstants::HeapConstants):
-            * bmalloc/HeapConstants.h:
-            * bmalloc/IsoAllocator.h:
-            * bmalloc/IsoAllocatorInlines.h:
-            (bmalloc::IsoAllocator<Config>::IsoAllocator):
-            (bmalloc::IsoAllocator<Config>::allocate):
-            (bmalloc::IsoAllocator<Config>::allocateSlow):
-            (bmalloc::IsoAllocator<Config>::scavenge):
-            * bmalloc/IsoDeallocatorInlines.h:
-            (bmalloc::IsoDeallocator<Config>::scavenge):
-            * bmalloc/IsoDirectory.h:
-            * bmalloc/IsoDirectoryInlines.h:
-            (bmalloc::passedNumPages>::IsoDirectory):
-            (bmalloc::passedNumPages>::takeFirstEligible):
-            (bmalloc::passedNumPages>::didBecome):
-            (bmalloc::passedNumPages>::didDecommit):
-            (bmalloc::passedNumPages>::scavengePage):
-            (bmalloc::passedNumPages>::scavenge):
-            (bmalloc::passedNumPages>::scavengeToHighWatermark):
-            (bmalloc::passedNumPages>::forEachCommittedPage):
-            * bmalloc/IsoHeapImpl.cpp:
-            (bmalloc::IsoHeapImplBase::IsoHeapImplBase):
-            * bmalloc/IsoHeapImpl.h:
-            * bmalloc/IsoHeapImplInlines.h:
-            (bmalloc::IsoHeapImpl<Config>::IsoHeapImpl):
-            (bmalloc::IsoHeapImpl<Config>::takeFirstEligible):
-            (bmalloc::IsoHeapImpl<Config>::didBecomeEligibleOrDecommited):
-            (bmalloc::IsoHeapImpl<Config>::scavenge):
-            (bmalloc::IsoHeapImpl<Config>::scavengeToHighWatermark):
-            (bmalloc::IsoHeapImplBase::freeableMemory):
-            (bmalloc::IsoHeapImpl<Config>::numLiveObjects):
-            (bmalloc::IsoHeapImpl<Config>::numCommittedPages):
-            (bmalloc::IsoHeapImpl<Config>::forEachDirectory):
-            (bmalloc::IsoHeapImpl<Config>::forEachCommittedPage):
-            (bmalloc::IsoHeapImpl<Config>::forEachLiveObject):
-            (bmalloc::IsoHeapImplBase::footprint):
-            (bmalloc::IsoHeapImplBase::didCommit):
-            (bmalloc::IsoHeapImplBase::didDecommit):
-            (bmalloc::IsoHeapImplBase::isNowFreeable):
-            (bmalloc::IsoHeapImplBase::isNoLongerFreeable):
-            (bmalloc::IsoHeapImpl<Config>::allocateFromShared):
-            (bmalloc::IsoHeapImpl<Config>::freeableMemory): Deleted.
-            (bmalloc::IsoHeapImpl<Config>::footprint): Deleted.
-            (bmalloc::IsoHeapImpl<Config>::didCommit): Deleted.
-            (bmalloc::IsoHeapImpl<Config>::didDecommit): Deleted.
-            (bmalloc::IsoHeapImpl<Config>::isNowFreeable): Deleted.
-            (bmalloc::IsoHeapImpl<Config>::isNoLongerFreeable): Deleted.
-            * bmalloc/IsoPage.h:
-            (bmalloc::IsoPageBase::IsoPageBase):
-            * bmalloc/IsoPageInlines.h:
-            (bmalloc::IsoPage<Config>::IsoPage):
-            (bmalloc::IsoPage<Config>::free):
-            (bmalloc::IsoPage<Config>::startAllocating):
-            (bmalloc::IsoPage<Config>::stopAllocating):
-            (bmalloc::IsoPage<Config>::forEachLiveObject):
-            * bmalloc/IsoSharedHeap.h:
-            (bmalloc::IsoSharedHeap::IsoSharedHeap):
-            * bmalloc/IsoSharedHeapInlines.h:
-            (bmalloc::IsoSharedHeap::allocateNew):
-            (bmalloc::IsoSharedHeap::allocateSlow):
-            * bmalloc/IsoSharedPage.h:
-            * bmalloc/IsoSharedPageInlines.h:
-            (bmalloc::IsoSharedPage::free):
-            (bmalloc::IsoSharedPage::startAllocating):
-            (bmalloc::IsoSharedPage::stopAllocating):
-            * bmalloc/IsoTLS.h:
-            * bmalloc/IsoTLSAllocatorEntry.h:
-            * bmalloc/IsoTLSAllocatorEntryInlines.h:
-            (bmalloc::IsoTLSAllocatorEntry<Config>::scavenge):
-            * bmalloc/IsoTLSDeallocatorEntry.h:
-            * bmalloc/IsoTLSDeallocatorEntryInlines.h:
-            (bmalloc::IsoTLSDeallocatorEntry<Config>::scavenge):
-            * bmalloc/IsoTLSEntry.cpp:
-            (bmalloc::IsoTLSEntry::IsoTLSEntry):
-            * bmalloc/IsoTLSEntry.h:
-            * bmalloc/IsoTLSEntryInlines.h:
-            (bmalloc::DefaultIsoTLSEntry<EntryType>::DefaultIsoTLSEntry):
-            (bmalloc::DefaultIsoTLSEntry<EntryType>::~DefaultIsoTLSEntry): Deleted.
-            (bmalloc::DefaultIsoTLSEntry<EntryType>::scavenge): Deleted.
-            * bmalloc/IsoTLSInlines.h:
-            (bmalloc::IsoTLS::scavenge):
-            (bmalloc::IsoTLS::allocateImpl):
-            (bmalloc::IsoTLS::allocateFast):
-            (bmalloc::IsoTLS::allocateSlow):
-            * bmalloc/IsoTLSLayout.cpp:
-            (bmalloc::IsoTLSLayout::add):
-            * bmalloc/Packed.h: Added.
-            (bmalloc::Packed::Packed):
-            (bmalloc::Packed::get const):
-            (bmalloc::Packed::set):
-            (bmalloc::Packed::operator=):
-            (bmalloc::Packed::exchange):
-            (bmalloc::Packed::swap):
-            (bmalloc::alignof):
-            (bmalloc::PackedPtrTraits::exchange):
-            (bmalloc::PackedPtrTraits::swap):
-            (bmalloc::PackedPtrTraits::unwrap):
-            * bmalloc/Scavenger.cpp:
-            (bmalloc::Scavenger::Scavenger):
-            * bmalloc/Scavenger.h:
-            * bmalloc/VMHeap.cpp:
-            (bmalloc::VMHeap::VMHeap):
-            * bmalloc/VMHeap.h:
-            * bmalloc/Zone.cpp:
-            (bmalloc::Zone::Zone):
-            * bmalloc/Zone.h:
+2020-08-07  Saam Barati  <sbarati@apple.com>
 
-2020-01-28  Russell Epstein  <repstein@apple.com>
+        Use thread_switch instead of switch_pri to drop priority to zero for 1ms instead of 10
+        https://bugs.webkit.org/show_bug.cgi?id=215248
 
-        Cherry-pick r254527. rdar://problem/58945571
+        Reviewed by Yusuke Suzuki.
 
-    [bmalloc] Calculate LineMetadata for specific VM page size in compile time
-    https://bugs.webkit.org/show_bug.cgi?id=206044
-    
-    Reviewed by Yusuke Suzuki.
-    
-    LineMetadata is dependent only on VM page size. This patch enables the pre-calculation for
-    specific VM page sizes by compiler flags. The benefit is both runtime initialization speed
-    up and avoiding extra VM allocation on runtime.
-    
-    First targets are 4k (Mac) and 16k (some iOS, PlayStation) VM page sizes.
-    
-    * bmalloc/Algorithm.h:
-    (bmalloc::divideRoundingUp):
-    * bmalloc/BPlatform.h:
-    * bmalloc/HeapConstants.cpp:
-    (bmalloc::fillLineMetadata):
-    (bmalloc::computeLineMetadata):
-    (bmalloc::HeapConstants::initializeLineMetadata):
-    * bmalloc/HeapConstants.h:
-    (bmalloc::HeapConstants::smallLineCount const):
-    (bmalloc::HeapConstants::startOffset const):
-    (bmalloc::HeapConstants::objectCount const):
-    (bmalloc::HeapConstants::lineMetadata const):
-    (bmalloc::HeapConstants::startOffset): Deleted.
-    (bmalloc::HeapConstants::objectCount): Deleted.
-    (bmalloc::HeapConstants::lineMetadata): Deleted.
-    * bmalloc/LineMetadata.h:
-    * bmalloc/Sizes.h:
-    (bmalloc::Sizes::maskObjectSize):
-    (bmalloc::Sizes::logSizeClass):
-    (bmalloc::Sizes::logObjectSize):
-    (bmalloc::Sizes::sizeClass):
-    (bmalloc::Sizes::objectSize):
-    (bmalloc::Sizes::pageSize):
-    (bmalloc::Sizes::smallLineCount):
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@254527 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+        * bmalloc/Mutex.cpp:
+        (bmalloc::yield):
+        (bmalloc::Mutex::lockSlowCase):
 
-    2020-01-14  Basuke Suzuki  <basuke.suzuki@sony.com>
+2020-08-05  Tim Horton  <timothy_horton@apple.com>
 
-            [bmalloc] Calculate LineMetadata for specific VM page size in compile time
-            https://bugs.webkit.org/show_bug.cgi?id=206044
+        Remove all references to non-existent 10.16
+        https://bugs.webkit.org/show_bug.cgi?id=215202
 
-            Reviewed by Yusuke Suzuki.
+        Reviewed by Wenson Hsieh.
 
-            LineMetadata is dependent only on VM page size. This patch enables the pre-calculation for
-            specific VM page sizes by compiler flags. The benefit is both runtime initialization speed
-            up and avoiding extra VM allocation on runtime.
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
 
-            First targets are 4k (Mac) and 16k (some iOS, PlayStation) VM page sizes.
+2020-07-22  Conrad Shultz  <conrad_shultz@apple.com>
 
-            * bmalloc/Algorithm.h:
-            (bmalloc::divideRoundingUp):
-            * bmalloc/BPlatform.h:
-            * bmalloc/HeapConstants.cpp:
-            (bmalloc::fillLineMetadata):
-            (bmalloc::computeLineMetadata):
-            (bmalloc::HeapConstants::initializeLineMetadata):
-            * bmalloc/HeapConstants.h:
-            (bmalloc::HeapConstants::smallLineCount const):
-            (bmalloc::HeapConstants::startOffset const):
-            (bmalloc::HeapConstants::objectCount const):
-            (bmalloc::HeapConstants::lineMetadata const):
-            (bmalloc::HeapConstants::startOffset): Deleted.
-            (bmalloc::HeapConstants::objectCount): Deleted.
-            (bmalloc::HeapConstants::lineMetadata): Deleted.
-            * bmalloc/LineMetadata.h:
-            * bmalloc/Sizes.h:
-            (bmalloc::Sizes::maskObjectSize):
-            (bmalloc::Sizes::logSizeClass):
-            (bmalloc::Sizes::logObjectSize):
-            (bmalloc::Sizes::sizeClass):
-            (bmalloc::Sizes::objectSize):
-            (bmalloc::Sizes::pageSize):
-            (bmalloc::Sizes::smallLineCount):
+        Update macOS Version macros
+        https://bugs.webkit.org/show_bug.cgi?id=214653
 
-2020-01-28  Russell Epstein  <repstein@apple.com>
+        Reviewed by Tim Horton.
 
-        Cherry-pick r254303. rdar://problem/58945571
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
 
-    [bmalloc] Extract constants from Heap and share it among Heaps.
-    https://bugs.webkit.org/show_bug.cgi?id=205834
-    
-    Reviewed by Geoffrey Garen.
-    
-    A Heap has many constants (m_vmPageSizePhysical, m_smallLineMetadata and m_pageClasses) and they
-    are dependent only to vmPageSizePhysical and identical for all Heaps.
-    
-    Extracting them into a class and make it sharable among heaps. Also this is the first step for
-    making Heap constants to actual `constexpr`.
-    
-    * CMakeLists.txt: Added HeapConstants.cpp.
-    * bmalloc.xcodeproj/project.pbxproj: Ditto.
-    * bmalloc/Heap.cpp: Referencing HeapConstants object to get information.
-    (bmalloc::Heap::Heap):
-    (bmalloc::Heap::allocateSmallPage):
-    (bmalloc::Heap::deallocateSmallLine):
-    (bmalloc::Heap::allocateSmallBumpRangesByMetadata):
-    (bmalloc::Heap::allocateSmallBumpRangesByObject):
-    (bmalloc::Heap::initializeLineMetadata): Moved to HeapConstants.cpp.
-    (bmalloc::Heap::initializePageMetadata): Moved to HeapConstants.cpp.
-    * bmalloc/Heap.h: Extract metadata initialization and member variables.
-    * bmalloc/HeapConstants.cpp: Added.
-    (bmalloc::HeapConstants::HeapConstants):
-    (bmalloc::HeapConstants::initializeLineMetadata):
-    (bmalloc::HeapConstants::initializePageMetadata):
-    * bmalloc/HeapConstants.h:
-    (bmalloc::HeapConstants::pageClass const):
-    (bmalloc::HeapConstants::smallLineCount const):
-    (bmalloc::HeapConstants::startOffset):
-    (bmalloc::HeapConstants::objectCount):
-    (bmalloc::HeapConstants::lineMetadata):
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@254303 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+2020-07-03  Sam Weinig  <weinig@apple.com>
 
-    2020-01-09  Basuke Suzuki  <basuke.suzuki@sony.com>
+        Add "-Wliteral-conversion" warning to Xcode based builds and fix the issues it finds
+        https://bugs.webkit.org/show_bug.cgi?id=213931
 
-            [bmalloc] Extract constants from Heap and share it among Heaps.
-            https://bugs.webkit.org/show_bug.cgi?id=205834
+        Reviewed by Darin Adler.
 
-            Reviewed by Geoffrey Garen.
+        * Configurations/Base.xcconfig:
+        Add -Wliteral-conversion.
 
-            A Heap has many constants (m_vmPageSizePhysical, m_smallLineMetadata and m_pageClasses) and they
-            are dependent only to vmPageSizePhysical and identical for all Heaps.
+2020-06-30  Andy Estes  <aestes@apple.com>
 
-            Extracting them into a class and make it sharable among heaps. Also this is the first step for
-            making Heap constants to actual `constexpr`.
+        [Xcode] Enable the "My Mac (Mac Catalyst)" destination in WebKit Xcode projects
+        https://bugs.webkit.org/show_bug.cgi?id=213740
 
-            * CMakeLists.txt: Added HeapConstants.cpp.
-            * bmalloc.xcodeproj/project.pbxproj: Ditto.
-            * bmalloc/Heap.cpp: Referencing HeapConstants object to get information.
-            (bmalloc::Heap::Heap):
-            (bmalloc::Heap::allocateSmallPage):
-            (bmalloc::Heap::deallocateSmallLine):
-            (bmalloc::Heap::allocateSmallBumpRangesByMetadata):
-            (bmalloc::Heap::allocateSmallBumpRangesByObject):
-            (bmalloc::Heap::initializeLineMetadata): Moved to HeapConstants.cpp.
-            (bmalloc::Heap::initializePageMetadata): Moved to HeapConstants.cpp.
-            * bmalloc/Heap.h: Extract metadata initialization and member variables.
-            * bmalloc/HeapConstants.cpp: Added.
-            (bmalloc::HeapConstants::HeapConstants):
-            (bmalloc::HeapConstants::initializeLineMetadata):
-            (bmalloc::HeapConstants::initializePageMetadata):
-            * bmalloc/HeapConstants.h:
-            (bmalloc::HeapConstants::pageClass const):
-            (bmalloc::HeapConstants::smallLineCount const):
-            (bmalloc::HeapConstants::startOffset):
-            (bmalloc::HeapConstants::objectCount):
-            (bmalloc::HeapConstants::lineMetadata):
+        Reviewed by Darin Adler.
+
+        * Configurations/Base.xcconfig: Set SUPPORTS_MACCATALYST to YES to tell Xcode that this
+        project supports building for Mac Catalyst.
+
+2020-06-22  Saam Barati  <sbarati@apple.com>
+
+        Only use vm_kernel_page_size on arm architectures
+        https://bugs.webkit.org/show_bug.cgi?id=213474
+
+        Reviewed by Sam Weinig.
+
+        We don't want to use this under catalyst.
+
+        * bmalloc/VMAllocate.h:
+        (bmalloc::vmPageSizePhysical):
+
+2020-06-22  Tim Horton  <timothy_horton@apple.com>
+
+        Update macOS version macros
+        https://bugs.webkit.org/show_bug.cgi?id=213484
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2020-06-19  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Check Gigacage usage before launching VM
+        https://bugs.webkit.org/show_bug.cgi?id=213410
+
+        Reviewed by Mark Lam.
+
+        Add Gigacage::footprint and Gigacage::size functions to expose usage to API users.
+        Rename Gigacage::size to Gigacage::maxSize.
+
+        * bmalloc/Gigacage.cpp:
+        (Gigacage::ensureGigacage):
+        (Gigacage::size):
+        (Gigacage::footprint):
+        * bmalloc/Gigacage.h:
+        (Gigacage::maxSize):
+        (Gigacage::alignment):
+        (Gigacage::mask):
+        (Gigacage::size):
+        (Gigacage::footprint):
+        * bmalloc/Heap.cpp:
+        (bmalloc::Heap::gigacageSize):
+        * bmalloc/Heap.h:
+
+2020-06-04  Tim Horton  <timothy_horton@apple.com>
+
+        Work around broken system version macro
+        https://bugs.webkit.org/show_bug.cgi?id=212726
+
+        Reviewed by Dan Bernstein.
+
+        * Configurations/DebugRelease.xcconfig:
+
+2020-06-02  Mark Lam  <mark.lam@apple.com>
+
+        Change Gigacage::Config to use storage in WebConfig::g_config instead of its own.
+        https://bugs.webkit.org/show_bug.cgi?id=212585
+        <rdar://problem/63812487>
+
+        Reviewed by Yusuke Suzuki.
+
+        1. Gigacage::Config now reserves and expect space to be available in an external
+           WebConfig::g_config buffer.  Gigacage does not allocate that buffer.
+
+        2. Moved Gigacage::Config to GigacageConfig.h.
+           This allows WTFConfig.h to include GigacageConfig.h instead of all of Gigacage.h.
+
+        3. Moved Gigacage::Kind to GigacageKind.h.
+           Otherwise, Gigacage::Kind would need to move to GigacageConfig.h which is a
+           weird place to put it.
+
+        4. Removed freezeGigacageConfig(), unfreezeGigacageConfig(), and
+           permanentlyFreezeGigacageConfig().
+
+           It is no longer possible to temporarily freeze and unfreeze the Gigacage::Config
+           because it now share the same memory page with higher level Configs.
+
+           permanentlyFreezeGigacageConfig() is no longer needed because it is subsumed
+           by WTF::Config::permanentlyFreeze(), which will freeze the entire WebConfig::g_config
+           buffer.
+
+           One difference in behavior here is that Gigacage::Config data used to be permanently
+           frozen as soon as forbidDisablingPrimitiveGigacage() is called.  Now, it isn't
+           permanently frozen until the end of the construction of the first JSC::VM instance
+           in the process (just like the other Config records).  This still guarantees that
+           it is frozen before any JS script can run.
+
+        5. Previously, disablePrimitiveGigacage() works by nullifying the Primitive gigacage
+           base pointer.  We can no longer do that because the base pointer will be frozen
+           on VM instantiation.  Instead, if not forbidden, we now disable the Primitive
+           gigacage by setting a disablePrimitiveGigacageRequested bool variable that is
+           not frozen in the Gigacage::Config.
+
+           To check if the Primitive gigacage is enabled, the LLInt, AssemblyHelpers::cageConditionally(),
+           and runtime functions will check the following conditions:
+
+               g_gigacageConfig.basePtr(Primitive) &&
+                   (disablingPrimitiveGigacageIsForbidden() || disableNotRequestedForPrimitiveGigacage())
+
+               The base pointer being null means the gigacage was never set up.
+
+               If disablingPrimitiveGigacageIsForbidden() is true, then we don't care
+               whether a disable request has been received.
+
+               Otherwise, the gigacage is only enabled if it has been set up, and a
+               disable request has not been received.
+
+               Note that the first 2 terms are frozen in the Gigacage::Config.  Only the
+               last term is a runtime variable.  If disabling is forbidden, then the
+               runtime variable never comes into play.
+
+           The FTL does not rely on a runtime check for whether the Primitive gigacage is
+           enabled or not.  Instead, it relies on a watchpoint to handle this.  So, it
+           just works, and there's no performance penalty with adding the 2 extra terms
+           to check.
+
+           Note also that the jsc shell and the WebProcess will forbid disabling of the
+           Primitive gigacage.  This means the AssemblyHelpers::cageConditionally() will
+           also not generate the runtime checks for the 2 extra terms.
+
+           Only the LLInt and runtime functions will have to do work to check the 2 extra
+           terms.  But because these are not in perf critical paths, this is ok.
+
+           Note that we're deliberately gating the disablePrimitiveGigacageRequested
+           variable check on disablingPrimitiveGigacageIsForbidden though, logically, the
+           isEnable check does not really depend on whether disabling is forbidden or not.
+           We do this because disablingPrimitiveGigacageIsForbidden is frozen in the Config,
+           and it is, therefore, a stronger guarantee of correctness whereas the variable
+           can be corrupted.
+
+        6. Replaced isDisablingPrimitiveGigacageForbidden(), canPrimitiveGigacageBeDisabled(),
+           and isPrimitiveGigacagePermanentlyEnabled() with disablingPrimitiveGigacageIsForbidden().
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/Gigacage.cpp:
+        (Gigacage::ensureGigacage):
+        (Gigacage::disablePrimitiveGigacage):
+        (Gigacage::forbidDisablingPrimitiveGigacage):
+        (Gigacage::bmalloc::freezeGigacageConfig): Deleted.
+        (Gigacage::bmalloc::unfreezeGigacageConfig): Deleted.
+        (Gigacage::bmalloc::permanentlyFreezeGigacageConfig): Deleted.
+        (Gigacage::bmalloc::UnfreezeGigacageConfigScope::UnfreezeGigacageConfigScope): Deleted.
+        (Gigacage::bmalloc::UnfreezeGigacageConfigScope::~UnfreezeGigacageConfigScope): Deleted.
+        (Gigacage::isDisablingPrimitiveGigacageForbidden): Deleted.
+        * bmalloc/Gigacage.h:
+        (Gigacage::disablingPrimitiveGigacageIsForbidden):
+        (Gigacage::disableNotRequestedForPrimitiveGigacage):
+        (Gigacage::isEnabled):
+        (Gigacage::basePtr):
+        (Gigacage::caged):
+        (Gigacage::forbidDisablingPrimitiveGigacage):
+        (): Deleted.
+        (Gigacage::Config::basePtr const): Deleted.
+        (Gigacage::Config::setBasePtr): Deleted.
+        (Gigacage::isPrimitiveGigacagePermanentlyEnabled): Deleted.
+        (Gigacage::canPrimitiveGigacageBeDisabled): Deleted.
+        * bmalloc/GigacageConfig.h: Added.
+        (Gigacage::Config::basePtr const):
+        (Gigacage::Config::setBasePtr):
+        * bmalloc/GigacageKind.h: Added.
+        * bmalloc/Heap.cpp:
+        (bmalloc::Heap::usingGigacage):
+        * bmalloc/mbmalloc.cpp:
+
+2020-05-23  Caio Lima  <ticaiolima@gmail.com>
+
+        [bmalloc] Fix OOM errors on MIPS after r261667
+        https://bugs.webkit.org/show_bug.cgi?id=212016
+
+        Reviewed by Yusuke Suzuki.
+
+        The way we were calculating `newBegin` and `newEnd` on
+        `ObjectTypeTable::set` when index is out of bounds didn't consider
+        cases where `bits->begin() - bits->count()` or `index - ObjectTypeTable::Bits::bitCountPerWord * 4`
+        can underflow and `bits->end() + bits->count()` can overflow.
+        Given that, the value used is going to be `index` or `index + 1`.
+        Since we extend the size of bitvector everytime we have an OOB, this can cause a pathological case
+        that memory will keep extending quite often until systems reachs OOM.
+        It is reproducible on ARMv7 and MIPS architectures on
+        `stress/array-buffer-view-watchpoint-can-be-fired-in-really-add-in-dfg.js`,
+        `stress/big-int-mod-memory-stress.js` and some other tests.
+        This patch is including a verification if those operations are going
+        to overflow/underflow, and properly set `newBegin` to 0 and `newEnd`
+        to UINT_MAX when we observe such behavior.
+
+        * bmalloc/ObjectTypeTable.cpp:
+        (bmalloc::ObjectTypeTable::set):
+
+2020-05-18  Mark Lam  <mark.lam@apple.com>
+
+        Implement a faster findBitInWord() using the hardware ctz instruction.
+        https://bugs.webkit.org/show_bug.cgi?id=212032
+        <rdar://problem/63348086>
+
+        Reviewed by Saam Barati.
+
+        Apply same changes to bmalloc's copy of findBitInWord().
+
+        * bmalloc/Algorithm.h:
+        (bmalloc::ctz):
+        (bmalloc::findBitInWord):
+
+2020-05-13  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [bmalloc] Introduce lock-less ObjectType query
+        https://bugs.webkit.org/show_bug.cgi?id=211809
+
+        Reviewed by Mark Lam.
+
+        This patch introduces ObjectTypeTable, which allows lock-less ObjectType query for Chunk*.
+        It has bit-vector to store ObjectType per address. And each bit represents 1MB of VA region since
+        Chunk*'s size is at least 1MB and ObjectType is 1bit data. Every time we extend this bit-vector
+        to support larger VA region, we do not free the old bit-vector. Since we always allocate power-of-2
+        sized bit-vector, # of extension is limited and it does not waste much memory because Chunk's size
+        is enough large (1MB). Since each 4KB page on macOS can represent a bit-vector for 32GB VA region,
+        in practice, this extension almost never happens. I verified that 4KB page can handle memory
+        allocations in JetStream2 and Gmail.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/Algorithm.h:
+        (bmalloc::roundUpToPowerOfTwo):
+        * bmalloc/Deallocator.cpp:
+        (bmalloc::Deallocator::deallocateSlowCase):
+        * bmalloc/Heap.cpp:
+        (bmalloc::Heap::freeableMemory):
+        (bmalloc::Heap::decommitLargeRange):
+        (bmalloc::Heap::scavenge):
+        (bmalloc::Heap::scavengeToHighWatermark):
+        (bmalloc::Heap::allocateSmallChunk):
+        (bmalloc::Heap::deallocateSmallChunk):
+        (bmalloc::Heap::deallocateSmallLine):
+        (bmalloc::Heap::splitAndAllocate):
+        (bmalloc::Heap::isLarge): Deleted.
+        * bmalloc/Heap.h:
+        (bmalloc::Heap::isLarge):
+        * bmalloc/ObjectType.cpp:
+        (bmalloc::objectType):
+        * bmalloc/ObjectTypeTable.cpp: Added.
+        (bmalloc::ObjectTypeTable::set):
+        * bmalloc/ObjectTypeTable.h: Added.
+        (bmalloc::ObjectTypeTable::convertToIndex):
+        (bmalloc::ObjectTypeTable::Bits::Bits):
+        (bmalloc::ObjectTypeTable::Bits::previous const):
+        (bmalloc::ObjectTypeTable::Bits::begin const):
+        (bmalloc::ObjectTypeTable::Bits::end const):
+        (bmalloc::ObjectTypeTable::Bits::count const):
+        (bmalloc::ObjectTypeTable::Bits::sizeInBytes const):
+        (bmalloc::ObjectTypeTable::Bits::words const):
+        (bmalloc::ObjectTypeTable::Bits::words):
+        (bmalloc::ObjectTypeTable::ObjectTypeTable):
+        (bmalloc::ObjectTypeTable::get):
+        (bmalloc::ObjectTypeTable::Bits::get):
+        (bmalloc::ObjectTypeTable::Bits::set):
+        (bmalloc::ObjectTypeTable::Bits::wordForIndex):
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::Scavenger::scavenge):
+        (bmalloc::Scavenger::partialScavenge):
+        (bmalloc::Scavenger::freeableMemory):
+
+2020-05-11  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [bmalloc][WTF] Add computing memory size implementation for FreeBSD
+        https://bugs.webkit.org/show_bug.cgi?id=211749
+
+        Reviewed by David Kilzer.
+
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::computeAvailableMemory):
+
+2020-05-09  Don Olmstead  <don.olmstead@sony.com>
+
+        [CMake] Use WEBKIT_EXECUTABLE in MallocBench
+        https://bugs.webkit.org/show_bug.cgi?id=211665
+
+        Reviewed by Yusuke Suzuki.
+
+        Only build mbmalloc if its possible to run MallocBench.
+
+        * CMakeLists.txt:
+
+2020-05-08  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [WTF] Share Linux's MemoryPressureHandler among other Unix ports
+        https://bugs.webkit.org/show_bug.cgi?id=208955
+
+        Reviewed by Yusuke Suzuki.
+
+        Added FreeBSD implementation of memoryFootprint().
+
+        * bmalloc/AvailableMemory.cpp:
+        (bmalloc::memoryStatus):
+        * bmalloc/AvailableMemory.h:
+        (bmalloc::isUnderMemoryPressure):
+        * bmalloc/bmalloc.h:
+
+2020-05-05  Saam Barati  <sbarati@apple.com>
+
+        Don't use the DebugHeap for catalyst
+        https://bugs.webkit.org/show_bug.cgi?id=211471
+
+        Reviewed by Tim Horton.
+
+        * bmalloc/BPlatform.h:
+        * bmalloc/Environment.cpp:
+        (bmalloc::Environment::computeIsDebugHeapEnabled):
+        * bmalloc/ProcessCheck.h:
+        (bmalloc::shouldProcessUnconditionallyUseBmalloc): Deleted.
+        * bmalloc/ProcessCheck.mm:
+
+2020-05-01  Don Olmstead  <don.olmstead@sony.com>
+
+        Use export macros on all platforms
+        https://bugs.webkit.org/show_bug.cgi?id=211293
+
+        Reviewed by Michael Catanzaro.
+
+        Always use export macros on all platforms. Remove BUSE_EXPORT_MACROS and always
+        define macros based on the platform. Allow overriding of BEXPORT if desired
+        otherwise use the defaults.
+
+        * bmalloc/BExport.h:
+        * bmalloc/BPlatform.h:
+
+2020-04-29  Mark Lam  <mark.lam@apple.com>
+
+        Freezing of Gigacage and JSC Configs should be thread safe.
+        https://bugs.webkit.org/show_bug.cgi?id=211201
+        <rdar://problem/62597619>
+
+        Reviewed by Yusuke Suzuki.
+
+        * bmalloc/Gigacage.cpp:
+        (Gigacage::bmalloc::permanentlyFreezeGigacageConfig):
+
+2020-04-25  Darin Adler  <darin@apple.com>
+
+        [Cocoa] Deal with another round of Xcode upgrade checks
+        https://bugs.webkit.org/show_bug.cgi?id=211027
+
+        Reviewed by Alexey Proskuryakov.
+
+        * bmalloc.xcodeproj/project.pbxproj: Bump the upgrade check version.
+        Add a harmless base localization; this project contains nothing localized.
+
+2020-04-07  Saam Barati  <sbarati@apple.com>
+
+        RAMification should have a way of gathering vmmaps for each test at the end of each run
+        https://bugs.webkit.org/show_bug.cgi?id=210060
+
+        Reviewed by Yusuke Suzuki.
+
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::Scavenger::scavenge):
+        (bmalloc::Scavenger::partialScavenge):
+        * bmalloc/Scavenger.h:
+        (bmalloc::Scavenger::disable):
+        * bmalloc/bmalloc.cpp:
+        (bmalloc::api::disableScavenger):
+        * bmalloc/bmalloc.h:
+
+2020-04-03  David Kilzer  <ddkilzer@apple.com>
+
+        [Xcode] Replace ASAN_OTHER_CFLAGS and ASAN_OTHER_CPLUSPLUSFLAGS with $(inherited)
+        <https://webkit.org/b/209963>
+        <rdar://problem/61257504>
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+        - Remove ASAN_OTHER_CFLAGS, ASAN_OTHER_CPLUSPLUSFLAGS and
+          ASAN_OTHER_LDFLAGS.
+
+2020-04-01  Michael Catanzaro  <mcatanzaro@gnome.org>
+
+        Update check for aarch64
+        https://bugs.webkit.org/show_bug.cgi?id=209322
+        <rdar://problem/61135818>
+
+        Reviewed by Mark Lam.
+
+        Update BPlatform.h to follow the corresponding change in WTF's PlatformCPU.h.
+
+        * bmalloc/BPlatform.h:
+
+2020-03-15  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Should not use variable-length-array (VLA)
+        https://bugs.webkit.org/show_bug.cgi?id=209043
+
+        Reviewed by Mark Lam.
+
+        * Configurations/Base.xcconfig:
+
+2020-03-13  Saam Barati  <sbarati@apple.com>
+
+        configSizeToProtect should be 16KB
+        https://bugs.webkit.org/show_bug.cgi?id=209068
+
+        Reviewed by Keith Miller.
+
+        * bmalloc/Gigacage.h:
+
+2020-03-09  Mike Gorse  <mgorse@suse.com>
+
+        Build failure on ppc64le if __unix is undefined
+        https://bugs.webkit.org/show_bug.cgi?id=207906
+
+        Reviewed by Yusuke Suzuki.
+
+        * bmalloc/BPlatform.h: Check for __unix__ along with __unix.
+
+2020-03-02  Alan Coon  <alancoon@apple.com>
+
+        Add new Mac target numbers
+        https://bugs.webkit.org/show_bug.cgi?id=208398
+
+        Reviewed by Alexey Proskuryakov.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+
+2020-02-29  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        Remove std::lock_guard
+        https://bugs.webkit.org/show_bug.cgi?id=206451
+
+        Reviewed by Anders Carlsson.
+
+        * bmalloc/Mutex.h:
+
+2020-02-28  Saam Barati  <sbarati@apple.com>
+
+        Clean up code with how we choose Gigacage sizes and whether or not to use Wasm fast memory
+        https://bugs.webkit.org/show_bug.cgi?id=208392
+
+        Reviewed by Yusuke Suzuki.
+
+        * bmalloc/Gigacage.h:
+
+2020-02-26  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [bmalloc][PlayStation] Set Scavenger's thread name.
+        https://bugs.webkit.org/show_bug.cgi?id=208268
+
+        Reviewed by Alex Christensen.
+
+        We also need to have our thread with proper name.
+
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::Scavenger::setThreadName):
+
+2020-02-25  Saam Barati  <sbarati@apple.com>
+
+        Update stale comment about PackedAlignedPtr
+        https://bugs.webkit.org/show_bug.cgi?id=208176
+
+        Reviewed by Yusuke Suzuki.
+
+        The comment was stale since cells aren't guaranteed anymore to be
+        aligned on 16 byte boundaries because of the GCs precise allocations.
+
+        * bmalloc/Packed.h:
+
+2020-02-09  Keith Rollin  <krollin@apple.com>
+
+        Re-enable LTO for ARM builds
+        https://bugs.webkit.org/show_bug.cgi?id=207402
+        <rdar://problem/49190767>
+
+        Reviewed by Sam Weinig.
+
+        Bug 190758 re-enabled LTO for Production builds for x86-family CPUs.
+        Enabling it for ARM was left out due to a compiler issue. That issue
+        has been fixed, and so now we can re-enable LTO for ARM.
+
+        * Configurations/Base.xcconfig:
+
+2020-02-08  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [bmalloc] VMHeap can be merge into Heap
+        https://bugs.webkit.org/show_bug.cgi?id=207410
+
+        Reviewed by Yusuke Suzuki.
+
+        VMHeap has only one member function in it and Heap is the only client of that.
+        No member variable is defined. It does nothing special with its context as a class.
+        It is safe to merge the function into Heap.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/Heap.cpp:
+        (bmalloc::Heap::allocateLarge):
+        (bmalloc::Heap::tryAllocateLargeChunk): Moved from VMHeap.
+        * bmalloc/Heap.h:
+        * bmalloc/VMHeap.cpp: Removed.
+        * bmalloc/VMHeap.h: Removed.
+
+2020-02-05  Don Olmstead  <don.olmstead@sony.com>
+
+        [bmalloc] Add declspec support for export macros
+        https://bugs.webkit.org/show_bug.cgi?id=207158
+
+        Reviewed by Yusuke Suzuki.
+
+        Add a check for __has_declspec_attribute which is a Clang extension for Microsoft
+        style __declspec attributes in BCompiler.h. Then use that check within BPlatform.h
+        to determine if __declspec or visibility("default") should be used for the export
+        macros.
+
+        The BExport.h file was then expanded to properly implement __declspec definitions
+        for export and import. Libraries that could be compiled statically in WebKit have
+        a STATICALLY_LINKED_WITH_${library} definition for when they're compiled statically
+        and later exposed through a different shared library. In practice though this is
+        really only needed when __declspec is used since this is the only case where the
+        import and export declarations differ.
+
+        The BEXPORT on StaticPerProcess resulted in undefined symbol errors when WebCore
+        was linked. Specifically IsoSharedHeap::getFastCase and IsoSharedHeap::getSlowCase
+        which is a subclass. It appears that Storage was the only one required to be
+        exported. This only appeared due to how __declspec requires exports and imports
+        to be defined differently.
+
+        Also added support for export macros on PlayStation in the BPlatform.h file and
+        fixed any exports for that platform when building.
+
+        * CMakeLists.txt:
+        * bmalloc/Allocator.h:
+        * bmalloc/AvailableMemory.h:
+        * bmalloc/BCompiler.h:
+        * bmalloc/BExport.h:
+        * bmalloc/BPlatform.h:
+        * bmalloc/Cache.h:
+        * bmalloc/IsoTLS.h:
+        * bmalloc/StaticPerProcess.h:
+
+2020-01-21  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [bmalloc] Make use of LockHolder strict in some methods of Scavenger
+        https://bugs.webkit.org/show_bug.cgi?id=206460
+
+        Reviewed by Darin Adler.
+
+        For instance, Scavenger::runHoldingLock() assume the caller has lock and express that by its function name. This rule can be
+        strict by passing LockHolder and that's the way as other code do.
+
+        Same change to runSoonHoldingLock and scheduleIfUnderMemoryPressureHoldingLock.
+
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::Scavenger::run):
+        (bmalloc::Scavenger::runSoon):
+        (bmalloc::Scavenger::scheduleIfUnderMemoryPressure):
+        (bmalloc::Scavenger::schedule):
+        (bmalloc::Scavenger::runHoldingLock): Renamed.
+        (bmalloc::Scavenger::runSoonHoldingLock): Renamed.
+        (bmalloc::Scavenger::scheduleIfUnderMemoryPressureHoldingLock): Renamed.
+        * bmalloc/Scavenger.h:
+
+2020-01-17  Sam Weinig  <weinig@apple.com>
+
+        Platform.h is out of control Part 8: Macros are used inconsistently
+        https://bugs.webkit.org/show_bug.cgi?id=206425
+
+        Reviewed by Darin Adler.
+
+        * bmalloc/BPlatform.h:
+        Update OS_EFFECTIVE_ADDRESS_WIDTH to match WTF definition, add needed OS macros.
+
+2020-01-20  David Kilzer  <ddkilzer@apple.com>
+
+        Fix missing header guards and clean up empty files in bmalloc, WTF, JavaScriptCore
+        <https://webkit.org/b/206481>
+
+        Reviewed by Darin Adler.
+
+        * bmalloc/PerThread.cpp: Remove empty file.
+        * bmalloc/ScopeExit.h: Add #pragma once.
+
+2020-01-17  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [bmalloc] Define alias for std::lock_guard and std::unique_lock for better readability
+        https://bugs.webkit.org/show_bug.cgi?id=206443
+
+        Reviewed by Yusuke Suzuki.
+
+        There are two types of lock holder in bmalloc: std::lock_guard and std::unique_lock. Their names are relatively long
+        and a bit harder to distinguish them each other. Define simple type name for them, LockHolder and UniqueLockHolder.
+
+        * bmalloc/AllIsoHeaps.cpp:
+        (bmalloc::AllIsoHeaps::AllIsoHeaps):
+        (bmalloc::AllIsoHeaps::add):
+        (bmalloc::AllIsoHeaps::head):
+        * bmalloc/AllIsoHeaps.h:
+        * bmalloc/Allocator.cpp:
+        (bmalloc::Allocator::reallocateImpl):
+        (bmalloc::Allocator::refillAllocatorSlowCase):
+        (bmalloc::Allocator::allocateLarge):
+        * bmalloc/CryptoRandom.cpp:
+        (bmalloc::ARC4RandomNumberGenerator::ARC4RandomNumberGenerator):
+        (bmalloc::ARC4RandomNumberGenerator::randomValues):
+        * bmalloc/Deallocator.cpp:
+        (bmalloc::Deallocator::scavenge):
+        (bmalloc::Deallocator::processObjectLog):
+        (bmalloc::Deallocator::deallocateSlowCase):
+        * bmalloc/Deallocator.h:
+        (bmalloc::Deallocator::lineCache):
+        * bmalloc/DebugHeap.cpp:
+        (bmalloc::DebugHeap::DebugHeap):
+        (bmalloc::DebugHeap::memalignLarge):
+        (bmalloc::DebugHeap::freeLarge):
+        * bmalloc/DebugHeap.h:
+        * bmalloc/DeferredTrigger.h:
+        * bmalloc/DeferredTriggerInlines.h:
+        (bmalloc::DeferredTrigger<trigger>::didBecome):
+        (bmalloc::DeferredTrigger<trigger>::handleDeferral):
+        * bmalloc/Environment.cpp:
+        (bmalloc::Environment::Environment):
+        * bmalloc/Environment.h:
+        * bmalloc/Gigacage.cpp:
+        (bmalloc::PrimitiveDisableCallbacks::PrimitiveDisableCallbacks):
+        (Gigacage::disablePrimitiveGigacage):
+        (Gigacage::addPrimitiveDisableCallback):
+        (Gigacage::removePrimitiveDisableCallback):
+        * bmalloc/Heap.cpp:
+        (bmalloc::Heap::Heap):
+        (bmalloc::Heap::freeableMemory):
+        (bmalloc::Heap::markAllLargeAsEligibile):
+        (bmalloc::Heap::decommitLargeRange):
+        (bmalloc::Heap::scavenge):
+        (bmalloc::Heap::scavengeToHighWatermark):
+        (bmalloc::Heap::deallocateLineCache):
+        (bmalloc::Heap::allocateSmallChunk):
+        (bmalloc::Heap::allocateSmallPage):
+        (bmalloc::Heap::deallocateSmallLine):
+        (bmalloc::Heap::allocateSmallBumpRangesByMetadata):
+        (bmalloc::Heap::allocateSmallBumpRangesByObject):
+        (bmalloc::Heap::splitAndAllocate):
+        (bmalloc::Heap::allocateLarge):
+        (bmalloc::Heap::isLarge):
+        (bmalloc::Heap::largeSize):
+        (bmalloc::Heap::shrinkLarge):
+        (bmalloc::Heap::deallocateLarge):
+        (bmalloc::Heap::externalCommit):
+        (bmalloc::Heap::externalDecommit):
+        * bmalloc/Heap.h:
+        (bmalloc::Heap::allocateSmallBumpRanges):
+        (bmalloc::Heap::derefSmallLine):
+        * bmalloc/HeapConstants.cpp:
+        (bmalloc::HeapConstants::HeapConstants):
+        * bmalloc/HeapConstants.h:
+        * bmalloc/IsoAllocatorInlines.h:
+        (bmalloc::IsoAllocator<Config>::allocateSlow):
+        (bmalloc::IsoAllocator<Config>::scavenge):
+        * bmalloc/IsoDeallocatorInlines.h:
+        (bmalloc::IsoDeallocator<Config>::deallocate):
+        (bmalloc::IsoDeallocator<Config>::scavenge):
+        * bmalloc/IsoDirectory.h:
+        * bmalloc/IsoDirectoryInlines.h:
+        (bmalloc::passedNumPages>::takeFirstEligible):
+        (bmalloc::passedNumPages>::didBecome):
+        (bmalloc::passedNumPages>::didDecommit):
+        (bmalloc::passedNumPages>::scavengePage):
+        (bmalloc::passedNumPages>::scavenge):
+        (bmalloc::passedNumPages>::scavengeToHighWatermark):
+        (bmalloc::passedNumPages>::forEachCommittedPage):
+        * bmalloc/IsoHeapImpl.h:
+        * bmalloc/IsoHeapImplInlines.h:
+        (bmalloc::IsoHeapImpl<Config>::takeFirstEligible):
+        (bmalloc::IsoHeapImpl<Config>::didBecomeEligibleOrDecommited):
+        (bmalloc::IsoHeapImpl<Config>::scavenge):
+        (bmalloc::IsoHeapImpl<Config>::scavengeToHighWatermark):
+        (bmalloc::IsoHeapImpl<Config>::numLiveObjects):
+        (bmalloc::IsoHeapImpl<Config>::numCommittedPages):
+        (bmalloc::IsoHeapImpl<Config>::forEachDirectory):
+        (bmalloc::IsoHeapImpl<Config>::forEachCommittedPage):
+        (bmalloc::IsoHeapImpl<Config>::forEachLiveObject):
+        (bmalloc::IsoHeapImpl<Config>::allocateFromShared):
+        * bmalloc/IsoPage.h:
+        * bmalloc/IsoPageInlines.h:
+        (bmalloc::IsoPage<Config>::free):
+        (bmalloc::IsoPage<Config>::startAllocating):
+        (bmalloc::IsoPage<Config>::stopAllocating):
+        (bmalloc::IsoPage<Config>::forEachLiveObject):
+        * bmalloc/IsoSharedHeap.h:
+        (bmalloc::IsoSharedHeap::IsoSharedHeap):
+        * bmalloc/IsoSharedHeapInlines.h:
+        (bmalloc::IsoSharedHeap::allocateNew):
+        (bmalloc::IsoSharedHeap::allocateSlow):
+        * bmalloc/IsoSharedPage.h:
+        * bmalloc/IsoSharedPageInlines.h:
+        (bmalloc::IsoSharedPage::free):
+        (bmalloc::IsoSharedPage::startAllocating):
+        (bmalloc::IsoSharedPage::stopAllocating):
+        * bmalloc/IsoTLSDeallocatorEntry.h:
+        * bmalloc/IsoTLSDeallocatorEntryInlines.h:
+        (bmalloc::IsoTLSDeallocatorEntry<Config>::IsoTLSDeallocatorEntry):
+        * bmalloc/IsoTLSInlines.h:
+        (bmalloc::IsoTLS::ensureHeap):
+        * bmalloc/IsoTLSLayout.cpp:
+        (bmalloc::IsoTLSLayout::IsoTLSLayout):
+        (bmalloc::IsoTLSLayout::add):
+        * bmalloc/IsoTLSLayout.h:
+        * bmalloc/Mutex.h:
+        (bmalloc::sleep):
+        (bmalloc::waitUntilFalse):
+        * bmalloc/ObjectType.cpp:
+        (bmalloc::objectType):
+        * bmalloc/PerProcess.cpp:
+        (bmalloc::getPerProcessData):
+        * bmalloc/PerProcess.h:
+        (bmalloc::PerProcess::getSlowCase):
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::Scavenger::Scavenger):
+        (bmalloc::Scavenger::run):
+        (bmalloc::Scavenger::runSoon):
+        (bmalloc::Scavenger::scheduleIfUnderMemoryPressure):
+        (bmalloc::Scavenger::schedule):
+        (bmalloc::Scavenger::timeSinceLastFullScavenge):
+        (bmalloc::Scavenger::timeSinceLastPartialScavenge):
+        (bmalloc::Scavenger::scavenge):
+        (bmalloc::Scavenger::partialScavenge):
+        (bmalloc::Scavenger::freeableMemory):
+        (bmalloc::Scavenger::threadRunLoop):
+        * bmalloc/Scavenger.h:
+        * bmalloc/SmallLine.h:
+        (bmalloc::SmallLine::refCount):
+        (bmalloc::SmallLine::ref):
+        (bmalloc::SmallLine::deref):
+        * bmalloc/SmallPage.h:
+        (bmalloc::SmallPage::refCount):
+        (bmalloc::SmallPage::hasFreeLines const):
+        (bmalloc::SmallPage::setHasFreeLines):
+        (bmalloc::SmallPage::ref):
+        (bmalloc::SmallPage::deref):
+        * bmalloc/StaticPerProcess.h:
+        * bmalloc/VMHeap.cpp:
+        (bmalloc::VMHeap::VMHeap):
+        * bmalloc/VMHeap.h:
+        * bmalloc/Zone.cpp:
+        (bmalloc::Zone::Zone):
+        * bmalloc/Zone.h:
+        * bmalloc/bmalloc.cpp:
+        (bmalloc::api::tryLargeZeroedMemalignVirtual):
+        (bmalloc::api::freeLargeVirtual):
+        (bmalloc::api::setScavengerThreadQOSClass):
+
+2020-01-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [bmalloc] Fix IsoHeapImpl's assertion introduced in r254708
+        https://bugs.webkit.org/show_bug.cgi?id=206440
+        <rdar://problem/58688794>
+
+        Reviewed by Mark Lam.
+
+        The assertion introduced in r254708 was wrong.
+        Fixing it to check the invariant we actually want to ensure.
+        This fixes TestWTF crash in Debug build.
+
+        * bmalloc/IsoHeapImplInlines.h:
+        (bmalloc::IsoHeapImpl<Config>::takeFirstEligible):
+
+2020-01-16  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [bmalloc] IsoHeap's initial setup should be small
+        https://bugs.webkit.org/show_bug.cgi?id=206214
+
+        Reviewed by Michael Saboff.
+
+        Keep IsoHeap related data structures small by using Packed technique. We start using IsoHeap for many classes,
+        then it is important that we keep metadata for IsoHeap small because these data persistently exists.
+
+        1. We pass IsoHeapImpl<> as a parameter instead of holding it unnecessarily.
+        2. We make some of pointers Packed so that we can keep sizeof(IsoHeapImpl<Config>) small.
+        3. One of the drawback of PackedPtr is that loading and storing are not atomic. And we pass `const std::lock_guard<Mutex>&`
+           to functions if functions need to be called with lock so that we ensure that PackedPtr are accessed only when lock is
+           held correctly.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * bmalloc/Algorithm.h:
+        (bmalloc::ctzConstexpr):
+        (bmalloc::getLSBSetNonZeroConstexpr):
+        * bmalloc/BPlatform.h:
+        * bmalloc/DebugHeap.cpp:
+        (bmalloc::DebugHeap::DebugHeap):
+        * bmalloc/DebugHeap.h:
+        * bmalloc/DeferredTrigger.h:
+        * bmalloc/DeferredTriggerInlines.h:
+        (bmalloc::DeferredTrigger<trigger>::didBecome):
+        (bmalloc::DeferredTrigger<trigger>::handleDeferral):
+        * bmalloc/Environment.cpp:
+        (bmalloc::Environment::Environment):
+        * bmalloc/Environment.h:
+        * bmalloc/Gigacage.cpp:
+        (bmalloc::PrimitiveDisableCallbacks::PrimitiveDisableCallbacks):
+        * bmalloc/Heap.cpp:
+        (bmalloc::Heap::freeableMemory):
+        (bmalloc::Heap::markAllLargeAsEligibile):
+        (bmalloc::Heap::decommitLargeRange):
+        (bmalloc::Heap::scavenge):
+        (bmalloc::Heap::scavengeToHighWatermark):
+        * bmalloc/Heap.h:
+        * bmalloc/HeapConstants.cpp:
+        (bmalloc::HeapConstants::HeapConstants):
+        * bmalloc/HeapConstants.h:
+        * bmalloc/IsoAllocator.h:
+        * bmalloc/IsoAllocatorInlines.h:
+        (bmalloc::IsoAllocator<Config>::IsoAllocator):
+        (bmalloc::IsoAllocator<Config>::allocate):
+        (bmalloc::IsoAllocator<Config>::allocateSlow):
+        (bmalloc::IsoAllocator<Config>::scavenge):
+        * bmalloc/IsoDeallocatorInlines.h:
+        (bmalloc::IsoDeallocator<Config>::scavenge):
+        * bmalloc/IsoDirectory.h:
+        * bmalloc/IsoDirectoryInlines.h:
+        (bmalloc::passedNumPages>::IsoDirectory):
+        (bmalloc::passedNumPages>::takeFirstEligible):
+        (bmalloc::passedNumPages>::didBecome):
+        (bmalloc::passedNumPages>::didDecommit):
+        (bmalloc::passedNumPages>::scavengePage):
+        (bmalloc::passedNumPages>::scavenge):
+        (bmalloc::passedNumPages>::scavengeToHighWatermark):
+        (bmalloc::passedNumPages>::forEachCommittedPage):
+        * bmalloc/IsoHeapImpl.cpp:
+        (bmalloc::IsoHeapImplBase::IsoHeapImplBase):
+        * bmalloc/IsoHeapImpl.h:
+        * bmalloc/IsoHeapImplInlines.h:
+        (bmalloc::IsoHeapImpl<Config>::IsoHeapImpl):
+        (bmalloc::IsoHeapImpl<Config>::takeFirstEligible):
+        (bmalloc::IsoHeapImpl<Config>::didBecomeEligibleOrDecommited):
+        (bmalloc::IsoHeapImpl<Config>::scavenge):
+        (bmalloc::IsoHeapImpl<Config>::scavengeToHighWatermark):
+        (bmalloc::IsoHeapImplBase::freeableMemory):
+        (bmalloc::IsoHeapImpl<Config>::numLiveObjects):
+        (bmalloc::IsoHeapImpl<Config>::numCommittedPages):
+        (bmalloc::IsoHeapImpl<Config>::forEachDirectory):
+        (bmalloc::IsoHeapImpl<Config>::forEachCommittedPage):
+        (bmalloc::IsoHeapImpl<Config>::forEachLiveObject):
+        (bmalloc::IsoHeapImplBase::footprint):
+        (bmalloc::IsoHeapImplBase::didCommit):
+        (bmalloc::IsoHeapImplBase::didDecommit):
+        (bmalloc::IsoHeapImplBase::isNowFreeable):
+        (bmalloc::IsoHeapImplBase::isNoLongerFreeable):
+        (bmalloc::IsoHeapImpl<Config>::allocateFromShared):
+        (bmalloc::IsoHeapImpl<Config>::freeableMemory): Deleted.
+        (bmalloc::IsoHeapImpl<Config>::footprint): Deleted.
+        (bmalloc::IsoHeapImpl<Config>::didCommit): Deleted.
+        (bmalloc::IsoHeapImpl<Config>::didDecommit): Deleted.
+        (bmalloc::IsoHeapImpl<Config>::isNowFreeable): Deleted.
+        (bmalloc::IsoHeapImpl<Config>::isNoLongerFreeable): Deleted.
+        * bmalloc/IsoPage.h:
+        (bmalloc::IsoPageBase::IsoPageBase):
+        * bmalloc/IsoPageInlines.h:
+        (bmalloc::IsoPage<Config>::IsoPage):
+        (bmalloc::IsoPage<Config>::free):
+        (bmalloc::IsoPage<Config>::startAllocating):
+        (bmalloc::IsoPage<Config>::stopAllocating):
+        (bmalloc::IsoPage<Config>::forEachLiveObject):
+        * bmalloc/IsoSharedHeap.h:
+        (bmalloc::IsoSharedHeap::IsoSharedHeap):
+        * bmalloc/IsoSharedHeapInlines.h:
+        (bmalloc::IsoSharedHeap::allocateNew):
+        (bmalloc::IsoSharedHeap::allocateSlow):
+        * bmalloc/IsoSharedPage.h:
+        * bmalloc/IsoSharedPageInlines.h:
+        (bmalloc::IsoSharedPage::free):
+        (bmalloc::IsoSharedPage::startAllocating):
+        (bmalloc::IsoSharedPage::stopAllocating):
+        * bmalloc/IsoTLS.h:
+        * bmalloc/IsoTLSAllocatorEntry.h:
+        * bmalloc/IsoTLSAllocatorEntryInlines.h:
+        (bmalloc::IsoTLSAllocatorEntry<Config>::scavenge):
+        * bmalloc/IsoTLSDeallocatorEntry.h:
+        * bmalloc/IsoTLSDeallocatorEntryInlines.h:
+        (bmalloc::IsoTLSDeallocatorEntry<Config>::scavenge):
+        * bmalloc/IsoTLSEntry.cpp:
+        (bmalloc::IsoTLSEntry::IsoTLSEntry):
+        * bmalloc/IsoTLSEntry.h:
+        * bmalloc/IsoTLSEntryInlines.h:
+        (bmalloc::DefaultIsoTLSEntry<EntryType>::DefaultIsoTLSEntry):
+        (bmalloc::DefaultIsoTLSEntry<EntryType>::~DefaultIsoTLSEntry): Deleted.
+        (bmalloc::DefaultIsoTLSEntry<EntryType>::scavenge): Deleted.
+        * bmalloc/IsoTLSInlines.h:
+        (bmalloc::IsoTLS::scavenge):
+        (bmalloc::IsoTLS::allocateImpl):
+        (bmalloc::IsoTLS::allocateFast):
+        (bmalloc::IsoTLS::allocateSlow):
+        * bmalloc/IsoTLSLayout.cpp:
+        (bmalloc::IsoTLSLayout::add):
+        * bmalloc/Packed.h: Added.
+        (bmalloc::Packed::Packed):
+        (bmalloc::Packed::get const):
+        (bmalloc::Packed::set):
+        (bmalloc::Packed::operator=):
+        (bmalloc::Packed::exchange):
+        (bmalloc::Packed::swap):
+        (bmalloc::alignof):
+        (bmalloc::PackedPtrTraits::exchange):
+        (bmalloc::PackedPtrTraits::swap):
+        (bmalloc::PackedPtrTraits::unwrap):
+        * bmalloc/Scavenger.cpp:
+        (bmalloc::Scavenger::Scavenger):
+        * bmalloc/Scavenger.h:
+        * bmalloc/VMHeap.cpp:
+        (bmalloc::VMHeap::VMHeap):
+        * bmalloc/VMHeap.h:
+        * bmalloc/Zone.cpp:
+        (bmalloc::Zone::Zone):
+        * bmalloc/Zone.h:
+
+2020-01-14  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [bmalloc] Calculate LineMetadata for specific VM page size in compile time
+        https://bugs.webkit.org/show_bug.cgi?id=206044
+
+        Reviewed by Yusuke Suzuki.
+
+        LineMetadata is dependent only on VM page size. This patch enables the pre-calculation for
+        specific VM page sizes by compiler flags. The benefit is both runtime initialization speed
+        up and avoiding extra VM allocation on runtime.
+
+        First targets are 4k (Mac) and 16k (some iOS, PlayStation) VM page sizes.
+
+        * bmalloc/Algorithm.h:
+        (bmalloc::divideRoundingUp):
+        * bmalloc/BPlatform.h:
+        * bmalloc/HeapConstants.cpp:
+        (bmalloc::fillLineMetadata):
+        (bmalloc::computeLineMetadata):
+        (bmalloc::HeapConstants::initializeLineMetadata):
+        * bmalloc/HeapConstants.h:
+        (bmalloc::HeapConstants::smallLineCount const):
+        (bmalloc::HeapConstants::startOffset const):
+        (bmalloc::HeapConstants::objectCount const):
+        (bmalloc::HeapConstants::lineMetadata const):
+        (bmalloc::HeapConstants::startOffset): Deleted.
+        (bmalloc::HeapConstants::objectCount): Deleted.
+        (bmalloc::HeapConstants::lineMetadata): Deleted.
+        * bmalloc/LineMetadata.h:
+        * bmalloc/Sizes.h:
+        (bmalloc::Sizes::maskObjectSize):
+        (bmalloc::Sizes::logSizeClass):
+        (bmalloc::Sizes::logObjectSize):
+        (bmalloc::Sizes::sizeClass):
+        (bmalloc::Sizes::objectSize):
+        (bmalloc::Sizes::pageSize):
+        (bmalloc::Sizes::smallLineCount):
+
+2020-01-14  David Kilzer  <ddkilzer@apple.com>
+
+        Enable -Wconditional-uninitialized in bmalloc, WTF, JavaScriptCore
+        <https://webkit.org/b/206190>
+        <rdar://problem/58540387>
+
+        Reviewed by Mark Lam.
+
+        * Configurations/Base.xcconfig:
+        (WARNING_CFLAGS): Add -Wconditional-uninitialized.
+
+2020-01-09  Basuke Suzuki  <basuke.suzuki@sony.com>
+
+        [bmalloc] Extract constants from Heap and share it among Heaps.
+        https://bugs.webkit.org/show_bug.cgi?id=205834
+
+        Reviewed by Geoffrey Garen.
+
+        A Heap has many constants (m_vmPageSizePhysical, m_smallLineMetadata and m_pageClasses) and they
+        are dependent only to vmPageSizePhysical and identical for all Heaps.
+
+        Extracting them into a class and make it sharable among heaps. Also this is the first step for
+        making Heap constants to actual `constexpr`.
+
+        * CMakeLists.txt: Added HeapConstants.cpp.
+        * bmalloc.xcodeproj/project.pbxproj: Ditto.
+        * bmalloc/Heap.cpp: Referencing HeapConstants object to get information.
+        (bmalloc::Heap::Heap):
+        (bmalloc::Heap::allocateSmallPage):
+        (bmalloc::Heap::deallocateSmallLine):
+        (bmalloc::Heap::allocateSmallBumpRangesByMetadata):
+        (bmalloc::Heap::allocateSmallBumpRangesByObject):
+        (bmalloc::Heap::initializeLineMetadata): Moved to HeapConstants.cpp.
+        (bmalloc::Heap::initializePageMetadata): Moved to HeapConstants.cpp.
+        * bmalloc/Heap.h: Extract metadata initialization and member variables.
+        * bmalloc/HeapConstants.cpp: Added.
+        (bmalloc::HeapConstants::HeapConstants):
+        (bmalloc::HeapConstants::initializeLineMetadata):
+        (bmalloc::HeapConstants::initializePageMetadata):
+        * bmalloc/HeapConstants.h:
+        (bmalloc::HeapConstants::pageClass const):
+        (bmalloc::HeapConstants::smallLineCount const):
+        (bmalloc::HeapConstants::startOffset):
+        (bmalloc::HeapConstants::objectCount):
+        (bmalloc::HeapConstants::lineMetadata):
 
 2020-01-02  Yusuke Suzuki  <ysuzuki@apple.com> and Simon Fraser  <simon.fraser@apple.com>
 

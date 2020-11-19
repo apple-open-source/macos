@@ -46,6 +46,7 @@
 #include <Security/SecIdentity.h>
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecKeyPriv.h>
+#include <utilities/SecCFWrappers.h>
 
 #include <CommonCrypto/CommonDigest.h>
 #include <AssertMacros.h>
@@ -231,35 +232,40 @@ SecCmsIssuerAndSN *CERT_GetCertIssuerAndSN(PRArenaPool *pl, SecCertificateRef ce
 
     void *mark;
     mark = PORT_ArenaMark(pl);
-    CFDataRef serial_data = NULL;
     CFDataRef issuer_data = SecCertificateCopyIssuerSequence(cert);
-    if (!issuer_data)
+    CFDataRef serial_data = SecCertificateCopySerialNumberData(cert, NULL);
+    if (!issuer_data || !serial_data) {
         goto loser;
-    serial_data = SecCertificateCopySerialNumberData(cert, NULL);
-    if (!serial_data)
-        goto loser;
-    
-    SecAsn1Item serialNumber = { CFDataGetLength(serial_data),
-        (uint8_t *)CFDataGetBytePtr(serial_data) };
-    SecAsn1Item issuer = { CFDataGetLength(issuer_data),
-        (uint8_t *)CFDataGetBytePtr(issuer_data) };
-    
-        /* Allocate the SecCmsIssuerAndSN struct. */
+    }
+
+    SecAsn1Item serialNumber = {
+        .Length = CFDataGetLength(serial_data),
+        .Data = (uint8_t *)CFDataGetBytePtr(serial_data)
+    };
+    SecAsn1Item issuer = {
+        .Length = CFDataGetLength(issuer_data),
+        .Data = (uint8_t *)CFDataGetBytePtr(issuer_data)
+    };
+
+    /* Allocate the SecCmsIssuerAndSN struct. */
     certIssuerAndSN = (SecCmsIssuerAndSN *)PORT_ArenaZAlloc (pl, sizeof(SecCmsIssuerAndSN));
-    if (certIssuerAndSN == NULL)
-	goto loser;
+    if (certIssuerAndSN == NULL) {
+        goto loser;
+    }
 
     /* Copy the issuer. */
     certIssuerAndSN->derIssuer.Data = (uint8_t *) PORT_ArenaAlloc(pl, issuer.Length);
-    if (!certIssuerAndSN->derIssuer.Data)
-	goto loser;
+    if (!certIssuerAndSN->derIssuer.Data) {
+        goto loser;
+    }
     PORT_Memcpy(certIssuerAndSN->derIssuer.Data, issuer.Data, issuer.Length);
     certIssuerAndSN->derIssuer.Length = issuer.Length;
 
     /* Copy the serialNumber. */
     certIssuerAndSN->serialNumber.Data = (uint8_t *) PORT_ArenaAlloc(pl, serialNumber.Length);
-    if (!certIssuerAndSN->serialNumber.Data)
-	goto loser;
+    if (!certIssuerAndSN->serialNumber.Data) {
+        goto loser;
+    }
     PORT_Memcpy(certIssuerAndSN->serialNumber.Data, serialNumber.Data, serialNumber.Length);
     certIssuerAndSN->serialNumber.Length = serialNumber.Length;
 
@@ -267,14 +273,12 @@ SecCmsIssuerAndSN *CERT_GetCertIssuerAndSN(PRArenaPool *pl, SecCertificateRef ce
     CFRelease(issuer_data);
 
     PORT_ArenaUnmark(pl, mark);
-    
+
     return certIssuerAndSN;
 
 loser:
-    if (serial_data)
-        CFRelease(serial_data);
-    if (issuer_data)
-        CFRelease(issuer_data);
+    CFReleaseNull(serial_data);
+    CFReleaseNull(issuer_data);
     PORT_ArenaRelease(pl, mark);
     PORT_SetError(SEC_INTERNAL_ONLY);
 

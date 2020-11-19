@@ -65,6 +65,7 @@ public:
     bool attachmentEnabled { false };
 #endif
     bool deferredCSSParserEnabled { false };
+    bool scrollBehaviorEnabled { false };
     
     // This is only needed to support getMatchedCSSRules.
     bool hasDocumentSecurityOrigin { false };
@@ -107,7 +108,8 @@ struct CSSParserContextHash {
 #if ENABLE(ATTACHMENT_ELEMENT)
             & key.attachmentEnabled                         << 11
 #endif
-            & key.mode                                      << 12; // Keep this last.
+            & key.scrollBehaviorEnabled                     << 12
+            & key.mode                                      << 13; // Keep this last.
         hash ^= WTF::intHash(bits);
         return hash;
     }
@@ -127,7 +129,6 @@ template<> struct HashTraits<WebCore::CSSParserContext> : GenericHashTraits<WebC
     static WebCore::CSSParserContext emptyValue() { return WebCore::CSSParserContext(WebCore::HTMLStandardMode); }
 };
 
-template<> struct DefaultHash<WebCore::CSSParserContext> {
-    typedef WebCore::CSSParserContextHash Hash;
-};
+template<> struct DefaultHash<WebCore::CSSParserContext> : WebCore::CSSParserContextHash { };
+
 } // namespace WTF

@@ -35,6 +35,7 @@
 #include <Security/AuthSession.h>
 #include <sys/types.h>	// uid_t
 #include <mach/message.h>
+#include <CoreFoundation/CFDictionary.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -133,12 +134,13 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef _Nonnull authorizat
 												FILE * __nullable * __nullable communicationsPipe) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);
 
 /*!
- @function AuthorizationPreauthorizeCredentials
- Tries to preauthorize provided credentials by authorizationhost PAM. No user interface will be shown.
- Credentials is set of the context items which will be passed to the authorizationhost.
+ @function AuthorizationCopyRightProperties
+ Returns a dictionary with the properties associated with the given authorization right
+ @param rightName right name for which we need the propertiers
+ @param output CFDictionaryRef which will hold the properties
+
  */
-OSStatus AuthorizationPreauthorizeCredentials(AuthorizationRef _Nonnull authorization,
-											  const AuthorizationItemSet * __nonnull credentials) __OSX_AVAILABLE_STARTING(__MAC_10_3, __IPHONE_NA);
+OSStatus AuthorizationCopyRightProperties(const char * __nonnull rightName, CFDictionaryRef __nullable * __nullable output) __OSX_AVAILABLE_STARTING(__MAC_10_15, __IPHONE_NA);
 
 /*!
  @function AuthorizationCopyPrivilegedReference
@@ -230,7 +232,7 @@ OSStatus AuthorizationEnableSmartCard(AuthorizationRef _Nonnull authRef, Boolean
      @param stdIn File descriptor which will contain write-end of the stdin pipe of the privileged tool, use -1 if not needed.
      @param processFinished This block is called when privileged process finishes.
      */
-    OSStatus AuthorizationExecuteWithPrivilegesInternal(const AuthorizationRef _Nonnull authorization,
+OSStatus AuthorizationExecuteWithPrivilegesInternal(const AuthorizationRef _Nonnull authorization,
                                                         const char * _Nonnull pathToTool,
                                                         const char * _Nonnull const * _Nonnull arguments,
                                                         pid_t * _Nullable newProcessPid,
@@ -259,7 +261,7 @@ OSStatus AuthorizationEnableSmartCard(AuthorizationRef _Nonnull authRef, Boolean
      @param stdIn File descriptor which will contain write-end of the stdin pipe of the privileged tool, use -1 if not needed.
      @param processFinished This block is called when privileged process finishes.
      */
-    OSStatus AuthorizationExecuteWithPrivilegesExternalFormInternal(const AuthorizationExternalForm * _Nonnull extAuthorization,
+OSStatus AuthorizationExecuteWithPrivilegesExternalFormInternal(const AuthorizationExternalForm * _Nonnull extAuthorization,
                                                                     const char * _Nonnull pathToTool,
                                                                     const char * _Nullable const * _Nullable arguments,
                                                                     pid_t * _Nullable newProcessPid,
@@ -268,6 +270,17 @@ OSStatus AuthorizationEnableSmartCard(AuthorizationRef _Nonnull authRef, Boolean
                                                                     int stdErr,
                                                                     int stdIn,
                                                                     void(^__nullable processFinished)(const int exitStatus));
+
+/*!
+    @function AuthorizationCopyPreloginUserDatabase
+    Returns CFArrayRef with user database from Prelogin volume
+
+    @param volumeUuid Optional uuid of the volume for which user database will be returned. If not set, users from all volumes are returned.
+    @param flags Specifies subset of data required in the output
+    @param output Output array of dictionaries- each dictionary with details for each user
+*/
+OSStatus AuthorizationCopyPreloginUserDatabase(const char * _Nullable const volumeUuid, const UInt32 flags, CFArrayRef _Nonnull * _Nonnull output);
+
 #if defined(__cplusplus)
 }
 #endif

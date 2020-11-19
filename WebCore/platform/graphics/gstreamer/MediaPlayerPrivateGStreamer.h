@@ -28,22 +28,22 @@
 
 #include "GStreamerCommon.h"
 #include "GStreamerEMEUtilities.h"
+#include "Logging.h"
 #include "MainThreadNotifier.h"
 #include "MediaPlayerPrivate.h"
 #include "PlatformLayer.h"
+#include "TrackPrivateBaseGStreamer.h"
 #include <glib.h>
 #include <gst/gst.h>
 #include <gst/pbutils/install-plugins.h>
 #include <wtf/Atomics.h>
 #include <wtf/Condition.h>
 #include <wtf/Forward.h>
+#include <wtf/LoggerHelper.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WeakPtr.h>
-
-#if ENABLE(VIDEO_TRACK)
-#include "TrackPrivateBaseGStreamer.h"
 #include <wtf/text/AtomStringHash.h>
-#endif
+
 typedef struct _GstMpegtsSection GstMpegtsSection;
 
 #if USE(GSTREAMER_GL)
@@ -76,17 +76,23 @@ typedef struct _GstMpegtsSection GstMpegtsSection;
 #endif
 #endif
 
+#if ENABLE(ENCRYPTED_MEDIA)
+#include "CDMProxy.h"
+#endif
+
 typedef struct _GstStreamVolume GstStreamVolume;
 typedef struct _GstVideoInfo GstVideoInfo;
-typedef struct _GstGLContext GstGLContext;
-typedef struct _GstGLDisplay GstGLDisplay;
+
+#if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
+struct wpe_video_plane_display_dmabuf_source;
+#endif
 
 namespace WebCore {
 
 class BitmapTextureGL;
 class GLContext;
 class GraphicsContext;
-class GraphicsContext3D;
+class GraphicsContextGLOpenGL;
 class IntSize;
 class IntRect;
 class VideoTextureCopierGStreamer;
@@ -109,7 +115,11 @@ class VideoTrackPrivateGStreamer;
 void registerWebKitGStreamerElements();
 
 // Use eager initialization for the WeakPtrFactory since we call makeWeakPtr() from another thread.
-class MediaPlayerPrivateGStreamer : public MediaPlayerPrivateInterface, public CanMakeWeakPtr<MediaPlayerPrivateGStreamer, WeakPtrFactoryInitialization::Eager>
+class MediaPlayerPrivateGStreamer : public MediaPlayerPrivateInterface
+    , public CanMakeWeakPtr<MediaPlayerPrivateGStreamer, WeakPtrFactoryInitialization::Eager>
+#if !RELEASE_LOG_DISABLED
+    , private LoggerHelper
+#endif
 #if USE(TEXTURE_MAPPER_GL)
 #if USE(NICOSIA)
     , public Nicosia::ContentLayerTextureMapperImpl::Client
@@ -181,11 +191,7 @@ public:
     bool supportsFullscreen() const final;
     MediaPlayer::MovieLoadType movieLoadType() const final;
 
-    unsigned decodedFrameCount() const final;
-    unsigned droppedFrameCount() const final;
-    unsigned audioDecodedByteCount() const final;
-    unsigned videoDecodedByteCount() const final;
-
+    Optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() final;
     void acceleratedRenderingStateChanged() final;
 
 #if USE(TEXTURE_MAPPER_GL)
@@ -208,11 +214,13 @@ public:
 #endif
 
 #if USE(GSTREAMER_GL)
-    bool copyVideoTextureToPlatformTexture(GraphicsContext3D*, Platform3DObject, GC3Denum, GC3Dint, GC3Denum, GC3Denum, GC3Denum, bool, bool) override;
+    bool copyVideoTextureToPlatformTexture(GraphicsContextGLOpenGL*, PlatformGLObject, GCGLenum, GCGLint, GCGLenum, GCGLenum, GCGLenum, bool, bool) override;
     NativeImagePtr nativeImageForCurrentTime() override;
 #endif
 
-    void enableTrack(TrackPrivateBaseGStreamer::TrackType, unsigned index);
+    void updateEnabledVideoTrack();
+    void updateEnabledAudioTrack();
+    void playbin3SendSelectStreamsIfAppropriate();
 
     // Append pipeline interface
     // FIXME: Use the client interface pattern, AppendPipeline does not need the full interface to this class just for these two functions.
@@ -224,6 +232,16 @@ public:
     void flushCurrentBuffer();
 #endif
 
+#if !RELEASE_LOG_DISABLED
+    const Logger& logger() const final { return m_logger; }
+    const char* logClassName() const override { return "MediaPlayerPrivateGStreamer"; }
+    const void* logIdentifier() const final { return reinterpret_cast<const void*>(m_logIdentifier); }
+    WTFLogChannel& logChannel() const override;
+
+    const void* mediaPlayerLogIdentifier() { return logIdentifier(); }
+    const Logger& mediaPlayerLogger() { return logger(); }
+#endif
+
 protected:
     enum MainThreadNotification {
         VideoChanged = 1 << 0,
@@ -231,9 +249,7 @@ protected:
         AudioChanged = 1 << 2,
         VolumeChanged = 1 << 3,
         MuteChanged = 1 << 4,
-#if ENABLE(VIDEO_TRACK)
         TextChanged = 1 << 5,
-#endif
         SizeChanged = 1 << 6,
         StreamCollectionChanged = 1 << 7
     };
@@ -244,6 +260,7 @@ protected:
     virtual void sourceSetup(GstElement*);
     virtual void configurePlaySink() { }
     virtual bool changePipelineState(GstState);
+    virtual void updatePlaybackRate();
 
 #if USE(GSTREAMER_HOLEPUNCH)
     GstElement* createHolePunchVideoSink();
@@ -270,6 +287,7 @@ protected:
     void setStreamVolumeElement(GstStreamVolume*);
 
     void setPipeline(GstElement*);
+    GstElement* pipeline() const { return m_pipeline.get(); }
 
     void repaint();
     void cancelRepaint(bool destroying = false);
@@ -288,11 +306,8 @@ protected:
     void notifyPlayerOfVideo();
     void notifyPlayerOfVideoCaps();
     void notifyPlayerOfAudio();
-
-#if ENABLE(VIDEO_TRACK)
     void notifyPlayerOfText();
     void newTextSample();
-#endif
 
     void ensureAudioSourceProvider();
     void setAudioStreamProperties(GObject*);
@@ -303,10 +318,8 @@ protected:
     static void videoChangedCallback(MediaPlayerPrivateGStreamer*);
     static void videoSinkCapsChangedCallback(MediaPlayerPrivateGStreamer*);
     static void audioChangedCallback(MediaPlayerPrivateGStreamer*);
-#if ENABLE(VIDEO_TRACK)
     static void textChangedCallback(MediaPlayerPrivateGStreamer*);
     static GstFlowReturn newTextSampleCallback(MediaPlayerPrivateGStreamer*);
-#endif
 
     void timeChanged();
     void loadingFailed(MediaPlayer::NetworkState, MediaPlayer::ReadyState = MediaPlayer::ReadyState::HaveNothing, bool forceNotifications = false);
@@ -328,8 +341,8 @@ protected:
     mutable bool m_isLiveStream { false };
     bool m_isPaused { true };
     float m_playbackRate { 1 };
-    GstState m_currentState;
-    GstState m_oldState;
+    GstState m_currentState { GST_STATE_NULL };
+    GstState m_oldState { GST_STATE_NULL };
     GstState m_requestedState { GST_STATE_VOID_PENDING };
     bool m_shouldResetPipeline { false };
     bool m_isSeeking { false };
@@ -371,7 +384,7 @@ protected:
 #if ENABLE(ENCRYPTED_MEDIA)
     Lock m_cdmAttachmentMutex;
     Condition m_cdmAttachmentCondition;
-    RefPtr<const CDMInstance> m_cdmInstance;
+    RefPtr<CDMInstanceProxy> m_cdmInstance;
 
     Lock m_protectionMutex; // Guards access to m_handledProtectionEvents.
     HashSet<uint32_t> m_handledProtectionEvents;
@@ -384,7 +397,6 @@ protected:
 private:
     bool isPlayerShuttingDown() const { return m_isPlayerShuttingDown.load(); }
     MediaTime maxTimeLoaded() const;
-    GstElement* pipeline() const { return m_pipeline.get(); }
     void setVideoSourceOrientation(ImageOrientation);
     MediaTime platformDuration() const;
     bool isMuted() const;
@@ -417,7 +429,6 @@ private:
     void updateBufferingStatus(GstBufferingMode, double percentage);
     void updateMaxTimeLoaded(double percentage);
 
-#if ENABLE(VIDEO_TRACK)
 #if USE(GSTREAMER_MPEGTS)
     void processMpegTsSection(GstMpegtsSection*);
 #endif
@@ -428,9 +439,8 @@ private:
     void purgeInvalidAudioTracks(Vector<String> validTrackIds);
     void purgeInvalidVideoTracks(Vector<String> validTrackIds);
     void purgeInvalidTextTracks(Vector<String> validTrackIds);
-#endif
+
     virtual bool doSeek(const MediaTime& position, float rate, GstSeekFlags seekType);
-    virtual void updatePlaybackRate();
 
     String engineDescription() const override { return "GStreamer"; }
     bool didPassCORSAccessCheck() const override;
@@ -443,21 +453,19 @@ private:
     void setPlaybinURL(const URL& urlString);
     void loadFull(const String& url, const String& pipelineName);
 
-    void updateTracks();
-    void clearTracks();
+    void updateTracks(GRefPtr<GstStreamCollection>&&);
 
 #if ENABLE(ENCRYPTED_MEDIA)
     bool isCDMAttached() const { return m_cdmInstance; }
     void attemptToDecryptWithLocalInstance();
     void initializationDataEncountered(InitData&&);
-    void setWaitingForKey(bool);
+    InitData parseInitDataFromProtectionMessage(GstMessage*);
+    bool waitForCDMAttachment();
 #endif
 
     Atomic<bool> m_isPlayerShuttingDown;
-#if ENABLE(VIDEO_TRACK)
     GRefPtr<GstElement> m_textAppSink;
     GRefPtr<GstPad> m_textAppSinkPad;
-#endif
     GstStructure* m_mediaLocations { nullptr };
     int m_mediaLocationCurrentIndex { 0 };
     bool m_isPlaybackRatePaused { false };
@@ -489,20 +497,25 @@ private:
     bool m_shouldPreservePitch { false };
     mutable Optional<Seconds> m_lastQueryTime;
     bool m_isLegacyPlaybin;
-    GRefPtr<GstStreamCollection> m_streamCollection;
 #if ENABLE(MEDIA_STREAM)
     RefPtr<MediaStreamPrivate> m_streamPrivate;
 #endif
-    String m_currentAudioStreamId;
-    String m_currentVideoStreamId;
-    String m_currentTextStreamId;
+
+    // playbin3 only:
+    bool m_waitingForStreamsSelectedEvent { true };
+    AtomString m_currentAudioStreamId; // Currently playing.
+    AtomString m_currentVideoStreamId;
+    AtomString m_wantedAudioStreamId; // Set in JavaScript.
+    AtomString m_wantedVideoStreamId;
+    AtomString m_requestedAudioStreamId; // Expected in the next STREAMS_SELECTED message.
+    AtomString m_requestedVideoStreamId;
+
 #if ENABLE(WEB_AUDIO)
     std::unique_ptr<AudioSourceProviderGStreamer> m_audioSourceProvider;
 #endif
     GRefPtr<GstElement> m_autoAudioSink;
     GRefPtr<GstElement> m_downloadBuffer;
     Vector<RefPtr<MediaPlayerRequestInstallMissingPluginsCallback>> m_missingPluginCallbacks;
-#if ENABLE(VIDEO_TRACK)
     HashMap<AtomString, RefPtr<AudioTrackPrivateGStreamer>> m_audioTracks;
     HashMap<AtomString, RefPtr<InbandTextTrackPrivateGStreamer>> m_textTracks;
     HashMap<AtomString, RefPtr<VideoTrackPrivateGStreamer>> m_videoTracks;
@@ -510,7 +523,6 @@ private:
 #if USE(GSTREAMER_MPEGTS)
     HashMap<AtomString, RefPtr<InbandMetadataTextTrackPrivateGStreamer>> m_metadataTracks;
 #endif
-#endif // ENABLE(VIDEO_TRACK)
     virtual bool isMediaSource() const { return false; }
 
     uint64_t m_httpResponseTotalSize { 0 };
@@ -521,6 +533,15 @@ private:
     Optional<bool> m_hasTaintedOrigin { WTF::nullopt };
 
     GRefPtr<GstElement> m_fpsSink { nullptr };
+
+private:
+#if USE(WPE_VIDEO_PLANE_DISPLAY_DMABUF)
+    GUniquePtr<struct wpe_video_plane_display_dmabuf_source> m_wpeVideoPlaneDisplayDmaBuf;
+#endif
+#if !RELEASE_LOG_DISABLED
+    Ref<const Logger> m_logger;
+    const void* m_logIdentifier;
+#endif
 };
 
 }

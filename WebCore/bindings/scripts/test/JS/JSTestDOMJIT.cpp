@@ -22,6 +22,7 @@
 #include "JSTestDOMJIT.h"
 
 #include "ActiveDOMObject.h"
+#include "DOMIsoSubspaces.h"
 #include "DOMJITAbstractHeapRepository.h"
 #include "DOMJITIDLConvert.h"
 #include "DOMJITIDLType.h"
@@ -42,9 +43,12 @@
 #include "JSElement.h"
 #include "JSNodeList.h"
 #include "ScriptExecutionContext.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FrameTracers.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
+#include <JavaScriptCore/SubspaceInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
 #include <wtf/URL.h>
@@ -466,7 +470,7 @@ static const JSC::DOMJIT::GetterSetter DOMJITAttributeForTestDOMJITNodeNullableA
     DOMJIT::IDLResultTypeFilter<IDLNullable<IDLInterface<Node>>>::value
 };
 
-class JSTestDOMJITPrototype : public JSC::JSNonFinalObject {
+class JSTestDOMJITPrototype final : public JSC::JSNonFinalObject {
 public:
     using Base = JSC::JSNonFinalObject;
     static JSTestDOMJITPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
@@ -477,6 +481,12 @@ public:
     }
 
     DECLARE_INFO;
+    template<typename CellType, JSC::SubspaceAccess>
+    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestDOMJITPrototype, Base);
+        return &vm.plainObjectSpace;
+    }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
@@ -502,7 +512,7 @@ template<> JSValue JSTestDOMJITConstructor::prototypeForStructure(JSC::VM& vm, c
 template<> void JSTestDOMJITConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestDOMJIT::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestDOMJIT"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestDOMJIT"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -555,12 +565,13 @@ static const HashTableValue JSTestDOMJITPrototypeTableValues[] =
     { "getElementsByName", static_cast<unsigned>(JSC::PropertyAttribute::Function | JSC::PropertyAttribute::DOMJITFunction), NoIntrinsic, { (intptr_t)static_cast<RawNativeFunction>(jsTestDOMJITPrototypeFunctionGetElementsByName), (intptr_t) static_cast<const JSC::DOMJIT::Signature*>(&DOMJITSignatureForTestDOMJITGetElementsByName) } },
 };
 
-const ClassInfo JSTestDOMJITPrototype::s_info = { "TestDOMJITPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestDOMJITPrototype) };
+const ClassInfo JSTestDOMJITPrototype::s_info = { "TestDOMJIT", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestDOMJITPrototype) };
 
 void JSTestDOMJITPrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSTestDOMJIT::info(), JSTestDOMJITPrototypeTableValues, *this);
+    JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
 const ClassInfo JSTestDOMJIT::s_info = { "TestDOMJIT", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestDOMJIT) };
@@ -627,13 +638,12 @@ bool setJSTestDOMJITConstructor(JSGlobalObject* lexicalGlobalObject, EncodedJSVa
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
-static inline JSValue jsTestDOMJITAnyAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITAnyAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLAny>(lexicalGlobalObject, throwScope, impl.anyAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLAny>(lexicalGlobalObject, throwScope, impl.anyAttr())));
 }
 
 EncodedJSValue jsTestDOMJITAnyAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -641,13 +651,12 @@ EncodedJSValue jsTestDOMJITAnyAttr(JSGlobalObject* lexicalGlobalObject, EncodedJ
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITAnyAttrGetter>(*lexicalGlobalObject, thisValue, "anyAttr");
 }
 
-static inline JSValue jsTestDOMJITBooleanAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITBooleanAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLBoolean>(lexicalGlobalObject, throwScope, impl.booleanAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLBoolean>(lexicalGlobalObject, throwScope, impl.booleanAttr())));
 }
 
 EncodedJSValue jsTestDOMJITBooleanAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -655,13 +664,12 @@ EncodedJSValue jsTestDOMJITBooleanAttr(JSGlobalObject* lexicalGlobalObject, Enco
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITBooleanAttrGetter>(*lexicalGlobalObject, thisValue, "booleanAttr");
 }
 
-static inline JSValue jsTestDOMJITByteAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITByteAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLByte>(lexicalGlobalObject, throwScope, impl.byteAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLByte>(lexicalGlobalObject, throwScope, impl.byteAttr())));
 }
 
 EncodedJSValue jsTestDOMJITByteAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -669,13 +677,12 @@ EncodedJSValue jsTestDOMJITByteAttr(JSGlobalObject* lexicalGlobalObject, Encoded
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITByteAttrGetter>(*lexicalGlobalObject, thisValue, "byteAttr");
 }
 
-static inline JSValue jsTestDOMJITOctetAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITOctetAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLOctet>(lexicalGlobalObject, throwScope, impl.octetAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLOctet>(lexicalGlobalObject, throwScope, impl.octetAttr())));
 }
 
 EncodedJSValue jsTestDOMJITOctetAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -683,13 +690,12 @@ EncodedJSValue jsTestDOMJITOctetAttr(JSGlobalObject* lexicalGlobalObject, Encode
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITOctetAttrGetter>(*lexicalGlobalObject, thisValue, "octetAttr");
 }
 
-static inline JSValue jsTestDOMJITShortAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITShortAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLShort>(lexicalGlobalObject, throwScope, impl.shortAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLShort>(lexicalGlobalObject, throwScope, impl.shortAttr())));
 }
 
 EncodedJSValue jsTestDOMJITShortAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -697,13 +703,12 @@ EncodedJSValue jsTestDOMJITShortAttr(JSGlobalObject* lexicalGlobalObject, Encode
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITShortAttrGetter>(*lexicalGlobalObject, thisValue, "shortAttr");
 }
 
-static inline JSValue jsTestDOMJITUnsignedShortAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnsignedShortAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLUnsignedShort>(lexicalGlobalObject, throwScope, impl.unsignedShortAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLUnsignedShort>(lexicalGlobalObject, throwScope, impl.unsignedShortAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnsignedShortAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -711,13 +716,12 @@ EncodedJSValue jsTestDOMJITUnsignedShortAttr(JSGlobalObject* lexicalGlobalObject
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnsignedShortAttrGetter>(*lexicalGlobalObject, thisValue, "unsignedShortAttr");
 }
 
-static inline JSValue jsTestDOMJITLongAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITLongAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLLong>(lexicalGlobalObject, throwScope, impl.longAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLLong>(lexicalGlobalObject, throwScope, impl.longAttr())));
 }
 
 EncodedJSValue jsTestDOMJITLongAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -725,13 +729,12 @@ EncodedJSValue jsTestDOMJITLongAttr(JSGlobalObject* lexicalGlobalObject, Encoded
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITLongAttrGetter>(*lexicalGlobalObject, thisValue, "longAttr");
 }
 
-static inline JSValue jsTestDOMJITUnsignedLongAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnsignedLongAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLUnsignedLong>(lexicalGlobalObject, throwScope, impl.unsignedLongAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLUnsignedLong>(lexicalGlobalObject, throwScope, impl.unsignedLongAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnsignedLongAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -739,13 +742,12 @@ EncodedJSValue jsTestDOMJITUnsignedLongAttr(JSGlobalObject* lexicalGlobalObject,
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnsignedLongAttrGetter>(*lexicalGlobalObject, thisValue, "unsignedLongAttr");
 }
 
-static inline JSValue jsTestDOMJITLongLongAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITLongLongAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLLongLong>(lexicalGlobalObject, throwScope, impl.longLongAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLLongLong>(lexicalGlobalObject, throwScope, impl.longLongAttr())));
 }
 
 EncodedJSValue jsTestDOMJITLongLongAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -753,13 +755,12 @@ EncodedJSValue jsTestDOMJITLongLongAttr(JSGlobalObject* lexicalGlobalObject, Enc
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITLongLongAttrGetter>(*lexicalGlobalObject, thisValue, "longLongAttr");
 }
 
-static inline JSValue jsTestDOMJITUnsignedLongLongAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnsignedLongLongAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLUnsignedLongLong>(lexicalGlobalObject, throwScope, impl.unsignedLongLongAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLUnsignedLongLong>(lexicalGlobalObject, throwScope, impl.unsignedLongLongAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnsignedLongLongAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -767,13 +768,12 @@ EncodedJSValue jsTestDOMJITUnsignedLongLongAttr(JSGlobalObject* lexicalGlobalObj
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnsignedLongLongAttrGetter>(*lexicalGlobalObject, thisValue, "unsignedLongLongAttr");
 }
 
-static inline JSValue jsTestDOMJITFloatAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITFloatAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLFloat>(lexicalGlobalObject, throwScope, impl.floatAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLFloat>(lexicalGlobalObject, throwScope, impl.floatAttr())));
 }
 
 EncodedJSValue jsTestDOMJITFloatAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -781,13 +781,12 @@ EncodedJSValue jsTestDOMJITFloatAttr(JSGlobalObject* lexicalGlobalObject, Encode
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITFloatAttrGetter>(*lexicalGlobalObject, thisValue, "floatAttr");
 }
 
-static inline JSValue jsTestDOMJITUnrestrictedFloatAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnrestrictedFloatAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLUnrestrictedFloat>(lexicalGlobalObject, throwScope, impl.unrestrictedFloatAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLUnrestrictedFloat>(lexicalGlobalObject, throwScope, impl.unrestrictedFloatAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnrestrictedFloatAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -795,13 +794,12 @@ EncodedJSValue jsTestDOMJITUnrestrictedFloatAttr(JSGlobalObject* lexicalGlobalOb
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnrestrictedFloatAttrGetter>(*lexicalGlobalObject, thisValue, "unrestrictedFloatAttr");
 }
 
-static inline JSValue jsTestDOMJITDoubleAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITDoubleAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDouble>(lexicalGlobalObject, throwScope, impl.doubleAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDouble>(lexicalGlobalObject, throwScope, impl.doubleAttr())));
 }
 
 EncodedJSValue jsTestDOMJITDoubleAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -809,13 +807,12 @@ EncodedJSValue jsTestDOMJITDoubleAttr(JSGlobalObject* lexicalGlobalObject, Encod
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITDoubleAttrGetter>(*lexicalGlobalObject, thisValue, "doubleAttr");
 }
 
-static inline JSValue jsTestDOMJITUnrestrictedDoubleAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnrestrictedDoubleAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLUnrestrictedDouble>(lexicalGlobalObject, throwScope, impl.unrestrictedDoubleAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLUnrestrictedDouble>(lexicalGlobalObject, throwScope, impl.unrestrictedDoubleAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnrestrictedDoubleAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -823,13 +820,12 @@ EncodedJSValue jsTestDOMJITUnrestrictedDoubleAttr(JSGlobalObject* lexicalGlobalO
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnrestrictedDoubleAttrGetter>(*lexicalGlobalObject, thisValue, "unrestrictedDoubleAttr");
 }
 
-static inline JSValue jsTestDOMJITDomStringAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITDomStringAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.domStringAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.domStringAttr())));
 }
 
 EncodedJSValue jsTestDOMJITDomStringAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -837,13 +833,12 @@ EncodedJSValue jsTestDOMJITDomStringAttr(JSGlobalObject* lexicalGlobalObject, En
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITDomStringAttrGetter>(*lexicalGlobalObject, thisValue, "domStringAttr");
 }
 
-static inline JSValue jsTestDOMJITByteStringAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITByteStringAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLByteString>(lexicalGlobalObject, throwScope, impl.byteStringAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLByteString>(lexicalGlobalObject, throwScope, impl.byteStringAttr())));
 }
 
 EncodedJSValue jsTestDOMJITByteStringAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -851,13 +846,12 @@ EncodedJSValue jsTestDOMJITByteStringAttr(JSGlobalObject* lexicalGlobalObject, E
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITByteStringAttrGetter>(*lexicalGlobalObject, thisValue, "byteStringAttr");
 }
 
-static inline JSValue jsTestDOMJITUsvStringAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUsvStringAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLUSVString>(lexicalGlobalObject, throwScope, impl.usvStringAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLUSVString>(lexicalGlobalObject, throwScope, impl.usvStringAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUsvStringAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -865,13 +859,12 @@ EncodedJSValue jsTestDOMJITUsvStringAttr(JSGlobalObject* lexicalGlobalObject, En
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUsvStringAttrGetter>(*lexicalGlobalObject, thisValue, "usvStringAttr");
 }
 
-static inline JSValue jsTestDOMJITNodeAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITNodeAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLInterface<Node>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.nodeAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLInterface<Node>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.nodeAttr())));
 }
 
 EncodedJSValue jsTestDOMJITNodeAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -879,13 +872,12 @@ EncodedJSValue jsTestDOMJITNodeAttr(JSGlobalObject* lexicalGlobalObject, Encoded
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITNodeAttrGetter>(*lexicalGlobalObject, thisValue, "nodeAttr");
 }
 
-static inline JSValue jsTestDOMJITBooleanNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITBooleanNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLBoolean>>(lexicalGlobalObject, throwScope, impl.booleanNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLBoolean>>(lexicalGlobalObject, throwScope, impl.booleanNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITBooleanNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -893,13 +885,12 @@ EncodedJSValue jsTestDOMJITBooleanNullableAttr(JSGlobalObject* lexicalGlobalObje
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITBooleanNullableAttrGetter>(*lexicalGlobalObject, thisValue, "booleanNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITByteNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITByteNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLByte>>(lexicalGlobalObject, throwScope, impl.byteNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLByte>>(lexicalGlobalObject, throwScope, impl.byteNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITByteNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -907,13 +898,12 @@ EncodedJSValue jsTestDOMJITByteNullableAttr(JSGlobalObject* lexicalGlobalObject,
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITByteNullableAttrGetter>(*lexicalGlobalObject, thisValue, "byteNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITOctetNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITOctetNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLOctet>>(lexicalGlobalObject, throwScope, impl.octetNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLOctet>>(lexicalGlobalObject, throwScope, impl.octetNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITOctetNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -921,13 +911,12 @@ EncodedJSValue jsTestDOMJITOctetNullableAttr(JSGlobalObject* lexicalGlobalObject
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITOctetNullableAttrGetter>(*lexicalGlobalObject, thisValue, "octetNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITShortNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITShortNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLShort>>(lexicalGlobalObject, throwScope, impl.shortNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLShort>>(lexicalGlobalObject, throwScope, impl.shortNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITShortNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -935,13 +924,12 @@ EncodedJSValue jsTestDOMJITShortNullableAttr(JSGlobalObject* lexicalGlobalObject
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITShortNullableAttrGetter>(*lexicalGlobalObject, thisValue, "shortNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITUnsignedShortNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnsignedShortNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLUnsignedShort>>(lexicalGlobalObject, throwScope, impl.unsignedShortNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLUnsignedShort>>(lexicalGlobalObject, throwScope, impl.unsignedShortNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnsignedShortNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -949,13 +937,12 @@ EncodedJSValue jsTestDOMJITUnsignedShortNullableAttr(JSGlobalObject* lexicalGlob
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnsignedShortNullableAttrGetter>(*lexicalGlobalObject, thisValue, "unsignedShortNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITLongNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITLongNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLLong>>(lexicalGlobalObject, throwScope, impl.longNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLLong>>(lexicalGlobalObject, throwScope, impl.longNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITLongNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -963,13 +950,12 @@ EncodedJSValue jsTestDOMJITLongNullableAttr(JSGlobalObject* lexicalGlobalObject,
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITLongNullableAttrGetter>(*lexicalGlobalObject, thisValue, "longNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITUnsignedLongNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnsignedLongNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLUnsignedLong>>(lexicalGlobalObject, throwScope, impl.unsignedLongNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLUnsignedLong>>(lexicalGlobalObject, throwScope, impl.unsignedLongNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnsignedLongNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -977,13 +963,12 @@ EncodedJSValue jsTestDOMJITUnsignedLongNullableAttr(JSGlobalObject* lexicalGloba
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnsignedLongNullableAttrGetter>(*lexicalGlobalObject, thisValue, "unsignedLongNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITLongLongNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITLongLongNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLLongLong>>(lexicalGlobalObject, throwScope, impl.longLongNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLLongLong>>(lexicalGlobalObject, throwScope, impl.longLongNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITLongLongNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -991,13 +976,12 @@ EncodedJSValue jsTestDOMJITLongLongNullableAttr(JSGlobalObject* lexicalGlobalObj
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITLongLongNullableAttrGetter>(*lexicalGlobalObject, thisValue, "longLongNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITUnsignedLongLongNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnsignedLongLongNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLUnsignedLongLong>>(lexicalGlobalObject, throwScope, impl.unsignedLongLongNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLUnsignedLongLong>>(lexicalGlobalObject, throwScope, impl.unsignedLongLongNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnsignedLongLongNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1005,13 +989,12 @@ EncodedJSValue jsTestDOMJITUnsignedLongLongNullableAttr(JSGlobalObject* lexicalG
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnsignedLongLongNullableAttrGetter>(*lexicalGlobalObject, thisValue, "unsignedLongLongNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITFloatNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITFloatNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLFloat>>(lexicalGlobalObject, throwScope, impl.floatNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLFloat>>(lexicalGlobalObject, throwScope, impl.floatNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITFloatNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1019,13 +1002,12 @@ EncodedJSValue jsTestDOMJITFloatNullableAttr(JSGlobalObject* lexicalGlobalObject
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITFloatNullableAttrGetter>(*lexicalGlobalObject, thisValue, "floatNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITUnrestrictedFloatNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnrestrictedFloatNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLUnrestrictedFloat>>(lexicalGlobalObject, throwScope, impl.unrestrictedFloatNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLUnrestrictedFloat>>(lexicalGlobalObject, throwScope, impl.unrestrictedFloatNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnrestrictedFloatNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1033,13 +1015,12 @@ EncodedJSValue jsTestDOMJITUnrestrictedFloatNullableAttr(JSGlobalObject* lexical
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnrestrictedFloatNullableAttrGetter>(*lexicalGlobalObject, thisValue, "unrestrictedFloatNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITDoubleNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITDoubleNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLDouble>>(lexicalGlobalObject, throwScope, impl.doubleNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLDouble>>(lexicalGlobalObject, throwScope, impl.doubleNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITDoubleNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1047,13 +1028,12 @@ EncodedJSValue jsTestDOMJITDoubleNullableAttr(JSGlobalObject* lexicalGlobalObjec
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITDoubleNullableAttrGetter>(*lexicalGlobalObject, thisValue, "doubleNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITUnrestrictedDoubleNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUnrestrictedDoubleNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLUnrestrictedDouble>>(lexicalGlobalObject, throwScope, impl.unrestrictedDoubleNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLUnrestrictedDouble>>(lexicalGlobalObject, throwScope, impl.unrestrictedDoubleNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUnrestrictedDoubleNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1061,13 +1041,12 @@ EncodedJSValue jsTestDOMJITUnrestrictedDoubleNullableAttr(JSGlobalObject* lexica
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUnrestrictedDoubleNullableAttrGetter>(*lexicalGlobalObject, thisValue, "unrestrictedDoubleNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITDomStringNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITDomStringNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLDOMString>>(lexicalGlobalObject, throwScope, impl.domStringNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLDOMString>>(lexicalGlobalObject, throwScope, impl.domStringNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITDomStringNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1075,13 +1054,12 @@ EncodedJSValue jsTestDOMJITDomStringNullableAttr(JSGlobalObject* lexicalGlobalOb
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITDomStringNullableAttrGetter>(*lexicalGlobalObject, thisValue, "domStringNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITByteStringNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITByteStringNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLByteString>>(lexicalGlobalObject, throwScope, impl.byteStringNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLByteString>>(lexicalGlobalObject, throwScope, impl.byteStringNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITByteStringNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1089,13 +1067,12 @@ EncodedJSValue jsTestDOMJITByteStringNullableAttr(JSGlobalObject* lexicalGlobalO
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITByteStringNullableAttrGetter>(*lexicalGlobalObject, thisValue, "byteStringNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITUsvStringNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITUsvStringNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLUSVString>>(lexicalGlobalObject, throwScope, impl.usvStringNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLUSVString>>(lexicalGlobalObject, throwScope, impl.usvStringNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITUsvStringNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1103,13 +1080,12 @@ EncodedJSValue jsTestDOMJITUsvStringNullableAttr(JSGlobalObject* lexicalGlobalOb
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITUsvStringNullableAttrGetter>(*lexicalGlobalObject, thisValue, "usvStringNullableAttr");
 }
 
-static inline JSValue jsTestDOMJITNodeNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestDOMJITNodeNullableAttrGetter(JSGlobalObject& lexicalGlobalObject, JSTestDOMJIT& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLNullable<IDLInterface<Node>>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.nodeNullableAttr());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLNullable<IDLInterface<Node>>>(lexicalGlobalObject, *thisObject.globalObject(), throwScope, impl.nodeNullableAttr())));
 }
 
 EncodedJSValue jsTestDOMJITNodeNullableAttr(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -1117,17 +1093,19 @@ EncodedJSValue jsTestDOMJITNodeNullableAttr(JSGlobalObject* lexicalGlobalObject,
     return IDLAttribute<JSTestDOMJIT>::get<jsTestDOMJITNodeNullableAttrGetter>(*lexicalGlobalObject, thisValue, "nodeNullableAttr");
 }
 
-static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionGetAttributeBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionGetAttributeBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
     if (UNLIKELY(callFrame->argumentCount() < 1))
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
-    auto name = convert<IDLDOMString>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto name = convert<IDLDOMString>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLNullable<IDLDOMString>>(*lexicalGlobalObject, impl.getAttribute(WTFMove(name))));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLNullable<IDLDOMString>>(*lexicalGlobalObject, impl.getAttribute(WTFMove(name)))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestDOMJITPrototypeFunctionGetAttribute(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -1151,19 +1129,22 @@ JSC::EncodedJSValue JIT_OPERATION jsTestDOMJITPrototypeFunctionGetAttributeWitho
     return JSValue::encode(toJS<IDLNullable<IDLDOMString>>(*lexicalGlobalObject, impl.getAttribute(WTFMove(name))));
 }
 
-static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionItemBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionItemBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
     if (UNLIKELY(callFrame->argumentCount() < 2))
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
-    auto x = convert<IDLUnsignedShort>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto x = convert<IDLUnsignedShort>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    auto y = convert<IDLUnsignedShort>(*lexicalGlobalObject, callFrame->uncheckedArgument(1));
+    EnsureStillAliveScope argument1 = callFrame->uncheckedArgument(1);
+    auto y = convert<IDLUnsignedShort>(*lexicalGlobalObject, argument1.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLDOMString>(*lexicalGlobalObject, impl.item(WTFMove(x), WTFMove(y))));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLDOMString>(*lexicalGlobalObject, impl.item(WTFMove(x), WTFMove(y)))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestDOMJITPrototypeFunctionItem(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -1189,13 +1170,14 @@ JSC::EncodedJSValue JIT_OPERATION jsTestDOMJITPrototypeFunctionItemWithoutTypeCh
     return JSValue::encode(toJS<IDLDOMString>(*lexicalGlobalObject, impl.item(WTFMove(x), WTFMove(y))));
 }
 
-static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionHasAttributeBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionHasAttributeBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
-    return JSValue::encode(toJS<IDLBoolean>(impl.hasAttribute()));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLBoolean>(impl.hasAttribute())));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestDOMJITPrototypeFunctionHasAttribute(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -1217,17 +1199,19 @@ JSC::EncodedJSValue JIT_OPERATION jsTestDOMJITPrototypeFunctionHasAttributeWitho
     return JSValue::encode(toJS<IDLBoolean>(impl.hasAttribute()));
 }
 
-static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionGetElementByIdBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionGetElementByIdBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
     if (UNLIKELY(callFrame->argumentCount() < 1))
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
-    auto elementId = convert<IDLRequiresExistingAtomStringAdaptor<IDLDOMString>>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto elementId = convert<IDLRequiresExistingAtomStringAdaptor<IDLDOMString>>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLInterface<Element>>(*lexicalGlobalObject, *castedThis->globalObject(), impl.getElementById(WTFMove(elementId))));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLInterface<Element>>(*lexicalGlobalObject, *castedThis->globalObject(), impl.getElementById(WTFMove(elementId)))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestDOMJITPrototypeFunctionGetElementById(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -1251,17 +1235,19 @@ JSC::EncodedJSValue JIT_OPERATION jsTestDOMJITPrototypeFunctionGetElementByIdWit
     return JSValue::encode(toJS<IDLInterface<Element>>(*lexicalGlobalObject, *castedThis->globalObject(), impl.getElementById(WTFMove(elementId))));
 }
 
-static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionGetElementsByNameBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestDOMJITPrototypeFunctionGetElementsByNameBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestDOMJIT>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
     if (UNLIKELY(callFrame->argumentCount() < 1))
         return throwVMError(lexicalGlobalObject, throwScope, createNotEnoughArgumentsError(lexicalGlobalObject));
-    auto elementName = convert<IDLAtomStringAdaptor<IDLDOMString>>(*lexicalGlobalObject, callFrame->uncheckedArgument(0));
+    EnsureStillAliveScope argument0 = callFrame->uncheckedArgument(0);
+    auto elementName = convert<IDLAtomStringAdaptor<IDLDOMString>>(*lexicalGlobalObject, argument0.value());
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
-    return JSValue::encode(toJS<IDLInterface<NodeList>>(*lexicalGlobalObject, *castedThis->globalObject(), impl.getElementsByName(WTFMove(elementName))));
+    RELEASE_AND_RETURN(throwScope, JSValue::encode(toJS<IDLInterface<NodeList>>(*lexicalGlobalObject, *castedThis->globalObject(), impl.getElementsByName(WTFMove(elementName)))));
 }
 
 EncodedJSValue JSC_HOST_CALL jsTestDOMJITPrototypeFunctionGetElementsByName(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
@@ -1283,6 +1269,27 @@ JSC::EncodedJSValue JIT_OPERATION jsTestDOMJITPrototypeFunctionGetElementsByName
     auto elementName = DOMJIT::DirectConverter<IDLAtomStringAdaptor<IDLDOMString>>::directConvert(*lexicalGlobalObject, encodedElementName);
     RETURN_IF_EXCEPTION(throwScope, encodedJSValue());
     return JSValue::encode(toJS<IDLInterface<NodeList>>(*lexicalGlobalObject, *castedThis->globalObject(), impl.getElementsByName(WTFMove(elementName))));
+}
+
+JSC::IsoSubspace* JSTestDOMJIT::subspaceForImpl(JSC::VM& vm)
+{
+    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
+    auto& spaces = clientData.subspaces();
+    if (auto* space = spaces.m_subspaceForTestDOMJIT.get())
+        return space;
+    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestDOMJIT> || !JSTestDOMJIT::needsDestruction);
+    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestDOMJIT>)
+        spaces.m_subspaceForTestDOMJIT = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestDOMJIT);
+    else
+        spaces.m_subspaceForTestDOMJIT = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestDOMJIT);
+    auto* space = spaces.m_subspaceForTestDOMJIT.get();
+IGNORE_WARNINGS_BEGIN("unreachable-code")
+IGNORE_WARNINGS_BEGIN("tautological-compare")
+    if (&JSTestDOMJIT::visitOutputConstraints != &JSC::JSCell::visitOutputConstraints)
+        clientData.outputConstraintSpaces().append(space);
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
+    return space;
 }
 
 void JSTestDOMJIT::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)

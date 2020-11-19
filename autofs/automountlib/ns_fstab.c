@@ -272,7 +272,17 @@ find_staticmap_entry(const char *dir, struct staticmap ***bucketp)
 		*bucketp = bucket;
 	for (staticent = *bucket; staticent != NULL; staticent = staticent->next) {
 		if (strcmp(staticent->dir, dir) == 0)
+		{
+			if (trace > 5)
+			{
+				trace_prt(5, "find_staticmap_entry: %s -> %p[%s]", dir, staticent, staticent->dir);
+			}
 			return (staticent);
+		}
+	}
+	if (trace > 5)
+	{
+		trace_prt(5, "find_staticmap_entry: %s -> NULL", dir);
 	}
 	return NULL;
 }
@@ -406,7 +416,12 @@ readfstab(void)
 	 * repeatedly looking up a name that's not cached.
 	 */
 	if (time(NULL) < min_cachetime)
+	{
+		if (trace > 3) {
+			trace_prt(3, "readfstab(): ignoring cache flush: %ld > %ld", min_cachetime, time(NULL));
+		}
 		return (0);
+	}
 
 	/*
 	 * Clean out the old entries, in case this is being called
@@ -535,6 +550,8 @@ readfstab(void)
 			free(host);
 			if (url != NULL)
 				free(url);
+			if (mntops != NULL)
+				free(mntops);
 			continue;	/* give up on this */
 		}
 		if (err == ENOMEM) {
@@ -741,6 +758,10 @@ readfstab(void)
 	min_cachetime = time(NULL) + MIN_CACHE_TIME;
 	max_cachetime = time(NULL) + RDDIR_CACHE_TIME * 2;
 
+	if (trace > 5)
+	{
+		trace_prt(5, "readfstab(): returning success");
+	}
 	return (0);
 
 outofmem:

@@ -175,7 +175,7 @@ SecCodeStatus KernelCode::getGuestStatus(SecCode *iguest)
 {
 	if (ProcessCode *guest = dynamic_cast<ProcessCode *>(iguest)) {
 		uint32_t pFlags;
-		csops(guest, CS_OPS_STATUS, &pFlags);
+		csops(guest, CS_OPS_STATUS, &pFlags, sizeof(pFlags));
 		secinfo("kcode", "guest %p(%d) kernel status 0x%x", guest, guest->pid(), pFlags);
 		return pFlags;
 	} else

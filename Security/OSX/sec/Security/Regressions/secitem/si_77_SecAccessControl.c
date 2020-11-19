@@ -411,8 +411,8 @@ static bool merge_der_in_to_data(const void *der1, size_t der1_len, const void *
     CFPropertyListRef dict1 = NULL;
     CFPropertyListRef dict2 = NULL;
 
-    der_decode_plist(NULL, kCFPropertyListImmutable, &dict1, NULL, der1, der1 + der1_len);
-    der_decode_plist(NULL, kCFPropertyListImmutable, &dict2, NULL, der2, der2 + der2_len);
+    der_decode_plist(NULL, &dict1, NULL, der1, der1 + der1_len);
+    der_decode_plist(NULL, &dict2, NULL, der2, der2 + der2_len);
     if (dict1 && dict2) {
         CFMutableDictionaryRef result_dict = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, dict1);
         CFDictionaryForEach(dict2, ^(const void *key, const void *value) {
@@ -463,7 +463,7 @@ static int aks_crypt_acl(CFTypeRef operation, keybag_handle_t keybag,
         require_action_string(der, out, aks_return = kAKSReturnError, "aks_ref_key_decrypt failed");
 
         CFPropertyListRef decoded_data = NULL;
-        der_decode_plist(kCFAllocatorDefault, kCFPropertyListImmutable, &decoded_data, NULL, der, der + der_len);
+        der_decode_plist(kCFAllocatorDefault, &decoded_data, NULL, der, der + der_len);
         require_action_string(decoded_data, out, aks_return = kAKSReturnError, "der_decode_plist failed");
         if (CFGetTypeID(decoded_data) == CFDataGetTypeID()) {
             CFDataSetLength(dest, 0);

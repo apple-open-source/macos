@@ -320,10 +320,9 @@ vim_findfile_init(
 	search_ctx = search_ctx_arg;
     else
     {
-	search_ctx = ALLOC_ONE(ff_search_ctx_T);
+	search_ctx = ALLOC_CLEAR_ONE(ff_search_ctx_T);
 	if (search_ctx == NULL)
 	    goto error_return;
-	vim_memset(search_ctx, 0, sizeof(ff_search_ctx_T));
     }
     search_ctx->ffsc_find_what = find_what;
     search_ctx->ffsc_tagfile = tagfile;
@@ -968,7 +967,7 @@ vim_findfile(void *search_ctx_arg)
 		    {
 			if (!path_with_url(stackp->ffs_filearray[i])
 				      && !mch_isdir(stackp->ffs_filearray[i]))
-			    continue;   /* not a directory */
+			    continue;   // not a directory
 
 			// prepare the filename to be checked for existence
 			// below
@@ -2047,10 +2046,19 @@ file_name_in_line(
     if (file_lnum != NULL)
     {
 	char_u *p;
+	char	*line_english = " line ";
+	char	*line_transl = _(line_msg);
 
-	// Get the number after the file name and a separator character
+	// Get the number after the file name and a separator character.
+	// Also accept " line 999" with and without the same translation as
+	// used in last_set_msg().
 	p = ptr + len;
-	p = skipwhite(p);
+	if (STRNCMP(p, line_english, STRLEN(line_english)) == 0)
+	    p += STRLEN(line_english);
+	else if (STRNCMP(p, line_transl, STRLEN(line_transl)) == 0)
+	    p += STRLEN(line_transl);
+	else
+	    p = skipwhite(p);
 	if (*p != NUL)
 	{
 	    if (!isdigit(*p))
@@ -2690,7 +2698,7 @@ simplify_filename(char_u *filename)
 		char_u		saved_char;
 		stat_T		st;
 
-		/* Don't strip for an erroneous file name. */
+		// Don't strip for an erroneous file name.
 		if (!stripping_disabled)
 		{
 		    // If the preceding component does not exist in the file
@@ -2827,7 +2835,7 @@ f_simplify(typval_T *argvars, typval_T *rettv)
 
     p = tv_get_string(&argvars[0]);
     rettv->vval.v_string = vim_strsave(p);
-    simplify_filename(rettv->vval.v_string);	/* simplify in place */
+    simplify_filename(rettv->vval.v_string);	// simplify in place
     rettv->v_type = VAR_STRING;
 }
 #endif // FEAT_EVAL

@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
+#import "config.h"
 #import "PlatformCALayerCocoa.h"
 
 #import "AnimationUtilities.h"
@@ -51,6 +51,7 @@
 #import <objc/runtime.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 #if ENABLE(WEBGPU)
 #import "WebGPULayer.h"
@@ -69,6 +70,25 @@
 
 namespace WebCore {
 
+using LayerToPlatformCALayerMap = HashMap<void*, PlatformCALayer*>;
+
+static LayerToPlatformCALayerMap& layerToPlatformLayerMap()
+{
+    static NeverDestroyed<LayerToPlatformCALayerMap> layerMap;
+    return layerMap;
+}
+
+
+RefPtr<PlatformCALayer> PlatformCALayer::platformCALayerForLayer(void* platformLayer)
+{
+    if (!platformLayer)
+        return nullptr;
+
+    static Lock lock;
+    LockHolder lockHolder(lock);
+    return layerToPlatformLayerMap().get(platformLayer);
+}
+
 Ref<PlatformCALayerCocoa> PlatformCALayerCocoa::create(LayerType layerType, PlatformCALayerClient* owner)
 {
     return adoptRef(*new PlatformCALayerCocoa(layerType, owner));
@@ -77,20 +97,6 @@ Ref<PlatformCALayerCocoa> PlatformCALayerCocoa::create(LayerType layerType, Plat
 Ref<PlatformCALayerCocoa> PlatformCALayerCocoa::create(void* platformLayer, PlatformCALayerClient* owner)
 {
     return adoptRef(*new PlatformCALayerCocoa((__bridge CALayer *)platformLayer, owner));
-}
-
-static NSString * const platformCALayerPointer = @"WKPlatformCALayer";
-PlatformCALayer* PlatformCALayer::platformCALayer(void* platformLayer)
-{
-    if (!platformLayer)
-        return 0;
-
-    // Pointer to PlatformCALayer is kept in a key of the CALayer
-    PlatformCALayer* platformCALayer = nil;
-    BEGIN_BLOCK_OBJC_EXCEPTIONS
-    platformCALayer = static_cast<PlatformCALayer*>([[(__bridge CALayer *)platformLayer valueForKey:platformCALayerPointer] pointerValue]);
-    END_BLOCK_OBJC_EXCEPTIONS
-    return platformCALayer;
 }
 
 static MonotonicTime mediaTimeToCurrentTime(CFTimeInterval t)
@@ -198,7 +204,7 @@ static NSString *toCAFilterType(PlatformCALayer::FilterType type)
 
 PlatformCALayer::LayerType PlatformCALayerCocoa::layerTypeForPlatformLayer(PlatformLayer* layer)
 {
-    if ([layer isKindOfClass:PAL::getAVPlayerLayerClass()])
+    if (PAL::isAVFoundationFrameworkAvailable() && [layer isKindOfClass:PAL::getAVPlayerLayerClass()])
         return LayerTypeAVPlayerLayer;
 
     if ([layer isKindOfClass:WebVideoContainerLayer.class]
@@ -262,7 +268,8 @@ PlatformCALayerCocoa::PlatformCALayerCocoa(LayerType layerType, PlatformCALayerC
         layerClass = [WebTiledBackingLayer class];
         break;
     case LayerTypeAVPlayerLayer:
-        layerClass = PAL::getAVPlayerLayerClass();
+        if (PAL::isAVFoundationFrameworkAvailable())
+            layerClass = PAL::getAVPlayerLayerClass();
         break;
     case LayerTypeContentsProvidedLayer:
         // We don't create PlatformCALayerCocoas wrapped around WebGLLayers or WebGPULayers.
@@ -297,8 +304,8 @@ PlatformCALayerCocoa::PlatformCALayerCocoa(PlatformLayer* layer, PlatformCALayer
 void PlatformCALayerCocoa::commonInit()
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    // Save a pointer to 'this' in the CALayer
-    [m_layer setValue:[NSValue valueWithPointer:this] forKey:platformCALayerPointer];
+
+    layerToPlatformLayerMap().add(m_layer.get(), this);
     
     // Clear all the implicit animations on the CALayer
     if (m_layerType == LayerTypeAVPlayerLayer || m_layerType == LayerTypeContentsProvidedLayer || m_layerType == LayerTypeScrollContainerLayer || m_layerType == LayerTypeCustom)
@@ -359,7 +366,7 @@ Ref<PlatformCALayer> PlatformCALayerCocoa::clone(PlatformCALayerClient* owner) c
     newLayer->updateCustomAppearance(customAppearance());
 
     if (type == LayerTypeAVPlayerLayer) {
-        ASSERT([newLayer->platformLayer() isKindOfClass:PAL::getAVPlayerLayerClass()]);
+        ASSERT(PAL::isAVFoundationFrameworkAvailable() && [newLayer->platformLayer() isKindOfClass:PAL::getAVPlayerLayerClass()]);
 
         AVPlayerLayer *destinationPlayerLayer = newLayer->avPlayerLayer();
         AVPlayerLayer *sourcePlayerLayer = avPlayerLayer();
@@ -378,7 +385,7 @@ Ref<PlatformCALayer> PlatformCALayerCocoa::clone(PlatformCALayerClient* owner) c
 
 PlatformCALayerCocoa::~PlatformCALayerCocoa()
 {
-    [m_layer setValue:nil forKey:platformCALayerPointer];
+    layerToPlatformLayerMap().remove(m_layer.get());
     
     // Remove the owner pointer from the delegate in case there is a pending animationStarted event.
     [static_cast<WebAnimationDelegate*>(m_delegate.get()) setOwner:nil];
@@ -432,7 +439,7 @@ void PlatformCALayerCocoa::copyContentsFromLayer(PlatformCALayer* layer)
 
 PlatformCALayer* PlatformCALayerCocoa::superlayer() const
 {
-    return platformCALayer((__bridge void*)[m_layer superlayer]);
+    return platformCALayerForLayer((__bridge void*)[m_layer superlayer]).get();
 }
 
 void PlatformCALayerCocoa::removeFromSuperlayer()
@@ -451,12 +458,9 @@ void PlatformCALayerCocoa::setSublayers(const PlatformCALayerList& list)
     }
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    NSMutableArray* sublayers = [[NSMutableArray alloc] init];
-    for (size_t i = 0; i < list.size(); ++i)
-        [sublayers addObject:list[i]->m_layer.get()];
-
-    [m_layer setSublayers:sublayers];
-    [sublayers release];
+    [m_layer setSublayers:createNSArray(list, [] (auto& layer) {
+        return layer->m_layer;
+    }).get()];
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -962,7 +966,7 @@ WindRule PlatformCALayerCocoa::shapeWindRule() const
     ASSERT(m_layerType == LayerTypeShapeLayer);
 
     NSString *fillRule = [(CAShapeLayer *)m_layer fillRule];
-    if ([fillRule isEqualToString:@"even-odd"])
+    if ([fillRule isEqualToString:kCAFillRuleEvenOdd])
         return WindRule::EvenOdd;
 
     return WindRule::NonZero;
@@ -974,10 +978,10 @@ void PlatformCALayerCocoa::setShapeWindRule(WindRule windRule)
 
     switch (windRule) {
     case WindRule::NonZero:
-        [(CAShapeLayer *)m_layer setFillRule:@"non-zero"];
+        [(CAShapeLayer *)m_layer setFillRule:kCAFillRuleNonZero];
         break;
     case WindRule::EvenOdd:
-        [(CAShapeLayer *)m_layer setFillRule:@"even-odd"];
+        [(CAShapeLayer *)m_layer setFillRule:kCAFillRuleEvenOdd];
         break;
     }
 }
@@ -987,7 +991,7 @@ Path PlatformCALayerCocoa::shapePath() const
     ASSERT(m_layerType == LayerTypeShapeLayer);
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    return Path(CGPathCreateMutableCopy([(CAShapeLayer *)m_layer path]));
+    return { adoptCF(CGPathCreateMutableCopy([(CAShapeLayer *)m_layer path])) };
     END_BLOCK_OBJC_EXCEPTIONS
 }
 
@@ -1028,6 +1032,11 @@ void PlatformCALayerCocoa::updateCustomAppearance(GraphicsLayer::CustomAppearanc
         break;
     }
 #endif
+}
+
+void PlatformCALayerCocoa::setEventRegion(const EventRegion& eventRegion)
+{
+    m_eventRegion = eventRegion;
 }
 
 GraphicsLayer::EmbeddedViewID PlatformCALayerCocoa::embeddedViewID() const
@@ -1082,7 +1091,7 @@ bool PlatformCALayer::isWebLayer()
 {
     BOOL result = NO;
     BEGIN_BLOCK_OBJC_EXCEPTIONS
-    result = [m_layer isKindOfClass:[WebLayer self]];
+    result = [m_layer isKindOfClass:[WebLayer class]];
     END_BLOCK_OBJC_EXCEPTIONS
     return result;
 }
@@ -1173,9 +1182,7 @@ void PlatformCALayer::drawLayerContents(GraphicsContext& graphicsContext, WebCor
 
         // Set up an NSGraphicsContext for the context, so that parts of AppKit that rely on
         // the current NSGraphicsContext (e.g. NSCell drawing) get the right one.
-        ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        NSGraphicsContext* layerContext = [NSGraphicsContext graphicsContextWithGraphicsPort:context flipped:YES];
-        ALLOW_DEPRECATED_DECLARATIONS_END
+        NSGraphicsContext* layerContext = [NSGraphicsContext graphicsContextWithCGContext:context flipped:YES];
         [NSGraphicsContext setCurrentContext:layerContext];
 #endif
     }
@@ -1271,6 +1278,9 @@ unsigned PlatformCALayerCocoa::backingStoreBytesPerPixel() const
 
 AVPlayerLayer *PlatformCALayerCocoa::avPlayerLayer() const
 {
+    if (!PAL::isAVFoundationFrameworkAvailable())
+        return nil;
+
     if (layerType() != LayerTypeAVPlayerLayer)
         return nil;
 

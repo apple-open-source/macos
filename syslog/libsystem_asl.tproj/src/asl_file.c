@@ -41,6 +41,7 @@
 #include <asl_private.h>
 #include <asl_legacy1.h>
 #include <TargetConditionals.h>
+#include <os/variant_private.h>
 
 #define forever for(;;)
 
@@ -323,6 +324,10 @@ asl_file_create(const char *path, uid_t uid, gid_t gid, mode_t mode)
 #if TARGET_OS_IPHONE
 	return open(path, O_RDWR | O_CREAT | O_EXCL, mode);
 #else
+	if (os_variant_is_basesystem("com.apple.syslog")) {
+		return open(path, O_RDWR | O_CREAT | O_EXCL, mode);
+	}
+
 	acl_t acl;
 	uuid_t uuid;
 	acl_entry_t entry;

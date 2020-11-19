@@ -284,11 +284,11 @@ static const char* regen_key(apr_pool_t *p, apr_table_t *headers,
      *  HTTP URI's (3.2.3) [host and scheme are insensitive]
      *  HTTP method (5.1.1)
      *  HTTP-date values (3.3.1)
-     *  3.7 Media Types [exerpt]
+     *  3.7 Media Types [excerpt]
      *     The type, subtype, and parameter attribute names are case-
      *     insensitive. Parameter values might or might not be case-sensitive,
      *     depending on the semantics of the parameter name.
-     *  4.20 Except [exerpt]
+     *  4.20 Except [excerpt]
      *     Comparison of expectation values is case-insensitive for unquoted
      *     tokens (including the 100-continue token), and is case-sensitive for
      *     quoted-string expectation-extensions.
@@ -994,10 +994,11 @@ static apr_status_t write_headers(cache_handle_t *h, request_rec *r)
             }
 
             rv = mkdir_structure(conf, dobj->hdrs.file, r->pool);
-
-            rv = apr_file_mktemp(&dobj->vary.tempfd, dobj->vary.tempfile,
-                                 APR_CREATE | APR_WRITE | APR_BINARY | APR_EXCL,
-                                 dobj->vary.pool);
+            if (rv == APR_SUCCESS) {
+                rv = apr_file_mktemp(&dobj->vary.tempfd, dobj->vary.tempfile,
+                                     APR_CREATE | APR_WRITE | APR_BINARY | APR_EXCL,
+                                     dobj->vary.pool);
+            }
 
             if (rv != APR_SUCCESS) {
                 ap_log_rerror(APLOG_MARK, APLOG_WARNING, rv, r, APLOGNO(00721)
@@ -1275,9 +1276,9 @@ static apr_status_t store_body(cache_handle_t *h, request_rec *r,
      * sanity checks.
      */
     if (seen_eos) {
-        const char *cl_header = apr_table_get(r->headers_out, "Content-Length");
-
         if (!dobj->disk_info.header_only) {
+            const char *cl_header;
+            apr_off_t cl;
 
             if (dobj->data.tempfd) {
                 rv = apr_file_close(dobj->data.tempfd);
@@ -1296,6 +1297,7 @@ static apr_status_t store_body(cache_handle_t *h, request_rec *r,
                 apr_pool_destroy(dobj->data.pool);
                 return APR_EGENERAL;
             }
+
             if (dobj->file_size < dconf->minfs) {
                 ap_log_rerror(
                         APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00734) "URL %s failed the size check "
@@ -1304,17 +1306,16 @@ static apr_status_t store_body(cache_handle_t *h, request_rec *r,
                 apr_pool_destroy(dobj->data.pool);
                 return APR_EGENERAL;
             }
-            if (cl_header) {
-                apr_int64_t cl = apr_atoi64(cl_header);
-                if ((errno == 0) && (dobj->file_size != cl)) {
-                    ap_log_rerror(
-                            APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00735) "URL %s didn't receive complete response, not caching", h->cache_obj->key);
-                    /* Remove the intermediate cache file and return non-APR_SUCCESS */
-                    apr_pool_destroy(dobj->data.pool);
-                    return APR_EGENERAL;
-                }
-            }
 
+            cl_header = apr_table_get(r->headers_out, "Content-Length");
+            if (cl_header && (!ap_parse_strict_length(&cl, cl_header)
+                              || cl != dobj->file_size)) {
+                ap_log_rerror(
+                        APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00735) "URL %s didn't receive complete response, not caching", h->cache_obj->key);
+                /* Remove the intermediate cache file and return non-APR_SUCCESS */
+                apr_pool_destroy(dobj->data.pool);
+                return APR_EGENERAL;
+            }
         }
 
         /* All checks were fine, we're good to go when the commit comes */

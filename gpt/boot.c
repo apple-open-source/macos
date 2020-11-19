@@ -110,7 +110,7 @@ gpt_find(uuid_t *type, map_t **mapp)
 	errx(1, "internal map list is corrupted");
 }
 
-static void
+static int 
 boot(int fd)
 {
 	struct stat sb;
@@ -129,7 +129,7 @@ boot(int fd)
 	else {
 		if (boot_size * secsz < 16384) {
 			warnx("invalid boot partition size %lu", boot_size);
-			return;
+			return 1;
 		}
 		bsize = boot_size;
 	}
@@ -138,26 +138,26 @@ boot(int fd)
 	pmbr = map_find(MAP_TYPE_PMBR);
 	if (pmbr == NULL) {
 		warnx("%s: error: PMBR not found", device_name);
-		return;
+		return 1;
 	}
 	bfd = open(pmbr_path, O_RDONLY);
 	if (bfd < 0 || fstat(bfd, &sb) < 0) {
 		warn("unable to open PMBR boot loader");
-		return;
+		return 1;
 	}
 	if (sb.st_size != secsz) {
 		warnx("invalid PMBR boot loader");
-		return;
+		return 1;
 	}
 	mbr = pmbr->map_data;
 	nbytes = read(bfd, mbr->mbr_code, sizeof(mbr->mbr_code));
 	if (nbytes < 0) {
 		warn("unable to read PMBR boot loader");
-		return;
+		return 1;
 	}
 	if (nbytes != sizeof(mbr->mbr_code)) {
 		warnx("short read of PMBR boot loader");
-		return;
+		return 1;
 	}
 	close(bfd);
 	gpt_write(fd, pmbr);
@@ -166,28 +166,28 @@ boot(int fd)
 	bfd = open(gptboot_path, O_RDONLY);
 	if (bfd < 0 || fstat(bfd, &sb) < 0) {
 		warn("unable to open GPT boot loader");
-		return;
+		return 1;
 	}
 
 	/* Fourth step: find an existing boot partition or create one. */
 	if (gpt_find(&boot_uuid, &gptboot) != 0)
-		return;
+		return 1;
 	if (gptboot != NULL) {
 		if (gptboot->map_size * secsz < sb.st_size) {
 			warnx("%s: error: boot partition is too small",
 			    device_name);
-			return;
+			return 1;
 		}
 	} else if (bsize * secsz < sb.st_size) {
 		warnx(
 		    "%s: error: proposed size for boot partition is too small",
 		    device_name);
-		return;
+		return 1;
 	} else {
 		entry = 0;
 		gptboot = gpt_add_part(fd, &boot_uuid, 0, bsize, &entry);
 		if (gptboot == NULL)
-			return;
+			return 1;
 	}
 
 	/*
@@ -201,29 +201,30 @@ boot(int fd)
 	nbytes = read(bfd, buf, sb.st_size);
 	if (nbytes < 0) {
 		warn("unable to read GPT boot loader");
-		return;
+		return 1;
 	}
 	if (nbytes != sb.st_size) {
 		warnx("short read of GPT boot loader");
-		return;
+		return 1;
 	}
 	close(bfd);
 	ofs = gptboot->map_start * secsz;
 	if (lseek(fd, ofs, SEEK_SET) != ofs) {
 		warn("%s: error: unable to seek to boot partition",
 		    device_name);
-		return;
+		return 1;
 	}
 	nbytes = write(fd, buf, bsize);
 	if (nbytes < 0) {
 		warn("unable to write GPT boot loader");
-		return;
+		return 1;
 	}
 	if (nbytes != bsize) {
 		warnx("short write of GPT boot loader");
-		return;
+		return 1;
 	}
 	free(buf);
+        return 0;
 }
 
 int
@@ -231,6 +232,7 @@ cmd_boot(int argc, char *argv[])
 {
 	char *p;
 	int ch, fd;
+        int ret = 0;
 
 	while ((ch = getopt(argc, argv, "b:g:s:")) != -1) {
 		switch (ch) {
@@ -262,10 +264,10 @@ cmd_boot(int argc, char *argv[])
 			return (1);
 		}
 
-		boot(fd);
+		ret = boot(fd);
 
 		gpt_close(fd);
 	}
 
-	return (0);
+	return (ret);
 }

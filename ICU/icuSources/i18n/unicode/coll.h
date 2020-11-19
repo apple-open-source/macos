@@ -54,6 +54,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_COLLATION
 
 #include "unicode/uobject.h"
@@ -65,7 +67,6 @@
 #include "unicode/uiter.h"
 #include "unicode/stringpiece.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class StringEnumeration;
@@ -205,6 +206,7 @@ public:
 
     // Cannot use #ifndef U_HIDE_DEPRECATED_API for the following, it is
     // used by virtual methods that cannot have that conditional.
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * LESS is returned if source string is compared to be less than target
      * string in the compare() method.
@@ -221,6 +223,7 @@ public:
         EQUAL = UCOL_EQUAL,  // 0
         GREATER = UCOL_GREATER  // 1
     };
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     // Collator public destructor -----------------------------------------
 
@@ -266,7 +269,7 @@ public:
      * @return a copy of this object, owned by the caller
      * @stable ICU 2.0
      */
-    virtual Collator* clone(void) const = 0;
+    virtual Collator* clone() const = 0;
 
     /**
      * Creates the Collator object for the current default locale.
@@ -324,6 +327,7 @@ public:
      */
     static Collator* U_EXPORT2 createInstance(const Locale& loc, UErrorCode& err);
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * The comparison function compares the character data stored in two
      * different strings. Returns information about whether a string is less
@@ -337,6 +341,7 @@ public:
      */
     virtual EComparisonResult compare(const UnicodeString& source,
                                       const UnicodeString& target) const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * The comparison function compares the character data stored in two
@@ -354,6 +359,7 @@ public:
                                       const UnicodeString& target,
                                       UErrorCode &status) const = 0;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Does the same thing as compare but limits the comparison to a specified
      * length
@@ -369,6 +375,7 @@ public:
     virtual EComparisonResult compare(const UnicodeString& source,
                                       const UnicodeString& target,
                                       int32_t length) const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Does the same thing as compare but limits the comparison to a specified
@@ -388,6 +395,7 @@ public:
                                       int32_t length,
                                       UErrorCode &status) const = 0;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * The comparison function compares the character data stored in two
      * different string arrays. Returns information about whether a string array
@@ -424,6 +432,7 @@ public:
     virtual EComparisonResult compare(const char16_t* source, int32_t sourceLength,
                                       const char16_t* target, int32_t targetLength)
                                       const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * The comparison function compares the character data stored in two
@@ -528,6 +537,7 @@ public:
      */
     virtual int32_t hashCode(void) const = 0;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Gets the locale of the Collator
      *
@@ -541,6 +551,7 @@ public:
      * in ICU 3.0.
      */
     virtual Locale getLocale(ULocDataLocaleType type, UErrorCode& status) const = 0;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Convenience method for comparing two strings based on the collation rules.
@@ -577,6 +588,7 @@ public:
      */
     UBool equals(const UnicodeString& source, const UnicodeString& target) const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Determines the minimum strength that will be used in comparison or
      * transformation.
@@ -608,6 +620,7 @@ public:
      * @deprecated ICU 2.6 Use setAttribute(UCOL_STRENGTH...) instead
      */
     virtual void setStrength(ECollationStrength newStrength);
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Retrieves the reordering codes for this collator.
@@ -905,6 +918,7 @@ public:
      */
     virtual UColReorderCode getMaxVariable() const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Sets the variable top to the primary weight of the specified string.
      *
@@ -952,6 +966,7 @@ public:
      * @deprecated ICU 53 Call setMaxVariable() instead.
      */
     virtual void setVariableTop(uint32_t varTop, UErrorCode &status) = 0;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Gets the variable top value of a Collator.
@@ -973,6 +988,7 @@ public:
      */
     virtual UnicodeSet *getTailoredSet(UErrorCode &status) const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Same as clone().
      * The base class implementation simply calls clone().
@@ -980,7 +996,8 @@ public:
      * @see clone()
      * @deprecated ICU 50 no need to have two methods for cloning
      */
-    virtual Collator* safeClone(void) const;
+    virtual Collator* safeClone() const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Get the sort key as an array of bytes from a UnicodeString.
@@ -1269,8 +1286,9 @@ public:
 // Collator inline methods -----------------------------------------------
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_COLLATION */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

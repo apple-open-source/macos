@@ -37,6 +37,7 @@
 #ifdef __APPLE__
 #include <sys/proc_info.h>
 #include <libproc.h>
+#import <bsm/libbsm.h>
 
 #if !TARGET_OS_SIMULATOR
 #include <NEHelperClient.h>
@@ -1143,7 +1144,8 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
     if (source_app && heim_get_tid(source_app) == heim_dict_get_type_id()) {
 	const char *type = "unknown";
 	krb5_uuid uuid;
-
+        pid_t pid = (pid_t)-1;
+	
 	appUUID = heim_dict_copy_value(source_app, _gsskrb5_kGSSICAppleSourceAppUUID);
 	auditToken = heim_dict_copy_value(source_app, _gsskrb5_kGSSICAppleSourceAppAuditToken);
 	signingIdentity = heim_dict_copy_value(source_app, _gsskrb5_kGSSICAppleSourceAppSigningIdentity);
@@ -1151,6 +1153,7 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 	if (signingIdentity)
 	    signingIdentityStr = heim_string_copy_utf8(signingIdentity);
 
+	bool found = false;
 	if (appUUID) {
 
 	    type = "passed-in";
@@ -1160,12 +1163,12 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 		kret = EINVAL;
 		goto out;
 	    }
-
+	    found = true;
 	    memcpy(uuid, heim_data_get_bytes(appUUID), sizeof(krb5_uuid));
 
 #if !TARGET_OS_SIMULATOR
 	} else if (signingIdentity) {
-	    bool found = false;
+
 	    xpc_object_t uuid_array;
 
 	    uuid_array = NEHelperCacheCopyAppUUIDMapping(signingIdentityStr, NULL);
@@ -1184,9 +1187,11 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 		goto out;
 	    }
 #endif /* !TARGET_OS_SIMULATOR */
-	} else if (auditToken) {
+	}
+	
+	if (auditToken) {
+	    // else pull what we can from the audit token
 	    audit_token_t token;
-	    struct proc_uniqidentifierinfo procu;
 
 	    if (heim_get_tid(auditToken) != heim_data_get_type_id() || heim_data_get_length(auditToken) != sizeof(token)) {
 		krb5_set_error_message(context, EINVAL, "Failed getting audittoken");
@@ -1194,36 +1199,43 @@ _gss_krb5_acquire_cred_ext(OM_uint32 * minor_status,
 		goto out;
 	    }
 
-	    type = "audit-token";
 	    memcpy(&token, heim_data_get_bytes(auditToken), sizeof(token));
-
-	    if (proc_pidinfo(token.val[5], PROC_PIDUNIQIDENTIFIERINFO, 1, &procu, sizeof(procu)) != sizeof(procu)) {
-		krb5_set_error_message(context, EINVAL, "Failed getting PROC_PIDUNIQIDENTIFIERINFO");
-		kret = EINVAL;
-		goto out;
+	    pid = audit_token_to_pid(token);  //always retrieve the pid from the audit token
+	    
+	    if (!found) {
+		struct proc_uniqidentifierinfo procu;
+		type = "audit-token";
+		if (proc_pidinfo(pid, PROC_PIDUNIQIDENTIFIERINFO, 1, &procu, sizeof(procu)) != sizeof(procu)) {
+		    krb5_set_error_message(context, EINVAL, "Failed getting PROC_PIDUNIQIDENTIFIERINFO");
+		    kret = EINVAL;
+		    goto out;
+		}
+		found = true;
+		memcpy(uuid, procu.p_uuid, sizeof(krb5_uuid));
 	    }
+	    
 
-	    memcpy(uuid, procu.p_uuid, sizeof(krb5_uuid));
-
-	} else {
+	}
+	
+	if (!found) {
 	    krb5_set_error_message(context, EINVAL, "No useful app source identity");
 	    kret = EINVAL;
 	    goto out;
 	}
 
-	_gss_mg_log(1, "gss-krb5: setting source app: %s - %s uuid: "
+	_gss_mg_log(1, "gss-krb5: setting source app: %s - %s, %d uuid: "
 		    "%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
-		    type, signingIdentityStr,
+		    type, signingIdentityStr, pid,
 		    uuid[0],uuid[1],uuid[2],uuid[3],uuid[4],uuid[5],uuid[6],uuid[7],
 		    uuid[8],uuid[9],uuid[10],uuid[11],uuid[12],uuid[13],uuid[14],uuid[15]);
 		    
 
 
-	kret = krb5_init_creds_set_source_app(context, ctx, uuid, signingIdentityStr);
+	kret = krb5_init_creds_set_source_process(context, ctx, uuid, pid, signingIdentityStr);
 	if (kret)
 	    goto out;
-	}
-#endif
+    }
+#endif /* __APPLE__ */
 
     kret = krb5_init_creds_get(context, ctx);
     if (kret)

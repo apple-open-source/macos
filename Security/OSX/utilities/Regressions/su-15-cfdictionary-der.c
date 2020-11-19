@@ -83,7 +83,7 @@ static void test_dictionary(CFDictionaryRef testValue, size_t expected_size, con
     
     CFDictionaryRef decoded = NULL;
     
-    const uint8_t* decode_end = der_decode_dictionary(NULL, kCFPropertyListMutableContainersAndLeaves,
+    const uint8_t* decode_end = der_decode_dictionary(NULL,
                                                       &decoded, NULL, encoded, buffer_end);
     
     ok(decode_end == buffer_end, "didn't decode whole buffer");
@@ -91,7 +91,7 @@ static void test_dictionary(CFDictionaryRef testValue, size_t expected_size, con
     
     CFPropertyListRef decoded_type = NULL;
     
-    decode_end = der_decode_plist(NULL, kCFPropertyListMutableContainersAndLeaves,
+    decode_end = der_decode_plist(NULL,
                                   &decoded_type, NULL, encoded, buffer_end);
     
     ok(decode_end == buffer_end, "didn't decode whole buffer");

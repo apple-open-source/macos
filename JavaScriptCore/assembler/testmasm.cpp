@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -54,6 +54,81 @@ static void usage()
 }
 
 #if ENABLE(JIT)
+
+static Vector<double> doubleOperands()
+{
+    return Vector<double> {
+        0,
+        -0,
+        1,
+        -1,
+        42,
+        -42,
+        std::numeric_limits<double>::max(),
+        std::numeric_limits<double>::min(),
+        std::numeric_limits<double>::lowest(),
+        std::numeric_limits<double>::quiet_NaN(),
+        std::numeric_limits<double>::infinity(),
+        -std::numeric_limits<double>::infinity(),
+    };
+}
+
+
+#if CPU(X86) || CPU(X86_64) || CPU(ARM64)
+static Vector<float> floatOperands()
+{
+    return Vector<float> {
+        0,
+        -0,
+        1,
+        -1,
+        42,
+        -42,
+        std::numeric_limits<float>::max(),
+        std::numeric_limits<float>::min(),
+        std::numeric_limits<float>::lowest(),
+        std::numeric_limits<float>::quiet_NaN(),
+        std::numeric_limits<float>::infinity(),
+        -std::numeric_limits<float>::infinity(),
+    };
+}
+#endif
+
+static Vector<int32_t> int32Operands()
+{
+    return Vector<int32_t> {
+        0,
+        1,
+        -1,
+        2,
+        -2,
+        42,
+        -42,
+        64,
+        std::numeric_limits<int32_t>::max(),
+        std::numeric_limits<int32_t>::min(),
+    };
+}
+
+#if CPU(X86_64) || CPU(ARM64)
+static Vector<int64_t> int64Operands()
+{
+    return Vector<int64_t> {
+        0,
+        1,
+        -1,
+        2,
+        -2,
+        42,
+        -42,
+        64,
+        std::numeric_limits<int32_t>::max(),
+        std::numeric_limits<int32_t>::min(),
+        std::numeric_limits<int64_t>::max(),
+        std::numeric_limits<int64_t>::min(),
+    };
+}
+#endif
 
 #if ENABLE(MASM_PROBE)
 namespace WTF {
@@ -257,82 +332,6 @@ void testBranchTruncateDoubleToInt32(double val, int32_t expected)
     }), expected);
 }
 
-
-static Vector<double> doubleOperands()
-{
-    return Vector<double> {
-        0,
-        -0,
-        1,
-        -1,
-        42,
-        -42,
-        std::numeric_limits<double>::max(),
-        std::numeric_limits<double>::min(),
-        std::numeric_limits<double>::lowest(),
-        std::numeric_limits<double>::quiet_NaN(),
-        std::numeric_limits<double>::infinity(),
-        -std::numeric_limits<double>::infinity(),
-    };
-}
-
-
-#if CPU(X86) || CPU(X86_64) || CPU(ARM64)
-static Vector<float> floatOperands()
-{
-    return Vector<float> {
-        0,
-        -0,
-        1,
-        -1,
-        42,
-        -42,
-        std::numeric_limits<float>::max(),
-        std::numeric_limits<float>::min(),
-        std::numeric_limits<float>::lowest(),
-        std::numeric_limits<float>::quiet_NaN(),
-        std::numeric_limits<float>::infinity(),
-        -std::numeric_limits<float>::infinity(),
-    };
-}
-#endif
-
-static Vector<int32_t> int32Operands()
-{
-    return Vector<int32_t> {
-        0,
-        1,
-        -1,
-        2,
-        -2,
-        42,
-        -42,
-        64,
-        std::numeric_limits<int32_t>::max(),
-        std::numeric_limits<int32_t>::min(),
-    };
-}
-
-#if CPU(X86_64)
-static Vector<int64_t> int64Operands()
-{
-    return Vector<int64_t> {
-        0,
-        1,
-        -1,
-        2,
-        -2,
-        42,
-        -42,
-        64,
-        std::numeric_limits<int32_t>::max(),
-        std::numeric_limits<int32_t>::min(),
-        std::numeric_limits<int64_t>::max(),
-        std::numeric_limits<int64_t>::min(),
-    };
-}
-#endif
-
 #if CPU(X86_64)
 void testBranchTestBit32RegReg()
 {
@@ -468,6 +467,293 @@ void testBranchTestBit64AddrImm()
 
 #endif
 
+#if CPU(X86_64) || CPU(ARM64)
+void testClearBit64()
+{
+    auto test = compile([] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+
+        GPRReg scratchGPR = GPRInfo::argumentGPR2;
+        jit.clearBit64(GPRInfo::argumentGPR1, GPRInfo::argumentGPR0, scratchGPR);
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    constexpr unsigned bitsInWord = sizeof(uint64_t) * 8;
+
+    for (unsigned i = 0; i < bitsInWord; ++i) {
+        uint64_t word = std::numeric_limits<uint64_t>::max();
+        constexpr uint64_t one = 1;
+        CHECK_EQ(invoke<uint64_t>(test, word, i), (word & ~(one << i)));
+    }
+
+    for (unsigned i = 0; i < bitsInWord; ++i) {
+        uint64_t word = 0;
+        CHECK_EQ(invoke<uint64_t>(test, word, i), 0);
+    }
+}
+
+void testClearBits64WithMask()
+{
+    auto test = compile([] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+
+        jit.clearBits64WithMask(GPRInfo::argumentGPR1, GPRInfo::argumentGPR0);
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    for (auto value : int64Operands()) {
+        uint64_t word = std::numeric_limits<uint64_t>::max();
+        CHECK_EQ(invoke<uint64_t>(test, word, value), (word & ~value));
+    }
+
+    for (auto value : int64Operands()) {
+        uint64_t word = 0;
+        CHECK_EQ(invoke<uint64_t>(test, word, value), 0);
+    }
+
+#if ENABLE(MASM_PROBE)
+    uint64_t savedMask = 0;
+    auto test2 = compile([&] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+
+        jit.probe([&] (Probe::Context& context) {
+            savedMask = context.gpr<uint64_t>(GPRInfo::argumentGPR1);
+        });
+
+        jit.clearBits64WithMask(GPRInfo::argumentGPR1, GPRInfo::argumentGPR0, CCallHelpers::ClearBitsAttributes::MustPreserveMask);
+
+        jit.probe([&] (Probe::Context& context) {
+            CHECK_EQ(savedMask, context.gpr<uint64_t>(GPRInfo::argumentGPR1));
+        });
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    for (auto value : int64Operands()) {
+        uint64_t word = std::numeric_limits<uint64_t>::max();
+        CHECK_EQ(invoke<uint64_t>(test2, word, value), (word & ~value));
+    }
+
+    for (auto value : int64Operands()) {
+        uint64_t word = 0;
+        CHECK_EQ(invoke<uint64_t>(test2, word, value), 0);
+    }
+#endif
+}
+
+void testClearBits64WithMaskTernary()
+{
+    auto test = compile([] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::argumentGPR2);
+        jit.move(GPRInfo::argumentGPR1, GPRInfo::argumentGPR3);
+        jit.clearBits64WithMask(GPRInfo::argumentGPR2, GPRInfo::argumentGPR3, GPRInfo::returnValueGPR);
+
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    for (auto value : int64Operands()) {
+        uint64_t word = std::numeric_limits<uint64_t>::max();
+        CHECK_EQ(invoke<uint64_t>(test, word, value), (word & ~value));
+    }
+
+    for (auto value : int64Operands()) {
+        uint64_t word = 0;
+        CHECK_EQ(invoke<uint64_t>(test, word, value), 0);
+    }
+
+#if ENABLE(MASM_PROBE)
+    uint64_t savedMask = 0;
+    auto test2 = compile([&] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+
+        jit.move(GPRInfo::argumentGPR0, GPRInfo::argumentGPR2);
+        jit.move(GPRInfo::argumentGPR1, GPRInfo::argumentGPR3);
+
+        jit.probe([&] (Probe::Context& context) {
+            savedMask = context.gpr<uint64_t>(GPRInfo::argumentGPR2);
+        });
+
+        jit.clearBits64WithMask(GPRInfo::argumentGPR2, GPRInfo::argumentGPR3, GPRInfo::returnValueGPR, CCallHelpers::ClearBitsAttributes::MustPreserveMask);
+
+        jit.probe([&] (Probe::Context& context) {
+            CHECK_EQ(savedMask, context.gpr<uint64_t>(GPRInfo::argumentGPR2));
+        });
+
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    for (auto value : int64Operands()) {
+        uint64_t word = std::numeric_limits<uint64_t>::max();
+        CHECK_EQ(invoke<uint64_t>(test2, word, value), (word & ~value));
+    }
+
+    for (auto value : int64Operands()) {
+        uint64_t word = 0;
+        CHECK_EQ(invoke<uint64_t>(test2, word, value), 0);
+    }
+#endif
+}
+
+static void testCountTrailingZeros64Impl(bool wordCanBeZero)
+{
+    auto test = compile([=] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+
+        if (wordCanBeZero)
+            jit.countTrailingZeros64(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+        else
+            jit.countTrailingZeros64WithoutNullCheck(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
+
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    constexpr size_t numberOfBits = sizeof(uint64_t) * 8;
+
+    auto expectedNumberOfTrailingZeros = [=] (uint64_t word) -> size_t {
+        size_t count = 0;
+        for (size_t i = 0; i < numberOfBits; ++i) {
+            if (word & 1)
+                break;
+            word >>= 1;
+            count++;
+        }
+        return count;
+    };
+
+    for (auto word : int64Operands()) {
+        if (!wordCanBeZero && !word)
+            continue;
+        CHECK_EQ(invoke<size_t>(test, word), expectedNumberOfTrailingZeros(word));
+    }
+
+    for (size_t i = 0; i < numberOfBits; ++i) {
+        uint64_t one = 1;
+        uint64_t word = one << i;
+        CHECK_EQ(invoke<size_t>(test, word), i);
+    }
+}
+
+void testCountTrailingZeros64()
+{
+    bool wordCanBeZero = true;
+    testCountTrailingZeros64Impl(wordCanBeZero);
+}
+
+void testCountTrailingZeros64WithoutNullCheck()
+{
+    bool wordCanBeZero = false;
+    testCountTrailingZeros64Impl(wordCanBeZero);
+}
+
+void testShiftAndAdd()
+{
+    constexpr intptr_t basePointer = 0x1234abcd;
+
+    enum class Reg {
+        ArgumentGPR0,
+        ArgumentGPR1,
+        ArgumentGPR2,
+        ArgumentGPR3,
+        ScratchGPR
+    };
+
+    auto test = [&] (intptr_t index, uint8_t shift, Reg destReg, Reg baseReg, Reg indexReg) {
+        auto test = compile([=] (CCallHelpers& jit) {
+            CCallHelpers::RegisterID scratchGPR = jit.scratchRegister();
+
+            auto registerIDForReg = [=] (Reg reg) -> CCallHelpers::RegisterID {
+                switch (reg) {
+                case Reg::ArgumentGPR0: return GPRInfo::argumentGPR0;
+                case Reg::ArgumentGPR1: return GPRInfo::argumentGPR1;
+                case Reg::ArgumentGPR2: return GPRInfo::argumentGPR2;
+                case Reg::ArgumentGPR3: return GPRInfo::argumentGPR3;
+                case Reg::ScratchGPR: return scratchGPR;
+                }
+                RELEASE_ASSERT_NOT_REACHED();
+            };
+
+            CCallHelpers::RegisterID destGPR = registerIDForReg(destReg);
+            CCallHelpers::RegisterID baseGPR = registerIDForReg(baseReg);
+            CCallHelpers::RegisterID indexGPR = registerIDForReg(indexReg);
+
+            emitFunctionPrologue(jit);
+            jit.pushPair(scratchGPR, GPRInfo::argumentGPR3);
+
+            jit.move(CCallHelpers::TrustedImmPtr(bitwise_cast<void*>(basePointer)), baseGPR);
+            jit.move(CCallHelpers::TrustedImmPtr(bitwise_cast<void*>(index)), indexGPR);
+            jit.shiftAndAdd(baseGPR, indexGPR, shift, destGPR);
+
+#if ENABLE(MASM_PROBE)
+            jit.probe([=] (Probe::Context& context) {
+                if (baseReg != destReg)
+                    CHECK_EQ(context.gpr<intptr_t>(baseGPR), basePointer);
+                if (indexReg != destReg)
+                    CHECK_EQ(context.gpr<intptr_t>(indexGPR), index);
+            });
+#endif
+            jit.move(destGPR, GPRInfo::returnValueGPR);
+
+            jit.popPair(scratchGPR, GPRInfo::argumentGPR3);
+            emitFunctionEpilogue(jit);
+            jit.ret();
+        });
+
+        CHECK_EQ(invoke<intptr_t>(test), basePointer + (index << shift));
+    };
+
+    for (auto index : int32Operands()) {
+        for (uint8_t shift = 0; shift < 32; ++shift) {
+            test(index, shift, Reg::ScratchGPR, Reg::ScratchGPR, Reg::ArgumentGPR3);     // Scenario: dest == base == scratchRegister.
+            test(index, shift, Reg::ArgumentGPR2, Reg::ArgumentGPR2, Reg::ArgumentGPR3); // Scenario: dest == base != scratchRegister.
+            test(index, shift, Reg::ScratchGPR, Reg::ArgumentGPR2, Reg::ScratchGPR);     // Scenario: dest == index == scratchRegister.
+            test(index, shift, Reg::ArgumentGPR3, Reg::ArgumentGPR2, Reg::ArgumentGPR3); // Scenario: dest == index != scratchRegister.
+            test(index, shift, Reg::ArgumentGPR1, Reg::ArgumentGPR2, Reg::ArgumentGPR3); // Scenario: all different registers, no scratchRegister.
+            test(index, shift, Reg::ScratchGPR, Reg::ArgumentGPR2, Reg::ArgumentGPR3);   // Scenario: all different registers, dest == scratchRegister.
+            test(index, shift, Reg::ArgumentGPR1, Reg::ScratchGPR, Reg::ArgumentGPR3);   // Scenario: all different registers, base == scratchRegister.
+            test(index, shift, Reg::ArgumentGPR1, Reg::ArgumentGPR2, Reg::ScratchGPR);   // Scenario: all different registers, index == scratchRegister.
+        }
+    }
+}
+
+void testStore64Imm64AddressPointer()
+{
+    auto doTest = [] (int64_t value) {
+        int64_t dest;
+        void* destAddress = &dest;
+
+        auto test = compile([=] (CCallHelpers& jit) {
+            emitFunctionPrologue(jit);
+            jit.store64(CCallHelpers::TrustedImm64(value), destAddress);
+            emitFunctionEpilogue(jit);
+            jit.ret();
+        });
+
+        invoke<size_t>(test);
+        CHECK_EQ(dest, value);
+    };
+    
+    for (auto value : int64Operands())
+        doTest(value);
+
+    doTest(0x98765555AAAA4321);
+    doTest(0xAAAA432198765555);
+}
+
+#endif // CPU(X86_64) || CPU(ARM64)
+
 void testCompareDouble(MacroAssembler::DoubleCondition condition)
 {
     double arg1 = 0;
@@ -504,17 +790,17 @@ void testCompareDouble(MacroAssembler::DoubleCondition condition)
             return x != x;
         };
         switch (condition) {
-        case MacroAssembler::DoubleEqual:
+        case MacroAssembler::DoubleEqualAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a == b);
-        case MacroAssembler::DoubleNotEqual:
+        case MacroAssembler::DoubleNotEqualAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a != b);
-        case MacroAssembler::DoubleGreaterThan:
+        case MacroAssembler::DoubleGreaterThanAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a > b);
-        case MacroAssembler::DoubleGreaterThanOrEqual:
+        case MacroAssembler::DoubleGreaterThanOrEqualAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a >= b);
-        case MacroAssembler::DoubleLessThan:
+        case MacroAssembler::DoubleLessThanAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a < b);
-        case MacroAssembler::DoubleLessThanOrEqual:
+        case MacroAssembler::DoubleLessThanOrEqualAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a <= b);
         case MacroAssembler::DoubleEqualOrUnordered:
             return isUnordered(a) || isUnordered(b) || (a == b);
@@ -576,17 +862,17 @@ void testCompareDoubleSameArg(MacroAssembler::DoubleCondition condition)
             return x != x;
         };
         switch (condition) {
-        case MacroAssembler::DoubleEqual:
+        case MacroAssembler::DoubleEqualAndOrdered:
             return !isUnordered(a) && (a == a);
-        case MacroAssembler::DoubleNotEqual:
+        case MacroAssembler::DoubleNotEqualAndOrdered:
             return !isUnordered(a) && (a != a);
-        case MacroAssembler::DoubleGreaterThan:
+        case MacroAssembler::DoubleGreaterThanAndOrdered:
             return !isUnordered(a) && (a > a);
-        case MacroAssembler::DoubleGreaterThanOrEqual:
+        case MacroAssembler::DoubleGreaterThanOrEqualAndOrdered:
             return !isUnordered(a) && (a >= a);
-        case MacroAssembler::DoubleLessThan:
+        case MacroAssembler::DoubleLessThanAndOrdered:
             return !isUnordered(a) && (a < a);
-        case MacroAssembler::DoubleLessThanOrEqual:
+        case MacroAssembler::DoubleLessThanOrEqualAndOrdered:
             return !isUnordered(a) && (a <= a);
         case MacroAssembler::DoubleEqualOrUnordered:
             return isUnordered(a) || (a == a);
@@ -701,17 +987,17 @@ void testMoveConditionallyFloatingPoint(MacroAssembler::DoubleCondition conditio
             return x != x;
         };
         switch (condition) {
-        case MacroAssembler::DoubleEqual:
+        case MacroAssembler::DoubleEqualAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a == b) ? selectionA : selectionB;
-        case MacroAssembler::DoubleNotEqual:
+        case MacroAssembler::DoubleNotEqualAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a != b) ? selectionA : selectionB;
-        case MacroAssembler::DoubleGreaterThan:
+        case MacroAssembler::DoubleGreaterThanAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a > b) ? selectionA : selectionB;
-        case MacroAssembler::DoubleGreaterThanOrEqual:
+        case MacroAssembler::DoubleGreaterThanOrEqualAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a >= b) ? selectionA : selectionB;
-        case MacroAssembler::DoubleLessThan:
+        case MacroAssembler::DoubleLessThanAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a < b) ? selectionA : selectionB;
-        case MacroAssembler::DoubleLessThanOrEqual:
+        case MacroAssembler::DoubleLessThanOrEqualAndOrdered:
             return !isUnordered(a) && !isUnordered(b) && (a <= b) ? selectionA : selectionB;
         case MacroAssembler::DoubleEqualOrUnordered:
             return isUnordered(a) || isUnordered(b) || (a == b) ? selectionA : selectionB;
@@ -1039,12 +1325,12 @@ void testMoveDoubleConditionallyDouble(MacroAssembler::DoubleCondition condition
 
         FPRReg tempFPR = FPRInfo::fpRegT5;
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&selectionA), tempFPR);
-        auto aIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqual, selectionAFPR, tempFPR);
+        auto aIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqualAndOrdered, selectionAFPR, tempFPR);
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&corruptedSelectionA), destFPR);
         aIsUnchanged.link(&jit);
 
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&selectionB), tempFPR);
-        auto bIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqual, selectionBFPR, tempFPR);
+        auto bIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqualAndOrdered, selectionBFPR, tempFPR);
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&corruptedSelectionB), destFPR);
         bIsUnchanged.link(&jit);
 
@@ -1085,7 +1371,7 @@ void testMoveDoubleConditionallyDoubleDestSameAsThenCase(MacroAssembler::DoubleC
 
         FPRReg tempFPR = FPRInfo::fpRegT5;
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&selectionB), tempFPR);
-        auto bIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqual, selectionBFPR, tempFPR);
+        auto bIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqualAndOrdered, selectionBFPR, tempFPR);
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&corruptedSelectionB), destFPR);
         bIsUnchanged.link(&jit);
 
@@ -1126,7 +1412,7 @@ void testMoveDoubleConditionallyDoubleDestSameAsElseCase(MacroAssembler::DoubleC
 
         FPRReg tempFPR = FPRInfo::fpRegT5;
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&selectionA), tempFPR);
-        auto aIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqual, selectionAFPR, tempFPR);
+        auto aIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqualAndOrdered, selectionAFPR, tempFPR);
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&corruptedSelectionA), destFPR);
         aIsUnchanged.link(&jit);
 
@@ -1168,12 +1454,12 @@ void testMoveDoubleConditionallyFloat(MacroAssembler::DoubleCondition condition)
 
         FPRReg tempFPR = FPRInfo::fpRegT5;
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&selectionA), tempFPR);
-        auto aIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqual, selectionAFPR, tempFPR);
+        auto aIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqualAndOrdered, selectionAFPR, tempFPR);
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&corruptedSelectionA), destFPR);
         aIsUnchanged.link(&jit);
 
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&selectionB), tempFPR);
-        auto bIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqual, selectionBFPR, tempFPR);
+        auto bIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqualAndOrdered, selectionBFPR, tempFPR);
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&corruptedSelectionB), destFPR);
         bIsUnchanged.link(&jit);
 
@@ -1214,7 +1500,7 @@ void testMoveDoubleConditionallyFloatDestSameAsThenCase(MacroAssembler::DoubleCo
 
         FPRReg tempFPR = FPRInfo::fpRegT5;
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&selectionB), tempFPR);
-        auto bIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqual, selectionBFPR, tempFPR);
+        auto bIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqualAndOrdered, selectionBFPR, tempFPR);
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&corruptedSelectionB), destFPR);
         bIsUnchanged.link(&jit);
 
@@ -1255,7 +1541,7 @@ void testMoveDoubleConditionallyFloatDestSameAsElseCase(MacroAssembler::DoubleCo
 
         FPRReg tempFPR = FPRInfo::fpRegT5;
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&selectionA), tempFPR);
-        auto aIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqual, selectionAFPR, tempFPR);
+        auto aIsUnchanged = jit.branchDouble(CCallHelpers::DoubleEqualAndOrdered, selectionAFPR, tempFPR);
         jit.loadDouble(CCallHelpers::TrustedImmPtr(&corruptedSelectionA), destFPR);
         aIsUnchanged.link(&jit);
 
@@ -1274,17 +1560,17 @@ void testMoveConditionallyFloatingPointSameArg(MacroAssembler::DoubleCondition c
             return x != x;
         };
         switch (condition) {
-        case MacroAssembler::DoubleEqual:
+        case MacroAssembler::DoubleEqualAndOrdered:
             return !isUnordered(a) && (a == a) ? selectionA : selectionB;
-        case MacroAssembler::DoubleNotEqual:
+        case MacroAssembler::DoubleNotEqualAndOrdered:
             return !isUnordered(a) && (a != a) ? selectionA : selectionB;
-        case MacroAssembler::DoubleGreaterThan:
+        case MacroAssembler::DoubleGreaterThanAndOrdered:
             return !isUnordered(a) && (a > a) ? selectionA : selectionB;
-        case MacroAssembler::DoubleGreaterThanOrEqual:
+        case MacroAssembler::DoubleGreaterThanOrEqualAndOrdered:
             return !isUnordered(a) && (a >= a) ? selectionA : selectionB;
-        case MacroAssembler::DoubleLessThan:
+        case MacroAssembler::DoubleLessThanAndOrdered:
             return !isUnordered(a) && (a < a) ? selectionA : selectionB;
-        case MacroAssembler::DoubleLessThanOrEqual:
+        case MacroAssembler::DoubleLessThanOrEqualAndOrdered:
             return !isUnordered(a) && (a <= a) ? selectionA : selectionB;
         case MacroAssembler::DoubleEqualOrUnordered:
             return isUnordered(a) || (a == a) ? selectionA : selectionB;
@@ -1995,6 +2281,16 @@ void testOrImmMem()
     CHECK_EQ(memoryLocation, 0x12341234 | 42);
 
     memoryLocation = 0x12341234;
+    auto or8 = compile([&] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        jit.or8(CCallHelpers::TrustedImm32(42), CCallHelpers::AbsoluteAddress(&memoryLocation));
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+    invoke<void>(or8);
+    CHECK_EQ(memoryLocation, 0x12341234 | 42);
+
+    memoryLocation = 0x12341234;
     auto or16InvalidLogicalImmInARM64 = compile([&] (CCallHelpers& jit) {
         emitFunctionPrologue(jit);
         jit.or16(CCallHelpers::TrustedImm32(0), CCallHelpers::AbsoluteAddress(&memoryLocation));
@@ -2003,6 +2299,52 @@ void testOrImmMem()
     });
     invoke<void>(or16InvalidLogicalImmInARM64);
     CHECK_EQ(memoryLocation, 0x12341234);
+}
+
+void testAndOrDouble()
+{
+    double arg1, arg2;
+
+    auto andDouble = compile([&] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&arg1), FPRInfo::fpRegT1);
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&arg2), FPRInfo::fpRegT2);
+
+        jit.andDouble(FPRInfo::fpRegT1, FPRInfo::fpRegT2, FPRInfo::returnValueFPR);
+
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    auto operands = doubleOperands();
+    for (auto a : operands) {
+        for (auto b : operands) {
+            arg1 = a;
+            arg2 = b;
+            uint64_t expectedResult = bitwise_cast<uint64_t>(arg1) & bitwise_cast<uint64_t>(arg2);
+            CHECK_EQ(bitwise_cast<uint64_t>(invoke<double>(andDouble)), expectedResult);
+        }
+    }
+
+    auto orDouble = compile([&] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&arg1), FPRInfo::fpRegT1);
+        jit.loadDouble(CCallHelpers::TrustedImmPtr(&arg2), FPRInfo::fpRegT2);
+
+        jit.orDouble(FPRInfo::fpRegT1, FPRInfo::fpRegT2, FPRInfo::returnValueFPR);
+
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    for (auto a : operands) {
+        for (auto b : operands) {
+            arg1 = a;
+            arg2 = b;
+            uint64_t expectedResult = bitwise_cast<uint64_t>(arg1) | bitwise_cast<uint64_t>(arg2);
+            CHECK_EQ(bitwise_cast<uint64_t>(invoke<double>(orDouble)), expectedResult);
+        }
+    }
 }
 
 void testByteSwap()
@@ -2115,7 +2457,7 @@ static void testCagePreservesPACFailureBit()
     if (!Gigacage::shouldBeEnabled())
         return;
 
-    RELEASE_ASSERT(!Gigacage::isDisablingPrimitiveGigacageForbidden());
+    RELEASE_ASSERT(!Gigacage::disablingPrimitiveGigacageIsForbidden());
     auto cage = compile([] (CCallHelpers& jit) {
         emitFunctionPrologue(jit);
         jit.cageConditionally(Gigacage::Primitive, GPRInfo::argumentGPR0, GPRInfo::argumentGPR1, GPRInfo::argumentGPR2);
@@ -2126,15 +2468,16 @@ static void testCagePreservesPACFailureBit()
 
     void* ptr = Gigacage::tryMalloc(Gigacage::Primitive, 1);
     void* taggedPtr = tagArrayPtr(ptr, 1);
-    RELEASE_ASSERT(hasOneBitSet(Gigacage::size(Gigacage::Primitive) << 2));
-    void* notCagedPtr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + (Gigacage::size(Gigacage::Primitive) << 2));
+    RELEASE_ASSERT(hasOneBitSet(Gigacage::maxSize(Gigacage::Primitive) << 2));
+    void* notCagedPtr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + (Gigacage::maxSize(Gigacage::Primitive) << 2));
     CHECK_NOT_EQ(Gigacage::caged(Gigacage::Primitive, notCagedPtr), notCagedPtr);
     void* taggedNotCagedPtr = tagArrayPtr(notCagedPtr, 1);
 
     if (isARM64E()) {
-        // FIXME: This won't work if authentication failures trap but I don't know how to test for that right now.
         CHECK_NOT_EQ(invoke<void*>(cage, taggedPtr, 2), ptr);
-        CHECK_EQ(invoke<void*>(cage, taggedNotCagedPtr, 1), untagArrayPtr(taggedPtr, 2));
+        CHECK_NOT_EQ(invoke<void*>(cage, taggedNotCagedPtr, 1), ptr);
+        void* cagedTaggedNotCagedPtr = invoke<void*>(cage, taggedNotCagedPtr, 1);
+        CHECK_NOT_EQ(cagedTaggedNotCagedPtr, removeArrayPtrTag(cagedTaggedNotCagedPtr));
     } else
         CHECK_EQ(invoke<void*>(cage, taggedPtr, 2), ptr);
 
@@ -2150,15 +2493,82 @@ static void testCagePreservesPACFailureBit()
 
     CHECK_EQ(invoke<void*>(cageWithoutAuthentication, taggedPtr), taggedPtr);
     if (isARM64E()) {
-        // FIXME: This won't work if authentication failures trap but I don't know how to test for that right now.
         CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), taggedNotCagedPtr);
-        CHECK_NOT_EQ(untagArrayPtr(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), 1), notCagedPtr);
+        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), tagArrayPtr(notCagedPtr, 1));
         CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), taggedPtr);
-        CHECK_NOT_EQ(untagArrayPtr(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), 1), ptr);
+        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), tagArrayPtr(ptr, 1));
     }
 
     Gigacage::free(Gigacage::Primitive, ptr);
 #endif
+}
+
+static void testBranchIfType()
+{
+    using JSC::JSType;
+    struct CellLike {
+        uint32_t structureID;
+        uint8_t indexingType;
+        JSType type;
+    };
+    CHECK_EQ(JSCell::typeInfoTypeOffset(), OBJECT_OFFSETOF(CellLike, type));
+
+    auto isType = compile([] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        auto isType = jit.branchIfType(GPRInfo::argumentGPR0, JSC::JSTypeRange { JSType(FirstTypedArrayType), JSType(LastTypedArrayTypeExcludingDataView) });
+        jit.move(CCallHelpers::TrustedImm32(false), GPRInfo::returnValueGPR);
+        auto done = jit.jump();
+        isType.link(&jit);
+        jit.move(CCallHelpers::TrustedImm32(true), GPRInfo::returnValueGPR);
+        done.link(&jit);
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    CellLike cell;
+    for (unsigned i = JSC::FirstTypedArrayType; i <= JSC::LastTypedArrayTypeExcludingDataView; ++i) {
+        cell.type = JSType(i);
+        CHECK_EQ(invoke<bool>(isType, &cell), true);
+    }
+
+    cell.type = JSType(LastTypedArrayType);
+    CHECK_EQ(invoke<bool>(isType, &cell), false);
+    cell.type = JSType(FirstTypedArrayType - 1);
+    CHECK_EQ(invoke<bool>(isType, &cell), false);
+}
+
+static void testBranchIfNotType()
+{
+    using JSC::JSType;
+    struct CellLike {
+        uint32_t structureID;
+        uint8_t indexingType;
+        JSType type;
+    };
+    CHECK_EQ(JSCell::typeInfoTypeOffset(), OBJECT_OFFSETOF(CellLike, type));
+
+    auto isNotType = compile([] (CCallHelpers& jit) {
+        emitFunctionPrologue(jit);
+        auto isNotType = jit.branchIfNotType(GPRInfo::argumentGPR0, JSC::JSTypeRange { JSType(FirstTypedArrayType), JSType(LastTypedArrayTypeExcludingDataView) });
+        jit.move(CCallHelpers::TrustedImm32(false), GPRInfo::returnValueGPR);
+        auto done = jit.jump();
+        isNotType.link(&jit);
+        jit.move(CCallHelpers::TrustedImm32(true), GPRInfo::returnValueGPR);
+        done.link(&jit);
+        emitFunctionEpilogue(jit);
+        jit.ret();
+    });
+
+    CellLike cell;
+    for (unsigned i = JSC::FirstTypedArrayType; i <= JSC::LastTypedArrayTypeExcludingDataView; ++i) {
+        cell.type = JSType(i);
+        CHECK_EQ(invoke<bool>(isNotType, &cell), false);
+    }
+
+    cell.type = JSType(LastTypedArrayType);
+    CHECK_EQ(invoke<bool>(isNotType, &cell), true);
+    cell.type = JSType(FirstTypedArrayType - 1);
+    CHECK_EQ(invoke<bool>(isNotType, &cell), true);
 }
 
 #define RUN(test) do {                          \
@@ -2176,7 +2586,7 @@ static void testCagePreservesPACFailureBit()
 
 void run(const char* filter)
 {
-    JSC::initializeThreading();
+    JSC::initialize();
     unsigned numberOfTests = 0;
 
     Deque<RefPtr<SharedTask<void()>>> tasks;
@@ -2205,12 +2615,12 @@ void run(const char* filter)
 
 #define FOR_EACH_DOUBLE_CONDITION_RUN(__test) \
     do { \
-        RUN(__test(MacroAssembler::DoubleEqual)); \
-        RUN(__test(MacroAssembler::DoubleNotEqual)); \
-        RUN(__test(MacroAssembler::DoubleGreaterThan)); \
-        RUN(__test(MacroAssembler::DoubleGreaterThanOrEqual)); \
-        RUN(__test(MacroAssembler::DoubleLessThan)); \
-        RUN(__test(MacroAssembler::DoubleLessThanOrEqual)); \
+        RUN(__test(MacroAssembler::DoubleEqualAndOrdered)); \
+        RUN(__test(MacroAssembler::DoubleNotEqualAndOrdered)); \
+        RUN(__test(MacroAssembler::DoubleGreaterThanAndOrdered)); \
+        RUN(__test(MacroAssembler::DoubleGreaterThanOrEqualAndOrdered)); \
+        RUN(__test(MacroAssembler::DoubleLessThanAndOrdered)); \
+        RUN(__test(MacroAssembler::DoubleLessThanOrEqualAndOrdered)); \
         RUN(__test(MacroAssembler::DoubleEqualOrUnordered)); \
         RUN(__test(MacroAssembler::DoubleNotEqualOrUnordered)); \
         RUN(__test(MacroAssembler::DoubleGreaterThanOrUnordered)); \
@@ -2231,6 +2641,16 @@ void run(const char* filter)
     RUN(testBranchTestBit64RegReg());
     RUN(testBranchTestBit64RegImm());
     RUN(testBranchTestBit64AddrImm());
+#endif
+
+#if CPU(X86_64) || CPU(ARM64)
+    RUN(testClearBit64());
+    RUN(testClearBits64WithMask());
+    RUN(testClearBits64WithMaskTernary());
+    RUN(testCountTrailingZeros64());
+    RUN(testCountTrailingZeros64WithoutNullCheck());
+    RUN(testShiftAndAdd());
+    RUN(testStore64Imm64AddressPointer());
 #endif
 
 #if CPU(ARM64)
@@ -2283,7 +2703,12 @@ void run(const char* filter)
 
     RUN(testCagePreservesPACFailureBit());
 
+    RUN(testBranchIfType());
+    RUN(testBranchIfNotType());
+
     RUN(testOrImmMem());
+
+    RUN(testAndOrDouble());
 
     if (tasks.isEmpty())
         usage();

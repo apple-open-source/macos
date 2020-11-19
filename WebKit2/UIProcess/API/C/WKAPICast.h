@@ -28,11 +28,9 @@
 #define WKAPICast_h
 
 #include "CacheModel.h"
-#include "HTTPCookieAcceptPolicy.h"
 #include "InjectedBundleHitTestResultMediaType.h"
 #include "PluginModuleInfo.h"
 #include "ProcessTerminationReason.h"
-#include "ResourceCachesToClear.h"
 #include "WKBundleHitTestResult.h"
 #include "WKContext.h"
 #include "WKCookieManager.h"
@@ -46,6 +44,7 @@
 #include "WKSharedAPICast.h"
 #include <WebCore/Credential.h>
 #include <WebCore/FrameLoaderTypes.h>
+#include <WebCore/HTTPCookieAcceptPolicy.h>
 #include <WebCore/PluginData.h>
 #include <WebCore/ProtectionSpace.h>
 #include <WebCore/Settings.h>
@@ -106,8 +105,6 @@ class WebPageProxy;
 class WebPreferences;
 class WebProcessPool;
 class WebProtectionSpace;
-class WebRenderLayer;
-class WebRenderObject;
 class WebResourceLoadStatisticsManager;
 class WebTextChecker;
 class WebUserContentControllerProxy;
@@ -157,8 +154,6 @@ WK_ADD_API_MAPPING(WKPageConfigurationRef, API::PageConfiguration)
 WK_ADD_API_MAPPING(WKPageRef, WebPageProxy)
 WK_ADD_API_MAPPING(WKPreferencesRef, WebPreferences)
 WK_ADD_API_MAPPING(WKProtectionSpaceRef, WebProtectionSpace)
-WK_ADD_API_MAPPING(WKRenderLayerRef, WebRenderLayer)
-WK_ADD_API_MAPPING(WKRenderObjectRef, WebRenderObject)
 WK_ADD_API_MAPPING(WKResourceLoadStatisticsManagerRef, WebResourceLoadStatisticsManager)
 WK_ADD_API_MAPPING(WKSessionStateRef, API::SessionState)
 WK_ADD_API_MAPPING(WKTextCheckerRef, WebTextChecker)
@@ -248,6 +243,7 @@ inline WKProcessTerminationReason toAPI(ProcessTerminationReason reason)
         FALLTHROUGH;
     case ProcessTerminationReason::RequestedByClient:
         return kWKProcessTerminationReasonRequestedByClient;
+    case ProcessTerminationReason::RequestedByNetworkProcess:
     case ProcessTerminationReason::Crash:
         return kWKProcessTerminationReasonCrash;
     }
@@ -356,46 +352,33 @@ inline WebCore::CredentialPersistence toCredentialPersistence(WKCredentialPersis
     }
 }
 
-inline ResourceCachesToClear toResourceCachesToClear(WKResourceCachesToClear wkResourceCachesToClear)
-{
-    switch (wkResourceCachesToClear) {
-    case WKResourceCachesToClearAll:
-        return AllResourceCaches;
-    case WKResourceCachesToClearInMemoryOnly:
-        return InMemoryResourceCachesOnly;
-    }
-
-    ASSERT_NOT_REACHED();
-    return AllResourceCaches;
-}
-
-inline HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(WKHTTPCookieAcceptPolicy policy)
+inline WebCore::HTTPCookieAcceptPolicy toHTTPCookieAcceptPolicy(WKHTTPCookieAcceptPolicy policy)
 {
     switch (policy) {
     case kWKHTTPCookieAcceptPolicyAlways:
-        return HTTPCookieAcceptPolicy::AlwaysAccept;
+        return WebCore::HTTPCookieAcceptPolicy::AlwaysAccept;
     case kWKHTTPCookieAcceptPolicyNever:
-        return HTTPCookieAcceptPolicy::Never;
+        return WebCore::HTTPCookieAcceptPolicy::Never;
     case kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain:
-        return HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain;
+        return WebCore::HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain;
     case kWKHTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain:
-        return HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain;
+        return WebCore::HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain;
     }
 
     ASSERT_NOT_REACHED();
-    return HTTPCookieAcceptPolicy::AlwaysAccept;
+    return WebCore::HTTPCookieAcceptPolicy::AlwaysAccept;
 }
 
-inline WKHTTPCookieAcceptPolicy toAPI(HTTPCookieAcceptPolicy policy)
+inline WKHTTPCookieAcceptPolicy toAPI(WebCore::HTTPCookieAcceptPolicy policy)
 {
     switch (policy) {
-    case HTTPCookieAcceptPolicy::AlwaysAccept:
+    case WebCore::HTTPCookieAcceptPolicy::AlwaysAccept:
         return kWKHTTPCookieAcceptPolicyAlways;
-    case HTTPCookieAcceptPolicy::Never:
+    case WebCore::HTTPCookieAcceptPolicy::Never:
         return kWKHTTPCookieAcceptPolicyNever;
-    case HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain:
+    case WebCore::HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain:
         return kWKHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
-    case HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain:
+    case WebCore::HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain:
         return kWKHTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain;
     }
 
@@ -453,15 +436,15 @@ inline WKPluginLoadPolicy toWKPluginLoadPolicy(PluginModuleLoadPolicy pluginModu
 inline WKPluginLoadClientPolicy toWKPluginLoadClientPolicy(WebCore::PluginLoadClientPolicy PluginLoadClientPolicy)
 {
     switch (PluginLoadClientPolicy) {
-    case WebCore::PluginLoadClientPolicyUndefined:
+    case WebCore::PluginLoadClientPolicy::Undefined:
         return kWKPluginLoadClientPolicyUndefined;
-    case WebCore::PluginLoadClientPolicyBlock:
+    case WebCore::PluginLoadClientPolicy::Block:
         return kWKPluginLoadClientPolicyBlock;
-    case WebCore::PluginLoadClientPolicyAsk:
+    case WebCore::PluginLoadClientPolicy::Ask:
         return kWKPluginLoadClientPolicyAsk;
-    case WebCore::PluginLoadClientPolicyAllow:
+    case WebCore::PluginLoadClientPolicy::Allow:
         return kWKPluginLoadClientPolicyAllow;
-    case WebCore::PluginLoadClientPolicyAllowAlways:
+    case WebCore::PluginLoadClientPolicy::AllowAlways:
         return kWKPluginLoadClientPolicyAllowAlways;
     }
 
@@ -490,44 +473,44 @@ inline WebCore::PluginLoadClientPolicy toPluginLoadClientPolicy(WKPluginLoadClie
 {
     switch (pluginLoadClientPolicy) {
     case kWKPluginLoadClientPolicyUndefined:
-        return WebCore::PluginLoadClientPolicyUndefined;
+        return WebCore::PluginLoadClientPolicy::Undefined;
     case kWKPluginLoadClientPolicyBlock:
-        return WebCore::PluginLoadClientPolicyBlock;
+        return WebCore::PluginLoadClientPolicy::Block;
     case kWKPluginLoadClientPolicyAsk:
-        return WebCore::PluginLoadClientPolicyAsk;
+        return WebCore::PluginLoadClientPolicy::Ask;
     case kWKPluginLoadClientPolicyAllow:
-        return WebCore::PluginLoadClientPolicyAllow;
+        return WebCore::PluginLoadClientPolicy::Allow;
     case kWKPluginLoadClientPolicyAllowAlways:
-        return WebCore::PluginLoadClientPolicyAllowAlways;
+        return WebCore::PluginLoadClientPolicy::AllowAlways;
     }
 
     ASSERT_NOT_REACHED();
-    return WebCore::PluginLoadClientPolicyBlock;
+    return WebCore::PluginLoadClientPolicy::Block;
 }
 
 inline WebCore::WebGLLoadPolicy toWebGLLoadPolicy(WKWebGLLoadPolicy webGLLoadPolicy)
 {
     switch (webGLLoadPolicy) {
     case kWKWebGLLoadPolicyLoadNormally:
-        return WebCore::WebGLAllowCreation;
+        return WebCore::WebGLLoadPolicy::WebGLAllowCreation;
     case kWKWebGLLoadPolicyBlocked:
-        return WebCore::WebGLBlockCreation;
+        return WebCore::WebGLLoadPolicy::WebGLBlockCreation;
     case kWKWebGLLoadPolicyPending:
-        return WebCore::WebGLPendingCreation;
+        return WebCore::WebGLLoadPolicy::WebGLPendingCreation;
     }
     
     ASSERT_NOT_REACHED();
-    return WebCore::WebGLAllowCreation;
+    return WebCore::WebGLLoadPolicy::WebGLAllowCreation;
 }
 
 inline WKWebGLLoadPolicy toAPI(WebCore::WebGLLoadPolicy webGLLoadPolicy)
 {
     switch (webGLLoadPolicy) {
-    case WebCore::WebGLAllowCreation:
+    case WebCore::WebGLLoadPolicy::WebGLAllowCreation:
         return kWKWebGLLoadPolicyLoadNormally;
-    case WebCore::WebGLBlockCreation:
+    case WebCore::WebGLLoadPolicy::WebGLBlockCreation:
         return kWKWebGLLoadPolicyBlocked;
-    case WebCore::WebGLPendingCreation:
+    case WebCore::WebGLLoadPolicy::WebGLPendingCreation:
         return kWKWebGLLoadPolicyPending;
     }
 
@@ -547,6 +530,10 @@ inline WKWebGLLoadPolicy toAPI(WebCore::WebGLLoadPolicy webGLLoadPolicy)
 
 #if defined(WIN32) || defined(_WIN32)
 #include "WKAPICastWin.h"
+#endif
+
+#if defined(__SCE__)
+#include "WKAPICastPlayStation.h"
 #endif
 
 #endif // WKAPICast_h

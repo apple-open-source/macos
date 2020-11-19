@@ -5,5 +5,5 @@ ks_Deva{
     Languages{
         ks{"कॉशुर"}
     }
-    Version{"2.1.38.69"}
+    Version{"36.1"}
 }

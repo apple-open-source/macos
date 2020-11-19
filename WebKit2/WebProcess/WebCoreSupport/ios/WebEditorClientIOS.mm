@@ -114,6 +114,16 @@ bool WebEditorClient::shouldAllowSingleClickToChangeSelection(WebCore::Node& tar
     return !editableRoot || editableRoot != targetNode.rootEditableElement() || !m_page->isShowingInputViewForFocusedElement();
 }
 
+bool WebEditorClient::shouldRevealCurrentSelectionAfterInsertion() const
+{
+    return m_page->shouldRevealCurrentSelectionAfterInsertion();
+}
+
+bool WebEditorClient::shouldSuppressPasswordEcho() const
+{
+    return m_page->screenIsBeingCaptured() || m_page->hardwareKeyboardIsAttached();
+}
+
 } // namespace WebKit
 
 #endif // PLATFORM(IOS_FAMILY)

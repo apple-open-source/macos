@@ -25,8 +25,6 @@
 
 #pragma once
 
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-
 #include "AnimationFrameRate.h"
 #include "PlatformScreen.h"
 #include <wtf/HashSet.h>
@@ -64,7 +62,7 @@ public:
 
     bool shouldBeTerminated() const
     {
-        const int maxInactiveFireCount = 20;
+        const int maxInactiveFireCount = 1;
         return !m_scheduled && m_unscheduledFireCount > maxInactiveFireCount;
     }
 
@@ -103,6 +101,3 @@ private:
 };
 
 }
-
-#endif // USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-

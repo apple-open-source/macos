@@ -30,6 +30,10 @@
 #include <Security/SecOTRSession.h>
 #include <Security/SecInternal.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecKey.h>
+#include <Security/SecItem.h>
+#include <utilities/SecCFWrappers.h>
+#include <Security/SecOTRIdentityPriv.h>
 
 static void RegressionsLogError(CFErrorRef error) {
     if (error == NULL) {
@@ -52,13 +56,59 @@ static void RegressionsLogError(CFErrorRef error) {
     CFReleaseSafe(tempDictionary);
 }
 
-static int kTestTestCount = 18;
+static int kTestTestCount = 27;
+
+static void otr_00_identity_MessageProtectionKeys()
+{
+    // We create a MessageProtection-style key.
+    int32_t keysz32 = 256;
+    CFNumberRef ksizeNumber = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
+    CFDictionaryRef dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                        kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom,
+                                                        kSecAttrKeyClass, kSecAttrKeyClassPrivate,
+                                                        kSecAttrKeySizeInBits, ksizeNumber,
+                                                        kSecAttrIsPermanent, kCFBooleanFalse, NULL);
+    
+    CFErrorRef error = NULL;
+    SecKeyRef testIdentityKey = SecKeyCreateRandomKey(dict, &error);
+    ok(testIdentityKey != NULL, "Failed to create test key.");
+    
+    CFReleaseSafe(ksizeNumber);
+    CFReleaseSafe(dict);
+    
+    SecOTRFullIdentityRef identity1 = SecOTRFullIdentityCreateFromSecKeyRef(kCFAllocatorDefault, testIdentityKey, &error);
+    ok(identity1->isMessageProtectionKey, "Should be MessageProtection Key");
+    ok(identity1->privateKeyPersistentRef == NULL, "MessageProtection key shouldn't have a peristent ref.");
+    
+    CFMutableDataRef serializeInto = CFDataCreateMutable(kCFAllocatorDefault, 100);
+    SecOTRFIAppendSerialization(identity1, serializeInto, &error);
+    
+    SecOTRFullIdentityRef identity2 = SecOTRFullIdentityCreateFromData(kCFAllocatorDefault, serializeInto, &error);
+    ok(identity2->isMessageProtectionKey, "Should still be a MessageProtection Key");
+    ok(identity2->privateKeyPersistentRef == NULL, "MessageProtection key shouldn't have a peristent ref.");
+    
+    CFDataRef serializedKey1 = SecKeyCopyExternalRepresentation(identity1->privateSigningKey, &error);
+    CFDataRef serializedKey2 = SecKeyCopyExternalRepresentation(identity2->privateSigningKey, &error);
+    
+    ok(CFEqual(serializedKey1, serializedKey2));
+    ok(error == NULL, "Testing shouldn't cause any errors");
+    
+    CFReleaseSafe(error);
+    CFReleaseSafe(serializedKey1);
+    CFReleaseSafe(serializedKey2);
+    CFReleaseSafe(identity1);
+    CFReleaseSafe(identity2);
+    CFReleaseSafe(testIdentityKey);
+    CFReleaseNull(serializeInto);
+}
+
 static void tests(void)
 {
     CFErrorRef testError = NULL;
     
     SecOTRFullIdentityRef idToPurge = SecOTRFullIdentityCreate(kCFAllocatorDefault, &testError);
     ok(idToPurge != NULL, "Make Identity: %@", testError);
+    ok(idToPurge->isMessageProtectionKey == false, "Keys shouldn't be defaulting to MessageProtection type");
     RegressionsLogError(testError);
     CFReleaseNull(testError);
 
@@ -70,6 +120,7 @@ static void tests(void)
     
     SecOTRFullIdentityRef purgeIdInflate = SecOTRFullIdentityCreateFromData(kCFAllocatorDefault, purgeExport, &testError);
     ok(purgeIdInflate != NULL, "Inflate Identity: %@", testError);
+    ok(idToPurge->isMessageProtectionKey == false, "Keys shouldn't be re-imported as MessageProtection types");
     RegressionsLogError(testError);
     CFReleaseNull(testError);
 
@@ -195,7 +246,11 @@ static void tests(void)
     CFReleaseSafe(failIDInflate2);
     CFReleaseSafe(testInteropImport);
     CFReleaseSafe(interopIDInflate);
+    
+    otr_00_identity_MessageProtectionKeys();
 }
+
+
 
 int otr_00_identity(int argc, char *const *argv)
 {

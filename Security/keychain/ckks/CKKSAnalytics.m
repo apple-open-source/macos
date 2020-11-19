@@ -53,6 +53,7 @@ NSString* const OctagonAnalyticCDPBitStatus = @"OACDPStatus";
 
 NSString* const OctagonAnalyticsTrustState = @"OATrust";
 NSString* const OctagonAnalyticsAttemptedJoin = @"OAAttemptedJoin";
+NSString* const OctagonAnalyticsUserControllableViewsSyncing = @"OAUserViewsSyncing";
 NSString* const OctagonAnalyticsLastHealthCheck = @"OAHealthCheck";
 NSString* const OctagonAnalyticsSOSStatus = @"OASOSStatus";
 NSString* const OctagonAnalyticsDateOfLastPreflightPreapprovedJoin = @"OALastPPJ";
@@ -221,10 +222,10 @@ CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyti
     return [super logger];
 }
 
-- (void)logSuccessForEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view
+- (void)logSuccessForEvent:(CKKSAnalyticsFailableEvent*)event zoneName:(NSString*)zoneName
 {
-    [self logSuccessForEventNamed:[NSString stringWithFormat:@"%@-%@", view.zoneName, event]];
-    [self setDateProperty:[NSDate date] forKey:[NSString stringWithFormat:@"last_success_%@-%@", view.zoneName, event]];
+    [self logSuccessForEventNamed:[NSString stringWithFormat:@"%@-%@", zoneName, event]];
+    [self setDateProperty:[NSDate date] forKey:[NSString stringWithFormat:@"last_success_%@-%@", zoneName, event]];
 }
 
 - (bool)isCKPartialError:(NSError *)error
@@ -297,7 +298,10 @@ CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyti
     return eventAttributes;
 }
 
-- (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event zoneName:(NSString*)zoneName withAttributes:(NSDictionary *)attributes
+- (void)logRecoverableError:(NSError*)error
+                   forEvent:(CKKSAnalyticsFailableEvent*)event
+                   zoneName:(NSString*)zoneName
+             withAttributes:(NSDictionary *)attributes
 {
     if (error == nil){
         return;
@@ -346,32 +350,10 @@ CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyti
     [super logSoftFailureForEventNamed:event withAttributes:eventAttributes];
 }
 
-- (void)logRecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view withAttributes:(NSDictionary *)attributes
-{
-    if (error == nil){
-        return;
-    }
-    NSMutableDictionary* eventAttributes = [NSMutableDictionary dictionary];
-
-    /* Don't allow caller to overwrite our attributes, lets merge them first */
-    if (attributes) {
-        [eventAttributes setValuesForKeysWithDictionary:attributes];
-    }
-
-    [eventAttributes setValuesForKeysWithDictionary:@{
-        CKKSAnalyticsAttributeRecoverableError : @(YES),
-        CKKSAnalyticsAttributeZoneName : view.zoneName,
-        CKKSAnalyticsAttributeErrorDomain : error.domain,
-        CKKSAnalyticsAttributeErrorCode : @(error.code)
-    }];
-
-    eventAttributes[CKKSAnalyticsAttributeErrorChain] = [self errorChain:error.userInfo[NSUnderlyingErrorKey] depth:0];
-    [self addCKPartialError:eventAttributes error:error depth:0];
-
-    [super logSoftFailureForEventNamed:event withAttributes:eventAttributes];
-}
-
-- (void)logUnrecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view withAttributes:(NSDictionary *)attributes
+- (void)logUnrecoverableError:(NSError*)error
+                     forEvent:(CKKSAnalyticsFailableEvent*)event
+                     zoneName:(NSString*)zoneName
+               withAttributes:(NSDictionary *)attributes
 {
     if (error == nil){
         return;
@@ -386,7 +368,7 @@ CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyti
 
     [eventAttributes setValuesForKeysWithDictionary:@{
         CKKSAnalyticsAttributeRecoverableError : @(NO),
-        CKKSAnalyticsAttributeZoneName : view.zoneName,
+        CKKSAnalyticsAttributeZoneName : zoneName,
         CKKSAnalyticsAttributeErrorDomain : error.domain,
         CKKSAnalyticsAttributeErrorCode : @(error.code)
     }];
@@ -394,7 +376,9 @@ CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyti
     [self logHardFailureForEventNamed:event withAttributes:eventAttributes];
 }
 
-- (void)logUnrecoverableError:(NSError*)error forEvent:(CKKSAnalyticsFailableEvent*)event withAttributes:(NSDictionary *)attributes
+- (void)logUnrecoverableError:(NSError*)error
+                     forEvent:(CKKSAnalyticsFailableEvent*)event
+               withAttributes:(NSDictionary *)attributes
 {
     if (error == nil){
         return;
@@ -423,23 +407,23 @@ CKKSAnalyticsActivity* const OctagonActivityRemoveFriendsInClique = (CKKSAnalyti
 {
     [self noteEventNamed:event];
 }
-- (void)noteEvent:(CKKSAnalyticsSignpostEvent*)event inView:(CKKSKeychainView*)view
+- (void)noteEvent:(CKKSAnalyticsSignpostEvent*)event zoneName:(NSString*)zoneName
 {
-    [self noteEventNamed:[NSString stringWithFormat:@"%@-%@", view.zoneName, event]];
+    [self noteEventNamed:[NSString stringWithFormat:@"%@-%@", zoneName, event]];
 }
 
-- (NSDate*)dateOfLastSuccessForEvent:(CKKSAnalyticsFailableEvent*)event inView:(CKKSKeychainView*)view
+- (NSDate*)dateOfLastSuccessForEvent:(CKKSAnalyticsFailableEvent*)event zoneName:(NSString*)zoneName
 {
-    return [self datePropertyForKey:[NSString stringWithFormat:@"last_success_%@-%@", view.zoneName, event]];
+    return [self datePropertyForKey:[NSString stringWithFormat:@"last_success_%@-%@", zoneName, event]];
 }
 
-- (void)setDateProperty:(NSDate*)date forKey:(NSString*)key inView:(CKKSKeychainView *)view
+- (void)setDateProperty:(NSDate*)date forKey:(NSString*)key zoneName:(NSString*)zoneName
 {
-    [self setDateProperty:date forKey:[NSString stringWithFormat:@"%@-%@", key, view.zoneName]];
+    [self setDateProperty:date forKey:[NSString stringWithFormat:@"%@-%@", key, zoneName]];
 }
-- (NSDate *)datePropertyForKey:(NSString *)key inView:(CKKSKeychainView *)view
+- (NSDate *)datePropertyForKey:(NSString *)key zoneName:(NSString*)zoneName
 {
-    return [self datePropertyForKey:[NSString stringWithFormat:@"%@-%@", key, view.zoneName]];
+    return [self datePropertyForKey:[NSString stringWithFormat:@"%@-%@", key, zoneName]];
 }
 
 @end

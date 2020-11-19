@@ -163,10 +163,11 @@ krb5_sendauth(krb5_context context,
 				creds,
 				&ap_req);
 
-    if (out_creds)
+    if (out_creds) {
 	*out_creds = creds;
-    else
+    } else if (creds) {
 	krb5_free_creds(context, creds);
+    }
     if(this_client)
 	krb5_free_principal(context, this_client);
 

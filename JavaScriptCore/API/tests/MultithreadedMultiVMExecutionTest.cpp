@@ -27,9 +27,7 @@
 #include "MultithreadedMultiVMExecutionTest.h"
 
 #include "InitializeThreading.h"
-#include "JSContextRefPrivate.h"
 #include "JavaScript.h"
-#include "Options.h"
 #include <mutex>
 #include <string>
 #include <thread>
@@ -51,7 +49,7 @@ static std::vector<std::thread>& threadsList()
 void startMultithreadedMultiVMExecutionTest()
 {
     WTF::initializeMainThread();
-    JSC::initializeThreading();
+    JSC::initialize();
 
 #define CHECK(condition, message) do { \
         if (!condition) { \

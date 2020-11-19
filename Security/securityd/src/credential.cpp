@@ -132,10 +132,11 @@ CredentialImpl::merge(const CredentialImpl &other)
 {
     // try to ensure that the credentials are the same type
     assert(mRight == other.mRight);
-    if (mRight)
+    if (mRight) {
         assert(mName == other.mName);
-    else 
+    } else {
         assert(mUid == other.mUid);
+    }
 
     if (other.mValid && (!mValid || mCreationTime < other.mCreationTime))
     {

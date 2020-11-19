@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ja{
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -89,6 +89,7 @@ ja{
         }
         compound{
             per{"{0}毎{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -205,6 +206,10 @@ ja{
                 other{"{0}日"}
                 per{"{0}/日"}
             }
+            decade{
+                dnam{"十年"}
+                other{"{0} 十年"}
+            }
             hour{
                 dnam{"時間"}
                 other{"{0}時間"}
@@ -299,6 +304,10 @@ ja{
                 dnam{"キロワット時"}
                 other{"{0}キロワット時"}
             }
+            therm-us{
+                dnam{"米サーム"}
+                other{"{0} 米サーム"}
+            }
         }
         force{
             newton{
@@ -326,6 +335,35 @@ ja{
             megahertz{
                 dnam{"メガヘルツ"}
                 other{"{0}メガヘルツ"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"ドット/cm"}
+                other{"{0} ドット/cm"}
+            }
+            dot-per-inch{
+                dnam{"ドット/インチ"}
+                other{"{0} ドット/インチ"}
+            }
+            em{
+                dnam{"フォントサイズ em"}
+            }
+            megapixel{
+                dnam{"メガピクセル"}
+                other{"{0} メガピクセル"}
+            }
+            pixel{
+                dnam{"ピクセル"}
+                other{"{0} ピクセル"}
+            }
+            pixel-per-centimeter{
+                dnam{"ピクセル/cm"}
+                other{"{0} ピクセル/cm"}
+            }
+            pixel-per-inch{
+                dnam{"ピクセル/インチ"}
+                other{"{0} ピクセル/インチ"}
             }
         }
         length{
@@ -522,6 +560,10 @@ ja{
                 dnam{"気圧"}
                 other{"{0} 気圧"}
             }
+            bar{
+                dnam{"バール"}
+                other{"{0} バール"}
+            }
             hectopascal{
                 dnam{"ヘクトパスカル"}
                 other{"{0}ヘクトパスカル"}
@@ -545,6 +587,10 @@ ja{
             millimeter-of-mercury{
                 dnam{"水銀柱ミリメートル"}
                 other{"{0}水銀柱ミリメートル"}
+            }
+            pascal{
+                dnam{"パスカル"}
+                other{"{0} パスカル"}
             }
             pound-per-square-inch{
                 dnam{"重量ポンド毎平方インチ"}
@@ -760,6 +806,7 @@ ja{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -1123,6 +1170,14 @@ ja{
                 dnam{"°C"}
                 other{"{0}°C"}
             }
+            fahrenheit{
+                dnam{"°F"}
+                other{"{0}°F"}
+            }
+            generic{
+                dnam{"°"}
+                other{"{0}°"}
+            }
             kelvin{
                 dnam{"K"}
                 other{"{0}K"}
@@ -1281,6 +1336,7 @@ ja{
         }
         compound{
             per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
         }
         concentr{
             karat{
@@ -1397,6 +1453,10 @@ ja{
                 other{"{0}日"}
                 per{"{0}/日"}
             }
+            decade{
+                dnam{"十年"}
+                other{"{0} 十年"}
+            }
             hour{
                 dnam{"時間"}
                 other{"{0}時間"}
@@ -1491,6 +1551,10 @@ ja{
                 dnam{"キロワット時"}
                 other{"{0} kWh"}
             }
+            therm-us{
+                dnam{"米サーム"}
+                other{"{0} 米サーム"}
+            }
         }
         force{
             newton{
@@ -1518,6 +1582,36 @@ ja{
             megahertz{
                 dnam{"MHz"}
                 other{"{0} MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                other{"{0} dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+                other{"{0} dpi"}
+            }
+            em{
+                dnam{"em"}
+                other{"{0} em"}
+            }
+            megapixel{
+                dnam{"メガピクセル"}
+                other{"{0} MP"}
+            }
+            pixel{
+                dnam{"ピクセル"}
+                other{"{0} px"}
+            }
+            pixel-per-centimeter{
+                dnam{"ppcm"}
+                other{"{0} ppcm"}
+            }
+            pixel-per-inch{
+                dnam{"ppi"}
+                other{"{0} ppi"}
             }
         }
         length{
@@ -1714,6 +1808,10 @@ ja{
                 dnam{"気圧"}
                 other{"{0} atm"}
             }
+            bar{
+                dnam{"バール"}
+                other{"{0} bar"}
+            }
             hectopascal{
                 dnam{"hPa"}
                 other{"{0} hPa"}
@@ -1737,6 +1835,10 @@ ja{
             millimeter-of-mercury{
                 dnam{"水銀柱ミリメートル"}
                 other{"{0} mm Hg"}
+            }
+            pascal{
+                dnam{"パスカル"}
+                other{"{0} Pa"}
             }
             pound-per-square-inch{
                 dnam{"重量ポンド毎平方インチ"}
@@ -1873,7 +1975,7 @@ ja{
             liter{
                 dnam{"リットル"}
                 other{"{0} L"}
-                per{"{0}/l"}
+                per{"{0}/L"}
             }
             megaliter{
                 dnam{"メガリットル"}

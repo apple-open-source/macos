@@ -31,7 +31,6 @@
 #include "CacheStorageProvider.h"
 #include "Chrome.h"
 #include "CommonVM.h"
-#include "CustomHeaderFields.h"
 #include "DOMWindow.h"
 #include "DocumentLoader.h"
 #include "EditorClient.h"
@@ -171,11 +170,11 @@ IntSize SVGImage::containerSize() const
     else
         currentSize = rootElement->currentViewBoxRect().size();
 
-    if (!currentSize.isEmpty())
-        return IntSize(static_cast<int>(ceilf(currentSize.width())), static_cast<int>(ceilf(currentSize.height())));
+    // Use the default CSS intrinsic size if the above failed.
+    if (currentSize.isEmpty())
+        return IntSize(300, 150);
 
-    // As last resort, use CSS default intrinsic size.
-    return IntSize(300, 150);
+    return IntSize(currentSize);
 }
 
 ImageDrawResult SVGImage::drawForContainer(GraphicsContext& context, const FloatSize containerSize, float containerZoom, const URL& initialFragmentURL, const FloatRect& dstRect,
@@ -218,7 +217,7 @@ NativeImagePtr SVGImage::nativeImageForCurrentFrame(const GraphicsContext*)
         return nullptr;
 
     // Cairo does not use the accelerated drawing flag, so it's OK to make an unconditionally unaccelerated buffer.
-    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(size(), Unaccelerated);
+    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(size(), RenderingMode::Unaccelerated);
     if (!buffer) // failed to allocate image
         return nullptr;
 
@@ -254,7 +253,7 @@ NativeImagePtr SVGImage::nativeImage(const GraphicsContext* targetContext)
     if (!SUCCEEDED(hr))
         return nullptr;
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     auto nativeImageSize = nativeImage->GetPixelSize();
     ASSERT(nativeImageSize.height = rect().size().height());
     ASSERT(nativeImageSize.width = rect().size().width());

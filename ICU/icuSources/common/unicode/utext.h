@@ -144,7 +144,7 @@
 #include "unicode/rep.h"
 #include "unicode/unistr.h"
 #include "unicode/chariter.h"
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 
 U_CDECL_BEGIN
@@ -200,7 +200,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUTextPointer, UText, utext_close);
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Open a read-only UText implementation for UTF-8 strings.
@@ -308,7 +308,7 @@ utext_openReplaceable(UText *ut, icu::Replaceable *rep, UErrorCode *status);
 U_STABLE UText * U_EXPORT2
 utext_openCharacterIterator(UText *ut, icu::CharacterIterator *ci, UErrorCode *status);
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 
 /**
@@ -768,21 +768,25 @@ utext_extract(UText *ut,
   */
 #if LOG_UTEXT_SETNATIVEINDEX
 /* Add logging for <rdar://problem/44884660> */
-#define UTEXT_SETNATIVEINDEX(ut, ix)                       \
-    { int64_t __offset = (ix) - (ut)->chunkNativeStart; \
-      if ((ut)->chunkContents!=0 && __offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit && (ut)->chunkContents[__offset]<0xdc00) { \
-          (ut)->chunkOffset=(int32_t)__offset; \
-      } else if ((ut)->chunkContents==0 && __offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit) { \
-          os_log(OS_LOG_DEFAULT, "# UTEXT_SETNATIVEINDEX (ut) %p, (ut)->chunkContents 0, __offset %lld", (ut), __offset); \
-      } else { \
-          utext_setNativeIndex((ut), (ix)); } }
+#define UTEXT_SETNATIVEINDEX(ut, ix) UPRV_BLOCK_MACRO_BEGIN { \
+    int64_t __offset = (ix) - (ut)->chunkNativeStart; \
+    if ((ut)->chunkContents!=0 && __offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit && (ut)->chunkContents[__offset]<0xdc00) { \
+        (ut)->chunkOffset=(int32_t)__offset; \
+    } else if ((ut)->chunkContents==0 && __offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit) { \
+        os_log(OS_LOG_DEFAULT, "# UTEXT_SETNATIVEINDEX (ut) %p, (ut)->chunkContents 0, __offset %lld", (ut), __offset); \
+    } else { \
+        utext_setNativeIndex((ut), (ix));
+    } \
+} UPRV_BLOCK_MACRO_END
 #else
-#define UTEXT_SETNATIVEINDEX(ut, ix)                       \
-    { int64_t __offset = (ix) - (ut)->chunkNativeStart; \
-      if ((ut)->chunkContents!=0 && __offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit && (ut)->chunkContents[__offset]<0xdc00) { \
-          (ut)->chunkOffset=(int32_t)__offset; \
-      } else { \
-          utext_setNativeIndex((ut), (ix)); } }
+#define UTEXT_SETNATIVEINDEX(ut, ix) UPRV_BLOCK_MACRO_BEGIN { \
+    int64_t __offset = (ix) - (ut)->chunkNativeStart; \
+    if (__offset>=0 && __offset<(int64_t)(ut)->nativeIndexingLimit && (ut)->chunkContents[__offset]<0xdc00) { \
+        (ut)->chunkOffset=(int32_t)__offset; \
+    } else { \
+        utext_setNativeIndex((ut), (ix)); \
+    } \
+} UPRV_BLOCK_MACRO_END
 #endif
 
 

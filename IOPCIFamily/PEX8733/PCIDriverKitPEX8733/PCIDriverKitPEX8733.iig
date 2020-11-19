@@ -9,8 +9,11 @@
 #define PCIDriverKitPEX8733_h
 
 #include <Availability.h>
+#include <DriverKit/DriverKit.iig>
+#include <DriverKit/OSAction.iig>
 #include <DriverKit/IOService.iig>
-
+#include <DriverKit/IOMemoryDescriptor.iig>
+#include <DriverKit/IODataQueueDispatchSource.iig>
 
 class PCIDriverKitPEX8733 : public IOService
 {
@@ -27,6 +30,11 @@ public:
 
     virtual kern_return_t
     Stop(IOService* provider) override;
+
+    virtual void
+    InterruptOccurred(OSAction* action,
+                      uint64_t  count,
+                      uint64_t  time) TYPE(IOInterruptDispatchSource::InterruptOccurred);
 
 protected:
 // TODO: make it so the tests can be called from command line tool

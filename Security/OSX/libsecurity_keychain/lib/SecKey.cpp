@@ -804,20 +804,19 @@ static Boolean SecCDSAKeySetParameter(SecKeyRef key, CFStringRef name, CFPropert
 const SecKeyDescriptor kSecCDSAKeyDescriptor = {
     .version = kSecKeyDescriptorVersion,
     .name = "CDSAKey",
+    .extraBytes = (sizeof(class CDSASecKey) > sizeof(struct __SecKey) ? (sizeof(class CDSASecKey) - sizeof(struct __SecKey)) : 0),
 
     .init = SecCDSAKeyInit,
     .destroy = SecCDSAKeyDestroy,
     .blockSize = SecCDSAKeyGetBlockSize,
-    .getAlgorithmID = SecCDSAKeyGetAlgorithmId,
     .copyDictionary = SecCDSAKeyCopyAttributeDictionary,
+    .getAlgorithmID = SecCDSAKeyGetAlgorithmId,
     .copyPublic = SecCDSAKeyCopyPublicBytes,
     .copyExternalRepresentation = SecCDSAKeyCopyExternalRepresentation,
     .copyPublicKey = SecCDSAKeyCopyPublicKey,
     .copyOperationResult = SecCDSAKeyCopyOperationResult,
     .isEqual = SecCDSAKeyIsEqual,
     .setParameter = SecCDSAKeySetParameter,
-
-    .extraBytes = (sizeof(class CDSASecKey) > sizeof(struct __SecKey) ? (sizeof(class CDSASecKey) - sizeof(struct __SecKey)) : 0),
 };
 
 namespace Security {

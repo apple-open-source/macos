@@ -380,7 +380,10 @@ static uint8_t __IOHIDKeyboardEventTranslatorGetKeyboardKeyCode (uint32_t  usage
         case kHIDUsage_Csmr_ACDesktopShowAllWindows:
           keyCode = 0xa0;
           break;
+      // kHIDUsage_Csmr_ACSoftKeyLeft and kHIDUsage_Csmr_ACDesktopShowAllApplications
+      // were conflicting values, resolved in HUTRR97, keeping both for safety.
         case kHIDUsage_Csmr_ACDesktopShowAllApplications:
+        case kHIDUsage_Csmr_ACSoftKeyLeft:
           keyCode = 0x83;
           break;
       }

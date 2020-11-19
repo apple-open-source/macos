@@ -36,7 +36,8 @@
 bool startUserExtension(
     OSKextRef   aKext,
     CFStringRef serverName,
-    CFNumberRef serverTag);
+    CFNumberRef serverTag,
+    mach_port_t checkInPort);
 
 bool isDextAllowed(
     OSKextRef              aDext);

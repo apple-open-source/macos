@@ -10,6 +10,7 @@
 
 #include <TargetConditionals.h>
 #include <MacTypes.h>
+#include <mach/mach.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,7 +18,8 @@ extern "C" {
 
 #define DNSSDUTIL_XCTEST "DNSSDUTIL_XCTEST"
 
-Boolean TestUtilsRunXCTestNamed(const char * classname);
+bool run_xctest_named(const char *classname);
+bool audit_token_for_pid(pid_t pid, const audit_token_t *token);
 
 #ifdef __cplusplus
 }

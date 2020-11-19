@@ -127,7 +127,7 @@ CFTypeID SecAccessGetTypeID(void);
 	@param accessRef On return, a pointer to the new access reference.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef __nullable trustedlist, SecAccessRef * __nonnull CF_RETURNS_RETAINED accessRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecAccessCreate(CFStringRef descriptor, CFArrayRef __nullable trustedlist, SecAccessRef * __nonnull CF_RETURNS_RETAINED accessRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecAccessCreateFromOwnerAndACL
@@ -189,7 +189,7 @@ OSStatus SecAccessCopyOwnerAndACL(SecAccessRef accessRef, uid_t * __nullable use
 	@param aclList On return, a pointer to a new created CFArray of SecACL instances.  The caller is responsible for calling CFRelease on this array.
 	@result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecAccessCopyACLList(SecAccessRef accessRef, CFArrayRef * __nonnull CF_RETURNS_RETAINED aclList) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecAccessCopyACLList(SecAccessRef accessRef, CFArrayRef * __nonnull CF_RETURNS_RETAINED aclList) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecAccessCopySelectedACLList

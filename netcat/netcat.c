@@ -143,6 +143,8 @@ uuid_t	uuid;					/* value of delegated uuid */
 int		extbkidle_flag = 0;		/* extended background idle mode */
 
 int		nowakefromsleep_flag = 0;	/* extended background idle mode */
+const char *nowakefromsleep_optarg = NULL;
+int		nowakefromsleep_val = 0;
 
 int		ecn_mode_flag = 0;		/* ECN mode option */
 const char	*ecn_mode_optarg = NULL;	/* ECN mode option */
@@ -158,6 +160,7 @@ int		tos_cmsg = 0;		/* Use cmsg to set IP Type of Service, otherwise use setsock
 int		netsvctype_flag = 0;		/* Network service type  */
 const char	*netsvctype_optarg = NULL;	/* Network service type option string */
 int	netsvctype = -1;			/* SO_NET_SERVICE_TYPE value */
+int no_reuseport = 0;
 #endif /* __APPLE__ */
 
 int srcroute = 0;				/* Source routing IPv4/IPv6 options */
@@ -252,12 +255,14 @@ const struct option long_options[] =
 	{ "apple-resvd-20",	required_argument,	NULL,	'x' },
 	{ "apple-resvd-21",	no_argument,		NULL,	'z' },
 	{ "apple-ext-bk-idle",	no_argument,		&extbkidle_flag, 1 },
-	{ "apple-nowakefromsleep",	no_argument,	&nowakefromsleep_flag, 1 },
+//	{ "apple-nowakefromsleep",	no_argument,	&nowakefromsleep_flag, 1 },
+	{ "apple-nowakefromsleep",	required_argument,	&nowakefromsleep_flag, 1 },
 	{ "apple-ecn",		required_argument,	&ecn_mode_flag, 1 },
 	{ "apple-kao",		required_argument,	&kao_flag, 1 },
 	{ "apple-sockev",	no_argument,		&sockev, 1},
 	{ "apple-notify-ack",	no_argument,		&notify_ack, 1},
-	{ "apple-netsvctype",	required_argument,	&netsvctype_flag, 1},
+	{ "apple-netsvctype",    required_argument,    &netsvctype_flag, 1},
+	{ "apple-no-reuseport",    no_argument,    &no_reuseport, 1},
 	{ NULL,			0,			NULL,	0 }
 };
 
@@ -468,7 +473,6 @@ main(int argc, char *argv[])
 				pid_optarg = optarg;
 				pid_flag = 0;
 			}
-
 			if (uuid_flag) {
 				uuid_optarg = optarg;
 				uuid_flag = 0;
@@ -484,6 +488,13 @@ main(int argc, char *argv[])
 			if (kao_flag != 0) {
 				kao_optarg = optarg;
 				kao_flag = 0;
+			}
+			if (nowakefromsleep_flag != 0) {
+				nowakefromsleep_optarg = strdup(optarg);
+				if (nowakefromsleep_optarg == NULL) {
+					errx(EX_OSERR, "strdup() failed");
+				}
+				nowakefromsleep_flag = 0;
 			}
 #endif /* __APPLE__ */
 			break;
@@ -526,9 +537,14 @@ main(int argc, char *argv[])
 			errx(1, "invalid network service type %s", netsvctype_optarg);
 	}
 	if (kao_optarg != NULL) {
-		kao = strtol(kao_optarg, &endp, 0);
+		kao = (int) strtol(kao_optarg, &endp, 0);
 		if (kao < 0 || *endp != '\0')
 			errx(1, "invalid kao value");
+	}
+	if (nowakefromsleep_optarg != NULL) {
+		nowakefromsleep_val = (int) strtol(nowakefromsleep_optarg, &endp, 0);
+		if (*endp != '\0')
+			errx(1, "invalid value for nowakefromsleep");
 	}
 
 	/* Cruft to make sure options are clean, and used properly. */
@@ -581,10 +597,6 @@ main(int argc, char *argv[])
 		errx(1, "cannot use -z and -l");
 	if (!lflag && kflag)
 		errx(1, "must use -l with -k");
-
-	if (tos_cmsg > 0 && Tflag == -1) {
-		errx(1, "must use --apple-tos with --apple-tos-cmsg");
-	}
 
 	/* Initialize addrinfo structure. */
 	if (family != AF_UNIX) {
@@ -1011,9 +1023,17 @@ local_listen(char *host, char *port, struct addrinfo hints)
 		    res0->ai_protocol)) < 0)
 			continue;
 
+#ifdef __APPLE__
+		if (no_reuseport == 0) {
+			ret = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &x, sizeof(x));
+			if (ret == -1)
+				err(1, NULL);
+		}
+#else
 		ret = setsockopt(s, SOL_SOCKET, SO_REUSEPORT, &x, sizeof(x));
 		if (ret == -1)
 			err(1, NULL);
+#endif /* __APPLE__ */
 
 		if (!oflag)
 			set_common_sockopts(s, res0->ai_family);
@@ -1046,28 +1066,6 @@ local_listen(char *host, char *port, struct addrinfo hints)
 static ssize_t
 sendmsg_tos(int fd, const void *buf, size_t buf_len, uint8_t tos)
 {
-	struct sockaddr_storage ss = {};
-	socklen_t len = sizeof(ss);
-	if (getsockname(fd, (struct sockaddr*)&ss, &len) != 0) {
-		return -1;
-	}
-
-	if (len < offsetof(struct sockaddr_storage, ss_len) + sizeof(ss.ss_len) ||
-		len < ss.ss_len) {
-		errx(1, "getsockname provided invalid length: len: %u, ss.ss_len: %u", len, ss.ss_len);
-	}
-
-	int type = 0;
-	int level = 0;
-
-	if (ss.ss_family == AF_INET6) {
-		level = IPPROTO_IPV6;
-		type = IPV6_TCLASS;
-	} else {
-		level = IPPROTO_IP;
-		type = IP_TOS;
-	}
-
 	struct msghdr msgvec = {};
 	struct iovec msg = {};
 	msg.iov_base = (void *)buf;
@@ -1081,12 +1079,52 @@ sendmsg_tos(int fd, const void *buf, size_t buf_len, uint8_t tos)
 	msgvec.msg_control = &ctrl;
 	msgvec.msg_controllen = sizeof(ctrl);
 	struct cmsghdr * const cmsg = CMSG_FIRSTHDR(&msgvec);
-	cmsg->cmsg_level = level;
-	cmsg->cmsg_type = type;
+	cmsg->cmsg_level = family == AF_INET6 ? IPPROTO_IPV6 : IPPROTO_IP;
+	cmsg->cmsg_type = family == AF_INET6 ? IPV6_TCLASS : IP_TOS;
 	cmsg->cmsg_len = CMSG_LEN(sizeof(int));
 	*(int *)CMSG_DATA(cmsg) = tos;
 
 	return sendmsg(fd, &msgvec, 0);
+}
+
+static int
+recvmsg_tos(int fd, const void *buf, size_t buf_len, int *ptos)
+{
+	struct msghdr msgvec = {};
+	struct iovec msg = {};
+	msg.iov_base = (void *)buf;
+	msg.iov_len = buf_len;
+	msgvec.msg_name = 0;
+	msgvec.msg_namelen = 0;
+	msgvec.msg_iov = &msg;
+	msgvec.msg_iovlen = 1;
+
+	uint8_t ctrl[CMSG_SPACE(sizeof(int))] = {};
+	msgvec.msg_control = &ctrl;
+	msgvec.msg_controllen = sizeof(ctrl);
+
+	int retval = (int) recvmsg(fd, &msgvec, 0);
+	if (retval > 0) {
+		struct cmsghdr *cm;
+
+		for (cm = (struct cmsghdr *)CMSG_FIRSTHDR(&msgvec); cm;
+			 cm = (struct cmsghdr *)CMSG_NXTHDR(&msgvec, cm)) {
+			if (cm->cmsg_len == 0)
+				continue;
+
+			if (cm->cmsg_level == IPPROTO_IPV6 &&
+				cm->cmsg_type == IPV6_TCLASS &&
+				cm->cmsg_len == CMSG_LEN(sizeof(int))) {
+				*ptos = *(int *)CMSG_DATA(cm);
+			} else if (cm->cmsg_level == IPPROTO_IP &&
+					   cm->cmsg_type == IP_RECVTOS &&
+					   cm->cmsg_len == CMSG_LEN(sizeof(u_char))) {
+				*ptos = *(u_char *)CMSG_DATA(cm);
+			}
+		}
+	}
+
+	return retval;
 }
 
 /*
@@ -1170,9 +1208,23 @@ readwrite(int nfd)
 #else
 		if (pfd[0].revents & POLLIN) {
 #endif
-			if ((n = read(nfd, buf, plen)) < 0)
+            if (tos_cmsg > 0) {
+                int tos = 0;
+
+                n = recvmsg_tos(nfd, buf, plen, &tos);
+                if (n < 0) {
+                    return;
+                } else if (n > 0) {
+                    char tos_str[LINE_MAX];
+                    int len = snprintf(tos_str, sizeof(tos_str), "[TOS: %d]", tos);
+                    if (atomicio(vwrite, lfd, tos_str, len) != len) {
+                        return;
+                    }
+                }
+            } else if ((n = read(nfd, buf, plen)) < 0)
 				return;
-			else if (n == 0) {
+
+            if (n == 0) {
 				shutdown(nfd, SHUT_RD);
 #ifdef USE_SELECT
 				nfd_open = 0;
@@ -1205,7 +1257,7 @@ readwrite(int nfd)
 #endif
 			} else {
 				if ((cflag) && (buf[n - 1] == '\n')) {
-					if (tos_cmsg > 0) {
+					if (tos_cmsg > 0 && Tflag != -1) {
 						if (sendmsg_tos(nfd, buf, n - 1, (uint8_t)Tflag) != (n - 1)) {
 							return;
 						}
@@ -1221,7 +1273,7 @@ readwrite(int nfd)
 						}
 					}
 				} else {
-					if (tos_cmsg > 0) {
+					if (tos_cmsg > 0 && Tflag != -1) {
 						if (sendmsg_tos(nfd, buf, n, (uint8_t)Tflag) != n) {
 							return;
 						}
@@ -1277,7 +1329,7 @@ atelnet(int nfd, unsigned char *buf, unsigned int size)
 		p++;
 		obuf[2] = *p;
 		obuf[3] = '\0';
-		if (tos_cmsg > 0) {
+		if (tos_cmsg > 0 && Tflag != -1) {
 			if (sendmsg_tos(nfd, obuf, 3, (uint8_t)Tflag) != 3) {
 				warn("Write Error!");
 			}
@@ -1521,10 +1573,18 @@ set_common_sockopts(int s, int af)
 			       &extbkidle_flag, sizeof(int)) == -1)
 			err(1, "SO_EXTENDED_BK_IDLE");
 	}
-	if (nowakefromsleep_flag) {
+	if (nowakefromsleep_optarg != NULL) {
 		if (setsockopt(s, SOL_SOCKET, SO_NOWAKEFROMSLEEP,
-			       &nowakefromsleep_flag, sizeof(int)) == -1)
+			       &nowakefromsleep_val, sizeof(int)) == -1)
 			err(1, "SO_NOWAKEFROMSLEEP");
+#ifdef SO_WANT_KEV_SOCKET_CLOSED
+		if (nowakefromsleep_val > 1) {
+			int optval = 1;
+			if (setsockopt(s, SOL_SOCKET, SO_WANT_KEV_SOCKET_CLOSED,
+					   &optval, sizeof(int)) == -1)
+				err(1, "SO_WANT_KEV_SOCKET_CLOSED");
+		}
+#endif /* SO_WANT_KEV_SOCKET_CLOSED */
 	}
 	if (ecn_mode_optarg != NULL) {
 		if (setsockopt(s, IPPROTO_TCP, TCP_ECN_MODE,
@@ -1545,6 +1605,19 @@ set_common_sockopts(int s, int af)
 		if (tos_cmsg == 0) {
 			if (setsockopt(s, proto, option, &Tflag, sizeof(Tflag)) == -1) {
 				err(1, "set IP ToS");
+			}
+		}
+	}
+	if (tos_cmsg > 0) {
+		int optval = 1;
+
+		if (af == AF_INET6) {
+			if (setsockopt(s, IPPROTO_IPV6, IPV6_RECVTCLASS, &optval, sizeof(optval)) == -1) {
+				err(1, "set IPV6_RECVTCLASS");
+			}
+		} else if (af == AF_INET) {
+			if (setsockopt(s, IPPROTO_IP, IP_RECVTOS, &optval, sizeof(optval)) == -1) {
+				err(1, "set IP_RECVTOS");
 			}
 		}
 	}
@@ -1669,11 +1742,12 @@ help(void)
                 "\t--apple-ext-bk-idle           Extended background idle time\n",
                 "\t--apple-kao                   Set keep alive offload\n",
                 "\t--apple-netsvctype            Set the network service type\n"
-                "\t--apple-nowakefromsleep       No wake from sleep\n",
+                "\t--apple-nowakefromsleep n      No wake from sleep (when n >= 2 generate KEV_SOCKET_CLOSED)\n",
                 "\t--apple-notify-ack            Receive events when data gets acknowledged\n",
                 "\t--apple-sockev                Receive and print socket events\n",
                 "\t--apple-tos tos               Set the IP_TOS or IPV6_TCLASS option\n",
-				"\t--apple-tos-cmsg              Set the IP_TOS or IPV6_TCLASS option via cmsg\n"
+                "\t--apple-tos-cmsg              Set the IP_TOS or IPV6_TCLASS option via cmsg\n"
+                "\t--apple-no-reuseport          Do not use the SO_REUSPORT socket option\n"
 #endif /* !__APPLE__ */
                 );
         exit(1);

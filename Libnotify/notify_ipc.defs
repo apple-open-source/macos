@@ -259,3 +259,29 @@ routine _notify_server_dump
 	fileport : mach_port_move_send_t;
 	ServerAuditToken audit : audit_token_t
 );
+
+routine _notify_generate_common_port
+(
+	server : mach_port_t;
+	out status : uint32_t;
+	out port : mach_port_move_receive_t;
+	ServerAuditToken audit : audit_token_t
+);
+
+simpleroutine _notify_server_register_common_port
+(
+	server : mach_port_t;
+	name : notify_name;
+	token: int;
+	ServerAuditToken audit : audit_token_t
+);
+
+routine _notify_server_register_mach_port_3
+(
+	server : mach_port_t;
+	name : notify_name;
+	token: int;
+	out status : uint32_t;
+	out port : mach_port_move_receive_t;
+	ServerAuditToken audit : audit_token_t
+);

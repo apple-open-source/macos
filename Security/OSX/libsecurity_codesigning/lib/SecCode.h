@@ -32,6 +32,7 @@
 
 #include <Security/CSCommon.h>
 #include <CoreFoundation/CFBase.h>
+#include <xpc/xpc.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -187,6 +188,28 @@ extern const CFStringRef kSecGuestAttributeSubarchitecture;
 
 OSStatus SecCodeCopyGuestWithAttributes(SecCodeRef __nullable host,
 	CFDictionaryRef __nullable attributes,	SecCSFlags flags, SecCodeRef * __nonnull CF_RETURNS_RETAINED guest);
+
+/*!
+	@function SecCodeCreateWithXPCMessage
+	Creates a SecCode reference to the process that sent the provided XPC message, using the
+    associated audit token.
+
+	@param message The xpc_object_t of a message recieved via xpc to look up the audit token
+	of the process that sent the message.
+	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
+	@param processRef On successful return, a SecCode object reference identifying
+	the particular guest of the process from the audit token. This argument will not be
+	changed if the call fails (does not return errSecSuccess).
+	@result Upon success, errSecSuccess. Upon error, an OSStatus value documented in
+	CSCommon.h or certain other Security framework headers. In particular:
+    @error errSecCSInvalidObjectRef The xpc_object_t was not of type XPC_TYPE_DICTIONARY.
+	@error errSecCSInvalidObjectRef The xpc_object_t was not an xpc message with an associated
+	connection.
+    For a complete list of errors, please see {@link SecCodeCopyGuestWithAttributes}.
+*/
+OSStatus SecCodeCreateWithXPCMessage(xpc_object_t message, SecCSFlags flags,
+	SecCodeRef * __nonnull CF_RETURNS_RETAINED target);
+
 #endif // TARGET_OS_OSX
 
 
@@ -215,7 +238,7 @@ OSStatus SecCodeCheckValidity(SecCodeRef code, SecCSFlags flags,
 	SecRequirementRef __nullable requirement);
 
 /*!
-	@function SecCodeCheckValidityWifErrors
+	@function SecCodeCheckValidityWithErrors
 	Performs dynamic validation of the given SecCode object. The call obtains and
 	verifies the signature on the code object. It checks the validity of only those
 	sealed components required to establish identity. It checks the SecCode's
@@ -290,7 +313,10 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 	@function SecCodeCopySigningInformation
 	For a given Code or StaticCode object, extract various pieces of information
 	from its code signature and return them in the form of a CFDictionary. The amount
-	and detail level of the data is controlled by the flags passed to the call.
+	and detail level of the data is controlled by the flags passed to the call. For
+	Code objects, some of the signing information returned will be from disk. You can
+	call one of the CheckValidity functions to check that the content on disk matches
+	the signing information attached to the running Code.
 	
 	If the code exists but is not signed at all, this call will succeed and return
 	a dictionary that does NOT contain the kSecCodeInfoIdentifier key. This is the

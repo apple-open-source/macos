@@ -29,10 +29,12 @@
 #include <Security/SecTaskPriv.h>
 #include "ipc/securityd_client.h"
 #include <Security/SecEntitlements.h>
+#include "sectask/SystemEntitlements.h"
 #include <Security/SecItem.h>
 #include "utilities/SecCFRelease.h"
 #include "utilities/SecCFWrappers.h"
 #include "utilities/debugging.h"
+#include <os/feature_private.h>
 
 CFStringRef SecTaskCopyStringForEntitlement(SecTaskRef task,
                                             CFStringRef entitlement)
@@ -70,8 +72,14 @@ CFArrayRef SecTaskCopyArrayOfStringsForEntitlement(SecTaskRef task,
 }
 
 CFStringRef SecTaskCopyApplicationIdentifier(SecTaskRef task) {
-    return SecTaskCopyStringForEntitlement(task,
-                                           kSecEntitlementApplicationIdentifier);
+    // Catalyst apps may have the iOS style application identifier.
+    CFStringRef result = SecTaskCopyStringForEntitlement(task,
+                                                         kSecEntitlementBasicApplicationIdentifier);
+    if (!result) {
+        result = SecTaskCopyStringForEntitlement(task,
+                                                 kSecEntitlementAppleApplicationIdentifier);
+    }
+    return result;
 }
 
 #if TARGET_OS_IOS
@@ -85,6 +93,8 @@ CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task)
 {
     CFMutableArrayRef groups = NULL;
 
+    bool onDemandInstallable = SecTaskGetBooleanValueForEntitlement(task, kSystemEntitlementOnDemandInstallCapable);
+
     CFArrayRef keychainAccessGroups, appleSecurityApplicationGroups;
     CFStringRef appID;
     CFArrayRef associatedAppIDs;
@@ -92,7 +102,7 @@ CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task)
     keychainAccessGroups = SecTaskCopyArrayOfStringsForEntitlement(task, kSecEntitlementKeychainAccessGroups);
     appleSecurityApplicationGroups = SecTaskCopyArrayOfStringsForEntitlement(task, kSecEntitlementAppleSecurityApplicationGroups);
     appID = SecTaskCopyApplicationIdentifier(task);
-    // Marzipan apps (may?) have this entitlement.
+    // Catalyst apps (may?) have this entitlement.
     associatedAppIDs = SecTaskCopyArrayOfStringsForEntitlement(task, kSecEntitlementAssociatedApplicationIdentifier);
 
     groups = CFArrayCreateMutableForCFTypes(NULL);
@@ -118,14 +128,19 @@ CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task)
             CFArrayAppendValue(groups, appID);
         }
         if (appleSecurityApplicationGroups) {
-            CFArrayAppendArray(groups, appleSecurityApplicationGroups, CFRangeMake(0, CFArrayGetCount(appleSecurityApplicationGroups)));
+            if (onDemandInstallable) {
+                // This is perfectly legal for other functionality but not for keychain use
+                secnotice("entitlements", "Ignoring \"%@\" because client is API-restricted", kSecEntitlementAppleSecurityApplicationGroups);
+            } else {
+                CFArrayAppendArray(groups, appleSecurityApplicationGroups, CFRangeMake(0, CFArrayGetCount(appleSecurityApplicationGroups)));
+            }
         }
     } else {
         // Try to provide some hopefully helpful diagnostics for common failure cases.
         if (CFArrayGetCount(groups) == 0) {
             if (appID) {
                 secwarning("Entitlement %@=%@ is ignored because of invalid application signature or incorrect provisioning profile",
-                       kSecEntitlementApplicationIdentifier, appID);
+                           kSecEntitlementApplicationIdentifier, appID);
             }
             if (appleSecurityApplicationGroups) {
                 secwarning("Entitlement %@=%@ is ignored because of invalid application signature or incorrect provisioning profile",
@@ -134,6 +149,21 @@ CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task)
         }
     }
 
+    // Do not allow to explicitly specify com.apple.token if token support is not allowed by feature flags.
+    CFIndex index = CFArrayGetFirstIndexOfValue(groups, CFRangeMake(0, CFArrayGetCount(groups)), kSecAttrAccessGroupToken);
+    if (index != kCFNotFound) {
+        if (os_feature_enabled(CryptoTokenKit, UseTokens)) {
+            // Make sure that com.apple.token is last one. This is because it is always read-only group and therefore updating keychain
+            // operations without explicitly set kSecAttrAccessGroup attribute would always fail.
+            CFArrayRemoveValueAtIndex(groups, index);
+            CFArrayAppendValue(groups, kSecAttrAccessGroupToken);
+        } else {
+            secwarning("Keychain access group com.apple.token ignored, feature not available");
+            CFArrayRemoveValueAtIndex(groups, index);
+        }
+    }
+
+#if TARGET_OS_OSX
     /*
      * We would like to add implicit token access group always, but we avoid doing that in case that application
      * clearly intended to use non-smartcard functionality of keychain but messed up signing or provisioning. In this case,
@@ -142,8 +172,12 @@ CFArrayRef SecTaskCopyAccessGroups(SecTaskRef task)
      */
     bool entitlementsFailure = (CFArrayGetCount(groups) == 0 && appID != NULL);
     if (!entitlementsFailure) {
-        CFArrayAppendValue(groups, kSecAttrAccessGroupToken);
+        bool addTokenGroup = os_feature_enabled(CryptoTokenKit, UseTokens);
+        if (addTokenGroup && !CFArrayContainsValue(groups, CFRangeMake(0, CFArrayGetCount(groups)), kSecAttrAccessGroupToken)) {
+            CFArrayAppendValue(groups, kSecAttrAccessGroupToken);
+        }
     }
+#endif
 
     CFReleaseNull(associatedAppIDs);
     CFReleaseNull(appID);

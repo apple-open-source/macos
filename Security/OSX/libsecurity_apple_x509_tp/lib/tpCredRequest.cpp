@@ -32,7 +32,7 @@
 #include <Security/cssmapple.h>
 #include <security_utilities/debugging.h>
 #include <Security/cssmapple.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 #define tpCredDebug(args...)	secinfo("tpCred", ## args)
 

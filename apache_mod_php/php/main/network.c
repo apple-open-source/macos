@@ -512,9 +512,11 @@ PHPAPI int php_network_parse_network_address_with_port(const char *addr, zend_lo
 	zend_string *errstr = NULL;
 #if HAVE_IPV6
 	struct sockaddr_in6 *in6 = (struct sockaddr_in6*)sa;
-#endif
 
-	memset(sa, 0, sizeof(struct sockaddr));
+	memset(in6, 0, sizeof(struct sockaddr_in6));
+#else
+	memset(in4, 0, sizeof(struct sockaddr_in));
+#endif
 
 	if (*addr == '[') {
 		colon = memchr(addr + 1, ']', addrlen-1);
@@ -917,7 +919,7 @@ skip_bind:
 			if (timeout) {
 				gettimeofday(&time_now, NULL);
 
-				if (timercmp(&time_now, &limit_time, >=)) {
+				if (!timercmp(&time_now, &limit_time, <)) {
 					/* time limit expired; don't attempt any further connections */
 					fatal = 1;
 				} else {

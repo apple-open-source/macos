@@ -89,6 +89,8 @@ public:
     PauseOnExceptionsState pauseOnExceptionsState() const { return m_pauseOnExceptionsState; }
     void setPauseOnExceptionsState(PauseOnExceptionsState);
 
+    void setPauseOnDebuggerStatements(bool enabled) { m_pauseOnDebuggerStatements = enabled; }
+
     enum ReasonForPause {
         NotPaused,
         PausedForException,
@@ -106,6 +108,7 @@ public:
     void setPauseOnNextStatement(bool);
     void breakProgram();
     void continueProgram();
+    void stepNextExpression();
     void stepIntoStatement();
     void stepOverStatement();
     void stepOutOfFunction();
@@ -132,7 +135,7 @@ public:
     void unwindEvent(CallFrame*);
     void willExecuteProgram(CallFrame*);
     void didExecuteProgram(CallFrame*);
-    void didReachBreakpoint(CallFrame*);
+    void didReachDebuggerStatement(CallFrame*);
 
     virtual void recompileAllJSFunctions();
 
@@ -226,7 +229,9 @@ private:
     HashMap<SourceID, BlackboxType, WTF::IntHash<SourceID>, WTF::UnsignedWithZeroKeyHashTraits<SourceID>> m_blackboxedScripts;
 
     PauseOnExceptionsState m_pauseOnExceptionsState;
+    bool m_pauseOnDebuggerStatements : 1;
     bool m_pauseAtNextOpportunity : 1;
+    bool m_pauseOnStepNext : 1;
     bool m_pauseOnStepOut : 1;
     bool m_pastFirstExpressionInStatement : 1;
     bool m_isPaused : 1;

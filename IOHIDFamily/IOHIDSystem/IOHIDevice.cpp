@@ -22,6 +22,7 @@
  */
 #include <libkern/c++/OSCollectionIterator.h>
 #include <IOKit/assert.h>
+#include <IOKit/IOKitKeys.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/IOService.h>
 #include <IOKit/hidsystem/IOHIDevice.h>

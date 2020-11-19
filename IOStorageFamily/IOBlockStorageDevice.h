@@ -160,7 +160,7 @@ struct IOBlockStorageProvisionDeviceExtent
  * is responsible for instantiating the Nub.
  */
 
-class IOBlockStorageDevice : public IOService {
+class __exported IOBlockStorageDevice : public IOService {
 
     OSDeclareAbstractStructors(IOBlockStorageDevice)
     
@@ -227,9 +227,9 @@ public:
     virtual UInt32	doGetFormatCapacities(UInt64 * capacities,
                                             UInt32   capacitiesMaxCount) const	= 0;
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual IOReturn	doLockUnlockMedia(bool doLock) __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     virtual IOReturn	doSynchronizeCache(void) __attribute__ ((deprecated));
 
@@ -290,9 +290,9 @@ public:
      */
     virtual IOReturn	reportEjectability(bool *isEjectable)	= 0;
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual IOReturn	reportLockability(bool *isLockable) __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     /*!
      * @function reportMaxValidBlock
@@ -321,10 +321,10 @@ public:
      */
     virtual IOReturn	reportMediaState(bool *mediaPresent,bool *changedState = 0)	= 0;
     
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual IOReturn	reportPollRequirements(bool *pollRequired,
                                             bool *pollIsExpensive) __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
     
     /*!
      * @function reportRemovability
@@ -409,9 +409,9 @@ public:
      */
     virtual IOReturn	requestIdle(void);
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     virtual IOReturn doDiscard(UInt64 block, UInt64 nblks) __attribute__ ((deprecated));
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     /*!
      * @function doUnmap

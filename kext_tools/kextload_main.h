@@ -71,9 +71,9 @@ enum {
 
 #define kOptChars                "b:cd:Dhqr:tv"
 
-int longopt = 0;
+static int longopt = 0;
 
-struct option sOptInfo[] = {
+static struct option sOptInfo[] = {
     { kOptNameLongindexHack,         no_argument,        &longopt, kLongOptLongindexHack },
     { kOptNameHelp,                  no_argument,        NULL,     kOptHelp },
     { kOptNameBundleIdentifier,      required_argument,  NULL,     kOptBundleIdentifier },
@@ -114,6 +114,7 @@ ExitStatus checkArgs(KextloadArgs * toolArgs);
 
 ExitStatus checkAccess(void);
 
+ExitStatus loadKextsViaKernelManagement(KextloadArgs * toolArgs);
 ExitStatus loadKextsViaKextd(KextloadArgs * toolArgs);
 ExitStatus loadKextsIntoKernel(KextloadArgs * toolArgs);
 

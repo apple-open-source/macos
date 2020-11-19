@@ -33,4 +33,9 @@
  *	@(#)pathnames.h	8.1 (Berkeley) 6/6/93
  */
 
+#ifndef _INSTALL_PATHNAMES_H_
+#define _INSTALL_PATHNAMES_H_
+
 #define	_PATH_STRIP	"/usr/bin/strip"
+
+#endif /* _INSTALL_PATHNAMES_H_ */

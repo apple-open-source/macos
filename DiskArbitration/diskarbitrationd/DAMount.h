@@ -45,7 +45,8 @@ typedef UInt32 DAMountPointAction;
 enum
 {
     kDAMountPreferenceDefer,
-    kDAMountPreferenceTrust
+    kDAMountPreferenceTrust,
+    kDAMountPreferenceDisableAutoMount
 };
 
 typedef UInt32 DAMountPreference;

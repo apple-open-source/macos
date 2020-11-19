@@ -175,31 +175,28 @@ krb5_has_entitlement(audit_token_t token, CFStringRef entitlement)
 {
     
     SecTaskRef task = SecTaskCreateWithAuditToken(NULL, token);
-    if (task) {
-        CFErrorRef error = NULL;
-	CFTypeRef hasEntitlement = SecTaskCopyValueForEntitlement(task, entitlement, &error);
-	CFRELEASE_NULL(task);
-	if (hasEntitlement == NULL) {
-	    if (error) {
-		CFStringRef errorDescription = CFErrorCopyFailureReason(error);
-		kcm_log(1, "error retrieving entitlement: %ld, %s", (long)CFErrorGetCode(error), CFStringGetCStringPtr(errorDescription, kCFStringEncodingUTF8));
-		CFRELEASE_NULL(errorDescription);
-		CFRELEASE_NULL(error);
-	    }
-	    return false;
-	}
-	if (CFGetTypeID(hasEntitlement) == CFBooleanGetTypeID() && CFBooleanGetValue(hasEntitlement)) {
-	    CFRELEASE_NULL(hasEntitlement);
-	    return true;
-	} else {
-	    CFRELEASE_NULL(hasEntitlement);
-	    return false;
-	}
-
-    } else {
+    if (!task) {
 	kcm_log(1, "unable to create task for audit token");
+	return false;
     }
-    return false;
+    
+    CFErrorRef error = NULL;
+    CFTypeRef hasEntitlement = SecTaskCopyValueForEntitlement(task, entitlement, &error);
+    CFRELEASE_NULL(task);
+    if (hasEntitlement == NULL || CFGetTypeID(hasEntitlement) != CFBooleanGetTypeID() || !CFBooleanGetValue(hasEntitlement)) {
+	if (error) {
+	    CFStringRef errorDescription = CFErrorCopyFailureReason(error);
+	    kcm_log(1, "error retrieving entitlement: %ld, %s", (long)CFErrorGetCode(error), CFStringGetCStringPtr(errorDescription, kCFStringEncodingUTF8));
+	    CFRELEASE_NULL(errorDescription);
+	    CFRELEASE_NULL(error);
+	}
+	CFRELEASE_NULL(hasEntitlement);
+	return false;
+    }
+    
+    CFRELEASE_NULL(hasEntitlement);
+    return true;
+    
 }
 
 krb5_boolean

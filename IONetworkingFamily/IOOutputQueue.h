@@ -95,7 +95,8 @@ enum {
     the queue. 
 */
 
-class IOOutputQueue : public OSObject
+
+class __exported IOOutputQueue : public OSObject
 {
     OSDeclareAbstractStructors( IOOutputQueue )
 

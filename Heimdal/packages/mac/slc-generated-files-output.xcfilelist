@@ -1,0 +1,12 @@
+${HEIMDAL_TMPDIR}/hxtool-commands.h
+${HEIMDAL_TMPDIR}/hxtool-commands.c
+${HEIMDAL_TMPDIR}/hod-commands.h
+${HEIMDAL_TMPDIR}/hod-commands.c
+${HEIMDAL_TMPDIR}/gss-commands.h
+${HEIMDAL_TMPDIR}/gss-commands.c
+${HEIMDAL_TMPDIR}/kadmin-commands.h
+${HEIMDAL_TMPDIR}/kadmin-commands.c
+${HEIMDAL_TMPDIR}/ktutil-commands.h
+${HEIMDAL_TMPDIR}/ktutil-commands.c
+${HEIMDAL_TMPDIR}/kcc-commands.h
+${HEIMDAL_TMPDIR}/kcc-commands.c

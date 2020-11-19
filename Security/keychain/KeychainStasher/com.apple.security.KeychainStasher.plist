@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>EnablePressuredExit</key>
+        <true/>
+        <key>EnableTransactions</key>
+        <true/>
+        <key>LimitLoadToSessionType</key>
+        <string>Background</string>
+        <key>POSIXSpawnType</key>
+        <string>Adaptive</string>
+        <key>Label</key>
+        <string>com.apple.security.KeychainStasher</string>
+        <key>MachServices</key>
+        <dict>
+            <key>com.apple.security.KeychainStasher</key>
+            <true/>
+        </dict>
+        <key>ProgramArguments</key>
+        <array>
+            <string>/usr/libexec/KeychainStasher</string>
+        </array>
+    </dict>
+</plist>

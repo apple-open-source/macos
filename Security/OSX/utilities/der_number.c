@@ -33,12 +33,14 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 
-const uint8_t* der_decode_number(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_number(CFAllocatorRef allocator,
                                  CFNumberRef* number, CFErrorRef *error,
                                  const uint8_t* der, const uint8_t *der_end)
 {
-    if (NULL == der)
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
 
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_INTEGER, &payload_size, der, der_end);
@@ -50,7 +52,6 @@ const uint8_t* der_decode_number(CFAllocatorRef allocator, CFOptionFlags mutabil
     if (payload_size > sizeof(long long)) {
         SecCFDERCreateError(kSecDERErrorUnsupportedNumberType, CFSTR("Number too large"), NULL, error);
         return NULL;
-
     }
 
     long long value = 0;
@@ -107,8 +108,10 @@ static inline size_t bytes_when_encoded(long long value)
 size_t der_sizeof_number(CFNumberRef data, CFErrorRef *error)
 {
     long long value;
-    if (!CFNumberGetValue(data, kCFNumberLongLongType, &value))
+    if (!CFNumberGetValue(data, kCFNumberLongLongType, &value)) {
+        SecCFDERCreateError(kSecDERErrorUnsupportedNumberType, CFSTR("Unable to get number from data"), NULL, error);
         return 0;
+    }
     
     return ccder_sizeof(CCDER_INTEGER, bytes_when_encoded(value));
 }
@@ -117,13 +120,17 @@ uint8_t* der_encode_number(CFNumberRef number, CFErrorRef *error,
                            const uint8_t *der, uint8_t *der_end)
 {
     long long value;
-    if (!CFNumberGetValue(number, kCFNumberLongLongType, &value))
+    if (!CFNumberGetValue(number, kCFNumberLongLongType, &value)) {
+        SecCFDERCreateError(kSecDERErrorUnsupportedNumberType, CFSTR("Unable to get number from data"), NULL, error);
         return NULL;
+    }
     
     size_t first_byte_to_include = bytes_when_encoded(value);
     
-    if (!der_end || (ssize_t) (der_end - der) < (ssize_t) first_byte_to_include)
+    if (!der_end || (ssize_t) (der_end - der) < (ssize_t) first_byte_to_include) {
+        SecCFDERCreateError(kSecDERErrorAllocationFailure, CFSTR("Unknown size"), NULL, error);
         return NULL;
+    }
 
     // Put the bytes we should include on the end.
     for(size_t bytes_included = 0; bytes_included < first_byte_to_include; ++bytes_included)
@@ -133,6 +140,7 @@ uint8_t* der_encode_number(CFNumberRef number, CFErrorRef *error,
         value >>= 8;
     }
 
-    return ccder_encode_tl(CCDER_INTEGER, first_byte_to_include, der, der_end);
+    return SecCCDEREncodeHandleResult(ccder_encode_tl(CCDER_INTEGER, first_byte_to_include, der, der_end),
+                                      error);
 
 }

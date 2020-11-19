@@ -162,8 +162,8 @@ typedef struct {
 
 + (void)initialize
 {
-    JSC::initializeThreading();
-    RunLoop::initializeMainRunLoop();
+    JSC::initialize();
+    WTF::initializeMainThread();
     sendUserChangeNotifications();
 }
 
@@ -243,9 +243,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             
             ASSERT([NSView focusView] == self);
 
-            ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
-            ALLOW_DEPRECATED_DECLARATIONS_END
+            CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
 
             PortState_CG *cgPortState = (PortState_CG *)malloc(sizeof(PortState_CG));
             portState = (PortState)cgPortState;
@@ -387,9 +385,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 {
     ASSERT(_eventHandler);
     
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    CGContextRef context = static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]);
-    ALLOW_DEPRECATED_DECLARATIONS_END
+    CGContextRef context = [[NSGraphicsContext currentContext] CGContext];
     _eventHandler->drawRect(context, rect);
 }
 
@@ -1656,7 +1652,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!timers)
         timers = makeUnique<HashMap<uint32_t, std::unique_ptr<PluginTimer>>>();
 
-    std::unique_ptr<PluginTimer>* slot;
+    std::unique_ptr<PluginTimer>* slot = nullptr;
     uint32_t timerID;
     do
         timerID = ++currentTimerID;

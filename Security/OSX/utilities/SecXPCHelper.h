@@ -18,7 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
  * Some NSError objects contain non-NSSecureCoding-compliant userInfo.
  * When in doubt, use cleanseErrorForXPC: before encodedDataFromError:
  */
-+ (NSError *)errorFromEncodedData:(NSData *)data;
++ (NSError * _Nullable)errorFromEncodedData:(NSData *)data;
 + (NSData *)encodedDataFromError:(NSError *)error;
 @end
 

@@ -46,7 +46,7 @@ extern "C" size_t malloc_size(void *);
 //
 // Features of the Allocator root class
 //
-bool Allocator::operator == (const Allocator &alloc) const throw()
+bool Allocator::operator == (const Allocator &alloc) const _NOEXCEPT
 {
 	return this == &alloc;
 }
@@ -63,14 +63,14 @@ Allocator::~Allocator()
 // pool). This is trivially achieved here by using singletons.
 //
 struct DefaultAllocator : public Allocator {
-	void *malloc(size_t size) throw(std::bad_alloc);
-	void free(void *addr) throw();
-	void *realloc(void *addr, size_t size) throw(std::bad_alloc);
+	void *malloc(size_t size);
+	void free(void *addr) _NOEXCEPT;
+	void *realloc(void *addr, size_t size);
 };
 
 struct SensitiveAllocator : public DefaultAllocator {
-    void free(void *addr) throw();
-    void *realloc(void *addr, size_t size) throw(std::bad_alloc);
+    void free(void *addr) _NOEXCEPT;
+    void *realloc(void *addr, size_t size);
 };
 
 struct DefaultAllocators {
@@ -93,33 +93,33 @@ Allocator &Allocator::standard(UInt32 request)
     }
 }
 
-void *DefaultAllocator::malloc(size_t size) throw(std::bad_alloc)
+void *DefaultAllocator::malloc(size_t size)
 {
 	if (void *result = ::malloc(size))
 		return result;
 	throw std::bad_alloc();
 }
 
-void DefaultAllocator::free(void *addr) throw()
+void DefaultAllocator::free(void *addr) _NOEXCEPT
 {
 	::free(addr);
 }
 
-void *DefaultAllocator::realloc(void *addr, size_t newSize) throw(std::bad_alloc)
+void *DefaultAllocator::realloc(void *addr, size_t newSize)
 {
 	if (void *result = ::realloc(addr, newSize))
 		return result;
 	throw std::bad_alloc();
 }
 
-void SensitiveAllocator::free(void *addr) throw()
+void SensitiveAllocator::free(void *addr) _NOEXCEPT
 {
     size_t size = malloc_size(addr);
     ::memset_s(addr, size, 0, size);
     DefaultAllocator::free(addr);
 }
 
-void *SensitiveAllocator::realloc(void *addr, size_t newSize) throw(std::bad_alloc)
+void *SensitiveAllocator::realloc(void *addr, size_t newSize)
 {
     size_t oldSize = malloc_size(addr);
     if (newSize < oldSize)
@@ -135,7 +135,7 @@ void *SensitiveAllocator::realloc(void *addr, size_t newSize) throw(std::bad_all
 // functions to safely free our (hidden) pointer without knowing about it.
 // An allocator argument of NULL is interpreted as the standard allocator.
 //
-void *CssmHeap::operator new (size_t size, Allocator *alloc) throw(std::bad_alloc)
+void *CssmHeap::operator new (size_t size, Allocator *alloc)
 {
     if (size > SIZE_T_MAX / 2) {
         throw std::bad_alloc();
@@ -150,12 +150,12 @@ void *CssmHeap::operator new (size_t size, Allocator *alloc) throw(std::bad_allo
 	return addr;
 }
 
-void CssmHeap::operator delete (void *addr, size_t size, Allocator *alloc) throw()
+void CssmHeap::operator delete (void *addr, size_t size, Allocator *alloc) _NOEXCEPT
 {
 	alloc->free(addr);	// as per C++ std, called (only) if construction fails
 }
 
-void CssmHeap::operator delete (void *addr, size_t size) throw()
+void CssmHeap::operator delete (void *addr, size_t size) _NOEXCEPT
 {
 	void *end = increment(addr, alignUp(size, alignof_template<Allocator *>()));
 	(*(Allocator **)end)->free(addr);

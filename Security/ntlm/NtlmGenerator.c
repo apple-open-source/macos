@@ -38,7 +38,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <strings.h>
 
 /* 
@@ -662,13 +662,15 @@ OSStatus _NtlmGeneratePasswordHashes(
 	unsigned char hash[NTLM_DIGEST_LENGTH];
 	
 	result = ntlmPasswordHash(password, hash);
-    if (result)
+    if (result) {
         return result;
-	
-	*ntlmHash = CFDataCreate(alloc, hash, sizeof(hash));
+    }
+
+    *ntlmHash = CFDataCreate(alloc, hash, sizeof(hash));
     memset(hash, 0, sizeof(hash));
-    if (*ntlmHash == NULL)
+    if (*ntlmHash == NULL) {
         result = errSecAllocate;
+    }
 
     static const UInt8 zero[NTLM_DIGEST_LENGTH] = { 0 };
     *lmHash = CFDataCreate(NULL, zero, sizeof(zero));

@@ -767,7 +767,7 @@ namespace IOFireWireLib {
 						}
 					
 					programExportBytes 	= pool->Export( &programData, mBufferRanges, mBufferRangeCount ) ;				
-					params.programExportBytes = programExportBytes ;
+					params.programExportBytes = (UInt32)programExportBytes ;
 					params.programData = programData;
 				}
 			}
@@ -796,7 +796,7 @@ namespace IOFireWireLib {
 			{
 				error = ExportDCLs( &programData, &programExportBytes ) ;
 				params.programData = programData;
-				params.programExportBytes = programExportBytes;
+				params.programExportBytes = (UInt32)programExportBytes;
 			}
 
 			if ( !error )
@@ -909,11 +909,11 @@ namespace IOFireWireLib {
 			for( unsigned index=0; index < mBufferRangeCount; ++index )
 			{
 #ifdef __LP64__
-				DebugLog (	"\%u: <0x%x>-<0x%x>\n", index, (unsigned)mBufferRanges[index].address, 
-							(unsigned)mBufferRanges[index].address + mBufferRanges[index].length ) ;
+				DebugLog (	"\%u: <0x%x>-<0x%x>\n", index, (unsigned)mBufferRanges[index].address,
+							(unsigned)(mBufferRanges[index].address + mBufferRanges[index].length) ) ;
 #else
-				DebugLog (	"\%u: <0x%x>-<0x%lx>\n", index, (unsigned)mBufferRanges[index].address, 
-							(unsigned)mBufferRanges[index].address + mBufferRanges[index].length ) ;
+				DebugLog (	"\%u: <0x%x>-<0x%lx>\n", index, (unsigned)mBufferRanges[index].address,
+							(unsigned)(mBufferRanges[index].address + mBufferRanges[index].length) ) ;
 #endif
 			}
 #endif
@@ -1159,7 +1159,7 @@ namespace IOFireWireLib {
 			for( DCLCommand * dcl = mDCLProgram; dcl != NULL ; dcl = dcl->pNextDCLCommand )
 			{
 
-				unsigned size = GetDCLSize( dcl ) ;
+				unsigned size = (unsigned)GetDCLSize( dcl ) ;
 		
 				dcl->compilerData = offset ;		// save for later.
 
@@ -1312,7 +1312,7 @@ namespace IOFireWireLib {
 					assert( opcode <= 15 || opcode == 20 ) ;
 				}
 	
-				unsigned size = GetDCLSize( pClientDCL ) ;
+				unsigned size = (unsigned)GetDCLSize( pClientDCL ) ;
 				
 				switch ( dcl->opcode & ~kFWDCLOpFlagMask )
 				{
@@ -1676,7 +1676,7 @@ namespace IOFireWireLib {
 			result = E_NOINTERFACE ;
 		}	
 		
-		:: CFRelease ( interfaceID ) ;
+		::CFRelease ( interfaceID ) ;
 		return result ;
 	}
 	

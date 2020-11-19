@@ -43,6 +43,11 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
     get panel() { return this._panel; }
 
+    get minimumWidth()
+    {
+        return Math.max(super.minimumWidth, this._panel.minimumWidth || 0);
+    }
+
     supportsDOMNode(nodeToInspect)
     {
         return nodeToInspect.nodeType() === Node.ELEMENT_NODE;
@@ -155,18 +160,20 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
         this._showPanel(this._panel);
 
-        this._classListContainer = this.element.createChild("div", "class-list-container");
-        this._classListContainer.hidden = true;
+        if (InspectorBackend.hasCommand("DOM.resolveNode")) {
+            this._classListContainer = this.element.createChild("div", "class-list-container");
+            this._classListContainer.hidden = true;
 
-        this._addClassContainer = this._classListContainer.createChild("div", "new-class");
-        this._addClassContainer.title = WI.UIString("Add a Class");
-        this._addClassContainer.addEventListener("click", this._addClassContainerClicked.bind(this));
+            this._addClassContainer = this._classListContainer.createChild("div", "new-class");
+            this._addClassContainer.title = WI.UIString("Add a Class");
+            this._addClassContainer.addEventListener("click", this._addClassContainerClicked.bind(this));
 
-        this._addClassInput = this._addClassContainer.createChild("input", "class-name-input");
-        this._addClassInput.spellcheck = false;
-        this._addClassInput.setAttribute("placeholder", WI.UIString("Add New Class"));
-        this._addClassInput.addEventListener("keypress", this._addClassInputKeyPressed.bind(this));
-        this._addClassInput.addEventListener("blur", this._addClassInputBlur.bind(this));
+            this._addClassInput = this._addClassContainer.createChild("input", "class-name-input");
+            this._addClassInput.spellcheck = false;
+            this._addClassInput.setAttribute("placeholder", WI.UIString("Add New Class"));
+            this._addClassInput.addEventListener("keypress", this._addClassInputKeyPressed.bind(this));
+            this._addClassInput.addEventListener("blur", this._addClassInputBlur.bind(this));
+        }
 
         let optionsContainer = this.element.createChild("div", "options-container");
 
@@ -180,16 +187,19 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
         this._filterBar.inputField.addEventListener("keydown", this._handleFilterBarInputFieldKeyDown.bind(this));
         optionsContainer.appendChild(this._filterBar.element);
 
-        this._classToggleButton = optionsContainer.createChild("button", "toggle-class-toggle");
-        this._classToggleButton.textContent = WI.UIString("Classes");
-        this._classToggleButton.title = WI.UIString("Toggle Classes");
-        this._classToggleButton.addEventListener("click", this._classToggleButtonClicked.bind(this));
+        if (this._classListContainer) {
+            this._classToggleButton = optionsContainer.createChild("button", "toggle-class-toggle");
+            this._classToggleButton.textContent = WI.UIString("Classes");
+            this._classToggleButton.title = WI.UIString("Toggle Classes");
+            this._classToggleButton.addEventListener("click", this._classToggleButtonClicked.bind(this));
+
+            if (this._classListContainerToggledSetting.value)
+                this._classToggleButtonClicked();
+        }
 
         WI.cssManager.addEventListener(WI.CSSManager.Event.StyleSheetAdded, this._styleSheetAddedOrRemoved, this);
         WI.cssManager.addEventListener(WI.CSSManager.Event.StyleSheetRemoved, this._styleSheetAddedOrRemoved, this);
 
-        if (this._classListContainerToggledSetting.value)
-            this._classToggleButtonClicked();
     }
 
     sizeDidChange()
@@ -236,24 +246,12 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
     _handleForcedPseudoClassCheckboxKeydown(pseudoClass, event)
     {
-        if (event.key !== "Tab")
+        if (event.key !== "Tab" || event.shiftKey)
             return;
 
-        let pseudoClasses = WI.CSSManager.ForceablePseudoClasses;
-        let index = pseudoClasses.indexOf(pseudoClass);
-        if (event.shiftKey) {
-            if (index > 0) {
-                this._forcedPseudoClassCheckboxes[pseudoClasses[index - 1]].focus();
-                event.preventDefault();
-            } else {
-                this._filterBar.inputField.focus();
-                event.preventDefault();
-            }
-        } else {
-            if (index < pseudoClasses.length - 1) {
-                this._forcedPseudoClassCheckboxes[pseudoClasses[index + 1]].focus();
-                event.preventDefault();
-            } else if (this._panel.focusFirstSection) {
+        if (WI.CSSManager.ForceablePseudoClasses.lastValue === pseudoClass) {
+            // Last checkbox is currently focused.
+            if (this._panel.focusFirstSection) {
                 this._panel.focusFirstSection();
                 event.preventDefault();
             }
@@ -334,13 +332,19 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
         if (event.keyCode !== WI.KeyboardShortcut.Key.Enter.keyCode)
             return;
 
-        this._addClassInput.blur();
+        this._addClassFromInput();
     }
 
     _addClassInputBlur(event)
     {
-        this.domNode.toggleClass(this._addClassInput.value, true);
+        this._addClassFromInput();
+
         this._addClassContainer.classList.remove("active");
+    }
+
+    _addClassFromInput()
+    {
+        this.domNode.toggleClass(this._addClassInput.value, true);
         this._addClassInput.value = null;
     }
 
@@ -425,16 +429,11 @@ WI.GeneralStyleDetailsSidebarPanel = class GeneralStyleDetailsSidebarPanel exten
 
     _handleFilterBarInputFieldKeyDown(event)
     {
-        if (event.key !== "Tab")
+        if (event.key !== "Tab" || !event.shiftKey)
             return;
 
-        if (event.shiftKey) {
-            if (this._panel.focusLastSection) {
-                this._panel.focusLastSection();
-                event.preventDefault();
-            }
-        } else {
-            this._forcedPseudoClassCheckboxes[WI.CSSManager.ForceablePseudoClasses[0]].focus();
+        if (this._panel.focusLastSection) {
+            this._panel.focusLastSection();
             event.preventDefault();
         }
     }

@@ -13,6 +13,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include "keychain/SecureObjectSync/SOSGenCount.h"
 
+#include <security_utilities/simulatecrash_assert.h>
+
 enum {
     kOnlyCompatibleVersion = 1, // Sometime in the future this name will be improved to reflect history.
     kAlwaysIncompatibleVersion = UINT64_MAX,

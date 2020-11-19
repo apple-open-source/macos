@@ -97,8 +97,6 @@
 #include "vpn_control.h"
 #include "vpn_control_var.h"
 #include "ike_session.h"
-#include "ipsecSessionTracer.h"
-#include "ipsecMessageTracer.h"
 #include "power_mgmt.h"
 #include "session.h"
 
@@ -1347,18 +1345,6 @@ pk_recvupdate(mhp)
 	
 	/* update status */
 	fsm_set_state(&iph2->status, IKEV1_STATE_PHASE2_ESTABLISHED);
-
-	if (iph2->side == INITIATOR) {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH2_INIT_SUCC,
-								CONSTSTR("Initiator, Quick-Mode"),
-								CONSTSTR(NULL));
-	} else {
-		IPSECSESSIONTRACEREVENT(iph2->parent_session,
-								IPSECSESSIONEVENTCODE_IKEV1_PH2_RESP_SUCC,
-								CONSTSTR("Responder, Quick-Mode"),
-								CONSTSTR(NULL));
-	}
 
 	ike_session_ph2_established(iph2);
 

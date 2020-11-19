@@ -38,6 +38,7 @@
 #include "SVGLengthContext.h"
 #include "SVGResources.h"
 #include "SVGResourcesCache.h"
+#include <wtf/MathExtras.h>
 
 namespace WebCore {
 
@@ -201,7 +202,7 @@ static AffineTransform& currentContentTransformation()
 float SVGRenderingContext::calculateScreenFontSizeScalingFactor(const RenderObject& renderer)
 {
     AffineTransform ctm = calculateTransformationToOutermostCoordinateSystem(renderer);
-    return narrowPrecisionToFloat(sqrt((pow(ctm.xScale(), 2) + pow(ctm.yScale(), 2)) / 2));
+    return narrowPrecisionToFloat(std::hypot(ctm.xScale(), ctm.yScale()) / sqrtOfTwoDouble);
 }
 
 AffineTransform SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem(const RenderObject& renderer)
@@ -289,13 +290,11 @@ std::unique_ptr<ImageBuffer> SVGRenderingContext::createImageBuffer(const FloatR
     return imageBuffer;
 }
 
-void SVGRenderingContext::renderSubtreeToImageBuffer(ImageBuffer* image, RenderElement& item, const AffineTransform& subtreeContentTransformation)
+void SVGRenderingContext::renderSubtreeToContext(GraphicsContext& context, RenderElement& item, const AffineTransform& subtreeContentTransformation)
 {
-    ASSERT(image);
-
     // Rendering into a buffer implies we're being used for masking, clipping, patterns or filters. In each of these
     // cases we don't want to paint the selection.
-    PaintInfo info(image->context(), LayoutRect::infiniteRect(), PaintPhase::Foreground, PaintBehavior::SkipSelectionHighlight);
+    PaintInfo info(context, LayoutRect::infiniteRect(), PaintPhase::Foreground, PaintBehavior::SkipSelectionHighlight);
 
     AffineTransform& contentTransformation = currentContentTransformation();
     AffineTransform savedContentTransformation = contentTransformation;
@@ -345,7 +344,7 @@ bool SVGRenderingContext::bufferForeground(std::unique_ptr<ImageBuffer>& imageBu
         AffineTransform transform = m_paintInfo->context().getCTM(GraphicsContext::DefinitelyIncludeDeviceScale);
         IntSize expandedBoundingBox = expandedIntSize(boundingBox.size());
         IntSize bufferSize(static_cast<int>(ceil(expandedBoundingBox.width() * transform.xScale())), static_cast<int>(ceil(expandedBoundingBox.height() * transform.yScale())));
-        if (bufferSize != imageBuffer->internalSize())
+        if (bufferSize != imageBuffer->backendSize())
             imageBuffer.reset();
     }
 

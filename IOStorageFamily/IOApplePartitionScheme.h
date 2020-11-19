@@ -132,7 +132,7 @@ typedef struct Block0
  * Class
  */
 
-class IOApplePartitionScheme : public IOPartitionScheme
+class __exported IOApplePartitionScheme : public IOPartitionScheme
 {
     OSDeclareDefaultStructors(IOApplePartitionScheme);
 

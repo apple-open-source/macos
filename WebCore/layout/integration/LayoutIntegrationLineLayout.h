@@ -27,7 +27,9 @@
 
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
 
+#include "LayoutIntegrationBoxTree.h"
 #include "LayoutPoint.h"
+#include "LayoutState.h"
 #include "LineLayoutTraversal.h"
 #include "RenderObjectEnums.h"
 
@@ -47,7 +49,6 @@ struct InlineContent;
 
 namespace Layout {
 class LayoutTreeContent;
-class LayoutState;
 }
 
 namespace LayoutIntegration {
@@ -58,11 +59,13 @@ public:
     LineLayout(const RenderBlockFlow&);
     ~LineLayout();
 
-    static bool canUseFor(const RenderBlockFlow&);
+    static bool canUseFor(const RenderBlockFlow&, Optional<bool> couldUseSimpleLineLayout = { });
+    static bool canUseForAfterStyleChange(const RenderBlockFlow&, StyleDifference);
 
+    void updateStyle();
     void layout();
 
-    LayoutUnit contentLogicalHeight() const { return m_contentLogicalHeight; }
+    LayoutUnit contentLogicalHeight() const;
     size_t lineCount() const;
 
     LayoutUnit firstLineBaseline() const;
@@ -78,15 +81,21 @@ public:
     LineLayoutTraversal::TextBoxIterator textBoxesFor(const RenderText&) const;
     LineLayoutTraversal::ElementBoxIterator elementBoxFor(const RenderLineBreak&) const;
 
+    static void releaseCaches(RenderView&);
+
 private:
-    const Layout::Container& rootLayoutBox() const;
-    void prepareRootGeometryForLayout();
+    void prepareLayoutState();
+    void prepareFloatingState();
+
+    const Layout::ContainerBox& rootLayoutBox() const;
+    Layout::ContainerBox& rootLayoutBox();
     ShadowData* debugTextShadow();
+    void releaseInlineItemCache();
 
     const RenderBlockFlow& m_flow;
-    std::unique_ptr<const Layout::LayoutTreeContent> m_treeContent;
-    std::unique_ptr<Layout::LayoutState> m_layoutState;
-    LayoutUnit m_contentLogicalHeight;
+    BoxTree m_boxTree;
+    Layout::LayoutState m_layoutState;
+    Layout::InlineFormattingState& m_inlineFormattingState;
 };
 
 }

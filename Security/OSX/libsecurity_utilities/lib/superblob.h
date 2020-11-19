@@ -6,6 +6,7 @@
 
 #include <security_utilities/blob.h>
 #include <map>
+#include <sstream>
 #include <vector>
 
 namespace Security {
@@ -262,8 +263,10 @@ _BlobType *SuperBlobCore<_BlobType, _magic, _Type>::Maker::make() const
 		pc += it->second->length();
 		n++;
 	}
-	secinfo("superblob", "Maker %p assembles %ld blob(s) into %p (size=%d)",
-		this, mPieces.size(), result, total);
+	ostringstream os;
+	os << "Maker " << this << " assembles " << mPieces.size() << " blob(s) into " << result
+	   << " (size=" << total << ")";
+	secinfo("superblob", "%s", os.str().c_str());
 	return result;
 }
 

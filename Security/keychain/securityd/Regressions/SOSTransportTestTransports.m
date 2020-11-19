@@ -29,8 +29,7 @@ CFMutableArrayRef message_transports = NULL;
 
 -(id) initWithAccount:(SOSAccount*) acct andName:(CFStringRef) n andCircleName:(CFStringRef) cN
 {
-    self = [super init];
-    if(self){
+    if ((self = [super init])) {
         self.name = CFRetainSafe(n);
         self.changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
         self.account = acct;
@@ -142,8 +141,7 @@ void SOSTransportCircleTestClearChanges(SOSCircleStorageTransportTest* transport
 
 -(id) initWithAccount:(SOSAccount *)acct andWithAccountName:(CFStringRef)acctName andCircleName:(CFStringRef)cName
 {
-    self = [super init];
-    if(self){
+    if ((self = [super init])) {
         self.account = acct;
         self.accountName = (__bridge NSString *)(acctName);
         self.circleName = (__bridge NSString*)cName;
@@ -313,8 +311,7 @@ SOSAccount* SOSTransportCircleTestGetAccount(SOSCircleStorageTransportTest* tran
 
 -(id) initWithAccount:(SOSAccount*)acct andName:(CFStringRef)n andCircleName:(CFStringRef) cN
 {
-    self = [super init];
-    if(self){
+    if ((self = [super init])) {
         self.engine = SOSDataSourceFactoryGetEngineForDataSourceName(acct.factory, cN, NULL);
         self.account = acct;
         self.changes = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -513,12 +510,12 @@ void SOSAccountUpdateTestTransports(SOSAccount* account, CFDictionaryRef gestalt
     SOSTransportMessageKVSTestSetName((SOSMessageKVSTest*)account.kvs_message_transport, new_name);
 }
 
-static CF_RETURNS_RETAINED SOSCircleRef SOSAccountEnsureCircleTest(SOSAccount* a, CFStringRef name, CFStringRef accountName)
+static CF_RETURNS_RETAINED SOSCircleRef SOSAccountEnsureCircleTest(SOSAccount* account, CFStringRef name, CFStringRef accountName)
 {
     CFErrorRef localError = NULL;
-    SOSAccountTrustClassic *trust = a.trust;
+    SOSAccountTrustClassic *trust = account.trust;
 
-    SOSCircleRef circle = CFRetainSafe([a.trust getCircle:&localError]);
+    SOSCircleRef circle = CFRetainSafe([account.trust getCircle:&localError]);
     if(!circle || isSOSErrorCoded(localError, kSOSErrorIncompatibleCircle)){
         secnotice("circle", "Error retrieving the circle: %@", localError);
         CFReleaseNull(localError);
@@ -534,7 +531,7 @@ static CF_RETURNS_RETAINED SOSCircleRef SOSAccountEnsureCircleTest(SOSAccount* a
         CFReleaseNull(localError);
     }
 
-    if(![trust ensureFullPeerAvailable:(__bridge CFDictionaryRef)(a.gestalt) deviceID:(__bridge CFStringRef)(a.deviceID) backupKey:(__bridge CFDataRef)(a.backup_key) err:&localError])
+    if(![trust ensureFullPeerAvailable:account err:&localError])
     {
         secnotice("circle", "had an error building full peer: %@", localError);
         CFReleaseNull(localError);

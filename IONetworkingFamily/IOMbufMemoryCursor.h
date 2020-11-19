@@ -54,7 +54,8 @@
     This becomes a requirement when the driver is multi-threaded, since the 
     mbuf cursor maintains state and does not support reentrancy. */
 
-class IOMbufMemoryCursor : public IOMemoryCursor
+
+class __exported IOMbufMemoryCursor : public IOMemoryCursor
 {
     OSDeclareDefaultStructors(IOMbufMemoryCursor)
 
@@ -132,7 +133,7 @@ public:
     your hardware.  This cursor just outputs an array of IOPhysicalSegments. 
 */
 
-class IOMbufNaturalMemoryCursor : public IOMbufMemoryCursor
+class __exported IOMbufNaturalMemoryCursor : public IOMbufMemoryCursor
 {
     OSDeclareDefaultStructors(IOMbufNaturalMemoryCursor)
 
@@ -196,7 +197,7 @@ public:
     array of IOPhysicalSegments that are encoded in big-endian format. 
 */
 
-class IOMbufBigMemoryCursor : public IOMbufMemoryCursor
+class __exported IOMbufBigMemoryCursor : public IOMbufMemoryCursor
 {
     OSDeclareDefaultStructors(IOMbufBigMemoryCursor)
 
@@ -261,7 +262,7 @@ public:
     format. 
 */
 
-class IOMbufLittleMemoryCursor : public IOMbufMemoryCursor
+class __exported IOMbufLittleMemoryCursor : public IOMbufMemoryCursor
 {
     OSDeclareDefaultStructors(IOMbufLittleMemoryCursor)
 
@@ -313,6 +314,7 @@ public:
                                            struct IOPhysicalSegment * vector,
                                            UInt32 numVectorSegments = 0);
 };
+
 
 #ifdef __ppc__
 

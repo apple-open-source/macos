@@ -65,7 +65,7 @@ void UIGamepadProvider::gamepadSyncTimerFired()
     if (!webPageProxy || !m_processPoolsUsingGamepads.contains(&webPageProxy->process().processPool()))
         return;
 
-    webPageProxy->gamepadActivity(snapshotGamepads(), m_shouldMakeGamepadsVisibleOnSync);
+    webPageProxy->gamepadActivity(snapshotGamepads(), m_shouldMakeGamepadsVisibleOnSync ? EventMakesGamepadsVisible::Yes : EventMakesGamepadsVisible::No);
     m_shouldMakeGamepadsVisibleOnSync = false;
 }
 
@@ -82,26 +82,10 @@ void UIGamepadProvider::scheduleGamepadStateSync()
     m_gamepadSyncTimer.startOneShot(maximumGamepadUpdateInterval);
 }
 
-void UIGamepadProvider::setInitialConnectedGamepads(const Vector<PlatformGamepad*>& initialGamepads)
+void UIGamepadProvider::platformGamepadConnected(PlatformGamepad& gamepad, EventMakesGamepadsVisible eventVisibility)
 {
-    ASSERT(!m_hasInitialGamepads);
+    LOG(Gamepad, "UIGamepadProvider::platformGamepadConnected - Index %i attached (visibility: %i)\n", gamepad.index(), (int)eventVisibility);
 
-    m_gamepads.resize(initialGamepads.size());
-
-    for (auto* gamepad : initialGamepads) {
-        if (!gamepad)
-            continue;
-        m_gamepads[gamepad->index()] = makeUnique<UIGamepad>(*gamepad);
-    }
-
-    for (auto& pool : m_processPoolsUsingGamepads)
-        pool->setInitialConnectedGamepads(m_gamepads);
-
-    m_hasInitialGamepads = true;
-}
-
-void UIGamepadProvider::platformGamepadConnected(PlatformGamepad& gamepad)
-{
     if (m_gamepads.size() <= gamepad.index())
         m_gamepads.grow(gamepad.index() + 1);
 
@@ -111,7 +95,7 @@ void UIGamepadProvider::platformGamepadConnected(PlatformGamepad& gamepad)
     scheduleGamepadStateSync();
 
     for (auto& pool : m_processPoolsUsingGamepads)
-        pool->gamepadConnected(*m_gamepads[gamepad.index()]);
+        pool->gamepadConnected(*m_gamepads[gamepad.index()], eventVisibility);
 }
 
 void UIGamepadProvider::platformGamepadDisconnected(PlatformGamepad& gamepad)
@@ -127,7 +111,7 @@ void UIGamepadProvider::platformGamepadDisconnected(PlatformGamepad& gamepad)
         pool->gamepadDisconnected(*disconnectedGamepad);
 }
 
-void UIGamepadProvider::platformGamepadInputActivity(bool shouldMakeGamepadsVisible)
+void UIGamepadProvider::platformGamepadInputActivity(EventMakesGamepadsVisible eventVisibility)
 {
     auto platformGamepads = GamepadProvider::singleton().platformGamepads();
     ASSERT(platformGamepads.size() == m_gamepads.size());
@@ -142,7 +126,7 @@ void UIGamepadProvider::platformGamepadInputActivity(bool shouldMakeGamepadsVisi
         m_gamepads[i]->updateFromPlatformGamepad(*platformGamepads[i]);
     }
 
-    if (shouldMakeGamepadsVisible)
+    if (eventVisibility == EventMakesGamepadsVisible::Yes)
         m_shouldMakeGamepadsVisibleOnSync = true;
 
     scheduleGamepadStateSync();
@@ -215,7 +199,7 @@ Vector<GamepadData> UIGamepadProvider::snapshotGamepads()
 
     for (auto& gamepad : m_gamepads) {
         if (gamepad)
-            gamepadDatas.uncheckedAppend(gamepad->condensedGamepadData());
+            gamepadDatas.uncheckedAppend(gamepad->gamepadData());
         else
             gamepadDatas.uncheckedAppend({ });
     }
@@ -223,7 +207,7 @@ Vector<GamepadData> UIGamepadProvider::snapshotGamepads()
     return gamepadDatas;
 }
 
-#if !PLATFORM(COCOA)
+#if !PLATFORM(COCOA) && !(USE(MANETTE) && OS(LINUX))
 
 void UIGamepadProvider::platformSetDefaultGamepadProvider()
 {
@@ -244,7 +228,7 @@ void UIGamepadProvider::platformStartMonitoringInput()
 {
 }
 
-#endif // !PLATFORM(MAC)
+#endif // !PLATFORM(COCOA) && !(USE(MANETTE) && OS(LINUX))
 
 }
 

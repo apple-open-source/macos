@@ -38,11 +38,14 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 
+#include <CoreGraphics/CGFontCache.h>
+#include <CoreGraphics/CGPathPrivate.h>
+#include <CoreGraphics/CoreGraphicsPrivate.h>
+
 #if PLATFORM(MAC)
 #include <ColorSync/ColorSyncPriv.h>
+#include <CoreGraphics/CGAccessibility.h>
 #endif
-#include <CoreGraphics/CGFontCache.h>
-#include <CoreGraphics/CoreGraphicsPrivate.h>
 
 #else
 
@@ -249,6 +252,10 @@ bool CGContextGetAllowsFontSubpixelPositioning(CGContextRef);
 bool CGContextDrawsWithCorrectShadowOffsets(CGContextRef);
 CGPatternRef CGPatternCreateWithImage2(CGImageRef, CGAffineTransform, CGPatternTiling);
 
+#if HAVE(CGPATH_GET_NUMBER_OF_ELEMENTS)
+size_t CGPathGetNumberOfElements(CGPathRef);
+#endif
+
 #if HAVE(IOSURFACE)
 CGContextRef CGIOSurfaceContextCreate(IOSurfaceRef, size_t, size_t, size_t, size_t, CGColorSpaceRef, CGBitmapInfo);
 CGImageRef CGIOSurfaceContextCreateImage(CGContextRef);
@@ -282,7 +289,7 @@ void CGContextSetStyle(CGContextRef, CGStyleRef);
 
 void CGContextDrawConicGradient(CGContextRef, CGGradientRef, CGPoint center, CGFloat angle);
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000)
+#if HAVE(CG_PATH_UNEVEN_CORNERS_ROUNDEDRECT)
 void CGPathAddUnevenCornersRoundedRect(CGMutablePathRef, const CGAffineTransform *, CGRect, const CGSize corners[4]);
 #endif
 
@@ -304,6 +311,9 @@ void CGContextSetFocusRingWithColor(CGContextRef, CGFloat blur, CGColorRef, cons
 #endif // PLATFORM(WIN)
 
 #if PLATFORM(MAC)
+
+bool CGDisplayUsesForceToGray(void);
+
 void CGSShutdownServerConnections(void);
 
 CGSConnectionID CGSMainConnectionID(void);
@@ -319,6 +329,7 @@ size_t CGDisplayModeGetPixelsWide(CGDisplayModeRef);
 size_t CGDisplayModeGetPixelsHigh(CGDisplayModeRef);
 
 #if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
+
 CGError CGSSetDenyWindowServerConnections(bool);
 
 typedef int32_t CGSDisplayID;
@@ -327,5 +338,28 @@ CGSDisplayID CGSMainDisplayID(void);
 #endif // ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
 
 #endif // PLATFORM(MAC)
+
+#if ENABLE(PDFKIT_PLUGIN) && !USE(APPLE_INTERNAL_SDK)
+
+extern const off_t kCGDataProviderIndeterminateSize;
+extern const CFStringRef kCGDataProviderHasHighLatency;
+
+typedef void (*CGDataProviderGetByteRangesCallback)(void *info,
+    CFMutableArrayRef buffers, const CFRange *ranges, size_t count);
+    
+struct CGDataProviderDirectAccessRangesCallbacks {
+    unsigned version;
+    CGDataProviderGetBytesAtPositionCallback getBytesAtPosition;
+    CGDataProviderGetByteRangesCallback getBytesInRanges;
+    CGDataProviderReleaseInfoCallback releaseInfo;
+};
+typedef struct CGDataProviderDirectAccessRangesCallbacks CGDataProviderDirectAccessRangesCallbacks;
+
+extern void CGDataProviderSetProperty(CGDataProviderRef, CFStringRef key, CFTypeRef value);
+extern CGDataProviderRef CGDataProviderCreateMultiRangeDirectAccess(
+    void *info, off_t size,
+    const CGDataProviderDirectAccessRangesCallbacks *);
+
+#endif // ENABLE(PDFKIT_PLUGIN) && !USE(APPLE_INTERNAL_SDK)
 
 WTF_EXTERN_C_END

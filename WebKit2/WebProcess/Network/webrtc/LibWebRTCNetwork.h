@@ -56,7 +56,7 @@ public:
 
     void disableNonLocalhostConnections() { socketFactory().disableNonLocalhostConnections(); }
 
-    WebRTCResolver resolver(uint64_t identifier) { return WebRTCResolver(socketFactory(), identifier); }
+    WebRTCResolver resolver(LibWebRTCResolverIdentifier identifier) { return WebRTCResolver(socketFactory(), identifier); }
 #endif
 
 #if ENABLE(WEB_RTC)
@@ -67,6 +67,8 @@ public:
 
 private:
 #if USE(LIBWEBRTC)
+    void setSocketFactoryConnection();
+
     void signalReadPacket(WebCore::LibWebRTCSocketIdentifier, const IPC::DataReference&, const RTCNetwork::IPAddress&, uint16_t port, int64_t);
     void signalSentPacket(WebCore::LibWebRTCSocketIdentifier, int, int64_t);
     void signalAddressReady(WebCore::LibWebRTCSocketIdentifier, const RTCNetwork::SocketAddress&);

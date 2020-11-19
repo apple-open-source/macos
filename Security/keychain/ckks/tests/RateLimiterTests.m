@@ -33,16 +33,14 @@
 
 @implementation TestObject
 - (instancetype)init {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _uuid = [[NSUUID UUID] UUIDString];
     }
     return self;
 }
 
 - (instancetype)initWithNilUuid {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _uuid = nil;
     }
     return self;

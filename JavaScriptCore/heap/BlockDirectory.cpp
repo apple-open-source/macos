@@ -27,14 +27,9 @@
 #include "BlockDirectory.h"
 
 #include "BlockDirectoryInlines.h"
-#include "GCActivityCallback.h"
 #include "Heap.h"
-#include "IncrementalSweeper.h"
-#include "JSCInlines.h"
-#include "MarkedBlockInlines.h"
 #include "SubspaceInlines.h"
 #include "SuperSampler.h"
-#include "VM.h"
 
 namespace JSC {
 
@@ -296,7 +291,7 @@ void BlockDirectory::shrink()
 
 void BlockDirectory::assertNoUnswept()
 {
-    if (ASSERT_DISABLED)
+    if (!ASSERT_ENABLED)
         return;
     
     if (m_bits.unswept().isEmpty())
@@ -309,14 +304,14 @@ void BlockDirectory::assertNoUnswept()
 
 RefPtr<SharedTask<MarkedBlock::Handle*()>> BlockDirectory::parallelNotEmptyBlockSource()
 {
-    class Task : public SharedTask<MarkedBlock::Handle*()> {
+    class Task final : public SharedTask<MarkedBlock::Handle*()> {
     public:
         Task(BlockDirectory& directory)
             : m_directory(directory)
         {
         }
         
-        MarkedBlock::Handle* run() override
+        MarkedBlock::Handle* run() final
         {
             if (m_done)
                 return nullptr;

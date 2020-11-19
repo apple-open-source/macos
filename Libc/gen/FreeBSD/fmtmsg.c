@@ -122,14 +122,14 @@ def:
 
 			XXX this is a *huge* kludge to pass the SuSv3 tests,
 			  I don't think of it as cheating because they are
-			  looking in the wrong place (/realdev/console) to do
+			  looking in the wrong place (/var/log/console) to do
 			  their testing, but they can't look in the "right"
 			  place for various reasons */
 			char *cpath = "/dev/console";
 			struct stat sb;
-			int rc = stat("/realdev/console", &sb);
+			int rc = stat("/var/log/console", &sb);
 			if (rc == 0 && (sb.st_mode & S_IFDIR)) {
-			    cpath = "/realdev/console";
+			    cpath = "/var/log/console";
 			}
 			/* XXX thus ends the kludge - changes after
 			  this point may be safely integrated */

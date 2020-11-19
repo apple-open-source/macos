@@ -27,7 +27,7 @@
 #include <IOKit/IOService.h>
 #include <IOKit/pwr_mgt/IOPMPowerSource.h>
 #include <IOKit/IOReporter.h>
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
 #include <IOKit/smbus/IOSMBusController.h>
 #include <IOKit/acpi/IOACPIPlatformDevice.h>
 #endif
@@ -48,6 +48,7 @@ typedef struct {
     int nbytes;
     const OSSymbol *setItAndForgetItSym;
     int pathBits;
+    bool supportDesktops;
 } CommandStruct;
 
 typedef struct {
@@ -76,93 +77,44 @@ protected:
     AppleSmartBatteryManager    *fProvider;
     IOWorkLoop                  *fWorkLoop;
     IOTimerEventSource          *fBatteryReadAllTimer;
-    bool                        fStalledByUserClient;
-    bool                        fCancelPolling;
-    bool                        fPollingNow;
-    uint16_t                    fMachinePath;
-    bool                        fRebootPolling;
-    uint8_t                     fReadingExtendedCmd;
     bool                        fInflowDisabled;
     bool                        fChargeInhibited;
-    uint16_t                    fRemainingCapacity;
-    uint16_t                    fFullChargeCapacity;
     bool                        fCapacityOverride;
     bool                        fMaxCapacityOverride;
 
     uint8_t                     fInitialPollCountdown;
-    uint8_t                     fIncompleteReadRetries;
 
     IOService *                 fPowerServiceToAck;
     bool                        fSystemSleeping;
-    bool                        fPollRequestedInSleep;
 
     bool                        fPermanentFailure;
     bool                        fFullyDischarged;
     bool                        fFullyCharged;
-    int                         fBatteryPresent;
+    bool                        fBatteryPresent;
     int                         fACConnected;
     int                         fInstantCurrent;
     OSArray                     *fCellVoltages;
-    uint64_t                    acAttach_ts; 
+    uint64_t                    acAttach_ts;
 
     CommandTable                cmdTable;
     bool                        fDisplayKeys;
     OSSet                       *fReportersSet;
-    // Accessor for MaxError reading
-    // Percent error in MaxCapacity reading
-    void    setMaxErr(int error);
-    int     maxErr(void);
-
-    // SmartBattery reports a device name
-    void    setDeviceName(OSSymbol *sym);
-    OSSymbol *deviceName(void);
-
-    // Set when battery is fully charged;
-    // Clear when battery starts discharging/AC is removed
-    void    setFullyCharged(bool);
-    bool    fullyCharged(void);
-
     // Wrapper around IOPMPowerSource::setExternalConnected()
     void    setExternalConnectedToIOPMPowerSource(bool);
 
-    // Time remaining estimate - as measured instantaneously
-    void    setInstantaneousTimeToEmpty(int seconds);
-
-    // Instantaneous amperage
-    void    setInstantAmperage(int mA);
-
-    // Time remaining estimate - 1 minute average
-    int     averageTimeToEmpty(void);
-
-    // Time remaining until full estimate - 1 minute average
-    int     averageTimeToFull(void);
-
-    void    setManufactureDate(int date);
-    int     manufactureDate(void);
-
-    void    setSerialNumber(uint16_t sernum);
-    uint16_t    serialNumber(void);
-
-    void    setChargeStatus(const OSSymbol *sym);
-    const OSSymbol    *chargeStatus(void);
-
-    // An OSData container of manufacturer specific data
-    void    setManufacturerData(uint8_t *buffer, uint32_t bufferSize);
-
-    void    oneTimeBatterySetup(void);
-
-    void    constructAppleSerialNumber(void);
-
     CommandStruct *commandForState(uint32_t state);
     void    initializeCommands(void);
-    bool    initiateTransaction(const CommandStruct *cs);
+    bool    initiateTransaction(CommandStruct *cs);
     bool    doInitiateTransaction(const CommandStruct *cs);
     bool    initiateNextTransaction(uint32_t state);
     bool    retryCurrentTransaction(uint32_t state);
     bool    handleSetItAndForgetIt(int state, int val16,
                                    const uint8_t *str32, IOByteCount len);
-    void                readAdapterInfo(void);
-    OSDictionary*       copySMCAdapterInfo(uint8_t port);
+    void    readAdapterInfo(void);
+    OSDictionary* copySMCAdapterInfo(uint8_t port);
+    IOReturn setChargeRateLimit(OSObject *value);
+    IOReturn setChargeLimitDisplay(bool enable);
+    void checkBatteryId(void);
 
 public:
     static AppleSmartBattery *smartBattery(void);
@@ -171,7 +123,6 @@ public:
     bool    pollBatteryState(int path);
     void    handleBatteryInserted(void);
     void    handleBatteryRemoved(void);
-    void    handleInflowDisabled(bool inflow_state);
     void    handleChargeInhibited(bool charge_state);
     void    handleExclusiveAccess(bool exclusive);
     void    handleSetOverrideCapacity(uint16_t value, bool sticky);
@@ -180,25 +131,15 @@ public:
 
 
 protected:
-    void    logReadError( const char *error_type,
-                          uint16_t additional_error,
-                          uint32_t cmd);
-
     void    clearBatteryState(bool do_update);
 
     void    incompleteReadTimeOut(void);
 
     void    rebuildLegacyIOBatteryInfo(void);
 
-    void        transactionCompletion(void *ref, IOReturn status, IOByteCount inCount, uint8_t *inData);
+    void    transactionCompletion(void *ref, IOReturn status, IOByteCount inCount, uint8_t *inData);
 
-    void        handlePollingFinished(bool visitedEntirePath);
-
-    IOReturn readWordAsync(uint32_t refnum, uint8_t address, uint8_t cmd);
-
-    IOReturn writeWordAsync(uint32_t refnum, uint8_t address, uint8_t cmd, uint16_t writeWord);
-
-    IOReturn readBlockAsync(uint32_t refnum, uint8_t address, uint8_t cmd);
+    void    handlePollingFinished(bool visitedEntirePath);
 
     void    acknowledgeSystemSleepWake( void );
     IOReturn createReporters(void);
@@ -208,9 +149,35 @@ protected:
                                    void *result, void *destination) APPLE_KEXT_OVERRIDE;
     IOReturn updateReport(IOReportChannelList *channels, IOReportUpdateAction action,
                                 void *result, void *destination) APPLE_KEXT_OVERRIDE;
+#if TARGET_OS_IPHONE || TARGET_OS_OSX_AS
+    void         checkBatteryIdNotification(void *param, IOService *charger, IONotifier *notifier);
+    void         externalConnectedTimeout(void);
+    uint32_t    _gasGaugeFirmwareVersion;
+#endif // TARGET_OS_IPHONE || TARGET_OS_OSX_AS
 
 private:
+    // poll loop control use lock to access
+    IORWLock *_pollCtrlLock;
+    bool _cancelPolling;
+    bool _pollingNow;
+    uint16_t _machinePath;
+    bool _rebootPolling;
+    // -------------
+
+    size_t _batteryCellCount;
+
+    IOReturn setPropertiesGated(OSObject *props, OSDictionary *dict);
+    IOReturn handleSystemSleepWakeGated(IOService * powerService, bool isSystemSleep);
+    void acknowledgeSystemSleepWakeGated(void);
+    void handleBatteryRemovedGated(void);
     void updateDictionaryInIOReg(const OSSymbol *sym, smcToRegistry *keys);
+    IOReturn transactionCompletionGated(struct transactionCompletionGatedArgs *args);
+    bool initiateTransactionGated(CommandStruct *cs);
+    void clearBatteryStateGated(bool do_update);
+    void rebuildLegacyIOBatteryInfoGated(void);
+    void handlePollingFinishedGated(bool visitedEntirePath, uint16_t machinePath);
+    void handleSetOverrideCapacityGated(uint16_t value, bool sticky);
+    void handleSwitchToTrueCapacityGated(void);
 };
 
 #endif

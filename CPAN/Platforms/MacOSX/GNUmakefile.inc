@@ -1,6 +1,6 @@
 DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PERLVERSIONS))
 KNOWNVERSIONS := $(shell grep -v '^DEFAULT' $(PERLVERSIONS))
-BOOTSTRAPPERL = 5.18
+BOOTSTRAPPERL = 5.30
 
 MY_ARCHS := $(or $(RC_ARCHS),$(MY_HOST))
 

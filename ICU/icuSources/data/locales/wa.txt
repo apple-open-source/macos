@@ -7,6 +7,6 @@ wa{
         " w x y ÿ z]"
     }
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ – — , ; \\: ! ? . … ’ \u0022 “ ” « » ( ) \\[ \\] § @ * / \\& # † ‡]"}
-    Version{"2.1.48.13"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — , ; \\: ! ? . … ’ \u0022 “ ” « » ( ) \\[ \\] § @ * / \\& # † ‡]"}
+    Version{"36.1"}
 }

@@ -50,7 +50,7 @@ class JITThunks final : private WeakHandleOwner {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     JITThunks();
-    virtual ~JITThunks();
+    ~JITThunks() final;
 
     MacroAssemblerCodePtr<JITThunkPtrTag> ctiNativeCall(VM&);
     MacroAssemblerCodePtr<JITThunkPtrTag> ctiNativeConstruct(VM&);
@@ -67,7 +67,7 @@ public:
     NativeExecutable* hostFunctionStub(VM&, TaggedNativeFunction, ThunkGenerator, Intrinsic, const String& name);
 
 private:
-    void finalize(Handle<Unknown>, void* context) override;
+    void finalize(Handle<Unknown>, void* context) final;
     
     typedef HashMap<ThunkGenerator, MacroAssemblerCodeRef<JITThunkPtrTag>> CTIStubMap;
     CTIStubMap m_ctiStubMap;
@@ -91,7 +91,7 @@ private:
     private:
         static inline unsigned hashPointer(TaggedNativeFunction p)
         {
-            return DefaultHash<TaggedNativeFunction>::Hash::hash(p);
+            return DefaultHash<TaggedNativeFunction>::hash(p);
         }
 
         static unsigned hash(TaggedNativeFunction function, TaggedNativeFunction constructor, const String& name)
@@ -100,7 +100,7 @@ private:
             // https://bugs.webkit.org/show_bug.cgi?id=207835
             unsigned hash = WTF::pairIntHash(hashPointer(function), hashPointer(constructor));
             if (!name.isNull())
-                hash = WTF::pairIntHash(hash, DefaultHash<String>::Hash::hash(name));
+                hash = WTF::pairIntHash(hash, DefaultHash<String>::hash(name));
             return hash;
         }
     };

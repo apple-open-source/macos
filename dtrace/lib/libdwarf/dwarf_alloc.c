@@ -1042,13 +1042,13 @@ _dwarf_free_all_of_one_debug(Dwarf_Debug dbg)
 	struct simple_malloc_record_s *smp = dbg->de_simple_malloc_base;
 
 	while (smp) {
-	    int i;
+	    int j;
 	    struct simple_malloc_record_s *prev_smp = 0;
 
-	    for (i = 0; i < smp->sr_used; ++i) {
+	    for (j = 0; j < smp->sr_used; ++j) {
 		struct simple_malloc_entry_s *cur;
 
-		cur = &smp->sr_entry[i];
+		cur = &smp->sr_entry[j];
 		if (cur->se_addr != 0) {
 		    free(cur->se_addr);
 		    cur->se_addr = 0;

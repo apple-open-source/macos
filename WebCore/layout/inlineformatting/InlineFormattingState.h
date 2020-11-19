@@ -35,22 +35,24 @@
 namespace WebCore {
 namespace Layout {
 
-using InlineItems = Vector<std::unique_ptr<InlineItem>, 30>;
+using InlineItems = Vector<InlineItem>;
 
 // InlineFormattingState holds the state for a particular inline formatting context tree.
 class InlineFormattingState : public FormattingState {
     WTF_MAKE_ISO_ALLOCATED(InlineFormattingState);
 public:
     InlineFormattingState(Ref<FloatingState>&&, LayoutState&);
-    virtual ~InlineFormattingState();
+    ~InlineFormattingState();
 
     InlineItems& inlineItems() { return m_inlineItems; }
     const InlineItems& inlineItems() const { return m_inlineItems; }
-    void addInlineItem(std::unique_ptr<InlineItem>&& inlineItem) { m_inlineItems.append(WTFMove(inlineItem)); }
+    void addInlineItem(InlineItem&& inlineItem) { m_inlineItems.append(WTFMove(inlineItem)); }
 
     const Display::InlineContent* displayInlineContent() const { return m_displayInlineContent.get(); }
     Display::InlineContent& ensureDisplayInlineContent();
+
     void clearDisplayInlineContent() { m_displayInlineContent = nullptr; }
+    void shrinkDisplayInlineContent();
 
 private:
     // Cacheable input to line layout.
@@ -64,6 +66,14 @@ inline Display::InlineContent& InlineFormattingState::ensureDisplayInlineContent
     if (!m_displayInlineContent)
         m_displayInlineContent = adoptRef(*new Display::InlineContent);
     return *m_displayInlineContent;
+}
+
+inline void InlineFormattingState::shrinkDisplayInlineContent()
+{
+    if (!m_displayInlineContent)
+        return;
+    m_displayInlineContent->runs.shrinkToFit();
+    m_displayInlineContent->lineBoxes.shrinkToFit();
 }
 
 }

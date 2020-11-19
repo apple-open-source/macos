@@ -29,6 +29,7 @@
 #include <pthread.h>
 #include <mach/mach.h>
 #include <dispatch/dispatch.h>
+#include <xpc/private.h>
 #include "table.h"
 
 #include <TargetConditionals.h>
@@ -51,22 +52,29 @@ extern const char *_notify_shm_id(void);
 #define NOTIFY_TYPE_NONE          0x00000000
 #define NOTIFY_TYPE_MEMORY        0x00000001
 #define NOTIFY_TYPE_PLAIN         0x00000002
-#define NOTIFY_TYPE_PORT          0x00000004
-#define NOTIFY_TYPE_FILE          0x00000008
-#define NOTIFY_TYPE_SIGNAL        0x00000010
-#define NOTIFY_TYPE_MASK          0x0000001f // If this is changed, make sure it doesn't muck with struct client_s
+#define NOTIFY_TYPE_PORT          0x00000003
+#define NOTIFY_TYPE_FILE          0x00000004
+#define NOTIFY_TYPE_SIGNAL        0x00000005
+#define NOTIFY_TYPE_XPC_EVENT     0x00000006
+#define NOTIFY_TYPE_COMMON_PORT   0x00000007
+
+#define NOTIFY_TYPE_MASK          0x0000000f // If this is changed, make sure it doesn't muck with NOTIFY_CLIENT_STATE_*
+#define N_NOTIFY_TYPES 8
+
+
 #define NOTIFY_FLAG_SELF          0x80000000
 #define NOTIFY_FLAG_REGEN         0x40000000
 #define NOTIFY_FLAG_RELEASE_SEND  0x20000000
 #define NOTIFY_FLAG_DISPATCH      0x10000000
-#define NOTIFY_TYPE_COALESCE_BASE 0x08000000
-#define NOTIFY_TYPE_COALESCED     0x04000000
+#define NOTIFY_FLAG_COALESCE_BASE 0x08000000
+#define NOTIFY_FLAG_COALESCED     0x04000000
 #define NOTIFY_FLAG_RETAINED      0x02000000
 #define NOTIFY_FLAG_CANCELED      0x01000000
+#define NOTIFY_FLAG_SUSPENDED     0x00800000
+#define NOTIFY_FLAG_DEFERRED_POST 0x00400000
 
-/* Used to check for a polled or delivered types */
-#define NOTIFY_TYPE_POLLED (NOTIFY_TYPE_MEMORY | NOTIFY_TYPE_PLAIN)
-#define NOTIFY_TYPE_DELIVERED (NOTIFY_TYPE_PORT | NOTIFY_TYPE_FILE | NOTIFY_TYPE_SIGNAL)
+#define notify_get_type(flags) ((flags) & NOTIFY_TYPE_MASK)
+#define notify_is_type(flags, type) (notify_get_type(flags) == (type))
 
 /* Return values for notify_check() */
 #define NOTIFY_CHECK_FALSE 0
@@ -101,21 +109,25 @@ extern const char *_notify_shm_id(void);
 /* port_data_t::flags and proc_data_t::flags */
 #define PORT_PROC_FLAGS_NONE			0x00000000
 #define NOTIFY_PORT_PROC_STATE_SUSPENDED	0x00000001
+#define NOTIFY_PORT_FLAG_COMMON			0x00000002
+#define NOTIFY_PORT_FLAG_COMMON_READY_TO_FREE   0x00000004
 
 /* notify state flags */
 #define NOTIFY_STATE_USE_LOCKS 0x00000001
 #define NOTIFY_STATE_ENABLE_RESEND 0x00000002
 
+#define NOTIFY_XPC_EVENT_PAYLOAD_KEY_NAME "Notification"
+#define NOTIFY_XPC_EVENT_PAYLOAD_KEY_STATE "_State"
+
 #define NOTIFY_CLIENT_SELF 0
 #define SIGNAL_NONE -1
 #define FD_NONE -1
-#define SLOT_NONE -1
+#define SLOT_NONE (uint32_t)~0
 
 typedef struct
 {
 	LIST_HEAD(, client_s) subscriptions;
 	char *name;
-	void *private;
 	uint64_t name_id;
 	uint64_t state;
 	uint64_t state_time;
@@ -134,6 +146,7 @@ typedef union client_delivery_u
 	int fd;
 	mach_port_t port;
 	uint32_t sig;
+	uint64_t event_token;
 } client_delivery_t;
 
 typedef struct client_s
@@ -159,7 +172,7 @@ typedef struct client_s
 typedef struct
 {
 	LIST_HEAD(, client_s) clients;
-	uint32_t port;
+	mach_port_t port;
 	uint32_t flags;
 } port_data_t;
 
@@ -169,7 +182,14 @@ typedef struct
 	dispatch_source_t src;
 	uint32_t pid;
 	uint32_t flags;
+	port_data_t *common_port_data;
 } proc_data_t;
+
+typedef struct
+{
+	client_t *client;
+	uint64_t event_token;
+} event_data_t;
 
 typedef struct
 {
@@ -180,7 +200,9 @@ typedef struct
 	table_64_t client_table;
 	table_n_t port_table;
 	table_n_t proc_table;
+	table_64_t event_table;
 	name_info_t **controlled_name;
+	xpc_event_publisher_t event_publisher;
 	uint32_t flags;
 	uint32_t controlled_name_count;
 	os_unfair_lock lock;
@@ -207,6 +229,8 @@ uint32_t _notify_lib_register_plain(notify_state_t *ns, const char *name, pid_t 
 uint32_t _notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t pid, int token, uint32_t sig, uint32_t uid, uint32_t gid, uint64_t *out_nid);
 uint32_t _notify_lib_register_mach_port(notify_state_t *ns, const char *name, pid_t pid, int token, mach_port_t port, uint32_t uid, uint32_t gid, uint64_t *out_nid);
 uint32_t _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, pid_t pid, int token, int fd, uint32_t uid, uint32_t gid, uint64_t *out_nid);
+uint32_t _notify_lib_register_xpc_event(notify_state_t *ns, const char *name, pid_t pid, int token, uint64_t event_token, uid_t uid, gid_t gid, uint64_t *out_nid);
+uint32_t _notify_lib_register_common_port(notify_state_t *ns, const char *name, pid_t pid, int token, uid_t uid, gid_t gid, uint64_t *out_nid);
 
 uint32_t _notify_lib_set_owner(notify_state_t *ns, const char *name, uint32_t uid, uint32_t gid);
 uint32_t _notify_lib_set_access(notify_state_t *ns, const char *name, uint32_t access);

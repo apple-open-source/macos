@@ -412,11 +412,6 @@ void query_add_not_attribute(const void *key, const void *value, Query *q)
     }
 }
 
-
-/* AUDIT[securityd](done):
- key (ok) is a caller provided, string starting with 'm'.
- value (ok) is a caller provided, non NULL CFTypeRef.
- */
 static void query_add_match(const void *key, const void *value, Query *q)
 {
     /* Record the match key, value in q_pairs. */
@@ -874,6 +869,7 @@ bool query_notify_and_destroy(Query *q, bool ok, CFErrorRef *error) {
 Query *query_create(const SecDbClass *qclass,
                     CFDataRef musr,
                     CFDictionaryRef query,
+                    SecurityClient* client,
                     CFErrorRef *error)
 {
     if (!qclass) {
@@ -926,6 +922,16 @@ Query *query_create(const SecDbClass *qclass,
     q->q_match_begin = q->q_match_end = key_count;
     q->q_item = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
+    if (client) {
+        // If not, don't do anything. Parent apps, schema migration, etc. all need access to all items, clip or no
+        if (client->isAppClip) {
+            secdebug("query", "Client is app clip, adding restriction to query attribute");
+            CFDictionaryAddValue(q->q_item, kSecAttrAppClipItem, kCFBooleanTrue);
+        }
+    } else {
+        secdebug("query", "no client information specified so not tweaking query attributes");
+    }
+
     return q;
 }
 
@@ -949,9 +955,9 @@ bool query_update_parse(Query *q, CFDictionaryRef update,
     return query_parse_with_applier(q, update, query_update_applier, error);
 }
 
-Query *query_create_with_limit(CFDictionaryRef query, CFDataRef musr, CFIndex limit, CFErrorRef *error) {
+Query *query_create_with_limit(CFDictionaryRef query, CFDataRef musr, CFIndex limit, SecurityClient* client, CFErrorRef *error) {
     Query *q;
-    q = query_create(query_get_class(query, error), musr, query, error);
+    q = query_create(query_get_class(query, error), musr, query, client, error);
     if (q) {
         q->q_limit = limit;
         if (!query_parse(q, query, error)) {

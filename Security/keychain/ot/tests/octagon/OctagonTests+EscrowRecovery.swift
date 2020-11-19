@@ -51,12 +51,6 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        // Try to enforce that that CKKS doesn't know about the key hierarchy until Octagon asks it
-        self.holdCloudKitFetches()
-
-        // Note: CKKS will want to upload a TLKShare for its self
-        self.assertAllCKKSViewsUpload(tlkShares: 1)
-
         // Before you call joinWithBottle, you need to call fetchViableBottles.
         let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
         self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
@@ -71,9 +65,6 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
-
-        sleep(1)
-        self.releaseCloudKitFetchHold()
 
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
@@ -93,7 +84,8 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
 
         self.verifyDatabaseMocks()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
     }
 
     func testBottleRestoreEntersOctagonReady() throws {
@@ -254,8 +246,8 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         let differentRestoreExpectation = self.expectation(description: "different restore returns")
         differentDevice.startOctagonStateMachine()
         differentDevice.join(withBottle: bottle.bottleID,
-                            entropy: entropy!,
-                            bottleSalt: self.otcliqueContext.altDSID!) { error in
+                             entropy: entropy!,
+                             bottleSalt: self.otcliqueContext.altDSID!) { error in
                                 XCTAssertNil(error, "error should be nil")
                                 differentRestoreExpectation.fulfill()
         }
@@ -280,8 +272,8 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         restoreContext.join(withBottle: bottle.bottleID,
                             entropy: entropy!,
                             bottleSalt: self.otcliqueContext.altDSID!) { error in
-            XCTAssertNil(error, "error should be nil")
-            restoreExpectation.fulfill()
+                                XCTAssertNil(error, "error should be nil")
+                                restoreExpectation.fulfill()
         }
         self.wait(for: [restoreExpectation], timeout: 10)
 
@@ -468,7 +460,8 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         // We will upload a new TLK for the new peer
         self.assertAllCKKSViewsUpload(tlkShares: 1)
         self.sendContainerChangeWaitForFetch(context: self.cuttlefishContext)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
 
         self.sendContainerChangeWaitForFetch(context: initiatorContext)
         bottleIDs = try OTClique.findOptimalBottleIDs(withContextData: self.otcliqueContext)
@@ -608,7 +601,6 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
                 fetchEscrowContentsException.fulfill()
             }
             self.wait(for: [fetchEscrowContentsException], timeout: 10)
-
         } catch {
             XCTFail("failed to reset clique: \(error)")
         }
@@ -901,12 +893,12 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
                                                       machineID: "c-machine-id",
                                                       otherDevices: [self.mockAuthKit.currentMachineID, deviceBmockAuthKit.currentMachineID])
         let restoreContext = self.manager.context(forContainerName: OTCKContainerName,
-                                                   contextID: "restoreContext",
-                                                   sosAdapter: OTSOSMissingAdapter(),
-                                                   authKitAdapter: restoremockAuthKit,
-                                                   lockStateTracker: self.lockStateTracker,
-                                                   accountStateTracker: self.accountStateTracker,
-                                                   deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
+                                                  contextID: "restoreContext",
+                                                  sosAdapter: OTSOSMissingAdapter(),
+                                                  authKitAdapter: restoremockAuthKit,
+                                                  lockStateTracker: self.lockStateTracker,
+                                                  accountStateTracker: self.accountStateTracker,
+                                                  deviceInformationAdapter: self.makeInitiatorDeviceInfoAdapter())
 
         restoreContext.startOctagonStateMachine()
         let newOTCliqueContext = OTConfigurationContext()
@@ -969,6 +961,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
     }
 
     func testCachedBottleFetch() throws {
+        OctagonSetOptimizationEnabled(false)
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
@@ -1009,15 +1002,12 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
 
         let bottle = self.fakeCuttlefishServer.state.bottles[0]
 
-        self.cuttlefishContext.startOctagonStateMachine()
-        self.startCKAccountStatusMock()
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
-
         // Try to enforce that that CKKS doesn't know about the key hierarchy until Octagon asks it
         self.holdCloudKitFetches()
 
-        // Note: CKKS will want to upload a TLKShare for its self
-        self.assertAllCKKSViewsUpload(tlkShares: 1)
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
         self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
@@ -1046,7 +1036,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
 
         self.verifyDatabaseMocks()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         //now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -1061,6 +1051,10 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.cuttlefishContext.rpcFetchAllViableBottles { viable, _, error in
             XCTAssertNil(error, "should be no error fetching viable bottles")
             XCTAssert(viable?.contains(bottle.bottleID) ?? false, "The bottle we're about to restore should be viable")
+            XCTAssertEqual(viable?.count, 2, "There should be 2 bottles")
+            XCTAssertNotEqual(viable?[0], "", "Bottle should not be empty")
+            XCTAssertNotEqual(viable?[1], "", "Bottle should not be empty")
+
             FetchAllViableBottles.fulfill()
         }
         self.wait(for: [FetchAllViableBottles], timeout: 10)
@@ -1095,6 +1089,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
     }
 
     func testViableBottleCachingAfterJoin() throws {
+        OctagonSetOptimizationEnabled(false)
         let initiatorContextID = "initiator-context-id"
         let bottlerContext = self.makeInitiatorContext(contextID: initiatorContextID)
 
@@ -1140,20 +1135,11 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        // Try to enforce that that CKKS doesn't know about the key hierarchy until Octagon asks it
-        self.holdCloudKitFetches()
-
-        // Note: CKKS will want to upload a TLKShare for its self
-        self.assertAllCKKSViewsUpload(tlkShares: 1)
-
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
         self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
-
-        sleep(1)
-        self.releaseCloudKitFetchHold()
 
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
@@ -1173,7 +1159,8 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
 
         self.verifyDatabaseMocks()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
         //now call fetchviablebottles, we should get the uncached version
         let fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
@@ -1266,20 +1253,11 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.startCKAccountStatusMock()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
-        // Try to enforce that that CKKS doesn't know about the key hierarchy until Octagon asks it
-        self.holdCloudKitFetches()
-
-        // Note: CKKS will want to upload a TLKShare for its self
-        self.assertAllCKKSViewsUpload(tlkShares: 1)
-
         let joinWithBottleExpectation = self.expectation(description: "joinWithBottle callback occurs")
         self.cuttlefishContext.join(withBottle: bottle.bottleID, entropy: entropy!, bottleSalt: self.otcliqueContext.altDSID!) { error in
             XCTAssertNil(error, "error should be nil")
             joinWithBottleExpectation.fulfill()
         }
-
-        sleep(1)
-        self.releaseCloudKitFetchHold()
 
         self.wait(for: [joinWithBottleExpectation], timeout: 100)
 
@@ -1302,7 +1280,8 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
 
         self.verifyDatabaseMocks()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
 
         let bottles: [Bottle] = self.fakeCuttlefishServer.state.bottles
         var bottleToExclude: String?
@@ -1333,8 +1312,9 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.wait(for: [FetchAllViableBottles], timeout: 10)
         self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
 
-        //now call fetchviablebottles, we should get the uncached version
-        fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch UnCached ViableBottles")
+        //now call fetchviablebottles, we should get the cached version
+        fetchUnCachedViableBottlesExpectation = self.expectation(description: "fetch cached ViableBottles")
+        fetchUnCachedViableBottlesExpectation.isInverted = true
 
         self.fakeCuttlefishServer.fetchViableBottlesListener = { request in
             self.fakeCuttlefishServer.fetchViableBottlesListener = nil
@@ -1352,11 +1332,11 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
             FetchAllViableBottles.fulfill()
         }
         self.wait(for: [FetchAllViableBottles], timeout: 10)
-        self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 10)
+        self.wait(for: [fetchUnCachedViableBottlesExpectation], timeout: 1)
     }
 
     func testRecoverTLKSharesSendByPeers() throws {
-        // First, set up the world: two peers, one of which has sent TLKs tto itself and the other
+        // First, set up the world: two peers, one of which has sent TLKs to itself and the other
         let noSelfSharesContext = self.makeInitiatorContext(contextID: "noShares", authKitAdapter: self.mockAuthKit2)
         let allSharesContext = self.makeInitiatorContext(contextID: "allShares", authKitAdapter: self.mockAuthKit3)
 
@@ -1368,7 +1348,7 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         self.assertEnters(context: noSelfSharesContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
 
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: noSelfSharesPeerID, opinion: .trusts, target: allSharesPeerID)),
-                       "noShares should trust allShares")
+                      "noShares should trust allShares")
         XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: noSelfSharesPeerID, opinion: .trusts, target: noSelfSharesPeerID)),
                       "No shares should trust itself")
 
@@ -1376,17 +1356,123 @@ class OctagonEscrowRecoveryTests: OctagonTestsBase {
         try self.putSelfTLKSharesInCloudKit(context: allSharesContext)
         try self.putAllTLKSharesInCloudKit(to: noSelfSharesContext, from: allSharesContext)
 
-        try self.ckksZones.forEach { zone in
-            XCTAssertFalse(try self.tlkShareInCloudKit(receiverPeerID: noSelfSharesPeerID, senderPeerID: noSelfSharesPeerID, zoneID: zone as! CKRecordZone.ID), "Should not have self shares for noSelfShares")
-            XCTAssertTrue(try self.tlkShareInCloudKit(receiverPeerID: noSelfSharesPeerID, senderPeerID: allSharesPeerID, zoneID: zone as! CKRecordZone.ID), "Should have a share for noSelfShares from allShares")
+        self.ckksZones.forEach { zone in
+            XCTAssertFalse(self.tlkShareInCloudKit(receiverPeerID: noSelfSharesPeerID, senderPeerID: noSelfSharesPeerID, zoneID: zone as! CKRecordZone.ID), "Should not have self shares for noSelfShares")
+            XCTAssertTrue(self.tlkShareInCloudKit(receiverPeerID: noSelfSharesPeerID, senderPeerID: allSharesPeerID, zoneID: zone as! CKRecordZone.ID), "Should have a share for noSelfShares from allShares")
         }
 
         // Now, recover from noSelfShares
-        self.assertAllCKKSViewsUpload(tlkShares: 1)
         self.assertJoinViaEscrowRecovery(joiningContext: self.cuttlefishContext, sponsor: noSelfSharesContext)
         // And CKKS should enter ready!
         self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+    }
+
+    func testRecoverTLKSharesSentByPeersAfterCKKSFetchTimeout() throws {
+        // First, set up the world: two peers, one of which has sent TLKs to itself and the other
+        let noSelfSharesContext = self.makeInitiatorContext(contextID: "noShares", authKitAdapter: self.mockAuthKit2)
+        let allSharesContext = self.makeInitiatorContext(contextID: "allShares", authKitAdapter: self.mockAuthKit3)
+
+        self.startCKAccountStatusMock()
+        let noSelfSharesPeerID = self.assertResetAndBecomeTrusted(context: noSelfSharesContext)
+        let allSharesPeerID = self.assertJoinViaEscrowRecovery(joiningContext: allSharesContext, sponsor: noSelfSharesContext)
+
+        self.sendContainerChangeWaitForFetch(context: noSelfSharesContext)
+        self.assertEnters(context: noSelfSharesContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: noSelfSharesPeerID, opinion: .trusts, target: allSharesPeerID)),
+                      "noShares should trust allShares")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: noSelfSharesPeerID, opinion: .trusts, target: noSelfSharesPeerID)),
+                      "No shares should trust itself")
+
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: allSharesContext)
+        try self.putAllTLKSharesInCloudKit(to: noSelfSharesContext, from: allSharesContext)
+
+        self.ckksZones.forEach { zone in
+            XCTAssertFalse(self.tlkShareInCloudKit(receiverPeerID: noSelfSharesPeerID, senderPeerID: noSelfSharesPeerID, zoneID: zone as! CKRecordZone.ID), "Should not have self shares for noSelfShares")
+            XCTAssertTrue(self.tlkShareInCloudKit(receiverPeerID: noSelfSharesPeerID, senderPeerID: allSharesPeerID, zoneID: zone as! CKRecordZone.ID), "Should have a share for noSelfShares from allShares")
+        }
+
+        // Simulate CKKS fetches taking forever. In practice, this is caused by many round-trip fetches to CK happening over minutes.
+        self.holdCloudKitFetches()
+
+        self.assertJoinViaEscrowRecovery(joiningContext: self.cuttlefishContext, sponsor: noSelfSharesContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateFetch, within: 10 * NSEC_PER_SEC)
+
+        // now, let CKKS fetch and become ready
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
+        self.releaseCloudKitFetchHold()
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+    }
+
+    func testJoinWithBottleCreatedBeforeSignin() throws {
+        // A remote device creates the keys before CKKS starts up at all
+        self.putFakeKeyHierarchiesInCloudKit()
+
+        self.startCKAccountStatusMock()
+
+        let remote = self.makeInitiatorContext(contextID: "remote")
+        let remotePeerID = self.assertResetAndBecomeTrusted(context: remote)
+
+        // Note that depending on when CKKS starts up, it may or may not have received this in its initial fetch. But, Octagon should force a fetch during signin anyway!
+        try self.putSelfTLKSharesInCloudKit(context: remote)
+
+        let entropy = try self.loadSecret(label: remotePeerID)
+        XCTAssertNotNil(entropy, "entropy should not be nil")
+
+        self.assertJoinViaEscrowRecovery(joiningContext: self.cuttlefishContext, sponsor: remote)
+
+        self.verifyDatabaseMocks()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
+    }
+
+    func testJoinWithBottleCreatedAfterInitialFetch() throws {
+        // Our local machine signs into CloudKit, and becomes untrusted
+
+        self.startCKAccountStatusMock()
+
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTLKCreation, within: 10 * NSEC_PER_SEC)
+
+        // Now, another device comes along and performs an establish
+        let remote = self.makeInitiatorContext(contextID: "remote")
+        let remotePeerID = self.assertResetAndBecomeTrusted(context: remote)
+
+        let entropy = try self.loadSecret(label: remotePeerID)
+        XCTAssertNotNil(entropy, "entropy should not be nil")
+
+        // Fake that this peer also created some TLKShares for itself
+        self.putFakeKeyHierarchiesInCloudKit()
+        try self.putSelfTLKSharesInCloudKit(context: remote)
+
+        let bottle = self.fakeCuttlefishServer.state.bottles[0]
+
+        // And now our local machine is told to restore from the newly-joined peer
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        self.otcliqueContext.sbd = OTMockSecureBackup(bottleID: bottle.bottleID, entropy: entropy)
+
+        let newClique: OTClique
+        do {
+            newClique = try OTClique.performEscrowRecovery(withContextData: self.otcliqueContext, escrowArguments: [:])
+            XCTAssertNotNil(newClique, "newClique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored recovering: \(error)")
+            throw error
+        }
+
+        self.verifyDatabaseMocks()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertTLKSharesInCloudKit(receiver: self.cuttlefishContext, sender: self.cuttlefishContext)
     }
 }
 

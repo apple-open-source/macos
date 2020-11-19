@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,33 +24,80 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "MIMETypeRegistry.h"
+#import "config.h"
+#import "MIMETypeRegistry.h"
 
-#include <pal/spi/cocoa/NSURLFileTypeMappingsSPI.h>
+#import <pal/spi/cocoa/CoreServicesSPI.h>
+#import <pal/spi/cocoa/NSURLFileTypeMappingsSPI.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 namespace WebCore {
 
-String MIMETypeRegistry::getMIMETypeForExtension(const String& extension)
+static HashMap<String, HashSet<String>>& extensionsForMIMETypeMap()
+{
+    static auto extensionsForMIMETypeMap = makeNeverDestroyed([] {
+        HashMap<String, HashSet<String>> map;
+
+        auto addExtension = [&](const String& type, const String& extension) {
+            map.add(type, HashSet<String>()).iterator->value.add(extension);
+        };
+
+        auto addExtensions = [&](const String& type, NSArray<NSString *> *extensions) {
+            size_t pos = type.reverseFind('/');
+
+            ASSERT(pos != notFound);
+            auto wildcardMIMEType = makeString(StringView(type).left(pos), "/*"_s);
+
+            for (NSString *extension in extensions) {
+                // Add extension to wildcardMIMEType, for example add "png" to "image/*"
+                addExtension(wildcardMIMEType, extension);
+                // Add extension to its mimeType, for example add "png" to "image/png"
+                addExtension(type, extension);
+            }
+        };
+
+        auto allUTIs = adoptCF(_UTCopyDeclaredTypeIdentifiers());
+
+        for (NSString *uti in (__bridge NSArray<NSString *> *)allUTIs.get()) {
+            auto type = adoptCF(UTTypeCopyPreferredTagWithClass((__bridge CFStringRef)uti, kUTTagClassMIMEType));
+            if (!type)
+                continue;
+            auto extensions = adoptCF(UTTypeCopyAllTagsWithClass((__bridge CFStringRef)uti, kUTTagClassFilenameExtension));
+            if (!extensions || !CFArrayGetCount(extensions.get()))
+                continue;
+            addExtensions(type.get(), (__bridge NSArray<NSString *> *)extensions.get());
+        }
+
+        return map;
+    }());
+
+    return extensionsForMIMETypeMap;
+}
+
+static Vector<String> extensionsForWildcardMIMEType(const String& type)
+{
+    Vector<String> extensions;
+
+    auto iterator = extensionsForMIMETypeMap().find(type);
+    if (iterator != extensionsForMIMETypeMap().end())
+        extensions.appendRange(iterator->value.begin(), iterator->value.end());
+
+    return extensions;
+}
+
+String MIMETypeRegistry::mimeTypeForExtension(const String& extension)
 {
     return [[NSURLFileTypeMappings sharedMappings] MIMETypeForExtension:(NSString *)extension];
 }
 
-Vector<String> MIMETypeRegistry::getExtensionsForMIMEType(const String& type)
+Vector<String> MIMETypeRegistry::extensionsForMIMEType(const String& type)
 {
-    NSArray *stringsArray = [[NSURLFileTypeMappings sharedMappings] extensionsForMIMEType:(NSString *)type];
-    Vector<String> stringsVector = Vector<String>();
-    unsigned count = [stringsArray count];
-    if (count > 0) {
-        NSEnumerator* enumerator = [stringsArray objectEnumerator];
-        NSString* string;
-        while ((string = [enumerator nextObject]) != nil)
-            stringsVector.append(string);
-    }
-    return stringsVector;
+    if (type.endsWith('*'))
+        return extensionsForWildcardMIMEType(type);
+    return makeVector<String>([[NSURLFileTypeMappings sharedMappings] extensionsForMIMEType:type]);
 }
 
-String MIMETypeRegistry::getPreferredExtensionForMIMEType(const String& type)
+String MIMETypeRegistry::preferredExtensionForMIMEType(const String& type)
 {
     // System Previews accept some non-standard MIMETypes, so we can't rely on
     // the file type mappings.

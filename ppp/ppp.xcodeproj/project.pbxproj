@@ -11,7 +11,6 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 72DD79D4091AA0ED00EE4DEA /* Build configuration list for PBXAggregateTarget "ppp (Aggregate)" */;
 			buildPhases = (
-				23055ECF05E1807F00EAB16F /* CopyFiles */,
 			);
 			dependencies = (
 				230560D605E1808C00EAB16F /* PBXTargetDependency */,
@@ -29,12 +28,15 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 72DD79B4091AA0ED00EE4DEA /* Build configuration list for PBXAggregateTarget "Drivers (Aggregate)" */;
 			buildPhases = (
-				23055F1C05E1807F00EAB16F /* CopyFiles */,
 			);
 			dependencies = (
 				230560E605E1808C00EAB16F /* PBXTargetDependency */,
 				230560E805E1808C00EAB16F /* PBXTargetDependency */,
+				C4F53C76242C307700A1C02A /* PBXTargetDependency */,
+				C4F53C7A242C308100A1C02A /* PBXTargetDependency */,
 				230560EC05E1808C00EAB16F /* PBXTargetDependency */,
+				C4F53C74242C306F00A1C02A /* PBXTargetDependency */,
+				C4F53C78242C307B00A1C02A /* PBXTargetDependency */,
 			);
 			name = "Drivers (Aggregate)";
 			productName = "Drivers (Aggregate)";
@@ -53,7 +55,6 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 72DD797C091AA0ED00EE4DEA /* Build configuration list for PBXAggregateTarget "Helpers (Aggregate)" */;
 			buildPhases = (
-				23055F5C05E1808000EAB16F /* CopyFiles */,
 			);
 			dependencies = (
 				230560F205E1808C00EAB16F /* PBXTargetDependency */,
@@ -83,10 +84,10 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 728CB6310D404ECD00B1964E /* Build configuration list for PBXAggregateTarget "Drivers (Aggregate) EMBEDDED" */;
 			buildPhases = (
-				728CB62F0D404ECD00B1964E /* CopyFiles */,
 			);
 			dependencies = (
 				728CB6960D404F9F00B1964E /* PBXTargetDependency */,
+				C4F53C84242C311400A1C02A /* PBXTargetDependency */,
 			);
 			name = "Drivers (Aggregate) EMBEDDED";
 			productName = "Drivers (Aggregate)";
@@ -95,7 +96,6 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 72A56FFF0D1B5E2300DFDE1E /* Build configuration list for PBXAggregateTarget "ppp (Aggregate) EMBEDDED" */;
 			buildPhases = (
-				72A56FEF0D1B5E2300DFDE1E /* CopyFiles */,
 			);
 			dependencies = (
 				72A56FE10D1B5E2300DFDE1E /* PBXTargetDependency */,
@@ -111,7 +111,6 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 72A570140D1B5E9400DFDE1E /* Build configuration list for PBXAggregateTarget "Helpers (Aggregate) EMBEDDED" */;
 			buildPhases = (
-				72A570120D1B5E9400DFDE1E /* CopyFiles */,
 			);
 			dependencies = (
 				72C265CE0D412950003A6CE8 /* PBXTargetDependency */,
@@ -119,13 +118,41 @@
 			name = "Helpers (Aggregate) EMBEDDED";
 			productName = "Helpers (Aggregate)";
 		};
+		C4E1F315241C4C2F00F8B492 /* ppp-base */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C4E1F319241C4C2F00F8B492 /* Build configuration list for PBXAggregateTarget "ppp-base" */;
+			buildPhases = (
+			);
+			dependencies = (
+				C4E1F31B241C4C4D00F8B492 /* PBXTargetDependency */,
+				C4E1F323241C4DD200F8B492 /* PBXTargetDependency */,
+				C4E1F31D241C4C5F00F8B492 /* PBXTargetDependency */,
+				C4E1F31F241C4C6900F8B492 /* PBXTargetDependency */,
+				C4E1F3D3241C5E7100F8B492 /* PBXTargetDependency */,
+			);
+			name = "ppp-base";
+			productName = "ppp-base";
+		};
+		C4E1F38D241C5D2A00F8B492 /* Drivers-base */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = C4E1F391241C5D2A00F8B492 /* Build configuration list for PBXAggregateTarget "Drivers-base" */;
+			buildPhases = (
+			);
+			dependencies = (
+				C4E1F3CE241C5DBB00F8B492 /* PBXTargetDependency */,
+				C4F53C7E242C30AF00A1C02A /* PBXTargetDependency */,
+				C4F53C82242C30BF00A1C02A /* PBXTargetDependency */,
+				C4F53C7C242C30A800A1C02A /* PBXTargetDependency */,
+				C4F53C80242C30B900A1C02A /* PBXTargetDependency */,
+			);
+			name = "Drivers-base";
+			productName = "Drivers-base";
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
 		06B5E7F61CC1C650008D655E /* MiniTerm.xib in Resources */ = {isa = PBXBuildFile; fileRef = 06B5E7F41CC1C650008D655E /* MiniTerm.xib */; };
-		0C0F0E3B0B72CF730046310D /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
 		23022728062DA4C10033908D /* pppcontroller.h in Headers */ = {isa = PBXBuildFile; fileRef = 23022727062DA4C10033908D /* pppcontroller.h */; };
-		23055ED205E1807F00EAB16F /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055ED705E1807F00EAB16F /* scnc_client.h in Headers */ = {isa = PBXBuildFile; fileRef = 7129A445FFF956F311CA2CDC /* scnc_client.h */; };
 		23055ED905E1807F00EAB16F /* ppp_manager.h in Headers */ = {isa = PBXBuildFile; fileRef = 7129A447FFF956F311CA2CDC /* ppp_manager.h */; };
 		23055EDA05E1807F00EAB16F /* ppp_msg.h in Headers */ = {isa = PBXBuildFile; fileRef = 7129A448FFF956F311CA2CDC /* ppp_msg.h */; settings = {ATTRIBUTES = (); }; };
@@ -136,9 +163,6 @@
 		23055EE405E1807F00EAB16F /* ppp_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 7129A45DFFF956F311CA2CDC /* ppp_manager.c */; settings = {ATTRIBUTES = (); }; };
 		23055EE705E1807F00EAB16F /* scnc_main.c in Sources */ = {isa = PBXBuildFile; fileRef = 7129A463FFF956F311CA2CDC /* scnc_main.c */; settings = {ATTRIBUTES = (); }; };
 		23055EE805E1807F00EAB16F /* scnc_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 01A345D600C4684A7F000001 /* scnc_client.c */; };
-		23055EEA05E1807F00EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
-		23055EEB05E1807F00EAB16F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
-		23055EEC05E1807F00EAB16F /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA43F57A00F2A22504CA2CDC /* IOKit.framework */; };
 		23055EF705E1807F00EAB16F /* if_ppp.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C5C00754CF87F000001 /* if_ppp.h */; };
 		23055EF805E1807F00EAB16F /* if_ppplink.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C5D00754CF87F000001 /* if_ppplink.h */; };
 		23055EF905E1807F00EAB16F /* ppp_defs.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C5F00754CF87F000001 /* ppp_defs.h */; };
@@ -161,10 +185,8 @@
 		23055F0E05E1807F00EAB16F /* slcompress.c in Sources */ = {isa = PBXBuildFile; fileRef = 014A7C5B00754CF87F000001 /* slcompress.c */; };
 		23055F0F05E1807F00EAB16F /* ppp_ipv6.c in Sources */ = {isa = PBXBuildFile; fileRef = FA2201DB0368D0C304CA2CDC /* ppp_ipv6.c */; };
 		23055F1005E1807F00EAB16F /* ppp_ip.c in Sources */ = {isa = PBXBuildFile; fileRef = FA2201D70368D05504CA2CDC /* ppp_ip.c */; };
-		23055F1E05E1807F00EAB16F /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055F2305E1807F00EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055F2805E1807F00EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 01451890007262CE7F000001 /* main.c */; };
-		23055F2A05E1807F00EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
 		23055F3505E1808000EAB16F /* pppoe_dlil.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C8200754E8E7F000001 /* pppoe_dlil.h */; };
 		23055F3605E1808000EAB16F /* pppoe_proto.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C8300754E8E7F000001 /* pppoe_proto.h */; };
 		23055F3705E1808000EAB16F /* pppoe_rfc.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C8400754E8E7F000001 /* pppoe_rfc.h */; };
@@ -180,7 +202,6 @@
 		23055F4D05E1808000EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = FA86265F03F42AF604CA2DDA /* main.c */; };
 		23055F4F05E1808000EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA86267E03F42E5604CA2DDA /* CoreFoundation.framework */; };
 		23055F5005E1808000EAB16F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 838BE5EF053C9D9A00F0D0CB /* SystemConfiguration.framework */; };
-		23055F5E05E1808000EAB16F /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055F6F05E1808100EAB16F /* MiniTerm.h in Headers */ = {isa = PBXBuildFile; fileRef = 013F974C001901697F000001 /* MiniTerm.h */; };
 		23055F7005E1808100EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055F7305E1808100EAB16F /* MiniTerm.iconheader in Resources */ = {isa = PBXBuildFile; fileRef = 013F974D001901697F000001 /* MiniTerm.iconheader */; };
@@ -191,12 +212,10 @@
 		23055F8105E1808100EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055F8305E1808100EAB16F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 071EC566009889367F000001 /* Localizable.strings */; };
 		23055F8605E1808100EAB16F /* Dialogs.c in Sources */ = {isa = PBXBuildFile; fileRef = 071EC564009888F57F000001 /* Dialogs.c */; };
-		23055F8805E1808100EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
 		23055FC805E1808200EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		23055FCA05E1808200EAB16F /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 018CF39F00BDC8447F000001 /* NetworkConnect.icns */; };
 		23055FCC05E1808200EAB16F /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F52C515801F3540C01CA2DE5 /* Localizable.strings */; };
 		23055FCE05E1808200EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = F5592B7E01E2B47B01EA6C3B /* main.c */; };
-		23055FD005E1808200EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
 		23055FD105E1808200EAB16F /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5B1860E029348A501FE750F /* ApplicationServices.framework */; };
 		23055FD805E1808300EAB16F /* ccp.h in Headers */ = {isa = PBXBuildFile; fileRef = F51AB0E20235C6910160DF93 /* ccp.h */; };
 		23055FD905E1808300EAB16F /* chap_ms.h in Headers */ = {isa = PBXBuildFile; fileRef = F51AB0E40235C6910160DF93 /* chap_ms.h */; };
@@ -260,20 +279,14 @@
 		2305602305E1808300EAB16F /* vpnplugins.c in Sources */ = {isa = PBXBuildFile; fileRef = F5B82BDC03D7902401CA2DE3 /* vpnplugins.c */; };
 		2305602405E1808300EAB16F /* vpnoptions.c in Sources */ = {isa = PBXBuildFile; fileRef = F5130EDC03F04FD701CA2DE3 /* vpnoptions.c */; };
 		2305602505E1808300EAB16F /* sys_MacOSX.c in Sources */ = {isa = PBXBuildFile; fileRef = F6818E5503F5F45601521AA5 /* sys_MacOSX.c */; };
-		2305602705E1808300EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
-		2305602805E1808300EAB16F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
-		2305602905E1808300EAB16F /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2562EB670469BA5F005239BE /* DirectoryService.framework */; };
 		2305602C05E1808300EAB16F /* vpnd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = F50592A103DDFFB301CA2DE3 /* vpnd.8 */; };
 		2305603305E1808400EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		2305603505E1808400EAB16F /* pppstats.c in Sources */ = {isa = PBXBuildFile; fileRef = F51AB1820235CC1C0160DF93 /* pppstats.c */; };
 		2305603905E1808400EAB16F /* pppstats.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FAAAD5FA023EA44604CA2CDC /* pppstats.8 */; };
 		2305604505E1808400EAB16F /* ppp_msg.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7129A448FFF956F311CA2CDC /* ppp_msg.h */; };
-		2305604605E1808400EAB16F /* if_ppplink.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5D00754CF87F000001 /* if_ppplink.h */; };
 		2305604705E1808400EAB16F /* if_ppp.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5C00754CF87F000001 /* if_ppp.h */; };
 		2305604805E1808400EAB16F /* ppp_defs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5F00754CF87F000001 /* ppp_defs.h */; };
 		2305604905E1808400EAB16F /* ppp_comp.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C6600754CF87F000001 /* ppp_comp.h */; };
-		2305604A05E1808400EAB16F /* RASSchemaDefinitions.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2562EB580469B8D2005239BE /* RASSchemaDefinitions.h */; };
-		2305604B05E1808400EAB16F /* eap_plugin.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2364AD260466D36B00A8C900 /* eap_plugin.h */; };
 		2305605305E1808500EAB16F /* l2tp.h in Headers */ = {isa = PBXBuildFile; fileRef = F68A744A03A1B0E301DF2EE2 /* l2tp.h */; };
 		2305605405E1808500EAB16F /* ipsec_strerror.h in Headers */ = {isa = PBXBuildFile; fileRef = FA76575303EB2B7504CA2DDA /* ipsec_strerror.h */; };
 		2305605505E1808500EAB16F /* libpfkey.h in Headers */ = {isa = PBXBuildFile; fileRef = FA76575403EB2B7504CA2DDA /* libpfkey.h */; };
@@ -300,7 +313,6 @@
 		2305608505E1808600EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		2305608805E1808600EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = F5BE620003D8906F01CA2DE3 /* main.c */; };
 		2305608C05E1808600EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F514B5BB03E1CFFE01CA2DE3 /* CoreFoundation.framework */; };
-		2305608D05E1808600EAB16F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
 		2305609805E1808800EAB16F /* radlib_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 238AE03F044B162D002F20A4 /* radlib_private.h */; };
 		2305609905E1808800EAB16F /* radlib_vs.h in Headers */ = {isa = PBXBuildFile; fileRef = 238AE040044B162D002F20A4 /* radlib_vs.h */; };
 		2305609A05E1808800EAB16F /* radlib.h in Headers */ = {isa = PBXBuildFile; fileRef = 238AE042044B162D002F20A4 /* radlib.h */; };
@@ -312,34 +324,21 @@
 		230560A905E1808900EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		230560AC05E1808900EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 2562EB520469B806005239BE /* main.c */; };
 		230560AD05E1808900EAB16F /* DSUser.c in Sources */ = {isa = PBXBuildFile; fileRef = 2562EB540469B824005239BE /* DSUser.c */; };
-		230560AF05E1808900EAB16F /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2562EB670469BA5F005239BE /* DirectoryService.framework */; };
-		230560B005E1808900EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
 		230560B105E1808900EAB16F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
-		230560B205E1808900EAB16F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
 		230560B905E1808A00EAB16F /* RASSchemaDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 2562EB580469B8D2005239BE /* RASSchemaDefinitions.h */; };
 		230560BA05E1808A00EAB16F /* DSUser.h in Headers */ = {isa = PBXBuildFile; fileRef = 2562EB500469B7E6005239BE /* DSUser.h */; };
 		230560BB05E1808A00EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		230560BE05E1808A00EAB16F /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 2562EB560469B889005239BE /* main.c */; };
 		230560BF05E1808A00EAB16F /* DSUser.c in Sources */ = {isa = PBXBuildFile; fileRef = 2562EB540469B824005239BE /* DSUser.c */; };
-		230560C105E1808A00EAB16F /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2562EB670469BA5F005239BE /* DirectoryService.framework */; };
-		230560C205E1808A00EAB16F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
-		230560C305E1808A00EAB16F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
 		230560CA05E1808B00EAB16F /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		230560CC05E1808B00EAB16F /* chat.c in Sources */ = {isa = PBXBuildFile; fileRef = 23F53318052E175A0011A2BC /* chat.c */; };
 		230560D005E1808B00EAB16F /* chat.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23F53317052E175A0011A2BC /* chat.8 */; };
-		2305610A05E1808C00EAB16F /* PPPDialogs.ppp in Copy Files */ = {isa = PBXBuildFile; fileRef = 23055F8C05E1808100EAB16F /* PPPDialogs.ppp */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		2305610C05E1808C00EAB16F /* PPPoE.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23055F4705E1808000EAB16F /* PPPoE.kext */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		2305610D05E1808C00EAB16F /* PPPoE.vpn in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23055F5405E1808000EAB16F /* PPPoE.vpn */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		2305611105E1808C00EAB16F /* L2TP.vpn in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2305609105E1808700EAB16F /* L2TP.vpn */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
-		2305611205E1808C00EAB16F /* L2TP.kext in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2305607E05E1808600EAB16F /* L2TP.kext */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		2342E4E106DA54F20019B94A /* eapkrb_client.c in Sources */ = {isa = PBXBuildFile; fileRef = 2342E4CB06DA54F20019B94A /* eapkrb_client.c */; };
 		2342E4E306DA54F20019B94A /* eapkrb_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 2342E4CD06DA54F20019B94A /* eapkrb_server.c */; };
 		2342E4E506DA54F20019B94A /* eapkrb_ui.c in Sources */ = {isa = PBXBuildFile; fileRef = 2342E4CF06DA54F20019B94A /* eapkrb_ui.c */; };
 		2342E4E706DA54F20019B94A /* eapkrb_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 2342E4D106DA54F20019B94A /* eapkrb_utils.c */; };
 		2342E4E906DA54F20019B94A /* eapkrb.c in Sources */ = {isa = PBXBuildFile; fileRef = 2342E4D306DA54F20019B94A /* eapkrb.c */; };
 		2342E4FB06DA55980019B94A /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2342E4F906DA55980019B94A /* Kerberos.framework */; };
-		2342E50106DA56D80019B94A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
-		2342E52206DA57190019B94A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
 		2363A9D706DFFDE0007D0E7A /* ipsec_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 2395013C06504CF800ECAC9B /* ipsec_utils.c */; };
 		2363A9FF06E00493007D0E7A /* cf_utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 2363A9FD06E00493007D0E7A /* cf_utils.h */; };
 		2363AA0006E00493007D0E7A /* cf_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 2363A9FE06E00493007D0E7A /* cf_utils.c */; };
@@ -385,16 +384,11 @@
 		7208653416A762F0004A5747 /* controller_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 7208653316A762F0004A5747 /* controller_options.h */; };
 		7208653516A762F0004A5747 /* controller_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 7208653316A762F0004A5747 /* controller_options.h */; };
 		72117C6409EC519A008EC1A2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
-		723FE96709E5C4AA00845480 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
-		72515E2019A52436003F9E7C /* pppd-entitlement-osx.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72515E1F19A52436003F9E7C /* pppd-entitlement-osx.plist */; };
 		7251DFEF09212AAA00B94FFF /* radius_eap.c in Sources */ = {isa = PBXBuildFile; fileRef = 7251DFEE09212AAA00B94FFF /* radius_eap.c */; };
 		7251E01309212CF000B94FFF /* radius.h in Headers */ = {isa = PBXBuildFile; fileRef = 7251E01209212CF000B94FFF /* radius.h */; };
-		72584E201726019800C7EBE8 /* AggregateDictionary.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */; };
 		725D8ABC0DA5C12400017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8ABA0DA5C12400017E37 /* Localizable.strings */; };
 		725D8AC30DA5C14800017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8AC10DA5C14800017E37 /* Localizable.strings */; };
 		725D8AD50DA5C45700017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8AD30DA5C45700017E37 /* Localizable.strings */; };
-		727412031728A3E700221EE3 /* diagnostics.c in Sources */ = {isa = PBXBuildFile; fileRef = 727412021728A2A600221EE3 /* diagnostics.c */; };
-		728CB6300D404ECD00B1964E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		728CB66D0D404F8C00B1964E /* l2tp.h in Headers */ = {isa = PBXBuildFile; fileRef = F68A744A03A1B0E301DF2EE2 /* l2tp.h */; };
 		728CB66E0D404F8C00B1964E /* ipsec_strerror.h in Headers */ = {isa = PBXBuildFile; fileRef = FA76575303EB2B7504CA2DDA /* ipsec_strerror.h */; };
 		728CB66F0D404F8C00B1964E /* libpfkey.h in Headers */ = {isa = PBXBuildFile; fileRef = FA76575403EB2B7504CA2DDA /* libpfkey.h */; };
@@ -434,14 +428,8 @@
 		7290FECE0D3318CC0027CEAD /* scnc_mach_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B70764061B74AE008BA483 /* scnc_mach_server.c */; };
 		7290FECF0D3318CC0027CEAD /* scnc_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 23B708FF061CA53B008BA483 /* scnc_utils.c */; };
 		7290FED00D3318CC0027CEAD /* ipsec_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 23EC339A0CD7E4BB005AB2A9 /* ipsec_manager.c */; };
-		7290FED20D3318CC0027CEAD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
-		7290FED30D3318CC0027CEAD /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
-		7290FED40D3318CC0027CEAD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA43F57A00F2A22504CA2CDC /* IOKit.framework */; };
-		7290FED70D3318CC0027CEAD /* PPPDialogs.ppp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23055F8C05E1808100EAB16F /* PPPDialogs.ppp */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		7294F16A0CE559EF0084954B /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = FA76575503EB2B7504CA2DDA /* pfkey.c */; };
 		72A56F870D1B58EB00DFDE1E /* ipsec_strerror.h in Headers */ = {isa = PBXBuildFile; fileRef = FA76575303EB2B7504CA2DDA /* ipsec_strerror.h */; };
-		72A56FF10D1B5E2300DFDE1E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
-		72A570130D1B5E9400DFDE1E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		72B41EC515ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
 		72B41EC615ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
 		72B41EC715ED9F4B00C31217 /* algorithm_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B41EC415ED9F4B00C31217 /* algorithm_types.h */; };
@@ -542,13 +530,10 @@
 		72FDE5000D41256B007C4F13 /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		72FDE5030D41256B007C4F13 /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 018CF39F00BDC8447F000001 /* NetworkConnect.icns */; };
 		72FDE5050D41256B007C4F13 /* Dialogs.c in Sources */ = {isa = PBXBuildFile; fileRef = 071EC564009888F57F000001 /* Dialogs.c */; };
-		72FDE5070D41256B007C4F13 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
 		7827408617049C71006CF9E1 /* scnc_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 7827408517049C71006CF9E1 /* scnc_cache.c */; };
 		7827408717049C71006CF9E1 /* scnc_cache.c in Sources */ = {isa = PBXBuildFile; fileRef = 7827408517049C71006CF9E1 /* scnc_cache.c */; };
 		7827408917049C93006CF9E1 /* scnc_cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 7827408817049C93006CF9E1 /* scnc_cache.h */; };
 		7827408A17049C93006CF9E1 /* scnc_cache.h in Headers */ = {isa = PBXBuildFile; fileRef = 7827408817049C93006CF9E1 /* scnc_cache.h */; };
-		834679F60DCFE34700FCABA3 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */; };
-		8376A9630DCA88ED0084EA79 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */; };
 		9AFD09B217305E94003BF988 /* scnc_utils_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AFD09B017305E58003BF988 /* scnc_utils_common.c */; };
 		9AFD09B317305EC2003BF988 /* scnc_utils_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AFD09B017305E58003BF988 /* scnc_utils_common.c */; };
 		9AFD09B417305EC8003BF988 /* scnc_utils_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 9AFD09B017305E58003BF988 /* scnc_utils_common.c */; };
@@ -559,28 +544,48 @@
 		B0F8AFCB16A074D500545847 /* pppcontroller_types.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23B70767061B74AE008BA483 /* pppcontroller_types.h */; };
 		B0F8AFCC16A074D500545847 /* pppcontroller.defs in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23B70768061B74AE008BA483 /* pppcontroller.defs */; };
 		B0F8AFCD16A074D500545847 /* ppp_msg.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7129A448FFF956F311CA2CDC /* ppp_msg.h */; };
-		B0F8AFCE16A074D500545847 /* if_ppplink.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5D00754CF87F000001 /* if_ppplink.h */; };
-		B0F8AFCF16A074D500545847 /* if_ppp.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5C00754CF87F000001 /* if_ppp.h */; };
 		B0F8AFD016A074D500545847 /* ppp_defs.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5F00754CF87F000001 /* ppp_defs.h */; };
 		B0F8AFD116A074D500545847 /* ppp_comp.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C6600754CF87F000001 /* ppp_comp.h */; };
-		B0F8AFD216A074D500545847 /* RASSchemaDefinitions.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2562EB580469B8D2005239BE /* RASSchemaDefinitions.h */; };
-		B0F8AFD316A074D500545847 /* eap_plugin.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2364AD260466D36B00A8C900 /* eap_plugin.h */; };
 		B0F8AFD416A074D500545847 /* pppcontroller_mach_defines.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = B08969281640385600E79570 /* pppcontroller_mach_defines.h */; };
 		B0F8AFD516A074D500545847 /* PPPControllerPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */; };
-		BA1E33C50F3FFDF200E52690 /* messageTracer.h in Headers */ = {isa = PBXBuildFile; fileRef = BA1E33C20F3FFDF200E52690 /* messageTracer.h */; };
-		BA1E33C60F3FFDF200E52690 /* sessionTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA1E33C30F3FFDF200E52690 /* sessionTracer.c */; };
-		BA1E33C70F3FFDF200E52690 /* sessionTracer.h in Headers */ = {isa = PBXBuildFile; fileRef = BA1E33C40F3FFDF200E52690 /* sessionTracer.h */; };
 		BAC29FA510D493F9007AC660 /* nat_port_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC29FA410D493F9007AC660 /* nat_port_mapping.c */; };
 		BAC29FA610D493F9007AC660 /* nat_port_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC29FA410D493F9007AC660 /* nat_port_mapping.c */; };
 		C40EF97B189199F300EEBF23 /* ne_sm_bridge_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C40EF979189199F300EEBF23 /* ne_sm_bridge_private.h */; };
 		C40EF97C189199F300EEBF23 /* ne_sm_bridge_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C40EF979189199F300EEBF23 /* ne_sm_bridge_private.h */; };
 		C40EF97D189199F300EEBF23 /* ne_sm_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = C40EF97A189199F300EEBF23 /* ne_sm_bridge.c */; };
 		C40EF97E189199F300EEBF23 /* ne_sm_bridge.c in Sources */ = {isa = PBXBuildFile; fileRef = C40EF97A189199F300EEBF23 /* ne_sm_bridge.c */; };
-		C43B7268192EA7ED00F07EE6 /* PPPController-Info-ios.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C43B7267192EA7ED00F07EE6 /* PPPController-Info-ios.plist */; };
+		C4AF2CC523BFF1250063719A /* PPPDialogs.ppp in Copy Files */ = {isa = PBXBuildFile; fileRef = 23055F8C05E1808100EAB16F /* PPPDialogs.ppp */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C4AF2CC623BFF1420063719A /* PPPDialogs.ppp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72FDE50D0D41256B007C4F13 /* PPPDialogs.ppp */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		C4AF2CC723BFF2DC0063719A /* if_ppp.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5C00754CF87F000001 /* if_ppp.h */; };
+		C4AF2CCA23BFF44A0063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CCC23BFF4620063719A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */; };
+		C4AF2CCD23BFF4790063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CCE23BFF48C0063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CD023BFF49B0063719A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCF23BFF49B0063719A /* IOKit.framework */; };
+		C4AF2CD123BFF4A40063719A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */; };
+		C4AF2CD223BFF4B70063719A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */; };
+		C4AF2CD323BFF4C80063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CD423BFF4D90063719A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */; };
+		C4AF2CD523BFF4EC0063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CD723BFF51C0063719A /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CD623BFF51C0063719A /* DirectoryService.framework */; };
+		C4AF2CD823BFF52D0063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CD923BFF5330063719A /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CD623BFF51C0063719A /* DirectoryService.framework */; };
+		C4AF2CDA23BFF53D0063719A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */; };
+		C4AF2CDB23BFF54A0063719A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */; };
+		C4AF2CDC23BFF55A0063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CDD23BFF5820063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CDE23BFF5940063719A /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */; };
+		C4AF2CDF23BFF5A00063719A /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCF23BFF49B0063719A /* IOKit.framework */; };
+		C4AF2CE023BFF5A70063719A /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */; };
+		C4AF2CE223BFF5B40063719A /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CE123BFF5B40063719A /* CoreTelephony.framework */; };
+		C4AF2CE523BFF5EB0063719A /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4AF2CE123BFF5B40063719A /* CoreTelephony.framework */; };
 		C4D868D916C06D1D00ECF818 /* reachability.c in Sources */ = {isa = PBXBuildFile; fileRef = C4D868D816C06D1200ECF818 /* reachability.c */; };
 		C4D868DA16C06D2300ECF818 /* reachability.c in Sources */ = {isa = PBXBuildFile; fileRef = C4D868D816C06D1200ECF818 /* reachability.c */; };
 		C4D868DC16C06D4200ECF818 /* reachability.h in Headers */ = {isa = PBXBuildFile; fileRef = C4D868DB16C06D3900ECF818 /* reachability.h */; };
 		C4D868DD16C06D4500ECF818 /* reachability.h in Headers */ = {isa = PBXBuildFile; fileRef = C4D868DB16C06D3900ECF818 /* reachability.h */; };
+		C4E653A023E9C6980042E6BF /* eap_plugin.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2364AD260466D36B00A8C900 /* eap_plugin.h */; };
+		C4E653A123E9CCE80042E6BF /* RASSchemaDefinitions.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2562EB580469B8D2005239BE /* RASSchemaDefinitions.h */; };
+		C4E653A223E9CDA10042E6BF /* if_ppplink.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 014A7C5D00754CF87F000001 /* if_ppplink.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -661,20 +666,6 @@
 			remoteGlobalIDString = 2305604F05E1808500EAB16F;
 			remoteInfo = "L2TP (Plugin) (Upgraded)";
 		};
-		230560ED05E1808C00EAB16F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 23055F4805E1808000EAB16F;
-			remoteInfo = "PPPoE (VPN Plugin) (Upgraded)";
-		};
-		230560EF05E1808C00EAB16F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 23055F3205E1808000EAB16F;
-			remoteInfo = "PPPoE (Kernel Extension) (Upgraded)";
-		};
 		230560F105E1808C00EAB16F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
@@ -702,20 +693,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 230560C805E1808B00EAB16F;
 			remoteInfo = "chat (Tool) (Upgraded)";
-		};
-		230560FF05E1808C00EAB16F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 2305606A05E1808600EAB16F;
-			remoteInfo = "L2TP (Kernel Extension) (Upgraded)";
-		};
-		2305610105E1808C00EAB16F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 2305607F05E1808600EAB16F;
-			remoteInfo = "L2TP (VPN Plugin) (Upgraded)";
 		};
 		2305610305E1808C00EAB16F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -801,13 +778,6 @@
 			remoteGlobalIDString = 72FDE4720D4124C4007C4F13;
 			remoteInfo = "PPP (Kernel Extension) EMBEDDED";
 		};
-		72FDE4F00D41253B007C4F13 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 72FDE4AC0D41251B007C4F13;
-			remoteInfo = "L2TP (Kernel Extension) EMBEDDED";
-		};
 		72FDE5130D412576007C4F13 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
@@ -815,60 +785,123 @@
 			remoteGlobalIDString = 72FDE4FE0D41256B007C4F13;
 			remoteInfo = "PPPDialogs (Plugin) EMBEDDED";
 		};
+		C4E1F31A241C4C4D00F8B492 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2305603E05E1808400EAB16F;
+			remoteInfo = InstallHeaders;
+		};
+		C4E1F31C241C4C5F00F8B492 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055ED405E1807F00EAB16F;
+			remoteInfo = "PPPController (Bundle)";
+		};
+		C4E1F31E241C4C6900F8B492 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055EF405E1807F00EAB16F;
+			remoteInfo = "PPP (Kernel Extension)";
+		};
+		C4E1F322241C4DD200F8B492 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055FD605E1808300EAB16F;
+			remoteInfo = "pppd (Tool)";
+		};
+		C4E1F3CD241C5DBB00F8B492 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055FC605E1808200EAB16F;
+			remoteInfo = "PPPSerial (Plugin)";
+		};
+		C4E1F3D2241C5E7100F8B492 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = C4E1F38D241C5D2A00F8B492;
+			remoteInfo = "Drivers-base";
+		};
+		C4F53C73242C306F00A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2305606A05E1808600EAB16F;
+			remoteInfo = "L2TP (Kernel Extension)";
+		};
+		C4F53C75242C307700A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055F3205E1808000EAB16F;
+			remoteInfo = "PPPoE (Kernel Extension)";
+		};
+		C4F53C77242C307B00A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2305607F05E1808600EAB16F;
+			remoteInfo = "L2TP (VPN Plugin)";
+		};
+		C4F53C79242C308100A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055F4805E1808000EAB16F;
+			remoteInfo = "PPPoE (VPN Plugin)";
+		};
+		C4F53C7B242C30A800A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2305604F05E1808500EAB16F;
+			remoteInfo = "L2TP (Plugin)";
+		};
+		C4F53C7D242C30AF00A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055F1F05E1807F00EAB16F;
+			remoteInfo = "PPPoE (Plugin)";
+		};
+		C4F53C7F242C30B900A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2305606A05E1808600EAB16F;
+			remoteInfo = "L2TP (Kernel Extension)";
+		};
+		C4F53C81242C30BF00A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055F3205E1808000EAB16F;
+			remoteInfo = "PPPoE (Kernel Extension)";
+		};
+		C4F53C83242C311400A1C02A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72FDE4AC0D41251B007C4F13;
+			remoteInfo = "L2TP (Kernel Extension) EMBEDDED";
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		23055ECF05E1807F00EAB16F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				23055ED205E1807F00EAB16F /* PPP_VERSION.h in CopyFiles */,
-				72515E2019A52436003F9E7C /* pppd-entitlement-osx.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		23055EEE05E1807F00EAB16F /* Copy Files */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				2305610A05E1808C00EAB16F /* PPPDialogs.ppp in Copy Files */,
+				C4AF2CC523BFF1250063719A /* PPPDialogs.ppp in Copy Files */,
 			);
 			name = "Copy Files";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		23055F1C05E1807F00EAB16F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				23055F1E05E1807F00EAB16F /* PPP_VERSION.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		23055F2C05E1807F00EAB16F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				2305610C05E1808C00EAB16F /* PPPoE.kext in CopyFiles */,
-				2305610D05E1808C00EAB16F /* PPPoE.vpn in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		23055F5C05E1808000EAB16F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				23055F5E05E1808000EAB16F /* PPP_VERSION.h in CopyFiles */,
-			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		2305601405E1808300EAB16F /* CopyFiles */ = {
@@ -907,30 +940,19 @@
 			dstPath = /usr/local/include/ppp;
 			dstSubfolderSpec = 0;
 			files = (
+				C4E653A223E9CDA10042E6BF /* if_ppplink.h in CopyFiles */,
+				C4E653A123E9CCE80042E6BF /* RASSchemaDefinitions.h in CopyFiles */,
+				C4E653A023E9C6980042E6BF /* eap_plugin.h in CopyFiles */,
 				23D96C680621CB8600FDE1D8 /* pppcontroller_types.h in CopyFiles */,
 				23D96C700621CB9900FDE1D8 /* pppcontroller.defs in CopyFiles */,
 				2305604505E1808400EAB16F /* ppp_msg.h in CopyFiles */,
-				2305604605E1808400EAB16F /* if_ppplink.h in CopyFiles */,
 				2305604705E1808400EAB16F /* if_ppp.h in CopyFiles */,
 				2305604805E1808400EAB16F /* ppp_defs.h in CopyFiles */,
 				2305604905E1808400EAB16F /* ppp_comp.h in CopyFiles */,
-				2305604A05E1808400EAB16F /* RASSchemaDefinitions.h in CopyFiles */,
-				2305604B05E1808400EAB16F /* eap_plugin.h in CopyFiles */,
 				B089692D1640390900E79570 /* pppcontroller_mach_defines.h in CopyFiles */,
 				72F5EB630D4721600078F2B3 /* PPPControllerPriv.h in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-		};
-		2305606405E1808500EAB16F /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				2305611205E1808C00EAB16F /* L2TP.kext in CopyFiles */,
-				2305611105E1808C00EAB16F /* L2TP.vpn in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		230560CF05E1808B00EAB16F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -942,44 +964,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
-		728CB62F0D404ECD00B1964E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				728CB6300D404ECD00B1964E /* PPP_VERSION.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		7290FED60D3318CC0027CEAD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 12;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				7290FED70D3318CC0027CEAD /* PPPDialogs.ppp in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72A56FEF0D1B5E2300DFDE1E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				72A56FF10D1B5E2300DFDE1E /* PPP_VERSION.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		72A570120D1B5E9400DFDE1E /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				72A570130D1B5E9400DFDE1E /* PPP_VERSION.h in CopyFiles */,
-				C43B7268192EA7ED00F07EE6 /* PPPController-Info-ios.plist in CopyFiles */,
+				C4AF2CC623BFF1420063719A /* PPPDialogs.ppp in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1012,12 +1003,9 @@
 				B0F8AFCB16A074D500545847 /* pppcontroller_types.h in CopyFiles */,
 				B0F8AFCC16A074D500545847 /* pppcontroller.defs in CopyFiles */,
 				B0F8AFCD16A074D500545847 /* ppp_msg.h in CopyFiles */,
-				B0F8AFCE16A074D500545847 /* if_ppplink.h in CopyFiles */,
-				B0F8AFCF16A074D500545847 /* if_ppp.h in CopyFiles */,
+				C4AF2CC723BFF2DC0063719A /* if_ppp.h in CopyFiles */,
 				B0F8AFD016A074D500545847 /* ppp_defs.h in CopyFiles */,
 				B0F8AFD116A074D500545847 /* ppp_comp.h in CopyFiles */,
-				B0F8AFD216A074D500545847 /* RASSchemaDefinitions.h in CopyFiles */,
-				B0F8AFD316A074D500545847 /* eap_plugin.h in CopyFiles */,
 				B0F8AFD416A074D500545847 /* pppcontroller_mach_defines.h in CopyFiles */,
 				B0F8AFD516A074D500545847 /* PPPControllerPriv.h in CopyFiles */,
 			);
@@ -1131,7 +1119,7 @@
 		2399AFFE06F27CE600207578 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = "Authenticators/EAP-KRB/en.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		2399B04806F27CE600207578 /* en */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = en; path = "Authenticators/EAP-KRB/en.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		239FCE90062DA246001759B5 /* EAP-TLS-Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = "EAP-TLS-Info.plist"; path = "Authenticators/EAP-TLS/EAP-TLS-Info.plist"; sourceTree = "<group>"; };
-		23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PPP_VERSION.h; sourceTree = "<group>"; };
+		23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PPP_VERSION.h; path = pppd/PPP_VERSION.h; sourceTree = "<group>"; };
 		23A8E847062F095E0050293E /* eaptls_ui.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = eaptls_ui.c; path = "Authenticators/EAP-TLS/eaptls_ui.c"; sourceTree = "<group>"; };
 		23A8E848062F095E0050293E /* eaptls_ui.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = eaptls_ui.h; path = "Authenticators/EAP-TLS/eaptls_ui.h"; sourceTree = "<group>"; };
 		23A8E849062F095E0050293E /* eaptls.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = eaptls.c; path = "Authenticators/EAP-TLS/eaptls.c"; sourceTree = "<group>"; };
@@ -1158,7 +1146,6 @@
 		2562EB540469B824005239BE /* DSUser.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DSUser.c; path = Authenticators/DSAuthentication/DSUser.c; sourceTree = "<group>"; };
 		2562EB560469B889005239BE /* main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = main.c; path = Authenticators/DSAccessControl/main.c; sourceTree = "<group>"; };
 		2562EB580469B8D2005239BE /* RASSchemaDefinitions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = RASSchemaDefinitions.h; path = vpnd/RASSchemaDefinitions.h; sourceTree = "<group>"; };
-		2562EB670469BA5F005239BE /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = /System/Library/Frameworks/DirectoryService.framework; sourceTree = "<absolute>"; };
 		25D80A73049E98E20070403F /* acscp_plugin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = acscp_plugin.h; path = pppd/acscp_plugin.h; sourceTree = "<group>"; };
 		25D80A75049E99120070403F /* acscp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = acscp.h; path = pppd/acscp.h; sourceTree = "<group>"; };
 		25D80A77049E992F0070403F /* acscp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = acscp.c; path = pppd/acscp.c; sourceTree = "<group>"; };
@@ -1185,10 +1172,8 @@
 		7240E453152617B2001F555F /* NetworkConnect_512x512.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = NetworkConnect_512x512.png; sourceTree = "<group>"; };
 		7240E454152617B2001F555F /* NetworkConnect_512x512@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "NetworkConnect_512x512@2x.png"; sourceTree = "<group>"; };
 		72515E1F19A52436003F9E7C /* pppd-entitlement-osx.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "pppd-entitlement-osx.plist"; path = "pppd/pppd-entitlement-osx.plist"; sourceTree = "<group>"; };
-		72519CA117678B4F002BBB0E /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		7251DFEE09212AAA00B94FFF /* radius_eap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = radius_eap.c; path = Authenticators/Radius/radius_eap.c; sourceTree = "<group>"; };
 		7251E01209212CF000B94FFF /* radius.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = radius.h; path = Authenticators/Radius/radius.h; sourceTree = "<group>"; };
-		72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AggregateDictionary.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS7.0.Internal.sdk/System/Library/PrivateFrameworks/AggregateDictionary.framework; sourceTree = DEVELOPER_DIR; };
 		725D8ABB0DA5C12400017E37 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = EMBEDDED/en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		725D8AC20DA5C14800017E37 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		725D8AD40DA5C45700017E37 /* en */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = en; path = Dialogs/EMBEDDED/en.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
@@ -1197,7 +1182,6 @@
 		728CB6870D404F8C00B1964E /* L2TP.ppp */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = L2TP.ppp; sourceTree = BUILT_PRODUCTS_DIR; };
 		7290FEDD0D3318CC0027CEAD /* PPPController.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPPController.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
 		72B41EC415ED9F4B00C31217 /* algorithm_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = algorithm_types.h; path = "Drivers/L2TP/L2TP-plugin/algorithm_types.h"; sourceTree = "<group>"; };
-		72BE352410A0C29900F4849C /* MobileInstallation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileInstallation.framework; path = System/Library/PrivateFrameworks/MobileInstallation.framework; sourceTree = SDKROOT; };
 		72C265C70D412932003A6CE8 /* pppd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pppd; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D07F260A65A7D0009D1FA4 /* vpn_control.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vpn_control.h; path = "Drivers/L2TP/L2TP-plugin/vpn_control.h"; sourceTree = "<group>"; };
 		72E07C3B103E376900E4241C /* vpnd.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = vpnd.5; path = vpnd/vpnd.5; sourceTree = "<group>"; };
@@ -1209,7 +1193,6 @@
 		7827408817049C93006CF9E1 /* scnc_cache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = scnc_cache.h; sourceTree = "<group>"; };
 		832EE3BC0F6873020026B6E4 /* pppd-entitlement.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "pppd-entitlement.plist"; path = "pppd/pppd-entitlement.plist"; sourceTree = "<group>"; };
 		836F4BE305DB26090099DEC1 /* chap-md5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = "chap-md5.c"; path = "pppd/chap-md5.c"; sourceTree = "<group>"; };
-		8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = /System/Library/PrivateFrameworks/CoreTelephony.framework; sourceTree = "<absolute>"; };
 		838396E905DAF862005F1950 /* chap-md5.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = "chap-md5.h"; path = "pppd/chap-md5.h"; sourceTree = "<group>"; };
 		838396EA05DAF862005F1950 /* chap-new.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = "chap-new.c"; path = "pppd/chap-new.c"; sourceTree = "<group>"; };
 		838396EB05DAF862005F1950 /* chap-new.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = "chap-new.h"; path = "pppd/chap-new.h"; sourceTree = "<group>"; };
@@ -1222,12 +1205,18 @@
 		BA1E33C20F3FFDF200E52690 /* messageTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = messageTracer.h; sourceTree = "<group>"; };
 		BA1E33C30F3FFDF200E52690 /* sessionTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sessionTracer.c; path = Controller/sessionTracer.c; sourceTree = "<group>"; };
 		BA1E33C40F3FFDF200E52690 /* sessionTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sessionTracer.h; sourceTree = "<group>"; };
-		BA8B563B14E089FB00697D55 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		BAC29FA410D493F9007AC660 /* nat_port_mapping.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = nat_port_mapping.c; path = Controller/nat_port_mapping.c; sourceTree = "<group>"; };
 		C40EF979189199F300EEBF23 /* ne_sm_bridge_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ne_sm_bridge_private.h; sourceTree = "<group>"; };
 		C40EF97A189199F300EEBF23 /* ne_sm_bridge.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ne_sm_bridge.c; path = Controller/ne_sm_bridge.c; sourceTree = "<group>"; };
 		C43B7267192EA7ED00F07EE6 /* PPPController-Info-ios.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "PPPController-Info-ios.plist"; sourceTree = "<group>"; };
 		C453EECF2086960E00BF504E /* kext.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext.xcconfig; sourceTree = SOURCE_ROOT; };
+		C4AF2CC423BFF08D0063719A /* scnc_utils_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = scnc_utils_common.h; sourceTree = "<group>"; };
+		C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.16.Internal.sdk/System/Library/Frameworks/CoreFoundation.framework; sourceTree = DEVELOPER_DIR; };
+		C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.16.Internal.sdk/System/Library/Frameworks/SystemConfiguration.framework; sourceTree = DEVELOPER_DIR; };
+		C4AF2CCF23BFF49B0063719A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.16.Internal.sdk/System/Library/Frameworks/IOKit.framework; sourceTree = DEVELOPER_DIR; };
+		C4AF2CD623BFF51C0063719A /* DirectoryService.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DirectoryService.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.16.Internal.sdk/System/Library/Frameworks/DirectoryService.framework; sourceTree = DEVELOPER_DIR; };
+		C4AF2CE123BFF5B40063719A /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.16.Internal.sdk/System/Library/Frameworks/CoreTelephony.framework; sourceTree = DEVELOPER_DIR; };
+		C4AF2CE323BFF5C70063719A /* TelephonyUtilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = TelephonyUtilities.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.16.Internal.sdk/System/Library/PrivateFrameworks/TelephonyUtilities.framework; sourceTree = DEVELOPER_DIR; };
 		C4D868D816C06D1200ECF818 /* reachability.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = reachability.c; path = Controller/reachability.c; sourceTree = "<group>"; };
 		C4D868DB16C06D3900ECF818 /* reachability.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = reachability.h; sourceTree = "<group>"; };
 		F50592A103DDFFB301CA2DE3 /* vpnd.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = vpnd.8; path = vpnd/vpnd.8; sourceTree = "<group>"; };
@@ -1299,7 +1288,6 @@
 		FA2201D70368D05504CA2CDC /* ppp_ip.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ppp_ip.c; path = Family/ppp_ip.c; sourceTree = "<group>"; };
 		FA2201D90368D08E04CA2CDC /* ppp_ipv6.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ppp_ipv6.h; path = Family/ppp_ipv6.h; sourceTree = SOURCE_ROOT; };
 		FA2201DB0368D0C304CA2CDC /* ppp_ipv6.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ppp_ipv6.c; path = Family/ppp_ipv6.c; sourceTree = "<group>"; };
-		FA43F57A00F2A22504CA2CDC /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		FA76575303EB2B7504CA2DDA /* ipsec_strerror.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ipsec_strerror.h; path = "Drivers/L2TP/L2TP-plugin/ipsec_strerror.h"; sourceTree = "<group>"; };
 		FA76575403EB2B7504CA2DDA /* libpfkey.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = libpfkey.h; path = "Drivers/L2TP/L2TP-plugin/libpfkey.h"; sourceTree = "<group>"; };
 		FA76575503EB2B7504CA2DDA /* pfkey.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = pfkey.c; path = "Drivers/L2TP/L2TP-plugin/pfkey.c"; sourceTree = "<group>"; };
@@ -1308,8 +1296,6 @@
 		FA9E969403798CF504CA2CDC /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		FAA0F5480327F35404CA2CDC /* eap.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = eap.c; path = pppd/eap.c; sourceTree = "<group>"; };
 		FAA0F5490327F35404CA2CDC /* eap.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = eap.h; path = pppd/eap.h; sourceTree = "<group>"; };
-		FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
 		FAAAD5FA023EA44604CA2CDC /* pppstats.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = pppstats.8; path = pppstats/pppstats.8; sourceTree = "<group>"; };
 		FAAAD5FD023EA4CE04CA2CDC /* pppd.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = pppd.8; path = pppd/pppd.8; sourceTree = "<group>"; };
 		FACD767C040D4BD004CA2DF0 /* psk.l2tp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = psk.l2tp; path = "Drivers/L2TP/L2TP-plugin/psk.l2tp"; sourceTree = "<group>"; };
@@ -1321,9 +1307,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				23055EEA05E1807F00EAB16F /* CoreFoundation.framework in Frameworks */,
-				23055EEB05E1807F00EAB16F /* SystemConfiguration.framework in Frameworks */,
-				23055EEC05E1807F00EAB16F /* IOKit.framework in Frameworks */,
+				C4AF2CD123BFF4A40063719A /* SystemConfiguration.framework in Frameworks */,
+				C4AF2CD023BFF49B0063719A /* IOKit.framework in Frameworks */,
+				C4AF2CCE23BFF48C0063719A /* CoreFoundation.framework in Frameworks */,
 				72C3BA0C11474CEB004184C2 /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1339,7 +1325,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				23055F2A05E1807F00EAB16F /* CoreFoundation.framework in Frameworks */,
+				C4AF2CD323BFF4C80063719A /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1372,7 +1358,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				23055F8805E1808100EAB16F /* CoreFoundation.framework in Frameworks */,
+				C4AF2CCD23BFF4790063719A /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1380,9 +1366,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				23055FD005E1808200EAB16F /* CoreFoundation.framework in Frameworks */,
+				C4AF2CD223BFF4B70063719A /* SystemConfiguration.framework in Frameworks */,
 				23055FD105E1808200EAB16F /* ApplicationServices.framework in Frameworks */,
-				0C0F0E3B0B72CF730046310D /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1402,9 +1387,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2305602705E1808300EAB16F /* CoreFoundation.framework in Frameworks */,
-				2305602805E1808300EAB16F /* SystemConfiguration.framework in Frameworks */,
-				2305602905E1808300EAB16F /* DirectoryService.framework in Frameworks */,
+				C4AF2CCC23BFF4620063719A /* SystemConfiguration.framework in Frameworks */,
+				C4AF2CCA23BFF44A0063719A /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1435,8 +1419,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4AF2CD423BFF4D90063719A /* SystemConfiguration.framework in Frameworks */,
 				2305608C05E1808600EAB16F /* CoreFoundation.framework in Frameworks */,
-				2305608D05E1808600EAB16F /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1444,8 +1428,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4AF2CDB23BFF54A0063719A /* SystemConfiguration.framework in Frameworks */,
 				72117C6409EC519A008EC1A2 /* Security.framework in Frameworks */,
-				723FE96709E5C4AA00845480 /* SystemConfiguration.framework in Frameworks */,
 				230560A105E1808800EAB16F /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1454,10 +1438,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				230560AF05E1808900EAB16F /* DirectoryService.framework in Frameworks */,
-				230560B005E1808900EAB16F /* CoreFoundation.framework in Frameworks */,
+				C4AF2CDA23BFF53D0063719A /* SystemConfiguration.framework in Frameworks */,
+				C4AF2CD923BFF5330063719A /* DirectoryService.framework in Frameworks */,
+				C4AF2CD823BFF52D0063719A /* CoreFoundation.framework in Frameworks */,
 				230560B105E1808900EAB16F /* Security.framework in Frameworks */,
-				230560B205E1808900EAB16F /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1465,9 +1449,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				230560C105E1808A00EAB16F /* DirectoryService.framework in Frameworks */,
-				230560C205E1808A00EAB16F /* CoreFoundation.framework in Frameworks */,
-				230560C305E1808A00EAB16F /* SystemConfiguration.framework in Frameworks */,
+				C4AF2CD723BFF51C0063719A /* DirectoryService.framework in Frameworks */,
+				C4AF2CD523BFF4EC0063719A /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1482,8 +1465,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2342E52206DA57190019B94A /* CoreFoundation.framework in Frameworks */,
-				2342E50106DA56D80019B94A /* SystemConfiguration.framework in Frameworks */,
+				C4AF2CDC23BFF55A0063719A /* CoreFoundation.framework in Frameworks */,
 				2342E4FB06DA55980019B94A /* Kerberos.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1503,9 +1485,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4AF2CE523BFF5EB0063719A /* CoreTelephony.framework in Frameworks */,
 				728CB67D0D404F8C00B1964E /* SystemConfiguration.framework in Frameworks */,
 				728CB67E0D404F8C00B1964E /* CoreFoundation.framework in Frameworks */,
-				834679F60DCFE34700FCABA3 /* CoreTelephony.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1513,12 +1495,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72584E201726019800C7EBE8 /* AggregateDictionary.framework in Frameworks */,
+				C4AF2CE223BFF5B40063719A /* CoreTelephony.framework in Frameworks */,
+				C4AF2CE023BFF5A70063719A /* SystemConfiguration.framework in Frameworks */,
+				C4AF2CDF23BFF5A00063719A /* IOKit.framework in Frameworks */,
+				C4AF2CDE23BFF5940063719A /* CoreFoundation.framework in Frameworks */,
 				72BE36B810A11F3800F4849C /* Security.framework in Frameworks */,
-				7290FED20D3318CC0027CEAD /* CoreFoundation.framework in Frameworks */,
-				7290FED30D3318CC0027CEAD /* SystemConfiguration.framework in Frameworks */,
-				7290FED40D3318CC0027CEAD /* IOKit.framework in Frameworks */,
-				8376A9630DCA88ED0084EA79 /* CoreTelephony.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1552,7 +1533,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				72FDE5070D41256B007C4F13 /* CoreFoundation.framework in Frameworks */,
+				C4AF2CDD23BFF5820063719A /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1799,9 +1780,6 @@
 			isa = PBXGroup;
 			children = (
 				C453EECF2086960E00BF504E /* kext.xcconfig */,
-				72519CA117678B4F002BBB0E /* Foundation.framework */,
-				72584E1F1726019800C7EBE8 /* AggregateDictionary.framework */,
-				BA8B563B14E089FB00697D55 /* Security.framework */,
 				7129A438FFF956F311CA2CDC /* Controller */,
 				7129A46AFFF956F311CA2CDC /* Family */,
 				02BD92D900786C227F000001 /* Dialogs */,
@@ -1809,11 +1787,9 @@
 				7129A485FFF956F311CA2CDC /* Drivers */,
 				7129A4BAFFF956F311CA2CDC /* Helpers */,
 				23F53312052E16E70011A2BC /* chat */,
-				7129A4B5FFF956F311CA2CDC /* SampleCode */,
 				B096EC39171DFC6E00EE4713 /* Shared */,
-				7129A4CBFFF956F311CA2CDC /* External Libraries */,
 				7129A4CEFFF956F311CA2CDC /* Products */,
-				23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */,
+				C4AF2CC823BFF44A0063719A /* Frameworks */,
 			);
 			name = ppp;
 			sourceTree = "<group>";
@@ -1928,13 +1904,6 @@
 			name = Headers;
 			sourceTree = "<group>";
 		};
-		7129A4B5FFF956F311CA2CDC /* SampleCode */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = SampleCode;
-			sourceTree = "<group>";
-		};
 		7129A4BAFFF956F311CA2CDC /* Helpers */ = {
 			isa = PBXGroup;
 			children = (
@@ -1945,19 +1914,6 @@
 			);
 			path = Helpers;
 			sourceTree = SOURCE_ROOT;
-		};
-		7129A4CBFFF956F311CA2CDC /* External Libraries */ = {
-			isa = PBXGroup;
-			children = (
-				72BE352410A0C29900F4849C /* MobileInstallation.framework */,
-				8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */,
-				FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */,
-				FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */,
-				FA43F57A00F2A22504CA2CDC /* IOKit.framework */,
-				2562EB670469BA5F005239BE /* DirectoryService.framework */,
-			);
-			name = "External Libraries";
-			sourceTree = "<group>";
 		};
 		7129A4CEFFF956F311CA2CDC /* Products */ = {
 			isa = PBXGroup;
@@ -2031,9 +1987,23 @@
 		B096EC39171DFC6E00EE4713 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				C4AF2CC423BFF08D0063719A /* scnc_utils_common.h */,
 				9AFD09B017305E58003BF988 /* scnc_utils_common.c */,
 			);
 			path = Shared;
+			sourceTree = "<group>";
+		};
+		C4AF2CC823BFF44A0063719A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				C4AF2CE323BFF5C70063719A /* TelephonyUtilities.framework */,
+				C4AF2CE123BFF5B40063719A /* CoreTelephony.framework */,
+				C4AF2CD623BFF51C0063719A /* DirectoryService.framework */,
+				C4AF2CCF23BFF49B0063719A /* IOKit.framework */,
+				C4AF2CCB23BFF4610063719A /* SystemConfiguration.framework */,
+				C4AF2CC923BFF44A0063719A /* CoreFoundation.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		F517DE960237251F01E059DF /* Libraries */ = {
@@ -2051,6 +2021,7 @@
 		F517DE990237253101E059DF /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */,
 				618C82A604B0EBE40048D503 /* acsp.h */,
 				25D80A75049E99120070403F /* acscp.h */,
 				25D80A73049E98E20070403F /* acscp_plugin.h */,
@@ -2283,8 +2254,6 @@
 				23022728062DA4C10033908D /* pppcontroller.h in Headers */,
 				23EC339B0CD7E4BB005AB2A9 /* ipsec_manager.h in Headers */,
 				23EC340B0CD94AFE005AB2A9 /* scnc_main.h in Headers */,
-				BA1E33C50F3FFDF200E52690 /* messageTracer.h in Headers */,
-				BA1E33C70F3FFDF200E52690 /* sessionTracer.h in Headers */,
 				7208653416A762F0004A5747 /* controller_options.h in Headers */,
 				C40EF97B189199F300EEBF23 /* ne_sm_bridge_private.h in Headers */,
 				C4D868DC16C06D4200ECF818 /* reachability.h in Headers */,
@@ -2678,13 +2647,10 @@
 				23055F2705E1807F00EAB16F /* Sources */,
 				23055F2905E1807F00EAB16F /* Frameworks */,
 				23055F2B05E1807F00EAB16F /* Rez */,
-				23055F2C05E1807F00EAB16F /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				230560EE05E1808C00EAB16F /* PBXTargetDependency */,
-				230560F005E1808C00EAB16F /* PBXTargetDependency */,
 			);
 			name = "PPPoE (Plugin)";
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
@@ -2884,13 +2850,10 @@
 				2305605B05E1808500EAB16F /* Sources */,
 				2305606005E1808500EAB16F /* Frameworks */,
 				2305606305E1808500EAB16F /* Rez */,
-				2305606405E1808500EAB16F /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				2305610005E1808C00EAB16F /* PBXTargetDependency */,
-				2305610205E1808C00EAB16F /* PBXTargetDependency */,
 			);
 			name = "L2TP (Plugin)";
 			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
@@ -3070,7 +3033,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				72FDE4F10D41253B007C4F13 /* PBXTargetDependency */,
 			);
 			name = "L2TP (Plugin) EMBEDDED";
 			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
@@ -3207,7 +3169,15 @@
 		7129A431FFF956F311CA2CDC /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1000;
+				LastUpgradeCheck = 1200;
+				TargetAttributes = {
+					C4E1F315241C4C2F00F8B492 = {
+						CreatedOnToolsVersion = 12.0;
+					};
+					C4E1F38D241C5D2A00F8B492 = {
+						CreatedOnToolsVersion = 12.0;
+					};
+				};
 			};
 			buildConfigurationList = 72DD79E0091AA0ED00EE4DEA /* Build configuration list for PBXProject "ppp" */;
 			compatibilityVersion = "Xcode 2.4";
@@ -3223,9 +3193,11 @@
 			projectRoot = "";
 			targets = (
 				23055EC705E1807F00EAB16F /* ppp (Aggregate) */,
+				C4E1F315241C4C2F00F8B492 /* ppp-base */,
 				23055ED405E1807F00EAB16F /* PPPController (Bundle) */,
 				23055EF405E1807F00EAB16F /* PPP (Kernel Extension) */,
 				23055F1705E1807F00EAB16F /* Drivers (Aggregate) */,
+				C4E1F38D241C5D2A00F8B492 /* Drivers-base */,
 				23055F1F05E1807F00EAB16F /* PPPoE (Plugin) */,
 				23055F3205E1808000EAB16F /* PPPoE (Kernel Extension) */,
 				23055F4805E1808000EAB16F /* PPPoE (VPN Plugin) */,
@@ -3598,7 +3570,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/var/log/ppp";
+			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/var/log/ppp\n";
 		};
 		23055EF505E1807F00EAB16F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3616,7 +3588,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		23055F3305E1808000EAB16F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3634,7 +3606,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		2305601605E1808300EAB16F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3643,7 +3615,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/etc/ppp\n/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppd.8";
+			shellScript = "/bin/mkdir -m 755 -p $DSTROOT/private/etc/ppp\n/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppd.8\n";
 		};
 		2305602D05E1808300EAB16F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3652,7 +3624,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/vpnd.8";
+			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/vpnd.8\n";
 		};
 		2305603A05E1808400EAB16F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3661,7 +3633,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppstats.8";
+			shellScript = "/bin/chmod 444 $DSTROOT/usr/share/man/man8/pppstats.8\n";
 		};
 		2305606B05E1808600EAB16F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3679,7 +3651,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		230560D105E1808B00EAB16F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3701,7 +3673,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1\n";
 		};
 		7240E46A15261821001F555F /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3714,7 +3686,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1\n";
 		};
 		7290FED80D3318CC0027CEAD /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3745,7 +3717,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1";
+			shellScript = "/usr/local/bin/iconcompiler -i NetworkConnect -r $PROJECT_DIR/Controller/NetworkConnectIcons -o $BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH  || exit 1\n";
 		};
 		72FDE4730D4124C4007C4F13 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -3801,7 +3773,6 @@
 				23B70769061B74AF008BA483 /* scnc_mach_server.c in Sources */,
 				23B70900061CA53B008BA483 /* scnc_utils.c in Sources */,
 				23EC339C0CD7E4BB005AB2A9 /* ipsec_manager.c in Sources */,
-				BA1E33C60F3FFDF200E52690 /* sessionTracer.c in Sources */,
 				72DE9C74101551E600DF2440 /* ipsec_utils.c in Sources */,
 				C40EF97D189199F300EEBF23 /* ne_sm_bridge.c in Sources */,
 				BAC29FA510D493F9007AC660 /* nat_port_mapping.c in Sources */,
@@ -4042,7 +4013,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				727412031728A3E700221EE3 /* diagnostics.c in Sources */,
 				7290FEC60D3318CC0027CEAD /* pppcontroller.defs in Sources */,
 				7290FEC70D3318CC0027CEAD /* ipsec_utils.c in Sources */,
 				7827408717049C71006CF9E1 /* scnc_cache.c in Sources */,
@@ -4190,16 +4160,6 @@
 			target = 2305604F05E1808500EAB16F /* L2TP (Plugin) */;
 			targetProxy = 230560EB05E1808C00EAB16F /* PBXContainerItemProxy */;
 		};
-		230560EE05E1808C00EAB16F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 23055F4805E1808000EAB16F /* PPPoE (VPN Plugin) */;
-			targetProxy = 230560ED05E1808C00EAB16F /* PBXContainerItemProxy */;
-		};
-		230560F005E1808C00EAB16F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 23055F3205E1808000EAB16F /* PPPoE (Kernel Extension) */;
-			targetProxy = 230560EF05E1808C00EAB16F /* PBXContainerItemProxy */;
-		};
 		230560F205E1808C00EAB16F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 23055FD605E1808300EAB16F /* pppd (Tool) */;
@@ -4219,16 +4179,6 @@
 			isa = PBXTargetDependency;
 			target = 230560C805E1808B00EAB16F /* chat (Tool) */;
 			targetProxy = 230560F905E1808C00EAB16F /* PBXContainerItemProxy */;
-		};
-		2305610005E1808C00EAB16F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 2305606A05E1808600EAB16F /* L2TP (Kernel Extension) */;
-			targetProxy = 230560FF05E1808C00EAB16F /* PBXContainerItemProxy */;
-		};
-		2305610205E1808C00EAB16F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 2305607F05E1808600EAB16F /* L2TP (VPN Plugin) */;
-			targetProxy = 2305610105E1808C00EAB16F /* PBXContainerItemProxy */;
 		};
 		2305610405E1808C00EAB16F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4290,15 +4240,85 @@
 			target = 72FDE4720D4124C4007C4F13 /* PPP (Kernel Extension) EMBEDDED */;
 			targetProxy = 72FDE4AA0D4124F1007C4F13 /* PBXContainerItemProxy */;
 		};
-		72FDE4F10D41253B007C4F13 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 72FDE4AC0D41251B007C4F13 /* L2TP (Kernel Extension) EMBEDDED */;
-			targetProxy = 72FDE4F00D41253B007C4F13 /* PBXContainerItemProxy */;
-		};
 		72FDE5140D412576007C4F13 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72FDE4FE0D41256B007C4F13 /* PPPDialogs (Plugin) EMBEDDED */;
 			targetProxy = 72FDE5130D412576007C4F13 /* PBXContainerItemProxy */;
+		};
+		C4E1F31B241C4C4D00F8B492 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2305603E05E1808400EAB16F /* InstallHeaders */;
+			targetProxy = C4E1F31A241C4C4D00F8B492 /* PBXContainerItemProxy */;
+		};
+		C4E1F31D241C4C5F00F8B492 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055ED405E1807F00EAB16F /* PPPController (Bundle) */;
+			targetProxy = C4E1F31C241C4C5F00F8B492 /* PBXContainerItemProxy */;
+		};
+		C4E1F31F241C4C6900F8B492 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055EF405E1807F00EAB16F /* PPP (Kernel Extension) */;
+			targetProxy = C4E1F31E241C4C6900F8B492 /* PBXContainerItemProxy */;
+		};
+		C4E1F323241C4DD200F8B492 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055FD605E1808300EAB16F /* pppd (Tool) */;
+			targetProxy = C4E1F322241C4DD200F8B492 /* PBXContainerItemProxy */;
+		};
+		C4E1F3CE241C5DBB00F8B492 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055FC605E1808200EAB16F /* PPPSerial (Plugin) */;
+			targetProxy = C4E1F3CD241C5DBB00F8B492 /* PBXContainerItemProxy */;
+		};
+		C4E1F3D3241C5E7100F8B492 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = C4E1F38D241C5D2A00F8B492 /* Drivers-base */;
+			targetProxy = C4E1F3D2241C5E7100F8B492 /* PBXContainerItemProxy */;
+		};
+		C4F53C74242C306F00A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2305606A05E1808600EAB16F /* L2TP (Kernel Extension) */;
+			targetProxy = C4F53C73242C306F00A1C02A /* PBXContainerItemProxy */;
+		};
+		C4F53C76242C307700A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055F3205E1808000EAB16F /* PPPoE (Kernel Extension) */;
+			targetProxy = C4F53C75242C307700A1C02A /* PBXContainerItemProxy */;
+		};
+		C4F53C78242C307B00A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2305607F05E1808600EAB16F /* L2TP (VPN Plugin) */;
+			targetProxy = C4F53C77242C307B00A1C02A /* PBXContainerItemProxy */;
+		};
+		C4F53C7A242C308100A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055F4805E1808000EAB16F /* PPPoE (VPN Plugin) */;
+			targetProxy = C4F53C79242C308100A1C02A /* PBXContainerItemProxy */;
+		};
+		C4F53C7C242C30A800A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2305604F05E1808500EAB16F /* L2TP (Plugin) */;
+			targetProxy = C4F53C7B242C30A800A1C02A /* PBXContainerItemProxy */;
+		};
+		C4F53C7E242C30AF00A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055F1F05E1807F00EAB16F /* PPPoE (Plugin) */;
+			targetProxy = C4F53C7D242C30AF00A1C02A /* PBXContainerItemProxy */;
+		};
+		C4F53C80242C30B900A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2305606A05E1808600EAB16F /* L2TP (Kernel Extension) */;
+			targetProxy = C4F53C7F242C30B900A1C02A /* PBXContainerItemProxy */;
+		};
+		C4F53C82242C30BF00A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055F3205E1808000EAB16F /* PPPoE (Kernel Extension) */;
+			targetProxy = C4F53C81242C30BF00A1C02A /* PBXContainerItemProxy */;
+		};
+		C4F53C84242C311400A1C02A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72FDE4AC0D41251B007C4F13 /* L2TP (Kernel Extension) EMBEDDED */;
+			targetProxy = C4F53C83242C311400A1C02A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -4393,7 +4413,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -4424,7 +4443,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
@@ -4473,15 +4491,15 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -4516,12 +4534,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -4555,9 +4573,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -4590,11 +4609,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
@@ -4635,9 +4654,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Controller/PPPController-Info-ios.plist";
@@ -4675,6 +4694,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
 				INFOPLIST_FILE = "Controller/PPPController-Info-ios.plist";
@@ -4711,10 +4731,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -4742,9 +4762,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				OTHER_CFLAGS = (
@@ -4769,6 +4789,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				FRAMEWORK_SEARCH_PATHS = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -4794,7 +4815,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -4825,7 +4845,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
@@ -4881,7 +4900,6 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -4946,7 +4964,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					lint,
 					DEBUGUPAP,
@@ -5061,9 +5078,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -5092,8 +5109,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/include/net;
@@ -5119,6 +5136,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/include/net;
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -5149,7 +5167,6 @@
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -5216,7 +5233,6 @@
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = NO;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					lint,
 					DEBUGUPAP,
@@ -5334,9 +5350,9 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -5371,9 +5387,9 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INSTALL_GROUP = wheel;
@@ -5405,6 +5421,7 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				INSTALL_GROUP = wheel;
@@ -5435,9 +5452,9 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -5471,9 +5488,9 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Helpers/MiniTerm/MiniTerm-Info.plist";
 				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
@@ -5504,6 +5521,7 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = YES;
 				INFOPLIST_FILE = "Helpers/MiniTerm/MiniTerm-Info.plist";
 				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
@@ -5533,9 +5551,9 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = lint;
@@ -5563,9 +5581,9 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = lint;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INSTALL_PATH = /usr/sbin;
@@ -5590,6 +5608,7 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = lint;
 				INSTALL_PATH = /usr/sbin;
@@ -5615,7 +5634,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -5647,7 +5665,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
@@ -5703,7 +5720,6 @@
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)/$(CONFIGURATION)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -5741,7 +5757,6 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -5808,7 +5823,6 @@
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
@@ -5848,7 +5862,6 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
@@ -5921,7 +5934,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -5965,7 +5977,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Family/PPP-kext-Info.plist";
@@ -6042,12 +6053,11 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/PPPSerial/PPPSerial-plugin/PPPSerial-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DHAVE_LAUNCHSERVICES",
@@ -6081,10 +6091,9 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/PPPSerial/PPPSerial-plugin/PPPSerial-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DHAVE_LAUNCHSERVICES",
@@ -6117,7 +6126,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INFOPLIST_FILE = "Drivers/PPPSerial/PPPSerial-plugin/PPPSerial-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DHAVE_LAUNCHSERVICES",
@@ -6150,11 +6159,11 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-vpn/PPPoE-vpn-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6187,9 +6196,9 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-vpn/PPPoE-vpn-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6221,6 +6230,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-vpn/PPPoE-vpn-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6254,7 +6264,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -6280,7 +6289,6 @@
 				PRODUCT_NAME = PPPoE;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6299,7 +6307,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-extension/PPPoE-kext-Info.plist";
@@ -6322,7 +6329,6 @@
 				PRODUCT_NAME = PPPoE;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6361,7 +6367,6 @@
 				PRODUCT_NAME = PPPoE;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6378,12 +6383,11 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-plugin/PPPoE-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6416,10 +6420,9 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-plugin/PPPoE-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6451,7 +6454,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-plugin/PPPoE-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6485,7 +6488,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -6508,7 +6510,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6526,7 +6527,6 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-extension/L2TP-kext-Info.plist";
 				INFOPLIST_PREPROCESS = YES;
@@ -6546,7 +6546,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6581,7 +6580,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = YES;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6598,11 +6596,11 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-vpn/L2TP-vpn-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6636,9 +6634,9 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-vpn/L2TP-vpn-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6671,6 +6669,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-vpn/L2TP-vpn-Info.plist";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6704,12 +6703,11 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6745,10 +6743,9 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6783,7 +6780,7 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6817,7 +6814,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -6849,7 +6845,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
@@ -6903,12 +6898,11 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/DSAccessControl/DSACL-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6941,10 +6935,9 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/DSAccessControl/DSACL-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -6976,7 +6969,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INFOPLIST_FILE = "Authenticators/DSAccessControl/DSACL-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7008,12 +7001,11 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/DSAuthentication/DSAuth-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7046,10 +7038,9 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/DSAuthentication/DSAuth-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7081,7 +7072,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INFOPLIST_FILE = "Authenticators/DSAuthentication/DSAuth-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7113,12 +7104,11 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/Radius/Radius-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DCOMMON_DIGEST_FOR_OPENSSL",
@@ -7152,10 +7142,9 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/Radius/Radius-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DCOMMON_DIGEST_FOR_OPENSSL",
@@ -7188,7 +7177,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INFOPLIST_FILE = "Authenticators/Radius/Radius-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DCOMMON_DIGEST_FOR_OPENSSL",
@@ -7221,12 +7210,11 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/EAP-TLS/EAP-TLS-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7259,10 +7247,9 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/EAP-TLS/EAP-TLS-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7294,7 +7281,7 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INFOPLIST_FILE = "Authenticators/EAP-TLS/EAP-TLS-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7326,14 +7313,13 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/EAP-KRB/EAP-KRB-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7366,12 +7352,11 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Authenticators/EAP-KRB/EAP-KRB-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7405,7 +7390,7 @@
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = "";
 				INFOPLIST_FILE = "Authenticators/EAP-KRB/EAP-KRB-Info.plist";
-				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/PPPController.bundle/Contents/PlugIns";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-include",
@@ -7436,7 +7421,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -7465,7 +7449,6 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				OTHER_CFLAGS = (
@@ -7514,7 +7497,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -7545,7 +7527,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
@@ -7597,7 +7578,6 @@
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -7627,7 +7607,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
 				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.6;
 				OTHER_CFLAGS = (
@@ -7675,9 +7654,9 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -7708,9 +7687,9 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
 				GCC_DYNAMIC_NO_PIC = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = ../../Family;
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -7738,6 +7717,7 @@
 			buildSettings = {
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				GCC_DYNAMIC_NO_PIC = YES;
 				HEADER_SEARCH_PATHS = ../../Family;
 				MACOSX_DEPLOYMENT_TARGET = "";
@@ -7762,6 +7742,7 @@
 		72DD79E1091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUILD_VARIANTS = (
 					normal,
 					"${EXTRA_BUILD_VARIANT}",
@@ -7802,6 +7783,7 @@
 		72DD79E2091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUILD_VARIANTS = (
 					normal,
 					"${EXTRA_BUILD_VARIANT}",
@@ -7840,6 +7822,7 @@
 		72DD79E3091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
 				BUILD_VARIANTS = (
 					normal,
 					"${EXTRA_BUILD_VARIANT}",
@@ -7882,7 +7865,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -7923,7 +7905,6 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Family/PPP-kext-Info.plist";
 				INFOPLIST_PREPROCESS = YES;
@@ -7997,7 +7978,6 @@
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -8020,7 +8000,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8038,7 +8017,6 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-extension/L2TP-kext-Info.plist";
 				INFOPLIST_PREPROCESS = YES;
@@ -8058,7 +8036,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8093,7 +8070,6 @@
 				PRODUCT_NAME = L2TP;
 				SDKROOT = iphoneos.internal;
 				SECTORDER_FLAGS = "";
-				SKIP_INSTALL = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8108,11 +8084,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -8149,8 +8125,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				LD_MAP_FILE_PATH = "$(TARGET_TEMP_DIR)/$(PRODUCT_NAME)-LinkMap-$(CURRENT_VARIANT)-$(CURRENT_ARCH).txt";
@@ -8184,6 +8160,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
@@ -8215,9 +8192,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -8243,8 +8220,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(INSTALL_PATH_ACTUAL)";
@@ -8267,6 +8244,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(INSTALL_PATH_ACTUAL)";
 				INSTALL_PATH_ACTUAL = /usr/local/include/ppp;
@@ -8280,6 +8258,54 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 				);
+			};
+			name = Default;
+		};
+		C4E1F316241C4C2F00F8B492 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		C4E1F317241C4C2F00F8B492 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		C4E1F318241C4C2F00F8B492 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Default;
+		};
+		C4E1F38E241C5D2A00F8B492 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		C4E1F38F241C5D2A00F8B492 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		C4E1F390241C5D2A00F8B492 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Default;
 		};
@@ -8652,6 +8678,26 @@
 				B0F8AFD716A074D500545847 /* Development */,
 				B0F8AFD816A074D500545847 /* Deployment */,
 				B0F8AFD916A074D500545847 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C4E1F319241C4C2F00F8B492 /* Build configuration list for PBXAggregateTarget "ppp-base" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C4E1F316241C4C2F00F8B492 /* Development */,
+				C4E1F317241C4C2F00F8B492 /* Deployment */,
+				C4E1F318241C4C2F00F8B492 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		C4E1F391241C5D2A00F8B492 /* Build configuration list for PBXAggregateTarget "Drivers-base" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C4E1F38E241C5D2A00F8B492 /* Development */,
+				C4E1F38F241C5D2A00F8B492 /* Deployment */,
+				C4E1F390241C5D2A00F8B492 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

@@ -55,6 +55,15 @@
 				<key>Interval</key>
 				<real>86400</real>
 			</dict>
+			<key>com.apple.securityd.prng</key>
+			<dict>
+				<key>Priority</key>
+				<string>Maintenance</string>
+				<key>Interval</key>
+				<real>3600</real>
+                <key>RequiresClassC</key>
+                <false/>
+			</dict>
 		</dict>
 	</dict>
 </dict>

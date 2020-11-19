@@ -324,6 +324,7 @@ static int hfs_InitialMount(struct vnode *devvp, struct mount *mp, struct hfs_mo
 
     mntwrapper = 0;
     minblksize = kHFSBlockSize;
+    *hfsmp = NULL;
 
     /* Get the logical block size (treated as physical block size everywhere) */
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETBLOCKSIZE, &log_blksize))
@@ -360,6 +361,16 @@ static int hfs_InitialMount(struct vnode *devvp, struct mount *mp, struct hfs_mo
         retval = ENXIO;
         goto error_exit;
     }
+
+	/* Don't let phys_blksize be smaller than the logical  */
+	if (phys_blksize < log_blksize) {
+		/*
+		 * In the off chance that the phys_blksize is SMALLER than the logical
+		 * then don't let that happen.  Pretend that the PHYSICALBLOCKSIZE
+		 * ioctl was not supported.
+		 */
+		 phys_blksize = log_blksize;
+	}
 
     /* Get the number of physical blocks. */
     if (ioctl(devvp->psFSRecord->iFD, DKIOCGETBLOCKCOUNT, &log_blkcnt))
@@ -1601,180 +1612,6 @@ void hfs_scan_blocks (struct hfsmount *hfsmp)
     hfs_systemfile_unlock(hfsmp, flags);
 }
 
-int
-hfs_GetInfoByID(struct hfsmount *hfsmp, cnid_t cnid, UVFSFileAttributes *file_attrs, char pcName[MAX_UTF8_NAME_LENGTH])
-{
-    u_int32_t linkref = 0;
-    struct vnode *psVnode = NULL;
-    struct cat_desc cndesc;
-    struct cat_attr cnattr;
-    struct cat_fork cnfork;
-    int error = 0;
-
-    /* Check for cnids that should't be exported. */
-    if ((cnid < kHFSFirstUserCatalogNodeID) &&
-        (cnid != kHFSRootFolderID && cnid != kHFSRootParentID)) {
-        return (ENOENT);
-    }
-    /* Don't export our private directories. */
-    if (cnid == hfsmp->hfs_private_desc[FILE_HARDLINKS].cd_cnid ||
-        cnid == hfsmp->hfs_private_desc[DIR_HARDLINKS].cd_cnid) {
-        return (ENOENT);
-    }
-    /*
-     * Check the hash first
-     */
-    psVnode = hfs_chash_getvnode(hfsmp, cnid, 0, 0, 0);
-    if (psVnode) {
-        goto getAttrAndDone;
-    }
-
-    bzero(&cndesc, sizeof(cndesc));
-    bzero(&cnattr, sizeof(cnattr));
-    bzero(&cnfork, sizeof(cnfork));
-
-    /*
-     * Not in hash, lookup in catalog
-     */
-    if (cnid == kHFSRootParentID) {
-        static char hfs_rootname[] = "/";
-
-        cndesc.cd_nameptr = (const u_int8_t *)&hfs_rootname[0];
-        cndesc.cd_namelen = 1;
-        cndesc.cd_parentcnid = kHFSRootParentID;
-        cndesc.cd_cnid = kHFSRootFolderID;
-        cndesc.cd_flags = CD_ISDIR;
-
-        cnattr.ca_fileid = kHFSRootFolderID;
-        cnattr.ca_linkcount = 1;
-        cnattr.ca_entries = 1;
-        cnattr.ca_dircount = 1;
-        cnattr.ca_mode = (S_IFDIR | S_IRWXU | S_IRWXG | S_IRWXO);
-    } else {
-        int lockflags;
-        cnid_t pid;
-        const char *nameptr;
-
-        lockflags = hfs_systemfile_lock(hfsmp, SFL_CATALOG, HFS_SHARED_LOCK);
-        error = cat_idlookup(hfsmp, cnid, 0, 0, &cndesc, &cnattr, &cnfork);
-        hfs_systemfile_unlock(hfsmp, lockflags);
-
-        if (error) {
-            return (error);
-        }
-
-        /*
-         * Check for a raw hardlink inode and save its linkref.
-         */
-        pid = cndesc.cd_parentcnid;
-        nameptr = (const char *)cndesc.cd_nameptr;
-        if ((pid == hfsmp->hfs_private_desc[FILE_HARDLINKS].cd_cnid) &&
-            cndesc.cd_namelen > HFS_INODE_PREFIX_LEN &&
-            (bcmp(nameptr, HFS_INODE_PREFIX, HFS_INODE_PREFIX_LEN) == 0)) {
-            linkref = (uint32_t) strtoul(&nameptr[HFS_INODE_PREFIX_LEN], NULL, 10);
-
-        } else if ((pid == hfsmp->hfs_private_desc[DIR_HARDLINKS].cd_cnid) &&
-                   cndesc.cd_namelen > HFS_DIRINODE_PREFIX_LEN &&
-                   (bcmp(nameptr, HFS_DIRINODE_PREFIX, HFS_DIRINODE_PREFIX_LEN) == 0)) {
-            linkref = (uint32_t) strtoul(&nameptr[HFS_DIRINODE_PREFIX_LEN], NULL, 10);
-
-        } else if ((pid == hfsmp->hfs_private_desc[FILE_HARDLINKS].cd_cnid) &&
-                   cndesc.cd_namelen > HFS_DELETE_PREFIX_LEN &&
-                   (bcmp(nameptr, HFS_DELETE_PREFIX, HFS_DELETE_PREFIX_LEN) == 0)) {
-            cat_releasedesc(&cndesc);
-            return (ENOENT);  /* open unlinked file */
-        }
-    }
-
-    /*
-     * Finish initializing cnode descriptor for hardlinks.
-     *
-     * We need a valid name and parent for reverse lookups.
-     */
-    if (linkref) {
-        cnid_t lastid;
-        struct cat_desc linkdesc;
-        int linkerr = 0;
-
-        cnattr.ca_linkref = linkref;
-        bzero (&linkdesc, sizeof (linkdesc));
-
-        /*
-         * If the caller supplied the raw inode value, then we don't know exactly
-         * which hardlink they wanted. It's likely that they acquired the raw inode
-         * value BEFORE the item became a hardlink, in which case, they probably
-         * want the oldest link.  So request the oldest link from the catalog.
-         *
-         * Unfortunately, this requires that we iterate through all N hardlinks. On the plus
-         * side, since we know that we want the last linkID, we can also have this one
-         * call give us back the name of the last ID, since it's going to have it in-hand...
-         */
-        linkerr = hfs_lookup_lastlink (hfsmp, linkref, &lastid, &linkdesc);
-        if ((linkerr == 0) && (lastid != 0)) {
-            /*
-             * Release any lingering buffers attached to our local descriptor.
-             * Then copy the name and other business into the cndesc
-             */
-            cat_releasedesc (&cndesc);
-            bcopy (&linkdesc, &cndesc, sizeof(linkdesc));
-        }
-        /* If it failed, the linkref code will just use whatever it had in-hand below. */
-
-        int newvnode_flags = 0;
-        error = hfs_getnewvnode(hfsmp, NULL, NULL, &cndesc, 0, &cnattr, &cnfork, &psVnode, &newvnode_flags);
-        if (error == 0) {
-            VTOC(psVnode)->c_flag |= C_HARDLINK;
-        }
-    }
-    else
-    {
-        int newvnode_flags = 0;
-
-        void *buf = hfs_malloc(MAX_UTF8_NAME_LENGTH);
-        if (buf == NULL) {
-            return (ENOMEM);
-        }
-        
-        /* Supply hfs_getnewvnode with a component name. */
-        struct componentname cn = {
-            .cn_nameiop = LOOKUP,
-            .cn_flags    = ISLASTCN,
-            .cn_pnlen    = MAXPATHLEN,
-            .cn_namelen = cndesc.cd_namelen,
-            .cn_pnbuf    = buf,
-            .cn_nameptr = buf
-        };
-
-        bcopy(cndesc.cd_nameptr, cn.cn_nameptr, cndesc.cd_namelen + 1);
-        error = hfs_getnewvnode(hfsmp, NULL, &cn, &cndesc, 0, &cnattr, &cnfork, &psVnode, &newvnode_flags);
-        if (error == 0 && (VTOC(psVnode)->c_flag & C_HARDLINK)) {
-            hfs_savelinkorigin(VTOC(psVnode), cndesc.cd_parentcnid);
-        }
-
-        hfs_free(buf);
-    }
-    cat_releasedesc(&cndesc);
-    
-getAttrAndDone:
-    if (!error) vnode_GetAttrInternal (psVnode, file_attrs);
-    if (psVnode != NULL) hfs_unlock(VTOC(psVnode));
-    
-    if (error || psVnode == NULL || psVnode->sFSParams.vnfs_cnp->cn_nameptr == NULL){
-        hfs_vnop_reclaim(psVnode);
-        return EFAULT;
-    }
-
-    if (cnid == kHFSRootFolderID)
-        pcName[0] = 0;
-    else {
-        strlcpy(pcName, (char*) psVnode->sFSParams.vnfs_cnp->cn_nameptr, MAX_UTF8_NAME_LENGTH);
-    }
-
-    error = hfs_vnop_reclaim(psVnode);
-
-    return (error);
-}
-
 /*
  * Look up an HFS object by ID.
  *
@@ -1949,6 +1786,34 @@ hfs_vget(struct hfsmount *hfsmp, cnid_t cnid, struct vnode **vpp, int skiplock, 
     if (vp && skiplock) {
         hfs_unlock(VTOC(vp));
     }
+    return (error);
+}
+
+int
+hfs_GetInfoByID(struct hfsmount *hfsmp, cnid_t cnid, UVFSFileAttributes *file_attrs, char pcName[MAX_UTF8_NAME_LENGTH])
+{
+    struct vnode *psVnode = NULL;
+    int error = hfs_vget(hfsmp, cnid, &psVnode, 0, 0);
+    if (error || psVnode == NULL) {
+        if (psVnode != NULL) hfs_unlock(VTOC(psVnode));
+        hfs_vnop_reclaim(psVnode);
+        return EFAULT;
+    } else {
+        vnode_GetAttrInternal (psVnode, file_attrs);
+        hfs_unlock(VTOC(psVnode));
+    }
+
+    if (cnid == kHFSRootFolderID)
+        pcName[0] = 0;
+    else {
+        //Make sure we actually have the name in the vnode
+        if (psVnode->sFSParams.vnfs_cnp && psVnode->sFSParams.vnfs_cnp->cn_nameptr)
+            strlcpy(pcName, (char*) psVnode->sFSParams.vnfs_cnp->cn_nameptr, MAX_UTF8_NAME_LENGTH);
+        else
+            return EINVAL;
+    }
+
+    error = hfs_vnop_reclaim(psVnode);
     return (error);
 }
 

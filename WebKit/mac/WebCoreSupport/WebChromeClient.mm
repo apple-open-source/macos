@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2020 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -66,13 +66,13 @@
 #import <WebCore/FileIconLoader.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/Frame.h>
-#import <WebCore/FrameLoadRequest.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/FullscreenManager.h>
 #import <WebCore/GraphicsLayer.h>
 #import <WebCore/HTMLInputElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HTMLPlugInImageElement.h>
+#import <WebCore/HTMLVideoElement.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/Icon.h>
 #import <WebCore/IntPoint.h>
@@ -120,10 +120,12 @@ NSString *WebConsoleMessageRenderingMessageSource = @"RenderingMessageSource";
 NSString *WebConsoleMessageCSSMessageSource = @"CSSMessageSource";
 NSString *WebConsoleMessageSecurityMessageSource = @"SecurityMessageSource";
 NSString *WebConsoleMessageContentBlockerMessageSource = @"ContentBlockerMessageSource";
-NSString *WebConsoleMessageOtherMessageSource = @"OtherMessageSource";
 NSString *WebConsoleMessageMediaMessageSource = @"MediaMessageSource";
-NSString *WebConsoleMessageWebRTCMessageSource = @"WebRTCMessageSource";
 NSString *WebConsoleMessageMediaSourceMessageSource = @"MediaSourceMessageSource";
+NSString *WebConsoleMessageWebRTCMessageSource = @"WebRTCMessageSource";
+NSString *WebConsoleMessageITPDebugMessageSource = @"ITPDebugMessageSource";
+NSString *WebConsoleMessageAdClickAttributionMessageSource = @"AdClickAttributionMessageSource";
+NSString *WebConsoleMessageOtherMessageSource = @"OtherMessageSource";
 
 NSString *WebConsoleMessageDebugMessageLevel = @"DebugMessageLevel";
 NSString *WebConsoleMessageLogMessageLevel = @"LogMessageLevel";
@@ -238,7 +240,7 @@ void WebChromeClient::focusedFrameChanged(Frame*)
 {
 }
 
-Page* WebChromeClient::createWindow(Frame& frame, const FrameLoadRequest&, const WindowFeatures& features, const NavigationAction&)
+Page* WebChromeClient::createWindow(Frame& frame, const WindowFeatures& features, const NavigationAction&)
 {
     id delegate = [m_webView UIDelegate];
     WebView *newWebView;
@@ -393,14 +395,18 @@ inline static NSString *stringForMessageSource(MessageSource source)
         return WebConsoleMessageSecurityMessageSource;
     case MessageSource::ContentBlocker:
         return WebConsoleMessageContentBlockerMessageSource;
-    case MessageSource::Other:
-        return WebConsoleMessageOtherMessageSource;
     case MessageSource::Media:
         return WebConsoleMessageMediaMessageSource;
-    case MessageSource::WebRTC:
-        return WebConsoleMessageWebRTCMessageSource;
     case MessageSource::MediaSource:
         return WebConsoleMessageMediaSourceMessageSource;
+    case MessageSource::WebRTC:
+        return WebConsoleMessageWebRTCMessageSource;
+    case MessageSource::ITPDebug:
+        return WebConsoleMessageITPDebugMessageSource;
+    case MessageSource::AdClickAttribution:
+        return WebConsoleMessageAdClickAttributionMessageSource;
+    case MessageSource::Other:
+        return WebConsoleMessageOtherMessageSource;
     }
     ASSERT_NOT_REACHED();
     return @"";
@@ -455,8 +461,8 @@ void WebChromeClient::addMessageToConsole(MessageSource source, MessageLevel lev
     NSString *messageSource = stringForMessageSource(source);
     NSDictionary *dictionary = [[NSDictionary alloc] initWithObjectsAndKeys:
         (NSString *)message, @"message",
-        [NSNumber numberWithUnsignedInt:lineNumber], @"lineNumber",
-        [NSNumber numberWithUnsignedInt:columnNumber], @"columnNumber",
+        @(lineNumber), @"lineNumber",
+        @(columnNumber), @"columnNumber",
         (NSString *)sourceURL, @"sourceURL",
         messageSource, @"MessageSource",
         stringForMessageLevel(level), @"MessageLevel",
@@ -682,13 +688,13 @@ void WebChromeClient::print(Frame& frame)
 
 void WebChromeClient::exceededDatabaseQuota(Frame& frame, const String& databaseName, DatabaseDetails)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     WebSecurityOrigin *webOrigin = [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:&frame.document()->securityOrigin()];
     CallUIDelegate(m_webView, @selector(webView:frame:exceededDatabaseQuotaForSecurityOrigin:database:), kit(&frame), webOrigin, (NSString *)databaseName);
     [webOrigin release];
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void WebChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
@@ -698,13 +704,13 @@ void WebChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
 
 void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin& origin, int64_t totalSpaceNeeded)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     WebSecurityOrigin *webOrigin = [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:&origin];
     CallUIDelegate(m_webView, @selector(webView:exceededApplicationCacheOriginQuotaForSecurityOrigin:totalSpaceNeeded:), webOrigin, static_cast<NSUInteger>(totalSpaceNeeded));
     [webOrigin release];
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 #if ENABLE(INPUT_TYPE_COLOR)
@@ -756,7 +762,7 @@ void WebChromeClient::requestPointerUnlock()
 
 void WebChromeClient::runOpenPanel(Frame&, FileChooser& chooser)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     BOOL allowMultipleFiles = chooser.settings().allowsMultipleFiles;
     WebOpenPanelResultListener *listener = [[WebOpenPanelResultListener alloc] initWithChooser:chooser];
     id delegate = [m_webView UIDelegate];
@@ -767,7 +773,7 @@ void WebChromeClient::runOpenPanel(Frame&, FileChooser& chooser)
     else
         [listener cancel];
     [listener release];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void WebChromeClient::showShareSheet(ShareDataWithParsedURL&, CompletionHandler<void(bool)>&&)
@@ -819,27 +825,27 @@ void WebChromeClient::setCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
 
 KeyboardUIMode WebChromeClient::keyboardUIMode()
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     return [m_webView _keyboardUIMode];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
     return KeyboardAccessDefault;
 }
 
 NSResponder *WebChromeClient::firstResponder()
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     return [[m_webView _UIDelegateForwarder] webViewFirstResponder:m_webView];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
     return nil;
 }
 
 void WebChromeClient::makeFirstResponder(NSResponder *responder)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_webView _pushPerformingProgrammaticFocus];
     [[m_webView _UIDelegateForwarder] webView:m_webView makeFirstResponder:responder];
     [m_webView _popPerformingProgrammaticFocus];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 void WebChromeClient::enableSuddenTermination()
@@ -912,7 +918,7 @@ void WebChromeClient::attachRootGraphicsLayer(Frame& frame, GraphicsLayer* graph
     UNUSED_PARAM(frame);
     UNUSED_PARAM(graphicsLayer);
 #else
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     NSView *documentView = [[kit(&frame) frameView] documentView];
     if (![documentView isKindOfClass:[WebHTMLView class]]) {
@@ -926,7 +932,7 @@ void WebChromeClient::attachRootGraphicsLayer(Frame& frame, GraphicsLayer* graph
         [webHTMLView attachRootLayer:graphicsLayer->platformLayer()];
     else
         [webHTMLView detachRootLayer];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 #endif
 }
 
@@ -937,16 +943,16 @@ void WebChromeClient::attachViewOverlayGraphicsLayer(GraphicsLayer*)
 
 void WebChromeClient::setNeedsOneShotDrawingSynchronization()
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [m_webView _setNeedsOneShotDrawingSynchronization:YES];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void WebChromeClient::scheduleCompositingLayerFlush()
+void WebChromeClient::scheduleRenderingUpdate()
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    [m_webView _scheduleCompositingLayerFlush];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    [m_webView _scheduleUpdateRendering];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 #if ENABLE(VIDEO)
@@ -960,28 +966,46 @@ bool WebChromeClient::supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullsc
     return true;
 }
 
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+
+void WebChromeClient::setMockVideoPresentationModeEnabled(bool enabled)
+{
+    m_mockVideoPresentationModeEnabled = enabled;
+}
+
 void WebChromeClient::enterVideoFullscreenForVideoElement(HTMLVideoElement& videoElement, HTMLMediaElementEnums::VideoFullscreenMode mode, bool standby)
 {
     ASSERT_UNUSED(standby, !standby);
     ASSERT(mode != HTMLMediaElementEnums::VideoFullscreenModeNone);
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    [m_webView _enterVideoFullscreenForVideoElement:&videoElement mode:mode];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    if (m_mockVideoPresentationModeEnabled)
+        videoElement.didBecomeFullscreenElement();
+    else
+        [m_webView _enterVideoFullscreenForVideoElement:&videoElement mode:mode];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
-void WebChromeClient::exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&)
+void WebChromeClient::exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement& videoElement)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    [m_webView _exitVideoFullscreen];
-    END_BLOCK_OBJC_EXCEPTIONS;    
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    if (m_mockVideoPresentationModeEnabled)
+        videoElement.didStopBeingFullscreenElement();
+    else
+        [m_webView _exitVideoFullscreen];
+    END_BLOCK_OBJC_EXCEPTIONS    
 }
 
 void WebChromeClient::exitVideoFullscreenToModeWithoutAnimation(HTMLVideoElement& videoElement, HTMLMediaElementEnums::VideoFullscreenMode targetMode)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    [m_webView _exitVideoFullscreen];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    if (m_mockVideoPresentationModeEnabled)
+        videoElement.didStopBeingFullscreenElement();
+    else
+        [m_webView _exitVideoFullscreen];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
+
+#endif // ENABLE(VIDEO_PRESENTATION_MODE)
 
 #endif // ENABLE(VIDEO)
 
@@ -1089,22 +1113,22 @@ bool WebChromeClient::hasRelevantSelectionServices(bool isTextOnly) const
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 
-void WebChromeClient::addPlaybackTargetPickerClient(uint64_t contextId)
+void WebChromeClient::addPlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier contextId)
 {
     [m_webView _addPlaybackTargetPickerClient:contextId];
 }
 
-void WebChromeClient::removePlaybackTargetPickerClient(uint64_t contextId)
+void WebChromeClient::removePlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier contextId)
 {
     [m_webView _removePlaybackTargetPickerClient:contextId];
 }
 
-void WebChromeClient::showPlaybackTargetPicker(uint64_t contextId, const WebCore::IntPoint& location, bool hasVideo)
+void WebChromeClient::showPlaybackTargetPicker(PlaybackTargetClientContextIdentifier contextId, const WebCore::IntPoint& location, bool hasVideo)
 {
     [m_webView _showPlaybackTargetPicker:contextId location:location hasVideo:hasVideo];
 }
 
-void WebChromeClient::playbackTargetPickerClientStateDidChange(uint64_t contextId, MediaProducer::MediaStateFlags state)
+void WebChromeClient::playbackTargetPickerClientStateDidChange(PlaybackTargetClientContextIdentifier contextId, MediaProducer::MediaStateFlags state)
 {
     [m_webView _playbackTargetPickerClientStateDidChange:contextId state:state];
 }

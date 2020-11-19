@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2020 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,19 +32,25 @@
 #import "WebPreferences.h"
 #import "WebViewPrivate.h"
 #import "WebTypesInternal.h"
+#import "WebUIDelegate.h"
 
 #ifdef __cplusplus
+
 #import <WebCore/AlternativeTextClient.h>
+#import <WebCore/DragActions.h>
 #import <WebCore/FindOptions.h>
 #import <WebCore/FloatRect.h>
 #import <WebCore/HTMLMediaElementEnums.h>
 #import <WebCore/LayoutMilestone.h>
+#import <WebCore/PlaybackTargetClientContextIdentifier.h>
 #import <WebCore/TextAlternativeWithRange.h>
 #import <WebCore/TextIndicator.h>
 #import <WebCore/TextIndicatorWindow.h>
 #import <WebCore/WebCoreKeyboardUIMode.h>
 #import <functional>
 #import <wtf/Forward.h>
+#import <wtf/NakedPtr.h>
+#import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
 
 namespace WebCore {
@@ -78,6 +84,7 @@ class WebSelectionServiceController;
 #endif
 
 @class NSCandidateListTouchBarItem;
+@class NSTextAlternatives;
 @class WebBasePluginPackage;
 @class WebDownload;
 @class WebImmediateActionController;
@@ -85,16 +92,24 @@ class WebSelectionServiceController;
 
 #ifdef __cplusplus
 
-WebCore::FindOptions coreOptions(WebFindOptions options);
+#if ENABLE(DRAG_SUPPORT)
+#if USE(APPKIT)
+using CocoaDragOperation = NSDragOperation;
+#else
+using CocoaDragOperation = uint64_t;
+#endif
+
+OptionSet<WebCore::DragOperation> coreDragOperationMask(CocoaDragOperation);
+
+WebDragSourceAction kit(Optional<WebCore::DragSourceAction>);
+#endif // ENABLE(DRAG_SUPPORT)
+
+WebCore::FindOptions coreOptions(WebFindOptions);
 
 OptionSet<WebCore::LayoutMilestone> coreLayoutMilestones(WebLayoutMilestones);
 WebLayoutMilestones kitLayoutMilestones(OptionSet<WebCore::LayoutMilestone>);
 
-#if USE(DICTATION_ALTERNATIVES)
-OBJC_CLASS NSTextAlternatives;
-#endif
-
-#if ENABLE(DATA_INTERACTION) && defined(__cplusplus)
+#if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT) && defined(__cplusplus)
 @interface WebUITextIndicatorData (WebUITextIndicatorInternal)
 - (WebUITextIndicatorData *)initWithImage:(CGImageRef)image textIndicatorData:(const WebCore::TextIndicatorData&)indicatorData scale:(CGFloat)scale;
 - (WebUITextIndicatorData *)initWithImage:(CGImageRef)image scale:(CGFloat)scale;
@@ -126,19 +141,17 @@ OBJC_CLASS NSTextAlternatives;
 
 - (BOOL)_needsOneShotDrawingSynchronization;
 - (void)_setNeedsOneShotDrawingSynchronization:(BOOL)needsSynchronization;
-- (void)_scheduleCompositingLayerFlush;
+- (void)_scheduleUpdateRendering;
 - (BOOL)_flushCompositingChanges;
 
 #if USE(AUTOCORRECTION_PANEL)
 - (void)handleAcceptedAlternativeText:(NSString*)text;
 #endif
 
-#if USE(DICTATION_ALTERNATIVES)
 - (void)_getWebCoreDictationAlternatives:(Vector<WebCore::DictationAlternative>&)alternatives fromTextAlternatives:(const Vector<WebCore::TextAlternativeWithRange>&)alternativesWithRange;
-- (void)_showDictationAlternativeUI:(const WebCore::FloatRect&)boundingBoxOfDictatedText forDictationContext:(uint64_t)dictationContext;
-- (void)_removeDictationAlternatives:(uint64_t)dictationContext;
-- (Vector<String>)_dictationAlternatives:(uint64_t)dictationContext;
-#endif
+- (void)_showDictationAlternativeUI:(const WebCore::FloatRect&)boundingBoxOfDictatedText forDictationContext:(WebCore::DictationContext)dictationContext;
+- (void)_removeDictationAlternatives:(WebCore::DictationContext)dictationContext;
+- (Vector<String>)_dictationAlternatives:(WebCore::DictationContext)dictationContext;
 
 #if ENABLE(SERVICE_CONTROLS)
 - (WebSelectionServiceController&)_selectionServiceController;
@@ -165,7 +178,7 @@ OBJC_CLASS NSTextAlternatives;
 + (WebCacheModel)_cacheModel;
 
 #ifdef __cplusplus
-- (WebCore::Page*)page;
+- (NakedPtr<WebCore::Page>)page;
 - (WTF::String)_userAgentString;
 #endif
 
@@ -262,7 +275,7 @@ OBJC_CLASS NSTextAlternatives;
 #endif
 #endif
 
-#if ENABLE(DATA_INTERACTION) && defined(__cplusplus)
+#if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT) && defined(__cplusplus)
 - (void)_startDrag:(const WebCore::DragItem&)dragItem;
 - (void)_didConcludeEditDrag;
 #endif
@@ -271,19 +284,21 @@ OBJC_CLASS NSTextAlternatives;
 - (void)_invalidateUserAgentCache;
 
 #if ENABLE(VIDEO) && defined(__cplusplus)
-- (void)_enterVideoFullscreenForVideoElement:(WebCore::HTMLVideoElement*)videoElement mode:(WebCore::HTMLMediaElementEnums::VideoFullscreenMode)mode;
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+- (void)_enterVideoFullscreenForVideoElement:(NakedPtr<WebCore::HTMLVideoElement>)videoElement mode:(WebCore::HTMLMediaElementEnums::VideoFullscreenMode)mode;
 - (void)_exitVideoFullscreen;
-#if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
+#if PLATFORM(MAC)
 - (BOOL)_hasActiveVideoForControlsInterface;
-- (void)_setUpPlaybackControlsManagerForMediaElement:(WebCore::HTMLMediaElement&)mediaElement;
+- (void)_setUpPlaybackControlsManagerForMediaElement:(NakedRef<WebCore::HTMLMediaElement>)mediaElement;
 - (void)_clearPlaybackControlsManager;
+#endif
 #endif
 #endif
 
 #if ENABLE(FULLSCREEN_API) && !PLATFORM(IOS_FAMILY) && defined(__cplusplus)
-- (BOOL)_supportsFullScreenForElement:(WebCore::Element*)element withKeyboard:(BOOL)withKeyboard;
-- (void)_enterFullScreenForElement:(WebCore::Element*)element;
-- (void)_exitFullScreenForElement:(WebCore::Element*)element;
+- (BOOL)_supportsFullScreenForElement:(NakedPtr<WebCore::Element>)element withKeyboard:(BOOL)withKeyboard;
+- (void)_enterFullScreenForElement:(NakedPtr<WebCore::Element>)element;
+- (void)_exitFullScreenForElement:(NakedPtr<WebCore::Element>)element;
 #endif
 
 // Conversion functions between WebCore root view coordinates and web view coordinates.
@@ -306,10 +321,10 @@ OBJC_CLASS NSTextAlternatives;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY) && defined(__cplusplus)
 - (WebMediaPlaybackTargetPicker *) _devicePicker;
-- (void)_addPlaybackTargetPickerClient:(uint64_t)clientId;
-- (void)_removePlaybackTargetPickerClient:(uint64_t)contextId;
-- (void)_showPlaybackTargetPicker:(uint64_t)contextId location:(const WebCore::IntPoint&)location hasVideo:(BOOL)hasVideo;
-- (void)_playbackTargetPickerClientStateDidChange:(uint64_t)contextId state:(WebCore::MediaProducer::MediaStateFlags)state;
+- (void)_addPlaybackTargetPickerClient:(WebCore::PlaybackTargetClientContextIdentifier)contextId;
+- (void)_removePlaybackTargetPickerClient:(WebCore::PlaybackTargetClientContextIdentifier)contextId;
+- (void)_showPlaybackTargetPicker:(WebCore::PlaybackTargetClientContextIdentifier)contextId location:(const WebCore::IntPoint&)location hasVideo:(BOOL)hasVideo;
+- (void)_playbackTargetPickerClientStateDidChange:(WebCore::PlaybackTargetClientContextIdentifier)contextId state:(WebCore::MediaProducer::MediaStateFlags)state;
 - (void)_setMockMediaPlaybackTargetPickerEnabled:(bool)enabled;
 - (void)_setMockMediaPlaybackTargetPickerName:(NSString *)name state:(WebCore::MediaPlaybackTargetContext::State)state;
 - (void)_mockMediaPlaybackTargetPickerDismissPopup;

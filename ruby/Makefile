@@ -16,6 +16,8 @@ GnuNoBuild	= YES
 
 # ruby_atomic.h
 Extra_CC_Flags = -DHAVE_GCC_ATOMIC_BUILTINS
+# <rdar://problem/64900188> ruby needs to switch to using the modern libffi closure API as the legacy API is not supported on arm64
+Extra_CC_Flags += -DUSE_FFI_CLOSURE_ALLOC
 # don't use xcrun as xcrun_log will break configure -- keep it like this for rbconfig.rb
 Extra_Configure_Environment =
 comma := ,
@@ -37,6 +39,7 @@ Extra_Configure_Flags  = \
 	ac_cv_header_net_if_h=yes \
 	av_cv_header_ifaddrs_h=yes \
 	rb_cv_pri_prefix_long_long=ll \
+	rb_cv_stack_grow_dir_arm64e=-1 \
 	ac_cv_sizeof_struct_stat_st_size=SIZEOF_OFF_T \
 	ac_cv_sizeof_struct_stat_st_blocks=SIZEOF_INT64_T \
 	ac_cv_sizeof_struct_stat_st_ino=SIZEOF_UINT64_T
@@ -69,7 +72,10 @@ AEP_Patches    = \
 	lib_rubygems_defaults.rb.diff \
 	getaddrinfo-test.diff \
 	empty_files_verifier.diff \
-	deprecate.diff
+	deprecate.diff \
+	ruby-CVE-2019-15845.patch \
+	ruby-gitignore-fix-build.patch \
+	ruby-CVE-2020-10663.patch
 
 MAJOR     = $(shell echo $(AEP_Version) | cut -d. -f1)
 MINOR     = $(shell echo $(AEP_Version) | cut -d. -f2)
@@ -90,7 +96,7 @@ $(ConfigStamp2): $(ConfigStamp)
 
 build:: configure
 	$(INSTALL_DIRECTORY) $(SYMROOT)
-	$(_v) $(MAKE) -C $(BuildDirectory) CC=$(shell xcrun -f clang) OBJCOPY=": noobjcopy" RUBY_CODESIGN="-"
+	$(_v) $(MAKE) -C $(BuildDirectory) CC=$(shell xcrun -f clang) OBJCOPY=": noobjcopy" RUBY_CODESIGN="-" ARCHFLAGS="$(foreach a,$(RC_ARCHS),-arch $(a))"
 
 post-install:
 	$(INSTALL_DIRECTORY) $(DSTROOT)$(FW_VERSION_DIR)/Resources

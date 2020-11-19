@@ -67,9 +67,6 @@ includes
 #include "../Drivers/L2TP/L2TP-plugin/l2tp.h"
 #include "../Drivers/PPPoE/PPPoE-extension/PPPoE.h"
 
-#include "sessionTracer.h"
-
-
 /* -----------------------------------------------------------------------------
 Definitions
 ----------------------------------------------------------------------------- */
@@ -198,7 +195,9 @@ void display_error(struct service *serv)
     CFMutableDictionaryRef 	dict = NULL;
     SInt32 			err;
 
-    SESSIONTRACERSTOP(serv);
+    serv->connecttime = 0;
+    serv->establishtime = 0;
+
     STOP_TRACKING_VPN_LOCATION(serv);
 
     if (serv->u.ppp.laststatus == EXIT_USER_REQUEST)
@@ -511,7 +510,7 @@ int ppp_will_sleep(struct service *serv, int checking)
 		&& (serv->flags & FLAG_SETUP_DISCONNECTONSLEEP)) { 
 		
 		delay = 1;
-		if (serv->u.ppp.phase != PPP_DORMANT || serv->u.ppp.phase != PPP_HOLDOFF) 
+		if (serv->u.ppp.phase != PPP_DORMANT && serv->u.ppp.phase != PPP_HOLDOFF)
 			alert = 2;
 		if (!checking)
 			scnc_stop(serv, 0, SIGTERM, SCNC_STOP_SYS_SLEEP);
@@ -1312,7 +1311,7 @@ int send_pppd_params(struct service *serv, CFDictionaryRef service, CFDictionary
                 string = CFArrayGetValueAtIndex(array, i);
                 if (string && (CFGetTypeID(string) == CFStringGetTypeID())) {
                     CFStringGetCString(string, str, sizeof(str) - 4, kCFStringEncodingUTF8);
-                    // for user options, we only accept plugin in the EAP directory (/System/Library/Extensions)
+                    // for user options, we only accept plugin in the EAP directory (/System/Library/SystemConfiguration/PPPController.bundle/Contents/PlugIns)
                     if (from_service || strchr(str, '\\') == 0) {
                         strlcat(str, ".ppp", sizeof(str));	// add plugin suffix
                         writestrparam(optfd, "eapplugin", str);
@@ -2175,7 +2174,8 @@ ppp_persist_connection_exec_callback (struct service *serv, int exitcode)
 
 			scnc_log(LOG_ERR, CFSTR("PPP Controller: reconnecting"));
 			// start over
-			SESSIONTRACERSTOP(serv);
+			serv->connecttime = 0;
+			serv->establishtime = 0;
 			my_CFRelease(&serv->connection_nid);
 			my_CFRelease(&serv->connection_nap);
 			STOP_TRACKING_VPN_LOCATION(serv);
@@ -2524,7 +2524,9 @@ void ppp_updatephase(struct service *serv, int phase, int ifunit)
             snprintf(serv->if_name, sizeof(serv->if_name), "ppp%d", ifunit);
 
             serv->was_running = 1;
-            SESSIONTRACERESTABLISHED(serv);
+	    if (serv->establishtime == 0) {
+		    serv->establishtime = mach_absolute_time() * gTimeScaleSeconds;
+	    }
             break;
             
         case PPP_DORMANT:

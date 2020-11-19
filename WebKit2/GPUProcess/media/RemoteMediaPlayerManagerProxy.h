@@ -30,13 +30,14 @@
 #include "Connection.h"
 #include "MediaPlayerPrivateRemoteIdentifier.h"
 #include "MessageReceiver.h"
+#include "SandboxExtension.h"
+#include "TrackPrivateRemoteIdentifier.h"
 #include <WebCore/MediaPlayer.h>
 #include <wtf/LoggerHelper.h>
 
 namespace WebKit {
 
 class GPUConnectionToWebProcess;
-class RemoteMediaResourceManager;
 class RemoteMediaPlayerProxy;
 struct RemoteMediaPlayerConfiguration;
 struct RemoteMediaPlayerProxyConfiguration;
@@ -57,6 +58,8 @@ public:
 
     void didReceiveMessageFromWebProcess(IPC::Connection& connection, IPC::Decoder& decoder) { didReceiveMessage(connection, decoder); }
     void didReceiveSyncMessageFromWebProcess(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& encoder) { didReceiveSyncMessage(connection, decoder, encoder); }
+    void didReceivePlayerMessage(IPC::Connection&, IPC::Decoder&);
+    void didReceiveSyncPlayerMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final;
@@ -64,6 +67,8 @@ public:
     const char* logClassName() const final { return "RemoteMediaPlayerManagerProxy"; }
     WTFLogChannel& logChannel() const final;
 #endif
+
+    RemoteMediaPlayerProxy* getProxy(const MediaPlayerPrivateRemoteIdentifier&);
 
 private:
     // IPC::MessageReceiver
@@ -75,29 +80,12 @@ private:
 
     // Media player factory
     void getSupportedTypes(WebCore::MediaPlayerEnums::MediaEngineIdentifier, CompletionHandler<void(Vector<String>&&)>&&);
-    void supportsType(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const WebCore::MediaEngineSupportParameters&&, CompletionHandler<void(WebCore::MediaPlayer::SupportsType)>&&);
+    void supportsTypeAndCodecs(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const WebCore::MediaEngineSupportParameters&&, CompletionHandler<void(WebCore::MediaPlayer::SupportsType)>&&);
+    void canDecodeExtendedType(WebCore::MediaPlayerEnums::MediaEngineIdentifier remoteEngineIdentifier, const String&&, CompletionHandler<void(bool)>&&);
     void originsInMediaCache(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const String&&, CompletionHandler<void(Vector<WebCore::SecurityOriginData>&&)>&&);
     void clearMediaCache(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const String&&, WallTime);
     void clearMediaCacheForOrigins(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const String&&, Vector<WebCore::SecurityOriginData>&&);
     void supportsKeySystem(WebCore::MediaPlayerEnums::MediaEngineIdentifier, const String&&, const String&&, CompletionHandler<void(bool)>&&);
-
-    void load(MediaPlayerPrivateRemoteIdentifier, URL&&, WebCore::ContentType&&, String&&, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
-    void prepareForPlayback(MediaPlayerPrivateRemoteIdentifier, bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, bool prepareForRendering);
-    void cancelLoad(MediaPlayerPrivateRemoteIdentifier);
-    void prepareToPlay(MediaPlayerPrivateRemoteIdentifier);
-
-    void play(MediaPlayerPrivateRemoteIdentifier);
-    void pause(MediaPlayerPrivateRemoteIdentifier);
-
-    void seek(MediaPlayerPrivateRemoteIdentifier, MediaTime&&);
-    void seekWithTolerance(MediaPlayerPrivateRemoteIdentifier, MediaTime&&, MediaTime&& negativeTolerance, MediaTime&& positiveTolerance);
-
-    void setVolume(MediaPlayerPrivateRemoteIdentifier, double);
-    void setMuted(MediaPlayerPrivateRemoteIdentifier, bool);
-
-    void setPreload(MediaPlayerPrivateRemoteIdentifier, WebCore::MediaPlayerEnums::Preload);
-    void setPrivateBrowsingMode(MediaPlayerPrivateRemoteIdentifier, bool);
-    void setPreservesPitch(MediaPlayerPrivateRemoteIdentifier, bool);
 
     HashMap<MediaPlayerPrivateRemoteIdentifier, std::unique_ptr<RemoteMediaPlayerProxy>> m_proxies;
     GPUConnectionToWebProcess& m_gpuConnectionToWebProcess;

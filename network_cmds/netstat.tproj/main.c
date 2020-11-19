@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -171,6 +171,13 @@ struct protox kernprotox[] = {
 	{ NULL,		NULL,		NULL,	NULL,	0 }
 };
 
+#ifdef AF_VSOCK
+struct protox vsockprotox[] = {
+	{ vsockpr,	NULL,	NULL,	"vsock", 0 },
+	{ NULL,		NULL,		NULL,	NULL,	0 }
+};
+#endif
+
 struct protox *protoprotox[] = {
 	protox,
 #ifdef INET6
@@ -183,6 +190,9 @@ struct protox *protoprotox[] = {
 	nstatprotox,
 	ipcprotox,
 	kernprotox,
+#ifdef AF_VSOCK
+	vsockprotox,
+#endif
 	NULL
 };
 
@@ -467,6 +477,11 @@ main(argc, argv)
 		for (tp = kernprotox; tp->pr_name; tp++)
 			printproto(tp, tp->pr_name);
 
+#ifdef AF_VSOCK
+	if (af == AF_VSOCK || af == AF_UNSPEC)
+		for (tp = vsockprotox; tp->pr_name; tp++)
+			printproto(tp, tp->pr_name);
+#endif /*AF_VSOCK*/
 
 #ifdef SRVCACHE
 	_serv_cache_close();

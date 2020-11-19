@@ -22,27 +22,6 @@
 	<string>$(IOHIDFAMILY_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
-		<key>R1 Merge</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDProviderPropertyMerger</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>PrimaryUsagePage</key>
-				<integer>65280</integer>
-				<key>PrimaryUsage</key>
-				<integer>27</integer>
-			</dict>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>ProtectedAccess</key>
-				<true/>
-			</dict>
-		</dict>
 		<key>HID Game Controller Pointing Driver</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -129,6 +108,27 @@
 			<string>IOBSD</string>
 			<key>IOUserClientClass</key>
 			<string>IOHIDResourceDeviceUserClient</string>
+		</dict>
+		<key>R1 Merge</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDProviderPropertyMerger</string>
+			<key>IOPropertyMatch</key>
+			<dict>
+				<key>PrimaryUsage</key>
+				<integer>27</integer>
+				<key>PrimaryUsagePage</key>
+				<integer>65280</integer>
+			</dict>
+			<key>IOProviderClass</key>
+			<string>IOHIDDevice</string>
+			<key>IOProviderMergeProperties</key>
+			<dict>
+				<key>ProtectedAccess</key>
+				<true/>
+			</dict>
 		</dict>
 		<key>ShuttleExpress</key>
 		<dict>
@@ -259,244 +259,6 @@
 			<integer>407</integer>
 			<key>VendorID</key>
 			<integer>3767</integer>
-		</dict>
-		<key>Xbox Wireless Controller Property Merge</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDProviderPropertyMerger</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>VendorID</key>
-				<integer>1118</integer>
-				<key>ProductID</key>
-				<integer>765</integer>
-			</dict>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>HIDServiceSupport</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>Xbox Wireless Controller IOService</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOService</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>VendorID</key>
-			<integer>1118</integer>
-			<key>ProductID</key>
-			<integer>765</integer>
-		</dict>
-		<key>Xbox Wireless Controller 0x2e0 Property Merge </key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDProviderPropertyMerger</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>VendorID</key>
-				<integer>1118</integer>
-				<key>ProductID</key>
-				<integer>736</integer>
-			</dict>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>HIDServiceSupport</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>Xbox Wireless Controller 0x2e0 IOService</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOService</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>VendorID</key>
-			<integer>1118</integer>
-			<key>ProductID</key>
-			<integer>736</integer>
-		</dict>
-		<key>Xbox Wired Controller Property Merge</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDProviderPropertyMerger</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>VendorID</key>
-				<integer>1118</integer>
-				<key>ProductID</key>
-				<integer>746</integer>
-			</dict>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>HIDServiceSupport</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>Xbox Wired Controller IOService</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOService</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>VendorID</key>
-			<integer>1118</integer>
-			<key>ProductID</key>
-			<integer>746</integer>
-		</dict>
-		<key>Xbox Adaptive Controller IOService</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOService</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>VendorID</key>
-			<integer>1118</integer>
-			<key>ProductID</key>
-			<integer>2828</integer>
-		</dict>
-		<key>Xbox Adaptive Controller Property Merge</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDProviderPropertyMerger</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>VendorID</key>
-				<integer>1118</integer>
-				<key>ProductID</key>
-				<integer>2828</integer>
-			</dict>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>HIDServiceSupport</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>Playstation Dualshock Controller Property Merge</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDProviderPropertyMerger</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>VendorID</key>
-				<integer>1356</integer>
-				<key>ProductID</key>
-				<integer>2508</integer>
-			</dict>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>HIDServiceSupport</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>Playstation Dualshock Controller IOService</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOService</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>VendorID</key>
-			<integer>1356</integer>
-			<key>ProductID</key>
-			<integer>2508</integer>
-		</dict>
-		<key>T1 DualShock 4 Controller Property Merge</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDProviderPropertyMerger</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>VendorID</key>
-				<integer>1356</integer>
-				<key>ProductID</key>
-				<integer>1476</integer>
-			</dict>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>HIDServiceSupport</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>T1 DualShock 4 Controller IOService</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOService</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>VendorID</key>
-			<integer>1356</integer>
-			<key>ProductID</key>
-			<integer>1476</integer>
-		</dict>
-		<key>Spatial Controller Property Merge</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOHIDProviderPropertyMerger</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDDevice</string>
-			<key>IOPropertyMatch</key>
-			<dict>
-				<key>PrimaryUsagePage</key>
-				<integer>1</integer>
-				<key>PrimaryUsage</key>
-				<integer>15</integer>
-			</dict>
-			<key>IOProviderMergeProperties</key>
-			<dict>
-				<key>HIDServiceSupport</key>
-				<true/>
-			</dict>
-		</dict>
-		<key>Spatial Controller IOService</key>
-		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.iokit.IOHIDFamily</string>
-			<key>IOClass</key>
-			<string>IOService</string>
-			<key>IOProviderClass</key>
-			<string>IOHIDInterface</string>
-			<key>PrimaryUsagePage</key>
-			<integer>1</integer>
-			<key>PrimaryUsage</key>
-			<integer>15</integer>
 		</dict>
 	</dict>
 	<key>NSHumanReadableCopyright</key>

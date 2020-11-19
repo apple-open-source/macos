@@ -71,7 +71,7 @@
  * calls to a protocol- and device-specific provider.
  */
 
-class IOBDBlockStorageDevice : public IODVDBlockStorageDevice
+class __exported IOBDBlockStorageDevice : public IODVDBlockStorageDevice
 {
     OSDeclareAbstractStructors(IOBDBlockStorageDevice)
 

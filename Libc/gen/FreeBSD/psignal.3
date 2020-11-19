@@ -34,6 +34,7 @@
 .Sh NAME
 .Nm psignal ,
 .Nm strsignal ,
+.Nm strsignal_r ,
 .Nm sys_siglist ,
 .Nm sys_signame
 .Nd system signal messages
@@ -48,11 +49,18 @@
 .In string.h
 .Ft "char *"
 .Fn strsignal "int sig"
+.Ft "int"
+.Fo strsignal_r
+.Fa "int sig"
+.Fa "char *strsignalbuf"
+.Fa "size_t buflen"
+.Fc
 .Sh DESCRIPTION
 The
-.Fn psignal
+.Fn psignal ,
+.Fn strsignal ,
 and
-.Fn strsignal
+.Fn strsignal_r
 functions locate the descriptive message
 string for a signal number.
 .Pp
@@ -61,6 +69,14 @@ The
 function accepts a signal number argument
 .Fa sig
 and returns a pointer to the corresponding message string.
+.Pp
+The
+.Fn strsignal_r
+function renders the same result into
+.Fa strsignalbuf
+for a maximum of
+.Fa buflen
+characters and returns 0 upon success.
 .Pp
 The
 .Fn psignal
@@ -103,6 +119,11 @@ and
 a pointer to the desired message or a NULL value indicating an error.  This
 string is not to be freed by the caller.  Beginning with Mac OSX 10.7, this
 string is unique to each thread.
+.Pp
+.Fn strsignal_r
+0 if the message string is successfully copied in its entirety to
+.Fa strsignalbuf .
+.Pp
 .Sh ERRORS
 .Fn strsignal
 will fail and no additional memory will be allocated if
@@ -110,6 +131,23 @@ one of the following are true:
 .Bl -tag -width Er
 .It Bq Er ENOMEM
 There was insufficient memory to allocate storage space for the return value in the running thread.
+.El
+.Pp
+.Fn strsignal_r
+will return an error (but not fail) if one or more condition is met:
+.Bl -tag -width Er
+.It Bq Er ERANGE
+.Fa buflen
+is not long enough to fit the length of the message.
+.Fa strsignalbuf 
+will contain the message string that has been truncated and
+NUL terminated to fit the length specified by
+.Fa buflen .
+.El
+.Bl -tag -width Er
+.It Bq Er EINVAL
+.Fa sig
+<= 0 or >= NSIG.
 .El
 .Sh SEE ALSO
 .Xr sigaction 2 ,

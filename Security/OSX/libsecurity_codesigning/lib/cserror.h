@@ -42,7 +42,7 @@ class CSError : public MacOSError {
 public:
 	CSError(OSStatus rc) : MacOSError(rc) { }
 	CSError(OSStatus rc, CFDictionaryRef dict) : MacOSError(rc), mInfoDict(dict) { } // takes dict
-	~CSError() throw ();
+	~CSError() _NOEXCEPT;
 	
     static void throwMe(OSStatus rc) __attribute__((noreturn));
 	static void throwMe(OSStatus rc, CFDictionaryRef info) __attribute__ ((noreturn)); // takes dict

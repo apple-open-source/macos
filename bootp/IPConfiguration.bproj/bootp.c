@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -505,7 +505,7 @@ bootp_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	  bzero(bootp, sizeof(*bootp));
 	  dhcpol_init(&bootp->saved.options);
 	  bootp->xid = arc4random();
-	  bootp->timer = timer_callout_init();
+	  bootp->timer = timer_callout_init("bootp");
 	  if (bootp->timer == NULL) {
 	      my_log(LOG_NOTICE, "BOOTP %s: timer_callout_init failed",
 		     if_name(if_p));

@@ -281,9 +281,10 @@ void GenerateAndAllocateRegisters::prepareForGeneration()
     // We pessimistically assume we use all callee saves.
     handleCalleeSaves(m_code, RegisterSet::calleeSaveRegisters());
     allocateEscapedStackSlots(m_code);
+
     insertBlocksForFlushAfterTerminalPatchpoints();
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_code.forEachTmp([&] (Tmp tmp) {
         ASSERT(!tmp.isReg());
         m_allTmps[tmp.bank()].append(tmp);
@@ -379,7 +380,7 @@ void GenerateAndAllocateRegisters::prepareForGeneration()
 
     lowerStackArgs(m_code);
 
-#if !ASSERT_DISABLED 
+#if ASSERT_ENABLED
     // Verify none of these passes add any tmps.
     forEachBank([&] (Bank bank) {
         ASSERT(m_allTmps[bank].size() == m_code.numTmps(bank));
@@ -496,7 +497,7 @@ void GenerateAndAllocateRegisters::generate(CCallHelpers& jit)
         }
 
         forEachBank([&] (Bank bank) {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
             // By default, everything is spilled at block boundaries. We do this after we process each block
             // so we don't have to walk all Tmps, since #Tmps >> #Available regs. Instead, we walk the register file at
             // each block boundary and clear entries in this map.
@@ -786,12 +787,7 @@ void GenerateAndAllocateRegisters::generate(CCallHelpers& jit)
 
                     // We currently don't represent the full epilogue in Air, so we need to
                     // have this override.
-                    if (m_code.frameSize()) {
-                        m_jit->emitRestore(m_code.calleeSaveRegisterAtOffsetList());
-                        m_jit->emitFunctionEpilogue();
-                    } else
-                        m_jit->emitFunctionEpilogueWithEmptyFrame();
-                    m_jit->ret();
+                    m_code.emitEpilogue(*m_jit);
                 }
                 
                 if (needsToGenerate) {

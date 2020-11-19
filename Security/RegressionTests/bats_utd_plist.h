@@ -45,6 +45,9 @@
 #define BATS_UTD_Disabled_keychainnetworkextensionsharing_3 _TRUE_
 #define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
 #define BATS_UTD_Disabled_security_sysdiagnose _TRUE_
+#define BATS_UTD_Disabled_KeychainSecdXCTests _TRUE_
+#define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
+#define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 
 #elif TARGET_OS_OSX
 /* For MacOS, we disable the iOS only tests. */
@@ -61,6 +64,45 @@
 #define BATS_UTD_Disabled_keychainnetworkextensionsharing_3 _FALSE_
 #define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
 #define BATS_UTD_Disabled_security_sysdiagnose _FALSE_
+#define BATS_UTD_Disabled_KeychainSecdXCTests _FALSE_
+#define BATS_UTD_Disabled_KeychainSecDbBackupTests _FALSE_
+#define BATS_UTD_Disabled_SecCodeAPITest _FALSE_
+
+#elif TARGET_OS_WATCH
+#define BATS_UTD_Disabled_AuthorizationTest _TRUE_
+#define BATS_UTD_Disabled_EduModeTest _FALSE_
+#define BATS_UTD_Disabled_KCPairingTest _FALSE_
+#define BATS_UTD_Disabled_KeychainAnalyticsTests _FALSE_
+#define BATS_UTD_Disabled_KeychainMockAKSTests _FALSE_
+#define BATS_UTD_Disabled_KeychainSecd_iOS _FALSE_
+#define BATS_UTD_Disabled_KeychainSecd_macOS _TRUE_
+#define BATS_UTD_Disabled_SecurityUtiltitesTests _FALSE_
+#define BATS_UTD_Disabled_keychainnetworkextensionsharing_1 _FALSE_
+#define BATS_UTD_Disabled_keychainnetworkextensionsharing_2 _FALSE_
+#define BATS_UTD_Disabled_keychainnetworkextensionsharing_3 _FALSE_
+#define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
+#define BATS_UTD_Disabled_security_sysdiagnose _FALSE_
+#define BATS_UTD_Disabled_KeychainSecdXCTests _FALSE_
+#define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
+#define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
+
+#elif TARGET_OS_TV
+#define BATS_UTD_Disabled_AuthorizationTest _TRUE_
+#define BATS_UTD_Disabled_EduModeTest _FALSE_
+#define BATS_UTD_Disabled_KCPairingTest _FALSE_
+#define BATS_UTD_Disabled_KeychainAnalyticsTests _FALSE_
+#define BATS_UTD_Disabled_KeychainMockAKSTests _FALSE_
+#define BATS_UTD_Disabled_KeychainSecd_iOS _FALSE_
+#define BATS_UTD_Disabled_KeychainSecd_macOS _TRUE_
+#define BATS_UTD_Disabled_SecurityUtiltitesTests _FALSE_
+#define BATS_UTD_Disabled_keychainnetworkextensionsharing_1 _FALSE_
+#define BATS_UTD_Disabled_keychainnetworkextensionsharing_2 _FALSE_
+#define BATS_UTD_Disabled_keychainnetworkextensionsharing_3 _FALSE_
+#define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
+#define BATS_UTD_Disabled_security_sysdiagnose _FALSE_
+#define BATS_UTD_Disabled_KeychainSecdXCTests _FALSE_
+#define BATS_UTD_Disabled_KeychainSecDbBackupTests _TRUE_
+#define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 
 #else
 /* By default, assume iOS platforms. We disable the MacOS only tests. */
@@ -77,5 +119,8 @@
 #define BATS_UTD_Disabled_keychainnetworkextensionsharing_3 _FALSE_
 #define BATS_UTD_Disabled_keystorectl_get_lock_state _FALSE_
 #define BATS_UTD_Disabled_security_sysdiagnose _FALSE_
+#define BATS_UTD_Disabled_KeychainSecdXCTests _FALSE_
+#define BATS_UTD_Disabled_KeychainSecDbBackupTests _FALSE_
+#define BATS_UTD_Disabled_SecCodeAPITest _TRUE_
 
 #endif

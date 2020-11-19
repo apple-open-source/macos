@@ -25,6 +25,7 @@
 #include "cstring.h"
 #include "filestrm.h"
 #include <stdlib.h>
+#include <stdio.h>  // for sprintf()
 
 #define RESTEST_HEAP_CHECK 0
 
@@ -38,6 +39,7 @@ static void TestOpenDirectFillIn(void);
 static void TestFallback(void);
 static void TestTable32(void);
 static void TestFileStream(void);
+static void TestNewSearch(void);
 /*****************************************************************************/
 
 const UChar kERROR[] = { 0x0045 /*E*/, 0x0052 /*'R'*/, 0x0052 /*'R'*/,
@@ -55,9 +57,23 @@ enum E_Where
 typedef enum E_Where E_Where;
 /*****************************************************************************/
 
-#define CONFIRM_EQ(actual,expected) if (u_strcmp(expected,actual)==0){ record_pass(); } else { record_fail(); log_err("%s  returned  %s  instead of %s\n", action, austrdup(actual), austrdup(expected)); }
+#define CONFIRM_EQ(actual,expected) UPRV_BLOCK_MACRO_BEGIN { \
+    if (u_strcmp(expected,actual)==0) { \
+        record_pass(); \
+    } else { \
+        record_fail(); \
+        log_err("%s  returned  %s  instead of %s\n", action, austrdup(actual), austrdup(expected)); \
+    } \
+} UPRV_BLOCK_MACRO_END
 
-#define CONFIRM_ErrorCode(actual,expected) if ((expected)==(actual)) { record_pass(); } else { record_fail();  log_err("%s returned  %s  instead of %s\n", action, myErrorName(actual), myErrorName(expected)); }
+#define CONFIRM_ErrorCode(actual,expected) UPRV_BLOCK_MACRO_BEGIN { \
+    if ((expected)==(actual)) { \
+        record_pass(); \
+    } else { \
+        record_fail(); \
+        log_err("%s returned  %s  instead of %s\n", action, myErrorName(actual), myErrorName(expected)); \
+    } \
+} UPRV_BLOCK_MACRO_END
 
 
 /* Array of our test objects */
@@ -107,6 +123,7 @@ void addResourceBundleTest(TestNode** root)
 #endif
     addTest(root, &TestFallback, "tsutil/crestst/TestFallback");
     addTest(root, &TestAliasConflict, "tsutil/crestst/TestAliasConflict");
+    addTest(root, &TestNewSearch, "tsutil/crestst/TestNewSearch");
 
 }
 
@@ -534,7 +551,7 @@ TestOpenDirect(void) {
     }
     ures_close(idna_rules);
 
-    errorCode = U_USING_FALLBACK_WARNING;;
+    errorCode = U_USING_FALLBACK_WARNING;
     idna_rules=ures_openDirect("testdata", "idna_rules", &errorCode);
     if(U_FAILURE(errorCode)) {
         log_data_err("ures_openDirect(\"idna_rules\") failed when U_USING_FALLBACK_WARNING was set prior to call: %s\n", u_errorName(errorCode));
@@ -1059,4 +1076,33 @@ static void TestGetLocaleByType(void) {
         ures_close(rb);
     }
     ures_close(res);
+}
+
+static void TestNewSearch(void) {
+    // first column is input locale, second column is expected output locale
+    const char* locales[] = {
+        "de_Latn_LI", "de_LI",
+        "en_VA", "en_150",
+        "yi_Latn_DE", "root",
+        "yi_Hebr_DE", "yi",
+        "zh_Hant_SG", "zh_Hant"
+    };
+    
+    for (int32_t i = 0; i < sizeof(locales) / sizeof(char*); i += 2) {
+        UErrorCode err = U_ZERO_ERROR;
+        UResourceBundle* rb = ures_open(NULL, locales[i], &err);
+        char errorMessage[100];
+        
+        sprintf(errorMessage, "Error %s opening resource bundle for locale %s", u_errorName(err), locales[i]);
+        if (assertSuccess(errorMessage, &err)) {
+            const char* resourceLocale = ures_getLocaleByType(rb, ULOC_ACTUAL_LOCALE, &err);
+            
+            sprintf(errorMessage, "Error %s getting resource locale for locale %s", u_errorName(err), locales[i]);
+            if (assertSuccess(errorMessage, &err)) {
+                sprintf(errorMessage, "Mismatch for locale %s", locales[i]);
+                assertEquals(errorMessage, locales[i + 1], resourceLocale);
+            }
+        }
+        ures_close(rb);
+    }
 }

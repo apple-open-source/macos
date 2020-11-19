@@ -146,6 +146,18 @@ Object.defineProperty(Map.prototype, "getOrInitialize",
     }
 });
 
+Object.defineProperty(Set.prototype, "find",
+{
+    value(predicate)
+    {
+        for (let item of this) {
+            if (predicate(item, this))
+                return item;
+        }
+        return undefined;
+    },
+});
+
 Object.defineProperty(Set.prototype, "addAll",
 {
     value(iterable)
@@ -1348,13 +1360,13 @@ Object.defineProperty(Number, "abbreviate",
         if (num < 1000)
             return num.toLocaleString();
 
-        if (num < 1000000)
+        if (num < 1_000_000)
             return WI.UIString("%.1fK").format(Math.round(num / 100) / 10);
 
-        if (num < 1000000000)
-            return WI.UIString("%.1fM").format(Math.round(num / 100000) / 10);
+        if (num < 1_000_000_000)
+            return WI.UIString("%.1fM").format(Math.round(num / 100_000) / 10);
 
-        return WI.UIString("%.1fB").format(Math.round(num / 100000000) / 10);
+        return WI.UIString("%.1fB").format(Math.round(num / 100_000_000) / 10);
     }
 });
 

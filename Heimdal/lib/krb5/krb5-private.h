@@ -510,6 +510,12 @@ _krb5_kcm_get_initial_ticket (
 	krb5_principal server,
 	const char *password);
 
+KRB5_LIB_FUNCTION krb5_error_code KRB5_LIB_CALL
+_krb5_xcc_get_initial_ticket(krb5_context context,
+			     krb5_ccache id,
+			     krb5_principal client,
+			     krb5_principal server,
+			     const char *password);
 KRB5_LIB_FUNCTION const char * KRB5_LIB_CALL
 _krb5_kcm_get_status (int status);
 

@@ -49,7 +49,7 @@ void usage_short(void);
 
 void addPayload(const char *path);
 
-int CopyManifests(BLContextPtr context, const char *destFile, const char *srcFile);
+int CopyManifests(BLContextPtr context, const char *destPath, const char *srcPath, const char *srcSystemPath);
 int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char *prFile, bool suppressACPrompt);
 
 
@@ -59,12 +59,10 @@ extern int setefilegacypath(BLContextPtr context, const char * path, int bootNex
                             const char *legacyHint, const char *optionalData);
 
 int BlessPrebootVolume(BLContextPtr context, const char *rootBSD, const char *bootEFISourceLocation,
-					   CFDataRef labelData, CFDataRef labelData2, bool setIDs);
-int GetPrebootBSDForVolumeBSD(BLContextPtr context, const char *volBSD, char *prebootBSD, int prebootBSDLen);
+					   CFDataRef labelData, CFDataRef labelData2, struct clarg actargs[klast]);
 int GetVolumeUUIDs(BLContextPtr context, const char *volBSD, CFStringRef *volUUID, CFStringRef *groupUUID);
-int GetMountForBSD(BLContextPtr context, const char *bsd, char *mountPoint, int mountPointLen);
-
+int GetMountForSnapshot(BLContextPtr context, const char *snapshotName, const char *bsd, char *mountPoint, int mountPointLen);
 int WriteLabelFile(BLContextPtr context, const char *path, CFDataRef labeldata, int doTypeCreator, int scale);
-
+int GetSnapshotNameFromRootHash(BLContextPtr context, const char *rootHashPath, char *snapName, int nameLen);
 
 int DeleteFileOrDirectory(const char *path);

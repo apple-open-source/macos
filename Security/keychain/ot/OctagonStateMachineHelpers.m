@@ -32,7 +32,9 @@
 OctagonState* const OctagonStateMachineNotStarted = (OctagonState*) @"not_started";
 OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
 
-@implementation OctagonStateTransitionOperation : CKKSResultOperation
+#pragma mark -- OctagonStateTransitionOperation
+
+@implementation OctagonStateTransitionOperation
 - (instancetype)initIntending:(OctagonState*)intendedState
                    errorState:(OctagonState*)errorState
 {
@@ -75,6 +77,43 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
 
 @end
 
+#pragma mark -- OctagonStateTransitionGroupOperation
+
+@implementation OctagonStateTransitionGroupOperation
+- (instancetype)initIntending:(OctagonState*)intendedState
+                   errorState:(OctagonState*)errorState
+{
+    if((self = [super init])) {
+        _nextState = errorState;
+        _intendedState = intendedState;
+    }
+    return self;
+}
+
+- (NSString*)description
+{
+    return [NSString stringWithFormat:@"<OctagonStateTransitionGroupOperation(%@): intended:%@ actual:%@>", self.name, self.intendedState, self.nextState];
+}
+
++ (instancetype)named:(NSString*)name
+            intending:(OctagonState*)intendedState
+           errorState:(OctagonState*)errorState
+  withBlockTakingSelf:(void(^)(OctagonStateTransitionGroupOperation* op))block
+{
+    OctagonStateTransitionGroupOperation* op = [[self alloc] initIntending:intendedState
+                                                                errorState:errorState];
+    WEAKIFY(op);
+    [op runBeforeGroupFinished:[NSBlockOperation blockOperationWithBlock:^{
+        STRONGIFY(op);
+        block(op);
+    }]];
+    op.name = name;
+    return op;
+}
+@end
+
+#pragma mark -- OctagonStateTransitionRequest
+
 @interface OctagonStateTransitionRequest ()
 @property dispatch_queue_t queue;
 @property bool timeoutCanOccur;
@@ -104,7 +143,7 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
 
 - (NSString*)description
 {
-    return [NSString stringWithFormat:@"<OctagonStateTransitionRequest: %@ %@ %@>", self.name, self.transitionOperation, self.sourceStates];
+    return [NSString stringWithFormat:@"<OctagonStateTransitionRequest: %@ %@ sources:%d>", self.name, self.transitionOperation, (unsigned int)[self.sourceStates count]];
 }
 
 - (CKKSResultOperation<OctagonStateTransitionOperationProtocol>* _Nullable)_onqueueStart

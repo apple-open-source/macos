@@ -21,7 +21,9 @@ Patch_List = PR-18640257-SDK.diff \
              PR-17754441-sbin.diff \
              PR-16019357-apxs.diff \
              PR-13708279.diff \
+             PR-47162596.diff \
              OpenSSLVersion.diff \
+             man.diff \
              patch-server__Makefile.in 
 
 Configure_Flags = CPPFLAGS="-iwithsysroot /usr/local/libressl/include" \
@@ -114,7 +116,7 @@ post-install:
 	$(MKDIR) $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/man/man1
 	$(MKDIR) $(DSTROOT)/usr/local/bin
 	$(MV) $(DSTROOT)/usr/sbin/apxs $(DSTROOT)/usr/local/bin/apxs
-	sed -e "29s,\".installbuilddir,\"$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build," < $(DSTROOT)/usr/local/bin/apxs > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
+	sed -e "/get_config_vars/s,\".installbuilddir,\"$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build," < $(DSTROOT)/usr/local/bin/apxs > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
 	$(CHMOD) 0755 $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
 	sed -e "55s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/AppleInternal/BuildRoot,,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
 	$(RM) $(DSTROOT)/usr/share/httpd/build/config_vars.mk

@@ -32,6 +32,7 @@
 #include "config.h"
 #include "PageRuntimeAgent.h"
 
+#include "DOMWrapperWorld.h"
 #include "Document.h"
 #include "Frame.h"
 #include "InspectorPageAgent.h"
@@ -45,8 +46,7 @@
 #include "UserGestureEmulationScope.h"
 #include <JavaScriptCore/InjectedScript.h>
 #include <JavaScriptCore/InjectedScriptManager.h>
-
-using Inspector::Protocol::Runtime::ExecutionContextDescription;
+#include <JavaScriptCore/InspectorProtocolObjects.h>
 
 namespace WebCore {
 
@@ -70,7 +70,7 @@ PageRuntimeAgent::~PageRuntimeAgent() = default;
 
 void PageRuntimeAgent::enable(ErrorString& errorString)
 {
-    if (m_instrumentingAgents.pageRuntimeAgent() == this)
+    if (m_instrumentingAgents.enabledPageRuntimeAgent() == this)
         return;
 
     InspectorRuntimeAgent::enable(errorString);
@@ -81,12 +81,12 @@ void PageRuntimeAgent::enable(ErrorString& errorString)
     // can force creation of script state which could result in duplicate notifications.
     reportExecutionContextCreation();
 
-    m_instrumentingAgents.setPageRuntimeAgent(this);
+    m_instrumentingAgents.setEnabledPageRuntimeAgent(this);
 }
 
 void PageRuntimeAgent::disable(ErrorString& errorString)
 {
-    m_instrumentingAgents.setPageRuntimeAgent(nullptr);
+    m_instrumentingAgents.setEnabledPageRuntimeAgent(nullptr);
 
     InspectorRuntimeAgent::disable(errorString);
 }
@@ -97,15 +97,13 @@ void PageRuntimeAgent::frameNavigated(Frame& frame)
     mainWorldExecState(&frame);
 }
 
-void PageRuntimeAgent::didClearWindowObjectInWorld(Frame& frame)
+void PageRuntimeAgent::didClearWindowObjectInWorld(Frame& frame, DOMWrapperWorld& world)
 {
-    auto* pageAgent = m_instrumentingAgents.inspectorPageAgent();
+    auto* pageAgent = m_instrumentingAgents.enabledPageAgent();
     if (!pageAgent)
         return;
 
-    auto frameId = pageAgent->frameId(&frame);
-    auto* scriptState = mainWorldExecState(&frame);
-    notifyContextCreated(frameId, scriptState, nullptr, true);
+    notifyContextCreated(pageAgent->frameId(&frame), frame.script().globalObject(world), world);
 }
 
 InjectedScript PageRuntimeAgent::injectedScriptForEval(ErrorString& errorString, const int* executionContextId)
@@ -136,43 +134,59 @@ void PageRuntimeAgent::unmuteConsole()
 
 void PageRuntimeAgent::reportExecutionContextCreation()
 {
-    auto* pageAgent = m_instrumentingAgents.inspectorPageAgent();
+    auto* pageAgent = m_instrumentingAgents.enabledPageAgent();
     if (!pageAgent)
         return;
 
-    Vector<std::pair<JSC::JSGlobalObject*, SecurityOrigin*>> isolatedContexts;
-    for (Frame* frame = &m_inspectedPage.mainFrame(); frame; frame = frame->tree().traverseNext()) {
+    for (auto* frame = &m_inspectedPage.mainFrame(); frame; frame = frame->tree().traverseNext()) {
         if (!frame->script().canExecuteScripts(NotAboutToExecuteScript))
             continue;
 
-        String frameId = pageAgent->frameId(frame);
+        auto frameId = pageAgent->frameId(frame);
 
-        JSC::JSGlobalObject* scriptState = mainWorldExecState(frame);
-        notifyContextCreated(frameId, scriptState, nullptr, true);
-        frame->script().collectIsolatedContexts(isolatedContexts);
-        if (isolatedContexts.isEmpty())
-            continue;
-        for (auto& [globalObject, securityOrigin] : isolatedContexts) {
-            if (globalObject != scriptState)
-                notifyContextCreated(frameId, globalObject, securityOrigin, false);
+        // Always send the main world first.
+        auto* mainGlobalObject = mainWorldExecState(frame);
+        notifyContextCreated(frameId, mainGlobalObject, mainThreadNormalWorld());
+
+        for (auto& jsWindowProxy : frame->windowProxy().jsWindowProxiesAsVector()) {
+            auto* globalObject = jsWindowProxy->window();
+            if (globalObject == mainGlobalObject)
+                continue;
+
+            auto& securityOrigin = downcast<DOMWindow>(jsWindowProxy->wrapped()).document()->securityOrigin();
+            notifyContextCreated(frameId, globalObject, jsWindowProxy->world(), &securityOrigin);
         }
-        isolatedContexts.clear();
     }
 }
 
-void PageRuntimeAgent::notifyContextCreated(const String& frameId, JSC::JSGlobalObject* scriptState, SecurityOrigin* securityOrigin, bool isPageContext)
+static Inspector::Protocol::Runtime::ExecutionContextType toProtocol(DOMWrapperWorld::Type type)
 {
-    ASSERT(securityOrigin || isPageContext);
+    switch (type) {
+    case DOMWrapperWorld::Type::Normal:
+        return Inspector::Protocol::Runtime::ExecutionContextType::Normal;
+    case DOMWrapperWorld::Type::User:
+        return Inspector::Protocol::Runtime::ExecutionContextType::User;
+    case DOMWrapperWorld::Type::Internal:
+        return Inspector::Protocol::Runtime::ExecutionContextType::Internal;
+    }
 
-    InjectedScript result = injectedScriptManager().injectedScriptFor(scriptState);
-    if (result.hasNoValue())
+    ASSERT_NOT_REACHED();
+    return Inspector::Protocol::Runtime::ExecutionContextType::Internal;
+}
+
+void PageRuntimeAgent::notifyContextCreated(const String& frameId, JSC::JSGlobalObject* globalObject, const DOMWrapperWorld& world, SecurityOrigin* securityOrigin)
+{
+    auto injectedScript = injectedScriptManager().injectedScriptFor(globalObject);
+    if (injectedScript.hasNoValue())
         return;
 
-    int executionContextId = injectedScriptManager().injectedScriptIdFor(scriptState);
-    String name = securityOrigin ? securityOrigin->toRawString() : String();
-    m_frontendDispatcher->executionContextCreated(ExecutionContextDescription::create()
-        .setId(executionContextId)
-        .setIsPageContext(isPageContext)
+    auto name = world.name();
+    if (name.isEmpty() && securityOrigin)
+        name = securityOrigin->toRawString();
+
+    m_frontendDispatcher->executionContextCreated(Inspector::Protocol::Runtime::ExecutionContextDescription::create()
+        .setId(injectedScriptManager().injectedScriptIdFor(globalObject))
+        .setType(toProtocol(world.type()))
         .setName(name)
         .setFrameId(frameId)
         .release());

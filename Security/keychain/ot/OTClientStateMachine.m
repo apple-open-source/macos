@@ -286,7 +286,8 @@ NSDictionary<OctagonState*, NSNumber*>* OctagonClientStateMap(void) {
      osVersion:nil
      policyVersion:nil
      policySecrets:nil
-     reply:^(TrustedPeersHelperPeerState* peerState, NSError* error) {
+     syncUserControllableViews:nil
+     reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* policy, NSError* error) {
          if(error) {
              secerror("OTCuttlefishContext: updating errored: %@", error);
          } else {

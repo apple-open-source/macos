@@ -36,6 +36,9 @@
  *      @(#)cache.h	8.1 (Berkeley) 5/31/93
  */
 
+#ifndef _CACHE_H_
+#define _CACHE_H_
+
 /*
  * Constants and data structures used to implement group and password file
  * caches. Traditional passwd/group cache routines perform quite poorly with
@@ -71,3 +74,5 @@ typedef struct gidc {
 	char name[GNMLEN];	/* gid name */
 	gid_t gid;		/* cached gid */
 } GIDC;
+
+#endif /* _CACHE_H_ */

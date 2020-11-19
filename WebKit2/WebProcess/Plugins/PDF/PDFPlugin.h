@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,8 +34,14 @@
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/AffineTransform.h>
 #include <WebCore/FindOptions.h>
+#include <WebCore/NetscapePlugInStreamLoader.h>
 #include <WebCore/ScrollableArea.h>
+#include <wtf/HashMap.h>
+#include <wtf/Identified.h>
+#include <wtf/Range.h>
+#include <wtf/RangeSet.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/Threading.h>
 
 typedef const struct OpaqueJSContext* JSContextRef;
 typedef struct OpaqueJSValue* JSObjectRef;
@@ -61,6 +67,10 @@ class Element;
 struct PluginInfo;
 }
 
+namespace WTF {
+class TextStream;
+}
+
 namespace WebKit {
 
 class PDFPluginAnnotation;
@@ -68,7 +78,8 @@ class PDFPluginPasswordField;
 class PluginView;
 class WebFrame;
 
-class PDFPlugin final : public Plugin, private WebCore::ScrollableArea {
+class PDFPlugin final : public Plugin, public WebCore::ScrollableArea
+{
 public:
     static Ref<PDFPlugin> create(WebFrame&);
     ~PDFPlugin();
@@ -115,6 +126,20 @@ public:
 
     PDFPluginAnnotation* activeAnnotation() const { return m_activeAnnotation.get(); }
     WebCore::AXObjectCache* axObjectCache() const;
+
+    void ensureDataBufferLength(uint64_t length);
+
+#if HAVE(INCREMENTAL_PDF_APIS)
+    void getResourceBytesAtPosition(size_t count, off_t position, CompletionHandler<void(const uint8_t*, size_t count)>&&);
+    size_t getResourceBytesAtPositionMainThread(void* buffer, off_t position, size_t count);
+    void receivedNonLinearizedPDFSentinel();
+    bool incrementalPDFLoadingEnabled() const { return m_incrementalPDFLoadingEnabled; }
+#ifndef NDEBUG
+    void pdfLog(const String& event);
+    size_t incrementThreadsWaitingOnCallback() { return ++m_threadsWaitingOnCallback; }
+    size_t decrementThreadsWaitingOnCallback() { return --m_threadsWaitingOnCallback; }
+#endif
+#endif
 
 private:
     explicit PDFPlugin(WebFrame&);
@@ -193,6 +218,7 @@ private:
     bool shouldAlwaysAutoStart() const final { return true; }
 
     // ScrollableArea functions.
+    bool isPDFPlugin() const final { return true; }
     WebCore::IntRect scrollCornerRect() const final;
     WebCore::ScrollableArea* enclosingScrollableArea() const final;
     bool isScrollableOrRubberbandable() final { return true; }
@@ -201,7 +227,7 @@ private:
     void setScrollOffset(const WebCore::ScrollOffset&) final;
     void invalidateScrollbarRect(WebCore::Scrollbar&, const WebCore::IntRect&) final;
     void invalidateScrollCornerRect(const WebCore::IntRect&) final;
-    WebCore::IntPoint lastKnownMousePosition() const final { return m_lastMousePositionInPluginCoordinates; }
+    WebCore::IntPoint lastKnownMousePositionInView() const final { return m_lastMousePositionInPluginCoordinates; }
     bool isActive() const final;
     bool isScrollCornerVisible() const final { return false; }
     WebCore::ScrollPosition scrollPosition() const final;
@@ -219,15 +245,17 @@ private:
     WebCore::IntPoint convertFromContainingViewToScrollbar(const WebCore::Scrollbar&, const WebCore::IntPoint& parentPoint) const final;
     bool forceUpdateScrollbarsOnMainThreadForPerformanceTesting() const final;
     bool shouldPlaceBlockDirectionScrollbarOnLeft() const final { return false; }
+    String debugDescription() const final;
 
     // PDFPlugin functions.
     void updateScrollbars();
     Ref<WebCore::Scrollbar> createScrollbar(WebCore::ScrollbarOrientation);
     void destroyScrollbar(WebCore::ScrollbarOrientation);
-    void pdfDocumentDidLoad();
+    void documentDataDidFinishLoading();
+    void installPDFDocument();
     void addArchiveResource();
     void calculateSizes();
-    void runScriptsInPDFDocument();
+    void tryRunScriptsInPDFDocument();
 
     NSEvent *nsEventForWebMouseEvent(const WebMouseEvent&);
     WebCore::IntPoint convertFromPluginToPDFView(const WebCore::IntPoint&) const;
@@ -241,9 +269,6 @@ private:
 
     void createPasswordEntryForm();
 
-    RetainPtr<PDFDocument> pdfDocument() const { return m_pdfDocument; }
-    void setPDFDocument(RetainPtr<PDFDocument> document) { m_pdfDocument = document; }
-
     WebCore::IntSize pdfDocumentSize() const { return m_pdfDocumentSize; }
     void setPDFDocumentSize(WebCore::IntSize size) { m_pdfDocumentSize = size; }
 
@@ -252,18 +277,18 @@ private:
     NSData *rawData() const { return (__bridge NSData *)m_data.get(); }
 #endif
 
-    WebFrame* webFrame() const { return m_frame; }
-
     JSObjectRef makeJSPDFDoc(JSContextRef);
     static JSValueRef jsPDFDocPrint(JSContextRef, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception);
 
     void convertPostScriptDataIfNeeded();
 
+    void setSuggestedFilename(const String&);
+
     // Regular plug-ins don't need access to view, but we add scrollbars to embedding FrameView for proper event handling.
     PluginView* pluginView();
     const PluginView* pluginView() const;
 
-    WebFrame* m_frame;
+    WebFrame& m_frame;
 
     bool m_isPostScript { false };
     bool m_pdfDocumentWasMutated { false };
@@ -298,17 +323,108 @@ private:
 
     String m_suggestedFilename;
     RetainPtr<CFMutableDataRef> m_data;
+    uint64_t m_streamedBytes { 0 };
 
     RetainPtr<PDFDocument> m_pdfDocument;
+
+    bool m_documentFinishedLoading { false };
+    bool m_hasBeenDestroyed { false };
     unsigned m_firstPageHeight { 0 };
     WebCore::IntSize m_pdfDocumentSize; // All pages, including gaps.
 
     RefPtr<WebCore::Scrollbar> m_horizontalScrollbar;
     RefPtr<WebCore::Scrollbar> m_verticalScrollbar;
+
+#if HAVE(INCREMENTAL_PDF_APIS)
+    void threadEntry(Ref<PDFPlugin>&&);
+    void adoptBackgroundThreadDocument();
+
+    bool documentFinishedLoading() { return m_documentFinishedLoading; }
+    uint64_t identifierForLoader(WebCore::NetscapePlugInStreamLoader* loader) { return m_streamLoaderMap.get(loader); }
+    void removeOutstandingByteRangeRequest(uint64_t identifier) { m_outstandingByteRangeRequests.remove(identifier); }
+
+    class PDFPluginStreamLoaderClient : public RefCounted<PDFPluginStreamLoaderClient>,
+                                        public WebCore::NetscapePlugInStreamLoaderClient {
+    public:
+        PDFPluginStreamLoaderClient(PDFPlugin& pdfPlugin)
+            : m_pdfPlugin(makeWeakPtr(pdfPlugin))
+        {
+        }
+
+        ~PDFPluginStreamLoaderClient() = default;
+
+        void willSendRequest(WebCore::NetscapePlugInStreamLoader*, WebCore::ResourceRequest&&, const WebCore::ResourceResponse& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&&) final;
+        void didReceiveResponse(WebCore::NetscapePlugInStreamLoader*, const WebCore::ResourceResponse&) final;
+        void didReceiveData(WebCore::NetscapePlugInStreamLoader*, const char*, int) final;
+        void didFail(WebCore::NetscapePlugInStreamLoader*, const WebCore::ResourceError&) final;
+        void didFinishLoading(WebCore::NetscapePlugInStreamLoader*) final;
+
+    private:
+        WeakPtr<PDFPlugin> m_pdfPlugin;
+    };
+
+    class ByteRangeRequest : public Identified<ByteRangeRequest> {
+    public:
+        ByteRangeRequest() = default;
+        ByteRangeRequest(uint64_t position, size_t count, CompletionHandler<void(const uint8_t*, size_t count)>&& completionHandler)
+            : m_position(position)
+            , m_count(count)
+            , m_completionHandler(WTFMove(completionHandler))
+        {
+        }
+
+        WebCore::NetscapePlugInStreamLoader* streamLoader() { return m_streamLoader; }
+        void setStreamLoader(WebCore::NetscapePlugInStreamLoader* loader) { m_streamLoader = loader; }
+        void clearStreamLoader();
+        void addData(const uint8_t* data, size_t count) { m_accumulatedData.append(data, count); }
+
+        void completeWithBytes(const uint8_t*, size_t, PDFPlugin&);
+        void completeWithAccumulatedData(PDFPlugin&);
+
+        bool maybeComplete(PDFPlugin&);
+        void completeUnconditionally(PDFPlugin&);
+
+        uint64_t position() const { return m_position; }
+        size_t count() const { return m_count; }
+
+    private:
+        uint64_t m_position { 0 };
+        size_t m_count { 0 };
+        CompletionHandler<void(const uint8_t*, size_t count)> m_completionHandler;
+        Vector<uint8_t> m_accumulatedData;
+        WebCore::NetscapePlugInStreamLoader* m_streamLoader { nullptr };
+    };
+    void unconditionalCompleteOutstandingRangeRequests();
+
+    ByteRangeRequest* byteRangeRequestForLoader(WebCore::NetscapePlugInStreamLoader&);
+    void forgetLoader(WebCore::NetscapePlugInStreamLoader&);
+    void cancelAndForgetLoader(WebCore::NetscapePlugInStreamLoader&);
+    void maybeClearHighLatencyDataProviderFlag();
+
+    RetainPtr<PDFDocument> m_backgroundThreadDocument;
+    RefPtr<Thread> m_pdfThread;
+    HashMap<uint64_t, ByteRangeRequest> m_outstandingByteRangeRequests;
+    Ref<PDFPluginStreamLoaderClient> m_streamLoaderClient;
+    HashMap<RefPtr<WebCore::NetscapePlugInStreamLoader>, uint64_t> m_streamLoaderMap;
+    RangeSet<WTF::Range<uint64_t>> m_completedRanges;
+    bool m_incrementalPDFLoadingEnabled;
+
+#if !LOG_DISABLED
+    void verboseLog();
+    void logStreamLoader(WTF::TextStream&, WebCore::NetscapePlugInStreamLoader&);
+    std::atomic<size_t> m_threadsWaitingOnCallback { 0 };
+    std::atomic<size_t> m_completedRangeRequests { 0 };
+    std::atomic<size_t> m_completedNetworkRangeRequests { 0 };
+#endif
+
+#endif // HAVE(INCREMENTAL_PDF_APIS)
 };
 
 } // namespace WebKit
 
-SPECIALIZE_TYPE_TRAITS_PLUGIN(PDFPlugin, PDFPluginType)
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebKit::PDFPlugin)
+    static bool isType(const WebKit::Plugin& plugin) { return plugin.isPDFPlugin(); }
+    static bool isType(const WebCore::ScrollableArea& area) { return area.isPDFPlugin(); }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif // ENABLE(PDFKIT_PLUGIN)

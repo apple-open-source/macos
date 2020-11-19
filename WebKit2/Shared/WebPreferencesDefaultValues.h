@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,6 +24,8 @@
  */
 
 #pragma once
+
+#include <wtf/Forward.h>
 
 #if PLATFORM(GTK)
 #define DEFAULT_WEBKIT_TABSTOLINKS_ENABLED true
@@ -214,28 +216,18 @@
 #define DEFAULT_SERVICE_WORKERS_ENABLED false
 #endif
 
-#if PLATFORM(IOS_FAMILY)
-#define DEFAULT_POINTER_EVENTS_ENABLED true
-#else
-#define DEFAULT_POINTER_EVENTS_ENABLED false
-#endif
-
 #if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(GTK) || PLATFORM(WPE)
 #define DEFAULT_PROCESS_SWAP_ON_CROSS_SITE_NAVIGATION_ENABLED true
 #else
 #define DEFAULT_PROCESS_SWAP_ON_CROSS_SITE_NAVIGATION_ENABLED false
 #endif
 
-#if (PLATFORM(IOS_FAMILY) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 120000) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || PLATFORM(WATCHOS)
+// FIXME: Seems like this should be HAVE(CG_CONTEXT_DRAW_CONIC_GRADIENT).
+// FIXME: Can we change tvOS to be like the other Cocoa platforms?
+#if PLATFORM(COCOA) && !PLATFORM(APPLETV)
 #define DEFAULT_CONIC_GRADIENT_ENABLED true
 #else
 #define DEFAULT_CONIC_GRADIENT_ENABLED false
-#endif
-
-#if PLATFORM(MAC)
-#define DEFAULT_CAPTURE_AUDIO_IN_UIPROCESS true
-#else
-#define DEFAULT_CAPTURE_AUDIO_IN_UIPROCESS false
 #endif
 
 #if PLATFORM(WATCHOS)
@@ -246,11 +238,35 @@
 #define DEFAULT_DATALIST_ELEMENT_ENABLED true
 #endif
 
-#if PLATFORM(COCOA)
+#if PLATFORM(MAC)
+#define DEFAULT_DATE_TIME_INPUTS_EDITABLE_COMPONENTS_ENABLED true
+#else
+#define DEFAULT_DATE_TIME_INPUTS_EDITABLE_COMPONENTS_ENABLED false
+#endif
+
+#if !PLATFORM(MAC) && !PLATFORM(MACCATALYST) && !PLATFORM(APPLETV)
+#define DEFAULT_INPUT_TYPE_DATE_ENABLED true
+#define DEFAULT_INPUT_TYPE_DATETIMELOCAL_ENABLED true
+#define DEFAULT_INPUT_TYPE_MONTH_ENABLED true
+#define DEFAULT_INPUT_TYPE_TIME_ENABLED true
+#define DEFAULT_INPUT_TYPE_WEEK_ENABLED true
+#else
+#define DEFAULT_INPUT_TYPE_DATE_ENABLED false
+#define DEFAULT_INPUT_TYPE_DATETIMELOCAL_ENABLED false
+#define DEFAULT_INPUT_TYPE_MONTH_ENABLED false
+#define DEFAULT_INPUT_TYPE_TIME_ENABLED false
+#define DEFAULT_INPUT_TYPE_WEEK_ENABLED false
+#endif
+
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WIN)
 #define DEFAULT_CUSTOM_PASTEBOARD_DATA_ENABLED true
-#define DEFAULT_ASYNC_CLIPBOARD_API_ENABLED true
 #else
 #define DEFAULT_CUSTOM_PASTEBOARD_DATA_ENABLED false
+#endif
+
+#if PLATFORM(COCOA)
+#define DEFAULT_ASYNC_CLIPBOARD_API_ENABLED true
+#else
 #define DEFAULT_ASYNC_CLIPBOARD_API_ENABLED false
 #endif
 
@@ -270,14 +286,6 @@
 #define DEFAULT_APPLE_PAY_ENABLED true
 #else
 #define DEFAULT_APPLE_PAY_ENABLED false
-#endif
-
-#if PLATFORM(IOS_FAMILY) || USE(NICOSIA)
-#define DEFAULT_ASYNC_FRAME_SCROLLING_ENABLED true
-#define DEFAULT_ASYNC_OVERFLOW_SCROLLING_ENABLED true
-#else
-#define DEFAULT_ASYNC_FRAME_SCROLLING_ENABLED false
-#define DEFAULT_ASYNC_OVERFLOW_SCROLLING_ENABLED false
 #endif
 
 #if ENABLE(EXPERIMENTAL_FEATURES) && (PLATFORM(GTK) || PLATFORM(WPE))
@@ -308,6 +316,10 @@
 
 namespace WebKit {
 
+#if PLATFORM(COCOA) && HAVE(SYSTEM_FEATURE_FLAGS)
+bool isFeatureFlagEnabled(const String&);
+#endif
+
 bool defaultPassiveTouchListenersAsDefaultOnDocument();
 bool defaultCSSOMViewScrollingAPIEnabled();
 bool defaultDisallowSyncXHRDuringPageDismissalEnabled();
@@ -317,6 +329,56 @@ bool defaultTextAutosizingUsesIdempotentMode();
 #endif
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
 bool allowsDeprecatedSynchronousXMLHttpRequestDuringUnload();
+#endif
+
+bool defaultAsyncFrameScrollingEnabled();
+bool defaultAsyncOverflowScrollingEnabled();
+
+#if ENABLE(GPU_PROCESS)
+bool defaultUseGPUProcessForMedia();
+#endif
+
+bool defaultRenderCanvasInGPUProcessEnabled();
+
+#if ENABLE(MEDIA_STREAM)
+bool defaultCaptureAudioInGPUProcessEnabled();
+bool defaultCaptureAudioInUIProcessEnabled();
+bool defaultCaptureVideoInGPUProcessEnabled();
+#endif
+
+#if ENABLE(WEB_RTC)
+bool defaultWebRTCCodecsInGPUProcess();
+#endif
+
+#if ENABLE(WEBGL2)
+bool defaultWebGL2Enabled();
+#endif
+
+#if ENABLE(WEBGPU)
+bool defaultWebGPUEnabled();
+#endif
+
+bool defaultInAppBrowserPrivacy();
+
+#if HAVE(INCREMENTAL_PDF_APIS)
+bool defaultIncrementalPDFEnabled();
+#endif
+
+#if ENABLE(WEBXR)
+bool defaultWebXREnabled();
+#endif
+
+#if ENABLE(VP9)
+bool defaultVP9DecoderEnabled();
+bool defaultVP9SWDecoderEnabledOnBattery();
+#endif
+
+#if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
+bool defaultWebMParserEnabled();
+#endif
+
+#if ENABLE(WEB_RTC)
+bool defaultWebRTCH264LowLatencyEncoderEnabled();
 #endif
 
 } // namespace WebKit

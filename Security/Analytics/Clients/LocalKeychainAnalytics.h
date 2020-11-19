@@ -44,6 +44,8 @@ typedef NSString* LKAnalyticsFailableEvent NS_STRING_ENUM;
 typedef NSString* LKAnalyticsMetric NS_STRING_ENUM;
 
 extern LKAnalyticsFailableEvent const LKAEventUpgrade;
+extern LKAnalyticsFailableEvent const LKAEventStash;
+extern LKAnalyticsFailableEvent const LKAEventStashLoad;
 
 @interface LocalKeychainAnalytics : SFAnalytics
 

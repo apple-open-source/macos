@@ -1,0 +1,3 @@
+OTHER_LDFLAGS[sdk=macos*] = -framework KernelManagement
+OTHER_CFLAGS[sdk=macos*] = -framework KernelManagement
+

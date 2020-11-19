@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>OpenSourceImportDate</key>
+	<string>2020-05-02</string>
+	<key>OpenSourceProject</key>
+	<string>perl</string>
+	<key>OpenSourceVersion</key>
+	<string>5.30.2</string>
+	<key>OpenSourceWebsiteURL</key>
+	<string>https://www.perl.com/</string>
+	<key>OpenSourceURL</key>
+	<string>https://www.cpan.org/src/5.0/perl-5.30.2.tar.gz</string>
+	<key>OpenSourceSHA512256</key>
+	<string>a76b6309a0bc058975e6004e405d75fd156bb4ae402192253122f9c05a3c827a</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>regenerate perly.h with bison 2.3</string>
+		<string>changes to build under XBS</string>
+		<string>prepend and append paths to @INC, using /Library/Perl/%lt;version%gt;/PrependToPath and /Library/Perl/%lt;version%gt;/AppendToPath</string>
+		<string>Config returns the correct sizes for both 32 and 64-bit</string>
+		<string>make CPAN::HandleConfig more forgiving about directory permissions</string>
+		<string>added new /Library/Perl/Updates/%lt;version%gt; directory that comes before the system perl directories in the module search order; installprivlib and installarchlib now point to this Updates directory</string>
+		<string>CVE-2020-10543 CVE-2020-10878 CVE-2020-12723 63368510</string>
+	</array>
+	<key>OpenSourceLicense</key>
+	<string>Artistic</string>
+	<key>OpenSourceLicenseFile</key>
+	<string>perl.txt</string>
+</dict>
+</plist>

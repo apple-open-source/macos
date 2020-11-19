@@ -97,7 +97,7 @@ namespace IOFireWireLib
 			throw status;
 		}
 		
-		mKernelRef = kernel_ref;
+		mKernelRef = (UserObjectHandle)kernel_ref;
 	}
 	
 	// ~PHYPacketListener
@@ -414,8 +414,8 @@ namespace IOFireWireLib
 			(me->mCallback)(
 				self,
 				(FWClientCommandID)args[0],								// commandID,
-				(unsigned long)args[1],									// data1
-				(unsigned long)args[2],									// data2
+				(UInt32)((unsigned long)args[1]),									// data1
+				(UInt32)((unsigned long)args[2]),									// data2
 				(void*) me->mRefCon);									// refcon
 		}
 		else
@@ -439,7 +439,7 @@ namespace IOFireWireLib
 		{
 			(me->mSkippedCallback)( self, 
 									(FWClientCommandID)args[0],								// commandID,
-									(unsigned long)args[1],									// count, 
+									(UInt32)((unsigned long)args[1]),									// count,
 									(void*)me->mRefCon );									// refcon
 		}
 		else

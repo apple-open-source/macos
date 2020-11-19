@@ -75,7 +75,8 @@
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
     // First, interrogate CKKS views, and see when they have a TLK proposal.
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.operationDependencies];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.operationDependencies
+                                                                                     refetchNeeded:NO];
     [self runBeforeGroupFinished:fetchKeysOp];
 
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"establish-with-keys"
@@ -120,7 +121,10 @@
                                                                    ckksKeys:viewKeySets
                                                                   tlkShares:pendingTLKShares
                                                             preapprovedKeys:publicSigningSPKIs
-                                                                      reply:^(NSString * _Nullable peerID, NSArray<CKRecord*>* _Nullable keyHierarchyRecords, NSError * _Nullable error) {
+                                                                      reply:^(NSString * _Nullable peerID,
+                                                                              NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                                                              TPSyncingPolicy* _Nullable syncingPolicy,
+                                                                              NSError * _Nullable error) {
             STRONGIFY(self);
 
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventEstablishIdentity hardFailure:true result:error];
@@ -141,16 +145,20 @@
 
             NSError* localError = nil;
             BOOL persisted = [self.operationDependencies.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
-                    metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
-                    metadata.peerID = peerID;
-                    return metadata;
-                } error:&localError];
+                metadata.trustState = OTAccountMetadataClassC_TrustState_TRUSTED;
+                metadata.peerID = peerID;
+                [metadata setTPSyncingPolicy:syncingPolicy];
+                return metadata;
+            } error:&localError];
+
             if(!persisted || localError) {
                 secnotice("octagon", "Couldn't persist results: %@", localError);
                 self.error = localError;
             } else {
                 self.nextState = self.intendedState;
             }
+
+            [self.operationDependencies.viewManager setCurrentSyncingPolicy:syncingPolicy];
 
             // Tell CKKS about our shiny new records!
             for (id key in self.operationDependencies.viewManager.views) {

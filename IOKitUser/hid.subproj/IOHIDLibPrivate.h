@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2008 Apple Computer, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -129,7 +129,13 @@ CF_EXPORT
 void _IOHIDValueCopyToElementValuePtr(IOHIDValueRef value, IOHIDElementValue * pElementValue);
 
 CF_EXPORT
+void _IOHIDValueCopyToElementValueHeader(IOHIDValueRef value, IOHIDElementValueHeader * pElementHeader);
+
+CF_EXPORT
 IOHIDValueRef _Nullable _IOHIDValueCreateWithValue(CFAllocatorRef _Nullable allocator, IOHIDValueRef value, IOHIDElementRef element);
+
+CF_EXPORT
+uint8_t _IOHIDValueGetFlags(IOHIDValueRef value);
 
 CF_EXPORT
 IOCFPlugInInterface * _Nonnull * _Nonnull _IOHIDDeviceGetIOCFPlugInInterface(
@@ -138,7 +144,7 @@ IOCFPlugInInterface * _Nonnull * _Nonnull _IOHIDDeviceGetIOCFPlugInInterface(
 CF_EXPORT
 CFArrayRef _Nullable _IOHIDQueueCopyElements(IOHIDQueueRef queue);
 
-CF_EXPORT 
+CF_EXPORT
 void _IOHIDCallbackApplier(const void * callback, const void * _Nullable callbackContext, void *applierContext);
 
 CF_EXPORT
@@ -149,10 +155,10 @@ os_log_t _IOHIDLogCategory(IOHIDLogCategory category);
 
 CF_EXPORT
 kern_return_t IOHIDSetFixedMouseLocation(io_connect_t connect,
-                                         int32_t x, int32_t y)                                      AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;
+                                         int32_t x, int32_t y) __attribute__((availability(macos,introduced=10.7,deprecated=10.16)));
 
 CF_EXPORT
-kern_return_t IOHIDSetFixedMouseLocationWithTimeStamp(io_connect_t connect, int32_t x, int32_t y, uint64_t timestamp) AVAILABLE_MAC_OS_X_VERSION_10_15_AND_LATER;
+kern_return_t IOHIDSetFixedMouseLocationWithTimeStamp(io_connect_t connect, int32_t x, int32_t y, uint64_t timestamp)  __attribute__((availability(macos,introduced=10.15,deprecated=10.16)));
 
 CF_EXPORT
 CFStringRef _IOHIDCreateTimeString(CFAllocatorRef _Nullable allocator, struct timeval *tv);
@@ -164,10 +170,10 @@ CF_EXPORT
 uint64_t _IOHIDGetTimestampDelta(uint64_t timestampA, uint64_t timestampB, uint32_t scaleFactor);
 
 CF_EXPORT
-kern_return_t IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds );
+kern_return_t IOHIDSetCursorBounds( io_connect_t connect, const IOGBounds * bounds ) __attribute__((availability(macos,deprecated=10.16)));
 
 CF_EXPORT
-kern_return_t IOHIDSetOnScreenCursorBounds( io_connect_t connect, const IOGPoint * point, const IOGBounds * bounds );
+kern_return_t IOHIDSetOnScreenCursorBounds( io_connect_t connect, const IOGPoint * point, const IOGBounds * bounds ) __attribute__((availability(macos,deprecated=10.16)));
 
 CF_EXPORT
 void _IOHIDDebugTrace(uint32_t code, uint32_t func, uint64_t arg1, uint64_t arg2, uint64_t arg3, uint64_t arg4);
@@ -257,5 +263,35 @@ CF_IMPLICIT_BRIDGING_DISABLED
 CF_ASSUME_NONNULL_END
 
 __END_DECLS
+
+#include <dlfcn.h>
+
+#define IOHID_DYN_LINK_DYLIB(directory, lib) \
+static void* lib##Library() \
+{ \
+    static void* libLibrary = nil; \
+    if (!libLibrary) libLibrary = dlopen(#directory "/lib" #lib ".dylib", RTLD_NOW); \
+    return libLibrary; \
+}
+
+#define IOHID_DYN_LINK_FUNCTION(framework, functionName, localNameForFunction, resultType, defaultResult, parameterDeclarations, parameterNames) \
+static resultType init##functionName parameterDeclarations; \
+static resultType (*dynLink##functionName) parameterDeclarations = init##functionName; \
+\
+static resultType init##functionName parameterDeclarations \
+{ \
+    dynLink##functionName = (resultType (*) parameterDeclarations) dlsym(framework##Library(), #functionName); \
+    if (dynLink##functionName != NULL) {  \
+        return dynLink##functionName parameterNames; \
+    } \
+    else { \
+        return (resultType)defaultResult; \
+    }\
+}\
+\
+__unused static inline resultType localNameForFunction parameterDeclarations \
+{\
+    return (dynLink##functionName != NULL) ? (resultType)(dynLink##functionName parameterNames) : (resultType)defaultResult; \
+}
 
 #endif /* _IOKIT_HID_IOHIDLIBPRIVATE_H */

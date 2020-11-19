@@ -135,7 +135,7 @@ sec_protocol_metadata_get_negotiated_protocol_version(sec_protocol_metadata_t me
  *
  * @return A `tls_ciphersuite_t`.
  */
-API_AVAILABLE(macos(10.14), ios(12.0), watchos(5.0), tvos(12.0))
+API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 tls_ciphersuite_t
 sec_protocol_metadata_get_negotiated_tls_ciphersuite(sec_protocol_metadata_t metadata);
 
@@ -151,8 +151,7 @@ sec_protocol_metadata_get_negotiated_tls_ciphersuite(sec_protocol_metadata_t met
  * @return A SSLCipherSuite.
  */
 API_DEPRECATED_WITH_REPLACEMENT("sec_protocol_metadata_get_negotiated_tls_ciphersuite",
-                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0))
-API_UNAVAILABLE(iosmac)
+                                macos(10.14, 10.15), ios(12.0, 13.0), watchos(5.0, 6.0), tvos(12.0, 13.0), macCatalyst(13.0, 13.0))
 SSLCipherSuite
 sec_protocol_metadata_get_negotiated_ciphersuite(sec_protocol_metadata_t metadata);
 

@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1985, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -27,11 +29,11 @@
  * SUCH DAMAGE.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char sccsid[] = "@(#)ualarm.c	8.1 (Berkeley) 6/4/93";
-#endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/ualarm.c,v 1.5 2007/01/09 00:27:56 imp Exp $");
+#if defined(LIBC_SCCS) && !defined(lint)
+__SCCSID("@(#)ualarm.c	8.1 (Berkeley) 6/4/93");
+__FBSDID("$FreeBSD$");
+#endif /* LIBC_SCCS and not lint */
 
 #include <sys/time.h>
 #include <unistd.h>
@@ -44,9 +46,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ualarm.c,v 1.5 2007/01/09 00:27:56 imp Exp 
  * every ``reload'' microseconds after the first signal.
  */
 useconds_t
-ualarm(usecs, reload)
-	useconds_t usecs;
-	useconds_t reload;
+ualarm(useconds_t usecs, useconds_t reload)
 {
 	struct itimerval new, old;
 
@@ -58,6 +58,5 @@ ualarm(usecs, reload)
 
 	if (setitimer(ITIMER_REAL, &new, &old) == 0)
 		return (old.it_value.tv_sec * USPS + old.it_value.tv_usec);
-	/* else */
-		return (-1);
+	return (-1);
 }

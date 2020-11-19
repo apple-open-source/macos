@@ -495,7 +495,7 @@ expire_func(heim_event_t event, void *ptr)
 	    break;
 	case 0:
 	    kcm_data_changed = 1;
-	    kcm_log(0, "cache: %s got new tickets (expire in %d seconds)",
+		kcm_log(0, "cache: %s got new tickets (expire in %d seconds)",
 		    cache->name, (int)(expire - time(NULL)));
 
 	    cache->expire = expire;

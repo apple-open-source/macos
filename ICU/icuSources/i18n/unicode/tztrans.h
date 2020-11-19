@@ -16,11 +16,12 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/uobject.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 // Forward declaration
@@ -69,7 +70,7 @@ public:
      * @return  A copy of the object.
      * @stable ICU 3.8
      */
-    TimeZoneTransition* clone(void) const;
+    TimeZoneTransition* clone() const;
 
     /**
      * Assignment operator.
@@ -190,9 +191,10 @@ public:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // TZTRANS_H
 

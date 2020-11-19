@@ -26,6 +26,9 @@
 #import "keychain/ot/proto/generated_source/OTApplicantToSponsorRound2M1.h"
 #import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound2M2.h"
 #import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound1M2.h"
+#import "keychain/ot/proto/generated_source/OTGlobalEnums.h"
+#import "keychain/ot/proto/generated_source/OTSupportSOSMessage.h"
+#import "keychain/ot/proto/generated_source/OTSupportOctagonMessage.h"
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
 #endif
 #import <KeychainCircle/NSError+KCCreationHelpers.h>
@@ -102,6 +105,7 @@ typedef enum {
     return [self->_session encrypt:initialMessage.data error:error];
 }
 
+
 - (nullable NSData*) initialMessage: (NSError**) error {
     secnotice("joining", "joining: KCJoiningRequestCircleSession initialMessage called");
 
@@ -129,6 +133,8 @@ typedef enum {
                 localError = err;
             } else{
                 OTPairingMessage *pairingMessage = [[OTPairingMessage alloc]init];
+                pairingMessage.supportsSOS = [[OTSupportSOSMessage alloc] init];
+                pairingMessage.supportsOctagon = [[OTSupportOctagonMessage alloc] init];
                 OTApplicantToSponsorRound2M1 *prepareMessage = [[OTApplicantToSponsorRound2M1 alloc]init];
                 prepareMessage.peerID = peerID;
                 prepareMessage.permanentInfo = permanentInfo;
@@ -137,6 +143,10 @@ typedef enum {
                 prepareMessage.stableInfoSig = stableInfoSig;
 
                 pairingMessage.prepare = prepareMessage;
+
+                pairingMessage.supportsSOS.supported = OctagonPlatformSupportsSOS() ? OTSupportType_supported : OTSupportType_not_supported;
+                pairingMessage.supportsOctagon.supported = OTSupportType_supported;
+
                 next = pairingMessage.data;
             }
             dispatch_semaphore_signal(sema);
@@ -162,7 +172,7 @@ typedef enum {
         self->_state = kExpectingCircleBlob;
         NSData *encryptedInitialMessage = [self encryptedInitialMessage:next error:error];
 
-        return [[KCJoiningMessage messageWithType: kPeerInfo
+        return [[KCJoiningMessage messageWithType:kPeerInfo
                                              data:encryptedInitialMessage
                                           payload:encryptedPi
                                             error:error] der];
@@ -180,13 +190,34 @@ typedef enum {
 
 }
 
-- (void) attemptSosUpgrade
+- (void) waitForOctagonUpgrade
 {
-    [self.otControl attemptSosUpgrade:self.joiningConfiguration.containerName context:self.joiningConfiguration.contextID reply:^(NSError *error) {
+#if OCTAGON
+    [self.otControl waitForOctagonUpgrade:self.joiningConfiguration.containerName context:self.joiningConfiguration.contextID reply:^(NSError *error) {
         if(error){
             secerror("pairing: failed to upgrade initiator into Octagon: %@", error);
         }
     }];
+#endif
+}
+
+- (BOOL)shouldJoinSOS:(KCJoiningMessage*)message pairingMessage:(OTPairingMessage*)pairingMessage
+{
+
+    BOOL shouldJoin = YES;
+
+    if (OctagonPlatformSupportsSOS() == NO) {
+        secnotice("joining", "platform does not support SOS");
+        shouldJoin = NO;
+    } else if (message.secondData == nil) {
+        secnotice("joining", "message does not contain SOS data");
+        shouldJoin = NO;
+    } else if (pairingMessage.hasSupportsSOS && pairingMessage.supportsSOS.supported == OTSupportType_not_supported) {
+        secnotice("joining", "acceptor explicitly does not support SOS");
+        shouldJoin = NO;
+    }
+
+    return shouldJoin;
 }
 
 - (NSData*) handleCircleBlob: (KCJoiningMessage*) message error: (NSError**) error {
@@ -206,6 +237,7 @@ typedef enum {
             secerror("octagon: expected voucher! returning from piggybacking.");
             return nil;
         }
+
         OTSponsorToApplicantRound2M2 *voucher = pairingMessage.voucher;
 
         //handle voucher message then join octagon
@@ -228,16 +260,18 @@ typedef enum {
             return nil;
         }
 
-        if (OctagonPlatformSupportsSOS()) {
+        if ([self shouldJoinSOS:message pairingMessage:pairingMessage]) {
             secnotice("joining", "doing SOS processCircleJoinData");
             //note we are stuffing SOS into the payload "secondData"
             NSData* circleBlob = [self.session decryptAndVerify:message.secondData error:error];
-            if (circleBlob == nil) return nil;
-
-            if (![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:error])
+            if (circleBlob == nil) {
+                secnotice("joining", "decryptAndVerify failed: %@", error && *error ? *error : nil);
                 return nil;
-        } else {
-            secnotice("joining", "platform doesn't support SOS");
+            }
+            if (![self.circleDelegate processCircleJoinData: circleBlob version:kPiggyV1 error:error]){
+                secerror("joining: processCircleJoinData failed %@", error && *error ? *error : nil);
+                return nil;
+            }
         }
 
         self->_state = kRequestCircleDone;
@@ -257,10 +291,12 @@ typedef enum {
         return nil;
     } else {
         secnotice("joining", "joined the SOS circle!");
+#if OCTAGON
         if(OctagonIsEnabled()) {
             secnotice("joining", "kicking off SOS Upgrade into Octagon!");
-            [self attemptSosUpgrade];
+            [self waitForOctagonUpgrade];
         }
+#endif
     }
     self->_state = kRequestCircleDone;
 
@@ -311,27 +347,26 @@ typedef enum {
                                  error:(NSError**) error
 {
     secnotice("joining", "joining: KCJoiningRequestCircleSession initWithCircleDelegate called, uuid=%@", session.pairingUUID);
-    self = [super init];
-
-    self->_circleDelegate = circleDelegate;
-    self->_session = session;
-    self.state = kExpectingCircleBlob;
+    if ((self = [super init])) {
+        self->_circleDelegate = circleDelegate;
+        self->_session = session;
+        self.state = kExpectingCircleBlob;
 #if OCTAGON
-    self->_otControl = otcontrol;
-    self->_joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:@"OctagonPiggybacking"
-                                                                       uniqueDeviceID:@"requester-id"
-                                                                       uniqueClientID:@"requester-id"
-                                                                          pairingUUID:session.pairingUUID
-                                                                        containerName:nil
-                                                                            contextID:OTDefaultContext
-                                                                                epoch:session.epoch
-                                                                          isInitiator:true];
+        self->_otControl = otcontrol;
+        self->_joiningConfiguration = [[OTJoiningConfiguration alloc]initWithProtocolType:@"OctagonPiggybacking"
+                                                                           uniqueDeviceID:@"requester-id"
+                                                                           uniqueClientID:@"requester-id"
+                                                                              pairingUUID:session.pairingUUID
+                                                                            containerName:nil
+                                                                                contextID:OTDefaultContext
+                                                                                    epoch:session.epoch
+                                                                              isInitiator:true];
 
-    self->_piggy_version = session.piggybackingVersion;
+        self->_piggy_version = session.piggybackingVersion;
 #else
-    self->_piggy_version = kPiggyV1;
+        self->_piggy_version = kPiggyV1;
 #endif
-
+    }
     return self;
 }
 

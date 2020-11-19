@@ -221,9 +221,9 @@ static IOReturn _setValue(void *iunknown,
     require(element && [_elements containsObject:element], exit);
     
     if (options & kIOHIDTransactionOptionDefaultOutputValue) {
-        element.defaultValueRef = valueRef;
+        [element setDefaultValueRef:valueRef];
     } else {
-       element.valueRef = valueRef;
+        [element setValueRef:valueRef];
     }
     
     [_elements replaceObjectAtIndex:[_elements indexOfObject:element]
@@ -288,22 +288,20 @@ static IOReturn _commit(void *iunknown,
 - (IOReturn)commit
 {
     IOReturn ret = kIOReturnError;
-    void *cookies = NULL;
-    size_t cookiesSize = 0;
     uint32_t count = (uint32_t)_elements.count;
     bool output = (_direction == kIOHIDTransactionDirectionTypeOutput);
-    
+
     require(count, exit);
-    
-    cookiesSize = sizeof(uint32_t) * count;
-    
-    cookies = malloc(cookiesSize);
-    
-    for (uint32_t i = 0; i < count; i++) {
-        HIDLibElement *element = [_elements objectAtIndex:i];
-        *((uint32_t*)cookies+i) = (uint32_t)element.elementCookie;
-        
-        if (output && element.valueRef) {
+
+    if (output) {
+        size_t dataSize = 0;
+        size_t dataOffset = 0;
+        uint8_t *elementData = NULL;
+        IOHIDElementValueHeader *elementVal;
+
+        for (uint32_t i = 0; i < count; i++) {
+            HIDLibElement *element = [_elements objectAtIndex:i];
+            size_t elementSize = 0;
             ret = [_device setValue:element.elementRef
                               value:element.valueRef
                             timeout:0
@@ -311,37 +309,110 @@ static IOReturn _commit(void *iunknown,
                             context:nil
                             options:kHIDSetElementValuePendEvent];
             require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass:setValue ...:%x", ret));
+            
+            elementSize = sizeof(IOHIDElementValueHeader) + IOHIDValueGetLength(element.valueRef);
+            dataSize += elementSize;
         }
-    }
-    
-    if (output) {
-        ret = IOConnectCallStructMethod(_device.connect,
-                                        kIOHIDLibUserClientPostElementValues,
-                                        cookies, cookiesSize, 0, 0);
+        elementData = malloc(dataSize);
+        bzero(elementData, dataSize);
+        require_action(elementData, exit, ret = kIOReturnNoMemory);
+        dataOffset = 0;
+
+        for (uint32_t i = 0; i < count; i++) {
+            HIDLibElement *element = [_elements objectAtIndex:i];
+            elementVal = (IOHIDElementValueHeader *)(elementData + dataOffset);
+            _IOHIDValueCopyToElementValueHeader(element.valueRef, elementVal);
+            dataOffset += elementVal->length + sizeof(IOHIDElementValueHeader);
+        }
+
+
+        ret = IOConnectCallMethod(_device.connect,
+                                  kIOHIDLibUserClientPostElementValues,
+                                  NULL,
+                                  0,
+                                  elementData,
+                                  dataSize,
+                                  NULL,
+                                  0,
+                                  NULL,
+                                  NULL);
+        free(elementData);
+
+        if (ret) {
+            HIDLogError("kIOHIDLibUserClientPostElementValues:%x",ret);
+        }
     } else {
-        ret = IOConnectCallStructMethod(_device.connect,
-                                    kIOHIDLibUserClientUpdateElementValues,
-                                        cookies, cookiesSize, 0, 0);
-        require_noerr_action(ret, exit, HIDLogError("kIOHIDLibUserClientUpdateElementValues:%x", ret));
-        
-        for (HIDLibElement *element in _elements) {
-            IOHIDValueRef value = NULL;
+        size_t cookiesSize = count * sizeof(uint32_t);
+        void *cookies = NULL;
+
+        size_t outputSize = 0;
+        void *outputValues = NULL;
+
+        uint64_t updateOptions = 0;
+        size_t dataOffset = 0;
+
+        for (uint32_t i = 0; i < count; i++) {
+            HIDLibElement *element = [_elements objectAtIndex:i];
+            size_t elementValueSize = sizeof(IOHIDElementValue) + _IOHIDElementGetLength(element.elementRef);
+            IOHIDValueRef valueRef = element.valueRef;
+            outputSize += elementValueSize;
+
             ret = [_device getValue:element.elementRef
-                              value:&value
+                              value:&valueRef
                             timeout:0
                            callback:nil
                             context:nil
-                            options:kHIDGetElementValuePreventPoll];
-            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass:getValue ...:%x", ret));
-            [element setValueRef:value];
+                            options:kHIDGetElementValuePendEvent];
+            require_noerr_action(ret, exit, HIDLogError("IOHIDDeviceClass:setValue ...:%x", ret));
         }
+        cookies = malloc(cookiesSize);
+        require_action(cookies, exit, ret = kIOReturnNoMemory);
+        outputValues = malloc(outputSize);
+        if (!outputValues) {
+            ret = kIOReturnNoMemory;
+            free(cookies);
+            goto exit;
+        }
+
+        for (uint32_t i = 0; i < count; i++) {
+            HIDLibElement *element = [_elements objectAtIndex:i];
+            *((uint32_t*)cookies+i) = (uint32_t)element.elementCookie;
+        }
+
+        ret = IOConnectCallMethod(_device.connect,
+                                  kIOHIDLibUserClientUpdateElementValues,
+                                  &updateOptions,
+                                  1,
+                                  cookies,
+                                  cookiesSize,
+                                  0,
+                                  0,
+                                  outputValues,
+                                  &outputSize);
+        if (ret != kIOReturnSuccess) {
+            HIDLogError("kIOHIDLibUserClientUpdateElementValues:%x", ret);
+            free(cookies);
+            free(outputValues);
+            goto exit;
+        }
+        
+        for (HIDLibElement *element in _elements) {
+            IOHIDValueRef value = NULL;
+            IOHIDElementValue *elementVal = (IOHIDElementValue*)((uint8_t*)outputValues + dataOffset);
+            dataOffset += elementVal->totalSize;
+
+            value = _IOHIDValueCreateWithElementValuePtr(kCFAllocatorDefault,
+                                                         element.elementRef,
+                                                         elementVal);
+
+            [element setValueRef:value];
+            CFRelease(value);
+        }
+        free(cookies);
+        free(outputValues);
     }
     
 exit:
-    if (cookies) {
-        free(cookies);
-    }
-    
     return ret;
 }
 

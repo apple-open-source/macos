@@ -17,7 +17,7 @@ AUTH_NONNULL1 AUTH_NONNULL2
 OSStatus engine_authorize(engine_t, auth_rights_t rights, auth_items_t environment, AuthorizationFlags);
 
 AUTH_NONNULL1 AUTH_NONNULL2
-OSStatus engine_preauthorize(engine_t engine, auth_items_t credentials);
+OSStatus engine_get_right_properties(engine_t engine, const char *rightName, CFDictionaryRef *output);
 
 AUTH_NONNULL_ALL
 OSStatus engine_verify_modification(engine_t, rule_t, bool remove, bool force_modify);

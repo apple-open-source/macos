@@ -36,12 +36,14 @@
 #include <WebCore/Frame.h>
 #include <WebCore/FrameSelection.h>
 #include <WebCore/FrameView.h>
+#include <WebCore/GeometryUtilities.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/JSRange.h>
 #include <WebCore/Page.h>
 #include <WebCore/Range.h>
 #include <WebCore/RenderView.h>
+#include <WebCore/SimpleRange.h>
 #include <WebCore/VisibleSelection.h>
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
@@ -53,7 +55,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-typedef HashMap<Range*, InjectedBundleRangeHandle*> DOMRangeHandleCache;
+using DOMRangeHandleCache = HashMap<Range*, InjectedBundleRangeHandle*>;
 
 static DOMRangeHandleCache& domRangeHandleCache()
 {
@@ -63,27 +65,19 @@ static DOMRangeHandleCache& domRangeHandleCache()
 
 RefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(JSContextRef context, JSObjectRef object)
 {
-    Range* range = JSRange::toWrapped(toJS(context)->vm(), toJS(object));
-    return getOrCreate(range);
+    return getOrCreate(JSRange::toWrapped(toJS(context)->vm(), toJS(object)));
 }
 
 RefPtr<InjectedBundleRangeHandle> InjectedBundleRangeHandle::getOrCreate(Range* range)
 {
     if (!range)
         return nullptr;
-
-    DOMRangeHandleCache::AddResult result = domRangeHandleCache().add(range, nullptr);
+    auto result = domRangeHandleCache().add(range, nullptr);
     if (!result.isNewEntry)
         return result.iterator->value;
-
-    auto rangeHandle = InjectedBundleRangeHandle::create(*range);
+    auto rangeHandle = adoptRef(*new InjectedBundleRangeHandle(*range));
     result.iterator->value = rangeHandle.ptr();
     return rangeHandle;
-}
-
-Ref<InjectedBundleRangeHandle> InjectedBundleRangeHandle::create(Range& range)
-{
-    return adoptRef(*new InjectedBundleRangeHandle(range));
 }
 
 InjectedBundleRangeHandle::InjectedBundleRangeHandle(Range& range)
@@ -108,9 +102,8 @@ Ref<InjectedBundleNodeHandle> InjectedBundleRangeHandle::document()
 
 WebCore::IntRect InjectedBundleRangeHandle::boundingRectInWindowCoordinates() const
 {
-    FloatRect boundingRect = m_range->absoluteBoundingRect();
     Frame* frame = m_range->ownerDocument().frame();
-    return frame->view()->contentsToWindow(enclosingIntRect(boundingRect));
+    return frame->view()->contentsToWindow(enclosingIntRect(unionRectIgnoringZeroRects(RenderObject::absoluteBorderAndTextRects(makeSimpleRange(m_range)))));
 }
 
 RefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions options)
@@ -131,10 +124,10 @@ RefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions option
     Ref<Frame> protector(*frame);
 
     VisibleSelection oldSelection = frame->selection().selection();
-    frame->selection().setSelection(VisibleSelection(m_range));
+    frame->selection().setSelection(makeSimpleRange(m_range));
 
     float scaleFactor = (options & SnapshotOptionsExcludeDeviceScaleFactor) ? 1 : frame->page()->deviceScaleFactor();
-    IntRect paintRect = enclosingIntRect(m_range->absoluteBoundingRect());
+    IntRect paintRect = enclosingIntRect(unionRectIgnoringZeroRects(RenderObject::absoluteBorderAndTextRects(makeSimpleRange(m_range))));
     IntSize backingStoreSize = paintRect.size();
     backingStoreSize.scale(scaleFactor);
 
@@ -175,6 +168,11 @@ RefPtr<WebImage> InjectedBundleRangeHandle::renderedImage(SnapshotOptions option
 String InjectedBundleRangeHandle::text() const
 {
     return m_range->text();
+}
+
+RefPtr<InjectedBundleRangeHandle> createHandle(const Optional<WebCore::SimpleRange>& range)
+{
+    return InjectedBundleRangeHandle::getOrCreate(createLiveRange(range).get());
 }
 
 } // namespace WebKit

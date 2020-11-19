@@ -54,6 +54,8 @@ typedef enum SecBackupEventType {
 
 bool SecItemBackupWithRegisteredBackups(CFErrorRef *error, void(^backup)(CFStringRef backupName));
 
+bool SecItemBackupWithRegisteredViewBackup(CFStringRef viewName, CFErrorRef *error);
+
 /*!
  @function SecItemBackupWithChanges
  @abstract Tell securityd which keybag (via a persistent ref) to use to backup
@@ -84,24 +86,6 @@ bool SecItemBackupSetConfirmedManifest(CFStringRef backupName, CFDataRef keybagD
  @param backup backup to be restored
  @discussion CloudServices iterates over all the backups, calling this for each backup with peer infos matching the chosen device. */
 void SecItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDataRef keybag, CFDataRef secret, CFTypeRef backup, void (^completion)(CFErrorRef error));
-
-/*!
- @function SecItemBackupCopyMatching
- @abstract Query the contents of a backup dictionary.
- @param keybag The bag protecting the backup data.
- @param secret Credential to unlock keybag.
- @param backup Dictionary returned from SecItemBackupDataSource.
- @param query A dictionary containing an item class specification and
- optional attributes for controlling the search. See the "Keychain
- Search Attributes" section of SecItemCopyMatching for a description of
- currently defined search attributes.
- @result CFTypeRef reference to the found item(s). The
- exact type of the result is based on the search attributes supplied
- in the query.  Returns NULL and sets *error if there is a failure.
- @discussion This allows clients to "restore" a backup and fetch an item from
- it without restoring the backup to the keychain, and in particular without
- even having a writable keychain around, such as when running in the restore OS. */
-CFDictionaryRef SecItemBackupCopyMatching(CFDataRef keybag, CFDataRef secret, CFDictionaryRef backup, CFDictionaryRef query, CFErrorRef *error);
 
 // Utility function to compute a confirmed manifest from a v0 backup dictionary.
 CFDataRef SecItemBackupCreateManifest(CFDictionaryRef backup, CFErrorRef *error);

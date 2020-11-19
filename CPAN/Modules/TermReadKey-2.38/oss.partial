@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>TermReadKey</string>
+        <key>OpenSourceVersion</key>
+        <string>2.38</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/J/JS/JSTOWE/TermReadKey-2.38.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2019-12-05</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

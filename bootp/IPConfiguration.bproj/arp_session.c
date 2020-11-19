@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -1157,6 +1157,7 @@ static arp_client_t *
 arp_if_session_new_client(arp_if_session_t * if_session)
 {
     arp_client_t *		client;
+    char			timer_name[32];
 
     client = malloc(sizeof(*client));
     if (client == NULL) {
@@ -1172,7 +1173,9 @@ arp_if_session_new_client(arp_if_session_t * if_session)
 #endif /* TEST_ARP_SESSION */
     client->if_session = if_session;
     client->probe_info = if_session->session->default_probe_info;
-    client->timer_callout = timer_callout_init();
+    snprintf(timer_name, sizeof(timer_name), "arp-%s",
+	     if_name(if_session->if_p));
+    client->timer_callout = timer_callout_init(timer_name);
     return (client);
 
 }

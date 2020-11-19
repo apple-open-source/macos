@@ -27,17 +27,17 @@
 
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
-#import "keychain/ot/CuttlefishXPCWrapper.h"
+#import "keychain/ot/OTOperationDependencies.h"
+
+@class OTOperationDependencies;
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface OTLocalResetOperation : CKKSGroupOperation <OctagonStateTransitionOperationProtocol>
 
-- (instancetype)init:(NSString*)containerName
-           contextID:(NSString*)contextID
-       intendedState:(OctagonState*)intendedState
-          errorState:(OctagonState*)errorState
-cuttlefishXPCWrapper:(CuttlefishXPCWrapper*)cuttlefishXPCWrapper;
+- (instancetype)initWithDependencies:(OTOperationDependencies*)deps
+                       intendedState:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState;
 @end
 
 NS_ASSUME_NONNULL_END

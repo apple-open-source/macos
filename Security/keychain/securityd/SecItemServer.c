@@ -40,6 +40,8 @@
 #include "keychain/securityd/SecItemDb.h"
 #include "keychain/securityd/SecItemSchema.h"
 #include <utilities/SecDb.h>
+#include <utilities/SecDbInternal.h>
+#import <utilities/SecCoreAnalytics.h>
 #include "keychain/securityd/SecDbKeychainItem.h"
 #include "keychain/securityd/SOSCloudCircleServer.h"
 #include <Security/SecBasePriv.h>
@@ -78,7 +80,6 @@
 #endif
 
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-#include <utilities/SecADWrapper.h>
 #include <sys/time.h>
 #include <unistd.h>
 #endif
@@ -91,10 +92,8 @@
 #include <Security/SecuritydXPC.h>
 #include "swcagent_client.h"
 #include "SecPLWrappers.h"
-
-#if TARGET_OS_IOS && !TARGET_OS_BRIDGE
-#include <SharedWebCredentials/SharedWebCredentials.h>
-#endif
+#include "SecItemServer+SWC.h"
+#include <ipc/server_entitlement_helpers.h>
 
 #include <os/variant_private.h>
 
@@ -175,6 +174,7 @@ bool SecKeychainDbGetVersion(SecDbConnectionRef dbt, int *version, CFErrorRef *e
     }
 out:
     secnotice("upgr", "database version is: 0x%08x : %d : %@", *version, ok, localError);
+    secnotice("upgr", "UID: %d  EUID: %d", getuid(), geteuid());
     CFReleaseSafe(localError);
 
 
@@ -213,11 +213,11 @@ measureUpgradePhase1(struct timeval *start, bool success, int64_t itemsMigrated)
     int64_t duration = measureDuration(start);
 
     if (success) {
-        SecADSetValueForScalarKey(CFSTR("com.apple.keychain.phase1.migrated-items-success"), itemsMigrated);
-        SecADSetValueForScalarKey(CFSTR("com.apple.keychain.phase1.migrated-time-success"), duration);
+        SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase1.migrated-items-success"), itemsMigrated);
+        SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase1.migrated-time-success"), duration);
     } else {
-        SecADSetValueForScalarKey(CFSTR("com.apple.keychain.phase1.migrated-items-fail"), itemsMigrated);
-        SecADSetValueForScalarKey(CFSTR("com.apple.keychain.phase1.migrated-time-fail"), duration);
+        SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase1.migrated-items-fail"), itemsMigrated);
+        SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase1.migrated-time-fail"), duration);
     }
 }
 
@@ -226,8 +226,8 @@ measureUpgradePhase2(struct timeval *start, int64_t itemsMigrated)
 {
     int64_t duration = measureDuration(start);
 
-    SecADSetValueForScalarKey(CFSTR("com.apple.keychain.phase2.migrated-items"), itemsMigrated);
-    SecADSetValueForScalarKey(CFSTR("com.apple.keychain.phase2.migrated-time"), duration);
+    SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase2.migrated-items"), itemsMigrated);
+    SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.phase2.migrated-time"), duration);
 }
 #endif /* TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR */
 
@@ -372,7 +372,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
             // Prepare query to iterate through all items in cur_class.
             if (query != NULL)
                 query_destroy(query, NULL);
-            require_quiet(query = query_create(renamedOldClass, SecMUSRGetAllViews(), NULL, error), out);
+            require_quiet(query = query_create(renamedOldClass, SecMUSRGetAllViews(), NULL, NULL, error), out);
 
             ok &= SecDbItemSelect(query, dbt, error, ^bool(const SecDbAttr *attr) {
                 // We are interested in all attributes which are physically present in the DB.
@@ -410,7 +410,7 @@ static bool UpgradeSchemaPhase1(SecDbConnectionRef dbt, const SecDbSchema *oldSc
                     secnotice("upgr", "dropping item during schema upgrade due to agrp=com.apple.token: %@", item);
                 } else {
                     // Insert new item into the new table.
-                    if (!SecDbItemInsert(item, dbt, &localError)) {
+                    if (!SecDbItemInsert(item, dbt, false, &localError)) {
                         secerror("item: %@ insert during upgrade: %@", item, localError);
                         ok = false;
                     }
@@ -554,7 +554,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
         if (query != NULL) {
             query_destroy(query, NULL);
         }
-        require_action_quiet(query = query_create(*class, SecMUSRGetAllViews(), NULL, error), out, ok = false);
+        require_action_quiet(query = query_create(*class, SecMUSRGetAllViews(), NULL, NULL, error), out, ok = false);
         ok &= SecDbItemSelect(query, threadDbt, error, NULL, ^bool(const SecDbAttr *attr) {
             // No simple per-attribute filtering.
             return false;
@@ -586,7 +586,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
                 if (CFEqualSafe(SecDbItemGetCachedValueWithName(item, kSecAttrAccessGroup), kSecAttrAccessGroupToken) &&
                     SecDbItemGetCachedValueWithName(item, kSecAttrTokenID) == NULL) {
                     secnotice("upgr", "dropping item during item upgrade due to agrp=com.apple.token: %@", item);
-                    ok = SecDbItemDelete(item, threadDbt, kCFBooleanFalse, &localError);
+                    ok = SecDbItemDelete(item, threadDbt, kCFBooleanFalse, false, &localError);
                 } else {
                     // Replace item with the new value in the table; this will cause the item to be decoded and recoded back,
                     // incl. recalculation of item's hash.
@@ -603,7 +603,7 @@ static bool UpgradeItemPhase2(SecDbConnectionRef inDbt, bool *inProgress, int ol
                         // make sure we use a local error so that this error is not proppaged upward and cause a
                         // migration failure.
                         CFErrorRef deleteError = NULL;
-                        (void)SecDbItemDelete(item, threadDbt, false, &deleteError);
+                        (void)SecDbItemDelete(item, threadDbt, false, false, &deleteError);
                         CFReleaseNull(deleteError);
                         ok = true;
                         break;
@@ -670,6 +670,42 @@ out:
     return ok;
 }
 
+// There's no data-driven approach for this. Let's think about it more if it gets unwieldy
+static void performCustomIndexProcessing(SecDbConnectionRef dbt) {
+    CFErrorRef cfErr = NULL;
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpagrp; DROP INDEX IF EXISTS genpsync;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetagrp; DROP INDEX IF EXISTS inetsync;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certagrp; DROP INDEX IF EXISTS certsync;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keysagrp; DROP INDEX IF EXISTS keyssync;"), &cfErr), errhandler);
+
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpsync0;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetsync0;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certsync0;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keyssync0;"), &cfErr), errhandler);
+
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS genpmusr;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS inetmusr;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS certmusr;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS keysmusr;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS item_backupmusr;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS backup_keybagmusr;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS backup_keyarchivemusr;"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("DROP INDEX IF EXISTS archived_key_backupmusr;"), &cfErr), errhandler);
+
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_svce ON genp(agrp, musr, tomb, svce);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_srvr ON inet(agrp, musr, tomb, srvr);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_subj ON cert(agrp, musr, tomb, subj);"), &cfErr), errhandler);
+    require(SecDbExec(dbt, CFSTR("CREATE INDEX IF NOT EXISTS agrp_musr_tomb_atag ON keys(agrp, musr, tomb, atag);"), &cfErr), errhandler);
+
+    secnotice("upgr", "processed custom indexes (now or in the past)");
+    CFReleaseNull(cfErr);   // Should be nil but belt and suspenders
+    return;
+
+errhandler:
+    secerror("upgr: failed to process custom indexes: %@", cfErr);
+    CFReleaseNull(cfErr);
+}
+
 static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version, bool *inProgress, CFErrorRef *error) {
     __block bool didPhase2 = false;
     __block bool ok = true;
@@ -707,6 +743,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
 
         // If this is empty database, just create table according to schema and be done with it.
         require_action_quiet(version2 != 0, out, ok = SecItemDbCreateSchema(dbt, newSchema, NULL, true, &localError);
+                             performCustomIndexProcessing(dbt);
                              LKAReportKeychainUpgradeOutcomeWithError(version2, newVersion, LKAKeychainUpgradeOutcomeNewDb, localError));
 
         int oldVersion = VERSION_OLD(version2);
@@ -796,7 +833,7 @@ static bool SecKeychainDbUpgradeFromVersion(SecDbConnectionRef dbt, int version,
 
     if (ok && didPhase2) {
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-        SecADSetValueForScalarKey(CFSTR("com.apple.keychain.migration-success"), 1);
+        SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.migration-success"), 1);
 #endif
     }
 
@@ -839,7 +876,7 @@ out:
             secerror("upgrade: marking database as corrupt");
             SecDbCorrupt(dbt, localError);
 #if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-            SecADSetValueForScalarKey(CFSTR("com.apple.keychain.migration-failure"), 1);
+            SecCoreAnalyticsSendValue(CFSTR("com.apple.keychain.migration-failure"), 1);
 #endif
         }
     } else {
@@ -851,19 +888,13 @@ out:
         //If we're done here, we should opportunistically re-add all indices (just in case)
         if(skipped_upgrade || didPhase2) {
             // Create indices, ignoring all errors
+            performCustomIndexProcessing(dbt);
             for (SecDbClass const* const* newClass = newSchema->classes; *newClass; ++newClass) {
                 SecDbForEachAttrWithMask((*newClass), desc, kSecDbIndexFlag | kSecDbInFlag) {
                     CFStringRef sql = NULL;
                     CFErrorRef classLocalError = NULL;
                     bool localOk = true;
-
-                    if (desc->kind == kSecDbSyncAttr) {
-                        // Replace the complete sync index with a partial index for sync=0. Most items are sync=1, so the complete index isn't helpful for sync=1 queries.
-                        sql = CFStringCreateWithFormat(NULL, NULL, CFSTR("DROP INDEX IF EXISTS %@%@; CREATE INDEX IF NOT EXISTS %@%@0 on %@(%@) WHERE %@=0;"),
-                            (*newClass)->name, desc->name, (*newClass)->name, desc->name, (*newClass)->name, desc->name, desc->name);
-                    } else {
-                        sql = CFStringCreateWithFormat(NULL, NULL, CFSTR("CREATE INDEX IF NOT EXISTS %@%@ ON %@(%@);"), (*newClass)->name, desc->name, (*newClass)->name, desc->name);
-                    }
+                    sql = CFStringCreateWithFormat(NULL, NULL, CFSTR("CREATE INDEX IF NOT EXISTS %@%@ ON %@(%@);"), (*newClass)->name, desc->name, (*newClass)->name, desc->name);
                     localOk &= SecDbExec(dbt, sql, &classLocalError);
                     CFReleaseNull(sql);
 
@@ -1234,7 +1265,7 @@ void SecKeychainDbReset(dispatch_block_t inbetween)
     dispatch_sync(get_kc_dbhandle_dispatch(), ^{
         CFReleaseNull(_kc_dbhandle);
         SecDbResetMetadataKeys();
-
+        SecDbResetBackupManager();
         if (inbetween)
             inbetween();
     });
@@ -1286,12 +1317,12 @@ bool kc_with_custom_db(bool writeAndRead, bool usesItemTables, SecDbRef db, CFEr
         // The kc_with_dbt upthread will clean this up when it's done.
         return perform(threadDbt);
     }
-    
-    if (writeAndRead && usesItemTables) {
+
 #if SECUREOBJECTSYNC
+    if (writeAndRead && usesItemTables) {
         SecItemDataSourceFactoryGetDefault();
-#endif
     }
+#endif
 
     bool ok = false;
     if (kc_acquire_dbt(writeAndRead, &threadDbt, error)) {
@@ -1323,7 +1354,7 @@ items_matching_issuer_parent(SecDbConnectionRef dbt, CFArrayRef accessGroups, CF
         return false;
 
     CFErrorRef localError = NULL;
-    q = query_create_with_limit(query, musrView, kSecMatchUnlimited, &localError);
+    q = query_create_with_limit(query, musrView, kSecMatchUnlimited, NULL, &localError);
     CFRelease(query);
     if (q) {
         s3dl_copy_matching(dbt, q, (CFTypeRef*)&results, accessGroups, &localError);
@@ -1544,6 +1575,46 @@ out:
     return ok;
 }
 
+//Mark: -
+
+void deleteCorruptedItemAsync(SecDbConnectionRef dbt, CFStringRef tablename, sqlite_int64 rowid)
+{
+    // should really get db from dbt, but I don't know much much we should poke holes thought the boundaries.
+    SecDbRef db = kc_dbhandle(NULL);
+    if (db == NULL) {
+        return;
+    }
+
+    CFRetain(db);
+    CFRetain(tablename);
+
+    dispatch_async(dispatch_get_global_queue(QOS_CLASS_DEFAULT, 0), ^{
+        __block CFErrorRef localErr = NULL;
+        kc_with_custom_db(true, true, db, &localErr, ^bool(SecDbConnectionRef dbt) {
+            CFStringRef sql = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("DELETE FROM %@ WHERE rowid=%lli"), tablename, rowid);
+            __block bool ok = true;
+            ok &= SecDbPrepare(dbt, sql, &localErr, ^(sqlite3_stmt *stmt) {
+                ok &= SecDbStep(dbt, stmt, &localErr, NULL);
+            });
+
+            if (!ok || localErr) {
+                secerror("Failed to delete corrupt item, %@ row %lli: %@", tablename, rowid, localErr);
+            } else {
+                secnotice("item", "Deleted corrupt rowid %lli from table %@", rowid, tablename);
+            }
+            CFReleaseNull(localErr);
+            CFReleaseNull(sql);
+            return true;
+        });
+
+        CFRelease(tablename); // can't be a CFReleaseNull() because of scope
+        CFRelease(db);
+    });
+
+}
+
+
+
 /****************************************************************************
  **************** Beginning of Externally Callable Interface ****************
  ****************************************************************************/
@@ -1552,7 +1623,7 @@ static bool SecEntitlementError(CFErrorRef *error)
 {
 #if TARGET_OS_OSX
 #define SEC_ENTITLEMENT_WARNING CFSTR("com.apple.application-identifier nor com.apple.security.application-groups nor keychain-access-groups")
-#elif TARGET_OS_IOSMAC
+#elif TARGET_OS_MACCATALYST
 #define SEC_ENTITLEMENT_WARNING CFSTR("com.apple.developer.associated-application-identifier nor application-identifier nor com.apple.security.application-groups nor keychain-access-groups")
 #else
 #define SEC_ENTITLEMENT_WARNING CFSTR("application-identifier nor keychain-access-groups")
@@ -1596,13 +1667,43 @@ static CFStringRef CopyAccessGroupForRowID(sqlite_int64 rowID, CFStringRef itemC
     }
 }
 
-/* AUDIT[securityd](done):
-   query (ok) is a caller provided dictionary, only its cf type has been checked.
- */
+// Expand this, rdar://problem/59297616
+// Known attributes which are not API/SPI should not be permitted in queries
+static bool nonAPIAttributesInDictionary(CFDictionaryRef attrs) {
+    return CFDictionaryContainsKey(attrs, kSecAttrAppClipItem);
+}
+
+static bool appClipHasSaneAccessGroups(SecurityClient* client) {
+    if (!client || !client->applicationIdentifier || !client->accessGroups) {
+        secerror("item: no app clip client or attributes not set, cannot verify restrictions");
+        return false;
+    }
+
+    CFIndex count = CFArrayGetCount(client->accessGroups);
+    if (count == 1 && CFEqualSafe(client->applicationIdentifier, CFArrayGetValueAtIndex(client->accessGroups, 0))) {
+        return true;
+    }
+
+    // sigh, alright is the _other_ access group the application identifier?
+    if (count == 2) {
+        CFIndex tokenIdx = CFArrayGetFirstIndexOfValue(client->accessGroups, CFRangeMake(0, count), kSecAttrAccessGroupToken);
+        if (tokenIdx != kCFNotFound) {
+            return CFEqualSafe(client->applicationIdentifier, CFArrayGetValueAtIndex(client->accessGroups, tokenIdx == 0 ? 1 : 0));
+        }
+    }
+
+    return false;
+}
+
 static bool
 SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
     SecurityClient *client, CFErrorRef *error)
 {
+    if (nonAPIAttributesInDictionary(query)) {
+        SecError(errSecParam, error, CFSTR("Non-API attributes present in query"));
+        return false;
+    }
+
     CFArrayRef accessGroups = CFRetainSafe(client->accessGroups);
 
     CFIndex ag_count;
@@ -1635,7 +1736,7 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
     }
 
     bool ok = false;
-    Query *q = query_create_with_limit(query, client->musr, 1, error);
+    Query *q = query_create_with_limit(query, client->musr, 1, client, error);
     if (q) {
         CFStringRef agrp = CFDictionaryGetValue(q->q_item, kSecAttrAccessGroup);
         if (agrp) {
@@ -1649,18 +1750,6 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
                 query_destroy(q, NULL);
                 return false;
             }
-        } else {
-#if !TARGET_OS_OSX
-            if (accessGroups != NULL) {
-                // On iOS, drop 'com.apple.token' AG from allowed accessGroups, to avoid inserting token elements into
-                // unsuspecting application's keychain. If the application on iOS wants to access token items, it needs
-                // explicitly specify kSecAttrAccessGroup=kSecAttrAccessGroupToken in its query.
-                CFMutableArrayRef mutableGroups =  CFArrayCreateMutableCopy(kCFAllocatorDefault, 0, accessGroups);
-                CFArrayRemoveAllValue(mutableGroups, kSecAttrAccessGroupToken);
-                CFReleaseNull(accessGroups);
-                accessGroups = mutableGroups;
-            }
-#endif
         }
 
 #if TARGET_OS_IPHONE
@@ -1679,9 +1768,9 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
 #endif
 
         query_set_caller_access_groups(q, accessGroups);
-
-        /* Sanity check the query. */
-        if (q->q_system_keychain && !client->allowSystemKeychain) {
+        if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
+            ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
+        } else if (q->q_system_keychain && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
@@ -1703,8 +1792,9 @@ SecItemServerCopyMatching(CFDictionaryRef query, CFTypeRef *result,
             });
         }
 
-        if (!query_destroy(q, error))
+        if (!query_destroy(q, error)) {
             ok = false;
+        }
     }
     CFReleaseNull(accessGroups);
 
@@ -1751,14 +1841,14 @@ SecurityClientCopyWritableAccessGroups(SecurityClient *client) {
     }
 }
 
-
-/* AUDIT[securityd](done):
-   attributes (ok) is a caller provided dictionary, only its cf type has
-       been checked.
- */
 bool
 _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *result, CFErrorRef *error)
 {
+    if (nonAPIAttributesInDictionary(attributes)) {
+        SecError(errSecParam, error, CFSTR("Non-API attributes present"));
+        return false;
+    }
+
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
     bool ok = true;
@@ -1770,20 +1860,22 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
 
     SecSignpostStart(SecSignpostSecItemAdd);
 
-    Query *q = query_create_with_limit(attributes, client->musr, 0, error);
+    Query *q = query_create_with_limit(attributes, client->musr, 0, client, error);
     if (q) {
         /* Access group sanity checking. */
         CFStringRef agrp = (CFStringRef)CFDictionaryGetValue(attributes,
             kSecAttrAccessGroup);
 
         /* Having the special accessGroup "*" allows access to all accessGroups. */
-        if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*")))
+        if (CFArrayContainsValue(accessGroups, CFRangeMake(0, ag_count), CFSTR("*"))) {
             CFReleaseNull(accessGroups);
+        }
 
         if (agrp) {
             /* The user specified an explicit access group, validate it. */
-            if (!accessGroupsAllows(accessGroups, agrp, client))
+            if (!accessGroupsAllows(accessGroups, agrp, client)) {
                 ok = SecEntitlementErrorForExplicitAccessGroup(agrp, accessGroups, error);
+            }
         } else {
             agrp = (CFStringRef)CFArrayGetValueAtIndex(client->accessGroups, 0);
 
@@ -1820,8 +1912,11 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
                 q->q_add_sync_callback = add_sync_callback;
             }
 #endif
-
-            if (q->q_system_keychain && !client->allowSystemKeychain) {
+            if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
+                ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
+            } else if (client->isAppClip && CFEqualSafe(CFDictionaryGetValue(attributes, kSecAttrSynchronizable), kCFBooleanTrue)) {
+                ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to add synchronizable items to the keychain"));
+            } else if (q->q_system_keychain && !client->allowSystemKeychain) {
                 ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
             } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
                 ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
@@ -1851,14 +1946,15 @@ _SecItemAdd(CFDictionaryRef attributes, SecurityClient *client, CFTypeRef *resul
     return ok;
 }
 
-/* AUDIT[securityd](done):
-   query (ok) and attributesToUpdate (ok) are a caller provided dictionaries,
-       only their cf types have been checked.
- */
 bool
 _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
                SecurityClient *client, CFErrorRef *error)
 {
+    if (nonAPIAttributesInDictionary(query) || nonAPIAttributesInDictionary(attributesToUpdate)) {
+        SecError(errSecParam, error, CFSTR("Non-API attributes present"));
+        return false;
+    }
+
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
     CFIndex ag_count;
@@ -1893,7 +1989,7 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
     }
 
     bool ok = true;
-    Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, error);
+    Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, client, error);
     if (!q) {
         ok = false;
     }
@@ -1906,10 +2002,14 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
             q->q_system_keychain = false;
         }
 #endif
-
-        /* Sanity check the query. */
         query_set_caller_access_groups(q, accessGroups);
-        if (q->q_system_keychain && !client->allowSystemKeychain) {
+        if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
+            ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
+        } else if (client->isAppClip && (CFEqualSafe(CFDictionaryGetValue(query, kSecAttrSynchronizable), kCFBooleanTrue) ||
+            CFEqualSafe(CFDictionaryGetValue(attributesToUpdate, kSecAttrSynchronizable), kCFBooleanTrue)))
+        {
+            ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to make items synchronizable"));
+        } else if (q->q_system_keychain && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
@@ -1959,13 +2059,14 @@ _SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attributesToUpdate,
     return ok;
 }
 
-
-/* AUDIT[securityd](done):
-   query (ok) is a caller provided dictionary, only its cf type has been checked.
- */
 bool
 _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
 {
+    if (nonAPIAttributesInDictionary(query)) {
+        SecError(errSecParam, error, CFSTR("Non-API attributes present"));
+        return false;
+    }
+
     CFArrayRef accessGroups = SecurityClientCopyWritableAccessGroups(client);
 
     CFIndex ag_count;
@@ -1997,7 +2098,7 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
         CFReleaseNull(accessGroups);
     }
 
-    Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, error);
+    Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, client, error);
     bool ok;
     if (q) {
 #if TARGET_OS_IPHONE
@@ -2010,8 +2111,9 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
 #endif
 
         query_set_caller_access_groups(q, accessGroups);
-        /* Sanity check the query. */
-        if (q->q_system_keychain && !client->allowSystemKeychain) {
+        if (client->isAppClip && !appClipHasSaneAccessGroups(client)) {
+            ok = SecError(errSecRestrictedAPI, error, CFSTR("App clips are not permitted to use access groups other than application identifier"));
+        } else if (q->q_system_keychain && !client->allowSystemKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
         } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
             ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
@@ -2044,11 +2146,8 @@ _SecItemDelete(CFDictionaryRef query, SecurityClient *client, CFErrorRef *error)
 }
 
 static bool SecItemDeleteTokenItems(SecDbConnectionRef dbt, CFTypeRef classToDelete, CFTypeRef tokenID, CFArrayRef accessGroups, SecurityClient *client, CFErrorRef *error) {
-    CFTypeRef keys[] = { kSecClass, kSecAttrTokenID };
-    CFTypeRef values[] = { classToDelete, tokenID };
-    
-    CFDictionaryRef query = CFDictionaryCreate(kCFAllocatorDefault, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, error);
+    CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, kSecClass, classToDelete, kSecAttrTokenID, tokenID, NULL);
+    Query *q = query_create_with_limit(query, client->musr, kSecMatchUnlimited, client, error);
     CFRelease(query);
     bool ok;
     if (q) {
@@ -2062,73 +2161,55 @@ static bool SecItemDeleteTokenItems(SecDbConnectionRef dbt, CFTypeRef classToDel
     return ok;
 }
 
-static bool SecItemAddTokenItem(SecDbConnectionRef dbt, CFDictionaryRef attributes, CFArrayRef accessGroups, SecurityClient *client, CFErrorRef *error) {
-    bool ok = true;
-    Query *q = query_create_with_limit(attributes, client->musr, 0, error);
-    if (q) {
-        CFStringRef agrp = kSecAttrAccessGroupToken;
+static bool SecItemAddTokenItemToAccessGroups(SecDbConnectionRef dbt, CFDictionaryRef attributes, CFArrayRef accessGroups, SecurityClient *client, CFErrorRef *error) {
+    Query *q;
+    bool ok = false;
+    for (CFIndex i = 0; i < CFArrayGetCount(accessGroups); ++i) {
+        require_quiet(q = query_create_with_limit(attributes, client->musr, 0, client, error), out);
+        CFStringRef agrp = CFArrayGetValueAtIndex(accessGroups, i);
         query_add_attribute(kSecAttrAccessGroup, agrp, q);
-
-        if (ok) {
-            query_ensure_access_control(q, agrp);
-            if (q->q_system_keychain && !client->allowSystemKeychain) {
-                ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for system keychain"));
-            } else if (q->q_sync_bubble && !client->allowSyncBubbleKeychain) {
-                ok = SecError(errSecMissingEntitlement, error, CFSTR("client doesn't have entitlement for syncbubble keychain"));
-            } else if (q->q_row_id || q->q_token_object_id) {
-                ok = SecError(errSecValuePersistentRefUnsupported, error, CFSTR("q_row_id"));  // TODO: better error string
-            } else if (!q->q_error) {
-                query_pre_add(q, true);
-                ok = s3dl_query_add(dbt, q, NULL, error);
-            }
+        query_ensure_access_control(q, agrp);
+        bool added = false;
+        if (!q->q_error) {
+            query_pre_add(q, true);
+            added = s3dl_query_add(dbt, q, NULL, error);
         }
-        ok = query_notify_and_destroy(q, ok, error);
-    } else {
-        return false;
+        require_quiet(query_notify_and_destroy(q, added, error), out);
     }
+    ok = true;
+out:
     return ok;
 }
 
-bool _SecItemUpdateTokenItems(CFStringRef tokenID, CFArrayRef items, SecurityClient *client, CFErrorRef *error) {
-    bool ok = true;
-    CFArrayRef accessGroups = client->accessGroups;
-    CFIndex ag_count;
-    if (!accessGroups || 0 == (ag_count = CFArrayGetCount(accessGroups))) {
-        return SecEntitlementError(error);
+bool _SecItemUpdateTokenItemsForAccessGroups(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef items, SecurityClient *client, CFErrorRef *error) {
+    // This is SPI for CTK only, don't even listen to app clips.
+    if (client->isAppClip) {
+        return SecError(errSecRestrictedAPI, error, CFSTR("App Clips may not call this API"));
     }
 
-    ok = kc_with_dbt(true, error, ^bool (SecDbConnectionRef dbt) {
+    return kc_with_dbt(true, error, ^bool (SecDbConnectionRef dbt) {
         return kc_transaction(dbt, error, ^bool {
-            if (items) {
-                const CFTypeRef classToDelete[] = { kSecClassGenericPassword, kSecClassInternetPassword, kSecClassCertificate, kSecClassKey };
-                for (size_t i = 0; i < sizeof(classToDelete) / sizeof(classToDelete[0]); ++i) {
-                    SecItemDeleteTokenItems(dbt, classToDelete[i], tokenID, accessGroups, client, NULL);
+            bool ok = false;
+            CFErrorRef localError = NULL;
+            const CFTypeRef classToDelete[] = { kSecClassGenericPassword, kSecClassInternetPassword, kSecClassCertificate, kSecClassKey };
+            for (size_t i = 0; i < sizeof(classToDelete) / sizeof(classToDelete[0]); ++i) {
+                if (!SecItemDeleteTokenItems(dbt, classToDelete[i], tokenID, accessGroups, client, &localError)) {
+                    require_action_quiet(CFErrorGetCode(localError) == errSecItemNotFound, out, CFErrorPropagate(localError, error));
+                    CFReleaseNull(localError);
                 }
+            }
 
+            if (items) {
                 for (CFIndex i = 0; i < CFArrayGetCount(items); ++i) {
-                    if (!SecItemAddTokenItem(dbt, CFArrayGetValueAtIndex(items, i), accessGroups, client, error))
-                        return false;
+                    require_quiet(SecItemAddTokenItemToAccessGroups(dbt, CFArrayGetValueAtIndex(items, i), accessGroups, client, error), out);
                 }
-                return true;
             }
-            else {
-                const CFTypeRef classToDelete[] = { kSecClassGenericPassword, kSecClassInternetPassword, kSecClassCertificate, kSecClassKey };
-                bool deleted = true;
-                for (size_t i = 0; i < sizeof(classToDelete) / sizeof(classToDelete[0]); ++i) {
-                    if (!SecItemDeleteTokenItems(dbt, classToDelete[i], tokenID, accessGroups, client, error) && error && CFErrorGetCode(*error) != errSecItemNotFound) {
-                        deleted = false;
-                        break;
-                    }
-                    else if (error && *error) {
-                        CFReleaseNull(*error);
-                    }
-                }
-                return deleted;
-            }
+
+            ok = true;
+        out:
+            return ok;
         });
     });
-
-    return ok;
 }
 
 static bool deleteNonSysboundItemsForItemClass(SecDbConnectionRef dbt, SecDbClass const* class, CFErrorRef* error) {
@@ -2136,7 +2217,7 @@ static bool deleteNonSysboundItemsForItemClass(SecDbConnectionRef dbt, SecDbClas
     CFDictionaryAddValue(query, kSecMatchLimit, kSecMatchLimitAll);
 
     __block CFErrorRef localError = NULL;
-    SecDbQueryRef q = query_create(class, NULL, query, &localError);
+    SecDbQueryRef q = query_create(class, NULL, query, NULL, &localError);
     if (q == NULL) {    // illegal query or out of memory
         secerror("SecItemServerDeleteAll: aborting because failed to initialize Query: %@", localError);
         abort();
@@ -2148,7 +2229,7 @@ static bool deleteNonSysboundItemsForItemClass(SecDbConnectionRef dbt, SecDbClas
         if (!SecItemIsSystemBound(item->attributes, class, false) &&
             !CFEqual(CFDictionaryGetValue(item->attributes, kSecAttrAccessGroup), CFSTR("com.apple.bluetooth")))
         {
-            SecDbItemDelete(item, dbt, kCFBooleanFalse, &localError);
+            SecDbItemDelete(item, dbt, kCFBooleanFalse, false, &localError);
         }
     });
     query_destroy(q, &localError);
@@ -2260,7 +2341,7 @@ _SecItemServerDeleteAllWithAccessGroups(CFArrayRef accessGroups, SecurityClient 
             for (n = 0; n < sizeof(qclasses)/sizeof(qclasses[0]) && ok1; n++) {
                 Query *q;
 
-                q = query_create(qclasses[n], client->musr, NULL, error);
+                q = query_create(qclasses[n], client->musr, NULL, client, error);
                 require(q, fail2);
 
                 (void)s3dl_query_delete(dbt, q, accessGroups, &localError);
@@ -2282,82 +2363,15 @@ fail:
 
 #if SHAREDWEBCREDENTIALS
 
+// OSX now has SWC enabled, but cannot link SharedWebCredentials framework: rdar://59958701
+#if TARGET_OS_IOS && !TARGET_OS_BRIDGE && !TARGET_OS_WATCH && !TARGET_OS_TV
+
 /* constants */
 #define SEC_CONST_DECL(k,v) const CFStringRef k = CFSTR(v);
 
 SEC_CONST_DECL (kSecSafariAccessGroup, "com.apple.cfnetwork");
 SEC_CONST_DECL (kSecSafariDefaultComment, "default");
 SEC_CONST_DECL (kSecSafariPasswordsNotSaved, "Passwords not saved");
-SEC_CONST_DECL (kSecSharedCredentialUrlScheme, "https://");
-SEC_CONST_DECL (kSecSharedWebCredentialsService, "webcredentials");
-
-#if !TARGET_OS_SIMULATOR
-static SWCFlags
-_SecAppDomainApprovalStatus(CFStringRef appID, CFStringRef fqdn, CFErrorRef *error)
-{
-    __block SWCFlags flags = kSWCFlags_None;
-    OSStatus status;
-
-    secnotice("swc", "Application %@ is requesting approval for %@", appID, fqdn);
-
-    dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-    if (semaphore == NULL)
-        return 0;
-
-    status = SWCCheckService(kSecSharedWebCredentialsService, appID, fqdn, ^void (OSStatus inStatus, SWCFlags inFlags, CFDictionaryRef inDetails)
-    {
-        if (inStatus == 0) {
-            flags = inFlags;
-        } else {
-            secerror("SWCCheckService failed with %d", (int)inStatus);
-        }
-        dispatch_semaphore_signal(semaphore);
-    });
-
-    if (status == 0) {
-        dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-    } else {
-        secerror("SWCCheckService: failed to queue");
-    }
-    dispatch_release(semaphore);
-
-    if (error) {
-        if (!(flags & kSWCFlag_SiteApproved)) {
-            SecError(errSecAuthFailed, error, CFSTR("\"%@\" failed to approve \"%@\""), fqdn, appID);
-        } else if (flags & kSWCFlag_UserDenied) {
-            SecError(errSecAuthFailed, error, CFSTR("User denied access to \"%@\" by \"%@\""), fqdn, appID);
-        }
-    }
-    return flags;
-}
-
-static bool
-_SecEntitlementContainsDomainForService(CFArrayRef domains, CFStringRef domain, CFStringRef service)
-{
-    bool result = false;
-    CFIndex idx, count = (domains) ? CFArrayGetCount(domains) : (CFIndex) 0;
-    if (!count || !domain || !service) {
-        return result;
-    }
-    for (idx=0; idx < count; idx++) {
-        CFStringRef str = (CFStringRef) CFArrayGetValueAtIndex(domains, idx);
-        if (str && CFStringHasPrefix(str, kSecSharedWebCredentialsService)) {
-            CFIndex prefix_len = CFStringGetLength(kSecSharedWebCredentialsService)+1;
-            CFIndex substr_len = CFStringGetLength(str) - prefix_len;
-            CFRange range = { prefix_len, substr_len };
-            CFStringRef substr = CFStringCreateWithSubstring(kCFAllocatorDefault, str, range);
-            if (substr && CFEqual(substr, domain)) {
-                result = true;
-            }
-            CFReleaseSafe(substr);
-            if (result) {
-                break;
-            }
-        }
-    }
-    return result;
-}
-#endif /* !TARGET_OS_SIMULATOR */
 
 static bool
 _SecAddNegativeWebCredential(SecurityClient *client, CFStringRef fqdn, CFStringRef appID, bool forSafari)
@@ -2367,21 +2381,7 @@ _SecAddNegativeWebCredential(SecurityClient *client, CFStringRef fqdn, CFStringR
     if (!fqdn) { return result; }
 
     // update our database
-    CFRetainSafe(appID);
-    CFRetainSafe(fqdn);
-    if (0 == SWCSetServiceFlags(kSecSharedWebCredentialsService, appID, fqdn, kSWCFlag_ExternalMask, kSWCFlag_UserDenied,
-        ^void(OSStatus inStatus, SWCFlags inNewFlags){
-            CFReleaseSafe(appID);
-            CFReleaseSafe(fqdn);
-        }))
-    {
-        result = true;
-    }
-    else // didn't queue the block
-    {
-        CFReleaseSafe(appID);
-        CFReleaseSafe(fqdn);
-    }
+	_SecSetAppDomainApprovalStatus(appID, fqdn, kCFBooleanFalse);
 
     if (!forSafari) { return result; }
 
@@ -2475,20 +2475,13 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
 
     // parse fqdn with CFURL here, since it could be specified as domain:port
     if (fqdn) {
-        CFStringRef urlStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@%@"), kSecSharedCredentialUrlScheme, fqdn);
-        if (urlStr) {
-            CFURLRef url = CFURLCreateWithString(kCFAllocatorDefault, urlStr, nil);
-            if (url) {
-                CFStringRef hostname = CFURLCopyHostName(url);
-                if (hostname) {
-                    CFReleaseSafe(fqdn);
-                    fqdn = hostname;
-                    port = CFURLGetPortNumber(url);
-                }
-                CFReleaseSafe(url);
-            }
-            CFReleaseSafe(urlStr);
-        }
+		CFTypeRef fqdnObject = _SecCopyFQDNObjectFromString(fqdn);
+		if (fqdnObject) {
+			CFReleaseSafe(fqdn);
+			fqdn = _SecGetFQDNFromFQDNObject(fqdnObject, &port);
+			CFRetainSafe(fqdn);
+			CFReleaseSafe(fqdnObject);
+		}
     }
 
     if (!account) {
@@ -2509,7 +2502,7 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
         SecError(status, error, CFSTR("Missing application-identifier entitlement"));
         goto cleanup;
     }
-    if (_SecEntitlementContainsDomainForService(domains, fqdn, kSecSharedWebCredentialsService)) {
+    if (_SecEntitlementContainsDomainForService(domains, fqdn, port)) {
         status = errSecSuccess;
     }
     if (errSecSuccess != status) {
@@ -2528,8 +2521,8 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
     secerror("Ignoring app/site approval state in the Simulator.");
 #else
     // get approval status for this app/domain pair
-    SWCFlags flags = _SecAppDomainApprovalStatus(appID, fqdn, error);
-    if (!(flags & kSWCFlag_SiteApproved)) {
+    SecSWCFlags flags = _SecAppDomainApprovalStatus(appID, fqdn, error);
+    if (!(flags & kSecSWCFlag_SiteApproved)) {
         goto cleanup;
     }
 #endif
@@ -2589,7 +2582,7 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
             bool samePassword = result && *result && CFEqual(*result, credential);
             CFReleaseSafe(credential);
             CFDictionaryAddValue(attrs, kSecAttrComment, kSecSafariDefaultComment);
-            
+
             ok = samePassword || swca_confirm_operation(swca_update_request_id, clientAuditToken, query, error,
                 ^void (CFStringRef confirm_fqdn) {
                     _SecAddNegativeWebCredential(client, confirm_fqdn, appID, false);
@@ -2609,7 +2602,7 @@ _SecAddSharedWebCredential(CFDictionaryRef attributes,
                 ok = _SecItemDelete(query, &swcclient, error);
             }
         }
-        
+
         if(result) CFReleaseNull(*result);
         if(error) CFReleaseNull(*error);
 
@@ -2679,9 +2672,7 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
     CFMutableArrayRef credentials = NULL;
     CFMutableArrayRef foundItems = NULL;
     CFMutableArrayRef fqdns = NULL;
-    CFStringRef fqdn = NULL;
     CFStringRef account = NULL;
-    SInt32 port = -1;
     bool ok = false;
 
     require_quiet(result, cleanup);
@@ -2701,7 +2692,6 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
     };
 
     // On input, the query dictionary contains optional fqdn and account entries.
-    fqdn = CFDictionaryGetValue(query, kSecAttrServer);
     account = CFDictionaryGetValue(query, kSecAttrAccount);
 
     // Check autofill enabled status
@@ -2711,28 +2701,30 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
     }
 
     // Check fqdn; if NULL, add domains from caller's entitlement.
-    if (fqdn) {
-        CFArrayAppendValue(fqdns, fqdn);
-    }
-    else if (domains) {
-        CFIndex idx, count = CFArrayGetCount(domains);
-        for (idx=0; idx < count; idx++) {
-            CFStringRef str = (CFStringRef) CFArrayGetValueAtIndex(domains, idx);
-            // Parse the entry for our service label prefix
-            if (str && CFStringHasPrefix(str, kSecSharedWebCredentialsService)) {
-                CFIndex prefix_len = CFStringGetLength(kSecSharedWebCredentialsService)+1;
-                CFIndex substr_len = CFStringGetLength(str) - prefix_len;
-                CFRange range = { prefix_len, substr_len };
-                fqdn = CFStringCreateWithSubstring(kCFAllocatorDefault, str, range);
-                if (fqdn) {
-                    CFArrayAppendValue(fqdns, fqdn);
-                    CFRelease(fqdn);
+    {
+        CFStringRef fqdn = CFDictionaryGetValue(query, kSecAttrServer);
+        if (fqdn) {
+            CFTypeRef fqdnObject = _SecCopyFQDNObjectFromString(fqdn);
+            if (fqdnObject) {
+                CFArrayAppendValue(fqdns, fqdnObject);
+                CFReleaseSafe(fqdnObject);
+            }
+        }
+        else if (domains) {
+            CFIndex idx, count = CFArrayGetCount(domains);
+            for (idx=0; idx < count; idx++) {
+                CFStringRef str = (CFStringRef) CFArrayGetValueAtIndex(domains, idx);
+                // Parse the entry for our service label prefix
+                CFTypeRef fqdnObject = _SecCopyFQDNObjectFromString(str);
+                if (fqdnObject) {
+                    CFArrayAppendValue(fqdns, fqdnObject);
+                    CFReleaseSafe(fqdnObject);
                 }
             }
         }
     }
     CFIndex count, idx;
-    
+
     count = CFArrayGetCount(fqdns);
     if (count < 1) {
         SecError(errSecParam, error, CFSTR("No domain provided"));
@@ -2743,27 +2735,10 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
     for (idx = 0; idx < count; idx++) {
         CFMutableArrayRef items = NULL;
         CFMutableDictionaryRef attrs = NULL;
-        fqdn = (CFStringRef) CFArrayGetValueAtIndex(fqdns, idx);
-        CFRetainSafe(fqdn);
-        port = -1;
 
-        // Parse the fqdn for a possible port specifier.
-        if (fqdn) {
-            CFStringRef urlStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@%@"), kSecSharedCredentialUrlScheme, fqdn);
-            if (urlStr) {
-                CFURLRef url = CFURLCreateWithString(kCFAllocatorDefault, urlStr, nil);
-                if (url) {
-                    CFStringRef hostname = CFURLCopyHostName(url);
-                    if (hostname) {
-                        CFReleaseSafe(fqdn);
-                        fqdn = hostname;
-                        port = CFURLGetPortNumber(url);
-                    }
-                    CFReleaseSafe(url);
-                }
-                CFReleaseSafe(urlStr);
-            }
-        }
+        CFTypeRef fqdnObject = CFArrayGetValueAtIndex(fqdns, idx);
+        SInt32 port = -1;
+        CFStringRef fqdn = _SecGetFQDNFromFQDNObject(fqdnObject, &port);
 
 #if TARGET_OS_SIMULATOR
         secerror("app/site association entitlements not checked in Simulator");
@@ -2771,11 +2746,10 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
 	    OSStatus status = errSecMissingEntitlement;
         if (!appID) {
             SecError(status, error, CFSTR("Missing application-identifier entitlement"));
-            CFReleaseSafe(fqdn);
             goto cleanup;
         }
         // validate that fqdn is part of caller's entitlement
-        if (_SecEntitlementContainsDomainForService(domains, fqdn, kSecSharedWebCredentialsService)) {
+        if (_SecEntitlementContainsDomainForService(domains, fqdn, port)) {
             status = errSecSuccess;
         }
         if (errSecSuccess != status) {
@@ -2786,7 +2760,6 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
             }
             SecError(status, error, CFSTR("%@"), msg);
             CFReleaseSafe(msg);
-            CFReleaseSafe(fqdn);
             goto cleanup;
         }
 #endif
@@ -2794,7 +2767,6 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
         attrs = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         if (!attrs) {
             SecError(errSecAllocate, error, CFSTR("Unable to create query dictionary"));
-            CFReleaseSafe(fqdn);
             goto cleanup;
         }
         CFDictionaryAddValue(attrs, kSecClass, kSecClassInternetPassword);
@@ -2827,12 +2799,12 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
             bool approved = true;
 #else
             // get approval status for this app/domain pair
-            SWCFlags flags = _SecAppDomainApprovalStatus(appID, fqdn, error);
+            SecSWCFlags flags = _SecAppDomainApprovalStatus(appID, fqdn, error);
             if (count > 1) {
                 // ignore interim error since we have multiple domains to check
                 CFReleaseNull(*error);
             }
-            bool approved = (flags & kSWCFlag_SiteApproved);
+            bool approved = (flags & kSecSWCFlag_SiteApproved);
 #endif
             if (approved) {
                 CFArrayAppendArray(foundItems, items, CFRangeMake(0, CFArrayGetCount(items)));
@@ -2840,7 +2812,6 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
         }
         CFReleaseSafe(items);
         CFReleaseSafe(attrs);
-        CFReleaseSafe(fqdn);
     }
 
 //  If matching credentials are found, the credentials provided to the completionHandler
@@ -2946,29 +2917,13 @@ _SecCopySharedWebCredential(CFDictionaryRef query,
         CFArrayRemoveAllValues(credentials);
         if (selected && ok) {
 #if TARGET_OS_IOS && !TARGET_OS_BRIDGE && !TARGET_OS_SIMULATOR
-            fqdn = CFDictionaryGetValue(selected, kSecAttrServer);
+			// register confirmation with database
+            CFStringRef fqdn = CFDictionaryGetValue(selected, kSecAttrServer);
+            _SecSetAppDomainApprovalStatus(appID, fqdn, kCFBooleanTrue);
 #endif
             CFArrayAppendValue(credentials, selected);
         }
 
-        if (ok) {
-#if TARGET_OS_IOS && !TARGET_OS_BRIDGE && !TARGET_OS_SIMULATOR
-            // register confirmation with database
-            CFRetainSafe(appID);
-            CFRetainSafe(fqdn);
-            if (0 != SWCSetServiceFlags(kSecSharedWebCredentialsService,
-                appID, fqdn, kSWCFlag_ExternalMask, kSWCFlag_UserApproved,
-                ^void(OSStatus inStatus, SWCFlags inNewFlags){
-                    CFReleaseSafe(appID);
-                    CFReleaseSafe(fqdn);
-                }))
-            {
-                 // we didn't queue the block
-                CFReleaseSafe(appID);
-                CFReleaseSafe(fqdn);
-            }
-#endif
-        }
         CFReleaseSafe(selected);
     }
     else if (NULL == *error) {
@@ -2989,6 +2944,23 @@ cleanup:
     return ok;
 }
 
+#else /* !(TARGET_OS_IOS && !TARGET_OS_BRIDGE && !TARGET_OS_WATCH && !TARGET_OS_TV) */
+
+bool _SecAddSharedWebCredential(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error) {
+    if (error) {
+        SecError(errSecUnimplemented, error, CFSTR("_SecAddSharedWebCredential not supported on this platform"));
+    }
+    return false;
+}
+
+bool _SecCopySharedWebCredential(CFDictionaryRef query, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error) {
+    if (error) {
+        SecError(errSecUnimplemented, error, CFSTR("_SecCopySharedWebCredential not supported on this platform"));
+    }
+    return false;
+}
+
+#endif /* !(TARGET_OS_IOS && !TARGET_OS_BRIDGE && !TARGET_OS_WATCH && !TARGET_OS_TV) */
 #endif /* SHAREDWEBCREDENTIALS */
 
 
@@ -3269,6 +3241,13 @@ _SecServerRestoreSyncable(CFDictionaryRef backup, CFDataRef keybag, CFDataRef pa
 errOut:
     return ok;
 }
+
+#else /* SECUREOBJECTSYNC */
+
+SOSDataSourceFactoryRef SecItemDataSourceFactoryGetDefault(void) {
+    return NULL;
+}
+
 #endif /* SECUREOBJECTSYNC */
 
 bool _SecServerRollKeysGlue(bool force, CFErrorRef *error) {
@@ -3308,7 +3287,7 @@ InitialSyncItems(CFMutableArrayRef items, bool limitToCurrent, CFStringRef agrp,
     bool result = false;
     Query *q = NULL;
 
-    q = query_create(qclass, NULL, NULL, error);
+    q = query_create(qclass, NULL, NULL, NULL, error);
     require(q, fail);
 
     q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
@@ -3452,7 +3431,7 @@ _SecServerImportInitialSyncCredentials(CFArrayRef array, CFErrorRef *error)
                     continue;
                 }
 
-                if (!SecDbItemInsert(dbi, dbt, &cferror)) {
+                if (!SecDbItemInsert(dbi, dbt, false, &cferror)) {
                     secinfo("ImportInitialSyncItems", "Item store failed with: %@: %@", cferror, dbi);
                     CFReleaseNull(cferror);
                 }
@@ -3506,7 +3485,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
 
         secnotice("syncbubble", "cleaning out old items");
 
-        q = query_create(qclass, NULL, NULL, error);
+        q = query_create(qclass, NULL, NULL, client, error);
         require(q, fail);
 
         q->q_limit = kSecMatchUnlimited;
@@ -3538,7 +3517,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
 
         secnotice("syncbubble", "migrating sync bubble items");
 
-        q = query_create(qclass, NULL, NULL, error);
+        q = query_create(qclass, NULL, NULL, client, error);
         require(q, fail);
 
         q->q_return_type = kSecReturnDataMask | kSecReturnAttributesMask;
@@ -3578,7 +3557,7 @@ TransmogrifyItemsToSyncBubble(SecurityClient *client, uid_t uid,
                         return;
                     }
 
-                    if (!SecDbItemInsert(new_item, dbt, &error3)) {
+                    if (!SecDbItemInsert(new_item, dbt, false, &error3)) {
                         secnotice("syncbubble", "migration failed with %@ for item %@", error3, new_item);
                     }
                     CFRelease(new_item);
@@ -3820,7 +3799,7 @@ _SecServerTransmogrifyToSystemKeychain(SecurityClient *client, CFErrorRef *error
                     continue;
                 }
 
-                q = query_create(*kcClass, SecMUSRGetSingleUserKeychainUUID(), NULL, error);
+                q = query_create(*kcClass, SecMUSRGetSingleUserKeychainUUID(), NULL, client, error);
                 if (q == NULL)
                     continue;
 

@@ -425,10 +425,10 @@ CFDictionaryRef SecAssessmentCopyUpdate(CFTypeRef target,
 
 	if (flags & kSecAssessmentFlagDirect) {
 		// ask the engine right here to do its thing
-		result = gEngine().update(target, flags, ctx);
+		result.take(gEngine().update(target, flags, ctx));
 	} else {
 		// relay the question to our daemon for consideration
-		result = xpcEngineUpdate(target, flags, ctx);
+		result.take(xpcEngineUpdate(target, flags, ctx));
 	}
 
 	traceUpdate(target, context, result);

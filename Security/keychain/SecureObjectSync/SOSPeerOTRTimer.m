@@ -15,15 +15,11 @@
 #include "keychain/SecureObjectSync/SOSPeerOTRTimer.h"
 #include "keychain/SecureObjectSync/CKBridge/SOSCloudKeychainClient.h"
 
-#include <utilities/SecADWrapper.h>
 #include <utilities/debugging.h>
 #include <utilities/SecCFWrappers.h>
 
 #include <AssertMacros.h>
 #include "keychain/SecureObjectSync/SOSInternal.h"
-
-//AGGD
-NSString* const SecSOSAggdMaxRenegotiation   = @"com.apple.security.sos.otrrenegotiationmaxretries";
 
 static int maxRetryCount = 7; //max number of times to attempt restarting OTR negotiation
 
@@ -37,7 +33,6 @@ bool SOSPeerOTRTimerHaveReachedMaxRetryAllowance(SOSAccount* account, NSString* 
     if(attempt && [attempt intValue] >= maxRetryCount)
     {
         reachedMax = true;
-        SecADAddValueForScalarKey((__bridge CFStringRef) SecSOSAggdMaxRenegotiation,1);
     }
     return reachedMax;
 }

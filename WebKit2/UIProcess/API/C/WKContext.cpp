@@ -196,7 +196,7 @@ void WKContextSetDownloadClient(WKContextRef context, const WKContextDownloadCli
                 return;
             m_client.didReceiveResponse(m_context, WebKit::toAPI(&downloadProxy), WebKit::toAPI(API::URLResponse::create(response).ptr()), m_client.base.clientInfo);
         }
-        void didReceiveData(WebKit::DownloadProxy& downloadProxy, uint64_t length) final
+        void didReceiveData(WebKit::DownloadProxy& downloadProxy, uint64_t length, uint64_t, uint64_t) final
         {
             if (!m_client.didReceiveData)
                 return;
@@ -517,12 +517,10 @@ void WKContextWarmInitialProcess(WKContextRef contextRef)
 
 void WKContextGetStatistics(WKContextRef contextRef, void* context, WKContextGetStatisticsFunction callback)
 {
-    WebKit::toImpl(contextRef)->getStatistics(0xFFFFFFFF, WebKit::toGenericCallbackFunction(context, callback));
 }
 
 void WKContextGetStatisticsWithOptions(WKContextRef contextRef, WKStatisticsOptions optionsMask, void* context, WKContextGetStatisticsFunction callback)
 {
-    WebKit::toImpl(contextRef)->getStatistics(optionsMask, WebKit::toGenericCallbackFunction(context, callback));
 }
 
 bool WKContextJavaScriptConfigurationFileEnabled(WKContextRef contextRef)
@@ -603,9 +601,9 @@ void WKContextSetMemoryCacheDisabled(WKContextRef contextRef, bool disabled)
     WebKit::toImpl(contextRef)->setMemoryCacheDisabled(disabled);
 }
 
-void WKContextSetFontWhitelist(WKContextRef contextRef, WKArrayRef arrayRef)
+void WKContextSetFontAllowList(WKContextRef contextRef, WKArrayRef arrayRef)
 {
-    WebKit::toImpl(contextRef)->setFontWhitelist(WebKit::toImpl(arrayRef));
+    WebKit::toImpl(contextRef)->setFontAllowList(WebKit::toImpl(arrayRef));
 }
 
 void WKContextTerminateNetworkProcess(WKContextRef context)
@@ -671,4 +669,9 @@ void WKContextClearLegacyPrivateBrowsingLocalStorage(WKContextRef contextRef, vo
 void WKContextSetUseSeparateServiceWorkerProcess(WKContextRef contextRef, bool useSeparateServiceWorkerProcess)
 {
     WebKit::toImpl(contextRef)->setUseSeparateServiceWorkerProcess(useSeparateServiceWorkerProcess);
+}
+
+void WKContextSetPrimaryWebsiteDataStore(WKContextRef contextRef, WKWebsiteDataStoreRef websiteDataStore)
+{
+    WebKit::toImpl(contextRef)->setPrimaryDataStore(*WebKit::toImpl(websiteDataStore));
 }

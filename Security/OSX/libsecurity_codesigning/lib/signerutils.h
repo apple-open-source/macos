@@ -103,7 +103,7 @@ public:
 	//
 	struct Arch : public BlobWriter {
 		Architecture architecture;		// our architecture
-		auto_ptr<MachO> source;			// Mach-O object to be signed
+		unique_ptr<MachO> source;			// Mach-O object to be signed
 		std::map<CodeDirectory::HashAlgorithm, RefPointer<CodeDirectory::Builder> > cdBuilders;
 		InternalRequirements ireqs;		// consolidated internal requirements
 		size_t blobSize;				// calculated SuperBlob size

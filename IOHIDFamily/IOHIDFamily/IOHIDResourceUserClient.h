@@ -43,6 +43,7 @@ typedef enum {
     @constant kIOHIDResourceDeviceUserClientMethodHandleReport Sends a report.
     @constant kIOHIDResourceDeviceUserClientMethodPostReportResult Posts a report requested via GetReport and SetReport
     @constant kIOHIDResourceDeviceUserClientMethodRegisterService calls registerService on the IOHIDUserDevice.
+    @constant kIOHIDResourceDeviceUserClientMethodReleaseToken calls releaseToken on the IOHIDUserDevice's ReportQueue.
     @constant kIOHIDResourceDeviceUserClientMethodCount
 */
 typedef enum {
@@ -51,6 +52,7 @@ typedef enum {
     kIOHIDResourceDeviceUserClientMethodHandleReport,
     kIOHIDResourceDeviceUserClientMethodPostReportResponse,
     kIOHIDResourceDeviceUserClientMethodRegisterService,
+    kIOHIDResourceDeviceUserClientMethodReleaseToken,
     kIOHIDResourceDeviceUserClientMethodCount
 } IOHIDResourceDeviceUserClientExternalMethods;
 
@@ -68,6 +70,11 @@ typedef enum {
     kIOHIDResourceReportDirectionIn,
     kIOHIDResourceReportDirectionOut
 } IOHIDResourceReportDirection;
+
+typedef enum {
+    kIOHIDResourceOOBReport = 1 << 0
+} IOHIDResourceFlags;
+
 /*!
     @enum IOHIDResourceDataQueueHeader
     @abstract Header used for sending requests to user process
@@ -75,10 +82,16 @@ typedef enum {
 typedef struct {
     IOHIDResourceReportDirection    direction;    
     IOHIDReportType                 type;
-    uint32_t                        reportID;
+    uint32_t                        reportFlags:8;
+    uint32_t                        reportID:24;
     uint32_t                        length;
     uint64_t                        token;
 } IOHIDResourceDataQueueHeader;
+
+typedef struct __attribute__((packed)) {
+    mach_vm_address_t token;
+    uint32_t length;
+} IOHIDResourceOOBReportInfo;
 
 /*
  * Kernel
@@ -91,7 +104,6 @@ typedef struct {
 #include <IOKit/IOTimerEventSource.h>
 #include "IOHIDResource.h"
 #include "IOHIDUserDevice.h"
-
 
 /*! @class IOHIDResourceDeviceUserClient : public IOUserClient
     @abstract 
@@ -108,10 +120,11 @@ protected:
     IOMemoryDescriptor *    _descriptor;
     IOService               *_owner;
     uint64_t                _enqueueTS;
-    
+
 public:
     static IOHIDResourceQueue *withCapacity(UInt32 capacity);
     static IOHIDResourceQueue *withCapacity(IOService *owner, UInt32 size);
+    virtual Boolean initWithCapacity(UInt32 size) APPLE_KEXT_OVERRIDE;
     virtual void free(void) APPLE_KEXT_OVERRIDE;
     
     virtual Boolean enqueueReport(IOHIDResourceDataQueueHeader * header, IOMemoryDescriptor * report = NULL);
@@ -134,11 +147,13 @@ private:
     IOTimerEventSource *    _createDeviceTimer;
     IOCommandGate *         _commandGate;
     mach_port_t             _port;
+    task_t                  _owningTask;
     IOHIDResourceQueue *    _queue;
     OSSet *                 _pending;
     uint32_t                _maxClientTimeoutUS;
     u_int64_t               _tokenIndex;
     bool                    _suspended;
+    OSArray *               _overSizedReports;
     
     UInt32                  _setReportCount;
     UInt32                  _setReportDroppedCount;
@@ -159,6 +174,7 @@ private:
     static IOReturn _handleReport(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
     static IOReturn _postReportResult(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
     static IOReturn _registerService(IOHIDResourceDeviceUserClient *target,  void *reference, IOExternalMethodArguments *arguments);
+    static IOReturn _releaseToken(IOHIDResourceDeviceUserClient *target, void *reference, IOExternalMethodArguments *arguments);
 
 
     void createAndStartDeviceAsyncCallback();
@@ -198,6 +214,8 @@ private:
     
     IOReturn setPropertiesGated(OSObject *properties);
     bool serializeDebugState(void *ref, OSSerialize *serializer);
+    IOReturn releaseToken(mach_vm_address_t token);
+    IOReturn releaseTokenGated(mach_vm_address_t token);
 
 public:
     /*! @function initWithTask

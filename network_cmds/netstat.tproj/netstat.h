@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -157,6 +157,7 @@ extern void	routepr(void);
 extern void	unixpr(void);
 extern void	aqstatpr(void);
 extern void	rxpollstatpr(void);
+extern void	vsockpr(uint32_t,char *,int);
 
 extern void	ifmalist_dump(void);
 

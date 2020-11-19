@@ -2914,11 +2914,11 @@ static int end_transaction(transaction *tr, int force_it, errno_t (*callback)(vo
     
     lock_oldstart(jnl);
     /*
-     * Because old_start is locked above, we can cast away the volatile qualifier before passing it to memcpy.
+     * Because old_start is locked above, we can cast away the volatile qualifier before passing it to memmove.
      * slide everyone else down and put our latest guy in the last
      * entry in the old_start array
      */
-    memcpy(__CAST_AWAY_QUALIFIER(&jnl->old_start[0], volatile, void *), __CAST_AWAY_QUALIFIER(&jnl->old_start[1], volatile, void *), sizeof(jnl->old_start)-sizeof(jnl->old_start[0]));
+    memmove(__CAST_AWAY_QUALIFIER(&jnl->old_start[0], volatile, void *), __CAST_AWAY_QUALIFIER(&jnl->old_start[1], volatile, void *), sizeof(jnl->old_start)-sizeof(jnl->old_start[0]));
     jnl->old_start[sizeof(jnl->old_start)/sizeof(jnl->old_start[0]) - 1] = tr->journal_start | 0x8000000000000000LL;
     
     unlock_oldstart(jnl);

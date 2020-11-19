@@ -82,7 +82,13 @@ ifeq ($(AEP),YES)
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz-*/PyObjCTest/test_cgdisplayconfiguration.py < '$(SRCROOT)/patches/pyobjc-framework-Quartz_PyObjCTest_test_cgdisplayconfiguration.py.ed'
 	ed - $(SRCROOT)/$(Project)/pyobjc-framework-SystemConfiguration-*/PyObjCTest/test_SCDynamicStoreCopyDHCPInfo.py < '$(SRCROOT)/patches/pyobjc-framework-SystemConfiguration_PyObjCTest_test_SCDynamicStoreCopyDHCPInfo.py.ed'
 	patch -F0 $(SRCROOT)/$(Project)/pyobjc-framework-ExceptionHandling-*/Lib/PyObjCTools/Debugging.py '$(SRCROOT)/patches/pyobjc-framework-ExceptionHandling_Lib_PyObjCTools__Debugging.py.diff'
+	patch -F0 $(SRCROOT)/$(Project)/pyobjc-core-*/Modules/objc/libffi_support.m '$(SRCROOT)/patches/libffi_support.m.diff'
+	patch -F0 $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa-*/Modules/_Foundation_NSDecimal.m '$(SRCROOT)/patches/_Foundation_NSDecimal.m.diff'
 	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p1 < $(SRCROOT)/patches/closure.diff)
+	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p1 < $(SRCROOT)/patches/objc-isa-signing.diff)
+	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p2 < $(SRCROOT)/patches/bool-signed-char-bitfield.diff)
+	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p1 < $(SRCROOT)/patches/pyobjc-core_Modules_objc-varargs.diff)
+	(cd $(SRCROOT)/$(Project)/pyobjc-core-* && patch -F0 -p0 < $(SRCROOT)/patches/pyobjc-core_Modules_objc_ptrauth.diff)
 	rm -rf $(SRCROOT)/$(Project)/pyobjc-framework-PreferencePanes-2.5.1/Examples/EnvironmentPrefs/Dutch.lproj
 	@set -x && for z in `find $(SRCROOT)/$(Project) -name \*.py -size 0c`; do \
 	    echo '#' > $$z || exit 1; \

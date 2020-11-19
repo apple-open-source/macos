@@ -124,7 +124,7 @@ protected:
 protected:
 	struct ExpansionData {
 		IOAudioClientBufferExtendedInfo64	*extendedInfo;
-		UInt32								classicMode;
+		UInt32								classicMode;                            // System 9! - no longer need
 		UInt32								commandGateStatus;						// <rdar://8518215>
 		SInt32								commandGateUsage;						// <rdar://8518215>
 		UInt32								connectionID;

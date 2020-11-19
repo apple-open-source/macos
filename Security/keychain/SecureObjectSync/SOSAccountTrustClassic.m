@@ -36,9 +36,7 @@ extern CFStringRef kSOSAccountDebugScope;
 
 -(id)init
 {
-    self = [super init];
-    if(self)
-    {
+    if ((self = [super init])) {
         self.retirees = [NSMutableSet set];
         self.fullPeerInfo = NULL;
         self.trustedCircle = NULL;
@@ -52,9 +50,7 @@ extern CFStringRef kSOSAccountDebugScope;
 -(id)initWithRetirees:(NSMutableSet*)r fpi:(SOSFullPeerInfoRef)fpi circle:(SOSCircleRef) trusted_circle
         departureCode:(enum DepartureReason)code peerExpansion:(NSMutableDictionary*)e
 {
-    self = [super init];
-    if(self)
-    {
+    if ((self = [super init])) {
         self.retirees = [[NSMutableSet alloc] initWithSet:r] ;
         self.fullPeerInfo = CFRetainSafe(fpi);
         self.trustedCircle = CFRetainSafe(trusted_circle);
@@ -211,21 +207,11 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
     return retval;
 }
 
--(bool) updateViewSetsWithAnalytics:(SOSAccount*)account enabled:(CFSetRef) origEnabledViews disabled:(CFSetRef) origDisabledViews parentEvent:(NSData*)parentEvent
+-(bool) updateViewSets:(SOSAccount*)account enabled:(CFSetRef) origEnabledViews disabled:(CFSetRef) origDisabledViews
 {
     bool retval = false;
     bool updateCircle = false;
     SOSPeerInfoRef  pi = NULL;
-    NSError* localError = nil;
-    SFSignInAnalytics* parent = NULL;
-    bool doAnalytics = (parentEvent != NULL);
-    
-    if(doAnalytics) {
-        parent = [NSKeyedUnarchiver unarchivedObjectOfClass:[SFSignInAnalytics class] fromData:parentEvent error:&localError];
-    }
-
-    SFSignInAnalytics *hasCompletedInitialSyncEvent = nil;
-    SFSignInAnalytics *updatePeerInCircleEvent = nil;
 
     CFMutableSetRef enabledViews = NULL;
     CFMutableSetRef disabledViews = NULL;
@@ -263,9 +249,7 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
 
     require_action_quiet(SOSAccountScreenViewListForValidV0(account, enabledViews, kSOSCCViewEnable), errOut, secnotice("viewChange", "Bad view change (enable) with kSOSViewKeychainV0"));
     require_action_quiet(SOSAccountScreenViewListForValidV0(account, disabledViews, kSOSCCViewDisable), errOut, secnotice("viewChange", "Bad view change (disable) with kSOSViewKeychainV0"));
-    if(doAnalytics) {
-        hasCompletedInitialSyncEvent = [parent newSubTaskForEvent:@"hasCompletedInitialSyncEvent"];
-    }
+
     if(SOSAccountHasCompletedInitialSync(account)) {
         if(enabledViews) updateCircle |= SOSViewSetEnable(pi, enabledViews);
         if(disabledViews) updateCircle |= SOSViewSetDisable(pi, disabledViews);
@@ -276,31 +260,21 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
         if(disabledViews) SOSAccountPendDisableViewSet(account, disabledViews);
         retval = true;
     }
-    if(doAnalytics) {
-        [hasCompletedInitialSyncEvent stopWithAttributes:nil];
-    }
+
     if(updateCircle) {
         /* UPDATE FULLPEERINFO VIEWS */
         require_quiet(SOSFullPeerInfoUpdateToThisPeer(fpi, pi, NULL), errOut);
-        if(doAnalytics) {
-            updatePeerInCircleEvent = [parent newSubTaskForEvent:@"updatePeerInCircleEvent"];
-        }
+
         require_quiet([self modifyCircle:account.circle_transport err:NULL action:^(SOSCircleRef circle_to_change) {
             secnotice("circleChange", "Calling SOSCircleUpdatePeerInfo for views or peerInfo change");
             bool updated= SOSCircleUpdatePeerInfo(circle_to_change, self.peerInfo);
             return updated;
         }], errOut);
-        if(doAnalytics) {
-            [updatePeerInCircleEvent stopWithAttributes:nil];
-        }
         // Make sure we update the engine
         account.circle_rings_retirements_need_attention = true;
     }
 
 errOut:
-    if(doAnalytics) {
-        [updatePeerInCircleEvent stopWithAttributes:nil];
-    }
     CFReleaseNull(enabledViews);
     CFReleaseNull(disabledViews);
     CFReleaseNull(pi);
@@ -564,7 +538,7 @@ static size_t der_sizeof_data_optional(CFDataRef data)
     require_quiet(accumulate_size(&sequence_size, ccder_sizeof_bool(account.accountKeyIsTrusted, &failure)),          fail);
     require_quiet(accumulate_size(&sequence_size, der_sizeof_public_bytes(account.accountKey, &failure)),            fail);
     require_quiet(accumulate_size(&sequence_size, der_sizeof_public_bytes(account.previousAccountKey, &failure)),        fail);
-    require_quiet(accumulate_size(&sequence_size, der_sizeof_data_or_null((__bridge CFDataRef)account.accountKeyDerivationParamters, &failure)),    fail);
+    require_quiet(accumulate_size(&sequence_size, der_sizeof_data_or_null((__bridge CFDataRef)account.accountKeyDerivationParameters, &failure)),    fail);
     require_quiet(accumulate_size(&sequence_size, SOSPeerInfoSetGetDEREncodedArraySize((__bridge CFSetRef)self.retirees, &failure)),  fail);
     (void)accumulate_size(&sequence_size, der_sizeof_data_optional((__bridge CFDataRef)(account.backup_key)));
     require_quiet(accumulate_size(&sequence_size, der_sizeof_dictionary((__bridge CFDictionaryRef)(self.expansion), &failure)),  fail);
@@ -605,7 +579,7 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
                                         ccder_encode_bool(account.accountKeyIsTrusted, der,
                                         der_encode_public_bytes(account.accountKey, &failure, der,
                                         der_encode_public_bytes(account.previousAccountKey, &failure, der,
-                                        der_encode_data_or_null((__bridge CFDataRef)(account.accountKeyDerivationParamters), &failure, der,
+                                        der_encode_data_or_null((__bridge CFDataRef)(account.accountKeyDerivationParameters), &failure, der,
                                         SOSPeerInfoSetEncodeToArrayDER((__bridge CFSetRef)(self.retirees), &failure, der,
                                         der_encode_data_optional((__bridge CFDataRef)account.backup_key, &failure, der,
                                         der_encode_dictionary((__bridge CFDictionaryRef)(self.expansion), &failure, der,
@@ -717,6 +691,11 @@ static uint8_t* der_encode_data_optional(CFDataRef data, CFErrorRef *error,
 
 -(SOSEngineRef) getDataSourceEngine:(SOSDataSourceFactoryRef)factory
 {
+    // This is at least a piece of <rdar://problem/59045931> SecItemDataSourceFactoryCopyDataSource; looks like UaF
+    if(!self.trustedCircle) {
+        secnotice("engine", "Tried to set dataSourceEngine with no circle");
+        return NULL;
+    }
     return SOSDataSourceFactoryGetEngineForDataSourceName(factory, SOSCircleGetName(self.trustedCircle), NULL);
 }
 

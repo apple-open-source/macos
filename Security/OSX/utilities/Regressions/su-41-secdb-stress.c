@@ -24,6 +24,7 @@
 
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecDb.h>
+#include <utilities/SecDbInternal.h>
 #include <utilities/SecDispatchRelease.h>
 
 #include <CoreFoundation/CoreFoundation.h>
@@ -31,7 +32,7 @@
 #include "utilities_regressions.h"
 #include <time.h>
 
-#define kTestCount 3418
+#define kTestCount 3422     // God I love magic numbers
 
 // Queue to protect counters and test_ok invocations
 static dispatch_queue_t count_queue;
@@ -187,7 +188,7 @@ static void tests(void)
     CFReleaseNull(tid);
 
     const char *home_var = getenv("HOME");
-    CFStringRef dbName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s/Library/Keychains/su-41-sqldb-stress.db"), home_var ? home_var : "");
+    CFStringRef dbName = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s/Library/Keychains/su-41-secdb-stress.db"), home_var ? home_var : "/var/tmp");
     CFStringPerformWithCString(dbName, ^(const char *path) { unlink(path); });
 
     SecDbRef db = SecDbCreate(dbName, 0600, true, true, true, true, kSecDbMaxIdleHandles,
@@ -244,14 +245,18 @@ static void tests(void)
 
     dispatch_release_null(count_queue);
 
-    cmp_ok(max_idle, >=, kSecDbMaxIdleHandles - 1, "max idle at least %d", kSecDbMaxIdleHandles - 1);
-    cmp_ok(max_writers, >=, kSecDbMaxWriters - 1, "max writers at least %d", kSecDbMaxWriters - 1);
-    cmp_ok(max_readers, >=, kSecDbMaxReaders - 1, "max readers at least %d", kSecDbMaxReaders - 1);
+    cmp_ok(SecDbIdleConnectionCount(db), >=, kSecDbMaxIdleHandles - 1, "cur idle at least %lu", kSecDbMaxIdleHandles - 1);
+    cmp_ok(SecDbIdleConnectionCount(db), <=, kSecDbMaxIdleHandles, "cur idle at most %lu", kSecDbMaxIdleHandles);
+    cmp_ok(max_idle, <=, kSecDbMaxIdleHandles, "max idle at most %lu", kSecDbMaxIdleHandles - 1);
+    cmp_ok(max_writers, >=, kSecDbMaxWriters - 1, "max writers at least %lu", kSecDbMaxWriters - 1);
+    cmp_ok(max_readers, >=, kSecDbMaxReaders - 1, "max readers at least %lu", kSecDbMaxReaders - 1);
+    cmp_ok(max_writers, <=, kSecDbMaxWriters, "max writers at most %lu", kSecDbMaxWriters);
+    cmp_ok(max_readers, <=, kSecDbMaxReaders, "max readers at most %lu", kSecDbMaxReaders);
     TODO: {
         todo("race conditions make us not always hit the limits reliably.");
-        is(max_idle, kSecDbMaxIdleHandles, "max idle connection count is %d", kSecDbMaxIdleHandles);
-        is(max_writers, kSecDbMaxWriters, "max writers is %d", kSecDbMaxWriters);
-        is(max_readers, kSecDbMaxReaders, "max readers is %d", kSecDbMaxReaders);
+        is(max_idle, kSecDbMaxIdleHandles, "max idle connection count is %zu", kSecDbMaxIdleHandles);
+        is(max_writers, kSecDbMaxWriters, "max writers is %zu", kSecDbMaxWriters);
+        is(max_readers, kSecDbMaxReaders, "max readers is %zu", kSecDbMaxReaders);
     }
 
     CFReleaseSafe(dbName);

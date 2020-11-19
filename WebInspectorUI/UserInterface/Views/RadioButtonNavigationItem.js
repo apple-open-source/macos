@@ -27,7 +27,9 @@ WI.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WI.Button
 {
     constructor(identifier, toolTip, image, imageWidth, imageHeight)
     {
-        super(identifier, toolTip, image, imageWidth, imageHeight, null, "tab");
+        super(identifier, toolTip, image, imageWidth, imageHeight, "tab");
+
+        console.assert(this.buttonStyle === WI.ButtonNavigationItem.Style.Text);
     }
 
     // Public
@@ -42,9 +44,11 @@ WI.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WI.Button
         if (flag) {
             this.element.classList.add(WI.RadioButtonNavigationItem.SelectedStyleClassName);
             this.element.setAttribute("aria-selected", "true");
+            this.element.tabIndex = 0;
         } else {
             this.element.classList.remove(WI.RadioButtonNavigationItem.SelectedStyleClassName);
             this.element.setAttribute("aria-selected", "false");
+            this.element.tabIndex = -1;
         }
     }
 
@@ -58,11 +62,29 @@ WI.RadioButtonNavigationItem = class RadioButtonNavigationItem extends WI.Button
         this.element.classList.toggle(WI.RadioButtonNavigationItem.ActiveStyleClassName, flag);
     }
 
+    get buttonStyle()
+    {
+        return super.buttonStyle;
+    }
+
+    set buttonStyle(newButtonStyle)
+    {
+        if (newButtonStyle !== WI.ButtonNavigationItem.Style.Text)
+            return;
+
+        super.buttonStyle = newButtonStyle;
+    }
+
     // Protected
 
     get additionalClassNames()
     {
         return ["radio", "button"];
+    }
+
+    get tabbable()
+    {
+        return this.selected;
     }
 };
 

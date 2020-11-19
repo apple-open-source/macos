@@ -16,12 +16,15 @@
  * \brief C++ API: time unit amount object.
  */
 
-#include "unicode/measure.h"
-#include "unicode/tmunit.h"
+#include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
 
 #if !UCONFIG_NO_FORMATTING
 
-#if U_SHOW_CPLUSPLUS_API
+#include "unicode/measure.h"
+#include "unicode/tmunit.h"
+
 U_NAMESPACE_BEGIN
 
 
@@ -84,7 +87,7 @@ public:
      * @return a polymorphic clone of this object. The result will have the same               class as returned by getDynamicClassID().
      * @stable ICU 4.2
      */
-    virtual UObject* clone() const;
+    virtual TimeUnitAmount* clone() const;
 
     
     /**
@@ -163,9 +166,10 @@ TimeUnitAmount::operator!=(const UObject& other) const {
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // __TMUTAMT_H__
 //eof

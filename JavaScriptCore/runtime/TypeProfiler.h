@@ -78,7 +78,7 @@ struct QueryKey {
 
     unsigned hash() const 
     { 
-        unsigned hash = m_sourceID + m_divot * m_searchDescriptor;
+        unsigned hash = static_cast<unsigned>(m_sourceID) + m_divot * m_searchDescriptor;
         return hash;
     }
 
@@ -98,9 +98,7 @@ struct QueryKeyHash {
 namespace WTF {
 
 template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::QueryKey> {
-    typedef JSC::QueryKeyHash Hash;
-};
+template<> struct DefaultHash<JSC::QueryKey> : JSC::QueryKeyHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::QueryKey> : SimpleClassHashTraits<JSC::QueryKey> {

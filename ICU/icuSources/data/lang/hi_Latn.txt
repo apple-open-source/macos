@@ -12,15 +12,10 @@ hi_Latn{
         Deva{"Devanagari"}
         Latn{"Latin"}
     }
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     codePatterns{
         language{"Bhasha: {0}"}
         script{"Lipi: {0}"}
         territory{"Kshetra: {0}"}
-    }
-    localeDisplayPattern{
-        keyTypePattern{"{0}: {1}"}
-        pattern{"{0} ({1})"}
-        separator{"{0}, {1}"}
     }
 }

@@ -236,7 +236,7 @@ NSPR_API(void) PR_LogFlush(void);
 
 #ifdef	__APPLE__
 
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 #define PR_ASSERT(_exp)			assert(_exp)
 #define PR_NOT_REACHED(_reas)	assert(0)
@@ -250,10 +250,19 @@ NSPR_API(void) PR_Assert(const char *s, const char *file, PRIntn ln);
     PR_Assert(_reasonStr,__FILE__,__LINE__)
 #endif
 
-#else
+#else /* defined(DEBUG) || defined(FORCE_PR_ASSERT) */
 
+#ifdef	__APPLE__
+
+#include <security_utilities/simulatecrash_assert.h>
+
+#define PR_ASSERT(_exp)			assert(_exp)
+#define PR_NOT_REACHED(_reas)	assert(0)
+
+#else
 #define PR_ASSERT(expr) ((void) 0)
 #define PR_NOT_REACHED(reasonStr)
+#endif
 
 #endif /* defined(DEBUG) || defined(FORCE_PR_ASSERT) */
 

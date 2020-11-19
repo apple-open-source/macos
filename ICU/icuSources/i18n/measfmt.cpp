@@ -58,28 +58,23 @@ UOBJECT_DEFINE_RTTI_IMPLEMENTATION(MeasureFormat)
 class NumericDateFormatters : public UMemory {
 public:
     // Formats like H:mm
-    SimpleDateFormat hourMinute;
+    UnicodeString hourMinute;
 
     // formats like M:ss
-    SimpleDateFormat minuteSecond;
+    UnicodeString minuteSecond;
 
     // formats like H:mm:ss
-    SimpleDateFormat hourMinuteSecond;
+    UnicodeString hourMinuteSecond;
 
     // Constructor that takes the actual patterns for hour-minute,
     // minute-second, and hour-minute-second respectively.
     NumericDateFormatters(
             const UnicodeString &hm,
             const UnicodeString &ms,
-            const UnicodeString &hms,
-            UErrorCode &status) : 
-            hourMinute(hm, status),
-            minuteSecond(ms, status), 
-            hourMinuteSecond(hms, status) {
-        const TimeZone *gmt = TimeZone::getGMT();
-        hourMinute.setTimeZone(*gmt);
-        minuteSecond.setTimeZone(*gmt);
-        hourMinuteSecond.setTimeZone(*gmt);
+            const UnicodeString &hms) :
+            hourMinute(hm),
+            minuteSecond(ms),
+            hourMinuteSecond(hms) {
     }
 private:
     NumericDateFormatters(const NumericDateFormatters &other);
@@ -247,141 +242,153 @@ static const UAMeasureUnit indexToUAMsasUnit[] = {
     UAMEASUNIT_DURATION_CENTURY,                      // (4 << 8) + 10,  # 40  century
     UAMEASUNIT_DURATION_DAY,                          // (4 << 8) + 3,   # 41  day
     UAMEASUNIT_DURATION_DAY_PERSON,                   // (4 << 8) + 14,  # 42  day-person
-    UAMEASUNIT_DURATION_HOUR,                         // (4 << 8) + 4,   # 43  hour
-    UAMEASUNIT_DURATION_MICROSECOND,                  // (4 << 8) + 8,   # 44  microsecond
-    UAMEASUNIT_DURATION_MILLISECOND,                  // (4 << 8) + 7,   # 45  millisecond
-    UAMEASUNIT_DURATION_MINUTE,                       // (4 << 8) + 5,   # 46  minute
-    UAMEASUNIT_DURATION_MONTH,                        // (4 << 8) + 1,   # 47  month
-    UAMEASUNIT_DURATION_MONTH_PERSON,                 // (4 << 8) + 12,  # 48  month-person
-    UAMEASUNIT_DURATION_NANOSECOND,                   // (4 << 8) + 9,   # 49  nanosecond
-    UAMEASUNIT_DURATION_SECOND,                       // (4 << 8) + 6,   # 50  second
-    UAMEASUNIT_DURATION_WEEK,                         // (4 << 8) + 2,   # 51  week
-    UAMEASUNIT_DURATION_WEEK_PERSON,                  // (4 << 8) + 13,  # 52  week-person
-    UAMEASUNIT_DURATION_YEAR,                         // (4 << 8) + 0,   # 53  year
-    UAMEASUNIT_DURATION_YEAR_PERSON,                  // (4 << 8) + 11,  # 54  year-person
-    //                                                                   # --- electric (55)
-    UAMEASUNIT_ELECTRIC_AMPERE,                       // (15 << 8) + 0,  # 55  ampere
-    UAMEASUNIT_ELECTRIC_MILLIAMPERE,                  // (15 << 8) + 1,  # 56  milliampere
-    UAMEASUNIT_ELECTRIC_OHM,                          // (15 << 8) + 2,  # 57  ohm
-    UAMEASUNIT_ELECTRIC_VOLT,                         // (15 << 8) + 3,  # 58  volt
-    //                                                                   # --- energy (59)
-    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT,           // (12 << 8) + 7,  # 59  british-thermal-unit
-    UAMEASUNIT_ENERGY_CALORIE,                        // (12 << 8) + 0,  # 60  calorie
-    UAMEASUNIT_ENERGY_ELECTRONVOLT,                   // (12 << 8) + 6,  # 61  electronvolt
-    UAMEASUNIT_ENERGY_FOODCALORIE,                    // (12 << 8) + 1,  # 62  foodcalorie
-    UAMEASUNIT_ENERGY_JOULE,                          // (12 << 8) + 2,  # 63  joule
-    UAMEASUNIT_ENERGY_KILOCALORIE,                    // (12 << 8) + 3,  # 64  kilocalorie
-    UAMEASUNIT_ENERGY_KILOJOULE,                      // (12 << 8) + 4,  # 65  kilojoule
-    UAMEASUNIT_ENERGY_KILOWATT_HOUR,                  // (12 << 8) + 5,  # 66  kilowatt-hour
-    //                                                                   # --- force (67)
-    UAMEASUNIT_FORCE_NEWTON,                          // (19 << 8) + 0,  # 67  newton
-    UAMEASUNIT_FORCE_POUND_FORCE,                     // (19 << 8) + 1,  # 68  pound-force
-    //                                                                   # --- frequency (69)
-    UAMEASUNIT_FREQUENCY_GIGAHERTZ,                   // (16 << 8) + 3,  # 69  gigahertz
-    UAMEASUNIT_FREQUENCY_HERTZ,                       // (16 << 8) + 0,  # 70  hertz
-    UAMEASUNIT_FREQUENCY_KILOHERTZ,                   // (16 << 8) + 1,  # 71  kilohertz
-    UAMEASUNIT_FREQUENCY_MEGAHERTZ,                   // (16 << 8) + 2,  # 72  megahertz
-    //                                                                   # --- length (73)
-    UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT,              // (5 << 8) + 16,  # 73  astronomical-unit
-    UAMEASUNIT_LENGTH_CENTIMETER,                     // (5 << 8) + 1,   # 74  centimeter
-    UAMEASUNIT_LENGTH_DECIMETER,                      // (5 << 8) + 10,  # 75  decimeter
-    UAMEASUNIT_LENGTH_FATHOM,                         // (5 << 8) + 14,  # 76  fathom
-    UAMEASUNIT_LENGTH_FOOT,                           // (5 << 8) + 5,   # 77  foot
-    UAMEASUNIT_LENGTH_FURLONG,                        // (5 << 8) + 15,  # 78  furlong
-    UAMEASUNIT_LENGTH_INCH,                           // (5 << 8) + 6,   # 79  inch
-    UAMEASUNIT_LENGTH_KILOMETER,                      // (5 << 8) + 2,   # 80  kilometer
-    UAMEASUNIT_LENGTH_LIGHT_YEAR,                     // (5 << 8) + 9,   # 81  light-year
-    UAMEASUNIT_LENGTH_METER,                          // (5 << 8) + 0,   # 82  meter
-    UAMEASUNIT_LENGTH_MICROMETER,                     // (5 << 8) + 11,  # 83  micrometer
-    UAMEASUNIT_LENGTH_MILE,                           // (5 << 8) + 7,   # 84  mile
-    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN,              // (5 << 8) + 18,  # 85  mile-scandinavian
-    UAMEASUNIT_LENGTH_MILLIMETER,                     // (5 << 8) + 3,   # 86  millimeter
-    UAMEASUNIT_LENGTH_NANOMETER,                      // (5 << 8) + 12,  # 87  nanometer
-    UAMEASUNIT_LENGTH_NAUTICAL_MILE,                  // (5 << 8) + 13,  # 88  nautical-mile
-    UAMEASUNIT_LENGTH_PARSEC,                         // (5 << 8) + 17,  # 89  parsec
-    UAMEASUNIT_LENGTH_PICOMETER,                      // (5 << 8) + 4,   # 90  picometer
-    UAMEASUNIT_LENGTH_POINT,                          // (5 << 8) + 19,  # 91  point
-    UAMEASUNIT_LENGTH_SOLAR_RADIUS,                   // (5 << 8) + 20,  # 92  solar-radius
-    UAMEASUNIT_LENGTH_YARD,                           // (5 << 8) + 8,   # 93  yard
-    //                                                                   # --- light (94)
-    UAMEASUNIT_LIGHT_LUX,                             // (17 << 8) + 0,  # 94  lux
-    UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY,                // (17 << 8) + 1,  # 95  solar-luminosity
-    //                                                                   # --- mass (96)
-    UAMEASUNIT_MASS_CARAT,                            // (6 << 8) + 9,   # 96  carat
-    UAMEASUNIT_MASS_DALTON,                           // (6 << 8) + 11,  # 97  dalton
-    UAMEASUNIT_MASS_EARTH_MASS,                       // (6 << 8) + 12,  # 98  earth-mass
-    UAMEASUNIT_MASS_GRAM,                             // (6 << 8) + 0,   # 99  gram
-    UAMEASUNIT_MASS_KILOGRAM,                         // (6 << 8) + 1,   # 100 kilogram
-    UAMEASUNIT_MASS_METRIC_TON,                       // (6 << 8) + 7,   # 101 metric-ton
-    UAMEASUNIT_MASS_MICROGRAM,                        // (6 << 8) + 5,   # 102 microgram
-    UAMEASUNIT_MASS_MILLIGRAM,                        // (6 << 8) + 6,   # 103 milligram
-    UAMEASUNIT_MASS_OUNCE,                            // (6 << 8) + 2,   # 104 ounce
-    UAMEASUNIT_MASS_OUNCE_TROY,                       // (6 << 8) + 10,  # 105 ounce-troy
-    UAMEASUNIT_MASS_POUND,                            // (6 << 8) + 3,   # 106 pound
-    UAMEASUNIT_MASS_SOLAR_MASS,                       // (6 << 8) + 13,  # 107 solar-mass
-    UAMEASUNIT_MASS_STONE,                            // (6 << 8) + 4,   # 108 stone
-    UAMEASUNIT_MASS_TON,                              // (6 << 8) + 8,   # 109 ton
-    //                                                                   # --- none (110)
-    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 110 base
-    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 111 percent
-    UAMEASUNIT_CONCENTRATION_PERMILLE,                // BOGUS           # 112 permille
-    //                                                                   # --- power (113)
-    UAMEASUNIT_POWER_GIGAWATT,                        // (7 << 8) + 5,   # 113 gigawatt
-    UAMEASUNIT_POWER_HORSEPOWER,                      // (7 << 8) + 2,   # 114 horsepower
-    UAMEASUNIT_POWER_KILOWATT,                        // (7 << 8) + 1,   # 115 kilowatt
-    UAMEASUNIT_POWER_MEGAWATT,                        // (7 << 8) + 4,   # 116 megawatt
-    UAMEASUNIT_POWER_MILLIWATT,                       // (7 << 8) + 3,   # 117 milliwatt
-    UAMEASUNIT_POWER_WATT,                            // (7 << 8) + 0,   # 118 watt
-    //                                                                   # --- pressure (119)
-    UAMEASUNIT_PRESSURE_ATMOSPHERE,                   // (8 << 8) + 5,   # 119 atmosphere
-    UAMEASUNIT_PRESSURE_HECTOPASCAL,                  // (8 << 8) + 0,   # 120 hectopascal
-    UAMEASUNIT_PRESSURE_INCH_HG,                      // (8 << 8) + 1,   # 121 inch-hg
-    UAMEASUNIT_PRESSURE_KILOPASCAL,                   // (8 << 8) + 6,   # 122 kilopascal
-    UAMEASUNIT_PRESSURE_MEGAPASCAL,                   // (8 << 8) + 7,   # 123 megapascal
-    UAMEASUNIT_PRESSURE_MILLIBAR,                     // (8 << 8) + 2,   # 124 millibar
-    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,        // (8 << 8) + 3,   # 125 millimeter-of-mercury
-    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,        // (8 << 8) + 4,   # 126 pound-per-square-inch
-    //                                                                   # --- speed (127)
-    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,              // (9 << 8) + 1,   # 127 kilometer-per-hour
-    UAMEASUNIT_SPEED_KNOT,                            // (9 << 8) + 3,   # 128 knot
-    UAMEASUNIT_SPEED_METER_PER_SECOND,                // (9 << 8) + 0,   # 129 meter-per-second
-    UAMEASUNIT_SPEED_MILE_PER_HOUR,                   // (9 << 8) + 2,   # 130 mile-per-hour
-    //                                                                   # --- temperature (131)
-    UAMEASUNIT_TEMPERATURE_CELSIUS,                   // (10 << 8) + 0,  # 131 celsius
-    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,                // (10 << 8) + 1,  # 132 fahrenheit
-    UAMEASUNIT_TEMPERATURE_GENERIC,                   // (10 << 8) + 3,  # 133 generic
-    UAMEASUNIT_TEMPERATURE_KELVIN,                    // (10 << 8) + 2,  # 134 kelvin
-    //                                                                   # --- torque (135)
-    UAMEASUNIT_TORQUE_NEWTON_METER,                   // (20 << 8) + 0,  # 135 newton-meter
-    UAMEASUNIT_TORQUE_POUND_FOOT,                     // (20 << 8) + 1,  # 136 pound-foot
-    //                                                                   # --- volume (137)
-    UAMEASUNIT_VOLUME_ACRE_FOOT,                      // (11 << 8) + 13, # 137 acre-foot
-    UAMEASUNIT_VOLUME_BARREL,                         // (11 << 8) + 26, # 138 barrel
-    UAMEASUNIT_VOLUME_BUSHEL,                         // (11 << 8) + 14, # 139 bushel
-    UAMEASUNIT_VOLUME_CENTILITER,                     // (11 << 8) + 4,  # 140 centiliter
-    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,               // (11 << 8) + 8,  # 141 cubic-centimeter
-    UAMEASUNIT_VOLUME_CUBIC_FOOT,                     // (11 << 8) + 11, # 142 cubic-foot
-    UAMEASUNIT_VOLUME_CUBIC_INCH,                     // (11 << 8) + 10, # 143 cubic-inch
-    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,                // (11 << 8) + 1,  # 144 cubic-kilometer
-    UAMEASUNIT_VOLUME_CUBIC_METER,                    // (11 << 8) + 9,  # 145 cubic-meter
-    UAMEASUNIT_VOLUME_CUBIC_MILE,                     // (11 << 8) + 2,  # 146 cubic-mile
-    UAMEASUNIT_VOLUME_CUBIC_YARD,                     // (11 << 8) + 12, # 147 cubic-yard
-    UAMEASUNIT_VOLUME_CUP,                            // (11 << 8) + 18, # 148 cup
-    UAMEASUNIT_VOLUME_CUP_METRIC,                     // (11 << 8) + 22, # 149 cup-metric
-    UAMEASUNIT_VOLUME_DECILITER,                      // (11 << 8) + 5,  # 150 deciliter
-    UAMEASUNIT_VOLUME_FLUID_OUNCE,                    // (11 << 8) + 17, # 151 fluid-ounce
-    UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL,           // (11 << 8) + 25, # 152 fluid-ounce-imperial
-    UAMEASUNIT_VOLUME_GALLON,                         // (11 << 8) + 21, # 153 gallon
-    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,                // (11 << 8) + 24, # 154 gallon-imperial
-    UAMEASUNIT_VOLUME_HECTOLITER,                     // (11 << 8) + 6,  # 155 hectoliter
-    UAMEASUNIT_VOLUME_LITER,                          // (11 << 8) + 0,  # 156 liter
-    UAMEASUNIT_VOLUME_MEGALITER,                      // (11 << 8) + 7,  # 157 megaliter
-    UAMEASUNIT_VOLUME_MILLILITER,                     // (11 << 8) + 3,  # 158 milliliter
-    UAMEASUNIT_VOLUME_PINT,                           // (11 << 8) + 19, # 159 pint
-    UAMEASUNIT_VOLUME_PINT_METRIC,                    // (11 << 8) + 23, # 160 pint-metric
-    UAMEASUNIT_VOLUME_QUART,                          // (11 << 8) + 20, # 161 quart
-    UAMEASUNIT_VOLUME_TABLESPOON,                     // (11 << 8) + 16, # 162 tablespoon
-    UAMEASUNIT_VOLUME_TEASPOON,                       // (11 << 8) + 15, # 163 teaspoon
+    UAMEASUNIT_DURATION_DECADE,                       // (4 << 8) + 15,  # 43  decade
+    UAMEASUNIT_DURATION_HOUR,                         // (4 << 8) + 4,   # 44  hour
+    UAMEASUNIT_DURATION_MICROSECOND,                  // (4 << 8) + 8,   # 45  microsecond
+    UAMEASUNIT_DURATION_MILLISECOND,                  // (4 << 8) + 7,   # 46  millisecond
+    UAMEASUNIT_DURATION_MINUTE,                       // (4 << 8) + 5,   # 47  minute
+    UAMEASUNIT_DURATION_MONTH,                        // (4 << 8) + 1,   # 48  month
+    UAMEASUNIT_DURATION_MONTH_PERSON,                 // (4 << 8) + 12,  # 49  month-person
+    UAMEASUNIT_DURATION_NANOSECOND,                   // (4 << 8) + 9,   # 50  nanosecond
+    UAMEASUNIT_DURATION_SECOND,                       // (4 << 8) + 6,   # 51  second
+    UAMEASUNIT_DURATION_WEEK,                         // (4 << 8) + 2,   # 52  week
+    UAMEASUNIT_DURATION_WEEK_PERSON,                  // (4 << 8) + 13,  # 53  week-person
+    UAMEASUNIT_DURATION_YEAR,                         // (4 << 8) + 0,   # 54  year
+    UAMEASUNIT_DURATION_YEAR_PERSON,                  // (4 << 8) + 11,  # 55  year-person
+    //                                                                   # --- electric (56)
+    UAMEASUNIT_ELECTRIC_AMPERE,                       // (15 << 8) + 0,  # 56  ampere
+    UAMEASUNIT_ELECTRIC_MILLIAMPERE,                  // (15 << 8) + 1,  # 57  milliampere
+    UAMEASUNIT_ELECTRIC_OHM,                          // (15 << 8) + 2,  # 58  ohm
+    UAMEASUNIT_ELECTRIC_VOLT,                         // (15 << 8) + 3,  # 59  volt
+    //                                                                   # --- energy (60)
+    UAMEASUNIT_ENERGY_BRITISH_THERMAL_UNIT,           // (12 << 8) + 7,  # 60  british-thermal-unit
+    UAMEASUNIT_ENERGY_CALORIE,                        // (12 << 8) + 0,  # 61  calorie
+    UAMEASUNIT_ENERGY_ELECTRONVOLT,                   // (12 << 8) + 6,  # 62  electronvolt
+    UAMEASUNIT_ENERGY_FOODCALORIE,                    // (12 << 8) + 1,  # 63  foodcalorie
+    UAMEASUNIT_ENERGY_JOULE,                          // (12 << 8) + 2,  # 64  joule
+    UAMEASUNIT_ENERGY_KILOCALORIE,                    // (12 << 8) + 3,  # 65  kilocalorie
+    UAMEASUNIT_ENERGY_KILOJOULE,                      // (12 << 8) + 4,  # 66  kilojoule
+    UAMEASUNIT_ENERGY_KILOWATT_HOUR,                  // (12 << 8) + 5,  # 67  kilowatt-hour
+    UAMEASUNIT_ENERGY_THERM_US,                       // (12 << 8) + 8,  # 68  therm-us
+    //                                                                   # --- force (69)
+    UAMEASUNIT_FORCE_NEWTON,                          // (19 << 8) + 0,  # 69  newton
+    UAMEASUNIT_FORCE_POUND_FORCE,                     // (19 << 8) + 1,  # 70  pound-force
+    //                                                                   # --- frequency (71)
+    UAMEASUNIT_FREQUENCY_GIGAHERTZ,                   // (16 << 8) + 3,  # 71  gigahertz
+    UAMEASUNIT_FREQUENCY_HERTZ,                       // (16 << 8) + 0,  # 72  hertz
+    UAMEASUNIT_FREQUENCY_KILOHERTZ,                   // (16 << 8) + 1,  # 73  kilohertz
+    UAMEASUNIT_FREQUENCY_MEGAHERTZ,                   // (16 << 8) + 2,  # 74  megahertz
+    //                                                                   # --- graphics (75)
+    UAMEASUNIT_GRAPHICS_DOT_PER_CENTIMETER,           // (21 << 8) + 5,  # 75  dot-per-centimeter
+    UAMEASUNIT_GRAPHICS_DOT_PER_INCH,                 // (21 << 8) + 6,  # 76  dot-per-inch
+    UAMEASUNIT_GRAPHICS_EM,                           // (21 << 8) + 0,  # 77  em
+    UAMEASUNIT_GRAPHICS_MEGAPIXEL,                    // (21 << 8) + 2,  # 78  megapixel
+    UAMEASUNIT_GRAPHICS_PIXEL,                        // (21 << 8) + 1,  # 79  pixel
+    UAMEASUNIT_GRAPHICS_PIXEL_PER_CENTIMETER,         // (21 << 8) + 3,  # 80  pixel-per-centimeter
+    UAMEASUNIT_GRAPHICS_PIXEL_PER_INCH,               // (21 << 8) + 4,  # 81  pixel-per-inch
+    //                                                                   # --- length (82)
+    UAMEASUNIT_LENGTH_ASTRONOMICAL_UNIT,              // (5 << 8) + 16,  # 82  astronomical-unit
+    UAMEASUNIT_LENGTH_CENTIMETER,                     // (5 << 8) + 1,   # 83  centimeter
+    UAMEASUNIT_LENGTH_DECIMETER,                      // (5 << 8) + 10,  # 84  decimeter
+    UAMEASUNIT_LENGTH_FATHOM,                         // (5 << 8) + 14,  # 85  fathom
+    UAMEASUNIT_LENGTH_FOOT,                           // (5 << 8) + 5,   # 86  foot
+    UAMEASUNIT_LENGTH_FURLONG,                        // (5 << 8) + 15,  # 87  furlong
+    UAMEASUNIT_LENGTH_INCH,                           // (5 << 8) + 6,   # 88  inch
+    UAMEASUNIT_LENGTH_KILOMETER,                      // (5 << 8) + 2,   # 89  kilometer
+    UAMEASUNIT_LENGTH_LIGHT_YEAR,                     // (5 << 8) + 9,   # 90  light-year
+    UAMEASUNIT_LENGTH_METER,                          // (5 << 8) + 0,   # 91  meter
+    UAMEASUNIT_LENGTH_MICROMETER,                     // (5 << 8) + 11,  # 92  micrometer
+    UAMEASUNIT_LENGTH_MILE,                           // (5 << 8) + 7,   # 93  mile
+    UAMEASUNIT_LENGTH_MILE_SCANDINAVIAN,              // (5 << 8) + 18,  # 94  mile-scandinavian
+    UAMEASUNIT_LENGTH_MILLIMETER,                     // (5 << 8) + 3,   # 95  millimeter
+    UAMEASUNIT_LENGTH_NANOMETER,                      // (5 << 8) + 12,  # 96  nanometer
+    UAMEASUNIT_LENGTH_NAUTICAL_MILE,                  // (5 << 8) + 13,  # 97  nautical-mile
+    UAMEASUNIT_LENGTH_PARSEC,                         // (5 << 8) + 17,  # 98  parsec
+    UAMEASUNIT_LENGTH_PICOMETER,                      // (5 << 8) + 4,   # 99  picometer
+    UAMEASUNIT_LENGTH_POINT,                          // (5 << 8) + 19,  # 100 point
+    UAMEASUNIT_LENGTH_SOLAR_RADIUS,                   // (5 << 8) + 20,  # 101 solar-radius
+    UAMEASUNIT_LENGTH_YARD,                           // (5 << 8) + 8,   # 102 yard
+    //                                                                   # --- light (103)
+    UAMEASUNIT_LIGHT_LUX,                             // (17 << 8) + 0,  # 103 lux
+    UAMEASUNIT_LIGHT_SOLAR_LUMINOSITY,                // (17 << 8) + 1,  # 104 solar-luminosity
+    //                                                                   # --- mass (105)
+    UAMEASUNIT_MASS_CARAT,                            // (6 << 8) + 9,   # 105 carat
+    UAMEASUNIT_MASS_DALTON,                           // (6 << 8) + 11,  # 106 dalton
+    UAMEASUNIT_MASS_EARTH_MASS,                       // (6 << 8) + 12,  # 107 earth-mass
+    UAMEASUNIT_MASS_GRAM,                             // (6 << 8) + 0,   # 108 gram
+    UAMEASUNIT_MASS_KILOGRAM,                         // (6 << 8) + 1,   # 109 kilogram
+    UAMEASUNIT_MASS_METRIC_TON,                       // (6 << 8) + 7,   # 110 metric-ton
+    UAMEASUNIT_MASS_MICROGRAM,                        // (6 << 8) + 5,   # 111 microgram
+    UAMEASUNIT_MASS_MILLIGRAM,                        // (6 << 8) + 6,   # 112 milligram
+    UAMEASUNIT_MASS_OUNCE,                            // (6 << 8) + 2,   # 113 ounce
+    UAMEASUNIT_MASS_OUNCE_TROY,                       // (6 << 8) + 10,  # 114 ounce-troy
+    UAMEASUNIT_MASS_POUND,                            // (6 << 8) + 3,   # 115 pound
+    UAMEASUNIT_MASS_SOLAR_MASS,                       // (6 << 8) + 13,  # 116 solar-mass
+    UAMEASUNIT_MASS_STONE,                            // (6 << 8) + 4,   # 117 stone
+    UAMEASUNIT_MASS_TON,                              // (6 << 8) + 8,   # 118 ton
+    //                                                                   # --- none (119)
+    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 119 base
+    UAMEASUNIT_CONCENTRATION_PERCENT,                 // BOGUS           # 120 percent
+    UAMEASUNIT_CONCENTRATION_PERMILLE,                // BOGUS           # 121 permille
+    //                                                                   # --- power (122)
+    UAMEASUNIT_POWER_GIGAWATT,                        // (7 << 8) + 5,   # 122 gigawatt
+    UAMEASUNIT_POWER_HORSEPOWER,                      // (7 << 8) + 2,   # 123 horsepower
+    UAMEASUNIT_POWER_KILOWATT,                        // (7 << 8) + 1,   # 124 kilowatt
+    UAMEASUNIT_POWER_MEGAWATT,                        // (7 << 8) + 4,   # 125 megawatt
+    UAMEASUNIT_POWER_MILLIWATT,                       // (7 << 8) + 3,   # 126 milliwatt
+    UAMEASUNIT_POWER_WATT,                            // (7 << 8) + 0,   # 127 watt
+    //                                                                   # --- pressure (128)
+    UAMEASUNIT_PRESSURE_ATMOSPHERE,                   // (8 << 8) + 5,   # 128 atmosphere
+    UAMEASUNIT_PRESSURE_BAR,                          // (8 << 8) + 9,   # 129 bar
+    UAMEASUNIT_PRESSURE_HECTOPASCAL,                  // (8 << 8) + 0,   # 130 hectopascal
+    UAMEASUNIT_PRESSURE_INCH_HG,                      // (8 << 8) + 1,   # 131 inch-hg
+    UAMEASUNIT_PRESSURE_KILOPASCAL,                   // (8 << 8) + 6,   # 132 kilopascal
+    UAMEASUNIT_PRESSURE_MEGAPASCAL,                   // (8 << 8) + 7,   # 133 megapascal
+    UAMEASUNIT_PRESSURE_MILLIBAR,                     // (8 << 8) + 2,   # 134 millibar
+    UAMEASUNIT_PRESSURE_MILLIMETER_OF_MERCURY,        // (8 << 8) + 3,   # 135 millimeter-of-mercury
+    UAMEASUNIT_PRESSURE_PASCAL,                       // (8 << 8) + 8,   # 136 pascal
+    UAMEASUNIT_PRESSURE_POUND_PER_SQUARE_INCH,        // (8 << 8) + 4,   # 137 pound-per-square-inch
+    //                                                                   # --- speed (138)
+    UAMEASUNIT_SPEED_KILOMETER_PER_HOUR,              // (9 << 8) + 1,   # 138 kilometer-per-hour
+    UAMEASUNIT_SPEED_KNOT,                            // (9 << 8) + 3,   # 139 knot
+    UAMEASUNIT_SPEED_METER_PER_SECOND,                // (9 << 8) + 0,   # 140 meter-per-second
+    UAMEASUNIT_SPEED_MILE_PER_HOUR,                   // (9 << 8) + 2,   # 141 mile-per-hour
+    //                                                                   # --- temperature (142)
+    UAMEASUNIT_TEMPERATURE_CELSIUS,                   // (10 << 8) + 0,  # 142 celsius
+    UAMEASUNIT_TEMPERATURE_FAHRENHEIT,                // (10 << 8) + 1,  # 143 fahrenheit
+    UAMEASUNIT_TEMPERATURE_GENERIC,                   // (10 << 8) + 3,  # 144 generic
+    UAMEASUNIT_TEMPERATURE_KELVIN,                    // (10 << 8) + 2,  # 145 kelvin
+    //                                                                   # --- torque (146)
+    UAMEASUNIT_TORQUE_NEWTON_METER,                   // (20 << 8) + 0,  # 146 newton-meter
+    UAMEASUNIT_TORQUE_POUND_FOOT,                     // (20 << 8) + 1,  # 147 pound-foot
+    //                                                                   # --- volume (148)
+    UAMEASUNIT_VOLUME_ACRE_FOOT,                      // (11 << 8) + 13, # 148 acre-foot
+    UAMEASUNIT_VOLUME_BARREL,                         // (11 << 8) + 26, # 149 barrel
+    UAMEASUNIT_VOLUME_BUSHEL,                         // (11 << 8) + 14, # 150 bushel
+    UAMEASUNIT_VOLUME_CENTILITER,                     // (11 << 8) + 4,  # 151 centiliter
+    UAMEASUNIT_VOLUME_CUBIC_CENTIMETER,               // (11 << 8) + 8,  # 152 cubic-centimeter
+    UAMEASUNIT_VOLUME_CUBIC_FOOT,                     // (11 << 8) + 11, # 153 cubic-foot
+    UAMEASUNIT_VOLUME_CUBIC_INCH,                     // (11 << 8) + 10, # 154 cubic-inch
+    UAMEASUNIT_VOLUME_CUBIC_KILOMETER,                // (11 << 8) + 1,  # 155 cubic-kilometer
+    UAMEASUNIT_VOLUME_CUBIC_METER,                    // (11 << 8) + 9,  # 156 cubic-meter
+    UAMEASUNIT_VOLUME_CUBIC_MILE,                     // (11 << 8) + 2,  # 157 cubic-mile
+    UAMEASUNIT_VOLUME_CUBIC_YARD,                     // (11 << 8) + 12, # 158 cubic-yard
+    UAMEASUNIT_VOLUME_CUP,                            // (11 << 8) + 18, # 159 cup
+    UAMEASUNIT_VOLUME_CUP_METRIC,                     // (11 << 8) + 22, # 160 cup-metric
+    UAMEASUNIT_VOLUME_DECILITER,                      // (11 << 8) + 5,  # 161 deciliter
+    UAMEASUNIT_VOLUME_FLUID_OUNCE,                    // (11 << 8) + 17, # 162 fluid-ounce
+    UAMEASUNIT_VOLUME_FLUID_OUNCE_IMPERIAL,           // (11 << 8) + 25, # 163 fluid-ounce-imperial
+    UAMEASUNIT_VOLUME_GALLON,                         // (11 << 8) + 21, # 164 gallon
+    UAMEASUNIT_VOLUME_GALLON_IMPERIAL,                // (11 << 8) + 24, # 165 gallon-imperial
+    UAMEASUNIT_VOLUME_HECTOLITER,                     // (11 << 8) + 6,  # 166 hectoliter
+    UAMEASUNIT_VOLUME_LITER,                          // (11 << 8) + 0,  # 167 liter
+    UAMEASUNIT_VOLUME_MEGALITER,                      // (11 << 8) + 7,  # 168 megaliter
+    UAMEASUNIT_VOLUME_MILLILITER,                     // (11 << 8) + 3,  # 169 milliliter
+    UAMEASUNIT_VOLUME_PINT,                           // (11 << 8) + 19, # 170 pint
+    UAMEASUNIT_VOLUME_PINT_METRIC,                    // (11 << 8) + 23, # 171 pint-metric
+    UAMEASUNIT_VOLUME_QUART,                          // (11 << 8) + 20, # 172 quart
+    UAMEASUNIT_VOLUME_TABLESPOON,                     // (11 << 8) + 16, # 173 tablespoon
+    UAMEASUNIT_VOLUME_TEASPOON,                       // (11 << 8) + 15, # 174 teaspoon
 };
 
 static UnicodeString loadNumericDateFormatterPattern(
@@ -426,8 +433,7 @@ static NumericDateFormatters *loadNumericDateFormatters(
     NumericDateFormatters *result = new NumericDateFormatters(
         loadNumericDateFormatterPattern(resource, "hm", status),
         loadNumericDateFormatterPattern(resource, "ms", status),
-        loadNumericDateFormatterPattern(resource, "hms", status),
-        status);
+        loadNumericDateFormatterPattern(resource, "hms", status));
     if (U_FAILURE(status)) {
         delete result;
         return NULL;
@@ -678,7 +684,7 @@ UBool MeasureFormat::operator==(const Format &other) const {
             **numberFormat == **rhs.numberFormat);
 }
 
-Format *MeasureFormat::clone() const {
+MeasureFormat *MeasureFormat::clone() const {
     return new MeasureFormat(*this);
 }
 
@@ -753,8 +759,7 @@ UnicodeString &MeasureFormat::formatMeasures(
         Formattable hms[3];
         int32_t bitMap = toHMS(measures, measureCount, hms, status);
         if (bitMap > 0) {
-            FieldPositionIteratorHandler handler((FieldPositionIterator*)NULL, status);
-            return formatNumeric(hms, bitMap, appendTo, handler, status);
+            return formatNumeric(hms, bitMap, appendTo, status);
         }
     }
     if (pos.getField() != FieldPosition::DONT_CARE) {
@@ -811,7 +816,7 @@ UnicodeString &MeasureFormat::formatMeasures(
         Formattable hms[3];
         int32_t bitMap = toHMS(measures, measureCount, hms, status);
         if (bitMap > 0) {
-            return formatNumeric(hms, bitMap, appendTo, handler, status);
+            return formatNumeric(hms, bitMap, appendTo, status);
         }
     }
     UnicodeString *results = new UnicodeString[measureCount];
@@ -1040,7 +1045,8 @@ UnicodeString &MeasureFormat::formatMeasure(
 
     auto* df = dynamic_cast<const DecimalFormat*>(&nf);
     if (df == nullptr) {
-        // Handle other types of NumberFormat using the old code, Apple restore for <rdar://problem/49131922>
+        // Handle other types of NumberFormat using the ICU 63 code, modified to
+        // get the unitPattern from LongNameHandler and handle fallback to OTHER.
         UnicodeString formattedNumber;
         StandardPlural::Form pluralForm = QuantityFormatter::selectPlural(
                 amtNumber, nf, **pluralRules, formattedNumber, pos, status);
@@ -1051,11 +1057,7 @@ UnicodeString &MeasureFormat::formatMeasure(
         }
         UnicodeString pattern = number::impl::LongNameHandler::getUnitPattern(getLocale(status),
                 amtUnit, getUnitWidth(fWidth), pluralForm, status);
-        // The above already handles fallback from other widths to short
-        if (pattern.isBogus() && pluralForm != StandardPlural::Form::OTHER) {
-            pattern = number::impl::LongNameHandler::getUnitPattern(getLocale(status),
-                amtUnit, getUnitWidth(fWidth), StandardPlural::Form::OTHER, status);
-        }
+        // The above  handles fallback from other widths to short, and from other plural forms to OTHER
         if (U_FAILURE(status)) {
             return appendTo;
         }
@@ -1126,173 +1128,132 @@ UnicodeString &MeasureFormat::formatMeasure(
     return appendTo;
 }
 
-// Formats hours-minutes-seconds as 5:37:23 or similar.
+
+// Formats numeric time duration as 5:00:47 or 3:54.
 UnicodeString &MeasureFormat::formatNumeric(
         const Formattable *hms,  // always length 3
-        int32_t bitMap,   // 1=hourset, 2=minuteset, 4=secondset
+        int32_t bitMap,   // 1=hour set, 2=minute set, 4=second set
         UnicodeString &appendTo,
-        FieldPositionHandler& handler,
         UErrorCode &status) const {
     if (U_FAILURE(status)) {
         return appendTo;
     }
-    UDate millis = 
-        (UDate) (((uprv_trunc(hms[0].getDouble(status)) * 60.0
-             + uprv_trunc(hms[1].getDouble(status))) * 60.0
-                  + uprv_trunc(hms[2].getDouble(status))) * 1000.0);
-    switch (bitMap) {
-    case 5: // hs
-    case 7: // hms
-        return formatNumeric(
-                millis,
-                cache->getNumericDateFormatters()->hourMinuteSecond,
-                UDAT_SECOND_FIELD,
-                hms[2],
-                appendTo,
-                handler,
-                status);
-        break;
-    case 6: // ms
-        return formatNumeric(
-                millis,
-                cache->getNumericDateFormatters()->minuteSecond,
-                UDAT_SECOND_FIELD,
-                hms[2],
-                appendTo,
-                handler,
-                status);
-        break;
-    case 3: // hm
-        return formatNumeric(
-                millis,
-                cache->getNumericDateFormatters()->hourMinute,
-                UDAT_MINUTE_FIELD,
-                hms[1],
-                appendTo,
-                handler,
-                status);
-        break;
-    default:
-        status = U_INTERNAL_PROGRAM_ERROR;
-        return appendTo;
-        break;
-    }
-}
 
-static void appendRange(
-        const UnicodeString &src,
-        int32_t start,
-        int32_t end,
-        UnicodeString &dest) {
-    dest.append(src, start, end - start);
-}
+    UnicodeString pattern;
 
-static void appendRange(
-        const UnicodeString &src,
-        int32_t end,
-        UnicodeString &dest) {
-    dest.append(src, end, src.length() - end);
-}
-
-// Formats time like 5:37:23
-UnicodeString &MeasureFormat::formatNumeric(
-        UDate date, // Time since epoch 1:30:00 would be 5400000
-        const DateFormat &dateFmt, // h:mm, m:ss, or h:mm:ss
-        UDateFormatField smallestField, // seconds in 5:37:23.5
-        const Formattable &smallestAmount, // 23.5 for 5:37:23.5
-        UnicodeString &appendTo,
-        FieldPositionHandler& handler,
-        UErrorCode &status) const {
+    double hours = hms[0].getDouble(status);
+    double minutes = hms[1].getDouble(status);
+    double seconds = hms[2].getDouble(status);
     if (U_FAILURE(status)) {
         return appendTo;
     }
-    // Format the smallest amount with this object's NumberFormat
-    UnicodeString smallestAmountFormatted;
 
-    // We keep track of the integer part of smallest amount so that
-    // we can replace it later so that we get '0:00:09.3' instead of
-    // '0:00:9.3'
-    FieldPosition intFieldPosition(UNUM_INTEGER_FIELD);
-    (*numberFormat)->format(
-            smallestAmount, smallestAmountFormatted, intFieldPosition, status);
-    if (
-            intFieldPosition.getBeginIndex() == 0 &&
-            intFieldPosition.getEndIndex() == 0) {
+    // All possible combinations: "h", "m", "s", "hm", "hs", "ms", "hms"
+    if (bitMap == 5 || bitMap == 7) { // "hms" & "hs" (we add minutes if "hs")
+        pattern = cache->getNumericDateFormatters()->hourMinuteSecond;
+        hours = uprv_trunc(hours);
+        minutes = uprv_trunc(minutes);
+    } else if (bitMap == 3) { // "hm"
+        pattern = cache->getNumericDateFormatters()->hourMinute;
+        hours = uprv_trunc(hours);
+    } else if (bitMap == 6) { // "ms"
+        pattern = cache->getNumericDateFormatters()->minuteSecond;
+        minutes = uprv_trunc(minutes);
+    } else { // h m s, handled outside formatNumeric. No value is also an error.
         status = U_INTERNAL_PROGRAM_ERROR;
         return appendTo;
     }
 
-    // Format time. draft becomes something like '5:30:45'
-    // #13606: DateFormat is not thread-safe, but MeasureFormat advertises itself as thread-safe.
-    FieldPositionIterator posIter;
-    UnicodeString draft;
-    static UMutex *dateFmtMutex = STATIC_NEW(UMutex);
-    umtx_lock(dateFmtMutex);
-    dateFmt.format(date, draft, &posIter, status);
-    umtx_unlock(dateFmtMutex);
-
-    int32_t start = appendTo.length();
-    FieldPosition smallestFieldPosition(smallestField);
-    FieldPosition fp;
-    int32_t measField = -1;
-    while (posIter.next(fp)) {
-        int32_t dateField = fp.getField();
-        switch (dateField) {
-            case UDAT_HOUR_OF_DAY1_FIELD:
-            case UDAT_HOUR_OF_DAY0_FIELD:
-            case UDAT_HOUR1_FIELD:
-            case UDAT_HOUR0_FIELD:
-                measField = UAMEASUNIT_DURATION_HOUR; break;
-            case UDAT_MINUTE_FIELD:
-                measField = UAMEASUNIT_DURATION_MINUTE; break;
-            case UDAT_SECOND_FIELD:
-                measField = UAMEASUNIT_DURATION_SECOND; break;
-            default:
-                measField = -1; break;
-        }
-        if (dateField != smallestField) {
-            if (measField >= 0) {
-                handler.addAttribute(measField, start + fp.getBeginIndex(), start + fp.getEndIndex());
-                handler.addAttribute(measField | UAMEASFMT_NUMERIC_FIELD_FLAG, start + fp.getBeginIndex(), start + fp.getEndIndex());
-            }
-        } else {
-            smallestFieldPosition.setBeginIndex(fp.getBeginIndex());
-            smallestFieldPosition.setEndIndex(fp.getEndIndex());
-            break;
-        }
+    const DecimalFormat *numberFormatter = dynamic_cast<const DecimalFormat*>(numberFormat->get());
+    if (!numberFormatter) {
+        status = U_INTERNAL_PROGRAM_ERROR;
+        return appendTo;
     }
-
-    // If we find field for smallest amount replace it with the formatted
-    // smallest amount from above taking care to replace the integer part
-    // with what is in original time. For example, If smallest amount
-    // is 9.35s and the formatted time is 0:00:09 then 9.35 becomes 09.35
-    // and replacing yields 0:00:09.35
-    if (smallestFieldPosition.getBeginIndex() != 0 ||
-            smallestFieldPosition.getEndIndex() != 0) {
-        appendRange(draft, 0, smallestFieldPosition.getBeginIndex(), appendTo);
-        appendRange(
-                smallestAmountFormatted,
-                0,
-                intFieldPosition.getBeginIndex(),
-                appendTo);
-        appendRange(
-                draft,
-                smallestFieldPosition.getBeginIndex(),
-                smallestFieldPosition.getEndIndex(),
-                appendTo);
-        appendRange(
-                smallestAmountFormatted,
-                intFieldPosition.getEndIndex(),
-                appendTo);
-        appendRange(
-                draft,
-                smallestFieldPosition.getEndIndex(),
-                appendTo);
-        handler.addAttribute(measField, start + smallestFieldPosition.getBeginIndex(), appendTo.length());
-        handler.addAttribute(measField | UAMEASFMT_NUMERIC_FIELD_FLAG, start + smallestFieldPosition.getBeginIndex(), appendTo.length());
+    number::LocalizedNumberFormatter numberFormatter2;
+    if (auto* lnf = numberFormatter->toNumberFormatter(status)) {
+        numberFormatter2 = lnf->integerWidth(number::IntegerWidth::zeroFillTo(2));
     } else {
-        appendTo.append(draft);
+        return appendTo;
     }
+    LocalPointer<DecimalFormat> intFmtClone;
+    const DecimalFormat *intFmt = dynamic_cast<const DecimalFormat*>(cache->getIntegerFormat());
+    if (intFmt) {
+        intFmtClone.adoptInstead((DecimalFormat *)intFmt->clone());
+    }
+    if (intFmtClone.isNull()) {
+        status = U_INTERNAL_PROGRAM_ERROR;
+        return appendTo;
+    }
+
+    FormattedStringBuilder fsb;
+
+    UBool protect = FALSE;
+    const int32_t patternLength = pattern.length();
+    for (int32_t i = 0; i < patternLength; i++) {
+        char16_t c = pattern[i];
+
+        // Also set the proper field in this switch
+        // We don't use DateFormat.Field because this is not a date / time, is a duration.
+        double value = 0;
+        switch (c) {
+            case u'H': value = hours; break;
+            case u'm': value = minutes; break;
+            case u's': value = seconds; break;
+        }
+
+        // For undefined field we use UNUM_FIELD_COUNT, for historical reasons.
+        // See cleanup bug: https://unicode-org.atlassian.net/browse/ICU-20665
+        // But we give it a clear name, to keep "the ugly part" in one place.
+        constexpr UNumberFormatFields undefinedField = UNUM_FIELD_COUNT;
+
+        // There is not enough info to add Field(s) for the unit because all we have are plain
+        // text patterns. For example in "21:51" there is no text for something like "hour",
+        // while in something like "21h51" there is ("h"). But we can't really tell...
+        switch (c) {
+            case u'H':
+            case u'm':
+            case u's':
+                if (protect) {
+                    fsb.appendChar16(c, undefinedField, status);
+                } else {
+                    UnicodeString tmp;
+                    UBool lastNumField = ((c == u's') || (c == u'm' && bitMap == 3));
+                    if ((i + 1 < patternLength) && pattern[i + 1] == c) { // doubled
+                        if (!lastNumField) {
+                            intFmtClone->setMinimumIntegerDigits(2);
+                            intFmtClone->format(value, tmp, status);
+                        } else {
+                            tmp = numberFormatter2.formatDouble(value, status).toString(status);
+                        }
+                        i++;
+                    } else {
+                        if (!lastNumField) {
+                            intFmtClone->setMinimumIntegerDigits(1);
+                            intFmtClone->format(value, tmp, status);
+                        } else {
+                            numberFormatter->format(value, tmp, status);
+                        }
+                    }
+                    // TODO: Use proper Field
+                    fsb.append(tmp, undefinedField, status);
+                }
+                break;
+            case u'\'':
+                // '' is escaped apostrophe
+                if ((i + 1 < patternLength) && pattern[i + 1] == c) {
+                    fsb.appendChar16(c, undefinedField, status);
+                    i++;
+                } else {
+                    protect = !protect;
+                }
+                break;
+            default:
+                fsb.appendChar16(c, undefinedField, status);
+        }
+    }
+
+    appendTo.append(fsb.toTempUnicodeString());
+
     return appendTo;
 }
 

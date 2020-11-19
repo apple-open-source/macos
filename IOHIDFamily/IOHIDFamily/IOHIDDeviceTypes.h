@@ -218,6 +218,10 @@ typedef uint32_t IOHIDValueScaleType;
  *
  * @field kIOHIDValueOptionsFlagRelativeSimple
  * Compares against previous value
+ *
+ * @field kIOHIDValueOptionsUpdateElementValues
+ * Generates a get report before reading the element value when getting an element.
+ * Generates a set report with the passed value, even if it did not change, to the device when setting a value.
  */
 enum {
     kIOHIDValueOptionsFlagRelativeSimple    = (1<<0),

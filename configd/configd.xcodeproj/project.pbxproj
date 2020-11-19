@@ -31,12 +31,6 @@
 			);
 			dependencies = (
 				15A5A2710D5B942D0087BDA0 /* PBXTargetDependency */,
-				15E1B06416EBAF2A00E5F06F /* PBXTargetDependency */,
-				15E1B06616EBAF2A00E5F06F /* PBXTargetDependency */,
-				15D3083016F3EAD000014F82 /* PBXTargetDependency */,
-				15D3083216F3EAD000014F82 /* PBXTargetDependency */,
-				15E1B03E16EBAB8A00E5F06F /* PBXTargetDependency */,
-				15E1B04016EBAB9400E5F06F /* PBXTargetDependency */,
 			);
 			name = "configd_base-EmbeddedSimulator";
 			productName = Frameworks;
@@ -72,6 +66,13 @@
 				15401C27219915C6006326B7 /* Create non-empty Root */,
 			);
 			dependencies = (
+				156774A12466218800B0C1D6 /* PBXTargetDependency */,
+				15677495246620C300B0C1D6 /* PBXTargetDependency */,
+				15677497246620C300B0C1D6 /* PBXTargetDependency */,
+				15677499246620D600B0C1D6 /* PBXTargetDependency */,
+				1567749B246620D600B0C1D6 /* PBXTargetDependency */,
+				1567749D246620E500B0C1D6 /* PBXTargetDependency */,
+				1567749F246620F000B0C1D6 /* PBXTargetDependency */,
 			);
 			name = "configd_extras-EmbeddedSimulator";
 			productName = configd_extras;
@@ -98,11 +99,9 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 15631D231ECF98FB0088EEDD /* Build configuration list for PBXAggregateTarget "configd_executables-EmbeddedSimulator" */;
 			buildPhases = (
+				156774A2246621C500B0C1D6 /* Create non-empty Root */,
 			);
 			dependencies = (
-				15631D271ECF99800088EEDD /* PBXTargetDependency */,
-				15631D291ECF99800088EEDD /* PBXTargetDependency */,
-				15631D2B1ECF99800088EEDD /* PBXTargetDependency */,
 			);
 			name = "configd_executables-EmbeddedSimulator";
 			productName = configd_executables;
@@ -175,6 +174,17 @@
 			);
 			name = "configd_executables-Embedded";
 			productName = configd_executables;
+		};
+		1584B5C32469B65A00AFF758 /* configd_plugins-EmbeddedSimulator */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1584B5DC2469B65A00AFF758 /* Build configuration list for PBXAggregateTarget "configd_plugins-EmbeddedSimulator" */;
+			buildPhases = (
+				1584B5DF2469B69A00AFF758 /* Create non-empty Root */,
+			);
+			dependencies = (
+			);
+			name = "configd_plugins-EmbeddedSimulator";
+			productName = Plugins;
 		};
 		159D542007528E7C004F8947 /* configd_plugins */ = {
 			isa = PBXAggregateTarget;
@@ -260,6 +270,7 @@
 			dependencies = (
 				157FDE44164A079B0040D6A8 /* PBXTargetDependency */,
 				151FE37A0D5B713C000D6DB1 /* PBXTargetDependency */,
+				1584B5E12469B6CE00AFF758 /* PBXTargetDependency */,
 				15631D2D1ECF99A00088EEDD /* PBXTargetDependency */,
 				15401C3021991B31006326B7 /* PBXTargetDependency */,
 				15EF89C62189484C003B2C5C /* PBXTargetDependency */,
@@ -659,6 +670,8 @@
 		158337A00CFB6B9E0033AB93 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		158337A20CFB6B9E0033AB93 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
 		158337AD0CFB6BDC0033AB93 /* com.apple.SCHelper-embedded.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 151356AD0CE0CF2F0017E523 /* com.apple.SCHelper-embedded.plist */; };
+		1583DFBD2360D0E800AA397A /* SCPreferencesParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 1583DFB92360D0E700AA397A /* SCPreferencesParser.m */; };
+		1583DFBE2360D0E800AA397A /* SCDynamicStoreParser.m in Sources */ = {isa = PBXBuildFile; fileRef = 1583DFBA2360D0E700AA397A /* SCDynamicStoreParser.m */; };
 		158D6D891C974E9E00A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */ = {isa = PBXBuildFile; fileRef = 158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */; };
 		158D6D8B1C974F1800A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */ = {isa = PBXBuildFile; fileRef = 158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */; };
 		158D6D8D1C974F5800A08E78 /* com.apple.SystemConfiguration.plist in Logging Preferences */ = {isa = PBXBuildFile; fileRef = 158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */; };
@@ -750,6 +763,8 @@
 		159D54D607529FFF004F8947 /* configd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15CB6A2005C0722B0099E85F /* configd.8 */; };
 		159FFD5F2110EA44009311DD /* dnsinfo_flatfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1522FCE50FA7FD7000B24128 /* dnsinfo_flatfile.c */; };
 		159FFD612110EA71009311DD /* dnsinfo_flatfile.c in Sources */ = {isa = PBXBuildFile; fileRef = 1522FCE50FA7FD7000B24128 /* dnsinfo_flatfile.c */; };
+		15A03BDE245B71C8003503BB /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FEE80D0CCFD341001312F9 /* CoreServices.framework */; };
+		15A03BE0245B71F5003503BB /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15A03BDF245B71F5003503BB /* CoreServices.framework */; };
 		15A1FF3210597F17004C9CC9 /* CaptiveNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		15A1FF3310597F17004C9CC9 /* CaptiveNetwork.c in Sources */ = {isa = PBXBuildFile; fileRef = 15A1FF3110597F17004C9CC9 /* CaptiveNetwork.c */; };
 		15A1FF3410597F17004C9CC9 /* CaptiveNetwork.h in Headers */ = {isa = PBXBuildFile; fileRef = 15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -894,6 +909,7 @@
 		15CB8F881EE4DE3300726685 /* SCNetworkReachabilityLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 152EC34B1EE1B10200A1D27B /* SCNetworkReachabilityLogging.h */; };
 		15CB8F891EE4DE3600726685 /* SCNetworkReachabilityLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 152EC34B1EE1B10200A1D27B /* SCNetworkReachabilityLogging.h */; };
 		15CB8F8A1EE4DE3B00726685 /* SCNetworkReachabilityLogging.h in Headers */ = {isa = PBXBuildFile; fileRef = 152EC34B1EE1B10200A1D27B /* SCNetworkReachabilityLogging.h */; };
+		15D0E41F246776B5008DB9AA /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15A03BDF245B71F5003503BB /* CoreServices.framework */; };
 		15D2E437167643460078F547 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1520A3DE0846B2DC0010B584 /* Security.framework */; };
 		15D3083916F3EB8600014F82 /* simulator_support.c in Sources */ = {isa = PBXBuildFile; fileRef = 15D3083816F3EB8600014F82 /* simulator_support.c */; };
 		15D3083B16F4E81C00014F82 /* com.apple.configd_sim.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15D3083A16F4E6D900014F82 /* com.apple.configd_sim.plist */; };
@@ -1048,7 +1064,7 @@
 		15FC130B0CCEA59E0013872C /* monitor.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FC130A0CCEA59E0013872C /* monitor.c */; };
 		15FC13180CCF74740013872C /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */; };
 		15FD7B3C101E439200C56621 /* BridgeConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = 15FD7B3B101E439200C56621 /* BridgeConfiguration.c */; };
-		15FEE80E0CCFD341001312F9 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */; };
+		15FEE80E0CCFD341001312F9 /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 15FEE80D0CCFD341001312F9 /* CoreServices.framework */; };
 		15FEE81F0CD03E75001312F9 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 15FEE8180CD03CBB001312F9 /* Localizable.strings */; };
 		15FF5C370CDF776200EEC8AA /* com.apple.SCHelper.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15FF5C290CDF770500EEC8AA /* com.apple.SCHelper.plist */; };
 		55A3DB9E183C2AD900ED3DB7 /* SCNetworkMigration.c in Sources */ = {isa = PBXBuildFile; fileRef = 55A3DB9D183C2A8200ED3DB7 /* SCNetworkMigration.c */; };
@@ -1106,7 +1122,7 @@
 		728015911BE1686C009F4F60 /* proxyAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 728015801BE16833009F4F60 /* proxyAgent.m */; };
 		728015921BE1686F009F4F60 /* proxyAgent.m in Sources */ = {isa = PBXBuildFile; fileRef = 728015801BE16833009F4F60 /* proxyAgent.m */; };
 		728015971BE16B6C009F4F60 /* Network.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015951BE16B6C009F4F60 /* Network.framework */; };
-		728015981BE16B6C009F4F60 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; settings = {ATTRIBUTES = (Required, ); }; };
+		728015981BE16B6C009F4F60 /* NetworkExtension.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728015961BE16B6C009F4F60 /* NetworkExtension.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		728015991BE1812B009F4F60 /* agent-monitor.h in Headers */ = {isa = PBXBuildFile; fileRef = 728015931BE1697E009F4F60 /* agent-monitor.h */; };
 		7280159B1BE1812B009F4F60 /* configAgent.h in Headers */ = {isa = PBXBuildFile; fileRef = 728015781BE16833009F4F60 /* configAgent.h */; };
 		7280159C1BE1812B009F4F60 /* controller.h in Headers */ = {isa = PBXBuildFile; fileRef = 7280157A1BE16833009F4F60 /* controller.h */; };
@@ -1342,33 +1358,61 @@
 			remoteGlobalIDString = 15F742DA1EC6370000DA2E7A;
 			remoteInfo = "liblog_SystemConfiguration-Embedded";
 		};
-		15631D261ECF99800088EEDD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15F742E71EC638D100DA2E7A;
-			remoteInfo = "liblog_SystemConfiguration-EmbeddedSimulator";
-		};
-		15631D281ECF99800088EEDD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15732A7616EA503200F3AC4C;
-			remoteInfo = "configd-EmbeddedSimulator";
-		};
-		15631D2A1ECF99800088EEDD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15732AAD16EA511900F3AC4C;
-			remoteInfo = "scutil-EmbeddedSimulator";
-		};
 		15631D2C1ECF99A00088EEDD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 15631D161ECF98FB0088EEDD;
 			remoteInfo = "configd_executables-EmbeddedSimulator";
+		};
+		15677494246620C300B0C1D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15E1B04116EBAE3C00E5F06F;
+			remoteInfo = "IPMonitor-EmbeddedSimulator";
+		};
+		15677496246620C300B0C1D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15E1B05A16EBAE7800E5F06F;
+			remoteInfo = "IPMonitor.bundle-EmbeddedSimulator";
+		};
+		15677498246620D600B0C1D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15D3080F16F3E4DA00014F82;
+			remoteInfo = "SimulatorSupport-EmbeddedSimulator";
+		};
+		1567749A246620D600B0C1D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15D3082816F3E4E100014F82;
+			remoteInfo = "SimulatorSupport.bundle-EmbeddedSimulator";
+		};
+		1567749C246620E500B0C1D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15732A7616EA503200F3AC4C;
+			remoteInfo = "configd-EmbeddedSimulator";
+		};
+		1567749E246620F000B0C1D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15732AAD16EA511900F3AC4C;
+			remoteInfo = "scutil-EmbeddedSimulator";
+		};
+		156774A02466218800B0C1D6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 15F742E71EC638D100DA2E7A;
+			remoteInfo = "liblog_SystemConfiguration-EmbeddedSimulator";
 		};
 		15732AE516EA6BCE00F3AC4C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1517,6 +1561,13 @@
 			remoteGlobalIDString = 1583177D0CFB85C8006F62B9;
 			remoteInfo = "IPMonitor.bundle-Embedded";
 		};
+		1584B5E02469B6CE00AFF758 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1584B5C32469B65A00AFF758;
+			remoteInfo = "configd_plugins-EmbeddedSimulator";
+		};
 		158AD9850754E72500124717 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
@@ -1594,13 +1645,6 @@
 			remoteGlobalIDString = 15A5A1E40D5B94190087BDA0;
 			remoteInfo = "SystemConfiguration.framework-EmbeddedSimulator";
 		};
-		15AB752916EC254D00FAA8CE /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15E1B04116EBAE3C00E5F06F;
-			remoteInfo = "IPMonitor-EmbeddedSimulator";
-		};
 		15C64A210F684C4900D78394 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
@@ -1628,55 +1672,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 157A84D80D56C63900B6F1A0;
 			remoteInfo = "DNSConfiguration-Embedded";
-		};
-		15D3082F16F3EAD000014F82 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15D3080F16F3E4DA00014F82;
-			remoteInfo = "SimulatorSupport-EmbeddedSimulator";
-		};
-		15D3083116F3EAD000014F82 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15D3082816F3E4E100014F82;
-			remoteInfo = "SimulatorSupport.bundle-EmbeddedSimulator";
-		};
-		15D3083416F3EB2500014F82 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15D3080F16F3E4DA00014F82;
-			remoteInfo = "SimulatorSupport-EmbeddedSimulator";
-		};
-		15E1B03D16EBAB8A00E5F06F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15732A7616EA503200F3AC4C;
-			remoteInfo = "configd-EmbeddedSimulator";
-		};
-		15E1B03F16EBAB9400E5F06F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15732AAD16EA511900F3AC4C;
-			remoteInfo = "scutil-EmbeddedSimulator";
-		};
-		15E1B06316EBAF2A00E5F06F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15E1B04116EBAE3C00E5F06F;
-			remoteInfo = "IPMonitor-EmbeddedSimulator";
-		};
-		15E1B06516EBAF2A00E5F06F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 15CB6A7705C0722B0099E85F /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 15E1B05A16EBAE7800E5F06F;
-			remoteInfo = "IPMonitor.bundle-EmbeddedSimulator";
 		};
 		15E83108167F9B0600FD51EC /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1979,7 +1974,6 @@
 		1532629006281C9D00B1C10C /* dnsinfo_create.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dnsinfo_create.h; path = dnsinfo/dnsinfo_create.h; sourceTree = "<group>"; };
 		153338BA14BE7978004FCE22 /* libSystemConfiguration_client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = libSystemConfiguration_client.c; path = libSystemConfiguration/libSystemConfiguration_client.c; sourceTree = "<group>"; };
 		153338BB14BE7978004FCE22 /* libSystemConfiguration_client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = libSystemConfiguration_client.h; path = libSystemConfiguration/libSystemConfiguration_client.h; sourceTree = "<group>"; };
-		153393E20D34994100FE74E7 /* restore-temporary-headers */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = "restore-temporary-headers"; sourceTree = "<group>"; };
 		153ACCA614E322D5005029A5 /* network_information_server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = network_information_server.c; path = nwi/network_information_server.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		153ACCA714E322D5005029A5 /* network_information_server.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = network_information_server.h; path = nwi/network_information_server.h; sourceTree = "<group>"; };
 		1540E3600987DA9500157C07 /* com.apple.configd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.configd.plist; sourceTree = "<group>"; };
@@ -2035,6 +2029,10 @@
 		15812A2D1EA5540B001CF384 /* nat64-configuration.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "nat64-configuration.c"; sourceTree = "<group>"; };
 		15812A2E1EA5540B001CF384 /* nat64-configuration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "nat64-configuration.h"; sourceTree = "<group>"; };
 		15828AE70753B5F900AD4710 /* KernelEventMonitor.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = KernelEventMonitor.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		1583DFB92360D0E700AA397A /* SCPreferencesParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCPreferencesParser.m; sourceTree = "<group>"; };
+		1583DFBA2360D0E700AA397A /* SCDynamicStoreParser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = SCDynamicStoreParser.m; sourceTree = "<group>"; };
+		1583DFBB2360D0E700AA397A /* SCDynamicStoreParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCDynamicStoreParser.h; sourceTree = "<group>"; };
+		1583DFBC2360D0E800AA397A /* SCPreferencesParser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCPreferencesParser.h; sourceTree = "<group>"; };
 		158AD8700754E3D400124717 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		158AD8C00754E3EF00124717 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		158AD9100754E40E00124717 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -2072,6 +2070,7 @@
 		159D53F307528C79004F8947 /* libLinkConfiguration.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libLinkConfiguration.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		159D53FA07528C95004F8947 /* libPreferencesMonitor.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libPreferencesMonitor.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		159D54D907529FFF004F8947 /* configd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = configd; sourceTree = BUILT_PRODUCTS_DIR; };
+		15A03BDF245B71F5003503BB /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS14.0.Internal.sdk/System/Library/Frameworks/CoreServices.framework; sourceTree = DEVELOPER_DIR; };
 		15A1FF3010597F17004C9CC9 /* CaptiveNetwork.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CaptiveNetwork.h; sourceTree = "<group>"; };
 		15A1FF3110597F17004C9CC9 /* CaptiveNetwork.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = CaptiveNetwork.c; sourceTree = "<group>"; };
 		15A2972D0A13C08C009879B3 /* SCNetworkConnectionPrivate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SCNetworkConnectionPrivate.c; sourceTree = "<group>"; };
@@ -2269,7 +2268,7 @@
 		15FD73EE0754DE62001CC321 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		15FD743E0754DE7A001CC321 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		15FD7B3B101E439200C56621 /* BridgeConfiguration.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BridgeConfiguration.c; sourceTree = "<group>"; };
-		15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
+		15FEE80D0CCFD341001312F9 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = System/Library/Frameworks/CoreServices.framework; sourceTree = SDKROOT; };
 		15FF5C290CDF770500EEC8AA /* com.apple.SCHelper.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.SCHelper.plist; path = helper/com.apple.SCHelper.plist; sourceTree = "<group>"; };
 		23C1E2B4062DD2C700835B54 /* pppcontroller_types.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = pppcontroller_types.h; path = usr/local/include/ppp/pppcontroller_types.h; sourceTree = SDKROOT; };
 		23C1E2B8062DD45900835B54 /* pppcontroller.defs */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.mig; name = pppcontroller.defs; path = SystemConfiguration.fproj/pppcontroller.defs; sourceTree = "<group>"; };
@@ -2354,6 +2353,7 @@
 		D6AEB89815AE4446009F2FAF /* ip_plugin.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ip_plugin.h; sourceTree = "<group>"; };
 		F90E43542012AD3900EF27C4 /* SCNetworkInterfaceProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SCNetworkInterfaceProvider.h; sourceTree = "<group>"; };
 		F90E43552012AD4500EF27C4 /* SCNetworkInterfaceProvider.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SCNetworkInterfaceProvider.c; sourceTree = "<group>"; };
+		F9292ACB24AEAB1C0039975D /* entitlements-macOS.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "entitlements-macOS.plist"; sourceTree = "<group>"; };
 		F95B8A420B03E07A00993BA3 /* SCNetworkSignature.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = SCNetworkSignature.c; sourceTree = "<group>"; };
 		F95B8A440B03E09300993BA3 /* SCNetworkSignature.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignature.h; sourceTree = "<group>"; };
 		F95B8A450B03E09300993BA3 /* SCNetworkSignaturePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCNetworkSignaturePrivate.h; sourceTree = "<group>"; };
@@ -2375,8 +2375,8 @@
 		F9D7304820DD89C600521181 /* AWDMetricIds_IPMonitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AWDMetricIds_IPMonitor.h; sourceTree = "<group>"; };
 		F9D7304920DD89C600521181 /* AWDIPMonitorInterfaceAdvisoryReport.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AWDIPMonitorInterfaceAdvisoryReport.m; sourceTree = "<group>"; };
 		F9D7304A20DDA59600521181 /* awdgen.yaml */ = {isa = PBXFileReference; lastKnownFileType = text; path = awdgen.yaml; sourceTree = "<group>"; };
-		F9D7304E20E41D9C00521181 /* ProtocolBuffer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ProtocolBuffer.framework; path = ../../../../../../../../SDKs/Peace16A315/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.sdk/System/Library/PrivateFrameworks/ProtocolBuffer.framework; sourceTree = "<group>"; };
-		F9D7305020E41DD500521181 /* WirelessDiagnostics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WirelessDiagnostics.framework; path = ../../../../../../../../SDKs/Peace16A315/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS12.0.sdk/System/Library/PrivateFrameworks/WirelessDiagnostics.framework; sourceTree = "<group>"; };
+		F9D7304E20E41D9C00521181 /* ProtocolBuffer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ProtocolBuffer.framework; path = System/Library/PrivateFrameworks/ProtocolBuffer.framework; sourceTree = SDKROOT; };
+		F9D7305020E41DD500521181 /* WirelessDiagnostics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WirelessDiagnostics.framework; path = System/Library/PrivateFrameworks/WirelessDiagnostics.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -2394,10 +2394,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				15FC13180CCF74740013872C /* CoreFoundation.framework in Frameworks */,
-				1559C4490D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
+				15FEE80E0CCFD341001312F9 /* CoreServices.framework in Frameworks */,
 				15792B9B0DA2C190008DDED9 /* IOKit.framework in Frameworks */,
-				15FEE80E0CCFD341001312F9 /* ApplicationServices.framework in Frameworks */,
 				150D7E1E0D16DC6C00AF4BED /* Security.framework in Frameworks */,
+				1559C4490D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2406,8 +2406,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				1520A3870846829A0010B584 /* CoreFoundation.framework in Frameworks */,
-				1559C4450D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
 				1520A3DF0846B2DD0010B584 /* Security.framework in Frameworks */,
+				1559C4450D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2457,6 +2457,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15732A9C16EA503200F3AC4C /* CoreFoundation.framework in Frameworks */,
+				15D0E41F246776B5008DB9AA /* CoreServices.framework in Frameworks */,
 				15732A9D16EA503200F3AC4C /* SystemConfiguration.framework in Frameworks */,
 				15732A9E16EA503200F3AC4C /* IOKit.framework in Frameworks */,
 				15732A9F16EA503200F3AC4C /* Security.framework in Frameworks */,
@@ -2512,16 +2513,17 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F9D7305120E41DD500521181 /* WirelessDiagnostics.framework in Frameworks */,
-				F9D7304F20E41D9C00521181 /* ProtocolBuffer.framework in Frameworks */,
+				1583174C0CFB80A1006F62B9 /* CoreFoundation.framework in Frameworks */,
+				15A03BE0245B71F5003503BB /* CoreServices.framework in Frameworks */,
+				1583174E0CFB80A1006F62B9 /* IOKit.framework in Frameworks */,
 				725CB7561BF439D2000C05A8 /* Foundation.framework in Frameworks */,
+				15D92BA71FFC669100DF2632 /* MobileWiFi.framework in Frameworks */,
 				7214BCE31BEB392000A8F056 /* Network.framework in Frameworks */,
 				7214BCE41BEB392300A8F056 /* NetworkExtension.framework in Frameworks */,
-				1583174C0CFB80A1006F62B9 /* CoreFoundation.framework in Frameworks */,
+				F9D7304F20E41D9C00521181 /* ProtocolBuffer.framework in Frameworks */,
 				154707350D1F70C80075C28D /* SystemConfiguration.framework in Frameworks */,
-				1583174E0CFB80A1006F62B9 /* IOKit.framework in Frameworks */,
-				15D92BA71FFC669100DF2632 /* MobileWiFi.framework in Frameworks */,
 				159C32B60F583724008A72EE /* Security.framework in Frameworks */,
+				F9D7305120E41DD500521181 /* WirelessDiagnostics.framework in Frameworks */,
 				158317500CFB80A1006F62B9 /* libbsm.dylib in Frameworks */,
 				1562569120856CCC00FCD61E /* liblockdown.dylib in Frameworks */,
 				15D92BA51FFC64DB00DF2632 /* libnetwork.tbd in Frameworks */,
@@ -2533,8 +2535,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				158337A00CFB6B9E0033AB93 /* CoreFoundation.framework in Frameworks */,
-				154707300D1F70C80075C28D /* SystemConfiguration.framework in Frameworks */,
 				158337A20CFB6B9E0033AB93 /* Security.framework in Frameworks */,
+				154707300D1F70C80075C28D /* SystemConfiguration.framework in Frameworks */,
 				15F21618110F823500E89CF7 /* libbsm.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2543,16 +2545,17 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F9D7305520E4389700521181 /* WirelessDiagnostics.framework in Frameworks */,
-				F9D7305420E4387A00521181 /* ProtocolBuffer.framework in Frameworks */,
+				159D54CC07529FFF004F8947 /* CoreFoundation.framework in Frameworks */,
+				15A03BDE245B71C8003503BB /* CoreServices.framework in Frameworks */,
+				152439E8180399D800D91708 /* CoreWLAN.framework in Frameworks */,
 				725CB7551BF439C6000C05A8 /* Foundation.framework in Frameworks */,
+				1543636B0752D03C00A8EC6C /* IOKit.framework in Frameworks */,
 				728015971BE16B6C009F4F60 /* Network.framework in Frameworks */,
 				728015981BE16B6C009F4F60 /* NetworkExtension.framework in Frameworks */,
-				159D54CC07529FFF004F8947 /* CoreFoundation.framework in Frameworks */,
-				1559C44A0D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
-				152439E8180399D800D91708 /* CoreWLAN.framework in Frameworks */,
-				1543636B0752D03C00A8EC6C /* IOKit.framework in Frameworks */,
+				F9D7305420E4387A00521181 /* ProtocolBuffer.framework in Frameworks */,
 				D6623873120B2AA7007F8E95 /* Security.framework in Frameworks */,
+				1559C44A0D349A4E0098FD59 /* SystemConfiguration.framework in Frameworks */,
+				F9D7305520E4389700521181 /* WirelessDiagnostics.framework in Frameworks */,
 				15BAA32307F0699A00D9EC95 /* libbsm.dylib in Frameworks */,
 				78C951FE1F797B44000EA36B /* libnetwork.tbd in Frameworks */,
 			);
@@ -3015,7 +3018,6 @@
 				158D6D871C974DBA00A08E78 /* com.apple.SystemConfiguration.plist */,
 				15CFC229068B222F00123568 /* get-mobility-info */,
 				72499BA31AC9B7AB0090C49F /* get-network-info */,
-				153393E20D34994100FE74E7 /* restore-temporary-headers */,
 			);
 			name = "Supporting Files";
 			sourceTree = "<group>";
@@ -3427,6 +3429,7 @@
 		15CB6A1805C0722B0099E85F /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
+				F9292ACB24AEAB1C0039975D /* entitlements-macOS.plist */,
 				1540E3600987DA9500157C07 /* com.apple.configd.plist */,
 				15D3083A16F4E6D900014F82 /* com.apple.configd_sim.plist */,
 				15CB6A2005C0722B0099E85F /* configd.8 */,
@@ -3527,15 +3530,15 @@
 		15CB6A6E05C0722B0099E85F /* External Frameworks and Libraries */ = {
 			isa = PBXGroup;
 			children = (
-				725CB7541BF439C6000C05A8 /* Foundation.framework */,
-				728015961BE16B6C009F4F60 /* NetworkExtension.framework */,
-				728015951BE16B6C009F4F60 /* Network.framework */,
-				15FEE80D0CCFD341001312F9 /* ApplicationServices.framework */,
 				15CB6A6F05C0722B0099E85F /* CoreFoundation.framework */,
+				15FEE80D0CCFD341001312F9 /* CoreServices.framework */,
 				152439E7180399D800D91708 /* CoreWLAN.framework */,
 				15FA0F73203A379600C7702F /* EventFactory.framework */,
+				725CB7541BF439C6000C05A8 /* Foundation.framework */,
 				1543636A0752D03C00A8EC6C /* IOKit.framework */,
 				152439EB180716ED00D91708 /* MobileWiFi.framework */,
+				728015951BE16B6C009F4F60 /* Network.framework */,
+				728015961BE16B6C009F4F60 /* NetworkExtension.framework */,
 				1520A3DE0846B2DC0010B584 /* Security.framework */,
 				15BAA32207F0699A00D9EC95 /* libbsm.dylib */,
 				152CEED0070CF6640050F23C /* libedit.dylib */,
@@ -3653,24 +3656,25 @@
 		90507AAE1CE2F55B0067D16B /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				15FA163E23C67AAF00573B3C /* Network.framework */,
-				15FA163C23C67A9800573B3C /* IOKit.framework */,
-				15C7B7CA224D9AAE0040A8D0 /* SystemConfiguration.framework */,
-				15C7B7C8224D9AA70040A8D0 /* Foundation.framework */,
 				15C7B7C6224D9A9A0040A8D0 /* CoreFoundation.framework */,
-				15B9C0B42232224A00C8FF86 /* Foundation.framework */,
-				15B9C0AF2232202200C8FF86 /* SystemConfiguration.framework */,
-				15E56C5A21939B7B00088C51 /* Foundation.framework */,
-				F9D7305020E41DD500521181 /* WirelessDiagnostics.framework */,
-				F9D7304E20E41D9C00521181 /* ProtocolBuffer.framework */,
-				1562569020856CCC00FCD61E /* liblockdown.dylib */,
+				15A03BDF245B71F5003503BB /* CoreServices.framework */,
 				15FA0F74203A390E00C7702F /* EventFactory.framework */,
+				15B9C0B42232224A00C8FF86 /* Foundation.framework */,
+				15C7B7C8224D9AA70040A8D0 /* Foundation.framework */,
+				15E56C5A21939B7B00088C51 /* Foundation.framework */,
+				15FA163C23C67A9800573B3C /* IOKit.framework */,
 				15D92BA61FFC669000DF2632 /* MobileWiFi.framework */,
+				15FA163E23C67AAF00573B3C /* Network.framework */,
+				F9D7304E20E41D9C00521181 /* ProtocolBuffer.framework */,
+				15C7B7CA224D9AAE0040A8D0 /* SystemConfiguration.framework */,
+				15B9C0AF2232202200C8FF86 /* SystemConfiguration.framework */,
 				72573D331D66800C004975AD /* SystemConfiguration.framework */,
-				78C951FD1F797B43000EA36B /* libnetwork.tbd */,
+				F9D7305020E41DD500521181 /* WirelessDiagnostics.framework */,
+				1562569020856CCC00FCD61E /* liblockdown.dylib */,
 				15D92B9A1FFC5FA500DF2632 /* libnetwork.tbd */,
 				15D92B9D1FFC61F400DF2632 /* libnetwork.tbd */,
 				15D92BA01FFC641500DF2632 /* libnetwork.tbd */,
+				78C951FD1F797B43000EA36B /* libnetwork.tbd */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -3694,6 +3698,10 @@
 				C4C5FB0E20EAC05200F35614 /* PreferencesMonitorParser.m */,
 				C469CB2720EED63C00A7AD35 /* StateDumpParser.h */,
 				C469CB2820EED6C100A7AD35 /* StateDumpParser.m */,
+				1583DFBB2360D0E700AA397A /* SCDynamicStoreParser.h */,
+				1583DFBA2360D0E700AA397A /* SCDynamicStoreParser.m */,
+				1583DFBC2360D0E800AA397A /* SCPreferencesParser.h */,
+				1583DFB92360D0E700AA397A /* SCPreferencesParser.m */,
 				C4666C74206ED01800247AB6 /* Info.plist */,
 			);
 			path = EventFactory;
@@ -4574,7 +4582,6 @@
 			buildConfigurationList = 1572C5290CFB55B400E2776E /* Build configuration list for PBXNativeTarget "SystemConfiguration.framework-Embedded" */;
 			buildPhases = (
 				1572C4A80CFB55B400E2776E /* Headers */,
-				153393E40D34999D00FE74E7 /* Restore temporary headers */,
 				1572C4DE0CFB55B400E2776E /* Sources */,
 				1572C5230CFB55B400E2776E /* Frameworks */,
 				1513C35C1F186BF90022398F /* Update "install_path" for address|thread sanitizers */,
@@ -4606,8 +4613,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				15AB752A16EC254D00FAA8CE /* PBXTargetDependency */,
-				15D3083516F3EB2500014F82 /* PBXTargetDependency */,
 			);
 			name = "configd-EmbeddedSimulator";
 			productInstallPath = /usr/sbin;
@@ -5032,7 +5037,6 @@
 			buildConfigurationList = 15A5A2660D5B94190087BDA0 /* Build configuration list for PBXNativeTarget "SystemConfiguration.framework-EmbeddedSimulator" */;
 			buildPhases = (
 				15A5A1E60D5B94190087BDA0 /* Headers */,
-				15A5A2170D5B94190087BDA0 /* Restore temporary headers */,
 				15A5A21D0D5B94190087BDA0 /* Sources */,
 				15A5A2620D5B94190087BDA0 /* Frameworks */,
 				15A5A2180D5B94190087BDA0 /* Resources */,
@@ -5518,6 +5522,7 @@
 				15732AD616EA6B6700F3AC4C /* libsystem_configuration-EmbeddedSimulator */,
 				151FE2DD0D5B7046000D6DB1 /* configd_base-EmbeddedSimulator */,
 				15A5A1E40D5B94190087BDA0 /* SystemConfiguration.framework-EmbeddedSimulator */,
+				1584B5C32469B65A00AFF758 /* configd_plugins-EmbeddedSimulator */,
 				15E1B04116EBAE3C00E5F06F /* IPMonitor-EmbeddedSimulator */,
 				15E1B05A16EBAE7800E5F06F /* IPMonitor.bundle-EmbeddedSimulator */,
 				15D3080F16F3E4DA00014F82 /* SimulatorSupport-EmbeddedSimulator */,
@@ -5945,22 +5950,6 @@
 			shellPath = /bin/sh;
 			shellScript = "echo ${BUILT_PRODUCTS_DIR}\ncc -o ${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME} ${SRCROOT}/SystemConfiguration.fproj/genSCPreferences.c || exit 1\n${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME} header   > ${BUILT_PRODUCTS_DIR}/SCSchemaDefinitions.h        || exit 1\n${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME} private  > ${BUILT_PRODUCTS_DIR}/SCSchemaDefinitionsPrivate.h || exit 1\n${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME} cfile    > ${BUILT_PRODUCTS_DIR}/SCSchemaDefinitions.c        || exit 1\nexit 0";
 		};
-		153393E40D34999D00FE74E7 /* Restore temporary headers */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/SystemConfiguration.fproj/restore-temporary-headers",
-			);
-			name = "Restore temporary headers";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n    ${SCRIPT_INPUT_FILE_0} \"${TARGET_BUILD_DIR}/${PRIVATE_HEADERS_FOLDER_PATH}\"\nfi\n";
-			showEnvVarsInLog = 0;
-		};
 		1535FEDC1B0FDDCD00B2A3AD /* Add framework symlink (TEMPORARY) */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -5973,7 +5962,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"${USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK}\" = \"YES\" ]; then\n    mkdir -p ${DSTROOT}/System/Library/Frameworks\n    cd ${DSTROOT}/System/Library/Frameworks\n    rm -rf SystemConfiguration.framework\n    ln -s ../PrivateFrameworks/SystemConfiguration.framework .\nfi";
+			shellScript = "if [ \"${USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK}\" = \"YES\" ]; then\n    mkdir -p ${DSTROOT}/System/Library/Frameworks\n    cd ${DSTROOT}/System/Library/Frameworks\n    rm -rf SystemConfiguration.framework\n    ln -s ../PrivateFrameworks/SystemConfiguration.framework .\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		15401C2021991549006326B7 /* Create non-empty Root */ = {
@@ -6082,6 +6071,25 @@
 			shellScript = "rm -rf \"${CLANG_MODULE_CACHE_PATH}\"\n";
 			showEnvVarsInLog = 0;
 		};
+		156774A2246621C500B0C1D6 /* Create non-empty Root */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Create non-empty Root";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/AppleInternal\"\n";
+			showEnvVarsInLog = 0;
+		};
 		15703B2722320A940018D2EE /* Flush Module Cache */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -6116,6 +6124,24 @@
 			shellScript = "mkdir -p \"${DSTROOT}/usr/local/bin\"\nln -fs \"${INSTALL_PATH}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/get-mobility-info\" \"${DSTROOT}/usr/local/bin/\"\n";
 			showEnvVarsInLog = 0;
 		};
+		1584B5DF2469B69A00AFF758 /* Create non-empty Root */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Create non-empty Root";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p \"${DSTROOT}/AppleInternal\"\n";
+		};
 		1595B4B81B0C02FA0087944E /* Rename/update SCHelper launchd .plist */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -6129,22 +6155,6 @@
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
 			shellScript = "SCHELPER_LAUNCHD_PLIST_EMBEDDED=\"${DSTROOT}/System/Library/LaunchDaemons/com.apple.SCHelper-embedded.plist\"\nSCHELPER_LAUNCHD_PLIST=\"${DSTROOT}/System/Library/LaunchDaemons/com.apple.SCHelper.plist\"\n\nif [ -e \"${SCHELPER_LAUNCHD_PLIST_EMBEDDED}\" ]; then\n    mv \"${SCHELPER_LAUNCHD_PLIST_EMBEDDED}\" \"${SCHELPER_LAUNCHD_PLIST}\"\nfi\n\nif [ -e \"${SCHELPER_LAUNCHD_PLIST}\" ]; then\n    /usr/bin/plutil -replace Program -string \"${INSTALL_PATH}/SCHelper\" \"${SCHELPER_LAUNCHD_PLIST}\"\n    /usr/bin/plutil -convert binary1 \"${SCHELPER_LAUNCHD_PLIST}\"\nfi";
-			showEnvVarsInLog = 0;
-		};
-		15A5A2170D5B94190087BDA0 /* Restore temporary headers */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/SystemConfiguration.fproj/restore-temporary-headers",
-			);
-			name = "Restore temporary headers";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n${SCRIPT_INPUT_FILE_0} \"${TARGET_BUILD_DIR}/${PRIVATE_HEADERS_FOLDER_PATH}\"\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		15A66BB11F18177100F7253B /* Update "install_path" for address|thread sanitizers */ = {
@@ -6345,7 +6355,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n\t${SCRIPT_INPUT_FILE_0} com.apple.configd_sim.plist\nfi";
+			shellScript = "if [ -x ${SCRIPT_INPUT_FILE_0} ]; then\n\t${SCRIPT_INPUT_FILE_0} com.apple.configd_sim.plist\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		7271EA2E1D76600B0055B1AA /* Fix plist ownership */ = {
@@ -7133,14 +7143,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				C496A09620F909FF0098B3E5 /* IPConfigurationParser.m in Sources */,
 				C4666C7A206ED27800247AB6 /* EventFactory.m in Sources */,
-				C4C5FB0C20EABD9E00F35614 /* IPMonitorParser.m in Sources */,
 				C4C5FB0520EA9B6F00F35614 /* SCLogParser.m in Sources */,
 				C4C5FB0920EAB0DD00F35614 /* InterfaceNamerParser.m in Sources */,
-				C469CB2920EED6C100A7AD35 /* StateDumpParser.m in Sources */,
-				C4C5FB0F20EAC05200F35614 /* PreferencesMonitorParser.m in Sources */,
+				C496A09620F909FF0098B3E5 /* IPConfigurationParser.m in Sources */,
+				C4C5FB0C20EABD9E00F35614 /* IPMonitorParser.m in Sources */,
 				C4C5FB0620EA9C3200F35614 /* KernelEventMonitorParser.m in Sources */,
+				C4C5FB0F20EAC05200F35614 /* PreferencesMonitorParser.m in Sources */,
+				C469CB2920EED6C100A7AD35 /* StateDumpParser.m in Sources */,
+				1583DFBE2360D0E800AA397A /* SCDynamicStoreParser.m in Sources */,
+				1583DFBD2360D0E800AA397A /* SCPreferencesParser.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -7242,25 +7254,45 @@
 			target = 15F742DA1EC6370000DA2E7A /* liblog_SystemConfiguration-Embedded */;
 			targetProxy = 15631D121ECF93040088EEDD /* PBXContainerItemProxy */;
 		};
-		15631D271ECF99800088EEDD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15F742E71EC638D100DA2E7A /* liblog_SystemConfiguration-EmbeddedSimulator */;
-			targetProxy = 15631D261ECF99800088EEDD /* PBXContainerItemProxy */;
-		};
-		15631D291ECF99800088EEDD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15732A7616EA503200F3AC4C /* configd-EmbeddedSimulator */;
-			targetProxy = 15631D281ECF99800088EEDD /* PBXContainerItemProxy */;
-		};
-		15631D2B1ECF99800088EEDD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15732AAD16EA511900F3AC4C /* scutil-EmbeddedSimulator */;
-			targetProxy = 15631D2A1ECF99800088EEDD /* PBXContainerItemProxy */;
-		};
 		15631D2D1ECF99A00088EEDD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 15631D161ECF98FB0088EEDD /* configd_executables-EmbeddedSimulator */;
 			targetProxy = 15631D2C1ECF99A00088EEDD /* PBXContainerItemProxy */;
+		};
+		15677495246620C300B0C1D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15E1B04116EBAE3C00E5F06F /* IPMonitor-EmbeddedSimulator */;
+			targetProxy = 15677494246620C300B0C1D6 /* PBXContainerItemProxy */;
+		};
+		15677497246620C300B0C1D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15E1B05A16EBAE7800E5F06F /* IPMonitor.bundle-EmbeddedSimulator */;
+			targetProxy = 15677496246620C300B0C1D6 /* PBXContainerItemProxy */;
+		};
+		15677499246620D600B0C1D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15D3080F16F3E4DA00014F82 /* SimulatorSupport-EmbeddedSimulator */;
+			targetProxy = 15677498246620D600B0C1D6 /* PBXContainerItemProxy */;
+		};
+		1567749B246620D600B0C1D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15D3082816F3E4E100014F82 /* SimulatorSupport.bundle-EmbeddedSimulator */;
+			targetProxy = 1567749A246620D600B0C1D6 /* PBXContainerItemProxy */;
+		};
+		1567749D246620E500B0C1D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15732A7616EA503200F3AC4C /* configd-EmbeddedSimulator */;
+			targetProxy = 1567749C246620E500B0C1D6 /* PBXContainerItemProxy */;
+		};
+		1567749F246620F000B0C1D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15732AAD16EA511900F3AC4C /* scutil-EmbeddedSimulator */;
+			targetProxy = 1567749E246620F000B0C1D6 /* PBXContainerItemProxy */;
+		};
+		156774A12466218800B0C1D6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 15F742E71EC638D100DA2E7A /* liblog_SystemConfiguration-EmbeddedSimulator */;
+			targetProxy = 156774A02466218800B0C1D6 /* PBXContainerItemProxy */;
 		};
 		15732AE616EA6BCE00F3AC4C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -7367,6 +7399,11 @@
 			target = 1583177D0CFB85C8006F62B9 /* IPMonitor.bundle-Embedded */;
 			targetProxy = 158317BA0CFB8660006F62B9 /* PBXContainerItemProxy */;
 		};
+		1584B5E12469B6CE00AFF758 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1584B5C32469B65A00AFF758 /* configd_plugins-EmbeddedSimulator */;
+			targetProxy = 1584B5E02469B6CE00AFF758 /* PBXContainerItemProxy */;
+		};
 		158AD9860754E72500124717 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 15FD72A10754DA4C001CC321 /* IPMonitor.bundle */;
@@ -7422,11 +7459,6 @@
 			target = 15A5A1E40D5B94190087BDA0 /* SystemConfiguration.framework-EmbeddedSimulator */;
 			targetProxy = 15A5A2700D5B942D0087BDA0 /* PBXContainerItemProxy */;
 		};
-		15AB752A16EC254D00FAA8CE /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15E1B04116EBAE3C00E5F06F /* IPMonitor-EmbeddedSimulator */;
-			targetProxy = 15AB752916EC254D00FAA8CE /* PBXContainerItemProxy */;
-		};
 		15C64A220F684C4900D78394 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 15DAD5DF075913CE0084A6ED /* libsystem_configuration */;
@@ -7446,41 +7478,6 @@
 			isa = PBXTargetDependency;
 			target = 157A84D80D56C63900B6F1A0 /* libsystem_configuration-Embedded */;
 			targetProxy = 15C64A300F684C8F00D78394 /* PBXContainerItemProxy */;
-		};
-		15D3083016F3EAD000014F82 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15D3080F16F3E4DA00014F82 /* SimulatorSupport-EmbeddedSimulator */;
-			targetProxy = 15D3082F16F3EAD000014F82 /* PBXContainerItemProxy */;
-		};
-		15D3083216F3EAD000014F82 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15D3082816F3E4E100014F82 /* SimulatorSupport.bundle-EmbeddedSimulator */;
-			targetProxy = 15D3083116F3EAD000014F82 /* PBXContainerItemProxy */;
-		};
-		15D3083516F3EB2500014F82 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15D3080F16F3E4DA00014F82 /* SimulatorSupport-EmbeddedSimulator */;
-			targetProxy = 15D3083416F3EB2500014F82 /* PBXContainerItemProxy */;
-		};
-		15E1B03E16EBAB8A00E5F06F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15732A7616EA503200F3AC4C /* configd-EmbeddedSimulator */;
-			targetProxy = 15E1B03D16EBAB8A00E5F06F /* PBXContainerItemProxy */;
-		};
-		15E1B04016EBAB9400E5F06F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15732AAD16EA511900F3AC4C /* scutil-EmbeddedSimulator */;
-			targetProxy = 15E1B03F16EBAB9400E5F06F /* PBXContainerItemProxy */;
-		};
-		15E1B06416EBAF2A00E5F06F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15E1B04116EBAE3C00E5F06F /* IPMonitor-EmbeddedSimulator */;
-			targetProxy = 15E1B06316EBAF2A00E5F06F /* PBXContainerItemProxy */;
-		};
-		15E1B06616EBAF2A00E5F06F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 15E1B05A16EBAE7800E5F06F /* IPMonitor.bundle-EmbeddedSimulator */;
-			targetProxy = 15E1B06516EBAF2A00E5F06F /* PBXContainerItemProxy */;
 		};
 		15E83109167F9B0600FD51EC /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -7719,7 +7716,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "configd_base (EmbeddedSimulator)";
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -7727,7 +7724,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "configd_base (EmbeddedSimulator)";
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -7765,7 +7762,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "configd_extras (EmbeddedSimulator)";
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -7773,7 +7770,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "configd_extras (EmbeddedSimulator)";
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -7886,7 +7883,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "configd_executables (EmbeddedSimulator)";
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -7894,7 +7891,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "configd_executables (EmbeddedSimulator)";
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -7917,19 +7914,20 @@
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
-					"-lcompiler_rt",
 					"-ldispatch",
-					"-ldyld",
 					"-lsystem_asl",
 					"-lsystem_blocks",
 					"-lsystem_c",
-					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_kernel",
 					"-lsystem_malloc",
 					"-lsystem_notify",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_platform",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_pthread",
 					"-lsystem_trace",
 					"-lxpc",
+				);
+				"OTHER_LDFLAGS[arch=x86_64]" = (
+					"$(inherited)",
+					"-ldyld",
 				);
 				"OTHER_LDFLAGS_asan[arch=i386]" = "";
 				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_osx_dynamic";
@@ -7964,19 +7962,20 @@
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
-					"-lcompiler_rt",
 					"-ldispatch",
-					"-ldyld",
 					"-lsystem_asl",
 					"-lsystem_blocks",
 					"-lsystem_c",
-					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_kernel",
 					"-lsystem_malloc",
 					"-lsystem_notify",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_platform",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_pthread",
 					"-lsystem_trace",
 					"-lxpc",
+				);
+				"OTHER_LDFLAGS[arch=x86_64]" = (
+					"$(inherited)",
+					"-ldyld",
 				);
 				"OTHER_LDFLAGS_asan[arch=i386]" = "";
 				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_osx_dynamic";
@@ -8355,6 +8354,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				"ARCHS[sdk=macosx*]" = "$(ARCHS_STANDARD)";
+				CODE_SIGN_ENTITLEMENTS = "configd.tproj/entitlements-macOS.plist";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -8381,6 +8381,7 @@
 		156EB6240905594A00EEF749 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "configd.tproj/entitlements-macOS.plist";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
@@ -8532,11 +8533,9 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/sbin;
 				INTERPOSITION_SIM_SUFFIX = "";
-				"INTERPOSITION_SIM_SUFFIX[sdk=bridgesimulator*]" = _sim;
+				"INTERPOSITION_SIM_SUFFIX[sdk=appletvsimulator*]" = _sim;
 				"INTERPOSITION_SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
-				"INTERPOSITION_SIM_SUFFIX[sdk=tvossimulator*]" = _sim;
 				"INTERPOSITION_SIM_SUFFIX[sdk=watchsimulator*]" = _sim;
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -8620,11 +8619,9 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INSTALL_PATH = /usr/sbin;
 				INTERPOSITION_SIM_SUFFIX = "";
-				"INTERPOSITION_SIM_SUFFIX[sdk=bridgesimulator*]" = _sim;
+				"INTERPOSITION_SIM_SUFFIX[sdk=appletvsimulator*]" = _sim;
 				"INTERPOSITION_SIM_SUFFIX[sdk=iphonesimulator*]" = _sim;
-				"INTERPOSITION_SIM_SUFFIX[sdk=tvossimulator*]" = _sim;
 				"INTERPOSITION_SIM_SUFFIX[sdk=watchsimulator*]" = _sim;
 				OTHER_CFLAGS = (
 					"$(inherited)",
@@ -8708,9 +8705,10 @@
 				);
 				INFOPLIST_FILE = "SystemConfiguration.fproj/Info-Embedded.plist";
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				"INSTALL_PATH[sdk=appletv*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				"INSTALL_PATH[sdk=iphone*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				"INSTALL_PATH[sdk=watch*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				"INSTALL_PATH[sdk=appletvos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=bridgeos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=iphoneos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=watchos*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib",
@@ -8722,10 +8720,10 @@
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletv*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=bridge*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphone*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watch*]" = YES;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletvos*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=bridgeos*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphoneos*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watchos*]" = YES;
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Debug;
@@ -8740,9 +8738,10 @@
 				);
 				INFOPLIST_FILE = "SystemConfiguration.fproj/Info-Embedded.plist";
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				"INSTALL_PATH[sdk=appletv*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				"INSTALL_PATH[sdk=iphone*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				"INSTALL_PATH[sdk=watch*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				"INSTALL_PATH[sdk=appletvos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=bridgeos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=iphoneos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=watchos*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib",
@@ -8754,10 +8753,10 @@
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletv*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=bridge*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphone*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watch*]" = YES;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletvos*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=bridgeos*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphoneos*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watchos*]" = YES;
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Release;
@@ -8779,7 +8778,7 @@
 				);
 				PRODUCT_NAME = configd_sim;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -8800,7 +8799,7 @@
 				);
 				PRODUCT_NAME = configd_sim;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -8820,7 +8819,7 @@
 				);
 				PRODUCT_NAME = scutil_sim;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -8840,7 +8839,7 @@
 				);
 				PRODUCT_NAME = scutil_sim;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -8856,16 +8855,12 @@
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
-					"-lcompiler_rt",
 					"-ldispatch",
 					"-ldyld",
-					"-lsystem_asl",
 					"-lsystem_blocks",
 					"-lsystem_c",
-					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_kernel",
 					"-lsystem_malloc",
 					"-lsystem_notify",
-					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_platform",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_pthread",
 					"-lsystem_trace",
 					"-lxpc",
@@ -8876,7 +8871,7 @@
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -8892,16 +8887,12 @@
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
-					"-lcompiler_rt",
 					"-ldispatch",
 					"-ldyld",
-					"-lsystem_asl",
 					"-lsystem_blocks",
 					"-lsystem_c",
-					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_kernel",
 					"-lsystem_malloc",
 					"-lsystem_notify",
-					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_platform",
 					"-lsystem$(INTERPOSITION_SIM_SUFFIX)_pthread",
 					"-lsystem_trace",
 					"-lxpc",
@@ -8912,7 +8903,7 @@
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT_normal = YES;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -8989,37 +8980,33 @@
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
-					"-lcompiler_rt",
 					"-ldispatch",
-					"-ldyld",
 					"-lsystem_asl",
 					"-lsystem_blocks",
 					"-lsystem_c",
-					"-lsystem_kernel",
 					"-lsystem_malloc",
 					"-lsystem_notify",
-					"-lsystem_platform",
 					"-lsystem_pthread",
 					"-lsystem_trace",
 					"-lxpc",
 					"-Wl,-upward-lSystem",
 				);
 				"OTHER_LDFLAGS_asan[arch=i386]" = "";
+				"OTHER_LDFLAGS_asan[sdk=appletvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=appletvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvossim_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=bridgeos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_bridgeos_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_ios_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_iossim_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_osx_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvossim_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_watchos_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_watchossim_dynamic";
 				"OTHER_LDFLAGS_tsan[arch=i386]" = "";
+				"OTHER_LDFLAGS_tsan[sdk=appletvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=appletvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvossim_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=bridgeos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_bridgeos_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=iphoneos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_ios_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_iossim_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvossim_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=watchos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_watchos_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=watchsimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_watchossim_dynamic";
 				OTHER_TAPI_FLAGS = "$(inherited) -umbrella System --extra-private-header=$(PROJECT_DIR)/libSystemConfiguration/libSystemConfiguration_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_information_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_config_agent_info_priv.h";
@@ -9045,37 +9032,33 @@
 				OTHER_LDFLAGS = (
 					"-Wl,-umbrella,System",
 					"-L/usr/lib/system",
-					"-lcompiler_rt",
 					"-ldispatch",
-					"-ldyld",
 					"-lsystem_asl",
 					"-lsystem_blocks",
 					"-lsystem_c",
-					"-lsystem_kernel",
 					"-lsystem_malloc",
 					"-lsystem_notify",
-					"-lsystem_platform",
 					"-lsystem_pthread",
 					"-lsystem_trace",
 					"-lxpc",
 					"-Wl,-upward-lSystem",
 				);
 				"OTHER_LDFLAGS_asan[arch=i386]" = "";
+				"OTHER_LDFLAGS_asan[sdk=appletvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
+				"OTHER_LDFLAGS_asan[sdk=appletvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvossim_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=bridgeos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_bridgeos_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=iphoneos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_ios_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_iossim_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_osx_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvos_dynamic";
-				"OTHER_LDFLAGS_asan[sdk=tvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_tvossim_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=watchos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_watchos_dynamic";
 				"OTHER_LDFLAGS_asan[sdk=watchsimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.asan_watchossim_dynamic";
 				"OTHER_LDFLAGS_tsan[arch=i386]" = "";
+				"OTHER_LDFLAGS_tsan[sdk=appletvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
+				"OTHER_LDFLAGS_tsan[sdk=appletvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvossim_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=bridgeos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_bridgeos_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=iphoneos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_ios_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=iphonesimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_iossim_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=macosx*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_osx_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvos_dynamic";
-				"OTHER_LDFLAGS_tsan[sdk=tvossimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_tvossim_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=watchos*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_watchos_dynamic";
 				"OTHER_LDFLAGS_tsan[sdk=watchsimulator*]" = "$(inherited) -L/usr/appleinternal/lib/sanitizers -lclang_rt.tsan_watchossim_dynamic";
 				OTHER_TAPI_FLAGS = "$(inherited) -umbrella System --extra-private-header=$(PROJECT_DIR)/libSystemConfiguration/libSystemConfiguration_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_information_internal.h --extra-private-header=$(PROJECT_DIR)/nwi/network_config_agent_info_priv.h";
@@ -9254,7 +9237,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "configd_libSystem (EmbeddedSimulator)";
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -9262,7 +9245,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = "configd_libSystem (EmbeddedSimulator)";
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -9494,9 +9477,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
-				"INSTALL_PATH[sdk=appletv*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
-				"INSTALL_PATH[sdk=iphone*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
-				"INSTALL_PATH[sdk=watch*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/SystemConfiguration.framework";
+				"INSTALL_PATH[sdk=appletvos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
+				"INSTALL_PATH[sdk=bridgeos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
+				"INSTALL_PATH[sdk=iphoneos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
+				"INSTALL_PATH[sdk=watchos*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/SystemConfiguration.framework";
 				PRODUCT_NAME = SCHelper;
 				SDKROOT = iphoneos.internal;
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
@@ -9507,11 +9491,28 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "$(SYMROOT)";
-				"INSTALL_PATH[sdk=appletv*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
-				"INSTALL_PATH[sdk=iphone*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
-				"INSTALL_PATH[sdk=watch*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/SystemConfiguration.framework";
+				"INSTALL_PATH[sdk=appletvos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
+				"INSTALL_PATH[sdk=bridgeos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
+				"INSTALL_PATH[sdk=iphoneos*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks/SystemConfiguration.framework";
+				"INSTALL_PATH[sdk=watchos*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/SystemConfiguration.framework";
 				PRODUCT_NAME = SCHelper;
 				SDKROOT = iphoneos.internal;
+				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
+			};
+			name = Release;
+		};
+		1584B5DD2469B65A00AFF758 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
+			};
+			name = Debug;
+		};
+		1584B5DE2469B65A00AFF758 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos tvos watchos bridgeos";
 			};
 			name = Release;
@@ -9527,9 +9528,9 @@
 				);
 				INFOPLIST_FILE = "SystemConfiguration.fproj/Info-Embedded.plist";
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				"INSTALL_PATH[sdk=appletv*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				"INSTALL_PATH[sdk=iphone*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				"INSTALL_PATH[sdk=watch*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				"INSTALL_PATH[sdk=appletvsimulator*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=watchsimulator*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib",
@@ -9545,11 +9546,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletv*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=bridge*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphone*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watch*]" = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletvsimulator*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphonesimulator*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watchsimulator*]" = YES;
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Debug;
@@ -9565,9 +9565,9 @@
 				);
 				INFOPLIST_FILE = "SystemConfiguration.fproj/Info-Embedded.plist";
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				"INSTALL_PATH[sdk=appletv*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				"INSTALL_PATH[sdk=iphone*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
-				"INSTALL_PATH[sdk=watch*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				"INSTALL_PATH[sdk=appletvsimulator*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
+				"INSTALL_PATH[sdk=watchsimulator*]" = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				LIBRARY_SEARCH_PATHS = (
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib",
@@ -9583,11 +9583,10 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration;
 				PRODUCT_NAME = SystemConfiguration;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletv*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=bridge*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphone*]" = NO;
-				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watch*]" = YES;
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=appletvsimulator*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=iphonesimulator*]" = NO;
+				"USING_PRIVATE_SYSTEMCONFIGURATION_FRAMEWORK[sdk=watchsimulator*]" = YES;
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Release;
@@ -9637,7 +9636,7 @@
 				PRODUCT_NAME = SimulatorSupport_sim;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -9656,7 +9655,7 @@
 				PRODUCT_NAME = SimulatorSupport_sim;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -9668,7 +9667,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.SimulatorSupport;
 				PRODUCT_NAME = SimulatorSupport;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -9680,7 +9679,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.SimulatorSupport;
 				PRODUCT_NAME = SimulatorSupport;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -9701,7 +9700,7 @@
 				PRODUCT_NAME = IPMonitor_sim;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -9722,7 +9721,7 @@
 				PRODUCT_NAME = IPMonitor_sim;
 				SDKROOT = iphoneos.internal;
 				STRIP_INSTALLED_PRODUCT = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -9734,7 +9733,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -9746,7 +9745,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.SystemConfiguration.IPMonitor;
 				PRODUCT_NAME = IPMonitor;
 				SDKROOT = iphoneos.internal;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -9926,7 +9925,7 @@
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				STRIP_INSTALLED_PRODUCT_profile = NO;
 				STRIP_INSTALLED_PRODUCT_tsan = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -9948,7 +9947,7 @@
 				STRIP_INSTALLED_PRODUCT_normal = YES;
 				STRIP_INSTALLED_PRODUCT_profile = NO;
 				STRIP_INSTALLED_PRODUCT_tsan = NO;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -9956,7 +9955,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = configdAggregateEmbeddedSimulator;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Debug;
 		};
@@ -9964,7 +9963,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				PRODUCT_NAME = configdAggregateEmbeddedSimulator;
-				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator bridgesimulator";
+				SUPPORTED_PLATFORMS = "iphonesimulator tvossimulator watchsimulator";
 			};
 			name = Release;
 		};
@@ -10651,6 +10650,15 @@
 			buildConfigurations = (
 				158337A70CFB6B9E0033AB93 /* Debug */,
 				158337A80CFB6B9E0033AB93 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1584B5DC2469B65A00AFF758 /* Build configuration list for PBXAggregateTarget "configd_plugins-EmbeddedSimulator" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1584B5DD2469B65A00AFF758 /* Debug */,
+				1584B5DE2469B65A00AFF758 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

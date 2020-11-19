@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +25,7 @@
 #define _S_CFUTIL_H
 
 #include <CoreFoundation/CoreFoundation.h>
+#include <mach/mach.h>
 #include <netinet/in.h>
 #include <sys/types.h>
 #include <stdint.h>
@@ -133,15 +134,40 @@ my_CFStringToNumber(CFStringRef str, uint32_t * ret_val);
 void
 my_CFDictionarySetTypeAsArrayValue(CFMutableDictionaryRef dict,
 				   CFStringRef prop, CFTypeRef val);
+void
+my_CFDictionarySetIPAddressAsArrayValue(CFMutableDictionaryRef dict,
+					CFStringRef prop,
+					struct in_addr ip_addr);
 
 void
 my_CFDictionarySetIPAddressAsString(CFMutableDictionaryRef dict,
 				    CFStringRef prop,
 				    struct in_addr ip_addr);
+
 void
-my_CFDictionarySetIPAddressAsArrayValue(CFMutableDictionaryRef dict,
-					CFStringRef prop,
-					struct in_addr ip_addr);
+my_CFDictionarySetIPv6Addresses(CFMutableDictionaryRef dict,
+				CFStringRef prop,
+				const struct in6_addr * ip6_addrs,
+				int count);
+
+void
+my_CFDictionarySetIPv6AddressAsString(CFMutableDictionaryRef dict,
+				      CFStringRef prop,
+				      const struct in6_addr * ip6_addr);
+
+void
+my_CFDictionarySetCString(CFMutableDictionaryRef dict,
+			  CFStringRef prop,
+			  const char * str);
+
+void
+my_CFDictionarySetAbsoluteTime(CFMutableDictionaryRef dict,
+			       CFStringRef prop,
+			       CFAbsoluteTime time);
+
+void
+my_CFDictionarySetUInt64(CFMutableDictionaryRef dict, CFStringRef prop,
+			 UInt64 val);
 void
 my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new);
 
@@ -167,6 +193,9 @@ my_CFStringToCStringWithRange(CFStringRef cfstr,
 void
 my_CFStringPrint(FILE * f, CFStringRef str);
 
+CFDataRef
+my_CFStringCreateData(CFStringRef str);
+
 Boolean
 my_CFEqual(CFTypeRef val1, CFTypeRef val2);
 
@@ -174,11 +203,25 @@ my_CFEqual(CFTypeRef val1, CFTypeRef val2);
     CFStringAppendFormat(__string, NULL,		\
 			 CFSTR(__format),		\
 			 ## __VA_ARGS__)
+#define STRING_APPEND_STR(__string, __arg)		\
+	CFStringAppend(__string, CFSTR(__arg))
 
 CFArrayRef
 my_CFStringArrayCreate(const char * * strings, CFIndex strings_count);
 
 CFStringRef
 my_CFUUIDStringCreate(CFAllocatorRef alloc);
+
+CFStringRef
+my_CFStringCreateWithBytes(const uint8_t * bytes, int bytes_length);
+
+CFPropertyListRef
+my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len);
+
+vm_address_t
+my_CFPropertyListCreateVMData(CFPropertyListRef plist,
+			      mach_msg_type_number_t * 	ret_data_len);
+CFPropertyListRef
+my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len);
 
 #endif /* _S_CFUTIL_H */

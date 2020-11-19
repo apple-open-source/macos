@@ -132,6 +132,7 @@ loadlib(krb5_context context, char *path)
      */
     if (path &&
 	(flags & CS_RESTRICT) &&  //current process is restricted
+	(!(flags & (CS_REQUIRE_LV | CS_FORCED_LV))) && // current process doesn’t have library validation on
 	(!krb5_applesigned(context, path)))  //not apple signed
     {
 	_krb5_debugx(context, 2, "Since binary is restricted skipping plugin %s ", path);
@@ -479,7 +480,7 @@ krb5_applesigned(krb5_context context, const char *path)
     
     result = SecRequirementCreateWithString(CFSTR("anchor apple"), kSecCSDefaultFlags, &secRequirementRef);
     if (result || !secRequirementRef) {
-	_krb5_debugx(context, 2, "Error creating requirement %d ", result);
+	_krb5_debugx(context, 2, "Error creating requirement %d ", (int)result);
 	applesigned = false;
 	goto cleanup;
     }
@@ -488,14 +489,14 @@ krb5_applesigned(krb5_context context, const char *path)
     pathURL = CFURLCreateWithFileSystemPath(NULL, pathString, kCFURLPOSIXPathStyle, 0);
     result = SecStaticCodeCreateWithPath(pathURL, kSecCSDefaultFlags, &codeRef);
     if (result || !codeRef) {
-	_krb5_debugx(context, 2, "Error creating static code for %s: %d ", path, result);
+	_krb5_debugx(context, 2, "Error creating static code for %s: %d ", path, (int)result);
 	applesigned = false;
 	goto cleanup;
     }
     
     result = SecStaticCodeCheckValidity(codeRef, (SecCSFlags)kSecCSStrictValidate|kSecCSCheckAllArchitectures|kSecCSDoNotValidateResources, secRequirementRef);
     if (result) {
-	_krb5_debugx(context, 2, "Error checking requirement for %s: %d ", path, result);
+	_krb5_debugx(context, 2, "Error checking requirement for %s: %d ", path, (int)result);
 	applesigned = false;
 	goto cleanup;
     }
@@ -612,6 +613,7 @@ krb5_load_plugins(krb5_context context, const char *name, const char **paths)
 	     */
 	    if (path &&
 		(flags & CS_RESTRICT) &&  //current process is restricted
+		(!(flags & (CS_REQUIRE_LV | CS_FORCED_LV))) && // current process doesn’t have library validation on
 		(!krb5_applesigned(context, path)))  //not apple signed
 	    {
 		continue;  //skip this plugin

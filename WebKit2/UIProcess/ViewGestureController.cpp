@@ -129,12 +129,16 @@ ViewGestureController::GestureID ViewGestureController::takeNextGestureID()
 
 void ViewGestureController::willBeginGesture(ViewGestureType type)
 {
+    LOG(ViewGestures, "ViewGestureController::willBeginGesture %d", (int)type);
+
     m_activeGestureType = type;
     m_currentGestureID = takeNextGestureID();
 }
 
 void ViewGestureController::didEndGesture()
 {
+    LOG(ViewGestures, "ViewGestureController::didEndGesture");
+
     m_activeGestureType = ViewGestureType::None;
     m_currentGestureID = 0;
 }
@@ -203,8 +207,11 @@ void ViewGestureController::didRestoreScrollPosition()
     m_snapshotRemovalTracker.eventOccurred(SnapshotRemovalTracker::ScrollPositionRestoration);
 }
 
-void ViewGestureController::didReachMainFrameLoadTerminalState()
+void ViewGestureController::didReachNavigationTerminalState(API::Navigation* navigation)
 {
+    if (!m_pendingNavigation || navigation != m_pendingNavigation)
+        return;
+
     if (m_snapshotRemovalTracker.isPaused() && m_snapshotRemovalTracker.hasRemovalCallback()) {
         removeSwipeSnapshot();
         return;
@@ -387,7 +394,7 @@ void ViewGestureController::SnapshotRemovalTracker::watchdogTimerFired()
 
 void ViewGestureController::SnapshotRemovalTracker::startWatchdog(Seconds duration)
 {
-    log(makeString("(re)started watchdog timer for ", FormattedNumber::fixedWidth(duration.seconds(), 1), " seconds"));
+    log(makeString("(re)started watchdog timer for ", duration.seconds(), " seconds"));
     m_watchdogTimer.startOneShot(duration);
 }
 
@@ -430,12 +437,16 @@ bool ViewGestureController::PendingSwipeTracker::scrollEventCanBecomeSwipe(Platf
 
 bool ViewGestureController::PendingSwipeTracker::handleEvent(PlatformScrollEvent event)
 {
+    LOG(ViewGestures, "PendingSwipeTracker::handleEvent - state %d", (int)m_state);
+
     if (scrollEventCanEndSwipe(event)) {
         reset("gesture ended");
         return false;
     }
 
     if (m_state == State::None) {
+        LOG(ViewGestures, "PendingSwipeTracker::handleEvent - scroll can become swipe %d shouldIgnorePinnedState %d, page will handle scrolls %d", scrollEventCanBecomeSwipe(event, m_direction), m_shouldIgnorePinnedState, m_webPageProxy.willHandleHorizontalScrollEvents());
+
         if (!scrollEventCanBecomeSwipe(event, m_direction))
             return false;
 
@@ -453,10 +464,11 @@ bool ViewGestureController::PendingSwipeTracker::handleEvent(PlatformScrollEvent
 
 void ViewGestureController::PendingSwipeTracker::eventWasNotHandledByWebCore(PlatformScrollEvent event)
 {
+    LOG(ViewGestures, "Swipe Start Hysteresis - WebCore didn't handle event, state %d", (int)m_state);
+
     if (m_state != State::WaitingForWebCore)
         return;
 
-    LOG(ViewGestures, "Swipe Start Hysteresis - WebCore didn't handle event");
     m_state = State::None;
     m_cumulativeDelta = FloatSize();
     tryToStartSwipe(event);
@@ -567,7 +579,7 @@ void ViewGestureController::willEndSwipeGesture(WebBackForwardListItem& targetIt
     auto renderTreeSizeThreshold = renderTreeSize * swipeSnapshotRemovalRenderTreeSizeTargetFraction;
 
     m_didStartProvisionalLoad = false;
-    m_webPageProxy.goToBackForwardItem(targetItem);
+    m_pendingNavigation = m_webPageProxy.goToBackForwardItem(targetItem);
 
     auto* currentItem = m_webPageProxy.backForwardList().currentItem();
     // The main frame will not be navigated so hide the snapshot right away.

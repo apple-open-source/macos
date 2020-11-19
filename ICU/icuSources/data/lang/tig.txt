@@ -147,5 +147,5 @@ tig{
     Scripts{
         Latn{"ላቲን"}
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
 }

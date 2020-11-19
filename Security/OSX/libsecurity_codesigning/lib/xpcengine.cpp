@@ -269,11 +269,13 @@ CFDictionaryRef xpcEngineUpdate(CFTypeRef target, SecAssessmentFlags flags, CFDi
 	
 	msg.send();
 
-	if (localAuthorization)
+	if (localAuthorization) {
 		AuthorizationFree(localAuthorization, kAuthorizationFlagDefaults);
+	}
 	
-    if (int64_t error = xpc_dictionary_get_int64(msg, "error"))
-        MacOSError::throwMe((int)error);
+	if (int64_t error = xpc_dictionary_get_int64(msg, "error")) {
+		MacOSError::throwMe((int)error);
+	}
 	
 	size_t resultLength;
 	const void *resultData = xpc_dictionary_get_data(msg, "result", &resultLength);

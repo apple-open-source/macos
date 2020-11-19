@@ -2,7 +2,81 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 gaa{
     Languages{
+        ar{"Arabik"}
+        ar_001{"Ŋmɛnɛŋmɛnɛ Beiaŋ Arabik"}
+        bn{"Bangla"}
+        de{"German"}
+        de_AT{"Austria German"}
+        de_CH{"Switzerland German Krɔŋŋ"}
+        en{"Blɔfo"}
+        en_AU{"Australia Blɔfo"}
+        en_CA{"Kanada Blɔfo"}
+        en_GB{"Britain Blɔfo"}
+        en_US{"Amerika Blɔfo"}
+        es{"Spanish"}
+        es_419{"Romanse Amerika Spanish"}
+        es_ES{"Yuropa Spanish"}
+        es_MX{"Meziko Spanish"}
+        fr{"Frɛntsi"}
+        fr_CA{"Kanada Frɛntsi"}
+        fr_CH{"Switzerland Frɛntsi"}
         gaa{"Gã"}
+        hi{"Hindi"}
+        id{"Indonesian"}
+        it{"Italian"}
+        ja{"Japanese"}
+        ko{"Korean"}
+        nl{"Daatsi"}
+        nl_BE{"Flemish"}
+        pl{"Polish"}
+        pt{"Portuguese"}
+        pt_BR{"Brazil Portuguese"}
+        pt_PT{"Yuropa Portuguese"}
+        ru{"Russian"}
+        th{"Thai"}
+        tr{"Turkish"}
+        und{"Wiemɔ ko ni gbɛ́i bɛ mli"}
+        zh{"Tsainese"}
+        zh_Hans{"Tsainese Ni Waaa"}
+        zh_Hant{"Blema Tsainese"}
     }
-    Version{"2.1.48.13"}
+    Languages%long{
+        zh_Hans{"Mandarin Tsainese Ni Waaa"}
+        zh_Hant{"Blema Mandarin Tsainese"}
+    }
+    Languages%menu{
+        zh{"Tsainese, Mandarin"}
+    }
+    Languages%short{
+        en_GB{"UK Blɔfo"}
+        en_US{"US Blɔfo"}
+    }
+    Scripts{
+        Arab{"Arabik"}
+        Cyrl{"Russiabii Aniŋmaa"}
+        Hans{"Nɔ Ni Yɔɔ Mlɛo"}
+        Hant{"Blema"}
+        Jpan{"Japanese"}
+        Kore{"Korean"}
+        Latn{"Niŋmaa Ni Asharaa Yiteŋ"}
+        Zxxx{"Aŋmaaa"}
+        Zzzz{"Niŋmaa Ni Aleee"}
+    }
+    Scripts%stand-alone{
+        Hans{"Nɔ Ni Yɔɔ Mlɛo Kwraa"}
+        Hant{"Tsutsu Blema"}
+    }
+    Types{
+        calendar{
+            gregorian{"Gregory Kalanda"}
+            iso8601{"ISO-8601 Kalanda"}
+        }
+        collation{
+            standard{"Bɔ Ni Atoɔ Naa Daa"}
+        }
+        numbers{
+            latn{"Blɔfomɛi Anɔmbai"}
+        }
+    }
+    Version{"36.1"}
 }

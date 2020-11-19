@@ -64,6 +64,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_COLLATION
 
 #include "unicode/coll.h"
@@ -71,7 +73,6 @@
 #include "unicode/uiter.h"
 #include "unicode/ucol.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 struct CollationCacheEntry;
@@ -229,7 +230,7 @@ public:
      * @return a copy of this object, owned by the caller
      * @stable ICU 2.0
      */
-    virtual Collator* clone(void) const;
+    virtual RuleBasedCollator* clone() const;
 
     /**
      * Creates a collation element iterator for the source string. The caller of
@@ -390,6 +391,7 @@ public:
      */
     virtual int32_t hashCode() const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
     * Gets the locale of the Collator
     * @param type can be either requested, valid or actual locale. For more
@@ -401,6 +403,7 @@ public:
     * @deprecated ICU 2.8 likely to change in ICU 3.0, based on feedback
     */
     virtual Locale getLocale(ULocDataLocaleType type, UErrorCode& status) const;
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Gets the tailoring rules for this collator.
@@ -546,6 +549,7 @@ public:
      */
     virtual UColReorderCode getMaxVariable() const;
 
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * Sets the variable top to the primary weight of the specified string.
      *
@@ -593,6 +597,7 @@ public:
      * @deprecated ICU 53 Call setMaxVariable() instead.
      */
     virtual void setVariableTop(uint32_t varTop, UErrorCode &status);
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 
     /**
      * Gets the variable top value of a Collator.
@@ -873,7 +878,9 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif  // !UCONFIG_NO_COLLATION
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif  // TBLCOLL_H

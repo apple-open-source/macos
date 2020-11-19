@@ -76,6 +76,11 @@
 #include "kextaudit.h"
 #include "driverkit.h"
 
+#if RC_ENABLE_PRODUCT_INFO_FILTER
+// Disable info hiding in kextd
+static void * product_info_filter_disable __attribute__((section("__INFO_FILTER,__disable"))) __attribute__((used));
+#endif /* RC_ENABLE_PRODUCT_INFO_FILTER */
+
 /*******************************************************************************
 * Globals set from invocation arguments (xxx - could use fewer globals).
 *******************************************************************************/

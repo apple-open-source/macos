@@ -44,44 +44,40 @@ static  bool    pushConnectionActive = false;
 
 static void lazyAllocTCPKeepAlive(void)
 {
-    CFDictionaryRef         platformFeatures = NULL;
-    CFNumberRef             expirationTimeout = NULL;
-    
+    CFTypeRef expirationTimeout = NULL;
+    CFTypeRef result = NULL;
+
     if (gTCPKeepAlive) {
         return;
     }
-    
-    platformFeatures = _copyRootDomainProperty(CFSTR("IOPlatformFeatureDefaults"));
-    if (!platformFeatures) {
+
+    IOReturn ret = IOPlatformCopyFeatureDefault(kIOPlatformTCPKeepAliveDuringSleep, &result);
+    if (ret == kIOReturnNotReady) {
+        INFO_LOG("TCPKeepAliveState: Not ready");
         goto exit;
     }
-
     gTCPKeepAlive = calloc(1, sizeof(TCPKeepAliveStruct));
-    if (!gTCPKeepAlive) goto exit;
-
-    if (kCFBooleanTrue == CFDictionaryGetValue(platformFeatures,
-                                               kIOPlatformTCPKeepAliveDuringSleep))
-    {
-        if ((expirationTimeout = CFDictionaryGetValue(platformFeatures,
-                                                      CFSTR("TCPKeepAliveExpirationTimeout"))))
-        {
+    if (!gTCPKeepAlive) {
+        goto exit;
+    }
+    if (ret == kIOReturnSuccess && result == kCFBooleanTrue) {
+        ret = IOPlatformCopyFeatureDefault(CFSTR("TCPKeepAliveExpirationTimeout"), &expirationTimeout);
+        if (ret == kIOReturnSuccess) {
             CFNumberGetValue(expirationTimeout, kCFNumberLongType, &gTCPKeepAlive->overrideSec);
-        }
-        else {
+        } else {
             gTCPKeepAlive->overrideSec = kTCPKeepAliveExpireSecs; // set to a default value
         }
         gTCPKeepAlive->state = kActive;
-    }
-    else {
+    } else {
         gTCPKeepAlive->state = kNotSupported;
     }
-
 exit:
-    if (platformFeatures) {
-        CFRelease(platformFeatures);
+    if (result) {
+        CFRelease(result);
     }
-
-
+    if (expirationTimeout) {
+        CFRelease(expirationTimeout);
+    }
     return;
 }
 
@@ -157,12 +153,13 @@ tcpKeepAliveStates_et  getTCPKeepAliveState(char *buf, int buflen)
         if (buf) snprintf(buf, buflen, "disabled");
         return kInactive;
     }
-
+#if !(TARGET_OS_OSX && TARGET_CPU_ARM64)
     if ((getDeltaToStandby() == 0) && GetSystemPowerSettingBool(CFSTR(kIOPMDestroyFVKeyOnStandbyKey))) {
         state = kInactive;
         INFO_LOG("TCPKeepAliveState: inactive due to standby with destroyfvkeyonstandby enabled ");
         if (buf) snprintf(buf, buflen, "inactive");
     }
+#endif
 
     else if ((gTCPKeepAlive->state == kActive) && pushConnectionActive) {
         state = kActive;
@@ -207,6 +204,15 @@ __private_extern__ long getTCPKeepAliveOverrideSec( )
     return 0;
 }
 
+__private_extern__ void setTCPKeepAliveOverrideSec(long value)
+{
+    if (gTCPKeepAlive)
+        gTCPKeepAlive->overrideSec = value;
+
+    enableTCPKeepAlive();
+
+}
+
 __private_extern__ void enableTCPKeepAlive()
 {
     if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
@@ -236,35 +242,33 @@ __private_extern__ void disableTCPKeepAlive()
  * Evaluate TCP Keep Alive(Tcpka) expiration timer for Power source change
  * No expiration timer when on AC power source
  */
-__private_extern__ void evalTcpkaForPSChange()
+__private_extern__ void evalTcpkaForPSChange(int pwrSrc)
 {
     static int  prevPwrSrc = -1;
-    int         pwrSrc;
-
-    pwrSrc = _getPowerSource();
 
     if (pwrSrc == prevPwrSrc)
         return; // If power source hasn't changed, there is nothing to do
 
     prevPwrSrc = pwrSrc;
 
-    if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
-        return;
+    dispatch_async(_getPMMainQueue(), ^() {
+        if (!gTCPKeepAlive || (gTCPKeepAlive->state == kNotSupported))
+            return;
 
-    if (getSessionUserActivity(NULL) == true) {
-        // If user is active in this wake session, there's nothing to be done here
-        // This case is handled when system is going to sleep
-        return;
-    }
+        if (getSessionUserActivity(NULL) == true) {
+            // If user is active in this wake session, there's nothing to be done here
+            // This case is handled when system is going to sleep
+            return;
+        }
 
-    if (_getPowerSource() == kBatteryPowered) 
-        startTCPKeepAliveExpTimer();
-    else {
-        cancelTCPKeepAliveExpTimer();
-        if (gTCPKeepAlive->state == kInactive)
-            gTCPKeepAlive->state = kActive;
-    }
-
+        if (_getPowerSource() == kBatteryPowered)
+            startTCPKeepAliveExpTimer();
+        else {
+            cancelTCPKeepAliveExpTimer();
+            if (gTCPKeepAlive->state == kInactive)
+                gTCPKeepAlive->state = kActive;
+        }
+    });
 }
 
 __private_extern__ void setPushConnectionState(bool active)

@@ -91,7 +91,7 @@
  * The IOBDMedia class is a random-access disk device abstraction for BDs.
  */
 
-class IOBDMedia : public IOMedia
+class __exported IOBDMedia : public IOMedia
 {
     OSDeclareDefaultStructors(IOBDMedia)
 

@@ -152,6 +152,14 @@ ListElement &CssmList::operator [] (unsigned ix) const
 	throw 999;	//@@@
 }
 
+CssmList &CssmList::operator =(const CssmList& other)
+{
+    ListType = other.ListType;
+    Head = other.Head;
+    Tail = other.Tail;
+    return *this;
+}
+
 unsigned int CssmList::length() const
 {
 	unsigned int len = 0;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -204,7 +204,7 @@ interface_up_down(const char * ifname, boolean_t up)
 }
 
 PRIVATE_EXTERN int
-inet_attach_interface(const char * ifname)
+inet_attach_interface(const char * ifname, boolean_t set_iff_up)
 {
     int ret = 0;
     int s = inet_dgram_socket();
@@ -223,7 +223,9 @@ inet_attach_interface(const char * ifname)
     }
     my_log(LOG_INFO,
 	   "inet_attach_interface(%s)", ifname);
-    (void)interface_set_flags(s, ifname, IFF_UP, 0);
+    if (set_iff_up) {
+	(void)interface_set_flags(s, ifname, IFF_UP, 0);
+    }
     close(s);
 
  done:
@@ -545,7 +547,7 @@ siocll_start(int s, const char * name, const struct in6_addr * v6_ll)
 
 STATIC int
 ll_start(int s, const char * name, const struct in6_addr * v6_ll,
-	 boolean_t use_cga)
+	 boolean_t use_cga, uint8_t collision_count)
 {
     int 		error = 0;
 
@@ -562,7 +564,9 @@ ll_start(int s, const char * name, const struct in6_addr * v6_ll,
 	CGAPrepareSetForInterfaceLinkLocal(name, &req.cgar_cgaprep);
 	req.cgar_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
 	req.cgar_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
-	my_log(LOG_INFO, "ioctl(%s, SIOCLL_CGASTART)", name);
+	req.cgar_collision_count = collision_count;
+	my_log(LOG_INFO, "ioctl(%s, SIOCLL_CGASTART) collision_count=%d",
+	       name, collision_count);
 	error = ioctl(s, SIOCLL_CGASTART, &req);
     }
     return (error);
@@ -637,7 +641,7 @@ siocsifcgaprep_in6(int s, const char * ifname)
 }
 
 PRIVATE_EXTERN int
-inet6_attach_interface(const char * ifname, boolean_t use_cga)
+inet6_attach_interface(const char * ifname, boolean_t set_iff_up)
 {
     int	ret = 0;
     int s = inet6_dgram_socket();
@@ -656,19 +660,11 @@ inet6_attach_interface(const char * ifname, boolean_t use_cga)
 		   ifname, strerror(errno), errno);
 	}
     }
-    if (use_cga && CGAIsEnabled()) {
-	/* set the per-interface modifier */
-	if (siocsifcgaprep_in6(s, ifname) < 0) {
-	    ret = errno;
-	    if (ret != ENXIO) {
-		my_log(LOG_ERR, "siocsifcgaprep_in6(%s) failed, %s (%d)",
-		       ifname, strerror(errno), errno);
-	    }
-	}
-    }
     my_log(LOG_INFO,
 	   "inet6_attach_interface(%s)", ifname);
-    (void)interface_set_flags(s, ifname, IFF_UP, 0);
+    if (set_iff_up) {
+	(void)interface_set_flags(s, ifname, IFF_UP, 0);
+    }
     close(s);
 
  done:
@@ -746,7 +742,8 @@ inet6_linklocal_start(const char * ifname,
 		      const struct in6_addr * v6_ll,
 		      boolean_t perform_nud,
 		      boolean_t use_cga,
-		      boolean_t enable_dad)
+		      boolean_t enable_dad,
+		      uint8_t collision_count)
 {
     uint32_t	clear_flags;
     int 	ret = 0;
@@ -785,7 +782,7 @@ inet6_linklocal_start(const char * ifname,
     nd_flags_set_with_socket(s, ifname, set_flags, clear_flags);
 
     /* start IPv6 link-local */
-    if (ll_start(s, ifname, v6_ll, use_cga) < 0) {
+    if (ll_start(s, ifname, v6_ll, use_cga, collision_count) < 0) {
 	ret = errno;
 	if (errno != ENXIO) {
 	    my_log(LOG_ERR, "siocll_start(%s) failed, %s (%d)",
@@ -844,7 +841,7 @@ siocautoconf_stop(int s, const char * if_name)
 }
 
 PRIVATE_EXTERN int
-inet6_rtadv_enable(const char * if_name)
+inet6_rtadv_enable(const char * if_name, boolean_t use_cga)
 {
     int			ret = 0;
     int			s = inet6_dgram_socket();
@@ -856,6 +853,23 @@ inet6_rtadv_enable(const char * if_name)
 	       if_name, strerror(ret), ret);
 	goto done;
     }
+    /* set the per-interface modifier */
+    if (use_cga && CGAIsEnabled()
+	&& siocsifcgaprep_in6(s, if_name) < 0) {
+	int	saved_errno;
+
+	saved_errno = errno;
+	if (saved_errno != ENXIO) {
+	    my_log(LOG_ERR, "siocsifcgaprep_in6(%s) failed, %s (%d)",
+		   if_name, strerror(saved_errno), saved_errno);
+	}
+#if ! TARGET_OS_WATCH
+	ret = saved_errno;
+	goto done;
+#endif
+    }
+
+    /* enable processing Router Advertisements */
     if (siocautoconf_start(s, if_name) < 0) {
 	ret = errno;
 	if (errno != ENXIO) {
@@ -863,11 +877,12 @@ inet6_rtadv_enable(const char * if_name)
 		   if_name, strerror(errno), errno);
 	}
     }
-    close(s);
     my_log(LOG_INFO,
 	   "rtadv_enable(%s)", if_name);
-
  done:
+    if (s >= 0) {
+	close(s);
+    }
     return (ret);
 }
 

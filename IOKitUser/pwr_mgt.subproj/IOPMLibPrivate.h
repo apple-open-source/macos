@@ -706,6 +706,20 @@ IOReturn IOPMRequestSysWake(CFDictionaryRef request);
 
 #define kIOPMAssertionResourcesUsed                         CFSTR("ResourcesUsed")
 
+/*!
+ * @define          kIOPMAssertionProcessingHotPlug
+ *
+ * @abstract        The CFDictionary key in assertion info dictionary for enabling WindowServer to hold off sleep
+ *                  when processing a hot plug event
+ *
+ * @discussion      The value for this key will be a CFBooleanRef, with value <code>kCFBooleanTrue</code>
+ *                  This property is valid only for assertion <code>@link kIOPMAssertionTypePreventSystemSleep @/link</code>
+ *                  and should be used only by WindowServer. When an assertion with this property is created the device will
+ *                  not sleep on lid close.
+ */
+
+#define kIOPMAssertionProcessingHotPlug                     CFSTR("ProcessingHotPlug")
+
 /*
  * Resource strings that can be used with kIOPMAssertionResourcesUsed key.
  */
@@ -3105,7 +3119,7 @@ IOReturn IOPMSetReservePowerMode(bool enable);
  *
  * @discussion      IOPMUserIsActive() distinguishes whether the system is awake because of a user generated event,
  *          or a notification event via <code>IOPMAssertionDeclareNotificationEvent</code>.
- *          <code>IOPMUserIsActive</code> returns true for 5 minutes following a user event, and any time a user active assertion is held.
+ *          <code>IOPMUserIsActive</code> returns true for any time the display is on for user events
  *          If the display is asleep, or the system is in DarkWake, IOPMUserIsActive will return false.
  *          User activity events include:
  *          <ul><li>HID events

@@ -162,18 +162,19 @@ gpt_add_part(int fd, uuid_t *type, off_t start, off_t size, unsigned int *entry)
 	return (map);
 }
 
-static void
+static int 
 add(int fd)
 {
 
 	if (!gpt_add_part(fd, &add_type, add_block, add_size, &add_entry))
-		return;
+		return (1);
 
 #ifdef __APPLE__
 	printf("%ss%u added\n", device_name, add_entry);
 #else
 	printf("%sp%u added\n", device_name, add_entry);
 #endif
+		return (0);
 }
 
 int
@@ -181,6 +182,7 @@ cmd_add(int argc, char *argv[])
 {
 	char *p;
 	int ch, fd;
+	int ret = 0;
 
 	/* Get the migrate options */
 	while ((ch = getopt(argc, argv, "b:i:s:t:")) != -1) {
@@ -239,10 +241,10 @@ cmd_add(int argc, char *argv[])
 			return (1);
 		}
 
-		add(fd);
+		ret = add(fd);
 
 		gpt_close(fd);
 	}
 
-	return (0);
+	return (ret);
 }

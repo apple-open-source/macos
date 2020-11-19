@@ -348,44 +348,44 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
                               old_circle_key, account.accountKey,
                                       me, error);
             
-            CFStringRef concStr = NULL;
-            switch(concstat) {
-                case kSOSConcordanceTrusted:
-                    circle_action = countersign;
-                    concStr = CFSTR("Trusted");
-                    break;
-                case kSOSConcordanceGenOld:
-                    circle_action = userTrustedOldCircle ? revert : ignore;
-                    concStr = CFSTR("Generation Old");
-                    break;
-                case kSOSConcordanceBadUserSig:
-                case kSOSConcordanceBadPeerSig:
-                    circle_action = userTrustedOldCircle ? revert : accept;
-                    concStr = CFSTR("Bad Signature");
-                    break;
-                case kSOSConcordanceNoUserSig:
-                    circle_action = userTrustedOldCircle ? revert : accept;
-                    concStr = CFSTR("No User Signature");
-                    break;
-                case kSOSConcordanceNoPeerSig:
-                    circle_action = accept; // We might like this one eventually but don't countersign.
-                    concStr = CFSTR("No trusted peer signature");
-                    secnotice("signing", "##### No trusted peer signature found, accepting hoping for concordance later");
-                    break;
-                case kSOSConcordanceNoPeer:
-                    circle_action = leave;
-                    leave_reason = kSOSLeftUntrustedCircle;
-                    concStr = CFSTR("No trusted peer left");
-                    break;
-                case kSOSConcordanceNoUserKey:
-                    secerror("##### No User Public Key Available, this shouldn't ever happen!!!");
-                    abort();
-                    break;
-                default:
-                    secerror("##### Bad Error Return from ConcordanceTrust");
-                    abort();
-                    break;
-            }
+    CFStringRef concStr = NULL;
+    switch(concstat) {
+        case kSOSConcordanceTrusted:
+            circle_action = countersign;
+            concStr = CFSTR("Trusted");
+            break;
+        case kSOSConcordanceGenOld:
+            circle_action = userTrustedOldCircle ? revert : ignore;
+            concStr = CFSTR("Generation Old");
+            break;
+        case kSOSConcordanceBadUserSig:
+        case kSOSConcordanceBadPeerSig:
+            circle_action = userTrustedOldCircle ? revert : accept;
+            concStr = CFSTR("Bad Signature");
+            break;
+        case kSOSConcordanceNoUserSig:
+            circle_action = userTrustedOldCircle ? revert : accept;
+            concStr = CFSTR("No User Signature");
+            break;
+        case kSOSConcordanceNoPeerSig:
+            circle_action = accept; // We might like this one eventually but don't countersign.
+            concStr = CFSTR("No trusted peer signature");
+            secnotice("signing", "##### No trusted peer signature found, accepting hoping for concordance later");
+            break;
+        case kSOSConcordanceNoPeer:
+            circle_action = leave;
+            leave_reason = kSOSLeftUntrustedCircle;
+            concStr = CFSTR("No trusted peer left");
+            break;
+        case kSOSConcordanceNoUserKey:
+            secerror("##### No User Public Key Available, this shouldn't ever happen!!!");
+            abort();
+            break;
+        default:
+            secerror("##### Bad Error Return from ConcordanceTrust");
+            abort();
+            break;
+    }
     
     secnotice("signing", "Decided on action [%s] based on concordance state [%@] and [%s] circle.  My PeerID is %@", actionstring[circle_action], concStr, userTrustedOldCircle ? "trusted" : "untrusted", myPeerID);
     
@@ -402,7 +402,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             secnotice("account", "Key state: accountKey %@, previousAccountKey %@, old_circle_key %@",
                       account.accountKey, account.previousAccountKey, old_circle_key);
             
-            if (sosAccountLeaveCircle(account, newCircle, nil, error)) {
+            if (sosAccountLeaveCircle(account, newCircle, error)) {
                 secnotice("circleOps", "Leaving circle by newcircle state");
                 circleToPush = newCircle;
             } else {
@@ -464,8 +464,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
             && !(SOSCircleCountPeers(oldCircle) == 1 && SOSCircleHasPeer(oldCircle, me, NULL)) // If it was our offering, don't change ID to avoid ghosts
             && !SOSCircleHasPeer(newCircle, me, NULL) && !SOSCircleHasApplicant(newCircle, me, NULL)) {
             secnotice("circle", "Purging my peer (ID: %@) for circle '%@'!!!", SOSPeerInfoGetPeerID(me), SOSCircleGetName(oldCircle));
-            if (self.fullPeerInfo)
-                SOSFullPeerInfoPurgePersistentKey(self.fullPeerInfo, NULL);
+            [self purgeIdentity];
             me = NULL;
             me_full = NULL;
         }
@@ -476,8 +475,7 @@ static bool SOSCircleHasUpdatedPeerInfoWithOctagonKey(SOSCircleRef oldCircle, SO
                 secnotice("circle", "Rejected, Purging my applicant peer (ID: %@) for circle '%@'", SOSPeerInfoGetPeerID(me), SOSCircleGetName(oldCircle));
                 debugDumpCircle(CFSTR("oldCircle"), oldCircle);
                 debugDumpCircle(CFSTR("newCircle"), newCircle);
-                if (self.fullPeerInfo)
-                    SOSFullPeerInfoPurgePersistentKey(self.fullPeerInfo, NULL);
+                [self purgeIdentity];
                 me = NULL;
                 me_full = NULL;
             } else {
@@ -657,7 +655,7 @@ fail:
     // rdar://51233857 - don't gensign if there isn't a change in the userKey
     // also don't rebake the circle to fix the icloud identity if there isn't
     // a change as that will mess up piggybacking.
-    if(SOSAccountFullPeerInfoVerify(account, privKey, NULL) && SOSCircleVerify(account.trust.trustedCircle, account.accountKey, NULL)) {
+    if(account.trust.trustedCircle && SOSAccountFullPeerInfoVerify(account, privKey, NULL) && SOSCircleVerify(account.trust.trustedCircle, account.accountKey, NULL)) {
         secnotice("updatingGenSignature", "no change to userKey - skipping gensign");
         return;
     }
@@ -696,12 +694,12 @@ fail:
     }
 }
 
--(bool) leaveCircleWithAccount:(SOSAccount*)account withAnalytics:(NSData*)parentEvent err:(CFErrorRef*) error
+-(bool) leaveCircleWithAccount:(SOSAccount*)account err:(CFErrorRef*) error
 {
     bool result = true;
     secnotice("circleOps", "leaveCircleWithAccount: Leaving circle by client request");
     result &= [self modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle) {
-        return sosAccountLeaveCircle(account, circle, parentEvent, error);
+        return sosAccountLeaveCircle(account, circle, error);
     }];
 
     self.departureCode = kSOSWithdrewMembership;
@@ -714,7 +712,7 @@ fail:
     bool result = true;
     secnotice("circleOps", "Leaving circle by client request");
     result &= [self modifyCircle:account.circle_transport err:error action:^(SOSCircleRef circle) {
-        return sosAccountLeaveCircle(account, circle, nil, error);
+        return sosAccountLeaveCircle(account, circle, error);
     }];
     account.backup_key = nil;
     self.departureCode = kSOSWithdrewMembership;
@@ -724,9 +722,8 @@ fail:
 
 -(bool) resetToOffering:(SOSAccountTransaction*) aTxn key:(SecKeyRef)userKey err:(CFErrorRef*) error
 {
-    SOSFullPeerInfoPurgePersistentKey(self.fullPeerInfo, NULL);
-    self.fullPeerInfo = nil;
-    
+    [self purgeIdentity];
+
     secnotice("resetToOffering", "Resetting circle to offering by request from client");
     
     return userKey && [self resetCircleToOffering:aTxn userKey:userKey err:error];
@@ -741,7 +738,7 @@ fail:
     if(![self hasCircle:error])
         return result;
     
-    if(![self ensureFullPeerAvailable:(__bridge CFDictionaryRef)(account.gestalt) deviceID:(__bridge CFStringRef)(account.deviceID) backupKey:(__bridge CFDataRef)(account.backup_key) err:error])
+    if(![self ensureFullPeerAvailable:account err:error])
         return result;
     
     (void)[self resetAllRings:account err:error];
@@ -807,7 +804,7 @@ void SOSAccountForEachCirclePeerExceptMe(SOSAccount* account, void (^action)(SOS
     __block SOSFullPeerInfoRef cloud_full_peer = NULL;
     __block SOSAccount* account = aTxn.account;
     require_action_quiet(self.trustedCircle, fail, SOSCreateErrorWithFormat(kSOSErrorPeerNotFound, NULL, error, NULL, CFSTR("Don't have circle when joining???")));
-    require_quiet([self ensureFullPeerAvailable:(__bridge CFDictionaryRef)account.gestalt deviceID:(__bridge CFStringRef)account.deviceID backupKey:(__bridge CFDataRef)account.backup_key err:error], fail);
+    require_quiet([self ensureFullPeerAvailable:account err:error], fail);
     
     if (SOSCircleCountPeers(self.trustedCircle) == 0 || SOSAccountGhostResultsInReset(account)) {
         secnotice("resetToOffering", "Resetting circle to offering since there are no peers");

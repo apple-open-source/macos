@@ -135,7 +135,7 @@
 					"-ldyld",
 					"-Wl,-umbrella,System",
 				);
-				OTHER_TAPI_FLAGS = "-extra-public-header keymgr.h";
+				OTHER_TAPI_FLAGS = "-extra-public-header keymgr.h -umbrella System";
 				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
 				PRODUCT_NAME = keymgr;
 				SUPPORTS_TEXT_BASED_API = YES;

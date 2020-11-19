@@ -6,7 +6,6 @@
 #include "SOSAccountLog.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <assert.h>
 #include <AssertMacros.h>
 #include "SOSAccountPriv.h"
 #include "SOSViews.h"

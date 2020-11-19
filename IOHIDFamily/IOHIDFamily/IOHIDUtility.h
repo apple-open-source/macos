@@ -32,12 +32,15 @@ enum {
     kKeyMaskCtrl             = 0x0001,
     kKeyMaskShift            = 0x0002,
     kKeyMaskAlt              = 0x0004,
-    kKeyMaskCommand          = 0x0008,
-    kKeyMaskPeriod           = 0x0010,
-    kKeyMaskComma            = 0x0020,
-    kKeyMaskSlash            = 0x0040,
-    kKeyMaskEsc              = 0x0080,
-    kKeyMaskFn               = 0x0100,
+    kKeyMaskLeftCommand      = 0x0008,
+    kKeyMaskRightCommand     = 0x0010,
+    kKeyMaskPeriod           = 0x0020,
+    kKeyMaskComma            = 0x0040,
+    kKeyMaskSlash            = 0x0080,
+    kKeyMaskEsc              = 0x0100,
+    kKeyMaskFn               = 0x0200,
+    kKeyMaskDelete           = 0x0400,
+    kKeyMaskPower            = 0x0800,
     kKeyMaskUnknown          = 0x80000000
 };
 

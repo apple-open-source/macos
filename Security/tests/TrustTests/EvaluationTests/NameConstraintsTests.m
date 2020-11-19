@@ -493,6 +493,8 @@ exit:
     return result;
 }
 
+#if !TARGET_OS_WATCH
+// Skip test on watchOS due to size constraints (rdar://66792084)
 - (void) testBetterTLS {
     NSArray<NSDictionary *> *testsArray = [self getTestsArray];
     if([self untar_test_certs]) {
@@ -539,5 +541,6 @@ exit:
 
     [[NSFileManager defaultManager] removeItemAtURL:tmpCertsDir error:nil];
 }
+#endif //!TARGET_OS_WATCH
 
 @end

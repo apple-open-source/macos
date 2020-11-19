@@ -143,11 +143,11 @@
     self.keychainZone.currentDatabase[self.keychainZoneKeys.currentClassCPointer.storedCKRecord.recordID][SecCKRecordParentKeyRefKey] = oldClassCKey;
     self.keychainZoneKeys.currentClassCPointer.currentKeyUUID = oldClassCKey.recordID.recordName;
 
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
 
     // CKKS should then fix the pointers and give itself a new TLK share record, but not update any keys
     [self expectCKModifyKeyRecords:0 currentKeyPointerRecords:1 tlkShareRecords:1 zoneID:self.keychainZoneID];
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // And then upload the item as usual
@@ -210,7 +210,7 @@
     [self expectCKKSTLKSelfShareUpload:self.keychainZoneID];
 
     [self saveTLKMaterialToKeychain:self.keychainZoneID];
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
     // And then use the 'new' key as it should

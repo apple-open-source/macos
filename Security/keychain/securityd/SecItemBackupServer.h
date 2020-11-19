@@ -37,6 +37,7 @@ __BEGIN_DECLS
 int SecServerItemBackupHandoffFD(CFStringRef backupName, CFErrorRef *error);
 bool SecServerItemBackupSetConfirmedManifest(CFStringRef backupName, CFDataRef keybagDigest, CFDataRef manifest, CFErrorRef *error);
 CFArrayRef SecServerItemBackupCopyNames(CFErrorRef *error);
+CFStringRef SecServerItemBackupEnsureCopyView(CFStringRef peerID, CFErrorRef *error);
 bool SecServerItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDataRef keybag, CFDataRef secret, CFDataRef backup, CFErrorRef *error);
 
 __END_DECLS

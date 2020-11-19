@@ -170,7 +170,7 @@ findOffsetInRanges ( mach_vm_address_t address, unsigned rangeCount, IOAddressRa
 	while ( ! found && index < rangeCount )
 	{
 		distanceInRange = address - ranges[index].address ;
-		if ( found = ( distanceInRange < ranges[ index ].length ) )
+		if ( ( found = ( distanceInRange < ranges[ index ].length ) ) )
 			outOffset += distanceInRange ;
 		else
 			outOffset += ranges[ index ].length ;

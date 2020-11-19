@@ -1,7 +1,6 @@
 #if OCTAGON
 
 func GenerateFullECKey(keySize: Int) -> (SecKey) {
-
     let keyPair = _SFECKeyPair.init(randomKeyPairWith: _SFECKeySpecifier.init(curve: SFEllipticCurve.nistp384))!
 
     var keyAttributes: [String: String] = [:]
@@ -38,7 +37,7 @@ class KCJoiningRequestTestDelegate: NSObject, KCJoiningRequestSecretDelegate, KC
         var gestalt: [String: String] = [:]
         gestalt[kPIUserDefinedDeviceNameKey as String] = "Fakey"
 
-        let newPeerInfo = SOSPeerInfoCreate(nil, gestalt as CFDictionary, nil, signingKey, octagonSigningKey, octagonEncryptionKey, nil)
+        let newPeerInfo = SOSPeerInfoCreate(nil, gestalt as CFDictionary, nil, signingKey, octagonSigningKey, octagonEncryptionKey, true, nil)
 
         self.peerInfo = newPeerInfo
         self.sharedSecret = secret
@@ -78,7 +77,6 @@ class KCJoiningRequestTestDelegate: NSObject, KCJoiningRequestSecretDelegate, KC
 }
 
 class KCJoiningAcceptTestDelegate: NSObject, KCJoiningAcceptSecretDelegate, KCJoiningAcceptCircleDelegate {
-
     var secrets: [String] = []
     var currentSecret: Int = 0
     var retriesLeft: Int = 0
@@ -102,7 +100,6 @@ class KCJoiningAcceptTestDelegate: NSObject, KCJoiningAcceptSecretDelegate, KCJo
     }
 
     init(withSecrets secrets: [String], retries: Int, code: String) {
-
         self.secrets = secrets
         self.currentSecret = 0
         self.retriesPerSecret = retries
@@ -159,7 +156,10 @@ class KCJoiningAcceptTestDelegate: NSObject, KCJoiningAcceptSecretDelegate, KCJo
     }
 
     func circleGetInitialSyncViews(_ flags: SOSInitialSyncFlags, error: NSErrorPointer) -> Data {
-        return Data()
+
+        // Skip the XPC and just call the server method
+        let possibleData = try? TestsObjectiveC.copyInitialSyncData(flags)
+        return possibleData ?? Data()
     }
 }
 
@@ -253,7 +253,7 @@ extension OctagonTestsBase {
         let acceptSession = try KCJoiningAcceptSession(secretDelegate: acceptDelegate as KCJoiningAcceptSecretDelegate,
                                                        circleDelegate: acceptDelegate as KCJoiningAcceptCircleDelegate,
                                                        dsid: dsid,
-                                                       rng: ccDRBGGetRngState())
+                                                       rng: ccrng(nil))
         requestSession.setControlObject(self.otControl)
         acceptSession.setControlObject(self.otControl)
 
@@ -360,7 +360,6 @@ extension OctagonTestsBase {
 
 @objcMembers
 class OctagonPairingTests: OctagonTestsBase {
-
     var sosAdapterForAcceptor: CKKSMockSOSPresentAdapter!
     var cuttlefishContextForAcceptor: OTCuttlefishContext!
     var contextForAcceptor = "defaultContextForAcceptor"
@@ -377,6 +376,27 @@ class OctagonPairingTests: OctagonTestsBase {
     var fcAcceptor: FCPairingFakeSOSControl!
 
     override func setUp() {
+        // We want the Passwords view to exist, so that we can check the piggybacking TLK channel
+        if self.mockDeviceInfo == nil {
+            let actualDeviceAdapter = OTDeviceInformationActualAdapter()
+            self.mockDeviceInfo = OTMockDeviceInfoAdapter(modelID: actualDeviceAdapter.modelID(),
+                                                          deviceName: actualDeviceAdapter.deviceName(),
+                                                          serialNumber: NSUUID().uuidString,
+                                                          osVersion: actualDeviceAdapter.osVersion())
+        }
+
+        if self.mockDeviceInfo.mockModelID.contains("AppleTV") {
+            self.intendedCKKSZones = Set([
+                CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
+            ])
+        } else {
+            self.intendedCKKSZones = Set([
+                CKRecordZone.ID(zoneName: "LimitedPeersAllowed"),
+                CKRecordZone.ID(zoneName: "Manatee"),
+                CKRecordZone.ID(zoneName: "Passwords"),
+            ])
+        }
+
         super.setUp()
 
         // The acceptor should have its own SOS state
@@ -386,12 +406,12 @@ class OctagonPairingTests: OctagonTestsBase {
         self.sosAdapterForAcceptor.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         self.cuttlefishContextForAcceptor = self.manager.context(forContainerName: OTCKContainerName,
-                                                contextID: self.contextForAcceptor,
-                                                sosAdapter: self.sosAdapterForAcceptor,
-                                                authKitAdapter: self.mockAuthKit3,
-                                                lockStateTracker: self.lockStateTracker,
-                                                accountStateTracker: self.accountStateTracker,
-                                                deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
+                                                                 contextID: self.contextForAcceptor,
+                                                                 sosAdapter: self.sosAdapterForAcceptor,
+                                                                 authKitAdapter: self.mockAuthKit3,
+                                                                 lockStateTracker: self.lockStateTracker,
+                                                                 accountStateTracker: self.accountStateTracker,
+                                                                 deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-SOS-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
 
         self.acceptorPiggybackingConfig = OTJoiningConfiguration(protocolType: OTProtocolPiggybacking,
                                                                  uniqueDeviceID: "acceptor",
@@ -444,7 +464,6 @@ class OctagonPairingTests: OctagonTestsBase {
     }
 
     func setupPairingEndpoints(withPairNumber pairNumber: String, initiatorContextID: String, acceptorContextID: String, initiatorUniqueID: String, acceptorUniqueID: String) -> (KCPairingChannel, KCPairingChannel) {
-
         let (acceptorClique, initiatorClique) = self.setupOTCliquePair(withNumber: pairNumber)
         XCTAssertNotNil(acceptorClique, "acceptorClique should not be nil")
         XCTAssertNotNil(initiatorClique, "initiatorClique should not be nil")
@@ -505,15 +524,10 @@ class OctagonPairingTests: OctagonTestsBase {
     }
 
     func setupOTCliquePair(withNumber count: String) -> (OTClique?, OTClique?) {
-
         let secondAcceptorData = OTConfigurationContext()
         secondAcceptorData.context = "secondAcceptor"
         secondAcceptorData.dsid = "a-"+count
         secondAcceptorData.altDSID = "alt-a-"+count
-
-        let acceptorAnalytics = SFSignInAnalytics(signInUUID: "uuid", category: "com.apple.cdp", eventName: "signed in")
-        XCTAssertNotNil(acceptorAnalytics, "acceptorAnalytics should not be nil")
-        secondAcceptorData.analytics = acceptorAnalytics
 
         let acceptor = OTClique(contextData: secondAcceptorData)
         XCTAssertNotNil(acceptor, "Clique should not be nil")
@@ -524,9 +538,6 @@ class OctagonPairingTests: OctagonTestsBase {
         secondInitiatorData.dsid = "i-"+count
         secondInitiatorData.altDSID = "alt-i-"+count
 
-        let initiatorAnalytics = SFSignInAnalytics(signInUUID: "uuid", category: "com.apple.cdp", eventName: "signed in")
-        XCTAssertNotNil(initiatorAnalytics, "initiatorAnalytics should not be nil")
-        secondInitiatorData.analytics = initiatorAnalytics
         let initiator = OTClique(contextData: secondInitiatorData)
         XCTAssertNotNil(initiator, "Clique should not be nil")
         initiator.setPairingDefault(true)

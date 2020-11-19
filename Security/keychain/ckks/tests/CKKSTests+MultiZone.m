@@ -20,6 +20,7 @@
 #import "keychain/ckks/CKKSKey.h"
 #import "keychain/ckks/CKKSOutgoingQueueEntry.h"
 #import "keychain/ckks/CKKSIncomingQueueEntry.h"
+#import "keychain/ckks/CKKSStates.h"
 #import "keychain/ckks/CKKSSynchronizeOperation.h"
 #import "keychain/ckks/CKKSViewManager.h"
 #import "keychain/ckks/CKKSZoneStateEntry.h"
@@ -53,12 +54,12 @@
 
 - (NSSet*)managedViewList {
     NSMutableSet* parentSet = [[super managedViewList] mutableCopy];
-    [parentSet addObject:@"SafariPasswords"];
+    [parentSet addObject:@"Passwords"];
     return parentSet;
 }
 
 // Make a policy as normal for most views, but Passwords is special
-- (TPPolicy*)viewSortingPolicyForManagedViewList
+- (TPSyncingPolicy*)viewSortingPolicyForManagedViewList
 {
     NSMutableArray<TPPBPolicyKeyViewMapping*>* rules = [NSMutableArray array];
 
@@ -67,7 +68,7 @@
         mapping.view = viewName;
 
         // The real passwords view is on com.appple.cfnetwork, but for these tests, let's just use the sbd agrp (because of how the entitlements are specified)
-        if([viewName isEqualToString:@"SafariPasswords"]) {
+        if([viewName isEqualToString:@"Passwords"]) {
             mapping.matchingRule = [TPDictionaryMatchingRule fieldMatch:@"agrp"
                                                              fieldRegex:[NSString stringWithFormat:@"^com\\.apple\\.sbd$"]];
         } else {
@@ -78,12 +79,14 @@
         [rules addObject:mapping];
     }
 
-    TPPolicy* policy = [TPPolicy policyWithModelToCategory:@[]
-                                          categoriesByView:@{}
-                                     introducersByCategory:@{}
-                                            keyViewMapping:rules
-                                         unknownRedactions:NO
-                                                   version:[[TPPolicyVersion alloc] initWithVersion:1 hash:@"fake-policy-for-views"]];
+    NSSet<NSString*>* viewList = [self managedViewList];
+    TPSyncingPolicy* policy = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
+                                                             version:[[TPPolicyVersion alloc] initWithVersion:1 hash:@"fake-policy-for-views"]
+                                                            viewList:viewList
+                                               userControllableViews:[NSSet set]
+                                           syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_ENABLED
+                                                viewsToPiggybackTLKs:[viewList containsObject:@"Passwords"] ? [NSSet setWithObject:@"Passwords"] : [NSSet set]
+                                                      keyViewMapping:rules];
 
     return policy;
 }
@@ -155,10 +158,10 @@
     [self.ckksViews addObject:self.limitedView];
     [self.ckksZones addObject:self.limitedZoneID];
 
-    self.passwordsZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"SafariPasswords" ownerName:CKCurrentUserDefaultName];
+    self.passwordsZoneID = [[CKRecordZoneID alloc] initWithZoneName:@"Passwords" ownerName:CKCurrentUserDefaultName];
     self.passwordsZone = [[FakeCKZone alloc] initZone: self.passwordsZoneID];
     self.zones[self.passwordsZoneID] = self.passwordsZone;
-    self.passwordsView = [[CKKSViewManager manager] findOrCreateView:@"SafariPasswords"];
+    self.passwordsView = [[CKKSViewManager manager] findOrCreateView:@"Passwords"];
     XCTAssertNotNil(self.passwordsView, "should have a passwords ckks view");
     XCTAssertNotNil(self.passwordsView, "CKKSViewManager created the Passwords view");
     [self.ckksViews addObject:self.passwordsView];
@@ -166,7 +169,7 @@
 
     // These tests, at least, will use the policy codepaths!
     [self.injectedManager setOverrideCKKSViewsFromPolicy:YES];
-    [self.injectedManager setSyncingViews:self.managedViewList sortingPolicy:self.viewSortingPolicyForManagedViewList];
+    [self.injectedManager setCurrentSyncingPolicy:self.viewSortingPolicyForManagedViewList];
 }
 
 + (void)tearDown {
@@ -525,6 +528,10 @@
     [self waitForKeyHierarchyReadinesses];
     [self.passwordsView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
+    // Ensure that we catch up to the newest CK change token so our fake cloudkit will notice the delete at fetch time
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+    [self.passwordsView waitForFetchAndIncomingQueueProcessing];
+
     // Now, the item is deleted. Do we properly remove it?
     CKRecord* itemRecord = nil;
     for(CKRecord* record in [self.passwordsZone.currentDatabase allValues]) {
@@ -545,12 +552,14 @@
 
     CFTypeRef item = NULL;
     XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should still exist");
-    XCTAssertNotNil((__bridge id)item, "No item should have been found");
+    XCTAssertNotNil((__bridge id)item, "An item should have been found");
     CFReleaseNull(item);
 
     // Now, the item is deleted. The passwords view should delete the local item, even though it has the wrong 'vwht' on disk.
+    XCTAssertNotNil(self.passwordsZone.currentDatabase[itemRecord.recordID], "Record should exist in fake CK");
     [self.passwordsZone deleteCKRecordIDFromZone:itemRecord.recordID];
-    [self.passwordsView notifyZoneChange:nil];
+
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.passwordsView waitForFetchAndIncomingQueueProcessing];
 
     XCTAssertEqual(errSecItemNotFound, SecItemCopyMatching((__bridge CFDictionaryRef) query, &item), "item should no longer exist");
@@ -611,11 +620,8 @@
     [self saveFakeKeyHierarchiesToLocalDatabase]; // Make life easy for this test.
     [self startCKKSSubsystem];
 
-    for(CKRecordZoneID* zoneID in self.ckksZones) {
-        [self expectCKKSTLKSelfShareUpload:zoneID];
-    }
-
     [self waitForKeyHierarchyReadinesses];
+    [self.engramView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     [self findGenericPassword:@"account-delete-me" expecting:errSecItemNotFound];
 
@@ -625,10 +631,15 @@
     XCTestExpectation* engramChanged = [self expectChangeForView:self.engramZoneID.zoneName];
     XCTestExpectation* pcsChanged = [self expectChangeForView:@"PCS"];
 
-    // Trigger a notification (with hilariously fake data)
-    [self.engramView notifyZoneChange:nil];
+    self.silentFetchesAllowed = false;
+    [self expectCKFetch];
 
+    // Trigger a notification (with hilariously fake data)
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
+
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
     [self.engramView waitForFetchAndIncomingQueueProcessing];
+
     [self findGenericPassword:@"account-delete-me" expecting:errSecSuccess];
 
     [self waitForExpectations:@[engramChanged] timeout:1];
@@ -660,14 +671,12 @@
     [self expectCKFetch]; // one to fail with a CKErrorChangeTokenExpired error
     [self expectCKFetch]; // and one to succeed
 
-    [self.manateeView dispatchSyncWithAccountKeys: ^bool {
-        [self.manateeView _onqueueKeyStateMachineRequestFetch];
-        return true;
-    }];
+    [self.manateeView.stateMachine handleFlag:CKKSFlagFetchRequested];
 
     XCTAssertEqual(0, [self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "CKKS should enter 'ready'");
 
-    [self.manateeView waitForFetchAndIncomingQueueProcessing];
+    // Don't cause another fetch, because the machinery might not be ready
+    [self.manateeView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
@@ -710,7 +719,7 @@
     XCTestExpectation* resetExpectation = [self expectationWithDescription: @"reset callback occurs"];
     [self.injectedManager rpcResetCloudKit:nil reason:@"reset-all-test" reply:^(NSError* result) {
         XCTAssertNil(result, "no error resetting cloudkit");
-        secnotice("ckks", "Received a resetCloudKit callback");
+        ckksnotice_global("ckks", "Received a resetCloudKit callback");
         [resetExpectation fulfill];
     }];
 
@@ -764,7 +773,7 @@
     XCTestExpectation* resetExpectation = [self expectationWithDescription: @"reset callback occurs"];
     [self.injectedManager rpcResetCloudKit:nil reason:@"reset-all-test" reply:^(NSError* result) {
         XCTAssertNil(result, "no error resetting cloudkit");
-        secnotice("ckks", "Received a resetCloudKit callback");
+        ckksnotice_global("ckks", "Received a resetCloudKit callback");
         [resetExpectation fulfill];
     }];
 
@@ -820,7 +829,7 @@
     XCTestExpectation* resetExpectation = [self expectationWithDescription: @"reset callback occurs"];
     [self.injectedManager rpcResetCloudKit:nil reason:@"reset-test" reply:^(NSError* result) {
         XCTAssertNil(result, "no error resetting cloudkit");
-        secnotice("ckks", "Received a resetCloudKit callback");
+        ckksnotice_global("ckks", "Received a resetCloudKit callback");
         [resetExpectation fulfill];
     }];
 
@@ -912,15 +921,15 @@
     self.manateeZone.limitFetchTo = manateeChangeToken1;
 
     // Attempt to trigger simultaneous key state resyncs. This is a horrible hack...
-    [self.manateeView dispatchSyncWithAccountKeys:^bool {
+    [self.manateeView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         self.manateeView.keyStateFullRefetchRequested = YES;
-        [self.manateeView _onqueueAdvanceKeyStateMachineToState:nil withError:nil];
-        return true;
+        [self.manateeView _onqueuePokeKeyStateMachine];
+        return CKKSDatabaseTransactionCommit;
     }];
-    [self.healthView dispatchSyncWithAccountKeys:^bool {
+    [self.healthView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         self.healthView.keyStateFullRefetchRequested = YES;
-        [self.healthView _onqueueAdvanceKeyStateMachineToState:nil withError:nil];
-        return true;
+        [self.healthView _onqueuePokeKeyStateMachine];
+        return CKKSDatabaseTransactionCommit;
     }];
 
     OCMVerifyAllWithDelay(self.mockDatabase, 20);

@@ -22,6 +22,7 @@
 #include <UserFS/UserVFS.h>
 #include "MR_SW_Lock.h"
 #include <stdatomic.h>
+#include <sys/queue.h>
 
 #define likely(x)               __builtin_expect(!!(x), 1)
 #define unlikely(x)             __builtin_expect(!!(x), 0)
@@ -90,31 +91,30 @@ struct unistr255 {
  *                                  Cluster Chain cache
  * ------------------------------------------------------------------------------------- */
 typedef struct {
-    uint32_t uActualStartCluster;
-    uint32_t uClusterOffsetFromFileStart;
+    uint32_t uActualStartCluster;           // # of cluster in the FS
     uint32_t uAmountOfConsecutiveClusters;
 
 } ConsecutiveClusterChacheEntry_s;
 
-typedef struct sConsecutiveCluster
+struct sConsecutiveCluster
 {
     uint64_t                        uFileOffset;                    // Offset within the file this cluster chain represents
     uint32_t                        uAmountOfClusters;              // Amount of clusters this cluster chain represents
-    struct sConsecutiveCluster*     psPrevClusterChainCacheEntry;   // Pointer to the prev cache entry related to this file
-    struct sConsecutiveCluster*     psNextClusterChainCacheEntry;   // Pointer to the next cache entry related to this file
-    ConsecutiveClusterChacheEntry_s psConsecutiveCluster[MAX_CHAIN_CACHE_ELEMENTS_PER_ENTRY]; // Cluster chain array
-    struct sConsecutiveCluster*     psLRUPrev;                      // Pointer to track LRU
-    struct sConsecutiveCluster*     psLRUNext;                      // Pointer to track LRU
     void*                           pvFileOwner;                    // Pointer to the FileRecord this cache represent
     uint64_t                        uLRUCounter;
+    ConsecutiveClusterChacheEntry_s psConsecutiveCluster[MAX_CHAIN_CACHE_ELEMENTS_PER_ENTRY]; // Cluster chain array
 
-} ClusterChainCacheEntry_s;
+    TAILQ_ENTRY(sConsecutiveCluster) psCacheListEntry;
+    TAILQ_ENTRY(sConsecutiveCluster) psClusterChainCacheListEntry;  /* for quick access from client */
+};
+TAILQ_HEAD(sConsecutiveClusterList, sConsecutiveCluster);
+
+typedef struct sConsecutiveCluster ClusterChainCacheEntry_s;
 
 typedef struct {
-    uint32_t                        uAmountOfEntries;         // Amount of used entries in the cache
-    MultiReadSingleWriteHandler_s   sClusterChainLck;
-    ClusterChainCacheEntry_s*       psChainCacheLRU;          // Pointer to the LRU entry in the cache
-    ClusterChainCacheEntry_s*       psChainCacheMRU;          // Pointer to the MRU entry in the cache
+    uint32_t                        uAmountOfEntries;      // Amount of used entries in the cache
+    pthread_mutex_t                 sClusterChainMutex;
+    struct sConsecutiveClusterList  psChainCacheList;      // head of the chain cache list
     volatile atomic_uint_least64_t  uMaxLRUCounter;
 
 } ClusterChainCache_s;
@@ -135,11 +135,9 @@ typedef struct
 typedef struct
 {
     pthread_mutex_t                 sFatMutex;
-    pthread_mutex_t                 sAlterFatMutex;
     uint64_t                        uLRUCounter;
     uint8_t                         uAmountOfAllocatedCacheEntries;
     FatCacheEntry_s                 psFATCacheEntries[FAT_CACHE_SIZE];
-    FatCacheEntry_s                 psAlterFATCacheEntries[FAT_CACHE_SIZE];
     bool                            bDriveDirtyBit;
 
 } VolumeFatCache_s;
@@ -152,7 +150,7 @@ typedef struct
 typedef struct LF_TableEntry /* hashtable entry */
 {
     struct LF_TableEntry* psNextEntry;
-    uint64_t           uEntryNum;
+    uint64_t              uEntryOffsetInDir; //offset within the directory that this entry is located
 }LF_TableEntry_t;
 
 typedef struct LF_HashTable
@@ -162,6 +160,55 @@ typedef struct LF_HashTable
     MultiReadSingleWriteHandler_s   sHTLck;
     LF_TableEntry_t* psEntries[HASH_TABLE_SIZE];
 }LF_HashTable_t;
+
+/* -------------------------------------------------------------------------------------
+ *                            Dir Cluster Data Cache
+ * ------------------------------------------------------------------------------------- */
+
+typedef struct
+{
+    uint8_t*    puClusterData;                  // Dir cluster data
+    uint32_t    uLength;                        // Length in bytes
+    uint64_t    uAbsoluteClusterOffset;         // Offset within the system
+    uint32_t    uAbsoluteClusterNum;            // Cluster num in the system
+    bool        bIsUsed;
+
+    MultiReadSingleWriteHandler_s   sCDLck;
+    uint8_t                         uRefCount;  //Ref Count for amount of threads that are using this cluster data
+} ClusterData_s;
+
+typedef struct
+{
+    struct timespec sLastUsed;
+    void*           psOwningNode;
+    bool            bBusy;
+} DirHTState_s;
+
+struct DirClusterEntry
+{
+    MultiReadSingleWriteHandler_s   sDirClusterCacheLock;
+    uint32_t                        uDirStartCluster;       //Directory start cluster - in order to associate to the directory
+    uint32_t                        uLockRefCount;          //Number of threads that are using this lock
+    TAILQ_ENTRY(DirClusterEntry)    psCacheListEntryNext;
+};
+TAILQ_HEAD(sDirEntryLocksList_s, DirClusterEntry);
+
+#define DIR_CLUSTER_DATA_TABLE_MAX (10)
+typedef struct DirClusterCache
+{
+    //Global dir clustter cache
+    bool                            bIsAllocated;
+    pthread_mutex_t                 sDirClusterDataCacheMutex;
+    pthread_cond_t                  sDirClusterCacheCond;         // We want to know when an entry is getting freed
+    ClusterData_s                   sDirClusterCacheData[DIR_CLUSTER_DATA_TABLE_MAX];
+    uint8_t                         uNumOfUnusedEntries;
+    ClusterData_s*                  sGlobalFAT12_16RootClusterrCache; // For FAT12/16 we want to save the root cluster seperatly
+                                                                      // since it's in different size (smaller then a regular cluster)
+    
+    // Global list of dir entry locks - lock is being used by the directory and by it's childs
+    MultiReadSingleWriteHandler_s   sDirClusterCacheListLock;
+    struct sDirEntryLocksList_s     slDirEntryLockList;
+}DirClusterCache_s;
 
 /* -------------------------------------------------------------------------------------
  *                                  File System Record
@@ -222,14 +269,6 @@ typedef struct
 
 } FSInfo_s;
 
-typedef struct
-{
-    struct timespec sLastUsed;
-    void*           psOwningNode;
-    bool            bBusy;
-} DirHTState_s;
-
-#define DIR_LRU_TABLE_MAX           5
 
 typedef struct
 {
@@ -239,16 +278,19 @@ typedef struct
 
 } FSOperation_s;
 
+#define DIR_LRU_TABLE_MAX           5
+
 typedef struct
 {
     int                             iFD;                    // File descriptor as recivied from usbstoraged
     FatInfo_s                       sFatInfo;               // Info about the FAT type
     RootInfo_s                      sRootInfo;              // Root Directory info
+    uint64_t                        uMetadataZone;          // Size of the metadata zone in the FS
     FSInfo_s                        sFSInfo;                // File system info
     FSOperation_s                   sFSOperations;          // Operation related to the FAT type
     VolumeFatCache_s                sFATCache;              // FAT cache
+    
     ClusterChainCache_s*            psClusterChainCache;    // Pointer to the cluster chain cache
-    MultiReadSingleWriteHandler_s   sDirEntryAccessLock;
     MultiReadSingleWriteHandler_s   sDirtyBitLck;           /* Dirty Bit Lock - prevent false status while sync
                                                              * When metadata is changed/flushed, need to acquire this lock.
                                                              * <rdar://problem/45664056> - in order to prevent deadlock,
@@ -256,12 +298,11 @@ typedef struct
     volatile atomic_uint_least64_t  uPreAllocatedOpenFiles;
 
     void*                           pvFSInfoCluster;        //FsInfoSector to allocate in case of FAT32
-
     // Locking order: NodeRecord -> sDirHTLRUTableLock
     MultiReadSingleWriteHandler_s   sDirHTLRUTableLock;     // XXXJRT should be a mutex
     DirHTState_s                    sDirHTLRUTable[DIR_LRU_TABLE_MAX];
-    volatile atomic_uint_least64_t  uDirHTGeneration;
-
+    DirClusterCache_s               sDirClusterCache;
+    
 #if DIAGNOSTIC
     DiagnosticDB_s sDiagnosticDB;
 #endif
@@ -277,28 +318,14 @@ typedef struct
     struct dosdirentry  sDosDirEntry;
     
     uint32_t            uClusterSize;
-    uint32_t            uFirstClusterIdxInChain;
-    uint64_t            uFirstEntryOffset;
-    uint32_t            uRelFirstEntryOffset;
+    uint64_t            uFirstEntryOffset;             //the offset of the first entry of this node within the system
+    uint32_t            uRelFirstEntryOffset;          //the offset of the first entry of this node within the cluster
     uint32_t            uNumberOfDirEntriesForNode;
-    uint64_t            uLastClusterAbsoluteOffset;
-    uint64_t            uLastEntryOffsetInCluster;
+    uint64_t            uDataClusterAbsoluteOffset;    //the offset of the cluster that holds this entry
+    uint32_t            uDataClusterAbsoluteNumber;
+    uint64_t            uDataEntryOffsetInCluster;     //the offset of the data entry within the cluster
     
 } NodeDirEntriesData_s;
-
-
-typedef struct
-{
-    uint32_t    uClusterNum;
-    uint8_t*    puClusterData;
-    bool        bIsAllocated;
-    bool        bIsValid;
-    uint64_t    uLength;
-    uint64_t    uAbsoluteClusterOffset;
-    uint32_t    uAbsoluteClusterNum;
-    uint64_t    uLocalDirHTGeneration;
-
-} ClusterData_s;
 
 #define NUM_OF_COND (10)
 typedef struct
@@ -315,7 +342,7 @@ typedef struct FileRecord_s
 
     RecordIdentifier_e              eRecordID;
     FileSystemRecord_s*             psFSRecord;
-    ClusterChainCacheEntry_s*       psClusterChain;             // First cluster chain cache entry
+    struct sConsecutiveClusterList  psClusterChainList;             // First cluster chain cache entry
     NodeDirEntriesData_s            sNDE;
     bool                            bIsNDEValid;
     uint32_t                        uFirstCluster;              // First data cluster of this record
@@ -323,6 +350,10 @@ typedef struct FileRecord_s
     uint32_t                        uClusterChainLength;
 
     char*                           pcUtf8Name;
+
+    bool                             uParentisRoot;
+    uint32_t                         uParentFirstCluster;
+    MultiReadSingleWriteHandler_s*   sParentDirClusterCacheLck;
 
 #ifdef DIAGNOSTIC
     struct unistr255                sName;
@@ -335,10 +366,11 @@ typedef struct FileRecord_s
 typedef struct
 {
     uint64_t        uDirVersion;
-    ClusterData_s*  psDirClusterData;
     LF_HashTable_t* sHT;
     DirHTState_s*   psDirHTLRUSlot;
     unsigned int    uHTBusyCount;
+    
+    MultiReadSingleWriteHandler_s*   sSelfDirClusterCacheLck; //pointer to the dir direntry lock
 #ifdef MSDOS_NLINK_IS_CHILD_COUNT
     uint32_t        uChildCount;
 #endif
@@ -388,20 +420,27 @@ typedef struct
             ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic2 = VALID_NODE_MAGIC;     \
         }                                                                           \
     } while(0)
-#define VERIFY_NODE_IS_VALID(psNodeRecord)                                              \
-    do {                                                                                \
-        if ((psNodeRecord) &&                                                           \
-            ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic1 == VALID_NODE_BADMAGIC &&   \
-            ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic2 == VALID_NODE_BADMAGIC ) {  \
-            MSDOS_LOG( LEVEL_ERROR, "Got stale node" );                                 \
-            return ESTALE;                                                              \
-        }                                                                               \
-        if ((psNodeRecord == NULL) ||                                                   \
-            ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic1 != VALID_NODE_MAGIC ||      \
-            ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic2 != VALID_NODE_MAGIC ) {     \
-            MSDOS_LOG( LEVEL_ERROR, "Got invalid node" );                               \
-            return EINVAL;                                                              \
-        }                                                                               \
+#define VERIFY_NODE_IS_VALID(psNodeRecord)                                                      \
+    do {                                                                                        \
+        if ((psNodeRecord) &&                                                                   \
+            ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic1 == VALID_NODE_BADMAGIC &&           \
+            ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic2 == VALID_NODE_BADMAGIC ) {          \
+            MSDOS_LOG( LEVEL_ERROR, "Got stale node" );                                         \
+            return ESTALE;                                                                      \
+        }                                                                                       \
+        if ((psNodeRecord == NULL) ||                                                           \
+            ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic1 != VALID_NODE_MAGIC ||              \
+            ((NodeRecord_s*)psNodeRecord)->uValidNodeMagic2 != VALID_NODE_MAGIC ) {             \
+            MSDOS_LOG( LEVEL_ERROR, "Got invalid node" );                                       \
+            return EINVAL;                                                                      \
+        }                                                                                       \
+        uint32_t firstCluster=((NodeRecord_s*)psNodeRecord)->sRecordData.uFirstCluster;         \
+        FileSystemRecord_s *psFSRecord = GET_FSRECORD(GET_RECORD((NodeRecord_s*)psNodeRecord)); \
+        if (firstCluster != 0 &&                                                                \
+            !CLUSTER_IS_VALID(firstCluster, psFSRecord)) {                                      \
+            MSDOS_LOG( LEVEL_ERROR, "Got node with invalid firstCluster" );                     \
+            return EINVAL;                                                                      \
+        }                                                                                       \
     } while(0)
 #define VERIFY_NODE_IS_VALID_FOR_RECLAIM(psNodeRecord)                                              \
 do {                                                                                                \

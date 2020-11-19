@@ -28,6 +28,7 @@
 #if ENABLE(DFG_JIT)
 
 #include "DOMJITHeapRange.h"
+#include "OperandsInlines.h"
 #include "VirtualRegister.h"
 #include <wtf/HashMap.h>
 #include <wtf/PrintStream.h>
@@ -56,7 +57,6 @@ namespace JSC { namespace DFG {
     macro(JSCell_indexingType) \
     macro(JSCell_structureID) \
     macro(JSCell_typeInfoFlags) \
-    macro(JSCell_typeInfoType) \
     macro(JSObject_butterfly) \
     macro(JSPropertyNameEnumerator_cachedPropertyNames) \
     macro(RegExpObject_lastIndex) \
@@ -76,7 +76,7 @@ namespace JSC { namespace DFG {
     macro(JSSetFields) \
     macro(JSWeakMapFields) \
     macro(JSWeakSetFields) \
-    macro(JSPromiseFields) \
+    macro(JSInternalFields) \
     macro(InternalState) \
     macro(CatchLocals) \
     macro(Absolute) \
@@ -123,10 +123,15 @@ public:
             , m_value(bitwise_cast<intptr_t>(pointer))
         {
         }
-        
-        Payload(VirtualRegister operand)
+
+        Payload(Operand operand)
             : m_isTop(false)
-            , m_value(operand.offset())
+            , m_value(operand.asBits())
+        {
+        }
+
+        Payload(VirtualRegister operand)
+            : Payload(Operand(operand))
         {
         }
         
@@ -183,6 +188,7 @@ public:
         }
         
         void dump(PrintStream&) const;
+        void dumpAsOperand(PrintStream&) const;
         
     private:
         bool m_isTop;
@@ -204,6 +210,7 @@ public:
     {
         ASSERT(kind != InvalidAbstractHeap && kind != World && kind != Heap && kind != SideState);
         m_value = encode(kind, payload);
+        ASSERT(this->kind() == kind && this->payload() == payload);
     }
     
     AbstractHeap(WTF::HashTableDeletedValueType)
@@ -218,6 +225,11 @@ public:
     {
         ASSERT(kind() != World && kind() != InvalidAbstractHeap);
         return payloadImpl();
+    }
+    Operand operand() const
+    {
+        ASSERT(kind() == Stack && !payload().isTop());
+        return Operand::fromBits(payload().value());
     }
     
     AbstractHeap supertype() const
@@ -306,6 +318,7 @@ public:
 private:
     static constexpr unsigned valueShift = 15;
     static constexpr unsigned topShift = 14;
+    static_assert((64 - valueShift) >= Operand::maxBits, "Operand should fit in Payload's encoded format");
     
     Payload payloadImpl() const
     {
@@ -339,9 +352,7 @@ namespace WTF {
 void printInternal(PrintStream&, JSC::DFG::AbstractHeapKind);
 
 template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::DFG::AbstractHeap> {
-    typedef JSC::DFG::AbstractHeapHash Hash;
-};
+template<> struct DefaultHash<JSC::DFG::AbstractHeap> : JSC::DFG::AbstractHeapHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::DFG::AbstractHeap> : SimpleClassHashTraits<JSC::DFG::AbstractHeap> { };

@@ -25,11 +25,13 @@
 
 #pragma once
 
-#if ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
+#if ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)
 
 #include "ThreadedScrollingTree.h"
 
 namespace WebCore {
+
+class WheelEventTestMonitor;
 
 class ScrollingTreeMac final : public ThreadedScrollingTree {
 public:
@@ -39,8 +41,28 @@ private:
     explicit ScrollingTreeMac(AsyncScrollingCoordinator&);
 
     Ref<ScrollingTreeNode> createScrollingTreeNode(ScrollingNodeType, ScrollingNodeID) final;
+
+    RefPtr<ScrollingTreeNode> scrollingNodeForPoint(FloatPoint) final;
+#if ENABLE(WHEEL_EVENT_REGIONS)
+    OptionSet<EventListenerRegionType> eventListenerRegionTypesForPoint(FloatPoint) const final;
+#endif
+
+    void setWheelEventTestMonitor(RefPtr<WheelEventTestMonitor>&&) final;
+
+    void receivedWheelEvent(const PlatformWheelEvent&) final;
+
+    void deferWheelEventTestCompletionForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) final;
+    void removeWheelEventTestCompletionDeferralForReason(WheelEventTestMonitor::ScrollableAreaIdentifier, WheelEventTestMonitor::DeferReason) final;
+
+    void lockLayersForHitTesting() final;
+    void unlockLayersForHitTesting() final;
+
+    // This lock protects the CALayer/PlatformCALayer tree.
+    mutable Lock m_layerHitTestMutex;
+    
+    RefPtr<WheelEventTestMonitor> m_wheelEventTestMonitor;
 };
 
 } // namespace WebCore
 
-#endif // ENABLE(ASYNC_SCROLLING) && PLATFORM(MAC)
+#endif // ENABLE(ASYNC_SCROLLING) && ENABLE(SCROLLING_THREAD)

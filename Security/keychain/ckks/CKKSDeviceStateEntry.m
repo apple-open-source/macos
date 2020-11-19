@@ -104,7 +104,7 @@
         case (uint32_t)kSOSCCError: // And, if by some miracle, you end up with -1 as a uint32_t, accept that too
             return kSOSCCError;
         default:
-            secerror("ckks: %d is not an SOSCCStatus?", n);
+            ckkserror_global("ckks", "%d is not an SOSCCStatus?", n);
             return kSOSCCError;
     }
 }
@@ -146,7 +146,7 @@
         case (uint32_t)kSOSCCErrorPositive: // Use the magic number
             return [[OTCliqueStatusWrapper alloc] initWithStatus:CliqueStatusError];
         default:
-            secerror("ckks: %d is not an OTCliqueStatus?", n);
+            ckkserror_global("ckks", "%d is not an OTCliqueStatus?", n);
             return [[OTCliqueStatusWrapper alloc] initWithStatus:CliqueStatusError];;
     }
 }

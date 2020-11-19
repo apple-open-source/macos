@@ -26,6 +26,7 @@ FIND_PACKAGE(LibXml2)
 FIND_PACKAGE(Lua51)
 FIND_PACKAGE(OpenSSL)
 FIND_PACKAGE(ZLIB)
+FIND_PACKAGE(CURL)
 
 # Options for support libraries not supported by cmake-bundled FindFOO
 
@@ -64,12 +65,6 @@ ELSE()
   SET(default_brotli_libraries)
 ENDIF()
 
-IF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/curl.lib")
-  SET(default_curl_libraries "${CMAKE_INSTALL_PREFIX}/lib/curl.lib")
-ELSE()
-  SET(default_curl_libraries)
-ENDIF()
-
 IF(EXISTS "${CMAKE_INSTALL_PREFIX}/lib/jansson.lib")
   SET(default_jansson_libraries "${CMAKE_INSTALL_PREFIX}/lib/jansson.lib")
 ELSE()
@@ -86,7 +81,7 @@ SET(LIBXML2_ICONV_INCLUDE_DIR     ""                     CACHE STRING "Directory
 SET(LIBXML2_ICONV_LIBRARIES       ""                     CACHE STRING "iconv libraries to link with for libxml2")
 SET(BROTLI_INCLUDE_DIR    "${CMAKE_INSTALL_PREFIX}/include" CACHE STRING "Directory with include files for Brotli")
 SET(BROTLI_LIBRARIES      ${default_brotli_libraries}    CACHE STRING "Brotli libraries to link with")
-SET(CURL_LIBRARIES        "${default_curl_libraries}"    CACHE STRING "Curl libraries to link with")
+SET(JANSSON_INCLUDE_DIR   "${CMAKE_INSTALL_PREFIX}/include" CACHE STRING "Directory with include files for jansson")
 SET(JANSSON_LIBRARIES     "${default_jansson_libraries}" CACHE STRING "Jansson libraries to link with")
 # end support library configuration
 
@@ -213,16 +208,16 @@ ELSE()
   SET(BROTLI_FOUND FALSE)
 ENDIF()
 
-# See if we have curl
-SET(CURL_FOUND TRUE)
-IF(EXISTS "${CURL_INCLUDE_DIR}/curl/curl.h")
-  FOREACH(onelib ${CURL_LIBRARIES})
+# See if we have Jansson
+SET(JANSSON_FOUND TRUE)
+IF(EXISTS "${JANSSON_INCLUDE_DIR}/jansson.h")
+  FOREACH(onelib ${JANSSON_LIBRARIES})
     IF(NOT EXISTS ${onelib})
-      SET(CURL_FOUND FALSE)
+      SET(JANSSON_FOUND FALSE)
     ENDIF()
   ENDFOREACH()
 ELSE()
-  SET(CURL_FOUND FALSE)
+  SET(JANSSON_FOUND FALSE)
 ENDIF()
 
 
@@ -470,7 +465,7 @@ SET(mod_lua_extra_sources
   modules/lua/lua_vmprep.c           modules/lua/lua_dbd.c
 )
 SET(mod_lua_requires                 LUA51_FOUND)
-SET(mod_md_requires                  OPENSSL_FOUND CURL_FOUND JANSSON_FOUND HAVE_OPENSSL_102)
+SET(mod_md_requires                  OPENSSL_FOUND CURL_FOUND JANSSON_FOUND)
 SET(mod_md_extra_includes            ${OPENSSL_INCLUDE_DIR} ${CURL_INCLUDE_DIR} ${JANSSON_INCLUDE_DIR})
 SET(mod_md_extra_libs                ${OPENSSL_LIBRARIES} ${CURL_LIBRARIES} ${JANSSON_LIBRARIES} mod_watchdog)
 SET(mod_md_extra_sources
@@ -484,9 +479,10 @@ SET(mod_md_extra_sources
   modules/md/md_result.c             modules/md/md_reg.c
   modules/md/md_status.c             modules/md/md_store.c
   modules/md/md_store_fs.c           modules/md/md_time.c
-  modules/md/md_util.c               
+  modules/md/md_ocsp.c               modules/md/md_util.c               
   modules/md/mod_md_config.c         modules/md/mod_md_drive.c
   modules/md/mod_md_os.c             modules/md/mod_md_status.c
+  modules/md/mod_md_ocsp.c
 )
 SET(mod_optional_hook_export_extra_defines AP_DECLARE_EXPORT) # bogus reuse of core API prefix
 SET(mod_proxy_extra_defines          PROXY_DECLARE_EXPORT)
@@ -705,6 +701,7 @@ SET(HTTPD_INCLUDE_DIRECTORIES
   ${CMAKE_CURRENT_SOURCE_DIR}/modules/session
   ${CMAKE_CURRENT_SOURCE_DIR}/modules/ssl
   ${CMAKE_CURRENT_SOURCE_DIR}/server
+  ${CMAKE_CURRENT_SOURCE_DIR}/server/mpm/winnt
   ${APR_INCLUDE_DIR}
   ${PCRE_INCLUDE_DIR}
 )
@@ -767,15 +764,17 @@ FOREACH (mod ${MODULE_PATHS})
   IF(NOT ${enable_mod_val} STREQUAL "O") # build of module is desired
     SET(mod_requires "${mod_name}_requires")
     STRING(TOUPPER ${enable_mod_val} enable_mod_val_upper)
-    IF(NOT ${${mod_requires}} STREQUAL "") # module has some prerequisite
-      IF(NOT ${${mod_requires}}) # prerequisite doesn't exist
-        IF(NOT ${enable_mod_val} STREQUAL ${enable_mod_val_upper}) # lower case, so optional based on prereq
-          MESSAGE(STATUS "${mod_name} was requested but couldn't be built due to a missing prerequisite (${${mod_requires}})")
-          SET(enable_mod_val_upper "O") # skip due to missing prerequisite
-        ELSE() # must be upper case "A" or "I" (or coding error above)
-          MESSAGE(FATAL_ERROR "${mod_name} was requested but couldn't be built due to a missing prerequisite (${${mod_requires}})")
+    IF(NOT "${${mod_requires}}" STREQUAL "") # module has some prerequisite
+      FOREACH (required ${${mod_requires}})
+        IF(NOT ${required}) # prerequisite doesn't exist
+          IF(NOT ${enable_mod_val} STREQUAL ${enable_mod_val_upper}) # lower case, so optional based on prereq
+            MESSAGE(STATUS "${mod_name} was requested but couldn't be built due to a missing prerequisite (${required})")
+            SET(enable_mod_val_upper "O") # skip due to missing prerequisite
+          ELSE() # must be upper case "A" or "I" (or coding error above)
+            MESSAGE(FATAL_ERROR "${mod_name} was requested but couldn't be built due to a missing prerequisite (${required})")
+          ENDIF()
         ENDIF()
-      ENDIF()
+      ENDFOREACH()
     ENDIF()
     # map a->A, i->I, O->O for remaining logic since prereq checking is over
     SET(enable_mod_val ${enable_mod_val_upper})

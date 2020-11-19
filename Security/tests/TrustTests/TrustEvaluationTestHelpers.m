@@ -10,6 +10,7 @@
 
 #include <utilities/SecInternalReleasePriv.h>
 #include <utilities/SecCFRelease.h>
+#include <utilities/SecCFWrappers.h>
 #include <Security/SecCertificate.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecPolicyPriv.h>
@@ -288,6 +289,50 @@ errOut:
     return false;
 }
 
+- (bool)addThirdPartyPinningPolicyChecks:(CFDictionaryRef)properties
+                                  policy:(SecPolicyRef)policy
+{
+    if (!properties) {
+        return true;
+    }
+
+    CFStringRef spkiSHA256Options[] = {
+        kSecPolicyCheckLeafSPKISHA256,
+        kSecPolicyCheckCAspkiSHA256,
+    };
+
+    for (size_t i = 0; i < sizeof(spkiSHA256Options)/sizeof(spkiSHA256Options[0]); i++) {
+        CFArrayRef spkiSHA256StringArray = CFDictionaryGetValue(properties, spkiSHA256Options[i]);
+        // Relevant property is not set.
+        if (!spkiSHA256StringArray) {
+            continue;
+        }
+        require_string(isArray(spkiSHA256StringArray), errOut, "SPKISHA256 property is not an array");
+
+        CFMutableArrayRef spkiSHA256DataArray = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+        require_string(spkiSHA256DataArray, errOut, "failed to allocate memory for the SPKISHA256 data array");
+
+        for (CFIndex j = 0; j < CFArrayGetCount(spkiSHA256StringArray); j++) {
+            CFStringRef spkiSHA256String = CFArrayGetValueAtIndex(spkiSHA256StringArray, j);
+            require_string(isString(spkiSHA256String), errOut, "SPKISHA256 property array element is not a string");
+            CFDataRef spkiSHA256Data = CreateCFDataFromBase64CFString(spkiSHA256String);
+            // 'spkiSHA256Data' is optional because we want to allow empty strings.
+            if (spkiSHA256Data) {
+                CFArrayAppendValue(spkiSHA256DataArray, spkiSHA256Data);
+            }
+            CFReleaseNull(spkiSHA256Data);
+        }
+
+        SecPolicySetOptionsValue(policy, spkiSHA256Options[i], spkiSHA256DataArray);
+        CFReleaseNull(spkiSHA256DataArray);
+    }
+
+    return true;
+
+errOut:
+    return false;
+}
+
 - (bool)addPolicy:(NSDictionary *)policyDict
 {
     SecPolicyRef policy = NULL;
@@ -295,14 +340,17 @@ errOut:
     NSDictionary *policyProperties = [(NSDictionary *)policyDict objectForKey:kSecTrustTestPolicyProperties];
     require_string(policyIdentifier, errOut, "failed to get policy OID");
 
+    CFDictionaryRef properties = (__bridge CFDictionaryRef)policyProperties;
     policy = SecPolicyCreateWithProperties((__bridge CFStringRef)policyIdentifier,
-                                           (__bridge CFDictionaryRef)policyProperties);
+                                           properties);
     require_string(policy, errOut, "failed to create properties for policy OID");
+    require_string([self addThirdPartyPinningPolicyChecks:properties policy:policy], errOut, "failed to parse properties for third-party-pinning policy checks");
     [self.policies addObject:(__bridge id)policy];
     CFReleaseNull(policy);
 
     return true;
 errOut:
+    CFReleaseNull(policy);
     return false;
 }
 

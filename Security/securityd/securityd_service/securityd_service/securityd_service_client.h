@@ -44,7 +44,7 @@ int service_client_kb_unwrap_key(service_context_t *context, const void *wrapped
 
 int service_client_stash_set_key(service_context_t *context, const void * key, int key_len);
 int service_client_stash_load_key(service_context_t *context, const void * key, int key_len);
-int service_client_stash_get_key(service_context_t *context, void ** key, int * key_len);
+int service_client_stash_get_key(service_context_t *context, void ** key, size_t * key_len);
 
 #if defined(__cplusplus)
 }

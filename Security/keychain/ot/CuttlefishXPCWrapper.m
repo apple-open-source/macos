@@ -310,8 +310,9 @@ enum {NUM_RETRIES = 5};
                   deviceName:(nullable NSString*)deviceName
                 serialNumber:(NSString *)serialNumber
                    osVersion:(NSString *)osVersion
-               policyVersion:(nullable TPPolicy *)policyVersion
+               policyVersion:(nullable TPPolicyVersion *)policyVersion
                policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
+   syncUserControllableViews:(TPPBPeerStableInfo_UserControllableViewStatus)syncUserControllableViews
  signingPrivKeyPersistentRef:(nullable NSData *)spkPr
      encPrivKeyPersistentRef:(nullable NSData*)epkPr
                        reply:(void (^)(NSString * _Nullable peerID,
@@ -319,8 +320,7 @@ enum {NUM_RETRIES = 5};
                                        NSData * _Nullable permanentInfoSig,
                                        NSData * _Nullable stableInfo,
                                        NSData * _Nullable stableInfoSig,
-                                       NSSet<NSString*>* syncingViews,
-                                       TPPolicy* _Nullable syncingPolicy,
+                                       TPSyncingPolicy* _Nullable syncingPolicy,
                                        NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -333,7 +333,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, nil, nil, nil, nil, nil, nil, error);
+                        reply(nil, nil, nil, nil, nil, nil, error);
                     }
                     ++i;
                 }] prepareWithContainer:container
@@ -348,6 +348,7 @@ enum {NUM_RETRIES = 5};
          osVersion:osVersion
          policyVersion:policyVersion
          policySecrets:policySecrets
+         syncUserControllableViews:syncUserControllableViews
          signingPrivKeyPersistentRef:spkPr
          encPrivKeyPersistentRef:epkPr
          reply:reply];
@@ -361,6 +362,7 @@ enum {NUM_RETRIES = 5};
                preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                          reply:(void (^)(NSString * _Nullable peerID,
                                          NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                         TPSyncingPolicy* _Nullable syncingPolicy,
                                          NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -373,7 +375,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, nil, error);
+                        reply(nil, nil, nil, error);
                     }
                     ++i;
                 }] establishWithContainer:container context:context ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
@@ -414,8 +416,8 @@ enum {NUM_RETRIES = 5};
                                       context:(nonnull NSString *)context
                                      bottleID:(nonnull NSString *)bottleID
                                         reply:(nonnull void (^)(NSString * _Nullable,
-                                                                NSSet<NSString*>* _Nullable peerSyncingViewList,
-                                                                TPPolicy * _Nullable peerSyncingPolicy,
+                                                                TPSyncingPolicy* _Nullable peerSyncingPolicy,
+                                                                BOOL refetchWasNeeded,
                                                                 NSError * _Nullable))reply {
     __block int i = 0;
     __block bool retry;
@@ -427,7 +429,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, nil, nil, error);
+                        reply(nil, nil, false, error);
                     }
                     ++i;
                 }] preflightVouchWithBottleWithContainer:container
@@ -471,8 +473,7 @@ enum {NUM_RETRIES = 5};
                                        recoveryKey:(NSString*)recoveryKey
                                               salt:(NSString*)salt
                                              reply:(nonnull void (^)(NSString * _Nullable,
-                                                                     NSSet<NSString*>* _Nullable peerSyncingViewList,
-                                                                     TPPolicy * _Nullable peerSyncingPolicy,
+                                                                     TPSyncingPolicy* _Nullable peerSyncingPolicy,
                                                                      NSError * _Nullable))reply {
     __block int i = 0;
     __block bool retry;
@@ -484,7 +485,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, nil, nil, error);
+                        reply(nil, nil, error);
                     }
                     ++i;
                 }] preflightVouchWithRecoveryKeyWithContainer:container
@@ -527,11 +528,10 @@ enum {NUM_RETRIES = 5};
                voucherSig:(NSData *)voucherSig
                  ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)viewKeySets
                 tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-          preapprovedKeys:(NSArray<NSData*> *)preapprovedKeys
+          preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                     reply:(void (^)(NSString * _Nullable peerID,
                                     NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                    NSSet<NSString*>* _Nullable viewSet,
-                                    TPPolicy* _Nullable syncingPolicy,
+                                    TPSyncingPolicy* _Nullable syncingPolicy,
                                     NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -544,7 +544,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, nil, nil, nil, error);
+                        reply(nil, nil, nil, error);
                     }
                     ++i;
                 }] joinWithContainer:container context:context voucherData:voucherData voucherSig:voucherSig ckksKeys:viewKeySets tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
@@ -553,6 +553,7 @@ enum {NUM_RETRIES = 5};
 
 - (void)preflightPreapprovedJoinWithContainer:(NSString *)container
                                       context:(NSString *)context
+                              preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                                         reply:(void (^)(BOOL launchOkay,
                                                         NSError * _Nullable error))reply
 {
@@ -569,7 +570,7 @@ enum {NUM_RETRIES = 5};
                         reply(NO, error);
                     }
                     ++i;
-                }] preflightPreapprovedJoinWithContainer:container context:context reply:reply];
+        }] preflightPreapprovedJoinWithContainer:container context:context preapprovedKeys:preapprovedKeys reply:reply];
     } while (retry);
 }
 
@@ -577,11 +578,10 @@ enum {NUM_RETRIES = 5};
                                     context:(NSString *)context
                                    ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
                                   tlkShares:(NSArray<CKKSTLKShare*> *)tlkShares
-                            preapprovedKeys:(NSArray<NSData*> *)preapprovedKeys
+                            preapprovedKeys:(nullable NSArray<NSData*> *)preapprovedKeys
                                       reply:(void (^)(NSString * _Nullable peerID,
                                                       NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
-                                                      NSSet<NSString*>* _Nullable syncingViewList,
-                                                      TPPolicy* _Nullable syncingPolicy,
+                                                      TPSyncingPolicy* _Nullable syncingPolicy,
                                                       NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -594,10 +594,15 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, nil, nil, nil, error);
+                        reply(nil, nil, nil, error);
                     }
                     ++i;
-                }] attemptPreapprovedJoinWithContainer:container context:context ckksKeys:ckksKeys tlkShares:tlkShares preapprovedKeys:preapprovedKeys reply:reply];
+        }] attemptPreapprovedJoinWithContainer:container
+                                       context:context
+                                      ckksKeys:ckksKeys
+                                     tlkShares:tlkShares
+                               preapprovedKeys:preapprovedKeys
+                                         reply:reply];
     } while (retry);
 }
 
@@ -608,7 +613,8 @@ enum {NUM_RETRIES = 5};
                   osVersion:(nullable NSString *)osVersion
               policyVersion:(nullable NSNumber *)policyVersion
               policySecrets:(nullable NSDictionary<NSString*,NSData*> *)policySecrets
-                      reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, NSError * _Nullable error))reply
+  syncUserControllableViews:(nullable NSNumber *)syncUserControllableViews
+                      reply:(void (^)(TrustedPeersHelperPeerState* _Nullable peerState, TPSyncingPolicy* _Nullable policy, NSError * _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -620,10 +626,18 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, error);
+                        reply(nil, nil, error);
                     }
                     ++i;
-                }] updateWithContainer:container context:context deviceName:deviceName serialNumber:serialNumber osVersion:osVersion policyVersion:policyVersion policySecrets:policySecrets reply:reply];
+                }] updateWithContainer:container
+                               context:context
+                            deviceName:deviceName
+                          serialNumber:serialNumber
+                             osVersion:osVersion
+                         policyVersion:policyVersion
+                         policySecrets:policySecrets
+             syncUserControllableViews:syncUserControllableViews
+                                 reply:reply];
     } while (retry);
 }
 
@@ -742,8 +756,9 @@ enum {NUM_RETRIES = 5};
 
 - (void)fetchCurrentPolicyWithContainer:(NSString*)container
                                 context:(NSString*)context
-                                  reply:(void (^)(NSSet<NSString*>* _Nullable viewList,
-                                                  TPPolicy * _Nullable policy,
+                        modelIDOverride:(NSString* _Nullable)modelIDOverride
+                                  reply:(void (^)(TPSyncingPolicy* _Nullable syncingPolicy,
+                                                  TPPBPeerStableInfo_UserControllableViewStatus userControllableViewStatusOfPeers,
                                                   NSError * _Nullable error))reply
 {
     __block int i = 0;
@@ -756,10 +771,12 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(nil, nil, error);
+                        reply(nil,
+                              TPPBPeerStableInfo_UserControllableViewStatus_UNKNOWN,
+                              error);
                     }
                     ++i;
-                }] fetchCurrentPolicyWithContainer:container context:context reply:reply];
+        }] fetchCurrentPolicyWithContainer:container context:context modelIDOverride:modelIDOverride reply:reply];
     } while (retry);
 }
 
@@ -813,7 +830,8 @@ enum {NUM_RETRIES = 5};
                         recoveryKey:(NSString *)recoveryKey
                                salt:(NSString *)salt
                            ckksKeys:(NSArray<CKKSKeychainBackedKeySet*> *)ckksKeys
-                              reply:(void (^)(NSError* _Nullable error))reply
+                              reply:(void (^)(NSArray<CKRecord*>* _Nullable keyHierarchyRecords,
+                                              NSError* _Nullable error))reply
 {
     __block int i = 0;
     __block bool retry;
@@ -825,7 +843,7 @@ enum {NUM_RETRIES = 5};
                         retry = true;
                     } else {
                         secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
-                        reply(error);
+                        reply(nil, error);
                     }
                     ++i;
                 }] setRecoveryKeyWithContainer:container context:context recoveryKey:recoveryKey salt:salt ckksKeys:ckksKeys reply:reply];
@@ -919,5 +937,44 @@ enum {NUM_RETRIES = 5};
     } while (retry);
 
 }
+
+- (void)fetchViableEscrowRecordsWithContainer:(nonnull NSString *)container context:(nonnull NSString *)context forceFetch:(BOOL)forceFetch reply:(nonnull void (^)(NSArray<NSData *> * _Nullable, NSError * _Nullable))reply
+{
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(nil, error);
+            }
+            ++i;
+        }] fetchViableEscrowRecordsWithContainer:container context:context forceFetch:forceFetch reply:reply];
+    } while (retry);
+}
+
+- (void)removeEscrowCacheWithContainer:(nonnull NSString *)container context:(nonnull NSString *)context reply:(nonnull void (^)(NSError * _Nullable))reply {
+    __block int i = 0;
+    __block bool retry;
+    do {
+        retry = false;
+        [[self.cuttlefishXPCConnection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *_Nonnull error) {
+            if (i < NUM_RETRIES && [self.class retryable:error]) {
+                secnotice("octagon", "retrying cuttlefish XPC, (%d, %@)", i, error);
+                retry = true;
+            } else {
+                secerror("octagon: Can't talk with TrustedPeersHelper: %@", error);
+                reply(error);
+            }
+            ++i;
+        }] removeEscrowCacheWithContainer:container context:context reply:reply];
+    } while (retry);
+}
+
+
 
 @end

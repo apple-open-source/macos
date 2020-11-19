@@ -556,6 +556,11 @@
 				"$(SRCROOT)/certificate_transparency/log_list.json",
 			);
 			outputPaths = (
+				"$(DSTROOT)/BuiltSupplementalAssets/Info.plist",
+				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/TrustedCTLogs.plist",
+				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/CertificatePinning.plist",
+				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/AnalyticsSamplingRates.plist",
+				"$(DSTROOT)/BuiltSupplementalAssets/AssetData/AppleCertificateAuthorities.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
@@ -572,6 +577,8 @@
 				"$(SRCROOT)/Pinning/Info.plist",
 			);
 			outputPaths = (
+				"$(DSTROOT)/BuiltPinningAssets/Info.plist",
+				"$(DSTROOT)/BuiltPinningAssets/AssetData/CertificatePinning.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;

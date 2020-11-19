@@ -37,7 +37,7 @@
 /* 
  * Avoid inlining this for debuggability 
  */
-void *ArenaAllocator::malloc(size_t len) throw(std::bad_alloc)
+void *ArenaAllocator::malloc(size_t len)
 {
 	try {
 		return mCoder.malloc(len);
@@ -48,11 +48,11 @@ void *ArenaAllocator::malloc(size_t len) throw(std::bad_alloc)
 }
 
 /* intentionally not implemented, should never be called */
-void ArenaAllocator::free(void *p) throw()
+void ArenaAllocator::free(void *p) _NOEXCEPT
 {
 }
 	
-void *ArenaAllocator::realloc(void *p, size_t len) throw(std::bad_alloc)
+void *ArenaAllocator::realloc(void *p, size_t len)
 {
 	throw std::bad_alloc();
 }

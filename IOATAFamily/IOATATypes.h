@@ -60,15 +60,13 @@
 // allows for porting to non-memory-mapped IO systems, such as x86.
 // for such a platform, create a class and overload the assignment operators
 // so that the correct IO operation is performed and define the type for that architecture port.
-#ifdef __ppc__
-#define IOATARegPtr8 volatile UInt8* 
+#if defined( __i386__ ) || defined( __x86_64__ )
+#include <IOKit/ata/IOATARegI386.h>
+#else
+#define IOATARegPtr8 volatile UInt8*
 #define IOATARegPtr16 volatile UInt16*
 #define IOATARegPtr32 volatile UInt32*
 #define IOATARegPtr8Cast(x) ((IOATARegPtr8)(x))
-#elif defined( __i386__ ) || defined( __x86_64__ )
-#include <IOKit/ata/IOATARegI386.h>
-#else
-#error Unknown machine architecture
 #endif
 
 enum ataSocketType{

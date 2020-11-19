@@ -1,17 +1,18 @@
-	
-OTHER_LDFLAGS_MOCK_AKS_LIBRARY = -laks_mock -framework SecurityFoundation
+
+OTHER_LDFLAGS_AKS_ACL_LIBRARY = -laks_acl
+
+OTHER_LDFLAGS_MOCK_AKS_LIBRARY = -laks_mock $(OTHER_LDFLAGS_AKS_ACL_LIBRARY) -framework SecurityFoundation -framework ProtocolBuffer
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=macosx*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphoneos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=watchos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
 OTHER_LDFLAGS_AKS_LIBRARY[sdk=appletvos*] = -L$(SDKROOT)/usr/local/lib -laks -laks_real_witness
-OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphonesimulator*] = -laks_mock -Wl,-upward_framework,SecurityFoundation -Wl,-upward_framework,ProtocolBuffer
+OTHER_LDFLAGS_AKS_LIBRARY[sdk=iphonesimulator*] = -laks_mock $(OTHER_LDFLAGS_AKS_ACL_LIBRARY) -Wl,-upward_framework,SecurityFoundation -Wl,-upward_framework,ProtocolBuffer
 
 OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=macosx*] = -framework MobileKeyBag
 OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=iphoneos*] = -framework MobileKeyBag
 OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=watchos*] = -framework MobileKeyBag
 OTHER_LDFLAGS_MOBILE_KEYBAG[sdk=appletvos*] = -framework MobileKeyBag
 
-OTHER_LDFLAGS_AKS_ACL_LIBRARY = -laks_acl
 
 OTHER_LDFLAGS_ACM_LIBRARY[sdk=macosx*] = -lACM
 OTHER_LDFLAGS_ACM_LIBRARY[sdk=iphoneos*] = -lACM
@@ -24,8 +25,11 @@ OTHER_LDFLAGS_ACM_LIBRARY[sdk=watchsimulator*] =
 OTHER_LDFLAGS_AGGREGATEDICTIONARY[sdk=embedded] = -framework AggregateDictionary
 OTHER_LDFLAGS_APPLESYSTEMINFO[sdk=macos*] = -framework AppleSystemInfo
 OTHER_LDFLAGS_DIAGNOSTICSMESSAGESCLIENT[sdk=macosx*] = -lDiagnosticMessagesClient
-OTHER_LDFLAGS_MOBILEGESTALT[sdk=embedded*] = -lMobileGestalt
+OTHER_LDFLAGS_MOBILEGESTALT = -lMobileGestalt
 OTHER_LDFLAGS_IMG4DECODE[sdk=embedded] = -lImg4Decode
+OTHER_LDFLAGS_IMG4DECODE[sdk=macosx*] = -lImg4Decode
+OTHER_LDFLAGS_MSUDATAACCESSOR[sdk=embedded] = -framework MSUDataAccessor
+OTHER_LDFLAGS_MSUDATAACCESSOR[sdk=macosx*] = -framework MSUDataAccessor
 OTHER_LDFLAGS_UPWARD_FOUNDATION = -Wl,-upward_framework,Foundation
 OTHER_LDFLAGS_UPWARD_PROTOCOLBUFFER = -Wl,-upward_framework,ProtocolBuffer
 OTHER_LDFLAGS_UPWARD_SECURITY = -Wl,-upward_framework,Security
@@ -70,7 +74,9 @@ OTHER_LDFLAGS_COREFOLLOWUP[sdk=appletvsimulator*] =
 // The bridge appears to support protocol buffers.
 OTHER_LDFLAGS_PROTOBUF = -framework ProtocolBuffer
 
+OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=macos*] =
 OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=iphoneos*] = -framework SharedWebCredentials
+OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=iphonesimulator*] = -framework SharedWebCredentials
 OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=bridgeos*] =
 OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=watchos*] =
 OTHER_LDFLAGS_SHAREDWEBCREDENTIALS[sdk=appletvos*] =
@@ -87,6 +93,9 @@ OTHER_LDFLAGS_MOBILEASSET[sdk=bridgeos*] =
 OTHER_LDFLAGS_CORECDP = -weak_framework CoreCDP
 OTHER_LDFLAGS_CORECDP[sdk=bridgeos*] =
 
+OTHER_LDFLAGS_CLOUDSERVICES = -weak_framework CloudServices
+OTHER_LDFLAGS_CLOUDSERVICES[sdk=bridgeos*] =
+
 OTHER_LDFLAGS_SECURITYFOUNDATION = -framework SecurityFoundation
 OTHER_LDFLAGS_SECURITYFOUNDATION[sdk=bridgeos*] =
 
@@ -98,7 +107,7 @@ OTHER_LDFLAGS_IMCORE[sdk=bridgeos*] =
 OTHER_LDFLAGS_UserManagement[sdk=iphone*] = -framework UserManagement
 OTHER_LDFLAGS_UserManagement[sdk=macosx*] = -framework UserManagement
 OTHER_LDFLAGS_UserManagement[sdk=watch*] =
-OTHER_LDFLAGS_UserManagement[sdk=appletv*] =
+OTHER_LDFLAGS_UserManagement[sdk=appletv*] = -framework UserManagement
 
 OTHER_LDFLAGS_CrashReporterSupport[sdk=iphoneos*] = -framework CrashReporterSupport
 OTHER_LDFLAGS_CrashReporterSupport[sdk=macosx*] =
@@ -112,3 +121,10 @@ OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER_1 = -weak_framework SymptomDiagnosticRep
 OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER_0 =
 OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER_ =
 OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER = $(OTHER_LDFLAGS_SYMPTOMDIAGNOSTICREPORTER_$(ABC_BUGCAPTURE_ON))
+
+// Convince Xcode to build platform-specific apps from a single target
+OTHER_LDFLAGS_AppFrameworks[sdk=macosx*] = -framework AppKit
+OTHER_LDFLAGS_AppFrameworks[sdk=embedded*] = -framework UIKit
+
+TEST_HOST_BINARY_PATH_IN_BUNDLE[sdk=macosx*] = Contents/MacOS/
+TEST_HOST_BINARY_PATH_IN_BUNDLE[sdk=embedded] =

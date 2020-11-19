@@ -44,6 +44,7 @@ extern void _init_clock_port(void);
 extern void __chk_init(void);
 extern void __xlocale_init(void);
 extern void __guard_setup(const char *apple[]);
+extern void _subsystem_init(const char *apple[]);
 
 void
 _libc_initializer(const struct _libc_functions *funcs,
@@ -59,6 +60,7 @@ _libc_initializer(const struct _libc_functions *funcs,
 	__chk_init();
 	__xlocale_init();
 	__guard_setup(apple);
+	_subsystem_init(apple);
 }
 
 

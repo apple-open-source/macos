@@ -35,11 +35,8 @@
 #if USE(PTHREADS)
 
 #include <errno.h>
-#include <wtf/DataLog.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/RawPointer.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/ThreadGroup.h>
 #include <wtf/ThreadingPrimitives.h>
 #include <wtf/WordLock.h>
 
@@ -64,6 +61,11 @@
 #include <pthread_np.h>
 #endif
 
+#endif
+
+#if OS(DARWIN)
+#include <mach/mach_traps.h>
+#include <mach/thread_switch.h>
 #endif
 
 namespace WTF {
@@ -201,7 +203,7 @@ static void* wtfThreadEntryPoint(void* context)
     return nullptr;
 }
 
-bool Thread::establishHandle(NewThreadContext* context)
+bool Thread::establishHandle(NewThreadContext* context, Optional<size_t> stackSize)
 {
     pthread_t threadHandle;
     pthread_attr_t attr;
@@ -209,6 +211,8 @@ bool Thread::establishHandle(NewThreadContext* context)
 #if HAVE(QOS_CLASSES)
     pthread_attr_set_qos_class_np(&attr, adjustedQOSClass(QOS_CLASS_USER_INITIATED), 0);
 #endif
+    if (stackSize)
+        pthread_attr_setstacksize(&attr, stackSize.value());
     int error = pthread_create(&threadHandle, &attr, wtfThreadEntryPoint, context);
     pthread_attr_destroy(&attr);
     if (error) {
@@ -556,7 +560,12 @@ void ThreadCondition::broadcast()
 
 void Thread::yield()
 {
+#if OS(DARWIN)
+    constexpr mach_msg_timeout_t timeoutInMS = 1;
+    thread_switch(MACH_PORT_NULL, SWITCH_OPTION_DEPRESS, timeoutInMS);
+#else
     sched_yield();
+#endif
 }
 
 } // namespace WTF

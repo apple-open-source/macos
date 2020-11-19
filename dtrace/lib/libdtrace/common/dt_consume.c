@@ -2199,22 +2199,22 @@ again:
 			addr = datap->dtpda_data;
 
 			if (act == DTRACEACT_LIBACT) {
-				uint64_t arg = rec->dtrd_arg;
-				dtrace_aggvarid_t id;
+				uint64_t actarg = rec->dtrd_arg;
+				dtrace_aggvarid_t aggid;
 
-				switch (arg) {
+				switch (actarg) {
 				case DT_ACT_CLEAR:
 					/* LINTED - alignment */
-					id = *((dtrace_aggvarid_t *)addr);
+					aggid = *((dtrace_aggvarid_t *)addr);
 					(void) dtrace_aggregate_walk(dtp,
-					    dt_clear_agg, &id);
+					    dt_clear_agg, &aggid);
 					continue;
 
 				case DT_ACT_DENORMALIZE:
 					/* LINTED - alignment */
-					id = *((dtrace_aggvarid_t *)addr);
+					aggid = *((dtrace_aggvarid_t *)addr);
 					(void) dtrace_aggregate_walk(dtp,
-					    dt_denormalize_agg, &id);
+					    dt_denormalize_agg, &aggid);
 					continue;
 
 				case DT_ACT_FTRUNCATE:
@@ -2254,7 +2254,7 @@ again:
 					valsize = valrec->dtrd_size;
 
 					if (valrec->dtrd_action != act ||
-					    valrec->dtrd_arg != arg) {
+					    valrec->dtrd_arg != actarg) {
 						return (dt_set_errno(dtp,
 						    EDT_BADSETOPT));
 					}
@@ -2312,9 +2312,9 @@ again:
                  * since the default handling behavior is to 
                  * do nothing.
                  */
-                uint64_t arg = rec->dtrd_arg;
+                uint64_t recarg = rec->dtrd_arg;
 				uint16_t following_recs = 
-                (uint16_t)((arg >> 16)&0xFFFF);
+                (uint16_t)((recarg >> 16)&0xFFFF);
                 
                 i += following_recs;
                 goto nextrec;
@@ -3022,7 +3022,7 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 
 		dtrace_probedata_t data[max_ncpus];
 		bzero(data, sizeof(data));
-		for (int i = 0; i < max_ncpus; i++) {
+		for (i = 0; i < max_ncpus; i++) {
 			data[i].dtpda_cpu = i;
 			data[i].dtpda_handle = dtp;
 		}
@@ -3043,8 +3043,6 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 		/* Retrieve data from each CPU. */
 		(void) dtrace_getopt(dtp, "bufsize", &size);
 		for (i = 0; i < max_ncpus; i++) {
-			dtrace_bufdesc_t *buf;
-
 			if (dt_get_buf(dtp, i, &buf) != 0)
 				return (-1);
 			if (buf != NULL) {
@@ -3060,10 +3058,9 @@ dtrace_consume(dtrace_hdl_t *dtp, FILE *fp,
 
 		/* Consume records. */
 		for (;;) {
-			dtrace_bufdesc_t *buf = dt_pq_pop(dtp->dt_bufq);
 			uint64_t timestamp;
 
-			if (buf == NULL)
+			if ((buf = dt_pq_pop(dtp->dt_bufq)) == NULL)
 				break;
 
 			timestamp = dt_buf_oldest(buf, dtp);

@@ -1,10 +1,11 @@
-# $FreeBSD: head/usr.bin/printf/tests/Makefile 299094 2016-05-04 23:20:53Z ngie $
+# $FreeBSD$
 
 PACKAGE=	tests
 
 TAP_TESTS_SH=	legacy_test
 
 ${PACKAGE}FILES+=		regress.b.out
+${PACKAGE}FILES+=		regress.bwidth.out
 ${PACKAGE}FILES+=		regress.d.out
 ${PACKAGE}FILES+=		regress.f.out
 ${PACKAGE}FILES+=		regress.l1.out

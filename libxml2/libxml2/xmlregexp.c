@@ -5193,21 +5193,29 @@ xmlFAParseCharClass(xmlRegParserCtxtPtr ctxt) {
  */
 static int
 xmlFAParseQuantExact(xmlRegParserCtxtPtr ctxt) {
-    unsigned prev = 0;
-    unsigned ret = 0; /* unsigned for defined overflow behavior */
-    int i;
+    int ret = 0;
+    int ok = 0;
+    int overflow = 0;
 
-    for (i = 0; (CUR >= '0') && (CUR <= '9'); ++i) {
-        ret = ret * 10 + (CUR - '0');
-        if (ret < prev || ret > INT_MAX)
-            return(-1);
-        prev = ret;
+    while ((CUR >= '0') && (CUR <= '9')) {
+        if (ret > INT_MAX / 10) {
+            overflow = 1;
+        } else {
+            int digit = CUR - '0';
+
+            ret *= 10;
+            if (ret > INT_MAX - digit)
+                overflow = 1;
+            else
+                ret += digit;
+        }
+	ok = 1;
 	NEXT;
     }
-    if (i < 1) {
+    if ((ok != 1) || (overflow == 1)) {
 	return(-1);
     }
-    return((int)ret);
+    return(ret);
 }
 
 /**
@@ -5244,6 +5252,9 @@ xmlFAParseQuantifier(xmlRegParserCtxtPtr ctxt) {
 	cur = xmlFAParseQuantExact(ctxt);
 	if (cur >= 0)
 	    min = cur;
+        else {
+            ERROR("Improper quantifier");
+        }
 	if (CUR == ',') {
 	    NEXT;
 	    if (CUR == '}')

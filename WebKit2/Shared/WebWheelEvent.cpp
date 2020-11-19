@@ -41,7 +41,6 @@ WebWheelEvent::WebWheelEvent(Type type, const IntPoint& position, const IntPoint
     , m_granularity(granularity)
     , m_directionInvertedFromDevice(false)
 #if PLATFORM(COCOA)
-    , m_phase(PhaseNone)
     , m_hasPreciseScrollingDeltas(false)
     , m_scrollCount(0)
 #endif
@@ -66,7 +65,7 @@ WebWheelEvent::WebWheelEvent(Type type, const IntPoint& position, const IntPoint
 {
     ASSERT(isWheelEventType(type));
 }
-#elif PLATFORM(GTK)
+#elif PLATFORM(GTK) || USE(LIBWPE)
 WebWheelEvent::WebWheelEvent(Type type, const IntPoint& position, const IntPoint& globalPosition, const FloatSize& delta, const FloatSize& wheelTicks, Phase phase, Phase momentumPhase, Granularity granularity, OptionSet<Modifier> modifiers, WallTime timestamp)
     : WebEvent(type, modifiers, timestamp)
     , m_position(position)
@@ -92,7 +91,7 @@ void WebWheelEvent::encode(IPC::Encoder& encoder) const
     encoder << m_wheelTicks;
     encoder << m_granularity;
     encoder << m_directionInvertedFromDevice;
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE)
     encoder << m_phase;
     encoder << m_momentumPhase;
 #endif
@@ -119,7 +118,7 @@ bool WebWheelEvent::decode(IPC::Decoder& decoder, WebWheelEvent& t)
         return false;
     if (!decoder.decode(t.m_directionInvertedFromDevice))
         return false;
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE)
     if (!decoder.decode(t.m_phase))
         return false;
     if (!decoder.decode(t.m_momentumPhase))

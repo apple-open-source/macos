@@ -29,6 +29,12 @@
  *	@(#)extern.h	8.1 (Berkeley) 6/6/93
  * $FreeBSD: src/usr.sbin/mtree/extern.h,v 1.13 2004/01/11 19:38:48 phk Exp $
  */
+
+#ifndef _EXTERN_H_
+#define _EXTERN_H_
+
+#include "mtree.h"
+
 extern uint32_t crc_total;
 
 #ifdef _FTS_H_
@@ -55,7 +61,11 @@ const char * ftype(u_int type);
 extern int ftsoptions;
 extern u_int keys;
 extern int lineno;
-extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag;
+extern int dflag, eflag, iflag, nflag, qflag, rflag, sflag, uflag, wflag, mflag, tflag;
+extern int insert_mod, insert_birth, insert_access, insert_change, insert_parent;
+extern struct timespec ts;
 #ifdef MAXPATHLEN
 extern char fullpath[MAXPATHLEN];
 #endif
+
+#endif /* _EXTERN_H_ */

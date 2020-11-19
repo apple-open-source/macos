@@ -28,10 +28,13 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "FunctionPrototype.h"
-#include "JSCInlines.h"
+#include "AuxiliaryBarrierInlines.h"
+#include "JSCJSValueInlines.h"
+#include "JSGlobalObjectInlines.h"
+#include "JSObjectInlines.h"
 #include "JSWebAssemblyHelpers.h"
 #include "JSWebAssemblyTable.h"
+#include "StructureInlines.h"
 
 namespace JSC {
 static EncodedJSValue JSC_HOST_CALL webAssemblyTableProtoFuncLength(JSGlobalObject*, CallFrame*);
@@ -129,8 +132,8 @@ static EncodedJSValue JSC_HOST_CALL webAssemblyTableProtoFuncSet(JSGlobalObject*
         return JSValue::encode(throwException(globalObject, throwScope, createRangeError(globalObject, "WebAssembly.Table.prototype.set expects an integer less than the length of the table"_s)));
 
     if (table->table()->asFuncrefTable()) {
-        WebAssemblyFunction* wasmFunction;
-        WebAssemblyWrapperFunction* wasmWrapperFunction;
+        WebAssemblyFunction* wasmFunction = nullptr;
+        WebAssemblyWrapperFunction* wasmWrapperFunction = nullptr;
         if (!value.isNull() && !isWebAssemblyHostFunction(vm, value, wasmFunction, wasmWrapperFunction))
             return JSValue::encode(throwException(globalObject, throwScope, createTypeError(globalObject, "WebAssembly.Table.prototype.set expects the second argument to be null or an instance of WebAssembly.Function"_s)));
 
@@ -166,6 +169,7 @@ void WebAssemblyTablePrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
+    JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
 WebAssemblyTablePrototype::WebAssemblyTablePrototype(VM& vm, Structure* structure)

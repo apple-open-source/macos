@@ -737,7 +737,7 @@ AP_DECLARE(int) ap_allow_overrides(request_rec *r)
 
 /*
  * Optional function coming from mod_authn_core, used for
- * retrieving the type of autorization
+ * retrieving the type of authorization
  */
 static APR_OPTIONAL_FN_TYPE(authn_ap_auth_type) *authn_ap_auth_type;
 
@@ -2787,8 +2787,15 @@ static int test_iffile_section(cmd_parms *cmd, const char *arg)
     const char *relative;
     apr_finfo_t sb;
 
+    /*
+     * At least on Windows, if the path we are testing is not valid (for example
+     * a path on a USB key that is not plugged), 'ap_server_root_relative()' will
+     * return NULL. In such a case, consider that the file is not there and that
+     * the section should be skipped.
+     */
     relative = ap_server_root_relative(cmd->temp_pool, arg);
-    return (apr_stat(&sb, relative, 0, cmd->pool) == APR_SUCCESS);
+    return (relative &&
+           (apr_stat(&sb, relative, APR_FINFO_TYPE, cmd->temp_pool) == APR_SUCCESS));
 }
 
 static int test_ifdirective_section(cmd_parms *cmd, const char *arg)
@@ -4507,8 +4514,8 @@ AP_INIT_FLAG("CGIPassAuth", set_cgi_pass_auth, NULL, OR_AUTHCFG,
 AP_INIT_TAKE2("CGIVar", set_cgi_var, NULL, OR_FILEINFO,
               "Controls how some CGI variables are set"),
 AP_INIT_FLAG("QualifyRedirectURL", set_qualify_redirect_url, NULL, OR_FILEINFO,
-             "Controls whether HTTP authorization headers, normally hidden, will "
-             "be passed to scripts"),
+             "Controls whether the REDIRECT_URL environment variable is fully "
+             "qualified"),
 
 AP_INIT_TAKE1("ForceType", ap_set_string_slot_lower,
        (void *)APR_OFFSETOF(core_dir_config, mime_type), OR_FILEINFO,
@@ -4596,7 +4603,7 @@ AP_DECLARE_NONSTD(int) ap_core_translate(request_rec *r)
     }
     if (!r->uri || ((r->uri[0] != '/') && strcmp(r->uri, "*"))) {
         ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00126)
-                     "Invalid URI in request %s", r->the_request);
+                     "Invalid URI in request '%s' '%s'", r->uri, r->the_request);
         return HTTP_BAD_REQUEST;
     }
 
@@ -4834,6 +4841,8 @@ static int default_handler(request_rec *r)
         APR_BRIGADE_INSERT_TAIL(bb, e);
 
         status = ap_pass_brigade(r->output_filters, bb);
+        apr_brigade_cleanup(bb);
+
         if (status == APR_SUCCESS
             || r->status != HTTP_OK
             || c->aborted) {
@@ -4937,7 +4946,7 @@ static int core_pre_config(apr_pool_t *pconf, apr_pool_t *plog, apr_pool_t *ptem
     apr_pool_cleanup_register(pconf, NULL, reset_config_defines,
                               apr_pool_cleanup_null);
 
-    ap_regcomp_set_default_cflags(AP_REG_DOLLAR_ENDONLY);
+    ap_regcomp_set_default_cflags(AP_REG_DEFAULT);
 
     mpm_common_pre_config(pconf);
 

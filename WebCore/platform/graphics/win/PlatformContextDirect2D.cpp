@@ -132,7 +132,7 @@ void PlatformContextDirect2D::setActiveLayer(COMPtr<ID2D1Layer>&& layer)
 
 COMPtr<ID2D1SolidColorBrush> PlatformContextDirect2D::brushWithColor(const D2D1_COLOR_F& color)
 {
-    RGBA32 colorKey = makeRGBA32FromFloats(color.r, color.g, color.b, color.a);
+    auto colorKey = convertToComponentBytes(SRGBA { color.r, color.g, color.b, color.a });
 
     if (!colorKey) {
         if (!m_zeroBrush)
@@ -307,7 +307,7 @@ void PlatformContextDirect2D::endDraw()
 
 void PlatformContextDirect2D::setTags(D2D1_TAG tag1, D2D1_TAG tag2)
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_renderTarget->SetTags(tag1, tag2);
 #else
     UNUSED_PARAM(tag1);

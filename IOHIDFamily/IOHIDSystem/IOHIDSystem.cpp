@@ -99,8 +99,6 @@ const char * IOHIDSystem::Diags::cursorStrings[] = {
     "MoveCursor"
 };
 
-bool displayWranglerUp( OSObject *, void *, IOService * );
-
 #if 0
 #define PROFILE_TRACE(X)     IOHID_DEBUG(kIOHIDDebugCode_Profiling, X, __LINE__, 0, 0)
 #else
@@ -187,20 +185,14 @@ typedef struct _IOHIDCmdGateActionArgs {
 
 #define WAKE_DISPLAY_ON_MOVEMENT (NX_WAKEMASK & MOVEDEVENTMASK)
 
-#define DISPLAY_IS_ENABLED (displayState & IOPMDeviceUsable)
-
-#define TICKLE_DISPLAY(event) \
+#define TICKLE_DISPLAY(provider, event) \
 { \
-    if (!evStateChanging && displayManager) { \
-        IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, event, __LINE__, 0, 0); \
-        if (!DISPLAY_IS_ENABLED) { \
-            kprintf("IOHIDSystem tickle when screen off for event %d at line %d\n", (int)event, __LINE__); \
-            HIDLogInfo("IOHIDSystem tickle when screen off for event %d", (int)event); \
-        } \
-        displayManager->activityTickle(IOHID_DEBUG_CODE(event)); \
-    } \
+    IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, event, __LINE__, 0, 0); \
+    rootDomain->requestUserActive(provider, event); \
     updateHidActivity(); \
 }
+
+#define PM_REASON_STRING_LENGTH (64)
 
 enum {
     // Options for IOHIDPostEvent()
@@ -218,11 +210,9 @@ enum {
 #define kIOHIDSystenDistantFuture           INT64_MAX
 
 static AbsoluteTime gIOHIDPowerOnThresoldAbsoluteTime;
-static AbsoluteTime gIOHIDRelativeTickleThresholdAbsoluteTime;
 // can be aborted by a mouse/scroll motion
 static AbsoluteTime gIOHIDDisplaySleepAbortThresholdAbsoluteTime;
 static AbsoluteTime gIOHIDZeroAbsoluteTime;
-
 
 //************************************************************
 // keyboardEventQueue support
@@ -346,7 +336,6 @@ struct IOHIDSystem::ExpansionData
 #define _cursorWaitLast             (_privateData->cursorWaitLast)
 #define _cursorWaitDelta            (_privateData->cursorWaitDelta)
 
-#define _displayWranglerMatching    (_privateData->displayWranglerMatching)
 #define _graphicsDeviceMatching     (_privateData->graphicsDeviceMatching)
 
 #define _continuousCursor            (_privateData->continuousCursor)
@@ -422,13 +411,9 @@ bool IOHIDSystem::init(OSDictionary * properties)
      * Initialize minimal state.
      */
     evScreen          = NULL;
-    periodicES        = 0;
     keyboardEQES      = 0;
     cmdGate           = 0;
     workLoop          = 0;
-    displayState = IOPMDeviceUsable;
-    AbsoluteTime_to_scalar(&displayStateChangeDeadline) = 0;
-    AbsoluteTime_to_scalar(&displaySleepWakeupDeadline) = 0;
     AbsoluteTime_to_scalar(&gIOHIDZeroAbsoluteTime) = 0;
     powerState        = 0;
 
@@ -475,7 +460,6 @@ bool IOHIDSystem::start(IOService * provider)
     OSObject        *obj = NULL;
     OSNumber        *number = NULL;
     OSDictionary    *matchingDevice = serviceMatching("IOHIDevice");
-    OSDictionary    *matchingWrangler = serviceMatching("IODisplayWrangler");
     OSDictionary    *matchingGraphicsDevice = serviceMatching("IOGraphicsDevice");
     IOServiceMatchingNotificationHandler iohidNotificationHandler = OSMemberFunctionCast(IOServiceMatchingNotificationHandler, this, &IOHIDSystem::genericNotificationHandler);
     
@@ -533,14 +517,13 @@ bool IOHIDSystem::start(IOService * provider)
      */
     workLoop = IOHIDWorkLoop::workLoop();
     cmdGate = IOCommandGate::commandGate(this);
-    periodicES = IOTimerEventSource::timerEventSource(this, (IOTimerEventSource::Action) &_periodicEvents);
     keyboardEQES = IOInterruptEventSource::interruptEventSource(this, (IOInterruptEventSource::Action) &doProcessKeyboardEQ);
     
-    //require(workLoop && cmdGate && periodicES && eventConsumerES && keyboardEQES, exit_early);
-    require(workLoop && cmdGate && periodicES && keyboardEQES, exit_early);
+    require(workLoop && cmdGate && keyboardEQES, exit_early);
     
     require_noerr(workLoop->addEventSource(cmdGate), exit_early);
-    require_noerr(workLoop->addEventSource(periodicES), exit_early);
+    // Window Server is doing the work for this. rdar://problem/61334485
+//    require_noerr(workLoop->addEventSource(periodicES), exit_early);
     require_noerr(workLoop->addEventSource(keyboardEQES), exit_early);
   
     _delayedNotificationThread = thread_call_allocate( OSMemberFunctionCast(thread_call_func_t, this, &IOHIDSystem::doProcessNotifications), this);
@@ -554,20 +537,13 @@ bool IOHIDSystem::start(IOService * provider)
     require(publishNotify, exit_early);
     
     // RY: Listen to the root domain
-    rootDomain = (IOService *)getPMRootDomain();
+    rootDomain = getPMRootDomain();
     
     if (rootDomain)
         rootDomain->registerInterestedDriver(this);
     
     registerPrioritySleepWakeInterest(powerStateHandler, this, 0);
-        
-    _displayWranglerMatching = addMatchingNotification(gIOPublishNotification,
-                                                       matchingWrangler,
-                                                       iohidNotificationHandler,
-                                                       this,
-                                                       (void *)&IOHIDSystem::handlePublishNotification);
-    require(_displayWranglerMatching, exit_early);
-    
+
     _graphicsDeviceMatching = addMatchingNotification(gIOTerminatedNotification,
                                                       matchingGraphicsDevice,
                                                       iohidNotificationHandler,
@@ -634,7 +610,6 @@ bool IOHIDSystem::start(IOService * provider)
 
 exit_early:
     OSSafeReleaseNULL(matchingDevice);
-    OSSafeReleaseNULL(matchingWrangler);
     OSSafeReleaseNULL(matchingGraphicsDevice);
     
     if (!iWasStarted)
@@ -658,50 +633,6 @@ IOReturn IOHIDSystem::powerStateHandler( void *target, void *refCon __unused,
     }
     
     return kIOReturnSuccess;
-}
-
-// powerStateDidChangeTo
-//
-// The display wrangler has changed state, so the displays have changed
-// state, too.  We save the new state.
-
-IOReturn IOHIDSystem::powerStateDidChangeTo( IOPMPowerFlags theFlags, unsigned long state, IOService * service)
-{
-    IOHID_DEBUG(kIOHIDDebugCode_PowerStateChangeEvent, service, state, theFlags, 0);
-    if (service == displayManager)
-    {
-        displayState = theFlags;
-        if (theFlags & IOPMDeviceUsable) {
-            clock_get_uptime(&displayStateChangeDeadline);
-            ADD_ABSOLUTETIME(&displayStateChangeDeadline,
-                             &gIOHIDRelativeTickleThresholdAbsoluteTime);
-            AbsoluteTime_to_scalar(&displaySleepWakeupDeadline) = 0;
-
-           // Reset all flags. Flag key release events may not get delivered as they
-           // come late in system sleep or display sleep process.
-           updateEventFlags(0);
-        }
-        else {
-             // If the display has transitioned from usable to unusable state
-             // because of display sleep  then set the deadline before which
-             // pointer movement can bring the display to usable state.
-             // Also make sure that this display sleep is not driven by IOPM as part of system sleep
-
-           if ( !CMP_ABSOLUTETIME(&displaySleepWakeupDeadline, &gIOHIDZeroAbsoluteTime) && 
-                   (kOSBooleanFalse == rootDomain->copyProperty("DisplayIdleForDemandSleep"))) {
-             clock_get_uptime(&displaySleepWakeupDeadline);
-             ADD_ABSOLUTETIME(&displaySleepWakeupDeadline, &gIOHIDDisplaySleepAbortThresholdAbsoluteTime);
-           }
-           //displaySleepDrivenByPM = false; // Reset flag for next use
-
-           // Force set HID activity to idle
-           _lastTickleTime = 0;
-           _forceIdle = true;
-           thread_call_enter(_hidActivityThread);
-        }
-
-    }
-    return IOPMNoErr;
 }
 
 bool IOHIDSystem::genericNotificationHandler(void * handler,
@@ -763,15 +694,7 @@ bool IOHIDSystem::handlePublishNotification(
         // device went away before we could add it. ignore.
         return true;
     }
-    
-    // avoiding OSDynamicCast & dependency on graphics family
-    if( newService->metaCast("IODisplayWrangler")) {
-        if( !self->displayManager) {
-            self->displayState = newService->registerInterestedDriver(self);
-            self->displayManager = newService;
-        }
-        return true;
-    }
+
     if(OSDynamicCast(IOHIPointing, newService) && !OSDynamicCast(IOHIDPointing, newService)) {
       IOHIDPointingEventDevice * shim = IOHIDPointingEventDevice::newPointingDeviceAndStart(newService);
       if (shim) {
@@ -832,16 +755,6 @@ void IOHIDSystem::free()
         workLoop->disableAllEventSources();
     }
 
-    if (periodicES) {
-        periodicES->cancelTimeout();
-        
-        if ( workLoop )
-            workLoop->removeEventSource( periodicES );
-        
-        periodicES->release();
-        periodicES = 0;
-    }
-
     if (keyboardEQES) {
         keyboardEQES->disable();
         
@@ -861,12 +774,7 @@ void IOHIDSystem::free()
     }
 
     if (_privateData) {
-      
-        if (_displayWranglerMatching) {
-            _displayWranglerMatching->remove();
-            _displayWranglerMatching = 0;
-        }
-        
+
         if (_graphicsDeviceMatching) {
             _graphicsDeviceMatching->remove();
             _graphicsDeviceMatching = 0;
@@ -996,8 +904,6 @@ IOReturn IOHIDSystem::evCloseGated(void)
     if ( evOpenCalled == false )
         return kIOReturnBadArgument;
 
-    evStateChanging = true;
-
     // Early close actions here
     if( cursorEnabled)
         hideCursor();
@@ -1013,7 +919,6 @@ IOReturn IOHIDSystem::evCloseGated(void)
     //setEventPortGated(MACH_PORT_NULL);
 
     // Clear local state to shutdown
-    evStateChanging = false;
     evOpenCalled = false;
     eventsOpen = false;
 
@@ -1565,10 +1470,11 @@ UInt32 IOHIDSystem::eventFlags()
     return evg ? (evg->eventFlags) : 0;
 }
 
-void IOHIDSystem::sleepDisplayTickle()
+void IOHIDSystem::sleepDisplayTickle(IOService * requester)
 {
     if (powerState == kIOMessageSystemWillSleep) {
-        TICKLE_DISPLAY(kIOHIDEventTypeKeyboard);
+        // tickle with keyboard event.
+        TICKLE_DISPLAY(requester, "sleepDisplayTickle kIOMessageSystemWillSleep");
     }
 }
 
@@ -1791,7 +1697,7 @@ void IOHIDSystem::scheduleNextPeriodicEvent()
                 scheduledEvent = kIOHIDSystenDistantFuture;
             }
             
-            if (screens && (kIOPMDeviceUsable & displayState)) {
+            if (screens) {
                 // displays are on and nothing is scheduled.
                 // calculate deltas
                 uint64_t nextMove = _cursorMoveLast + _cursorMoveDelta;
@@ -1841,7 +1747,6 @@ void IOHIDSystem::scheduleNextPeriodicEvent()
             
             if (kIOHIDSystenDistantFuture == scheduledEvent) {
                 // no periodic events. cancel any pending periodic timer.
-                periodicES->cancelTimeout();
             }
             else {
                 _periodicEventNext = scheduledEvent;
@@ -1852,10 +1757,6 @@ void IOHIDSystem::scheduleNextPeriodicEvent()
                 if (now + (100 * kOneMS) < _periodicEventNext) {
                     // after 100 ms, we really should check again. *something* is happening.
                     _periodicEventNext = now + (100 * kOneMS);
-                }
-                IOReturn err = periodicES->wakeAtTime(_periodicEventNext);
-                if (err) {
-                    HIDLogError("wakeAtTime failed for %lld: %08x (%s)", _periodicEventNext, err, stringFromReturn(err));
                 }
             }
         }
@@ -1874,7 +1775,8 @@ void IOHIDSystem::scheduleNextPeriodicEvent()
 void IOHIDSystem::_periodicEvents(IOHIDSystem * self,
                                   IOTimerEventSource *timer)
 {
-    self->periodicEvents(timer);
+    return;
+    //self->periodicEvents(timer);
 }
 
 void IOHIDSystem::periodicEvents(IOTimerEventSource * timer __unused)
@@ -2197,31 +2099,19 @@ IOReturn IOHIDSystem::message(UInt32 type, IOService * provider,
         case kIOHIDSystemActivityTickle: {
             intptr_t nxEvent = (intptr_t) argument;
             if ((nxEvent >= 0) && (nxEvent <= NX_LASTEVENT)) {
-                if (!evStateChanging && displayManager) {
-                    IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, nxEvent, __LINE__, displayState,
-                                provider ? provider->getRegistryEntryID() : 0);
-                    AbsoluteTime ts;
-                    clock_get_uptime (&ts);
-                    if (DISPLAY_IS_ENABLED ||
-                       (NX_WAKEMASK & EventCodeMask(nxEvent)) ||
-                       (NX_UNDIMMASK & EventCodeMask(nxEvent) && CMP_ABSOLUTETIME(&ts, &displaySleepWakeupDeadline) <=0)) {
-                        if (!DISPLAY_IS_ENABLED) {
-                            kprintf("IOHIDSystem tickle when screen off for event %ld\n", nxEvent);
-                        }
-                        displayManager->activityTickle(IOHID_DEBUG_CODE(nxEvent));
-                    }
-                }
+                char tickleReason[PM_REASON_STRING_LENGTH];
+                IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, nxEvent, __LINE__, 0,
+                            provider ? provider->getRegistryEntryID() : 0);
+                AbsoluteTime ts;
+                clock_get_uptime (&ts);
+
+                snprintf(tickleReason, sizeof(tickleReason), "kIOHIDSystemActivityTickle nxEvent: %#x", IOHID_DEBUG_CODE(nxEvent));
+                rootDomain->requestUserActive(provider, tickleReason);
             }
             else if (nxEvent == NX_HARDWARE_TICKLE) {
-                if (!evStateChanging && displayManager) {
-                    IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, nxEvent, __LINE__, displayState,
-                                provider ? provider->getRegistryEntryID() : 0);
-                    if (!DISPLAY_IS_ENABLED) {
-                        kprintf("IOHIDSystem tickle when screen off for hardware event from %08llx\n",
-                                provider ? provider->getRegistryEntryID() : 0);
-                    }
-                    displayManager->activityTickle(IOHID_DEBUG_CODE(nxEvent));
-                }
+                IOHID_DEBUG(kIOHIDDebugCode_DisplayTickle, nxEvent, __LINE__, 0,
+                            provider ? provider->getRegistryEntryID() : 0);
+                rootDomain->requestUserActive(provider, "kIOHIDSystemActivityTickle NX_HARDWARE_TICKLE");
             }
             else {
                 HIDLogError("kIOHIDSystemActivityTickle message for unsupported event %ld sent from %08llx",
@@ -2384,7 +2274,7 @@ void IOHIDSystem::keyboardEventGated(unsigned   eventType,
 {
 
     if (eventType == NX_KEYDOWN) {
-        TICKLE_DISPLAY(NX_KEYDOWN);
+        TICKLE_DISPLAY(this, "keyboardEventGated NX_KEYDOWN");
     }
     // Take on BSD console duties and dispatch the keyboardEvents.
     if (eventsOpen ) {
@@ -2956,8 +2846,8 @@ void IOHIDSystem::_setCursorPosition(bool external, bool proximityChange, OSObje
 
 
 /**
- ** IOUserClient methods
- **/
+ * IOUserClient methods
+ */
 
 IOReturn IOHIDSystem::newUserClient(task_t         owningTask,
                     /* withToken */ void *         security_id,
@@ -3009,9 +2899,6 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
         else if ( type == kIOHIDServerConnectType) {
             newConnect = new IOHIDUserClient;
         }
-//        else if ( type == kIOHIDStackShotConnectType ) {
-//            newConnect = new IOHIDStackShotUserClient;
-//        }
         else if ( type == kIOHIDEventSystemConnectType ) {
             newConnect = new IOHIDEventSystemUserClient;
         }
@@ -3049,7 +2936,6 @@ IOReturn IOHIDSystem::newUserClientGated(task_t    owningTask,
     HIDLog("(%d) %s returned %p", pid,
           type == kIOHIDParamConnectType ? "IOHIDParamUserClient" :
           type == kIOHIDServerConnectType ? "IOHIDUserClient" :
-          //type == kIOHIDStackShotConnectType ? "IOHIDStackShotUserClient" :
           type == kIOHIDEventSystemConnectType ? "IOHIDEventSystemUserClient" :
           "kIOReturnUnsupported",
           newConnect);
@@ -3077,44 +2963,6 @@ IOReturn IOHIDSystem::setEventsEnable(void*p1 __unused,void*,void*,void*,void*,v
 
     return ret;
 }
-
-//IOReturn IOHIDSystem::doSetEventsEnablePre(IOHIDSystem *self, void *p1)
-//                        /* IOCommandGate::Action */
-//{
-//    return self->setEventsEnablePreGated(p1);
-//}
-//
-//IOReturn IOHIDSystem::setEventsEnablePreGated(void*p1)
-//{
-//    bool enable = (bool)p1;
-//
-//    if( enable) {
-//        while ( evStateChanging )
-//            cmdGate->commandSleep(&evStateChanging);
-//
-//        evStateChanging = true;
-//        //attachDefaultEventSources();
-//    }
-//    return( kIOReturnSuccess);
-//}
-//
-//IOReturn IOHIDSystem::doSetEventsEnablePost(IOHIDSystem *self, void *p1)
-//                        /* IOCommandGate::Action */
-//{
-//    return self->setEventsEnablePostGated(p1);
-//}
-//
-//IOReturn IOHIDSystem::setEventsEnablePostGated(void*p1)
-//{
-//    bool enable = (bool)p1;
-//
-//    if( enable) {
-//        evStateChanging = false;
-//        cmdGate->commandWakeup(&evStateChanging);
-//    }
-//    return( kIOReturnSuccess);
-//}
-
 
 IOReturn IOHIDSystem::setCursorEnable(void*p1,void*,void*,void*,void*,void*)
 {                                                                    // IOMethod
@@ -3301,6 +3149,7 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
     UInt32      options             = 0;
     // rdar://problem/8689199
     int         extPID              = proc_selfpid();
+    char        tickleReason[PM_REASON_STRING_LENGTH];
 
     IOHID_DEBUG(kIOHIDDebugCode_ExtPostEvent, event->type, *(UInt32*)&(event->location), event->setFlags, event->flags);
 
@@ -3310,26 +3159,6 @@ IOReturn IOHIDSystem::extPostEventGated(void *p1,void *p2 __unused, void *p3)
 
     if ( eventsOpen == false )
         return kIOReturnNotOpen;
-
-//    if (ShouldConsumeHIDEvent(ts, rootDomainStateChangeDeadline, false)) {
-//        if (typeMask & NX_WAKEMASK) {
-//            TICKLE_DISPLAY(event->type);
-//        }
-//        return kIOReturnSuccess;
-//    }
-
-    if (!DISPLAY_IS_ENABLED) {
-#if !WAKE_DISPLAY_ON_MOVEMENT
-        if ( (typeMask & NX_WAKEMASK) ||
-           ((typeMask & MOVEDEVENTMASK) && (CMP_ABSOLUTETIME(&ts, &displaySleepWakeupDeadline) <= 0)) )
-#endif
-        {
-            TICKLE_DISPLAY(event->type);
-        }
-        return kIOReturnSuccess;
-    }
-
-    TICKLE_DISPLAY(event->type);
 
     // used in set cursor below
     if (typeMask & MOVEDEVENTMASK)
@@ -3495,10 +3324,7 @@ IOReturn IOHIDSystem::doExtGetStateForSelector(IOHIDSystem *self, void *p1, void
         case kIOHIDActivityUserIdle:
             *state_O = self->_privateData->hidActivityIdle ? 1 : 0;
             break;
-            
-        case kIOHIDActivityDisplayOn:
-            *state_O = self->displayState & IOPMDeviceUsable ? 1 : 0;
-            break;
+
         case kIOHIDCapsLockState:
             *state_O = (self->eventFlags() & NX_ALPHASHIFTMASK) ? 1 : 0;
             break;
@@ -3519,7 +3345,6 @@ IOReturn IOHIDSystem::doExtSetStateForSelector(IOHIDSystem *self __unused, void 
     unsigned int selector = (unsigned int)(uintptr_t)p1;
     
     switch (selector) {
-        case kIOHIDActivityDisplayOn:   // not settable
         default:
             HIDLogError("recieved unexpected selector: %d", selector);
             result = kIOReturnBadArgument;
@@ -3928,12 +3753,14 @@ IOReturn IOHIDSystem::setProperties( OSObject * properties )
         if (tickleType) {
             OSNumber *  num;
             uint32_t    type = IOHID_DEBUG_CODE(0);
+            char tickleReason[PM_REASON_STRING_LENGTH];
             if ((num = OSDynamicCast( OSNumber, tickleType))) {
                 type = num->unsigned32BitValue();
             }
-            if (displayManager) {
-                displayManager->activityTickle(type);
-            }
+
+            snprintf(tickleReason, sizeof(tickleReason), "setProperties: DisplayTickle type: %#x", type);
+            rootDomain->requestUserActive(this, tickleReason);
+
             return ret;
         }
         OSNumber *modifiersValue =  OSDynamicCast( OSNumber, dict->getObject(kIOHIDKeyboardGlobalModifiersKey));

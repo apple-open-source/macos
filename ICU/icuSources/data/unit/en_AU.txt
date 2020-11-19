@@ -2,14 +2,14 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_AU{
     %%Parent{"en_001"}
-    Version{"2.1.48.43"}
+    Version{"36.1"}
+    durationUnits{
+        hm{"h:mm"}
+        hms{"h:mm:ss"}
+        ms{"m:ss"}
+    }
     units{
         concentr{
-            percent{
-                dnam{"per cent"}
-                one{"{0} per cent"}
-                other{"{0} per cent"}
-            }
             permille{
                 dnam{"per mill"}
                 one{"{0} per mill"}
@@ -17,6 +17,11 @@ en_AU{
             }
         }
         energy{
+            kilocalorie{
+                dnam{"Calories"}
+                one{"{0} Calorie"}
+                other{"{0} Calories"}
+            }
             kilowatt-hour{
                 dnam{"kilowatt hours"}
                 one{"{0} kilowatt hour"}
@@ -42,9 +47,6 @@ en_AU{
                 one{"tonne"}
                 other{"{0} tonnes"}
             }
-            stone{
-                one{"{0} stone"}
-            }
         }
         temperature{
             generic{
@@ -53,8 +55,18 @@ en_AU{
                 other{"{0} degrees"}
             }
         }
+        volume{
+            fluid-ounce{
+                dnam{"fluid ounces"}
+                one{"{0} fluid ounce"}
+                other{"{0} fluid ounces"}
+            }
+        }
     }
     unitsNarrow{
+        compound{
+            per{"{0}/{1}"}
+        }
         concentr{
             milligram-per-deciliter{
                 dnam{"mg/dL"}
@@ -94,6 +106,13 @@ en_AU{
                 dnam{"sec."}
                 one{"{0}s."}
                 other{"{0}s."}
+            }
+        }
+        energy{
+            kilocalorie{
+                dnam{"Cal"}
+                one{"{0}Cal"}
+                other{"{0}Cal"}
             }
         }
         length{
@@ -196,9 +215,6 @@ en_AU{
                 dnam{"millimol/litre"}
                 one{"{0} mmol/L"}
                 other{"{0} mmol/L"}
-            }
-            percent{
-                dnam{"per cent"}
             }
             permille{
                 dnam{"per mill"}
@@ -304,10 +320,18 @@ en_AU{
             }
         }
         pressure{
+            inch-hg{
+                dnam{"in Hg"}
+            }
             millibar{
                 dnam{"mb"}
                 one{"{0} mb"}
                 other{"{0} mb"}
+            }
+            millimeter-of-mercury{
+                dnam{"mm Hg"}
+                one{"{0} mm Hg"}
+                other{"{0} mm Hg"}
             }
         }
         speed{
@@ -350,6 +374,11 @@ en_AU{
                 dnam{"dL"}
                 one{"{0} dL"}
                 other{"{0} dL"}
+            }
+            fluid-ounce{
+                dnam{"fl oz"}
+                one{"{0} fl oz"}
+                other{"{0} fl oz"}
             }
             gallon{
                 dnam{"US gal."}

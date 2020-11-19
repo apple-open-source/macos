@@ -582,6 +582,7 @@ AC_DEFUN([APACHE_CHECK_OPENSSL],[
       liberrors=""
       AC_CHECK_HEADERS([openssl/engine.h])
       AC_CHECK_FUNCS([SSL_CTX_new], [], [liberrors="yes"])
+      AC_CHECK_FUNCS([OPENSSL_init_ssl])
       AC_CHECK_FUNCS([ENGINE_init ENGINE_load_builtin_engines RAND_egd])
       if test "x$liberrors" != "x"; then
         AC_MSG_WARN([OpenSSL libraries are unusable])
@@ -604,6 +605,29 @@ AC_DEFUN([APACHE_CHECK_OPENSSL],[
     APR_ADDTO(MOD_LDFLAGS, [$ap_openssl_mod_ldflags])
     APR_ADDTO(MOD_CFLAGS, [$ap_openssl_mod_cflags])
   fi
+])
+
+AC_DEFUN([APACHE_CHECK_SYSTEMD], [
+dnl Check for systemd support for listen.c's socket activation.
+case $host in
+*-linux-*)
+   if test -n "$PKGCONFIG" && $PKGCONFIG --exists libsystemd; then
+      SYSTEMD_LIBS=`$PKGCONFIG --libs libsystemd`
+   elif test -n "$PKGCONFIG" && $PKGCONFIG --exists libsystemd-daemon; then
+      SYSTEMD_LIBS=`$PKGCONFIG --libs libsystemd-daemon`
+   else
+      AC_CHECK_LIB(systemd-daemon, sd_notify, SYSTEMD_LIBS="-lsystemd-daemon")
+   fi
+   if test -n "$SYSTEMD_LIBS"; then
+      AC_CHECK_HEADERS(systemd/sd-daemon.h)
+      if test "${ac_cv_header_systemd_sd_daemon_h}" = "no" || test -z "${SYSTEMD_LIBS}"; then
+        AC_MSG_WARN([Your system does not support systemd.])
+      else
+        AC_DEFINE(HAVE_SYSTEMD, 1, [Define if systemd is supported])
+      fi
+   fi
+   ;;
+esac
 ])
 
 dnl

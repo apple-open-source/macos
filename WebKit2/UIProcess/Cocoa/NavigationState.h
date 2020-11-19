@@ -94,17 +94,21 @@ private:
         ~NavigationClient();
 
     private:
-        void didStartProvisionalNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
+        void didStartProvisionalNavigation(WebPageProxy&, const WebCore::ResourceRequest&, API::Navigation*, API::Object*) override;
+        void didStartProvisionalLoadForFrame(WebPageProxy&, WebCore::ResourceRequest&&, FrameInfoData&&) override;
         void didReceiveServerRedirectForProvisionalNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
         void willPerformClientRedirect(WebPageProxy&, const WTF::String&, double) override;
         void didPerformClientRedirect(WebPageProxy&, const WTF::String&, const WTF::String&) override;
         void didCancelClientRedirect(WebPageProxy&) override;
-        void didFailProvisionalNavigationWithError(WebPageProxy&, WebFrameProxy&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
-        void didFailProvisionalLoadInSubframeWithError(WebPageProxy&, WebFrameProxy&, WebCore::SecurityOriginData&&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
+        void didFailProvisionalNavigationWithError(WebPageProxy&, FrameInfoData&&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
+        void didFailProvisionalLoadWithErrorForFrame(WebPageProxy&, WebCore::ResourceRequest&&, const WebCore::ResourceError&, FrameInfoData&&) override;
         void didCommitNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
+        void didCommitLoadForFrame(WebKit::WebPageProxy&, WebCore::ResourceRequest&&, FrameInfoData&&) override;
         void didFinishDocumentLoad(WebPageProxy&, API::Navigation*, API::Object*) override;
         void didFinishNavigation(WebPageProxy&, API::Navigation*, API::Object*) override;
-        void didFailNavigationWithError(WebPageProxy&, WebFrameProxy&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
+        void didFinishLoadForFrame(WebPageProxy&, WebCore::ResourceRequest&&, FrameInfoData&&) override;
+        void didFailNavigationWithError(WebPageProxy&, const FrameInfoData&, API::Navigation*, const WebCore::ResourceError&, API::Object*) override;
+        void didFailLoadWithErrorForFrame(WebPageProxy&, WebCore::ResourceRequest&&, const WebCore::ResourceError&, FrameInfoData&&) override;
         void didSameDocumentNavigation(WebPageProxy&, API::Navigation*, SameDocumentNavigationType, API::Object*) override;
 
         void renderingProgressDidChange(WebPageProxy&, OptionSet<WebCore::LayoutMilestone>) override;
@@ -113,6 +117,7 @@ private:
 
         void didReceiveAuthenticationChallenge(WebPageProxy&, AuthenticationChallengeProxy&) override;
         void shouldAllowLegacyTLS(WebPageProxy&, AuthenticationChallengeProxy&, CompletionHandler<void(bool)>&&) final;
+        void didNegotiateModernTLS(const WebCore::AuthenticationChallenge&) final;
         bool processDidTerminate(WebPageProxy&, ProcessTerminationReason) override;
         void processDidBecomeResponsive(WebPageProxy&) override;
         void processDidBecomeUnresponsive(WebPageProxy&) override;
@@ -129,12 +134,12 @@ private:
 #if PLATFORM(MAC)
         void webGLLoadPolicy(WebPageProxy&, const URL&, CompletionHandler<void(WebCore::WebGLLoadPolicy)>&&) const final;
         void resolveWebGLLoadPolicy(WebPageProxy&, const URL&, CompletionHandler<void(WebCore::WebGLLoadPolicy)>&&) const final;
-        bool willGoToBackForwardListItem(WebPageProxy&, WebBackForwardListItem&, bool inBackForwardCache) final;
         bool didFailToInitializePlugIn(WebPageProxy&, API::Dictionary&) final;
         bool didBlockInsecurePluginVersion(WebPageProxy&, API::Dictionary&) final;
         void decidePolicyForPluginLoad(WebKit::WebPageProxy&, WebKit::PluginModuleLoadPolicy, API::Dictionary&, CompletionHandler<void(WebKit::PluginModuleLoadPolicy, const WTF::String&)>&&) final;
         bool didChangeBackForwardList(WebPageProxy&, WebBackForwardListItem*, const Vector<Ref<WebBackForwardListItem>>&) final;
 #endif
+        bool willGoToBackForwardListItem(WebPageProxy&, WebBackForwardListItem&, bool inBackForwardCache) final;
 
         void contentRuleListNotification(WebPageProxy&, URL&&, WebCore::ContentRuleListResults&&) final;
         void decidePolicyForNavigationAction(WebPageProxy&, Ref<API::NavigationAction>&&, Ref<WebFramePolicyListenerProxy>&&, API::Object* userData) override;
@@ -203,22 +208,30 @@ private:
 
         bool webViewDidStartProvisionalNavigation : 1;
         bool webViewDidStartProvisionalNavigationUserInfo : 1;
+        bool webViewDidStartProvisionalLoadWithRequestInFrame : 1;
         bool webViewDidReceiveServerRedirectForProvisionalNavigation : 1;
         bool webViewDidFailProvisionalNavigationWithError : 1;
+        bool webViewDidFailProvisionalLoadWithRequestInFrameWithError : 1;
         bool webViewNavigationDidFailProvisionalLoadInSubframeWithError : 1;
+        bool webViewDidFailProvisionalLoadWithRequestInFrame : 1;
         bool webViewWillPerformClientRedirect : 1;
         bool webViewDidPerformClientRedirect : 1;
         bool webViewDidCancelClientRedirect : 1;
         bool webViewDidCommitNavigation : 1;
+        bool webViewDidCommitLoadWithRequestInFrame : 1;
         bool webViewNavigationDidFinishDocumentLoad : 1;
         bool webViewDidFinishNavigation : 1;
+        bool webViewDidFinishLoadWithRequestInFrame : 1;
         bool webViewDidFailNavigationWithError : 1;
         bool webViewDidFailNavigationWithErrorUserInfo : 1;
+        bool webViewDidFailLoadWithRequestInFrameWithError : 1;
         bool webViewNavigationDidSameDocumentNavigation : 1;
 
         bool webViewRenderingProgressDidChange : 1;
         bool webViewDidReceiveAuthenticationChallengeCompletionHandler : 1;
         bool webViewAuthenticationChallengeShouldAllowLegacyTLS : 1;
+        bool webViewAuthenticationChallengeShouldAllowDeprecatedTLS : 1;
+        bool webViewDidNegotiateModernTLS : 1;
         bool webViewWebContentProcessDidTerminate : 1;
         bool webViewWebContentProcessDidTerminateWithReason : 1;
         bool webViewWebProcessDidCrash : 1;
@@ -244,9 +257,9 @@ private:
         bool webViewBackForwardListItemAddedRemoved : 1;
         bool webViewDidFailToInitializePlugInWithInfo : 1;
         bool webViewDidBlockInsecurePluginVersionWithInfo : 1;
-        bool webViewWillGoToBackForwardListItemInBackForwardCache : 1;
         bool webViewDecidePolicyForPluginLoadWithCurrentPolicyPluginInfoCompletionHandler : 1;
 #endif
+        bool webViewWillGoToBackForwardListItemInBackForwardCache : 1;
 
 #if HAVE(APP_SSO)
         bool webViewDecidePolicyForSOAuthorizationLoadWithCurrentPolicyForExtensionCompletionHandler : 1;
@@ -263,7 +276,7 @@ private:
 
 #if PLATFORM(IOS_FAMILY)
     std::unique_ptr<ProcessThrottler::BackgroundActivity> m_networkActivity;
-    RunLoop::Timer<NavigationState> m_releaseNetwrokActivityTimer;
+    RunLoop::Timer<NavigationState> m_releaseNetworkActivityTimer;
 #endif
 };
 

@@ -26,16 +26,15 @@
 #include "config.h"
 #include "AudioTrackPrivateMediaSourceAVFObjC.h"
 
-#if ENABLE(MEDIA_SOURCE) && ENABLE(VIDEO_TRACK)
+#if ENABLE(MEDIA_SOURCE)
 
 #include "AVTrackPrivateAVFObjCImpl.h"
 #include "SourceBufferPrivateAVFObjC.h"
 
 namespace WebCore {
 
-AudioTrackPrivateMediaSourceAVFObjC::AudioTrackPrivateMediaSourceAVFObjC(AVAssetTrack* track, SourceBufferPrivateAVFObjC* parent)
+AudioTrackPrivateMediaSourceAVFObjC::AudioTrackPrivateMediaSourceAVFObjC(AVAssetTrack* track)
     : m_impl(makeUnique<AVTrackPrivateAVFObjCImpl>(track))
-    , m_parent(parent)
 {
     resetPropertiesFromTrack();
 }
@@ -67,7 +66,6 @@ void AudioTrackPrivateMediaSourceAVFObjC::setEnabled(bool enabled)
         return;
 
     AudioTrackPrivateAVF::setEnabled(enabled);
-    m_parent->trackDidChangeEnabled(this);
 }
 
 }

@@ -30,11 +30,10 @@
 
 #include "DFGBasicBlockInlines.h"
 #include "DFGBlockInsertionSet.h"
-#include "DFGCFG.h"
 #include "DFGGraph.h"
 #include "DFGLoopPreHeaderCreationPhase.h"
 #include "DFGPhase.h"
-#include "JSCInlines.h"
+#include "JSCJSValueInlines.h"
 
 namespace JSC { namespace DFG {
 
@@ -59,7 +58,7 @@ public:
         
         CodeBlock* baseline = m_graph.m_profiledBlock;
         
-        BasicBlock* target = 0;
+        BasicBlock* target = nullptr;
         for (unsigned blockIndex = m_graph.numBlocks(); blockIndex--;) {
             BasicBlock* block = m_graph.block(blockIndex);
             if (!block)
@@ -102,10 +101,10 @@ public:
             VariableAccessData* variable = previousHead->variableAccessData();
             locals[local] = newRoot->appendNode(
                 m_graph, variable->prediction(), ExtractOSREntryLocal, origin,
-                OpInfo(variable->local().offset()));
+                OpInfo(variable->operand().virtualRegister()));
             
             newRoot->appendNode(
-                m_graph, SpecNone, MovHint, origin, OpInfo(variable->local().offset()),
+                m_graph, SpecNone, MovHint, origin, OpInfo(variable->operand().virtualRegister()),
                 Edge(locals[local]));
         }
 

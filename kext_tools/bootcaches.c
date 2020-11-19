@@ -122,6 +122,10 @@ destroyCaches(struct bootCaches *caches)
         /* If readonly_kext_boot_cache_file exists, then kext_boot_cache_file has been
          * allocated in its own block of memory with malloc, so free it. */
         if (caches->readonly_kext_boot_cache_file) free(caches->kext_boot_cache_file);
+
+        /* caches->fileset_bootkc points into the caches->rpspaths array (already free) */
+        if (caches->fileset_systemkc) free(caches->fileset_systemkc);
+        if (caches->fileset_basesystemkc) free(caches->fileset_basesystemkc);
         free(caches);
     }
 }
@@ -375,6 +379,12 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
             }
         }
 
+
+        // reserve one RPS slot for the new MH_FILESET KC on v1.6
+        if (CFDictionaryContainsKey(dict, kBCKernelcacheV6Key)) {
+            caches->nrps++;
+        }
+
         // finally allocate correctly-sized rpspaths
         if ((unsigned int)caches->nrps > INT_MAX/sizeof(*caches->rpspaths))
             goto finish;
@@ -485,6 +495,7 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
         if (CFDictionaryContainsKey(dict, kBCKernelcacheV3Key)) kcacheKeys++;
         if (CFDictionaryContainsKey(dict, kBCKernelcacheV4Key)) kcacheKeys++;
         if (CFDictionaryContainsKey(dict, kBCKernelcacheV5Key)) kcacheKeys++;
+        if (CFDictionaryContainsKey(dict, kBCKernelcacheV6Key)) kcacheKeys++;
 
         if (kcacheKeys > 1) {
             // don't support multiple types of kernel caching ...
@@ -509,6 +520,9 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
             if (!mkDict) {
                 mkDict = (CFDictionaryRef)CFDictionaryGetValue(dict, kBCKernelcacheV5Key);
             }
+            if (!mkDict) {
+                mkDict = (CFDictionaryRef)CFDictionaryGetValue(dict, kBCKernelcacheV6Key);
+            }
 
             if (mkDict) {
                 isKernelcache = true;
@@ -523,6 +537,8 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
         } while (0);
 
         if (mkDict) {
+            CFNumberRef boolRef;
+
             if (CFGetTypeID(mkDict) != CFDictionaryGetTypeID()) {
                 goto finish;
             }
@@ -552,6 +568,52 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
             apaths = (CFArrayRef)CFDictionaryGetValue(mkDict, kBCUnwatchedExtensionsDirKey);
             if (apaths && CFGetTypeID(apaths) == CFArrayGetTypeID()) {
                 caches->unwatchedExts = createPackedPathsFromCFArray(apaths, &caches->nUnwatchedExts);
+            }
+
+            // Starting with KernelCache v1.6, we have a new path for the boot artifact:
+            //     BootKernelExtensions.kc
+            str = (CFStringRef)CFDictionaryGetValue(mkDict, kBCFilesetBootKCKey);
+            if (str && CFGetTypeID(str) == CFStringGetTypeID()) {
+                caches->fileset_bootkc = &caches->rpspaths[rpsindex++];
+                MAKE_CACHEDPATH(caches->fileset_bootkc, caches, str);
+            } else {
+                // there was no kBCFilesetBootKCKey entry -- we don't need the extra slot we just reserved
+                caches->nrps -= 1;
+            }
+
+            // Starting with KernelCache v1.6, we have a new path for a new artifact that
+            // contains all non-essential-for-boot kexts:
+            //     SystemKernelExtensions.kc
+            str = (CFStringRef)CFDictionaryGetValue(mkDict, kBCFilesetSysKCKey);
+            if (str && CFGetTypeID(str) == CFStringGetTypeID()) {
+                caches->fileset_systemkc = malloc(sizeof(cachedPath));
+                if (!caches->fileset_systemkc) {
+                    goto finish;
+                }
+                MAKE_CACHEDPATH(caches->fileset_systemkc, caches, str);
+            }
+
+            // Starting with KernelCache v1.6, we have a new path for a new artifact that
+            // contains all non-boot kexts used in the Base System
+            //     BaseSystemKernelExtensions.kc
+            str = (CFStringRef)CFDictionaryGetValue(mkDict, kBCFilesetBaseSysKCKey);
+            if (str && CFGetTypeID(str) == CFStringGetTypeID()) {
+                caches->fileset_basesystemkc = malloc(sizeof(cachedPath));
+                if (!caches->fileset_basesystemkc) {
+                    goto finish;
+                }
+                MAKE_CACHEDPATH(caches->fileset_basesystemkc, caches, str);
+            }
+
+            // Starting with KernelCache v1.6, this boolean will determine
+            // whether brtool selects the new fileset KC (BootKernelExtensions.kc)
+            // or the old prelinkedkernel style boot artifact.
+            caches->prefer_fileset = FALSE;
+            boolRef = CFDictionaryGetValue(mkDict,kBCPreferFilesetKey);
+            if (boolRef) {
+                if (CFGetTypeID(boolRef) == CFBooleanGetTypeID()) {
+                    caches->prefer_fileset = CFEqual(boolRef, kCFBooleanTrue);
+                }
             }
 
             // Starting with Kernelcache v1.3 kBCWatchedExtensionsDirKey is a key for
@@ -617,6 +679,12 @@ extractProps(struct bootCaches *caches, CFDictionaryRef bcDict)
         keyCount--;     // postBootPaths handled
     }
 
+    // look in the bless2 dictionary for new MHFILESET KC paths
+    dict = (CFDictionaryRef)CFDictionaryGetValue(bcDict, kBCBless2Key);
+    if (dict) {
+        keyCount--;
+    }
+
     if (keyCount == 0 && (unsigned)rpsindex == caches->nrps) {
         rval = 0;
         caches->cacheinfo = CFRetain(bcDict);   // for archs, etc
@@ -662,6 +730,10 @@ getExtraKernelCachePaths(struct bootCaches *caches, cachedPath **pathsp, int *nu
     cachedPath *        basePath            = (readOnly && caches->readonly_kext_boot_cache_file) ?
                                                            caches->readonly_kext_boot_cache_file :
                                                            caches->kext_boot_cache_file;
+
+    if (caches->prefer_fileset && caches->fileset_bootkc) {
+        basePath = caches->fileset_bootkc;
+    }
 
     caches->kernelsCount = 0;
     *numPaths = 0;
@@ -1634,6 +1706,9 @@ rebuild_kext_boot_cache_file(
         }
         if (!mkDict) {
             mkDict = CFDictionaryGetValue(pbDict, kBCKernelcacheV5Key);
+        }
+        if (!mkDict) {
+            mkDict = CFDictionaryGetValue(pbDict, kBCKernelcacheV6Key);
         }
 
         if (mkDict) {
@@ -3109,7 +3184,11 @@ copyVolumeInfo(const char *vol_path, uuid_t *vol_uuid, CFStringRef *cslvf_uuid,
     }
 
     // CoreStorage UUID if requested
-    if (cslvf_uuid) {
+    if (cslvf_uuid && (sfs.f_flags & MNT_SNAPSHOT) && strcmp(sfs.f_fstypename, "apfs") == 0) {
+        OSKextLog(NULL, kOSKextLogWarningLevel | kOSKextLogFileAccessFlag,
+                  "Ignoring CoreStorageLVF UUID Request for apfs snapshot: %s", vol_path);
+        *cslvf_uuid = NULL;
+    } else if (cslvf_uuid) {
         CFDictionaryRef matching;   // IOServiceGetMatchingServices() releases
         matching = IOBSDNameMatching(kIOMasterPortDefault, 0, bsdname);
         if (!matching) {

@@ -1,0 +1,13 @@
+//
+//  HIDPreferences.xcconfig
+//  IOHIDFamily
+//
+//  Created by AB on 10/7/19.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+
+
+INSTALL_PATH = /System/Library/PrivateFrameworks

@@ -34,7 +34,7 @@
 #include <sysexits.h>
 #include <unistd.h>
 #include <sys/uio.h>
-#include "pcapng_private.h"
+#include "pcapng-private.h"
 
 #include "pcap-int.h"
 #include "pcap-common.h"
@@ -219,63 +219,59 @@ pcap_ng_block_reset(pcapng_block_t block, bpf_u_int32 type)
 	switch (type) {
 		case PCAPNG_BT_SHB:
 			block->pcapng_block_type = type;
-			
+			block->pcapng_fields_len = sizeof(struct pcapng_section_header_fields);
+
 			block->pcap_ng_shb_fields.byte_order_magic = PCAPNG_BYTE_ORDER_MAGIC;
 			block->pcap_ng_shb_fields.major_version = PCAPNG_VERSION_MAJOR;
 			block->pcap_ng_shb_fields.minor_version = PCAPNG_VERSION_MINOR;
 			block->pcap_ng_shb_fields.section_length = (uint64_t)-1;
-			
-			block->pcapng_fields_len = sizeof(struct pcapng_section_header_fields);
 			break;
 		
 		case PCAPNG_BT_IDB:
 			block->pcapng_block_type = type;
-			
 			block->pcapng_fields_len = sizeof(struct pcapng_interface_description_fields);
 			break;
 		
 		case PCAPNG_BT_PB:
 			block->pcapng_block_type = type;
-			
 			block->pcapng_fields_len = sizeof(struct pcapng_packet_fields);
 			break;
 		
 		case PCAPNG_BT_SPB:
 			block->pcapng_block_type = type;
-			
 			block->pcapng_fields_len = sizeof(struct pcapng_simple_packet_fields);
 			break;
 		
 		case PCAPNG_BT_NRB:
 			block->pcapng_block_type = type;
-			
 			block->pcapng_fields_len = 0;
 			break;
 		
 		case PCAPNG_BT_ISB:
 			block->pcapng_block_type = type;
-			
 			block->pcapng_fields_len = sizeof(struct pcapng_interface_statistics_fields);
 			break;
 		
 		case PCAPNG_BT_EPB:
 			block->pcapng_block_type = type;
-			
 			block->pcapng_fields_len = sizeof(struct pcapng_enhanced_packet_fields);
 			break;
 		
 		case PCAPNG_BT_PIB:
 			block->pcapng_block_type = type;
-			
 			block->pcapng_fields_len = sizeof(struct pcapng_process_information_fields);
 			break;
 		
 		case PCAPNG_BT_OSEV:
 			block->pcapng_block_type = type;
-			
 			block->pcapng_fields_len = sizeof(struct pcapng_os_event_fields);
 			break;
-			
+
+		case PCAPNG_BT_DSB:
+			block->pcapng_block_type = PCAPNG_BT_DSB;
+			block->pcapng_fields_len = sizeof(struct pcapng_decryption_secrets_fields);
+			break;
+
 		default:
 			return (PCAP_ERROR);
 	}
@@ -366,6 +362,15 @@ pcap_ng_get_os_event_fields(pcapng_block_t block)
 		return NULL;
 }
 
+struct pcapng_decryption_secrets_fields *
+pcap_ng_get_decryption_secrets_fields(pcapng_block_t block)
+{
+	if (block != NULL && block->pcapng_block_type == PCAPNG_BT_DSB)
+		return &block->pcap_ng_dsb_fields;
+	else
+		return NULL;
+}
+
 int
 pcap_ng_block_does_support_data(pcapng_block_t block)
 {
@@ -374,6 +379,7 @@ pcap_ng_block_does_support_data(pcapng_block_t block)
 		case PCAPNG_BT_SPB:
 		case PCAPNG_BT_EPB:
 		case PCAPNG_BT_OSEV:
+		case PCAPNG_BT_DSB:
 			return (1);
 			/* NOT REACHED */
 			
@@ -930,31 +936,33 @@ pcap_ng_dump_block(pcap_dumper_t *p, pcapng_block_t block)
 		case PCAPNG_BT_SHB:
 		case PCAPNG_BT_IDB:
 		case PCAPNG_BT_PB:
-		case PCAPNG_BT_SPB:
 		case PCAPNG_BT_NRB:
 		case PCAPNG_BT_ISB:
 		case PCAPNG_BT_EPB:
 		case PCAPNG_BT_PIB:
 		case PCAPNG_BT_OSEV:
+		case PCAPNG_BT_DSB:
 			if (block->pcapng_block_type == PCAPNG_BT_PB) {
-				if(block->pcap_ng_opb_fields.caplen == 0)
+				if (block->pcap_ng_opb_fields.caplen == 0)
 					block->pcap_ng_opb_fields.caplen = block->pcapng_cap_len;
-				if(block->pcap_ng_opb_fields.len == 0)
+				if (block->pcap_ng_opb_fields.len == 0)
 					block->pcap_ng_opb_fields.len = block->pcapng_cap_len;
 			}
 			if (block->pcapng_block_type == PCAPNG_BT_SPB) {
-				if(block->pcap_ng_spb_fields.len == 0)
+				if (block->pcap_ng_spb_fields.len == 0)
 					block->pcap_ng_spb_fields.len = block->pcapng_cap_len;
 			}
 			if (block->pcapng_block_type == PCAPNG_BT_EPB) {
-				if(block->pcap_ng_epb_fields.caplen == 0)
+				if (block->pcap_ng_epb_fields.caplen == 0)
 					block->pcap_ng_epb_fields.caplen = block->pcapng_cap_len;
-				if(block->pcap_ng_epb_fields.len == 0)
+				if (block->pcap_ng_epb_fields.len == 0)
 					block->pcap_ng_epb_fields.len = block->pcapng_cap_len;
 			}
-			
-			if (block->pcapng_fields_len > 0)
+
+			// Copy the fixed fields if any
+			if (block->pcapng_fields_len > 0) {
 				bcopy(&block->pcap_ng_shb_fields, pcap_ng_block_fields_ptr(block), block->pcapng_fields_len);
+			}
 			break;
 		default:
 			/* Unknown block */
@@ -1034,6 +1042,7 @@ pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_
 		case PCAPNG_BT_EPB:
 		case PCAPNG_BT_PIB:
 		case PCAPNG_BT_OSEV:
+		case PCAPNG_BT_DSB:
 			break;
 		default:
 			(void) snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
@@ -1297,6 +1306,35 @@ pcap_ng_block_internalize_common(pcapng_block_t *pblock, pcap_t *p, u_char *raw_
 				sizeof(struct pcapng_block_header) - sizeof(struct pcapng_block_trailer);
 			if (caplen > osevp->len)
 				caplen = osevp->len;
+			data = get_from_block_data(&cursor, PAD_32BIT(caplen), p->errbuf);
+			if (data == NULL)
+				goto fail;
+			block->pcapng_data_is_external = 0;
+			block->pcapng_data_ptr = (u_char *)data;
+			block->pcapng_cap_len = caplen;
+			block->pcapng_data_len = PAD_32BIT(caplen);
+			break;
+		}
+		case PCAPNG_BT_DSB: {
+			struct pcapng_decryption_secrets_fields *dsp = pcap_ng_get_decryption_secrets_fields(block);
+			struct pcapng_decryption_secrets_fields *rawdsp;
+			void *data;
+			uint32_t caplen;
+
+			rawdsp = get_from_block_data(&cursor, sizeof(struct pcapng_decryption_secrets_fields), p->errbuf);
+			if (rawdsp == NULL)
+				goto fail;
+			dsp->secrets_type = rawdsp->secrets_type;
+			dsp->secrets_length = rawdsp->secrets_length;
+			if (swapped) {
+				dsp->secrets_type = SWAPLONG(dsp->secrets_type);
+				dsp->secrets_length = SWAPLONG(dsp->secrets_length);
+			}
+
+			caplen = bh.total_length - sizeof(struct pcapng_decryption_secrets_fields) -
+				sizeof(struct pcapng_block_header) - sizeof(struct pcapng_block_trailer);
+			if (caplen > dsp->secrets_length)
+				caplen = dsp->secrets_length;
 			data = get_from_block_data(&cursor, PAD_32BIT(caplen), p->errbuf);
 			if (data == NULL)
 				goto fail;

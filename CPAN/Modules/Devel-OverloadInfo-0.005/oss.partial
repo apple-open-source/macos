@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Devel-OverloadInfo</string>
+        <key>OpenSourceVersion</key>
+        <string>0.005</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/I/IL/ILMARI/Devel-OverloadInfo-0.005.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-28</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

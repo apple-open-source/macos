@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,6 +39,7 @@
 #include <errno.h>
 #include <err.h>
 #include <libutil.h>
+#include <TargetConditionals.h>
 
 #include <ktrace/session.h>
 #include <System/sys/kdebug.h>
@@ -2131,6 +2132,191 @@ format_print(th_info_t ti, char *sc_name, ktrace_event_t event,
 							p = "CACHING ON (GLOBAL)";
 						break;
 
+					case F_FLUSH_DATA:
+						p = "FLUSH_DATA";
+						break;
+
+					case F_CHKCLEAN:
+						p = "CHKCLEAN";
+						break;
+
+					case F_RDAHEAD:
+						if (ti->arg3) {
+							p = "RDAHEAD ON";
+						} else {
+							p = "RDAHEAD OFF";
+						}
+						break;
+
+					case F_LOG2PHYS:
+						p = "LOG2PHYS";
+						break;
+
+					case F_FREEZE_FS:
+						p = "FREEZE_FS";
+						break;
+
+					case F_THAW_FS:
+						p = "THAW_FS";
+						break;
+
+					case F_ADDSIGS:
+						p = "ADDSIGS";
+						break;
+
+					case F_MARKDEPENDENCY:
+						p = "MARKDEPENDENCY";
+						break;
+
+					case F_ADDFILESIGS:
+						p = "ADDFILESIGS";
+						break;
+
+					case F_NODIRECT:
+						p = "NODIRECT";
+						break;
+
+					case F_GETPROTECTIONCLASS:
+						p = "GETPROTECTIONCLASS";
+						break;
+
+					case F_SETPROTECTIONCLASS:
+						p = "SETPROTECTIONCLASS";
+						break;
+
+					case F_LOG2PHYS_EXT:
+						p = "LOG2PHYS_EXT";
+						break;
+
+					case F_SETSTATICCONTENT:
+						if (ti->arg3) {
+							p = "STATICCONTENT ON";
+						} else {
+							p = "STATICCONTENT OFF";
+						}
+						break;
+
+					case F_MOVEDATAEXTENTS:
+						p = "MOVEDATAEXTENTS";
+						break;
+
+					case F_DUPFD_CLOEXEC:
+						p = "DUPFD_CLOEXEC";
+						break;
+
+					case F_SETBACKINGSTORE:
+						p = "SETBACKINGSTORE";
+						break;
+
+					case F_GETPATH_MTMINFO:
+						p = "GETPATH_MTMINFO";
+						break;
+
+					case F_GETCODEDIR:
+						p = "GETCODEDIR";
+						break;
+
+					case F_SETNOSIGPIPE:
+						p = "SETNOSIGPIPE";
+						break;
+
+					case F_GETNOSIGPIPE:
+						p = "GETNOSIGPIPE";
+						break;
+
+					case F_TRANSCODEKEY:
+						p = "TRANSCODEKEY";
+						break;
+
+					case F_SINGLE_WRITER:
+						p = "SINGLE_WRITER";
+						break;
+
+					case F_GETPROTECTIONLEVEL:
+						p = "GETPROTECTIONLEVEL";
+						break;
+
+					case F_FINDSIGS:
+						p = "FINDSIGS";
+						break;
+
+					case F_GETDEFAULTPROTLEVEL:
+						p = "GETDEFAULTPROTLEVEL";
+						break;
+
+					case F_MAKECOMPRESSED:
+						p = "MAKECOMPRESSED";
+						break;
+
+					case F_SET_GREEDY_MODE:
+						if (ti->arg3) {
+							p = "GREEDY_MODE ON";
+						} else {
+							p = "GREEDY_MODE OFF";
+						}
+						break;
+
+					case F_SETIOTYPE:
+						p = "SETIOTYPE";
+						break;
+
+					case F_ADDFILESIGS_FOR_DYLD_SIM:
+						p = "ADDFILESIGS_FOR_DYLD_SIM";
+						break;
+
+					case F_RECYCLE:
+						p = "RECYCLE";
+						break;
+
+					case F_BARRIERFSYNC:
+						p = "BARRIERFSYNC";
+						break;
+
+					case F_SETCONFINED:
+						p = "SETCONFINED";
+						break;
+
+					case F_GETCONFINED:
+						p = "GETCONFINED";
+						break;
+
+					case F_ADDFILESIGS_RETURN:
+						p = "ADDFILESIGS_RETURN";
+						break;
+
+					case F_CHECK_LV:
+						p = "CHECK_LV";
+						break;
+
+					case F_PUNCHHOLE:
+						p = "PUNCHHOLE";
+						break;
+
+					case F_TRIM_ACTIVE_FILE:
+						p = "TRIM_ACTIVE_FILE";
+						break;
+
+					case F_SPECULATIVE_READ:
+						p = "SPECULATIVE_READ";
+						break;
+
+					case F_GETPATH_NOFIRMLINK:
+						p = "GETPATH_NOFIRMLINK";
+						break;
+
+					case F_ADDFILESIGS_INFO:
+						p = "ADDFILESIGS_INFO";
+						break;
+
+					case F_ADDFILESUPPL:
+						p = "ADDFILESUPPL";
+						break;
+
+#ifdef F_GETSIGSINFO
+					case F_GETSIGSINFO:
+						p = "GETSIGSINFO";
+						break;
+#endif // F_GETSIGSINFO
 				}
 
 				if (p) {
@@ -3148,7 +3334,7 @@ struct library_info {
 	char     *name;
 };
 
-struct library_range framework32 = {0, 0};
+struct library_range frameworkArm64e = {0, 0};
 struct library_range framework64 = {0, 0};
 struct library_range framework64h = {0, 0};
 
@@ -3350,16 +3536,21 @@ read_shared_cache_map(const char *path, struct library_range *lr, char *linkedit
 	return 1;
 }
 
+#define DYLD_SHARED_CACHE_LOCATION "/System/Library/dyld/"
+
 void
 init_shared_cache_mapping(void)
 {
-	read_shared_cache_map("/var/db/dyld/dyld_shared_cache_i386.map", &framework32, "/var/db/dyld/dyld_shared_cache_i386");
-
-	if (0 == read_shared_cache_map("/var/db/dyld/dyld_shared_cache_x86_64h.map", &framework64h, "/var/db/dyld/dyld_shared_cache_x86_64h")) {
-		read_shared_cache_map("/var/db/dyld/dyld_shared_cache_x86_64.map", &framework64, "/var/db/dyld/dyld_shared_cache_x86_64");
+#if TARGET_OS_OSX
+#if TARGET_CPU_ARM64
+	read_shared_cache_map(DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_arm64e.map", &frameworkArm64e, DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_arm64e");
+#else //!TARGET_CPU_ARM64
+	if (0 == read_shared_cache_map(DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_x86_64h.map", &framework64h, DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_x86_64h")) {
+		read_shared_cache_map(DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_x86_64.map", &framework64, DYLD_SHARED_CACHE_LOCATION"dyld_shared_cache_x86_64");
 	}
-
+#endif //TARGET_CPU_ARM64
 	sort_library_addresses();
+#endif //TARGET_OS_OSX
 }
 
 void
@@ -3382,7 +3573,7 @@ lookup_name(uint64_t user_addr, char **type, char **name)
 	*type = NULL;
 
 	if (num_libraries) {
-		if ((user_addr >= framework32.b_address && user_addr < framework32.e_address) ||
+		if ((user_addr >= frameworkArm64e.b_address && user_addr < frameworkArm64e.e_address) ||
 			(user_addr >= framework64.b_address && user_addr < framework64.e_address) ||
 			(user_addr >= framework64h.b_address && user_addr < framework64h.e_address)) {
 

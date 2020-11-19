@@ -1,0 +1,29 @@
+--- libffi_support.m.orig	2013-01-10 12:01:36.000000000 -0800
++++ libffi_support.m	2017-06-26 13:55:16.000000000 -0700
+@@ -46,6 +46,10 @@
+ 
+ #   define SMALL_STRUCT_LIMIT	16
+ 
++#elif defined(__arm64__)
++
++#   define SMALL_STRUCT_LIMIT	16
++
+ #else
+ 
+ #   error "Unsupported MACOSX platform"
+@@ -3872,10 +3876,14 @@
+ 				msgResult, values);
+ 
+ 		} else {
++			/* No _stret variants on arm64 */
++#if !__arm64__
+ 			if (useStret) {
+ 				ffi_call(&cif, FFI_FN(objc_msgSendSuper_stret), 
+ 					msgResult, values);
+-			} else {
++			} else
++#endif
++			{
+ 				ffi_call(&cif, FFI_FN(objc_msgSendSuper), 
+ 					msgResult, values);
+ 

@@ -35,14 +35,14 @@ enum EscrowKeyType: Int {
 }
 
 class EscrowKeys: NSObject {
-    public var encryptionKey: _SFECKeyPair
-    public var signingKey: _SFECKeyPair
-    public var symmetricKey: _SFAESKey
+    var encryptionKey: _SFECKeyPair
+    var signingKey: _SFECKeyPair
+    var symmetricKey: _SFAESKey
 
-    public var secret: Data
-    public var bottleSalt: String
+    var secret: Data
+    var bottleSalt: String
 
-    public init (secret: Data, bottleSalt: String) throws {
+    init (secret: Data, bottleSalt: String) throws {
         self.secret = secret
         self.bottleSalt = bottleSalt
 
@@ -86,7 +86,6 @@ class EscrowKeys: NSObject {
 
             let infoString = Array("Escrow Signing Private Key".utf8)
             info = Data(bytes: infoString, count: infoString.count)
-
         }
 
         guard let cp = ccec_cp_384() else {
@@ -122,7 +121,7 @@ class EscrowKeys: NSObject {
                         } else if keyType == EscrowKeyType.kOTEscrowKeyEncryption || keyType == EscrowKeyType.kOTEscrowKeySigning {
                             status = ccec_generate_key_deterministic(cp,
                                                                      derivedKeyBytes.count, derivedKeyBytes.bindMemory(to: UInt8.self).baseAddress!,
-                                                                     ccDRBGGetRngState(),
+                                                                     ccrng(nil),
                                                                      UInt32(CCEC_GENKEY_DETERMINISTIC_FIPS),
                                                                      fullKey)
 
@@ -195,7 +194,6 @@ class EscrowKeys: NSObject {
     }
 
     class func storeEscrowedEncryptionKeyPair(keyData: Data, label: String) throws -> (Bool) {
-
         let query: [CFString: Any] = [
             kSecClass: kSecClassKey,
             kSecAttrAccessible: kSecAttrAccessibleWhenUnlocked,
@@ -284,15 +282,15 @@ class EscrowKeys: NSObject {
             let keyTypeData = item[kSecAttrApplicationLabel as CFString] as! Data
             let keyType = String(data: keyTypeData, encoding: .utf8)!
 
-            if keyType.range(of: "Symmetric") != nil {
+            if keyType.contains("Symmetric") {
                 let keyData = item[kSecValueData as CFString] as! Data
                 let specifier = _SFAESKeySpecifier.init(bitSize: TPHObjectiveC.aes256BitSize())
                 symmetricKey = try _SFAESKey.init(data: keyData, specifier: specifier)
-            } else if keyType.range(of: "Encryption") != nil {
+            } else if keyType.contains("Encryption") {
                 let keyData = item[kSecValueData as CFString] as! Data
                 let encryptionSecKey = try EscrowKeys.createSecKey(keyData: keyData)
                 encryptionKey = _SFECKeyPair.init(secKey: encryptionSecKey)
-            } else if keyType.range(of: "Signing") != nil {
+            } else if keyType.contains("Signing") {
                 let keyData = item[kSecValueData as CFString] as! Data
                 let signingSecKey = try EscrowKeys.createSecKey(keyData: keyData)
                 signingKey = _SFECKeyPair.init(secKey: signingSecKey)
@@ -314,7 +312,7 @@ enum EscrowKeysError: Error {
 }
 
 extension EscrowKeysError: LocalizedError {
-    public var errorDescription: String? {
+    var errorDescription: String? {
         switch self {
         case .keyGeneration:
             return "Key generation failed"
@@ -331,12 +329,11 @@ extension EscrowKeysError: LocalizedError {
 }
 
 extension EscrowKeysError: CustomNSError {
-
-    public static var errorDomain: String {
+    static var errorDomain: String {
         return "com.apple.security.trustedpeers.EscrowKeys"
     }
 
-    public var errorCode: Int {
+    var errorCode: Int {
         switch self {
         case .keyGeneration:
             return 1
@@ -351,7 +348,7 @@ extension EscrowKeysError: CustomNSError {
         }
     }
 
-    public var errorUserInfo: [String: Any] {
+    var errorUserInfo: [String: Any] {
         var userInfo: [String: Any] = [:]
         if let desc = self.errorDescription {
             userInfo[NSLocalizedDescriptionKey] = desc

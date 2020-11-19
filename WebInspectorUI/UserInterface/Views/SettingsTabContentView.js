@@ -26,14 +26,9 @@
 
 WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentView
 {
-    constructor(identifier)
+    constructor()
     {
-        let tabBarItem = WI.PinnedTabBarItem.fromTabInfo(WI.SettingsTabContentView.tabInfo());
-
-        super(identifier || "settings", "settings", tabBarItem);
-
-        // Ensures that the Settings tab is displayable from a pinned tab bar item.
-        tabBarItem.representedObject = this;
+        super(SettingsTabContentView.tabInfo());
 
         this._selectedSettingsView = null;
         this._settingsViews = [];
@@ -42,10 +37,16 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
     static tabInfo()
     {
         return {
+            identifier: SettingsTabContentView.Type,
             image: "Images/Gear.svg",
-            title: WI.UIString("Settings"),
-            isEphemeral: true,
+            displayName: WI.UIString("Settings", "Settings Tab Name", "Name of Settings Tab"),
+            title: WI.UIString("Settings (%s)", "Settings Tab Title", "Title of Settings Tab with keyboard shortcut").format(WI.settingsKeyboardShortcut.displayName),
         };
+    }
+
+    static shouldPinTab()
+    {
+        return true;
     }
 
     static shouldSaveTab()
@@ -180,6 +181,7 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         if (WI.DebuggerManager.supportsBlackboxingScripts()) {
             this._blackboxSettingsView = new WI.BlackboxSettingsView;
+            this._createReferenceLink(this._blackboxSettingsView);
             this.addSettingsView(this._blackboxSettingsView);
         }
 
@@ -200,6 +202,22 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
     _createGeneralSettingsView()
     {
         let generalSettingsView = new WI.SettingsView("general", WI.UIString("General"));
+
+        if (CSS.supports("color-scheme", "light") && CSS.supports("color-scheme", "dark")) {
+            const appearanceValues = [
+                ["system", WI.UIString("System", "System @ Settings General Appearance", "Label of dropdown item used for forcing Web Inspector to be shown using the system's theme")],
+                [WI.SettingEditor.SelectSpacerKey, null],
+                ["light", WI.UIString("Light", "Light @ Settings General Appearance", "Label of dropdown item used for forcing Web Inspector to be shown using a light theme")],
+                ["dark", WI.UIString("Dark", "Dark @ Settings General Appearance", "Label of dropdown item used for forcing Web Inspector to be shown using a dark theme")],
+            ];
+            let appearanceEditor = generalSettingsView.addGroupWithCustomSetting(WI.UIString("Appearance:"), WI.SettingEditor.Type.Select, {values: appearanceValues});
+            appearanceEditor.value = WI.settings.frontendAppearance.value;
+            appearanceEditor.addEventListener(WI.SettingEditor.Event.ValueDidChange, () => {
+                WI.settings.frontendAppearance.value = appearanceEditor.value;
+            }, WI.settings.frontendAppearance);
+
+            generalSettingsView.addSeparator();
+        }
 
         const indentValues = [WI.UIString("Tabs"), WI.UIString("Spaces")];
         let indentEditor = generalSettingsView.addGroupWithCustomSetting(WI.UIString("Prefer indent using:"), WI.SettingEditor.Type.Select, {values: indentValues});
@@ -233,6 +251,7 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         let searchGroup = generalSettingsView.addGroup(WI.UIString("Search:", "Search: @ Settings", "Settings tab label for search related settings"));
         searchGroup.addSetting(WI.settings.searchCaseSensitive, WI.UIString("Case Sensitive", "Case Sensitive @ Settings", "Settings tab checkbox label for whether searches should be case sensitive."));
         searchGroup.addSetting(WI.settings.searchRegularExpression, WI.UIString("Regular Expression", "Regular Expression @ Settings", "Settings tab checkbox label for whether searches should be treated as regular expressions."));
+        searchGroup.addSetting(WI.settings.searchFromSelection, WI.UIString("%s from selection", "Global Search From Selection @ Settings", "Settings tab checkbox label for whether the global search should populate from the current selection.").format(WI.searchKeyboardShortcut.displayName));
 
         generalSettingsView.addSeparator();
 
@@ -243,6 +262,8 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         zoomEditor.value = WI.getZoomFactor();
         zoomEditor.addEventListener(WI.SettingEditor.Event.ValueDidChange, () => { WI.setZoomFactor(zoomEditor.value); });
         WI.settings.zoomFactor.addEventListener(WI.Setting.Event.Changed, () => { zoomEditor.value = WI.getZoomFactor().maxDecimals(2); });
+
+        this._createReferenceLink(generalSettingsView);
 
         this.addSettingsView(generalSettingsView);
     }
@@ -262,6 +283,8 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         elementsSettingsView.addSetting(WI.UIString("CSS Changes:"), WI.settings.cssChangesPerNode, WI.UIString("Show only for selected node"));
 
+        this._createReferenceLink(elementsSettingsView);
+
         this.addSettingsView(elementsSettingsView);
     }
 
@@ -277,7 +300,9 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         sourcesSettingsView.addSeparator();
 
-        sourcesSettingsView.addSetting(WI.UIString("Images:"), WI.settings.showImageGrid, WI.UIString("Show transparency grid"));
+        sourcesSettingsView.addSetting(WI.UIString("Images:"), WI.settings.showImageGrid, WI.UIString("Show transparency grid", "Show transparency grid (settings label)", "Settings tab checkbox label for whether the transparency grid is shown by default"));
+
+        this._createReferenceLink(sourcesSettingsView);
 
         this.addSettingsView(sourcesSettingsView);
     }
@@ -291,7 +316,7 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             let consoleSavedResultAliasEditor = consoleSettingsView.addGroupWithCustomEditor(WI.UIString("Saved Result Alias:"));
 
             let consoleSavedResultAliasInput = consoleSavedResultAliasEditor.appendChild(document.createElement("input"));
-            consoleSavedResultAliasInput.type = "text";
+            consoleSavedResultAliasInput.spellcheck = false;
             consoleSavedResultAliasInput.value = WI.settings.consoleSavedResultAlias.value;
             consoleSavedResultAliasInput.placeholder = WI.unlocalizedString("$");
             consoleSavedResultAliasInput.addEventListener("keydown", (event) => {
@@ -337,26 +362,32 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             }
         }
 
+        this._createReferenceLink(consoleSettingsView);
+
         this.addSettingsView(consoleSettingsView);
     }
 
     _createExperimentalSettingsView()
     {
+        let canShowPreviewFeatures = WI.canShowPreviewFeatures();
+        let hasCSSDomain = InspectorBackend.hasDomain("CSS");
+        if (!canShowPreviewFeatures && !hasCSSDomain)
+            return;
+
         let experimentalSettingsView = new WI.SettingsView("experimental", WI.UIString("Experimental"));
 
         let initialValues = new Map;
 
-        if (WI.canShowPreviewFeatures()) {
+        if (canShowPreviewFeatures) {
             experimentalSettingsView.addSetting(WI.UIString("Staging:"), WI.settings.experimentalEnablePreviewFeatures, WI.UIString("Enable Preview Features"));
             experimentalSettingsView.addSeparator();
         }
 
-        experimentalSettingsView.addSetting(WI.UIString("User Interface:"), WI.settings.experimentalEnableNewTabBar, WI.UIString("Enable New Tab Bar"));
-        experimentalSettingsView.addSeparator();
-
-        if (InspectorBackend.hasDomain("CSS")) {
+        if (hasCSSDomain) {
             let stylesGroup = experimentalSettingsView.addGroup(WI.UIString("Styles:"));
-            stylesGroup.addSetting(WI.settings.experimentalEnableStylesJumpToEffective, WI.UIString("Show Jump to Effective Property Button"));
+            stylesGroup.addSetting(WI.settings.experimentalEnableStylesJumpToEffective, WI.UIString("Show jump to effective property button"));
+            stylesGroup.addSetting(WI.settings.experimentalEnableStyelsJumpToVariableDeclaration, WI.UIString("Show jump to variable declaration button"));
+
             experimentalSettingsView.addSeparator();
         }
 
@@ -377,10 +408,13 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         }
 
         listenForChange(WI.settings.experimentalEnablePreviewFeatures);
-        listenForChange(WI.settings.experimentalEnableNewTabBar);
 
-        if (InspectorBackend.hasDomain("CSS"))
+        if (hasCSSDomain) {
             listenForChange(WI.settings.experimentalEnableStylesJumpToEffective);
+            listenForChange(WI.settings.experimentalEnableStyelsJumpToVariableDeclaration);
+        }
+
+        this._createReferenceLink(experimentalSettingsView);
 
         this.addSettingsView(experimentalSettingsView);
     }
@@ -394,7 +428,10 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         let elementsGroup = engineeringSettingsView.addGroup(WI.unlocalizedString("Elements:"));
         elementsGroup.addSetting(WI.settings.engineeringAllowEditingUserAgentShadowTrees, WI.unlocalizedString("Allow editing UserAgent shadow trees"));
 
+        engineeringSettingsView.addSeparator();
+
         let debuggingGroup = engineeringSettingsView.addGroup(WI.unlocalizedString("Debugging:"));
+        debuggingGroup.addSetting(WI.settings.engineeringShowInternalExecutionContexts, WI.unlocalizedString("Show WebKit-internal execution contexts"));
         debuggingGroup.addSetting(WI.settings.engineeringShowInternalScripts, WI.unlocalizedString("Show WebKit-internal scripts"));
         debuggingGroup.addSetting(WI.settings.engineeringPauseForInternalScripts, WI.unlocalizedString("Pause in WebKit-internal scripts"));
 
@@ -428,7 +465,9 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
 
         this._debugSettingsView.addSeparator();
 
-        this._debugSettingsView.addSetting(WI.unlocalizedString("Debugging:"), WI.settings.debugShowConsoleEvaluations, WI.unlocalizedString("Show Console Evaluations"));
+        let debuggingGroup = this._debugSettingsView.addGroup(WI.unlocalizedString("Debugging:"));
+        debuggingGroup.addSetting(WI.settings.debugShowConsoleEvaluations, WI.unlocalizedString("Show Console Evaluations"));
+        debuggingGroup.addSetting(WI.settings.debugOutlineFocusedElement, WI.unlocalizedString("Outline focused element"));
 
         this._debugSettingsView.addSeparator();
 
@@ -467,6 +506,18 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         this._debugSettingsView.addCenteredContainer(resetInspectorButton);
 
         this.addSettingsView(this._debugSettingsView);
+    }
+
+    _createReferenceLink(settingsView)
+    {
+        let link = document.createElement("a");
+        link.href = link.title = "https://webkit.org/web-inspector/web-inspector-settings/#" + settingsView.identifier;
+        link.textContent = WI.UIString("Web Inspector Reference");
+
+        link.appendChild(WI.createGoToArrowButton());
+
+        let container = settingsView.addCenteredContainer(link);
+        container.classList.add("reference");
     }
 
     _updateNavigationBarVisibility()

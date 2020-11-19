@@ -21,7 +21,7 @@ Environment	= YACC=$(shell xcrun -f bison) \
 			TMPDIR="$(TMPDIR)" TEMPDIR="$(TMPDIR)" 
 Extra_Make_Flags = -j $(shell sysctl -n hw.ncpu) $(Environment)
 
-APXS = $(DT_TOOLCHAIN_DIR)/usr/local/bin/apxs
+APXS = $(shell xcrun -f apxs)
 SDKUSRDIR = $(SDKROOT)$(USRDIR)
 			
 # This allows extra variables to be passed _just_ to configure.
@@ -68,8 +68,6 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 			--enable-mbregex \
 			--with-mysqli=mysqlnd \
 			--without-pcre-jit \
-			--with-pdo-pgsql=$(DT_TOOLCHAIN_DIR)/usr/local/bin \
-			--with-pgsql=$(DT_TOOLCHAIN_DIR)/usr/local/bin \
 			--without-pear \
 			--with-pear=no\
 			--with-pdo-mysql=mysqlnd \
@@ -93,6 +91,7 @@ Extra_Configure_Flags	= --sysconfdir=$(ETCDIR) \
 AEP		= NO
 AEP_LicenseFile	= $(Sources)/LICENSE
 AEP_Patches	=  	configure.patch \
+			deprecation.patch \
 			MacOSX_build.patch \
 			ldap.patch \
 			iconv.patch pear.patch phar.patch \
@@ -101,7 +100,7 @@ AEP_ConfigDir	= $(ETCDIR)
 AEP_Binaries	= $(shell $(APXS) -q LIBEXECDIR)/*.so $(USRBINDIR)/php $(USRSBINDIR)/php-fpm
 AEP_ManPages	= pear.1 phar.1 phar.phar.1
 Dependencies	= libpng libjpeg
-GnuAfterInstall = archive-strip-binaries install-macosx install-xdebug install-open-source-files # needs a path adjustment
+GnuAfterInstall = archive-strip-binaries install-macosx install-xdebug install-open-source-files install-deprecation-notice # needs a path adjustment
 
 
 # Local targets that must be defined before including the following
@@ -265,6 +264,9 @@ install-open-source-files::
 		echo "WARNING: No open-source file for this project!";	\
 	fi
 
+install-deprecation-notice::
+	@echo "Installing deprecation notice..."
+	$(INSTALL_FILE) $(SRCROOT)/php-NOTICE-PLANNED-REMOVAL.txt $(DSTROOT)/private/etc
 
 #
 # Install any man pages at the top-level directory or its "man" subdirectory

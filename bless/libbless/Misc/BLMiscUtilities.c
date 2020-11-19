@@ -68,7 +68,11 @@ int blsustatfs(const char *path, struct statfs *buf)
 	
 	
 #ifdef AT_REALDEV
-    flag = AT_REALDEV;
+	if (__builtin_available(macOS 10.15, *)) {
+		flag = AT_REALDEV;
+	} else {
+		flag = 0;
+	}
 #else
     flag = 0;
 #endif /* AT_REALDEV */

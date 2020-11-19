@@ -41,6 +41,8 @@
 
 #include "SOSRegressionUtilities.h"
 
+#if SOS_ENABLED
+
 typedef struct piStuff_t {
     SecKeyRef signingKey;
     SecKeyRef octagonSigningKey;
@@ -150,13 +152,15 @@ static void tests(void)
     freeSimplePeer(iDrone);
 }
 
-static int kTestTestCount = 12;
+#endif
 
 int sc_130_resignationticket(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
-    
+#if SOS_ENABLED
+    plan_tests(12);
     tests();
-    
+#else
+    plan_tests(0);
+#endif
 	return 0;
 }

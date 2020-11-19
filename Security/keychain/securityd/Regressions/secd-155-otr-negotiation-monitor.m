@@ -38,6 +38,7 @@
 #include "SOSTestDevice.h"
 #include "SOSTestDataSource.h"
 #include "keychain/SecureObjectSync/SOSAccountTrustClassic+Circle.h"
+#if SOS_ENABLED
 
 
 static void tests(void)
@@ -158,14 +159,16 @@ static void tests(void)
 
    // ids_test_sync(alice_account, bob_account);
 }
+#endif
 
 int secd_155_otr_negotiation_monitor(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(44);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

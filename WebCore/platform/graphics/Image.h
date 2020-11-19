@@ -35,6 +35,7 @@
 #include "ImageTypes.h"
 #include "NativeImage.h"
 #include "Timer.h"
+#include <wtf/EnumTraits.h>
 #include <wtf/Optional.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -58,6 +59,9 @@ typedef struct HBITMAP__ *HBITMAP;
 
 #if PLATFORM(GTK)
 typedef struct _GdkPixbuf GdkPixbuf;
+#if USE(GTK4)
+typedef struct _GdkTexture GdkTexture;
+#endif
 #endif
 
 namespace WebCore {
@@ -170,11 +174,14 @@ public:
 
 #if PLATFORM(GTK)
     virtual GdkPixbuf* getGdkPixbuf() { return nullptr; }
+#if USE(GTK4)
+    virtual GdkTexture* gdkTexture() { return nullptr; }
+#endif
 #endif
 
     virtual void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { });
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     virtual bool notSolidColor() { return true; }
 #endif
 
@@ -215,3 +222,17 @@ SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::ToClassName) \
     static bool isType(const WebCore::Image& image) { return image.is##ToClassName(); } \
 SPECIALIZE_TYPE_TRAITS_END()
 
+
+namespace WTF {
+
+template<> struct EnumTraits<WebCore::Image::TileRule> {
+    using values = EnumValues<
+        WebCore::Image::TileRule,
+        WebCore::Image::TileRule::StretchTile,
+        WebCore::Image::TileRule::RoundTile,
+        WebCore::Image::TileRule::SpaceTile,
+        WebCore::Image::TileRule::RepeatTile
+    >;
+};
+
+} // namespace WTF

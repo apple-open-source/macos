@@ -14,11 +14,13 @@
 		0F7A4EE62242EBB100D655AB /* DriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0F7A4EE52242EBB000D655AB /* DriverKit.framework */; };
 		48C68A6422692E0500E75E1B /* AppleUserUSBHostHIDDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 0F7A4ECF2242E6CB00D655AB /* AppleUserUSBHostHIDDevice.iig */; };
 		48C68A6522692E0500E75E1B /* AppleUserHIDEventDriver.iig in Sources */ = {isa = PBXBuildFile; fileRef = 0F7A4ED02242E6CB00D655AB /* AppleUserHIDEventDriver.iig */; };
+		D82CC5A624BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = D82CC5A424BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.iig */; };
+		D82CC5A724BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = D82CC5A524BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.cpp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0F7A4EC42242E6AE00D655AB /* AppleUserHIDDrivers.dext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleUserHIDDrivers.dext; sourceTree = BUILT_PRODUCTS_DIR; };
-		0F7A4EC72242E6AE00D655AB /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		0F7A4EC42242E6AE00D655AB /* com.apple.AppleUserHIDDrivers.dext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = com.apple.AppleUserHIDDrivers.dext; sourceTree = BUILT_PRODUCTS_DIR; };
+		0F7A4EC72242E6AE00D655AB /* Info.plist */ = {isa = PBXFileReference; explicitFileType = text; path = Info.plist; sourceTree = "<group>"; };
 		0F7A4ECF2242E6CB00D655AB /* AppleUserUSBHostHIDDevice.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = AppleUserUSBHostHIDDevice.iig; sourceTree = "<group>"; };
 		0F7A4ED02242E6CB00D655AB /* AppleUserHIDEventDriver.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = AppleUserHIDEventDriver.iig; sourceTree = "<group>"; };
 		0F7A4ED12242E6CB00D655AB /* AppleUserHIDEventDriver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUserHIDEventDriver.cpp; sourceTree = "<group>"; };
@@ -29,6 +31,9 @@
 		0F7A4EE32242EBAC00D655AB /* USBDriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = USBDriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/USBDriverKit.framework; sourceTree = DEVELOPER_DIR; };
 		0F7A4EE52242EBB000D655AB /* DriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/DriverKit.framework; sourceTree = DEVELOPER_DIR; };
 		48D10DEA22C143FA00C9F758 /* AppleUserHIDDrivers-Entitlements.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "AppleUserHIDDrivers-Entitlements.plist"; sourceTree = SOURCE_ROOT; };
+		D82CC5A424BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.iig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.iig; path = AppleUserT1TouchBarHIDDevice.iig; sourceTree = "<group>"; };
+		D82CC5A524BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AppleUserT1TouchBarHIDDevice.cpp; sourceTree = "<group>"; };
+		D8977B0B24C820C800CEBDA9 /* AppleUserT1TouchBar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppleUserT1TouchBar.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -57,7 +62,7 @@
 		0F7A4EC52242E6AE00D655AB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0F7A4EC42242E6AE00D655AB /* AppleUserHIDDrivers.dext */,
+				0F7A4EC42242E6AE00D655AB /* com.apple.AppleUserHIDDrivers.dext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -65,6 +70,9 @@
 		0F7A4EC62242E6AE00D655AB /* AppleUserHIDDrivers */ = {
 			isa = PBXGroup;
 			children = (
+				D82CC5A524BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.cpp */,
+				D82CC5A424BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.iig */,
+				D8977B0B24C820C800CEBDA9 /* AppleUserT1TouchBar.h */,
 				48D10DEA22C143FA00C9F758 /* AppleUserHIDDrivers-Entitlements.plist */,
 				0F7A4ECF2242E6CB00D655AB /* AppleUserUSBHostHIDDevice.iig */,
 				0F7A4ED02242E6CB00D655AB /* AppleUserHIDEventDriver.iig */,
@@ -103,7 +111,7 @@
 			);
 			name = AppleUserHIDDrivers;
 			productName = AppleUserHIDDrivers;
-			productReference = 0F7A4EC42242E6AE00D655AB /* AppleUserHIDDrivers.dext */;
+			productReference = 0F7A4EC42242E6AE00D655AB /* com.apple.AppleUserHIDDrivers.dext */;
 			productType = "com.apple.product-type.bundle";
 		};
 /* End PBXNativeTarget section */
@@ -143,8 +151,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				48C68A6422692E0500E75E1B /* AppleUserUSBHostHIDDevice.iig in Sources */,
+				D82CC5A624BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.iig in Sources */,
 				48C68A6522692E0500E75E1B /* AppleUserHIDEventDriver.iig in Sources */,
 				0F7A4EDE2242E6CC00D655AB /* AppleUserUSBHostHIDDevice.cpp in Sources */,
+				D82CC5A724BAC57900B6D1E0 /* AppleUserT1TouchBarHIDDevice.cpp in Sources */,
 				0F7A4EDD2242E6CC00D655AB /* AppleUserHIDEventDriver.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -280,7 +290,7 @@
 				CODE_SIGN_ENTITLEMENTS = "AppleUserHIDDrivers-Entitlements.plist";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				INFOPLIST_PREPROCESS = YES;
 				SDKROOT = driverkit.internal;
 				SKIP_INSTALL = NO;
 			};
@@ -293,7 +303,7 @@
 				CODE_SIGN_ENTITLEMENTS = "AppleUserHIDDrivers-Entitlements.plist";
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				INFOPLIST_PREPROCESS = YES;
 				SDKROOT = driverkit.internal;
 				SKIP_INSTALL = NO;
 			};

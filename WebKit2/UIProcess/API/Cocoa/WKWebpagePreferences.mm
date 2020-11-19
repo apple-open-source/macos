@@ -27,16 +27,18 @@
 #import "WKWebpagePreferences.h"
 
 #import "APICustomHeaderFields.h"
+#import "WKUserContentControllerInternal.h"
 #import "WKWebpagePreferencesInternal.h"
 #import "WKWebsiteDataStoreInternal.h"
 #import "WebContentMode.h"
 #import "_WKCustomHeaderFieldsInternal.h"
 #import "_WKWebsitePoliciesInternal.h"
+#import <WebCore/DocumentLoader.h>
 #import <wtf/RetainPtr.h>
 
-#if PLATFORM(IOS_FAMILY)
-
 namespace WebKit {
+
+#if PLATFORM(IOS_FAMILY)
 
 WKContentMode contentMode(WebKit::WebContentMode contentMode)
 {
@@ -66,9 +68,37 @@ WebKit::WebContentMode webContentMode(WKContentMode contentMode)
     return WebKit::WebContentMode::Recommended;
 }
 
-} // namespace WebKit
-
 #endif // PLATFORM(IOS_FAMILY)
+
+static _WKWebsiteMouseEventPolicy mouseEventPolicy(WebCore::MouseEventPolicy policy)
+{
+    switch (policy) {
+    case WebCore::MouseEventPolicy::Default:
+        return _WKWebsiteMouseEventPolicyDefault;
+#if ENABLE(IOS_TOUCH_EVENTS)
+    case WebCore::MouseEventPolicy::SynthesizeTouchEvents:
+        return _WKWebsiteMouseEventPolicySynthesizeTouchEvents;
+#endif
+    }
+    ASSERT_NOT_REACHED();
+    return _WKWebsiteMouseEventPolicyDefault;
+}
+
+static WebCore::MouseEventPolicy coreMouseEventPolicy(_WKWebsiteMouseEventPolicy policy)
+{
+    switch (policy) {
+    case _WKWebsiteMouseEventPolicyDefault:
+        return WebCore::MouseEventPolicy::Default;
+#if ENABLE(IOS_TOUCH_EVENTS)
+    case _WKWebsiteMouseEventPolicySynthesizeTouchEvents:
+        return WebCore::MouseEventPolicy::SynthesizeTouchEvents;
+#endif
+    }
+    ASSERT_NOT_REACHED();
+    return WebCore::MouseEventPolicy::Default;
+}
+
+} // namespace WebKit
 
 @implementation WKWebpagePreferences
 
@@ -250,11 +280,9 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 
 - (NSArray<_WKCustomHeaderFields *> *)_customHeaderFields
 {
-    const auto& fields = _websitePolicies->customHeaderFields();
-    NSMutableArray *array = [[[NSMutableArray alloc] initWithCapacity:fields.size()] autorelease];
-    for (const auto& field : fields)
-        [array addObject:wrapper(API::CustomHeaderFields::create(field))];
-    return array;
+    return createNSArray(_websitePolicies->customHeaderFields(), [] (auto& field) {
+        return wrapper(API::CustomHeaderFields::create(field));
+    }).autorelease();
 }
 
 - (void)_setCustomHeaderFields:(NSArray<_WKCustomHeaderFields *> *)fields
@@ -274,6 +302,16 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 - (void)_setWebsiteDataStore:(WKWebsiteDataStore *)websiteDataStore
 {
     _websitePolicies->setWebsiteDataStore(websiteDataStore->_websiteDataStore.get());
+}
+
+- (WKUserContentController *)_userContentController
+{
+    return wrapper(_websitePolicies->userContentController());
+}
+
+- (void)_setUserContentController:(WKUserContentController *)userContentController
+{
+    _websitePolicies->setUserContentController(userContentController->_userContentControllerProxy.get());
 }
 
 - (void)_setCustomUserAgent:(NSString *)customUserAgent
@@ -331,6 +369,21 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
     return *_websitePolicies;
 }
 
+- (void)setAllowsContentJavaScript:(BOOL)allowsContentJavaScript
+{
+    _websitePolicies->setAllowsContentJavaScript(allowsContentJavaScript ? WebCore::AllowsContentJavaScript::Yes : WebCore::AllowsContentJavaScript::No);
+}
+
+- (BOOL)allowsContentJavaScript
+{
+    switch (_websitePolicies->allowsContentJavaScript()) {
+    case WebCore::AllowsContentJavaScript::Yes:
+        return YES;
+    case WebCore::AllowsContentJavaScript::No:
+        return NO;
+    }
+}
+
 #if PLATFORM(IOS_FAMILY)
 
 - (void)setPreferredContentMode:(WKContentMode)contentMode
@@ -344,5 +397,15 @@ static _WKWebsiteDeviceOrientationAndMotionAccessPolicy toWKWebsiteDeviceOrienta
 }
 
 #endif // PLATFORM(IOS_FAMILY)
+
+- (void)_setMouseEventPolicy:(_WKWebsiteMouseEventPolicy)policy
+{
+    _websitePolicies->setMouseEventPolicy(WebKit::coreMouseEventPolicy(policy));
+}
+
+- (_WKWebsiteMouseEventPolicy)_mouseEventPolicy
+{
+    return WebKit::mouseEventPolicy(_websitePolicies->mouseEventPolicy());
+}
 
 @end

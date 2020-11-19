@@ -22,6 +22,8 @@
 .Op Fl -legacydrivehint Ar device
 .Op Fl -options Ar string
 .Op Fl -personalize
+.Op Fl -create-snapshot
+.Op Fl -last-sealed-snapshot
 .Op Fl -quiet | -verbose
 .Pp
 .Nm bless
@@ -34,6 +36,8 @@
 .Op Fl -legacydrivehint Ar device
 .Op Fl -options Ar string
 .Op Fl -personalize
+.Op Fl -create-snapshot
+.Op Fl -last-sealed-snapshot
 .Op Fl -quiet | -verbose
 .Pp
 .Nm bless
@@ -161,7 +165,7 @@ a platform-specific manner. On Open Firmware-based systems, the
 .Em boot-device
 variable is modified. On EFI-based systems, the 
 .Em efi-boot-device
-variable is changed.
+variable is changed. This is not supported on Apple Silicon based systems.
 .It Fl -nextonly
 Only change the boot device selection for the next boot. This is only supported
 on EFI-based systems.
@@ -193,6 +197,12 @@ to set
 Attempts to do a personalization operation on the target, which validates the SecureBoot
 bundle and ensures that the relevant boot files are signed and valid for this particular
 machine.  This may require network access, in order to check the signatures.
+.It Fl -create-snapshot
+Attempts to create an APFS snapshot of the target APFS system volume and set it as root snapshot
+of the system volume. The target system will boot from this snapshot on its next boot.
+.It Fl -last-sealed-snapshot
+Reverts back to using the previosuly signed APFS snapshot reenabling Authenticated Root Volume.
+ The target system will boot from this sealed snapshot on its next boot.
 .It Fl -quiet
 Do not print any output
 .It Fl -verbose
@@ -205,8 +215,8 @@ Mount Mode has the following options:
 Use the volume mounted at
 .Ar directory
 to change the active boot volume, in conjunction with
-.Fl -setBoot
-\&. The volume must already be properly blessed.
+.Fl -setBoot .
+The volume must already be properly blessed.
 .It Fl -file Ar file
 Instead of allowing the firmware to discover the booter based on the blessed
 directory or file, pass an explicit path to the firmware to boot from. This
@@ -226,6 +236,16 @@ Same as for Folder Mode.
 Same as for Folder Mode.
 .It Fl -personalize
 Same as for Folder Mode.
+.It Fl -create-snapshot
+Same as for Folder Mode.
+.It Fl -last-sealed-snapshot
+Same as for Folder Mode.
+.It Fl -bootefi
+This enables copying required boot objects when
+.Fl -create-snapshot
+or
+.Fl -last-sealed-snapshot
+is given.
 .It Fl -quiet
 Do not print any output
 .It Fl -verbose
@@ -308,7 +328,7 @@ is not specified, print information for the currently selected boot volume
 .So
 /
 .Sc
-\&.
+\&). This is not supported on Apple Silicon based systems.
 .It Fl -getBoot
 Print out the logical boot volume, based on what is currently selected. This
 option will take into account the fact that the firmware may be pointing to an

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO) && USE(GSTREAMER)
 
 #include "GStreamerCommon.h"
 #include "MainThreadNotifier.h"
@@ -65,11 +65,9 @@ protected:
     TrackPrivateBaseGStreamer(TrackPrivateBase* owner, gint index, GRefPtr<GstPad>);
     TrackPrivateBaseGStreamer(TrackPrivateBase* owner, gint index, GRefPtr<GstStream>);
 
-    void notifyTrackOfActiveChanged();
     void notifyTrackOfTagsChanged();
 
     enum MainThreadNotification {
-        ActiveChanged = 1 << 0,
         TagsChanged = 1 << 1,
         NewSample = 1 << 2,
         StreamChanged = 1 << 3
@@ -100,4 +98,4 @@ private:
 
 } // namespace WebCore
 
-#endif // ENABLE(VIDEO) && USE(GSTREAMER) && ENABLE(VIDEO_TRACK)
+#endif // ENABLE(VIDEO) && USE(GSTREAMER)

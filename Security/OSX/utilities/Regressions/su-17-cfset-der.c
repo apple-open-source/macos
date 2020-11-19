@@ -86,7 +86,7 @@ static void test_set(CFSetRef testValue, size_t expected_size, const uint8_t* ex
     
     CFSetRef decoded = NULL;
     
-    const uint8_t* decode_end = der_decode_set(NULL, kCFPropertyListMutableContainersAndLeaves,
+    const uint8_t* decode_end = der_decode_set(NULL,
                                                       &decoded, NULL, encoded, buffer_end);
     
     ok(decode_end == buffer_end, "didn't decode whole buffer");
@@ -94,7 +94,7 @@ static void test_set(CFSetRef testValue, size_t expected_size, const uint8_t* ex
     
     CFPropertyListRef decoded_type = NULL;
     
-    decode_end = der_decode_plist(NULL, kCFPropertyListMutableContainersAndLeaves,
+    decode_end = der_decode_plist(NULL,
                                   &decoded_type, NULL, encoded, buffer_end);
     
     ok(decode_end == buffer_end, "didn't decode whole buffer");

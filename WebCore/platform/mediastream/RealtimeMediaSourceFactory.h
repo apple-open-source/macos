@@ -38,12 +38,14 @@ class RealtimeMediaSource;
 struct CaptureSourceOrError;
 struct MediaConstraints;
 
-class SingleSourceFactory {
+class WEBCORE_EXPORT SingleSourceFactory {
 public:
-    WEBCORE_EXPORT void setActiveSource(RealtimeMediaSource&);
-    WEBCORE_EXPORT void unsetActiveSource(RealtimeMediaSource&);
+    virtual ~SingleSourceFactory() = default;
 
-    RealtimeMediaSource* activeSource() { return m_activeSource; }
+    virtual void setActiveSource(RealtimeMediaSource&);
+    virtual void unsetActiveSource(RealtimeMediaSource&);
+
+    virtual RealtimeMediaSource* activeSource() { return m_activeSource; }
 
 private:
     RealtimeMediaSource* m_activeSource { nullptr };
@@ -58,11 +60,6 @@ public:
     virtual ~AudioCaptureFactory() = default;
     virtual CaptureSourceOrError createAudioCaptureSource(const CaptureDevice&, String&&, const MediaConstraints*) = 0;
     virtual CaptureDeviceManager& audioCaptureDeviceManager() = 0;
-    virtual void setAudioCapturePageState(bool interrupted, bool pageMuted)
-    {
-        UNUSED_PARAM(interrupted);
-        UNUSED_PARAM(pageMuted);
-    }
 
 protected:
     AudioCaptureFactory() = default;
@@ -77,17 +74,16 @@ public:
     virtual ~VideoCaptureFactory() = default;
     virtual CaptureSourceOrError createVideoCaptureSource(const CaptureDevice&, String&&, const MediaConstraints*) = 0;
     virtual CaptureDeviceManager& videoCaptureDeviceManager() = 0;
-    virtual void setVideoCapturePageState(bool interrupted, bool pageMuted)
-    {
-        UNUSED_PARAM(interrupted);
-        UNUSED_PARAM(pageMuted);
-    }
 
 protected:
     VideoCaptureFactory() = default;
 };
 
-class DisplayCaptureFactory {
+class DisplayCaptureFactory
+#if PLATFORM(IOS_FAMILY)
+    : public SingleSourceFactory
+#endif
+{
 public:
     virtual ~DisplayCaptureFactory() = default;
     virtual CaptureSourceOrError createDisplayCaptureSource(const CaptureDevice&, const MediaConstraints*) = 0;

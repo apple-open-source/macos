@@ -444,7 +444,7 @@ cat_convertkey(
 {
 	int std_hfs = HFSTOVCB(hfsmp)->vcbSigWord == kHFSSigWord;
 	HFSPlusCatalogKey * pluskey = NULL;
-	u_int32_t encoding;
+	u_int32_t encoding = 0;
 	cnid_t cnid = 0;
 	int err = 0;
 
@@ -3507,7 +3507,7 @@ cat_getdirentries(struct hfsmount *hfsmp, u_int32_t entrycnt, directoryhint_t *d
 	void * buffer;
 	int bufsize;
 	int maxlinks;
-	int result;
+	int result = 0;
 	int index;
 	int have_key;
 	int extended;

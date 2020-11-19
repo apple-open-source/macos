@@ -25,6 +25,8 @@ ONE_TEST(CommonDH)
 ONE_TEST(CommonDigest)
 ONE_TEST(CommonHMac)
 ONE_TEST(CommonCryptoReset)
+ONE_TEST(CommonCryptoSymChaCha20)
+ONE_TEST(CommonCryptoSymChaCha20Poly1305)
 #if !defined(_WIN32)
 ONE_TEST(CommonBigNum) /* BignNm is not ported to Windows */
 #endif

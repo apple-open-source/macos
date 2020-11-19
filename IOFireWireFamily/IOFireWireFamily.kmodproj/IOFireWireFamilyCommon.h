@@ -348,6 +348,7 @@ typedef enum
 	kFWSpeedReserved		= 3,	// In all cases, 1394B Devices report this speed, 
 									// each port of the PHY could be different
 	
+	kFWSpeedReserved1		= 7,	// dummy value to silence a warning
 	kFWSpeedUnknownMask		= 0x80,	// If speed was reserved and we haven't probed it further
 	
 	kFWSpeedMaximum			= 0x7FFFFFFF,	

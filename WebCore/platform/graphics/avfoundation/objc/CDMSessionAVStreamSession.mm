@@ -38,9 +38,10 @@
 #import <CoreMedia/CMBase.h>
 #import <JavaScriptCore/TypedArrayInlines.h>
 #import <objc/objc-runtime.h>
-#import <pal/spi/mac/AVFoundationSPI.h>
+#import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <wtf/FileSystem.h>
 #import <wtf/UUID.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
@@ -207,7 +208,7 @@ bool CDMSessionAVStreamSession::update(Uint8Array* key, RefPtr<Uint8Array>& next
 
     RefPtr<SourceBufferPrivateAVFObjC> protectedSourceBuffer;
     for (auto& sourceBuffer : m_sourceBuffers) {
-        if (sourceBuffer->protectedTrackID() != -1) {
+        if (sourceBuffer->protectedTrackID() != notFound) {
             protectedSourceBuffer = sourceBuffer;
             break;
         }
@@ -226,14 +227,9 @@ bool CDMSessionAVStreamSession::update(Uint8Array* key, RefPtr<Uint8Array>& next
 
         RetainPtr<NSDictionary> options;
         if (!m_protocolVersions.isEmpty()) {
-            RetainPtr<NSMutableArray> protocolVersionsOption = adoptNS([[NSMutableArray alloc] init]);
-            for (auto& version : m_protocolVersions) {
-                if (!version)
-                    continue;
-                [protocolVersionsOption addObject:@(version)];
-            }
-
-            options = @{ AVStreamDataParserContentKeyRequestProtocolVersionsKey: protocolVersionsOption.get() };
+            options = @{ PAL::get_AVFoundation_AVStreamDataParserContentKeyRequestProtocolVersionsKey(): createNSArray(m_protocolVersions, [] (int version) -> NSNumber * {
+                return version ? @(version) : nil;
+            }).get() };
         }
 
         NSError* error = nil;

@@ -35,6 +35,8 @@
 #include <string>
 #include <string.h>
 
+#include <security_utilities/simulatecrash_assert.h>
+
 namespace Security
 {
 

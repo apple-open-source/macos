@@ -100,6 +100,21 @@
 #define vm_page_quanta_size (vm_page_size)
 #define vm_page_quanta_shift (vm_page_shift)
 
+/*
+ * Large rounds allocation sizes up to MAX(vm_kernel_page_size, page_size).
+ * This provides better death row caching performance when vm_kernel_page_size > page_size.
+ * The kernel allocates pages of vm_kernel_page_size to back our allocations,
+ * so there is no additional physical page cost to doing this.
+ * Guard pages are the same size to ensure the full vm allocation size is a multiple of MAX(vm_kernel_page_size, page_size).
+ */
+#define large_vm_page_quanta_size (vm_kernel_page_size > vm_page_size ? vm_kernel_page_size : vm_page_size)
+#define large_vm_page_quanta_mask (vm_kernel_page_mask > vm_page_mask ? vm_kernel_page_mask : vm_page_mask)
+#define large_vm_page_quanta_shift (vm_kernel_page_shift > vm_page_shift ? vm_kernel_page_shift : vm_page_shift)
+
+#define trunc_large_page_quanta(x) ((x) & (~large_vm_page_quanta_mask))
+#define round_large_page_quanta(x) (trunc_large_page_quanta((x) + large_vm_page_quanta_mask))
+
+
 // add a guard page before each VM region to help debug
 #define MALLOC_ADD_PRELUDE_GUARD_PAGE (1 << 0)
 // add a guard page after each VM region to help debug

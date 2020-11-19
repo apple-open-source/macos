@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -56,7 +56,7 @@ int
 inet_dgram_socket(void);
 
 int
-inet_attach_interface(const char * ifname);
+inet_attach_interface(const char * ifname, boolean_t set_iff_up);
 
 int
 inet_detach_interface(const char * ifname);
@@ -90,7 +90,7 @@ typedef struct {
 
 
 int	inet6_dgram_socket();
-int	inet6_attach_interface(const char * ifname, boolean_t use_cga);
+int	inet6_attach_interface(const char * ifname, boolean_t set_iff_up);
 int	inet6_detach_interface(const char * ifname);
 boolean_t inet6_is_attached(const char * ifname);
 
@@ -112,14 +112,15 @@ inet6_aifaddr(int s, const char * name,
 	      u_int32_t valid_lifetime, 
 	      u_int32_t preferred_lifetime);
 
-int	inet6_rtadv_enable(const char * if_name);
+int	inet6_rtadv_enable(const char * if_name, boolean_t use_cga);
 int	inet6_rtadv_disable(const char * if_name);
 
 int	inet6_linklocal_start(const char * ifname,
 			      const struct in6_addr * v6_ll,
 			      boolean_t perform_nud,
 			      boolean_t use_cga,
-			      boolean_t enable_dad);
+			      boolean_t enable_dad,
+			      uint8_t collision_count);
 
 int	inet6_linklocal_stop(const char * ifname);
 

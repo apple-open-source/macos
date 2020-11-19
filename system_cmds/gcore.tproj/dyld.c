@@ -174,9 +174,9 @@ libent_insert(const char *rawnm, const uuid_t uuid, uint64_t mhaddr, const nativ
     if (NULL != le)
         return le;  // disallow multiple names for the same uuid
 
-	char *nm = realpath(rawnm, NULL);
-	if (NULL == nm)
-		nm = strdup(rawnm);
+    char *nm = realpath(rawnm, NULL);
+    if (NULL == nm)
+        nm = strdup(rawnm);
     const unsigned long nmhash = simple_namehash(nm);
     le = libent_lookup_bypathname_withhash(nm, nmhash);
 	if (NULL != le) {

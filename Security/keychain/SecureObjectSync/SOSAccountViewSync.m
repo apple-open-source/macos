@@ -185,7 +185,7 @@ static bool SOSAccountResolvePendingViewSets(SOSAccount* account, CFErrorRef *er
     }
     CFReleaseNull(defaultOn);
 
-    bool status = [account.trust updateViewSetsWithAnalytics:account enabled:newPending disabled:pendingDisabled parentEvent: NULL];
+    bool status = [account.trust updateViewSets:account enabled:newPending disabled:pendingDisabled];
     CFReleaseNull(newPending);
 
     if(status){

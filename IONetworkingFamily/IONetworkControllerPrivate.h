@@ -48,11 +48,20 @@ struct IONetworkLinkEventData {
     uint32_t    linkType;
 };
 
+#define kGPTPPresentKey "gPTPPresent"
+#define kTimeSyncSupportKey "TimeSyncSupport"
+#define kAVBControllerStateKey "AVBControllerState"
+#define kNumberOfRealtimeTransmitQueuesKey "NumberOfRealtimeTransmitQueues"
+#define kNumberOfRealtimeReceiveQueuesKey "NumberOfRealtimeReceiveQueues"
+
 #ifdef __x86_64__
-#define kIONetworkMbufDMADriversKey     "IONetworkMbufDMADrivers"
+#define kIONetworkMbufDMADriversKey         "IONetworkMbufDMADrivers"
+
+#ifdef KERNEL
 extern OSArray * gIONetworkMbufCursorKexts;
 extern IOLock *  gIONetworkMbufCursorLock;
 extern IORegistryEntry * gIONetworkMbufCursorEntry;
+#endif
 #endif
 
 #endif /* !_IONETWORKCONTROLLERPRIVATE_H */

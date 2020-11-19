@@ -32,34 +32,38 @@
 #include "keychain/securityd/SecDbItem.h"
 #include "keychain/securityd/SecDbQuery.h"
 
+CF_ASSUME_NONNULL_BEGIN
+
 __BEGIN_DECLS
 
-bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
-                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error);
-bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
-                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, CFDataRef *bkUUID, bool useDefaultIV, CFErrorRef *error);
-bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_control, CFDataRef acm_context,
-                            CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef *pBlob, bool useDefaultIV, CFErrorRef *error); // used for backup
-bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessControlRef *paccess_control, CFDataRef acm_context,
+bool ks_encrypt_data(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
+                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, bool useDefaultIV, CFErrorRef _Nullable *_Nullable error);
+bool ks_encrypt_data_with_backupuuid(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
+                     CFDictionaryRef secretData, CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, CFDataRef _Nullable *_Nullable bkUUID, bool useDefaultIV, CFErrorRef _Nullable *_Nullable error);
+bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef _Nullable access_control, CFDataRef _Nullable acm_context,
+                            CFDictionaryRef attributes, CFDictionaryRef authenticated_attributes, CFDataRef _Nullable *_Nonnull pBlob, bool useDefaultIV, CFErrorRef _Nullable *_Nullable error); // used for backup
+bool ks_decrypt_data(keybag_handle_t keybag, CFTypeRef cryptoOp, SecAccessControlRef _Nullable *_Nullable paccess_control, CFDataRef acm_context,
                      CFDataRef blob, const SecDbClass *db_class, CFArrayRef caller_access_groups,
-                     CFMutableDictionaryRef *attributes_p, uint32_t *version_p, bool decryptSecretData, keyclass_t* outKeyclass, CFErrorRef *error);
+                     CFMutableDictionaryRef _Nullable *_Nullable attributes_p, uint32_t *_Nullable version_p, bool decryptSecretData, keyclass_t*_Nullable outKeyclass, CFErrorRef _Nullable *_Nullable error);
 bool s3dl_item_from_data(CFDataRef edata, Query *q, CFArrayRef accessGroups,
-                         CFMutableDictionaryRef *item, SecAccessControlRef *access_control, keyclass_t* keyclass, CFErrorRef *error);
-SecDbItemRef SecDbItemCreateWithBackupDictionary(CFAllocatorRef allocator, const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, keybag_handle_t dst_keybag, CFErrorRef *error);
-bool SecDbItemExtractRowIdFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef *error);
-bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef *error);
+                         CFMutableDictionaryRef _Nonnull *_Nonnull item, SecAccessControlRef _Nullable *_Nullable access_control, keyclass_t *_Nullable keyclass, CFErrorRef _Nullable *_Nullable error);
+SecDbItemRef _Nullable SecDbItemCreateWithBackupDictionary(const SecDbClass *dbclass, CFDictionaryRef dict, keybag_handle_t src_keybag, keybag_handle_t dst_keybag, CFErrorRef _Nullable *_Nullable error);
+bool SecDbItemExtractRowIdFromBackupDictionary(SecDbItemRef item, CFDictionaryRef dict, CFErrorRef _Nullable *_Nullable error);
+bool SecDbItemInferSyncable(SecDbItemRef item, CFErrorRef _Nullable *_Nullable error);
 
-CFTypeRef SecDbKeychainItemCopyPrimaryKey(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error);
-CFTypeRef SecDbKeychainItemCopySHA256PrimaryKey(SecDbItemRef item, CFErrorRef *error);
-CFTypeRef SecDbKeychainItemCopySHA1(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error);
-CFTypeRef SecDbKeychainItemCopyCurrentDate(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error);
-CFTypeRef SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef *error);
+CFTypeRef _Nullable SecDbKeychainItemCopyPrimaryKey(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef _Nullable *_Nullable error);
+CFTypeRef _Nullable SecDbKeychainItemCopySHA256PrimaryKey(SecDbItemRef item, CFErrorRef _Nullable *_Nullable error);
+CFTypeRef _Nullable SecDbKeychainItemCopySHA1(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef _Nullable *_Nullable error);
+CFTypeRef _Nullable SecDbKeychainItemCopyCurrentDate(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef _Nullable *_Nullable error);
+CFTypeRef _Nullable SecDbKeychainItemCopyEncryptedData(SecDbItemRef item, const SecDbAttr *attr, CFErrorRef _Nullable *_Nullable error);
 
-SecAccessControlRef SecDbItemCopyAccessControl(SecDbItemRef item, CFErrorRef *error);
-bool SecDbItemSetAccessControl(SecDbItemRef item, SecAccessControlRef access_control, CFErrorRef *error);
+SecAccessControlRef _Nullable SecDbItemCopyAccessControl(SecDbItemRef item, CFErrorRef _Nullable *_Nullable error);
+bool SecDbItemSetAccessControl(SecDbItemRef item, SecAccessControlRef access_control, CFErrorRef _Nullable *_Nullable error);
 
 void SecDbResetMetadataKeys(void);
 
 __END_DECLS
+
+CF_ASSUME_NONNULL_END
 
 #endif /* _SECURITYD_SECKEYCHAINITEM_H_ */

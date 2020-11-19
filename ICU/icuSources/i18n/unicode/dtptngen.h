@@ -14,13 +14,16 @@
 #ifndef __DTPTNGEN_H__
 #define __DTPTNGEN_H__
 
+#include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/datefmt.h"
 #include "unicode/locid.h"
 #include "unicode/udat.h"
 #include "unicode/udatpg.h"
 #include "unicode/unistr.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -280,7 +283,7 @@ public:
      *
      * @param field  The desired UDateTimePatternField, such as UDATPG_ERA_FIELD.
      * @param width  The desired UDateTimePGDisplayWidth, such as UDATPG_ABBREVIATED.
-     * @return.      The display name for field
+     * @return       The display name for field
      * @stable ICU 61
      */
     UnicodeString getFieldDisplayName(UDateTimePatternField field, UDateTimePGDisplayWidth width) const;
@@ -562,12 +565,10 @@ private:
     void setDateTimeFromCalendar(const Locale& locale, UErrorCode& status);
     void setDecimalSymbols(const Locale& locale, UErrorCode& status);
     UDateTimePatternField getAppendFormatNumber(const char* field) const;
-#ifndef U_HIDE_DRAFT_API
-    // The following three have to be U_HIDE_DRAFT_API (though private) because UDateTimePGDisplayWidth is
+    // Note for the next 3: UDateTimePGDisplayWidth is now stable ICU 61
     UDateTimePatternField getFieldAndWidthIndices(const char* key, UDateTimePGDisplayWidth* widthP) const;
     void setFieldDisplayName(UDateTimePatternField field, UDateTimePGDisplayWidth width, const UnicodeString& value);
     UnicodeString& getMutableFieldDisplayName(UDateTimePatternField field, UDateTimePGDisplayWidth width);
-#endif  // U_HIDE_DRAFT_API
     void getAppendName(UDateTimePatternField field, UnicodeString& value);
     UnicodeString mapSkeletonMetacharacters(const UnicodeString& patternForm, int32_t* flags, UDateTimePatternMatchOptions options, UErrorCode& status);
     int32_t getCanonicalIndex(const UnicodeString& field);
@@ -588,6 +589,7 @@ private:
 } ;// end class DateTimePatternGenerator
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

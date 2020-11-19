@@ -174,8 +174,8 @@ bool do_preserve_dst_tracked_test(const char *test_directory, __unused size_t bl
 	assert_no_err(copyfile(file_src, file_dst, NULL, COPYFILE_DATA|COPYFILE_STAT|COPYFILE_PRESERVE_DST_TRACKED));
 
 	assert_no_err(stat(file_dst, &dst_stb));
-	success &= (dst_stb.st_size == src_fsize);
-	success &= (dst_stb.st_flags & UF_TRACKED);
+	success = success && (dst_stb.st_size == src_fsize);
+	success = success && (dst_stb.st_flags & UF_TRACKED);
 	if (success) {
 		printf("PASS  [preserve_dst_tracked]\n");
 	} else {

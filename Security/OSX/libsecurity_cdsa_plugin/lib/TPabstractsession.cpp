@@ -6,7 +6,8 @@
 #include <security_cdsa_plugin/cssmplugin.h>
 #include <security_cdsa_utilities/cssmbridge.h>
 #include <Security/cssmtpi.h>
-
+// The disclaimer up top used to be true but rdar://24426719 removed libsecurity_cdsa_plugin_generate
+#include "LegacyAPICounts.h"
 
 TPAbstractPluginSession::~TPAbstractPluginSession()
 { /* virtual */ }

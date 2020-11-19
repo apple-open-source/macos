@@ -18,5 +18,7 @@
 	<array>
 		<string>com.apple.security.sos</string>
 	</array>
+	<key>com.apple.private.security.storage.Keychains</key>
+	<true/>
 </dict>
 </plist>

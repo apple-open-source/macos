@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,19 +58,24 @@ timer_get_current_time(void)
 /**
  ** callout functions
  **/
-timer_callout_t *	timer_callout_init();
+timer_callout_t *	timer_callout_init(const char * name);
 void			timer_callout_free(timer_callout_t * * callout_p);
 
-int			timer_set_relative(timer_callout_t * entry, 
-					   struct timeval rel_time, 
-					   timer_func_t * func, 
-					   void * arg1, void * arg2, 
+int			timer_set_relative(timer_callout_t * entry,
+					   struct timeval rel_time,
+					   timer_func_t * func,
+					   void * arg1, void * arg2,
 					   void * arg3);
-int			timer_callout_set(timer_callout_t * callout, 
+int			timer_callout_set(timer_callout_t * callout,
 					  CFAbsoluteTime relative_time,
-					  timer_func_t * func, 
+					  timer_func_t * func,
 					  void * arg1, void * arg2,
 					  void * arg3);
+int			timer_callout_set_absolute(timer_callout_t * callout,
+						   CFAbsoluteTime wakeup_time,
+						   timer_func_t * func,
+						   void * arg1, void * arg2,
+						   void * arg3);
 void			timer_cancel(timer_callout_t * entry);
 
 boolean_t		timer_time_changed(timer_callout_t * entry);

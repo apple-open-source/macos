@@ -1726,7 +1726,7 @@ static Patprog patcomp, filecomp;
  * lppre/lpsuf -- the path prefix/suffix, unexpanded                       *
  * fpre/fsuf   -- prefix/suffix of the pathname component the cursor is in *
  * prpre       -- ppre in expanded form usable for opendir                 *
- * qipre, qisuf-- ingnored quoted string                                   *
+ * qipre, qisuf-- ignored quoted string                                   *
  *                                                                         *
  * The integer variables hold the lengths of lpre, lsuf, rpre, rsuf,       *
  * fpre, fsuf, lppre, and lpsuf.  noreal is non-zero if we have rpre/rsuf. */
@@ -2511,7 +2511,7 @@ makecomplistcmd(char *os, int incmd, int flags)
     else if (!(cmdstr &&
 	  (((ccp = (Compctlp) compctltab->getnode(compctltab, cmdstr)) &&
 	    (cc = ccp->cc)) ||
-	   ((s = dupstring(cmdstr)) && remlpaths(&s) &&
+	   ((s = dupstring(cmdstr)) && remlpaths(&s, 1) &&
 	    (ccp = (Compctlp) compctltab->getnode(compctltab, s)) &&
 	    (cc = ccp->cc))))) {
 	if (flags & CFN_DEFAULT)
@@ -3178,7 +3178,27 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
     /* Compute line prefix/suffix. */
     lpl = offs;
     lpre = zhalloc(lpl + 1);
-    memcpy(lpre, s, lpl);
+    if (comppatmatch)
+    {
+	int ccount;
+	char *psrc, *pdst;
+	for (ccount = 0, psrc = s, pdst = lpre;
+	     ccount < lpl;
+	     ++ccount, ++psrc, ++pdst)
+	{
+	    if (*psrc == Meta)
+	    {
+		ccount++;
+		*pdst++ = *psrc++;
+		*pdst = *psrc;
+	    } else if (*psrc == Dash)
+		*pdst = '-';
+	    else
+		*pdst = *psrc;
+	}
+    }
+    else
+	memcpy(lpre, s, lpl);
     lpre[lpl] = '\0';
     qlpre = quotename(lpre);
     lsuf = dupstring(s + offs);
@@ -3331,13 +3351,11 @@ makecomplistflags(Compctl cc, char *s, int incmd, int compadd)
 	    zlemetaline[end] = save;
 	    if (brend) {
 		Brinfo bp;
-		char *p;
-		int bl;
 
 		for (bp = brend; bp; bp = bp->next) {
-		    p = lpsuf + (we - zlemetacs) - bp->qpos -
-			(bl = strlen(bp->str));
-		    strcpy(p, p + bl);
+		    char *p2 = lpsuf + (we - zlemetacs) - bp->qpos;
+		    char *p1 = p2 - strlen(bp->str);
+		    memmove(p1, p2, strlen(p2) + 1);
 		}
 	    }
 	    if (!(lpsuf = strchr(lpsuf, '/')) && sf2)

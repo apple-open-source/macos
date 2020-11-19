@@ -44,6 +44,7 @@ nano-trace-replay_%: $(SRCROOT)/nano_trace_replay.c
 		$(CFLAGS) $(DT_CFLAGS) $(OTHER_CFLAGS) \
 		$(LDFLAGS) $(DT_LDFLAGS) $(OTHER_LDFLAGS) \
 		-DTRACE_NAME="$(patsubst nano-trace-replay_%,%,$(notdir $@))" \
+		$(patsubst _Photos_puja,-DTEST_TIMEOUT=3000,$(findstring _Photos_puja,$(notdir $@))) \
 		-o $@ \
 		$(SRCROOT)/nano_trace_replay.c
 
@@ -62,7 +63,7 @@ $(BATS_PLISTS_EXTRACT): %.plist : %
 	$(EXTRACTMETA) extract -i /$(INSTALLPATH)/$(notdir $<) -b $(SYMROOT)/$(notdir $<) -o $@
 	@plutil -convert binary1 $@
 
-SANITIZER_DYLIB_PATH := /usr/local/lib/sanitizers/
+SANITIZER_DYLIB_PATH := /usr/appleinternal/lib/sanitizers/
 asan: OTHER_CFLAGS += -fsanitize=address
 asan: OTHER_LDFLAGS += -Wl,-rpath -Wl,$(SANITIZER_DYLIB_PATH)
 

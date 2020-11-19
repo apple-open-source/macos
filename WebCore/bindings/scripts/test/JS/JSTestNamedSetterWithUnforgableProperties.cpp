@@ -22,6 +22,7 @@
 #include "JSTestNamedSetterWithUnforgableProperties.h"
 
 #include "ActiveDOMObject.h"
+#include "DOMIsoSubspaces.h"
 #include "JSDOMAbstractOperations.h"
 #include "JSDOMAttribute.h"
 #include "JSDOMBinding.h"
@@ -31,9 +32,12 @@
 #include "JSDOMOperation.h"
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
+#include <JavaScriptCore/SubspaceInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
 #include <wtf/URL.h>
@@ -52,7 +56,7 @@ JSC::EncodedJSValue jsTestNamedSetterWithUnforgablePropertiesConstructor(JSC::JS
 bool setJSTestNamedSetterWithUnforgablePropertiesConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 JSC::EncodedJSValue jsTestNamedSetterWithUnforgablePropertiesUnforgeableAttribute(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
 
-class JSTestNamedSetterWithUnforgablePropertiesPrototype : public JSC::JSNonFinalObject {
+class JSTestNamedSetterWithUnforgablePropertiesPrototype final : public JSC::JSNonFinalObject {
 public:
     using Base = JSC::JSNonFinalObject;
     static JSTestNamedSetterWithUnforgablePropertiesPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
@@ -63,6 +67,12 @@ public:
     }
 
     DECLARE_INFO;
+    template<typename CellType, JSC::SubspaceAccess>
+    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestNamedSetterWithUnforgablePropertiesPrototype, Base);
+        return &vm.plainObjectSpace;
+    }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
@@ -106,7 +116,7 @@ template<> JSValue JSTestNamedSetterWithUnforgablePropertiesConstructor::prototy
 template<> void JSTestNamedSetterWithUnforgablePropertiesConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestNamedSetterWithUnforgableProperties::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestNamedSetterWithUnforgableProperties"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestNamedSetterWithUnforgableProperties"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -119,12 +129,13 @@ static const HashTableValue JSTestNamedSetterWithUnforgablePropertiesPrototypeTa
     { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNamedSetterWithUnforgablePropertiesConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestNamedSetterWithUnforgablePropertiesConstructor) } },
 };
 
-const ClassInfo JSTestNamedSetterWithUnforgablePropertiesPrototype::s_info = { "TestNamedSetterWithUnforgablePropertiesPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestNamedSetterWithUnforgablePropertiesPrototype) };
+const ClassInfo JSTestNamedSetterWithUnforgablePropertiesPrototype::s_info = { "TestNamedSetterWithUnforgableProperties", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestNamedSetterWithUnforgablePropertiesPrototype) };
 
 void JSTestNamedSetterWithUnforgablePropertiesPrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSTestNamedSetterWithUnforgableProperties::info(), JSTestNamedSetterWithUnforgablePropertiesPrototypeTableValues, *this);
+    JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
 const ClassInfo JSTestNamedSetterWithUnforgableProperties::s_info = { "TestNamedSetterWithUnforgableProperties", &Base::s_info, &JSTestNamedSetterWithUnforgablePropertiesTable, nullptr, CREATE_METHOD_TABLE(JSTestNamedSetterWithUnforgableProperties) };
@@ -220,9 +231,11 @@ bool JSTestNamedSetterWithUnforgableProperties::put(JSCell* cell, JSGlobalObject
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
 
     if (!propertyName.isSymbol()) {
-        PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry };
+        PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry, &lexicalGlobalObject->vm() };
         JSValue prototype = thisObject->getPrototypeDirect(JSC::getVM(lexicalGlobalObject));
-        if (!(prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot))) {
+        bool found = prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot);
+        slot.disallowVMEntry.reset();
+        if (!found) {
             auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
             auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
             RETURN_IF_EXCEPTION(throwScope, true);
@@ -241,9 +254,11 @@ bool JSTestNamedSetterWithUnforgableProperties::putByIndex(JSCell* cell, JSGloba
     ASSERT_GC_OBJECT_INHERITS(thisObject, info());
 
     auto propertyName = Identifier::from(vm, index);
-    PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry };
+    PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry, &vm };
     JSValue prototype = thisObject->getPrototypeDirect(vm);
-    if (!(prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot))) {
+    bool found = prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot);
+    slot.disallowVMEntry.reset();
+    if (!found) {
         auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
         auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
         RETURN_IF_EXCEPTION(throwScope, true);
@@ -266,8 +281,10 @@ static bool isUnforgeablePropertyName(PropertyName propertyName)
 }
 
         if (!isUnforgeablePropertyName(propertyName)) {
-            PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry };
-            if (!JSObject::getOwnPropertySlot(thisObject, lexicalGlobalObject, propertyName, slot)) {
+            PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry, &lexicalGlobalObject->vm() };
+            bool found = JSObject::getOwnPropertySlot(thisObject, lexicalGlobalObject, propertyName, slot);
+            slot.disallowVMEntry.reset();
+            if (!found) {
                 if (!propertyDescriptor.isDataDescriptor())
                     return false;
                 auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
@@ -317,13 +334,12 @@ bool setJSTestNamedSetterWithUnforgablePropertiesConstructor(JSGlobalObject* lex
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
 }
 
-static inline JSValue jsTestNamedSetterWithUnforgablePropertiesUnforgeableAttributeGetter(JSGlobalObject& lexicalGlobalObject, JSTestNamedSetterWithUnforgableProperties& thisObject, ThrowScope& throwScope)
+static inline JSValue jsTestNamedSetterWithUnforgablePropertiesUnforgeableAttributeGetter(JSGlobalObject& lexicalGlobalObject, JSTestNamedSetterWithUnforgableProperties& thisObject)
 {
-    UNUSED_PARAM(throwScope);
-    UNUSED_PARAM(lexicalGlobalObject);
+    auto& vm = JSC::getVM(&lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     auto& impl = thisObject.wrapped();
-    JSValue result = toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.unforgeableAttribute());
-    return result;
+    RELEASE_AND_RETURN(throwScope, (toJS<IDLDOMString>(lexicalGlobalObject, throwScope, impl.unforgeableAttribute())));
 }
 
 EncodedJSValue jsTestNamedSetterWithUnforgablePropertiesUnforgeableAttribute(JSGlobalObject* lexicalGlobalObject, EncodedJSValue thisValue, PropertyName)
@@ -331,12 +347,14 @@ EncodedJSValue jsTestNamedSetterWithUnforgablePropertiesUnforgeableAttribute(JSG
     return IDLAttribute<JSTestNamedSetterWithUnforgableProperties>::get<jsTestNamedSetterWithUnforgablePropertiesUnforgeableAttributeGetter, CastedThisErrorBehavior::Assert>(*lexicalGlobalObject, thisValue, "unforgeableAttribute");
 }
 
-static inline JSC::EncodedJSValue jsTestNamedSetterWithUnforgablePropertiesInstanceFunctionUnforgeableOperationBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestNamedSetterWithUnforgableProperties>::ClassParameter castedThis, JSC::ThrowScope& throwScope)
+static inline JSC::EncodedJSValue jsTestNamedSetterWithUnforgablePropertiesInstanceFunctionUnforgeableOperationBody(JSC::JSGlobalObject* lexicalGlobalObject, JSC::CallFrame* callFrame, typename IDLOperation<JSTestNamedSetterWithUnforgableProperties>::ClassParameter castedThis)
 {
-    UNUSED_PARAM(lexicalGlobalObject);
-    UNUSED_PARAM(callFrame);
+    auto& vm = JSC::getVM(lexicalGlobalObject);
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
     UNUSED_PARAM(throwScope);
+    UNUSED_PARAM(callFrame);
     auto& impl = castedThis->wrapped();
+    throwScope.release();
     impl.unforgeableOperation();
     return JSValue::encode(jsUndefined());
 }
@@ -344,6 +362,27 @@ static inline JSC::EncodedJSValue jsTestNamedSetterWithUnforgablePropertiesInsta
 EncodedJSValue JSC_HOST_CALL jsTestNamedSetterWithUnforgablePropertiesInstanceFunctionUnforgeableOperation(JSGlobalObject* lexicalGlobalObject, CallFrame* callFrame)
 {
     return IDLOperation<JSTestNamedSetterWithUnforgableProperties>::call<jsTestNamedSetterWithUnforgablePropertiesInstanceFunctionUnforgeableOperationBody>(*lexicalGlobalObject, *callFrame, "unforgeableOperation");
+}
+
+JSC::IsoSubspace* JSTestNamedSetterWithUnforgableProperties::subspaceForImpl(JSC::VM& vm)
+{
+    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
+    auto& spaces = clientData.subspaces();
+    if (auto* space = spaces.m_subspaceForTestNamedSetterWithUnforgableProperties.get())
+        return space;
+    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedSetterWithUnforgableProperties> || !JSTestNamedSetterWithUnforgableProperties::needsDestruction);
+    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedSetterWithUnforgableProperties>)
+        spaces.m_subspaceForTestNamedSetterWithUnforgableProperties = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestNamedSetterWithUnforgableProperties);
+    else
+        spaces.m_subspaceForTestNamedSetterWithUnforgableProperties = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestNamedSetterWithUnforgableProperties);
+    auto* space = spaces.m_subspaceForTestNamedSetterWithUnforgableProperties.get();
+IGNORE_WARNINGS_BEGIN("unreachable-code")
+IGNORE_WARNINGS_BEGIN("tautological-compare")
+    if (&JSTestNamedSetterWithUnforgableProperties::visitOutputConstraints != &JSC::JSCell::visitOutputConstraints)
+        clientData.outputConstraintSpaces().append(space);
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
+    return space;
 }
 
 void JSTestNamedSetterWithUnforgableProperties::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
@@ -383,11 +422,11 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObj
 {
 
 #if ENABLE(BINDING_INTEGRITY)
-    void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
+    const void* actualVTablePointer = getVTablePointer(impl.ptr());
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(__identifier("??_7TestNamedSetterWithUnforgableProperties@WebCore@@6B@"));
+    void* expectedVTablePointer = __identifier("??_7TestNamedSetterWithUnforgableProperties@WebCore@@6B@");
 #else
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(&_ZTVN7WebCore39TestNamedSetterWithUnforgablePropertiesE[2]);
+    void* expectedVTablePointer = &_ZTVN7WebCore39TestNamedSetterWithUnforgablePropertiesE[2];
 #endif
 
     // If this fails TestNamedSetterWithUnforgableProperties does not have a vtable, so you need to add the

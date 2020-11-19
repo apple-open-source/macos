@@ -36,7 +36,6 @@
 
 /* PATHS definitions for PPP */
 
-#define DIR_KEXT		"/System/Library/Extensions/"
 #define DIR_LOGS		"/var/log/ppp/"
 #define PATH_PPPD 		"/usr/sbin/pppd"
 #define PPPD_PRGM 		"pppd"

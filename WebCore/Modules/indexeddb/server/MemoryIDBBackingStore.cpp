@@ -35,6 +35,7 @@
 #include "IDBIndexInfo.h"
 #include "IDBIterateCursorData.h"
 #include "IDBKeyRangeData.h"
+#include "IDBSerializationContext.h"
 #include "Logging.h"
 #include "MemoryIndexCursor.h"
 #include "MemoryObjectStore.h"
@@ -43,17 +44,13 @@
 namespace WebCore {
 namespace IDBServer {
 
-// The IndexedDB spec states the value you can get from the key generator is 2^53
-static uint64_t maxGeneratedKeyValue = 0x20000000000000;
-
-std::unique_ptr<MemoryIDBBackingStore> MemoryIDBBackingStore::create(PAL::SessionID sessionID, const IDBDatabaseIdentifier& identifier)
-{
-    return makeUnique<MemoryIDBBackingStore>(sessionID, identifier);
-}
+// The IndexedDB spec states the maximum value you can get from the key generator is 2^53.
+constexpr uint64_t maxGeneratedKeyValue = 0x20000000000000;
 
 MemoryIDBBackingStore::MemoryIDBBackingStore(PAL::SessionID sessionID, const IDBDatabaseIdentifier& identifier)
     : m_identifier(identifier)
     , m_sessionID(sessionID)
+    , m_serializationContext(IDBSerializationContext::getOrCreateIDBSerializationContext(sessionID))
 {
 }
 
@@ -62,7 +59,7 @@ MemoryIDBBackingStore::~MemoryIDBBackingStore() = default;
 IDBError MemoryIDBBackingStore::getOrEstablishDatabaseInfo(IDBDatabaseInfo& info)
 {
     if (!m_databaseInfo)
-        m_databaseInfo = makeUnique<IDBDatabaseInfo>(m_identifier.databaseName(), 0);
+        m_databaseInfo = makeUnique<IDBDatabaseInfo>(m_identifier.databaseName(), 0, 0);
 
     info = *m_databaseInfo;
     return IDBError { };
@@ -241,8 +238,10 @@ IDBError MemoryIDBBackingStore::createIndex(const IDBResourceIdentifier& transac
         return IDBError { ConstraintError };
 
     auto error = objectStore->createIndex(*rawTransaction, info);
-    if (error.isNull())
+    if (error.isNull()) {
         objectStoreInfo->addExistingIndex(info);
+        m_databaseInfo->setMaxIndexID(info.identifier());
+    }
 
     return error;
 }
@@ -358,7 +357,7 @@ IDBError MemoryIDBBackingStore::deleteRange(const IDBResourceIdentifier& transac
     return IDBError { };
 }
 
-IDBError MemoryIDBBackingStore::addRecord(const IDBResourceIdentifier& transactionIdentifier, const IDBObjectStoreInfo& objectStoreInfo, const IDBKeyData& keyData, const IDBValue& value)
+IDBError MemoryIDBBackingStore::addRecord(const IDBResourceIdentifier& transactionIdentifier, const IDBObjectStoreInfo& objectStoreInfo, const IDBKeyData& keyData, const IndexIDToIndexKeyMap& indexKeys, const IDBValue& value)
 {
     LOG(IndexedDB, "MemoryIDBBackingStore::addRecord");
 
@@ -372,7 +371,7 @@ IDBError MemoryIDBBackingStore::addRecord(const IDBResourceIdentifier& transacti
     if (!objectStore)
         return IDBError { UnknownError, "No backing store object store found to put record"_s };
 
-    return objectStore->addRecord(*transaction, keyData, value);
+    return objectStore->addRecord(*transaction, keyData, indexKeys, value);
 }
 
 IDBError MemoryIDBBackingStore::getRecord(const IDBResourceIdentifier& transactionIdentifier, uint64_t objectStoreIdentifier, const IDBKeyRangeData& range, IDBGetRecordDataType type, IDBGetResult& outValue)
@@ -612,6 +611,11 @@ RefPtr<MemoryObjectStore> MemoryIDBBackingStore::takeObjectStoreByIdentifier(uin
     ASSERT_UNUSED(objectStore, objectStore);
 
     return objectStoreByIdentifier;
+}
+
+IDBSerializationContext& MemoryIDBBackingStore::serializationContext()
+{
+    return m_serializationContext.get();
 }
 
 IDBObjectStoreInfo* MemoryIDBBackingStore::infoForObjectStore(uint64_t objectStoreIdentifier)

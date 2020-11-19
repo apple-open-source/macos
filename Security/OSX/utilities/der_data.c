@@ -32,40 +32,14 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 
-const uint8_t* der_decode_data_mutable(CFAllocatorRef allocator, CFOptionFlags mutability,
-                                       CFMutableDataRef* data, CFErrorRef *error,
-                                       const uint8_t* der, const uint8_t *der_end)
-{
-    if (NULL == der)
-        return NULL;
-
-    size_t payload_size = 0;
-    const uint8_t *payload = ccder_decode_tl(CCDER_OCTET_STRING, &payload_size, der, der_end);
-
-    if (NULL == payload || (ssize_t) (der_end - payload) < (ssize_t) payload_size) {
-        SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Unknown data encoding"), NULL, error);
-        return NULL;
-    }
-
-    *data = CFDataCreateMutable(allocator, 0);
-
-    if (NULL == *data) {
-        SecCFDERCreateError(kSecDERErrorAllocationFailure, CFSTR("Failed to create data"), NULL, error);
-        return NULL;
-    }
-
-    CFDataAppendBytes(*data, payload, payload_size);
-
-    return payload + payload_size;
-}
-
-
-const uint8_t* der_decode_data(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_data(CFAllocatorRef allocator,
                                CFDataRef* data, CFErrorRef *error,
                                const uint8_t* der, const uint8_t *der_end)
 {
-    if (NULL == der)
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
 
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_OCTET_STRING, &payload_size, der, der_end);
@@ -97,7 +71,8 @@ uint8_t* der_encode_data(CFDataRef data, CFErrorRef *error,
 {
     const CFIndex data_length = CFDataGetLength(data);
 
-    return ccder_encode_tl(CCDER_OCTET_STRING, data_length, der,
-           ccder_encode_body(data_length, CFDataGetBytePtr(data), der, der_end));
+    return SecCCDEREncodeHandleResult(ccder_encode_tl(CCDER_OCTET_STRING, data_length, der,
+                                                      ccder_encode_body(data_length, CFDataGetBytePtr(data), der, der_end)),
+                                      error);
 
 }

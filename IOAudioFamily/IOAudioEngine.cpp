@@ -85,9 +85,9 @@ OSMetaClassDefineReservedUsed(IOAudioEngine, 11);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 12);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 13);
 OSMetaClassDefineReservedUsed(IOAudioEngine, 14);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 15);
+OSMetaClassDefineReservedUsed(IOAudioEngine, 16);
 
-OSMetaClassDefineReservedUnused(IOAudioEngine, 15);
-OSMetaClassDefineReservedUnused(IOAudioEngine, 16);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 17);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 18);
 OSMetaClassDefineReservedUnused(IOAudioEngine, 19);
@@ -131,6 +131,106 @@ IOReturn IOAudioEngine::getAttributeForConnection( SInt32 connectIndex, UInt32 a
 {
 	return kIOReturnUnsupported;
 }
+
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 15);
+// sampleIntervalHiRes is a 32.32 Fixed point number with an integer AbsoluteTime in the high bits and
+// a fractional AbsoluteTime in the low bits
+IOReturn IOAudioEngine::calculateSampleTimeoutHiRes(uint64_t sampleIntervalHiRes, UInt32 numSampleFrames, IOAudioEnginePosition *startingPosition, AbsoluteTime *wakeupTimeTicks)
+{
+    IOReturn        result = kIOReturnBadArgument;
+    AbsoluteTime    wakeupDeltaTicks = 0;
+    uint64_t        wakeupDeltaNS = 0;
+
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeoutHiRes, (uintptr_t)this, sampleIntervalHiRes, numSampleFrames, startingPosition ? ((((uint64_t)startingPosition->fSampleFrame) << 32) | startingPosition->fLoopCount) : 0xDEADBEEF);
+    
+    if (sampleIntervalHiRes && (numSampleFrames != 0) && startingPosition && wakeupTimeTicks)
+    {
+        IOAudioEnginePosition   wakeupPosition;
+        UInt32                  wakeupOffset;
+        AbsoluteTime            lastLoopTimeTicks;
+        UInt32                  currentLoopCount;
+        AbsoluteTime            wakeupIntervalTicks;
+        AbsoluteTime            currentTimeTicks;                                    // <rdar://10145205>
+        UInt32                  samplesFromLoopStart;
+        AbsoluteTime            wakeupThreadLatencyPaddingIntervalTicks;
+        AbsoluteTime            ticksForSampleBuffer;
+        uint32_t                sampleFramesToMeasure = numSampleFramesPerBuffer;
+        uint32_t                sampleFramesMeasured = 1;               // the sampleIntervalHiRes represents 1 sample
+        uint64_t                measureInterval = sampleIntervalHiRes;
+
+        // calculate the AbsoluteTime for the entire sample buffer (or as much as I can handle)
+        
+        while (!(sampleFramesToMeasure == 1) && !(measureInterval & 0x8000000000000000LL))
+        {
+            measureInterval <<= 1;                  // multiply by 2
+            sampleFramesMeasured <<= 1;             // multiply by 2
+            sampleFramesToMeasure >>= 1;            // divide by 2
+        }
+
+        AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeoutHiRes, (uintptr_t)this, ((uint64_t)sampleFramesMeasured << 32) | numSampleFramesPerBuffer, measureInterval, 5);
+        // ticksForSampleBuffer now contains the AbsoluteTime for the entire sample buffer (or close as we can get) in the upper 32 bits
+        ticksForSampleBuffer = (measureInterval & 0xFFFFFFFF00000000) >> 32;
+            
+        wakeupOffset = (numSampleFrames / reserved->mixClipOverhead) + sampleOffset;
+        AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeoutHiRes, (uintptr_t)this, ((uint64_t)reserved->mixClipOverhead << 32) | sampleOffset, wakeupOffset, 1);
+
+        if (wakeupOffset <= startingPosition->fSampleFrame)
+        {
+            wakeupPosition = *startingPosition;
+            wakeupPosition.fSampleFrame -= wakeupOffset;
+        } else
+        {
+            wakeupPosition.fLoopCount = startingPosition->fLoopCount - 1;
+            wakeupPosition.fSampleFrame = numSampleFramesPerBuffer - (wakeupOffset - startingPosition->fSampleFrame);
+        }
+        
+        getLoopCountAndTimeStamp(&currentLoopCount, &lastLoopTimeTicks);
+        
+        samplesFromLoopStart = ((wakeupPosition.fLoopCount - currentLoopCount) * numSampleFramesPerBuffer) + wakeupPosition.fSampleFrame;
+
+        AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeoutHiRes, (uintptr_t)this, lastLoopTimeTicks, ((uint64_t)currentLoopCount << 32) | samplesFromLoopStart, 2);
+        wakeupIntervalTicks = ((samplesFromLoopStart * ticksForSampleBuffer) + (sampleFramesMeasured / 2)) / sampleFramesMeasured;
+        
+        AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeoutHiRes, (uintptr_t)this, ticksForSampleBuffer, wakeupIntervalTicks, 3);
+
+        nanoseconds_to_absolutetime(WATCHDOG_THREAD_LATENCY_PADDING_NS, &wakeupThreadLatencyPaddingIntervalTicks);
+        
+        SUB_ABSOLUTETIME(&wakeupIntervalTicks, &wakeupThreadLatencyPaddingIntervalTicks);
+        
+        *wakeupTimeTicks = lastLoopTimeTicks;
+        ADD_ABSOLUTETIME(wakeupTimeTicks, &wakeupIntervalTicks);
+
+        // <rdar://10145205> Sanity check the calculated time
+        clock_get_uptime(&currentTimeTicks);
+
+        if ( CMP_ABSOLUTETIME(wakeupTimeTicks, &currentTimeTicks) > 0 )
+        {
+            wakeupDeltaTicks = *wakeupTimeTicks;
+            SUB_ABSOLUTETIME(&wakeupDeltaTicks, &currentTimeTicks);
+            absolutetime_to_nanoseconds(wakeupDeltaTicks, &wakeupDeltaNS);
+            result = kIOReturnSuccess;
+        }
+        else
+        {
+            AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeoutHiRes, (uintptr_t)this, *wakeupTimeTicks, currentTimeTicks, 4);
+            result = kIOReturnIsoTooOld;
+        }
+    }
+
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeoutHiRes, (uintptr_t)this, wakeupTimeTicks ? *wakeupTimeTicks : 0xDEADBEEF, wakeupDeltaNS, result );
+    return result;
+}
+
+// OSMetaClassDefineReservedUsed(IOAudioEngine, 16);
+// This method turns on the use of Hi Resolution sample Intervals in the HAL's I/O trap.
+// this is a one-way call. once done, it cannot be outdone
+IOReturn IOAudioEngine::useHiResSampleInterval(void)
+{
+    reserved->useHiResSampleInterval = true;
+    setProperty(kIOAudioEngineUseHiResSampleIntervalKey, kOSBooleanTrue);
+    return kIOReturnSuccess;
+}
+
 
 // New Code:
 // OSMetaClassDefineReservedUsed(IOAudioEngine, 12);
@@ -421,7 +521,8 @@ bool IOAudioEngine::init(OSDictionary *properties)
 			reserved->mixClipOverhead = DEFAULT_MIX_CLIP_OVERHEAD;		// <rdar://12188841>
 			reserved->streams = NULL;
 			reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
-			reserved->commandGateUsage = 0;								// <rdar://8518215>
+            reserved->commandGateUsage = 0;                                // <rdar://8518215>
+            reserved->useHiResSampleInterval = false;
 
 			reserved->statusDescriptor = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, round_page_32(sizeof(IOAudioEngineStatus)), page_size);
 
@@ -459,6 +560,12 @@ bool IOAudioEngine::init(OSDictionary *properties)
 					}
 				}
 			}
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+            if (driverDesiresHiResSampleIntervals())
+            {
+                useHiResSampleInterval();
+            }
+#endif
 		}
 	}
 
@@ -2307,68 +2414,91 @@ IOReturn IOAudioEngine::getLoopCountAndTimeStamp(UInt32 *loopCount, AbsoluteTime
     return result;
 }
 
-IOReturn IOAudioEngine::calculateSampleTimeout(AbsoluteTime *sampleInterval, UInt32 numSampleFrames, IOAudioEnginePosition *startingPosition, AbsoluteTime *wakeupTime)
+IOReturn IOAudioEngine::calculateSampleTimeout(AbsoluteTime *sampleIntervalTicks, UInt32 numSampleFrames, IOAudioEnginePosition *startingPosition, AbsoluteTime *wakeupTimeTicks)
 {
-    IOReturn result = kIOReturnBadArgument;
-    UInt64 nanos;
-    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, (uintptr_t)sampleInterval, numSampleFrames, (uintptr_t)startingPosition);
-    if (sampleInterval && (numSampleFrames != 0) && startingPosition) {
-        IOAudioEnginePosition wakeupPosition;
-        UInt32 wakeupOffset;
-        AbsoluteTime lastLoopTime;
-        UInt32 currentLoopCount;
-        AbsoluteTime wakeupInterval;
-        AbsoluteTime currentTime;									// <rdar://10145205>
-        UInt64 wakeupIntervalScalar;
-        UInt32 samplesFromLoopStart;
-        AbsoluteTime wakeupThreadLatencyPaddingInterval;
-        
-        absolutetime_to_nanoseconds((*sampleInterval), &nanos);
-        AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, (nanos/1000), startingPosition->fSampleFrame, startingPosition->fLoopCount );
-        
-        // Total wakeup interval now calculated at 90% minus 125us
-        
-        wakeupOffset = (numSampleFrames / reserved->mixClipOverhead) + sampleOffset;
-        
-        if (wakeupOffset <= startingPosition->fSampleFrame) {
-            wakeupPosition = *startingPosition;
-            wakeupPosition.fSampleFrame -= wakeupOffset;
-        } else {
-            wakeupPosition.fLoopCount = startingPosition->fLoopCount - 1;
-            wakeupPosition.fSampleFrame = numSampleFramesPerBuffer - (wakeupOffset - startingPosition->fSampleFrame);
-        }
-        
-        getLoopCountAndTimeStamp(&currentLoopCount, &lastLoopTime);
-        
-        samplesFromLoopStart = ((wakeupPosition.fLoopCount - currentLoopCount) * numSampleFramesPerBuffer) + wakeupPosition.fSampleFrame;
-        
-        wakeupIntervalScalar = AbsoluteTime_to_scalar(sampleInterval);
-        wakeupIntervalScalar *= samplesFromLoopStart;
-        
-        //wakeupInterval = scalar_to_AbsoluteTime(&wakeupIntervalScalar);
-        wakeupInterval = *(AbsoluteTime *)(&wakeupIntervalScalar);
-        
-        nanoseconds_to_absolutetime(WATCHDOG_THREAD_LATENCY_PADDING_NS, &wakeupThreadLatencyPaddingInterval);
-        
-        SUB_ABSOLUTETIME(&wakeupInterval, &wakeupThreadLatencyPaddingInterval);
-        
-        *wakeupTime = lastLoopTime;
-        ADD_ABSOLUTETIME(wakeupTime, &wakeupInterval);
+    IOReturn        result = kIOReturnBadArgument;
+    AbsoluteTime    wakeupDeltaTicks = 0;
+    uint64_t        wakeupDeltaNS = 0;
 
-		// <rdar://10145205> Sanity check the calculated time
-		clock_get_uptime(&currentTime);
-		
-		if ( CMP_ABSOLUTETIME(wakeupTime, &currentTime) > 0 ) {
-	        result = kIOReturnSuccess;
-		}
-		else {
-			result = kIOReturnIsoTooOld;
-		}
+    AudioTrace_Start(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, sampleIntervalTicks ? *sampleIntervalTicks : 0xDEADBEEF, numSampleFrames, startingPosition ? ((((uint64_t)startingPosition->fSampleFrame) << 32) | startingPosition->fLoopCount) : 0xDEADBEEF);
+    
+    if (reserved->useHiResSampleInterval)
+    {
+        if (sampleIntervalTicks)
+            result = calculateSampleTimeoutHiRes(*sampleIntervalTicks, numSampleFrames, startingPosition, wakeupTimeTicks);
+    }
+    else
+    {
+        if (sampleIntervalTicks && (numSampleFrames != 0) && startingPosition && wakeupTimeTicks)
+        {
+            IOAudioEnginePosition   wakeupPosition;
+            UInt32                  wakeupOffset;
+            AbsoluteTime            lastLoopTimeTicks;
+            UInt32                  currentLoopCount;
+            AbsoluteTime            wakeupIntervalTicks;
+            AbsoluteTime            currentTimeTicks;									// <rdar://10145205>
+            uint64_t                currentTimeNanos;
+            UInt64                  wakeupIntervalScalar;
+            UInt32                  samplesFromLoopStart;
+            AbsoluteTime            wakeupThreadLatencyPaddingIntervalTicks;
+                        
+            // Total wakeup interval now calculated at 90% minus 125us
+            
+            wakeupOffset = (numSampleFrames / reserved->mixClipOverhead) + sampleOffset;
+            AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, ((uint64_t)reserved->mixClipOverhead << 32) | sampleOffset, wakeupOffset, 1);
+
+            if (wakeupOffset <= startingPosition->fSampleFrame)
+            {
+                wakeupPosition = *startingPosition;
+                wakeupPosition.fSampleFrame -= wakeupOffset;
+            } else
+            {
+                wakeupPosition.fLoopCount = startingPosition->fLoopCount - 1;
+                wakeupPosition.fSampleFrame = numSampleFramesPerBuffer - (wakeupOffset - startingPosition->fSampleFrame);
+            }
+            
+            getLoopCountAndTimeStamp(&currentLoopCount, &lastLoopTimeTicks);
+            
+            samplesFromLoopStart = ((wakeupPosition.fLoopCount - currentLoopCount) * numSampleFramesPerBuffer) + wakeupPosition.fSampleFrame;
+
+            AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, lastLoopTimeTicks, ((uint64_t)currentLoopCount << 32) | samplesFromLoopStart, 2);
+
+            wakeupIntervalScalar = AbsoluteTime_to_scalar(sampleIntervalTicks);
+            wakeupIntervalScalar *= samplesFromLoopStart;
+            
+            //wakeupInterval = scalar_to_AbsoluteTime(&wakeupIntervalScalar);
+            wakeupIntervalTicks = *(AbsoluteTime *)(&wakeupIntervalScalar);
+            
+            AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, wakeupIntervalScalar, wakeupIntervalTicks, 3);
+
+            nanoseconds_to_absolutetime(WATCHDOG_THREAD_LATENCY_PADDING_NS, &wakeupThreadLatencyPaddingIntervalTicks);
+            
+            SUB_ABSOLUTETIME(&wakeupIntervalTicks, &wakeupThreadLatencyPaddingIntervalTicks);
+            
+            *wakeupTimeTicks = lastLoopTimeTicks;
+            ADD_ABSOLUTETIME(wakeupTimeTicks, &wakeupIntervalTicks);
+
+            // <rdar://10145205> Sanity check the calculated time
+            clock_get_uptime(&currentTimeTicks);
+            absolutetime_to_nanoseconds(currentTimeTicks, &currentTimeNanos);
+            AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, currentTimeNanos, currentTimeTicks, 5);
+
+            if ( CMP_ABSOLUTETIME(wakeupTimeTicks, &currentTimeTicks) > 0 )
+            {
+                wakeupDeltaTicks = *wakeupTimeTicks;
+                SUB_ABSOLUTETIME(&wakeupDeltaTicks, &currentTimeTicks);
+                absolutetime_to_nanoseconds(wakeupDeltaTicks, &wakeupDeltaNS);
+                result = kIOReturnSuccess;
+            }
+            else
+            {
+                AudioTrace(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, *wakeupTimeTicks, currentTimeTicks, 4);
+                result = kIOReturnIsoTooOld;
+            }
+        }
     }
 
-    nanos = 0;
-    absolutetime_to_nanoseconds((*wakeupTime), &nanos);
-    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, (uintptr_t)(*wakeupTime), (nanos/1000), result );
+    AudioTrace_End(kAudioTIOAudioEngine, kTPIOAudioEngineCalculateSampleTimeout, (uintptr_t)this, wakeupTimeTicks ? *wakeupTimeTicks : 0xDEADBEEF, wakeupDeltaNS, result );
     return result;
 }
 

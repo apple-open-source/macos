@@ -27,6 +27,7 @@
 #include <stdbool.h>
 
 bool OctagonIsEnabled(void);
+bool SecErrorIsNestedErrorCappingEnabled(void);
 
 #if __OBJC__
 
@@ -44,6 +45,7 @@ extern NSString* OTProtocolPairing;
 extern NSString* OTProtocolPiggybacking;
 
 extern const char * OTTrustStatusChangeNotification;
+extern NSString* OTEscrowRecordPrefix;
 
 
 BOOL OctagonPlatformSupportsSOS(void);
@@ -64,6 +66,17 @@ void OctagonAuthoritativeTrustSetIsEnabled(BOOL value);
 BOOL OctagonIsSOSFeatureEnabled(void);
 void OctagonSetSOSFeatureEnabled(BOOL value);
 
+BOOL OctagonIsOptimizationEnabled(void);
+void OctagonSetOptimizationEnabled(BOOL value);
+
+BOOL OctagonIsEscrowRecordFetchEnabled(void);
+void OctagonSetEscrowRecordFetchEnabled(BOOL value);
+
+BOOL SecKVSOnCloudKitIsEnabled(void);
+void SecKVSOnCloudKitSetOverrideIsEnabled(BOOL value);
+
+void SecErrorSetOverrideNestedErrorCappingIsEnabled(BOOL value);
+
 typedef NS_ENUM(NSInteger, CuttlefishResetReason) {
     CuttlefishResetReasonUnknown = 0,
     CuttlefishResetReasonUserInitiatedReset = 1,
@@ -73,6 +86,9 @@ typedef NS_ENUM(NSInteger, CuttlefishResetReason) {
     CuttlefishResetReasonRecoveryKey = 5,
     CuttlefishResetReasonTestGenerated = 6,
 };
+
+extern NSString* const CuttlefishErrorDomain;
+extern NSString* const CuttlefishErrorRetryAfterKey;
 
 #endif // __OBJC__
 

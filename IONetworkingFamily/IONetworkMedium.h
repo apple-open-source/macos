@@ -191,7 +191,8 @@ __END_DECLS
     browse the set of media types supported by the controller. 
 */
 
-class IONetworkMedium : public OSObject
+
+class __exported IONetworkMedium : public OSObject
 {
     OSDeclareDefaultStructors( IONetworkMedium )
 

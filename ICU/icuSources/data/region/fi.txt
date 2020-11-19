@@ -307,7 +307,8 @@ fi{
         CI{"Norsunluurannikko"}
         CZ{"Tšekinmaa"}
         FK{"Falklandinsaaret (Malvinassaaret)"}
+        SZ{"Eswatini"}
         TL{"Timor-Leste"}
     }
-    Version{"2.1.48.42"}
+    Version{"36.1"}
 }

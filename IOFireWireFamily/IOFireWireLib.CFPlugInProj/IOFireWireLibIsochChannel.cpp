@@ -167,7 +167,7 @@ namespace IOFireWireLib {
 			allowedChans &= portChans;
 		}
 		
-		UInt32						listenCount = CFArrayGetCount(mListeners) ;
+		UInt32						listenCount = (UInt32)CFArrayGetCount(mListeners) ;
 		IOFireWireLibIsochPortRef	listen ;
 		for (UInt32 listenIndex=0; listenIndex < listenCount; ++listenIndex)
 		{
@@ -221,7 +221,7 @@ namespace IOFireWireLib {
 	
 		DebugLogCond( result, "IsochChannel::ReleaseChannel: error 0x%08x calling ReleasePort() on talker\n", result) ;
 	
-		UInt32							listenCount	= CFArrayGetCount(mListeners) ;
+		UInt32							listenCount	= (UInt32)CFArrayGetCount(mListeners) ;
 		IOFireWireLibIsochPortRef		listen ;
 	
 		UInt32	index=0 ;
@@ -250,7 +250,7 @@ namespace IOFireWireLib {
 		DebugLog("+ IsochChannel::Start\n") ;
 	
 		// Start all listeners, then start the talker
-		UInt32 						listenCount = CFArrayGetCount( mListeners ) ;
+		UInt32 						listenCount = (UInt32)CFArrayGetCount( mListeners ) ;
 		IOFireWireLibIsochPortRef	listen ;
 		UInt32						listenIndex = 0 ;
 		IOReturn					error = kIOReturnSuccess ;
@@ -284,7 +284,7 @@ namespace IOFireWireLib {
 		if (mTalker)
 			(**mTalker).Stop( mTalker ) ;
 	
-		UInt32 						listenCount = CFArrayGetCount( mListeners ) ;
+		UInt32 						listenCount = (UInt32)CFArrayGetCount( mListeners ) ;
 		IOFireWireLibIsochPortRef 	listen ;
 		for (UInt32 listenIndex=0; listenIndex < listenCount; ++listenIndex)
 		{
@@ -382,7 +382,7 @@ namespace IOFireWireLib {
 		}
 
 		{
-			unsigned count = ::CFArrayGetCount( mListeners ) ;
+			unsigned count = (unsigned)(::CFArrayGetCount( mListeners )) ;
 			unsigned index = 0 ;
 			while( index < count && !error )
 			{

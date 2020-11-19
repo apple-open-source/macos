@@ -34,6 +34,7 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
     CKKSKnownStateTLKsMissing = 1,   // CKKS doesn't have the TLKs: your operation will likely not succeed
     CKKSKnownStateWaitForUnlock = 2, // CKKS has some important things to do, but the device is locked. Your operation will likely not succeed
     CKKSKnownStateWaitForOctagon = 3, // CKKS has important things to do, but Octagon hasn't done them yet. Your operation will likely not succeed
+    CKKSKnownStateNoCloudKitAccount = 4, // The device isn't signed into CloudKit. Your operation will likely not succeed
 };
 
 @interface CKKSControl : NSObject
@@ -49,6 +50,7 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
                 reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
 - (void)rpcResetLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcResetCloudKit:(NSString* _Nullable)viewName reason:(NSString *)reason reply:(void (^)(NSError* _Nullable error))reply;
+- (void)rpcResyncLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcResync:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcFetchAndProcessChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcFetchAndProcessClassAChanges:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;

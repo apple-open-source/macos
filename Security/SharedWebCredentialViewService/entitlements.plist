@@ -6,5 +6,24 @@
 	<true/>
 	<key>com.apple.private.associated-domains</key>
 	<true/>
+	<key>com.apple.security.iokit-user-client-class</key>
+	<array>
+		<string>AGXDevice</string>
+		<string>AGXDeviceUserClient</string>
+		<string>AGXSharedUserClient</string>
+		<string>AGXCommandQueue</string>
+		<string>IOAccelContext</string>
+		<string>IOAccelContext2</string>
+		<string>IOAccelDevice</string>
+		<string>IOAccelDevice2</string>
+		<string>IOAccelSharedUserClient</string>
+		<string>IOAccelSharedUserClient2</string>
+		<string>IOAccelSubmitter</string>
+		<string>IOAccelSubmitter2</string>
+		<string>IOAVControllerConcreteUserClient</string>
+		<string>IOMobileFramebufferUserClient</string>
+		<string>IOSurfaceRootUserClient</string>
+		<string>RootDomainUserClient</string>
+	</array>
 </dict>
 </plist>

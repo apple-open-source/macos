@@ -61,6 +61,8 @@
 
 
 #include "SOSAccountTesting.h"
+#if SOS_ENABLED
+
 static void tests() {
     CFErrorRef error = NULL;
     int keySizeInBits = 256;
@@ -119,11 +121,15 @@ static void tests() {
 
 
 }
+#endif
 
 int secd_67_prefixedKeyIDs(int argc, char *const *argv) {
+#if SOS_ENABLED
     plan_tests(12);
-
     tests();
+#else
+    plan_tests(0);
+#endif
     return 0;
 }
 

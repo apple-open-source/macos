@@ -52,7 +52,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#if TARGET_OS_MAC
+#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
 #pragma pack(push,2)
 #endif
     
@@ -311,7 +311,7 @@ cc_free_NC_info (apiCB    *in_context,
                  infoNC ***io_info)
 CCAPI_DEPRECATED;
 
-#if TARGET_OS_MAC
+#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
 #pragma pack(pop)
 #endif
 

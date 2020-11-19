@@ -436,7 +436,7 @@ static const char *dav_xml_escape_uri(apr_pool_t *p, const char *uri)
 }
 
 
-/* Write a complete RESPONSE object out as a <DAV:repsonse> xml
+/* Write a complete RESPONSE object out as a <DAV:response> xml
    element.  Data is sent into brigade BB, which is auto-flushed into
    the output filter stack for request R.  Use POOL for any temporary
    allocations.
@@ -663,8 +663,8 @@ static int dav_created(request_rec *r, const char *locn, const char *what,
 
     /* Apache doesn't allow us to set a variable body for HTTP_CREATED, so
      * we must manufacture the entire response. */
-    body = apr_psprintf(r->pool, "%s %s has been created.",
-                        what, ap_escape_html(r->pool, locn));
+    body = apr_pstrcat(r->pool, what, " ", ap_escape_html(r->pool, locn),
+                       " has been created.", NULL);
     return dav_error_response(r, HTTP_CREATED, body);
 }
 
@@ -800,7 +800,6 @@ static int dav_parse_range(request_rec *r,
     char *range;
     char *dash;
     char *slash;
-    char *errp;
 
     range_c = apr_table_get(r->headers_in, "content-range");
     if (range_c == NULL)
@@ -817,20 +816,19 @@ static int dav_parse_range(request_rec *r,
     *dash++ = *slash++ = '\0';
 
     /* detect invalid ranges */
-    if (apr_strtoff(range_start, range + 6, &errp, 10)
-        || *errp || *range_start < 0) {
+    if (!ap_parse_strict_length(range_start, range + 6)) {
         return -1;
     }
-    if (apr_strtoff(range_end, dash, &errp, 10)
-        || *errp || *range_end < 0 || *range_end < *range_start) {
+    if (!ap_parse_strict_length(range_end, dash)
+            || *range_end < *range_start) {
         return -1;
     }
 
     if (*slash != '*') {
         apr_off_t dummy;
 
-        if (apr_strtoff(&dummy, slash, &errp, 10)
-            || *errp || dummy <= *range_end) {
+        if (!ap_parse_strict_length(&dummy, slash)
+                || dummy <= *range_end) {
             return -1;
         }
     }
@@ -1320,10 +1318,10 @@ static dav_error *dav_gen_supported_methods(request_rec *r,
             if (elts[i].key == NULL)
                 continue;
 
-            s = apr_psprintf(r->pool,
-                             "<D:supported-method D:name=\"%s\"/>"
-                             DEBUG_CR,
-                             elts[i].key);
+            s = apr_pstrcat(r->pool,
+                            "<D:supported-method D:name=\"",
+                            elts[i].key,
+                            "\"/>" DEBUG_CR, NULL);
             apr_text_append(r->pool, body, s);
         }
     }
@@ -1349,10 +1347,9 @@ static dav_error *dav_gen_supported_methods(request_rec *r,
 
                 /* see if method is supported */
                 if (apr_table_get(methods, name) != NULL) {
-                    s = apr_psprintf(r->pool,
-                                     "<D:supported-method D:name=\"%s\"/>"
-                                     DEBUG_CR,
-                                     name);
+                    s = apr_pstrcat(r->pool,
+                                    "<D:supported-method D:name=\"",
+                                    name, "\"/>" DEBUG_CR, NULL);
                     apr_text_append(r->pool, body, s);
                 }
             }
@@ -1484,10 +1481,12 @@ static dav_error *dav_gen_supported_reports(request_rec *r,
                 for (rp = reports; rp->nmspace != NULL; ++rp) {
                     /* Note: we presume reports->namespace is
                      * properly XML/URL quoted */
-                    s = apr_psprintf(r->pool,
-                                     "<D:supported-report D:name=\"%s\" "
-                                     "D:namespace=\"%s\"/>" DEBUG_CR,
-                                     rp->name, rp->nmspace);
+                    s = apr_pstrcat(r->pool,
+                                    "<D:supported-report D:name=\"",
+                                    rp->name,
+                                    "\" D:namespace=\"",
+                                    rp->nmspace,
+                                    "\"/>" DEBUG_CR, NULL);
                     apr_text_append(r->pool, body, s);
                 }
             }
@@ -1525,12 +1524,13 @@ static dav_error *dav_gen_supported_reports(request_rec *r,
                                 /* Note: we presume reports->nmspace is
                                  * properly XML/URL quoted
                                  */
-                                s = apr_psprintf(r->pool,
-                                                 "<D:supported-report "
-                                                 "D:name=\"%s\" "
-                                                 "D:namespace=\"%s\"/>"
-                                                 DEBUG_CR,
-                                                 rp->name, rp->nmspace);
+                                s = apr_pstrcat(r->pool,
+                                                "<D:supported-report "
+                                                "D:name=\"",
+                                                rp->name,
+                                                "\" D:namespace=\"",
+                                                rp->nmspace,
+                                                "\"/>" DEBUG_CR, NULL);
                                 apr_text_append(r->pool, body, s);
                                 break;
                             }
@@ -2483,20 +2483,13 @@ static int process_mkcol_body(request_rec *r)
         r->read_chunked = 1;
     }
     else if (lenp) {
-        const char *pos = lenp;
-
-        while (apr_isdigit(*pos) || apr_isspace(*pos)) {
-            ++pos;
-        }
-
-        if (*pos != '\0') {
+        if (!ap_parse_strict_length(&r->remaining, lenp)) {
+            r->remaining = 0;
             /* This supplies additional information for the default message. */
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r, APLOGNO(00590)
                           "Invalid Content-Length %s", lenp);
             return HTTP_BAD_REQUEST;
         }
-
-        r->remaining = apr_atoi64(lenp);
     }
 
     if (r->read_chunked || r->remaining > 0) {
@@ -2679,7 +2672,7 @@ static int dav_method_copymove(request_rec *r, int is_move)
         const char *nscp_path = apr_table_get(r->headers_in, "New-uri");
 
         if (nscp_host != NULL && nscp_path != NULL)
-            dest = apr_psprintf(r->pool, "http://%s%s", nscp_host, nscp_path);
+            dest = apr_pstrcat(r->pool, "http://", nscp_host, nscp_path, NULL);
     }
     if (dest == NULL) {
         /* This supplies additional information for the default message. */
@@ -3297,8 +3290,8 @@ static int dav_method_unlock(request_rec *r)
 
     /* ### RFC 2518 s. 8.11: If this resource is locked by locktoken,
      *     _all_ resources locked by locktoken are released.  It does not say
-     *     resource has to be the root of an infinte lock.  Thus, an UNLOCK
-     *     on any part of an infinte lock will remove the lock on all resources.
+     *     resource has to be the root of an infinite lock.  Thus, an UNLOCK
+     *     on any part of an infinite lock will remove the lock on all resources.
      *
      *     For us, if r->filename represents an indirect lock (part of an infinity lock),
      *     we must actually perform an UNLOCK on the direct lock for this resource.

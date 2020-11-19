@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,6 +54,8 @@
 #include <Security/oidsalg.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecPolicySearch.h>
+#include <Security/SecTrustSettingsPriv.h>
+#include <pwd.h>
 #endif /* ! TARGET_OS_IPHONE */
 #include <Security/SecTrustPriv.h>
 #include <SystemConfiguration/SCValidation.h>
@@ -962,353 +964,107 @@ get_trusted_server_names(CFDictionaryRef properties)
     return (list);
 }
 
-#if TARGET_OS_IPHONE
-#include <CoreFoundation/CFPreferences.h>
-#include <notify.h>
+#if TARGET_OS_OSX
 
-#define kEAPTLSTrustExceptionsID 		"com.apple.network.eapclient.tls.TrustExceptions"
-#define kEAPTLSTrustExceptionsApplicationID	CFSTR(kEAPTLSTrustExceptionsID)
-
-static int	token;
-static bool	token_valid;
-
-static void
-exceptions_change_check(void)
+static bool
+is_mac_buddy_user()
 {
-    int		check = 0;
-    uint32_t	status;
+    uid_t mac_buddy_uid = 248;
+    struct passwd * pwd = getpwnam("_mbsetupuser");
 
-    if (!token_valid) {
-	status = notify_register_check(kEAPTLSTrustExceptionsID, &token);
-	if (status != NOTIFY_STATUS_OK) {
-	    EAPLOG_FL(LOG_NOTICE,
-		      "notify_register_check returned %d",
-		   status);
-	    return;
+    if (pwd != NULL) {
+	mac_buddy_uid = pwd->pw_uid;
+    }
+    return (getuid() == mac_buddy_uid);
+}
+
+#endif /* TARGET_OS_OSX */
+
+static bool
+EAPTLSCheckServerCertificateEAPTrustSettings(SecCertificateRef leaf)
+{
+#if TARGET_OS_OSX
+    if (getenv("__OSINSTALL_ENVIRONMENT") != NULL ||
+	is_mac_buddy_user()) {
+	/* SecTrustSettingsCopyTrustSettings does not find trust setting in MacBuddy mode
+	 * so we make it a special case, and return true.
+	 */
+	EAPLOG_FL(LOG_INFO, "this is setup assistant mode");
+	return true;
+    }
+    CFArrayRef 	trust_settings = NULL;
+    OSStatus 	status = errSecSuccess;
+    bool 	ret = false;
+    CFIndex 	count;
+
+    status = SecTrustSettingsCopyTrustSettings(leaf, kSecTrustSettingsDomainUser, &trust_settings);
+    if (status != errSecSuccess) {
+	EAPLOG_FL(LOG_INFO, "SecTrustSettingsCopyTrustSettings() returned error: %d", status);
+	goto done;
+    }
+    if (trust_settings == NULL) {
+	EAPLOG_FL(LOG_INFO, "SecTrustSettingsCopyTrustSettings() returned NULL trust settings");
+	goto done;
+    }
+    if (isA_CFArray(trust_settings) == NULL) {
+	EAPLOG_FL(LOG_INFO, "SecTrustSettingsCopyTrustSettings() returned malformed trust settings");
+	goto done;
+    }
+    count = CFArrayGetCount(trust_settings);
+    for (CFIndex i = 0; i < count; i++) {
+	CFDictionaryRef trust_setting;
+	SecPolicyRef 	cert_policy;
+
+	trust_setting = (CFDictionaryRef)CFArrayGetValueAtIndex(trust_settings, i);
+	if (isA_CFDictionary(trust_setting) == NULL) {
+	    EAPLOG_FL(LOG_INFO, "invalid trust setting dictionary");
+	    goto done;
 	}
-	token_valid = TRUE;
-    }
-    status = notify_check(token, &check);
-    if (status != NOTIFY_STATUS_OK) {
-	EAPLOG_FL(LOG_NOTICE,
-		  "notify_check returned %d",
-	       status);
-	return;
-    }
-    if (check != 0) {
-	CFPreferencesSynchronize(kEAPTLSTrustExceptionsApplicationID,
-				 kCFPreferencesCurrentUser,
-				 kCFPreferencesAnyHost);
-    }
-    return;
-}
+	cert_policy = (SecPolicyRef)CFDictionaryGetValue(trust_setting, kSecTrustSettingsPolicy);
+	if (cert_policy != NULL) {
+	    CFDictionaryRef 	policy_properties = NULL;
 
-static void
-exceptions_change_notify(void)
-{
-    uint32_t	status;
+	    if (CFGetTypeID(cert_policy) != SecPolicyGetTypeID()) {
+		EAPLOG_FL(LOG_INFO, "invalid certificate policy");
+		goto done;
+	    }
+	    policy_properties = SecPolicyCopyProperties(cert_policy);
+	    if (policy_properties != NULL) {
+		CFStringRef 	policy_oid = NULL;
 
-    status = notify_post(kEAPTLSTrustExceptionsID);
-    if (status != NOTIFY_STATUS_OK) {
-	EAPLOG_FL(LOG_NOTICE,
-		  "notify_post returned %d",
-		  status);
-    }
-    return;
-}
+		if (isA_CFDictionary(policy_properties) == NULL) {
+		    EAPLOG_FL(LOG_INFO, "invalid policy properties dictionary");
+		    my_CFRelease(&policy_properties);
+		    goto done;
+		}
+		policy_oid = CFDictionaryGetValue(policy_properties, kSecPolicyOid);
+		if (isA_CFString(policy_oid) != NULL &&
+		    CFStringCompare(policy_oid, kSecPolicyAppleEAP, kCFCompareCaseInsensitive) == kCFCompareEqualTo) {
+			SecTrustSettingsResult 	res = kSecTrustSettingsResultInvalid;
+			CFNumberRef 		result_type = NULL;
 
-static void
-EAPTLSTrustExceptionsSave(CFStringRef domain, CFStringRef identifier,
-			  CFStringRef hash_str, CFDataRef exceptions)
-{
-    CFDictionaryRef	domain_list;
-    CFDictionaryRef	exceptions_list = NULL;
-    bool		store_exceptions = TRUE;
-
-    exceptions_change_check();
-    domain_list = CFPreferencesCopyValue(domain,
-					 kEAPTLSTrustExceptionsApplicationID,
-					 kCFPreferencesCurrentUser,
-					 kCFPreferencesAnyHost);
-    if (domain_list != NULL && isA_CFDictionary(domain_list) == NULL) {
-	CFRelease(domain_list);
-	domain_list = NULL;
-    }
-    if (domain_list != NULL) {
-	exceptions_list = CFDictionaryGetValue(domain_list, identifier);
-	exceptions_list = isA_CFDictionary(exceptions_list);
-	if (exceptions_list != NULL) {
-	    CFDataRef	stored_exceptions;
-
-	    stored_exceptions = CFDictionaryGetValue(exceptions_list, hash_str);
-	    if (isA_CFData(stored_exceptions) != NULL 
-		&& CFEqual(stored_exceptions, exceptions)) {
-		/* stored exceptions are correct, don't store them again */
-		store_exceptions = FALSE;
+			result_type = (CFNumberRef)CFDictionaryGetValue(trust_setting, kSecTrustSettingsResult);
+			if (isA_CFNumber(result_type) != NULL &&
+			    CFNumberGetValue(result_type, kCFNumberSInt32Type, &res) == TRUE) {
+			    if (res == kSecTrustSettingsResultTrustRoot || res == kSecTrustSettingsResultTrustAsRoot) {
+				ret = true;
+			    }
+			}
+		}
+		my_CFRelease(&policy_properties);
+		if (ret == true) {
+		    goto done;
+		}
 	    }
 	}
     }
-    if (store_exceptions) {
-	if (exceptions_list == NULL) {
-	    /* no exceptions for this identifier yet, create one */
-	    exceptions_list
-		= CFDictionaryCreate(NULL,
-				     (const void * * )&hash_str,
-				     (const void * *)&exceptions,
-				     1,
-				     &kCFTypeDictionaryKeyCallBacks,
-				     &kCFTypeDictionaryValueCallBacks);
-	}
-	else {
-	    /* update existing exceptions with this one */
-	    CFMutableDictionaryRef	new_exceptions_list;
 
-	    new_exceptions_list
-		= CFDictionaryCreateMutableCopy(NULL, 0,
-						exceptions_list);
-	    CFDictionarySetValue(new_exceptions_list, hash_str, exceptions);
-	    /* don't CFRelease(exceptions_list), it's from domain_list */
-	    exceptions_list = (CFDictionaryRef)new_exceptions_list;
-
-	}
-	if (domain_list == NULL) {
-	    domain_list
-		= CFDictionaryCreate(NULL, 
-				     (const void * *)&identifier,
-				     (const void * *)&exceptions_list,
-				     1,
-				     &kCFTypeDictionaryKeyCallBacks,
-				     &kCFTypeDictionaryValueCallBacks);
-	}
-	else {
-	    CFMutableDictionaryRef	new_domain_list;
-
-	    new_domain_list
-		= CFDictionaryCreateMutableCopy(NULL, 0,
-						domain_list);
-	    CFDictionarySetValue(new_domain_list, identifier, exceptions_list);
-	    CFRelease(domain_list);
-	    domain_list = (CFDictionaryRef)new_domain_list;
-
-	}
-	CFRelease(exceptions_list);
-	CFPreferencesSetValue(domain, domain_list,
-			      kEAPTLSTrustExceptionsApplicationID,
-			      kCFPreferencesCurrentUser,
-			      kCFPreferencesAnyHost);
-	CFPreferencesSynchronize(kEAPTLSTrustExceptionsApplicationID,
-				 kCFPreferencesCurrentUser,
-				 kCFPreferencesAnyHost);
-	exceptions_change_notify();
-    }
-    my_CFRelease(&domain_list);
-    return;
-}
-
-/*
- * Function: EAPTLSSecTrustSaveExceptions
- * Purpose:
- *   Given the evaluated SecTrustRef object, save an exceptions binding for the 
- *   given domain, identifier, and server_hash_str, all of which must be
- *   specified.
- * Returns:
- *   FALSE if the trust object was not in a valid state, 
- *   TRUE otherwise.
- */
-bool
-EAPTLSSecTrustSaveExceptionsBinding(SecTrustRef trust, 
-				    CFStringRef domain, CFStringRef identifier,
-				    CFStringRef server_hash_str)
-{
-    CFDataRef 	exceptions;
-
-    exceptions = SecTrustCopyExceptions(trust);
-    if (exceptions == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "failed to copy exceptions");
-	return (FALSE);
-    }
-    EAPTLSTrustExceptionsSave(domain, identifier, server_hash_str,
-			      exceptions);
-    CFRelease(exceptions);
-    return (TRUE);
-}
-
-/* 
- * Function: EAPTLSRemoveTrustExceptionsBindings
- * Purpose:
- *   Remove all of the trust exceptions bindings for the given
- *   trust domain and identifier.
- *
- * Example:
- * EAPTLSRemoveTrustExceptionsBindings(kEAPTLSTrustExceptionsDomainWirelessSSID,
- * 				       ssid);
- */
-void
-EAPTLSRemoveTrustExceptionsBindings(CFStringRef domain, CFStringRef identifier)
-{
-    CFDictionaryRef	domain_list;
-    CFDictionaryRef	exceptions_list;
-
-    /*
-     * Remove the saved EAP-SIM/EAP-AKA information as well.
-     * XXX: this call should be moved into a common "EAP cleanup" function.
-     */
-    if (my_CFEqual(domain, kEAPTLSTrustExceptionsDomainWirelessSSID)) {
-	EAPSIMAKAPersistentStateForgetSSID(identifier);
-    }
-
-    exceptions_change_check();
-    domain_list = CFPreferencesCopyValue(domain,
-					 kEAPTLSTrustExceptionsApplicationID,
-					 kCFPreferencesCurrentUser,
-					 kCFPreferencesAnyHost);
-    if (domain_list != NULL && isA_CFDictionary(domain_list) == NULL) {
-	CFRelease(domain_list);
-	domain_list = NULL;
-    }
-    if (domain_list == NULL) {
-	return;
-    }
-    exceptions_list = CFDictionaryGetValue(domain_list, identifier);
-    if (exceptions_list != NULL) {
-	CFMutableDictionaryRef	new_domain_list;
-	
-	new_domain_list
-	    = CFDictionaryCreateMutableCopy(NULL, 0,
-					    domain_list);
-	CFDictionaryRemoveValue(new_domain_list, identifier);
-	CFPreferencesSetValue(domain, new_domain_list,
-			      kEAPTLSTrustExceptionsApplicationID,
-			      kCFPreferencesCurrentUser,
-			      kCFPreferencesAnyHost);
-	CFPreferencesSynchronize(kEAPTLSTrustExceptionsApplicationID,
-				 kCFPreferencesCurrentUser,
-				 kCFPreferencesAnyHost);
-	exceptions_change_notify();
-	CFRelease(new_domain_list);
-    }
-    CFRelease(domain_list);
-    return;
-}
-
-static CFDataRef
-EAPTLSTrustExceptionsCopy(CFStringRef domain, CFStringRef identifier,
-			  CFStringRef hash_str)
-{
-    CFDataRef		exceptions = NULL;
-    CFDictionaryRef	domain_list;
-
-    exceptions_change_check();
-    domain_list = CFPreferencesCopyValue(domain,
-					 kEAPTLSTrustExceptionsApplicationID,
-					 kCFPreferencesCurrentUser,
-					 kCFPreferencesAnyHost);
-    if (isA_CFDictionary(domain_list) != NULL) {
-	CFDictionaryRef		exceptions_list;
-
-	exceptions_list = CFDictionaryGetValue(domain_list, identifier);
-	if (isA_CFDictionary(exceptions_list) != NULL) {
-	    exceptions = isA_CFData(CFDictionaryGetValue(exceptions_list,
-							 hash_str));
-	    if (exceptions != NULL) {
-		CFRetain(exceptions);
-	    }
-	}
-    }
-    my_CFRelease(&domain_list);
-    return (exceptions);
-}
-
-#define PREFERENCES_USERNAME CFSTR("mobile")
-
-CFDictionaryRef
-EAPTLSCopyTrustExceptionBindings(CFStringRef domain, CFStringRef identifier)
-{
-    CFDictionaryRef 	domain_list = NULL;
-    CFDictionaryRef 	exceptions_list = NULL;
-
-    exceptions_change_check();
-    domain_list = CFPreferencesCopyValue(domain,
-					 kEAPTLSTrustExceptionsApplicationID,
-					 PREFERENCES_USERNAME,
-					 kCFPreferencesAnyHost);
-    if (isA_CFDictionary(domain_list) != NULL) {
-	exceptions_list = CFDictionaryGetValue(domain_list, identifier);
-	if (isA_CFDictionary(exceptions_list) != NULL) {
-	    CFRetain(exceptions_list);
-	}
-    }
-    my_CFRelease(&domain_list);
-    return (exceptions_list);
-}
-
-void
-EAPTLSSetTrustExceptionBindings(CFStringRef domain, CFStringRef identifier, CFDictionaryRef exceptionList)
-{
-    CFDictionaryRef 	domain_list = NULL;
-
-    exceptions_change_check();
-    domain_list = CFPreferencesCopyValue(domain,
-					 kEAPTLSTrustExceptionsApplicationID,
-					 PREFERENCES_USERNAME,
-					 kCFPreferencesAnyHost);
-    if (domain_list != NULL && isA_CFDictionary(domain_list) == NULL) {
-	my_CFRelease(&domain_list);
-    }
-    if (domain_list == NULL) {
-	domain_list = CFDictionaryCreate(NULL,
-					 (const void * *)&identifier,
-					 (const void * *)&exceptionList,
-					 1,
-					 &kCFTypeDictionaryKeyCallBacks,
-					 &kCFTypeDictionaryValueCallBacks);
-    }
-    else {
-	CFMutableDictionaryRef	new_domain_list;
-
-	new_domain_list = CFDictionaryCreateMutableCopy(NULL, 0, domain_list);
-	CFDictionarySetValue(new_domain_list, identifier, exceptionList);
-	CFRelease(domain_list);
-	domain_list = (CFDictionaryRef)new_domain_list;
-    }
-    CFPreferencesSetValue(domain, domain_list,
-			  kEAPTLSTrustExceptionsApplicationID,
-			  PREFERENCES_USERNAME,
-			  kCFPreferencesAnyHost);
-    CFPreferencesSynchronize(kEAPTLSTrustExceptionsApplicationID,
-			     PREFERENCES_USERNAME,
-			     kCFPreferencesAnyHost);
-    exceptions_change_notify();
-    my_CFRelease(&domain_list);
-    return;
-}
-
-/*
- * Function: EAPTLSSecTrustApplyExceptionsBinding
- * Purpose:
- *   Finds a stored trust exceptions object for the given domain, identifier,
- *   and server_cert_hash.  If it exists, sets the exceptions on the given
- *   trust object.
- */
-bool
-EAPTLSSecTrustApplyExceptionsBinding(SecTrustRef trust, CFStringRef domain, 
-				     CFStringRef identifier,
-				     CFStringRef server_cert_hash)
-{
-    CFDataRef		exceptions;
-    bool 		ret = false;
-
-    exceptions = EAPTLSTrustExceptionsCopy(domain, identifier,
-					   server_cert_hash);
-    if (exceptions != NULL) {
-	if (SecTrustSetExceptions(trust, exceptions) == FALSE) {
-	    EAPLOG_FL(LOG_NOTICE, "SecTrustSetExceptions failed");
-	} else {
-	    ret = true;
-	}
-    }
-    my_CFRelease(&exceptions);
+done:
+    my_CFRelease(&trust_settings);
     return ret;
+#else
+    return true;
+#endif
 }
 
 static SecTrustRef
@@ -1317,11 +1073,13 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
 		      OSStatus * ret_status,
 		      EAPClientStatus * ret_client_status,
 		      bool * ret_exceptions_applied,
+		      bool * ret_trust_settings_applied,
 		      bool * ret_has_server_certs_or_names,
 		      CFStringRef * ret_server_hash_str)
 {
     bool		allow_exceptions;
     bool 		exceptions_applied = false;
+    bool 		trust_settings_applied = false;
     EAPClientStatus	client_status;
     CFIndex		count;
     CFStringRef		domain = NULL;
@@ -1332,6 +1090,7 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     CFArrayRef		trusted_certs = NULL;
     CFArrayRef		trusted_server_names;
     SecTrustRef		trust = NULL;
+    SecCertificateRef	server_cert = NULL;
 
     client_status = kEAPClientStatusInternalError;
     if (server_certs == NULL) {
@@ -1341,6 +1100,7 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     if (count == 0) {
 	goto done;
     }
+    server_cert = (SecCertificateRef)CFArrayGetValueAtIndex(server_certs, 0);
     client_status = kEAPClientStatusSecurityError;
     trusted_server_names = get_trusted_server_names(properties);
     policy = SecPolicyCreateEAP(TRUE, trusted_server_names);
@@ -1354,6 +1114,7 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
 		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
+    trust_settings_applied = EAPTLSCheckServerCertificateEAPTrustSettings(server_cert);
     trusted_certs = copy_cert_list(properties,
 				   kEAPClientPropTLSTrustedCertificates);
     if (trusted_certs != NULL) {
@@ -1388,17 +1149,24 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
 	allow_exceptions = FALSE;
     }
     if (allow_exceptions) {
-	SecCertificateRef	server;
-
-	server = (SecCertificateRef)CFArrayGetValueAtIndex(server_certs, 0);
-	server_hash_str = EAPSecCertificateCopySHA1DigestString(server);
-	exceptions_applied = EAPTLSSecTrustApplyExceptionsBinding(trust, domain, identifier,
+	if (CFStringCompare(domain,
+			    kEAPTLSTrustExceptionsDomainWirelessSSID,
+			    kCFCompareCaseInsensitive) == kCFCompareEqualTo) {
+	    /* apply trust exception for for wireless domain only */
+	    server_hash_str = EAPSecCertificateCopySHA1DigestString(server_cert);
+	    exceptions_applied = EAPTLSSecTrustApplyExceptionsBinding(trust, domain, identifier,
 					     server_hash_str);
+	} else {
+	    exceptions_applied = TRUE;
+	}
     }
     client_status = kEAPClientStatusOK;
 
  done:
     if (client_status == kEAPClientStatusOK) {
+	if (ret_trust_settings_applied != NULL) {
+	    *ret_trust_settings_applied = trust_settings_applied;
+	}
 	if (ret_exceptions_applied != NULL) {
 	    *ret_exceptions_applied = exceptions_applied;
 	}
@@ -1427,28 +1195,13 @@ _EAPTLSCreateSecTrust(CFDictionaryRef properties,
     return (trust);
 }
 
-SecTrustRef
-EAPTLSCreateSecTrust(CFDictionaryRef properties, CFArrayRef server_certs,
-		     CFStringRef domain, CFStringRef identifier)
-{
-    CFMutableDictionaryRef	dict;
-    SecTrustRef			trust;
-
-    dict = CFDictionaryCreateMutableCopy(NULL, 0, properties);
-    CFDictionarySetValue(dict, kEAPClientPropTLSTrustExceptionsDomain, domain);
-    CFDictionarySetValue(dict, kEAPClientPropTLSTrustExceptionsID, identifier);
-    trust = _EAPTLSCreateSecTrust(dict, server_certs, 
-				  NULL, NULL, NULL, NULL, NULL);
-    my_CFRelease(&dict);
-    return (trust);
-}
-
 EAPClientStatus
 EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties, 
 				   CFArrayRef server_certs,
 				   OSStatus * ret_status)
 {
     bool		exceptions_applied = FALSE;
+    bool 		trust_settings_applied = TRUE;
     bool		has_server_certs_or_names = FALSE;
     EAPClientStatus	client_status;
     OSStatus		status;
@@ -1461,22 +1214,45 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 				  &status,
 				  &client_status,
 				  &exceptions_applied,
+				  &trust_settings_applied,
 				  &has_server_certs_or_names,
 				  &server_hash_str);
     if (trust == NULL) {
 	goto done;
     }
+    EAPLOG_FL(LOG_NOTICE, "trust exception %s, trust settings %s",
+	      exceptions_applied ? "applied" : "not applied",
+	      trust_settings_applied ? "applied" : "not applied");
     client_status = kEAPClientStatusSecurityError;
     status = EAPTLSSecTrustEvaluate(trust, &trust_result);
-    if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, 
+    switch (status) {
+    case errSecSuccess:
+	break;
+#if TARGET_OS_OSX
+    case errSecNoDefaultKeychain:
+	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
+	if (status != errSecSuccess) {
+	    EAPLOG_FL(LOG_NOTICE,
+		      "SecKeychainSetPreferenceDomain failed, %s (%d)",
+		      EAPSecurityErrorString(status), (int)status);
+	    goto done;
+	}
+	status = EAPTLSSecTrustEvaluate(trust, &trust_result);
+	if (status == errSecSuccess) {
+	    break;
+	}
+	/* FALL THROUGH */
+#endif
+    default:
+	EAPLOG_FL(LOG_NOTICE,
 		  "SecTrustEvaluate failed, %s (%d)",
 		  EAPSecurityErrorString(status), (int)status);
 	goto done;
     }
+    EAPLOG_FL(LOG_INFO, "trust evaluation result: %d", trust_result);
     switch (trust_result) {
     case kSecTrustResultProceed:
-	if (exceptions_applied) {
+	if (exceptions_applied && trust_settings_applied) {
 	    client_status = kEAPClientStatusOK;
 	    break;
 	}
@@ -1509,7 +1285,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	    && CFEqual(proceed, server_certs)) {
 	    bool	save_it;
 
-	    client_status = kEAPClientStatusOK;
+	    exceptions_applied = TRUE;
 	    save_it = my_CFDictionaryGetBooleanValue(properties, 
 						     kEAPClientPropTLSSaveTrustExceptions,
 						     FALSE);
@@ -1525,7 +1301,12 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 					   kEAPClientPropTLSTrustExceptionsID);
 		EAPTLSSecTrustSaveExceptionsBinding(trust, domain, identifier,
 						    server_hash_str);
+		EAPLOG_FL(LOG_INFO, "saved trust exception for domain: %@, identifier: %@", domain, identifier);
 	    }
+	}
+	if (exceptions_applied == TRUE
+	    && trust_settings_applied == TRUE) {
+	    client_status = kEAPClientStatusOK;
 	}
 	my_CFRelease(&proceed);
     }
@@ -1538,155 +1319,6 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     my_CFRelease(&server_hash_str);
     return (client_status);
 }
-
-#else /* TARGET_OS_IPHONE */
-
-EAPClientStatus
-EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties, 
-				   CFArrayRef server_certs, 
-				   OSStatus * ret_status)
-{
-    bool		allow_trust_decisions;
-    EAPClientStatus	client_status;
-    int			count;
-    bool		is_recoverable;
-    SecPolicyRef	policy = NULL;
-    CFStringRef		profileID;
-    OSStatus		status = noErr;
-    SecTrustRef		trust = NULL;
-    SecTrustResultType 	trust_result;
-    CFArrayRef		trusted_certs = NULL;
-    CFArrayRef		trusted_server_names;
-
-    client_status = kEAPClientStatusInternalError;
-
-    /* don't bother verifying server's identity */
-    if (my_CFDictionaryGetBooleanValue(properties, 
-				       kEAPClientPropTLSVerifyServerCertificate,
-				       TRUE) == FALSE) {
-	client_status = kEAPClientStatusOK;
-    }
-    else {
-	CFArrayRef	proceed;
-
-	proceed = copy_user_trust_proceed_certs(properties);
-	if (proceed != NULL
-	    && CFEqual(proceed, server_certs)) {
-	    /* user said it was OK to go */
-	    client_status = kEAPClientStatusOK;
-	}
-	my_CFRelease(&proceed);
-    }
-    if (client_status == kEAPClientStatusOK) {
-	goto done;
-    }
-    if (server_certs == NULL) {
-	goto done;
-    }
-    count = CFArrayGetCount(server_certs);
-    if (count == 0) {
-	goto done;
-    }
-    profileID = CFDictionaryGetValue(properties, kEAPClientPropProfileID);
-    trusted_certs = copy_cert_list(properties,
-				   kEAPClientPropTLSTrustedCertificates);
-    trusted_server_names = get_trusted_server_names(properties);
-
-    /*
-     * Don't allow trust decisions by the user if either trusted
-     * certs or trusted server names is specified.
-     */
-    if (trusted_certs != NULL || trusted_server_names != NULL) {
-	allow_trust_decisions = FALSE;
-    }
-    else {
-	allow_trust_decisions = TRUE;
-    }
-    client_status = kEAPClientStatusSecurityError;
-    policy = SecPolicyCreateEAP(TRUE, trusted_server_names);
-    if (policy == NULL) {
-	EAPLOG_FL(LOG_NOTICE, "SecPolicyCreateEAP() failed to create EAP Policy.");
-	goto done;
-    }
-    status = SecTrustCreateWithCertificates(server_certs, policy, &trust);
-    if (status != noErr) {
-	EAPLOG_FL(LOG_NOTICE, 
-		  "SecTrustCreateWithCertificates failed, %s (%d)",
-		  EAPSecurityErrorString(status), (int)status);
-	goto done;
-    }
-    if (profileID != NULL && trusted_certs != NULL) {
-	status = SecTrustSetAnchorCertificates(trust, trusted_certs);
-	if (status != noErr) {
-	    EAPLOG_FL(LOG_NOTICE, 
-		      "SecTrustSetAnchorCertificates failed, %s (%d)",
-		      EAPSecurityErrorString(status), (int)status);
-	    goto done;
-	}
-    }
-    status = EAPTLSSecTrustEvaluate(trust, &trust_result);
-    switch (status) {
-    case noErr:
-	break;
-    case errSecNoDefaultKeychain:
-	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
-	if (status != noErr) {
-	    EAPLOG_FL(LOG_NOTICE, 
-		      "SecKeychainSetPreferenceDomain failed, %s (%d)",
-		      EAPSecurityErrorString(status), (int)status);
-	    goto done;
-	}
-	status = EAPTLSSecTrustEvaluate(trust, &trust_result);
-	if (status == noErr) {
-	    break;
-	}
-	/* FALL THROUGH */
-    default:
-	EAPLOG_FL(LOG_NOTICE, 
-		  "SecTrustEvaluate failed, %s (%d)",
-		  EAPSecurityErrorString(status), (int)status);
-	goto done;
-	break;
-    }
-    is_recoverable = FALSE;
-    switch (trust_result) {
-    case kSecTrustResultProceed:
-	client_status = kEAPClientStatusOK;
-	break;
-    case kSecTrustResultUnspecified:
-	if (allow_trust_decisions == FALSE) {
-	    client_status = kEAPClientStatusOK;
-	    break;
-	}
-	/* FALL THROUGH */
-    case kSecTrustResultRecoverableTrustFailure:
-	is_recoverable = TRUE;
-	break;
-    case kSecTrustResultDeny:
-    default:
-	status = errSSLXCertChainInvalid;
-	break;
-    }
-    if (is_recoverable) {
-	if (allow_trust_decisions == FALSE) {
-	    client_status = kEAPClientStatusServerCertificateNotTrusted;
-	}
-	else {
-	    client_status = kEAPClientStatusUserInputRequired;
-	}
-    }
-
- done:
-    if (ret_status != NULL) {
-	*ret_status = status;
-    }
-    my_CFRelease(&policy);
-    my_CFRelease(&trust);
-    my_CFRelease(&trusted_certs);
-    return (client_status);
-}
-
-#endif /* TARGET_OS_IPHONE */
 
 OSStatus
 EAPTLSCopyIdentityTrustChain(SecIdentityRef sec_identity,
@@ -1956,6 +1588,22 @@ main(int argc, char * argv[])
 #include <sys/stat.h>
 #include <SystemConfiguration/SCPrivate.h>
 
+static SecTrustRef
+eaptls_create_sectrust(CFDictionaryRef properties, CFArrayRef server_certs,
+		     CFStringRef domain, CFStringRef identifier)
+{
+    CFMutableDictionaryRef	dict;
+    SecTrustRef			trust;
+
+    dict = CFDictionaryCreateMutableCopy(NULL, 0, properties);
+    CFDictionarySetValue(dict, kEAPClientPropTLSTrustExceptionsDomain, domain);
+    CFDictionarySetValue(dict, kEAPClientPropTLSTrustExceptionsID, identifier);
+    trust = _EAPTLSCreateSecTrust(dict, server_certs,
+				  NULL, NULL, NULL, NULL, NULL, NULL);
+    my_CFRelease(&dict);
+    return (trust);
+}
+
 static CFDictionaryRef
 read_dictionary(const char * filename)
 {
@@ -2044,7 +1692,7 @@ main(int argc, char * argv[])
 					  identifier,
 					  kCFStringEncodingUTF8,
 					  kCFAllocatorNull);
-    trust = EAPTLSCreateSecTrust(config, certs, domain_cf, identifier_cf);
+    trust = eaptls_create_sectrust(config, certs, domain_cf, identifier_cf);
     if (trust == NULL) {
 	fprintf(stderr, "EAPTLSCreateSecTrustFailed failed\n");
 	exit(1);

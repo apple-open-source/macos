@@ -45,6 +45,7 @@
 			<integer>3</integer>
 			<integer>6</integer>
 			<integer>15</integer>
+			<integer>114</integer>
 			<integer>119</integer>
 			<integer>252</integer>
 			<integer>95</integer>
@@ -65,6 +66,7 @@
 		<array>
 			<integer>23</integer>
 			<integer>24</integer>
+			<integer>103</integer>
 		</array>
 		<key>DefendIPAddressCount</key>
 		<integer>5</integer>

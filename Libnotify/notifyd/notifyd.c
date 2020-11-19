@@ -43,11 +43,11 @@
 #include <TargetConditionals.h>
 #include <bsm/libbsm.h>
 #include <servers/bootstrap.h>
+#include <os/trace_private.h>
 
 #include "pathwatch.h"
 #include "service.h"
 #include "pathwatch.h"
-#include "timer.h"
 
 #include "notify_internal.h"
 #include "notify.h"
@@ -59,7 +59,7 @@
 #define CRSetCrashLogMessage(msg) /**/
 
 #define forever for(;;)
-#define IndexNull -1
+#define IndexNull (unsigned int)~0
 
 /* Compile flags */
 #define RUN_TIME_CHECKS
@@ -74,12 +74,6 @@ static char *_debug_log_path;
 #define CONFIG_FILE_PATH "/etc/notify.conf"
 #define DEBUG_LOG_PATH "/var/log/notifyd.log"
 #endif
-
-
-
-#define N_NOTIFY_TYPES 6
-
-static int notifyd_token;
 
 static char *status_file = NULL;
 
@@ -111,12 +105,14 @@ notify_type_name(uint32_t t)
 {
 	switch (t)
 	{
-		case NOTIFY_TYPE_NONE:   return "none  ";
-		case NOTIFY_TYPE_MEMORY: return "memory";
-		case NOTIFY_TYPE_PLAIN:  return "plain ";
-		case NOTIFY_TYPE_PORT:   return "port  ";
-		case NOTIFY_TYPE_FILE:   return "file  ";
-		case NOTIFY_TYPE_SIGNAL: return "signal";
+		case NOTIFY_TYPE_NONE:      return "none  ";
+		case NOTIFY_TYPE_MEMORY:    return "memory";
+		case NOTIFY_TYPE_PLAIN:     return "plain ";
+		case NOTIFY_TYPE_PORT:      return "port  ";
+		case NOTIFY_TYPE_FILE:      return "file  ";
+		case NOTIFY_TYPE_SIGNAL:    return "signal";
+		case NOTIFY_TYPE_XPC_EVENT: return "event ";
+		case NOTIFY_TYPE_COMMON_PORT:      return "common";
 		default: return "unknown";
 	}
 
@@ -136,18 +132,9 @@ fprint_client(FILE *f, client_t *c)
 	fprintf(f, "token: %d\n", c->cid.token);
 	fprintf(f, "lastval: %u\n", c->lastval);
 	fprintf(f, "suspend_count: %u\n", c->suspend_count);
-	fprintf(f, "type: %s\n", notify_type_name(c->state_and_type & NOTIFY_TYPE_MASK));
-	switch(c->state_and_type & NOTIFY_TYPE_MASK)
+	fprintf(f, "type: %s\n", notify_type_name(notify_get_type(c->state_and_type)));
+	switch(notify_get_type(c->state_and_type))
 	{
-		case NOTIFY_TYPE_NONE:
-			break;
-
-		case NOTIFY_TYPE_PLAIN:
-			break;
-
-		case NOTIFY_TYPE_MEMORY:
-			break;
-
 		case NOTIFY_TYPE_PORT:
 			fprintf(f, "mach port: 0x%08x\n", c->deliver.port);
 			break;
@@ -160,7 +147,19 @@ fprint_client(FILE *f, client_t *c)
 			fprintf(f, "signal: %d\n", c->deliver.sig);
 			break;
 
-		default: break;
+		case NOTIFY_TYPE_XPC_EVENT:
+			fprintf(f, "xpc event: %llu\n", c->deliver.event_token);
+			break;
+
+		case NOTIFY_TYPE_COMMON_PORT:
+			fprintf(f, "common port\n");
+			break;
+
+		case NOTIFY_TYPE_NONE:
+		case NOTIFY_TYPE_PLAIN:
+		case NOTIFY_TYPE_MEMORY:
+		default:
+			break;
 	}
 }
 
@@ -173,7 +172,7 @@ fprint_quick_client(FILE *f, client_t *c)
 	fprintf(f, "%llu,%d,%d,%u,%u,%u,", c->cid.hash_key, c->cid.pid, c->cid.token,
 			c->lastval, c->suspend_count, 0);
 
-	switch(c->state_and_type & NOTIFY_TYPE_MASK)
+	switch(notify_get_type(c->state_and_type))
 	{
 	case NOTIFY_TYPE_PORT:
 		fprintf(f, "port,0x%08x\n", c->deliver.port);
@@ -189,6 +188,14 @@ fprint_quick_client(FILE *f, client_t *c)
 
 	case NOTIFY_TYPE_MEMORY:
 		fprintf(f, "check,0\n");
+		break;
+
+	case NOTIFY_TYPE_XPC_EVENT:
+		fprintf(f, "event,%llu\n", c->deliver.event_token);
+		break;
+
+	case NOTIFY_TYPE_COMMON_PORT:
+		fprintf(f, "common-port\n");
 		break;
 
 	case NOTIFY_TYPE_NONE:
@@ -215,7 +222,7 @@ fprint_quick_name_info(FILE *f, name_info_t *n)
 	fprintf(f, "name:%s\n", n->name);
 	fprintf(f, "info:%llu,%u,%u,%03x,%u,%u,%u,", n->name_id, n->uid, n->gid, n->access, n->refcount, n->postcount,
 		n->last_hour_postcount);
-	if (n->slot == -1)
+	if (n->slot == SLOT_NONE)
 	{
 		fprintf(f, "-1,");
 	}
@@ -257,11 +264,11 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, pid_t *max_pid)
 	fprintf(f, "refcount: %u\n", n->refcount);
 	fprintf(f, "postcount: %u\n", n->postcount);
 	fprintf(f, "last hour postcount: %u\n", n->last_hour_postcount);
-	if (n->slot == -1) fprintf(f, "slot: -unassigned-");
+	if (n->slot == SLOT_NONE) fprintf(f, "slot: -unassigned-");
 	else
 	{
 		fprintf(f, "slot: %u", n->slot);
-		if (global.shared_memory_refcount[n->slot] != -1)
+		if (global.shared_memory_refcount[n->slot] != SLOT_NONE)
 			fprintf(f, " = %u (%u)", global.shared_memory_base[n->slot], global.shared_memory_refcount[n->slot]);
 	}
 	fprintf(f, "\n");
@@ -272,20 +279,22 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, pid_t *max_pid)
 
 	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
-		if ((c->cid.pid != (pid_t)-1) && (c->cid.pid > *max_pid)) *max_pid = c->cid.pid;
+		if ((c->cid.pid != (uint32_t)~0) && (c->cid.pid > (uint32_t)*max_pid)) *max_pid = (pid_t)c->cid.pid;
 
-		switch (c->state_and_type & NOTIFY_TYPE_MASK)
+		switch (notify_get_type(c->state_and_type))
 		{
 			case NOTIFY_TYPE_MEMORY: reg[1]++; break;
 			case NOTIFY_TYPE_PLAIN:  reg[2]++; break;
 			case NOTIFY_TYPE_PORT:   reg[3]++; break;
 			case NOTIFY_TYPE_FILE:   reg[4]++; break;
 			case NOTIFY_TYPE_SIGNAL: reg[5]++; break;
+			case NOTIFY_TYPE_XPC_EVENT: reg[6]++; break;
+			case NOTIFY_TYPE_COMMON_PORT: reg[7]++; break;
 			default: reg[0]++;
 		}
 	}
 
-	fprintf(f, "types: none %u   memory %u   plain %u   port %u   file %u   signal %u\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]);
+	fprintf(f, "types: none %u   memory %u   plain %u   port %u   file %u   signal %u   event %u   common %u\n", reg[0], reg[1], reg[2], reg[3], reg[4], reg[5], reg[6], reg[7]);
 
 	LIST_FOREACH(c, &n->subscriptions, client_subscription_entry)
 	{
@@ -297,7 +306,7 @@ fprint_name_info(FILE *f, const char *name, name_info_t *n, pid_t *max_pid)
 static void
 fprint_quick_status(FILE *f)
 {
-	int32_t i;
+	uint32_t i;
 
 	fprintf(f, "--- GLOBALS ---\n");
 	fprintf(f, "%u slots (current id %u)\n", global.nslots, global.slot_id);
@@ -317,6 +326,8 @@ fprint_quick_status(FILE *f)
 	fprintf(f, "    signal   %llu\n", call_statistics.reg_signal);
 	fprintf(f, "    file     %llu\n", call_statistics.reg_file);
 	fprintf(f, "    port     %llu\n", call_statistics.reg_port);
+	fprintf(f, "    event    %llu\n", call_statistics.reg_xpc_event);
+	fprintf(f, "    common   %llu\n", call_statistics.reg_common);
 	fprintf(f, "\n");
 	fprintf(f, "check        %llu\n", call_statistics.check);
 	fprintf(f, "cancel       %llu\n", call_statistics.cancel);
@@ -345,7 +356,6 @@ fprint_quick_status(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "monitor      %llu\n", call_statistics.monitor_file);
 	fprintf(f, "svc_path     %llu\n", call_statistics.service_path);
-	fprintf(f, "svc_timer    %llu\n", call_statistics.service_timer);
 
 	{
 		char buf[128];
@@ -385,17 +395,17 @@ fprint_quick_status(FILE *f)
 	fprintf(f, "\n");
 
 	fprintf(f, "--- PUBLIC SERVICE ---\n");
-
-	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *_n) {
-		name_info_t *n = _n;
+	
+	_nc_table_foreach_64(&global.notify_state.client_table, ^bool(void *_c){
+		client_t *c = _c;
+		name_info_t *n = c->name_info;
 		svc_info_t *info;
 		path_node_t *node;
-		timer_t *timer;
+		
+		info = service_info_get(c->service_index);
 
-		if (n->private == NULL) return true;
-
-		info = (svc_info_t *)n->private;
-
+		if (info == NULL) return true;
+ 
 		if (info->type == 0)
 		{
 			fprintf(f, "Null service: %s\n", n->name);
@@ -404,28 +414,6 @@ fprint_quick_status(FILE *f)
 		{
 			node = (path_node_t *)info->private;
 			fprintf(f, "Path Service: %s <- %s\n", n->name, node->path);
-		}
-		else if (info->type == SERVICE_TYPE_TIMER_PUBLIC)
-		{
-			timer = (timer_t *)info->private;
-			switch (timer->type)
-			{
-				case TIME_EVENT_ONESHOT:
-				{
-					fprintf(f, "Time Service: %s <- Oneshot %llu\n", n->name, timer->start);
-					break;
-				}
-				case TIME_EVENT_CLOCK:
-				{
-					fprintf(f, "Time Service: %s <- Clock start %lld freq %u end %lld\n", n->name, timer->start, timer->freq, timer->end);
-					break;
-				}
-				case TIME_EVENT_CAL:
-				{
-					fprintf(f, "Time Service: %s <- Calendar start %lld freq %u end %lld day %d\n", n->name, timer->start, timer->freq, timer->end, timer->day);
-					break;
-				}
-			}
 		}
 		else
 		{
@@ -443,7 +431,6 @@ fprint_quick_status(FILE *f)
 		svc_info_t *info;
 		name_info_t *n;
 		path_node_t *node;
-		timer_t *timer;
 
 		if (c->service_index == 0) return true;
 
@@ -459,28 +446,6 @@ fprint_quick_status(FILE *f)
 			node = (path_node_t *)info->private;
 			fprintf(f, "PID %u Path Service: %s <- %s\n", c->cid.pid, n->name, node->path);
 		}
-		else if (info->type == SERVICE_TYPE_TIMER_PRIVATE)
-		{
-			timer = (timer_t *)info->private;
-			switch (timer->type)
-			{
-				case TIME_EVENT_ONESHOT:
-				{
-					fprintf(f, "PID %u Time Service: %s <- Oneshot %"PRId64"\n", c->cid.pid, n->name, timer->start);
-					break;
-				}
-				case TIME_EVENT_CLOCK:
-				{
-					fprintf(f, "PID %u Time Service: %s <- Clock start %"PRId64" freq %"PRIu32" end %"PRId64"\n", c->cid.pid, n->name, timer->start, timer->freq, timer->end);
-					break;
-				}
-				case TIME_EVENT_CAL:
-				{
-					fprintf(f, "PID %u Time Service: %s <- Calendar start %"PRId64" freq %"PRIu32" end %"PRId64" day %"PRId32"\n", c->cid.pid, n->name, timer->start, timer->freq, timer->end, timer->day);
-					break;
-				}
-			}
-		}
 		return true;
 	});
 
@@ -493,7 +458,7 @@ static void
 fprint_status(FILE *f)
 {
 	__block pid_t pid, max_pid;
-	int32_t i;
+	uint32_t i;
 
 	max_pid = 0;
 
@@ -515,6 +480,8 @@ fprint_status(FILE *f)
 	fprintf(f, "    signal   %llu\n", call_statistics.reg_signal);
 	fprintf(f, "    file     %llu\n", call_statistics.reg_file);
 	fprintf(f, "    port     %llu\n", call_statistics.reg_port);
+	fprintf(f, "    event    %llu\n", call_statistics.reg_xpc_event);
+	fprintf(f, "    common   %llu\n", call_statistics.reg_common);
 	fprintf(f, "\n");
 	fprintf(f, "check        %llu\n", call_statistics.check);
 	fprintf(f, "cancel       %llu\n", call_statistics.cancel);
@@ -543,7 +510,6 @@ fprint_status(FILE *f)
 	fprintf(f, "\n");
 	fprintf(f, "monitor      %llu\n", call_statistics.monitor_file);
 	fprintf(f, "svc_path     %llu\n", call_statistics.service_path);
-	fprintf(f, "svc_timer    %llu\n", call_statistics.service_timer);
 
 
 	{
@@ -595,15 +561,15 @@ fprint_status(FILE *f)
 
 	fprintf(f, "--- PUBLIC SERVICE ---\n");
 
-	_nc_table_foreach(&global.notify_state.name_table, ^bool(void *_n) {
-		name_info_t *n = _n;
+	_nc_table_foreach_64(&global.notify_state.client_table, ^bool(void *_c){
+		client_t *c = _c;
+		name_info_t *n = c->name_info;
 		svc_info_t *info;
 		path_node_t *node;
-		timer_t *timer;
 
-		if (n->private == NULL) return true;
-
-		info = (svc_info_t *)n->private;
+		info = service_info_get(c->service_index);
+	
+		if (info == NULL) return true;
 
 		if (info->type == 0)
 		{
@@ -613,28 +579,6 @@ fprint_status(FILE *f)
 		{
 			node = (path_node_t *)info->private;
 			fprintf(f, "Path Service: %s <- %s\n", n->name, node->path);
-		}
-		else if (info->type == SERVICE_TYPE_TIMER_PUBLIC)
-		{
-			timer = (timer_t *)info->private;
-			switch (timer->type)
-			{
-				case TIME_EVENT_ONESHOT:
-				{
-					fprintf(f, "Time Service: %s <- Oneshot %llu\n", n->name, timer->start);
-					break;
-				}
-				case TIME_EVENT_CLOCK:
-				{
-					fprintf(f, "Time Service: %s <- Clock start %lld freq %u end %lld\n", n->name, timer->start, timer->freq, timer->end);
-					break;
-				}
-				case TIME_EVENT_CAL:
-				{
-					fprintf(f, "Time Service: %s <- Calendar start %lld freq %u end %lld day %d\n", n->name, timer->start, timer->freq, timer->end, timer->day);
-					break;
-				}
-			}
 		}
 		else
 		{
@@ -653,7 +597,6 @@ fprint_status(FILE *f)
 		name_info_t *n;
 		svc_info_t *info;
 		path_node_t *node;
-		timer_t *timer;
 
         if (c->service_index == 0) return true;
 
@@ -669,28 +612,6 @@ fprint_status(FILE *f)
 			node = (path_node_t *)info->private;
 			fprintf(f, "PID %u Path Service: %s <- %s\n", c->cid.pid, n->name, node->path);
 		}
-		else if (info->type == SERVICE_TYPE_TIMER_PRIVATE)
-		{
-			timer = (timer_t *)info->private;
-			switch (timer->type)
-			{
-				case TIME_EVENT_ONESHOT:
-				{
-					fprintf(f, "PID %u Time Service: %s <- Oneshot %"PRId64"\n", c->cid.pid, n->name, timer->start);
-					break;
-				}
-				case TIME_EVENT_CLOCK:
-				{
-					fprintf(f, "PID %u Time Service: %s <- Clock start %"PRId64" freq %"PRIu32" end %"PRId64"\n", c->cid.pid, n->name, timer->start, timer->freq, timer->end);
-					break;
-				}
-				case TIME_EVENT_CAL:
-				{
-					fprintf(f, "PID %u Time Service: %s <- Calendar start %"PRId64" freq %"PRIu32" end %"PRId64" day %"PRId32"\n", c->cid.pid, n->name, timer->start, timer->freq, timer->end, timer->day);
-					break;
-				}
-			}
-		}
 		return true;
 	});
 
@@ -700,7 +621,7 @@ fprint_status(FILE *f)
 	fprintf(f, "--- PROCESSES ---\n");
 	for (pid = 0; pid <= max_pid; pid++)
 	{
-		int mem_count, plain_count, file_count, port_count, sig_count;
+		int mem_count, plain_count, file_count, port_count, sig_count, event_count, common_port_count;
 		proc_data_t *pdata;
 		client_t *c;
 
@@ -712,9 +633,11 @@ fprint_status(FILE *f)
 		file_count = 0;
 		port_count = 0;
 		sig_count = 0;
+		event_count = 0;
+		common_port_count = 0;
 
 		LIST_FOREACH(c, &pdata->clients, client_pid_entry) {
-			switch(c->state_and_type & NOTIFY_TYPE_MASK) {
+			switch(notify_get_type(c->state_and_type)) {
 			case NOTIFY_TYPE_NONE:
 				break;
 
@@ -738,6 +661,14 @@ fprint_status(FILE *f)
 				sig_count++;
 				break;
 
+			case NOTIFY_TYPE_XPC_EVENT:
+				event_count++;
+				break;
+
+			case NOTIFY_TYPE_COMMON_PORT:
+				common_port_count++;
+				break;
+
 			default:
 				break;
 			}
@@ -745,10 +676,10 @@ fprint_status(FILE *f)
 
 		fprintf(f, "pid: %u   ", pid);
 
-		fprintf(f, "memory %u   plain %u   port %u   file %u   signal %u\n",
-				mem_count, plain_count, port_count, file_count, sig_count);
+		fprintf(f, "memory %u   plain %u   port %u   file %u   signal %u   event %u   common %u\n",
+				mem_count, plain_count, port_count, file_count, sig_count, event_count, common_port_count);
 		LIST_FOREACH(c, &pdata->clients, client_pid_entry) {
-			fprintf(f, "  %s: %s\n", notify_type_name(c->state_and_type & NOTIFY_TYPE_MASK), c->name_info->name);
+			fprintf(f, "  %s: %s\n", notify_type_name(notify_get_type(c->state_and_type)), c->name_info->name);
 		}
 
 		fprintf(f, "\n");
@@ -887,7 +818,7 @@ daemon_post_client(uint64_t cid)
 	c = _nc_table_find_64(&global.notify_state.client_table, cid);
 	if (c == NULL) return;
 
-	if ((c->state_and_type & NOTIFY_TYPE_MEMORY) && (c->name_info != NULL) && (c->name_info->slot != (uint32_t)-1))
+	if (notify_is_type(c->state_and_type, NOTIFY_TYPE_MEMORY) && (c->name_info != NULL) && (c->name_info->slot != (uint32_t)-1))
 	{
 		global.shared_memory_base[c->name_info->slot]++;
 	}
@@ -952,7 +883,7 @@ string_list_free(char **l)
 static char **
 string_insert(char *s, char **l, unsigned int x)
 {
-	int i, len;
+	unsigned int i, len;
 
 	if (s == NULL) return l;
 	if (l == NULL)
@@ -1078,7 +1009,7 @@ init_config(void)
 	val64 <<= 32;
 	val64 |= NOTIFY_IPC_VERSION;
 
-	_notify_lib_register_plain(&global.notify_state, NOTIFY_IPC_VERSION_NAME, -1, notifyd_token++, -1, 0, 0, &nid);
+	_notify_lib_register_plain(&global.notify_state, NOTIFY_IPC_VERSION_NAME, -1, global.next_no_client_token++, -1, 0, 0, &nid);
 	_notify_lib_set_state(&global.notify_state, nid, val64, 0, 0);
 
 	/* Check config file */
@@ -1109,7 +1040,11 @@ init_config(void)
 		line[strlen(line) - 1] = '\0';
 		args = explode(line, "\t ");
 		argslen = string_list_length(args);
-		if (argslen == 0) continue;
+		if (argslen == 0)
+		{
+			string_list_free(args);
+			continue;
+		}
 
 		if (!strcasecmp(args[0], "monitor")) {
 			if (argslen < 3)
@@ -1117,22 +1052,10 @@ init_config(void)
 				string_list_free(args);
 				continue;
 			}
-			_notify_lib_register_plain(&global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
+			_notify_lib_register_plain(&global.notify_state, args[1], -1, global.next_no_client_token++, -1, 0, 0, &nid);
 
 			dispatch_async(global.workloop, ^{
 				service_open_path(args[1], args[2], 0, 0);
-				string_list_free(args);
-			});
-		} else if (!strcasecmp(args[0], "timer")) {
-			if (argslen < 3)
-			{
-				string_list_free(args);
-				continue;
-			}
-			_notify_lib_register_plain(&global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
-
-			dispatch_async(global.workloop, ^{
-				service_open_timer(args[1], args[2]);
 				string_list_free(args);
 			});
 		} else if (!strcasecmp(args[0], "set")) {
@@ -1142,7 +1065,7 @@ init_config(void)
 				continue;
 			}
 
-			_notify_lib_register_plain(&global.notify_state, args[1], -1, notifyd_token++, -1, 0, 0, &nid);
+			_notify_lib_register_plain(&global.notify_state, args[1], -1, global.next_no_client_token++, -1, 0, 0, &nid);
 			if (argslen == 3)
 			{
 				val64 = atoll(args[2]);
@@ -1172,6 +1095,8 @@ init_config(void)
 		} else if (!strcasecmp(args[0], "quit")) {
 			string_list_free(args);
 			break;
+		} else {
+			string_list_free(args);
 		}
 
 	}
@@ -1290,7 +1215,8 @@ main(int argc, const char *argv[])
 {
 	const char *service_name;
 	const char *shm_name;
-	uint32_t i, status;
+	int i;
+	uint32_t status;
 	struct rlimit rlim;
 	kern_return_t kr;
 
@@ -1303,6 +1229,7 @@ main(int argc, const char *argv[])
 	shm_name = SHM_ID;
 
 	notify_set_options(NOTIFY_OPT_DISABLE);
+	os_trace_set_mode(OS_TRACE_MODE_DISABLE);
 
 	/* remove limit of number of file descriptors */
 	rlim.rlim_max = RLIM_INFINITY;
@@ -1319,6 +1246,7 @@ main(int argc, const char *argv[])
 
 	global.nslots = getpagesize() / sizeof(uint32_t);
 	_notify_lib_notify_state_init(&global.notify_state, NOTIFY_STATE_ENABLE_RESEND);
+	global.next_no_client_token = 1;
 
 	global.log_cutoff = ASL_LEVEL_ERR;
 	global.log_path = strdup(DEBUG_LOG_PATH);
@@ -1375,15 +1303,14 @@ main(int argc, const char *argv[])
 	mach_port_options_t opts = {
 		.flags = MPO_STRICT | MPO_CONTEXT_AS_GUARD,
 	};
-	kr = mach_port_construct(current_task(), &opts, &global, &global.mach_notify_port);
+	kr = mach_port_construct(current_task(), &opts, (mach_port_context_t)&global, &global.mach_notify_port);
 	if (kr != KERN_SUCCESS) {
 		NOTIFY_INTERNAL_CRASH(kr, "Unable to allocate Mach notification port");
 	}
 	global.mach_notifs_channel = dispatch_mach_create_f("com.apple.notifyd.mach-notifs",
 			global.workloop, NULL, mach_notifs_handle);
 	dispatch_set_qos_class_fallback(global.mach_notifs_channel, QOS_CLASS_USER_INITIATED);
-	dispatch_mach_connect(global.mach_notifs_channel, global.mach_notify_port,
-			MACH_PORT_NULL, NULL);
+	// dispatch_mach_connect happens in XPC_EVENT_PUBLISHER_ACTION_INITIAL_BARRIER
 
 	global.mach_channel = dispatch_mach_create_f("com.apple.notifyd.channel",
 			global.workloop, NULL, notifyd_mach_channel_handler);
@@ -1393,7 +1320,33 @@ main(int argc, const char *argv[])
 #else
 	dispatch_set_qos_class_fallback(global.mach_channel, QOS_CLASS_BACKGROUND);
 #endif
-	dispatch_mach_connect(global.mach_channel, global.server_port, MACH_PORT_NULL, NULL);
+	// dispatch_mach_connect happens in XPC_EVENT_PUBLISHER_ACTION_INITIAL_BARRIER
+
+	xpc_event_publisher_t publisher = xpc_event_publisher_create("com.apple.notifyd.matching", global.workloop);
+	global.notify_state.event_publisher = publisher;
+	xpc_event_publisher_set_handler(publisher,
+			^(xpc_event_publisher_action_t action, uint64_t event_token, xpc_object_t descriptor) {
+				switch (action) {
+				case XPC_EVENT_PUBLISHER_ACTION_ADD:
+					notifyd_matching_register(event_token, descriptor);
+					break;
+				case XPC_EVENT_PUBLISHER_ACTION_REMOVE:
+					notifyd_matching_unregister(event_token);
+					break;
+				case XPC_EVENT_PUBLISHER_ACTION_INITIAL_BARRIER:
+					dispatch_mach_connect(
+							global.mach_notifs_channel, global.mach_notify_port,
+							MACH_PORT_NULL, NULL);
+					dispatch_mach_connect(
+							global.mach_channel, global.server_port,
+							MACH_PORT_NULL, NULL);
+					break;
+				}
+			});
+	xpc_event_publisher_set_error_handler(publisher, ^(int error) {
+		NOTIFY_INTERNAL_CRASH(error, "Event publisher error");
+	});
+	xpc_event_publisher_activate(publisher);
 
 	/* Set up SIGUSR1 */
 	global.sig_usr1_src = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL,

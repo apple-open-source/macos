@@ -27,7 +27,7 @@
 
 #include "AudioTrackPrivateAVF.h"
 
-#if ENABLE(MEDIA_SOURCE) && ENABLE(VIDEO_TRACK)
+#if ENABLE(MEDIA_SOURCE)
 
 OBJC_CLASS AVAssetTrack;
 
@@ -39,9 +39,9 @@ class SourceBufferPrivateAVFObjC;
 class AudioTrackPrivateMediaSourceAVFObjC final : public AudioTrackPrivateAVF {
     WTF_MAKE_NONCOPYABLE(AudioTrackPrivateMediaSourceAVFObjC)
 public:
-    static Ref<AudioTrackPrivateMediaSourceAVFObjC> create(AVAssetTrack *track, SourceBufferPrivateAVFObjC* parent)
+    static Ref<AudioTrackPrivateMediaSourceAVFObjC> create(AVAssetTrack *track)
     {
-        return adoptRef(*new AudioTrackPrivateMediaSourceAVFObjC(track, parent));
+        return adoptRef(*new AudioTrackPrivateMediaSourceAVFObjC(track));
     }
 
     void setEnabled(bool) final;
@@ -52,15 +52,14 @@ public:
     int trackID() { return m_trackID; }
 
 private:
-    explicit AudioTrackPrivateMediaSourceAVFObjC(AVAssetTrack*, SourceBufferPrivateAVFObjC* parent);
+    explicit AudioTrackPrivateMediaSourceAVFObjC(AVAssetTrack*);
     
     void resetPropertiesFromTrack();
 
     std::unique_ptr<AVTrackPrivateAVFObjCImpl> m_impl;
-    SourceBufferPrivateAVFObjC* m_parent;
     int m_trackID;
 };
 
 }
 
-#endif // ENABLE(MEDIA_SOURCE) && ENABLE(VIDEO_TRACK)
+#endif // ENABLE(MEDIA_SOURCE)

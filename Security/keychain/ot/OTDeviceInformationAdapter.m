@@ -107,7 +107,7 @@ static void updateDeviceNameChanges(SCDynamicStoreRef store, CFArrayRef keys, vo
 
 #else
 
-- (NSString*)serialNumber
+- (NSString* _Nullable)serialNumber
 {
     io_service_t platformExpert = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("IOPlatformExpertDevice"));
     if (platformExpert == MACH_PORT_NULL) {

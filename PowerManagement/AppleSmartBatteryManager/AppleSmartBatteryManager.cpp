@@ -27,16 +27,11 @@
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include "AppleSmartBatteryManager.h"
 #include "AppleSmartBattery.h"
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
 #include "SmbusHandler.h"
 #endif
 
 #define kMaxRetries     5
-
-// XXX: Temporary local definition to remove dependecy on AppleSMC changes
-#ifndef kSMCNotifyAdapterDetailsChange
-#define kSMCNotifyAdapterDetailsChange 0x6
-#endif
 
 #define ASSERT_GATED() \
 do {  \
@@ -73,6 +68,28 @@ static IOPMPowerState myTwoStates[2] = {
 
 OSDefineMetaClassAndStructors(AppleSmartBatteryManager, IOService)
 
+#if TARGET_OS_BRIDGE || TARGET_OS_OSX_AS
+// prevent ASBM from loading on desktops rdar://problem/37197241
+IOService *AppleSmartBatteryManager::probe(IOService *provider, SInt32 *score)
+{
+    AppleSMCFamily *p = OSDynamicCast(AppleSMCFamily, provider);
+    if (!p) {
+        return nullptr;
+    }
+
+    if (!super::probe(provider, score)) {
+        return nullptr;
+    }
+
+    uint16_t relCharge;
+    SMCResult ret = p->smcReadKeyHostEndian('BRSC', sizeof(relCharge), &relCharge);
+    if (ret != kSMCSuccess) {
+        return nullptr;
+    }
+
+    return this;
+}
+#endif // TARGET_OS_BRIDGE || TARGET_OS_OSX_AS
 
 bool AppleSmartBatteryManager::init(void)
 {
@@ -93,7 +110,7 @@ bool AppleSmartBatteryManager::start(IOService *provider)
 
     PE_parse_boot_argn("batman", &gBMDebugFlags, sizeof(gBMDebugFlags));
 
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
 
     fProvider = OSDynamicCast(IOSMBusController, provider);
     if (!fProvider) {
@@ -113,7 +130,9 @@ bool AppleSmartBatteryManager::start(IOService *provider)
         BM_ERRLOG("Failed to instantiate SMBus Handler\n");
     }
     fSmbus->initialize(this);
-#else // TARGET_OS_OSX
+    fSmbusSupport = true;
+
+#else
     fWorkLoop = IOWorkLoop::workLoop();
     if (!fWorkLoop) {
         return false;
@@ -128,7 +147,9 @@ bool AppleSmartBatteryManager::start(IOService *provider)
     } else {
         BM_LOG1("Provider is AppleSMCFamily\n");
     }
-#endif // TARGET_OS_OSX
+
+    fSmbusSupport = false;
+#endif
 
     const OSSymbol *ucClassName = 
             OSSymbol::withCStringNoCopy("AppleSmartBatteryManagerUserClient");
@@ -168,8 +189,6 @@ bool AppleSmartBatteryManager::start(IOService *provider)
     fBattery->registerService(0);
 
     this->registerService(0);
-
-
     _started = true;
     BM_ERRLOG("AppleSmartBatteryManager started\n");
 
@@ -192,8 +211,7 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
                                                               IOByteCount inSize,
                                                               IOByteCount *outSize)
 {
-
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     if (!fWorkLoop->inGate()) {
         Action gatedHandler = (IOCommandGate::Action)OSMemberFunctionCast(IOCommandGate::Action, this, &AppleSmartBatteryManager::performExternalTransaction);
         return fWorkLoop->runAction( gatedHandler, this, in, out, (void*)inSize, outSize);
@@ -216,7 +234,7 @@ IOReturn AppleSmartBatteryManager::performExternalTransaction(
 
 IOReturn AppleSmartBatteryManager::smbusCompletionHandler(void *ref, IOReturn status, size_t byteCount, uint8_t *dataBuf)
 {
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     uint8_t                     inData[MAX_SMBUS_DATA_SIZE];
 
     ASSERT_GATED();
@@ -227,7 +245,7 @@ IOReturn AppleSmartBatteryManager::smbusCompletionHandler(void *ref, IOReturn st
 
     fAsbmCompletion(fAsbmTarget, fAsbmReference, status, byteCount, inData);
 
-#endif
+#endif // TARGET_OS_OSX_X86
     return kIOReturnSuccess;
 }
 
@@ -237,7 +255,7 @@ IOReturn AppleSmartBatteryManager::performSmbusTransactionGated(
                                                                 OSObject *target, void *ref)
 {
     IOReturn ret = kIOReturnSuccess;
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     ASSERT_GATED();
 
     // Save the incoming params
@@ -247,13 +265,13 @@ IOReturn AppleSmartBatteryManager::performSmbusTransactionGated(
 
     ret = fSmbus->performTransaction(req, OSMemberFunctionCast(ASBMgrTransactionCompletion, this,
                                                          &AppleSmartBatteryManager::smbusCompletionHandler), this, NULL);
-#endif
+#endif // TARGET_OS_OSX_X86
     return ret;
 }
 
 IOReturn AppleSmartBatteryManager::performTransaction(ASBMgrRequest *req, OSObject * target, void * reference)
 {
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     switch (req->opType) {
         case kASBMSMBUSReadWord:
         case kASBMSMBUSReadBlock:
@@ -271,7 +289,7 @@ IOReturn AppleSmartBatteryManager::performTransaction(ASBMgrRequest *req, OSObje
             BM_ERRLOG("Unsupported transaction type %d\n", req->opType);
             return kIOReturnInvalid;
     }
-#endif
+#endif // TARGET_OS_OSX_X86
     return kIOReturnSuccess;
 }
 
@@ -292,17 +310,12 @@ IOReturn AppleSmartBatteryManager::setPowerState(
     return ret;
 }
 
-
-void AppleSmartBatteryManager::messageSMC(const OSSymbol *event, OSObject *val, uintptr_t refcon)
-{
-}
-
 IOReturn AppleSmartBatteryManager::message( 
     UInt32 type, 
     IOService *provider,
     void *argument )
 {
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     BM_ERRLOG("SmartBattery: notification received in message()\n");
     IOSMBusAlarmMessage     *alarm = (IOSMBusAlarmMessage *)argument;
     static uint16_t         last_data = 0;
@@ -338,7 +351,7 @@ IOReturn AppleSmartBatteryManager::message(
             fBattery->pollBatteryState(kUseLastPath);
         }
     }
-#endif
+#endif // TARGET_OS_OSX_X86
     return kIOReturnSuccess;
 }
 
@@ -373,12 +386,12 @@ IOReturn AppleSmartBatteryManager::inhibitChargingGated(uint64_t level)
 {
     IOReturn        ret = kIOReturnSuccess;
 
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     ret = fSmbus->inhibitCharging(level ? 1 : 0);
     if (ret == kIOReturnSuccess) {
         this->setProperty("Charging Inhibited", level ? true : false);
     }
-#endif
+#endif // TARGET_OS_OSX_X86
 
     return ret;
 }
@@ -398,12 +411,12 @@ IOReturn AppleSmartBatteryManager::disableInflowGated(uint64_t level)
 {
     IOReturn        ret = kIOReturnSuccess;
 
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     ret = fSmbus->disableInflow(level ? 1 : 0);
     if (ret == kIOReturnSuccess) {
         this->setProperty("Inflow Disabled", level ? true : false);
     }
-#endif
+#endif // TARGET_OS_OSX_X86
     return ret;
 }
 
@@ -450,7 +463,7 @@ void AppleSmartBatteryManager::handleFullDischarge(void)
 
 IOReturn AppleSmartBatteryManager::requestExclusiveSMBusAccessGated(bool request)
 {
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     if( request && fExclusiveUserClient) {
         /* Oops - a second client reaching for exclusive access.
          * This shouldn't happen.
@@ -465,8 +478,8 @@ IOReturn AppleSmartBatteryManager::requestExclusiveSMBusAccessGated(bool request
     if (!fExclusiveUserClient) {
         requestPoll(kFull);
     }
+#endif // TARGET_OS_OSX_X86
 
-#endif
     return kIOReturnSuccess;
 }
 
@@ -481,7 +494,7 @@ IOReturn AppleSmartBatteryManager::requestExclusiveSMBusAccessGated(bool request
 bool AppleSmartBatteryManager::requestExclusiveSMBusAccess(
     bool request)
 {
-#if TARGET_OS_OSX
+#if TARGET_OS_OSX_X86
     /* Signal our driver, and the SMC firmware to either:
         - stop communicating with the battery
         - resume communications
@@ -489,15 +502,17 @@ bool AppleSmartBatteryManager::requestExclusiveSMBusAccess(
     Action gatedHandler = (IOCommandGate::Action)OSMemberFunctionCast(
                               IOCommandGate::Action, this, &AppleSmartBatteryManager::requestExclusiveSMBusAccessGated);
     return  (fManagerGate->runAction(gatedHandler, (void *)request) == kIOReturnSuccess) ? true : false;
-#endif
+#endif // TARGET_OS_OSX_X86
     return true;
 }
 
-bool AppleSmartBatteryManager::hasExclusiveClient(void) {
+bool AppleSmartBatteryManager::hasExclusiveClient(void)
+{
     return fExclusiveUserClient;
 }
 
-bool AppleSmartBatteryManager::requestPoll(int type) {
+bool AppleSmartBatteryManager::requestPoll(int type)
+{
     IOReturn ret = kIOReturnError;
 
     if (_started) {
@@ -540,4 +555,9 @@ bool AppleSmartBatteryManager::exclusiveClientExists()
 bool AppleSmartBatteryManager::isBatteryInaccessible()
 {
     return fInacessible;
+}
+
+bool AppleSmartBatteryManager::smbusSupported()
+{
+    return fSmbusSupport;
 }

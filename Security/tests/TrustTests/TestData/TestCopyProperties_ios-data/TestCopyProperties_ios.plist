@@ -419,36 +419,6 @@
 		<key>BridgeOSDisable</key>
 		<true/>
 		<key>MajorTestName</key>
-		<string>AnchorSHA1</string>
-		<key>MinorTestName</key>
-		<string>OnlyFailure</string>
-		<key>Policies</key>
-		<dict>
-			<key>PolicyIdentifier</key>
-			<string>1.2.840.113635.100.1.51</string>
-		</dict>
-		<key>Leaf</key>
-		<string>escrow_service_key_049F9D11</string>
-		<key>Intermediates</key>
-		<string>EscrowServiceRootCA101</string>
-		<key>Anchors</key>
-		<string>EscrowServiceRootCA101</string>
-		<key>ExpectedProperties</key>
-		<array>
-			<dict>
-				<key>type</key>
-				<string>error</string>
-				<key>value</key>
-				<string>Root certificate is not trusted.</string>
-			</dict>
-		</array>
-	</dict>
-	<dict>
-		<key>CertDirectory</key>
-		<string>si-20-sectrust-policies-data</string>
-		<key>BridgeOSDisable</key>
-		<true/>
-		<key>MajorTestName</key>
 		<string>AnchorApple</string>
 		<key>MinorTestName</key>
 		<string>PolicyFail</string>

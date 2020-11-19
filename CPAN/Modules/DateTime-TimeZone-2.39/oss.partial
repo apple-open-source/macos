@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>DateTime-TimeZone</string>
+        <key>OpenSourceVersion</key>
+        <string>2.39</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/D/DR/DROLSKY/DateTime-TimeZone-2.39.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-27</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

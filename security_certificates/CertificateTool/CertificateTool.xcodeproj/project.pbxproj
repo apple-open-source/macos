@@ -93,6 +93,7 @@
 		BE43DA5C1A71D147000A4297 /* SystemRootCertificates.keychain */ = {isa = PBXFileReference; lastKnownFileType = file; path = SystemRootCertificates.keychain; sourceTree = "<group>"; };
 		BE43DA5D1A71D147000A4297 /* SystemTrustSettings.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = SystemTrustSettings.plist; sourceTree = "<group>"; };
 		BE43DA5E1A71D147000A4297 /* X509Anchors */ = {isa = PBXFileReference; lastKnownFileType = text; path = X509Anchors; sourceTree = "<group>"; };
+		D484A1512511400D00C3C7AC /* ValidateVersionFields.py */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; name = ValidateVersionFields.py; path = BuildiOSAsset/ValidateVersionFields.py; sourceTree = SOURCE_ROOT; };
 		D4A3A59A217AA02600F0A8DA /* BuildTrustedCTLogsPlist.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = BuildTrustedCTLogsPlist.py; path = BuildiOSAsset/BuildTrustedCTLogsPlist.py; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -211,6 +212,7 @@
 				5D0A2B8C1694AA7000024C1B /* BuildAsset.rb */,
 				5D0A2B8D1694AA7000024C1B /* BuildPListFiles.rb */,
 				D4A3A59A217AA02600F0A8DA /* BuildTrustedCTLogsPlist.py */,
+				D484A1512511400D00C3C7AC /* ValidateVersionFields.py */,
 			);
 			name = BuildiOSAsset;
 			path = BuildAsset;
@@ -354,6 +356,7 @@
 			);
 			name = "Run Script";
 			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/BuiltKeychains/X509Anchors",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -368,10 +371,18 @@
 			);
 			name = "Run Script";
 			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/TrustStore.html",
+				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/Allowed.plist",
+				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/Blocked.plist",
+				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/TrustedCTLogs.plist",
+				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/EVRoots.plist",
+				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/GrayListedKeys.plist",
+				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/AssetVersion.plist",
+				"$(BUILT_PRODUCTS_DIR)/BuiltAssets/AppleESCertificates.plist",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ASSETS=\"$BUILT_PRODUCTS_DIR/BuiltAssets\"\nmkdir -p \"$ASSETS\"\n\necho \"Generating html file\"\n\"$PROJECT_DIR\"/BuildiOSAsset/printroots -d \"$PROJECT_TEMP_DIR\" \"$PROJECT_DIR\"/../certificates > \"$ASSETS\"/TrustStore.html 2>/dev/null\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"printroots failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished generating html file\"\n\necho \"Starting plist file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildPListFiles.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildPListFiles.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished plist file build\"\n\necho \"Starting TrustedCTLogs.plist file build\"\nSRC_DIR=\"$PROJECT_DIR\"/../certificate_transparency/\npython \"$PROJECT_DIR\"/BuildiOSAsset/BuildTrustedCTLogsPlist.py -infile \"$SRC_DIR\"/log_list.json -outfile \"$ASSETS\"/TrustedCTLogs.plist\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"BuildTrustedCTLogsPlist.py failed with exit status $STATUS\"\nexit 1\nfi\necho \"Finished TrustedCTLogs.plist file build\"\n\necho \"Starting asset file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildAsset.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildAsset.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished asset file build\"\n\nexit 0\n";
+			shellScript = "ASSETS=\"$BUILT_PRODUCTS_DIR/BuiltAssets\"\nmkdir -p \"$ASSETS\"\n\necho \"Validating source version numbers\"\nSRCROOT=\"$PROJECT_DIR\"/../\npython3 \"$PROJECT_DIR\"/BuildiOSAsset/ValidateVersionFields.py -srcroot $SRCROOT\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"ValidateVersionFields.py failed with exit status $STATUS\"\nexit 1\nfi\necho \"Finished validating source version numbers\"\n\necho \"Generating html file\"\n\"$PROJECT_DIR\"/BuildiOSAsset/printroots -d \"$PROJECT_TEMP_DIR\" \"$PROJECT_DIR\"/../certificates > \"$ASSETS\"/TrustStore.html 2>/dev/null\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"printroots failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished generating html file\"\n\necho \"Starting plist file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildPListFiles.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildPListFiles.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished plist file build\"\n\necho \"Starting TrustedCTLogs.plist file build\"\nSRC_DIR=\"$PROJECT_DIR\"/../certificate_transparency/\npython \"$PROJECT_DIR\"/BuildiOSAsset/BuildTrustedCTLogsPlist.py -infile \"$SRC_DIR\"/log_list.json -outfile \"$ASSETS\"/TrustedCTLogs.plist\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\necho \"BuildTrustedCTLogsPlist.py failed with exit status $STATUS\"\nexit 1\nfi\necho \"Finished TrustedCTLogs.plist file build\"\n\necho \"Starting asset file build\"\nruby \"$PROJECT_DIR\"/BuildiOSAsset/BuildAsset.rb\nSTATUS=$?\nif [ $STATUS -ne 0 ] ; then\n    echo \"BuildAsset.rb failed with exit status $STATUS\"\n    exit 1\nfi\necho \"Finished asset file build\"\n\nexit 0\n";
 		};
 		BE88D63D1A78358300D1232E /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -381,6 +392,7 @@
 			inputPaths = (
 			);
 			outputPaths = (
+				"$(PROJECT_TEMP_DIR)/CertificateTool",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;

@@ -120,19 +120,22 @@ public:
     
     WEBCORE_EXPORT void setContentsRect(const FloatRect&) override;
     WEBCORE_EXPORT void setContentsClippingRect(const FloatRoundedRect&) override;
+    WEBCORE_EXPORT void setContentsRectClipsDescendants(bool) override;
     WEBCORE_EXPORT bool setMasksToBoundsRect(const FloatRoundedRect&) override;
 
     WEBCORE_EXPORT void setShapeLayerPath(const Path&) override;
     WEBCORE_EXPORT void setShapeLayerWindRule(WindRule) override;
 
     WEBCORE_EXPORT void setEventRegion(EventRegion&&) override;
+#if ENABLE(SCROLLING_THREAD)
+    WEBCORE_EXPORT void setScrollingNodeID(ScrollingNodeID) override;
+#endif
 
     WEBCORE_EXPORT void suspendAnimations(MonotonicTime) override;
     WEBCORE_EXPORT void resumeAnimations() override;
 
     WEBCORE_EXPORT bool addAnimation(const KeyframeValueList&, const FloatSize& boxSize, const Animation*, const String& animationName, double timeOffset) override;
     WEBCORE_EXPORT void pauseAnimation(const String& animationName, double timeOffset) override;
-    WEBCORE_EXPORT void seekAnimation(const String& animationName, double timeOffset) override;
     WEBCORE_EXPORT void removeAnimation(const String& animationName) override;
 
     WEBCORE_EXPORT void setContentsToImage(Image*) override;
@@ -297,8 +300,6 @@ private:
 
     WEBCORE_EXPORT void setReplicatedByLayer(RefPtr<GraphicsLayer>&&) override;
 
-    WEBCORE_EXPORT bool canThrottleLayerFlush() const override;
-
     WEBCORE_EXPORT void getDebugBorderInfo(Color&, float& width) const override;
     WEBCORE_EXPORT void dumpAdditionalProperties(WTF::TextStream&, LayerTreeAsTextBehavior) const override;
 
@@ -418,6 +419,9 @@ private:
     void updateContentsRects();
     void updateMasksToBoundsRect();
     void updateEventRegion();
+#if ENABLE(SCROLLING_THREAD)
+    void updateScrollingNode();
+#endif
     void updateMaskLayer();
     void updateReplicatedLayers();
 
@@ -456,7 +460,6 @@ private:
     void setAnimationOnLayer(PlatformCAAnimation&, AnimatedPropertyID, const String& animationName, int index, int subIndex, Seconds timeOffset);
     bool removeCAAnimationFromLayer(AnimatedPropertyID, const String& animationName, int index, int subINdex);
     void pauseCAAnimationOnLayer(AnimatedPropertyID, const String& animationName, int index, int subIndex, Seconds timeOffset);
-    void seekCAAnimationOnLayer(AnimatedPropertyID, const String& animationName, int index, int subIndex, Seconds timeOffset);
 
     enum MoveOrCopy { Move, Copy };
     static void moveOrCopyLayerAnimation(MoveOrCopy, const String& animationIdentifier, PlatformCALayer *fromLayer, PlatformCALayer *toLayer);
@@ -538,6 +541,9 @@ private:
         UserInteractionEnabledChanged           = 1LLU << 38,
         NeedsComputeVisibleAndCoverageRect      = 1LLU << 39,
         EventRegionChanged                      = 1LLU << 40,
+#if ENABLE(SCROLLING_THREAD)
+        ScrollingNodeChanged                    = 1LLU << 41,
+#endif
     };
     typedef uint64_t LayerChangeFlags;
     void addUncommittedChanges(LayerChangeFlags);
@@ -555,7 +561,7 @@ private:
 
     void repaintLayerDirtyRects();
 
-    enum Action { Remove, Pause, Seek };
+    enum Action { Remove, Pause };
     struct AnimationProcessingAction {
         AnimationProcessingAction(Action action = Remove, Seconds timeOffset = 0_s)
             : action(action)
@@ -567,12 +573,7 @@ private:
     };
     void addProcessingActionForAnimation(const String&, AnimationProcessingAction);
 
-#if PLATFORM(WIN)
-    // FIXME: when initializing m_uncommittedChanges to a non-zero value, nothing is painted on Windows, see https://bugs.webkit.org/show_bug.cgi?id=168666.
     LayerChangeFlags m_uncommittedChanges { 0 };
-#else
-    LayerChangeFlags m_uncommittedChanges { CoverageRectChanged };
-#endif
 
     RefPtr<PlatformCALayer> m_layer; // The main layer
     RefPtr<PlatformCALayer> m_structuralLayer; // A layer used for structural reasons, like preserves-3d or replica-flattening. Is the parent of m_layer.

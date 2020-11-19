@@ -27,17 +27,20 @@
 #include "WebAudioBufferList.h"
 
 #include "CAAudioStreamDescription.h"
+#include <wtf/CheckedArithmetic.h>
+
 #include <pal/cf/CoreMediaSoftLink.h>
 
 namespace WebCore {
 using namespace PAL;
 
 WebAudioBufferList::WebAudioBufferList(const CAAudioStreamDescription& format)
+    : m_bytesPerFrame(format.bytesPerFrame())
+    , m_channelCount(format.numberOfInterleavedChannels())
 {
     // AudioBufferList is a variable-length struct, so create on the heap with a generic new() operator
     // with a custom size, and initialize the struct manually.
     uint32_t bufferCount = format.numberOfChannelStreams();
-    uint32_t channelCount = format.numberOfInterleavedChannels();
 
     uint64_t bufferListSize = offsetof(AudioBufferList, mBuffers) + (sizeof(AudioBuffer) * std::max(1U, bufferCount));
     ASSERT(bufferListSize <= SIZE_MAX);
@@ -47,7 +50,7 @@ WebAudioBufferList::WebAudioBufferList(const CAAudioStreamDescription& format)
     memset(m_canonicalList.get(), 0, m_listBufferSize);
     m_canonicalList->mNumberBuffers = bufferCount;
     for (uint32_t buffer = 0; buffer < bufferCount; ++buffer)
-        m_canonicalList->mBuffers[buffer].mNumberChannels = channelCount;
+        m_canonicalList->mBuffers[buffer].mNumberChannels = m_channelCount;
 
     reset();
 }
@@ -55,20 +58,51 @@ WebAudioBufferList::WebAudioBufferList(const CAAudioStreamDescription& format)
 WebAudioBufferList::WebAudioBufferList(const CAAudioStreamDescription& format, uint32_t sampleCount)
     : WebAudioBufferList(format)
 {
-    if (!sampleCount)
+    setSampleCount(sampleCount);
+}
+
+static inline Optional<std::pair<size_t, size_t>> computeBufferSizes(uint32_t numberOfInterleavedChannels, uint32_t bytesPerFrame, uint32_t numberOfChannelStreams, uint32_t sampleCount)
+{
+    size_t totalSampleCount;
+    bool result = WTF::safeMultiply(sampleCount, numberOfInterleavedChannels, totalSampleCount);
+    if (!result)
+        return { };
+
+    size_t bytesPerBuffer;
+    result = WTF::safeMultiply(bytesPerFrame, totalSampleCount, bytesPerBuffer);
+    if (!result)
+        return { };
+
+    size_t flatBufferSize;
+    result = WTF::safeMultiply(numberOfChannelStreams, bytesPerBuffer, flatBufferSize);
+    if (!result)
+        return { };
+
+    return std::make_pair(bytesPerBuffer, flatBufferSize);
+}
+
+bool WebAudioBufferList::isSupportedDescription(const CAAudioStreamDescription& format, uint32_t sampleCount)
+{
+    return !!computeBufferSizes(format.numberOfInterleavedChannels(), format.bytesPerFrame(), format.numberOfChannelStreams(), sampleCount);
+}
+
+void WebAudioBufferList::setSampleCount(uint32_t sampleCount)
+{
+    if (!sampleCount || m_sampleCount == sampleCount)
         return;
 
-    uint32_t bufferCount = format.numberOfChannelStreams();
-    uint32_t channelCount = format.numberOfInterleavedChannels();
+    m_sampleCount = sampleCount;
 
-    size_t bytesPerBuffer = sampleCount * channelCount * format.bytesPerFrame();
-    m_flatBuffer.reserveInitialCapacity(bufferCount * bytesPerBuffer);
-    auto data = m_flatBuffer.data();
+    auto bufferSizes = computeBufferSizes(m_channelCount, m_bytesPerFrame, m_canonicalList->mNumberBuffers, m_sampleCount);
+    ASSERT(bufferSizes);
+
+    m_flatBuffer.resize(bufferSizes->second);
+    auto* data = m_flatBuffer.data();
 
     for (uint32_t buffer = 0; buffer < m_canonicalList->mNumberBuffers; ++buffer) {
         m_canonicalList->mBuffers[buffer].mData = data;
-        m_canonicalList->mBuffers[buffer].mDataByteSize = bytesPerBuffer;
-        data += bytesPerBuffer;
+        m_canonicalList->mBuffers[buffer].mDataByteSize = bufferSizes->first;
+        data += bufferSizes->first;
     }
 
     reset();
@@ -77,7 +111,6 @@ WebAudioBufferList::WebAudioBufferList(const CAAudioStreamDescription& format, u
 WebAudioBufferList::WebAudioBufferList(const CAAudioStreamDescription& format, CMSampleBufferRef sampleBuffer)
     : WebAudioBufferList(format)
 {
-
     if (!sampleBuffer)
         return;
 

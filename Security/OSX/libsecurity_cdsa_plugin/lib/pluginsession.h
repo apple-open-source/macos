@@ -68,9 +68,9 @@ protected:
 
 public:
     // implement Allocator
-    void *malloc(size_t size) throw(std::bad_alloc);
-    void *realloc(void *addr, size_t size) throw(std::bad_alloc);
-    void free(void *addr) throw() { upcalls.free_func(handle(), addr); }
+    void *malloc(size_t size);
+    void *realloc(void *addr, size_t size);
+    void free(void *addr) _NOEXCEPT { upcalls.free_func(handle(), addr); }
 
 	// about ourselves
 	const CSSM_VERSION &version() const { return mVersion; }

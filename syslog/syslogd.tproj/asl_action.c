@@ -77,7 +77,7 @@ static dispatch_queue_t asl_action_queue;
 static dispatch_source_t checkpoint_timer;
 static time_t sweep_time = 0;
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #ifndef CRASH_MOVER_SERVICE
 #define CRASH_MOVER_SERVICE "com.apple.crash_mover"
 #endif
@@ -208,7 +208,7 @@ _act_notify(asl_out_module_t *m, asl_out_rule_t *r)
 static void
 _act_broadcast(asl_out_module_t *m, asl_out_rule_t *r, asl_msg_t *msg)
 {
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	FILE *pw;
 	const char *val;
 
@@ -284,7 +284,7 @@ _act_access_control(asl_out_module_t *m, asl_out_rule_t *r, asl_msg_t *msg)
 	}
 }
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 static void
 _crashlog_queue_check(void)
 {
@@ -1287,7 +1287,7 @@ _act_store(asl_out_module_t *m, asl_out_rule_t *r, asl_msg_t *msg)
 		if (af_data != NULL) af_data->pending++;
 	}
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (r->dst->flags & MODULE_FLAG_CRASHLOG)
 	{
 		_crashlog_queue_check();
@@ -1579,7 +1579,7 @@ _act_file(asl_out_module_t *m, asl_out_rule_t *r, asl_msg_t *msg)
 	f_data = (asl_action_file_data_t *)r->dst->private;
 	if (f_data != NULL) f_data->pending++;
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (r->dst->flags & MODULE_FLAG_CRASHLOG)
 	{
 		_crashlog_queue_check();
@@ -2093,7 +2093,7 @@ asl_action_init(void)
 
 	dispatch_once(&once, ^{
 		asl_action_queue = dispatch_queue_create("ASL Action Queue", NULL);
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 		crashlog_queue = dispatch_queue_create("iOS CrashLog Queue", NULL);
 		notify_register_dispatch(CRASH_MOVER_SERVICE, &crashmover_token, asl_action_queue, ^(int unused) {
 			uint64_t cmstate = 0;
@@ -2200,7 +2200,7 @@ _asl_action_free_modules(asl_out_module_t *m)
 static int
 _asl_action_close_internal(void)
 {
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	if (crashmover_state != 0)
 	{
 		dispatch_resume(crashlog_queue);

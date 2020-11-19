@@ -36,6 +36,8 @@
 #include "SSLPolicyTests_data.h"
 #import "TrustEvaluationTestCase.h"
 
+NSString * const testDirectory = @"ssl-policy-certs";
+
 @interface SSLPolicyTests : TrustEvaluationTestCase
 @end
 
@@ -43,7 +45,7 @@
 
 - (void)testSSLPolicyCerts
 {
-    NSArray *testPlistURLs = [[NSBundle bundleForClass:[self class]] URLsForResourcesWithExtension:@"plist" subdirectory:@"ssl-policy-certs"];
+    NSArray *testPlistURLs = [[NSBundle bundleForClass:[self class]] URLsForResourcesWithExtension:@"plist" subdirectory:testDirectory];
     if (testPlistURLs.count != 1) {
         fail("failed to find the test plist");
         return;
@@ -75,7 +77,7 @@
         require_action_quiet(file, cleanup, fail("%@: Unable to load filename from plist", test_name));
 
         /* get leaf certificate from file */
-        cert_file_url = [[NSBundle bundleForClass:[self class]] URLForResource:(__bridge NSString *)file withExtension:@"cer" subdirectory:@"ssl-policy-certs"];
+        cert_file_url = [[NSBundle bundleForClass:[self class]] URLForResource:(__bridge NSString *)file withExtension:@"cer" subdirectory:testDirectory];
         require_action_quiet(cert_file_url, cleanup, fail("%@: Unable to get url for cert file %@",
                                                           test_name, file));
 
@@ -154,8 +156,13 @@
 
 - (BOOL)runTrustEvaluation:(NSArray *)certs anchors:(NSArray *)anchors error:(NSError **)error
 {
+    return [self runTrustEvaluation:certs anchors:anchors date:590000000.0 error:error]; // September 12, 2019 at 9:53:20 AM PDT
+}
+
+- (BOOL)runTrustEvaluation:(NSArray *)certs anchors:(NSArray *)anchors date:(NSTimeInterval)evalTime error:(NSError **)error
+{
     SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("example.com"));
-    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:590000000.0]; // September 12, 2019 at 9:53:20 AM PDT
+    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:evalTime];
     SecTrustRef trustRef = NULL;
     BOOL result = NO;
     CFErrorRef cferror = NULL;
@@ -222,6 +229,116 @@ errOut:
     [self removeTestRootAsSystem];
     CFReleaseNull(leaf);
     CFReleaseNull(root);
+}
+
+- (void)testSystemTrust_subCAMissingEKU
+{
+    SecCertificateRef systemRoot = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_Root"
+                                                                                         subdirectory:testDirectory];
+    NSData *rootHash = CFBridgingRelease(SecCertificateCopySHA256Digest(systemRoot));
+    [self setTestRootAsSystem:(const uint8_t *)[rootHash bytes]];
+
+    SecCertificateRef subCa = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_noEKU_ca"
+                                                                                    subdirectory:testDirectory];
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_noEKU_leaf"
+                                                                                    subdirectory:testDirectory];
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)subCa];
+    NSError *error = nil;
+    XCTAssertTrue([self runTrustEvaluation:certs anchors:@[(__bridge id)systemRoot] date:620000000.0 error:&error], //August 24, 2020 at 3:13:20 PM PDT
+                  "system-trusted no EKU subCA cert failed: %@", error);
+
+    [self removeTestRootAsSystem];
+    CFReleaseNull(systemRoot);
+    CFReleaseNull(subCa);
+    CFReleaseNull(leaf);
+}
+
+- (void)testSystemTrust_subCAAnyEKU
+{
+    SecCertificateRef systemRoot = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_Root"
+                                                                                         subdirectory:testDirectory];
+    NSData *rootHash = CFBridgingRelease(SecCertificateCopySHA256Digest(systemRoot));
+    [self setTestRootAsSystem:(const uint8_t *)[rootHash bytes]];
+
+    SecCertificateRef subCa = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_anyEKU_ca"
+                                                                                    subdirectory:testDirectory];
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_anyEKU_leaf"
+                                                                                    subdirectory:testDirectory];
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)subCa];
+    NSError *error = nil;
+    XCTAssertTrue([self runTrustEvaluation:certs anchors:@[(__bridge id)systemRoot] date:620000000.0 error:&error], //August 24, 2020 at 3:13:20 PM PDT
+                  "system-trusted anyEKU subCA cert failed: %@", error);
+
+    [self removeTestRootAsSystem];
+    CFReleaseNull(systemRoot);
+    CFReleaseNull(subCa);
+    CFReleaseNull(leaf);
+}
+
+- (void)testSystemTrust_subCAServerAuthEKU
+{
+    SecCertificateRef systemRoot = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_Root"
+                                                                                         subdirectory:testDirectory];
+    NSData *rootHash = CFBridgingRelease(SecCertificateCopySHA256Digest(systemRoot));
+    [self setTestRootAsSystem:(const uint8_t *)[rootHash bytes]];
+
+    SecCertificateRef subCa = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_ssl_ca"
+                                                                                    subdirectory:testDirectory];
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_ssl_leaf"
+                                                                                    subdirectory:testDirectory];
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)subCa];
+    NSError *error = nil;
+    XCTAssertTrue([self runTrustEvaluation:certs anchors:@[(__bridge id)systemRoot] date:620000000.0 error:&error], //August 24, 2020 at 3:13:20 PM PDT
+                  "system-trusted SSL EKU subCA cert failed: %@", error);
+
+    [self removeTestRootAsSystem];
+    CFReleaseNull(systemRoot);
+    CFReleaseNull(subCa);
+    CFReleaseNull(leaf);
+}
+
+- (void)testSystemTrust_subCA_SMIME_EKU
+{
+    SecCertificateRef systemRoot = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_Root"
+                                                                                         subdirectory:testDirectory];
+    NSData *rootHash = CFBridgingRelease(SecCertificateCopySHA256Digest(systemRoot));
+    [self setTestRootAsSystem:(const uint8_t *)[rootHash bytes]];
+
+    SecCertificateRef subCa = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_smime_ca"
+                                                                                    subdirectory:testDirectory];
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_smime_leaf"
+                                                                                    subdirectory:testDirectory];
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)subCa];
+    NSError *error = nil;
+    XCTAssertFalse([self runTrustEvaluation:certs anchors:@[(__bridge id)systemRoot] date:620000000.0 error:&error], //August 24, 2020 at 3:13:20 PM PDT
+                   "system-trusted SMIME subCA cert succeeded");
+    XCTAssertNotNil(error);
+    if (error) {
+        XCTAssertEqual(error.code, errSecInvalidExtendedKeyUsage);
+    }
+
+    [self removeTestRootAsSystem];
+    CFReleaseNull(systemRoot);
+    CFReleaseNull(subCa);
+    CFReleaseNull(leaf);
+}
+
+- (void)testAppTrust_subCA_SMIME_EKU
+{
+    SecCertificateRef systemRoot = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_Root"
+                                                                                         subdirectory:testDirectory];
+    SecCertificateRef subCa = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_smime_ca"
+                                                                                    subdirectory:testDirectory];
+    SecCertificateRef leaf = (__bridge SecCertificateRef)[self SecCertificateCreateFromResource:@"subCA_EKU_smime_leaf"
+                                                                                    subdirectory:testDirectory];
+    NSArray *certs = @[(__bridge id)leaf, (__bridge id)subCa];
+    NSError *error = nil;
+    XCTAssertTrue([self runTrustEvaluation:certs anchors:@[(__bridge id)systemRoot] date:620000000.0 error:&error], //August 24, 2020 at 3:13:20 PM PDT
+                  "app-trusted smime subCA cert failed: %@", error);
+
+    CFReleaseNull(systemRoot);
+    CFReleaseNull(subCa);
+    CFReleaseNull(leaf);
 }
 
 // Other app trust of root SSL EKU tests of certs issued before July 2019 occur in testSSLPolicyCerts (Test4, Test17)
@@ -395,5 +512,75 @@ errOut:
     CFReleaseNull(leaf);
 }
 #endif // !TARGET_OS_BRIDGE
+
+- (void)testIPAddressInDNSField
+{
+    SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, _ipAddress_dnsField, sizeof(_ipAddress_dnsField));
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("10.0.0.1"));
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)cert]
+                                                                         policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)cert]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:600000000.0]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    CFReleaseNull(cert);
+    CFReleaseNull(policy);
+}
+
+- (void)testIPAddressInSAN_Match
+{
+    SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, _ipAddress_SAN, sizeof(_ipAddress_SAN));
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("10.0.0.1"));
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)cert]
+                                                                         policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)cert]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:600000000.0]];
+    XCTAssert([eval evaluate:nil]);
+
+    CFReleaseNull(cert);
+    CFReleaseNull(policy);
+}
+
+- (void)testIPAddressInSAN_Mismatch
+{
+    SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, _ipAddress_SAN, sizeof(_ipAddress_SAN));
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("10.0.0.2"));
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)cert]
+                                                                         policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)cert]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:600000000.0]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    CFReleaseNull(cert);
+    CFReleaseNull(policy);
+}
+
+- (void)testIPAddressInCN
+{
+    SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, _ipAddress_CN, sizeof(_ipAddress_CN));
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("10.0.0.1"));
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)cert]
+                                                                         policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)cert]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:600000000.0]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    CFReleaseNull(cert);
+    CFReleaseNull(policy);
+}
+
+- (void)testBadIPAddressInSAN
+{
+    SecCertificateRef cert = SecCertificateCreateWithBytes(NULL, _ipAddress_bad, sizeof(_ipAddress_bad));
+    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("10.0.0.1"));
+    TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[(__bridge id)cert]
+                                                                         policies:@[(__bridge id)policy]];
+    [eval setAnchors:@[(__bridge id)cert]];
+    [eval setVerifyDate:[NSDate dateWithTimeIntervalSinceReferenceDate:600000000.0]];
+    XCTAssertFalse([eval evaluate:nil]);
+
+    CFReleaseNull(cert);
+    CFReleaseNull(policy);
+}
 
 @end

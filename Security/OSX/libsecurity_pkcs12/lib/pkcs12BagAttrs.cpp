@@ -31,7 +31,7 @@
 #include "pkcs12BagAttrs.h"
 #include "pkcs12Utils.h"
 #include <security_asn1/nssUtils.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <Security/SecBase.h>
 /* 
  * Copying constructor used by P12SafeBag during encoding

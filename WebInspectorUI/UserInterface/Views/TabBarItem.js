@@ -24,12 +24,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-WI.TabBarItem = class TabBarItem extends WI.Object
+WI.TabBarItem = class TabBarItem
 {
-    constructor(image, title, representedObject)
+    constructor(representedObject, image, displayName, title)
     {
-        super();
-
+        this._representedObject = representedObject || null;
         this._parentTabBar = null;
 
         this._element = document.createElement("div");
@@ -46,17 +45,22 @@ WI.TabBarItem = class TabBarItem extends WI.Object
 
         this._element.createChild("div", "flex-space");
 
+        this.displayName = displayName;
         this.title = title;
         this.image = image;
-        this.representedObject = representedObject;
+    }
+
+    // Static
+
+    static get horizontalMargin()
+    {
+        return (WI.dockConfiguration === WI.DockConfiguration.Undocked) ? 0 : 4; // Keep in sync with `body.docked .tab-bar > .tabs > .item`
     }
 
     // Public
 
     get element() { return this._element; }
-
     get representedObject() { return this._representedObject; }
-    set representedObject(representedObject) { this._representedObject = representedObject || null; }
 
     get parentTabBar() { return this._parentTabBar; }
     set parentTabBar(tabBar){ this._parentTabBar = tabBar || null; }
@@ -83,21 +87,35 @@ WI.TabBarItem = class TabBarItem extends WI.Object
 
     set disabled(disabled)
     {
-        this._element.classList.toggle("disabled", disabled);
+        this._element.classList.toggle("disabled", !!disabled);
     }
 
-    get isDefaultTab()
+    get hidden()
     {
-        return this._element.classList.contains("default-tab");
+        return this._element.classList.contains("hidden");
     }
 
-    set isDefaultTab(isDefaultTab)
+    set hidden(hidden)
     {
-        this._element.classList.toggle("default-tab", isDefaultTab);
+        this._element.classList.toggle("hidden", !!hidden);
     }
 
     get image() { return this._iconElement.src; }
     set image(url) { this._iconElement.src = url || ""; }
+
+    get displayName()
+    {
+        return this._displayName;
+    }
+
+    set displayName(displayName)
+    {
+        displayName = displayName || "";
+        if (this._displayName === displayName)
+            return;
+
+        this._displayName = displayName;
+    }
 
     get title()
     {
@@ -111,15 +129,13 @@ WI.TabBarItem = class TabBarItem extends WI.Object
             return;
 
         this._title = title;
-        this.titleDidChange();
-    }
 
-    titleDidChange()
-    {
-        // Implemented by subclasses.
+        if (!this._title)
+            this._element.removeAttribute("title");
+        else
+            this._element.title = this._title;
     }
 };
 
 WI.TabBarItem.StyleClassName = "item";
-WI.TabBarItem.CloseButtonStyleClassName = "close";
 WI.TabBarItem.ElementReferenceSymbol = Symbol("tab-bar-item");

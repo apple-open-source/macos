@@ -36,6 +36,9 @@
  *	@(#)ftree.h	8.1 (Berkeley) 5/31/93
  */
 
+#ifndef _FTREE_H_
+#define _FTREE_H_
+
 /*
  * Data structure used by the ftree.c routines to store the file args to be
  * handed to fts(). It keeps a reference count of which args generated a
@@ -49,3 +52,5 @@ typedef struct ftree {
 	int		chflg;		/* change directory flag */
 	struct ftree	*fow;		/* pointer to next entry on list */
 } FTREE;
+
+#endif /* _FTREE_H_ */

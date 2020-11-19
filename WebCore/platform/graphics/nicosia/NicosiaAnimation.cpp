@@ -223,8 +223,8 @@ Animation& Animation::operator=(const Animation& other)
 
 void Animation::apply(ApplicationResult& applicationResults, MonotonicTime time)
 {
-    if (!isActive())
-        return;
+    // Even when m_state == AnimationState::Stopped && !m_fillsForwards, we should calculate the last value to avoid a flash.
+    // CoordinatedGraphicsScene will soon remove the stopped animation and update the value instead of this function.
 
     Seconds totalRunningTime = computeTotalRunningTime(time);
     double normalizedValue = normalizedAnimationValue(totalRunningTime.seconds(), m_duration, m_direction, m_iterationCount);
@@ -232,8 +232,7 @@ void Animation::apply(ApplicationResult& applicationResults, MonotonicTime time)
     if (m_iterationCount != WebCore::Animation::IterationCountInfinite && totalRunningTime.seconds() >= m_duration * m_iterationCount) {
         m_state = AnimationState::Stopped;
         m_pauseTime = 0_s;
-        if (m_fillsForwards)
-            normalizedValue = normalizedAnimationValueForFillsForwards(m_iterationCount, m_direction);
+        normalizedValue = normalizedAnimationValueForFillsForwards(m_iterationCount, m_direction);
     }
 
     applicationResults.hasRunningAnimations |= (m_state == AnimationState::Playing);
@@ -308,11 +307,6 @@ Seconds Animation::computeTotalRunningTime(MonotonicTime time)
     return m_totalRunningTime;
 }
 
-bool Animation::isActive() const
-{
-    return m_state != AnimationState::Stopped || m_fillsForwards;
-}
-
 void Animation::applyInternal(ApplicationResult& applicationResults, const AnimationValue& from, const AnimationValue& to, float progress)
 {
     switch (m_keyframes.property()) {
@@ -323,6 +317,9 @@ void Animation::applyInternal(ApplicationResult& applicationResults, const Anima
         applicationResults.opacity = applyOpacityAnimation((static_cast<const FloatAnimationValue&>(from).value()), (static_cast<const FloatAnimationValue&>(to).value()), progress);
         return;
     case AnimatedPropertyFilter:
+#if ENABLE(FILTERS_LEVEL_2)
+    case AnimatedPropertyWebkitBackdropFilter:
+#endif
         applicationResults.filters = applyFilterAnimation(static_cast<const FilterAnimationValue&>(from).value(), static_cast<const FilterAnimationValue&>(to).value(), progress, m_boxSize);
         return;
     default:
@@ -390,7 +387,7 @@ bool Animations::hasActiveAnimationsOfType(AnimatedPropertyID type) const
 {
     return std::any_of(m_animations.begin(), m_animations.end(),
         [&type](const Animation& animation) {
-            return animation.isActive() && animation.keyframes().property() == type;
+            return animation.keyframes().property() == type;
         });
 }
 
@@ -400,16 +397,6 @@ bool Animations::hasRunningAnimations() const
         [](const Animation& animation) {
             return animation.state() == Animation::AnimationState::Playing;
         });
-}
-
-Animations Animations::getActiveAnimations() const
-{
-    Animations active;
-    for (auto& animation : m_animations) {
-        if (animation.isActive())
-            active.add(animation);
-    }
-    return active;
 }
 
 } // namespace Nicosia

@@ -298,11 +298,11 @@ static const char* regen_key(apr_pool_t *p, apr_table_t *headers,
      *  HTTP URI's (3.2.3) [host and scheme are insensitive]
      *  HTTP method (5.1.1)
      *  HTTP-date values (3.3.1)
-     *  3.7 Media Types [exerpt]
+     *  3.7 Media Types [excerpt]
      *     The type, subtype, and parameter attribute names are case-
      *     insensitive. Parameter values might or might not be case-sensitive,
      *     depending on the semantics of the parameter name.
-     *  4.20 Except [exerpt]
+     *  4.20 Except [excerpt]
      *     Comparison of expectation values is case-insensitive for unquoted
      *     tokens (including the 100-continue token), and is case-sensitive for
      *     quoted-string expectation-extensions.
@@ -1044,7 +1044,8 @@ static apr_status_t store_body(cache_handle_t *h, request_rec *r,
     /* Was this the final bucket? If yes, perform sanity checks.
      */
     if (seen_eos) {
-        const char *cl_header = apr_table_get(r->headers_out, "Content-Length");
+        const char *cl_header;
+        apr_off_t cl;
 
         if (r->connection->aborted || r->no_cache) {
             ap_log_rerror(APLOG_MARK, APLOG_INFO, 0, r, APLOGNO(02380)
@@ -1055,18 +1056,16 @@ static apr_status_t store_body(cache_handle_t *h, request_rec *r,
             sobj->pool = NULL;
             return APR_EGENERAL;
         }
-        if (cl_header) {
-            apr_off_t cl;
-            char *cl_endp;
-            if (apr_strtoff(&cl, cl_header, &cl_endp, 10) != APR_SUCCESS
-                    || *cl_endp != '\0' || cl != sobj->body_length) {
-                ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(02381)
-                        "URL %s didn't receive complete response, not caching",
-                        h->cache_obj->key);
-                apr_pool_destroy(sobj->pool);
-                sobj->pool = NULL;
-                return APR_EGENERAL;
-            }
+
+        cl_header = apr_table_get(r->headers_out, "Content-Length");
+        if (cl_header && (!ap_parse_strict_length(&cl, cl_header)
+                          || cl != sobj->body_length)) {
+            ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(02381)
+                    "URL %s didn't receive complete response, not caching",
+                    h->cache_obj->key);
+            apr_pool_destroy(sobj->pool);
+            sobj->pool = NULL;
+            return APR_EGENERAL;
         }
 
         /* All checks were fine, we're good to go when the commit comes */

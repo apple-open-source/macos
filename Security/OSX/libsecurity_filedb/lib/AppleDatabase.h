@@ -361,7 +361,7 @@ public:
 					RecordId &recordId);
 
 private:
-	auto_ptr<DbQueryKey> mQueryKey;
+	unique_ptr<DbQueryKey> mQueryKey;
 	const Table &mTable;
 	const DbConstIndex *mIndex;
 	
@@ -383,10 +383,10 @@ public:
 					Allocator &inAllocator,
 					RecordId &recordId);
 private:
-	auto_ptr<CssmAutoQuery> mQuery;
+	unique_ptr<CssmAutoQuery> mQuery;
 
 	DbVersion::const_iterator mTableIterator;
-	auto_ptr<Cursor> mCursor;
+	unique_ptr<Cursor> mCursor;
 };
 
 //
@@ -413,7 +413,7 @@ public:
 	void deleteDatabase();
 
     void commit();
-    void rollback() throw();
+    void rollback() _NOEXCEPT;
 
 	// Record changing members
 	void deleteRecord(Table::Id inTableId, const RecordId &inRecordId);

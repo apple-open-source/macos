@@ -165,7 +165,7 @@ def  process_all (trace_line, clients):
 	if code == kHID_ES_Service_Callback and arg0 not in event_tarce:
 		service = int (trace_line[4], 16)
 		event_type = int (trace_line[5], 16)
-		event_tarce [arg0] = [event_type, service, ts, 0, 0, trace_line[0], 0]
+		event_tarce [arg0] = [event_type, service, ts, 0, 0, trace_line[0], 0, set()]
 		return
 
 	if code == (kHID_ES_ClientsEnqueue | DBG_FUNC_END) and arg0 in event_tarce:
@@ -173,8 +173,9 @@ def  process_all (trace_line, clients):
 		return
 
 	if code == kHID_ES_Client_QueueCallback and arg0 in event_tarce:
+		client = trace_line[9]
+		((event_tarce[arg0])[7]).add(client)
 		if len(clients) > 0:
-			client = trace_line[9]
 			if client not in clients:
 				return	
 		if (event_tarce[arg0])[4] < ts:
@@ -252,19 +253,34 @@ def  print_trace (trace):
 	for  line in trace:
 		print  line.rstrip("\r\n")
 
+
 def print_report ():
 	eventLatency = []
 	eventType = {}
+	eventTypeForClients = {}
 	for  key in event_tarce.keys():
 		event = event_tarce[key]
 		if event[4] == 0 or event[3] == 0:
 			continue
 		eventLatency.append (event[3] - event[2])
+		clients = event[7]
+		for client in clients:
+			eventTypeForClient = {}
+			if eventTypeForClients.get(client) == None:
+				eventTypeForClients [client] = eventTypeForClient
+			else:
+				eventTypeForClient = eventTypeForClients[client]
+
+			if eventTypeForClient.get(event[0]) == None:
+				eventTypeForClient[event[0]] = 1
+			else:
+				eventTypeForClient[event[0]] += 1
+
 		if event[0] in eventType.keys():
 			eventType[event[0]] += 1
 		else:
 			eventType[event[0]] = 1
-		
+			
 	print_bold("Events:")
 	for key in eventType.keys():
 		print "  type: %2d count: %8d (%s)" % (key, eventType[key], event_type_string[key]) 
@@ -293,6 +309,13 @@ def print_report ():
 	for i in range (0,(len(eventLatency) * 50) / 100):
 		average += eventLatency[i]
 	print "    50%%: %0.1f" % (average / ((len(eventLatency) * 50) / 100))
+
+	for client in eventTypeForClients.keys():
+		print_bold("Events received by %s:" % client)
+		eventType = eventTypeForClients[client]
+		for key in eventType.keys():
+			print "  type: %2d count: %8d (%s)" % (key, eventType[key], event_type_string[key]) 
+
 
 def  main (argv):
 	global verboseLog

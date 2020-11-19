@@ -110,7 +110,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUConverterSelectorPointer, UConverterSelector, 
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Open a selector from its serialized form.

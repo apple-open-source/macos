@@ -24,7 +24,6 @@
 #if OCTAGON
 
 #include <dispatch/dispatch.h>
-#include <utilities/debugging.h>
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
 #include "keychain/SecureObjectSync/SOSInternal.h"
@@ -100,7 +99,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         _hsa2iCloudAccountInitialized = [[CKKSCondition alloc] init];
 
         id<CKKSNSNotificationCenter> notificationCenter = [self.nsnotificationCenterClass defaultCenter];
-        secinfo("ckksaccount", "Registering with notification center %@", notificationCenter);
+        ckksinfo_global("ckksaccount", "Registering with notification center %@", notificationCenter);
         [notificationCenter addObserver:self selector:@selector(notifyCKAccountStatusChange:) name:CKAccountChangedNotification object:NULL];
 
         WEAKIFY(self);
@@ -178,15 +177,15 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
             dispatch_queue_t objQueue = dispatch_queue_create([queueName UTF8String], DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
             [self.ckChangeListeners setObject:listener forKey: objQueue];
 
-            secinfo("ckksaccount-ck", "adding a new listener: %@", listener);
+            ckksinfo_global("ckksaccount-ck", "adding a new listener: %@", listener);
 
             // If we know the current account status, let this listener know
             if(self.firstCKAccountFetch) {
-                secinfo("ckksaccount-ck", "notifying new listener %@ of current state %@", listener, self.currentCKAccountInfo);
+                ckksinfo_global("ckksaccount-ck", "notifying new listener %@ of current state %@", listener, self.currentCKAccountInfo);
 
                 dispatch_group_t g = dispatch_group_create();
                 if(!g) {
-                    secnotice("ckksaccount-ck", "Unable to get dispatch group.");
+                    ckkserror_global("ckksaccount-ck", "Unable to get dispatch group.");
                     dispatch_semaphore_signal(finishedSema);
                     return;
                 }
@@ -217,14 +216,14 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         STRONGIFY(self);
 
         if(error) {
-            secerror("ckksaccount: error getting account info: %@", error);
+            ckkserror_global("ckksaccount", "error getting account info: %@", error);
             dispatch_semaphore_signal(finishedSema);
             return;
         }
 
         dispatch_sync(self.queue, ^{
             self.firstCKAccountFetch = true;
-            secnotice("ckksaccount", "received CK Account info: %@", ckAccountInfo);
+            ckksnotice_global("ckksaccount", "received CK Account info: %@", ckAccountInfo);
             [self _onqueueUpdateAccountState:ckAccountInfo deliveredSemaphore:finishedSema];
         });
     }];
@@ -242,7 +241,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         [self.container fetchCurrentDeviceIDWithCompletionHandler:^(NSString* deviceID, NSError* ckerror) {
             STRONGIFY(self);
             if(!self) {
-                secerror("ckksaccount: Received fetchCurrentDeviceIDWithCompletionHandler callback with null AccountStateTracker");
+                ckkserror_global("ckksaccount", "Received fetchCurrentDeviceIDWithCompletionHandler callback with null AccountStateTracker");
                 return;
             }
 
@@ -250,14 +249,14 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
             dispatch_async(self.queue, ^{
                 STRONGIFY(self);
                 if(self.currentCKAccountInfo.accountStatus == CKAccountStatusAvailable) {
-                    secnotice("ckksaccount", "CloudKit deviceID is: %@ %@", deviceID, ckerror);
+                    ckksnotice_global("ckksaccount", "CloudKit deviceID is: %@ %@", deviceID, ckerror);
 
                     self.ckdeviceID = deviceID;
                     self.ckdeviceIDError = ckerror;
                     [self.ckdeviceIDInitialized fulfill];
                 } else {
                     // Logged out! No ckdeviceid.
-                    secerror("ckksaccount: Logged back out but still received a fetchCurrentDeviceIDWithCompletionHandler callback");
+                    ckkserror_global("ckksaccount", "Logged back out but still received a fetchCurrentDeviceIDWithCompletionHandler callback");
 
                     self.ckdeviceID = nil;
                     self.ckdeviceIDError = nil;
@@ -279,7 +278,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
     SOSAccountStatus* sosstatus = [CKKSAccountStateTracker getCircleStatus];
     dispatch_sync(self.queue, ^{
         if(self.currentCircleStatus == nil || ![self.currentCircleStatus isEqual:sosstatus]) {
-            secnotice("ckksaccount", "moving to circle status: %@", sosstatus);
+            ckksnotice_global("ckksaccount", "moving to circle status: %@", sosstatus);
             self.currentCircleStatus = sosstatus;
 
             if (sosstatus.status == kSOSCCInCircle) {
@@ -315,7 +314,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         [CKKSAccountStateTracker fetchCirclePeerID:^(NSString* peerID, NSError* error) {
             STRONGIFY(self);
             if(!self) {
-                secerror("ckksaccount: Received fetchCirclePeerID callback with null AccountStateTracker");
+                ckkserror_global("ckksaccount", "Received fetchCirclePeerID callback with null AccountStateTracker");
                 return;
             }
 
@@ -323,13 +322,13 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
                 STRONGIFY(self);
 
                 if(self.currentCircleStatus && self.currentCircleStatus.status == kSOSCCInCircle) {
-                    secnotice("ckksaccount", "Circle peerID is: %@ %@", peerID, error);
+                    ckksnotice_global("ckksaccount", "Circle peerID is: %@ %@", peerID, error);
                     // Still in circle. Proceed.
                     self.accountCirclePeerID = peerID;
                     self.accountCirclePeerIDError = error;
                     [self.accountCirclePeerIDInitialized fulfill];
                 } else {
-                    secerror("ckksaccount: Out of circle but still received a fetchCirclePeerID callback");
+                    ckkserror_global("ckksaccount", "Out of circle but still received a fetchCirclePeerID callback");
                     // Not in-circle. Throw away circle id.
                     self.accountCirclePeerID = nil;
                     self.accountCirclePeerIDError = nil;
@@ -339,7 +338,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         }];
     } else {
         // Not in-circle, reset circle ID
-        secnotice("ckksaccount", "out of circle(%@): resetting peer ID", sosstatus);
+        ckksnotice_global("ckksaccount", "out of circle(%@): resetting peer ID", sosstatus);
         self.accountCirclePeerID = nil;
         self.accountCirclePeerIDError = nil;
         self.accountCirclePeerIDInitialized = [[CKKSCondition alloc] init];
@@ -356,7 +355,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
     dispatch_group_t g = dispatch_group_create();
     if(!g) {
-        secnotice("ckksaccount", "Unable to get dispatch group.");
+        ckksnotice_global("ckksaccount", "Unable to get dispatch group.");
         dispatch_semaphore_signal(finishedSema);
         return;
     }
@@ -376,13 +375,13 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
     if([self.currentCKAccountInfo isEqual: ckAccountInfo]) {
         // no-op.
-        secinfo("ckksaccount", "received another notification of CK Account State %@", ckAccountInfo);
+        ckksinfo_global("ckksaccount", "received another notification of CK Account State %@", ckAccountInfo);
         return;
     }
 
     if((self.currentCKAccountInfo == nil && ckAccountInfo != nil) ||
        !(self.currentCKAccountInfo == ckAccountInfo || [self.currentCKAccountInfo isEqual: ckAccountInfo])) {
-        secnotice("ckksaccount", "moving to CK Account info: %@", ckAccountInfo);
+        ckksnotice_global("ckksaccount", "moving to CK Account info: %@", ckAccountInfo);
         CKAccountInfo* oldAccountInfo = self.currentCKAccountInfo;
         self.currentCKAccountInfo = ckAccountInfo;
         [self.ckAccountInfoInitialized fulfill];
@@ -424,8 +423,13 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
     }
 }
 
+- (BOOL)notifyCKAccountStatusChangeAndWait:(dispatch_time_t)timeout
+{
+    return dispatch_semaphore_wait([self notifyCKAccountStatusChange:nil], dispatch_time(DISPATCH_TIME_NOW, timeout)) == 0;
+}
+
 -(void)notifyCKAccountStatusChangeAndWaitForSignal {
-    dispatch_semaphore_wait([self notifyCKAccountStatusChange: nil], DISPATCH_TIME_FOREVER);
+    [self notifyCKAccountStatusChangeAndWait:DISPATCH_TIME_FOREVER];
 }
 
 -(void)notifyCircleStatusChangeAndWaitForSignal {
@@ -436,7 +440,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
     dispatch_group_t g = dispatch_group_create();
     if(!g) {
-        secnotice("ckksaccount", "Unable to get dispatch group.");
+        ckksnotice_global("ckksaccount", "Unable to get dispatch group.");
         return nil;
     }
 
@@ -448,12 +452,12 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         while ((dq = [enumerator nextObject])) {
             id<CKKSCloudKitAccountStateListener> listener = [self.ckChangeListeners objectForKey: dq];
 
-            secinfo("ckksaccountblock", "Starting blocking for listener %@", listener);
+            ckksinfo_global("ckksaccountblock", "Starting blocking for listener %@", listener);
             WEAKIFY(listener);
             dispatch_group_async(g, dq, ^{
                 STRONGIFY(listener);
                 // Do nothing in particular. It's just important that this block runs.
-                secinfo("ckksaccountblock", "Done blocking for listener %@", listener);
+                ckksinfo_global("ckksaccountblock", "Done blocking for listener %@", listener);
             });
         }
     });
@@ -467,7 +471,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
     SOSCCStatus status = SOSCCThisDeviceIsInCircle(&cferror);
     if(cferror) {
-        secerror("ckksaccount: error getting circle status: %@", cferror);
+        ckkserror_global("ckksaccount", "error getting circle status: %@", cferror);
         return [[SOSAccountStatus alloc] init:kSOSCCError error:CFBridgingRelease(cferror)];
     }
 
@@ -503,10 +507,10 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
                                         dispatch_sync(self.queue, ^{
                                             if(error) {
-                                                secerror("ckksaccount: error getting octagon status: %@", error);
+                                                ckkserror_global("ckksaccount", "error getting octagon status: %@", error);
                                                 self.octagonStatus = [[OTCliqueStatusWrapper alloc] initWithStatus:CliqueStatusError];
                                             } else {
-                                                secnotice("ckksaccount", "Caching octagon status as (%@, %@)", OTCliqueStatusToString(status), peerID);
+                                                ckksnotice_global("ckksaccount", "Caching octagon status as (%@, %@)", OTCliqueStatusToString(status), peerID);
                                                 self.octagonStatus = [[OTCliqueStatusWrapper alloc] initWithStatus:status];
                                             }
 

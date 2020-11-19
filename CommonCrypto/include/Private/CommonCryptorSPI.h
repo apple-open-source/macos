@@ -280,30 +280,28 @@ CCCryptorStatus CCCryptorGCMDecrypt(
 API_AVAILABLE(macos(10.8), ios(5.0));
 
 /*
-	This finalizes the GCM state gcm and stores the tag in tag of length
-    taglen octets.
+    Finalizes the GCM state and stores the tag in tagOut of length
+    tagLength octets.
 
     The tag must be verified by comparing the computed and expected values
     using timingsafe_bcmp. Other comparison functions (e.g. memcmp)
     must not be used as they may be vulnerable to practical timing attacks,
     leading to tag forgery.
-
 */
-
 CCCryptorStatus CCCryptorGCMFinal(
-	CCCryptorRef cryptorRef,
-	void   *tagOut,
-	size_t *tagLength)
+    CCCryptorRef cryptorRef,
+    void   *tagOut,
+    size_t *tagLength)
 API_DEPRECATED_WITH_REPLACEMENT("CCCryptorGCMFinalize", macos(10.8, 10.13), ios(5.0, 11.0));
 
 /*
-     This finalizes the GCM state gcm.
+     Finalizes the GCM state.
 
-     On encryption, the computed tag is returned in tagOut.
+     On encryption, the computed tag is stored in tag.
 
-     On decryption, the provided tag is securly compared to the expected tag, and
-     error is returned if the tags do not match. The tag buffer contectnt is not modified on decryption.
-     is not updated on decryption.
+     On decryption, the provided tag is securely compared to the expected tag
+     and an error returned if the tags do not match. The tag buffer content
+     is not modified on decryption.
 */
 CCCryptorStatus CCCryptorGCMFinalize(
     CCCryptorRef cryptorRef,
@@ -352,66 +350,59 @@ CCCryptorStatus CCCryptorGCM(
 	size_t 			*tagLength)
 API_DEPRECATED_WITH_REPLACEMENT("CCCryptorGCMOneshotEncrypt or CCCryptorGCMOneshotDecrypt", macos(10.8, 10.13), ios(6.0, 11.0));
 
-    /*!
-     @function   CCCryptorGCMOneshotDecrypt
-     @abstract   Encrypts using AES-GCM and outputs encrypted data and an authentication tag
-     @param      alg            It can only be kCCAlgorithmAES
-     @param      key            AES key size (kCCKeySizeAES128, kCCKeySizeAES192 or kCCKeySizeAES256)
-     @param      keyLength      Length of the key in bytes
+/*!
+ @function   CCCryptorGCMOneshotEncrypt
+ @abstract   Encrypts using AES-GCM and outputs encrypted data and an authentication tag
+ @param      alg            It can only be kCCAlgorithmAES
+ @param      key            AES key size (kCCKeySizeAES128, kCCKeySizeAES192 or kCCKeySizeAES256)
+ @param      keyLength      Length of the key in bytes
 
-     @param      iv             Initialization vector, must be at least 12 bytes
-     @param      ivLength       Length of the IV in bytes
+ @param      iv             Initialization vector, must be at least 12 bytes
+ @param      ivLength       Length of the IV in bytes
 
-     @param      aData          Additional data to authenticate. It can be NULL, if there is no additionl data to be authenticated.
-     @param      aDataLength    Length of the additional data in bytes. It can be zero.
+ @param      aData          Additional data to authenticate. It can be NULL, if there is no additional data to be authenticated.
+ @param      aDataLength    Length of the additional data in bytes. It can be zero.
 
-     @param      dataIn         Input plaintext
-     @param      dataInLength   Length of the input plaintext data in bytes
+ @param      dataIn         Input plaintext
+ @param      dataInLength   Length of the input plaintext data in bytes
 
-     @param      cipherOut      Output ciphertext
-     @param      tagLength      Length of the output authentication tag in bytes. It is minimum 8 bytes and maximum 16 bytes.
-     @param      tagOut         the output authentication tag
+ @param      cipherOut      Output ciphertext
+ @param      tagLength      Length of the output authentication tag in bytes. (Recommended: 16 bytes. Minimum: 8 bytes.)
+ @param      tagOut         the output authentication tag
 
-     @result     kccSuccess if successful.
+ @result     kCCSuccess if successful.
 
-     @discussion It is a one-shot AESGCM encryption and in-place encryption is supported.
+ @discussion It is a one-shot AESGCM encryption and in-place encryption is supported.
 
-     @warning The key-IV pair must be unique per encryption. The IV must be nonzero in length.
+ @warning The key-IV pair must be unique per encryption. The IV must be nonzero in length.
 
-     In stateful protocols, if each packet exposes a guaranteed-unique value, it is recommended to format this as a 12-byte value for use as the IV.
+ In stateful protocols, if each packet exposes a guaranteed-unique value, it is recommended to format this as a 12-byte value for use as the IV.
 
-     In stateless protocols, it is recommended to choose a 16-byte value using a cryptographically-secure pseudorandom number generator (e.g. @p ccrng).
-   */
+ In stateless protocols, it is recommended to choose a 12-byte value using a cryptographically-secure pseudorandom number generator (e.g. @p ccrng).
 
+ The length of the authentication tag should always be 16 bytes. It should be lower only to support legacy applications.
+*/
 CCCryptorStatus CCCryptorGCMOneshotEncrypt(CCAlgorithm alg, const void  *key,    size_t keyLength, /* raw key material */
-                                        const void  *iv,     size_t ivLength,
-                                        const void  *aData,  size_t aDataLength,
-                                        const void  *dataIn, size_t dataInLength,
-                                        void 	    *cipherOut,
-                                        void        *tagOut, size_t tagLength) __attribute__((__warn_unused_result__))
+                                           const void  *iv,     size_t ivLength,
+                                           const void  *aData,  size_t aDataLength,
+                                           const void  *dataIn, size_t dataInLength,
+                                           void 	    *cipherOut,
+                                           void        *tagOut, size_t tagLength) __attribute__((__warn_unused_result__))
 API_AVAILABLE(macos(10.13), ios(11.0));
 
-    /*!
-     @function   CCCryptorGCMOneshotDecrypt
-     @abstract   Decrypts using AES-GCM, compares the computed tag of the decrypted message to the input tag and returns error is authentication fails.
+/*!
+ @function   CCCryptorGCMOneshotDecrypt
+ @abstract   Decrypts using AES-GCM, compares the computed tag of the decrypted message to the input tag and returns error is authentication fails.
 
-     @discussion CCCryptorGCMOneshotDecrypt() works similar to the CCCryptorGCMOneshotEncrypt(). CCCryptorGCMOneshotDecrypt() does not return the tag of the decrypted message. It compated the computed tag with inout tag and outputs error if authentication of the decrypted message fails.
-     */
-
+ @discussion CCCryptorGCMOneshotDecrypt() works similar to CCCryptorGCMOneshotEncrypt(). CCCryptorGCMOneshotDecrypt() does not return the tag of the decrypted message. It compares the computed tag with the input tag and outputs an error if authentication of the decrypted message fails
+ */
 CCCryptorStatus CCCryptorGCMOneshotDecrypt(CCAlgorithm alg, const void  *key,    size_t keyLength,
-                                       const void  *iv,     size_t ivLen,
-                                       const void  *aData,  size_t aDataLen,
-                                       const void  *dataIn, size_t dataInLength,
-                                       void 	   *dataOut,
-                                       const void  *tagIn,  size_t tagLength) __attribute__((__warn_unused_result__))
-    API_AVAILABLE(macos(10.13), ios(11.0));
-
-void CC_RC4_set_key(void *ctx, int len, const unsigned char *data)
-API_AVAILABLE(macos(10.4), ios(5.0));
-
-void CC_RC4(void *ctx, unsigned long len, const unsigned char *indata,
-                unsigned char *outdata)
-API_AVAILABLE(macos(10.4), ios(5.0));
+                                           const void  *iv,     size_t ivLen,
+                                           const void  *aData,  size_t aDataLen,
+                                           const void  *dataIn, size_t dataInLength,
+                                           void 	   *dataOut,
+                                           const void  *tagIn,  size_t tagLength) __attribute__((__warn_unused_result__))
+API_AVAILABLE(macos(10.13), ios(11.0));
 
 /*
 GCM interface can then be easily bolt on the rest of standard CCCryptor interface; typically following sequence can be used:
@@ -425,6 +416,84 @@ CCCryptorCreateWithMode(mode = kCCModeGCM)
 CCCryptorRelease()
 
 */
+
+ /*!
+  @function CCCryptorChaCha20Poly1305OneshotEncrypt
+  @abstract Encrypts using ChaCha20Poly1305 and outputs encrypted data and an authentication tag.
+
+  @param key ChaCha20Poly1305 key.
+  @param keyLength Length of the key in bytes. This MUST be 32 bytes.
+  @param iv Initialization vector.
+  @param ivLength Length of the IV in bytes. This MUST be 12 bytes.
+  @param aData Additional data to authenticate. It can be NULL, if there is no additional data to be authenticated.
+  @param aDataLength Length of the additional data in bytes. It can be zero.
+  @param dataIn Input plaintext.
+  @param dataInLength Length of the input plaintext data in bytes.
+  @param cipherOut Output ciphertext.
+  @param tagOut The output authentication tag.
+  @param tagLength Length of the output authentication tag in bytes. This MUST be 16 bytes.
+
+  @result kCCSuccess if successful.
+
+  @discussion It is a one-shot ChaCha20Poly1305 authenticated encryption.
+
+  @warning The key-IV pair must be unique per encryption.
+*/
+CCCryptorStatus CCCryptorChaCha20Poly1305OneshotEncrypt(const void *key, size_t keyLength,
+                                                        const void *iv, size_t ivLength,
+                                                        const void *aData, size_t aDataLength,
+                                                        const void *dataIn, size_t dataInLength,
+                                                        void *cipherOut, void *tagOut, size_t tagLength) __attribute__((__warn_unused_result__))
+API_AVAILABLE(macos(10.16), ios(14.0));
+
+/*!
+ @function CCCryptorChaCha20Poly1305OneshotDecrypt
+ @abstract Decrypts using ChaCha20Poly1305, compares the computed tag of the decrypted message to the input tag and returns an error if authentication fails.
+
+ @param key ChaCha20Poly1305 key.
+ @param keyLength Length of the key in bytes. This MUST be 32 bytes.
+ @param iv Initialization vector.
+ @param ivLength Length of the IV in bytes. This MUST be 12 bytes.
+ @param aData Additional data to authenticate. It can be NULL, if there is no additional data to be authenticated.
+ @param aDataLength Length of the additional data in bytes. It can be zero.
+ @param cipherIn Input ciphertext.
+ @param cipherInLength Length of the output authentication tag in bytes. This MUST be 16 bytes.
+ @param dataOut Input plaintext.
+ @param tagIn The authentication tag.
+ @param tagLength The authentication tag length.
+
+ @result kCCSuccess if successful.
+
+ @discussion CCCryptorChaCha20Poly1305OneshotDecrypt() does not return the tag of the decrypted message. It compares the computed tag with
+ the input tag and outputs an error if authentication of the decrypted message fails.
+ */
+CCCryptorStatus CCCryptorChaCha20Poly1305OneshotDecrypt(const void *key, size_t keyLength,
+                                                        const void *iv, size_t ivLength,
+                                                        const void *aData, size_t aDataLength,
+                                                        const void *cipherIn, size_t cipherInLength,
+                                                        void *dataOut, const void *tagIn, size_t tagLength) __attribute__((__warn_unused_result__))
+API_AVAILABLE(macos(10.16), ios(14.0));
+
+/*!
+ @function CCCryptorChaCha20
+ @abstract Compute the ChaCha20 stream cipher function.
+
+ @param key CCCryptorChaCha20 key.
+ @param keyLength Length of the key in bytes. This MUST be 32 bytes.
+ @param nonce Nonce.
+ @param nonceLength Length of the nonce. This MUST be 12 bytes.
+ @param counter ChaCha20 counter value.
+ @param dataIn Length of the input data in bytes.
+ @param dataInLength Input data.
+ @param dataOut Output data.
+
+ @result kCCSuccess if successful.
+*/
+CCCryptorStatus CCCryptorChaCha20(const void *key, size_t keyLength,
+                                  const void *nonce, size_t nonceLength,
+                                  uint32_t counter,
+                                  const void *dataIn, size_t dataInLength, void *dataOut) __attribute__((__warn_unused_result__))
+API_AVAILABLE(macos(10.16), ios(14.0));
 
 enum {
     /*

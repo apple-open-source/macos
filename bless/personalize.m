@@ -9,6 +9,7 @@
 #import <paths.h>
 #import <sys/param.h>
 #import <sys/mount.h>
+#import <sys/stat.h>
 #import <CoreFoundation/CoreFoundation.h>
 #import <Foundation/Foundation.h>
 #import <OSPersonalization/OSPersonalization.h>
@@ -49,9 +50,11 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 	struct statfs               sfs;
 	bool						mustCleanupRoots = false;
 	bool						mustUnmountPreboot = false;
+	bool						dummyBool;
 	struct stat					sb;
 	bool						useGroup = false;
 	bool						isDataVol = false;
+	bool						isARV = false;
 
 	// OSPersonalization is weak-linked, so check to make sure it's present
 	if ([OSPersonalizationController class] == nil) {
@@ -64,6 +67,7 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 	}
 	vURL = [NSURL fileURLWithFileSystemRepresentation:volumePath isDirectory:YES relativeToURL:nil];
 	if ([pc personalizationRequiredForVolumeAtMountPoint:vURL]) {
+		blesscontextprintf(context, kBLLogLevelVerbose, "Personalization required for volume at %s\n", volumePath);
 		installEnv = getenv("__OSINSTALL_ENVIRONMENT");
 		if (installEnv && (atoi(installEnv) > 0 || strcasecmp(installEnv, "yes") == 0 || strcasecmp(installEnv, "true") == 0)) {
 			strlcpy(tmpLoc, "/var/tmp/RecoveryTemp", sizeof tmpLoc);
@@ -85,14 +89,16 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 				ret = BLEnsureSpecialAPFSVolumeUUIDPath(context, sfs.f_mntfromname,
 														APFS_VOL_ROLE_PREBOOT, true,
 														prebootMount, sizeof prebootMount,
-														&mustUnmountPreboot);
+														&dummyBool);
 				if (ret) goto exit;
+				if (dummyBool) mustUnmountPreboot = true;
 				useGroup = true;
 			}
 			pURL = [NSURL fileURLWithFileSystemRepresentation:prebootMount isDirectory:YES relativeToURL:nil];
 		}
 		if ([pc volumeHasBeenPersonalized:vURL prebootFolder:pURL]) {
 			// This is already done.  Let's get out of here.
+			blesscontextprintf(context, kBLLogLevelVerbose, "OSP reports volume is already personalized\n");
 			ret = 0;
 			goto exit;
 		}
@@ -132,8 +138,10 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 			if (strcmp(sfs.f_fstypename, "apfs") == 0) {
 				ret = BLIsDataRoleForAPFSVolumeDev(context, sfs.f_mntfromname, &isDataVol);
 				if (ret) goto exit;
+				ret = BLIsVolumeARV(context, sfs.f_mntonname, sfs.f_mntfromname + strlen(_PATH_DEV), &isARV);
+				if (ret) goto exit;
 			}
-			if (!isDataVol) {
+			if (!isDataVol && !isARV) {
 				ret = CopyRootToDir([[rootsURL URLByAppendingPathComponent:OSPersonalizedManifestRootTypeBoot] fileSystemRepresentation],
 									volumePath);
 				if (ret) goto exit;
@@ -152,6 +160,8 @@ int PersonalizeOSVolume(BLContextPtr context, const char *volumePath, const char
 			ret = EX_BADNETWORK;
 			goto exit;
 		}
+	} else {
+		blesscontextprintf(context, kBLLogLevelVerbose, "Personalization not required for volume at %s\n", volumePath);
 	}
 	
 exit:

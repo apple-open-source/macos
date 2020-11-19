@@ -287,6 +287,7 @@ extern void yyvwarn(const char *, va_list);
 extern void yylabel(const char *);
 extern void yybegin(yystate_t);
 extern void yyinit(struct dt_pcb *);
+extern void yyfini(struct dt_pcb *);
 
 extern int yyparse(void);
 extern int yyinput(void);

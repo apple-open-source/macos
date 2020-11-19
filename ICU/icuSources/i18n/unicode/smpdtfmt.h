@@ -28,6 +28,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Format and parse dates in a language-independent manner.
@@ -40,7 +42,6 @@
 #include "unicode/tzfmt.h"  /* for UTimeZoneFormatTimeType */
 #include "unicode/brkiter.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class DateFormatSymbols;
@@ -866,7 +867,7 @@ public:
      * @return    A copy of the object.
      * @stable ICU 2.0
      */
-    virtual Format* clone(void) const;
+    virtual SimpleDateFormat* clone() const;
 
     /**
      * Return true if the given Format objects are semantically equal. Objects
@@ -1343,6 +1344,23 @@ private:
      *                      resources fails.
      */
     void construct(EStyle timeStyle, EStyle dateStyle, const Locale& locale, UErrorCode& status);
+    
+    UnicodeString getPatternForTimeStyle(EStyle timeStyle,
+                                         const Locale& locale,
+                                         UResourceBundle* dateTimePatterns,
+                                         UnicodeString& ovrStr,
+                                         UErrorCode& status);
+    UnicodeString getPatternForDateStyle(EStyle dateStyle,
+                                         UResourceBundle* languageDateTimePatterns,
+                                         UResourceBundle* countryDateTimePatterns,
+                                         UBool& fallingBackByCountry,
+                                         UnicodeString& ovrStr,
+                                         UErrorCode& status);
+    UnicodeString getPatternString(int32_t index,
+                                   UResourceBundle* dateTimePatterns,
+                                   UnicodeString& ovrStr,
+                                   UErrorCode& status);
+
 
     /**
      * Called by construct() and the various constructors to set up the SimpleDateFormat's
@@ -1672,9 +1690,10 @@ SimpleDateFormat::getCapitalizationBrkIter() const
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // _SMPDTFMT
 //eof

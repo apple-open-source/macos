@@ -39,18 +39,19 @@
 #include <JavaScriptCore/Float32Array.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MainThread.h>
+#include <wtf/threads/BinarySemaphore.h>
 
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(ScriptProcessorNode);
 
-Ref<ScriptProcessorNode> ScriptProcessorNode::create(AudioContext& context, float sampleRate, size_t bufferSize, unsigned numberOfInputChannels, unsigned numberOfOutputChannels)
+Ref<ScriptProcessorNode> ScriptProcessorNode::create(BaseAudioContext& context, size_t bufferSize, unsigned numberOfInputChannels, unsigned numberOfOutputChannels)
 {
-    return adoptRef(*new ScriptProcessorNode(context, sampleRate, bufferSize, numberOfInputChannels, numberOfOutputChannels));
+    return adoptRef(*new ScriptProcessorNode(context, bufferSize, numberOfInputChannels, numberOfOutputChannels));
 }
 
-ScriptProcessorNode::ScriptProcessorNode(AudioContext& context, float sampleRate, size_t bufferSize, unsigned numberOfInputChannels, unsigned numberOfOutputChannels)
-    : AudioNode(context, sampleRate)
+ScriptProcessorNode::ScriptProcessorNode(BaseAudioContext& context, size_t bufferSize, unsigned numberOfInputChannels, unsigned numberOfOutputChannels)
+    : AudioNode(context)
     , ActiveDOMObject(context.scriptExecutionContext())
     , m_doubleBufferIndex(0)
     , m_doubleBufferIndexForEvent(0)
@@ -68,6 +69,7 @@ ScriptProcessorNode::ScriptProcessorNode(AudioContext& context, float sampleRate
     ASSERT(numberOfInputChannels <= AudioContext::maxNumberOfChannels());
 
     setNodeType(NodeTypeJavaScript);
+    initializeDefaultNodeOptions(numberOfInputChannels, ChannelCountMode::Explicit, ChannelInterpretation::Speakers);
     addInput(makeUnique<AudioNodeInput>(this));
     addOutput(makeUnique<AudioNodeOutput>(this, numberOfOutputChannels));
 
@@ -197,12 +199,23 @@ void ScriptProcessorNode::process(size_t framesToProcess)
             m_doubleBufferIndexForEvent = m_doubleBufferIndex;
             m_isRequestOutstanding = true;
 
-            callOnMainThread([this] {
-                fireProcessEvent();
-
+            // We only wait for script code execution when the context is an offline one for performance reasons.
+            if (context().isOfflineContext()) {
+                BinarySemaphore semaphore;
+                callOnMainThread([this, &semaphore] {
+                    fireProcessEvent();
+                    semaphore.signal();
+                });
+                semaphore.wait();
                 // De-reference to match the ref() call in process().
                 deref();
-            });
+            } else {
+                callOnMainThread([this] {
+                    fireProcessEvent();
+                    // De-reference to match the ref() call in process().
+                    deref();
+                });
+            }
         }
 
         swapBuffers();

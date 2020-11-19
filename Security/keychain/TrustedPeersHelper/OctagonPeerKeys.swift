@@ -29,7 +29,7 @@ class OctagonSelfPeerKeys: NSObject, CKKSSelfPeer {
         self.publicSigningKey = signingKey.publicKey as? _SFECPublicKey
 
         guard let encryptionVerificationKey = self.publicEncryptionKey,
-              let signingVerificationKey = self.publicSigningKey else {
+            let signingVerificationKey = self.publicSigningKey else {
                 throw OctagonSelfPeerKeysError.noPublicKeys
         }
 

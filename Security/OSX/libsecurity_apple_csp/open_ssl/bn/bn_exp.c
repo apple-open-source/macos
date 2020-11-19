@@ -116,7 +116,7 @@
 #ifdef ATALLA
 # include <alloca.h>
 # include <atasi.h>
-# include <assert.h>
+# include <security_utilities/simulatecrash_assert.h>
 # include <dlfcn.h>
 #endif
 

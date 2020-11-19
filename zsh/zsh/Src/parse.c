@@ -414,10 +414,10 @@ ecstrcode(char *s)
 	return c;
     } else {
 	Eccstr p, *pp;
-	int cmp;
+	long cmp;
 
 	for (pp = &ecstrs; (p = *pp); ) {
-	    if (!(cmp = p->nfunc - ecnfunc) && !(cmp = (((signed)p->hashval) - ((signed)val))) && !(cmp = strcmp(p->str, s))) {
+	    if (!(cmp = p->nfunc - ecnfunc) && !(cmp = (((long)p->hashval) - ((long)val))) && !(cmp = strcmp(p->str, s))) {
 		return p->offs;
             }
 	    pp = (cmp < 0 ? &(p->left) : &(p->right));
@@ -1811,7 +1811,7 @@ par_simple(int *cmplx, int nr)
 	    for (ptr = str; *ptr; ptr++) {
 		/*
 		 * We can't treat this as "simple" if it contains
-		 * expansions that require process subsitution, since then
+		 * expansions that require process substitution, since then
 		 * we need process handling.
 		 */
 		if (ptr[1] == Inpar &&
@@ -1898,6 +1898,14 @@ par_simple(int *cmplx, int nr)
 			    nrediradd = par_redir(&r, idstring);
 			    p += nrediradd;
 			    sr += nrediradd;
+			}
+			else if (postassigns)
+			{
+			    /* C.f. normal case below */
+			    postassigns++;
+			    ecadd(WCB_ASSIGN(WC_ASSIGN_SCALAR, WC_ASSIGN_INC, 0));
+			    ecstr(toksave);
+			    ecstr("");	/* TBD can possibly optimise out */
 			}
 			else
 			{
@@ -2271,7 +2279,8 @@ par_redir(int *rp, char *idstring)
 void
 setheredoc(int pc, int type, char *str, char *termstr, char *munged_termstr)
 {
-    ecbuf[pc] = WCB_REDIR(type | REDIR_FROM_HEREDOC_MASK);
+    int varid = WC_REDIR_VARID(ecbuf[pc]) ? REDIR_VARID_MASK : 0;
+    ecbuf[pc] = WCB_REDIR(type | REDIR_FROM_HEREDOC_MASK | varid);
     ecbuf[pc + 2] = ecstrcode(str);
     ecbuf[pc + 3] = ecstrcode(termstr);
     ecbuf[pc + 4] = ecstrcode(munged_termstr);

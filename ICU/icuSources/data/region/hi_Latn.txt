@@ -5,5 +5,5 @@ hi_Latn{
     Countries{
         IN{"Bhaarat"}
     }
-    Version{"2.1.49.82"}
+    Version{"36.1"}
 }

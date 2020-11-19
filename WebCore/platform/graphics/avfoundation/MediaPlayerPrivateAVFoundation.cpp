@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2014 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +29,6 @@
 
 #include "MediaPlayerPrivateAVFoundation.h"
 
-#include "CustomHeaderFields.h"
 #include "DeprecatedGlobalSettings.h"
 #include "DocumentLoader.h"
 #include "FloatConversion.h"
@@ -894,11 +893,11 @@ void MediaPlayerPrivateAVFoundation::configureInbandTracks()
     // is hidden if none are showing. Otherwise disable all tracks.
     for (unsigned i = 0; i < m_textTracks.size(); ++i) {
         RefPtr<InbandTextTrackPrivateAVF> track = m_textTracks[i];
-        if (track->mode() == InbandTextTrackPrivate::Showing) {
+        if (track->mode() == InbandTextTrackPrivate::Mode::Showing) {
             trackToEnable = track;
             break;
         }
-        if (track->mode() == InbandTextTrackPrivate::Hidden)
+        if (track->mode() == InbandTextTrackPrivate::Mode::Hidden)
             trackToEnable = track;
     }
 
@@ -962,7 +961,7 @@ void MediaPlayerPrivateAVFoundation::processNewAndRemovedTextTracks(const Vector
 void MediaPlayerPrivateAVFoundation::playbackTargetIsWirelessChanged()
 {
     if (m_player)
-        m_player->currentPlaybackTargetIsWirelessChanged();
+        m_player->currentPlaybackTargetIsWirelessChanged(m_player->isCurrentPlaybackTargetWireless());
 }
 #endif
 

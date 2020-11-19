@@ -16,9 +16,7 @@
 
 -(id)init
 {
-    self = [super init];
-    if(self)
-    {
+    if ((self = [super init])) {
         self.retirees = [NSMutableSet set];
         self.fullPeerInfo = NULL;
         self.trustedCircle = NULL;
@@ -32,9 +30,7 @@
         departureCode:(enum DepartureReason)code peerExpansion:(NSMutableDictionary*)e
 {
 
-    self = [super init];
-    if(self)
-    {
+    if ((self = [super init])) {
         self.retirees = r;
         self.fullPeerInfo = fpi;
         self.trustedCircle = trusted_circle;

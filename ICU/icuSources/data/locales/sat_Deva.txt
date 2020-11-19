@@ -3,15 +3,15 @@
 sat_Deva{
     %%Parent{"root"}
     ExemplarCharacters{
-        "[\u093C \u0902 अ आ ई उ ए ओ क ग च ज ञ ट ड ण त द न प ब म य र ल व स ह \u093E"
-        "\u0940 \u0941 \u0947 \u094B]"
+        "[\u093C \u0902 अ आ ई उ ए ओ क ग च ज ञ ट ड ण त द न प ब म य र ल व स ह ा ी "
+        "\u0941 \u0947 ो]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0० 1१ 2२ 3३ 4४ 5५ 6६ 7७ 8८ 9९]"}
-    ExemplarCharactersPunctuation{"[\\- , ; \\: ! ? . ‘ ’ “ ” ( ) \\[ \\] \\{ \\} ॰]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0० 1१ 2२ 3३ 4४ 5५ 6६ 7७ 8८ 9९]"}
+    ExemplarCharactersPunctuation{"[\\- ‑ , ; \\: ! ? . ‘ ’ “ ” ( ) \\[ \\] \\{ \\} ॰]"}
     NumberElements{
         default{"deva"}
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     calendar{
         gregorian{
             DateTimePatterns{

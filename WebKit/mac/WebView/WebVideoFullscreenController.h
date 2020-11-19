@@ -26,20 +26,19 @@
 #if PLATFORM(MAC) && ENABLE(VIDEO)
 
 #import <AppKit/NSWindowController.h>
+#import <wtf/NakedPtr.h>
 #import <wtf/RefPtr.h>
 
 namespace WebCore {
 class HTMLVideoElement;
 }
 
-@class WebVideoFullscreenHUDWindowController;
 @class WebWindowFadeAnimation;
 
 @interface WebVideoFullscreenController : NSWindowController {
     RefPtr<WebCore::HTMLVideoElement> _videoElement;
 
     NSWindow *_backgroundFullscreenWindow; // (retain)
-    WebVideoFullscreenHUDWindowController *_hudController; // (retain)
 
     WebWindowFadeAnimation *_fadeAnimation; // (retain)
 
@@ -47,8 +46,8 @@ class HTMLVideoElement;
     BOOL _forceDisableAnimation;
 }
 
-- (void)setVideoElement:(WebCore::HTMLVideoElement *)videoElement;
-- (WebCore::HTMLVideoElement *)videoElement;
+- (void)setVideoElement:(NakedPtr<WebCore::HTMLVideoElement>)videoElement;
+- (NakedPtr<WebCore::HTMLVideoElement>)videoElement;
 
 - (void)enterFullscreen:(NSScreen *)screen;
 - (void)exitFullscreen;

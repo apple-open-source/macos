@@ -70,6 +70,8 @@
     [self saveFakeKeyHierarchyToLocalDatabase:self.manateeZoneID];
     [self saveTLKMaterialToKeychain:self.manateeZoneID];
 
+    [self startCKKSSubsystem];
+
     NSDictionary* piggyTLKs = [self SOSPiggyBackCopyFromKeychain];
 
     [self deleteTLKMaterialFromKeychain:self.manateeZoneID];
@@ -85,6 +87,8 @@
     [self putFakeKeyHierachiesInCloudKit];
     [self putFakeDeviceStatusesInCloudKit];
     [self saveTLKsToKeychain];
+
+    [self startCKKSSubsystem];
 
     NSDictionary* piggyTLKs = [self SOSPiggyBackCopyFromKeychain];
 
@@ -110,17 +114,6 @@
 
     [self.homeZoneKeys.tlk loadKeyMaterialFromKeychain:&error];
     XCTAssertNil(error, "No error loading Home tlk from piggy contents");
-}
-
--(NSString*)fileForStorage
-{
-    static dispatch_once_t onceToken;
-    static NSString *tempPath = NULL;
-    dispatch_once(&onceToken, ^{
-        tempPath = [[[[NSFileManager defaultManager] temporaryDirectory] URLByAppendingPathComponent:@"PiggyPacket"] path];
-
-    });
-    return tempPath;
 }
 
 -(void)testPiggybackingData{
@@ -154,8 +147,6 @@
     NSData *initial = SOSPiggyCreateInitialSyncData(icloudidentities, tlks);
 
     XCTAssertNotNil(initial, "Initial not set");
-    BOOL writeStatus = [initial writeToFile:[self fileForStorage] options:NSDataWritingAtomic error: nil];
-    XCTAssertTrue(writeStatus, "had trouble writing to disk");
     XCTAssertNotEqual((int)[initial length], 0, "initial sync data is greater than 0");
 
     /*
@@ -174,6 +165,44 @@
     NSArray *copiediCloudidentities = result[@"idents"];
     XCTAssertNotNil(copiediCloudidentities, "idents not set");
     XCTAssertEqual([copiediCloudidentities count], [icloudidentities count], "ident count not same");
+}
+
+
+- (void)testPiggybackingTLKRequest {
+    [self putFakeKeyHierachiesInCloudKit];
+    [self saveTLKsToKeychain];
+
+    for(CKRecordZoneID* zoneID in self.ckksZones) {
+        [self expectCKKSTLKSelfShareUpload:zoneID];
+    }
+    [self startCKKSSubsystem];
+    [self waitForKeyHierarchyReadinesses];
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    // The "tlk request" piggybacking session calls SOSAccountCopyInitialSyncData
+    __block CFErrorRef cferror = NULL;
+    NSData* piggybackingData = (NSData*) CFBridgingRelease(SOSAccountCopyInitialSyncData(nil, kSOSInitialSyncFlagTLKsRequestOnly, &cferror));
+
+    XCTAssertEqual(cferror, NULL, "Should have no error fetching only the TLKs");
+    XCTAssertNotNil(piggybackingData, "Should have received some sync data");
+
+    const uint8_t* der = [piggybackingData bytes];
+    const uint8_t *der_end = der + [piggybackingData length];
+
+    NSDictionary *result = SOSPiggyCopyInitialSyncData(&der, der_end);
+    XCTAssertNotNil(result, "Should be able to parse the piggybacking data");
+
+    NSArray *copiedTLKs = result[@"tlks"];
+    XCTAssertNotNil(copiedTLKs, "should have some tlks");
+    XCTAssertEqual([copiedTLKs count], 1u, "piggybacking should have gotten 1 TLK");
+    XCTAssertEqualObjects(copiedTLKs[0][@"srvr"], @"Passwords", "should have the passwords TLK only");
+    NSData* keyData = copiedTLKs[0][@"v_Data"];
+    XCTAssertNotNil(keyData, "Should have some key material");
+    XCTAssertEqual([keyData length], 64, "Key material should be 64 bytes");
+
+    NSArray *copiediCloudidentities = result[@"idents"];
+    XCTAssertNotNil(copiediCloudidentities, "idents not set");
+    XCTAssertEqual([copiediCloudidentities count], 0, "Should have no icloud identities");
 }
 
 -(void)testVerifyTLKSorting {
@@ -250,7 +279,7 @@
     
     // Verify that there are three local keys, and three local current key records
     __weak __typeof(self) weakSelf = self;
-    [self.manateeView dispatchSync: ^bool{
+    [self.manateeView dispatchSyncWithReadOnlySQLTransaction:^{
         __strong __typeof(weakSelf) strongSelf = weakSelf;
         XCTAssertNotNil(strongSelf, "self exists");
         
@@ -280,8 +309,6 @@
         XCTAssertEqual(errSecSuccess, SecItemCopyMatching((__bridge CFDictionaryRef)query, &result), "Found a syncable TLK");
         XCTAssertNotNil((__bridge id) result, "Received a result from SecItemCopyMatching");
         CFReleaseNull(result);
-        
-        return false;
     }];
 }
 

@@ -29,6 +29,10 @@
     }
     
     _event.eventData = (IOHIDEventData *)malloc(size);
+    if (_event.eventData == NULL) {
+        return nil;
+    }
+    
     bzero(_event.eventData, size);
     
     _event.timeStamp = timestamp;

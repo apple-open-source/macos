@@ -84,8 +84,18 @@ static bool xpc_dictionary_entry_is_type(xpc_object_t dictionary, const char *ke
     return value && (xpc_get_type(value) == type);
 }
 
+static void setSOSDisabledError(CFErrorRef *error) {
+    SecCFCreateErrorWithFormat(0, kSOSErrorDomain, NULL, error, NULL, CFSTR("SOS Disabled for this platform"));
+}
+
 SOSCCStatus SOSCCThisDeviceIsInCircle(CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return kSOSCCError;
+    }
+    
     SOSCCStatus retval = SOSGetCachedCircleStatus(error);
     if(retval != kSOSNoCachedValue) {
         secdebug("circleOps", "Retrieved cached circle value %d", retval);
@@ -97,6 +107,12 @@ SOSCCStatus SOSCCThisDeviceIsInCircle(CFErrorRef *error)
 
 SOSCCStatus SOSCCThisDeviceIsInCircleNonCached(CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return kSOSCCError;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(SOSCCStatus, ^{
         SOSCCStatus result = kSOSCCError;
@@ -126,20 +142,6 @@ SOSCCStatus SOSCCThisDeviceIsInCircleNonCached(CFErrorRef *error)
 
         return result;
     }, CFSTR("SOSCCStatus=%d"))
-}
-
-static bool sfsigninanalytics_bool_error_request(enum SecXPCOperation op, CFDataRef parentEvent, CFErrorRef* error)
-{
-    __block bool result = false;
-
-    secdebug("sosops","enter - operation: %d", op);
-    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        return SecXPCDictionarySetData(message, kSecXPCKeySignInAnalytics, parentEvent, error);
-    }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
-        result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
-        return result;
-    });
-    return result;
 }
 
 static bool simple_bool_error_request(enum SecXPCOperation op, CFErrorRef* error)
@@ -237,7 +239,7 @@ static CF_RETURNS_RETAINED CFArrayRef der_array_error_request(enum SecXPCOperati
     if (securityd_send_sync_and_do(op, error, NULL, ^bool(xpc_object_t response, CFErrorRef *error) {
         size_t length = 0;
         const uint8_t* bytes = xpc_dictionary_get_data(response, kSecXPCKeyResult, &length);
-        der_decode_plist(kCFAllocatorDefault, 0, (CFPropertyListRef*) &result, error, bytes, bytes + length);
+        der_decode_plist(kCFAllocatorDefault, (CFPropertyListRef*) &result, error, bytes, bytes + length);
 
         return result != NULL;
     })) {
@@ -447,24 +449,6 @@ static bool info_array_to_bool_error_request(enum SecXPCOperation op, CFArrayRef
     return result;
 }
 
-static bool info_array_data_to_bool_error_request(enum SecXPCOperation op, CFArrayRef peer_infos, CFDataRef parentEvent, CFErrorRef* error)
-{
-    __block bool result = false;
-
-    secdebug("sosops", "enter - operation: %d", op);
-    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        SecXPCDictionarySetData(message, kSecXPCKeySignInAnalytics, parentEvent, error);
-        xpc_object_t encoded_peers = CreateXPCObjectWithArrayOfPeerInfo(peer_infos, error);
-        if (encoded_peers)
-            xpc_dictionary_set_value(message, kSecXPCKeyPeerInfoArray, encoded_peers);
-        return encoded_peers != NULL;
-    }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
-        result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
-        return result;
-    });
-    return result;
-}
-
 static bool uint64_t_to_bool_error_request(enum SecXPCOperation op,
                                            uint64_t number,
                                            CFErrorRef* error)
@@ -534,6 +518,12 @@ static CFDataRef cfdata_error_request_returns_cfdata(enum SecXPCOperation op, CF
 
 bool SOSCCRequestToJoinCircle(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_RequestToJoinCircle, error);
@@ -542,18 +532,14 @@ bool SOSCCRequestToJoinCircle(CFErrorRef* error)
     }, NULL)
 }
 
-bool SOSCCRequestToJoinCircleWithAnalytics(CFDataRef parentEvent, CFErrorRef* error)
-{
-    sec_trace_enter_api(NULL);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_RequestToJoinCircleWithAnalytics, parentEvent, error);
-
-        return sfsigninanalytics_bool_error_request(kSecXPCOpRequestToJoinWithAnalytics, parentEvent, error);
-    }, NULL)
-}
-
 bool SOSCCRequestToJoinCircleAfterRestore(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_RequestToJoinCircleAfterRestore, error);
@@ -562,18 +548,14 @@ bool SOSCCRequestToJoinCircleAfterRestore(CFErrorRef* error)
     }, NULL)
 }
 
-bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics(CFDataRef parentEvent, CFErrorRef* error)
-{
-    sec_trace_enter_api(NULL);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_RequestToJoinCircleAfterRestoreWithAnalytics, parentEvent, error);
-
-        return sfsigninanalytics_bool_error_request(kSecXPCOpRequestToJoinAfterRestoreWithAnalytics, parentEvent, error);
-    }, NULL)
-}
-
 bool SOSCCAccountHasPublicKey(CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+    
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_AccountHasPublicKey, error);
@@ -583,18 +565,14 @@ bool SOSCCAccountHasPublicKey(CFErrorRef *error)
     
 }
 
-bool SOSCCWaitForInitialSyncWithAnalytics(CFDataRef parentEvent, CFErrorRef* error)
-{
-    sec_trace_enter_api(NULL);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_WaitForInitialSyncWithAnalytics, parentEvent, error);
-
-        return sfsigninanalytics_bool_error_request(kSecXPCOpWaitForInitialSyncWithAnalytics, parentEvent, error);
-    }, NULL)
-}
-
 bool SOSCCWaitForInitialSync(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_WaitForInitialSync, error);
@@ -605,6 +583,12 @@ bool SOSCCWaitForInitialSync(CFErrorRef* error)
 
 bool SOSCCAccountSetToNew(CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
 	secwarning("SOSCCAccountSetToNew called");
 	sec_trace_enter_api(NULL);
 	sec_trace_return_bool_api(^{
@@ -615,6 +599,12 @@ bool SOSCCAccountSetToNew(CFErrorRef *error)
 
 bool SOSCCResetToOffering(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secwarning("SOSCCResetToOffering called");
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
@@ -626,6 +616,12 @@ bool SOSCCResetToOffering(CFErrorRef* error)
 
 bool SOSCCResetToEmpty(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secwarning("SOSCCResetToEmpty called");
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
@@ -635,18 +631,14 @@ bool SOSCCResetToEmpty(CFErrorRef* error)
     }, NULL)
 }
 
-bool SOSCCResetToEmptyWithAnalytics(CFDataRef parentEvent, CFErrorRef* error)
-{
-    secwarning("SOSCCResetToEmptyWithAnalytics called");
-    sec_trace_enter_api(NULL);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_ResetToEmptyWithAnalytics, parentEvent, error);
-
-        return sfsigninanalytics_bool_error_request(kSecXPCOpResetToEmptyWithAnalytics, parentEvent, error);
-    }, NULL)
-}
 bool SOSCCRemovePeersFromCircle(CFArrayRef peers, CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_RemovePeersFromCircle, peers, error);
@@ -655,28 +647,14 @@ bool SOSCCRemovePeersFromCircle(CFArrayRef peers, CFErrorRef* error)
     }, NULL)
 }
 
-bool SOSCCRemovePeersFromCircleWithAnalytics(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error)
-{
-    sec_trace_enter_api(NULL);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_RemovePeersFromCircleWithAnalytics, peers, parentEvent, error);
-
-        return info_array_data_to_bool_error_request(kSecXPCOpRemovePeersFromCircleWithAnalytics, peers, parentEvent, error);
-    }, NULL)
-}
-
-bool SOSCCRemoveThisDeviceFromCircleWithAnalytics(CFDataRef parentEvent, CFErrorRef* error)
-{
-    sec_trace_enter_api(NULL);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_RemoveThisDeviceFromCircleWithAnalytics, parentEvent, error);
-
-        return sfsigninanalytics_bool_error_request(kSecXPCOpRemoveThisDeviceFromCircleWithAnalytics, parentEvent, error);
-    }, NULL)
-}
-
 bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_RemoveThisDeviceFromCircle, error);
@@ -685,8 +663,23 @@ bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error)
     }, NULL)
 }
 
+bool SOSCCLoggedIntoAccount(CFErrorRef* error) {
+    sec_trace_enter_api(NULL);
+    sec_trace_return_bool_api(^{
+        do_if_registered(soscc_LoggedIntoAccount, error);
+
+        return simple_bool_error_request(kSecXPCOpLoggedIntoAccount, error);
+    }, NULL)
+}
+
 bool SOSCCLoggedOutOfAccount(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_LoggedOutOfAccount, error);
@@ -697,6 +690,12 @@ bool SOSCCLoggedOutOfAccount(CFErrorRef* error)
 
 bool SOSCCBailFromCircle_BestEffort(uint64_t limit_in_seconds, CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_BailFromCircle, limit_in_seconds, error);
@@ -707,6 +706,12 @@ bool SOSCCBailFromCircle_BestEffort(uint64_t limit_in_seconds, CFErrorRef* error
 
 CFArrayRef SOSCCCopyPeerPeerInfo(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyPeerInfo, error);
@@ -717,6 +722,12 @@ CFArrayRef SOSCCCopyPeerPeerInfo(CFErrorRef* error)
 
 CFArrayRef SOSCCCopyConcurringPeerPeerInfo(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyConcurringPeerInfo, error);
@@ -727,6 +738,12 @@ CFArrayRef SOSCCCopyConcurringPeerPeerInfo(CFErrorRef* error)
 
 CFArrayRef SOSCCCopyGenerationPeerInfo(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyGenerationPeerInfo, error);
@@ -737,6 +754,12 @@ CFArrayRef SOSCCCopyGenerationPeerInfo(CFErrorRef* error)
 
 CFArrayRef SOSCCCopyApplicantPeerInfo(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyApplicantPeerInfo, error);
@@ -746,6 +769,12 @@ CFArrayRef SOSCCCopyApplicantPeerInfo(CFErrorRef* error)
 }
 
 bool SOSCCValidateUserPublic(CFErrorRef* error){
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(bool, ^{
         do_if_registered(soscc_ValidateUserPublic, error);
@@ -756,6 +785,12 @@ bool SOSCCValidateUserPublic(CFErrorRef* error){
 
 CFArrayRef SOSCCCopyValidPeerPeerInfo(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyValidPeerPeerInfo, error);
@@ -766,6 +801,12 @@ CFArrayRef SOSCCCopyValidPeerPeerInfo(CFErrorRef* error)
 
 CFArrayRef SOSCCCopyNotValidPeerPeerInfo(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyNotValidPeerPeerInfo, error);
@@ -776,7 +817,13 @@ CFArrayRef SOSCCCopyNotValidPeerPeerInfo(CFErrorRef* error)
 
 CFArrayRef SOSCCCopyRetirementPeerInfo(CFErrorRef* error)
 {
-    sec_trace_enter_api(NULL);
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
+   sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyRetirementPeerInfo, error);
 
@@ -786,6 +833,12 @@ CFArrayRef SOSCCCopyRetirementPeerInfo(CFErrorRef* error)
 
 CFArrayRef SOSCCCopyViewUnawarePeerInfo(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyViewUnawarePeerInfo, error);
@@ -796,6 +849,12 @@ CFArrayRef SOSCCCopyViewUnawarePeerInfo(CFErrorRef* error)
 
 SOSPeerInfoRef SOSCCCopyMyPeerInfo(CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(SOSPeerInfoRef, ^{
         do_if_registered(soscc_CopyMyPeerInfo, error);
@@ -806,6 +865,12 @@ SOSPeerInfoRef SOSCCCopyMyPeerInfo(CFErrorRef *error)
 
 static CFArrayRef SOSCCCopyEngineState(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFArrayRef, ^{
         do_if_registered(soscc_CopyEngineState, error);
@@ -821,6 +886,11 @@ CFStringRef kSOSCCEngineStateCoderKey = CFSTR("CoderDump");
 CFStringRef kSOSCCEngineStateManifestHashKey = CFSTR("ManifestHash");
 
 void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(CFStringRef oneStateString)) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        return;
+    }
+
 
     CFArrayForEach(states, ^(const void *value) {
         CFDictionaryRef dict = asDictionary(value, NULL);
@@ -868,6 +938,12 @@ void SOSCCForEachEngineStateAsStringFromArray(CFArrayRef states, void (^block)(C
 }
 
 bool SOSCCForEachEngineStateAsString(CFErrorRef* error, void (^block)(CFStringRef oneStateString)) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     CFArrayRef states = SOSCCCopyEngineState(error);
     if (states == NULL)
         return false;
@@ -882,6 +958,12 @@ bool SOSCCForEachEngineStateAsString(CFErrorRef* error, void (^block)(CFStringRe
 
 bool SOSCCAcceptApplicants(CFArrayRef applicants, CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_AcceptApplicants, applicants, error);
@@ -892,7 +974,13 @@ bool SOSCCAcceptApplicants(CFArrayRef applicants, CFErrorRef* error)
 
 bool SOSCCRejectApplicants(CFArrayRef applicants, CFErrorRef *error)
 {
-    sec_trace_enter_api(CFSTR("applicants=%@"), applicants);
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
+   sec_trace_enter_api(CFSTR("applicants=%@"), applicants);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_RejectApplicants, applicants, error);
         
@@ -911,6 +999,12 @@ static CF_RETURNS_RETAINED SOSPeerInfoRef SOSSetNewPublicBackupKey(CFDataRef pub
 }
 
 SOSPeerInfoRef SOSCCCopyMyPeerWithNewDeviceRecoverySecret(CFDataRef secret, CFErrorRef *error){
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     secnotice("devRecovery", "Enter SOSCCCopyMyPeerWithNewDeviceRecoverySecret()");
     CFDataRef publicKeyData = SOSCopyDeviceBackupPublicKey(secret, error);
     secnotice("devRecovery", "SOSCopyDeviceBackupPublicKey (%@)", publicKeyData);
@@ -921,6 +1015,12 @@ SOSPeerInfoRef SOSCCCopyMyPeerWithNewDeviceRecoverySecret(CFDataRef secret, CFEr
 }
 
 bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErrorRef *error){
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_RegisterSingleRecoverySecret, aks_bag, forV0Only, error);
@@ -930,7 +1030,13 @@ bool SOSCCRegisterSingleRecoverySecret(CFDataRef aks_bag, bool forV0Only, CFErro
 
 
 bool SOSCCRegisterRecoveryPublicKey(CFDataRef recovery_key, CFErrorRef *error){
-    sec_trace_enter_api(NULL);
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
+   sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
         bool retval = false;
         do_if_registered(soscc_RegisterRecoveryPublicKey, recovery_key, error);
@@ -941,6 +1047,12 @@ bool SOSCCRegisterRecoveryPublicKey(CFDataRef recovery_key, CFErrorRef *error){
 }
 
 CFDataRef SOSCCCopyRecoveryPublicKey(CFErrorRef *error){
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFDataRef, ^{
         do_if_registered(soscc_CopyRecoveryPublicKey, error);
@@ -969,7 +1081,7 @@ static bool label_and_password_to_bool_error_request(enum SecXPCOperation op,
 
 static bool label_and_password_and_dsid_to_bool_error_request(enum SecXPCOperation op,
                                                      CFStringRef user_label, CFDataRef user_password,
-                                                     CFStringRef dsid, CFDataRef parentEvent, CFErrorRef* error)
+                                                     CFStringRef dsid, CFErrorRef* error)
 {
     __block bool result = false;
     
@@ -981,9 +1093,6 @@ static bool label_and_password_and_dsid_to_bool_error_request(enum SecXPCOperati
             xpc_dictionary_set_string(message, kSecXPCKeyDSID, utr8StrDSID);
         });
         xpc_dictionary_set_data(message, kSecXPCKeyUserPassword, CFDataGetBytePtr(user_password), CFDataGetLength(user_password));
-        if(parentEvent){
-            SecXPCDictionarySetData(message, kSecXPCKeySignInAnalytics, parentEvent, error);
-        }
         return true;
     }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
         result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
@@ -995,12 +1104,24 @@ static bool label_and_password_and_dsid_to_bool_error_request(enum SecXPCOperati
 
 bool SOSCCRegisterUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error)
 {
-    secnotice("circleOps", "SOSCCRegisterUserCredentials - calling SOSCCSetUserCredentials for %@\n", user_label);
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
+   secnotice("circleOps", "SOSCCRegisterUserCredentials - calling SOSCCSetUserCredentials for %@\n", user_label);
     return SOSCCSetUserCredentials(user_label, user_password, error);
 }
 
 bool SOSCCSetUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secnotice("circleOps", "SOSCCSetUserCredentials for %@\n", user_label);
 	sec_trace_enter_api(CFSTR("user_label=%@"), user_label);
     sec_trace_return_bool_api(^{
@@ -1012,6 +1133,12 @@ bool SOSCCSetUserCredentials(CFStringRef user_label, CFDataRef user_password, CF
 
 bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secnotice("circleOps", "SOSCCSetUserCredentialsAndDSID for %@\n", user_label);
     sec_trace_enter_api(CFSTR("user_label=%@"), user_label);
     sec_trace_return_bool_api(^{
@@ -1026,30 +1153,7 @@ bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_passw
         if(account_dsid == NULL){
             account_dsid = CFSTR("");
         }
-        return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpSetUserCredentialsAndDSID, user_label, user_password, account_dsid, nil, error);
-    out:
-        return result;
-
-    }, NULL)
-}
-
-bool SOSCCSetUserCredentialsAndDSIDWithAnalytics(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFDataRef parentEvent, CFErrorRef *error)
-{
-    secnotice("circleOps", "SOSCCSetUserCredentialsAndDSIDWithAnalytics for %@\n", user_label);
-    sec_trace_enter_api(CFSTR("user_label=%@"), user_label);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_SetUserCredentialsAndDSIDWithAnalytics, user_label, user_password, dsid, parentEvent, error);
-
-        bool result = false;
-        __block CFStringRef account_dsid = dsid;
-
-        require_action_quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
-        require_action_quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
-
-        if(account_dsid == NULL){
-            account_dsid = CFSTR("");
-        }
-        return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpSetUserCredentialsAndDSIDWithAnalytics, user_label, user_password, account_dsid, parentEvent, error);
+        return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpSetUserCredentialsAndDSID, user_label, user_password, account_dsid, error);
     out:
         return result;
 
@@ -1070,7 +1174,7 @@ static bool SOSCCTryUserCredentialsAndDSID_internal(CFStringRef user_label, CFDa
             account_dsid = CFSTR("");
         }
         
-        return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpTryUserCredentials, user_label, user_password, account_dsid, nil, error);
+        return label_and_password_and_dsid_to_bool_error_request(kSecXPCOpTryUserCredentials, user_label, user_password, account_dsid, error);
     out:
         return result;
         
@@ -1080,6 +1184,12 @@ static bool SOSCCTryUserCredentialsAndDSID_internal(CFStringRef user_label, CFDa
 
 bool SOSCCTryUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secnotice("sosops", "SOSCCTryUserCredentialsAndDSID!! %@\n", user_label);
     require_action_quiet(user_label, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_label is nil")));
     require_action_quiet(user_password, out, SOSErrorCreate(kSOSErrorParam, error, NULL, CFSTR("user_password is nil")));
@@ -1090,11 +1200,23 @@ out:
 }
 
 bool SOSCCTryUserCredentials(CFStringRef user_label, CFDataRef user_password, CFErrorRef* error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     return SOSCCTryUserCredentialsAndDSID_internal(user_label, user_password, NULL, error);
 }
 
 
 bool SOSCCCanAuthenticate(CFErrorRef* error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
 	    do_if_registered(soscc_CanAuthenticate, error);
@@ -1104,6 +1226,12 @@ bool SOSCCCanAuthenticate(CFErrorRef* error) {
 }
 
 bool SOSCCPurgeUserCredentials(CFErrorRef* error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
 	    do_if_registered(soscc_PurgeUserCredentials, error);
@@ -1113,6 +1241,12 @@ bool SOSCCPurgeUserCredentials(CFErrorRef* error) {
 }
 
 enum DepartureReason SOSCCGetLastDepartureReason(CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return kSOSDepartureReasonError;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(enum DepartureReason, ^{
 	    do_if_registered(soscc_GetLastDepartureReason, error);
@@ -1122,6 +1256,12 @@ enum DepartureReason SOSCCGetLastDepartureReason(CFErrorRef *error) {
 }
 
 bool SOSCCSetLastDepartureReason(enum DepartureReason reason, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
 	sec_trace_enter_api(NULL);
 	sec_trace_return_api(bool, ^{
 		do_if_registered(soscc_SetLastDepartureReason, reason, error);
@@ -1138,6 +1278,12 @@ bool SOSCCSetLastDepartureReason(enum DepartureReason reason, CFErrorRef *error)
 }
 
 bool SOSCCProcessEnsurePeerRegistration(CFErrorRef* error){
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secnotice("updates", "enter SOSCCProcessEnsurePeerRegistration");
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
@@ -1150,6 +1296,12 @@ bool SOSCCProcessEnsurePeerRegistration(CFErrorRef* error){
 
 CFSetRef /* CFString */ SOSCCProcessSyncWithPeers(CFSetRef peers, CFSetRef backupPeers, CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFSetRef, ^{
         do_if_registered(soscc_ProcessSyncWithPeers, peers, backupPeers, error);
@@ -1161,6 +1313,12 @@ CFSetRef /* CFString */ SOSCCProcessSyncWithPeers(CFSetRef peers, CFSetRef backu
 
 SyncWithAllPeersReason SOSCCProcessSyncWithAllPeers(CFErrorRef* error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return kSyncWithAllPeersOtherFail;
+    }
+
     sec_trace_enter_api(NULL);
     sec_trace_return_api(SyncWithAllPeersReason, ^{
 	    do_if_registered(soscc_ProcessSyncWithAllPeers, error);
@@ -1228,6 +1386,12 @@ static int64_t name_action_to_code_request(enum SecXPCOperation op, uint16_t err
 }
 
 SOSViewResultCode SOSCCView(CFStringRef view, SOSViewActionCode actionCode, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return kSOSCCGeneralViewError;
+    }
+
     if(actionCode == kSOSCCViewQuery) {
         uint64_t circleStat = SOSGetCachedCircleBitmask();
         if(circleStat & CC_STATISVALID) {
@@ -1254,6 +1418,11 @@ SOSViewResultCode SOSCCView(CFStringRef view, SOSViewActionCode actionCode, CFEr
 
 
 bool SOSCCViewSet(CFSetRef enabledViews, CFSetRef disabledViews) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        return false;
+    }
+
     CFErrorRef *error = NULL;
     __block bool result = false;
 
@@ -1265,27 +1434,6 @@ bool SOSCCViewSet(CFSetRef enabledViews, CFSetRef disabledViews) {
             xpc_object_t disabledSetXpc = CreateXPCObjectWithCFSetRef(disabledViews, error);
             if (enabledSetXpc) xpc_dictionary_set_value(message, kSecXPCKeyEnabledViewsKey, enabledSetXpc);
             if (disabledSetXpc) xpc_dictionary_set_value(message, kSecXPCKeyDisabledViewsKey, disabledSetXpc);
-            return (enabledSetXpc != NULL) || (disabledSetXpc != NULL) ;
-        }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
-            result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
-            return result;
-        });
-    }, NULL)
-}
-
-bool SOSCCViewSetWithAnalytics(CFSetRef enabledViews, CFSetRef disabledViews, CFDataRef parentEvent) {
-    CFErrorRef *error = NULL;
-    __block bool result = false;
-
-    sec_trace_enter_api(NULL);
-    sec_trace_return_bool_api(^{
-        do_if_registered(soscc_ViewSetWithAnalytics, enabledViews, disabledViews, parentEvent);
-        return securityd_send_sync_and_do(kSecXPCOpViewSetWithAnalytics, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-            xpc_object_t enabledSetXpc = CreateXPCObjectWithCFSetRef(enabledViews, error);
-            xpc_object_t disabledSetXpc = CreateXPCObjectWithCFSetRef(disabledViews, error);
-            if (enabledSetXpc) xpc_dictionary_set_value(message, kSecXPCKeyEnabledViewsKey, enabledSetXpc);
-            if (disabledSetXpc) xpc_dictionary_set_value(message, kSecXPCKeyDisabledViewsKey, disabledSetXpc);
-            if(parentEvent) SecXPCDictionarySetData(message, kSecXPCKeySignInAnalytics, parentEvent, error);
             return (enabledSetXpc != NULL) || (disabledSetXpc != NULL) ;
         }, ^bool(xpc_object_t response, __unused CFErrorRef *error) {
             result = xpc_dictionary_get_bool(response, kSecXPCKeyResult);
@@ -1354,36 +1502,72 @@ static bool sosIsViewSetSyncing(size_t n, CFStringRef *views) {
 }
 
 bool SOSCCIsIcloudKeychainSyncing(void) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        return false;  // should we lie since CKKS is syncing - or forward?
+    }
+
     CFStringRef views[] = { kSOSViewWiFi, kSOSViewAutofillPasswords, kSOSViewSafariCreditCards, kSOSViewOtherSyncable };
     return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsSafariSyncing(void) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        return false;
+    }
+
     CFStringRef views[] = { kSOSViewAutofillPasswords, kSOSViewSafariCreditCards };
     return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsAppleTVSyncing(void) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        return false;
+    }
+
     CFStringRef views[] = { kSOSViewAppleTV };
     return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsHomeKitSyncing(void) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        return false;
+    }
+
     CFStringRef views[] = { kSOSViewHomeKit };
     return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsWiFiSyncing(void) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        return false;
+    }
+
     CFStringRef views[] = { kSOSViewWiFi };
     return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 bool SOSCCIsContinuityUnlockSyncing(void) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        return false;
+    }
+
     CFStringRef views[] = { kSOSViewContinuityUnlock };
     return sosIsViewSetSyncing(sizeof(views)/sizeof(views[0]), views);
 }
 
 SOSPeerInfoRef SOSCCCopyApplication(CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     secnotice("hsa2PB", "enter SOSCCCopyApplication applicant");
     sec_trace_enter_api(NULL);
     
@@ -1394,6 +1578,12 @@ SOSPeerInfoRef SOSCCCopyApplication(CFErrorRef *error) {
 }
 
 bool SOSCCCleanupKVSKeys(CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secnotice("cleanup-keys", "enter SOSCCCleanupKVSKeys");
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
@@ -1406,6 +1596,12 @@ bool SOSCCCleanupKVSKeys(CFErrorRef *error) {
 }
 
 CFDataRef SOSCCCopyCircleJoiningBlob(SOSPeerInfoRef applicant, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     secnotice("hsa2PB", "enter SOSCCCopyCircleJoiningBlob approver");
     sec_trace_enter_api(NULL);
 
@@ -1420,6 +1616,12 @@ CFDataRef SOSCCCopyCircleJoiningBlob(SOSPeerInfoRef applicant, CFErrorRef *error
 }
 
 CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return NULL;
+    }
+
     secnotice("circleJoin", "enter SOSCCCopyInitialSyncData approver");
     sec_trace_enter_api(NULL);
     
@@ -1430,6 +1632,12 @@ CFDataRef SOSCCCopyInitialSyncData(SOSInitialSyncFlags flags, CFErrorRef *error)
 }
 
 bool SOSCCJoinWithCircleJoiningBlob(CFDataRef joiningBlob, PiggyBackProtocolVersion version, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secnotice("hsa2PB", "enter SOSCCJoinWithCircleJoiningBlob applicant");
     sec_trace_enter_api(NULL);
     sec_trace_return_bool_api(^{
@@ -1440,6 +1648,12 @@ bool SOSCCJoinWithCircleJoiningBlob(CFDataRef joiningBlob, PiggyBackProtocolVers
 }
 
 CFBooleanRef SOSCCPeersHaveViewsEnabled(CFArrayRef viewNames, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return FALSE;
+    }
+
     secnotice("view-enabled", "enter SOSCCPeersHaveViewsEnabled");
     sec_trace_enter_api(NULL);
     sec_trace_return_api(CFBooleanRef, ^{
@@ -1450,6 +1664,12 @@ CFBooleanRef SOSCCPeersHaveViewsEnabled(CFArrayRef viewNames, CFErrorRef *error)
 }
 
 bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     secnotice("pending-check", "enter SOSCCMessageFromPeerIsPending");
 
     sec_trace_return_bool_api(^{
@@ -1461,6 +1681,12 @@ bool SOSCCMessageFromPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
 }
 
 bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return false;
+    }
+
     sec_trace_return_bool_api(^{
         do_if_registered(soscc_SOSCCSendToPeerIsPending, peer, error);
 
@@ -1505,6 +1731,12 @@ bool SOSCCSendToPeerIsPending(SOSPeerInfoRef peer, CFErrorRef *error) {
 static id<SOSControlProtocol>
 SOSCCGetStatusObject(CFErrorRef *error)
 {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(error);
+        return nil;
+    }
+
     if (gSecurityd && gSecurityd->soscc_status)
         return (__bridge id<SOSControlProtocol>)gSecurityd->soscc_status();
 
@@ -1519,6 +1751,11 @@ SOSCCGetStatusObject(CFErrorRef *error)
 
 static id<SOSControlProtocol>
 SOSCCGetSynchronousStatusObject(CFErrorRef *cferror) {
+    IF_SOS_DISABLED {
+        secdebug("circleOps", "SOS disabled for this platform");
+        setSOSDisabledError(cferror);
+        return nil;
+    }
     if (gSecurityd && gSecurityd->soscc_status)
         return (__bridge id<SOSControlProtocol>)gSecurityd->soscc_status();
     

@@ -89,4 +89,7 @@ int makepath( char *path);
 
 int racoon_validate_cfg_str (char *str_buf);
 
+/* return the pid of racoon process */
+pid_t racoon_pid(void);
+
 #endif

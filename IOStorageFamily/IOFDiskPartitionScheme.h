@@ -115,7 +115,7 @@ struct disk_blk0
  * Class
  */
 
-class IOFDiskPartitionScheme : public IOPartitionScheme
+class __exported IOFDiskPartitionScheme : public IOPartitionScheme
 {
     OSDeclareDefaultStructors(IOFDiskPartitionScheme);
 

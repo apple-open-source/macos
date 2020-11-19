@@ -28,23 +28,8 @@
 #include <utilities/der_plist_internal.h>
 #include <corecrypto/ccder.h>
 #include <stdlib.h>
-#include <assert.h>
 
 #include "SOSCircleDer.h"
-
-static const uint8_t* der_decode_mutable_dictionary(CFAllocatorRef allocator, CFOptionFlags mutability,
-                                                    CFMutableDictionaryRef* dictionary, CFErrorRef *error,
-                                                    const uint8_t* der, const uint8_t *der_end)
-{
-    CFDictionaryRef theDict;
-    const uint8_t* result = der_decode_dictionary(allocator, mutability, &theDict, error, der, der_end);
-    
-    if (result != NULL)
-        *dictionary = (CFMutableDictionaryRef)theDict;
-    
-    return result;
-}
-
 
 SOSCircleRef SOSCircleCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
                                     const uint8_t** der_p, const uint8_t *der_end) {
@@ -70,15 +55,17 @@ SOSCircleRef SOSCircleCreateFromDER(CFAllocatorRef allocator, CFErrorRef* error,
     require_action_quiet(version == kOnlyCompatibleVersion, fail,
                          SOSCreateError(kSOSErrorIncompatibleCircle, CFSTR("Bad Circle Version"), NULL, error));
     
-    *der_p = der_decode_string(allocator, 0, &cir->name, error, *der_p, sequence_end);
+    *der_p = der_decode_string(allocator, &cir->name, error, *der_p, sequence_end);
     cir->generation = SOSGenCountCreateFromDER(kCFAllocatorDefault, error, der_p, sequence_end);
     
     cir->peers = SOSPeerInfoSetCreateFromArrayDER(allocator, &kSOSPeerSetCallbacks, error, der_p, sequence_end);
     cir->applicants = SOSPeerInfoSetCreateFromArrayDER(allocator, &kSOSPeerSetCallbacks, error, der_p, sequence_end);
     cir->rejected_applicants = SOSPeerInfoSetCreateFromArrayDER(allocator, &kSOSPeerSetCallbacks, error, der_p, sequence_end);
     
-    *der_p = der_decode_mutable_dictionary(allocator, kCFPropertyListMutableContainersAndLeaves,
-                                           &cir->signatures, error, *der_p, sequence_end);
+    CFDictionaryRef tmp = NULL;
+    *der_p = der_decode_dictionary(allocator, &tmp, error, *der_p, sequence_end);
+    cir->signatures = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, tmp);
+    CFReleaseNull(tmp);
     
     require_action_quiet(*der_p == sequence_end, fail,
                          SOSCreateError(kSOSErrorBadFormat, CFSTR("Bad Circle DER"), (error != NULL) ? *error : NULL, error));
@@ -192,7 +179,7 @@ const uint8_t* der_decode_data_or_null(CFAllocatorRef allocator, CFDataRef* data
                                        const uint8_t* der, const uint8_t* der_end)
 {
     CFTypeRef value = NULL;
-    der = der_decode_plist(allocator, 0, &value, error, der, der_end);
+    der = der_decode_plist(allocator, &value, error, der, der_end);
     if (value && CFGetTypeID(value) != CFDataGetTypeID()) {
         CFReleaseNull(value);
     }

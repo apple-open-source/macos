@@ -67,6 +67,7 @@
 #include <dispatch/private.h>
 #include <os/assumes.h>
 #include <regex.h>
+#import <utilities/entitlements.h>
 
 
 namespace Security {
@@ -109,11 +110,7 @@ SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 	  mOuterScope(NULL), mResourceScope(NULL),
 	  mDesignatedReq(NULL), mGotResourceBase(false), mMonitor(NULL), mLimitedAsync(NULL),
 	  mFlags(flags), mNotarizationChecked(false), mStaplingChecked(false), mNotarizationDate(NAN)
-#if TARGET_OS_OSX
-    , mEvalDetails(NULL)
-#else
     , mTrustedSigningCertChain(false)
-#endif
 
 {
 	CODESIGN_STATIC_CREATE(this, rep);
@@ -126,7 +123,7 @@ SecStaticCode::SecStaticCode(DiskRep *rep, uint32_t flags)
 //
 // Clean up a SecStaticCode object
 //
-SecStaticCode::~SecStaticCode() throw()
+SecStaticCode::~SecStaticCode() _NOEXCEPT
 try {
 	::free(const_cast<Requirement *>(mDesignatedReq));
 	delete mResourcesValidContext;
@@ -361,9 +358,6 @@ void SecStaticCode::resetValidity()
 	mNotarizationChecked = false;
 	mStaplingChecked = false;
 	mNotarizationDate = NAN;
-#if TARGET_OS_OSX
-	mEvalDetails = NULL;
-#endif
 	mRep->flush();
 
 #if TARGET_OS_OSX
@@ -771,297 +765,292 @@ bool SecStaticCode::verifySignature()
 
 	DTRACK(CODESIGN_EVAL_STATIC_SIGNATURE, this, (char*)this->mainExecutablePath().c_str());
 #if TARGET_OS_OSX
-	// decode CMS and extract SecTrust for verification
-	CFRef<CMSDecoderRef> cms;
-	MacOSError::check(CMSDecoderCreate(&cms.aref())); // create decoder
-	CFDataRef sig = this->signature();
-	MacOSError::check(CMSDecoderUpdateMessage(cms, CFDataGetBytePtr(sig), CFDataGetLength(sig)));
-	this->codeDirectory();	// load CodeDirectory (sets mDir)
-	MacOSError::check(CMSDecoderSetDetachedContent(cms, mBaseDir));
-	MacOSError::check(CMSDecoderFinalizeMessage(cms));
-	MacOSError::check(CMSDecoderSetSearchKeychain(cms, cfEmptyArray()));
-	CFRef<CFArrayRef> vf_policies(createVerificationPolicies());
-	CFRef<CFArrayRef> ts_policies(createTimeStampingAndRevocationPolicies());
+	if (!(mValidationFlags & kSecCSApplyEmbeddedPolicy)) {
+		// decode CMS and extract SecTrust for verification
+		CFRef<CMSDecoderRef> cms;
+		MacOSError::check(CMSDecoderCreate(&cms.aref())); // create decoder
+		CFDataRef sig = this->signature();
+		MacOSError::check(CMSDecoderUpdateMessage(cms, CFDataGetBytePtr(sig), CFDataGetLength(sig)));
+		this->codeDirectory();	// load CodeDirectory (sets mDir)
+		MacOSError::check(CMSDecoderSetDetachedContent(cms, mBaseDir));
+		MacOSError::check(CMSDecoderFinalizeMessage(cms));
+		MacOSError::check(CMSDecoderSetSearchKeychain(cms, cfEmptyArray()));
+		CFRef<CFArrayRef> vf_policies(createVerificationPolicies());
+		CFRef<CFArrayRef> ts_policies(createTimeStampingAndRevocationPolicies());
 
-	CMSSignerStatus status;
-	MacOSError::check(CMSDecoderCopySignerStatus(cms, 0, vf_policies,
-				false, &status, &mTrust.aref(), NULL));
+		CMSSignerStatus status;
+		MacOSError::check(CMSDecoderCopySignerStatus(cms, 0, vf_policies,
+					false, &status, &mTrust.aref(), NULL));
 
-	if (status != kCMSSignerValid) {
-		const char *reason;
-		switch (status) {
-			case kCMSSignerUnsigned: reason="kCMSSignerUnsigned"; break;
-			case kCMSSignerNeedsDetachedContent: reason="kCMSSignerNeedsDetachedContent"; break;
-			case kCMSSignerInvalidSignature: reason="kCMSSignerInvalidSignature"; break;
-			case kCMSSignerInvalidCert: reason="kCMSSignerInvalidCert"; break;
-			case kCMSSignerInvalidIndex: reason="kCMSSignerInvalidIndex"; break;
-			default: reason="unknown"; break;
+		if (status != kCMSSignerValid) {
+			const char *reason;
+			switch (status) {
+				case kCMSSignerUnsigned: reason="kCMSSignerUnsigned"; break;
+				case kCMSSignerNeedsDetachedContent: reason="kCMSSignerNeedsDetachedContent"; break;
+				case kCMSSignerInvalidSignature: reason="kCMSSignerInvalidSignature"; break;
+				case kCMSSignerInvalidCert: reason="kCMSSignerInvalidCert"; break;
+				case kCMSSignerInvalidIndex: reason="kCMSSignerInvalidIndex"; break;
+				default: reason="unknown"; break;
+			}
+			Security::Syslog::error("CMSDecoderCopySignerStatus failed with %s error (%d)",
+									reason, (int)status);
+			MacOSError::throwMe(errSecCSSignatureFailed);
 		}
-		Security::Syslog::error("CMSDecoderCopySignerStatus failed with %s error (%d)",
-								reason, (int)status);
-		MacOSError::throwMe(errSecCSSignatureFailed);
-	}
 
-	// retrieve auxiliary v1 data bag and verify against current state
-	CFRef<CFDataRef> hashAgilityV1;
-	switch (OSStatus rc = CMSDecoderCopySignerAppleCodesigningHashAgility(cms, 0, &hashAgilityV1.aref())) {
-	case noErr:
-		if (hashAgilityV1) {
-			CFRef<CFDictionaryRef> hashDict = makeCFDictionaryFrom(hashAgilityV1);
-			CFArrayRef cdList = CFArrayRef(CFDictionaryGetValue(hashDict, CFSTR("cdhashes")));
-			CFArrayRef myCdList = this->cdHashes();
-
-			/* Note that this is not very "agile": There's no way to calculate the exact
-			 * list for comparison if it contains hash algorithms we don't know yet... */
-			if (cdList == NULL || !CFEqual(cdList, myCdList))
-				MacOSError::throwMe(errSecCSSignatureFailed);
-		}
-		break;
-	case -1:	/* CMS used to return this for "no attribute found", so tolerate it. Now returning noErr/NULL */
-		break;
-	default:
-		MacOSError::throwMe(rc);
-	}
-
-	// retrieve auxiliary v2 data bag and verify against current state
-	CFRef<CFDictionaryRef> hashAgilityV2;
-	switch (OSStatus rc = CMSDecoderCopySignerAppleCodesigningHashAgilityV2(cms, 0, &hashAgilityV2.aref())) {
+		// retrieve auxiliary v1 data bag and verify against current state
+		CFRef<CFDataRef> hashAgilityV1;
+		switch (OSStatus rc = CMSDecoderCopySignerAppleCodesigningHashAgility(cms, 0, &hashAgilityV1.aref())) {
 		case noErr:
-			if (hashAgilityV2) {
-				/* Require number of code directoris and entries in the hash agility
-				 * dict to be the same size (no stripping out code directories).
-				 */
-				if (CFDictionaryGetCount(hashAgilityV2) != mCodeDirectories.size()) {
+			if (hashAgilityV1) {
+				CFRef<CFDictionaryRef> hashDict = makeCFDictionaryFrom(hashAgilityV1);
+				CFArrayRef cdList = CFArrayRef(CFDictionaryGetValue(hashDict, CFSTR("cdhashes")));
+				CFArrayRef myCdList = this->cdHashes();
+
+				/* Note that this is not very "agile": There's no way to calculate the exact
+				 * list for comparison if it contains hash algorithms we don't know yet... */
+				if (cdList == NULL || !CFEqual(cdList, myCdList))
 					MacOSError::throwMe(errSecCSSignatureFailed);
-				}
-
-				/* Require every cdhash of every code directory whose hash
-				 * algorithm we know to be in the agility dictionary.
-				 *
-				 * We check untruncated cdhashes here because we can.
-				 */
-				bool foundOurs = false;
-				for (auto& entry : mCodeDirectories) {
-					SECOidTag tag = CodeDirectorySet::SECOidTagForAlgorithm(entry.first);
-
-					if (tag == SEC_OID_UNKNOWN) {
-						// Unknown hash algorithm, ignore.
-						continue;
-					}
-
-					CFRef<CFNumberRef> key = makeCFNumber(int(tag));
-					CFRef<CFDataRef> entryCdhash;
-					entryCdhash = (CFDataRef)CFDictionaryGetValue(hashAgilityV2, (void*)key.get());
-
-					CodeDirectory const *cd = (CodeDirectory const*)CFDataGetBytePtr(entry.second);
-					CFRef<CFDataRef> ourCdhash = cd->cdhash(false); // Untruncated cdhash!
-					if (!CFEqual(entryCdhash, ourCdhash)) {
-						MacOSError::throwMe(errSecCSSignatureFailed);
-					}
-
-					if (entry.first == this->hashAlgorithm()) {
-						foundOurs = true;
-					}
-				}
-
-				/* Require the cdhash of our chosen code directory to be in the dictionary.
-				 * In theory, the dictionary could be full of unsupported cdhashes, but we
-				 * really want ours, which is bound to be supported, to be covered.
-				 */
-				if (!foundOurs) {
-					MacOSError::throwMe(errSecCSSignatureFailed);
-				}
 			}
 			break;
 		case -1:	/* CMS used to return this for "no attribute found", so tolerate it. Now returning noErr/NULL */
 			break;
 		default:
 			MacOSError::throwMe(rc);
-	}
+		}
 
-	// internal signing time (as specified by the signer; optional)
-	mSigningTime = 0;       // "not present" marker (nobody could code sign on Jan 1, 2001 :-)
-	switch (OSStatus rc = CMSDecoderCopySignerSigningTime(cms, 0, &mSigningTime)) {
-	case errSecSuccess:
-	case errSecSigningTimeMissing:
-		break;
-	default:
-		Security::Syslog::error("Could not get signing time (error %d)", (int)rc);
-		MacOSError::throwMe(rc);
-	}
+		// retrieve auxiliary v2 data bag and verify against current state
+		CFRef<CFDictionaryRef> hashAgilityV2;
+		switch (OSStatus rc = CMSDecoderCopySignerAppleCodesigningHashAgilityV2(cms, 0, &hashAgilityV2.aref())) {
+			case noErr:
+				if (hashAgilityV2) {
+					/* Require number of code directoris and entries in the hash agility
+					 * dict to be the same size (no stripping out code directories).
+					 */
+					if (CFDictionaryGetCount(hashAgilityV2) != mCodeDirectories.size()) {
+						MacOSError::throwMe(errSecCSSignatureFailed);
+					}
 
-	// certified signing time (as specified by a TSA; optional)
-	mSigningTimestamp = 0;
-	switch (OSStatus rc = CMSDecoderCopySignerTimestampWithPolicy(cms, ts_policies, 0, &mSigningTimestamp)) {
-	case errSecSuccess:
-	case errSecTimestampMissing:
-		break;
-	default:
-		Security::Syslog::error("Could not get timestamp (error %d)", (int)rc);
-		MacOSError::throwMe(rc);
-	}
+					/* Require every cdhash of every code directory whose hash
+					 * algorithm we know to be in the agility dictionary.
+					 *
+					 * We check untruncated cdhashes here because we can.
+					 */
+					bool foundOurs = false;
+					for (auto& entry : mCodeDirectories) {
+						SECOidTag tag = CodeDirectorySet::SECOidTagForAlgorithm(entry.first);
 
-	// set up the environment for SecTrust
-    if (mValidationFlags & kSecCSNoNetworkAccess) {
-        MacOSError::check(SecTrustSetNetworkFetchAllowed(mTrust,false)); // no network?
-    }
-    MacOSError::check(SecTrustSetKeychainsAllowed(mTrust, false));
+						if (tag == SEC_OID_UNKNOWN) {
+							// Unknown hash algorithm, ignore.
+							continue;
+						}
 
-	CSSM_APPLE_TP_ACTION_DATA actionData = {
-		CSSM_APPLE_TP_ACTION_VERSION,	// version of data structure
-		0	// action flags
-	};
+						CFRef<CFNumberRef> key = makeCFNumber(int(tag));
+						CFRef<CFDataRef> entryCdhash;
+						entryCdhash = (CFDataRef)CFDictionaryGetValue(hashAgilityV2, (void*)key.get());
 
-	if (!(mValidationFlags & kSecCSCheckTrustedAnchors)) {
-		/* no need to evaluate anchor trust when building cert chain */
-		MacOSError::check(SecTrustSetAnchorCertificates(mTrust, cfEmptyArray())); // no anchors
-		actionData.ActionFlags |= CSSM_TP_ACTION_IMPLICIT_ANCHORS;	// action flags
-	}
+						CodeDirectory const *cd = (CodeDirectory const*)CFDataGetBytePtr(entry.second);
+						CFRef<CFDataRef> ourCdhash = cd->cdhash(false); // Untruncated cdhash!
+						if (!CFEqual(entryCdhash, ourCdhash)) {
+							MacOSError::throwMe(errSecCSSignatureFailed);
+						}
 
-	for (;;) {	// at most twice
-		MacOSError::check(SecTrustSetParameters(mTrust,
-			CSSM_TP_ACTION_DEFAULT, CFTempData(&actionData, sizeof(actionData))));
+						if (entry.first == this->hashAlgorithm()) {
+							foundOurs = true;
+						}
+					}
 
-		// evaluate trust and extract results
+					/* Require the cdhash of our chosen code directory to be in the dictionary.
+					 * In theory, the dictionary could be full of unsupported cdhashes, but we
+					 * really want ours, which is bound to be supported, to be covered.
+					 */
+					if (!foundOurs) {
+						MacOSError::throwMe(errSecCSSignatureFailed);
+					}
+				}
+				break;
+			case -1:	/* CMS used to return this for "no attribute found", so tolerate it. Now returning noErr/NULL */
+				break;
+			default:
+				MacOSError::throwMe(rc);
+		}
+
+		// internal signing time (as specified by the signer; optional)
+		mSigningTime = 0;       // "not present" marker (nobody could code sign on Jan 1, 2001 :-)
+		switch (OSStatus rc = CMSDecoderCopySignerSigningTime(cms, 0, &mSigningTime)) {
+		case errSecSuccess:
+		case errSecSigningTimeMissing:
+			break;
+		default:
+			Security::Syslog::error("Could not get signing time (error %d)", (int)rc);
+			MacOSError::throwMe(rc);
+		}
+
+		// certified signing time (as specified by a TSA; optional)
+		mSigningTimestamp = 0;
+		switch (OSStatus rc = CMSDecoderCopySignerTimestampWithPolicy(cms, ts_policies, 0, &mSigningTimestamp)) {
+		case errSecSuccess:
+		case errSecTimestampMissing:
+			break;
+		default:
+			Security::Syslog::error("Could not get timestamp (error %d)", (int)rc);
+			MacOSError::throwMe(rc);
+		}
+
+		// set up the environment for SecTrust
+		if (mValidationFlags & kSecCSNoNetworkAccess) {
+			MacOSError::check(SecTrustSetNetworkFetchAllowed(mTrust,false)); // no network?
+		}
+		MacOSError::check(SecTrustSetKeychainsAllowed(mTrust, false));
+
+		CSSM_APPLE_TP_ACTION_DATA actionData = {
+			CSSM_APPLE_TP_ACTION_VERSION,	// version of data structure
+			0	// action flags
+		};
+
+		if (!(mValidationFlags & kSecCSCheckTrustedAnchors)) {
+			/* no need to evaluate anchor trust when building cert chain */
+			MacOSError::check(SecTrustSetAnchorCertificates(mTrust, cfEmptyArray())); // no anchors
+			actionData.ActionFlags |= CSSM_TP_ACTION_IMPLICIT_ANCHORS;	// action flags
+		}
+
+		for (;;) {	// at most twice
+			MacOSError::check(SecTrustSetParameters(mTrust,
+				CSSM_TP_ACTION_DEFAULT, CFTempData(&actionData, sizeof(actionData))));
+
+			// evaluate trust and extract results
+			SecTrustResultType trustResult;
+			MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
+			mCertChain.take(copyCertChain(mTrust));
+
+			// if this is an Apple developer cert....
+			if (teamID() && SecStaticCode::isAppleDeveloperCert(mCertChain)) {
+				CFRef<CFStringRef> teamIDFromCert;
+				if (CFArrayGetCount(mCertChain) > 0) {
+					SecCertificateRef leaf = (SecCertificateRef)CFArrayGetValueAtIndex(mCertChain, Requirement::leafCert);
+					CFArrayRef organizationalUnits = SecCertificateCopyOrganizationalUnit(leaf);
+					if (organizationalUnits) {
+						teamIDFromCert.take((CFStringRef)CFRetain(CFArrayGetValueAtIndex(organizationalUnits, 0)));
+						CFRelease(organizationalUnits);
+					} else {
+						teamIDFromCert = NULL;
+					}
+
+					if (teamIDFromCert) {
+						CFRef<CFStringRef> teamIDFromCD = CFStringCreateWithCString(NULL, teamID(), kCFStringEncodingUTF8);
+						if (!teamIDFromCD) {
+							Security::Syslog::error("Could not get team identifier (%s)", teamID());
+							MacOSError::throwMe(errSecCSInvalidTeamIdentifier);
+						}
+
+						if (CFStringCompare(teamIDFromCert, teamIDFromCD, 0) != kCFCompareEqualTo) {
+							Security::Syslog::error("Team identifier in the signing certificate (%s) does not match the team identifier (%s) in the code directory",
+													cfString(teamIDFromCert).c_str(), teamID());
+							MacOSError::throwMe(errSecCSBadTeamIdentifier);
+						}
+					}
+				}
+			}
+
+			CODESIGN_EVAL_STATIC_SIGNATURE_RESULT(this, trustResult, mCertChain ? (int)CFArrayGetCount(mCertChain) : 0);
+			switch (trustResult) {
+			case kSecTrustResultProceed:
+			case kSecTrustResultUnspecified:
+				break;				// success
+			case kSecTrustResultDeny:
+				MacOSError::throwMe(CSSMERR_APPLETP_TRUST_SETTING_DENY);	// user reject
+			case kSecTrustResultInvalid:
+				assert(false);		// should never happen
+				MacOSError::throwMe(CSSMERR_TP_NOT_TRUSTED);
+			default:
+				{
+					OSStatus result;
+					MacOSError::check(SecTrustGetCssmResultCode(mTrust, &result));
+					// if we have a valid timestamp, CMS validates against (that) signing time and all is well.
+					// If we don't have one, may validate against *now*, and must be able to tolerate expiration.
+					if (mSigningTimestamp == 0) { // no timestamp available
+						if (((result == CSSMERR_TP_CERT_EXPIRED) || (result == CSSMERR_TP_CERT_NOT_VALID_YET))
+								&& !(actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED)) {
+							CODESIGN_EVAL_STATIC_SIGNATURE_EXPIRED(this);
+							actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED; // (this also allows postdated certs)
+							continue;		// retry validation while tolerating expiration
+						}
+					}
+					if (checkfix41082220(result)) {
+						break; // success
+					}
+					Security::Syslog::error("SecStaticCode: verification failed (trust result %d, error %d)", trustResult, (int)result);
+					MacOSError::throwMe(result);
+				}
+			}
+
+			if (mSigningTimestamp) {
+				CFIndex rootix = CFArrayGetCount(mCertChain);
+				if (SecCertificateRef mainRoot = SecCertificateRef(CFArrayGetValueAtIndex(mCertChain, rootix-1)))
+					if (isAppleCA(mainRoot)) {
+						// impose policy: if the signature itself draws to Apple, then so must the timestamp signature
+						CFRef<CFArrayRef> tsCerts;
+						OSStatus result = CMSDecoderCopySignerTimestampCertificates(cms, 0, &tsCerts.aref());
+						if (result) {
+							Security::Syslog::error("SecStaticCode: could not get timestamp certificates (error %d)", (int)result);
+							MacOSError::check(result);
+						}
+						CFIndex tsn = CFArrayGetCount(tsCerts);
+						bool good = tsn > 0 && isAppleCA(SecCertificateRef(CFArrayGetValueAtIndex(tsCerts, tsn-1)));
+						if (!good) {
+							result = CSSMERR_TP_NOT_TRUSTED;
+							Security::Syslog::error("SecStaticCode: timestamp policy verification failed (error %d)", (int)result);
+							MacOSError::throwMe(result);
+						}
+					}
+			}
+
+			return actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED;
+		}
+
+	} else
+#endif
+	{
+		// Do some pre-verification initialization
+		CFDataRef sig = this->signature();
+		this->codeDirectory();	// load CodeDirectory (sets mDir)
+		mSigningTime = 0;	// "not present" marker (nobody could code sign on Jan 1, 2001 :-)
+
+		CFRef<CFDictionaryRef> attrs;
+		CFRef<CFArrayRef> vf_policies(createVerificationPolicies());
+
+		// Verify the CMS signature against mBaseDir (SHA1)
+		MacOSError::check(SecCMSVerifyCopyDataAndAttributes(sig, mBaseDir, vf_policies, &mTrust.aref(), NULL, &attrs.aref()));
+
+		// Copy the signing time
+		mSigningTime = SecTrustGetVerifyTime(mTrust);
+
+		// Validate the cert chain
 		SecTrustResultType trustResult;
 		MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
-		MacOSError::check(SecTrustGetResult(mTrust, &trustResult, &mCertChain.aref(), &mEvalDetails));
 
-		// if this is an Apple developer cert....
-		if (teamID() && SecStaticCode::isAppleDeveloperCert(mCertChain)) {
-			CFRef<CFStringRef> teamIDFromCert;
-			if (CFArrayGetCount(mCertChain) > 0) {
-				/* Note that SecCertificateCopySubjectComponent sets the out parameter to NULL if there is no field present */
-				MacOSError::check(SecCertificateCopySubjectComponent((SecCertificateRef)CFArrayGetValueAtIndex(mCertChain, Requirement::leafCert),
-																	 &CSSMOID_OrganizationalUnitName,
-																	 &teamIDFromCert.aref()));
-
-				if (teamIDFromCert) {
-					CFRef<CFStringRef> teamIDFromCD = CFStringCreateWithCString(NULL, teamID(), kCFStringEncodingUTF8);
-					if (!teamIDFromCD) {
-						Security::Syslog::error("Could not get team identifier (%s)", teamID());
-						MacOSError::throwMe(errSecCSInvalidTeamIdentifier);
-					}
-
-					if (CFStringCompare(teamIDFromCert, teamIDFromCD, 0) != kCFCompareEqualTo) {
-						Security::Syslog::error("Team identifier in the signing certificate (%s) does not match the team identifier (%s) in the code directory",
-												cfString(teamIDFromCert).c_str(), teamID());
-						MacOSError::throwMe(errSecCSBadTeamIdentifier);
-					}
-				}
-			}
+		// retrieve auxiliary data bag and verify against current state
+		CFRef<CFDataRef> hashBag;
+		hashBag = CFDataRef(CFDictionaryGetValue(attrs, kSecCMSHashAgility));
+		if (hashBag) {
+			CFRef<CFDictionaryRef> hashDict = makeCFDictionaryFrom(hashBag);
+			CFArrayRef cdList = CFArrayRef(CFDictionaryGetValue(hashDict, CFSTR("cdhashes")));
+			CFArrayRef myCdList = this->cdHashes();
+			if (cdList == NULL || !CFEqual(cdList, myCdList))
+				MacOSError::throwMe(errSecCSSignatureFailed);
 		}
 
-		CODESIGN_EVAL_STATIC_SIGNATURE_RESULT(this, trustResult, mCertChain ? (int)CFArrayGetCount(mCertChain) : 0);
-		switch (trustResult) {
-		case kSecTrustResultProceed:
-		case kSecTrustResultUnspecified:
-			break;				// success
-		case kSecTrustResultDeny:
-			MacOSError::throwMe(CSSMERR_APPLETP_TRUST_SETTING_DENY);	// user reject
-		case kSecTrustResultInvalid:
-			assert(false);		// should never happen
-			MacOSError::throwMe(CSSMERR_TP_NOT_TRUSTED);
-		default:
-			{
-				OSStatus result;
-				MacOSError::check(SecTrustGetCssmResultCode(mTrust, &result));
-				// if we have a valid timestamp, CMS validates against (that) signing time and all is well.
-				// If we don't have one, may validate against *now*, and must be able to tolerate expiration.
-				if (mSigningTimestamp == 0) { // no timestamp available
-					if (((result == CSSMERR_TP_CERT_EXPIRED) || (result == CSSMERR_TP_CERT_NOT_VALID_YET))
-							&& !(actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED)) {
-						CODESIGN_EVAL_STATIC_SIGNATURE_EXPIRED(this);
-						actionData.ActionFlags |= CSSM_TP_ACTION_ALLOW_EXPIRED; // (this also allows postdated certs)
-						continue;		// retry validation while tolerating expiration
-					}
-				}
-				if (checkfix41082220(result)) {
-					break; // success
-				}
-				Security::Syslog::error("SecStaticCode: verification failed (trust result %d, error %d)", trustResult, (int)result);
-				MacOSError::throwMe(result);
-			}
-		}
+		/*
+		 * Populate mCertChain with the certs.  If we failed validation, the
+		 * signer's cert will be checked installed provisioning profiles as an
+		 * alternative to verification against the policy for store-signed binaries
+		 */
+		mCertChain.take(copyCertChain(mTrust));
 
-		if (mSigningTimestamp) {
-			CFIndex rootix = CFArrayGetCount(mCertChain);
-			if (SecCertificateRef mainRoot = SecCertificateRef(CFArrayGetValueAtIndex(mCertChain, rootix-1)))
-				if (isAppleCA(mainRoot)) {
-					// impose policy: if the signature itself draws to Apple, then so must the timestamp signature
-					CFRef<CFArrayRef> tsCerts;
-					OSStatus result = CMSDecoderCopySignerTimestampCertificates(cms, 0, &tsCerts.aref());
-					if (result) {
-						Security::Syslog::error("SecStaticCode: could not get timestamp certificates (error %d)", (int)result);
-						MacOSError::check(result);
-					}
-					CFIndex tsn = CFArrayGetCount(tsCerts);
-					bool good = tsn > 0 && isAppleCA(SecCertificateRef(CFArrayGetValueAtIndex(tsCerts, tsn-1)));
-					if (!good) {
-						result = CSSMERR_TP_NOT_TRUSTED;
-						Security::Syslog::error("SecStaticCode: timestamp policy verification failed (error %d)", (int)result);
-						MacOSError::throwMe(result);
-					}
-				}
-		}
+		// Did we implicitly trust the signer?
+		mTrustedSigningCertChain = (trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed);
 
-		return actionData.ActionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED;
+		return false; // XXX: Not checking for expired certs
 	}
-#else
-    // Do some pre-verification initialization
-    CFDataRef sig = this->signature();
-    this->codeDirectory();	// load CodeDirectory (sets mDir)
-    mSigningTime = 0;	// "not present" marker (nobody could code sign on Jan 1, 2001 :-)
-
-    CFRef<CFDictionaryRef> attrs;
-	CFRef<CFArrayRef> vf_policies(createVerificationPolicies());
-
-    // Verify the CMS signature against mBaseDir (SHA1)
-    MacOSError::check(SecCMSVerifyCopyDataAndAttributes(sig, mBaseDir, vf_policies, &mTrust.aref(), NULL, &attrs.aref()));
-
-    // Copy the signing time
-    mSigningTime = SecTrustGetVerifyTime(mTrust);
-
-    // Validate the cert chain
-    SecTrustResultType trustResult;
-    MacOSError::check(SecTrustEvaluate(mTrust, &trustResult));
-
-    // retrieve auxiliary data bag and verify against current state
-    CFRef<CFDataRef> hashBag;
-    hashBag = CFDataRef(CFDictionaryGetValue(attrs, kSecCMSHashAgility));
-    if (hashBag) {
-        CFRef<CFDictionaryRef> hashDict = makeCFDictionaryFrom(hashBag);
-        CFArrayRef cdList = CFArrayRef(CFDictionaryGetValue(hashDict, CFSTR("cdhashes")));
-        CFArrayRef myCdList = this->cdHashes();
-        if (cdList == NULL || !CFEqual(cdList, myCdList))
-            MacOSError::throwMe(errSecCSSignatureFailed);
-    }
-
-    /*
-     * Populate mCertChain with the certs.  If we failed validation, the
-     * signer's cert will be checked installed provisioning profiles as an
-     * alternative to verification against the policy for store-signed binaries
-     */
-    SecCertificateRef leafCert = SecTrustGetCertificateAtIndex(mTrust, 0);
-    if (leafCert != NULL) {
-        CFIndex count = SecTrustGetCertificateCount(mTrust);
-
-        CFMutableArrayRef certs = CFArrayCreateMutable(kCFAllocatorDefault, count,
-                                                       &kCFTypeArrayCallBacks);
-
-        CFArrayAppendValue(certs, leafCert);
-        for (CFIndex i = 1; i < count; ++i) {
-            CFArrayAppendValue(certs, SecTrustGetCertificateAtIndex(mTrust, i));
-        }
-        
-        mCertChain.take((CFArrayRef)certs);
-    }
-    
-    // Did we implicitly trust the signer?
-    mTrustedSigningCertChain = (trustResult == kSecTrustResultUnspecified || trustResult == kSecTrustResultProceed);
-
-    return false; // XXX: Not checking for expired certs
-#endif
 }
 
 #if TARGET_OS_OSX
@@ -1084,6 +1073,11 @@ CFArrayRef SecStaticCode::createVerificationPolicies()
 		return makeCFArray(1, ssRef.get());
 	}
 #if TARGET_OS_OSX
+	if (mValidationFlags & kSecCSApplyEmbeddedPolicy) {
+		CFRef<SecPolicyRef> iOSRef = SecPolicyCreateiPhoneApplicationSigning();
+		return makeCFArray(1, iOSRef.get());
+	}
+
 	CFRef<SecPolicyRef> core;
 	MacOSError::check(SecPolicyCopy(CSSM_CERT_X_509v3,
 									&CSSMOID_APPLE_TP_CODE_SIGNING, &core.aref()));
@@ -1132,6 +1126,25 @@ CFArrayRef SecStaticCode::createTimeStampingAndRevocationPolicies()
 	return makeCFArray(1, tsPolicy.get());
 #endif
 
+}
+
+CFArrayRef SecStaticCode::copyCertChain(SecTrustRef trust)
+{
+	SecCertificateRef leafCert = SecTrustGetCertificateAtIndex(trust, 0);
+	if (leafCert != NULL) {
+		CFIndex count = SecTrustGetCertificateCount(trust);
+
+		CFMutableArrayRef certs = CFArrayCreateMutable(kCFAllocatorDefault, count,
+													   &kCFTypeArrayCallBacks);
+
+		CFArrayAppendValue(certs, leafCert);
+		for (CFIndex i = 1; i < count; ++i) {
+			CFArrayAppendValue(certs, SecTrustGetCertificateAtIndex(trust, i));
+		}
+
+		return certs;
+	}
+	return NULL;
 }
 
 
@@ -1242,6 +1255,14 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 	}
 
 	if (doit) {
+		string root = cfStringRelease(copyCanonicalPath());
+		bool itemIsOnRootFS = isOnRootFilesystem(root.c_str());
+		bool requestForcedValidation = (mValidationFlags & kSecCSSkipRootVolumeExceptions);
+		bool useRootFSPolicy = itemIsOnRootFS && !requestForcedValidation;
+
+		secinfo("staticCode", "performing resource validation for %s (%d, %d, %d)", root.c_str(),
+				itemIsOnRootFS, requestForcedValidation, useRootFSPolicy);
+
 		if (mLimitedAsync == NULL) {
 			bool runMultiThreaded = ((flags & kSecCSSingleThreaded) == kSecCSSingleThreaded) ? false :
 					(diskRep()->fd().mediumType() == kIOPropertyMediumTypeSolidStateKey);
@@ -1264,13 +1285,15 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 
 			// check for weak resource rules
 			bool strict = flags & kSecCSStrictValidate;
-			if (strict) {
-				if (hasWeakResourceRules(rules, version, mAllowOmissions))
-					if (mTolerateErrors.find(errSecCSWeakResourceRules) == mTolerateErrors.end())
-						MacOSError::throwMe(errSecCSWeakResourceRules);
-				if (version == 1)
-					if (mTolerateErrors.find(errSecCSWeakResourceEnvelope) == mTolerateErrors.end())
-						MacOSError::throwMe(errSecCSWeakResourceEnvelope);
+			if (!useRootFSPolicy) {
+				if (strict) {
+					if (hasWeakResourceRules(rules, version, mAllowOmissions))
+						if (mTolerateErrors.find(errSecCSWeakResourceRules) == mTolerateErrors.end())
+							MacOSError::throwMe(errSecCSWeakResourceRules);
+					if (version == 1)
+						if (mTolerateErrors.find(errSecCSWeakResourceEnvelope) == mTolerateErrors.end())
+							MacOSError::throwMe(errSecCSWeakResourceEnvelope);
+				}
 			}
 
 			Dispatch::Group group;
@@ -1288,7 +1311,21 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 				bool isSymlink = (ent->fts_info == FTS_SL);
 
 				void (^validate)() = ^{
-					validateResource(files, relpath, isSymlink, *mResourcesValidContext, flags, version);
+					bool needsValidation = true;
+
+					if (useRootFSPolicy) {
+						CFRef<CFURLRef> itemURL = makeCFURL(relpath, false, resourceBase());
+						string itemPath = cfString(itemURL);
+						if (isOnRootFilesystem(itemPath.c_str())) {
+							secinfo("staticCode", "resource validation on root volume skipped: %s", itemPath.c_str());
+							needsValidation = false;
+						}
+					}
+
+					if (needsValidation) {
+						secinfo("staticCode", "performing resource validation on item: %s", relpath.c_str());
+						validateResource(files, relpath, isSymlink, *mResourcesValidContext, flags, version);
+					}
 					reportProgress();
 				};
 
@@ -1296,10 +1333,15 @@ void SecStaticCode::validateResources(SecCSFlags flags)
 			});
 			group.wait();	// wait until all async resources have been validated as well
 
-			unsigned leftovers = unsigned(CFDictionaryGetCount(resourceMap));
-			if (leftovers > 0) {
-				secinfo("staticCode", "%d sealed resource(s) not found in code", int(leftovers));
-				CFDictionaryApplyFunction(resourceMap, SecStaticCode::checkOptionalResource, mResourcesValidContext);
+			if (useRootFSPolicy) {
+				// It's ok to allow leftovers on the root filesystem for now.
+			} else {
+				// Look through the leftovers and make sure they're all properly optional resources.
+				unsigned leftovers = unsigned(CFDictionaryGetCount(resourceMap));
+				if (leftovers > 0) {
+					secinfo("staticCode", "%d sealed resource(s) not found in code", int(leftovers));
+					CFDictionaryApplyFunction(resourceMap, SecStaticCode::checkOptionalResource, mResourcesValidContext);
+				}
 			}
 
 			// now check for any errors found in the reporting context
@@ -2070,7 +2112,7 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 
 //DR not currently supported on iOS
 #if TARGET_OS_OSX
-        try {
+		try {
 			if (const Requirements *reqs = this->internalRequirements()) {
 				CFDictionaryAddValue(dict, kSecCodeInfoRequirements,
 					CFTempString(Dumper::dump(reqs)));
@@ -2090,10 +2132,26 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 #endif
 
 	try {
-	   if (CFDataRef ent = this->component(cdEntitlementSlot)) {
-		   CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, ent);
-		   if (CFDictionaryRef entdict = this->entitlements())
-				CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, entdict);
+		if (CFDataRef ent = this->component(cdEntitlementSlot)) {
+			CFDictionaryAddValue(dict, kSecCodeInfoEntitlements, ent);
+			if (CFDictionaryRef entdict = this->entitlements()) {
+				if (needsCatalystEntitlementFixup(entdict)) {
+					// If this entitlement dictionary needs catalyst entitlements, make a copy and stick that into the
+					// output dictionary instead.
+					secinfo("staticCode", "%p fixed catalyst entitlements", this);
+					CFRef<CFMutableDictionaryRef> tempEntitlements = makeCFMutableDictionary(entdict);
+					updateCatalystEntitlements(tempEntitlements);
+					CFRef<CFDictionaryRef> newEntitlements = CFDictionaryCreateCopy(NULL, tempEntitlements);
+					if (newEntitlements) {
+						CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, newEntitlements.get());
+					} else {
+						secerror("%p unable to fixup entitlement dictionary", this);
+						CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, entdict);
+					}
+				} else {
+					CFDictionaryAddValue(dict, kSecCodeInfoEntitlementsDict, entdict);
+				}
+			}
 		}
 	} catch (...) { }
 
@@ -2122,6 +2180,10 @@ CFDictionaryRef SecStaticCode::signingInformation(SecCSFlags flags)
 			} else {
 				secerror("Error creating date from timestamp: %f", mNotarizationDate);
 			}
+		}
+		if (this->codeDirectory()) {
+			uint32_t version = this->codeDirectory()->version;
+			CFDictionaryAddValue(dict, kSecCodeInfoSignatureVersion, CFTempNumber(version));
 		}
 	}
 
@@ -2248,8 +2310,9 @@ void SecStaticCode::staticValidate(SecCSFlags flags, const SecRequirement *req)
 	reportEvent(CFSTR("prepared"), NULL);
 
 	// resources: once for all architectures
-	if (!(flags & kSecCSDoNotValidateResources))
+	if (!(flags & kSecCSDoNotValidateResources)) {
 		this->validateResources(flags);
+	}
 
 	// perform strict validation if desired
 	if (flags & kSecCSStrictValidate) {

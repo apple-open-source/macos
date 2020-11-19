@@ -33,15 +33,18 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		6E354EBE233147F0007E3A42 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E354EBD233147F0007E3A42 /* data.c */; };
+		6E354EBF233147F5007E3A42 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E354EBD233147F0007E3A42 /* data.c */; };
+		6E354EC0233147F6007E3A42 /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E354EBD233147F0007E3A42 /* data.c */; };
 		831D5AD6122788D500E4A1EC /* Block_private.h in Headers */ = {isa = PBXBuildFile; fileRef = E86E1EBF11543C0B0055083F /* Block_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		831D5AD7122788D500E4A1EC /* Block.h in Headers */ = {isa = PBXBuildFile; fileRef = E86E1EC011543C0B0055083F /* Block.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		831D5AD9122788D500E4A1EC /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.c */; };
+		831D5AD9122788D500E4A1EC /* data.m in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.m */; };
 		831D5ADA122788D500E4A1EC /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC211543C0B0055083F /* runtime.cpp */; };
-		96EF759B1507C27500581A2E /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.c */; };
+		96EF759B1507C27500581A2E /* data.m in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.m */; };
 		96EF759C1507C27500581A2E /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC211543C0B0055083F /* runtime.cpp */; };
 		E86E1EC311543C0B0055083F /* Block_private.h in Headers */ = {isa = PBXBuildFile; fileRef = E86E1EBF11543C0B0055083F /* Block_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E86E1EC411543C0B0055083F /* Block.h in Headers */ = {isa = PBXBuildFile; fileRef = E86E1EC011543C0B0055083F /* Block.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		E86E1EC511543C0B0055083F /* data.c in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.c */; };
+		E86E1EC511543C0B0055083F /* data.m in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC111543C0B0055083F /* data.m */; };
 		E86E1EC611543C0B0055083F /* runtime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E86E1EC211543C0B0055083F /* runtime.cpp */; };
 /* End PBXBuildFile section */
 
@@ -70,12 +73,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		6E354EBD233147F0007E3A42 /* data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = data.c; sourceTree = "<group>"; };
+		6E8C74E42326F89300627AC0 /* Blocks.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Blocks.xcconfig; sourceTree = "<group>"; };
+		6E8C74E52326FB5200627AC0 /* Blocks.alias */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Blocks.alias; sourceTree = "<group>"; };
+		6E8C74E72327094A00627AC0 /* Blocks.dirty */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Blocks.dirty; sourceTree = "<group>"; };
 		831D5ADF122788D500E4A1EC /* libclosure.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libclosure.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		96EF75961507C1CE00581A2E /* libclosure.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libclosure.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		D2AAC0C705546C1D00DB518D /* libsystem_blocks.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_blocks.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		E86E1EBF11543C0B0055083F /* Block_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Block_private.h; sourceTree = "<group>"; };
 		E86E1EC011543C0B0055083F /* Block.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Block.h; sourceTree = "<group>"; };
-		E86E1EC111543C0B0055083F /* data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = data.c; sourceTree = "<group>"; };
+		E86E1EC111543C0B0055083F /* data.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = data.m; sourceTree = "<group>"; };
 		E86E1EC211543C0B0055083F /* runtime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = runtime.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -120,6 +127,7 @@
 				08FB77AEFE84172EC02AAC07 /* Sources */,
 				32C88DFF0371C24200C91783 /* Headers */,
 				034768DFFF38A50411DB9C8B /* Products */,
+				6E8C74E62326FB5A00627AC0 /* Build Configuration */,
 			);
 			name = Blocks;
 			sourceTree = "<group>";
@@ -127,7 +135,8 @@
 		08FB77AEFE84172EC02AAC07 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				E86E1EC111543C0B0055083F /* data.c */,
+				6E354EBD233147F0007E3A42 /* data.c */,
+				E86E1EC111543C0B0055083F /* data.m */,
 				E86E1EC211543C0B0055083F /* runtime.cpp */,
 			);
 			name = Sources;
@@ -140,6 +149,16 @@
 				E86E1EC011543C0B0055083F /* Block.h */,
 			);
 			name = Headers;
+			sourceTree = "<group>";
+		};
+		6E8C74E62326FB5A00627AC0 /* Build Configuration */ = {
+			isa = PBXGroup;
+			children = (
+				6E8C74E52326FB5200627AC0 /* Blocks.alias */,
+				6E8C74E72327094A00627AC0 /* Blocks.dirty */,
+				6E8C74E42326F89300627AC0 /* Blocks.xcconfig */,
+			);
+			name = "Build Configuration";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -215,7 +234,6 @@
 				D2AAC0C305546C1D00DB518D /* Headers */,
 				D2AAC0C405546C1D00DB518D /* Sources */,
 				D2AAC0C505546C1D00DB518D /* Frameworks */,
-				3F23D0791A47587A008445C3 /* Simulator Build Compat Symlink */,
 			);
 			buildRules = (
 			);
@@ -266,20 +284,6 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		3F23D0791A47587A008445C3 /* Simulator Build Compat Symlink */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-			);
-			name = "Simulator Build Compat Symlink";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = "/bin/bash -ex";
-			shellScript = "if [[ \"${PLATFORM_NAME}\" =~ \"simulator\" ]]; then\nln -s libsystem_blocks.dylib ${DSTROOT}${INSTALL_PATH}/libsystem_sim_blocks.dylib\nfi\n";
-		};
 		3F23D07A1A4758F9008445C3 /* Comment about this target */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -301,8 +305,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				831D5AD9122788D500E4A1EC /* data.c in Sources */,
+				831D5AD9122788D500E4A1EC /* data.m in Sources */,
 				831D5ADA122788D500E4A1EC /* runtime.cpp in Sources */,
+				6E354EBF233147F5007E3A42 /* data.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -310,8 +315,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				96EF759B1507C27500581A2E /* data.c in Sources */,
+				96EF759B1507C27500581A2E /* data.m in Sources */,
 				96EF759C1507C27500581A2E /* runtime.cpp in Sources */,
+				6E354EC0233147F6007E3A42 /* data.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -319,8 +325,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E86E1EC511543C0B0055083F /* data.c in Sources */,
+				E86E1EC511543C0B0055083F /* data.m in Sources */,
 				E86E1EC611543C0B0055083F /* runtime.cpp in Sources */,
+				6E354EBE233147F0007E3A42 /* data.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -347,6 +354,7 @@
 /* Begin XCBuildConfiguration section */
 		1DEB917E08733D990010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6E8C74E42326F89300627AC0 /* Blocks.xcconfig */;
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
 				HEADER_SEARCH_PATHS = (
@@ -357,24 +365,6 @@
 				);
 				INSTALL_PATH = /usr/lib/system;
 				"INSTALL_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/usr/lib/system";
-				OTHER_LDFLAGS = (
-					"-nostdlib",
-					"-L/usr/lib/system/",
-					"-lsystem_platform",
-					"-lsystem_malloc",
-					"-Wl,-upward-lsystem_c",
-					"-ldyld",
-					"-Wl,-umbrella,System",
-				);
-				"OTHER_LDFLAGS[sdk=driverkit*]" = (
-					"-nostdlib",
-					"-L$(DRIVERKITROOT)/usr/lib/system/",
-					"-lsystem_platform",
-					"-lsystem_malloc",
-					"-Wl,-upward-lsystem_c",
-					"-ldyld",
-					"-Wl,-umbrella,System",
-				);
 				"PRIVATE_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/local/include";
 				PRODUCT_NAME = system_blocks;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
@@ -387,6 +377,7 @@
 		};
 		1DEB917F08733D990010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6E8C74E42326F89300627AC0 /* Blocks.xcconfig */;
 			buildSettings = {
 				EXECUTABLE_PREFIX = lib;
 				HEADER_SEARCH_PATHS = (
@@ -397,24 +388,6 @@
 				);
 				INSTALL_PATH = /usr/lib/system;
 				"INSTALL_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/usr/lib/system";
-				OTHER_LDFLAGS = (
-					"-nostdlib",
-					"-L/usr/lib/system/",
-					"-lsystem_platform",
-					"-lsystem_malloc",
-					"-Wl,-upward-lsystem_c",
-					"-ldyld",
-					"-Wl,-umbrella,System",
-				);
-				"OTHER_LDFLAGS[sdk=driverkit*]" = (
-					"-nostdlib",
-					"-L$(DRIVERKITROOT)/usr/lib/system/",
-					"-lsystem_platform",
-					"-lsystem_malloc",
-					"-Wl,-upward-lsystem_c",
-					"-ldyld",
-					"-Wl,-umbrella,System",
-				);
 				"PRIVATE_HEADERS_FOLDER_PATH[sdk=driverkit*]" = "$(DRIVERKITROOT)/Runtime/usr/local/include";
 				PRODUCT_NAME = system_blocks;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;

@@ -30,11 +30,14 @@
 #include "LayoutUnits.h"
 
 namespace WebCore {
+
+class RenderStyle;
+
 namespace Layout {
 
 class InlineItem;
 class InlineTextItem;
-struct ContinousContent;
+struct ContinuousContent;
 struct WrappedTextContent;
 
 class LineBreaker {
@@ -50,7 +53,7 @@ public:
             Keep, // Keep content on the current line.
             Split, // Partial content is on the current line.
             Push, // Content is pushed to the next line.
-            Revert // The current content overflows and can't get wrapped. The line needs to be reverted back to the last line wrapping opportunity.
+            RevertToLastWrapOpportunity // The current content overflows and can't get wrapped. The line needs to be reverted back to the last line wrapping opportunity.
         };
         struct PartialTrailingContent {
             size_t trailingRunIndex { 0 };
@@ -60,7 +63,7 @@ public:
         Action action { Action::Keep };
         IsEndOfLine isEndOfLine { IsEndOfLine::No };
         Optional<PartialTrailingContent> partialTrailingContent { };
-        const InlineItem* revertTo { nullptr };
+        const InlineItem* lastWrapOpportunityItem { nullptr };
     };
 
     struct Run {
@@ -71,7 +74,7 @@ public:
         const InlineItem& inlineItem;
         InlineLayoutUnit logicalWidth { 0 };
     };
-    using RunList = Vector<Run, 30>;
+    using RunList = Vector<Run, 3>;
 
     struct LineStatus {
         InlineLayoutUnit availableWidth { 0 };
@@ -79,8 +82,7 @@ public:
         bool lineHasFullyCollapsibleTrailingRun { false };
         bool lineIsEmpty { true };
     };
-    Result shouldWrapInlineContent(const RunList& candidateRuns, const LineStatus&);
-    bool shouldWrapFloatBox(InlineLayoutUnit floatLogicalWidth, InlineLayoutUnit availableWidth, bool lineIsEmpty);
+    Result shouldWrapInlineContent(const RunList& candidateRuns, InlineLayoutUnit candidateContentLogicalWidth, const LineStatus&);
 
     void setHyphenationDisabled() { n_hyphenationIsDisabled = true; }
 
@@ -95,7 +97,7 @@ private:
     // [container start][span1][container end][between][container start][span2][container end]
     // see https://drafts.csswg.org/css-text-3/#line-break-details
     Optional<WrappedTextContent> wrapTextContent(const RunList&, const LineStatus&) const;
-    Result tryWrappingInlineContent(const ContinousContent&, const LineStatus&) const;
+    Result tryWrappingInlineContent(const RunList&, InlineLayoutUnit candidateContentLogicalWidth, const LineStatus&) const;
     Optional<PartialRun> tryBreakingTextRun(const Run& overflowRun, InlineLayoutUnit availableWidth) const;
 
     enum class WordBreakRule {
@@ -104,11 +106,11 @@ private:
         OnlyHyphenationAllowed
     };
     WordBreakRule wordBreakBehavior(const RenderStyle&) const;
-    bool shouldKeepEndOfLineWhitespace(const ContinousContent&) const;
-    bool isContentWrappingAllowed(const ContinousContent&) const;
+    bool shouldKeepEndOfLineWhitespace(const ContinuousContent&) const;
+    bool isContentWrappingAllowed(const ContinuousContent&) const;
 
     bool n_hyphenationIsDisabled { false };
-    const InlineItem* m_lastWrapOpportunity { nullptr };
+    bool m_hasWrapOpportunityAtPreviousPosition { false };
 };
 
 inline LineBreaker::Run::Run(const InlineItem& inlineItem, InlineLayoutUnit logicalWidth)

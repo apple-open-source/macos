@@ -55,7 +55,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property double ambientLightColorComponent1;
 @property double ambientLightColorComponent2;
 @property IOHIDEventColorSpace ambientLightColorSpace;
-@property Boolean ambientLightDisplayBrightnessChanged;
+@property bool ambientLightDisplayBrightnessChanged;
 @property double ambientLightSensorColorTemperature;
 @property double ambientLightSensorIlluminance;
 @property uint32_t ambientLightSensorLevel;
@@ -182,7 +182,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property uint32_t buttonMask;
 @property uint8_t buttonNumber;
 @property double buttonPressure;
-@property boolean_t buttonState;
+@property uint32_t buttonState;
 @end
 
 @interface HIDEvent (HIDAtmosphericPressureEventPrivate)
@@ -218,7 +218,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property uint32_t ledMask;
 @property uint8_t ledNumber;
-@property boolean_t ledState;
+@property uint32_t ledState;
 @end
 
 @interface HIDEvent (HIDOrientationEventPrivate)
@@ -246,7 +246,7 @@ NS_ASSUME_NONNULL_BEGIN
 @interface HIDEvent (HIDKeyboardEventPrivate)
 
 @property uint32_t keyboardClickSpeed;
-@property boolean_t keyboardDown;
+@property uint32_t keyboardDown;
 @property uint32_t keyboardLongPress;
 @property uint32_t keyboardMouseKeyToggle;
 @property uint8_t keyboardPressCount;

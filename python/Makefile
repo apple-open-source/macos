@@ -74,9 +74,6 @@ export MY_CXX = c++
 # the wrong file to be stripped/unstripped).  By using the "strip" perl script,
 # it not only causes the correct file to be stripped, but also preserves the
 # link.
-#
-# The cc/c++ scripts take a -no64 argument, which causes 64-bit architectures
-# to be removed, before calling the real compiler.
 ##---------------------------------------------------------------------
 export PATH:=$(OBJROOT)/bin:$(PATH)
 
@@ -91,8 +88,6 @@ VERSIONMANLIST = $(VERSIONERDIR)/$(Project)/usr-share-man.list
 VERSIONERFIX = dummy.py scriptvers.ed
 build::
 	$(RSYNC) '$(SRCROOT)/' '$(OBJROOT)'
-	ln -sf _no64 $(OBJROOT)/bin/$(MY_CC)
-	ln -sf _no64 $(OBJROOT)/bin/$(MY_CXX)
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    mkdir -p "$(SYMROOT)/$$vers" && \

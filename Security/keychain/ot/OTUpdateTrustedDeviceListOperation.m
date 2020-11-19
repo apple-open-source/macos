@@ -95,8 +95,12 @@
 
     [self.deps.authKitAdapter fetchCurrentDeviceList:^(NSSet<NSString *> * _Nullable machineIDs, NSError * _Nullable error) {
         STRONGIFY(self);
-        if(!machineIDs || error) {
+
+        if (error) {
             secerror("octagon-authkit: Unable to fetch machine ID list: %@", error);
+            [self fetchCurrentDeviceListAfterCuttlefishUpdate:isAccountDemo];
+        } else if (!machineIDs) {
+            secerror("octagon-authkit: empty machine id list");
             if (self.logForUpgrade) {
                 [[CKKSAnalytics logger] logRecoverableError:error
                                                    forEvent:OctagonEventUpgradeFetchDeviceIDs
@@ -111,6 +115,60 @@
             }
             [self afterAuthKitFetch:machineIDs accountIsDemo:isAccountDemo];
         }
+    }];
+}
+
+- (void)fetchCurrentDeviceListAfterCuttlefishUpdate:(BOOL)isAccountDemo
+{
+    secnotice("octagon-authkit", "beginning update trust fetch");
+
+    WEAKIFY(self);
+    [self.deps.cuttlefishXPCWrapper updateWithContainer:self.deps.containerName
+                                                context:self.deps.contextID
+                                             deviceName:nil
+                                           serialNumber:nil
+                                              osVersion:nil
+                                          policyVersion:nil
+                                          policySecrets:nil
+                              syncUserControllableViews:nil
+                                                  reply:^(TrustedPeersHelperPeerState* peerState, TPSyncingPolicy* syncingPolicy, NSError* error) {
+        STRONGIFY(self);
+        if(error) {
+            secerror("octagon-authkit: fetching updates from cuttlefish failed: %@", error);
+            self.error = error;
+
+            if([self.deps.lockStateTracker isLockedError:self.error]) {
+                secnotice("octagon-authkit", "Feching changes from Cuttlefish failed because of lock state, will retry once unlocked: %@", self.error);
+                OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:OctagonFlagFetchAuthKitMachineIDList
+                                                                                conditions:OctagonPendingConditionsDeviceUnlocked];
+
+                [self.deps.flagHandler handlePendingFlag:pendingFlag];
+            }
+            
+            [self runBeforeGroupFinished:self.finishedOp];
+            return;
+        }
+        secnotice("octagon-authkit", "re-attempting fetching current device list");
+
+        [self.deps.authKitAdapter fetchCurrentDeviceList:^(NSSet<NSString *> * _Nullable machineIDs, NSError * _Nullable error) {
+            STRONGIFY(self);
+            if(!machineIDs || error) {
+                secerror("octagon-authkit: STILL unable to fetch machine ID list: %@", error);
+                if (self.logForUpgrade) {
+                    [[CKKSAnalytics logger] logRecoverableError:error
+                                                       forEvent:OctagonEventUpgradeFetchDeviceIDs
+                                                 withAttributes:NULL];
+                }
+                self.error = error;
+                [self runBeforeGroupFinished:self.finishedOp];
+
+            } else {
+                if (self.logForUpgrade) {
+                    [[CKKSAnalytics logger] logSuccessForEventNamed:OctagonEventUpgradeFetchDeviceIDs];
+                }
+                [self afterAuthKitFetch:machineIDs accountIsDemo:isAccountDemo];
+            }
+        }];
     }];
 }
 

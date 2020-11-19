@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ApplicationStateTracker_h
-#define ApplicationStateTracker_h
+#pragma once
 
 #if PLATFORM(IOS_FAMILY)
 
@@ -41,7 +40,7 @@ namespace WebKit {
 class ApplicationStateTracker : public CanMakeWeakPtr<ApplicationStateTracker> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    ApplicationStateTracker(UIView *, SEL didEnterBackgroundSelector, SEL didFinishSnapshottingAfterEnteringBackgroundSelector, SEL willEnterForegroundSelector);
+    ApplicationStateTracker(UIView *, SEL didEnterBackgroundSelector, SEL didFinishSnapshottingAfterEnteringBackgroundSelector, SEL willEnterForegroundSelector, SEL willBeginSnapshotSequenceSelector, SEL didCompleteSnapshotSequenceSelector);
     ~ApplicationStateTracker();
 
     bool isInBackground() const { return m_isInBackground; }
@@ -50,19 +49,23 @@ private:
     void applicationDidEnterBackground();
     void applicationDidFinishSnapshottingAfterEnteringBackground();
     void applicationWillEnterForeground();
+    void willBeginSnapshotSequence();
+    void didCompleteSnapshotSequence();
 
     WeakObjCPtr<UIView> m_view;
     SEL m_didEnterBackgroundSelector;
     SEL m_didFinishSnapshottingAfterEnteringBackgroundSelector;
     SEL m_willEnterForegroundSelector;
+    SEL m_willBeginSnapshotSequenceSelector;
+    SEL m_didCompleteSnapshotSequenceSelector;
 
     bool m_isInBackground;
-
-    RetainPtr<BKSApplicationStateMonitor> m_applicationStateMonitor;
 
     id m_didEnterBackgroundObserver;
     id m_didFinishSnapshottingAfterEnteringBackgroundObserver;
     id m_willEnterForegroundObserver;
+    id m_willBeginSnapshotSequenceObserver;
+    id m_didCompleteSnapshotSequenceObserver;
 };
 
 enum class ApplicationType {
@@ -76,5 +79,3 @@ ApplicationType applicationType(UIWindow *);
 }
 
 #endif
-
-#endif // ApplicationStateTracker_h

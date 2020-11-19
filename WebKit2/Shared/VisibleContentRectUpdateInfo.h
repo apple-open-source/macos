@@ -25,6 +25,8 @@
 
 #pragma once
 
+#if ENABLE(UI_SIDE_COMPOSITING)
+
 #include "TransactionID.h"
 #include <WebCore/FloatRect.h>
 #include <WebCore/LengthBox.h>
@@ -88,7 +90,7 @@ public:
     MonotonicTime timestamp() const { return m_scrollVelocity.lastUpdateTime; }
 
     void encode(IPC::Encoder&) const;
-    static bool decode(IPC::Decoder&, VisibleContentRectUpdateInfo&);
+    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, VisibleContentRectUpdateInfo&);
 
     String dump() const;
 
@@ -132,3 +134,5 @@ inline bool operator==(const VisibleContentRectUpdateInfo& a, const VisibleConte
 WTF::TextStream& operator<<(WTF::TextStream&, const VisibleContentRectUpdateInfo&);
 
 } // namespace WebKit
+
+#endif // ENABLE(UI_SIDE_COMPOSITING)

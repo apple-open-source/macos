@@ -58,7 +58,6 @@ if [[ "${ACTION}" == "installhdrs" ]] || [[ "${ACTION}" == "installapi" ]]; then
 fi
 
 if [[ "${PLATFORM_NAME}" =~ "simulator" ]]; then
-    ln -s libsystem_info.dylib ${DSTROOT}${INSTALL_PATH}/libsystem_sim_info.dylib
     exit 0
 fi
 

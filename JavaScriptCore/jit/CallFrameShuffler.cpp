@@ -61,11 +61,11 @@ CallFrameShuffler::CallFrameShuffler(CCallHelpers& jit, const CallFrameShuffleDa
 #endif
 
     ASSERT(!data.callee.isInJSStack() || data.callee.virtualRegister().isLocal());
-    addNew(VirtualRegister(CallFrameSlot::callee), data.callee);
+    addNew(CallFrameSlot::callee, data.callee);
 
     for (size_t i = 0; i < data.args.size(); ++i) {
         ASSERT(!data.args[i].isInJSStack() || data.args[i].virtualRegister().isLocal());
-        addNew(virtualRegisterForArgument(i), data.args[i]);
+        addNew(virtualRegisterForArgumentIncludingThis(i), data.args[i]);
     }
 
 #if USE(JSVALUE64)
@@ -292,7 +292,7 @@ void CallFrameShuffler::spill(CachedRecovery& cachedRecovery)
 
 void CallFrameShuffler::emitDeltaCheck()
 {
-    if (ASSERT_DISABLED)
+    if (!ASSERT_ENABLED)
         return;
 
     GPRReg scratchGPR { getFreeGPR() };
@@ -725,7 +725,7 @@ void CallFrameShuffler::prepareAny()
     // stack, and written everything we had to to the stack.
     if (verbose)
         dataLog("  Callee frame is fully set up\n");
-    if (!ASSERT_DISABLED) {
+    if (ASSERT_ENABLED) {
         for (VirtualRegister reg = firstNew(); reg <= lastNew(); reg += 1)
             ASSERT_UNUSED(reg, !getNew(reg));
 

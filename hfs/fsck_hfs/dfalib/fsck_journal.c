@@ -387,7 +387,7 @@ journal_open(int jfd,
 	uint32_t	jBlkSize = 0;
 
 	if (ioctl(jfd, DKIOCGETBLOCKSIZE, &jBlkSize) == -1) {
-		jBlkSize = min_fs_blksize;
+		jBlkSize = (uint32_t)min_fs_blksize;
 	} else {
 		if (jBlkSize < min_fs_blksize) {
 			fplog(stderr, "%s:  journal block size %u < min block size %zu for %s\n", __FUNCTION__, jBlkSize, min_fs_blksize, jdev_name);

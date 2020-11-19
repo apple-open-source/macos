@@ -38,7 +38,7 @@
 #include <assert.h>
 #include <dispatch/private.h>
 
-unsigned long	phys_mem = 0;            /* amount of physical memory in bytes */
+long long	phys_mem = 0;            /* amount of physical memory in bytes */
 unsigned int	phys_pages = 0;          /* number of physical memory pages */
 int		sleep_seconds = 1;
 int		requested_hysteresis_seconds = 0;
@@ -97,6 +97,22 @@ static unsigned int
 read_sysctl_int(const char* name)
 {
 	unsigned int var;
+	size_t var_size;
+	int error;
+
+	var_size = sizeof(var);
+	error = sysctlbyname(name, &var, &var_size, NULL, 0);
+	if( error ) {
+		perror(name);
+		exit(-1);
+	}
+	return var;
+}
+
+static long long
+read_sysctl_long_long(const char* name)
+{
+	long long var;
 	size_t var_size;
 	int error;
 
@@ -170,6 +186,22 @@ print_vm_statistics(void)
 #endif
 		printf("\n");
 	}
+}
+
+/*
+	this will work for up to 64 TB of RAM -- beyond that we exceed Intel's max for VRAM (48 bits of addressable space).
+	By the time we get there Intel probably will have increased this
+ */
+static unsigned long long
+get_max_range_size()
+{
+	unsigned long long the_max_range_size = MAX_RANGE_SIZE;
+
+	if (phys_mem * 4 > the_max_range_size) {
+		the_max_range_size = phys_mem * 4;
+	}
+
+	return the_max_range_size;
 }
 
 static int
@@ -283,9 +315,13 @@ process_pages(int num_pages, int page_op)
 						//printf("stopped faulting after %d pages\n", i);
 						break;
 					}
-
-					memcpy(range_current_addr, random_data, PAGE_SIZE);
-					range_current_addr += PAGE_SIZE;
+					if ((uintptr_t)range_current_addr < get_max_range_size()) {
+						memcpy(range_current_addr, random_data, PAGE_SIZE);
+						range_current_addr += PAGE_SIZE;
+					} else {
+						printf("\nRun out of allocable memory\n");
+						exit(0);
+					}
 				}
 
 				pthread_mutex_lock(&reference_pages_mutex);
@@ -643,10 +679,10 @@ main(int argc, char * const argv[])
 		}
 	}
 
-	phys_mem   = read_sysctl_int("hw.physmem");
+	phys_mem   = read_sysctl_long_long("hw.memsize");
 	phys_pages = (unsigned int) (phys_mem / PAGE_SIZE);
 
-	printf("The system has %lu (%d pages with a page size of %d).\n", phys_mem, phys_pages, PAGE_SIZE);
+	printf("The system has %lld (%d pages with a page size of %lu).\n", phys_mem, phys_pages, PAGE_SIZE);
 
 	print_vm_statistics();
 
@@ -712,7 +748,7 @@ main(int argc, char * const argv[])
 		printf("Reset system state\n");
 
 	} else {
-		range_start_addr = mmap(NULL, MAX_RANGE_SIZE, PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0);
+		range_start_addr = mmap(NULL, get_max_range_size(), PROT_READ | PROT_WRITE, MAP_ANON | MAP_PRIVATE, 0, 0);
 
 		if (range_start_addr == MAP_FAILED) {
 			perror("mmap failed");
@@ -724,7 +760,7 @@ main(int argc, char * const argv[])
 			error = pthread_create(&thread, NULL, (void*) reference_pages, NULL);
 
 			range_current_addr = range_start_addr;
-			range_end_addr = range_start_addr + MAX_RANGE_SIZE;
+			range_end_addr = range_start_addr + get_max_range_size();
 			start_allocing_pages = 1;
 
 			if (desired_level) {

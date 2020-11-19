@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,8 @@
 
 #if ENABLE(GEOLOCATION)
 
+#include "FrameInfoData.h"
+#include "GeolocationIdentifier.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
 #include "WebPage.h"
@@ -41,12 +43,6 @@
 
 namespace WebKit {
 using namespace WebCore;
-
-static uint64_t generateGeolocationID()
-{
-    static uint64_t uniqueGeolocationID = 1;
-    return uniqueGeolocationID++;
-}
 
 GeolocationPermissionRequestManager::GeolocationPermissionRequestManager(WebPage& page)
     : m_page(page)
@@ -63,7 +59,7 @@ void GeolocationPermissionRequestManager::startRequestForGeolocation(Geolocation
         return;
     }
 
-    uint64_t geolocationID = generateGeolocationID();
+    GeolocationIdentifier geolocationID = GeolocationIdentifier::generate();
 
     m_geolocationToIDMap.set(&geolocation, geolocationID);
     m_idToGeolocationMap.set(geolocationID, &geolocation);
@@ -71,9 +67,7 @@ void GeolocationPermissionRequestManager::startRequestForGeolocation(Geolocation
     WebFrame* webFrame = WebFrame::fromCoreFrame(*frame);
     ASSERT(webFrame);
 
-    SecurityOrigin& origin = frame->document()->securityOrigin();
-
-    m_page.send(Messages::WebPageProxy::RequestGeolocationPermissionForFrame(geolocationID, webFrame->frameID(), origin.data().databaseIdentifier()));
+    m_page.send(Messages::WebPageProxy::RequestGeolocationPermissionForFrame(geolocationID, webFrame->info()));
 }
 
 void GeolocationPermissionRequestManager::revokeAuthorizationToken(const String& authorizationToken)
@@ -83,13 +77,13 @@ void GeolocationPermissionRequestManager::revokeAuthorizationToken(const String&
 
 void GeolocationPermissionRequestManager::cancelRequestForGeolocation(Geolocation& geolocation)
 {
-    uint64_t geolocationID = m_geolocationToIDMap.take(&geolocation);
+    GeolocationIdentifier geolocationID = m_geolocationToIDMap.take(&geolocation);
     if (!geolocationID)
         return;
     m_idToGeolocationMap.remove(geolocationID);
 }
 
-void GeolocationPermissionRequestManager::didReceiveGeolocationPermissionDecision(uint64_t geolocationID, const String& authorizationToken)
+void GeolocationPermissionRequestManager::didReceiveGeolocationPermissionDecision(GeolocationIdentifier geolocationID, const String& authorizationToken)
 {
     Geolocation* geolocation = m_idToGeolocationMap.take(geolocationID);
     if (!geolocation)

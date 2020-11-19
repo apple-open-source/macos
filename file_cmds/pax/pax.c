@@ -63,6 +63,7 @@ __used static const char rcsid[] = "$OpenBSD: pax.c,v 1.28 2005/08/04 10:02:44 m
 #include <err.h>
 #include <fcntl.h>
 #include <paths.h>
+#include <locale.h>
 #include "pax.h"
 #include "extern.h"
 static int gen_init(void);
@@ -236,6 +237,10 @@ main(int argc, char **argv)
 {
 	char *tmpdir;
 	size_t tdlen;
+#ifdef _HAVE_REGCOMP_
+	setlocale(LC_CTYPE, "");
+	setlocale(LC_COLLATE, "");
+#endif
 
 	listf = stderr;
 	/*

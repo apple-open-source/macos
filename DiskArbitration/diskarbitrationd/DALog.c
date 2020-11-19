@@ -82,7 +82,7 @@ static void __DALog( int level, const char * format, va_list arguments )
 
                 }
 
-                os_log(__gDALog ,"%s" , message);
+                os_log_info(__gDALog ,"%{public}s" , message);
 
                 break;
             }
@@ -94,7 +94,7 @@ static void __DALog( int level, const char * format, va_list arguments )
                     syslog( level, "%s", message );
                 }
 
-                os_log_error(__gDALog, "%s", message );
+                os_log_error(__gDALog, "%{public}s", message );
 
                 break;
             }
@@ -110,7 +110,7 @@ static void __DALog( int level, const char * format, va_list arguments )
                 /* Remove in next version */
                 syslog( level, "%s", message );
 
-                os_log(__gDALog ,"%s" , message);
+                os_log(__gDALog ,"%{public}s" , message);
 
                 break;
             }

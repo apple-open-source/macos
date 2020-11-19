@@ -35,24 +35,24 @@ __BEGIN_DECLS
 //
 // MARK: Server versions of our SPI
 //
+
 bool SOSCCTryUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
 bool SOSCCSetUserCredentials_Server(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error);
 bool SOSCCSetUserCredentialsAndDSID_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
-bool SOSCCSetUserCredentialsAndDSIDWithAnalytics_Server(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFDataRef parentEvent, CFErrorRef *error);
 
 bool SOSCCCanAuthenticate_Server(CFErrorRef *error);
 bool SOSCCPurgeUserCredentials_Server(CFErrorRef *error);
 
 SOSCCStatus SOSCCThisDeviceIsInCircle_Server(CFErrorRef *error);
 bool SOSCCRequestToJoinCircle_Server(CFErrorRef* error);
-bool SOSCCRequestToJoinCircleWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 bool SOSCCRequestToJoinCircleAfterRestore_Server(CFErrorRef* error);
-bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 
 bool SOSCCRemoveThisDeviceFromCircle_Server(CFErrorRef* error);
-bool SOSCCRemoveThisDeviceFromCircleWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 bool SOSCCRemovePeersFromCircle_Server(CFArrayRef peers, CFErrorRef* error);
-bool SOSCCRemovePeersFromCircleWithAnalytics_Server(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error);
+
+// This will async off the notification, so it does not return a value.
+void SOSCCNotifyLoggedIntoAccount_Server(void);
+
 bool SOSCCLoggedOutOfAccount_Server(CFErrorRef *error);
 bool SOSCCBailFromCircle_Server(uint64_t limit_in_seconds, CFErrorRef* error);
 
@@ -75,12 +75,10 @@ CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error);
 bool SOSCCAccountSetToNew_Server(CFErrorRef *error);
 bool SOSCCResetToOffering_Server(CFErrorRef* error);
 bool SOSCCResetToEmpty_Server(CFErrorRef* error);
-bool SOSCCResetToEmptyWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 
 CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef *error);
 
 SOSViewResultCode SOSCCView_Server(CFStringRef view, SOSViewActionCode action, CFErrorRef *error);
-bool SOSCCViewSetWithAnalytics_Server(CFSetRef enabledViews, CFSetRef disabledViews, CFDataRef parentEvent);
 bool SOSCCViewSet_Server(CFSetRef enabledViews, CFSetRef disabledViews);
 
 enum DepartureReason SOSCCGetLastDepartureReason_Server(CFErrorRef* error);
@@ -95,7 +93,6 @@ SOSPeerInfoRef SOSCCSetNewPublicBackupKey_Server(CFDataRef newPublicBackup, CFEr
 bool SOSCCRegisterSingleRecoverySecret_Server(CFDataRef backupSlice, bool setupV0Only, CFErrorRef *error);
 
 bool SOSCCWaitForInitialSync_Server(CFErrorRef*);
-bool SOSCCWaitForInitialSyncWithAnalytics_Server(CFDataRef parentEvent, CFErrorRef* error);
 
 //
 // MARK: Internal kicks.
@@ -172,9 +169,20 @@ void SOSCCPerformUpdateOfAllOctagonKeys(CFDataRef octagonSigningFullKey, CFDataR
                                         CFDataRef signingPublicKey, CFDataRef encryptionPublicKey,
                                         SecKeyRef octagonSigningPublicKeyRef, SecKeyRef octagonEncryptionPublicKeyRef,
                                         void (^action)(CFErrorRef error));
+void SOSCCPerformPreloadOfAllOctagonKeys(CFDataRef octagonSigningFullKey, CFDataRef octagonEncryptionFullKey,
+                                         SecKeyRef octagonSigningFullKeyRef, SecKeyRef octagonEncryptionFullKeyRef,
+                                         SecKeyRef octagonSigningPublicKeyRef, SecKeyRef octagonEncryptionPublicKeyRef,
+                                         void (^action)(CFErrorRef error));
+
+bool SOSCCSetCKKS4AllStatus(bool status, CFErrorRef* error);
 
 void SOSCCResetOTRNegotiation_Server(CFStringRef peerid);
 void SOSCCPeerRateLimiterSendNextMessage_Server(CFStringRef peerid, CFStringRef accessGroup);
+
+#if __OBJC2__
+bool SOSCCSaveOctagonKeysToKeychain(NSString* keyLabel, NSData* keyDataToSave, __unused int keySize, SecKeyRef octagonPublicKey, NSError** error);
+void SOSCCEnsureAccessGroupOfKey(SecKeyRef publicKey, NSString* oldAgrp, NSString* newAgrp);
+#endif
 
 __END_DECLS
 

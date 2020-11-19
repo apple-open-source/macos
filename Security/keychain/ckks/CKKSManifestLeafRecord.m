@@ -137,7 +137,7 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
     NSData* derData = [[NSData alloc] initWithBase64EncodedString:record[SecCKRecordManifestLeafDERKey] options:0];
     NSDictionary<NSString*, NSData*>* recordDigestDict = RecordDigestDictFromDER(derData, &error);
     if (!recordDigestDict) {
-        secerror("failed to decode manifest leaf node DER with error: %@", error);
+        ckkserror_global("ckksmanifest", "failed to decode manifest leaf node DER with error: %@", error);
         return nil;
     }
     
@@ -148,7 +148,7 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
 - (instancetype)initWithUUID:(NSString*)uuid digest:(NSData*)digest recordDigestDict:(NSDictionary<NSString*, NSData*>*)recordDigestDict zone:(NSString*)zone
 {
     if ([uuid containsString:manifestLeafRecordNameDelimiter]) {
-        secerror("uuid contains delimiter: %@", uuid);
+        ckkserror_global("ckksmanifest", "uuid contains delimiter: %@", uuid);
         return nil;
     }
 
@@ -176,7 +176,7 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
     void (^addValueSafelyToDictionaryAndLogIfNil)(NSMutableDictionary*, NSString*, id) = ^(NSMutableDictionary* dictionary, NSString* key, id value) {
         if (!value) {
             value = [NSNull null];
-            secerror("CKKSManifestLeafRecord: saving manifest leaf record to database but %@ is nil", key);
+            ckkserror_global("ckksmanifest", "CKKSManifestLeafRecord: saving manifest leaf record to database but %@ is nil", key);
         }
 
         dictionary[key] = value;
@@ -222,7 +222,7 @@ static NSDictionary* RecordDigestDictFromDER(NSData* data, NSError** error)
     NSData* derData = [[NSData alloc] initWithBase64EncodedString:record[SecCKRecordManifestLeafDERKey] options:0];
     NSDictionary<NSString*, NSData*>* recordDigestDict = RecordDigestDictFromDER(derData, &error);
     if (!recordDigestDict || error) {
-        secerror("failed to decode manifest leaf node DER with error: %@", error);
+        ckkserror_global("ckksmanifest", "failed to decode manifest leaf node DER with error: %@", error);
         return;
     }
     

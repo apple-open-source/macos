@@ -365,7 +365,7 @@ static void print_cert(SecCertificateRef cert, bool verbose) {
     }
 
     print_plist(plist);
-    CFRelease(plist);
+    CFReleaseNull(plist);
 }
 
 static void tests(void)
@@ -412,12 +412,7 @@ static void tests(void)
     properties = SecCertificateCopyProperties(leaf);
     isnt(properties, NULL, "leaf properties returned");
     CFReleaseNull(properties);
-    // Xcode doesn't have a SDK for 10.15.1 so we need to work around this.
-    // rdar://problem/55890533
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wunguarded-availability"
     properties = SecCertificateCopyLocalizedProperties(leaf, true);
-#pragma clang diagnostic pop
     isnt(properties, NULL, "localized leaf properties returned");
     CFReleaseNull(properties);
 

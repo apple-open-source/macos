@@ -13,6 +13,10 @@ error_code UnknownKey,		"Unknown key used"
 error_code MissingSchemaKey,	"Schema key missing"
 error_code NoSuchSchema,	"No such schema"
 error_code NoItemsMatchesQuery, "No items matches query"
+error_code MissingEntitlement,  "The caller is missing the required entitlement"
+error_code CommandUnavailable,  "The requested command is unavailable on this platform"
+error_code MissingRequiredValue,"Required value missing"
+error_code UpdateNotAllowed,    "The requested attribute update is not allowed"
 
 
 index 128

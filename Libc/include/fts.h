@@ -119,7 +119,7 @@ typedef struct _ftsent {
 	char *fts_accpath;		/* access path */
 	char *fts_path;			/* root path */
 	int fts_errno;			/* errno for this node */
-	int fts_symfd;			/* fd for symlink */
+	int fts_symfd;			/* fd for symlink or chdir */
 	unsigned short fts_pathlen;	/* strlen(fts_path) */
 	unsigned short fts_namelen;	/* strlen(fts_name) */
 
@@ -151,6 +151,7 @@ typedef struct _ftsent {
 #define	FTS_DONTCHDIR	 0x01		/* don't chdir .. to the parent */
 #define	FTS_SYMFOLLOW	 0x02		/* followed a symlink to get here */
 #define	FTS_ISW		 0x04		/* this is a whiteout object */
+#define	FTS_CHDIRFD 0x08 /* indicates the fts_symfd field was set for chdir */
 	unsigned short fts_flags;	/* private flags for FTSENT structure */
 
 #define	FTS_AGAIN	 1		/* read node again */

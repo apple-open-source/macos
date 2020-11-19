@@ -1,6 +1,6 @@
 "system.preferences.accounts" = "__APPNAME__ is trying to unlock Users & Groups preferences.";
 
-"com.apple.SoftwareUpdate.scan" = "__APPNAME__ is trying to check for new Apple-provided software.";
+"com.apple.SoftwareUpdate.scan" = "__APPNAME__ is trying to check for new Apple software.";
 
 "system.preferences.datetime" = "__APPNAME__ is trying to unlock the Date & Time preferences.";
 
@@ -48,9 +48,9 @@
 
 "system.preferences.energysaver" = "__APPNAME__ is trying to unlock the Energy Saver preferences.";
 
-"system.install.apple-software" = "__APPNAME__ is trying to install Apple-provided software.";
+"system.install.apple-software" = "__APPNAME__ is trying to install Apple software.";
 
-"system.install.apple-software.standard-user" = "__APPNAME__ is trying to install Apple-provided software.";
+"system.install.apple-software.standard-user" = "__APPNAME__ is trying to install Apple software.";
 
 "com.apple.security.assessment.update" = "You are overriding your security preferences to install an app from an unidentified developer.";
 
@@ -175,3 +175,7 @@
 "com.apple.system-extensions.admin" = "__APPNAME__ is trying to modify a System Extension.";
 
 "com.apple.tcc.util.admin" = "__APPNAME__ is trying to modify your Security & Privacy settings.";
+
+"com.apple.configurationprofiles.deviceenrollment.install" = "__APPNAME__ is trying to enroll you in a remote management (MDM) service.";
+
+"com.apple.configurationprofiles.deviceenrollment.uninstall" = "__APPNAME__ is trying to unenroll you from a remote management (MDM) service.";

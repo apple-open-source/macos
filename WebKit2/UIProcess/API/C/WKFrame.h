@@ -27,6 +27,7 @@
 #define WKFrame_h
 
 #include <WebKit/WKBase.h>
+#include <WebKit/WKDeprecated.h>
 
 #ifndef __cplusplus
 #include <stdbool.h>
@@ -66,10 +67,10 @@ WK_EXPORT bool WKFrameCanShowMIMEType(WKFrameRef frame, WKStringRef mimeType);
 WK_EXPORT bool WKFrameIsDisplayingStandaloneImageDocument(WKFrameRef frame);
 WK_EXPORT bool WKFrameIsDisplayingMarkupDocument(WKFrameRef frame);
 
-WK_EXPORT bool WKFrameIsFrameSet(WKFrameRef frame);
+WK_EXPORT bool WKFrameIsFrameSet(WKFrameRef frame) WK_C_API_DEPRECATED;
 
 WK_EXPORT WKFrameHandleRef WKFrameCreateFrameHandle(WKFrameRef frame);
-WK_EXPORT WKFrameInfoRef WKFrameCreateFrameInfo(WKFrameRef frame);
+WK_EXPORT WKFrameInfoRef WKFrameCreateFrameInfo(WKFrameRef frame) WK_C_API_DEPRECATED;
 
 typedef void (*WKFrameGetResourceDataFunction)(WKDataRef data, WKErrorRef error, void* functionContext);
 WK_EXPORT void WKFrameGetMainResourceData(WKFrameRef frame, WKFrameGetResourceDataFunction function, void* functionContext);

@@ -170,5 +170,9 @@ int see(int color, int square, int from);
 void gen_all_tables(void);
 int egtb(int s);
 
+int load_2piece();
+int load_3piece(int w1_man, int b1_man, int b2_man, signed char *t);
+int init_segtb();
+
 #endif
 

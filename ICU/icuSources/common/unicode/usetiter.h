@@ -10,6 +10,9 @@
 #define USETITER_H
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/uobject.h"
 #include "unicode/unistr.h"
 
@@ -18,7 +21,6 @@
  * \brief C++ API: UnicodeSetIterator iterates over the contents of a UnicodeSet.
  */
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class UnicodeSet;
@@ -317,6 +319,7 @@ inline UChar32 UnicodeSetIterator::getCodepointEnd() const {
 
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

@@ -141,6 +141,22 @@
 #define kIOAudioEngineIsHiddenKey                   "IOAudioEngineIsHidden"
 
 #define kIOAudioEngineOutputAutoRouteKey            "NoAutoRoute"
+
+/*!
+* @defined kIOAudioEngineUseHiResSampleInterval
+* @abstract The key in the IORegistry to tell the HAL to use "Hi Resolution" sampleInterval values in performClientIO
+* @discussion The HAL has always passed two 32 bit values to the performClientIO trap. sampleIntervalHi is the upper
+*  32 bits and sampleIntervalLo the lower 32 bits of an AbsoluteTime representing the time between two consecutive audio
+ * samples on this Engine's running clock. This time is always very small, meaning that the upper 32 bits are always 0
+ * but the value is also rounded, meaning that there could be error in the amount of time, especially at higher sample rates
+ * where the value is pretty small (e.g. at a nominal rate of 768kHz, sampleInterval is 1302.0833 nanoseconds which will come
+ * into performClientIO as (0, 1302) thus losing some precision
+ * when kIOAudioEngineUseHiResSampleInterval is set, the HAL will send the sampleInterval as a 32.32 Fixed Point number.
+ * sampleIntervalHi will contain the integer part of the sampleInterval (1302) abd sampleIntervalLo will contain the fractional
+ * part encoded as a standard binary fixed point decimal
+*/
+#define kIOAudioEngineUseHiResSampleIntervalKey       "IOAudioEngineUseHiResSampleInterval"
+
 /*!
  * @defined kIOAudioEngineFullChannelNamesKey
  * @abstract The key in the IORegistry for the IOAudioEngine's dictionary of fully constructed names for each channel keyed by the device channel

@@ -51,10 +51,10 @@ class IDBRequestData;
 class IDBTransactionInfo;
 class StorageQuotaManager;
 
-enum class IDBGetRecordDataType;
+enum class IDBGetRecordDataType : bool;
 
 namespace IndexedDB {
-enum class IndexRecordType;
+enum class IndexRecordType : bool;
 }
 
 namespace IDBServer {
@@ -110,6 +110,7 @@ public:
     void immediateClose();
 
     void abortActiveTransactions();
+    bool tryClose();
 
 private:
     void handleDatabaseOperations();
@@ -141,8 +142,6 @@ private:
     void clearStalePendingOpenDBRequests();
 
     void clearTransactionsOnConnection(UniqueIDBDatabaseConnection&);
-
-    void prefetchCursor(const IDBResourceIdentifier&, const IDBResourceIdentifier&);
 
     IDBServer& m_server;
     IDBDatabaseIdentifier m_identifier;

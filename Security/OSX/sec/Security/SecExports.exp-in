@@ -71,7 +71,6 @@ __P_DO_EXPORT_##ISPUBLIC(NAME)
 #if TARGET_OS_OSX
 _kSecPolicyAppleiChat
 #endif
-_kSecPolicyAppleIDValidationRecordSigningPolicy
 _kSecPolicyMacAppStoreReceipt
 _kSecPolicyNameAppleAIDCService
 _kSecPolicyNameAppleAMPService
@@ -87,6 +86,7 @@ _kSecPolicyNameAppleIDSService
 _kSecPolicyNameAppleMapsService
 _kSecPolicyNameAppleMMCSService
 _kSecPolicyNameAppleParsecService
+_kSecPolicyNameApplePushCertPortal
 _kSecPolicyNameApplePPQService
 _kSecPolicyNameApplePushService
 _kSecPolicyNameAppleSiriService
@@ -138,6 +138,9 @@ _kSecPolicyKU_NonRepudiation
 #endif
 
 _SecDNSIsTLD
+_CreateCFDataFromBase64CFString
+_parseNSPinnedDomains
+_SecPolicyReconcilePinningRequiredIfInfoSpecified
 
 #undef POLICYCHECKMACRO
 #define __PC_DO_EXPORT_(NAME)
@@ -157,7 +160,6 @@ _SecPolicySetName
 _SecPolicySetOptionsValue
 #if TARGET_OS_OSX
 _SecPolicyCopy
-_SecPolicyCopyAll
 _SecPolicyCreateAppleTimeStampingAndRevocationPolicies
 _SecPolicyCreateItemImplInstance
 _SecPolicyCreateWithOID
@@ -222,6 +224,7 @@ _SecTrustCopyFailureDescription
 _SecTrustCopyFilteredDetails
 _SecTrustCopyInfo
 _SecTrustCopyInputCertificates
+_SecTrustCopyKey
 _SecTrustCopyPolicies
 _SecTrustCopyProperties
 _SecTrustCopyPublicKey
@@ -267,6 +270,7 @@ _SecTrustSetPolicies
 _SecTrustSetSignedCertificateTimestamps
 _SecTrustSetTrustedLogs
 _SecTrustSetVerifyDate
+_SecTrustTriggerValidUpdate
 #if TARGET_OS_OSX
 _SecTrustCopyAnchorCertificates
 _SecTrustCopyExtendedResult
@@ -292,15 +296,18 @@ _SecTrustSettingsCopyCertificatesForUserAdminDomains
 _SecTrustSettingsCopyModificationDate
 _SecTrustSettingsCopyQualifiedCerts
 _SecTrustSettingsCopyTrustSettings
+_SecTrustSettingsCopyTrustSettings_Cached
 _SecTrustSettingsCopyUnrestrictedRoots
 _SecTrustSettingsCreateExternalRepresentation
 _SecTrustSettingsEvaluateCert
 _SecTrustSettingsImportExternalRepresentation
+_SecTrustSettingsPurgeCache
 _SecTrustSettingsPurgeUserAdminCertsCache
 _SecTrustSettingsRemoveTrustSettings
 _SecTrustSettingsSetTrustSettings
 _SecTrustSettingsSetTrustSettingsExternal
 _SecTrustSettingsSetTrustedCertificateForSSLHost
+_SecTrustSettingsUserAdminDomainsContain
 _SecTrustedApplicationCopyData
 _SecTrustedApplicationCopyExternalRepresentation
 _SecTrustedApplicationCopyRequirement
@@ -318,7 +325,6 @@ _SecTrustedApplicationValidateWithPath
 
 #endif
 
-#if TARGET_OS_IPHONE
 _SecTrustStoreContains
 _SecTrustStoreCopyAll
 _SecTrustStoreCopyUsageConstraints
@@ -327,15 +333,21 @@ _SecTrustStoreGetSettingsVersionNumber
 _SecTrustStoreGetSettingsAssetVersionNumber
 _SecTrustStoreRemoveCertificate
 _SecTrustStoreSetTrustSettings
+#if TARGET_OS_IPHONE
 _SecTrustGetExceptionResetCount
 _SecTrustIncrementExceptionResetCount
 #endif
 _SecTrustStoreSetCTExceptions
 _SecTrustStoreCopyCTExceptions
+_SecTrustStoreSetCARevocationAdditions
+_SecTrustStoreCopyCARevocationAdditions
 _kSecCTExceptionsCAsKey
 _kSecCTExceptionsDomainsKey
 _kSecCTExceptionsHashAlgorithmKey
 _kSecCTExceptionsSPKIHashKey
+_kSecCARevocationAdditionsKey
+_kSecCARevocationHashAlgorithmKey
+_kSecCARevocationSPKIHashKey
 
 //
 // Identity
@@ -355,6 +367,7 @@ _kSecCertificateDetailSHA1Digest
 _kSecCertificateEscrowFileName
 _kSecCertificateProductionEscrowKey
 _kSecCertificateProductionPCSEscrowKey
+_SecCertificateCopyAppleExternalRoots
 _SecCertificateCopyAttributeDictionary
 _SecCertificateCopyCommonName
 _SecCertificateCopyCommonNames
@@ -364,7 +377,6 @@ _SecCertificateCopyCountry
 _SecCertificateCopyCTLogForKeyID
 _SecCertificateCopyDNSNames
 _SecCertificateCopyDNSNamesFromSAN
-_SecCertificateCopyDNSNamesFromSubject
 _SecCertificateCopyData
 _SecCertificateCopyEmailAddresses
 _SecCertificateCopyEscrowRoots
@@ -372,8 +384,8 @@ _SecCertificateCopyExtendedKeyUsage
 _SecCertificateCopyExtensionValue
 _SecCertificateCopyiAPAuthCapabilities
 _SecCertificateCopyiAPSWAuthCapabilities
+_SecCertificateCopyIPAddressDatas
 _SecCertificateCopyIPAddresses
-_SecCertificateCopyIPAddressesFromSubject
 _SecCertificateCopyiPhoneDeviceCAChain
 _SecCertificateCopyIssuerSHA1Digest
 _SecCertificateCopyIssuerSequence
@@ -391,13 +403,20 @@ _SecCertificateCopyOrganizationalUnit
 _SecCertificateCopyPrecertTBS
 _SecCertificateCopyProperties
 _SecCertificateCopyPublicKey
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+_SecCertificateCopyPublicKey$LEGACYMAC
+#endif
 _SecCertificateCopyPublicKeySHA1Digest
 _SecCertificateCopyRFC822Names
 _SecCertificateCopyRFC822NamesFromSubject
 _SecCertificateCopySerialNumber
 _SecCertificateCopySerialNumberData
+#if TARGET_OS_OSX && TARGET_CPU_ARM64
+_SecCertificateCopySerialNumber$LEGACYMAC
+#endif
 _SecCertificateCopySHA256Digest
 _SecCertificateCopySignedCertificateTimestamps
+_SecCertificateCopySubjectAttributeValue
 _SecCertificateCopySubjectPublicKeyInfoSHA1Digest
 _SecCertificateCopySubjectPublicKeyInfoSHA256Digest
 _SecCertificateCopySubjectSequence
@@ -462,6 +481,7 @@ _SecCertificateShow
 _SecCertificateVersion
 _SecDistinguishedNameCopyNormalizedContent
 _SecDistinguishedNameCopyNormalizedSequence
+_SecSignatureHashAlgorithmForAlgorithmOid
 
 _SecCertificateArrayCopyXPCArray
 _SecCertificateAppendToXPCArray
@@ -503,16 +523,6 @@ _SecCertificateReleaseFirstFieldValue
 _SecCertificateSetPreference
 _SecCertificateSetPreferred
 #endif
-
-//
-// CertificateBundle
-//
-
-#if TARGET_OS_OSX
-_SecCertifcateBundleExport
-_SecCertificateBundleExport
-_SecCertificateBundleImport
-#endif /* TARGET_OS_OSX */
 
 #if TARGET_OS_IPHONE
 //
@@ -561,7 +571,6 @@ _SecGenerateCertificateRequestSubject
 //
 
 _SecOTRPacketTypeString
-_SecOTRSEndSession
 _SecOTRSPrecalculateKeys
 _SecOTRSessionCreateRemote
 _SecOTRSessionProcessPacketRemote
@@ -621,6 +630,7 @@ _AES_CTR_IV0_Transform
 
 _SecOTRSessionIsSessionInAwaitingState
 _SecOTRFullIdentityCreateFromSecKeyRef
+_SecOTRFullIdentityCreateFromSecKeyRefSOS
 _SecOTRSIsForKeys
 _SecOTRPublicIdentityCreateFromSecKeyRef
 _SecOTRSAppendRestartPacket
@@ -1526,6 +1536,13 @@ _kSecAttrPCSPlaintextPublicKey
 _kSecAttrPCSPlaintextPublicIdentity
 _kSecAttrSHA1
 
+_kSecDataInetExtraNotes
+_kSecDataInetExtraHistory
+_kSecDataInetExtraClientDefined0
+_kSecDataInetExtraClientDefined1
+_kSecDataInetExtraClientDefined2
+_kSecDataInetExtraClientDefined3
+
 #include "keychain/SecureObjectSync/SOSViews.exp-in"
 
 _kSecClass
@@ -1566,7 +1583,6 @@ _kSecReturnPersistentRef
 _kSecReturnRef
 _SecItemAdd
 _SecItemCertificateExists
-_SecItemCopyDisplayNames
 _SecItemCopyMatching
 _SecItemCopyParentCertificates_ios
 _SecItemDelete
@@ -1595,18 +1611,18 @@ __SecKeychainWriteBackupToFileDescriptor
 __SecKeychainCopyKeybagUUIDFromFileDescriptor
 
 _SecItemBackupWithRegisteredBackups
+_SecItemBackupWithRegisteredViewBackup
 _SecItemBackupSetConfirmedManifest
 _SecItemBackupRestore
 _SecBackupKeybagAdd
 _SecBackupKeybagDelete
-_SecItemBackupCopyMatching
 _SecItemBackupCreateManifest
 _SecItemBackupWithChanges
 _SecBackupKeybagAdd
 _SecBackupKeybagDelete
 
 __SecKeychainRollKeys
-#if TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE || TARGET_OS_OSX || TARGET_OS_MACCATALYST
 
 _SecAddSharedWebCredential
 _SecRequestSharedWebCredential
@@ -1620,7 +1636,7 @@ __SecSecuritydCopyWhoAmI
 __SecSyncBubbleTransfer
 __SecSystemKeychainTransfer
 __SecSyncDeleteUserViews
-_SecItemUpdateTokenItems
+_SecItemUpdateTokenItemsForAccessGroups
 _SecItemDeleteAllWithAccessGroups
 _SecTokenItemValueCopy
 
@@ -1647,6 +1663,7 @@ _SecCopyDecryptedForServer
 _sSecDERErrorDomain
 _der_sizeof_plist
 _der_encode_plist
+_der_encode_plist_repair
 _der_decode_plist
 _CFPropertyListCreateDERData
 _CFPropertyListCreateWithDERData
@@ -1746,10 +1763,9 @@ _sec_protocol_options_access_handle
 _sec_protocol_metadata_access_handle
 _sec_protocol_metadata_get_server_name
 _sec_protocol_options_set_output_handler_access_block
-_sec_protocol_options_set_tls_SIKE503_exchange_enabled
-_sec_protocol_options_set_tls_HRSS_exchange_enabled
 _sec_protocol_options_set_eddsa_enabled
 _sec_protocol_options_set_tls_grease_enabled
+_sec_protocol_options_set_allow_unknown_alpn_protos
 _sec_protocol_options_set_tls_delegated_credentials_enabled
 _sec_protocol_options_set_tls_ticket_request_count
 _sec_protocol_options_set_local_certificates
@@ -1763,6 +1779,8 @@ _sec_protocol_options_set_quic_transport_parameters
 _sec_protocol_options_set_session_state
 _sec_protocol_options_set_session_update_block
 _sec_protocol_options_add_tls_application_protocol
+_sec_protocol_options_add_transport_specific_application_protocol
+_sec_protocol_options_copy_transport_specific_application_protocol
 _sec_protocol_options_append_tls_ciphersuite
 _sec_protocol_options_append_tls_ciphersuite_group
 _sec_protocol_options_add_tls_ciphersuite
@@ -1789,6 +1807,7 @@ _sec_protocol_options_set_tls_is_fallback_attempt
 _sec_protocol_options_set_verify_block
 _sec_protocol_options_set_tls_diffie_hellman_parameters
 _sec_protocol_options_set_peer_authentication_required
+_sec_protocol_options_set_peer_authentication_optional
 _sec_protocol_options_set_experiment_identifier
 _sec_protocol_metadata_get_experiment_identifier
 _sec_protocol_options_create_config
@@ -1813,6 +1832,7 @@ _sec_protocol_configuration_tls_required_for_address
 _sec_protocol_configuration_builder_create
 _sec_protocol_configuration_create_with_builder
 _sec_protocol_options_set_tls_encryption_secret_update_block
+_sec_protocol_options_set_tls_encryption_level_update_block
 _sec_protocol_options_append_tls_key_exchange_group
 _sec_protocol_options_append_tls_key_exchange_group_set
 _sec_protocol_options_add_tls_key_exchange_group
@@ -1829,6 +1849,11 @@ _sec_protocol_metadata_access_pre_shared_keys
 _sec_protocol_metadata_copy_connection_id
 _sec_protocol_options_set_pre_shared_key_selection_block
 _sec_protocol_helper_ciphersuite_group_to_ciphersuite_list
+_sec_protocol_helper_ciphersuite_group_contains_ciphersuite
+_sec_protocol_helper_ciphersuite_minimum_TLS_version
+_sec_protocol_helper_ciphersuite_maximum_TLS_version
+_sec_protocol_helper_get_ciphersuite_name
+_sec_protocol_options_set_tls_block_length_padding
 _sec_release
 _sec_retain
 _sec_trust_copy_ref
@@ -1853,7 +1878,3 @@ _sec_experiment_set_sampling_disabled
 _SSLCiphersuiteGroupToCiphersuiteList
 _SSLCiphersuiteMaximumTLSVersion
 _SSLCiphersuiteMinimumTLSVersion
-
-#if __OBJC2__ && (TARGET_OS_IPHONE || (TARGET_OS_OSX && __x86_64__))
-_OBJC_CLASS_$_SFSignInAnalytics
-#endif //__OBJC2__ && IPHONE || OSX

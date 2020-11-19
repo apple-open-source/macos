@@ -242,9 +242,7 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
          if we don't explicitly trust them. */
         CFArrayAppendValue(builder->parentSources, builder->appleAnchorSource);
         CFArrayAppendValue(builder->parentSources, kSecSystemAnchorSource);
- #if TARGET_OS_IPHONE
         CFArrayAppendValue(builder->parentSources, kSecUserAnchorSource);
- #endif
     }
     if (keychainsAllowed && builder->canAccessNetwork) {
         CFArrayAppendValue(builder->parentSources, kSecCAIssuerSource);
@@ -273,13 +271,12 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
          anchorSources if we are supposed to trust them. */
         CFArrayAppendValue(builder->anchorSources, builder->appleAnchorSource);
         if (keychainsAllowed) {
-#if TARGET_OS_IPHONE
-            CFArrayAppendValue(builder->anchorSources, kSecUserAnchorSource);
-#else /* TARGET_OS_OSX */
+#if TARGET_OS_OSX
             if (kSecLegacyAnchorSource->contains && kSecLegacyAnchorSource->copyParents) {
                 CFArrayAppendValue(builder->anchorSources, kSecLegacyAnchorSource);
             }
 #endif
+            CFArrayAppendValue(builder->anchorSources, kSecUserAnchorSource);
         }
         CFArrayAppendValue(builder->anchorSources, kSecSystemAnchorSource);
     }
@@ -466,6 +463,9 @@ CFSetRef SecPathBuilderGetAllPaths(SecPathBuilderRef builder)
 
 TrustAnalyticsBuilder *SecPathBuilderGetAnalyticsData(SecPathBuilderRef builder)
 {
+    if (!builder) {
+        return NULL;
+    }
     return builder->analyticsData;
 }
 
@@ -1364,6 +1364,20 @@ SecTrustServerEvaluateBlock(dispatch_queue_t builderQueue, CFDataRef clientAudit
     SecPathBuilderStep(builder);
 }
 
+static CFDataRef SecTrustServerCopySelfAuditToken(void)
+{
+    audit_token_t token;
+    kern_return_t kr;
+    mach_msg_type_number_t token_size = TASK_AUDIT_TOKEN_COUNT;
+    kr = task_info(mach_task_self(), TASK_AUDIT_TOKEN, (task_info_t)&token, &token_size);
+    if (kr != KERN_SUCCESS) {
+        secwarning("failed to get audit token for ourselves");
+        return NULL;
+    }
+
+    return CFDataCreate(NULL, (uint8_t *)&token, sizeof(token));
+}
+
 
 // NO_SERVER Shim code only, xpc interface should call SecTrustServerEvaluateBlock() directly
 SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly, bool keychainsAllowed, CFArrayRef policies, CFArrayRef responses, CFArrayRef SCTs, CFArrayRef trustedLogs, CFAbsoluteTime verifyTime, __unused CFArrayRef accessGroups, CFArrayRef exceptions, CFArrayRef *pdetails, CFDictionaryRef *pinfo, CFArrayRef *pchain, CFErrorRef *perror) {
@@ -1371,13 +1385,16 @@ SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef an
     __block SecTrustResultType result = kSecTrustResultInvalid;
     __block dispatch_queue_t queue = dispatch_queue_create("com.apple.trustd.evaluation.recursive", DISPATCH_QUEUE_SERIAL);
 
+    /* make an audit token for ourselves */
+    CFDataRef audit_token = SecTrustServerCopySelfAuditToken();
+
     /* We need to use the async call with the semaphore here instead of a synchronous call because we may return from
      * SecPathBuilderStep while waiting for an asynchronous network call in order to complete the evaluation. That return
      * is necessary in the XPC interface in order to free up the workloop for other trust evaluations while we wait for
      * the networking to complete, but here, we need to make sure we wait for the network call (which will async back
      * onto our queue) to complete and signal us before we return to the "inline" caller. */
     dispatch_async(queue, ^{
-        SecTrustServerEvaluateBlock(queue, NULL, certificates, anchors, anchorsOnly, keychainsAllowed, policies, responses, SCTs, trustedLogs, verifyTime, accessGroups, exceptions, ^(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error) {
+        SecTrustServerEvaluateBlock(queue, audit_token, certificates, anchors, anchorsOnly, keychainsAllowed, policies, responses, SCTs, trustedLogs, verifyTime, accessGroups, exceptions, ^(SecTrustResultType tr, CFArrayRef details, CFDictionaryRef info, CFArrayRef chain, CFErrorRef error) {
             result = tr;
             if (tr == kSecTrustResultInvalid) {
                 if (perror) {
@@ -1404,6 +1421,7 @@ SecTrustResultType SecTrustServerEvaluate(CFArrayRef certificates, CFArrayRef an
     dispatch_semaphore_wait(done, DISPATCH_TIME_FOREVER);
     dispatch_release(done);
     dispatch_release_null(queue);
+    CFReleaseNull(audit_token);
 
     return result;
 }

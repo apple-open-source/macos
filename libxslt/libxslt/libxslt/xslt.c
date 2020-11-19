@@ -810,9 +810,8 @@ xsltAllocateExtraCtxt(xsltTransformContextPtr ctxt)
 	    ctxt->extras = (xsltRuntimeExtraPtr)
 		xmlMalloc(ctxt->extrasMax * sizeof(xsltRuntimeExtra));
 	    if (ctxt->extras == NULL) {
-		xmlGenericError(xmlGenericErrorContext,
+		xsltTransformError(ctxt, NULL, NULL,
 			"xsltAllocateExtraCtxt: out of memory\n");
-		ctxt->state = XSLT_STATE_ERROR;
 		return(0);
 	    }
 	    for (i = 0;i < ctxt->extrasMax;i++) {
@@ -828,9 +827,8 @@ xsltAllocateExtraCtxt(xsltTransformContextPtr ctxt)
 	    tmp = (xsltRuntimeExtraPtr) xmlRealloc(ctxt->extras,
 		            ctxt->extrasMax * sizeof(xsltRuntimeExtra));
 	    if (tmp == NULL) {
-		xmlGenericError(xmlGenericErrorContext,
+		xsltTransformError(ctxt, NULL, NULL,
 			"xsltAllocateExtraCtxt: out of memory\n");
-		ctxt->state = XSLT_STATE_ERROR;
 		return(0);
 	    }
 	    ctxt->extras = tmp;

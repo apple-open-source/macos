@@ -43,6 +43,8 @@
 
 #include "SOSRegressionUtilities.h"
 
+#if SOS_ENABLED
+
 
 static int kTestTestCount = 15;
 static void tests(void)
@@ -130,12 +132,15 @@ static void tests(void)
     CFReleaseNull(retirement_peer_id);
 
 }
+#endif
 
 int sc_20_keynames(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-
     tests();
-
+#else
+    plan_tests(0);
+#endif
 	return 0;
 }

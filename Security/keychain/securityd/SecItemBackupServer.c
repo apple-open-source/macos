@@ -78,6 +78,16 @@ CFArrayRef SecServerItemBackupCopyNames(CFErrorRef *error) {
     return names;
 }
 
+CFStringRef SecServerItemBackupEnsureCopyView(CFStringRef viewName, CFErrorRef *error) {
+    __block CFStringRef name = NULL;
+    if(!withDataSourceAndEngine(error, ^(SOSDataSourceRef ds, SOSEngineRef engine) {
+        name = SOSEngineEnsureCopyBackupPeerForView(engine, viewName, error);
+    })) {
+        CFReleaseNull(name);
+    }
+    return name;
+}
+
 // TODO Move to datasource and remove dsRestoreObject
 static bool SOSDataSourceWithBackup(SOSDataSourceRef ds, CFDataRef backup, keybag_handle_t bag_handle, CFErrorRef *error, void(^with)(SOSObjectRef item)) {
     __block bool ok = true;

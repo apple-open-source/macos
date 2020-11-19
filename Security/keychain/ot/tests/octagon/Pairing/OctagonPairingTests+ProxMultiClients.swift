@@ -1,9 +1,7 @@
 #if OCTAGON
 
 extension OctagonPairingTests {
-
     func test2ClientsBothOctagonAndSOS() {
-
         OctagonSetPlatformSupportsSOS(true)
         self.startCKAccountStatusMock()
 
@@ -578,7 +576,6 @@ extension OctagonPairingTests {
     }
 
     func test2ClientsSOSOnly() {
-
         OctagonSetPlatformSupportsSOS(true)
         OctagonSetIsEnabled(false)
         self.startCKAccountStatusMock()

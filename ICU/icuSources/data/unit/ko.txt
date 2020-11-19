@@ -1,7 +1,7 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 ko{
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     durationUnits{
         hm{"h:mm"}
         hms{"h:mm:ss"}
@@ -111,9 +111,13 @@ ko{
                 dnam{"ppm"}
                 other{"{0}ppm"}
             }
-            permyriad{
-                dnam{"‱"}
-                other{"{0}‱"}
+            percent{
+                dnam{"%"}
+                other{"{0}%"}
+            }
+            permille{
+                dnam{"‰"}
+                other{"{0}‰"}
             }
         }
         consumption{
@@ -743,6 +747,15 @@ ko{
                 other{"{0}mi²"}
             }
         }
+        compound{
+            per{"{0}/{1}"}
+        }
+        concentr{
+            percent{
+                dnam{"%"}
+                other{"{0}%"}
+            }
+        }
         consumption{
             liter-per-100kilometers{
                 dnam{"L/100km"}
@@ -998,6 +1011,18 @@ ko{
             }
         }
         temperature{
+            celsius{
+                dnam{"°C"}
+                other{"{0}°C"}
+            }
+            fahrenheit{
+                dnam{"°F"}
+                other{"{0}°F"}
+            }
+            generic{
+                dnam{"°"}
+                other{"{0}°"}
+            }
             kelvin{
                 dnam{"K"}
                 other{"{0}K"}
@@ -1096,6 +1121,10 @@ ko{
                 other{"{0}yd²"}
             }
         }
+        compound{
+            per{"{0}/{1}"}
+            times{"{0}⋅{1}"}
+        }
         concentr{
             karat{
                 dnam{"kt"}
@@ -1116,6 +1145,14 @@ ko{
             part-per-million{
                 dnam{"ppm"}
                 other{"{0}ppm"}
+            }
+            percent{
+                dnam{"%"}
+                other{"{0}%"}
+            }
+            permille{
+                dnam{"‰"}
+                other{"{0}‰"}
             }
             permyriad{
                 dnam{"‱"}
@@ -1202,6 +1239,10 @@ ko{
                 dnam{"일"}
                 other{"{0}일"}
                 per{"{0}/일"}
+            }
+            decade{
+                dnam{"dec"}
+                other{"{0} dec"}
             }
             hour{
                 dnam{"시간"}
@@ -1297,6 +1338,10 @@ ko{
                 dnam{"kWh"}
                 other{"{0}kWh"}
             }
+            therm-us{
+                dnam{"US therm"}
+                other{"{0} US therm"}
+            }
         }
         force{
             newton{
@@ -1324,6 +1369,36 @@ ko{
             megahertz{
                 dnam{"MHz"}
                 other{"{0}MHz"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                other{"{0} dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+                other{"{0} dpi"}
+            }
+            em{
+                dnam{"em"}
+                other{"{0} em"}
+            }
+            megapixel{
+                dnam{"MP"}
+                other{"{0} MP"}
+            }
+            pixel{
+                dnam{"px"}
+                other{"{0} px"}
+            }
+            pixel-per-centimeter{
+                dnam{"ppcm"}
+                other{"{0} ppcm"}
+            }
+            pixel-per-inch{
+                dnam{"ppi"}
+                other{"{0} ppi"}
             }
         }
         length{
@@ -1520,6 +1595,10 @@ ko{
                 dnam{"atm"}
                 other{"{0}atm"}
             }
+            bar{
+                dnam{"bar"}
+                other{"{0} bar"}
+            }
             hectopascal{
                 dnam{"hPa"}
                 other{"{0}hPa"}
@@ -1543,6 +1622,10 @@ ko{
             millimeter-of-mercury{
                 dnam{"mmHg"}
                 other{"{0}mmHg"}
+            }
+            pascal{
+                dnam{"Pa"}
+                other{"{0} Pa"}
             }
             pound-per-square-inch{
                 dnam{"psi"}
@@ -1568,6 +1651,18 @@ ko{
             }
         }
         temperature{
+            celsius{
+                dnam{"°C"}
+                other{"{0}°C"}
+            }
+            fahrenheit{
+                dnam{"°F"}
+                other{"{0}°F"}
+            }
+            generic{
+                dnam{"°"}
+                other{"{0}°"}
+            }
             kelvin{
                 dnam{"K"}
                 other{"{0}K"}

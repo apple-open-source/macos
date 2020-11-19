@@ -35,7 +35,6 @@ namespace Security {
 namespace Daemon {
 
 bool incarnate(bool doFork=true);
-bool executeSelf(char **argv);
 
 } // end namespace Daemon
 } // end namespace Security

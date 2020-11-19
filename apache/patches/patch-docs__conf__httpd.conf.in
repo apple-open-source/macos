@@ -14,8 +14,11 @@
 
  #
  # Dynamic Shared Object (DSO) Support
-@@ -64,6 +64,9 @@
+@@ -62,9 +62,13 @@
+ #
+ # Example:
  # LoadModule foo_module modules/mod_foo.so
++# LoadModule my_custom_module /usr/local/libexec/mod_my_custom.so "My Signature Authority"
  #
  @@LoadModule@@
 +#LoadModule php7_module libexec/apache2/libphp7.so
@@ -24,6 +27,7 @@
  
  <IfModule unixd_module>
  #
+ # If you wish httpd to run as a different user or group, you must run
 @@ -74,8 +76,8 @@
  # It is usually good practice to create a dedicated user and group for
  # running httpd, as with most system services.

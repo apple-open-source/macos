@@ -62,6 +62,8 @@ protected:
     virtual addr64_t getPhysicalSegment(IOByteCount offset, IOByteCount * length, IOOptionBits options = 0) = 0;
     virtual IOReturn prepare(IODirection forDirection = kIODirectionNone);
     virtual IOReturn complete(IODirection forDirection = kIODirectionNone);
+
+    virtual uint64_t getPreparationID( void );
 };
 
 #endif  /* ! _APPLERAIDMEMORYDESCRIPTOR_H */

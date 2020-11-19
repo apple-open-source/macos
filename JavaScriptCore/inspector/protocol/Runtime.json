@@ -1,7 +1,8 @@
 {
     "domain": "Runtime",
     "description": "Runtime domain exposes JavaScript runtime by means of remote evaluation and mirror objects. Evaluation results are returned as mirror object that expose object type, string representation and unique identifier that can be used for further object reference. Original objects are maintained in memory unless they are either explicitly released or are released along with the other objects in their object group.",
-    "targetTypes": ["javascript", "page", "service-worker", "worker"],
+    "debuggableTypes": ["itml", "javascript", "page", "service-worker", "web-page"],
+    "targetTypes": ["itml", "javascript", "page", "service-worker", "worker"],
     "types": [
         {
             "id": "RemoteObjectId",
@@ -109,12 +110,18 @@
             "description": "Id of an execution context."
         },
         {
+            "id": "ExecutionContextType",
+            "type": "string",
+            "enum": ["normal", "user", "internal"],
+            "description": "Type of the execution context."
+        },
+        {
             "id": "ExecutionContextDescription",
             "type": "object",
             "description": "Description of an isolated world.",
             "properties": [
                 { "name": "id", "$ref": "ExecutionContextId", "description": "Unique id of the execution context. It can be used to specify in which execution context script evaluation should be performed." },
-                { "name": "isPageContext", "type": "boolean", "description": "True if this is a context where inpspected web page scripts run. False if it is a content script isolated context." },
+                { "name": "type", "$ref": "ExecutionContextType" },
                 { "name": "name", "type": "string", "description": "Human readable name describing given context."},
                 { "name": "frameId", "$ref": "Network.FrameId", "description": "Id of the owning frame." }
             ]

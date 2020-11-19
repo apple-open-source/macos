@@ -21,28 +21,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define __OS_EXPOSE_INTERNALS__ 1
-#include <os/internal/internal_shared.h>
-
+#include <os/atomic_private.h>
+#include <os/crashlog_private.h>
+#include <os/lock.h>
 #include <dispatch/dispatch.h>
 #include <mach/mach.h>
-#include <os/lock.h>
-#include <stdatomic.h>
 #include <stdint.h>
 #include <TargetConditionals.h>
 
 #include "libnotify.h"
 
-#define NOTIFY_INTERNAL_CRASH(c, x) __extension__({ \
-		_os_set_crash_log_cause_and_message(c, "BUG IN LIBNOTIFY: " x); \
-		__builtin_trap(); \
-	})
-
-#define NOTIFY_CLIENT_CRASH(c, x) __extension__({ \
-		_os_set_crash_log_cause_and_message(c, \
-				"BUG IN CLIENT OF LIBNOTIFY: " x); \
-		__builtin_trap(); \
-	})
+#define NOTIFY_INTERNAL_CRASH(c, x) OS_BUG_INTERNAL(c, "LIBNOTIFY", x)
+#define NOTIFY_CLIENT_CRASH(c, x)   OS_BUG_CLIENT(c, "LIBNOTIFY", x)
 
 #define NOTIFY_STATUS_SERVER_CHECKIN_FAILED 11
 // was  NOTIFY_STATUS_LIB_SELF_STATE_FAILED 12
@@ -88,17 +78,24 @@
 #define NOTIFY_STATUS_TYPE_ISSUE 52
 #define NOTIFY_STATUS_PATH_NODE_CREATE_FAILED 53
 #define NOTIFY_STATUS_INVALID_TIME_EVENT 54
-#define NOTIFY_STATUS_TIMER_FAILED 55
+// No longer used: NOTIFY_STATUS_TIMER_FAILED 55
 #define NOTIFY_STATUS_DOUBLE_REG 56
 #define NOTIFY_STATUS_NO_REGEN_NEEDED 57
+#define NOTIFY_STATUS_TOKEN_FIRE_FAILED 58
+#define NOTIFY_STATUS_INVALID_PORT_INTERNAL 59
+#define NOTIFY_STATUS_NO_NID 60
 
 #define IS_INTERNAL_ERROR(X) (X >= 11)
 
 #define USER_PROTECTED_UID_PREFIX "user.uid."
 #define USER_PROTECTED_UID_PREFIX_LEN 9
 
+#define CANARY_COUNT 13
+
 struct notify_globals_s
 {
+	uint64_t canary[CANARY_COUNT];
+
 	/* global lock */
 	os_unfair_lock notify_lock;
 

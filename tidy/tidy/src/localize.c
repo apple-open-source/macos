@@ -983,16 +983,7 @@ void messageLexer( TidyDocImpl* doc, TidyReportLevel level,
                    ctmbstr msg, ... ) TIDY_ATTRIBUTE_PRINTF(3, 4);
 
 /* For general reporting.  Emits nothing if --quiet yes */
-/* Apple Changes:
-   2007-02-07 iccir tidy_out needs to be exported for binary
-                    compatibility.  Hence, it cannot be static.
-   2007-02-20 iccir Removing .exp file, so tidy_out needs TIDY_EXPORT
-*/
-#ifndef TIDY_APPLE_CHANGES
 static
-#else
-TIDY_EXPORT
-#endif
 void tidy_out( TidyDocImpl* doc, ctmbstr msg, ... ) TIDY_ATTRIBUTE_PRINTF(2, 3);
 
 

@@ -107,7 +107,7 @@ public:
 	static SecCode *optionalDynamic(SecStaticCodeRef ref); // extract SecCodeRef or NULL if static
 
 	SecStaticCode(DiskRep *rep, uint32_t flags = 0);
-    virtual ~SecStaticCode() throw();
+    virtual ~SecStaticCode() _NOEXCEPT;
 
     void initializeFromParent(const SecStaticCode& parent);
 
@@ -200,9 +200,7 @@ public:
 	CFDictionaryRef signingInformation(SecCSFlags flags); // omnibus information-gathering API (creates new dictionary)
 
 	static bool isAppleDeveloperCert(CFArrayRef certs); // determines if this is an apple developer certificate for library validation
-#if !TARGET_OS_OSX
     bool trustedSigningCertChain() { return mTrustedSigningCertChain; }
-#endif
 
 	void handleOtherArchitectures(void (^handle)(SecStaticCode* other));
 
@@ -231,6 +229,7 @@ private:
 	void validateOtherVersions(CFURLRef path, SecCSFlags flags, SecRequirementRef req, SecStaticCode *code);
 	bool checkfix30814861(string path, bool addition);
 	bool checkfix41082220(OSStatus result);
+	CFArrayRef copyCertChain(SecTrustRef trust);
 
 	ResourceBuilder *mCheckfix30814861builder1;
 	dispatch_once_t mCheckfix30814861builder1_once;
@@ -306,11 +305,7 @@ private:
 	// signature verification outcome (mTrust == NULL => not done yet)
 	CFRef<SecTrustRef> mTrust;			// outcome of crypto validation (valid or not)
 	CFRef<CFArrayRef> mCertChain;
-#if TARGET_OS_OSX
-    CSSM_TP_APPLE_EVIDENCE_INFO *mEvalDetails;
-#else
     bool mTrustedSigningCertChain;
-#endif
 
 };
 

@@ -30,16 +30,19 @@
 #include <CoreFoundation/CFUserNotificationPriv.h>
 #include <Foundation/Foundation.h>
 #include <Foundation/NSUserNotification_Private.h>
+#include <os/log.h>
+#include <os/transaction_private.h>
 
 #define __DALocalizedStringInBundle( key, bundle ) [ [ NSBundle bundleWithPath: [ ( bundle ) pathForResource: [ [ NSBundle preferredLocalizationsFromArray: [ ( bundle ) localizations ] forPreferences: [ [ NSUserDefaults standardUserDefaults ] objectForKey: @"AppleLanguages" ] ] objectAtIndex: 0 ] ofType: @"lproj" ] ] localizedStringForKey: ( key ) value: NULL table: NULL ]
 
 static NSString * __kDADialogLocalizedStringBundlePath = @"/System/Library/Frameworks/DiskArbitration.framework";
 
-static NSString * __kDADialogLocalizedStringDeviceRemovalKey      = @"Eject \"%@\" before disconnecting or turning it off.";
+static NSString * __kDADialogLocalizedStringSingleDeviceRemovalKey      = @"Eject \"%@\" before disconnecting or turning it off.";
+static NSString * __kDADialogLocalizedStringMultiDeviceRemovalKey      = @"Eject the disk containing \"%@\" and \"%@\" before disconnecting or turning it off.";
 static NSString * __kDADialogLocalizedStringDeviceRemovalTitleKey = @"Disk Not Ejected Properly";
 
 static const CFStringRef __kDADialogTextDeviceUnreadableEject      = CFSTR( "Eject" );
-static const CFStringRef __kDADialogTextDeviceUnreadableHeader     = CFSTR( "The disk you inserted was not readable by this computer." );
+static const CFStringRef __kDADialogTextDeviceUnreadableHeader     = CFSTR( "The disk you attached was not readable by this computer." );
 static const CFStringRef __kDADialogTextDeviceUnreadableIgnore     = CFSTR( "Ignore" );
 static const CFStringRef __kDADialogTextDeviceUnreadableInitialize = CFSTR( "Initialize..." );
 
@@ -47,7 +50,7 @@ static const CFStringRef __kDADialogTextDeviceUnrepairable             = CFSTR( 
 static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderPrefix = CFSTR( "macOS can't repair the disk \"" );
 static const CFStringRef __kDADialogTextDeviceUnrepairableHeaderSuffix = CFSTR( "\"." );
 
-void DADialogShowDeviceRemoval( DADiskRef disk )
+void DADialogShowDeviceRemoval( CFMutableArrayRef disklist )
 {
     NSUserNotificationCenter * center;
 
@@ -68,28 +71,54 @@ void DADialogShowDeviceRemoval( DADiskRef disk )
             if ( bundle )
             {
                 NSDictionary * description;
+                NSMutableString *text1 = [NSMutableString stringWithCapacity:0];
+                NSMutableString *text2 = [NSMutableString stringWithCapacity:0];
+                notification.title           = __DALocalizedStringInBundle( __kDADialogLocalizedStringDeviceRemovalTitleKey, bundle );
+                notification._imageURL       = [ NSURL fileURLWithPath: @"/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/FinderIcon.icns" ];
+                notification._persistent     = FALSE;
 
-                description = ( __bridge_transfer id ) DADiskCopyDescription( disk );
-
-                if ( description )
+                for (CFIndex i = 0; i < CFArrayGetCount( disklist ); i++)
                 {
-                    NSString * name;
 
-                    name = [ description objectForKey: ( __bridge id ) kDADiskDescriptionVolumeNameKey ];
+                    DADiskRef disk = ( DADiskRef ) CFArrayGetValueAtIndex( disklist, i );
+                    description = ( __bridge_transfer id ) DADiskCopyDescription( disk );
 
-                    if ( name == NULL )
+                    if ( description )
                     {
-                        name = __DALocalizedStringInBundle( @"Untitled", bundle );
+                        NSString * name;
+
+                        name = [ description objectForKey: ( __bridge id ) kDADiskDescriptionVolumeNameKey ];
+
+                        if ( name == NULL )
+                        {
+                            name = __DALocalizedStringInBundle( @"Untitled", bundle );
+                        }
+
+                        notification.hasActionButton = FALSE;
+                        NSString *newName = [NSString stringWithFormat:@"%@", name];
+                        if ( i != 0 && i !=(  CFArrayGetCount( disklist ) - 1 ))
+                        {
+                            [text1 appendString:@", "];
+                        }
+                        if ( i <  CFArrayGetCount( disklist ) - 1 )
+                        {
+                            [text1 appendString:newName];
+                        }
+                        else
+                        {
+                            [text2 appendString:newName];
+                        }
                     }
-
-                    notification.hasActionButton = FALSE;
-                    notification.informativeText = [ NSString stringWithFormat: __DALocalizedStringInBundle( __kDADialogLocalizedStringDeviceRemovalKey, bundle ), name ];
-                    notification.title           = __DALocalizedStringInBundle( __kDADialogLocalizedStringDeviceRemovalTitleKey, bundle );
-                    notification._imageURL       = [ NSURL fileURLWithPath: @"/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/FinderIcon.icns" ];
-                    notification._persistent     = FALSE;
-
-                    [ center deliverNotification: notification ];
-                }
+               }
+               if ( 1 == CFArrayGetCount( disklist ) )
+               {
+                   notification.informativeText = [NSString stringWithFormat: __DALocalizedStringInBundle( __kDADialogLocalizedStringSingleDeviceRemovalKey, bundle ), text2 ];
+               }
+               else
+               {
+                   notification.informativeText = [NSString stringWithFormat: __DALocalizedStringInBundle( __kDADialogLocalizedStringMultiDeviceRemovalKey, bundle ), text1, text2 ];
+               }
+               [ center deliverNotification: notification ];
             }
         }
     }
@@ -131,9 +160,9 @@ void DADialogShowDeviceUnreadable( DADiskRef disk )
 
                 if ( notification )
                 {
-                    vproc_transaction_t transaction;
+                    os_transaction_t transaction;
                     
-                    transaction = vproc_transaction_begin( NULL );
+                    transaction = os_transaction_create( "com.apple.agent.DiskArbitrationAgent" );
                     
                     if ( transaction )
                     {
@@ -155,7 +184,7 @@ void DADialogShowDeviceUnreadable( DADiskRef disk )
                                 {
                                     CFURLRef path;
 
-                                    path = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR( "/Applications/Utilities/Disk Utility.app" ), kCFURLPOSIXPathStyle, FALSE );
+                                    path = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, CFSTR( "/System/Applications/Utilities/Disk Utility.app" ), kCFURLPOSIXPathStyle, FALSE );
 
                                     if ( path )
                                     {
@@ -175,7 +204,7 @@ void DADialogShowDeviceUnreadable( DADiskRef disk )
                                 }
                             }
 
-                            vproc_transaction_end( NULL, transaction );
+                            ( void ) transaction;
 
                             CFRelease( notification );
 

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
@@ -19,7 +19,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2018 Apple Inc. All rights reserved.</string>
+	<string>Copyright © 2018-2020 Apple Inc. All rights reserved.</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUserUSBHostHIDDevice0</key>
@@ -149,6 +149,29 @@
 				<integer>3000</integer>
 			</dict>
 		</dict>
+        <key>AppleUserT1TouchBarHIDDevice</key>
+        <dict>
+            <key>CFBundleIdentifierKernel</key>
+            <string>com.apple.iokit.IOHIDFamily</string>
+            <key>IOClass</key>
+            <string>AppleUserHIDDevice</string>
+            <key>IOProviderClass</key>
+            <string>IOUSBHostInterface</string>
+            <key>IOUserClass</key>
+            <string>AppleUserT1TouchBarHIDDevice</string>
+            <key>IOUserServerName</key>
+            <string>com.apple.driverkit.T1TouchBarHIDDevice</string>
+            <key>IOProbeScore</key>
+            <integer>1000</integer>
+            <key>bConfigurationValue</key>
+            <string>*</string>
+            <key>bInterfaceNumber</key>
+            <integer>2</integer>
+            <key>idProduct</key>
+            <integer>34304</integer>
+            <key>idVendor</key>
+            <integer>1452</integer>
+        </dict>
 		<key>AppleUserHIDEventDriver</key>
 		<dict>
 			<key>CFBundleIdentifierKernel</key>

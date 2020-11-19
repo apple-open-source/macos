@@ -23,11 +23,12 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if PLATFORM(IOS_FAMILY)
-
-#import "WebVisiblePosition.h"
 #import "WebVisiblePositionInternal.h"
 
+#if PLATFORM(IOS_FAMILY)
+
+#import "DOMNodeInternal.h"
+#import "DOMRangeInternal.h"
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/Editing.h>
 #import <WebCore/FrameSelection.h>
@@ -37,16 +38,13 @@
 #import <WebCore/Range.h>
 #import <WebCore/RenderTextControl.h>
 #import <WebCore/RenderedDocumentMarker.h>
+#import <WebCore/SimpleRange.h>
 #import <WebCore/TextBoundaries.h>
 #import <WebCore/TextFlags.h>
 #import <WebCore/TextGranularity.h>
 #import <WebCore/TextIterator.h>
-#import <WebCore/VisiblePosition.h>
 #import <WebCore/VisibleUnits.h>
-
-
-#import "DOMNodeInternal.h"
-#import "DOMRangeInternal.h"
+#import <wtf/cocoa/VectorCocoa.h>
 
 using namespace WebCore;
 
@@ -208,27 +206,27 @@ static inline TextGranularity toTextGranularity(WebTextGranularity webGranularit
     
     switch (webGranularity) {
         case WebTextGranularityCharacter:
-            granularity = CharacterGranularity;
+            granularity = TextGranularity::CharacterGranularity;
             break;
 
         case WebTextGranularityWord:
-            granularity = WordGranularity;
+            granularity = TextGranularity::WordGranularity;
             break;
 
         case WebTextGranularitySentence:
-            granularity = SentenceGranularity;
+            granularity = TextGranularity::SentenceGranularity;
             break;
 
         case WebTextGranularityLine:
-            granularity = LineGranularity;
+            granularity = TextGranularity::LineGranularity;
             break;
 
         case WebTextGranularityParagraph:
-            granularity = ParagraphGranularity;
+            granularity = TextGranularity::ParagraphGranularity;
             break;
 
         case WebTextGranularityAll:
-            granularity = DocumentGranularity;
+            granularity = TextGranularity::DocumentGranularity;
             break;
 
         default:
@@ -245,27 +243,27 @@ static inline SelectionDirection toSelectionDirection(WebTextAdjustmentDirection
     
     switch (direction) {
         case WebTextAdjustmentForward:
-            result = DirectionForward;
+            result = SelectionDirection::Forward;
             break;
             
         case WebTextAdjustmentBackward:
-            result = DirectionBackward;
+            result = SelectionDirection::Backward;
             break;
             
         case WebTextAdjustmentRight:
-            result = DirectionRight;
+            result = SelectionDirection::Right;
             break;
             
         case WebTextAdjustmentLeft:
-            result = DirectionLeft;
+            result = SelectionDirection::Left;
             break;
         
         case WebTextAdjustmentUp:
-            result = DirectionLeft;
+            result = SelectionDirection::Left;
             break;
         
         case WebTextAdjustmentDown:
-            result = DirectionRight;
+            result = SelectionDirection::Right;
             break;
     }
 
@@ -295,7 +293,7 @@ static inline SelectionDirection toSelectionDirection(WebTextAdjustmentDirection
 // is enclosed depends on the given direction, using the same rule as -[WebVisiblePosition withinTextUnitOfGranularity:inDirectionAtBoundary:].
 - (DOMRange *)enclosingTextUnitOfGranularity:(WebTextGranularity)granularity inDirectionIfAtBoundary:(WebTextAdjustmentDirection)direction
 {
-    return kit(enclosingTextUnitOfGranularity([self _visiblePosition], toTextGranularity(granularity), toSelectionDirection(direction)).get());
+    return kit(enclosingTextUnitOfGranularity([self _visiblePosition], toTextGranularity(granularity), toSelectionDirection(direction)));
 }
 
 - (WebVisiblePosition *)positionAtStartOrEndOfWord
@@ -404,69 +402,40 @@ static inline SelectionDirection toSelectionDirection(WebTextAdjustmentDirection
     ASSERT(alternatives);
     if (!alternatives)
         return nil;
-        
+
     // *alternatives should not already point to an array.
-    ASSERT(!(*alternatives));
+    ASSERT(!*alternatives);
     *alternatives = nil;
-        
-    VisiblePosition p = [self _visiblePosition];
-    if (p.isNull())
+
+    auto position = [self _visiblePosition];
+    auto* node = position.deepEquivalent().anchorNode();
+    if (!node)
         return nil;
-        
-    int o = p.deepEquivalent().deprecatedEditingOffset();
-    if (o < 0)
-        return nil;
-    unsigned offset = o;
-    
-    Node* node = p.deepEquivalent().anchorNode();
-    Document& document = node->document();
-    
-    const auto& markers = document.markers().markersFor(*node, DocumentMarker::DictationPhraseWithAlternatives);
-    if (markers.isEmpty())
-        return nil;
-        
-    for (size_t i = 0; i < markers.size(); i++) {
-        const DocumentMarker* marker = markers[i];
+
+    unsigned offset = position.deepEquivalent().deprecatedEditingOffset();
+    auto& document = node->document();
+    for (auto marker : document.markers().markersFor(*node, DocumentMarker::DictationPhraseWithAlternatives)) {
         if (marker->startOffset() <= offset && marker->endOffset() >= offset) {
-            const Vector<String>& markerAlternatives = marker->alternatives();
-            *alternatives = [NSMutableArray arrayWithCapacity:markerAlternatives.size()];
-            for (size_t j = 0; j < markerAlternatives.size(); j++)
-                [(NSMutableArray *)*alternatives addObject:(NSString *)(markerAlternatives[j])];
-                
-            auto range = Range::create(document, node, marker->startOffset(), node, marker->endOffset());
-            return kit(range.ptr());
+            *alternatives = createNSArray(WTF::get<Vector<String>>(marker->data())).autorelease();
+            return kit(makeSimpleRange(*node, *marker));
         }
     }
-        
     return nil;
 }
 
 - (DOMRange *)enclosingRangeWithCorrectionIndicator
 {
-    VisiblePosition p = [self _visiblePosition];
-    if (p.isNull())
+    auto position = [self _visiblePosition];
+    auto* node = position.deepEquivalent().anchorNode();
+    if (!node)
         return nil;
-    
-    int o = p.deepEquivalent().deprecatedEditingOffset();
-    if (o < 0)
-        return nil;
-    unsigned offset = o;
-    
-    Node* node = p.deepEquivalent().anchorNode();
-    Document& document = node->document();
-    
-    const auto& markers = document.markers().markersFor(*node, DocumentMarker::Spelling);
-    if (markers.isEmpty())
-        return nil;
-    
-    for (size_t i = 0; i < markers.size(); i++) {
-        const DocumentMarker* marker = markers[i];
-        if (marker->startOffset() <= offset && marker->endOffset() >= offset) {
-            auto range = Range::create(document, node, marker->startOffset(), node, marker->endOffset());
-            return kit(range.ptr());
-        }
+
+    unsigned offset = position.deepEquivalent().deprecatedEditingOffset();
+    auto& document = node->document();
+    for (auto marker : document.markers().markersFor(*node, DocumentMarker::Spelling)) {
+        if (marker->startOffset() <= offset && marker->endOffset() >= offset)
+            return kit(makeSimpleRange(*node, *marker));
     }
-    
     return nil;
 }
 
@@ -507,23 +476,11 @@ static inline SelectionDirection toSelectionDirection(WebTextAdjustmentDirection
 
 + (DOMRange *)rangeForFirstPosition:(WebVisiblePosition *)first second:(WebVisiblePosition *)second
 {
-    VisiblePosition firstVP = [first _visiblePosition];
-    VisiblePosition secondVP = [second _visiblePosition];
-    
-    if (firstVP.isNull() || secondVP.isNull())
-        return nil;
-    
-    RefPtr<Range> range;
-    if (firstVP < secondVP) {
-        range = Range::create(firstVP.deepEquivalent().deprecatedNode()->document(),
-                                     firstVP, secondVP);
-    } else {
-        range = Range::create(firstVP.deepEquivalent().deprecatedNode()->document(),
-                                            secondVP, firstVP);
-    }
-    
-    
-    return kit(range.get());
+    auto firstPosition = [first _visiblePosition];
+    auto secondPosition = [second _visiblePosition];
+    if (secondPosition < firstPosition)
+        std::swap(firstPosition, secondPosition);
+    return kit(makeSimpleRange(firstPosition, secondPosition));
 }
 
 @end

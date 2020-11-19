@@ -74,6 +74,9 @@
 		CFPropertyListRef value = SCDynamicStoreCopyValue(self.store, key);
 		SCTestLog("%@ : %@", key, value);
 		CFRelease(key);
+		if (value != NULL) {
+			CFRelease(value);
+		}
 	}
 
 	if (self.options[kSCTestDynamicStoreOptionIPv4]) {
@@ -81,6 +84,9 @@
 		CFPropertyListRef value = SCDynamicStoreCopyValue(self.store, key);
 		SCTestLog("%@ : %@", key, value);
 		CFRelease(key);
+		if (value != NULL) {
+			CFRelease(value);
+		}
 	}
 
 	if (self.options[kSCTestDynamicStoreOptionIPv6]) {
@@ -88,6 +94,9 @@
 		CFPropertyListRef value = SCDynamicStoreCopyValue(self.store, key);
 		SCTestLog("%@ : %@", key, value);
 		CFRelease(key);
+		if (value != NULL) {
+			CFRelease(value);
+		}
 	}
 
 	if (self.options[kSCTestDynamicStoreOptionProxies]) {
@@ -95,6 +104,9 @@
 		CFPropertyListRef value = SCDynamicStoreCopyValue(self.store, key);
 		SCTestLog("%@ : %@", key, value);
 		CFRelease(key);
+		if (value != NULL) {
+			CFRelease(value);
+		}
 	}
 
 	[self cleanupAndExitWithErrorCode:0];

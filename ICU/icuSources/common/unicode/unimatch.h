@@ -17,8 +17,8 @@
  * \brief C++ API: Unicode Matcher
  */
 
-
 #if U_SHOW_CPLUSPLUS_API
+
 U_NAMESPACE_BEGIN
 
 class Replaceable;
@@ -162,6 +162,7 @@ public:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

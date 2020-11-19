@@ -6,8 +6,27 @@
 	objectVersion = 45;
 	objects = {
 
+/* Begin PBXAggregateTarget section */
+		524728A022C2D6CC00B687F0 /* IOSCSIParallelFamily-DriverKit */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 524728A122C2D6CC00B687F0 /* Build configuration list for PBXAggregateTarget "IOSCSIParallelFamily-DriverKit" */;
+			buildPhases = (
+			);
+			dependencies = (
+				529A8D5B23AD9A56009A25DE /* PBXTargetDependency */,
+			);
+			name = "IOSCSIParallelFamily-DriverKit";
+			productName = All;
+		};
+/* End PBXAggregateTarget section */
+
 /* Begin PBXBuildFile section */
-		345AECEA1FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */; };
+		524728AA22C41C2900B687F0 /* IOUserSCSIParallelInterfaceController.iig in Sources */ = {isa = PBXBuildFile; fileRef = 525CE7AE22BD88670035BDFE /* IOUserSCSIParallelInterfaceController.iig */; };
+		525CE7AF22BD88670035BDFE /* IOUserSCSIParallelInterfaceController.iig in Sources */ = {isa = PBXBuildFile; fileRef = 525CE7AE22BD88670035BDFE /* IOUserSCSIParallelInterfaceController.iig */; settings = {ATTRIBUTES = (Public, ); }; };
+		52C0637B2368E5220073AC1C /* DriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52C063792368E5120073AC1C /* DriverKit.framework */; };
+		72D435FF246F538200E0AC3B /* IOSCSIParallelControllerCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 525CE7B022BD89840035BDFE /* IOSCSIParallelControllerCharacteristics.h */; };
+		72D43600246F538A00E0AC3B /* IOSCSIParallelControllerCharacteristics.h in Copy IOKit Headers */ = {isa = PBXBuildFile; fileRef = 525CE7B022BD89840035BDFE /* IOSCSIParallelControllerCharacteristics.h */; };
+		72D43601246F53A300E0AC3B /* IOSCSIParallelControllerCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 525CE7B022BD89840035BDFE /* IOSCSIParallelControllerCharacteristics.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		AC33CAB70D344757004E8F21 /* IOSCSIParallelInterfaceController.h in Headers */ = {isa = PBXBuildFile; fileRef = F5888546025AAC1E01CE15B2 /* IOSCSIParallelInterfaceController.h */; };
 		AC33CAB80D344757004E8F21 /* IOSCSIParallelInterfaceDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = F5888548025AAC1E01CE15B2 /* IOSCSIParallelInterfaceDevice.h */; };
 		AC33CAB90D344757004E8F21 /* SCSIParallelTask.h in Headers */ = {isa = PBXBuildFile; fileRef = F588854A025AAC1E01CE15B2 /* SCSIParallelTask.h */; };
@@ -19,33 +38,45 @@
 		AC33CAC10D344757004E8F21 /* SCSIParallelTask.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5888549025AAC1E01CE15B2 /* SCSIParallelTask.cpp */; };
 		AC33CAC20D344757004E8F21 /* SCSIParallelTimer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5C91D3F60380A00705CE70BB /* SCSIParallelTimer.cpp */; };
 		AC33CAC30D344757004E8F21 /* SCSIParallelWorkLoop.cpp in Sources */ = {isa = PBXBuildFile; fileRef = ACAA41450B9D0CD400EDEE0F /* SCSIParallelWorkLoop.cpp */; };
-		AC74538E0D34489A000BCEBB /* IOSCSIParallelInterfaceController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = F5888546025AAC1E01CE15B2 /* IOSCSIParallelInterfaceController.h */; };
+		AC74538E0D34489A000BCEBB /* IOSCSIParallelInterfaceController.h in Copy IOKit Headers */ = {isa = PBXBuildFile; fileRef = F5888546025AAC1E01CE15B2 /* IOSCSIParallelInterfaceController.h */; };
+		C4471F5521AE38A2007A480B /* IOUserSCSIParallelInterfaceController.h in Headers */ = {isa = PBXBuildFile; fileRef = C4471F5421AE38A2007A480B /* IOUserSCSIParallelInterfaceController.h */; };
+		C4471F5721AE390E007A480B /* IOUserSCSIParallelInterfaceController.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C4471F5621AE390E007A480B /* IOUserSCSIParallelInterfaceController.cpp */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		AC33CAC70D344757004E8F21 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
+/* Begin PBXContainerItemProxy section */
+		529A8D5A23AD9A56009A25DE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 525CE79622BD856D0035BDFE;
+			remoteInfo = SCSIControllerDriverKit;
 		};
-		AC7453900D3448B0000BCEBB /* CopyFiles */ = {
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		AC7453900D3448B0000BCEBB /* Copy IOKit Headers */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/scsi/spi";
 			dstSubfolderSpec = 0;
 			files = (
-				AC74538E0D34489A000BCEBB /* IOSCSIParallelInterfaceController.h in CopyFiles */,
+				72D43600246F538A00E0AC3B /* IOSCSIParallelControllerCharacteristics.h in Copy IOKit Headers */,
+				AC74538E0D34489A000BCEBB /* IOSCSIParallelInterfaceController.h in Copy IOKit Headers */,
 			);
+			name = "Copy IOKit Headers";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = IOSCSIParallelFamily.xcconfig; sourceTree = "<group>"; };
+		5247288222BD960400B687F0 /* DriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/DriverKit19.0.sdk/System/DriverKit/System/Library/Frameworks/DriverKit.framework; sourceTree = DEVELOPER_DIR; };
+		524728AB22C43DEC00B687F0 /* SCSIControllerDriverKit.exports */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = SCSIControllerDriverKit.exports; sourceTree = "<group>"; };
+		525CE79722BD856D0035BDFE /* SCSIControllerDriverKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = SCSIControllerDriverKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		525CE79A22BD856D0035BDFE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		525CE7AE22BD88670035BDFE /* IOUserSCSIParallelInterfaceController.iig */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.iig; path = IOUserSCSIParallelInterfaceController.iig; sourceTree = "<group>"; };
+		525CE7B022BD89840035BDFE /* IOSCSIParallelControllerCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOSCSIParallelControllerCharacteristics.h; sourceTree = "<group>"; };
+		52C063792368E5120073AC1C /* DriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/DriverKit20.0.Internal.sdk/System/DriverKit/System/Library/Frameworks/DriverKit.framework; sourceTree = DEVELOPER_DIR; };
 		5C91D3F403809FFE05CE70BB /* IOSCSIParallelFamilyDebugging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOSCSIParallelFamilyDebugging.h; sourceTree = "<group>"; };
 		5C91D3F60380A00705CE70BB /* SCSIParallelTimer.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SCSIParallelTimer.cpp; sourceTree = "<group>"; };
 		5C91D3F70380A00705CE70BB /* SCSIParallelTimer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SCSIParallelTimer.h; sourceTree = "<group>"; };
@@ -53,6 +84,10 @@
 		AC33CACE0D344757004E8F21 /* IOSCSIParallelFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOSCSIParallelFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		ACAA41450B9D0CD400EDEE0F /* SCSIParallelWorkLoop.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = SCSIParallelWorkLoop.cpp; sourceTree = "<group>"; };
 		ACAA41460B9D0CD400EDEE0F /* SCSIParallelWorkLoop.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SCSIParallelWorkLoop.h; sourceTree = "<group>"; };
+		C4471F5421AE38A2007A480B /* IOUserSCSIParallelInterfaceController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOUserSCSIParallelInterfaceController.h; sourceTree = "<group>"; };
+		C4471F5621AE390E007A480B /* IOUserSCSIParallelInterfaceController.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOUserSCSIParallelInterfaceController.cpp; sourceTree = "<group>"; };
+		CE09909C24AAA2F4000CE59B /* IOSCSIParallelFamily.exports */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = IOSCSIParallelFamily.exports; sourceTree = "<group>"; };
+		CE6207D424AA9CC600B59C88 /* generate-symbols-plist.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "generate-symbols-plist.sh"; sourceTree = "<group>"; };
 		F5888545025AAC1E01CE15B2 /* IOSCSIParallelInterfaceController.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOSCSIParallelInterfaceController.cpp; sourceTree = SOURCE_ROOT; };
 		F5888546025AAC1E01CE15B2 /* IOSCSIParallelInterfaceController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOSCSIParallelInterfaceController.h; sourceTree = SOURCE_ROOT; };
 		F5888547025AAC1E01CE15B2 /* IOSCSIParallelInterfaceDevice.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOSCSIParallelInterfaceDevice.cpp; sourceTree = SOURCE_ROOT; };
@@ -62,6 +97,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		525CE79422BD856D0035BDFE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				52C0637B2368E5220073AC1C /* DriverKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AC33CAC40D344757004E8F21 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -75,20 +118,61 @@
 		089C166AFE841209C02AAC07 /* IOSCSIParallelFamily */ = {
 			isa = PBXGroup;
 			children = (
+				CE799E5E24AD266C00E73238 /* config */,
 				F5DF5C59024696C101CE15B2 /* IOSCSIParallelInterface */,
+				525CE79822BD856D0035BDFE /* SCSIControllerDriverKit */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
-				AC33CACD0D344757004E8F21 /* Info-IOSCSIParallelFamily.plist */,
 				345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */,
+				5247288122BD960400B687F0 /* Frameworks */,
 			);
 			name = IOSCSIParallelFamily;
 			sourceTree = "<group>";
+			usesTabs = 1;
 		};
 		19C28FB6FE9D52B211CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				AC33CACE0D344757004E8F21 /* IOSCSIParallelFamily.kext */,
+				525CE79722BD856D0035BDFE /* SCSIControllerDriverKit.framework */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		5247288122BD960400B687F0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				52C063792368E5120073AC1C /* DriverKit.framework */,
+				5247288222BD960400B687F0 /* DriverKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		525CE79822BD856D0035BDFE /* SCSIControllerDriverKit */ = {
+			isa = PBXGroup;
+			children = (
+				524728AB22C43DEC00B687F0 /* SCSIControllerDriverKit.exports */,
+				525CE79A22BD856D0035BDFE /* Info.plist */,
+				525CE7AE22BD88670035BDFE /* IOUserSCSIParallelInterfaceController.iig */,
+			);
+			path = SCSIControllerDriverKit;
+			sourceTree = "<group>";
+		};
+		C4471F4721AE30BE007A480B /* DriverKitKernelSupport */ = {
+			isa = PBXGroup;
+			children = (
+				C4471F5621AE390E007A480B /* IOUserSCSIParallelInterfaceController.cpp */,
+				C4471F5421AE38A2007A480B /* IOUserSCSIParallelInterfaceController.h */,
+			);
+			path = DriverKitKernelSupport;
+			sourceTree = "<group>";
+		};
+		CE799E5E24AD266C00E73238 /* config */ = {
+			isa = PBXGroup;
+			children = (
+				CE6207D424AA9CC600B59C88 /* generate-symbols-plist.sh */,
+				CE09909C24AAA2F4000CE59B /* IOSCSIParallelFamily.exports */,
+			);
+			path = config;
 			sourceTree = "<group>";
 		};
 		F5DF5C59024696C101CE15B2 /* IOSCSIParallelInterface */ = {
@@ -103,8 +187,11 @@
 				ACAA41450B9D0CD400EDEE0F /* SCSIParallelWorkLoop.cpp */,
 				F5888548025AAC1E01CE15B2 /* IOSCSIParallelInterfaceDevice.h */,
 				F5888547025AAC1E01CE15B2 /* IOSCSIParallelInterfaceDevice.cpp */,
+				525CE7B022BD89840035BDFE /* IOSCSIParallelControllerCharacteristics.h */,
 				F5888546025AAC1E01CE15B2 /* IOSCSIParallelInterfaceController.h */,
 				F5888545025AAC1E01CE15B2 /* IOSCSIParallelInterfaceController.cpp */,
+				C4471F4721AE30BE007A480B /* DriverKitKernelSupport */,
+				AC33CACD0D344757004E8F21 /* Info-IOSCSIParallelFamily.plist */,
 			);
 			name = IOSCSIParallelInterface;
 			sourceTree = "<group>";
@@ -112,10 +199,20 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		525CE79222BD856D0035BDFE /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72D43601246F53A300E0AC3B /* IOSCSIParallelControllerCharacteristics.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AC33CAB60D344757004E8F21 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72D435FF246F538200E0AC3B /* IOSCSIParallelControllerCharacteristics.h in Headers */,
+				C4471F5521AE38A2007A480B /* IOUserSCSIParallelInterfaceController.h in Headers */,
 				AC33CAB70D344757004E8F21 /* IOSCSIParallelInterfaceController.h in Headers */,
 				AC33CAB80D344757004E8F21 /* IOSCSIParallelInterfaceDevice.h in Headers */,
 				AC33CAB90D344757004E8F21 /* SCSIParallelTask.h in Headers */,
@@ -128,19 +225,36 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		525CE79622BD856D0035BDFE /* SCSIControllerDriverKit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 525CE7AC22BD856D0035BDFE /* Build configuration list for PBXNativeTarget "SCSIControllerDriverKit" */;
+			buildPhases = (
+				5247287E22BD8F9B00B687F0 /* Install .iig files */,
+				5247287F22BD920000B687F0 /* stageFrameworks */,
+				5247288022BD956100B687F0 /* iigFramework */,
+				525CE79222BD856D0035BDFE /* Headers */,
+				525CE79322BD856D0035BDFE /* Sources */,
+				525CE79422BD856D0035BDFE /* Frameworks */,
+				525CE79522BD856D0035BDFE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SCSIControllerDriverKit;
+			productName = IOUserSCSIParallelInterfaceController;
+			productReference = 525CE79722BD856D0035BDFE /* SCSIControllerDriverKit.framework */;
+			productType = "com.apple.product-type.framework";
+		};
 		AC33CAB00D344757004E8F21 /* IOSCSIParallelFamily */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = AC33CAC90D344757004E8F21 /* Build configuration list for PBXNativeTarget "IOSCSIParallelFamily" */;
 			buildPhases = (
-				AC33CAB50D344757004E8F21 /* ShellScript */,
+				CE154A7724AA9F400093458B /* Generate symbolset.plist */,
 				AC33CAB60D344757004E8F21 /* Headers */,
-				AC33CABD0D344757004E8F21 /* Resources */,
 				AC33CABE0D344757004E8F21 /* Sources */,
 				AC33CAC40D344757004E8F21 /* Frameworks */,
-				AC33CAC50D344757004E8F21 /* Rez */,
-				AC33CAC60D344757004E8F21 /* ShellScript */,
-				AC33CAC70D344757004E8F21 /* CopyFiles */,
-				AC7453900D3448B0000BCEBB /* CopyFiles */,
+				AC7453900D3448B0000BCEBB /* Copy IOKit Headers */,
 			);
 			buildRules = (
 			);
@@ -158,6 +272,14 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				TargetAttributes = {
+					524728A022C2D6CC00B687F0 = {
+						CreatedOnToolsVersion = 11.0;
+					};
+					525CE79622BD856D0035BDFE = {
+						CreatedOnToolsVersion = 11.0;
+					};
+				};
 			};
 			buildConfigurationList = E6B5F3790A40B2E600F7D6D1 /* Build configuration list for PBXProject "IOSCSIParallelFamily" */;
 			compatibilityVersion = "Xcode 2.4";
@@ -174,58 +296,120 @@
 			projectRoot = "";
 			targets = (
 				AC33CAB00D344757004E8F21 /* IOSCSIParallelFamily */,
+				524728A022C2D6CC00B687F0 /* IOSCSIParallelFamily-DriverKit */,
+				525CE79622BD856D0035BDFE /* SCSIControllerDriverKit */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		AC33CABD0D344757004E8F21 /* Resources */ = {
+		525CE79522BD856D0035BDFE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				345AECEA1FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXRezBuildPhase section */
-		AC33CAC50D344757004E8F21 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
-
 /* Begin PBXShellScriptBuildPhase section */
-		AC33CAB50D344757004E8F21 /* ShellScript */ = {
+		5247287E22BD8F9B00B687F0 /* Install .iig files */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/SCSIControllerDriverKit/IOUserSCSIParallelInterfaceController.iig",
+			);
+			name = "Install .iig files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
 			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installhdrs || \"${ACTION}\" == installapi ]]; then\nfor (( i=0; i < ${SCRIPT_INPUT_FILE_COUNT}; i++ )); do\nf=\"SCRIPT_INPUT_FILE_${i}\"\nditto ${!f} ${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}/Headers/\ndone\nfi\n";
 		};
-		AC33CAC60D344757004E8F21 /* ShellScript */ = {
+		5247287F22BD920000B687F0 /* stageFrameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks/DriverKit.framework",
+			);
+			name = stageFrameworks;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installapi && -f $SDKROOT/$DRIVERKITROOT/System/Library/Frameworks/DriverKit.framework/Headers/stageFrameworks.sh ]]; then\n. $SDKROOT/$DRIVERKITROOT/System/Library/Frameworks/DriverKit.framework/Headers/stageFrameworks.sh;\nfi\n";
+		};
+		5247288022BD956100B687F0 /* iigFramework */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FULL_PRODUCT_NAME)",
+			);
+			name = iigFramework;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = "/bin/bash -ex";
+			shellScript = "if [[ \"${ACTION}\" == installapi ]]\nthen\n. ${SRCROOT}/SCSIControllerDriverKit/iigFramework.sh ${SCRIPT_INPUT_FILE_0} ${SDK_NAME}\nfi\n";
+		};
+		CE154A7724AA9F400093458B /* Generate symbolset.plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 12;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Info-IOSCSIParallelFamily.plist",
+				"$(SRCROOT)/config/IOSCSIParallelFamily.exports",
+				"${SRCROOT}/config/generate-symbols-plist.sh",
+			);
+			name = "Generate symbolset.plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SYMROOT)/symbolsets.plist",
+			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = ". \"${SRCROOT}/config/generate-symbols-plist.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		525CE79322BD856D0035BDFE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				525CE7AF22BD88670035BDFE /* IOUserSCSIParallelInterfaceController.iig in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		AC33CABE0D344757004E8F21 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				524728AA22C41C2900B687F0 /* IOUserSCSIParallelInterfaceController.iig in Sources */,
 				AC33CABF0D344757004E8F21 /* IOSCSIParallelInterfaceController.cpp in Sources */,
+				C4471F5721AE390E007A480B /* IOUserSCSIParallelInterfaceController.cpp in Sources */,
 				AC33CAC00D344757004E8F21 /* IOSCSIParallelInterfaceDevice.cpp in Sources */,
 				AC33CAC10D344757004E8F21 /* SCSIParallelTask.cpp in Sources */,
 				AC33CAC20D344757004E8F21 /* SCSIParallelTimer.cpp in Sources */,
@@ -235,7 +419,300 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		529A8D5B23AD9A56009A25DE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 525CE79622BD856D0035BDFE /* SCSIControllerDriverKit */;
+			targetProxy = 529A8D5A23AD9A56009A25DE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		524728A222C2D6CC00B687F0 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Development;
+		};
+		524728A322C2D6CC00B687F0 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Deployment;
+		};
+		524728A422C2D6CC00B687F0 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Default;
+		};
+		525CE7A622BD856D0035BDFE /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = NO;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "$(INSTALL_PATH)";
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
+				ENABLE_TESTABILITY = YES;
+				EXPORTED_SYMBOLS_FILE = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+					"$(SDKROOT)/AppleInternal/Library/Frameworks/",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				"GCC_ENABLE_CPP_RTTI[sdk=driverkit19.0.internal]" = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=0";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = SCSIControllerDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = /AppleInternal/Library/Frameworks;
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/AppleInternal/Library/Frameworks -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks $(SDKROOT)/AppleInternal/Library/Frameworks/";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
+			};
+			name = Development;
+		};
+		525CE7A722BD856D0035BDFE /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = NO;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "$(INSTALL_PATH)";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
+				EXPORTED_SYMBOLS_FILE = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+					"$(SDKROOT)/AppleInternal/Library/Frameworks/",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				"GCC_ENABLE_CPP_RTTI[sdk=driverkit19.0.internal]" = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=0";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = SCSIControllerDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = /AppleInternal/Library/Frameworks;
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/AppleInternal/Library/Frameworks -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks $(SDKROOT)/AppleInternal/Library/Frameworks/";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
+			};
+			name = Deployment;
+		};
+		525CE7A822BD856D0035BDFE /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = NO;
+				CLANG_ENABLE_OBJC_ARC = NO;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = NO;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEFINES_MODULE = YES;
+				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "$(INSTALL_PATH)";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = NO;
+				EXPORTED_SYMBOLS_FILE = "";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SDKROOT)/System/DriverKit/System/Library/Frameworks",
+					"$(SDKROOT)/AppleInternal/Library/Frameworks/",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				"GCC_ENABLE_CPP_RTTI[sdk=driverkit19.0.internal]" = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=0";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INFOPLIST_FILE = SCSIControllerDriverKit/Info.plist;
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
+				INSTALL_PATH = /AppleInternal/Library/Frameworks;
+				LD_RUNPATH_SEARCH_PATHS = "";
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_IIG_CFLAGS = "-I$(SRCROOT) -isystem $(SDKROOT)/$(DRIVERKITROOT)/usr/include -iframework $(SDKROOT)/AppleInternal/Library/Frameworks -iframework $(SDKROOT)/$(DRIVERKITROOT)/System/Library/Frameworks";
+				OTHER_TAPI_FLAGS = "-x c++ -std=gnu++1z";
+				"OTHER_TAPI_FLAGS[sdk=driverkit19.0.internal]" = "-x c++ -std=gnu++1z -fno-rtti";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driverkit.SCSIControllerDriverKit;
+				PRODUCT_NAME = "$(TARGET_NAME:c99extidentifier)";
+				SDKROOT = driverkit.internal;
+				SKIP_INSTALL = NO;
+				SUPPORTS_TEXT_BASED_API = YES;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/System/Library/Frameworks $(SDKROOT)$(DRIVERKITROOT)/System/Library/PrivateFrameworks $(SDKROOT)/AppleInternal/Library/Frameworks/";
+				SYSTEM_HEADER_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(DRIVERKITROOT)/usr/include $(SRCROOT)";
+				TAPI_VERIFY_MODE = ErrorsOnly;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\"))) __";
+			};
+			name = Default;
+		};
 		AC33CACA0D344757004E8F21 /* Development */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */;
@@ -243,9 +720,9 @@
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=0";
+				IIG_FRAMEWORK_NAME = SCSIControllerDriverKit;
 				INFOPLIST_FILE = "Info-IOSCSIParallelFamily.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -253,10 +730,12 @@
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;
 				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "DriverKit/Headers $(SRCROOT)/SCSIControllerDriverKit $(SRCROOT)";
+				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -273,7 +752,8 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=0";
+				IIG_FRAMEWORK_NAME = SCSIControllerDriverKit;
 				INFOPLIST_FILE = "Info-IOSCSIParallelFamily.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -281,10 +761,12 @@
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;
 				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "DriverKit/Headers $(SRCROOT)/SCSIControllerDriverKit $(SRCROOT)";
+				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -299,7 +781,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 345AECE91FDF5E320058AE11 /* IOSCSIParallelFamily.xcconfig */;
 			buildSettings = {
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "_FORTIFY_SOURCE=0";
+				IIG_FRAMEWORK_NAME = SCSIControllerDriverKit;
 				INFOPLIST_FILE = "Info-IOSCSIParallelFamily.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
@@ -307,10 +790,12 @@
 				MODULE_NAME = com.apple.iokit.IOSCSIParallelFamily;
 				MODULE_VERSION = 3.0.0;
 				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
+				OTHER_IIG_FLAGS = "--framework SCSIControllerDriverKit";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOSCSIParallelFamily;
 				SECTORDER_FLAGS = "";
+				SYSTEM_HEADER_SEARCH_PATHS = "DriverKit/Headers $(SRCROOT)/SCSIControllerDriverKit $(SRCROOT)";
+				USE_HEADERMAP = NO;
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -341,6 +826,26 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		524728A122C2D6CC00B687F0 /* Build configuration list for PBXAggregateTarget "IOSCSIParallelFamily-DriverKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				524728A222C2D6CC00B687F0 /* Development */,
+				524728A322C2D6CC00B687F0 /* Deployment */,
+				524728A422C2D6CC00B687F0 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		525CE7AC22BD856D0035BDFE /* Build configuration list for PBXNativeTarget "SCSIControllerDriverKit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				525CE7A622BD856D0035BDFE /* Development */,
+				525CE7A722BD856D0035BDFE /* Deployment */,
+				525CE7A822BD856D0035BDFE /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		AC33CAC90D344757004E8F21 /* Build configuration list for PBXNativeTarget "IOSCSIParallelFamily" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

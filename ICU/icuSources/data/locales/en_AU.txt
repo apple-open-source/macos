@@ -5,12 +5,15 @@ en_AU{
     ExemplarCharactersNumbers{"[↑]"}
     NumberElements{
         latn{
+            miscPatterns{
+                range{"{0}–{1}"}
+            }
             symbols{
                 exponential{"e"}
             }
         }
     }
-    Version{"2.1.48.43"}
+    Version{"36.1"}
     calendar{
         chinese{
             monthNames{
@@ -44,6 +47,20 @@ en_AU{
                         "Mo10",
                         "Mo11",
                         "Mo12",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
                     }
                     wide{
                         "First Month",
@@ -102,6 +119,9 @@ en_AU{
                 yMMMEd{
                     d{"E, d MMM – E, d MMM y G"}
                 }
+                yMMMM{
+                    y{"MMMM y – MMMM y G"}
+                }
             }
         }
         gregorian{
@@ -149,6 +169,15 @@ en_AU{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "Sun",
+                        "Mon",
+                        "Tue",
+                        "Wed",
+                        "Thu",
+                        "Fri",
+                        "Sat",
+                    }
                     narrow{
                         "Su",
                         "M",
@@ -166,6 +195,15 @@ en_AU{
                         "Th",
                         "Fri",
                         "Sat",
+                    }
+                    wide{
+                        "Sunday",
+                        "Monday",
+                        "Tuesday",
+                        "Wednesday",
+                        "Thursday",
+                        "Friday",
+                        "Saturday",
                     }
                 }
             }
@@ -201,14 +239,66 @@ en_AU{
                         noon{"midday"}
                     }
                     narrow{
+                        afternoon1{"afternoon"}
+                        am{"am"}
+                        evening1{"evening"}
+                        midnight{"midnight"}
+                        morning1{"morning"}
+                        night1{"night"}
                         noon{"midday"}
+                        pm{"pm"}
                     }
                     wide{
                         noon{"midday"}
                     }
                 }
             }
+            intervalFormats{
+                GyMEd{
+                    G{"E, d/M/y GGGGG – E, d/M/y GGGGG"}
+                    M{"E, d/M/y – E, d/M/y GGGGG"}
+                    d{"E, d/M/y – E, d/M/y GGGGG"}
+                    y{"E, d/M/y – E, d/M/y GGGGG"}
+                }
+                GyMMMEd{
+                    G{"E, d MMM, y G – E, d MMM, y G"}
+                    M{"E, d MMM – E, d MMM, y G"}
+                    d{"E, d MMM – E, d MMM, y G"}
+                    y{"E, d MMM, y – E, d MMM, y G"}
+                }
+                GyMMMd{
+                    G{"d MMM, y G – d MMM, y G"}
+                    M{"d MMM – d MMM, y G"}
+                    d{"d – d MMM, y G"}
+                    y{"d MMM, y – d MMM, y G"}
+                }
+                GyMd{
+                    G{"d/M/y GGGGG – d/M/y GGGGG"}
+                    M{"d/M/y – d/M/y GGGGG"}
+                    d{"d/M/y – d/M/y GGGGG"}
+                    y{"d/M/y – d/M/y GGGGG"}
+                }
+                MMMd{
+                    d{"d – d MMM"}
+                }
+            }
             monthNames{
+                format{
+                    narrow{
+                        "J",
+                        "F",
+                        "M",
+                        "A",
+                        "M",
+                        "J",
+                        "J",
+                        "A",
+                        "S",
+                        "O",
+                        "N",
+                        "D",
+                    }
+                }
                 stand-alone{
                     abbreviated{
                         "Jan",
@@ -223,6 +313,136 @@ en_AU{
                         "Oct",
                         "Nov",
                         "Dec",
+                    }
+                    wide{
+                        "January",
+                        "February",
+                        "March",
+                        "April",
+                        "May",
+                        "June",
+                        "July",
+                        "August",
+                        "September",
+                        "October",
+                        "November",
+                        "December",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Q1",
+                        "Q2",
+                        "Q3",
+                        "Q4",
+                    }
+                    wide{
+                        "1st quarter",
+                        "2nd quarter",
+                        "3rd quarter",
+                        "4th quarter",
+                    }
+                }
+            }
+        }
+        indian{
+            monthNames{
+                format{
+                    abbreviated{
+                        "Chaitra",
+                        "Vaisakha",
+                        "Jyaistha",
+                        "Asadha",
+                        "Sravana",
+                        "Bhadra",
+                        "Asvina",
+                        "Kartika",
+                        "Agrahayana",
+                        "Pausa",
+                        "Magha",
+                        "Phalguna",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
+                    wide{
+                        "Chaitra",
+                        "Vaisakha",
+                        "Jyaistha",
+                        "Asadha",
+                        "Sravana",
+                        "Bhadra",
+                        "Asvina",
+                        "Kartika",
+                        "Agrahayana",
+                        "Pausa",
+                        "Magha",
+                        "Phalguna",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Chaitra",
+                        "Vaisakha",
+                        "Jyaistha",
+                        "Asadha",
+                        "Sravana",
+                        "Bhadra",
+                        "Asvina",
+                        "Kartika",
+                        "Agrahayana",
+                        "Pausa",
+                        "Magha",
+                        "Phalguna",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
+                    wide{
+                        "Chaitra",
+                        "Vaisakha",
+                        "Jyaistha",
+                        "Asadha",
+                        "Sravana",
+                        "Bhadra",
+                        "Asvina",
+                        "Kartika",
+                        "Agrahayana",
+                        "Pausa",
+                        "Magha",
+                        "Phalguna",
                     }
                 }
             }
@@ -240,17 +460,15 @@ en_AU{
         upwards_arrows{"upward arrows"}
     }
     fields{
-        day{
-            relative{
-                "-1"{"yesterday"}
-                "0"{"today"}
-                "1"{"tomorrow"}
-            }
-        }
         day-narrow{
             relativeTime{
                 future{
+                    one{"in {0} day"}
                     other{"in {0} days"}
+                }
+                past{
+                    one{"{0} day ago"}
+                    other{"{0} days ago"}
                 }
             }
         }
@@ -606,9 +824,6 @@ en_AU{
         }
     }
     listPattern{
-        or{
-            end{"{0} or {1}"}
-        }
         standard{
             2{"{0} and {1}"}
             end{"{0} and {1}"}

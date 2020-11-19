@@ -13,7 +13,14 @@
 			<string>/AppleInternal/XCTests/com.apple.security/</string>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest Self SecureTransport_macos_tests.xctest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string>NO</string>
+				<string>-ApplePersistenceIgnoreState</string>
+				<string>YES</string>
+				<string>-XCTest</string>
+				<string>Self</string>
+				<string>SecureTransport_macos_tests.xctest</string>
 			</array>
 		</dict>
 	</array>

@@ -39,6 +39,7 @@ _SOSCCIsIcloudKeychainSyncing
 _SOSCCIsSafariSyncing
 _SOSCCIsWiFiSyncing
 _SOSCCJoinWithCircleJoiningBlob
+_SOSCCLoggedIntoAccount
 _SOSCCLoggedOutOfAccount
 _SOSCCMessageFromPeerIsPending
 _SOSCCPeersHaveViewsEnabled
@@ -51,21 +52,15 @@ _SOSCCRegisterSingleRecoverySecret
 _SOSCCRegisterUserCredentials
 _SOSCCRejectApplicants
 _SOSCCRemovePeersFromCircle
-_SOSCCRemovePeersFromCircleWithAnalytics
 _SOSCCRemoveThisDeviceFromCircle
-_SOSCCRemoveThisDeviceFromCircleWithAnalytics
 _SOSCCRequestToJoinCircle
-_SOSCCRequestToJoinCircleWithAnalytics
 _SOSCCRequestToJoinCircleAfterRestore
-_SOSCCRequestToJoinCircleAfterRestoreWithAnalytics
 _SOSCCResetToEmpty
-_SOSCCResetToEmptyWithAnalytics
 _SOSCCResetToOffering
 _SOSCCSendToPeerIsPending
 _SOSCCSetLastDepartureReason
 _SOSCCSetUserCredentials
 _SOSCCSetUserCredentialsAndDSID
-_SOSCCSetUserCredentialsAndDSIDWithAnalytics
 _SOSCCThisDeviceIsInCircle
 _SOSCCThisDeviceIsInCircleNonCached
 _SOSCCTryUserCredentials
@@ -73,9 +68,7 @@ _SOSCCTryUserCredentialsAndDSID
 _SOSCCValidateUserPublic
 _SOSCCView
 _SOSCCViewSet
-_SOSCCViewSetWithAnalytics
 _SOSCCWaitForInitialSync
-_SOSCCWaitForInitialSyncWithAnalytics
 _SOSCCCopyInitialSyncData
 
 _kSOSCCEngineStateCoderKey
@@ -141,6 +134,7 @@ _SOSPeerInfoGetClass
 _SOSPeerInfoGetDEREncodedSize
 _SOSPeerInfoGetPeerDeviceType
 _SOSPeerInfoGetPeerID
+_SOSPeerInfoGetSPID
 _SOSPeerInfoGetPeerName
 _SOSPeerInfoGetPeerProtocolVersion
 _SOSPeerInfoGetPermittedViews
@@ -407,6 +401,7 @@ _SOSFullPeerInfoCreateWithViews
 _SOSFullPeerInfoEncodeToDER
 _SOSFullPeerInfoGetDEREncodedSize
 _SOSFullPeerInfoPing
+_SOSFullPeerInfoSetCKKS4AllSupport
 _SOSFullPeerInfoPrivKeyExists
 _SOSFullPeerInfoPromoteToRetiredAndCopy
 _SOSFullPeerInfoPurgePersistentKey
@@ -468,6 +463,7 @@ _SOSRingKeyCreateWithName
 _SOSRingKeyCreateWithRingName
 _kSOSKVSKeyParametersKey
 _sCirclePrefix
+_sRingPrefix
 _sDebugInfoPrefix
 _sRetirementPrefix
 
@@ -489,6 +485,7 @@ _SOSCreateErrorWithFormat
 _SOSCreateErrorWithFormatAndArguments
 _SOSDateCreate
 _SOSErrorCreate
+_SOSCCCredentialQueue
 _SOSGenerateDeviceBackupFullKey
 _SOSGetBackupKeyCurveParameters
 _SOSItemsChangedCopyDescription
@@ -498,7 +495,7 @@ _SOSTransportMessageTypeIDSV2
 _SOSTransportMessageTypeKVS
 _kSOSDSIDKey
 _kSOSNoCachedValue
-
+_kSOSCountKey
 
 _SOSPeerGestaltGetAnswer
 _SOSPeerGestaltGetName
@@ -536,6 +533,7 @@ _sBackupKeyKey
 _sEscrowRecord
 _sTransportType
 _SOSGenerationCountCopyDescription
+_sCKKSForAll
 
 _kSOSHsaCrKeyDictionary
 _SOSPeerInfoCopySerialNumber
@@ -544,6 +542,8 @@ _SOSPeerInfoPackV2Data
 _SOSPeerInfoSerialNumberIsSet
 _SOSPeerInfoSetSerialNumber
 _SOSPeerInfoSetTestSerialNumber
+_SOSPeerInfoSetSupportsCKKSForAll
+_SOSPeerInfoSupportsCKKSForAll
 _SOSPeerInfoSign
 _SOSPeerInfoUpdateToV2
 _SOSPeerInfoV2DictionaryCopyDictionary

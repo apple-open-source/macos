@@ -21,11 +21,13 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/unistr.h"
 #include "unicode/locid.h"
 #include "unicode/formattedvalue.h"
+#include "unicode/ulistformatter.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class FieldPositionIterator;
@@ -49,9 +51,11 @@ struct ListFormatData : public UMemory {
     UnicodeString startPattern;
     UnicodeString middlePattern;
     UnicodeString endPattern;
+    Locale locale;
 
-  ListFormatData(const UnicodeString& two, const UnicodeString& start, const UnicodeString& middle, const UnicodeString& end) :
-      twoPattern(two), startPattern(start), middlePattern(middle), endPattern(end) {}
+  ListFormatData(const UnicodeString& two, const UnicodeString& start, const UnicodeString& middle, const UnicodeString& end,
+                 const Locale& loc) :
+      twoPattern(two), startPattern(start), middlePattern(middle), endPattern(end), locale(loc) {}
 };
 /** \endcond */
 
@@ -184,9 +188,28 @@ class U_I18N_API ListFormatter : public UObject{
      */
     static ListFormatter* createInstance(const Locale& locale, UErrorCode& errorCode);
 
+#ifndef U_HIDE_DRAFT_API
+#if !UCONFIG_NO_FORMATTING
+    /**
+     * Creates a ListFormatter for the given locale, list type, and style.
+     *
+     * @param locale The locale.
+     * @param type The type of list formatting to use.
+     * @param width The width of formatting to use.
+     * @param errorCode ICU error code, set if no data available for the given locale.
+     * @return A ListFormatter object created from internal data derived from CLDR data.
+     * @draft ICU 67
+     */
+    static ListFormatter* createInstance(
+      const Locale& locale, UListFormatterType type, UListFormatterWidth width, UErrorCode& errorCode);
+#endif  /* !UCONFIG_NO_FORMATTING */
+#endif  /* U_HIDE_DRAFT_API */
+  
 #ifndef U_HIDE_INTERNAL_API
     /**
      * Creates a ListFormatter appropriate for a locale and style.
+     *
+     * TODO(ICU-20888): Remove this in ICU 68.
      *
      * @param locale The locale.
      * @param style the style, either "standard", "or", "unit", "unit-narrow", or "unit-short"
@@ -238,7 +261,7 @@ class U_I18N_API ListFormatter : public UObject{
     UnicodeString& format(const UnicodeString items[], int32_t n_items,
         UnicodeString & appendTo, FieldPositionIterator* posIter,
         UErrorCode& errorCode) const;
-#endif  /* U_HIDE_DRAFT_API */
+#endif // U_HIDE_DRAFT_API
 
 #if !UCONFIG_NO_FORMATTING
 #ifndef U_HIDE_DRAFT_API
@@ -298,6 +321,7 @@ class U_I18N_API ListFormatter : public UObject{
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // __LISTFORMATTER_H__

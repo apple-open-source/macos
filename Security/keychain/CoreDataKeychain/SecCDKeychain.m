@@ -302,6 +302,7 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
 
 - (NSData*)_onQueueGetDatabaseKeyDataWithError:(NSError**)error
 {
+    dispatch_assert_queue(_queue);
     NSData* keyData = nil;
     NSDictionary* databaseKeyQuery = @{ (id)kSecClass : (id)kSecClassGenericPassword,
                                         (id)kSecAttrAccessGroup : @"com.apple.security.securityd",
@@ -458,6 +459,7 @@ SecCDKeychainLookupValueType* const SecCDKeychainLookupValueTypeDate = (SecCDKey
 
 - (void)_onQueueDropClassAPersistentStore
 {
+    dispatch_assert_queue(_queue);
     for (NSPersistentStore* store in _classAPersistentStores) {
         NSError* error = nil;
         if (![_persistentStoreCoordinator removePersistentStore:store error:&error]) {

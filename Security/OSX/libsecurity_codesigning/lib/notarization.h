@@ -44,6 +44,7 @@ bool isNotarized(const Requirement::Context *context);
 void registerStapledTicketInPackage(const std::string& path);
 void registerStapledTicketInBundle(const std::string& path);
 void registerStapledTicketInDMG(CFDataRef ticketData);
+void registerStapledTicketInMachO(CFDataRef ticketData);
 
 } // end namespace CodeSigning
 } // end namespace Security

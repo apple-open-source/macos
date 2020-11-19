@@ -38,6 +38,11 @@
 	<true/>
 	<key>com.apple.private.snhelper</key>
 	<true/>
+	<key>com.apple.security.iokit-user-client-class</key>
+	<array>
+		<string>IONetworkStackUserClient</string>
+		<string>RootDomainUserClient</string>
+	</array>
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<key>com.apple.security.network.server</key>

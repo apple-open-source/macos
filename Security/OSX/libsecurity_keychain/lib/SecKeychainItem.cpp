@@ -44,6 +44,7 @@
 #include "KCExceptions.h"
 #include "Access.h"
 #include "SecKeychainItemExtendedAttributes.h"
+#include "LegacyAPICounts.h"
 
 extern "C" Boolean SecKeyIsCDSAKey(SecKeyRef ref);
 
@@ -79,7 +80,6 @@ CFTypeID
 SecKeychainItemGetTypeID(void)
 {
 	BEGIN_SECAPI
-
 	return gTypes().ItemImpl.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
@@ -127,7 +127,7 @@ SecKeychainItemCreateFromContent(SecItemClass itemClass, SecKeychainAttributeLis
 OSStatus
 SecKeychainItemModifyContent(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data)
 {
-	BEGIN_SECKCITEMAPI
+    BEGIN_SECKCITEMAPI
     os_activity_t activity = os_activity_create("SecKeychainItemModifyContent", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
@@ -171,7 +171,7 @@ SecKeychainItemFreeContent(SecKeychainAttributeList *attrList, void *data)
 OSStatus
 SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeychainAttributeList *attrList, UInt32 length, const void *data)
 {
-	BEGIN_SECKCITEMAPI
+    BEGIN_SECKCITEMAPI
     os_activity_t activity = os_activity_create("SecKeychainItemModifyAttributesAndData", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
@@ -186,7 +186,7 @@ SecKeychainItemModifyAttributesAndData(SecKeychainItemRef itemRef, const SecKeyc
 OSStatus
 SecKeychainItemCopyAttributesAndData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo *info, SecItemClass *itemClass, SecKeychainAttributeList **attrList, UInt32 *length, void **outData)
 {
-	BEGIN_SECKCITEMAPI
+    BEGIN_SECKCITEMAPI
 
 	Item item = ItemImpl::required(__itemImplRef);
 	item->getAttributesAndData(info, itemClass, attrList, length, outData);
@@ -199,7 +199,6 @@ OSStatus
 SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList *attrList, void *data)
 {
 	BEGIN_SECAPI
-
 	ItemImpl::freeAttributesAndData(attrList, data);
 
 	END_SECAPI
@@ -209,7 +208,7 @@ SecKeychainItemFreeAttributesAndData(SecKeychainAttributeList *attrList, void *d
 OSStatus
 SecKeychainItemDelete(SecKeychainItemRef itemRef)
 {
-	BEGIN_SECKCITEMAPI
+    BEGIN_SECKCITEMAPI
     os_activity_t activity = os_activity_create("SecKeychainItemDelete", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
@@ -244,7 +243,7 @@ SecKeychainItemDelete(SecKeychainItemRef itemRef)
 OSStatus
 SecKeychainItemCopyKeychain(SecKeychainItemRef itemRef, SecKeychainRef* keychainRef)
 {
-	BEGIN_SECKCITEMAPI
+    BEGIN_SECKCITEMAPI
 
 	// make sure this item has a keychain
 	Keychain kc = ItemImpl::required(__itemImplRef)->keychain();
@@ -263,7 +262,7 @@ OSStatus
 SecKeychainItemCreateCopy(SecKeychainItemRef itemRef, SecKeychainRef destKeychainRef,
 	SecAccessRef initialAccess, SecKeychainItemRef *itemCopy)
 {
-	BEGIN_SECKCITEMAPI
+    BEGIN_SECKCITEMAPI
     os_activity_t activity = os_activity_create("SecKeychainItemCreateCopy", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
@@ -303,34 +302,6 @@ SecKeychainItemGetDLDBHandle(SecKeychainItemRef itemRef, CSSM_DL_DB_HANDLE* dldb
 
 	END_SECKCITEMAPI
 }
-
-#if 0
-static
-OSStatus SecAccessCreateFromObject(CFTypeRef sourceRef,
-	SecAccessRef *accessRef)
-{
-	BEGIN_SECAPI
-
-	Required(accessRef);	// preflight
-	SecPointer<Access> access = new Access(*aclBearer(sourceRef));
-	*accessRef = access->handle();
-
-	END_SECAPI
-}
-
-
-/*!
- */
-static
-OSStatus SecAccessModifyObject(SecAccessRef accessRef, CFTypeRef sourceRef)
-{
-	BEGIN_SECAPI
-
-	Access::required(accessRef)->setAccess(*aclBearer(sourceRef), true);
-
-	END_SECAPI
-}
-#endif
 
 OSStatus
 SecKeychainItemCopyAccess(SecKeychainItemRef itemRef, SecAccessRef* accessRef)
@@ -567,6 +538,7 @@ OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainA
 static OSStatus SecKeychainItemCreatePersistentReferenceFromCertificate(SecCertificateRef certRef,
     CFDataRef *persistentItemRef, Boolean isIdentity)
 {
+	COUNTLEGACYAPI
 	OSStatus __secapiresult;
 	if (!certRef || !persistentItemRef) {
 		return errSecParam;

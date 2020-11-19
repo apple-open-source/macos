@@ -23,14 +23,9 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebCoreFullScreenWindow_h
-#define WebCoreFullScreenWindow_h
-
-#if ENABLE(FULLSCREEN_API) && !PLATFORM(IOS_FAMILY)
+#if PLATFORM(MAC)
 
 WEBCORE_EXPORT @interface WebCoreFullScreenWindow : NSWindow
 @end
 
-#endif // ENABLE(FULLSCREEN_API)
-
-#endif // WebCoreFullScreenWindow_h
+#endif

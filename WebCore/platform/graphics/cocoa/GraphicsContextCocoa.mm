@@ -205,15 +205,15 @@ static CGColorRef colorForMarkerLineStyle(DocumentMarkerLineStyle::Mode style, b
     switch (style) {
     // Red
     case DocumentMarkerLineStyle::Mode::Spelling:
-        return cachedCGColor(useDarkMode ? Color { 255, 140, 140, 217 } : Color { 255, 59, 48, 191 });
+        return cachedCGColor(useDarkMode ? SRGBA<uint8_t> { 255, 140, 140, 217 } : SRGBA<uint8_t> { 255, 59, 48, 191 });
     // Blue
     case DocumentMarkerLineStyle::Mode::DictationAlternatives:
     case DocumentMarkerLineStyle::Mode::TextCheckingDictationPhraseWithAlternatives:
     case DocumentMarkerLineStyle::Mode::AutocorrectionReplacement:
-        return cachedCGColor(useDarkMode ? Color { 40, 145, 255, 217 } : Color { 0, 122, 255, 191 });
+        return cachedCGColor(useDarkMode ? SRGBA<uint8_t> { 40, 145, 255, 217 } : SRGBA<uint8_t> { 0, 122, 255, 191 });
     // Green
     case DocumentMarkerLineStyle::Mode::Grammar:
-        return cachedCGColor(useDarkMode ? Color { 50, 215, 75, 217 } : Color { 25, 175, 50, 191 });
+        return cachedCGColor(useDarkMode ? SRGBA<uint8_t> { 50, 215, 75, 217 } : SRGBA<uint8_t> { 25, 175, 50, 191 });
     }
 }
 

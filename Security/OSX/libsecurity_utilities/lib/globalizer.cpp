@@ -42,7 +42,7 @@
 //
 // The Error class thrown if Nexus operations fail
 //
-GlobalNexus::Error::~Error() throw()
+GlobalNexus::Error::~Error() _NOEXCEPT
 {
 }
 
@@ -80,7 +80,7 @@ ProcessNexusBase::ProcessNexusBase(const char *identifier)
 {
 	const char *env = getenv(identifier);
 	if (env == NULL) {	// perhaps we're first...
-		auto_ptr<Store> store(new Store);
+		unique_ptr<Store> store(new Store);
 		char form[2*sizeof(Store *) + 2];
 		sprintf(form, "*%p", &store);
 		setenv(identifier, form, 0);	// do NOT overwrite...

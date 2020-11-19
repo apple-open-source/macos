@@ -34,8 +34,11 @@
 #include <Security/SecKey.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
 #include "keychain/SecureObjectSync/SOSFullPeerInfo.h"
+#include <TargetConditionals.h>
 
 __BEGIN_DECLS
+
+#define SOS_ENABLED (TARGET_OS_OSX || TARGET_OS_IOS)
 
 CFStringRef myMacAddress(void);
 const char *cfabsoluteTimeToString(CFAbsoluteTime abstime);

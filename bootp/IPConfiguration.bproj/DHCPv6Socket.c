@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -188,7 +188,7 @@ DHCPv6SocketCreateGlobals(void)
     }
     bzero(globals, sizeof(*globals));
     dynarray_init(&globals->sockets, DHCPv6SocketFreeElement, NULL);
-    globals->timer_callout = timer_callout_init();
+    globals->timer_callout = timer_callout_init("DHCPv6Socket");
     return (globals);
 }
 

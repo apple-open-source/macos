@@ -32,9 +32,7 @@
 #include <security_cdsa_utilities/cssmerrors.h>
 #include <Security/cssm.h>
 
-
 namespace Security {
-
 
 //
 // API boilerplate macros. These provide a frame for C++ code that is impermeable to exceptions.
@@ -46,7 +44,12 @@ namespace Security {
 //	END_API0		// completely ignores exceptions; falls through in all cases
 //	END_API1(bad)	// return (bad) on exception; fall through on success
 //
-#define BEGIN_API	try {
+#define BEGIN_API	try { \
+	static dispatch_once_t countToken; \
+	countLegacyAPI(&countToken, __FUNCTION__);
+
+#define BEGIN_API_NO_METRICS	try {
+
 #define END_API(base) 	} \
 catch (const CommonError &err) { return CssmError::cssmError(err, CSSM_ ## base ## _BASE_ERROR); } \
 catch (const std::bad_alloc &) { return CssmError::cssmError(CSSM_ERRCODE_MEMORY_ERROR, CSSM_ ## base ## _BASE_ERROR); } \

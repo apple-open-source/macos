@@ -478,6 +478,8 @@ OSDefineAbstractStructors(IODCLTranslator, IODCLProgram)
 
 bool IODCLTranslator::init(DCLCommand* toInterpret)
 {
+	DebugLog("// *** TEST: IODCLTranslator<%p>::init - toInterpret = %p\n", this, toInterpret );
+	
     if(!IODCLProgram::init())
 	return false;
 

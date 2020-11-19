@@ -41,22 +41,19 @@ Box::Box(const Box& other)
     , m_contentHeight(other.m_contentHeight)
     , m_horizontalMargin(other.m_horizontalMargin)
     , m_verticalMargin(other.m_verticalMargin)
-    , m_horizontalComputedMargin(other.m_horizontalComputedMargin)
     , m_hasClearance(other.m_hasClearance)
     , m_border(other.m_border)
     , m_padding(other.m_padding)
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     , m_hasValidTop(other.m_hasValidTop)
     , m_hasValidLeft(other.m_hasValidLeft)
     , m_hasValidHorizontalMargin(other.m_hasValidHorizontalMargin)
     , m_hasValidVerticalMargin(other.m_hasValidVerticalMargin)
-    , m_hasValidVerticalNonCollapsedMargin(other.m_hasValidVerticalNonCollapsedMargin)
-    , m_hasValidHorizontalComputedMargin(other.m_hasValidHorizontalComputedMargin)
     , m_hasValidBorder(other.m_hasValidBorder)
     , m_hasValidPadding(other.m_hasValidPadding)
     , m_hasValidContentHeight(other.m_hasValidContentHeight)
     , m_hasValidContentWidth(other.m_hasValidContentWidth)
-    , m_hasEstimatedMarginBefore(other.m_hasEstimatedMarginBefore)
+    , m_hasPrecomputedMarginBefore(other.m_hasPrecomputedMarginBefore)
 #endif
 {
 }
@@ -73,18 +70,6 @@ Rect Box::marginBox() const
     marginBox.setTop(borderBox.top() - marginBefore());
     marginBox.setLeft(borderBox.left() - marginStart());
     marginBox.setHeight(borderBox.height() + marginBefore() + marginAfter());
-    marginBox.setWidth(borderBox.width() + marginStart() + marginEnd());
-    return marginBox;
-}
-
-Rect Box::nonCollapsedMarginBox() const
-{
-    auto borderBox = this->borderBox();
-
-    Rect marginBox;
-    marginBox.setTop(borderBox.top() - nonCollapsedMarginBefore());
-    marginBox.setLeft(borderBox.left() - marginStart());
-    marginBox.setHeight(borderBox.height() + nonCollapsedMarginBefore() + nonCollapsedMarginAfter());
     marginBox.setWidth(borderBox.width() + marginStart() + marginEnd());
     return marginBox;
 }

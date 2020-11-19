@@ -77,6 +77,7 @@ GCC_PREPROCESSOR_DEFINITIONS = $(BASE_PREPROCESSOR_MACROS)
 CR_LDFLAGS = -lCrashReporterClient
 LIBCOMPILER_RT_LDFLAGS = -lcompiler_rt
 LIBMALLOC_LDFLAGS = -lsystem_malloc
+LIBBLOCKS_LDFLAGS = -lsystem_blocks
 LIBC_LDFLAGS = -lsystem_c
 LIBDISPATCH_LDFLAGS = -ldispatch
 LIBXPC_LDFLAGS = -lxpc
@@ -88,11 +89,12 @@ LIBDYLD_LDFLAGS = -ldyld
 LIBSYSTEM_C_LDFLAGS = -all_load -nostdlib -L$(SDK_INSTALL_ROOT)/usr/lib/system -umbrella System $(CR_LDFLAGS) $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(UPWARD_LDFLAGS) $(LIBSYSTEM_C_EXTRA_LDFLAGS_$(CURRENT_ARCH)) -Wl,-interposable_list,$(DERIVED_FILES_DIR)/interposable.list -Wl,-unexported_symbols_list,$(DERIVED_FILES_DIR)/unexport.list -Wl,-alias_list,$(SRCROOT)/xcodescripts/alias.list -Wl,-order_file,$(SRCROOT)/xcodescripts/Libc.order @$(BUILT_PRODUCTS_DIR)/$(CURRENT_VARIANT).linklist
 LIBSYSTEM_C_EXTRA_LDFLAGS_i386 = -Wl,-alias_list,$(SRCROOT)/xcodescripts/legacy_alias.list
 
+
 // TODO: Remove upward links - mostly <rdar://problem/13183469>, macho is for assumes.c
-UPWARD_LDFLAGS = -Wl,-upward-ldispatch -Wl,-upward-lmacho -Wl,-upward-lsystem_asl -Wl,-upward-lsystem_blocks -Wl,-upward-lsystem_info -Wl,-upward-lsystem_notify -Wl,-upward-lxpc -Wl,-upward-lcorecrypto -Wl,-upward-lsystem_trace
+UPWARD_LDFLAGS = -Wl,-upward-ldispatch -Wl,-upward-lmacho -Wl,-upward-lsystem_asl -Wl,-upward-lsystem_blocks -Wl,-upward-lsystem_info -Wl,-upward-lsystem_notify -Wl,-upward-lxpc -Wl,-upward-lcorecrypto -Wl,-upward-lsystem_trace $(OTHER_UPWARD_LDFLAGS)
 UPWARD_LDFLAGS[sdk=driverkit*] = -Wl,-upward-lmacho -Wl,-upward-lsystem_blocks -Wl,-upward-lcorecrypto
 
-LIBSYSTEM_DARWIN_LDFLAGS = -all_load -nostdlib -L$(SDK_INSTALL_ROOT)/usr/lib/system -umbrella System $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBC_LDFLAGS) $(LIBDISPATCH_LDFLAGS) $(LIBXPC_LDFLAGS)
+LIBSYSTEM_DARWIN_LDFLAGS = -all_load -nostdlib -L$(SDK_INSTALL_ROOT)/usr/lib/system -umbrella System $(LIBCOMPILER_RT_LDFLAGS) $(LIBDYLD_LDFLAGS) $(LIBSYSCALL_LDFLAGS) $(LIBM_LDFLAGS) $(LIBMALLOC_LDFLAGS) $(LIBBLOCKS_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBPTHREAD_LDFLAGS) $(LIBPLATFORM_LDFLAGS) $(LIBC_LDFLAGS) $(LIBDISPATCH_LDFLAGS) $(LIBXPC_LDFLAGS) -lmacho -ldyld -Wl,-upward-lsystem_trace
 
 // libPlatform.a architectures
 ARCH_FAMILY = $(ARCH_FAMILY_$(CURRENT_ARCH))
@@ -127,6 +129,9 @@ NetBSD_SEARCH_PATHS = $(SRCROOT)/nbsdcompat
 // TRE target
 TRE_CFLAGS = -DHAVE_CONFIG_H
 TRE_SEARCH_PATHS = $(SRCROOT)/regex/TRE $(SRCROOT)/regex/FreeBSD
+
+// libc_dyld static library
+libc_dyld_CFLAGS = -fno-stack-check
 
 // Files per architecture to exclude from the non-platform builds (because optimised versions exist in Platform)
 BASE_INCLUDED_SOURCE_FILE_NAMES = $(BASE_INCLUDED_SOURCE_FILE_NAMES_$(ARCH_FAMILY))

@@ -144,7 +144,7 @@
             if(!self.forceResync) {
                 if (self.changeTokens[clientZoneID]) {
                     options.previousServerChangeToken = self.changeTokens[clientZoneID];
-                    secnotice("ckksfetch", "Using cached change token for %@: %@", clientZoneID, self.changeTokens[clientZoneID]);
+                    ckksnotice_global("ckksfetch", "Using cached change token for %@: %@", clientZoneID, self.changeTokens[clientZoneID]);
                 } else {
                     options.previousServerChangeToken = clientPreference.changeToken;
                 }
@@ -168,7 +168,7 @@
     if(self.fetchedZoneIDs.count == 0) {
         // No clients actually want to fetch right now, so quit
         self.error = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoFetchesRequested description:@"No clients want a fetch right now"];
-        secnotice("ckksfetch", "Cancelling fetch: %@", self.error);
+        ckksnotice_global("ckksfetch", "Cancelling fetch: %@", self.error);
         return;
     }
 
@@ -196,7 +196,7 @@
     //    networkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     //}
 
-    secnotice("ckksfetch", "Beginning fetch with discretionary network (%d): %@", (int)networkBehavior, self.allClientOptions);
+    ckksnotice_global("ckksfetch", "Beginning fetch with discretionary network (%d): %@", (int)networkBehavior, self.allClientOptions);
     self.fetchRecordZoneChangesOperation = [[self.fetchRecordZoneChangesOperationClass alloc] initWithRecordZoneIDs:self.fetchedZoneIDs
                                                                                               configurationsByRecordZoneID:self.allClientOptions];
 
@@ -204,11 +204,11 @@
     self.fetchRecordZoneChangesOperation.configuration.discretionaryNetworkBehavior = networkBehavior;
     self.fetchRecordZoneChangesOperation.configuration.isCloudKitSupportOperation = YES;
     self.fetchRecordZoneChangesOperation.group = self.ckoperationGroup;
-    secnotice("ckksfetch", "Operation group is %@", self.ckoperationGroup);
+    ckksnotice_global("ckksfetch", "Operation group is %@", self.ckoperationGroup);
 
     self.fetchRecordZoneChangesOperation.recordChangedBlock = ^(CKRecord *record) {
         STRONGIFY(self);
-        secinfo("ckksfetch", "CloudKit notification: record changed(%@): %@", [record recordType], record);
+        ckksinfo_global("ckksfetch", "CloudKit notification: record changed(%@): %@", [record recordType], record);
 
         // Add this to the modifications, and remove it from the deletions
         self.modifications[record.recordID] = record;
@@ -218,7 +218,7 @@
 
     self.fetchRecordZoneChangesOperation.recordWithIDWasDeletedBlock = ^(CKRecordID *recordID, NSString *recordType) {
         STRONGIFY(self);
-        secinfo("ckksfetch", "CloudKit notification: deleted record(%@): %@", recordType, recordID);
+        ckksinfo_global("ckksfetch", "CloudKit notification: deleted record(%@): %@", recordType, recordID);
 
         // Add to the deletions, and remove any pending modifications
         [self.modifications removeObjectForKey: recordID];
@@ -229,25 +229,25 @@
     self.fetchRecordZoneChangesOperation.recordZoneChangeTokensUpdatedBlock = ^(CKRecordZoneID *recordZoneID, CKServerChangeToken *serverChangeToken, NSData *clientChangeTokenData) {
         STRONGIFY(self);
 
-        secinfo("ckksfetch", "Received a new server change token (via block) for %@: %@ %@", recordZoneID, serverChangeToken, clientChangeTokenData);
+        ckksinfo_global("ckksfetch", "Received a new server change token (via block) for %@: %@ %@", recordZoneID, serverChangeToken, clientChangeTokenData);
         self.changeTokens[recordZoneID] = serverChangeToken;
     };
 
     self.fetchRecordZoneChangesOperation.recordZoneFetchCompletionBlock = ^(CKRecordZoneID *recordZoneID, CKServerChangeToken *serverChangeToken, NSData *clientChangeTokenData, BOOL moreComing, NSError * recordZoneError) {
         STRONGIFY(self);
 
-        secnotice("ckksfetch", "Received a new server change token for %@: %@ %@", recordZoneID, serverChangeToken, clientChangeTokenData);
+        ckksinfo_global("ckksfetch", "Received a new server change token for %@: %@ %@", recordZoneID, serverChangeToken, clientChangeTokenData);
         self.changeTokens[recordZoneID] = serverChangeToken;
         self.allClientOptions[recordZoneID].previousServerChangeToken = serverChangeToken;
 
         self.moreComing |= moreComing;
         if(moreComing) {
-            secnotice("ckksfetch", "more changes pending for %@, will start a new fetch at change token %@", recordZoneID, self.changeTokens[recordZoneID]);
+            ckksnotice_global("ckksfetch", "more changes pending for %@, will start a new fetch at change token %@", recordZoneID, self.changeTokens[recordZoneID]);
         }
 
-        ckksnotice("ckksfetch", recordZoneID, "Record zone fetch complete: changeToken=%@ clientChangeTokenData=%@ moreComing=%@ error=%@", serverChangeToken, clientChangeTokenData,
-                   moreComing ? @"YES" : @"NO",
-                   recordZoneError);
+        ckksinfo("ckksfetch", recordZoneID, "Record zone fetch complete: changeToken=%@ clientChangeTokenData=%@ moreComing=%@ error=%@", serverChangeToken, clientChangeTokenData,
+                 moreComing ? @"YES" : @"NO",
+                 recordZoneError);
 
         [self sendChangesToClient:recordZoneID moreComing:moreComing];
     };
@@ -257,7 +257,7 @@
     self.fetchRecordZoneChangesOperation.fetchRecordZoneChangesCompletionBlock = ^(NSError * _Nullable operationError) {
         STRONGIFY(self);
         if(!self) {
-            secerror("ckksfetch: received callback for released object");
+            ckkserror_global("ckksfetch", "received callback for released object");
             return;
         }
 
@@ -273,7 +273,7 @@
         // If we were told that there were moreChanges coming for any zone, we'd like to fetch again.
         //  This is true if we recieve no error or a network timeout. Any other error should cause a failure.
         if(self.moreComing && (operationError == nil || [CKKSReachabilityTracker isNetworkFailureError:operationError])) {
-            secnotice("ckksfetch", "Must issue another fetch (with potential error %@)", operationError);
+            ckksnotice_global("ckksfetch", "Must issue another fetch (with potential error %@)", operationError);
             self.moreComing = false;
             [self performFetch];
             return;
@@ -283,7 +283,7 @@
             self.error = operationError;
         }
 
-        secnotice("ckksfetch", "Record zone changes fetch complete: error=%@", operationError);
+        ckksnotice_global("ckksfetcher", "Record zone changes fetch complete: error=%@", operationError);
 
         [CKKSPowerCollection CKKSPowerEvent:kCKKSPowerEventFetchAllChanges
                                       count:self.fetchedItems];
@@ -300,7 +300,7 @@
 
         for(CKRecordZoneNotification* rz in self.apnsPushes) {
             if(rz.ckksPushTracingEnabled) {
-                secnotice("ckksfetch", "Submitting post-fetch CKEventMetric due to notification %@", rz);
+                ckksnotice_global("ckksfetch", "Submitting post-fetch CKEventMetric due to notification %@", rz);
 
                 // Schedule submitting this metric on another operation, so hopefully CK will have marked this fetch as done by the time that fires?
                 CKEventMetric *metric = [[CKEventMetric alloc] initWithEventName:@"APNSPushMetrics"];
@@ -339,11 +339,11 @@
 
                 CKKSResultOperation* launchMetricOp = [CKKSResultOperation named:@"submit-metric" withBlock:^{
                     if(![metric associateWithCompletedOperation:rzcOperation]) {
-                        secerror("ckksfetch: Couldn't associate metric with operation: %@ %@", metric, rzcOperation);
+                        ckkserror_global("ckksfetch", "Couldn't associate metric with operation: %@ %@", metric, rzcOperation);
                     }
                     [container submitEventMetric:metric];
                     [[SecMetrics managerObject] submitEvent:metric2];
-                    secnotice("ckksfetch", "Metric submitted: %@", metric);
+                    ckksnotice_global("ckksfetch", "Metric submitted: %@", metric);
                 }];
                 [launchMetricOp addSuccessDependency:self.fetchCompletedOperation];
 
@@ -367,7 +367,7 @@
 {
     id<CKKSChangeFetcherClient> client = self.clientMap[recordZoneID];
     if(!client) {
-        secerror("ckksfetch: no client registered for %@, so why did we get any data?", recordZoneID);
+        ckkserror_global("ckksfetch", "no client registered for %@, so why did we get any data?", recordZoneID);
         return;
     }
 
@@ -395,8 +395,8 @@
 
     BOOL resync = [self.resyncingZones containsObject:recordZoneID];
 
-    ckksnotice("ckksfetch", recordZoneID, "Delivering fetched changes: changed=%lu deleted=%lu moreComing=%lu resync=%u",
-               (unsigned long)zoneModifications.count, (unsigned long)zoneDeletions.count, (unsigned long)moreComing, resync);
+    ckksnotice("ckksfetch", recordZoneID, "Delivering fetched changes: changed=%lu deleted=%lu moreComing=%lu resync=%u changeToken=%@",
+               (unsigned long)zoneModifications.count, (unsigned long)zoneDeletions.count, (unsigned long)moreComing, resync, self.changeTokens[recordZoneID]);
 
     // Tell the client about these changes!
     [client changesFetched:zoneModifications

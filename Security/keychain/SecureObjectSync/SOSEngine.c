@@ -50,9 +50,8 @@
 #include <utilities/iCloudKeychainTrace.h>
 #include <utilities/SecCoreCrypto.h>
 #include <utilities/SecFileLocations.h>
-#include <utilities/SecADWrapper.h>
 #include <utilities/SecTrace.h>
-
+#include "utilities/SecCoreAnalytics.h"
 
 #include <AssertMacros.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -330,6 +329,19 @@ static void SOSEngineForEachBackupPeer_locked(SOSEngineRef engine, void (^with)(
     CFDictionaryRef peerMapCopy = CFDictionaryCreateCopy(NULL, engine->peerMap);
     CFDictionaryApplyFunction(peerMapCopy, SOSEngineWithBackupPeerMapEntry_locked, &ewp);
     CFRelease(peerMapCopy);
+}
+
+static void SOSEngineForBackupPeer_locked(SOSEngineRef engine, CFStringRef backupPeerID, void (^with)(SOSPeerRef peer)) {
+    struct SOSEngineWithPeerContext ewp = { .engine = engine, .with = with };
+    CFMutableDictionaryRef singleEntryMap = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+    CFDictionaryRef peerMapCopy = CFDictionaryCreateCopy(NULL, engine->peerMap);
+    SOSPeerRef peer = (SOSPeerRef)CFDictionaryGetValue(peerMapCopy, backupPeerID);
+    if(peer != NULL) {
+        CFDictionaryAddValue(singleEntryMap, backupPeerID, peer);
+        CFDictionaryApplyFunction(singleEntryMap, SOSEngineWithBackupPeerMapEntry_locked, &ewp);
+    }
+    CFRelease(peerMapCopy);
+    CFRelease(singleEntryMap);
 }
 
 //
@@ -706,7 +718,7 @@ CFMutableDictionaryRef derStateToDictionaryCopy(CFDataRef state, CFErrorRef *err
     if (state) {
         const uint8_t *der = CFDataGetBytePtr(state);
         const uint8_t *der_end = der + CFDataGetLength(state);
-        ok = der = der_decode_dictionary(kCFAllocatorDefault, kCFPropertyListMutableContainers, (CFDictionaryRef *)&stateDict, error, der, der_end);
+        ok = der = der_decode_dictionary(kCFAllocatorDefault, (CFDictionaryRef *)&stateDict, error, der, der_end);
         if (der && der != der_end) {
             ok = SOSErrorCreate(kSOSErrorDecodeFailure, error, NULL, CFSTR("trailing %td bytes at end of state"), der_end - der);
         }
@@ -773,7 +785,7 @@ static bool SOSEngineLoadCoders(SOSEngineRef engine, SOSTransactionRef txn, CFEr
     secnotice("coder", "Will force peer registration: %s",needPeerRegistration ? "yes" : "no");
 
     if (needPeerRegistration) {
-        dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+        dispatch_queue_t queue = dispatch_get_global_queue(SOS_ENGINE_PRIORITY, 0);
 
         dispatch_async(queue, ^{
             CFErrorRef eprError = NULL;
@@ -1202,22 +1214,12 @@ static bool SOSEngineUpdateChanges_locked(SOSEngineRef engine, SOSTransactionRef
                 if (deleted) {
                     bool someoneCares = SOSChangeMapperIngestChange(&cm, false, deleted);
                     if (someoneCares) {
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-                        SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.delete"), 1);
-#endif
                         mappedItemChanged = true;
                     }
                 }
                 if (inserted) {
                     bool someoneCares = SOSChangeMapperIngestChange(&cm, true, inserted);
                     if (someoneCares) {
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
-                        if (deleted == NULL) {
-                            SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.add"), 1);
-                        } else {
-                            SecADAddValueForScalarKey(CFSTR("com.apple.security.sos.update"), 1);
-                        }
-#endif
                         mappedItemChanged = true;
                     }
                     if (!someoneCares && !isData(inserted) && SecDbItemIsTombstone((SecDbItemRef)inserted) && !CFEqualSafe(SecDbItemGetValue((SecDbItemRef)inserted, &v7utomb, NULL), kCFBooleanTrue)) {
@@ -1748,6 +1750,12 @@ static void SOSEngineForEachBackupPeer(SOSEngineRef engine, void (^with)(SOSPeer
     });
 }
 
+static void SOSEngineForBackupPeer(SOSEngineRef engine, CFStringRef backupPeerID, void (^with)(SOSPeerRef peer)) {
+    SOSEngineDoOnQueue(engine, ^{
+        SOSEngineForBackupPeer_locked(engine, backupPeerID, with);
+    });
+}
+
 static const CFStringRef kSecADSecurityNewItemSyncTimeKey = CFSTR("com.apple.security.secureobjectsync.itemtime.new");
 static const CFStringRef kSecADSecurityKnownItemSyncTimeKey = CFSTR("com.apple.security.secureobjectsync.itemtime.known");
 
@@ -1764,8 +1772,8 @@ static void ReportItemSyncTime(SOSDataSourceRef ds, bool known, SOSObjectRef obj
             syncTime = now - peerModificationAbsoluteTime;
         }
 
-        SecADClientPushValueForDistributionKey(known ? kSecADSecurityKnownItemSyncTimeKey : kSecADSecurityNewItemSyncTimeKey,
-                                               SecBucket2Significant(syncTime));
+        SecCoreAnalyticsSendValue(known ? kSecADSecurityKnownItemSyncTimeKey : kSecADSecurityNewItemSyncTimeKey,
+                                  SecBucket2Significant(syncTime));
     }
     CFReleaseNull(itemModDate);
 }
@@ -2770,6 +2778,14 @@ CFArrayRef SOSEngineCopyBackupPeerNames(SOSEngineRef engine, CFErrorRef *error) 
         CFArrayAppendValue(backupNames, SOSPeerGetID(peer));
     });
     return backupNames;
+}
+
+CFStringRef SOSEngineEnsureCopyBackupPeerForView(SOSEngineRef engine, CFStringRef backupPeerID, CFErrorRef *error) {
+    __block CFStringRef backupName = CFSTR("");
+    SOSEngineForBackupPeer(engine, backupPeerID, ^(SOSPeerRef peer) {
+        backupName = CFRetainSafe(SOSPeerGetID(peer));
+    });
+    return backupName;
 }
 
 static CFMutableDictionaryRef SOSEngineCreateStateDictionary(CFStringRef peerID, SOSManifestRef manifest, CFSetRef vns, CFStringRef coderString) {

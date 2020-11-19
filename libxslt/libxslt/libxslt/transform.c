@@ -467,7 +467,7 @@ xsltGetXIncludeDefault(void) {
     return(xsltDoXIncludeDefault);
 }
 
-unsigned long xsltDefaultTrace = (unsigned long) XSLT_TRACE_ALL;
+static unsigned long xsltDefaultTrace = (unsigned long) XSLT_TRACE_ALL;
 
 /**
  * xsltDebugSetDefaultTrace:
@@ -766,8 +766,9 @@ xsltFreeTransformContext(xsltTransformContextPtr ctxt) {
  *									*
  ************************************************************************/
 
-xmlNodePtr xsltCopyTree(xsltTransformContextPtr ctxt,
-                        xmlNodePtr node, xmlNodePtr insert, int literal);
+static xmlNodePtr
+xsltCopyTree(xsltTransformContextPtr ctxt, xmlNodePtr node, xmlNodePtr insert,
+             int literal);
 
 /**
  * xsltAddChild:
@@ -1832,7 +1833,7 @@ xsltCopyTreeInternal(xsltTransformContextPtr ctxt,
  *
  * Returns a pointer to the new tree, or NULL in case of error
  */
-xmlNodePtr
+static xmlNodePtr
 xsltCopyTree(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	     xmlNodePtr insert, int literal)
 {
@@ -2396,6 +2397,24 @@ xsltApplySequenceConstructor(xsltTransformContextPtr ctxt,
     if (list == NULL)
         return;
     CHECK_STOPPED;
+
+    /*
+    * Check for infinite recursion: stop if the maximum of nested templates
+    * is excceeded. Adjust xsltMaxDepth if you need more.
+    */
+    if (ctxt->funcLevel >= ctxt->maxTemplateDepth) {
+        xsltTransformError(ctxt, NULL, list,
+	    "xsltApplySequenceConstructor: A potential infinite template "
+            "recursion was detected.\n"
+	    "You can adjust xsltMaxDepth (--maxdepth) in order to "
+	    "raise the maximum number of nested template calls and "
+	    "variables/params (currently set to %d).\n",
+	    ctxt->maxTemplateDepth);
+        xsltDebug(ctxt, contextNode, list, NULL);
+	ctxt->state = XSLT_STATE_STOPPED;
+        return;
+    }
+    ctxt->funcLevel++;
 
     oldLocalFragmentTop = ctxt->localRVT;
     oldInsert = insert = ctxt->insert;
@@ -3070,6 +3089,8 @@ error:
     ctxt->inst = oldInst;
     ctxt->insert = oldInsert;
 
+    ctxt->funcLevel--;
+
 #ifdef WITH_DEBUGGER
     if ((ctxt->debugStatus != XSLT_DEBUG_NONE) && (addCallResult)) {
         xslDropCall();
@@ -3136,23 +3157,6 @@ xsltApplyXSLTTemplate(xsltTransformContextPtr ctxt,
         return;
     CHECK_STOPPED;
 
-    /*
-    * Check for infinite recursion: stop if the maximum of nested templates
-    * is excceeded. Adjust xsltMaxDepth if you need more.
-    */
-    if (ctxt->templNr >= ctxt->maxTemplateDepth)
-    {
-        xsltTransformError(ctxt, NULL, list,
-	    "xsltApplyXSLTTemplate: A potential infinite template recursion "
-	    "was detected.\n"
-	    "You can adjust xsltMaxDepth (--maxdepth) in order to "
-	    "raise the maximum number of nested template calls and "
-	    "variables/params (currently set to %d).\n",
-	    ctxt->maxTemplateDepth);
-        xsltDebug(ctxt, contextNode, list, NULL);
-        return;
-    }
-
     if (ctxt->varsNr >= ctxt->maxTemplateVars)
 	{
         xsltTransformError(ctxt, NULL, list,
@@ -3162,6 +3166,7 @@ xsltApplyXSLTTemplate(xsltTransformContextPtr ctxt,
 	    "raise the maximum number of variables/params (currently set to %d).\n",
 	    ctxt->maxTemplateVars);
         xsltDebug(ctxt, contextNode, list, NULL);
+	ctxt->state = XSLT_STATE_STOPPED;
         return;
 	}
 
@@ -3898,7 +3903,6 @@ xsltDocumentElem(xsltTransformContextPtr ctxt, xmlNodePtr node,
 	xsltTransformError(ctxt, NULL, inst,
                          "xsltDocumentElem: unable to save to %s\n",
                          filename);
-	ctxt->state = XSLT_STATE_ERROR;
 #ifdef WITH_XSLT_DEBUG_EXTRA
     } else {
         xsltGenericDebug(xsltGenericDebugContext,
@@ -6229,7 +6233,7 @@ xsltApplyStylesheetInternal(xsltStylesheetPtr style, xmlDocPtr doc,
     /*
      * Be pedantic.
      */
-    if ((ctxt != NULL) && (ctxt->state == XSLT_STATE_ERROR)) {
+    if ((ctxt != NULL) && (ctxt->state != XSLT_STATE_OK)) {
 	xmlFreeDoc(res);
 	res = NULL;
     }

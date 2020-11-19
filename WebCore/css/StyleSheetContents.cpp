@@ -316,7 +316,7 @@ const AtomString& StyleSheetContents::namespaceURIFromPrefix(const AtomString& p
     return it->value;
 }
 
-void StyleSheetContents::parseAuthorStyleSheet(const CachedCSSStyleSheet* cachedStyleSheet, const SecurityOrigin* securityOrigin)
+bool StyleSheetContents::parseAuthorStyleSheet(const CachedCSSStyleSheet* cachedStyleSheet, const SecurityOrigin* securityOrigin)
 {
     bool isSameOriginRequest = securityOrigin && securityOrigin->canRequest(baseURL());
     CachedCSSStyleSheet::MIMETypeCheckHint mimeTypeCheckHint = isStrictParserMode(m_parserContext.mode) || !isSameOriginRequest ? CachedCSSStyleSheet::MIMETypeCheckHint::Strict : CachedCSSStyleSheet::MIMETypeCheckHint::Lax;
@@ -330,15 +330,16 @@ void StyleSheetContents::parseAuthorStyleSheet(const CachedCSSStyleSheet* cached
                 if (isStrictParserMode(m_parserContext.mode))
                     page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '", cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed in strict mode."));
                 else if (!cachedStyleSheet->mimeTypeAllowedByNosniff())
-                    page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '", cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed when 'X-Content-Type: nosniff' is given."));
+                    page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '", cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed when 'X-Content-Type-Options: nosniff' is given."));
                 else
                     page->console().addMessage(MessageSource::Security, MessageLevel::Error, makeString("Did not parse stylesheet at '", cachedStyleSheet->url().stringCenterEllipsizedToLength(), "' because non CSS MIME types are not allowed for cross-origin stylesheets."));
             }
         }
-        return;
+        return false;
     }
 
     CSSParser(parserContext()).parseSheet(this, sheetText, CSSParser::RuleParsing::Deferred);
+    return true;
 }
 
 bool StyleSheetContents::parseString(const String& sheetText)
@@ -444,9 +445,6 @@ static bool traverseRulesInVector(const Vector<RefPtr<StyleRuleBase>>& rules, co
         case StyleRuleType::Charset:
         case StyleRuleType::Keyframe:
         case StyleRuleType::Supports:
-#if ENABLE(CSS_DEVICE_ADAPTATION)
-        case StyleRuleType::Viewport:
-#endif
             break;
         }
     }
@@ -487,9 +485,6 @@ bool StyleSheetContents::traverseSubresources(const WTF::Function<bool (const Ca
         case StyleRuleType::Charset:
         case StyleRuleType::Keyframe:
         case StyleRuleType::Supports:
-#if ENABLE(CSS_DEVICE_ADAPTATION)
-        case StyleRuleType::Viewport:
-#endif
             return false;
         };
         ASSERT_NOT_REACHED();

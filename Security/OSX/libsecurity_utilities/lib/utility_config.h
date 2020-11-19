@@ -29,7 +29,7 @@
 #define _H_UTILITY_CONFIG
 
 #include <CoreFoundation/CFBase.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 //
 // Decide what io apis we'll be using

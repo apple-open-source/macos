@@ -31,9 +31,8 @@
 #include "B3BasicBlockInlines.h"
 #include "B3CaseCollectionInlines.h"
 #include "B3Dominators.h"
-#include "B3InsertionSetInlines.h"
+#include "B3InsertionSet.h"
 #include "B3PhaseScope.h"
-#include "B3ProcedureInlines.h"
 #include "B3SwitchValue.h"
 #include "B3ValueInlines.h"
 
@@ -77,7 +76,7 @@ public:
             Vector<Override>& forValue =
                 overrides.add(value, Vector<Override>()).iterator->value;
 
-            if (!ASSERT_DISABLED) {
+            if (ASSERT_ENABLED) {
                 for (const Override& otherOverride : forValue)
                     ASSERT_UNUSED(otherOverride, otherOverride.block != override.block);
             }

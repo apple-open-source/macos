@@ -101,7 +101,6 @@ void NetworkProcess::platformInitializeNetworkProcessCocoa(const NetworkProcessC
 #endif
 
     WebCore::NetworkStorageSession::setStorageAccessAPIEnabled(parameters.storageAccessAPIEnabled);
-    m_suppressesConnectionTerminationOnSystemChange = parameters.suppressesConnectionTerminationOnSystemChange;
 
     // FIXME: Most of what this function does for cache size gets immediately overridden by setCacheModel().
     // - memory cache size passed from UI process is always ignored;
@@ -186,7 +185,7 @@ void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<vo
         auto aggregator = CallbackAggregator::create(WTFMove(completionHandler));
         forEachNetworkSession([modifiedSince, &aggregator](NetworkSession& session) {
             if (auto* cache = session.cache())
-                cache->clear(modifiedSince, [aggregator = aggregator.copyRef()] () { });
+                cache->clear(modifiedSince, [aggregator] () { });
         });
     }).get());
 }
@@ -217,9 +216,7 @@ static void saveCookies(NSHTTPCookieStorage *cookieStorage, CompletionHandler<vo
     ASSERT(RunLoop::isMain());
     [cookieStorage _saveCookies:makeBlockPtr([completionHandler = WTFMove(completionHandler)]() mutable {
         // CFNetwork may call the completion block on a background queue, so we need to redispatch to the main thread.
-        RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler)]() mutable {
-            completionHandler();
-        });
+        RunLoop::main().dispatch(WTFMove(completionHandler));
     }).get()];
 }
 #endif
@@ -239,15 +236,6 @@ void NetworkProcess::platformSyncAllCookies(CompletionHandler<void()>&& completi
 #endif
 
     ALLOW_DEPRECATED_DECLARATIONS_END
-}
-
-void NetworkProcess::platformPrepareToSuspend(CompletionHandler<void()>&& completionHandler)
-{
-    completionHandler();
-}
-
-void NetworkProcess::platformProcessDidResume()
-{
 }
 
 void NetworkProcess::platformProcessDidTransitionToBackground()

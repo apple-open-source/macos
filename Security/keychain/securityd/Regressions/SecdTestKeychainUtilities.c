@@ -42,6 +42,7 @@ void secd_test_setup_temp_keychain(const char* test_prefix, dispatch_block_t do_
 {
     CFStringRef tmp_dir = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("/tmp/%s.%X/"), test_prefix, arc4random());
     CFStringRef keychain_dir = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%@Library/Keychains"), tmp_dir);
+    secnotice("secdtest", "Keychain path: %@", keychain_dir);
     
     CFStringPerformWithCString(keychain_dir, ^(const char *keychain_dir_string) {
         errno_t err = mkpath_np(keychain_dir_string, 0755);

@@ -386,8 +386,15 @@ static void rearm_timer(time_t time_to_idle)
 {
     if (s_timer_source){
         dispatch_async(s_tty_queue, ^{
+            // XXX MJR - Avoid overflow which leads to powerd spinning at 100% CPU
+            // This is because AppleARMPlatform advertises a very large value for
+            // system idle sleep time.  time_to_idle should never be negative here.
+            int64_t delta = time_to_idle * NSEC_PER_SEC;
+            if (delta <= 0) {
+                delta = INT64_MAX;
+            }
             dispatch_source_set_timer(s_timer_source,
-                dispatch_time(DISPATCH_TIME_NOW, time_to_idle * NSEC_PER_SEC),
+                dispatch_time(DISPATCH_TIME_NOW, delta),
                 DISPATCH_TIME_FOREVER, 1 * NSEC_PER_SEC);
         });
     }

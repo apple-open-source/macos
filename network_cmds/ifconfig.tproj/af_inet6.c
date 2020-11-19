@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2017, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -576,6 +576,12 @@ in6_set_tunnel(int s, struct addrinfo *srcres, struct addrinfo *dstres)
 		warn("SIOCSIFPHYADDR_IN6");
 }
 
+#ifndef IPV6_ROUTER_MODE_EXCLUSIVE
+#define IPV6_ROUTER_MODE_DISABLED       0
+#define IPV6_ROUTER_MODE_EXCLUSIVE      1
+#define IPV6_ROUTER_MODE_HYBRID         2
+#endif /* IPV6_ROUTER_MODE_EXCLUSIVE */
+
 static void
 in6_set_router(int s, int enable)
 {
@@ -583,10 +589,94 @@ in6_set_router(int s, int enable)
 
 	bzero(&ifr, sizeof (ifr));
 	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
-	ifr.ifr_intval = enable;
+	ifr.ifr_intval = (enable == 0)
+		? IPV6_ROUTER_MODE_DISABLED
+		: IPV6_ROUTER_MODE_EXCLUSIVE;
 
 	if (ioctl(s, SIOCSETROUTERMODE_IN6, &ifr) < 0)
 		warn("SIOCSETROUTERMODE_IN6");
+}
+
+static int
+routermode_from_string(char * str, int *mode_p)
+{
+	int	success = 1;
+
+	if (strcasecmp(str, "exclusive") == 0 ||
+	    strcasecmp(str, "enabled") == 0) {
+		*mode_p = IPV6_ROUTER_MODE_EXCLUSIVE;
+	} else if (strcasecmp(str, "hybrid") == 0) {
+		*mode_p = IPV6_ROUTER_MODE_HYBRID;
+	} else if (strcasecmp(str, "disabled") == 0) {
+		*mode_p = IPV6_ROUTER_MODE_DISABLED;
+	} else {
+		success = 0;
+	}
+	return (success);
+}
+
+static const char *
+routermode_string(int mode)
+{
+	const char *	str;
+
+	switch (mode) {
+	case IPV6_ROUTER_MODE_EXCLUSIVE:
+		str = "enabled";
+		break;
+	case IPV6_ROUTER_MODE_HYBRID:
+		str = "hybrid";
+		break;
+	case IPV6_ROUTER_MODE_DISABLED:
+		str = "disabled";
+		break;
+	default:
+		str = "<unknown>";
+		break;
+	}
+	return str;
+}
+
+static int
+in6_routermode(int s, int argc, char *const*argv)
+{
+	struct in6_ifreq	ifr;
+	int 			ret;
+
+	bzero(&ifr, sizeof (ifr));
+	strlcpy(ifr.ifr_name, name, sizeof(ifr.ifr_name));
+	if (argc == 0) {
+		ret = 0;
+#ifndef SIOCGETROUTERMODE_IN6
+#define SIOCGETROUTERMODE_IN6   _IOWR('i', 137, struct in6_ifreq)
+#endif /* SIOCGETROUTERMODE_IN6 */
+		if (ioctl(s, SIOCGETROUTERMODE_IN6, &ifr) < 0) {
+			if (argv != NULL) {
+				warn("SIOCGETROUTERMODE_IN6");
+			}
+		} else {
+			/* argv is NULL if we're called from status() */
+			printf("%s%s\n",
+			       (argv == NULL) ? "\troutermode6: " : "",
+			       routermode_string(ifr.ifr_intval));
+		}
+		ret = 0;
+	} else {
+		int mode;
+
+		if (routermode_from_string(argv[0], &mode) == 0) {
+			errx(EXIT_FAILURE,
+			     "mode '%s' invalid, must be one of "
+			     "disabled, exclusive, or hybrid",
+			     argv[0]);
+		}
+		ifr.ifr_intval = mode;
+		if (ioctl(s, SIOCSETROUTERMODE_IN6, &ifr) < 0) {
+			warn("SIOCSETROUTERMODE_IN6");
+		}
+		ret = 1;
+	}
+	return ret;
 }
 
 static struct cmd inet6_cmds[] = {
@@ -635,6 +725,7 @@ static struct afswtch af_inet6 = {
 	.af_status_tunnel = in6_status_tunnel,
 	.af_settunnel	= in6_set_tunnel,
 	.af_setrouter	= in6_set_router,
+	.af_routermode	= in6_routermode,
 	.af_difaddr	= SIOCDIFADDR_IN6,
 	.af_aifaddr	= SIOCAIFADDR_IN6,
 	.af_ridreq	= &in6_ridreq,

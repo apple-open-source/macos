@@ -55,11 +55,15 @@ public:
     CDMPrivateFairPlayStreaming();
     virtual ~CDMPrivateFairPlayStreaming();
 
-    bool supportsInitDataType(const AtomString&) const override;
+#if !RELEASE_LOG_DISABLED
+    void setLogger(WTF::Logger&, const void* logIdentifier) final;
+#endif
+
+    Vector<AtomString> supportedInitDataTypes() const override;
     bool supportsConfiguration(const CDMKeySystemConfiguration&) const override;
     bool supportsConfigurationWithRestrictions(const CDMKeySystemConfiguration&, const CDMRestrictions&) const override;
-    bool supportsSessionTypeWithConfiguration(CDMSessionType&, const CDMKeySystemConfiguration&) const override;
-    bool supportsRobustness(const String&) const override;
+    bool supportsSessionTypeWithConfiguration(const CDMSessionType&, const CDMKeySystemConfiguration&) const override;
+    Vector<AtomString> supportedRobustnesses() const override;
     CDMRequirement distinctiveIdentifiersRequirement(const CDMKeySystemConfiguration&, const CDMRestrictions&) const override;
     CDMRequirement persistentStateRequirement(const CDMKeySystemConfiguration&, const CDMRestrictions&) const override;
     bool distinctiveIdentifiersAreUniquePerOriginAndClearable(const CDMKeySystemConfiguration&) const override;
@@ -80,6 +84,16 @@ public:
     static RefPtr<SharedBuffer> sanitizeSkd(const SharedBuffer&);
 
     static const Vector<FourCC>& validFairPlayStreamingSchemes();
+
+private:
+#if !RELEASE_LOG_DISABLED
+    WTF::Logger* loggerPtr() const { return m_logger.get(); };
+    const void* logIdentifier() const { return m_logIdentifier; }
+    const char* logClassName() const { return "CDMPrivateFairPlayStreaming"; }
+
+    RefPtr<WTF::Logger> m_logger;
+    const void* m_logIdentifier;
+#endif
 };
 
 }

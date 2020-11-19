@@ -34,9 +34,89 @@ static int set_timezone(const char *);
 static int build_source_path(char *, size_t, const char *);
 static int validate_source_path(const char *);
 
+#if TARGET_OS_OSX
+#include <sandbox.h>
+#include <dirhelper_priv.h>
+#include <sysexits.h>
+#include <sys/errno.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <stdlib.h>
+#include <pwd.h>
+
+static void
+enter_sandbox(void)
+{
+    char buf[PATH_MAX] = "";
+
+    char *home_env = getenv("HOME");
+    if (home_env == NULL) {
+        os_log_debug(OS_LOG_DEFAULT, "$HOME not set, falling back to using getpwuid");
+        struct passwd *pwd = getpwuid(getuid());
+        if (pwd == NULL) {
+            os_log_error(OS_LOG_DEFAULT, "failed to get passwd entry for uid %u", getuid());
+            exit(EXIT_FAILURE);
+        }
+        home_env = pwd->pw_dir;
+    }
+
+    char *home = realpath(home_env, NULL);
+    if (home == NULL) {
+        os_log_error(OS_LOG_DEFAULT, "failed to resolve user's home directory: %{darwin.errno}d", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    if (!_set_user_dir_suffix("tzlinkd") ||
+        confstr(_CS_DARWIN_USER_TEMP_DIR, buf, sizeof(buf)) == 0) {
+        os_log_error(OS_LOG_DEFAULT, "failed to initialize temporary directory: %{darwin.errno}d", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    char *tempdir = realpath(buf, NULL);
+    if (tempdir == NULL) {
+        os_log_error(OS_LOG_DEFAULT, "failed to resolve temporary directory: %{darwin.errno}d", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    if (confstr(_CS_DARWIN_USER_CACHE_DIR, buf, sizeof(buf)) == 0) {
+        os_log_error(OS_LOG_DEFAULT, "failed to initialize cache directory: %{darwin.errno}d", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    char *cachedir = realpath(buf, NULL);
+    if (cachedir == NULL) {
+        os_log_error(OS_LOG_DEFAULT, "failed to resolve cache directory: %{darwin.errno}d", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    const char *parameters[] = {
+        "HOME", home,
+        "TMPDIR", tempdir,
+        "DARWIN_CACHE_DIR", cachedir,
+        NULL
+    };
+
+    char *sberror = NULL;
+    // Note: The name of the sandbox profile here does not include the '.sb' extension.
+    if (sandbox_init_with_parameters("com.apple.tzlinkd", SANDBOX_NAMED, parameters, &sberror) != 0) {
+        os_log_error(OS_LOG_DEFAULT, "Failed to enter sandbox: %{public}s", sberror);
+        exit(EXIT_FAILURE);
+    }
+
+    free(home);
+    free(tempdir);
+    free(cachedir);
+    free(sberror);
+}
+#endif /* TARGET_OS_OSX */
+
 int
 main(void)
 {
+#if TARGET_OS_OSX
+    enter_sandbox();
+#endif /* TARGET_OS_OSX */
+    
 	dispatch_queue_t queue;
 	xpc_connection_t listener;
 

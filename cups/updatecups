@@ -26,7 +26,7 @@ echo "to Github revision $githubrev ($githubdate)..."
 git apply $githubrev.patch || exit 1
 
 mv cups.plist cups.plist.O
-sed -e '1,$s/$appledate/$githubdate/' -e '1,$s/$applerev/$githubrev/' <cups.plist.O >cups.plist
+sed -e "1,\$s/$appledate/$githubdate/" -e "1,\$s/$applerev/$githubrev/" <cups.plist.O >cups.plist
 
 git commit -a -e -m "Sync Github CUPS ($githubrev) changes to Apple CUPS."
 rm $githubrev.patch

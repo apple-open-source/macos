@@ -47,9 +47,9 @@
 #include <utilities/der_date.h>
 
 #include <corecrypto/ccrng.h>
-#include <corecrypto/ccrng_pbkdf2_prng.h>
-
-#include <CommonCrypto/CommonRandomSPI.h>
+#include <corecrypto/ccdigest.h>
+#include <corecrypto/ccsha2.h>
+#include <corecrypto/ccpbkdf2.h>
 
 #include <os/lock.h>
 
@@ -59,6 +59,7 @@ const CFStringRef kSOSErrorDomain = CFSTR("com.apple.security.sos.error");
 const CFStringRef kSOSDSIDKey = CFSTR("AccountDSID");
 const CFStringRef SOSTransportMessageTypeIDSV2 = CFSTR("IDS2.0");
 const CFStringRef SOSTransportMessageTypeKVS = CFSTR("KVS");
+const CFStringRef kSOSCountKey = CFSTR("numberOfErrorsDeep");
 
 bool SOSErrorCreate(CFIndex errorCode, CFErrorRef *error, CFDictionaryRef formatOptions, CFStringRef format, ...)
     CF_FORMAT_FUNCTION(4, 5);
@@ -256,23 +257,29 @@ bool SOSGenerateDeviceBackupFullKey(ccec_full_ctx_t generatedKey, ccec_const_cp_
 {
     bool result = false;
     int cc_result = 0;
-    struct ccrng_pbkdf2_prng_state pbkdf2_prng;
-    const int kBackupKeyMaxBytes = 1024; // This may be a function of the cp but will be updated when we use a formally deterministic key generation.
 
-    cc_result = ccrng_pbkdf2_prng_init(&pbkdf2_prng, kBackupKeyMaxBytes,
-                                       CFDataGetLength(entropy), CFDataGetBytePtr(entropy),
-                                       sizeof(sBackupKeySalt), sBackupKeySalt,
-                                       kBackupKeyIterations);
-    require_action_quiet(cc_result == 0, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("pbkdf rng init failed: %d"), cc_result));
+#define drbg_output_size 1024
 
-    cc_result = ccec_compact_generate_key(cp, (struct ccrng_state *) &pbkdf2_prng, generatedKey);
-    require_action_quiet(cc_result == 0, exit, SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("Generate key failed: %d"), cc_result));
+    uint8_t drbg_output[drbg_output_size];
+    cc_result = ccpbkdf2_hmac(ccsha256_di(), CFDataGetLength(entropy), CFDataGetBytePtr(entropy),
+                              sizeof(sBackupKeySalt), sBackupKeySalt,
+                              kBackupKeyIterations,
+                              drbg_output_size, drbg_output);
+    require_action_quiet(cc_result == 0, exit,
+                         SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("ccpbkdf2_hmac failed: %d"), cc_result));
+
+    cc_result = ccec_generate_key_deterministic(cp,
+                                                drbg_output_size,
+                                                drbg_output,
+                                                ccrng(NULL),
+                                                CCEC_GENKEY_DETERMINISTIC_SECBKP,
+                                                generatedKey);
+    require_action_quiet(cc_result == 0, exit,
+                         SOSErrorCreate(kSOSErrorProcessingFailure, error, NULL, CFSTR("ccec_generate_key_deterministic failed: %d"), cc_result));
 
     result = true;
 exit:
-    bzero(&pbkdf2_prng, sizeof(pbkdf2_prng));
     return result;
-
 }
 
 CFDataRef SOSCopyDeviceBackupPublicKey(CFDataRef entropy, CFErrorRef *error)
@@ -440,3 +447,12 @@ NSDate *SOSCreateRandomDateBetweenNowPlus(NSTimeInterval starting, NSTimeInterva
     return [[NSDate alloc] initWithTimeIntervalSinceNow:resultInterval];
 }
 
+
+dispatch_queue_t SOSCCCredentialQueue(void) {
+    static dispatch_queue_t credQueue = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        credQueue = dispatch_queue_create("com.apple.SOSCredentialsQueue", DISPATCH_QUEUE_SERIAL);
+    });
+    return credQueue;
+}

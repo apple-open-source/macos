@@ -42,6 +42,7 @@
 
 #if TARGET_OS_OSX
 #include <sys/sysctl.h>
+#include <membership.h>
 #else
 #import <sys/utsname.h>
 #endif
@@ -80,6 +81,7 @@ NSString* const SFAnalyticsTopicCloudServices = @"CloudServicesTopic";
 NSString* const SFAnalyticsTopicKeySync = @"KeySyncTopic";
 NSString* const SFAnalyticsTopicTrust = @"TrustTopic";
 NSString* const SFAnalyticsTopicTransparency = @"TransparencyTopic";
+NSString* const SFAnalyticsTopicNetworking = @"NetworkingTopic";
 
 NSString* const SFAnalyticsTableSchema =    @"CREATE TABLE IF NOT EXISTS hard_failures (\n"
                                                 @"id INTEGER PRIMARY KEY AUTOINCREMENT,\n"
@@ -195,6 +197,61 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
     });
     NSString *path = [NSString stringWithFormat:@"Analytics/%@.db", basename];
     return [(__bridge_transfer NSURL*)SecCopyURLForFileInKeychainDirectory((__bridge CFStringRef)path) path];
+}
+
++ (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename uuid:(NSUUID * __nullable)userUuid
+{
+    // Create the top-level directory with full access
+    NSMutableString *directory = [NSMutableString stringWithString:@"sfanalytics"];
+    WithPathInProtectedDirectory((__bridge  CFStringRef)directory, ^(const char *path) {
+        mode_t permissions = 0777;
+        int ret = mkpath_np(path, permissions);
+        if (!(ret == 0 || ret ==  EEXIST)) {
+            secerror("could not create path: %s (%s)", path, strerror(ret));
+        }
+        chmod(path, permissions);
+    });
+
+    // create per-user directory
+    if (userUuid) {
+        [directory appendString:@"/"];
+        [directory appendString:[userUuid UUIDString]];
+        WithPathInProtectedDirectory((__bridge  CFStringRef)directory, ^(const char *path) {
+#if TARGET_OS_IPHONE
+            mode_t permissions = 0775;
+#else
+            mode_t permissions = 0700;
+            if (geteuid() == 0) {
+                // Root user directory needs to be read/write for group so that user supd can upload root data
+                permissions = 0775;
+            }
+#endif // TARGET_OS_IPHONE
+            int ret = mkpath_np(path, permissions);
+            if (!(ret == 0 || ret ==  EEXIST)) {
+                secerror("could not create path: %s (%s)", path, strerror(ret));
+            }
+            chmod(path, permissions);
+        });
+    }
+    NSString *path = [NSString stringWithFormat:@"%@/%@.db", directory, basename];
+    return [(__bridge_transfer NSURL*)SecCopyURLForFileInProtectedDirectory((__bridge CFStringRef)path) path];
+}
+
++ (NSString *)defaultProtectedAnalyticsDatabasePath:(NSString *)basename
+{
+#if TARGET_OS_OSX
+    uid_t euid = geteuid();
+    uuid_t currentUserUuid;
+    int ret = mbr_uid_to_uuid(euid, currentUserUuid);
+    if (ret != 0) {
+        secerror("failed to get UUID for user(%d) - %d", euid, ret);
+        return [SFAnalytics defaultProtectedAnalyticsDatabasePath:basename uuid:nil];
+    }
+    NSUUID *userUuid = [[NSUUID alloc] initWithUUIDBytes:currentUserUuid];
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:basename uuid:userUuid];
+#else
+    return [SFAnalytics defaultProtectedAnalyticsDatabasePath:basename uuid:nil];
+#endif // TARGET_OS_IPHONE
 }
 
 + (NSInteger)fuzzyDaysSinceDate:(NSDate*)date

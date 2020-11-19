@@ -98,6 +98,7 @@
 #define SLEEPWAKE_LOG       "sleepWake"
 #define ADAPTIVEDISPLAY_LOG "adaptiveDisplay"
 #define WAKEREQUESTS_LOG    "wakeRequests"
+#define DISPLAY_LOG         "displayState"
 
 #ifndef LOG_STREAM
 #define LOG_STREAM OS_LOG_DEFAULT
@@ -132,6 +133,15 @@
         CFDictionarySetValue((dict), (key), n);     \
         CFRelease(n);   \
     }   \
+}
+
+#define CFDictionaryGetInt64Value(dict, key, val) { \
+    CFNumberRef n;   \
+    if (CFDictionaryGetValueIfPresent((dict), (key), (const void **)&n)) { \
+        if (isA_CFNumber(n)) {    \
+            CFNumberGetValue((n), kCFNumberSInt64Type, &(val)); \
+        } \
+    } \
 }
 
 #define CFDictionaryGetDoubleValue(dict, key, val) { \
@@ -299,7 +309,7 @@ enum {
  * powerd uses this method to publish battery and system power state info
  * to FDR.
  */
-void recordFDREvent(int eventType, bool checkStandbyStatus, IOPMBattery **batteries);
+void recordFDREvent(int eventType, bool checkStandbyStatus);
 
 /***************************************************************
  * MT2
@@ -466,24 +476,11 @@ __private_extern__ void                 logASLSleepPreventers(int preventerType)
 __private_extern__ aslmsg               new_msg_pmset_log(void);
 __private_extern__ bool                 isA_installEnvironment(void);
 
-__private_extern__ IOPMBattery          **_batteries(void);
-__private_extern__ IOPMBattery          *_newBatteryFound(io_registry_entry_t);
-__private_extern__ void                 _batteryChanged(IOPMBattery *);
-__private_extern__ bool                 _batteryHas(IOPMBattery *, CFStringRef);
 __private_extern__ void                 _removeBattery(io_registry_entry_t);
-__private_extern__ CFDictionaryRef      _copyACAdapterInfo(CFDictionaryRef oldACDict);
-__private_extern__ PowerSources         _getPowerSource(void);
-__private_extern__ bool                 getPowerState(PowerSources *source, uint32_t *percentage);
-__private_extern__ IOReturn _getLowCapRatioTime(CFStringRef batterySerialNumber,
-                                                boolean_t *hasLowCapRatio,
-                                                time_t *since);
-__private_extern__ IOReturn _setLowCapRatioTime(CFStringRef batterySerialNumber,
-                                                boolean_t hasLowCapRatio,
-                                                time_t since);
 
 __private_extern__ CFUserNotificationRef _copyUPSWarning(void);
 __private_extern__ IOReturn              _smcWakeTimerPrimer(void);
-__private_extern__ IOReturn              _smcWakeTimerGetResults(uint16_t *mSec);
+__private_extern__ IOReturn              _smcWakeTimerGetResults(double *mSec);
 __private_extern__ bool                  smcSilentRunningSupport(void);
 
 __private_extern__ void                 _askNicelyThenShutdownSystem(void);
@@ -523,6 +520,8 @@ __private_extern__ dispatch_queue_t     _getPMMainQueue(void);
 __private_extern__ bool auditTokenHasEntitlement(
                                                  audit_token_t token,
                                                  CFStringRef entitlement);
+__private_extern__ bool xpcConnectionHasEntitlement(xpc_object_t connection,
+                                                    CFStringRef entitlement);
 
 __private_extern__ void                 _oneOffHacksSetup(void);
 
@@ -545,8 +544,6 @@ __private_extern__ int pluginExecCommand(const char *path, char *const argv[],
 		dispatch_queue_t queue, void (*callback)(pid_t pid, int status));
 
 #ifdef XCTEST
-void xctSetPowerSource(PowerSources src);
-void xctSetCapacity(uint32_t capacity);
 void setAppWakeReason(CFStringRef reasonStr);
 
 #endif

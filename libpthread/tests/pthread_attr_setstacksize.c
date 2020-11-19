@@ -40,6 +40,7 @@ pthread_attr_setstacksize_func(void *arg)
 
 T_DECL(pthread_attr_setstacksize, "pthread_attr_setstacksize")
 {
+    T_LOG("vm_page_size: %lld vm_kernel_page_size: %lld round_page(MIN): %lld", vm_page_size, vm_kernel_page_size, round_page(PTHREAD_STACK_MIN));
     size_t stacksizes[] = {PTHREAD_STACK_MIN, 1024ULL * 16, 1024ULL * 32, 1024ULL * 1024};
     for (int i = 0; (size_t)i < sizeof(stacksizes)/sizeof(stacksizes[0]); i++){
         pthread_t t = NULL;

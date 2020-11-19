@@ -83,10 +83,10 @@
 
 /* Begin PBXBuildFile section */
 		6E2A3BBE2101222F0003B53B /* stack_np.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2A3BBD210122230003B53B /* stack_np.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		6E2A3BBF210122300003B53B /* stack_np.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2A3BBD210122230003B53B /* stack_np.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		6E2A3BBF210122300003B53B /* stack_np.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2A3BBD210122230003B53B /* stack_np.h */; };
 		6E2A3BC0210122340003B53B /* stack_np.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E2A3BBD210122230003B53B /* stack_np.h */; };
 		6E5869C720C9040A00F1CB75 /* dependency_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E5869C620C8FE8300F1CB75 /* dependency_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		6E5869C820C9040B00F1CB75 /* dependency_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E5869C620C8FE8300F1CB75 /* dependency_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		6E5869C820C9040B00F1CB75 /* dependency_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E5869C620C8FE8300F1CB75 /* dependency_private.h */; };
 		6E5869C920C9040C00F1CB75 /* dependency_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E5869C620C8FE8300F1CB75 /* dependency_private.h */; };
 		6E5869CB20C9043200F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
 		6E5869CC20C9043B00F1CB75 /* pthread_dependency.c in Sources */ = {isa = PBXBuildFile; fileRef = 6E5869CA20C9043200F1CB75 /* pthread_dependency.c */; };
@@ -106,10 +106,6 @@
 		6E8C165C1B14F08A00C8987C /* pthread_rwlock.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325F615B7513200270056 /* pthread_rwlock.c */; };
 		6E8C165D1B14F08A00C8987C /* pthread_tsd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325F815B7513200270056 /* pthread_tsd.c */; };
 		6E8C165E1B14F08A00C8987C /* pthread_cancelable_cancel.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A1BF5215C9A9F5006BB313 /* pthread_cancelable_cancel.c */; };
-		6E8C165F1B14F08A00C8987C /* pthread_cancelable_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A1BF5415C9CB9D006BB313 /* pthread_cancelable_legacy.c */; };
-		6E8C16601B14F08A00C8987C /* pthread_cond_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5D615C9CECA0098ECD8 /* pthread_cond_legacy.c */; };
-		6E8C16611B14F08A00C8987C /* pthread_mutex_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5D815C9CEEA0098ECD8 /* pthread_mutex_legacy.c */; };
-		6E8C16621B14F08A00C8987C /* pthread_rwlock_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5DA15C9CEFA0098ECD8 /* pthread_rwlock_legacy.c */; };
 		6E8C16651B14F08A00C8987C /* pthread_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C90E7AB415DC40D900A06D48 /* pthread_atfork.c */; };
 		6E8C16661B14F08A00C8987C /* pthread_asm.s in Sources */ = {isa = PBXBuildFile; fileRef = C99AD87D15DF04D10009A6F8 /* pthread_asm.s */; };
 		6E8C16691B14F08A00C8987C /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = C9244C1A185FCFED00075748 /* qos.h */; };
@@ -129,6 +125,27 @@
 		6EB232CC1B0EB2F0005915CE /* resolver.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EB232C91B0EB29D005915CE /* resolver.c */; };
 		6EB232CE1B0EB31B005915CE /* resolver.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EB232C91B0EB29D005915CE /* resolver.c */; };
 		6EB232D01B0EB325005915CE /* resolver.c in Sources */ = {isa = PBXBuildFile; fileRef = 6EB232C91B0EB29D005915CE /* resolver.c */; };
+		6ED6E65522BFCD1200CE82C2 /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F315B7513200270056 /* internal.h */; };
+		6ED6E65622BFCD1200CE82C2 /* types_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E63F22BFC64700CE82C2 /* types_internal.h */; };
+		6ED6E65722BFCD1200CE82C2 /* offsets_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E514A0220B67C0900844EE1 /* offsets_internal.h */; };
+		6ED6E65822BFCD1300CE82C2 /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F315B7513200270056 /* internal.h */; };
+		6ED6E65922BFCD1300CE82C2 /* types_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E63F22BFC64700CE82C2 /* types_internal.h */; };
+		6ED6E65A22BFCD1300CE82C2 /* offsets_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E514A0220B67C0900844EE1 /* offsets_internal.h */; };
+		6ED6E65B22BFCD1400CE82C2 /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F315B7513200270056 /* internal.h */; };
+		6ED6E65C22BFCD1400CE82C2 /* types_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E63F22BFC64700CE82C2 /* types_internal.h */; };
+		6ED6E65D22BFCD1400CE82C2 /* offsets_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6E514A0220B67C0900844EE1 /* offsets_internal.h */; };
+		6ED6E66022BFF81D00CE82C2 /* exports_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E65F22BFF5A500CE82C2 /* exports_internal.h */; };
+		6ED6E66122BFF81D00CE82C2 /* inline_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E65E22BFF03C00CE82C2 /* inline_internal.h */; };
+		6ED6E66222BFF81E00CE82C2 /* exports_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E65F22BFF5A500CE82C2 /* exports_internal.h */; };
+		6ED6E66322BFF81E00CE82C2 /* inline_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E65E22BFF03C00CE82C2 /* inline_internal.h */; };
+		6ED6E66422BFF81F00CE82C2 /* exports_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E65F22BFF5A500CE82C2 /* exports_internal.h */; };
+		6ED6E66522BFF81F00CE82C2 /* inline_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E65E22BFF03C00CE82C2 /* inline_internal.h */; };
+		6ED6E66D22BFFC3700CE82C2 /* imports_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E66C22BFFC3200CE82C2 /* imports_internal.h */; };
+		6ED6E66E22BFFC3700CE82C2 /* imports_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E66C22BFFC3200CE82C2 /* imports_internal.h */; };
+		6ED6E66F22BFFC3800CE82C2 /* imports_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E66C22BFFC3200CE82C2 /* imports_internal.h */; };
+		6ED6E67422C0034300CE82C2 /* prototypes_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E67322C0033B00CE82C2 /* prototypes_internal.h */; };
+		6ED6E67522C0034300CE82C2 /* prototypes_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E67322C0033B00CE82C2 /* prototypes_internal.h */; };
+		6ED6E67622C0034400CE82C2 /* prototypes_internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 6ED6E67322C0033B00CE82C2 /* prototypes_internal.h */; };
 		74E594931613AAF4006C417B /* pthread.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325FA15B7513200270056 /* pthread.c */; };
 		74E594941613AAF4006C417B /* pthread_cancelable.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325F115B7513200270056 /* pthread_cancelable.c */; };
 		74E594951613AAF4006C417B /* pthread_cond.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325F215B7513200270056 /* pthread_cond.c */; };
@@ -170,9 +187,6 @@
 		C9244C1D1860D8EF00075748 /* qos.c in Sources */ = {isa = PBXBuildFile; fileRef = C9244C1C1860D8EF00075748 /* qos.c */; };
 		C9244C1E1860D96D00075748 /* qos.c in Sources */ = {isa = PBXBuildFile; fileRef = C9244C1C1860D8EF00075748 /* qos.c */; };
 		C9244C1F1860D96E00075748 /* qos.c in Sources */ = {isa = PBXBuildFile; fileRef = C9244C1C1860D8EF00075748 /* qos.c */; };
-		C975D5D715C9CECA0098ECD8 /* pthread_cond_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5D615C9CECA0098ECD8 /* pthread_cond_legacy.c */; };
-		C975D5D915C9CEEA0098ECD8 /* pthread_mutex_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5D815C9CEEA0098ECD8 /* pthread_mutex_legacy.c */; };
-		C975D5DB15C9CEFA0098ECD8 /* pthread_rwlock_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5DA15C9CEFA0098ECD8 /* pthread_rwlock_legacy.c */; };
 		C98C95D918FF1F4E005654FB /* spawn.h in Headers */ = {isa = PBXBuildFile; fileRef = C98C95D818FF1F4E005654FB /* spawn.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C99AD87B15DEC4BC0009A6F8 /* posix_sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F015B7513200270056 /* posix_sched.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C99AD87C15DEC5290009A6F8 /* spinlock_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F715B7513200270056 /* spinlock_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -188,7 +202,6 @@
 		C9A1BF4F15C9A598006BB313 /* pthread_spis.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260015B7513700270056 /* pthread_spis.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C9A1BF5015C9A59B006BB313 /* sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260115B7513700270056 /* sched.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		C9A1BF5315C9A9F5006BB313 /* pthread_cancelable_cancel.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A1BF5215C9A9F5006BB313 /* pthread_cancelable_cancel.c */; };
-		C9A1BF5515C9CB9D006BB313 /* pthread_cancelable_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A1BF5415C9CB9D006BB313 /* pthread_cancelable_legacy.c */; };
 		C9BB478B15E6ABD900F135B7 /* workqueue_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F915B7513200270056 /* workqueue_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C9BB478D15E6ADF700F135B7 /* tsd_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F415B7513200270056 /* tsd_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C9CCFB9D18B6D0910060CAAE /* qos_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C99B17DA189C2E1B00991D38 /* qos_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -230,27 +243,23 @@
 		E4F449B11E82D03500A7FB9A /* pthread_cwd.c in Sources */ = {isa = PBXBuildFile; fileRef = 924D8EDE1C11832A002AC2BC /* pthread_cwd.c */; };
 		E4F449B21E82D03500A7FB9A /* pthread_tsd.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A325F815B7513200270056 /* pthread_tsd.c */; };
 		E4F449B31E82D03500A7FB9A /* pthread_cancelable_cancel.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A1BF5215C9A9F5006BB313 /* pthread_cancelable_cancel.c */; };
-		E4F449B41E82D03500A7FB9A /* pthread_cancelable_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C9A1BF5415C9CB9D006BB313 /* pthread_cancelable_legacy.c */; };
-		E4F449B51E82D03500A7FB9A /* pthread_cond_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5D615C9CECA0098ECD8 /* pthread_cond_legacy.c */; };
-		E4F449B61E82D03500A7FB9A /* pthread_mutex_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5D815C9CEEA0098ECD8 /* pthread_mutex_legacy.c */; };
-		E4F449B71E82D03500A7FB9A /* pthread_rwlock_legacy.c in Sources */ = {isa = PBXBuildFile; fileRef = C975D5DA15C9CEFA0098ECD8 /* pthread_rwlock_legacy.c */; };
 		E4F449BA1E82D03500A7FB9A /* pthread_atfork.c in Sources */ = {isa = PBXBuildFile; fileRef = C90E7AB415DC40D900A06D48 /* pthread_atfork.c */; };
 		E4F449BB1E82D03500A7FB9A /* pthread_asm.s in Sources */ = {isa = PBXBuildFile; fileRef = C99AD87D15DF04D10009A6F8 /* pthread_asm.s */; };
-		E4F449BE1E82D03500A7FB9A /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = C9244C1A185FCFED00075748 /* qos.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		E4F449BF1E82D03500A7FB9A /* pthread.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325FE15B7513700270056 /* pthread.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		E4F449C01E82D03500A7FB9A /* pthread_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325FF15B7513700270056 /* pthread_impl.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		E4F449C11E82D03500A7FB9A /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = E4063CF21906B4FB000202F9 /* qos.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E4F449C21E82D03500A7FB9A /* pthread_spis.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260015B7513700270056 /* pthread_spis.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		E4F449C31E82D03500A7FB9A /* introspection.h in Headers */ = {isa = PBXBuildFile; fileRef = 9202B2301D1A5B3F00945880 /* introspection.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		E4F449C41E82D03500A7FB9A /* sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260115B7513700270056 /* sched.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		E4F449C51E82D03500A7FB9A /* introspection_private.h in Headers */ = {isa = PBXBuildFile; fileRef = E4657D4017284F7B007D1847 /* introspection_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E4F449C61E82D03500A7FB9A /* tsd_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F415B7513200270056 /* tsd_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E4F449C71E82D03500A7FB9A /* posix_sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F015B7513200270056 /* posix_sched.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E4F449C81E82D03500A7FB9A /* qos_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C99B17DA189C2E1B00991D38 /* qos_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E4F449C91E82D03500A7FB9A /* spawn.h in Headers */ = {isa = PBXBuildFile; fileRef = C98C95D818FF1F4E005654FB /* spawn.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		E4F449CA1E82D03500A7FB9A /* spinlock_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F715B7513200270056 /* spinlock_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E4F449CB1E82D03500A7FB9A /* workqueue_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F915B7513200270056 /* workqueue_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E4F449CC1E82D03500A7FB9A /* private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9153095167ACC22006BB094 /* private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E4F449BE1E82D03500A7FB9A /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = C9244C1A185FCFED00075748 /* qos.h */; };
+		E4F449BF1E82D03500A7FB9A /* pthread.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325FE15B7513700270056 /* pthread.h */; };
+		E4F449C01E82D03500A7FB9A /* pthread_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325FF15B7513700270056 /* pthread_impl.h */; };
+		E4F449C11E82D03500A7FB9A /* qos.h in Headers */ = {isa = PBXBuildFile; fileRef = E4063CF21906B4FB000202F9 /* qos.h */; };
+		E4F449C21E82D03500A7FB9A /* pthread_spis.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260015B7513700270056 /* pthread_spis.h */; };
+		E4F449C31E82D03500A7FB9A /* introspection.h in Headers */ = {isa = PBXBuildFile; fileRef = 9202B2301D1A5B3F00945880 /* introspection.h */; };
+		E4F449C41E82D03500A7FB9A /* sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A3260115B7513700270056 /* sched.h */; };
+		E4F449C51E82D03500A7FB9A /* introspection_private.h in Headers */ = {isa = PBXBuildFile; fileRef = E4657D4017284F7B007D1847 /* introspection_private.h */; };
+		E4F449C61E82D03500A7FB9A /* tsd_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F415B7513200270056 /* tsd_private.h */; };
+		E4F449C71E82D03500A7FB9A /* posix_sched.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F015B7513200270056 /* posix_sched.h */; };
+		E4F449C81E82D03500A7FB9A /* qos_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C99B17DA189C2E1B00991D38 /* qos_private.h */; };
+		E4F449C91E82D03500A7FB9A /* spawn.h in Headers */ = {isa = PBXBuildFile; fileRef = C98C95D818FF1F4E005654FB /* spawn.h */; };
+		E4F449CA1E82D03500A7FB9A /* spinlock_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F715B7513200270056 /* spinlock_private.h */; };
+		E4F449CB1E82D03500A7FB9A /* workqueue_private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9A325F915B7513200270056 /* workqueue_private.h */; };
+		E4F449CC1E82D03500A7FB9A /* private.h in Headers */ = {isa = PBXBuildFile; fileRef = C9153095167ACC22006BB094 /* private.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -356,13 +365,19 @@
 
 /* Begin PBXFileReference section */
 		6E2A3BBD210122230003B53B /* stack_np.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = stack_np.h; sourceTree = "<group>"; };
-		6E514A0220B67C0900844EE1 /* offsets.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = offsets.h; sourceTree = "<group>"; };
+		6E39974822D3C82C0057625B /* pthread_driverkit.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = pthread_driverkit.xcconfig; sourceTree = "<group>"; };
+		6E514A0220B67C0900844EE1 /* offsets_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = offsets_internal.h; sourceTree = "<group>"; };
 		6E5869C620C8FE8300F1CB75 /* dependency_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = dependency_private.h; sourceTree = "<group>"; };
 		6E5869CA20C9043200F1CB75 /* pthread_dependency.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pthread_dependency.c; sourceTree = "<group>"; };
 		6E8C16801B14F08A00C8987C /* libsystem_pthread.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_pthread.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		6E8C16851B14F14000C8987C /* pthread_introspection.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = pthread_introspection.xcconfig; sourceTree = "<group>"; };
 		6EB232C91B0EB29D005915CE /* resolver.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = resolver.c; sourceTree = "<group>"; };
 		6EB232CA1B0EB29D005915CE /* resolver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = resolver.h; sourceTree = "<group>"; };
+		6ED6E63F22BFC64700CE82C2 /* types_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = types_internal.h; sourceTree = "<group>"; };
+		6ED6E65E22BFF03C00CE82C2 /* inline_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = inline_internal.h; sourceTree = "<group>"; };
+		6ED6E65F22BFF5A500CE82C2 /* exports_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = exports_internal.h; sourceTree = "<group>"; };
+		6ED6E66C22BFFC3200CE82C2 /* imports_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = imports_internal.h; sourceTree = "<group>"; };
+		6ED6E67322C0033B00CE82C2 /* prototypes_internal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = prototypes_internal.h; sourceTree = "<group>"; };
 		74E594A41613AAF4006C417B /* libpthread_eOS.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libpthread_eOS.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		9202B2301D1A5B3F00945880 /* introspection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = introspection.h; sourceTree = "<group>"; };
 		9235CA551CA48D010015C92B /* kext_development.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = kext_development.xcconfig; sourceTree = "<group>"; };
@@ -431,19 +446,14 @@
 		C948FCEF15D187FA00180BF5 /* pthread_setcancelstate.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pthread_setcancelstate.3; sourceTree = "<group>"; };
 		C948FCF015D187FA00180BF5 /* pthread_setspecific.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pthread_setspecific.3; sourceTree = "<group>"; };
 		C948FCF115D187FA00180BF5 /* pthread.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = pthread.3; sourceTree = "<group>"; };
-		C975D5D615C9CECA0098ECD8 /* pthread_cond_legacy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pthread_cond_legacy.c; sourceTree = "<group>"; };
-		C975D5D815C9CEEA0098ECD8 /* pthread_mutex_legacy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pthread_mutex_legacy.c; sourceTree = "<group>"; };
-		C975D5DA15C9CEFA0098ECD8 /* pthread_rwlock_legacy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pthread_rwlock_legacy.c; sourceTree = "<group>"; };
 		C979E9FB18A1BC2A000951E5 /* kern_trace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = kern_trace.h; sourceTree = "<group>"; };
 		C979E9FC18A2BF2C000951E5 /* install-codes.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "install-codes.sh"; sourceTree = "<group>"; };
-		C98005141899BD2000368E4D /* workqueue_internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = workqueue_internal.h; sourceTree = "<group>"; };
 		C98C95D818FF1F4E005654FB /* spawn.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = spawn.h; sourceTree = "<group>"; };
 		C99AD87D15DF04D10009A6F8 /* pthread_asm.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = pthread_asm.s; sourceTree = "<group>"; };
 		C99B17DA189C2E1B00991D38 /* qos_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = qos_private.h; sourceTree = "<group>"; };
 		C99EA612161F8288003EBC56 /* eos.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = eos.xcconfig; sourceTree = "<group>"; };
 		C9A1998A1C8E271F00CE102A /* tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = tests; sourceTree = "<group>"; };
 		C9A1BF5215C9A9F5006BB313 /* pthread_cancelable_cancel.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pthread_cancelable_cancel.c; sourceTree = "<group>"; };
-		C9A1BF5415C9CB9D006BB313 /* pthread_cancelable_legacy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pthread_cancelable_legacy.c; sourceTree = "<group>"; };
 		C9A325E215B7347000270056 /* libsystem_pthread.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsystem_pthread.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		C9A325EF15B7513200270056 /* plockstat.d */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.dtrace; path = plockstat.d; sourceTree = "<group>"; };
 		C9A325F015B7513200270056 /* posix_sched.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = posix_sched.h; sourceTree = "<group>"; };
@@ -549,6 +559,39 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		6E8C8C2E22BDC9DE00136359 /* pthread */ = {
+			isa = PBXGroup;
+			children = (
+				6E5869C620C8FE8300F1CB75 /* dependency_private.h */,
+				E4657D4017284F7B007D1847 /* introspection_private.h */,
+				C9A325F015B7513200270056 /* posix_sched.h */,
+				C9153095167ACC22006BB094 /* private.h */,
+				C99B17DA189C2E1B00991D38 /* qos_private.h */,
+				E4063CF21906B4FB000202F9 /* qos.h */,
+				C9A325F715B7513200270056 /* spinlock_private.h */,
+				C9A325F415B7513200270056 /* tsd_private.h */,
+				C9A325F915B7513200270056 /* workqueue_private.h */,
+			);
+			path = pthread;
+			sourceTree = "<group>";
+		};
+		6E8C8C2F22BDCD4600136359 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				C9A325FD15B7513700270056 /* pthread */,
+				FC5A372217CEB3D6008C323E /* sys */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		6E8C8C3022BDD05700136359 /* sys */ = {
+			isa = PBXGroup;
+			children = (
+				A98FE72D19479F7C007718DA /* qos_private.h */,
+			);
+			path = sys;
+			sourceTree = "<group>";
+		};
 		9240BF331AA669EB003C99B4 /* tools */ = {
 			isa = PBXGroup;
 			children = (
@@ -568,7 +611,6 @@
 				C9169DDC1603DE84005A2F8C /* kern_support.c */,
 				C979E9FB18A1BC2A000951E5 /* kern_trace.h */,
 				FC30E28D16A747AD00A25B5F /* synch_internal.h */,
-				C98005141899BD2000368E4D /* workqueue_internal.h */,
 			);
 			path = kern;
 			sourceTree = "<group>";
@@ -635,10 +677,6 @@
 			isa = PBXGroup;
 			children = (
 				C9A1BF5215C9A9F5006BB313 /* pthread_cancelable_cancel.c */,
-				C9A1BF5415C9CB9D006BB313 /* pthread_cancelable_legacy.c */,
-				C975D5D615C9CECA0098ECD8 /* pthread_cond_legacy.c */,
-				C975D5D815C9CEEA0098ECD8 /* pthread_mutex_legacy.c */,
-				C975D5DA15C9CEFA0098ECD8 /* pthread_rwlock_legacy.c */,
 			);
 			path = variants;
 			sourceTree = "<group>";
@@ -646,14 +684,13 @@
 		C9A325D715B7347000270056 = {
 			isa = PBXGroup;
 			children = (
-				C9169DD91603DE68005A2F8C /* kern */,
-				C9A960B218452B0700AE10C8 /* lldbmacros */,
-				C9A325FD15B7513700270056 /* pthread */,
-				FC5A372217CEB3D6008C323E /* sys */,
+				6E8C8C2F22BDCD4600136359 /* include */,
 				C9D70EBE167AC7D100D52713 /* private */,
-				C948FCC015D187AD00180BF5 /* man */,
+				C9169DD91603DE68005A2F8C /* kern */,
 				C9A325ED15B74FB600270056 /* src */,
 				C9A1998A1C8E271F00CE102A /* tests */,
+				C9A960B218452B0700AE10C8 /* lldbmacros */,
+				C948FCC015D187AD00180BF5 /* man */,
 				9240BF331AA669EB003C99B4 /* tools */,
 				C9A3260B15B759A100270056 /* xcodescripts */,
 				C9CA27DA1602813000259F78 /* Frameworks */,
@@ -681,8 +718,13 @@
 		C9A325ED15B74FB600270056 /* src */ = {
 			isa = PBXGroup;
 			children = (
-				6E514A0220B67C0900844EE1 /* offsets.h */,
 				C9A325F315B7513200270056 /* internal.h */,
+				6ED6E63F22BFC64700CE82C2 /* types_internal.h */,
+				6E514A0220B67C0900844EE1 /* offsets_internal.h */,
+				6ED6E66C22BFFC3200CE82C2 /* imports_internal.h */,
+				6ED6E67322C0033B00CE82C2 /* prototypes_internal.h */,
+				6ED6E65F22BFF5A500CE82C2 /* exports_internal.h */,
+				6ED6E65E22BFF03C00CE82C2 /* inline_internal.h */,
 				C9A325EF15B7513200270056 /* plockstat.d */,
 				C9A325FA15B7513200270056 /* pthread.c */,
 				C99AD87D15DF04D10009A6F8 /* pthread_asm.s */,
@@ -705,13 +747,13 @@
 			isa = PBXGroup;
 			children = (
 				9202B2301D1A5B3F00945880 /* introspection.h */,
-				C9A325FE15B7513700270056 /* pthread.h */,
 				C9A325FF15B7513700270056 /* pthread_impl.h */,
 				C9A3260015B7513700270056 /* pthread_spis.h */,
+				C9A325FE15B7513700270056 /* pthread.h */,
+				C9244C1A185FCFED00075748 /* qos.h */,
 				C9A3260115B7513700270056 /* sched.h */,
 				C98C95D818FF1F4E005654FB /* spawn.h */,
 				6E2A3BBD210122230003B53B /* stack_np.h */,
-				C9244C1A185FCFED00075748 /* qos.h */,
 			);
 			path = pthread;
 			sourceTree = "<group>";
@@ -724,6 +766,7 @@
 				C9A3260C15B759B600270056 /* pthread.xcconfig */,
 				E4F449A31E82CF0100A7FB9A /* resolver.xcconfig */,
 				E41505E81E818D4D00F243FB /* resolved.xcconfig */,
+				6E39974822D3C82C0057625B /* pthread_driverkit.xcconfig */,
 				6E8C16851B14F14000C8987C /* pthread_introspection.xcconfig */,
 				C99EA612161F8288003EBC56 /* eos.xcconfig */,
 				C04545B91C584F8B006A53B3 /* static.xcconfig */,
@@ -765,15 +808,8 @@
 		C9D70EBE167AC7D100D52713 /* private */ = {
 			isa = PBXGroup;
 			children = (
-				C9153095167ACC22006BB094 /* private.h */,
-				C9A325F015B7513200270056 /* posix_sched.h */,
-				C9A325F715B7513200270056 /* spinlock_private.h */,
-				C9A325F415B7513200270056 /* tsd_private.h */,
-				C9A325F915B7513200270056 /* workqueue_private.h */,
-				E4657D4017284F7B007D1847 /* introspection_private.h */,
-				C99B17DA189C2E1B00991D38 /* qos_private.h */,
-				E4063CF21906B4FB000202F9 /* qos.h */,
-				6E5869C620C8FE8300F1CB75 /* dependency_private.h */,
+				6E8C8C2E22BDC9DE00136359 /* pthread */,
+				6E8C8C3022BDD05700136359 /* sys */,
 			);
 			path = private;
 			sourceTree = "<group>";
@@ -791,9 +827,8 @@
 		FC5A372217CEB3D6008C323E /* sys */ = {
 			isa = PBXGroup;
 			children = (
-				E4D962F919086AD600E8A9F2 /* qos.h */,
 				FC5A372317CEB3D6008C323E /* _pthread */,
-				A98FE72D19479F7C007718DA /* qos_private.h */,
+				E4D962F919086AD600E8A9F2 /* qos.h */,
 			);
 			path = sys;
 			sourceTree = "<group>";
@@ -823,20 +858,27 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6ED6E67622C0034400CE82C2 /* prototypes_internal.h in Headers */,
+				6ED6E66422BFF81F00CE82C2 /* exports_internal.h in Headers */,
 				6E2A3BC0210122340003B53B /* stack_np.h in Headers */,
 				6E8C16711B14F08A00C8987C /* posix_sched.h in Headers */,
 				6E8C166F1B14F08A00C8987C /* introspection_private.h in Headers */,
+				6ED6E65522BFCD1200CE82C2 /* internal.h in Headers */,
 				E41A64AE1E83C470009479A9 /* introspection.h in Headers */,
 				6E8C166C1B14F08A00C8987C /* qos.h in Headers */,
+				6ED6E65722BFCD1200CE82C2 /* offsets_internal.h in Headers */,
+				6ED6E65622BFCD1200CE82C2 /* types_internal.h in Headers */,
 				6E8C16701B14F08A00C8987C /* tsd_private.h in Headers */,
 				6E8C16731B14F08A00C8987C /* qos_private.h in Headers */,
 				6E8C16761B14F08A00C8987C /* spinlock_private.h in Headers */,
 				6E8C16771B14F08A00C8987C /* workqueue_private.h in Headers */,
 				6E8C16781B14F08A00C8987C /* private.h in Headers */,
+				6ED6E66522BFF81F00CE82C2 /* inline_internal.h in Headers */,
 				6E8C16691B14F08A00C8987C /* qos.h in Headers */,
 				6E8C166A1B14F08A00C8987C /* pthread.h in Headers */,
 				6E8C166B1B14F08A00C8987C /* pthread_impl.h in Headers */,
 				6E8C166D1B14F08A00C8987C /* pthread_spis.h in Headers */,
+				6ED6E66F22BFFC3800CE82C2 /* imports_internal.h in Headers */,
 				6E8C166E1B14F08A00C8987C /* sched.h in Headers */,
 				6E5869C920C9040C00F1CB75 /* dependency_private.h in Headers */,
 				6E8C16751B14F08A00C8987C /* spawn.h in Headers */,
@@ -868,20 +910,27 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6ED6E67422C0034300CE82C2 /* prototypes_internal.h in Headers */,
+				6ED6E66022BFF81D00CE82C2 /* exports_internal.h in Headers */,
 				6E2A3BBE2101222F0003B53B /* stack_np.h in Headers */,
 				C9244C1B185FD33000075748 /* qos.h in Headers */,
 				C9A1BF4D15C9A58E006BB313 /* pthread.h in Headers */,
+				6ED6E65B22BFCD1400CE82C2 /* internal.h in Headers */,
 				C9A1BF4E15C9A594006BB313 /* pthread_impl.h in Headers */,
 				E4063CF31906B75A000202F9 /* qos.h in Headers */,
+				6ED6E65D22BFCD1400CE82C2 /* offsets_internal.h in Headers */,
+				6ED6E65C22BFCD1400CE82C2 /* types_internal.h in Headers */,
 				C9A1BF4F15C9A598006BB313 /* pthread_spis.h in Headers */,
 				9202B2321D1A5B6200945880 /* introspection.h in Headers */,
 				C9A1BF5015C9A59B006BB313 /* sched.h in Headers */,
 				E4657D4117284F7B007D1847 /* introspection_private.h in Headers */,
 				C9BB478D15E6ADF700F135B7 /* tsd_private.h in Headers */,
+				6ED6E66122BFF81D00CE82C2 /* inline_internal.h in Headers */,
 				C99AD87B15DEC4BC0009A6F8 /* posix_sched.h in Headers */,
 				C9CCFB9D18B6D0910060CAAE /* qos_private.h in Headers */,
 				C98C95D918FF1F4E005654FB /* spawn.h in Headers */,
 				C99AD87C15DEC5290009A6F8 /* spinlock_private.h in Headers */,
+				6ED6E66D22BFFC3700CE82C2 /* imports_internal.h in Headers */,
 				C9BB478B15E6ABD900F135B7 /* workqueue_private.h in Headers */,
 				6E5869C720C9040A00F1CB75 /* dependency_private.h in Headers */,
 				C9153096167ACC2B006BB094 /* private.h in Headers */,
@@ -899,20 +948,27 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6ED6E67522C0034300CE82C2 /* prototypes_internal.h in Headers */,
+				6ED6E66222BFF81E00CE82C2 /* exports_internal.h in Headers */,
 				6E2A3BBF210122300003B53B /* stack_np.h in Headers */,
 				E4F449BE1E82D03500A7FB9A /* qos.h in Headers */,
 				E4F449BF1E82D03500A7FB9A /* pthread.h in Headers */,
+				6ED6E65822BFCD1300CE82C2 /* internal.h in Headers */,
 				E4F449C01E82D03500A7FB9A /* pthread_impl.h in Headers */,
 				E4F449C11E82D03500A7FB9A /* qos.h in Headers */,
+				6ED6E65A22BFCD1300CE82C2 /* offsets_internal.h in Headers */,
+				6ED6E65922BFCD1300CE82C2 /* types_internal.h in Headers */,
 				E4F449C21E82D03500A7FB9A /* pthread_spis.h in Headers */,
 				E4F449C31E82D03500A7FB9A /* introspection.h in Headers */,
 				E4F449C41E82D03500A7FB9A /* sched.h in Headers */,
 				E4F449C51E82D03500A7FB9A /* introspection_private.h in Headers */,
 				E4F449C61E82D03500A7FB9A /* tsd_private.h in Headers */,
+				6ED6E66322BFF81E00CE82C2 /* inline_internal.h in Headers */,
 				E4F449C71E82D03500A7FB9A /* posix_sched.h in Headers */,
 				E4F449C81E82D03500A7FB9A /* qos_private.h in Headers */,
 				E4F449C91E82D03500A7FB9A /* spawn.h in Headers */,
 				E4F449CA1E82D03500A7FB9A /* spinlock_private.h in Headers */,
+				6ED6E66E22BFFC3700CE82C2 /* imports_internal.h in Headers */,
 				E4F449CB1E82D03500A7FB9A /* workqueue_private.h in Headers */,
 				6E5869C820C9040B00F1CB75 /* dependency_private.h in Headers */,
 				E4F449CC1E82D03500A7FB9A /* private.h in Headers */,
@@ -1110,6 +1166,7 @@
 		C9A325D915B7347000270056 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				DefaultBuildSystemTypeForWorkspace = Latest;
 				LastUpgradeCheck = 1100;
 				ORGANIZATIONNAME = "";
 				TargetAttributes = {
@@ -1126,6 +1183,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = C9A325D715B7347000270056;
@@ -1195,7 +1253,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = "/bin/bash -e -x";
-			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\" /bin/ln -sf \"../../../..${INSTALL_PATH}/libpthread.a\" \"${DSTROOT}/usr/local/lib/loaderd/libpthread.a\"";
+			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\" /bin/ln -sf \"../../../..${INSTALL_PATH}/libpthread.a\" \"${DSTROOT}/usr/local/lib/loaderd/libpthread.a\"\n";
 			showEnvVarsInLog = 0;
 		};
 		C979E9FD18A2BF3D000951E5 /* Install Codes file */ = {
@@ -1391,10 +1449,6 @@
 				6E8C165C1B14F08A00C8987C /* pthread_rwlock.c in Sources */,
 				6E8C165D1B14F08A00C8987C /* pthread_tsd.c in Sources */,
 				6E8C165E1B14F08A00C8987C /* pthread_cancelable_cancel.c in Sources */,
-				6E8C165F1B14F08A00C8987C /* pthread_cancelable_legacy.c in Sources */,
-				6E8C16601B14F08A00C8987C /* pthread_cond_legacy.c in Sources */,
-				6E8C16611B14F08A00C8987C /* pthread_mutex_legacy.c in Sources */,
-				6E8C16621B14F08A00C8987C /* pthread_rwlock_legacy.c in Sources */,
 				6E8C16651B14F08A00C8987C /* pthread_atfork.c in Sources */,
 				6E5869CD20C9043B00F1CB75 /* pthread_dependency.c in Sources */,
 				6E8C16661B14F08A00C8987C /* pthread_asm.s in Sources */,
@@ -1473,10 +1527,6 @@
 				924D8EE11C11833E002AC2BC /* pthread_cwd.c in Sources */,
 				C9A1BF4C15C9A578006BB313 /* pthread_tsd.c in Sources */,
 				C9A1BF5315C9A9F5006BB313 /* pthread_cancelable_cancel.c in Sources */,
-				C9A1BF5515C9CB9D006BB313 /* pthread_cancelable_legacy.c in Sources */,
-				C975D5D715C9CECA0098ECD8 /* pthread_cond_legacy.c in Sources */,
-				C975D5D915C9CEEA0098ECD8 /* pthread_mutex_legacy.c in Sources */,
-				C975D5DB15C9CEFA0098ECD8 /* pthread_rwlock_legacy.c in Sources */,
 				C90E7AB815DC40D900A06D48 /* pthread_atfork.c in Sources */,
 				6E5869CB20C9043200F1CB75 /* pthread_dependency.c in Sources */,
 				C99AD88015E2D8B50009A6F8 /* pthread_asm.s in Sources */,
@@ -1547,10 +1597,6 @@
 				E4F449B11E82D03500A7FB9A /* pthread_cwd.c in Sources */,
 				E4F449B21E82D03500A7FB9A /* pthread_tsd.c in Sources */,
 				E4F449B31E82D03500A7FB9A /* pthread_cancelable_cancel.c in Sources */,
-				E4F449B41E82D03500A7FB9A /* pthread_cancelable_legacy.c in Sources */,
-				E4F449B51E82D03500A7FB9A /* pthread_cond_legacy.c in Sources */,
-				E4F449B61E82D03500A7FB9A /* pthread_mutex_legacy.c in Sources */,
-				E4F449B71E82D03500A7FB9A /* pthread_rwlock_legacy.c in Sources */,
 				E4F449BA1E82D03500A7FB9A /* pthread_atfork.c in Sources */,
 				6E5869CC20C9043B00F1CB75 /* pthread_dependency.c in Sources */,
 				E4F449BB1E82D03500A7FB9A /* pthread_asm.s in Sources */,
@@ -1675,7 +1721,6 @@
 		9235CA4D1CA48CEA0015C92B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 			};
 			name = Debug;
 		};
@@ -1731,23 +1776,18 @@
 		9235CA541CA48CEA0015C92B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "iphoneos macosx watchos appletvos";
 			};
 			name = Debug;
 		};
 		92799B461B96A5FE00861404 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos";
 			};
 			name = Release;
 		};
 		92B275F21BCE4C5E007D06D7 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "iphoneos macosx watchos appletvos";
 			};
 			name = Release;
 		};
@@ -1841,6 +1881,7 @@
 		};
 		E4B7FCB022000AF50010A840 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6E39974822D3C82C0057625B /* pthread_driverkit.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -1848,6 +1889,7 @@
 		};
 		E4B7FCB122000AF50010A840 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 6E39974822D3C82C0057625B /* pthread_driverkit.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

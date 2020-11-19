@@ -41,12 +41,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)dropClassAKeys;
 
-- (SFAESKey*)keyForKeyclass:(keyclass_t)keyClass
-                     keybag:(keybag_handle_t)keybag
-               keySpecifier:(SFAESKeySpecifier*)keySpecifier
-         createKeyIfMissing:(bool)createIfMissing
-        overwriteCorruptKey:(bool)overwriteCorruptKey
-                      error:(NSError**)error;
+- (SFAESKey* _Nullable)keyForKeyclass:(keyclass_t)keyClass
+                               keybag:(keybag_handle_t)keybag
+                         keySpecifier:(SFAESKeySpecifier*)keySpecifier
+                          allowWrites:(BOOL)allowWrites		// (re)create keys if missing, corrupt or outdated format
+                                error:(NSError**)error;
 
 @end
 

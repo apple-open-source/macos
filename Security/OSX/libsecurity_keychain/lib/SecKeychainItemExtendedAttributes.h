@@ -77,7 +77,7 @@ OSStatus SecKeychainItemSetExtendedAttribute(
 	CFStringRef					attrName,		/* identifies the attribute */
 	CFDataRef					attrValue)		/* value to set; NULL means delete the
 												 *    attribute */
-    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*
  * SecKeychainItemCopyExtendedAttribute() -  Obtain the value of an an extended attribute.
@@ -91,7 +91,7 @@ OSStatus SecKeychainItemSetExtendedAttribute(
 OSStatus SecKeychainItemCopyExtendedAttribute(
 	SecKeychainItemRef			itemRef,
 	CFStringRef					attrName,
-	CFDataRef					*attrValue) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);		/* RETURNED */
+	CFDataRef					*attrValue) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);		/* RETURNED */
 
 /*
  * SecKeychainItemCopyAllExtendedAttributes() - obtain all of an item's extended attributes.
@@ -119,7 +119,7 @@ OSStatus SecKeychainItemCopyAllExtendedAttributes(
 	CFArrayRef					*attrNames,			/* RETURNED, each element is a CFStringRef */
 	CFArrayRef					*attrValues)		/* optional, RETURNED, each element is a
 													 *   CFDataRef */
-    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #if defined(__cplusplus)
 }
 #endif

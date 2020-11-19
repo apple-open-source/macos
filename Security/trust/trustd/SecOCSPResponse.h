@@ -160,6 +160,8 @@ void SecOCSPSingleResponseDestroy(SecOCSPSingleResponseRef this);
 SecCertificateRef SecOCSPResponseCopySigner(SecOCSPResponseRef this,
     SecCertificateRef issuerPath);
 
+bool SecOCSPResponseIsWeakHash(SecOCSPResponseRef response);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECOCSPRESPONSE_H_ */

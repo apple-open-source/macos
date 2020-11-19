@@ -35,6 +35,9 @@
 #define MAX_FILE_LEN 1024*20
 #define UCS_FILE_NAME_SIZE 512
 
+/* Similar to C++ alignof(type)  */
+#define ALIGNOF(type) offsetof (struct { char c; type member; }, member)
+
 /*returns an action other than the one provided*/
 #if !UCONFIG_NO_LEGACY_CONVERSION
 static UConverterFromUCallback otherUnicodeAction(UConverterFromUCallback MIA);
@@ -1367,6 +1370,11 @@ static void TSCC_fromU(const void *context,
                         UConverterCallbackReason reason,
                         UErrorCode * err)
 {
+    // suppress compiler warnings about unused variables
+    (void)codeUnits;
+    (void)length;
+    (void)codePoint;
+
     TSCCContext *ctx = (TSCCContext*)context;
     UConverterFromUCallback junkFrom;
     
@@ -1413,6 +1421,10 @@ static void TSCC_toU(const void *context,
                         UConverterCallbackReason reason,
                         UErrorCode * err)
 {
+    // suppress compiler warnings about unused variables
+    (void)codeUnits;
+    (void)length;
+
     TSCCContext *ctx = (TSCCContext*)context;
     UConverterToUCallback junkFrom;
     
@@ -1821,7 +1833,7 @@ static void TestConvertSafeClone()
             /* close the original immediately to make sure that the clone works by itself */
             ucnv_close(cnv);
 
-            if( actualSizes[idx] <= (bufferSizes[j] - (int32_t)sizeof(UAlignedMemory)) &&
+            if( actualSizes[idx] <= (bufferSizes[j] - (int32_t)ALIGNOF(UConverter)) &&
                 err == U_SAFECLONE_ALLOCATED_WARNING
             ) {
                 log_err("ucnv_safeClone(%s) did a heap clone although the buffer was large enough\n", names[idx]);
@@ -2194,10 +2206,10 @@ convertExStreaming(UConverter *srcCnv, UConverter *targetCnv,
         if(errorCode==U_BUFFER_OVERFLOW_ERROR) {
             /* continue converting another chunk */
             errorCode=U_ZERO_ERROR;
-            if(targetLength+chunkSize<=sizeof(targetBuffer)) {
+            if(targetLength+chunkSize<=(int32_t)sizeof(targetBuffer)) {
                 targetLimit=target+chunkSize;
             } else {
-                targetLimit=targetBuffer+sizeof(targetBuffer);
+                targetLimit=targetBuffer+(int32_t)sizeof(targetBuffer);
             }
         } else if(U_FAILURE(errorCode)) {
             /* failure */
@@ -2519,6 +2531,12 @@ static void testFromTruncatedUTF8(UConverter *utf8Cnv, UConverter *cnv, const ch
                                   char charUTF8[4], int32_t charUTF8Length,
                                   char char0[8], int32_t char0Length,
                                   char char1[8], int32_t char1Length) {
+    // suppress compiler warnings about unused variables
+    (void)char0;
+    (void)char0Length;
+    (void)char1;
+    (void)char1Length;
+
     char utf8[16];
     int32_t utf8Length;
 

@@ -58,23 +58,25 @@
 #define __FLAGS_V0 kSecDbSyncPrimaryKeyV0
 #define __FLAGS_V2 (kSecDbSyncPrimaryKeyV0 | kSecDbSyncPrimaryKeyV2)
 #define __FLAGS_Y  kSecDbSyncFlag
+#define __FLAGS_X  kSecDbSyncFlag | kSecDbSyncSOSCannotSyncFlag
 
 //                                                                   ,----------------- P : Part of primary key
 //                                                                  / ,---------------- L : Stored in local database
 //                                                                 / / ,--------------- I : Attribute wants an index in the database
 //                                                                / / / ,-------------- S : SHA1 hashed attribute value in database (implies L)
-//                                                               / / / / ,------------- A : Returned to client as attribute in queries
-//                                                              / / / / / ,------------ D : Returned to client as data in queries
+//                                                               / / / / ,------------- A : Returned to client as attribute in queries (implied by C)
+//                                                              / / / / / ,------------ D : Returned to client as data in queries (implied by C)
 //                                                             / / / / / / ,----------- R : Returned to client as ref/persistent ref in queries
 //                                                            / / / / / / / ,---------- C : Part of encrypted blob
-//                                                           / / / / / / / / ,--------- H : Attribute is part of item SHA1 hash (Implied by C)
+//                                                           / / / / / / / / ,--------- H : Attribute is part of item SHA1 hash
 //                                                          / / / / / / / / / ,-------- B : Attribute is part of iTunes/iCloud backup bag
 //                                                         / / / / / / / / / / ,------- Z : Attribute has a default value of 0
 //                                                        / / / / / / / / / / / ,------ E : Attribute has a default value of "" or empty data
 //                                                       / / / / / / / / / / / / ,----- N : Attribute must have a value
 //                                                      / / / / / / / / / / / / / ,---- U : Attribute is stored in authenticated, but not necessarily encrypted data
 //                                                     / / / / / / / / / / / / / / ,--- V0: Sync primary key version
-//                                                    / / / / / / / / / / / / / / /  ,- Y : Attribute should be synced
+//                                                    / / / / / / / / / / / / / / /  ,- Y : Attribute should be synced, or
+//                                                    | | | | | | | | | | | | | | |  |  X : Attribute should be synced in CKKS, and ignored in SOS
 //                                                    | | | | | | | | | | | | | | |  |
 // common to all                                      | | | | | | | | | | | | | | |  |
 SECDB_ATTR(v6rowid, "rowid", RowId,        SecDbFlags( ,L, , , , ,R, , ,B, , , , ,  , ), NULL, NULL);
@@ -82,9 +84,9 @@ SECDB_ATTR(v6cdat, "cdat", CreationDate,   SecDbFlags( ,L, , ,A, , ,C,H, , , , ,
 SECDB_ATTR(v6mdat, "mdat",ModificationDate,SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), SecDbKeychainItemCopyCurrentDate, NULL);
 SECDB_ATTR(v6labl, "labl", Blob,           SecDbFlags( ,L, ,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6data, "data", EncryptedData,  SecDbFlags( ,L, , , , , , , ,B, , , , ,  , ), SecDbKeychainItemCopyEncryptedData, NULL);
-SECDB_ATTR(v6agrp, "agrp", String,         SecDbFlags(P,L,I, ,A, , , ,H, , , ,N,U,V0,Y), NULL, NULL);
+SECDB_ATTR(v6agrp, "agrp", String,         SecDbFlags(P,L, , ,A, , , ,H, , , ,N,U,V0,Y), NULL, NULL);
 SECDB_ATTR(v6pdmn, "pdmn", Access,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
-SECDB_ATTR(v6sync, "sync", Sync,           SecDbFlags(P,L,I, ,A, , , ,H, ,Z, ,N,U,V0, ), NULL, NULL);
+SECDB_ATTR(v6sync, "sync", Sync,           SecDbFlags(P,L, , ,A, , , ,H, ,Z, ,N,U,V0, ), NULL, NULL);
 SECDB_ATTR(v6tomb, "tomb", Tomb,           SecDbFlags( ,L, , , , , , ,H, ,Z, ,N,U,  ,Y), NULL, NULL);
 SECDB_ATTR(v6sha1, "sha1", SHA1,           SecDbFlags( ,L,I, ,A, ,R, , , , , , , ,  ,Y), SecDbKeychainItemCopySHA1, NULL);
 SECDB_ATTR(v6accc, "accc", AccessControl,  SecDbFlags( , , , ,A, , , , , , , , , ,  , ), NULL, NULL);
@@ -93,7 +95,8 @@ SECDB_ATTR(v6v_pk, "v_pk", PrimaryKey,     SecDbFlags( , , , , , , , , , , , , ,
 SECDB_ATTR(v7vwht, "vwht", String,         SecDbFlags(P,L,I, ,A, , , ,H, , , , ,U,V2,Y), NULL, NULL);
 SECDB_ATTR(v7tkid, "tkid", String,         SecDbFlags(P,L,I, ,A, , , ,H, , , , ,U,V2,Y), NULL, NULL);
 SECDB_ATTR(v7utomb, "u_Tomb", UTomb,       SecDbFlags( , , , , , , , , , , , , , ,  , ), NULL, NULL);
-SECDB_ATTR(v8musr, "musr", UUID,           SecDbFlags(P,L,I, , , , , , , , , ,N,U,  ,Y), NULL, NULL);
+SECDB_ATTR(v8musr, "musr", UUID,           SecDbFlags(P,L, , , , , , , , , , ,N,U,  ,Y), NULL, NULL);
+SECDB_ATTR(v11_7appclip, "clip", Number,   SecDbFlags( ,L, , , , , , , , ,Z, ,N, ,  , ), NULL, NULL);
 // genp and inet and keys                             | | | | | | | | | | | | | | |  |
 SECDB_ATTR(v6crtr, "crtr", Number,         SecDbFlags( ,L, , ,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
 SECDB_ATTR(v6alis, "alis", Blob,           SecDbFlags( ,L, ,S,A, , ,C,H, , , , , ,  ,Y), NULL, NULL);
@@ -245,6 +248,16 @@ SECDB_ATTR(v11_5octagonStatus, "octagonstatus", String,   SecDbFlags( ,L, , , , 
 
 SECDB_ATTR(v11_6moreComing,    "morecoming",    Number,   SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
 
+SECDB_ATTR(v11_8_bin_notes,    "binn",          Data,     SecDbFlags( , , , , ,D, ,C, , , , , , ,  ,X), NULL, NULL);
+SECDB_ATTR(v11_8_bin_history,  "bini",          Data,     SecDbFlags( , , , , ,D, ,C, , , , , , ,  ,X), NULL, NULL);
+SECDB_ATTR(v11_8_bin_client0,  "bin0",          Data,     SecDbFlags( , , , , ,D, ,C, , , , , , ,  ,X), NULL, NULL);
+SECDB_ATTR(v11_8_bin_client1,  "bin1",          Data,     SecDbFlags( , , , , ,D, ,C, , , , , , ,  ,X), NULL, NULL);
+SECDB_ATTR(v11_8_bin_client2,  "bin2",          Data,     SecDbFlags( , , , , ,D, ,C, , , , , , ,  ,X), NULL, NULL);
+SECDB_ATTR(v11_8_bin_client3,  "bin3",          Data,     SecDbFlags( , , , , ,D, ,C, , , , , , ,  ,X), NULL, NULL);
+
+SECDB_ATTR(v11_9_lastscan,     "lastscan",      String,   SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+SECDB_ATTR(v11_9_extra,        "extra",         Blob,     SecDbFlags( ,L, , , , , , , , , , , , ,  , ), NULL, NULL);
+
 SECDB_ATTR(v12_backupUUIDPrimary, "backupUUID", UUID,     SecDbFlags(P,L,I, , , , , , , , , ,N, ,  , ), NULL, NULL);
 SECDB_ATTR(v12_backupUUID, "backupUUID", UUID,            SecDbFlags( ,L,I, , , , , , , , ,E, , ,  , ), NULL, NULL);
 SECDB_ATTR(v12_backupBag, "backupbag", Blob,              SecDbFlags( ,L, , , , , , , , , , ,N, ,  , ), NULL, NULL);
@@ -339,6 +352,7 @@ const SecDbClass v12_genp_class = {
         &v10_1pcspublickey,
         &v10_1pcspublicidentity,
         &v10_1itempersistentref,
+        &v11_7appclip,
         &v12_backupUUID,
         0
     },
@@ -388,6 +402,13 @@ const SecDbClass v12_inet_class = {
         &v10_1pcspublickey,
         &v10_1pcspublicidentity,
         &v10_1itempersistentref,
+        &v11_7appclip,
+        &v11_8_bin_notes,
+        &v11_8_bin_history,
+        &v11_8_bin_client0,
+        &v11_8_bin_client1,
+        &v11_8_bin_client2,
+        &v11_8_bin_client3,
         &v12_backupUUID,
         0
     },
@@ -428,6 +449,7 @@ const SecDbClass v12_cert_class = {
         &v10_1pcspublickey,
         &v10_1pcspublicidentity,
         &v10_1itempersistentref,
+        &v11_7appclip,
         &v12_backupUUID,
         0
     },
@@ -486,7 +508,273 @@ const SecDbClass v12_keys_class = {
         &v10_1pcspublickey,
         &v10_1pcspublicidentity,
         &v10_1itempersistentref,
+        &v11_7appclip,
         &v12_backupUUID,
+        0
+    }
+};
+
+const SecDbClass v11_9_ckstate_class = {
+    .name = CFSTR("ckstate"),
+    .itemclass = false,
+    .attrs = {
+        &v10ckzone,
+        &v10ckzonecreated,
+        &v10ckzonesubscribed,
+        &v10lastfetchtime,
+        &v10changetoken,
+        &v10ratelimiter,
+        &v10_4lastFixup,
+        &v11_6moreComing,
+        &v11_9_lastscan,
+        &v11_9_extra,
+        0
+    }
+};
+
+const SecDbClass v11_8_inet_class = {
+    .name = CFSTR("inet"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6desc,
+        &v6icmt,
+        &v6crtr,
+        &v6type,
+        &v6scrp,
+        &v6labl,
+        &v6alis,
+        &v6invi,
+        &v6nega,
+        &v6cusi,
+        &v6prot,
+        &v6acct,
+        &v6sdmn,
+        &v6srvr,
+        &v6ptcl,
+        &v6atyp,
+        &v6port,
+        &v6path,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        &v11_8_bin_notes,
+        &v11_8_bin_history,
+        &v11_8_bin_client0,
+        &v11_8_bin_client1,
+        &v11_8_bin_client2,
+        &v11_8_bin_client3,
+        0
+    },
+};
+
+const SecDbClass v11_7_genp_class = {
+    .name = CFSTR("genp"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6desc,
+        &v6icmt,
+        &v6crtr,
+        &v6type,
+        &v6scrp,
+        &v6labl,
+        &v6alis,
+        &v6invi,
+        &v6nega,
+        &v6cusi,
+        &v6prot,
+        &v6acct,
+        &v6svce,
+        &v6gena,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        0
+    },
+};
+
+const SecDbClass v11_7_inet_class = {
+    .name = CFSTR("inet"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6desc,
+        &v6icmt,
+        &v6crtr,
+        &v6type,
+        &v6scrp,
+        &v6labl,
+        &v6alis,
+        &v6invi,
+        &v6nega,
+        &v6cusi,
+        &v6prot,
+        &v6acct,
+        &v6sdmn,
+        &v6srvr,
+        &v6ptcl,
+        &v6atyp,
+        &v6port,
+        &v6path,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        0
+    },
+};
+
+const SecDbClass v11_7_cert_class = {
+    .name = CFSTR("cert"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6ctyp,
+        &v6cenc,
+        &v6labl,
+        &v6certalis,
+        &v6subj,
+        &v6issr,
+        &v6slnr,
+        &v6skid,
+        &v6pkhh,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
+        0
+    },
+};
+
+const SecDbClass v11_7_keys_class = {
+    .name = CFSTR("keys"),
+    .itemclass = true,
+    .attrs = {
+        &v6rowid,
+        &v6cdat,
+        &v6mdat,
+        &v6kcls,
+        &v6labl,
+        &v6alis,
+        &v6perm,
+        &v6priv,
+        &v6modi,
+        &v6klbl,
+        &v6atag,
+        &v6keycrtr,
+        &v6keytype,
+        &v6bsiz,
+        &v6esiz,
+        &v6sdat,
+        &v6edat,
+        &v6sens,
+        &v6asen,
+        &v6extr,
+        &v6next,
+        &v6encr,
+        &v6decr,
+        &v6drve,
+        &v6sign,
+        &v6vrfy,
+        &v6snrc,
+        &v6vyrc,
+        &v6wrap,
+        &v6unwp,
+        &v6data,
+        &v6agrp,
+        &v6pdmn,
+        &v6sync,
+        &v6tomb,
+        &v6sha1,
+        &v7vwht,
+        &v7tkid,
+        &v6v_Data,
+        &v6v_pk,
+        &v6accc,
+        &v7utomb,
+        &v8musr,
+        &v10itemuuid,
+        &v10sysbound,
+        &v10_1pcsservice,
+        &v10_1pcspublickey,
+        &v10_1pcspublicidentity,
+        &v10_1itempersistentref,
+        &v11_7appclip,
         0
     }
 };
@@ -1248,7 +1536,7 @@ const SecDbSchema v12_0_schema = {
         &v10_0_sync_key_class,
         &v10_1_ckmirror_class,
         &v10_0_current_key_class,
-        &v11_6_ckstate_class,
+        &v11_9_ckstate_class,
         &v10_0_item_backup_class,
         &v10_0_backup_keybag_class,
         &v10_2_ckmanifest_class,
@@ -1265,6 +1553,114 @@ const SecDbSchema v12_0_schema = {
         &v12_backupbags_class,
         &v12_backupkeyclasssigningkeys_class,
         &v12_backuprecoverysets_class,
+        0
+    }
+};
+
+/*
+ * Version 11.9
+ * Add extra columns for CKState
+ */
+const SecDbSchema v11_9_schema = {
+    .majorVersion = 11,
+    .minorVersion = 9,
+    .classes = {
+        &v11_7_genp_class,
+        &v11_8_inet_class,
+        &v11_7_cert_class,
+        &v11_7_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v11_9_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v11_5_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+/*
+ * Version 11.8
+ * Add extra binary columns to inet
+ */
+const SecDbSchema v11_8_schema = {
+    .majorVersion = 11,
+    .minorVersion = 8,
+    .classes = {
+        &v11_7_genp_class,
+        &v11_8_inet_class,
+        &v11_7_cert_class,
+        &v11_7_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v11_6_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v11_5_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_2_metadatakeys_class,
+        0
+    }
+};
+
+/*
+ * Version 11.7
+ * Add 'clip' column to denote item was made by App Clip
+ */
+const SecDbSchema v11_7_schema = {
+    .majorVersion = 11,
+    .minorVersion = 7,
+    .classes = {
+        &v11_7_genp_class,
+        &v11_7_inet_class,
+        &v11_7_cert_class,
+        &v11_7_keys_class,
+        &v10_0_tversion_class,
+        &v10_2_outgoing_queue_class,
+        &v10_2_incoming_queue_class,
+        &v10_0_sync_key_class,
+        &v10_1_ckmirror_class,
+        &v10_0_current_key_class,
+        &v11_6_ckstate_class,
+        &v10_0_item_backup_class,
+        &v10_0_backup_keybag_class,
+        &v10_2_ckmanifest_class,
+        &v10_2_pending_manifest_class,
+        &v10_1_ckmanifest_leaf_class,
+        &v10_1_backup_keyarchive_class,
+        &v10_1_current_keyarchive_class,
+        &v10_1_current_archived_keys_class,
+        &v10_1_pending_manifest_leaf_class,
+        &v10_4_current_item_class,
+        &v11_5_ckdevicestate_class,
+        &v10_5_tlkshare_class,
+        &v11_2_metadatakeys_class,
         0
     }
 };
@@ -2920,6 +3316,9 @@ SecDbSchema const * const * kc_schemas = NULL;
 
 const SecDbSchema *v10_kc_schemas_dev[] = {
     &v12_0_schema,
+    &v11_9_schema,
+    &v11_8_schema,
+    &v11_7_schema,
     &v11_6_schema,
     &v11_5_schema,
     &v11_4_schema,
@@ -2943,6 +3342,9 @@ const SecDbSchema *v10_kc_schemas_dev[] = {
 };
 
 const SecDbSchema *v10_kc_schemas[] = {
+    &v11_9_schema,
+    &v11_8_schema,
+    &v11_7_schema,
     &v11_6_schema,
     &v11_5_schema,
     &v11_4_schema,

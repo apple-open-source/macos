@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2005, 2007-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2005, 2007-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -55,6 +55,7 @@ static serverSessionRef		server_session		= NULL;
  * Note: sync w/sessionQueue()
  */
 static CFMutableDictionaryRef	client_sessions		= NULL;
+static CFIndex			client_sessions_advise	= 250;		// when snapshot handler should detail sessions
 
 
 static dispatch_queue_t
@@ -271,7 +272,7 @@ add_state_handler()
 		CFIndex			state_len;
 
 		n = CFDictionaryGetCount(client_sessions);
-		if (n < 500) {
+		if (n < client_sessions_advise) {
 			CFStringRef	str;
 
 			str = CFStringCreateWithFormat(NULL, NULL, CFSTR("n = %ld"), n);
@@ -375,6 +376,42 @@ getSessionStr(CFStringRef serverKey)
 }
 
 
+#if __has_feature(ptrauth_intrinsics)
+extern const struct { char c; } objc_absolute_packed_isa_class_mask;
+#endif
+
+static void
+memcpy_objc_object(void* dst, const void* restrict src, size_t size)
+{
+	// first, we copy the object
+	memcpy(dst, src, size);
+
+	// then, if needed, fix the isa pointer
+  #if	__has_feature(ptrauth_intrinsics)
+	uintptr_t	flags;
+	uintptr_t	isa_mask;
+	void **		opaqueObject;
+	uintptr_t	raw_isa;
+	uintptr_t	real_isa;
+
+	opaqueObject = (void**)src;
+	isa_mask = (uintptr_t)&objc_absolute_packed_isa_class_mask;
+	flags = (uintptr_t)(*opaqueObject) & ~isa_mask;
+	real_isa = (uintptr_t)(*opaqueObject) & isa_mask;
+
+    #if		__has_feature(ptrauth_objc_isa)
+	raw_isa = (uintptr_t)ptrauth_auth_data((void *)real_isa,
+					       ptrauth_key_process_independent_data,
+					       ptrauth_blend_discriminator(opaqueObject, 0x6AE1));
+    #else	// __has_feature(ptrauth_objc_isa)
+	raw_isa = (uintptr_t)ptrauth_strip((void*)real_isa, ptrauth_key_process_independent_data);
+    #endif	// __has_feature(ptrauth_objc_isa)
+	((CFRuntimeBase*)dst)->_cfisa = raw_isa;
+	((uint64_t*)dst)[0] |= flags;
+  #endif	// __has_feature(ptrauth_intrinsics)
+}
+
+
 __private_extern__
 serverSessionRef
 tempSession(mach_port_t server, CFStringRef name, audit_token_t auditToken)
@@ -384,7 +421,9 @@ tempSession(mach_port_t server, CFStringRef name, audit_token_t auditToken)
 	static serverSession		temp_session;
 
 	dispatch_once(&once, ^{
-		temp_session = *server_session;		/* use "server" session clone */
+		memcpy_objc_object(&temp_session,	/* use "server" session clone */
+				   server_session,
+				   sizeof(temp_session));
 		(void) __SCDynamicStoreOpen(&temp_session.store, NULL);
 	});
 
@@ -422,7 +461,7 @@ addSession(serverSessionRef session, Boolean isMain)
 							server_mach_channel_handler);
 	if (!isMain) {
 		// if not main SCDynamicStore port, watch for exit
-		dispatch_mach_request_no_senders(session->serverChannel);
+		dispatch_mach_notify_no_senders(session->serverChannel, FALSE);
 	}
 #if	TARGET_OS_SIMULATOR
 	// simulators don't support MiG QoS propagation yet

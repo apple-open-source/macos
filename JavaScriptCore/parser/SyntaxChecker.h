@@ -73,7 +73,7 @@ public:
         ResolveEvalExpr, ResolveExpr, IntegerExpr, DoubleExpr, StringExpr, BigIntExpr,
         ThisExpr, NullExpr, BoolExpr, RegExpExpr, ObjectLiteralExpr,
         FunctionExpr, ClassExpr, SuperExpr, ImportExpr, BracketExpr, DotExpr, CallExpr,
-        NewExpr, PreExpr, PostExpr, UnaryExpr, BinaryExpr, OptionalChain,
+        NewExpr, PreExpr, PostExpr, UnaryExpr, BinaryExpr, OptionalChain, PrivateDotExpr,
         ConditionalExpr, AssignmentExpr, TypeofExpr,
         DeleteExpr, ArrayLiteralExpr, BindingDestructuring, RestParameter,
         ArrayDestructuring, ObjectDestructuring, SourceElementsResult,
@@ -98,7 +98,7 @@ public:
     typedef int Arguments;
     typedef ExpressionType Comma;
     struct Property {
-        ALWAYS_INLINE Property(void* = 0)
+        ALWAYS_INLINE Property(void* = nullptr)
             : type((PropertyNode::Type)0)
         {
         }
@@ -108,7 +108,7 @@ public:
         {
         }
         ALWAYS_INLINE Property(PropertyNode::Type ty)
-            : name(0)
+            : name(nullptr)
             , type(ty)
         {
         }
@@ -180,7 +180,7 @@ public:
     ExpressionType createBoolean(const JSTokenLocation&, bool) { return BoolExpr; }
     ExpressionType createNull(const JSTokenLocation&) { return NullExpr; }
     ExpressionType createBracketAccess(const JSTokenLocation&, ExpressionType, ExpressionType, bool, int, int, int) { return BracketExpr; }
-    ExpressionType createDotAccess(const JSTokenLocation&, ExpressionType, const Identifier*, int, int, int) { return DotExpr; }
+    ExpressionType createDotAccess(const JSTokenLocation&, ExpressionType, const Identifier*, DotType type, int, int, int) { return type == DotType::PrivateField ? PrivateDotExpr : DotExpr; }
     ExpressionType createRegExp(const JSTokenLocation&, const Identifier& pattern, const Identifier& flags, int) { return Yarr::hasError(Yarr::checkSyntax(pattern.string(), flags.string())) ? 0 : RegExpExpr; }
     ExpressionType createNewExpr(const JSTokenLocation&, ExpressionType, int, int, int, int) { return NewExpr; }
     ExpressionType createNewExpr(const JSTokenLocation&, ExpressionType, int, int) { return NewExpr; }
@@ -236,6 +236,10 @@ public:
     {
         return Property(type);
     }
+    Property createProperty(const Identifier*, int, int, PropertyNode::Type type, PropertyNode::PutType, bool, SuperBinding, ClassElementTag)
+    {
+        return Property(type);
+    }
     int createPropertyList(const JSTokenLocation&, Property) { return PropertyListResult; }
     int createPropertyList(const JSTokenLocation&, Property, int) { return PropertyListResult; }
     int createElementList(int, int) { return ElementsListResult; }
@@ -247,6 +251,7 @@ public:
     int createClauseList(int) { return ClauseListResult; }
     int createClauseList(int, int) { return ClauseListResult; }
     int createFuncDeclStatement(const JSTokenLocation&, const ParserFunctionInfo<SyntaxChecker>&) { return StatementResult; }
+    int createDefineField(const JSTokenLocation&, const Identifier*, int, DefineFieldNode::Type) { return 0; }
     int createClassDeclStatement(const JSTokenLocation&, ClassExpression,
         const JSTextPosition&, const JSTextPosition&, int, int) { return StatementResult; }
     int createBlockStatement(const JSTokenLocation&, int, int, int, VariableEnvironment&, DeclarationStacks::FunctionStack&&) { return StatementResult; }
@@ -329,9 +334,11 @@ public:
     int unaryTokenStackLastType(int&) { return m_topUnaryToken; }
     JSTextPosition unaryTokenStackLastStart(int&) { return JSTextPosition(0, 0, 0); }
     void unaryTokenStackRemoveLast(int& stackDepth) { stackDepth = 0; }
+    int unaryTokenStackDepth() const { return 0; }
+    void setUnaryTokenStackDepth(int) { }
     
-    void assignmentStackAppend(int, int, int, int, int, Operator) { }
-    int createAssignment(const JSTokenLocation&, int, int, int, int, int) { RELEASE_ASSERT_NOT_REACHED(); return AssignmentExpr; }
+    void assignmentStackAppend(int& assignmentStackDepth, int, int, int, int, Operator) { assignmentStackDepth = 1; }
+    int createAssignment(const JSTokenLocation&, int& assignmentStackDepth, int, int, int, int) { assignmentStackDepth = 0; return AssignmentExpr; }
     const Identifier* getName(const Property& property) const { return property.name; }
     PropertyNode::Type getType(const Property& property) const { return property.type; }
     bool isResolve(ExpressionType expr) const { return expr == ResolveExpr || expr == ResolveEvalExpr; }
@@ -396,7 +403,12 @@ public:
 
     bool isLocation(ExpressionType type)
     {
-        return type == ResolveExpr || type == DotExpr || type == BracketExpr;
+        return type == ResolveExpr || type == DotExpr || type == PrivateDotExpr || type == BracketExpr;
+    }
+
+    bool isPrivateLocation(ExpressionType type)
+    {
+        return type == PrivateDotExpr;
     }
 
     bool isAssignmentLocation(ExpressionType type)
@@ -430,7 +442,7 @@ public:
     int endOffset(int) { return 0; }
     void setStartOffset(int, int) { }
 
-    JSTextPosition breakpointLocation(int) { return JSTextPosition(-1, 0, 0); }
+    JSTextPosition breakpointLocation(int) { return { }; }
 
     void propagateArgumentsUse() { }
 

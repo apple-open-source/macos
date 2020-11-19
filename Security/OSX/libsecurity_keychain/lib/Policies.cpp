@@ -85,7 +85,7 @@ Policy::Policy(TP supportingTp, const CssmOid &policyOid)
 	secinfo("policy", "Policy() this %p", this);
 }
 
-Policy::~Policy() throw()
+Policy::~Policy() _NOEXCEPT
 {
 	secinfo("policy", "~Policy() this %p", this);
 }

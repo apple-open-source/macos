@@ -131,6 +131,7 @@ enum {
 
 #define kIOGraphicsPrefsKey             "IOGraphicsPrefs"
 #define kIODisplayPrefKeyKey            "IODisplayPrefsKey"
+#define kIODisplayPrefKeyKeyOld         "IODisplayPrefsKeyOld"
 #define kIOGraphicsPrefsParametersKey   "IOGraphicsPrefsParameters"
 #define kIOGraphicsIgnoreParametersKey  "IOGraphicsIgnoreParameters"
 

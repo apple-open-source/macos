@@ -23,8 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "WKFormColorPicker.h"
+#import "config.h"
+#import "WKFormColorPicker.h"
 
 #if ENABLE(INPUT_TYPE_COLOR) && PLATFORM(IOS_FAMILY)
 
@@ -35,6 +35,7 @@
 #import "WebPageProxy.h"
 
 #import <WebCore/Color.h>
+#import <WebCore/ColorSerialization.h>
 #import <wtf/SoftLinking.h>
 
 SOFT_LINK_PRIVATE_FRAMEWORK(PencilKit)
@@ -75,6 +76,14 @@ using namespace WebKit;
     return colorButton;
 }
 
+- (void)dealloc
+{
+    [_color release];
+    _color = nil;
+
+    [super dealloc];
+}
+
 @end
 
 #pragma mark - WKColorMatrixView
@@ -112,8 +121,7 @@ using namespace WebKit;
             [buttons addObject:button];
             [self addSubview:button];
         }
-        RetainPtr<NSArray> colorButtonsRow = buttons;
-        [colorButtons addObject:colorButtonsRow.get()];
+        [colorButtons addObject:buttons];
     }
     _colorButtons = colorButtons;
 
@@ -151,6 +159,7 @@ using namespace WebKit;
 
 @implementation WKColorPicker {
     WKContentView *_view;
+    __weak WKColorPopover *_popover;
     RetainPtr<UIView> _colorPicker;
 
     RetainPtr<UIView> _colorSelectionIndicator;
@@ -170,13 +179,20 @@ using namespace WebKit;
 
 - (instancetype)initWithView:(WKContentView *)view
 {
+    return [self initWithView:view inPopover:nil];
+}
+
+- (instancetype)initWithView:(WKContentView *)view inPopover:(WKColorPopover *)popover
+{
     if (!(self = [super init]))
         return nil;
 
     _view = view;
+    
+    _popover = popover;
 
     CGSize colorPickerSize;
-    if (currentUserInterfaceIdiomIsPad())
+    if (currentUserInterfaceIdiomIsPadOrMac())
         colorPickerSize = CGSizeMake(pickerWidthForPopover, pickerWidthForPopover);
     else {
         auto keyboardSize = [UIKeyboard defaultSizeForInterfaceOrientation:view.interfaceOrientation];
@@ -236,7 +252,7 @@ using namespace WebKit;
     [_colorSelectionIndicator setFrame:frame];
 
     UIRectCorner roundCorner = 0;
-    if (currentUserInterfaceIdiomIsPad()) {
+    if (currentUserInterfaceIdiomIsPadOrMac()) {
         CGRect colorPickerBounds = [_colorPicker bounds];
 
         bool minXEqual = std::abs(CGRectGetMinX(frame) - CGRectGetMinX(colorPickerBounds)) < FLT_EPSILON;
@@ -263,7 +279,7 @@ using namespace WebKit;
 - (void)setControlValueFromUIColor:(UIColor *)uiColor
 {
     WebCore::Color color(uiColor.CGColor);
-    [_view page]->setFocusedElementValue(color.serialized());
+    [_view page]->setFocusedElementValue(WebCore::serializationForHTML(color));
 }
 
 #pragma mark WKFormControl
@@ -296,6 +312,10 @@ using namespace WebKit;
 
     [self drawSelectionIndicatorForColorButton:colorButton];
     [self setControlValueFromUIColor:colorButton.color];
+#if PLATFORM(MACCATALYST)
+    [_popover dismissPopoverAnimated:NO];
+    [_view accessoryDone];
+#endif
 }
 
 #pragma mark UIPanGestureRecognizer

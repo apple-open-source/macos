@@ -23,7 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
+#import "config.h"
 
 #if PLATFORM(IOS_FAMILY)
 
@@ -41,6 +41,7 @@ SOFT_LINK_CONSTANT_FOR_SOURCE(PAL, UIKit, UIApplicationDidBecomeActiveNotificati
 SOFT_LINK_CONSTANT_FOR_SOURCE(PAL, UIKit, UIApplicationDidEnterBackgroundNotification, NSNotificationName)
 SOFT_LINK_CONSTANT_FOR_SOURCE(PAL, UIKit, UIContentSizeCategoryDidChangeNotification, NSNotificationName)
 SOFT_LINK_CONSTANT_FOR_SOURCE(PAL, UIKit, UIFontTextStyleCallout, UIFontTextStyle)
+SOFT_LINK_CONSTANT_FOR_SOURCE(PAL, UIKit, UIPasteboardNameGeneral, UIPasteboardName)
 SOFT_LINK_CONSTANT_FOR_SOURCE(PAL, UIKit, UITextEffectsBeneathStatusBarWindowLevel, UIWindowLevel)
 SOFT_LINK_CLASS_FOR_SOURCE(PAL, UIKit, NSParagraphStyle)
 SOFT_LINK_CLASS_FOR_SOURCE(PAL, UIKit, NSShadow)
@@ -66,5 +67,9 @@ SOFT_LINK_FUNCTION_FOR_SOURCE(PAL, UIKit, UIAccessibilityIsGrayscaleEnabled, BOO
 SOFT_LINK_FUNCTION_FOR_SOURCE(PAL, UIKit, UIAccessibilityIsInvertColorsEnabled, BOOL, (void), ())
 SOFT_LINK_FUNCTION_FOR_SOURCE_WITH_EXPORT(PAL, UIKit, UIAccessibilityIsReduceMotionEnabled, BOOL, (void), (), PAL_EXPORT)
 SOFT_LINK_FUNCTION_FOR_SOURCE(PAL, UIKit, UIAccessibilityPostNotification, void, (UIAccessibilityNotifications n, id argument), (n, argument))
+SOFT_LINK_FUNCTION_FOR_SOURCE(PAL, UIKit, UIGraphicsGetCurrentContext, CGContextRef, (void), ())
+SOFT_LINK_FUNCTION_FOR_SOURCE(PAL, UIKit, UIGraphicsPopContext, void, (void), ())
+SOFT_LINK_FUNCTION_FOR_SOURCE(PAL, UIKit, UIGraphicsPushContext, void, (CGContextRef context), (context))
+SOFT_LINK_FUNCTION_FOR_SOURCE(PAL, UIKit, UIImagePNGRepresentation, NSData *, (UIImage *image), (image))
 
 #endif

@@ -53,10 +53,10 @@ FontPlatformData* FontCache::getCustomFallbackFont(const UInt32 c, const FontDes
 {
     ASSERT(requiresCustomFallbackFont(c));
 
-    static NeverDestroyed<AtomString> helveticaFamily("Helvetica Neue", AtomString::ConstructFromLiteral);
-    static NeverDestroyed<AtomString> timesNewRomanPSMTFamily("TimesNewRomanPSMT", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> helveticaFamily("Helvetica Neue", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> timesNewRomanPSMTFamily("TimesNewRomanPSMT", AtomString::ConstructFromLiteral);
 
-    AtomString* family = nullptr;
+    const AtomString* family = nullptr;
     switch (c) {
     case AppleLogo:
         family = &helveticaFamily.get();
@@ -117,7 +117,7 @@ static RetainPtr<NSDictionary> systemFontModificationAttributes(FontSelectionVal
     [traitsDictionary setObject:@YES forKey:static_cast<NSString *>(kCTFontUIFontDesignTrait)];
 
     if (italic)
-        [traitsDictionary setObject:[NSNumber numberWithInt:kCTFontItalicTrait] forKey:static_cast<NSString *>(kCTFontSymbolicTrait)];
+        [traitsDictionary setObject:@(kCTFontItalicTrait) forKey:static_cast<NSString *>(kCTFontSymbolicTrait)];
 
     return @{ static_cast<NSString *>(kCTFontTraitsAttribute) : traitsDictionary.get() };
 }
@@ -134,15 +134,6 @@ RetainPtr<CTFontRef> platformFontWithFamilySpecialCase(const AtomString& family,
     // FIXME: See comment in FontCascadeDescription::effectiveFamilyAt() in FontDescriptionCocoa.cpp
     const auto& request = fontDescription.fontSelectionRequest();
 
-    if (family.startsWith("UICTFontTextStyle")) {
-        CTFontSymbolicTraits traits = (isFontWeightBold(request.weight) || FontCache::singleton().shouldMockBoldSystemFontForAccessibility() ? kCTFontTraitBold : 0) | (isItalic(request.slope) ? kCTFontTraitItalic : 0);
-        RetainPtr<CFStringRef> familyNameStr = family.string().createCFString();
-        RetainPtr<CTFontDescriptorRef> fontDescriptor = adoptCF(CTFontDescriptorCreateWithTextStyle(familyNameStr.get(), RenderThemeIOS::contentSizeCategory(), nullptr));
-        if (traits)
-            fontDescriptor = adoptCF(CTFontDescriptorCreateCopyWithSymbolicTraits(fontDescriptor.get(), traits, traits));
-        return createFontForInstalledFonts(fontDescriptor.get(), size, allowUserInstalledFonts);
-    }
-
     // FIXME: Migrate this to use SystemFontDatabaseCoreText like the design system-ui block below.
     if (equalLettersIgnoringASCIICase(family, "-webkit-system-font") || equalLettersIgnoringASCIICase(family, "-apple-system") || equalLettersIgnoringASCIICase(family, "-apple-system-font") || equalLettersIgnoringASCIICase(family, "system-ui")) {
         auto fontDescriptor = systemFontDescriptor(request.weight, isFontWeightBold(request.weight), isItalic(request.slope), size);
@@ -156,7 +147,8 @@ RetainPtr<CTFontRef> platformFontWithFamilySpecialCase(const AtomString& family,
     }
 
     if (equalLettersIgnoringASCIICase(family, "lastresort")) {
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+// FIXME: Likely we can remove this special case for watchOS and tvOS.
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
         static const CTFontDescriptorRef lastResort = CTFontDescriptorCreateLastResort();
         return adoptCF(CTFontCreateWithFontDescriptor(lastResort, size, nullptr));
 #else

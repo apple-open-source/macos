@@ -56,8 +56,12 @@ __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
 OS_EXPORT uint32_t notify_peek(int token, uint32_t *val)
 __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
 
+// This SPI requires a sandbox exception in notifyd and will fail silently for
+// new clients or new filepaths from existing clients. It is reccomended that
+// both existing and new clients use some other file monitoring system, such as
+// dispatch_source or FSEvents.
 OS_EXPORT uint32_t notify_monitor_file(int token, char *path, int flags)
-__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_3);
+__API_DEPRECATED("No longer supported for new clients", macos(10.7, 10.16), ios(4.3, 14.0), watchos(1.0, 7.0), tvos(1.0, 14.0));
 
 OS_EXPORT uint32_t notify_get_event(int token, int *ev, char *buf, int *len)
 __API_DEPRECATED("No longer supported", macos(10.7, 10.15), ios(4.3, 13.0), watchos(1.0, 6.0), tvos(1.0, 13.0));

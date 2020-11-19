@@ -115,7 +115,7 @@ OSStatus CMSEncoderSetAppleExpirationTime(
 
 void
 CmsMessageSetTSAContext(CMSEncoderRef cmsEncoder, CFTypeRef tsaContext)
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, macCatalyst);
 
 /***
  *** Private CMSDecoder routines

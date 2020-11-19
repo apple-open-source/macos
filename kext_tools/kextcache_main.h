@@ -103,6 +103,7 @@ enum {
 #define kOptNameInstaller               "Installer"
 #define kOptNameCachesOnly              "caches-only"
 #define kOptNameEarlyBoot               "Boot"
+#define kOptNameDstRootUpdate           "dstroot-update"
 
 /* Staging flags.
  */
@@ -115,10 +116,12 @@ enum {
 #define kOptNameTests                   "print-diagnostics"
 #define kOptNameCompressed              "compressed"
 #define kOptNameUncompressed            "uncompressed"
+#define kOptNameLegacyBehavior          "legacy-behavior"
 
 #define kOptArch                  'a'
 // 'b' in kext_tools_util.h
 #define kOptPrelinkedKernel       'c'
+#define kOptDstRootUpdate         'D'
 #define kOptSystemMkext           'e'
 #if !NO_BOOT_ROOT
 #define kOptForce                 'f'
@@ -168,20 +171,21 @@ enum {
 #define kLongOptImmutableKextsAll        (-18)
 #define kLongOptClearStaging             (-19)
 #define kLongOptPruneStaging             (-20)
+#define kLongOptLegacyBehavior           (-21)
 
 #if !NO_BOOT_ROOT
-#define kOptChars                ":a:b:c:efFhi:kK:lLm:nNqrsStT:u:U:vXz"
+#define kOptChars                ":a:b:cDefFhi:kK:lLm:nNqrsStT:u:U:vXz"
 #else
-#define kOptChars                ":a:b:c:eFhkK:lLm:nNqrsStT:vXz"
+#define kOptChars                ":a:b:cDeFhkK:lLm:nNqrsStT:vXz"
 #endif /* !NO_BOOT_ROOT */
 /* Some options are now obsolete:
  *     -F (fork)
  *     -k (update plist cache)
  */
 
-int longopt = 0;
+static int longopt = 0;
 
-struct option sOptInfo[] = {
+static struct option sOptInfo[] = {
     { kOptNameLongindexHack,         no_argument,        &longopt, kLongOptLongindexHack },
 
     { kOptNameHelp,                  no_argument,        NULL,     kOptHelp },
@@ -222,6 +226,7 @@ struct option sOptInfo[] = {
 #if !NO_BOOT_ROOT
     { kOptNameInvalidate,            required_argument,  NULL,     kOptInvalidate },
     { kOptNameUpdate,                required_argument,  NULL,     kOptUpdate },
+    { kOptNameDstRootUpdate,         no_argument,        NULL,     kOptDstRootUpdate },
     { kOptNameForce,                 no_argument,        NULL,     kOptForce },
     { kOptNameInstaller,             no_argument,        &longopt, kLongOptInstaller },
     { kOptNameCachesOnly,            no_argument,        &longopt, kLongOptCachesOnly },
@@ -234,6 +239,7 @@ struct option sOptInfo[] = {
 
     { kOptNameClearStaging,          no_argument,        &longopt, kLongOptClearStaging },
     { kOptNamePruneStaging,          no_argument,        &longopt, kLongOptPruneStaging },
+    { kOptNameLegacyBehavior,        no_argument,        &longopt, kLongOptLegacyBehavior },
 
 #if !NO_BOOT_ROOT
     { NULL,                          required_argument,  NULL,     kOptCheckUpdate },
@@ -243,7 +249,7 @@ struct option sOptInfo[] = {
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
 };
 
-typedef struct {
+typedef struct KextcacheArgs_s {
     OSKextRequiredFlags requiredFlagsRepositoriesOnly;  // -l/-n/-s/-immutable-kexts
     OSKextRequiredFlags requiredFlagsAll;              // -L/-N/-S/-immutable-kexts-all
 
@@ -269,6 +275,8 @@ typedef struct {
     Boolean   noLinkFailures;               // -no-link-failures option
     Boolean   stripSymbols;                 // -strip-symbols option
     CFURLRef  compressedPrelinkedKernelURL; // -uncompress option
+
+    Boolean   isInstaller; // -Installer
 
     CFURLRef  updateVolumeURL;      // -u / -U OR -i / -invalidate options
 
@@ -301,6 +309,11 @@ typedef struct {
 
     Boolean   clearStaging;
     Boolean   pruneStaging;
+
+    // The following options modify how kextcache interacts with the KernelManagement
+    // framework for building and updating kernel collections on volume roots.
+    Boolean   legacyBehavior;
+    Boolean   dstRootUpdate;
 
     AuthOptions_t      authenticationOptions;
 } KextcacheArgs;

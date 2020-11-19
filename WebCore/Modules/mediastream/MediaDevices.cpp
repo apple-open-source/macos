@@ -139,7 +139,7 @@ void MediaDevices::getUserMedia(const StreamConstraints& constraints, Promise&& 
     request->start();
 }
 
-void MediaDevices::getDisplayMedia(const StreamConstraints& constraints, Promise&& promise)
+void MediaDevices::getDisplayMedia(const DisplayMediaStreamConstraints& constraints, Promise&& promise)
 {
     auto* document = this->document();
     if (!document)
@@ -248,9 +248,9 @@ void MediaDevices::scheduledEventTimerFired()
     dispatchEvent(Event::create(eventNames().devicechangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
 }
 
-bool MediaDevices::hasPendingActivity() const
+bool MediaDevices::virtualHasPendingActivity() const
 {
-    return !isContextStopped() && hasEventListeners(m_eventNames.devicechangeEvent);
+    return hasEventListeners(m_eventNames.devicechangeEvent);
 }
 
 const char* MediaDevices::activeDOMObjectName() const

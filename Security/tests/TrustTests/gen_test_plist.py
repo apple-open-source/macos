@@ -32,8 +32,10 @@ for filename in test_files:
 
             test_command = Foundation.NSMutableArray.array()
             test_command.append('/AppleInternal/CoreOS/tests/Security/TrustTests')
-            test_command.append('-c ' + match.group(1))
-            test_command.append('-t TrustTests')
+            test_command.append('-c')
+            test_command.append(match.group(1))
+            test_command.append('-t')
+            test_command.append('TrustTests')
 
             test_dictionary['Command'] = test_command
 

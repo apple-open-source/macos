@@ -283,8 +283,8 @@ UpdateMountStatus(const char *path, u_int32_t volstatus) {
 	 * in a .c file within the mount_flags directory  
 	 */
 	for (opt = optnames; flags && opt->o_opt; opt++) {
-		if (flags & opt->o_opt) {
-			snprintf(mountstring, sizeof(mountstring), ",%s", opt->o_name);
+		if ((flags & opt->o_opt) && opt->o_cmd) {
+			snprintf(mountstring, sizeof(mountstring), ",%s", opt->o_cmd);
 			result = strlcat(mountline, mountstring, MAXMOUNTLEN);
 			if (result >= MAXMOUNTLEN) {
 				// bail out, string is too long. 

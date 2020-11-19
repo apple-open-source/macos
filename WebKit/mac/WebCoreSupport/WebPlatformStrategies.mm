@@ -28,9 +28,13 @@
 #import "WebFrameNetworkingContext.h"
 #import "WebPluginPackage.h"
 #import "WebResourceLoadScheduler.h"
+#import <WebCore/AudioDestination.h>
 #import <WebCore/BlobRegistryImpl.h>
+#import <WebCore/CDMFactory.h>
 #import <WebCore/Color.h>
 #import <WebCore/Frame.h>
+#import <WebCore/MediaSessionManagerCocoa.h>
+#import <WebCore/MediaStrategy.h>
 #import <WebCore/NetworkStorageSession.h>
 #import <WebCore/PasteboardItemInfo.h>
 #import <WebCore/PlatformPasteboard.h>
@@ -62,9 +66,34 @@ PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
     return this;
 }
 
+class WebMediaStrategy final : public MediaStrategy {
+private:
+#if ENABLE(WEB_AUDIO)
+    std::unique_ptr<AudioDestination> createAudioDestination(AudioIOCallback& callback, const String& inputDeviceId,
+        unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate) override
+    {
+        return AudioDestination::create(callback, inputDeviceId, numberOfInputChannels, numberOfOutputChannels, sampleRate);
+    }
+#endif
+    void clearNowPlayingInfo() final
+    {
+        MediaSessionManagerCocoa::clearNowPlayingInfo();
+    }
+
+    void setNowPlayingInfo(bool setAsNowPlayingApplication, const NowPlayingInfo& nowPlayingInfo) final
+    {
+        MediaSessionManagerCocoa::setNowPlayingInfo(setAsNowPlayingApplication, nowPlayingInfo);
+    }
+};
+
+MediaStrategy* WebPlatformStrategies::createMediaStrategy()
+{
+    return new WebMediaStrategy;
+}
+
 class WebBlobRegistry final : public BlobRegistry {
 private:
-    void registerFileBlobURL(const URL& url, Ref<BlobDataFileReference>&& reference, const String& contentType) final { m_blobRegistry.registerFileBlobURL(url, WTFMove(reference), contentType); }
+    void registerFileBlobURL(const URL& url, Ref<BlobDataFileReference>&& reference, const String&, const String& contentType) final { m_blobRegistry.registerFileBlobURL(url, WTFMove(reference), contentType); }
     void registerBlobURL(const URL& url, Vector<BlobPart>&& parts, const String& contentType) final { m_blobRegistry.registerBlobURL(url, WTFMove(parts), contentType); }
     void registerBlobURL(const URL& url, const URL& srcURL) final { m_blobRegistry.registerBlobURL(url, srcURL); }
     void registerBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, RefPtr<BlobDataFileReference>&& reference, const String& contentType) final { m_blobRegistry.registerBlobURLOptionallyFileBacked(url, srcURL, WTFMove(reference), contentType); }
@@ -111,11 +140,6 @@ String WebPlatformStrategies::stringForType(const String& pasteboardType, const 
 int64_t WebPlatformStrategies::changeCount(const String& pasteboardName)
 {
     return PlatformPasteboard(pasteboardName).changeCount();
-}
-
-String WebPlatformStrategies::uniqueName()
-{
-    return PlatformPasteboard::uniqueName();
 }
 
 Color WebPlatformStrategies::color(const String& pasteboardName)
@@ -173,6 +197,11 @@ int64_t WebPlatformStrategies::writeCustomData(const Vector<WebCore::PasteboardC
     return PlatformPasteboard(pasteboardName).write(data);
 }
 
+bool WebPlatformStrategies::containsStringSafeForDOMToReadForType(const String& pasteboardName, const String& type)
+{
+    return PlatformPasteboard(pasteboardName).containsStringSafeForDOMToReadForType(type);
+}
+
 Optional<WebCore::PasteboardItemInfo> WebPlatformStrategies::informationForItemAtIndex(size_t index, const String& pasteboardName, int64_t changeCount)
 {
     return PlatformPasteboard(pasteboardName).informationForItemAtIndex(index, changeCount);
@@ -201,6 +230,16 @@ URL WebPlatformStrategies::readURLFromPasteboard(size_t index, const String& pas
 String WebPlatformStrategies::readStringFromPasteboard(size_t index, const String& type, const String& pasteboardName)
 {
     return PlatformPasteboard(pasteboardName).readString(index, type);
+}
+
+bool WebPlatformStrategies::containsURLStringSuitableForLoading(const String& pasteboardName)
+{
+    return PlatformPasteboard(pasteboardName).containsURLStringSuitableForLoading();
+}
+
+String WebPlatformStrategies::urlStringSuitableForLoading(const String& pasteboardName, String& title)
+{
+    return PlatformPasteboard(pasteboardName).urlStringSuitableForLoading(title);
 }
 
 #if PLATFORM(IOS_FAMILY)

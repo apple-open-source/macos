@@ -54,6 +54,8 @@ CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* clien
     ASSERT(isMainThread());
 }
 
+CurlRequest::~CurlRequest() = default;
+
 void CurlRequest::invalidateClient()
 {
     ASSERT(isMainThread());
@@ -590,7 +592,7 @@ void CurlRequest::invokeDidReceiveResponseForFile(const URL& url)
     ASSERT(url.isLocalFile());
 
     // Determine the MIME type based on the path.
-    auto mimeType = MIMETypeRegistry::getMIMETypeForPath(url.path());
+    auto mimeType = MIMETypeRegistry::mimeTypeForPath(url.path().toString());
 
     // DidReceiveResponse must not be called immediately
     runOnWorkerThreadIfRequired([this, protectedThis = makeRef(*this), url = crossThreadCopy(url), mimeType = crossThreadCopy(WTFMove(mimeType))]() mutable {

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,8 +65,11 @@
 - (void)encodeWithCoder:(NSCoder *)coder
 {
     [coder encodeDouble:self.minimumFontSize forKey:@"minimumFontSize"];
-    [coder encodeBool:self.javaScriptEnabled forKey:@"javaScriptEnabled"];
     [coder encodeBool:self.javaScriptCanOpenWindowsAutomatically forKey:@"javaScriptCanOpenWindowsAutomatically"];
+
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    [coder encodeBool:self.javaScriptEnabled forKey:@"javaScriptEnabled"];
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if PLATFORM(MAC)
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -83,8 +86,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return nil;
 
     self.minimumFontSize = [coder decodeDoubleForKey:@"minimumFontSize"];
-    self.javaScriptEnabled = [coder decodeBoolForKey:@"javaScriptEnabled"];
     self.javaScriptCanOpenWindowsAutomatically = [coder decodeBoolForKey:@"javaScriptCanOpenWindowsAutomatically"];
+
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    self.javaScriptEnabled = [coder decodeBoolForKey:@"javaScriptEnabled"];
+ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if PLATFORM(MAC)
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -110,16 +116,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)setMinimumFontSize:(CGFloat)minimumFontSize
 {
     _preferences->setMinimumFontSize(minimumFontSize);
-}
-
-- (BOOL)javaScriptEnabled
-{
-    return _preferences->javaScriptEnabled();
-}
-
-- (void)setJavaScriptEnabled:(BOOL)javaScriptEnabled
-{
-    _preferences->setJavaScriptEnabled(javaScriptEnabled);
 }
 
 - (void)setFraudulentWebsiteWarningEnabled:(BOOL)enabled
@@ -357,6 +353,26 @@ static _WKStorageBlockingPolicy toAPI(WebCore::SecurityOrigin::StorageBlockingPo
 - (void)_setLargeImageAsyncDecodingEnabled:(BOOL)_largeImageAsyncDecodingEnabled
 {
     _preferences->setLargeImageAsyncDecodingEnabled(_largeImageAsyncDecodingEnabled);
+}
+
+- (BOOL)_inAppBrowserPrivacyEnabled
+{
+    return _preferences->isInAppBrowserPrivacyEnabled();
+}
+
+- (void)_setInAppBrowserPrivacyEnabled:(BOOL)enabled
+{
+    _preferences->setIsInAppBrowserPrivacyEnabled(enabled);
+}
+
+- (BOOL)_needsInAppBrowserPrivacyQuirks
+{
+    return _preferences->needsInAppBrowserPrivacyQuirks();
+}
+
+- (void)_setNeedsInAppBrowserPrivacyQuirks:(BOOL)enabled
+{
+    _preferences->setNeedsInAppBrowserPrivacyQuirks(enabled);
 }
 
 - (BOOL)_animatedImageAsyncDecodingEnabled
@@ -902,6 +918,21 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     _preferences->setRemotePlaybackEnabled(enabled);
 }
 
+- (BOOL)_isITPDatabaseEnabled
+{
+    return _preferences->isITPDatabaseEnabled();
+}
+
+- (BOOL)_serviceWorkerEntitlementDisabledForTesting
+{
+    return _preferences->serviceWorkerEntitlementDisabledForTesting();
+}
+
+- (void)_setServiceWorkerEntitlementDisabledForTesting:(BOOL)disable
+{
+    _preferences->setServiceWorkerEntitlementDisabledForTesting(disable);
+}
+
 #if PLATFORM(MAC)
 - (void)_setJavaEnabledForLocalFiles:(BOOL)enabled
 {
@@ -1021,6 +1052,16 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (BOOL)_universalAccessFromFileURLsAllowed
 {
     return _preferences->allowUniversalAccessFromFileURLs();
+}
+
+- (void)_setTopNavigationToDataURLsAllowed:(BOOL)enabled
+{
+    _preferences->setAllowTopNavigationToDataURLs(enabled);
+}
+
+- (BOOL)_topNavigationToDataURLsAllowed
+{
+    return _preferences->allowTopNavigationToDataURLs();
 }
 
 - (void)_setSuppressesIncrementalRendering:(BOOL)enabled
@@ -1415,11 +1456,28 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 #endif
 }
 
+- (void)_setAccessibilityIsolatedTreeEnabled:(BOOL)accessibilityIsolatedTreeEnabled
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    _preferences->setIsAccessibilityIsolatedTreeEnabled(accessibilityIsolatedTreeEnabled);
+#endif
+}
+
+- (BOOL)_accessibilityIsolatedTreeEnabled
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    return _preferences->isAccessibilityIsolatedTreeEnabled();
+#else
+    return false;
+#endif
+}
+
 @end
 
-#if !TARGET_OS_IPHONE
 
 @implementation WKPreferences (WKDeprecated)
+
+#if !TARGET_OS_IPHONE
 
 - (BOOL)javaEnabled
 {
@@ -1441,6 +1499,17 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     _preferences->setPluginsEnabled(plugInsEnabled);
 }
 
+#endif
+
+- (BOOL)javaScriptEnabled
+{
+    return _preferences->javaScriptEnabled();
+}
+
+- (void)setJavaScriptEnabled:(BOOL)javaScriptEnabled
+{
+    _preferences->setJavaScriptEnabled(javaScriptEnabled);
+}
+
 @end
 
-#endif

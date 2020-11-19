@@ -59,8 +59,8 @@ ServiceWorkerSoftUpdateLoader::ServiceWorkerSoftUpdateLoader(NetworkSession& ses
     if (session.cache()) {
         // We set cache policy to disable speculative loading/async revalidation from the cache.
         request.setCachePolicy(ResourceRequestCachePolicy::ReturnCacheDataDontLoad);
-        
-        session.cache()->retrieve(request, NetworkCache::GlobalFrameID { }, [this, weakThis = makeWeakPtr(*this), request, shouldRefreshCache](auto&& entry, auto&&) mutable {
+
+        session.cache()->retrieve(request, NetworkCache::GlobalFrameID { }, NavigatingToAppBoundDomain::No, [this, weakThis = makeWeakPtr(*this), request, shouldRefreshCache](auto&& entry, auto&&) mutable {
             if (!weakThis)
                 return;
             if (!m_session) {
@@ -125,8 +125,10 @@ void ServiceWorkerSoftUpdateLoader::loadFromNetwork(NetworkSession& session, Res
     parameters.storedCredentialsPolicy = StoredCredentialsPolicy::Use;
     parameters.contentSniffingPolicy = ContentSniffingPolicy::DoNotSniffContent;
     parameters.contentEncodingSniffingPolicy = ContentEncodingSniffingPolicy::Sniff;
+    parameters.needsCertificateInfo = true;
     parameters.request = WTFMove(request);
     m_networkLoad = makeUnique<NetworkLoad>(*this, nullptr, WTFMove(parameters), session);
+    m_networkLoad->start();
 }
 
 void ServiceWorkerSoftUpdateLoader::willSendRedirectedRequest(ResourceRequest&&, ResourceRequest&&, ResourceResponse&&)
@@ -136,6 +138,7 @@ void ServiceWorkerSoftUpdateLoader::willSendRedirectedRequest(ResourceRequest&&,
 
 void ServiceWorkerSoftUpdateLoader::didReceiveResponse(ResourceResponse&& response, ResponseCompletionHandler&& completionHandler)
 {
+    m_certificateInfo = *response.certificateInfo();
     if (response.httpStatusCode() == 304 && m_cacheEntry) {
         loadWithCacheEntry(*m_cacheEntry);
         completionHandler(PolicyAction::Ignore);
@@ -185,7 +188,7 @@ void ServiceWorkerSoftUpdateLoader::didFinishLoading(const WebCore::NetworkLoadM
 {
     if (m_decoder)
         m_script.append(m_decoder->flush());
-    m_completionHandler({ m_jobData.identifier(), m_jobData.registrationKey(), m_script.toString(), m_contentSecurityPolicy, m_referrerPolicy, { } });
+    m_completionHandler({ m_jobData.identifier(), m_jobData.registrationKey(), m_script.toString(), m_certificateInfo, m_contentSecurityPolicy, m_referrerPolicy, { } });
     didComplete();
 }
 

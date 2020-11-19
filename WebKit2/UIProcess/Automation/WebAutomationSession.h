@@ -75,6 +75,7 @@ class OpenPanelParameters;
 
 namespace WebKit {
 
+class ViewSnapshot;
 class WebAutomationSessionClient;
 class WebFrameProxy;
 class WebOpenPanelResultListenerProxy;
@@ -199,7 +200,6 @@ public:
     void getSessionPermissions(Inspector::ErrorString&, RefPtr<JSON::ArrayOf<Inspector::Protocol::Automation::SessionPermissionData>>& out_permissions) override;
     void setSessionPermissions(Inspector::ErrorString&, const JSON::Array& in_permissions) override;
 
-    // Platform: macOS
 #if PLATFORM(MAC)
     void inspectBrowsingContext(const String&, const bool* optionalEnableAutoCapturing, Ref<InspectBrowsingContextCallback>&&) override;
 #endif
@@ -246,7 +246,10 @@ private:
 
     // Platform-dependent implementations.
 #if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
+    void updateClickCount(MouseButton, const WebCore::IntPoint&, Seconds maxTime, int maxDistance);
+    void resetClickCount();
     void platformSimulateMouseInteraction(WebPageProxy&, MouseInteraction, MouseButton, const WebCore::IntPoint& locationInViewport, OptionSet<WebEvent::Modifier>);
+    static OptionSet<WebEvent::Modifier> platformWebModifiersFromRaw(unsigned modifiers);
 #endif
 #if ENABLE(WEBDRIVER_TOUCH_INTERACTIONS)
     // Simulates a single touch point being pressed, moved, and released.
@@ -260,7 +263,8 @@ private:
 #endif // ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
 
     // Get base64-encoded PNG data from a bitmap.
-    Optional<String> platformGetBase64EncodedPNGData(const ShareableBitmap::Handle&);
+    static Optional<String> platformGetBase64EncodedPNGData(const ShareableBitmap::Handle&);
+    static Optional<String> platformGetBase64EncodedPNGData(const ViewSnapshot&);
 
     // Save base64-encoded file contents to a local file path and return the path.
     // This reuses the basename of the remote file path so that the filename exposed to DOM API remains the same.
@@ -331,6 +335,12 @@ private:
 #endif
 #if ENABLE(WEBDRIVER_TOUCH_INTERACTIONS)
     bool m_simulatingTouchInteraction { false };
+#endif
+#if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
+    MonotonicTime m_lastClickTime;
+    MouseButton m_lastClickButton { MouseButton::None };
+    WebCore::IntPoint m_lastClickPosition;
+    unsigned m_clickCount { 1 };
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)

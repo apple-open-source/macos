@@ -62,13 +62,13 @@ CF_ASSUME_NONNULL_BEGIN
 typedef struct CF_BRIDGED_TYPE(id) _CMSEncoder *CMSEncoderRef;
 
 CFTypeID CMSEncoderGetTypeID(void)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Create a CMSEncoder. Result must eventually be freed via CFRelease().
  */
 OSStatus CMSEncoderCreate(CMSEncoderRef * __nonnull CF_RETURNS_RETAINED cmsEncoderOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 extern const CFStringRef kCMSEncoderDigestAlgorithmSHA1;
 extern const CFStringRef kCMSEncoderDigestAlgorithmSHA256;
@@ -76,7 +76,7 @@ extern const CFStringRef kCMSEncoderDigestAlgorithmSHA256;
 OSStatus CMSEncoderSetSignerAlgorithm(
     CMSEncoderRef		cmsEncoder,
     CFStringRef		digestAlgorithm)
-    __API_AVAILABLE(macos(10.11)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.11)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Specify signers of the CMS message; implies that the message will be signed.
@@ -91,7 +91,7 @@ OSStatus CMSEncoderSetSignerAlgorithm(
 OSStatus CMSEncoderAddSigners(
     CMSEncoderRef		cmsEncoder,
     CFTypeRef			signerOrArray)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain an array of signers as specified in CMSEncoderSetSigners().
@@ -101,7 +101,7 @@ OSStatus CMSEncoderAddSigners(
 OSStatus CMSEncoderCopySigners(
     CMSEncoderRef		cmsEncoder,
     CFArrayRef * __nonnull CF_RETURNS_RETAINED signersOut)		/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Specify recipients of the message. Implies that the message will
@@ -117,7 +117,7 @@ OSStatus CMSEncoderCopySigners(
 OSStatus CMSEncoderAddRecipients(
     CMSEncoderRef		cmsEncoder,
     CFTypeRef			recipientOrArray)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain an array of recipients as specified in CMSEncoderSetRecipients().
@@ -128,7 +128,7 @@ OSStatus CMSEncoderAddRecipients(
 OSStatus CMSEncoderCopyRecipients(
     CMSEncoderRef		cmsEncoder,
     CFArrayRef * __nonnull CF_RETURNS_RETAINED recipientsOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * A signed message optionally includes the data to be signed. If the message
@@ -144,7 +144,7 @@ OSStatus CMSEncoderCopyRecipients(
 OSStatus CMSEncoderSetHasDetachedContent(
     CMSEncoderRef		cmsEncoder,
     Boolean			detachedContent)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain a Boolean indicating whether the current message will have detached
@@ -155,7 +155,7 @@ OSStatus CMSEncoderSetHasDetachedContent(
 OSStatus CMSEncoderGetHasDetachedContent(
     CMSEncoderRef		cmsEncoder,
     Boolean			*detachedContentOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 #if SEC_OS_OSX
 /*
@@ -173,7 +173,7 @@ OSStatus CMSEncoderGetHasDetachedContent(
 OSStatus CMSEncoderSetEncapsulatedContentType(
     CMSEncoderRef        cmsEncoder,
     const CSSM_OID    *eContentType)
-    API_DEPRECATED_WITH_REPLACEMENT("CMSEncoderSetEncapsulatedContentTypeOID", macos(10.5, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_DEPRECATED_WITH_REPLACEMENT("CMSEncoderSetEncapsulatedContentTypeOID", macos(10.5, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #endif // SEC_OS_OSX
 
 /*
@@ -191,7 +191,7 @@ OSStatus CMSEncoderSetEncapsulatedContentType(
 OSStatus CMSEncoderSetEncapsulatedContentTypeOID(
     CMSEncoderRef		cmsEncoder,
     CFTypeRef			eContentTypeOID)
-    __API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the eContentType OID specified in CMSEncoderSetEncapsulatedContentType().
@@ -204,7 +204,7 @@ OSStatus CMSEncoderSetEncapsulatedContentTypeOID(
 OSStatus CMSEncoderCopyEncapsulatedContentType(
     CMSEncoderRef		cmsEncoder,
     CFDataRef * __nonnull CF_RETURNS_RETAINED eContentTypeOut)		/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Signed CMS messages can contain arbitrary sets of certificates beyond those
@@ -229,7 +229,7 @@ OSStatus CMSEncoderCopyEncapsulatedContentType(
 OSStatus CMSEncoderAddSupportingCerts(
     CMSEncoderRef		cmsEncoder,
     CFTypeRef			certOrArray)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the SecCertificates provided in CMSEncoderAddSupportingCerts().
@@ -240,7 +240,7 @@ OSStatus CMSEncoderAddSupportingCerts(
 OSStatus CMSEncoderCopySupportingCerts(
     CMSEncoderRef		cmsEncoder,
     CFArrayRef * __nonnull CF_RETURNS_RETAINED certsOut)			/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Standard signed attributes, optionally specified in
@@ -285,7 +285,7 @@ typedef CF_OPTIONS(uint32_t, CMSSignedAttributes) {
 OSStatus CMSEncoderAddSignedAttributes(
     CMSEncoderRef		cmsEncoder,
     CMSSignedAttributes	signedAttributes)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Specification of what certificates to include in a signed message.
@@ -313,7 +313,7 @@ typedef CF_ENUM(uint32_t, CMSCertificateChainMode) {
 OSStatus CMSEncoderSetCertificateChainMode(
     CMSEncoderRef			cmsEncoder,
     CMSCertificateChainMode	chainMode)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain indication of which signer certs are to be included
@@ -322,7 +322,7 @@ OSStatus CMSEncoderSetCertificateChainMode(
 OSStatus CMSEncoderGetCertificateChainMode(
     CMSEncoderRef			cmsEncoder,
     CMSCertificateChainMode	*chainModeOut)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Feed content bytes into the encoder.
@@ -333,7 +333,7 @@ OSStatus CMSEncoderUpdateContent(
     CMSEncoderRef		cmsEncoder,
     const void			*content,
     size_t				contentLen)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Finish encoding the message and obtain the encoded result.
@@ -342,7 +342,7 @@ OSStatus CMSEncoderUpdateContent(
 OSStatus CMSEncoderCopyEncodedContent(
     CMSEncoderRef		cmsEncoder,
     CFDataRef * __nonnull CF_RETURNS_RETAINED encodedContentOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 #if TARGET_OS_OSX
 /*
@@ -377,7 +377,7 @@ OSStatus CMSEncode(
     const void *                content,
     size_t                      contentLen,
     CFDataRef * __nonnull CF_RETURNS_RETAINED encodedContentOut)    /* RETURNED */
-    API_DEPRECATED_WITH_REPLACEMENT("CMSEncodeContent", macos(10.5, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_DEPRECATED_WITH_REPLACEMENT("CMSEncodeContent", macos(10.5, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #endif // TARGET_OS_OSX
 
 /*
@@ -410,20 +410,20 @@ OSStatus CMSEncodeContent(
     const void              *content,
     size_t                  contentLen,
     CFDataRef * __nullable CF_RETURNS_RETAINED encodedContentOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 OSStatus CMSEncoderCopySignerTimestamp(
     CMSEncoderRef		cmsEncoder,
     size_t				signerIndex,        /* usually 0 */
     CFAbsoluteTime      *timestamp)			/* RETURNED */
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 OSStatus CMSEncoderCopySignerTimestampWithPolicy(
     CMSEncoderRef           cmsEncoder,
     CFTypeRef __nullable    timeStampPolicy,
     size_t                  signerIndex,        /* usually 0 */
     CFAbsoluteTime          *timestamp)			/* RETURNED */
-    API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 CF_ASSUME_NONNULL_END
 

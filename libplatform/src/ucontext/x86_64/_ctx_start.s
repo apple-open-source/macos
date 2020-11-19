@@ -79,10 +79,8 @@ LABEL(__ctx_start)
 	popq	%r9
 
 	callq	*%rax		/* call start function */
-	movq	%r12, %rsp	/*
-				 * setup stack for completion routine;
-				 * ucp is now at top of stack
-				 */
+	movq	%r12, %rsp	/* setup stack for completion routine;
+						   ucp is now at top of stack. r12 is calleee save */
 	movq	(%rsp), %rdi
 	CALL_EXTERN(__ctx_done)	/* should never return */
 	int $5				/* trap */

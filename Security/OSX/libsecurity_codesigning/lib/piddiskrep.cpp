@@ -86,10 +86,11 @@ PidDiskRep::fetchData(void)
 	xpc_release(request);
 	xpc_release(conn);
     
-    if (!mBundleURL)
+    if (!mBundleURL) {
         MacOSError::throwMe(errSecCSNoSuchCode);
-	
-	mDataFetched = true;
+    }
+
+    mDataFetched = true;
 }
 
 

@@ -3,7 +3,6 @@
 nso{
     AuxExemplarCharacters{"[c q v z]"}
     ExemplarCharacters{"[a b d e ê f g h i j k l m n o ô p r s š t u w x y]"}
-    ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z]"}
     NumberElements{
         latn{
             miscPatterns{
@@ -33,7 +32,7 @@ nso{
         }
         minimumGroupingDigits{"1"}
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -455,11 +454,5 @@ nso{
                 }
             }
         }
-    }
-    delimiters{
-        alternateQuotationEnd{"”"}
-        alternateQuotationStart{"“"}
-        quotationEnd{"’"}
-        quotationStart{"‘"}
     }
 }

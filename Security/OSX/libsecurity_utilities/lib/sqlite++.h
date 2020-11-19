@@ -50,11 +50,11 @@ public:
 	Error(Database &db);
 	Error(int err) : error(err) { }
 	Error(int err, const char *msg) : error(err), message(msg) { }
-	~Error() throw () { }
+	~Error() _NOEXCEPT { }
 	const int error;
 	const std::string message;
 	
-	const char *what() const throw () { return message.c_str(); }
+	const char *what() const _NOEXCEPT { return message.c_str(); }
     OSStatus osStatus() const;
 	int unixError() const;
 	

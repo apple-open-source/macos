@@ -432,7 +432,7 @@ platform_thread_get_state(platform_thread_t thread,
 						  size_t *size)
 {
 	kern_return_t ret;
-	mach_msg_type_number_t count = (int)*size / (int)sizeof(natural_t);
+	mach_msg_type_number_t count = (int)(*size / sizeof(natural_t));
 	ret = thread_get_state(thread->act, flavor, state, &count);
 	*size = count * sizeof(natural_t);
 	return ret;
@@ -445,7 +445,7 @@ platform_thread_set_state(platform_thread_t thread,
 						  size_t size)
 {
 	kern_return_t ret;
-	mach_msg_type_number_t count = (int)size / (int)sizeof(natural_t);
+	mach_msg_type_number_t count = (int)(size / sizeof(natural_t));
 	ret = thread_set_state(thread->act, flavor, (thread_state_t)state, count);
 	return ret;
 }

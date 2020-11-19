@@ -41,6 +41,7 @@
  * Network Entity Keys
  *
  *   kSCEntNetAppLayer                                  "AppLayer"                     CFDictionary
+ *   kSCEntNetCaptivePortal                             "CaptivePortal"                CFDictionary
  *   kSCEntNetCommCenter                                "com.apple.CommCenter"         CFDictionary
  *   kSCEntNetEAPOL                                     "EAPOL"                        CFDictionary
  *   kSCEntNetIdleRoute                                 "IdleRoute"
@@ -73,6 +74,10 @@
  *   kSCPropNetDNSConfirmedServiceID                    "ConfirmedServiceID"           CFString
  *   kSCPropNetDNSServiceIdentifier                     "ServiceIdentifier"            CFNumber
  *   kSCPropNetDNSSupplementalMatchDomainsNoSearch      "SupplementalMatchDomainsNoSearch" CFNumber (0 or 1)
+ *
+ * kSCEntNetCaptivePortal Entity Keys
+ *
+ *   kSCPropNetCaptivePortalURL                         "URL"                          CFString
  *
  * kSCEntNetEthernet (Hardware) Entity Keys
  *
@@ -109,6 +114,8 @@
  * kSCEntNetIPv4 Entity Keys
  *
  *   kSCPropNetIPv4AdditionalRoutes                     "AdditionalRoutes"             CFArray[CFDictionary]
+ *   kSCPropNetIPv4ARPResolvedHardwareAddress           "ARPResolvedHardwareAddress"   CFString
+ *   kSCPropNetIPv4ARPResolvedIPAddress                 "ARPResolvedIPAddress"         CFString
  *   kSCPropNetIPv4CLAT46                               "CLAT46"                       CFBoolean
  *   kSCPropNetIPv4ExcludedRoutes                       "ExcludedRoutes"               CFArray[CFDictionary]
  *   kSCPropNetIPv4IncludedRoutes                       "IncludedRoutes"               CFArray[CFDictionary]
@@ -121,9 +128,6 @@
  *   kSCPropNetIPv4RouteSubnetMask                      "SubnetMask"                   CFString
  *   kSCPropNetIPv4RouteGatewayAddress                  "GatewayAddress"               CFString
  *   kSCPropNetIPv4RouteInterfaceName                   "InterfaceName"                CFString
- *
- *   kSCPropNetIPv4ARPResolvedHardwareAddress           "ARPResolvedHardwareAddress"   CFString
- *   kSCPropNetIPv4ARPResolvedIPAddress                 "ARPResolvedIPAddress"         CFString
  *
  * kSCEntNetIPv6 Entity Keys
  *
@@ -382,6 +386,13 @@ extern const CFStringRef kSCEntNetAppLayer                                  API_
 #define kSCEntNetAppLayer kSCEntNetAppLayer
 
 /*!
+  @const kSCEntNetCaptivePortal
+  @discussion Value is a CFDictionary
+ */
+extern const CFStringRef kSCEntNetCaptivePortal                             SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0), bridgeos(5.0));
+#define kSCEntNetCaptivePortal kSCEntNetCaptivePortal
+
+/*!
   @const kSCEntNetCommCenter
   @discussion Value is a CFDictionary
  */
@@ -563,6 +574,17 @@ extern const CFStringRef kSCPropNetDNSSupplementalMatchDomainsNoSearch      API_
 #define kSCPropNetDNSSupplementalMatchDomainsNoSearch kSCPropNetDNSSupplementalMatchDomainsNoSearch
 
 /*!
+  @group kSCEntNetCaptivePortal Entity Keys
+ */
+
+/*!
+  @const kSCPropNetCaptivePortalURL
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetCaptivePortalURL                         SPI_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0), bridgeos(5.0));
+#define kSCPropNetCaptivePortalURL kSCPropNetCaptivePortalURL
+
+/*!
   @group kSCEntNetEthernet (Hardware) Entity Keys
  */
 
@@ -723,6 +745,20 @@ extern const CFStringRef kSCPropNetIPv4AdditionalRoutes                     API_
 #define kSCPropNetIPv4AdditionalRoutes kSCPropNetIPv4AdditionalRoutes
 
 /*!
+  @const kSCPropNetIPv4ARPResolvedHardwareAddress
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetIPv4ARPResolvedHardwareAddress           API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCPropNetIPv4ARPResolvedHardwareAddress kSCPropNetIPv4ARPResolvedHardwareAddress
+
+/*!
+  @const kSCPropNetIPv4ARPResolvedIPAddress
+  @discussion Value is a CFString
+ */
+extern const CFStringRef kSCPropNetIPv4ARPResolvedIPAddress                 API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
+#define kSCPropNetIPv4ARPResolvedIPAddress kSCPropNetIPv4ARPResolvedIPAddress
+
+/*!
   @const kSCPropNetIPv4CLAT46
   @discussion Value is a CFBoolean
  */
@@ -776,20 +812,6 @@ extern const CFStringRef kSCPropNetIPv4RouteGatewayAddress                  API_
  */
 extern const CFStringRef kSCPropNetIPv4RouteInterfaceName                   API_AVAILABLE(macos(10.10)) SPI_AVAILABLE(ios(8.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
 #define kSCPropNetIPv4RouteInterfaceName kSCPropNetIPv4RouteInterfaceName
-
-/*!
-  @const kSCPropNetIPv4ARPResolvedHardwareAddress
-  @discussion Value is a CFString
- */
-extern const CFStringRef kSCPropNetIPv4ARPResolvedHardwareAddress           API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
-#define kSCPropNetIPv4ARPResolvedHardwareAddress kSCPropNetIPv4ARPResolvedHardwareAddress
-
-/*!
-  @const kSCPropNetIPv4ARPResolvedIPAddress
-  @discussion Value is a CFString
- */
-extern const CFStringRef kSCPropNetIPv4ARPResolvedIPAddress                 API_AVAILABLE(macos(10.7)) SPI_AVAILABLE(ios(5.0), tvos(9.0), watchos(1.0), bridgeos(1.0));
-#define kSCPropNetIPv4ARPResolvedIPAddress kSCPropNetIPv4ARPResolvedIPAddress
 
 /*!
   @group kSCEntNetIPv6 Entity Keys

@@ -92,3 +92,6 @@ gen/FreeBSD/scandir_b.c	freebsd	lib/libc/gen/scandir_b.c	0127b103f27578fc7f9cc33
 gen/FreeBSD/seekdir.c	freebsd	lib/libc/gen/seekdir.c	74c1506b3359ee725c9031331908b717460830dc
 gen/FreeBSD/telldir.c	freebsd	lib/libc/gen/telldir.c	74c1506b3359ee725c9031331908b717460830dc
 net/inet_ntop.c freebsd lib/libc/inet/inet_ntop.c f0171d33b464dee5ac308f1d13ede2ddd9d030a7
+gen/FreeBSD/ualarm.c	freebsd lib/libc/gen/ualarm.c 377f319c60f3033b874d9f2f5d1abfa4925d87c5
+stdlib/FreeBSD/strtonum.3	freebsd	lib/libc/stdlib/strtonum.3	6e8f2d848769a398fecc80ef93840372e88ac7a8
+stdlib/FreeBSD/strtonum.c	freebsd	lib/libc/stdlib/strtonum.c	2db0fe8cf836ce66973bddba1140f9812a903a84

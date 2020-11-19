@@ -48,6 +48,7 @@
 #include "SOSAccountTesting.h"
 
 #include "SecdTestKeychainUtilities.h"
+#if SOS_ENABLED
 
 
 static void RegressionsLogError(CFErrorRef error) {
@@ -180,14 +181,16 @@ static void tests(void)
     CFReleaseNull(bobSideSession);
     CFReleaseNull(testError);
 }
+#endif
 
 int secd_70_otr_remote(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

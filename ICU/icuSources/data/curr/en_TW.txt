@@ -15,5 +15,5 @@ en_TW{
             "US Dollar",
         }
     }
-    Version{"2.1.32.59"}
+    Version{"36.1"}
 }

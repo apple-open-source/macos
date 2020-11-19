@@ -507,8 +507,9 @@ print_keychain_item_attributes(FILE *stream, SecKeychainItemRef item, Boolean sh
     fputs("version: ", stream);
     result = print_keychain_version(stream, keychain);
     fputc('\n', stream);
-    if (result)
+    if (result) {
         goto loser;
+    }
 
 	/* First find out the item class. */
 	status = SecKeychainItemCopyAttributesAndData(item, NULL, &itemClass, NULL, NULL, NULL);
@@ -903,7 +904,7 @@ fromHex(const char *hexDigits, CSSM_DATA *data)
 CFDataRef CF_RETURNS_RETAINED
 cfFromHex(CFStringRef hex) {
     // behavior is undefined if you pass in a non-hex string. Don't do that.
-    char* chex;
+    char* chex = NULL;
     size_t len;
 
     GetCStringFromCFString(hex, &chex, &len);
@@ -916,6 +917,7 @@ cfFromHex(CFStringRef hex) {
     CFDataIncreaseLength(bin, bytes);
 
     if(!bin || (size_t) CFDataGetLength(bin) != bytes) {
+        free(chex);
         CFReleaseNull(bin);
         return NULL;
     }
@@ -925,6 +927,7 @@ cfFromHex(CFStringRef hex) {
         data[i] = (uint8)(hexValue(chex[2*i]) << 4 | hexValue(chex[2*i+1]));
     }
 
+    free(chex);
     return bin;
 }
 

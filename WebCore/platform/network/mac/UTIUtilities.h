@@ -23,17 +23,15 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UTIUtilities_h
-#define UTIUtilities_h
+#pragma once
 
 #import <wtf/Forward.h>
-#import <wtf/RetainPtr.h>
 
 namespace WebCore {
+
 WEBCORE_EXPORT String MIMETypeFromUTI(const String&);
 String MIMETypeFromUTITree(const String&);
 WEBCORE_EXPORT String UTIFromMIMEType(const String&);
 bool isDeclaredUTI(const String&);
+WEBCORE_EXPORT String UTIFromTag(const String& tagClass, const String& tag, const String& conformingToUTI);
 }
-
-#endif // UTIUtilities_h

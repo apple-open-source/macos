@@ -29,7 +29,7 @@
 // FIXME: Remove NS_ASSUME_NONNULL_BEGIN/END and all _Nullable annotations once we remove the NSHTTPCookie forward declaration below.
 NS_ASSUME_NONNULL_BEGIN
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400 && __MAC_OS_X_VERSION_MAX_ALLOWED < 101500)
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED < 101500
 typedef NSString * NSHTTPCookieStringPolicy;
 @interface NSHTTPCookie (Staging)
 @property (nullable, readonly, copy) NSHTTPCookieStringPolicy sameSitePolicy;
@@ -84,7 +84,14 @@ static double cookieCreated(NSHTTPCookie *cookie)
     return 0;
 }
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || PLATFORM(IOS_FAMILY)
+static Optional<double> cookieExpiry(NSHTTPCookie *cookie)
+{
+    NSDate *expiryDate = cookie.expiresDate;
+    if (!expiryDate)
+        return WTF::nullopt;
+    return [expiryDate timeIntervalSince1970] * 1000.0;
+}
+
 static Cookie::SameSitePolicy coreSameSitePolicy(NSHTTPCookieStringPolicy _Nullable policy)
 {
     if (!policy)
@@ -112,7 +119,6 @@ static NSHTTPCookieStringPolicy _Nullable nsSameSitePolicy(Cookie::SameSitePolic
     ALLOW_NEW_API_WITHOUT_GUARDS_END
     }
 }
-#endif
 
 Cookie::Cookie(NSHTTPCookie *cookie)
     : name { cookie.name }
@@ -120,7 +126,7 @@ Cookie::Cookie(NSHTTPCookie *cookie)
     , domain { cookie.domain }
     , path { cookie.path }
     , created { cookieCreated(cookie) }
-    , expires { [cookie.expiresDate timeIntervalSince1970] * 1000.0 }
+    , expires { cookieExpiry(cookie) }
     , httpOnly { static_cast<bool>(cookie.HTTPOnly) }
     , secure { static_cast<bool>(cookie.secure) }
     , session { static_cast<bool>(cookie.sessionOnly) }
@@ -128,12 +134,10 @@ Cookie::Cookie(NSHTTPCookie *cookie)
     , commentURL { cookie.commentURL }
     , ports { portVectorFromList(cookie.portList) }
 {
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || PLATFORM(IOS_FAMILY)
     ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
     if ([cookie respondsToSelector:@selector(sameSitePolicy)])
         sameSite = coreSameSitePolicy(cookie.sameSitePolicy);
     ALLOW_NEW_API_WITHOUT_GUARDS_END
-#endif
 }
 
 Cookie::operator NSHTTPCookie * _Nullable () const
@@ -161,14 +165,12 @@ Cookie::operator NSHTTPCookie * _Nullable () const
     if (!value.isNull())
         [properties setObject:(NSString *)value forKey:NSHTTPCookieValue];
 
-    NSDate *expirationDate = [NSDate dateWithTimeIntervalSince1970:expires / 1000.0];
-    auto maxAge = ceil([expirationDate timeIntervalSinceNow]);
-    if (maxAge > 0)
-        [properties setObject:[NSString stringWithFormat:@"%f", maxAge] forKey:NSHTTPCookieMaximumAge];
+    if (expires) {
+        NSDate *expirationDate = [NSDate dateWithTimeIntervalSince1970:*expires / 1000.0];
+        [properties setObject:expirationDate forKey:NSHTTPCookieExpires];
+    }
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || PLATFORM(IOS_FAMILY)
-    [properties setObject:[NSNumber numberWithDouble:created / 1000.0 - NSTimeIntervalSince1970] forKey:@"Created"];
-#endif
+    [properties setObject:@(created / 1000.0 - NSTimeIntervalSince1970) forKey:@"Created"];
 
     auto* portString = portStringFromVector(ports);
     if (portString)
@@ -183,10 +185,8 @@ Cookie::operator NSHTTPCookie * _Nullable () const
     if (httpOnly)
         [properties setObject:@YES forKey:@"HttpOnly"];
 
-#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400) || PLATFORM(IOS_FAMILY)
     if (auto* sameSitePolicy = nsSameSitePolicy(sameSite))
         [properties setObject:sameSitePolicy forKey:@"SameSite"];
-#endif
 
     [properties setObject:@"1" forKey:NSHTTPCookieVersion];
 

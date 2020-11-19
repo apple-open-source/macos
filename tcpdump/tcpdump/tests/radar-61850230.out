@@ -1,0 +1,98 @@
+IP (tos 0x0, ttl 128, id 5015, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.1.53279 > 192.168.2.2.5201: Flags [S], seq 2065561102, win 65535, options [mss 8960,nop,wscale 2,nop,nop,sackOK], length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.2.5201 > 192.168.2.1.53279: Flags [S.], seq 2679990900, ack 2065561103, win 65535, options [mss 1410,nop,wscale 7,sackOK,eol], length 0
+IP (tos 0x0, ttl 128, id 5016, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.1.53279 > 192.168.2.2.5201: Flags [.], ack 1, win 53248, length 0
+IP (tos 0x0, ttl 128, id 5017, offset 0, flags [DF], proto TCP (6), length 77) 192.168.2.1.53279 > 192.168.2.2.5201: Flags [P.], seq 1:38, ack 1, win 53248, length 37
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53279: Flags [.], ack 38, win 2047, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 41) 192.168.2.2.5201 > 192.168.2.1.53279: Flags [P.], seq 1:2, ack 38, win 2048, length 1
+IP (tos 0x0, ttl 128, id 5018, offset 0, flags [DF], proto TCP (6), length 44) 192.168.2.1.53279 > 192.168.2.2.5201: Flags [P.], seq 38:42, ack 2, win 53247, length 4
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53279: Flags [.], ack 42, win 2047, length 0
+IP (tos 0x0, ttl 128, id 5019, offset 0, flags [DF], proto TCP (6), length 139) 192.168.2.1.53279 > 192.168.2.2.5201: Flags [P.], seq 42:141, ack 2, win 53247, length 99
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53279: Flags [.], ack 141, win 2047, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 41) 192.168.2.2.5201 > 192.168.2.1.53279: Flags [P.], seq 2:3, ack 141, win 2048, length 1
+IP (tos 0x0, ttl 128, id 5020, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.1.53280 > 192.168.2.2.5201: Flags [S], seq 4209796787, win 65535, options [mss 8960,nop,wscale 6,nop,nop,sackOK], length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [S.], seq 3445788380, ack 4209796788, win 65535, options [mss 1410,nop,wscale 6,sackOK,eol], length 0
+IP (tos 0x0, ttl 128, id 5021, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.1.53280 > 192.168.2.2.5201: Flags [.], ack 1, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5022, offset 0, flags [DF], proto TCP (6), length 77) 192.168.2.1.53280 > 192.168.2.2.5201: Flags [P.], seq 1:38, ack 1, win 56000, length 37
+IP (tos 0x0, ttl 128, id 5023, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.1.53281 > 192.168.2.2.5201: Flags [S], seq 4389985, win 65535, options [mss 8960,nop,wscale 6,nop,nop,sackOK], length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [.], ack 38, win 56002, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [S.], seq 2996564221, ack 4389986, win 65535, options [mss 1410,nop,wscale 6,sackOK,eol], length 0
+IP (tos 0x0, ttl 128, id 5024, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.1.53281 > 192.168.2.2.5201: Flags [.], ack 1, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5025, offset 0, flags [DF], proto TCP (6), length 77) 192.168.2.1.53281 > 192.168.2.2.5201: Flags [P.], seq 1:38, ack 1, win 56000, length 37
+IP (tos 0x0, ttl 128, id 5026, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [S], seq 430703334, win 65535, options [mss 8960,nop,wscale 6,nop,nop,sackOK], length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [.], ack 38, win 56002, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [S.], seq 3391904703, ack 430703335, win 65535, options [mss 1410,nop,wscale 6,sackOK,eol], length 0
+IP (tos 0x0, ttl 128, id 5027, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [.], ack 1, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5028, offset 0, flags [DF], proto TCP (6), length 77) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [P.], seq 1:38, ack 1, win 56000, length 37
+IP (tos 0x0, ttl 128, id 5029, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.1.53279 > 192.168.2.2.5201: Flags [.], ack 3, win 53247, length 0
+IP (tos 0x0, ttl 128, id 5030, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.1.53283 > 192.168.2.2.5201: Flags [S], seq 4104598516, win 65535, options [mss 8960,nop,wscale 6,nop,nop,sackOK], length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 38, win 56002, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.2.5201 > 192.168.2.1.53283: Flags [S.], seq 3070877709, ack 4104598517, win 65535, options [mss 1410,nop,wscale 6,sackOK,eol], length 0
+IP (tos 0x0, ttl 128, id 5031, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.1.53283 > 192.168.2.2.5201: Flags [.], ack 1, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5032, offset 0, flags [DF], proto TCP (6), length 77) 192.168.2.1.53283 > 192.168.2.2.5201: Flags [P.], seq 1:38, ack 1, win 56000, length 37
+IP (tos 0x0, ttl 128, id 5033, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.1.53284 > 192.168.2.2.5201: Flags [S], seq 2676868137, win 65535, options [mss 8960,nop,wscale 6,nop,nop,sackOK], length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53283: Flags [.], ack 38, win 56002, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 52) 192.168.2.2.5201 > 192.168.2.1.53284: Flags [S.], seq 140214428, ack 2676868138, win 65535, options [mss 1410,nop,wscale 6,sackOK,eol], length 0
+IP (tos 0x0, ttl 128, id 5034, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.1.53284 > 192.168.2.2.5201: Flags [.], ack 1, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5035, offset 0, flags [DF], proto TCP (6), length 77) 192.168.2.1.53284 > 192.168.2.2.5201: Flags [P.], seq 1:38, ack 1, win 56000, length 37
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53284: Flags [.], ack 38, win 56002, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 41) 192.168.2.2.5201 > 192.168.2.1.53279: Flags [P.], seq 3:4, ack 141, win 2048, length 1
+IP (tos 0x0, ttl 128, id 5036, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.1.53279 > 192.168.2.2.5201: Flags [.], ack 4, win 53247, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 41) 192.168.2.2.5201 > 192.168.2.1.53279: Flags [P.], seq 4:5, ack 141, win 2048, length 1
+IP (tos 0x0, ttl 128, id 5037, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53280 > 192.168.2.2.5201: Flags [.], seq 38:14138, ack 1, win 56000, length 14100
+IP (tos 0x0, ttl 128, id 5047, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53281 > 192.168.2.2.5201: Flags [.], seq 38:14138, ack 1, win 56000, length 14100
+IP (tos 0x0, ttl 128, id 5057, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [.], seq 38:14138, ack 1, win 56000, length 14100
+IP (tos 0x0, ttl 128, id 5067, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53283 > 192.168.2.2.5201: Flags [.], seq 38:14138, ack 1, win 56000, length 14100
+IP (tos 0x0, ttl 128, id 5077, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53284 > 192.168.2.2.5201: Flags [.], seq 38:14138, ack 1, win 56000, length 14100
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [.], ack 14138, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5087, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53281 > 192.168.2.2.5201: Flags [.], seq 14138:39518, ack 1, win 56000, length 25380
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [.], ack 14138, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 14138, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5105, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53280 > 192.168.2.2.5201: Flags [.], seq 14138:39518, ack 1, win 56000, length 25380
+IP (tos 0x0, ttl 128, id 5123, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [.], seq 14138:39518, ack 1, win 56000, length 25380
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53283: Flags [.], ack 14138, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5141, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53283 > 192.168.2.2.5201: Flags [.], seq 14138:39518, ack 1, win 56000, length 25380
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53284: Flags [.], ack 14138, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5159, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53284 > 192.168.2.2.5201: Flags [.], seq 14138:39518, ack 1, win 56000, length 25380
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 18368, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [.], ack 39518, win 55603, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [.], ack 39518, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5177, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [.], seq 39518:47978, ack 1, win 56000, length 8460
+IP (tos 0x0, ttl 128, id 5183, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53281 > 192.168.2.2.5201: Flags [.], seq 39518:76178, ack 1, win 56000, length 36660
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [.], ack 39518, win 55603, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [.], ack 39518, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5209, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53280 > 192.168.2.2.5201: Flags [.], seq 39518:76178, ack 1, win 56000, length 36660
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 39518, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53283: Flags [.], ack 24008, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53283: Flags [.], ack 39518, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53284: Flags [.], ack 39518, win 55603, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53284: Flags [.], ack 39518, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5258, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53283 > 192.168.2.2.5201: Flags [.], seq 39518:86048, ack 1, win 56000, length 46530
+IP (tos 0x0, ttl 128, id 5235, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [.], seq 47978:80408, ack 1, win 56000, length 32430
+IP (tos 0x0, ttl 128, id 5291, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53284 > 192.168.2.2.5201: Flags [.], seq 39518:76178, ack 1, win 56000, length 36660
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [.], ack 70538, win 55515, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [.], ack 76178, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 47978, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [.], ack 49388, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5317, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53281 > 192.168.2.2.5201: Flags [.], seq 76178:129758, ack 1, win 56000, length 53580
+IP (tos 0x0, ttl 128, id 5355, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [.], seq 80408:97328, ack 1, win 56000, length 16920
+IP (tos 0x0, ttl 128, id 5367, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53280 > 192.168.2.2.5201: Flags [.], seq 76178:95918, ack 1, win 56000, length 19740
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [.], ack 76178, win 55581, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [.], ack 76178, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 80408, win 55713, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 80408, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5381, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53280 > 192.168.2.2.5201: Flags [P.], seq 95918:133988, ack 1, win 56000, length 38070
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53283: Flags [.], ack 76178, win 55603, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53283: Flags [.], ack 76178, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5408, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [P.], seq 97328:141038, ack 1, win 56000, length 43710
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53284: Flags [.], ack 73358, win 55625, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53284: Flags [.], ack 73358, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5439, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53283 > 192.168.2.2.5201: Flags [P.], seq 86048:133988, ack 1, win 56000, length 47940
+IP (tos 0x0, ttl 128, id 5473, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53284 > 192.168.2.2.5201: Flags [.], seq 76178:121298, ack 1, win 56000, length 45120
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [.], ack 104378, win 55559, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53281: Flags [.], ack 104378, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 97328, win 55735, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53282: Flags [.], ack 97328, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53280: Flags [.], ack 86048, win 56000, length 0
+IP (tos 0x0, ttl 64, id 0, offset 0, flags [DF], proto TCP (6), length 40) 192.168.2.2.5201 > 192.168.2.1.53283: Flags [.], ack 86048, win 56000, length 0
+IP (tos 0x0, ttl 128, id 5505, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53281 > 192.168.2.2.5201: Flags [P.], seq 129758:169238, ack 1, win 56000, length 39480
+IP (tos 0x0, ttl 128, id 5533, offset 0, flags [DF], proto TCP (6), length 0) 192.168.2.1.53282 > 192.168.2.2.5201: Flags [.], seq 141038:169238, ack 1, win 56000, length 28200

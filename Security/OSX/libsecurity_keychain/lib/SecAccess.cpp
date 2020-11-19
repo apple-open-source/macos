@@ -34,6 +34,7 @@
 
 #include <utilities/SecCFWrappers.h>
 
+#include "LegacyAPICounts.h"
 
 /* No restrictions. Permission to perform all operations on
    the resource or available to an ACL owner.  */
@@ -289,6 +290,7 @@ OSStatus SecAccessCreateFromOwnerAndACL(const CSSM_ACL_OWNER_PROTOTYPE *owner,
 
 SecAccessRef SecAccessCreateWithOwnerAndACL(uid_t userId, gid_t groupId, SecAccessOwnerType ownerType, CFArrayRef acls, CFErrorRef *error)
 {
+	COUNTLEGACYAPI
 	SecAccessRef result = NULL;
 
 	CSSM_ACL_PROCESS_SUBJECT_SELECTOR selector =
@@ -416,6 +418,7 @@ OSStatus SecAccessGetOwnerAndACL(SecAccessRef accessRef,
 
 OSStatus SecAccessCopyOwnerAndACL(SecAccessRef accessRef, uid_t* userId, gid_t* groupId, SecAccessOwnerType* ownerType, CFArrayRef* aclList)
 {
+	COUNTLEGACYAPI
 	CSSM_ACL_OWNER_PROTOTYPE_PTR owner = NULL;
 	CSSM_ACL_ENTRY_INFO_PTR acls = NULL;
 	uint32 aclCount = 0;
@@ -532,6 +535,7 @@ OSStatus SecAccessCopySelectedACLList(SecAccessRef accessRef,
 
 CFArrayRef SecAccessCopyMatchingACLList(SecAccessRef accessRef, CFTypeRef authorizationTag)
 {
+	COUNTLEGACYAPI
 	CFArrayRef result = NULL;
 	CSSM_ACL_AUTHORIZATION_TAG tag = GetACLAuthorizationTagFromString((CFStringRef)authorizationTag);
 	OSStatus err = SecAccessCopySelectedACLList(accessRef, tag, &result);
@@ -564,8 +568,9 @@ CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trus
 
     // Make a bundle instance using the URLRef.
     secBundle = CFBundleCreate(kCFAllocatorDefault,bundleURL);
-    if (!secBundle)
+    if (!secBundle) {
         goto xit;
+    }
 
 	trustedAppListFileNameWithoutExtension =
 		CFStringCreateMutableCopy(NULL,CFStringGetLength(trustedAppListFileName),trustedAppListFileName);
@@ -575,11 +580,13 @@ CFArrayRef copyTrustedAppListFromBundle(CFStringRef bundlePath, CFStringRef trus
 
     // Look for a resource in the bundle by name and type
     trustedAppsURL = CFBundleCopyResourceURL(secBundle,trustedAppListFileNameWithoutExtension,CFSTR("plist"),NULL);
-    if (!trustedAppsURL)
+    if (!trustedAppsURL) {
         goto xit;
+    }
 
-	if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,trustedAppsURL,&xmlDataRef,NULL,NULL,&errorCode))
+    if (!CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,trustedAppsURL,&xmlDataRef,NULL,NULL,&errorCode)) {
         goto xit;
+    }
 
 	trustedAppsPlist = CFPropertyListCreateFromXMLData(kCFAllocatorDefault,xmlDataRef,kCFPropertyListImmutable,&errorString);
     trustedAppList = (CFArrayRef)trustedAppsPlist;
@@ -602,6 +609,7 @@ xit:
 
 OSStatus SecAccessCreateWithTrustedApplications(CFStringRef trustedApplicationsPListPath, CFStringRef accessLabel, Boolean allowAny, SecAccessRef* returnedAccess)
 {
+	COUNTLEGACYAPI
 	OSStatus err = errSecSuccess;
 	SecAccessRef accessToReturn=nil;
 	CFMutableArrayRef trustedApplications=nil;

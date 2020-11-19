@@ -2,14 +2,14 @@
  * Copyright (c) 2011-2018 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -32,8 +32,11 @@
 #define	JMP_d10_d11	#0x80
 #define	JMP_d12_d13	#0x90
 #define	JMP_d14_d15	#0xA0
-#define	JMP_sig		#0xB0
+#define	JMP_sigmask	#0xB0
 #define	JMP_sigflag	#0xB8
+#define	JMP_sigonstack	#0xBC /* whether the thread is on sigaltstack or not */
+
+#define STACK_SSFLAGS	16 // offsetof(stack_t, ss_flags)
 
 #include <architecture/arm/asm_help.h>
 #include <os/tsd.h>
@@ -77,6 +80,7 @@ ENTRY_POINT(__longjmp)
 	_OS_PTR_UNMUNGE(fp, x10, x16)
 	_OS_PTR_UNMUNGE(lr, x11, x16)
 	_OS_PTR_UNMUNGE(x12, x12, x16)
+	ldrb		w16, [sp]	/* probe to detect absolutely corrupt stack pointers */
 	mov		sp, x12
 	cmp		w1, #0
 	csinc	w0, w1, wzr, ne
@@ -92,15 +96,25 @@ ENTRY_POINT(_sigsetjmp)
 
 /* int setjmp(jmp_buf env); */
 ENTRY_POINT(_setjmp)
-	stp		x21, lr, [x0]
-	mov		x21, x0
+	stp		x21, lr, [x0] // Store x21 and lr in jmpbuf (for now)
+	mov		x21, x0		  // x21 = x0
 
-	orr		w0, wzr, #0x1
-	mov		x1, #0
-	add		x2, x21, JMP_sig
+	// Save the sigmask
+	orr		w0, wzr, #0x1 // x0 = how = SIG_BLOCK
+	mov		x1, #0		  // x1 = set = 0
+	add		x2, x21, JMP_sigmask // x2 = oset = (x21 + JMP_sigmask)
 	CALL_EXTERNAL(_sigprocmask)
 
-	mov		x0, x21
+	// Get current sigaltstack status
+	sub		sp, sp, #32 // 24 bytes for a stack_t on the stack, +8 for alignment of stack
+	mov		x0, xzr		// x0 = ss = NULL
+	mov		x1, sp		// x1 = oss = the place on the stack where the stack_t is located
+	CALL_EXTERNAL(___sigaltstack) // sigaltstack(NULL, oss)
+	ldr		w0, [sp, STACK_SSFLAGS] // w0 = ss flags from stack_t
+	str		w0, [x21, JMP_sigonstack] // *(x21 + JMP_sigonstack) = w0
+	add		sp, sp, #32	// Reset sp
+
+	mov		x0, x21		// x0 = x21
 	ldp		x21, lr, [x0]
 	b		__setjmp
 
@@ -118,12 +132,19 @@ ENTRY_POINT(_longjmp)
 	sub     sp, sp, #16
 	mov		x21, x0					// x21/x22 will be restored by __longjmp
 	mov		x22, x1
-	ldr		x8, [x21, JMP_sig]		// restore the signal mask
+
+	// Restore the signal mask
+	ldr		x8, [x21, JMP_sigmask]		// restore the signal mask
 	str     x8, [sp, #8]
 	orr     w0, wzr, #0x3			// SIG_SETMASK
 	add     x1, sp, #8				// set
 	mov		x2, #0					// oset
 	CALL_EXTERNAL(_sigprocmask)
+
+	// Restore the sigaltstack status
+	ldr		x0, [x21, JMP_sigonstack] // x0 = saved sigonstack info
+	CALL_EXTERNAL(__sigunaltstack)
+
 	mov		x0, x21
 	mov		x1, x22
 	add     sp, sp, #16

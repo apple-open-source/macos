@@ -58,7 +58,7 @@ public:
 
     VisiblePosition positionForPoint(const RenderText&, const LayoutPoint&) const;
 
-    void setSelectionState(RenderText&, RenderObject::SelectionState);
+    void setSelectionState(RenderText&, RenderObject::HighlightState);
     LayoutRect selectionRectForRange(unsigned start, unsigned end);
     void collectSelectionRectsForRange(unsigned start, unsigned end, Vector<LayoutRect>& rects);
 
@@ -66,10 +66,10 @@ public:
 
     enum ClippingOption { NoClipping, ClipToEllipsis };
     Vector<FloatQuad> absoluteQuads(const RenderText&, bool* wasFixed, ClippingOption) const;
-    Vector<FloatQuad> absoluteQuadsForRange(const RenderText&, unsigned start, unsigned end, bool useSelectionHeight, bool* wasFixed) const;
+    Vector<FloatQuad> absoluteQuadsForRange(const RenderText&, unsigned start, unsigned end, bool useSelectionHeight, bool ignoreEmptyTextSelections, bool* wasFixed) const;
     Vector<IntRect> absoluteRectsForRange(const RenderText&, unsigned start, unsigned end, bool useSelectionHeight, bool* wasFixed) const;
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     ~RenderTextLineBoxes();
 #endif
 

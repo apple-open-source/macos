@@ -458,13 +458,18 @@ SOSRingRef SOSAccountCreateBackupRingForView(SOSAccount* account, CFStringRef ri
     return newRing;
 }
 
-void SOSAccountProcessBackupRings(SOSAccount*  account, CFErrorRef *error) {
+void SOSAccountProcessBackupRings(SOSAccount*  account) {
     SOSAccountForEachBackupView(account, ^(const void *value) {
+        CFErrorRef localError = NULL;
         CFStringRef viewName = (CFStringRef)value;
-        SOSAccountUpdateBackupRing(account, viewName, error, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
+        SOSAccountUpdateBackupRing(account, viewName, &localError, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
             SOSRingRef newRing = SOSAccountCreateBackupRingForView(account, viewName, error);
             return newRing;
         });
+        if(localError) {
+            secnotice("ring", "Error during SOSAccountProcessBackupRings (%@)", localError);
+            CFReleaseNull(localError);
+        }
     });
 }
 
@@ -524,7 +529,9 @@ bool SOSAccountSetBackupPublicKey(SOSAccountTransaction* aTxn, CFDataRef cfBacku
     })){
         return result;
     }
-    SOSAccountProcessBackupRings(account, NULL);
+    SOSAccountProcessBackupRings(account);
+    account.need_backup_peers_created_after_backup_key_set = true;
+    account.circle_rings_retirements_need_attention = true;
     return true;
 
 }

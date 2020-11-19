@@ -55,7 +55,7 @@ usage_remove(void)
 	exit(1);
 }
 
-static void
+static int 
 rem(int fd)
 {
 	uuid_t uuid;
@@ -70,21 +70,21 @@ rem(int fd)
 	if (gpt == NULL) {
 		warnx("%s: error: no primary GPT header; run create or recover",
 		    device_name);
-		return;
+		return 1;
 	}
 
 	tpg = map_find(MAP_TYPE_SEC_GPT_HDR);
 	if (tpg == NULL) {
 		warnx("%s: error: no secondary GPT header; run recover",
 		    device_name);
-		return;
+		return 1;
 	}
 
 	tbl = map_find(MAP_TYPE_PRI_GPT_TBL);
 	lbt = map_find(MAP_TYPE_SEC_GPT_TBL);
 	if (tbl == NULL || lbt == NULL) {
 		warnx("%s: error: run recover -- trust me", device_name);
-		return;
+		return 1;
 	}
 
 	/* Remove all matching entries in the map. */
@@ -140,6 +140,7 @@ rem(int fd)
 		printf("%sp%u removed\n", device_name, m->map_index);
 #endif
 	}
+	return 0;
 }
 
 int
@@ -147,6 +148,7 @@ cmd_remove(int argc, char *argv[])
 {
 	char *p;
 	int ch, fd;
+	int ret = 0;
 
 	/* Get the remove options */
 	while ((ch = getopt(argc, argv, "ab:i:s:t:")) != -1) {
@@ -202,10 +204,10 @@ cmd_remove(int argc, char *argv[])
 			return (1);
 		}
 
-		rem(fd);
+		ret = rem(fd);
 
 		gpt_close(fd);
 	}
 
-	return (0);
+	return (ret);
 }

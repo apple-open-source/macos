@@ -215,13 +215,6 @@ static int string_to_log_level(CFStringRef string) {
         return -1;
 }
 
-static void CFSetAppendValues(CFSetRef set, CFMutableArrayRef appendTo)
-{
-    CFSetForEach(set, ^(const void *value) {
-        CFArrayAppendValue(appendTo, value);
-    });
-}
-
 static CFMutableArrayRef CFSetOfCFObjectsCopyValues(CFSetRef setOfCFs)
 {
     CFMutableArrayRef result = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
@@ -400,18 +393,6 @@ void __security_debug_init(void) {
     });
 }
 
-
-
-
-static char *copyScopeStr(CFStringRef scope, char *alternative) {
-    char *scopeStr = NULL;
-    if(scope) {
-        scopeStr = CFStringToCString(scope);
-    } else {
-        scopeStr = strdup("noScope");
-    }
-    return scopeStr;
-}
 
 os_log_t
 secLogObjForCFScope(CFStringRef scope)

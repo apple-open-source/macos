@@ -37,6 +37,7 @@
 #import "SecTask.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "SecEntitlements.h"
+#import <Security/SecXPCHelper.h>
 #import <SecurityFoundation/SFKeychain.h>
 #import <SecurityFoundation/SFCredential_Private.h>
 #import <SecurityFoundation/SFCredentialStore_Private.h>
@@ -104,6 +105,16 @@ static NSString* const SFCredentialSecretPassword = @"password";
 
     // wait a bit for shared function from SecurityFoundation to get to SDK, then addopt that
     NSXPCInterface* interface = [NSXPCInterface interfaceWithProtocol:@protocol(SFKeychainServerProtocol)];
+
+    NSSet<Class> *errorClasses = [SecXPCHelper safeErrorClasses];
+
+    [interface setClasses:errorClasses forSelector:@selector(rpcAddCredential:withAccessPolicy:reply:) argumentIndex:1 ofReply:YES];
+    [interface setClasses:errorClasses forSelector:@selector(rpcFetchPasswordCredentialForPersistentIdentifier:reply:) argumentIndex:2 ofReply:YES];
+    [interface setClasses:errorClasses forSelector:@selector(rpcLookupCredentialsForServiceIdentifiers:reply:) argumentIndex:1 ofReply:YES];
+    [interface setClasses:errorClasses forSelector:@selector(rpcRemoveCredentialWithPersistentIdentifier:reply:) argumentIndex:1 ofReply:YES];
+    [interface setClasses:errorClasses forSelector:@selector(rpcReplaceOldCredential:withNewCredential:reply:) argumentIndex:1 ofReply:YES];
+    [interface setClasses:errorClasses forSelector:@selector(rpcReplaceCredential:withNewCredential:reply:) argumentIndex:1 ofReply:YES];
+
     [interface setClasses:[NSSet setWithObjects:[NSArray class], [SFServiceIdentifier class], nil] forSelector:@selector(rpcLookupCredentialsForServiceIdentifiers:reply:) argumentIndex:0 ofReply:NO];
     [interface setClasses:[NSSet setWithObjects:[NSArray class], [SFPasswordCredential class], nil] forSelector:@selector(rpcLookupCredentialsForServiceIdentifiers:reply:) argumentIndex:0 ofReply:YES];
     newConnection.exportedInterface = interface;

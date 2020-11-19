@@ -285,6 +285,11 @@ void SecORVCConsumeOCSPResponse(SecORVCRef rvc, SecOCSPResponseRef ocspResponse 
                                         sr->certStatus == CS_Revoked ? SecOCSPResponseProducedAt(ocspResponse) : verifyTime), errOut);
 #endif
 
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(rvc->builder);
+    if (analytics && SecOCSPResponseIsWeakHash(ocspResponse)) {
+        analytics->ocsp_weak_hash = true;
+    }
+
     // If we get here, we have a properly signed ocsp response
     // but we haven't checked dates yet.
 
@@ -1017,12 +1022,16 @@ bool SecPathBuilderCheckRevocation(SecPathBuilderRef builder) {
          * This check resolves unrevocation events after the nextUpdate time. */
         bool old_cached_response = (!rvc->done && rvc->orvc->ocspResponse);
 
+        /* Check whether CA revocation additions match an issuer above us in this path.
+         * If so, we will attempt revocation checking below. */
+        bool has_ca_revocation = (certIX < SecCertificatePathVCIndexOfCAWithRevocationAdditions(path));
+
         /* If the cert is EV or if revocation checking was explicitly enabled, attempt to fire off an
          async http request for this cert's revocation status, unless we already successfully checked
          the revocation status of this cert based on the cache or stapled responses.  */
         bool allow_fetch = SecRevocationCanAccessNetwork(builder, first_check_done) &&
             (SecCertificatePathVCIsEV(path) || SecCertificatePathVCIsOptionallyEV(path) ||
-             SecPathBuilderGetRevocationMethod(builder) || old_cached_response);
+             SecPathBuilderGetRevocationMethod(builder) || old_cached_response || has_ca_revocation);
         if (rvc->done || !allow_fetch) {
             /* We got a cache hit or we aren't allowed to access the network */
             SecRVCUpdatePVC(rvc);

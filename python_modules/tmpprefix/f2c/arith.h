@@ -1,4 +1,4 @@
-#if defined(__x86_64__)
+#if defined(__x86_64__) || defined(__arm64__)
 #define IEEE_8087
 #define Arith_Kind_ASL 1
 #define Long int

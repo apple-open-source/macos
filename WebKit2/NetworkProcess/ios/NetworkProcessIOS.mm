@@ -30,7 +30,6 @@
 
 #import "NetworkCache.h"
 #import "NetworkProcessCreationParameters.h"
-#import "ResourceCachesToClear.h"
 #import "SandboxInitializationParameters.h"
 #import "SecItemShim.h"
 #import <WebCore/CertificateInfo.h>
@@ -61,17 +60,6 @@ void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo&
     [NSURLRequest setAllowsSpecificHTTPSCertificate:(NSArray *)certificateInfo.certificateChain() forHost:host];
 }
 
-void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
-{
-    ResourceCachesToClear resourceCachesToClear = static_cast<ResourceCachesToClear>(cachesToClear);
-    if (resourceCachesToClear == InMemoryResourceCachesOnly)
-        return;
-    forEachNetworkSession([](NetworkSession& session) {
-        if (auto* cache = session.cache())
-            cache->clear();
-    });
-}
-
 void NetworkProcess::platformInitializeNetworkProcess(const NetworkProcessCreationParameters& parameters)
 {
 #if ENABLE(SEC_ITEM_SHIM)
@@ -86,10 +74,26 @@ void NetworkProcess::platformTerminate()
     notImplemented();
 }
 
+static bool disableServiceWorkerEntitlementTestingOverride;
+
 bool NetworkProcess::parentProcessHasServiceWorkerEntitlement() const
 {
-    static bool hasEntitlement = WTF::hasEntitlement(parentProcessConnection()->xpcConnection(), "com.apple.developer.WebKit.ServiceWorkers");
+    if (disableServiceWorkerEntitlementTestingOverride)
+        return false;
+
+    static bool hasEntitlement = WTF::hasEntitlement(parentProcessConnection()->xpcConnection(), "com.apple.developer.WebKit.ServiceWorkers") || WTF::hasEntitlement(parentProcessConnection()->xpcConnection(), "com.apple.developer.web-browser");
     return hasEntitlement;
+}
+
+void NetworkProcess::disableServiceWorkerEntitlement()
+{
+    disableServiceWorkerEntitlementTestingOverride = true;
+}
+
+void NetworkProcess::clearServiceWorkerEntitlementOverride(CompletionHandler<void()>&& completionHandler)
+{
+    disableServiceWorkerEntitlementTestingOverride = false;
+    completionHandler();
 }
 
 } // namespace WebKit

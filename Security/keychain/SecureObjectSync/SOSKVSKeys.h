@@ -36,6 +36,7 @@ extern const CFStringRef kSOSKVSWroteLastKeyParams;
 extern const CFStringRef sCirclePrefix;
 extern const CFStringRef sRetirementPrefix;
 extern const CFStringRef sDebugInfoPrefix;
+extern const CFStringRef sRingPrefix;
 
 SOSKVSKeyType SOSKVSKeyGetKeyType(CFStringRef key);
 bool SOSKVSKeyParse(SOSKVSKeyType keyType, CFStringRef key, CFStringRef *circle, CFStringRef *peerInfo, CFStringRef *ring, CFStringRef *backupName, CFStringRef *from, CFStringRef *to);

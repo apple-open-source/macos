@@ -133,7 +133,7 @@ private:
     NEVER_INLINE UnexpectedResult WARN_UNUSED_RETURN validationFail(const Args&... args) const
     {
         using namespace FailureHelper; // See ADL comment in WasmParser.h.
-        if (UNLIKELY(!ASSERT_DISABLED && Options::crashOnFailedWebAssemblyValidate()))
+        if (UNLIKELY(ASSERT_ENABLED && Options::crashOnFailedWebAssemblyValidate()))
             WTFBreakpointTrap();
 
         StringPrintStream out;
@@ -214,7 +214,7 @@ template<typename Context>
 auto FunctionParser<Context>::parseBody() -> PartialResult
 {
     m_controlStack.append({ { }, { }, m_context.addTopLevel(&m_signature) });
-    uint8_t op;
+    uint8_t op = 0;
     while (m_controlStack.size()) {
         m_currentOpcodeStartingOffset = m_offset;
         WASM_PARSER_FAIL_IF(!parseUInt8(op), "can't decode opcode");
@@ -636,14 +636,12 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         size_t firstArgumentIndex = m_expressionStack.size() - argumentCount;
         for (size_t i = firstArgumentIndex; i < m_expressionStack.size(); ++i) {
             TypedExpression arg = m_expressionStack.at(i);
-            if (i < calleeSignature.argumentCount())
+            if (i < m_expressionStack.size() - 1)
                 WASM_VALIDATOR_FAIL_IF(!isSubtype(arg.type(), calleeSignature.argument(i - firstArgumentIndex)), "argument type mismatch in call_indirect, got ", arg.type(), ", expected ", calleeSignature.argument(i - firstArgumentIndex));
             args.uncheckedAppend(arg);
             m_context.didPopValueFromStack();
         }
         m_expressionStack.shrink(firstArgumentIndex);
-
-
 
         ResultList results;
         WASM_TRY_ADD_TO_CONTEXT(addCallIndirect(tableIndex, calleeSignature, args, results));

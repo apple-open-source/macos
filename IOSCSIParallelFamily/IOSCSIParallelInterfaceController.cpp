@@ -50,6 +50,8 @@
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 #include <IOKit/storage/IOStorageDeviceCharacteristics.h>
 
+#include "DriverKitKernelSupport/IOUserSCSIParallelInterfaceController.h"
+
 
 //-----------------------------------------------------------------------------
 //	Macros
@@ -74,13 +76,13 @@
 #if ( SCSI_PARALLEL_INTERFACE_CONTROLLER_DEBUGGING_LEVEL >= 2 )
 #define ERROR_LOG(x)		IOLog x
 #else
-#define ERROR_LOG(x)		
+#define ERROR_LOG(x)
 #endif
 
 #if ( SCSI_PARALLEL_INTERFACE_CONTROLLER_DEBUGGING_LEVEL >= 3 )
 #define STATUS_LOG(x)		IOLog x
 #else
-#define STATUS_LOG(x)		
+#define STATUS_LOG(x)
 #endif
 
 
@@ -200,7 +202,7 @@ IOSCSIParallelInterfaceController::handleIsOpen ( const IOService * client ) con
 		result = ( fClients->getCount ( ) > 0 ) ? true : false;
 	}
 	
-	STATUS_LOG ( ( "-IOSCSIParallelInterfaceController::handleIsOpen\n" ) );
+	STATUS_LOG ( ( "-IOSCSIParallelInterfaceController::handleIsOpen: result: %d\n", result ) );
 	
 	return result;
 	
@@ -215,10 +217,11 @@ bool
 IOSCSIParallelInterfaceController::start ( IOService * provider )
 {
 	
-	OSDictionary *	dict		= NULL;
-	OSDictionary *	copyDict	= NULL;
-	OSNumber *		number		= NULL;
-	bool			result		= false;
+	OSDictionary *							dict			= NULL;
+	OSDictionary *							copyDict		= NULL;
+	OSNumber *								number			= NULL;
+	bool									result			= false;
+	IOUserSCSIParallelInterfaceController * userController  = NULL;
 	
 	STATUS_LOG ( ( "IOSCSIParallelInterfaceController start.\n" ) );
 	
@@ -229,8 +232,15 @@ IOSCSIParallelInterfaceController::start ( IOService * provider )
 	
 	require_nonzero ( provider, PROVIDER_START_FAILURE );
 	
-	result = provider->open ( this );
-	require ( result, PROVIDER_START_FAILURE );
+	userController = OSDynamicCast ( IOUserSCSIParallelInterfaceController, this );
+	
+	// Dont call open() in the kernel in case of dexts. Dexts are required to do their
+	// own PCI session management.
+	if ( userController == NULL )
+	{
+		result = provider->open ( this );
+		require ( result, PROVIDER_START_FAILURE );
+	}
 	
 	fProvider					= provider;
 	fWorkLoop					= NULL;
@@ -498,17 +508,30 @@ IOSCSIParallelInterfaceController::willTerminate (
 	IOOptionBits		options )
 {
 	
-	SCSITargetIdentifier	index = 0;
+	SCSITargetIdentifier						index = 0;
+	bool										result;
+	IOUserSCSIParallelInterfaceController *		userController		= NULL;
 	
 	// Prevent any new requests from being sent to the controller.
 	fHBACanAcceptClientRequests = false;
 	
+	result = super::willTerminate ( provider, options );
+	
+	userController = OSDynamicCast ( IOUserSCSIParallelInterfaceController, this );
+	
 	for ( index = 0; index < fHighestSupportedDeviceID; index++ )
-	{		
+	{
+		
+		// Flush all outstanding tasks for this target in case we have dext running.
+		if ( userController != NULL )
+		{
+			CompleteOutstandingTasksForTargetID ( index );
+		}
+		
 		DestroyTargetForID ( index );
 	}
 	
-	return true;
+	return result;
 	
 }
 
@@ -530,7 +553,7 @@ IOSCSIParallelInterfaceController::didTerminate (
 		fProvider->close ( this );
 	}
 	
-	return true;
+	return super::didTerminate ( provider, options, defer );
 	
 }
 
@@ -830,9 +853,10 @@ bool
 IOSCSIParallelInterfaceController::CreateWorkLoop ( IOService * provider )
 {
 	
-	bool		result = false;
-	IOReturn	status = kIOReturnSuccess;
-	char		lockGroupName[64];
+	bool										result 				= false;
+	IOReturn									status 				= kIOReturnSuccess;
+	char										lockGroupName[64];
+	IOUserSCSIParallelInterfaceController *		userController		= NULL;
 	
 	bzero ( lockGroupName, sizeof ( lockGroupName ) );
 	
@@ -856,10 +880,14 @@ IOSCSIParallelInterfaceController::CreateWorkLoop ( IOService * provider )
 	require_success ( status, ADD_TES_FAILURE );
 	
 	// Ask the subclass to create the device interrupt.
-	fDispatchEvent = CreateDeviceInterrupt (
-		&IOSCSIParallelInterfaceController::ServiceInterrupt,
-		&IOSCSIParallelInterfaceController::FilterInterrupt,
-		provider );
+	userController = OSDynamicCast ( IOUserSCSIParallelInterfaceController, this );
+	if ( userController == NULL )
+	{
+		fDispatchEvent = CreateDeviceInterrupt (
+												&IOSCSIParallelInterfaceController::ServiceInterrupt,
+												&IOSCSIParallelInterfaceController::FilterInterrupt,
+												provider );
+	}
 	
 	// Virtual HBAs or HBAs that want to handle interrupts differently might
 	// return NULL. We'll allow that, but they'll have to deal with things
@@ -1035,8 +1063,6 @@ IOSCSIParallelInterfaceController::FreeSCSIParallelTask (
 
 	require_nonzero ( parallelTask, ERROR_EXIT_NULL_TASK );
 
-	parallelTask->SetSCSITaskIdentifier ( NULL );
-
 	status = parallelTask->clearMemoryDescriptor ( false );
 
 	if ( status != kIOReturnSuccess )
@@ -1044,10 +1070,12 @@ IOSCSIParallelInterfaceController::FreeSCSIParallelTask (
 
 		ERROR_LOG ( ( "FreeSCSIParallelTask: Task %p seems to be still active. "
 					"IODMACommand::complete ( ) may not have been called for "
-					"this task.", returnTask ) );
+					 "this task. status: 0x%x\n", returnTask, status ) );
 
 	}	
 
+	parallelTask->SetSCSITaskIdentifier ( NULL );
+	
 	fParallelTaskPool->returnCommand ( ( IOCommand * ) returnTask );
 	
 	return;
@@ -1237,6 +1265,7 @@ IOSCSIParallelInterfaceController::DeallocateSCSIParallelTasks ( void )
 	while ( parallelTask != NULL )
 	{
 		
+		OSSafeReleaseNULL ( parallelTask->fDextCompletion );
 		parallelTask->release ( );
 		parallelTask = ( SCSIParallelTask * ) fParallelTaskPool->getCommand ( false );
 		
@@ -1244,6 +1273,7 @@ IOSCSIParallelInterfaceController::DeallocateSCSIParallelTasks ( void )
 	
 	fParallelTaskPool->release ( );
 	fParallelTaskPool = NULL;
+	
 	
 	
 Exit:
@@ -1641,7 +1671,18 @@ IOSCSIParallelInterfaceController::HandleTimeout (
 						SCSIParallelTaskIdentifier			parallelRequest )
 {
 	
+	IODMACommand *	dmaCommand	= NULL;
+	
 	check ( parallelRequest != NULL );
+	
+	if ( GetDataTransferDirection ( parallelRequest ) != kSCSIDataTransfer_NoDataTransfer )
+	{
+		
+		dmaCommand = GetDMACommand ( parallelRequest );
+		dmaCommand->complete ( );
+		
+	}
+	
 	CompleteParallelTask ( 	parallelRequest,
 							kSCSITaskStatus_TaskTimeoutOccurred,
 							kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
@@ -1669,6 +1710,7 @@ IOSCSIParallelInterfaceController::CreateTargetForID (
 	OSDictionary *	dict 	= NULL;
 	bool			result	= false;
 	
+	STATUS_LOG ( ( "+CreateTargetForID \n" ) );
 	dict = OSDictionary::withCapacity ( 0 );
 	require_nonzero ( dict, DICT_CREATION_FAILED );
 	
@@ -1676,6 +1718,8 @@ IOSCSIParallelInterfaceController::CreateTargetForID (
 	
 	dict->release ( );
 	dict = NULL;
+	
+	STATUS_LOG ( ( "-CreateTargetForID returning %u\n", result ) );
 	
 	
 DICT_CREATION_FAILED:
@@ -2058,6 +2102,75 @@ IOSCSIParallelInterfaceController::RemoveDeviceFromTargetList (
 	victimDevice->SetPreviousDeviceInList ( NULL );
 	
 	IOSimpleLockUnlockEnableInterrupt ( fDeviceLock, lockState );
+	
+}
+
+
+//-----------------------------------------------------------------------------
+//	CompleteOutstandingTasksForTargetID - Flush all outstanding tasks for
+//										  target.
+//																	  [PRIVATE]
+//-----------------------------------------------------------------------------
+
+void
+IOSCSIParallelInterfaceController::CompleteOutstandingTasksForTargetID (
+												SCSIDeviceIdentifier targetID )
+{
+	
+	IOSCSIParallelInterfaceDevice *		victimDevice = NULL;
+	
+	victimDevice = GetTargetForID ( targetID );
+	if ( victimDevice != NULL )
+	{
+		fControllerGate->runAction (
+									OSMemberFunctionCast (
+														  IOCommandGate::Action,
+														  this,
+														  &IOSCSIParallelInterfaceController::CompleteOutstandingTasksForTarget ),
+									( void * ) victimDevice );
+	}
+	
+}
+
+
+//-----------------------------------------------------------------------------
+//	CompleteOutstandingTasksForTarget - Complete outstanding tasks for target.
+//																	  [PRIVATE]
+//-----------------------------------------------------------------------------
+
+void
+IOSCSIParallelInterfaceController::CompleteOutstandingTasksForTarget ( IOSCSIParallelInterfaceDevice *	device )
+{
+	SCSIParallelTask *	task 			= NULL;
+	
+	task = device->GetNextOutstandingTask ( );
+	while ( task != NULL )
+	{
+		
+		SCSIParallelTask *	tempTask = NULL;
+		while ( task->fTaskSubmitted != true )
+		{
+			fControllerGate->commandSleep ( &task->fTaskSubmitted, THREAD_UNINT );
+		}
+		
+		// In case this command returned an error, SendSCSICommand() will remove it
+		// from the outstanding task list and complete it. Check if the task is still
+		// present on the outstanding queue before completing it.
+		tempTask = ( SCSIParallelTask * ) device->FindTaskForControllerIdentifier ( task->GetControllerTaskIdentifier ( ) );
+		
+		if ( tempTask != NULL )
+		{
+			if ( task->GetDataTransferDirection ( ) != kSCSIDataTransfer_NoDataTransfer )
+			{
+				task->complete ( );
+			}
+			
+			CompleteParallelTask ( task, kSCSITaskStatus_DeviceNotPresent, kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE );
+		}
+		
+		task = device->GetNextOutstandingTask ( );
+		
+	}
 	
 }
 

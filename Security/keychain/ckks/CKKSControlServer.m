@@ -16,14 +16,14 @@
 #if OCTAGON
     NSNumber *num = [newConnection valueForEntitlement:(__bridge NSString *)kSecEntitlementPrivateCKKS];
     if (![num isKindOfClass:[NSNumber class]] || ![num boolValue]) {
-        secerror("ckks: Client pid: %d doesn't have entitlement: %@",
+        ckkserror_global("ckks", "Client pid: %d doesn't have entitlement: %@",
                 [newConnection processIdentifier], kSecEntitlementPrivateCKKS);
         return NO;
     }
 
     // In the future, we should consider vending a proxy object that can return a nicer error.
     if (!SecCKKSIsEnabled()) {
-        secerror("ckks: Client pid: %d attempted to use CKKS, but CKKS is not enabled.",
+        ckkserror_global("ckks", "Client pid: %d attempted to use CKKS, but CKKS is not enabled.",
                 newConnection.processIdentifier);
         return NO;
     }

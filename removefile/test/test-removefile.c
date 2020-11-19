@@ -101,14 +101,14 @@ int main(int argc, char *argv[]) {
 	assert((state = removefile_state_alloc()) != NULL);
 	assert(pthread_create(&thread, NULL, threadproc, state) == 0);
 	start_timer("removefile(state) with cancel");
-        assert(removefile_state_set(state, REMOVEFILE_STATE_ERROR_CALLBACK, removefile_error_callback) == 0);
-        assert(removefile_state_set(state, REMOVEFILE_STATE_ERROR_CONTEXT, (void*)4567) == 0);
+	assert(removefile_state_set(state, REMOVEFILE_STATE_ERROR_CALLBACK, removefile_error_callback) == 0);
+	assert(removefile_state_set(state, REMOVEFILE_STATE_ERROR_CONTEXT, (void*)4567) == 0);
 	assert(removefile("/tmp/removefile-test", state, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == -1 && errno == ECANCELED);
 	stop_timer();
 
-        start_timer("removefile(NULL)");
-        assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
-        stop_timer();
+	start_timer("removefile(NULL)");
+	assert(removefile("/tmp/removefile-test", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
+	stop_timer();
 
 	mkdirs();
 	assert(removefile_state_set(state, 1234567, (void*)1234567) == -1 && errno == EINVAL);
@@ -132,5 +132,22 @@ int main(int argc, char *argv[]) {
 	assert(removefile("/tmp/removefile-test", state, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
 	stop_timer();
 
+	int fd;
+	mkdirs();
+	assert((fd = open("/tmp/removefile-test", O_RDONLY)) != -1);
+
+	start_timer("removefileat(NULL)");
+	assert(removefileat(fd, "/tmp/removefile-test/foo/baz/woot", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
+	assert(removefileat(fd, "../removefile-test/foo/baz", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
+	assert(removefileat(fd, "foo/bar", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
+	assert(removefileat(fd, "./foo", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
+	char path[1024];
+	memset_pattern4(path, "././", 1000);
+	path[1000] = NULL;
+	assert(removefileat(fd, path, NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == -1 && errno == ENAMETOOLONG);
+	assert(removefileat(AT_FDCWD, "/tmp/removefile-test", NULL, REMOVEFILE_SECURE_1_PASS | REMOVEFILE_RECURSIVE) == 0);
+	stop_timer();
+
+	close(fd);
 	return 0;
 }

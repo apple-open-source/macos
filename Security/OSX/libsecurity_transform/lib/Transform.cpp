@@ -156,9 +156,11 @@ SecTransformAttributeRef Transform::getAH(SecTransformStringOrAttributeRef attri
 	SecTransformAttributeRef search_for = pthread_getspecific(ah_search_key_slot);
 	if (!search_for)
 	{
-		search_for = makeAH((transform_attribute*)malloc(sizeof(transform_attribute)));
+		transform_attribute* ta = (transform_attribute*)malloc(sizeof(transform_attribute));
+		search_for = makeAH(ta);
 		if (!search_for)
 		{
+			free(ta);
 			return NULL;
 		}
 		
@@ -185,12 +187,14 @@ SecTransformAttributeRef Transform::getAH(SecTransformStringOrAttributeRef attri
 		ah = makeAH(ta);
 		if (!ah)
 		{
+			free(ta);
 			return NULL;
 		}
 		
 		ta->name = CFStringCreateCopy(NULL, label);
 		if (!ta->name)
 		{
+			CFRelease(ah);
 			free(ta);
 			return NULL;
 		}
@@ -200,6 +204,7 @@ SecTransformAttributeRef Transform::getAH(SecTransformStringOrAttributeRef attri
 		{
 			CFReleaseNull(ta->name);
 			free(ta);
+			CFRelease(ah);
 			return NULL;
 		}
 		
@@ -265,7 +270,7 @@ bool Transform::HasNoOutboundConnections()
 {
 	// make an array big enough to hold all of the attributes
 	CFIndex numAttributes = CFSetGetCount(mAttributes);
-	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute));
+	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute*));
 	
 	if (attributes == NULL) {
 		// No more memory, we assume it's orphaned
@@ -296,7 +301,7 @@ bool Transform::HasNoInboundConnections()
 {
 	// make an array big enough to hold all of the attributes
 	CFIndex numAttributes = CFSetGetCount(mAttributes);
-	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute));
+	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute*));
 	
 	if (attributes == NULL) {
 		// No more memory, we assume it's orphaned
@@ -1622,7 +1627,7 @@ CFDictionaryRef Transform::GetAHDictForSaveState(SecTransformStringOrAttributeRe
 CFDictionaryRef Transform::CopyState()
 {
 	CFIndex i, j, cnt = CFSetGetCount(mAttributes);
-	transform_attribute **attrs = (transform_attribute**)malloc(cnt*sizeof(transform_attribute));
+	transform_attribute **attrs = (transform_attribute**)malloc(cnt*sizeof(transform_attribute*));
 	CFStringRef *names = (CFStringRef*)malloc(cnt*sizeof(CFStringRef));
 	CFDictionaryRef *values = (CFDictionaryRef*)malloc(sizeof(CFDictionaryRef) * cnt);
     
@@ -1819,7 +1824,7 @@ CFErrorRef Transform::ProcessExternalize(CFMutableArrayRef transforms, CFMutable
 	
 	// now walk the attribute list
 	CFIndex numAttributes = CFSetGetCount(mAttributes);
-	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute));
+	transform_attribute **attributes = (transform_attribute**)malloc(numAttributes*sizeof(transform_attribute*));
 	
 	if (attributes == NULL) {
 		return GetNoMemoryErrorAndRetain();

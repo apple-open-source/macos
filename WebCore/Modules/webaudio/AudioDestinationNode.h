@@ -27,16 +27,15 @@
 #include "AudioBus.h"
 #include "AudioIOCallback.h"
 #include "AudioNode.h"
+#include "ExceptionOr.h"
 #include <wtf/Function.h>
 
 namespace WebCore {
 
-class AudioContext;
-
 class AudioDestinationNode : public AudioNode, public AudioIOCallback {
     WTF_MAKE_ISO_ALLOCATED(AudioDestinationNode);
 public:
-    AudioDestinationNode(AudioContext&, float sampleRate);
+    explicit AudioDestinationNode(BaseAudioContext&);
     virtual ~AudioDestinationNode();
     
     // AudioNode   
@@ -45,7 +44,7 @@ public:
     
     // The audio hardware calls render() to get the next render quantum of audio into destinationBus.
     // It will optionally give us local/live audio input in sourceBus (if it's not 0).
-    void render(AudioBus* sourceBus, AudioBus* destinationBus, size_t numberOfFrames) override;
+    void render(AudioBus* sourceBus, AudioBus* destinationBus, size_t numberOfFrames, const AudioIOPosition& outputPosition) override;
 
     size_t currentSampleFrame() const { return m_currentSampleFrame; }
     double currentTime() const { return currentSampleFrame() / static_cast<double>(sampleRate()); }
@@ -55,7 +54,7 @@ public:
     // Enable local/live input for the specified device.
     virtual void enableInput(const String& inputDeviceId) = 0;
 
-    virtual void startRendering() = 0;
+    virtual ExceptionOr<void> startRendering() = 0;
     virtual void resume(WTF::Function<void ()>&&) { }
     virtual void suspend(WTF::Function<void ()>&&) { }
     virtual void close(WTF::Function<void ()>&&) { }

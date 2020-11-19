@@ -17,14 +17,14 @@ class ProxyXPCConnection: NSObject, NSXPCListenerDelegate {
         self.listener.resume()
     }
 
-    public func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
+    func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
         newConnection.exportedInterface = self.serverInterface
         newConnection.exportedObject = self.obj
         newConnection.resume()
         return true
     }
 
-    public func connection() -> NSXPCConnection {
+    func connection() -> NSXPCConnection {
         let connection = NSXPCConnection(listenerEndpoint: self.listener.endpoint)
         connection.remoteObjectInterface = self.serverInterface
         connection.resume()

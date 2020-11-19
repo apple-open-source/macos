@@ -180,6 +180,8 @@ dt_pcb_pop(dtrace_hdl_t *dtp, int err)
 	free(pcb->pcb_sflagv);
 
 	dtp->dt_pcb = pcb->pcb_prev;
+
+	yyfini(pcb);
 	bzero(pcb, sizeof (dt_pcb_t));
 	yyinit(dtp->dt_pcb);
 }

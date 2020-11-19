@@ -48,7 +48,7 @@
 #include <security_utilities/simpleprefs.h>
 #include <securityd_client/dictionary.h>
 #include <securityd_client/ssclient.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <dlfcn.h>
 #include <libproc.h>
 #include <syslog.h>
@@ -108,7 +108,7 @@ static bool tsUserTrustSettingsDisabled()
 	Dictionary* dictionary = Dictionary::CreateDictionary(kSecTrustSettingsPrefsDomain, Dictionary::US_System);
 	if (dictionary)
 	{
-		auto_ptr<Dictionary> prefsDict(dictionary);
+		unique_ptr<Dictionary> prefsDict(dictionary);
 		/* this returns false if the pref isn't there, just like we want */
 		tsUserTrustDisable = prefsDict->getBoolValue(kSecTrustSettingsDisableUserTrustSettings);
 	}
@@ -348,7 +348,7 @@ static OSStatus tsCopyTrustSettings(
 		return result;
 	}
 
-	auto_ptr<TrustSettings>_(ts); // make sure this gets deleted just in case something throws underneath
+	unique_ptr<TrustSettings>_(ts); // make sure this gets deleted just in case something throws underneath
 
 	if(trustSettings) {
 		*trustSettings = ts->copyTrustSettings(cert);
@@ -358,6 +358,59 @@ static OSStatus tsCopyTrustSettings(
 	}
 
 	END_RCSAPI
+}
+
+/*
+ * Common code for SecTrustSettingsCopyTrustSettings(),
+ * SecTrustSettingsCopyModificationDate().
+ */
+static OSStatus tsCopyTrustSettings_cached(
+    SecCertificateRef cert,
+    SecTrustSettingsDomain domain,
+    CFArrayRef CF_RETURNS_RETAINED *trustSettings)
+{
+    BEGIN_RCSAPI
+
+    TS_REQUIRED(cert)
+
+    StLock<Mutex>    _(sutCacheLock());
+    TrustSettings* ts = tsGetGlobalTrustSettings(domain);
+
+    // rather than throw these results, just return them because we are at the top level
+    if (ts == NULL) {
+        return errSecItemNotFound;
+    }
+
+    if(trustSettings) {
+        *trustSettings = ts->copyTrustSettings(cert);
+    }
+
+    END_RCSAPI
+}
+
+static OSStatus tsContains(
+    SecCertificateRef cert,
+    SecTrustSettingsDomain domain)
+{
+    BEGIN_RCSAPI
+
+    TS_REQUIRED(cert)
+
+    StLock<Mutex>    _(sutCacheLock());
+    TrustSettings* ts = tsGetGlobalTrustSettings(domain);
+
+    // rather than throw these results, just return them because we are at the top level
+    if (ts == NULL) {
+        return errSecItemNotFound;
+    }
+
+    if (ts->contains(cert)) {
+        return errSecSuccess;
+    } else {
+        return errSecItemNotFound;
+    }
+
+    END_RCSAPI
 }
 
 static void tsAddConditionalCerts(CFMutableArrayRef certArray);
@@ -727,7 +780,7 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
 		return result;
 	}
 
-	auto_ptr<TrustSettings>_(ts);
+	unique_ptr<TrustSettings>_(ts);
 
 	if(certRef != NULL) {
 		ts->setTrustSettings(certRef, trustSettingsDictOrArray);
@@ -736,6 +789,25 @@ OSStatus SecTrustSettingsSetTrustSettingsExternal(
 	return errSecSuccess;
 
 	END_RCSAPI
+}
+
+void SecTrustSettingsPurgeCache(void) {
+    tsPurgeCache();
+}
+
+OSStatus SecTrustSettingsCopyTrustSettings_Cached(
+    SecCertificateRef certRef,
+    SecTrustSettingsDomain domain,
+    CFArrayRef CF_RETURNS_RETAINED *trustSettings)                /* RETURNED */
+{
+    TS_REQUIRED(certRef)
+    TS_REQUIRED(trustSettings)
+
+    OSStatus result = tsCopyTrustSettings_cached(certRef, domain, trustSettings);
+    if (result == errSecSuccess && *trustSettings == NULL) {
+        result = errSecItemNotFound; /* documented result if no trust settings exist */
+    }
+    return result;
 }
 
 #pragma mark --- API functions ---
@@ -792,7 +864,7 @@ OSStatus SecTrustSettingsSetTrustSettings(
 		return result;
 	}
 
-	auto_ptr<TrustSettings>_(ts);
+	unique_ptr<TrustSettings>_(ts);
 
 	ts->setTrustSettings(certRef, trustSettingsDictOrArray);
 	ts->flushToDisk();
@@ -822,7 +894,7 @@ OSStatus SecTrustSettingsRemoveTrustSettings(
 		return result;
 	}
 
-	auto_ptr<TrustSettings>_(ts);
+	unique_ptr<TrustSettings>_(ts);
 
 	/* deleteTrustSettings throws if record not found */
 	trustSettingsDbg("SecTrustSettingsRemoveTrustSettings: deleting from domain %d",
@@ -854,7 +926,7 @@ OSStatus SecTrustSettingsCopyCertificates(
 		return status;
 	}
 
-	auto_ptr<TrustSettings>_(ts);
+	unique_ptr<TrustSettings>_(ts);
 
 	CFMutableArrayRef outArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     
@@ -1003,6 +1075,16 @@ OSStatus SecTrustSettingsCopyCertificatesForUserAdminDomains(
     return result;
 }
 
+bool SecTrustSettingsUserAdminDomainsContain(SecCertificateRef certRef)
+{
+    TS_REQUIRED(certRef)
+    if (tsContains(certRef, kSecTrustSettingsDomainAdmin) == errSecSuccess ||
+        tsContains(certRef, kSecTrustSettingsDomainUser) == errSecSuccess) {
+        return true;
+    }
+    return false;
+}
+
 /*
  * Obtain an external, portable representation of the specified
  * domain's TrustSettings. Caller must CFRelease the returned data.
@@ -1023,7 +1105,7 @@ OSStatus SecTrustSettingsCreateExternalRepresentation(
 		return result;
 	}
 
-	auto_ptr<TrustSettings>_(ts);
+	unique_ptr<TrustSettings>_(ts);
 
 	*trustSettings = ts->createExternal();
 	return errSecSuccess;
@@ -1053,7 +1135,7 @@ OSStatus SecTrustSettingsImportExternalRepresentation(
 		return result;
 	}
 
-	auto_ptr<TrustSettings>_(ts);
+	unique_ptr<TrustSettings>_(ts);
 
 	ts->flushToDisk();
 	tsTrustSettingsChanged();

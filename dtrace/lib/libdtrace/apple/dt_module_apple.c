@@ -13,6 +13,7 @@
 #endif /* DTRACE_USE_CORESYMBOLICATION */
 
 #include <libkern/OSAtomic.h>
+#include <sys/kas_info.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/types.h>
@@ -21,6 +22,8 @@
 #include <dt_module.h>
 #include <dt_impl.h>
 #include <assert.h>
+
+#include <mach-o/nlist.h>
 
 extern int _dtrace_argmax; /* maximum probe arguments */
 
@@ -145,6 +148,106 @@ dtrace_kernel_symbolicator(bool with_slide) {
 	return *symbolicator_ptr;
 }
 #endif /* DTRACE_USE_CORESYMBOLICATION */
+
+static uint8_t
+dt_module_nsects(struct load_command *cmd)
+{
+	if (cmd->cmd == LC_SEGMENT_64) {
+		struct segment_command_64 *seg = (struct segment_command_64*) cmd;
+		return seg->nsects;
+	} else if (cmd->cmd == LC_SEGMENT) {
+		struct segment_command *seg = (struct segment_command*) cmd;
+		return seg->nsects;
+	}
+	return 0;
+}
+
+static uint64_t
+dt_module_cmd_vmaddr(struct load_command *cmd)
+{
+	if (cmd->cmd == LC_SEGMENT_64) {
+		struct segment_command_64 *seg = (struct segment_command_64*) cmd;
+		return seg->vmaddr;
+	} else if (cmd->cmd == LC_SEGMENT) {
+		struct segment_command *seg = (struct segment_command*) cmd;
+		return seg->vmaddr;
+	}
+	return 0;
+}
+
+uint64_t dt_module_sym_location(dt_module_t *dmp, uint8_t sect, uint64_t value)
+{
+#if DTRACE_USE_CORESYMBOLICATION
+	static struct load_command *cmd;
+	static uint64_t *segs = NULL;
+	static uint32_t nsegs = 0;
+	struct load_command *cur;
+	uint8_t sects = 0;
+
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{
+		int err;
+		size_t size;
+		if ((err = kas_info(KAS_INFO_KERNEL_SEGMENT_VMADDR_SELECTOR, NULL, &size)) != 0) {
+			dt_dprintf("KAS_INFO_KERNEL_SEGMENT_VMADDR for size failed: %d", errno);
+			return;
+		}
+		nsegs = size / sizeof(uint64_t);
+		segs = calloc(nsegs, sizeof(uint64_t));
+		if ((err = kas_info(KAS_INFO_KERNEL_SEGMENT_VMADDR_SELECTOR, segs, &size)) != 0) {
+			dt_dprintf("KAS_INFO_KERNEL_SEGMENT_VMADDR failed: %d", errno);
+			nsegs = 0;
+			free(segs);
+			segs = NULL;
+			return;
+		}
+
+		uint32_t *magic = (uint32_t*)elf_getimage(dmp->dm_elf, NULL);
+		switch (*magic) {
+		case MH_MAGIC:
+		case MH_CIGAM: {
+			struct mach_header *header = (struct mach_header*)elf_getimage(dmp->dm_elf, NULL);
+			nsegs = header->ncmds;
+			cmd = (struct load_command*)&header[1];
+		}
+		break;
+		case MH_MAGIC_64:
+		case MH_CIGAM_64: {
+			struct mach_header_64 *header = (struct mach_header_64*)elf_getimage(dmp->dm_elf, NULL);
+			nsegs = header->ncmds;
+			cmd = (struct load_command*)&header[1];
+		}
+		break;
+		default:
+			dt_dprintf("kernel image has invalid magic: %ux", *magic);
+			return;
+		}
+		/*
+		 * Account for LC_UUID / LC_SYMTAB commands in front of the actual segments
+		 * in dSYM / static kernelcache symbol files
+		 */
+		while (cmd->cmd != LC_SEGMENT && cmd->cmd != LC_SEGMENT_64) {
+			cmd = (struct load_command *) ((uintptr_t) cmd + cmd->cmdsize);
+		}
+	});
+
+	if (!segs) {
+		return value;
+	}
+
+	cur = cmd;
+	for (uint8_t i = 0; i < nsegs; i++) {
+		sects += dt_module_nsects(cur);
+		if (sect < sects) {
+			return value - dt_module_cmd_vmaddr(cur) + segs[i];
+		}
+		cur = (struct load_command *) ((uintptr_t) cur + cur->cmdsize);
+	}
+#endif /* DTRACE_USE_CORESYMBOLICATION */
+	return value;
+}
+
+
 int
 dtrace_kernel_path(char *kernel_path, size_t max_length) {
 	assert(kernel_path);

@@ -74,7 +74,7 @@ CGFloat adjustedFontSize(CGFloat textWidth, UIFont *font, CGFloat initialFontSiz
     }
 
     RetainPtr<NSObject <WKFormControl>> control;
-    if (currentUserInterfaceIdiomIsPad())
+    if (currentUserInterfaceIdiomIsPadOrMac())
         control = adoptNS([[WKSelectPopover alloc] initWithView:view hasGroups:hasGroups]);
     else if (view.focusedElementInformation.isMultiSelect || hasGroups)
         control = adoptNS([[WKMultipleSelectPicker alloc] initWithView:view]);
@@ -99,6 +99,12 @@ CGFloat adjustedFontSize(CGFloat textWidth, UIFont *font, CGFloat initialFontSiz
     if (![self.control isKindOfClass:[WKSelectPopover class]])
         return nil;
     return [(WKSelectPopover *)self.control tableViewController].title;
+}
+
+- (BOOL)selectFormAccessoryHasCheckedItemAtRow:(long)rowIndex
+{
+    return [self.control respondsToSelector:@selector(selectFormAccessoryHasCheckedItemAtRow:)]
+        && [id<WKSelectTesting>(self.control) selectFormAccessoryHasCheckedItemAtRow:rowIndex];
 }
 
 @end

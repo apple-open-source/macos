@@ -205,7 +205,7 @@ unsigned long long
 #ifndef LIBC_ALIAS_SYSTEM
 //End-Libc
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 #define __swift_unavailable_on(osx_msg, ios_msg) __swift_unavailable(ios_msg)
 #else
 #define __swift_unavailable_on(osx_msg, ios_msg) __swift_unavailable(osx_msg)
@@ -441,6 +441,9 @@ int	 sradixsort(const unsigned char **__base, int __nel, const unsigned char *__
 void	 sranddev(void);
 void	 srandomdev(void);
 void	*reallocf(void *__ptr, size_t __size) __alloc_size(2);
+long long
+	strtonum(const char *__numstr, long long __minval, long long __maxval, const char **__errstrp)
+	__API_AVAILABLE(macos(10.16), ios(14.0), tvos(14.0), watchos(7.0));
 #endif /* UNIFDEF_DRIVERKIT */
 #if !__DARWIN_NO_LONG_LONG
 long long

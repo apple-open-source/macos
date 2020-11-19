@@ -24,14 +24,12 @@
 #include <wtf/text/AtomStringTable.h>
 
 #include <wtf/HashSet.h>
-#include <wtf/MainThread.h>
-#include <wtf/Threading.h>
 
 namespace WTF {
 
 AtomStringTable::~AtomStringTable()
 {
-    for (auto* string : m_table)
+    for (const PackedPtr<StringImpl>& string : m_table)
         string->setIsAtom(false);
 }
 

@@ -85,7 +85,7 @@ ActiveDOMObject::~ActiveDOMObject()
 
 void ActiveDOMObject::suspendIfNeeded()
 {
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     ASSERT(!m_suspendIfNeededWasCalled);
     m_suspendIfNeededWasCalled = true;
 #endif
@@ -95,23 +95,16 @@ void ActiveDOMObject::suspendIfNeeded()
     m_scriptExecutionContext->suspendActiveDOMObjectIfNeeded(*this);
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 
 void ActiveDOMObject::assertSuspendIfNeededWasCalled() const
 {
-#if !ASSERT_DISABLED
     if (!m_suspendIfNeededWasCalled)
         WTFLogAlways("Failed to call suspendIfNeeded() for %s", activeDOMObjectName());
-#endif
     ASSERT(m_suspendIfNeededWasCalled);
 }
 
-#endif
-
-bool ActiveDOMObject::hasPendingActivity() const
-{
-    return m_pendingActivityCount;
-}
+#endif // ASSERT_ENABLED
 
 void ActiveDOMObject::suspend(ReasonForSuspension)
 {
@@ -151,13 +144,13 @@ public:
         , m_target(target)
         , m_event(WTFMove(event))
     {
-        ++m_object.m_pendingActivityCount;
+        ++m_object.m_pendingActivityInstanceCount;
     }
 
     ~ActiveDOMObjectEventDispatchTask()
     {
-        ASSERT(m_object.m_pendingActivityCount);
-        --m_object.m_pendingActivityCount;
+        ASSERT(m_object.m_pendingActivityInstanceCount);
+        --m_object.m_pendingActivityInstanceCount;
     }
 
     void execute() final { m_target->dispatchEvent(m_event.get()); }

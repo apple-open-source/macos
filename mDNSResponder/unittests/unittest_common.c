@@ -117,48 +117,6 @@ mDNSexport void receive_response(const request_state* req, DNSMessage *msg, size
 	mDNSCoreReceive(m, msg, end, &srcaddr, srcport, &primary_v4, dstport, primary_interfaceID);
 }
 
-mDNSexport void receive_suspicious_response_ut(const request_state* req, DNSMessage *msg, size_t msgSize, mDNSOpaque16 suspiciousqid, mDNSBool goodLastQID)
-{
-    mDNS *m = &mDNSStorage;
-    mDNSAddr srcaddr;
-    mDNSIPPort srcport, dstport;
-    const mDNSu8 * end;
-    DNSQuestion *q = (DNSQuestion *)&req->u.queryrecord.op.q;
-    UInt8* data = (UInt8*)msg;
-
-    // Used same values for DNS server as specified during init of unit test
-    srcaddr.type                = mDNSAddrType_IPv4;
-    srcaddr.ip.v4.NotAnInteger    = dns_server_ipv4.NotAnInteger;
-    srcport.NotAnInteger        = client_resp_src_port;
-
-    // Used random value for dstport
-    dstport.NotAnInteger = swap16((mDNSu16)client_resp_dst_port);
-
-    // Set DNS message (that was copied from a WireShark packet)
-    end = (const mDNSu8 *)msg + msgSize;
-
-    // Set socket info that mDNSCoreReceive uses to verify socket context
-    q->LocalSocket->ss.port.NotAnInteger = swap16((mDNSu16)client_resp_dst_port);
-    if (suspiciousqid.NotAnInteger)
-    {
-        q->TargetQID.NotAnInteger = swap16(suspiciousqid.NotAnInteger);
-        if (goodLastQID)
-        {
-            q->LastTargetQID.b[0] = data[0];
-            q->LastTargetQID.b[1] = data[1];
-        }
-        else q->LastTargetQID.NotAnInteger = 0;
-    }
-    else
-    {
-        q->TargetQID.b[0] = data[0];
-        q->TargetQID.b[1] = data[1];
-    }
-
-    // Execute mDNSCoreReceive which copies two DNS records into the cache
-    mDNSCoreReceive(m, msg, end, &srcaddr, srcport, &primary_v4, dstport, primary_interfaceID);
-}
-
 mDNSexport  size_t get_reply_len(char* name, uint16_t rdlen)
 {
 	size_t len = sizeof(DNSServiceFlags);

@@ -179,8 +179,8 @@ public:
 	void postItemEvent (SecKeychainEvent theEvent);
 
 	// Only call these functions while holding globals().apiLock.
-	bool inCache() const throw() { return mInCache; }
-	void inCache(bool inCache) throw() { mInCache = inCache; }
+	bool inCache() const _NOEXCEPT { return mInCache; }
+	void inCache(bool inCache) _NOEXCEPT { mInCache = inCache; }
 
 	/* For binding to extended attributes. */
 	virtual const CssmData &itemID();
@@ -222,7 +222,7 @@ protected:
 
 	// new item members
 	RefPointer<CssmDataContainer> mData;
-	auto_ptr<CssmClient::DbAttributes> mDbAttributes;
+	unique_ptr<CssmClient::DbAttributes> mDbAttributes;
 	SecPointer<Access> mAccess;
 
 	// db item members

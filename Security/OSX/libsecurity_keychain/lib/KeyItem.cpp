@@ -75,7 +75,7 @@ KeyItem *KeyItem::optional(SecKeyRef ptr)
     }
 }
 
-KeyItem::operator CFTypeRef() const throw()
+KeyItem::operator CFTypeRef() const _NOEXCEPT
 {
     StMaybeLock<Mutex> _(this->getMutexForObject());
 
@@ -758,8 +758,8 @@ KeyItem::createPair(
             pubKeyHash.set(*pubKeyHashData);
             passThrough.allocator().free(pubKeyHashData);
 
-            auto_ptr<string> privDescription;
-            auto_ptr<string> pubDescription;
+            unique_ptr<string> privDescription;
+            unique_ptr<string> pubDescription;
             try {
                 privDescription.reset(new string(initialAccess->promptDescription()));
                 pubDescription.reset(new string(initialAccess->promptDescription()));
@@ -997,8 +997,8 @@ KeyItem::importPair(
 		csp.allocator().free(cssmData->Data);
 		csp.allocator().free(cssmData);
 
-		auto_ptr<string>privDescription;
-		auto_ptr<string>pubDescription;
+		unique_ptr<string>privDescription;
+		unique_ptr<string>pubDescription;
 		try {
 			privDescription.reset(new string(initialAccess->promptDescription()));
 			pubDescription.reset(new string(initialAccess->promptDescription()));

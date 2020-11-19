@@ -55,7 +55,7 @@ kdc_openlog(krb5_context context,
 	krb5_config_free_strings(s);
     }else {
 	char *ss = NULL;
-	asprintf(&ss, "0-1/%s", DEFAULT_KDC_LOG_DEST);
+	asprintf(&ss, "0-10/%s", DEFAULT_KDC_LOG_DEST);
 	krb5_addlog_dest(context, config->logf, ss);
 	free(ss);
     }

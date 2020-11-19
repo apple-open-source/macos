@@ -55,13 +55,14 @@ static bool isSiblingOrSubject(MatchElement matchElement)
     return false;
 }
 
-RuleFeature::RuleFeature(const RuleData& ruleData, Optional<MatchElement> matchElement, const CSSSelector* invalidationSelector)
+RuleFeature::RuleFeature(const RuleData& ruleData, Optional<MatchElement> matchElement)
     : styleRule(&ruleData.styleRule())
     , selectorIndex(ruleData.selectorIndex())
     , selectorListIndex(ruleData.selectorListIndex())
     , matchElement(matchElement)
-    , invalidationSelector(invalidationSelector)
 {
+    ASSERT(selectorIndex == ruleData.selectorIndex());
+    ASSERT(selectorListIndex == ruleData.selectorListIndex());
 }
 
 MatchElement RuleFeatureSet::computeNextMatchElement(MatchElement matchElement, CSSSelector::RelationType relation)
@@ -152,7 +153,8 @@ void RuleFeatureSet::recursivelyCollectFeaturesFromSelector(SelectorFeatures& se
             default:
                 break;
             }
-        }
+        } else if (selector->match() == CSSSelector::PseudoClass)
+            selectorFeatures.pseudoClasses.append(std::make_pair(selector->pseudoClassType(), matchElement));
 
         if (!selectorFeatures.hasSiblingSelector && selector->isSiblingSelector())
             selectorFeatures.hasSiblingSelector = true;
@@ -193,10 +195,17 @@ void RuleFeatureSet::collectFeatures(const RuleData& ruleData)
         auto* selector = selectorAndMatch.first;
         auto matchElement = selectorAndMatch.second;
         attributeRules.ensure(selector->attribute().localName().convertToASCIILowercase(), [] {
-            return makeUnique<Vector<RuleFeature>>();
+            return makeUnique<Vector<RuleFeatureWithInvalidationSelector>>();
         }).iterator->value->append({ ruleData, matchElement, selector });
         if (matchElement == MatchElement::Host)
             attributesAffectingHost.add(selector->attribute().localName().convertToASCIILowercase());
+    }
+    for (auto& keyAndMatch : selectorFeatures.pseudoClasses) {
+        pseudoClassRules.ensure(keyAndMatch.first, [] {
+            return makeUnique<Vector<RuleFeature>>();
+        }).iterator->value->append({ ruleData, keyAndMatch.second });
+        if (keyAndMatch.second == MatchElement::Host)
+            pseudoClassesAffectingHost.add(keyAndMatch.first);
     }
 }
 
@@ -218,10 +227,17 @@ void RuleFeatureSet::add(const RuleFeatureSet& other)
 
     for (auto& keyValuePair : other.attributeRules) {
         attributeRules.ensure(keyValuePair.key, [] {
-            return makeUnique<Vector<RuleFeature>>();
+            return makeUnique<Vector<RuleFeatureWithInvalidationSelector>>();
         }).iterator->value->appendVector(*keyValuePair.value);
     }
     attributesAffectingHost.add(other.attributesAffectingHost.begin(), other.attributesAffectingHost.end());
+
+    for (auto& keyValuePair : other.pseudoClassRules) {
+        pseudoClassRules.ensure(keyValuePair.key, [] {
+            return makeUnique<Vector<RuleFeature>>();
+        }).iterator->value->appendVector(*keyValuePair.value);
+    }
+    pseudoClassesAffectingHost.add(other.pseudoClassesAffectingHost.begin(), other.pseudoClassesAffectingHost.end());
 
     usesFirstLineRules = usesFirstLineRules || other.usesFirstLineRules;
     usesFirstLetterRules = usesFirstLetterRules || other.usesFirstLetterRules;
@@ -247,6 +263,8 @@ void RuleFeatureSet::clear()
     classesAffectingHost.clear();
     attributeRules.clear();
     attributesAffectingHost.clear();
+    pseudoClassRules.clear();
+    pseudoClassesAffectingHost.clear();
     usesFirstLineRules = false;
     usesFirstLetterRules = false;
 }
@@ -258,6 +276,8 @@ void RuleFeatureSet::shrinkToFit()
     for (auto& rules : classRules.values())
         rules->shrinkToFit();
     for (auto& rules : attributeRules.values())
+        rules->shrinkToFit();
+    for (auto& rules : pseudoClassRules.values())
         rules->shrinkToFit();
 }
 

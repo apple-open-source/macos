@@ -1,7 +1,6 @@
 #if OCTAGON
 
 extension OctagonPairingTests {
-
     func assertSOSSuccess() {
         XCTAssertNotNil(self.fcInitiator?.accountPrivateKey, "no accountPrivateKey in fcInitiator")
         XCTAssertNotNil(self.fcAcceptor?.accountPrivateKey, "no accountPrivateKey in fcAcceptor")
@@ -1398,7 +1397,6 @@ extension OctagonPairingTests {
          self.assertConsidersSelfTrusted(context: initiatorContext)
          */
     }
-
 }
 
 #endif

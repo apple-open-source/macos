@@ -774,7 +774,7 @@ AS_HELP_STRING([--with-term-lib=LIBS],[search space-separated LIBS for terminal 
   termcap_curses_order="$withval"
   AC_SEARCH_LIBS(tigetstr, [$termcap_curses_order])
 else
-  termcap_curses_order="$ncursesw_test tinfo termcap $ncurses_test curses"
+  termcap_curses_order="$ncursesw_test $ncurses_test tinfow tinfo termcap curses"
 fi],
 [case "$host_os" in
   solaris*)
@@ -783,7 +783,7 @@ fi],
    DL_EXT="${DL_EXT=sl}"
    termcap_curses_order="Hcurses $ncursesw_test $ncurses_test curses termcap" ;;
   *)
-   termcap_curses_order="$ncursesw_test tinfo termcap $ncurses_test curses" ;;
+   termcap_curses_order="$ncursesw_test $ncurses_test tinfow tinfo termcap curses" ;;
 esac])dnl
 
 AH_TEMPLATE([ZSH_NO_XOPEN],
@@ -807,6 +807,8 @@ dnl That's so that on systems where termcap and [n]curses are
 dnl both available and both contain termcap functions, while
 dnl only [n]curses contains terminfo functions, we only link against
 dnl [n]curses.
+LIBS_save_pre_term="$LIBS"
+AC_SEARCH_LIBS(tigetstr, [$termcap_curses_order])
 AC_SEARCH_LIBS(tigetflag, [$termcap_curses_order])
 AC_SEARCH_LIBS(tgetent, [$termcap_curses_order],
   true,
@@ -831,7 +833,56 @@ AC_CACHE_CHECK(if we need to ignore ncurses, zsh_cv_ignore_ncurses,
   zsh_cv_ignore_ncurses=no
   ;;
   *)
-  zsh_cv_ignore_ncurses=yes
+    dnl The lack of -lncurses in the $LIBS might be the result of passing
+    dnl --with-term-lib=^ncurses option. To address this, a test for the tgetent
+    dnl and other functions is ran here, possibly for the second time, just to
+    dnl ensure that the ncurses library doesn't have them.
+    LIBS_save="$LIBS"
+    dnl Remember (the values are used later, around line 3005) and remove the cache
+    ac_cv_search_tigetstr_SAVE="$ac_cv_search_tigetstr"
+    ac_cv_search_tigetnum_SAVE="$ac_cv_search_tigetnum"
+    ac_cv_search_tigetflag_SAVE="$ac_cv_search_tigetflag"
+    ac_cv_search_tgetent_SAVE="$ac_cv_search_tgetent"
+    unset ac_cv_search_tigetstr ac_cv_search_tigetnum ac_cv_search_tigetflag ac_cv_search_tgetent
+    LIBS="$LIBS_save_pre_term"
+
+    dnl Run the checks for all four used terminal functions
+    AC_SEARCH_LIBS(tigetstr, [ncursesw ncurses curses])
+    AC_SEARCH_LIBS(tigetnum, [ncursesw ncurses curses])
+    AC_SEARCH_LIBS(tigetflag, [ncursesw ncurses curses])
+    AC_SEARCH_LIBS(tgetent, [ncursesw ncurses curses])
+    LIBS_result="$LIBS"
+
+    LIBS="$LIBS_save"
+    dnl Restore the cache
+    ac_cv_search_tigetstr="$ac_cv_search_tigetstr_SAVE"
+    ac_cv_search_tigetnum="$ac_cv_search_tigetnum_SAVE"
+    ac_cv_search_tigetflag="$ac_cv_search_tigetflag_SAVE"
+    ac_cv_search_tgetent="$ac_cv_search_tgetent_SAVE"
+
+    case $LIBS_result in
+      *-lncurses*|*-lcurses*)
+        dnl Yes we need to ignore ncurses, its tgetent or tigetflag might
+        dnl conflict with the one from the selected terminal library
+        zsh_cv_ignore_ncurses=yes
+        ;;
+      *)
+        dnl If the tgetent nor tigetflag weren't found in the libncurses*.so, then
+        dnl there will be no conflict with the other terminal library selected (e.g.
+        dnl libtinfo) and it's possible to link ncurses provided that it is working
+        dnl - it is here verified that it has initscr() function to check that
+        AC_SEARCH_LIBS(initscr, [ncursesw ncurses curses])
+        case $LIBS in
+          *-lncurses*|*-lcurses*)
+            dnl No need to ignore curses - it is working and it doesn't
+            dnl have tgetent nor tigetflag
+            zsh_cv_ignore_ncurses=no
+          ;;
+          *)
+            zsh_cv_ignore_ncurses=yes
+          ;;
+        esac
+    esac
   ;;
 esac])
 
@@ -1881,6 +1932,7 @@ zsh_LIMIT_PRESENT(RLIMIT_POSIXLOCKS)
 zsh_LIMIT_PRESENT(RLIMIT_NPTS)
 zsh_LIMIT_PRESENT(RLIMIT_SWAP)
 zsh_LIMIT_PRESENT(RLIMIT_KQUEUES)
+zsh_LIMIT_PRESENT(RLIMIT_UMTXP)
 
 AH_TEMPLATE([RLIMIT_VMEM_IS_RSS],
 [Define to 1 if RLIMIT_VMEM and RLIMIT_RSS both exist and are equal.])
@@ -2008,17 +2060,9 @@ dnl be good enough.
 AH_TEMPLATE([PATH_DEV_FD],
 [Define to the path of the /dev/fd filesystem.])
 AC_CACHE_CHECK(for /dev/fd filesystem, zsh_cv_sys_path_dev_fd,
-[if test "$host_os" = cygwin; then
-dnl In current (2008/12/01) versions of Cygwin these are present but don't
-dnl seem to work smoothly for process substitution; no great surprise
-dnl since getting processes to work at all on Cygwin is a big challenge.
-dnl We'll rely on FIFOs, since they do what we need.
-zsh_cv_sys_path_dev_fd=no
-else
 [for zsh_cv_sys_path_dev_fd in /proc/self/fd /dev/fd no; do
    test x`echo ok|(exec 3<&0; cat $zsh_cv_sys_path_dev_fd/3 2>/dev/null;)` = xok && break
- done]
-fi])
+ done])
 if test x$zsh_cv_sys_path_dev_fd != xno; then
   AC_DEFINE_UNQUOTED(PATH_DEV_FD, "$zsh_cv_sys_path_dev_fd")
 fi
@@ -2088,6 +2132,10 @@ AC_CACHE_CHECK(for NIS, zsh_cv_sys_nis,
 zsh_cv_sys_nis=yes || zsh_cv_sys_nis=no])
 if test x$zsh_cv_sys_nis = xyes; then
   AC_DEFINE(HAVE_NIS)
+dnl RPC is removed from glibc-2.26 and replaced by libtirpc
+  AC_CHECK_HEADER(rpc/rpc.h, [],
+  [test -f /usr/include/tirpc/rpc/rpc.h && \
+   CPPFLAGS="$CPPFLAGS -I/usr/include/tirpc"])
 dnl Some systems (Solaris 2.x, Linux Redhat 5.x) require
 dnl libnsl (Network Services Library) to find yp_all
   AC_SEARCH_LIBS(yp_all, nsl)
@@ -2205,14 +2253,9 @@ dnl -----------
 dnl named FIFOs
 dnl -----------
 dnl
-dnl Named FIFOs work well enough on recent versions of Cygwin
-dnl to provide what we want.  Simply enable them.
 AC_CACHE_CHECK(if named FIFOs work,
 zsh_cv_sys_fifo,
-[if test "$host_os" = cygwin; then
-zsh_cv_sys_fifo=yes
-else
-AC_RUN_IFELSE([AC_LANG_SOURCE([[
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
 #include <fcntl.h>
 #include <signal.h>
 main()
@@ -2240,7 +2283,7 @@ main()
     exit(ret);
 }
 ]])],[zsh_cv_sys_fifo=yes],[zsh_cv_sys_fifo=no],[zsh_cv_sys_fifo=yes])
-fi])
+])
 AH_TEMPLATE([HAVE_FIFOS],
 [Define to 1 if system has working FIFOs.])
 if test x$zsh_cv_sys_fifo = xyes; then

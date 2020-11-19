@@ -222,9 +222,7 @@ static LayoutUnit resolveLogicalHeightForRow(const Length& rowLogicalHeight)
 
 LayoutUnit RenderTableSection::calcRowLogicalHeight()
 {
-#ifndef NDEBUG
-    SetLayoutNeededForbiddenScope layoutForbiddenScope(this);
-#endif
+    SetLayoutNeededForbiddenScope layoutForbiddenScope(*this);
 
     ASSERT(!needsLayout());
 
@@ -538,9 +536,7 @@ void RenderTableSection::relayoutCellIfFlexed(RenderTableCell& cell, int rowInde
 
 void RenderTableSection::layoutRows()
 {
-#ifndef NDEBUG
-    SetLayoutNeededForbiddenScope layoutForbiddenScope(this);
-#endif
+    SetLayoutNeededForbiddenScope layoutForbiddenScope(*this);
 
     ASSERT(!needsLayout());
 
@@ -647,7 +643,7 @@ void RenderTableSection::computeOverflowFromCells(unsigned totalRows, unsigned n
     unsigned totalCellsCount = nEffCols * totalRows;
     unsigned maxAllowedOverflowingCellsCount = totalCellsCount < gMinTableSizeToUseFastPaintPathWithOverflowingCell ? 0 : gMaxAllowedOverflowingCellRatioForFastPaintPath * totalCellsCount;
 
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     bool hasOverflowingCell = false;
 #endif
     // Now that our height has been determined, add in overflow from cells.
@@ -660,7 +656,7 @@ void RenderTableSection::computeOverflowFromCells(unsigned totalRows, unsigned n
             if (r < totalRows - 1 && cell == primaryCellAt(r + 1, c))
                 continue;
             addOverflowFromChild(cell);
-#ifndef NDEBUG
+#if ASSERT_ENABLED
             hasOverflowingCell |= cell->hasVisualOverflow();
 #endif
             if (cell->hasVisualOverflow() && !m_forceSlowPaintPathWithOverflowingCell) {

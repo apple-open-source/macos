@@ -14,6 +14,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Tranforms text from one format to another.
@@ -27,7 +29,6 @@
 #include "unicode/utrans.h" // UTransPosition, UTransDirection
 #include "unicode/strenum.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class UnicodeFilter;
@@ -1586,8 +1587,9 @@ inline Transliterator::Token Transliterator::pointerToken(void* p) {
 #endif  /* U_HIDE_INTERNAL_API */
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_TRANSLITERATION */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

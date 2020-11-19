@@ -332,7 +332,7 @@ fsck_logging_thread(void *arg)
 	    }
 	}	    
 
-	copy_amt = (cur_in_mem_log - in_mem_log);
+	copy_amt = (int)(cur_in_mem_log - in_mem_log);
 	if (copy_amt == 0) {
 	    pthread_mutex_unlock(&mem_buf_lock);
 	    continue;
@@ -399,7 +399,7 @@ fsck_printing_thread(void *arg)
 	    }
 	}	    
 
-	copy_amt = (cur_in_mem_out - in_mem_out);
+	copy_amt = (int)(cur_in_mem_out - in_mem_out);
 	if (copy_amt == 0) {
 	    pthread_mutex_unlock(&mem_buf_lock);
 	    continue;

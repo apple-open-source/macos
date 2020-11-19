@@ -39,12 +39,18 @@
 #include <Security/AuthorizationTagsPriv.h>
 #include <Security/Authorization.h>
 #include "TokenLogin.h"
+#include "LegacyAPICounts.h"
+
+extern "C" {
+#include "ctkloginhelper.h"
+}
 
 OSStatus
 SecKeychainMDSInstall()
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainMDSInstall", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainMDSInstall", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -68,6 +74,7 @@ SecKeychainGetTypeID(void)
 OSStatus
 SecKeychainGetVersion(UInt32 *returnVers)
 {
+    COUNTLEGACYAPI
     if (!returnVers)
 		return errSecSuccess;
 
@@ -80,7 +87,8 @@ OSStatus
 SecKeychainOpen(const char *pathName, SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainOpen", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainOpen", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -89,38 +97,13 @@ SecKeychainOpen(const char *pathName, SecKeychainRef *keychainRef)
 	END_SECAPI
 }
 
-
-OSStatus
-SecKeychainOpenWithGuid(const CSSM_GUID *guid, uint32 subserviceId, uint32 subserviceType, const char* dbName,
-						const CSSM_NET_ADDRESS *dbLocation, SecKeychainRef *keychain)
-{
-    BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainOpenWithGuid", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
-    os_activity_scope(activity);
-    os_release(activity);
-
-	// range check parameters
-	RequiredParam (guid);
-	RequiredParam (dbName);
-	
-	// create a DLDbIdentifier that describes what should be opened
-    const CSSM_VERSION *version = NULL;
-    const CssmSubserviceUid ssuid(*guid, version, subserviceId, subserviceType);
-	DLDbIdentifier dLDbIdentifier(ssuid, dbName, dbLocation);
-	
-	// make a keychain from the supplied info
-	RequiredParam(keychain) = globals().storageManager.makeKeychain(dLDbIdentifier, false, false)->handle ();
-
-	END_SECAPI
-}
-
-
 OSStatus
 SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void *password,
 	Boolean promptUser, SecAccessRef initialAccess, SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCreate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCreate", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
     
@@ -147,7 +130,8 @@ OSStatus
 SecKeychainDelete(SecKeychainRef keychainOrArray)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainDelete", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainDelete", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -165,7 +149,8 @@ OSStatus
 SecKeychainSetSettings(SecKeychainRef keychainRef, const SecKeychainSettings *newSettings)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainSetSettings", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainSetSettings", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -185,7 +170,8 @@ OSStatus
 SecKeychainCopySettings(SecKeychainRef keychainRef, SecKeychainSettings *outSettings)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCopySettings", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCopySettings", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -208,7 +194,8 @@ OSStatus
 SecKeychainUnlock(SecKeychainRef keychainRef, UInt32 passwordLength, const void *password, Boolean usePassword)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainUnlock", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainUnlock", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -227,7 +214,8 @@ OSStatus
 SecKeychainLock(SecKeychainRef	keychainRef)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainLock", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainLock", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -242,7 +230,8 @@ OSStatus
 SecKeychainLockAll(void)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainLockAll", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainLockAll", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -255,7 +244,8 @@ SecKeychainLockAll(void)
 OSStatus SecKeychainResetLogin(UInt32 passwordLength, const void* password, Boolean resetSearchList)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainResetLogin", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainResetLogin", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
         //
@@ -322,7 +312,8 @@ OSStatus
 SecKeychainSetDefault(SecKeychainRef keychainRef)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainSetDefault", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainSetDefault", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -334,7 +325,8 @@ SecKeychainSetDefault(SecKeychainRef keychainRef)
 OSStatus SecKeychainCopySearchList(CFArrayRef *searchList)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCopySearchList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCopySearchList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -350,7 +342,8 @@ OSStatus SecKeychainCopySearchList(CFArrayRef *searchList)
 OSStatus SecKeychainSetSearchList(CFArrayRef searchList)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainSetSearchList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainSetSearchList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -366,7 +359,8 @@ OSStatus SecKeychainSetSearchList(CFArrayRef searchList)
 OSStatus SecKeychainCopyDomainDefault(SecPreferencesDomain domain, SecKeychainRef *keychainRef)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCopyDomainDefault", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCopyDomainDefault", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -378,7 +372,8 @@ OSStatus SecKeychainCopyDomainDefault(SecPreferencesDomain domain, SecKeychainRe
 OSStatus SecKeychainSetDomainDefault(SecPreferencesDomain domain, SecKeychainRef keychainRef)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainSetDomainDefault", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainSetDomainDefault", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -403,7 +398,8 @@ OSStatus SecKeychainCopyDomainSearchList(SecPreferencesDomain domain, CFArrayRef
 OSStatus SecKeychainSetDomainSearchList(SecPreferencesDomain domain, CFArrayRef searchList)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainSetDomainSearchList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainSetDomainSearchList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -419,7 +415,8 @@ OSStatus SecKeychainSetDomainSearchList(SecPreferencesDomain domain, CFArrayRef 
 OSStatus SecKeychainSetPreferenceDomain(SecPreferencesDomain domain)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainSetPreferenceDomain", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainSetPreferenceDomain", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -431,7 +428,8 @@ OSStatus SecKeychainSetPreferenceDomain(SecPreferencesDomain domain)
 OSStatus SecKeychainGetPreferenceDomain(SecPreferencesDomain *domain)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainGetPreferenceDomain", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainGetPreferenceDomain", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 	
@@ -478,7 +476,7 @@ SecKeychainGetKeychainVersion(SecKeychainRef keychainRef, UInt32* version)
 {
     BEGIN_SECAPI
 
-    RequiredParam(version);
+	   RequiredParam(version);
 
     *version = Keychain::optional(keychainRef)->database()->dbBlobVersion();
 
@@ -489,7 +487,8 @@ OSStatus
 SecKeychainAttemptMigrationWithMasterKey(SecKeychainRef keychain, UInt32 version, const char* masterKeyFilename)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainAttemptMigrationWithMasterKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainAttemptMigrationWithMasterKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -587,7 +586,8 @@ pascal OSStatus
 SecKeychainAddCallback(SecKeychainCallback callbackFunction, SecKeychainEventMask eventMask, void* userContext)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainAddCallback", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainAddCallback", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -602,7 +602,8 @@ OSStatus
 SecKeychainRemoveCallback(SecKeychainCallback callbackFunction)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainRemoveCallback", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainRemoveCallback", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -616,7 +617,8 @@ OSStatus
 SecKeychainAddInternetPassword(SecKeychainRef keychainRef, UInt32 serverNameLength, const char *serverName, UInt32 securityDomainLength, const char *securityDomain, UInt32 accountNameLength, const char *accountName, UInt32 pathLength, const char *path, UInt16 port, SecProtocolType protocol, SecAuthenticationType authenticationType, UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainAddInternetPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainAddInternetPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -678,7 +680,8 @@ SecKeychainFindInternetPassword(CFTypeRef keychainOrArray, UInt32 serverNameLeng
 												
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainFindInternetPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainFindInternetPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -757,7 +760,8 @@ OSStatus
 SecKeychainAddGenericPassword(SecKeychainRef keychainRef, UInt32 serviceNameLength, const char *serviceName, UInt32 accountNameLength, const char *accountName, UInt32 passwordLength, const void *passwordData, SecKeychainItemRef *itemRef)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainAddGenericPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainAddGenericPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -806,7 +810,8 @@ SecKeychainFindGenericPassword(CFTypeRef keychainOrArray, UInt32 serviceNameLeng
 																			   
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainFindGenericPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainFindGenericPassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -878,7 +883,8 @@ OSStatus
 SecKeychainGetDLDBHandle(SecKeychainRef keychainRef, CSSM_DL_DB_HANDLE *dldbHandle)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainGetDLDBHandle", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainGetDLDBHandle", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -944,7 +950,8 @@ OSStatus
 SecKeychainChangePassword(SecKeychainRef keychainRef, UInt32 oldPasswordLength, const void *oldPassword,  UInt32 newPasswordLength, const void *newPassword)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainChangePassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainChangePassword", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -959,7 +966,8 @@ OSStatus
 SecKeychainCopyLogin(SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCopyLogin", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCopyLogin", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -973,7 +981,8 @@ OSStatus
 SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, const void* password)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainLogin", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainLogin", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -1009,7 +1018,8 @@ SecKeychainLogin(UInt32 nameLength, const void* name, UInt32 passwordLength, con
 OSStatus SecKeychainStash()
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainStash", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainStash", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
     
@@ -1036,7 +1046,8 @@ OSStatus
 SecKeychainLogout()
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainLogout", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainLogout", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -1059,7 +1070,8 @@ static Keychain make(const char *name)
 OSStatus SecKeychainMakeFromFullPath(const char *fullPathName, SecKeychainRef *keychainRef)
 {
     BEGIN_SECAPI
-        RequiredParam(fullPathName);
+
+	RequiredParam(fullPathName);
         RequiredParam(keychainRef)=make(fullPathName)->handle();
 	END_SECAPI
 }
@@ -1070,7 +1082,8 @@ OSStatus SecKeychainMakeFromFullPath(const char *fullPathName, SecKeychainRef *k
 OSStatus SecKeychainIsValid(SecKeychainRef keychainRef, Boolean* isValid)
 {
     BEGIN_SECAPI
-        *isValid = false;
+
+	*isValid = false;
         if (KeychainImpl::optional(keychainRef)->dlDbIdentifier().ssuid().guid() == gGuidAppleCSPDL)
             *isValid = true;
 	END_SECAPI
@@ -1081,7 +1094,8 @@ OSStatus SecKeychainIsValid(SecKeychainRef keychainRef, Boolean* isValid)
 OSStatus SecKeychainRemoveFromSearchList(SecKeychainRef keychainRef)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainRemoveFromSearchList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainRemoveFromSearchList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
         StorageManager::KeychainList singleton;
@@ -1095,7 +1109,8 @@ OSStatus SecKeychainRemoveFromSearchList(SecKeychainRef keychainRef)
 OSStatus SecKeychainCreateNew(SecKeychainRef keychainRef, UInt32 passwordLength, const char* inPassword)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCreateNew", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCreateNew", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
         RequiredParam(inPassword);
@@ -1108,7 +1123,8 @@ OSStatus SecKeychainCreateNew(SecKeychainRef keychainRef, UInt32 passwordLength,
 OSStatus SecKeychainRecodeKeychain(SecKeychainRef keychainRef, CFArrayRef dbBlobArray, CFDataRef extraData)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainRecodeKeychain", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainRecodeKeychain", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -1186,7 +1202,8 @@ OSStatus SecKeychainRecodeKeychain(SecKeychainRef keychainRef, CFArrayRef dbBlob
 OSStatus SecKeychainCopySignature(SecKeychainRef keychainRef, CFDataRef *keychainSignature) 
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCopySignature", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCopySignature", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -1213,7 +1230,8 @@ OSStatus SecKeychainCopySignature(SecKeychainRef keychainRef, CFDataRef *keychai
 OSStatus SecKeychainCopyBlob(SecKeychainRef keychainRef, CFDataRef *dbBlob)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCopyBlob", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCopyBlob", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -1235,7 +1253,8 @@ OSStatus SecKeychainCopyBlob(SecKeychainRef keychainRef, CFDataRef *dbBlob)
 OSStatus SecKeychainCreateWithBlob(const char* fullPathName, CFDataRef dbBlob, SecKeychainRef *kcRef)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainCreateWithBlob", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainCreateWithBlob", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 	
@@ -1262,7 +1281,8 @@ OSStatus SecKeychainAddDBToKeychainList (SecPreferencesDomain domain, const char
 										 const CSSM_GUID *guid, uint32 subServiceType)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainAddDBToKeychainList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainAddDBToKeychainList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -1278,7 +1298,8 @@ OSStatus SecKeychainDBIsInKeychainList (SecPreferencesDomain domain, const char*
 										const CSSM_GUID *guid, uint32 subServiceType)
 {
 	BEGIN_SECAPI
-	RequiredParam(dbName);
+
+	   RequiredParam(dbName);
 	StorageManager &smr = globals().storageManager;
 	smr.isInDomainList(domain, dbName, *guid, subServiceType);
 	END_SECAPI
@@ -1289,7 +1310,8 @@ OSStatus SecKeychainRemoveDBFromKeychainList (SecPreferencesDomain domain, const
 											  const CSSM_GUID *guid, uint32 subServiceType)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainRemoveDBFromKeychainList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainRemoveDBFromKeychainList", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 	RequiredParam(dbName);
@@ -1310,7 +1332,8 @@ void SecKeychainSetServerMode()
 OSStatus SecKeychainSetBatchMode (SecKeychainRef kcRef, Boolean mode, Boolean rollback)
 {
 	BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainSetBatchMode", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainSetBatchMode", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 	RequiredParam(kcRef);
@@ -1324,13 +1347,15 @@ OSStatus SecKeychainSetBatchMode (SecKeychainRef kcRef, Boolean mode, Boolean ro
 OSStatus SecKeychainCleanupHandles()
 {
 	BEGIN_SECAPI
-	END_SECAPI // which causes the handle cache cleanup routine to run
+
+	   END_SECAPI // which causes the handle cache cleanup routine to run
 }
 
 OSStatus SecKeychainVerifyKeyStorePassphrase(uint32_t retries)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainVerifyKeyStorePassphrase", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainVerifyKeyStorePassphrase", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
     SecurityServer::ClientSession().verifyKeyStorePassphrase(retries);
@@ -1340,7 +1365,8 @@ OSStatus SecKeychainVerifyKeyStorePassphrase(uint32_t retries)
 OSStatus SecKeychainChangeKeyStorePassphrase()
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainChangeKeyStorePassphrase", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainChangeKeyStorePassphrase", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
     SecurityServer::ClientSession().changeKeyStorePassphrase();
@@ -1350,7 +1376,8 @@ OSStatus SecKeychainChangeKeyStorePassphrase()
 static OSStatus SecKeychainGetMasterKey(SecKeychainRef userKeychainRef, CFDataRef *masterKey, CFStringRef password)
 {
     BEGIN_SECAPI
-    os_activity_t activity = os_activity_create("SecKeychainGetMasterKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
+
+	   os_activity_t activity = os_activity_create("SecKeychainGetMasterKey", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
 
@@ -1468,6 +1495,7 @@ static bool _SASetAutologinPW(CFStringRef inAutologinPW)
 }
 
 OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRef systemKeychainRef, CFStringRef username, CFStringRef password) {
+	COUNTLEGACYAPI
     SecTrustedApplicationRef itemPath;
     SecAccessRef ourAccessRef = NULL;
     
@@ -1568,6 +1596,7 @@ OSStatus SecKeychainStoreUnlockKey(SecKeychainRef userKeychainRef, SecKeychainRe
 OSStatus SecKeychainGetUserPromptAttempts(uint32_t * attempts)
 {
     BEGIN_SECAPI
+
     os_activity_t activity = os_activity_create("SecKeychainGetUserPromptAttempts", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_IF_NONE_PRESENT);
     os_activity_scope(activity);
     os_release(activity);
@@ -1582,6 +1611,7 @@ OSStatus SecKeychainGetUserPromptAttempts(uint32_t * attempts)
 OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringRef tokenID, CFDataRef wrapPubKeyHash,
                                                  SecKeychainRef userKeychain, CFStringRef password)
 {
+	COUNTLEGACYAPI
 	CFRef<CFStringRef> pwd;
 	OSStatus result;
 
@@ -1667,15 +1697,32 @@ OSStatus SecKeychainStoreUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash, CFStringR
 	}
 
 	secnotice("SecKeychain", "SecKeychainStoreUnlockKeyWithPubKeyHash result %d", (int) result);
+    
+    // create SC KEK
+    // this might fail if KC password is different from user's password
+    uid_t uid = geteuid();
+    if (!uid) {
+        uid = getuid();
+    }
+    struct passwd *passwd = getpwuid(uid);
+    if (passwd) {
+        CFRef<CFStringRef> username = CFStringCreateWithCString(kCFAllocatorDefault, passwd->pw_name, kCFStringEncodingUTF8);
+        OSStatus kekRes = TKAddSecureToken(username, pwd, tokenID, wrapPubKeyHash);
+        if (kekRes != noErr) {
+            secnotice("SecKeychain", "Failed to register SC token: %d", (int) kekRes); // do not fail because KC functionality be still OK
+        }
+    } else {
+        secnotice("SecKeychain", "Unable to get name for uid %d", uid);
+    }
 	return result;
 }
 
 OSStatus SecKeychainEraseUnlockKeyWithPubKeyHash(CFDataRef pubKeyHash)
 {
+	COUNTLEGACYAPI
     OSStatus result = TokenLoginDeleteUnlockData(pubKeyHash);
     if (result != errSecSuccess) {
         secnotice("SecKeychain", "Failed to erase stored wrapped unlock key: %d", (int) result);
     }
     return result;
 }
-

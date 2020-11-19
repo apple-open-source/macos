@@ -27,7 +27,9 @@ WI.AuditTabContentView = class AuditTabContentView extends WI.ContentBrowserTabC
 {
     constructor()
     {
-        super("audit", ["audit"], WI.GeneralTabBarItem.fromTabInfo(WI.AuditTabContentView.tabInfo()), WI.AuditNavigationSidebarPanel);
+        super(AuditTabContentView.tabInfo(), {
+            navigationSidebarPanelConstructor: WI.AuditNavigationSidebarPanel,
+        });
 
         this._startStopShortcut = new WI.KeyboardShortcut(null, WI.KeyboardShortcut.Key.Space, this._handleSpace.bind(this));
         this._startStopShortcut.implicitlyPreventsDefault = false;
@@ -39,8 +41,9 @@ WI.AuditTabContentView = class AuditTabContentView extends WI.ContentBrowserTabC
     static tabInfo()
     {
         return {
+            identifier: AuditTabContentView.Type,
             image: "Images/Audit.svg",
-            title: WI.UIString("Audit"),
+            displayName: WI.UIString("Audit", "Audit Tab Name", "Name of Audit Tab"),
         };
     }
 
@@ -83,9 +86,22 @@ WI.AuditTabContentView = class AuditTabContentView extends WI.ContentBrowserTabC
         super.hidden();
     }
 
-    async handleFileDrop(files)
+    // DropZoneView delegate
+
+    dropZoneShouldAppearForDragEvent(dropZone, event)
     {
-        await WI.FileUtilities.readJSON(files, (result) => WI.auditManager.processJSON(result));
+        return event.dataTransfer.types.includes("Files");
+    }
+
+    dropZoneHandleDrop(dropZone, event)
+    {
+        let files = event.dataTransfer.files;
+        if (files.length !== 1) {
+            InspectorFrontendHost.beep();
+            return;
+        }
+
+        WI.FileUtilities.readJSON(files, (result) => WI.auditManager.processJSON(result));
     }
 
     // Protected
@@ -93,6 +109,11 @@ WI.AuditTabContentView = class AuditTabContentView extends WI.ContentBrowserTabC
     initialLayout()
     {
         super.initialLayout();
+
+        let dropZoneView = new WI.DropZoneView(this);
+        dropZoneView.text = WI.UIString("Import Audit");
+        dropZoneView.targetElement = this.element;
+        this.addSubview(dropZoneView);
 
         WI.auditManager.loadStoredTests();
     }

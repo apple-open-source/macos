@@ -48,8 +48,6 @@ OSStatus SecKeychainIsValid(SecKeychainRef keychainRef, Boolean* isValid)
     __OSX_AVAILABLE_STARTING(__MAC_10_4, __IPHONE_NA);
 OSStatus SecKeychainChangePassword(SecKeychainRef keychainRef, UInt32 oldPasswordLength, const void *oldPassword,  UInt32 newPasswordLength, const void *newPassword)
     __OSX_AVAILABLE_STARTING(__MAC_10_2, __IPHONE_NA);
-OSStatus SecKeychainOpenWithGuid(const CSSM_GUID *guid, uint32 subserviceId, uint32 subserviceType, const char* dbName, const CSSM_NET_ADDRESS *dbLocation, SecKeychainRef *keychain)
-    API_DEPRECATED("CSSM_GUID/CSSM_NET_ADDRESS is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
 OSStatus SecKeychainSetBatchMode (SecKeychainRef kcRef, Boolean mode, Boolean rollback)
     __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
@@ -98,11 +96,11 @@ OSStatus SecKeychainCreateWithBlob(const char* fullPathName, CFDataRef dbBlob, S
 
 /* Keychain list manipulation */
 OSStatus SecKeychainAddDBToKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType)
-    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainDBIsInKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType)
-    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 OSStatus SecKeychainRemoveDBFromKeychainList (SecPreferencesDomain domain, const char* dbName, const CSSM_GUID *guid, uint32 subServiceType)
-    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_DEPRECATED("CSSM_GUID is deprecated", macos(10.4,10.14)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /* server operation (keychain inhibit) */
 void SecKeychainSetServerMode(void)

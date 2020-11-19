@@ -61,7 +61,7 @@ String convertEnumerationToString(TestCallbackInterface::Enum enumerationValue)
 
 template<> JSString* convertEnumerationToJS(JSGlobalObject& lexicalGlobalObject, TestCallbackInterface::Enum enumerationValue)
 {
-    return jsStringWithCache(&lexicalGlobalObject, convertEnumerationToString(enumerationValue));
+    return jsStringWithCache(lexicalGlobalObject.vm(), convertEnumerationToString(enumerationValue));
 }
 
 template<> Optional<TestCallbackInterface::Enum> parseEnumeration<TestCallbackInterface::Enum>(JSGlobalObject& lexicalGlobalObject, JSValue value)
@@ -160,7 +160,7 @@ template<> JSValue JSTestCallbackInterfaceConstructor::prototypeForStructure(JSC
 template<> void JSTestCallbackInterfaceConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     UNUSED_PARAM(globalObject);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestCallbackInterface"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestCallbackInterface"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     reifyStaticProperties(vm, nullptr, JSTestCallbackInterfaceConstructorTableValues, *this);
 }

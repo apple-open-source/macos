@@ -678,10 +678,11 @@ authorize(int argc, char * const *argv)
 
     retval = (status ? -1 : 0);
 bail:
-    if (rights)
+    if (rights) {
         free(rights);
-    
-	return retval;
+    }
+
+    return retval;
 }
 
 

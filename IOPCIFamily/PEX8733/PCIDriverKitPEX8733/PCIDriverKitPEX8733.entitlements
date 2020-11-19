@@ -12,7 +12,7 @@
 	<array>
 		<dict>
 			<key>IOPCIPrimaryMatch</key>
-			<string>0x873310b5</string>
+			<string>0x000010b5&amp;0x0000FFFF</string>
 		</dict>
 	</array>
 </dict>

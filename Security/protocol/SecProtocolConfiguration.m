@@ -11,7 +11,7 @@
 #import <Foundation/Foundation.h>
 
 #define MINIMUM_RSA_KEY_SIZE 2048
-#define MINIMUM_ECDSA_KEY_SIZE 2048
+#define MINIMUM_ECDSA_KEY_SIZE 256
 #define MINIMUM_HASH_ALGORITHM kSecSignatureHashAlgorithmSHA256
 #define MINIMUM_PROTOCOL kTLSProtocol12
 
@@ -187,12 +187,17 @@ sec_protocol_configuration_tls_required(sec_protocol_configuration_t config)
 }
 
 static bool
-sec_protocol_configuration_tls_required_for_host_internal(sec_protocol_configuration_t config, const char *host, bool parent_domain)
+sec_protocol_configuration_tls_required_for_host_internal(sec_protocol_configuration_t config, const char *host, bool parent_domain, bool is_direct)
 {
     xpc_object_t map = sec_protocol_configuration_get_map(config);
     if (map == nil) {
         // Fail closed.
         return true;
+    }
+
+    if (is_direct && xpc_dictionary_get_bool(map, kAllowsLocalNetworking)) {
+        // Local domains do not require TLS if the kAllowsLocalNetworking flag is set.
+        return false;
     }
 
     xpc_object_t domain_map = xpc_dictionary_get_dictionary(map, kExceptionDomains);
@@ -205,7 +210,7 @@ sec_protocol_configuration_tls_required_for_host_internal(sec_protocol_configura
     if (entry == nil) {
         const char *parent_host = _find_parent_domain(host);
         if (parent_host != NULL) {
-            return sec_protocol_configuration_tls_required_for_host_internal(config, parent_host, true);
+            return sec_protocol_configuration_tls_required_for_host_internal(config, parent_host, true, is_direct);
         }
         return sec_protocol_configuration_tls_required(config);
     }
@@ -222,9 +227,9 @@ sec_protocol_configuration_tls_required_for_host_internal(sec_protocol_configura
 }
 
 bool
-sec_protocol_configuration_tls_required_for_host(sec_protocol_configuration_t config, const char *host)
+sec_protocol_configuration_tls_required_for_host(sec_protocol_configuration_t config, const char *host, bool is_direct)
 {
-    return sec_protocol_configuration_tls_required_for_host_internal(config, host, false);
+    return sec_protocol_configuration_tls_required_for_host_internal(config, host, false, is_direct);
 }
 
 bool
@@ -332,17 +337,21 @@ sec_protocol_configuration_set_ats_overrides(sec_protocol_configuration_t config
 #define BOOLEAN_FOR_KEY(dictionary, key, value, default) \
     bool value = default; \
     { \
-        NSNumber *nsValue = [dictionary valueForKey:[[NSString alloc] initWithFormat:@"%s", key]]; \
-        if (nsValue) { \
-            value = [nsValue boolValue]; \
+        if (dictionary[[[NSString alloc] initWithFormat:@"%s", key]]) { \
+            NSNumber *nsValue = [dictionary valueForKey:[[NSString alloc] initWithFormat:@"%s", key]]; \
+            if (nsValue) { \
+                value = [nsValue boolValue]; \
+            } \
         } \
     }
 #define STRING_FOR_KEY(dictionary, key, value, default) \
     NSString *value = default; \
     { \
-        NSString *nsValue = [dictionary valueForKey:[[NSString alloc] initWithFormat:@"%s", key]]; \
-        if (nsValue) { \
-            value = nsValue; \
+        if (dictionary[[[NSString alloc] initWithFormat:@"%s", key]]) { \
+            NSString *nsValue = [dictionary valueForKey:[[NSString alloc] initWithFormat:@"%s", key]]; \
+            if (nsValue) { \
+                value = nsValue; \
+            } \
         } \
     }
 
@@ -381,13 +390,12 @@ sec_protocol_configuration_set_ats_overrides(sec_protocol_configuration_t config
             *stop = YES;
         }
 
+        BOOLEAN_FOR_KEY(entry, kExceptionAllowsInsecureHTTPLoads, allows_http, false);
+        BOOLEAN_FOR_KEY(entry, kIncludesSubdomains, includes_subdomains, false);
+        BOOLEAN_FOR_KEY(entry, kExceptionRequiresForwardSecrecy, requires_pfs, false);
+        STRING_FOR_KEY(entry, kExceptionMinimumTLSVersion, minimum_tls, @"TLSv1.2");
+
         xpc_object_t entry_map = xpc_dictionary_create(NULL, NULL, 0);
-
-        BOOLEAN_FOR_KEY(entry_map, kExceptionAllowsInsecureHTTPLoads, allows_http, false);
-        BOOLEAN_FOR_KEY(entry_map, kIncludesSubdomains, includes_subdomains, false);
-        BOOLEAN_FOR_KEY(entry_map, kExceptionRequiresForwardSecrecy, requires_pfs, false);
-        STRING_FOR_KEY(entry_map, kExceptionMinimumTLSVersion, minimum_tls, @"TLSv1.2");
-
         xpc_dictionary_set_bool(entry_map, kIncludesSubdomains, includes_subdomains);
         xpc_dictionary_set_bool(entry_map, kExceptionAllowsInsecureHTTPLoads, allows_http);
         xpc_dictionary_set_bool(entry_map, kExceptionRequiresForwardSecrecy, requires_pfs);

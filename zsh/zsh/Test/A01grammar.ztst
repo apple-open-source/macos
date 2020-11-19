@@ -76,6 +76,39 @@
 0:Basic current shell list with error
 >false
 
+  fn() { : && ! ; : }
+  functions -x3 fn
+  fn
+0:End of sublist containing ! with no command
+>fn () {
+>   : && !
+>   :
+>}
+
+  if [[ m -eq y ]]; then
+    : && !
+    :
+  fi
+0:! followed by no further commands
+
+  fn() { ! {!} && ! (!) || ! {!} }
+  functions -x2 fn
+  fn
+0:exclamation marks without following commands
+>fn () {
+>  ! {
+>    !
+>  } && ! (
+>    !
+>  ) || ! {
+>    !
+>  }
+>}
+
+  ! | true
+1:! followed by no command but by a pipe
+?(eval):1: parse error near `|'
+
 #
 # Tests for `Precommand Modifiers'
 #
@@ -433,14 +466,6 @@
 >Status after always block is 1.
 ?(eval):3: bad substitution
 
-  fn() { { return } always { echo always 1 }; echo not executed }
-  fn
-  fn() { { echo try 2 } always { return }; echo not executed }
-  fn
-0:Always block interaction with return
->always 1
->try 2
-
 # Outputting of structures from the wordcode is distinctly non-trivial,
 # we probably ought to have more like the following...
   fn1() { { echo foo; } }
@@ -640,6 +665,16 @@
 >1
 >0
 
+  echo 'echo dot
+  until return 42; do
+    :
+  done' >until_dot
+  . ./until_dot
+  echo After dot
+0:return in positive until test in dot file does not cause excess breaks
+>dot
+>After dot
+
   echo 'echo $?' >dot_status
   false
   . ./dot_status
@@ -677,6 +712,14 @@
 >read it
 >read it
 
+  fn() { { return } always { echo always 1 }; echo not executed }
+  fn
+  fn() { { echo try 2 } always { return }; echo not executed }
+  fn
+0:Always block interaction with return
+>always 1
+>try 2
+
   (
   mywrap() { echo BEGIN; true; echo END }
   mytest() { { exit 3 } always { mywrap }; print Exited before this }
@@ -686,6 +729,7 @@
 3:Exit and always block with functions: simple
 >BEGIN
 >END
+F:Note that the behaviour of 'exit' inside try-list inside a function is unspecified.
 
   (
   mytrue() { echo mytrue; return 0 }
@@ -698,6 +742,7 @@
 >BEGIN
 >mytrue
 >END
+F:Note that the behaviour of 'exit' inside try-list inside a function is unspecified.
 
   (emulate sh -c '
    fn() {
@@ -883,3 +928,7 @@
 >PIPE
 >and true
 >or false
+
+ $ZTST_testdir/../Src/zsh -fc '{ ( ) } always { echo foo }'
+-f:exec last command optimization inhibited for try/always
+>foo

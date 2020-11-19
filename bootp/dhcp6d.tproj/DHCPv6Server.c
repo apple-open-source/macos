@@ -544,7 +544,7 @@ WriteServerDUID(CFDataRef duid)
 }
 
 STATIC CFDataRef
-EstablishServerDUID(void)
+CreateServerDUID(void)
 {
     CFDataRef		duid = NULL;
     interface_t *	if_p;
@@ -584,12 +584,13 @@ CopyServerDUID(void)
     dict = my_CFPropertyListCreateFromFile(kDHCPv6ServerDUIDFile);
     if (isA_CFDictionary(dict) != NULL) {
 	duid = CFDictionaryGetValue(dict, kDHCPv6ServerDUID);
+	duid = isA_CFData(duid);
     }
-    if (isA_CFData(duid) != NULL) {
+    if (duid != NULL) {
 	CFRetain(duid);
     }
     else {
-	duid = EstablishServerDUID();
+	duid = CreateServerDUID();
     }
     if (duid != NULL) {
 	CFMutableStringRef	str;

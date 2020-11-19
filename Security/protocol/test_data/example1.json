@@ -2,7 +2,7 @@
 	"NSAllowsArbitraryLoads": false,
 	"NSAllowsArbitraryLoadsForMedia": false,
 	"NSAllowsArbitraryLoadsInWebContent": false,
-	"NSAllowsLocalNetworking": false,
+	"NSAllowsLocalNetworking": true,
 	"NSExceptionDomains": {
 		"apple.com": {
 			"NSIncludesSubdomains": true,
@@ -45,6 +45,8 @@
 			"NSExceptionAllowsInsecureHTTPLoads": true,
 			"NSExceptionMinimumTLSVersion": "TLSv1.2",
 			"NSExceptionRequiresForwardSecrecy": false
-		}
+        },
+        "example.local": {
+        }
 	}
 }

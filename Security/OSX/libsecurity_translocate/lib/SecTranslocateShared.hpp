@@ -48,22 +48,47 @@ extern const char* kSecTranslocateXPCFuncCheckIn;
 extern const char* kSecTranslocateXPCMessageFunction;
 extern const char* kSecTranslocateXPCMessageOriginalPath;
 extern const char* kSecTranslocateXPCMessageDestinationPath;
+extern const char* kSecTranslocateXPCMessageOptions;
 extern const char* kSecTranslocateXPCMessagePid;
 
 /*XPC message reply keys */
 extern const char* kSecTranslocateXPCReplyError;
 extern const char* kSecTranslocateXPCReplySecurePath;
 
+enum class TranslocationOptions : int64_t {
+    Default = 0,
+    Generic = 1 << 0,
+    Unveil  = 1 << 1
+};
+
+class GenericTranslocationPath
+{
+public:
+    GenericTranslocationPath(const string& path, TranslocationOptions opts);
+    inline bool shouldTranslocate() const { return should; };
+    inline const string & getOriginalRealPath() const { return realOriginalPath; };
+    inline const string & getComponentNameToTranslocate() const { return componentNameToTranslocate; };
+    inline TranslocationOptions getOptions() const { return options; };
+private:
+    GenericTranslocationPath() = delete;
+    
+    bool should;
+    string realOriginalPath;
+    string componentNameToTranslocate;
+    TranslocationOptions options;
+};
+
 class TranslocationPath
 {
 public:
-    TranslocationPath(string originalPath);
+    TranslocationPath(string originalPath, TranslocationOptions opts);
     inline bool shouldTranslocate() const { return should; };
     inline const string & getOriginalRealPath() const { return realOriginalPath; };
     inline const string & getPathToTranslocate() const { return pathToTranslocate; };
     inline const string & getPathInsideTranslocation() const { return pathInsideTranslocationPoint; };
     inline const string & getComponentNameToTranslocate() const { return componentNameToTranslocate; };
     string getTranslocatedPathToOriginalPath(const string &translocationPoint) const;
+    inline TranslocationOptions getOptions() const { return options; };
 private:
     TranslocationPath() = delete;
 
@@ -72,6 +97,7 @@ private:
     string pathToTranslocate;
     string componentNameToTranslocate; //the final component of pathToTranslocate
     string pathInsideTranslocationPoint;
+    TranslocationOptions options;
 
     ExtendedAutoFileDesc findOuterMostCodeBundleForFD(ExtendedAutoFileDesc &fd);
 };
@@ -81,11 +107,13 @@ string getOriginalPath(const ExtendedAutoFileDesc& fd, bool* isDir); //throws
 // For methods below, the caller is responsible for ensuring that only one thread is
 // accessing/modifying the mount table at a time
 string translocatePathForUser(const TranslocationPath &originalPath, const string &destPath); //throws
+string translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath); //throws
 bool destroyTranslocatedPathForUser(const string &translocatedPath); //throws
 bool destroyTranslocatedPathsForUserOnVolume(const string &volumePath = ""); //throws
 void tryToDestroyUnusedTranslocationMounts();
 
 } //namespace SecTranslocate
 }// namespace Security
+
 
 #endif /* SecTranslocateShared_hpp */

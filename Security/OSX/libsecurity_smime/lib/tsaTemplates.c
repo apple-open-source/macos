@@ -26,7 +26,6 @@
 #include <Security/keyTemplates.h>     /* for kSecAsn1AlgorithmIDTemplate */
 #include <Security/SecAsn1Templates.h>
 #include <stddef.h>
-#include <assert.h>
 
 #include "tsaTemplates.h"
 #include "cmslocal.h"

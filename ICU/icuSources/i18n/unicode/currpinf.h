@@ -11,6 +11,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Currency Plural Information used by Decimal Format
@@ -20,7 +22,6 @@
 
 #include "unicode/unistr.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class Locale;
@@ -264,9 +265,10 @@ CurrencyPluralInfo::operator!=(const CurrencyPluralInfo& info) const {
 }  
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // _CURRPINFO
 //eof

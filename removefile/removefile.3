@@ -24,11 +24,11 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd Feb 26, 2015
+.Dd April 1, 2020
 .Dt REMOVEFILE 3
 .Os
 .Sh NAME
-.Nm removefile , removefile_state_alloc ,
+.Nm removefile , removefileat , removefile_state_alloc ,
 .Nm removefile_state_free , removefile_state_get ,
 .Nm removefile_state_set
 .Nd remove files or directories
@@ -36,6 +36,8 @@
 .In removefile.h
 .Ft int
 .Fn removefile "const char *path" "removefile_state_t state" "removefile_flags_t flags"
+.Ft int
+.Fn removefileat "int fd" "const char *path" "removefile_state_t state" "removefile_flags_t flags"
 .Ft removefile_state_t
 .Fn removefile_state_alloc "void"
 .Ft int
@@ -47,8 +49,8 @@
 .Ft int
 .Fn removefile_cancel "removefile_state_t state"
 .Sh DESCRIPTION
-.Pp
-These functions are used to remove a file or directory.  Various levels
+These functions are used to remove a file or directory.
+Various levels
 of overwriting may be specified to prevent other people from recovering any 
 information about the file.
 .Pp
@@ -68,10 +70,26 @@ The
 function is used to deallocate the object and its contents.
 .Pp
 The
+.Fn removefileat
+function is equivalent to the
+.Fn removefile
+function except in the case where the
+.Va path
+specifies a relative path.
+In that case the file to be removed is determined relative to the directory associated with the file descriptor
+.Va fd
+instead of the current working directory.
+If the special value AT_FDCWD is passed in the
+.Va fd
+argument, the current working directory is used and the behavior is identical to a call to
+.Fn removefile.
+.Pp
+The
 .Fn removefile
 function removes files and directories located at the named
 .Va path
-filesystem location.  The named 
+filesystem location.
+The named
 .Va path
 location can be specified as either an absolute path or relative to the working directory
 of the calling process.
@@ -97,12 +115,14 @@ location is a directory, then recursively delete the entire directory.
 .It Dv REMOVEFILE_KEEP_PARENT
 The file or directory at the
 .Va path
-location is not deleted.  If specified in conjunction with REMOVEFILE_RECURSIVE,
+location is not deleted.
+If specified in conjunction with REMOVEFILE_RECURSIVE,
 then all of the contents of the directory at 
 .Va path
 location will be deleted, but not the directory itself.
 .It Dv REMOVEFILE_CROSS_MOUNT
-By default, recursive traversals do not cross mount points. This option allows
+By default, recursive traversals do not cross mount points.
+This option allows
 .Fn removefile
 to descend into directories that have a different device number than the file from which
 the descent began.
@@ -236,7 +256,6 @@ parameter was passed into
 In addition, all functions may return an error from an underlying library or
 system call.
 .Sh NOTES
-.Pp 
 Write protected files owned by another user cannot be removed by
 .Fn removefile , 
 regardless of the permissions on the directory containing the file.
@@ -252,7 +271,7 @@ that may add risk when run with privileges.
 .Pp
 .Fn removefile
 operates on symbolic links, rather than the target of the link.
-.Sh EXAMPLES
+.Sh EXAMPLE
 .Bd -literal -offset indent
 /* Initialize a state variable */
 removefile_state_t s;

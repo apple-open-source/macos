@@ -85,7 +85,7 @@ PolicyCursor::PolicyCursor(const CSSM_OID* oid, const CSSM_DATA* value)
 //
 // Destroy
 //
-PolicyCursor::~PolicyCursor() throw()
+PolicyCursor::~PolicyCursor() _NOEXCEPT
 {
 }
 

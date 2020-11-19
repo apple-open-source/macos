@@ -36,6 +36,7 @@
 #include <memory>
 #include <security_utilities/globalizer.h>
 #include <security_utilities/threading.h>
+#include "LegacyAPICounts.h"
 
 #define MSApiDebug(args...)	secinfo("MDS_API", ## args)
 
@@ -286,7 +287,7 @@ CSSM_RETURN CSSMAPI
 MDS_Terminate (MDS_HANDLE inMDSHandle)
 {
     BEGIN_API
-    auto_ptr<MDSSession> aMDSSession (&HandleObject::findAndKill<MDSSession> (inMDSHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE));
+    unique_ptr<MDSSession> aMDSSession (&HandleObject::findAndKill<MDSSession> (inMDSHandle, CSSMERR_CSSM_INVALID_ADDIN_HANDLE));
     aMDSSession->terminate (); // Even if terminate throws the MDSSession object will be deleted.
     END_API(MDS)
 }

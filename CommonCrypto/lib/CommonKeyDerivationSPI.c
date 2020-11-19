@@ -293,3 +293,59 @@ CCDeriveKey(const CCKDFParametersRef params, CCDigestAlgorithm digest,
 
     return kCCSuccess;
 }
+
+CCStatus
+CCHKDFExtract(const CCKDFParametersRef params, CCDigestAlgorithm digest, const void *keyDerivationKey, size_t keyDerivationKeyLen, void *prk, size_t prkLen)
+{
+    const struct ccdigest_info *di = CCDigestGetDigestInfo(digest);
+
+    if (di == NULL) {
+        return kCCParamError;
+    }
+
+    if (prk == NULL || prkLen != di->output_size) {
+        return kCCParamError;
+    }
+    if (keyDerivationKey == NULL && keyDerivationKeyLen > 0) {
+        return kCCParamError;
+    }
+
+    if (params->algorithm != kCCKDFAlgorithmHKDF) {
+        return kCCParamError;
+    }
+
+    int result = cchkdf_extract(di, params->u.hkdf.saltLen, params->u.hkdf.salt, keyDerivationKeyLen, keyDerivationKey, prk);
+    if (result) {
+        return kCCUnspecifiedError;
+    }
+
+    return kCCSuccess;
+}
+
+CCStatus
+CCHKDFExpand(const CCKDFParametersRef params, CCDigestAlgorithm digest, const void *prk, size_t prkLen, void *derivedKey, size_t derivedKeyLen)
+{
+    const struct ccdigest_info *di = CCDigestGetDigestInfo(digest);
+
+    if (di == NULL) {
+        return kCCParamError;
+    }
+
+    if (derivedKey == NULL || derivedKeyLen == 0) {
+        return kCCParamError;
+    }
+    if (prk == NULL || prkLen != di->output_size) {
+        return kCCParamError;
+    }
+
+    if (params->algorithm != kCCKDFAlgorithmHKDF) {
+        return kCCParamError;
+    }
+
+    int result = cchkdf_expand(di, prkLen, prk, params->u.hkdf.contextLen, params->u.hkdf.context, derivedKeyLen, derivedKey);
+    if (result) {
+        return kCCUnspecifiedError;
+    }
+
+    return kCCSuccess;
+}

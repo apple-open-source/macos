@@ -62,12 +62,19 @@ const GlobalObjectMethodTable JSAPIGlobalObject::s_globalObjectMethodTable = {
     &moduleLoaderResolve, // moduleLoaderResolve
     &moduleLoaderFetch, // moduleLoaderFetch
     &moduleLoaderCreateImportMetaProperties, // moduleLoaderCreateImportMetaProperties
-    moduleLoaderEvaluate, // moduleLoaderEvaluate
+    &moduleLoaderEvaluate, // moduleLoaderEvaluate
     nullptr, // promiseRejectionTracker
+    &reportUncaughtExceptionAtEventLoop,
     nullptr, // defaultLanguage
     nullptr, // compileStreaming
     nullptr, // instantiateStreaming
 };
+
+void JSAPIGlobalObject::reportUncaughtExceptionAtEventLoop(JSGlobalObject* globalObject, Exception* exception)
+{
+    JSContext *context = [JSContext contextWithJSGlobalContextRef:toGlobalRef(globalObject)];
+    [context notifyException:toRef(globalObject->vm(), exception->value())];
+}
 
 static Expected<URL, String> computeValidImportSpecifier(const URL& base, const String& specifier)
 {
@@ -76,7 +83,7 @@ static Expected<URL, String> computeValidImportSpecifier(const URL& base, const 
         return absoluteURL;
 
     if (!specifier.startsWith('/') && !specifier.startsWith("./") && !specifier.startsWith("../"))
-        return makeUnexpected(makeString("Module specifier: "_s, specifier, " does not start with \"/\", \"./\", or \"../\"."_s));
+        return makeUnexpected(makeString("Module specifier: "_s, specifier, " does not start with \"/\", \"./\", or \"../\". Referenced from: "_s, base.string()));
 
     if (specifier.startsWith('/')) {
         absoluteURL = URL(URL({ }, "file://"), specifier);
@@ -116,7 +123,7 @@ Identifier JSAPIGlobalObject::moduleLoaderResolve(JSGlobalObject* globalObject, 
 
     auto result = computeValidImportSpecifier(base, name);
     if (result)
-        return Identifier::fromString(vm, result.value());
+        return Identifier::fromString(vm, result.value().string());
 
     throwVMError(globalObject, scope, createError(globalObject, result.error()));
     return { };
@@ -126,33 +133,31 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderImportModule(JSGlobalObject* g
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_CATCH_SCOPE(vm);
-    auto reject = [&] (JSValue exception) -> JSInternalPromise* {
+    auto reject = [&] (JSValue error) -> JSInternalPromise* {
         scope.clearException();
         auto* promise = JSInternalPromise::create(vm, globalObject->internalPromiseStructure());
         // FIXME: We could have error since any JS call can throw stack-overflow errors.
         // https://bugs.webkit.org/show_bug.cgi?id=203402
-        promise->reject(globalObject, exception);
+        promise->reject(globalObject, error);
         scope.clearException();
         return promise;
     };
 
     auto import = [&] (URL& url) {
-        auto result = importModule(globalObject, Identifier::fromString(vm, url), jsUndefined(), jsUndefined());
+        auto result = importModule(globalObject, Identifier::fromString(vm, url.string()), jsUndefined(), jsUndefined());
         if (UNLIKELY(scope.exception()))
-            return reject(scope.exception());
+            return reject(scope.exception()->value());
         return result;
     };
 
     auto specifier = specifierValue->value(globalObject);
     if (UNLIKELY(scope.exception())) {
-        JSValue exception = scope.exception();
+        Exception* exception = scope.exception();
         scope.clearException();
-        return reject(exception);
+        return reject(exception->value());
     }
 
-    String referrer = !sourceOrigin.isNull() ? sourceOrigin.string() : String();
-    URL baseURL(URL(), referrer);
-    auto result = computeValidImportSpecifier(baseURL, specifier);
+    auto result = computeValidImportSpecifier(sourceOrigin.url(), specifier);
     if (result)
         return import(result.value());
     return reject(createError(globalObject, result.error()));
@@ -170,9 +175,9 @@ JSInternalPromise* JSAPIGlobalObject::moduleLoaderFetch(JSGlobalObject* globalOb
 
     Identifier moduleKey = key.toPropertyKey(globalObject);
     if (UNLIKELY(scope.exception())) {
-        JSValue exception = scope.exception();
+        Exception* exception = scope.exception();
         scope.clearException();
-        promise->reject(globalObject, exception);
+        promise->reject(globalObject, exception->value());
         scope.clearException();
         return promise;
     }

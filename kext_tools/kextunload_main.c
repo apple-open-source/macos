@@ -28,8 +28,11 @@
 #include <IOKit/kext/OSKextPrivate.h>
 
 #include "kextunload_main.h"
+#include "KernelManagementShims/Shims.h"
 
 const char * progname = "(unknown)";
+
+extern void shimKextunloadArgsToKMUtilAndRun(KextunloadArgs *);
 
 /*******************************************************************************
 *******************************************************************************/
@@ -63,6 +66,12 @@ int main(int argc, char * const * argv)
     result = checkArgs(&toolArgs);
     if (result != EX_OK) {
         goto finish;
+    }
+
+    // Determine now if we will be shimming over to KernelManagement,
+    if (disableKextTools() && isKernelManagementLinked()) {
+        shimKextunloadArgsToKMUtilAndRun(&toolArgs);
+        exit(EX_OSERR); // shouldn't get here!
     }
 
    /* If given URLs, create OSKext objects for them so we can get

@@ -30,7 +30,6 @@
 #include "NetworkCache.h"
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkSessionSoup.h"
-#include "ResourceCachesToClear.h"
 #include "WebCookieManager.h"
 #include "WebKitCachedResolver.h"
 #include <WebCore/CertificateInfo.h>
@@ -160,20 +159,12 @@ void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo&
     SoupNetworkSession::allowSpecificHTTPSCertificateForHost(certificateInfo, host);
 }
 
-void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
-{
-    if (cachesToClear == InMemoryResourceCachesOnly)
-        return;
-
-    clearDiskCache(-WallTime::infinity(), [] { });
-}
-
 void NetworkProcess::clearDiskCache(WallTime modifiedSince, CompletionHandler<void()>&& completionHandler)
 {
     auto aggregator = CallbackAggregator::create(WTFMove(completionHandler));
     forEachNetworkSession([modifiedSince, &aggregator](NetworkSession& session) {
         if (auto* cache = session.cache())
-            cache->clear(modifiedSince, [aggregator = aggregator.copyRef()] () { });
+            cache->clear(modifiedSince, [aggregator] () { });
     });
 }
 
@@ -190,15 +181,10 @@ void NetworkProcess::setNetworkProxySettings(const SoupNetworkProxySettings& set
     });
 }
 
-void NetworkProcess::platformPrepareToSuspend(CompletionHandler<void()>&& completionHandler)
+void NetworkProcess::setPersistentCredentialStorageEnabled(PAL::SessionID sessionID, bool enabled)
 {
-    notImplemented();
-    completionHandler();
-}
-
-void NetworkProcess::platformProcessDidResume()
-{
-    notImplemented();
+    if (auto* session = networkSession(sessionID))
+        static_cast<NetworkSessionSoup&>(*session).setPersistentCredentialStorageEnabled(enabled);
 }
 
 void NetworkProcess::platformProcessDidTransitionToForeground()

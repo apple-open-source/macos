@@ -226,7 +226,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUStringPrepProfilePointer, UStringPrepProfile, 
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Prepare the input buffer for use in applications with the given profile. This operation maps, normalizes(NFKC),

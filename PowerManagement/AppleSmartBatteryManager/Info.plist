@@ -24,6 +24,20 @@
 	<string>$(PM_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>AppleSmartBatteryManager</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleSmartBatteryManager</string>
+			<key>IOClass</key>
+			<string>AppleSmartBatteryManager</string>
+			<key>IOProviderClass</key>
+			<string>AppleSMC</string>
+			<key>IOMatchCategory</key>
+			<string>AppleSmartBatteryManager</string>
+		</dict>
+	</dict>
+	<key>IOKitPersonalities_x86_64</key>
+	<dict>
 		<key>IOSmartBatteryManager</key>
 		<dict>
 			<key>CFBundleIdentifier</key>
@@ -40,6 +54,21 @@
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
+	<dict>
+		<key>com.apple.driver.AppleSMC</key>
+		<string>1.0.0</string>
+		<key>com.apple.kpi.bsd</key>
+		<string>8.3.1</string>
+		<key>com.apple.kpi.iokit</key>
+		<string>8.3.1</string>
+		<key>com.apple.kpi.libkern</key>
+		<string>8.3.1</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.3.1</string>
+		<key>com.apple.kpi.unsupported</key>
+		<string>8.3.1</string>
+	</dict>
+	<key>OSBundleLibraries_x86_64</key>
 	<dict>
 		<key>com.apple.driver.AppleSMC</key>
 		<string>3.1.9</string>

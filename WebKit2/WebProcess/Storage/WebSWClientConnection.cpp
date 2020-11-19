@@ -96,6 +96,15 @@ void WebSWClientConnection::removeServiceWorkerRegistrationInServer(ServiceWorke
         send(Messages::WebSWServerConnection::RemoveServiceWorkerRegistrationInServer { identifier });
 }
 
+void WebSWClientConnection::scheduleUnregisterJobInServer(ServiceWorkerRegistrationIdentifier registrationIdentifier, WebCore::DocumentOrWorkerIdentifier documentIdentifier, CompletionHandler<void(ExceptionOr<bool>&&)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::WebSWServerConnection::ScheduleUnregisterJobInServer { ServiceWorkerJobIdentifier::generateThreadSafe(), registrationIdentifier, documentIdentifier }, [completionHandler = WTFMove(completionHandler)](auto&& result) mutable {
+        if (!result.has_value())
+            return completionHandler(result.error().toException());
+        completionHandler(result.value());
+    });
+}
+
 void WebSWClientConnection::postMessageToServiceWorker(ServiceWorkerIdentifier destinationIdentifier, MessageWithMessagePorts&& message, const ServiceWorkerOrClientIdentifier& sourceIdentifier)
 {
     send(Messages::WebSWServerConnection::PostMessageToServiceWorker { destinationIdentifier, WTFMove(message), sourceIdentifier });
@@ -124,9 +133,9 @@ bool WebSWClientConnection::mayHaveServiceWorkerRegisteredForOrigin(const Securi
     return m_swOriginTable->contains(origin);
 }
 
-void WebSWClientConnection::setSWOriginTableSharedMemory(const SharedMemory::Handle& handle)
+void WebSWClientConnection::setSWOriginTableSharedMemory(const SharedMemory::IPCHandle& ipcHandle)
 {
-    m_swOriginTable->setSharedMemory(handle);
+    m_swOriginTable->setSharedMemory(ipcHandle.handle);
 }
 
 void WebSWClientConnection::setSWOriginTableIsImported()
@@ -229,21 +238,19 @@ void WebSWClientConnection::clear()
     for (auto& callback : getRegistrationTasks.values())
         callback({ });
 
-    auto registrationReadyTasks = WTFMove(m_ongoingRegistrationReadyTasks);
-    for (auto& callback : registrationReadyTasks.values())
-        callback({ });
+    m_ongoingRegistrationReadyTasks.clear();
 
     clearPendingJobs();
 }
 
-void WebSWClientConnection::syncTerminateWorker(ServiceWorkerIdentifier identifier)
+void WebSWClientConnection::terminateWorkerForTesting(ServiceWorkerIdentifier identifier, CompletionHandler<void()>&& callback)
 {
-    sendSync(Messages::WebSWServerConnection::SyncTerminateWorkerFromClient { identifier }, Messages::WebSWServerConnection::SyncTerminateWorkerFromClient::Reply());
+    sendWithAsyncReply(Messages::WebSWServerConnection::TerminateWorkerFromClient { identifier }, WTFMove(callback));
 }
 
-void WebSWClientConnection::isServiceWorkerRunning(ServiceWorkerIdentifier identifier, CompletionHandler<void(bool)>&& callback)
+void WebSWClientConnection::whenServiceWorkerIsTerminatedForTesting(ServiceWorkerIdentifier identifier, CompletionHandler<void()>&& callback)
 {
-    sendWithAsyncReply(Messages::WebSWServerConnection::IsServiceWorkerRunning { identifier }, WTFMove(callback));
+    sendWithAsyncReply(Messages::WebSWServerConnection::WhenServiceWorkerIsTerminatedForTesting { identifier }, WTFMove(callback));
 }
 
 void WebSWClientConnection::updateThrottleState()

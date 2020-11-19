@@ -206,6 +206,15 @@ typedef enum {
  * Per-interface information.
  */
 struct pcap_ng_if {
+#ifdef __APPLE__
+	/*
+	 * Note:
+	 * The code related to snaplen field is taken from master of tcpdump.org
+	 * so we will have to remove the __APPLE__ conditionals related to this field
+	 * the next time we sync-up with the next RELEASE version from tcpdump.org
+	 */
+	uint32_t snaplen;		/* snapshot length */
+#endif /* __APPLE__ */
 	uint64_t tsresol;		/* time stamp resolution */
 	tstamp_scale_type_t scale_type;	/* how to scale */
 	uint64_t scale_factor;		/* time stamp scale factor for power-of-10 tsresol */
@@ -609,7 +618,12 @@ done:
 }
 
 static int
+#ifdef __APPLE__
+add_interface(pcap_t *p, struct interface_description_block *idbp,
+    struct block_cursor *cursor, char *errbuf)
+#else
 add_interface(pcap_t *p, struct block_cursor *cursor, char *errbuf)
+#endif /* __APPLE__ */
 {
 	struct pcap_ng_sf *ps;
 	uint64_t tsresol;
@@ -717,6 +731,10 @@ add_interface(pcap_t *p, struct block_cursor *cursor, char *errbuf)
 		ps->ifaces_size = new_ifaces_size;
 		ps->ifaces = new_ifaces;
 	}
+
+#ifdef __APPLE__
+	ps->ifaces[ps->ifcount - 1].snaplen = idbp->snaplen;
+#endif /* __APPLE__*/
 
 	/*
 	 * Set the default time stamp resolution and offset.
@@ -1045,9 +1063,13 @@ pcap_ng_check_header(const uint8_t *magic, FILE *fp, u_int precision,
 			/*
 			 * Try to add this interface.
 			 */
+#ifdef __APPLE__
+			if (!add_interface(p, idbp, &cursor, errbuf))
+				goto fail;
+#else
 			if (!add_interface(p, &cursor, errbuf))
 				goto fail;
-
+#endif /* __APPLE__ */
 			goto done;
 
 		case BT_EPB:
@@ -1316,10 +1338,11 @@ pcap_ng_next_internal(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data, int pkt
 			 * interfaces?
 			 */
 #ifdef __APPLE__
-			if (p->linktype != idbp->linktype && pktonly) {
-#else
-			if (p->linktype != idbp->linktype) {
+			if (!pktonly) {
+				goto skip_link_checks;
+			}
 #endif /* __APPLE__ */
+			if (p->linktype != idbp->linktype) {
 				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 				    "an interface has a type %u different from the type of the first interface",
 				    idbp->linktype);
@@ -1330,24 +1353,24 @@ pcap_ng_next_internal(pcap_t *p, struct pcap_pkthdr *hdr, u_char **data, int pkt
 			 * Check against the *adjusted* value of this IDB's
 			 * snapshot length.
 			 */
-#ifdef __APPLE__
-			if ((bpf_u_int32)p->snapshot !=
-			    pcap_adjust_snapshot(p->linktype, idbp->snaplen) && pktonly) {
-#else
 			if ((bpf_u_int32)p->snapshot !=
 			    pcap_adjust_snapshot(p->linktype, idbp->snaplen)) {
-#endif /* __APPLE__ */
 				pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 					      "an interface has a snapshot length %u different from the type of the first interface",
 					      idbp->snaplen);
 				return (-1);
 			}
-
 			/*
 			 * Try to add this interface.
 			 */
+#ifdef __APPLE__
+skip_link_checks:
+			if (!add_interface(p, idbp, &cursor, p->errbuf))
+				return (-1);
+#else
 			if (!add_interface(p, &cursor, p->errbuf))
 				return (-1);
+#endif /* __APPLE__ */
 			break;
 
 		case BT_SHB:
@@ -1452,12 +1475,21 @@ found:
 		return (-1);
 	}
 
+#ifdef __APPLE__
+	if (hdr->caplen > (bpf_u_int32)ps->ifaces[interface_id].snaplen) {
+		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
+		    "invalid packet capture length %u, bigger than "
+		    "snaplen of %d", hdr->caplen, p->snapshot);
+		return (-1);
+	}
+#else /* __APPLE__ */
 	if (hdr->caplen > (bpf_u_int32)p->snapshot) {
 		pcap_snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 		    "invalid packet capture length %u, bigger than "
 		    "snaplen of %d", hdr->caplen, p->snapshot);
 		return (-1);
 	}
+#endif /* __APPLE__ */
 
 	/*
 	 * Convert the time stamp to seconds and fractions of a second,

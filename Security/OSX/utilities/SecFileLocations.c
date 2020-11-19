@@ -262,7 +262,16 @@ CFURLRef SecCopyURLForFileInManagedPreferencesDirectory(CFStringRef fileName)
 
 CFURLRef SecCopyURLForFileInRevocationInfoDirectory(CFStringRef fileName)
 {
+#if TARGET_OS_OSX
+    return SecCopyURLForFileInBaseDirectory(true, CFSTR("private/var/protected/trustd/"), fileName);
+#else
     return SecCopyURLForFileInBaseDirectory(true, CFSTR("Library/Keychains/crls/"), fileName);
+#endif
+}
+
+CFURLRef SecCopyURLForFileInProtectedDirectory(CFStringRef fileName)
+{
+    return SecCopyURLForFileInBaseDirectory(true, CFSTR("private/var/protected/"), fileName);
 }
 
 static void WithPathInDirectory(CFURLRef fileURL, void(^operation)(const char *utf8String))
@@ -290,6 +299,11 @@ void WithPathInKeychainDirectory(CFStringRef fileName, void(^operation)(const ch
 void WithPathInUserCacheDirectory(CFStringRef fileName, void(^operation)(const char *utf8String))
 {
     WithPathInDirectory(SecCopyURLForFileInUserCacheDirectory(fileName), operation);
+}
+
+void WithPathInProtectedDirectory(CFStringRef fileName, void(^operation)(const char *utf8String))
+{
+    WithPathInDirectory(SecCopyURLForFileInProtectedDirectory(fileName), operation);
 }
 
 void SetCustomHomeURL(CFURLRef url)

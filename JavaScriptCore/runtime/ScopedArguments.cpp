@@ -27,7 +27,6 @@
 #include "ScopedArguments.h"
 
 #include "GenericArgumentsInlines.h"
-#include "JSCInlines.h"
 
 namespace JSC {
 
@@ -121,36 +120,45 @@ Structure* ScopedArguments::createStructure(VM& vm, JSGlobalObject* globalObject
     return Structure::create(vm, globalObject, prototype, TypeInfo(ScopedArgumentsType, StructureFlags), info());
 }
 
-void ScopedArguments::overrideThings(VM& vm)
+void ScopedArguments::overrideThings(JSGlobalObject* globalObject)
 {
+    VM& vm = globalObject->vm();
+
     RELEASE_ASSERT(!m_overrodeThings);
     
     putDirect(vm, vm.propertyNames->length, jsNumber(m_table->length()), static_cast<unsigned>(PropertyAttribute::DontEnum));
     putDirect(vm, vm.propertyNames->callee, m_callee.get(), static_cast<unsigned>(PropertyAttribute::DontEnum));
-    putDirect(vm, vm.propertyNames->iteratorSymbol, globalObject(vm)->arrayProtoValuesFunction(), static_cast<unsigned>(PropertyAttribute::DontEnum));
+    putDirect(vm, vm.propertyNames->iteratorSymbol, globalObject->arrayProtoValuesFunction(), static_cast<unsigned>(PropertyAttribute::DontEnum));
     
     m_overrodeThings = true;
 }
 
-void ScopedArguments::overrideThingsIfNecessary(VM& vm)
+void ScopedArguments::overrideThingsIfNecessary(JSGlobalObject* globalObject)
 {
     if (!m_overrodeThings)
-        overrideThings(vm);
+        overrideThings(globalObject);
 }
 
-void ScopedArguments::unmapArgument(VM& vm, uint32_t i)
+void ScopedArguments::unmapArgument(JSGlobalObject* globalObject, uint32_t i)
 {
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
     ASSERT_WITH_SECURITY_IMPLICATION(i < m_totalLength);
     unsigned namedLength = m_table->length();
-    if (i < namedLength)
-        m_table.set(vm, this, m_table->set(vm, i, ScopeOffset()));
-    else
+    if (i < namedLength) {
+        auto* maybeCloned = m_table->trySet(vm, i, ScopeOffset());
+        if (UNLIKELY(!maybeCloned)) {
+            throwOutOfMemoryError(globalObject, scope);
+            return;
+        }
+        m_table.set(vm, this, maybeCloned);
+    } else
         storage()[i - namedLength].clear();
 }
 
-void ScopedArguments::copyToArguments(JSGlobalObject* globalObject, CallFrame* callFrame, VirtualRegister firstElementDest, unsigned offset, unsigned length)
+void ScopedArguments::copyToArguments(JSGlobalObject* globalObject, JSValue* firstElementDest, unsigned offset, unsigned length)
 {
-    GenericArguments::copyToArguments(globalObject, callFrame, firstElementDest, offset, length);
+    GenericArguments::copyToArguments(globalObject, firstElementDest, offset, length);
 }
 
 } // namespace JSC

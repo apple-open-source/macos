@@ -102,7 +102,8 @@ typedef enum {
     debugger device is an Ethernet interface and therefore it will
     always send, and expect to receive, an Ethernet frame. */
 
-class IOKernelDebugger : public IOService
+
+class __exported IOKernelDebugger : public IOService
 {
     OSDeclareDefaultStructors( IOKernelDebugger )
 

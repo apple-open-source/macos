@@ -395,16 +395,16 @@ declare
        Same as typeset.
 
 float [ {+|-}Hghlprtux ] [ {+|-}EFLRZ [ n ] ] [ name[=value] ... ]
-       Equivalent to typeset -E,  except  that  options  irrelevant  to
+       Equivalent  to  typeset  -E,  except  that options irrelevant to
        floating point numbers are not permitted.
 
 integer [ {+|-}Hghlprtux ] [ {+|-}LRZi [ n ] ] [ name[=value] ... ]
-       Equivalent  to typeset -i, except that options irrelevant to in-
+       Equivalent to typeset -i, except that options irrelevant to  in-
        tegers are not permitted.
 
 local [ {+|-}AHUahlprtux ] [ {+|-}EFLRZi [ n ] ] [ name[=value] ... ]
        Same as typeset, except that the options -g, and -f are not per-
-       mitted.  In this case the -x option does not force  the  use  of
+       mitted.   In  this  case the -x option does not force the use of
        -g, i.e. exported variables will be local to functions.
 
 readonly

@@ -1504,11 +1504,11 @@ ZEND_API void ZEND_FASTCALL zend_array_destroy(HashTable *ht)
 				}
 			} while (++p != end);
 		}
-		zend_hash_iterators_remove(ht);
-		SET_INCONSISTENT(HT_DESTROYED);
 	} else if (EXPECTED(!(HT_FLAGS(ht) & HASH_FLAG_INITIALIZED))) {
 		goto free_ht;
 	}
+	zend_hash_iterators_remove(ht);
+	SET_INCONSISTENT(HT_DESTROYED);
 	efree(HT_GET_DATA_ADDR(ht));
 free_ht:
 	FREE_HASHTABLE(ht);
@@ -1934,7 +1934,7 @@ ZEND_API HashTable* ZEND_FASTCALL zend_array_dup(HashTable *source)
 		target->nTableMask = HT_MIN_MASK;
 		target->nNumUsed = 0;
 		target->nNumOfElements = 0;
-		target->nNextFreeElement = 0;
+		target->nNextFreeElement = source->nNextFreeElement;
 		target->nInternalPointer = 0;
 		HT_SET_DATA_ADDR(target, &uninitialized_bucket);
 	} else if (GC_FLAGS(source) & IS_ARRAY_IMMUTABLE) {
@@ -2722,7 +2722,7 @@ convert:
 	{
 		HashTable *new_ht = zend_new_array(zend_hash_num_elements(ht));
 
-		ZEND_HASH_FOREACH_KEY_VAL(ht, num_key, str_key, zv) {
+		ZEND_HASH_FOREACH_KEY_VAL_IND(ht, num_key, str_key, zv) {
 			do {
 				if (Z_OPT_REFCOUNTED_P(zv)) {
 					if (Z_ISREF_P(zv) && Z_REFCOUNT_P(zv) == 1) {

@@ -149,14 +149,9 @@
     [self.account importInitialSyncCredentials:items complete:complete];
 }
 
-- (void)triggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
+- (void)rpcTriggerSync:(NSArray <NSString *> *)peers complete:(void(^)(bool success, NSError *))complete
 {
-    if (![self checkEntitlement:(__bridge NSString *)kSecEntitlementKeychainCloudCircle]) {
-        complete(false, [NSError errorWithDomain:(__bridge NSString *)kSOSErrorDomain code:kSOSEntitlementMissing userInfo:NULL]);
-        return;
-    }
-
-    [self.account triggerSync:peers complete:complete];
+    [self.account rpcTriggerSync:peers complete:complete];
 }
 
 - (void)getWatchdogParameters:(void (^)(NSDictionary* parameters, NSError* error))complete
@@ -185,9 +180,21 @@
     [self.account ghostBustInfo:complete];
 }
 
-- (void)triggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
+- (void)iCloudIdentityStatus: (void (^)(NSData *json, NSError *error))complete {
+    [self.account iCloudIdentityStatus: complete];
+}
+
+- (void)rpcTriggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
 {
-    [self.account triggerBackup:backupPeers complete:complete];
+    [self.account rpcTriggerBackup:backupPeers complete:complete];
+}
+
+- (void)rpcTriggerRingUpdate:(void (^)(NSError *))complete {
+    [self.account rpcTriggerRingUpdate:complete];
+}
+
+- (void)iCloudIdentityStatus_internal:(void (^)(NSDictionary *, NSError *))complete {
+    [self.account iCloudIdentityStatus_internal:complete];
 }
 
 
@@ -197,8 +204,7 @@
 
 - (instancetype)initSOSConnectionWithConnection:(NSXPCConnection *)connection account:(SOSAccount *)account
 {
-    self = [super initSOSClientWithAccount:account];
-    if (self) {
+    if ((self = [super initSOSClientWithAccount:account])) {
         self.connection = connection;
     }
     return self;

@@ -49,7 +49,8 @@
     }];
     [self dependOnBeforeGroupFinished:self.finishedOp];
 
-    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps];
+    OTFetchCKKSKeysOperation* fetchKeysOp = [[OTFetchCKKSKeysOperation alloc] initWithDependencies:self.deps
+                                                                                     refetchNeeded:NO];
     [self runBeforeGroupFinished:fetchKeysOp];
 
     CKKSResultOperation* proceedWithKeys = [CKKSResultOperation named:@"continue-ckks-resets"
@@ -84,13 +85,10 @@
             if(incompleteKeySet.currentTLKPointer != nil &&
                incompleteKeySet.tlk == nil) {
 
-                BOOL otherDevicesAlive = [viewMatchingSet otherDevicesReportHavingTLKs:incompleteKeySet];
-                if(otherDevicesAlive) {
-                    secnotice("octagon-ckks", "Recently active devices claim to have TLK from key set %@; not scheduling for reset", incompleteKeySet);
-                } else {
-                    secnotice("octagon-ckks", "Key set %@ has no TLK; scheduling for reset", incompleteKeySet);
-                    [viewsToReset addObject:viewMatchingSet];
-                }
+                // We used to not reset the TLKs if there was a recent device claiming to have them, but
+                // in our Octagon-primary world, an Octagon reset should take precedence over existing Cloud-based data
+                secnotice("octagon-ckks", "Key set %@ has no TLK; scheduling for reset", incompleteKeySet);
+                [viewsToReset addObject:viewMatchingSet];
             }
         } else {
             secnotice("octagon-ckks", "Error loading key set %@; not attempting reset", incompleteKeySet);
@@ -116,7 +114,9 @@
 
         // Use an intermediary operation, just to ensure we have a timeout
         CKKSResultOperation* waitOp = [CKKSResultOperation named:[NSString stringWithFormat:@"wait-for-%@", view.zoneName]
-                                                       withBlock:^{}];
+                                                       withBlock:^{
+            secnotice("octagon-ckks", "Successfully reset %@", view);
+        }];
         [waitOp timeout:120*NSEC_PER_SEC];
         [waitOp addDependency:op];
         [self.operationQueue addOperation:waitOp];

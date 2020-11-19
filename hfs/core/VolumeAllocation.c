@@ -160,7 +160,9 @@ Optimization Routines
 #include <sys/types.h>
 #include <sys/buf.h>
 
-#if !HFS_ALLOC_TEST
+#if HFS_ALLOC_TEST
+#define KERNEL_DEBUG_CONSTANT(x, a, b, c, d, e) do {} while (0)
+#else // !HFS_ALLOC_TEST
 
 #include "hfs_macos_defs.h"
 #include <sys/systm.h>

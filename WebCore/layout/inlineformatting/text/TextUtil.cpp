@@ -31,6 +31,8 @@
 #include "BreakLines.h"
 #include "FontCascade.h"
 #include "InlineTextItem.h"
+#include "LayoutInlineTextBox.h"
+#include "RenderBox.h"
 #include "RenderStyle.h"
 
 namespace WebCore {
@@ -43,32 +45,31 @@ InlineLayoutUnit TextUtil::width(const InlineTextItem& inlineTextItem, unsigned 
         auto font = inlineTextItem.style().fontCascade();
         return font.spaceWidth() + font.wordSpacing();
     }
-    return TextUtil::width(inlineTextItem.layoutBox(), from, to, contentLogicalLeft);
+    return TextUtil::width(inlineTextItem.inlineTextBox(), from, to, contentLogicalLeft);
 }
 
-InlineLayoutUnit TextUtil::width(const Box& inlineBox, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft)
+InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, unsigned from, unsigned to, InlineLayoutUnit contentLogicalLeft)
 {
-    auto& style = inlineBox.style();
+    auto& style = inlineTextBox.style();
     auto& font = style.fontCascade();
     if (!font.size() || from == to)
         return 0;
 
-    auto& textContext = *inlineBox.textContext();
-    auto& text = textContext.content;
+    auto text = inlineTextBox.content();
     ASSERT(to <= text.length());
     auto hasKerningOrLigatures = font.enableKerning() || font.requiresShaping();
     auto measureWithEndSpace = hasKerningOrLigatures && to < text.length() && text[to] == ' ';
     if (measureWithEndSpace)
         ++to;
     float width = 0;
-    if (textContext.canUseSimplifiedContentMeasuring) {
+    if (inlineTextBox.canUseSimplifiedContentMeasuring()) {
         if (font.isFixedPitch())
             width = fixedPitchWidth(text, style, from, to, contentLogicalLeft);
         else
-            width = font.widthForSimpleText(text.substring(from, to - from));
+            width = font.widthForSimpleText(StringView(text).substring(from, to - from));
     } else {
         auto tabWidth = style.collapseWhiteSpace() ? TabSize(0) : style.tabSize();
-        WebCore::TextRun run(text.substring(from, to - from), contentLogicalLeft);
+        WebCore::TextRun run(StringView(text).substring(from, to - from), contentLogicalLeft);
         if (tabWidth)
             run.setTabSize(true, tabWidth);
         width = font.width(run);
@@ -99,7 +100,7 @@ InlineLayoutUnit TextUtil::fixedPitchWidth(const StringView& text, const RenderS
     return std::max<InlineLayoutUnit>(0, InlineLayoutUnit(width));
 }
 
-TextUtil::SplitData TextUtil::split(const Box& inlineBox, unsigned startPosition, unsigned length, InlineLayoutUnit textWidth, InlineLayoutUnit availableWidth, InlineLayoutUnit contentLogicalLeft)
+TextUtil::SplitData TextUtil::split(const InlineTextBox& inlineTextBox, unsigned startPosition, unsigned length, InlineLayoutUnit textWidth, InlineLayoutUnit availableWidth, InlineLayoutUnit contentLogicalLeft)
 {
     ASSERT(availableWidth >= 0);
     auto left = startPosition;
@@ -112,7 +113,7 @@ TextUtil::SplitData TextUtil::split(const Box& inlineBox, unsigned startPosition
     InlineLayoutUnit leftSideWidth = 0;
     while (left < right) {
         auto middle = (left + right) / 2;
-        auto width = TextUtil::width(inlineBox, startPosition, middle + 1, contentLogicalLeft);
+        auto width = TextUtil::width(inlineTextBox, startPosition, middle + 1, contentLogicalLeft);
         if (width < availableWidth) {
             left = middle + 1;
             leftSideWidth = width;
@@ -125,12 +126,6 @@ TextUtil::SplitData TextUtil::split(const Box& inlineBox, unsigned startPosition
         }
     }
     return { startPosition, right - startPosition, leftSideWidth };
-}
-
-bool TextUtil::shouldPreserveTrailingWhitespace(const RenderStyle& style)
-{
-    auto whitespace = style.whiteSpace();
-    return whitespace == WhiteSpace::Pre || whitespace == WhiteSpace::PreWrap || whitespace == WhiteSpace::BreakSpaces;
 }
 
 unsigned TextUtil::findNextBreakablePosition(LazyLineBreakIterator& lineBreakIterator, unsigned startPosition, const RenderStyle& style)

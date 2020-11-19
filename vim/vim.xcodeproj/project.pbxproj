@@ -84,6 +84,9 @@
 		4CD04E491039DE7E001C87D5 /* os_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04C0310361A30001C87D5 /* os_unix.c */; };
 		4CD04E99103A0215001C87D5 /* libncurses.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CD04E98103A0215001C87D5 /* libncurses.tbd */; settings = {ATTRIBUTES = (Required, ); }; };
 		4CD04EBA103CB215001C87D5 /* xxd.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CD04D5710361A31001C87D5 /* xxd.c */; };
+		A9DA7B922482C9B700ECA3F8 /* typval.c in Sources */ = {isa = PBXBuildFile; fileRef = A9DA7B912482C9B700ECA3F8 /* typval.c */; };
+		A9DA7B942482C9E100ECA3F8 /* clientserver.c in Sources */ = {isa = PBXBuildFile; fileRef = A9DA7B932482C9E100ECA3F8 /* clientserver.c */; };
+		A9DA7B962482CA2900ECA3F8 /* textformat.c in Sources */ = {isa = PBXBuildFile; fileRef = A9DA7B952482CA2800ECA3F8 /* textformat.c */; };
 		C101D14C230E14DA0032FCED /* os_mac_conv.c in Sources */ = {isa = PBXBuildFile; fileRef = C101D14A230E13A10032FCED /* os_mac_conv.c */; };
 		C101D14D230E14DC0032FCED /* os_macosx.m in Sources */ = {isa = PBXBuildFile; fileRef = C101D14B230E13A10032FCED /* os_macosx.m */; };
 		C10BF7BC22678FFC00A207D2 /* utf8.h in Headers */ = {isa = PBXBuildFile; fileRef = C10BF7B022678FFA00A207D2 /* utf8.h */; };
@@ -117,6 +120,11 @@
 		C18E31F82327293100A8F600 /* arglist.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31F72327293100A8F600 /* arglist.c */; };
 		C18E31FA2327295500A8F600 /* cmdexpand.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31F92327295500A8F600 /* cmdexpand.c */; };
 		C18E31FC2327297500A8F600 /* evalwindow.c in Sources */ = {isa = PBXBuildFile; fileRef = C18E31FB2327297400A8F600 /* evalwindow.c */; };
+		C198001C23F385AF004D70D5 /* vim9compile.c in Sources */ = {isa = PBXBuildFile; fileRef = C198001B23F385AF004D70D5 /* vim9compile.c */; };
+		C198001E23F385E5004D70D5 /* vim9script.c in Sources */ = {isa = PBXBuildFile; fileRef = C198001D23F385E5004D70D5 /* vim9script.c */; };
+		C198002023F3861C004D70D5 /* vim9execute.c in Sources */ = {isa = PBXBuildFile; fileRef = C198001F23F3861B004D70D5 /* vim9execute.c */; };
+		C1A0828F2439058100F16C39 /* time.c in Sources */ = {isa = PBXBuildFile; fileRef = C1A0828E2439058000F16C39 /* time.c */; };
+		C1A08291243905D600F16C39 /* clipboard.c in Sources */ = {isa = PBXBuildFile; fileRef = C1A08290243905D500F16C39 /* clipboard.c */; };
 		C1AA54D4234F92FE00C82C5B /* screen.c in Sources */ = {isa = PBXBuildFile; fileRef = C1AA54D0234F928E00C82C5B /* screen.c */; };
 		C1AA54D5234F930100C82C5B /* bufwrite.c in Sources */ = {isa = PBXBuildFile; fileRef = C1AA54D2234F92D600C82C5B /* bufwrite.c */; };
 		C1AA54D6234F930700C82C5B /* register.c in Sources */ = {isa = PBXBuildFile; fileRef = C1AA54D3234F92D600C82C5B /* register.c */; };
@@ -2187,12 +2195,14 @@
 		4CD04D1710361A31001C87D5 /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = version.c; path = src/version.c; sourceTree = "<group>"; };
 		4CD04D1810361A31001C87D5 /* version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = version.h; path = src/version.h; sourceTree = "<group>"; };
 		4CD04D2010361A31001C87D5 /* vim.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vim.h; path = src/vim.h; sourceTree = "<group>"; };
-		4CD04D2610361A31001C87D5 /* vimio.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vimio.h; path = src/vimio.h; sourceTree = "<group>"; };
 		4CD04D4610361A31001C87D5 /* window.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = window.c; path = src/window.c; sourceTree = "<group>"; };
 		4CD04D5710361A31001C87D5 /* xxd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = xxd.c; sourceTree = "<group>"; };
 		4CD04E98103A0215001C87D5 /* libncurses.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libncurses.tbd; path = usr/lib/libncurses.tbd; sourceTree = SDKROOT; };
 		4CD04EB3103CAFC9001C87D5 /* xxd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xxd; sourceTree = BUILT_PRODUCTS_DIR; };
 		8DD76FB20486AB0100D96B5E /* vim */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vim; sourceTree = BUILT_PRODUCTS_DIR; };
+		A9DA7B912482C9B700ECA3F8 /* typval.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = typval.c; path = src/typval.c; sourceTree = "<group>"; };
+		A9DA7B932482C9E100ECA3F8 /* clientserver.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = clientserver.c; path = src/clientserver.c; sourceTree = "<group>"; };
+		A9DA7B952482CA2800ECA3F8 /* textformat.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = textformat.c; path = src/textformat.c; sourceTree = "<group>"; };
 		C101D14A230E13A10032FCED /* os_mac_conv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = os_mac_conv.c; path = src/os_mac_conv.c; sourceTree = "<group>"; };
 		C101D14B230E13A10032FCED /* os_macosx.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = os_macosx.m; path = src/os_macosx.m; sourceTree = "<group>"; };
 		C10BF7AD22678F9900A207D2 /* liblibvterm.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = liblibvterm.a; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -2254,6 +2264,11 @@
 		C18E31F72327293100A8F600 /* arglist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = arglist.c; path = src/arglist.c; sourceTree = "<group>"; };
 		C18E31F92327295500A8F600 /* cmdexpand.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = cmdexpand.c; path = src/cmdexpand.c; sourceTree = "<group>"; };
 		C18E31FB2327297400A8F600 /* evalwindow.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = evalwindow.c; path = src/evalwindow.c; sourceTree = "<group>"; };
+		C198001B23F385AF004D70D5 /* vim9compile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vim9compile.c; path = src/vim9compile.c; sourceTree = "<group>"; };
+		C198001D23F385E5004D70D5 /* vim9script.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vim9script.c; path = src/vim9script.c; sourceTree = "<group>"; };
+		C198001F23F3861B004D70D5 /* vim9execute.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vim9execute.c; path = src/vim9execute.c; sourceTree = "<group>"; };
+		C1A0828E2439058000F16C39 /* time.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = time.c; path = src/time.c; sourceTree = "<group>"; };
+		C1A08290243905D500F16C39 /* clipboard.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = clipboard.c; path = src/clipboard.c; sourceTree = "<group>"; };
 		C1AA54D0234F928E00C82C5B /* screen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = screen.c; path = src/libvterm/src/screen.c; sourceTree = SOURCE_ROOT; };
 		C1AA54D1234F92D600C82C5B /* optiondefs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = optiondefs.h; path = src/optiondefs.h; sourceTree = "<group>"; };
 		C1AA54D2234F92D600C82C5B /* bufwrite.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = bufwrite.c; path = src/bufwrite.c; sourceTree = "<group>"; };
@@ -2342,6 +2357,8 @@
 				3E452F9C1DD4F15D001BF7DB /* channel.c */,
 				4CD04B4C10361A30001C87D5 /* charset.c */,
 				C1AA54DB234F93C400C82C5B /* cindent.c */,
+				A9DA7B932482C9E100ECA3F8 /* clientserver.c */,
+				C1A08290243905D500F16C39 /* clipboard.c */,
 				C18E31F92327295500A8F600 /* cmdexpand.c */,
 				C1F2AD982306125300B8602B /* cmdhist.c */,
 				3ECDF48A1BDAA939009B95F1 /* crypt_zip.c */,
@@ -2449,7 +2466,10 @@
 				4CD04C7910361A30001C87D5 /* termlib.c */,
 				4CD04C7A10361A30001C87D5 /* testdir */,
 				C1F2AD962306122400B8602B /* testing.c */,
+				A9DA7B952482CA2800ECA3F8 /* textformat.c */,
 				C1119FA42245D9680072C208 /* textprop.c */,
+				C1A0828E2439058000F16C39 /* time.c */,
+				A9DA7B912482C9B700ECA3F8 /* typval.c */,
 				4CD04D1410361A31001C87D5 /* ui.c */,
 				4CD04D1510361A31001C87D5 /* undo.c */,
 				C10BF7B322678FFB00A207D2 /* unicode.c */,
@@ -2459,8 +2479,10 @@
 				4CD04D1710361A31001C87D5 /* version.c */,
 				4CD04D1810361A31001C87D5 /* version.h */,
 				4CD04D2010361A31001C87D5 /* vim.h */,
+				C198001B23F385AF004D70D5 /* vim9compile.c */,
+				C198001F23F3861B004D70D5 /* vim9execute.c */,
+				C198001D23F385E5004D70D5 /* vim9script.c */,
 				C1F2ADA2230613E600B8602B /* viminfo.c */,
-				4CD04D2610361A31001C87D5 /* vimio.h */,
 				C10BF7B122678FFB00A207D2 /* vterm_internal.h */,
 				C10BF7C82267901E00A207D2 /* vterm_keycodes.h */,
 				C10BF7B222678FFB00A207D2 /* vterm.c */,
@@ -5157,6 +5179,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 1200;
 				TargetAttributes = {
 					C10BF7AC22678F9900A207D2 = {
 						CreatedOnToolsVersion = 11.0;
@@ -5205,7 +5228,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = "/bin/sh -e -x";
-			shellScript = "DYNAMIC_RUBY_VER=$(readlink ${SDKROOT}/System/Library/Frameworks/Ruby.framework/Versions/Current | sed 's:\\.::')\n\necho \"#define DYNAMIC_RUBY_VER ${DYNAMIC_RUBY_VER}\" > ${DERIVED_FILE_DIR}/vim_dynamic_config.h\n";
+			shellScript = "DYNAMIC_RUBY_VER=$(readlink ${SDKROOT}/System/Library/Frameworks/Ruby.framework/Versions/Current | sed 's:\\.::')\n\necho \"#define DYNAMIC_RUBY_VER ${DYNAMIC_RUBY_VER}\" > ${DERIVED_FILE_DIR}/vim_dynamic_config.h\necho \"#define RUBY_VERSION ${DYNAMIC_RUBY_VER}\" >> ${DERIVED_FILE_DIR}/vim_dynamic_config.h\n";
 		};
 		4C9BEED91048506B00182AEE /* install files */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -5236,6 +5259,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C198001C23F385AF004D70D5 /* vim9compile.c in Sources */,
 				C1119FA92245D9C00072C208 /* blob.c in Sources */,
 				4CD04D5910361A31001C87D5 /* pathdef.c in Sources */,
 				4CD04D5A10361A31001C87D5 /* buffer.c in Sources */,
@@ -5252,8 +5276,11 @@
 				4CD04D6410361A31001C87D5 /* ex_docmd.c in Sources */,
 				4CD04D6510361A31001C87D5 /* ex_eval.c in Sources */,
 				4CD04D6610361A31001C87D5 /* ex_getln.c in Sources */,
+				C1A08291243905D600F16C39 /* clipboard.c in Sources */,
 				C101D14D230E14DC0032FCED /* os_macosx.m in Sources */,
+				A9DA7B962482CA2900ECA3F8 /* textformat.c in Sources */,
 				C1AA54DE234F93F600C82C5B /* drawscreen.c in Sources */,
+				C198001E23F385E5004D70D5 /* vim9script.c in Sources */,
 				4CD04D6810361A31001C87D5 /* fileio.c in Sources */,
 				C10D6CC02267A71000E6E890 /* arabic.c in Sources */,
 				4CD04D6910361A31001C87D5 /* fold.c in Sources */,
@@ -5266,6 +5293,7 @@
 				C1F2AD9D2306136E00B8602B /* change.c in Sources */,
 				4CD04D8410361A31001C87D5 /* hashtab.c in Sources */,
 				4CD04D8510361A31001C87D5 /* if_cscope.c in Sources */,
+				A9DA7B922482C9B700ECA3F8 /* typval.c in Sources */,
 				C1AA54D6234F930700C82C5B /* register.c in Sources */,
 				3ECDF48D1BDAA945009B95F1 /* crypt.c in Sources */,
 				C1F2AD992306125600B8602B /* cmdhist.c in Sources */,
@@ -5320,7 +5348,9 @@
 				C1AA54E6234F94A900C82C5B /* drawline.c in Sources */,
 				C18E31F82327293100A8F600 /* arglist.c in Sources */,
 				C12D91A3228213B000501F22 /* debugger.c in Sources */,
+				C1A0828F2439058100F16C39 /* time.c in Sources */,
 				3EB3C11D1DD5007700E46356 /* evalfunc.c in Sources */,
+				A9DA7B942482C9E100ECA3F8 /* clientserver.c in Sources */,
 				C18E31F4232728D000A8F600 /* evalbuffer.c in Sources */,
 				C1F2AD9F2306139200B8602B /* profiler.c in Sources */,
 				C1F2ADA3230613E900B8602B /* viminfo.c in Sources */,
@@ -5334,6 +5364,7 @@
 				FCEA25A21235809000430E38 /* sha256.c in Sources */,
 				C18E31EE2327271B00A8F600 /* scriptfile.c in Sources */,
 				C9DF38441489D5CD001ADB39 /* if_ruby.c in Sources */,
+				C198002023F3861C004D70D5 /* vim9execute.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5378,6 +5409,7 @@
 		1DEB928708733DD80010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = "";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=iphoneos*]" = (
 					if_python.c,
@@ -5404,6 +5436,8 @@
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-weak_framework",
 					AppKit,
+					"-weak_framework",
+					CoreServices,
 				);
 				PRODUCT_NAME = vim;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -5414,23 +5448,47 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "-";
 				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"_FORTIFY_SOURCE=0",
 					HAVE_CONFIG_H,
 				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = (
 					src,
 					src/proto,
 				);
-				PREBINDING = NO;
 				SDKROOT = macosx.internal;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = __;
@@ -5444,6 +5502,7 @@
 				ALTERNATE_GROUP = wheel;
 				ALTERNATE_MODE = "u+w,go-w,a+rX";
 				ALTERNATE_OWNER = root;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = all;
 			};
 			name = Release;
@@ -5451,10 +5510,10 @@
 		4CD04EB6103CAFCA001C87D5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_PREPROCESSOR_DEFINITIONS = HAVE_CONFIG_H;
 				INSTALL_PATH = /usr/bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = xxd;
 				STRIP_INSTALLED_PRODUCT = YES;
 				ZERO_LINK = NO;

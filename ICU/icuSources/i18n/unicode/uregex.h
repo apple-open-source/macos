@@ -227,7 +227,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalURegularExpressionPointer, URegularExpression, 
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Make a copy of a compiled regular expression.  Cloning a regular

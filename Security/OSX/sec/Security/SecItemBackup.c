@@ -124,6 +124,17 @@ static bool string_string_data_data_data_to_bool_error_request(enum SecXPCOperat
     });
 }
 
+static CFStringRef string_to_string_error_request(enum SecXPCOperation op, CFStringRef viewName, CFErrorRef *error)
+{
+    __block CFStringRef result = NULL;
+    securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
+        return SecXPCDictionarySetString(message, kSecXPCKeyString, viewName, error);
+    }, ^bool(xpc_object_t response, CFErrorRef *error) {
+        return result = SecXPCDictionaryCopyString(response, kSecXPCKeyResult, error);
+    });
+    return result;
+}
+
 static CFArrayRef to_array_error_request(enum SecXPCOperation op, CFErrorRef *error)
 {
     __block CFArrayRef result = NULL;
@@ -346,6 +357,25 @@ bool SecItemBackupWithRegisteredBackups(CFErrorRef *error, void(^backup)(CFStrin
     return true;
 }
 
+static CFStringRef SecItemBackupViewAndCopyBackupPeerID(CFStringRef viewName, CFErrorRef *error)
+{
+    __block CFStringRef result;
+    os_activity_initiate("SecItemBackupViewAndCopyBackupPeerID", OS_ACTIVITY_FLAG_DEFAULT, ^{
+        result = SECURITYD_XPC(sec_item_backup_ensure_copy_view, string_to_string_error_request, viewName, error);
+    });
+    return result;
+}
+
+bool SecItemBackupWithRegisteredViewBackup(CFStringRef viewName, CFErrorRef *error) {
+    CFStringRef backupName = SecItemBackupViewAndCopyBackupPeerID(viewName, error);
+    if(backupName == NULL) {
+        return false;
+    }
+    CFReleaseNull(backupName);
+    return true;
+}
+
+
 static bool SecItemBackupDoResetEventBody(const uint8_t *der, const uint8_t *der_end, CFErrorRef *error, void (^handleEvent)(SecBackupEventType et, CFTypeRef key, CFTypeRef item)) {
     size_t sequence_len;
     const uint8_t *sequence_body = ccder_decode_len(&sequence_len, der, der_end);
@@ -377,7 +407,7 @@ static bool SecItemBackupDoResetEventBody(const uint8_t *der, const uint8_t *der
 
 static bool SecItemBackupDoAddEvent(const uint8_t *der, const uint8_t *der_end, CFErrorRef *error, void (^handleEvent)(SecBackupEventType et, CFTypeRef key, CFTypeRef item)) {
     CFDictionaryRef eventDict = NULL;
-    const uint8_t *der_end_of_dict = der_decode_dictionary(kCFAllocatorDefault, kCFPropertyListImmutable, &eventDict, error, der, der_end);
+    const uint8_t *der_end_of_dict = der_decode_dictionary(kCFAllocatorDefault, &eventDict, error, der, der_end);
     if (der_end_of_dict && der_end_of_dict != der_end) {
         // Can't ever happen!
         SecError(errSecDecode, error, CFSTR("trailing junk after add"));
@@ -587,11 +617,6 @@ void SecItemBackupRestore(CFStringRef backupName, CFStringRef peerID, CFDataRef 
     });
     completion(localError);
     CFReleaseSafe(localError);
-}
-
-CFDictionaryRef SecItemBackupCopyMatching(CFDataRef keybag, CFDataRef secret, CFDictionaryRef backup, CFDictionaryRef query, CFErrorRef *error) {
-    SecError(errSecUnimplemented, error, CFSTR("SecItemBackupCopyMatching unimplemented"));
-    return NULL;
 }
 
 bool SecBackupKeybagAdd(CFDataRef passcode, CFDataRef *identifier, CFURLRef *pathinfo, CFErrorRef *error) {

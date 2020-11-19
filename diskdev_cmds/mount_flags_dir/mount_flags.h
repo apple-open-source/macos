@@ -59,6 +59,7 @@
 typedef struct mountopt {
 	int o_opt;
 	const char *o_name;
+	const char *o_cmd;
 } mountopt_t;
 
 #endif

@@ -154,11 +154,10 @@ SEC_EXP_OBJECT_IMPL_INTERNAL_OBJC(sec_experiment,
         return SEC_EXP_NIL_BAD_INPUT;
     }
 
-    self = [super init];
-    if (self == nil) {
-        return SEC_EXP_NIL_OUT_OF_MEMORY;
-    } else {
+    if ((self = [super init])) {
         self->innerExperiment = [[SecExperiment alloc] initWithName:name];
+    } else {
+        return SEC_EXP_NIL_OUT_OF_MEMORY;
     }
     return self;
 }
@@ -169,11 +168,10 @@ SEC_EXP_OBJECT_IMPL_INTERNAL_OBJC(sec_experiment,
         return SEC_EXP_NIL_BAD_INPUT;
     }
 
-    self = [super init];
-    if (self == nil) {
-        return SEC_EXP_NIL_OUT_OF_MEMORY;
-    } else {
+    if ((self = [super init])) {
         self->innerExperiment = experiment;
+    } else {
+        return SEC_EXP_NIL_OUT_OF_MEMORY;
     }
     return self;
 }
@@ -224,11 +222,10 @@ SEC_EXP_OBJECT_IMPL_INTERNAL_OBJC(sec_experiment,
         return SEC_EXP_NIL_BAD_INPUT;
     }
 
-    self = [super init];
-    if (self == nil) {
-        return SEC_EXP_NIL_OUT_OF_MEMORY;
-    } else {
+    if ((self = [super init])) {
         self.name = [NSString stringWithUTF8String:name];
+    } else {
+        return SEC_EXP_NIL_OUT_OF_MEMORY;
     }
     return self;
 }
@@ -381,10 +378,7 @@ SEC_EXP_OBJECT_IMPL_INTERNAL_OBJC(sec_experiment,
         return SEC_EXP_NIL_BAD_INPUT;
     }
 
-    self = [super init];
-    if (self == nil) {
-        return SEC_EXP_NIL_OUT_OF_MEMORY;
-    } else {
+    if ((self = [super init])) {
         // Parse out experiment information from the configuration dictionary
         self.config = configuration;
         self.identifier = [configuration objectForKey:SecExperimentConfigurationKeyExperimentIdentifier];
@@ -400,7 +394,10 @@ SEC_EXP_OBJECT_IMPL_INTERNAL_OBJC(sec_experiment,
         }
 
         self.configurationData = [configuration objectForKey:SecExperimentConfigurationKeyConfigurationData];
+    } else {
+        return SEC_EXP_NIL_OUT_OF_MEMORY;
     }
+
     return self;
 }
 

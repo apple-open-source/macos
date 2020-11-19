@@ -30,6 +30,7 @@
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/CurlProxySettings.h>
 #include <WebCore/DictionaryPopupInfo.h>
+#include <WebCore/Font.h>
 #include <WebCore/FontAttributes.h>
 #include <WebCore/ProtectionSpace.h>
 #include <WebCore/ResourceError.h>
@@ -86,7 +87,7 @@ bool ArgumentCoder<CertificateInfo>::decode(Decoder& decoder, CertificateInfo& c
 
 void ArgumentCoder<ResourceError>::encodePlatformData(Encoder& encoder, const ResourceError& resourceError)
 {
-    encoder.encodeEnum(resourceError.type());
+    encoder << resourceError.type();
     if (resourceError.isNull())
         return;
 
@@ -100,7 +101,7 @@ void ArgumentCoder<ResourceError>::encodePlatformData(Encoder& encoder, const Re
 bool ArgumentCoder<ResourceError>::decodePlatformData(Decoder& decoder, ResourceError& resourceError)
 {
     ResourceErrorBase::Type errorType;
-    if (!decoder.decodeEnum(errorType))
+    if (!decoder.decode(errorType))
         return false;
     if (errorType == ResourceErrorBase::Type::Null) {
         resourceError = { };
@@ -136,8 +137,8 @@ bool ArgumentCoder<ResourceError>::decodePlatformData(Decoder& decoder, Resource
 void ArgumentCoder<ProtectionSpace>::encodePlatformData(Encoder& encoder, const ProtectionSpace& space)
 {
     encoder << space.host() << space.port() << space.realm();
-    encoder.encodeEnum(space.authenticationScheme());
-    encoder.encodeEnum(space.serverType());
+    encoder << space.authenticationScheme();
+    encoder << space.serverType();
     encoder << space.certificateInfo();
 }
 
@@ -156,11 +157,11 @@ bool ArgumentCoder<ProtectionSpace>::decodePlatformData(Decoder& decoder, Protec
         return false;
 
     ProtectionSpaceAuthenticationScheme authenticationScheme;
-    if (!decoder.decodeEnum(authenticationScheme))
+    if (!decoder.decode(authenticationScheme))
         return false;
 
     ProtectionSpaceServerType serverType;
-    if (!decoder.decodeEnum(serverType))
+    if (!decoder.decode(serverType))
         return false;
 
     CertificateInfo certificateInfo;
@@ -233,5 +234,29 @@ bool ArgumentCoder<DictionaryPopupInfo>::decodePlatformData(Decoder&, Dictionary
     ASSERT_NOT_REACHED();
     return false;
 }
+
+void ArgumentCoder<FontHandle>::encodePlatformData(Encoder&, const FontHandle&)
+{
+    ASSERT_NOT_REACHED();
+}
+
+bool ArgumentCoder<FontHandle>::decodePlatformData(Decoder&, FontHandle&)
+{
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+#if ENABLE(VIDEO)
+void ArgumentCoder<SerializedPlatformDataCueValue>::encodePlatformData(Encoder& encoder, const SerializedPlatformDataCueValue& value)
+{
+    ASSERT_NOT_REACHED();
+}
+
+Optional<SerializedPlatformDataCueValue>  ArgumentCoder<SerializedPlatformDataCueValue>::decodePlatformData(Decoder& decoder, WebCore::SerializedPlatformDataCueValue::PlatformType platformType)
+{
+    ASSERT_NOT_REACHED();
+    return WTF::nullopt;
+}
+#endif
 
 }

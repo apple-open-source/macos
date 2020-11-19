@@ -26,8 +26,6 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// This header contains the WebFrame SPI.
-
 #import <WebKitLegacy/WebFrame.h>
 #import <JavaScriptCore/JSBase.h>
 
@@ -38,8 +36,8 @@
 #endif
 
 #if TARGET_OS_IPHONE
-#include <CoreText/CoreText.h>
-#include <WebKitLegacy/WAKAppKitStubs.h>
+#import <CoreText/CoreText.h>
+#import <WebKitLegacy/WAKAppKitStubs.h>
 #endif
 
 @class DOMDocumentFragment;
@@ -142,7 +140,7 @@ typedef enum {
 - (void)setSelectionChangeCallbacksDisabled:(BOOL)flag;
 - (NSRect)caretRect;
 - (NSRect)rectForScrollToVisible; // return caretRect if selection is caret, selectionRect otherwise
-- (void)setCaretColor:(CGColorRef)color;
+@property (nonatomic, readwrite) CGColorRef caretColor;
 - (NSView *)documentView;
 - (int)layoutCount;
 - (BOOL)isTelephoneNumberParsingAllowed;
@@ -150,6 +148,7 @@ typedef enum {
 
 - (DOMRange *)selectedDOMRange;
 - (void)setSelectedDOMRange:(DOMRange *)range affinity:(NSSelectionAffinity)affinity closeTyping:(BOOL)closeTyping;
+- (void)setSelectedDOMRange:(DOMRange *)range affinity:(NSSelectionAffinity)affinity closeTyping:(BOOL)closeTyping userTriggered:(BOOL)userTriggered;
 - (NSSelectionAffinity)selectionAffinity;
 - (void)expandSelectionToElementContainingCaretSelection;
 - (DOMRange *)elementRangeContainingCaretSelection;

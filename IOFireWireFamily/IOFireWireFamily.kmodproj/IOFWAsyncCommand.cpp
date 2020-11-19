@@ -99,7 +99,7 @@ bool IOFWAsyncCommand::initAll(IOFireWireNub *device, FWAddress devAddress,
 		fRefCon = refcon;
 		fTimeout = 1000*125;	// 1000 frames, 125mSec
 		if(hostMem)
-			fSize = hostMem->getLength();
+			fSize = (int)hostMem->getLength();
 		fBytesTransferred = 0;
 	
 		fDevice = device;
@@ -151,7 +151,7 @@ bool IOFWAsyncCommand::initAll(IOFireWireController *control,
 		fRefCon = refcon;
 		fTimeout = 1000*125;	// 1000 frames, 125mSec
 		if(hostMem)
-			fSize = hostMem->getLength();
+			fSize = (int)hostMem->getLength();
 		fBytesTransferred = 0;
 	
 		fDevice = NULL;
@@ -251,7 +251,7 @@ IOReturn IOFWAsyncCommand::reinit(FWAddress devAddress, IOMemoryDescriptor *host
     fRefCon = refcon;
     fMemDesc=hostMem;
     if(fMemDesc)
-        fSize=fMemDesc->getLength();
+        fSize = (int)fMemDesc->getLength();
     fBytesTransferred = 0;
     fSync = completion == NULL;
     fTrans = NULL;
@@ -291,7 +291,7 @@ IOReturn IOFWAsyncCommand::reinit(UInt32 generation, FWAddress devAddress, IOMem
     fRefCon = refcon;
     fMemDesc=hostMem;
     if(fMemDesc)
-        fSize=fMemDesc->getLength();
+        fSize = (int)fMemDesc->getLength();
     fBytesTransferred = 0;
     fSync = completion == NULL;
     fTrans = NULL;
@@ -360,7 +360,7 @@ IOReturn IOFWAsyncCommand::checkProgress( void )
 	IOFWGetAbsoluteTime( &now );
 	SUB_ABSOLUTETIME( &now, &IOFWCommand::fMembers->fSubmitTime );
 	absolutetime_to_nanoseconds( now, &nanoDelta );
-	milliDelta = nanoDelta / 1000000;
+	milliDelta = (UInt32)(nanoDelta / 1000000);
 	
 	if( milliDelta > kIOFWAsyncCommandMaxExecutionTime )
 	{

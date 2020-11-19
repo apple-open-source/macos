@@ -69,6 +69,11 @@ static void win_update(win_T *wp);
 #ifdef FEAT_STL_OPT
 static void redraw_custom_statusline(win_T *wp);
 #endif
+#if defined(FEAT_SEARCH_EXTRA) || defined(FEAT_CLIPBOARD)
+static int  did_update_one_window;
+#endif
+
+static void win_redr_status(win_T *wp, int ignore_pum);
 
 /*
  * Based on the current value of curwin->w_topline, transfer a screenfull
@@ -81,10 +86,8 @@ update_screen(int type_arg)
     int		type = type_arg;
     win_T	*wp;
     static int	did_intro = FALSE;
-#if defined(FEAT_SEARCH_EXTRA) || defined(FEAT_CLIPBOARD)
-    int		did_one;
-#endif
 #ifdef FEAT_GUI
+    int		did_one = FALSE;
     int		did_undraw = FALSE;
     int		gui_cursor_col = 0;
     int		gui_cursor_row = 0;
@@ -149,7 +152,7 @@ update_screen(int type_arg)
     }
     updating_screen = TRUE;
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     // Update popup_mask if needed.  This may set w_redraw_top and w_redraw_bot
     // in some windows.
     may_update_popup_mask(type);
@@ -276,7 +279,7 @@ update_screen(int type_arg)
     // Go from top to bottom through the windows, redrawing the ones that need
     // it.
 #if defined(FEAT_SEARCH_EXTRA) || defined(FEAT_CLIPBOARD)
-    did_one = FALSE;
+    did_update_one_window = FALSE;
 #endif
 #ifdef FEAT_SEARCH_EXTRA
     screen_search_hl.rm.regprog = NULL;
@@ -286,21 +289,11 @@ update_screen(int type_arg)
 	if (wp->w_redr_type != 0)
 	{
 	    cursor_off();
-#if defined(FEAT_SEARCH_EXTRA) || defined(FEAT_CLIPBOARD)
+#ifdef FEAT_GUI
 	    if (!did_one)
 	    {
 		did_one = TRUE;
-# ifdef FEAT_SEARCH_EXTRA
-		start_search_hl();
-# endif
-# ifdef FEAT_CLIPBOARD
-		// When Visual area changed, may have to update selection.
-		if (clip_star.available && clip_isautosel_star())
-		    clip_update_selection(&clip_star);
-		if (clip_plus.available && clip_isautosel_plus())
-		    clip_update_selection(&clip_plus);
-# endif
-#ifdef FEAT_GUI
+
 		// Remove the cursor before starting to do anything, because
 		// scrolling may make it difficult to redraw the text under
 		// it.
@@ -311,9 +304,9 @@ update_screen(int type_arg)
 		    gui_undraw_cursor();
 		    did_undraw = TRUE;
 		}
-#endif
 	    }
 #endif
+
 	    win_update(wp);
 	}
 
@@ -335,7 +328,7 @@ update_screen(int type_arg)
     FOR_ALL_WINDOWS(wp)
 	wp->w_buffer->b_mod_set = FALSE;
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     // Display popup windows on top of the windows and command line.
     update_popups(win_update);
 #endif
@@ -391,7 +384,7 @@ update_screen(int type_arg)
  * If "ignore_pum" is TRUE, also redraw statusline when the popup menu is
  * displayed.
  */
-    void
+    static void
 win_redr_status(win_T *wp, int ignore_pum UNUSED)
 {
     int		row;
@@ -650,14 +643,12 @@ win_redr_ruler(win_T *wp, int always, int ignore_pum)
 #ifdef FEAT_STL_OPT
     if (*p_ruf)
     {
-	int	save_called_emsg = called_emsg;
+	int	called_emsg_before = called_emsg;
 
-	called_emsg = FALSE;
 	win_redr_custom(wp, TRUE);
-	if (called_emsg)
+	if (called_emsg > called_emsg_before)
 	    set_string_option_direct((char_u *)"rulerformat", -1,
 					   (char_u *)"", OPT_FREE, SID_ERROR);
-	called_emsg |= save_called_emsg;
 	return;
     }
 #endif
@@ -972,7 +963,7 @@ redraw_win_toolbar(win_T *wp)
     int		button_attr = syn_name2attr((char_u *)"ToolbarButton");
 
     vim_free(wp->w_winbar_items);
-    for (menu = wp->w_winbar->children; menu != NULL; menu = menu->next)
+    FOR_ALL_CHILD_MENUS(wp->w_winbar, menu)
 	++item_count;
     wp->w_winbar_items = ALLOC_CLEAR_MULT(winbar_item_T, item_count + 1);
 
@@ -1398,7 +1389,11 @@ win_update(win_T *wp)
     int		i;
     long	j;
     static int	recursive = FALSE;	// being called recursively
-    int		old_botline = wp->w_botline;
+    linenr_T	old_botline = wp->w_botline;
+#ifdef FEAT_CONCEAL
+    int		old_wrow = wp->w_wrow;
+    int		old_wcol = wp->w_wcol;
+#endif
 #ifdef FEAT_FOLDING
     long	fold_count;
 #endif
@@ -1418,6 +1413,25 @@ win_update(win_T *wp)
 #endif
 #ifdef SYN_TIME_LIMIT
     proftime_T	syntax_tm;
+#endif
+
+#if defined(FEAT_SEARCH_EXTRA) || defined(FEAT_CLIPBOARD)
+    // This needs to be done only for the first window when update_screen() is
+    // called.
+    if (!did_update_one_window)
+    {
+	did_update_one_window = TRUE;
+# ifdef FEAT_SEARCH_EXTRA
+	start_search_hl();
+# endif
+# ifdef FEAT_CLIPBOARD
+	// When Visual area changed, may have to update selection.
+	if (clip_star.available && clip_isautosel_star())
+	    clip_update_selection(&clip_star);
+	if (clip_plus.available && clip_isautosel_plus())
+	    clip_update_selection(&clip_plus);
+# endif
+    }
 #endif
 
     type = wp->w_redr_type;
@@ -2425,7 +2439,8 @@ win_update(win_T *wp)
 
 #ifdef FEAT_VTP
     // Rewrite the character at the end of the screen line.
-    if (use_vtp())
+    // See the version that was fixed.
+    if (use_vtp() && get_conpty_fix_type() < 1)
     {
 	int i;
 
@@ -2472,7 +2487,7 @@ win_update(win_T *wp)
 	    wp->w_filler_rows = wp->w_height - srow;
 	}
 #endif
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	else if (WIN_IS_POPUP(wp))
 	{
 	    // popup line that doesn't fit is left as-is
@@ -2567,18 +2582,52 @@ win_update(win_T *wp)
 	wp->w_valid |= VALID_BOTLINE;
 	if (wp == curwin && wp->w_botline != old_botline && !recursive)
 	{
+	    win_T	*wwp;
+#if defined(FEAT_CONCEAL)
+	    linenr_T	old_topline = wp->w_topline;
+	    int		new_wcol = wp->w_wcol;
+#endif
 	    recursive = TRUE;
 	    curwin->w_valid &= ~VALID_TOPLINE;
 	    update_topline();	// may invalidate w_botline again
-	    if (must_redraw != 0)
+
+#if defined(FEAT_CONCEAL)
+	    if (old_wcol != new_wcol && (wp->w_valid & (VALID_WCOL|VALID_WROW))
+						    != (VALID_WCOL|VALID_WROW))
+	    {
+		// A win_line() call applied a fix to screen cursor column to
+		// accommodate concealment of cursor line, but in this call to
+		// update_topline() the cursor's row or column got invalidated.
+		// If they are left invalid, setcursor() will recompute them
+		// but there won't be any further win_line() call to re-fix the
+		// column and the cursor will end up misplaced.  So we call
+		// cursor validation now and reapply the fix again (or call
+		// win_line() to do it for us).
+		validate_cursor();
+		if (wp->w_wcol == old_wcol && wp->w_wrow == old_wrow
+					       && old_topline == wp->w_topline)
+		    wp->w_wcol = new_wcol;
+		else
+		    redrawWinline(wp, wp->w_cursor.lnum);
+	    }
+#endif
+	    // New redraw either due to updated topline or due to wcol fix.
+	    if (wp->w_redr_type != 0)
 	    {
 		// Don't update for changes in buffer again.
 		i = curbuf->b_mod_set;
 		curbuf->b_mod_set = FALSE;
+		j = curbuf->b_mod_xlines;
+		curbuf->b_mod_xlines = 0;
 		win_update(curwin);
-		must_redraw = 0;
 		curbuf->b_mod_set = i;
+		curbuf->b_mod_xlines = j;
 	    }
+	    // Other windows might have w_redr_type raised in update_topline().
+	    must_redraw = 0;
+	    FOR_ALL_WINDOWS(wwp)
+		if (wwp->w_redr_type > must_redraw)
+		    must_redraw = wwp->w_redr_type;
 	    recursive = FALSE;
 	}
     }
@@ -2609,7 +2658,7 @@ update_prepare(void)
 #ifdef FEAT_SEARCH_EXTRA
     start_search_hl();
 #endif
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     // Update popup_mask if needed.
     may_update_popup_mask(must_redraw);
 #endif
@@ -2725,7 +2774,7 @@ updateWindow(win_T *wp)
 	    )
 	win_redr_status(wp, FALSE);
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     // Display popup windows on top of everything.
     update_popups(win_update);
 #endif
@@ -2989,6 +3038,11 @@ redraw_buf_later(buf_T *buf, int type)
 	if (wp->w_buffer == buf)
 	    redraw_win_later(wp, type);
     }
+#if defined(FEAT_TERMINAL) && defined(FEAT_PROP_POPUP)
+    // terminal in popup window is not in list of windows
+    if (curwin->w_buffer == buf)
+	redraw_win_later(curwin, type);
+#endif
 }
 
 #if defined(FEAT_SIGNS) || defined(PROTO)

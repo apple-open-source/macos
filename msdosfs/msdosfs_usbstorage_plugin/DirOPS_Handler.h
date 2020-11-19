@@ -13,9 +13,9 @@
 #include "Common.h"
 
 #define IS_ROOT(psNodeRecord) ( (psNodeRecord->sRecordData.eRecordID == RECORD_IDENTIFIER_ROOT) ? (1) : (0) )
-
+#define IS_FAT_12_16(psFSRecord) (!(psFSRecord->sFatInfo.uFatMask == FAT32_MASK))
 #define IS_FAT_12_16_ROOT_DIR(psNodeRecord) ( ( (psNodeRecord->sRecordData.eRecordID == RECORD_IDENTIFIER_ROOT) && \
-                                                !(GET_FSRECORD(psNodeRecord)->sFatInfo.uFatMask == FAT32_MASK) ) ? (1) : (0) )
+                                                (IS_FAT_12_16(GET_FSRECORD(psNodeRecord)) ? (1) : (0) )))
 
 
 typedef enum
@@ -27,6 +27,12 @@ typedef enum
     LU_BY_SEARCH_CRITERIA,
     
 } LookForDirEntryMethod_e;
+
+typedef enum
+{
+    GDC_FOR_WRITE = 0 ,
+    GDC_FOR_READ,
+} GetDirClusterReason;
 
 typedef struct
 {
@@ -67,8 +73,7 @@ int         DIROPS_CountChildrenInADirectory( NodeRecord_s* psFolderNode);
 bool        DIROPS_IsDotOrDotDotName(const char* pcUTF8Name);
 uint64_t    DIROPS_VolumeOffsetForCluster(FileSystemRecord_s *psFSRecord, uint32_t uCluster);
 bool        DIROPS_VerifyIfLinkAndGetLinkLength(struct symlink* psLink, uint32_t* puLinkLength);
-int         DIROPS_GetDirCluster(NodeRecord_s* psFolderNode, uint32_t uWantedClusterOffsetInChain, ClusterData_s* psClusterData);
-int         DIROPS_UpdateDirectoryEntry(NodeRecord_s* psFolderNode, NodeDirEntriesData_s* psNodeDirEntriesData, struct dosdirentry* psDosDirEntry, bool bLockDirEntryAccess);
+int         DIROPS_UpdateDirectoryEntry(NodeRecord_s* psFolderNode, NodeDirEntriesData_s* psNodeDirEntriesData, struct dosdirentry* psDosDirEntry);
 int         DIROPS_UpdateDirLastModifiedTime( NodeRecord_s* psFolderNode );
 int         DIROPS_CreateNewEntry(NodeRecord_s* psFolderNode, const char *pcUTF8Name,const UVFSFileAttributes *attrs,uint32_t uNodeStartCluster,int uEntryType);
 void        DIROPS_GetMD5Digest(void * pvText, size_t uLength, char pcDigest[33]);
@@ -78,9 +83,20 @@ int         DIROPS_isDirEmpty( NodeRecord_s* psFolderNode );
 int         DIROPS_MarkNodeDirEntriesAsDeleted( NodeRecord_s* psFolderNode, NodeDirEntriesData_s* psNodeDirEntriesData, const char *pcUTF8Name);
 uint32_t    DIROPS_GetStartCluster( FileSystemRecord_s* psFSRecord,  struct dosdirentry* psEntry );
 RecordIdentifier_e DIROPS_GetRecordId( struct dosdirentry* psDirEntry, NodeRecord_s* psFolderNode );
-int         DIROPS_LookupInternal( UVFSFileNode dirNode, const char *pcUTF8Name, UVFSFileNode *outNode, bool bLockDirEntryAccess );
+int         DIROPS_LookupInternal( UVFSFileNode dirNode, const char *pcUTF8Name, UVFSFileNode *outNode);
 int         DIROPS_LookForDirEntryByName (NodeRecord_s* psFolderNode, const char *pcUTF8Name, RecordIdentifier_e* peRecoredId, NodeDirEntriesData_s* psNodeDirEntriesData);
 int         DIROPS_CreateHTForDirectory( NodeRecord_s* psFolderNode);
 void        DIROPS_ReleaseHTForDirectory(NodeRecord_s* psFolderNode, bool bForceEvict);
 void        DIROPS_DestroyHTForDirectory(NodeRecord_s* psFolderNode);
+
+void        DIROPS_InitDirEntryLockList(FileSystemRecord_s *psFSRecord);
+void        DIROPS_DeInitDirEntryLockList(FileSystemRecord_s *psFSRecord);
+int         DIROPS_InitDirEntryLockListEntry(NodeRecord_s* psFolderNode);
+int         DIROPS_SetParentDirClusterCacheLock(NodeRecord_s* psChildNode);
+int         DIROPS_DereferenceDirEntrlyLockListEntry(NodeRecord_s* psNode, bool bDereferenceMyself);
+
+int         DIROPS_InitDirClusterDataCache(FileSystemRecord_s *psFSRecord);
+void        DIROPS_DeInitDirClusterDataCache(FileSystemRecord_s *psFSRecord);
+int         DIROPS_GetDirCluster(NodeRecord_s* psFolderNode, uint32_t uWantedClusterOffsetInChain, ClusterData_s** ppsClusterData, GetDirClusterReason reason);
+void        DIROPS_DeReferenceDirCluster(FileSystemRecord_s *psFSRecord, ClusterData_s* psClusterData, GetDirClusterReason reason);
 #endif /* DirOPS_Handler_h */

@@ -89,11 +89,12 @@ ProcessAclSubject *ProcessAclSubject::Maker::make(const TypedList &list) const
     // validate input
     if (selector.version != CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION)
         CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
-    if (!selector.uses(CSSM_ACL_MATCH_BITS))
+    if (!selector.uses(CSSM_ACL_MATCH_BITS)) {
         CssmError::throwMe(CSSM_ERRCODE_INVALID_ACL_SUBJECT_VALUE);
+    }
         
     // okay
-	return new ProcessAclSubject(selector);
+    return new ProcessAclSubject(selector);
 }
 
 ProcessAclSubject *ProcessAclSubject::Maker::make(Version, Reader &pub, Reader &priv) const

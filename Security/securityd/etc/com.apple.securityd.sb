@@ -50,7 +50,8 @@
        (global-name "com.apple.PowerManagement.control")
        (global-name "com.apple.security.syspolicy")
        (global-name "com.apple.security.agent")
-       (global-name "com.apple.security.agent.login"))
+       (global-name "com.apple.security.agent.login")
+       (global-name "com.apple.security.KeychainStasher"))
 
 (allow ipc-posix-shm 
     (ipc-posix-name "com.apple.AppleDatabaseChanged")

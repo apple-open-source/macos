@@ -29,17 +29,7 @@ WI.HeapAllocationsInstrument = class HeapAllocationsInstrument extends WI.Instru
     {
         super();
 
-        console.assert(WI.HeapAllocationsInstrument.supported());
-
         this._snapshotIntervalIdentifier = undefined;
-    }
-
-    // Static
-
-    static supported()
-    {
-        // COMPATIBILITY (iOS 9): Heap did not exist.
-        return InspectorBackend.hasDomain("Heap");
     }
 
     // Protected
@@ -60,7 +50,7 @@ WI.HeapAllocationsInstrument = class HeapAllocationsInstrument extends WI.Instru
         }
 
         // Periodic snapshots.
-        const snapshotInterval = 10000;
+        const snapshotInterval = 10_000;
         this._snapshotIntervalIdentifier = setInterval(this._takeHeapSnapshot.bind(this), snapshotInterval);
     }
 

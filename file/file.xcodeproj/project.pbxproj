@@ -51,6 +51,12 @@
 		3E4D7E231DB5630B006010F2 /* der.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EFE51051DB562C00065DB79 /* der.c */; };
 		3EF8DE3F208E62DC00D4AAD5 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF8DE3E208E62CC00D4AAD5 /* buffer.c */; };
 		3EF8DE40208E62F600D4AAD5 /* buffer.c in Sources */ = {isa = PBXBuildFile; fileRef = 3EF8DE3E208E62CC00D4AAD5 /* buffer.c */; };
+		A9C6388624A52F7100A77670 /* liblzma.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C118BB3624A4461600A6B948 /* liblzma.dylib */; };
+		A9C6388724A52F7400A77670 /* libbz2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C1CB5B3624A3B27500CFD91B /* libbz2.dylib */; };
+		C118BB3724A4461600A6B948 /* liblzma.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C118BB3624A4461600A6B948 /* liblzma.dylib */; };
+		C11ABD8023A88C80007141D1 /* is_csv.c in Sources */ = {isa = PBXBuildFile; fileRef = C11ABD7F23A88B80007141D1 /* is_csv.c */; };
+		C11ABD8123AE9501007141D1 /* is_csv.c in Sources */ = {isa = PBXBuildFile; fileRef = C11ABD7F23A88B80007141D1 /* is_csv.c */; };
+		C1CB5B3724A3B27500CFD91B /* libbz2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C1CB5B3624A3B27500CFD91B /* libbz2.dylib */; };
 		C1CF2E20220781A30024FFDA /* is_json.c in Sources */ = {isa = PBXBuildFile; fileRef = C1CF2E1F220781960024FFDA /* is_json.c */; };
 		C1CF2E21220781A40024FFDA /* is_json.c in Sources */ = {isa = PBXBuildFile; fileRef = C1CF2E1F220781960024FFDA /* is_json.c */; };
 		FD52DB9519F09E8600ECE87F /* softmagic.c in Sources */ = {isa = PBXBuildFile; fileRef = FD93083E10A91079007DD96A /* softmagic.c */; };
@@ -138,6 +144,9 @@
 /* Begin PBXFileReference section */
 		3EF8DE3E208E62CC00D4AAD5 /* buffer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = buffer.c; sourceTree = "<group>"; };
 		3EFE51051DB562C00065DB79 /* der.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = der.c; sourceTree = "<group>"; };
+		C118BB3624A4461600A6B948 /* liblzma.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = liblzma.dylib; path = /usr/lib/liblzma.dylib; sourceTree = "<absolute>"; };
+		C11ABD7F23A88B80007141D1 /* is_csv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = is_csv.c; sourceTree = "<group>"; };
+		C1CB5B3624A3B27500CFD91B /* libbz2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; name = libbz2.dylib; path = /usr/lib/libbz2.dylib; sourceTree = "<absolute>"; };
 		C1CF2E1F220781960024FFDA /* is_json.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = is_json.c; sourceTree = "<group>"; };
 		FD52DB8C19F09C8F00ECE87F /* file.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = file.xcconfig; sourceTree = "<group>"; };
 		FD52DB8D19F09C8F00ECE87F /* libmagic.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = libmagic.xcconfig; sourceTree = "<group>"; };
@@ -169,6 +178,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A9C6388624A52F7100A77670 /* liblzma.dylib in Frameworks */,
+				A9C6388724A52F7400A77670 /* libbz2.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -176,7 +187,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C1CB5B3724A3B27500CFD91B /* libbz2.dylib in Frameworks */,
 				FD93086710A911A1007DD96A /* libz.dylib in Frameworks */,
+				C118BB3724A4461600A6B948 /* liblzma.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -206,6 +219,8 @@
 				FD5511DD19F0A3250094A551 /* file */,
 				FD52DB8B19F09C8F00ECE87F /* xcconfigs */,
 				FD9307FE10A8FDBC007DD96A /* Products */,
+				C1CB5B3624A3B27500CFD91B /* libbz2.dylib */,
+				C118BB3624A4461600A6B948 /* liblzma.dylib */,
 				FD93086610A911A1007DD96A /* libz.dylib */,
 			);
 			sourceTree = "<group>";
@@ -222,27 +237,28 @@
 		FD93084F10A9107C007DD96A /* src */ = {
 			isa = PBXGroup;
 			children = (
-				3EF8DE3E208E62CC00D4AAD5 /* buffer.c */,
-				3EFE51051DB562C00065DB79 /* der.c */,
-				FD9308A810A91805007DD96A /* magic.h */,
 				FD93082F10A91079007DD96A /* apprentice.c */,
 				FD93083010A91079007DD96A /* apptype.c */,
 				FD93083110A91079007DD96A /* ascmagic.c */,
+				3EF8DE3E208E62CC00D4AAD5 /* buffer.c */,
 				FD93083210A91079007DD96A /* cdf_time.c */,
 				FD93083310A91079007DD96A /* cdf.c */,
 				FD93083410A91079007DD96A /* compress.c */,
+				3EFE51051DB562C00065DB79 /* der.c */,
 				FD93083510A91079007DD96A /* encoding.c */,
+				FD93085D10A91156007DD96A /* file.c */,
 				FD93083610A91079007DD96A /* fsmagic.c */,
 				FD93083710A91079007DD96A /* funcs.c */,
+				C11ABD7F23A88B80007141D1 /* is_csv.c */,
 				C1CF2E1F220781960024FFDA /* is_json.c */,
 				FD93083810A91079007DD96A /* is_tar.c */,
 				FD93083910A91079007DD96A /* magic.c */,
+				FD9308A810A91805007DD96A /* magic.h */,
 				FD93083A10A91079007DD96A /* print.c */,
 				FD93083B10A91079007DD96A /* readcdf.c */,
 				FD93083C10A91079007DD96A /* readelf.c */,
 				FD93083D10A91079007DD96A /* readmacho.c */,
 				FD93083E10A91079007DD96A /* softmagic.c */,
-				FD93085D10A91156007DD96A /* file.c */,
 			);
 			name = src;
 			path = file/src;
@@ -303,7 +319,7 @@
 		FD9307F010A8FD99007DD96A /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 1100;
+				LastUpgradeCheck = 1200;
 				TargetAttributes = {
 					FD52DB8E19F09D0A00ECE87F = {
 						CreatedOnToolsVersion = 6.3;
@@ -312,10 +328,9 @@
 			};
 			buildConfigurationList = FD9307F310A8FD99007DD96A /* Build configuration list for PBXProject "file" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
 				Base,
 			);
@@ -390,6 +405,7 @@
 				FD93084010A91079007DD96A /* apptype.c in Sources */,
 				FD93084110A91079007DD96A /* ascmagic.c in Sources */,
 				FD93084210A91079007DD96A /* cdf_time.c in Sources */,
+				C11ABD8123AE9501007141D1 /* is_csv.c in Sources */,
 				FD93084310A91079007DD96A /* cdf.c in Sources */,
 				FD93084410A91079007DD96A /* compress.c in Sources */,
 				FD93084510A91079007DD96A /* encoding.c in Sources */,
@@ -420,6 +436,7 @@
 				FD52DB9F19F09E9C00ECE87F /* compress.c in Sources */,
 				3EF8DE3F208E62DC00D4AAD5 /* buffer.c in Sources */,
 				FD52DB9E19F09E9A00ECE87F /* encoding.c in Sources */,
+				C11ABD8023A88C80007141D1 /* is_csv.c in Sources */,
 				FD52DB9D19F09E9800ECE87F /* fsmagic.c in Sources */,
 				FD52DB9C19F09E9600ECE87F /* funcs.c in Sources */,
 				FD52DB9B19F09E9300ECE87F /* is_tar.c in Sources */,
@@ -476,12 +493,14 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos.internal;
 			};
 			name = Release;
 		};
 		FD9307F210A8FD99007DD96A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
@@ -494,6 +513,7 @@
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
 				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -507,6 +527,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

@@ -50,6 +50,7 @@ namespace WebKit {
 
 class NetworkCORSPreflightChecker;
 class NetworkProcess;
+class NetworkResourceLoader;
 class NetworkSchemeRegistry;
 
 class NetworkLoadChecker : public CanMakeWeakPtr<NetworkLoadChecker> {
@@ -57,7 +58,7 @@ class NetworkLoadChecker : public CanMakeWeakPtr<NetworkLoadChecker> {
 public:
     enum class LoadType : bool { MainFrame, Other };
 
-    NetworkLoadChecker(NetworkProcess&, NetworkSchemeRegistry*, WebCore::FetchOptions&&, PAL::SessionID, WebPageProxyIdentifier, WebCore::HTTPHeaderMap&&, URL&&, RefPtr<WebCore::SecurityOrigin>&&, RefPtr<WebCore::SecurityOrigin>&& topOrigin, WebCore::PreflightPolicy, String&& referrer, bool isHTTPSUpgradeEnabled = false, bool shouldCaptureExtraNetworkLoadMetrics = false, LoadType requestLoadType = LoadType::Other);
+    NetworkLoadChecker(NetworkProcess&, NetworkResourceLoader*, NetworkSchemeRegistry*, WebCore::FetchOptions&&, PAL::SessionID, WebPageProxyIdentifier, WebCore::HTTPHeaderMap&&, URL&&, RefPtr<WebCore::SecurityOrigin>&&, RefPtr<WebCore::SecurityOrigin>&& topOrigin, WebCore::PreflightPolicy, String&& referrer, bool isHTTPSUpgradeEnabled = false, bool shouldCaptureExtraNetworkLoadMetrics = false, LoadType requestLoadType = LoadType::Other);
     ~NetworkLoadChecker();
 
     struct RedirectionTriplet {
@@ -152,11 +153,16 @@ private:
     String m_referrer;
     bool m_checkContentExtensions { false };
     bool m_shouldCaptureExtraNetworkLoadMetrics { false };
+
+#if PLATFORM(COCOA)
     bool m_isHTTPSUpgradeEnabled { false };
+#endif
+
     WebCore::NetworkLoadInformation m_loadInformation;
 
     LoadType m_requestLoadType;
     RefPtr<NetworkSchemeRegistry> m_schemeRegistry;
+    WeakPtr<NetworkResourceLoader> m_networkResourceLoader;
 };
 
 }

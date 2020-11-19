@@ -10,8 +10,13 @@
 #include <stdio.h>
 #include <sys/attr.h>
 #include <unistd.h>
+#include <sys/xattr.h>
+#include <sys/mount.h>
+#include <apfs/apfs_fsctl.h>
 
 #include "commoncrypto.h"
+#include "extern.h"
+#include "metrics.h"
 
 const int kSHA256NullTerminatedBuffLen = 65;
 static const char hex[] = "0123456789abcdef";
@@ -52,6 +57,7 @@ Digest_File(CCDigestAlg algorithm, const char *filename, char *buf)
 	io = dispatch_io_create(DISPATCH_IO_STREAM, fd, queue, ^(int error) {
 		if (error != 0) {
 			s_error = error; 
+			RECORD_FAILURE(27440, s_error);
 		}
 		(void)close(fd);
 		(void)dispatch_semaphore_signal(sema);
@@ -67,6 +73,7 @@ Digest_File(CCDigestAlg algorithm, const char *filename, char *buf)
 
 		if (error != 0) {
 			s_error = error;
+			RECORD_FAILURE(27441, s_error);
 		}
 	});
 	dispatch_release(io); // it will close on its own
@@ -94,11 +101,28 @@ Digest_File(CCDigestAlg algorithm, const char *filename, char *buf)
 	return buf;
 }
 
-char *SHA256_Path_XATTRs(char *path, char *buf)
+xattr_info *
+SHA256_Path_XATTRs(char *path, char *buf) {
+	xattr_info *ai = NULL;
+
+	if (mflag) {
+		ai = get_xdstream_privateid(path, buf);
+	} else {
+		ai = calculate_SHA256_XATTRs(path, buf);
+	}
+
+	return ai;
+}
+
+
+xattr_info *
+calculate_SHA256_XATTRs(char *path, char *buf)
 {
+	errno_t error = 0;
 	char *xattrsSummary = NULL;
 	int options = XATTR_SHOWCOMPRESSION | XATTR_NOFOLLOW;
 	ssize_t nameBufSize = listxattr(path, NULL, 0, options);
+	uint64_t xd_obj_id = 0;
 	if (nameBufSize > 0) {
 		char *nameBuf = malloc(nameBufSize);
 		
@@ -133,6 +157,8 @@ char *SHA256_Path_XATTRs(char *path, char *buf)
 		char *digest;
 		ssize_t result = 0;
 		char *oldSummary = NULL;
+		//XXX Make xattr_info an array of structs if necessary
+		xattr_info *ai = (xattr_info *) malloc(sizeof(xattr_info));
 		for (int i = 0; i < xattrIndex; i++) {
 			char *name = xattrs[i];
 			ssize_t xlen = getxattr(path, name, NULL, 0, 0, options);
@@ -142,8 +168,11 @@ char *SHA256_Path_XATTRs(char *path, char *buf)
 			}
 			bzero(xattrBuf, xattrBufLen);
 			result = getxattr(path, name, xattrBuf, xattrBufLen, 0, options);
-			if (result < 0)
-				err(1, "SHA256_Path_XATTRs getxattr of \"%s\" at path \"%s\" failed with error", name, path );
+			if (result < 0) {
+				error = errno;
+				RECORD_FAILURE(27442, error);
+				errc(1, error, "SHA256_Path_XATTRs getxattr of \"%s\" at path \"%s\" failed with error", name, path);
+			}
 			
 			digest = SHA256_Data(xattrBuf, xattrBufLen, buf);
 			if (!digest)
@@ -157,6 +186,27 @@ char *SHA256_Path_XATTRs(char *path, char *buf)
 				asprintf(&xattrsSummary, "%s, %s:%s", oldSummary, name, digest);
 				free(oldSummary);
 			}
+#ifdef APFSIOC_XDSTREAM_OBJ_ID
+			// System volume has stream based xattrs only in form of resource forks
+			if (!strncmp(name, XATTR_RESOURCEFORK_NAME, XATTR_MAXNAMELEN)) {
+				struct xdstream_obj_id x_obj;
+				x_obj.xdi_name = name;
+				x_obj.xdi_xdtream_obj_id = 0;
+
+				result = fsctl(path, APFSIOC_XDSTREAM_OBJ_ID, &x_obj, 0);
+				if (!result) {
+					xd_obj_id = x_obj.xdi_xdtream_obj_id;
+				} else if (errno == ENOTTY) {
+					// Not an apfs filesystem, return zero.
+					xd_obj_id = 0;
+				} else {
+					error = errno;
+					RECORD_FAILURE(27444, error);
+					errc(1, error, "%s - SHA256_Path_XATTRs APFSIOC_XDSTREAM_OBJ_ID failed with %d", path, error);
+				}
+			}
+#endif
+			ai->xdstream_priv_id = xd_obj_id;
 		}
 		
 		free(xattrBuf);
@@ -166,15 +216,82 @@ char *SHA256_Path_XATTRs(char *path, char *buf)
 		digest = SHA256_Data(xattrsSummary, strlen(xattrsSummary) * sizeof(char), buf);
 		if (!digest)
 			err(1, "%s", xattrsSummary);
+
+		ai->digest = digest;
 		
 		free(xattrsSummary);
-		return digest;
+		return ai;
 	}
-	return kNone;
+	return NULL;
+}
+
+xattr_info *
+get_xdstream_privateid(char *path, char *buf) {
+	errno_t error = 0;
+	int options = XATTR_SHOWCOMPRESSION | XATTR_NOFOLLOW;
+	ssize_t nameBufSize = listxattr(path, NULL, 0, options);
+	uint64_t xd_obj_id = 0;
+
+	if (nameBufSize > 0) {
+		//XXX Make xattr_info an array of structs if necessary
+		xattr_info *ai = (xattr_info *) malloc(sizeof(xattr_info));
+		char *nameBuf = malloc(nameBufSize);
+		int result = 0;
+
+		listxattr(path, nameBuf, nameBufSize, options);
+
+		size_t xattrsLen = 1;
+		size_t xattrIndex = 0;
+		char **xattrs = malloc(xattrsLen * sizeof(char *));
+		char *nextName = nameBuf;
+		while (nextName < nameBuf + nameBufSize)
+		{
+			char *name = nextName;
+			if (xattrIndex == xattrsLen) {
+				xattrsLen *= 2;
+				xattrs = realloc(xattrs, xattrsLen * sizeof(char *));
+			}
+			xattrs[xattrIndex++] = name;
+			nextName += strlen(name) + 1;
+		}
+
+		for (int i = 0; i < xattrIndex; i++) {
+			char *name = xattrs[i];
+			// System volume has stream based xattrs only in form of resource forks
+			if (!strncmp(name, XATTR_RESOURCEFORK_NAME, XATTR_MAXNAMELEN)) {
+				struct xdstream_obj_id x_obj;
+				x_obj.xdi_name = name;
+				x_obj.xdi_xdtream_obj_id = 0;
+
+				result = fsctl(path, APFSIOC_XDSTREAM_OBJ_ID, &x_obj, 0);
+				if (!result && x_obj.xdi_xdtream_obj_id != 0) {
+					xd_obj_id = x_obj.xdi_xdtream_obj_id;
+				} else if (errno == ENOTTY) {
+					// Not an apfs filesystem, return zero.
+					xd_obj_id = 0;
+				} else {
+					error = errno;
+					RECORD_FAILURE(29983, error);
+					errc(1, error, "%s - SHA256_Path_XATTRs APFSIOC_XDSTREAM_OBJ_ID failed with %d", path, error);
+				}
+			}
+		}
+
+		ai->xdstream_priv_id = xd_obj_id;
+		// insert a dummy value as digest is not used in presence of mflag
+		ai->digest = "authapfs";
+
+		free(nameBuf);
+		free(xattrs);
+		return ai;
+	}
+
+	return NULL;
 }
 
 char *SHA256_Path_ACL(char *path, char *buf)
 {
+	errno_t error		= 0;
 	int result		= 0;
 	char *data		= NULL;
 	char *digest		= NULL;
@@ -195,8 +312,11 @@ char *SHA256_Path_ACL(char *path, char *buf)
 	
 	result = getattrlist(path, &list, &aclBuf, sizeof(aclBuf), FSOPT_NOFOLLOW);
 	
-	if (result)
-		err(1, "SHA256_Path_ACL: getattrlist");
+	if (result) {
+		error = errno;
+		RECORD_FAILURE(27445, error);
+		errc(1, error, "SHA256_Path_ACL: getattrlist");
+	}
 	
 	// if the path does not have an acl, return none
 	if ( ( ! ( aclBuf.returned_attrs.commonattr & ATTR_CMN_EXTENDED_SECURITY ) )
@@ -237,3 +357,22 @@ Digest_Data(CCDigestAlg algorithm, void *data, size_t size, char *buf) {
 	return buf;
 }
 
+uint64_t
+get_sibling_id(const char *path)
+{
+	struct attrlist attr_list = {0};
+	struct attrbuf attr_buf = {0};
+	errno_t error = 0;
+
+	attr_list.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attr_list.forkattr = ATTR_CMNEXT_LINKID;
+
+	error = getattrlist(path, &attr_list, &attr_buf, sizeof(attr_buf), FSOPT_ATTR_CMN_EXTENDED | FSOPT_NOFOLLOW);
+	if (error) {
+		error = errno;
+		RECORD_FAILURE(27447, error);
+		errc(1, error, "get_sibling_id: getattrlist failed for %s\n", path);
+	}
+
+	return attr_buf.sibling_id;
+}

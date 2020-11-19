@@ -2,7 +2,6 @@
 //  CommonCryptoError.h
 //  CommonCrypto
 //
-//  Created by Richard Murphy on 4/15/14.
 //  Copyright (c) 2014 Platform Security. All rights reserved.
 //
 

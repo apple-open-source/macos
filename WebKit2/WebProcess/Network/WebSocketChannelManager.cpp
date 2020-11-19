@@ -28,11 +28,10 @@
 
 namespace WebKit {
 
-RefPtr<WebCore::ThreadableWebSocketChannel> WebSocketChannelManager::createWebSocketChannel(WebCore::Document& document, WebCore::WebSocketChannelClient& client)
+void WebSocketChannelManager::addChannel(WebSocketChannel& channel)
 {
-    auto channel = WebSocketChannel::create(document, client);
-    m_channels.add(channel->identifier(), channel.copyRef());
-    return channel;
+    ASSERT(!m_channels.contains(channel.identifier()));
+    m_channels.add(channel.identifier(), makeWeakPtr(channel));
 }
 
 void WebSocketChannelManager::networkProcessCrashed()
@@ -44,7 +43,7 @@ void WebSocketChannelManager::networkProcessCrashed()
 
 void WebSocketChannelManager::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    auto iterator = m_channels.find(decoder.destinationID());
+    auto iterator = m_channels.find(makeObjectIdentifier<WebSocketIdentifierType>(decoder.destinationID()));
     if (iterator != m_channels.end())
         iterator->value->didReceiveMessage(connection, decoder);
 }

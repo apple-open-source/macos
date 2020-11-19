@@ -30,7 +30,6 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecAsn1Types.h>
-#include <assert.h>
 
 __BEGIN_DECLS
 
@@ -62,13 +61,14 @@ OSStatus cmsRtnToOSStatusDefault(OSStatus smimeRtn, OSStatus defaultRtn);
 
 #define CFRELEASE(cfr)	if(cfr != NULL) { CFRelease(cfr); }
 
+#include <security_utilities/simulatecrash_assert.h>
+#define ASSERT(s) assert(s)
+
 #define CMS_DEBUG 0
 #if	CMS_DEBUG
-#define ASSERT(s)			assert(s)
 #define CSSM_PERROR(s, r)	cssmPerror(s, r)
 #define dprintf(args...)	printf(args)
 #else
-#define ASSERT(s)
 #define CSSM_PERROR(s, r)
 #define dprintf(args...)
 #endif

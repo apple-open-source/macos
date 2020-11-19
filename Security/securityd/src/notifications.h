@@ -74,7 +74,6 @@ public:
 		NotificationEvent event, const CssmData &data);
     static void notify(NotificationDomain domain,
 		NotificationEvent event, uint32 sequence, const CssmData &data, audit_token_t auditToken);
-    static bool remove(Port port);
 
     const NotificationDomain domain;
     const NotificationMask events;

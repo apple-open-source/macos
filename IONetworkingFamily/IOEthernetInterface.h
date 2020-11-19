@@ -82,7 +82,8 @@
     IOEthernetInterface. 
 */
 
-class APPLE_KEXT_DEPRECATE IOEthernetInterface : public IONetworkInterface
+
+class __exported APPLE_KEXT_DEPRECATE IOEthernetInterface : public IONetworkInterface
 {
     OSDeclareDefaultStructors( IOEthernetInterface )
 

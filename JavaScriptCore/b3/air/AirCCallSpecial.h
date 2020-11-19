@@ -28,6 +28,7 @@
 #if ENABLE(B3_JIT)
 
 #include "AirSpecial.h"
+#include "RegisterSet.h"
 
 namespace JSC { namespace B3 { namespace Air {
 
@@ -41,30 +42,29 @@ namespace JSC { namespace B3 { namespace Air {
 // if we had a call that didn't pass them, then they'd appear to be live until some clobber point or
 // the prologue, whichever happened sooner.
 
-class CCallSpecial : public Special {
+class CCallSpecial final : public Special {
 public:
     CCallSpecial();
-    ~CCallSpecial();
+    ~CCallSpecial() final;
 
     // You cannot use this register to pass arguments. It just so happens that this register is not
     // used for arguments in the C calling convention. By the way, this is the only thing that causes
     // this special to be specific to C calls.
     static constexpr GPRReg scratchRegister = GPRInfo::nonPreservedNonArgumentGPR0;
 
-protected:
+private:
     void forEachArg(Inst&, const ScopedLambda<Inst::EachArgCallback>&) final;
     bool isValid(Inst&) final;
     bool admitsStack(Inst&, unsigned argIndex) final;
     bool admitsExtendedOffsetAddr(Inst&, unsigned) final;
     void reportUsedRegisters(Inst&, const RegisterSet&) final;
-    CCallHelpers::Jump generate(Inst&, CCallHelpers&, GenerationContext&) final;
+    MacroAssembler::Jump generate(Inst&, CCallHelpers&, GenerationContext&) final;
     RegisterSet extraEarlyClobberedRegs(Inst&) final;
     RegisterSet extraClobberedRegs(Inst&) final;
 
     void dumpImpl(PrintStream&) const final;
     void deepDumpImpl(PrintStream&) const final;
 
-private:
     static constexpr unsigned specialArgOffset = 0;
     static constexpr unsigned numSpecialArgs = 1;
     static constexpr unsigned calleeArgOffset = numSpecialArgs;

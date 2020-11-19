@@ -1,5 +1,5 @@
 /*
-cc -g -o /tmp/fbshared fbshared.c -framework ApplicationServices -framework IOKit -Wall -arch i386
+cc -g -o /tmp/fbshared fbshared.c -framework ApplicationServices -framework IOKit -Wall
 */
 #define IOCONNECT_MAPMEMORY_10_6    1
 #define IOFB_ARBITRARY_SIZE_CURSOR
@@ -24,17 +24,17 @@ int main(int argc, char * argv[])
     io_connect_t        connect;
     mach_timebase_info_data_t timebase;
     StdFBShmem_t *      shmem[16];
-    vm_size_t           shmemSize;
+    mach_vm_size_t      shmemSize;
     CFNumberRef         clk, count;
-    vm_address_t        mapAddr;
+    mach_vm_address_t   mapAddr;
 
     kr = IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching(
                 IOFRAMEBUFFER_CONFORMSTO), &iter);
     assert( KERN_SUCCESS == kr );
 
     for ( index = 0; 
-            index++, (framebuffer = IOIteratorNext(iter));
-            IOObjectRelease(framebuffer))
+            (framebuffer = IOIteratorNext(iter));
+            IOObjectRelease(framebuffer), index++)
     {
         kr = IORegistryEntryGetPath(framebuffer, kIOServicePlane, path);
         assert( KERN_SUCCESS == kr );
@@ -66,7 +66,7 @@ int main(int argc, char * argv[])
     	    printf("IOServiceOpen(%x)\n", kr);
     	    continue;
     	}
-	kr = IOConnectMapMemory(connect, kIOFBCursorMemory, mach_task_self(),
+	kr = IOConnectMapMemory64(connect, kIOFBCursorMemory, mach_task_self(),
 			&mapAddr, &shmemSize,
 			kIOMapAnywhere);
 	if (kIOReturnSuccess != kr)

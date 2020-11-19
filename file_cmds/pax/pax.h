@@ -36,6 +36,9 @@
  *	@(#)pax.h	8.2 (Berkeley) 4/18/94
  */
 
+#ifndef _PAX_H_
+#define _PAX_H_
+
 /*
  * BSD PAX global data structures and constants.
  */
@@ -246,4 +249,7 @@ typedef struct oplist {
 #define HEX		16
 #define OCT		8
 #define _PAX_		1
+#define _HAVE_REGCOMP_	1
 #define _TFILE_BASE	"paxXXXXXXXXXX"
+
+#endif /* _PAX_H_ */

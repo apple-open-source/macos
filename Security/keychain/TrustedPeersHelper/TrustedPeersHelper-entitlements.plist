@@ -24,6 +24,8 @@
 	<true/>
 	<key>com.apple.private.cloudkit.systemService</key>
 	<true/>
+	<key>com.apple.private.cloudkit.spi</key>
+	<true/>
 	<key>com.apple.private.cloudkit.supportservice</key>
 	<true/>
 	<key>com.apple.private.cloudkit.prefix</key>
@@ -37,5 +39,24 @@
 	</array>
 	<key>com.apple.symptom_diagnostics.report</key>
 	<true/>
+	<key>seatbelt-profiles</key>
+	<array>
+		<string>temporary-sandbox</string>
+	</array>
+	<key>com.apple.security.ts.cloudkit-client</key>
+	<true/>
+	<key>com.apple.security.exception.files.absolute-path.read-write</key>
+	<array>
+		<string>/private/var/Keychains/</string>
+	</array>
+	<key>com.apple.security.exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.apple.securityd</string>
+		<string>com.apple.security.sfkeychainserver</string>
+	</array>
+	<key>com.apple.security.exception.shared-preference.read-write</key>
+	<array>
+		<string>com.apple.TrustedPeersHelper</string>
+	</array>
 </dict>
 </plist>

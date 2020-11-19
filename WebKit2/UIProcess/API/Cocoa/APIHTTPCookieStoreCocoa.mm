@@ -23,12 +23,17 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "APIHTTPCookieStore.h"
+#import "config.h"
+#import "APIHTTPCookieStore.h"
 
-#include <WebCore/Cookie.h>
-#include <WebCore/CookieStorageObserver.h>
-#include <pal/spi/cf/CFNetworkSPI.h>
+#import "WebsiteDataStore.h"
+#import <WebCore/Cookie.h>
+#import <WebCore/CookieStorageObserver.h>
+#import <WebCore/HTTPCookieAcceptPolicy.h>
+#import <WebCore/HTTPCookieAcceptPolicyCocoa.h>
+#import <pal/spi/cf/CFNetworkSPI.h>
+#import <wtf/BlockPtr.h>
+#import <wtf/RunLoop.h>
 
 namespace API {
 
@@ -75,23 +80,7 @@ void HTTPCookieStore::deleteCookiesInDefaultUIProcessCookieStore()
     [[NSHTTPCookieStorage sharedHTTPCookieStorage] removeCookiesSinceDate:[NSDate distantPast]];
 }
 
-static NSHTTPCookieAcceptPolicy toNSHTTPCookieAcceptPolicy(WebKit::HTTPCookieAcceptPolicy policy)
-{
-    switch (policy) {
-    case WebKit::HTTPCookieAcceptPolicy::AlwaysAccept:
-        return NSHTTPCookieAcceptPolicyAlways;
-    case WebKit::HTTPCookieAcceptPolicy::Never:
-        return NSHTTPCookieAcceptPolicyNever;
-    case WebKit::HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain:
-        return NSHTTPCookieAcceptPolicyOnlyFromMainDocumentDomain;
-    case WebKit::HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain:
-        return (NSHTTPCookieAcceptPolicy)NSHTTPCookieAcceptPolicyExclusivelyFromMainDocumentDomain;
-    }
-    ASSERT_NOT_REACHED();
-    return NSHTTPCookieAcceptPolicyAlways;
-}
-
-void HTTPCookieStore::setHTTPCookieAcceptPolicyInDefaultUIProcessCookieStore(WebKit::HTTPCookieAcceptPolicy policy)
+void HTTPCookieStore::setHTTPCookieAcceptPolicyInDefaultUIProcessCookieStore(WebCore::HTTPCookieAcceptPolicy policy)
 {
     [[NSHTTPCookieStorage sharedHTTPCookieStorage] setCookieAcceptPolicy:toNSHTTPCookieAcceptPolicy(policy)];
 }

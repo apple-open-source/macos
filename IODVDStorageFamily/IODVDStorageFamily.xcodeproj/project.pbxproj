@@ -206,6 +206,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IODVDStorageFamily */;
@@ -317,6 +318,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "IODVDStorageFamily Headers";
 			};
 			name = DebugCoverage;
@@ -346,6 +348,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "IODVDStorageFamily Headers";
 			};
 			name = ReleaseCoverage;
@@ -388,6 +391,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "IODVDStorageFamily Headers";
 			};
 			name = Debug;
@@ -396,6 +400,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "IODVDStorageFamily Headers";
 			};
 			name = Release;

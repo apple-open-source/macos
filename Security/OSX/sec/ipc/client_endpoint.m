@@ -26,6 +26,7 @@
 #import <Foundation/NSXPCConnection_Private.h>
 #import <objc/runtime.h>
 #import <utilities/debugging.h>
+#import <Security/SecXPCHelper.h>
 
 #include <ipc/securityd_client.h>
 
@@ -59,37 +60,7 @@
                     ofReply:0];
 
 #if OCTAGON
-    static NSMutableSet *errClasses;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        // By finding classes by strings at runtime, we'll only get the CloudKit helpers if you link CloudKit
-        // Plus, we don't have to weak-link cloudkit from Security.framework
-
-        errClasses = [[NSMutableSet alloc] init];
-        char *classes[] = {
-            "NSError",
-            "NSArray",
-            "NSString",
-            "NSNumber",
-            "NSData",
-            "NSDate",
-            "CKReference",
-            "CKAsset",
-            "CLLocation",
-            "CKPackage",
-            "CKArchivedAnchoredPackage",
-            "CKPrettyError",
-            "CKRecordID",
-            "NSURL",
-        };
-
-        for (unsigned n = 0; n < sizeof(classes)/sizeof(classes[0]); n++) {
-            Class cls = objc_getClass(classes[n]);
-            if (cls) {
-                [errClasses addObject:cls];
-            }
-        }
-    });
+    NSSet<Class> *errClasses = [SecXPCHelper safeErrorClasses];
 
     @try {
         [rpcCallbackInterface setClasses:errClasses forSelector:@selector(callCallback:error:) argumentIndex:1 ofReply:NO];
@@ -97,14 +68,6 @@
         [interface setClasses:errClasses forSelector:@selector(SecItemAddAndNotifyOnSync:
                                                                syncCallback:
                                                                complete:) argumentIndex:2 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(secItemFetchCurrentItemAcrossAllDevices:
-                                                               identifier:
-                                                               viewHint:
-                                                               fetchCloudValue:
-                                                               complete:) argumentIndex:1 ofReply:YES];
-        [interface setClasses:errClasses forSelector:@selector(secItemDigest:
-                                                               accessGroup:
-                                                               complete:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(secItemSetCurrentItemAcrossAllDevices:
                                                                newCurrentItemHash:
                                                                accessGroup:
@@ -113,12 +76,21 @@
                                                                oldCurrentItemReference:
                                                                oldCurrentItemHash:
                                                                complete:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(secItemFetchCurrentItemAcrossAllDevices:
+                                                               identifier:
+                                                               viewHint:
+                                                               fetchCloudValue:
+                                                               complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(secItemDigest:
+                                                               accessGroup:
+                                                               complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(secKeychainDeleteMultiuser:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(secItemVerifyBackupIntegrity:completion:) argumentIndex:1 ofReply:YES];
+
     }
     @catch(NSException* e) {
         secerror("Could not configure SecuritydXPCProtocol: %@", e);
-#if DEBUG
         @throw e;
-#endif // DEBUG
     }
 #endif // OCTAGON
 }
@@ -139,7 +111,7 @@
 }
 @end
 
-id<SecuritydXPCProtocol> SecuritydXPCProxyObject(void (^rpcErrorHandler)(NSError *))
+id<SecuritydXPCProtocol> SecuritydXPCProxyObject(bool synchronous, void (^rpcErrorHandler)(NSError *))
 {
     if (gSecurityd && gSecurityd->secd_xpc_server) {
         return (__bridge id<SecuritydXPCProtocol>)gSecurityd->secd_xpc_server;
@@ -156,7 +128,11 @@ id<SecuritydXPCProtocol> SecuritydXPCProxyObject(void (^rpcErrorHandler)(NSError
         rpcErrorHandler([NSError errorWithDomain:@"securityd" code:-1 userInfo:@{ NSLocalizedDescriptionKey : @"Could not create SecuritydXPCClient" }]);
         return NULL;
     } else {
-        return [rpc.connection remoteObjectProxyWithErrorHandler: rpcErrorHandler];
+        if (synchronous) {
+            return [rpc.connection synchronousRemoteObjectProxyWithErrorHandler:rpcErrorHandler];
+        } else {
+            return [rpc.connection remoteObjectProxyWithErrorHandler:rpcErrorHandler];
+        }
     }
 }
 

@@ -95,7 +95,7 @@ struct LiveFilesTester {
             // Cleaning:  detaching DMG and converting BIN image back to DMG.
             if isWorkingWithDmgs == true {
                 #if os(OSX)
-                if fsType!.isHFS() || !isDefaultSizesInSettings {
+                if fsType!.isHFS() || (!isDefaultSizesInSettings && (dmgTool!.currentStateIsDMG == true)) {
                     let (output,rValue) = Utils.shell(["hdiutil", "detach", dmgTool!.dmgAttachedDevPath!])
                     if rValue != SUCCESS {
                         log("Error! Detach image return status - \(rValue)  output: \(String(describing: output))")

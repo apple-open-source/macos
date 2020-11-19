@@ -1,5 +1,10 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 myv{
-    Version{"2.1.48.13"}
+    Version{"36.1"}
+    zoneStrings{
+        "Europe:Moscow"{
+            ec{"Москов"}
+        }
+    }
 }

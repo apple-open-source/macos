@@ -1,0 +1,76 @@
+//
+//  AppleUserUSBHostHIDDevice.h
+//  IOHIDFamily
+//
+//  Created by yg on 12/23/18.
+//
+
+#ifndef AppleUserT1TouchBarHIDDevice_h
+#define AppleUserT1TouchBarHIDDevice_h
+
+#include <HIDDriverKit/IOUserUSBHostHIDDevice.iig>
+
+class AppleUserT1TouchBarHIDDevice : public IOUserUSBHostHIDDevice
+{
+    
+public:
+    
+    /*!
+     * @function    init
+     * @brief       init IOUserUSBHostHIDDevice object
+     * @discussion  method can be use to initlialize object data.
+     * @return      true if successful.
+     */
+    
+    virtual bool init() override;
+
+    /*!
+     * @function    Start
+     * @brief       Device start
+     * @discussion  method called from Start and can be use to initlialize device.
+     * @param       provider The IOService that is provider for this object.
+     * @return      KERN_SUCCESS is successful see IOReturn.h for error codes.
+     */
+    
+    virtual kern_return_t Start(IOService * provider) override;
+
+    /*!
+     * @function    Stop
+     * @brief       Device Stop
+     * @discussion  method called when device terminating.
+     * @param       provider The IOService that is provider for this object.
+     * @return      KERN_SUCCESS is successful see IOReturn.h for error codes.
+     */
+    virtual kern_return_t Stop (IOService * provider) override;
+
+    /*!
+     * @function handleReport
+     * @abstract Handle an asynchronous report received from the HID device.
+     * @param report A memory descriptor that describes the report.
+     * @param reportType The type of report.
+     * @param options Options to specify the request. No options are
+     * currently defined, and the default value is 0.
+     * @result kIOReturnSuccess on success, or an error return otherwise.
+     */
+
+    virtual kern_return_t handleReport(uint64_t                  timestamp,
+                                       IOMemoryDescriptor        *report,
+                                       uint32_t                  reportLength,
+                                       IOHIDReportType           reportType = kIOHIDReportTypeInput,
+                                       IOOptionBits              options    = 0) override;
+    
+    /*!
+     * @function newReportDescriptor
+     * @abstract Create and return a new memory descriptor that describes the
+     * report descriptor for the HID device.
+     * @discussion A subclass must override this pure virtual function, and
+     * return a memory descriptor that describes the HID report descriptor as
+     * defined by the USB Device Class Definition for Human Interface Devices
+     * Version 1.1 specification.
+     * @result OSData object that contains HID descriptor.
+     */
+    
+    virtual OSData * newReportDescriptor () override;
+};
+
+#endif /* AppleUserT1TouchBarHIDDevice_h */

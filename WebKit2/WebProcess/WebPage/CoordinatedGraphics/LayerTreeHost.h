@@ -39,9 +39,11 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RunLoop.h>
 
-#if USE(COORDINATED_GRAPHICS)
-#include <WebCore/NicosiaSceneIntegration.h>
-#endif
+#if USE(GRAPHICS_LAYER_TEXTURE_MAPPER)
+
+#include "LayerTreeHostTextureMapper.h"
+
+#else // USE(GRAPHICS_LAYER_TEXTURE_MAPPER)
 
 namespace WebCore {
 class IntRect;
@@ -58,7 +60,7 @@ class WebPage;
 
 class LayerTreeHost
 #if USE(COORDINATED_GRAPHICS)
-    final : public CompositingCoordinator::Client, public AcceleratedSurface::Client, public Nicosia::SceneIntegration::Client
+    final : public CompositingCoordinator::Client, public AcceleratedSurface::Client
 #endif
 {
     WTF_MAKE_FAST_ALLOCATED;
@@ -92,9 +94,7 @@ public:
 
     void deviceOrPageScaleFactorChanged();
 
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
     RefPtr<WebCore::DisplayRefreshMonitor> createDisplayRefreshMonitor(WebCore::PlatformDisplayID);
-#endif
 
     WebCore::PlatformDisplayID displayID() const { return m_displayID; }
 
@@ -108,13 +108,10 @@ private:
     void didFlushRootLayer(const WebCore::FloatRect& visibleContentRect) override;
     void notifyFlushRequired() override { scheduleLayerFlush(); };
     void commitSceneState(const WebCore::CoordinatedGraphicsState&) override;
-    RefPtr<Nicosia::SceneIntegration> sceneIntegration() override;
+    void updateScene() override;
 
     // AcceleratedSurface::Client
     void frameComplete() override;
-
-    // Nicosia::SceneIntegration::Client
-    void requestUpdate() override;
 
     uint64_t nativeSurfaceHandleForCompositing();
     void didDestroyGLContext();
@@ -200,7 +197,6 @@ private:
         bool needsFreshFlush { false };
     } m_forceRepaintAsync;
     RunLoop::Timer<LayerTreeHost> m_layerFlushTimer;
-    Ref<Nicosia::SceneIntegration> m_sceneIntegration;
     CompositingCoordinator m_coordinator;
 #endif // USE(COORDINATED_GRAPHICS)
     WebCore::PlatformDisplayID m_displayID;
@@ -226,9 +222,9 @@ inline void LayerTreeHost::contentsSizeChanged(const WebCore::IntSize&) { }
 inline void LayerTreeHost::didChangeViewportAttributes(WebCore::ViewportAttributes&&) { }
 inline void LayerTreeHost::setIsDiscardable(bool) { }
 inline void LayerTreeHost::deviceOrPageScaleFactorChanged() { }
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
 inline RefPtr<WebCore::DisplayRefreshMonitor> LayerTreeHost::createDisplayRefreshMonitor(WebCore::PlatformDisplayID) { return nullptr; }
-#endif
 #endif
 
 } // namespace WebKit
+
+#endif // USE(GRAPHICS_LAYER_TEXTURE_MAPPER)

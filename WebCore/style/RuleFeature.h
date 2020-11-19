@@ -36,16 +36,25 @@ namespace Style {
 
 class RuleData;
 
-enum class MatchElement { Subject, Parent, Ancestor, DirectSibling, IndirectSibling, AnySibling, ParentSibling, AncestorSibling, Host };
+enum class MatchElement : uint8_t { Subject, Parent, Ancestor, DirectSibling, IndirectSibling, AnySibling, ParentSibling, AncestorSibling, Host };
 constexpr unsigned matchElementCount = static_cast<unsigned>(MatchElement::Host) + 1;
 
 struct RuleFeature {
-    RuleFeature(const RuleData&, Optional<MatchElement> = WTF::nullopt, const CSSSelector* invalidationSelector = nullptr);
+    RuleFeature(const RuleData&, Optional<MatchElement> = WTF::nullopt);
 
     RefPtr<const StyleRule> styleRule;
-    unsigned selectorIndex;
-    unsigned selectorListIndex;
+    uint16_t selectorIndex; // Keep in sync with RuleData's selectorIndex size.
+    uint16_t selectorListIndex; // Keep in sync with RuleData's selectorListIndex size.
     Optional<MatchElement> matchElement { };
+};
+static_assert(sizeof(RuleFeature) <= 16, "RuleFeature is a frquently alocated object. Keep it small.");
+
+struct RuleFeatureWithInvalidationSelector : public RuleFeature {
+    RuleFeatureWithInvalidationSelector(const RuleData& data, Optional<MatchElement> matchElement = WTF::nullopt, const CSSSelector* invalidationSelector = nullptr)
+        : RuleFeature(data, WTFMove(matchElement))
+        , invalidationSelector(invalidationSelector)
+    { }
+
     const CSSSelector* invalidationSelector { nullptr };
 };
 
@@ -65,9 +74,11 @@ struct RuleFeatureSet {
     Vector<RuleFeature> uncommonAttributeRules;
     
     HashMap<AtomString, std::unique_ptr<Vector<RuleFeature>>> classRules;
-    HashMap<AtomString, std::unique_ptr<Vector<RuleFeature>>> attributeRules;
+    HashMap<AtomString, std::unique_ptr<Vector<RuleFeatureWithInvalidationSelector>>> attributeRules;
+    HashMap<CSSSelector::PseudoClassType, std::unique_ptr<Vector<RuleFeature>>, WTF::IntHash<CSSSelector::PseudoClassType>, WTF::StrongEnumHashTraits<CSSSelector::PseudoClassType>> pseudoClassRules;
     HashSet<AtomString> classesAffectingHost;
     HashSet<AtomString> attributesAffectingHost;
+    HashSet<CSSSelector::PseudoClassType, WTF::IntHash<CSSSelector::PseudoClassType>, WTF::StrongEnumHashTraits<CSSSelector::PseudoClassType>> pseudoClassesAffectingHost;
 
     bool usesFirstLineRules { false };
     bool usesFirstLetterRules { false };
@@ -81,6 +92,7 @@ private:
 
         Vector<std::pair<AtomString, MatchElement>, 32> classes;
         Vector<std::pair<const CSSSelector*, MatchElement>, 32> attributes;
+        Vector<std::pair<CSSSelector::PseudoClassType, MatchElement>, 32> pseudoClasses;
     };
     void recursivelyCollectFeaturesFromSelector(SelectorFeatures&, const CSSSelector&, MatchElement = MatchElement::Subject);
 };

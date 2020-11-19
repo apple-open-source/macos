@@ -120,7 +120,6 @@ static void kextd_raise_invalidsig_notification(
 static void kextd_raise_revokedcert_notification(
                                                  CFStringRef alertHeader,
                                                  CFArrayRef  alertMessageArray );
-static void revealInFinder( CFArrayRef theArray );
 #if 0 // not yet
 static void kextd_raise_unsignedkext_notification(
                                                   CFStringRef alertHeader,
@@ -1330,7 +1329,6 @@ void _notificationDismissed(
 
         // CFArrayRef CFArrayCreateCopy
         if (sPendedRevokedCertKextPaths) {
-            revealInFinder(sPendedRevokedCertKextPaths);
             CFArrayRemoveAllValues(sPendedRevokedCertKextPaths);
         } // sPendedRevokedCertKextPaths
     }
@@ -1377,104 +1375,6 @@ void _notificationDismissed(
     return;
 }
 
-#include <ApplicationServices/ApplicationServices.h>
-static const char kFinderBundleID[] = { "com.apple.finder" };
-
-static void revealInFinder(CFArrayRef theArray)
-{
-    CFIndex     myCount, i;
-
-    if (theArray == NULL)       return;
-
-    myCount = CFArrayGetCount(theArray);
-
-    for (i = 0; i < myCount; i ++) {
-        CFStringRef         myKextPath          = NULL;  // do not release
-        CFURLRef            myURL               = NULL;  // must release
-        OSErr               myResult;
-        AEDesc              myTargetDesc        = { typeNull, NULL };
-        AEDesc              myFileDesc          = { typeNull, NULL };
-        AEDescList          myParmList          = { typeNull, NULL };
-        AppleEvent          myRevealEvent       = { typeNull, NULL };
-        AppleEvent          myActivateEvent     = { typeNull, NULL };
-        char                myPathString[2 * PATH_MAX];
-
-        myKextPath = (CFStringRef) CFArrayGetValueAtIndex(theArray, i);
-        if (myKextPath == NULL)   continue;
-
-        /* NOTE - we create the URL from the path we are given then
-         * extract the c string path from the URL in order to get the
-         * correct URL prefix on the path.  The AppleEvent system requires
-         * this.  Passing the full UNIX path does not work for AppleEvents
-         */
-        myURL = CFURLCreateWithFileSystemPath(kCFAllocatorDefault,
-                                              myKextPath,
-                                              kCFURLPOSIXPathStyle,
-                                              true );
-        if (myURL == NULL)  continue;
-        myKextPath = CFURLGetString(myURL);
-
-        if (myKextPath == NULL ||
-            CFStringGetCString(myKextPath,
-                               myPathString,
-                               sizeof(myPathString),
-                               kCFStringEncodingUTF8) == false) {
-            SAFE_RELEASE_NULL(myURL);
-            continue;
-        }
-        SAFE_RELEASE_NULL(myURL);
-
-        myResult = AECreateDesc(typeApplicationBundleID,
-                                &kFinderBundleID,
-                                sizeof(kFinderBundleID),
-                                &myTargetDesc);
-
-        if (myResult == noErr) {
-            myResult = AECreateDesc(typeFileURL,
-                                    myPathString,
-                                    strlen(myPathString),
-                                    &myFileDesc);
-        }
-        if (myResult == noErr) {
-            myResult = AECreateList(NULL, 0, false, &myParmList);
-        }
-        if (myResult == noErr) {
-            AEPutDesc(&myParmList, 1, &myFileDesc);
-        }
-        if (myResult == noErr) {
-            myResult = AECreateAppleEvent(kAEMiscStandards,
-                                          kAESelect,
-                                          &myTargetDesc,
-                                          kAutoGenerateReturnID,
-                                          kAnyTransactionID,
-                                          &myRevealEvent);
-        }
-        if (myResult == noErr) {
-            myResult = AEPutParamDesc(&myRevealEvent,
-                                      keyDirectObject,
-                                      &myParmList);
-        }
-        if (myResult == noErr) {
-            myResult = AECreateAppleEvent(kAEMiscStandards,
-                                          kAEActivate,
-                                          &myTargetDesc,
-                                          kAutoGenerateReturnID,
-                                          kAnyTransactionID,
-                                          &myActivateEvent);
-        }
-        if (myResult == noErr) {
-            AESendMessage(&myActivateEvent, NULL, kAENoReply, 0);
-            AESendMessage(&myRevealEvent, NULL, kAENoReply, 0);
-        }
-        AEDisposeDesc(&myTargetDesc);
-        AEDisposeDesc(&myFileDesc);
-        AEDisposeDesc(&myParmList);
-        AEDisposeDesc(&myRevealEvent);
-        AEDisposeDesc(&myActivateEvent);
-    } // for loop...
-
-    return;
-}
 
 /*******************************************************************************
  * writeKextAlertPlist() - update or create one of our alert plist files:

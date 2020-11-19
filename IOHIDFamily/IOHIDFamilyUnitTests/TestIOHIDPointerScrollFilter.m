@@ -12,6 +12,7 @@
 #import "IOHIDUnitTestDescriptors.h"
 #import <IOKit/hid/IOHIDEventData.h>
 #import <IOKit/hid/IOHIDEvent.h>
+#import <IOKit/hid/IOHIDKeys.h>
 
  static uint8_t descriptor [] = {
      HIDMouseDescriptor
@@ -27,6 +28,7 @@
 @property IOHIDXCTestExpectation   *eventSystemClientCancelExpectation;
 @property bool                     gotAcceleratedEvent;
 @property bool                     gotNonAcceleratedEvent;
+@property bool                     gotNonAcceleratedScrollEvent;
 @end
 
 @implementation TestIOHIDPointerScrollFilter
@@ -34,6 +36,9 @@
 - (void)setUp {
     
     __weak TestIOHIDPointerScrollFilter *weakSelf = self;
+    _gotAcceleratedEvent = false;
+    _gotNonAcceleratedEvent = false;
+    _gotNonAcceleratedScrollEvent = false;
     
     [super setUp];
     
@@ -125,6 +130,8 @@
     NSLog(@"%@",event);
     
     NSInteger pointerXValue = [event integerValueForField:kIOHIDEventFieldPointerX];
+    NSInteger scrollYValue = [event integerValueForField:kIOHIDEventFieldScrollY];
+
 
     UInt32 eventFlag = IOHIDEventGetEventFlags((__bridge IOHIDEventRef)event);
   
@@ -141,6 +148,11 @@
         
         if (pointerXValue == 1 && !(eventFlag & kIOHIDAccelerated)) {
             self.gotNonAcceleratedEvent = true;
+        }
+
+        if (scrollYValue == 12 && !(eventFlag & kIOHIDAccelerated)) {
+            self.gotNonAcceleratedScrollEvent = true;
+            NSLog(@"Y scroll");
         }
     }
     
@@ -208,6 +220,55 @@
     
     XCTAssert(self.gotAcceleratedEvent == true, "Failed to get accelerated event");
     XCTAssert(self.gotNonAcceleratedEvent == true, "Failed to get non-accelerated event");
+}
+
+- (void)testAcclerationProperty
+{
+    XCTWaiterResult result = XCTWaiterResultCompleted;
+
+    result = [XCTWaiter waitForExpectations:@[self.mouseServiceExpectation] timeout:3];
+
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_IOREG, result == XCTWaiterResultCompleted, "%@", @[self.mouseServiceExpectation]);
+
+    // Test : Property on Service
+    //Set acceleration type as pointer acceleration key
+    [_hidServiceClient setProperty:@(NO) forKey:@kIOHIDPointerAccelerationSupportKey];
+
+    [_hidServiceClient setProperty:@(NO) forKey:@kIOHIDScrollAccelerationSupportKey];
+
+    bool accelerationEnabled = true;
+
+    accelerationEnabled = [[_hidServiceClient propertyForKey:@kIOHIDPointerAccelerationSupportKey] boolValue];
+
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST, !accelerationEnabled, "@kIOHIDPointerAccelerationSupportKey : %u", accelerationEnabled);
+
+    accelerationEnabled = [[_hidServiceClient propertyForKey:@kIOHIDScrollAccelerationSupportKey] boolValue];
+
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST, !accelerationEnabled, "@kIOHIDScrollAccelerationSupportKey : %u", accelerationEnabled);
+
+    // Test : Setting Report on service
+    HIDMouseDescriptorInputReport report;
+    memset (&report, 0 , sizeof(report));
+
+    report.GD_MousePointerX = 1;
+
+    NSData *reportData = [[NSData alloc] initWithBytes:&report length:sizeof(HIDMouseDescriptorInputReport)];
+
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST,[self.userDevice handleReport:reportData error:nil],"Failed to disptach report");
+
+    report.GD_MousePointerWheel = 12;
+
+    reportData = [[NSData alloc] initWithBytes:&report length:sizeof(HIDMouseDescriptorInputReport)];
+
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST,[self.userDevice handleReport:reportData error:nil],"Failed to disptach report");
+
+
+    result = [XCTWaiter waitForExpectations:@[self.eventExpectation] timeout:5];
+
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST, result == XCTWaiterResultCompleted, "%@", @[self.eventExpectation]);
+
+    XCTAssert(self.gotNonAcceleratedEvent == true, "Failed to get non-accelerated event");
+    XCTAssert(self.gotNonAcceleratedScrollEvent == true, "Failed to get non-accelerated scroll event");
 }
 
 @end

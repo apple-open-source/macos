@@ -96,6 +96,8 @@ public:
     FileDesc() : mFd(invalidFd), mAtEnd(false) { }
     FileDesc(int fd) : mFd(fd), mAtEnd(false) { }
 
+    FileDesc(const FileDesc& fd) : mFd(fd.mFd), mAtEnd(fd.mAtEnd) { }
+
 	static const mode_t modeMissingOk = S_IFIFO;		// in mode means "do not throw on ENOENT"
     
     // implicit file system open() construction

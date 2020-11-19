@@ -23,15 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WKRetainPtr_h
-#define WKRetainPtr_h
+#pragma once
 
 #include <WebKit/WKType.h>
 #include <algorithm>
-#include <wtf/GetPtr.h>
-#include <wtf/HashFunctions.h>
 #include <wtf/HashTraits.h>
-#include <wtf/RefPtr.h>
 
 namespace WebKit {
 
@@ -263,13 +259,14 @@ using WebKit::retainWK;
 
 namespace WTF {
 
-template <typename T> struct IsSmartPtr<WKRetainPtr<T>> {
+template<typename> struct IsSmartPtr;
+template<typename> struct DefaultHash;
+
+template<typename T> struct IsSmartPtr<WKRetainPtr<T>> {
     WTF_INTERNAL static const bool value = true;
 };
 
-template<typename P> struct DefaultHash<WKRetainPtr<P>> {
-    typedef PtrHash<WKRetainPtr<P>> Hash;
-};
+template<typename P> struct DefaultHash<WKRetainPtr<P>> : PtrHash<WKRetainPtr<P>> { };
 
 template<typename P> struct HashTraits<WKRetainPtr<P>> : SimpleClassHashTraits<WKRetainPtr<P>> {
     static P emptyValue() { return nullptr; }
@@ -280,5 +277,3 @@ template<typename P> struct HashTraits<WKRetainPtr<P>> : SimpleClassHashTraits<W
 };
 
 } // namespace WTF
-
-#endif // WKRetainPtr_h

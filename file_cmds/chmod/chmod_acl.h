@@ -31,6 +31,9 @@
  * SUCH DAMAGE.
  */
 
+#ifndef _CHMOD_ACL_H_
+#define _CHMOD_ACL_H_
+
 #ifdef __APPLE__
 #include <pwd.h>
 #include <grp.h>
@@ -83,3 +86,5 @@ extern int modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 extern int modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int position, int inheritance_level, int follow);
 extern uuid_t *name_to_uuid(char *tok, int nametype);
 #endif /* __APPLE__*/
+
+#endif /* _CHMOD_ACL_H_ */

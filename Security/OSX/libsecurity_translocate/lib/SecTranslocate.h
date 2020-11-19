@@ -99,6 +99,33 @@ CFURLRef __nullable SecTranslocateCreateSecureDirectoryForURL (CFURLRef pathToTr
 __OSX_AVAILABLE(10.12);
 
 /*!
+    @function SecTranslocateCreateGeneric
+ 
+    @abstract Create a CFURL pointing to a translocated location from which to access the directory specified by pathToTranslocate.
+
+    @param pathToTranslocate URL of the directory to be accessed from a translocated location.
+    @param destinationPath URL where the directory of interest should be translocated
+    @param error On error will be populated with an error object describing the failure (a posix domain error such as EINVAL)
+
+    @result A CFURL pointing to the translocated location of the directory.
+
+    @discussion
+        Calls to this function, and the others dealng with creation / deletion of mounts are serialized to ensure only one call to either
+        is operating at a time.
+        Translocations will be created in specified destinationPath
+ 
+        pathToTranslocated is expected to be a folder
+        
+        If pathToTranslocate is in a quarantined mountpoint, the quarantine attributes will be propagated to the
+            translocated location.
+ 
+        pathToTranslocate will cause a failure if it doesn't resolve to a path that exists, or it exceeds MAXPATHLEN
+        This function can be run from any process. If the process is not the xpc server, then an xpc call is made.
+ */
+CFURLRef __nullable SecTranslocateCreateGeneric (CFURLRef pathToTranslocate, CFURLRef destinationPath, CFErrorRef* __nullable error)
+__OSX_AVAILABLE(10.16);
+
+/*!
     @function SecTranslocateAppLaunchCheckin
 
     @abstract Register that a translocated pid is running

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009, 2011, 2014, 2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2009, 2011, 2014, 2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -848,6 +848,39 @@ __doIPv6Addresses(CFStringRef key, const char *description, void *info, int argc
 	return 1;
 }
 
+static int
+__doIPv6PrefixLength(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+#pragma unused(description)
+#pragma unused(argc)
+#pragma unused(info)
+	char *	prefix = argv[0];
+	if (*prefix != '\0') {
+		char	*end;
+		int	prefixLength;
+
+		prefixLength = (int)strtol(prefix, &end, 10);
+		errno = 0;
+		if (*end == '\0' && errno == 0 && prefixLength > 0 && prefixLength <= 128) {
+			CFArrayRef	prefixes;
+			CFNumberRef	num;
+
+			num = CFNumberCreate(NULL, kCFNumberIntType, &prefixLength);
+			prefixes = CFArrayCreate(NULL, (const void **)&num, 1, &kCFTypeArrayCallBacks);
+			CFRelease(num);
+			CFDictionarySetValue(newConfiguration, key, prefixes);
+			CFRelease(prefixes);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("Invalid prefix length '%s' (valid range 1..128)\n"), prefix);
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	return 1;
+}
+
 
 static options ipv6Options[] = {
 	{ "ConfigMethod", "configuration method"
@@ -857,7 +890,7 @@ static options ipv6Options[] = {
 	{ "Addresses"   , "address"      , isOther    , &kSCPropNetIPv6Addresses   , __doIPv6Addresses   , (void *)TRUE              },
 	{   "address"   , "address"      , isOther    , &kSCPropNetIPv6Addresses   , __doIPv6Addresses   , (void *)TRUE              },
 	{ "EnableCGA"   , NULL           , isBoolean  , &kSCPropNetIPv6EnableCGA   , NULL                , NULL                      },
-	{ "PrefixLength", "prefix length", isNumber   , &kSCPropNetIPv6PrefixLength, NULL                , NULL                      },
+	{ "PrefixLength", "prefix length", isOther    , &kSCPropNetIPv6PrefixLength, __doIPv6PrefixLength, NULL                      },
 	{ "Router"      , "address"      , isOther    , &kSCPropNetIPv6Router      , __doIPv6Addresses   , (void *)FALSE             },
 
 	{ "?"           , NULL           , isHelp     , NULL                       , NULL                ,

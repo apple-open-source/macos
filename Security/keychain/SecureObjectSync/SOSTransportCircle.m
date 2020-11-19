@@ -12,8 +12,7 @@
 }
 -(SOSCircleStorageTransport*) initWithAccount:(SOSAccount*)acct
 {
-    self = [super init];
-    if(self){
+    if ((self = [super init])) {
         self.account = acct;
     }
     return self;

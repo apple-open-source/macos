@@ -72,23 +72,23 @@ enum {
 	/* also kSecModDateItemAttr from SecKeychainItem.h */
 };
 
-OSStatus SecKeychainItemCreateNew(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data, SecKeychainItemRef* itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemCreateNew(SecItemClass itemClass, OSType itemCreator, UInt32 length, const void* data, SecKeychainItemRef* itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
-OSStatus SecKeychainItemGetData(SecKeychainItemRef itemRef, UInt32 maxLength, void* data, UInt32* actualLength) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemGetData(SecKeychainItemRef itemRef, UInt32 maxLength, void* data, UInt32* actualLength) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
-OSStatus SecKeychainItemGetAttribute(SecKeychainItemRef itemRef, SecKeychainAttribute* attribute, UInt32* actualLength) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemGetAttribute(SecKeychainItemRef itemRef, SecKeychainAttribute* attribute, UInt32* actualLength) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
-OSStatus SecKeychainItemSetAttribute(SecKeychainItemRef itemRef, SecKeychainAttribute* attribute) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemSetAttribute(SecKeychainItemRef itemRef, SecKeychainAttribute* attribute) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
-OSStatus SecKeychainItemAdd(SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemAdd(SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
-OSStatus SecKeychainItemAddNoUI(SecKeychainRef keychainRef, SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemAddNoUI(SecKeychainRef keychainRef, SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
-OSStatus SecKeychainItemUpdate(SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemUpdate(SecKeychainItemRef itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
-OSStatus SecKeychainItemSetData(SecKeychainItemRef itemRef, UInt32 length, const void* data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemSetData(SecKeychainItemRef itemRef, UInt32 length, const void* data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
-OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef, SecKeychainItemRef *itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef, SecKeychainItemRef *itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCopyRecordIdentifier
@@ -98,7 +98,7 @@ OSStatus SecKeychainItemFindFirst(SecKeychainRef keychainRef, const SecKeychainA
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
 
-OSStatus SecKeychainItemCopyRecordIdentifier(SecKeychainItemRef itemRef, CFDataRef *recordIdentifier) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemCopyRecordIdentifier(SecKeychainItemRef itemRef, CFDataRef *recordIdentifier) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCopyFromRecordIdentifier
@@ -111,7 +111,7 @@ OSStatus SecKeychainItemCopyRecordIdentifier(SecKeychainItemRef itemRef, CFDataR
 
 OSStatus SecKeychainItemCopyFromRecordIdentifier(SecKeychainRef keychain,
 												 SecKeychainItemRef *itemRef,
-												 CFDataRef recordIdentifier) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+												 CFDataRef recordIdentifier) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCopyAttributesAndEncryptedData
@@ -128,7 +128,7 @@ OSStatus SecKeychainItemCopyFromRecordIdentifier(SecKeychainRef keychain,
 */
 OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRef, SecKeychainAttributeInfo *info,
 													   SecItemClass *itemClass, SecKeychainAttributeList **attrList,
-													   UInt32 *length, void **outData) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+													   UInt32 *length, void **outData) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemModifyEncryptedData
@@ -140,7 +140,7 @@ OSStatus SecKeychainItemCopyAttributesAndEncryptedData(SecKeychainItemRef itemRe
     @result A result code.  See "Security Error Codes" (SecBase.h).
 	@discussion The keychain item is written to the keychain's permanent data store. If the keychain item has not previously been added to a keychain, a call to the SecKeychainItemModifyContent function does nothing and returns errSecSuccess.
 */
-OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 length, const void *data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 length, const void *data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
 	@function SecKeychainItemCreateFromEncryptedContent
@@ -156,7 +156,7 @@ OSStatus SecKeychainItemModifyEncryptedData(SecKeychainItemRef itemRef, UInt32 l
 */
 OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass, UInt32 length, const void *data,
 												   SecKeychainRef keychainRef, SecAccessRef initialAccess,
-												   SecKeychainItemRef *itemRef, CFDataRef *itemLocalID) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+												   SecKeychainItemRef *itemRef, CFDataRef *itemLocalID) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
  /*!
     @function SecKeychainItemSetAccessWithPassword
@@ -167,7 +167,7 @@ OSStatus SecKeychainItemCreateFromEncryptedContent(SecItemClass itemClass, UInt3
     @param password A buffer containing the password for the keychain. if this password is incorrect, this call might fail---it will not prompt the user.
     @result A result code. See "Security Error Codes" (SecBase.h).
 */
- OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAccessRef accessRef, UInt32 passwordLength, const void * password) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+ OSStatus SecKeychainItemSetAccessWithPassword(SecKeychainItemRef itemRef, SecAccessRef accessRef, UInt32 passwordLength, const void * password) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #if defined(__cplusplus)
 }
 #endif

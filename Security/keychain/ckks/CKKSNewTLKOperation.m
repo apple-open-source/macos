@@ -27,6 +27,7 @@
 #import "CKKSNewTLKOperation.h"
 #import "CKKSGroupOperation.h"
 #import "CKKSNearFutureScheduler.h"
+#import "keychain/ckks/CKKSStates.h"
 #import "keychain/ckks/CloudKitCategories.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 
@@ -35,22 +36,26 @@
 #import "keychain/ckks/CKKSTLKShareRecord.h"
 
 @interface CKKSNewTLKOperation ()
-@property NSBlockOperation* cloudkitModifyOperationFinished;
-@property CKOperationGroup* ckoperationGroup;
-
 @property (nullable) CKKSCurrentKeySet* keyset;
 @end
 
 @implementation CKKSNewTLKOperation
+@synthesize intendedState = _intendedState;
+@synthesize nextState = _nextState;
 @synthesize keyset;
 
 - (instancetype)init {
     return nil;
 }
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup {
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks
+{
     if(self = [super init]) {
+        _deps = dependencies;
         _ckks = ckks;
-        _ckoperationGroup = ckoperationGroup;
+
+        _nextState = SecCKKSZoneKeyStateError;
+        _intendedState = SecCKKSZoneKeyStateWaitForTLKUpload;
     }
     return self;
 }
@@ -82,12 +87,13 @@
         return;
     }
 
+    NSArray<CKKSPeerProviderState*>* currentTrustStates = self.deps.currentTrustStates;
+
     // Synchronous, on some thread. Get back on the CKKS queue for SQL thread-safety.
-    __block bool enterWaitForTLKUpload = false;
-    [ckks dispatchSyncWithAccountKeys: ^bool{
+    [self.deps.databaseProvider dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         if(self.cancelled) {
             ckksnotice("ckkstlk", ckks, "CKKSNewTLKOperation cancelled, quitting");
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         ckks.lastNewTLKOperation = self;
@@ -118,9 +124,16 @@
 
         ckksnotice("ckkstlk", ckks, "Old TLK is: %@ %@", oldTLK, error);
         if(error != nil) {
-            ckkserror("ckkstlk", ckks, "Couldn't fetch and unwrap old TLK: %@", error);
-            [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
-            return false;
+            if([self.deps.lockStateTracker isLockedError:error]) {
+                ckkserror("ckkstlk", self.deps.zoneID, "Couldn't fetch and unwrap old TLK due to lock state. Entering a waiting state; %@", error);
+                [self.deps.flagHandler _onqueueHandleFlag:CKKSFlagTLKCreationRequested];
+                self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
+            } else {
+                ckkserror("ckkstlk", self.deps.zoneID, "Couldn't fetch and unwrap old TLK: %@", error);
+                self.nextState = SecCKKSZoneKeyStateError;
+            }
+            self.error = error;
+            return CKKSDatabaseTransactionRollback;
         }
 
         // Generate new hierarchy:
@@ -133,9 +146,9 @@
         CKKSAESSIVKey* newAESKey = [CKKSAESSIVKey randomKey:&error];
         if(error) {
             ckkserror("ckkstlk", ckks, "Couldn't create new TLK: %@", error);
+            self.nextState = SecCKKSZoneKeyStateError;
             self.error = error;
-            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:error];
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
         newTLK = [[CKKSKey alloc] initSelfWrappedWithAESKey:newAESKey
                                                        uuid:[[NSUUID UUID] UUIDString]
@@ -151,8 +164,9 @@
         if(error != nil) {
             ckkserror("ckkstlk", ckks, "couldn't make new key hierarchy: %@", error);
             // TODO: this really isn't the error state, but a 'retry'.
-            [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
-            return false;
+            self.error = error;
+            self.nextState = SecCKKSZoneKeyStateError;
+            return CKKSDatabaseTransactionRollback;
         }
 
         CKKSCurrentKeyPointer* currentTLKPointer =    [CKKSCurrentKeyPointer forKeyClass: SecCKKSKeyClassTLK withKeyUUID:newTLK.uuid       zoneID:ckks.zoneID error: &error];
@@ -162,8 +176,9 @@
         if(error != nil) {
             ckkserror("ckkstlk", ckks, "couldn't make current key records: %@", error);
             // TODO: this really isn't the error state, but a 'retry'.
-            [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
-            return false;
+            self.nextState = SecCKKSZoneKeyStateError;
+            self.error = error;
+            return CKKSDatabaseTransactionRollback;
         }
 
         // Wrap old TLK under the new TLK
@@ -171,23 +186,32 @@
         if(wrappedOldTLK) {
             [wrappedOldTLK ensureKeyLoaded: &error];
             if(error != nil) {
-                ckkserror("ckkstlk", ckks, "couldn't unwrap TLK, aborting new TLK operation: %@", error);
-                [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
-                return false;
+                if([self.deps.lockStateTracker isLockedError:error]) {
+                    ckkserror("ckkstlk", self.deps.zoneID, "Couldn't unwrap TLK due to lock state. Entering a waiting state; %@", error);
+                    [self.deps.flagHandler _onqueueHandleFlag:CKKSFlagTLKCreationRequested];
+                    self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
+                } else {
+                    ckkserror("ckkstlk",  self.deps.zoneID, "couldn't unwrap TLK, aborting new TLK operation: %@", error);
+                    self.nextState = SecCKKSZoneKeyStateError;
+                }
+                self.error = error;
+                return CKKSDatabaseTransactionRollback;
             }
 
             [wrappedOldTLK wrapUnder: newTLK error:&error];
             // TODO: should we continue in this error state? Might be required to fix broken TLKs/argue over which TLK should be used
             if(error != nil) {
                 ckkserror("ckkstlk", ckks, "couldn't wrap oldTLK, aborting new TLK operation: %@", error);
-                [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
-                return false;
+                self.nextState = SecCKKSZoneKeyStateError;
+                self.error = error;
+                return CKKSDatabaseTransactionRollback;
             }
 
             wrappedOldTLK.currentkey = false;
         }
 
         CKKSCurrentKeySet* keyset = [[CKKSCurrentKeySet alloc] init];
+        keyset.viewName = newTLK.zoneID.zoneName;
 
         keyset.tlk = newTLK;
         keyset.classA = newClassAKey;
@@ -210,21 +234,27 @@
         [newClassAKey saveKeyMaterialToKeychain: &error];
         [newClassCKey saveKeyMaterialToKeychain: &error];
         if(error) {
+            if([self.deps.lockStateTracker isLockedError:error]) {
+                ckkserror("ckkstlk", self.deps.zoneID, "Couldn't save new key material to keychain due to lock state. Entering a waiting state; %@", error);
+                [self.deps.flagHandler _onqueueHandleFlag:CKKSFlagTLKCreationRequested];
+                self.nextState = SecCKKSZoneKeyStateWaitForUnlock;
+            } else {
+                ckkserror("ckkstlk", self.deps.zoneID, "couldn't save new key material to keychain; aborting new TLK operation: %@", error);
+                self.nextState = SecCKKSZoneKeyStateError;
+            }
             self.error = error;
-            ckkserror("ckkstlk", ckks, "couldn't save new key material to keychain, aborting new TLK operation: %@", error);
-            [ckks _onqueueAdvanceKeyStateMachineToState: SecCKKSZoneKeyStateError withError: error];
-            return false;
+            return CKKSDatabaseTransactionRollback;
         }
 
         // Generate the TLK sharing records for all trusted peers
         NSMutableSet<CKKSTLKShareRecord*>* tlkShares = [NSMutableSet set];
-        for(CKKSPeerProviderState* trustState in ckks.currentTrustStates) {
+        for(CKKSPeerProviderState* trustState in currentTrustStates) {
             if(trustState.currentSelfPeers.currentSelf == nil || trustState.currentSelfPeersError) {
                 if(trustState.essential) {
                     ckksnotice("ckkstlk", ckks, "Fatal error: unable to generate TLK shares for (%@): %@", newTLK, trustState.currentSelfPeersError);
                     self.error = trustState.currentSelfPeersError;
-                    [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateError withError:trustState.currentSelfPeersError];
-                    return false;
+                    self.nextState = SecCKKSZoneKeyStateError;
+                    return CKKSDatabaseTransactionRollback;
                 }
                 ckksnotice("ckkstlk", ckks, "Unable to generate TLK shares for (%@): %@", newTLK, trustState);
                 continue;
@@ -249,16 +279,13 @@
 
         // Finish this transaction to cause a keychiain db commit
         // This means that if we provide the new keys to another thread, they'll be able to immediately load them from the keychain
-        enterWaitForTLKUpload = true;
-        return true;
+        // We'll provide the keyset after the commit occurs.
+        self.nextState = SecCKKSZoneKeyStateWaitForTLKUpload;
+        return CKKSDatabaseTransactionCommit;
     }];
 
-    if(enterWaitForTLKUpload) {
-        // And move the CKKS state machine:
-        [ckks dispatchSyncWithAccountKeys: ^bool{
-            [ckks _onqueueAdvanceKeyStateMachineToState:SecCKKSZoneKeyStateWaitForTLKUpload withError:nil];
-            return true;
-        }];
+    if(self.keyset) {
+        [self.deps provideKeySet:self.keyset];
     }
 }
 

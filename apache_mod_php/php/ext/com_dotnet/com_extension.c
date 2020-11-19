@@ -252,9 +252,7 @@ static PHP_INI_MH(OnTypeLibFileUpdate)
 		}
 
 		if ((pTL = php_com_load_typelib_via_cache(typelib_name, COMG(code_page), &cached)) != NULL) {
-			if (!cached) {
-				php_com_import_typelib(pTL, mode, COMG(code_page));
-			}
+			php_com_import_typelib(pTL, mode, COMG(code_page));
 			ITypeLib_Release(pTL);
 		}
 	}
@@ -336,11 +334,15 @@ PHP_MINIT_FUNCTION(com_dotnet)
 
 #define COM_CONST(x) REGISTER_LONG_CONSTANT(#x, x, CONST_CS|CONST_PERSISTENT)
 
-#define COM_ERR_CONST(x) { \
+#if SIZEOF_ZEND_LONG == 8
+# define COM_ERR_CONST(x) { \
 	zend_long __tmp; \
 	ULongToIntPtr(x, &__tmp); \
 	REGISTER_LONG_CONSTANT(#x, __tmp, CONST_CS|CONST_PERSISTENT); \
 }
+#else
+# define COM_ERR_CONST COM_CONST
+#endif
 
 	COM_CONST(CLSCTX_INPROC_SERVER);
 	COM_CONST(CLSCTX_INPROC_HANDLER);

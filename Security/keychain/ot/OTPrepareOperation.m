@@ -135,6 +135,9 @@
         secerror("octagon: failed to save 'attempted join' state: %@", persistError);
     }
 
+    // Note: we pass syncUserControllableViews as FOLLOWING here, with the intention that
+    // it will be set later, when this peer decides who it trusts and accepts their value.
+
     [self.deps.cuttlefishXPCWrapper prepareWithContainer:self.deps.containerName
                                                  context:self.deps.contextID
                                                    epoch:self.epoch
@@ -147,6 +150,7 @@
                                                osVersion:self.deviceInfo.osVersion
                                            policyVersion:self.policyOverride
                                            policySecrets:nil
+                               syncUserControllableViews:TPPBPeerStableInfo_UserControllableViewStatus_FOLLOWING
                              signingPrivKeyPersistentRef:signingKeyPersistRef
                                  encPrivKeyPersistentRef:encryptionKeyPersistRef
                                                    reply:^(NSString * _Nullable peerID,
@@ -154,8 +158,7 @@
                                                            NSData * _Nullable permanentInfoSig,
                                                            NSData * _Nullable stableInfo,
                                                            NSData * _Nullable stableInfoSig,
-                                                           NSSet<NSString*>* _Nullable syncingViews,
-                                                           TPPolicy* _Nullable syncingPolicy,
+                                                           TPSyncingPolicy* _Nullable syncingPolicy,
                                                            NSError * _Nullable error) {
             STRONGIFY(self);
             [[CKKSAnalytics logger] logResultForEvent:OctagonEventPrepareIdentity hardFailure:true result:error];
@@ -173,13 +176,12 @@
 
                 NSError* localError = nil;
 
-                secnotice("octagon-ckks", "New syncing policy: %@ views: %@", syncingPolicy, syncingViews);
+                secnotice("octagon-ckks", "New syncing policy: %@ views: %@", syncingPolicy, syncingPolicy.viewList);
 
                 BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
                     metadata.peerID = peerID;
-                    metadata.syncingViews = [syncingViews mutableCopy];
-                    [metadata setTPPolicy:syncingPolicy];
 
+                    [metadata setTPSyncingPolicy:syncingPolicy];
                     return metadata;
                 } error:&localError];
 
@@ -191,7 +193,7 @@
                 }
 
                 // Let CKKS know of the new policy, so it can spin up
-                [self.deps.viewManager setSyncingViews:syncingViews sortingPolicy:syncingPolicy];
+                [self.deps.viewManager setCurrentSyncingPolicy:syncingPolicy];
 
                 self.nextState = self.intendedState;
                 [self runBeforeGroupFinished:self.finishedOp];

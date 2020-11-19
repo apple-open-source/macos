@@ -640,6 +640,74 @@
 >echo
 >$(|||) bar
 
+ argv=(
+  $'a=() b=()'
+  $'a=(foo) b=(bar)'
+  $'a=(foo) b=() c=() d=(bar) e=(baz) f=() g=()'
+  $'a=(foo) b=() c=() d=(bar)\ne=(baz) f=() g=()'
+  $'a=(foo) b=() d=(bar)'
+ )
+ for 1; print -rl -- ${(z)1} && print
+0:${(z)} regression test: multiple array assignments
+>a=(
+>)
+>b=(
+>)
+>
+>a=(
+>foo
+>)
+>b=(
+>bar
+>)
+>
+>a=(
+>foo
+>)
+>b=(
+>)
+>c=(
+>)
+>d=(
+>bar
+>)
+>e=(
+>baz
+>)
+>f=(
+>)
+>g=(
+>)
+>
+>a=(
+>foo
+>)
+>b=(
+>)
+>c=(
+>)
+>d=(
+>bar
+>)
+>;
+>e=(
+>baz
+>)
+>f=(
+>)
+>g=(
+>)
+>
+>a=(
+>foo
+>)
+>b=(
+>)
+>d=(
+>bar
+>)
+>
+
   foo=$'\x06ZUI\x1f text-field example: \x1azuitfieldtfield1_1\x1a\'\'\x1a\'\'\x1a1\x1aZUI\\[my_tfield1_width\\]\x1aZUI\\[my_tfield1_start\\]\x1aZUI\\[my_tfield1_data\\]\x1c'
   print "${#${(z@)foo}}"
 0:Test real-world data that once seemed to fail
@@ -2444,4 +2512,141 @@ F:behavior, see http://austingroupbugs.net/view.php?id=888
     local -a x
     : <<< ${(F)x/y}
   }
-0:Separation / join logic regresssion test
+0:Separation / join logic regression test
+
+  testpath=/one/two/three/four
+  for (( i = 0; i <= 6; ++i )); do
+    eval "print \$testpath:t$i"
+    eval "print \${testpath:t$i}"
+  done
+0:t with trailing digits
+>four0
+>four
+>four1
+>four
+>four2
+>three/four
+>four3
+>two/three/four
+>four4
+>one/two/three/four
+>four5
+>/one/two/three/four
+>four6
+>/one/two/three/four
+
+  testpath=/one/two/three/four
+  for (( i = 0; i <= 6; ++i )); do
+    eval "print \$testpath:h$i"
+    eval "print \${testpath:h$i}"
+  done
+0:h with trailing digits
+>/one/two/three0
+>/one/two/three
+>/one/two/three1
+>/
+>/one/two/three2
+>/one
+>/one/two/three3
+>/one/two
+>/one/two/three4
+>/one/two/three
+>/one/two/three5
+>/one/two/three/four
+>/one/two/three6
+>/one/two/three/four
+
+  testpath=/a/quite/long/path/to/do/messy/stuff/with
+  print $testpath:h2:t3:h5:t16:h2n2
+  print ${testpath:t5:h2}
+  print ${testpath:t5:h2:t}
+  print ${testpath:h6:t4:h3:t2:h}
+  print ${testpath:h10:t10:t6:h3}
+  print ${testpath:t9:h}
+  print ${testpath:t9:h:t}
+0:Combinations of :h and :t with and without trailing digits
+>/a/quite/long/path/to/do/messy/stuff2:t3:h5:t16:h2n2
+>to/do
+>do
+>long
+>path/to/do
+>a/quite/long/path/to/do/messy/stuff
+>stuff
+
+ testpath=///this//has////lots//and////lots//of////slashes
+ print ${testpath:h3}
+ print ${testpath:t4}
+0:Multiple slashes are treated as one in :h and :t but are not removed
+>///this//has
+>and////lots//of////slashes
+
+ testpath=trailing/slashes/are/removed///
+ print ${testpath:h}
+ print ${testpath:h2}
+ print ${testpath:t}
+ print ${testpath:t2}
+0:Modifiers :h and :t remove trailing slashes before examining path
+>trailing/slashes/are
+>trailing/slashes
+>removed
+>are/removed
+
+ foo=global-value
+ fn() {
+    local foo=function-value
+    foo=export-value true
+    print $foo
+ }
+ fn
+ print $foo
+0:Global variables are not trashed by "foo=bar builtin" (regression test)
+>function-value
+>global-value
+
+ foo=pws
+ print ${foo%*}
+0:Smallest match at end can match zero-length string
+>pws
+
+ foo=pws
+ print ${foo%?}
+0:Smallest match at end with a character always matches one
+>pw
+
+ setopt extendedglob
+ foo=pws
+ print ${foo%s#}
+ print ${foo%%s#}
+0:Smallest / largest match with non-trivial closure
+>pws
+>pw
+
+ foo=pws
+ print ${foo%%*}
+0:Largest match at end matches entire string
+>
+
+ foo=pws
+ print 1: ${(S)foo#*}
+ print 2: ${(S)foo##*}
+ print 3: ${(S)foo#?}
+ print 4: ${(S)foo##?}
+0:(S) with zero-length matches at start
+>1: pws
+>2:
+>3: ws
+>4: ws
+
+ foo=pws
+ print 2: ${(S)foo%%*}
+0:(S) with zero-length matches at end, part 1 (workers/45164)
+>2: pws
+
+ foo=pws
+ print 1: ${(S)foo%*}
+ print 3: ${(S)foo%?}
+ print 4: ${(S)foo%%?}
+0:(S) with zero-length matches at end, part 2
+>1: pws
+>3: pw
+>4: pw

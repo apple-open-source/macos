@@ -8,6 +8,7 @@
  */
 
 #include "ZeroFill.h"
+#include "Logger.h"
 
 #define ZERO_BUF_SIZE   (1024*1024)
 
@@ -22,13 +23,13 @@ ZeroFill_Init()
         return 0;
     }
 
-    gpvZeroBuf = malloc( ZERO_BUF_SIZE );
-    if ( gpvZeroBuf == NULL )
-    {
-        return ENOMEM;
-    }
+    gpvZeroBuf = mmap(NULL, ZERO_BUF_SIZE, PROT_READ, MAP_ANON | MAP_PRIVATE, -1, 0); //XXXab: followup on using off_t as tag?
 
-    memset( gpvZeroBuf, 0, ZERO_BUF_SIZE );
+    if ( gpvZeroBuf == MAP_FAILED )
+    {
+        gpvZeroBuf = NULL;
+        return errno;
+    }
 
     return 0;
 }
@@ -38,7 +39,11 @@ ZeroFill_DeInit()
 {
     if ( gpvZeroBuf )
     {
-        free( gpvZeroBuf );
+        if (munmap(gpvZeroBuf, ZERO_BUF_SIZE))
+        {
+            int error = errno;
+            MSDOS_LOG(LEVEL_ERROR, "failed to unmap zero buffer: %d", error);
+        }
     }
 
     gpvZeroBuf = NULL;
@@ -68,6 +73,7 @@ ZeroFill_Fill( int iFd, uint64_t uOffset, uint32_t uLength )
         if ( lWriteSize != uCurWriteLen )
         {
             iErr = errno;
+            MSDOS_LOG(LEVEL_ERROR, "ZeroFill_Fill: Failed to write. Error [%d]\n",iErr);
             goto exit;
         }
 

@@ -4,8 +4,64 @@ CHANGES FROM PREVIOUS VERSIONS OF ZSH
 
 Note also the list of incompatibilities in the README file.
 
-Changes since 5.6.2
--------------------
+Changes since 5.7.1-test-3
+--------------------------
+
+CVE-2019-20044: When unsetting the PRIVILEGED option, the shell sets its
+effective user and group IDs to match their respective real IDs. On some
+platforms (including Linux and macOS, but not FreeBSD), when the RUID and
+EUID were both non-zero, it was possible to regain the shell's former
+privileges by e.g. assigning to the EUID or EGID parameter. In the course
+of investigating this issue, it was also found that the setopt built-in
+did not correctly report errors when unsetting the option, which
+prevented users from handling them as the documentation recommended.
+setopt now returns non-zero if it is unable to safely drop privileges.
+[ Reported by Sam Foxman <samfoxman320@gmail.com>. ]
+
+Changes from 5.7.1 to 5.7.1-test-3
+----------------------------------
+
+The zsh/zutil module's zparseopts builtin learnt an -F option to abort
+parsing when an unrecognised option-like parameter is encountered.
+
+The zsh/files module gained a chmod builtin.
+
+Several changes have been made to the way completion functions track
+'precommands' (such as `command` and `env`) and determine whether the
+command being completed for is a shell builtin. Developers of completion
+functions may wish to familiarise themselves with `_normal -p` and
+`_pick_variant -b`.
+
+The option CD_SILENT was added to suppress all output from cd (whether
+explicit or implicit with AUTO_CD). It is disabled by default.
+
+The compadd builtin's -o option now takes an optional argument to
+specify the order of completion matches. This affects the display
+of candidate matches and the order in which they are selected when
+cycling between them using menu completion.
+
+The :h and :t modifiers in parameter expansion (if braces are present),
+glob qualifiers and history expansion may take following decimal digit
+arguments in order to keep that many leading or trailing path components
+instead of the defaults of all but one (:h) and one (:t).  In an absolute
+path the leading '/' counts as one component.
+
+The functions builtin gained a -c option to efficiently copy functions.
+
+The zshmisc(1) manual page incorrectly stated that when 'exit' is used
+in a `try' block inside a function, the corresponding `always' block will
+be executed.  The manual page has been corrected.  The shell's behaviour
+has not changed, but code such as the following:
+.
+    f() { { exit } always { echo Hello world } }
+.
+should be changed either to use 'return' instead of 'exit', or to have
+the try/always block outside of any function.
+
+Changes from 5.6.2 to 5.7.1
+---------------------------
+
+There are only minor changes between 5.7 and 5.7.1.
 
 Support for 24-bit true color terminals has been added. Hex triplets
 can be used when specifying colours for prompts and line editor
@@ -515,7 +571,7 @@ Expansion (parameters, globbing, etc.) and redirection
   calculated by the (l) and (r) flags or the # operator should take
   account of the printing width of characters in multibyte mode, whether
   0, 1 or more.  (mm) causes printing characters to count as 1 and
-  non-printing chracters to count as 0.
+  non-printing characters to count as 0.
 
 - The parameter substitution flag (q-) picks the most minimal way of
   quoting the parameter words, to make the result as readable as possible.

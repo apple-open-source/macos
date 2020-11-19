@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>Project</key>
@@ -46,6 +46,8 @@
 			</array>
 			<key>Disabled</key>
 			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_1</string>
+			<key>MayRunConcurrently</key>
+			<false/>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -56,6 +58,8 @@
 			</array>
 			<key>Disabled</key>
 			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_2</string>
+			<key>MayRunConcurrently</key>
+			<false/>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -66,6 +70,8 @@
 			</array>
 			<key>Disabled</key>
 			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_3</string>
+			<key>MayRunConcurrently</key>
+			<false/>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -119,29 +125,33 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>KeychainSecd_macOS</string>
+			<string>KeychainSecd</string>
 			<key>ShowSubtestResults</key>
 			<true/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>/AppleInternal/XCTests/com.apple.security/secdxctests_mac.xctest</string>
+				<string>/AppleInternal/CoreOS/tests/Security/KeychainEntitledTestRunner</string>
+				<string>-t</string>
+				<string>secdxctests</string>
 			</array>
 			<key>Disabled</key>
-			<string>BATS_UTD_Disabled_KeychainSecd_macOS</string>
+			<string>BATS_UTD_Disabled_KeychainSecdXCTests</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>KeychainSecd_iOS</string>
+			<string>SecDbBackupTests</string>
+			<key>WorkingDirectory</key>
+			<string>/AppleInternal/XCTests/com.apple.security/</string>
 			<key>ShowSubtestResults</key>
 			<true/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>/AppleInternal/XCTests/com.apple.security/secdxctests_ios.xctest</string>
+				<string>/AppleInternal/CoreOS/tests/Security/KeychainEntitledTestRunner</string>
+				<string>-t</string>
+				<string>SecDbBackupTests</string>
 			</array>
 			<key>Disabled</key>
-			<string>BATS_UTD_Disabled_KeychainSecd_iOS</string>
+			<string>BATS_UTD_Disabled_KeychainSecDbBackupTests</string>
 		</dict>
 		<dict>
 			<key>TestName</key>
@@ -155,6 +165,18 @@
 			</array>
 			<key>Disabled</key>
 			<string>BATS_UTD_Disabled_SecurityUtiltitesTests</string>
+		</dict>
+		<dict>
+			<key>TestName</key>
+			<string>SecCodeAPITest</string>
+			<key>Command</key>
+			<array>
+				<string>/AppleInternal/CoreOS/tests/Security/secseccodeapitest</string>
+			</array>
+			<key>Disabled</key>
+			<string>BATS_UTD_Disabled_SecCodeAPITest</string>
+			<key>ShowSubtestResults</key>
+			<true/>
 		</dict>
 	</array>
 </dict>

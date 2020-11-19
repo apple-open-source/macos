@@ -17,6 +17,8 @@
 	<string>com.apple.security</string>
 	<key>com.apple.private.keychain.keychaincontrol</key>
 	<true/>
+	<key>com.apple.private.keychain.inet_expansion_fields</key>
+	<true/>
 	<key>com.apple.developer.icloud-services</key>
 	<array>
 		<string>CloudKit</string>

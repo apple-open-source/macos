@@ -604,7 +604,7 @@ int xar_close(xar_t x) {
 		/* read the toc from the tmp file, compress it, and write it
 	 	* out to the archive.
 	 	*/
-		rsize = wsize = 4096;
+		rsize = wsize = xar_optimal_io_size_at_path(XAR(x)->dirname);
 		const char * opt = xar_opt_get(x, XAR_OPT_RSIZE);
 		if ( opt ) {
 		  rsize = strtol(opt, NULL, 0);

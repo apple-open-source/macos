@@ -91,15 +91,12 @@ TranslocatorClient::~TranslocatorClient()
     dispatch_release(syncQ);
 }
 
-string TranslocatorClient::translocatePathForUser(const TranslocationPath &originalPath, const string &destPath)
+string TranslocatorClient::requestTranslocation(const string& source,
+                                                const string& destination,
+                                                const TranslocationOptions flags)
 {
     string outPath;
-
-    if (!originalPath.shouldTranslocate())
-    {
-        return originalPath.getOriginalRealPath();  //return original path if we shouldn't translocate
-    }
-
+    
     //We should run translocated, so get a translocation point
     xpc_object_t msg = xpc_dictionary_create(NULL, NULL, 0);
 
@@ -111,10 +108,11 @@ string TranslocatorClient::translocatePathForUser(const TranslocationPath &origi
 
     xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageFunction, kSecTranslocateXPCFuncCreate);
     /* send the original real path rather than the calculated path to let the server do all the work */
-    xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageOriginalPath, originalPath.getOriginalRealPath().c_str());
-    if(!destPath.empty())
+    xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageOriginalPath, source.c_str());
+    xpc_dictionary_set_int64(msg, kSecTranslocateXPCMessageOptions, static_cast<int64_t>(flags));
+    if(!destination.empty())
     {
-        xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageDestinationPath, destPath.c_str());
+        xpc_dictionary_set_string(msg, kSecTranslocateXPCMessageDestinationPath, destination.c_str());
     }
 
     xpc_object_t reply = xpc_connection_send_message_with_reply_sync(service, msg);
@@ -164,6 +162,26 @@ string TranslocatorClient::translocatePathForUser(const TranslocationPath &origi
     }
 
     return outPath;
+}
+
+string TranslocatorClient::translocatePathForUser(const TranslocationPath &originalPath, const string &destPath)
+{
+    if (!originalPath.shouldTranslocate())
+    {
+        return originalPath.getOriginalRealPath();  //return original path if we shouldn't translocate
+    }
+    
+    return requestTranslocation(originalPath.getOriginalRealPath(), destPath, TranslocationOptions::Default);
+}
+
+string TranslocatorClient::translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath)
+{
+    if (!originalPath.shouldTranslocate())
+    {
+        return originalPath.getOriginalRealPath();  //return original path if we shouldn't translocate
+    }
+    
+    return requestTranslocation(originalPath.getOriginalRealPath(), destPath, TranslocationOptions::Generic);
 }
 
 void TranslocatorClient::appLaunchCheckin(pid_t pid)

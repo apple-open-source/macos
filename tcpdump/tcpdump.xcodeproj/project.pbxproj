@@ -1029,6 +1029,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				DefaultBuildSystemTypeForWorkspace = Original;
 				LastSwiftUpdateCheck = 0700;
 				LastUpgradeCheck = 0800;
 				TargetAttributes = {
@@ -1510,10 +1511,14 @@
 					/usr/local/libressl/include,
 				);
 				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
-				"OTHER_CFLAGS[sdk=iphoneos*]" = "-DLBL_ALIGN=1";
+				"OTHER_CFLAGS[sdk=iphoneos*]" = (
+					"-DLBL_ALIGN=1",
+					"-DGUESS_TSO",
+				);
 				"OTHER_CFLAGS[sdk=macosx*][arch=*]" = (
 					"-DHAVE_OPENSSL_EVP_H=1",
 					"-DHAVE_LIBCRYPTO=1",
+					"-DGUESS_TSO",
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-lssl",
@@ -1521,7 +1526,8 @@
 				);
 				PREBINDING = NO;
 				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				STRIP_STYLE = debugging;
+				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos bridgeos";
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;
 			};
@@ -1530,6 +1536,7 @@
 		7244CC871624FF2100141ECF /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tcpdump/entitlements.plist";
 				INSTALL_PATH = /usr/sbin;
 				LIBRARY_SEARCH_PATHS = /usr/local/lib;
 				PRODUCT_NAME = tcpdumpstatic;
@@ -1540,7 +1547,7 @@
 		7244CC881624FF2100141ECF /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tcpdump/entitlements.plist";
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
@@ -1575,11 +1582,15 @@
 					/usr/local/libressl/include,
 				);
 				LIBRARY_SEARCH_PATHS = /usr/local/libressl/lib;
-				ONLY_ACTIVE_ARCH = YES;
-				"OTHER_CFLAGS[sdk=iphoneos*]" = "-DLBL_ALIGN=1";
+				ONLY_ACTIVE_ARCH = NO;
+				"OTHER_CFLAGS[sdk=iphoneos*]" = (
+					"-DLBL_ALIGN=1",
+					"-DGUESS_TSO",
+				);
 				"OTHER_CFLAGS[sdk=macosx*][arch=*]" = (
 					"-DHAVE_OPENSSL_EVP_H=1",
 					"-DHAVE_LIBCRYPTO=1",
+					"-DGUESS_TSO",
 				);
 				"OTHER_LDFLAGS[sdk=macosx*]" = (
 					"-lssl",
@@ -1587,7 +1598,8 @@
 				);
 				PREBINDING = NO;
 				SDKROOT = macosx.internal;
-				SUPPORTED_PLATFORMS = "macosx iphoneos";
+				STRIP_STYLE = debugging;
+				SUPPORTED_PLATFORMS = "macosx iphoneos appletvos watchos bridgeos";
 				VERSIONING_SYSTEM = "apple-generic";
 				ZERO_LINK = NO;
 			};
@@ -1597,7 +1609,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/tcpdump/entitlements.plist";
-				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;

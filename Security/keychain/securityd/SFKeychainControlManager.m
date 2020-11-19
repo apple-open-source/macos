@@ -28,6 +28,7 @@
 #import <Security/SecItem.h>
 #import <Security/SecItemPriv.h>
 #import <Foundation/NSXPCConnection_Private.h>
+#import <Security/SecXPCHelper.h>
 
 NSString* kSecEntitlementKeychainControl = @"com.apple.private.keychain.keychaincontrol";
 
@@ -75,9 +76,11 @@ XPC_RETURNS_RETAINED xpc_endpoint_t SecServerCreateKeychainControlEndpoint(void)
         return NO;
     }
 
+    NSSet<Class>* errorClasses = [SecXPCHelper safeErrorClasses];
+
     NSXPCInterface* interface = [NSXPCInterface interfaceWithProtocol:@protocol(SFKeychainControl)];
-    [interface setClass:[NSError class] forSelector:@selector(rpcFindCorruptedItemsWithReply:) argumentIndex:1 ofReply:YES];
-    [interface setClass:[NSError class] forSelector:@selector(rpcDeleteCorruptedItemsWithReply:) argumentIndex:1 ofReply:YES];
+    [interface setClasses:errorClasses forSelector:@selector(rpcFindCorruptedItemsWithReply:) argumentIndex:1 ofReply:YES];
+    [interface setClasses:errorClasses forSelector:@selector(rpcDeleteCorruptedItemsWithReply:) argumentIndex:1 ofReply:YES];
     newConnection.exportedInterface = interface;
     newConnection.exportedObject = self;
     [newConnection resume];

@@ -34,7 +34,7 @@
 /*
  * CMS digesting.
  */
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 #include "cmslocal.h"
 

@@ -220,7 +220,7 @@ RuleBasedCollator::adoptTailoring(CollationTailoring *t, UErrorCode &errorCode) 
     actualLocaleIsSameAsValid = FALSE;
 }
 
-Collator *
+RuleBasedCollator *
 RuleBasedCollator::clone() const {
     return new RuleBasedCollator(*this);
 }
@@ -361,6 +361,9 @@ RuleBasedCollator::getRules(UColRuleOption delta, UnicodeString &buffer) const {
 void
 RuleBasedCollator::getVersion(UVersionInfo version) const {
     uprv_memcpy(version, tailoring->version, U_MAX_VERSION_LENGTH);
+    if (version[1]==0x68 /* uca 13.0 */ && (version[2]&0xC0)==0 /*uca x.x.0*/) {
+        version[2]|=0x40; // uca x.x.1, Apple hack to bump UCA version for ICU 66.1 final
+    }
     version[0] += (UCOL_RUNTIME_VERSION << 4) + (UCOL_RUNTIME_VERSION >> 4);
 }
 

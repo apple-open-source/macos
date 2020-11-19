@@ -2,14 +2,14 @@
  * Copyright (c) 1998-2000 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -44,9 +44,9 @@ OSDefineMetaClassAndStructors(AppleSmartBatteryManagerUserClient, IOUserClient)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-bool AppleSmartBatteryManagerUserClient::initWithTask(task_t owningTask, 
+bool AppleSmartBatteryManagerUserClient::initWithTask(task_t owningTask,
                     void *security_id, UInt32 type, OSDictionary * properties)
-{    
+{
     uint32_t            _pid;
 
      /* 1. Only root processes may open a SmartBatteryManagerUserClient.
@@ -56,23 +56,22 @@ bool AppleSmartBatteryManagerUserClient::initWithTask(task_t owningTask,
       *     while an exclusive client is attached.
       * 3a. Only battery firmware updaters should bother being exclusive.
       */
-    if ( kIOReturnSuccess !=
-            clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator))
-    {
+    if (kIOReturnSuccess !=
+            clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator)) {
         return false;
     }
-        
-    if (!super::initWithTask(owningTask, security_id, type, properties)) {    
+
+    if (!super::initWithTask(owningTask, security_id, type, properties)) {
         return false;
     }
 
     fUserClientType = type;
 
-	_pid = proc_selfpid();
-	setProperty("pid", _pid, 32);
+    _pid = proc_selfpid();
+    setProperty("pid", _pid, 32);
 
     fOwningTask = owningTask;
-    task_reference (fOwningTask);    
+    task_reference (fOwningTask);
     return true;
 }
 
@@ -87,18 +86,16 @@ bool AppleSmartBatteryManagerUserClient::start( IOService * provider )
     /*
      * exclusive access user client?
      * shut up the AppleSmartBattery from doing ongoing polls
-     *
      */
-    if (kSBExclusiveSMBusAccessType == fUserClientType)
-    {
+    if (kSBExclusiveSMBusAccessType == fUserClientType) {
         if(!fOwner->requestExclusiveSMBusAccess(true)) {
             // requestExclusiveSMBusAccess will return false if there's already
             // an exclusive user client.
             return false;
         }
     }
-    
-    if(!super::start(provider))
+
+    if (!super::start(provider))
         return false;
 
     return true;
@@ -111,8 +108,7 @@ IOReturn AppleSmartBatteryManagerUserClient::secureInflowDisable(
     int             admin_priv = 0;
     IOReturn        ret = kIOReturnNotPrivileged;
 
-    if( !(level == 0 || level == 1))
-    {
+    if (!(level == 0 || level == 1)) {
         *return_code = kIOReturnBadArgument;
         return kIOReturnSuccess;
     }
@@ -120,25 +116,23 @@ IOReturn AppleSmartBatteryManagerUserClient::secureInflowDisable(
     ret = clientHasPrivilege(fOwningTask, kIOClientPrivilegeAdministrator);
     admin_priv = (kIOReturnSuccess == ret);
 
-    if(admin_priv && fOwner) {
+    if (admin_priv && fOwner) {
         *return_code = fOwner->disableInflow( level );
         return kIOReturnSuccess;
     } else {
         *return_code = kIOReturnNotPrivileged;
         return kIOReturnSuccess;
     }
-
 }
 
-IOReturn AppleSmartBatteryManagerUserClient::secureChargeInhibit( 
+IOReturn AppleSmartBatteryManagerUserClient::secureChargeInhibit(
     int level,
     int *return_code)
 {
     int             admin_priv = 0;
     IOReturn        ret = kIOReturnNotPrivileged;
 
-    if( !(level == 0 || level == 1))
-    {
+    if (!(level == 0 || level == 1)) {
         *return_code = kIOReturnBadArgument;
         return kIOReturnSuccess;
     }
@@ -146,44 +140,47 @@ IOReturn AppleSmartBatteryManagerUserClient::secureChargeInhibit(
     ret = clientHasPrivilege(fOwningTask, kIOClientPrivilegeAdministrator);
     admin_priv = (kIOReturnSuccess == ret);
 
-    if(admin_priv && fOwner) {
+    if (admin_priv && fOwner) {
         *return_code = fOwner->inhibitCharging(level);
         return kIOReturnSuccess;
     } else {
         *return_code = kIOReturnNotPrivileged;
         return kIOReturnSuccess;
     }
-
 }
 
-
-IOReturn AppleSmartBatteryManagerUserClient::clientClose( void )
+IOReturn AppleSmartBatteryManagerUserClient::clientCloseGated( void )
 {
     /* remove our request for exclusive SMBus access */
-    if (kSBExclusiveSMBusAccessType == fUserClientType) {    
+    if (kSBExclusiveSMBusAccessType == fUserClientType) {
         fOwner->requestExclusiveSMBusAccess(false);
     }
 
     detach(fOwner);
-    
-    if(fOwningTask) {
+
+    if (fOwningTask) {
         task_deallocate(fOwningTask);
         fOwningTask = 0;
-    }   
-    
+    }
+
     // We only have one application client. If the app is closed,
     // we can terminate the user client.
     terminate();
-    
+
     return kIOReturnSuccess;
 }
 
-IOReturn 
-AppleSmartBatteryManagerUserClient::externalMethod( 
-    uint32_t selector, 
+IOReturn AppleSmartBatteryManagerUserClient::clientClose( void )
+{
+    return fOwner->getWorkLoop()->runAction(OSMemberFunctionCast(IOWorkLoop::Action, this,
+                                            &AppleSmartBatteryManagerUserClient::clientCloseGated), this);
+}
+
+IOReturn AppleSmartBatteryManagerUserClient::externalMethod(
+    uint32_t selector,
     IOExternalMethodArguments * arguments,
-    IOExternalMethodDispatch * dispatch __unused, 
-    OSObject * target __unused, 
+    IOExternalMethodDispatch * dispatch __unused,
+    OSObject * target __unused,
     void * reference __unused )
 {
     if (selector >= kNumBattMethods) {
@@ -191,32 +188,45 @@ AppleSmartBatteryManagerUserClient::externalMethod(
         return kIOReturnBadArgument;
     }
 
-    switch (selector)
-    {
+    switch (selector) {
         case kSBInflowDisable:
             // 1 scalar in, 1 scalar out
+            if (!arguments->scalarInput || !arguments->scalarOutput ||
+                arguments->scalarInputCount < 1 || arguments->scalarOutputCount < 1) {
+                return kIOReturnBadArgument;
+            }
+
             return this->secureInflowDisable((int)arguments->scalarInput[0],
                                             (int *)&arguments->scalarOutput[0]);
             break;
 
         case kSBChargeInhibit:
             // 1 scalar in, 1 scalar out
+            if (!arguments->scalarInput || !arguments->scalarOutput ||
+                arguments->scalarInputCount < 1 || arguments->scalarOutputCount < 1) {
+                return kIOReturnBadArgument;
+            }
+
             return this->secureChargeInhibit((int)arguments->scalarInput[0],
                                             (int *)&arguments->scalarOutput[0]);
             break;
-            
+
         case kSBSetPollingInterval:
             // Deprecated. AppleSmartBattery doesn't have a polling interval.
             return kIOReturnBadArgument;
 
         case kSBSMBusReadWriteWord:
-            if ((kSBExclusiveSMBusAccessType != fUserClientType) && fOwner->hasExclusiveClient())
-            {
+            if ((kSBExclusiveSMBusAccessType != fUserClientType) && fOwner->hasExclusiveClient()) {
                 /* SmartBatteryManager should not perform this request if there's an exclusive client
                  * attached, and this client isn't the exclusive client. */
                 return kIOReturnSuccess;
             }
             // Struct in, struct out
+            if (!arguments->structureInput || !arguments->structureOutput ||
+                !arguments->structureInputSize || !arguments->structureOutputSize) {
+                return kIOReturnBadArgument;
+            }
+
             return fOwner->performExternalTransaction(
                                             (void *)arguments->structureInput,
                                             (void *)arguments->structureOutput,
@@ -226,16 +236,24 @@ AppleSmartBatteryManagerUserClient::externalMethod(
 
         case kSBRequestPoll:
             // 1 scalar in; 0 scalar out
+            if (!arguments->scalarInput || arguments->scalarInputCount < 1) {
+                return kIOReturnBadArgument;
+            }
+
             return fOwner->requestPoll((int)arguments->scalarInput[0]);
-            
+
         case kSBSetOverrideCapacity:
+            // 1 scalar in; 0 scalar out
+            if (!arguments->scalarInput || arguments->scalarInputCount < 1) {
+                return kIOReturnBadArgument;
+            }
+
             return fOwner->setOverrideCapacity(arguments->scalarInput[0]);
-            
+
         case kSBSwitchToTrueCapacity:
             return fOwner->switchToTrueCapacity();
-            
+
         default:
             return kIOReturnBadArgument;
     }
 }
-

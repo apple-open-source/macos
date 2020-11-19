@@ -577,14 +577,14 @@ ALCint   alcCheckUnitIsPresent(OSType componentSubType)
 {
 	ALCint isPresent = kUnknownAUState;
 	
-	ComponentDescription	desc;
+	AudioComponentDescription	desc;
 	desc.componentFlags = 0;        
 	desc.componentFlagsMask = 0;     
 	desc.componentType = kAudioUnitType_Effect;          
 	desc.componentSubType = componentSubType;       
 	desc.componentManufacturer = kAudioUnitManufacturer_Apple;  
 
-	isPresent = (FindNextComponent(0, &desc) != 0) ? kAUIsPresent : kAUIsNotPresent;
+	isPresent = (AudioComponentFindNext(0, &desc) != 0) ? kAUIsPresent : kAUIsNotPresent;
 	
 	return isPresent;
 }

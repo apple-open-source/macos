@@ -30,6 +30,7 @@
 #if USE(CA)
 
 #include "AbstractCACFLayerTreeHost.h"
+#include "ColorSerialization.h"
 #include "FontCascade.h"
 #include "GDIUtilities.h"
 #include "GraphicsContext.h"
@@ -92,7 +93,7 @@ static PlatformCALayerWinInternal* intern(void* layer)
     return static_cast<PlatformCALayerWinInternal*>(CACFLayerGetUserData(static_cast<CACFLayerRef>(layer)));
 }
 
-PlatformCALayer* PlatformCALayer::platformCALayer(void* platformLayer)
+RefPtr<PlatformCALayer> PlatformCALayer::platformCALayerForLayer(void* platformLayer)
 {
     if (!platformLayer)
         return nullptr;
@@ -127,9 +128,9 @@ static void displayCallback(CACFLayerRef caLayer, CGContextRef context)
 
 static void layoutSublayersProc(CACFLayerRef caLayer) 
 {
-    PlatformCALayer* layer = PlatformCALayer::platformCALayer(caLayer);
+    auto layer = PlatformCALayer::platformCALayerForLayer(caLayer);
     if (layer && layer->owner())
-        layer->owner()->platformCALayerLayoutSublayersOfLayer(layer);
+        layer->owner()->platformCALayerLayoutSublayersOfLayer(layer.get());
 }
 
 PlatformCALayerWin::PlatformCALayerWin(LayerType layerType, PlatformLayer* layer, PlatformCALayerClient* owner)
@@ -266,7 +267,7 @@ void PlatformCALayerWin::setNeedsLayout()
 
 PlatformCALayer* PlatformCALayerWin::superlayer() const
 {
-    return platformCALayer(CACFLayerGetSuperlayer(m_layer.get()));
+    return platformCALayerForLayer(CACFLayerGetSuperlayer(m_layer.get())).get();
 }
 
 void PlatformCALayerWin::removeFromSuperlayer()
@@ -576,13 +577,7 @@ Color PlatformCALayerWin::backgroundColor() const
 
 void PlatformCALayerWin::setBackgroundColor(const Color& value)
 {
-    CGFloat components[4];
-    value.getRGBA(components[0], components[1], components[2], components[3]);
-
-    RetainPtr<CGColorSpaceRef> colorSpace = adoptCF(CGColorSpaceCreateDeviceRGB());
-    RetainPtr<CGColorRef> color = adoptCF(CGColorCreate(colorSpace.get(), components));
-
-    CACFLayerSetBackgroundColor(m_layer.get(), color.get());
+    CACFLayerSetBackgroundColor(m_layer.get(), cachedCGColor(value));
     setNeedsCommit();
 }
 
@@ -746,11 +741,7 @@ static void printColor(StringBuilder& builder, int indent, const String& label, 
 
     builder.append('\n');
     printIndent(builder, indent);
-    builder.append('(');
-    builder.append(label);
-    builder.append(' ');
-    builder.append(layerColor.nameForRenderTreeAsText());
-    builder.append(')');
+    builder.append('(', label, ' ', serializationForRenderTreeAsText(layerColor), ')');
 }
 
 static void printLayer(StringBuilder& builder, const PlatformCALayer* layer, int indent)

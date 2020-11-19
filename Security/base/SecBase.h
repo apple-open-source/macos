@@ -30,7 +30,7 @@
 
 // Truth table for following declarations:
 //
-//                          TARGET_OS_OSX   TARGET_OS_OSX   TARGET_OS_IPHONE    TARGET_OS_IPHONE    TARGET_OS_IOSMAC
+//                          TARGET_OS_OSX   TARGET_OS_OSX   TARGET_OS_IPHONE    TARGET_OS_IPHONE    TARGET_OS_MACCATALYST
 //                                          SEC_IOS_ON_OSX                      SEC_IOS_ON_OSX
 // =================================================================================================================
 // SEC_OS_IPHONE            0               1               1                   1                   1
@@ -46,12 +46,12 @@
   #endif // SEC_IOS_ON_OSX
 #endif // TARGET_OS_OSX
 
-#if TARGET_OS_IOSMAC
+#if TARGET_OS_MACCATALYST
   #define SEC_OS_IPHONE 1
 
   #define SEC_OS_OSX 0
   #define SEC_OS_OSX_INCLUDES 0
-#endif // TARGET_OS_IOSMAC
+#endif // TARGET_OS_MACCATALYST
 
 #ifndef SEC_OS_IPHONE
     // block above did not fire; set flags to current platform
@@ -71,7 +71,7 @@
 #define SEC_DEPRECATED_ATTRIBUTE
 #endif
 
-#define CSSM_DEPRECATED API_DEPRECATED("CSSM is not supported", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac)
+#define CSSM_DEPRECATED API_DEPRECATED("CSSM is not supported", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst)
 
 __BEGIN_DECLS
 
@@ -139,19 +139,19 @@ typedef struct CF_BRIDGED_TYPE(id) __SecKeychain *SecKeychainRef
     @typedef SecKeychainItemRef
     @abstract Contains information about a keychain item.
 */
-typedef struct CF_BRIDGED_TYPE(id) __SecKeychainItem *SecKeychainItemRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct CF_BRIDGED_TYPE(id) __SecKeychainItem *SecKeychainItemRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecKeychainSearchRef
     @abstract Contains information about a keychain search.
 */
-typedef struct CF_BRIDGED_TYPE(id) __SecKeychainSearch *SecKeychainSearchRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct CF_BRIDGED_TYPE(id) __SecKeychainSearch *SecKeychainSearchRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecKeychainAttrType
     @abstract Represents a keychain attribute type.
 */
-typedef OSType SecKeychainAttrType API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef OSType SecKeychainAttrType API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @struct SecKeychainAttribute
@@ -160,19 +160,19 @@ typedef OSType SecKeychainAttrType API_UNAVAILABLE(ios, watchos, tvos, bridgeos,
     @field length The length of the buffer pointed to by data.
     @field data A pointer to the attribute data.
 */
-struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac) SecKeychainAttribute
+struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst) SecKeychainAttribute
 {
     SecKeychainAttrType tag;
     UInt32 length;
     void * __nullable data;
 };
-typedef struct SecKeychainAttribute SecKeychainAttribute API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct SecKeychainAttribute SecKeychainAttribute API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecKeychainAttributePtr
     @abstract Represents a pointer to a keychain attribute structure.
 */
-typedef SecKeychainAttribute *SecKeychainAttributePtr API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef SecKeychainAttribute *SecKeychainAttributePtr API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecKeychainAttributeList
@@ -180,30 +180,30 @@ typedef SecKeychainAttribute *SecKeychainAttributePtr API_UNAVAILABLE(ios, watch
     @field count An unsigned 32-bit integer that represents the number of keychain attributes in the array.
     @field attr A pointer to the first keychain attribute in the array.
 */
-struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac) SecKeychainAttributeList
+struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst) SecKeychainAttributeList
 {
     UInt32 count;
     SecKeychainAttribute * __nullable attr;
 };
-typedef struct SecKeychainAttributeList SecKeychainAttributeList API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct SecKeychainAttributeList SecKeychainAttributeList API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecKeychainStatus
     @abstract Represents the status of a keychain.
 */
-typedef UInt32 SecKeychainStatus API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef UInt32 SecKeychainStatus API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecTrustedApplicationRef
     @abstract Contains information about a trusted application.
 */
-typedef struct CF_BRIDGED_TYPE(id) __SecTrustedApplication *SecTrustedApplicationRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct CF_BRIDGED_TYPE(id) __SecTrustedApplication *SecTrustedApplicationRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecAccessRef
     @abstract Contains information about an access.
 */
-typedef struct CF_BRIDGED_TYPE(id) __SecAccess *SecAccessRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct CF_BRIDGED_TYPE(id) __SecAccess *SecAccessRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 #if TARGET_OS_OSX
 typedef struct __SecAccess OpaqueSecAccessRef;
@@ -213,13 +213,13 @@ typedef struct __SecAccess OpaqueSecAccessRef;
     @typedef SecACLRef
     @abstract Contains information about an access control list (ACL) entry.
 */
-typedef struct CF_BRIDGED_TYPE(id) __SecACL *SecACLRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct CF_BRIDGED_TYPE(id) __SecACL *SecACLRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecPasswordRef
     @abstract Contains information about a password.
 */
-typedef struct CF_BRIDGED_TYPE(id) __SecPassword *SecPasswordRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct CF_BRIDGED_TYPE(id) __SecPassword *SecPasswordRef API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @typedef SecKeychainAttributeInfo
@@ -229,13 +229,13 @@ typedef struct CF_BRIDGED_TYPE(id) __SecPassword *SecPasswordRef API_UNAVAILABLE
     @field format A pointer to the first CSSM_DB_ATTRIBUTE_FORMAT in the array.
     @discussion Each tag and format item form a pair.
 */
-struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac) SecKeychainAttributeInfo
+struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst) SecKeychainAttributeInfo
 {
     UInt32 count;
     UInt32 *tag;
     UInt32 * __nullable format;
 };
-typedef struct SecKeychainAttributeInfo SecKeychainAttributeInfo API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+typedef struct SecKeychainAttributeInfo SecKeychainAttributeInfo API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @function SecCopyErrorMessageString
@@ -336,6 +336,7 @@ CF_ENUM(OSStatus)
     errSecCoreFoundationUnknown              = -4960,
 
     errSecMissingEntitlement                 = -34018,    /* A required entitlement isn't present. */
+    errSecRestrictedAPI                      = -34020,    /* Client is restricted and is not permitted to perform this operation. */
 
     errSecNotAvailable                       = -25291,    /* No keychain is available. You may need to restart your computer. */
     errSecReadOnly                           = -25292,    /* This keychain cannot be modified. */
@@ -704,6 +705,7 @@ CF_ENUM(OSStatus)
     errSecCertificatePolicyNotAllowed        = -67899,    /* The requested policy is not allowed for this certificate. */
     errSecCertificateNameNotAllowed          = -67900,    /* The requested name is not allowed for this certificate. */
     errSecCertificateValidityPeriodTooLong   = -67901,    /* The validity period in the certificate exceeds the maximum allowed. */
+    errSecCertificateIsCA                    = -67902,    /* The verified certificate is a CA rather than an end-entity */
 };
 
 
@@ -785,6 +787,7 @@ CF_ENUM(OSStatus)
  @constant errSSLATSLeafCertificateHashAlgorithmViolation ATS violation: peer leaf certificate hash algorithm is not ATS compliant
  @constant errSSLATSCertificateHashAlgorithmViolation ATS violation: peer certificate hash algorithm is not ATS compliant
  @constant errSSLATSCertificateTrustViolation ATS violation: peer certificate is not issued by trusted peer
+ @constant errSSLEarlyDataRejected Early application data rejected by peer
  */
 
 /*
@@ -883,6 +886,9 @@ CF_ENUM(OSStatus) {
     errSSLATSLeafCertificateHashAlgorithmViolation  = -9884,    /* ATS violation: peer leaf certificate hash algorithm is not ATS compliant */
     errSSLATSCertificateHashAlgorithmViolation      = -9885,    /* ATS violation: peer certificate hash algorithm is not ATS compliant */
     errSSLATSCertificateTrustViolation              = -9886,    /* ATS violation: peer certificate is not issued by trusted peer */
+
+    /* early data errors */
+    errSSLEarlyDataRejected                         = -9890,    /* Early application data rejected by peer */
 };
 
 CF_IMPLICIT_BRIDGING_DISABLED

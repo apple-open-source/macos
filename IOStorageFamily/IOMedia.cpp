@@ -30,13 +30,6 @@
 #define super IOStorage
 OSDefineMetaClassAndStructors(IOMedia, IOStorage)
 
-enum
-{
-    kIOStorageAccessWriter   = 0x00000002,
-    kIOStorageAccessInvalid  = 0x0000000D,
-    kIOStorageAccessReserved = 0xFFFFFFF0
-};
-
 static UInt8 gIOMediaAccessTable[8][8] =
 {            /* Rea, Wri, R|S, W|S, R|E, W|E, Inv, Non */
     /* Rea */ { 000, 001, 002, 003, 006, 006, 006, 000 },
@@ -853,7 +846,7 @@ IOReturn IOMedia::synchronize(IOService *                 client,
     // Flush the cached data in the storage object, if any.
     //
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     if (_respondsTo_synchronizeCache)
     {
         if (options == _kIOStorageSynchronizeOption_super__synchronizeCache)
@@ -865,7 +858,7 @@ IOReturn IOMedia::synchronize(IOService *                 client,
             return IOStorage::synchronize(client, byteStart, byteCount, options);
         }
     }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
     if (isInactive())
     {
@@ -1500,9 +1493,9 @@ OSMetaClassDefineReservedUnused(IOMedia, 13);
 OSMetaClassDefineReservedUnused(IOMedia, 14);
 OSMetaClassDefineReservedUnused(IOMedia, 15);
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 extern "C" void _ZN7IOMedia16synchronizeCacheEP9IOService( IOMedia * media, IOService * client )
 {
     media->synchronize( client, 0, 0 );
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */

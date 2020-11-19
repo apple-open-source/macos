@@ -56,7 +56,7 @@ CaptureSourceOrError MockRealtimeVideoSource::create(String&& deviceID, String&&
     auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(deviceID);
     ASSERT(device);
     if (!device)
-        return { };
+        return { "No mock camera device"_s };
 #endif
 
     auto source = adoptRef(*new MockRealtimeVideoSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt)));
@@ -149,6 +149,7 @@ const RealtimeMediaSourceSettings& MockRealtimeVideoSource::settings()
         return m_currentSettings.value();
 
     RealtimeMediaSourceSettings settings;
+    settings.setLabel(name());
     if (mockCamera()) {
         settings.setFacingMode(facingMode());
         settings.setDeviceId(hashedId());
@@ -186,11 +187,13 @@ const RealtimeMediaSourceSettings& MockRealtimeVideoSource::settings()
     return m_currentSettings.value();
 }
 
-void MockRealtimeVideoSource::setFrameRateWithPreset(double, RefPtr<VideoPreset> preset)
+void MockRealtimeVideoSource::setFrameRateWithPreset(double frameRate, RefPtr<VideoPreset> preset)
 {
     m_preset = WTFMove(preset);
     if (m_preset)
         setIntrinsicSize(m_preset->size);
+    if (isProducingData())
+        m_emitFrameTimer.startRepeating(1_s / frameRate);
 }
 
 IntSize MockRealtimeVideoSource::captureSize() const
@@ -262,13 +265,6 @@ void MockRealtimeVideoSource::drawAnimation(GraphicsContext& context)
 
 void MockRealtimeVideoSource::drawBoxes(GraphicsContext& context)
 {
-    static const RGBA32 magenta = 0xffff00ff;
-    static const RGBA32 yellow = 0xffffff00;
-    static const RGBA32 blue = 0xff0000ff;
-    static const RGBA32 red = 0xffff0000;
-    static const RGBA32 green = 0xff008000;
-    static const RGBA32 cyan = 0xFF00FFFF;
-
     IntSize size = captureSize();
     float boxSize = size.width() * .035;
     float boxTop = size.height() * .6;
@@ -317,9 +313,9 @@ void MockRealtimeVideoSource::drawBoxes(GraphicsContext& context)
 
     boxTop += boxSize + 2;
     boxLeft = boxSize;
-    Color boxColors[] = { Color::white, yellow, cyan, green, magenta, red, blue };
-    for (unsigned i = 0; i < sizeof(boxColors) / sizeof(boxColors[0]); i++) {
-        context.fillRect(FloatRect(boxLeft, boxTop, boxSize + 1, boxSize + 1), boxColors[i]);
+    constexpr SRGBA<uint8_t> boxColors[] = { Color::white, Color::yellow, Color::cyan, Color::darkGreen, Color::magenta, Color::red, Color::blue };
+    for (auto& boxColor : boxColors) {
+        context.fillRect(FloatRect(boxLeft, boxTop, boxSize + 1, boxSize + 1), boxColor);
         boxLeft += boxSize + 1;
     }
     context.strokePath(m_path);
@@ -354,7 +350,7 @@ void MockRealtimeVideoSource::drawText(GraphicsContext& context)
     IntSize captureSize = this->captureSize();
     FloatPoint timeLocation(captureSize.width() * .05, captureSize.height() * .15);
     context.setFillColor(Color::white);
-    context.setTextDrawingMode(TextModeFill);
+    context.setTextDrawingMode(TextDrawingMode::Fill);
     String string = makeString(pad('0', 2, hours), ':', pad('0', 2, minutes), ':', pad('0', 2, seconds), '.', pad('0', 3, milliseconds % 1000));
     context.drawText(timeFont, TextRun((StringView(string))), timeLocation);
 
@@ -458,7 +454,7 @@ ImageBuffer* MockRealtimeVideoSource::imageBuffer() const
     if (m_imageBuffer)
         return m_imageBuffer.get();
 
-    m_imageBuffer = ImageBuffer::create(captureSize(), Unaccelerated);
+    m_imageBuffer = ImageBuffer::create(captureSize(), RenderingMode::Unaccelerated);
     if (!m_imageBuffer)
         return nullptr;
 

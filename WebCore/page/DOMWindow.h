@@ -34,6 +34,7 @@
 #include "FrameDestructionObserver.h"
 #include "ImageBitmap.h"
 #include "PostMessageOptions.h"
+#include "ReducedResolutionSeconds.h"
 #include "ScrollToOptions.h"
 #include "ScrollTypes.h"
 #include "Supplementable.h"
@@ -41,6 +42,7 @@
 #include <JavaScriptCore/Strong.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/WeakPtr.h>
 
 namespace JSC {
@@ -74,7 +76,6 @@ class NodeList;
 class Page;
 class PageConsoleClient;
 class Performance;
-class PostMessageTimer;
 class RequestAnimationFrameCallback;
 class RequestIdleCallback;
 class ScheduledAction;
@@ -140,8 +141,8 @@ public:
         virtual void willDetachGlobalObjectFromFrame() { }
     };
 
-    void registerObserver(Observer&);
-    void unregisterObserver(Observer&);
+    WEBCORE_EXPORT void registerObserver(Observer&);
+    WEBCORE_EXPORT void unregisterObserver(Observer&);
 
     void resetUnlessSuspendedForDocumentSuspension();
     void suspendForBackForwardCache();
@@ -175,6 +176,13 @@ public:
     WEBCORE_EXPORT Navigator& navigator();
     Navigator* optionalNavigator() const { return m_navigator.get(); }
     Navigator& clientInformation() { return navigator(); }
+
+    WEBCORE_EXPORT static void overrideTransientActivationDurationForTesting(Optional<Seconds>&&);
+    void setLastActivationTimestamp(MonotonicTime lastActivationTimestamp) { m_lastActivationTimestamp = lastActivationTimestamp; }
+    MonotonicTime lastActivationTimestamp() const { return m_lastActivationTimestamp; }
+    void notifyActivated(MonotonicTime);
+    bool hasTransientActivation() const;
+    bool consumeTransientActivation();
 
     WEBCORE_EXPORT Location& location();
     void setLocation(DOMWindow& activeWindow, const URL& completedURL, SetLocationLocking = LockHistoryBasedOnGestureState);
@@ -234,6 +242,7 @@ public:
     WindowProxy* top() const;
 
     String origin() const;
+    SecurityOrigin* securityOrigin() const;
 
     // DOM Level 2 AbstractView Interface
 
@@ -266,8 +275,6 @@ public:
     {
         return postMessage(globalObject, incumbentWindow, message, WindowPostMessageOptions { WTFMove(targetOrigin), WTFMove(transfer) });
     }
-
-    void postMessageTimerFired(PostMessageTimer&);
 
     void languagesChanged();
 
@@ -343,7 +350,10 @@ public:
 #endif
 
     Performance& performance() const;
-    WEBCORE_EXPORT double nowTimestamp() const;
+    WEBCORE_EXPORT ReducedResolutionSeconds nowTimestamp() const;
+    void freezeNowTimestamp();
+    void unfreezeNowTimestamp();
+    ReducedResolutionSeconds frozenNowTimestamp() const;
 
 #if PLATFORM(IOS_FAMILY)
     void incrementScrollEventListenersCount();
@@ -462,6 +472,14 @@ private:
     RefPtr<CustomElementRegistry> m_customElementRegistry;
 
     mutable RefPtr<Performance> m_performance;
+
+    Optional<ReducedResolutionSeconds> m_frozenNowTimestamp;
+
+    // For the purpose of tracking user activation, each Window W has a last activation timestamp. This is a number indicating the last time W got
+    // an activation notification. It corresponds to a DOMHighResTimeStamp value except for two cases: positive infinity indicates that W has never
+    // been activated, while negative infinity indicates that a user activation-gated API has consumed the last user activation of W. The initial
+    // value is positive infinity.
+    MonotonicTime m_lastActivationTimestamp { MonotonicTime::infinity() };
 
 #if ENABLE(USER_MESSAGE_HANDLERS)
     mutable RefPtr<WebKitNamespace> m_webkitNamespace;

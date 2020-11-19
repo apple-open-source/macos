@@ -26,71 +26,41 @@
 
 WI.GeneralTabBarItem = class GeneralTabBarItem extends WI.TabBarItem
 {
-    constructor(image, title, isEphemeral = false)
+    // Static
+
+    static fromTabContentView(tabContentView)
     {
-        super(image, title);
+        console.assert(tabContentView instanceof WI.TabContentView);
 
-        this._isEphemeral = isEphemeral;
-
-        if (this._isEphemeral) {
-            this.element.classList.add("ephemeral");
-
-            let closeButtonElement = document.createElement("div");
-            closeButtonElement.classList.add(WI.TabBarItem.CloseButtonStyleClassName);
-            closeButtonElement.title = WI.UIString("Click to close this tab");
-
-            this.element.insertBefore(closeButtonElement, this.element.firstChild);
-            this.element.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this));
-        }
-    }
-
-    static fromTabInfo({image, title, isEphemeral})
-    {
-        return new WI.GeneralTabBarItem(image, title, isEphemeral);
+        let {image, displayName, title} = tabContentView.constructor.tabInfo();
+        return new WI.GeneralTabBarItem(tabContentView, image, displayName, title);
     }
 
     // Public
 
-    get isEphemeral() { return this._isEphemeral; }
-
-    get title()
+    get displayName()
     {
-        return super.title;
+        return super.displayName;
     }
 
-    set title(title)
+    set displayName(displayName)
     {
-        if (title) {
-            this._titleElement = document.createElement("span");
-            this._titleElement.classList.add("title");
+        if (displayName) {
+            this._displayNameElement = document.createElement("span");
+            this._displayNameElement.className = "name";
 
-            let titleContentElement = document.createElement("span");
-            titleContentElement.classList.add("content");
-            titleContentElement.textContent = title;
-            this._titleElement.appendChild(titleContentElement);
+            let displayNameContentElement = this._displayNameElement.appendChild(document.createElement("span"));
+            displayNameContentElement.className = "content";
+            displayNameContentElement.textContent = displayName;
 
-            this.element.insertBefore(this._titleElement, this.element.lastChild);
+            this.element.insertBefore(this._displayNameElement, this.element.lastChild);
         } else {
-            if (this._titleElement)
-                this._titleElement.remove();
+            if (this._displayNameElement)
+                this._displayNameElement.remove();
 
-            this._titleElement = null;
+            this._displayNameElement = null;
         }
 
-        super.title = title;
-    }
-
-    // Private
-
-    _handleContextMenuEvent(event)
-    {
-        if (!this._parentTabBar)
-            return;
-
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
-        contextMenu.appendItem(WI.UIString("Close Tab"), () => {
-            this._parentTabBar.removeTabBarItem(this);
-        }, this.isDefaultTab);
-        contextMenu.appendSeparator();
+        super.displayName = displayName;
     }
 };

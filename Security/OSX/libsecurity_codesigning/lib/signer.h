@@ -96,7 +96,7 @@ protected:
 				  bool mainBinary, size_t execSegBase, size_t execSegLimit,
 				  unsigned alternateDigestCount,
 				  const PreEncryptHashMap& preEncryptHashMap,
-				  uint32_t runtimeVersion);	// per-architecture
+				  uint32_t runtimeVersion, bool generateEntitlementDER);	// per-architecture
 	CFDataRef signCodeDirectory(const CodeDirectory *cd,
 								CFDictionaryRef hashDict, CFArrayRef hashList);
 
@@ -146,7 +146,6 @@ private:
 	CFAbsoluteTime signingTime;		// signing time for CMS signature (0 => now)
 	bool emitSigningTime;			// emit signing time as a signed CMS attribute
 	bool strict;					// strict validation
-	bool generateEntitlementDER;	// generate entitlement DER
 	
 	// Signature Editing
 	Architecture editMainArch;		// main architecture for editing

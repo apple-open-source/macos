@@ -58,6 +58,16 @@ extern uint64_t magazine_medium_active_threshold;
 MALLOC_NOEXPORT
 extern uint64_t magazine_large_expanded_cache_threshold;
 
+#if CONFIG_AGGRESSIVE_MADVISE
+MALLOC_NOEXPORT
+extern bool aggressive_madvise_enabled;
+#endif // CONFIG_AGGRESSIVE_MADVISE
+
+#if CONFIG_LARGE_CACHE
+MALLOC_NOEXPORT
+extern bool large_cache_enabled;
+#endif // CONFIG_LARGE_CACHE
+
 // MARK: magazine_malloc utility functions
 
 MALLOC_NOEXPORT

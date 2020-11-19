@@ -1692,7 +1692,7 @@ class T_changeAttributes : BaseTest {
         if error != SUCCESS { return error }
 
         if fileType != .Dir && (mountPoint.fsType!.isHFS() || mountPoint.fsType!.isAPFS()) { //Check only for
-            if node.attrs!.fa_mode != original_attrs.fa_mode {
+            if node.attrs!.fa_mode == original_attrs.fa_mode {
                 log("Error! mode hasn't changed")
                 return EINVAL
             }
@@ -1956,7 +1956,7 @@ class T_createFileTwice : BaseTest {
         
         (nodeResult, error) = fsTree.createNode(NodeType.File, fileName, dirNode: fsTree.rootFileNode, attrs: attrs)
         try pluginApiAssert(error, msg: "There was an error creating the file (\(error))")
-        if mountPoint.fsType!.isHFS(){
+        if mountPoint.fsType!.isHFS() && mountPoint.fsType!.isAPFS() {
             try testFlowAssert( nodeResult.attrs!.fa_allocsize <= Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)), msg: "New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(UInt32(K.FS.HFS_CLUMP_DEF_SIZE), UInt32(attrs.fa_size)))")
         } else {
             try testFlowAssert( nodeResult.attrs!.fa_allocsize == Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)), msg: "New file created allocsize size is \(nodeResult.attrs!.fa_allocsize) which expected to be \(Utils.roundUp(mountPoint.clusterSize!, UInt32(attrs.fa_size)))")
@@ -1986,10 +1986,10 @@ class T_createFileTwice : BaseTest {
         outContent.initialize(repeating: -1, count: Int(testedSize))
         (error, actuallyRead) = fsTree.readFromNode(node: nodeResult, offset: 0, length: Int(testedSize), content: &outContent)
         try pluginApiAssert(error, msg: "There were an error reading the file (\(error))")
-        try testFlowAssert( testedSize == actuallyRead, msg:"Actual Read bytes is different from requesrted (\(testedSize) != \(actuallyRead))")
+        try testFlowAssert( testedSize == actuallyRead, msg:"Actual Read bytes is different from requested (\(testedSize) != \(actuallyRead))")
         for i in 0..<Int(testedSize){
             if 0 != outContent[i]{
-                try testFlowAssert( false, msg:"Actual Read content is differetn from the expected in index  \(i) got \(outContent[i]) and expected 0")
+                try testFlowAssert( false, msg:"Actual Read content is different from the expected in index  \(i) got \(outContent[i]) and expected 0")
             }
         }
         
@@ -2469,7 +2469,7 @@ class T_readDirAttrsTest : BaseTest {
         var verifier        : UInt64    = UVFS_DIRCOOKIE_VERIFIER_INITIAL
         var actuallyRead    : size_t    = 0
         var extractedSize   : size_t    = 0
-        let minDirStreamSize: Int       = Int(K.FS.FAT_MAX_FILENAME_UTF8 + K.FS.DIRENTY_ATTRS_SIZE)
+        let minDirStreamSize: Int       = Int(get_min_dea_reclen(UInt32(K.FS.FAT_MAX_FILENAME_UTF8)))
         let dirStreamSize   : Int       = minDirStreamSize*10
         var dirStream = UnsafeMutableRawPointer.allocate(byteCount: Int(dirStreamSize), alignment: 1)
         dirStream.initializeMemory(as: UInt8.self, repeating: 0, count: Int(dirStreamSize))
@@ -2952,34 +2952,40 @@ class T_fillRootDir : BaseTest {
         attrs.fa_size = 1
         let originalNodeResult = fsTree.createNode(NodeType.File, "simpleFile.org", attrs: attrs).node
         for type in NodeType.allValues(mountPoint.fsType!) {
-            let isNewFS = (mountPoint.fsType == FSTypes.FAT32) || (mountPoint.fsType == FSTypes.EXFAT) || (mountPoint.fsType!.isHFS()) ||
-                (mountPoint.fsType!.isAPFS())
-            var lastCounter = MAX_TEST_FILES
-            // Create up to 512 files/dirs/symlinks
-            for counter in 1...MAX_TEST_FILES {
-                let fileName = "file_\(counter)"
-                let error = fsTree.createNode(type, fileName, attrs: attrs, fromNode: (mountPoint.fsType!.isHFS()) ? originalNodeResult : nil).error
-                if (error == 0) {
-                    try pluginApiAssert(fsTree.lookUpNode(fileName).error, msg: "File created by cannot be looked up: \(fileName)")
+            try autoreleasepool {
+                let isNewFS = (mountPoint.fsType == FSTypes.FAT32) || (mountPoint.fsType == FSTypes.EXFAT) || (mountPoint.fsType!.isHFS()) ||
+                    (mountPoint.fsType!.isAPFS())
+                var lastCounter = MAX_TEST_FILES
+                // Create up to 512 files/dirs/symlinks
+                for counter in 1...MAX_TEST_FILES {
+                    var stop = false
+                    try autoreleasepool {
+                        let fileName = "file_\(counter)"
+                        let error = fsTree.createNode(type, fileName, attrs: attrs, fromNode: (mountPoint.fsType!.isHFS()) ? originalNodeResult : nil).error
+                        if (error == 0) {
+                            try pluginApiAssert(fsTree.lookUpNode(fileName).error, msg: "File created by cannot be looked up: \(fileName)")
+                        }
+                        if (counter <= MIN_FAT16_FILES) {
+                            try testFlowAssert(error == 0, msg: "Failed creating \(fileName) in node type \(type)")
+                        } else if (error != 0) {
+                            try testFlowAssert(!isNewFS, msg: "Failed creating \(fileName) in node type \(type), expected to pass on \(mountPoint.fsType!.rawValue)")
+                            // Allowed to fail on FAT12/FAT16 here, as root dir cannot be extended
+                            lastCounter = counter - 1
+                            log("OK, \(lastCounter) files created successfully in node type \(type)")
+                            stop = true
+                        }
+                    }
+                    if stop { break }
                 }
-                if (counter <= MIN_FAT16_FILES) {
-                    try testFlowAssert(error == 0, msg: "Failed creating \(fileName) in node type \(type)")
-                } else if (error != 0) {
-                    try testFlowAssert(!isNewFS, msg: "Failed creating \(fileName) in node type \(type), expected to pass on \(mountPoint.fsType!.rawValue)")
-                    // Allowed to fail on FAT12/FAT16 here, as root dir cannot be extended
-                    lastCounter = counter - 1
-                    log("OK, \(lastCounter) files created successfully in node type \(type)")
-                    break
+
+                if (!isNewFS) {
+                    try testFlowAssert(lastCounter != MAX_TEST_FILES, msg: "Reached \(MAX_TEST_FILES) in \(mountPoint.fsType!.rawValue), should have failed somewhere on the way")
                 }
-            }
 
-            if (!isNewFS) {
-                try testFlowAssert(lastCounter != MAX_TEST_FILES, msg: "Reached \(MAX_TEST_FILES) in \(mountPoint.fsType!.rawValue), should have failed somewhere on the way")
-            }
-
-            // Erase those files/dirs/symlinks
-            for counter in 1...lastCounter {
-                try pluginApiAssert(fsTree.deleteNode(type, "file_\(counter)"), msg: "Failed deleting file #\(counter) in node type \(type)")
+                // Erase those files/dirs/symlinks
+                for counter in 1...lastCounter {
+                    try pluginApiAssert(fsTree.deleteNode(type, "file_\(counter)"), msg: "Failed deleting file #\(counter) in node type \(type)")
+                }
             }
         }
         return SUCCESS
@@ -4685,3 +4691,349 @@ class T_dirtyBitLockTest : BaseTest {
     }
 }
 
+
+/**************************************************************
+ Dirty bit lock test
+ This is a case in which a journal has been created on macOS and replayed by the plugin.
+ <rdar://problem/47443525> [LiveFile Tester][HFS][Improve Test Coverage] Open Journal
+ Create a journaled volume on macOS, write to the media, unmount and now mount to the hfs plugin.
+ *************************************************************/
+class T_journalOpen : BaseTest {
+
+    override func runTest() throws -> Int32 {
+
+        var attrs = UVFSFileAttributes()
+        attrs.fa_validmask = UVFS_FA_VALID_SIZE | UVFS_FA_VALID_MODE
+        attrs.fa_mode = brdg_convertModeToUserBits(UInt32(UVFS_FA_MODE_RWX))
+        attrs.fa_size = UInt64(0)
+
+        log("Create new file")
+        var (fileHandler, error) = fsTree.createNode(NodeType.File,"aNewBigFile.bin", attrs: attrs)
+        try pluginApiAssert(error, msg: "There was an error creating the file (\(error))")
+
+        log("Write to file")
+        let pattern : Int8 = 0x55
+        (error, _) =  try Utils.pattern_write(fsTree: fsTree, node: fileHandler, pattern: pattern, offset: attrs.fa_size, writeSize: 2, test: true)
+
+        log("Read from file")
+        try testFlowAssert(Utils.pattern_validate(fsTree: fsTree, node: fileHandler.node!, pattern: pattern, readSize: 2), msg: "File contetnt is broken")
+
+        return SUCCESS
+    }
+}
+
+
+/**************************************************************
+ Read only mount test
+ <rdar://problem/47443746> [LiveFile Tester][HFS][Improve Test Coverage] Read only mount
+ Create a read-only journaled DMG. Validate media can be accessed but not written to.
+ *************************************************************/
+class T_readOnlyMount : BaseTest {
+
+    override func runTest() throws -> Int32 {
+
+        log("T_readOnlyMount")
+
+        return SUCCESS
+    }
+}
+
+
+/**************************************************************
+ Faulty Journal test
+ <rdar://problem/47443558> [LiveFile Tester][HFS][Improve Test Coverage] Faulty Journal
+ Edit a journaled dmg binary and corrupt journal header to be too large, too small, non integer multiplication of the bloc-size
+ *************************************************************/
+class T_faultyJournal : BaseTest {
+
+    // Read dmg memory
+    func readImageMemory(offset: UInt64, bytesToRead: Int) -> [UInt8] {
+        var bytes : [UInt8]
+        var outStr : String?
+        let hexdump = HexDump(mountPoint.physicalBlockSize)
+        (outStr, bytes , _) = hexdump.dump(path: mountPoint.devFilePath, offset: offset, bytesToRead: bytesToRead)
+        log("Hexdump result of - \(outStr ?? "none")")
+        return bytes
+    }
+
+    // Convert array bytes to number
+    func readUInt64(bytes: [UInt8], offset: Int) -> UInt64 {
+        let data = NSData(bytes: bytes, length: offset + 8)
+        let myRange = NSRange(location: offset, length: 8)
+
+        var value : UInt64 = 0
+        data.getBytes(&value, range: myRange)
+        value = UInt64(bigEndian: value)
+
+        return value
+    }
+
+    // Convert array bytes to number
+    func readUInt32(bytes: [UInt8], offset: Int) -> UInt32 {
+        let data = NSData(bytes: bytes, length: offset + 4)
+        let myRange = NSRange(location: offset, length: 4)
+
+        var value : UInt32 = 0
+        data.getBytes(&value, range: myRange)
+        value = UInt32(bigEndian: value)
+
+        return value
+    }
+
+    override func runTest() throws -> Int32 {
+        var error : Int32
+
+
+        log("Reclaiming all files")
+
+        fsTree.reclaimAll()
+        error = fsTree.sync(fsTree.rootFileNode)
+        try pluginApiAssert(error, msg: "There was an error syncing FS (\(error))")
+
+
+        log("Unmount FS (in order to change the image)");
+
+        error = brdg_fsops_unmount(&(fsTree.testerFsOps), &(fsTree.rootFileNode.node), UVFSUnmountHintNone);
+        if (error != SUCCESS) {
+            log("Error! Failed to unmount FS. Maybe due to nodes that are not reclaimed - It is OK within this test. error \(error)", type: .error)
+            return EINVAL
+        }
+
+
+        log("Read volume header")
+
+        let volHeaderOffset : UInt64 = 1024
+        var bytes : [UInt8] = readImageMemory(offset: volHeaderOffset, bytesToRead: 44)
+        let journaled = false || ( bytes[6] & 0x20 == 0x20 )
+        if (!journaled) {
+            log("Error! Journaled FS is expected!", type: .error)
+            return EINVAL
+        }
+        let blockSize           : UInt32 = readUInt32(bytes: bytes, offset: 40)
+        let journalInfoBlock    : UInt32 = readUInt32(bytes: bytes, offset: 12)
+        log("blockSize:\(blockSize), journalInfoBlock:\(journalInfoBlock)")
+
+
+        log("Read JournalInfoBlock")
+
+        // When the journal is stored in the volume itself (kJIJournalInFSMask is set), this offset is relative to the start of the volume
+        let journalInfoBlockOffset : UInt64 = UInt64(journalInfoBlock) * UInt64(blockSize)
+        bytes = readImageMemory(offset: journalInfoBlockOffset, bytesToRead: 52)
+        let journalHeaderOffset : UInt64 = readUInt64(bytes: bytes, offset: 36)
+        //journalHeaderOffset += journalInfoBlockOffset
+        log("journalHeaderOffset:\(journalHeaderOffset)")
+
+
+        log("Read journal_header (journalHeaderOffset = \(journalHeaderOffset), physicalBlockSize = \(mountPoint.physicalBlockSize))")
+
+        let journalHeaderBlockOffset : UInt64 = Utils.roundDown(UInt64(mountPoint.physicalBlockSize), journalHeaderOffset)
+        let delta : Int = Int(journalHeaderOffset - journalHeaderBlockOffset)
+
+        bytes = readImageMemory(offset: journalHeaderBlockOffset, bytesToRead: Int(mountPoint.physicalBlockSize))
+        var start   : UInt64 = readUInt64(bytes: bytes, offset: delta + 8)
+        var end     : UInt64 = readUInt64(bytes: bytes, offset: delta + 16)
+        var size    : UInt64 = readUInt64(bytes: bytes, offset: delta + 24)
+        log("start:\(start), end:\(end), size:\(size)")
+
+
+        log("Edit journal_header")
+
+        bytes[delta + 31] += 1  // Increase size
+        bytes[delta + 36] -= 1  // Fix checksum
+        var data = NSData(bytes: bytes, length: Int(mountPoint.physicalBlockSize))
+        let hexdump = HexDump(mountPoint.physicalBlockSize)
+        hexdump.write(path: mountPoint.devFilePath, offset: journalHeaderBlockOffset, dataToWrite: data as Data)
+
+
+        log("Read journal_header (journalHeaderOffset = \(journalHeaderOffset))")
+
+        bytes   = readImageMemory(offset: journalHeaderBlockOffset, bytesToRead: Int(mountPoint.physicalBlockSize))
+        start   = readUInt64(bytes: bytes, offset: delta + 8)
+        end     = readUInt64(bytes: bytes, offset: delta + 16)
+        size    = readUInt64(bytes: bytes, offset: delta + 24)
+        log("start:\(start), end:\(end), size:\(size)")
+
+
+        log("Try to mount FS (should fail)");
+
+        if (brdg_fsops_mount(&(fsTree.testerFsOps),&mountPoint.fd!, &(mountPoint.rootNode)) == 0) {
+            log("Error! Succeeded to mount broken image!", type: .error)
+            return EINVAL
+        }
+
+
+        log("Fix image (in order to pass POST ANALYSIS checks)")
+
+        bytes[delta + 31] -= 1  // Fix size
+        bytes[delta + 36] += 1  // Fix checksum
+        data = NSData(bytes: bytes, length: Int(mountPoint.physicalBlockSize))
+        hexdump.write(path: mountPoint.devFilePath, offset: journalHeaderBlockOffset, dataToWrite: data as Data)
+
+
+        log("Mount FS");
+
+        try pluginApiAssert(brdg_fsops_mount(&(fsTree.testerFsOps),&mountPoint.fd!, &(mountPoint.rootNode)), msg: "Error! Failed to mount FS")
+
+
+        return SUCCESS
+    }
+}
+
+class T_CloneDirectoryTest : BaseTest {
+
+    override class func testSettings(fsType : FSTypes? = nil) -> TestSettings {
+        return TestSettings(dmgSize: 0x40000000, clusterSize: nil, excludeTests: [], excludeFS: [.HFS, .HFSX, .JHFS, .JHFSX, .APFS, .APFSX], runOniOS: true, allowMultiMount: false, toCreatePreDefinedFiles: false)
+    }
+
+    override func runTest() throws -> Int32 {
+        let dispatchQueue = DispatchQueue(label: "cloningQueue", attributes: .concurrent)
+        let copyGroup = DispatchGroup()
+
+        //Create a directory with 100 files with random size
+        var (fromDirHandler, error) = fsTree.createNode(NodeType.Dir, "fromDir", dirNode: fsTree.rootFileNode)
+        try pluginApiAssert(error, msg: "There was an error creating folder fromDir (\(error))")
+
+        for index in 0...100 {
+            let fileName : String = "Iamjustasimplefile_" + String(index)
+            var (nodeResult, error) = fsTree.createNode(NodeType.File, fileName, dirNode: fromDirHandler)
+            try pluginApiAssert(error, msg: "There was an error creating the file \(fileName) (\(error))")
+
+            let content : String = "" + String(index).padding(toLength: Utils.random(4096, K.SIZE.MBi), withPad: "-", startingAt: 0)
+
+            (error, _) = fsTree.writeToNode(node: nodeResult, offset: 0, length: content.count, content: content)
+            try pluginApiAssert(error, msg: "There was an error writing content into the file \(fileName) (\(error))")
+
+            error = fsTree.reclaimNode(nodeResult)
+            try pluginApiAssert(error, msg: "There was an error reclaiming the file \(fileName) (\(error))")
+        }
+
+        var toDirHandler: Node_t
+        (toDirHandler, error) = fsTree.createNode(NodeType.Dir, "toDir", dirNode: fsTree.rootFileNode)
+        try pluginApiAssert(error, msg: "There was an error creating folder toDir (\(error))")
+
+        /*
+         * Start all threads to get a from and to directory,
+         * Each thread will get a number of files to copy, where for each file it will
+         * have to get the org file attrs, create a file in toDir, preallocte the space,
+         * and write the needed data
+         */
+        var fileToClone : Int32 = 0
+        for _ in 0...5 {
+            copyGroup.enter()
+            dispatchQueue.async {
+                do {
+                    var fileNum = OSAtomicIncrement32(&fileToClone)
+                    while fileNum < 101 {
+                        let fileName : String = "Iamjustasimplefile_" + String(fileNum - 1)
+
+                        let resultNode : Node_t
+                        (resultNode, error) = self.fsTree.lookUpNode(fileName, dirNode:fromDirHandler)
+                        try self.pluginApiAssert(error, msg: "There was an error lookup the file \(fileName) (\(error))")
+
+                        error = self.fsTree.getAttributes(resultNode)
+                        try self.pluginApiAssert(error, msg: "There was an error getting attributes from file \(fileName) (\(error))")
+
+                        let outContent: String
+                        (error, outContent, _) = self.fsTree.readFromNode(node: resultNode, offset: 0, length: size_t(resultNode.attrs!.fa_size))
+
+                        let newNode : Node_t
+                        (newNode, error) = self.fsTree.createNode(NodeType.File, fileName, dirNode: toDirHandler)
+                        try self.pluginApiAssert(error, msg: "There was an error creating the file \(fileName) (\(error))")
+                        
+                        error = self.fsTree.preAllocateSpace(node: newNode, size: size_t(resultNode.attrs!.fa_size))
+                        try self.pluginApiAssert(error, msg: "There was an error preallocating the file \(fileName) (\(error))")
+
+                        (error, _) = self.fsTree.writeToNode(node: newNode, offset: 0, length: outContent.count, content: outContent)
+                        try self.pluginApiAssert(error, msg: "There was an error writing content into the file \(fileName) (\(error))")
+
+                        _ = self.fsTree.reclaimNode(resultNode)
+                        _ = self.fsTree.reclaimNode(newNode)
+
+                        fileNum = OSAtomicIncrement32(&fileToClone)
+                    }
+                } catch {
+
+                }
+                copyGroup.leave()
+                return
+            }
+        }
+
+        copyGroup.wait()
+
+        // Clean everything
+        for index in 0...100 {
+            let fileName : String = "Iamjustasimplefile_" + String(index)
+            _ = self.fsTree.deleteNode(NodeType.File, fileName , dirNode: fromDirHandler)
+            _ = self.fsTree.deleteNode(NodeType.File, fileName , dirNode: toDirHandler)
+        }
+
+//        _ = fsTree.reclaimNode(fromDirHandler)
+//        _ = fsTree.reclaimNode(toDirHandler)
+        _ = fsTree.deleteNode(NodeType.Dir, "toDir" , dirNode: fsTree.rootFileNode)
+        _ = fsTree.deleteNode(NodeType.Dir, "fromDir" , dirNode: fsTree.rootFileNode)
+
+        var msg : String = ""
+        if error != SUCCESS {
+            msg = "Unexpected error:\(error) occurred"
+        }
+
+        try testFlowAssert(error == SUCCESS, msg: msg)
+        return SUCCESS
+    }
+}
+
+class T_PreAllocationValidationTest : BaseTest {
+
+    override class func testSettings(fsType : FSTypes? = nil) -> TestSettings {
+        return TestSettings(dmgSize: 0x40000000, clusterSize: nil, excludeTests: [], excludeFS: [], runOniOS: true, allowMultiMount: false, toCreatePreDefinedFiles: false)
+    }
+
+    override func runTest() throws -> Int32 {
+        var attrs = UVFSFileAttributes()
+        attrs.fa_validmask = UVFS_FA_VALID_SIZE | UVFS_FA_VALID_MODE
+        attrs.fa_mode = brdg_convertModeToUserBits(UInt32(UVFS_FA_MODE_RWX))
+        attrs.fa_size = UInt64(500)
+
+        //Create a file with size 500
+        var (preAllocNode, error) = fsTree.createNode(NodeType.File, "pre-alloc file", dirNode: fsTree.rootFileNode, attrs:attrs)
+        try pluginApiAssert(error, msg: "There was an error creating file pre-alloc file (\(error))")
+
+        // Pre-allocate file size to be 8K
+        error = self.fsTree.preAllocateSpace(node: preAllocNode, size: size_t(2*4096))
+        try self.pluginApiAssert(error, msg: "There was an error preallocating the file pre-alloc file, error: (\(error))")
+
+        // Set file size to be 5048 so that the zero filled space will be across the clusters
+        attrs.fa_size = UInt64(5048)
+        error = fsTree.setAttributes(node: preAllocNode, _attrs: attrs)
+        if (error != SUCCESS) {
+            log("unexpected error \(error)")
+            return error
+        }
+
+        // Read the file and make sure all it's content is zero filled
+        var outContent = UnsafeMutablePointer<Int8>.allocate(capacity: 4096)
+        defer {
+            outContent.deallocate()
+        }
+        var actuallyRead : size_t
+        (error, actuallyRead) = fsTree.readFromNode(node: preAllocNode, offset: 500, length: size_t(4096), content: &outContent)
+
+        if (actuallyRead < 4096) {
+            try testFlowAssert( false, msg:"Actual Read size \(actuallyRead) is different from the expected 4096")
+        }
+        for i in 0..<Int(4096){
+            if 0 != outContent[i]{
+                try testFlowAssert( false, msg:"Actual Read content is different from the expected in index  \(i) got \(outContent[i]) and expected 0")
+            }
+        }
+
+        var msg : String = ""
+        if error != SUCCESS {
+            msg = "Unexpected error:\(error) occurred"
+        }
+
+        try testFlowAssert(error == SUCCESS, msg: msg)
+        return SUCCESS
+    }
+}

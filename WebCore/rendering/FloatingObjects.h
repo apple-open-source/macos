@@ -23,7 +23,6 @@
 
 #pragma once
 
-#include "PODInterval.h"
 #include "RootInlineBox.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/WeakPtr.h>
@@ -33,6 +32,7 @@ namespace WebCore {
 class RenderBlockFlow;
 class RenderBox;
 
+template<typename, typename> class PODInterval;
 template<typename, typename> class PODIntervalTree;
 
 class FloatingObject {
@@ -74,7 +74,7 @@ public:
     LayoutUnit paginationStrut() const { return m_paginationStrut; }
     void setPaginationStrut(LayoutUnit strut) { m_paginationStrut = strut; }
 
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     bool isInPlacedTree() const { return m_isInPlacedTree; }
     void setIsInPlacedTree(bool value) { m_isInPlacedTree = value; }
 #endif
@@ -84,7 +84,7 @@ public:
     bool isDescendant() const { return m_isDescendant; }
     void setIsDescendant(bool isDescendant) { m_isDescendant = isDescendant; }
 
-    // FIXME: Callers of these methods are dangerous and should be whitelisted explicitly or removed.
+    // FIXME: Callers of these methods are dangerous and should be allowed explicitly or removed.
     RootInlineBox* originatingLine() const { return m_originatingLine.get(); }
     void clearOriginatingLine() { m_originatingLine = nullptr; }
     void setOriginatingLine(RootInlineBox& line) { m_originatingLine = makeWeakPtr(line); }
@@ -108,7 +108,7 @@ private:
     unsigned m_shouldPaint : 1;
     unsigned m_isDescendant : 1;
     unsigned m_isPlaced : 1;
-#ifndef NDEBUG
+#if ASSERT_ENABLED
     unsigned m_isInPlacedTree : 1;
 #endif
 };

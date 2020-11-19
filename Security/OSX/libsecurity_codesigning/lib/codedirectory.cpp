@@ -419,5 +419,6 @@ const SecCodeDirectoryFlagTable kSecCodeDirectoryFlagTable[] = {
 	{ "enforcement",	kSecCodeSignatureEnforcement,		true },
 	{ "library-validation", kSecCodeSignatureLibraryValidation,		true },
 	{ "runtime", 	kSecCodeSignatureRuntime, 		true },
+	{ "linker-signed",	kSecCodeSignatureLinkerSigned,	true },
 	{ NULL }
 };

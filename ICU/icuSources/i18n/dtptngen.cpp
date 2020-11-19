@@ -19,6 +19,7 @@
 #include "unicode/dtfmtsym.h"
 #include "unicode/dtptngen.h"
 #include "unicode/localpointer.h"
+#include "unicode/schriter.h"
 #include "unicode/simpleformatter.h"
 #include "unicode/smpdtfmt.h"
 #include "unicode/udat.h"
@@ -28,6 +29,7 @@
 #include "unicode/ures.h"
 #include "unicode/ustring.h"
 #include "unicode/rep.h"
+#include "unicode/region.h"
 #include "cpputils.h"
 #include "mutex.h"
 #include "umutex.h"
@@ -337,7 +339,8 @@ DateTimePatternGenerator::DateTimePatternGenerator(UErrorCode &status) :
 DateTimePatternGenerator::DateTimePatternGenerator(const Locale& locale, UErrorCode &status, UBool skipICUData) :
     skipMatcher(nullptr),
     fAvailableFormatKeyHash(nullptr),
-    internalErrorCode(U_ZERO_ERROR)
+    internalErrorCode(U_ZERO_ERROR),
+    pLocale(locale)
 {
     fp = new FormatParser();
     dtMatcher = new DateTimeMatcher();
@@ -615,32 +618,59 @@ U_CFUNC void U_CALLCONV DateTimePatternGenerator::loadAllowedHourFormatsData(UEr
     ures_getAllItemsWithFallback(rb.getAlias(), "timeData", sink, status);    
 }
 
-void DateTimePatternGenerator::getAllowedHourFormats(const Locale &locale, UErrorCode &status) {
-    if (U_FAILURE(status)) { return; }
-    Locale maxLocale(locale);
-    const char *locName = maxLocale.getName();
-    if (*locName==0 || uprv_strcmp(locName,"root")==0 || uprv_strcmp(locName,"und")==0) {
-        maxLocale = Locale("und_001");
-    } else {
-        maxLocale.addLikelySubtags(status);
-        if (U_FAILURE(status)) {
-            return;
-        }
-    }
-
-    const char *country = maxLocale.getCountry();
-    if (*country == '\0') { country = "001"; }
-    const char *language = maxLocale.getLanguage();
-
+static int32_t* getAllowedHourFormatsLangCountry(const char* language, const char* country, UErrorCode& status) {
     CharString langCountry;
-    langCountry.append(language, static_cast<int32_t>(uprv_strlen(language)), status);
+    langCountry.append(language, status);
     langCountry.append('_', status);
-    langCountry.append(country, static_cast<int32_t>(uprv_strlen(country)), status);
+    langCountry.append(country, status);
 
-    int32_t *allowedFormats;
+    int32_t* allowedFormats;
     allowedFormats = (int32_t *)uhash_get(localeToAllowedHourFormatsMap, langCountry.data());
     if (allowedFormats == nullptr) {
         allowedFormats = (int32_t *)uhash_get(localeToAllowedHourFormatsMap, const_cast<char *>(country));
+    }
+
+    return allowedFormats;
+}
+
+void DateTimePatternGenerator::getAllowedHourFormats(const Locale &locale, UErrorCode &status) {
+    if (U_FAILURE(status)) { return; }
+
+    const char *language = locale.getLanguage();
+    const char *country = locale.getCountry();
+    const char *locName = locale.getName(); // Apple addition
+    if (*locName==0 || uprv_strcmp(locName,"root")==0 || uprv_strcmp(locName,"und")==0) { // Apple addition
+        language = "und";
+        country = "001";
+    }
+    Locale maxLocale;  // must be here for correct lifetime
+    if (*language == '\0' || *country == '\0') {
+        maxLocale = locale;
+        UErrorCode localStatus = U_ZERO_ERROR;
+        maxLocale.addLikelySubtags(localStatus);
+        if (U_SUCCESS(localStatus)) {
+            language = maxLocale.getLanguage();
+            country = maxLocale.getCountry();
+        }
+    }
+    if (*language == '\0') {
+        // Unexpected, but fail gracefully
+        language = "und";
+    }
+    if (*country == '\0') {
+        country = "001";
+    }
+
+    int32_t* allowedFormats = getAllowedHourFormatsLangCountry(language, country, status);
+
+    // Check if the region has an alias
+    if (allowedFormats == nullptr) {
+        UErrorCode localStatus = U_ZERO_ERROR;
+        const Region* region = Region::getInstance(country, localStatus);
+        if (U_SUCCESS(localStatus)) {
+            country = region->getRegionCode(); // the real region code
+            allowedFormats = getAllowedHourFormatsLangCountry(language, country, status);
+        }
     }
 
     if (allowedFormats != nullptr) {  // Lookup is successful
@@ -794,34 +824,19 @@ void
 DateTimePatternGenerator::getCalendarTypeToUse(const Locale& locale, CharString& destination, UErrorCode& err) {
     destination.clear().append(DT_DateTimeGregorianTag, -1, err); // initial default
     if ( U_SUCCESS(err) ) {
-        char localeWithCalendarKey[ULOC_LOCALE_IDENTIFIER_CAPACITY];
-        // obtain a locale that always has the calendar key value that should be used
-        ures_getFunctionalEquivalent(
-            localeWithCalendarKey,
-            ULOC_LOCALE_IDENTIFIER_CAPACITY,
-            nullptr,
-            "calendar",
-            "calendar",
-            locale.getName(),
-            nullptr,
-            FALSE,
-            &err);
-        if (U_FAILURE(err)) { return; }
-        localeWithCalendarKey[ULOC_LOCALE_IDENTIFIER_CAPACITY-1] = 0; // ensure null termination
-        // now get the calendar key value from that locale
-        char calendarType[ULOC_KEYWORDS_CAPACITY];
-        int32_t calendarTypeLen = uloc_getKeywordValue(
-            localeWithCalendarKey,
-            "calendar",
-            calendarType,
-            ULOC_KEYWORDS_CAPACITY,
-            &err);
-        if (U_FAILURE(err)) { return; }
-        if (calendarTypeLen < ULOC_KEYWORDS_CAPACITY) {
-            destination.clear().append(calendarType, -1, err);
-            if (U_FAILURE(err)) { return; }
+        // HACK to maintain backward compatibility with old behavior-- the Calendar API used to return "japanese"
+        // as the default calendar for ja_JP_TRADTITIONAL, but now it returns "gregorian".
+        // But ures_getFunctionalEquivalent(), which this function used to call, still returned "japanese".  To keep
+        // the old unit tests passing, we special-case this situation to still return "japanese" for ja_JP_TRADITIONAL.
+        if (uprv_strcmp(locale.getName(), "ja_JP_TRADITIONAL") == 0) {
+            destination.clear().append("japanese", -1, err);
+        } else {
+            char calType[50];
+            Calendar::getCalendarTypeFromLocale(locale, calType, 50, err);
+            if (U_SUCCESS(err)) {
+                destination.clear().append(calType, -1, err);
+            }
         }
-        err = U_ZERO_ERROR;
     }
 }
 
@@ -930,11 +945,14 @@ struct DateTimePatternGenerator::AvailableFormatsSink : public ResourceSink {
 
     // Destination for data, modified via setters.
     DateTimePatternGenerator& dtpg;
+    
+    // UBool flag indicating whether to populate the generator with all patterns or just date patterns with numeric cores
+    UBool onlyDatesWithNumericCores;
 
     // Temporary variable, required for calling addPatternWithSkeleton.
     UnicodeString conflictingPattern;
 
-    AvailableFormatsSink(DateTimePatternGenerator& _dtpg) : dtpg(_dtpg) {}
+    AvailableFormatsSink(DateTimePatternGenerator& _dtpg, UBool onlyDatesWithNumericCores) : dtpg(_dtpg), onlyDatesWithNumericCores(onlyDatesWithNumericCores) {}
     virtual ~AvailableFormatsSink();
 
     virtual void put(const char *key, ResourceValue &value, UBool isRoot,
@@ -942,12 +960,19 @@ struct DateTimePatternGenerator::AvailableFormatsSink : public ResourceSink {
         ResourceTable itemsTable = value.getTable(errorCode);
         if (U_FAILURE(errorCode)) { return; }
         for (int32_t i = 0; itemsTable.getKeyAndValue(i, key, value); ++i) {
+            UErrorCode valueErr = U_ZERO_ERROR; // if the resource value isn't a string, skip it without returning an error to the caller
             const UnicodeString formatKey(key, -1, US_INV);
-            if (!dtpg.isAvailableFormatSet(formatKey) ) {
+            UnicodeString formatValue = value.getUnicodeString(valueErr);
+            if (U_SUCCESS(valueErr) && !dtpg.isAvailableFormatSet(formatKey) && (!onlyDatesWithNumericCores || datePatternHasNumericCore(formatValue))) {
+                // if the date pattern generator's locale is a LTR locale, strip out any Unicode right-to-left marks
+                // (if the pattern string came from a RTL locale, it may have RLMs around some separator characters
+                // to get them to lay out correctly, but we don't want that in an LTR context)
+                if (!dtpg.pLocale.isRightToLeft()) {
+                    formatValue.findAndReplace(UnicodeString(u'\u200f'), UnicodeString());
+                }
                 dtpg.setAvailableFormat(formatKey, errorCode);
                 // Add pattern with its associated skeleton. Override any duplicate
                 // derived from std patterns, but not a previous availableFormats entry:
-                const UnicodeString& formatValue = value.getUnicodeString(errorCode);
                 conflictingPattern.remove();
                 dtpg.addPatternWithSkeleton(formatValue, &formatKey, !isRoot, conflictingPattern, errorCode);
             }
@@ -966,7 +991,9 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& errorCod
     UnicodeString rbPattern, value, field;
     CharString path;
 
+    UBool hasCountryFallbackResource = FALSE;
     LocalUResourceBundlePointer rb(ures_open(nullptr, locale.getName(), &errorCode));
+    LocalUResourceBundlePointer countryRB(ures_openWithCountryFallback(nullptr, locale.getName(), &hasCountryFallbackResource, &errorCode));
     if (U_FAILURE(errorCode)) { return; }
 
     CharString calendarTypeToUse; // to be filled in with the type to use, if all goes well
@@ -998,7 +1025,6 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& errorCod
     err = U_ZERO_ERROR;
     initHashtable(errorCode);
     if (U_FAILURE(errorCode)) { return; }
-    AvailableFormatsSink availableFormatsSink(*this);
     path.clear()
         .append(DT_DateTimeCalendarTag, errorCode)
         .append('/', errorCode)
@@ -1006,6 +1032,11 @@ DateTimePatternGenerator::addCLDRData(const Locale& locale, UErrorCode& errorCod
         .append('/', errorCode)
         .append(DT_DateTimeAvailableFormatsTag, errorCode); // i.e., calendar/xxx/availableFormats
     if (U_FAILURE(errorCode)) { return; }
+    if (hasCountryFallbackResource) {
+        AvailableFormatsSink countryAvailableFormatsSink(*this, TRUE);
+        ures_getAllItemsWithFallback(countryRB.getAlias(), path.data(), countryAvailableFormatsSink, err);
+    }
+    AvailableFormatsSink availableFormatsSink(*this, FALSE);
     ures_getAllItemsWithFallback(rb.getAlias(), path.data(), availableFormatsSink, err);
 }
 
@@ -1099,6 +1130,14 @@ DateTimePatternGenerator::getBestPattern(const UnicodeString& patternForm, UDate
     dtMatcher->set(patternFormMapped, fp);
     const PtnSkeleton* specifiedSkeleton = nullptr;
     bestPattern=getBestRaw(*dtMatcher, -1, distanceInfo, status, &specifiedSkeleton);
+    
+    // getBestRaw() might return a pattern with an era field in it, even if the skeleton didn't specifically ask for it.
+    // Check for that and take it out of distanceInfo->missingFieldMask so that we don't end up adding a SECOND era
+    // field by mistake
+    if (bestPattern->indexOf(u'G') != -1) {
+        distanceInfo->missingFieldMask &= ~(1 << UDATPG_ERA_FIELD);
+    }
+    
     if (U_FAILURE(status)) {
         return UnicodeString();
     }
@@ -2574,7 +2613,8 @@ UChar SkeletonFields::getFirstChar() const {
 }
 
 
-PtnSkeleton::PtnSkeleton() {
+PtnSkeleton::PtnSkeleton()
+    : addedDefaultDayPeriod(FALSE) {
 }
 
 PtnSkeleton::PtnSkeleton(const PtnSkeleton& other) {
@@ -2585,6 +2625,7 @@ void PtnSkeleton::copyFrom(const PtnSkeleton& other) {
     uprv_memcpy(type, other.type, sizeof(type));
     original.copyFrom(other.original);
     baseOriginal.copyFrom(other.baseOriginal);
+    addedDefaultDayPeriod = other.addedDefaultDayPeriod;
 }
 
 void PtnSkeleton::clear() {
@@ -2795,6 +2836,85 @@ DTRedundantEnumeration::~DTRedundantEnumeration() {
             }
         }
     }    
+}
+
+/**
+ * This is a utility function used by the various date formatting classes to determine whether a particular pattern string will produce an all-numeric date.
+ * It does this by examining the pattern string.  If the range between the first d, M, or y and the last d, M, or y in the pattern contains nothing but d, M, y,
+ * punctuation, whitespace, and Unicode right-to-left marks, and it doesn't contain more than two Ms in a row, it's considered to have a "numeric core"--
+ * that is, the part of the pattern that generates a date (minus fields like the day of the week and the era) produces an all-numeric date.
+ */
+extern UBool datePatternHasNumericCore(const UnicodeString& datePattern) {
+    StringCharacterIterator it = StringCharacterIterator(datePattern);
+    int32_t coreStart = -1;
+    int32_t coreEnd = -1;
+    int32_t firstLetterAfterCoreStart = -1;
+    int32_t numMs = 0;
+    UBool sawD = FALSE, sawY = FALSE;
+    for (UChar c = it.first(); it.hasNext(); c = it.next()) {
+        switch (c) {
+            case u'y': case u'Y': case u'r': case u'u':
+            case u'M': case u'L': case u'd':
+                if (coreStart == -1) {
+                    coreStart = it.getIndex();
+                }
+                coreEnd = it.getIndex();
+                switch (c) {
+                    case u'y': case u'Y': case u'r': case u'u':
+                        sawY = TRUE;
+                        break;
+                    case u'M': case u'L':
+                        // if the pattern contains more than 2 M's, the month is a word, not a number, which means
+                        // we don't have a numeric core
+                        ++numMs;
+                        if (numMs > 2) {
+                            return FALSE;
+                        }
+                        break;
+                    case 'd':
+                        sawD = TRUE;
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            default:
+                if (u_isalpha(c)) {
+                    if (coreStart != -1 && firstLetterAfterCoreStart == -1) {
+                        firstLetterAfterCoreStart = it.getIndex();
+                    }
+                } else if (!u_isspace(c) && !u_ispunct(c) && c != u'\u200f') {
+                    // the numeric core must contain nothing but d, M, y, whitespace, punctuation, and the Unicode right-to-left mark
+                    return FALSE;
+                }
+                break;
+        }
+    }
+    
+    // if we didn't find d, M, or y in the pattern, return FALSE
+    if (coreStart < 0 || coreEnd < 0) {
+        return FALSE;
+    }
+    
+    // if there's quoted literal text anywhere in the pattern, whether in the "core" or not, treat it as though
+    // we don't have a numeric core
+    if (datePattern.indexOf(u'\'') != -1) {
+        return FALSE;
+    }
+    
+    // if we found a letter other than d, M, or y between the first d, M, or y and the last one,
+    // we don't have a numeric core
+    if (firstLetterAfterCoreStart != -1 && firstLetterAfterCoreStart < coreEnd) {
+        return FALSE;
+    }
+    
+    // if the format contains only one numeric field (out of d, M, or y), we don't count it as a numeric core
+    if (((numMs > 0) ? 1 : 0) + (sawY ? 1 : 0) + (sawD ? 1 : 0) <= 1) {
+        return FALSE;
+    }
+    
+    // if we get to here, we have a numeric core
+    return TRUE;
 }
 
 U_NAMESPACE_END

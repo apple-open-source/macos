@@ -410,6 +410,8 @@ typedef uint32_t IOHIDSwipeMask;
     @constant kIOHIDGestureMotionOffTopEdge
     @constant kIOHIDGestureMotionFromBottomEdge
     @constant kIOHIDGestureMotionOffBottomEdge
+    @constant kIOHIDGestureMotionLongPress
+
 */
 enum {
     kIOHIDGestureMotionNone,
@@ -427,6 +429,7 @@ enum {
     kIOHIDGestureMotionOffTopEdge,
     kIOHIDGestureMotionFromBottomEdge,
     kIOHIDGestureMotionOffBottomEdge,
+    kIOHIDGestureMotionLongPress,
 };
 typedef uint16_t IOHIDGestureMotion;
 
@@ -469,6 +472,7 @@ typedef uint16_t IOHIDGestureFlavor;
     @constant kIOHIDProximityDetectionSmallObjectsHovering
     @constant kIOHIDProximityDetectionReceiverCrude
     @constant kIOHIDProximityDetectionReceiverMonitoring
+    @constant kIOHIDProximityDetectionReceiverCrudeMonitoring
 */
 enum {
     kIOHIDProximityDetectionLargeBodyContact                = 1<<0,
@@ -480,7 +484,8 @@ enum {
     kIOHIDProximityDetectionReceiver                        = 1<<6,
     kIOHIDProximityDetectionSmallObjectsHovering            = 1<<7,
     kIOHIDProximityDetectionReceiverCrude                   = 1<<8,
-    kIOHIDProximityDetectionReceiverMonitoring              = 1<<9
+    kIOHIDProximityDetectionReceiverMonitoring              = 1<<9,
+    kIOHIDProximityDetectionReceiverCrudeMonitoring         = 1<<10
 };
 typedef uint32_t IOHIDProximityDetectionMask;
 

@@ -28,7 +28,7 @@
 #import "keychain/ckks/CKKSCondition.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/ObjCImprovements.h"
-#include <utilities/debugging.h>
+#import "keychain/ckks/CKKS.h"
 
 @interface CKKSResultOperation()
 @property NSMutableArray<CKKSResultOperation*>* successDependencies;
@@ -92,7 +92,7 @@
     [super setCompletionBlock:^(void) {
         STRONGIFY(self);
         if (!self) {
-            secerror("ckksresultoperation: completion handler called on deallocated operation instance");
+            ckkserror_global("resultoperation", "completion handler called on deallocated operation instance");
             completionBlock(); // go ahead and still behave as things would if this method override were not here
             return;
         }
@@ -149,16 +149,31 @@
 // Returns, for this CKKSResultOperation, an error describing this operation or its dependents.
 // Used mainly by other CKKSResultOperations who time out waiting for this operation to start/complete.
 - (NSError* _Nullable)descriptionError {
+    static __thread unsigned __descriptionRecursion = 0;
+
+    NSError* result = nil;
+
+    __descriptionRecursion += 1;
+
     if(self.descriptionErrorCode != 0) {
-        return [NSError errorWithDomain:CKKSResultDescriptionErrorDomain
-                                   code:self.descriptionErrorCode
-                               userInfo:nil];
+        result = [NSError errorWithDomain:CKKSResultDescriptionErrorDomain
+                                     code:self.descriptionErrorCode
+                                 userInfo:nil];
+    } else if(__descriptionRecursion > 10) {
+        result = [NSError errorWithDomain:CKKSResultDescriptionErrorDomain
+                                     code:-1
+                              description:@"Excess recursion"];
     } else {
-        return [self dependenciesDescriptionError];
+        result = [self dependenciesDescriptionError];
     }
+
+    __descriptionRecursion -= 1;
+
+    return result;
 }
 
 - (NSError*)_onqueueTimeoutError {
+    dispatch_assert_queue(self.timeoutQueue);
     // Find if any of our dependencies are CKKSResultOperations with a custom reason for existing
 
     NSError* underlyingReason = [self descriptionError];

@@ -42,12 +42,12 @@ struct ShareDataWithParsedURL;
 - (void)dismiss;
 
 @property (nonatomic, weak) id <WKShareSheetDelegate> delegate;
-
 @end
 
 @protocol WKShareSheetDelegate <NSObject>
 @optional
 - (void)shareSheetDidDismiss:(WKShareSheet *)shareSheet;
+- (void)shareSheet:(WKShareSheet *)shareSheet willShowActivityItems:(NSArray *)activityItems;
 @end
 
 #endif // PLATFORM(COCOA) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)

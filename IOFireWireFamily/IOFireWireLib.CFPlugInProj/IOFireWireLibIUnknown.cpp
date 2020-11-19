@@ -22,7 +22,6 @@ namespace IOFireWireLib {
 #if IOFIREWIRELIBDEBUG
 	IOFireWireIUnknown::~IOFireWireIUnknown()
 	{
-		bzero( this, sizeof( IOFireWireIUnknown ) ) ;
 	}	
 #endif
 

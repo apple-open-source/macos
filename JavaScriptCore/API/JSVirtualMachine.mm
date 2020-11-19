@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
+#import "config.h"
 
 #import "JavaScriptCore.h"
 
@@ -70,13 +70,13 @@ static NSMapTable *wrapperCache()
 
 + (void)addWrapper:(JSVirtualMachine *)wrapper forJSContextGroupRef:(JSContextGroupRef)group
 {
-    std::lock_guard<Lock> lock(wrapperCacheMutex);
+    auto locker = holdLock(wrapperCacheMutex);
     NSMapInsert(wrapperCache(), group, (__bridge void*)wrapper);
 }
 
 + (JSVirtualMachine *)wrapperForJSContextGroupRef:(JSContextGroupRef)group
 {
-    std::lock_guard<Lock> lock(wrapperCacheMutex);
+    auto locker = holdLock(wrapperCacheMutex);
     return (__bridge JSVirtualMachine *)NSMapGet(wrapperCache(), group);
 }
 

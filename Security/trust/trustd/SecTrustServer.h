@@ -180,6 +180,7 @@ typedef CF_OPTIONS(uint8_t, TAValidStatus) {
 typedef struct {
     uint64_t start_time;
     bool suspected_mitm;
+    bool ca_fail_eku_check;
     // Certificate Transparency
     TA_SCTSource sct_sources;
     uint32_t number_scts;
@@ -202,6 +203,7 @@ typedef struct {
     uint64_t ocsp_fetch_time;
     uint32_t ocsp_fetch_failed;
     bool ocsp_validation_failed;
+    bool ocsp_weak_hash;
     // Valid
     TAValidStatus valid_status;
     bool valid_trigger_ocsp;

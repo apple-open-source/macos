@@ -175,12 +175,31 @@ typedef struct _os_subcommand os_subcommand_t;
  * @const OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL_POS
  * The option is a positional option (that is, not identified by a long or short
  * flag) and is not required for the subcommand to execute successfully.
+ *
+ * @const OS_SUBCOMMAND_OPTION_FLAG_ENUM
+ * The option has an explicitly-defined list of valid inputs that are enumerated
+ * in the option's {@link osco_argument_usage} field. When printing usage
+ * information for this option, the implementation will not transform the string
+ * in this field in any way.
+ *
+ * For example, an option named "--stream" might have three valid inputs:
+ * "stdin", "stdout", and "stderr", and the usage string may be specified as
+ *
+ *     "stdin|stdout|stderr"
+ *
+ * Without this flag, the implementation would print this string as a parameter
+ * name, i.e. in all caps:
+ *
+ *     "<STDIN|STDOUT|STDERR>"
+ *
+ * With this flag, the string will be printed as it is given.
  */
 DARWIN_API_AVAILABLE_20181020
 OS_CLOSED_ENUM(os_subcommand_option_flags, uint64_t,
 	OS_SUBCOMMAND_OPTION_FLAG_INIT = 0,
 	OS_SUBCOMMAND_OPTION_FLAG_TERMINATOR = (1 << 0),
 	OS_SUBCOMMAND_OPTION_FLAG_OPTIONAL_POS = (1 << 1),
+	OS_SUBCOMMAND_OPTION_FLAG_ENUM = (1 << 2),
 );
 
 /*!
@@ -293,6 +312,27 @@ typedef struct _os_subcommand_option {
  *
  * If multiple subcommands in the same program set
  * {@link OS_SUBCOMMAND_FLAG_MAIN}, the implementation's behavior is undefined.
+ *
+ * @const OS_SUBCOMMAND_FLAG_HELPFUL
+ * When invoked with no arguments, this subcommand will print usage information
+ * to stdout and exit with status zero.
+ *
+ * @const OS_SUBCOMMAND_FLAG_HELPFUL_FIRST_OPTION
+ * Allow the implementation to detect whether the user is attempting to print
+ * usage information for the given subcommand. If the implementation concludes
+ * that the user is seeking help, it will print the subcommand's usage
+ * information to stdout and exit with status 0.
+ *
+ * The implementation will conclude that the user is seeking help if
+ *
+ *     - only one argument is provided to the subcommand, and
+ *
+ * any of the following
+ *
+ *     - the argument is "-h"
+ *     - the argument is "-help"
+ *     - the argument is "--help"
+ *     - the argument is "help"
  */
 DARWIN_API_AVAILABLE_20181020
 OS_CLOSED_OPTIONS(os_subcommand_flags, uint64_t,
@@ -301,6 +341,8 @@ OS_CLOSED_OPTIONS(os_subcommand_flags, uint64_t,
 	OS_SUBCOMMAND_FLAG_TTYONLY = (1 << 1),
 	OS_SUBCOMMAND_FLAG_HIDDEN = (1 << 2),
 	OS_SUBCOMMAND_FLAG_MAIN = (1 << 3),
+	OS_SUBCOMMAND_FLAG_HELPFUL = (1 << 4),
+	OS_SUBCOMMAND_FLAG_HELPFUL_FIRST_OPTION = (1 << 5),
 );
 
 /*!
@@ -351,6 +393,11 @@ typedef int (*os_subcommand_invoke_t)(
  * @field osc_desc
  * A brief description of the subcommand. This description will be displayed
  * next to the subcommand when the user lists all subcommands.
+ *
+ * @field osc_long_desc
+ * A long description of the subcommand. This description will be displayed
+ * when the user invokes help on the subcommand. If it's NULL the brief
+ * description from osc_desc will be displayed.
  *
  * @field osc_optstring
  * The option string associated with the subcommand. The implementation does not
@@ -407,7 +454,7 @@ typedef int (*os_subcommand_invoke_t)(
  * @field osc_invoke
  * The implementation for the subcommand.
  */
-DARWIN_API_AVAILABLE_20191015
+DARWIN_API_AVAILABLE_20200401
 struct _os_subcommand {
 	const os_struct_version_t osc_version;
 	const os_subcommand_flags_t osc_flags;
@@ -419,6 +466,7 @@ struct _os_subcommand {
 	const os_subcommand_option_t *osc_optional;
 	const os_subcommand_option_t *osc_positional;
 	const os_subcommand_invoke_t osc_invoke;
+	const char *const osc_long_desc;
 };
 
 /*!

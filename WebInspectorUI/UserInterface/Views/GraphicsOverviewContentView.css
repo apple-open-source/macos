@@ -25,7 +25,7 @@
 
 .content-view.graphics-overview {
     background-color: var(--background-color-content);
-    overflow-y: scroll;
+    overflow-y: auto;
     padding-bottom: var(--navigation-bar-height);
     background-color: hsl(0, 0%, 90%);
 }
@@ -43,16 +43,14 @@
     display: flex;
     align-items: center;
     position: sticky;
-    top: 0;
+    top: -1px;
     z-index: 1;
     min-height: var(--navigation-bar-height);
+    margin-top: -1px;
     -webkit-padding-start: 8px;
-    background-color: hsl(0, 0%, 97%);
-    border-bottom: 1px solid var(--border-color);
-}
-
-.content-view.graphics-overview > section:not(:first-of-type) > .header {
+    background-color: var(--background-color-intermediate);
     border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .content-view.graphics-overview > section > .header > h1 {
@@ -76,10 +74,6 @@
 @media (prefers-color-scheme: dark) {
     .content-view.graphics-overview {
         background-color: hsl(0, 0%, 14%);
-    }
-
-    .content-view.graphics-overview > section > .header {
-        background-color: hsl(0, 0%, 21%);
     }
 }
 

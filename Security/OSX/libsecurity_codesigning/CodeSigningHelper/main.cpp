@@ -34,8 +34,6 @@
 static void
 request(xpc_connection_t peer, xpc_object_t event)
 {
-	OSStatus rc;
-	
 	pid_t pid = (pid_t)xpc_dictionary_get_int64(event, "pid");
 	if (pid <= 0)
 		return;
@@ -61,11 +59,11 @@ request(xpc_connection_t peer, xpc_object_t event)
 							 auditData);
 	}
 	CFRef<SecCodeRef> code;
-	if ((rc = SecCodeCopyGuestWithAttributes(NULL, attributes, kSecCSDefaultFlags, &code.aref())) == noErr) {
+	if (SecCodeCopyGuestWithAttributes(NULL, attributes, kSecCSDefaultFlags, &code.aref()) == noErr) {
 		
 		// path to base of client code
 		CFRef<CFURLRef> codePath;
-		if ((rc = SecCodeCopyPath(code, kSecCSDefaultFlags, &codePath.aref())) == noErr) {
+		if (SecCodeCopyPath(code, kSecCSDefaultFlags, &codePath.aref()) == noErr) {
 			CFRef<CFDataRef> data = CFURLCreateData(NULL, codePath, kCFStringEncodingUTF8, true);
 			xpc_dictionary_set_data(reply, "bundleURL", CFDataGetBytePtr(data), CFDataGetLength(data));
 		}

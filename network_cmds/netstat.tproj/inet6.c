@@ -525,6 +525,10 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	    "\t\t%llu output packet%s dropped due to CLAT46 failures\n");
 	p(ip6s_clat464_out_success,
 	    "\t\t%llu output packet%s successfully translated from IPv4 to IPv6\n");
+	p(ip6s_rcv_if_weak_match,
+	  "\t\t%llu input packet%s that passed the weak ES interface address match\n");
+	p(ip6s_rcv_if_no_match,
+	  "\t\t%llu input packet%s with no interface address match\n");
 
 #define OUTPERFDIFF(f) (out_net_perf.f - pout_net_perf.f)
 	if (OUTPERFDIFF(np_total_pkts) > 0 && out_net_perf.np_total_usecs > 0) {

@@ -1,0 +1,2845 @@
+#!/usr/bin/python
+#
+# Copyright (c) 2020 Apple Inc. All rights reserved.
+#
+# This program tests BLESS(8) Command Line Interface.
+#
+# To add a new test case:
+#    (1) create a test_<testname> routine
+#    (2) update TestListDictionary with the new test information
+#
+# bless2 library API being used by
+#    kmutil(K), bootabilityutil(B), PurpleRestore(P), bless2cli(C)
+#
+# ...C int bless2_summarize(const char *disk, vol_summary_t **s) __result_use_check;
+# ...C void bless2_summary_free(vol_summary_t *s);
+# .B.C int bless2_isc_preboot(vol_summary_t *s, char *preboot, size_t len);
+# .B.C int bless2_os_preboot(vol_summary_t *s, char *preboot, size_t len);
+# ...C int bless2_os_recovery(vol_summary_t *s, char *recovery, size_t len);
+# K..C int bless2_bootobjects_path(vol_summary_t *s, CFDictionaryRef args,
+#                                  char *out_relative_path, size_t path_size);
+# .BPC int bless2_boot_with_args(vol_summary_t *s, CFDictionaryRef args);
+# ...C int bless2_verify_with_args(vol_summary_t *s, CFDictionaryRef args);
+# .BPC int bless2_install_with_args(vol_summary_t *s, CFDictionaryRef args);
+# .B.C int bless2_gc_with_args(vol_summary_t *s, CFDictionaryRef args);
+# K..C int bless2_install_custom_obj(vol_summary_t *s, CFDictionaryRef args);
+# .B.C int bless2_update_all_custom_objs(bless2_update_function_t fn, void *ctxt,
+#                                       CFDictionaryRef args);
+#
+
+import sys
+import os
+import logging
+import plistlib
+import uuid
+import re
+import collections
+import time
+import glob
+from subprocess import Popen, PIPE, call
+from datetime import datetime
+from os import listdir
+from os.path import expanduser
+
+#
+# XXX move common routines to a library for test_asr/test_bless/test_bless2
+# XXX rename classes SOURCE, TARGET for common usage
+# XXX check how eoslib is arranged
+#
+
+Debug = False
+ErrorPause = False
+BootPlist = 'com.apple.Boot.plist'
+isArm = True
+
+# LOG file for each test_bless2 program run on the system
+tuuid = uuid.uuid4()
+LOGDIR = '/Library/Logs/test_bless/'
+TESTDIR = LOGDIR + str(tuuid) + '/'
+LOGFILE = TESTDIR + 'test_bless.log'
+BATSLOG = LOGDIR + 'bats_bless_presubmit.log'
+VOLDIR = '/Volumes/'
+
+#SRCDATA = '/usr/lib'
+#SRCDATA = '/usr/local/bin'
+# XXX change the folder to avoid issues caused by 64184194
+SRCDATA = '/System/Applications/Utilities'
+SRCIMG = TESTDIR + 'asr_source.dmg'
+SRCVOL = 'test_src' + str(os.getpid())
+SRCOSIMG = TESTDIR + 'asr_source_os.dmg'
+SRCOSVOL = 'test_src_osvol' + str(os.getpid())
+SRCROSVIMG = TESTDIR + 'asr_source_rosv.dmg'
+SRCROSVDATAVOL = 'test_src_rosvdata' + str(os.getpid())
+SRCROSVSYSVOL = 'test_src_rosvsys' + str(os.getpid())
+
+TGTIMG = TESTDIR + 'asr_target.dmg'
+TGTVOL = 'test_tgt' + str(os.getpid())
+TGTROSVDATAVOL = 'test_tgt_rosvdata' + str(os.getpid())
+TGTROSVSYSVOL = 'test_tgt_rosvsys' + str(os.getpid())
+
+HOLDMNTFILE = '/test_bless_holdmntptfile'
+MTREEOUTFILE = TESTDIR + 'asr_mtree.out'
+
+TYPE_SRC_IMG = 1     # Source is a dummy disk image
+TYPE_SRC_VOL = 2     # Source is a dummy volume
+TYPE_SRC_NAME = 3         # Source is the given name/path
+TYPE_SRC_OSIMG = 4   # Source is a dummy OS image to be created
+TYPE_SRC_OSVOL = 5   # Source is a dummy OS volume to be created
+TYPE_SRC_ROSVIMG = 6 # Source is a dummy ROSV volume-group image to be created
+TYPE_SRC_ROSV = 7    # Source is a dummy ROSV volume-group to be created
+TYPE_SRC_SNAPVOL = 8      # Source is a volume with multiple snapshots
+TYPE_SRC_SNAPIMG = 9      # Source is an image with multiple snapshots
+TYPE_SRC_SNAPROSV = 10    # Source is an ROSV volume-group with multiple snapshots
+TYPE_SRC_SNAPROSVIMG = 11 # Source is an ROSV diskimage with multiple snapshots
+TYPE_SRC_HFSIMG = 12      # Source is a HFS image
+
+# XXX can use smaller space?
+SIZE_SRCDATA = '3g'
+SIZE_TGTDATA = '5g'
+SIZE_TGTFACT = '8g'
+SIZE_TGTFACTOS = '40g'
+SIZE_TGTFACTOS_INVERT = '70g'
+SIZE_TGTFACTOS_ARV = '70g'
+SIZE_TGTOS = '40g'
+SIZE_TGTOS_INVERT = '50g'
+SIZE_TGTXCODE = '60g'
+
+start_time4all = 0
+start_time4each = 0
+succeed_count = 0
+fail_count = 0
+known_fail_count = 0
+skip_count = 0
+unclean_count = 0
+check_performance = 0
+
+#
+# Test name convension
+#
+TNAME_ENCRYPT = 'encrypt'
+
+#
+# /SWE macOS Images available in
+#    /SWE/Teams/CoreOS/Images/prod/ASR/
+# or /SWE/Teams/MSQ/macOS/asr/
+# /SWE XCODE Images available in
+#    /SWE/Xcode/Images/
+#
+OSDIR = '/SWE/Teams/CoreOS/Images/prod/ASR/'
+OSDIR_GOLDEN = OSDIR + 'Golden/'
+OSDIR_JAZZ = OSDIR + 'macOSJazz/'
+OSDIR_LIB = OSDIR + 'macOSLiberty/'
+XCODEDIR = '/SWE/Xcode/Images/macOS_iOS_tvOS_watchOS_bridgeOS/macOSJazz_Yukon_Yager_Grace_bridgeOSJazz/standard-ui-sdk-internal/'
+
+#
+# Local Images location and names
+#
+DMGDIR = '/tmp/test_bless/'
+SWEDMGname = {OSDIR_GOLDEN: '', OSDIR_JAZZ: '', OSDIR_LIB: '', XCODEDIR: ''}
+
+#
+# apfs_sealvolume location
+#
+APFS_SEALER = '/System/Library/Filesystems/apfs.fs/Contents/Resources/apfs_sealvolume'
+
+#
+# For bless2, Apple Silicon systems
+#
+SRCDIR_PATH = '/restore/'
+
+bless2_guuid = ''
+bless2_prebvdev = ''
+bless2_srcdirpath = ''
+bless2_osmanifestpath = ''
+bless2_rootCdev = ''
+bless2_rootVdev = ''
+bless2_root_nvram_boot = ''
+bless2_root_nvram_altboot = ''
+
+
+#================================================
+#    HELPER FUNCTIONS
+#================================================
+
+#
+# test_bless program usage
+#
+def usage():
+    print 'This test is for libbless2 on Apple Silicon systems.'
+    print 'Usage:'
+    print '    test_bless2 all | presubmit | remote <option> (Run all or a subset of tests)'
+    print '    test_bless2 <testname> <option> (Run a given <testname>)'
+    print '    <option>'
+    print '        -debug        (Exit right after bless command to debug)'
+    print '        -errorpause   (Pause the process on error before clean up)'
+    print '    test_bless2 -l     (list all <testname>s)'
+    print '    test_bless2 -c     (clean up all log directories)'
+    print ''
+
+
+#
+# docmd_common without printing out the command line
+#
+def docmd_common_noprint(cmd):
+    result = Popen(cmd, stdout=PIPE, stderr=PIPE)
+    try:
+        out, errmsg = result.communicate()
+    except:
+        print 'Command interrupted...'
+        exit(1)
+
+    err = result.returncode
+
+    # Log command output messages
+    if err and cmd[0] != '/sbin/umount' and cmd[0] != '/bin/rm' and \
+        cmd[0] != '/bin/ls':
+        logging.error(out)
+        logging.error(errmsg)
+    else:
+        logging.info(out)
+        logging.info(errmsg)
+
+    # Print result output messages
+    if cmd[0] == '/usr/sbin/asr' or cmd[0] == '/usr/local/bin/xia' or \
+       cmd[0] == '/usr/bin/time' or cmd[0] == 'time' or \
+       (err and cmd[0] != '/sbin/umount' and cmd[0] != '/bin/rm' and \
+       cmd[0] != '/bin/ls'):
+        print out
+        print errmsg
+
+    return out, err
+
+
+#
+# Common routine for docmd*
+#
+def docmd_common(cmd):
+    logging.info('call: {}'.format(cmd))
+    print('call: {}'.format(cmd))
+    out, err = docmd_common_noprint(cmd)
+    return out, err
+
+
+#
+# Run cmd, return 0 for success, non-zero for failure
+#
+def docmd(cmd):
+    out, err = docmd_common(cmd)
+    return err
+
+
+#
+# Run cmd, return plist for success, error number for failure
+#
+def docmd_plist(cmd):
+    out, err = docmd_common(cmd)
+    if err == 0:
+        # Success, return plist
+        plist = plistlib.readPlistFromString(out)
+        return plist, 0
+    else:
+        return out, err
+
+
+#
+# Startup tasks before running all the tests
+#
+def Startup():
+    global start_time4all
+
+    cmd = ['/bin/mkdir', '-p', TESTDIR]
+    call(cmd)
+    cmd = ['/bin/mkdir', '-p', DMGDIR]
+    call(cmd)
+
+    logging.basicConfig(format='%(asctime)s %(levelname)s (%(funcName)s) %(message)s',
+        datefmt='%m/%d/%Y %H:%M:%S', filename=LOGFILE, level=logging.DEBUG)
+    start_time4all = datetime.now()
+
+    logging.info('\n\nTESTING BEGINS at {}'.format(start_time4all))
+    print '\nTESTING Begins at {}'.format(start_time4all)
+    docmd_common_noprint(['/usr/bin/sw_vers'])
+
+
+#
+# Teardown tasks after running all the tests
+#
+def Teardown():
+    global succeed_count
+    global fail_count
+    global known_fail_count
+    global skip_count
+    global unclean_count
+    global check_performance
+
+    now = datetime.now()
+    time_elapsed = now - start_time4all
+
+    logging.info('TESTING ENDS at {}'.format(now))
+    print 'TESTING ENDS at {}'.format(now)
+
+    logging.info('---------------------------------------------------------------')
+    print '---------------------------------------------------------------'
+
+    if known_fail_count:
+        logging.info('Total number of tests SUCCEED=%d, FAIL=%d (KNOWN=%d), SKIP=%d',
+            succeed_count, fail_count, known_fail_count, skip_count)
+        print 'Total number of tests SUCCEED=%d, FAIL=%d (KNOWN=%d), SKIP=%d'%\
+            (succeed_count, fail_count, known_fail_count, skip_count)
+    else:
+        logging.info('Total number of tests SUCCEED=%d, FAIL=%d, SKIP=%d',
+            succeed_count, fail_count, skip_count)
+        print 'Total number of tests SUCCEED=%d, FAIL=%d, SKIP=%d'%\
+            (succeed_count, fail_count, skip_count)
+
+    if unclean_count > 0:
+        logging.info('Total number of tests UNCLEAN=%d (Please clean up manually) ',
+            unclean_count)
+        print 'Total number of tests UNCLEAN=%d (Please clean up manually)'\
+            %unclean_count
+    logging.info('Total running time {} (h:m:s.ms)'.format(time_elapsed))
+    print 'Total running time {} (h:m:s.ms)'.format(time_elapsed)
+    logging.info('Log information in %s\n', LOGFILE)
+    print 'Log information in %s\n'%LOGFILE
+
+    if check_performance == 1:
+        logging.info('Check PERFORMANCE DATA in the Log file\n')
+        print 'Check PERFORMANCE DATA in the Log file'
+
+    call(['/bin/cp', LOGFILE, BATSLOG])
+
+    if fail_count > 0:
+        exit(1)
+    else:
+        exit(0)
+
+
+#
+# Check access permission
+#
+def checkaccess(dir):
+    err = docmd(['/bin/ls', '-d', dir])
+    if err:
+        logging.error('Can not access ' + dir)
+        print 'Can not access ' + dir
+    return err
+
+
+#
+# For each test case, begin wth this
+#
+def testBegin(testname):
+    global start_time4each
+    logging.info('\n\nTEST ' + testname + ' Begin...')
+    print '\n\nTEST ' + testname + ' Begin...'
+    start_time4each = datetime.now()
+
+
+#
+# For each test case, end with this
+#
+def testEnd(testname, src, tgt, err):
+    global succeed_count
+    global fail_count
+    global known_fail_count
+    global start_time4each
+    global ErrorPause
+
+    if testname.startswith('neg_'):
+        if err:
+            err = 0
+        else:
+            err = 1
+
+    # pause here on error and wait for user input before clean up
+    if ErrorPause and err:
+        input = raw_input ("Test paused on error. Enter 'x' to exit or any other key to continue:")
+        if input == 'x' :
+            exit()
+
+    if src:
+        src.release()
+    if tgt:
+        tgt.release()
+
+    time_elapsed = datetime.now() - start_time4each
+
+    exist = os.path.isfile(MTREEOUTFILE)
+    if exist:
+        docmd(['/bin/rm', '-f', MTREEOUTFILE])
+
+    if err:
+        logging.info('TEST ' + testname + ' FAIL  ' +
+            '(elapsed-time {})'.format(time_elapsed) + '\n')
+        print 'TEST ' + testname + ' FAIL  ' + \
+            '(elapsed-time {})'.format(time_elapsed) + '\n'
+        fail_count = fail_count + 1
+        if 'bug-' in testname:
+            known_fail_count = known_fail_count + 1
+    else:
+        logging.info('TEST ' + testname + ' SUCCEED ' +
+            '(elapsed-time {})'.format(time_elapsed) + '\n')
+        print 'TEST ' + testname + ' SUCCEED ' + \
+            '(elapsed-time {})'.format(time_elapsed) + '\n'
+        succeed_count = succeed_count + 1
+
+
+#
+# Clean up all log directories in LOGDIR
+#
+def log_cleanup():
+    cmd = ['/bin/rm', '-rf', LOGDIR]
+    call(cmd)
+    cmd = ['/bin/rm', '-rf', DMGDIR]
+    call(cmd)
+
+
+#
+# XXX let the caller specify a specific image name: /path/to/image_name?
+#
+# Get the latest dmg name derived from the given dir
+# (OS)
+# % ls -lt <dir> | awk '/.AppleInternal.dmg/ {print $9}' | awk 'NR==1 {print $1}'
+# (XCODE)
+# % ls -lt <dir> | awk '/.dmg/ {print $9}' | awk 'NR==1 {print $1}'
+#
+def get_dmg_shortname(dir):
+    err = checkaccess(dir)
+    if err:
+        return ''
+    try:
+        cmd = ['/bin/ls', '-lt', dir]
+        ls = Popen(cmd, stdout=PIPE)
+        if 'Xcode' in dir:
+            cmd = "/usr/bin/awk '/.dmg/ {print $9}'"
+        else:
+            cmd = "/usr/bin/awk '/.AppleInternal.dmg/ {print $9}'"
+        awk1 = Popen(cmd, stdin=ls.stdout, stdout=PIPE, shell=True)
+        cmd = "/usr/bin/awk 'NR==1 {print $1}'"
+        awk2 = Popen(cmd, stdin=awk1.stdout, stdout=PIPE, shell=True)
+        out, err = awk2.communicate()
+        if err:
+            return ''
+        out = out.strip('\n')
+        logging.info('get_dmg_shortname: ' + out)
+        return out
+    except:
+        logging.error('get_dmg_shortname Failed')
+        print 'get_dmg_shortname Failed'
+        return ''
+
+
+#
+# Copy and get remote OS dmg or XCODE dmg file from the given dir
+# to a local directory
+#
+# If LocalMacOS is True, have macOS ASR images available in $HOME/Downloads/test_asr/,
+# e.g.
+#    % ls $HOME/Downloads/test_asr/*
+#    /Users/smadmin/Downloads/test_asr/Golden:
+#       Golden20A284UMIA_ASR_NFA.AppleInternal.dmg
+#    /Users/smadmin/Downloads/test_asr/macOSJazz:
+#       macOSJazz19A603.AppleInternal.dmg
+#    /Users/smadmin/Downloads/test_asr/macOSLiberty:
+#       macOSLiberty18A391.AppleInternal.dmg
+#    /Users/smadmin/Downloads/test_asr/Xcode:
+#       Xcode11M392v_m18A391011_m19A603_i17A878_t17J586_w17R605_b17P572_FastSim_Boost_43GB.dmg
+#
+def get_dmg_name(testname, dir):
+    global SWEDMGname, skip_count
+    global LocalMacOS
+
+    # If a local dmg file is already copied for this test run, use it.
+    if SWEDMGname[dir] != '':
+        return SWEDMGname[dir]
+
+    name = get_dmg_shortname(dir)
+    if name == '':
+        skip_count = skip_count + 1
+        logging.info('SKIP test %s\n', testname)
+        print 'SKIP test ' + testname
+        return ''
+
+    if LocalMacOS:
+        local_dmg = dir + name
+    else:
+        remote_dmg = dir + name
+        local_dmg = DMGDIR + name
+        # If this file is not in local DMGDIR, copy it over
+        err = docmd(['/bin/ls', local_dmg])
+        if err:
+            err = docmd(['/bin/cp', remote_dmg, local_dmg])
+            if err:
+                # in case it's partially copied, remove it
+                docmd(['/bin/rm', local_dmg])
+                local_dmg = ''
+                skip_count = skip_count + 1
+                logging.info('SKIP test %s\n', testname)
+                print 'SKIP test ' + testname
+    SWEDMGname[dir] = local_dmg
+    return local_dmg
+
+
+#
+# Get Volume UUID for the given volume device name
+#
+def DeviceToUUID(dev):
+    cmd = ['/usr/sbin/diskutil', 'info', '-plist',  dev]
+    plist, err = docmd_plist(cmd)
+    try:
+        uuid = plist['VolumeUUID']
+    except:
+        logging.info('Unrecognized VolumeUUID plist format')
+        uuid = ''
+    return uuid
+
+
+#
+# Get System Volume device in the Group Volume of the given container
+# that can map to the given sysdevi.
+# e.g. return /dev/disk2s1 for a given snapshot sysdev /dev/disk2s1s1
+#
+def getSystemVolumeDev(container, sysdev):
+    cmd = ['/usr/sbin/diskutil', 'apfs', 'listgroups', '-plist',  container]
+    plist, err = docmd_plist(cmd)
+    if err:
+        logging.info('Can not listgroups for %s', container)
+        return ''
+
+    c_array = plist['Containers']
+    for c_entry in c_array:
+        vol_grps = c_entry['VolumeGroups']
+        if vol_grps != '':
+            for entry in vol_grps:
+                for vol in entry['Volumes']:
+                    devID = '/dev/' + vol['DeviceIdentifier']
+                    if vol['Role'] == 'System' and sysdev.startswith(devID):
+                        return devID
+    logging.info('Can not get System Volume device for %s', sysdev)
+    print 'Can not get System Volume device for ' + sysdev
+    return ''
+
+
+#
+# Get Volume Group UUID for the System Volume in the given Container
+#
+def DeviceToGroupUUID(container, sysdev):
+    cmd = ['/usr/sbin/diskutil', 'apfs', 'listgroups', '-plist',  container]
+    plist, err = docmd_plist(cmd)
+    if err:
+        logging.info('Can not listgroups for %s', container)
+        return ''
+
+    c_array = plist['Containers']
+    for c_entry in c_array:
+        vol_grps = c_entry['VolumeGroups']
+        if vol_grps != '':
+            for entry in vol_grps:
+                for vol in entry['Volumes']:
+                    devID = '/dev/' + vol['DeviceIdentifier']
+                    if vol['Role'] == 'System' and sysdev.startswith(devID):
+                        guuid = entry['APFSVolumeGroupUUID']
+                        logging.info('GroupUUID for %s is %s', sysdev, guuid)
+                        print 'GroupUUID for ' + sysdev + ' is ' + guuid
+                        return guuid
+    logging.info('Can not get GroupUUID for %s', sysdev)
+    print 'Can not get GroupUUID for ' + sysdev
+    return ''
+
+
+#
+# Check if the given UUID is a Volume Group UUID in this Container
+#
+def isGroupUUID(container, check_uuid):
+    cmd = ['/usr/sbin/diskutil', 'apfs', 'listgroups', '-plist',  container]
+    plist, err = docmd_plist(cmd)
+    if err:
+        logging.info('Can not listgroups for %s', container)
+        return ''
+
+    c_array = plist['Containers']
+    for c_entry in c_array:
+        vol_grps = c_entry['VolumeGroups']
+        if vol_grps != '':
+            for entry in vol_grps:
+                guuid = entry['APFSVolumeGroupUUID']
+                if guuid == check_uuid:
+                    return True
+    return False
+
+
+#
+# Check if the given 'Vdev' has the given 'role'.
+# Return True if it does, False if it does not.
+#
+def CheckVdevRole(Cdev, Vdev, role):
+    plist, err = docmd_plist(['/usr/sbin/diskutil', 'apfs', 'list', '-plist', Cdev])
+    if err:
+        return ''
+    C_array = plist['Containers']
+    C_dict = C_array[0]
+    V_array = C_dict['Volumes']
+    for entry in V_array:
+        roles_array = entry['Roles']
+        if roles_array and roles_array[0] == role:
+            roleVdev = '/dev/' + entry['DeviceIdentifier']
+            if Vdev == roleVdev:
+                return True
+    return False
+
+
+#
+# Get the device with the matching 'role' in the given Container.
+# Role can be 'Preboot' or 'Recovery' or 'System', etc.
+#
+def SysCntToRoleVdev(Cdev, role):
+    # Find the device with the matching role
+    plist, err = docmd_plist(['/usr/sbin/diskutil', 'apfs', 'list', '-plist', Cdev])
+    if err:
+        return ''
+    C_array = plist['Containers']
+    C_dict = C_array[0]
+    V_array = C_dict['Volumes']
+    for entry in V_array:
+        roles_array = entry['Roles']
+        if (len(roles_array) == 1 and roles_array[0] == role) or \
+           (len(roles_array) == 0 and role == ''):
+            return '/dev/' + entry['DeviceIdentifier']
+    return ''
+
+
+#
+# Get device name for the given volume name
+#
+def MntptToDevice(volume):
+    cmd = ['/usr/sbin/diskutil', 'info', '-plist',  volume]
+    plist, err = docmd_plist(cmd)
+    try:
+        dev = plist['DeviceNode']
+    except:
+        logging.info('Unrecognized DeviceNode plist format')
+        dev = ''
+    return dev
+
+
+#
+# Get the mountpoint for the given device name
+#
+def DeviceToMntpt(device):
+    docmd(['/usr/sbin/diskutil', 'mount', device])
+    cmd = ['/usr/sbin/diskutil', 'info', '-plist',  device]
+    plist, err = docmd_plist(cmd)
+    try:
+        mntpt = plist['MountPoint']
+    except:
+        logging.info('Unrecognized MountPoint plist format for %s', device)
+        print 'Unrecognized MountPoint plist format for ' + device
+        mntpt = ''
+    return mntpt
+
+
+#
+# Get the APFS Container devname for the given dev
+#
+def DeviceToContainer(dev):
+    cmd = ['/usr/sbin/diskutil', 'info', '-plist', dev]
+    plist, err = docmd_plist(cmd)
+    try:
+        Cdev = plist['APFSContainerReference']
+    except:
+        logging.info('Unrecognized APFS Container plist format')
+        Cdev = ''
+    return '/dev/' + Cdev
+
+
+#
+# Get a set of System/Data device name in a given container,
+# where it's not the current ROSV root.
+#
+# Assumption: only 1 non-root volume-group in the given container
+#
+def ContainerToSysData(Cdev):
+    sysdev = ''
+    datadev = ''
+
+    if Cdev == '':
+        return '', ''
+
+    plist, err = docmd_plist(['/usr/sbin/diskutil', 'apfs', 'listGroups', '-plist', Cdev])
+    if err:
+        return sysdev, datadev
+
+    rootsys = MntptToDevice('/')
+    rootdata = MntptToDevice('/System/Volumes/Data')
+    C_array = plist['Containers']
+    C_dict = C_array[0]
+    VG_array = C_dict['VolumeGroups']
+    for entry in VG_array:
+        Volumes = entry['Volumes']
+        for vol in Volumes:
+            dev = '/dev/' + vol['DeviceIdentifier']
+            if dev == rootsys or dev == rootdata:
+                continue
+            if vol['Role'] == 'System':
+                sysdev = dev
+            elif vol['Role'] == 'Data':
+                datadev = dev
+        if sysdev != '' and datadev != '':
+            break
+    return sysdev, datadev
+
+
+#
+# Wait for encrypting a volume to finish
+#
+def wait_for_encrypt(Cdev, vol):
+    start_time = time.time()
+    while 1:
+        elapse_time = time.time() - start_time
+        # wait upto 300 seconds
+        if elapse_time > 300:
+            logging.error('Fail: Timeout waiting for encryption to finish')
+            print 'Fail: Timeout waiting for encryption to finish'
+            return 1
+        plist, err = docmd_plist(['/usr/sbin/diskutil', 'apfs', 'list', '-plist', Cdev])
+        if err:
+            logging.error('Fail at waiting for encryption to finish')
+            print 'Fail at waiting for encryption to finish'
+            logging.error('Fail to wait for encryption to finish')
+            print 'Fail to wait for encryption to finish'
+            return err
+        C_array = plist['Containers']
+        C_dict = C_array[0]
+        V_array = C_dict['Volumes']
+        for entry in V_array:
+            Vdev = '/dev/' + entry['DeviceIdentifier']
+            if Vdev == vol:
+                inProgress = entry['CryptoMigrationOn']
+                if inProgress == False:
+                    # encryption is done
+                    return 0
+        time.sleep(5)
+
+
+#
+# Print the device information associated with Source or Target
+#
+def print_dev_info(obj):
+    logging.info(obj.__class__.__name__ + ' Disk Image devname = ' + obj.diskimgdev)
+    logging.info(obj.__class__.__name__ + ' APFS Container devname (apfsCdev) = ' + obj.apfsCdev)
+    logging.info(obj.__class__.__name__ + ' APFS Volume devname (apfsVdev) = ' + obj.apfsVdev)
+    logging.info(obj.__class__.__name__ + ' APFS Volume mountpoint (apfsVmntpt) = ' + obj.apfsVmntpt)
+    logging.info(obj.__class__.__name__ + ' APFS Data Volume devname (apfsDVdev) = ' + obj.apfsDVdev)
+    logging.info(obj.__class__.__name__ + ' APFS Data Volume mountpoint (apfsDVmntpt) = ' + obj.apfsDVmntpt)
+    logging.info(obj.__class__.__name__ + ' HFS Volume devname (hfsdev) = ' + obj.hfsdev)
+    logging.info('')
+    print ' Disk Image devname = ' + obj.diskimgdev
+    print ' APFS Container devname (apfsCdev) = ' + obj.apfsCdev
+    print ' APFS Volume devname (apfsVdev) = ' + obj.apfsVdev
+    print ' APFS Volume mountpoint (apfsVmntpt) = ' + obj.apfsVmntpt
+    print ' APFS Data Volume devname (apfsDVdev) = ' + obj.apfsDVdev
+    print ' APFS Data Volume mountpoint (apfsDVmntpt) = ' + obj.apfsDVmntpt
+    print ' HFS Volume devname (hfsdev) = ' + obj.hfsdev
+    print ''
+
+
+#
+# Attach a disk image, and store the following information in obj:
+#    Disk Image devname, obj.diskimgdev (e.g. /dev/disk3)
+#    APFS Container vdevname, obj.apfsCdev (/dev/disk3s2 v.s./dev/disk4)
+#    APFS Volume devname, obj.apfsVdev (e.g. /dev/disk4s1)
+#    APFS Volume mountpoint, obj.apfsVmntpt (e.g. /Volumes/apfsvolume)
+#
+def do_attach(obj, dmg):
+    plist, err = docmd_plist(['/usr/bin/hdiutil', 'attach', '-plist', dmg])
+    if err:
+        return err
+
+    # log some information after the attach
+    docmd(['/usr/sbin/diskutil', 'list'])
+    docmd(['/sbin/mount'])
+
+    Vmntpt = ''
+    Vdev = ''
+    entity_array = plist['system-entities']
+    for entity in entity_array:
+        if entity['content-hint'] == 'Apple_HFS':
+            obj.hfsdev = entity['dev-entry']
+        elif entity['content-hint'] == 'GUID_partition_scheme':
+            obj.diskimgdev = entity['dev-entry']
+        elif entity['content-hint'] == 'Apple_APFS':
+            obj.apfsCdev_phys = entity['dev-entry']
+            obj.apfsCdev = DeviceToContainer(obj.apfsCdev_phys)
+        elif 'mount-point' in entity and entity['volume-kind'] == 'apfs':
+            Vmntpt = entity['mount-point']
+            Vdev = entity['dev-entry']
+
+    # Done if not APFS nor having APFS container
+    if obj.hfsdev != '' or obj.apfsCdev == '':
+        print_dev_info(obj)
+        return 0
+
+    # If dmg is APFS ROSV image, can get System and Data Volume device name
+    obj.apfsVdev, obj.apfsDVdev = ContainerToSysData(obj.apfsCdev)
+    if obj.apfsVdev != '' and obj.apfsDVdev != '':
+        obj.apfsVmntpt = DeviceToMntpt(obj.apfsVdev)
+        obj.apfsDVmntpt = DeviceToMntpt(obj.apfsDVdev)
+    elif obj.apfsVdev == '' and obj.apfsDVdev == '':
+        # If dmg is not an ROSV, use Vdev/Vmntpt from the attach plist
+        obj.apfsVdev = Vdev
+        obj.apfsVmntpt = Vmntpt
+    else:
+        logging.info('do_attach: something is not right')
+        print 'do_attach: something is not right'
+        err = 1
+
+    print_dev_info(obj)
+    return err
+
+
+#
+# Check if the given source image has a GroupUUID dir in Preboot
+# If so, flag it so that it can be verified on the target
+#
+def checkGroupUUID(src):
+    err  = do_attach(src, src.name)
+    if err:
+        logging.info('checkGroupUUID: Failed to attach')
+        print 'checkGroupUUID: Failed to attach'
+        return
+
+    preboot_dev = SysCntToRoleVdev(src.apfsCdev, 'Preboot')
+    if preboot_dev == '':
+        logging.error('No Preboot device in container %s', src.apfsCdev)
+        print 'No Preboot device in container %s' + src.apfsCdev
+    else:
+        group_uuid = DeviceToGroupUUID(src.apfsCdev, src.apfsVdev)
+        sys_uuid = DeviceToUUID(src.apfsVdev)
+        if group_uuid == '':
+            logging.info('Source image has NO GroupUUID')
+            print 'Source image has NO GroupUUID'
+        elif group_uuid != sys_uuid:
+            mntpt = DeviceToMntpt(preboot_dev)
+            err = docmd(['/bin/ls', '-ld', mntpt + '/' + group_uuid])
+            if err == 0:
+                src.flag |= FLAG_SRC_PREBOOT_GroupUUID
+                logging.info('Source image has GroupUUID in Preboot')
+                print 'Source image has GroupUUID in Preboot'
+            else:
+                logging.info('Source image does NOT have GroupUUID in Preboot')
+                print 'Source image does NOT have GroupUUID in Preboot'
+            docmd(['/usr/sbin/diskutil', 'umount', preboot_dev])
+
+    docmd(['hdiutil', 'detach', src.diskimgdev])
+    src.apfsCdev = ''
+    src.apfsVdev = ''
+
+
+#================================================
+#    VERIFY TARGET RESULT
+#================================================
+
+#
+# Verify if the resulting target volume can be unmounted, i.e. check EBUSY
+#
+def verify_unmount(tgt):
+    logging.info('Verifying if target can be unmount ...')
+    print 'Verifying if target can be unmount ...'
+
+    mntpt = DeviceToMntpt(tgt.apfsVdev)
+    if mntpt == '':
+        return 0
+
+    # check if the resulting target can be unmount
+    err = docmd(['/usr/sbin/diskutil', 'umount', tgt.apfsVdev])
+    if err == 0:
+        logging.info('Verifying unmount Done')
+        print 'Verifying unmount Done'
+    else:
+        logging.info('Verifying unmount Fail')
+        print 'Verifying unmount Fail'
+    return err
+
+
+#
+# Verify test result with fsck
+#
+def verify_fsck(tgt):
+    logging.info('Verifying result with fsck at ' + tgt.apfsVdev + '...')
+    print 'Verifying result with fsck at ' + tgt.apfsVdev + ' ...'
+
+    # verify with diskutil (fsck)
+    err = docmd(['/usr/sbin/diskutil', 'verifyvolume', tgt.apfsVdev])
+    if err == 0:
+        logging.info('Verifying result with fsck Done')
+        print 'Verifying result with fsck Done'
+    return err
+
+
+#
+# Check if the Preboot or Recovery volume has a directory named as System UUID.
+# For Recovery volume, check if the 'com.apple.Boot.plist' file in the system UUID
+# directory has 2 items with the same System UUID.
+#
+# Input 'Preboot' or 'Recovery' to indicate which volume
+#
+def verify_uuid_preboot_recovery(the_uuid, tgt, preb_or_recov):
+    dev = SysCntToRoleVdev(tgt.apfsCdev, preb_or_recov)
+    if dev == '':
+        logging.error('No device information for container %s', tgt.apfsCdev)
+        print 'No device information for container ' + tgt.apfsCdev
+        return 1
+
+    mntpt = DeviceToMntpt(dev)
+    err = docmd(['/bin/ls', '-ld', mntpt + '/' + the_uuid])
+    if err:
+        logging.error('No UUID:%s directory in %s', the_uuid, mntpt)
+        print 'No UUID:' + the_uuid + ' directory in ' + mntpt
+        return err
+
+    if preb_or_recov == 'Recovery':
+        # check if there is com.apple.Boot.plist file
+        file = mntpt + '/' + the_uuid + '/' + BootPlist
+        err = docmd(['/bin/ls', '-l', file])
+        # Okay if no com.apple.Boot.plist in Recovery Volume
+        if err:
+            docmd(['/usr/sbin/diskutil', 'umount', dev])
+            return 0
+
+        # If com.apple.Boot.plist is present, it should contains the
+        # same UUID as its directory UUID
+        cmd = ['/usr/bin/grep', the_uuid, file]
+        logging.info('call: {}'.format(cmd))
+        print('call: {}'.format(cmd))
+        grep = Popen(cmd, stdout=PIPE)
+
+        cmd = "/usr/bin/wc -l"
+        wcl = Popen(cmd, stdin=grep.stdout, stdout=PIPE, shell=True)
+        out, errmsg = wcl.communicate()
+        logging.info('call: {}'.format(cmd))
+        print('call: {}'.format(cmd))
+        out = out.strip()
+        logging.info(out)
+        if out != '2':
+            logging.error('Failed at setting Recovery Volume')
+            print 'Failed at setting Recovery Volume'
+            err = 1
+
+    docmd(['/usr/sbin/diskutil', 'umount', dev])
+    return err
+
+
+#
+# Preboot/Recovery volumes should have UUID directory named as either
+# the System Volume UUID or Volume Group UUID.
+#
+# Recovery volume should have a file named com.apple.Boot.plist containing
+# 2 items that include the System Volume UUID or Volume Group UUID
+#
+def verify_uuid_PrebootRecovery(tgt):
+    logging.info('Verifying Preboot/Recovery UUID: ')
+    logging.info('...... ')
+    print 'Verifying Preboot/Recovery UUID: '
+    print '...... '
+
+    if (tgt.src.flag & FLAG_SRC_PREBOOT_GroupUUID):
+        the_uuid = DeviceToGroupUUID(tgt.apfsCdev, tgt.apfsVdev)
+    else:
+        the_uuid = DeviceToUUID(tgt.apfsVdev)
+    if the_uuid == '':
+        logging.info('Verifying Preboot/Recovery UUID Fail: can not find UUID ')
+        print 'Verifying Preboot/Recovery UUID Fail: can not find UUID '
+        return 1
+
+    err = verify_uuid_preboot_recovery(the_uuid, tgt, 'Preboot')
+    if err:
+        logging.error('Verifying Preboot UUID Fail: at Preboot')
+        print 'Verifying Preboot UUID Fail: at Preboot'
+        return err
+
+    err = verify_uuid_preboot_recovery(the_uuid, tgt, 'Recovery')
+    if err:
+        logging.error('Verifying Recovery UUID Fail: at Recovery')
+        print 'Verifying Recovery UUID Fail: at Recovery'
+        return err
+
+    logging.info('Verifying Preboot/Recovery UUID Done')
+    print 'Verifying Preboot/Recovery UUID Done'
+    return 0
+
+
+#
+# Verify all APFS container/disk/volume UUID on the system
+# are unique, no duplicated UUID.
+#
+def verify_uuid_nodup():
+    uuid_dict = {}
+
+    logging.info('Verifying no dup UUID ...')
+    print 'Verifying no dup UUID ...'
+
+    plist, err = docmd_plist(['/usr/sbin/diskutil', 'apfs', 'list', '-plist'])
+    if err:
+        return err
+
+    container_array = plist['Containers']
+    for c_entry in container_array:
+        c_uuid = c_entry['APFSContainerUUID']
+        if c_uuid not in uuid_dict:
+            uuid_dict[c_uuid] = c_entry['ContainerReference']
+        else:
+            vdev = uuid_dict[c_uuid]
+            logging.error('Fail Duplicated UUID: %s:%s', c_uuid, vdev)
+            print 'Fail Duplicated UUID: ' + c_uuid + ':' + vdev
+            return 1
+
+        volume_array = c_entry['Volumes']
+        for v_entry in volume_array:
+            v_uuid = v_entry['APFSVolumeUUID']
+            if v_uuid not in uuid_dict:
+                uuid_dict[v_uuid] = v_entry['DeviceIdentifier']
+            else:
+                vdev = uuid_dict[v_uuid]
+                logging.error('Fail Duplicated UUID: %s:%s', v_uuid, vdev)
+                print 'Fail Duplicated UUID: ' + v_uuid + ':' + vdev
+                return 1
+
+    logging.info('Verifying no dup UUID Done')
+    print 'Verifying no dup UUID Done'
+    return 0 # success
+
+
+#
+# Verify --toSnapshot restore result
+#
+def verify_toSnap(src, tgt, useDataSnap, index):
+    logging.info('Verify toSnapshot result ...')
+    print 'Verify toSnapshot result ...'
+    if useDataSnap:
+        snap = src.snapdata
+        other_snap = src.snapsys
+        tgtmntpt = tgt.apfsDVmntpt
+        other_tgtmntpt = tgt.apfsVmntpt
+    else:
+        snap = src.snapsys
+        other_snap = src.snapdata
+        tgtmntpt = tgt.apfsVmntpt
+        other_tgtmntpt = tgt.apfsDVmntpt
+
+    tgtuuid = snap_nametouuid(tgtmntpt, snap[index][SNAME])
+    if tgtuuid != snap[index][SUUID]:
+        logging.error('Verify Snapshot UUID %s/%s Fail', snap[index][SNAME], snap[index][SUUID])
+        print 'Verify Snapshot UUID ' + snap[index][SNAME] + '/' + snap[index][SUUID] + ' Fail'
+        return 1
+
+    err = docmd(['/bin/ls', tgtmntpt + snap[index][SFILE]])
+    if err:
+        logging.error('Verify Snapshot file %s Fail', tgtmntpt + snap[index][SFILE])
+        print 'Verify Snapshot file ' + tgtmntpt + snap[index][SFILE] + ' Fail'
+        return 1
+
+    if other_tgtmntpt != '':
+        if index == SNAPDIFF:
+            sfile = other_tgtmntpt + other_snap[SNAPLIVE][SFILE]
+            err = docmd(['/bin/ls', sfile])
+            if err:
+                logging.error('Verify live file %s Fail', sfile)
+                print 'Verify live file ' + sfile + ' Fail'
+                return 1
+        else:
+            sfile = other_tgtmntpt + other_snap[index][SFILE]
+            err = docmd(['/bin/ls', sfile])
+            if err:
+                logging.error('Verify Snapshots file %s Fail', sfile)
+                print 'Verify Snapshot file "' + sfile + '" Fail'
+                return 1
+
+    logging.info('Verify toSnapshot Done')
+    print 'Verify toSnapshot Done'
+    return 0
+
+
+#
+# Verify --fromSnapshot & --toSnapshot restore result
+#
+def verify_fromtoSnap(src, tgt, useDataSnap, from_index, to_index):
+    logging.info('Verify fromtoSnapshot result ...')
+    print 'Verify fromtoSnapshot result ...'
+    if useDataSnap:
+        snap = src.snapdata
+        tgtmntpt = tgt.apfsDVmntpt
+    else:
+        snap = src.snapsys
+        tgtmntpt = tgt.apfsVmntpt
+
+    fromname = snap[from_index][SNAME]
+    fromuuid = snap_nametouuid(tgtmntpt, fromname)
+    if fromuuid != snap[from_index][SUUID]:
+        logging.error('Verify Snapshot from UUID %s/%s Fail', fromname, snap[from_index][SUUID])
+        print 'Verify Snapshot from UUID ' + fromname + '/' + snap[from_index][SUUID] + ' Fail'
+        return 1
+    toname = snap[to_index][SNAME]
+    touuid = snap_nametouuid(tgtmntpt, toname)
+    if touuid != snap[to_index][SUUID]:
+        logging.error('Verify Snapshot to UUID %s/%s Fail', toname, snap[to_index][SUUID])
+        print 'Verify Snapshot to UUID ' + toname + '/' + snap[to_index][SUUID] + ' Fail'
+        return 1
+
+    err = docmd(['/bin/ls', tgtmntpt + snap[to_index][SFILE]])
+    if err:
+        logging.error('Verify Snapshot file "%s" Fail', snap[to_index][SFILE])
+        print 'Verify Snapshot file ' + snap[to_index][SFILE] + ' Fail'
+        return 1
+    # XXX check the other mountpoint has no data change?
+
+    logging.info('Verify fromtoSnapshot Done')
+    print 'Verify fromtoSnapshot Done'
+    return 0
+
+
+#
+# Verify ROSV restored target volume has a System role
+#
+def verify_rosv(tgt):
+    # Verify if the target volume has a 'System' role
+    logging.error('Verifying ROSV target volume...')
+    print 'Verifying ROSV target volume...'
+    isSys = CheckVdevRole(tgt.apfsCdev, tgt.apfsVdev, 'System')
+    if isSys:
+        logging.info('Verifying ROSV target volume Done')
+        print 'Verifying ROSV target volume Done'
+        return 0
+    else:
+        logging.error('Verifying ROSV target volume Fail')
+        print 'Verifying ROSV target volume Fail'
+        return 1
+
+
+#
+# XXX TBD
+# Use /usr/local/bin/volcaps to check if target mounted System Volume
+# is sealed:
+# % volcaps /Volumes/<target-System-volume> | grep "sealed: yes"
+#
+# XXX add a check for OS.dmg.root_hash file in preboot. A system is
+# considered ARV if preboot has root hash file or sealed property is present.
+#
+def verify_ssv(tgt):
+    return 0
+
+
+#
+# XXX TBD
+# Verify if target is FileVaulted/locked?
+#
+def verify_encrypt(tgt):
+    return 0
+
+
+#
+# verify bless:
+#
+# In asr RunBlessOnVolume(), it execv:
+#    bless --folder <dir> --file <file> --bootefi
+# In asr CopyBlessInfoOnVolume(), it execv:
+#    /usr/sbin/bless --info <target volume> --plist
+# So, can consider a bless sanity check is already done in asr.
+#
+
+
+#
+# XXX What else to verify?
+# - Target container should not have ASRNewVolume name after restore
+#   is done and target volume is mounted
+# - Check the content of the pre-existing volumes in the same container are left
+#   unmodified if all volumes are required to be unmounted before restore, or
+#   can be writable if these volumes can remain mounted rw during restore.
+# - source/target has new files writen during restore
+#
+
+
+#===========================================================
+#   MAKE DISKIMAGE/CONTAINER/VOLUME for SOURCE or TARGET
+#===========================================================
+
+#
+# Get a copy of com.apple.Boot.plist file from root's Recovery volume,
+# and copy it to a new location.
+#
+def setupBootPlist(new_uuid):
+    #
+    # Find com.apple.Boot.plist in root's Recovery volume
+    #
+    root_dev = MntptToDevice('/')
+    root_Cdev = DeviceToContainer(root_dev)
+    root_recovdev = SysCntToRoleVdev(root_Cdev, 'Recovery')
+    root_recovmntpt = DeviceToMntpt(root_recovdev)
+    dir_entries = listdir(root_recovmntpt)
+    root_uuid = ''
+    for root_uuid in dir_entries:
+        if len(root_uuid) == 36:
+            break; # the first UUID entry name
+    root_bpfile = root_recovmntpt + '/' + root_uuid + '/' + BootPlist
+    err = docmd(['/bin/ls', '-l', root_bpfile])
+    if err:
+        docmd(['/usr/sbin/diskutil', 'unmount', root_recovdev])
+        return ''
+
+    new_bpfile = TESTDIR + BootPlist
+    # Copy root's com.apple.Boot.plist to the new location
+    err = docmd(['/bin/cp', root_bpfile, new_bpfile])
+    if err == 0:
+        # Edit the com.apple.Boot.plist file with the new uuid
+        re = 's/' + root_uuid + '/' + new_uuid + '/g'
+        err = docmd(['/usr/bin/sed', '-i', '-e', re, new_bpfile])
+
+    docmd(['/usr/sbin/diskutil', 'unmount', root_recovdev])
+    if err == 0:
+        return new_bpfile
+    else:
+        return ''
+
+
+#
+# Setup LocalPolicy:
+#    for external disk: in /System/Volumes/iSCPreboot/<uuid>
+#    for internal disk: in Preboot
+#
+# This test program uses diskimage as the backing store which is
+# treated as an external disk.
+#
+# Use 'personalize_macos' to generate a personalized
+# apticket.<model>.<ECID>.im4m, e.g. apticket.24.8027.368392280012E.im4m,
+# which will be stored in /Volumes/TestSystem/restore/ directory
+#    % personalize_macos -v /Volumes/TestSystem
+#
+# With the apticket, use bpgen to generate a LocalPolicy for external disk:
+# (the apticket should match the img4 files planned for stitching)
+#     % bpgen localpolicy -i <apticket> -d /System/Volumes/iSCPreboot/<uuid>/LocalPolicy'
+#
+# Also, need bootpolicy entitlement set to true:
+#    com.apple.private.security.bootpolicy
+#
+def setupLocalPolicy(src, prebmnt, uuid):
+    docmd(['defaults', 'write', '/Library/Preferences/com.apple.security.bootpolicy', 'Entitlements', '-string', 'always'])
+
+    err = docmd(['/usr/local/bin/personalize_macos', '-v', src.apfsVmntpt])
+    if err:
+        return err
+
+    fromdir = src.apfsVmntpt + SRCDIR_PATH
+    restoredir = prebmnt + '/' + uuid + SRCDIR_PATH
+    docmd(['/bin/mkdir', '-p', restoredir])
+    apticket = ''
+    for file in glob.glob(fromdir + '*'):
+        if 'apticket' in file:
+            apticket = file
+    if apticket == '':
+        logging.error('Fail to get apticket file in %s', fromdir)
+        print 'Fail to get apticket file in ' + fromdir
+        return 1
+    err = docmd(['/bin/cp', apticket, restoredir])
+    if err:
+        return err
+
+    lpdir = '/System/Volumes/iSCPreboot/' + uuid + '/LocalPolicy'
+    docmd(['/bin/mkdir', '-p', lpdir])
+    err = docmd(['/usr/local/bin/bpgen', 'localpolicy', '-i', apticket, '-d', lpdir])
+    if err:
+        logging.error('Fail to generate LocalPolciy in %s', lpdir)
+        print 'Fail to generate LocalPolciy in ' + lpdir
+        return 1
+
+    return 0
+
+
+#
+# Setup 'raw' files needed to feed the libbless2 APIs for boot volume
+# on Apple Silicon
+#
+def setupBless2Files(src, mntpt, the_uuid):
+    global bless2_rootCdev, bless2_rootVdev
+
+    #
+    # Copy files from /System/Volumes/Preboot/<group_uuid> to the
+    # new Preboot mount point as the "raw" files for the testing boot volume.
+    #
+    root_dev = MntptToDevice('/')
+    root_Cdev = DeviceToContainer(root_dev)
+    root_group_uuid = DeviceToGroupUUID(root_Cdev, root_dev)
+    root_prebdir = '/System/Volumes/Preboot/' + root_group_uuid
+    bless2_rootCdev = root_Cdev
+    bless2_rootVdev = root_dev
+
+    #
+    # copy /System/Volumes/Preboot/<root_guuid>/usr/standalone
+    # to <preboot>/<uuid>/usr/
+    # Files: firmware/iBoot.img4, firmware/root_hash.img4,
+    #        firmware/base_system_root_hash.img4, i386/, etc.
+    #
+    fromdir = root_prebdir + '/usr/standalone'
+    todir = mntpt + '/' + the_uuid + '/usr/'
+    docmd(['/bin/mkdir', '-p', todir])
+    err = docmd(['/bin/cp', '-R', fromdir, todir])
+    if err:
+        return err
+
+    #
+    # copy /System/Volumes/Preboot/<root_guuid>/restore
+    # to <preboot>/<uuid>/restore,
+    # but not copy apticket* files (will be generated thru setupLocalPoicy)
+    # Files: BuildManifest.plist, Firmware/*.im4p (payload files), etc.
+    #
+    fromdir = root_prebdir + SRCDIR_PATH
+    todir = mntpt + '/' + the_uuid + SRCDIR_PATH
+    docmd(['/bin/mkdir', '-p', todir])
+    for file in glob.glob(fromdir + '*'):
+        if 'apticket' in file:
+            continue;
+        elif os.path.isdir(file):
+            err = docmd(['/bin/cp', '-R', file, todir])
+        else:
+            err = docmd(['/bin/cp', file, todir])
+    if err:
+        return err
+
+    #
+    # copy /System/Volumes/Preboot/<root_guuid>/boot/System/Library
+    # to <preboot>/<uuid>/System/boot/System
+    # Files: KernelCollections/*
+    #
+    fromdir = root_prebdir + '/boot/System/Library'
+    todir = mntpt + '/' + the_uuid + '/boot/System/'
+    docmd(['/bin/mkdir', '-p', todir])
+    err = docmd(['/bin/cp', '-R', fromdir, todir])
+    if err:
+        return err
+
+    #
+    # Set up LocalPolicy with newly created personalized apticket
+    #
+    err = setupLocalPolicy(src, mntpt, the_uuid)
+    if err:
+        return err
+
+    return 0
+
+
+#
+# Add Preboot and Recovery Volumes to a container using ERB
+#
+def add_preb_recov_volumes(src):
+    global isArm
+    global bless2_prebvdev, bless2_srcdirpath, bless2_osmanifestpath
+    global bless2_guuid
+
+    err = docmd(['/usr/local/bin/dmtest', 'erb', src.apfsVdev])
+    if err:
+        return err
+
+    #
+    # For Preboot Volume:
+    #
+    # Check if erb creates a Volume Group UUID dir or System Volume UUID dir.
+    # This is for a new source image, there should be only 1 UUID-dir
+    #
+    prebvdev = SysCntToRoleVdev(src.apfsCdev, 'Preboot')
+    prebmntpt = DeviceToMntpt(prebvdev)
+    dir_entries = listdir(prebmntpt)
+    the_uuid = ''
+    for the_uuid in dir_entries:
+        break; # just need the first and only entry name
+    if the_uuid == '':
+        logging.error('No UUID entry, ERB error?')
+        print 'No UUID entry, ERB error?'
+        return 1
+    is_group = isGroupUUID(src.apfsCdev, the_uuid)
+    if is_group:
+        src.flag |= FLAG_SRC_PREBOOT_GroupUUID
+
+    #
+    # Copy /usr/standalone/i386/boot* (include *.im4m) to Preboot volume
+    # ./Preboot/<the_uuid>/System/Library/CoreServices/
+    #
+    todir = prebmntpt + '/' + the_uuid + '/System/Library/CoreServices/'
+    for file in glob.glob('/usr/standalone/i386/boot*'):
+        err = docmd(['/bin/cp', file, todir])
+        if err:
+            logging.error('Fail to copy boot file: %s', file)
+            print 'Fail to copy boot file: ' + file
+            return err
+
+    #
+    # For bless2, Apple Silicon systems
+    #
+    if isArm == True:
+        err = setupBless2Files(src, prebmntpt, the_uuid)
+        if err:
+            return err
+
+    bless2_guuid = the_uuid
+    bless2_prebvdev = prebvdev
+    bless2_srcdirpath = '/' + the_uuid + SRCDIR_PATH
+    bless2_osmanifestpath = '/' + the_uuid + SRCDIR_PATH
+    docmd(['/usr/sbin/diskutil', 'unmount', prebvdev])
+
+    #
+    # For Recovery Volume:
+    #
+    # Find com.apple.Boot.plist file in '/' root's Recovery volume,
+    # if there is one, copy it to TESTDIR, and replace its uuid with
+    # the uuid created by 'dmtest erb'.
+    # If there is none, that's okay, no setup is needed.
+    #
+    bpfile = setupBootPlist(the_uuid)
+    if bpfile == '':
+        return 0
+
+    # Copy the new BootPlist file to the new Recovery/<the_uuid>/ directory
+    recovdev = SysCntToRoleVdev(src.apfsCdev, 'Recovery')
+    recovmntpt = DeviceToMntpt(recovdev)
+    todir = recovmntpt + '/' + the_uuid
+    err = docmd(['/bin/cp', bpfile, todir])
+    docmd(['/usr/sbin/diskutil', 'unmount', recovdev])
+    docmd(['/bin/rm', bpfile + '-e'])
+    docmd(['/bin/rm', bpfile])
+    return err
+
+
+#
+# Seal the given source volume/device
+# Encryption and Sealing do not co-exist on a System Volume
+#
+def seal_source(src):
+    if src.flag & FLAG_SRC_Encrypt:
+        logging.error('Encryption and Sealing do not co-exist on a System Volume')
+        print 'Encryption and Sealing do not co-exist on a System Volume'
+        return 1
+
+    if src.name != src.apfsVdev and src.name != src.apfsDVdev:
+        docmd(['/usr/sbin/diskutil', 'mount', src.name])
+        sealdev = MntptToDevice(src.name)
+        src.name = sealdev
+    if src.apfsVdev != '':
+        docmd(['/usr/sbin/diskutil', 'unmount', src.apfsVdev])
+    if src.apfsDVdev != '':
+        docmd(['/usr/sbin/diskutil', 'unmount', src.apfsDVdev])
+
+    if src.flag & FLAG_SRC_SSV:
+        err = docmd([APFS_SEALER, '-T', src.name])
+    elif src.flag & FLAG_SRC_SSV_SNAP:
+        err = docmd([APFS_SEALER, '-s', src.snapsys[SNAP1][SNAME], src.name])
+    else:
+        err = 1
+        logging.error('Something is not right')
+        print 'Something is not right'
+
+    if err:
+        logging.error('Fail to seal the source %s, err=%d', src.name, err)
+        print 'Fail to seal the source ' + src.name + ' err = %d\n'%err
+    return err
+
+
+#
+# Make a dummy single volume based on a diskimage
+#
+def make_dummy_vol(obj, size, content, vname, imgname, fstype):
+    if content != '':
+        err = docmd(['/usr/bin/hdiutil', 'create', '-size', size, '-srcfolder', content,
+            '-fs', fstype, '-format', 'UDRW', '-volname', vname, '-ov', imgname])
+    else:
+        err = docmd(['/usr/bin/hdiutil', 'create', '-size', size, '-fs', fstype,
+            '-volname', vname, '-ov', imgname])
+    if err:
+        return err
+
+    # attach the source image
+    err  = do_attach(obj, imgname)
+    if err:
+        return err
+
+    if (obj.flag & FLAG_SRC_Encrypt) or (obj.flag & FLAG_TGT_Encrypt):
+        # Enable encryption
+        err = docmd(['/usr/sbin/diskutil', 'apfs', 'enableFileVault', obj.apfsVdev,\
+            '-user', 'disk', '-passphrase', 'disk'])
+        if err:
+            return err
+
+    if fstype == 'APFS':
+        obj.name = obj.apfsVdev
+    elif fstype == 'HFS+':
+        obj.name = obj.hfsdev
+    docmd(['/bin/mkdir', '-p', obj.apfsVmntpt + '/var/tmp/'])
+    docmd(['/bin/chmod', '777', obj.apfsVmntpt + '/var/tmp/'])
+    return err
+
+
+#
+# Make a dummy data image and scan it as the source
+#
+def make_dummy_img(src, fstype):
+    err = docmd(['/usr/bin/hdiutil', 'create', '-size', SIZE_SRCDATA, '-srcfolder', SRCDATA,
+        '-fs', fstype, '-format', 'UDZO', '-volname', SRCVOL, '-ov', SRCIMG])
+    if err:
+        return err
+
+    # scan the source image
+    err = docmd(['/usr/sbin/asr', 'imagescan', '-s', SRCIMG])
+    if err:
+        return err
+    src.name = SRCIMG
+    return err
+
+
+#
+# make a dummy hfs disk image
+#
+def make_dummy_hfsimg(src):
+    return make_dummy_img(src, 'HFS+')
+
+
+#
+# Copy some files to Source object
+#
+def fill_os_data(src):
+    dirusr = '/usr/'
+    dirsl = '/System/Library/'
+    dircs = '/System/Library/CoreServices/'
+    bootfiles = dircs + 'boot*'
+    svfile = dircs + 'SystemVersion.plist'
+    dirtmp = '/var/tmp/'
+
+    #
+    # In /usr/standalone, there are bootcaches.plist, i386/, firmware/
+    #
+    todir = src.apfsVmntpt + '/usr'
+    docmd(['/bin/mkdir', '-p', todir])
+    docmd(['/bin/cp', '-R', dirusr + 'standalone', todir])
+
+    # /System/Library/Caches
+    todir = src.apfsVmntpt + dirsl
+    docmd(['/bin/mkdir', '-p', todir])
+    docmd(['/bin/cp', '-R', dirsl + 'Caches', todir])
+
+    # /System/Library/CoreServices/boot*
+    todir = src.apfsVmntpt + dircs
+    docmd(['/bin/mkdir', '-p', todir])
+    for file in glob.glob(bootfiles):
+        docmd(['/bin/cp', file, todir])
+    docmd(['/bin/cp', svfile, todir])
+
+    docmd(['/bin/mkdir', '-p', src.apfsVmntpt + dirtmp])
+    docmd(['/bin/chmod', '777', src.apfsVmntpt + dirtmp])
+
+
+#
+# Make a dummy OS Container/Volume filled with basic system files from the root Volume
+#
+def make_dummy_osvol(src):
+    err = docmd(['/usr/bin/hdiutil', 'create', '-size', SIZE_SRCDATA, '-fs', 'APFS',
+        '-volname', SRCOSVOL, '-ov', SRCIMG])
+    if err:
+        return err
+
+    err = do_attach(src, SRCIMG)
+    if err:
+        return err
+
+    if src.flag & FLAG_SRC_Encrypt:
+        # Enable encryption
+        err = docmd(['/usr/sbin/diskutil', 'apfs', 'enableFileVault', src.apfsVdev,\
+            '-user', 'disk', '-passphrase', 'disk'])
+        if err:
+            return err
+
+    fill_os_data(src)
+
+    # Add Preboot and Recovery Volumes
+    err = add_preb_recov_volumes(src)
+    src.name = src.apfsVmntpt
+
+    return err
+
+
+#
+# Make a dummy OS disk image as the Source
+#
+def make_dummy_osimg(src):
+    err = make_dummy_osvol(src)
+    if err:
+        return err
+    docmd(['/usr/sbin/diskutil', 'unmount', src.apfsVdev])
+    src.name = SRCOSIMG
+    err = docmd(['/usr/bin/hdiutil', 'create', '-srcdevice', src.apfsCdev, \
+        '-ov', src.name])
+    if err:
+        return err
+    err = docmd(['/usr/sbin/asr', 'imagescan', '-s', src.name])
+    return err
+
+
+#
+# Map snapshot name to its UUID for the given volume
+#
+def snap_nametouuid(vol, snapname):
+    plist, err = docmd_plist(['/usr/sbin/diskutil', 'apfs', 'listSnapshots', '-plist',\
+        vol])
+    if not err:
+        snap_array = plist['Snapshots']
+        for s_entry in snap_array:
+            if (s_entry['SnapshotName'] == snapname):
+                return s_entry['SnapshotUUID']
+    return ''
+
+
+#
+# Initialize snapshot values
+#
+SNAME = 0
+SFILE = 1
+SUUID = 2
+def init_snap_values(snap, name, file, uuid):
+    snap[SNAME] = name
+    snap[SFILE] = file
+    snap[SUUID] = uuid
+
+
+#
+# Create one snapshot for the given source mountpoint and store its UUID information
+#
+def make_one_snapshot(src, snapentry, mntpt):
+    err = docmd(['/usr/bin/touch', mntpt + snapentry[SFILE]])
+    if err == 0:
+        err = docmd(['/usr/local/bin/apfs_snapshot', '-c', snapentry[SNAME], mntpt])
+    if err == 0:
+        snapuuid = snap_nametouuid(mntpt, snapentry[SNAME])
+        if snapuuid != '':
+            snapentry[SUUID] = snapuuid
+        else:
+            err = 1
+    return err
+
+
+#
+# Setup snapshots on the Source for Snapshot Testing
+#
+def make_snapshots(src):
+    err = make_one_snapshot(src, src.snapsys[SNAP1], src.apfsVmntpt)
+    if err == 0:
+        err = make_one_snapshot(src, src.snapsys[SNAP2], src.apfsVmntpt)
+    if err == 0:
+        err = make_one_snapshot(src, src.snapsys[SNAP3], src.apfsVmntpt)
+    if err == 0:
+        err = make_one_snapshot(src, src.snapsys[SNAPDIFF], src.apfsVmntpt)
+    if err == 0:
+        err = make_one_snapshot(src, src.snapsys[SNAPLIVE], src.apfsVmntpt)
+    docmd(['/usr/local/bin/apfs_snapshot', '-l', src.apfsVmntpt])
+
+    # If source is ROSV
+    if err == 0 and src.apfsDVmntpt != '':
+        err = make_one_snapshot(src, src.snapdata[SNAP1], src.apfsDVmntpt)
+        if err == 0:
+            err = make_one_snapshot(src, src.snapdata[SNAP2], src.apfsDVmntpt)
+        if err == 0:
+            err = make_one_snapshot(src, src.snapdata[SNAP3], src.apfsDVmntpt)
+        if err == 0:
+            err = make_one_snapshot(src, src.snapdata[SNAPDIFF], src.apfsDVmntpt)
+        if err == 0:
+            err = make_one_snapshot(src, src.snapdata[SNAPLIVE], src.apfsDVmntpt)
+        docmd(['/usr/local/bin/apfs_snapshot', '-l', src.apfsDVmntpt])
+
+    return err
+
+
+#
+# Make a dummy OS APFS volume with multiple snapshots
+#
+def make_dummysnap_osvol(src):
+    err = make_dummy_osvol(src)
+    if err:
+        return err
+
+    # setup snapshots
+    err = make_snapshots(src)
+    return err
+
+
+#
+# Make a dummy disk image contianing a APFS volume with multiple snapshots
+#
+def make_dummysnap_osimg(src):
+    err = make_dummysnap_osvol(src)
+    if err:
+        return err
+
+    # create dmg
+    err = docmd(['/usr/sbin/diskutil', 'unmount', src.apfsVdev])
+    if err:
+        return err
+    src.name = SRCOSIMG
+    err = docmd(['/usr/bin/hdiutil', 'create', '-srcdevice', src.apfsCdev, \
+        '-ov', src.name])
+    if err:
+        return err
+    err = docmd(['/usr/sbin/asr', 'imagescan', '-s', src.name])
+    return err
+
+
+#
+# Make a dummy APFS Container with a Read-Only System Volume (Role: System)
+# and a Data Volume (Role: Data)
+#
+def make_dummy_rosv(obj, size, sysvol, datavol, imgname):
+    #
+    # Create the Data Volume first because diskutil -groupWith works this way
+    #
+    err = docmd(['/usr/bin/hdiutil', 'create', '-size', size, '-fs', 'APFS',
+        '-volname', datavol, '-ov', imgname])
+    if err:
+        return err
+
+    err = do_attach(obj, imgname)
+    if err:
+        return err
+
+    # Set 'Data' role for the 'Data' volume to be in a volume-group
+    err = docmd(['/usr/sbin/diskutil', 'apfs', 'chrole', obj.apfsVdev, 'D'])
+    if err:
+        return err
+
+    # Save the vdev and mountpoint information for the Data Volume
+    obj.apfsDVdev = obj.apfsVdev
+    obj.apfsDVmntpt = obj.apfsVmntpt
+
+    #
+    # Create a 'System' volume to be in the same volume-group as 'Data' volume
+    #
+    err = docmd(['/usr/sbin/diskutil', 'apfs', 'addVolume', obj.apfsCdev, 'APFS',
+        sysvol, '-role', 'S', '-groupWith', obj.apfsVdev])
+    if err:
+        return err
+
+    # Update the vdev and mountpoint information for the System Volume
+    obj.apfsVmntpt = VOLDIR + sysvol
+    obj.apfsVdev = MntptToDevice(obj.apfsVmntpt)
+    obj.name = obj.apfsVdev
+
+    #
+    # Fill in some data in System-Volume
+    #
+    fill_os_data(obj)
+
+    # Fill in some data in Data-Volume
+    dirusers = '/Users'
+    docmd(['/bin/mkdir', '-p', obj.apfsDVmntpt + dirusers])
+    docmd(['/bin/cp',  '/etc/passwd', obj.apfsDVmntpt + dirusers])
+    docmd(['/bin/chmod', '600', obj.apfsDVmntpt + dirusers + '/passwd'])
+
+    # Create the 'firmlinks' file in /usr/share on the System-Volume
+    docmd(['/bin/mkdir', '-p', obj.apfsVmntpt + '/usr/share/'])
+    flnk_name = obj.apfsVmntpt + '/usr/share/' + 'firmlinks'
+    newf = open(flnk_name, 'w+')
+    newf.write('/Users\t	Users\n')
+    newf.close()
+
+    #
+    # Create firmlinks from System-Volume directory to Data-Volume directory
+    # % sudo apfsctl firmlink -s 1 Users /Volumes/system-volume/Users
+    #        (target_path 'Users' is relative to data-volume root, e.g.
+    #         /Volumes/data-volume/ or /Volumes/system-volume/System/Volumes/Data/)
+    #
+    tgt_path = dirusers
+    src_path = obj.apfsVmntpt + dirusers
+    docmd(['/bin/mkdir', '-p', src_path])
+    err = docmd(['/usr/local/bin/apfsctl', 'firmlink', '-s', '1', tgt_path, src_path])
+    if err:
+        return err
+
+    # Add Preboot and Recovery Volumes
+    err = add_preb_recov_volumes(obj)
+    if err:
+        return err
+    err = docmd(['/usr/sbin/bless', '--folder', obj.apfsVmntpt + '/System/Library/CoreServices',\
+        '--bootefi'])
+
+    #
+    # XXX EnableFileVault Not Supported on System volume nor Data volume
+    # Enable encryption on Data volume
+    #
+    # if obj.flag & FLAG_SRC_Encrypt_DATA:
+    #    err = docmd(['/usr/sbin/diskutil', 'apfs', 'enableFileVault', obj.apfsDVdev,\
+    #        '-user', 'disk', '-passphrase', 'disk'])
+    #    if err:
+    #        return err
+    #
+
+    if err == 0:
+        docmd(['/usr/sbin/diskutil', 'unmount', obj.apfsVdev])
+        err = docmd(['/usr/sbin/diskutil', 'mount', 'readOnly', obj.apfsVdev])
+    print_dev_info(obj)
+    return err
+
+
+#
+# Make a dummy disk image contianing a APFS Container with a Read-Only System Volume
+# (Role: System) and a Data Volume (Role: Data)
+#
+def make_dummy_rosvimg(src):
+    err = make_dummy_rosv(src, SIZE_SRCDATA, SRCROSVSYSVOL, SRCROSVDATAVOL, SRCIMG)
+    if err:
+        return err
+    docmd(['/usr/sbin/diskutil', 'unmount', src.apfsDVdev])
+    docmd(['/usr/sbin/diskutil', 'unmount', src.apfsVdev])
+
+    src.name = SRCROSVIMG
+    err = docmd(['/usr/bin/hdiutil', 'create', '-srcdevice', src.apfsCdev, \
+        '-ov', src.name])
+    if err:
+        return err
+    err = docmd(['/usr/sbin/asr', 'imagescan', '-s', src.name])
+    return err
+
+
+#
+# Make a dummy ROSV volume with some snapshots as the source
+#
+def make_dummysnap_rosv(src):
+    err = make_dummy_rosv(src, SIZE_SRCDATA, SRCROSVSYSVOL, SRCROSVDATAVOL, SRCIMG)
+    if err == 0:
+        # Remount System volume as read-write
+        err = docmd(['/usr/sbin/diskutil', 'unmount', src.apfsVdev])
+        if err == 0:
+            err = docmd(['/usr/sbin/diskutil', 'mount', src.apfsVdev])
+        if err == 0:
+            err = make_snapshots(src)
+    return err
+
+
+#
+# Make a dummy ROSV diskimage with some snapshots as the source
+#
+def make_dummysnap_rosvimg(src):
+    err = make_dummysnap_rosv(src)
+    if err:
+        return err
+
+    docmd(['/usr/sbin/diskutil', 'unmount', src.apfsDVdev])
+    docmd(['/usr/sbin/diskutil', 'unmount', src.apfsVdev])
+    src.name = SRCROSVIMG
+    err = docmd(['/usr/bin/hdiutil', 'create', '-srcdevice', src.apfsCdev, \
+        '-ov', src.name])
+    if err:
+        return err
+    err = docmd(['/usr/sbin/asr', 'imagescan', '-s', src.name])
+    return err
+
+
+#
+# Make a dummy single volume as the source
+#
+def make_dummy_srcvol(src):
+    err = make_dummy_vol(src, SIZE_SRCDATA, SRCDATA, SRCVOL, SRCIMG, 'APFS')
+    return err
+
+
+#
+# Make a dummy ROSV volume as the source
+#
+def make_dummy_srcrosv(src):
+    err = make_dummy_rosv(src, SIZE_SRCDATA, SRCROSVSYSVOL, SRCROSVDATAVOL, SRCIMG)
+    return err
+
+
+#
+# Make a dummy single volume as the target
+#
+def make_dummy_tgtvol(tgt):
+    err = make_dummy_vol(tgt, tgt.size, '', TGTVOL, TGTIMG, 'APFS')
+    return err
+
+
+#
+# Make a HFS+ volume as the target
+#
+def make_dummy_tgthfsvol(tgt, size):
+    err = make_dummy_vol(tgt, tgt.size, '', TGTVOL, TGTIMG, 'HFS+')
+    return err
+
+
+#
+# Make a dummy ROSV volume as the target
+#
+def make_dummy_tgtrosv(tgt):
+    err = make_dummy_rosv(tgt, tgt.size, TGTROSVSYSVOL, TGTROSVDATAVOL, TGTIMG)
+    docmd(['/usr/sbin/diskutil', 'unmount', tgt.apfsDVdev])
+    docmd(['/usr/sbin/diskutil', 'unmount', tgt.apfsVdev])
+    return err
+
+
+#
+# Get nvram value for the given string name
+#
+def get_nvram_value(name):
+    nvram = Popen(['/usr/sbin/nvram', name], stdout=PIPE)
+    cmd = "/usr/bin/awk 'NR==1 {print $2}'"
+    value = Popen(cmd, stdin=nvram.stdout, stdout=PIPE, shell=True)
+    out, err = value.communicate()
+    if err:
+        return ''
+    out = out.strip('\n')
+    logging.info('get_nvram_value: %s = %s', name, out)
+    print 'get_nvram_value: ' + name + ' = ' + out
+    return out
+
+
+#================================================
+#    CLASSES: SOURCE, TARGET, TEST
+#================================================
+
+#
+# SOURCE CLASS
+#    Source can be a disk image, /dev entry, or volume mountpoint.
+#    opts = (name, type, mntopt)
+#
+
+# FLAG_SRC_* between 1-15, from 16 onward is for Target FLAG_TGT_*
+FLAG_SRC_ROSVdata = 1 << 1
+FLAG_SRC_ROSVsys = 1 << 2
+FLAG_SRC_Encrypt = 1 << 3
+# XXX EnableFV on Data volume via diskutil is not supported by APFS
+FLAG_SRC_Encrypt_DATA = 1 << 4
+FLAG_SRC_SSV = 1 << 5
+FLAG_SRC_SSV_SNAP = 1 << 6
+FLAG_SRC_PREBOOT_GroupUUID = 1 << 7
+
+# Snapshot array index for snapsys and snapdata
+SNAP1 = 0
+SNAP2 = 1
+SNAP3 = 2
+SNAPDIFF = 3
+SNAPLIVE = 4
+SNAP_NONAME = 5
+
+class Source:
+    diskimgdev = ''      # disk image device
+    apfsCdev = ''        # apfs container device
+    apfsVdev = ''        # apfs (System) volume device
+    apfsVmntpt = ''      # apfs (System) volume mountpoint
+    apfsDVdev = ''       # apfs Data volume device
+    apfsDVmntpt = ''     # apfs Data volume mountpoint
+    hfsdev = ''          # hfs volume device
+    holdfile = ''        # file object for HOLDMNTFILE in apfsVmntpt
+
+    def __init__(self, opts):
+        self.name = opts[0]
+        self.type = opts[1]
+        self.mntopt = opts[2]
+        self.flag = opts[3]
+
+        # Initialize snapshots values: array of (snapshot name, file, UUID)
+        rows, cols = (6, 3)
+        self.snapsys = [['' for i in range(cols)] for j in range(rows)]
+        init_snap_values(self.snapsys[SNAP1], 'snap1', '/snapsys1-foo', '')
+        init_snap_values(self.snapsys[SNAP2], 'snap2', '/snapsys2-foo', '')
+        init_snap_values(self.snapsys[SNAP3], 'snap3', '/snapsys3-foo', '')
+        init_snap_values(self.snapsys[SNAPDIFF], 'snapsys1', '/snapsys1-bar', '')
+        init_snap_values(self.snapsys[SNAPLIVE], 'snaplive', '/livesys-bar', '')
+        init_snap_values(self.snapsys[SNAP_NONAME], 'nosnap', '', '')
+
+        self.snapdata = [['' for i in range(cols)] for j in range(rows)]
+        init_snap_values(self.snapdata[SNAP1], 'snap1', '/snapdata1-foo', '')
+        init_snap_values(self.snapdata[SNAP2], 'snap2', '/snapdata2-foo', '')
+        init_snap_values(self.snapdata[SNAP3], 'snap3', '/snapdata3-foo', '')
+        init_snap_values(self.snapdata[SNAPDIFF], 'snapdata1', '/snapdata1-bar', '')
+        init_snap_values(self.snapdata[SNAPLIVE], 'snaplive', '/livedata-bar', '')
+        init_snap_values(self.snapdata[SNAP_NONAME], 'nosnap', '', '')
+
+    def setup(self):
+        if self.type == TYPE_SRC_NAME:
+            # Just use the given name, opts[0], as the source
+            return 0
+        elif self.type == TYPE_SRC_IMG:
+            err = make_dummy_img(self, 'APFS')
+        elif self.type == TYPE_SRC_VOL:
+            err = make_dummy_srcvol(self)
+        elif self.type == TYPE_SRC_OSIMG:
+            err = make_dummy_osimg(self)
+        elif self.type == TYPE_SRC_OSVOL:
+            err = make_dummy_osvol(self)
+        elif self.type == TYPE_SRC_ROSV:
+            err = make_dummy_srcrosv(self)
+        elif self.type == TYPE_SRC_ROSVIMG:
+            err = make_dummy_rosvimg(self)
+        elif self.type == TYPE_SRC_SNAPVOL:
+            err = make_dummysnap_osvol(self)
+        elif self.type == TYPE_SRC_SNAPIMG:
+            err = make_dummysnap_osimg(self)
+        elif self.type == TYPE_SRC_SNAPROSV:
+            err = make_dummysnap_rosv(self)
+        elif self.type == TYPE_SRC_SNAPROSVIMG:
+            err = make_dummysnap_rosvimg(self)
+        elif self.type == TYPE_SRC_HFSIMG:
+            err = make_dummy_hfsimg(self)
+        else:
+            logging.error('Unknown Source Type')
+            err =  1
+        if self.flag & FLAG_SRC_ROSVdata:
+	    self.name = self.apfsDVdev
+        if err:
+            return err
+
+        if err or self.mntopt == '':
+            return err
+
+        #
+        # Now, take care of self.mntopt
+        #
+        if self.flag & FLAG_SRC_ROSVdata:
+	    vdev = self.apfsDVdev
+	    mntpt = self.apfsDVmntpt
+        else:
+	    vdev = self.apfsVdev
+	    mntpt = self.apfsVmntpt
+
+        # Create a hold file
+        if self.type == TYPE_SRC_ROSV and ((self.flag & FLAG_SRC_ROSVdata) == 0):
+            # remount ROSV System volume to write a hold file, remount back to ro
+            docmd(['/usr/sbin/diskutil', 'unmount', self.apfsVdev])
+            docmd(['/usr/sbin/diskutil', 'mount', self.apfsVdev])
+            docmd(['/usr/bin/touch', self.apfsVmntpt + HOLDMNTFILE])
+            err = docmd(['/usr/sbin/diskutil', 'mount', 'readOnly', self.apfsVdev])
+        else:
+            docmd(['/usr/bin/touch', mntpt + HOLDMNTFILE])
+
+        if self.mntopt == 'umnt':
+            err = docmd(['/usr/sbin/diskutil', 'unmount', vdev])
+            if err:
+                return err
+	    self.name = vdev
+        elif self.mntopt == 'ro' or self.mntopt == 'robusy':
+            err = docmd(['/usr/sbin/diskutil', 'unmount', vdev])
+            if err:
+                return err
+            err = docmd(['/usr/sbin/diskutil', 'mount', 'readOnly', vdev])
+
+        # Make the mount point busy and check if it's done correctly
+        if err == 0 and (self.mntopt == 'robusy' or self.mntopt == 'rwbusy'):
+            fname = mntpt + HOLDMNTFILE
+            self.holdfile = open(fname, 'r')
+            logging.info('Opening %s', fname)
+            ret = docmd(['/sbin/umount', mntpt])
+            if ret == 0:
+                logging.error('Fail: umount ' + mntpt + ' should fail with busy')
+                print 'Fail: umount ' + mntpt + ' should fail with busy'
+                err = 1
+        return err
+
+    def release(self):
+        global unclean_count
+        if self.type == TYPE_SRC_NAME:
+            return
+        if self.holdfile != '':
+            self.holdfile.close()
+            logging.info('Closing %s', self.apfsVmntpt + HOLDMNTFILE)
+            self.holdfile = ''
+        if self.apfsVdev != '':
+            docmd(['/usr/sbin/diskutil', 'apfs', 'deleteVolume', self.apfsVdev])
+        if self.apfsDVdev != '':
+            docmd(['/usr/sbin/diskutil', 'apfs', 'deleteVolume', self.apfsDVdev])
+        if self.diskimgdev != '':
+            err = docmd(['hdiutil', 'detach', self.diskimgdev])
+            for x in range(0, 3):
+                if err:
+                    print 'Wait and retry ...'
+                    time.sleep(5)
+                    err = docmd(['hdiutil', 'detach', self.diskimgdev])
+                else:
+                    break
+
+            if err:
+                logging.info('hdiutil detach ' + self.diskimgdev + ' Fail UNCLEAN')
+                print 'hdiutil detach ' + self.diskimgdev + ' Fail UNCLEAN'
+                unclean_count = unclean_count + 1
+            self.diskimgdev = ''
+        docmd(['/bin/rm', SRCOSIMG])
+        docmd(['/bin/rm', SRCROSVIMG])
+        docmd(['/bin/rm', SRCIMG])
+        return
+
+
+#
+# TARGET CLASS
+#    Target can be a APFS Container, APFS Volume, or a partition.
+#    Can use /dev name or mountpoint which must be unmountable.
+#
+#    opts = (size, flag)
+#
+#    Default restore to Target volume in a new container
+#    Restore to the current BootContainer, Target is a new volume added
+#        to the bootcontainer.
+#
+
+# Source FLAG_SRC_* is from 1-15
+FLAG_TGT_SameContainer = 1 << 16
+FLAG_TGT_BootContainer = 1 << 17
+FLAG_TGT_UseCdev = 1 << 18
+FLAG_TGT_ROSVsys = 1 << 19
+FLAG_TGT_ROSVdata = 1 << 20
+FLAG_TGT_Encrypt = 1 << 21
+FLAG_TGT_HFS = 1 << 22
+FLAG_TGT_SrcIsOS = 1 << 23
+FLAG_TGT_SrcIsROSV = 1 << 24
+
+class Target:
+    name = ''
+    diskimgdev = ''      # disk image device
+    apfsCdev = ''        # apfs container device
+    apfsVdev = ''        # apfs volume device (system)
+    apfsVmntpt = ''      # apfs volume mountpoint (system)
+    apfsDVdev = ''       # apfs ROSV Data device
+    apfsDVmntpt = ''     # apfs ROSV Data volume mountpoint
+    hfsdev = ''          # HFS partition device name
+    hfsmntpt = ''        # HFS partition mountpoint
+
+    def __init__(self, src, opts):
+        self.src = src
+        self.size = opts[0]
+        self.flag = opts[1]
+
+    def setup(self):
+        # Target is a new container: "-t <container-device>"
+        if self.flag & FLAG_TGT_HFS:
+            err = make_dummy_tgthfsvol(self, self.size)
+        elif (self.flag & FLAG_TGT_ROSVsys) or (self.flag & FLAG_TGT_ROSVdata):
+            err = make_dummy_tgtrosv(self)
+        elif self.flag & FLAG_TGT_BootContainer:
+            # Get the boot container dev
+            rootdev = MntptToDevice('/')
+            self.apfsCdev = DeviceToContainer(rootdev)
+            logging.info('Root dev = %s', rootdev)
+            logging.info('Root APFS Container = %s', self.apfsCdev)
+            # Add a Volume in the BootContainer
+            err = docmd(['/usr/sbin/diskutil', 'apfs', 'addVolume', self.apfsCdev,
+                'APFS', TGTVOL])
+        elif self.flag & FLAG_TGT_SameContainer:
+            self.apfsCdev = self.src.apfsCdev  # target volume is in the Source container
+            # Add a Volume in the container
+            err = docmd(['/usr/sbin/diskutil', 'apfs', 'addVolume', self.apfsCdev,
+                'APFS', TGTVOL])
+        else:
+            # Create one single target volume in a new container
+            err = make_dummy_tgtvol(self)
+
+        if err:
+            return err
+
+        if (self.flag & FLAG_TGT_BootContainer) or (self.flag & FLAG_TGT_SameContainer):
+            #
+	    # XXX If the same volume/mountpoint exists, new mountpoint is changed,
+            # then can't rely on VOLDIR + TGTVOL to get the Vdev.
+            #
+            self.apfsVmntpt = VOLDIR + TGTVOL
+            self.apfsVdev = MntptToDevice(self.apfsVmntpt)
+            print_dev_info(self)
+
+        # Set up target name to use
+        if self.flag & FLAG_TGT_UseCdev:
+            self.name = self.apfsCdev
+        elif self.flag & FLAG_TGT_ROSVdata:
+            self.name = self.apfsDVdev
+        elif self.flag & FLAG_TGT_HFS:
+            self.name = self.hfsdev
+        else:
+            # device of a single APFS volume or the System volume in ROSV
+            self.name = self.apfsVdev
+        return err
+
+    def release(self):
+        global unclean_count
+
+        if self.apfsVdev != '':
+            docmd(['/usr/sbin/diskutil', 'apfs', 'deleteVolume', self.apfsVdev])
+        if self.apfsDVdev != '':
+            docmd(['/usr/sbin/diskutil', 'apfs', 'deleteVolume', self.apfsDVdev])
+        if self.diskimgdev != '':
+            err = docmd(['hdiutil', 'detach', self.diskimgdev])
+            for x in range(0, 3):
+                if err:
+                    print 'wait and retry ...'
+                    time.sleep(5)
+                    err = docmd(['hdiutil', 'detach', self.diskimgdev])
+                else:
+                    break
+
+            if err:
+                logging.info('hdiutil detach ' + self.diskimgdev + ' Fail UNCLEAN')
+                print 'hdiutil detach ' + self.diskimgdev + ' Fail UNCLEAN'
+                unclean_count = unclean_count + 1
+            docmd(['/bin/rm', TGTIMG])
+        return
+
+    def updateVdevVmntpt(self, test):
+        global unclean_count
+
+        logging.info('Checking if Target vdev needs to be updated...')
+        print 'Checking if Target vdev needs to be updated...'
+        print_dev_info(self)
+        #
+        # If source is ROSV:
+        #    if target is a container, a volume-group is created on the target
+        #    if target is one volume, 2nd volume will be created for target volume-group
+        #    if target is ROSV Data volume, a new System volume will be on this Data device
+        # So, make sure the target has the correct System and Data volume devs
+        #
+        if self.flag & FLAG_TGT_SrcIsROSV:
+            sysdev, datadev = ContainerToSysData(self.apfsCdev)
+            if sysdev == '' or datadev == '':
+                logging.info('Something is not right, No Volume-Group?')
+                print 'Something is not right, No Volume-Group?'
+                return
+            self.apfsVdev = sysdev
+            self.apfsDVdev = datadev
+        elif test.flag & TESTFLAG_NoErase:
+            #
+            # If restore to a new container without erase, a new target volume is created,
+            # update the target vdev to this new vdev
+            # (if target is a boot container or same container, target would be a volume
+            # which must use --erase to restore)
+            #
+            plist, err = docmd_plist(['/usr/sbin/diskutil', 'apfs', 'list', '-plist', self.apfsCdev])
+            if err:
+                logging.info('Something is not right, UNCLEAN?')
+                print 'Something is not right, UNCLEAN?'
+                unclean_count = unclean_count + 1
+                return
+            C_array = plist['Containers']
+            C_dict = C_array[0]
+            V_array = C_dict['Volumes']
+            for entry in V_array:
+                Vdev = '/dev/' + entry['DeviceIdentifier']
+                role_array = entry['Roles']
+                if (not role_array and Vdev != self.apfsVdev):
+                    self.apfsVdev = Vdev
+                    break
+        elif self.flag & FLAG_TGT_ROSVdata:
+            #
+            # Source is not-ROSV (single volume), Target is an ROSV Data volume, then
+            # the result has only 1 single volume (original ROSV is removed)
+            #
+            self.apfsVdev = self.apfsDVdev
+            self.apfsDVdev = ''
+
+        # Update the target mountpoint since target volume is renamed
+        self.apfsVmntpt = DeviceToMntpt(self.apfsVdev)
+        if self.apfsDVdev != '':
+            self.apfsDVmntpt = DeviceToMntpt(self.apfsDVdev)
+
+        logging.info('Updated target vdev and mountpoint:')
+        print 'Updated target vdev and mountpoint:'
+        print_dev_info(self)
+        return
+
+    def verify(self, testname):
+	err = verify_fsck(self)
+        if err == 0:
+            err = verify_uuid_nodup()
+        if err == 0 and (self.flag & FLAG_TGT_SrcIsOS or self.flag & FLAG_TGT_SrcIsROSV):
+            # Check preboot and Recovery volume
+            err = verify_uuid_PrebootRecovery(self)
+            # Check ROSV target
+            if err == 0 and self.flag & FLAG_TGT_SrcIsROSV:
+                err = verify_rosv(self)
+        if err == 0 and (TNAME_ENCRYPT in testname):
+            err = verify_encrypt(self)
+        if err == 0:
+	    err = verify_unmount(self)
+        return err
+
+
+#
+#  TEST CLASS
+#
+TESTFLAG_SetBoot = 1 << 1
+TESTFLAG_Install = 1 << 2
+TESTFLAG_GetIscPreboot = 1 << 3
+TESTFLAG_GetOsPreboot = 1 << 4
+TESTFLAG_GarbageCollect = 1 << 5
+TESTFLAG_CustomInstall = 1 << 6
+TESTFLAG_CustomUpdate = 1 << 7
+TESTFLAG_GetBootpath = 1 << 8
+TESTFLAG_BootOnce = 1 << 9
+
+class Test:
+    def __init__(self, testname, testflag, srcopts):
+        self.testname = testname
+        self.testflag = testflag
+        self.srcopts = srcopts
+
+    def do_bless2(self, src):
+        global bless2_prebdev, bless2_srcdirpath, bless2_osmanifestpath
+
+	cmd = ['/AppleInternal/CoreOS/tests/bless/bless2cli', '--device', src.apfsVdev]
+
+        if self.testflag & TESTFLAG_SetBoot:
+            cmd = cmd + ['--setboot']
+        if self.testflag & TESTFLAG_BootOnce:
+            cmd = cmd + ['--bootonce']
+        if self.testflag & TESTFLAG_Install:
+            prebmntpt = DeviceToMntpt(bless2_prebvdev)
+            srcdirpath = prebmntpt + bless2_srcdirpath
+            osmanifestpath = prebmntpt + bless2_osmanifestpath
+            cmd = cmd + ['--install', '--srcdirpath', srcdirpath, '--osmanifestpath', osmanifestpath]
+        if self.testflag & TESTFLAG_GetIscPreboot:
+            cmd = cmd + ['--getiscpreboot']
+        if self.testflag & TESTFLAG_GetOsPreboot:
+            cmd = cmd + ['--getospreboot']
+        if self.testflag & TESTFLAG_GarbageCollect:
+            cmd = cmd + ['--garbagecollect']
+        if self.testflag & TESTFLAG_CustomInstall:
+            cmd = cmd + ['--custominstall']
+        if self.testflag & TESTFLAG_CustomUpdate:
+            cmd = cmd + ['--customupdate']
+        if self.testflag & TESTFLAG_GetBootpath:
+            cmd = cmd + ['--getbootpath']
+
+        err = docmd(cmd)
+        return err
+
+    def setbootRoot(self):
+        #
+        # --setboot/--bootonce on the root system volume
+        # i.e. revert nvram value to the original root volume
+        #      . --setboot sets nvram boot-volume
+        #      . --setboot --bootonce sets nvram alt-boot-volume
+        #
+        # If the root volume is a snapshot, need to get the System Volume device
+        # of the snapshot for bless2 to process on.
+        # APFS internals know if it should root from a snapshot on the system volume.
+        #
+        global bless2_rootVdev, bless2_rootCdev
+
+        root_sysVdev = getSystemVolumeDev(bless2_rootCdev, bless2_rootVdev)
+        if root_sysVdev == '':
+            logging.error('getSystemVolumeDev Fail')
+            print 'getSystemVolumeDev Fail'
+            return 1
+
+        if self.testflag & TESTFLAG_BootOnce:
+	    err = docmd(['/AppleInternal/CoreOS/tests/bless/bless2cli', '--device', root_sysVdev, '--setboot', '--bootonce'])
+        else:
+	    err = docmd(['/AppleInternal/CoreOS/tests/bless/bless2cli', '--device', root_sysVdev, '--setboot'])
+
+        if err:
+            logging.error('Fail to setboot to the original root %s on %s', bless2_rootVdev, root_sysVdev)
+            print 'Fail to setboot to the original root ' + bless2_rootVdev + ' on ' + root_sysVdev
+        return err
+
+
+    #
+    # Verify the result of running --install by checking if
+    # /System/Volumes/iSCPreboot/<TestVolumeGUUID>/boot/ directory has a new
+    # file "active" with 'nsih' hex number as its content, which matches a new
+    # directory name in the same directory.
+    #
+    def verify_install(self):
+        global bless2_guuid
+
+        bootdir = '/System/Volumes/iSCPreboot/' + bless2_guuid + '/boot/'
+        active_file = bootdir + 'active'
+        out, err = docmd_common(['/bin/cat', active_file])
+        if err:
+            logging.error('Verifying install Fail - active file not exist: %s', active_file)
+            print 'Verifying install Fail - active file not exist: ' + active_file
+            return err
+        out = out.strip('\n')
+        active_dir = bootdir + out
+        if os.path.isdir(active_dir):
+            return 0
+        else:
+            logging.error('Verifying install Fail - dir not exist: %s', active_dir)
+            print 'Verifying install Fail - dir not exist: ' + active_dir
+            return 1
+
+    #
+    # Verify setboot by comparing nvram values with root's:
+    #    --setboot : nvram 'boot-volume'
+    #    --setboot --bootonce: nvram 'alt-boot-volume'
+    #
+    def verify_setboot(self):
+        global bless2_root_nvram_boot, bless2_root_nvram_altboot
+
+        if self.testflag & TESTFLAG_BootOnce:
+            alt_bootvol = get_nvram_value('alt-boot-volume')
+            if alt_bootvol == bless2_root_nvram_altboot:
+                logging.error('Verifying setboot bootonce Fail')
+                print 'Verifying setboot bootonce Fail'
+                return 1
+        else:
+            bootvol = get_nvram_value('boot-volume')
+            if bootvol == bless2_root_nvram_boot:
+                logging.error('Verifying setboot Fail')
+                print 'Verifying setboot Fail'
+                return 1
+        return 0
+
+    def verify(self, src):
+        logging.info('Verifying ...')
+        print 'Verifying ...'
+
+        err = 0
+        if self.testflag & TESTFLAG_SetBoot:
+            err = self.verify_setboot()
+            if err:
+                return err
+
+        if self.testflag & TESTFLAG_Install:
+            err = self.verify_install()
+            if err:
+                return err
+
+        #
+	# XXX TBD
+        # garbagecollect - check newly installed boot dir is removed?
+        # Verify others?
+        #
+	return 0
+
+    def run(self):
+        global Debug, bless2_root_nvram_boot, bless2_root_nvram_altboot
+
+        testBegin(self.testname)
+        src = Source(self.srcopts)
+        err = src.setup()
+        if err:
+            testEnd(self.testname, src, '', err)
+            return err
+
+	if src.flag & FLAG_SRC_SSV:
+	    err = seal_source(src)
+	    if err:
+		return err
+        docmd(['/usr/sbin/diskutil', 'mount', src.apfsVdev])
+
+        #
+        # Do --install first for testing
+        # setboot/garbagecollect/customupdate
+        #
+        if (self.testflag & TESTFLAG_SetBoot) or \
+           (self.testflag & TESTFLAG_GarbageCollect) or \
+           (self.testflag & TESTFLAG_CustomUpdate):
+            save_flag = self.testflag
+            self.testflag = TESTFLAG_Install
+            err = self.do_bless2(src)
+            self.testflag = save_flag
+            if err:
+                testEnd(self.testname, src, '', err)
+                return err
+
+        # Save the root's nvram values for boot-volume and alt-boot-volume
+        bless2_root_nvram_boot = get_nvram_value('boot-volume')
+        bless2_root_nvram_altboot = get_nvram_value('alt-boot-volume')
+
+        # do the test
+        err = self.do_bless2(src)
+
+        if Debug:
+            exit(err)
+
+	if err == 0 and not self.testname.startswith('neg_'):
+	    err = self.verify(src)
+
+        #
+        # For --setboot or --setboot --bootonce,
+        # revert nvram value to the original root volume
+        #
+        # XXX whatif setbootRoot fails? can't block err from self.verify,
+        #     move this to testEnd?
+        # XXX automate to actually reboot to the test volume?
+        #
+        if self.testflag & TESTFLAG_SetBoot:
+            self.setbootRoot()
+
+        # cleanup
+	docmd(['/AppleInternal/CoreOS/tests/bless/bless2cli', '--device', src.apfsVdev, '--garbagecollect'])
+
+        testEnd(self.testname, src, '', err)
+        return err
+
+
+#===========================================================
+#  BLESS2CLI FUNCTIONS TO TEST
+#
+#  bless2cli --setboot --device <device> [--bootonce] [--noverify]
+#  bless2cli --install --device <device>  [--bootcachesfile <file>] [--srcdirpath <path>] [--dstdirpath <path>] [--osmanifestpath <path>]  [--variant <option>] [--overrideuuid]
+#  bless2cli --getiscpreboot --device <device>
+#  bless2cli --getospreboot --device <device>
+#  bless2cli --garbagecollect --device <device>
+#  bless2cli --custominstall --device <device> --bootobjectpayload <file>
+#  bless2cli --customupdate --device <device>
+#  bless2cli --getbootpath --device <device>
+#
+# For --install --srcdirpath <path>:
+#    The source directory is the restore bundle, so it would typically be
+#    the "restore" directory inside the UUID directory in the preboot volume
+#    that's associated with the given system (same container as volume group,
+#    whether internal or external).
+# For --install --dstdirpath <path>:
+#    The destination directory is the mount point for the preboot volume that
+#    will contain the boot objects, so preboot in same container for internal,
+#    iSC preboot for external.
+# For --install --osmanifestpath:
+#    This needs to be the AP ticket to stitch to the boot objects.
+#    It will typically be in the restore bundle folder, and named something like
+#    apticket.<model>.im4m (for a global manifest) or
+#    apticket.<model>.<ECID>.im4m (for a personalized manifest).
+#
+# For --garbagecollect:
+#    It will delete all nsih dirs that aren't either currently booted from,
+#    or aren't currently referenced by the volume's local policy.
+#    If you're operating on a non-boot volume that doesn't have a local policy
+#    set for it, then gc will delete all nsih dirs it can find.
+#
+#    'nsih' numbers are the hex digits of the next-stage-image-hash (nsih).
+#    The nsih can be calculated by bless2_install_with_args API, but it can also
+#    be retrieved from libbootpolicy.
+#    e.g. the 9F6EF6B*9979 is the nsih number in
+#    "/System/Volumes/Preboot/<guuid>/boot/9F6EF6B2088BA3887881B67056F54F9BC64B7DFF4D97C1BC0BCFC3CBCF480DBF3FA206F9B8B8D318768F59AB969979"
+#    The nsih is literally just a SHA-384 hash of the OS manifest which is used
+#    to stitch the boot objects. So if you take the manifest that pass to
+#    bless2_install_with_args and do a shasum -a 384 on it, then the result
+#    should match the directory name inside the boot directory.
+#
+# For --custominstall --bootobjectpayload <file>:
+#    XXX Not testing this API
+#    The usage for --custominstall is that KernelManagement will be creating
+#    a payload as part of the kcgen workflow.  KM then hands it to this
+#    bless2 API, bless2_install_custom_obj(), in order to get it stitched
+#    and installed.  It's not clear how this test program can actually trigger
+#    this workflow. Can not just hand it some dummy im4p, because that won't be
+#    part of the local policy, so bless2 will fail when it tries to get the
+#    manifest for it.
+#
+#===========================================================
+
+#
+#  bless2cli --setboot --device <device>
+#  On a dummy ARV (Sealed System Volume)
+#
+def test_setboot_arv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', FLAG_SRC_SSV]
+    testflag = TESTFLAG_SetBoot
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+#  bless2cli --setboot --bootonce --device <device>
+#  On a dummy ARV (Sealed System Volume)
+#
+def test_setbootonce_arv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', FLAG_SRC_SSV]
+    testflag = TESTFLAG_SetBoot | TESTFLAG_BootOnce
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+#  bless2cli --setboot --device <device>
+#  On a dummy non-ARV
+#
+def test_setboot_rosv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', 0]
+    testflag = TESTFLAG_SetBoot
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+#  bless2cli --install --device <device>  [--bootcachesfile <file>]
+#        [--srcdirpath <path>] [--dstdirpath <path>] [--osmanifestpath <path>]
+#        [--variant <option>] [--overrideuuid]
+#  On a dummy ARV (Sealed System Volume)
+#
+def test_install_arv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', FLAG_SRC_SSV]
+    testflag = TESTFLAG_Install
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+#  bless2cli --getiscpreboot --device <device>
+#  On a dummy ARV (Sealed System Volume)
+#
+#  XXX verify with "ioreg -l"?
+#
+def test_getiscpreboot_arv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', FLAG_SRC_SSV]
+    testflag = TESTFLAG_GetIscPreboot
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+#  bless2cli --getospreboot --device <device>
+#  On a dummy ARV (Sealed System Volume)
+#
+def test_getospreboot_arv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', FLAG_SRC_SSV]
+    testflag = TESTFLAG_GetOsPreboot
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+#  bless2cli --garbagecollect --device <device>
+#  On a dummy ARV (Sealed System Volume)
+#
+def test_garbagecollect_arv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', FLAG_SRC_SSV]
+    testflag = TESTFLAG_GarbageCollect
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+#  bless2cli --customupdate --device <device>
+#  On a dummy ARV (Sealed System Volume)
+#
+def test_customupdate_arv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', FLAG_SRC_SSV]
+    testflag = TESTFLAG_CustomUpdate
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#
+#  bless2cli --getbootpath --device <device>
+#  On a dummy ARV (Sealed System Volume)
+#
+def test_getbootpath_arv(testname):
+    srcopts = ['', TYPE_SRC_ROSV, '', FLAG_SRC_SSV]
+    testflag = TESTFLAG_GetBootpath
+    test = Test(testname, testflag, srcopts)
+    test.run()
+
+
+#======================================
+#    NEGATIVE TEST CASES
+#======================================
+
+
+#======================================
+#    USING REAL OS
+#======================================
+#
+# bless GoldenGate OS restored from asr
+#
+def test_goldengate(testname):
+    print 'XXX TBD'
+
+
+#====================================================
+#    MAIN
+#====================================================
+
+#
+# The list of avaiable test cases/suite
+#
+#    key = <testname>
+#    value = (test function, flag, test description)
+#
+TestListDictionary = {
+    'setboot_arv': (test_setboot_arv, 'presubmit',
+        'bless2 setboot on a dummy ARV (Sealed System Volume)'),
+    'setbootonce_arv': (test_setbootonce_arv, 'presubmit',
+        'bless2 setboot once on a dummy ARV (Sealed System Volume)'),
+    'setboot_rosv': (test_setboot_rosv, 'presubmit',
+        'bless2 setboot on a dummy ROSV, non-ARV (not sealed volume group)'),
+    'install_arv': (test_install_arv, 'presubmit',
+        'bless2 install on a dummy ARV (Sealed System Volume)'),
+    'getiscpreboot_arv': (test_getiscpreboot_arv, 'presubmit',
+        'bless2 getiscpreboot on a dummy ARV (Sealed System Volume)'),
+    'getospreboot_arv': (test_getospreboot_arv, 'presubmit',
+        'bless2 getospreboot on a dummy ARV (Sealed System Volume)'),
+    'garbagecollect_arv': (test_garbagecollect_arv, 'presubmit',
+        'bless2 garbagecollect on a dummy ARV (Sealed System Volume)'),
+    'customupdate_arv': (test_customupdate_arv, 'presubmit',
+        'bless2 customupdate on a dummy ARV (Sealed System Volume)'),
+    'getbootpath_arv': (test_getbootpath_arv, 'presubmit',
+        'bless2 getbootpath on a dummy ARV (Sealed System Volume)'),
+}
+
+
+#
+# For 'test_bless -l' command
+#
+def list_tests():
+    print ''
+    print '<testname>'
+    count = 0
+    for key in sorted(TestListDictionary):
+        value = TestListDictionary[key]
+        print key + ' : ' + value[2] + ' (' + value[1] + ')'
+        count = count + 1
+    print ''
+    print 'Use ending "*" to run a subset of tests'
+    print 'e.g. "neg_*" ...etc'
+    print ''
+    print 'Total number of test cases : %d'%count
+    print ''
+
+
+#
+# Run test cases with wildcard
+#
+def run_wildcard(tname):
+    count = 0
+    match_dict = {}
+
+    tname_r = tname.replace("*", ".")
+    regex = re.compile(tname_r)
+    for key in TestListDictionary:
+        if re.match(regex, key):
+            match_dict[key] = TestListDictionary[key]
+            count = count + 1
+    if count == 0:
+        return count
+
+    Startup()
+    for key in match_dict:
+        func = match_dict[key][0]
+        func(key)
+    return count
+
+
+#
+# Run sub-group test cases
+#
+def run_subgroup(subgp):
+    for key in TestListDictionary:
+        value = TestListDictionary[key]
+        if value[1] == subgp:
+            func = value[0]
+            func(key)
+
+
+#
+# Run all test cases
+#
+def run_all():
+    for key in TestListDictionary:
+        func = TestListDictionary[key][0]
+        func(key)
+
+
+def main():
+    global TestListDictionary
+    global Debug
+    global LocalMacOS
+    global ErrorPause
+    global OSDIR, OSDIR_GOLDEN, OSDIR_JAZZ, OSDIR_LIB, XCODEDIR
+    global SWEDMGname, DMGDIR
+    global isArm
+
+    LocalMacOS = False
+    # XXX use getopt/argparse in Python?
+    argcnt = len(sys.argv)
+    if argcnt >= 3:
+        for x in range (2, argcnt):
+            if sys.argv[x] == '-debug':
+                Debug = True
+            elif sys.argv[x] == '-localmacos':
+                LocalMacOS = True
+            elif sys.argv[x] == '-errorpause':
+                ErrorPause = True
+            else:
+                print 'Unrecognized option ' + sys.argv[x]
+                usage()
+                exit(1)
+
+    elif argcnt < 2:
+        usage()
+        exit(1)
+
+    if sys.argv[1] == '-l':
+        list_tests()
+        exit(0)
+
+    if os.getuid() != 0:
+        print 'Need to run as a super user'
+        exit(1)
+
+    if sys.argv[1] == '-c':
+        log_cleanup()
+        exit(0)
+
+    # This test is for bless2 on Apple Silicon systems
+    result = Popen(['/usr/bin/uname', '-p'], stdout=PIPE, stderr=PIPE)
+    out, errmsg = result.communicate()
+    isArm = out.startswith('arm')
+    if not isArm:
+         print 'This test must be run on Apple Silicon systems.'
+         print 'Please try again on an Apple Silicon system...'
+         exit(1)
+
+    # Make sure logging is setup before using it
+    Startup()
+    testname = sys.argv[1]
+
+    # XXX TBD
+    #if LocalMacOS == False and (testname == 'all' or testname == 'remote'):
+        #
+        # Copy remote dmg files to local location first.
+        # Xcode dmg file is too big in XCODEDIR, so don't copy it yet.
+        # If not enough space, let it skip and do it individually later.
+        #
+        # for dir in SWEDMGname.keys():
+        #     if dir == XCODEDIR:
+        #         continue
+        #     SWEDMGname[dir] = get_dmg_name(testname, dir)
+        #     if SWEDMGname[dir] == '':
+        #         exit(1)
+
+    if LocalMacOS == True:
+        home = expanduser("~")
+        OSDIR = home + '/Downloads/test_bless/'
+        OSDIR_GOLDEN = OSDIR + 'Golden/'
+        OSDIR_JAZZ = OSDIR + 'macOSJazz/'
+        OSDIR_LIB = OSDIR + 'macOSLiberty/'
+        XCODEDIR = OSDIR + 'Xcode/'
+        DMGDIR = OSDIR
+        SWEDMGname = {OSDIR_GOLDEN: '', OSDIR_JAZZ: '', OSDIR_LIB: '', XCODEDIR: ''}
+        print 'Get macOS images from:'
+        print OSDIR_GOLDEN
+        print OSDIR_JAZZ
+        print OSDIR_LIB
+        print XCODEDIR
+
+    # For Code Coverage output file name
+    os.environ["LLVM_PROFILE_FILE"] = "test.%p.profraw"
+
+    # Run tests
+    if testname == 'all':
+        run_all()
+    elif testname == 'presubmit' or testname == 'remote':
+        run_subgroup(testname)
+    elif testname.endswith('*'):
+        count = run_wildcard(testname)
+        if count == 0:
+            print 'No matched test name'
+            exit(1)
+    elif testname in TestListDictionary:
+        func = TestListDictionary[testname][0]
+        func(testname)
+    else:
+        print 'Unknown test name : ' + testname
+        exit(1)
+
+    Teardown()
+
+
+#
+# Run Program
+#
+main()

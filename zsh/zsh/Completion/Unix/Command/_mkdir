@@ -1,29 +1,16 @@
 #compdef mkdir gmkdir zf_mkdir
 
-local curcontext="$curcontext" state line expl args variant ret=1
+local curcontext="$curcontext" variant ret=1
+local -a state line expl args aopts=( -A '-*' )
 typeset -A opt_args
 
 args=(
   '(-m --mode)'{-m,--mode=}'[set permission mode]: :_file_modes'
   '(-p --parents)'{-p,--parents}'[make parent directories as needed]'
-  '(-)*: :->directories'
+  '*: :->directories'
 )
 
-# It can still happen that there is a precommand command or builtin in the line.
-# In such cases, the variant has to be modified suitably, after further checking
-# the variant of the _command_ mkdir.
-# 
-# $precommands is defined in _main_complete
-if (( ${+precommands[(r)command]} )); then
-  _mkdir_command () { command mkdir "$@" }
-  _pick_variant -c _mkdir_command -r variant gnu=gnu unix --help
-  unfunction _mkdir_command
-elif (( ${+precommands[(r)builtin]} )) || (( ${+builtins[mkdir]} )) || [[ "$(type -w mkdir)" == "*: builtin" ]]; then
-  variant=zsh
-else
-  _pick_variant -r variant gnu=gnu zsh='\(eval\)' $OSTYPE --help
-fi
-# Now $variant is set.
+_pick_variant -r variant -b zsh gnu=gnu $OSTYPE --help
 
 case $variant in
   gnu|freebsd*|dragonfly*|darwin*)
@@ -32,9 +19,11 @@ case $variant in
     )
   ;|
   gnu)
+    aopts=()
     if [[ $OSTYPE == linux* ]]; then
       args+=(
-        '(-Z --context)'{-Z,--context=}'[set SELinux context]:SELinux context'
+        '(--context)-Z[set SELinux context]'
+        '(-Z)--context=-[set SELinux context]::SELinux context:_selinux_contexts'
       )
     fi
     args+=(
@@ -47,12 +36,12 @@ case $variant in
   ;;
 esac
 
-_arguments -C -s $args && ret=0
+_arguments -C -s -S $aopts $args && ret=0
 
 case "$state" in
   directories)
     _wanted directories expl \
-      'parent directory (alternatively specify name of directory)' \
+      'parent directory or name of directory to create' \
       _path_files -/ && ret=0
   ;;
 esac

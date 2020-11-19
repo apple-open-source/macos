@@ -45,7 +45,7 @@ enum {
 @property (nullable) NSDate* finishDate;
 @property CKKSCondition* completionHandlerDidRunCondition;
 
-@property NSInteger descriptionErrorCode; // Set to non-0 for inclusion of this operation in NSError chains. Code is application-dependent.
+@property NSInteger descriptionErrorCode; // Set to non-0 for inclusion of this operation in NSError chains. Code is application-dependent, but will be -1 in cases of excessive recursion.
 
 // If you subclass CKKSResultOperation, this is the method corresponding to descriptionErrorCode. Fill it in to your heart's content.
 - (NSError* _Nullable)descriptionError;

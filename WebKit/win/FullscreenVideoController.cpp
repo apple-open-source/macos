@@ -74,11 +74,11 @@ static const int borderRadius = 12;
 static const int borderThickness = 2;
 
 // Colors
-static const unsigned int backgroundColor = 0xA0202020;
-static const unsigned int borderColor = 0xFFA0A0A0;
-static const unsigned int sliderGutterColor = 0xFF141414;
-static const unsigned int sliderButtonColor = 0xFF808080;
-static const unsigned int textColor = 0xFFFFFFFF;
+static constexpr auto backgroundColor = SRGBA<uint8_t> { 32, 32, 32, 160 };
+static constexpr auto borderColor = SRGBA<uint8_t> { 160, 160, 160 };
+static constexpr auto sliderGutterColor = SRGBA<uint8_t> { 20, 20, 20 };
+static constexpr auto sliderButtonColor = SRGBA<uint8_t> { 128, 128, 128 };
+static constexpr auto textColor = Color::white;
 
 HUDButton::HUDButton(HUDButtonType type, const IntPoint& position)
     : HUDWidget(IntRect(position, IntSize()))
@@ -209,7 +209,7 @@ void FullscreenVideoController::LayerClient::platformCALayerLayoutSublayersOfLay
         return;
 
 
-    PlatformCALayer* videoLayer = PlatformCALayer::platformCALayer(videoElement->platformLayer());
+    auto videoLayer = PlatformCALayer::platformCALayerForLayer(videoElement->platformLayer());
     if (!videoLayer || videoLayer->superlayer() != layer)
         return;
 
@@ -290,7 +290,7 @@ void FullscreenVideoController::enterFullscreen()
 #if USE(CA)
     m_fullscreenWindow->setRootChildLayer(*m_rootChild);
 
-    PlatformCALayer* videoLayer = PlatformCALayer::platformCALayer(m_videoElement->platformLayer());
+    auto videoLayer = PlatformCALayer::platformCALayerForLayer(m_videoElement->platformLayer());
     ASSERT(videoLayer);
     m_rootChild->appendSublayer(*videoLayer);
     m_rootChild->setNeedsLayout();

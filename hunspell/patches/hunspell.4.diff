@@ -1,0 +1,16 @@
+--- man/hunspell.4	2008-11-01 04:37:29.000000000 -0700
++++ man/hunspell.4	2020-04-06 13:14:00.000000000 -0700
+@@ -1,5 +1,4 @@
+ .TH hunspell 4 "2008-08-15"
+-.LO 1
+ .SH NAME
+ hunspell \- format of Hunspell dictionaries and affix files
+ .SH DESCRIPTION
+@@ -150,7 +149,6 @@
+ AF 2
+ AF A
+ AF AB
+-...
+ .fi
+ .RE
+ .PP

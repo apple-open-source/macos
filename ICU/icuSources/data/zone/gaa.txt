@@ -1,5 +1,388 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 gaa{
-    Version{"2.1.48.13"}
+    Version{"36.1"}
+    zoneStrings{
+        "Africa:Accra"{
+            ec{"Ga"}
+        }
+        "Africa:Cairo"{
+            ec{"Kairo"}
+        }
+        "Africa:Casablanca"{
+            ec{"Kasablanka"}
+        }
+        "Africa:Conakry"{
+            ec{"Konakry"}
+        }
+        "Africa:Nouakchott"{
+            ec{"Nouakshott"}
+        }
+        "America:Anchorage"{
+            ec{"Ankorage"}
+        }
+        "America:Blanc-Sablon"{
+            ec{"Blank-Sablon"}
+        }
+        "America:Cambridge_Bay"{
+            ec{"Kambridge Ŋshɔnine Bibioo"}
+        }
+        "America:Cancun"{
+            ec{"Kankun"}
+        }
+        "America:Cayman"{
+            ec{"Kayman"}
+        }
+        "America:Chicago"{
+            ec{"Tsikago"}
+        }
+        "America:Chihuahua"{
+            ec{"Tsihuahua"}
+        }
+        "America:Costa_Rica"{
+            ec{"Kosta Rika"}
+        }
+        "America:Creston"{
+            ec{"Kreston"}
+        }
+        "America:Curacao"{
+            ec{"Kurasao"}
+        }
+        "America:Dawson_Creek"{
+            ec{"Dawson Kpaakpo Bibioo"}
+        }
+        "America:Dominica"{
+            ec{"Dominika"}
+        }
+        "America:Fort_Nelson"{
+            ec{"Nelson Mɔɔ"}
+        }
+        "America:Glace_Bay"{
+            ec{"Glase Ŋshɔnine Bibioo"}
+        }
+        "America:Goose_Bay"{
+            ec{"Goose Ŋshɔnine Bibioo"}
+        }
+        "America:Grand_Turk"{
+            ec{"Turke Wulu"}
+        }
+        "America:Halifax"{
+            ec{"Halifas"}
+        }
+        "America:Indiana:Knox"{
+            ec{"Knos, Indiana"}
+        }
+        "America:Indiana:Tell_City"{
+            ec{"Osheku Maŋ, Indiana"}
+        }
+        "America:Indiana:Vincennes"{
+            ec{"Vinsennes, Indiana"}
+        }
+        "America:Indiana:Winamac"{
+            ec{"Winamak, Indiana"}
+        }
+        "America:Iqaluit"{
+            ec{"Ikaluit"}
+        }
+        "America:Jamaica"{
+            ec{"Jamaika"}
+        }
+        "America:Kentucky:Monticello"{
+            ec{"Montisello, Kentuky"}
+        }
+        "America:Lower_Princes"{
+            ec{"Ablade Shĩa Ni Yɔɔ Jɔɔ Mli"}
+        }
+        "America:Martinique"{
+            ec{"Martinik"}
+        }
+        "America:Mexico_City"{
+            ec{"Meziko Maŋ"}
+        }
+        "America:Miquelon"{
+            ec{"Mikelon"}
+        }
+        "America:Moncton"{
+            ec{"Monkton"}
+        }
+        "America:North_Dakota:Center"{
+            ec{"Maŋteŋ, Dakota Kooyigbɛ"}
+        }
+        "America:North_Dakota:New_Salem"{
+            ec{"New Salem, Dakota Kooyigbɛ"}
+        }
+        "America:Port-au-Prince"{
+            ec{"Abladei Alɛjiadaamɔhe"}
+        }
+        "America:Port_of_Spain"{
+            ec{"Spain Lɛjiadaamɔhe"}
+        }
+        "America:Puerto_Rico"{
+            ec{"Puerto Riko"}
+        }
+        "America:Rainy_River"{
+            ec{"Faa Ni Nɛɔ"}
+        }
+        "America:Rankin_Inlet"{
+            ec{"Rankin Ŋshɔnine"}
+        }
+        "America:Scoresbysund"{
+            ec{"Ittokortoormiit"}
+        }
+        "America:St_Barthelemy"{
+            ec{"St. Barthélemy"}
+        }
+        "America:St_Lucia"{
+            ec{"St. Lusia"}
+        }
+        "America:St_Vincent"{
+            ec{"St. Vinsent"}
+        }
+        "America:Swift_Current"{
+            ec{"Swift Karɛnt"}
+        }
+        "America:Tegucigalpa"{
+            ec{"Tegusigalpa"}
+        }
+        "America:Thunder_Bay"{
+            ec{"Sarawa Ŋshɔnine Bibioo"}
+        }
+        "America:Vancouver"{
+            ec{"Vankouver"}
+        }
+        "America:Whitehorse"{
+            ec{"Okpɔŋɔ Yɛŋ"}
+        }
+        "America:Yellowknife"{
+            ec{"Kakla Wuɔfɔ"}
+        }
+        "Antarctica:Casey"{
+            ec{"Kasey"}
+        }
+        "Antarctica:Macquarie"{
+            ec{"Makwarie"}
+        }
+        "Antarctica:McMurdo"{
+            ec{"MakMurdo"}
+        }
+        "Asia:Aqtau"{
+            ec{"Aktau"}
+        }
+        "Asia:Aqtobe"{
+            ec{"Aktobe"}
+        }
+        "Asia:Choibalsan"{
+            ec{"Tsoibalsan"}
+        }
+        "Asia:Colombo"{
+            ec{"Kolombo"}
+        }
+        "Asia:Damascus"{
+            ec{"Damasko"}
+        }
+        "Asia:Jerusalem"{
+            ec{"Yerusalem"}
+        }
+        "Asia:Karachi"{
+            ec{"Karatsi"}
+        }
+        "Asia:Kuching"{
+            ec{"Kutsing"}
+        }
+        "Asia:Macau"{
+            ec{"Makao"}
+        }
+        "Asia:Muscat"{
+            ec{"Muskat"}
+        }
+        "Asia:Nicosia"{
+            ec{"Nikosia"}
+        }
+        "Asia:Qatar"{
+            ec{"Kata"}
+        }
+        "Asia:Qostanay"{
+            ec{"Kostanay"}
+        }
+        "Asia:Qyzylorda"{
+            ec{"Kyzylorda"}
+        }
+        "Asia:Saigon"{
+            ec{"Ho Tsi Minh Maŋtiase"}
+        }
+        "Asia:Urumqi"{
+            ec{"Urumki"}
+        }
+        "Atlantic:Cape_Verde"{
+            ec{"Kape Verde"}
+        }
+        "Australia:Broken_Hill"{
+            ec{"Ŋmeŋme Ni Ekumɔ"}
+        }
+        "Australia:Currie"{
+            ec{"Kurrie"}
+        }
+        "Australia:Eucla"{
+            ec{"Yukla"}
+        }
+        "Australia:Lord_Howe"{
+            ec{"Nuŋtsɔ Howe"}
+        }
+        "Etc:UTC"{
+            ls{"Be Ni Maji Ni Yɔɔ Jeŋ Fɛɛ Kɛtsuɔ Nii"}
+        }
+        "Etc:Unknown"{
+            ec{"Maŋtiase Ko Ni Gbɛ́i Bɛ Mli"}
+        }
+        "Europe:Dublin"{
+            ld{"Be Ni Irelandbii Kɛtsuɔ Nii"}
+        }
+        "Europe:London"{
+            ld{"Be Ni Britainbii Kɛtsuɔ Nii Yɛ Latsa Beiaŋ"}
+        }
+        "Indian:Chagos"{
+            ec{"Tsagos"}
+        }
+        "Indian:Christmas"{
+            ec{"Krismas"}
+        }
+        "Indian:Cocos"{
+            ec{"Kokos"}
+        }
+        "Indian:Comoro"{
+            ec{"Komoro"}
+        }
+        "Pacific:Auckland"{
+            ec{"Ɔkland"}
+        }
+        "Pacific:Chatham"{
+            ec{"Tsatham"}
+        }
+        "Pacific:Guadalcanal"{
+            ec{"Guadalkanal"}
+        }
+        "Pacific:Marquesas"{
+            ec{"Markwesas"}
+        }
+        "Pacific:Pitcairn"{
+            ec{"Pitkairn"}
+        }
+        "Pacific:Truk"{
+            ec{"Tsuuk"}
+        }
+        "meta:Africa_Central"{
+            ls{"Afrika Teŋgbɛ Be"}
+        }
+        "meta:Africa_Eastern"{
+            ls{"Afrika Bokagbɛ Be"}
+        }
+        "meta:Africa_Southern"{
+            ls{"South Afrika Be"}
+        }
+        "meta:Africa_Western"{
+            ld{"Afrika Anaigbɛ Be Yɛ Latsa Beiaŋ"}
+            lg{"Afrika Anaigbɛ Be"}
+            ls{"Afrika Anaigbɛ Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Alaska"{
+            ld{"Alaska Be Yɛ Latsa Beiaŋ"}
+            lg{"Alaska Be"}
+            ls{"Alaska Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:America_Central"{
+            ld{"Amerika Teŋgbɛbii Abe Yɛ Latsa Beiaŋ"}
+            lg{"Amerika Teŋgbɛbii Abe"}
+            ls{"Amerika Teŋgbɛbii Abe Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:America_Eastern"{
+            ld{"Amerika Bokãgbɛbii Abe Yɛ Latsa Beiaŋ"}
+            lg{"Amerika Bokãgbɛbii Abe"}
+            ls{"Amerika Bokãgbɛbii Abe Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:America_Mountain"{
+            ld{"Amerika Gɔjianɔbii Abe Yɛ Latsa Beiaŋ"}
+            lg{"Amerika Gɔjianɔbii Abe"}
+            ls{"Amerika Gɔjianɔbii Abe Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:America_Pacific"{
+            ld{"Pasifik Be Yɛ Latsa Beiaŋ"}
+            lg{"Pasifik Be"}
+            ls{"Pasifik Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Atlantic"{
+            ld{"Atlantik Be Yɛ Latsa Beiaŋ"}
+            lg{"Atlantik Be"}
+            ls{"Atlantik Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Azores"{
+            ld{"Azores Be Yɛ Latsa Beiaŋ"}
+            lg{"Azores Be"}
+            ls{"Azores Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Cape_Verde"{
+            ld{"Kape Verde Be Yɛ Latsa Beiaŋ"}
+            lg{"Kape Verde Be"}
+            ls{"Kape Verde Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Cuba"{
+            ld{"Kuba Be Yɛ Latsa Beiaŋ"}
+            lg{"Kuba Be"}
+            ls{"Kuba Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:French_Southern"{
+            ls{"Antarktik Kɛ Wuoyigbɛbii Ni Wieɔ Frɛntsi Be"}
+        }
+        "meta:Greenland_Eastern"{
+            ld{"Greenland Bokãgbɛ Be Yɛ Latsa Beiaŋ"}
+            lg{"Greenland Bokãgbɛ Be"}
+            ls{"Greenland Bokãgbɛ Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Greenland_Western"{
+            ld{"Greenland Anaigbɛ Be Yɛ Latsa Beiaŋ"}
+            lg{"Greenland Anaigbɛ Be"}
+            ls{"Greenland Anaigbɛ Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Hawaii_Aleutian"{
+            ld{"Hawaii-Aleutia Be Yɛ Latsa Beiaŋ"}
+            lg{"Hawaii-Aleutia Be"}
+            ls{"Hawaii-Aleutia Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Indian_Ocean"{
+            ls{"Indian Ŋshɔ Lɛ Be"}
+        }
+        "meta:Mauritius"{
+            ld{"Mauritius Be Yɛ Latsa Beiaŋ"}
+            lg{"Mauritius Be"}
+            ls{"Mauritius Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Mexico_Northwest"{
+            ld{"Meziko Kooyi-Anaigbɛ Be Yɛ Latsa Beiaŋ"}
+            lg{"Meziko Kooyi-Anaigbɛ Be"}
+            ls{"Meziko Kooyi-Anaigbɛ Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Mexico_Pacific"{
+            ld{"Meziko Pasifik Be Yɛ Latsa Beiaŋ"}
+            lg{"Meziko Pasifik Be"}
+            ls{"Meziko Pasifik Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Newfoundland"{
+            ld{"Newfoundland Be Yɛ Latsa Beiaŋ"}
+            lg{"Newfoundland Be"}
+            ls{"Newfoundland Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Pierre_Miquelon"{
+            ld{"St. Pierre Kɛ Mikelon Be Yɛ Latsa Beiaŋ"}
+            lg{"St. Pierre Kɛ Mikelon Be"}
+            ls{"St. Pierre Kɛ Mikelon Be Yɛ Fɛi Beiaŋ"}
+        }
+        "meta:Reunion"{
+            ls{"Réunion Be"}
+        }
+        "meta:Seychelles"{
+            ls{"Seyshelles Be"}
+        }
+        regionFormat{"{0} Be"}
+        regionFormatDaylight{"{0} Be Yɛ Latsa Beiaŋ"}
+        regionFormatStandard{"{0} Be Yɛ Fɛi Beiaŋ"}
+    }
 }

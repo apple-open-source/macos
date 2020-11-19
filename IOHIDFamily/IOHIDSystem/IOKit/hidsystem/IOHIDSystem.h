@@ -90,7 +90,6 @@ class IOHIDSystem : public IOService
 
 private:
 	IOHIDWorkLoop           *workLoop;
-	IOTimerEventSource      *periodicES;
     IOInterruptEventSource  *keyboardEQES;
     IOCommandGate           *cmdGate;
     IONotifier              *publishNotify;
@@ -131,7 +130,6 @@ private:
 
 	bool evOpenCalled;	// Has the driver been opened?
 	bool evInitialized;	// Has the first-open-only initialization run?
-    bool evStateChanging;   // Is the event system state changing.
 	bool eventsOpen;	// Boolean: has evmmap been called yet?
 	bool cursorStarted;	// periodic events running?
 	bool cursorEnabled;	// cursor positioning ok?
@@ -171,14 +169,8 @@ private:
 
     } _diags;
 
-    IOService       *displayManager;	// points to display manager
-    IOPMPowerFlags	displayState;
-
-
-    IOService *	rootDomain;
-    AbsoluteTime    displayStateChangeDeadline;
-    AbsoluteTime    displaySleepWakeupDeadline;
-    UInt32          powerState;
+    IOPMrootDomain *    rootDomain;
+    UInt32              powerState;
 
     OSDictionary *  savedParameters;	// keep user settings
 
@@ -199,7 +191,6 @@ private:
 private:
 
 
-  virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags, unsigned long, IOService * ) APPLE_KEXT_OVERRIDE;
   static IOReturn powerStateHandler( void *target, void *refCon,
             UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize );
   void updatePowerState(UInt32 messageType);
@@ -602,7 +593,7 @@ static	IOReturn	doExtSetStateForSelector (IOHIDSystem *self, void *p1, void *p2)
 
 public:
     virtual UInt32 eventFlags();
-    virtual void   sleepDisplayTickle();
+    virtual void   sleepDisplayTickle(IOService * requester);
 
     virtual void dispatchEvent(IOHIDEvent *event, IOOptionBits options=0);
 

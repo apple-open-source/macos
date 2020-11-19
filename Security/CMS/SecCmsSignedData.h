@@ -165,7 +165,7 @@ SecCmsSignedDataContainsCertsOrCrls(SecCmsSignedDataRef sigd);
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 extern CSSM_DATA_PTR *
 SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #else // !TARGET_OS_OSX
 /*!
@@ -174,7 +174,7 @@ SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd)
  */
 extern SecAsn1Item * *
 SecCmsSignedDataGetCertificateList(SecCmsSignedDataRef sigd)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 /*!
@@ -200,7 +200,7 @@ SecCmsSignedDataCreateCertsOnly(SecCmsMessageRef cmsg, SecCertificateRef cert, B
  */
 extern OSStatus SecCmsSignedDataSetDigestContext(SecCmsSignedDataRef sigd,
 												 SecCmsDigestContextRef digestContext)
-     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macos, iosmac);
+     API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macos, macCatalyst);
 #endif
 
 #if TARGET_OS_OSX
@@ -214,7 +214,7 @@ extern OSStatus
 SecCmsSignedDataSetDigests(SecCmsSignedDataRef sigd,
                            SECAlgorithmID **digestalgs,
                            CSSM_DATA_PTR *digests)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #pragma clang diagnostic pop
 #endif
 

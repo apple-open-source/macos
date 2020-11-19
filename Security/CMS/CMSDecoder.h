@@ -68,7 +68,7 @@ typedef CF_ENUM(uint32_t, CMSSignerStatus) {
  * Create a CMSDecoder. Result must eventually be freed via CFRelease().
  */
 OSStatus CMSDecoderCreate(CMSDecoderRef * __nonnull CF_RETURNS_RETAINED cmsDecoderOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Feed raw bytes of the message to be decoded into the decoder. Can be called
@@ -80,7 +80,7 @@ OSStatus CMSDecoderUpdateMessage(
     CMSDecoderRef		cmsDecoder,
     const void			*msgBytes,
     size_t				msgBytesLen)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Indicate that no more CMSDecoderUpdateMessage() calls are forthcoming;
@@ -89,7 +89,7 @@ OSStatus CMSDecoderUpdateMessage(
  * message.
  */
 OSStatus CMSDecoderFinalizeMessage(CMSDecoderRef cmsDecoder)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * A signed CMS message optionally includes the data which was signed. If the
@@ -105,7 +105,7 @@ OSStatus CMSDecoderFinalizeMessage(CMSDecoderRef cmsDecoder)
 OSStatus CMSDecoderSetDetachedContent(
     CMSDecoderRef		cmsDecoder,
     CFDataRef			detachedContent)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the detached content specified in CMSDecoderSetDetachedContent().
@@ -115,7 +115,7 @@ OSStatus CMSDecoderSetDetachedContent(
 OSStatus CMSDecoderCopyDetachedContent(
     CMSDecoderRef		cmsDecoder,
     CFDataRef * __nonnull CF_RETURNS_RETAINED detachedContentOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 #if SEC_OS_OSX
 /*
@@ -125,7 +125,7 @@ OSStatus CMSDecoderCopyDetachedContent(
 OSStatus CMSDecoderSetSearchKeychain(
     CMSDecoderRef        cmsDecoder,
     CFTypeRef            keychainOrArray)
-    API_DEPRECATED_WITH_REPLACEMENT("SecKeychainSetSearchList",macos(10.5, 10.13)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_DEPRECATED_WITH_REPLACEMENT("SecKeychainSetSearchList",macos(10.5, 10.13)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 #endif // SEC_OS_OSX
 
 /*
@@ -136,7 +136,7 @@ OSStatus CMSDecoderSetSearchKeychain(
 OSStatus CMSDecoderGetNumSigners(
     CMSDecoderRef		cmsDecoder,
     size_t				*numSignersOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the status of a CMS message's signature. A CMS message can
@@ -220,7 +220,7 @@ OSStatus CMSDecoderCopySignerStatus(
     CMSSignerStatus * __nullable signerStatusOut,               /* optional; RETURNED */
     SecTrustRef * __nullable CF_RETURNS_RETAINED secTrustOut,   /* optional; RETURNED */
     OSStatus * __nullable certVerifyResultCodeOut)              /* optional; RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the email address of signer 'signerIndex' of a CMS message, if
@@ -235,7 +235,7 @@ OSStatus CMSDecoderCopySignerEmailAddress(
     CMSDecoderRef		cmsDecoder,
     size_t				signerIndex,
     CFStringRef	* __nonnull CF_RETURNS_RETAINED signerEmailAddressOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the certificate of signer 'signerIndex' of a CMS message, if
@@ -250,7 +250,7 @@ OSStatus CMSDecoderCopySignerCert(
     CMSDecoderRef		cmsDecoder,
     size_t				signerIndex,
     SecCertificateRef * __nonnull CF_RETURNS_RETAINED signerCertOut)    /* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Determine whether a CMS message was encrypted. Returns TRUE if so, FALSE if not.
@@ -262,7 +262,7 @@ OSStatus CMSDecoderCopySignerCert(
 OSStatus CMSDecoderIsContentEncrypted(
     CMSDecoderRef		cmsDecoder,
     Boolean				*isEncryptedOut)
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the eContentType OID for a SignedData's EncapsulatedContentType, if
@@ -274,7 +274,7 @@ OSStatus CMSDecoderIsContentEncrypted(
 OSStatus CMSDecoderCopyEncapsulatedContentType(
    CMSDecoderRef		cmsDecoder,
    CFDataRef * __nonnull CF_RETURNS_RETAINED eContentTypeOut)  /* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain an array of all of the certificates in a message. Elements of the
@@ -287,7 +287,7 @@ OSStatus CMSDecoderCopyEncapsulatedContentType(
 OSStatus CMSDecoderCopyAllCerts(
     CMSDecoderRef		cmsDecoder,
     CFArrayRef * __nonnull CF_RETURNS_RETAINED certsOut)    /* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the actual message content (payload), if any. If the message was
@@ -298,7 +298,7 @@ OSStatus CMSDecoderCopyAllCerts(
 OSStatus CMSDecoderCopyContent(
     CMSDecoderRef		cmsDecoder,
     CFDataRef * __nonnull CF_RETURNS_RETAINED contentOut)	/* RETURNED */
-    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.5)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the signing time of signer 'signerIndex' of a CMS message, if
@@ -314,7 +314,7 @@ OSStatus CMSDecoderCopySignerSigningTime(
     CMSDecoderRef		cmsDecoder,
     size_t				signerIndex,
     CFAbsoluteTime      *signingTime)			/* RETURNED */
-    __API_AVAILABLE(macos(10.8)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), iosmac(11.0));
+    __API_AVAILABLE(macos(10.8)) SPI_AVAILABLE(ios(11.0), tvos(11.0), watchos(4.0), macCatalyst(11.0));
 
 /*
  * Obtain the timestamp of signer 'signerIndex' of a CMS message, if
@@ -330,7 +330,7 @@ OSStatus CMSDecoderCopySignerTimestamp(
     CMSDecoderRef		cmsDecoder,
     size_t				signerIndex,
     CFAbsoluteTime      *timestamp)			/* RETURNED */
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*
  * Obtain the timestamp of signer 'signerIndex' of a CMS message, if
@@ -347,7 +347,7 @@ OSStatus CMSDecoderCopySignerTimestampWithPolicy(
     CFTypeRef __nullable timeStampPolicy,
     size_t				signerIndex,        /* usually 0 */
     CFAbsoluteTime      *timestamp)			/* RETURNED */
-    API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.10)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*
  * Obtain an array of the certificates in a timestamp response. Elements of the
@@ -365,7 +365,7 @@ OSStatus CMSDecoderCopySignerTimestampCertificates(
     CMSDecoderRef		cmsDecoder,
     size_t				signerIndex,                            /* usually 0 */
     CFArrayRef * __nonnull CF_RETURNS_RETAINED certificateRefs) /* RETURNED */
-    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+    API_AVAILABLE(macos(10.8)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 CF_ASSUME_NONNULL_END
 

@@ -208,12 +208,8 @@ char test_order_domainname_cstr[] = "web.mydomain.test.";
     XCTAssertEqual(q->TimeoutQuestion, 0);
     XCTAssertEqual(q->WakeOnResolve, 0);
     XCTAssertEqual(q->UseBackgroundTraffic, 0);
-    XCTAssertEqual(q->ValidationRequired, 0);
-    XCTAssertEqual(q->ValidatingResponse, 0);
     XCTAssertEqual(q->ProxyQuestion, 0);
     XCTAssertNotEqual((void*)q->QuestionCallback, (void*)mDNSNULL);
-    XCTAssertNil((__bridge id)q->DNSSECAuthInfo);
-    XCTAssertNil((__bridge id)(void*)q->DAIFreeCallback);
     XCTAssertEqual(q->AppendSearchDomains, 0);
     XCTAssertNil((__bridge id)q->DuplicateOf);
     

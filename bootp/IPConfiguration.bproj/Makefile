@@ -10,13 +10,11 @@ endif
 
 ifeq ($(PLATFORM),macosx)
 # Mac OS X internal SDK
-ARCHS=i386 x86_64
 CORETELEPHONY=
 endif
 
 ifeq ($(PLATFORM),)
 # Mac OS X native SDK
-ARCHS=i386 x86_64
 CORETELEPHONY=
 CC = cc
 SYSROOT = /
@@ -58,7 +56,7 @@ dhcpv6: DHCPv6Client.c ifutil.c cga.c rsakey.c FDSet.c timer.c HostUUID.c IPv6So
 dhcpduid: DHCPDUIDIAID.c ../bootplib/util.c ../bootplib/DHCPDUID.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c ../bootplib/cfutil.c HostUUID.c ../bootplib/IPConfigurationLog.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -DTEST_DHCPDUIDIAID $(IBLIB) -g -Wall -framework CoreFoundation -framework SystemConfiguration $(SYSTEM_PRIVATE) -o $@ $^
 
-rtadv: RTADVSocket.c IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c timer.c FDSet.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c ../bootplib/DNSNameList.c
+rtadv: RTADVSocket.c ICMPv6Socket.c ../bootplib/cfutil.c ../bootplib/IPv6Socket.c ../bootplib/interfaces.c ../bootplib/ptrlist.c ../bootplib/dynarray.c timer.c FDSet.c ../bootplib/IPConfigurationLog.c ../bootplib/util.c ../bootplib/DNSNameList.c ../bootplib/RouterAdvertisement.c
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -D__APPLE_USE_RFC_3542 $(SYSTEM_PRIVATE) $(IBLIB) -DTEST_RTADVSOCKET -framework CoreFoundation -framework SystemConfiguration -g -o $@ $^
 
 rsakey: RSAKey.c ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c
@@ -85,6 +83,9 @@ ipv6defpfx: $(IFUTIL_FILES)
 protolist: $(IFUTIL_FILES)
 	$(CC) -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_PROTOLIST -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) -o $@ $^
 
+wireless: wireless.c
+	$(CC) -DTEST_WIRELESS -isysroot $(SYSROOT) $(ARCH_FLAGS) -g  -Wall -DTEST_PROTOLIST -framework CoreFoundation -framework SystemConfiguration $(SC_PRIV) $(SYSTEM_PRIVATE) $(IBLIB) ../bootplib/cfutil.c ../bootplib/IPConfigurationLog.c -lio80211 -o $@ $^
+
 clean:
-	rm -f *~ arptest arp_session.o inet6_addrs dhcpv6 dhcpduid cga rsakey ipv6ll ipv6defpfx ipv6lladdr IPv6AWDReportTest
+	rm -f *~ arptest arp_session.o inet6_addrs dhcpv6 dhcpduid cga rsakey ipv6ll ipv6defpfx ipv6lladdr IPv6AWDReportTest rtadv wireless
 	rm -rf *.dSYM/

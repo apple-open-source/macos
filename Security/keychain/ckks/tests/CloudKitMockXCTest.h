@@ -36,6 +36,7 @@
 #import "keychain/ckks/tests/MockCloudKit.h"
 
 #import "keychain/ot/OTManager.h"
+#import "keychain/trust/TrustedPeers/TPSyncingPolicy.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -47,6 +48,9 @@ NS_ASSUME_NONNULL_BEGIN
 @class CKKSLockStateTracker;
 @class CKKSReachabilityTracker;
 @class SOSCKKSPeerAdapter;
+
+@interface CKKSTestFailureLogger : NSObject <XCTestObservation>
+@end
 
 @interface CloudKitMockXCTest : XCTestCase
 
@@ -106,7 +110,9 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nullable) CKKSMockOctagonAdapter *mockOctagonAdapter;
 
 - (NSSet<NSString*>*)managedViewList;
-- (TPPolicy*)viewSortingPolicyForManagedViewList;
+- (TPSyncingPolicy*)viewSortingPolicyForManagedViewList;
+- (TPSyncingPolicy*)viewSortingPolicyForManagedViewListWithUserControllableViews:(NSSet<NSString*>*)ucv
+                                                       syncUserControllableViews:(TPPBPeerStableInfo_UserControllableViewStatus)syncUserControllableViews;
 
 @property (nullable) id mockCKKSViewManager;
 @property (nullable) CKKSViewManager* injectedManager;
@@ -126,6 +132,9 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Fill this in to fail the next modifyzones operation
 @property (nullable) NSError* nextModifyRecordZonesError;
+
+// Used to track the test failure logger (for test teardown purposes)
+@property (class) CKKSTestFailureLogger* testFailureLogger;
 
 - (CKKSKey*)fakeTLK:(CKRecordZoneID*)zoneID;
 

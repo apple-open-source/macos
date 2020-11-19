@@ -29,6 +29,9 @@
 
 @interface WKWebView (WKViewInternalIOS)
 
+- (void)_setupScrollAndContentViews;
+- (void)_registerForNotifications;
+
 - (void)_keyboardWillChangeFrame:(NSNotification *)notification;
 - (void)_keyboardDidChangeFrame:(NSNotification *)notification;
 - (void)_keyboardWillShow:(NSNotification *)notification;
@@ -77,12 +80,13 @@
 - (void)_didInvokeUIScrollViewDelegateCallback;
 
 - (void)_scheduleVisibleContentRectUpdate;
+- (void)_scheduleForcedVisibleContentRectUpdate;
 
 - (void)_didCompleteAnimatedResize;
 
 - (void)_didStartProvisionalLoadForMainFrame;
-- (void)_didFinishLoadForMainFrame;
-- (void)_didFailLoadForMainFrame;
+- (void)_didFinishNavigation:(API::Navigation*)navigation;
+- (void)_didFailNavigation:(API::Navigation*)navigation;
 - (void)_didSameDocumentNavigationForMainFrame:(WebKit::SameDocumentNavigationType)navigationType;
 
 - (BOOL)_isShowingVideoPictureInPicture;
@@ -132,12 +136,11 @@
 @property (nonatomic, readonly) UIEdgeInsets _computedObscuredInset;
 @property (nonatomic, readonly) UIEdgeInsets _computedUnobscuredSafeAreaInset;
 @property (nonatomic, readonly, getter=_isRetainingActiveFocusedState) BOOL _retainingActiveFocusedState;
+@property (nonatomic, readonly) int32_t _deviceOrientation;
 
 - (BOOL)_effectiveAppearanceIsDark;
 - (BOOL)_effectiveUserInterfaceLevelIsElevated;
 
 @end
-
-int32_t deviceOrientation();
 
 #endif // PLATFORM(IOS_FAMILY)

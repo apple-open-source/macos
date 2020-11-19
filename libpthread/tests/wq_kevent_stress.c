@@ -11,8 +11,8 @@
 
 #include <dispatch/dispatch.h>
 
-#include "../private/workqueue_private.h"
-#include "../private/qos_private.h"
+#include "../private/pthread/workqueue_private.h"
+#include "../private/pthread/qos_private.h"
 
 #include "wq_kevent.h"
 

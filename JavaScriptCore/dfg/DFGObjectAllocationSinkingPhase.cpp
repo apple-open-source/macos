@@ -40,7 +40,11 @@
 #include "DFGPromotedHeapLocation.h"
 #include "DFGSSACalculator.h"
 #include "DFGValidate.h"
-#include "JSCInlines.h"
+#include "JSArrayIterator.h"
+#include "JSInternalPromise.h"
+#include "JSMapIterator.h"
+#include "JSSetIterator.h"
+#include "StructureInlines.h"
 #include <wtf/StdList.h>
 
 namespace JSC { namespace DFG {
@@ -140,7 +144,7 @@ public:
     // once it is escaped if it still has pointers to it in order to
     // replace any use of those pointers by the corresponding
     // materialization
-    enum class Kind { Escaped, Object, Activation, Function, GeneratorFunction, AsyncFunction, AsyncGeneratorFunction, RegExpObject };
+    enum class Kind { Escaped, Object, Activation, Function, GeneratorFunction, AsyncFunction, AsyncGeneratorFunction, InternalFieldObject, RegExpObject };
 
     using Fields = HashMap<PromotedLocationDescriptor, Node*>;
 
@@ -245,6 +249,11 @@ public:
         return m_kind == Kind::Function || m_kind == Kind::GeneratorFunction || m_kind == Kind::AsyncFunction;
     }
 
+    bool isInternalFieldObjectAllocation() const
+    {
+        return m_kind == Kind::InternalFieldObject;
+    }
+
     bool isRegExpObjectAllocation() const
     {
         return m_kind == Kind::RegExpObject;
@@ -289,6 +298,10 @@ public:
 
         case Kind::AsyncFunction:
             out.print("AsyncFunction");
+            break;
+
+        case Kind::InternalFieldObject:
+            out.print("InternalFieldObject");
             break;
 
         case Kind::AsyncGeneratorFunction:
@@ -562,7 +575,7 @@ public:
         for (Node* identifier : toEscape)
             escapeAllocation(identifier);
 
-        if (!ASSERT_DISABLED) {
+        if (ASSERT_ENABLED) {
             for (const auto& entry : m_allocations)
                 ASSERT_UNUSED(entry, entry.value.isEscapedAllocation() || other.m_allocations.contains(entry.key));
         }
@@ -587,7 +600,7 @@ public:
 
     void assertIsValid() const
     {
-        if (ASSERT_DISABLED)
+        if (!ASSERT_ENABLED)
             return;
 
         // Pointers should point to an actual allocation
@@ -802,7 +815,7 @@ private:
         m_combinedLiveness = CombinedLiveness(m_graph);
 
         CString graphBeforeSinking;
-        if (Options::verboseValidationFailure() && Options::validateGraphAtEachPhase()) {
+        if (UNLIKELY(Options::verboseValidationFailure() && Options::validateGraphAtEachPhase())) {
             StringPrintStream out;
             m_graph.dump(out);
             graphBeforeSinking = out.toCString();
@@ -894,6 +907,19 @@ private:
         } while (changed);
     }
 
+    template<typename InternalFieldClass>
+    Allocation* handleInternalFieldClass(Node* node, HashMap<PromotedLocationDescriptor, LazyNode>& writes)
+    {
+        Allocation* result = &m_heap.newAllocation(node, Allocation::Kind::InternalFieldObject);
+        writes.add(StructurePLoc, LazyNode(m_graph.freeze(node->structure().get())));
+        auto initialValues = InternalFieldClass::initialValues();
+        static_assert(initialValues.size() == InternalFieldClass::numberOfInternalFields);        
+        for (unsigned index = 0; index < initialValues.size(); ++index)
+            writes.add(PromotedLocationDescriptor(InternalFieldObjectPLoc, index), LazyNode(m_graph.freeze(initialValues[index])));
+
+        return result;
+    }
+
     template<typename WriteFunctor, typename ResolveFunctor>
     void handleNode(
         Node* node,
@@ -935,6 +961,31 @@ private:
 
             writes.add(FunctionExecutablePLoc, LazyNode(node->cellOperand()));
             writes.add(FunctionActivationPLoc, LazyNode(node->child1().node()));
+            break;
+        }
+
+        case NewInternalFieldObject: {
+            switch (node->structure()->typeInfo().type()) {
+            case JSArrayIteratorType:
+                target = handleInternalFieldClass<JSArrayIterator>(node, writes);
+                break;
+            case JSMapIteratorType:
+                target = handleInternalFieldClass<JSMapIterator>(node, writes);
+                break;
+            case JSSetIteratorType:
+                target = handleInternalFieldClass<JSSetIterator>(node, writes);
+                break;
+            case JSPromiseType:
+                if (node->structure()->classInfo() == JSInternalPromise::info())
+                    target = handleInternalFieldClass<JSInternalPromise>(node, writes);
+                else {
+                    ASSERT(node->structure()->classInfo() == JSPromise::info());
+                    target = handleInternalFieldClass<JSPromise>(node, writes);
+                }
+                break;
+            default:
+                DFG_CRASH(m_graph, node, "Bad structure");
+            }
             break;
         }
 
@@ -1148,6 +1199,26 @@ private:
             }
             break;
 
+        case GetInternalField: {
+            target = m_heap.onlyLocalAllocation(node->child1().node());
+            if (target && target->isInternalFieldObjectAllocation())
+                exactRead = PromotedLocationDescriptor(InternalFieldObjectPLoc, node->internalFieldIndex());
+            else
+                m_heap.escape(node->child1().node());
+            break;
+        }
+
+        case PutInternalField: {
+            target = m_heap.onlyLocalAllocation(node->child1().node());
+            if (target && target->isInternalFieldObjectAllocation())
+                writes.add(PromotedLocationDescriptor(InternalFieldObjectPLoc, node->internalFieldIndex()), LazyNode(node->child2().node()));
+            else {
+                m_heap.escape(node->child1().node());
+                m_heap.escape(node->child2().node());
+            }
+            break;
+        }
+
         case Check:
         case CheckVarargs:
             m_graph.doToChildren(
@@ -1172,6 +1243,7 @@ private:
         case FilterGetByStatus:
         case FilterPutByIdStatus:
         case FilterInByIdStatus:
+        case FilterDeleteByStatus:
             break;
 
         default:
@@ -1640,6 +1712,15 @@ private:
                 OpInfo(executable));
         }
 
+        case Allocation::Kind::InternalFieldObject: {
+            ObjectMaterializationData* data = m_graph.m_objectMaterializationData.add();
+            return m_graph.addNode(
+                allocation.identifier()->prediction(), Node::VarArg, MaterializeNewInternalFieldObject,
+                where->origin.withSemantic(
+                    allocation.identifier()->origin.semantic),
+                OpInfo(allocation.identifier()->structure()), OpInfo(data), 0, 0);
+        }
+
         case Allocation::Kind::Activation: {
             ObjectMaterializationData* data = m_graph.m_objectMaterializationData.add();
             FrozenValue* symbolTable = allocation.identifier()->cellOperand();
@@ -2027,6 +2108,10 @@ private:
                         node->convertToPhantomNewAsyncFunction();
                         break;
 
+                    case NewInternalFieldObject:
+                        node->convertToPhantomNewInternalFieldObject();
+                        break;
+
                     case CreateActivation:
                         node->convertToPhantomCreateActivation();
                         break;
@@ -2186,7 +2271,7 @@ private:
             if (m_heap.follow(availability.m_locals[i].node()) != escapee)
                 continue;
 
-            int operand = availability.m_locals.operandForIndex(i);
+            Operand operand = availability.m_locals.operandForIndex(i);
             m_insertionSet.insertNode(
                 nodeIndex, SpecNone, MovHint, origin.takeValidExit(canExit), OpInfo(operand),
                 materialization->defaultEdge());
@@ -2300,6 +2385,46 @@ private:
             ASSERT(locations.contains(activation));
 
             node->child1() = Edge(resolve(block, activation), KnownCellUse);
+            break;
+        }
+
+        case MaterializeNewInternalFieldObject: {
+            ObjectMaterializationData& data = node->objectMaterializationData();
+
+            unsigned firstChild = m_graph.m_varArgChildren.size();
+
+            Vector<PromotedHeapLocation> locations = m_locationsForAllocation.get(escapee);
+
+            PromotedHeapLocation structure(StructurePLoc, allocation.identifier());
+            ASSERT(locations.contains(structure));
+            m_graph.m_varArgChildren.append(Edge(resolve(block, structure), KnownCellUse));
+
+            for (PromotedHeapLocation location : locations) {
+                switch (location.kind()) {
+                case StructurePLoc: {
+                    ASSERT(location == structure);
+                    break;
+                }
+
+                case InternalFieldObjectPLoc: {
+                    ASSERT(location.base() == allocation.identifier());
+                    data.m_properties.append(location.descriptor());
+                    Node* value = resolve(block, location);
+                    if (m_sinkCandidates.contains(value))
+                        m_graph.m_varArgChildren.append(m_bottom);
+                    else
+                        m_graph.m_varArgChildren.append(value);
+                    break;
+                }
+
+                default:
+                    DFG_CRASH(m_graph, node, "Bad location kind");
+                }
+            }
+
+            node->children = AdjacencyList(
+                AdjacencyList::Variable,
+                firstChild, m_graph.m_varArgChildren.size() - firstChild);
             break;
         }
 
@@ -2434,6 +2559,15 @@ private:
                 value->defaultEdge());
         }
 
+        case InternalFieldObjectPLoc: {
+            return m_graph.addNode(
+                PutInternalField,
+                origin.takeValidExit(canExit),
+                OpInfo(location.info()),
+                Edge(base, KnownCellUse),
+                value->defaultEdge());
+        }
+
         case RegExpObjectLastIndexPLoc: {
             return m_graph.addNode(
                 SetRegExpObjectLastIndex,
@@ -2460,6 +2594,7 @@ private:
                 case FilterGetByStatus:
                 case FilterPutByIdStatus:
                 case FilterInByIdStatus:
+                case FilterDeleteByStatus:
                     if (node->child1()->isPhantomAllocation())
                         node->removeWithoutChecks();
                     break;

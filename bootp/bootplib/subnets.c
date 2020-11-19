@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -393,10 +393,7 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	}
 	switch (type) {
 	case dhcptype_string_e:
-	    data = CFStringCreateExternalRepresentation(NULL,
-							value,
-							kCFStringEncodingUTF8,
-							0);
+	    data = my_CFStringCreateData(value);
 	    break;
 	case dhcptype_ip_e:
 	    if (my_CFStringToIPAddress(value, &ip) == FALSE) {
@@ -550,7 +547,10 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 	case dhcptype_dns_namelist_e:
 	    data = DNSNameListDataCreateWithArray(value, TRUE);
 	    if (data == NULL) {
-		strlcpy(err, "Failed to encode DNS search",  err_len);
+		if (err != NULL) {
+		    strlcpy(err, "Failed to encode DNS search",
+			    err_len);
+		}
 	    }
 	    break;
 	case dhcptype_classless_route_e: {
@@ -634,13 +634,16 @@ createOptionsDataArrayFromDictionary(CFDictionaryRef plist, int * ret_space)
 	CFStringRef		this_key = keys[i];
 	CFTypeRef		this_value = values[i];
 
-	if (CFStringHasPrefix(this_key, CFSTR("dhcp_")) == FALSE) {
+#define OPTION_PREFIX		"dhcp_"
+#define OPTION_PREFIX_LENGTH	(sizeof(OPTION_PREFIX) - 1)
+	if (CFStringHasPrefix(this_key, CFSTR(OPTION_PREFIX)) == FALSE) {
 	    /* not a DHCP option */
 	    continue;
 	}
-	range = CFRangeMake(5, CFStringGetLength(this_key));
+	range = CFRangeMake(OPTION_PREFIX_LENGTH,
+			    CFStringGetLength(this_key) - OPTION_PREFIX_LENGTH);
 	option_name = my_CFStringToCStringWithRange(this_key, range,
-						    kCFStringEncodingASCII);
+						    kCFStringEncodingUTF8);
 	if (option_name == NULL) {
 	    continue;
 	}

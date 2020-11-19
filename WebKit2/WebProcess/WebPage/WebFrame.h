@@ -27,7 +27,7 @@
 
 #include "APIObject.h"
 #include "DownloadID.h"
-#include "SandboxExtension.h"
+#include "PolicyDecision.h"
 #include "ShareableBitmap.h"
 #include "TransactionID.h"
 #include "WKBase.h"
@@ -65,9 +65,11 @@ struct WebsitePoliciesData;
 
 class WebFrame : public API::ObjectImpl<API::Object::Type::BundleFrame> {
 public:
-    static Ref<WebFrame> createWithCoreMainFrame(WebPage*, WebCore::Frame*);
+    static Ref<WebFrame> create() { return adoptRef(*new WebFrame); }
     static Ref<WebFrame> createSubframe(WebPage*, const String& frameName, WebCore::HTMLFrameOwnerElement*);
     ~WebFrame();
+
+    void initWithCoreMainFrame(WebPage&, WebCore::Frame&);
 
     // Called when the FrameLoaderClient (and therefore the WebCore::Frame) is being torn down.
     void invalidate();
@@ -83,7 +85,7 @@ public:
     enum class ForNavigationAction { No, Yes };
     uint64_t setUpPolicyListener(WebCore::PolicyCheckIdentifier, WebCore::FramePolicyFunction&&, ForNavigationAction);
     void invalidatePolicyListener();
-    void didReceivePolicyDecision(uint64_t listenerID, WebCore::PolicyCheckIdentifier, WebCore::PolicyAction, uint64_t navigationID, DownloadID, Optional<WebsitePoliciesData>&&, Optional<SandboxExtension::Handle>&&);
+    void didReceivePolicyDecision(uint64_t listenerID, PolicyDecision&&);
 
     uint64_t setUpWillSubmitFormListener(CompletionHandler<void()>&&);
     void continueWillSubmitForm(uint64_t);
@@ -169,11 +171,14 @@ public:
     void setFirstLayerTreeTransactionIDAfterDidCommitLoad(TransactionID transactionID) { m_firstLayerTreeTransactionIDAfterDidCommitLoad = transactionID; }
 #endif
 
-    WebFrameLoaderClient* frameLoaderClient() const { return m_frameLoaderClient.get(); }
+    WebFrameLoaderClient* frameLoaderClient() const;
+    bool shouldEnableInAppBrowserPrivacyProtections();
+    void setIsNavigatingToAppBoundDomain(Optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain) { m_isNavigatingToAppBoundDomain = isNavigatingToAppBoundDomain; };
+    Optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain() const { return m_isNavigatingToAppBoundDomain; }
+    Optional<NavigatingToAppBoundDomain> isTopFrameNavigatingToAppBoundDomain() const;
 
 private:
-    static Ref<WebFrame> create(std::unique_ptr<WebFrameLoaderClient>);
-    explicit WebFrame(std::unique_ptr<WebFrameLoaderClient>);
+    WebFrame();
 
     WebCore::Frame* m_coreFrame { nullptr };
 
@@ -184,7 +189,6 @@ private:
     HashMap<uint64_t, CompletionHandler<void()>> m_willSubmitFormCompletionHandlers;
     DownloadID m_policyDownloadID { 0 };
 
-    std::unique_ptr<WebFrameLoaderClient> m_frameLoaderClient;
     LoadListener* m_loadListener { nullptr };
     
     WebCore::FrameIdentifier m_frameID;
@@ -192,6 +196,8 @@ private:
 #if PLATFORM(IOS_FAMILY)
     TransactionID m_firstLayerTreeTransactionIDAfterDidCommitLoad;
 #endif
+    Optional<NavigatingToAppBoundDomain> m_isNavigatingToAppBoundDomain;
+
 };
 
 } // namespace WebKit

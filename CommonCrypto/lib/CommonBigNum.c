@@ -342,14 +342,6 @@ CCBigNumDiv(CCBigNumRef quotient, CCBigNumRef remainder, const CCBigNumRef a, co
 }
 
 CCStatus
-CCBigNumDiv2(CCBigNumRef res, const CCBigNumRef a)
-{
-    CC_DEBUG_LOG("Entering\n");
-    ccz_div2((ccz *)res, (ccz *)a);
-    return kCCSuccess;
-}
-
-CCStatus
 CCBigNumMod(CCBigNumRef res, CCBigNumRef dividend, CCBigNumRef modulus)
 {
     CC_DEBUG_LOG("Entering\n");
@@ -378,52 +370,11 @@ err:
 }
 
 CCStatus
-CCBigNumSquare(CCBigNumRef res, const CCBigNumRef a)
-{
-    CC_DEBUG_LOG("Entering\n");
-    ccz_sqr((ccz *)res, (ccz *)a);
-    return kCCSuccess;
-}
-
-CCStatus
-CCBigNumGCD(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
-{
-    CC_DEBUG_LOG("Entering\n");
-    ccz_gcd((ccz *)res, (ccz *)a, (ccz *)b);
-    return kCCSuccess;
-}
-
-CCStatus
-CCBigNumLCM(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b)
-{
-    CC_DEBUG_LOG("Entering\n");
-    ccz_lcm((ccz *)res, (ccz *)a, (ccz *)b);
-    return kCCSuccess;
-}
-
-CCStatus
 CCBigNumMulMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef b, const CCBigNumRef modulus)
 {
     CC_DEBUG_LOG("Entering\n");
 	ccz_mulmod((ccz *)res, (ccz *)a, (ccz *)b, (ccz *)modulus);
     return kCCSuccess;
-}
-
-CCStatus
-CCBigNumSquareMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef modulus)
-{
-    CC_DEBUG_LOG("Entering\n");
-	ccz_sqrmod((ccz *)res, (ccz *)a, (ccz *)modulus);
-    return kCCSuccess;
-}
-
-CCStatus
-CCBigNumInverseMod(CCBigNumRef res, const CCBigNumRef a, const CCBigNumRef modulus)
-{
-    int status=0;
-    CC_DEBUG_LOG("Entering\n");
-	status=ccz_invmod((ccz *)res, (ccz *)a, (ccz *)modulus);
-    return (status==0)?kCCSuccess:kCCParamError;
 }
 
 CCStatus
@@ -450,27 +401,6 @@ CCBigNumRightShift(CCBigNumRef res, const CCBigNumRef a, const uint32_t digits)
     return kCCSuccess;
 }
 
-CCStatus
-CCBigNumMontgomerySetup(CCBigNumRef  __unused num, uint32_t *  __unused rho)
-{
-    CC_DEBUG_LOG("Entering\n");
-	return kCCUnimplemented; // ccLTCErr(mp_montgomery_setup(num, rho));
-}
-
-CCStatus
-CCBigNumMontgomeryNormalization(CCBigNumRef __unused a, CCBigNumRef __unused b)
-{
-    CC_DEBUG_LOG("Entering\n");
-	return kCCUnimplemented; // ccLTCErr(mp_montgomery_normalization(a, b));
-}
-
-CCStatus
-CCBigNumMontgomeryReduce(CCBigNumRef __unused x, CCBigNumRef __unused n, uint32_t __unused rho)
-{
-    CC_DEBUG_LOG("Entering\n");
-	return kCCUnimplemented; // ccLTCErr(mp_montgomery_reduce(x, n, rho));
-}
-
 bool
 CCBigNumIsPrime(CCStatus *status, const CCBigNumRef bn)
 {
@@ -480,16 +410,6 @@ CCBigNumIsPrime(CCStatus *status, const CCBigNumRef bn)
 
     /* TODO: Figure out right number of rounds (or depth). */
     return ccz_is_prime((ccz *) bn, 16);
-}
-
-bool
-CCBigNumIsOdd(CCStatus *status, const CCBigNumRef bn)
-{
-    CC_DEBUG_LOG("Entering\n");
-    if (status)
-        *status = kCCSuccess;
-
-    return ccz_is_odd((ccz *) bn);
 }
 
 bool

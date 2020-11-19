@@ -5,8 +5,8 @@
 #include "keychain/SecureObjectSync/SOSEngine.h"
 #import "keychain/SecureObjectSync/SOSPeerRateLimiter.h"
 #import "keychain/SecureObjectSync/SOSPeerOTRTimer.h"
-#include <utilities/SecADWrapper.h>
 
+#import "utilities/SecCoreAnalytics.h"
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecPLWrappers.h>
 #include "keychain/SecureObjectSync/SOSInternal.h"
@@ -29,8 +29,7 @@ static const CFStringRef kSecAccessGroupCKKS                 = CFSTR("com.apple.
 
 -(id) initWithAccount:(SOSAccount*)acct andName:(NSString*)name
 {
-    self = [super init];
-    if(self){
+    if ((self = [super init])) {
         SOSEngineRef e = SOSDataSourceFactoryGetEngineForDataSourceName(acct.factory, (__bridge CFStringRef)name, NULL);
         engine = e;
         account = acct;
@@ -89,6 +88,12 @@ static const CFStringRef kSecAccessGroupCKKS                 = CFSTR("com.apple.
 bool SOSEngineHandleCodedMessage(SOSAccount* account, SOSEngineRef engine, CFStringRef peerID, CFDataRef codedMessage, CFErrorRef*error) {
     __block bool result = true;
     __block bool somethingChanged = false;
+
+    if(account && account.accountIsChanging) {
+        secnotice("engine", "SOSEngineHandleCodedMessage called before signing in to new account");
+        return true; // we want to drop sync message notifications when account is changing
+    }
+
     result &= SOSEngineWithPeerID(engine, peerID, error, ^(SOSPeerRef peer, SOSCoderRef coder, SOSDataSourceRef dataSource, SOSTransactionRef txn, bool *shouldSave) {
         CFDataRef decodedMessage = NULL;
         enum SOSCoderUnwrapStatus uwstatus = SOSPeerHandleCoderMessage(peer, coder, peerID, codedMessage, &decodedMessage, shouldSave, error);
@@ -188,8 +193,8 @@ bool SOSEngineHandleCodedMessage(SOSAccount* account, SOSEngineRef engine, CFStr
             secnotice("otrtimer","peerID: %@ current date: %@, stored date: %@", peerid, currentDate, storedDate);
             secnotice("otrtimer", "rtt: %d", rtt);
             [self SOSTransportMessageCalculateNextTimer:account rtt:rtt peerid:peerid];
-            
-            SecADClientPushValueForDistributionKey(kSecSOSMessageRTT, rtt);
+
+            [SecCoreAnalytics sendEvent:(__bridge id)kSecSOSMessageRTT event:@{SecCoreAnalyticsValue: [NSNumber numberWithUnsignedInt:rtt]}];
             [peerToTimeLastSentDict removeObjectForKey:peerid]; //remove last sent message date
             SOSAccountSetValue(account, kSOSAccountPeerLastSentTimestamp, (__bridge CFMutableDictionaryRef)peerToTimeLastSentDict, NULL);
         }

@@ -128,7 +128,7 @@ es_US{
             }
         }
     }
-    Version{"2.1.47.86"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -366,6 +366,7 @@ es_US{
                     M{"M/d – M/d"}
                     d{"M/d – M/d"}
                 }
+                fallback{"{0} – {1}"}
                 h{
                     a{"h a – h a"}
                 }
@@ -691,8 +692,5 @@ es_US{
                 "1"{"el año próximo"}
             }
         }
-    }
-    measurementSystemNames{
-        US{"estadounidense"}
     }
 }

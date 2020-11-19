@@ -121,6 +121,7 @@ enum {
 #define     _pointingShim                       _reserved->pointingShim
 #endif
 #define     _debugMask                          _reserved->debugMask
+#define     _powerButtonNmi                     _reserved->powerButtonNmi
 
 #define     _clientDict                         _reserved->clientDict
 #define     _eventMemory                        _reserved->eventMemory
@@ -174,13 +175,13 @@ class IOHIDClientData : public OSObject
 
     IOService * client;
     void *      context;
-    void *      action;
+    IOHIDEventService::Action action;
 
 public:
-    static IOHIDClientData* withClientInfo(IOService *client, void* context, void * action);
+    static IOHIDClientData* withClientInfo(IOService *client, void* context, IOHIDEventService::Action action);
     inline IOService *  getClient()     { return client; }
     inline void *       getContext()    { return context; }
-    inline void *       getAction()     { return action; }
+    inline IOHIDEventService::Action getAction()     { return action; }
 };
 
 //===========================================================================
@@ -288,9 +289,34 @@ bool IOHIDEventService::start ( IOService * provider )
         setProperty(kIOHIDProtectedAccessKey, boolean);
     OSSafeReleaseNULL(obj);
 
+    obj = provider->copyProperty(kIOHIDPointerAccelerationSupportKey);
+    boolean = OSDynamicCast(OSBoolean, obj);
+    if (boolean) {
+        setProperty(kIOHIDPointerAccelerationSupportKey, boolean);
+    }
+    OSSafeReleaseNULL(obj);
+
+    obj = provider->copyProperty(kIOHIDScrollAccelerationSupportKey);
+    boolean = OSDynamicCast(OSBoolean, obj);
+    if (boolean) {
+        setProperty(kIOHIDScrollAccelerationSupportKey, boolean);
+    }
+    OSSafeReleaseNULL(obj);
+
 #if TARGET_OS_OSX
    
     int legacy_shim;
+    
+    _powerButtonNmi = false;
+    
+    // Figure out whether the power button should trigger an NMI (i.e. a panic)
+    UInt32 debugFlags = 0;
+    if (PE_parse_boot_argn("debug", &debugFlags, sizeof(debugFlags))) {
+        if ((debugFlags & DB_NMI) && (debugFlags & DB_NMI_BTN_ENA)) {
+            _powerButtonNmi = true;
+        }
+    }
+    
     if (!PE_parse_boot_argn("hid-legacy-shim", &legacy_shim, sizeof (legacy_shim))) {
         legacy_shim = 0;
     }
@@ -868,7 +894,6 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
         setProperty("HIDKeyboardKeysDefined", true);
     }
     
-#if TARGET_OS_OSX
     if (keyboardDevice) {
         
         // multitouch should report absence of esc key on specific keyboards
@@ -877,7 +902,6 @@ void IOHIDEventService::parseSupportedElements ( OSArray * elementArray, UInt32 
             setProperty(kIOHIDKeyboardSupportsEscKey, escKeySupported ? kOSBooleanTrue : kOSBooleanFalse);
         }
     }
-#endif
     
 #if TARGET_OS_OSX
     
@@ -1468,48 +1492,92 @@ void IOHIDEventService::multiAxisTimerCallback(IOTimerEventSource *sender __unus
 #if TARGET_OS_OSX
 
 KeyValueMask IOHIDEventService::keyMonitorTable[] = {
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftControl ),     kKeyMaskCtrl},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightControl),     kKeyMaskCtrl},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftShift   ),     kKeyMaskShift},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightShift  ),     kKeyMaskShift},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftAlt     ),     kKeyMaskAlt},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightAlt    ),     kKeyMaskAlt},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftGUI     ),     kKeyMaskCommand},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightGUI    ),     kKeyMaskCommand},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardPeriod      ),     kKeyMaskPeriod},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadPeriod        ),     kKeyMaskPeriod},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardComma       ),     kKeyMaskComma},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadComma         ),     kKeyMaskComma},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardSlash       ),     kKeyMaskSlash},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadSlash         ),     kKeyMaskSlash},
-    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardEscape      ),     kKeyMaskEsc}
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftControl       ),     kKeyMaskCtrl},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightControl      ),     kKeyMaskCtrl},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftShift         ),     kKeyMaskShift},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightShift        ),     kKeyMaskShift},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftAlt           ),     kKeyMaskAlt},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightAlt          ),     kKeyMaskAlt},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardLeftGUI           ),     kKeyMaskLeftCommand},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardRightGUI          ),     kKeyMaskRightCommand},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardPeriod            ),     kKeyMaskPeriod},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadPeriod              ),     kKeyMaskPeriod},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardComma             ),     kKeyMaskComma},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadComma               ),     kKeyMaskComma},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardSlash             ),     kKeyMaskSlash},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeypadSlash               ),     kKeyMaskSlash},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardEscape            ),     kKeyMaskEsc},
+    {Key(kHIDPage_KeyboardOrKeypad, kHIDUsage_KeyboardDeleteOrBackspace ),     kKeyMaskDelete},
+    {Key(kHIDPage_Consumer,         kHIDUsage_Csmr_Power                ),     kKeyMaskPower}
 };
 
 DebugKeyAction IOHIDEventService::debugKeyActionTable[] = {
-  { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskCommand | kKeyMaskPeriod),
+    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskPeriod),
     IOHIDEventService::debugActionSysdiagnose,
     (void*)kHIDUsage_KeyboardPeriod
-  },
-  { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskCommand | kKeyMaskComma),
+    },
+    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskPeriod),
+      IOHIDEventService::debugActionSysdiagnose,
+      (void*)kHIDUsage_KeyboardPeriod
+    },
+    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskComma),
     IOHIDEventService::debugActionSysdiagnose,
     (void*)kHIDUsage_KeyboardComma
-  },
-  { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskCommand | kKeyMaskSlash),
+    },
+    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskComma),
+      IOHIDEventService::debugActionSysdiagnose,
+      (void*)kHIDUsage_KeyboardComma
+    },
+    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskSlash),
     IOHIDEventService::debugActionSysdiagnose,
     (void*)kHIDUsage_KeyboardSlash
-  },
-  { kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskCommand | kKeyMaskEsc,
-    debugActionNMI,
+    },
+    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskSlash),
+      IOHIDEventService::debugActionSysdiagnose,
+      (void*)kHIDUsage_KeyboardSlash
+    },
+    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskLeftCommand | kKeyMaskEsc),
+    IOHIDEventService::debugActionNMI,
     NULL
-  },
+    },
+    { (kKeyMaskCtrl | kKeyMaskShift | kKeyMaskAlt | kKeyMaskRightCommand | kKeyMaskEsc),
+      IOHIDEventService::debugActionNMI,
+      NULL
+    },
+    { (kKeyMaskLeftCommand | kKeyMaskRightCommand | kKeyMaskDelete),
+      IOHIDEventService::debugActionNMI,
+      NULL
+    },
+    { kKeyMaskPower,
+      IOHIDEventService::powerButtonNMI,
+      NULL
+    }
 };
+
+//====================================================================================================
+// IOHIDEventService::isPowerButtonNmiEnabled
+//====================================================================================================
+
+bool IOHIDEventService::isPowerButtonNmiEnabled () const {
+    return _powerButtonNmi;
+}
 
 //====================================================================================================
 // IOHIDEventService::debugActionNMI
 //====================================================================================================
 
 void IOHIDEventService::debugActionNMI (IOHIDEventService *self __unused, void * parameter __unused) {
-  PE_enter_debugger("HID: USB Programmer Key");
+  PE_enter_debugger("HID: Triggering NMI");
+}
+
+//====================================================================================================
+// IOHIDEventService::powerButtonNMI
+//====================================================================================================
+
+void IOHIDEventService::powerButtonNMI (IOHIDEventService *self, void * parameter __unused) {
+    if (self->isPowerButtonNmiEnabled()) {
+        PE_enter_debugger("HID: Power Button NMI");
+    }
 }
 
 //====================================================================================================
@@ -1534,253 +1602,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
                                 UInt32                      value,
                                 IOOptionBits                options)
 {
-    if ( ! _readyForInputReports )
-        return;
-    IOHIDEvent * event = NULL;
-#if TARGET_OS_IPHONE // {
-    UInt32 debugMask = 0;
-    if ( !_keyboard.debug.nmiHoldMask ) {
-        OSData * nmi_mask = OSDynamicCast(OSData, getProperty("button-nmi_mask", gIOServicePlane));
-        if ( nmi_mask) {
-            _keyboard.debug.nmiHoldMask = *(UInt32 *) nmi_mask->getBytesNoCopy();
-            _keyboard.debug.nmiDelay = kDebuggerLongDelayMS;
-        } else {
-#if TARGET_OS_TV // Apple TV NMI keychord: FAV (List button) + PlayPause
-            _keyboard.debug.nmiHoldMask = 0x50;
-            _keyboard.debug.nmiDelay = kATVChordDelayMS;
-#elif TARGET_OS_WATCH // WatchOS NMI keychord: Hold Menu (crown) & triple-press Help (pill)
-            _keyboard.debug.nmiHoldMask = 0x4;
-            _keyboard.debug.nmiTriplePressMask = 0x8;
-            _keyboard.debug.nmiDelay = kDebuggerTriplePressDelayMS;
-#else
-            _keyboard.debug.nmiHoldMask = 0x1;
-            _keyboard.debug.nmiTriplePressMask = 0x2;
-            _keyboard.debug.nmiDelay = kDebuggerTriplePressDelayMS;
-#endif // TARGET_OS_TV
-        }
-    }
-    
-  
-    switch (usagePage) {
-        case kHIDPage_KeyboardOrKeypad:
-            if ( _keyboard.swapISO ) {
-
-                switch ( usage ) {
-                    case kHIDUsage_KeyboardGraveAccentAndTilde:
-                        usage = kHIDUsage_KeyboardNonUSBackslash;
-                        break;
-                    case kHIDUsage_KeyboardNonUSBackslash:
-                        usage = kHIDUsage_KeyboardGraveAccentAndTilde;
-                        break;
-                }
-            }
-            break;
-        case kHIDPage_Consumer:
-            switch (usage) {
-                case kHIDUsage_Csmr_Power:
-                    debugMask = 0x1;
-                    break;
-                case kHIDUsage_Csmr_VolumeDecrement:
-                    debugMask = 0x20;
-                    break;
-                case kHIDUsage_Csmr_VolumeIncrement:
-                    debugMask = 0x2;
-                    break;
-                case kHIDUsage_Csmr_Menu:
-                    debugMask = 0x4;
-                    break;
-                case kHIDUsage_Csmr_Help:
-                    debugMask = 0x8;
-                    break;
-                case kHIDUsage_Csmr_PlayOrPause:
-                    debugMask = 0x10;
-                    break;
-                case kHIDUsage_Csmr_DataOnScreen:
-                    debugMask = 0x40;
-                    break;
-            };
-            break;
-        case kHIDPage_Telephony:
-            switch (usage) {
-                case kHIDUsage_Tfon_Hold:
-                    debugMask = 0x1;
-                    break;
-            };
-            break;
-    };
-
-    if ( value )
-        _keyboard.debug.mask |= debugMask;
-    else
-        _keyboard.debug.mask &= ~debugMask;
-
-
-    // If triple press mask is not set, use hold button NMI trigger.
-    if ( !_keyboard.debug.nmiTriplePressMask ) {
-        if ( _keyboard.debug.mask == _keyboard.debug.nmiHoldMask ) {
-            if ( !_keyboard.debug.nmiTimer ) {
-                _keyboard.debug.nmiTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::debuggerTimerCallback));
-                if (_keyboard.debug.nmiTimer) {
-                    if ((_workLoop->addEventSource(_keyboard.debug.nmiTimer) != kIOReturnSuccess)) {
-                        _keyboard.debug.nmiTimer->release();
-                        _keyboard.debug.nmiTimer = NULL;
-                    }
-                }
-            }
-            if ( _keyboard.debug.nmiTimer ) {
-                _keyboard.debug.nmiTimer->setTimeoutMS( _keyboard.debug.nmiDelay );
-                _keyboard.debug.startMask = _keyboard.debug.mask;
-            }
-        }
-    }
-    // If triple press mask is set, use hold + triple press button NMI trigger.
-    else {
-        // Proceed if only hold mask and triple press mask are pressed.
-        if ( _keyboard.debug.mask  == (_keyboard.debug.nmiHoldMask | _keyboard.debug.nmiTriplePressMask) ) {
-            AbsoluteTime abs;
-            UInt64 timestamp;
-            
-            clock_get_uptime(&abs);
-            absolutetime_to_nanoseconds(abs, &timestamp);
-            timestamp /= kMillisecondScale;
-            
-            if ( timestamp > _keyboard.debug.nmiStartTime + _keyboard.debug.nmiDelay ) {
-                _keyboard.debug.nmiPressCount = 0;
-            }
-            
-            switch (_keyboard.debug.nmiPressCount++) {
-                case 0:
-                    _keyboard.debug.nmiStartTime = timestamp;
-                    break;
-                case 2:
-                    triggerDebugger();
-                    break;
-                default:
-                    break;
-            }
-        }
-        // Reset if hold mask is release or a button in neither mask is pressed.
-        else if ( (_keyboard.debug.mask & ~_keyboard.debug.nmiTriplePressMask) != _keyboard.debug.nmiHoldMask){
-            _keyboard.debug.nmiPressCount = 0;
-        }
-    }
-    
-    // stackshot keychord check
-    if(_keyboard.debug.mask == STACKSHOT_MASK_WATCH ||
-       _keyboard.debug.mask == STACKSHOT_MASK_ATV) {
-        if ( !_keyboard.debug.stackshotTimer ) {
-            _keyboard.debug.stackshotTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::stackshotTimerCallback));
-            if ( _keyboard.debug.stackshotTimer ) {
-                if ((_workLoop->addEventSource(_keyboard.debug.stackshotTimer) != kIOReturnSuccess)) {
-                    _keyboard.debug.stackshotTimer->release();
-                    _keyboard.debug.stackshotTimer = NULL;
-                }
-            }
-        }
-        if ( _keyboard.debug.stackshotTimer ) {
-            _keyboard.debug.stackshotTimer->setTimeoutMS(DELAYED_STACKSHOT_TIMEOUT);
-            _keyboard.debug.startMask = _keyboard.debug.mask;
-        }
-        handle_stackshot_keychord(_keyboard.debug.mask);
-    }
-    if ( _keyboard.debug.mask == 0x0 ) {
-        // Always reset flag on release.
-        if ( _keyboard.debug.stackshotHeld ) {
-            handle_stackshot_keychord(DELAYED_STACKSHOT_MASK);
-        }
-		if ( _keyboard.debug.stackshotTimer ) {
-			_keyboard.debug.stackshotTimer->cancelTimeout();
-		}
-        _keyboard.debug.stackshotHeld = 0;
-    }
-
-    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, value!=0, options);
-    if ( event ) {
-      dispatchEvent(event);
-      event->release();
-    }
-
-#endif
-
-#if TARGET_OS_OSX
-    for (unsigned int index = 0 ; index < (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])); index++) {
-        if (value) {
-            if (!_keyboard.pressedKeys[index].isValid()) {
-                _keyboard.pressedKeys[index] = Key (usagePage, usage);
-                break;
-            }
-        } else {
-            if (_keyboard.pressedKeys[index].usage() == usage && _keyboard.pressedKeys[index].usagePage() == usagePage) {
-                _keyboard.pressedKeys[index] = Key (0, 0);
-                break;
-            }
-        }
-    }
-    
-    _keyboard.pressedKeysMask = 0;
-    
-    for (unsigned int index = 0 ; index < (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])); index++) {
-        uint32_t maskForKey = 0;
-        if (_keyboard.pressedKeys[index].isValid()) {
-            maskForKey = kKeyMaskUnknown;
-            for (unsigned int i = 0 ; i < (sizeof(keyMonitorTable)/sizeof(keyMonitorTable[0])); i++) {
-                if (keyMonitorTable[i].key == _keyboard.pressedKeys[index]) {
-                    maskForKey = keyMonitorTable[i].mask;
-                    break;
-                }
-            }
-        }
-        _keyboard.pressedKeysMask |= maskForKey;
-    }
-    
-    uint32_t debugMask = (_keyboard.pressedKeysMask & kKeyMaskUnknown) ? 0 : _keyboard.pressedKeysMask;
-
-    if (debugMask && value != 0) {
-      for (unsigned int index = 0 ; index < (sizeof(debugKeyActionTable)/sizeof(debugKeyActionTable[0])); index++) {
-        if (debugKeyActionTable[index].mask == debugMask) {
-          HIDLogError ("HID: taking action for debug key mask %x", debugMask);
-          debugKeyActionTable[index].action(this, debugKeyActionTable[index].parameter);
-          return;
-        }
-      }
-    }
-  
-    
-    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, (value != 0), options);
-    if ( event ) {
-        dispatchEvent(event);
-        event->release();
-    }
-    
-    if (_keyboardShim != kLegacyShimDisabled) {
-
-        NUB_LOCK;
-    
-        IOHID_DEBUG(kIOHIDDebugCode_DispatchKeyboard, usagePage, usage, value, options);
-        
-        if (usagePage == kHIDPage_KeyboardOrKeypad ||
-           (_keyboard.appleVendorSupported && (usagePage == kHIDPage_AppleVendorKeyboard || (usagePage == kHIDPage_AppleVendorTopCase && usage == kHIDUsage_AV_TopCase_KeyboardFn)))) {
-            if ( !_keyboardNub ) {
-                _keyboardNub = newKeyboardShim();
-            }
-            if ( _keyboardNub ) {
-                _keyboardNub->dispatchKeyboardEvent(timeStamp, usagePage, usage, (value != 0), options);
-            }
-        }
-
-        if (usagePage == kHIDPage_Consumer) {
-            if ( !_consumerNub )
-                _consumerNub = newConsumerShim();
-            
-            if ( _consumerNub ) {
-                _consumerNub->dispatchConsumerEvent(_keyboardNub, timeStamp, usagePage, usage, value, options);
-            }
-        }
-        
-        NUB_UNLOCK;
-    }
-#endif /* TARGET_OS_OSX */ // }
-
+    dispatchKeyboardEvent(timeStamp, usagePage, usage, value, 1, 0, 0, options);
 }
 
 //====================================================================================================
@@ -1802,8 +1624,7 @@ void IOHIDEventService::dispatchRelativePointerEventWithFixed(
     if ( !dx && !dy && buttonState == _relativePointer.buttonState )
         return;
 
-    
-    IOHIDEvent *event = IOHIDEvent::relativePointerEventWithFixed(timeStamp, dx, dy, 0, buttonState, _relativePointer.buttonState);
+    IOHIDEvent *event = IOHIDEvent::relativePointerEventWithFixed(timeStamp, dx, dy, 0, buttonState, _relativePointer.buttonState, options);
 
     if ( event ) {
         dispatchEvent(event);
@@ -1875,7 +1696,7 @@ void IOHIDEventService::dispatchAbsolutePointerEvent(
 #else
     IOHID_DEBUG(kIOHIDDebugCode_DispatchAbsolutePointer, x, y, buttonState, options);
 
-    IOHIDEvent *event = IOHIDEvent::absolutePointerEvent(timeStamp, __ScaleToFixed(x, bounds->minx, bounds->maxx), __ScaleToFixed(y, bounds->miny, bounds->maxy), _absolutePointer.buttonState, buttonState);
+    IOHIDEvent *event = IOHIDEvent::absolutePointerEvent(timeStamp, __ScaleToFixed(x, bounds->minx, bounds->maxx), __ScaleToFixed(y, bounds->miny, bounds->maxy), _absolutePointer.buttonState, buttonState, options);
     
     if (event) {
         dispatchEvent(event);
@@ -1909,9 +1730,9 @@ void IOHIDEventService::dispatchScrollWheelEvent(
                                 SInt32                      deltaAxis1,
                                 SInt32                      deltaAxis2,
                                 SInt32                      deltaAxis3,
-                                IOOptionBits                options __unused)
+                                IOOptionBits                options)
 {
-    dispatchScrollWheelEventWithFixed (timeStamp, deltaAxis1 << 16, deltaAxis2 << 16, deltaAxis3 << 16);
+    dispatchScrollWheelEventWithFixed (timeStamp, deltaAxis1 << 16, deltaAxis2 << 16, deltaAxis3 << 16, options);
 }
 
 //====================================================================================================
@@ -2566,7 +2387,7 @@ void IOHIDEventService::close(IOService *forClient, IOOptionBits options)
 
 OSDefineMetaClassAndStructors(IOHIDClientData, OSObject)
 
-IOHIDClientData * IOHIDClientData::withClientInfo(IOService *client, void* context, void * action)
+IOHIDClientData * IOHIDClientData::withClientInfo(IOService *client, void* context, IOHIDEventService::Action action)
 {
     IOHIDClientData * data = new IOHIDClientData;
 
@@ -2592,7 +2413,7 @@ bool IOHIDEventService::open(   IOService *                 client,
                                 void *                      context,
                                 Action                      action)
 {
-    IOHIDClientData * clientData = IOHIDClientData::withClientInfo(client, context, (void*)action);
+    IOHIDClientData * clientData = IOHIDClientData::withClientInfo(client, context, action);
     bool ret = false;
 
     if ( clientData ) {
@@ -2647,7 +2468,7 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
 #if TARGET_OS_OSX
     if (event->getType() == kIOHIDEventTypeKeyboard &&
         event->getIntegerValue(kIOHIDEventFieldKeyboardDown)) {
-        _sleepDisplayTickle();
+        _sleepDisplayTickle(this);
     }
 #endif
     
@@ -2656,7 +2477,7 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
     IOHID_DEBUG(kIOHIDDebugCode_DispatchHIDEvent, event->getTimeStamp(), currentTime, options, getRegistryEntryID());
     
     if (_debugMask & kIOHIDDebugPerfEvent) {
-        IOHIDEventPerfData data = {.driverDispatchTime = currentTime, 0, 0, 0};
+        IOHIDEventPerfData data = {currentTime, 0, 0, 0};
         IOHIDEvent *perfEvent = IOHIDEvent::vendorDefinedEvent (
                                             currentTime,
                                             kHIDPage_AppleVendor,
@@ -2691,7 +2512,7 @@ void IOHIDEventService::dispatchEvent(IOHIDEvent * event, IOOptionBits options)
 
         client  = clientData->getClient();
         context = clientData->getContext();
-        action  = (Action)clientData->getAction();
+        action  = clientData->getAction();
 
         if ( action )
             (*action)(client, this, context, event, options);
@@ -2935,7 +2756,7 @@ void IOHIDEventService::dispatchScrollWheelEventWithFixed(
     if ( !deltaAxis1 && !deltaAxis2 && !deltaAxis3 && !momentumOrPhase )
         return;
 
-    IOHIDEvent *event = IOHIDEvent::scrollEventWithFixed(timeStamp, deltaAxis2, deltaAxis1, deltaAxis3); //yxz should be xyz
+    IOHIDEvent *event = IOHIDEvent::scrollEventWithFixed(timeStamp, deltaAxis2, deltaAxis1, deltaAxis3, options); //yxz should be xyz
     if ( event ) {
         if (momentumOrPhase) {
           event->setPhase (momentumOrPhase);
@@ -2958,8 +2779,270 @@ void IOHIDEventService::dispatchScrollWheelEventWithFixed(
 #endif
 }
 
+//====================================================================================================
+// IOHIDEventService::dispatchKeyboardEvent
+//====================================================================================================
+OSMetaClassDefineReservedUsed(IOHIDEventService, 23);
+void IOHIDEventService::dispatchKeyboardEvent(AbsoluteTime                timeStamp,
+                                              UInt32                      usagePage,
+                                              UInt32                      usage,
+                                              UInt32                      value,
+                                              UInt8                       pressCount,
+                                              UInt8                       longPress,
+                                              UInt8                       clickSpeed,
+                                              IOOptionBits                options)
+{
+    if ( ! _readyForInputReports )
+        return;
+    IOHIDEvent * event = NULL;
+#if TARGET_OS_IPHONE // {
+    UInt32 debugMask = 0;
+    if ( !_keyboard.debug.nmiHoldMask ) {
+        OSData * nmi_mask = OSDynamicCast(OSData, getProperty("button-nmi_mask", gIOServicePlane));
+        if ( nmi_mask) {
+            _keyboard.debug.nmiHoldMask = *(UInt32 *) nmi_mask->getBytesNoCopy();
+            _keyboard.debug.nmiDelay = kDebuggerLongDelayMS;
+        } else {
+#if TARGET_OS_TV // Apple TV NMI keychord: FAV (List button) + PlayPause
+            _keyboard.debug.nmiHoldMask = 0x50;
+            _keyboard.debug.nmiDelay = kATVChordDelayMS;
+#elif TARGET_OS_WATCH // WatchOS NMI keychord: Hold Menu (crown) & triple-press Help (pill)
+            _keyboard.debug.nmiHoldMask = 0x4;
+            _keyboard.debug.nmiTriplePressMask = 0x8;
+            _keyboard.debug.nmiDelay = kDebuggerTriplePressDelayMS;
+#else
+            _keyboard.debug.nmiHoldMask = 0x1;
+            _keyboard.debug.nmiTriplePressMask = 0x2;
+            _keyboard.debug.nmiDelay = kDebuggerTriplePressDelayMS;
+#endif // TARGET_OS_TV
+        }
+    }
 
-OSMetaClassDefineReservedUnused(IOHIDEventService, 23);
+
+    switch (usagePage) {
+        case kHIDPage_KeyboardOrKeypad:
+            if ( _keyboard.swapISO ) {
+
+                switch ( usage ) {
+                    case kHIDUsage_KeyboardGraveAccentAndTilde:
+                        usage = kHIDUsage_KeyboardNonUSBackslash;
+                        break;
+                    case kHIDUsage_KeyboardNonUSBackslash:
+                        usage = kHIDUsage_KeyboardGraveAccentAndTilde;
+                        break;
+                }
+            }
+            break;
+        case kHIDPage_Consumer:
+            switch (usage) {
+                case kHIDUsage_Csmr_Power:
+                    debugMask = 0x1;
+                    break;
+                case kHIDUsage_Csmr_VolumeDecrement:
+                    debugMask = 0x20;
+                    break;
+                case kHIDUsage_Csmr_VolumeIncrement:
+                    debugMask = 0x2;
+                    break;
+                case kHIDUsage_Csmr_Menu:
+                    debugMask = 0x4;
+                    break;
+                case kHIDUsage_Csmr_Help:
+                    debugMask = 0x8;
+                    break;
+                case kHIDUsage_Csmr_PlayOrPause:
+                    debugMask = 0x10;
+                    break;
+                case kHIDUsage_Csmr_DataOnScreen:
+                    debugMask = 0x40;
+                    break;
+            };
+            break;
+        case kHIDPage_Telephony:
+            switch (usage) {
+                case kHIDUsage_Tfon_Hold:
+                    debugMask = 0x1;
+                    break;
+            };
+            break;
+    };
+
+    if ( value )
+        _keyboard.debug.mask |= debugMask;
+    else
+        _keyboard.debug.mask &= ~debugMask;
+
+
+    // If triple press mask is not set, use hold button NMI trigger.
+    if ( !_keyboard.debug.nmiTriplePressMask ) {
+        if ( _keyboard.debug.mask == _keyboard.debug.nmiHoldMask ) {
+            if ( !_keyboard.debug.nmiTimer ) {
+                _keyboard.debug.nmiTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::debuggerTimerCallback));
+                if (_keyboard.debug.nmiTimer) {
+                    if ((_workLoop->addEventSource(_keyboard.debug.nmiTimer) != kIOReturnSuccess)) {
+                        _keyboard.debug.nmiTimer->release();
+                        _keyboard.debug.nmiTimer = NULL;
+                    }
+                }
+            }
+            if ( _keyboard.debug.nmiTimer ) {
+                _keyboard.debug.nmiTimer->setTimeoutMS( _keyboard.debug.nmiDelay );
+                _keyboard.debug.startMask = _keyboard.debug.mask;
+            }
+        }
+    }
+    // If triple press mask is set, use hold + triple press button NMI trigger.
+    // Ignore buttons that don't have debugMask value, e.g. AL Digital Wallet.
+    else if ( debugMask ) {
+        // Proceed if only hold mask and triple press mask are pressed.
+        if ( _keyboard.debug.mask  == (_keyboard.debug.nmiHoldMask | _keyboard.debug.nmiTriplePressMask) ) {
+            AbsoluteTime abs;
+            UInt64 timestamp;
+
+            clock_get_uptime(&abs);
+            absolutetime_to_nanoseconds(abs, &timestamp);
+            timestamp /= kMillisecondScale;
+
+            if ( timestamp > _keyboard.debug.nmiStartTime + _keyboard.debug.nmiDelay ) {
+                _keyboard.debug.nmiPressCount = 0;
+            }
+
+            switch (_keyboard.debug.nmiPressCount++) {
+                case 0:
+                    _keyboard.debug.nmiStartTime = timestamp;
+                    break;
+                case 2:
+                    triggerDebugger();
+                    break;
+                default:
+                    break;
+            }
+        }
+        // Reset if hold mask is release or a button in neither mask is pressed.
+        else if ( (_keyboard.debug.mask & ~_keyboard.debug.nmiTriplePressMask) != _keyboard.debug.nmiHoldMask){
+            _keyboard.debug.nmiPressCount = 0;
+        }
+    }
+
+    // stackshot keychord check
+    if(_keyboard.debug.mask == STACKSHOT_MASK_WATCH ||
+       _keyboard.debug.mask == STACKSHOT_MASK_ATV) {
+        if ( !_keyboard.debug.stackshotTimer ) {
+            _keyboard.debug.stackshotTimer = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::stackshotTimerCallback));
+            if ( _keyboard.debug.stackshotTimer ) {
+                if ((_workLoop->addEventSource(_keyboard.debug.stackshotTimer) != kIOReturnSuccess)) {
+                    _keyboard.debug.stackshotTimer->release();
+                    _keyboard.debug.stackshotTimer = NULL;
+                }
+            }
+        }
+        if ( _keyboard.debug.stackshotTimer ) {
+            _keyboard.debug.stackshotTimer->setTimeoutMS(DELAYED_STACKSHOT_TIMEOUT);
+            _keyboard.debug.startMask = _keyboard.debug.mask;
+        }
+        handle_stackshot_keychord(_keyboard.debug.mask);
+    }
+    if ( _keyboard.debug.mask == 0x0 ) {
+        // Always reset flag on release.
+        if ( _keyboard.debug.stackshotHeld ) {
+            handle_stackshot_keychord(DELAYED_STACKSHOT_MASK);
+        }
+        if ( _keyboard.debug.stackshotTimer ) {
+            _keyboard.debug.stackshotTimer->cancelTimeout();
+        }
+        _keyboard.debug.stackshotHeld = 0;
+    }
+
+    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, (value!=0), pressCount, longPress, clickSpeed, options);
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+
+#endif
+
+#if TARGET_OS_OSX
+    for (unsigned int index = 0 ; index < (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])); index++) {
+        if (value) {
+            if (!_keyboard.pressedKeys[index].isValid()) {
+                _keyboard.pressedKeys[index] = Key (usagePage, usage);
+                break;
+            }
+        } else {
+            if (_keyboard.pressedKeys[index].usage() == usage && _keyboard.pressedKeys[index].usagePage() == usagePage) {
+                _keyboard.pressedKeys[index] = Key (0, 0);
+                break;
+            }
+        }
+    }
+
+    _keyboard.pressedKeysMask = 0;
+
+    for (unsigned int index = 0 ; index < (sizeof(_keyboard.pressedKeys)/sizeof(_keyboard.pressedKeys[0])); index++) {
+        uint32_t maskForKey = 0;
+        if (_keyboard.pressedKeys[index].isValid()) {
+            maskForKey = kKeyMaskUnknown;
+            for (unsigned int i = 0 ; i < (sizeof(keyMonitorTable)/sizeof(keyMonitorTable[0])); i++) {
+                if (keyMonitorTable[i].key == _keyboard.pressedKeys[index]) {
+                    maskForKey = keyMonitorTable[i].mask;
+                    break;
+                }
+            }
+        }
+        _keyboard.pressedKeysMask |= maskForKey;
+    }
+
+    uint32_t debugMask = (_keyboard.pressedKeysMask & kKeyMaskUnknown) ? 0 : _keyboard.pressedKeysMask;
+
+    if (debugMask && value != 0) {
+        for (unsigned int index = 0 ; index < (sizeof(debugKeyActionTable)/sizeof(debugKeyActionTable[0])); index++) {
+
+            if (debugKeyActionTable[index].mask == debugMask && ((debugMask != kKeyMaskPower) || ((debugMask == kKeyMaskPower) && isPowerButtonNmiEnabled()))) {
+                HIDLogError ("HID: taking action for debug key mask %x", debugMask);
+                debugKeyActionTable[index].action(this, debugKeyActionTable[index].parameter);
+                return;
+            }
+        }
+    }
+
+
+    event = IOHIDEvent::keyboardEvent(timeStamp, usagePage, usage, (value!=0), pressCount, longPress, clickSpeed, options);
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+
+    if (_keyboardShim != kLegacyShimDisabled) {
+
+        NUB_LOCK;
+
+        IOHID_DEBUG(kIOHIDDebugCode_DispatchKeyboard, usagePage, usage, value, options);
+
+        if (usagePage == kHIDPage_KeyboardOrKeypad ||
+            (_keyboard.appleVendorSupported && (usagePage == kHIDPage_AppleVendorKeyboard || (usagePage == kHIDPage_AppleVendorTopCase && usage == kHIDUsage_AV_TopCase_KeyboardFn)))) {
+            if ( !_keyboardNub ) {
+                _keyboardNub = newKeyboardShim();
+            }
+            if ( _keyboardNub ) {
+                _keyboardNub->dispatchKeyboardEvent(timeStamp, usagePage, usage, (value != 0), options);
+            }
+        }
+
+        if (usagePage == kHIDPage_Consumer) {
+            if ( !_consumerNub )
+                _consumerNub = newConsumerShim();
+
+            if ( _consumerNub ) {
+                _consumerNub->dispatchConsumerEvent(_keyboardNub, timeStamp, usagePage, usage, value, options);
+            }
+        }
+
+        NUB_UNLOCK;
+    }
+#endif /* TARGET_OS_OSX */ // }
+
+}
+
 OSMetaClassDefineReservedUnused(IOHIDEventService, 24);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 25);
 OSMetaClassDefineReservedUnused(IOHIDEventService, 26);

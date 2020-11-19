@@ -33,6 +33,7 @@
 #include "cskernel.h"
 #include <security_utilities/cfmunge.h>
 #include <security_utilities/logging.h>
+#include <xpc/private.h>
 
 using namespace CodeSigning;
 
@@ -213,6 +214,31 @@ OSStatus SecCodeCreateWithAuditToken(const audit_token_t *audit,
 	
 	END_CSAPI
 }
+
+OSStatus SecCodeCreateWithXPCMessage(xpc_object_t message, SecCSFlags flags,
+									 SecCodeRef * __nonnull CF_RETURNS_RETAINED target)
+{
+	BEGIN_CSAPI
+
+	checkFlags(flags);
+
+	if (xpc_get_type(message) != XPC_TYPE_DICTIONARY) {
+		return errSecCSInvalidObjectRef;
+	}
+	
+	xpc_connection_t connection = xpc_dictionary_get_remote_connection(message);
+	if (connection == NULL) {
+		return errSecCSInvalidObjectRef;
+	}
+
+	audit_token_t t = {0};
+	xpc_connection_get_audit_token(connection, &t);
+
+	return SecCodeCreateWithAuditToken(&t, flags, target);
+
+	END_CSAPI
+}
+
 #endif // TARGET_OS_OSX
 
 
@@ -289,6 +315,7 @@ const CFStringRef kSecCodeInfoResourceDirectory = CFSTR("ResourceDirectory");
 const CFStringRef kSecCodeInfoNotarizationDate = CFSTR("NotarizationDate");
 const CFStringRef kSecCodeInfoCMSDigestHashType = CFSTR("CMSDigestHashType");
 const CFStringRef kSecCodeInfoCMSDigest =        CFSTR("CMSDigest");
+const CFStringRef kSecCodeInfoSignatureVersion = CFSTR("SignatureVersion");
 
 /* DiskInfoRepInfo types */
 const CFStringRef kSecCodeInfoDiskRepVersionPlatform =	 	CFSTR("VersionPlatform");

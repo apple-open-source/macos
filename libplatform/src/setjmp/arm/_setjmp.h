@@ -43,7 +43,11 @@
 
 #define JMP_VFP		0x24
 
-#define JMP_sig		0x68
+#define JMP_sigmask	0x68
+#define JMP_sigonstack	0x6C
+
+#define STACK_SSFLAGS	8 // offsetof(stack_t, ss_flags)
+
 
 #define JMP_SIGFLAG	0x70
 

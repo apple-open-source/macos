@@ -145,7 +145,7 @@
     is_status(trustResult, kSecTrustResultInvalid, "trustResult is kSecTrustResultInvalid");
     is(SecTrustGetCertificateCount(trust), 1, "cert count is 1 without securityd running");
     SecKeyRef pubKey = NULL;
-    ok(pubKey = SecTrustCopyPublicKey(trust), "copy public key without securityd running");
+    ok(pubKey = SecTrustCopyKey(trust), "copy public key without securityd running");
     CFReleaseNull(pubKey);
     SecServerSetTrustdMachServiceName("com.apple.trustd");
     // End of Restore OS environment tests
@@ -371,7 +371,8 @@ errOut:
     ok_status(SecTrustEvaluateAsync(trust, queue, ^(SecTrustRef  _Nonnull trustRef, SecTrustResultType trustResult) {
         if ((trustResult == kSecTrustResultProceed) || (trustResult == kSecTrustResultUnspecified)) {
             // Evaluation succeeded!
-            SecKeyRef publicKey = SecTrustCopyPublicKey(trustRef);
+            SecKeyRef publicKey = SecTrustCopyKey(trustRef);
+            XCTAssert(publicKey !=  NULL);
             CFReleaseSafe(publicKey);
         } else if (trustResult == kSecTrustResultRecoverableTrustFailure) {
             // Evaluation failed, but may be able to recover . . .
@@ -889,6 +890,39 @@ errOut:
             XCTAssertNil(properties, @"%@ test failed", testObj.fullTestName);
         }
     }];
+}
+
+- (void)testCopyKey
+{
+    SecTrustRef trust = NULL;
+    CFArrayRef certs = NULL;
+    SecCertificateRef cert0 = NULL, cert1 = NULL;
+    SecPolicyRef policy = NULL;
+
+    isnt(cert0 = SecCertificateCreateWithBytes(NULL, _c0, sizeof(_c0)),
+         NULL, "create cert0");
+    isnt(cert1 = SecCertificateCreateWithBytes(NULL, _c1, sizeof(_c1)),
+         NULL, "create cert1");
+    const void *v_certs[] = { cert0, cert1 };
+
+    certs = CFArrayCreate(NULL, v_certs, array_size(v_certs), &kCFTypeArrayCallBacks);
+    policy = SecPolicyCreateSSL(false, NULL);
+
+    ok_status(SecTrustCreateWithCertificates(certs, policy, &trust), "create trust");
+
+    SecKeyRef trustPubKey = NULL, certPubKey = NULL;
+    ok(trustPubKey = SecTrustCopyKey(trust), "copy public key without securityd running");
+    ok(certPubKey = SecCertificateCopyKey(cert0));
+    XCTAssert(CFEqualSafe(trustPubKey, certPubKey));
+
+
+    CFReleaseNull(trustPubKey);
+    CFReleaseNull(certPubKey);
+    CFReleaseNull(trust);
+    CFReleaseNull(cert0);
+    CFReleaseNull(cert1);
+    CFReleaseNull(certs);
+    CFReleaseNull(policy);
 }
 
 @end

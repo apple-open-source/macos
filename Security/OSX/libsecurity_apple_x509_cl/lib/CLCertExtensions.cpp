@@ -335,7 +335,7 @@ bool getFieldSubjectKeyId(
 	
 	/* if this fails, we're out of sync with nssExtenInfo[] in 
 	 * CLFieldsCommon.cpp */
-	assert(nssObj != NULL);	
+	assert(nssObj != NULL);
 	clAllocCopyData(alloc, *nssObj, *cdsaObj);
 	getFieldExtenCommon(cdsaObj, *decodedExt, fieldValue);
 	return true;

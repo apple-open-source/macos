@@ -210,14 +210,14 @@ bool IOFWCompareAndSwapCommand::createMemoryDescriptor()
 	
 	if( result )
 	{
-		fMembers->fMemory = IOMemoryDescriptor::withAddress( fInputVals, 4 * sizeof(UInt32), kIODirectionOutIn );
+		fMembers->fMemory = IOMemoryDescriptor::withAddress( fInputVals, 4 * sizeof(UInt32), kIODirectionInOut );
         if( fMembers->fMemory == NULL )
             result = false;
 	}
 	
 	if( result )
 	{
-		IOReturn status = fMembers->fMemory->prepare( kIODirectionOutIn );
+		IOReturn status = fMembers->fMemory->prepare( kIODirectionInOut );
 		if( status == kIOReturnSuccess )
 		{
 			prepared = true;
@@ -234,7 +234,7 @@ bool IOFWCompareAndSwapCommand::createMemoryDescriptor()
 		{
 			if( prepared )
 			{
-				fMembers->fMemory->complete( kIODirectionOutIn );
+				fMembers->fMemory->complete( kIODirectionInOut );
 			}
 
 			fMembers->fMemory->release();
@@ -253,7 +253,7 @@ void IOFWCompareAndSwapCommand::destroyMemoryDescriptor()
 {
 	if( fMembers->fMemory != NULL )
 	{
-		fMembers->fMemory->complete( kIODirectionOutIn );
+		fMembers->fMemory->complete( kIODirectionInOut );
 		fMembers->fMemory->release();
 		fMembers->fMemory = NULL;
 	}

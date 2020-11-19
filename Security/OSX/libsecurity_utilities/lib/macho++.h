@@ -53,7 +53,7 @@ public:
 	Architecture(const char *name);
 
 	cpu_type_t cpuType() const { return this->first; }
-	cpu_subtype_t cpuSubtype() const { return this->second; }
+	cpu_subtype_t cpuSubtype() const { return this->second & ~CPU_SUBTYPE_MASK; }
 	const char *name() const;			// NULL if unknown
 	std::string displayName() const;	// always display-able
 	

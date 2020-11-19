@@ -13,6 +13,8 @@
 #include <Security/SecCode.h>
 #include <Security/SecRequirement.h>
 
+#include <security_utilities/simulatecrash_assert.h>
+
 AUTHD_DEFINE_LOG
 
 struct _process_s {

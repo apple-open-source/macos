@@ -718,6 +718,7 @@ MOD_STATUS_LDADD
 MOD_DAV_LDADD
 MOD_HEARTMONITOR_LDADD
 MOD_HEARTBEAT_LDADD
+MOD_SYSTEMD_LDADD
 MOD_PRIVILEGES_LDADD
 MOD_UNIXD_LDADD
 MOD_MPM_EVENT_LDADD
@@ -1123,6 +1124,7 @@ with_mpm
 enable_mpms_shared
 enable_unixd
 enable_privileges
+enable_systemd
 enable_heartbeat
 enable_heartmonitor
 enable_dav
@@ -2005,6 +2007,7 @@ Optional Features:
   --enable-unixd          unix specific support
   --enable-privileges     Per-virtualhost Unix UserIDs and enhanced security
                           for Solaris
+  --enable-systemd        Systemd support
   --enable-heartbeat      Generates Heartbeats
   --enable-heartmonitor   Collects Heartbeats
   --enable-dav            WebDAV protocol handling. --enable-dav also enables
@@ -2945,6 +2948,8 @@ abs_builddir=`pwd`
 
 HTTPD_VERSION=`$abs_srcdir/build/get-version.sh all $abs_srcdir/include/ap_release.h AP_SERVER`
 HTTPD_MMN=`$abs_srcdir/build/get-version.sh mmn $abs_srcdir/include/ap_mmn.h MODULE_MAGIC_NUMBER`
+
+
 
 
 
@@ -7730,6 +7735,81 @@ if test "$ac_cv_struct_tm_gmtoff" = "yes"; then
 $as_echo "#define HAVE_GMTOFF 1" >>confdefs.h
 
 fi
+
+
+case $host in
+*-linux-*)
+   if test -n "$PKGCONFIG" && $PKGCONFIG --exists libsystemd; then
+      SYSTEMD_LIBS=`$PKGCONFIG --libs libsystemd`
+   elif test -n "$PKGCONFIG" && $PKGCONFIG --exists libsystemd-daemon; then
+      SYSTEMD_LIBS=`$PKGCONFIG --libs libsystemd-daemon`
+   else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for sd_notify in -lsystemd-daemon" >&5
+$as_echo_n "checking for sd_notify in -lsystemd-daemon... " >&6; }
+if ${ac_cv_lib_systemd_daemon_sd_notify+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lsystemd-daemon  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char sd_notify ();
+int
+main ()
+{
+return sd_notify ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_systemd_daemon_sd_notify=yes
+else
+  ac_cv_lib_systemd_daemon_sd_notify=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_systemd_daemon_sd_notify" >&5
+$as_echo "$ac_cv_lib_systemd_daemon_sd_notify" >&6; }
+if test "x$ac_cv_lib_systemd_daemon_sd_notify" = xyes; then :
+  SYSTEMD_LIBS="-lsystemd-daemon"
+fi
+
+   fi
+   if test -n "$SYSTEMD_LIBS"; then
+      for ac_header in systemd/sd-daemon.h
+do :
+  ac_fn_c_check_header_mongrel "$LINENO" "systemd/sd-daemon.h" "ac_cv_header_systemd_sd_daemon_h" "$ac_includes_default"
+if test "x$ac_cv_header_systemd_sd_daemon_h" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_SYSTEMD_SD_DAEMON_H 1
+_ACEOF
+
+fi
+
+done
+
+      if test "${ac_cv_header_systemd_sd_daemon_h}" = "no" || test -z "${SYSTEMD_LIBS}"; then
+        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your system does not support systemd." >&5
+$as_echo "$as_me: WARNING: Your system does not support systemd." >&2;}
+      else
+
+$as_echo "#define HAVE_SYSTEMD 1" >>confdefs.h
+
+      fi
+   fi
+   ;;
+esac
+
 
 
 case $host in
@@ -27340,6 +27420,17 @@ else
 fi
 done
 
+      for ac_func in OPENSSL_init_ssl
+do :
+  ac_fn_c_check_func "$LINENO" "OPENSSL_init_ssl" "ac_cv_func_OPENSSL_init_ssl"
+if test "x$ac_cv_func_OPENSSL_init_ssl" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_INIT_SSL 1
+_ACEOF
+
+fi
+done
+
       for ac_func in ENGINE_init ENGINE_load_builtin_engines
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -30197,6 +30288,17 @@ else
 fi
 done
 
+      for ac_func in OPENSSL_init_ssl
+do :
+  ac_fn_c_check_func "$LINENO" "OPENSSL_init_ssl" "ac_cv_func_OPENSSL_init_ssl"
+if test "x$ac_cv_func_OPENSSL_init_ssl" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_INIT_SSL 1
+_ACEOF
+
+fi
+done
+
       for ac_func in ENGINE_init ENGINE_load_builtin_engines RAND_egd
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
@@ -31776,7 +31878,7 @@ EOF
   > $modpath_current/modules.mk
 
 
-md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev1_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_os.lo mod_md_status.lo "
+md_objs="md_acme.lo md_acme_acct.lo md_acme_authz.lo md_acme_drive.lo md_acmev1_drive.lo md_acmev2_drive.lo md_acme_order.lo md_core.lo md_curl.lo md_crypt.lo md_http.lo md_json.lo md_jws.lo md_log.lo md_ocsp.lo md_result.lo md_reg.lo md_status.lo md_store.lo md_store_fs.lo md_time.lo md_util.lo mod_md.lo mod_md_config.lo mod_md_drive.lo mod_md_ocsp.lo mod_md_os.lo mod_md_status.lo "
 
 # Ensure that other modules can pick up mod_md.h
 
@@ -32337,6 +32439,17 @@ _ACEOF
 
 else
   liberrors="yes"
+fi
+done
+
+      for ac_func in OPENSSL_init_ssl
+do :
+  ac_fn_c_check_func "$LINENO" "OPENSSL_init_ssl" "ac_cv_func_OPENSSL_init_ssl"
+if test "x$ac_cv_func_OPENSSL_init_ssl" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_OPENSSL_INIT_SSL 1
+_ACEOF
+
 fi
 done
 
@@ -34896,6 +35009,189 @@ EOF
 
 
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_PRIVILEGES_LDADD"
+
+
+
+  fi
+
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_systemd" >&5
+$as_echo_n "checking whether to enable mod_systemd... " >&6; }
+    # Check whether --enable-systemd was given.
+if test "${enable_systemd+set}" = set; then :
+  enableval=$enable_systemd; force_systemd=$enableval
+else
+  enable_systemd=no
+fi
+
+    _apmod_extra_msg=""
+      case "$enable_systemd" in
+    yes|static|shared)
+      _apmod_required="yes"
+      ;;
+    *)
+      _apmod_required="no"
+      ;;
+  esac
+  if test "$enable_systemd" = "static" -o "$enable_systemd" = "shared"; then
+    :
+  elif test "$enable_systemd" = "yes"; then
+    enable_systemd=$module_default
+  elif test "$enable_systemd" = "few"; then
+    if test "$module_selection" = "few" -o "$module_selection" = "most" -o \
+            "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_systemd=$module_default
+    else
+      enable_systemd=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_systemd" = "most"; then
+    if test "$module_selection" = "most" -o "$module_selection" = "all" -o \
+            "$module_selection" = "reallyall"
+    then
+      enable_systemd=$module_default
+    else
+      enable_systemd=no
+    fi
+    _apmod_extra_msg=" ($module_selection)"
+  elif test "$enable_systemd" = "all" -o "$enable_systemd" = "maybe-all"; then
+    if test "$module_selection" = "all" -o "$module_selection" = "reallyall"
+    then
+      enable_systemd=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_systemd=no
+    fi
+  elif test "$enable_systemd" = "reallyall" -o "$enable_systemd" = "no" ; then
+    if test "$module_selection" = "reallyall" -a "$force_systemd" != "no" ; then
+      enable_systemd=$module_default
+      _apmod_extra_msg=" ($module_selection)"
+    else
+      enable_systemd=no
+    fi
+  else
+    enable_systemd=no
+  fi
+  if test "$enable_systemd" != "no"; then
+            { $as_echo "$as_me:${as_lineno-$LINENO}: result: checking dependencies" >&5
+$as_echo "checking dependencies" >&6; }
+            :
+
+  if test "${ac_cv_header_systemd_sd_daemon_h}" = "no" || test -z "${SYSTEMD_LIBS}"; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Your system does not support systemd." >&5
+$as_echo "$as_me: WARNING: Your system does not support systemd." >&2;}
+    enable_systemd="no"
+  else
+
+  if test "x$MOD_SYSTEMD_LDADD" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting MOD_SYSTEMD_LDADD to \"$SYSTEMD_LIBS\""
+    MOD_SYSTEMD_LDADD="$SYSTEMD_LIBS"
+  else
+    apr_addto_bugger="$SYSTEMD_LIBS"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $MOD_SYSTEMD_LDADD; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to MOD_SYSTEMD_LDADD"
+        MOD_SYSTEMD_LDADD="$MOD_SYSTEMD_LDADD $i"
+      fi
+    done
+  fi
+
+  fi
+
+            :
+            { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to enable mod_systemd" >&5
+$as_echo_n "checking whether to enable mod_systemd... " >&6; }
+            if test "$enable_systemd" = "no"; then
+              if test "$_apmod_required" = "no"; then
+                _apmod_extra_msg=" (disabled)"
+              else
+                as_fn_error $? "mod_systemd has been requested but can not be built due to prerequisite failures" "$LINENO" 5
+              fi
+            fi
+  fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_systemd$_apmod_extra_msg" >&5
+$as_echo "$enable_systemd$_apmod_extra_msg" >&6; }
+  if test "$enable_systemd" != "no"; then
+    case "$enable_systemd" in
+    static*)
+      MODLIST="$MODLIST systemd"
+      if test "systemd" = "so"; then
+          sharedobjs=yes
+      fi
+      shared="";;
+    *)
+      sharedobjs=yes
+      shared=yes
+      DSO_MODULES="$DSO_MODULES systemd"
+      if test "no" = "yes" ; then
+        ENABLED_DSO_MODULES="${ENABLED_DSO_MODULES},systemd"
+      fi
+      ;;
+    esac
+
+
+  if test -z ""; then
+    objects="mod_systemd.lo"
+  else
+    objects=""
+  fi
+
+  if test -z "$module_standalone"; then
+    if test -z "$shared"; then
+      # The filename of a convenience library must have a "lib" prefix:
+      libname="libmod_systemd.la"
+      BUILTIN_LIBS="$BUILTIN_LIBS $modpath_current/$libname"
+      modpath_static="$modpath_static $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $objects
+	\$(MOD_LINK) $objects \$(MOD_SYSTEMD_LDADD)
+EOF
+      if test ! -z "\$(MOD_SYSTEMD_LDADD)"; then
+
+  if test "x$AP_LIBS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting AP_LIBS to \"\$(MOD_SYSTEMD_LDADD)\""
+    AP_LIBS="\$(MOD_SYSTEMD_LDADD)"
+  else
+    apr_addto_bugger="\$(MOD_SYSTEMD_LDADD)"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $AP_LIBS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to AP_LIBS"
+        AP_LIBS="$AP_LIBS $i"
+      fi
+    done
+  fi
+
+      fi
+    else
+      apache_need_shared=yes
+      libname="mod_systemd.la"
+      shobjects=`echo $objects | sed 's/\.lo/.slo/g'`
+      modpath_shared="$modpath_shared $libname"
+      cat >>$modpath_current/modules.mk<<EOF
+$libname: $shobjects
+	\$(SH_LINK) -rpath \$(libexecdir) -module -avoid-version  $objects \$(MOD_SYSTEMD_LDADD)
+EOF
+    fi
+  fi
+
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST MOD_SYSTEMD_LDADD"
 
 
 

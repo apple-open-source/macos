@@ -20,18 +20,22 @@ th{
         "[ก ข ฃ ค ฅ ฆ ง จ ฉ ช ซ ฌ ญ ฎ ฏ ฐ ฑ ฒ ณ ด ต ถ ท ธ น บ ป ผ ฝ พ ฟ ภ ม ย ร ฤ ล ฦ"
         " ว ศ ษ ส ห ฬ อ ฮ]"
     }
-    ExemplarCharactersNumbers{"[% , \\- . ‰ + 0 1 2 3 4 5 6 7 8 9]"}
-    ExemplarCharactersPunctuation{"[! \u0022 # ' ( ) * , \\- . / \\: @ \\[ \\] ‐ – — ‘ ’ “ ” … ′ ″]"}
+    ExemplarCharactersNumbers{"[% , \\- . ‑ ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersPunctuation{"[! \u0022 # ' ( ) * , \\- . / \\: @ \\[ \\] ‐ ‑ – — ‘ ’ “ ” … ′ ″]"}
     MoreInformation{"?"}
     NumberElements{
+        default{"latn"}
         latn{
             miscPatterns{
+                approximately{"~{0}"}
                 atLeast{"{0}+"}
+                atMost{"≤{0}"}
                 range{"{0}-{1}"}
             }
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤#,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
@@ -154,12 +158,18 @@ th{
                 }
             }
             symbols{
+                decimal{"."}
                 exponential{"E"}
+                group{","}
                 infinity{"∞"}
+                list{";"}
+                minusSign{"-"}
                 nan{"NaN"}
                 perMille{"‰"}
                 percentSign{"%"}
+                plusSign{"+"}
                 superscriptingExponent{"×"}
+                timeSeparator{":"}
             }
         }
         minimalPairs{
@@ -173,7 +183,7 @@ th{
         minimumGroupingDigits{"1"}
         native{"thai"}
     }
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -513,6 +523,20 @@ th{
                         "11",
                         "12",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
                     wide{
                         "1",
                         "2",
@@ -530,6 +554,20 @@ th{
                 }
                 stand-alone{
                     abbreviated{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
+                    narrow{
                         "1",
                         "2",
                         "3",
@@ -578,6 +616,21 @@ th{
                         "เมสรา",
                         "นาซี",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                    }
                     wide{
                         "เทาท์",
                         "บาบา",
@@ -609,6 +662,21 @@ th{
                         "อีเปป",
                         "เมสรา",
                         "นาซี",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
                     }
                     wide{
                         "เทาท์",
@@ -764,6 +832,20 @@ th{
                         "11",
                         "12",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
                     wide{
                         "1",
                         "2",
@@ -781,6 +863,20 @@ th{
                 }
                 stand-alone{
                     abbreviated{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
+                    narrow{
                         "1",
                         "2",
                         "3",
@@ -830,6 +926,21 @@ th{
                         "เนแฮซ",
                         "พากูเมน",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                    }
                     wide{
                         "เมสเคอเรม",
                         "เตเกมท",
@@ -861,6 +972,21 @@ th{
                         "ฮัมเล",
                         "เนแฮซ",
                         "พากูเมน",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
                     }
                     wide{
                         "เมสเคอเรม",
@@ -951,6 +1077,40 @@ th{
                     B{"h:mm B – h:mm B"}
                     h{"h:mm – h:mm B"}
                     m{"h:mm – h:mm B"}
+                }
+                GyM{
+                    G{"MM/GGGGG y – MM/GGGGG y"}
+                    M{"M/y – M/y G"}
+                    y{"M/y – M/y G"}
+                }
+                GyMEd{
+                    G{"E d/MM/GGGGG y – E d/MM/GGGGG y"}
+                    M{"E d/M/y – E d/M/y G"}
+                    d{"E d/M/y – E d/M/y G"}
+                    y{"E d/M/y – E d/M/y G"}
+                }
+                GyMMM{
+                    G{"MMM G y – MMM G y"}
+                    M{"MMM – MMM G y"}
+                    y{"MMM G y – MMM y"}
+                }
+                GyMMMEd{
+                    G{"E d MMM G y – E d MMM G y"}
+                    M{"E d MMM – E d MMM G y"}
+                    d{"E d MMM – E d MMM G y"}
+                    y{"E d MMM G y – E d MMM y"}
+                }
+                GyMMMd{
+                    G{"d MMM G y – d MMM G y"}
+                    M{"d MMM – d MMM G y"}
+                    d{"d – d MMM G y"}
+                    y{"d MMM G y – d MMM y"}
+                }
+                GyMd{
+                    G{"d/MM/GGGGG y – d/MM/GGGGG y"}
+                    M{"d/M/y – d/M/y G"}
+                    d{"d/M/y – d/M/y G"}
+                    y{"d/M/y – d/M/y G"}
                 }
                 H{
                     H{"H–H"}
@@ -1304,7 +1464,7 @@ th{
                     "ค.ศ.",
                 }
                 abbreviated%variant{
-                    "ก.ส.ศ.",
+                    "ก่อน ส.ศ.",
                     "ส.ศ.",
                 }
                 narrow{
@@ -1339,37 +1499,38 @@ th{
                     y{"G y–y"}
                 }
                 GyM{
-                    G{"GGGGG y-MM – GGGGG y-MM"}
-                    M{"GGGGG y-MM – y-MM"}
-                    y{"GGGGG y-MM – y-MM"}
+                    G{"MM/GGGGG y – MM/GGGGG y"}
+                    M{"M/y – M/y G"}
+                    y{"M/y – M/y G"}
                 }
                 GyMEd{
-                    G{"GGGGG y-MM-dd, E – GGGGG y-MM-dd, E"}
-                    M{"GGGGG y-MM-dd, E – y-MM-dd, E"}
-                    d{"GGGGG y-MM-dd, E – y-MM-dd, E"}
-                    y{"GGGGG y-MM-dd, E – y-MM-dd, E"}
+                    G{"E d/MM/GGGGG y – E d/MM/GGGGG y"}
+                    M{"E d/M/y – E d/M/y G"}
+                    d{"E d/M/y – E d/M/y G"}
+                    y{"E d/M/y – E d/M/y G"}
                 }
                 GyMMM{
-                    G{"G y MMM – G y MMM"}
-                    M{"G y MMM–MMM"}
-                    y{"G y MMM – y MMM"}
+                    G{"MMM G y – MMM G y"}
+                    M{"MMM – MMM G y"}
+                    y{"MMM G y – MMM G y"}
                 }
                 GyMMMEd{
-                    G{"G y MMM d, E – G y MMM d, E"}
-                    M{"G y MMM d, E – MMM d, E"}
-                    d{"G y MMM d, E – MMM d, E"}
-                    y{"G y MMM d, E – y MMM d, E"}
+                    G{"E d MMM G y – E d MMM G y"}
+                    M{"E d MMM – E d MMM G y"}
+                    d{"E d MMM – E d MMM G y"}
+                    y{"E d MMM y – E d MMM y"}
                 }
                 GyMMMd{
-                    G{"G y MMM d – G y MMM d"}
-                    M{"G y MMM d – MMM d"}
-                    d{"G y MMM d–d"}
-                    y{"G y MMM d – y MMM d"}
+                    G{"d MMM G y – d MMM G y"}
+                    M{"d MMM – d MMM G y"}
+                    d{"d – d MMM G y"}
+                    y{"d MMM G y – d MMM y"}
                 }
                 GyMd{
-                    G{"GGGGG y-MM-dd – GGGGG y-MM-dd"}
-                    M{"GGGGG y-MM-dd – y-MM-dd"}
-                    y{"GGGGG y-MM-dd – y-MM-dd"}
+                    G{"d/MM/GGGGG y – d/MM/GGGGG y"}
+                    M{"d/M/y – d/M/y G"}
+                    d{"d/M/y – d/M/y G"}
+                    y{"d/M/y – d/M/y G"}
                 }
                 H{
                     H{"HH–HH"}
@@ -1661,6 +1822,22 @@ th{
                         "เอลอุล",
                         "อาดาร์ II",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                        "7",
+                    }
                     wide{
                         "ทิชรี",
                         "เฮวาน",
@@ -1694,6 +1871,22 @@ th{
                         "อัฟ",
                         "เอลอุล",
                         "อาดาร์ II",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                        "13",
+                        "7",
                     }
                     wide{
                         "ทิชรี",
@@ -1736,6 +1929,20 @@ th{
                         "มาฆะ",
                         "ผลคุณี",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
                     wide{
                         "จิตรา",
                         "วิสาขา",
@@ -1765,6 +1972,20 @@ th{
                         "ปุษยา",
                         "มาฆะ",
                         "ผลคุณี",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
                     }
                     wide{
                         "จิตรา",
@@ -1808,6 +2029,20 @@ th{
                         "ซุลกิอฺ.",
                         "ซุลหิจ.",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
                     wide{
                         "มุฮะร์รอม",
                         "ซอฟาร์",
@@ -1837,6 +2072,20 @@ th{
                         "เชาว.",
                         "ซุลกิอฺ.",
                         "ซุลหิจ.",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
                     }
                     wide{
                         "มุฮะร์รอม",
@@ -2166,6 +2415,20 @@ th{
                         "บาฮ์มาน",
                         "เอสฟานด์",
                     }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
+                    }
                     wide{
                         "ฟาร์วาร์ดิน",
                         "ออร์ดิเบเฮชต์",
@@ -2195,6 +2458,20 @@ th{
                         "เดย์",
                         "บาฮ์มาน",
                         "เอสฟานด์",
+                    }
+                    narrow{
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "10",
+                        "11",
+                        "12",
                     }
                     wide{
                         "ฟาร์วาร์ดิน",
@@ -3101,6 +3378,18 @@ th{
     listPattern{
         or{
             2{"{0} หรือ {1}"}
+            end{"{0} หรือ {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
+        or-narrow{
+            2{"{0}หรือ{1}"}
+            end{"{0} หรือ {1}"}
+            middle{"{0}, {1}"}
+            start{"{0}, {1}"}
+        }
+        or-short{
+            2{"{0}หรือ{1}"}
             end{"{0} หรือ {1}"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}

@@ -321,7 +321,8 @@ struct IONetworkPacketPollingParameters {
     the interface's property table and is visible outside of the kernel. 
 */
 
-class IONetworkInterface : public IOService
+
+class __exported IONetworkInterface : public IOService
 {
     OSDeclareAbstractStructors( IONetworkInterface )
 

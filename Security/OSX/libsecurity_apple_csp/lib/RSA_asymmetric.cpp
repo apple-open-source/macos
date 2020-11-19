@@ -85,7 +85,7 @@ void RSA_CryptContext::init(const Context &context, bool encoding /*= true*/)
 		}
 	}
 	else {
-		assert(opStarted());	
+		assert(opStarted());
 	}
 
 	unsigned cipherBlockSize = RSA_size(mRsaKey);

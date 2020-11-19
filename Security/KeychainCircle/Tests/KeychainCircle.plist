@@ -24,7 +24,14 @@
 			<false/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest KCDerTest KeychainCircleTests.xctest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string>NO</string>
+				<string>-ApplePersistenceIgnoreState</string>
+				<string>YES</string>
+				<string>-XCTest</string>
+				<string>KCDerTest</string>
+				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
@@ -38,7 +45,14 @@
 			<false/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testAESGCMDuplex KeychainCircleTests.xctest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string>NO</string>
+				<string>-ApplePersistenceIgnoreState</string>
+				<string>YES</string>
+				<string>-XCTest</string>
+				<string>testAESGCMDuplex</string>
+				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
@@ -52,7 +66,14 @@
 			<false/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testAESGCMDuplexCoding KeychainCircleTests.xctest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string>NO</string>
+				<string>-ApplePersistenceIgnoreState</string>
+				<string>YES</string>
+				<string>-XCTest</string>
+				<string>testAESGCMDuplexCoding</string>
+				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
@@ -66,7 +87,14 @@
 			<false/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testJoiningSession KeychainCircleTests.xctest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string>NO</string>
+				<string>-ApplePersistenceIgnoreState</string>
+				<string>YES</string>
+				<string>-XCTest</string>
+				<string>testJoiningSession</string>
+				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
@@ -80,7 +108,14 @@
 			<false/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testJoiningSessionRetry KeychainCircleTests.xctest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string>NO</string>
+				<string>-ApplePersistenceIgnoreState</string>
+				<string>YES</string>
+				<string>-XCTest</string>
+				<string>testJoiningSessionRetry</string>
+				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
@@ -94,7 +129,14 @@
 			<false/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testJoiningSessionCodeChange KeychainCircleTests.xctest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string> NO</string>
+				<string>-ApplePersistenceIgnoreState</string>
+				<string>YES </string>
+				<string>-XCTest</string>
+				<string>testJoiningSessionCodeChange</string>
+				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 	</array>

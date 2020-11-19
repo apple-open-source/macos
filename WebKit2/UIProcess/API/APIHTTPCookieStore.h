@@ -26,7 +26,6 @@
 #pragma once
 
 #include "APIObject.h"
-#include "HTTPCookieAcceptPolicy.h"
 #include <WebCore/Cookie.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
@@ -37,12 +36,12 @@ struct Cookie;
 #if PLATFORM(COCOA)
 class CookieStorageObserver;
 #endif
+enum class HTTPCookieAcceptPolicy : uint8_t;
 }
 
 namespace WebKit {
 class WebCookieManagerProxy;
 class WebsiteDataStore;
-enum class HTTPCookieAcceptPolicy : uint8_t;
 }
 
 namespace API {
@@ -59,11 +58,12 @@ public:
     virtual ~HTTPCookieStore();
 
     void cookies(CompletionHandler<void(const Vector<WebCore::Cookie>&)>&&);
+    void cookiesForURL(WTF::URL&&, CompletionHandler<void(Vector<WebCore::Cookie>&&)>&&);
     void setCookies(const Vector<WebCore::Cookie>&, CompletionHandler<void()>&&);
     void deleteCookie(const WebCore::Cookie&, CompletionHandler<void()>&&);
     
     void deleteAllCookies(CompletionHandler<void()>&&);
-    void setHTTPCookieAcceptPolicy(WebKit::HTTPCookieAcceptPolicy, CompletionHandler<void()>&&);
+    void setHTTPCookieAcceptPolicy(WebCore::HTTPCookieAcceptPolicy, CompletionHandler<void()>&&);
 
     class Observer {
     public:
@@ -77,20 +77,22 @@ public:
     void cookiesDidChange();
     void cookieManagerDestroyed();
 
+    void filterAppBoundCookies(const Vector<WebCore::Cookie>&, CompletionHandler<void(Vector<WebCore::Cookie>&&)>&&);
+
 private:
     HTTPCookieStore(WebKit::WebsiteDataStore&);
 
     void registerForNewProcessPoolNotifications();
     void unregisterForNewProcessPoolNotifications();
 
-    static void flushDefaultUIProcessCookieStore();
+    void flushDefaultUIProcessCookieStore();
     static Vector<WebCore::Cookie> getAllDefaultUIProcessCookieStoreCookies();
     static void setCookieInDefaultUIProcessCookieStore(const WebCore::Cookie&);
     static void deleteCookieFromDefaultUIProcessCookieStore(const WebCore::Cookie&);
     void startObservingChangesToDefaultUIProcessCookieStore(Function<void()>&&);
     void stopObservingChangesToDefaultUIProcessCookieStore();
     void deleteCookiesInDefaultUIProcessCookieStore();
-    void setHTTPCookieAcceptPolicyInDefaultUIProcessCookieStore(WebKit::HTTPCookieAcceptPolicy);
+    void setHTTPCookieAcceptPolicyInDefaultUIProcessCookieStore(WebCore::HTTPCookieAcceptPolicy);
     
     // FIXME: This is a reference cycle.
     Ref<WebKit::WebsiteDataStore> m_owningDataStore;

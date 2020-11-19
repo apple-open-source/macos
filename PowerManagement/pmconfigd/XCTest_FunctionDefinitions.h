@@ -15,8 +15,7 @@
 #undef ERROR_LOG
 #define ERROR_LOG(args...)
 #endif
-#define audit_token_to_au32 myaudit_token_to_au32
-#else
+#else // XCTEST
 #define XCT_UNSAFE_UNRETAINED
 #define STATIC static
 #endif

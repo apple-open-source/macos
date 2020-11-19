@@ -32,6 +32,9 @@
 			<string>diagnostics and usage reporting</string>
 			<string>remove register keyword from headers (46170992)</string>
 			<string>backport REDoS fix in http.cookiejar (57240915)</string>
+			<string>backport fix for CVE-2018-20852 (60022673)</string>
+			<string>support Darwin ABI > 19 (64543229)</string>
+			<string>set SYSTEM_VERSION_COMPAT=1 (68669796)</string>
 		</array>
 	</dict>
 </array>

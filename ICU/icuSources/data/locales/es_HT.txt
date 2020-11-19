@@ -1,10 +1,18 @@
-﻿// ***************************************************************************
-// *
-// * Copyright (C) 2016 Apple Inc. All Rights Reserved.
-// * Apple custom addition
-// *
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 es_HT{
     %%Parent{"es_419"}
-    Version{"2.1.22.17"}
+    NumberElements{
+        latn{
+            patterns{
+                accountingFormat{"#,##0.00 ¤;(#,##0.00 ¤)"}
+                currencyFormat{"#,##0.00 ¤"}
+            }
+            symbols{
+                decimal{","}
+                group{" "}
+            }
+        }
+    }
+    Version{"36.1"}
 }

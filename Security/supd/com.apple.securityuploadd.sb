@@ -1,0 +1,81 @@
+(version 1)
+
+(deny default)
+(deny file-map-executable iokit-get-properties process-info* nvram*)
+(deny dynamic-code-generation)
+(deny mach-priv-host-port)
+
+(import "system.sb")
+(import "com.apple.corefoundation.sb")
+(corefoundation)
+
+;;; Homedir-relative path filters
+(define (home-regex home-relative-regex)
+    (regex (string-append "^" (regex-quote (param "HOME")) home-relative-regex)))
+
+(define (home-subpath home-relative-subpath)
+    (subpath (string-append (param "HOME") home-relative-subpath)))
+
+(define (home-prefix home-relative-prefix)
+    (prefix (string-append (param "HOME") home-relative-prefix)))
+
+(define (home-literal home-relative-literal)
+    (literal (string-append (param "HOME") home-relative-literal)))
+
+(allow process-info* (target self))
+
+;; For resolving symlinks, realpath(3), and equivalents.
+(allow file-read-metadata)
+
+;; For validating the entitlements of clients.
+(allow process-info-codesignature)
+
+(allow user-preference-read user-preference-write
+       (preference-domain "com.apple.security.analytics")
+       (preference-domain ".GlobalPreferences")
+       (preference-domain "com.apple.CFNetwork")
+       (preference-domain "com.apple.nsurlcache")
+       (preference-domain "kCFPreferencesAnyApplication"))
+
+(allow file-read*
+    (literal "/usr/libexec")
+    (literal "/usr/libexec/securityuploadd")
+    (subpath "/Library/Keychains/SupplementalsAssets/")
+    (literal "/Library/Application Support/CrashReporter/DiagnosticMessagesHistory.plist")
+    (regex "/private/var/db/mds/messages/([A-Za-z0-9]+/)?se_SecurityMessages"))
+
+;; Read/write access to analytics DBs and reports directories
+(allow file-read* file-write*
+       (subpath "/private/var/protected/")
+       (home-regex #"/Library/Keychains/[0-9A-F-]+/Analytics(/|$)")
+       (home-subpath #"/Library/Logs/DiagnosticReports/")
+       (home-subpath #"/Library/Application Support/com.apple.ProtectedCloudStorage/"))
+
+;; Read/write cache access
+(let ((cache-path-filter (home-subpath "/Library/Caches/com.apple.securityuploadd")))
+  (allow file-read* file-write* cache-path-filter)
+  (allow file-issue-extension
+    (require-all
+      (extension-class "com.apple.app-sandbox.read" "com.apple.app-sandbox.read-write")
+      cache-path-filter)))
+
+(allow mach-lookup
+    (global-name "com.apple.securityd.ckks")
+    (global-name "com.apple.accountsd.accountmanager")
+    (global-name "com.apple.SystemConfiguration.configd")
+    (global-name "com.apple.AppSSO.service-xpc")
+    (global-name "com.apple.dnssd.service")
+    (global-name "com.apple.usymptomsd")
+    (global-name "com.apple.ak.auth.xpc"))
+
+;; Legacy SecKey operations
+(allow file-read* file-write*
+    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mdsDirectory\.db$")
+    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mdsObject\.db$")
+    (regex #"^/private/var/folders/[^/]+/[^/]+/C/mds/mds\.lock$"))
+(allow mach-lookup
+    (global-name "com.apple.SecurityServer"))
+
+;; allow network
+(allow network-outbound)
+(allow system-socket)

@@ -99,7 +99,7 @@ struct CodingType {
 class DataReference;
 class SharedBufferDataReference;
 template<> struct CodingType<const SharedBufferDataReference&> {
-    typedef DataReference Type;
+    using Type = DataReference;
 };
 
 template<typename... Ts>
@@ -113,7 +113,7 @@ void handleMessage(Decoder& decoder, C* object, MF function)
     Optional<typename CodingType<typename T::Arguments>::Type> arguments;
     decoder >> arguments;
     if (!arguments) {
-        ASSERT(decoder.isInvalid());
+        decoder.markInvalid();
         return;
     }
 
@@ -126,7 +126,7 @@ void handleMessage(Connection& connection, Decoder& decoder, C* object, MF funct
     Optional<typename CodingType<typename T::Arguments>::Type> arguments;
     decoder >> arguments;
     if (!arguments) {
-        ASSERT(decoder.isInvalid());
+        decoder.markInvalid();
         return;
     }
     callMemberFunction(connection, WTFMove(*arguments), object, function);
@@ -138,7 +138,7 @@ void handleMessageSynchronous(Connection& connection, Decoder& decoder, std::uni
     Optional<typename CodingType<typename T::Arguments>::Type> arguments;
     decoder >> arguments;
     if (!arguments) {
-        ASSERT(decoder.isInvalid());
+        decoder.markInvalid();
         return;
     }
 
@@ -154,7 +154,7 @@ void handleMessageSynchronousWantsConnection(Connection& connection, Decoder& de
     Optional<typename CodingType<typename T::Arguments>::Type> arguments;
     decoder >> arguments;
     if (!arguments) {
-        ASSERT(decoder.isInvalid());
+        decoder.markInvalid();
         return;
     }
     
@@ -170,23 +170,48 @@ void handleMessageAsync(Connection& connection, Decoder& decoder, C* object, MF 
     Optional<uint64_t> listenerID;
     decoder >> listenerID;
     if (!listenerID) {
-        ASSERT(decoder.isInvalid());
+        decoder.markInvalid();
         return;
     }
     
     Optional<typename CodingType<typename T::Arguments>::Type> arguments;
     decoder >> arguments;
     if (!arguments) {
-        ASSERT(decoder.isInvalid());
+        decoder.markInvalid();
         return;
     }
 
     typename T::AsyncReply completionHandler = [listenerID = *listenerID, connection = makeRef(connection)] (auto&&... args) mutable {
-        auto encoder = makeUnique<Encoder>("AsyncReply", T::asyncMessageReplyName(), 0);
+        auto encoder = makeUnique<Encoder>(T::asyncMessageReplyName(), 0);
         *encoder << listenerID;
         T::send(WTFMove(encoder), WTFMove(connection), args...);
     };
     callMemberFunction(WTFMove(*arguments), WTFMove(completionHandler), object, function);
+}
+
+template<typename T, typename C, typename MF>
+void handleMessageAsyncWantsConnection(Connection& connection, Decoder& decoder, C* object, MF function)
+{
+    Optional<uint64_t> listenerID;
+    decoder >> listenerID;
+    if (!listenerID) {
+        decoder.markInvalid();
+        return;
+    }
+
+    Optional<typename CodingType<typename T::Arguments>::Type> arguments;
+    decoder >> arguments;
+    if (!arguments) {
+        decoder.markInvalid();
+        return;
+    }
+
+    typename T::AsyncReply completionHandler = [listenerID = *listenerID, connection = makeRef(connection)] (auto&&... args) mutable {
+        auto encoder = makeUnique<Encoder>(T::asyncMessageReplyName(), 0);
+        *encoder << listenerID;
+        T::send(WTFMove(encoder), WTFMove(connection), args...);
+    };
+    callMemberFunction(connection, WTFMove(*arguments), WTFMove(completionHandler), object, function);
 }
 
 } // namespace IPC

@@ -63,6 +63,7 @@
 #include <IOKit/kext/macho_util.h>
 #include <bootfiles.h>
 
+#include <getopt.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 
 #include "kextcache_main.h"
@@ -79,7 +80,8 @@
 #include "staging.h"
 #include "syspolicy.h"
 #include "driverkit.h"
-#include "rosp_staging.h"
+#include "kc_staging.h"
+#include "KernelManagementShims/Shims.h"
 
 #if __has_include(<prelink.h>)
 /* take prelink.h from host side tools SDK */
@@ -151,6 +153,8 @@ static bool isSecureAuthentication(KextcacheArgs *toolArgs);
 static ExitStatus buildImmutableKernelcache(KextcacheArgs *toolArgs, const char *plk_filename);
 
 static ExitStatus updateKextAllowList(void);
+
+extern void shimKextcacheArgsToKMUtilAndRun(KextcacheArgs *);
 
 /*******************************************************************************
 *******************************************************************************/
@@ -247,6 +251,10 @@ int main(int argc, char * const * argv)
         goto finish;
     }
 
+    if (disableKextTools() && !toolArgs.legacyBehavior) {
+        shimKextcacheArgsToKMUtilAndRun(&toolArgs);
+        exit(EX_OSERR); // shouldn't get here!
+    }
     /*
      * Now that toolArgs is validated, determine what level of authentication checks necessary.
      *
@@ -790,6 +798,10 @@ ExitStatus readArgs(
                 toolArgs->skipAuthentication = true;
                 break;
 
+            case kOptDstRootUpdate:
+                toolArgs->dstRootUpdate = true;
+                break;
+
             case 0:
                 switch (longopt) {
                     case kLongOptVolumeRoot:
@@ -875,6 +887,7 @@ ExitStatus readArgs(
                     case kLongOptInstaller:
                         toolArgs->updateOpts |= kBRUHelpersOptional;
                         toolArgs->updateOpts |= kBRUForceUpdateHelpers;
+                        toolArgs->isInstaller = true;
                         break;
                     case kLongOptCachesOnly:
                         toolArgs->updateOpts |= kBRUCachesOnly;
@@ -899,7 +912,9 @@ ExitStatus readArgs(
                     case kLongOptPruneStaging:
                         toolArgs->pruneStaging = true;
                         break;
-
+                    case kLongOptLegacyBehavior:
+                        toolArgs->legacyBehavior = true;
+                        break;
                     default:
                        /* Because we use ':', getopt_long doesn't print an error message.
                         */
@@ -2777,7 +2792,9 @@ static Boolean isValidKextSigningTargetVolume(CFURLRef theVolRootURL)
         if (postBootPathsDict &&
             CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
 
-            if (CFDictionaryContainsKey(postBootPathsDict, kBCKernelcacheV5Key)) {
+            if (CFDictionaryContainsKey(postBootPathsDict, kBCKernelcacheV6Key)) {
+                myResult = true;
+            } else if (CFDictionaryContainsKey(postBootPathsDict, kBCKernelcacheV5Key)) {
                 myResult = true;
             } else if (CFDictionaryContainsKey(postBootPathsDict, kBCKernelcacheV4Key)) {
                 myResult = true;
@@ -2906,11 +2923,15 @@ static bool isSystemPLKPath(KextcacheArgs *toolArgs)
     if (bcDict != NULL) {
         postBootPathsDict = (CFDictionaryRef)CFDictionaryGetValue(bcDict, kBCPostBootKey);
 
-        /* this doesn't scale well if we do it every year... :/ */
+        /* this continues to scale poorly... :/ */
         if (postBootPathsDict &&
             CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
             kcDict = (CFDictionaryRef)CFDictionaryGetValue(postBootPathsDict,
-                                                           kBCKernelcacheV5Key);
+                                                           kBCKernelcacheV6Key);
+            if (!kcDict) {
+                kcDict = (CFDictionaryRef)CFDictionaryGetValue(postBootPathsDict,
+                                                               kBCKernelcacheV5Key);
+            }
             if (!kcDict) {
                 kcDict = (CFDictionaryRef)CFDictionaryGetValue(postBootPathsDict,
                                                                kBCKernelcacheV4Key);
@@ -3060,7 +3081,11 @@ static Boolean wantsFastLibCompressionForTargetVolume(CFURLRef theVolRootURL)
             CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
 
             kernelCacheDict = (CFDictionaryRef)
-                CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV5Key);
+                CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV6Key);
+            if (!kernelCacheDict) {
+                kernelCacheDict = (CFDictionaryRef)
+                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV5Key);
+            }
             if (!kernelCacheDict) {
                 kernelCacheDict = (CFDictionaryRef)
                     CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV4Key);
@@ -3268,7 +3293,6 @@ createPrelinkedKernel(
     bool                created_plk         = false;
     char               *plk_filename        = NULL;
     os_signpost_id_t    spid                = generate_signpost_id();
-    bool                deferred_update     = false;
 
     os_signpost_interval_begin(get_signpost_log(), spid, SIGNPOST_KEXTCACHE_BUILD_PRELINKED_KERNEL);
     bzero(&prelinkFileTimes, sizeof(prelinkFileTimes));
@@ -3611,46 +3635,6 @@ createPrelinkedKernel(
     removeStalePrelinkedKernels(toolArgs);
 
     /*
-     * "requiresDeferredUpdate" checks if this prelinked kernel destination
-     * needs a two-step update, where kextcache will initially write the
-     * prelinked kernel into a staging directory, and then move it into
-     * its final location once it's finished with the build.
-     *
-     * We check to see if we're booted on a machine that has the ROSV enabled
-     * by checking that the dev_t of the plk resides on a volume that is
-     * mounted at the mountpoint "/System/Volumes/Data". If that's the case,
-     * then we write out a small shell script that launchd will execute at
-     * shutdown to manage the final staging step.
-     */
-    if (requiresDeferredUpdate(toolArgs->prelinkedKernelDirname)) {
-        deferred_update = true;
-        char mntname[MNAMELEN];
-        /* If findmnt fails and we require deferred update, then nothing will happen. */
-        if (findmnt(plk_dev_t, mntname, false) == 0) {
-            if (strcmp(mntname, _kOSKextReadOnlyDataVolumePath) == 0) {
-                createDeferredUpdateScript();
-            } else {
-                char volRootPath[PATH_MAX] = {};
-                if (!CFURLGetFileSystemRepresentation(toolArgs->volumeRootURL,
-                            /* resolveToBase */ true, (UInt8 *)volRootPath, sizeof(volRootPath))) {
-                    OSKextLog(/* kext */ NULL,
-                              kOSKextLogFileAccessFlag | kOSKextLogErrorLevel,
-                              "Error getting volume root path.");
-                    goto finish;
-                }
-                int copyres = copyKernelsInVolume(volRootPath);
-                if (copyres != EX_OK) {
-                    OSKextLog(/* kext */ NULL,
-                              kOSKextLogFileAccessFlag | kOSKextLogErrorLevel,
-                              "Error copying prelinked kernel: %d",
-                              copyres);
-                    /* silently fail */
-                }
-            }
-        }
-    }
-
-    /*
      * <rdar://problem/24330917> need a symlink using the old kernelcache name
      * so Startup Disk on older systems can still work.  Startup Disk
      * running on systems before 10.12 have a bug that will not allow them to
@@ -3662,7 +3646,7 @@ createPrelinkedKernel(
      */
     char *sptr;
     sptr = strnstr(toolArgs->prelinkedKernelPath, _kOSKextPrelinkedKernelsPath, strlen(toolArgs->prelinkedKernelPath));
-    if (sptr && !deferred_update) {
+    if (sptr) {
         long        prefixSize = 0;
         char        tmpBuffer[PATH_MAX];
         char        plkRelPath[PATH_MAX];

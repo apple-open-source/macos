@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		8C7D2F4C23B14D7B0044EAA8 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C7D2F4B23B14D7B0044EAA8 /* Heimdal.framework */; };
 		EB029C9F1BA929FC0090798F /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB029C9E1BA929FC0090798F /* CFNetwork.framework */; };
 		EB029CA11BA92A0D0090798F /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB029CA01BA92A0D0090798F /* CFNetwork.framework */; };
 		EB054DA71763E1E500907EAB /* Icon.png in Resources */ = {isa = PBXBuildFile; fileRef = EB054DA51763E1E500907EAB /* Icon.png */; };
@@ -103,6 +104,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		8C7D2F4B23B14D7B0044EAA8 /* Heimdal.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = Heimdal.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB029C9C1BA8CCAF0090798F /* GSSTestApp.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = GSSTestApp.xcconfig; path = xcconfig/GSSTestApp.xcconfig; sourceTree = "<group>"; };
 		EB029C9E1BA929FC0090798F /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS9.1.Internal.sdk/System/Library/Frameworks/CFNetwork.framework; sourceTree = DEVELOPER_DIR; };
 		EB029CA01BA92A0D0090798F /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = System/Library/Frameworks/CFNetwork.framework; sourceTree = SDKROOT; };
@@ -208,6 +210,7 @@
 				EB0FBFD41784774000EC4F54 /* Security.framework in Frameworks */,
 				EB5BB838176408D10024E174 /* GSS.framework in Frameworks */,
 				EB5BB81D1764084D0024E174 /* Cocoa.framework in Frameworks */,
+				8C7D2F4C23B14D7B0044EAA8 /* Heimdal.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -358,6 +361,7 @@
 		EBA2672E17630BBB00B5A686 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				8C7D2F4B23B14D7B0044EAA8 /* Heimdal.framework */,
 				EB029CA01BA92A0D0090798F /* CFNetwork.framework */,
 				EB029C9E1BA929FC0090798F /* CFNetwork.framework */,
 				EB5901DC1B9B8E4A000D32C7 /* SafariServices.framework */,
@@ -543,6 +547,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = EBA2672317630BBB00B5A686;
@@ -850,7 +855,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = "GSSTestAppOSX/GSSTestAppOSX-Info.plist";
 				INSTALL_PATH = /AppleInternal/CoreOS/Heimdal/Applications;
-				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks @executable_path/../Frameworks";
 				PRODUCT_NAME = GSSTestApp;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
@@ -878,7 +883,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = "GSSTestAppOSX/GSSTestAppOSX-Info.plist";
 				INSTALL_PATH = /AppleInternal/CoreOS/Heimdal/Applications;
-				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks @executable_path/../Frameworks";
 				PRODUCT_NAME = GSSTestApp;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
@@ -903,7 +908,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = "GSSTestAppOSX/GSSTestAppOSX-Info.plist";
 				INSTALL_PATH = /AppleInternal/CoreOS/Heimdal/Applications;
-				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks @executable_path/../Frameworks";
 				PRODUCT_NAME = GSSTestApp;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;
@@ -981,7 +986,7 @@
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INFOPLIST_FILE = "GSSTestAppOSX/GSSTestAppOSX-Info.plist";
 				INSTALL_PATH = /AppleInternal/CoreOS/Heimdal/Applications;
-				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = "@loader_path/../Frameworks @executable_path/../Frameworks";
 				PRODUCT_NAME = GSSTestApp;
 				SDKROOT = macosx.internal;
 				SUPPORTED_PLATFORMS = macosx;

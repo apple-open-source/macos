@@ -56,6 +56,7 @@
 #include "SOSAccountTesting.h"
 
 #include "SecdTestKeychainUtilities.h"
+#if SOS_ENABLED
 
 #define HOW_MANY_MINIONS 4
 
@@ -223,14 +224,16 @@ static void tests(void)
     SOSTestCleanup();
     
 }
+#endif
 
 int secd_200_logstate(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(((HOW_MANY_MINIONS+1)*10 + 1));
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-    
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

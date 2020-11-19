@@ -25,37 +25,20 @@
 
 WI.PinnedTabBarItem = class PinnedTabBarItem extends WI.TabBarItem
 {
-    constructor(image, title)
+    constructor(representedObject, image, displayName, title)
     {
-        super(image, title);
+        super(representedObject, image, displayName, title);
 
         this.element.classList.add("pinned");
-
-        this.element.addEventListener("contextmenu", this._handleContextMenuEvent.bind(this));
     }
 
-    static fromTabInfo({image, title})
+    // Static
+
+    static fromTabContentView(tabContentView)
     {
-        return new WI.PinnedTabBarItem(image, title);
+        console.assert(tabContentView instanceof WI.TabContentView);
+
+        let {image, displayName, title} = tabContentView.constructor.tabInfo();
+        return new WI.PinnedTabBarItem(tabContentView, image, displayName, title);
     }
-
-    titleDidChange()
-    {
-        this.element.title = this.title;
-    }
-
-    // Private
-
-    _handleContextMenuEvent(event)
-    {
-        event.preventDefault();
-
-        let contextMenu = WI.ContextMenu.createFromEvent(event);
-
-        this.dispatchEventToListeners(WI.PinnedTabBarItem.Event.ContextMenu, {contextMenu});
-    }
-};
-
-WI.PinnedTabBarItem.Event = {
-    ContextMenu: "pinned-tab-bar-item-context-menu",
 };

@@ -1,5 +1,7 @@
 " Test the :filter command modifier
 
+source check.vim
+
 func Test_filter()
   edit Xdoesnotmatch
   edit Xwillmatch
@@ -45,6 +47,14 @@ func Test_filter_fails()
   call assert_fails('filter /pat', 'E476:')
   call assert_fails('filter /pat/', 'E476:')
   call assert_fails('filter /pat/ asdf', 'E492:')
+  " Using assert_fails() causes E476 instead of E866. So use a try-catch.
+  let caught_e866 = 0
+  try
+    filter /\@>b/ ls
+  catch /E866:/
+    let caught_e866 = 1
+  endtry
+  call assert_equal(1, caught_e866)
 
   call assert_fails('filter!', 'E471:')
   call assert_fails('filter! pat', 'E476:')
@@ -89,6 +99,8 @@ func Test_filter_cmd_with_filter()
 endfunction
 
 func Test_filter_commands()
+  CheckFeature quickfix
+
   let g:test_filter_a = 1
   let b:test_filter_b = 2
   let test_filter_c = 3

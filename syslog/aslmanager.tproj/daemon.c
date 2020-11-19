@@ -59,7 +59,7 @@ extern uint32_t debug;
 extern FILE *debugfp;
 extern dispatch_queue_t work_queue;
 
-static mach_port_t asl_server_port;
+static mach_port_t asl_server_port = MACH_PORT_NULL;
 static aslclient aslc;
 static int asl_aux_fd = -1;
 
@@ -1523,7 +1523,11 @@ control_query(asl_msg_t *a)
 	if (asl_server_port == MACH_PORT_NULL)
 	{
 		kstatus = bootstrap_look_up2(bootstrap_port, ASL_SERVICE_NAME, &asl_server_port, 0, BOOTSTRAP_PRIVILEGED_SERVER);
-		if (asl_server_port == MACH_PORT_NULL) return NULL;
+		if (kstatus != KERN_SUCCESS)
+		{
+			asl_server_port = MACH_PORT_NULL;
+			return NULL;
+		}
 	}
 
 	qstr = asl_msg_to_string((asl_msg_t *)a, &len);

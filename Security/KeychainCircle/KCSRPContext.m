@@ -50,14 +50,13 @@ static const NSStringEncoding srpStringEncoding = NSUTF8StringEncoding;
                         group: (ccsrp_const_gp_t) gp
                  randomSource: (struct ccrng_state *) rng
 {
-    self = [super init];
-    
-    self.context = malloc(ccsrp_sizeof_srp(di, gp));
-    ccsrp_ctx_init(self.context, di, gp);
+    if ((self = [super init])) {
+        self.context = malloc(ccsrp_sizeof_srp(di, gp));
+        ccsrp_ctx_init(self.context, di, gp);
 
-    self.user = user;
-    self.rng = rng;
-
+        self.user = user;
+        self.rng = rng;
+    }
     return self;
 }
 
@@ -179,15 +178,14 @@ static bool ExactDataSizeRequirement(NSData* data, NSUInteger expectedLength, NS
                    digestInfo: (const struct ccdigest_info *) di
                         group: (ccsrp_const_gp_t) gp
                  randomSource: (struct ccrng_state *) rng {
-    self = [super initWithUser: user
-                    digestInfo: di
-                         group: gp
-                  randomSource: rng];
-
-    if (![self resetWithPassword:password error:nil]) {
-        return nil;
+    if ((self = [super initWithUser: user
+                         digestInfo: di
+                              group: gp
+                       randomSource: rng])) {
+        if (![self resetWithPassword:password error:nil]) {
+            return nil;
+        }
     }
-
     return self;
 }
 
@@ -197,14 +195,13 @@ static bool ExactDataSizeRequirement(NSData* data, NSUInteger expectedLength, NS
                    digestInfo: (const struct ccdigest_info *) di
                         group: (ccsrp_const_gp_t) gp
                  randomSource: (struct ccrng_state *) rng {
-    self = [super initWithUser: user
-                    digestInfo: di
-                         group: gp
-                  randomSource: rng];
-
-    self.verifier = verifier;
-    self->_salt = salt;
-
+    if ((self = [super initWithUser: user
+                         digestInfo: di
+                              group: gp
+                       randomSource: rng])) {
+        self.verifier = verifier;
+        self->_salt = salt;
+    }
     return self;
 }
 

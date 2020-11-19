@@ -46,5 +46,8 @@ bool SecTaskIsEligiblePlatformBinary(SecTaskRef task, CFArrayRef identifiers);
 
 // Testing support
 void SecAccessGroupsSetCurrent(CFArrayRef accessGroups);
+void SecSecurityClientRegularToAppClip(void);
+void SecSecurityClientAppClipToRegular(void);
+void SecSecurityClientSetApplicationIdentifier(CFStringRef identifier);
 
 #endif /* server_security_helpers_h */

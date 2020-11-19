@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "WebEvent.h"
 #include <wpe/wpe.h>
 
 namespace WebKit {
@@ -34,8 +35,18 @@ class ScrollGestureController {
 public:
     ScrollGestureController() = default;
 
-    struct wpe_input_axis_event* axisEvent() { return &m_axisEvent; }
+    struct wpe_input_axis_event* axisEvent()
+    {
+#if WPE_CHECK_VERSION(1, 5, 0)
+        return &m_axisEvent.base;
+#else
+        return &m_axisEvent;
+#endif
+    }
 
+    WebWheelEvent::Phase phase() { return m_phase; }
+
+    bool isHandling() const { return m_handling; }
     bool handleEvent(const struct wpe_input_touch_event_raw*);
 
 private:
@@ -51,7 +62,12 @@ private:
     } m_offset;
 
     bool m_handling { false };
+#if WPE_CHECK_VERSION(1, 5, 0)
+    struct wpe_input_axis_2d_event m_axisEvent;
+#else
     struct wpe_input_axis_event m_axisEvent;
+#endif
+    WebWheelEvent::Phase m_phase { WebWheelEvent::Phase::PhaseNone };
 };
 
 } // namespace WebKit

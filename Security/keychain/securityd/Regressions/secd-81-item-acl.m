@@ -465,6 +465,25 @@ static void item_with_skip_auth_ui(uint32_t *item_num)
     CFRelease(item);
 }
 
+#if LA_CONTEXT_IMPLEMENTED
+static void item_forbidden_delete(uint32_t *item_num) {
+    CFMutableDictionaryRef item = CFDictionaryCreateMutableForCFTypesWith(kCFAllocatorDefault, kSecClass, kSecClassInternetPassword, NULL);
+    fillItem(item, (*item_num)++);
+
+    SecAccessControlRef aclRef = SecAccessControlCreate(kCFAllocatorDefault, NULL);
+    ok(aclRef, "Create SecAccessControlRef");
+    ok(SecAccessControlSetProtection(aclRef, kSecAttrAccessibleAlwaysPrivate, NULL));
+    ok(SecAccessControlAddConstraintForOperation(aclRef, kAKSKeyOpEncrypt, kCFBooleanTrue, NULL));
+
+    CFDictionarySetValue(item, kSecAttrAccessControl, aclRef);
+    ok_status(SecItemAdd(item, NULL), "add undeletable");
+    is_status(SecItemDelete(item), errSecAuthFailed, "delete local - authentication failed");
+
+    CFReleaseNull(aclRef);
+    CFRelease(item);
+}
+#endif
+
 int secd_81_item_acl(int argc, char *const *argv)
 {
     uint32_t item_num = 1;
@@ -479,15 +498,16 @@ int secd_81_item_acl(int argc, char *const *argv)
         SecItemServerSetKeychainKeybag(test_keybag);
     });
 #if TARGET_OS_IPHONE
-    plan_tests(70);
+    plan_tests(75);
 #else
-    plan_tests(29);
+    plan_tests(34);
 #endif
     item_with_skip_auth_ui(&item_num);
     item_with_invalid_acl(&item_num);
     item_with_application_password(&item_num);
     item_with_acl_caused_maxauth(&item_num);
     item_with_akpu(&item_num);
+    item_forbidden_delete(&item_num);
 #else
     plan_tests(3);
     item_with_skip_auth_ui(&item_num);

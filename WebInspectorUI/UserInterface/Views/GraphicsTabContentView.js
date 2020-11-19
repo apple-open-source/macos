@@ -27,17 +27,16 @@ WI.GraphicsTabContentView = class GraphicsTabContentView extends WI.ContentBrows
 {
     constructor()
     {
-        let tabBarItem = WI.GeneralTabBarItem.fromTabInfo(WI.GraphicsTabContentView.tabInfo());
-
-        const navigationSidebarPanelConstructor = WI.CanvasSidebarPanel;
-        const detailsSidebarPanelConstructors = [
-            WI.RecordingStateDetailsSidebarPanel,
-            WI.RecordingTraceDetailsSidebarPanel,
-            WI.CanvasDetailsSidebarPanel,
-            WI.AnimationDetailsSidebarPanel,
-        ];
-        const disableBackForward = true;
-        super("graphics", ["graphics"], tabBarItem, navigationSidebarPanelConstructor, detailsSidebarPanelConstructors, disableBackForward);
+        super(GraphicsTabContentView.tabInfo(), {
+            navigationSidebarPanelConstructor: WI.CanvasSidebarPanel,
+            detailsSidebarPanelConstructors: [
+                WI.RecordingStateDetailsSidebarPanel,
+                WI.RecordingTraceDetailsSidebarPanel,
+                WI.CanvasDetailsSidebarPanel,
+                WI.AnimationDetailsSidebarPanel,
+            ],
+            disableBackForward: true,
+        });
 
         this._canvasesTreeOutline = new WI.TreeOutline;
         this._canvasesTreeOutline.allowsRepeatSelection = true;
@@ -65,8 +64,9 @@ WI.GraphicsTabContentView = class GraphicsTabContentView extends WI.ContentBrows
     static tabInfo()
     {
         return {
+            identifier: GraphicsTabContentView.Type,
             image: "Images/Graphics.svg",
-            title: WI.UIString("Graphics"),
+            displayName: WI.UIString("Graphics", "Graphics Tab Name", "Name of Graphics Tab"),
         };
     }
 
@@ -112,9 +112,7 @@ WI.GraphicsTabContentView = class GraphicsTabContentView extends WI.ContentBrows
     {
         return representedObject instanceof WI.CanvasCollection
             || representedObject instanceof WI.Canvas
-            || representedObject instanceof WI.RecordingCollection
             || representedObject instanceof WI.Recording
-            || representedObject instanceof WI.ShaderProgramCollection
             || representedObject instanceof WI.ShaderProgram
             || representedObject instanceof WI.AnimationCollection
             || representedObject instanceof WI.Animation;
@@ -138,9 +136,22 @@ WI.GraphicsTabContentView = class GraphicsTabContentView extends WI.ContentBrows
         // FIXME: implement once <https://webkit.org/b/177606> is complete.
     }
 
-    async handleFileDrop(files)
+    // DropZoneView delegate
+
+    dropZoneShouldAppearForDragEvent(dropZone, event)
     {
-        await WI.FileUtilities.readJSON(files, (result) => WI.canvasManager.processJSON(result));
+        return event.dataTransfer.types.includes("Files");
+    }
+
+    dropZoneHandleDrop(dropZone, event)
+    {
+        let files = event.dataTransfer.files;
+        if (files.length !== 1) {
+            InspectorFrontendHost.beep();
+            return;
+        }
+
+        WI.FileUtilities.readJSON(files, (result) => WI.canvasManager.processJSON(result));
     }
 
     // Protected
@@ -189,8 +200,15 @@ WI.GraphicsTabContentView = class GraphicsTabContentView extends WI.ContentBrows
 
     initialLayout()
     {
+        super.initialLayout();
+
         this._overviewContentView = new WI.GraphicsOverviewContentView;
         this.contentBrowser.showContentView(this._overviewContentView);
+
+        let dropZoneView = new WI.DropZoneView(this);
+        dropZoneView.text = WI.UIString("Import Recording");
+        dropZoneView.targetElement = this.element;
+        this.addSubview(dropZoneView);
     }
 
     // Private

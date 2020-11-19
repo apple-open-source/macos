@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -469,7 +469,7 @@ bootp_session_init(uint16_t client_port)
     bzero(session, sizeof(*session));
     dynarray_init(&session->clients, bootp_client_free_element, NULL);
     session->client_port = client_port;
-    session->timer_callout = timer_callout_init();
+    session->timer_callout = timer_callout_init("bootp_session");
 
     return (session);
 }

@@ -60,7 +60,7 @@
 
 APLOG_USE_MODULE(http);
 
-/* New Apache routine to map status codes into array indicies
+/* New Apache routine to map status codes into array indices
  *  e.g.  100 -> 0,  101 -> 1,  200 -> 2 ...
  * The number of status lines must equal the value of
  * RESPONSE_CODES (httpd.h) and must be listed in order.
@@ -257,10 +257,9 @@ AP_DECLARE(int) ap_set_keepalive(request_rec *r)
         && (r->header_only
             || AP_STATUS_IS_HEADER_ONLY(r->status)
             || apr_table_get(r->headers_out, "Content-Length")
-            || ap_find_last_token(r->pool,
+            || ap_is_chunked(r->pool,
                                   apr_table_get(r->headers_out,
-                                                "Transfer-Encoding"),
-                                  "chunked")
+                                                "Transfer-Encoding"))
             || ((r->proto_num >= HTTP_VERSION(1,1))
                 && (r->chunked = 1))) /* THIS CODE IS CORRECT, see above. */
         && r->server->keep_alive

@@ -5,6 +5,7 @@
 //  Created by Ben Williamson on 5/1/18.
 //
 
+import CloudKitCodeProtobuf
 import CoreData
 import XCTest
 
@@ -21,7 +22,6 @@ let recovery_signingKey_384 = Data(base64Encoded: "BK5nrmP6oitJHtGV2Josk5cUKnG3p
 let recovery_encryptionKey_384 = Data(base64Encoded: "BKkZpYHTbMi2yrWFo+ErM3HbcYJCngPuWDYoVUD7egKkmiHFvv1Bsk0j/Dcj3xTR12vj5QOpZQV3GzE5estf75BV+EZz1cjUUSi/MysfpKsqEbwYrhIEkmeyMGr7CVWQWRLR2LnoihnQajvWi1LmO0AoDl3+LzVgTJBjjDQ5ANyw0Yv1EgOgBvZsLA9UTN4oAg==")
 
 class TrustedPeersHelperUnitTests: XCTestCase {
-
     var tmpPath: String!
     var tmpURL: URL!
     var cuttlefish: FakeCuttlefishServer!
@@ -46,7 +46,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         cuttlefish = FakeCuttlefishServer(nil, ckZones: [:], ckksZoneKeys: [:])
 
         // Make a new fake keychain
-        tmpPath = String(format: "/tmp/%@-%X", testName, arc4random())
+        tmpPath = String(format: "/tmp/%@-%X", testName, Int.random(in: 0..<1000000))
         tmpURL = URL(fileURLWithPath: tmpPath, isDirectory: true)
         do {
             try FileManager.default.createDirectory(atPath: String(format: "%@/Library/Keychains", tmpPath), withIntermediateDirectories: true, attributes: nil)
@@ -72,6 +72,23 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     override func tearDown() {
         // Put teardown code here. This method is called after the invocation of each test method in the class.
         cuttlefish = nil
+
+        if let nskeychainDir : NSURL = SecCopyHomeURL(), let keychainDir : URL = nskeychainDir as URL? {
+            SecItemDataSourceFactoryReleaseAll()
+            SecKeychainDbForceClose()
+            SecKeychainDbReset(nil)
+
+            // Only perform the destructive step if the url matches what we expect!
+            let testName = self.name.components(separatedBy: CharacterSet(charactersIn: " ]"))[1]
+            if keychainDir.path.hasPrefix("/tmp/" + testName) {
+                do {
+                    try FileManager.default.removeItem(at: keychainDir)
+                } catch {
+                    print("Failed to remove keychain directory: \(error)")
+                }
+            }
+        }
+
         super.tearDown()
     }
 
@@ -164,15 +181,24 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                    contextID: String,
                    allowedMachineIDs: Set<String> = Set(["aaa", "bbb", "ccc"]),
                    accountIsDemo: Bool,
+                   modelID: String = "iPhone1,1",
+                   syncUserControllableViews: TPPBPeerStableInfo_UserControllableViewStatus = .UNKNOWN,
                    store: NSPersistentStoreDescription) throws -> (Container, String) {
         var container = try Container(name: ContainerName(container: "test", context: contextID), persistentStoreDescription: store, cuttlefish: cuttlefish)
 
         XCTAssertNil(container.setAllowedMachineIDsSync(test: self, allowedMachineIDs: allowedMachineIDs, accountIsDemo: accountIsDemo, listDifference: !allowedMachineIDs.isEmpty), "should be able to set allowed machine IDs")
 
-        let (peerID, permanentInfo, permanentInfoSig, _, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self,
+                                                                                              epoch: 1,
+                                                                                              machineID: "aaa",
+                                                                                              bottleSalt: "123456789",
+                                                                                              bottleID: UUID().uuidString,
+                                                                                              modelID: modelID,
+                                                                                              syncUserControllableViews: syncUserControllableViews)
+
         do {
             let state = container.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == peerID }, "should have a bottle for peer")
             let secret = container.loadSecretSync(test: self, label: peerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -192,7 +218,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             }
         }
 
-        let (peerID2, _, error2) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+        let (peerID2, _, _, error2) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
         XCTAssertNil(error2)
         XCTAssertNotNil(peerID2)
 
@@ -203,24 +229,97 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
     func testEstablishWithReload() throws {
         let description = tmpStoreDescription(name: "container.db")
-        let (_, peerID) = try establish(reload: true, store: description)
+        let (container, peerID) = try establish(reload: true, store: description)
 
         assertTLKShareFor(peerID: peerID, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+        // With no other input, the syncing policy should say to sync user views
+        let (policy, _, policyError) = container.fetchCurrentPolicySync(test: self)
+        XCTAssertNil(policyError, "Should be no error fetching aPolicy")
+        XCTAssertNotNil(policy, "Should have a syncing policy")
+        XCTAssertEqual(policy?.syncUserControllableViews, .DISABLED, "Peer should not desire to sync user controllable views (as the client didn't have any input)")
     }
 
     func testEstablishNoReload() throws {
         let description = tmpStoreDescription(name: "container.db")
-        _ = try establish(reload: false, store: description)
+        let (container, peerID) = try establish(reload: false, store: description)
+
+        assertTLKShareFor(peerID: peerID, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+        // With no other input, the syncing policy should say to sync user views
+        let (policy, _, policyError) = container.fetchCurrentPolicySync(test: self)
+        XCTAssertNil(policyError, "Should be no error fetching aPolicy")
+        XCTAssertNotNil(policy, "Should have a syncing policy")
+        XCTAssertEqual(policy?.syncUserControllableViews, .DISABLED, "Peer should not desire to sync user controllable views (as the client didn't have any input)")
+    }
+
+    func testEstablishWithUserSyncableViews() throws {
+        let description = tmpStoreDescription(name: "container.db")
+
+        let (container, peerID) = try self.establish(reload: false,
+                                                     contextID: OTDefaultContext,
+                                                     accountIsDemo: false,
+                                                     syncUserControllableViews: .ENABLED,
+                                                     store: description)
+
+        assertTLKShareFor(peerID: peerID, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+        //The syncing policy should say not to sync user views
+        let (policy, _, policyError) = container.fetchCurrentPolicySync(test: self)
+        XCTAssertNil(policyError, "Should be no error fetching aPolicy")
+        XCTAssertNotNil(policy, "Should have a syncing policy")
+
+        XCTAssertEqual(policy?.syncUserControllableViews, .ENABLED, "Peer should desire to sync user controllable views (per request)")
+    }
+
+    func testEstablishWithoutUserSyncableViews() throws {
+        let description = tmpStoreDescription(name: "container.db")
+
+        let (container, peerID) = try self.establish(reload: false,
+                                                     contextID: OTDefaultContext,
+                                                     accountIsDemo: false,
+                                                     syncUserControllableViews: .DISABLED,
+                                                     store: description)
+
+        assertTLKShareFor(peerID: peerID, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+        //The syncing policy should say not to sync user views
+        let (policy, _, policyError) = container.fetchCurrentPolicySync(test: self)
+        XCTAssertNil(policyError, "Should be no error fetching aPolicy")
+        XCTAssertNotNil(policy, "Should have a syncing policy")
+
+        XCTAssertEqual(policy?.syncUserControllableViews, .DISABLED, "Peer should not desire to sync user controllable views (per request)")
+    }
+
+    func testEstablishWithoutUserSyncableViewsOnWatch() throws {
+        let description = tmpStoreDescription(name: "container.db")
+
+        // Watches will listen to the input here. If we set FOLLOWING, it should remain FOLLOWING (as some watches don't have UI to change this value)
+        let (container, peerID) = try self.establish(reload: false,
+                                                     contextID: OTDefaultContext,
+                                                     accountIsDemo: false,
+                                                     modelID: "Watch1,1",
+                                                     syncUserControllableViews: .FOLLOWING,
+                                                     store: description)
+
+        assertTLKShareFor(peerID: peerID, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+        //The syncing policy should say not to sync user views
+        let (policy, _, policyError) = container.fetchCurrentPolicySync(test: self)
+        XCTAssertNil(policyError, "Should be no error fetching aPolicy")
+        XCTAssertNotNil(policy, "Should have a syncing policy")
+
+        XCTAssertEqual(policy?.syncUserControllableViews, .FOLLOWING, "Peer should desire to sync user controllable views (ignoring the request)")
     }
 
     func testEstablishNotOnAllowListErrors() throws {
         let description = tmpStoreDescription(name: "container.db")
         let container = try Container(name: ContainerName(container: "test", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
 
-        let (peerID, permanentInfo, permanentInfoSig, _, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = container.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == peerID }, "should have a bottle for peer")
             let secret = container.loadSecretSync(test: self, label: peerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -235,7 +334,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         // Now set up a machine ID list that positively does not have our peer
         XCTAssertNil(container.setAllowedMachineIDsSync(test: self, allowedMachineIDs: ["aaa"], accountIsDemo: false), "should be able to set allowed machine IDs")
 
-        let (peerID3, _, error3) = container.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+        let (peerID3, _, _, error3) = container.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
         XCTAssertNotNil(peerID3, "Should get a peer when you establish a now allow-listed peer")
         XCTAssertNil(error3, "Should not get an error when you establish a now allow-listed peer")
     }
@@ -253,7 +352,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(c.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: accountIsDemo, listDifference: !machineIDs.isEmpty), "Should be able to set machine IDs")
 
         print("preparing \(containerID)")
-        let (peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error) =
+        let (peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error) =
             c.prepareSync(test: self, epoch: 1, machineID: machineID, bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         XCTAssertNil(error)
         XCTAssertNotNil(peerID)
@@ -282,11 +381,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertTLKShareFor(peerID: peerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("\(containerID) joins")
-            let (joinedPeerID, _, _, _, joinError) = c.joinSync(test: self,
-                                                                voucherData: voucherData!,
-                                                                voucherSig: voucherSig!,
-                                                                ckksKeys: [],
-                                                                tlkShares: [])
+            let (joinedPeerID, _, _, joinError) = c.joinSync(test: self,
+                                                             voucherData: voucherData!,
+                                                             voucherSig: voucherSig!,
+                                                             ckksKeys: [],
+                                                             tlkShares: [])
             XCTAssertNil(joinError)
             XCTAssertEqual(joinedPeerID, peerID!)
         }
@@ -306,15 +405,15 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerC.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aViewList, aPolicy, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aPolicy, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
-        XCTAssertNotNil(aViewList, "Should have a view list coming back from a successful prepare")
-        XCTAssertNotNil(aPolicy, "Should have a policy coming back from a successful prepare")
+        XCTAssertNotNil(aPolicy, "Should have a syncing policy coming back from a successful prepare")
         XCTAssertEqual(aPolicy?.version, prevailingPolicyVersion, "Policy coming back from prepare() should be prevailing policy version")
+        XCTAssertEqual(aPolicy?.syncUserControllableViews, .UNKNOWN, "Policy coming back from prepare() should not have an opinion on views")
 
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -326,17 +425,25 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
 
+        do {
+            // With no other input, the syncing policy should say to sync user views
+            let (aPolicy, _, aPolicyError) = containerA.fetchCurrentPolicySync(test: self)
+            XCTAssertNil(aPolicyError, "Should be no error fetching aPolicy")
+            XCTAssertNotNil(aPolicy, "Should have a syncing policy")
+            XCTAssertEqual(aPolicy?.syncUserControllableViews, .DISABLED, "Peer should desire to not sync user controllable views (as the client didn't have any input)")
+        }
+
         print("preparing B")
-        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, _, error2) =
+        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -392,13 +499,16 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, _, error) = containerB.joinSync(test: self,
-                                                               voucherData: voucherData!,
-                                                               voucherSig: voucherSig!,
-                                                               ckksKeys: [],
-                                                               tlkShares: [])
+            let (peerID, _, bPolicy, error) = containerB.joinSync(test: self,
+                                                                  voucherData: voucherData!,
+                                                                  voucherSig: voucherSig!,
+                                                                  ckksKeys: [],
+                                                                  tlkShares: [])
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
+
+            XCTAssertNotNil(bPolicy, "Should have a syncing policy")
+            XCTAssertEqual(bPolicy?.syncUserControllableViews, .DISABLED, "Peer should desire to not sync user controllable views (following A's lead)")
         }
 
         _ = containerA.dumpSync(test: self)
@@ -406,11 +516,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerC.dumpSync(test: self)
 
         print("preparing C")
-        let (cPeerID, cPermanentInfo, cPermanentInfoSig, cStableInfo, cStableInfoSig, _, _, error4) =
+        let (cPeerID, cPermanentInfo, cPermanentInfoSig, cStableInfo, cStableInfoSig, _, error4) =
             containerC.prepareSync(test: self, epoch: 1, machineID: "ccc", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerC.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == cPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == cPeerID }, "should have a bottle for peer")
             let secret = containerC.loadSecretSync(test: self, label: cPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -444,13 +554,16 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertTLKShareFor(peerID: cPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("C joins")
-            let (peerID, _, _, _, error2) = containerC.joinSync(test: self,
-                                                                voucherData: voucherData!,
-                                                                voucherSig: voucherSig!,
-                                                                ckksKeys: [self.manateeKeySet, provisionalEngramKeySet],
-                                                                tlkShares: [])
+            let (peerID, _, cPolicy, error2) = containerC.joinSync(test: self,
+                                                                   voucherData: voucherData!,
+                                                                   voucherSig: voucherSig!,
+                                                                   ckksKeys: [self.manateeKeySet, provisionalEngramKeySet],
+                                                                   tlkShares: [])
             XCTAssertNil(error2)
             XCTAssertEqual(peerID, cPeerID!)
+
+            XCTAssertNotNil(cPolicy, "Should have a syncing policy")
+            XCTAssertEqual(cPolicy?.syncUserControllableViews, .DISABLED, "Peer should desire to not sync user controllable views (following A and B's lead)")
 
             assertTLKShareFor(peerID: cPeerID!, keyUUID: provisionalEngramKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Engram"))
             assertTLKShareFor(peerID: aPeerID!, keyUUID: provisionalEngramKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Engram"))
@@ -459,7 +572,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("A updates")
         do {
-            let (_, error) = containerA.updateSync(test: self)
+            let (_, _, error) = containerA.updateSync(test: self)
             XCTAssertNil(error)
         }
 
@@ -474,15 +587,130 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerC.dumpSync(test: self)
     }
 
+    func testJoinWithEnabledUserControllableViews() throws {
+        let description = tmpStoreDescription(name: "container.db")
+        let containerA = try Container(name: ContainerName(container: "a", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
+        let containerB = try Container(name: ContainerName(container: "b", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
+
+        let machineIDs = Set(["aaa", "bbb", "ccc"])
+        XCTAssertNil(containerA.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
+        XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
+
+        print("preparing A")
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aPolicy, error) =
+            containerA.prepareSync(test: self,
+                                   epoch: 1,
+                                   machineID: "aaa",
+                                   bottleSalt: "123456789",
+                                   bottleID: UUID().uuidString,
+                                   modelID: "iPhone1,1",
+                                   syncUserControllableViews: .ENABLED)
+        XCTAssertNotNil(aPolicy, "Should have a syncing policy coming back from a successful prepare")
+        XCTAssertEqual(aPolicy?.version, prevailingPolicyVersion, "Policy coming back from prepare() should be prevailing policy version")
+        XCTAssertEqual(aPolicy?.syncUserControllableViews, .ENABLED, "Policy coming back from prepare() should already have an opinion of user view syncing")
+
+        XCTAssertNil(error)
+        XCTAssertNotNil(aPeerID)
+        XCTAssertNotNil(aPermanentInfo)
+        XCTAssertNotNil(aPermanentInfoSig)
+
+        print("establishing A")
+        do {
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+            XCTAssertNil(error)
+            XCTAssertNotNil(peerID)
+        }
+
+        do {
+            let (aPolicy, _, aPolicyError) = containerA.fetchCurrentPolicySync(test: self)
+            XCTAssertNil(aPolicyError, "Should be no error fetching aPolicy")
+            XCTAssertNotNil(aPolicy, "Should have a syncing policy")
+            XCTAssertEqual(aPolicy?.syncUserControllableViews, .ENABLED, "Peer should desire to sync user controllable views (as per request)")
+        }
+
+        print("preparing B")
+        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, error2) =
+            containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        do {
+            let state = containerB.getStateSync(test: self)
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
+            let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
+            XCTAssertNotNil(secret, "secret should not be nil")
+            XCTAssertNil(error, "error should be nil")
+        }
+        XCTAssertNil(error2)
+        XCTAssertNotNil(bPeerID)
+        XCTAssertNotNil(bPermanentInfo)
+        XCTAssertNotNil(bPermanentInfoSig)
+
+        do {
+            assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+            print("A vouches for B, but doesn't provide any TLKShares")
+            let (_, _, errorVouchingWithoutTLKs) =
+                containerA.vouchSync(test: self,
+                                     peerID: bPeerID!,
+                                     permanentInfo: bPermanentInfo!,
+                                     permanentInfoSig: bPermanentInfoSig!,
+                                     stableInfo: bStableInfo!,
+                                     stableInfoSig: bStableInfoSig!,
+                                     ckksKeys: [])
+            XCTAssertNil(errorVouchingWithoutTLKs, "Should be no error vouching without uploading TLKShares")
+            assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+            print("A vouches for B, but doesn't only has provisional TLKs at the time")
+            let provisionalManateeKeySet = try self.makeFakeKeyHierarchy(zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+            provisionalManateeKeySet.newUpload = true
+
+            let (_, _, errorVouchingWithProvisionalTLKs) =
+                containerA.vouchSync(test: self,
+                                     peerID: bPeerID!,
+                                     permanentInfo: bPermanentInfo!,
+                                     permanentInfoSig: bPermanentInfoSig!,
+                                     stableInfo: bStableInfo!,
+                                     stableInfoSig: bStableInfoSig!,
+                                     ckksKeys: [provisionalManateeKeySet])
+            XCTAssertNil(errorVouchingWithProvisionalTLKs, "Should be no error vouching without uploading TLKShares for a non-existent key")
+            assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+            print("A vouches for B")
+            let (voucherData, voucherSig, error3) =
+                containerA.vouchSync(test: self,
+                                     peerID: bPeerID!,
+                                     permanentInfo: bPermanentInfo!,
+                                     permanentInfoSig: bPermanentInfoSig!,
+                                     stableInfo: bStableInfo!,
+                                     stableInfoSig: bStableInfoSig!,
+                                     ckksKeys: [self.manateeKeySet])
+            XCTAssertNil(error3)
+            XCTAssertNotNil(voucherData)
+            XCTAssertNotNil(voucherSig)
+
+            // As part of the vouch, A should have uploaded a tlkshare for B
+            assertTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+            print("B joins")
+            let (peerID, _, bPolicy, error) = containerB.joinSync(test: self,
+                                                                  voucherData: voucherData!,
+                                                                  voucherSig: voucherSig!,
+                                                                  ckksKeys: [],
+                                                                  tlkShares: [])
+            XCTAssertNil(error)
+            XCTAssertEqual(peerID, bPeerID!)
+
+            XCTAssertNotNil(bPolicy, "Should have a syncing policy")
+            XCTAssertEqual(bPolicy?.syncUserControllableViews, .ENABLED, "Peer should desire to sync user controllable views (following A's lead)")
+        }
+    }
+
     func testJoinWithoutAllowListErrors() throws {
         let description = tmpStoreDescription(name: "container.db")
         let containerA = try Container(name: ContainerName(container: "a", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
         let containerB = try Container(name: ContainerName(container: "b", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
 
-        let (peerID, permanentInfo, permanentInfoSig, _, _, _, _, error) = containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == peerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: peerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -494,16 +722,16 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         XCTAssertNil(containerA.setAllowedMachineIDsSync(test: self, allowedMachineIDs: ["aaa"], accountIsDemo: false), "should be able to set allowed machine IDs")
 
-        let (peerID2, _, error2) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+        let (peerID2, _, _, error2) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
         XCTAssertNotNil(peerID2, "Should get a peer when you establish a now allow-listed peer")
         XCTAssertNil(error2, "Should not get an error when you establish a now allow-listed peer")
 
         print("preparing B")
-        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, _, errorPrepareB) =
+        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, errorPrepareB) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == peerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: peerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -530,11 +758,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             XCTAssertNotNil(voucherSig, "Should have a signature from A")
 
             print("B joins")
-            let (peerID, _, _, _, error) = containerB.joinSync(test: self,
-                                                               voucherData: voucherData!,
-                                                               voucherSig: voucherSig!,
-                                                               ckksKeys: [],
-                                                               tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self,
+                                                            voucherData: voucherData!,
+                                                            voucherSig: voucherSig!,
+                                                            ckksKeys: [],
+                                                            tlkShares: [])
             XCTAssertNotNil(error, "Should have an error joining with an unapproved machine ID")
             XCTAssertNil(peerID, "Should not receive a peer ID joining with an unapproved machine ID")
         }
@@ -548,10 +776,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerA.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) = containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) = containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -564,7 +792,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         print("establishing A")
         do {
             assertNoTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
             assertTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
@@ -591,10 +819,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let machineIDs = Set(["aaa"])
         XCTAssertNil(containerA.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) = containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) = containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -619,6 +847,8 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             let error = containerA.localResetSync(test: self)
             XCTAssertNil(error, "local-reset shouldn't error")
+            let peers = containerA.containerMO.peers as! Set<PeerMO>
+            XCTAssertEqual(peers.count, 0, "peers should be empty ")
         }
         do {
             let (dict, error) = containerA.dumpSync(test: self)
@@ -645,24 +875,24 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerC.setAllowedMachineIDsSync(test: self, allowedMachineIDs: Set(["aaa", "bbb", "ccc"]), accountIsDemo: false))
 
         print("preparing")
-        let (peerID, _, _, _, _, _, _, _) = containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, _, _, _, _, _, _) = containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == peerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: peerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
         }
-        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, _, _) = containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, _) = containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
         }
-        let (cPeerID, cPermanentInfo, cPermanentInfoSig, cStableInfo, cStableInfoSig, _, _, _) = containerC.prepareSync(test: self, epoch: 1, machineID: "ccc", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (cPeerID, cPermanentInfo, cPermanentInfoSig, cStableInfo, cStableInfoSig, _, _) = containerC.prepareSync(test: self, epoch: 1, machineID: "ccc", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerC.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == cPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == cPeerID }, "should have a bottle for peer")
             let secret = containerC.loadSecretSync(test: self, label: cPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
         }
@@ -747,7 +977,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
     // TODO: need a real configurable mock cuttlefish
     func testFetchPolicyDocuments() throws {
-
         // 1 is known locally via builtin, 3 is not but is known to cuttlefish
 
         let missingTuple = TPPolicyVersion(version: 900, hash: "not a hash")
@@ -808,7 +1037,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     }
 
     func testEscrowKeys() throws {
-
         XCTAssertThrowsError(try EscrowKeys.retrieveEscrowKeysFromKeychain(label: "hash"), "retrieveEscrowKeysFromKeychain should throw error")
         XCTAssertThrowsError(try EscrowKeys.findEscrowKeysForLabel(label: "hash"), "findEscrowKeysForLabel should throw error")
 
@@ -843,7 +1071,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     }
 
     func testEscrowKeyTestVectors() {
-
         let secretString = "I'm a secretI'm a secretI'm a secretI'm a secretI'm a secretI'm a secret"
 
         let secret = secretString.data(using: .utf8)
@@ -911,11 +1138,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             var state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
 
             bottleA = state.bottles.removeFirst()
 
@@ -930,14 +1157,14 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         print("establishing A")
         do {
             assertNoTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
             assertTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
         }
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             entropy = secret!
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -947,11 +1174,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerB.updateSync(test: self)
 
         print("preparing B")
-        let (bPeerID, _, _, _, _, _, _, error2) =
+        let (bPeerID, _, _, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -961,10 +1188,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             print("B prepares to join via bottle")
 
-            let (bottlePeerID, views, policy, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
             XCTAssertNil(errorPreflight, "Should be no error preflighting a vouch with bottle")
             XCTAssertEqual(bottlePeerID, aPeerID, "Bottle should be for peer A")
-            XCTAssertNotNil(views, "Should have a set of views to restore")
             XCTAssertNotNil(policy, "Should have a policy")
 
             let (voucherData, voucherSig, _, _, error3) = containerB.vouchWithBottleSync(test: self, b: bottleA.bottleID!, entropy: entropy, bottleSalt: "123456789", tlkShares: [])
@@ -977,7 +1203,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
 
@@ -998,11 +1224,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             var state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
 
             bottleA = state.bottles.removeFirst()
 
@@ -1017,14 +1243,14 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         print("establishing A")
         do {
             assertNoTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
             assertTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
         }
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             entropy = secret!
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -1034,11 +1260,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerB.updateSync(test: self)
 
         print("preparing B")
-        let (bPeerID, _, _, _, _, _, _, error2) =
+        let (bPeerID, _, _, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1048,10 +1274,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             print("B prepares to join via bottle")
 
-            let (bottlePeerID, views, policy, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
             XCTAssertNil(errorPreflight, "Should be no error preflighting a vouch with bottle")
             XCTAssertEqual(bottlePeerID, aPeerID, "Bottle should be for peer A")
-            XCTAssertNotNil(views, "Should have a set of views to restore")
             XCTAssertNotNil(policy, "Should have a policy")
 
             let (voucherData, voucherSig, _, _, error3) = containerB.vouchWithBottleSync(test: self, b: bottleA.bottleID!, entropy: entropy, bottleSalt: "123456789", tlkShares: [])
@@ -1064,7 +1289,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
 
@@ -1084,11 +1309,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1100,13 +1325,13 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             entropy = secret!
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -1116,11 +1341,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerB.updateSync(test: self)
 
         print("preparing B")
-        let (bPeerID, _, _, _, _, _, _, error2) =
+        let (bPeerID, _, _, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1130,10 +1355,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             print("B joins via bottle")
 
-            let (bottlePeerID, views, policy, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: "wrong escrow record")
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: "wrong escrow record")
             XCTAssertNotNil(errorPreflight, "Should be an error preflighting bottle that doesn't exist")
             XCTAssertNil(bottlePeerID, "peerID should be nil for no bottle")
-            XCTAssertNil(views, "Should not have a set of views to restore")
             XCTAssertNil(policy, "Should not have a policy")
 
             let (voucherData, voucherSig, _, _, error3) = containerB.vouchWithBottleSync(test: self, b: "wrong escrow record", entropy: entropy, bottleSalt: "123456789", tlkShares: [])
@@ -1156,11 +1380,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1172,13 +1396,13 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             entropy = secret!
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -1186,11 +1410,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         }
 
         print("preparing B")
-        let (bPeerID, _, _, _, _, _, _, error2) =
+        let (bPeerID, _, _, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             var state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             bottleB = state.bottles.removeFirst()
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -1201,10 +1425,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             print("B joins via bottle")
 
-            let (bottlePeerID, views, policy, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleB.bottleID!)
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleB.bottleID!)
             XCTAssertNotNil(errorPreflight, "Should be an error preflighting bottle that doesn't correspond to a peer")
             XCTAssertNil(bottlePeerID, "Should have no peer for invalid bottle")
-            XCTAssertNil(views, "Should not have a set of views to restore")
             XCTAssertNil(policy, "Should not have a policy")
 
             let (voucherData, voucherSig, _, _, error3) = containerB.vouchWithBottleSync(test: self, b: bottleB.bottleID!, entropy: entropy, bottleSalt: "123456789", tlkShares: [])
@@ -1227,11 +1450,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             var state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             bottleA = state.bottles.removeFirst()
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -1244,13 +1467,13 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             entropy = secret!
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -1260,11 +1483,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerB.updateSync(test: self)
 
         print("preparing B")
-        let (bPeerID, _, _, _, _, _, _, error2) =
+        let (bPeerID, _, _, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1274,10 +1497,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             print("B joins via bottle")
 
-            let (bottlePeerID, views, policy, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
             XCTAssertNil(errorPreflight, "Should be no error preflighting a vouch with bottle")
             XCTAssertEqual(bottlePeerID, aPeerID, "Bottle should be for peer A")
-            XCTAssertNotNil(views, "Should have a set of views to restore")
             XCTAssertNotNil(policy, "Should have a policy")
 
             let (voucherData, voucherSig, _, _, error3) = containerB.vouchWithBottleSync(test: self, b: bottleA.bottleID!, entropy: entropy, bottleSalt: "987654321", tlkShares: [])
@@ -1299,11 +1521,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             var state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             bottleA = state.bottles.removeFirst()
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -1316,13 +1538,13 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1331,11 +1553,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerB.updateSync(test: self)
 
         print("preparing B")
-        let (bPeerID, _, _, _, _, _, _, error2) =
+        let (bPeerID, _, _, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1345,10 +1567,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             print("B joins via bottle")
 
-            let (bottlePeerID, views, policy, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
             XCTAssertNil(errorPreflight, "Should be no error preflighting a vouch with bottle")
             XCTAssertEqual(bottlePeerID, aPeerID, "Bottle should be for peer A")
-            XCTAssertNotNil(views, "Should have a set of views to restore")
             XCTAssertNotNil(policy, "Should have a policy")
 
             let (voucherData, voucherSig, _, _, error3) = containerB.vouchWithBottleSync(test: self, b: bottleA.bottleID!, entropy: Data(count: Int(OTMasterSecretLength)), bottleSalt: "123456789", tlkShares: [])
@@ -1371,11 +1592,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             var state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             entropy = secret!
             bottleA = state.bottles.removeFirst()
@@ -1389,24 +1610,24 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
         }
 
         print("preparing B")
-        let (bPeerID, _, _, _, _, _, _, error2) =
+        let (bPeerID, _, _, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1418,10 +1639,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
             self.cuttlefish.fetchViableBottlesError.append(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
 
-            let (bottlePeerID, views, policy, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
             XCTAssertNotNil(errorPreflight, "Should be an error preflighting a vouch with bottle with a fetch error")
             XCTAssertNil(bottlePeerID, "peerID should be nil")
-            XCTAssertNil(views, "Should not have a set of views to restore")
             XCTAssertNil(policy, "Should not have a policy")
 
             self.cuttlefish.fetchViableBottlesError.append(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
@@ -1438,29 +1658,37 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let description = tmpStoreDescription(name: "container.db")
         let containerA = try Container(name: ContainerName(container: "a", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
         let containerB = try Container(name: ContainerName(container: "b", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
+        let containerC = try Container(name: ContainerName(container: "c", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
 
-        let machineIDs = Set(["aaa", "bbb"])
+        let machineIDs = Set(["aaa", "bbb", "ccc"])
         XCTAssertNil(containerA.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
+        XCTAssertNil(containerC.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aViewList, aPolicy, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aPolicy, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         XCTAssertNil(error)
         XCTAssertNotNil(aPeerID)
         XCTAssertNotNil(aPermanentInfo)
         XCTAssertNotNil(aPermanentInfoSig)
 
-        XCTAssertNotNil(aViewList, "Should have a view list coming back from a successful prepare")
         XCTAssertNotNil(aPolicy, "Should have a policy coming back from a successful prepare")
         XCTAssertEqual(aPolicy?.version, prevailingPolicyVersion, "Policy coming back from prepare() should be prevailing policy version")
+        XCTAssertEqual(aPolicy?.syncUserControllableViews, .UNKNOWN, "Policy shouldn't yet know whether we want to sync user views")
 
         print("preparing B")
-        let (bPeerID, bPermanentInfo, bPermanentInfoSig, _, _, _, _, error2) =
-            containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (bPeerID, bPermanentInfo, bPermanentInfoSig, _, _, _, error2) =
+            containerB.prepareSync(test: self,
+                                   epoch: 1,
+                                   machineID: "bbb",
+                                   bottleSalt: "123456789",
+                                   bottleID: UUID().uuidString,
+                                   modelID: "iPhone1,1",
+                                   syncUserControllableViews: .DISABLED)
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1470,34 +1698,96 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNotNil(bPermanentInfo)
         XCTAssertNotNil(bPermanentInfoSig)
 
-        // Now, A establishes preapproving B
+        print("preparing C")
+        let (cPeerID, cPermanentInfo, cPermanentInfoSig, _, _, _, cPrepareError) =
+            containerC.prepareSync(test: self,
+                                   epoch: 1,
+                                   machineID: "ccc",
+                                   bottleSalt: "123456789",
+                                   bottleID: UUID().uuidString,
+                                   modelID: "iPhone1,1",
+                                   syncUserControllableViews: .ENABLED)
+        do {
+            let state = containerC.getStateSync(test: self)
+            XCTAssertTrue(state.bottles.contains { $0.peerID == cPeerID }, "should have a bottle for peer")
+            let secret = containerC.loadSecretSync(test: self, label: cPeerID!)
+            XCTAssertNotNil(secret, "secret should not be nil")
+            XCTAssertNil(error, "error should be nil")
+        }
+        XCTAssertNil(cPrepareError)
+        XCTAssertNotNil(cPeerID)
+        XCTAssertNotNil(cPermanentInfo)
+        XCTAssertNotNil(cPermanentInfoSig)
+
+        // Now, A establishes preapproving B & C
         // Note: secd is responsible for passing in TLKShares to these preapproved keys in sosTLKShares
+
+        let aPermanentInfoParsed = TPPeerPermanentInfo(peerID: aPeerID!, data: aPermanentInfo!, sig: aPermanentInfoSig!, keyFactory: TPECPublicKeyFactory())
+        XCTAssertNotNil(aPermanentInfoParsed, "Should have parsed A's permanent info")
 
         let bPermanentInfoParsed = TPPeerPermanentInfo(peerID: bPeerID!, data: bPermanentInfo!, sig: bPermanentInfoSig!, keyFactory: TPECPublicKeyFactory())
         XCTAssertNotNil(bPermanentInfoParsed, "Should have parsed B's permanent info")
 
+        let cPermanentInfoParsed = TPPeerPermanentInfo(peerID: cPeerID!, data: cPermanentInfo!, sig: cPermanentInfoSig!, keyFactory: TPECPublicKeyFactory())
+        XCTAssertNotNil(cPermanentInfoParsed, "Should have parsed C's permanent info")
+
+        print(bPermanentInfoParsed!.signingPubKey.spki().base64EncodedString())
+        print(cPermanentInfoParsed!.signingPubKey.spki().base64EncodedString())
+
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [bPermanentInfoParsed!.signingPubKey.spki()])
+            let (peerID, _, _, error) = containerA.establishSync(test: self,
+                                                                 ckksKeys: [self.manateeKeySet],
+                                                                 tlkShares: [],
+                                                                 preapprovedKeys: [bPermanentInfoParsed!.signingPubKey.spki(),
+                                                                                   cPermanentInfoParsed!.signingPubKey.spki(), ])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
+
+            let (aPolicy, _, aPolicyError) = containerA.fetchCurrentPolicySync(test: self)
+            XCTAssertNil(aPolicyError, "Should be no error fetching aPolicy")
+            XCTAssertNotNil(aPolicy, "Should have a syncing policy")
+            XCTAssertEqual(aPolicy?.syncUserControllableViews, .DISABLED, "A should desire to not ync user controllable views (as the client didn't have any input)")
         }
 
         do {
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins by preapproval, and uploads all TLKShares that it has")
-            let (bJoinedPeerID, _, views, policy, bJoinedError) = containerB.preapprovedJoinSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            let (bJoinedPeerID, _, bPolicy, bJoinedError) = containerB.preapprovedJoinSync(test: self,
+                                                                                          ckksKeys: [self.manateeKeySet],
+                                                                                          tlkShares: [],
+                                                                                          preapprovedKeys: [aPermanentInfoParsed!.signingPubKey.spki(),
+                                                                                                            cPermanentInfoParsed!.signingPubKey.spki(), ])
             XCTAssertNil(bJoinedError, "Should be no error joining by preapproval")
             XCTAssertNotNil(bJoinedPeerID, "Should have a peer ID out of join")
-            XCTAssertNotNil(views, "should have a list of views to use")
-            XCTAssertNotNil(policy, "Should have a policy back from preapprovedjoin")
+            XCTAssertNotNil(bPolicy, "Should have a policy back from preapprovedjoin")
+            XCTAssertEqual(bPolicy?.syncUserControllableViews, .DISABLED, "Policy should say not to sync user controllable views")
 
             assertTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
         }
 
+        do {
+            assertNoTLKShareFor(peerID: cPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+            print("B joins by preapproval, and uploads all TLKShares that it has")
+            let (cJoinedPeerID, _, cPolicy, cJoinedError) = containerC.preapprovedJoinSync(test: self,
+                                                                                          ckksKeys: [self.manateeKeySet],
+                                                                                          tlkShares: [],
+                                                                                          preapprovedKeys: [aPermanentInfoParsed!.signingPubKey.spki(),
+                                                                                                            bPermanentInfoParsed!.signingPubKey.spki(), ])
+            XCTAssertNil(cJoinedError, "Should be no error joining by preapproval")
+            XCTAssertNotNil(cJoinedPeerID, "Should have a peer ID out of join")
+            XCTAssertEqual(cPeerID, cJoinedPeerID, "PeerID after joining should match")
+            XCTAssertNotNil(cPolicy, "Should have a policy back from preapprovedjoin")
+            XCTAssertEqual(cPolicy?.syncUserControllableViews, .ENABLED, "Policy should say to sync user controllable views")
+
+            assertTLKShareFor(peerID: cPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+        }
+
         _ = containerA.dumpSync(test: self)
         _ = containerB.dumpSync(test: self)
+        _ = containerC.dumpSync(test: self)
     }
 
     func testDepart() throws {
@@ -1524,7 +1814,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                               machineIDs: ["aaa", "bbb", "ccc"], accountIsDemo: false,
                                               store: store)
 
-        let (_, cUpdateError) = c.updateSync(test: self)
+        let (_, _, cUpdateError) = c.updateSync(test: self)
         XCTAssertNil(cUpdateError, "Should be able to update first container")
         assertTrusts(context: c, peerIDs: [peerID1, peerID2, peerID3])
 
@@ -1540,11 +1830,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         assertDistrusts(context: c, peerIDs: [peerID2, peerID3])
 
         // peers should accept their fates
-        let (_, c2UpdateError) = c2.updateSync(test: self)
+        let (_, _, c2UpdateError) = c2.updateSync(test: self)
         XCTAssertNil(c2UpdateError, "Should be able to update second container")
         assertDistrusts(context: c2, peerIDs: [peerID2])
 
-        let (_, c3UpdateError) = c3.updateSync(test: self)
+        let (_, _, c3UpdateError) = c3.updateSync(test: self)
         XCTAssertNil(c3UpdateError, "Should be able to update third container")
         assertDistrusts(context: c3, peerIDs: [peerID3])
     }
@@ -1558,7 +1848,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         // And the first container fetches again, which should succeed
         self.cuttlefish.nextFetchErrors.append(FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .changeTokenExpired))
-        let (_, updateError) = c.updateSync(test: self)
+        let (_, _, updateError) = c.updateSync(test: self)
         XCTAssertNil(updateError, "Update should have succeeded")
 
         // and c's model should only include peerID2
@@ -1618,7 +1908,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             XCTAssertNotNil(deserializedBottle, "deserializedBottle should not be nil")
 
             XCTAssertEqual(deserializedBottle.contents, bottle.contents, "bottle data should be equal")
-
         } catch {
             XCTFail("error testing bottles \(error)")
         }
@@ -1636,12 +1925,14 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             let state = c.getStateSync(test: self)
             XCTAssertEqual(state.bottles.count, 1, "first container should have a bottle for peer")
+            XCTAssertEqual(state.escrowRecords.count, 1, "first container should have an escrow record for peer")
         }
 
         let c2 = try Container(name: ContainerName(container: "test", context: "newcomer"), persistentStoreDescription: store, cuttlefish: self.cuttlefish)
         do {
             let state = c2.getStateSync(test: self)
             XCTAssertEqual(state.bottles.count, 0, "before fetch, second container should not have any stored bottles")
+            XCTAssertEqual(state.escrowRecords.count, 0, "before fetch, second container should not have any escrow records")
         }
 
         let (c2bottles, _, c2FetchError) = c2.fetchViableBottlesSync(test: self)
@@ -1652,6 +1943,128 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             let state = c2.getStateSync(test: self)
             XCTAssertEqual(state.bottles.count, 1, "after fetch, second container should have one stored bottles")
+            XCTAssertEqual(state.escrowRecords.count, 1, "after fetch, second container should have one escrow record")
+        }
+    }
+
+    func testFetchBottlesAfterCacheExpires() throws {
+        OctagonSetOptimizationEnabled(true)
+        OctagonSetEscrowRecordFetchEnabled(true)
+
+        var bottleA: BottleMO
+        var entropy: Data
+        let description = tmpStoreDescription(name: "container.db")
+        let containerA = try Container(name: ContainerName(container: "a", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
+        let containerB = try Container(name: ContainerName(container: "b", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
+
+        let machineIDs = Set(["aaa", "bbb"])
+        XCTAssertNil(containerA.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
+        XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
+
+        print("preparing A")
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
+            containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        do {
+            var state = containerA.getStateSync(test: self)
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
+
+            bottleA = state.bottles.removeFirst()
+
+            let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
+            XCTAssertNotNil(secret, "secret should not be nil")
+            XCTAssertNil(error, "error should be nil")
+        }
+        XCTAssertNotNil(aPeerID)
+        XCTAssertNotNil(aPermanentInfo)
+        XCTAssertNotNil(aPermanentInfoSig)
+
+        print("establishing A")
+        do {
+            assertNoTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+            XCTAssertNil(error)
+            XCTAssertNotNil(peerID)
+            assertTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+        }
+        do {
+            let state = containerA.getStateSync(test: self)
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
+            let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
+            entropy = secret!
+            XCTAssertNotNil(secret, "secret should not be nil")
+            XCTAssertNil(error, "error should be nil")
+        }
+
+        let (bottles, _, fetchError) = containerA.fetchViableBottlesSync(test: self)
+        XCTAssertNil(fetchError, "should be no error fetching viable bottles")
+        XCTAssertNotNil(bottles, "should have fetched some bottles")
+        XCTAssertEqual(bottles!.count, 1, "should have fetched one bottle")
+
+        do {
+            let state = containerA.getStateSync(test: self)
+            XCTAssertEqual(state.bottles.count, 1, "first container should have a bottle for peer")
+            XCTAssertEqual(state.escrowRecords.count, 1, "first container should have an escrow record for peer")
+        }
+
+        //have another peer join
+        _ = containerB.updateSync(test: self)
+
+        print("preparing B")
+        let (bPeerID, _, _, _, _, _, error2) =
+            containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        do {
+            let state = containerB.getStateSync(test: self)
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
+            let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
+            XCTAssertNotNil(secret, "secret should not be nil")
+            XCTAssertNil(error, "error should be nil")
+        }
+        XCTAssertNil(error2)
+
+        do {
+            print("B prepares to join via bottle")
+
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
+            XCTAssertNil(errorPreflight, "Should be no error preflighting a vouch with bottle")
+            XCTAssertEqual(bottlePeerID, aPeerID, "Bottle should be for peer A")
+            XCTAssertNotNil(policy, "Should have a policy")
+
+            let (voucherData, voucherSig, _, _, error3) = containerB.vouchWithBottleSync(test: self, b: bottleA.bottleID!, entropy: entropy, bottleSalt: "123456789", tlkShares: [])
+
+            XCTAssertNil(error3)
+            XCTAssertNotNil(voucherData)
+            XCTAssertNotNil(voucherSig)
+
+            // Before B joins, there should be no TLKShares for B
+            assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+
+            print("B joins")
+            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            XCTAssertNil(error)
+            XCTAssertEqual(peerID, bPeerID!)
+
+            // But afterward, it has one!
+            assertTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
+        }
+
+        //now fetch bottles and we should get the cached version
+        let (_, _, _) = containerA.fetchViableBottlesSync(test: self)
+        do {
+            let state = containerA.getStateSync(test: self)
+            XCTAssertEqual(state.bottles.count, 1, "first container should have a bottle for peer")
+            XCTAssertEqual(state.escrowRecords.count, 1, "first container should have an escrow record for peer")
+        }
+
+        sleep(2)
+
+        //now fetch bottles again after the cache expired
+        containerA.escrowCacheTimeout = 2.0
+
+        let (_, _, _) = containerA.fetchViableBottlesSync(test: self)
+        do {
+            let state = containerA.getStateSync(test: self)
+            XCTAssertEqual(state.bottles.count, 2, "container A should have 2 bottles")
+            XCTAssertEqual(state.escrowRecords.count, 2, "container A should have 2 escrow records")
         }
     }
 
@@ -1711,18 +2124,18 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let store = tmpStoreDescription(name: "container.db")
 
         let c = try Container(name: ContainerName(container: "c", context: "context"),
-                                 persistentStoreDescription: store,
-                                 cuttlefish: self.cuttlefish)
+                              persistentStoreDescription: store,
+                              cuttlefish: self.cuttlefish)
 
         let machineIDs = Set(["aaa", "bbb", "ccc"])
         XCTAssertNil(c.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing peer A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             c.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = c.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = c.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1734,14 +2147,14 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = c.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: nil)
+            let (peerID, _, _, error) = c.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: nil)
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
         let recoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
 
-        let (setRecoveryError) = c.setRecoveryKeySync(test: self, recoveryKey: recoveryKey!, recoverySalt: "altDSID", ckksKeys: [])
+        let (_, setRecoveryError) = c.setRecoveryKeySync(test: self, recoveryKey: recoveryKey!, recoverySalt: "altDSID", ckksKeys: [])
         XCTAssertNil(setRecoveryError, "error should be nil")
     }
 
@@ -1774,11 +2187,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(c.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing peer A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             c.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = c.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = c.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1790,15 +2203,15 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = c.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: nil)
+            let (peerID, _, _, error) = c.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: nil)
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
         let (repairAccount, repairEscrow, resetOctagon, leaveTrust, healthError) = c.requestHealthCheckSync(requiresEscrowCheck: true, test: self)
-        XCTAssertEqual(repairAccount, false, "")
-        XCTAssertEqual(repairEscrow, false, "")
-        XCTAssertEqual(resetOctagon, false, "")
-        XCTAssertEqual(leaveTrust, false, "")
+        XCTAssertFalse(repairAccount, "")
+        XCTAssertFalse(repairEscrow, "")
+        XCTAssertFalse(resetOctagon, "")
+        XCTAssertFalse(leaveTrust, "")
         XCTAssertNil(healthError)
     }
 
@@ -1814,11 +2227,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             var state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
 
             bottleA = state.bottles.removeFirst()
 
@@ -1833,14 +2246,14 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         print("establishing A")
         do {
             assertNoTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
             assertTLKShareFor(peerID: aPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
         }
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             entropy = secret!
             XCTAssertNotNil(secret, "secret should not be nil")
@@ -1850,11 +2263,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerB.updateSync(test: self)
 
         print("preparing B")
-        let (bPeerID, _, _, _, _, _, _, error2) =
+        let (bPeerID, _, _, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1864,10 +2277,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             print("B prepares to join via bottle")
 
-            let (bottlePeerID, views, policy, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
+            let (bottlePeerID, policy, _, errorPreflight) = containerB.preflightVouchWithBottleSync(test: self, bottleID: bottleA.bottleID!)
             XCTAssertNil(errorPreflight, "Should be no error preflighting a vouch with bottle")
             XCTAssertEqual(bottlePeerID, aPeerID, "Bottle should be for peer A")
-            XCTAssertNotNil(views, "Should have a set of views to restore")
             XCTAssertNotNil(policy, "Should have a policy")
 
             let (voucherData, voucherSig, _, _, error3) = containerB.vouchWithBottleSync(test: self, b: bottleA.bottleID!, entropy: entropy, bottleSalt: "123456789", tlkShares: [])
@@ -1882,9 +2294,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
-            XCTAssertNotNil(error)
-            XCTAssertNil(peerID)
+            let (peerID, _, _, error) = containerB.joinSync(test: self, voucherData: voucherData!, voucherSig: voucherSig!, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            XCTAssertNil(error, "Should be no error joining with a fetch error")
+            XCTAssertNotNil(peerID, "Should have a peer ID")
         }
     }
 
@@ -1898,11 +2310,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertNil(containerB.setAllowedMachineIDsSync(test: self, allowedMachineIDs: machineIDs, accountIsDemo: false))
 
         print("preparing peer A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, aStableInfo, aStableInfoSig, _, _, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, aStableInfo, aStableInfoSig, _, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1916,17 +2328,17 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: nil)
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: nil)
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
 
         print("preparing B")
-        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, _, error2) =
+        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue(state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -1982,23 +2394,23 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, _, error) = containerB.joinSync(test: self,
-                                                               voucherData: voucherData!,
-                                                               voucherSig: voucherSig!,
-                                                               ckksKeys: [],
-                                                               tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self,
+                                                            voucherData: voucherData!,
+                                                            voucherSig: voucherSig!,
+                                                            ckksKeys: [],
+                                                            tlkShares: [])
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
         }
 
         print("A updates")
         do {
-            let (_, error) = containerA.updateSync(test: self)
+            let (_, _, error) = containerA.updateSync(test: self)
             XCTAssertNil(error)
         }
         print("B updates")
         do {
-            let (_, error) = containerB.updateSync(test: self)
+            let (_, _, error) = containerB.updateSync(test: self)
             XCTAssertNil(error)
         }
 
@@ -2009,17 +2421,17 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let recoveryKey = SecRKCreateRecoveryKeyString(nil)
         XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
 
-        let (setRecoveryError) = containerB.setRecoveryKeySync(test: self, recoveryKey: recoveryKey!, recoverySalt: "altDSID", ckksKeys: [])
+        let (_, setRecoveryError) = containerB.setRecoveryKeySync(test: self, recoveryKey: recoveryKey!, recoverySalt: "altDSID", ckksKeys: [])
         XCTAssertNil(setRecoveryError, "error should be nil")
 
         print("A updates")
         do {
-            let (_, error) = containerA.updateSync(test: self)
+            let (_, _, error) = containerA.updateSync(test: self)
             XCTAssertNil(error)
         }
         print("B updates")
         do {
-            let (_, error) = containerB.updateSync(test: self)
+            let (_, _, error) = containerB.updateSync(test: self)
             XCTAssertNil(error)
         }
 
@@ -2040,7 +2452,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
             let recoveryEncryptionPublicKey: Data? = stableInfo!["recovery_encryption_public_key"] as! Data?
             XCTAssertNil(recoveryEncryptionPublicKey, "recoveryEncryptionPublicKey should be nil")
-
         }
     }
 
@@ -2050,7 +2461,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                 unknownMachineIDs: Set<String> = Set(),
                 persistentStore: NSPersistentStoreDescription,
                 cuttlefish: FakeCuttlefishServer) throws {
-
         let midList = container.onqueueCurrentMIDList()
         XCTAssertEqual(midList.machineIDs(in: .allowed), allowedMachineIDs, "List of allowed machine IDs should match")
         XCTAssertEqual(midList.machineIDs(in: .disallowed), disallowedMachineIDs, "List of disallowed machine IDs should match")
@@ -2073,7 +2483,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let description = tmpStoreDescription(name: "container.db")
         let container = try Container(name: ContainerName(container: "test", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
 
-        let (peerID, permanentInfo, permanentInfoSig, _, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
 
         XCTAssertNil(error)
         XCTAssertNotNil(peerID)
@@ -2120,17 +2530,17 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertFalse(container.onqueueFullIDMSListWouldBeHelpful(), "Container shouldn't think it could use an IDMS list set")
 
         // A update() before establish() doesn't change the list, since it isn't actually changing anything
-        let (_, updateError) = container.updateSync(test: self)
+        let (_, _, updateError) = container.updateSync(test: self)
         XCTAssertNil(updateError, "Should not be an error updating the container without first establishing")
         try self.assert(container: container, allowedMachineIDs: Set(["xxx", "mmm", "aaa"]), disallowedMachineIDs: Set(["zzz", "kkk", "bbb", "ccc", "fff"]), persistentStore: description, cuttlefish: self.cuttlefish)
 
-        let (_, _, establishError) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+        let (_, _, _, establishError) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
         XCTAssertNil(establishError, "Should be able to establish() with no error")
         try self.assert(container: container, allowedMachineIDs: Set(["xxx", "mmm", "aaa"]), disallowedMachineIDs: Set(["zzz", "kkk", "bbb", "ccc", "fff"]), persistentStore: description, cuttlefish: self.cuttlefish)
         XCTAssertFalse(container.onqueueFullIDMSListWouldBeHelpful(), "Container shouldn't think it could use an IDMS list set")
 
         // But a successful update() does remove all disallowed machine IDs, as they're no longer relevant
-        let (_, updateError2) = container.updateSync(test: self)
+        let (_, _, updateError2) = container.updateSync(test: self)
         XCTAssertNil(updateError2, "Should not be an error updating the container after establishing")
         try self.assert(container: container, allowedMachineIDs: Set(["xxx", "mmm", "aaa"]), disallowedMachineIDs: Set([]), persistentStore: description, cuttlefish: self.cuttlefish)
         XCTAssertFalse(container.onqueueFullIDMSListWouldBeHelpful(), "Container shouldn't think it could use an IDMS list set")
@@ -2225,7 +2635,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         // Now TPH boots up with a preexisting model
         let container = try Container(name: containerName, persistentStoreDescription: description, cuttlefish: cuttlefish)
 
-        let (peerID, permanentInfo, permanentInfoSig, _, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
 
         XCTAssertNil(error)
         XCTAssertNotNil(peerID)
@@ -2346,6 +2756,109 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertFalse(container.onqueueFullIDMSListWouldBeHelpful(), "Container shouldn't think it could use an IDMS list set")
     }
 
+    func testDuplicateVouchersWhenRegisteringOnModel() throws {
+        let store = tmpStoreDescription(name: "container.db")
+        let (c, peerID1) = try establish(reload: false, store: store)
+
+        let (c2, peerID2) = try joinByVoucher(sponsor: c,
+                                              containerID: "second",
+                                              machineID: "bbb",
+                                              machineIDs: ["aaa", "bbb"], accountIsDemo: false,
+                                              store: store)
+
+        let (_, _, cUpdateError) = c.updateSync(test: self)
+        XCTAssertNil(cUpdateError, "Should be able to update first container")
+        assertTrusts(context: c, peerIDs: [peerID1, peerID2])
+
+        let (_, _, c2UpdateError) = c2.updateSync(test: self)
+        XCTAssertNil(c2UpdateError, "Should be able to update second container")
+        assertTrusts(context: c2, peerIDs: [peerID1, peerID2])
+
+        //attempt to register a bunch of vouchers it likely already has
+        for voucher in c2.model.allVouchers() {
+            c.model.register(voucher)
+        }
+        XCTAssertEqual(c.model.allVouchers().count, 1, "voucher count should be 1")
+        XCTAssertEqual(c2.model.allVouchers().count, 1, "voucher count should be 1")
+    }
+
+    func testDuplicateVouchersOnload() throws {
+        let description = tmpStoreDescription(name: "container.db")
+
+        let store = tmpStoreDescription(name: "container.db")
+        let (c, peerID1) = try establish(reload: false, store: store)
+
+        let (c2, peerID2) = try joinByVoucher(sponsor: c,
+                                              containerID: "second",
+                                              machineID: "bbb",
+                                              machineIDs: ["aaa", "bbb", "ccc"], accountIsDemo: false,
+                                              store: store)
+
+        let (c3, peerID3) = try joinByVoucher(sponsor: c,
+                                              containerID: "third",
+                                              machineID: "ccc",
+                                              machineIDs: ["aaa", "bbb", "ccc"], accountIsDemo: false,
+                                              store: store)
+
+        let (_, _, cUpdateError) = c.updateSync(test: self)
+        XCTAssertNil(cUpdateError, "Should be able to update first container")
+
+        let (_, _, cUpdateError2) = c2.updateSync(test: self)
+        XCTAssertNil(cUpdateError2, "Should be able to update first container")
+        let (_, _, cUpdateError3) = c3.updateSync(test: self)
+        XCTAssertNil(cUpdateError3, "Should be able to update first container")
+        let (_, _, _) = c.updateSync(test: self)
+
+        assertTrusts(context: c, peerIDs: [peerID1, peerID2, peerID3])
+
+        var vouchers: [VoucherMO] = Array()
+
+        let c1Peers = c.containerMO.peers as! Set<PeerMO>
+        for peer in c1Peers {
+            for voucher in peer.vouchers! {
+                let vouch = voucher as! VoucherMO
+                vouchers.append(vouch)
+            }
+        }
+        for peer in c1Peers {
+            for voucher in peer.vouchers! {
+                let vouch = voucher as! VoucherMO
+                vouchers.append(vouch)
+            }
+        }
+
+        for peer in c1Peers {
+            for voucher in peer.vouchers! {
+                let vouch = voucher as! VoucherMO
+                vouchers.append(vouch)
+            }
+        }
+
+        //reload container
+        XCTAssertEqual(vouchers.count, 6, "should have 6 vouchers")
+
+        c.moc.performAndWait {
+            let containerMO = ContainerMO(context: c.moc)
+            do {
+
+                for peer in containerMO.peers as! Set<PeerMO> {
+                    for vouch in vouchers {
+                        peer.addToVouchers(vouch)
+                    }
+                }
+            }
+            XCTAssertNoThrow(try! c.moc.save())
+        }
+
+        //reload container
+        do {
+            let container = try Container(name: c.name, persistentStoreDescription: description, cuttlefish: cuttlefish)
+            XCTAssertEqual(container.model.allVouchers().count, 2, "voucher count should be 2")
+        } catch {
+            XCTFail("Creating container errored: \(error)")
+        }
+    }
+
     func testMachineIDListSetDisallowedOldUnknownMachineIDs() throws {
         let description = tmpStoreDescription(name: "container.db")
         var (container, peerID1) = try establish(reload: false, contextID: OTDefaultContext, allowedMachineIDs: Set(["aaa"]), accountIsDemo: false, store: description)
@@ -2364,7 +2877,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                   store: description)
 
         // And the first container accepts the join...
-        let (_, cUpdateError) = container.updateSync(test: self)
+        let (_, _, cUpdateError) = container.updateSync(test: self)
         XCTAssertNil(cUpdateError, "Should be able to update first container")
         assertTrusts(context: container, peerIDs: [peerID1, peerID3])
 
@@ -2393,7 +2906,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             container = try Container(name: ContainerName(container: "test", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
             XCTAssertEqual(container.containerMO.honorIDMSListChanges, "YES", "honorIDMSListChanges should be YES")
-
         } catch {
             XCTFail("Creating container errored: \(error)")
         }
@@ -2431,7 +2943,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
                                                   store: description)
 
         // And the first container accepts the join...
-        let (_, cUpdateError) = container.updateSync(test: self)
+        let (_, _, cUpdateError) = container.updateSync(test: self)
         XCTAssertNil(cUpdateError, "Should be able to update first container")
         assertTrusts(context: container, peerIDs: [peerID1, peerID2])
 
@@ -2459,7 +2971,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         c2.containerMO.honorIDMSListChanges = "NO"
 
         // And the first container accepts the join...
-        let (_, cUpdateError) = container.updateSync(test: self)
+        let (_, _, cUpdateError) = container.updateSync(test: self)
         XCTAssertNil(cUpdateError, "Should be able to update first container")
         assertTrusts(context: container, peerIDs: [peerID1, peerID2])
 
@@ -2470,7 +2982,6 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             container = try Container(name: ContainerName(container: "test", context: OTDefaultContext), persistentStoreDescription: description, cuttlefish: cuttlefish)
             XCTAssertEqual(container.containerMO.honorIDMSListChanges, "NO", "honorIDMSListChanges should be NO")
-
         } catch {
             XCTFail("Creating container errored: \(error)")
         }
@@ -2484,11 +2995,10 @@ class TrustedPeersHelperUnitTests: XCTestCase {
     }
 
     func testContainerAndModelConsistency() throws {
-
         let preTestContainerName = ContainerName(container: "testToCreatePrepareData", context: "context")
         let description = tmpStoreDescription(name: "container.db")
         let containerTest = try Container(name: preTestContainerName, persistentStoreDescription: description, cuttlefish: cuttlefish)
-        let (peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, _, error) = containerTest.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error) = containerTest.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         XCTAssertNil(error)
         XCTAssertNotNil(peerID)
         XCTAssertNotNil(permanentInfo)
@@ -2519,17 +3029,18 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             let containerEgoStableInfo = TPPeerStableInfo(data: stableInfo!, sig: stableInfoSig!)
             do {
                 let peerKeys: OctagonSelfPeerKeys = try loadEgoKeysSync(peerID: containerMO.egoPeerID!)
-                let info3 = TPPeerStableInfo(clock: containerEgoStableInfo!.clock + 2,
-                                             frozenPolicyVersion: containerEgoStableInfo!.frozenPolicyVersion,
-                                             flexiblePolicyVersion: containerEgoStableInfo!.flexiblePolicyVersion!,
-                                                               policySecrets: containerEgoStableInfo!.policySecrets,
-                                                               deviceName: containerEgoStableInfo!.deviceName,
-                                                               serialNumber: containerEgoStableInfo!.serialNumber,
-                                                               osVersion: containerEgoStableInfo!.osVersion,
-                                                               signing: peerKeys.signingKey,
-                                                               recoverySigningPubKey: containerEgoStableInfo!.recoverySigningPublicKey,
-                                                               recoveryEncryptionPubKey: containerEgoStableInfo!.recoveryEncryptionPublicKey,
-                                                               error: nil)
+                let newClock = containerEgoStableInfo!.clock + 2
+                let info3 = try TPPeerStableInfo(clock: newClock,
+                                                 frozenPolicyVersion: containerEgoStableInfo!.frozenPolicyVersion,
+                                                 flexiblePolicyVersion: containerEgoStableInfo!.flexiblePolicyVersion!,
+                                                 policySecrets: containerEgoStableInfo!.policySecrets,
+                                                 syncUserControllableViews: containerEgoStableInfo!.syncUserControllableViews,
+                                                 deviceName: containerEgoStableInfo!.deviceName,
+                                                 serialNumber: containerEgoStableInfo!.serialNumber,
+                                                 osVersion: containerEgoStableInfo!.osVersion,
+                                                 signing: peerKeys.signingKey,
+                                                 recoverySigningPubKey: containerEgoStableInfo!.recoverySigningPublicKey,
+                                                 recoveryEncryptionPubKey: containerEgoStableInfo!.recoveryEncryptionPublicKey)
 
                 //setting the containerMO's ego stable info to an old clock
                 containerMO.egoPeerStableInfo = containerEgoStableInfo!.data
@@ -2603,7 +3114,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         var container = try Container(name: ContainerName(container: "test", context: contextID), persistentStoreDescription: description, cuttlefish: cuttlefish)
         XCTAssertEqual(container.containerMO.honorIDMSListChanges, "UNKNOWN", "honorIDMSListChanges should be unknown")
 
-        let (peerID, permanentInfo, permanentInfoSig, _, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = container.getStateSync(test: self)
             XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
@@ -2624,7 +3135,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             XCTFail("Creating container errored: \(error)")
         }
 
-        let (peerID2, _, error2) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+        let (peerID2, _, _, error2) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
         XCTAssertNil(error2)
         XCTAssertNotNil(peerID2)
 
@@ -2643,9 +3154,8 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertEqual(containerC.containerMO.honorIDMSListChanges, "UNKNOWN", "honorIDMSListChanges should be unknown")
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aViewList, aPolicy, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aPolicy, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
-        XCTAssertNotNil(aViewList, "Should have a view list coming back from a successful prepare")
         XCTAssertNotNil(aPolicy, "Should have a policy coming back from a successful prepare")
         XCTAssertEqual(aPolicy?.version, prevailingPolicyVersion, "Policy coming back from prepare() should be prevailing policy version")
 
@@ -2663,13 +3173,13 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [], tlkShares: [], preapprovedKeys: [])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
 
         print("preparing B")
-        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, _, error2) =
+        let (bPeerID, bPermanentInfo, bPermanentInfoSig, bStableInfo, bStableInfoSig, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
@@ -2729,11 +3239,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins")
-            let (peerID, _, _, _, error) = containerB.joinSync(test: self,
-                                                               voucherData: voucherData!,
-                                                               voucherSig: voucherSig!,
-                                                               ckksKeys: [],
-                                                               tlkShares: [])
+            let (peerID, _, _, error) = containerB.joinSync(test: self,
+                                                            voucherData: voucherData!,
+                                                            voucherSig: voucherSig!,
+                                                            ckksKeys: [],
+                                                            tlkShares: [])
             XCTAssertNil(error)
             XCTAssertEqual(peerID, bPeerID!)
         }
@@ -2743,7 +3253,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         _ = containerC.dumpSync(test: self)
 
         print("preparing C")
-        let (cPeerID, cPermanentInfo, cPermanentInfoSig, cStableInfo, cStableInfoSig, _, _, error4) =
+        let (cPeerID, cPermanentInfo, cPermanentInfoSig, cStableInfo, cStableInfoSig, _, error4) =
             containerC.prepareSync(test: self, epoch: 1, machineID: "ccc", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerC.getStateSync(test: self)
@@ -2781,11 +3291,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertTLKShareFor(peerID: cPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("C joins")
-            let (peerID, _, _, _, error2) = containerC.joinSync(test: self,
-                                                                voucherData: voucherData!,
-                                                                voucherSig: voucherSig!,
-                                                                ckksKeys: [self.manateeKeySet, provisionalEngramKeySet],
-                                                                tlkShares: [])
+            let (peerID, _, _, error2) = containerC.joinSync(test: self,
+                                                             voucherData: voucherData!,
+                                                             voucherSig: voucherSig!,
+                                                             ckksKeys: [self.manateeKeySet, provisionalEngramKeySet],
+                                                             tlkShares: [])
             XCTAssertNil(error2)
             XCTAssertEqual(peerID, cPeerID!)
 
@@ -2796,7 +3306,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("A updates")
         do {
-            let (_, error) = containerA.updateSync(test: self)
+            let (_, _, error) = containerA.updateSync(test: self)
             XCTAssertNil(error)
         }
 
@@ -2824,19 +3334,18 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         XCTAssertEqual(containerB.containerMO.honorIDMSListChanges, "UNKNOWN", "honorIDMSListChanges should be unknown")
 
         print("preparing A")
-        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aViewList, aPolicy, error) =
+        let (aPeerID, aPermanentInfo, aPermanentInfoSig, _, _, aPolicy, error) =
             containerA.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         XCTAssertNil(error)
         XCTAssertNotNil(aPeerID)
         XCTAssertNotNil(aPermanentInfo)
         XCTAssertNotNil(aPermanentInfoSig)
 
-        XCTAssertNotNil(aViewList, "Should have a view list coming back from a successful prepare")
         XCTAssertNotNil(aPolicy, "Should have a policy coming back from a successful prepare")
         XCTAssertEqual(aPolicy?.version, prevailingPolicyVersion, "Policy coming back from prepare() should be prevailing policy version")
 
         print("preparing B")
-        let (bPeerID, bPermanentInfo, bPermanentInfoSig, _, _, _, _, error2) =
+        let (bPeerID, bPermanentInfo, bPermanentInfoSig, _, _, _, error2) =
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
@@ -2858,7 +3367,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         print("establishing A")
         do {
-            let (peerID, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [bPermanentInfoParsed!.signingPubKey.spki()])
+            let (peerID, _, _, error) = containerA.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [bPermanentInfoParsed!.signingPubKey.spki()])
             XCTAssertNil(error)
             XCTAssertNotNil(peerID)
         }
@@ -2867,10 +3376,9 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             assertNoTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
 
             print("B joins by preapproval, and uploads all TLKShares that it has")
-            let (bJoinedPeerID, _, views, policy, bJoinedError) = containerB.preapprovedJoinSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [])
+            let (bJoinedPeerID, _, policy, bJoinedError) = containerB.preapprovedJoinSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [])
             XCTAssertNil(bJoinedError, "Should be no error joining by preapproval")
             XCTAssertNotNil(bJoinedPeerID, "Should have a peer ID out of join")
-            XCTAssertNotNil(views, "should have a list of views to use")
             XCTAssertNotNil(policy, "Should have a policy back from preapprovedjoin")
 
             assertTLKShareFor(peerID: bPeerID!, keyUUID: self.manateeKeySet.tlk.uuid, zoneID: CKRecordZone.ID(zoneName: "Manatee"))
@@ -2888,7 +3396,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let contextID = "contextID"
         var container = try Container(name: ContainerName(container: "test", context: contextID), persistentStoreDescription: store, cuttlefish: cuttlefish)
 
-        let (peerID, permanentInfo, permanentInfoSig, _, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
+        let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = container.getStateSync(test: self)
             XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
@@ -2908,12 +3416,11 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         do {
             container = try Container(name: ContainerName(container: "test", context: contextID), persistentStoreDescription: store, cuttlefish: cuttlefish)
             XCTAssertEqual(container.containerMO.honorIDMSListChanges, "UNKNOWN", "honorIDMSListChanges should be unknown")
-
         } catch {
             XCTFail("Creating container errored: \(error)")
         }
 
-        let (peerID2, _, error2) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
+        let (peerID2, _, _, error2) = container.establishSync(test: self, ckksKeys: [self.manateeKeySet], tlkShares: [], preapprovedKeys: [])
         XCTAssertNil(error2)
         XCTAssertNotNil(peerID2)
 

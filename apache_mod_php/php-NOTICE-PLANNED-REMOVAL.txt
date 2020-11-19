@@ -1,0 +1,3 @@
+WARNING: PHP is not recommended.
+PHP is included in macOS for compatibility with legacy software.
+Future versions of macOS will not include PHP.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,36 +27,38 @@
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 
+#import "WebView.h"
 #import <WebCore/MediaPlaybackTarget.h>
 #import <WebCore/Page.h>
 #import <WebCore/WebMediaSessionManager.h>
 
-std::unique_ptr<WebMediaPlaybackTargetPicker> WebMediaPlaybackTargetPicker::create(WebCore::Page& page)
+std::unique_ptr<WebMediaPlaybackTargetPicker> WebMediaPlaybackTargetPicker::create(WebView *webView, WebCore::Page& page)
 {
-    return makeUnique<WebMediaPlaybackTargetPicker>(page);
+    return makeUnique<WebMediaPlaybackTargetPicker>(webView, page);
 }
 
-WebMediaPlaybackTargetPicker::WebMediaPlaybackTargetPicker(WebCore::Page& page)
+WebMediaPlaybackTargetPicker::WebMediaPlaybackTargetPicker(WebView *webView, WebCore::Page& page)
     : m_page(&page)
+    , m_webView(webView)
 {
 }
 
-void WebMediaPlaybackTargetPicker::addPlaybackTargetPickerClient(uint64_t contextId)
+void WebMediaPlaybackTargetPicker::addPlaybackTargetPickerClient(WebCore::PlaybackTargetClientContextIdentifier contextId)
 {
     WebCore::WebMediaSessionManager::shared().addPlaybackTargetPickerClient(*this, contextId);
 }
 
-void WebMediaPlaybackTargetPicker::removePlaybackTargetPickerClient(uint64_t contextId)
+void WebMediaPlaybackTargetPicker::removePlaybackTargetPickerClient(WebCore::PlaybackTargetClientContextIdentifier contextId)
 {
     WebCore::WebMediaSessionManager::shared().removePlaybackTargetPickerClient(*this, contextId);
 }
 
-void WebMediaPlaybackTargetPicker::showPlaybackTargetPicker(uint64_t contextId, const WebCore::FloatRect& rect, bool hasVideo)
+void WebMediaPlaybackTargetPicker::showPlaybackTargetPicker(WebCore::PlaybackTargetClientContextIdentifier contextId, const WebCore::FloatRect& rect, bool hasVideo)
 {
     WebCore::WebMediaSessionManager::shared().showPlaybackTargetPicker(*this, contextId, WebCore::IntRect(rect), hasVideo, m_page ? m_page->useDarkAppearance() : false);
 }
 
-void WebMediaPlaybackTargetPicker::playbackTargetPickerClientStateDidChange(uint64_t contextId, WebCore::MediaProducer::MediaStateFlags state)
+void WebMediaPlaybackTargetPicker::playbackTargetPickerClientStateDidChange(WebCore::PlaybackTargetClientContextIdentifier contextId, WebCore::MediaProducer::MediaStateFlags state)
 {
     WebCore::WebMediaSessionManager::shared().clientStateDidChange(*this, contextId, state);
 }
@@ -76,7 +78,7 @@ void WebMediaPlaybackTargetPicker::mockMediaPlaybackTargetPickerDismissPopup()
     WebCore::WebMediaSessionManager::shared().mockMediaPlaybackTargetPickerDismissPopup();
 }
 
-void WebMediaPlaybackTargetPicker::setPlaybackTarget(uint64_t contextId, Ref<WebCore::MediaPlaybackTarget>&& target)
+void WebMediaPlaybackTargetPicker::setPlaybackTarget(WebCore::PlaybackTargetClientContextIdentifier contextId, Ref<WebCore::MediaPlaybackTarget>&& target)
 {
     if (!m_page)
         return;
@@ -84,7 +86,7 @@ void WebMediaPlaybackTargetPicker::setPlaybackTarget(uint64_t contextId, Ref<Web
     m_page->setPlaybackTarget(contextId, WTFMove(target));
 }
 
-void WebMediaPlaybackTargetPicker::externalOutputDeviceAvailableDidChange(uint64_t contextId, bool available)
+void WebMediaPlaybackTargetPicker::externalOutputDeviceAvailableDidChange(WebCore::PlaybackTargetClientContextIdentifier contextId, bool available)
 {
     if (!m_page)
         return;
@@ -92,7 +94,7 @@ void WebMediaPlaybackTargetPicker::externalOutputDeviceAvailableDidChange(uint64
     m_page->playbackTargetAvailabilityDidChange(contextId, available);
 }
 
-void WebMediaPlaybackTargetPicker::setShouldPlayToPlaybackTarget(uint64_t contextId, bool shouldPlay)
+void WebMediaPlaybackTargetPicker::setShouldPlayToPlaybackTarget(WebCore::PlaybackTargetClientContextIdentifier contextId, bool shouldPlay)
 {
     if (!m_page)
         return;
@@ -100,7 +102,7 @@ void WebMediaPlaybackTargetPicker::setShouldPlayToPlaybackTarget(uint64_t contex
     m_page->setShouldPlayToPlaybackTarget(contextId, shouldPlay);
 }
 
-void WebMediaPlaybackTargetPicker::playbackTargetPickerWasDismissed(uint64_t contextId)
+void WebMediaPlaybackTargetPicker::playbackTargetPickerWasDismissed(WebCore::PlaybackTargetClientContextIdentifier contextId)
 {
     if (m_page)
         m_page->playbackTargetPickerWasDismissed(contextId);
@@ -109,7 +111,14 @@ void WebMediaPlaybackTargetPicker::playbackTargetPickerWasDismissed(uint64_t con
 void WebMediaPlaybackTargetPicker::invalidate()
 {
     m_page = nullptr;
+    m_webView = nil;
     WebCore::WebMediaSessionManager::shared().removeAllPlaybackTargetPickerClients(*this);
+}
+
+PlatformView* WebMediaPlaybackTargetPicker::platformView() const
+{
+    ASSERT(m_webView);
+    return m_webView;
 }
 
 #endif

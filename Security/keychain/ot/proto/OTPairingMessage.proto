@@ -28,6 +28,19 @@ option objc_class_visibility = "hidden";
 
 package OT;
 
+enum SupportType {
+    unknown = 0;
+    supported = 1;
+    not_supported = 2;
+}
+
+message supportSOSMessage {
+    optional SupportType supported = 1;
+}
+
+message supportOctagonMessage {
+    optional SupportType supported = 1;
+}
 
 message SponsorToApplicantRound1M2 {
     optional uint64 epoch = 1;
@@ -54,4 +67,6 @@ message PairingMessage {
     optional SponsorToApplicantRound2M2 voucher = 3;
     // <rdar://problem/55465193> reserved is not a keyword (it should be)
     // reserved 4;
+    optional supportOctagonMessage supportsOctagon = 5;
+    optional supportSOSMessage supportsSOS = 6;
 }

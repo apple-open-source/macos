@@ -48,16 +48,28 @@
  */
 
 #define _XOPEN_SOURCE 600L
+#define _DARWIN_C_SOURCE
 #include <ucontext.h>
 #include <errno.h>
+
+#include <stdlib.h>
+#include <stdarg.h>
+#include <unistd.h>
+#include <sys/param.h>
+
+#include <TargetConditionals.h>
+
+/* This is a macro to capture all the code added in here that is purely to make
+ * conformance tests pass and seems to have no functional reason nor is it
+ * required by the standard */
+#define CONFORMANCE_SPECIFIC_HACK 1
+
+#if TARGET_OS_OSX || TARGET_OS_DRIVERKIT
 
 #if defined(__x86_64__) || defined(__i386__)
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-#include <sys/param.h>
 #include <stddef.h>
-#include <stdarg.h>
-#include <unistd.h>
 
 /* Prototypes */
 extern void _ctx_start(ucontext_t *, int argc, ...);
@@ -93,8 +105,7 @@ makecontext(ucontext_t *ucp, void (*start)(), int argc, ...)
 
 	if (ucp == NULL)
 		return;
-	else if ((ucp->uc_stack.ss_sp == NULL) ||
-	    (ucp->uc_stack.ss_size < MINSIGSTKSZ)) {
+	else if (ucp->uc_stack.ss_sp == NULL) {
 		/*
 		 * This should really return -1 with errno set to ENOMEM
 		 * or something, but the spec says that makecontext is
@@ -112,12 +123,16 @@ makecontext(ucontext_t *ucp, void (*start)(), int argc, ...)
 		/*
 		 * Arrange the stack as follows:
 		 *
+		 * Bottom of the stack
+		 *
 		 *	_ctx_start()	- context start wrapper
 		 *	start()		- user start routine
 		 * 	arg1            - first argument, aligned(16)
 		 *	...
 		 *	argn
 		 *	ucp		- this context, %rbp/%ebp points here
+		 *
+		 *	stack top
 		 *
 		 * When the context is started, control will return to
 		 * the context start wrapper which will pop the user
@@ -130,8 +145,6 @@ makecontext(ucontext_t *ucp, void (*start)(), int argc, ...)
 		 * will then call _ctx_done() to swap in the next context
 		 * (uc_link != 0) or exit the program (uc_link == 0).
 		 */
-		mcontext_t mc;
-
 		stack_top = (char *)(ucp->uc_stack.ss_sp +
 		    ucp->uc_stack.ss_size - sizeof(intptr_t));
 
@@ -188,6 +201,19 @@ makecontext(ucontext_t *ucp, void (*start)(), int argc, ...)
 		/* The ucontext is placed at the bottom of the stack. */
 		*argp = (intptr_t)ucp;
 
+#if CONFORMANCE_SPECIFIC_HACK
+		// There is a conformance test which initialized a ucontext A by memcpy-ing
+		// a ucontext B that was previously initialized with getcontext.
+		// getcontext(B) modified B such that B.uc_mcontext = &B.__mcontext_data;
+		// But by doing the memcpy of B to A, A.uc_mcontext = &B.__mcontext_data
+		// when that's not necessarily what we want. We therefore have to
+		// unfortunately reassign A.uc_mccontext = &A.__mcontext_data even though we
+		// don't know if A.__mcontext_data was properly initialized before we use
+		// it. This is really because the conformance test doesn't initialize
+		// properly with multiple getcontexts and instead copies contexts around.
+		ucp->uc_mcontext = (mcontext_t) &ucp->__mcontext_data;
+#endif
+
 		/*
 		 * Set the machine context to point to the top of the
 		 * stack and the program counter to the context start
@@ -197,7 +223,7 @@ makecontext(ucontext_t *ucp, void (*start)(), int argc, ...)
 		 * %r12/%esi to point to the base of the stack where ucp
 		 * is stored.
 		 */
-		mc = ucp->uc_mcontext;
+		mcontext_t mc = ucp->uc_mcontext;
 #if defined(__x86_64__)
 		/* Use callee-save and match _ctx_start implementation */
 		mc->__ss.__r12 = (intptr_t)argp;
@@ -213,11 +239,188 @@ makecontext(ucontext_t *ucp, void (*start)(), int argc, ...)
 	}
 }
 
-#else
+#elif defined(__arm64__)
+
+/*
+ * _STRUCT_UCONTEXT {
+ *		int                     uc_onstack;
+ * 		__darwin_sigset_t       uc_sigmask;     // signal mask used by this context
+ * 		_STRUCT_SIGALTSTACK     uc_stack;       // stack used by this context
+ * 		_STRUCT_UCONTEXT        *uc_link;       // pointer to resuming context
+ * 		__darwin_size_t         uc_mcsize;      // size of the machine context passed in
+ * 		_STRUCT_MCONTEXT        *uc_mcontext;   // pointer to machine specific context
+ * #ifdef _XOPEN_SOURCE
+ *		_STRUCT_MCONTEXT        __mcontext_data;
+ * #endif
+ * };
+ *
+ * From the standard:
+ *		The makecontext() function shall modify the context specified by uctx, which
+ * 		has been initialized using getcontext(). When this context is resumed using
+ * 		swapcontext() or setcontext(), program execution shall continue by calling
+ * 		func, passing it the arguments that follow argc in the makecontext() call.
+ *
+ * 		Before a call is made to makecontext(), the application shall ensure that the
+ * 		context being modified has a stack allocated for it. The application shall
+ * 		ensure that the value of argc matches the number of arguments of type int
+ * 		passed to func; otherwise, the behavior is undefined.
+ *
+ * makecontext will set up the uc_stack such that when setcontext or swapcontext
+ * is called on the ucontext, it will first execute a helper function _ctx_start()
+ * which will call the client specified function and then call a second
+ * helper _ctx_done() (which will either follow the ctxt specified by uc_link or
+ * exit.)
+ *
+ * void _ctx_start((void *func)(int arg1, ...), ...)
+ * void _ctx_done(ucontext_t *uctx);
+ *
+ * makecontext modifies the uc_stack as specified:
+ *
+ *  High addresses
+ *  __________________ <---- fp in context
+ * | arg n-1, arg n  |
+ * |    ...          |
+ * |   arg1, arg2    |
+ * | _______________ | <----- sp in mcontext
+ * |                 |
+ * |                 |
+ * |                 |
+ * |                 |
+ * |                 |
+ * |                 |
+ *  Low addresses
+ *
+ * The mcontext is also modified such that:
+ *		- sp points to the end of the arguments on the stack
+ *		- fp points to the stack top
+ *		- lr points to _ctx_start.
+ *		- x19 = uctx
+ *		- x20 = user func
+ *		Note: It is fine to modify register state since we'll never go back to
+ *		the state we getcontext-ed from. We modify callee save registers so that
+ *		they are a) actually set by setcontext b) still present when we return
+ *		from user_func in _ctx_start
+ *
+ * The first thing which _ctx_start will do is pop the first 8 arguments off the
+ * stack and then branch to user_func. This works because it leaves the
+ * remaining arguments after the first 8 from the stack. Once the client
+ * function returns in _ctx_start, we'll be back to the current state as
+ * specified above in the diagram.
+ *
+ * We can then set up the stack for calling _ctx_done
+ * a) Set sp = fp.
+ * b) Move x19 (which is callee save and therefore restored if used by user_func), to x0
+ * c) Call _ctx_done()
+ */
+
+#include <ptrauth.h>
+#include <os/tsd.h>
+#include <platform/compat.h>
+#include <platform/string.h>
+#include <mach/arm/thread_status.h>
+
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+extern void _ctx_start(void (*user_func)());
 
 void
-makecontext(ucontext_t *u, void (*f)(void), int a, ...)
+_ctx_done(ucontext_t *uctx)
+{
+	if (uctx->uc_link == NULL) {
+		_exit(0);
+	} else {
+		uctx->uc_mcsize = 0; /* To make sure that this is not called again without reinitializing */
+		setcontext((ucontext_t *) uctx->uc_link);
+		__builtin_trap();	/* should never get here */
+	}
+}
+
+#define ALIGN_TO_16_BYTES(addr) (addr & ~0xf)
+#define ARM64_REGISTER_ARGS 8
+
+void
+makecontext(ucontext_t *uctx, void (*func)(void), int argc, ...)
+{
+	if (uctx == NULL) {
+		return;
+	}
+
+	if (uctx->uc_stack.ss_sp == NULL) {
+		goto error;
+	}
+
+	if (argc < 0 || argc > NCARGS) {
+		goto error;
+	}
+
+#if CONFORMANCE_SPECIFIC_HACK
+	// There is a conformance test which initialized a ucontext A by memcpy-ing
+	// a ucontext B that was previously initialized with getcontext.
+	// getcontext(B) modified B such that B.uc_mcontext = &B.__mcontext_data;
+	// But by doing the memcpy of B to A, A.uc_mcontext = &B.__mcontext_data
+	// when that's not necessarily what we want. We therefore have to
+	// unfortunately reassign A.uc_mccontext = &A.__mcontext_data even though we
+	// don't know if A.__mcontext_data was properly initialized before we use
+	// it. This is really because the conformance test doesn't initialize
+	// properly with multiple getcontexts and instead copies contexts around.
+	uctx->uc_mcontext = (mcontext_t) &uctx->__mcontext_data;
+#endif
+
+	bzero(uctx->uc_stack.ss_sp, uctx->uc_stack.ss_size);
+
+	uintptr_t fp = (char *) uctx->uc_stack.ss_sp + uctx->uc_stack.ss_size;
+	fp = ALIGN_TO_16_BYTES(fp);
+
+	// All args are set up on the stack. We also make sure that we also have at
+	// least 8 args on the stack (and populate with 0 if the input argc < 8).
+	// This way _ctx_start will always have 8 args to pop out from the stack
+	// before it calls the client function.
+	int padded_argc = (argc < ARM64_REGISTER_ARGS) ? ARM64_REGISTER_ARGS : argc;
+
+	uintptr_t sp = fp - (sizeof(int) * padded_argc);
+	sp = ALIGN_TO_16_BYTES(sp);
+
+	// Populate the stack with all the args. Per arm64 calling convention ABI, we
+	// do not need to pad and make sure that the arguments are aligned in any
+	// manner.
+	int *current_arg_addr = (int *) sp;
+
+	va_list argv;
+	va_start(argv, argc);
+	for (int i = 0; i < argc; i++) {
+		*current_arg_addr = va_arg(argv, int);
+		current_arg_addr++;
+	}
+	va_end(argv);
+
+	mcontext_t mctx = uctx->uc_mcontext;
+
+#if defined(__arm64e__)
+	// The set macros below read from the opaque_flags to decide how to set the
+	// fields (including whether to sign them) and so we need to make sure that
+	// we require signing always.
+	mctx->__ss.__opaque_flags &= ~__DARWIN_ARM_THREAD_STATE64_FLAGS_NO_PTRAUTH;
+#endif
+
+	arm_thread_state64_set_fp(mctx->__ss, fp);
+	arm_thread_state64_set_sp(mctx->__ss, sp);
+	arm_thread_state64_set_lr_fptr(mctx->__ss, (void *) _ctx_start);
+
+	mctx->__ss.__x[19] = uctx;
+	mctx->__ss.__x[20] = _OS_PTR_MUNGE(func);
+	return;
+error:
+	uctx->uc_mcsize = 0;
+	return;
+}
+
+#endif /* arm64 || x86_64 || i386 */
+
+#else /* TARGET_OS_OSX || TARGET_OS_DRIVERKIT */
+
+void
+makecontext(ucontext_t *u, void (*f)(void), int argc, ...)
 {
 }
 
-#endif
+#endif /* TARGET_OS_OSX || TARGET_OS_DRIVERKIT */

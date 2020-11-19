@@ -44,7 +44,11 @@
 #endif
 #endif
 
-/* what level of localness we are at */
+/* What level of localness we are at.
+ *
+ * Hand-wavingly, this is incremented at every function call and decremented
+ * at every function return.  See startparamscope().
+ */
  
 /**/
 mod_export int locallevel;
@@ -474,7 +478,13 @@ static initparam argvparam_pm = IPDEF9("", &pparams, NULL, \
 
 static Param argvparam;
 
-/* hash table containing the parameters */
+/* "parameter table" - hash table containing the parameters
+ *
+ * realparamtab always points to the shell's global table.  paramtab is sometimes
+ * temporarily changed to point at another table, while dealing with the keys
+ * of an associative array (for example, see makecompparams() which initializes
+ * the associative array ${compstate}).
+ */
  
 /**/
 mod_export HashTable paramtab, realparamtab;
@@ -1124,8 +1134,10 @@ copyparam(Param tpm, Param pm, int fakecopy)
     tpm->base = pm->base;
     tpm->width = pm->width;
     tpm->level = pm->level;
-    if (!fakecopy)
+    if (!fakecopy) {
+	tpm->old = pm->old;
 	tpm->node.flags &= ~PM_SPECIAL;
+    }
     switch (PM_TYPE(pm->node.flags)) {
     case PM_SCALAR:
 	tpm->u.str = ztrdup(pm->gsu.s->getfn(pm));
@@ -2201,10 +2213,10 @@ getstrvalue(Value v)
 
     if (v->flags & VALFLAG_SUBST) {
 	if (v->pm->node.flags & (PM_LEFT|PM_RIGHT_B|PM_RIGHT_Z)) {
-	    unsigned int fwidth = v->pm->width ? v->pm->width : MB_METASTRLEN(s);
+	    size_t fwidth = v->pm->width ? (unsigned int)v->pm->width : MB_METASTRLEN(s);
 	    switch (v->pm->node.flags & (PM_LEFT | PM_RIGHT_B | PM_RIGHT_Z)) {
 		char *t, *tend;
-		unsigned int t0;
+		size_t t0;
 
 	    case PM_LEFT:
 	    case PM_LEFT | PM_RIGHT_Z:
@@ -2585,7 +2597,7 @@ assignstrvalue(Value v, char *val, int flags)
 		Param pm = v->pm;
                 /* Size doesn't change, can limit actions to only
                  * overwriting bytes in already allocated string */
-                strncpy(z + v->start, val, vlen);
+		memcpy(z + v->start, val, vlen);
 		/* Implement remainder of strsetfn */
 		if (!(pm->node.flags & PM_HASHELEM) &&
 		    ((pm->node.flags & PM_NAMEDDIR) ||
@@ -3546,7 +3558,7 @@ setiparam(char *s, zlong val)
 
 /*
  * Set an integer parameter without forcing creation of an integer type.
- * This is useful if the integer is going to be set to a parmaeter which
+ * This is useful if the integer is going to be set to a parameter which
  * would usually be scalar but may not exist.
  */
 
@@ -3617,10 +3629,18 @@ unsetparam_pm(Param pm, int altflag, int exp)
 	altpm = (Param) paramtab->getnode(paramtab, altremove);
 	/* tied parameters are at the same local level as each other */
 	oldpm = NULL;
-	while (altpm && altpm->level > pm->level) {
-	    /* param under alternate name hidden by a local */
-	    oldpm = altpm;
-	    altpm = altpm->old;
+	/*
+	 * Look for param under alternate name hidden by a local.
+	 * If this parameter is special, however, the visible
+	 * parameter is the special and the hidden one is keeping
+	 * an old value --- we just mark the visible one as unset.
+	 */
+	if (altpm && !(altpm->node.flags & PM_SPECIAL))
+	{
+	    while (altpm && altpm->level > pm->level) {
+		oldpm = altpm;
+		altpm = altpm->old;
+	    }
 	}
 	if (altpm) {
 	    if (oldpm && !altpm->level) {
@@ -5858,7 +5878,7 @@ printparamnode(HashNode hn, int printflags)
 		    doneminus = 0;
 		}
 		if ((pmptr->flags & PMTF_USE_WIDTH) && p->width) {
-		    printf("%d ", p->width);
+		    printf("%u ", p->width);
 		    doneminus = 0;
 		}
 	    }

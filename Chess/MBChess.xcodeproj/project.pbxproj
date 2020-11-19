@@ -53,6 +53,7 @@
 		72527B4E229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B4F229F534100070CBF /* COPYING in Resources */ = {isa = PBXBuildFile; fileRef = 72527B4D229F534100070CBF /* COPYING */; };
 		72527B51229F544500070CBF /* Tuner.xib in Resources */ = {isa = PBXBuildFile; fileRef = 72527B50229F544500070CBF /* Tuner.xib */; };
+		906D235A244F6F800061834A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 906D2359244F6F800061834A /* Images.xcassets */; };
 		950BD1140A1E582B00395116 /* MBCBoard.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC0A02FA7C5601AC80B8 /* MBCBoard.h */; };
 		950BD1150A1E582B00395116 /* MBCEngineCommands.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1002FAB09301AC80B8 /* MBCEngineCommands.h */; };
 		950BD1160A1E582B00395116 /* MBCPlayer.h in Headers */ = {isa = PBXBuildFile; fileRef = F5C8AC1202FAB09301AC80B8 /* MBCPlayer.h */; };
@@ -320,6 +321,7 @@
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		72527B4D229F534100070CBF /* COPYING */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = COPYING; path = sjeng/COPYING; sourceTree = "<group>"; };
 		72527B50229F544500070CBF /* Tuner.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = Tuner.xib; sourceTree = "<group>"; };
+		906D2359244F6F800061834A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = MBChess/Images.xcassets; sourceTree = "<group>"; };
 		90A6A10320A5FA8C00BF7AFF /* Chess.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Chess.xcconfig; sourceTree = "<group>"; };
 		950B5942049D8C73000001C9 /* MBCMoveGenerator.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = MBCMoveGenerator.h; path = Sources/MBCMoveGenerator.h; sourceTree = "<group>"; };
 		950B5943049D8C73000001C9 /* MBCMoveGenerator.mm */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCMoveGenerator.mm; path = Sources/MBCMoveGenerator.mm; sourceTree = "<group>"; };
@@ -341,7 +343,7 @@
 		9575D07F14254A8100E65579 /* MBCBoardWin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MBCBoardWin.h; path = Sources/MBCBoardWin.h; sourceTree = "<group>"; };
 		9575D08014254A8100E65579 /* MBCBoardWin.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = MBCBoardWin.mm; path = Sources/MBCBoardWin.mm; sourceTree = "<group>"; };
 		95844C900A670C1E0068CA82 /* sjeng.ChessEngine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sjeng.ChessEngine; sourceTree = BUILT_PRODUCTS_DIR; };
-		95844CF10A670C280068CA82 /* Info-ChessTuner.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-ChessTuner.plist"; path = "Resources/Info-ChessTuner.plist"; sourceTree = "<group>"; };
+		95844CF10A670C280068CA82 /* Info-ChessTuner.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-ChessTuner.plist"; sourceTree = "<group>"; };
 		95844CF20A670C280068CA82 /* Chess Tuner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Chess Tuner.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		9594A40504C76CA4005DC0DD /* SpeechHelp.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = SpeechHelp.plist; path = Resources/SpeechHelp.plist; sourceTree = "<group>"; };
 		9595B6C00458E2CD00A8D2EE /* sjeng.rc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = sjeng.rc; path = sjeng/sjeng.rc; sourceTree = "<group>"; };
@@ -561,6 +563,7 @@
 		29B97317FDCFA39411CA2CEA /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				906D2359244F6F800061834A /* Images.xcassets */,
 				226F987C1CA9A5F000E4A1A2 /* Chess_128x128.png */,
 				95DEC3D81488581300E1305A /* Chess.entitlements */,
 				95261CDC1478580E004EF501 /* background.pdf */,
@@ -1034,6 +1037,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				95DC571C0A670E2F00BA2962 /* sjeng.ChessEngine in Resources */,
+				906D235A244F6F800061834A /* Images.xcassets in Resources */,
 				950BD12B0A1E582B00395116 /* InfoPlist.strings in Resources */,
 				950BD12C0A1E582B00395116 /* bug.opn in Resources */,
 				950BD12D0A1E582B00395116 /* losers.opn in Resources */,
@@ -1126,7 +1130,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Build all icons\n/usr/local/bin/iconcompiler -b \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\" -r \"$PROJECT_DIR/Resources/Icons\" || exit 1\n# In textures, preserve only the highest resolution\nshopt -s nullglob\nfor tex in \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\"/Contents/Resources/{,Styles/*/}*2x*\ndo \n    mv \"$tex\" \"${tex%@2x.png}.png\"\ndone\n";
+			shellScript = "# In textures, preserve only the highest resolution\nshopt -s nullglob\nfor tex in \"$BUILT_PRODUCTS_DIR/$PRODUCT_NAME.app\"/Contents/Resources/{,Styles/*/}*2x*\ndo \n    mv \"$tex\" \"${tex%@2x.png}.png\"\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -1409,9 +1413,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 3.18;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1428,6 +1434,7 @@
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Chess;
@@ -1446,9 +1453,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = 3.18;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1462,6 +1471,7 @@
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = Chess;
@@ -1480,8 +1490,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = Chess.entitlements;
 				CODE_SIGN_IDENTITY = "-";
+				CURRENT_PROJECT_VERSION = 3.18;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1495,11 +1507,8 @@
 				INSTALL_PATH = "$(PLATFORM_SYSTEM_APPLICATIONS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.13;
+				MARKETING_VERSION = 3.18;
 				ORDER_FILE = Chess.order;
-				OTHER_LDFLAGS = (
-					"-pagezero_size",
-					1000,
-				);
 				PRODUCT_NAME = Chess;
 				PROVISIONING_PROFILE = "";
 				WARNING_CFLAGS = (
@@ -1684,7 +1693,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
@@ -1710,7 +1719,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";
@@ -1735,7 +1744,7 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "CHESS_TUNER=1";
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
 				HEADER_SEARCH_PATHS = "";
-				INFOPLIST_FILE = "Resources/Info-ChessTuner.plist";
+				INFOPLIST_FILE = "Info-ChessTuner.plist";
 				INSTALL_PATH = "$(SYSTEM_APPS_DIR)";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_CFLAGS = "";

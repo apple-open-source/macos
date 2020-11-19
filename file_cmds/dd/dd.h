@@ -38,6 +38,9 @@
  * $FreeBSD: src/bin/dd/dd.h,v 1.17 2002/02/22 20:51:00 markm Exp $
  */
 
+#ifndef _DD_H_
+#define _DD_H_
+
 /* Input/output stream state. */
 typedef struct {
 	u_char		*db;		/* buffer address */
@@ -95,3 +98,5 @@ typedef struct {
 #define	C_UNBLOCK	0x80000
 #define	C_OSYNC		0x100000
 #define	C_SPARSE	0x200000
+
+#endif /* _DD_H_ */

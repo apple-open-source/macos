@@ -162,9 +162,9 @@ run_netstat () {
 		for if in ${IF_LIST}
 		do
 			echo "#"					>> netstat.txt
-			echo "# netstat -s -I ${if}"			>> netstat.txt
+			echo "# netstat -n -s -I ${if}"			>> netstat.txt
 			echo "#"					>> netstat.txt
-			/usr/sbin/netstat -s -I ${if}			>> netstat.txt		2>&1
+			/usr/sbin/netstat -n -s -I ${if}		>> netstat.txt		2>&1
 
 			IF_INFO=`/sbin/ifconfig -v ${if}`
 			`echo $IF_INFO | grep -q TXSTART`
@@ -275,6 +275,17 @@ run_ipconfig () {
 			echo "DHCPv6 information:"			>> ipconfig-info.txt
 
 			IPCONFIG_INFO=`/usr/sbin/ipconfig getv6packet ${if}`
+			if [ "${IPCONFIG_INFO}" != "" ]; then
+				echo "${IPCONFIG_INFO}"			>> ipconfig-info.txt
+			else
+				echo "not available"			>> ipconfig-info.txt
+			fi
+
+			echo""						>> ipconfig-info.txt
+
+			echo "IPv6 information:"			>> ipconfig-info.txt
+
+			IPCONFIG_INFO=`/usr/sbin/ipconfig getra ${if}`
 			if [ "${IPCONFIG_INFO}" != "" ]; then
 				echo "${IPCONFIG_INFO}"			>> ipconfig-info.txt
 			else

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1120"
+   LastUpgradeVersion = "1200"
    version = "1.8">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -41,15 +41,6 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "4C711D5813AFCD0900FE865D"
-            BuildableName = "SecurityDevTests.app"
-            BlueprintName = "SecurityDevTests"
-            ReferencedContainer = "container:Security.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
       <Testables>
          <TestableReference
             skipped = "NO">
@@ -68,16 +59,6 @@
                BlueprintIdentifier = "6C9808681E788AFD00E70590"
                BuildableName = "CKKSCloudKitTests.xctest"
                BlueprintName = "CKKSCloudKitTests_ios"
-               ReferencedContainer = "container:Security.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "4727FBB61F9918580003AE36"
-               BuildableName = "secdxctests_ios.xctest"
-               BlueprintName = "secdxctests_ios"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -251,10 +232,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_23_sectrust_ocsp"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_24_sectrust_itms"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -276,10 +253,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_26_sectrust_copyproperties"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_28_sectrustsettings"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -383,10 +356,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_67_sectrust_blocklist"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_68_secmatchissuer"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -411,10 +380,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_74_OTA_PKI_Signer"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_76_shared_credentials"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -428,14 +393,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_83_seccertificate_sighashalg"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_84_sectrust_allowlist"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_88_sectrust_valid"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

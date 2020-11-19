@@ -21,6 +21,7 @@
 
 #if !UCONFIG_NO_FORMATTING
 
+#include "unicode/uchar.h"
 #include "unicode/uloc.h"
 #include "unicode/udat.h"
 #include "unicode/udatpg.h"
@@ -37,9 +38,11 @@
 #endif
 
 #include <math.h>
+#include <stdio.h>  // for sprintf
 
 #define ADD_ALLOC_TEST 0
 #define WRITE_HOUR_MISMATCH_ERRS 0
+#define WRITE_COUNTRY_FALLBACK_RESULTS 0
 
 #if ADD_ALLOC_TEST
 static void TestPerf(void);
@@ -55,14 +58,20 @@ static void TestForceGannenNumbering(void);
 static void TestStandardPatterns(void);
 static void TestApplyPatnOverridesTimeSep(void);
 static void Test12HrFormats(void);
+static void Test12HrPatterns(void);
 #if !U_PLATFORM_HAS_WIN32_API
 static void TestTimeUnitFormat(void); /* Apple-specific */
 static void TestTimeUnitFormatWithNumStyle(void); /* Apple-specific */
 #endif
+static void TestMapPatternCharToFields(void); /* Apple <rdar://problem/62136559>  */
 static void TestRemapPatternWithOpts(void); /* Apple-specific */
 #if WRITE_HOUR_MISMATCH_ERRS
 static void WriteHourMismatchErrs(void); /* 52980140*/
 #endif
+#if WRITE_COUNTRY_FALLBACK_RESULTS
+static void WriteCountryFallbackResults(void); /* Apple <rdar://problem/26911014> */
+#endif
+static void TestCountryFallback(void); /* Apple <rdar://problem/26911014> */
 
 void addDateForTest(TestNode** root);
 
@@ -89,15 +98,22 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestStandardPatterns);
     TESTCASE(TestApplyPatnOverridesTimeSep);
     TESTCASE(Test12HrFormats);
+    TESTCASE(Test12HrPatterns);
 #if !U_PLATFORM_HAS_WIN32_API
     TESTCASE(TestTimeUnitFormat); /* Apple-specific */
     TESTCASE(TestTimeUnitFormatWithNumStyle); /* Apple-specific */
 #endif
+    TESTCASE(TestMapPatternCharToFields); /* Apple <rdar://problem/62136559> */
     TESTCASE(TestRemapPatternWithOpts); /* Apple-specific */
 #if WRITE_HOUR_MISMATCH_ERRS
     TESTCASE(WriteHourMismatchErrs); /* 52980140 */
 #endif
+#if WRITE_COUNTRY_FALLBACK_RESULTS
+    TESTCASE(WriteCountryFallbackResults); /* Apple <rdar://problem/26911014> */
+#endif
+    TESTCASE(TestCountryFallback); /* Apple <rdar://problem/26911014> */
 }
+
 /* Testing the DateFormat API */
 static void TestDateFormat()
 {
@@ -2031,7 +2047,7 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_TW", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 at 5:10 AM" },
     { "en_KR", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 5:10 AM" },
     // Add tests for Apple <rdar://problem/51014042>; currently no specific locales for these
-    { "en_AZ", UDAT_MEDIUM, UDAT_SHORT, "Feb 25, 2015 at 05:10" }, // en uses h, AZ Azerbaijanvpref cycle H
+    { "en_AZ", UDAT_MEDIUM, UDAT_SHORT, "25 Feb 2015 at 05:10" }, // en uses h, AZ Azerbaijanvpref cycle H
     { "fr_US", UDAT_NONE, UDAT_SHORT, "5:10 AM" }, // fr uses H, US pref cycle h
     { "rkt",   UDAT_NONE, UDAT_SHORT, "5:10 AM" }, // rkt (no locale) => rkt_Beng_BD, BD pref cycle h unlike root H
     // Add tests for Apple <rdar://problem/47494884>
@@ -2043,6 +2059,20 @@ static const StandardPatternItem stdPatternItems[] = {
     { "ur_Aran_PK", UDAT_MEDIUM, UDAT_SHORT, "25 \\u0641\\u0631\\u0648\\u060C 2015 5:10 \\u0642.\\u062F." },
     { "ur_Arab_IN", UDAT_MEDIUM, UDAT_SHORT, "\\u06F2\\u06F5 \\u0641\\u0631\\u0648\\u060C \\u06F2\\u06F0\\u06F1\\u06F5 \\u06F5:\\u06F1\\u06F0 \\u0642.\\u062F." },
     { "ur_Aran_IN", UDAT_MEDIUM, UDAT_SHORT, "\\u06F2\\u06F5 \\u0641\\u0631\\u0648\\u060C \\u06F2\\u06F0\\u06F1\\u06F5 \\u06F5:\\u06F1\\u06F0 \\u0642.\\u062F." },
+    // Add tests for Apple <rdar://problem/59940681>
+    { "zh@calendar=buddhist",      UDAT_NONE, UDAT_MEDIUM, "\\u4E0A\\u53485:10:00" },
+    { "zh@calendar=buddhist",      UDAT_NONE, UDAT_SHORT,  "\\u4E0A\\u53485:10" },
+    { "zh_Hant@calendar=buddhist", UDAT_NONE, UDAT_MEDIUM, "\\u4E0A\\u53485:10:00" },
+    { "zh_Hant@calendar=buddhist", UDAT_NONE, UDAT_SHORT,  "\\u4E0A\\u53485:10" },
+    // Add tests for Apple <rdar://problem/43349838>
+    { "pl", UDAT_FULL,   UDAT_SHORT, "\\u015Broda, 25 lutego 2015 o 05:10" },
+    { "pl", UDAT_LONG,   UDAT_SHORT, "25 lutego 2015 o 05:10" },
+    { "pl", UDAT_MEDIUM, UDAT_SHORT, "25.02.2015 o 05:10" },
+    { "pl", UDAT_SHORT,  UDAT_SHORT, "25.02.2015, 05:10" },
+    // Add tests for Apple <rdar://65019572>
+    { "iu_Latn_CA", UDAT_LONG, UDAT_SHORT, "2015 M02 25 5:10 AM" },
+    { "iu_CA",      UDAT_LONG, UDAT_SHORT, "\\u1555\\u155d\\u1557\\u140a\\u14d5 25, 2015 5:10 am" },
+    { "nv",         UDAT_LONG, UDAT_SHORT, "February 25, 2015 at 5:10 AM" },
     { NULL, (UDateFormatStyle)0, (UDateFormatStyle)0, NULL } /* terminator */
 };
 
@@ -2246,6 +2276,91 @@ static void Test12HrFormats(void) {
     }
 }
 
+static const UChar* skeletons12Hr[] = {
+    u"h",
+    u"j",
+    u"hm",
+    u"jm",
+    u"hms",
+    u"jms",
+    u"hmz",
+    u"jmz",
+    u"Ehmm",
+    u"Ejmm",
+    NULL
+};
+
+static const UChar* patterns12Hr_zh_buddhist[] = {
+    u"ah时",
+    u"ah时",
+    u"ah:mm",
+    u"ah:mm",
+    u"ah:mm:ss",
+    u"ah:mm:ss",
+    u"z ah:mm",
+    u"z ah:mm",
+    u"EEE ah:mm",
+    u"EEE ah:mm",
+    NULL
+};
+
+static const UChar* patterns12Hr_zhHant_buddhist[] = {
+    u"ah時",
+    u"ah時",
+    u"ah:mm",
+    u"ah:mm",
+    u"ah:mm:ss",
+    u"ah:mm:ss",
+    u"z ah:mm", // as in gregorian/generic standard, gregorian availableFormats
+    u"z ah:mm",
+    u"EEE ah:mm",
+    u"EEE ah:mm",
+    NULL
+};
+
+typedef struct {
+    const char*   locale;
+    const UChar** skeletons;
+    const UChar** patterns;
+} Test12HrPatItem;
+
+static const Test12HrPatItem test12HrPatItems[] = {
+    { "zh@calendar=buddhist",      skeletons12Hr, patterns12Hr_zh_buddhist },
+    { "zh_Hant@calendar=buddhist", skeletons12Hr, patterns12Hr_zhHant_buddhist },
+    { NULL, NULL, NULL } /* terminator */
+};
+
+static void Test12HrPatterns(void) { // Apple <rdar://problem/59940681>
+    const Test12HrPatItem* itemPtr;
+    for (itemPtr = test12HrPatItems; itemPtr->locale != NULL; itemPtr++) {
+        UErrorCode status = U_ZERO_ERROR;
+        UDateTimePatternGenerator* udatpg = udatpg_open(itemPtr->locale, &status);
+        if ( U_FAILURE(status) ) {
+            log_data_err("udatpg_open fails for locale %s: status %s (Are you missing data?)\n", itemPtr->locale, u_errorName(status));
+        } else {
+            const UChar** skeletonsPtr = itemPtr->skeletons;
+            const UChar** patternsPtr  = itemPtr->patterns;
+            const UChar* skeleton;
+            const UChar* expPatn;
+            while ((skeleton = *skeletonsPtr++) != NULL && (expPatn = *patternsPtr++) != NULL) {
+                UChar getPatn[kUbufMax];
+                char bSkel[kBbufMax];
+                u_austrcpy(bSkel, skeleton);
+                int32_t getLen = udatpg_getBestPattern(udatpg, skeleton, -1, getPatn, kUbufMax, &status);
+                if ( U_FAILURE(status) ) {
+                    log_err("udatpg_getBestPattern fails for locale %s, skeleton %s: status %s\n", itemPtr->locale, bSkel, u_errorName(status));
+                } else if (u_strcmp(getPatn,expPatn) != 0) {
+                    char bExpPatn[kBbufMax], bGetPatn[kBbufMax];
+                    u_austrcpy(bExpPatn, expPatn);
+                    u_austrcpy(bGetPatn, getPatn);
+                    log_err("udatpg_getBestPattern error for locale %s, skeleton %s: expected %s, got %s\n", itemPtr->locale, bSkel, bExpPatn, bGetPatn);
+                }
+            }
+            udatpg_close(udatpg);
+        }
+    }
+}
+
 #if !U_PLATFORM_HAS_WIN32_API
 
 typedef struct {
@@ -2392,6 +2507,36 @@ static void TestTimeUnitFormatWithNumStyle(void) { /* Apple-specific */
 }
 
 #endif
+
+typedef struct {
+    UChar               patternChar;
+    UDateFormatField    dateField;
+    UCalendarDateFields calField;
+} PatternCharToFieldsItem;
+
+static const PatternCharToFieldsItem patCharToFieldsItems[] = {
+    { u'G', UDAT_ERA_FIELD,                 UCAL_ERA },
+    { u'y', UDAT_YEAR_FIELD,                UCAL_YEAR },
+    { u'Y', UDAT_YEAR_WOY_FIELD,            UCAL_YEAR_WOY },
+    { u'Q', UDAT_QUARTER_FIELD,             UCAL_MONTH },
+    { u'H', UDAT_HOUR_OF_DAY0_FIELD,        UCAL_HOUR_OF_DAY },
+    { u'r', UDAT_RELATED_YEAR_FIELD,        UCAL_EXTENDED_YEAR },
+    { u'B', UDAT_FLEXIBLE_DAY_PERIOD_FIELD, UCAL_FIELD_COUNT },
+    { u'$', UDAT_FIELD_COUNT,               UCAL_FIELD_COUNT },
+    { (UChar)0, (UDateFormatField)0, (UCalendarDateFields)0 } // terminator
+};
+
+static void TestMapPatternCharToFields(void){ /* Apple <rdar://problem/62136559>  */
+    const PatternCharToFieldsItem* itemPtr;
+    for ( itemPtr=patCharToFieldsItems; itemPtr->patternChar!=(UChar)0; itemPtr++) {
+        UDateFormatField dateField = udat_patternCharToDateFormatField(itemPtr->patternChar);
+        UCalendarDateFields calField = udat_toCalendarDateField(dateField);
+        if (dateField != itemPtr->dateField || calField != itemPtr->calField) {
+            log_err("for pattern char 0x%04X, expect dateField %d and got %d, expect calField %d and got %d\n",
+                    itemPtr->patternChar, itemPtr->dateField, dateField, itemPtr->calField, calField);
+        }
+    }
+}
 
 typedef enum RemapTesttype {
     REMAP_TESTTYPE_FULL     = UDAT_FULL,       // 0
@@ -3582,4 +3727,281 @@ static void WriteHourMismatchErrs(void) { /* Apple-specific */
 }
 #endif /* #if WRITE_HOUR_MISMATCH_ERRS */
 
+#if WRITE_COUNTRY_FALLBACK_RESULTS
+// A utility program for printing out the results of our formatting code for vetting.  The list of locales
+// below is the top 100 non-default-language locales from internal statistics on system locales.
+static void WriteCountryFallbackResults(void) { /* Apple <rdar://problem/26911014> */
+    char* systemLanguages[] = {
+        "en",
+        "zh-Hans",
+        "zh-Hant",
+        "ja",
+        "es",
+        "fr",
+        "de",
+        "ru",
+        "pt",
+        "it",
+        "ko",
+        "tr",
+        "nl",
+        "ar",
+        "th",
+        "sv",
+        "da",
+        "vi",
+        "nb",
+        "pl",
+        "fi",
+        "id",
+        "he",
+        "el",
+        "ro",
+        "hu",
+        "cs",
+        "ca",
+        "sk",
+        "uk",
+        "hr",
+        "ms",
+        "hi",
+    };
+    char* styleNames[] = {
+        "full",
+        "long",
+        "medium",
+        "short"
+    };
+
+    UErrorCode err = U_ZERO_ERROR;
+    UCalendar* cal = ucal_open(NULL, -1, "en_US", UCAL_GREGORIAN, &err);
+    ucal_setDateTime(cal, 2017, UCAL_DECEMBER, 24, 20, 35, 15, &err);
+    assertSuccess("Error creating test calendar", &err);
+    const char* const* countries = uloc_getISOCountries();
+
+    printf("locale\tstyle\tafter\n");
+    for (int32_t i = 0; i < (sizeof(systemLanguages) / sizeof(char*)); i++) {
+        const char* language = systemLanguages[i];
+        char errorMessage[200];
+        err = U_ZERO_ERROR;
+        
+        char locale[50];
+//        UChar defaultResults[4][200];
+        
+        uloc_addLikelySubtags(language, locale, 50, &err);
+//        uloc_minimizeSubtags(locale, locale, 50, &err);
+        if (U_FAILURE(err)) {
+            continue;
+        }
+//        for (UDateFormatStyle style = UDAT_FULL; style <= UDAT_SHORT; ++style) {
+//            err = U_ZERO_ERROR;
+//            UDateFormat* df = udat_open(/*style*/UDAT_NONE, style, locale, NULL, 0, NULL, 0,  &err);
+//            UChar formattedDate[200];
+//
+//            udat_formatCalendar(df, cal, formattedDate, 200, NULL, &err);
+//            assertSuccess("Error formatting date", &err);
+//
+//            printf("%s\t%s\t%s\t%s\n", locale, "D", styleNames[style], austrdup(formattedDate));
+//            u_strcpy(defaultResults[style], formattedDate);
+//
+//            udat_close(df);
+//        }
+
+        for (int32_t j = 0; countries[j] != NULL; j++) {
+            sprintf(locale, "%s_%s", language, countries[j]);
+            
+//            UBool hasResourceBundle = FALSE;
+//            UResourceBundle* bundle = ures_open(NULL, locale, &err);
+//            hasResourceBundle = err != U_USING_FALLBACK_WARNING;
+//            ures_close(bundle);
+            
+            for (UDateFormatStyle style = UDAT_FULL; style <= UDAT_SHORT; ++style) {
+                err = U_ZERO_ERROR;
+                UDateFormat* df = udat_open(/*style*/UDAT_NONE, style, locale, NULL, 0, NULL, 0,  &err);
+                UChar formattedDate[200];
+
+                udat_formatCalendar(df, cal, formattedDate, 200, NULL, &err);
+                assertSuccess("Error formatting date", &err);
+
+//                if (u_strcmp(defaultResults[style], formattedDate) != 0) {
+                    printf("%s\t%s\t%s\n", locale, styleNames[style], austrdup(formattedDate));
+//                }
+                
+                udat_close(df);
+            }
+        }
+    }
+    ucal_close(cal);
+}
+#endif /*WRITE_COUNTRY_FALLBACK_RESULTS*/
+
+UBool stringsEqualWithoutBidiMarks(const UChar* s1, const UChar* s2) {
+    while (*s1 != u'\0' || *s2 != u'\0') {
+        if (*s1 == *s2) {
+            ++s1;
+            ++s2;
+        } else if (*s1 == u'\u200f') {
+            ++s1;
+        } else if (*s2 == u'\u200f') {
+            ++s2;
+        } else {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static void TestCountryFallback(void) { /* Apple <rdar://problem/26911014> */
+    // The columns in the table below are as follows:
+    // 1: The test locale ID.  The locale for which we're testing the date formats.
+    // 2: Long date locale.  The full and long date formats for the test locale should match this locale.
+    // 3: Medium date locale.  The medium date format for the test locale should match this locale.  If this starts with
+    //      a *, compare against the SHORT date format from this locale (without the *, of course)
+    // 4: Short date locale.  The short date format for the test locale should match this locale.
+    char* testData[] = {
+        // The following locales were previously handled by adding resource bundles.  If the short or medium date formats
+        // in the resources don't match what the algorithmic solution would produce, that's called out in the comments.
+        // If the full or long formats are different, or there's no fallback resource we can match, the whole line
+        // is commented out.
+        "en_AD", "en_150", "ca_AD",  "ca_AD",
+        "en_AR", "en_001", "es_AR",  "en_001", // short date pattern for es_AR is different?
+//        "en_BR", "en_001", "en_001", "en_001", // short date pattern is different from both pt_BR and en_001
+        "en_CL", "en_001", "es_CL",  "es_CL",
+        "en_CN", "en",     "en",     "zh_CN",
+//        "en_CO", "en_001", "*es_CO", "es_CO",  // medium date pattern is wrong?
+//        "en_DE", "de_DE",  "de_DE",  "de_DE",  // medium date pattern is wrong?
+        "en_ER", "en_001", "en_001", "en_001", // short date pattern for ti_ER is different?
+        "en_ES", "en_150", "en_150", "es_ES",
+        "en_GH", "en_001", "en_001", "en_001", // short date pattern for ak_GH is different?
+        "en_GR", "en_150", "el_GR",  "el_GR",
+        "en_HK", "en_001", "en_001", "zh_HK",
+        "en_IS", "en_150", "en_150", "is_IS",
+        "en_IT", "en_150", "en_150", "it_IT",
+        "en_JP", "en",     "en",     "ja_JP",
+//        "en_KR", "en",     "en",     "ko_KR",  // short date pattern is different?
+        "en_LU", "en_150", "fr_LU",  "fr_LU",
+        "en_ME", "en_150", "sr_ME", "sr_ME",
+        "en_MO", "en_001", "en_001", "en_001", // short and medium date patterns for zh_MO are different?
+//        "en_MT", "en_150", "en_150", "mt_MT",  // several patterns are different from both en_150 and mt_MT
+        "en_MX", "en_001", "es_MX",  "es_MX",
+        "en_MY", "en_001", "en_001", "en_001", // short date pattern for ms_MY is different?
+        "en_NL", "en_150", "en_150", "en_150", // short date pattern for nl_NL is different?
+        "en_PH", "en",     "fil_PH", "fil_PH",
+        "en_RO", "en_150", "en_150", "ro_RO",
+        "en_RS", "en_150", "sr_RS", "sr_RS",
+//        "en_TR", "en_150", "en_150", "tr_TR",  // long date pattern for en_150 is different
+        "en_TW", "en",     "en",     "zh_TW",
+//        "en_ZW", "en_001", "en_001", "sn_ZW",  // all date patterns are different from en_001 and sn_ZW
+        "es_US", "es_419", "en_US",  "en_US",
+        
+        // The following locales are specifically mentioned in Radars (some of these have resource bundles too):
+        "fr_US", "fr",     "fr",     "en_US",  // rdar://problem/54886964
+//        "en_TH", "en_001", "en_001", "en_001", // rdar://problem/29299919 (the en_TH resource has era fields, even in Gregorian calendar, and they're in a different place than for the Buddhist calendar)
+//        "en_BG", "en_150", "en_150", "en_150", // rdar://problem/29299919 (all date patterns for bg_BG have "'г'." at the end, short date pattern also doesn't match en_150)
+        "fr_BG", "fr",     "fr",     "fr",     // rdar://64135398
+        "en_LI", "en_150", "de_LI",  "de_LI",  // rdar://problem/29299919
+        "en_MC", "en_150", "fr_MC",  "fr_MC",  // rdar://problem/29299919
+        "en_MD", "en_150", "ro_MD",  "ro_MD",  // rdar://problem/29299919
+        "en_VA", "en_150", "it_VA",  "it_VA",  // rdar://problem/29299919
+        "fr_GB", "fr",     "fr",     "en_GB",  // rdar://problem/36020946
+        "fr_CN", "fr",     "fr",     "zh_CN",  // rdar://problem/50083902
+        "es_IE", "es",     "es",     "en_IE",  // rdar://problem/58733843
+        "de_US", "de",     "*en_US", "en_US",  // rdar://problem/31169349 (I think we no longer address this Radar...)
+//        "en_CZ", "en_150", "cs_CZ",  "cs_CZ",  // rdar://problem/57625632 (Long date format doesn't match en_150)
+        
+        // Special for en_SA, date formats should match those for en_001, other items match en
+        "en_SA", "en_001@calendar=islamic-umalqura", "en_001@calendar=islamic-umalqura", "en_001@calendar=islamic-umalqura",
+
+        // Tests for situations where the default calendar and/or numbering system is different depending on whether you
+        // fall back by language or by country:
+        "ar_US", "ar",     "ar",        "ar",
+        "ar_DE", "ar",     "ar",        "ar",     // rdar://67971515
+        "ar_FR", "ar",     "ar",        "ar",     // rdar://67971515
+        "en_EG", "en_001", "en_001",    "en_001", // rdar://69523017
+
+        // Tests for situations where the original locale ID specifies a script:
+        // this one doesn't fall back to ar_SA because even the "short" date format in arSA is non-numeric
+        "sr_Cyrl_SA", "sr_Cyrl@calendar=islamic-umalqura", "sr_Cyrl@calendar=islamic-umalqura", "sr_Cyrl@calendar=islamic-umalqura",
+        "ru_Cyrl_BA", "ru_Cyrl", "bs_Cyrl_BA", "bs_Cyrl_BA",
+        
+        // And these are just a few additional arbitrary combinations:
+        "ja_US", "ja",     "*en_US", "en_US",
+        "fr_DE", "fr",     "de_DE",  "de_DE",
+        "de_FR", "de",     "*fr_FR", "fr_FR",
+        "es_TW", "es",     "es",     "zh_TW",
+        "en_BH", "en_001", "en_001", "en_001",
+        // Test to make sure that nothing goes wrong if language and country fallback both lead to the same resource
+        // (This won't happen for any "real" locales, because ICU has resources for all of them, but we can fake it with
+        // a nonexistent country code such as QQ.)
+        "en_QQ", "en",     "en",     "en"
+    };
+    
+    for (int32_t i = 0; i < (sizeof(testData) / sizeof(char*)); i += 4) {
+        const char* testLocale = testData[i];
+        const char* longDateLocale = testData[i + 1];
+        const char* mediumDateLocale = testData[i + 2];
+        const char* shortDateLocale = testData[i + 3];
+        char errorMessage[200];
+        UErrorCode err = U_ZERO_ERROR;
+        
+        // Check that the date formatting patterns for the test locale are the same as those for the fallback locale.
+        for (UDateFormatStyle style = UDAT_FULL; style <= UDAT_SHORT; ++style) {
+            err = U_ZERO_ERROR;
+            UDateFormat* testFormatter = udat_open(UDAT_NONE, style, testLocale, NULL, 0, NULL, 0,  &err);
+            const char* comparisonLocale = longDateLocale;
+            if (style == UDAT_MEDIUM) {
+                comparisonLocale = mediumDateLocale;
+            } else if (style == UDAT_SHORT) {
+                comparisonLocale = shortDateLocale;
+            }
+            UDateFormat* comparisonFormatter = NULL;
+            if (comparisonLocale[0] == '*') {
+                // if the comparison locale starts with a *, strip off the * and retrieve the SHORT date format
+                // from that locale regardless of what style we're actually on (should only happen when
+                // style is UDAT_MEDIUM)
+                comparisonFormatter = udat_open(UDAT_NONE, UDAT_SHORT, &(comparisonLocale[1]), NULL, 0, NULL, 0, &err);
+            } else {
+                comparisonFormatter = udat_open(UDAT_NONE, style, comparisonLocale, NULL, 0, NULL, 0, &err);
+            }
+
+            sprintf(errorMessage, "Error creating formatters for %s and %s", testLocale, comparisonLocale);
+            if (assertSuccess(errorMessage, &err)) {
+                UChar testPattern[100];
+                UChar comparisonPattern[100];
+
+                udat_toPattern(testFormatter, FALSE, testPattern, 100, &err);
+                udat_toPattern(comparisonFormatter, FALSE, comparisonPattern, 100, &err);
+
+                if (assertSuccess("Error getting date format patterns", &err)) {
+                    sprintf(errorMessage, "In %s, formatting pattern for style %d doesn't match: expected %s, got %s", testLocale, style, austrdup(comparisonPattern), austrdup(testPattern));
+                    assertTrue(errorMessage, stringsEqualWithoutBidiMarks(comparisonPattern, testPattern));
+                }
+                
+                const UNumberFormat* testNF = udat_getNumberFormat(testFormatter);
+                const UNumberFormat* comparisonNF = udat_getNumberFormat(comparisonFormatter);
+                UChar testZeroDigit[5];
+                UChar comparisonZeroDigit[5];
+                unum_getSymbol(testNF, UNUM_ZERO_DIGIT_SYMBOL, testZeroDigit, 5, &err);
+                unum_getSymbol(comparisonNF, UNUM_ZERO_DIGIT_SYMBOL, comparisonZeroDigit, 5, &err);
+                
+                if (assertSuccess("Error getting zero digits", &err)) {
+                    sprintf(errorMessage, "In %s, zero digits for style %d don't match: ", testLocale, style);
+                    assertUEquals(errorMessage, comparisonZeroDigit, testZeroDigit);
+                }
+            }
+            udat_close(testFormatter);
+            udat_close(comparisonFormatter);
+        }
+        
+        // The TestCountryFallback test for number formatting also checks to make sure that we still fall back by
+        // language for certain number formatting symbols.  The time and date+time patterns should continue to fall back
+        // by language, but we don't test that here for two reasons: a) There's no way to explicitly get the date+time
+        // pattern by itself, and b) even though time patterns technically fall back by language, there's extra logic
+        // to synthesize a time pattern in cases where there's no resource bundle for the requested locale and the
+        // requested country has a different time cycle than the default country for the requested language.
+        // Accounting for both of these would require changing this test to compare the results against hard-coded
+        // pattern strings, which I don't want to do yet.   --rtg 4/30/20
+        // (NOTE: I might need to change the comment above when I fix rdar://problem/62242807)
+    }
+}
 #endif /* #if !UCONFIG_NO_FORMATTING */

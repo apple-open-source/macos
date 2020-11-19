@@ -187,11 +187,11 @@ public:
 	}
 
 public:
-    void *operator new (size_t size, Allocator &alloc) throw(std::bad_alloc)
+    void *operator new (size_t size, Allocator &alloc) 
     { return alloc.malloc(size); }
-    void operator delete (void *addr, size_t, Allocator &alloc) throw()
+    void operator delete (void *addr, size_t, Allocator &alloc) _NOEXCEPT
     { return alloc.free(addr); }
-    static void destroy(Context *context, Allocator &alloc) throw()
+    static void destroy(Context *context, Allocator &alloc) _NOEXCEPT
     { alloc.free(context->ContextAttributes); alloc.free(context); }
 	
 public:

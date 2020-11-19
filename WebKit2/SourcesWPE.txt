@@ -21,6 +21,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 // THE POSSIBILITY OF SUCH DAMAGE.
 
+GPUProcess/gstreamer/GPUProcessGStreamer.cpp
+GPUProcess/gstreamer/GPUProcessMainGStreamer.cpp
+
+GPUProcess/media/RemoteAudioDestinationManager.cpp
+
+GPUProcess/media/gstreamer/RemoteMediaPlayerProxyGStreamer.cpp
+
 NetworkProcess/Classifier/WebResourceLoadStatisticsStore.cpp
 NetworkProcess/Classifier/WebResourceLoadStatisticsTelemetry.cpp
 
@@ -42,7 +49,6 @@ NetworkProcess/soup/WebSocketTaskSoup.cpp
 NetworkProcess/webrtc/LibWebRTCSocketClient.cpp
 NetworkProcess/webrtc/NetworkRTCMonitor.cpp
 NetworkProcess/webrtc/NetworkRTCProvider.cpp
-NetworkProcess/webrtc/NetworkRTCSocket.cpp
 
 Platform/IPC/unix/AttachmentUnix.cpp
 Platform/IPC/unix/ConnectionUnix.cpp
@@ -53,10 +59,6 @@ Platform/glib/ModuleGlib.cpp
 
 Platform/unix/LoggingUnix.cpp
 Platform/unix/SharedMemoryUnix.cpp
-
-PluginProcess/unix/PluginControllerProxyUnix.cpp
-PluginProcess/unix/PluginProcessMainUnix.cpp
-PluginProcess/unix/PluginProcessUnix.cpp
 
 Shared/API/c/cairo/WKImageCairo.cpp
 
@@ -75,12 +77,10 @@ Shared/CoordinatedGraphics/threadedcompositor/CompositingRunLoop.cpp
 Shared/CoordinatedGraphics/threadedcompositor/ThreadedCompositor.cpp
 Shared/CoordinatedGraphics/threadedcompositor/ThreadedDisplayRefreshMonitor.cpp
 
-Shared/Plugins/Netscape/NetscapePluginModuleNone.cpp
-Shared/Plugins/Netscape/unix/NetscapePluginModuleUnix.cpp
-
 Shared/cairo/ShareableBitmapCairo.cpp
 
 Shared/glib/ArgumentCodersGLib.cpp
+Shared/glib/InputMethodState.cpp
 Shared/glib/ProcessExecutablePathGLib.cpp
 Shared/glib/UserMessage.cpp
 Shared/glib/WebContextMenuItemGlib.cpp
@@ -144,6 +144,8 @@ UIProcess/API/glib/WebKitNetworkProxySettings.cpp @no-unify
 UIProcess/API/glib/WebKitNotification.cpp @no-unify
 UIProcess/API/glib/WebKitNotificationPermissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitNotificationProvider.cpp @no-unify
+UIProcess/API/glib/WebKitOptionMenu.cpp @no-unify
+UIProcess/API/glib/WebKitOptionMenuItem.cpp @no-unify
 UIProcess/API/glib/WebKitPermissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitPlugin.cpp @no-unify
 UIProcess/API/glib/WebKitPolicyDecision.cpp @no-unify
@@ -168,14 +170,18 @@ UIProcess/API/glib/WebKitWebView.cpp @no-unify
 UIProcess/API/glib/WebKitWebViewAccessible.cpp @no-unify
 UIProcess/API/glib/WebKitWebViewSessionState.cpp @no-unify
 UIProcess/API/glib/WebKitWebsiteData.cpp @no-unify
+UIProcess/API/glib/WebKitWebsiteDataAccessPermissionRequest.cpp @no-unify
 UIProcess/API/glib/WebKitWebsiteDataManager.cpp @no-unify
 UIProcess/API/glib/WebKitWindowProperties.cpp @no-unify
+UIProcess/API/glib/WebKitWebsitePolicies.cpp @no-unify
 
 UIProcess/API/wpe/InputMethodFilterWPE.cpp @no-unify
 UIProcess/API/wpe/PageClientImpl.cpp @no-unify
 UIProcess/API/wpe/ScrollGestureController.cpp @no-unify
 UIProcess/API/wpe/WebKitColor.cpp @no-unify
 UIProcess/API/wpe/WebKitInputMethodContextWPE.cpp @no-unify
+UIProcess/API/wpe/WebKitPopupMenu.cpp @no-unify
+UIProcess/API/wpe/WebKitRectangle.cpp @no-unify
 UIProcess/API/wpe/WebKitScriptDialogWPE.cpp @no-unify
 UIProcess/API/wpe/WebKitWebViewBackend.cpp @no-unify
 UIProcess/API/wpe/WebKitWebViewWPE.cpp @no-unify
@@ -195,9 +201,7 @@ UIProcess/glib/WebsiteDataStoreGLib.cpp @no-unify
 
 UIProcess/Launcher/glib/ProcessLauncherGLib.cpp
 UIProcess/Launcher/glib/BubblewrapLauncher.cpp
-
-UIProcess/Plugins/unix/PluginInfoStoreUnix.cpp
-UIProcess/Plugins/unix/PluginProcessProxyUnix.cpp
+UIProcess/Launcher/glib/FlatpakLauncher.cpp
 
 UIProcess/WebsiteData/soup/WebsiteDataStoreSoup.cpp
 UIProcess/WebsiteData/unix/WebsiteDataStoreUnix.cpp
@@ -205,16 +209,16 @@ UIProcess/WebsiteData/unix/WebsiteDataStoreUnix.cpp
 UIProcess/gstreamer/InstallMissingMediaPluginsPermissionRequest.cpp
 UIProcess/gstreamer/WebPageProxyGStreamer.cpp
 
+UIProcess/libwpe/WebPasteboardProxyLibWPE.cpp
+
 UIProcess/linux/MemoryPressureMonitor.cpp
 
 UIProcess/soup/WebCookieManagerProxySoup.cpp
 UIProcess/soup/WebProcessPoolSoup.cpp
 
-UIProcess/wpe/TextCheckerWPE.cpp
-UIProcess/wpe/WebInspectorProxyWPE.cpp
 UIProcess/wpe/WebPageProxyWPE.cpp
-UIProcess/wpe/WebPasteboardProxyWPE.cpp
-UIProcess/wpe/WebPreferencesWPE.cpp
+
+WebProcess/GPU/media/gstreamer/VideoLayerRemoteGStreamer.cpp
 
 WebProcess/InjectedBundle/API/glib/DOM/DOMObjectCache.cpp @no-unify
 WebProcess/InjectedBundle/API/glib/DOM/WebKitDOMDocument.cpp @no-unify
@@ -236,15 +240,11 @@ WebProcess/InjectedBundle/glib/InjectedBundleGlib.cpp
 
 WebProcess/MediaCache/WebMediaKeyStorageManager.cpp
 
-WebProcess/Plugins/Netscape/NetscapePluginNone.cpp @no-unify
-
 WebProcess/WebCoreSupport/glib/WebEditorClientGLib.cpp
 
 WebProcess/WebCoreSupport/soup/WebFrameNetworkingContext.cpp
 
-WebProcess/WebCoreSupport/wpe/WebContextMenuClientWPE.cpp
 WebProcess/WebCoreSupport/wpe/WebEditorClientWPE.cpp
-WebProcess/WebCoreSupport/wpe/WebPopupMenuWPE.cpp
 
 WebProcess/WebPage/AcceleratedSurface.cpp
 
@@ -260,7 +260,6 @@ WebProcess/WebPage/gstreamer/WebPageGStreamer.cpp
 
 WebProcess/WebPage/libwpe/AcceleratedSurfaceLibWPE.cpp @no-unify
 
-WebProcess/WebPage/wpe/WebInspectorUIWPE.cpp
 WebProcess/WebPage/wpe/WebPageWPE.cpp
 
 WebProcess/glib/WebProcessGLib.cpp

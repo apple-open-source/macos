@@ -41,7 +41,7 @@
 
 #include "secasn1.h"
 #include "secerr.h"
-#include "assert.h"
+#include <security_utilities/simulatecrash_assert.h>
 
 #ifdef	NDEBUG
 #define DEBUG_DECASN1	0
@@ -1879,8 +1879,9 @@ sec_asn1d_add_to_subitems (sec_asn1d_state *state,
 	if (copy == NULL) {
 		dprintf("decodeError: alloc\n");	
 	    state->top->status = decodeError;
-        if (!state->top->our_pool)
+        if (!state->top->our_pool) {
             PORT_Free(thing);
+        }
 	    return NULL;
 	}
 	PORT_Memcpy (copy, data, len);

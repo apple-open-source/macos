@@ -140,7 +140,7 @@ extern struct vnodeopv_desc hfs_std_vnodeop_opv_desc;
 static int hfs_flushMDB(struct hfsmount *hfsmp, int waitfor, int altflush);
 #endif
 
-/* not static so we can re-use in hfs_readwrite.c for build_path calls */
+/* not static so we can re-use in hfs_readwrite.c for vn_getpath_ext calls */
 int hfs_vfs_vget(struct mount *mp, ino64_t ino, struct vnode **vpp, vfs_context_t context);
 
 static int hfs_changefs(struct mount *mp, struct hfs_mount_args *args);
@@ -1218,6 +1218,16 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 		goto error_exit;
 	}
 
+	if (phys_blksize < log_blksize) {
+		/*
+		 * In the off chance that the phys_blksize is SMALLER than the logical
+		 * then don't let that happen.  Pretend that the PHYSICALBLOCKSIZE
+		 * ioctl was not supported.
+		 */
+		phys_blksize = log_blksize;
+	}
+
+
 	/* Switch to 512 byte sectors (temporarily) */
 	if (log_blksize > 512) {
 		u_int32_t size512 = 512;
@@ -1288,6 +1298,7 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 			goto error_exit;
 		}
 	}
+
 	/*
 	 * At this point:
 	 *   minblksize is the minimum physical block size
@@ -1296,6 +1307,7 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 	 */
 
 	mdb_offset = (daddr64_t)HFS_PRI_SECTOR(log_blksize);
+
 	if ((retval = (int)buf_meta_bread(devvp, 
 				HFS_PHYSBLK_ROUNDDOWN(mdb_offset, (phys_blksize/log_blksize)), 
 				phys_blksize, cred, &bp))) {
@@ -3220,7 +3232,7 @@ hfs_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *oldlenp,
 
 /* 
  * hfs_vfs_vget is not static since it is used in hfs_readwrite.c to support
- * the build_path ioctl.  We use it to leverage the code below that updates
+ * the vn_getpath_ext.  We use it to leverage the code below that updates
  * the origin list cache if necessary
  */
 
@@ -4258,17 +4270,36 @@ hfs_vfs_getattr(struct mount *mp, struct vfs_attr *fsap, __unused vfs_context_t 
 	}
 #endif
 
+	/*
+	 * Some of these attributes can be expensive to query if we're
+	 * backed by a disk image; hfs_freeblks() has to ask the backing
+	 * store, and this might involve a trip to a network file server.
+	 * Only ask for them if the caller really wants them.  Preserve old
+	 * behavior for file systems not backed by a disk image.
+	 */
+#if HFS_SPARSE_DEV
+	const int diskimage = (hfsmp->hfs_backingvp != NULL);
+#else
+	const int diskimage = 0;
+#endif
+
 	VFSATTR_RETURN(fsap, f_objcount, (u_int64_t)hfsmp->vcbFilCnt + (u_int64_t)hfsmp->vcbDirCnt);
 	VFSATTR_RETURN(fsap, f_filecount, (u_int64_t)hfsmp->vcbFilCnt);
 	VFSATTR_RETURN(fsap, f_dircount, (u_int64_t)hfsmp->vcbDirCnt);
 	VFSATTR_RETURN(fsap, f_maxobjcount, (u_int64_t)0xFFFFFFFF);
 	VFSATTR_RETURN(fsap, f_iosize, (size_t)cluster_max_io_size(mp, 0));
 	VFSATTR_RETURN(fsap, f_blocks, (u_int64_t)hfsmp->totalBlocks);
-	VFSATTR_RETURN(fsap, f_bfree, (u_int64_t)hfs_freeblks(hfsmp, 0));
-	VFSATTR_RETURN(fsap, f_bavail, (u_int64_t)hfs_freeblks(hfsmp, 1));
+	if (VFSATTR_WANTED(fsap, f_bfree) || !diskimage) {
+		VFSATTR_RETURN(fsap, f_bfree, (u_int64_t)hfs_freeblks(hfsmp, 0));
+	}
+	if (VFSATTR_WANTED(fsap, f_bavail) || !diskimage) {
+		VFSATTR_RETURN(fsap, f_bavail, (u_int64_t)hfs_freeblks(hfsmp, 1));
+	}
 	VFSATTR_RETURN(fsap, f_bsize, (u_int32_t)vcb->blockSize);
 	/* XXX needs clarification */
-	VFSATTR_RETURN(fsap, f_bused, hfsmp->totalBlocks - hfs_freeblks(hfsmp, 1));
+	if (VFSATTR_WANTED(fsap, f_bused) || !diskimage) {
+		VFSATTR_RETURN(fsap, f_bused, hfsmp->totalBlocks - hfs_freeblks(hfsmp, 1));
+	}
 	VFSATTR_RETURN(fsap, f_files, (u_int64_t)HFS_MAX_FILES);
 	VFSATTR_RETURN(fsap, f_ffree, (u_int64_t)hfs_free_cnids(hfsmp));
 

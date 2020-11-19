@@ -12,10 +12,10 @@ mn{
     }
     ExemplarCharacters{"[а б в г д е ё ж з и й к л м н о ө п р с т у ү ф х ц ч ш щ ъ ы ь э ю я]"}
     ExemplarCharactersIndex{"[А Б В Г Д Е Ж З И Й К Л М Н О Ө П Р С Т У Ү Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я]"}
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -30,6 +30,7 @@ mn{
             patterns{
                 accountingFormat{"¤ #,##0.00"}
                 currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
@@ -188,12 +189,16 @@ mn{
                 }
             }
             symbols{
+                decimal{"."}
                 exponential{"E"}
+                group{","}
                 infinity{"∞"}
                 list{";"}
+                minusSign{"-"}
                 nan{"NaN"}
                 perMille{"‰"}
                 percentSign{"%"}
+                plusSign{"+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
@@ -207,9 +212,10 @@ mn{
                 other{"Картанд {0} Х байна. Тэднийг авах уу?"}
             }
         }
+        minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.48.17"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -431,8 +437,8 @@ mn{
                 "HH:mm:ss (z)",
                 "HH:mm:ss",
                 "HH:mm",
-                "y.MM.dd, EEEE",
-                "y.MM.dd",
+                "y 'оны' MMMM'ын' d, EEEE 'гараг'",
+                "y 'оны' MMMM'ын' d",
                 "y 'оны' MMM'ын' d",
                 "y.MM.dd",
                 "{1} {0}",
@@ -1694,6 +1700,11 @@ mn{
         }
         week-narrow{
             dn{"7 хоног"}
+            relative{
+                "-1"{"өнгөрсөн 7 хоног"}
+                "0"{"энэ 7 хоног"}
+                "1"{"ирэх 7 хоног"}
+            }
             relativePeriod{"{0}-н 7 хоног"}
             relativeTime{
                 future{
@@ -1708,6 +1719,11 @@ mn{
         }
         week-short{
             dn{"7 хоног"}
+            relative{
+                "-1"{"өнгөрсөн 7 хоног"}
+                "0"{"энэ 7 хоног"}
+                "1"{"ирэх 7 хоног"}
+            }
             relativePeriod{"{0}-н 7 хоног"}
             relativeTime{
                 future{
@@ -1804,9 +1820,15 @@ mn{
     listPattern{
         or{
             2{"{0} эсвэл {1}"}
-            end{"{0}, эсвэл {1}"}
+            end{"{0}, {1} зэргийн аль нэг"}
             middle{"{0}, {1}"}
             start{"{0}, {1}"}
+        }
+        or-narrow{
+            end{"{0}, {1} зэргийн аль нэг"}
+        }
+        or-short{
+            end{"{0}, {1} зэргийн аль нэг"}
         }
         standard{
             2{"{0}, {1}"}
@@ -1827,27 +1849,27 @@ mn{
             start{"{0}, {1}"}
         }
         unit{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-narrow{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
         unit-short{
-            2{"{0}, {1}"}
-            end{"{0}, {1}"}
-            middle{"{0}, {1}"}
-            start{"{0}, {1}"}
+            2{"{0} {1}"}
+            end{"{0} {1}"}
+            middle{"{0} {1}"}
+            start{"{0} {1}"}
         }
     }
     measurementSystemNames{
         UK{"ИБ"}
         US{"АНУ"}
-        metric{"метрийн"}
+        metric{"метрийн систем"}
     }
 }

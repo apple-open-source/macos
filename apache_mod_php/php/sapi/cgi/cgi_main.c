@@ -789,7 +789,7 @@ static void sapi_cgi_log_message(char *message, int syslog_type_int)
 
 /* {{{ php_cgi_ini_activate_user_config
  */
-static void php_cgi_ini_activate_user_config(char *path, size_t path_len, const char *doc_root, size_t doc_root_len, int start)
+static void php_cgi_ini_activate_user_config(char *path, size_t path_len, const char *doc_root, size_t doc_root_len)
 {
 	user_config_cache_entry *new_entry, *entry;
 	time_t request_time = (time_t)sapi_get_request_time();
@@ -842,8 +842,12 @@ static void php_cgi_ini_activate_user_config(char *path, size_t path_len, const 
 #else
 		if (strncmp(s1, s2, s_len) == 0) {
 #endif
-			char *ptr = s2 + start;  /* start is the point where doc_root ends! */
+			char *ptr = s2 + doc_root_len;
+#ifdef PHP_WIN32
+			while ((ptr = strpbrk(ptr, "\\/")) != NULL) {
+#else
 			while ((ptr = strchr(ptr, DEFAULT_SLASH)) != NULL) {
+#endif
 				*ptr = 0;
 				php_parse_user_ini_file(path, PG(user_ini_filename), entry->user_config);
 				*ptr = '/';
@@ -938,7 +942,7 @@ static int sapi_cgi_activate(void)
 				doc_root = estrndup(doc_root, doc_root_len);
 				zend_str_tolower(doc_root, doc_root_len);
 #endif
-				php_cgi_ini_activate_user_config(path, path_len, doc_root, doc_root_len, (doc_root_len > 0 && (doc_root_len - 1)));
+				php_cgi_ini_activate_user_config(path, path_len, doc_root, doc_root_len);
 
 #ifdef PHP_WIN32
 				efree(doc_root);
@@ -2283,6 +2287,7 @@ parent_loop_end:
 					break;
 				case 'h':
 				case '?':
+				case PHP_GETOPT_INVALID_ARG:
 					if (request) {
 						fcgi_destroy_request(request);
 					}
@@ -2292,6 +2297,9 @@ parent_loop_end:
 					php_cgi_usage(argv[0]);
 					php_output_end_all();
 					exit_status = 0;
+					if (c == PHP_GETOPT_INVALID_ARG) {
+						exit_status = 1;
+					}
 					goto out;
 			}
 		}

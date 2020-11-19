@@ -62,7 +62,7 @@
 #include "RenderLayerCompositor.h"
 #include "RenderLineBreak.h"
 #include "RenderListItem.h"
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 #include "RenderListMarker.h"
 #endif
 #include "RenderFragmentContainer.h"
@@ -118,6 +118,7 @@ inline RenderElement::RenderElement(ContainerNode& elementOrDocument, RenderStyl
     , m_renderBlockFlowLineLayoutPath(RenderBlockFlow::UndeterminedPath)
     , m_isRegisteredForVisibleInViewportCallback(false)
     , m_visibleInViewportState(static_cast<unsigned>(VisibleInViewportState::Unknown))
+    , m_didContributeToVisuallyNonEmptyPixelCount(false)
     , m_firstChild(nullptr)
     , m_lastChild(nullptr)
     , m_style(WTFMove(style))
@@ -379,6 +380,71 @@ void RenderElement::updateShapeImage(const ShapeValue* oldShapeValue, const Shap
         updateImage(oldShapeValue ? oldShapeValue->image() : nullptr, newShapeValue ? newShapeValue->image() : nullptr);
 }
 
+bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderStyle& oldStyle, const RenderStyle& newStyle)
+{
+    if (oldStyle.visibility() == Visibility::Hidden) {
+        // Repaint on hidden renderer is a no-op.
+        return false;
+    }
+    enum class RequiredRepaint { None, RendererOnly, RendererAndDescendantsRenderersWithLayers };
+    auto shouldRepaintBeforeStyleChange = [&]() -> RequiredRepaint {
+        if (!parent()) {
+            // Can't resolve absolute coordinates.
+            return RequiredRepaint::None;
+        }
+        if (is<RenderLayerModelObject>(this) && hasLayer()) {
+            if (diff == StyleDifference::RepaintLayer)
+                return RequiredRepaint::RendererAndDescendantsRenderersWithLayers;
+            if (diff == StyleDifference::Layout || diff == StyleDifference::SimplifiedLayout) {
+                // Certain style changes require layer repaint, since the layer could end up being destroyed.
+                auto layerMayGetDestroyed = oldStyle.position() != newStyle.position()
+                    || oldStyle.usedZIndex() != newStyle.usedZIndex()
+                    || oldStyle.hasAutoUsedZIndex() != newStyle.hasAutoUsedZIndex()
+                    || oldStyle.clip() != newStyle.clip()
+                    || oldStyle.hasClip() != newStyle.hasClip()
+                    || oldStyle.opacity() != newStyle.opacity()
+                    || oldStyle.transform() != newStyle.transform()
+                    || oldStyle.filter() != newStyle.filter();
+                if (layerMayGetDestroyed)
+                    return RequiredRepaint::RendererAndDescendantsRenderersWithLayers;
+            }
+        }
+        if (shouldRepaintForStyleDifference(diff))
+            return RequiredRepaint::RendererOnly;
+        if (newStyle.outlineSize() < oldStyle.outlineSize())
+            return RequiredRepaint::RendererOnly;
+        if (is<RenderLayerModelObject>(*this)) {
+            // If we don't have a layer yet, but we are going to get one because of transform or opacity, then we need to repaint the old position of the object.
+            bool hasLayer = downcast<RenderLayerModelObject>(*this).hasLayer();
+            bool willHaveLayer = newStyle.hasTransform() || newStyle.opacity() < 1 || newStyle.hasFilter() || newStyle.hasBackdropFilter();
+            if (!hasLayer && willHaveLayer)
+                return RequiredRepaint::RendererOnly;
+        }
+        if (is<RenderBox>(*this)) {
+            if (diff == StyleDifference::Layout && oldStyle.position() != newStyle.position() && oldStyle.position() == PositionType::Static)
+                return RequiredRepaint::RendererOnly;
+        }
+        if (diff > StyleDifference::RepaintLayer && oldStyle.visibility() != newStyle.visibility()) {
+            if (auto* enclosingLayer = this->enclosingLayer()) {
+                auto rendererWillBeHidden = newStyle.visibility() != Visibility::Visible;
+                if (rendererWillBeHidden && enclosingLayer->hasVisibleContent() && (this == &enclosingLayer->renderer() || enclosingLayer->renderer().style().visibility() != Visibility::Visible))
+                    return RequiredRepaint::RendererOnly;
+            }
+        }
+        return RequiredRepaint::None;
+    }();
+    if (shouldRepaintBeforeStyleChange == RequiredRepaint::RendererAndDescendantsRenderersWithLayers) {
+        ASSERT(hasLayer());
+        downcast<RenderLayerModelObject>(*this).layer()->repaintIncludingDescendants();
+        return true;
+    }
+    if (shouldRepaintBeforeStyleChange == RequiredRepaint::RendererOnly) {
+        repaint();
+        return true;
+    }
+    return false;
+}
+
 void RenderElement::initializeStyle()
 {
     Style::loadPendingResources(m_style, document(), element());
@@ -412,6 +478,7 @@ void RenderElement::setStyle(RenderStyle&& style, StyleDifference minimalStyleDi
 
     Style::loadPendingResources(style, document(), element());
 
+    auto didRepaint = repaintBeforeStyleChange(diff, m_style, style);
     styleWillChange(diff, style);
     auto oldStyle = m_style.replace(WTFMove(style));
     bool detachedFromParent = !parent();
@@ -450,7 +517,7 @@ void RenderElement::setStyle(RenderStyle&& style, StyleDifference minimalStyleDi
             setNeedsSimplifiedNormalFlowLayout();
     }
 
-    if (updatedDiff == StyleDifference::RepaintLayer || shouldRepaintForStyleDifference(updatedDiff)) {
+    if (!didRepaint && (updatedDiff == StyleDifference::RepaintLayer || shouldRepaintForStyleDifference(updatedDiff))) {
         // Do a repaint with the new style now, e.g., for example if we go from
         // not having an outline to having an outline.
         repaint();
@@ -727,20 +794,25 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
             if (RenderLayer* layer = enclosingLayer()) {
                 if (newStyle.visibility() == Visibility::Visible)
                     layer->setHasVisibleContent();
-                else if (layer->hasVisibleContent() && (this == &layer->renderer() || layer->renderer().style().visibility() != Visibility::Visible)) {
+                else if (layer->hasVisibleContent() && (this == &layer->renderer() || layer->renderer().style().visibility() != Visibility::Visible))
                     layer->dirtyVisibleContentStatus();
-                    if (diff > StyleDifference::RepaintLayer)
-                        repaint();
-                }
             }
         }
 
         auto needsInvalidateEventRegion = [&] {
             if (m_style.pointerEvents() != newStyle.pointerEvents())
                 return true;
-#if ENABLE(POINTER_EVENTS)
+#if ENABLE(TOUCH_ACTION_REGIONS)
             if (m_style.effectiveTouchActions() != newStyle.effectiveTouchActions())
                 return true;
+#endif
+            if (m_style.eventListenerRegionTypes() != newStyle.eventListenerRegionTypes())
+                return true;
+#if ENABLE(EDITABLE_REGION)
+            bool wasEditable = m_style.userModify() != UserModify::ReadOnly;
+            bool isEditable = newStyle.userModify() != UserModify::ReadOnly;
+            if (wasEditable != isEditable)
+                return page().shouldBuildEditableRegion();
 #endif
             return false;
         };
@@ -748,11 +820,8 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         if (needsInvalidateEventRegion()) {
             // Usually the event region gets updated as a result of paint invalidation. Here we need to request an update explicitly.
             if (auto* layer = enclosingLayer())
-                layer->invalidateEventRegion();
+                layer->invalidateEventRegion(RenderLayer::EventRegionInvalidationReason::Style);
         }
-
-        if (m_parent && (newStyle.outlineSize() < m_style.outlineSize() || shouldRepaintForStyleDifference(diff)))
-            repaint();
 
         if (isFloating() && m_style.floating() != newStyle.floating()) {
             // For changes in float styles, we need to conceivably remove ourselves
@@ -886,7 +955,7 @@ void RenderElement::insertedIntoTree()
         if (!layer)
             layer = parent()->enclosingLayer();
         if (layer)
-            layer->setHasVisibleContent();
+            layer->dirtyVisibleContentStatus();
     }
 
     RenderObject::insertedIntoTree();
@@ -1321,7 +1390,7 @@ VisibleInViewportState RenderElement::imageFrameAvailable(CachedImage& image, Im
     return isVisible ? VisibleInViewportState::Yes : VisibleInViewportState::No;
 }
 
-void RenderElement::notifyFinished(CachedResource& resource)
+void RenderElement::notifyFinished(CachedResource& resource, const NetworkLoadMetrics&)
 {
     document().cachedResourceLoader().notifyFinished(resource);
 }
@@ -1425,8 +1494,13 @@ std::unique_ptr<RenderStyle> RenderElement::selectionPseudoStyle() const
 
     if (ShadowRoot* root = element()->containingShadowRoot()) {
         if (root->mode() == ShadowRootMode::UserAgent) {
-            if (Element* shadowHost = element()->shadowHost())
-                return shadowHost->renderer()->getUncachedPseudoStyle({ PseudoId::Selection });
+            auto* currentElement = element()->shadowHost();
+            // When an element has display: contents, this element doesn't have a renderer
+            // and its children will render as children of the parent element.
+            while (currentElement && currentElement->hasDisplayContents())
+                currentElement = currentElement->parentElement();
+            if (currentElement && currentElement->renderer())
+                return currentElement->renderer()->getUncachedPseudoStyle({ PseudoId::Selection });
         }
     }
 

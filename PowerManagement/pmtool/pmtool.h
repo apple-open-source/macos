@@ -58,6 +58,8 @@
 #define kAssertInternalPreventSleep                     "internalpreventsleep"
 #define kAssertMaintenanceWake                          "maintenancewake"
 #define kAssertSystemIsActive                           "systemisactive"
+#define kAssertPreventUserIdleSystemSleep               "preventuseridlesystemsleep"
+#define kAssertPreventUserIdleDisplaySleep              "preventuseridledisplaysleep"
 
 struct DTAssertionOption {
     CFStringRef         assertionType;
@@ -117,6 +119,10 @@ static void sendSmartBatteryCommand(uint32_t which, uint32_t level);
 static void sendCustomBatteryProperties(char *path);
 static void sendBHUpdateTimeDelta(long timeDelta);
 static void sendBHDataFromCFPrefs(void);
+static void sendAgingDataFromCFPrefs(void);
+#if TARGET_OS_OSX
+static void isVactSupported(void);
+#endif
 
 /*************************************************************************/
 /*
@@ -167,6 +173,8 @@ typedef enum {
     kResetCustomBatteryPropertiesIndex,
     kSetBHUpdateDeltaIndex,
     kGetBHDataFromPrefsIndex,
+    kGetAgingDataFromPrefsIndex,
+    kGetVactSupportedIndex,
     kActionsCount   // kActionsCount must always be the last item in this list
 } pmtoolActions;
 
@@ -203,6 +211,7 @@ enum {
     kSBSetOverrideCapacity  = 5,
     kSBSwitchToTrueCapacity = 6
 };
+
 /*
  * Options - caller may specify 0 or more
  */
@@ -246,6 +255,8 @@ enum {
 #define kActionResetBattProps                           "resetbattprops"
 #define kActionSetBHUpdateDelta                         "bhupdatedelta"
 #define kActionGetBHDataFromPrefs                       "getbhdatafromprefs"
+#define kActionGetAgingDataFromPrefs                    "getagingdatafromprefs"
+#define kActionGetVactSupported                         "isvactsupported"
 
 #define kArgIOPMConnection                              "iopmconnection"
 #define kArgIORegisterForSystemPower                    "ioregisterforsystempower"

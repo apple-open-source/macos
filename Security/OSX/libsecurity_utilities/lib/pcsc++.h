@@ -60,7 +60,7 @@ public:
     const unsigned long error;
 	OSStatus osStatus() const;
 	int unixError() const;
-	const char *what () const throw ();
+	const char *what () const _NOEXCEPT;
 	
 	static void check(unsigned long err) { if (err != SCARD_S_SUCCESS) throwMe(err); }
 	static void throwMe(unsigned long err);

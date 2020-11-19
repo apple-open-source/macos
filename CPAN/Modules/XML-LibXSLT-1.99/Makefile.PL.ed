@@ -1,0 +1,10 @@
+/$config{LIBS} ||= backtick(/i
+	    my $sdkroot = exists($ENV{SDKROOT}) ? $ENV{SDKROOT} : '';
+.
+/$config{LIBS} ||= backtick(/a
+	    $config{LIBS} =~ s/-L/-L$sdkroot/g if index($config{LIBS}, $sdkroot) < 0;
+.
+/$config{INC} ||= backtick(/a
+	    $config{INC}  =~ s/-I/-I$sdkroot/g if index($config{INC}, $sdkroot) < 0;
+.
+w

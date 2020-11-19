@@ -5,7 +5,6 @@
 #include "debugging.h"
 
 #include <AssertMacros.h>
-#include <assert.h>
 
 AUTHD_DEFINE_LOG
 
@@ -23,6 +22,11 @@ SerializeItemSet(const AuthorizationItemSet * itemSet)
         xpc_object_t item = xpc_dictionary_create(NULL, NULL, 0);
         require(item != NULL, done);
         
+        if (itemSet->items[i].name == NULL) {
+            os_log_error(AUTHD_LOG, "ItemSet - item #%d name is NULL", i);
+            xpc_release(item);
+            continue;
+        }
         xpc_dictionary_set_string(item, AUTH_XPC_ITEM_NAME, itemSet->items[i].name);
         xpc_dictionary_set_uint64(item, AUTH_XPC_ITEM_FLAGS, itemSet->items[i].flags);
         xpc_dictionary_set_data(item, AUTH_XPC_ITEM_VALUE, itemSet->items[i].value, itemSet->items[i].valueLength);
@@ -304,4 +308,10 @@ done:
     free_safe(keys);
     free_safe(values);
     return result;
+}
+
+bool isInLWOS()
+{
+    // temporary solution until we find a better way
+    return getenv("__OSINSTALL_ENVIRONMENT") != NULL;
 }

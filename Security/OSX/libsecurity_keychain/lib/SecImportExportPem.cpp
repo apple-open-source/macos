@@ -32,6 +32,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <security_utilities/simulatecrash_assert.h>
+
 /* 
  * Text parsing routines. 
  *

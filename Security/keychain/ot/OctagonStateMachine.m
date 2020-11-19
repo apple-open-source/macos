@@ -39,7 +39,7 @@ format,                                                                         
 @property (nullable) CKKSResultOperation* nextStateMachineCycleOperation;
 
 @property NSMutableArray<OctagonStateTransitionRequest<CKKSResultOperation<OctagonStateTransitionOperationProtocol>*>*>* stateMachineRequests;
-@property NSMutableArray<OctagonStateTransitionWatcher*>* stateMachineWatchers;
+@property NSMutableArray<id<OctagonStateTransitionWatcherProtocol>>* stateMachineWatchers;
 
 @property BOOL halted;
 @property bool allowPendingFlags;
@@ -246,7 +246,7 @@ format,                                                                         
                       op,
                       op.error ?: @"(no error)");
 
-            for(OctagonStateTransitionWatcher* watcher in self.stateMachineWatchers) {
+            for(id<OctagonStateTransitionWatcherProtocol> watcher in self.stateMachineWatchers) {
                 statemachinelog("state", "notifying watcher: %@", watcher);
                 [watcher onqueueHandleTransition:op];
             }
@@ -286,9 +286,16 @@ format,                                                                         
 - (void)handleFlag:(OctagonFlag*)flag
 {
     dispatch_sync(self.queue, ^{
-        [self.currentFlags _onqueueSetFlag:flag];
-        [self _onqueuePokeStateMachine];
+        [self _onqueueHandleFlag:flag];
     });
+}
+
+
+- (void)_onqueueHandleFlag:(OctagonFlag*)flag
+{
+    dispatch_assert_queue(self.queue);
+    [self.currentFlags _onqueueSetFlag:flag];
+    [self _onqueuePokeStateMachine];
 }
 
 - (void)handlePendingFlag:(OctagonPendingFlag *)pendingFlag {
@@ -308,6 +315,20 @@ format,                                                                         
     if(recheck != 0x0) {
         // Technically don't need this if, but it adds readability
         self.currentConditions &= ~recheck;
+    }
+
+    if(pendingFlag.afterOperation) {
+        WEAKIFY(self);
+        NSOperation* after = [NSBlockOperation blockOperationWithBlock:^{
+            STRONGIFY(self);
+            dispatch_sync(self.queue, ^{
+                statemachinelog("pending-flag", "Finished waiting for operation");
+                [self _onqueueSendAnyPendingFlags];
+            });
+        }];
+
+        [after addNullableDependency:pendingFlag.afterOperation];
+        [self.operationQueue addOperation:after];
     }
 
     [self _onqueueRecheckConditions];
@@ -409,6 +430,14 @@ format,                                                                         
             }
         }
 
+        if(pendingFlag.afterOperation) {
+            if(![pendingFlag.afterOperation isFinished]) {
+                send = false;
+            } else {
+                statemachinelog("pending-flag", "Operation has ended for pending flag %@: %@", pendingFlag.flag, pendingFlag.afterOperation);
+            }
+        }
+
         if(pendingFlag.conditions != 0x0) {
             // Also, send the flag if the conditions are right
             if((pendingFlag.conditions & self.currentConditions) == pendingFlag.conditions) {
@@ -485,11 +514,24 @@ format,                                                                         
     });
 }
 
+
 - (void)registerStateTransitionWatcher:(OctagonStateTransitionWatcher*)watcher
 {
     dispatch_sync(self.queue, ^{
         [self.stateMachineWatchers addObject: watcher];
         [self _onqueuePokeStateMachine];
+    });
+}
+
+- (void)registerMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher
+{
+    dispatch_sync(self.queue, ^{
+        if([watcher.states containsObject:self.currentState]) {
+            [watcher onqueueEnterState:self.currentState];
+        } else {
+            [self.stateMachineWatchers addObject:watcher];
+            [self _onqueuePokeStateMachine];
+        }
     });
 }
 
@@ -525,10 +567,10 @@ format,                                                                         
     self.timeout = timeout;
 }
 
-- (void)doWatchedStateMachineRPC:(NSString*)name
-                    sourceStates:(NSSet<OctagonState*>*)sourceStates
-                            path:(OctagonStateTransitionPath*)path
-                           reply:(nonnull void (^)(NSError *error))reply
+- (CKKSResultOperation*)doWatchedStateMachineRPC:(NSString*)name
+                                    sourceStates:(NSSet<OctagonState*>*)sourceStates
+                                            path:(OctagonStateTransitionPath*)path
+                                           reply:(nonnull void (^)(NSError *error))reply
 {
     statemachinelog("state-rpc", "Beginning a '%@' rpc", name);
 
@@ -551,18 +593,21 @@ format,                                                                         
 
     [self registerStateTransitionWatcher:watcher];
 
-    WEAKIFY(self);
     CKKSResultOperation* replyOp = [CKKSResultOperation named:[NSString stringWithFormat: @"%@-callback", name]
-                                                    withBlock:^{
-                                                        STRONGIFY(self);
-                                                        statemachinelog("state-rpc", "Returning '%@' result: %@", name, watcher.result.error ?: @"no error");
-                                                        reply(watcher.result.error);
-                                                    }];
+                                          withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+        statemachinelog("state-rpc", "Returning '%@' result: %@", name, watcher.result.error ?: @"no error");
+        if(reply) {
+            reply(watcher.result.error);
+        }
+        op.error = watcher.result.error;
+    }];
+
     [replyOp addDependency:watcher.result];
     [self.operationQueue addOperation:replyOp];
 
 
     [self handleExternalRequest:request];
+    return replyOp;
 }
 
 @end

@@ -1923,7 +1923,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "cp libxml2/Copyright \"${BUILT_PRODUCTS_DIR}/libxml2.txt\"";
+			shellScript = "cp libxml2/Copyright \"${BUILT_PRODUCTS_DIR}/libxml2.txt\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

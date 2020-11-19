@@ -221,7 +221,7 @@ static OSErr FindExtentRecord(
 	struct BTreeIterator *btIterator = NULL;
 	FSBufferDescriptor	btRecord;
 	OSErr				err;
-	u_int16_t			btRecordSize;
+	u_int16_t			btRecordSize = 0;
 	
 	err = noErr;
 	if (foundHint)
@@ -348,7 +348,7 @@ static OSErr CreateExtentRecord(
 {
 	struct BTreeIterator *btIterator = NULL;
 	FSBufferDescriptor	btRecord;
-	u_int16_t  btRecordSize;
+	u_int16_t  btRecordSize = 0;
 	int  lockflags;
 	OSErr  err;
 	
@@ -1025,7 +1025,7 @@ OSErr ExtendFileC (
 	int					allowFlushTxns;
 	u_int32_t			actualStartBlock;
 	u_int32_t			actualNumBlocks;
-	u_int32_t			numExtentsPerRecord;
+	u_int32_t			numExtentsPerRecord = 0;
 	int64_t				maximumBytes;
 	int64_t 			availbytes;
 	int64_t				peof;

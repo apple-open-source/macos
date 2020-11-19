@@ -877,7 +877,7 @@ OSErr FixBadLinkChainFirst(SGlobPtr GPtr, RepairOrderPtr p)
 		(void)snprintf((char*)&attrRec->attrData[0],
 			sizeof(attrdata) - offsetof(HFSPlusAttrData, attrData),
 			"%lu", (unsigned long)(p->correct));
-		attrRec->attrSize = 1 + strlen((char*)&attrRec->attrData[0]);
+		attrRec->attrSize = (u_int32_t)(1 + strlen((char*)&attrRec->attrData[0]));
 		bt_data.bufferAddress = attrRec;
 		recsize = sizeof(HFSPlusAttrData) - 2 + attrRec->attrSize + ((attrRec->attrSize & 1) ? 1 : 0);
 		bt_data.itemSize = recsize;
@@ -941,7 +941,7 @@ OSErr FixHardLinkBadDate(SGlobPtr GPtr, RepairOrderPtr p)
 		if (rec.recordType != kHFSPlusFileRecord) {
 			retval = IntError(GPtr, R_IntErr);
 		} else {
-			rec.hfsPlusFile.createDate = p->correct;
+			rec.hfsPlusFile.createDate = (u_int32_t)p->correct;
 			retval = ReplaceBTreeRecord(GPtr->calculatedCatalogFCB, &key, kNoHint, &rec, recsize, &hint);
 		}
 	}
@@ -1298,7 +1298,7 @@ OSErr UpdFolderCount( SGlobPtr GPtr, RepairOrderPtr p)
 	}
 #endif
 
-	record.hfsPlusFolder.folderCount = p->correct;
+	record.hfsPlusFolder.folderCount = (u_int32_t)p->correct;
 	result = ReplaceBTreeRecord( GPtr->calculatedCatalogFCB, &foundKey, hint,
 		&record, recSize, &hint);
 	if (result) {
@@ -2879,7 +2879,7 @@ static OSErr FixBadExtent(SGlobPtr GPtr, RepairOrderPtr p)
 	Boolean didRepair;
 
 	fileID = p->parid;
-	badExtentIndex = p->correct;
+	badExtentIndex = (UInt32)p->correct;
 	extentStartBlock = p->hint;
 	forkType = p->forkType;
 
@@ -4036,7 +4036,7 @@ Output:		<0 if *a < *b
 
 int cmpLongs ( const void *a, const void *b )
 {
-	return( *(long*)a - *(long*)b );
+	return (int)( *(long*)a - *(long*)b );
 }
 
 /* Function: FixOverlappingExtents
@@ -5142,7 +5142,7 @@ OSErr GetSystemFileName(UInt32 fileID, char *filename, unsigned int *filenamelen
 				break;
 		};
 		filename[len] = '\0';
-		*filenamelen = strlen (filename);
+		*filenamelen = (unsigned int)strlen (filename);
 	}
 	return err;
 }
@@ -5284,7 +5284,7 @@ OSErr GetFileNamePathByID(SGlobPtr GPtr, UInt32 fileID, char *fullPath, unsigned
 		}
 
 		/* Do not NULL terminate the string */
-		curPtr->namelen = namelen;
+		curPtr->namelen = (unsigned int)namelen;
 		curPtr->name = malloc(namelen);
 		if (!curPtr->name) {
 			err = memFullErr;
@@ -5581,7 +5581,7 @@ FixMissingDirectory( SGlob *GPtr, UInt32 theObjID, UInt32 theParID )
 	// no way to find the original name and this should make it unique within our
 	// lost+found directory.
 	sprintf( myString, "%ld", (long)theObjID );
-	nameLen = strlen( myString );
+	nameLen = (int)strlen( myString );
 
     if ( isHFSPlus )
     {
@@ -5927,7 +5927,7 @@ UInt32 CreateDirByName(SGlob *GPtr , const u_char *dirName, const UInt32 parentI
 	
 	isHFSPlus = VolumeObjectIsHFSPlus( );
   	fcbPtr = GPtr->calculatedCatalogFCB;
-	nameLen = strlen( (char *)dirName );
+	nameLen = (int)strlen( (char *)dirName );
 
     if ( isHFSPlus )
     {

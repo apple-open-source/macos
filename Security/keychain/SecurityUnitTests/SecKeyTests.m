@@ -28,16 +28,34 @@
 
 @implementation SecKeyTests
 
-- (void)testSecKeyAttributesCanBeReadWithMatchingStringsAsKeys
-{
+- (void)testSecKeyAttributesCanBeReadWithMatchingStringsAsKeys {
     CFMutableDictionaryRef keyParameters = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     CFDictionarySetValue(keyParameters, kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom);
     CFDictionarySetValue(keyParameters, kSecAttrKeySizeInBits, (__bridge CFNumberRef)@(384));
     CFDictionarySetValue(keyParameters, CFSTR("nleg"), kCFBooleanTrue);
     SecKeyRef secKey = SecKeyCreateRandomKey(keyParameters, nil);
     NSDictionary* attributes = (__bridge_transfer NSDictionary*)SecKeyCopyAttributes(secKey);
-    XCTAssertEqual(attributes[(__bridge NSString*)kSecAttrKeySizeInBits], attributes[@"bsiz"], @"the SecKey attributes dictionary value of 'kSecAttrKeySizeInBits' and 'bsiz' are not the same");
+    XCTAssertEqualObjects(attributes[(__bridge NSString*)kSecAttrKeySizeInBits], attributes[@"bsiz"], @"the SecKey attributes dictionary value of 'kSecAttrKeySizeInBits' and 'bsiz' are not the same");
     XCTAssertNotNil(attributes[@"bsiz"], @"the SecKey attributes dictionary value for 'bsiz' is nil");
+}
+
+- (void)testECIESDecryptBadInputData {
+    NSData *message = [@"message" dataUsingEncoding:NSUTF8StringEncoding];
+    NSError *error;
+    id privKey = CFBridgingRelease(SecKeyCreateRandomKey((CFDictionaryRef)@{(id)kSecAttrKeyType: (id)kSecAttrKeyTypeECSECPrimeRandom, (id)kSecAttrKeySizeInBits: @256}, (void *)&error));
+    XCTAssertNotNil(privKey, @"key generation failed: %@", error);
+    id pubKey = CFBridgingRelease(SecKeyCopyPublicKey((SecKeyRef)privKey));
+    XCTAssertNotNil(pubKey);
+    NSData *ciphertext = CFBridgingRelease(SecKeyCreateEncryptedData((SecKeyRef)pubKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM, (CFDataRef)message, (void *)&error));
+    XCTAssertNotNil(ciphertext, @"Encryption failed: %@", error);
+    NSData *plaintext = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)privKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM, (CFDataRef)ciphertext, (void *)&error));
+    XCTAssertEqualObjects(message, plaintext, @"Decryption did not provide original message");
+
+    // Strip tag from ciphertext
+    NSData *strippedCiphertext = [ciphertext subdataWithRange:NSMakeRange(0, ciphertext.length - 16)];
+    NSData *failedDecrypted = CFBridgingRelease(SecKeyCreateDecryptedData((SecKeyRef)privKey, kSecKeyAlgorithmECIESEncryptionStandardX963SHA256AESGCM, (CFDataRef)strippedCiphertext, (void *)&error));
+    XCTAssertNil(failedDecrypted, @"Decryption of malformed data did not fail");
+    XCTAssertEqual(error.code, errSecParam, @"Unexpected error code provided");
 }
 
 @end

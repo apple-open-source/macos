@@ -2,13 +2,13 @@
  * Copyright (c) 1998-2002 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * The contents of this file constitute Original Code as defined in and
  * are subject to the Apple Public Source License Version 1.1 (the
  * "License").  You may not use this file except in compliance with the
  * License.  Please obtain a copy of the License at
  * http://www.apple.com/publicsource and read it before using this file.
- * 
+ *
  * This Original Code and all software distributed under the License are
  * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -16,7 +16,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
  * License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -60,34 +60,36 @@ OSDefineMetaClassAndStructors(IOFWPhysicalAddressSpace, IOFWAddressSpace)
 
 bool IOFWPhysicalAddressSpace::init( IOFireWireBus * bus )
 {
+	DebugLog("IOFWPhysicalAddressSpace<%p>::init\n", this );
+	
 	bool success = true;		// assume success
 	
 	// init super
 	
-    if( !IOFWAddressSpace::init( bus ) )
-        success = false;
-		
+	if( !IOFWAddressSpace::init( bus ) )
+		success = false;
+	
 	return success;
 }
 
 // createAuxiliary
 //
-// virtual method for creating auxiliary object.  subclasses needing to subclass 
+// virtual method for creating auxiliary object.  subclasses needing to subclass
 // the auxiliary object can override this.
 
 IOFWAddressSpaceAux * IOFWPhysicalAddressSpace::createAuxiliary( void )
 {
 	IOFWPhysicalAddressSpaceAux * auxiliary;
-    
-	auxiliary = OSTypeAlloc( IOFWPhysicalAddressSpaceAux );
-
-    if( auxiliary != NULL && !auxiliary->init(this) ) 
-	{
-        auxiliary->release();
-        auxiliary = NULL;
-    }
 	
-    return (IOFWAddressSpaceAux*)auxiliary;
+	auxiliary = OSTypeAlloc( IOFWPhysicalAddressSpaceAux );
+	
+	if( auxiliary != NULL && !auxiliary->init(this) )
+	{
+		auxiliary->release();
+		auxiliary = NULL;
+	}
+	
+	return (IOFWAddressSpaceAux*)auxiliary;
 }
 
 // checkMemoryInRange
@@ -97,7 +99,7 @@ IOFWAddressSpaceAux * IOFWPhysicalAddressSpace::createAuxiliary( void )
 IOReturn IOFWPhysicalAddressSpace::checkMemoryInRange( IOMemoryDescriptor * memory )
 {
 	IOReturn status = kIOReturnSuccess;
-
+	
 	if( memory == NULL )
 	{
 		status = kIOReturnBadArgument;
@@ -135,32 +137,44 @@ IOReturn IOFWPhysicalAddressSpace::checkMemoryInRange( IOMemoryDescriptor * memo
 	IODMACommand * dma_command = NULL;
 	if( status == kIOReturnSuccess )
 	{
-		dma_command = IODMACommand::withSpecification( 
-												kIODMACommandOutputHost64,		// segment function
-												64,								// max address bits
-												length,							// max segment size
-												(IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly),		// IO mapped & don't bounce buffer
-												length,							// max transfer size
-												0,								// page alignment
-												NULL,							// mapper
-												NULL );							// refcon
-		if( dma_command == NULL )
-			status = kIOReturnError;
+		IOMapper * mapper = fControl->copyMapper();
 		
+		dma_command = IODMACommand::withSpecification(
+													  kIODMACommandOutputHost64,		// segment function
+													  64,								// max address bits
+													  length,							// max segment size
+													  (IODMACommand::MappingOptions)(IODMACommand::kMapped | IODMACommand::kIterateOnly),		// IO mapped & don't bounce buffer
+													  length,							// max transfer size
+													  0,								// page alignment
+													  mapper,							// mapper
+													  NULL );							// refcon
+		
+		if( dma_command == NULL )
+		{
+			status = kIOReturnError;
+		}
+		
+		DebugLog("IOFWPhysicalAddressSpace<%p>::checkMemoryInRange - dma_command = %p, mapper = %p\n", this, dma_command, mapper);
+		
+		if( mapper )
+		{
+			mapper->release();
+			mapper = NULL;
+		}
 	}
 	
 	if( status == kIOReturnSuccess )
 	{
 		// set memory descriptor and don't prepare it
-		status = dma_command->setMemoryDescriptor( memory, false ); 
-	}	
-
+		status = dma_command->setMemoryDescriptor( memory, false );
+	}
+	
 	bool dma_command_prepared = false;
 	if( status == kIOReturnSuccess )
 	{
 		status = dma_command->prepare( 0, length, true );
 	}
-
+	
 	if( status == kIOReturnSuccess )
 	{
 		dma_command_prepared = true;
@@ -169,7 +183,7 @@ IOReturn IOFWPhysicalAddressSpace::checkMemoryInRange( IOMemoryDescriptor * memo
 	//
 	// check ranges
 	//
-
+	
 	if( status == kIOReturnSuccess )
 	{
 		UInt64 offset = 0;
@@ -183,11 +197,11 @@ IOReturn IOFWPhysicalAddressSpace::checkMemoryInRange( IOMemoryDescriptor * memo
 			{
 				for( UInt32 i = 0; i < num_segments; i++ )
 				{
-				//	IOLog( "checkSegments - segments[%d].fIOVMAddr = 0x%016llx, fLength = %d\n", i, segments[i].fIOVMAddr, segments[i].fLength  );
-						
+					//	IOLog( "checkSegments - segments[%d].fIOVMAddr = 0x%016llx, fLength = %d\n", i, segments[i].fIOVMAddr, segments[i].fLength  );
+					
 					if( (segments[i].fIOVMAddr & (~mask)) )
 					{
-				//		IOLog( "checkSegmentsFailed - 0x%016llx & 0x%016llx\n", segments[i].fIOVMAddr, mask );
+						// IOLog( "checkSegmentsFailed - 0x%016llx & 0x%016llx\n", segments[i].fIOVMAddr, mask );
 						status = kIOReturnNotPermitted;
 						break;
 					}
@@ -205,10 +219,10 @@ IOReturn IOFWPhysicalAddressSpace::checkMemoryInRange( IOMemoryDescriptor * memo
 		dma_command->complete();
 		dma_command_prepared = false;
 	}
-		
+	
 	if( dma_command )
 	{
-		dma_command->clearMemoryDescriptor(); 
+		dma_command->clearMemoryDescriptor();
 		dma_command->release();
 		dma_command = NULL;
 	}
@@ -220,7 +234,7 @@ IOReturn IOFWPhysicalAddressSpace::checkMemoryInRange( IOMemoryDescriptor * memo
 	}
 	
 	return status;
-
+	
 }
 
 // initWithDesc
@@ -228,12 +242,12 @@ IOReturn IOFWPhysicalAddressSpace::checkMemoryInRange( IOMemoryDescriptor * memo
 //
 
 bool IOFWPhysicalAddressSpace::initWithDesc( IOFireWireBus *control,
-                                             IOMemoryDescriptor * mem )
+											IOMemoryDescriptor * mem )
 {
-    if(!IOFWAddressSpace::init(control))
+	DebugLog("IOFWPhysicalAddressSpace<%p>::initWithDesc\n", this );
+	
+	if(!IOFWAddressSpace::init(control))
 		return false;
-		
-//	IOLog( "IOFWPhysicalAddressSpace::initWithDesc\n" );
 	
 	IOReturn status = kIOReturnSuccess;
 	
@@ -244,52 +258,62 @@ bool IOFWPhysicalAddressSpace::initWithDesc( IOFireWireBus *control,
 			status = checkMemoryInRange( mem );
 		}
 	}
-
-//	IOLog( "IOFWPhysicalAddressSpace::initWithDesc (1) - status = 0x%08lx\n", status );
 	
 	IODMACommand * dma_command = NULL;
 	if( status == kIOReturnSuccess )
 	{
-		UInt32 address_bits = fControl->getFireWirePhysicalAddressBits();
-		dma_command = IODMACommand::withSpecification( 
-												kIODMACommandOutputHost64,		// segment function
-												address_bits,					// max address bits
-												0,								// max segment size
-												IODMACommand::kMapped,			// I/O mapped
-												0,								// max transfer size
-												0,								// no alignment
-												NULL,							// mapper
-												NULL );							// refcon
-		if( dma_command == NULL )
-			status = kIOReturnError;
+		IOMapper * mapper = fControl->copyMapper();
 		
+		UInt32 address_bits = fControl->getFireWirePhysicalAddressBits();
+		dma_command = IODMACommand::withSpecification(
+													  kIODMACommandOutputHost64,		// segment function
+													  address_bits,						// max address bits
+													  0,								// max segment size
+													  IODMACommand::kMapped,			// I/O mapped
+													  0,								// max transfer size
+													  0,								// no alignment
+													  mapper,							// mapper
+													  NULL );							// refcon
+		
+		if( dma_command == NULL )
+		{
+			status = kIOReturnError;
+		}
+		
+		DebugLog("IOFWPhysicalAddressSpace<%p>::initWithDesc - dma_command = %p, mapper = %p\n", this, dma_command, mapper);
+		
+		if( mapper )
+		{
+			mapper->release();
+			mapper = NULL;
+		}
 	}
-
+	
 	if( status == kIOReturnSuccess )
 	{
 		setDMACommand( dma_command );
 		dma_command->release();
 		status = setMemoryDescriptor( mem );
-	} 
-
-//	IOLog( "IOFWPhysicalAddressSpace::initWithDesc (2) - status = 0x%08lx\n", status );
+	}
 	
-    return (status == kIOReturnSuccess);
+	return (status == kIOReturnSuccess);
 }
 
-// initWithDesc
+// initWithDMACommand
 //
 //
 
 bool IOFWPhysicalAddressSpace::initWithDMACommand(	IOFireWireBus * control,
-													IODMACommand * command )
+												  IODMACommand * command )
 {
-    if( !IOFWAddressSpace::init(control) )
-        return false;
-
+	DebugLog("// *** TEST: IOFWPhysicalAddressSpace<%p>::initWithDMACommand\n", this );
+	
+	if( !IOFWAddressSpace::init(control) )
+		return false;
+	
 	setDMACommand( command );
-
-    return true;
+	
+	return true;
 }
 
 // free
@@ -297,42 +321,42 @@ bool IOFWPhysicalAddressSpace::initWithDMACommand(	IOFireWireBus * control,
 //
 
 void IOFWPhysicalAddressSpace::free()
-{	
-//	IOLog( "IOFWPhysicalAddressSpace::free\n" );
+{
+	//	IOLog( "IOFWPhysicalAddressSpace::free\n" );
 	
-    IOFWAddressSpace::free();
+	IOFWAddressSpace::free();
 }
 
 // doRead
 //
 //
 
-UInt32 IOFWPhysicalAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len, 
-					IOMemoryDescriptor **buf, IOByteCount * offset, IOFWRequestRefCon refcon)
+UInt32 IOFWPhysicalAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
+										IOMemoryDescriptor **buf, IOByteCount * offset, IOFWRequestRefCon refcon)
 {
-    UInt32 res = kFWResponseAddressError;
-    UInt64 pos;
-    UInt64 phys;
+	UInt32 res = kFWResponseAddressError;
+	UInt64 pos;
+	UInt64 phys;
 	
 	if( !isTrustedNode( nodeID ) )
 		return kFWResponseAddressError;
 	
 	if( !isPrepared() )
 		return kFWResponseAddressError;
-		
-	UInt64 address = ((UInt64)addr.addressHi << 32) | (UInt64)addr.addressLo;	
+	
+	UInt64 address = ((UInt64)addr.addressHi << 32) | (UInt64)addr.addressLo;
 	UInt64 desc_length = getLength();
 	
-    pos = 0;
-    while( pos < desc_length ) 
+	pos = 0;
+	while( pos < desc_length )
 	{
 		bool found = false;
 		UInt64 lengthOfSegment;
-        phys = getPhysicalSegment( pos, &lengthOfSegment );
+		phys = getPhysicalSegment( pos, &lengthOfSegment );
 		
 		if( (address >= phys) && (address < (phys+lengthOfSegment)) )
 		{
-			UInt32 union_length = (lengthOfSegment - (address - phys));
+			UInt32 union_length = (UInt32)((lengthOfSegment - (address - phys)));
 			
 			// check if the request extends beyond this physical segment
 			if( len <= union_length )
@@ -352,7 +376,7 @@ UInt32 IOFWPhysicalAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddre
 				{
 					contig_phys = getPhysicalSegment( contiguous_pos, &lengthOfSegment );
 					if( contiguous_address != contig_phys )
-					{	
+					{
 						// not contiguous, bail
 						break;
 					}
@@ -363,7 +387,7 @@ UInt32 IOFWPhysicalAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddre
 						found = true;
 						break;
 					}
-
+					
 					contiguous_length -= lengthOfSegment;
 					contiguous_pos += lengthOfSegment;
 					contiguous_address += lengthOfSegment;
@@ -371,21 +395,21 @@ UInt32 IOFWPhysicalAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddre
 				
 			}
 		}
-
+		
 		if( found )
 		{
-            // OK, block is in space
+			// OK, block is in space
 			// Set position to exact start
 			*offset = (pos + address - phys);
-            *buf = getMemoryDescriptor();
-            res = kFWResponseComplete;
-            break;
-        }
+			*buf = getMemoryDescriptor();
+			res = kFWResponseComplete;
+			break;
+		}
 		
-        pos += lengthOfSegment;
-    }
-
-    return res;
+		pos += lengthOfSegment;
+	}
+	
+	return res;
 }
 
 // doWrite
@@ -393,38 +417,38 @@ UInt32 IOFWPhysicalAddressSpace::doRead(UInt16 nodeID, IOFWSpeed &speed, FWAddre
 //
 
 UInt32 IOFWPhysicalAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddress addr, UInt32 len,
-                                         const void *buf, IOFWRequestRefCon refcon)
+										 const void *buf, IOFWRequestRefCon refcon)
 {
-    UInt32 res = kFWResponseAddressError;
-    UInt64 pos;
-    UInt64 phys;
-
-//	IOLog( "IOFWPhysicalAddressSpace::doWrite\n" );
+	UInt32 res = kFWResponseAddressError;
+	UInt64 pos;
+	UInt64 phys;
+	
+	//	IOLog( "IOFWPhysicalAddressSpace::doWrite\n" );
 	
 	if( !isTrustedNode( nodeID ) )
 		return kFWResponseAddressError;
-
+	
 	if( !isPrepared() )
 	{
 		return kFWResponseAddressError;
 	}
-
+	
 	UInt64 address = ((UInt64)addr.addressHi << 32) | (UInt64)addr.addressLo;
-
+	
 	UInt64 desc_length = getLength();
-
-    pos = 0;
-    while(pos < desc_length) 
+	
+	pos = 0;
+	while(pos < desc_length)
 	{
 		bool found = false;
 		UInt64 lengthOfSegment;
-        phys = getPhysicalSegment(pos, &lengthOfSegment);
-
-//		IOLog( "IOFWPhysicalAddressSpace::doWrite - address = 0x%016llx phys = 0x%016llx\n", address, phys );
+		phys = getPhysicalSegment(pos, &lengthOfSegment);
+		
+		// IOLog( "IOFWPhysicalAddressSpace::doWrite - address = 0x%016llx phys = 0x%016llx\n", address, phys );
 		
 		if( (address >= phys) && (address < (phys+lengthOfSegment)) )
 		{
-			UInt32 union_length = (lengthOfSegment - (address - phys));
+			UInt32 union_length = (UInt32)((lengthOfSegment - (address - phys)));
 			
 			// check if the request extends beyond this physical segment
 			if( len <= union_length )
@@ -444,7 +468,7 @@ UInt32 IOFWPhysicalAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddr
 				{
 					contig_phys = getPhysicalSegment( contiguous_pos, &lengthOfSegment );
 					if( contiguous_address != contig_phys )
-					{	
+					{
 						// not contiguous, bail
 						break;
 					}
@@ -455,7 +479,7 @@ UInt32 IOFWPhysicalAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddr
 						found = true;
 						break;
 					}
-
+					
 					contiguous_length -= lengthOfSegment;
 					contiguous_pos += lengthOfSegment;
 					contiguous_address += lengthOfSegment;
@@ -463,25 +487,25 @@ UInt32 IOFWPhysicalAddressSpace::doWrite(UInt16 nodeID, IOFWSpeed &speed, FWAddr
 				
 			}
 		}
-
+		
 		if( found )
 		{
-            // OK, block is in space
-
+			// OK, block is in space
+			
 			getMemoryDescriptor()->writeBytes( pos + (address - phys), buf, len);
 			getDMACommand()->writeBytes( pos + (address - phys), buf, len );
-				
+			
 			// make sure any bounce buffers have the new data
-		//	synchronize( kIODirectionOut );
-
+			//	synchronize( kIODirectionOut );
+			
 			res = kFWResponseComplete;
-            break;
-        }
+			break;
+		}
 		
-        pos += lengthOfSegment;
-    }
-
-    return res;
+		pos += lengthOfSegment;
+	}
+	
+	return res;
 }
 
 // getMemoryDescriptor
@@ -508,7 +532,7 @@ IOMemoryDescriptor * IOFWPhysicalAddressSpace::getMemoryDescriptor( void )
 IOReturn IOFWPhysicalAddressSpace::setMemoryDescriptor( IOMemoryDescriptor * descriptor )
 {
 	IOReturn status = kIOReturnSuccess;
-		
+	
 	if( isPrepared() )
 	{
 		complete();
@@ -517,7 +541,7 @@ IOReturn IOFWPhysicalAddressSpace::setMemoryDescriptor( IOMemoryDescriptor * des
 	IODMACommand * dma_command = getDMACommand();
 	if( dma_command == NULL )
 		status = kIOReturnError;
-
+	
 	if( status == kIOReturnSuccess )
 	{
 		if( descriptor == NULL )
@@ -526,7 +550,7 @@ IOReturn IOFWPhysicalAddressSpace::setMemoryDescriptor( IOMemoryDescriptor * des
 		}
 		else
 		{
-			dma_command->clearMemoryDescriptor(); 
+			dma_command->clearMemoryDescriptor();
 			status = dma_command->setMemoryDescriptor( descriptor, false );
 			if( status == kIOReturnSuccess )
 			{
@@ -568,10 +592,10 @@ bool IOFWPhysicalAddressSpaceAux::init( IOFWAddressSpace * primary )
 	
 	// init super
 	
-    if( !IOFWAddressSpaceAux::init( primary ) )
-        success = false;
-
-//	IOLog( "IOFWPhysicalAddressSpaceAux::init\n" );
+	if( !IOFWAddressSpaceAux::init( primary ) )
+		success = false;
+	
+	//	IOLog( "IOFWPhysicalAddressSpaceAux::init\n" );
 	
 	if( success )
 	{
@@ -590,14 +614,14 @@ bool IOFWPhysicalAddressSpaceAux::init( IOFWAddressSpace * primary )
 //
 
 void IOFWPhysicalAddressSpaceAux::free()
-{	
-//	IOLog( "IOFWPhysicalAddressSpaceAux::free\n" );
-
+{
+	//	IOLog( "IOFWPhysicalAddressSpaceAux::free\n" );
+	
 	if( isPrepared() )
 	{
 		complete();
 	}
-
+	
 	if( fDMACommand )
 	{
 		fDMACommand->clearMemoryDescriptor();
@@ -612,13 +636,13 @@ void IOFWPhysicalAddressSpaceAux::free()
 //
 //
 
-void IOFWPhysicalAddressSpaceAux::setDMACommand( IODMACommand * dma_command ) 
+void IOFWPhysicalAddressSpaceAux::setDMACommand( IODMACommand * dma_command )
 {
 	if( fDMACommandPrepared )
 	{
 		complete();
 	}
-
+	
 	IODMACommand * old = fDMACommand;
 	fDMACommand = dma_command;
 	
@@ -633,11 +657,11 @@ void IOFWPhysicalAddressSpaceAux::setDMACommand( IODMACommand * dma_command )
 	}
 }
 
-// setDMACommand
+// getDMACommand
 //
 //
 
-IODMACommand * IOFWPhysicalAddressSpaceAux::getDMACommand( void ) 
+IODMACommand * IOFWPhysicalAddressSpaceAux::getDMACommand( void )
 {
 	return fDMACommand;
 }
@@ -655,15 +679,16 @@ bool IOFWPhysicalAddressSpaceAux::isPrepared( void )
 //
 //
 
-UInt64 IOFWPhysicalAddressSpaceAux::getPhysicalSegment( UInt64 offset, UInt64 * length ) 
+UInt64 IOFWPhysicalAddressSpaceAux::getPhysicalSegment( UInt64 offset, UInt64 * length )
 {
 	IOReturn status = kIOReturnSuccess;
 	
 	UInt64 	phys = 0;
-
+	
 	IODMACommand::Segment64 segment;
 	UInt32 numSegments = 1;
 	UInt64 pos = offset;
+	
 	if( status == kIOReturnSuccess )
 	{
 		status = fDMACommand->gen64IOVMSegments( &pos, &segment, &numSegments );
@@ -676,13 +701,13 @@ UInt64 IOFWPhysicalAddressSpaceAux::getPhysicalSegment( UInt64 offset, UInt64 * 
 			status = kIOReturnNoMemory;
 		}
 	}
-
+	
 	if( status == kIOReturnSuccess )
 	{
 		phys = segment.fIOVMAddr;
 		*length = segment.fLength;
 	}
-
+	
 	return phys;
 }
 
@@ -693,9 +718,9 @@ UInt64 IOFWPhysicalAddressSpaceAux::getPhysicalSegment( UInt64 offset, UInt64 * 
 IOReturn IOFWPhysicalAddressSpaceAux::prepare( void )
 {
 	IOReturn status = kIOReturnSuccess;
-
-//	IOLog( "IOFWPhysicalAddressSpaceAux::prepare\n" );
-
+	
+	//	IOLog( "IOFWPhysicalAddressSpaceAux::prepare\n" );
+	
 	if( !fDMACommandPrepared )
 	{
 		UInt64 desc_length = ((IOFWPhysicalAddressSpace*)fPrimary)->getLength();
@@ -716,9 +741,9 @@ IOReturn IOFWPhysicalAddressSpaceAux::prepare( void )
 IOReturn IOFWPhysicalAddressSpaceAux::complete( void )
 {
 	IOReturn status = kIOReturnSuccess;
-
-//	IOLog( "IOFWPhysicalAddressSpaceAux::complete\n" );
-
+	
+	//	IOLog( "IOFWPhysicalAddressSpaceAux::complete\n" );
+	
 	if( !fDMACommandPrepared )
 	{
 		status = kIOReturnNotReady;
@@ -733,7 +758,7 @@ IOReturn IOFWPhysicalAddressSpaceAux::complete( void )
 		}
 	}
 	
-	return status;	
+	return status;
 }
 
 // synchronize
@@ -743,9 +768,9 @@ IOReturn IOFWPhysicalAddressSpaceAux::complete( void )
 IOReturn IOFWPhysicalAddressSpaceAux::synchronize( IOOptionBits options )
 {
 	IOReturn status = kIOReturnSuccess;
-
-//	IOLog( "IOFWPhysicalAddressSpaceAux::synchronize - direction = %d\n", direction );
-
+	
+	//	IOLog( "IOFWPhysicalAddressSpaceAux::synchronize - direction = %d\n", direction );
+	
 	if( !fDMACommandPrepared )
 	{
 		status = kIOReturnNotReady;
@@ -756,7 +781,7 @@ IOReturn IOFWPhysicalAddressSpaceAux::synchronize( IOOptionBits options )
 		status = fDMACommand->synchronize( options );
 	}
 	
-	return status;	
+	return status;
 }
 
 // getSegments
@@ -793,13 +818,13 @@ IOReturn IOFWPhysicalAddressSpaceAux::getSegments( UInt64 * offset, FWSegment * 
 	{
 		for( UInt32 i = 0; i < *num_segments; i++ )
 		{
-			fw_segments[i].length = vm_segments[i].fLength;
+			fw_segments[i].length = (UInt32)vm_segments[i].fLength;
 			fw_segments[i].address.nodeID = 0x0000;		// invalid node id
 			fw_segments[i].address.addressHi = (vm_segments[i].fIOVMAddr >> 32) & 0x000000000000ffffULL;
 			fw_segments[i].address.addressLo = vm_segments[i].fIOVMAddr & 0x00000000ffffffffULL;
 		}
 	}
-
+	
 	if( fw_segments != NULL )
 	{
 		IOFree( vm_segments, vm_segments_size );
@@ -808,3 +833,8 @@ IOReturn IOFWPhysicalAddressSpaceAux::getSegments( UInt64 * offset, FWSegment * 
 	
 	return status;
 }
+
+
+
+
+

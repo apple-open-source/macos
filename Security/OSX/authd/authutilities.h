@@ -26,7 +26,9 @@ void * _copy_data(const void * data, size_t dataLen);
 bool _cf_set_iterate(CFSetRef, bool(^iterator)(CFTypeRef value));
 bool _cf_bag_iterate(CFBagRef, bool(^iterator)(CFTypeRef value));
 bool _cf_dictionary_iterate(CFDictionaryRef, bool(^iterator)(CFTypeRef key,CFTypeRef value));
-    
+
+bool isInLWOS(void);
+
 #if defined(__cplusplus)
 }
 #endif

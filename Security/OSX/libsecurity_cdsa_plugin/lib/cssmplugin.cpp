@@ -27,6 +27,7 @@
 #include <security_cdsa_plugin/cssmplugin.h>
 #include <security_cdsa_plugin/pluginsession.h>
 #include <memory>
+#include "LegacyAPICounts.h"
 
 
 ModuleNexus<CssmPlugin::SessionMap> CssmPlugin::sessionMap;
@@ -54,10 +55,13 @@ void CssmPlugin::moduleLoad(const Guid &cssmGuid,
                 const Guid &moduleGuid,
                 const ModuleCallback &newCallback)
 {
-    if (mLoaded)
+    static dispatch_once_t onceToken;
+    countLegacyAPI(&onceToken, "CssmPlugin::moduleLoad");
+    if (mLoaded) {
         CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
-        
-	mMyGuid = moduleGuid;
+    }
+
+    mMyGuid = moduleGuid;
 
     // let the implementation know that we're loading
 	this->load();
@@ -78,12 +82,16 @@ void CssmPlugin::moduleUnload(const Guid &cssmGuid,
 				const Guid &moduleGuid,
                 const ModuleCallback &oldCallback)
 {
+    // These are called from the public pluginspi.h
+    static dispatch_once_t onceToken;
+    countLegacyAPI(&onceToken, "CssmPlugin::moduleUnload");
     // check the callback vector
-    if (!mLoaded || oldCallback != mCallback)
+    if (!mLoaded || oldCallback != mCallback) {
         CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
+    }
 
     // tell our subclass that we're closing down
-	this->unload();
+    this->unload();
 
     // commit closure
     mLoaded = false;
@@ -108,12 +116,14 @@ void CssmPlugin::moduleAttach(CSSM_MODULE_HANDLE theHandle,
                               const CSSM_UPCALLS &upcalls,
                               CSSM_MODULE_FUNCS_PTR &funcTbl)
 {
+	static dispatch_once_t onceToken;
+	countLegacyAPI(&onceToken, "CssmPlugin::moduleAttach");
 	// basic (in)sanity checks
 	if (moduleGuid != mMyGuid)
 		CssmError::throwMe(CSSM_ERRCODE_INVALID_GUID);
     
     // make the new session object, hanging in thin air
-    auto_ptr<PluginSession> session(this->makeSession(theHandle,
+    unique_ptr<PluginSession> session(this->makeSession(theHandle,
                                          version,
                                          subserviceId, subserviceType,
                                          attachFlags,
@@ -140,6 +150,8 @@ void CssmPlugin::moduleAttach(CSSM_MODULE_HANDLE theHandle,
 //
 void CssmPlugin::moduleDetach(CSSM_MODULE_HANDLE handle)
 {
+	static dispatch_once_t onceToken;
+	countLegacyAPI(&onceToken, "CssmPlugin::moduleDetach");
 	// locate the plugin and hold the sessionMapLock
 	PluginSession *session;
 	{

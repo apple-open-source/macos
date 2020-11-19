@@ -316,7 +316,7 @@ private:
                 errorMessage.appendLiteral(": ");
                 errorMessage.append(error.localizedDescription());
             }
-            webkitWebPageDidSendConsoleMessage(m_webPage, MessageSource::Network, MessageLevel::Error, errorMessage.toString(), 0, error.failingURL());
+            webkitWebPageDidSendConsoleMessage(m_webPage, MessageSource::Network, MessageLevel::Error, errorMessage.toString(), 0, error.failingURL().string());
         }
     }
 
@@ -746,7 +746,7 @@ void webkitWebPageDidReceiveMessage(WebKitWebPage* page, const String& messageNa
                 Color savedBackgroundColor;
                 if (transparentBackground) {
                     savedBackgroundColor = frameView->baseBackgroundColor();
-                    frameView->setBaseBackgroundColor(Color::transparent);
+                    frameView->setBaseBackgroundColor(Color::transparentBlack);
                 }
                 snapshotImage = webPage->scaledSnapshotWithOptions(snapshotRect, 1, snapshotOptions | SnapshotOptionsShareable);
                 if (transparentBackground)
@@ -839,7 +839,7 @@ WebKitFrame* webkit_web_page_get_main_frame(WebKitWebPage* webPage)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_PAGE(webPage), 0);
 
-    return webkitFrameGetOrCreate(webPage->priv->webPage->mainWebFrame());
+    return webkitFrameGetOrCreate(&webPage->priv->webPage->mainWebFrame());
 }
 
 /**

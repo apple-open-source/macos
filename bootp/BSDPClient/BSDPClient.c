@@ -379,8 +379,12 @@ CopyNetBootVersionAndSystemIdentifier(NetBootVersion * version_p,
     return (kBSDPClientStatusOK);
 }
 
-#elif defined(__i386__) || defined(__x86_64__)
+#elif defined(__i386__) || defined(__x86_64__) || defined(__arm64__)
+#if defined(__arm64__)
+#define BSDP_ARCHITECTURE   "arm"
+#else
 #define BSDP_ARCHITECTURE	"i386"
+#endif
 
 STATIC BSDPClientStatus
 CopyNetBootVersionAndSystemIdentifier(NetBootVersion * version_p,

@@ -45,7 +45,9 @@ specified as a comma-separated list. The following is a list of possible
 options. Note that, depending on the system, some may not be available.
 startitem()
 item(tt(cloexec))(
-mark file to be closed when other programs are executed
+mark file to be closed when other programs are executed (else
+the file descriptor remains open in subshells and forked external
+executables)
 )
 xitem(tt(create))
 item(tt(creat))(
@@ -177,8 +179,11 @@ locked by opening a file descriptor to the file and applying a lock to
 the file descriptor.  The lock terminates when the shell process that
 created the lock exits; it is therefore often convenient to create file
 locks within subshells, since the lock is automatically released when
-the subshell exits.  Status 0 is returned if the lock succeeds, else
-status 1.
+the subshell exits.  Note that use of the tt(print) builtin with the
+tt(-u) option will, as a side effect, release the lock, as will redirection
+to the file in the shell holding the lock.  To work around this use a
+subshell, e.g. `tt((print message) >> )var(file)'.  Status 0 is
+returned if the lock succeeds, else status 1.
 
 In the second form the file descriptor given by the arithmetic
 expression var(fd_expr) is closed, releasing a lock.  The file descriptor

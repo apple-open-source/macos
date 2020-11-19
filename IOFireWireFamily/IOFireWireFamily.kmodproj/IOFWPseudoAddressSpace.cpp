@@ -330,7 +330,7 @@ IOFWPseudoAddressSpace::simpleRWFixed(IOFireWireBus *control,
             break;
         }
         
-		me->fDesc = IOMemoryDescriptor::withAddress((void *)data, len, kIODirectionOutIn);
+		me->fDesc = IOMemoryDescriptor::withAddress((void *)data, len, kIODirectionInOut);
         if(!me->fDesc) 
 		{
             me->release();
@@ -363,7 +363,7 @@ IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
             break;
         }
         
-		me->fDesc = IOMemoryDescriptor::withAddress(data, len, kIODirectionOutIn);
+		me->fDesc = IOMemoryDescriptor::withAddress(data, len, kIODirectionInOut);
         if(!me->fDesc) 
 		{
             me->release();
@@ -388,7 +388,7 @@ IOFWPseudoAddressSpace *IOFWPseudoAddressSpace::simpleRW(IOFireWireBus *control,
         if(!me)
             break;
     
-		if(!me->initAll(control, addr, data->getLength(), simpleReader, simpleWriter, (void *)me)) 
+		if(!me->initAll(control, addr, (UInt32)data->getLength(), simpleReader, simpleWriter, (void *)me)) 
 		{
             me->release();
             me = NULL;

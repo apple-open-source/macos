@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en_150{
     %%Parent{"en_001"}
@@ -10,7 +10,7 @@ en_150{
             }
         }
     }
-    Version{"2.1.47.69"}
+    Version{"36.1"}
     calendar{
         chinese{
             DateTimePatterns{
@@ -46,7 +46,7 @@ en_150{
                 "{1}, {0}",
             }
             availableFormats{
-                Bhms{"h:mm.ss B"}
+                Bhms{"h:mm:ss B"}
                 EBhm{"E, h:mm B"}
                 EBhms{"E, h:mm:ss B"}
                 EHm{"E, HH:mm"}
@@ -72,9 +72,13 @@ en_150{
                 hmsv{"h:mm:ss a v"}
                 hmv{"h:mm a v"}
                 ms{"mm:ss"}
+                y{"y G"}
+                yyyy{"y G"}
                 yyyyM{"MM/y GGGGG"}
                 yyyyMEd{"E d/M/y G"}
+                yyyyMMM{"MMM y G"}
                 yyyyMMMEd{"E, d MMM y G"}
+                yyyyMMMM{"MMMM y G"}
                 yyyyMMMd{"d MMM y G"}
                 yyyyMd{"d/M/y G"}
             }

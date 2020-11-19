@@ -474,7 +474,7 @@ retry:
 	buf = (char *)calloc(block_size, 1);
 	if (buf) {
 		for(i=0; i < journal_size/block_size; i++) {
-			ret = write(fd, buf, block_size);
+			ret = (int)write(fd, buf, block_size);
 			if (ret != block_size) {
 				break;
 			}
@@ -502,7 +502,7 @@ retry:
 			free(buf);
 		return 20;
 	}
-	jstart_block = (start_block / block_size) - (embedded_offset / block_size);
+	jstart_block = (int32_t)((start_block / block_size) - (embedded_offset / block_size));
 
 	memset(&jib, 'Z', sizeof(jib));
 	jib.flags  = kJIJournalInFSMask;
@@ -566,7 +566,7 @@ retry:
 			free(buf);
 		return 20;
 	}
-	jinfo_block = (start_block / block_size) - (embedded_offset / block_size);
+	jinfo_block = (int32_t)((start_block / block_size) - (embedded_offset / block_size));
 
 
 	//
@@ -778,7 +778,7 @@ get_journal_info(char *devname, struct JournalInfoBlock *jib)
 		disksize = (u_int64_t)mdbp->drEmbedExtent.blockCount *
 			(u_int64_t)mdbp->drAlBlkSiz;
 
-		mdb_offset = (embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize);
+		mdb_offset = (daddr_t)((embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize));
 		if (pread(fd, buff, blksize, mdb_offset * blksize) != blksize) {
 			printf("failed to read the embedded vhp @ offset %d\n", mdb_offset * blksize);
 			ret = -1;
@@ -1064,7 +1064,7 @@ restart:
 		
 		disksize = (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.blockCount) * (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
 		
-		mdb_offset = (embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize);
+		mdb_offset = (daddr_t)((embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize));
 		hdr_offset = mdb_offset * blksize;
 		if (pread(fd, buff, blksize, hdr_offset) != blksize) {
 			fprintf(stderr, "failed to read the embedded vhp @ offset %d\n", mdb_offset * blksize);
@@ -1095,7 +1095,7 @@ restart:
 		
 		tmp &= ~kHFSVolumeJournaledMask;
 		vhp->attributes = SWAP_BE32(tmp);
-		if ((tmp = pwrite(fd, buff, blksize, hdr_offset)) != blksize) {
+		if ((tmp = (unsigned int)pwrite(fd, buff, blksize, hdr_offset)) != blksize) {
 			fprintf(stderr, "Update of super-block on %s failed! (%d != %d, %s)\n",
 					devname, tmp, blksize, strerror(errno));
 		} else {
@@ -1219,7 +1219,7 @@ SetJournalInFSState(const char *devname, int journal_in_fs)
 		blksize  = 512;
 	    }
 
-	    mdb_offset = (embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize);
+	    mdb_offset = (daddr_t)((embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize));
 	    if (pread(fd, buff, blksize, mdb_offset * blksize) != blksize) {
 		printf("failed to read the embedded vhp @ offset %d\n", mdb_offset * blksize);
 		ret = -1;

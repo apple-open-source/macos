@@ -74,8 +74,9 @@
 			void					unlock () const;
 			
 			OSObject *				getOwner() const;
-			
-			const IOFireWireLib::UserObjectHandle	lookupHandle ( OSObject * object ) const;
+		
+			// *** WARNING: (when building SBP2) 'const' type qualifier on return type has no effect
+			const IOFireWireLib::UserObjectHandle lookupHandle ( OSObject * object ) const;
 		
 			// don't subclass, but just in case someone does...
 			

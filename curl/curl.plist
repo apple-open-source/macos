@@ -21,6 +21,8 @@
 		<string>include/curl/curl.h: Moved CURLE_SSL_CACERT back to being an enum value instead of a macro.</string>
 		<string>lib/vauth/spnego_gssapi.c: Replace OOM error with login denied error</string>
 		<string>Backport patches for CVE-2019-5435, CVE-2019-5436, CVE-2019-5481, CVE-2019-5482 (#58454021)</string>
+		<string>Backport patch for CVE-2020-8169 (#64715228)</string>
+        <string>Backport patch for CVE-2020-8177 (#64715230)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

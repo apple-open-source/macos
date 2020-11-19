@@ -629,12 +629,15 @@ static void msdosfs_generate_volume_uuid(uuid_t result_uuid, uint8_t volumeID[4]
 	 * Generate an MD5 hash of our "name space", and our unique bits of data
 	 * (the volume ID and total sectors).
 	 */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	CC_MD5_Init(&c);
 	CC_MD5_Update(&c, kFSUUIDNamespaceSHA1, sizeof(uuid_t));
 	CC_MD5_Update(&c, volumeID, 4);
 	CC_MD5_Update(&c, sectorsLittleEndian, sizeof(sectorsLittleEndian));
 	CC_MD5_Final(result_uuid, &c);
-	
+#pragma clang diagnostic pop
+
 	/* Force the resulting UUID to be a version 3 UUID. */
 	result_uuid[6] = (result_uuid[6] & 0x0F) | 0x30;
 	result_uuid[8] = (result_uuid[8] & 0x3F) | 0x80;
@@ -692,7 +695,10 @@ int fs_get_uuid_raw(char *device_path, uuid_t uuid)
 	
 	result = valid_boot_sector(fd, device_path, buf);
 	if (result != FSUR_RECOGNIZED)
+    {
+        safe_close(fd);
 		return result;
+    }
 
     bsp = (union bootsector *)buf;
     b50 = (struct byte_bpb50 *)bsp->bs50.bsBPB;

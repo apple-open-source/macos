@@ -23,19 +23,19 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "ScrollerMac.h"
+#import "config.h"
+#import "ScrollerMac.h"
 
 #if PLATFORM(MAC)
 
-#include "ScrollerPairMac.h"
-#include <QuartzCore/CALayer.h>
-#include <WebCore/FloatPoint.h>
-#include <WebCore/IntRect.h>
-#include <WebCore/NSScrollerImpDetails.h>
-#include <WebCore/PlatformWheelEvent.h>
-#include <pal/spi/mac/NSScrollerImpSPI.h>
-#include <wtf/BlockObjCExceptions.h>
+#import "ScrollerPairMac.h"
+#import <QuartzCore/CALayer.h>
+#import <WebCore/FloatPoint.h>
+#import <WebCore/IntRect.h>
+#import <WebCore/NSScrollerImpDetails.h>
+#import <WebCore/PlatformWheelEvent.h>
+#import <pal/spi/mac/NSScrollerImpSPI.h>
+#import <wtf/BlockObjCExceptions.h>
 
 enum class FeatureToAnimate {
     KnobAlpha,
@@ -116,9 +116,9 @@ enum class FeatureToAnimate {
 
 - (void)invalidate
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [self stopAnimation];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
     _scroller = nullptr;
 }
 
@@ -150,12 +150,12 @@ enum class FeatureToAnimate {
 
 - (void)cancelAnimations
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [_knobAlphaAnimation stopAnimation];
     [_trackAlphaAnimation stopAnimation];
     [_uiStateTransitionAnimation stopAnimation];
     [_expansionTransitionAnimation stopAnimation];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 - (NSRect)convertRectToBacking:(NSRect)aRect
@@ -303,12 +303,12 @@ enum class FeatureToAnimate {
 - (void)invalidate
 {
     _scroller = nil;
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
     [_knobAlphaAnimation invalidate];
     [_trackAlphaAnimation invalidate];
     [_uiStateTransitionAnimation invalidate];
     [_expansionTransitionAnimation invalidate];
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 @end
@@ -355,7 +355,7 @@ void ScrollerMac::updateValues()
 {
     auto values = m_pair.valuesForOrientation(m_orientation);
 
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     [m_scrollerImp setEnabled:!!m_hostLayer];
     [m_scrollerImp setBoundsSize:NSSizeFromCGSize([m_hostLayer bounds].size)];
@@ -363,7 +363,7 @@ void ScrollerMac::updateValues()
     [m_scrollerImp setPresentationValue:values.value];
     [m_scrollerImp setKnobProportion:values.proportion];
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 WebCore::FloatPoint ScrollerMac::convertFromContent(const WebCore::FloatPoint& point) const

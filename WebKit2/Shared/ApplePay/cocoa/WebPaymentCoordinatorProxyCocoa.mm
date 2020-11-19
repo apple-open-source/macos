@@ -28,36 +28,57 @@
 
 #if ENABLE(APPLE_PAY)
 
+#import "APIUIClient.h"
+#import "ApplePayPaymentSetupFeaturesWebKit.h"
+#import "PaymentSetupConfigurationWebKit.h"
 #import "WKPaymentAuthorizationDelegate.h"
+#import "WebPageProxy.h"
 #import "WebPaymentCoordinatorProxy.h"
+#import "WebPaymentCoordinatorProxyMessages.h"
+#import "WebProcessProxy.h"
 #import <WebCore/PaymentAuthorizationStatus.h>
 #import <WebCore/PaymentHeaders.h>
-#import <pal/cocoa/PassKitSoftLink.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/RunLoop.h>
 #import <wtf/URL.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WebPaymentCoordinatorProxyCocoaAdditions.mm>
-#else
-namespace WebKit {
-static void finishCreating(PKPaymentRequest *, const WebCore::ApplePaySessionPaymentRequest&) { }
-}
-#endif
+#import <pal/cocoa/PassKitSoftLink.h>
 
 // FIXME: We don't support any platforms without -setThumbnailURLs:, so this can be removed.
 @interface PKPaymentRequest ()
 @property (nonatomic, strong) NSURL *thumbnailURL;
 @end
 
-#if HAVE(PASSKIT_BOUND_INTERFACE_IDENTIFIER)
-// FIXME: Remove once rdar://problem/48041516 is widely available in SDKs.
-@interface PKPaymentRequest (Staging)
-@property (nonatomic, copy) NSString *boundInterfaceIdentifier;
-@end
-#endif
-
 namespace WebKit {
+
+static void finishCreating(PKPaymentRequest *platformRequest, const WebCore::ApplePaySessionPaymentRequest& request)
+{
+#if HAVE(PASSKIT_INSTALLMENTS)
+    if (PKPaymentInstallmentConfiguration *configuration = request.installmentConfiguration().platformConfiguration()) {
+        platformRequest.installmentConfiguration = configuration;
+        platformRequest.requestType = PKPaymentRequestTypeInstallment;
+    }
+#else
+    UNUSED_PARAM(platformRequest);
+    UNUSED_PARAM(request);
+#endif
+}
+
+WebPaymentCoordinatorProxy::WebPaymentCoordinatorProxy(WebPaymentCoordinatorProxy::Client& client)
+    : m_client(client)
+    , m_canMakePaymentsQueue(WorkQueue::create("com.apple.WebKit.CanMakePayments"))
+{
+    m_client.paymentCoordinatorAddMessageReceiver(*this, Messages::WebPaymentCoordinatorProxy::messageReceiverName(), *this);
+}
+
+WebPaymentCoordinatorProxy::~WebPaymentCoordinatorProxy()
+{
+    if (!canBegin())
+        didReachFinalState();
+
+    m_client.paymentCoordinatorRemoveMessageReceiver(*this, Messages::WebPaymentCoordinatorProxy::messageReceiverName());
+}
 
 void WebPaymentCoordinatorProxy::platformCanMakePaymentsWithActiveCard(const String& merchantIdentifier, const String& domainName, WTF::Function<void(bool)>&& completionHandler)
 {
@@ -131,14 +152,6 @@ static PKMerchantCapability toPKMerchantCapabilities(const WebCore::ApplePaySess
     return result;
 }
 
-static RetainPtr<NSArray> toSupportedNetworks(const Vector<String>& supportedNetworks)
-{
-    auto result = adoptNS([[NSMutableArray alloc] initWithCapacity:supportedNetworks.size()]);
-    for (auto& supportedNetwork : supportedNetworks)
-        [result addObject:supportedNetwork];
-    return result;
-}
-
 static PKShippingType toPKShippingType(WebCore::ApplePaySessionPaymentRequest::ShippingType shippingType)
 {
     switch (shippingType) {
@@ -177,7 +190,6 @@ static RetainPtr<NSSet> toNSSet(const Vector<String>& strings)
     return WTFMove(mutableSet);
 }
 
-#if HAVE(PASSKIT_API_TYPE)
 static PKPaymentRequestAPIType toAPIType(WebCore::ApplePaySessionPaymentRequest::Requester requester)
 {
     switch (requester) {
@@ -187,7 +199,6 @@ static PKPaymentRequestAPIType toAPIType(WebCore::ApplePaySessionPaymentRequest:
         return PKPaymentRequestAPITypeWebPaymentRequest;
     }
 }
-#endif
 
 RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(const URL& originatingURL, const Vector<URL>& linkIconURLs, const WebCore::ApplePaySessionPaymentRequest& paymentRequest)
 {
@@ -195,19 +206,9 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
 
     [result setOriginatingURL:originatingURL];
 
-    // FIXME: We don't support any platforms without -setThumbnailURLs:, so this can be simplified.
-    if ([result respondsToSelector:@selector(setThumbnailURLs:)]) {
-        auto thumbnailURLs = adoptNS([[NSMutableArray alloc] init]);
-        for (auto& linkIconURL : linkIconURLs)
-            [thumbnailURLs addObject:static_cast<NSURL *>(linkIconURL)];
+    [result setThumbnailURLs:createNSArray(linkIconURLs).get()];
 
-        [result setThumbnailURLs:thumbnailURLs.get()];
-    } else if (!linkIconURLs.isEmpty())
-        [result setThumbnailURL:linkIconURLs[0]];
-
-#if HAVE(PASSKIT_API_TYPE)
     [result setAPIType:toAPIType(paymentRequest.requester())];
-#endif
 
     [result setCountryCode:paymentRequest.countryCode()];
     [result setCurrencyCode:paymentRequest.currencyCode()];
@@ -216,19 +217,20 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
     [result setRequiredBillingContactFields:toPKContactFields(paymentRequest.requiredBillingContactFields()).get()];
     [result setRequiredShippingContactFields:toPKContactFields(paymentRequest.requiredShippingContactFields()).get()];
 
-    [result setSupportedNetworks:toSupportedNetworks(paymentRequest.supportedNetworks()).get()];
+    [result setSupportedNetworks:createNSArray(paymentRequest.supportedNetworks()).get()];
     [result setMerchantCapabilities:toPKMerchantCapabilities(paymentRequest.merchantCapabilities())];
 
     [result setShippingType:toPKShippingType(paymentRequest.shippingType())];
 
-    auto shippingMethods = adoptNS([[NSMutableArray alloc] init]);
-    for (auto& shippingMethod : paymentRequest.shippingMethods())
-        [shippingMethods addObject:toPKShippingMethod(shippingMethod)];
-    [result setShippingMethods:shippingMethods.get()];
+    [result setShippingMethods:createNSArray(paymentRequest.shippingMethods(), [] (auto& method) {
+        return toPKShippingMethod(method);
+    }).get()];
 
     [result setPaymentSummaryItems:WebCore::platformSummaryItems(paymentRequest.total(), paymentRequest.lineItems())];
 
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [result setExpectsMerchantSession:YES];
+    ALLOW_DEPRECATED_DECLARATIONS_END
 
     if (!paymentRequest.applicationData().isNull()) {
         auto applicationData = adoptNS([[NSData alloc] initWithBase64EncodedString:paymentRequest.applicationData() options:0]);
@@ -238,9 +240,8 @@ RetainPtr<PKPaymentRequest> WebPaymentCoordinatorProxy::platformPaymentRequest(c
     [result setSupportedCountries:toNSSet(paymentRequest.supportedCountries()).get()];
 
 #if HAVE(PASSKIT_BOUND_INTERFACE_IDENTIFIER)
-    // FIXME: Remove -respondsToSelector: check once rdar://problem/48041516 is widely available in SDKs.
     auto& boundInterfaceIdentifier = m_client.paymentCoordinatorBoundInterfaceIdentifier(*this);
-    if (!boundInterfaceIdentifier.isEmpty() && [result respondsToSelector:@selector(setBoundInterfaceIdentifier:)])
+    if (!boundInterfaceIdentifier.isEmpty())
         [result setBoundInterfaceIdentifier:boundInterfaceIdentifier];
 #endif
 
@@ -288,6 +289,105 @@ void WebPaymentCoordinatorProxy::platformCompletePaymentMethodSelection(const Op
 {
     m_authorizationPresenter->completePaymentMethodSelection(update);
 }
+
+void WebPaymentCoordinatorProxy::getSetupFeatures(const PaymentSetupConfiguration& configuration, Messages::WebPaymentCoordinatorProxy::GetSetupFeatures::AsyncReply&& reply)
+{
+#if PLATFORM(MAC)
+    if (!PAL::getPKPaymentSetupControllerClass()) {
+        reply({ });
+        return;
+    }
+#endif
+
+    auto completion = makeBlockPtr([reply = WTFMove(reply)](NSArray<PKPaymentSetupFeature *> *features) mutable {
+        RunLoop::main().dispatch([reply = WTFMove(reply), features = retainPtr(features)]() mutable {
+            reply(PaymentSetupFeatures { WTFMove(features) });
+        });
+    });
+
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+    [PAL::getPKPaymentSetupControllerClass() paymentSetupFeaturesForConfiguration:configuration.platformConfiguration() completion:completion.get()];
+ALLOW_NEW_API_WITHOUT_GUARDS_END
+}
+
+void WebPaymentCoordinatorProxy::beginApplePaySetup(const PaymentSetupConfiguration& configuration, const PaymentSetupFeatures& features, Messages::WebPaymentCoordinatorProxy::BeginApplePaySetup::AsyncReply&& reply)
+{
+    platformBeginApplePaySetup(configuration, features, WTFMove(reply));
+}
+
+void WebPaymentCoordinatorProxy::endApplePaySetup()
+{
+    platformEndApplePaySetup();
+}
+
+#if PLATFORM(MAC)
+
+void WebPaymentCoordinatorProxy::platformBeginApplePaySetup(const PaymentSetupConfiguration& configuration, const PaymentSetupFeatures& features, Messages::WebPaymentCoordinatorProxy::BeginApplePaySetup::AsyncReply&& reply)
+{
+    if (!PAL::getPKPaymentSetupRequestClass()) {
+        reply(false);
+        return;
+    }
+
+    auto request = adoptNS([PAL::allocPKPaymentSetupRequestInstance() init]);
+    [request setConfiguration:configuration.platformConfiguration()];
+    [request setPaymentSetupFeatures:features.platformFeatures()];
+
+    auto completion = makeBlockPtr([reply = WTFMove(reply)](BOOL success) mutable {
+        RunLoop::main().dispatch([reply = WTFMove(reply), success]() mutable {
+            reply(success);
+        });
+    });
+
+    auto paymentSetupController = adoptNS([PAL::allocPKPaymentSetupControllerInstance() init]);
+
+ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
+    [paymentSetupController presentPaymentSetupRequest:request.get() completion:completion.get()];
+ALLOW_NEW_API_WITHOUT_GUARDS_END
+}
+
+void WebPaymentCoordinatorProxy::platformEndApplePaySetup()
+{
+}
+
+#else // PLATFORM(MAC)
+
+void WebPaymentCoordinatorProxy::platformBeginApplePaySetup(const PaymentSetupConfiguration& configuration, const PaymentSetupFeatures& features, Messages::WebPaymentCoordinatorProxy::BeginApplePaySetup::AsyncReply&& reply)
+{
+    UIViewController *presentingViewController = m_client.paymentCoordinatorPresentingViewController(*this);
+    if (!presentingViewController) {
+        reply(false);
+        return;
+    }
+
+    auto request = adoptNS([PAL::allocPKPaymentSetupRequestInstance() init]);
+    [request setConfiguration:configuration.platformConfiguration()];
+    [request setPaymentSetupFeatures:features.platformFeatures()];
+
+    auto paymentSetupViewController = adoptNS([PAL::allocPKPaymentSetupViewControllerInstance() initWithPaymentSetupRequest:request.get()]);
+    if (!paymentSetupViewController) {
+        reply(false);
+        return;
+    }
+
+    auto completion = makeBlockPtr([reply = WTFMove(reply)]() mutable {
+        RunLoop::main().dispatch([reply = WTFMove(reply)]() mutable {
+            reply(true);
+        });
+    });
+
+    endApplePaySetup();
+    [presentingViewController presentViewController:paymentSetupViewController.get() animated:YES completion:completion.get()];
+    m_paymentSetupViewController = paymentSetupViewController.get();
+}
+
+void WebPaymentCoordinatorProxy::platformEndApplePaySetup()
+{
+    [m_paymentSetupViewController dismissViewControllerAnimated:YES completion:nil];
+    m_paymentSetupViewController = nil;
+}
+
+#endif // PLATFORM(MAC)
 
 } // namespace WebKit
 

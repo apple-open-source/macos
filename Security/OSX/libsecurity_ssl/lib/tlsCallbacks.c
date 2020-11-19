@@ -35,6 +35,8 @@
 #include <tls_helpers.h>
 #include <tls_cache.h>
 
+#include "utilities/simulatecrash_assert.h"
+
 static
 int tls_handshake_write_callback(tls_handshake_ctx_t ctx, const SSLBuffer data, uint8_t content_type)
 {

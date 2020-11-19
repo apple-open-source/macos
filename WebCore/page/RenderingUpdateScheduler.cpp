@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,26 +37,38 @@ namespace WebCore {
 RenderingUpdateScheduler::RenderingUpdateScheduler(Page& page)
     : m_page(page)
 {
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
     windowScreenDidChange(page.chrome().displayID());
-#endif
 }
 
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR) && PLATFORM(IOS_FAMILY)
-void RenderingUpdateScheduler::adjustFramesPerSecond()
+void RenderingUpdateScheduler::setPreferredFramesPerSecond(FramesPerSecond preferredFramesPerSecond)
 {
-    Seconds interval = m_page.preferredRenderingUpdateInterval();
-    // CADisplayLink.preferredFramesPerSecond is an integer. So a fraction PreferredFramesPerSecond can't be set.
-    if (interval < 1_s)
-        DisplayRefreshMonitorManager::sharedManager().setPreferredFramesPerSecond(*this, preferredFramesPerSecond(interval));
+    if (m_preferredFramesPerSecond == preferredFramesPerSecond)
+        return;
+
+    m_preferredFramesPerSecond = preferredFramesPerSecond;
+    DisplayRefreshMonitorManager::sharedManager().setPreferredFramesPerSecond(*this, m_preferredFramesPerSecond);
 }
+
+bool RenderingUpdateScheduler::scheduleAnimation(FramesPerSecond preferredFramesPerSecond)
+{
+#if !PLATFORM(IOS_FAMILY)
+    // PreferredFramesPerSecond can only be changed for iOS DisplayRefreshMonitor.
+    // The caller has to fall back to using the timer.
+    if (preferredFramesPerSecond != FullSpeedFramesPerSecond)
+        return false;
 #endif
+    setPreferredFramesPerSecond(preferredFramesPerSecond);
+    return DisplayRefreshMonitorManager::sharedManager().scheduleAnimation(*this);
+}
 
 void RenderingUpdateScheduler::adjustRenderingUpdateFrequency()
 {
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR) && PLATFORM(IOS_FAMILY)
-    adjustFramesPerSecond();
-#endif
+    Seconds interval = m_page.preferredRenderingUpdateInterval();
+
+    // PreferredFramesPerSecond is an integer and should be > 0.
+    if (interval <= 1_s)
+        setPreferredFramesPerSecond(preferredFramesPerSecond(interval));
+
     if (isScheduled()) {
         clearScheduled();
         scheduleTimedRenderingUpdate();
@@ -78,20 +90,9 @@ void RenderingUpdateScheduler::scheduleTimedRenderingUpdate()
 
     Seconds interval = m_page.preferredRenderingUpdateInterval();
 
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
-    // CADisplayLink.preferredFramesPerSecond is an integer. Fall back to timer if the PreferredFramesPerSecond is a fraction.
-    if (interval < 1_s) {
-#if PLATFORM(IOS_FAMILY)
-        if (!m_isMonitorCreated) {
-            adjustFramesPerSecond();
-            m_isMonitorCreated = true;
-        }
-#else
-        if (interval == FullSpeedAnimationInterval)
-#endif
-            m_scheduled = DisplayRefreshMonitorManager::sharedManager().scheduleAnimation(*this);
-    }
-#endif
+    // PreferredFramesPerSecond is an integer and should be > 0.
+    if (interval <= 1_s)
+        m_scheduled = scheduleAnimation(preferredFramesPerSecond(interval));
 
     if (!isScheduled())
         startTimer(interval);
@@ -117,7 +118,6 @@ void RenderingUpdateScheduler::clearScheduled()
     m_refreshTimer = nullptr;
 }
 
-#if USE(REQUEST_ANIMATION_FRAME_DISPLAY_MONITOR)
 RefPtr<DisplayRefreshMonitor> RenderingUpdateScheduler::createDisplayRefreshMonitor(PlatformDisplayID displayID) const
 {
     if (auto monitor = m_page.chrome().client().createDisplayRefreshMonitor(displayID))
@@ -130,7 +130,6 @@ void RenderingUpdateScheduler::windowScreenDidChange(PlatformDisplayID displayID
 {
     DisplayRefreshMonitorManager::sharedManager().windowScreenDidChange(displayID, *this);
 }
-#endif
 
 void RenderingUpdateScheduler::displayRefreshFired()
 {
@@ -142,7 +141,7 @@ void RenderingUpdateScheduler::displayRefreshFired()
 
 void RenderingUpdateScheduler::scheduleImmediateRenderingUpdate()
 {
-    m_page.chrome().client().scheduleCompositingLayerFlush();
+    m_page.chrome().client().scheduleRenderingUpdate();
 }
 
 void RenderingUpdateScheduler::scheduleRenderingUpdate()

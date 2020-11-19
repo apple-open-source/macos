@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +34,7 @@ using namespace WebCore;
 
 void EditorState::encode(IPC::Encoder& encoder) const
 {
+    encoder << originIdentifierForPasteboard;
     encoder << shouldIgnoreSelectionChanges;
     encoder << selectionIsNone;
     encoder << selectionIsRange;
@@ -43,21 +44,15 @@ void EditorState::encode(IPC::Encoder& encoder) const
     encoder << isInPlugin;
     encoder << hasComposition;
     encoder << isMissingPostLayoutData;
-
     if (!isMissingPostLayoutData)
         m_postLayoutData.encode(encoder);
-
-#if PLATFORM(IOS_FAMILY)
-    encoder << firstMarkedRect;
-    encoder << lastMarkedRect;
-    encoder << markedText;
-#endif
-
-    encoder << originIdentifierForPasteboard;
 }
 
 bool EditorState::decode(IPC::Decoder& decoder, EditorState& result)
 {
+    if (!decoder.decode(result.originIdentifierForPasteboard))
+        return false;
+
     if (!decoder.decode(result.shouldIgnoreSelectionChanges))
         return false;
 
@@ -90,18 +85,6 @@ bool EditorState::decode(IPC::Decoder& decoder, EditorState& result)
             return false;
     }
 
-#if PLATFORM(IOS_FAMILY)
-    if (!decoder.decode(result.firstMarkedRect))
-        return false;
-    if (!decoder.decode(result.lastMarkedRect))
-        return false;
-    if (!decoder.decode(result.markedText))
-        return false;
-#endif
-
-    if (!decoder.decode(result.originIdentifierForPasteboard))
-        return false;
-
     return true;
 }
 
@@ -122,10 +105,17 @@ void EditorState::PostLayoutData::encode(IPC::Encoder& encoder) const
 #if PLATFORM(IOS_FAMILY)
     encoder << caretRectAtEnd;
     encoder << selectionRects;
+    encoder << markedTextRects;
+    encoder << markedText;
+    encoder << markedTextCaretRectAtStart;
+    encoder << markedTextCaretRectAtEnd;
     encoder << wordAtSelection;
     encoder << characterAfterSelection;
     encoder << characterBeforeSelection;
     encoder << twoCharacterBeforeSelection;
+#if USE(DICTATION_ALTERNATIVES)
+    encoder << dictationContextsForSelection;
+#endif
     encoder << isReplaceAllowed;
     encoder << hasContent;
     encoder << isStableStateUpdate;
@@ -141,6 +131,11 @@ void EditorState::PostLayoutData::encode(IPC::Encoder& encoder) const
     encoder << candidateRequestStartPosition;
     encoder << paragraphContextForCandidateRequest;
     encoder << stringForCandidateRequest;
+#endif
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    encoder << surroundingContext;
+    encoder << surroundingContextCursorPosition;
+    encoder << surroundingContextSelectionPosition;
 #endif
     encoder << fontAttributes;
     encoder << canCut;
@@ -175,6 +170,14 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
         return false;
     if (!decoder.decode(result.selectionRects))
         return false;
+    if (!decoder.decode(result.markedTextRects))
+        return false;
+    if (!decoder.decode(result.markedText))
+        return false;
+    if (!decoder.decode(result.markedTextCaretRectAtStart))
+        return false;
+    if (!decoder.decode(result.markedTextCaretRectAtEnd))
+        return false;
     if (!decoder.decode(result.wordAtSelection))
         return false;
     if (!decoder.decode(result.characterAfterSelection))
@@ -183,6 +186,10 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
         return false;
     if (!decoder.decode(result.twoCharacterBeforeSelection))
         return false;
+#if USE(DICTATION_ALTERNATIVES)
+    if (!decoder.decode(result.dictationContextsForSelection))
+        return false;
+#endif
     if (!decoder.decode(result.isReplaceAllowed))
         return false;
     if (!decoder.decode(result.hasContent))
@@ -214,6 +221,14 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
     if (!decoder.decode(result.stringForCandidateRequest))
         return false;
 #endif
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    if (!decoder.decode(result.surroundingContext))
+        return false;
+    if (!decoder.decode(result.surroundingContextCursorPosition))
+        return false;
+    if (!decoder.decode(result.surroundingContextSelectionPosition))
+        return false;
+#endif
 
     Optional<Optional<FontAttributes>> optionalFontAttributes;
     decoder >> optionalFontAttributes;
@@ -234,15 +249,6 @@ bool EditorState::PostLayoutData::decode(IPC::Decoder& decoder, PostLayoutData& 
 
 TextStream& operator<<(TextStream& ts, const EditorState& editorState)
 {
-#if PLATFORM(IOS_FAMILY)
-    if (editorState.firstMarkedRect != IntRect())
-        ts.dumpProperty("firstMarkedRect", editorState.firstMarkedRect);
-    if (editorState.lastMarkedRect != IntRect())
-        ts.dumpProperty("lastMarkedRect", editorState.lastMarkedRect);
-    if (editorState.markedText.length())
-        ts.dumpProperty("markedText", editorState.markedText);
-#endif
-
     if (editorState.shouldIgnoreSelectionChanges)
         ts.dumpProperty("shouldIgnoreSelectionChanges", editorState.shouldIgnoreSelectionChanges);
     if (!editorState.selectionIsNone)
@@ -290,8 +296,16 @@ TextStream& operator<<(TextStream& ts, const EditorState& editorState)
 #if PLATFORM(IOS_FAMILY)
     if (editorState.postLayoutData().caretRectAtEnd != IntRect())
         ts.dumpProperty("caretRectAtEnd", editorState.postLayoutData().caretRectAtEnd);
-    if (editorState.postLayoutData().selectionRects.size())
+    if (!editorState.postLayoutData().selectionRects.isEmpty())
         ts.dumpProperty("selectionRects", editorState.postLayoutData().selectionRects);
+    if (!editorState.postLayoutData().markedTextRects.isEmpty())
+        ts.dumpProperty("markedTextRects", editorState.postLayoutData().markedTextRects);
+    if (editorState.postLayoutData().markedText.length())
+        ts.dumpProperty("markedText", editorState.postLayoutData().markedText);
+    if (editorState.postLayoutData().markedTextCaretRectAtStart != IntRect())
+        ts.dumpProperty("markedTextCaretRectAtStart", editorState.postLayoutData().markedTextCaretRectAtStart);
+    if (editorState.postLayoutData().markedTextCaretRectAtEnd != IntRect())
+        ts.dumpProperty("markedTextCaretRectAtEnd", editorState.postLayoutData().markedTextCaretRectAtEnd);
     if (editorState.postLayoutData().wordAtSelection.length())
         ts.dumpProperty("wordAtSelection", editorState.postLayoutData().wordAtSelection);
     if (editorState.postLayoutData().characterAfterSelection)

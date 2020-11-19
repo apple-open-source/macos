@@ -8,5 +8,5 @@ es_CA{
             "dólar canadiense",
         }
     }
-    Version{"2.1.31.74"}
+    Version{"36.1"}
 }

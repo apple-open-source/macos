@@ -61,6 +61,7 @@ enum {
 
 
 int removefile(const char* path, removefile_state_t state, removefile_flags_t flags);
+int removefileat(int fd, const char* path, removefile_state_t state, removefile_flags_t flags);
 
 int removefile_cancel(removefile_state_t state);
 

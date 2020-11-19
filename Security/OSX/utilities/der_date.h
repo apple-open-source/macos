@@ -39,5 +39,7 @@ uint8_t* der_encode_generalizedtime(CFAbsoluteTime at, CFErrorRef *error,
 size_t der_sizeof_generalizedtime_body(CFAbsoluteTime at, CFErrorRef *error);
 uint8_t* der_encode_generalizedtime_body(CFAbsoluteTime at, CFErrorRef *error,
                                          const uint8_t *der, uint8_t *der_end);
+uint8_t* der_encode_generalizedtime_body_repair(CFAbsoluteTime at, CFErrorRef *error, bool repair,
+                                                const uint8_t *der, uint8_t *der_end);
 
 #endif /* _UTILITIES_DER_DATE_H_ */

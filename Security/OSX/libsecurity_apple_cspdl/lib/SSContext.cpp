@@ -488,7 +488,7 @@ SSCryptContext::final(CssmData &out)
 	if(!inSize) return;
 
 	const CssmData in(const_cast<void *>(mNullDigest.digestPtr()), inSize);
-	IFDEBUG(size_t origOutSize = out.length());
+	size_t origOutSize = out.length();
 	if (encoding()) {
 		clientSession().encrypt(*mContext, mKeyHandle, in, out);
 	}

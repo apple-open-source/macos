@@ -437,54 +437,6 @@ SecPolicyGetTPHandle(SecPolicyRef policyRef, CSSM_TP_HANDLE* tpHandle)
 
 /* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
 OSStatus
-SecPolicyCopyAll(CSSM_CERT_TYPE certificateType, CFArrayRef* policies)
-{
-	/* bridge to support old functionality */
-#if SECTRUST_DEPRECATION_WARNINGS
-    syslog(LOG_ERR, "WARNING: SecPolicyCopyAll was deprecated in 10.7. Please use SecPolicy creation functions instead.");
-#endif
-    if (!policies) {
-		return errSecParam;
-	}
-	CFMutableArrayRef curPolicies = CFArrayCreateMutable(NULL, 0, NULL);
-	if (!curPolicies) {
-		return errSecAllocate;
-	}
-	/* build the subset of policies which were supported on OS X,
-	   and which are also implemented on iOS */
-	CFStringRef supportedPolicies[] = {
-		kSecPolicyAppleX509Basic, /* CSSMOID_APPLE_X509_BASIC */
-		kSecPolicyAppleSSL, /* CSSMOID_APPLE_TP_SSL */
-		kSecPolicyAppleSMIME, /* CSSMOID_APPLE_TP_SMIME */
-		kSecPolicyAppleEAP, /*CSSMOID_APPLE_TP_EAP */
-		kSecPolicyAppleSWUpdateSigning, /* CSSMOID_APPLE_TP_SW_UPDATE_SIGNING */
-		kSecPolicyAppleIPsec, /* CSSMOID_APPLE_TP_IP_SEC */
-		kSecPolicyAppleCodeSigning, /* CSSMOID_APPLE_TP_CODE_SIGNING */
-		kSecPolicyMacAppStoreReceipt, /* CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT */
-		kSecPolicyAppleIDValidation, /* CSSMOID_APPLE_TP_APPLEID_SHARING */
-		kSecPolicyAppleTimeStamping, /* CSSMOID_APPLE_TP_TIMESTAMPING */
-		kSecPolicyAppleRevocation, /* CSSMOID_APPLE_TP_REVOCATION_{CRL,OCSP} */
-		NULL
-	};
-	CFIndex ix = 0;
-	while (true) {
-		CFStringRef policyID = supportedPolicies[ix++];
-		if (!policyID) {
-			break;
-		}
-		SecPolicyRef curPolicy = SecPolicyCreateWithProperties(policyID, NULL);
-		if (curPolicy) {
-			CFArrayAppendValue(curPolicies, curPolicy);
-			CFRelease(curPolicy);
-		}
-	}
-	*policies = CFArrayCreateCopy(NULL, curPolicies);
-	CFRelease(curPolicies);
-	return errSecSuccess;
-}
-
-/* OS X only: __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_3, __MAC_10_7, __IPHONE_NA, __IPHONE_NA) */
-OSStatus
 SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPolicyRef* policy)
 {
 	if (!policyOID || !policy) {

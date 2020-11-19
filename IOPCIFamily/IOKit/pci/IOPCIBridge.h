@@ -54,7 +54,8 @@ enum {
     @abstract   Base class for all PCI bridge drivers.
 */
 
-class IOPCIBridge : public IOService
+__exported_push
+class __kpi_deprecated("Use PCIDriverKit") IOPCIBridge : public IOService
 {
     friend class IOPCIDevice;
     friend class IOPCI2PCIBridge;
@@ -316,11 +317,27 @@ protected:
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 29);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 30);
     OSMetaClassDeclareReservedUnused(IOPCIBridge, 31);
+
+#if TARGET_CPU_ARM || TARGET_CPU_ARM64
+protected:
+
+	virtual IOReturn deviceMemoryRead(IOMemoryDescriptor* sourceBase,
+									  IOByteCount         sourceOffset,
+									  IOMemoryDescriptor* destinationBase,
+									  IOByteCount         destinationOffset,
+									  IOByteCount         size);
+
+    virtual IOReturn deviceMemoryRead(IOMemoryDescriptor* sourceBase,
+                                      IOByteCount         sourceOffset,
+                                      void*               destination,
+                                      IOByteCount         size);
+
+#endif
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-class IOPCI2PCIBridge : public IOPCIBridge
+class __kpi_deprecated("Use PCIDriverKit") IOPCI2PCIBridge : public IOPCIBridge
 {
     friend class IOPCIEventSource;
     friend class IOPCIDevice;
@@ -328,7 +345,7 @@ class IOPCI2PCIBridge : public IOPCIBridge
     OSDeclareDefaultStructors(IOPCI2PCIBridge)
 
 protected:
-	IOFilterInterruptEventSource * fBridgeInterruptSource;
+    IOInterruptEventSource * fBridgeInterruptSource;
 
 private:
     IOPCIDevice *                  fBridgeDevice;
@@ -454,13 +471,12 @@ private:
 
 public:
 	void startBootDefer(IOService * provider);
-
-    bool filterInterrupt( IOFilterInterruptEventSource * source);
                             
     void handleInterrupt( IOInterruptEventSource * source,
                              int                      count );
 	void timerProbe(IOTimerEventSource * es);
 };
+__exported_pop
 
 #define kIOPCI2PCIBridgeName	"IOPP"
 

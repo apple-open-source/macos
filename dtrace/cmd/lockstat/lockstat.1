@@ -1,10 +1,10 @@
-.TH LOCKSTAT 1M "Jan 27, 2014"
+.TH LOCKSTAT 1M "July 24, 2020"
 .SH NAME
 lockstat \- report kernel lock and profiling statistics
 .SH SYNOPSIS
 .LP
 .nf
-\fBlockstat\fR [\fB-ACEHI\fR] [\fB-e\fR \fIevent_list\fR] [\fB-i\fR \fIrate\fR]
+\fBlockstat\fR [\fB-ACEHIS\fR] [\fB-e\fR \fIevent_list\fR] [\fB-i\fR \fIrate\fR]
      [\fB-b\fR | \fB-t\fR | \fB-h\fR | \fB-s\fR \fIdepth\fR] [\fB-n\fR \fInrecords\fR]
      [\fB-l\fR \fIlock\fR [, \fIsize\fR]] [\fB-d\fR \fIduration\fR]
      [\fB-f\fR \fIfunction\fR [, \fIsize\fR]] [\fB-T\fR] [\fB-ckgwWRpP\fR] [\fB-D\fR \fIcount\fR]
@@ -109,6 +109,26 @@ Watch hold events.
 .sp
 .ne 2
 .na
+\fB\fB-S\fR\fR
+.ad
+.sp .6
+.RS 4n
+Watch spinning time per lock group.
+.RE
+
+.sp
+.ne 2
+.na
+\fB\fB-S\fR\fR
+.ad
+.sp .6
+.RS 4n
+Watch held/miss event counts per lock group.
+.RE
+
+.sp
+.ne 2
+.na
 \fB\fB-I\fR\fR
 .ad
 .sp .6
@@ -123,9 +143,7 @@ Watch profiling interrupt events.
 .ad
 .sp .6
 .RS 4n
-Interrupt rate (per second) for \fB-I\fR. The default is 97 Hz, so that
-profiling doesn't run in lockstep with the clock interrupt (which runs at 100
-Hz).
+Interrupt rate (per second) for \fB-I\fR. The default is 97 Hz.
 .RE
 
 .SS "Data Gathering"
@@ -351,6 +369,18 @@ Wherever: distinguish events only by lock, not by caller.
 .sp
 .LP
 The following headers appear over various columns of data.
+.sp
+.ne 2
+.na
+\fB\fBabs\fR\fR
+.ad
+.sp .6
+.RS 4n
+
+.RE
+Average duration of the events in mach tick units, as appropriate for the event.
+See \fBmach_timebase_info\fR
+to convert to nanoseconds.
 .sp
 .ne 2
 .na

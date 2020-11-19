@@ -1,0 +1,18 @@
+From 15b0c158902df2e6ad246712065acd16bf89d41e Mon Sep 17 00:00:00 2001
+From: Mohammad S Anwar <mohammad.anwar@yahoo.com>
+Date: Fri, 1 Jun 2018 11:36:59 +0100
+Subject: [PATCH] Patch for RT issue #121748, thanks @ppisar.
+
+---
+ Makefile.PL | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Makefile.PL b/Makefile.PL
+index 93b5ed5..fffb0d1 100644
+--- a/Makefile.PL
++++ b/Makefile.PL
+@@ -1,3 +1,4 @@
++BEGIN { push @INC, '.'; }
+ use inc::Module::Package 'Ingy:modern 0.17';
+ 
+ # The default module 'lib/Module/Package.pm' has to be very strict

@@ -31,14 +31,10 @@
 #include <IOKit/hid/IOHIDKeys.h>
 
 #define kMaxLocalCookieArrayLength  512
+#define kIOHIDDefaultMaxReportSize   8192        // 8K
 
 enum IOHIDLibUserClientConnectTypes {
 	kIOHIDLibUserClientConnectManager = 0x00484944 /* HID */
-};
- 
-// vtn3: there used to be an evil hack here.  that hack has gone away.
-enum IOHIDLibUserClientMemoryTypes {
-	kIOHIDLibUserClientElementValuesType = 0
 };
 
 // port types: I did consider adding queue ports to this
@@ -67,19 +63,38 @@ enum IOHIDLibUserClientCommandCodes {
 	kIOHIDLibUserClientGetElementCount,
 	kIOHIDLibUserClientGetElements,
 	kIOHIDLibUserClientSetQueueAsyncPort,
+    kIOHIDLibUserClientReleaseReport,
 	kIOHIDLibUserClientNumCommands
 };
+
+enum IOHIDElementValueFlags {
+    kIOHIDElementValueOOBReport = 0x01
+};
+
+enum IOHIDUpdateElementFlags {
+    kIOHIDElementPreventPoll = 0x01
+};
+
+typedef struct IOHIDElementValueHeader {
+    uint32_t cookie;
+    uint32_t length;
+    uint32_t value[0];
+} IOHIDElementValueHeader;
 
 __BEGIN_DECLS
 
 typedef struct _IOHIDElementValue
 {
 	IOHIDElementCookie	cookie;
-	UInt32              totalSize;
+    UInt32              flags:8;
+	UInt32              totalSize:24;
 	AbsoluteTime        timestamp;
 	UInt32              generation;
 	UInt32              value[1];
 }IOHIDElementValue;
+
+#define ELEMENT_VALUE_REPORT_SIZE(elem) (elem->totalSize - sizeof(*elem) + sizeof(elem->value))
+#define ELEMENT_VALUE_HEADER_SIZE(elem) (sizeof(*elem) - sizeof(elem->value))
 
 typedef struct _IOHIDReportReq
 {
@@ -115,8 +130,8 @@ struct IOHIDElementStruct
 	UInt32				duplicateValueSize;
 	UInt32				duplicateIndex;
 	UInt32				bytes;
-	UInt32				valueLocation;
 	UInt32				valueSize;
+    UInt32              rawReportCount;
 };
 
 enum {
@@ -124,16 +139,23 @@ enum {
 	kHIDReportHandlerType
 };
 
+#ifndef ALIGN_DATA_SIZE
+#define ALIGN_DATA_SIZE(size) (((size) + 3) / 4 * 4)
+#endif
+
 __END_DECLS
 
 #if KERNEL
 
+#include <kern/queue.h>
 #include <mach/mach_types.h>
 #include <IOKit/IOUserClient.h>
 #include <IOKit/IOInterruptEventSource.h>
+#include <IOKit/IOBufferMemoryDescriptor.h>
 
 class IOHIDDevice;
 class IOHIDEventQueue;
+class IOHIDReportElementQueue;
 class IOSyncer;
 struct IOHIDCompletion;
 
@@ -163,6 +185,8 @@ class IOHIDLibUserClient : public IOUserClient
 
 public:
 	bool attach(IOService * provider) APPLE_KEXT_OVERRIDE;
+
+    IOReturn processElement(IOHIDElementValue *element, IOHIDEventQueue *queue);
 	
 protected:
 	static const IOExternalMethodDispatch
@@ -174,9 +198,11 @@ protected:
 	IOInterruptEventSource * fResourceES;
 	
 	OSArray *fQueueMap;
+    queue_head_t fOOBReports;
 
 	UInt32 fPid;
 	task_t fClient;
+    UInt32 fReportLimit;
 	mach_port_t fWakePort;
 	mach_port_t fValidPort;
     OSSet       *_pending;
@@ -198,7 +224,6 @@ protected:
 	UInt64 fCachedConsoleUsersSeed;
 	
 	bool	fValid;
-	uint64_t fGeneration;
     
 	// Methods
 	virtual bool initWithTask(task_t owningTask, void *security_id, UInt32 type) APPLE_KEXT_OVERRIDE;
@@ -294,11 +319,22 @@ protected:
 							
 	// Update Feature element value
 	static IOReturn	_updateElementValues (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
-	IOReturn		updateElementValues (const uint64_t  * lCookies, uint32_t cookieSize);
+    IOReturn		updateElementValues (const IOHIDElementCookie * lCookies,
+                                         uint32_t cookieSize,
+                                         IOMemoryDescriptor *outputElementsDesc,
+                                         uint32_t outputElementsDescSize,
+                                         IOOptionBits options);
+    IOReturn        updateElementValues (const IOHIDElementCookie *lCookies,
+                                         uint32_t cookieSize,
+                                         void *outputElements,
+                                         uint32_t outputElementsSize,
+                                         IOOptionBits options);
+
 												
 	// Post element value
 	static IOReturn _postElementValues (IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
-	IOReturn		postElementValues (const uint64_t  * lCookies, uint32_t cookieSize);
+    IOReturn        postElementValues  (IOMemoryDescriptor *desc);
+	IOReturn		postElementValues (const uint8_t * data, uint32_t dataSize);
 												
 	// Get report
 	static IOReturn _getReport(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
@@ -309,6 +345,10 @@ protected:
 	static IOReturn _setReport(IOHIDLibUserClient * target, void * reference, IOExternalMethodArguments * arguments);
 	IOReturn		setReport(const void *reportBuffer, uint32_t reportBufferSize, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
 	IOReturn		setReport(IOMemoryDescriptor * mem, IOHIDReportType reportType, uint32_t reportID, uint32_t timeout = 0, IOHIDCompletion * completion = 0);
+
+    static void _releaseReport(IOHIDLibUserClient *target, void *reference,
+                                   IOExternalMethodArguments *arguments);
+    void releaseReport(mach_vm_address_t reportToken);
 
 	void ReqComplete(void *param, IOReturn status, UInt32 remaining);
 	IOReturn ReqCompleteGated(void *param, IOReturn status, UInt32 remaining);
@@ -321,6 +361,22 @@ protected:
 	// and keep calling it with the return value till you get 0 
 	// (still not a valid token).  vtn3
 	u_int getNextTokenForToken(u_int token);
+};
+
+
+class IOHIDOOBReportDescriptor : public IOBufferMemoryDescriptor
+{
+    OSDeclareDefaultStructors(IOHIDOOBReportDescriptor)
+
+public:
+    queue_chain_t qc;
+
+    static IOHIDOOBReportDescriptor * inTaskWithBytes(
+        task_t       task,
+        const void * bytes,
+        vm_size_t    withLength,
+        IODirection  withDirection,
+        bool         withContiguousMemory = false);
 };
 
 #endif /* KERNEL */

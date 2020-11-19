@@ -24,6 +24,7 @@
 #include <vector>
 #include <string>
 #include <exception>
+#include <memory>
 
 #include <sys/stat.h>
 #include <unistd.h>
@@ -45,6 +46,12 @@
 
 #include "SecTranslocateShared.hpp"
 #include "SecTranslocateUtilities.hpp"
+#include "SecTranslocateEnumUtils.hpp"
+
+#define NULLM_UNVEIL 0x1ULL << 2
+struct null_mount_conf {
+    uint64_t flags;
+};
 
 
 namespace Security {
@@ -62,6 +69,7 @@ const char* kSecTranslocateXPCFuncCheckIn = "check-in";
 const char* kSecTranslocateXPCMessageFunction = "function";
 const char* kSecTranslocateXPCMessageOriginalPath = "original";
 const char* kSecTranslocateXPCMessageDestinationPath = "dest";
+const char* kSecTranslocateXPCMessageOptions= "opts";
 const char* kSecTranslocateXPCMessagePid = "pid";
 
 /*XPC message reply keys */
@@ -83,7 +91,7 @@ static void cleanupTranslocationDirForUser(const string &userDir);
 static int removeMountPoint(const string &mountpoint, bool force = false);
 
 /* calculate whether a translocation should occur and where from */
-TranslocationPath::TranslocationPath(string originalPath)
+TranslocationPath::TranslocationPath(string originalPath, TranslocationOptions opts)
 {
 
     /* To support testing of translocation the policy is as follows:
@@ -114,7 +122,8 @@ TranslocationPath::TranslocationPath(string originalPath)
      */
 
     ExtendedAutoFileDesc fd(originalPath);
-
+    
+    options = opts;
     should = false;
     realOriginalPath = fd.getRealPath();
 
@@ -252,8 +261,25 @@ ExtendedAutoFileDesc TranslocationPath::findOuterMostCodeBundleForFD(ExtendedAut
     return ExtendedAutoFileDesc(joinPathUpTo(path, lastGoodIndex));
 }
 
+GenericTranslocationPath::GenericTranslocationPath(const string& path, TranslocationOptions opts) {
+    ExtendedAutoFileDesc fd(path);
+    realOriginalPath = fd.getRealPath();
+    should = false;
+    options = opts;
+    
+    /* don't translocate if it already is */
+    /* Nullfs can't translocate other mount's roots so abort if its a mountpoint */
+    if(fd.isFileSystemType(NULLFS_FSTYPE) || fd.isMountPoint()) {
+        return;
+    }
+    
+    componentNameToTranslocate = splitPath(path).back();
+    
+    should = true;
+}
+
 /* Given an fd to a translocated file, build the path to the original file
- Throws if the fd isn't in a nullfs mount for the calling user. */
+ Throws if the fd isn't in a nullfs mount. */
 string getOriginalPath(const ExtendedAutoFileDesc& fd, bool* isDir)
 {
     if (!fd.isFileSystemType(NULLFS_FSTYPE) ||
@@ -266,16 +292,6 @@ string getOriginalPath(const ExtendedAutoFileDesc& fd, bool* isDir)
                       fd.getRealPath().c_str(),
                       fd.getMountPoint().c_str());
         UnixError::throwMe(EINVAL);
-    }
-    
-    string translocationBaseDir = translocationDirForUser();
-    
-    if(!fd.isInPrefixDir(translocationBaseDir))
-    {
-        Syslog::error("SecTranslocate::getOriginal path called with path (%s) that doesn't belong to user (%d)",
-                      fd.getRealPath().c_str(),
-                      getuid());
-        UnixError::throwMe(EPERM);
     }
     
     *isDir = fd.isA(S_IFDIR);
@@ -454,6 +470,61 @@ static vector<struct statfs> getMountTableSnapshot()
     }
 
     return mntInfo;
+}
+
+static bool pathExistsInMountTable(const GenericTranslocationPath& path, const string& mountpoint)
+{
+    vector <struct statfs> mntbuf = getMountTableSnapshot();
+
+    /* Save the untranslocated inode number*/
+    ExtendedAutoFileDesc::UnixStat untranslocatedStat;
+
+    if (stat(path.getOriginalRealPath().c_str(), &untranslocatedStat))
+    {
+        errno_t err = errno;
+        Syslog::warning("SecTranslocate: failed to stat original path (%d): %s",
+                        err,
+                        path.getOriginalRealPath().c_str());
+        UnixError::throwMe(err);
+    }
+
+    for (auto &i : mntbuf)
+    {
+        string mountOnName = i.f_mntonname;
+    
+        if (path.getOriginalRealPath() == i.f_mntfromname && //mount is for the requested path
+            mountpoint == mountOnName && //mount to is the same
+            strcmp(i.f_fstypename, NULLFS_FSTYPE) == 0 // mount is a nullfs mount
+            )
+        {
+            /*
+             find the inode number for mountOnName
+             */
+            string pathToTranslocatedApp = mountOnName+"/d/"+path.getComponentNameToTranslocate();
+
+            ExtendedAutoFileDesc::UnixStat oldTranslocatedStat;
+
+            if (stat(pathToTranslocatedApp.c_str(), &oldTranslocatedStat))
+            {
+                /* We should have access to this path and it should be real so complain if thats not true. */
+                errno_t err = errno;
+                Syslog::warning("SecTranslocate: expected app not inside mountpoint: %s (error: %d)", pathToTranslocatedApp.c_str(), err);
+                UnixError::throwMe(err);
+            }
+
+            if(untranslocatedStat.st_ino != oldTranslocatedStat.st_ino)
+            {
+                /* We have two Apps with the same name at the same path but different inodes. This means that the
+                   translocated path is broken and should be removed */
+                destroyTranslocatedPathForUser(pathToTranslocatedApp);
+                continue;
+            }
+            
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /* Given the directory where app translocations go for this user, the path to the app to be translocated
@@ -721,13 +792,10 @@ static void setMountPointQuarantineIfNecessary(const string &mountPoint, const s
     }
 }
 
-/* Given the path to a new mountpoint and the original path to translocate, calculate the path
- to the desired app in the new mountpoint, and sanity check that calculation */
-static string newAppPath (const string &mountPoint, const TranslocationPath &originalPath)
+static string newAppPathFrom (const string &mountPoint, const string &outPath)
 {
     string midPath = mountPoint+"/d";
-    string outPath = originalPath.getTranslocatedPathToOriginalPath(midPath+"/"+originalPath.getComponentNameToTranslocate());
-
+    
     /* ExtendedAutoFileDesc will throw if one of these doesn't exist or isn't accessible */
     ExtendedAutoFileDesc mountFd(mountPoint);
     ExtendedAutoFileDesc midFd(midPath);
@@ -766,6 +834,34 @@ static string newAppPath (const string &mountPoint, const TranslocationPath &ori
     }
 
     return outFd.getRealPath();
+}
+
+
+static string newAppPath (const string &mountPoint, const GenericTranslocationPath &originalPath)
+{
+    string outPath = mountPoint+"/d/"+originalPath.getComponentNameToTranslocate();
+    return newAppPathFrom(mountPoint, outPath);
+}
+
+/* Given the path to a new mountpoint and the original path to translocate, calculate the path
+to the desired app in the new mountpoint, and sanity check that calculation */
+static string newAppPath (const string &mountPoint, const TranslocationPath &originalPath)
+{
+    string outPath = originalPath.getTranslocatedPathToOriginalPath(mountPoint+"/d/"+originalPath.getComponentNameToTranslocate());
+    return newAppPathFrom(mountPoint, outPath);
+}
+
+static std::vector<char> getMountData(const string& toTranslocate, TranslocationOptions opts) {
+    std::vector<char> data;
+    data.reserve(sizeof(null_mount_conf) + toTranslocate.size() + 1);
+    null_mount_conf conf = {0};
+    if ((opts & TranslocationOptions::Unveil) == TranslocationOptions::Unveil) {
+        conf.flags = NULLM_UNVEIL;
+    }
+    data.insert(data.end(), reinterpret_cast<const char*>(&conf), reinterpret_cast<const char*>(&conf + 1));
+    data.insert(data.end(), toTranslocate.c_str(),  toTranslocate.c_str() + toTranslocate.size());
+    data.push_back('\0');
+    return data;
 }
 
 /* Create an app translocation point given the original path and an optional destination path.
@@ -809,7 +905,8 @@ string translocatePathForUser(const TranslocationPath &originalPath, const strin
             mountpoint = destMountPoint;
         }
 
-        UnixError::check(mount(NULLFS_FSTYPE, mountpoint.c_str(), MNT_RDONLY, (void*)toTranslocate.c_str()));
+        auto mount_data = getMountData(toTranslocate, originalPath.getOptions());
+        UnixError::check(mount(NULLFS_FSTYPE, mountpoint.c_str(), MNT_RDONLY, mount_data.data()));
 
         setMountPointQuarantineIfNecessary(mountpoint, toTranslocate); //throws
 
@@ -828,6 +925,62 @@ string translocatePathForUser(const TranslocationPath &originalPath, const strin
         }
         // log that we created a new mountpoint (we don't log when we are re-using)
         Syslog::warning("SecTranslocateCreateSecureDirectoryForURL: created %s",
+                        newPath.c_str());
+    }
+    catch (...)
+    {
+        exception = current_exception();
+
+        if (!mountpoint.empty())
+        {
+            if (owned)
+            {
+                /* try to unmount/delete (best effort)*/
+                unmount(mountpoint.c_str(), 0);
+                rmdir(mountpoint.c_str());
+            }
+        }
+    }
+
+    /* rethrow outside the dispatch block */
+    if (exception)
+    {
+        rethrow_exception(exception);
+    }
+
+    return newPath;
+}
+
+string translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath)
+{
+    string newPath;
+    exception_ptr exception(0);
+
+    string mountpoint = destPath;
+    bool owned = false;
+    try
+    {
+        const string &toTranslocate = originalPath.getOriginalRealPath();
+        if (pathExistsInMountTable(originalPath, destPath))
+        {
+            /* A mount point exists already so bail*/
+            newPath = newAppPath(mountpoint, originalPath);
+            return newPath; /* exit the block */
+        }
+
+        AutoFileDesc fd(getFDForDirectory(mountpoint, &owned)); //throws, makes the directory if it doesn't exist
+
+        validateMountpoint(mountpoint, owned); //throws
+
+        auto mount_data = getMountData(toTranslocate, originalPath.getOptions());
+        UnixError::check(mount(NULLFS_FSTYPE, mountpoint.c_str(), MNT_RDONLY, mount_data.data()));
+
+        setMountPointQuarantineIfNecessary(mountpoint, toTranslocate); //throws
+
+        newPath = newAppPath(mountpoint, originalPath); //throws
+
+        // log that we created a new mountpoint (we don't log when we are re-using)
+        Syslog::warning("SecTranslocateCreateGeneric: created %s",
                         newPath.c_str());
     }
     catch (...)
@@ -929,11 +1082,10 @@ bool destroyTranslocatedPathForUser(const string &translocatedPath)
     bool result = false;
     int error = 0;
     /* steps
-     1. verify the translocatedPath is for the user
-     2. verify it is a nullfs mountpoint (with app path)
-     3. unmount it
-     4. delete it
-     5. loop through all the other directories in the app translation directory looking for directories not mounted on and delete them.
+     1. verify it is a nullfs mountpoint (with app path)
+     2. unmount it
+     3. delete it
+     4. loop through all the other directories in the app translation directory looking for directories not mounted on and delete them.
      */
 
     string baseDirForUser = translocationDirForUser(); // throws
@@ -947,7 +1099,7 @@ bool destroyTranslocatedPathForUser(const string &translocatedPath)
          To support unmount when nested apps end, just make sure that the requested path is on a translocation
          point for this user, not that they asked for a translocation point to be removed.
          */
-        shouldUnmount = fd.isInPrefixDir(baseDirForUser) && fd.isFileSystemType(NULLFS_FSTYPE);
+        shouldUnmount = fd.isFileSystemType(NULLFS_FSTYPE);
     }
 
     if (shouldUnmount)

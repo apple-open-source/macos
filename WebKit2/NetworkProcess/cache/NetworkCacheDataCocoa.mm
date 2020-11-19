@@ -23,13 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "NetworkCacheData.h"
+#import "config.h"
+#import "NetworkCacheData.h"
 
-#include "SharedMemory.h"
-#include <dispatch/dispatch.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
+#import "SharedMemory.h"
+#import <dispatch/dispatch.h>
+#import <sys/mman.h>
+#import <sys/stat.h>
 
 namespace WebKit {
 namespace NetworkCache {
@@ -92,11 +92,13 @@ Data concatenate(const Data& a, const Data& b)
     return { adoptOSObject(dispatch_data_create_concat(a.dispatchData(), b.dispatchData())) };
 }
 
-Data Data::adoptMap(void* map, size_t size, int fd)
+Data Data::adoptMap(FileSystem::MappedFileData&& mappedFile, FileSystem::PlatformFileHandle fd)
 {
+    size_t size = mappedFile.size();
+    void* map = mappedFile.leakHandle();
     ASSERT(map);
     ASSERT(map != MAP_FAILED);
-    close(fd);
+    FileSystem::closeFile(fd);
     auto bodyMap = adoptOSObject(dispatch_data_create(map, size, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), [map, size] {
         munmap(map, size);
     }));

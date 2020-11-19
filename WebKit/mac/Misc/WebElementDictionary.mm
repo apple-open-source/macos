@@ -67,8 +67,8 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
 + (void)initialize
 {
 #if !PLATFORM(IOS_FAMILY)
-    JSC::initializeThreading();
-    RunLoop::initializeMainRunLoop();
+    JSC::initialize();
+    WTF::initializeMainThread();
 #endif
 }
 

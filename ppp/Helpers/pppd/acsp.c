@@ -2137,7 +2137,8 @@ acsp_ipdata_start_dhcp_client(int unit, u_int32_t ouraddr, u_int32_t hisaddr)
 	int i, outlen, pad;
 static u_int16_t dhcp_ip_client_xid = 1;
 	u_int32_t l, clientid = 1; // ??	 
-	
+
+	bzero(outpacket_buf, sizeof(outpacket_buf));
 	outp = outpacket_buf;
 
 	// ppp
@@ -2145,17 +2146,14 @@ static u_int16_t dhcp_ip_client_xid = 1;
 	outlen = PPP_HDRLEN;
 
 	// ip
-	bzero(outp, sizeof(struct ip));
 	outp += sizeof(struct ip);
 	outlen += sizeof(struct ip);
 	
-	// udp	
-	bzero(outp, sizeof(struct udphdr));
+	// udp
 	outp += sizeof(struct udphdr);
 	outlen += sizeof(struct udphdr);
 	
-	// bootp	
-	bzero(outp, sizeof(struct dhcp));
+	// bootp
 	PUTCHAR(BOOTREQUEST, outp);		// dp_op
 	PUTCHAR(8, outp);				// dp_htype
 	PUTCHAR(6, outp);				// dp_hlen

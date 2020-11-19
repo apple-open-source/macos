@@ -95,7 +95,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalULocaleDisplayNamesPointer, ULocaleDisplayNames
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /* getters for state */
 

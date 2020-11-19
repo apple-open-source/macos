@@ -48,12 +48,6 @@ bool IOBSDConsole::start(IOService * provider)
     assert( notify );
 
     notify = addNotification( gIOPublishNotification,
-        serviceMatching("IODisplayWrangler"),
-        (IOServiceNotificationHandler) &IOBSDConsole::publishNotificationHandler,
-         this, 0 );
-    assert( notify ); 
-
-    notify = addNotification( gIOPublishNotification,
         serviceMatching("IOAudioStream"),
         (IOServiceNotificationHandler) &IOBSDConsole::publishNotificationHandler,
         this, this );
@@ -89,9 +83,6 @@ bool IOBSDConsole::publishNotificationHandler(
         if( keyboard && self->attach( keyboard )) {
             self->arbitrateForKeyboard( keyboard );
         }
-
-        if( newService->metaCast("IODisplayWrangler"))
-            self->displayManager = newService;
     }
 
     return true;
@@ -155,10 +146,8 @@ void IOBSDConsole::keyboardEvent(OSObject * target,
 {
     static const char cursorCodes[] = { 'D', 'A', 'C', 'B' };
 
-    if ( ((IOBSDConsole *)target)->displayManager != NULL ) {
-        // if there is a display manager, tell it there is user activity
-        ((IOBSDConsole *)target)->displayManager->activityTickle(kIOPMSuperclassPolicy1);
-    }
+    // declare that there is user activity
+    getPMRootDomain()->requestUserActive(this, "IOBSDConsole::keyboardEvent");
 
     if( (eventType == NX_KEYDOWN) && ((flags & NX_ALTERNATEMASK) != NX_ALTERNATEMASK)) {
         if( (charSet == NX_SYMBOLSET)

@@ -31,9 +31,7 @@
 }
 
 - (instancetype)init {
-    self = [super init];
-
-    if (self) {
+    if ((self = [super init])) {
         XPCNotificationDispatcher* dispatcher = [XPCNotificationDispatcher dispatcher];
 
         _queue = dispatch_queue_create("CKDAKSLockMonitor", NULL);
@@ -86,6 +84,7 @@
 }
 
 - (void) _onqueueRecheck {
+    dispatch_assert_queue(_queue);
     CFErrorRef aksError = NULL;
     bool locked = true; // Assume locked if we get an error
 

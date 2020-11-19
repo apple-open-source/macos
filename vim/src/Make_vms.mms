@@ -2,9 +2,9 @@
 # Makefile for Vim on OpenVMS
 #
 # Maintainer:   Zoltan Arpadffy <arpadffy@polarhome.com>
-# Last change:  2019 Sep 28
+# Last change:  2019 Nov 30
 #
-# This has script been tested on VMS 6.2 to 8.2 on DEC Alpha, VAX and IA64
+# This script has been tested on VMS 6.2 to 8.4 on DEC Alpha, VAX and IA64
 # with MMS and MMK
 #
 # The following could be built:
@@ -70,13 +70,9 @@ CCVER = YES
 # VIM_RUBY   = YES
 
 # X Input Method.  For entering special languages like chinese and
-# Japanese. Please define just one: VIM_XIM or VIM_HANGULIN
+# Japanese.
 # If you don't need it really, leave it behind the comment.
 # VIM_XIM = YES
-
-# Internal Hangul input method. GUI only.
-# If you don't need it really, leave it behind the comment.
-# VIM_HANGULIN = YES
 
 # Allow any white space to separate the fields in a tags file
 # When not defined, only a TAB is allowed.
@@ -247,15 +243,6 @@ XIM_DEF = ,"FEAT_XIM"
 .ENDIF
 .ENDIF
 
-.IFDEF VIM_HANGULIN
-# HANGULIN related setup.
-.IFDEF GUI
-HANGULIN_DEF = ,"FEAT_HANGULIN"
-HANGULIN_SRC = hangulin.c
-HANGULIN_OBJ = hangulin.obj
-.ENDIF
-.ENDIF
-
 .IFDEF VIM_MZSCHEME
 # MZSCHEME related setup
 MZSCH_DEF = ,"FEAT_MZSCHEME"
@@ -287,18 +274,18 @@ VIMHOST = "''F$TRNLNM("SYS$NODE")'''F$TRNLNM("UCX$INET_HOST")'.''F$TRNLNM("UCX$I
 .SUFFIXES : .obj .c
 
 ALL_CFLAGS = /def=($(MODEL_DEF)$(DEFS)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
- $(TCL_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF) -
+ $(TCL_DEF)$(RUBY_DEF)$(XIM_DEF)$(TAG_DEF)$(MZSCH_DEF) -
  $(ICONV_DEF)) -
  $(CFLAGS)$(GUI_FLAG) -
  /include=($(C_INC)$(GUI_INC_DIR)$(GUI_INC)$(PERL_INC)$(PYTHON_INC) -
  $(TCL_INC)$(XDIFF_INC)$(XPM_INC))
 
 # CFLAGS displayed in :ver information
-# It is specially formated for correct display of unix like includes
+# It is specially formatted for correct display of unix like includes
 # as $(GUI_INC) - replaced with $(GUI_INC_VER)
 # Otherwise should not be any other difference.
 ALL_CFLAGS_VER = /def=($(MODEL_DEF)$(DEFS)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
- $(TCL_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF) - 
+ $(TCL_DEF)$(RUBY_DEF)$(XIM_DEF)$(TAG_DEF)$(MZSCH_DEF) - 
  $(ICONV_DEF)) -
  $(CFLAGS)$(GUI_FLAG) -
  /include=($(C_INC)$(GUI_INC_DIR)$(GUI_INC_VER)$(PERL_INC)$(PYTHON_INC) -
@@ -319,6 +306,8 @@ SRC = \
 	change.c \
 	charset.c \
 	cindent.c \
+	clientserver.c \
+	clipboard.c \
 	cmdexpand.c \
 	cmdhist.c \
 	crypt.c \
@@ -393,12 +382,19 @@ SRC = \
 	term.c \
 	termlib.c \
 	testing.c \
+	textformat.c \
+	textobject.c \
 	textprop.c \
+	time.c \
+	typval.c \
 	ui.c \
 	undo.c \
 	usercmd.c \
 	userfunc.c \
 	version.c \
+	vim9compile.c \
+	vim9execute.c \
+	vim9script.c \
 	viminfo.c \
 	window.c \
 	$(GUI_SRC) \
@@ -406,7 +402,6 @@ SRC = \
 	$(PYTHON_SRC) \
 	$(TCL_SRC) \
 	$(RUBY_SRC) \
-	$(HANGULIN_SRC) \
 	$(MZSCH_SRC) \
 	$(XDIFF_SRC)
 
@@ -422,6 +417,8 @@ OBJ = \
 	change.obj \
 	charset.obj \
 	cindent.obj \
+	clientserver.obj \
+	clipboard.obj \
 	cmdexpand.obj \
 	cmdhist.obj \
 	crypt.obj \
@@ -497,12 +494,19 @@ OBJ = \
 	term.obj \
 	termlib.obj \
 	testing.obj \
+	textformat.obj \
+	textobject.obj \
 	textprop.obj \
+	time.obj \
+	typval.obj \
 	ui.obj \
 	undo.obj \
 	usercmd.obj \
 	userfunc.obj \
 	version.obj \
+	vim9compile.obj \
+	vim9execute.obj \
+	vim9script.obj \
 	viminfo.obj \
 	window.obj \
 	$(GUI_OBJ) \
@@ -510,7 +514,6 @@ OBJ = \
 	$(PYTHON_OBJ) \
 	$(TCL_OBJ) \
 	$(RUBY_OBJ) \
-	$(HANGULIN_OBJ) \
 	$(MZSCH_OBJ) \
 	$(XDIFF_OBJ)
 
@@ -536,7 +539,9 @@ clean :
 
 # Link the target
 $(TARGET) : $(OBJ)
-	$(LD_DEF) $(LDFLAGS) /exe=$(TARGET) $+ $(ALL_LIBS)
+#     make an OPT file - as the obj file list is too long for one command line
+	-@ DIRECTORY *.OBJ. /BRIEF/COLUMNS=1/NOHEADING/NOTRAILING /SELECT=FILE=(NONODE,NODEVICE,NODIRECTORY,NOVERSION)/OUTPUT=ALL_OBJS_LIST.OPT
+	$(LD_DEF) $(LDFLAGS) /exe=$(TARGET) ALL_OBJS_LIST.OPT/OPT $(ALL_LIBS)
 
 .c.obj :
 	$(CC_DEF) $(ALL_CFLAGS) $<
@@ -551,7 +556,7 @@ pathdef.c : check_ccver $(CONFIG_H)
 	-@ write pd "char_u *default_vim_dir = (char_u *)"$(VIMLOC)";"
 	-@ write pd "char_u *default_vimruntime_dir = (char_u *)"$(VIMRUN)";"
 	-@ write pd "char_u *all_cflags = (char_u *)""$(CC_DEF)$(ALL_CFLAGS_VER)"";"
-	-@ write pd "char_u *all_lflags = (char_u *)""$(LD_DEF)$(LDFLAGS) /exe=$(TARGET) *.OBJ $(ALL_LIBS)"";"
+	-@ write pd "char_u *all_lflags = (char_u *)""$(LD_DEF)$(LDFLAGS) /exe=$(TARGET) ALL_OBJS_LIST.OPT/OPT $(ALL_LIBS)"";"
 	-@ write pd "char_u *compiler_version = (char_u *) ""''CC_VER'"";"
 	-@ write pd "char_u *compiled_user = (char_u *) "$(VIMUSER)";"
 	-@ write pd "char_u *compiled_sys  = (char_u *) "$(VIMHOST)";"
@@ -559,8 +564,7 @@ pathdef.c : check_ccver $(CONFIG_H)
 	-@ close pd
 
 if_perl.c : if_perl.xs
-	-@ $(PERL) PERL_ROOT:[LIB.ExtUtils]xsubpp -prototypes -typemap -
- PERL_ROOT:[LIB.ExtUtils]typemap if_perl.xs >> $@
+	-@ $(PERL) PERL_ROOT:[LIB.ExtUtils]xsubpp -prototypes -typemap - PERL_ROOT:[LIB.ExtUtils]typemap if_perl.xs >> $@
 
 make_vms.mms :
 	-@ write sys$output "The name of the makefile MUST be <MAKE_VMS.MMS> !!!"
@@ -693,16 +697,24 @@ buffer.obj : buffer.c vim.h [.auto]config.h feature.h os_unix.h \
 bufwrite.obj : bufwrite.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
- globals.h version.h
+ globals.h
 change.obj : change.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
- globals.h version.h
+ globals.h
 charset.obj : charset.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
  globals.h
 cindent.obj : cindent.c vim.h [.auto]config.h feature.h os_unix.h \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h \
+ gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+ globals.h
+clientserver.obj : clientserver.c vim.h [.auto]config.h feature.h os_unix.h \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h \
+ gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+ globals.h
+clipboard.obj : clipboard.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
  globals.h
@@ -750,12 +762,11 @@ edit.obj : edit.c vim.h [.auto]config.h feature.h os_unix.h   \
  [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
 eval.obj : eval.c vim.h [.auto]config.h feature.h os_unix.h   \
  ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
- [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h \
- version.h
+ [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
 evalbuffer.obj : evalbuffer.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h option.h structs.h \
  regexp.h gui.h beval.h [.proto]gui_beval.pro alloc.h ex_cmds.h spell.h \
- proto.h globals.h version.h
+ proto.h globals.h
 evalfunc.obj : evalfunc.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h option.h structs.h \
  regexp.h gui.h beval.h [.proto]gui_beval.pro alloc.h ex_cmds.h spell.h \
@@ -767,7 +778,7 @@ evalvars.obj : evalvars.c vim.h [.auto]config.h feature.h os_unix.h \
 evalwindow.obj : evalwindow.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h option.h structs.h \
  regexp.h gui.h beval.h [.proto]gui_beval.pro alloc.h ex_cmds.h spell.h \
- proto.h globals.h version.h
+ proto.h globals.h
 ex_cmds.obj : ex_cmds.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
@@ -779,7 +790,7 @@ ex_cmds2.obj : ex_cmds2.c vim.h [.auto]config.h feature.h os_unix.h \
 ex_docmd.obj : ex_docmd.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
- globals.h
+ globals.h ex_cmdidxs.h
 ex_eval.obj : ex_eval.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
@@ -810,7 +821,7 @@ getchar.obj : getchar.c vim.h [.auto]config.h feature.h os_unix.h \
 hardcopy.obj : hardcopy.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
- globals.h
+ globals.h version.h
 hashtab.obj : hashtab.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
@@ -835,8 +846,7 @@ indent.obj : indent.c vim.h [.auto]config.h feature.h os_unix.h
 insexpand.obj : insexpand.c vim.h [.auto]config.h feature.h os_unix.h
 json.obj : json.c vim.h [.auto]config.h feature.h os_unix.h   \
  ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
- [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h \
- version.h
+ [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
 list.obj : list.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
  beval.h [.proto]gui_beval.pro alloc.h ex_cmds.h spell.h proto.h \
@@ -847,7 +857,7 @@ main.obj : main.c vim.h [.auto]config.h feature.h os_unix.h   \
  arabic.c
 map.obj : map.c vim.h [.auto]config.h feature.h os_unix.h   \
  ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
- [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h \
+ [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
 mark.obj : mark.c vim.h [.auto]config.h feature.h os_unix.h   \
  ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
  [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
@@ -985,7 +995,19 @@ termlib.obj : termlib.c vim.h [.auto]config.h feature.h os_unix.h   \
 testing.obj : testing.c vim.h [.auto]config.h feature.h os_unix.h   \
  ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
  [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
+textformat.obj : textformat.c vim.h [.auto]config.h feature.h os_unix.h   \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
+ [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
+textobject.obj : textobject.c vim.h [.auto]config.h feature.h os_unix.h   \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
+ [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
 textprop.obj : textprop.c vim.h [.auto]config.h feature.h os_unix.h   \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
+ [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
+time.obj : time.c vim.h [.auto]config.h feature.h os_unix.h   \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
+ [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
+typval.obj : typval.c vim.h [.auto]config.h feature.h os_unix.h   \
  ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
  [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
 ui.obj : ui.c vim.h [.auto]config.h feature.h os_unix.h   \
@@ -1007,6 +1029,18 @@ version.obj : version.c vim.h [.auto]config.h feature.h os_unix.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
  globals.h version.h
 viminfo.obj : viminfo.c vim.h [.auto]config.h feature.h os_unix.h \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h \
+ gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+ globals.h version.h
+vim9compile.obj : vim9compile.c vim.h [.auto]config.h feature.h os_unix.h \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h \
+ gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+ globals.h version.h
+vim9execute.obj : vim9execute.c vim.h [.auto]config.h feature.h os_unix.h \
+ ascii.h keymap.h term.h macros.h structs.h regexp.h \
+ gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+ globals.h version.h
+vim9script.obj : vim9script.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
  globals.h version.h
@@ -1038,7 +1072,7 @@ gui_gtk_x11.obj : gui_gtk_x11.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
  globals.h gui_gtk_f.h [-.runtime]vim32x32.xpm \
- [-.runtime]vim16x16.xpm [-.runtime]vim48x48.xpm
+ [-.runtime]vim16x16.xpm [-.runtime]vim48x48.xpm version.h
 gui_x11.obj : gui_x11.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
@@ -1070,10 +1104,6 @@ gui_at_fs.obj : gui_at_fs.c vim.h [.auto]config.h feature.h os_unix.h \
 pty.obj : pty.c vim.h [.auto]config.h feature.h os_unix.h   \
  ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
  [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h
-hangulin.obj : hangulin.c vim.h [.auto]config.h feature.h os_unix.h \
- ascii.h keymap.h term.h macros.h structs.h regexp.h \
- gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
- globals.h
 if_perl.obj : [.auto]if_perl.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
@@ -1102,15 +1132,6 @@ gui_beval.obj : gui_beval.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
  globals.h
-workshop.obj : workshop.c [.auto]config.h integration.h vim.h feature.h \
- os_unix.h ascii.h keymap.h term.h macros.h structs.h \
- regexp.h gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h \
- proto.h globals.h version.h workshop.h
-wsdebug.obj : wsdebug.c
-integration.obj : integration.c vim.h [.auto]config.h feature.h os_unix.h \
- ascii.h keymap.h term.h macros.h structs.h regexp.h \
- gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
- globals.h integration.h
 netbeans.obj : netbeans.c vim.h [.auto]config.h feature.h os_unix.h \
  ascii.h keymap.h term.h macros.h structs.h regexp.h \
  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \

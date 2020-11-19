@@ -73,6 +73,10 @@
     return circleStatus;
 }
 
+static inline SOSCCStatus reportAsSOSCCStatus(uint64_t x) {
+    return (SOSCCStatus) x & CC_MASK;
+}
+
 - (void) updateSOSCircleCachedStatus {
     // clearly invalid, overwritten by cached value in notify_get_state()
     // if its the second time we are launchded
@@ -92,7 +96,7 @@
             }
             return true;
         });
-        secnotice("sosnotify", "initial last circle status is: %llu", (unsigned long long)lastStatus);
+        secnotice("sosnotify", "initial last circle status is: %d", reportAsSOSCCStatus(lastStatus));
     });
 
     uint64_t currentStatus = [self currentTrustBitmask];
@@ -114,8 +118,8 @@
 
         lastStatus = currentStatus;
 
-        secnotice("sosnotify", "new last circle status is: %llu (notify: %s)",
-                  (unsigned long long)lastStatus,
+        secnotice("sosnotify", "new last circle status is: %d (notify: %s)",
+                  reportAsSOSCCStatus(lastStatus),
                   circleStatusChanged ? "yes" : "no");
 
         SOSCachedNotificationOperation(kSOSCCCircleChangedNotification, ^bool(int token, bool gtg) {
@@ -198,7 +202,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     }
 
     self.initialUnsyncedViews = (__bridge_transfer NSMutableSet<NSString*>*)SOSAccountCopyOutstandingViews(self.account);
-    self.initialKeyParameters = self.account.accountKeyDerivationParamters ? [NSData dataWithData:self.account.accountKeyDerivationParamters] : nil;
+    self.initialKeyParameters = self.account.accountKeyDerivationParameters ? [NSData dataWithData:self.account.accountKeyDerivationParameters] : nil;
 
     SOSPeerInfoRef mpi = self.account.peerInfo;
     if (mpi) {
@@ -238,9 +242,10 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     bool isInCircle = [self.account isInCircle:NULL];
 
     if (isInCircle && self.peersToRequestSync) {
-        SOSCCRequestSyncWithPeers((__bridge CFSetRef)(self.peersToRequestSync));
+        NSMutableSet<NSString*>* worklist = self.peersToRequestSync;
+        self.peersToRequestSync = nil;
+        SOSCCRequestSyncWithPeers((__bridge CFSetRef)(worklist));
     }
-    self.peersToRequestSync = nil;
 
     if (isInCircle) {
         SOSAccountEnsureSyncChecking(self.account);
@@ -277,19 +282,23 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     }
    
     if(self.account.circle_rings_retirements_need_attention){
-        SOSAccountRecordRetiredPeersInCircle(self.account);
-
-        SOSAccountEnsureRecoveryRing(self.account);
-        SOSAccountEnsureInBackupRings(self.account);
-
-        CFErrorRef localError = NULL;
-        if(![self.account.circle_transport flushChanges:&localError]){
-            secerror("flush circle failed %@", localError);
-        }
-        CFReleaseSafe(localError);
-
+        self.account.circle_rings_retirements_need_attention = false;
+#if OCTAGON
+        [self.account triggerRingUpdate];
+#endif
+        // Also, there might be some view set change. Ensure that the engine knows...
         notifyEngines = true;
     }
+    if(self.account.need_backup_peers_created_after_backup_key_set){
+        self.account.need_backup_peers_created_after_backup_key_set = false;
+        notifyEngines = true;
+    }
+
+    // Always notify the engines if the view set has changed
+    CFSetRef currentViews = self.account.peerInfo ? SOSPeerInfoCopyEnabledViews(self.account.peerInfo) : NULL;
+    BOOL viewSetChanged = !NSIsEqualSafe(self.initialViews, (__bridge NSSet*)currentViews);
+    CFReleaseNull(currentViews);
+    notifyEngines |= viewSetChanged;
 
     if (notifyEngines) {
 #if OCTAGON
@@ -305,7 +314,6 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         SOSUpdateKeyInterest(self.account);
     }
 
-    self.account.circle_rings_retirements_need_attention = false;
     self.account.engine_peer_state_needs_repair = false;
 
     [self.account flattenToSaveBlock];
@@ -332,7 +340,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     }
 
     // This is the logic to detect a new userKey:
-    bool userKeyChanged = !NSIsEqualSafe(self.initialKeyParameters, self.account.accountKeyDerivationParamters);
+    bool userKeyChanged = !NSIsEqualSafe(self.initialKeyParameters, self.account.accountKeyDerivationParameters);
     
     // This indicates we initiated a password change.
     bool weInitiatedKeyChange = (self.initialTrusted &&

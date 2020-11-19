@@ -39,19 +39,25 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(OfflineAudioDestinationNode);
     
-const size_t renderQuantumSize = 128;    
+const size_t OfflineAudioDestinationNode::renderQuantumSize = 128;
 
-OfflineAudioDestinationNode::OfflineAudioDestinationNode(AudioContext& context, AudioBuffer* renderTarget)
-    : AudioDestinationNode(context, renderTarget->sampleRate())
+OfflineAudioDestinationNode::OfflineAudioDestinationNode(BaseAudioContext& context, AudioBuffer* renderTarget)
+    : AudioDestinationNode(context)
     , m_renderTarget(renderTarget)
-    , m_startedRendering(false)
+    , m_framesToProcess(renderTarget->length())
 {
     m_renderBus = AudioBus::create(renderTarget->numberOfChannels(), renderQuantumSize);
+    initializeDefaultNodeOptions(renderTarget->numberOfChannels(), ChannelCountMode::Explicit, ChannelInterpretation::Speakers);
 }
 
 OfflineAudioDestinationNode::~OfflineAudioDestinationNode()
 {
     uninitialize();
+}
+
+unsigned OfflineAudioDestinationNode::maxChannelCount() const
+{
+    return m_renderTarget->numberOfChannels();
 }
 
 void OfflineAudioDestinationNode::initialize()
@@ -75,65 +81,76 @@ void OfflineAudioDestinationNode::uninitialize()
     AudioNode::uninitialize();
 }
 
-void OfflineAudioDestinationNode::startRendering()
+ExceptionOr<void> OfflineAudioDestinationNode::startRendering()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
     ASSERT(isMainThread());
     ASSERT(m_renderTarget.get());
     if (!m_renderTarget.get())
-        return;
+        return Exception { InvalidStateError };
     
     if (m_startedRendering)
-        return;
+        return Exception { InvalidStateError, "Already started rendering"_s };
 
     m_startedRendering = true;
     ref();
     // FIXME: Should we call lazyInitialize here?
     // FIXME: We should probably limit the number of threads we create for offline audio.
     m_renderThread = Thread::create("offline renderer", [this] {
-        bool didRender = offlineRender();
-        callOnMainThread([this, didRender] {
-            context().finishedRendering(didRender);
+        auto result = offlineRender();
+        callOnMainThread([this, result, currentSampleFrame = m_currentSampleFrame] {
+            m_startedRendering = false;
+            switch (result) {
+            case OfflineRenderResult::Failure:
+                context().finishedRendering(false);
+                break;
+            case OfflineRenderResult::Complete:
+                context().finishedRendering(true);
+                break;
+            case OfflineRenderResult::Suspended:
+                context().didSuspendRendering(currentSampleFrame);
+                break;
+            }
             deref();
         });
-    });
+    }, ThreadType::Audio);
+    return { };
 }
 
-bool OfflineAudioDestinationNode::offlineRender()
+auto OfflineAudioDestinationNode::offlineRender() -> OfflineRenderResult
 {
     ASSERT(!isMainThread());
     ASSERT(m_renderBus.get());
-    if (!m_renderBus.get())
-        return false;
 
-    bool isAudioContextInitialized = context().isInitialized();
-    // FIXME: We used to assert that isAudioContextInitialized is true here.
-    // But it's trivially false in imported/w3c/web-platform-tests/webaudio/the-audio-api/the-offlineaudiocontext-interface/current-time-block-size.html 
-    if (!isAudioContextInitialized)
-        return false;
+    if (!m_renderBus.get())
+        return OfflineRenderResult::Failure;
+
+    RELEASE_ASSERT(context().isInitialized());
 
     bool channelsMatch = m_renderBus->numberOfChannels() == m_renderTarget->numberOfChannels();
     ASSERT(channelsMatch);
     if (!channelsMatch)
-        return false;
+        return OfflineRenderResult::Failure;
 
     bool isRenderBusAllocated = m_renderBus->length() >= renderQuantumSize;
     ASSERT(isRenderBusAllocated);
     if (!isRenderBusAllocated)
-        return false;
+        return OfflineRenderResult::Failure;
 
     // Break up the render target into smaller "render quantize" sized pieces.
     // Render until we're finished.
-    size_t framesToProcess = m_renderTarget->length();
     unsigned numberOfChannels = m_renderTarget->numberOfChannels();
 
     unsigned n = 0;
-    while (framesToProcess > 0) {
+    while (m_framesToProcess > 0) {
+        if (context().shouldSuspend())
+            return OfflineRenderResult::Suspended;
+
         // Render one render quantum.
-        render(0, m_renderBus.get(), renderQuantumSize);
+        render(0, m_renderBus.get(), renderQuantumSize, { });
         
-        size_t framesAvailableToCopy = std::min(framesToProcess, renderQuantumSize);
+        size_t framesAvailableToCopy = std::min(m_framesToProcess, renderQuantumSize);
         
         for (unsigned channelIndex = 0; channelIndex < numberOfChannels; ++channelIndex) {
             const float* source = m_renderBus->channel(channelIndex)->data();
@@ -142,10 +159,10 @@ bool OfflineAudioDestinationNode::offlineRender()
         }
         
         n += framesAvailableToCopy;
-        framesToProcess -= framesAvailableToCopy;
+        m_framesToProcess -= framesAvailableToCopy;
     }
 
-    return true;
+    return OfflineRenderResult::Complete;
 }
 
 } // namespace WebCore

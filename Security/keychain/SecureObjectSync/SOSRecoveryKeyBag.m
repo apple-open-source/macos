@@ -101,10 +101,10 @@ const uint8_t* der_decode_RecoveryKeyBag(CFAllocatorRef allocator,
     der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
     require_quiet(sequence_end == der_end, fail);
     
-    der = der_decode_string(kCFAllocatorDefault, kCFPropertyListImmutable, &rb->accountDSID, error, der, sequence_end);
+    der = der_decode_string(kCFAllocatorDefault, &rb->accountDSID, error, der, sequence_end);
     rb->generation = SOSGenCountCreateFromDER(kCFAllocatorDefault, error, &der, sequence_end);
     der = ccder_decode_uint64(&rb->rkbVersion, der, sequence_end);
-    der = der_decode_data(allocator, kCFPropertyListImmutable, &rb->recoveryKeyBag, error, der, sequence_end);
+    der = der_decode_data(allocator, &rb->recoveryKeyBag, error, der, sequence_end);
     
     require_quiet(SecRequirementError(der == der_end, error, CFSTR("Extra space in sequence")), fail);
     if (RecoveryKeyBag) CFTransferRetained(*RecoveryKeyBag, rb);

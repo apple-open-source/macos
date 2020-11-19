@@ -28,19 +28,19 @@
 #if ENABLE(GPU_PROCESS)
 
 #include <WebCore/ContentType.h>
+#include <WebCore/SecurityOriginData.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
 
 struct RemoteMediaPlayerProxyConfiguration {
-    String mediaKeysStorageDirectory;
     String referrer;
     String userAgent;
     String sourceApplicationIdentifier;
     String networkInterfaceName;
-    String mediaCacheDirectory;
     Vector<WebCore::ContentType> mediaContentTypesRequiringHardwareSupport;
     Vector<String> preferredAudioCharacteristics;
+    WebCore::SecurityOriginData documentSecurityOrigin;
     uint64_t logIdentifier { 0 };
     bool shouldUsePersistentCache { false };
     bool isVideo { 0 };
@@ -48,14 +48,13 @@ struct RemoteMediaPlayerProxyConfiguration {
     template<class Encoder>
     void encode(Encoder& encoder) const
     {
-        encoder << mediaKeysStorageDirectory;
         encoder << referrer;
         encoder << userAgent;
         encoder << sourceApplicationIdentifier;
         encoder << networkInterfaceName;
-        encoder << mediaCacheDirectory;
         encoder << mediaContentTypesRequiringHardwareSupport;
         encoder << preferredAudioCharacteristics;
+        encoder << documentSecurityOrigin;
         encoder << logIdentifier;
         encoder << shouldUsePersistentCache;
         encoder << isVideo;
@@ -64,11 +63,6 @@ struct RemoteMediaPlayerProxyConfiguration {
     template <class Decoder>
     static Optional<RemoteMediaPlayerProxyConfiguration> decode(Decoder& decoder)
     {
-        Optional<String> mediaKeysStorageDirectory;
-        decoder >> mediaKeysStorageDirectory;
-        if (!mediaKeysStorageDirectory)
-            return WTF::nullopt;
-
         Optional<String> referrer;
         decoder >> referrer;
         if (!referrer)
@@ -89,11 +83,6 @@ struct RemoteMediaPlayerProxyConfiguration {
         if (!networkInterfaceName)
             return WTF::nullopt;
 
-        Optional<String> mediaCacheDirectory;
-        decoder >> mediaCacheDirectory;
-        if (!mediaCacheDirectory)
-            return WTF::nullopt;
-
         Optional<Vector<WebCore::ContentType>> mediaContentTypesRequiringHardwareSupport;
         decoder >> mediaContentTypesRequiringHardwareSupport;
         if (!mediaContentTypesRequiringHardwareSupport)
@@ -102,6 +91,11 @@ struct RemoteMediaPlayerProxyConfiguration {
         Optional<Vector<String>> preferredAudioCharacteristics;
         decoder >> preferredAudioCharacteristics;
         if (!preferredAudioCharacteristics)
+            return WTF::nullopt;
+
+        Optional<WebCore::SecurityOriginData> documentSecurityOrigin;
+        decoder >> documentSecurityOrigin;
+        if (!documentSecurityOrigin)
             return WTF::nullopt;
 
         Optional<uint64_t> logIdentifier;
@@ -120,14 +114,13 @@ struct RemoteMediaPlayerProxyConfiguration {
             return WTF::nullopt;
 
         return {{
-            WTFMove(*mediaKeysStorageDirectory),
             WTFMove(*referrer),
             WTFMove(*userAgent),
             WTFMove(*sourceApplicationIdentifier),
             WTFMove(*networkInterfaceName),
-            WTFMove(*mediaCacheDirectory),
             WTFMove(*mediaContentTypesRequiringHardwareSupport),
             WTFMove(*preferredAudioCharacteristics),
+            WTFMove(*documentSecurityOrigin),
             *logIdentifier,
             *shouldUsePersistentCache,
             *isVideo,

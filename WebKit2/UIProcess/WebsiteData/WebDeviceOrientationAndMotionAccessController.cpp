@@ -29,14 +29,16 @@
 #if ENABLE(DEVICE_ORIENTATION)
 
 #include "APIUIClient.h"
+#include "FrameInfoData.h"
 #include "WebPageProxy.h"
 
 namespace WebKit {
 
 using namespace WebCore;
 
-void WebDeviceOrientationAndMotionAccessController::shouldAllowAccess(WebPageProxy& page, WebFrameProxy& frame, WebCore::SecurityOriginData&& originData, bool mayPrompt, CompletionHandler<void(DeviceOrientationOrMotionPermissionState)>&& completionHandler)
+void WebDeviceOrientationAndMotionAccessController::shouldAllowAccess(WebPageProxy& page, WebFrameProxy& frame, FrameInfoData&& frameInfo, bool mayPrompt, CompletionHandler<void(DeviceOrientationOrMotionPermissionState)>&& completionHandler)
 {
+    SecurityOriginData originData = frameInfo.securityOrigin;
     auto currentPermission = cachedDeviceOrientationPermission(originData);
     if (currentPermission != DeviceOrientationOrMotionPermissionState::Prompt || !mayPrompt)
         return completionHandler(currentPermission);
@@ -48,7 +50,7 @@ void WebDeviceOrientationAndMotionAccessController::shouldAllowAccess(WebPagePro
     if (pendingRequests.size() > 1)
         return;
 
-    page.uiClient().shouldAllowDeviceOrientationAndMotionAccess(page, frame, WTFMove(originData), [this, weakThis = makeWeakPtr(this), originData](bool granted) mutable {
+    page.uiClient().shouldAllowDeviceOrientationAndMotionAccess(page, frame, WTFMove(frameInfo), [this, weakThis = makeWeakPtr(this), originData](bool granted) mutable {
         if (!weakThis)
             return;
         m_deviceOrientationPermissionDecisions.set(originData, granted);
@@ -60,6 +62,9 @@ void WebDeviceOrientationAndMotionAccessController::shouldAllowAccess(WebPagePro
 
 DeviceOrientationOrMotionPermissionState WebDeviceOrientationAndMotionAccessController::cachedDeviceOrientationPermission(const SecurityOriginData& origin) const
 {
+    if (!m_deviceOrientationPermissionDecisions.isValidKey(origin))
+        return DeviceOrientationOrMotionPermissionState::Denied;
+
     auto it = m_deviceOrientationPermissionDecisions.find(origin);
     if (it == m_deviceOrientationPermissionDecisions.end())
         return DeviceOrientationOrMotionPermissionState::Prompt;

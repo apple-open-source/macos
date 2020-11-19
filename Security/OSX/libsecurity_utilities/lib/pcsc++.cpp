@@ -66,7 +66,7 @@ Error::Error(unsigned long err) : error(err)
 }
 
 
-const char *Error::what() const throw ()
+const char *Error::what() const _NOEXCEPT
 {
 	return pcsc_stringify_error((int32_t)error);
 }

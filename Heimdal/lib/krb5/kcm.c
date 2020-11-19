@@ -1363,6 +1363,9 @@ _krb5_kcm_get_initial_ticket(krb5_context context,
     krb5_error_code ret;
     krb5_storage *request;
 
+    if (id->ops == &krb5_xcc_ops || id->ops == &krb5_xcc_api_ops) {
+	return _krb5_xcc_get_initial_ticket(context, id, client, server, password);
+    } else
     if (id->ops != &krb5_kcm_ops && id->ops != &krb5_akcm_ops) {
 	krb5_set_error_message(context, EINVAL, "Cache is not a KCM cache");
 	return EINVAL;

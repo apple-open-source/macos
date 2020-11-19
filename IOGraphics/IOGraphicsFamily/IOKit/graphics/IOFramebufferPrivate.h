@@ -158,7 +158,6 @@ protected:
                                    IOInterruptEventSource * evtSrc, int intCount);
     static void updateVBL(OSObject * owner, IOTimerEventSource * sender);
     static void deferredCLUTSetTimer(OSObject * owner, IOTimerEventSource * sender);
-    static void handleVBL(IOFramebuffer * inst, void * ref);
 
     static void writePrefs( OSObject * owner, IOTimerEventSource * sender );
     static void connectChangeInterrupt( IOFramebuffer * inst, void * ref );
@@ -283,6 +282,7 @@ private:
     uint64_t getLimitState(void) const;
 
 
+    void moveCursorImpl( const IOGPoint& cursorLoc, int frame );
 protected:
     // --
 
@@ -303,6 +303,7 @@ public:
     static void updateDisplaysPowerState(void);
     static IOReturn setPreferences( IOService * props, OSDictionary * prefs );
     static OSObject * copyPreferences( void );
+    OSDictionary * copyPreferenceDict( const OSSymbol * display);
     OSObject * copyPreference( class IODisplay * display, const OSSymbol * key );
     bool getIntegerPreference( IODisplay * display, const OSSymbol * key, UInt32 * value );
     bool setPreference( class IODisplay * display, const OSSymbol * key, OSObject * value );

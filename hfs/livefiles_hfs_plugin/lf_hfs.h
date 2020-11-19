@@ -279,8 +279,8 @@ typedef struct hfsmount {
     uuid_t         hfs_full_uuid;
 
     /* Per mount cnode hash variables: */
-    pthread_mutex_t      hfs_chash_mutex;    /* protects access to cnode hash table */
-    u_long         hfs_cnodehash;    /* size of cnode hash table - 1 */
+    pthread_mutex_t      hfs_chash_mutex;  /* protects access to cnode hash table */
+    u_long               hfs_cnodehash;    /* size of cnode hash table - 1 */
     LIST_HEAD(cnodehashhead, cnode) *hfs_cnodehashtbl;    /* base of cnode hash */
 
     /* Per mount fileid hash variables  (protected by catalog lock!) */

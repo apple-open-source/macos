@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -49,7 +49,7 @@
 
 .sidebar > .panel.navigation.canvas.has-recordings > .content > .recording-content {
     flex-grow: 1;
-    overflow-y: scroll;
+    overflow-y: auto;
 }
 
 .sidebar > .panel.navigation.canvas.showing-recording > .content > .tree-outline.canvas {
@@ -65,7 +65,7 @@
 }
 
 .sidebar > .panel.navigation.canvas > .content > .tree-outline .item.shader-program > .icon {
-    content: image-set(url(../Images/DocumentGL.png) 1x, url(../Images/DocumentGL@2x.png) 2x);
+    content: url(../Images/DocumentIcons.svg#gl-light);
 }
 
 .sidebar > .panel.navigation.canvas > .content > .recording-content > .tree-outline .item.recording > .icon {
@@ -73,7 +73,7 @@
 }
 
 .sidebar > .panel.navigation.canvas > .content > .recording-content > .tree-outline .item.folder-icon > .icon {
-    content: url(../Images/RenderingFrame.svg);
+    content: url(../Images/TypeIcons.svg#RenderingFrame-light);
 }
 
 .sidebar > .panel.navigation.canvas > .content > .recording-content > .tree-outline .item.folder-icon > .status {
@@ -87,7 +87,7 @@
     vertical-align: -3px;
 }
 
-.sidebar > .panel.navigation.canvas > .content > .recording-content > .tree-outline:focus .item.processing.selected .subtitle > progress {
+body:not(.window-inactive, .window-docked-inactive) .sidebar > .panel.navigation.canvas > .content > .recording-content > .tree-outline:focus-within .item.processing.selected .subtitle > progress {
     filter: brightness(10);
 }
 
@@ -113,5 +113,13 @@
 
     .sidebar > .panel.navigation.canvas > .content > .tree-outline .item.canvas .icon {
         filter: invert();
+    }
+
+    .sidebar > .panel.navigation.canvas > .content > .tree-outline .item.shader-program > .icon {
+        content: url(../Images/DocumentIcons.svg#gl-dark);
+    }
+
+    .sidebar > .panel.navigation.canvas > .content > .recording-content > .tree-outline .item.folder-icon > .icon {
+        content: url(../Images/TypeIcons.svg#RenderingFrame-dark);
     }
 }

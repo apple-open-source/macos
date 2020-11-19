@@ -8,6 +8,9 @@
 #define __CASEMAP_H__
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/stringpiece.h"
 #include "unicode/uobject.h"
 
@@ -16,7 +19,6 @@
  * \brief C++ API: Low-level C++ case mapping functions.
  */
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class BreakIterator;
@@ -489,6 +491,7 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif  // __CASEMAP_H__

@@ -89,6 +89,8 @@
 #include <sys/queue.h>
 #include <err.h>
 
+#include "printer.h"
+
 #define _NFS_XDR_SUBS_FUNCS_ /* define this to get xdrbuf function definitions */
 #include <nfs/xdr_subs.h>
 
@@ -106,6 +108,7 @@ int verbose = 0;
 #define EXPORTS_MODE 1
 #define ACTIVE_USER_MODE 2
 #define MOUNT_MODE 3
+#define ZEROSTATS_MODE 4
 
 #define NUMERIC_NET 1
 #define NUMERIC_USER 2
@@ -116,6 +119,8 @@ int verbose = 0;
 
 LIST_HEAD(nfs_active_user_node_head, nfs_active_user_node);
 LIST_HEAD(nfs_export_node_head, nfs_export_node);
+
+const struct nfsstats_printer *printer = NULL;
 
 struct nfs_active_user_node {
 	LIST_ENTRY(nfs_active_user_node)	user_next;
@@ -134,6 +139,7 @@ struct nfs_active_user_list {
 };
 
 void intpr(u_int);
+void zerostats(void);
 void printhdr(void);
 void sidewaysintpr(u_int, u_int);
 void usage(void);
@@ -166,8 +172,9 @@ main(int argc, char *argv[])
 	u_int mode = CLIENT_SERVER_MODE;
 	int ch;
 
+	printer = &printf_printer;
 	interval = 0;
-	while ((ch = getopt(argc, argv, "w:sceun:mv")) != EOF)
+	while ((ch = getopt(argc, argv, "w:sceun:mvzf:")) != EOF)
 		switch(ch) {
 		case 'v':
 			verbose++;
@@ -191,6 +198,14 @@ main(int argc, char *argv[])
 			break;
 		case 'm':
 			mode = MOUNT_MODE;
+			break;
+		case 'z':
+			mode = ZEROSTATS_MODE;
+			break;
+		case 'f':
+			if (!strcmp(optarg, "JSON") || !strcmp(optarg, "Json") || !strcmp(optarg, "json"))
+				printer = &json_printer;
+				printer->open(PRINTER_NO_PREFIX, NULL);
 			break;
 		case 'n':
 			if (!strcmp(optarg, "net"))
@@ -220,12 +235,15 @@ main(int argc, char *argv[])
 			do_active_users_interval(interval, usermode_flags);
 		else
 			do_active_users_normal(usermode_flags);
+	} else if (mode == ZEROSTATS_MODE) {
+		zerostats();
 	} else {
 		if (interval)
 			sidewaysintpr(interval, display);
 		else
 			intpr(display);
 	}
+	printer->dump();
 	exit(0);
 }
 
@@ -245,6 +263,24 @@ readstats(struct nfsstats *stp)
 	name[1] = vfc.vfc_typenum;
 	name[2] = NFS_NFSSTATS;
 	if (sysctl(name, 3, stp, &buflen, NULL, 0) < 0)
+		err(1, "sysctl");
+}
+
+/*
+ * Zero the nfs stats using sysctl(3)
+ */
+void
+zerostats(void)
+{
+	int name[3];
+	struct vfsconf vfc;
+
+	if (getvfsbyname("nfs", &vfc) < 0)
+		err(1, "getvfsbyname: NFS not compiled into kernel");
+	name[0] = CTL_VFS;
+	name[1] = vfc.vfc_typenum;
+	name[2] = NFS_NFSZEROSTATS;
+	if (sysctl(name, 3, NULL, 0, NULL, 0) < 0)
 		err(1, "sysctl");
 }
 
@@ -533,130 +569,119 @@ intpr(u_int display)
 	readstats(&nfsstats);
 
 	if (display & SHOW_CLIENT) {
-		printf("Client Info:\n");
-		printf("RPC Counts:\n");
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "Getattr", "Setattr", "Lookup", "Readlink", "Read",
-		       "Write");
-		printf("%12llu %12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.rpccnt[NFSPROC_GETATTR],
-		       nfsstats.rpccnt[NFSPROC_SETATTR],
-		       nfsstats.rpccnt[NFSPROC_LOOKUP],
-		       nfsstats.rpccnt[NFSPROC_READLINK],
-		       nfsstats.rpccnt[NFSPROC_READ],
-		       nfsstats.rpccnt[NFSPROC_WRITE]);
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "Create", "Remove", "Rename", "Link", "Symlink", "Mkdir");
-		printf("%12llu %12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.rpccnt[NFSPROC_CREATE],
-		       nfsstats.rpccnt[NFSPROC_REMOVE],
-		       nfsstats.rpccnt[NFSPROC_RENAME],
-		       nfsstats.rpccnt[NFSPROC_LINK],
-		       nfsstats.rpccnt[NFSPROC_SYMLINK],
-		       nfsstats.rpccnt[NFSPROC_MKDIR]);
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "Rmdir", "Readdir", "RdirPlus", "Access",
-		       "Mknod", "Fsstat");
-		printf("%12llu %12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.rpccnt[NFSPROC_RMDIR],
-		       nfsstats.rpccnt[NFSPROC_READDIR],
-		       nfsstats.rpccnt[NFSPROC_READDIRPLUS],
-		       nfsstats.rpccnt[NFSPROC_ACCESS],
-		       nfsstats.rpccnt[NFSPROC_MKNOD],
-		       nfsstats.rpccnt[NFSPROC_FSSTAT]);
-
-		printf("%12.12s %12.12s %12.12s\n",
-		       "Fsinfo", "PathConf", "Commit");
-		printf("%12llu %12llu %12llu\n",
-		       nfsstats.rpccnt[NFSPROC_FSINFO],
-		       nfsstats.rpccnt[NFSPROC_PATHCONF],
-		       nfsstats.rpccnt[NFSPROC_COMMIT]);
-		printf("RPC Info:\n");
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "TimedOut", "Invalid", "X Replies", "Retries", "Requests");
-		printf("%12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.rpctimeouts,
-		       nfsstats.rpcinvalid,
-		       nfsstats.rpcunexpected,
-		       nfsstats.rpcretries,
-		       nfsstats.rpcrequests);
-		printf("Cache Info:\n");
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "Attr Hits", "Misses", "Lkup Hits", "Misses", "BioR Hits", "Misses");
-		printf("%12llu %12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.attrcache_hits, nfsstats.attrcache_misses,
-		       nfsstats.lookupcache_hits, nfsstats.lookupcache_misses,
-		       nfsstats.biocache_reads-nfsstats.read_bios,
-		       nfsstats.read_bios);
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "BioW Hits", "Misses", "BioRLHits", "Misses", "BioD Hits", "Misses");
-		printf("%12llu %12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.biocache_writes-nfsstats.write_bios,
-		       nfsstats.write_bios,
-		       nfsstats.biocache_readlinks-nfsstats.readlink_bios,
-		       nfsstats.readlink_bios,
-		       nfsstats.biocache_readdirs-nfsstats.readdir_bios,
-		       nfsstats.readdir_bios);
-		printf("%12.12s %12.12s\n", "DirE Hits", "Misses");
-		printf("%12llu %12llu\n",
-		       nfsstats.direofcache_hits, nfsstats.direofcache_misses);
+		printer->open(PRINTER_NO_PREFIX, "Client Info");
+		printer->open(PRINTER_NO_PREFIX, "RPC Counts");
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "Getattr", nfsstats.rpccnt[NFSPROC_GETATTR],
+							  "Setattr", nfsstats.rpccnt[NFSPROC_SETATTR],
+							  "Lookup", nfsstats.rpccnt[NFSPROC_LOOKUP],
+							  "Readlink", nfsstats.rpccnt[NFSPROC_READLINK],
+							  "Read", nfsstats.rpccnt[NFSPROC_READ],
+							  "Write", nfsstats.rpccnt[NFSPROC_WRITE]);
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "Create", nfsstats.rpccnt[NFSPROC_CREATE],
+							  "Remove", nfsstats.rpccnt[NFSPROC_REMOVE],
+							  "Rename", nfsstats.rpccnt[NFSPROC_RENAME],
+							  "Link", nfsstats.rpccnt[NFSPROC_LINK],
+							  "Symlink", nfsstats.rpccnt[NFSPROC_SYMLINK],
+							  "Mkdir", nfsstats.rpccnt[NFSPROC_MKDIR]);
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "Rmdir", nfsstats.rpccnt[NFSPROC_RMDIR],
+							  "Readdir", nfsstats.rpccnt[NFSPROC_READDIR],
+							  "RdirPlus", nfsstats.rpccnt[NFSPROC_READDIRPLUS],
+							  "Access", nfsstats.rpccnt[NFSPROC_ACCESS],
+							  "Mknod", nfsstats.rpccnt[NFSPROC_MKNOD],
+							  "Fsstat", nfsstats.rpccnt[NFSPROC_FSSTAT]);
+		printer->intpr("%12.12s %12.12s %12.12s\n",
+							  "Fsinfo", nfsstats.rpccnt[NFSPROC_FSINFO],
+							  "PathConf", nfsstats.rpccnt[NFSPROC_PATHCONF],
+							  "Commit", nfsstats.rpccnt[NFSPROC_COMMIT],
+							  NULL, 0, NULL, 0, NULL, 0);
+		printer->close();
+		printer->open(PRINTER_NO_PREFIX, "RPC Info");
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "TimedOut", nfsstats.rpctimeouts,
+							  "Invalid", nfsstats.rpcinvalid,
+							  "X Replies", nfsstats.rpcunexpected,
+							  "Retries", nfsstats.rpcretries,
+							  "Requests", nfsstats.rpcrequests,
+							  NULL, 0);
+		printer->close();
+		printer->open(PRINTER_NO_PREFIX, "Cache Info");
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "Attr Hits", nfsstats.attrcache_hits,
+							  "Attr Misses", nfsstats.attrcache_misses,
+							  "Lkup Hits", nfsstats.lookupcache_hits,
+							  "Lkup Misses", nfsstats.lookupcache_misses,
+							  "BioR Hits", nfsstats.biocache_reads-nfsstats.read_bios,
+							  "BioR Misses", nfsstats.read_bios);
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "BioW Hits", nfsstats.biocache_writes-nfsstats.write_bios,
+							  "BioW Misses", nfsstats.write_bios,
+							  "BioRL Hits", nfsstats.biocache_readlinks-nfsstats.readlink_bios,
+							  "BioRL Misses", nfsstats.readlink_bios,
+							  "BioD Hits", nfsstats.biocache_readdirs-nfsstats.readdir_bios,
+							  "BioD Misses", nfsstats.readdir_bios);
+		printer->intpr("%12.12s %12.12s %12.12s\n",
+							  "DirE Hits", nfsstats.direofcache_hits,
+							  "DirE Misses", nfsstats.direofcache_misses,
+							  NULL, 0, NULL, 0, NULL, 0, NULL, 0);
+		printer->close();
+		printer->close();
 	}
 	if (display & SHOW_SERVER) {
-		printf("\nServer Info:\n");
-		printf("RPC Counts:\n");
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "Getattr", "Setattr", "Lookup", "Readlink", "Read",
-		       "Write");
-		printf("%12llu %12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.srvrpccnt[NFSPROC_GETATTR],
-		       nfsstats.srvrpccnt[NFSPROC_SETATTR],
-		       nfsstats.srvrpccnt[NFSPROC_LOOKUP],
-		       nfsstats.srvrpccnt[NFSPROC_READLINK],
-		       nfsstats.srvrpccnt[NFSPROC_READ],
-		       nfsstats.srvrpccnt[NFSPROC_WRITE]);
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "Create", "Remove", "Rename", "Link", "Symlink", "Mkdir");
-		printf("%12llu %12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.srvrpccnt[NFSPROC_CREATE],
-		       nfsstats.srvrpccnt[NFSPROC_REMOVE],
-		       nfsstats.srvrpccnt[NFSPROC_RENAME],
-		       nfsstats.srvrpccnt[NFSPROC_LINK],
-		       nfsstats.srvrpccnt[NFSPROC_SYMLINK],
-		       nfsstats.srvrpccnt[NFSPROC_MKDIR]);
-		printf("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
-		       "Rmdir", "Readdir", "RdirPlus", "Access", "Mknod", "Fsstat");
-		printf("%12llu %12llu %12llu %12llu %12llu %12llu\n",
-		       nfsstats.srvrpccnt[NFSPROC_RMDIR],
-		       nfsstats.srvrpccnt[NFSPROC_READDIR],
-		       nfsstats.srvrpccnt[NFSPROC_READDIRPLUS],
-		       nfsstats.srvrpccnt[NFSPROC_ACCESS],
-		       nfsstats.srvrpccnt[NFSPROC_MKNOD],
-		       nfsstats.srvrpccnt[NFSPROC_FSSTAT]);
-		printf("%12.12s %12.12s %12.12s\n",
-		       "Fsinfo", "PathConf", "Commit");
-		printf("%12llu %12llu %12llu\n",
-		       nfsstats.srvrpccnt[NFSPROC_FSINFO],
-		       nfsstats.srvrpccnt[NFSPROC_PATHCONF],
-		       nfsstats.srvrpccnt[NFSPROC_COMMIT]);
-		printf("Server Ret-Failed\n");
-		printf("%17llu\n", nfsstats.srvrpc_errs);
-		printf("Server Faults\n");
-		printf("%13llu\n", nfsstats.srv_errs);
-		printf("Server Cache Stats:\n");
-		printf("%12.12s %12.12s %12.12s %12.12s\n",
-		       "Inprog", "Idem", "Non-idem", "Misses");
-		printf("%12llu %12llu %12llu %12llu\n",
-		       nfsstats.srvcache_inproghits,
-		       nfsstats.srvcache_idemdonehits,
-		       nfsstats.srvcache_nonidemdonehits,
-		       nfsstats.srvcache_misses);
-		printf("Server Write Gathering:\n");
-		printf("%12.12s %12.12s %12.12s\n",
-		       "WriteOps", "WriteRPC", "Opsaved");
-		printf("%12llu %12llu %12llu\n",
-		       nfsstats.srvvop_writes,
-		       nfsstats.srvrpccnt[NFSPROC_WRITE],
-		       nfsstats.srvrpccnt[NFSPROC_WRITE] - nfsstats.srvvop_writes);
+		printer->newline();
+		printer->open(PRINTER_NO_PREFIX, "Server Info");
+		printer->open(PRINTER_NO_PREFIX, "RPC Counts");
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "Getattr", nfsstats.srvrpccnt[NFSPROC_GETATTR],
+							  "Setattr", nfsstats.srvrpccnt[NFSPROC_SETATTR],
+							  "Lookup", nfsstats.srvrpccnt[NFSPROC_LOOKUP],
+							  "Readlink", nfsstats.srvrpccnt[NFSPROC_READLINK],
+							  "Read", nfsstats.srvrpccnt[NFSPROC_READ],
+							  "Write", nfsstats.srvrpccnt[NFSPROC_WRITE]);
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "Create", nfsstats.srvrpccnt[NFSPROC_CREATE],
+							  "Remove", nfsstats.srvrpccnt[NFSPROC_REMOVE],
+							  "Rename", nfsstats.srvrpccnt[NFSPROC_RENAME],
+							  "Link", nfsstats.srvrpccnt[NFSPROC_LINK],
+							  "Symlink", nfsstats.srvrpccnt[NFSPROC_SYMLINK],
+							  "Mkdir", nfsstats.srvrpccnt[NFSPROC_MKDIR]);
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s %12.12s %12.12s\n",
+							  "Rmdir", nfsstats.srvrpccnt[NFSPROC_RMDIR],
+							  "Readdir", nfsstats.srvrpccnt[NFSPROC_READDIR],
+							  "RdirPlus", nfsstats.srvrpccnt[NFSPROC_READDIRPLUS],
+							  "Access", nfsstats.srvrpccnt[NFSPROC_ACCESS],
+							  "Mknod", nfsstats.srvrpccnt[NFSPROC_MKNOD],
+							  "Fsstat", nfsstats.srvrpccnt[NFSPROC_FSSTAT]);
+		printer->intpr("%12.12s %12.12s %12.12s\n",
+							  "Fsinfo", nfsstats.srvrpccnt[NFSPROC_FSINFO],
+							  "PathConf", nfsstats.srvrpccnt[NFSPROC_PATHCONF],
+							  "Commit", nfsstats.srvrpccnt[NFSPROC_COMMIT],
+							  NULL, 0, NULL, 0, NULL, 0);
+		printer->close();
+		printer->open(PRINTER_NO_PREFIX, "Server Faults");
+		printer->intpr("%12.12s %12.12s\n",
+							  "RPC Errors", nfsstats.srvrpc_errs,
+							  "Errors", nfsstats.srv_errs,
+							  NULL, 0, NULL, 0, NULL, 0, NULL, 0);
+		printer->close();
+		printer->open(PRINTER_NO_PREFIX, "Server Cache Stats");
+		printer->intpr("%12.12s %12.12s %12.12s %12.12s\n",
+							  "Inprog", nfsstats.srvcache_inproghits,
+							  "Idem", nfsstats.srvcache_idemdonehits,
+							  "Non-idem", nfsstats.srvcache_nonidemdonehits,
+							  "Misses", nfsstats.srvcache_misses,
+							  NULL, 0, NULL, 0);
+		printer->close();
+		printer->open(PRINTER_NO_PREFIX, "Server Write Gathering");
+		printer->intpr("%12.12s %12.12s %12.12s\n",
+							  "WriteOps", nfsstats.srvvop_writes,
+							  "WriteRPC", nfsstats.srvrpccnt[NFSPROC_WRITE],
+							  "Opsaved", nfsstats.srvrpccnt[NFSPROC_WRITE] - nfsstats.srvvop_writes,
+							  NULL, 0, NULL, 0, NULL, 0);
+		printer->close();
+		printer->close();
 	}
 }
 
@@ -1195,9 +1220,10 @@ socket_type(char *sotype)
 void
 print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 {
-	int i, flags;
-	uint32_t loc, serv, addr, comp;
+	int i, n, flags;
+	uint32_t loc, serv, comp;
 	struct opt *o;
+	char buf[1024], *location = NULL;
 	char sep;
 
 	/* option separator is space for first option printed and comma for rest */
@@ -1206,260 +1232,261 @@ print_mountargs(struct mountargs *margs, uint32_t origmargsvers)
 #define SEP	sep=','
 
 	flags = margs->mntflags;
-	printf("     General mount flags: 0x%x", flags);
+	printer->open_array("     ", "General mount flags", &flags);
 	for (o = optnames; flags && o->o_opt; o++)
 		if (flags & o->o_opt) {
-			printf("%c%s", sep, o->o_name);
+			printer->add_array_str(sep, o->o_name, "");
 			flags &= ~o->o_opt;
 			SEP;
 		}
-	sep = ' ';
 	for (o = optnames2; flags && o->o_opt; o++)
 		if (flags & o->o_opt) {
-			printf("%c%s", sep, o->o_name);
+			printer->add_array_str(sep, o->o_name, "");
 			flags &= ~o->o_opt;
 			SEP;
 		}
-	printf("\n");
+	printer->close_array(1);
 
 	sep = ' ';
-	printf("     NFS parameters:");
+	printer->open_array("     ", "NFS parameters", NULL);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_VERSION)) {
-		printf("%cvers=%d", sep, margs->nfs_version);
+		n = sprintf(buf, "vers=%d", margs->nfs_version);
+
 		if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_MINOR_VERSION))
-			printf(".%d", margs->nfs_minor_version);
+			n+= sprintf(buf + n, ".%d", margs->nfs_minor_version);
+		buf[n] = '\0';
+		printer->add_array_str(sep, buf, "");
 		SEP;
 	} else if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_VERSION_RANGE)) {
 		uint32_t maj, min;
 
 		maj = PVER2MAJOR(margs->nfs_min_vers);
 		min = PVER2MINOR(margs->nfs_min_vers);
-		printf("%cvers=%d", sep, maj);
+		n = sprintf(buf, "vers=%d", maj);
 		if (min)
-			printf(".%d", min);
+			n+= sprintf(buf + n, ".%d", min);
 		maj = PVER2MAJOR(margs->nfs_max_vers);
 		min = PVER2MINOR(margs->nfs_max_vers);
-		printf("-%d", maj);
+		n+= sprintf(buf + n, "-%d", maj);
 		if (min)
-			printf(".%d", min);
+			n+= sprintf(buf + n, ".%d", min);
+		buf[n] = '\0';
+		printer->add_array_str(sep, buf, "");
 		SEP;
 	}
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SOCKET_TYPE)) {
-        printf("%c%s", sep, socket_type(margs->sotype));
+        printer->add_array_str(sep, socket_type(margs->sotype), "");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_NFS_PORT)) {
-        printf("%cport=%d", sep, margs->nfs_port);
+        printer->add_array_num(sep, "port=", margs->nfs_port);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_LOCAL_NFS_PORT)) {
-        printf("%cport=%s", sep, margs->nfs_localport);
+        printer->add_array_str(sep, "port=", margs->nfs_localport);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_MOUNT_PORT)) {
-        printf("%cmountport=%d", sep, margs->mount_port);
+        printer->add_array_num(sep, "mountport=", margs->mount_port);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_LOCAL_MOUNT_PORT)) {
-        printf("%cmountport=%s", sep, margs->mount_localport);
+        printer->add_array_str(sep, "mountport=", margs->mount_localport);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_MNTUDP)) {
-        printf("%c%smntudp", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_MNTUDP) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_MNTUDP) ? "" : "no", "mntudp");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_SOFT)) {
-        printf("%c%s", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_SOFT) ? "soft" : "hard");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_SOFT) ? "soft" : "hard", "");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_INTR)) {
-        printf("%c%sintr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_INTR) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_INTR) ? "" : "no", "intr");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_RESVPORT)) {
-        printf("%c%sresvport", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_RESVPORT) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_RESVPORT) ? "" : "no", "resvport");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOCONNECT)) {
-        printf("%c%sconn", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCONNECT) ? "no" : "");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCONNECT) ? "no" : "", "conn");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOCALLBACK)) {
-        printf("%c%scallback", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCALLBACK) ? "no" : "");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOCALLBACK) ? "no" : "", "callback");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NONEGNAMECACHE)) {
-        printf("%c%snegnamecache", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NONEGNAMECACHE) ? "no" : "");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NONEGNAMECACHE) ? "no" : "", "negnamecache");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NAMEDATTR)) {
-        printf("%c%snamedattr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NAMEDATTR) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NAMEDATTR) ? "" : "no", "namedattr");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOACL)) {
-        printf("%c%sacl", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOACL) ? "no" : "");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOACL) ? "no" : "", "acl");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_ACLONLY)) {
-        printf("%c%saclonly", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_ACLONLY) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_ACLONLY) ? "" : "no", "aclonly");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_CALLUMNT)) {
-        printf("%c%scallumnt", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_CALLUMNT) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_CALLUMNT) ? "" : "no", "callumnt");
         SEP;
     }
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_LOCK_MODE))
 		switch(margs->lockmode) {
 		case NFS_LOCK_MODE_ENABLED:
-			printf("%clocks", sep);
+			printer->add_array_str(sep, "locks", "");
 			SEP;
 			break;
 		case NFS_LOCK_MODE_DISABLED:
-			printf("%cnolocks", sep);
+			printer->add_array_str(sep, "nolocks", "");
 			SEP;
 			break;
 		case NFS_LOCK_MODE_LOCAL:
-			printf("%clocallocks", sep);
+			printer->add_array_str(sep, "locallocks", "");
 			SEP;
 			break;
 		}
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NOQUOTA)) {
-        printf("%c%squota", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOQUOTA) ? "no" : "");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NOQUOTA) ? "no" : "", "quota");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READ_SIZE)) {
-        printf("%crsize=%d", sep, margs->rsize);
+        printer->add_array_num(sep, "rsize=", margs->rsize);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_WRITE_SIZE)) {
-        printf("%cwsize=%d", sep, margs->wsize);
+        printer->add_array_num(sep, "wsize=", margs->wsize);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READAHEAD)) {
-        printf("%creadahead=%d", sep, margs->readahead);
+        printer->add_array_num(sep, "readahead=", margs->readahead);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_READDIR_SIZE)) {
-        printf("%cdsize=%d", sep, margs->readdirsize);
+        printer->add_array_num(sep, "dsize=", margs->readdirsize);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_RDIRPLUS)) {
-        printf("%c%srdirplus", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_RDIRPLUS) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_RDIRPLUS) ? "" : "no", "rdirplus");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_DUMBTIMER)) {
-        printf("%c%sdumbtimr", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_DUMBTIMER) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_DUMBTIMER) ? "" : "no", "dumbtimr");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_REQUEST_TIMEOUT)) {
-        printf("%ctimeo=%ld", sep, ((margs->request_timeout.tv_sec * 10) + (margs->request_timeout.tv_nsec % 100000000)));
+        printer->add_array_num(sep, "timeo=", ((margs->request_timeout.tv_sec * 10) + (margs->request_timeout.tv_nsec % 100000000)));
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SOFT_RETRY_COUNT)) {
-        printf("%cretrans=%d", sep, margs->soft_retry_count);
+        printer->add_array_num(sep, "retrans=", margs->soft_retry_count);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_MAX_GROUP_LIST)) {
-        printf("%cmaxgroups=%d", sep, margs->maxgrouplist);
+        printer->add_array_num(sep, "maxgroups=", margs->maxgrouplist);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_REG_MIN)) {
-        printf("%cacregmin=%ld", sep, margs->acregmin.tv_sec);
+        printer->add_array_num(sep, "acregmin=", margs->acregmin.tv_sec);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_REG_MAX)) {
-        printf("%cacregmax=%ld", sep, margs->acregmax.tv_sec);
+        printer->add_array_num(sep, "acregmax=", margs->acregmax.tv_sec);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN)) {
-        printf("%cacdirmin=%ld", sep, margs->acdirmin.tv_sec);
+        printer->add_array_num(sep, "acdirmin=", margs->acdirmin.tv_sec);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX)) {
-        printf("%cacdirmax=%ld", sep, margs->acdirmax.tv_sec);
+        printer->add_array_num(sep, "acdirmax=", margs->acdirmax.tv_sec);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_DEAD_TIMEOUT)) {
-        printf("%cdeadtimeout=%ld", sep, margs->dead_timeout.tv_sec);
+        printer->add_array_num(sep, "deadtimeout=", margs->dead_timeout.tv_sec);
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_MUTEJUKEBOX)) {
-        printf("%c%smutejukebox", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_MUTEJUKEBOX) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_MUTEJUKEBOX) ? "" : "no", "mutejukebox");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_EPHEMERAL)) {
-        printf("%c%sephemeral", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_EPHEMERAL) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_EPHEMERAL) ? "" : "no", "ephemeral");
         SEP;
     }
     if (NFS_BITMAP_ISSET(margs->mflags_mask, NFS_MFLAG_NFC)) {
-        printf("%c%snfc", sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NFC) ? "" : "no");
+        printer->add_array_str(sep, NFS_BITMAP_ISSET(margs->mflags, NFS_MFLAG_NFC) ? "" : "no", "nfc");
         SEP;
     }
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SECURITY)) {
-		printf("%csec=%s", sep, sec_flavor_name(margs->sec.flavors[0]));
+		n = sprintf(buf, "sec=%s", sec_flavor_name(margs->sec.flavors[0]));
 		for (i=1; i < margs->sec.count; i++)
-			printf(":%s", sec_flavor_name(margs->sec.flavors[i]));
+			n+= sprintf(buf + n, ":%s", sec_flavor_name(margs->sec.flavors[i]));
+		buf[n] = '\0';
+		printer->add_array_str(sep, buf, "");
 		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_KERB_ETYPE)) {
-		printf("%cetype=%s%s", sep, margs->etype.selected == 0 ? "*" : "",  etype_name(margs->etype.etypes[0]));
+		n = sprintf(buf, "etype=%s%s", margs->etype.selected == 0 ? "*" : "",  etype_name(margs->etype.etypes[0]));
 		for (uint32_t j = 1; j < margs->etype.count; j++)
-			printf(":%s%s", margs->etype.selected == j ? "*" : "", etype_name(margs->etype.etypes[j]));
+			n += sprintf(buf + n, ":%s%s", margs->etype.selected == j ? "*" : "", etype_name(margs->etype.etypes[j]));
+		buf[n] = '\0';
+		printer->add_array_str(sep, buf, "");
 		SEP;
 	}
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_REALM))
-		printf("%crealm=%s", sep, margs->realm);
+		printer->add_array_str(sep, "realm=", margs->realm);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_PRINCIPAL))
-		printf("%cprincipal=%s", sep, margs->principal);
+		printer->add_array_str(sep, "principal=", margs->principal);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SVCPRINCIPAL))
-		printf("%csprincipalm=%s", sep, margs->sprinc);
+		printer->add_array_str(sep, "sprincipalm=", margs->sprinc);
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_SET_MOUNT_OWNER))
-		printf("%cowner=%d", sep, margs->owner);
-	printf("\n");
+		printer->add_array_num(sep, "owner=", margs->owner);
+	printer->close_array(0);
 
 	if (NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_FS_LOCATIONS)) {
-		printf("     File system locations:\n");
+		printer->open_array("     ", "File system locations", NULL);
+		printer->newline();
 		if (origmargsvers < NFS_ARGSVERSION_XDR) {
-			printf("       %s", margs->mntfrom ? margs->mntfrom : "???");
+			printer->open_inside_array("       ", NULL);
 			if (margs->numlocs && margs->locs[0].servcount &&
 			    margs->locs[0].servers[0].addrcount &&
 			    margs->locs[0].servers[0].addrs[0])
-				printf(" (%s)", margs->locs[0].servers[0].addrs[0]);
-			printf("\n");
+			        location = margs->locs[0].servers[0].addrs[0];
+			printer->add_locations(margs->mntfrom ? margs->mntfrom : "???", "???", location ? 1 : 0, &location);
+			printer->close();
+			printer->newline();
 		}
 		if ((origmargsvers == NFS_ARGSVERSION_XDR) || verbose) {
 			for (loc=0; loc < margs->numlocs; loc++) {
-				printf("       ");
+				printer->open_inside_array("       ", NULL);
+				n = 0;
 				if (!margs->locs[loc].compcount)
-					printf("/");
+					n += sprintf(buf, "/");
 				for (comp=0; comp < margs->locs[loc].compcount; comp++)
-					printf("/%s", margs->locs[loc].components[comp]);
-				printf(" @");
+					n += sprintf(buf + n, "/%s", margs->locs[loc].components[comp]);
+				buf[n] = '\0';
 				for (serv=0; serv < margs->locs[loc].servcount; serv++) {
 					if (margs->locs[loc].servers[serv].name == NULL)
-						printf(" <local domaim>");
+						printer->add_locations(buf, "<local domaim>", 0, NULL);
 					else {
-						char *addrstr = NULL;
-						printf(" %s", margs->locs[loc].servers[serv].name);
-						for (addr=0; addr < margs->locs[loc].servers[serv].addrcount; addr++) {
-							addrstr = margs->locs[loc].servers[serv].addrs[addr];
-							if (addrstr == NULL)
-								break;
-							printf("%s%s", !addr ? " (" : ",", margs->locs[loc].servers[serv].addrs[addr]);
-						}
-						if (addrstr)
-							printf(")");
+						printer->add_locations(buf, margs->locs[loc].servers[serv].name, margs->locs[loc].servers[serv].addrcount, margs->locs[loc].servers[serv].addrs);
 					}
 				}
-				printf("\n");
+				printer->close();
 			}
 		}
+		printer->close_array(0);
 	}
 	if (verbose && NFS_BITMAP_ISSET(margs->mattrs, NFS_MATTR_FH)) {
-		printf("     fh %d ", margs->fh.fh_len);
-		for (i=0; i < margs->fh.fh_len; i++)
-			printf("%02x", margs->fh.fh_data[i] & 0xff);
-		printf("\n");
+		printer->mount_fh(margs->fh.fh_len, margs->fh.fh_data);
 	}
 }
 
@@ -1471,7 +1498,8 @@ print_mountinfo(struct statfs *mnt, char *buf, size_t buflen)
 {
 	struct xdrbuf xb;
 	uint32_t val = -1, miattrs[NFS_MIATTR_BITMAP_LEN], miflags[NFS_MIFLAG_BITMAP_LEN];
-	int error = 0, len;
+	int error = 0, len, n, invalid = 0;
+	char addrbuf[1024];
 	struct mountargs origargs, curargs;
 	uint32_t flags = 0, loc = 0, serv = 0, addr = 0, comp;
 
@@ -1504,8 +1532,6 @@ print_mountinfo(struct statfs *mnt, char *buf, size_t buflen)
 	if (error)
 		goto out;
 
-	printf("%s from %s\n", mnt->f_mntonname, mnt->f_mntfromname);
-
 	if (NFS_BITMAP_ISSET(miattrs, NFS_MIATTR_ORIG_ARGS)) {
 		xb_get_32(error, &xb, val);			/* original mount args length */
 		if (!error)
@@ -1525,52 +1551,61 @@ print_mountinfo(struct statfs *mnt, char *buf, size_t buflen)
 	if (error)
 		goto out;
 
+	printer->mount_header(mnt->f_mntonname, mnt->f_mntfromname);
+
 	if (NFS_BITMAP_ISSET(miattrs, NFS_MIATTR_ORIG_ARGS)) {
-		printf("  -- Original mount options:\n");
+		printer->open("  -- ", "Original mount options");
 		print_mountargs(&origargs, origargs.margsvers);
+		printer->close();
 	}
 	if (NFS_BITMAP_ISSET(miattrs, NFS_MIATTR_CUR_ARGS)) {
-		printf("  -- Current mount parameters:\n");
+		printer->open("  -- ", "Current mount parameters");
 		print_mountargs(&curargs, origargs.margsvers);
 		if (NFS_BITMAP_ISSET(miattrs, NFS_MIATTR_CUR_LOC_INDEX) &&
 		    (verbose || (curargs.numlocs > 1) || (curargs.locs[0].servcount > 1) ||
 		     (curargs.locs[0].servers[0].addrcount > 1))) {
-			printf("     Current location: 0x%x %d %d %d: ", flags, loc, serv, addr);
 			if ((loc >= curargs.numlocs) || (serv >= curargs.locs[loc].servcount) ||
 			    (addr >= curargs.locs[loc].servers[serv].addrcount)) {
-				printf("<invalid>\n");
-			} else {
-				printf("\n       ");
+				invalid = 1;
+			}
+			printer->open_locations("     ", "Current location", flags, loc, serv, addr, invalid);
+			if (!invalid) {
+				printer->newline();
+				printer->title("       ");
+				n = 0;
 				if (!curargs.locs[loc].compcount)
-					printf("/");
+					n += sprintf(addrbuf, "/");
 				for (comp=0; comp < curargs.locs[loc].compcount; comp++)
-					printf("/%s", curargs.locs[loc].components[comp]);
+					n += sprintf(addrbuf + n, "/%s", curargs.locs[loc].components[comp]);
+				addrbuf[n] = '\0';
 				if (curargs.locs[loc].servers[serv].name) {
 					char *addrstr = curargs.locs[loc].servers[serv].addrs[addr];
-					if (addrstr)
-						printf(" @ %s (%s)\n", curargs.locs[loc].servers[serv].name, addrstr);
-					else
-						printf(" @ %s\n", curargs.locs[loc].servers[serv].name);
+					printer->add_locations(addrbuf, curargs.locs[loc].servers[serv].name, addrstr ? 1 : 0, &addrstr);
 				} else {
-					printf(" @ <local domain>\n");
+					printer->add_locations(addrbuf, "<local domain>", 0, NULL);
 				}
+				printer->newline();
 			}
+			printer->close();
 		}
+		printer->close();
 	}
 	if (NFS_BITMAP_ISSET(miattrs, NFS_MIATTR_FLAGS)) {
-		printf("     Status flags: 0x%x", miflags[0]);
+		printer->open_array("     ", "Status flags", (int *)&miflags[0]);
 		if (NFS_BITMAP_ISSET(miflags, NFS_MIFLAG_DEAD))
-			printf(",dead");
+			printer->add_array_str(',', "dead", "");
 		if (NFS_BITMAP_ISSET(miflags, NFS_MIFLAG_NOTRESP))
-			printf(",not responding");
+			printer->add_array_str(',', "not responding", "");
 		if (NFS_BITMAP_ISSET(miflags, NFS_MIFLAG_RECOVERY))
-			printf(",recovery");
-		printf("\n");
+			printer->add_array_str(',', "recovery", "");
+		printer->close_array(1);
 	}
+
+	printer->close();
 out:
 	if (error)
 		printf("%s error parsing mount info (%d)\n", mnt->f_mntonname, error);
-	printf("\n");
+	printer->newline();
 	mountargs_cleanup(&origargs);
 	mountargs_cleanup(&curargs);
 }
@@ -1583,18 +1618,17 @@ do_mountinfo(char *mountpath)
 {
 	struct statfs *mntbuf;
 	int i, mntsize;
-	char *buf = NULL, *p;
+	char realpathbuf[PATH_MAX];
+	char *buf = NULL;
 	size_t buflen = 0;
 
-	if (mountpath) {
-		/* be nice and strip any trailing slashes */
-		p = mountpath + strlen(mountpath) - 1;
-		while ((p > mountpath) && (*p == '/'))
-			*p-- = '\0';
+	if (realpath(mountpath, realpathbuf)) {
+		mountpath = realpathbuf;
 	}
 
 	if ((mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0)
 		err(1, "getmntinfo");
+
 	for (i = 0; i < mntsize; i++) {
 		/* check if this mount is one we want */
 		if (mountpath && (strcmp(mountpath, mntbuf[i].f_mntonname) || !strcmp(mntbuf[i].f_fstypename, "autofs")))
@@ -1630,7 +1664,8 @@ do_exports_normal(void)
 	struct nfs_export_stat_desc *stat_desc;
 	struct nfs_export_stat_rec  *rec;
 	char  *buf;
-	uint  i, recs;
+	uint  i;
+	uint64_t recs;
     size_t bufLen;
 
 	/* Read in export stats from the kernel */
@@ -1653,13 +1688,13 @@ do_exports_normal(void)
 	rec = (struct nfs_export_stat_rec *)(buf + sizeof(struct nfs_export_stat_desc));
 
 	/* print out a header */
-	printf("Exported Directory Info:\n");
-	printf("%12s  %12s  %12s\n", "Requests", "Read Bytes", "Write Bytes");
-
+	printer->open(PRINTER_NO_PREFIX, "Exported Directory Info");
+	printer->title("%12s  %12s  %12s\n", "Requests", "Read Bytes", "Write Bytes");
 	/* loop through, printing out stats of each export */
 	for(i = 0; i < recs; i++)
-		printf("%12llu  %12llu  %12llu  %s\n", rec[i].ops,
-		rec[i].bytes_read, rec[i].bytes_written, rec[i].path);
+		printer->exports(&rec[i]);
+
+	printer->close();
 
 	/* clean up */
 	free(buf);
@@ -1724,7 +1759,8 @@ display_export_diffs(char *newb, char *oldb)
 {
 	struct nfs_export_stat_desc *hdr;
 	struct nfs_export_stat_rec  *rec, *oldRec;
-	uint i, recs;
+	uint i;
+	uint64_t recs;
 
 	if (newb == NULL)
 		return;
@@ -1766,7 +1802,8 @@ findExport(char *path, char *buf)
 {
 	struct nfs_export_stat_desc *hdr;
 	struct nfs_export_stat_rec  *rec, *retRec;
-	uint    i, recs;
+	uint    i;
+	uint64_t recs;
 
 	retRec = NULL;
 
@@ -1837,17 +1874,17 @@ do_active_users_normal(u_int flags)
 	}
 
 	/* print out a header */
-	printf("NFS Active User Info:\n");
+	printer->open(PRINTER_NO_PREFIX, "NFS Active User Info");
 
 	LIST_FOREACH(export_node, export_list, export_next) {
-		printf("%s\n", export_node->rec->path);
-		printf("%12s  %12s  %12s  %-7s  %-8s %s\n",
-		    "Requests", "Read Bytes", "Write Bytes",
-		    "Idle", "User", "IP Address");
-
+		printer->open(PRINTER_NO_PREFIX, export_node->rec->path);
+		printer->title("%12s  %12s  %12s  %-7s  %-8s %s\n", "Requests", "Read Bytes", "Write Bytes", "Idle", "User", "IP Address");
 		LIST_FOREACH(unode, &export_node->nodes, user_next)
 			displayActiveUserRec(unode->rec, flags);
+		printer->close();
 	}
+
+	printer->close();
 
 	/* clean up */
 	free_nfs_export_list(export_list);
@@ -2041,23 +2078,23 @@ displayActiveUserRec(struct nfs_user_stat_user_rec *rec, u_int flags)
 	struct sockaddr_in	in; 
 	struct sockaddr_in6	in6;
 	struct hostent		*hp = NULL;
-	struct passwd		*pw;
+	struct passwd		*pw = NULL;
 	struct timeval		now;
 	struct timezone		tz; 
-	uint32_t		now32, hr, min, sec;
+	time_t			hr, min, sec;
 	char			addrbuf[NI_MAXHOST];
 	char			unknown[] = "* * * *";
 	char			*addr = unknown;
+	char			printuuid = 0;
 
 	/* get current time for calculating idle time */
 	gettimeofday(&now, &tz);
 
 	/* calculate idle hour, min sec */
-	now32 = (uint32_t)now.tv_sec;
-	if (now32 >= rec->tm_last)
-		sec = now32 - rec->tm_last;
+	if (now.tv_sec >= rec->tm_last)
+		sec = now.tv_sec - rec->tm_last;
 	else    
-		sec = ~(rec->tm_last - now32) + 1;
+		sec = ~(rec->tm_last - now.tv_sec) + 1;
 	hr = sec / 3600;
 	sec %= 3600;
 	min = sec / 60;
@@ -2090,16 +2127,10 @@ displayActiveUserRec(struct nfs_user_stat_user_rec *rec, u_int flags)
 	}
                                         
 	if ((flags & NUMERIC_USER) || !(pw = getpwuid(rec->uid))) {
-		/* print uid */
-		printf("%12llu  %12llu  %12llu  %1u:%02u:%02u  %-8u %s\n",
-		    rec->ops, rec->bytes_read, rec->bytes_written,
-		    hr, min, sec, rec->uid, addr);
-	} else {
-		/* print user name */
-		printf("%12llu  %12llu  %12llu  %1u:%02u:%02u  %-8.8s %s\n",
-		    rec->ops, rec->bytes_read, rec->bytes_written,
-		    hr, min, sec, pw->pw_name, addr);
+		printuuid = 1;
 	}
+
+	printer->active_users(rec, addr, pw, printuuid, hr, min, sec);
 }
 
 /* Returns zero if both uid and IP address fields match */
@@ -2281,6 +2312,6 @@ catchalarm(__unused int dummy)
 void
 usage(void)
 {
-	fprintf(stderr, "usage: nfsstat [-cseuv] [-w interval] [-n user|net]\n");
+	fprintf(stderr, "usage: nfsstat [-cseuvmz] [-f JSON] [-w interval] [-n user|net]\n");
 	exit(1);
 }

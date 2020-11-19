@@ -34,6 +34,8 @@
 
 #include <stdio.h>
 #include <ctype.h>
+#include <spawn.h>
+#include <spawn_private.h>
 #include <string.h>
 #include <syslog.h>
 #include <sys/types.h>
@@ -58,7 +60,7 @@
 
 static void free_action_list(action_list *);
 static int unmount_mntpnt(fsid_t, struct mnttab *);
-static int fork_exec(char *, char **, uid_t, au_asid_t);
+static int run_mount_cmd(char *, char **, uid_t, au_asid_t);
 static void remove_browse_options(char *);
 static int inherit_options(const char *, char **);
 
@@ -148,9 +150,9 @@ retry:
 		trace_prt(1, "  do_mount1:\n");
 		for (me = mapents; me; me = me->map_next) {
 			trace_prt(1, "  (%s,%s)\t%s%s%s -%s\n",
-				me->map_fstype ? me->map_fstype : "",
+				me->map_fstype,
 				me->map_mounter ? me->map_mounter : "",
-				path ? path : "",
+				path,
 				me->map_root  ? me->map_root : "",
 				me->map_mntpnt ? me->map_mntpnt : "",
 				me->map_mntopts ? me->map_mntopts : "");
@@ -291,8 +293,8 @@ retry:
 				if (alphead == NULL)
 					alphead = alp;
 				else {
-					for (tmp = alphead; tmp != NULL;
-					    tmp = tmp->next)
+					prev = NULL;
+					for (tmp = alphead; tmp != NULL; tmp = tmp->next)
 						prev = tmp;
 					prev->next = alp;
 				}
@@ -649,7 +651,7 @@ mount_generic(char *special, char *fstype, char *opts, int nfsvers,
 	newargv[i++] = mntpnt;
 	newargv[i] = NULL;
 
-	res = fork_exec(fstype, newargv, sendereuid, asid);
+	res = run_mount_cmd(fstype, newargv, sendereuid, asid);
 	if (res == 0) {
 		res = get_triggered_mount_info(mntpnt, mntpnt_fsid,
 		    fsidp, retflags);
@@ -751,19 +753,41 @@ join_session(au_asid_t asid)
 	}
 	return (0);
 }
-#define CFENVFORMATSTRING "0x%X:0:0"
+#define CFENVFORMATSTRING	"0x%X:0:0"
+#define CFENVVAR		"__CF_USER_TEXT_ENCODING"
+
+extern char **environ;
 
 static int
-fork_exec(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
+count_environ(void)
+{
+	int i;
+
+	for (i = 0; environ[i] != NULL; i++)
+		/* count */;
+
+	return i;
+}
+
+static int
+run_mount_cmd(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 {
 	char *path;
+	mach_port_name_t audit_port;
 	volatile int path_is_allocated;
+	posix_spawnattr_t spawn_attr;
 	struct stat stbuf;
-	int i;
-	char CFUserTextEncodingEnvSetting[sizeof(CFENVFORMATSTRING) + 20]; /* Extra bytes for expansion of %X uid field */
+					  /* accounts for '=' */
+	char CFUserTextEncodingEnvSetting[sizeof(CFENVVAR) +
+					  sizeof(CFENVFORMATSTRING) +
+					  /* accounts for %X expansion of UID */
+					  20];
+	char **spawn_environ;
 	int child_pid;
 	int stat_loc;
 	int res;
+	int i, nenviron;
+	int did_set_encoding = 0;
 
 	/*
 	 * Build the full path name of the fstype dependent command.
@@ -808,119 +832,163 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, au_asid_t asid)
 				c -= snprintf(p, c, "%s ", newargv[i]);
 				p += strlen(newargv[i]) + 1;
 			}
-			trace_prt(1, "  fork_exec: %s %s\n", path, bufp);
+			trace_prt(1, "  run_mount_cmd: %s %s\n", path, bufp);
 			free(bufp);
 		}
 	}
 
 	newargv[0] = path;
 
-	switch ((child_pid = fork())) {
-	case -1:
-		/*
-		 * Fork failure. Log an error, and quit.
-		 */
-		res = errno;
-		syslog(LOG_ERR, "Cannot fork: %m");
+	/*
+	 * Prepare spawn.
+	 *
+	 * First initialize spawn attributes object
+	 */
+	res = posix_spawnattr_init(&spawn_attr);
+	if (res) {
+		syslog(LOG_ERR, "Failed to initialize spawn attributes, %m");
 		goto done;
-	case 0:
-		/*
-		 * Child.
-		 *
-		 * We need to join the right audit session
-		 */
-		if (join_session(asid))
-			_exit(EPERM);
+	}
 
-		/*
-		 * We leave most of our environment as it is; we assume
-		 * that launchd has made the right thing happen for us,
-		 * and that this is also the right thing for the processes
-		 * we run.
-		 *
-		 * One change we make is that we do the mount as the user
-		 * who triggered the mount, so that if it's a file system
-		 * such as AFP or SMB where a mount has a single session
-		 * and user identity associated with it, the right user
-		 * identity gets associated with it, and if it's a file
-		 * system such as NFS that doesn't, but that might require
-		 * user credentials, the UID matches the credentials that
-		 * the GSSD it talks to has.
-		 */
-		if (setuid(sendereuid) == -1) {
-			res = errno;
-			syslog(LOG_ERR, "Can't set mount subprocess UID: %s",
-			    strerror(res));
-			_exit(res);
-		}
+	/*
+	 * We leave most of our environment as it is; we assume
+	 * that launchd has made the right thing happen for us,
+	 * and that this is also the right thing for the processes
+	 * we run.
+	 *
+	 * One change we make is that we do the mount as the user
+	 * who triggered the mount, so that if it's a file system
+	 * such as AFP or SMB where a mount has a single session
+	 * and user identity associated with it, the right user
+	 * identity gets associated with it, and if it's a file
+	 * system such as NFS that doesn't, but that might require
+	 * user credentials, the UID matches the credentials that
+	 * the GSSD it talks to has.
+	 */
+	res = posix_spawnattr_set_uid_np(&spawn_attr, sendereuid);
+	if (res) {
+		syslog(LOG_ERR, "Failed to set spawn's uid, %m");
+		goto done_attrs;
+	}
 
-		/*
-		 * Create a new environment with a definition of
-		 * __CF_USER_TEXT_ENCODING to work around CF's interest
-		 * in the user's home directory.  We're a child of the
-		 * automountd process, so those references won't deadlock
-		 * us by blocking waiting for the very mount that we're
-		 * trying to do, but it still means that CF makes a
-		 * pointless attempt to find the user's home directory.
-		 * The program we run to do the mount, if linked with
-		 * CF - as mount_url is - will do that.
-		 *
-		 * Make sure we include the UID since CF will check for
-		 * this when deciding whether to look in the home directory.
-		 */
-		snprintf(CFUserTextEncodingEnvSetting,
-		    sizeof(CFUserTextEncodingEnvSetting), CFENVFORMATSTRING,
-		    getuid());
-		setenv("__CF_USER_TEXT_ENCODING", CFUserTextEncodingEnvSetting,
-		    1);
-		(void) execv(path, newargv);
-		res = errno;
-		syslog(LOG_ERR, "exec %s: %m", path);
-		_exit(res);
-	default:
-		/*
-		 * Parent.
-		 *
-		 * Now wait for the child to finish.
-		 */
-		while (waitpid(child_pid, &stat_loc, WUNTRACED) < 0) {
-			if ((res = errno) == EINTR)
-				continue;
-			syslog(LOG_ERR, "waitpid %d failed - error %d", child_pid, errno);
-			goto done;
-		}
+	/*
+	 * get the mach port for the audit session.
+	 */
+	res = audit_session_port(asid, &audit_port);
+	if (res) {
+		syslog(LOG_ERR, "Failed to retrieve automount port, %m");
+		goto done_attrs;
+	}
 
-		if (WIFEXITED(stat_loc)) {
-			if (trace > 1) {
-				trace_prt(1,
-				    "  fork_exec: returns exit status %d\n",
-				    WEXITSTATUS(stat_loc));
-			}
+	/*
+	 * Set audit session port.
+	 */
+	res = posix_spawnattr_setauditsessionport_np(&spawn_attr, audit_port);
+	if (res) {
+		syslog(LOG_ERR, "Failed to set audit session port in spawn attributes, %m");
+		goto done_attrs;
+	}
 
-			res = WEXITSTATUS(stat_loc);
-		} else if (WIFSIGNALED(stat_loc)) {
-			syslog(LOG_ERR, "Mount subprocess terminated with %s",
-			    strsignal(WTERMSIG(stat_loc)));
-			if (trace > 1) {
-				trace_prt(1,
-				    "  fork_exec: returns signal status %d\n",
-				    WTERMSIG(stat_loc));
-			}
-			res = EIO;
-		} else if (WIFSTOPPED(stat_loc)) {
-			syslog(LOG_ERR, "Mount subprocess stopped with %s",
-			    strsignal(WSTOPSIG(stat_loc)));
-			res = EIO;
+	/*
+	 * Create a new environment with a definition of
+	 * __CF_USER_TEXT_ENCODING to work around CF's interest
+	 * in the user's home directory.  We're a child of the
+	 * automountd process, so those references won't deadlock
+	 * us by blocking waiting for the very mount that we're
+	 * trying to do, but it still means that CF makes a
+	 * pointless attempt to find the user's home directory.
+	 * The program we run to do the mount, if linked with
+	 * CF - as mount_url is - will do that.
+	 *
+	 * Make sure we include the UID since CF will check for
+	 * this when deciding whether to look in the home directory.
+	 */
+	snprintf(CFUserTextEncodingEnvSetting,
+		 sizeof(CFUserTextEncodingEnvSetting),
+		 CFENVVAR "=" CFENVFORMATSTRING,
+		 getuid());
+
+	nenviron = count_environ();
+
+	spawn_environ = calloc(nenviron + 1, sizeof(char *));
+	if (!spawn_environ) {
+		goto done_attrs;
+	}
+
+	for (i = 0; i < nenviron; i++) {
+		/* If we find CFENVVAR, replace it. */
+		if (strcspn(environ[i], "=") == strlen(CFENVVAR) &&
+		    strncmp(environ[i], CFENVVAR, strlen(CFENVVAR)) == 0) {
+			spawn_environ[i] = CFUserTextEncodingEnvSetting;
+			did_set_encoding = 1;
 		} else {
-			syslog(LOG_ERR, "Mount subprocess got unknown status 0x%08x",
-			    stat_loc);
-			if (trace > 1)
-				trace_prt(1,
-				    "  fork_exec: returns unknown status\n");
-			res = EIO;
+			spawn_environ[i] = environ[i];
 		}
 	}
 
+	/*
+	 * If we didn't replace it, we allocated extra space at the
+	 * end for it.
+	 */
+	if (!did_set_encoding) {
+		spawn_environ[i] = CFUserTextEncodingEnvSetting;
+	}
+
+	/*
+	 * Call posix_spawn with everything set.
+	 */
+	res = posix_spawn(&child_pid, path, NULL, &spawn_attr, newargv, spawn_environ);
+	if (res) {
+		goto done_dealloc;
+	}
+
+	/*
+	 * Now wait for the child to finish.
+	 */
+	while (waitpid(child_pid, &stat_loc, WUNTRACED) < 0) {
+		if ((res = errno) == EINTR)
+			continue;
+		syslog(LOG_ERR, "waitpid %d failed - error %d", child_pid, errno);
+		goto done_attrs;
+	}
+
+	if (WIFEXITED(stat_loc)) {
+		if (trace > 1) {
+			trace_prt(1,
+				"  run_mount_cmd: returns exit status %d\n",
+				WEXITSTATUS(stat_loc));
+		}
+
+		res = WEXITSTATUS(stat_loc);
+	} else if (WIFSIGNALED(stat_loc)) {
+		syslog(LOG_ERR, "Mount subprocess terminated with %s",
+			strsignal(WTERMSIG(stat_loc)));
+		if (trace > 1) {
+			trace_prt(1,
+				"  run_mount_cmd: returns signal status %d\n",
+				WTERMSIG(stat_loc));
+		}
+		res = EIO;
+	} else if (WIFSTOPPED(stat_loc)) {
+		syslog(LOG_ERR, "Mount subprocess stopped with %s",
+			strsignal(WSTOPSIG(stat_loc)));
+		res = EIO;
+	} else {
+		syslog(LOG_ERR, "Mount subprocess got unknown status 0x%08x",
+			stat_loc);
+		if (trace > 1)
+			trace_prt(1,
+				"  run_mount_cmd: returns unknown status\n");
+		res = EIO;
+	}
+
+done_dealloc:
+	free(spawn_environ);
+done_attrs:
+	/*
+	 * Free spawn attributes resources.
+	 */
+	posix_spawnattr_destroy(&spawn_attr);
 done:
 	if (path_is_allocated)
 		free(path);
@@ -1034,6 +1102,10 @@ remove_browse_options(char *opts)
 	char *p, *pb;
 	char buf[MAXOPTSLEN], new[MAXOPTSLEN];
 	char *placeholder;
+
+	if (opts == NULL) {
+		return;
+	}
 
 	new[0] = '\0';
 	CHECK_STRCPY(buf, opts, sizeof buf);

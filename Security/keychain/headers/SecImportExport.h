@@ -149,7 +149,7 @@ typedef CF_OPTIONS(uint32_t, SecKeyImportExportFlags)
 /*
  * Parameters specific to SecKeyRefs.
  */
-typedef struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac)
+typedef struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst)
 {
      /* for import and export */
      uint32_t                    version;        /* SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION */
@@ -166,10 +166,10 @@ typedef struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac)
      CSSM_KEYUSE                    keyUsage;    /* CSSM_KEYUSE_DECRYPT, CSSM_KEYUSE_SIGN,
                                                   *    etc. */
      CSSM_KEYATTR_FLAGS          keyAttributes;  /* CSSM_KEYATTR_PERMANENT, etc. */
-} SecKeyImportExportParameters API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+} SecKeyImportExportParameters API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 
-typedef struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac)
+typedef struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst)
 {
      /* for import and export */
      uint32_t                    version;        /* SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION */
@@ -194,7 +194,7 @@ typedef struct API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac)
                                                   *    - kSecAttrIsSensitive for private keys
                                                   *    - kSecAttrIsExtractable by default
                                                   */
-} SecItemImportExportKeyParameters API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+} SecItemImportExportKeyParameters API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*
  * SecKeychainItemExport()
@@ -254,7 +254,7 @@ OSStatus SecKeychainItemExport(
      SecItemImportExportFlags               flags,                  /* kSecItemPemArmour, etc. */
      const SecKeyImportExportParameters * __nullable keyParams,     /* optional */
      CFDataRef * __nonnull CF_RETURNS_RETAINED exportedData)        /* external representation returned here */
-          API_DEPRECATED_WITH_REPLACEMENT("SecItemExport", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+          API_DEPRECATED_WITH_REPLACEMENT("SecItemExport", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*
  * SecItemExport()
@@ -472,7 +472,7 @@ OSStatus SecKeychainItemImport(
      const SecKeyImportExportParameters * __nullable keyParams,         /* optional */
      SecKeychainRef __nullable               importKeychain,            /* optional */
      CFArrayRef * __nullable CF_RETURNS_RETAINED outItems)              /* optional */
-          API_DEPRECATED_WITH_REPLACEMENT("SecItemImport", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+          API_DEPRECATED_WITH_REPLACEMENT("SecItemImport", macos(10.0, 10.7)) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*
  * SecItemImport()

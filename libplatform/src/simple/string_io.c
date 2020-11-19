@@ -147,6 +147,41 @@ put_n(BUF *b, _esc_func esc, const char *str, ssize_t n)
 		put_c(b, esc, *str++);
 }
 
+#if __LP64__ || defined(__arm64__)
+static unsigned long long
+udiv10(unsigned long long a, unsigned long long *rem)
+{
+	*rem = a % 10;
+	return a / 10;
+}
+#else
+unsigned long long
+udiv10(unsigned long long a, unsigned long long *rem_out)
+{
+	if (a <= UINT_MAX) {
+		*rem_out = (unsigned long long)((unsigned int)a % 10);
+		return (unsigned long long)((unsigned int)a / 10);
+	}
+
+	// The biggest multiple of 10 that dividend might contain
+	unsigned long long divisor  = 0xa000000000000000;
+	unsigned long long dividend = a;
+	unsigned long long quotient = 0;
+
+	while (divisor >= 0xa) {
+		quotient = quotient << 1;
+		if (dividend >= divisor) {
+			dividend -= divisor;
+			quotient += 1;
+		}
+		divisor = divisor >> 1;
+	}
+
+	*rem_out = dividend;
+	return quotient;
+}
+#endif
+
 /*
  * Output the signed decimal string representing the number in "in".  "width" is
  * the minimum field width, and "zero" is a boolean value, true for zero padding
@@ -160,6 +195,7 @@ dec(BUF *b, _esc_func esc, long long in, int width, int zero)
 	ssize_t pad;
 	int neg = 0;
 	unsigned long long n = (unsigned long long)in;
+	unsigned long long rem;
 
 	if(in < 0) {
 		neg++;
@@ -169,8 +205,8 @@ dec(BUF *b, _esc_func esc, long long in, int width, int zero)
 	*--cp = 0;
 	if(n) {
 		while(n) {
-			*--cp = (n % 10) + '0';
-			n /= 10;
+			n = udiv10(n, &rem);
+			*--cp = rem + '0';
 		}
 	} else
 		*--cp = '0';
@@ -268,13 +304,14 @@ udec(BUF *b, _esc_func esc, unsigned long long n, int width, int zero)
 {
 	char buf[32];
 	char *cp = buf + sizeof(buf);
+	unsigned long long rem;
 	ssize_t pad;
 
 	*--cp = 0;
 	if(n) {
 		while(n) {
-			*--cp = (n % 10) + '0';
-			n /= 10;
+			n = udiv10(n, &rem);
+			*--cp = rem + '0';
 		}
 	} else
 		*--cp = '0';

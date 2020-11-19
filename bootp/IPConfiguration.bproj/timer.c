@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -54,6 +54,7 @@
 #include <CoreFoundation/CFDate.h>
 
 struct timer_callout {
+    char *		name;
     timer_func_t *	func;
     void *		arg1;
     void *		arg2;
@@ -75,6 +76,9 @@ struct timer_callout {
 static boolean_t	S_time_change_registered;
 static int		S_time_change_token;
 static uint32_t		S_time_generation;
+
+static void
+timer_cancel_common(timer_callout_t * callout);
 
 static void
 timer_notify_check(void)
@@ -119,6 +123,12 @@ timer_register_time_change(void)
 /**
  ** Timer callout functions
  **/
+static const char *
+timer_name(timer_callout_t * callout)
+{
+    return (callout->name);
+}
+
 static void 
 timer_callout_process(CFRunLoopTimerRef timer_source, void * info)
 {
@@ -132,7 +142,7 @@ timer_callout_process(CFRunLoopTimerRef timer_source, void * info)
 }
 
 timer_callout_t *
-timer_callout_init()
+timer_callout_init(const char * name)
 {
     timer_callout_t * callout;
 
@@ -140,6 +150,7 @@ timer_callout_init()
     if (callout == NULL)
 	return (NULL);
     bzero(callout, sizeof(*callout));
+    callout->name = strdup(name);
     timer_register_time_change();
     callout->time_generation = S_time_generation;
     return (callout);
@@ -153,24 +164,24 @@ timer_callout_free(timer_callout_t * * callout_p)
     if (callout == NULL)
 	return;
 
-    timer_cancel(callout);
+    timer_cancel_common(callout);
+    free(callout->name);
     free(callout);
     *callout_p = NULL;
     return;
 }
 
-int
-timer_callout_set(timer_callout_t * callout, 
-		  CFAbsoluteTime relative_time, timer_func_t * func, 
-		  void * arg1, void * arg2, void * arg3)
+static int
+timer_callout_set_common(timer_callout_t * callout,
+			 CFAbsoluteTime wakeup_time, timer_func_t * func,
+			 void * arg1, void * arg2, void * arg3)
 {
     CFRunLoopTimerContext 	context =  { 0, NULL, NULL, NULL, NULL };
-    CFAbsoluteTime 		wakeup_time;
 
     if (callout == NULL) {
 	return (0);
     }
-    timer_cancel(callout);
+    timer_cancel_common(callout);
     if (func == NULL) {
 	return (0);
     }
@@ -181,18 +192,43 @@ timer_callout_set(timer_callout_t * callout,
     callout->enabled = TRUE;
     callout->time_generation = S_time_generation;
     context.info = callout;
-    wakeup_time = CFAbsoluteTimeGetCurrent() + relative_time;
     callout->timer_source 
 	= CFRunLoopTimerCreate(NULL, wakeup_time,
 			       0.0, 0, 0,
 			       timer_callout_process,
 			       &context);
-    my_log(LOG_DEBUG, "timer: wakeup time is (%0.09g) %0.09g", 
-	   relative_time, wakeup_time);
-    my_log(LOG_DEBUG, "timer: adding timer source");
     CFRunLoopAddTimer(CFRunLoopGetCurrent(), callout->timer_source,
 		      kCFRunLoopDefaultMode);
     return (1);
+}
+
+int
+timer_callout_set_absolute(timer_callout_t * callout,
+			   CFAbsoluteTime wakeup_time, timer_func_t * func,
+			   void * arg1, void * arg2, void * arg3)
+{
+    CFAbsoluteTime	now = CFAbsoluteTimeGetCurrent();
+
+    my_log(LOG_DEBUG, "timer(%s): wakeup time is (%0.09g) %0.09g",
+	   timer_name(callout),
+	   wakeup_time - now, wakeup_time);
+    return (timer_callout_set_common(callout, wakeup_time,
+				     func, arg1, arg2, arg3));
+}
+
+int
+timer_callout_set(timer_callout_t * callout,
+		  CFAbsoluteTime relative_time, timer_func_t * func,
+		  void * arg1, void * arg2, void * arg3)
+{
+    CFAbsoluteTime 		wakeup_time;
+
+    wakeup_time = CFAbsoluteTimeGetCurrent() + relative_time;
+    my_log(LOG_DEBUG, "timer(%s): wakeup time is (%0.09g) %0.09g",
+	   timer_name(callout),
+	   relative_time, wakeup_time);
+    return (timer_callout_set_common(callout, wakeup_time,
+				     func, arg1, arg2, arg3));
 }
 
 int
@@ -211,23 +247,33 @@ timer_set_relative(timer_callout_t * callout,
     return (timer_callout_set(callout, relative_time, func, arg1, arg2, arg3));
 }
 
+static void
+timer_cancel_common(timer_callout_t * callout)
+{
+    callout->enabled = FALSE;
+    callout->func = NULL;
+    callout->time_generation = S_time_generation;
+    if (callout->timer_source) {
+	CFRunLoopTimerInvalidate(callout->timer_source);
+	CFRelease(callout->timer_source);
+	callout->timer_source = NULL;
+    }
+    return;
+}
+
 void
 timer_cancel(timer_callout_t * callout)
 {
     if (callout == NULL) {
 	return;
     }
-    callout->enabled = FALSE;
-    callout->func = NULL;
-    callout->time_generation = S_time_generation;
-    if (callout->timer_source) {
-	my_log(LOG_DEBUG, "timer: freeing timer source");
-	CFRunLoopTimerInvalidate(callout->timer_source);
-	CFRelease(callout->timer_source);
-	callout->timer_source = 0;
+    if (callout->enabled) {
+	my_log(LOG_DEBUG, "timer(%s): cancelled", timer_name(callout));
     }
+    timer_cancel_common(callout);
     return;
 }
+
 
 /**
  ** timer functions

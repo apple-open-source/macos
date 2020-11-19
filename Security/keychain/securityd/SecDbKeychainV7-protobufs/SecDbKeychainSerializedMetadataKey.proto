@@ -1,0 +1,9 @@
+syntax = "proto2";
+
+message SecDbKeychainSerializedMetadataKey {
+    optional int32 keyclass = 1;
+    optional int32 actualKeyclass = 2;
+    optional bytes baguuid = 3;
+    optional bytes akswrappedkey = 4;
+    optional bytes backupwrappedkey = 5;
+}

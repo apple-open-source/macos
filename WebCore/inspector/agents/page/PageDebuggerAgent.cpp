@@ -33,6 +33,7 @@
 #include "PageDebuggerAgent.h"
 
 #include "CachedResource.h"
+#include "DOMWrapperWorld.h"
 #include "Document.h"
 #include "Frame.h"
 #include "InspectorPageAgent.h"
@@ -64,7 +65,7 @@ PageDebuggerAgent::~PageDebuggerAgent() = default;
 
 bool PageDebuggerAgent::enabled() const
 {
-    return m_instrumentingAgents.pageDebuggerAgent() == this && WebDebuggerAgent::enabled();
+    return m_instrumentingAgents.enabledPageDebuggerAgent() == this && WebDebuggerAgent::enabled();
 }
 
 void PageDebuggerAgent::evaluateOnCallFrame(ErrorString& errorString, const String& callFrameId, const String& expression, const String* objectGroup, const bool* includeCommandLineAPI, const bool* doNotPauseOnExceptionsAndMuteConsole, const bool* returnByValue, const bool* generatePreview, const bool* saveResult, const bool* emulateUserGesture, RefPtr<Protocol::Runtime::RemoteObject>& result, Optional<bool>& wasThrown, Optional<int>& savedResultIndex)
@@ -77,14 +78,14 @@ void PageDebuggerAgent::evaluateOnCallFrame(ErrorString& errorString, const Stri
 
 void PageDebuggerAgent::enable()
 {
-    m_instrumentingAgents.setPageDebuggerAgent(this);
+    m_instrumentingAgents.setEnabledPageDebuggerAgent(this);
 
     WebDebuggerAgent::enable();
 }
 
 void PageDebuggerAgent::disable(bool isBeingDestroyed)
 {
-    m_instrumentingAgents.setPageDebuggerAgent(nullptr);
+    m_instrumentingAgents.setEnabledPageDebuggerAgent(nullptr);
 
     WebDebuggerAgent::disable(isBeingDestroyed);
 }
@@ -139,9 +140,9 @@ InjectedScript PageDebuggerAgent::injectedScriptForEval(ErrorString& errorString
     return injectedScript;
 }
 
-void PageDebuggerAgent::didClearWindowObjectInWorld(Frame& frame)
+void PageDebuggerAgent::didClearWindowObjectInWorld(Frame& frame, DOMWrapperWorld& world)
 {
-    if (!frame.isMainFrame())
+    if (!frame.isMainFrame() || &world != &mainThreadNormalWorld())
         return;
 
     didClearGlobalObject();

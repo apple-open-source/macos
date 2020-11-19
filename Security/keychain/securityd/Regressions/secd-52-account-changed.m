@@ -46,6 +46,7 @@
 #include "SecdTestKeychainUtilities.h"
 #include "SOSAccountTesting.h"
 
+#if SOS_ENABLED
 
 static void tests(void)
 {
@@ -201,15 +202,16 @@ static void tests(void)
     SOSTestCleanup();
 
 }
-
+#endif
 
 int secd_52_account_changed(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(113);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

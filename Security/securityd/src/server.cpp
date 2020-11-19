@@ -37,7 +37,6 @@
 #include <mach/mach_error.h>
 #include <security_utilities/ccaudit.h>
 #include <security_utilities/casts.h>
-#include "pcscmonitor.h"
 
 #include "agentquery.h"
 
@@ -330,11 +329,8 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 #endif //DEBUGDUMP
 
 		case SIGUSR2:
-			{
-				extern PCSCMonitor *gPCSC;
-				gPCSC->startSoftTokens();
-				break;
-			}
+            fprintf(stderr, "securityd ignoring SIGUSR2 received");
+            break;
 
 		default:
 			assert(false);
@@ -509,6 +505,8 @@ bool Server::inDarkWake()
 //
 void Server::loadCssm(bool mdsIsInstalled)
 {
+    try {
+
 	if (!mCssm->isActive()) {
 		StLock<Mutex> _(*this);
         xpc_transaction_begin();
@@ -525,6 +523,23 @@ void Server::loadCssm(bool mdsIsInstalled)
 		}
         xpc_transaction_end();
 	}
+    } catch (const UnixError& err) {
+        secerror("load cssm failed: %s", err.what());
+        if (err.unixError() == ENOSPC) {
+            _exit(1);
+        } else {
+            abort();
+        }
+    } catch (const MacOSError& err) {
+        secerror("load cssm failed: %s", err.what());
+        abort();
+    } catch (const CommonError& err) {
+        secerror("load cssm failed: %d/%d", (int)err.osStatus(), err.unixError());
+        abort();
+    } catch (const std::exception& err) {
+        secerror("load cssm failed: %s", err.what());
+        abort();
+    }
 }
 
 

@@ -37,6 +37,10 @@
 //  is locked or when the Session dies, whichever happens earlier.
 // There is (as yet) no global-scope Database object for Keychain databases.
 //
+
+#define __STDC_WANT_LIB_EXT1__ 1
+#include <string.h>
+
 #include "kcdatabase.h"
 #include "agentquery.h"
 #include "kckey.h"
@@ -44,6 +48,7 @@
 #include "session.h"
 #include "notifications.h"
 #include "SecRandom.h"
+#include "keychainstasherinterface.h"
 #include <vector>           // @@@  4003540 workaround
 #include <security_cdsa_utilities/acl_any.h>	// for default owner ACLs
 #include <security_cdsa_utilities/cssmendian.h>
@@ -875,32 +880,66 @@ void KeychainDatabase::makeUnlocked(const AccessCredentials *cred, bool unlockKe
 	assert(mValidData);
 }
 
-//
-// Invoke the securityd_service to retrieve the keychain master
-// key from the AppleFDEKeyStore.
-//
+/**
+ Invoke securityd_service to load the keybag and retrieve the masterkey.
+ Also load masterkey from KeychainStasher and compare to make sure new stash works properly
+ */
 void KeychainDatabase::stashDbCheck()
-{    
+{
+    secnotice("KCdb", "Loading stashed key");
     CssmAutoData masterKey(Allocator::standard(Allocator::sensitive));
     CssmAutoData encKey(Allocator::standard(Allocator::sensitive));
 
-    // Fetch the key
-    int rc = 0;
-    void * stash_key = NULL;
-    int stash_key_len = 0;
+    // We're going to double-load during transition
+    void* s_key = NULL;
+    size_t s_keylen = 0;
     service_context_t context = common().session().get_current_service_context();
-    rc = service_client_stash_get_key(&context, &stash_key, &stash_key_len);
-    if (rc == 0) {
-        if (stash_key) {
-            masterKey.copy(CssmData((void *)stash_key,stash_key_len));
-            memset(stash_key, 0, stash_key_len);
-            free(stash_key);
-        }
+    // SIDE EFFECT: loads the user's keybag
+    int servicerc = service_client_stash_get_key(&context, &s_key, &s_keylen);
+    if (servicerc != KB_Success) {
+        secerror("KCdb: failed to load stash from securityd_service: %d", servicerc);
     } else {
-        secnotice("KCdb", "failed to get stash from securityd_service: %d", (int)rc);
-        CssmError::throwMe(rc);
+        secnotice("KCdb", "securityd_service claims get_key success");
     }
-    
+
+    void* a_key = NULL;
+    size_t a_keylen = 0;
+    OSStatus agentrc = loadKeyFromStashAgent(common().session().originatorUid(), &a_key, &a_keylen);
+    if (agentrc != errSecSuccess) {
+        secerror("KCdb: failed to load stash from KeychainStasher: %d", (int)agentrc);
+    } else {
+        secnotice("KCdb", "KeychainStasher claims loadKey success");
+    }
+
+    void* key = NULL;
+    size_t keylen = 0;
+    if (servicerc != KB_Success && agentrc != errSecSuccess) {
+        __security_simulatecrash(CFSTR("Both old and new stashes failed to load"), __sec_exception_code_BadStash);
+        CssmError::throwMe(servicerc);  // For now
+    } else if (servicerc == KB_Success && agentrc == errSecSuccess) {
+        if (s_keylen != a_keylen || a_keylen == 0) {
+            __security_simulatecrash(CFSTR("Stashed key lengths disagree or are zero"), __sec_exception_code_BadStash);
+        } else if (cc_cmp_safe(a_keylen, a_key, s_key) != 0) {
+            __security_simulatecrash(CFSTR("Keybytes disagree"), __sec_exception_code_BadStash);
+        }
+
+        key = a_key;
+        keylen = a_keylen;
+        memset_s(s_key, s_keylen, 0, s_keylen);
+        free(s_key);
+    } else if (servicerc == KB_Success) {
+        key = s_key;
+        keylen = s_keylen;
+    } else if (agentrc == errSecSuccess) {
+        key = a_key;
+        keylen = a_keylen;
+    }
+
+    masterKey.copy(CssmData(key, keylen));
+    memset_s(key, keylen, 0, keylen);
+    free(key);
+
+    secnotice("KCdb", "Retrieved stashed key, will establish");
     {
         StLock<Mutex> _(common());
 
@@ -914,8 +953,9 @@ void KeychainDatabase::stashDbCheck()
         hdr.blobFormat(CSSM_KEYBLOB_RAW_FORMAT_OCTET_STRING);
         common().setup(mBlob, key);
 
-        if (!decode())
+        if (!decode()) {
             CssmError::throwMe(CSSM_ERRCODE_OPERATION_AUTH_DENIED);
+        }
 
         common().get_encryption_key(encKey);
     }
@@ -934,11 +974,11 @@ void KeychainDatabase::stashDbCheck()
 //
 void KeychainDatabase::stashDb()
 {
+    secnotice("KCdb", "Let's stash a key");
     CssmAutoData data(Allocator::standard(Allocator::sensitive));
     
     {
         StLock<Mutex> _(common());
-
         if (!common().isValid()) {
             CssmError::throwMe(CSSMERR_CSP_INVALID_KEY);
         }
@@ -946,10 +986,28 @@ void KeychainDatabase::stashDb()
         CssmKey key = common().masterKey();
         data.copy(key.keyData());
     }
-    
+
+    // We're going to double-stash during transition
     service_context_t context = common().session().get_current_service_context();
-    int rc = service_client_stash_set_key(&context, data.data(), (int)data.length());
-    if (rc != 0) CssmError::throwMe(rc);
+    int servicerc = service_client_stash_set_key(&context, data.data(), (int)data.length());
+    if (servicerc != KB_Success) {
+        secerror("KCdb: securityd_service stash failed: %d", servicerc);
+    } else {
+        secnotice("KCdb", "securityd_service claims successful stash");
+    }
+
+    OSStatus agentrc = stashKeyWithStashAgent(common().session().originatorUid(), data.data(), data.length());
+    if (agentrc != errSecSuccess) {
+        secerror("KCdb: KeychainStasher stash failed: %d", (int)agentrc);
+    } else {
+        secnotice("KCdb", "KeychainStasher claims successful stash");
+    }
+
+    if (servicerc != KB_Success && agentrc != errSecSuccess) {
+        __security_simulatecrash(CFSTR("Both old and new stash mechanisms failed"), __sec_exception_code_BadStash);
+        CssmError::throwMe(servicerc);  // For now
+    }
+    secnotice("KCdb", "Key stashed");
 }
 
 //

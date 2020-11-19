@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -281,7 +281,7 @@ EAPSIMAKAAttributeType
 EAPSIMAKAIdentityTypeGetAttributeType(CFStringRef string);
 
 EAPSIMAKAEncryptedIdentityInfoRef
-EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, bool static_config);
+EAPSIMAKAInitEncryptedIdentityInfo(EAPType type, CFDictionaryRef properties, Boolean static_config, Boolean *is_privacy_protection_enabled);
 
 void
 EAPSIMAKAClearEncryptedIdentityInfo(EAPSIMAKAEncryptedIdentityInfoRef info);
@@ -323,6 +323,15 @@ EAPSIMAKAClearEncryptedIdentityInfo(EAPSIMAKAEncryptedIdentityInfoRef info);
 #define kEAPClientPropEAPSIMAKAEncryptedUsername		CFSTR("EAPSIMAKAEncryptedUserName") /* data */
 
 #define EAP_SIM_AKA_DEFAULT_ANONYM_USERNAME			CFSTR("anonymous")
+
+/*
+ * Property: kEAPClientPropEAPSIMAKAOutOfBandPseudonym
+ * Purpose:
+ * Statically configured out-of-band pseudonym to be used as an identity
+ * in EAP-Response/Identity or AT_IDENTITY attribute.
+ * This property is used when identity protection is enabled using OOB pseudonym.
+ */
+#define kEAPClientPropEAPSIMAKAOutOfBandPseudonym		CFSTR("EAPSIMAKAOutOfBandPseudonym") /* string */
 
 /*
  * Property: kEAPClientPropEAPSIMAKAConservativePeer

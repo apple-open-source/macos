@@ -494,7 +494,7 @@ _dwarf_internal_srclines(Dwarf_Die die,
 
     {
 	Dwarf_Small *newlinep = 0;
-	int res = dwarf_read_line_table_prefix(dbg,
+	res = dwarf_read_line_table_prefix(dbg,
 					       line_ptr,
 					       dbg->de_debug_line_size,
 					       &newlinep,

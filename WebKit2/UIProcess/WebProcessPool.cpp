@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,18 +39,19 @@
 #include "AuxiliaryProcessMessages.h"
 #include "DownloadProxy.h"
 #include "DownloadProxyMessages.h"
+#include "GPUProcessConnectionInfo.h"
 #include "GamepadData.h"
 #include "HighPerformanceGraphicsUsageSampler.h"
 #include "LegacyGlobalSettings.h"
 #include "LogInitialization.h"
 #include "Logging.h"
+#include "NetworkProcessConnectionInfo.h"
 #include "NetworkProcessCreationParameters.h"
 #include "NetworkProcessMessages.h"
 #include "NetworkProcessProxy.h"
 #include "PerActivityStateCPUUsageSampler.h"
 #include "PluginProcessManager.h"
 #include "SandboxExtension.h"
-#include "StatisticsData.h"
 #include "TextChecker.h"
 #include "UIGamepad.h"
 #include "UIGamepadProvider.h"
@@ -125,7 +126,12 @@
 #endif
 
 #if PLATFORM(COCOA)
+#include "DefaultWebBrowserChecks.h"
 #include "VersionChecks.h"
+#include <WebCore/GameControllerGamepadProvider.h>
+#include <WebCore/HIDGamepadProvider.h>
+#include <WebCore/MultiGamepadProvider.h>
+#include <WebCore/PowerSourceNotifier.h>
 #endif
 
 #if PLATFORM(MAC)
@@ -249,12 +255,16 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     , m_backgroundWebProcessCounter([this](RefCounterEvent) { updateProcessAssertions(); })
     , m_backForwardCache(makeUniqueRef<WebBackForwardCache>(*this))
     , m_webProcessCache(makeUniqueRef<WebProcessCache>(*this))
+    , m_webProcessWithAudibleMediaCounter([this](RefCounterEvent) { updateAudibleMediaAssertions(); })
 {
     static std::once_flag onceFlag;
     std::call_once(onceFlag, [] {
         WTF::setProcessPrivileges(allPrivileges());
         WebCore::NetworkStorageSession::permitProcessToUseCookieAPI(true);
         Process::setIdentifier(WebCore::ProcessIdentifier::generate());
+#if PLATFORM(COCOA)
+        determineITPState();
+#endif
     });
 
     if (!m_websiteDataStore && WebKit::WebsiteDataStore::defaultDataStoreExists())
@@ -297,7 +307,13 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     processPoolCounter.increment();
 #endif
 
-    notifyThisWebProcessPoolWasCreated();
+    ASSERT(RunLoop::isMain());
+    RunLoop::main().dispatch([weakPtr = makeWeakPtr(*this)] {
+        if (!weakPtr)
+            return;
+
+        weakPtr->notifyThisWebProcessPoolWasCreated();
+    });
 
     updateBackForwardCacheCapacity();
 }
@@ -425,7 +441,7 @@ void WebProcessPool::languageChanged(void* context)
 
 void WebProcessPool::languageChanged()
 {
-    sendToAllProcesses(Messages::WebProcess::UserPreferredLanguagesChanged(userPreferredLanguages()));
+    sendToAllProcesses(Messages::WebProcess::UserPreferredLanguagesChanged());
 #if USE(SOUP)
     if (m_networkProcess)
         m_networkProcess->send(Messages::NetworkProcess::UserPreferredLanguagesChanged(userPreferredLanguages()), 0);
@@ -460,7 +476,7 @@ void WebProcessPool::setApplicationIsActive(bool isActive)
 
 void WebProcessPool::screenPropertiesStateChanged()
 {
-#if PLATFORM(MAC)
+#if PLATFORM(COCOA)
     auto screenProperties = WebCore::collectScreenProperties();
     sendToAllProcesses(Messages::WebProcess::SetScreenProperties(screenProperties));
 #endif
@@ -496,10 +512,9 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
         parameters.defaultDataStoreParameters.pendingCookies = copyToVector(m_websiteDataStore->pendingCookies());
         m_websiteDataStore->clearPendingCookies();
 #if PLATFORM(COCOA)
-        parameters.defaultDataStoreParameters.networkSessionParameters.sourceApplicationBundleIdentifier = m_websiteDataStore->sourceApplicationBundleIdentifier();
-        parameters.defaultDataStoreParameters.networkSessionParameters.sourceApplicationSecondaryIdentifier = m_websiteDataStore->sourceApplicationSecondaryIdentifier();
+        parameters.defaultDataStoreParameters.networkSessionParameters.sourceApplicationBundleIdentifier = m_websiteDataStore->configuration().sourceApplicationBundleIdentifier();
+        parameters.defaultDataStoreParameters.networkSessionParameters.sourceApplicationSecondaryIdentifier = m_websiteDataStore->configuration().sourceApplicationSecondaryIdentifier();
 #endif
-        m_websiteDataStore->networkingHasBegun();
     }
 
     parameters.cacheModel = LegacyGlobalSettings::singleton().cacheModel();
@@ -525,7 +540,7 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
 #endif
 #endif
 
-    parameters.hstsStorageDirectory = LegacyGlobalSettings::singleton().hstsStorageDirectory();
+    parameters.hstsStorageDirectory = m_configuration->hstsStorageDirectory();
     if (!parameters.hstsStorageDirectory.isNull())
         SandboxExtension::createHandleForReadWriteDirectory(parameters.hstsStorageDirectory, parameters.hstsStorageDirectoryExtensionHandle);
 
@@ -569,20 +584,44 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
         parameters.defaultDataStoreParameters.cacheStorageDirectory = WTFMove(cacheStorageDirectory);
     }
 
+    String resourceLoadStatisticsDirectory;
+    SandboxExtension::Handle resourceLoadStatisticsDirectoryExtensionHandle;
     if (m_websiteDataStore)
-        parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsDirectory = m_websiteDataStore->resolvedResourceLoadStatisticsDirectory();
-    if (parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsDirectory.isEmpty())
-        parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsDirectory = WebKit::WebsiteDataStore::defaultResourceLoadStatisticsDirectory();
-
-    SandboxExtension::createHandleForReadWriteDirectory(parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsDirectory, parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsDirectoryExtensionHandle);
+        resourceLoadStatisticsDirectory = m_websiteDataStore->resolvedResourceLoadStatisticsDirectory();
+    else if (WebKit::WebsiteDataStore::defaultDataStoreExists())
+        resourceLoadStatisticsDirectory = WebKit::WebsiteDataStore::defaultDataStore()->parameters().networkSessionParameters.resourceLoadStatisticsParameters.directory;
+    
+    if (!resourceLoadStatisticsDirectory.isEmpty())
+        SandboxExtension::createHandleForReadWriteDirectory(resourceLoadStatisticsDirectory, resourceLoadStatisticsDirectoryExtensionHandle);
 
     bool enableResourceLoadStatistics = false;
     bool enableResourceLoadStatisticsLogTestingEvent = false;
     bool shouldIncludeLocalhost = true;
     bool enableResourceLoadStatisticsDebugMode = false;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
     WebCore::ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode = WebCore::ThirdPartyCookieBlockingMode::All;
+    WebCore::SameSiteStrictEnforcementEnabled sameSiteStrictEnforcementEnabled = WebCore::SameSiteStrictEnforcementEnabled::No;
+#endif
     WebCore::FirstPartyWebsiteDataRemovalMode firstPartyWebsiteDataRemovalMode = WebCore::FirstPartyWebsiteDataRemovalMode::AllButCookies;
-    WebCore::RegistrableDomain manualPrevalentResource { };
+    WebCore::RegistrableDomain standaloneApplicationDomain;
+    HashSet<WebCore::RegistrableDomain> appBoundDomains;
+    WebCore::RegistrableDomain manualPrevalentResource;
+
+#if PLATFORM(COCOA)
+    m_tccPreferenceEnabled = doesAppHaveITPEnabled();
+    if (withWebsiteDataStore && !withWebsiteDataStore->isItpStateExplicitlySet()) {
+        enableResourceLoadStatistics = m_tccPreferenceEnabled;
+        withWebsiteDataStore->setResourceLoadStatisticsEnabled(enableResourceLoadStatistics);
+    } else if (m_websiteDataStore && !m_websiteDataStore->isItpStateExplicitlySet()) {
+        enableResourceLoadStatistics = m_tccPreferenceEnabled;
+        m_websiteDataStore->setResourceLoadStatisticsEnabled(enableResourceLoadStatistics);
+    } else if (WebsiteDataStore::defaultDataStoreExists() && !WebsiteDataStore::defaultDataStore()->isItpStateExplicitlySet()) {
+        enableResourceLoadStatistics = m_tccPreferenceEnabled;
+        WebsiteDataStore::defaultDataStore()->setResourceLoadStatisticsEnabled(enableResourceLoadStatistics);
+    } else
+        enableResourceLoadStatistics = m_tccPreferenceEnabled;
+#endif
+
     if (withWebsiteDataStore) {
         enableResourceLoadStatistics = withWebsiteDataStore->resourceLoadStatisticsEnabled();
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -590,11 +629,16 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
 #endif
         if (enableResourceLoadStatistics) {
             auto networkSessionParameters = withWebsiteDataStore->parameters().networkSessionParameters;
-            shouldIncludeLocalhost = networkSessionParameters.shouldIncludeLocalhostInResourceLoadStatistics;
-            enableResourceLoadStatisticsDebugMode = networkSessionParameters.enableResourceLoadStatisticsDebugMode;
-            thirdPartyCookieBlockingMode = networkSessionParameters.thirdPartyCookieBlockingMode;
-            firstPartyWebsiteDataRemovalMode = networkSessionParameters.firstPartyWebsiteDataRemovalMode;
-            manualPrevalentResource = networkSessionParameters.resourceLoadStatisticsManualPrevalentResource;
+            shouldIncludeLocalhost = networkSessionParameters.resourceLoadStatisticsParameters.shouldIncludeLocalhost;
+            enableResourceLoadStatisticsDebugMode = networkSessionParameters.resourceLoadStatisticsParameters.enableDebugMode;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+            thirdPartyCookieBlockingMode = networkSessionParameters.resourceLoadStatisticsParameters.thirdPartyCookieBlockingMode;
+            sameSiteStrictEnforcementEnabled = networkSessionParameters.resourceLoadStatisticsParameters.sameSiteStrictEnforcementEnabled;
+#endif
+            firstPartyWebsiteDataRemovalMode = networkSessionParameters.resourceLoadStatisticsParameters.firstPartyWebsiteDataRemovalMode;
+            standaloneApplicationDomain = networkSessionParameters.resourceLoadStatisticsParameters.standaloneApplicationDomain;
+            appBoundDomains = networkSessionParameters.resourceLoadStatisticsParameters.appBoundDomains;
+            manualPrevalentResource = networkSessionParameters.resourceLoadStatisticsParameters.manualPrevalentResource;
         }
 
         parameters.defaultDataStoreParameters.perOriginStorageQuota = withWebsiteDataStore->perOriginStorageQuota();
@@ -612,11 +656,16 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
 #endif
         if (enableResourceLoadStatistics) {
             auto networkSessionParameters = m_websiteDataStore->parameters().networkSessionParameters;
-            shouldIncludeLocalhost = networkSessionParameters.shouldIncludeLocalhostInResourceLoadStatistics;
-            enableResourceLoadStatisticsDebugMode = networkSessionParameters.enableResourceLoadStatisticsDebugMode;
-            thirdPartyCookieBlockingMode = networkSessionParameters.thirdPartyCookieBlockingMode;
-            firstPartyWebsiteDataRemovalMode = networkSessionParameters.firstPartyWebsiteDataRemovalMode;
-            manualPrevalentResource = networkSessionParameters.resourceLoadStatisticsManualPrevalentResource;
+            shouldIncludeLocalhost = networkSessionParameters.resourceLoadStatisticsParameters.shouldIncludeLocalhost;
+            enableResourceLoadStatisticsDebugMode = networkSessionParameters.resourceLoadStatisticsParameters.enableDebugMode;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+            thirdPartyCookieBlockingMode = networkSessionParameters.resourceLoadStatisticsParameters.thirdPartyCookieBlockingMode;
+            sameSiteStrictEnforcementEnabled = networkSessionParameters.resourceLoadStatisticsParameters.sameSiteStrictEnforcementEnabled;
+#endif
+            firstPartyWebsiteDataRemovalMode = networkSessionParameters.resourceLoadStatisticsParameters.firstPartyWebsiteDataRemovalMode;
+            standaloneApplicationDomain = networkSessionParameters.resourceLoadStatisticsParameters.standaloneApplicationDomain;
+            appBoundDomains = networkSessionParameters.resourceLoadStatisticsParameters.appBoundDomains;
+            manualPrevalentResource = networkSessionParameters.resourceLoadStatisticsParameters.manualPrevalentResource;
         }
 
         parameters.defaultDataStoreParameters.perOriginStorageQuota = m_websiteDataStore->perOriginStorageQuota();
@@ -635,14 +684,32 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
         SandboxExtension::createHandle(networkCacheDirectory, SandboxExtension::Type::ReadWrite, parameters.defaultDataStoreParameters.networkSessionParameters.networkCacheDirectoryExtensionHandle);
     }
 
-    parameters.defaultDataStoreParameters.networkSessionParameters.enableResourceLoadStatistics = enableResourceLoadStatistics;
-    parameters.defaultDataStoreParameters.networkSessionParameters.enableResourceLoadStatisticsLogTestingEvent = enableResourceLoadStatisticsLogTestingEvent;
-    parameters.defaultDataStoreParameters.networkSessionParameters.shouldIncludeLocalhostInResourceLoadStatistics = shouldIncludeLocalhost;
-    parameters.defaultDataStoreParameters.networkSessionParameters.enableResourceLoadStatisticsDebugMode = enableResourceLoadStatisticsDebugMode;
-    parameters.defaultDataStoreParameters.networkSessionParameters.thirdPartyCookieBlockingMode = thirdPartyCookieBlockingMode;
-    parameters.defaultDataStoreParameters.networkSessionParameters.firstPartyWebsiteDataRemovalMode = firstPartyWebsiteDataRemovalMode;
-
-    parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsManualPrevalentResource = manualPrevalentResource;
+#if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
+    if (WebsiteDataStore::http3Enabled()) {
+        parameters.defaultDataStoreParameters.networkSessionParameters.alternativeServiceDirectory = WebsiteDataStore::defaultAlternativeServicesDirectory();
+        if (!parameters.defaultDataStoreParameters.networkSessionParameters.alternativeServiceDirectory.isEmpty())
+            SandboxExtension::createHandleForReadWriteDirectory(parameters.defaultDataStoreParameters.networkSessionParameters.alternativeServiceDirectory, parameters.defaultDataStoreParameters.networkSessionParameters.alternativeServiceDirectoryExtensionHandle);
+        parameters.defaultDataStoreParameters.networkSessionParameters.http3Enabled = true;
+    }
+#endif
+    bool isItpStateExplicitlySet = false;
+    parameters.defaultDataStoreParameters.networkSessionParameters.resourceLoadStatisticsParameters = ResourceLoadStatisticsParameters {
+        WTFMove(resourceLoadStatisticsDirectory),
+        WTFMove(resourceLoadStatisticsDirectoryExtensionHandle),
+        enableResourceLoadStatistics,
+        isItpStateExplicitlySet,
+        enableResourceLoadStatisticsLogTestingEvent,
+        shouldIncludeLocalhost,
+        enableResourceLoadStatisticsDebugMode,
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+        thirdPartyCookieBlockingMode,
+        sameSiteStrictEnforcementEnabled,
+#endif
+        firstPartyWebsiteDataRemovalMode,
+        standaloneApplicationDomain,
+        appBoundDomains,
+        manualPrevalentResource,
+    };
 
     // Add any platform specific parameters
     platformInitializeNetworkProcess(parameters);
@@ -671,7 +738,7 @@ NetworkProcessProxy& WebProcessPool::ensureNetworkProcess(WebsiteDataStore* with
     return *m_networkProcess;
 }
 
-void WebProcessPool::networkProcessCrashed(NetworkProcessProxy& networkProcessProxy, Vector<std::pair<RefPtr<WebProcessProxy>, Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply>>&& pendingReplies)
+void WebProcessPool::networkProcessCrashed(NetworkProcessProxy& networkProcessProxy)
 {
     ASSERT(m_networkProcess);
     ASSERT(&networkProcessProxy == m_networkProcess.get());
@@ -687,17 +754,7 @@ void WebProcessPool::networkProcessCrashed(NetworkProcessProxy& networkProcessPr
     // Leave the process proxy around during client call, so that the client could query the process identifier.
     m_networkProcess = nullptr;
 
-    // Attempt to re-launch.
-    if (pendingReplies.isEmpty())
-        return;
-    auto& newNetworkProcess = ensureNetworkProcess();
-    for (auto& reply : pendingReplies)
-        newNetworkProcess.getNetworkProcessConnection(*reply.first, WTFMove(reply.second));
-
-#if ENABLE(SERVICE_WORKER)
-    while (!m_serviceWorkerProcesses.isEmpty())
-        m_serviceWorkerProcesses.begin()->value->disableServiceWorkers();
-#endif
+    terminateServiceWorkers();
 }
 
 void WebProcessPool::serviceWorkerProcessCrashed(WebProcessProxy& proxy)
@@ -710,21 +767,37 @@ void WebProcessPool::serviceWorkerProcessCrashed(WebProcessProxy& proxy)
 void WebProcessPool::getNetworkProcessConnection(WebProcessProxy& webProcessProxy, Messages::WebProcessProxy::GetNetworkProcessConnection::DelayedReply&& reply)
 {
     ensureNetworkProcess();
-    ASSERT(m_networkProcess);
-
-    m_networkProcess->getNetworkProcessConnection(webProcessProxy, WTFMove(reply));
+    m_networkProcess->getNetworkProcessConnection(webProcessProxy, [this, weakThis = makeWeakPtr(*this), webProcessProxy = makeWeakPtr(webProcessProxy), reply = WTFMove(reply)] (auto& connectionInfo) mutable {
+        if (UNLIKELY(!IPC::Connection::identifierIsValid(connectionInfo.identifier()) && webProcessProxy && weakThis)) {
+            WEBPROCESSPOOL_RELEASE_LOG_ERROR(Process, "getNetworkProcessConnection: Failed first attempt, retrying");
+            ensureNetworkProcess();
+            m_networkProcess->getNetworkProcessConnection(*webProcessProxy, WTFMove(reply));
+            return;
+        }
+        reply(connectionInfo);
+    });
 }
 
 #if ENABLE(GPU_PROCESS)
 void WebProcessPool::gpuProcessCrashed(ProcessID identifier)
 {
     m_client.gpuProcessDidCrash(this, identifier);
+    Vector<RefPtr<WebProcessProxy>> processes = m_processes;
+    for (auto& process : processes)
+        process->gpuProcessCrashed();
     terminateAllWebContentProcesses();
 }
 
 void WebProcessPool::getGPUProcessConnection(WebProcessProxy& webProcessProxy, Messages::WebProcessProxy::GetGPUProcessConnection::DelayedReply&& reply)
 {
-    GPUProcessProxy::singleton().getGPUProcessConnection(webProcessProxy, WTFMove(reply));
+    GPUProcessProxy::singleton().getGPUProcessConnection(webProcessProxy, [this, weakThis = makeWeakPtr(*this), webProcessProxy = makeWeakPtr(webProcessProxy), reply = WTFMove(reply)] (auto& connectionInfo) mutable {
+        if (UNLIKELY(!IPC::Connection::identifierIsValid(connectionInfo.identifier()) && webProcessProxy && weakThis)) {
+            WEBPROCESSPOOL_RELEASE_LOG_ERROR(Process, "getGPUProcessConnection: Failed first attempt, retrying");
+            GPUProcessProxy::singleton().getGPUProcessConnection(*webProcessProxy, WTFMove(reply));
+            return;
+        }
+        reply(connectionInfo);
+    });
 }
 #endif
 
@@ -741,20 +814,10 @@ void WebProcessPool::establishWorkerContextConnectionToNetworkProcess(NetworkPro
         websiteDataStore = m_websiteDataStore.get();
     }
 
-    RegistrableDomainWithSessionID registrableDomainWithSessionID { RegistrableDomain { registrableDomain }, sessionID };
-    if (auto worker = m_serviceWorkerProcesses.get(registrableDomainWithSessionID)) {
-        WEBPROCESSPOOL_RELEASE_LOG_IF_ALLOWED(ServiceWorker, "establishWorkerContextConnectionToNetworkProcess process already created");
-        completionHandler();
-        return;
-    }
-
-    if (m_serviceWorkerProcesses.isEmpty())
-        sendToAllProcesses(Messages::WebProcess::RegisterServiceWorkerClients { });
-
     WebProcessProxy* serviceWorkerProcessProxy { nullptr };
     if (!m_useSeparateServiceWorkerProcess) {
         for (auto& process : m_processes) {
-            if (process == m_prewarmedProcess || process == m_dummyProcessProxy)
+            if (process == m_prewarmedProcess || process->isDummyProcessProxy())
                 continue;
             if (&process->websiteDataStore() != websiteDataStore)
                 continue;
@@ -779,7 +842,8 @@ void WebProcessPool::establishWorkerContextConnectionToNetworkProcess(NetworkPro
         m_processes.append(WTFMove(newProcessProxy));
     }
 
-    m_serviceWorkerProcesses.set(WTFMove(registrableDomainWithSessionID), makeWeakPtr(serviceWorkerProcessProxy));
+    ASSERT(!m_serviceWorkerProcesses.contains(*serviceWorkerProcessProxy));
+    m_serviceWorkerProcesses.add(*serviceWorkerProcessProxy);
 
     serviceWorkerProcessProxy->establishServiceWorkerContext(m_serviceWorkerPreferences ? m_serviceWorkerPreferences.value() : m_defaultPageGroup->preferences().store(), WTFMove(completionHandler));
     if (!m_serviceWorkerUserAgent.isNull())
@@ -788,10 +852,8 @@ void WebProcessPool::establishWorkerContextConnectionToNetworkProcess(NetworkPro
 
 void WebProcessPool::removeFromServiceWorkerProcesses(WebProcessProxy& process)
 {
-    RegistrableDomainWithSessionID key { process.registrableDomain(), process.websiteDataStore().sessionID() };
-    ASSERT(m_serviceWorkerProcesses.contains(key));
-    ASSERT(m_serviceWorkerProcesses.get(key) == &process);
-    m_serviceWorkerProcesses.remove(key);
+    ASSERT(m_serviceWorkerProcesses.contains(process));
+    m_serviceWorkerProcesses.remove(process);
 }
 #endif
 
@@ -809,17 +871,12 @@ void WebProcessPool::setInvalidMessageCallback(void (*invalidMessageCallback)(WK
     s_invalidMessageCallback = invalidMessageCallback;
 }
 
-void WebProcessPool::didReceiveInvalidMessage(const IPC::StringReference& messageReceiverName, const IPC::StringReference& messageName)
+void WebProcessPool::didReceiveInvalidMessage(IPC::MessageName messageName)
 {
     if (!s_invalidMessageCallback)
         return;
 
-    StringBuilder messageNameStringBuilder;
-    messageNameStringBuilder.appendCharacters(messageReceiverName.data(), messageReceiverName.size());
-    messageNameStringBuilder.append('.');
-    messageNameStringBuilder.appendCharacters(messageName.data(), messageName.size());
-
-    s_invalidMessageCallback(toAPI(API::String::create(messageNameStringBuilder.toString()).ptr()));
+    s_invalidMessageCallback(toAPI(API::String::create(description(messageName)).ptr()));
 }
 
 void WebProcessPool::resolvePathsForSandboxExtensions()
@@ -835,6 +892,12 @@ void WebProcessPool::resolvePathsForSandboxExtensions()
 
 WebProcessProxy& WebProcessPool::createNewWebProcess(WebsiteDataStore* websiteDataStore, WebProcessProxy::IsPrewarmed isPrewarmed)
 {
+#if PLATFORM(COCOA)
+    m_tccPreferenceEnabled = doesAppHaveITPEnabled();
+    if (websiteDataStore && !websiteDataStore->isItpStateExplicitlySet())
+        websiteDataStore->setResourceLoadStatisticsEnabled(m_tccPreferenceEnabled);
+#endif
+
     auto processProxy = WebProcessProxy::create(*this, websiteDataStore, isPrewarmed);
     auto& process = processProxy.get();
     initializeNewWebProcess(process, websiteDataStore, isPrewarmed);
@@ -951,6 +1014,10 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
         WTFMove(javaScriptConfigurationDirectory),
         WTFMove(javaScriptConfigurationDirectoryExtensionHandle),
         WTFMove(plugInAutoStartOriginHashes),
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+        websiteDataStore.thirdPartyCookieBlockingMode(),
+        m_domainsWithUserInteraction,
+#endif
         websiteDataStore.resourceLoadStatisticsEnabled()
     };
 }
@@ -958,6 +1025,12 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
 void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDataStore* websiteDataStore, WebProcessProxy::IsPrewarmed isPrewarmed)
 {
     auto initializationActivity = process.throttler().backgroundActivity("WebProcess initialization"_s);
+    auto scopeExit = makeScopeExit([&process, initializationActivity = WTFMove(initializationActivity)]() mutable {
+        // Round-trip to the Web Content process before releasing the
+        // initialization activity, so that we're sure that all
+        // messages sent from this function have been handled.
+        process.isResponsive([initializationActivity = WTFMove(initializationActivity)] (bool) { });
+    });
 
     ensureNetworkProcess();
 
@@ -976,7 +1049,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
 #endif
 
     parameters.cacheModel = LegacyGlobalSettings::singleton().cacheModel();
-    parameters.languages = configuration().overrideLanguages().isEmpty() ? userPreferredLanguages() : configuration().overrideLanguages();
+    parameters.overrideLanguages = configuration().overrideLanguages();
 
     parameters.urlSchemesRegisteredAsEmptyDocument = copyToVector(m_schemesToRegisterAsEmptyDocument);
     parameters.urlSchemesRegisteredAsSecure = copyToVector(LegacyGlobalSettings::singleton().schemesToRegisterAsSecure());
@@ -1029,13 +1102,6 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     parameters.shouldEnableMemoryPressureReliefLogging = true;
 #endif
 
-#if ENABLE(MEDIA_STREAM)
-    parameters.shouldCaptureAudioInUIProcess = m_configuration->shouldCaptureAudioInUIProcess();
-    parameters.shouldCaptureAudioInGPUProcess = m_configuration->shouldCaptureAudioInGPUProcess();
-    parameters.shouldCaptureVideoInUIProcess = m_configuration->shouldCaptureVideoInUIProcess();
-    parameters.shouldCaptureDisplayInUIProcess = m_configuration->shouldCaptureDisplayInUIProcess();
-#endif
-
     parameters.presentingApplicationPID = m_configuration->presentingApplicationPID();
 
     // Add any platform specific parameters
@@ -1049,8 +1115,7 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     if (websiteDataStore)
         parameters.websiteDataStoreParameters = webProcessDataStoreParameters(process, *websiteDataStore);
 
-    process.sendWithAsyncReply(Messages::WebProcess::InitializeWebProcess(parameters), [protectedThis = makeRef(*this), protectedProcess = makeRef(process), initializationActivity = WTFMove(initializationActivity)] { });
-
+    process.send(Messages::WebProcess::InitializeWebProcess(parameters), 0);
 #if PLATFORM(COCOA)
     process.send(Messages::WebProcess::SetQOS(webProcessLatencyQOS(), webProcessThroughputQOS()), 0);
 #endif
@@ -1068,11 +1133,6 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     process.send(Messages::WebProcess::BacklightLevelDidChange(displayBrightness()), 0);
-#endif
-
-#if ENABLE(REMOTE_INSPECTOR)
-    // Initialize remote inspector connection now that we have a sub-process that is hosting one of our web views.
-    Inspector::RemoteInspector::singleton(); 
 #endif
 
 #if PLATFORM(MAC)
@@ -1146,15 +1206,14 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy* process)
 void WebProcessPool::disconnectProcess(WebProcessProxy* process)
 {
     ASSERT(m_processes.contains(process));
-    ASSERT(!m_processesPlayingAudibleMedia.contains(process->coreProcessIdentifier()));
 
     if (m_prewarmedProcess == process) {
         ASSERT(m_prewarmedProcess->isPrewarmed());
         m_prewarmedProcess = nullptr;
+    } else if (process->isDummyProcessProxy()) {
+        auto removedProcess = m_dummyProcessProxies.take(process->sessionID());
+        ASSERT_UNUSED(removedProcess, removedProcess == process);
     }
-
-    if (m_dummyProcessProxy == process)
-        m_dummyProcessProxy = nullptr;
 
     // FIXME (Multi-WebProcess): <rdar://problem/12239765> Some of the invalidation calls of the other supplements are still necessary in multi-process mode, but they should only affect data structures pertaining to the process being disconnected.
     // Clearing everything causes assertion failures, so it's less trouble to skip that for now.
@@ -1163,11 +1222,8 @@ void WebProcessPool::disconnectProcess(WebProcessProxy* process)
     m_backForwardCache->removeEntriesForProcess(*process);
 
 #if ENABLE(SERVICE_WORKER)
-    if (process->isRunningServiceWorkers()) {
-        auto iterator = m_serviceWorkerProcesses.find(RegistrableDomainWithSessionID { process->registrableDomain(), process->websiteDataStore().sessionID() });
-        if (iterator != m_serviceWorkerProcesses.end() && iterator->value == process)
-            m_serviceWorkerProcesses.remove(iterator);
-    }
+    if (process->isRunningServiceWorkers())
+        removeFromServiceWorkerProcesses(*process);
 #endif
 
     static_cast<WebContextSupplement*>(supplement<WebGeolocationManagerProxy>())->processDidClose(process);
@@ -1212,7 +1268,7 @@ WebProcessProxy& WebProcessPool::processForRegistrableDomain(WebsiteDataStore& w
 #endif
 
     for (auto& process : m_processes) {
-        if (process == m_prewarmedProcess || process == m_dummyProcessProxy)
+        if (process == m_prewarmedProcess || process->isDummyProcessProxy())
             continue;
 #if ENABLE(SERVICE_WORKER)
         if (process->isRunningServiceWorkers())
@@ -1251,16 +1307,16 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         // Sharing processes, e.g. when creating the page via window.open().
         process = &pageConfiguration->relatedPage()->ensureRunningProcess();
         // We do not support several WebsiteDataStores sharing a single process.
-        ASSERT(process.get() == m_dummyProcessProxy || pageConfiguration->websiteDataStore() == &process->websiteDataStore());
+        ASSERT(process->isDummyProcessProxy() || pageConfiguration->websiteDataStore() == &process->websiteDataStore());
         ASSERT(&pageConfiguration->relatedPage()->websiteDataStore() == pageConfiguration->websiteDataStore());
     } else if (!m_isDelayedWebProcessLaunchDisabled) {
         // In the common case, we delay process launch until something is actually loaded in the page.
-        if (!m_dummyProcessProxy) {
-            auto dummyProcessProxy = WebProcessProxy::create(*this, nullptr, WebProcessProxy::IsPrewarmed::No, WebProcessProxy::ShouldLaunchProcess::No);
-            m_dummyProcessProxy = dummyProcessProxy.ptr();
-            m_processes.append(WTFMove(dummyProcessProxy));
+        process = dummyProcessProxy(pageConfiguration->websiteDataStore()->sessionID());
+        if (!process) {
+            process = WebProcessProxy::create(*this, pageConfiguration->websiteDataStore(), WebProcessProxy::IsPrewarmed::No, WebProcessProxy::ShouldLaunchProcess::No);
+            m_dummyProcessProxies.add(pageConfiguration->websiteDataStore()->sessionID(), makeWeakPtr(*process));
+            m_processes.append(process.copyRef());
         }
-        process = m_dummyProcessProxy;
     } else
         process = &processForRegistrableDomain(*pageConfiguration->websiteDataStore(), nullptr, { });
 
@@ -1273,10 +1329,8 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
 #if ENABLE(SERVICE_WORKER)
     if (!m_serviceWorkerPreferences) {
         m_serviceWorkerPreferences = page->preferencesStore();
-        for (auto& serviceWorkerProcess : m_serviceWorkerProcesses.values()) {
-            if (serviceWorkerProcess)
-                serviceWorkerProcess->updateServiceWorkerPreferencesStore(*m_serviceWorkerPreferences);
-        }
+        for (auto& serviceWorkerProcess : m_serviceWorkerProcesses)
+            serviceWorkerProcess.updateServiceWorkerPreferencesStore(*m_serviceWorkerPreferences);
     }
     if (userContentController)
         m_userContentControllerIDForServiceWorker = userContentController->identifier();
@@ -1293,10 +1347,6 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
     if (wasProcessSwappingOnNavigationEnabled != m_configuration->processSwapsOnNavigation())
         m_webProcessCache->updateCapacity(*this);
 
-    m_configuration->setShouldCaptureAudioInUIProcess(page->preferences().captureAudioInUIProcessEnabled());
-    m_configuration->setShouldCaptureAudioInGPUProcess(page->preferences().captureAudioInGPUProcessEnabled());
-    m_configuration->setShouldCaptureVideoInUIProcess(page->preferences().captureVideoInUIProcessEnabled());
-
     return page;
 }
 
@@ -1306,10 +1356,8 @@ void WebProcessPool::updateServiceWorkerUserAgent(const String& userAgent)
     if (m_serviceWorkerUserAgent == userAgent)
         return;
     m_serviceWorkerUserAgent = userAgent;
-    for (auto& serviceWorkerProcess : m_serviceWorkerProcesses.values()) {
-        if (serviceWorkerProcess)
-            serviceWorkerProcess->setServiceWorkerUserAgent(m_serviceWorkerUserAgent);
-    }
+    for (auto& serviceWorkerProcess : m_serviceWorkerProcesses)
+        serviceWorkerProcess.setServiceWorkerUserAgent(m_serviceWorkerUserAgent);
 }
 #endif
 
@@ -1355,8 +1403,11 @@ DownloadProxy& WebProcessPool::download(WebsiteDataStore& dataStore, WebPageProx
     auto& downloadProxy = createDownloadProxy(dataStore, request, initiatingPage, { });
     PAL::SessionID sessionID = dataStore.sessionID();
 
-    if (initiatingPage)
+    Optional<NavigatingToAppBoundDomain> isAppBound = NavigatingToAppBoundDomain::No;
+    if (initiatingPage) {
         initiatingPage->handleDownloadRequest(downloadProxy);
+        isAppBound = initiatingPage->isTopFrameNavigatingToAppBoundDomain();
+    }
 
     if (networkProcess()) {
         ResourceRequest updatedRequest(request);
@@ -1375,7 +1426,7 @@ DownloadProxy& WebProcessPool::download(WebsiteDataStore& dataStore, WebPageProx
                 updatedRequest.setHTTPUserAgent(WebPageProxy::standardUserAgent());
         }
         updatedRequest.setIsTopSite(false);
-        networkProcess()->send(Messages::NetworkProcess::DownloadRequest(sessionID, downloadProxy.downloadID(), updatedRequest, suggestedFilename), 0);
+        networkProcess()->send(Messages::NetworkProcess::DownloadRequest(sessionID, downloadProxy.downloadID(), updatedRequest, isAppBound, suggestedFilename), 0);
         return downloadProxy;
     }
 
@@ -1503,11 +1554,6 @@ void WebProcessPool::setShouldUseFontSmoothing(bool useFontSmoothing)
 {
     m_shouldUseFontSmoothing = useFontSmoothing;
     sendToAllProcesses(Messages::WebProcess::SetShouldUseFontSmoothing(useFontSmoothing));
-}
-
-void WebProcessPool::clearResourceLoadStatistics()
-{
-    sendToAllProcesses(Messages::WebProcess::ClearResourceLoadStatistics());
 }
 
 void WebProcessPool::registerURLSchemeAsEmptyDocument(const String& urlScheme)
@@ -1644,22 +1690,22 @@ void WebProcessPool::synthesizeAppIsBackground(bool background)
     ensureNetworkProcess().synthesizeAppIsBackground(background);
 }
 
-void WebProcessPool::addMessageReceiver(IPC::StringReference messageReceiverName, IPC::MessageReceiver& messageReceiver)
+void WebProcessPool::addMessageReceiver(IPC::ReceiverName messageReceiverName, IPC::MessageReceiver& messageReceiver)
 {
     m_messageReceiverMap.addMessageReceiver(messageReceiverName, messageReceiver);
 }
 
-void WebProcessPool::addMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID, IPC::MessageReceiver& messageReceiver)
+void WebProcessPool::addMessageReceiver(IPC::ReceiverName messageReceiverName, uint64_t destinationID, IPC::MessageReceiver& messageReceiver)
 {
     m_messageReceiverMap.addMessageReceiver(messageReceiverName, destinationID, messageReceiver);
 }
 
-void WebProcessPool::removeMessageReceiver(IPC::StringReference messageReceiverName)
+void WebProcessPool::removeMessageReceiver(IPC::ReceiverName messageReceiverName)
 {
     m_messageReceiverMap.removeMessageReceiver(messageReceiverName);
 }
 
-void WebProcessPool::removeMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID)
+void WebProcessPool::removeMessageReceiver(IPC::ReceiverName messageReceiverName, uint64_t destinationID)
 {
     m_messageReceiverMap.removeMessageReceiver(messageReceiverName, destinationID);
 }
@@ -1762,6 +1808,14 @@ void WebProcessPool::terminateAllWebContentProcesses()
         process->terminate();
 }
 
+void WebProcessPool::sendNetworkProcessPrepareToSuspendForTesting(CompletionHandler<void()>&& completionHandler)
+{
+    if (!m_networkProcess)
+        return completionHandler();
+
+    m_networkProcess->sendPrepareToSuspend(IsSuspensionImminent::No, WTFMove(completionHandler));
+}
+
 void WebProcessPool::sendNetworkProcessWillSuspendImminentlyForTesting()
 {
     if (m_networkProcess)
@@ -1778,19 +1832,8 @@ void WebProcessPool::terminateServiceWorkers()
 {
 #if ENABLE(SERVICE_WORKER)
     auto protectedThis = makeRef(*this);
-    while (!m_serviceWorkerProcesses.isEmpty())
-        m_serviceWorkerProcesses.begin()->value->disableServiceWorkers();
-#endif
-}
-
-void WebProcessPool::terminateServiceWorkerProcess(const WebCore::RegistrableDomain& domain, const PAL::SessionID& sessionID)
-{
-#if ENABLE(SERVICE_WORKER)
-    auto protectedThis = makeRef(*this);
-    if (auto process = makeRefPtr(m_serviceWorkerProcesses.get({ domain, sessionID }).get())) {
-        process->disableServiceWorkers();
-        process->requestTermination(ProcessTerminationReason::ExceededCPULimit);
-    }
+    while (m_serviceWorkerProcesses.computeSize())
+        m_serviceWorkerProcesses.begin()->disableServiceWorkers();
 #endif
 }
 
@@ -1861,24 +1904,6 @@ bool WebProcessPool::httpPipeliningEnabled() const
 #endif
 }
 
-void WebProcessPool::getStatistics(uint32_t statisticsMask, Function<void (API::Dictionary*, CallbackBase::Error)>&& callbackFunction)
-{
-    if (!statisticsMask) {
-        callbackFunction(nullptr, CallbackBase::Error::Unknown);
-        return;
-    }
-
-    auto request = StatisticsRequest::create(DictionaryCallback::create(WTFMove(callbackFunction)));
-
-    if (statisticsMask & StatisticsRequestTypeWebContent)
-        requestWebContentStatistics(request.get());
-}
-
-void WebProcessPool::requestWebContentStatistics(StatisticsRequest& request)
-{
-    // FIXME (Multi-WebProcess) <rdar://problem/13200059>: Make getting statistics from multiple WebProcesses work.
-}
-
 static WebProcessProxy* webProcessProxyFromConnection(IPC::Connection& connection, const Vector<RefPtr<WebProcessProxy>>& processes)
 {
     for (auto& process : processes) {
@@ -1907,17 +1932,6 @@ void WebProcessPool::handleSynchronousMessage(IPC::Connection& connection, const
     m_injectedBundleClient->didReceiveSynchronousMessageFromInjectedBundle(*this, messageName, webProcessProxy->transformHandlesToObjects(messageBody.object()).get(), [webProcessProxy = makeRef(*webProcessProxy), completionHandler = WTFMove(completionHandler)] (RefPtr<API::Object>&& returnData) mutable {
         completionHandler(UserData(webProcessProxy->transformObjectsToHandles(returnData.get())));
     });
-}
-
-void WebProcessPool::didGetStatistics(const StatisticsData& statisticsData, uint64_t requestID)
-{
-    RefPtr<StatisticsRequest> request = m_statisticsRequests.take(requestID);
-    if (!request) {
-        LOG_ERROR("Cannot report networking statistics.");
-        return;
-    }
-
-    request->completedRequest(requestID, statisticsData);
 }
 
 #if ENABLE(GAMEPAD)
@@ -1960,10 +1974,10 @@ void WebProcessPool::processStoppedUsingGamepads(WebProcessProxy& process)
         UIGamepadProvider::singleton().processPoolStoppedUsingGamepads(*this);
 }
 
-void WebProcessPool::gamepadConnected(const UIGamepad& gamepad)
+void WebProcessPool::gamepadConnected(const UIGamepad& gamepad, EventMakesGamepadsVisible eventVisibility)
 {
     for (auto& process : m_processesUsingGamepads)
-        process->send(Messages::WebProcess::GamepadConnected(gamepad.fullGamepadData()), 0);
+        process->send(Messages::WebProcess::GamepadConnected(gamepad.gamepadData(), eventVisibility), 0);
 }
 
 void WebProcessPool::gamepadDisconnected(const UIGamepad& gamepad)
@@ -1972,21 +1986,34 @@ void WebProcessPool::gamepadDisconnected(const UIGamepad& gamepad)
         process->send(Messages::WebProcess::GamepadDisconnected(gamepad.index()), 0);
 }
 
-void WebProcessPool::setInitialConnectedGamepads(const Vector<std::unique_ptr<UIGamepad>>& gamepads)
-{
-    Vector<GamepadData> gamepadDatas;
-    gamepadDatas.grow(gamepads.size());
-    for (size_t i = 0; i < gamepads.size(); ++i) {
-        if (!gamepads[i])
-            continue;
-        gamepadDatas[i] = gamepads[i]->fullGamepadData();
-    }
+#endif // ENABLE(GAMEPAD)
 
-    for (auto& process : m_processesUsingGamepads)
-        process->send(Messages::WebProcess::SetInitialGamepads(gamepadDatas), 0);
+size_t WebProcessPool::numberOfConnectedGamepadsForTesting(GamepadType gamepadType)
+{
+#if ENABLE(GAMEPAD)
+    switch (gamepadType) {
+    case GamepadType::All:
+        return UIGamepadProvider::singleton().numberOfConnectedGamepads();
+    case GamepadType::HID:
+#if PLATFORM(MAC)
+        return HIDGamepadProvider::singleton().numberOfConnectedGamepads();
+#else
+        return 0;
+#endif
+    case GamepadType::GameControllerFramework:
+        return GameControllerGamepadProvider::singleton().numberOfConnectedGamepads();
+    }
+#else
+    return 0;
+#endif
 }
 
-#endif // ENABLE(GAMEPAD)
+void WebProcessPool::setUsesOnlyHIDGamepadProviderForTesting(bool hidProviderOnly)
+{
+#if ENABLE(GAMEPAD) && HAVE(MULTIGAMEPADPROVIDER_SUPPORT)
+    MultiGamepadProvider::singleton().setUsesOnlyHIDGamepadProvider(hidProviderOnly);
+#endif
+}
 
 void WebProcessPool::setJavaScriptConfigurationFileEnabled(bool flag)
 {
@@ -2026,14 +2053,18 @@ void WebProcessPool::setPlugInAutoStartOriginsFilteringOutEntriesAddedAfterTime(
 #if ENABLE(NETSCAPE_PLUGIN_API)
 void WebProcessPool::setPluginLoadClientPolicy(WebCore::PluginLoadClientPolicy policy, const String& host, const String& bundleIdentifier, const String& versionString)
 {
-    auto& policiesForHost = m_pluginLoadClientPolicies.ensure(host, [] { return HashMap<String, HashMap<String, uint8_t>>(); }).iterator->value;
-    auto& versionsToPolicies = policiesForHost.ensure(bundleIdentifier, [] { return HashMap<String, uint8_t>(); }).iterator->value;
+    auto& policiesForHost = m_pluginLoadClientPolicies.ensure(host, [] {
+        return HashMap<String, HashMap<String, WebCore::PluginLoadClientPolicy>>();
+    }).iterator->value;
+    auto& versionsToPolicies = policiesForHost.ensure(bundleIdentifier, [] {
+        return HashMap<String, WebCore::PluginLoadClientPolicy>();
+    }).iterator->value;
     versionsToPolicies.set(versionString, policy);
 
     sendToAllProcesses(Messages::WebProcess::SetPluginLoadClientPolicy(policy, host, bundleIdentifier, versionString));
 }
 
-void WebProcessPool::resetPluginLoadClientPolicies(HashMap<String, HashMap<String, HashMap<String, uint8_t>>>&& pluginLoadClientPolicies)
+void WebProcessPool::resetPluginLoadClientPolicies(HashMap<String, HashMap<String, HashMap<String, WebCore::PluginLoadClientPolicy>>>&& pluginLoadClientPolicies)
 {
     m_pluginLoadClientPolicies = WTFMove(pluginLoadClientPolicies);
     sendToAllProcesses(Messages::WebProcess::ResetPluginLoadClientPolicies(m_pluginLoadClientPolicies));
@@ -2071,13 +2102,13 @@ void WebProcessPool::setMemoryCacheDisabled(bool disabled)
     sendToAllProcesses(Messages::WebProcess::SetMemoryCacheDisabled(disabled));
 }
 
-void WebProcessPool::setFontWhitelist(API::Array* array)
+void WebProcessPool::setFontAllowList(API::Array* array)
 {
-    m_fontWhitelist.clear();
+    m_fontAllowList.clear();
     if (array) {
         for (size_t i = 0; i < array->size(); ++i) {
             if (API::String* font = array->at<API::String>(i))
-                m_fontWhitelist.append(font->string());
+                m_fontAllowList.append(font->string());
         }
     }
 }
@@ -2107,25 +2138,23 @@ void WebProcessPool::reportWebContentCPUTime(Seconds cpuTime, uint64_t activityS
 void WebProcessPool::updateProcessAssertions()
 {
     ensureNetworkProcess().updateProcessAssertion();
+#if ENABLE(SERVICE_WORKER)
     // Check on next run loop since the web process proxy tokens are probably being updated.
     callOnMainRunLoop([this, weakThis = makeWeakPtr(this)] {
         if (!weakThis)
             return;
-#if ENABLE(SERVICE_WORKER)
-        for (auto& serviceWorkerProcess : m_serviceWorkerProcesses.values()) {
-            if (serviceWorkerProcess)
-                serviceWorkerProcess->updateServiceWorkerProcessAssertion();
-        }
-#endif
+        for (auto& serviceWorkerProcess : m_serviceWorkerProcesses)
+            serviceWorkerProcess.updateServiceWorkerProcessAssertion();
     });
+#endif
 }
 
 bool WebProcessPool::isServiceWorkerPageID(WebPageProxyIdentifier pageID) const
 {
 #if ENABLE(SERVICE_WORKER)
     // FIXME: This is inefficient.
-    return WTF::anyOf(m_serviceWorkerProcesses.values(), [pageID](auto& process) {
-        return process->hasServiceWorkerPageProxy(pageID);
+    return WTF::anyOf(m_serviceWorkerProcesses, [pageID](auto& process) {
+        return process.hasServiceWorkerPageProxy(pageID);
     });
 #endif
     return false;
@@ -2188,7 +2217,7 @@ void WebProcessPool::processForNavigationInternal(WebPageProxy& page, const API:
     auto& targetURL = navigation.currentRequest().url();
     auto targetRegistrableDomain = WebCore::RegistrableDomain { targetURL };
 
-    auto createNewProcess = [this, protectedThis = makeRef(*this), page = makeRef(page), targetRegistrableDomain, dataStore = dataStore.copyRef()] () -> Ref<WebProcessProxy> {
+    auto createNewProcess = [this, protectedThis = makeRef(*this), page = makeRef(page), targetRegistrableDomain, dataStore] () -> Ref<WebProcessProxy> {
         return processForRegistrableDomain(dataStore, page.ptr(), targetRegistrableDomain);
     };
 
@@ -2354,99 +2383,52 @@ void WebProcessPool::didCommitCrossSiteLoadWithDataTransfer(PAL::SessionID sessi
     m_networkProcess->didCommitCrossSiteLoadWithDataTransfer(sessionID, fromDomain, toDomain, navigationDataTransfer, webPageProxyID, webPageID);
 }
 
+void WebProcessPool::setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&& domains)
+{
+    sendToAllProcesses(Messages::WebProcess::SetDomainsWithUserInteraction(domains));
+    m_domainsWithUserInteraction = WTFMove(domains);
+}
+
 void WebProcessPool::seedResourceLoadStatisticsForTesting(const RegistrableDomain& firstPartyDomain, const RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&& completionHandler)
 {
     auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
 
     for (auto& process : processes())
-        process->sendWithAsyncReply(Messages::WebProcess::SeedResourceLoadStatisticsForTesting(firstPartyDomain, thirdPartyDomain, shouldScheduleNotification), [callbackAggregator = callbackAggregator.copyRef()] { });
+        process->sendWithAsyncReply(Messages::WebProcess::SeedResourceLoadStatisticsForTesting(firstPartyDomain, thirdPartyDomain, shouldScheduleNotification), [callbackAggregator] { });
+}
+
+void WebProcessPool::sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&& completionHandler)
+{
+    auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
+
+    for (auto& process : processes())
+        process->sendWithAsyncReply(Messages::WebProcess::SendResourceLoadStatisticsDataImmediately(), [callbackAggregator] { });
 }
 #endif
 
-void WebProcessPool::setWebProcessHasUploads(ProcessIdentifier processID)
+WebProcessWithAudibleMediaToken WebProcessPool::webProcessWithAudibleMediaToken() const
 {
-    ASSERT(processID);
-    auto* process = WebProcessProxy::processForIdentifier(processID);
-    ASSERT(process);
+    return m_webProcessWithAudibleMediaCounter.count();
+}
 
-    if (!process)
+void WebProcessPool::updateAudibleMediaAssertions()
+{
+    if (!m_webProcessWithAudibleMediaCounter.value()) {
+        WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "updateAudibleMediaAssertions: The number of processes playing audible media now zero. Releasing UI process assertion.");
+        m_audibleMediaActivity = WTF::nullopt;
+        return;
+    }
+
+    if (m_audibleMediaActivity)
         return;
 
-    WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "setWebProcessHasUploads: Web process now has uploads in progress (process=%p, PID=%i)", process, process->processIdentifier());
-
-    if (m_processesWithUploads.isEmpty()) {
-        WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "setWebProcessHasUploads: The number of uploads in progress is now one. Taking Networking and UI process assertions.");
-
-        ASSERT(m_networkProcess);
-        m_networkProcess->takeUploadAssertion();
-        
-        ASSERT(!m_uiProcessUploadAssertion);
-        m_uiProcessUploadAssertion = makeUnique<ProcessAssertion>(getCurrentProcessID(), "WebKit uploads"_s, AssertionState::UnboundedNetworking);
-    }
-    
-    auto result = m_processesWithUploads.add(processID, nullptr);
-    ASSERT(result.isNewEntry);
-    result.iterator->value = makeUnique<ProcessAssertion>(process->processIdentifier(), "WebKit uploads"_s, AssertionState::UnboundedNetworking);
-}
-
-void WebProcessPool::clearWebProcessHasUploads(ProcessIdentifier processID)
-{
-    ASSERT(processID);
-    auto result = m_processesWithUploads.take(processID);
-    if (!result)
-        return;
-
-    auto* process = WebProcessProxy::processForIdentifier(processID);
-    ASSERT_UNUSED(process, process);
-    WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "clearWebProcessHasUploads: Web process no longer has uploads in progress (process=%p, PID=%i)", process, process->processIdentifier());
-
-    if (m_processesWithUploads.isEmpty()) {
-        WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "clearWebProcessHasUploads: The number of uploads in progress is now zero. Releasing Networking and UI process assertions.");
-
-        if (m_networkProcess)
-            m_networkProcess->clearUploadAssertion();
-        
-        ASSERT(m_uiProcessUploadAssertion);
-        m_uiProcessUploadAssertion = nullptr;
-    }
-    
-}
-
-void WebProcessPool::setWebProcessIsPlayingAudibleMedia(WebCore::ProcessIdentifier processID)
-{
-    auto* process = WebProcessProxy::processForIdentifier(processID);
-    ASSERT(process);
-
-    WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "setWebProcessIsPlayingAudibleMedia: Web process is now playing audible media (process=%p, PID=%i)", process, process->processIdentifier());
-
-    if (m_processesPlayingAudibleMedia.isEmpty()) {
-        WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "setWebProcessIsPlayingAudibleMedia: The number of processes playing audible media is now one. Taking UI process assertion.");
-
-        ASSERT(!m_uiProcessMediaPlaybackAssertion);
-        m_uiProcessMediaPlaybackAssertion = makeUnique<ProcessAssertion>(getCurrentProcessID(), "WebKit Media Playback"_s, AssertionState::Foreground, AssertionReason::MediaPlayback);
-    }
-
-    auto result = m_processesPlayingAudibleMedia.add(processID, nullptr);
-    ASSERT(result.isNewEntry);
-    result.iterator->value = makeUnique<ProcessAssertion>(process->processIdentifier(), "WebKit Media Playback"_s, AssertionState::Foreground, AssertionReason::MediaPlayback);
-}
-
-void WebProcessPool::clearWebProcessIsPlayingAudibleMedia(WebCore::ProcessIdentifier processID)
-{
-    auto result = m_processesPlayingAudibleMedia.take(processID);
-    ASSERT_UNUSED(result, result);
-
-    auto* process = WebProcessProxy::processForIdentifier(processID);
-    ASSERT_UNUSED(process, process);
-
-    WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "clearWebProcessIsPlayingAudibleMedia: Web process is no longer playing audible media (process=%p, PID=%i)", process, process->processIdentifier());
-
-    if (m_processesPlayingAudibleMedia.isEmpty()) {
-        WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "clearWebProcessIsPlayingAudibleMedia: The number of processes playing audible media now zero. Releasing UI process assertion.");
-
-        ASSERT(m_uiProcessMediaPlaybackAssertion);
-        m_uiProcessMediaPlaybackAssertion = nullptr;
-    }
+    WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "updateAudibleMediaAssertions: The number of processes playing audible media is now greater than zero. Taking UI process assertion.");
+    m_audibleMediaActivity = AudibleMediaActivity {
+        makeUniqueRef<ProcessAssertion>(getCurrentProcessID(), "WebKit Media Playback"_s, ProcessAssertionType::MediaPlayback)
+#if ENABLE(GPU_PROCESS)
+        , GPUProcessProxy::singletonIfCreated() ? makeUnique<ProcessAssertion>(GPUProcessProxy::singleton().processIdentifier(), "WebKit Media Playback"_s, ProcessAssertionType::MediaPlayback) : nullptr
+#endif
+    };
 }
 
 void WebProcessPool::setUseSeparateServiceWorkerProcess(bool useSeparateServiceWorkerProcess)
@@ -2457,25 +2439,22 @@ void WebProcessPool::setUseSeparateServiceWorkerProcess(bool useSeparateServiceW
     WEBPROCESSPOOL_RELEASE_LOG(ServiceWorker, "setUseSeparateServiceWorkerProcess: (useSeparateServiceWorkerProcess=%d)", useSeparateServiceWorkerProcess);
 
     m_useSeparateServiceWorkerProcess = useSeparateServiceWorkerProcess;
-#if ENABLE(SERVICE_WORKER)
-    while (!m_serviceWorkerProcesses.isEmpty())
-        m_serviceWorkerProcesses.begin()->value->disableServiceWorkers();
-#endif
+    terminateServiceWorkers();
     terminateNetworkProcess();
 }
 
 #if ENABLE(SERVICE_WORKER)
 bool WebProcessPool::hasServiceWorkerForegroundActivityForTesting() const
 {
-    return WTF::anyOf(m_serviceWorkerProcesses.values(), [](auto& process) {
-        return process->hasServiceWorkerForegroundActivityForTesting();
+    return WTF::anyOf(m_serviceWorkerProcesses, [](auto& process) {
+        return process.hasServiceWorkerForegroundActivityForTesting();
     });
 }
 
 bool WebProcessPool::hasServiceWorkerBackgroundActivityForTesting() const
 {
-    return WTF::anyOf(m_serviceWorkerProcesses.values(), [](auto& process) {
-        return process->hasServiceWorkerBackgroundActivityForTesting();
+    return WTF::anyOf(m_serviceWorkerProcesses, [](auto& process) {
+        return process.hasServiceWorkerBackgroundActivityForTesting();
     });
 }
 #endif

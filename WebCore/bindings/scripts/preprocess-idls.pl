@@ -33,6 +33,7 @@ my $preprocessor;
 my $idlFilesList;
 my $testGlobalContextName;
 my $supplementalDependencyFile;
+my $isoSubspacesHeaderFile;
 my $windowConstructorsFile;
 my $workerGlobalScopeConstructorsFile;
 my $dedicatedWorkerGlobalScopeConstructorsFile;
@@ -47,6 +48,7 @@ GetOptions('defines=s' => \$defines,
            'idlFilesList=s' => \$idlFilesList,
            'testGlobalContextName=s' => \$testGlobalContextName,
            'supplementalDependencyFile=s' => \$supplementalDependencyFile,
+           'isoSubspacesHeaderFile=s' => \$isoSubspacesHeaderFile,
            'windowConstructorsFile=s' => \$windowConstructorsFile,
            'workerGlobalScopeConstructorsFile=s' => \$workerGlobalScopeConstructorsFile,
            'dedicatedWorkerGlobalScopeConstructorsFile=s' => \$dedicatedWorkerGlobalScopeConstructorsFile,
@@ -68,22 +70,19 @@ die('Must specify an output file using --testGlobalScopeConstructorsFile.') unle
 die('Must specify the file listing all IDLs using --idlFilesList.') unless defined($idlFilesList);
 
 $supplementalDependencyFile = CygwinPathIfNeeded($supplementalDependencyFile);
+$isoSubspacesHeaderFile = CygwinPathIfNeeded($isoSubspacesHeaderFile);
 $windowConstructorsFile = CygwinPathIfNeeded($windowConstructorsFile);
 $workerGlobalScopeConstructorsFile = CygwinPathIfNeeded($workerGlobalScopeConstructorsFile);
 $dedicatedWorkerGlobalScopeConstructorsFile = CygwinPathIfNeeded($dedicatedWorkerGlobalScopeConstructorsFile);
 $serviceWorkerGlobalScopeConstructorsFile = CygwinPathIfNeeded($serviceWorkerGlobalScopeConstructorsFile);
 $workletGlobalScopeConstructorsFile = CygwinPathIfNeeded($workletGlobalScopeConstructorsFile);
 $paintWorkletGlobalScopeConstructorsFile = CygwinPathIfNeeded($paintWorkletGlobalScopeConstructorsFile);
-$supplementalMakefileDeps = CygwinPathIfNeeded($supplementalMakefileDeps);
+$supplementalMakefileDeps = CygwinPathIfNeeded($supplementalMakefileDeps) if defined($supplementalMakefileDeps);
 
-open FH, "< $idlFilesList" or die "Cannot open $idlFilesList\n";
-my @idlFilesIn = <FH>;
-chomp(@idlFilesIn);
-my @idlFiles = ();
-foreach (@idlFilesIn) {
-    push @idlFiles, CygwinPathIfNeeded($_);
-}
-close FH;
+my @idlFiles;
+open(my $fh, '<', $idlFilesList) or die "Cannot open $idlFilesList";
+@idlFiles = map { CygwinPathIfNeeded(s/\r?\n?$//r) } <$fh>;
+close($fh) or die;
 
 my %interfaceNameToIdlFile;
 my %idlFileToInterfaceName;
@@ -96,6 +95,21 @@ my $serviceWorkerGlobalScopeConstructorsCode = "";
 my $workletGlobalScopeConstructorsCode = "";
 my $paintWorkletGlobalScopeConstructorsCode = "";
 my $testGlobalScopeConstructorsCode = "";
+
+my $isoSubspacesHeaderCode = <<END;
+#include <wtf/FastMalloc.h>
+#include <wtf/Noncopyable.h>
+
+#pragma once
+
+namespace WebCore {
+
+class DOMIsoSubspaces {
+    WTF_MAKE_NONCOPYABLE(DOMIsoSubspaces);
+    WTF_MAKE_FAST_ALLOCATED(DOMIsoSubspaces);
+public:
+    DOMIsoSubspaces() = default;
+END
 
 # Get rid of duplicates in idlFiles array.
 my %idlFileHash = map { $_, 1 } @idlFiles;
@@ -135,6 +149,13 @@ foreach my $idlFile (sort keys %idlFileHash) {
             push(@{$supplementalDependencies{$implementedIdlFile}}, $interfaceName);
         } else {
             $supplementalDependencies{$implementedIdlFile} = [$interfaceName];
+        }
+    }
+
+    if (!isCallbackInterfaceFromIDL($idlFileContents)) {
+        $isoSubspacesHeaderCode .= "    std::unique_ptr<JSC::IsoSubspace> m_subspaceFor${interfaceName};\n";
+        if (interfaceIsIterable($idlFileContents)) {
+            $isoSubspacesHeaderCode .= "    std::unique_ptr<JSC::IsoSubspace> m_subspaceFor${interfaceName}Iterator;\n";
         }
     }
 
@@ -193,6 +214,12 @@ foreach my $idlFile (sort keys %supplementalDependencies) {
     delete $supplementals{$idlFile};
 }
 
+if ($isoSubspacesHeaderFile) {
+    $isoSubspacesHeaderCode .= "};\n";
+    $isoSubspacesHeaderCode .= "} // namespace WebCore\n";
+    WriteFileIfChanged($isoSubspacesHeaderFile, $isoSubspacesHeaderCode);
+}
+
 # Outputs the dependency.
 # The format of a supplemental dependency file:
 #
@@ -228,18 +255,10 @@ if ($supplementalMakefileDeps) {
     WriteFileIfChanged($supplementalMakefileDeps, $makefileDeps);
 }
 
-my $cygwinPathAdded;
 sub CygwinPathIfNeeded
 {
     my $path = shift;
-    if ($path && $Config{osname} eq "cygwin") {
-        if (not $cygwinPathAdded) {
-            $ENV{PATH} = "$ENV{PATH}:/cygdrive/c/cygwin/bin";
-            $cygwinPathAdded = 1; 
-        }
-        chomp($path = `cygpath -u '$path'`);
-        $path =~ s/[\r\n]//;
-    }
+    return Cygwin::win_to_posix_path($path) if ($^O eq 'cygwin');
     return $path;
 }
 
@@ -324,9 +343,9 @@ sub getFileContents
 {
     my $idlFile = shift;
 
-    open FILE, "<", $idlFile;
-    my @lines = <FILE>;
-    close FILE;
+    open my $file, "<", $idlFile or die "Could not open $idlFile for reading: $!";
+    my @lines = <$file>;
+    close $file;
 
     # Filter out preprocessor lines.
     @lines = grep(!/^\s*#/, @lines);
@@ -363,6 +382,12 @@ sub isCallbackInterfaceFromIDL
 {
     my $fileContents = shift;
     return ($fileContents =~ /callback\s+interface\s+\w+/gs);
+}
+
+sub interfaceIsIterable
+{
+    my $fileContents = shift;
+    return ($fileContents =~ /iterable\s*<\s*\w+\s*/gs);
 }
 
 sub containsInterfaceOrExceptionFromIDL

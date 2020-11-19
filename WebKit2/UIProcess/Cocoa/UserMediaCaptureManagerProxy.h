@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,9 +30,15 @@
 #include "Connection.h"
 #include "MessageReceiver.h"
 #include "UserMediaCaptureManager.h"
+#include <WebCore/CaptureDevice.h>
 #include <WebCore/OrientationNotifier.h>
 #include <WebCore/RealtimeMediaSource.h>
+#include <WebCore/RealtimeMediaSourceIdentifier.h>
 #include <wtf/UniqueRef.h>
+
+namespace WebCore {
+class PlatformMediaSessionManager;
+}
 
 namespace WebKit {
 
@@ -45,9 +51,11 @@ public:
     class ConnectionProxy {
     public:
         virtual ~ConnectionProxy() = default;
-        virtual void addMessageReceiver(IPC::StringReference, IPC::MessageReceiver&) = 0;
-        virtual void removeMessageReceiver(IPC::StringReference) = 0;
+        virtual void addMessageReceiver(IPC::ReceiverName, IPC::MessageReceiver&) = 0;
+        virtual void removeMessageReceiver(IPC::ReceiverName) = 0;
         virtual IPC::Connection& connection() = 0;
+        virtual bool willStartCapture(WebCore::CaptureDevice::DeviceType) const = 0;
+        virtual Logger& logger() = 0;
     };
     explicit UserMediaCaptureManagerProxy(UniqueRef<ConnectionProxy>&&);
     ~UserMediaCaptureManagerProxy();
@@ -57,26 +65,24 @@ public:
     void setOrientation(uint64_t);
 
     void didReceiveMessageFromGPUProcess(IPC::Connection& connection, IPC::Decoder& decoder) { didReceiveMessage(connection, decoder); }
-    void didReceiveSyncMessageFromGPUProcess(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& encoder) { didReceiveSyncMessage(connection, decoder, encoder); }
 
 private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
-    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&) final;
 
-    void createMediaSourceForCaptureDeviceWithConstraints(uint64_t id, const WebCore::CaptureDevice& deviceID, String&&, const WebCore::MediaConstraints&, CompletionHandler<void(bool succeeded, String invalidConstraints, WebCore::RealtimeMediaSourceSettings&&)>&&);
-    void startProducingData(uint64_t);
-    void stopProducingData(uint64_t);
-    void end(uint64_t);
-    void capabilities(uint64_t, CompletionHandler<void(WebCore::RealtimeMediaSourceCapabilities&&)>&&);
-    void setMuted(uint64_t, bool);
-    void applyConstraints(uint64_t, const WebCore::MediaConstraints&);
-    void clone(uint64_t clonedID, uint64_t cloneID);
-    void requestToEnd(uint64_t);
+    void createMediaSourceForCaptureDeviceWithConstraints(WebCore::RealtimeMediaSourceIdentifier, const WebCore::CaptureDevice& deviceID, String&&, const WebCore::MediaConstraints&, CompletionHandler<void(bool succeeded, String invalidConstraints, WebCore::RealtimeMediaSourceSettings&&, WebCore::RealtimeMediaSourceCapabilities&&)>&&);
+    void startProducingData(WebCore::RealtimeMediaSourceIdentifier);
+    void stopProducingData(WebCore::RealtimeMediaSourceIdentifier);
+    void end(WebCore::RealtimeMediaSourceIdentifier);
+    void capabilities(WebCore::RealtimeMediaSourceIdentifier, CompletionHandler<void(WebCore::RealtimeMediaSourceCapabilities&&)>&&);
+    void applyConstraints(WebCore::RealtimeMediaSourceIdentifier, const WebCore::MediaConstraints&);
+    void clone(WebCore::RealtimeMediaSourceIdentifier clonedID, WebCore::RealtimeMediaSourceIdentifier cloneID);
+    void requestToEnd(WebCore::RealtimeMediaSourceIdentifier);
+    void setShouldApplyRotation(WebCore::RealtimeMediaSourceIdentifier, bool shouldApplyRotation);
 
     class SourceProxy;
     friend class SourceProxy;
-    HashMap<uint64_t, std::unique_ptr<SourceProxy>> m_proxies;
+    HashMap<WebCore::RealtimeMediaSourceIdentifier, std::unique_ptr<SourceProxy>> m_proxies;
     UniqueRef<ConnectionProxy> m_connectionProxy;
     WebCore::OrientationNotifier m_orientationNotifier { 0 };
 };

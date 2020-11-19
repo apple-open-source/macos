@@ -33,12 +33,14 @@
 #include <corecrypto/ccder.h>
 #include <CoreFoundation/CoreFoundation.h>
 
-const uint8_t* der_decode_set(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_set(CFAllocatorRef allocator,
                                      CFSetRef* set, CFErrorRef *error,
                                      const uint8_t* der, const uint8_t *der_end)
 {
-    if (NULL == der)
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
     
     const uint8_t *payload_end = 0;
     const uint8_t *payload = ccder_decode_constructed_tl(CCDER_CONSTRUCTED_CFSET, &payload_end, der, der_end);
@@ -60,7 +62,7 @@ const uint8_t* der_decode_set(CFAllocatorRef allocator, CFOptionFlags mutability
     while (payload != NULL && payload < payload_end) {
         CFTypeRef value = NULL;
         
-        payload = der_decode_plist(allocator, mutability, &value, error, payload, payload_end);
+        payload = der_decode_plist(allocator, &value, error, payload, payload_end);
         
         if (payload) {
             CFSetAddValue(theSet, value);
@@ -148,9 +150,9 @@ static void add_sequence_to_array(const void *value_void, void *context_void)
     }
 }
 
-static CFComparisonResult cfdata_compare_contents(const void *val1, const void *val2, void *context __unused)
+static CFComparisonResult cfdata_compare_der_contents(const void *val1, const void *val2, void *context __unused)
 {
-    return CFDataCompare((CFDataRef) val1, (CFDataRef) val2);
+    return CFDataCompareDERData((CFDataRef) val1, (CFDataRef) val2);
 }
 
 
@@ -169,7 +171,7 @@ uint8_t* der_encode_set(CFSetRef set, CFErrorRef *error,
     
     CFRange allOfThem = CFRangeMake(0, CFArrayGetCount(elements));
     
-    CFArraySortValues(elements, allOfThem, cfdata_compare_contents, NULL);
+    CFArraySortValues(elements, allOfThem, cfdata_compare_der_contents, NULL);
 
     uint8_t* original_der_end = der_end;
     
@@ -181,6 +183,7 @@ uint8_t* der_encode_set(CFSetRef set, CFErrorRef *error,
     
     CFReleaseNull(elements);
     
-    return ccder_encode_constructed_tl(CCDER_CONSTRUCTED_CFSET, original_der_end, der, der_end);
+    return SecCCDEREncodeHandleResult(ccder_encode_constructed_tl(CCDER_CONSTRUCTED_CFSET, original_der_end, der, der_end),
+                                      error);
     
 }

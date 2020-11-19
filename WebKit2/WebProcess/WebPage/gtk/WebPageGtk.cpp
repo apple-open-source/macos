@@ -28,7 +28,6 @@
 #include "config.h"
 #include "WebPage.h"
 
-#include "EditorState.h"
 #include "WebEvent.h"
 #include "WebFrame.h"
 #include "WebKitWebPageAccessibilityObject.h"
@@ -43,8 +42,8 @@
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
-#include <WebCore/PasteboardHelper.h>
 #include <WebCore/PlatformKeyboardEvent.h>
+#include <WebCore/RenderTheme.h>
 #include <WebCore/Settings.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/UserAgent.h>
@@ -74,42 +73,6 @@ void WebPage::platformReinitialize()
 
 void WebPage::platformDetach()
 {
-}
-
-void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePostLayoutDataHint shouldIncludePostLayoutData) const
-{
-    if (shouldIncludePostLayoutData == IncludePostLayoutDataHint::No || !frame.view() || frame.view()->needsLayout()) {
-        result.isMissingPostLayoutData = true;
-        return;
-    }
-
-    auto& postLayoutData = result.postLayoutData();
-    postLayoutData.caretRectAtStart = frame.selection().absoluteCaretBounds();
-
-    const VisibleSelection& selection = frame.selection().selection();
-    if (selection.isNone())
-        return;
-
-    const Editor& editor = frame.editor();
-    if (selection.isRange()) {
-        if (editor.selectionHasStyle(CSSPropertyFontWeight, "bold") == TrueTriState)
-            postLayoutData.typingAttributes |= AttributeBold;
-        if (editor.selectionHasStyle(CSSPropertyFontStyle, "italic") == TrueTriState)
-            postLayoutData.typingAttributes |= AttributeItalics;
-        if (editor.selectionHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline") == TrueTriState)
-            postLayoutData.typingAttributes |= AttributeUnderline;
-        if (editor.selectionHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "line-through") == TrueTriState)
-            postLayoutData.typingAttributes |= AttributeStrikeThrough;
-    } else if (selection.isCaret()) {
-        if (editor.selectionStartHasStyle(CSSPropertyFontWeight, "bold"))
-            postLayoutData.typingAttributes |= AttributeBold;
-        if (editor.selectionStartHasStyle(CSSPropertyFontStyle, "italic"))
-            postLayoutData.typingAttributes |= AttributeItalics;
-        if (editor.selectionStartHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "underline"))
-            postLayoutData.typingAttributes |= AttributeUnderline;
-        if (editor.selectionStartHasStyle(CSSPropertyWebkitTextDecorationsInEffect, "line-through"))
-            postLayoutData.typingAttributes |= AttributeStrikeThrough;
-    }
 }
 
 bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboardEvent)
@@ -194,11 +157,15 @@ void WebPage::showEmojiPicker(Frame& frame)
     sendWithAsyncReply(Messages::WebPageProxy::ShowEmojiPicker(frame.view()->contentsToRootView(frame.selection().absoluteCaretBounds())), WTFMove(completionHandler));
 }
 
-void WebPage::effectiveAppearanceDidChange(bool useDarkAppearance, bool useInactiveAppearance)
+void WebPage::themeDidChange(String&& themeName)
 {
-    if (auto* settings = gtk_settings_get_default())
-        g_object_set(settings, "gtk-application-prefer-dark-theme", useDarkAppearance, nullptr);
-    corePage()->effectiveAppearanceDidChange(useDarkAppearance, useInactiveAppearance);
+    if (m_themeName == themeName)
+        return;
+
+    m_themeName = WTFMove(themeName);
+    g_object_set(gtk_settings_get_default(), "gtk-theme-name", m_themeName.utf8().data(), nullptr);
+    RenderTheme::singleton().platformColorsDidChange();
+    Page::updateStyleForAllPagesAfterGlobalChangeInEnvironment();
 }
 
 } // namespace WebKit

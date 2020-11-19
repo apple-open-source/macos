@@ -10,7 +10,7 @@ gn{
         "[A Ã {CH} E Ẽ G {G\u0303} H I Ĩ J K L M {MB} N Ñ {ND} {NG} {NT} O Õ P R {RR}"
         " S T U Ũ V Y Ỹ ʼ]"
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     layout{
         characters{"left-to-right"}
         lines{"top-to-bottom"}

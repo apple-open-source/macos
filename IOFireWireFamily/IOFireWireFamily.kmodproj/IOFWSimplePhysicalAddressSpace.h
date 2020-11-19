@@ -49,7 +49,7 @@ protected:
 public:
 
 	virtual bool init( IOFireWireBus * control, vm_size_t size, IODirection direction, bool contiguous = false );
-	virtual void free( void );
+	virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
 	IOVirtualAddress getVirtualAddress( void );
 

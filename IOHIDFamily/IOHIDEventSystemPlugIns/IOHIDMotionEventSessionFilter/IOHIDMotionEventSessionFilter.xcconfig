@@ -1,0 +1,3 @@
+#include "IOHIDFamily/IOHIDFamily.xcconfig"
+
+INSTALL_PATH = $(SYSTEM_LIBRARY_DIR)/HIDPlugins/SessionFilters

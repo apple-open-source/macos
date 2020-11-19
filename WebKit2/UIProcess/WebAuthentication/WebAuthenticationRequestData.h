@@ -28,11 +28,12 @@
 #if ENABLE(WEB_AUTHN)
 
 #include "APIWebAuthenticationPanel.h"
+#include "FrameInfoData.h"
 #include "WebAuthenticationFlags.h"
 #include <WebCore/GlobalFrameIdentifier.h>
 #include <WebCore/PublicKeyCredentialCreationOptions.h>
 #include <WebCore/PublicKeyCredentialRequestOptions.h>
-#include <WebCore/SecurityOriginData.h>
+#include <WebCore/WebAuthenticationConstants.h>
 #include <wtf/Variant.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
@@ -48,8 +49,12 @@ struct WebAuthenticationRequestData {
     WebAuthenticationPanelResult panelResult { WebAuthenticationPanelResult::Unavailable };
     RefPtr<API::WebAuthenticationPanel> panel;
     WTF::Optional<WebCore::GlobalFrameIdentifier> frameID;
-    WebCore::SecurityOriginData origin;
+    WebKit::FrameInfoData frameInfo;
+    bool processingUserGesture;
+    String cachedPin; // Only used to improve NFC Client PIN experience.
 };
+
+WebCore::ClientDataType getClientDataType(const Variant<WebCore::PublicKeyCredentialCreationOptions, WebCore::PublicKeyCredentialRequestOptions>&);
 
 } // namespace WebKit
 

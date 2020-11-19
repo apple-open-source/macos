@@ -495,7 +495,7 @@ OSErr MapFileBlockC (
 	if (temp > numberOfBytes)
 		*availableBytes = numberOfBytes;		// more there than they asked for, so pin the output
 	else
-		*availableBytes = temp;
+		*availableBytes = (UInt32)temp;
 	
 //	LogEndTime(kTraceMapFileBlock, noErr);
 
@@ -787,7 +787,7 @@ OSErr ExtendFileC (
 	//
 	//	Determine the physical EOF in allocation blocks
 	//
-	eofBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
+	eofBlocks = (UInt32)(fcb->fcbPhysicalSize / vcb->vcbBlockSize);
 
 	//
 	//	Make sure the request won't make the file too big (>=2GB).
@@ -1346,7 +1346,7 @@ static OSErr SearchExtentFile(
 	UInt32				filePositionBlock;
 	Boolean				noMoreExtents = true;
 	
-	filePositionBlock = sectorOffset / (vcb->vcbBlockSize >> kSectorShift);
+	filePositionBlock = (UInt32)(sectorOffset / (vcb->vcbBlockSize >> kSectorShift));
 	
 	//	Search the resident FCB first.
 	err = GetFCBExtentRecord(vcb, fcb, foundExtentData);
@@ -1603,7 +1603,7 @@ static OSErr MapFileBlockFromFCB(
 	UInt32	index;
 	UInt32	offsetBlocks;
 	
-	offsetBlocks = sectorOffset / (vcb->vcbBlockSize >> kSectorShift);
+	offsetBlocks = (UInt32)(sectorOffset / (vcb->vcbBlockSize >> kSectorShift));
 	
 	if (vcb->vcbSignature == kHFSSigWord) {
 		const HFSExtentDescriptor *extent;

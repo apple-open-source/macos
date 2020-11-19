@@ -23,6 +23,8 @@
 #include "test-utils.h"
 #include "systemx.h"
 
+#define RETRY_MAX 3
+
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #include "dmg.dat"
@@ -31,6 +33,8 @@ bool disk_image_cleanup(disk_image_t *di)
 {
 	pid_t pid;
 	bool result = false;
+	int eject_retry;
+	int status;
 	
 	// We need to be root
 	assert(seteuid(0) == 0);
@@ -40,27 +44,32 @@ bool disk_image_cleanup(disk_image_t *di)
 	
 	assert_no_err(posix_spawn(&pid, "/sbin/umount", NULL, NULL, umount_args, NULL));
 	
-	int status;
 	waitpid(pid, &status, 0);
 	
 	char *detach_args[]
 		= { "hdik", "-e", (char *)di->disk, NULL };
-	
+
 	posix_spawn_file_actions_t facts;
 	posix_spawn_file_actions_init(&facts);
 	posix_spawn_file_actions_addopen(&facts, STDOUT_FILENO, "/dev/null", O_APPEND, 0);
 	posix_spawn_file_actions_addopen(&facts, STDERR_FILENO, "/dev/null", O_APPEND, 0);
 	
-	assert_no_err(posix_spawn(&pid, "/usr/sbin/hdik", &facts, NULL, detach_args, NULL));
+	for (eject_retry = 0; eject_retry < RETRY_MAX; ++eject_retry) {
+		if (!posix_spawn(&pid, "/usr/sbin/hdik", &facts, NULL, detach_args, NULL)) {
+			waitpid(pid, &status, 0);
+			if (WIFEXITED(status) && !WEXITSTATUS(status))
+				break;
+		}
+		sleep(1);
+	}
 	
 	posix_spawn_file_actions_destroy(&facts);
 	
-	waitpid(pid, &status, 0);
+	assert(eject_retry != RETRY_MAX);
 	
 	struct stat sb;
 	
-	if (WIFEXITED(status) && !WEXITSTATUS(status)
-		&& stat(di->disk, &sb) == -1 && errno == ENOENT) {
+	if (stat(di->disk, &sb) == -1 && errno == ENOENT) {
 		unlink(di->path);
 		result = true;
 		// We are the last user of di, so free it.
@@ -117,7 +126,7 @@ disk_image_t *disk_image_create(const char *path, disk_image_opts_t *opts)
 	
 	do {
 		zs.next_out = out_buf;
-		zs.avail_out = buf_size;
+		zs.avail_out = (uInt)buf_size;
 		
 		ret = inflate(&zs, 0);
 		
@@ -255,23 +264,31 @@ bool disk_image_cleanup(disk_image_t *di)
 
 	pid_t pid;
 	bool result = false;
+	int eject_retry;
+	int status;
 
 	posix_spawn_file_actions_t facts;
 	posix_spawn_file_actions_init(&facts);
 	posix_spawn_file_actions_addopen(&facts, STDOUT_FILENO, "/dev/null", O_APPEND, 0);
 	posix_spawn_file_actions_addopen(&facts, STDERR_FILENO, "/dev/null", O_APPEND, 0);
 
-	assert_no_err(posix_spawn(&pid, "/usr/bin/hdiutil", &facts, NULL, detach_args, NULL));
+	for (eject_retry = 0; eject_retry < RETRY_MAX; ++eject_retry) {
+		if (!posix_spawn(&pid, "/usr/bin/hdiutil", &facts, NULL, detach_args, NULL)) {
+			waitpid(pid, &status, 0);
+			if (WIFEXITED(status) && !WEXITSTATUS(status)) {
+				break;
+			}
+		}
+		sleep(1);
+	}
 
 	posix_spawn_file_actions_destroy(&facts);
 
-	int status;
-	waitpid(pid, &status, 0);
+	assert(eject_retry != RETRY_MAX);
 
 	struct stat sb;
 
-	if (WIFEXITED(status) && !WEXITSTATUS(status)
-		&& stat(di->disk, &sb) == -1 && errno == ENOENT) {
+	if (stat(di->disk, &sb) == -1 && errno == ENOENT) {
 		if (unlink(di->path) && errno == EACCES && !seteuid(0))
 			unlink(di->path);
 		result = true;

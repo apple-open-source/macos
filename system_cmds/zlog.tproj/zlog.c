@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <sys/sysctl.h>
 #include <mach/mach.h>
 #include <mach/mach_error.h>
 #include <mach_debug/mach_debug.h>
@@ -184,6 +185,18 @@ static void list_zones_with_zlog_enabled(void)
 
 #define VERSION_STRING	"zlog output version: 1"
 
+static void
+get_osversion(char *buffer, size_t buffer_len)
+{
+	int mib[] = {CTL_KERN, KERN_OSVERSION};
+	int ret;
+	ret = sysctl(mib, sizeof(mib) / sizeof(int), buffer, &buffer_len, NULL, 0);
+	if (ret != 0) {
+		strlcpy(buffer, "Unknown", buffer_len);
+		return;
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	int c, topN = 0;
@@ -191,6 +204,9 @@ int main(int argc, char *argv[])
 
 	/* Identifier string for SpeedTracer parsing */
 	printf("%s\n\n", VERSION_STRING);
+	char version_buffer[32] = {0};
+	get_osversion(version_buffer, sizeof(version_buffer));
+	printf("Collected on build: %s\n\n", version_buffer);
 
 	if (argc == 1) {
 		/* default when no arguments are specified */

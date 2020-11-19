@@ -11,16 +11,19 @@
 #import <Security/SecureObjectSync/SOSTypes.h>
 #import <utilities/debugging.h>
 #import <utilities/SecCFWrappers.h>
+#import "utilities/SecCoreAnalytics.h"
 #import <ipc/securityd_client.h>
 #import "keychain/ot/OTManager.h"
 #import "keychain/ot/OctagonControlServer.h"
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OctagonControlServer.h"
 #import "keychain/ot/OTJoiningConfiguration.h"
-#import "keychain/ot/proto/generated_source/OTPairingMessage.h"
 #import "keychain/ot/proto/generated_source/OTApplicantToSponsorRound2M1.h"
 #import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound2M2.h"
 #import "keychain/ot/proto/generated_source/OTSponsorToApplicantRound1M2.h"
+#import "keychain/ot/proto/generated_source/OTGlobalEnums.h"
+#import "keychain/ot/proto/generated_source/OTSupportSOSMessage.h"
+#import "keychain/ot/proto/generated_source/OTSupportOctagonMessage.h"
 #import "keychain/ot/proto/generated_source/OTPairingMessage.h"
 #include <notify.h>
 
@@ -29,7 +32,6 @@
 #import <MobileGestalt.h>
 #endif
 
-#import "utilities/SecADWrapper.h"
 
 KCPairingIntent_Type KCPairingIntent_Type_None = @"none";
 KCPairingIntent_Type KCPairingIntent_Type_SilentRepair = @"repair";
@@ -78,8 +80,7 @@ typedef void(^OTNextState)(NSData *inData, OTPairingInternalCompletion complete)
 
 - (nullable instancetype)initWithCoder:(NSCoder *)decoder
 {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _model = [decoder decodeObjectOfClass:[NSString class] forKey:@"model"];
         _modelVersion = [decoder decodeObjectOfClass:[NSString class] forKey:@"modelVersion"];
         _modelClass = [decoder decodeObjectOfClass:[NSString class] forKey:@"modelClass"];
@@ -256,9 +257,9 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
 
 //MARK: - Initiator
 
-- (void) attemptSosUpgrade
+- (void) waitForOctagonUpgrade
 {
-    [self.otControl attemptSosUpgrade:nil context:self.contextID reply:^(NSError *error) {
+    [self.otControl waitForOctagonUpgrade:nil context:self.contextID reply:^(NSError *error) {
         if(error){
             secerror("pairing: failed to upgrade initiator into Octagon: %@", error);
         }
@@ -407,12 +408,17 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             return;
         } else {
             OTPairingMessage *octagonMessage = [[OTPairingMessage alloc]init];
+            octagonMessage.supportsSOS = [[OTSupportSOSMessage alloc] init];
+            octagonMessage.supportsOctagon = [[OTSupportOctagonMessage alloc] init];
             OTApplicantToSponsorRound2M1 *prepare = [[OTApplicantToSponsorRound2M1 alloc] init];
             prepare.peerID = peerID;
             prepare.permanentInfo = permanentInfo;
             prepare.permanentInfoSig = permanentInfoSig;
             prepare.stableInfo = stableInfo;
             prepare.stableInfoSig = stableInfoSig;
+
+            octagonMessage.supportsSOS.supported = OctagonPlatformSupportsSOS() ? OTSupportType_supported : OTSupportType_not_supported;
+            octagonMessage.supportsOctagon.supported = OTSupportType_supported;
             octagonMessage.prepare = prepare;
             if(application){
                 secnotice(pairingScope, "initiatorCompleteSecondPacketOctagon returning octagon and sos data");
@@ -465,7 +471,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                 } else {
                     //kick off SOS ugprade
                     if(OctagonIsEnabled() && !self.sessionSupportsOctagon) {
-                        [self attemptSosUpgrade];
+                        [self waitForOctagonUpgrade];
                     }
                     typeof(self) strongSelf = weakSelf;
                     secnotice("pairing", "initiator circle join complete, more data: %s: %@",
@@ -656,10 +662,13 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                 [weakSelf acceptorSecondPacket:nsdata complete:kscomplete];
             };
             OTPairingMessage *response = [[OTPairingMessage alloc] init];
+            response.supportsSOS = [[OTSupportSOSMessage alloc] init];
+            response.supportsOctagon = [[OTSupportOctagonMessage alloc] init];
             response.epoch = [[OTSponsorToApplicantRound1M2 alloc] init];
             response.epoch.epoch = epoch;
+            response.supportsSOS.supported = OctagonPlatformSupportsSOS() ? OTSupportType_supported : OTSupportType_not_supported;
+            response.supportsOctagon.supported = OTSupportType_supported;
             reply[@"o"] = response.data;
-
             secnotice("pairing", "acceptor reply to packet 1");
             complete(false, reply, error);
         }
@@ -755,9 +764,13 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
                 finished = false;
             }
             OTPairingMessage *response = [[OTPairingMessage alloc] init];
+            response.supportsSOS = [[OTSupportSOSMessage alloc] init];
+            response.supportsOctagon = [[OTSupportOctagonMessage alloc] init];
             response.voucher = [[OTSponsorToApplicantRound2M2 alloc] init];
             response.voucher.voucher = voucher;
             response.voucher.voucherSignature = voucherSig;
+            response.supportsSOS.supported = OctagonPlatformSupportsSOS() ? OTSupportType_supported : OTSupportType_not_supported;
+            response.supportsOctagon.supported = OTSupportType_supported;
 
             if (self.acceptorWillSendInitialSyncCredentials) {
                 // no need to share TLKs over the pairing channel, that's provided by octagon
@@ -866,7 +879,7 @@ const compression_algorithm pairingCompression = COMPRESSION_LZFSE;
             if (compressedData) {
                 NSString *key = [NSString stringWithFormat:@"com.apple.ckks.pairing.packet-size.%s.%u",
                                  self->_initiator ? "initiator" : "acceptor", self->_counter];
-                SecADClientPushValueForDistributionKey((__bridge CFStringRef)key, [compressedData length]);
+                [SecCoreAnalytics sendEvent:key event:@{SecCoreAnalyticsValue: [NSNumber numberWithUnsignedInteger:[compressedData length]]}];
                 secnotice("pairing", "pairing packet size %lu", (unsigned long)[compressedData length]);
             }
         }

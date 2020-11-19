@@ -45,9 +45,9 @@ class Utils {
         return ((size+RoundSize-1)/RoundSize)*RoundSize
     }
     
-    class func roundDown( _ RoundSize: UInt32, _ size : UInt32) -> UInt32
+    class func roundDown( _ RoundSize: UInt64, _ size : UInt64) -> UInt64
     {
-        return ((size < RoundSize) ? 0 : (((size-RoundSize)+RoundSize )/RoundSize)*RoundSize)
+        return ((size < RoundSize) ? 0 : (size/RoundSize)*RoundSize)
     }
     
     // The function return the index in the probabilities array given,

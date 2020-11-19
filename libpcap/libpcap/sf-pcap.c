@@ -795,7 +795,6 @@ pcap_alloc_dumper(pcap_t *p, FILE *f)
 		snprintf(p->errbuf, PCAP_ERRBUF_SIZE,
 			 "cannot allocate struct pcap_dumper, error %s",
 			 strerror(errno));
-		free(f);
 		return (NULL);
 	}
 	dumper->f = f;
@@ -829,6 +828,9 @@ pcap_setup_dump(pcap_t *p, int linktype, FILE *f, const char *fname)
 		setvbuf(f, NULL, _IONBF, 0);
 #endif
 	if (sf_write_header(p, f, linktype, p->tzoff, p->snapshot) == -1) {
+#ifdef __APPLE__
+		free(dumper);
+#endif /* __APPLE__ */
 		pcap_fmt_errmsg_for_errno(p->errbuf, PCAP_ERRBUF_SIZE,
 		    errno, "Can't write to %s", fname);
 		if (f != stdout)

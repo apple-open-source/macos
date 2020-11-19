@@ -96,6 +96,10 @@ static ccoid_t ccoid_secp224r1 = CC_EC_OID_SECP224R1;
 static ccoid_t ccoid_secp384r1 = CC_EC_OID_SECP384R1;
 static ccoid_t ccoid_secp521r1 = CC_EC_OID_SECP521R1;
 
+// <rdar://problem/66864716> OID_CERTICOM is wrong
+static ccoid_t ccoid_libder_secp384r1 = ((unsigned char *)"\x06\x04\x2B\x84\x00\x22");
+static ccoid_t ccoid_libder_secp521r1 = ((unsigned char *)"\x06\x04\x2B\x84\x00\x23");
+
 static ccec_const_cp_t ccec_cp_for_oid(const unsigned char *oid)
 {
     if (oid!=NULL) {
@@ -105,9 +109,9 @@ static ccec_const_cp_t ccec_cp_for_oid(const unsigned char *oid)
             return ccec_cp_256();
         } else if (ccoid_equal(oid, ccoid_secp224r1)) {
             return ccec_cp_224();
-        } else if (ccoid_equal(oid, ccoid_secp384r1)) {
+        } else if (ccoid_equal(oid, ccoid_secp384r1) || ccoid_equal(oid, ccoid_libder_secp384r1)) {
             return ccec_cp_384();
-        } else if (ccoid_equal(oid, ccoid_secp521r1)) {
+        } else if (ccoid_equal(oid, ccoid_secp521r1) || ccoid_equal(oid, ccoid_libder_secp521r1)) {
             return ccec_cp_521();
         }
     }
@@ -128,10 +132,11 @@ static OSStatus SecECPublicKeyInit(SecKeyRef key,
             break;
         }
 
-        ccec_const_cp_t cp = getCPForPublicSize(derKey->keyLength);
+        require_action_quiet(derKey->parameters && derKey->parametersLength > 2 &&
+                             derKey->parameters[1] <= derKey->parametersLength - 2, errOut, err = errSecDecode);
+        ccec_const_cp_t cp = ccec_cp_for_oid(derKey->parameters);
         require_action_quiet(cp, errOut, err = errSecDecode);
 
-        /* TODO: Parse and use real params from passed in derKey->algId.params */
         err = (ccec_import_pub(cp, derKey->keyLength, derKey->key, pubkey)
                ? errSecDecode : errSecSuccess);
         break;

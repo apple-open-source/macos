@@ -722,9 +722,8 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
         if (tag.getElementsByClassName("html-attribute").length > 0)
             tag.insertBefore(node, tag.lastChild);
         else {
-            var nodeName = tag.textContent.match(/^<(.*?)>$/)[1];
-            tag.textContent = "";
-            tag.append("<" + nodeName, node, ">");
+            let tagNameElement = tag.querySelector(".html-tag-name");
+            tagNameElement.parentNode.insertBefore(node, tagNameElement.nextSibling);
         }
 
         this.updateSelectionArea();
@@ -818,7 +817,7 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
                 }, WI.isBeingEdited(attributeNode));
             }
 
-            if (!DOMTreeElement.EditTagBlacklist.has(this.representedObject.nodeNameInCorrectCase())) {
+            if (InspectorBackend.hasCommand("DOM.setNodeName") && !DOMTreeElement.EditTagBlacklist.has(this.representedObject.nodeNameInCorrectCase())) {
                 let tagNameNode = event.target.closest(".html-tag-name");
 
                 subMenus.edit.appendItem(WI.UIString("Tag", "A submenu item of 'Edit' to change DOM element's tag name"), () => {
@@ -997,6 +996,9 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
 
     _startEditingTagName(tagNameElement)
     {
+        if (!InspectorBackend.hasCommand("DOM.setNodeName"))
+            return false;
+
         if (!tagNameElement) {
             tagNameElement = this.listItemElement.getElementsByClassName("html-tag-name")[0];
             if (!tagNameElement)
@@ -1810,9 +1812,14 @@ WI.DOMTreeElement = class DOMTreeElement extends WI.TreeElement
             return;
         }
 
-        var text = this.title.textContent;
-        let searchRegex = WI.SearchUtilities.regExpForString(this._searchQuery, WI.SearchUtilities.defaultSettings);
+        let searchRegex = WI.SearchUtilities.searchRegExpForString(this._searchQuery, WI.SearchUtilities.defaultSettings);
+        if (!searchRegex) {
+            this.hideSearchHighlights();
+            this.dispatchEventToListeners(WI.TextEditor.Event.NumberOfSearchResultsDidChange);
+            return;
+        }
 
+        var text = this.title.textContent;
         var match = searchRegex.exec(text);
         var matchRanges = [];
         while (match) {

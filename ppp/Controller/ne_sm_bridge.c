@@ -21,6 +21,7 @@
 #include "scnc_client.h"
 #include "ipsec_manager.h"
 #include "ppp_manager.h"
+#include "ipsec_utils.h"
 
 extern TAILQ_HEAD(, service) service_head; /* Defined in scnc_main.c */
 extern CFBundleRef gBundleRef; /* Defined in scnc_main.c */
@@ -240,6 +241,13 @@ bridge_destroy(ne_sm_bridge_t bridge)
 
 	if (bridge->disposable_callback != NULL) {
 		Block_release(bridge->disposable_callback);
+	}
+
+	if (bridge->serv.envKeys) {
+		free(bridge->serv.envKeys);
+	}
+	if (bridge->serv.envValues) {
+		free(bridge->serv.envValues);
 	}
 
 	free(bridge->serv.sid);
@@ -679,6 +687,22 @@ bridge_handle_device_unlock(ne_sm_bridge_t bridge)
 	}
 }
 
+#if NE_SM_BRIDGE_VERSION >= 4
+static void
+bridge_get_agent_pids(ne_sm_bridge_t bridge, pid_t out_pids[2])
+{
+	if (out_pids != NULL)
+	{
+		out_pids[0] = racoon_pid();
+		if (bridge->type == NESMBridgeTypeL2TP || bridge->type == NESMBridgeTypePPTP) {
+			out_pids[1] = bridge->serv.u.ppp.pid;
+		} else if (bridge->type == NESMBridgeTypeIPSec) {
+			out_pids[1] = 0;
+		}
+	}
+}
+#endif
+
 extern ne_sm_bridge_functions_t
 ne_sm_bridge_copy_functions(struct ne_sm_bridge_callbacks *callbacks, CFBundleRef bundle)
 {
@@ -713,6 +737,9 @@ ne_sm_bridge_copy_functions(struct ne_sm_bridge_callbacks *callbacks, CFBundleRe
 			functions->handle_device_lock = bridge_handle_device_lock;
 			functions->handle_device_unlock = bridge_handle_device_unlock;
 			functions->set_initial_values = bridge_set_initial_values;
+#if NE_SM_BRIDGE_VERSION >= 4
+			functions->get_agent_pids = bridge_get_agent_pids;
+#endif
 
 			g_callbacks = (struct ne_sm_bridge_callbacks *)malloc(sizeof(*g_callbacks));
 			memcpy(g_callbacks, callbacks, sizeof(*g_callbacks));

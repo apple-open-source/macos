@@ -1158,9 +1158,10 @@ static OSStatus impExpImportCertUnCommon(
 	}
 
 xit:
-    if (certRef)
+    if (certRef) {
         CFRelease(certRef);
-	return status;
+    }
+    return status;
 }
 
 static void saveTSACertificates(CSSM_DATA **signingCerts, CFMutableArrayRef	outArray)

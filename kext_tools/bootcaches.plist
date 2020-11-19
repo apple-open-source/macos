@@ -44,7 +44,7 @@
             <key>LocalizedResourcesCache</key>
             <string>/System/Library/Caches/com.apple.corestorage/EFILoginLocalizations</string>
         </dict>
-        <key>Kernelcache v1.5</key>
+        <key>Kernelcache v1.6</key>
         <dict>
             <key>ExtensionsDir</key>
             <array>
@@ -61,6 +61,14 @@
             <string>/System/Library/Kernels/kernel</string>
             <key>KernelsDir</key>
             <string>/System/Library/Kernels</string>
+            <key>BootKernelExtensions</key>
+            <string>/System/Library/KernelCollections/BootKernelExtensions.kc</string>
+            <key>SystemKernelExtensions</key>
+            <string>/System/Library/KernelCollections/SystemKernelExtensions.kc</string>
+            <key>BaseSystemKernelExtensions</key>
+            <string>/System/Library/KernelCollections/BaseSystemKernelExtensions.kc</string>
+            <key>PreferBootKernelExtensions</key>
+            <true/>
             <key>Archs</key>
             <array>
                 <string>x86_64</string>
@@ -69,5 +77,201 @@
             <string>lzvn</string>
         </dict>
     </dict>
+
+    <key>bless2</key>
+    <dict>
+        <key>Version</key>
+        <integer>1</integer>
+        <key>RestoreBundlePath</key>
+        <string>./Restore</string>
+        <key>BuildManifestPath</key>
+        <string>./Restore/BuildManifest.plist</string>
+        <key>OtherRequiredPaths</key>
+        <array>
+            <dict>
+                <key>SourcePath</key>
+                <string>./Library/Preferences/SystemConfiguration/com.apple.Boot.plist</string>
+                <key>DestinationPath</key>
+                <string>./Library/Preferences/SystemConfiguration/com.apple.Boot.plist</string>
+            </dict>
+            <dict>
+                <key>SourcePath</key>
+                <string>./System/Library/CoreServices/PlatformSupport.plist</string>
+                <key>DestinationPath</key>
+                <string>./System/Library/CoreServices/PlatformSupport.plist</string>
+            </dict>
+            <dict>
+                <key>SourcePath</key>
+                <string>./System/Library/CoreServices/SystemVersion.plist</string>
+                <key>DestinationPath</key>
+                <string>./System/Library/CoreServices/SystemVersion.plist</string>
+            </dict>
+        </array>
+        <key>BootObjects</key>
+        <dict>
+            <key>KernelCache</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./System/Library/Caches/com.apple.kernelcaches/kernelcache</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>DeviceTree</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/devicetree.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>ANE</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/ANE.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>AVE</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/AVE.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>AOP</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/AOP.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>ISP</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/ISP.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>SIO</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/SIO.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>GFX</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/GFX.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PMP</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PMP.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,DCP2</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/DCP.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>InputDevice</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/InputDevice.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Multitouch</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/Multitouch.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>SEP</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/sep-firmware.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>StaticTrustCache</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/StaticTrustCache.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Ap,BaseSystemTrustCache</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/BaseSystemTrustCache.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>Diags</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./AppleInternal/Diags/bin/diag.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>iBootData</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/iBootData.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>iBoot</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/iBoot.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PERTOS</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PERTOS.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>PHLEET</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/PHLEET.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>RBM</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/FUD/RBM.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>SystemVolume</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/root_hash.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+            <key>BaseSystemVolume</key>
+            <dict>
+                <key>DestinationPath</key>
+                <string>./usr/standalone/firmware/base_system_root_hash.img4</string>
+                <key>ManifestRule</key>
+                <integer>1</integer>
+            </dict>
+        </dict>
+    </dict>
+
 </dict>
 </plist>

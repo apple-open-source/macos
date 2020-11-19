@@ -1,7 +1,6 @@
 #if OCTAGON
 
 class OctagonHealthCheckTests: OctagonTestsBase {
-
     func testHealthCheckAllTrusted() throws {
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
@@ -70,9 +69,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.assertConsidersSelfUntrusted(context: self.cuttlefishContext)
 
         #if os(tvOS)
-        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), false, "Should not have posted a CFU on aTV")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Should not have posted a CFU on aTV")
         #else
-        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), true, "Should have posted a CFU (due to being untrusted)")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Should have posted a CFU (due to being untrusted)")
         #endif
 
         self.verifyDatabaseMocks()
@@ -92,9 +91,9 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback2], timeout: 10)
 
         #if os(tvOS)
-        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), false, "Should not have posted a CFU on aTV")
+        XCTAssertFalse(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Should not have posted a CFU on aTV")
         #else
-        XCTAssertEqual(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), true, "Should have posted a CFU")
+        XCTAssertTrue(self.cuttlefishContext.followupHandler.hasPosted(.stateRepair), "Should have posted a CFU")
         #endif
     }
 
@@ -589,7 +588,6 @@ class OctagonHealthCheckTests: OctagonTestsBase {
     }
 
     func testHealthCheckWhenLocked() throws {
-
         let containerName = OTCKContainerName
         let contextName = OTDefaultContext
 
@@ -640,6 +638,37 @@ class OctagonHealthCheckTests: OctagonTestsBase {
 
         self.verifyDatabaseMocks()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testHealthCheckBeforeClassCUnlock() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Now, the device restarts, and isn't unlocked immediately.
+        self.aksLockState = true
+        SecMockAKS.lockClassA_C()
+        self.lockStateTracker.recheck()
+
+        do {
+            _ = try OTAccountMetadataClassC.loadFromKeychain(forContainer: self.cuttlefishContext.containerName, contextID: self.cuttlefishContext.contextID)
+            XCTFail("shouldn't have been able to load the class c metadata")
+        } catch {
+            // We expected this error; fall through
+        }
+
+        self.cuttlefishContext = self.simulateRestart(context: self.cuttlefishContext)
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForClassCUnlock, within: 10 * NSEC_PER_SEC)
+
+        // A health check should fail, and leave us waiting for the initial unlock
+
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(self.cuttlefishContext.containerName, context: self.cuttlefishContext.contextID, skipRateLimitingCheck: false) { error in
+            XCTAssertNotNil(error, "error should be present")
+            healthCheckCallback.fulfill()
+        }
+        self.wait(for: [healthCheckCallback], timeout: 20)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForClassCUnlock, within: 10 * NSEC_PER_SEC)
     }
 
     func testLastHealthCheckPersistedTime() throws {
@@ -908,6 +937,244 @@ class OctagonHealthCheckTests: OctagonTestsBase {
         self.wait(for: [healthCheckCallback], timeout: 10)
 
         self.assertEnters(context: cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testRPCTrustStatusReturnsIsLocked() throws {
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        do {
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+
+        self.aksLockState = true
+        self.lockStateTracker.recheck()
+
+        let configuration = OTOperationConfiguration()
+
+        let statusexpectation = self.expectation(description: "status callback occurs")
+        self.cuttlefishContext.rpcTrustStatus(configuration) { egoStatus, egoPeerID, _, _, isLocked, error   in
+            XCTAssertEqual(egoStatus, .in, "Self peer for OTDefaultContext should be trusted")
+            XCTAssertNotNil(egoPeerID, "Should have a peerID")
+            XCTAssertEqual(isLocked, true, "should be true")
+            XCTAssertNil(error, "error should be nil")
+            statusexpectation.fulfill()
+        }
+        self.wait(for: [statusexpectation], timeout: 10)
+
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTCKContainerName, context: OTDefaultContext, skipRateLimitingCheck: false) { error in
+            XCTAssertNil(error, "error should be nil")
+            healthCheckCallback.fulfill()
+        }
+        self.wait(for: [healthCheckCallback], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testBecomeUntrustedResultsInWaitForUnlock() throws {
+        self.startCKAccountStatusMock()
+
+        // First, peer 1 establishes, preapproving both peer2 and peer3. Then, peer2 and peer3 join and harmonize.
+        // Peer1 is never told about the follow-on joins.
+        // Then, the test can begin.
+
+        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
+
+        let peer2SOSMockPeer = self.createSOSPeer(peerID: "peer2ID")
+        let peer3SOSMockPeer = self.createSOSPeer(peerID: "peer3ID")
+
+        self.mockSOSAdapter.trustedPeers.add(peer2SOSMockPeer)
+        self.mockSOSAdapter.trustedPeers.add(peer3SOSMockPeer)
+
+        // Due to how everything is shaking out, SOS TLKShares will be uploaded in a second transaction after Octagon uploads its TLKShares
+        // This isn't great: <rdar://problem/49080104> Octagon: upload SOS TLKShares alongside initial key hierarchy
+        self.assertAllCKKSViewsUpload(tlkShares: 3)
+
+        self.cuttlefishContext.startOctagonStateMachine()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        let peer1ID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
+
+        // peer2
+        let peer2mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer2SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer2 = self.makeInitiatorContext(contextID: "peer2", authKitAdapter: self.mockAuthKit2, sosAdapter: peer2mockSOS)
+
+        peer2.startOctagonStateMachine()
+        self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: peer2)
+        let peer2ID = try peer2.accountMetadataStore.getEgoPeerID()
+
+        // peer3
+        let peer3mockSOS = CKKSMockSOSPresentAdapter(selfPeer: peer3SOSMockPeer, trustedPeers: self.mockSOSAdapter.allPeers(), essential: false)
+        let peer3 = self.makeInitiatorContext(contextID: "peer3", authKitAdapter: self.mockAuthKit3, sosAdapter: peer3mockSOS)
+
+        peer3.startOctagonStateMachine()
+        self.assertEnters(context: peer3, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: peer3)
+        let peer3ID = try peer3.accountMetadataStore.getEgoPeerID()
+
+        // Now, tell peer2 about peer3's join
+        self.sendContainerChangeWaitForFetch(context: peer2)
+
+        // Peer 1 should preapprove both peers.
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trustsByPreapproval, target: peer2ID)),
+                      "peer 1 should trust peer 2 by preapproval")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer1ID, opinion: .trustsByPreapproval, target: peer2ID)),
+                      "peer 1 should trust peer 3 by preapproval")
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer1ID)),
+                      "peer 2 should trust peer 1")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .trusts, target: peer3ID)),
+                      "peer 2 should trust peer 3")
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer3ID, opinion: .trusts, target: peer1ID)),
+                      "peer 3 should trust peer 1")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer3ID, opinion: .trusts, target: peer2ID)),
+                      "peer 3 should trust peer 2")
+
+        // Now, the test can begin. Peer2 decides it rules the world.
+        let removalExpectation = self.expectation(description: "removal occurs")
+        peer2.rpcRemoveFriends(inClique: [peer1ID, peer3ID]) { removeError in
+            XCTAssertNil(removeError, "Should be no error removing peer1 and peer3")
+            removalExpectation.fulfill()
+        }
+        self.wait(for: [removalExpectation], timeout: 5)
+        self.assertEnters(context: peer2, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: peer2)
+
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .excludes, target: peer1ID)),
+                      "peer 2 should distrust peer 1")
+        XCTAssertTrue(self.fakeCuttlefishServer.assertCuttlefishState(FakeCuttlefishAssertion(peer: peer2ID, opinion: .excludes, target: peer3ID)),
+                      "peer 2 should distrust peer 3")
+
+        // And we notify peer3 about this, and it should become sad
+        let updateTrustExpectation = self.expectation(description: "fetchChanges")
+
+        // Ths push will only be delivered when the device is unlocked, so simulate the device locking during the fetch
+        self.fakeCuttlefishServer.fetchChangesListener = { request in
+            self.fakeCuttlefishServer.fetchChangesListener = nil
+
+            self.aksLockState = true
+            self.lockStateTracker.recheck()
+
+            updateTrustExpectation.fulfill()
+            return nil
+        }
+        peer3.notifyContainerChange(nil)
+        self.wait(for: [updateTrustExpectation], timeout: 10)
+
+        self.assertEnters(context: peer3, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
+
+        self.aksLockState = false
+        self.lockStateTracker.recheck()
+
+        self.assertEnters(context: peer3, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfUntrusted(context: peer3)
+    }
+
+    func testEvaluateTPHOctagonTrust() throws {
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        do {
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTCKContainerName, context: OTDefaultContext, skipRateLimitingCheck: false) { error in
+            XCTAssertNil(error, "error should be nil")
+            healthCheckCallback.fulfill()
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateTPHTrustCheck, within: 10 * NSEC_PER_SEC)
+
+        self.aksLockState = true
+        self.lockStateTracker.recheck()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
+
+        self.wait(for: [healthCheckCallback], timeout: 10)
+
+        self.aksLockState = false
+        self.lockStateTracker.recheck()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testEvaluateSecdOctagonTrust() throws {
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.startCKAccountStatusMock()
+
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        let clique: OTClique
+        do {
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+            XCTAssertNotNil(clique.cliqueMemberIdentifier, "Should have a member identifier after a clique newFriends call")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+
+        let leaveExpectation = self.expectation(description: "rpcLeaveClique returns")
+        self.cuttlefishContext.rpcLeaveClique { leaveError in
+            XCTAssertNil(leaveError, "Should be no error leaving")
+            leaveExpectation.fulfill()
+        }
+        self.wait(for: [leaveExpectation], timeout: 10)
+
+        let healthCheckCallback = self.expectation(description: "healthCheckCallback callback occurs")
+        self.manager.healthCheck(OTCKContainerName, context: OTDefaultContext, skipRateLimitingCheck: false) { error in
+            XCTAssertNotNil(error, "error should not be nil")
+            healthCheckCallback.fulfill()
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStatePostRepairCFU, within: 10 * NSEC_PER_SEC)
+
+        self.aksLockState = true
+        self.lockStateTracker.recheck()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
+
+        self.wait(for: [healthCheckCallback], timeout: 10)
+
+        self.aksLockState = false
+        self.lockStateTracker.recheck()
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
     }
 }
 

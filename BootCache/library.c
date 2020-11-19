@@ -33,6 +33,7 @@
 
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
+#include <IOKit/IOBSD.h>
 #include <APFS/APFS.h>
 
 #include <notify.h>
@@ -95,7 +96,7 @@ static void clear_apfs_mount_cache(void);
 static CFDictionaryRef copy_apfs_mount_cache(void);
 static int apfs_mount_for_uuid(const uuid_t uuid, char** mountname_out, char** bsddisk_out); // returns 0 on success, non-0 and sets errno on failure. mountname and bsddisk must be freed
 static void get_volume_uuid(const char* volume, uuid_t uuid_out);
-static int apfs_flags_for_volume(const char* bsddisk, uint* fs_flags_out, uuid_t* container_uuid_out);
+static int apfs_info_for_bsddisk(const char* bsddisk, uint* fs_flags_out, uuid_t* container_uuid_out, char** container_bsdname_out);
 
 static int BC_start_omap_recording_for_all_mounts(void);
 static int BC_tag_omap_recording_for_all_mounts(uint8_t batchNum);
@@ -507,6 +508,14 @@ BC_read_playlist(const char *pfname, struct BC_playlist **ppc)
 		LOG_ERRNO("could not read omap data");
 		error = EINVAL;
 		goto out;
+	}
+	
+	// Fixup BC_FS_APFS_VOLUME since old playlists don't have that bit set (they didn't have snapshots)
+	for (int i = 0; i < pc->p_nmounts; i++) {
+		if ((pc->p_mounts[i].pm_fs_flags & BC_FS_APFS) &&
+			!(pc->p_mounts[i].pm_fs_flags & (BC_FS_APFS_CONTAINER | BC_FS_APFS_VOLUME | BC_FS_APFS_SNAPSHOT))) {
+			pc->p_mounts[i].pm_fs_flags |= BC_FS_APFS_VOLUME;
+		}
 	}
 
 	if ((error = BC_verify_playlist(pc)) != 0) {
@@ -1076,8 +1085,8 @@ BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc)
 //    BC_print_playlist(pc, true);
 #else
 #ifdef DEBUG
-	DLOG("Coalescing");
-	BC_print_playlist(pc, false);
+//	DLOG("Coalescing");
+//	BC_print_playlist(pc, false);
 #endif
 #endif
 
@@ -1434,8 +1443,8 @@ BC_sort_and_coalesce_playlist_internal(struct BC_playlist *pc)
 #endif
 #else
 #ifdef DEBUG
-	DLOG("Coalesced");
-	BC_print_playlist(pc, false);
+//	DLOG("Coalesced");
+//	BC_print_playlist(pc, false);
 #endif
 #endif
 	
@@ -1660,6 +1669,63 @@ BC_fetch_statistics(struct BC_statistics **pss)
 		return(errno);
 	}
 	*pss = &ss;
+	return(0);
+}
+
+
+/*
+ * Fetch debug buffer.
+ */
+int
+BC_fetch_debug_buffer(char** pBuf, size_t *pSize)
+{
+	struct BC_command bc;
+	int error;
+	size_t nsize;
+
+	*pBuf = NULL;
+	*pSize = 0;
+
+	bc.bc_magic = BC_MAGIC;
+	bc.bc_opcode = BC_OP_DEBUG_BUFFER;
+	
+	// First call to see how large a buffer we need
+	bc.bc_data1 = (uintptr_t)NULL;
+	bc.bc_data1_size = 0;
+	nsize = sizeof(bc);
+	error = sysctlbyname(BC_SYSCTL, &bc, &nsize, &bc, nsize);
+	if (error != 0) {
+		return(errno);
+	}
+	if (nsize != sizeof(bc)) {
+		LOG("control structure wrong size, version mismatch?");
+		return(EINVAL);
+	}
+
+	uint malloc_size = bc.bc_data1_size + (1024*1024); // Plus a MB in case there was more logging between the previous call and this one
+
+	// Second call fetch it
+	bc.bc_data1 = (uintptr_t)malloc(malloc_size);
+	bc.bc_data1_size = malloc_size;
+	error = sysctlbyname(BC_SYSCTL, &bc, &nsize, &bc, nsize);
+	if (error != 0) {
+		free((void*)bc.bc_data1);
+		return(errno);
+	}
+	if (nsize != sizeof(bc)) {
+		LOG("control structure wrong size, version mismatch?");
+		return(EINVAL);
+	}
+
+	if (bc.bc_data1_size >= malloc_size) {
+		bc.bc_data1_size = malloc_size - 1;
+	}
+	// Make sure we're NUL-terminated
+	((char*)bc.bc_data1)[bc.bc_data1_size - 1] = '\0';
+	
+	*pBuf = (char*)bc.bc_data1;
+	*pSize = bc.bc_data1_size;
+	
 	return(0);
 }
 
@@ -2010,7 +2076,7 @@ BC_playlist_lookup_omaps(struct BC_playlist *pc)
 			goto error_loop;
 		}
 
-		if ((ret = fsctl(mount_name, APFSIOC_OMAP_LOOKUP, &ol, 0)) != 0) {
+		if (fsctl(mount_name, APFSIOC_OMAP_LOOKUP, &ol, 0) != 0) {
 			ret = 0; // Can't get extents for this mount, but other mounts may be fine
 			LOG_ERRNO("Unable to lookup the records for mount %s", mount_name);
 			goto error_loop;
@@ -2037,7 +2103,7 @@ BC_playlist_lookup_omaps(struct BC_playlist *pc)
 		// For encrypted apfs volumes, the OID cache needs to be applied to the volume
 		uint fs_flags;
 		uuid_t container_uuid;
-		ret = apfs_flags_for_volume(bsd_disk, &fs_flags, &container_uuid);
+		ret = apfs_info_for_bsddisk(bsd_disk, &fs_flags, &container_uuid, NULL);
 		if (ret != 0) {
 			// Unable to get flags/container. Error is logged in fs_flags_for_volume
 			ret = 0; // Can't get extents for this mount, but other mounts may be fine
@@ -2067,11 +2133,11 @@ BC_playlist_lookup_omaps(struct BC_playlist *pc)
 			apfs_omap_lookup_result_t result = ol.ol_results[i];
 			
 #ifdef DEBUG
-			apfs_omap_track_record_t record = ol.ol_records[i];
-			DLOG("(0x%llx, 0x%llx) --> (0x%llx, 0x%llx, 0x%llx), batch %d",
-				 record.otr_oid, record.otr_oxid,
-				 result.ol_offset, result.ol_length, result.ol_cpoff,
-				 batchNumbers[i]);
+//			apfs_omap_track_record_t record = ol.ol_records[i];
+//			DLOG("(0x%llx, 0x%llx) --> (0x%llx, 0x%llx, 0x%llx), batch %d",
+//				 record.otr_oid, record.otr_oxid,
+//				 result.ol_offset, result.ol_length, result.ol_cpoff,
+//				 batchNumbers[i]);
 #endif
 			
 			pentry->pe_offset = result.ol_offset;
@@ -2407,7 +2473,7 @@ BC_inode_disk_map_create(const char* mount_name, uint64_t inode, int blockSize, 
 		if (!err) {
 			errno = dsParams.status;
 		}
-		DLOG_ERRNO("Failed to fetch dstreams for inode %llu for boot optimizations", inode);
+		DLOG_ERRNO("%s: Failed to fetch dstreams for inode %llu for boot optimizations", mount_name, inode);
 		free(dsBuffer);
 		return NULL;
 	}
@@ -2422,7 +2488,7 @@ BC_inode_disk_map_create(const char* mount_name, uint64_t inode, int blockSize, 
 	inodeDiskMap->dstreamDiskMaps = calloc(inodeDiskMap->numDstreams, sizeof(*inodeDiskMap->dstreamDiskMaps));
 
 	for (int dstreamDiskIndex = 0; dstreamDiskIndex < dsParams.params.file_ds_list.buffer_entries; dstreamDiskIndex++) {
-		DLOG_OFT("inode %llu dstream %llu, size %llu bytes", inode, dsBuffer[dstreamDiskIndex].dstreamId, dsBuffer[dstreamDiskIndex].size);
+		DLOG_OFT("%s: inode %llu dstream %llu, size %llu bytes", mount_name, inode, dsBuffer[dstreamDiskIndex].dstreamId, dsBuffer[dstreamDiskIndex].size);
 		
 		struct dstream_disk_map* dstreamDiskMap = inodeDiskMap->dstreamDiskMaps + dstreamDiskIndex;
 		dstreamDiskMap->dstreamID = dsBuffer[dstreamDiskIndex].dstreamId;
@@ -2442,12 +2508,12 @@ BC_inode_disk_map_create(const char* mount_name, uint64_t inode, int blockSize, 
 				if (!err) {
 					errno = extParams.status;
 				}
-				DLOG_ERRNO("Failed to fetch extents for inode %llu dstream %llu for boot optimizations", inode, dsBuffer[dstreamDiskIndex].dstreamId);
+				DLOG_ERRNO("%s: Failed to fetch extents for inode %llu dstream %llu for boot optimizations", mount_name, inode, dsBuffer[dstreamDiskIndex].dstreamId);
 				break;
 			}
 			uint64_t numEntries = extParams.params.file_ext_list.buffer_entries;
 			if (!numEntries) {
-				DLOG_ERRNO("Failed to fetch extents for inode %llu dstream %llu at offset %llu out of %llu for boot optimizations", inode, dsBuffer[dstreamDiskIndex].dstreamId, dstreamOffset, dsBuffer[dstreamDiskIndex].size);
+				DLOG_ERRNO("%s: Failed to fetch extents for inode %llu dstream %llu at offset %llu out of %llu for boot optimizations", mount_name, inode, dsBuffer[dstreamDiskIndex].dstreamId, dstreamOffset, dsBuffer[dstreamDiskIndex].size);
 				break;
 			}
 			
@@ -3422,23 +3488,18 @@ static void
 _BC_update_current_container_being_optimized(uuid_t volume_uuid)
 {
 	
-	char *bsd_disk = NULL;
+	char *container_bsd_disk = NULL;
 	if (!uuid_is_null(volume_uuid)) {
+		char *bsd_disk = NULL;
 		apfs_mount_for_uuid(volume_uuid, NULL, &bsd_disk);
 		if (bsd_disk) {
-			char* temp = bsd_disk;
-			if (0 == strncmp("/dev/", temp, strlen("/dev/"))) {
-				temp += strlen("/dev/");
+			int err = apfs_info_for_bsddisk(bsd_disk, NULL, NULL, &container_bsd_disk);
+			if (!container_bsd_disk) {
+				LOG("Unable to get bsd disk for container for volume %s %s: %{errno}d", uuid_string(volume_uuid), bsd_disk, err);
 			}
-			if (0 == strncmp("disk", temp, strlen("disk"))) {
-				char* s = strrchr(temp + 4, 's');
-				if (s) {
-					DLOG("Chopping %s at %s to get container", bsd_disk, s);
-					*s = '\0';
-				}
-			}
+			free(bsd_disk);
 		} else {
-			LOG_ERRNO("Unable to get bsd disk for container %s", uuid_string(volume_uuid));
+			LOG_ERRNO("Unable to get bsd disk for volume %s", uuid_string(volume_uuid));
 		}
 	}
 	
@@ -3447,9 +3508,9 @@ _BC_update_current_container_being_optimized(uuid_t volume_uuid)
 	if (current_container_being_optimized) {
 		free(current_container_being_optimized);
 	}
-	current_container_being_optimized = bsd_disk;
+	current_container_being_optimized = container_bsd_disk;
 	
-	DLOG("Updated containter being optimized (volume %s) to %s", uuid_string(volume_uuid), bsd_disk);
+	DLOG("Updated containter being optimized (volume %s) to %s", uuid_string(volume_uuid), container_bsd_disk);
 
 	os_unfair_lock_unlock(&current_container_lock);
 }
@@ -4495,13 +4556,13 @@ static void get_volume_uuid(const char* volume, uuid_t uuid_out)
 // returns 0 on success, non-0 on error
 //
 // Upon success:
-//  If fs_flags_out indicates the bsddisk is an apfs volume, then container_uuid_out will indicate the UUID of its container
-//  If the volume is not an APFS volume, container_uuid_out will be zero'ed out
-static int apfs_flags_for_volume(const char* bsddisk, uint* fs_flags_out, uuid_t* container_uuid_out) {
+//  If fs_flags_out indicates the bsddisk is an apfs volume, then container_uuid_out will indicate the UUID of its container and container_bsdname_out will indicate its bsd disk (and must be freed)
+//  If the volume is not an APFS volume, container_uuid_out will be zero'ed out, and container_bsdname_out will be set to NULL
+static int apfs_info_for_bsddisk(const char* bsddisk, uint* fs_flags_out, uuid_t* container_uuid_out, char** container_bsdname_out) {
 	kern_return_t err;
-	io_object_t volume;
+	io_object_t mount;
 	
-	if (!fs_flags_out) {
+	if (!bsddisk || (!fs_flags_out && !container_uuid_out && !container_bsdname_out)) {
 		return EINVAL;
 	}
 	
@@ -4510,9 +4571,14 @@ static int apfs_flags_for_volume(const char* bsddisk, uint* fs_flags_out, uuid_t
 		bsddisk += 5; // "/dev/"
 	}
 	
-	*fs_flags_out = 0x0;
+	if (fs_flags_out) {
+		*fs_flags_out = 0x0;
+	}
 	if (container_uuid_out) {
 		uuid_clear(*container_uuid_out);
+	}
+	if (container_bsdname_out) {
+		*container_bsdname_out = NULL;
 	}
 	
 
@@ -4522,52 +4588,116 @@ static int apfs_flags_for_volume(const char* bsddisk, uint* fs_flags_out, uuid_t
 		return ENOENT;
 	}
 
-	volume = IOServiceGetMatchingService(kIOMasterPortDefault, dict);
-	if (volume == IO_OBJECT_NULL) {
+	mount = IOServiceGetMatchingService(kIOMasterPortDefault, dict);
+	if (mount == IO_OBJECT_NULL) {
 		LOG("Unable to get service for disk %s", bsddisk);
 		return ENOENT;
 	}
 
 	// dict is consumed by IOServiceGetMatchingService above
 	dict = NULL;
-
-	if (IOObjectConformsTo(volume, APFS_VOLUME_OBJECT)) {
-		*fs_flags_out |= BC_FS_APFS;
-		io_object_t container;
+	
+	io_object_t volume = IO_OBJECT_NULL;
+	bool isApfsSnapshot = false;
+	if (IOObjectConformsTo(mount, APFS_SNAPSHOT_OBJECT)) {
+		isApfsSnapshot = true;
 		
-		CFBooleanRef volume_is_encrypted = IORegistryEntryCreateCFProperty(volume, CFSTR(kAPFSEncryptedKey), kCFAllocatorDefault, 0);
-		if (volume_is_encrypted != NULL) {
-			
-			if (CFGetTypeID(volume_is_encrypted) == CFBooleanGetTypeID()) {
-				if (CFBooleanGetValue(volume_is_encrypted)) {
-					*fs_flags_out |= BC_FS_APFS_ENCRYPTED;
-				}
-			} else {
-				LOG("Disk %s has bad encryption property type %lu", bsddisk, CFGetTypeID(volume_is_encrypted));
-			}
-			
-			CFRelease(volume_is_encrypted);
+		// mount is a snapshot, get the volume
+		err = IORegistryEntryGetParentEntry(mount, kIOServicePlane, &volume);
+		if (err != 0) {
+			LOG("Unable to get volume for snapshot %s", bsddisk);
+			IOObjectRelease(mount);
+			return ENOENT;
 		}
 		
-		if (container_uuid_out) {
-			
-			err = IORegistryEntryGetParentEntry(volume, kIOServicePlane, &container);
-			if (err != 0) {
-				LOG("Unable to get container for volume %s", bsddisk);
-				IOObjectRelease(volume);
-				return ENOENT;
+		if (! IOObjectConformsTo(volume, APFS_VOLUME_OBJECT)) {
+			LOG("Parent is not an apfs volume for snapshot %s", bsddisk);
+			IOObjectRelease(volume);
+			IOObjectRelease(mount);
+			return ENOENT;
+		}
+		
+		IOObjectRelease(mount);
+
+	} else {
+		// Not a snapshot, assume it's a volume
+		volume = mount;
+	}
+
+	
+	if (IOObjectConformsTo(volume, APFS_VOLUME_OBJECT)) {
+		if (fs_flags_out) {
+			*fs_flags_out |= BC_FS_APFS;
+			if (isApfsSnapshot) {
+				*fs_flags_out |= BC_FS_APFS_SNAPSHOT;
+			} else {
+				*fs_flags_out |= BC_FS_APFS_VOLUME;
 			}
 			
-			if (! IOObjectConformsTo(container, APFS_CONTAINER_OBJECT)) {
-				LOG("Parent is not an apfs container for volume %s", bsddisk);
-				IOObjectRelease(container);
-				IOObjectRelease(volume);
-				return ENOENT;
+			CFBooleanRef volume_is_encrypted = IORegistryEntryCreateCFProperty(volume, CFSTR(kAPFSEncryptedKey), kCFAllocatorDefault, 0);
+			if (volume_is_encrypted != NULL) {
+				
+				if (CFGetTypeID(volume_is_encrypted) == CFBooleanGetTypeID()) {
+					if (CFBooleanGetValue(volume_is_encrypted)) {
+						*fs_flags_out |= BC_FS_APFS_ENCRYPTED;
+					}
+				} else {
+					LOG("Disk %s has bad encryption property type %lu", bsddisk, CFGetTypeID(volume_is_encrypted));
+				}
+				
+				CFRelease(volume_is_encrypted);
 			}
 			
-			CFStringRef container_uuid_str = IORegistryEntryCreateCFProperty(container, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+			CFBooleanRef volume_is_encryption_rolling = IORegistryEntryCreateCFProperty(volume, CFSTR(kAPFSEncryptionRolling), kCFAllocatorDefault, 0);
+			if (volume_is_encryption_rolling != NULL) {
+				
+				if (CFGetTypeID(volume_is_encryption_rolling) == CFBooleanGetTypeID()) {
+					if (CFBooleanGetValue(volume_is_encryption_rolling)) {
+						*fs_flags_out |= BC_FS_APFS_ENCRYPTION_ROLLING;
+					}
+				} else {
+					LOG("Disk %s has bad encryption rolling property type %lu", bsddisk, CFGetTypeID(volume_is_encryption_rolling));
+				}
+				
+				CFRelease(volume_is_encryption_rolling);
+			}
+		}
+		
+		
+		io_object_t container;
+		err = IORegistryEntryGetParentEntry(volume, kIOServicePlane, &container);
+		if (err != 0) {
+			LOG("Unable to get container for volume %s", bsddisk);
+			IOObjectRelease(volume);
+			return ENOENT;
+		}
+		
+		if (! IOObjectConformsTo(container, APFS_CONTAINER_OBJECT)) {
+			LOG("Parent is not an apfs container for volume %s", bsddisk);
 			IOObjectRelease(container);
-			container = IO_OBJECT_NULL;
+			IOObjectRelease(volume);
+			return ENOENT;
+		}
+		
+		if (fs_flags_out) {
+			CFBooleanRef container_is_fusion = IORegistryEntryCreateCFProperty(container, CFSTR(kAPFSContainerIsCompositedKey), kCFAllocatorDefault, 0);
+			if (container_is_fusion != NULL) {
+				
+				if (CFGetTypeID(container_is_fusion) == CFBooleanGetTypeID()) {
+					if (CFBooleanGetValue(container_is_fusion)) {
+						*fs_flags_out |= BC_FS_APFS_FUSION;
+					}
+				} else {
+					LOG("Disk %s has bad composited property type %lu", bsddisk, CFGetTypeID(container_is_fusion));
+				}
+				
+				CFRelease(container_is_fusion);
+			}
+		}
+
+		
+		if (container_uuid_out) {
+			CFStringRef container_uuid_str = IORegistryEntryCreateCFProperty(container, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
 			if (container_uuid_str != NULL) {
 				if (CFGetTypeID(container_uuid_str) == CFStringGetTypeID()) {
 					CFUUIDRef container_uuid = CFUUIDCreateFromString(kCFAllocatorDefault, container_uuid_str);
@@ -4589,8 +4719,47 @@ static int apfs_flags_for_volume(const char* bsddisk, uint* fs_flags_out, uuid_t
 				LOG("Disk %s container has no UUID", bsddisk);
 			}
 		}
+		
+		if (container_bsdname_out) {
+			io_object_t media;
+			
+			err = IORegistryEntryGetParentEntry(container, kIOServicePlane, &media);
+			if (err == 0) {
+				if (IOObjectConformsTo(media, APFS_MEDIA_OBJECT)) {
+					
+					CFStringRef media_bsddisk_str = IORegistryEntryCreateCFProperty(media, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+					if (media_bsddisk_str != NULL) {
+						if (CFGetTypeID(media_bsddisk_str) == CFStringGetTypeID()) {
+							char media_bsddisk[32];
+							if (CFStringGetCString(media_bsddisk_str, media_bsddisk, sizeof(media_bsddisk), kCFStringEncodingUTF8)) {
+								asprintf(container_bsdname_out, "/dev/%s", media_bsddisk);
+								DLOG("Disk %s container is disk %s", bsddisk, *container_bsdname_out);
+							} else {
+								LOG("Disk %s unable to get c string for container bsd disk", bsddisk);
+							}
+						} else {
+							LOG("Disk %s container media has bad bsd disk property type %lu", bsddisk, CFGetTypeID(media_bsddisk_str));
+						}
+						
+						CFRelease(media_bsddisk_str);
+					} else {
+						LOG("Disk %s container media has no bsd name", bsddisk);
+					}
+				} else {
+					LOG("Parent is not media for container for %s", bsddisk);
+				}
+				IOObjectRelease(media);
+			} else {
+				LOG("Unable to get media for container for %s: %d", bsddisk, err);
+			}
+		}
+
+		IOObjectRelease(container);
+		container = IO_OBJECT_NULL;
 	} else {
-		DLOG("Disk %s is not an apfs volume", bsddisk);
+		LOG("Disk %s is not an apfs volume", bsddisk);
+		IOObjectRelease(volume);
+		return ENODEV;
 	}
 	
 	IOObjectRelease(volume);
@@ -4633,22 +4802,22 @@ static CFDictionaryRef copy_apfs_mount_cache(void) {
 		
 		g_apfs_mount_cache = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, NULL);
 		
-		DLOG("%d mounts:", num_mountbufs);
+//		DLOG("%d mounts:", num_mountbufs);
 		for (int i = 0; i < num_mountbufs; i++) {
 			
 			if (0 == strncmp(g_mountbufs[i].f_fstypename, "apfs", sizeof("apfs")+1)) {
 				uuid_t mount_uuid;
 				get_volume_uuid(g_mountbufs[i].f_mntonname, mount_uuid);
 				if (!uuid_is_null(mount_uuid)) {
-					DLOG("%s, %s, %s: %s", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename, uuid_string(mount_uuid));
+//					DLOG("%s, %s, %s: %s", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename, uuid_string(mount_uuid));
 					CFUUIDRef uuid_cf = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, *(CFUUIDBytes*)mount_uuid);
 					CFDictionaryAddValue(g_apfs_mount_cache, uuid_cf, g_mountbufs + i);
 					CFRelease(uuid_cf);
 				} else {
-					DLOG("%s, %s, %s: no UUID", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename);
+//					DLOG("%s, %s, %s: no UUID", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename);
 				}
 			} else {
-				DLOG("%s, %s, %s: not apfs", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename);
+//				DLOG("%s, %s, %s: not apfs", g_mountbufs[i].f_mntonname, g_mountbufs[i].f_mntfromname, g_mountbufs[i].f_fstypename);
 			}
 		}
 	}
@@ -4707,16 +4876,6 @@ static int apfs_mount_for_uuid(const uuid_t uuid, char** mountname_out, char** b
  * Create a bootcache playlist for the given file's disk blocks.
  * If an error occurs, as much of the playlist as could be calculated is returned.
  * The caller is responsible for freeing the returned BC_playlist, if non-NULL.
- */
-int
-BC_playlist_for_file(int fd, struct BC_playlist** ppc) {
-	return BC_playlist_for_filename(fd, NULL, 0, ppc);
-}
-
-/*
- * Create a bootcache playlist for the given file's disk blocks.
- * If an error occurs, as much of the playlist as could be calculated is returned.
- * The caller is responsible for freeing the returned BC_playlist, if non-NULL.
  *
  * If the file is compressed, the fd must be for the compressed resource fork.
  */
@@ -4761,7 +4920,7 @@ BC_playlist_for_file_extents(int fd, uint nextents, const struct bc_file_extent*
 	uuid_copy(pc->p_mounts[0].pm_uuid, uuid);
 	
 	if (is_apfs) {
-		error = apfs_flags_for_volume(bsd_disk_path, &pc->p_mounts[0].pm_fs_flags, &pc->p_mounts[0].pm_group_uuid);
+		error = apfs_info_for_bsddisk(bsd_disk_path, &pc->p_mounts[0].pm_fs_flags, &pc->p_mounts[0].pm_group_uuid, NULL);
 		if (error != 0) {
 			// Unable to get flags/container. Error is logged in fs_flags_for_volume
 			goto out;
@@ -5298,6 +5457,13 @@ print_fp("%-26s %10llu  %3.0f%%    %10llu  %3.0f%%    %10llu  %3.0f%%", name, \
 nonshared_stat(stat), safe_div(((float)nonshared_stat(stat)), nonshared_stat(basestat)) * 100, /* num, percent */ \
    shared_stat(stat), safe_div(((float)   shared_stat(stat)),    shared_stat(basestat)) * 100) /* num, percent */
 
+#define stat_print_split_percent_uuid_______(name, stat, basestat, uuid) \
+print_fp("%-26s %10llu  %3.0f%%    %10llu  %3.0f%%    %10llu  %3.0f%%  %s", name, \
+	total_stat(stat), safe_div(((float)    total_stat(stat)),     total_stat(basestat)) * 100, /* num, percent */ \
+nonshared_stat(stat), safe_div(((float)nonshared_stat(stat)), nonshared_stat(basestat)) * 100, /* num, percent */ \
+   shared_stat(stat), safe_div(((float)   shared_stat(stat)),    shared_stat(basestat)) * 100, /* num, percent */ \
+   uuid_string(uuid))
+
 #define stat_print_split_percent_basemanual_(name, stat, base) \
 print_fp("%-26s %10llu  %3.0f%%    %10llu  %3.0f%%    %10llu  %3.0f%%", name, \
     total_stat(stat), safe_div(((float)    total_stat(stat)), (base##_nonshared + base##_shared)) * 100, /* num, percent */ \
@@ -5420,9 +5586,9 @@ stat_print_split_percent____________(" bytes hit", hit_bytes, requested_bytes);
 		for (int m = 0; m < STAT_MOUNTMAX; m++) {
 			if (total_stat(requested_bytes_m[m]) > 0 && total_stat(requested_bytes_m[m]) != total_stat(requested_bytes)) {
 				char mountstr[32];
-snprintf(mountstr, sizeof(mountstr), " mount %d bytes requested", m);
-stat_print_split_percent____________(mountstr, requested_bytes_m[m], requested_bytes);
-snprintf(mountstr, sizeof(mountstr), "  mount %d bytes hit", m);
+snprintf(mountstr, sizeof(mountstr), " mount %2d bytes requested", m);
+stat_print_split_percent_uuid_______(mountstr, requested_bytes_m[m], requested_bytes, ss->ss_mount_uuid[m]);
+snprintf(mountstr, sizeof(mountstr), "  mount %2d bytes hit", m);
 stat_print_split_percent____________(mountstr, hit_bytes_m[m], requested_bytes_m[m]);
 			}
 		}

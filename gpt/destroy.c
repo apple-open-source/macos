@@ -50,7 +50,7 @@ usage_destroy(void)
 	exit(1);
 }
 
-static void
+static int 
 destroy(int fd)
 {
 	map_t *pri_hdr, *sec_hdr;
@@ -62,12 +62,12 @@ destroy(int fd)
 
 	if (pri_hdr == NULL && sec_hdr == NULL) {
 		warnx("%s: error: device doesn't contain a GPT", device_name);
-		return;
+		return 1;
 	}
 
 	if (recoverable && sec_hdr == NULL) {
 		warnx("%s: error: recoverability not possible", device_name);
-		return;
+		return 1;
 	}
 
 	if (pri_hdr != NULL) {
@@ -84,12 +84,14 @@ destroy(int fd)
 		bzero(pmbr->map_data, secsz);
 		gpt_write(fd, pmbr);
 	}
+        return 0;
 }
 
 int
 cmd_destroy(int argc, char *argv[])
 {
 	int ch, fd;
+	int ret = 0;
 
 	while ((ch = getopt(argc, argv, "r")) != -1) {
 		switch(ch) {
@@ -111,10 +113,10 @@ cmd_destroy(int argc, char *argv[])
 			return (1);
 		}
 
-		destroy(fd);
+		ret = destroy(fd);
 
 		gpt_close(fd);
 	}
 
-	return (0);
+	return (ret);
 }

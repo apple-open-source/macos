@@ -16,6 +16,7 @@
 #import <AssertMacros.h>
 #import <IOKit/hid/IOHIDUsageTables.h>
 #import <IOKit/hid/IOHIDEventSystemKeys.h>
+#import <IOKit/hid/IOHIDPreferences.h>
 
 
 static inline void logHIDEvent(uint8_t level, NSData* eventData, uint8_t category) {
@@ -46,9 +47,9 @@ typedef struct {
     
     _transportLogPreferenceStatus = [self createTransportLogPreferenceTracker];
     
-    id transportPreferencesValue = (__bridge_transfer id)CFPreferencesCopyAppValue(CFSTR(kIOHIDLoggingPreferenceValueForTransportType), kIOHIDFamilyPreferenceApplicationID);
+    id transportPreferencesValue = (__bridge_transfer id)IOHIDPreferencesCopyDomain(CFSTR(kIOHIDLoggingPreferenceValueForTransportType), kIOHIDFamilyPreferenceApplicationID);
     
-    id eventPreferencesValue = (__bridge_transfer id)CFPreferencesCopyAppValue(CFSTR(kIOHIDLoggingPreferenceValueForEventType), kIOHIDFamilyPreferenceApplicationID);
+    id eventPreferencesValue = (__bridge_transfer id)IOHIDPreferencesCopyDomain(CFSTR(kIOHIDLoggingPreferenceValueForEventType), kIOHIDFamilyPreferenceApplicationID);
     
     [self updateEventTypePreference:eventPreferencesValue];
     [self updateTransportTypePreference:transportPreferencesValue];
@@ -78,19 +79,66 @@ typedef struct {
     return @"IOHIDEventLogSessionFilter";
 }
 
-- (nullable id)propertyForKey:(NSString *)key
+-(NSDictionary*) serialize
 {
-    id result = nil;
+    NSMutableDictionary *ret = [[NSMutableDictionary alloc] init];
     
-    if ([key isEqualToString:@(kIOHIDSessionFilterDebugKey)]) {
-        NSMutableDictionary * debug = [NSMutableDictionary new];
-        debug[@"Class"] = @"IOHIDEventLogSessionFilter";
+    ret[@"Class"] = @"IOHIDEventLogSessionFilter";
+    
+    NSMutableArray *eventPreferenceStatus = [[NSMutableArray alloc] init];
+    __block NSMutableArray *transportPreferenceStatus = [[NSMutableArray alloc] init];
+    
+    for (NSUInteger index = 0; index < kIOHIDEventTypeCount; index++) {
         
-        result = debug;
+        // Really don't want to log disabled entries , save some memory for unwanted info
+        if (_eventLogPreferenceStatus[index].enabled) {
+            [eventPreferenceStatus addObject:@{@"type":@(index),@"enabled":@(1),@"level":@(_eventLogPreferenceStatus[index].level)}];
+        }
     }
     
-    return result;
+    if (eventPreferenceStatus.count >  0) {
+        ret[@"EventPreferenceLoggingStatus"] = eventPreferenceStatus;
+    }
+    
+    
+    if (_transportLogPreferenceStatus && _transportLogPreferenceStatus.count > 0) {
+        
+        [_transportLogPreferenceStatus enumerateKeysAndObjectsUsingBlock:^(id  _Nonnull key, id  _Nonnull obj, BOOL * _Nonnull stop __unused) {
+            
+            NSString *transport = (NSString*)key;
+            
+            if (![obj isKindOfClass:[NSMutableData class]]) {
+                return;
+            }
+            
+            PreferenceStatus *status =  (PreferenceStatus*)[(NSMutableData*)obj bytes];
+            if (status && status->enabled) {
+                [transportPreferenceStatus addObject:@{@"type":transport,@"enabled":@(1),@"level":@( status->level)}];
+            }
+            
+            
+        }];
+        
+        if (transportPreferenceStatus.count > 0) {
+            ret[@"TransportPreferenceLoggingStatus"] = transportPreferenceStatus;
+        }
+        
+    }
+    
+    return ret;
 }
+
+- (nullable id)propertyForKey:(NSString *)key
+{
+    
+    if ([key isEqualToString:@(kIOHIDSessionFilterDebugKey)]) {
+        
+        return [self serialize];
+    }
+    
+    return nil;
+}
+
 -(void) updateEventTypePreference:(id) preferencesValue
 {
     NSArray *eventPreferences = nil;
@@ -174,7 +222,7 @@ exit:
             level = [transportPreference[@"level"] isKindOfClass:[NSNumber class]] ? ((NSNumber*)transportPreference[@"level"]).unsignedCharValue : OS_LOG_TYPE_INFO;
         }
         
-        status = (PreferenceStatus*)[(NSData*)_transportLogPreferenceStatus[transport] bytes];
+        status = (PreferenceStatus*)[(NSMutableData*)_transportLogPreferenceStatus[transport] bytes];
         
         if (!status) {
             continue;
@@ -198,9 +246,9 @@ exit:
         
         HIDLog("IOHIDEventLogSessionFilter Reload Logging Preferences");
         
-        id transportPreferencesValue = (__bridge_transfer id)CFPreferencesCopyAppValue(CFSTR(kIOHIDLoggingPreferenceValueForTransportType), kIOHIDFamilyPreferenceApplicationID);
+        id transportPreferencesValue = (__bridge_transfer id)IOHIDPreferencesCopyDomain(CFSTR(kIOHIDLoggingPreferenceValueForTransportType), kIOHIDFamilyPreferenceApplicationID);
         
-        id eventPreferencesValue = (__bridge_transfer id)CFPreferencesCopyAppValue(CFSTR(kIOHIDLoggingPreferenceValueForEventType), kIOHIDFamilyPreferenceApplicationID);
+        id eventPreferencesValue = (__bridge_transfer id)IOHIDPreferencesCopyDomain(CFSTR(kIOHIDLoggingPreferenceValueForEventType), kIOHIDFamilyPreferenceApplicationID);
         
         [self updateEventTypePreference:eventPreferencesValue];
         [self updateTransportTypePreference:transportPreferencesValue];

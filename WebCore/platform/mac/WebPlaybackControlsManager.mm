@@ -32,6 +32,7 @@
 #import "PlaybackSessionInterfaceMac.h"
 #import "PlaybackSessionModel.h"
 #import <wtf/SoftLinking.h>
+#import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/WTFString.h>
 
 IGNORE_WARNINGS_BEGIN("nullability-completeness")
@@ -44,7 +45,6 @@ using WebCore::PlaybackSessionInterfaceMac;
 
 @implementation WebPlaybackControlsManager
 
-@synthesize contentDuration=_contentDuration;
 @synthesize seekToTime=_seekToTime;
 @synthesize hasEnabledAudio=_hasEnabledAudio;
 @synthesize hasEnabledVideo=_hasEnabledVideo;
@@ -59,6 +59,16 @@ using WebCore::PlaybackSessionInterfaceMac;
     if (_playbackSessionInterfaceMac)
         _playbackSessionInterfaceMac->setPlayBackControlsManager(nullptr);
     [super dealloc];
+}
+
+- (NSTimeInterval)contentDuration
+{
+    return [_seekableTimeRanges count] ? _contentDuration : std::numeric_limits<double>::infinity();
+}
+
+- (void)setContentDuration:(NSTimeInterval)duration
+{
+    _contentDuration = duration;
 }
 
 - (AVValueTiming *)timing
@@ -118,7 +128,7 @@ using WebCore::PlaybackSessionInterfaceMac;
     // quirk means we pretend Netflix is a live stream for Touch Bar.) It's not ideal to return YES all the time for
     // other media. The intent of the API is that we return NO when the media is being scrubbed via the on-screen scrubber.
     // But we can only possibly get the right answer for media that uses the default controls.
-    return std::isfinite(_contentDuration);;
+    return std::isfinite(_contentDuration) && [_seekableTimeRanges count];
 }
 
 - (void)beginTouchBarScrubbing
@@ -208,19 +218,16 @@ static AVTouchBarMediaSelectionOptionType toAVTouchBarMediaSelectionOptionType(M
     return AVTouchBarMediaSelectionOptionTypeRegular;
 }
 
-static RetainPtr<NSMutableArray> mediaSelectionOptions(const Vector<MediaSelectionOption>& options)
+static RetainPtr<NSArray> mediaSelectionOptions(const Vector<MediaSelectionOption>& options)
 {
-    RetainPtr<NSMutableArray> webOptions = adoptNS([[NSMutableArray alloc] initWithCapacity:options.size()]);
-    for (auto& option : options) {
-        if (auto webOption = adoptNS([allocAVTouchBarMediaSelectionOptionInstance() initWithTitle:option.displayName type:toAVTouchBarMediaSelectionOptionType(option.type)]))
-            [webOptions addObject:webOption.get()];
-    }
-    return webOptions;
+    return createNSArray(options, [] (auto& option) {
+        return adoptNS([allocAVTouchBarMediaSelectionOptionInstance() initWithTitle:option.displayName type:toAVTouchBarMediaSelectionOptionType(option.type)]);
+    });
 }
 
 - (void)setAudioMediaSelectionOptions:(const Vector<MediaSelectionOption>&)options withSelectedIndex:(NSUInteger)selectedIndex
 {
-    RetainPtr<NSMutableArray> webOptions = mediaSelectionOptions(options);
+    auto webOptions = mediaSelectionOptions(options);
     [self setAudioTouchBarMediaSelectionOptions:webOptions.get()];
     if (selectedIndex < [webOptions count])
         [self setCurrentAudioTouchBarMediaSelectionOption:[webOptions objectAtIndex:selectedIndex]];
@@ -228,7 +235,7 @@ static RetainPtr<NSMutableArray> mediaSelectionOptions(const Vector<MediaSelecti
 
 - (void)setLegibleMediaSelectionOptions:(const Vector<MediaSelectionOption>&)options withSelectedIndex:(NSUInteger)selectedIndex
 {
-    RetainPtr<NSMutableArray> webOptions = mediaSelectionOptions(options);
+    auto webOptions = mediaSelectionOptions(options);
     [self setLegibleTouchBarMediaSelectionOptions:webOptions.get()];
     if (selectedIndex < [webOptions count])
         [self setCurrentLegibleTouchBarMediaSelectionOption:[webOptions objectAtIndex:selectedIndex]];
@@ -281,22 +288,27 @@ static RetainPtr<NSMutableArray> mediaSelectionOptions(const Vector<MediaSelecti
 
 - (void)setPlaying:(BOOL)playing
 {
-    if (!_playbackSessionInterfaceMac || !_playbackSessionInterfaceMac->playbackSessionModel())
+    if (playing != _playing) {
+        [self willChangeValueForKey:@"playing"];
+        _playing = playing;
+        [self didChangeValueForKey:@"playing"];
+    }
+
+    if (!_playbackSessionInterfaceMac)
         return;
 
-    BOOL isCurrentlyPlaying = self.playing;
-    if (!isCurrentlyPlaying && playing)
-        _playbackSessionInterfaceMac->playbackSessionModel()->play();
-    else if (isCurrentlyPlaying && !playing)
-        _playbackSessionInterfaceMac->playbackSessionModel()->pause();
+    if (auto* model = _playbackSessionInterfaceMac->playbackSessionModel()) {
+        BOOL isCurrentlyPlaying = model->isPlaying();
+        if (!isCurrentlyPlaying && _playing)
+            model->play();
+        else if (isCurrentlyPlaying && !_playing)
+            model->pause();
+    }
 }
 
 - (BOOL)isPlaying
 {
-    if (_playbackSessionInterfaceMac && _playbackSessionInterfaceMac->playbackSessionModel())
-        return _playbackSessionInterfaceMac->playbackSessionModel()->isPlaying();
-
-    return NO;
+    return _playing;
 }
 
 - (void)togglePictureInPicture

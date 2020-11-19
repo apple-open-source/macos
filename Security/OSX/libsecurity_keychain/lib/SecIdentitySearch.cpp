@@ -29,7 +29,7 @@
 #include <os/activity.h>
 
 #include "SecBridge.h"
-
+#include "LegacyAPICounts.h"
 
 CFTypeID
 SecIdentitySearchGetTypeID(void)

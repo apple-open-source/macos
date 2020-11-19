@@ -79,6 +79,7 @@ static int suitable_ifaddr (const char *, const struct sockaddr *);
 #ifdef INET6
 static int suitable_ifaddr6 (const char *, const struct sockaddr *);
 #endif
+static bool exclude_interfaces(const char *);
 
 #ifndef HAVE_GETIFADDRS
 static unsigned int
@@ -177,6 +178,10 @@ grab_myaddrs()
 		)
 			continue;
 
+		if (exclude_interfaces(ifap->ifa_name)) {
+			continue;
+		}
+
 		if (!suitable_ifaddr(ifap->ifa_name, ifap->ifa_addr)) {
 			plog(ASL_LEVEL_DEBUG, 
 				"unsuitable address: %s %s\n",
@@ -254,6 +259,23 @@ grab_myaddrs()
 	}
 
 	freeifaddrs(ifa0);
+}
+
+static bool
+exclude_interfaces(ifname)
+	const char *ifname;
+{
+	if (ifname == NULL) {
+		return false;
+	}
+
+	if (strnstr(ifname, "awdl", IFNAMSIZ) != NULL) {
+		return true;
+	} else if (strnstr(ifname, "llw", IFNAMSIZ) != NULL) {
+		return true;
+	}
+
+	return false;
 }
 
 

@@ -13,8 +13,9 @@
 			buildPhases = (
 			);
 			dependencies = (
-				9807B1E62367C592005B29F6 /* PBXTargetDependency */,
+				98EA008824D94E57008486D5 /* PBXTargetDependency */,
 				9874FC43234E74EA00096401 /* PBXTargetDependency */,
+				98F4EC7024ABEF070004B646 /* PBXTargetDependency */,
 			);
 			name = IOPCIFamily_macOS;
 			productName = IOPCIFamily_macOS;
@@ -25,6 +26,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				987B1E5224DC8516006CCC25 /* PBXTargetDependency */,
 				9874FC50234E80A600096401 /* PBXTargetDependency */,
 			);
 			name = IOPCIFamily_iOS;
@@ -59,6 +61,7 @@
 			);
 			dependencies = (
 				9874FC4B234E753A00096401 /* PBXTargetDependency */,
+				98063B3B24F43C68006FD023 /* PBXTargetDependency */,
 			);
 			name = IOPCIFamily_tvOS;
 			productName = IOPCIFamily_tvOS;
@@ -89,8 +92,15 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		9807B1EA2367CA7E005B29F6 /* driverKit.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */; };
+		6AA5ABCA249417180031EF96 /* config in Resources */ = {isa = PBXBuildFile; fileRef = 6AA5ABC9249417180031EF96 /* config */; };
 		9831214723A09E550043A189 /* PEX8733Definitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 9831214623A09E550043A189 /* PEX8733Definitions.h */; };
+		983EB31C24A5BC0600557323 /* ApplePIODMA.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 983EB31B24A5BC0600557323 /* ApplePIODMA.cpp */; };
+		983EB32624A5BC2A00557323 /* ApplePIODMA.h in Headers */ = {isa = PBXBuildFile; fileRef = 983EB32524A5BC2A00557323 /* ApplePIODMA.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		983EB32824A6A46E00557323 /* ApplePIODMADefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 983EB32724A6A46E00557323 /* ApplePIODMADefinitions.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		983EB32B24A6A4F800557323 /* ApplePIODMARequest.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 983EB32924A6A4F800557323 /* ApplePIODMARequest.cpp */; };
+		983EB32C24A6A4F800557323 /* ApplePIODMARequest.h in Headers */ = {isa = PBXBuildFile; fileRef = 983EB32A24A6A4F800557323 /* ApplePIODMARequest.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		983EB32F24A70ACA00557323 /* ApplePIODMARequestPool.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 983EB32D24A70ACA00557323 /* ApplePIODMARequestPool.cpp */; };
+		983EB33024A70ACA00557323 /* ApplePIODMARequestPool.h in Headers */ = {isa = PBXBuildFile; fileRef = 983EB32E24A70ACA00557323 /* ApplePIODMARequestPool.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		984A9E06235D1E9900EFD510 /* IOPCIDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 984A9E05235D1E9900EFD510 /* IOPCIDevice.cpp */; };
 		984D5C572361662C0073E2CD /* IOPCIDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 98CFE2A5234FA35800E9B02A /* IOPCIDevice.iig */; };
 		9874FC53234E9ECB00096401 /* IOAGPDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 03DB1084033AA50A03CA2A5F /* IOAGPDevice.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -105,8 +115,12 @@
 		987ECFC42368B0C100792271 /* PCIDriverKitPEX8733.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 987ECFC32368B0C100792271 /* PCIDriverKitPEX8733.cpp */; };
 		987ECFC62368B0C100792271 /* PCIDriverKitPEX8733.iig in Sources */ = {isa = PBXBuildFile; fileRef = 987ECFC52368B0C100792271 /* PCIDriverKitPEX8733.iig */; };
 		987ECFD02368B11500792271 /* PCIDriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 98CFE299234FA1F900E9B02A /* PCIDriverKit.framework */; };
+		988C543A246253DB0025917D /* PCIDriverKitPEX8733VBridge.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 988C5438246253DB0025917D /* PCIDriverKitPEX8733VBridge.cpp */; };
+		988C543B246253DB0025917D /* PCIDriverKitPEX8733VBridge.iig in Sources */ = {isa = PBXBuildFile; fileRef = 988C5439246253DB0025917D /* PCIDriverKitPEX8733VBridge.iig */; };
 		98B353A6235E950200CFFDBC /* IOPCIFamilyDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 98B353A5235E950200CFFDBC /* IOPCIFamilyDefinitions.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		98B353A7235E950200CFFDBC /* IOPCIFamilyDefinitions.h in Headers */ = {isa = PBXBuildFile; fileRef = 98B353A5235E950200CFFDBC /* IOPCIFamilyDefinitions.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		98C1119724AAAEAC00173944 /* ApplePIODMADebug.h in Headers */ = {isa = PBXBuildFile; fileRef = 98C1119624AAAEAC00173944 /* ApplePIODMADebug.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		98C1119924AAB62300173944 /* ApplePIODMADebug.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 98C1119824AAB62300173944 /* ApplePIODMADebug.cpp */; };
 		98CFE29D234FA1F900E9B02A /* PCIDriverKit.h in Headers */ = {isa = PBXBuildFile; fileRef = 98CFE29B234FA1F900E9B02A /* PCIDriverKit.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		98CFE2A7234FA35800E9B02A /* IOPCIDevice.iig in Sources */ = {isa = PBXBuildFile; fileRef = 98CFE2A5234FA35800E9B02A /* IOPCIDevice.iig */; settings = {ATTRIBUTES = (Public, ); }; };
 		98CFE2AC234FA80600E9B02A /* DriverKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9874FC71234EA69F00096401 /* DriverKit.framework */; };
@@ -122,12 +136,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		9807B1E52367C592005B29F6 /* PBXContainerItemProxy */ = {
+		98063B3A24F43C68006FD023 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = 98CFE298234FA1F900E9B02A;
-			remoteInfo = PCIDriverKit;
+			remoteGlobalIDString = 983EB31824A5BC0600557323;
+			remoteInfo = ApplePIODMA;
 		};
 		9874FC42234E74EA00096401 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -164,6 +178,13 @@
 			remoteGlobalIDString = A613B2750D46AA65007BA726;
 			remoteInfo = IOPCIFamily;
 		};
+		987B1E5124DC8516006CCC25 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 983EB31824A5BC0600557323;
+			remoteInfo = ApplePIODMA;
+		};
 		98B022F4235156E7003AE82B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
@@ -177,6 +198,20 @@
 			proxyType = 1;
 			remoteGlobalIDString = 987ECFBF2368B0C100792271;
 			remoteInfo = PCIDriverKitPEX8733;
+		};
+		98EA008724D94E57008486D5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 98CFE298234FA1F900E9B02A;
+			remoteInfo = PCIDriverKit;
+		};
+		98F4EC6F24ABEF070004B646 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 983EB31824A5BC0600557323;
+			remoteInfo = ApplePIODMA;
 		};
 		A6F210D30A78022400875EC6 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -211,8 +246,18 @@
 		4094C51900CEE7A80ACA2928 /* IOPCIBridge.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIBridge.cpp; sourceTree = "<group>"; };
 		4094C51A00CEE7A80ACA2928 /* IOPCIDevice.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevice.cpp; sourceTree = "<group>"; };
 		4094C51B00CEE7A80ACA2928 /* IOPCIDeviceI386.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDeviceI386.cpp; sourceTree = "<group>"; };
+		6AA5ABC9249417180031EF96 /* config */ = {isa = PBXFileReference; lastKnownFileType = folder; path = config; sourceTree = "<group>"; };
 		9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = driverKit.xcconfig; sourceTree = "<group>"; };
 		9831214623A09E550043A189 /* PEX8733Definitions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PEX8733Definitions.h; sourceTree = "<group>"; };
+		983EB31924A5BC0600557323 /* ApplePIODMA.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ApplePIODMA.kext; sourceTree = BUILT_PRODUCTS_DIR; };
+		983EB31B24A5BC0600557323 /* ApplePIODMA.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ApplePIODMA.cpp; sourceTree = "<group>"; };
+		983EB31D24A5BC0600557323 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		983EB32524A5BC2A00557323 /* ApplePIODMA.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ApplePIODMA.h; sourceTree = "<group>"; };
+		983EB32724A6A46E00557323 /* ApplePIODMADefinitions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ApplePIODMADefinitions.h; sourceTree = "<group>"; };
+		983EB32924A6A4F800557323 /* ApplePIODMARequest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ApplePIODMARequest.cpp; sourceTree = "<group>"; };
+		983EB32A24A6A4F800557323 /* ApplePIODMARequest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ApplePIODMARequest.h; sourceTree = "<group>"; };
+		983EB32D24A70ACA00557323 /* ApplePIODMARequestPool.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ApplePIODMARequestPool.cpp; sourceTree = "<group>"; };
+		983EB32E24A70ACA00557323 /* ApplePIODMARequestPool.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ApplePIODMARequestPool.h; sourceTree = "<group>"; };
 		984A9E05235D1E9900EFD510 /* IOPCIDevice.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IOPCIDevice.cpp; sourceTree = "<group>"; };
 		9874FC71234EA69F00096401 /* DriverKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DriverKit.framework; path = Platforms/MacOSX.platform/Developer/SDKs/DriverKit19.0.sdk/System/DriverKit/System/Library/Frameworks/DriverKit.framework; sourceTree = DEVELOPER_DIR; };
 		9876A93B236131D7000531FC /* PCIDriverKitPrivate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PCIDriverKitPrivate.h; sourceTree = "<group>"; };
@@ -221,7 +266,11 @@
 		987ECFC52368B0C100792271 /* PCIDriverKitPEX8733.iig */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.iig; path = PCIDriverKitPEX8733.iig; sourceTree = "<group>"; };
 		987ECFC72368B0C100792271 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		987ECFC82368B0C100792271 /* PCIDriverKitPEX8733.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PCIDriverKitPEX8733.entitlements; sourceTree = "<group>"; };
+		988C5438246253DB0025917D /* PCIDriverKitPEX8733VBridge.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PCIDriverKitPEX8733VBridge.cpp; sourceTree = "<group>"; };
+		988C5439246253DB0025917D /* PCIDriverKitPEX8733VBridge.iig */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.iig; path = PCIDriverKitPEX8733VBridge.iig; sourceTree = "<group>"; };
 		98B353A5235E950200CFFDBC /* IOPCIFamilyDefinitions.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOPCIFamilyDefinitions.h; sourceTree = "<group>"; };
+		98C1119624AAAEAC00173944 /* ApplePIODMADebug.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ApplePIODMADebug.h; sourceTree = "<group>"; };
+		98C1119824AAB62300173944 /* ApplePIODMADebug.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ApplePIODMADebug.cpp; sourceTree = "<group>"; };
 		98CFE299234FA1F900E9B02A /* PCIDriverKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PCIDriverKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		98CFE29B234FA1F900E9B02A /* PCIDriverKit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PCIDriverKit.h; sourceTree = "<group>"; };
 		98CFE29C234FA1F900E9B02A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -244,6 +293,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		983EB31624A5BC0600557323 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		987ECFBD2368B0C100792271 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -295,10 +351,12 @@
 		089C166AFE841209C02AAC07 /* IOPCIFamily */ = {
 			isa = PBXGroup;
 			children = (
+				6AA5ABC9249417180031EF96 /* config */,
 				A6C9653C2058A50E00C7FBBE /* kext.xcconfig */,
 				9807B1E92367CA7E005B29F6 /* driverKit.xcconfig */,
 				A6F210C00A78022400875EC6 /* AppleSamplePCI */,
 				247142CAFF3F8F9811CA285C /* Source */,
+				983EB31A24A5BC0600557323 /* ApplePIODMA */,
 				98CFE29A234FA1F900E9B02A /* PCIDriverKit */,
 				987ECFC22368B0C100792271 /* PEX8733 */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
@@ -314,6 +372,7 @@
 				A613B28D0D46AA65007BA726 /* IOPCIFamily.kext */,
 				98CFE299234FA1F900E9B02A /* PCIDriverKit.framework */,
 				987ECFC02368B0C100792271 /* com.apple.PCIDriverKitPEX8733.dext */,
+				983EB31924A5BC0600557323 /* ApplePIODMA.kext */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -331,6 +390,23 @@
 				03DB1082033AA50A03CA2A5F /* IOKit */,
 			);
 			name = Source;
+			sourceTree = "<group>";
+		};
+		983EB31A24A5BC0600557323 /* ApplePIODMA */ = {
+			isa = PBXGroup;
+			children = (
+				983EB32724A6A46E00557323 /* ApplePIODMADefinitions.h */,
+				98C1119624AAAEAC00173944 /* ApplePIODMADebug.h */,
+				98C1119824AAB62300173944 /* ApplePIODMADebug.cpp */,
+				983EB32524A5BC2A00557323 /* ApplePIODMA.h */,
+				983EB31B24A5BC0600557323 /* ApplePIODMA.cpp */,
+				983EB32E24A70ACA00557323 /* ApplePIODMARequestPool.h */,
+				983EB32D24A70ACA00557323 /* ApplePIODMARequestPool.cpp */,
+				983EB32A24A6A4F800557323 /* ApplePIODMARequest.h */,
+				983EB32924A6A4F800557323 /* ApplePIODMARequest.cpp */,
+				983EB31D24A5BC0600557323 /* Info.plist */,
+			);
+			path = ApplePIODMA;
 			sourceTree = "<group>";
 		};
 		9874FC70234EA69F00096401 /* Frameworks */ = {
@@ -353,6 +429,8 @@
 		98AC326923BFEC03000EEE46 /* PCIDriverKitPEX8733 */ = {
 			isa = PBXGroup;
 			children = (
+				988C5439246253DB0025917D /* PCIDriverKitPEX8733VBridge.iig */,
+				988C5438246253DB0025917D /* PCIDriverKitPEX8733VBridge.cpp */,
 				987ECFC52368B0C100792271 /* PCIDriverKitPEX8733.iig */,
 				987ECFC32368B0C100792271 /* PCIDriverKitPEX8733.cpp */,
 				987ECFC72368B0C100792271 /* Info.plist */,
@@ -398,6 +476,18 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		983EB31424A5BC0600557323 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				983EB32824A6A46E00557323 /* ApplePIODMADefinitions.h in Headers */,
+				983EB32624A5BC2A00557323 /* ApplePIODMA.h in Headers */,
+				98C1119724AAAEAC00173944 /* ApplePIODMADebug.h in Headers */,
+				983EB32C24A6A4F800557323 /* ApplePIODMARequest.h in Headers */,
+				983EB33024A70ACA00557323 /* ApplePIODMARequestPool.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		987ECFBB2368B0C100792271 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -433,6 +523,24 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		983EB31824A5BC0600557323 /* ApplePIODMA */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 983EB32424A5BC0600557323 /* Build configuration list for PBXNativeTarget "ApplePIODMA" */;
+			buildPhases = (
+				983EB31424A5BC0600557323 /* Headers */,
+				983EB31524A5BC0600557323 /* Sources */,
+				983EB31624A5BC0600557323 /* Frameworks */,
+				983EB31724A5BC0600557323 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ApplePIODMA;
+			productName = ApplePIODMA;
+			productReference = 983EB31924A5BC0600557323 /* ApplePIODMA.kext */;
+			productType = "com.apple.product-type.kernel-extension";
+		};
 		987ECFBF2368B0C100792271 /* PCIDriverKitPEX8733 */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 987ECFCF2368B0C100792271 /* Build configuration list for PBXNativeTarget "PCIDriverKitPEX8733" */;
@@ -461,7 +569,6 @@
 				98CFE294234FA1F900E9B02A /* Headers */,
 				98CFE295234FA1F900E9B02A /* Sources */,
 				98CFE296234FA1F900E9B02A /* Frameworks */,
-				98CFE297234FA1F900E9B02A /* Resources */,
 				9876A98523638FBD000531FC /* Install Kernel.framework Headers */,
 			);
 			buildRules = (
@@ -481,6 +588,7 @@
 				A613B27B0D46AA65007BA726 /* Headers */,
 				9874FC73234EA77900096401 /* Copy IOKit.framework User Headers */,
 				A613B27E0D46AA65007BA726 /* Resources */,
+				3F2F86AE249AC09800F6E5D5 /* ShellScript */,
 				A613B27F0D46AA65007BA726 /* Sources */,
 				A613B2850D46AA65007BA726 /* Frameworks */,
 				A613B2860D46AA65007BA726 /* Rez */,
@@ -527,6 +635,10 @@
 						CreatedOnToolsVersion = 11.0;
 						ProvisioningStyle = Automatic;
 					};
+					983EB31824A5BC0600557323 = {
+						CreatedOnToolsVersion = 11.4;
+						ProvisioningStyle = Manual;
+					};
 					987ECFBF2368B0C100792271 = {
 						CreatedOnToolsVersion = 11.2;
 						ProvisioningStyle = Automatic;
@@ -565,6 +677,7 @@
 				98CFE298234FA1F900E9B02A /* PCIDriverKit */,
 				A613B2A50D46AA65007BA726 /* AppleSamplePCI */,
 				987ECFBF2368B0C100792271 /* PCIDriverKitPEX8733 */,
+				983EB31824A5BC0600557323 /* ApplePIODMA */,
 			);
 		};
 /* End PBXProject section */
@@ -580,6 +693,13 @@
 /* End PBXReferenceProxy section */
 
 /* Begin PBXResourcesBuildPhase section */
+		983EB31724A5BC0600557323 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		987ECFBE2368B0C100792271 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -587,18 +707,11 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		98CFE297234FA1F900E9B02A /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				9807B1EA2367CA7E005B29F6 /* driverKit.xcconfig in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		A613B27E0D46AA65007BA726 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6AA5ABCA249417180031EF96 /* config in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -615,6 +728,23 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		3F2F86AE249AC09800F6E5D5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SRCROOT}/config/generate-symbols-plist.sh\";\necho \"${SYMROOT}\"\nif [ -x \"$script\" ]; then\n    . \"$script\" ${SYMROOT}/symbolsets.plist ${SRCROOT}/Info-IOPCIFamily.plist ${SRCROOT}/config/IOPCIFamily.exports\nfi\n";
+		};
 		9876A98523638FBD000531FC /* Install Kernel.framework Headers */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;
@@ -726,11 +856,24 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		983EB31524A5BC0600557323 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				983EB31C24A5BC0600557323 /* ApplePIODMA.cpp in Sources */,
+				98C1119924AAB62300173944 /* ApplePIODMADebug.cpp in Sources */,
+				983EB32F24A70ACA00557323 /* ApplePIODMARequestPool.cpp in Sources */,
+				983EB32B24A6A4F800557323 /* ApplePIODMARequest.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		987ECFBC2368B0C100792271 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				988C543B246253DB0025917D /* PCIDriverKitPEX8733VBridge.iig in Sources */,
 				987ECFC62368B0C100792271 /* PCIDriverKitPEX8733.iig in Sources */,
+				988C543A246253DB0025917D /* PCIDriverKitPEX8733VBridge.cpp in Sources */,
 				987ECFC42368B0C100792271 /* PCIDriverKitPEX8733.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -762,10 +905,10 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		9807B1E62367C592005B29F6 /* PBXTargetDependency */ = {
+		98063B3B24F43C68006FD023 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 98CFE298234FA1F900E9B02A /* PCIDriverKit */;
-			targetProxy = 9807B1E52367C592005B29F6 /* PBXContainerItemProxy */;
+			target = 983EB31824A5BC0600557323 /* ApplePIODMA */;
+			targetProxy = 98063B3A24F43C68006FD023 /* PBXContainerItemProxy */;
 		};
 		9874FC43234E74EA00096401 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -792,6 +935,11 @@
 			target = A613B2750D46AA65007BA726 /* IOPCIFamily */;
 			targetProxy = 9874FC4F234E80A600096401 /* PBXContainerItemProxy */;
 		};
+		987B1E5224DC8516006CCC25 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 983EB31824A5BC0600557323 /* ApplePIODMA */;
+			targetProxy = 987B1E5124DC8516006CCC25 /* PBXContainerItemProxy */;
+		};
 		98B022F5235156E7003AE82B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 98CFE298234FA1F900E9B02A /* PCIDriverKit */;
@@ -802,6 +950,16 @@
 			target = 987ECFBF2368B0C100792271 /* PCIDriverKitPEX8733 */;
 			targetProxy = 98E0BEF0237C74CA009E695F /* PBXContainerItemProxy */;
 		};
+		98EA008824D94E57008486D5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 98CFE298234FA1F900E9B02A /* PCIDriverKit */;
+			targetProxy = 98EA008724D94E57008486D5 /* PBXContainerItemProxy */;
+		};
+		98F4EC7024ABEF070004B646 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 983EB31824A5BC0600557323 /* ApplePIODMA */;
+			targetProxy = 98F4EC6F24ABEF070004B646 /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -809,6 +967,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				EXPORTED_SYMBOLS_FILE = "";
 				INFOPLIST_OUTPUT_FORMAT = XML;
 				SDKROOT = macosx.internal;
 			};
@@ -818,6 +977,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				EXPORTED_SYMBOLS_FILE = "";
 				INFOPLIST_OUTPUT_FORMAT = XML;
 				SDKROOT = macosx.internal;
 			};
@@ -827,6 +987,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				EXPORTED_SYMBOLS_FILE = "";
 				INFOPLIST_OUTPUT_FORMAT = XML;
 				SDKROOT = macosx.internal;
 			};
@@ -1099,6 +1260,328 @@
 				CODE_SIGN_STYLE = Automatic;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = driverkit.internal;
+			};
+			name = Default;
+		};
+		983EB31E24A5BC0600557323 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
+				INFOPLIST_FILE = ApplePIODMA/Info.plist;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				MODULE_NAME = com.apple.driver.ApplePIODMA;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/apiodma";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.ApplePIODMA;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Development;
+		};
+		983EB31F24A5BC0600557323 /* Development-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
+				INFOPLIST_FILE = ApplePIODMA/Info.plist;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				MODULE_NAME = com.apple.driver.ApplePIODMA;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/apiodma";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.ApplePIODMA;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = "Development-Embedded";
+		};
+		983EB32024A5BC0600557323 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
+				INFOPLIST_FILE = ApplePIODMA/Info.plist;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				MODULE_NAME = com.apple.driver.ApplePIODMA;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/apiodma";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.ApplePIODMA;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = Deployment;
+		};
+		983EB32124A5BC0600557323 /* Deployment-Embedded */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
+				INFOPLIST_FILE = ApplePIODMA/Info.plist;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				MODULE_NAME = com.apple.driver.ApplePIODMA;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/apiodma";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.ApplePIODMA;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				WRAPPER_EXTENSION = kext;
+			};
+			name = "Deployment-Embedded";
+		};
+		983EB32224A5BC0600557323 /* Default */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = A6C9653C2058A50E00C7FBBE /* kext.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD)";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Manual;
+				COPY_PHASE_STRIP = NO;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = "$(SDK_DIR)/usr/local/include";
+				INFOPLIST_FILE = ApplePIODMA/Info.plist;
+				INSTALL_GROUP = wheel;
+				INSTALL_MODE_FLAG = "a-w,u+w,a+rX";
+				MODULE_NAME = com.apple.driver.ApplePIODMA;
+				MODULE_VERSION = 1.0.0d1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/apiodma";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.driver.ApplePIODMA;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				WRAPPER_EXTENSION = kext;
 			};
 			name = Default;
 		};
@@ -1471,7 +1954,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEFINES_MODULE = YES;
-				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "";
@@ -1559,7 +2041,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEFINES_MODULE = YES;
-				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "";
@@ -1647,7 +2128,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
-				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "";
@@ -1728,7 +2208,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
-				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "";
@@ -1809,7 +2288,6 @@
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEFINES_MODULE = YES;
-				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				DYLIB_INSTALL_NAME_BASE = "";
@@ -1861,12 +2339,13 @@
 				COPY_PHASE_STRIP = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -1883,15 +2362,17 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
 				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
-				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
@@ -1899,6 +2380,7 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 					"-Wconditional-uninitialized",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
@@ -1916,9 +2398,10 @@
 				COPY_PHASE_STRIP = YES;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -1935,15 +2418,17 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
 				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
-				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
@@ -1951,6 +2436,7 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 					"-Wconditional-uninitialized",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -1967,8 +2453,9 @@
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -1985,15 +2472,17 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
 				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
-				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
@@ -2001,6 +2490,7 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 					"-Wconditional-uninitialized",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -2039,6 +2529,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				EXPORTED_SYMBOLS_FILE = "";
 				INFOPLIST_OUTPUT_FORMAT = XML;
 				SDKROOT = macosx.internal;
 			};
@@ -2055,13 +2546,14 @@
 				COPY_PHASE_STRIP = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = "SUPPORT_MULTIPLE_MSI=1";
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -2078,15 +2570,17 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
 				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
-				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
@@ -2094,6 +2588,7 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 					"-Wconditional-uninitialized",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
@@ -2115,6 +2610,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DRIVERKIT_DEPLOYMENT_TARGET = 19.0;
+				EXPORTED_SYMBOLS_FILE = "";
 				INFOPLIST_OUTPUT_FORMAT = XML;
 				SDKROOT = macosx.internal;
 			};
@@ -2130,8 +2626,9 @@
 				CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION = NO;
 				EXCLUDED_SOURCE_FILE_NAMES = "*.iig";
 				"EXCLUDED_SOURCE_FILE_NAMES[sdk=macosx*]" = "";
+				EXPORTED_SYMBOLS_FILE = "";
 				FRAMEWORK_SEARCH_PATHS = "$(SDK_DIR)/System/Library/PrivateFrameworks/";
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_INCOMPATIBLE_POINTER_TYPE_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
@@ -2148,15 +2645,17 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOPCIFamily;
 				MODULE_VERSION = 2.4.1;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				OTHER_IIG_CFLAGS = "-I$(SRCROOT)";
 				OTHER_IIG_FLAGS = "--framework $(IIG_FRAMEWORK_NAME) $(inherited)";
-				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/pci";
 				PRODUCT_NAME = IOPCIFamily;
 				PUBLIC_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/Headers/IOKit/pci";
-				SDKROOT = macosx.internal;
 				SECTORDER_FLAGS = "";
 				SYSTEM_HEADER_SEARCH_PATHS = "PCIDriverKit PCIDriverKit/Headers";
 				WARNING_CFLAGS = (
@@ -2164,6 +2663,7 @@
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
 					"-Wconditional-uninitialized",
+					"-Wshorten-64-to-32",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -2263,6 +2763,18 @@
 				9808E662234E4D5C00F4FC53 /* Deployment */,
 				9808E663234E4D5C00F4FC53 /* Deployment-Embedded */,
 				9808E664234E4D5C00F4FC53 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		983EB32424A5BC0600557323 /* Build configuration list for PBXNativeTarget "ApplePIODMA" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				983EB31E24A5BC0600557323 /* Development */,
+				983EB31F24A5BC0600557323 /* Development-Embedded */,
+				983EB32024A5BC0600557323 /* Deployment */,
+				983EB32124A5BC0600557323 /* Deployment-Embedded */,
+				983EB32224A5BC0600557323 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

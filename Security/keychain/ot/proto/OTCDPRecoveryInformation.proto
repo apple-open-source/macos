@@ -1,0 +1,37 @@
+syntax = "proto2";
+
+option objc_class_naming = "extended";
+
+package OT;
+import "OTEscrowRecord.proto";
+
+message CDPRecoveryInformation {
+    optional string recovery_secret = 1;
+    optional bool use_cached_secret = 2;
+    optional string recovery_key = 3;
+    optional bool use_previously_cached_recovery_key = 4;
+    optional bool silent_recovery_attempt = 5;
+    optional bool contains_icdp_data = 6;
+    optional bool uses_multiple_icsc = 7;
+}
+
+message EscrowAuthenticationInformation {
+    optional string authentication_password = 1;
+    optional string authentication_dsid = 2;
+    optional string authentication_appleid = 3;
+    optional string fmip_uuid = 4;
+    optional bool fmip_recovery = 5;
+    optional bool idms_recovery = 6;
+    optional string authentication_auth_token = 7;
+    optional string authentication_escrowproxy_url = 8;
+    optional string authentication_icloud_environment = 9;
+}
+
+message ICDPRecordContext {
+    optional CDPRecoveryInformation cdpInfo = 1;
+    optional EscrowAuthenticationInformation authInfo = 2;
+}
+message ICDPRecordSilentContext {
+    optional CDPRecoveryInformation cdpInfo = 1;
+    optional EscrowAuthenticationInformation authInfo = 2;
+}

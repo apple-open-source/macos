@@ -35,7 +35,7 @@ Manifest::Manifest () : mManifestSigner (NULL)
 
 
 
-Manifest::~Manifest () throw ()
+Manifest::~Manifest () _NOEXCEPT
 {
 	delete mManifestSigner;
 }

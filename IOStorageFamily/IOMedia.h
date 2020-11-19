@@ -208,6 +208,17 @@
 #define kIOMediaIconKey "IOMediaIcon"
 
 /*!
+ * @defined kIOMediaInvalidStartupDiskKey
+ * @abstract
+ * A property of IOMedia objects.
+ * @discussion
+ * The kIOMediaInvalidStartupDiskKey property has an OSBoolean
+ * value and describes whether the media cannot be used as a startup disk
+ */
+
+#define kIOMediaInvalidStartupDiskKey "Invalid Startup Disk"
+
+/*!
  * @enum IOMediaAttributeMask
  * @discussion
  * The IOMediaAttributeMask bit mask describes various attributes of
@@ -259,7 +270,7 @@ typedef UInt32 IOMediaAttributeMask;
  * before the read or write is passed to the provider object.
  */
 
-class IOMedia : public IOStorage
+class __exported IOMedia : public IOStorage
 {
     OSDeclareDefaultStructors(IOMedia)
 

@@ -1,7 +1,7 @@
 " Vim filetype plugin
 " Language:	Vim
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2018 Aug 07
+" Last Change:	2020 May 17
 
 " Only do this when not done yet for this buffer
 if exists("b:did_ftplugin")
@@ -12,7 +12,7 @@ endif
 let b:did_ftplugin = 1
 
 let s:cpo_save = &cpo
-set cpo-=C
+set cpo&vim
 
 if !exists('*VimFtpluginUndo')
   func VimFtpluginUndo()
@@ -63,14 +63,14 @@ if !exists("no_plugin_maps") && !exists("no_vim_maps")
   let b:did_add_maps = 1
 
   " Move around functions.
-  nnoremap <silent><buffer> [[ m':call search('^\s*fu\%[nction]\>', "bW")<CR>
-  vnoremap <silent><buffer> [[ m':<C-U>exe "normal! gv"<Bar>call search('^\s*fu\%[nction]\>', "bW")<CR>
-  nnoremap <silent><buffer> ]] m':call search('^\s*fu\%[nction]\>', "W")<CR>
-  vnoremap <silent><buffer> ]] m':<C-U>exe "normal! gv"<Bar>call search('^\s*fu\%[nction]\>', "W")<CR>
-  nnoremap <silent><buffer> [] m':call search('^\s*endf\%[unction]\>', "bW")<CR>
-  vnoremap <silent><buffer> [] m':<C-U>exe "normal! gv"<Bar>call search('^\s*endf\%[unction]\>', "bW")<CR>
-  nnoremap <silent><buffer> ][ m':call search('^\s*endf\%[unction]\>', "W")<CR>
-  vnoremap <silent><buffer> ][ m':<C-U>exe "normal! gv"<Bar>call search('^\s*endf\%[unction]\>', "W")<CR>
+  nnoremap <silent><buffer> [[ m':call search('^\s*\(fu\%[nction]\\|def\)\>', "bW")<CR>
+  vnoremap <silent><buffer> [[ m':<C-U>exe "normal! gv"<Bar>call search('^\s*\(fu\%[nction]\\|def\)\>', "bW")<CR>
+  nnoremap <silent><buffer> ]] m':call search('^\s*\(fu\%[nction]\\|def\)\>', "W")<CR>
+  vnoremap <silent><buffer> ]] m':<C-U>exe "normal! gv"<Bar>call search('^\s*\(fu\%[nction]\\|def\)\>', "W")<CR>
+  nnoremap <silent><buffer> [] m':call search('^\s*end\(f\%[unction]\\|def\)\>', "bW")<CR>
+  vnoremap <silent><buffer> [] m':<C-U>exe "normal! gv"<Bar>call search('^\s*end\(f\%[unction]\\|def\)\>', "bW")<CR>
+  nnoremap <silent><buffer> ][ m':call search('^\s*end\(f\%[unction]\\|def\)\>', "W")<CR>
+  vnoremap <silent><buffer> ][ m':<C-U>exe "normal! gv"<Bar>call search('^\s*end\(f\%[unction]\\|def\)\>', "W")<CR>
 
   " Move around comments
   nnoremap <silent><buffer> ]" :call search('^\(\s*".*\n\)\@<!\(\s*"\)', "W")<CR>
@@ -84,8 +84,10 @@ if exists("loaded_matchit")
   let b:match_ignorecase = 0
   let b:match_words =
 	\ '\<fu\%[nction]\>:\<retu\%[rn]\>:\<endf\%[unction]\>,' .
+	\ '\<def\>:\<retu\%[rn]\>:\<enddef\>,' .
  	\ '\<\(wh\%[ile]\|for\)\>:\<brea\%[k]\>:\<con\%[tinue]\>:\<end\(w\%[hile]\|fo\%[r]\)\>,' .
 	\ '\<if\>:\<el\%[seif]\>:\<en\%[dif]\>,' .
+	\ '{:},' .
 	\ '\<try\>:\<cat\%[ch]\>:\<fina\%[lly]\>:\<endt\%[ry]\>,' .
 	\ '\<aug\%[roup]\s\+\%(END\>\)\@!\S:\<aug\%[roup]\s\+END\>,'
   " Ignore syntax region commands and settings, any 'en*' would clobber

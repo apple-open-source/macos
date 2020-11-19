@@ -219,13 +219,6 @@ check_auto_exit(void)
 	return;
 }
 
-void
-ipsecSessionTracerEvent (ike_session_t *session, ipsecSessionEventCode_t eventCode, const char *event, const char *failure_reason)
-{
-	__builtin_unreachable();
-	return;
-}
-
 static int
 racoon_cert_validity_test(void)
 {

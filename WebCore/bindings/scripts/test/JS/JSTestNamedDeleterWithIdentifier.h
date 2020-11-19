@@ -42,7 +42,7 @@ public:
     static bool getOwnPropertySlot(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::PropertySlot&);
     static bool getOwnPropertySlotByIndex(JSC::JSObject*, JSC::JSGlobalObject*, unsigned propertyName, JSC::PropertySlot&);
     static void getOwnPropertyNames(JSC::JSObject*, JSC::JSGlobalObject*, JSC::PropertyNameArray&, JSC::EnumerationMode = JSC::EnumerationMode());
-    static bool deleteProperty(JSC::JSCell*, JSC::JSGlobalObject*, JSC::PropertyName);
+    static bool deleteProperty(JSC::JSCell*, JSC::JSGlobalObject*, JSC::PropertyName, JSC::DeletePropertySlot&);
     static bool deletePropertyByIndex(JSC::JSCell*, JSC::JSGlobalObject*, unsigned);
     static void destroy(JSC::JSCell*);
 
@@ -54,9 +54,16 @@ public:
     }
 
     static JSC::JSValue getConstructor(JSC::VM&, const JSC::JSGlobalObject*);
+    template<typename, JSC::SubspaceAccess mode> static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        if constexpr (mode == JSC::SubspaceAccess::Concurrently)
+            return nullptr;
+        return subspaceForImpl(vm);
+    }
+    static JSC::IsoSubspace* subspaceForImpl(JSC::VM& vm);
     static void analyzeHeap(JSCell*, JSC::HeapAnalyzer&);
 public:
-    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::GetOwnPropertySlotIsImpureForPropertyAbsence | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesGetOwnPropertySlot | JSC::OverridesGetPropertyNames;
+    static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::GetOwnPropertySlotIsImpureForPropertyAbsence | JSC::InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | JSC::OverridesAnyFormOfGetPropertyNames | JSC::OverridesGetOwnPropertySlot;
 protected:
     JSTestNamedDeleterWithIdentifier(JSC::Structure*, JSDOMGlobalObject&, Ref<TestNamedDeleterWithIdentifier>&&);
 

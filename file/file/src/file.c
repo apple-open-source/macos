@@ -32,7 +32,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: file.c,v 1.181 2019/03/28 20:54:03 christos Exp $")
+FILE_RCSID("@(#)$File: file.c,v 1.187 2020/06/07 17:38:30 christos Exp $")
 #endif	/* lint */
 
 #include "magic.h"
@@ -82,18 +82,26 @@ int getopt_long(int, char * const *, const char *,
 # define IFLNK_L ""
 #endif
 
-#ifdef HAVE_LIBSECCOMP
-# define SECCOMP_S "S"
-#else
-# define SECCOMP_S ""
-#endif
-
-#define FILE_FLAGS	"bcCdE" IFLNK_h "ik" IFLNK_L "lNnprs" SECCOMP_S "vzZ0"
+#define FILE_FLAGS	"bcCdE" IFLNK_h "ik" IFLNK_L "lNnprsSvzZ0"
 #define OPTSTRING	"bcCde:Ef:F:hiklLm:nNpP:rsSvzZ0"
-#define OPTSTRING03   "bcCdDe:f:F:hiIkLm:M:nNprsvz0"
+#define OPTSTRING03	"bcCdDe:Ef:F:hiIkLm:M:nNpP:rsSvzZ0"
 
-# define USAGE   "Usage: %s [" FILE_FLAGS "] [-e test] [-f namefile] [-F separator] [-m magicfiles] file...\n       %s -C -m magicfiles\n"
-# define USAGE03 "Usage: %s [" FILE_FLAGS "] [-e test] [-f namefile] [-F separator] [-m magicfiles] [-M magicfiles] file...\n       %s -C -m magicfiles\n"
+# define USAGE  \
+    "Usage: %s [-" FILE_FLAGS "] [--extension] [--mime-encoding]\n" \
+    "            [--mime-type] [-e <testname>] [-F <separator>] " \
+    " [-f <namefile>]\n" \
+    "            [-m <magicfiles>] [-P <parameter=value>] [--exclude-quiet]\n" \
+    "            <file> ...\n" \
+    "       %s -C [-m <magicfiles>]\n" \
+    "       %s [--help]\n"
+# define USAGE03  \
+	"Usage: %s [-" FILE_FLAGS "] [--extension] [--mime-encoding]\n" \
+	"            [--mime-type] [-e <testname>] [-F <separator>] " \
+	" [-f <namefile>]\n" \
+	"            [-m <magicfiles>] [-M magicfiles] [-P <parameter=value>] [--exclude-quiet]\n" \
+	"            <file> ...\n" \
+	"       %s -C [-m <magicfiles>]\n" \
+	"       %s [--help]\n"
 
 private int 		/* Global command-line options 		*/
 	bflag = 0,	/* brief output format	 		*/
@@ -108,9 +116,10 @@ private const struct option long_options[] = {
 #define OPT_EXTENSIONS		3
 #define OPT_MIME_TYPE		4
 #define OPT_MIME_ENCODING	5
-#define OPT(shortname, longname, opt, def, doc)      \
+#define OPT_EXCLUDE_QUIET	6
+#define OPT(shortname, longname, opt, def, doc)		\
     {longname, opt, NULL, shortname},
-#define OPT_LONGONLY(longname, opt, def, doc, id)        \
+#define OPT_LONGONLY(longname, opt, def, doc, id)	\
     {longname, opt, NULL, id},
 #define OPT_UNIX03(shortname, def, doc)
 #include "file_opts.h"
@@ -128,6 +137,7 @@ private const struct {
 	{ "ascii",	MAGIC_NO_CHECK_ASCII },
 	{ "cdf",	MAGIC_NO_CHECK_CDF },
 	{ "compress",	MAGIC_NO_CHECK_COMPRESS },
+	{ "csv",	MAGIC_NO_CHECK_CSV },
 	{ "elf",	MAGIC_NO_CHECK_ELF },
 	{ "encoding",	MAGIC_NO_CHECK_ENCODING },
 	{ "soft",	MAGIC_NO_CHECK_SOFT },
@@ -142,14 +152,23 @@ private struct {
 	int tag;
 	size_t value;
 	int set;
+	size_t def;
+	const char *desc;
 } pm[] = {
-	{ "indir",	MAGIC_PARAM_INDIR_MAX, 0, 0 },
-	{ "name",	MAGIC_PARAM_NAME_MAX, 0, 0 },
-	{ "elf_phnum",	MAGIC_PARAM_ELF_PHNUM_MAX, 0, 0 },
-	{ "elf_shnum",	MAGIC_PARAM_ELF_SHNUM_MAX, 0, 0 },
-	{ "elf_notes",	MAGIC_PARAM_ELF_NOTES_MAX, 0, 0 },
-	{ "regex",	MAGIC_PARAM_REGEX_MAX, 0, 0 },
-	{ "bytes",	MAGIC_PARAM_BYTES_MAX, 0, 0 },
+	{ "bytes",	MAGIC_PARAM_BYTES_MAX, 0, 0, FILE_BYTES_MAX,
+	    "max bytes to look inside file" },
+	{ "elf_notes",	MAGIC_PARAM_ELF_NOTES_MAX, 0, 0, FILE_ELF_NOTES_MAX,
+	    "max ELF notes processed" },
+	{ "elf_phnum",	MAGIC_PARAM_ELF_PHNUM_MAX, 0, 0, FILE_ELF_PHNUM_MAX,
+	    "max ELF prog sections processed" },
+	{ "elf_shnum",	MAGIC_PARAM_ELF_SHNUM_MAX, 0, 0, FILE_ELF_SHNUM_MAX,
+	    "max ELF sections processed" },
+	{ "indir",	MAGIC_PARAM_INDIR_MAX, 0, 0, FILE_INDIR_MAX,
+	    "recursion limit for indirection" },
+	{ "name",	MAGIC_PARAM_NAME_MAX, 0, 0, FILE_NAME_MAX,
+	    "use limit for name/use magic" },
+	{ "regex",	MAGIC_PARAM_REGEX_MAX, 0, 0, FILE_REGEX_MAX,
+	    "length limit for REGEX searches" },
 };
 
 private int posixly;
@@ -255,13 +274,15 @@ main(int argc, char *argv[])
 			flags |= MAGIC_ERROR;
 			break;
 		case 'e':
+		case OPT_EXCLUDE_QUIET:
 			for (i = 0; i < __arraycount(nv); i++)
 				if (strcmp(nv[i].name, optarg) == 0)
 					break;
 
-			if (i == __arraycount(nv))
-				errflg++;
-			else
+			if (i == __arraycount(nv)) {
+				if (c != OPT_EXCLUDE_QUIET)
+					errflg++;
+			} else
 				flags |= nv[i].value;
 			break;
 
@@ -325,11 +346,11 @@ main(int argc, char *argv[])
 		case 's':
 			flags |= MAGIC_DEVICES;
 			break;
-#ifdef HAVE_LIBSECCOMP
 		case 'S':
+#ifdef HAVE_LIBSECCOMP
 			sandbox = 0;
-			break;
 #endif
+			break;
 		case 'v':
 			if (magicfile == NULL)
 				magicfile = magic_getpath(magicfile, action);
@@ -337,6 +358,9 @@ main(int argc, char *argv[])
 			    VERSION);
 			(void)fprintf(stdout, "magic file from %s\n",
 			    magicfile);
+#ifdef HAVE_LIBSECCOMP
+			(void)fprintf(stdout, "seccomp support included\n");
+#endif
 			return 0;
 		case 'z':
 			flags |= MAGIC_COMPRESS;
@@ -625,7 +649,7 @@ private void
 usage(void)
 {
 	const char *pn = file_getprogname();
-	(void)fprintf(stderr, COMPAT_MODE("bin/file", "unix2003") ? USAGE03 : USAGE, pn, pn);
+	(void)fprintf(stderr, COMPAT_MODE("bin/file", "unix2003") ? USAGE03 : USAGE, pn, pn, pn);
 	(void)fputs("Try `file --help' for more information.\n", stderr);
 	exit(EXIT_FAILURE);
 }
@@ -644,10 +668,10 @@ private void
 docprint(const char *opts, int def)
 {
 	size_t i;
-	int comma;
+	int comma, pad;
 	char *sp, *p;
 
-	p = strstr(opts, "%o");
+	p = strchr(opts, '%');
 	if (p == NULL) {
 		fprintf(stdout, "%s", opts);
 		defprint(def);
@@ -658,17 +682,34 @@ docprint(const char *opts, int def)
 		continue;
 
 	fprintf(stdout, "%.*s", CAST(int, p - opts), opts);
+	pad = (int)CAST(int, p - sp - 1);
 
-	comma = 0;
-	for (i = 0; i < __arraycount(nv); i++) {
-		fprintf(stdout, "%s%s", comma++ ? ", " : "", nv[i].name);
-		if (i && i % 5 == 0 && i != __arraycount(nv) - 1) {
-			fprintf(stdout, ",\n%*s", CAST(int, p - sp - 1), "");
-			comma = 0;
+	switch (*++p) {
+	case 'e':
+		comma = 0;
+		for (i = 0; i < __arraycount(nv); i++) {
+			fprintf(stdout, "%s%s", comma++ ? ", " : "", nv[i].name);
+			if (i && i % 5 == 0 && i != __arraycount(nv) - 1) {
+				fprintf(stdout, ",\n%*s", pad, "");
+				comma = 0;
+			}
 		}
+		break;
+	case 'P':
+		for (i = 0; i < __arraycount(pm); i++) {
+			fprintf(stdout, "%9s %7zu %s", pm[i].name, pm[i].def,
+			    pm[i].desc);
+			if (i != __arraycount(pm) - 1)
+				fprintf(stdout, "\n%*s", pad, "");
+		}
+		break;
+	default:
+		file_errx(EXIT_FAILURE, "Unknown escape `%c' in long options",
+		   *p);
+		break;
 	}
+	fprintf(stdout, "%s", opts + (p - opts) + 1);
 
-	fprintf(stdout, "%s", opts + (p - opts) + 2);
 }
 
 private void
@@ -682,7 +723,7 @@ help(void)
 #define OPT(shortname, longname, opt, def, doc)      \
 	fprintf(stdout, "  -%c, --" longname, shortname), \
 	docprint(doc, def);
-#define OPT_LONGONLY(longname, opt, def, doc, id)        \
+#define OPT_LONGONLY(longname, opt, def, doc, id)	\
 	fprintf(stdout, "      --" longname),   \
 	docprint(doc, def);
 
@@ -721,7 +762,10 @@ file_err(int e, const char *fmt, ...)
 	fprintf(stderr, "%s: ", file_progname);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
-	fprintf(stderr, " (%s)\n", strerror(se));
+	if (se)
+		fprintf(stderr, " (%s)\n", strerror(se));
+	else
+		fputc('\n', stderr);
 	exit(e);
 }
 
@@ -748,7 +792,10 @@ file_warn(const char *fmt, ...)
 	fprintf(stderr, "%s: ", file_progname);
 	vfprintf(stderr, fmt, ap);
 	va_end(ap);
-	fprintf(stderr, " (%s)\n", strerror(se));
+	if (se)
+		fprintf(stderr, " (%s)\n", strerror(se));
+	else
+		fputc('\n', stderr);
 	errno = se;
 }
 

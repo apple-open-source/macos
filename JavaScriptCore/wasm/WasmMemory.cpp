@@ -33,8 +33,6 @@
 #include <wtf/DataLog.h>
 #include <wtf/Gigacage.h>
 #include <wtf/Lock.h>
-#include <wtf/OSAllocator.h>
-#include <wtf/PageBlock.h>
 #include <wtf/Platform.h>
 #include <wtf/PrintStream.h>
 #include <wtf/RAMSize.h>
@@ -120,8 +118,7 @@ public:
                 m_fastMemories.size() >= m_maxFastMemoryCount / 2 ? MemoryResult::SuccessAndNotifyMemoryPressure : MemoryResult::Success);
         }();
         
-        if (Options::logWebAssemblyMemory())
-            dataLog("Allocated virtual: ", result, "; state: ", *this, "\n");
+        dataLogLnIf(Options::logWebAssemblyMemory(), "Allocated virtual: ", result, "; state: ", *this);
         
         return result;
     }
@@ -134,8 +131,7 @@ public:
             m_fastMemories.removeFirst(basePtr);
         }
         
-        if (Options::logWebAssemblyMemory())
-            dataLog("Freed virtual; state: ", *this, "\n");
+        dataLogLnIf(Options::logWebAssemblyMemory(), "Freed virtual; state: ", *this);
     }
     
     bool isAddressInFastMemory(void* address)
@@ -172,8 +168,7 @@ public:
             return MemoryResult::Success;
         }();
         
-        if (Options::logWebAssemblyMemory())
-            dataLog("Allocated physical: ", bytes, ", ", MemoryResult::toString(result), "; state: ", *this, "\n");
+        dataLogLnIf(Options::logWebAssemblyMemory(), "Allocated physical: ", bytes, ", ", MemoryResult::toString(result), "; state: ", *this);
         
         return result;
     }
@@ -185,8 +180,7 @@ public:
             m_physicalBytes -= bytes;
         }
         
-        if (Options::logWebAssemblyMemory())
-            dataLog("Freed physical: ", bytes, "; state: ", *this, "\n");
+        dataLogLnIf(Options::logWebAssemblyMemory(), "Freed physical: ", bytes, "; state: ", *this);
     }
     
     void dump(PrintStream& out) const
@@ -362,7 +356,7 @@ size_t Memory::fastMappedRedzoneBytes()
 size_t Memory::fastMappedBytes()
 {
     static_assert(sizeof(uint64_t) == sizeof(size_t), "We rely on allowing the maximum size of Memory we map to be 2^32 + redzone which is larger than fits in a 32-bit integer that we'd pass to mprotect if this didn't hold.");
-    return static_cast<size_t>(std::numeric_limits<uint32_t>::max()) + fastMappedRedzoneBytes();
+    return (static_cast<size_t>(1) << 32) + fastMappedRedzoneBytes();
 }
 
 bool Memory::addressIsInActiveFastMemory(void* address)

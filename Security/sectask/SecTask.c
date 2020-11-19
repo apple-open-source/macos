@@ -25,6 +25,7 @@
 #include "SecTaskPriv.h"
 
 #include <utilities/debugging.h>
+#include <utilities/entitlements.h>
 
 #include <AssertMacros.h>
 #include <CoreFoundation/CFRuntime.h>
@@ -237,46 +238,44 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
     uint32_t bufferlen;
     int ret;
 
-    
     ret = csops_task(task, CS_OPS_ENTITLEMENTS_BLOB, &header, sizeof(header));
     /* Any other combination means no entitlements */
-	if (ret == -1) {
-		if (errno != ERANGE) {
+    if (ret == -1) {
+        if (errno != ERANGE) {
             int entitlementErrno = errno;
 
-			uint32_t cs_flags = -1;
+            uint32_t cs_flags = -1;
             if (-1 == csops_task(task, CS_OPS_STATUS, &cs_flags, sizeof(cs_flags))) {
                 syslog(LOG_NOTICE, "Failed to get cs_flags, error=%d", errno);
             }
 
-			if (cs_flags != 0) {	// was signed
+            if (cs_flags != 0) {	// was signed
+                pid_t pid;
+                audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+                syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, pid=%d", entitlementErrno, cs_flags, pid);	// to ease diagnostics
 
-				pid_t pid;
-				audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
-	            syslog(LOG_NOTICE, "SecTaskLoadEntitlements failed error=%d cs_flags=%x, pid=%d", entitlementErrno, cs_flags, pid);	// to ease diagnostics
+                CFStringRef description = SecTaskCopyDebugDescription(task);
+                char *descriptionBuf = NULL;
+                CFIndex descriptionSize = CFStringGetLength(description) * 4;
+                descriptionBuf = (char *)malloc(descriptionSize);
+                if (!CFStringGetCString(description, descriptionBuf, descriptionSize, kCFStringEncodingUTF8)) {
+                    descriptionBuf[0] = 0;
+                }
 
-				CFStringRef description = SecTaskCopyDebugDescription(task);
-				char *descriptionBuf = NULL;
-				CFIndex descriptionSize = CFStringGetLength(description) * 4;
-				descriptionBuf = (char *)malloc(descriptionSize);
-				if (!CFStringGetCString(description, descriptionBuf, descriptionSize, kCFStringEncodingUTF8)) {
-					descriptionBuf[0] = 0;
-				}
+                syslog(LOG_NOTICE, "SecTaskCopyDebugDescription: %s", descriptionBuf);
+                CFReleaseNull(description);
+                free(descriptionBuf);
+            }
+            task->lastFailure = entitlementErrno;	// was overwritten by csops_task(CS_OPS_STATUS) above
 
-				syslog(LOG_NOTICE, "SecTaskCopyDebugDescription: %s", descriptionBuf);
-				CFReleaseNull(description);
-				free(descriptionBuf);
-			}
-			task->lastFailure = entitlementErrno;	// was overwritten by csops_task(CS_OPS_STATUS) above
-
-			// EINVAL is what the kernel says for unsigned code, so we'll have to let that pass
-			if (entitlementErrno == EINVAL) {
-				task->entitlementsLoaded = true;
-				return true;
-			}
-			ret = entitlementErrno;	// what really went wrong
-			goto out;		// bail out
-		}
+            // EINVAL is what the kernel says for unsigned code, so we'll have to let that pass
+            if (entitlementErrno == EINVAL) {
+                task->entitlementsLoaded = true;
+                return true;
+            }
+            ret = entitlementErrno;	// what really went wrong
+            goto out;		// bail out
+        }
         bufferlen = ntohl(header.length);
         /* check for insane values */
         if (bufferlen > 1024 * 1024 || bufferlen < 8) {
@@ -298,9 +297,16 @@ static bool SecTaskLoadEntitlements(SecTaskRef task, CFErrorRef *error)
         entitlements = (CFMutableDictionaryRef) CFPropertyListCreateWithData(kCFAllocatorDefault, data, kCFPropertyListMutableContainers, NULL, error);
         CFReleaseNull(data);
 
-        if((entitlements==NULL) || (CFGetTypeID(entitlements)!=CFDictionaryGetTypeID())){
+        if ((entitlements==NULL) || (CFGetTypeID(entitlements)!=CFDictionaryGetTypeID())){
             ret = EDOM;	// don't use EINVAL here; it conflates problems with syscall error returns
             goto out;
+        }
+
+        bool entitlementsModified = updateCatalystEntitlements(entitlements);
+        if (entitlementsModified) {
+            pid_t pid;
+            audit_token_to_au32(task->token, NULL, NULL, NULL, NULL, NULL, &pid, NULL, NULL);
+            secinfo("SecTask", "Fixed catalyst entitlements for process %d", pid);
         }
     }
 

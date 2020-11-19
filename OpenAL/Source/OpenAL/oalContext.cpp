@@ -282,7 +282,7 @@ void		OALContext::InitializeMixer(UInt32	inStereoBusCount)
 			mSettableMixerAttenuationCurves = true;
 		}
 
-		ComponentDescription	mixerCD;
+		AudioComponentDescription	mixerCD;
 		mixerCD.componentFlags = 0;        
 		mixerCD.componentFlagsMask = 0;     
 		mixerCD.componentType = kAudioUnitType_Mixer;          
@@ -290,10 +290,10 @@ void		OALContext::InitializeMixer(UInt32	inStereoBusCount)
 		mixerCD.componentManufacturer = kAudioUnitManufacturer_Apple;  
 		
 		// CREATE NEW NODE FOR THE GRAPH
-		result = AUGraphNewNode (mOwningDevice->GetGraph(), &mixerCD, 0, NULL, &mMixerNode);
+		result = AUGraphAddNode(mOwningDevice->GetGraph(), &mixerCD, &mMixerNode);
 			THROW_RESULT
 
-		result = AUGraphGetNodeInfo (mOwningDevice->GetGraph(), mMixerNode, 0, 0, 0, &mMixerUnit);
+		result = AUGraphNodeInfo(mOwningDevice->GetGraph(), mMixerNode, &mixerCD, &mMixerUnit);
 			THROW_RESULT   
 
 		// Get Default Distance Setting when the good 3DMixer is around

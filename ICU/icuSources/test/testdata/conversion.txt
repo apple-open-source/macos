@@ -998,6 +998,14 @@ conversion:table(nofallback) {
           :intvector{ },
           :int{1}, :int{0}, "", "?", :bin{""}
         }
+        // windows-1255 <rdar://problem/37223615>
+        {
+          "windows-1255",
+          :bin{ c9cacb },
+          "\u05B9\u05BA\u05BB",
+          :intvector{ 0,1,2 },
+          :int{1}, :int{0}, "", "?", :bin{""}
+        }
       }
     }
 

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSPinnedDomains</key>
+		<dict>
+			<key>example.org</key>
+			<dict>
+				<key>NSPinnedLeafIdentities</key>
+				<array>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>i9HalScvf6T/skE3/A7QOq5n5cTYs8UHNOEFCnkguSI=</string> <!-- example.org (Serial Number 0f:d0:78:dd:48:f1:a2:bd:4d:0f:2b:a9:6b:60:38:fe) -->
+					</dict>
+					<dict>
+						<key>SPKI-SHA256-BASE64</key>
+						<string>i9HalScvf6T/skE3/A7QOq5n5cTYs8UHNOEFCnkguSI=</string>
+					</dict>
+				</array>
+			</dict> <!-- example.org -->
+		</dict> <!-- NSPinnedDomains -->
+	</dict> <!-- NSAppTransportSecurity -->
+</dict>
+</plist>

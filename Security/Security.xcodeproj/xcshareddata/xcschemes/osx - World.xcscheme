@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1120"
+   LastUpgradeVersion = "1200"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "NO"
@@ -27,15 +27,6 @@
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
-      <MacroExpansion>
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "DCE4E7311D7A43B500AFB96E"
-            BuildableName = "SecurityTestsOSX.app"
-            BlueprintName = "SecurityTestsOSX"
-            ReferencedContainer = "container:Security.xcodeproj">
-         </BuildableReference>
-      </MacroExpansion>
       <Testables>
          <TestableReference
             skipped = "NO">
@@ -64,16 +55,6 @@
                BlueprintIdentifier = "6C46056B1F882B9B001421B6"
                BuildableName = "KeychainAnalyticsTests.xctest"
                BlueprintName = "KeychainAnalyticsTests"
-               ReferencedContainer = "container:Security.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "478D426C1FD72A8100CAB645"
-               BuildableName = "secdxctests_mac.xctest"
-               BlueprintName = "secdxctests_mac"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -124,6 +105,16 @@
                BlueprintIdentifier = "DC3502B41E0208BE00BC0587"
                BuildableName = "CKKSTests.xctest"
                BlueprintName = "CKKSTests"
+               ReferencedContainer = "container:Security.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "4727FBB61F9918580003AE36"
+               BuildableName = "secdxctests.xctest"
+               BlueprintName = "secdxctests"
                ReferencedContainer = "container:Security.xcodeproj">
             </BuildableReference>
          </TestableReference>
@@ -264,10 +255,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "bc_10_password"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "kc_40_seckey"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -292,10 +279,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_23_sectrust_ocsp"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_24_sectrust_itms"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -313,10 +296,6 @@
          </CommandLineArgument>
          <CommandLineArgument
             argument = "si_26_sectrust_copyproperties"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_28_sectrustsettings"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
@@ -388,10 +367,6 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_67_sectrust_blocklist"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_70_sectrust_unified"
             isEnabled = "NO">
          </CommandLineArgument>
@@ -400,19 +375,7 @@
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument
-            argument = "si_74_OTA_PKI_Signer"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
             argument = "si_83_seccertificate_sighashalg"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_84_sectrust_allowlist"
-            isEnabled = "NO">
-         </CommandLineArgument>
-         <CommandLineArgument
-            argument = "si_88_sectrust_valid"
             isEnabled = "NO">
          </CommandLineArgument>
          <CommandLineArgument

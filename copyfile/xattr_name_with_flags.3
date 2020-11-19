@@ -7,6 +7,7 @@
 .Sh NAME
 .Nm xattr_preserve_for_intent , xattr_name_with_flags , xattr_name_without_flags ,
 .Nm xattr_flags_from_name , xattr_intent_with_flags
+.Nd obtain properties related to extended attributes, for use in copying
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
@@ -23,7 +24,8 @@
 .Fn xattr_intent_with_flags "xattr_operation_intent_t" "xattr_flags_t"
 .Sh DESCRIPTION
 These functions are used in conjunction with copying extended attributes from
-one file to another.  Various types of copying (an "intent") check flags to
+one file to another.
+Various types of copying (an "intent") check flags to
 determine which is allowed or not.
 .Pp
 The
@@ -32,7 +34,8 @@ function returns an extended attribute name with the appropriate flags encoded
 as a string; the
 .Fn xattr_name_without_flags
 undoes this, giving the name of the extended attribute without the flags
-encoding.  The slight inverse of that is
+encoding.
+The slight inverse of that is
 .Fn xattr_flags_from_name ,
 which will return the flags encoded in a name.
 .Pp
@@ -62,30 +65,30 @@ named extended attribute should be preserved during a copy for
 the given intent.
 .Sh INTENT
 The type
-.Dt xattr_operation_intent_t
-is an integral type, which is used to indicate what the intent for the operation
-is.  The following intent values are defined:
+.Vt xattr_operation_intent_t
+is an integral type, which is used to indicate what the intent for the operation is.
+The following intent values are defined:
 .Bl -tag -width XATTR_OPERATION_INTENT_SHARE
 .It Dv XATTR_OPERATION_INTENT_COPY
 Indicates that the intent is to simply copy from the source to the destination.
-E.g., with cp.  Most extended attributes should generally be preserved in this
-case.
+E.g., with cp.
+Most extended attributes should generally be preserved in this case.
 .It Dv XATTR_OPERATION_INTENT_SAVE
 Indicates that intent is to perform a save (perhaps as in a "safe save").
 This differs from a copy in that the content may be changing; the destination
 may be over-writing or replacing the source, and some extended attributes should
 not be preserved during this process.
 .It Dv XATTR_OPERATION_INTENT_SHARE
-Indicates that the intent is to share, or export, the object.  For example,
-saving as an attachment in an email message, or placing in a public folder.
+Indicates that the intent is to share, or export, the object.
+For example, saving as an attachment in an email message, or placing in a public folder.
 Sensitive information should probably not be preserved in this case.
 .It Dv XATTR_OPERATION_INTENT_SYNC
 Indicates that the intent is to sync the object to a service like iCloud Drive.
 .El
 .Sh FLAGS
 Various flags are defined by the type
-.Dt xattr_flags_t ;
-the currently-defined values for this are
+.Vt xattr_flags_t ;
+the currently-defined values for this are:
 .Bl -tag -width XATTR_FLAG_CONTENT_DEPENDENT
 .It Dv XATTR_FLAG_NO_EXPORT
 This indicates that the extended attribute should not be exported, or shared.
@@ -94,15 +97,16 @@ This is used with
 .It Dv XATTR_FLAG_CONTENT_DEPENDENT
 This indicates that the extended attribute is tied to the contents of the
 file (or vice versa), such that it should be re-created when the contents
-are changed.  A checksum, for example, should not be copied, and would thus
-be marked with this flag.
+are changed.
+A checksum, for example, should not be copied, and would thus be marked with this flag.
 .It Dv XATTR_FLAG_NEVER_PRESERVE
 This indicates that the extended attribute should never be copied from a
 source object to a destination, no matter what the given intent is.
 .It Dv XATTR_FLAG_SYNCABLE
 This indicates that the extended attribute should be copied when the file
-is synced on services like iCloud Drive. Sync services may enforce additional
-restrictions on the acceptable size and number of extended attributes.
+is synced on services like iCloud Drive.
+Sync services may enforce additional restrictions on the acceptable size and number
+of extended attributes.
 .El
 .Sh EXAMPLE
 The following example is a simple function that, given an extended attribute

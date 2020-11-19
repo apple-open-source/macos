@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2010-2019 Apple Inc. All rights reserved.
+ *  Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -22,17 +22,21 @@
 #include <array>
 #include <wtf/Atomics.h>
 #include <wtf/HashFunctions.h>
-#include <wtf/StdLibExtras.h>
-#include <stdint.h>
+#include <wtf/MathExtras.h>
+#include <wtf/StdIntExtras.h>
 #include <string.h>
+#include <type_traits>
 
 namespace WTF {
 
-template<size_t bitmapSize, typename WordType = uint32_t>
+template<size_t size>
+using BitmapWordType = std::conditional_t<(size <= 32 && sizeof(UCPURegister) > sizeof(uint32_t)), uint32_t, UCPURegister>;
+
+template<size_t bitmapSize, typename WordType = BitmapWordType<bitmapSize>>
 class Bitmap final {
     WTF_MAKE_FAST_ALLOCATED;
     
-    static_assert(sizeof(WordType) <= sizeof(unsigned), "WordType must not be bigger than unsigned");
+    static_assert(sizeof(WordType) <= sizeof(UCPURegister), "WordType must not be bigger than the CPU atomic word size");
 public:
     constexpr Bitmap();
 
@@ -51,10 +55,11 @@ public:
     size_t nextPossiblyUnset(size_t) const;
     void clear(size_t);
     void clearAll();
+    void invert();
     int64_t findRunOfZeros(size_t runLength) const;
     size_t count(size_t start = 0) const;
-    size_t isEmpty() const;
-    size_t isFull() const;
+    bool isEmpty() const;
+    bool isFull() const;
     
     void merge(const Bitmap&);
     void filter(const Bitmap&);
@@ -113,10 +118,16 @@ public:
     
     void mergeAndClear(Bitmap&);
     void setAndClear(Bitmap&);
-    
+
+    void setEachNthBit(size_t n, size_t start = 0, size_t end = bitmapSize);
+
     bool operator==(const Bitmap&) const;
     bool operator!=(const Bitmap&) const;
-    
+
+    void operator|=(const Bitmap&);
+    void operator&=(const Bitmap&);
+    void operator^=(const Bitmap&);
+
     unsigned hash() const;
 
 private:
@@ -225,6 +236,18 @@ inline void Bitmap<bitmapSize, WordType>::clearAll()
 }
 
 template<size_t bitmapSize, typename WordType>
+inline void Bitmap<bitmapSize, WordType>::invert()
+{
+    for (size_t i = 0; i < words; ++i)
+        bits[i] = ~bits[i];
+    if constexpr (!!(bitmapSize % wordSize)) {
+        constexpr size_t remainingBits = bitmapSize % wordSize;
+        constexpr WordType mask = (static_cast<WordType>(1) << remainingBits) - 1;
+        bits[words - 1] &= mask;
+    }
+}
+
+template<size_t bitmapSize, typename WordType>
 inline size_t Bitmap<bitmapSize, WordType>::nextPossiblyUnset(size_t start) const
 {
     if (!~bits[start / wordSize])
@@ -238,6 +261,9 @@ inline int64_t Bitmap<bitmapSize, WordType>::findRunOfZeros(size_t runLength) co
     if (!runLength) 
         runLength = 1; 
      
+    if (runLength > bitmapSize)
+        return -1;
+
     for (size_t i = 0; i <= (bitmapSize - runLength) ; i++) {
         bool found = true; 
         for (size_t j = i; j <= (i + runLength - 1) ; j++) { 
@@ -261,12 +287,12 @@ inline size_t Bitmap<bitmapSize, WordType>::count(size_t start) const
             ++result;
     }
     for (size_t i = start / wordSize; i < words; ++i)
-        result += WTF::bitCount(static_cast<unsigned>(bits[i]));
+        result += WTF::bitCount(bits[i]);
     return result;
 }
 
 template<size_t bitmapSize, typename WordType>
-inline size_t Bitmap<bitmapSize, WordType>::isEmpty() const
+inline bool Bitmap<bitmapSize, WordType>::isEmpty() const
 {
     for (size_t i = 0; i < words; ++i)
         if (bits[i])
@@ -275,11 +301,20 @@ inline size_t Bitmap<bitmapSize, WordType>::isEmpty() const
 }
 
 template<size_t bitmapSize, typename WordType>
-inline size_t Bitmap<bitmapSize, WordType>::isFull() const
+inline bool Bitmap<bitmapSize, WordType>::isFull() const
 {
     for (size_t i = 0; i < words; ++i)
-        if (~bits[i])
+        if (~bits[i]) {
+            if constexpr (!!(bitmapSize % wordSize)) {
+                if (i == words - 1) {
+                    constexpr size_t remainingBits = bitmapSize % wordSize;
+                    constexpr WordType mask = (static_cast<WordType>(1) << remainingBits) - 1;
+                    if ((bits[i] & mask) == mask)
+                        return true;
+                }
+            }
             return false;
+        }
     return true;
 }
 
@@ -394,6 +429,37 @@ inline void Bitmap<bitmapSize, WordType>::setAndClear(Bitmap& other)
 }
 
 template<size_t bitmapSize, typename WordType>
+inline void Bitmap<bitmapSize, WordType>::setEachNthBit(size_t n, size_t start, size_t end)
+{
+    ASSERT(start <= end);
+    ASSERT(end <= bitmapSize);
+
+    size_t wordIndex = start / wordSize;
+    size_t endWordIndex = end / wordSize;
+    size_t index = start - wordIndex * wordSize;
+    while (wordIndex < endWordIndex) {
+        while (index < wordSize) {
+            bits[wordIndex] |= (one << index);
+            index += n;
+        }
+        index -= wordSize;
+        wordIndex++;
+    }
+
+    size_t endIndex = end - endWordIndex * wordSize;
+    while (index < endIndex) {
+        bits[wordIndex] |= (one << index);
+        index += n;
+    }
+
+    if constexpr (!!(bitmapSize % wordSize)) {
+        constexpr size_t remainingBits = bitmapSize % wordSize;
+        constexpr WordType mask = (static_cast<WordType>(1) << remainingBits) - 1;
+        bits[words - 1] &= mask;
+    }
+}
+
+template<size_t bitmapSize, typename WordType>
 inline bool Bitmap<bitmapSize, WordType>::operator==(const Bitmap& other) const
 {
     for (size_t i = 0; i < words; ++i) {
@@ -407,6 +473,27 @@ template<size_t bitmapSize, typename WordType>
 inline bool Bitmap<bitmapSize, WordType>::operator!=(const Bitmap& other) const
 {
     return !(*this == other);
+}
+
+template<size_t bitmapSize, typename WordType>
+inline void Bitmap<bitmapSize, WordType>::operator|=(const Bitmap& other)
+{
+    for (size_t i = 0; i < words; ++i)
+        bits[i] |= other.bits[i];
+}
+
+template<size_t bitmapSize, typename WordType>
+inline void Bitmap<bitmapSize, WordType>::operator&=(const Bitmap& other)
+{
+    for (size_t i = 0; i < words; ++i)
+        bits[i] &= other.bits[i];
+}
+
+template<size_t bitmapSize, typename WordType>
+inline void Bitmap<bitmapSize, WordType>::operator^=(const Bitmap& other)
+{
+    for (size_t i = 0; i < words; ++i)
+        bits[i] ^= other.bits[i];
 }
 
 template<size_t bitmapSize, typename WordType>

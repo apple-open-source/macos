@@ -855,6 +855,13 @@ setrouter(const char *vname, int value, int s, const struct afswtch *afp)
 	afp->af_setrouter(s, value);
 }
 
+static int
+routermode(int argc, char *const *argv, int s, const struct afswtch *afp)
+{
+	return (*afp->af_routermode)(s, argc, argv);
+}
+
+
 static void
 setifdesc(const char *val, int dummy __unused, int s, const struct afswtch *afp)
 {
@@ -1627,6 +1634,35 @@ setifavailability(const char *vname, int value, int s, const struct afswtch *afp
 		warn("ioctl(SIOCSIFINTERFACESTATE)");
 }
 
+static void
+show_routermode(int s)
+{
+	struct afswtch *afp;
+
+	afp = af_getbyname("inet");
+	if (afp != NULL) {
+		(*afp->af_routermode)(s, 0, NULL);
+	}
+}
+
+static void
+show_routermode6(void)
+{
+	struct afswtch *afp;
+	static int 	s = -1;
+
+	afp = af_getbyname("inet6");
+	if (afp != NULL) {
+		if (s < 0) {
+			s = socket(AF_INET6, SOCK_DGRAM, 0);
+			if (s < 0) {
+				perror("socket");
+				return;
+			}
+		}
+		(*afp->af_routermode)(s, 0, NULL);
+	}
+}
 
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
@@ -1636,7 +1672,7 @@ setifavailability(const char *vname, int value, int s, const struct afswtch *afp
 #define	IFEFBITS \
 "\020\1AUTOCONFIGURING\4PROBE_CONNECTIVITY\5FASTLN_CAP\6IPV6_DISABLED\7ACCEPT_RTADV\10TXSTART\11RXPOLL" \
 "\12VLAN\13BOND\14ARPLL\15CLAT46\16NOAUTOIPV6LL\17EXPENSIVE\20ROUTER4" \
-"\21ROUTER6\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
+"\22LOCALNET_PRIVATE\23ND6ALT\24RESTRICTED_RECV\25AWDL\26NOACKPRI" \
 "\27AWDL_RESTRICTED\30CL2K\31ECN_ENABLE\32ECN_DISABLE\33CHANNEL_DRV\34CA" \
 "\35SENDLIST\36DIRECTLINK\37FASTLN_ON\40UPDOWNCHANGE"
 
@@ -1798,8 +1834,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 				printf("\tfunctional type: %s\n", c);
 		}
 	}
-
-	if (verbose > 0) {
+	{
 		struct if_agentidsreq ifar;
 		memset(&ifar, 0, sizeof(ifar));
 
@@ -1863,7 +1898,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 		}
 	}
 
-	if (verbose > 0) {
+	{
 		if (ioctl(s, SIOCGIFINTERFACESTATE, &ifr) != -1) {
 			printf("\tstate");
 			if (ifr.ifr_interface_state.valid_bitmask &
@@ -2095,14 +2130,17 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 	}
 #endif /* defined(SIOCGQOSMARKINGENABLED) && defined(SIOCGQOSMARKINGMODE) */
 
-	if (verbose > 0 && ioctl(s, SIOCGIFLOWPOWER, &ifr) != -1) {
+	if (ioctl(s, SIOCGIFLOWPOWER, &ifr) != -1) {
 		printf("\tlow power mode: %s\n",
 		       (ifr.ifr_low_power_mode != 0) ? "enabled" : "disabled");
 	}
-	if (verbose > 0 && ioctl(s, SIOCGIFMPKLOG, &ifr) != -1) {
+	if (ioctl(s, SIOCGIFMPKLOG, &ifr) != -1) {
 		printf("\tmulti layer packet logging (mpklog): %s\n",
 		       (ifr.ifr_mpk_log != 0) ? "enabled" : "disabled");
 	}
+	show_routermode(s);
+	show_routermode6();
+
 done:
 	close(s);
 	return;
@@ -2445,6 +2483,7 @@ static struct cmd basic_cmds[] = {
 #endif /* IFCAP_AV */
 	DEF_CMD("router",	1,		setrouter),
 	DEF_CMD("-router",	0,		setrouter),
+	DEF_CMD_VA("routermode", 		routermode),
 	DEF_CMD_ARG("desc",			setifdesc),
 	DEF_CMD_ARG("tbr",			settbr),
 	DEF_CMD_VA("netem",			setnetem),
@@ -2493,12 +2532,6 @@ sched2str(unsigned int s)
 	switch (s) {
 	case PKTSCHEDT_NONE:
 		c = "NONE";
-		break;
-	case PKTSCHEDT_TCQ:
-		c = "TCQ";
-		break;
-	case PKTSCHEDT_QFQ:
-		c = "QFQ";
 		break;
 	case PKTSCHEDT_FQ_CODEL:
 		c = "FQ_CODEL";

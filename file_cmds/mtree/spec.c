@@ -47,6 +47,7 @@ __FBSDID("$FreeBSD: src/usr.sbin/mtree/spec.c,v 1.22 2005/03/29 11:44:17 tobez E
 #include <stdint.h>
 #include <unistd.h>
 #include <vis.h>
+#include "metrics.h"
 #include "mtree.h"
 #include "extern.h"
 
@@ -74,8 +75,10 @@ mtree_readspec(FILE *fi)
 			continue;
 
 		/* Find end of line. */
-		if ((p = index(buf, '\n')) == NULL)
+		if ((p = index(buf, '\n')) == NULL) {
+			RECORD_FAILURE(21, ERANGE);
 			errx(1, "line %d too long", lineno);
+		}
 
 		/* See if next line is continuation line. */
 		if (p[-1] == '\\') {
@@ -102,8 +105,10 @@ mtree_readspec(FILE *fi)
 		}
 
 		/* Grab file name, "$", "set", or "unset". */
-		if ((p = strtok(p, "\n\t ")) == NULL)
+		if ((p = strtok(p, "\n\t ")) == NULL) {
+			RECORD_FAILURE(22, EINVAL);
 			errx(1, "line %d: missing field", lineno);
+		}
 
 		if (p[0] == '/')
 			switch(p[1]) {
@@ -119,9 +124,11 @@ mtree_readspec(FILE *fi)
 				continue;
 			}
 
-		if (index(p, '/'))
+		if (index(p, '/')) {
+			RECORD_FAILURE(23, EINVAL);
 			errx(1, "line %d: slash character in file name",
 			lineno);
+		}
 
 		if (!strcmp(p, "..")) {
 			/* Don't go up, if haven't gone down. */
@@ -135,17 +142,22 @@ mtree_readspec(FILE *fi)
 			last->flags |= F_DONE;
 			continue;
 
-noparent:		errx(1, "line %d: no parent node", lineno);
+noparent:		RECORD_FAILURE(24, EINVAL);
+			errx(1, "line %d: no parent node", lineno);
 		}
 
-		if ((centry = calloc(1, sizeof(NODE) + strlen(p))) == NULL)
+		if ((centry = calloc(1, sizeof(NODE) + strlen(p))) == NULL) {
+			RECORD_FAILURE(25, ENOMEM);
 			errx(1, "calloc");
+		}
 		*centry = ginfo;
 #define	MAGIC	"?*["
 		if (strpbrk(p, MAGIC))
 			centry->flags |= F_MAGIC;
-		if (strunvis(centry->name, p) == -1)
+		if (strunvis(centry->name, p) == -1) {
+			RECORD_FAILURE(26, EILSEQ);
 			errx(1, "filename %s is ill-encoded", p);
+		}
 		set(NULL, centry);
 
 		if (!root) {
@@ -166,6 +178,7 @@ noparent:		errx(1, "line %d: no parent node", lineno);
 static void
 set(char *t, NODE *ip)
 {
+	int error = 0;
 	int type;
 	char *kw, *val = NULL;
 	struct group *gr;
@@ -176,90 +189,122 @@ set(char *t, NODE *ip)
 
 	for (; (kw = strtok(t, "= \t\n")); t = NULL) {
 		ip->flags |= type = parsekey(kw, &value);
-		if ((value == 0) || (val = strtok(NULL, " \t\n")) == NULL)
+		if ((value == 0) || (val = strtok(NULL, " \t\n")) == NULL) {
+			RECORD_FAILURE(27, EINVAL);
 			errx(1, "line %d: missing value", lineno);
+		}
 		switch(type) {
 			case F_CKSUM:
 				ip->cksum = strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(28, EINVAL);
 					errx(1, "line %d: invalid checksum %s",
 					     lineno, val);
+				}
 				break;
 			case F_MD5:
 				ip->md5digest = strdup(val);
-				if(!ip->md5digest)
+				if (!ip->md5digest) {
+					RECORD_FAILURE(29, ENOMEM);
 					errx(1, "strdup");
+				}
 				break;
 			case F_SHA1:
 				ip->sha1digest = strdup(val);
-				if(!ip->sha1digest)
+				if (!ip->sha1digest) {
+					RECORD_FAILURE(30, ENOMEM);
 					errx(1, "strdup");
+				}
 				break;
 			case F_SHA256:
 				ip->sha256digest = strdup(val);
-				if(!ip->sha256digest)
+				if (!ip->sha256digest) {
+					RECORD_FAILURE(31, ENOMEM);
 					errx(1, "strdup");
+				}
 				break;
 			case F_RMD160:
 				ip->rmd160digest = strdup(val);
-				if(!ip->rmd160digest)
+				if (!ip->rmd160digest) {
+					RECORD_FAILURE(32, ENOMEM);
 					errx(1, "strdup");
+				}
 				break;
 			case F_FLAGS:
-				if (strcmp("none", val) == 0)
+				if (strcmp("none", val) == 0) {
 					ip->st_flags = 0;
-				else if (strtofflags(&val, &ip->st_flags, NULL) != 0)
+				} else if (strtofflags(&val, &ip->st_flags, NULL) != 0) {
+					RECORD_FAILURE(33, EINVAL);
 					errx(1, "line %d: invalid flag %s",lineno, val);
+				}
 				break;
 			case F_GID:
 				ip->st_gid = (gid_t)strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(34, EINVAL);
 					errx(1, "line %d: invalid gid %s", lineno, val);
+				}
 				break;
 			case F_GNAME:
-				if ((gr = getgrnam(val)) == NULL)
+				if ((gr = getgrnam(val)) == NULL) {
+					RECORD_FAILURE(35, EINVAL);
 					errx(1, "line %d: unknown group %s", lineno, val);
+				}
 				ip->st_gid = gr->gr_gid;
 				break;
 			case F_IGN:
 				/* just set flag bit */
 				break;
 			case F_MODE:
-				if ((m = setmode(val)) == NULL)
+				if ((m = setmode(val)) == NULL) {
+					RECORD_FAILURE(36, EINVAL);
 					errx(1, "line %d: invalid file mode %s",
 					     lineno, val);
+				}
 				ip->st_mode = getmode(m, 0);
 				free(m);
 				break;
 			case F_NLINK:
 				ip->st_nlink = strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(37, EINVAL);
 					errx(1, "line %d: invalid link count %s",
 					     lineno,  val);
+				}
 				break;
 			case F_SIZE:
 				ip->st_size = strtoq(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(38, EINVAL);
 					errx(1, "line %d: invalid size %s",
 					     lineno, val);
+				}
 				break;
 			case F_SLINK:
 				ip->slink = malloc(strlen(val) + 1);
-				if (ip->slink == NULL)
+				if (ip->slink == NULL) {
+					RECORD_FAILURE(39, ENOMEM);
 					errx(1, "malloc");
-				if (strunvis(ip->slink, val) == -1)
+				}
+				if (strunvis(ip->slink, val) == -1) {
+					RECORD_FAILURE(40, EILSEQ);
 					errx(1, "symlink %s is ill-encoded", val);
+				}
 				break;
 			case F_TIME:
 				ip->st_mtimespec.tv_sec = strtoul(val, &ep, 10);
-				if (*ep != '.')
+				if (*ep != '.') {
+					RECORD_FAILURE(41, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				val = ep + 1;
 				ip->st_mtimespec.tv_nsec = strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(42, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				break;
 			case F_TYPE:
 				switch(*val) {
@@ -290,78 +335,127 @@ set(char *t, NODE *ip)
 							ip->type = F_SOCK;
 						break;
 					default:
+						RECORD_FAILURE(43, EINVAL);
 						errx(1, "line %d: unknown file type %s",
 						     lineno, val);
 				}
 				break;
 			case F_UID:
 				ip->st_uid = (uid_t)strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(44, EINVAL);
 					errx(1, "line %d: invalid uid %s", lineno, val);
+				}
 				break;
 			case F_UNAME:
-				if ((pw = getpwnam(val)) == NULL)
+				if ((pw = getpwnam(val)) == NULL) {
+					RECORD_FAILURE(45, EINVAL);
 					errx(1, "line %d: unknown user %s", lineno, val);
+				}
 				ip->st_uid = pw->pw_uid;
 				break;
 			case F_BTIME:
 				ip->st_birthtimespec.tv_sec = strtoul(val, &ep, 10);
-				if (*ep != '.')
+				if (*ep != '.') {
+					RECORD_FAILURE(46, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				val = ep + 1;
 				ip->st_birthtimespec.tv_nsec = strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(47, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				break;
 			case F_ATIME:
 				ip->st_atimespec.tv_sec = strtoul(val, &ep, 10);
-				if (*ep != '.')
+				if (*ep != '.') {
+					RECORD_FAILURE(48, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				val = ep + 1;
 				ip->st_atimespec.tv_nsec = strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(49, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				break;
 			case F_CTIME:
 				ip->st_ctimespec.tv_sec = strtoul(val, &ep, 10);
-				if (*ep != '.')
+				if (*ep != '.') {
+					RECORD_FAILURE(50, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				val = ep + 1;
 				ip->st_ctimespec.tv_nsec = strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(51, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				break;
 			case F_PTIME:
 				ip->st_ptimespec.tv_sec = strtoul(val, &ep, 10);
-				if (*ep != '.')
+				if (*ep != '.') {
+					RECORD_FAILURE(52, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				val = ep + 1;
 				ip->st_ptimespec.tv_nsec = strtoul(val, &ep, 10);
-				if (*ep)
+				if (*ep) {
+					RECORD_FAILURE(53, EINVAL);
 					errx(1, "line %d: invalid time %s",
 					     lineno, val);
+				}
 				break;
 			case F_XATTRS:
-				ip->xattrsdigest = strdup(val);
-				if(!ip->xattrsdigest)
-					err(1, "strdup");
+				ep = strtok(val,".");
+				ip->xattrsdigest = strdup(ep);
+				if (!ip->xattrsdigest) {
+					error = errno;
+					RECORD_FAILURE(54, error);
+					errc(1, error, "strdup");
+				}
+				val = strtok(NULL,".");
+				if (val) {
+					ip->xdstream_priv_id = strtoull(val, &ep, 10);
+					if (*ep) {
+						RECORD_FAILURE(55, EINVAL);
+						errx(1, "line %d: invalid private id %s",
+						     lineno, val);
+					}
+				} else {
+					ip->xdstream_priv_id = 0;
+				}
 				break;
 			case F_INODE:
 				ip->st_ino = (ino_t)strtoull(val, &ep, 10);
-				if (*ep)
-					errx(1, "line %d: invalid inode %s", lineno, val);
+				if (*ep) {
+					RECORD_FAILURE(56, EINVAL);
+					errx(1, "line %d: invalid inode %s",
+					     lineno, val);
+				}
 				break;
 			case F_ACL:
 				ip->acldigest = strdup(val);
-				if(!ip->acldigest)
-					err(1, "strdup");
+				if (!ip->acldigest) {
+					error = errno;
+					RECORD_FAILURE(57, error);
+					errc(1, error, "strdup");
+				}
+				break;
+			case F_SIBLINGID:
+				ip->sibling_id = (quad_t)strtoull(val, &ep, 10);
+				if (*ep) {
+					RECORD_FAILURE(58, EINVAL);
+					errx(1, "line %d: invalid sibling id %s", lineno, val);
+				}
 		}
 	}
 }

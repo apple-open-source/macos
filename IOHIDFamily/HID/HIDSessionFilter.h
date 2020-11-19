@@ -15,6 +15,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class HIDEventService;
 @class HIDEvent;
 @class HIDSession;
+@class HIDConnection;
 
 @protocol HIDSessionFilter <NSObject>
 
@@ -131,6 +132,35 @@ NS_ASSUME_NONNULL_BEGIN
  * The dispatch queue object to be used by the session filter.
  */
 - (void)setDispatchQueue:(dispatch_queue_t)queue;
+
+/*!
+ * @method filterEvent
+ *
+ * @abstract
+ * Filters an event from the provided service to the provided connection.
+ *
+ * @discussion
+ * The filterEvent method provides the session filter with a stream of events
+ * from every service. The session filter may observe, modify, or drop the event
+ * if it chooses. This variant of filterEvent can filter events as they branch to be sent
+ * to specific connections. Filtering out an event will not filter copies of the event sent
+ * to other connections.
+ *
+ * @param event
+ * The event to filter.
+ *
+ * @param connection
+ * The connection that would receive the event.
+ *
+ * @param service
+ * The service associated with the event.
+ *
+ * @result
+ * Returns a filtered event, or nil if the event should be dropped.
+ */
+- (nullable HIDEvent *)filterEvent:(HIDEvent *)event
+                      toConnection:(HIDConnection *)connection
+                       fromService:(HIDEventService *)service;
 
 @end
 

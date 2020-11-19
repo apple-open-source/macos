@@ -167,8 +167,8 @@ void WebViewLayerFlushScheduler::layerFlushCallback()
 + (void)initialize
 {
 #if !PLATFORM(IOS_FAMILY)
-    JSC::initializeThreading();
-    RunLoop::initializeMainRunLoop();
+    JSC::initialize();
+    WTF::initializeMainThread();
 #endif
 }
 
@@ -206,9 +206,7 @@ void WebViewLayerFlushScheduler::layerFlushCallback()
 
     pluginDatabaseClientCount++;
 
-#if USE(DICTATION_ALTERNATIVES)
     m_alternativeTextUIController = makeUnique<WebCore::AlternativeTextUIController>();
-#endif
 
     return self;
 }

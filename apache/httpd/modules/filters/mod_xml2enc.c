@@ -24,25 +24,25 @@
 #include <ctype.h>
 
 /* libxml2 includes unicode/[...].h files which uses C++ comments */
-#if defined(__GNUC__)
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic warning "-Wcomment"
+#elif defined(__GNUC__)
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wcomment"
 #endif
-#elif defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic warning "-Wcomment"
 #endif
 
 /* libxml2 */
 #include <libxml/encoding.h>
 
-#if defined(__GNUC__)
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic pop
 #endif
-#elif defined(__clang__)
-#pragma clang diagnostic pop
 #endif
 
 #include "http_protocol.h"
@@ -70,7 +70,7 @@ module AP_MODULE_DECLARE_DATA xml2enc_module;
         (((enc)!=XML_CHAR_ENCODING_NONE)&&((enc)!=XML_CHAR_ENCODING_ERROR))
 
 /*
- * XXX: Check all those ap_assert()s ans replace those that should not happen
+ * XXX: Check all those ap_assert()s and replace those that should not happen
  * XXX: with AP_DEBUG_ASSERT and those that may happen with proper error
  * XXX: handling.
  */

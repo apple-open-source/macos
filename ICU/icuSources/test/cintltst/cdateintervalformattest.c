@@ -41,6 +41,7 @@ static const char tzAsiaTokyo[] = "Asia/Tokyo";
 #define Date201103021030 1299090600000.0 /* 2011-Mar-02 Wed 1030 in US/Pacific, 2011-Mar-03 0330 in Asia/Tokyo */
 #define Date201009270800 1285599629000.0 /* 2010-Sep-27 Mon 0800 in US/Pacific */
 #define Date201712300900 1514653200000.0 /* 2017-Dec-30 Sat 0900 in US/Pacific */
+#define Date200101012200 1546322400000.0 /* 2001-Jan-01 2200 in US/Pacific */
 #define _MINUTE (60.0*1000.0)
 #define _HOUR   (60.0*60.0*1000.0)
 #define _DAY    (24.0*60.0*60.0*1000.0)
@@ -121,6 +122,28 @@ static const DateIntervalFormatTestItem testItems[] = {
     { "fr", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 26.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 10:00" },
     { "fr", "MMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 35.0*_HOUR, "27 sept. \\u00E0 20:00\\u2009\\u2013\\u200928 sept. \\u00E0 19:00" },
 
+    // additional tests for rdar://problem/26911014 (spot check only for now)
+    { "fr_US", "MMMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00E0 8:00 AM\\u2009\\u2013\\u200928 septembre \\u00E0 1:00 AM" },
+    { "fr_US", "MMMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00E0 8:00 PM\\u2009\\u2013\\u20091:00 AM" },
+    { "fr_AR", "MMMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00e0 08:00\\u2009\\u2013\\u200928 septembre \\u00e0 01:00" },
+    { "fr_AR", "MMMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00e0 20:00\\u2009\\u2013\\u200901:00" },
+    { "fr_JP", "MMMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00e0 08:00\\u2009\\u2013\\u200928 septembre \\u00e0 01:00" },
+    { "fr_JP", "MMMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27 septembre \\u00e0 20:00\\u2009\\u2013\\u200901:00" },
+    { "ja_US", "MMMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800, Date201009270800 + 17.0*_HOUR, "9\\u670827\\u65e5 \\u5348\\u524d8:00\\uff5e9\\u670828\\u65e5 \\u5348\\u524d1:00" },
+    { "ja_US", "MMMMdjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "9\\u670827\\u65e5 \\u5348\\u5f8c8:00\\uff5e\\u5348\\u524d1:00" },
+    
+    // additional tests for rdar://63628118 (spot check only for now)
+    { "fr_DE", "yMEd",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201103021030, Date201712300900, "mer. 02.03.2011\\u2009\\u2013\\u2009sam. 30.12.2017" },
+    { "de_FR", "yMEd",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201103021030, Date201712300900, "Mi. 02/03/2011\\u2009\\u2013\\u2009Sa. 30/12/2017" },
+    { "fr_SA", "yMEd",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201103021030, Date201712300900, "mer.\\u060c 27/3/1432 \\u2013 sam.\\u060c 12/4/1439" },
+    
+    // tests for rdar://63926701 (the first test is the 'real' test; the second one never failed and is there to guard against regressions)
+    { "fi_US", "yMdhmm",  tzUSPacific, MIN_NONE,   C_NONE,  Date200101012200, Date200101012200 + 1.5*_HOUR, "12/31/2018 klo 10.00\\u201311.30 ip." },
+    { "fi_US", "yMdjmm",  tzUSPacific, MIN_NONE,   C_NONE,  Date200101012200, Date200101012200 + 1.5*_HOUR, "12/31/2018 klo 10.00 ip.\\u201311.30 ip." },
+
+    // rdar://55667608 and https://unicode-org.atlassian.net/browse/CLDR-10321
+    { "fi", "MMMdjjmm",  tzUSPacific, MIN_DAYS,   C_NONE,  Date201009270800 + 12.0*_HOUR, Date201009270800 + 17.0*_HOUR, "27.9. klo 20.00\\u20131.00" },
+    
     { NULL, NULL,       NULL,        MIN_NONE,   C_NONE,  0, 0, NULL }
 };
 
@@ -350,6 +373,19 @@ static const ExpectPosAndFormat exp_ja_yMMMdHHmmss[kNumDeltas] = {
     { 14, 16, "2014\\u5E7411\\u670820\\u65E5 9:00:00\\uFF5E2015\\u5E742\\u670828\\u65E5 9:00:00" }
 };
 
+// rdar://55667608 and https://unicode-org.atlassian.net/browse/CLDR-10321
+static const ExpectPosAndFormat exp_fi_MMMdjjmm[kNumDeltas] = {
+    { 13, 15, "20.11. klo 9.00" },
+    { 13, 15, "20.11. klo 9.00" },
+    { 13, 15, "20.11. klo 9.00" },
+    { 13, 15, "20.11. klo 9.00\\u20139.20" },
+    { 13, 15, "20.11. klo 9.00\\u201311.00" },
+    { 13, 15, "20.11. klo 9.00\\u201321.00" },
+    { 13, 15, "20.11. klo 9.00\\u201328.11. klo 9.00" },
+    { 13, 15, "20.11. klo 9.00\\u20136.12. klo 9.00" },
+    { 13, 15, "20.11. klo 9.00\\u201328.2. klo 9.00" }
+};
+
 typedef struct {
 	const char * locale;
 	const char * skeleton;
@@ -367,6 +403,7 @@ static const LocaleAndSkeletonItem locSkelItems[] = {
 	{ "ja",		"yyMMddHHmm",   UDAT_MINUTE_FIELD, exp_ja_yyMMddHHmm },
 	{ "ja",		"yyMMddHHmmss", UDAT_MINUTE_FIELD, exp_ja_yyMMddHHmmss },
 	{ "ja",		"yMMMdHHmmss",  UDAT_MINUTE_FIELD, exp_ja_yMMMdHHmmss },
+    { "fi",     "MMMdjjmm",     UDAT_MINUTE_FIELD, exp_fi_MMMdjjmm },
 	{ NULL, NULL, (UDateFormatField)0, NULL }
 };
 

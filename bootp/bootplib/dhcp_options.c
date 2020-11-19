@@ -208,7 +208,10 @@ dhcptype_from_str(const char * str, int type, void * buf, int * len_p,
       case dhcptype_dns_namelist_e: {
 	  (void)DNSNameListBufferCreate(&str, 1, buf, len_p, TRUE);
 	  if (*len_p == 0) {
-	      strlcpy(err->str, "no DNS names added", sizeof(err->str));
+	      if (err != NULL) {
+		  strlcpy(err->str, "no DNS names added",
+			  sizeof(err->str));
+	      }
 	      return (FALSE);
 	  }
 	  break;
@@ -244,7 +247,10 @@ dhcptype_from_strlist(const char * * strlist, int strlist_count,
 	  (void)DNSNameListBufferCreate(strlist, strlist_count, buf, len_p,
 					TRUE);
 	  if (*len_p == 0) {
-	      strlcpy(err->str, "no DNS names added", sizeof(err->str));
+	      if (err != NULL) {
+		  strlcpy(err->str, "no DNS names added",
+			  sizeof(err->str));
+	      }
 	      return (FALSE);
 	  }
 	  break;
@@ -270,8 +276,11 @@ dhcptype_from_strlist(const char * * strlist, int strlist_count,
 	      *len_p = 0;
 	  }
 	  if (*len_p == 0) {
-	      strlcpy(err->str,
-		      "no IPv4 classless routes added", sizeof(err->str));
+	      if (err != NULL) {
+		  strlcpy(err->str,
+			  "no IPv4 classless routes added",
+			  sizeof(err->str));
+	      }
 	      return (FALSE);
 	  }
 	  break;

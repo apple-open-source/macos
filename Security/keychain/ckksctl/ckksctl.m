@@ -353,20 +353,17 @@ static void print_entry(id k, id v, int ind)
             NSString* accountTracker = pop(status,@"accounttracker", NSString);
             NSString* fetcher = pop(status,@"fetcher", NSString);
             NSString* zoneCreated = pop(status,@"zoneCreated", NSString);
-            NSString* zoneCreatedError = pop(status,@"zoneCreatedError", NSString);
             NSString* zoneSubscribed = pop(status,@"zoneSubscribed", NSString);
-            NSString* zoneSubscribedError = pop(status,@"zoneSubscribedError", NSString);
             NSString* zoneInitializeScheduler = pop(status,@"zoneInitializeScheduler", NSString);
             NSString* keystate = pop(status,@"keystate", NSString);
-            NSString* keyStateError = pop(status,@"keyStateError", NSString);
             NSString* statusError = pop(status,@"statusError", NSString);
+            NSString* itemSyncEnabled = pop(status,@"itemsyncing", NSString);
             NSString* currentTLK =    pop(status,@"currentTLK", NSString);
             NSString* currentClassA = pop(status,@"currentClassA", NSString);
             NSString* currentClassC = pop(status,@"currentClassC", NSString);
             NSString* currentTLKPtr =    pop(status,@"currentTLKPtr", NSString);
             NSString* currentClassAPtr = pop(status,@"currentClassAPtr", NSString);
             NSString* currentClassCPtr = pop(status,@"currentClassCPtr", NSString);
-            NSString* currentManifestGeneration = pop(status,@"currentManifestGen", NSString);
             NSArray* launchSequence = pop(status, @"launchSequence", NSArray);
 
             NSDictionary* oqe = pop(status,@"oqe", NSDictionary);
@@ -376,14 +373,11 @@ static void print_entry(id k, id v, int ind)
             NSArray* devicestates = pop(status, @"devicestates", NSArray);
             NSArray* tlkshares = pop(status, @"tlkshares", NSArray);
 
-            NSString* zoneSetupOperation                  = pop(status,@"zoneSetupOperation", NSString);
-            NSString* keyStateOperation                   = pop(status,@"keyStateOperation", NSString);
             NSString* lastIncomingQueueOperation          = pop(status,@"lastIncomingQueueOperation", NSString);
             NSString* lastNewTLKOperation                 = pop(status,@"lastNewTLKOperation", NSString);
             NSString* lastOutgoingQueueOperation          = pop(status,@"lastOutgoingQueueOperation", NSString);
             NSString* lastProcessReceivedKeysOperation    = pop(status,@"lastProcessReceivedKeysOperation", NSString);
             NSString* lastReencryptOutgoingItemsOperation = pop(status,@"lastReencryptOutgoingItemsOperation", NSString);
-            NSString* lastScanLocalItemsOperation         = pop(status,@"lastScanLocalItemsOperation", NSString);
 
             printf("================================================================================\n\n");
 
@@ -398,18 +392,12 @@ static void print_entry(id k, id v, int ind)
 
             if(!([zoneCreated isEqualToString:@"yes"] && [zoneSubscribed isEqualToString:@"yes"])) {
                 printf("CK Zone Created:            %s\n", [[zoneCreated description] UTF8String]);
-                printf("CK Zone Created error:      %s\n", [[zoneCreatedError description] UTF8String]);
-
                 printf("CK Zone Subscribed:         %s\n", [[zoneSubscribed description] UTF8String]);
-                printf("CK Zone Subscription error: %s\n", [[zoneSubscribedError description] UTF8String]);
                 printf("CK Zone initialize retry:   %s\n", [[zoneInitializeScheduler description] UTF8String]);
                 printf("\n");
             }
 
             printf("Key state:            %s\n", [keystate UTF8String]);
-            if(keyStateError != nil) {
-                printf("Key State Error: %s\n", [keyStateError UTF8String]);
-            }
             printf("Current TLK:          %s\n", currentTLK != nil
                    ? [currentTLK    UTF8String]
                    : [[NSString stringWithFormat:@"missing; pointer is %@", currentTLKPtr] UTF8String]);
@@ -422,23 +410,20 @@ static void print_entry(id k, id v, int ind)
 
             printf("TLK shares:           %s\n", [[tlkshares description] UTF8String]);
 
+            printf("Item syncing:          %s\n", [[itemSyncEnabled description] UTF8String]);
             printf("Outgoing Queue counts: %s\n", [[oqe description] UTF8String]);
             printf("Incoming Queue counts: %s\n", [[iqe description] UTF8String]);
             printf("Key counts: %s\n", [[keys description] UTF8String]);
-            printf("latest manifest generation: %s\n", currentManifestGeneration == nil ? "null" : currentManifestGeneration.UTF8String);
 
             printf("Item counts (by key):  %s\n", [[ckmirror description] UTF8String]);
             printf("Peer states:           %s\n", [[devicestates description] UTF8String]);
 
             printf("zone change fetcher:                 %s\n", [[fetcher description] UTF8String]);
-            printf("zoneSetupOperation:                  %s\n", zoneSetupOperation                  == nil ? "never" : [zoneSetupOperation                  UTF8String]);
-            printf("keyStateOperation:                   %s\n", keyStateOperation                   == nil ? "never" : [keyStateOperation                   UTF8String]);
             printf("lastIncomingQueueOperation:          %s\n", lastIncomingQueueOperation          == nil ? "never" : [lastIncomingQueueOperation          UTF8String]);
             printf("lastNewTLKOperation:                 %s\n", lastNewTLKOperation                 == nil ? "never" : [lastNewTLKOperation                 UTF8String]);
             printf("lastOutgoingQueueOperation:          %s\n", lastOutgoingQueueOperation          == nil ? "never" : [lastOutgoingQueueOperation          UTF8String]);
             printf("lastProcessReceivedKeysOperation:    %s\n", lastProcessReceivedKeysOperation    == nil ? "never" : [lastProcessReceivedKeysOperation    UTF8String]);
             printf("lastReencryptOutgoingItemsOperation: %s\n", lastReencryptOutgoingItemsOperation == nil ? "never" : [lastReencryptOutgoingItemsOperation UTF8String]);
-            printf("lastScanLocalItemsOperation:         %s\n", lastScanLocalItemsOperation         == nil ? "never" : [lastScanLocalItemsOperation         UTF8String]);
 
             printf("Launch sequence:\n");
             for (NSString *event in launchSequence) {
@@ -476,7 +461,8 @@ static void print_entry(id k, id v, int ind)
         dispatch_semaphore_signal(sema);
     }];
 
-    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 65)) != 0) {
+    // The maximum device-side delay to start a fetch is 120s, so we must wait longer than that for a response.
+    if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 135)) != 0) {
         printf("\n\nError: timed out waiting for response\n");
         return -1;
     }

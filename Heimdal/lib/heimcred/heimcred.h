@@ -97,6 +97,9 @@ HeimCredCopyStatus(CFStringRef mech);
 CFDictionaryRef
 HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error);
 
+bool
+HeimCredDeleteAll(CFStringRef altDSID, CFErrorRef *error);
+
 /*
  * Only valid client side
  */
@@ -107,23 +110,41 @@ HeimCredSetImpersonateBundle(CFStringRef bundle);
 const char *
 HeimCredGetImpersonateBundle(void);
 
+void
+HeimCredSetImpersonateAuditToken(CFDataRef auditToken) API_AVAILABLE(macos(10.16));
+
+CFDataRef
+HeimCredGetImpersonateAuditToken(void) API_AVAILABLE(macos(10.16));
+
+
+// Use for automated tests only, not for normal use.
+void
+_HeimCredResetLocalCache(void);
+
 /*
  * Only valid server side side
  */
 typedef CFDictionaryRef (*HeimCredAuthCallback)(HeimCredRef, CFDictionaryRef);
 typedef CFTypeRef (*HeimCredStatusCallback)(HeimCredRef);
+typedef void (*HeimCredNotifyCaches)(void);
 
 void
 _HeimCredRegisterMech(CFStringRef mech,
 		      CFSetRef publicAttributes,
 		      HeimCredStatusCallback statusCallback,
-		      HeimCredAuthCallback authCallback);
+		      HeimCredAuthCallback authCallback,
+		      HeimCredNotifyCaches notifyCaches,
+		      bool readRestricted,
+		      CFArrayRef readOnlyCommands);
 
 void
 _HeimCredRegisterKerberos(void);
 
 void
 _HeimCredRegisterNTLM(void);
+
+void
+_HeimCredRegisterKerberosAcquireCred(void);
 
 CFMutableDictionaryRef
 _HeimCredCreateBaseSchema(CFStringRef objectType);

@@ -299,7 +299,7 @@ main(argc, argv)
 				fatal("%s: bad allocation block size (too small)", optarg);
 			if (tempBlockSize > HFSMAXBSIZE) 
 				fatal("%s: bad allocation block size (too large)", optarg);
-			gBlockSize = tempBlockSize;
+			gBlockSize = (uint32_t)tempBlockSize;
 			break;
 		}
 
@@ -564,6 +564,8 @@ static void getstartopts(char* optlist)
 	char *ndarg;
 	char *p;
 	unsigned long startat = 0;
+    int pos;
+    UInt32 upos;
 
 	startat = strtoul(optlist, &strp, 0);
 	if (startat == ULONG_MAX && errno != 0) {
@@ -575,7 +577,7 @@ static void getstartopts(char* optlist)
 	if (strp && *strp == ',')
 		strp++;
 
-	gFSStartBlock = startat;
+	gFSStartBlock = (UInt32)startat;
 
 	while((ndarg = strsep(&strp, ",")) != NULL && *ndarg != '\0') {
 
@@ -584,29 +586,33 @@ static void getstartopts(char* optlist)
 		if (p == NULL)
 			usage();
 			
-		startat = atoi(p+1);
-		
+		pos = atoi(p+1);
+        if (pos < 0 || pos > UINT32_MAX) {
+            errx(1, "pos=%d is invalid", pos);
+        }
+        upos = (UInt32)pos;
+
 		switch (*ndarg) {
 		case 'a':
-			attrExtStart = startat;
+			attrExtStart = upos;
 			break;
 		case 'b':
-			blkallocExtStart = startat;
+			blkallocExtStart = upos;
 			break;
 		case 'c':
-			catExtStart = startat;
+			catExtStart = upos;
 			break;
 		case 'e':
-			extExtStart = startat;
+			extExtStart = upos;
 			break;
 		case 'j':
-			jibStart = startat;
+			jibStart = upos;
 			break;
 		case 'J':
-			jnlStart = startat;
+			jnlStart = upos;
 			break;
 		case 'N':
-			allocStart = startat;
+			allocStart = upos;
 			break;
 		default:
 			usage();
@@ -656,7 +662,8 @@ a_uid(char *s)
 static mode_t
 a_mask(char *s)
 {
-	int done, rv;
+	int done;
+    long rv;
 	char *ep;
 
 	done = 0;
@@ -665,9 +672,9 @@ a_mask(char *s)
 		done = 1;
 		rv = strtol(s, &ep, 8);
 	}
-	if (!done || rv < 0 || *ep)
+	if (!done || rv < 0 || rv > INT_MAX || *ep)
 		errx(1, "invalid access mask: %s", s);
-	return (rv);
+	return ((int)rv);
 }
 
 /*
@@ -812,7 +819,7 @@ static void validate_hfsplus_block_size(UInt64 sectorCount, UInt32 sectorSize)
 		 * value. At 2TB, we grow to the 8K block size.
 		 */
 		if ((bit_index >= 0) && (bit_index < 22)) {
-			gBlockSize = alloc_blocksize[bit_index];
+			gBlockSize = (uint32_t)alloc_blocksize[bit_index];
 		}
 		
 		if (bit_index >= 22) {
@@ -836,7 +843,7 @@ static void validate_hfsplus_block_size(UInt64 sectorCount, UInt32 sectorSize)
 
 	if (gFSStartBlock) {
 		u_int64_t fs_size = sectorCount * sectorSize;
-		u_int32_t totalBlocks = fs_size/gBlockSize;
+		u_int32_t totalBlocks = (u_int32_t)(fs_size/gBlockSize);
 
 		if (gFSStartBlock >= totalBlocks) {
 			warnx("Warning: %u is invalid file system start allocation block number, must be less than total allocation blocks (%u)", (unsigned int)gFSStartBlock, (unsigned int)totalBlocks);
@@ -1013,7 +1020,8 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 	defaults->blockSize = gBlockSize;
 	defaults->fsStartBlock = gFSStartBlock;
 	defaults->nextFreeFileID = gNextCNID;
-	defaults->createDate = createtime + MAC_GMT_FACTOR;     /* Mac OS GMT time */
+    // Value will be bigger than UIN32_MAX in 2040
+	defaults->createDate = (uint32_t)(createtime + MAC_GMT_FACTOR);     /* Mac OS GMT time */
 	defaults->hfsAlignment = 0;
 	defaults->journaledHFS = gJournaled;
 	defaults->journalDevice = gJournalDevice;
@@ -1079,7 +1087,7 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 
 			}
 			/* defaults->journalSize will get reset below if it is 0 */
-			defaults->journalSize = gJournalSize;
+			defaults->journalSize = (uint32_t)gJournalSize;
 		}
 
 		if ((gJournalSize == 0) || (defaults->journalSize == 0)) {
@@ -1271,7 +1279,7 @@ static void hfsplus_params (const DriveInfo* dip, hfsparams_t *defaults)
 	 * Note: this minimum value may be too large when it counts the
 	 * space used by the wrapper
 	 */
-	totalBlocks = sectorCount / (gBlockSize / sectorSize);
+	totalBlocks = (uint32_t)(sectorCount / (gBlockSize / sectorSize));
 
 	minClumpSize = totalBlocks >> 3;	/* convert bits to bytes by dividing by 8 */
 	if (totalBlocks & 7)
@@ -1454,7 +1462,7 @@ CalcHFSPlusBTreeClumpSize(UInt32 blockSize, UInt32 nodeSize, UInt64 sectors, int
 	 * it must also be a multiple of the node and block size.
 	 */
 	if (sectors < 0x200000) {
-		clumpSize = sectors << 2;	/*  0.8 %  */
+		clumpSize = (UInt32)(sectors << 2);	/*  0.8 %  */
 		if (clumpSize < (8 * nodeSize))
 			clumpSize = 8 * nodeSize;
 	} else {

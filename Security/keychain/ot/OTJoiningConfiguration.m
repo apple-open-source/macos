@@ -42,8 +42,7 @@ NS_ASSUME_NONNULL_BEGIN
                                epoch:(uint64_t)epoch
                          isInitiator:(BOOL)isInitiator
 {
-    self = [super init];
-    if (self){
+    if ((self = [super init])) {
         self.protocolType = protocolType;
         self.uniqueDeviceID = uniqueDeviceID;
         self.uniqueClientID = uniqueClientID;
@@ -71,8 +70,7 @@ NS_ASSUME_NONNULL_BEGIN
 }
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder *)decoder {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _protocolType = [decoder decodeObjectOfClass:[NSString class] forKey:@"protocolType"];
         _uniqueClientID = [decoder decodeObjectOfClass:[NSString class] forKey:@"uniqueClientID"];
         _uniqueDeviceID = [decoder decodeObjectOfClass:[NSString class] forKey:@"uniqueDeviceID"];

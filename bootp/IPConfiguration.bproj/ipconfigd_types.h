@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include "timer.h"
 #include "dhcp_options.h"
 #include "symbol_scope.h"
+#include "RouterAdvertisement.h"
 
 #define IPV4_METHOD_BIT		0x100
 #define IPV6_METHOD_BIT		0x200
@@ -196,13 +197,10 @@ typedef struct {
     DHCPv6PacketRef		pkt;
     int				pkt_len;
     DHCPv6OptionListRef		options;
-    struct in6_addr		addr;
-    const struct in6_addr *	dns_servers;
-    int				dns_servers_count;
-    CFArrayRef			dns_search_domains;
+    RouterAdvertisementRef	ra;
     boolean_t			perform_plat_discovery;
     CFDictionaryRef		ipv4_dict;
-} dhcpv6_info_t;
+} ipv6_info_t;
 
 typedef struct {
     boolean_t			requested;

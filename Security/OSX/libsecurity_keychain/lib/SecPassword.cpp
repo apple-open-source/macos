@@ -32,17 +32,7 @@
 
 #include <os/activity.h>
 
-#if 0
-static CFTypeID
-SecPasswordGetTypeID(void)
-{
-	BEGIN_SECAPI
-    
-	return gTypes().PasswordImpl.typeID;
-    
-	END_SECAPI1(_kCFRuntimeNotATypeID)
-}
-#endif
+#include "LegacyAPICounts.h"
 
 OSStatus
 SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList, SecPasswordRef *itemRef)
@@ -254,7 +244,7 @@ SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt3
         
     }
 
-    // If we're still here the use gave us his password, store it if keychain is in use
+    // If we're still here the user gave us their password, store it if keychain is in use
     if (passwordRef->useKeychain())
     {
         if (passwordRef->rememberInKeychain()) {

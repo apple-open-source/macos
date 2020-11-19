@@ -15,7 +15,7 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <signal.h>
 #include <sys/stat.h>
 #include <sys/socket.h>

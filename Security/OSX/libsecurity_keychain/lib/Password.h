@@ -44,7 +44,7 @@ public:
     PasswordImpl(SecItemClass itemClass, SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList);
 	PasswordImpl(PasswordImpl& existing);
 
-    virtual ~PasswordImpl() throw();
+    virtual ~PasswordImpl() _NOEXCEPT;
 
     bool getData(UInt32 *length, const void **data);
     void setData(UInt32 length,const void *data);

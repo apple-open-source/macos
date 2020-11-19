@@ -27,16 +27,22 @@
 
 #include <sys/param.h>
 #include <sys/mount.h>
+#include <sys/attr.h>
+#include <sys/stat.h>
 #include <paths.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOBSD.h>
 #include <IOKit/storage/IOMedia.h>
 #include <APFS/APFS.h>
+#include <apfs/apfs_fsctl.h>
 #include "bless.h"
 #include "bless_private.h"
+#include "protos.h"
 
-
+#ifndef    FSOPT_LIST_SNAPSHOT
+#define    FSOPT_LIST_SNAPSHOT 0x00000040
+#endif/* FSOPT_LIST_SNAPSHOT */
 
 static uint16_t RoleNameToValue(CFStringRef roleName);
 
@@ -175,7 +181,7 @@ int BLAPFSCreatePhysicalStoreBSDsFromVolumeBSD(BLContextPtr context, const char 
         contextprintf(context, kBLLogLevelError, "Could not get IOService for %s\n", volBSD);
         return 2;
     }
-    if (!IOObjectConformsTo(volDev, "AppleAPFSVolume")) {
+    if (!IOObjectConformsTo(volDev, APFS_VOLUME_OBJECT)) {
         contextprintf(context, kBLLogLevelError, "%s is not an APFS volume\n", volBSD);
         IOObjectRelease(volDev);
         return 2;
@@ -257,7 +263,7 @@ int BLMountContainerVolume(BLContextPtr context, const char *bsdName, char *mntP
         contextprintf(context, kBLLogLevelError, "Temporary directory \"%s\" is not writable.\n", vartmpLoc);
     }
 	realpath(vartmpLoc, fulldevpath);
-    snprintf(mntPoint, mntPtStrSize, "%sbless.XXXX", fulldevpath);
+    snprintf(mntPoint, mntPtStrSize, "%s/bless.XXXX", fulldevpath);
     if (!mkdtemp(mntPoint)) {
         contextprintf(context, kBLLogLevelError,  "Can't create mountpoint %s\n", mntPoint);
     }
@@ -315,6 +321,7 @@ int BLUnmountContainerVolume(BLContextPtr context, char *mntPoint)
     int				err;
     char			*newargv[3];
 	struct statfs	sfs;
+	int				fd;
 	
 	// We allow the passed-in path to be a general path, not just
 	// a mount point, so we first need to resolve it to a mount point
@@ -331,6 +338,9 @@ int BLUnmountContainerVolume(BLContextPtr context, char *mntPoint)
     
     pid_t p = fork();
     if (p == 0) {
+		fd = open("/dev/null", O_RDWR);
+		dup2(fd, STDOUT_FILENO);
+		close(fd);
         setuid(geteuid());
         err = execv("/sbin/umount", newargv);
         if (err == -1) {
@@ -349,6 +359,81 @@ int BLUnmountContainerVolume(BLContextPtr context, char *mntPoint)
         return 3;
     }
     rmdir(sfs.f_mntonname);
+    
+    return 0;
+}
+
+
+int BLMountSnapshot(BLContextPtr context, const char *bsdName, const char *snapName, char *mntPoint, int mntPtStrSize)
+{
+    int        ret;
+    char    vartmpLoc[MAXPATHLEN];
+    char    fulldevpath[MNAMELEN];
+    char    snapNameLoc[MNAMELEN];
+    char    *newargv[14];
+    char    *installEnv;
+    
+    installEnv = getenv("__OSINSTALL_ENVIRONMENT");
+    if (installEnv && (atoi(installEnv) > 0 || strcasecmp(installEnv, "yes") == 0 || strcasecmp(installEnv, "true") == 0)) {
+        strlcpy(vartmpLoc, "/var/tmp/RecoveryTemp", sizeof vartmpLoc);
+    } else {
+        if (!confstr(_CS_DARWIN_USER_TEMP_DIR, vartmpLoc, sizeof vartmpLoc)) {
+            // We couldn't get our path in /var/folders, so just try /var/tmp.
+            strlcpy(vartmpLoc, "/var/tmp/", sizeof vartmpLoc);
+        }
+    }
+    if (access(vartmpLoc, W_OK) < 0) {
+        contextprintf(context, kBLLogLevelError, "Temporary directory \"%s\" is not writable.\n", vartmpLoc);
+    }
+    realpath(vartmpLoc, fulldevpath);
+    snprintf(mntPoint, mntPtStrSize, "%s/snapshot.XXXX", fulldevpath);
+    if (!mkdtemp(mntPoint)) {
+        contextprintf(context, kBLLogLevelError,  "Can't create mountpoint %s\n", mntPoint);
+    }
+    
+    contextprintf(context, kBLLogLevelVerbose, "Mounting at %s\n", mntPoint);
+    
+    snprintf(fulldevpath, sizeof(fulldevpath), "/dev/%s", bsdName);
+    snprintf(snapNameLoc, sizeof(snapNameLoc), "%s", snapName);
+    
+    newargv[0] = "/sbin/mount_apfs";
+    newargv[1] = "-s";
+    newargv[2] = snapNameLoc;
+    newargv[3] = "-o";
+    newargv[4] = "perm";
+    newargv[5] = "-o";
+    newargv[6] = "owners";
+    newargv[7] = "-o";
+    newargv[8] = "nobrowse";
+    newargv[9] = "-o";
+    newargv[10] = "rdonly";
+    newargv[11] = fulldevpath;
+    newargv[12] = mntPoint;
+    newargv[13] = NULL;
+    
+    
+    contextprintf(context, kBLLogLevelVerbose, "Executing \"%s\"\n", "/sbin/mount_apfs");
+    
+    pid_t p = fork();
+    if (p == 0) {
+        setuid(geteuid());
+        ret = execv("/sbin/mount_apfs", newargv);
+        if (ret == -1) {
+            contextprintf(context, kBLLogLevelError,  "Could not exec %s\n", "/sbin/mount_apfs");
+        }
+        _exit(1);
+    }
+    
+    do {
+        p = wait(&ret);
+    } while (p == -1 && errno == EINTR);
+    
+    contextprintf(context, kBLLogLevelVerbose, "Returned %d\n", ret);
+    if (p == -1 || ret) {
+        contextprintf(context, kBLLogLevelError,  "%s returned non-0 exit status\n", "/sbin/mount_apfs");
+        rmdir(mntPoint);
+        return 3;
+    }
     
     return 0;
 }
@@ -430,6 +515,7 @@ exit:
 
 int BLRoleForAPFSVolumeDev(BLContextPtr context, const char *volumeDev, uint16_t *role)
 {
+	int                 ret = 0;
 	io_service_t        volIOMedia = IO_OBJECT_NULL;
 	CFArrayRef          volRoles = NULL;
 	CFStringRef         roleName = NULL;
@@ -446,6 +532,19 @@ int BLRoleForAPFSVolumeDev(BLContextPtr context, const char *volumeDev, uint16_t
 		return 2;
 	}
 	
+	if (IOObjectConformsTo(volIOMedia, "AppleAPFSSnapshot")) {
+		io_registry_entry_t volMedia;
+		
+		contextprintf(context, kBLLogLevelVerbose, "%s is a snapshot volume\n", volumeDev);
+		ret = BLAPFSSnapshotToVolume(context, volIOMedia, &volMedia);
+		if (ret) {
+			contextprintf(context, kBLLogLevelError, "Could not resolve snapshot at %s to a volume\n", volumeDev);
+			IOObjectRelease(volIOMedia);
+			return ret;
+		}
+		IOObjectRelease(volIOMedia);
+		volIOMedia = volMedia;
+	}
 	if (!IOObjectConformsTo(volIOMedia, APFS_VOLUME_OBJECT)) {
 		contextprintf(context, kBLLogLevelError, "%s is not an APFS volume\n", volumeDev);
 		IOObjectRelease(volIOMedia);
@@ -487,6 +586,200 @@ int BLIsDataRoleForAPFSVolumeDev(BLContextPtr context, const char *volumeDev, bo
 
 
 
+int BLIsVolumeARV(BLContextPtr context, const char *mountPoint, const char *volBSD, bool *arv)
+{
+	int	ret;
+	bool isARV = false;
+    char rootHashPath[MAXPATHLEN];
+    struct stat existingStat;
+    char prebootMountPoint[MAXPATHLEN];
+    char prebootBSD[MAXPATHLEN];
+    bool mustUnmount = false;
+    char prebootFolderPath[MAXPATHLEN];
+	char volDev[64];
+	uint16_t role;
+	struct attrlist attr_list = {
+		.bitmapcount = ATTR_BIT_MAP_COUNT,
+		.volattr = ATTR_VOL_INFO | ATTR_VOL_CAPABILITIES,
+	};
+	struct {
+		u_int32_t va_length;
+		vol_capabilities_attr_t va_capabilities;
+	} __attribute__((aligned(4), packed)) attr_buf;
+	
+	snprintf(volDev, sizeof volDev, _PATH_DEV "%s", volBSD);
+	ret = BLRoleForAPFSVolumeDev(context, volDev, &role);
+	if (ret) {
+		contextprintf(context, kBLLogLevelError, "Couldn't get role for volume at %s\n", volDev);
+		goto exit;
+	}
+	if (role != APFS_VOL_ROLE_SYSTEM) {
+		// Not a system volume, so not ARV.  No further checks needed.
+		contextprintf(context, kBLLogLevelVerbose, "Volume does not have system role\n");
+		goto exit;
+	}
+	ret = getattrlist(mountPoint, &attr_list, &attr_buf, sizeof(attr_buf), 0);
+	if (ret) {
+		contextprintf(context, kBLLogLevelError, "Couldn't get volume attributes for %s: %s\n", mountPoint, strerror(errno));
+		goto exit;
+	}
+	if ((attr_buf.va_capabilities.capabilities[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_SEALED)) {
+		contextprintf(context, kBLLogLevelVerbose, "Volume %s is sealable\n", mountPoint);
+		isARV = true;
+	}
+    // If isARV is false, check if OS.dmg.root_hash exists in preboot
+    
+    // In some UMIA installs, sealing could be skipped but OS.dmg.root_hash would exist.
+    // Treat this case same as ARV since the volume should still have ARV semantics.
+    
+    // Now let's get the BSD name of the preboot volume.
+    if (isARV == false) {
+        ret = GetPrebootBSDForVolumeBSD(context, volBSD, prebootBSD, sizeof prebootBSD);
+        if (ret) {
+            contextprintf(context, kBLLogLevelVerbose, "Could not find preboot BSD for : %s\n", volBSD);
+            goto exit;
+        }
+    
+        ret = GetMountForBSD(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint);
+        if (ret) {
+            contextprintf(context, kBLLogLevelError, "Error looking up mount points\n");
+            goto exit;
+        }
+        if (!prebootMountPoint[0]) {
+            // The preboot volume isn't mounted right now.  We'll have to mount it.
+            ret = BLMountContainerVolume(context, prebootBSD, prebootMountPoint, sizeof prebootMountPoint, false);
+            if (ret) {
+                goto exit;
+            }
+            mustUnmount = true;
+        }
+        
+        ret = GetUUIDFolderPathInPreboot(context, prebootMountPoint, volBSD, prebootFolderPath, sizeof prebootFolderPath);
+        if (ret) {
+            contextprintf(context, kBLLogLevelError, "Error looking up UUID folder in preboot\n");
+            goto exit;
+        }
+        snprintf(rootHashPath, sizeof rootHashPath, "%s/usr/standalone/OS.dmg.root_hash", prebootFolderPath);
+        if (0 == stat(rootHashPath, &existingStat)) {
+            isARV = true;
+            contextprintf(context, kBLLogLevelVerbose, "%s exists\n", rootHashPath);
+        }
+    }
+exit:
+	*arv = isARV;
+    if (mustUnmount) {
+       BLUnmountContainerVolume(context, prebootMountPoint);
+    }
+	return ret;
+}
+
+
+
+
+int BLAPFSSnapshotToVolume(BLContextPtr context, io_service_t snapshotDev, io_service_t *volumeDev)
+{
+	io_registry_entry_t	device;
+	io_registry_entry_t	parent;
+	bool					foundVolume;
+	CFStringRef			bsdCF;
+	char					bsd[64] = "";
+	
+	if (!volumeDev) return EINVAL;
+	*volumeDev = IO_OBJECT_NULL;
+	bsdCF = IORegistryEntryCreateCFProperty(snapshotDev, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+	if (bsdCF) {
+		CFStringGetCString(bsdCF, bsd, sizeof bsd, kCFStringEncodingUTF8);
+		CFRelease(bsdCF);
+	}
+	if (!IOObjectConformsTo(snapshotDev, "AppleAPFSSnapshot")) {
+		// Not a snapshot and not a volume.  We can't do anything
+		// with this.
+		contextprintf(context, kBLLogLevelError, "%s is not an APFS snapshot\n", bsd);
+		return EINVAL;
+	}
+	device = snapshotDev;
+	IOObjectRetain(snapshotDev);
+	foundVolume = false;
+	while (IORegistryEntryGetParentEntry(device, kIOServicePlane, &parent) == kIOReturnSuccess) {
+		IOObjectRelease(device);
+		device = parent;
+		if (IOObjectConformsTo(device, APFS_VOLUME_OBJECT)) {
+			foundVolume = true;
+			break;
+		}
+	}
+	if (!foundVolume) {
+		contextprintf(context, kBLLogLevelError, "No corresponding volume for APFS snapshot %s\n", bsd);
+		IOObjectRelease(device);
+		return 2;
+	}
+	*volumeDev = device;
+	return 0;
+}
+
+
+
+int BLAPFSSnapshotAsRoot(BLContextPtr context, const char *mountPoint, char *snapName, int nameLen)
+{
+	int ret = 0;
+	int	fd = -1;
+	struct attrlist attrList;
+	char	attrBuf[4096];
+	bool	found = false;
+	int	count;
+	int	i;
+	char	*entry;
+	char	*cur;
+	int32_t	length;
+	attribute_set_t	*returned;
+	attrreference_t	*nameAttr;
+	char    *name;
+    
+	fd = open(mountPoint, O_RDONLY);
+	if (fd < 0) {
+		ret = errno;
+		goto exit;
+	}
+	memset(&attrList, 0, sizeof(attrList));
+	attrList.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attrList.commonattr = ATTR_CMN_RETURNED_ATTRS | ATTR_CMN_NAME | ATTR_CMN_OBJID;
+	while (!found) {
+		count = getattrlistbulk(fd, &attrList, attrBuf, sizeof attrBuf, FSOPT_LIST_SNAPSHOT);
+		if (count < 0) {
+			ret = errno;
+			goto exit;
+		}
+		if (count == 0) break;
+		for (i = 0, entry = attrBuf; i < count; i++, entry += length) {
+			length = *(int32_t *)entry;
+			cur = entry + 4;
+			returned = (attribute_set_t *)cur;
+			cur += sizeof *returned;
+			if (returned->commonattr & ATTR_CMN_NAME) {
+				nameAttr = (attrreference_t *)cur;
+				name = cur + nameAttr->attr_dataoffset;
+				cur += sizeof *nameAttr;
+			}
+			if (returned->commonattr & ATTR_CMN_OBJID) {
+				uint64_t xid = * ( uint64_t * )cur;
+				if ((xid & SNAPSHOT_MARKED_AS_ROOT_TO_BIT) == 0) continue;
+				if (snapName) strlcpy(snapName, name, nameLen);
+				found = true;
+				break;
+			} 	else {
+				ret = EINVAL;
+				goto exit;
+			}
+		}
+	}
+	if (!found) ret = ENOENT;
+	
+exit:
+
+	if (fd >= 0) close(fd);
+	return ret;
+}
+
 static uint16_t RoleNameToValue(CFStringRef roleName)
 {
 	if (CFEqual(roleName, CFSTR(kAPFSVolumeRoleNone))) {
@@ -525,4 +818,126 @@ static uint16_t RoleNameToValue(CFStringRef roleName)
 		return APFS_VOL_ROLE_IDIAGS;
 	}
 	return -1U;
+}
+
+int GetPrebootBSDForVolumeBSD(BLContextPtr context, const char *volBSD, char *prebootBSD, int prebootBSDLen)
+{
+    int                ret;
+    CFDictionaryRef    booterDict;
+    CFArrayRef        prebootVols;
+    CFStringRef        prebootVol;
+    
+    ret = BLCreateBooterInformationDictionary(context, volBSD, &booterDict);
+    if (ret) {
+       contextprintf(context, kBLLogLevelError, "Could not get boot information for device %s\n", volBSD);
+        goto exit;
+    }
+    prebootVols = CFDictionaryGetValue(booterDict, kBLAPFSPrebootVolumesKey);
+    if (!prebootVols || !CFArrayGetCount(prebootVols)) {
+     contextprintf(context, kBLLogLevelError, "No preboot volume associated with device %s\n", volBSD);
+        ret = EINVAL;
+        goto exit;
+    }
+    prebootVol = CFArrayGetValueAtIndex(prebootVols, 0);
+    if (CFGetTypeID(prebootVol) != CFStringGetTypeID()) {
+     contextprintf(context, kBLLogLevelError, "Badly formed registry entry for preboot volume\n");
+        ret = EILSEQ;
+        goto exit;
+    }
+    CFStringGetCString(prebootVol, prebootBSD, prebootBSDLen, kCFStringEncodingUTF8);
+    
+exit:
+    return ret;
+}
+
+int GetMountForBSD(BLContextPtr context, const char *bsd, char *mountPoint, int mountPointLen)
+{
+    struct statfs    *mnts;
+    int             mntsize;
+    int             i;
+
+    mntsize = getmntinfo(&mnts, MNT_NOWAIT);
+    if (!mntsize) {
+        return errno;
+    }
+    for (i = 0; i < mntsize; i++) {
+        if (strcmp(mnts[i].f_mntfromname + strlen(_PATH_DEV), bsd) == 0) break;
+    }
+    if (i < mntsize) {
+        strlcpy(mountPoint, mnts[i].f_mntonname, mountPointLen);
+    } else {
+        *mountPoint = '\0';
+    }
+    return 0;
+}
+
+int GetUUIDFolderPathInPreboot(BLContextPtr context, const char *prebootMountPoint, const char *rootBSD, char *prebootDirPath, int len)
+{
+    char            prebootFolderPath[MAXPATHLEN];
+    char            *pathEnd;
+    size_t          pathFreeSpace;
+    int             ret = 0;
+    CFStringRef     bootUUID = NULL;
+    struct stat     existingStat;
+    io_service_t    rootMedia = IO_OBJECT_NULL;
+    io_service_t    systemMedia = IO_OBJECT_NULL;
+    
+    // Let's get the IOMedia for this device.
+    rootMedia = IOServiceGetMatchingService(kIOMasterPortDefault, IOBSDNameMatching(kIOMasterPortDefault, 0, rootBSD));
+    if (!rootMedia) {
+        ret = 1;
+        goto exit;
+    }
+
+    if (IOObjectConformsTo(rootMedia, "AppleAPFSSnapshot")) {
+        contextprintf(context, kBLLogLevelVerbose, "%s is a snapshot device\n", rootBSD);
+        ret = BLAPFSSnapshotToVolume(context, rootMedia, &systemMedia);
+        if (ret) {
+            contextprintf(context, kBLLogLevelError, "Could not resolve snapshot at %s to volume\n", rootBSD);
+            goto exit;
+        }
+    } else {
+        systemMedia = rootMedia;
+        IOObjectRetain(systemMedia);
+    }
+
+    // Find the appropriate UUID folder
+    // We look for a volume UUID folder first.  If that's present, use it.
+    // If not, look for a group UUID folder.  If that's present, use it.
+    // If not, we fail out.
+    snprintf(prebootFolderPath, sizeof prebootFolderPath, "%s/", prebootMountPoint);
+    pathEnd = prebootFolderPath + strlen(prebootFolderPath);
+    pathFreeSpace = sizeof prebootFolderPath - strlen(prebootFolderPath);
+    bootUUID = IORegistryEntryCreateCFProperty(systemMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
+    if (!bootUUID) {
+        contextprintf(context, kBLLogLevelError, "No valid volume UUID for device %s\n", rootBSD);
+        ret = 2;
+        goto exit;
+    }
+    CFStringGetCString(bootUUID, pathEnd, pathFreeSpace, kCFStringEncodingUTF8);
+    if (stat(prebootFolderPath, &existingStat) < 0 || !S_ISDIR(existingStat.st_mode)) {
+        CFRelease(bootUUID);
+        bootUUID = NULL;
+    } else {
+        contextprintf(context, kBLLogLevelVerbose, "Found system volume UUID path in preboot for %s\n", rootBSD);
+    }
+    if (!bootUUID) {
+        bootUUID = IORegistryEntryCreateCFProperty(systemMedia, CFSTR(kAPFSVolGroupUUIDKey), kCFAllocatorDefault, 0);
+        if (bootUUID) CFStringGetCString(bootUUID, pathEnd, pathFreeSpace, kCFStringEncodingUTF8);
+        if (!bootUUID || stat(prebootFolderPath, &existingStat) < 0 || !S_ISDIR(existingStat.st_mode)) {
+            contextprintf(context, kBLLogLevelError, "No valid group or volume UUID folder for %s\n", rootBSD);
+            ret = 2;
+            goto exit;
+        } else {
+            contextprintf(context, kBLLogLevelVerbose, "Found volume group UUID path in preboot for %s\n", rootBSD);
+        }
+    }
+exit:
+    if (0 == ret) {
+        snprintf(prebootDirPath, len, "%s", prebootFolderPath);
+    }
+    if (rootMedia) IOObjectRelease(rootMedia);
+    if (systemMedia) IOObjectRelease(systemMedia);
+    if (bootUUID) CFRelease(bootUUID);
+    return ret;
 }

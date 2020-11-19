@@ -63,6 +63,7 @@ SecKeyRef SOSFullPeerInfoCopyOctagonPublicSigningKey(SOSFullPeerInfoRef fullPeer
 SecKeyRef SOSFullPeerInfoCopyOctagonPublicEncryptionKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
 SecKeyRef SOSFullPeerInfoCopyOctagonSigningKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
 SecKeyRef SOSFullPeerInfoCopyOctagonEncryptionKey(SOSFullPeerInfoRef fullPeer, CFErrorRef* error);
+bool SOSFullPeerInfoSetCKKS4AllSupport(SOSFullPeerInfoRef fullPeerInfo, bool support, CFErrorRef* error);
 
 bool SOSFullPeerInfoPurgePersistentKey(SOSFullPeerInfoRef peer, CFErrorRef* error);
 

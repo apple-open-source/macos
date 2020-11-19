@@ -160,7 +160,7 @@ private:
 	void close();
 
     // Rollback the current create or write (happens automatically if commit() isn't called before the destructor is).
-    void rollback() throw();
+    void rollback() _NOEXCEPT;
 
 private:
 	// Our AtomicFile object.
@@ -241,7 +241,7 @@ public:
 
 private:
 	void lock(mode_t mode = (S_IRUSR|S_IRGRP|S_IROTH) /* === 0444 */);
-	void unlock() throw();
+	void unlock() _NOEXCEPT;
 
 private:
 	FileLocker* mFileLocker;

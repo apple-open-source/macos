@@ -26,7 +26,7 @@
 #include "SecTransform.h"
 #include "SecExternalSourceTransform.h"
 #include "SecNullTransform.h"
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 @implementation speed_test
 

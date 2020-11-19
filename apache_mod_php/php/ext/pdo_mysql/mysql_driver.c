@@ -103,8 +103,7 @@ int _pdo_mysql_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt, const char *file, int lin
 
 	if (!dbh->methods) {
 		PDO_DBG_INF("Throwing exception");
-		zend_throw_exception_ex(php_pdo_get_exception(), einfo->errcode, "SQLSTATE[%s] [%d] %s",
-				*pdo_err, einfo->errcode, einfo->errmsg);
+		pdo_throw_exception(einfo->errcode, einfo->errmsg, pdo_err);
 	}
 
 	PDO_DBG_RETURN(einfo->errcode);
@@ -628,7 +627,7 @@ static int pdo_mysql_handle_factory(pdo_dbh_t *dbh, zval *driver_options)
 	/* handle MySQL options */
 	if (driver_options) {
 		zend_long connect_timeout = pdo_attr_lval(driver_options, PDO_ATTR_TIMEOUT, 30);
-		zend_long local_infile = pdo_attr_lval(driver_options, PDO_MYSQL_ATTR_LOCAL_INFILE, 0);
+		unsigned int local_infile = (unsigned int) pdo_attr_lval(driver_options, PDO_MYSQL_ATTR_LOCAL_INFILE, 0);
 		zend_string *init_cmd = NULL;
 #ifndef PDO_USE_MYSQLND
 		zend_string *default_file = NULL, *default_group = NULL;
@@ -779,7 +778,7 @@ static int pdo_mysql_handle_factory(pdo_dbh_t *dbh, zval *driver_options)
 	} else {
 #if defined(MYSQL_OPT_LOCAL_INFILE) || defined(PDO_USE_MYSQLND)
 		// in case there are no driver options disable 'local infile' explicitly
-		zend_long local_infile = 0;
+		unsigned int local_infile = 0;
 		if (mysql_options(H->server, MYSQL_OPT_LOCAL_INFILE, (const char *)&local_infile)) {
 			pdo_mysql_error(dbh);
 			goto cleanup;

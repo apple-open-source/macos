@@ -38,6 +38,7 @@
 (allow file-read* file-write*
 	(subpath "/private/var/db/mds/")
 	(subpath "/private/var/db/crls/")
+	(subpath "/private/var/protected/")
 	(subpath "/System/Library/Security/")
 	(subpath "/Library/Keychains/")
 	(subpath "/private/var/root/Library/Caches/com.apple.nsurlsessiond/"))
@@ -62,11 +63,26 @@
     (global-name "com.apple.securityd.xpc")
     (global-name "com.apple.cfnetwork.cfnetworkagent")
     (global-name "com.apple.nsurlsessiond")
+    (global-name "com.apple.dnssd.service")
     (xpc-service-name "com.apple.powerlog.plxpclogger.xpc")
     (global-name "com.apple.nesessionmanager.content-filter"))
 
 (allow ipc-posix-shm
 	(ipc-posix-name "com.apple.AppleDatabaseChanged"))
+
+ ;; Read IOKit properties for personalization
+ (allow iokit-get-properties
+    (iokit-property "image4-supported")
+    (iokit-property "Content")
+    (iokit-property "boot-uuid")
+    (iokit-property "IORegistryEntryPropertyKeys")
+    (iokit-property "IOClassNameOverride")
+    (iokit-property "Protocol Characteristics")
+    (iokit-property "board-id")
+    (iokit-property "chip-id")
+    (iokit-property "unique-chip-id")
+    (iokit-property "boot-manifest-hash")
+    (iokit-property "crypto-hash-method"))
 
 (allow network-outbound)
 (allow system-socket)

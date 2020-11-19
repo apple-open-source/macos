@@ -43,43 +43,9 @@
 
 #include <AssertMacros.h>
 #include <stdint.h>
+#include "SOSAccountTesting.h"
 
-__unused static bool SOSCircleHandleCircleWithLock(SOSEngineRef engine, CFStringRef myID, CFDataRef message, CFErrorRef *error) {
-
-    CFMutableArrayRef trustedPeers = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-    CFMutableArrayRef untrustedPeers = CFArrayCreateMutableForCFTypes(kCFAllocatorDefault);
-    CFStringRef peerID = NULL;
-    const uint8_t expected[20] =  { 0xea, 0x6c, 0x01, 0x4d,
-        0xc7, 0x2d, 0x6f, 0x8c,
-        0xcd, 0x1e, 0xd9, 0x2a,
-        0xce, 0x1d, 0x41, 0xf0,
-        0xd8, 0xde, 0x89, 0x57 };
-
-    const char resultSize = sizeof(expected);
-
-    CFDataRef coder = CFDataCreate(kCFAllocatorDefault, expected, resultSize);
-    CFArrayForEachC(SOSEngineGetPeerIDs(engine), peerID){
-        CFArrayAppendValue(trustedPeers, peerID);
-    };
-    CFReleaseNull(coder);
-
-    CFShow(trustedPeers);
-    // all trusted
-    SOSEngineCircleChanged(engine, myID,trustedPeers, untrustedPeers);
-
-    // make first peer untrusted
-    peerID = (CFStringRef)CFArrayGetValueAtIndex(trustedPeers, 0);
-    CFArrayAppendValue(untrustedPeers, peerID);
-    CFArrayRemoveAllValue(trustedPeers, peerID);
-    //we should see peerState cleared out except for the coder!
-    SOSEngineCircleChanged(engine, myID, trustedPeers, untrustedPeers);
-
-    CFArrayAppendValue(trustedPeers, peerID);
-    CFArrayRemoveAllValue(untrustedPeers, peerID);
-
-
-    return true;
-}
+#if SOS_ENABLED
 
 static void testsync3(const char *name,  const char *test_directive, const char *test_reason) {
     __block int iteration=0;
@@ -163,8 +129,6 @@ static void testsync(const char *name,  const char *test_directive, const char *
                               }
                               }
                               CFReleaseSafe(messageDigestStr);
-                              //SOSCircleHandleCircleWithLock(source->ds->engine, SOSEngineGetMyID(source->ds->engine), CFDataCreate(kCFAllocatorDefault, 0, 0), NULL);
-
                           }
                           return false;
                       }, CFSTR("alice"), CFSTR("bob"), NULL);
@@ -503,15 +467,17 @@ SKIP:
     testsyncmany("v2syncmany", test_directive, test_reason, 9, 10, 2, syncmany_add);
     testsync2p();
 }
+#endif
 
 int secd_70_engine(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(1172);
-
     /* custom keychain dir */
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     synctests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

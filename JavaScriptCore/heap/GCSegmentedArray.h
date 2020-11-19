@@ -40,7 +40,7 @@ class GCArraySegment : public DoublyLinkedListNode<GCArraySegment<T>> {
 public:
     GCArraySegment()
         : DoublyLinkedListNode<GCArraySegment<T>>()
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
         , m_top(0)
 #endif
     {
@@ -58,7 +58,7 @@ public:
 
     GCArraySegment* m_prev;
     GCArraySegment* m_next;
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     size_t m_top;
 #endif
 };
@@ -118,7 +118,7 @@ class GCSegmentedArrayIterator {
     friend class GCSegmentedArray<T>;
 public:
     GCSegmentedArrayIterator()
-        : m_currentSegment(0)
+        : m_currentSegment(nullptr)
         , m_currentOffset(0)
     {
     }

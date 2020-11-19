@@ -10,6 +10,8 @@
 #import "OTApplicantToSponsorRound2M1.h"
 #import "OTSponsorToApplicantRound1M2.h"
 #import "OTSponsorToApplicantRound2M2.h"
+#import "OTSupportOctagonMessage.h"
+#import "OTSupportSOSMessage.h"
 
 #if !__has_feature(objc_arc)
 # error This generated file depends on ARC but it is not enabled; turn on ARC, or use 'objc_use_arc' option to generate non-ARC code.
@@ -32,6 +34,16 @@
     return _voucher != nil;
 }
 @synthesize voucher = _voucher;
+- (BOOL)hasSupportsOctagon
+{
+    return _supportsOctagon != nil;
+}
+@synthesize supportsOctagon = _supportsOctagon;
+- (BOOL)hasSupportsSOS
+{
+    return _supportsSOS != nil;
+}
+@synthesize supportsSOS = _supportsSOS;
 
 - (NSString *)description
 {
@@ -52,6 +64,14 @@
     if (self->_voucher)
     {
         [dict setObject:[_voucher dictionaryRepresentation] forKey:@"voucher"];
+    }
+    if (self->_supportsOctagon)
+    {
+        [dict setObject:[_supportsOctagon dictionaryRepresentation] forKey:@"supportsOctagon"];
+    }
+    if (self->_supportsSOS)
+    {
+        [dict setObject:[_supportsSOS dictionaryRepresentation] forKey:@"supportsSOS"];
     }
     return dict;
 }
@@ -126,6 +146,42 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
                 PBReaderRecallMark(reader, &mark_voucher);
             }
             break;
+            case 5 /* supportsOctagon */:
+            {
+                OTSupportOctagonMessage *new_supportsOctagon = [[OTSupportOctagonMessage alloc] init];
+                self->_supportsOctagon = new_supportsOctagon;
+                PBDataReaderMark mark_supportsOctagon;
+                BOOL markError = !PBReaderPlaceMark(reader, &mark_supportsOctagon);
+                if (markError)
+                {
+                    return NO;
+                }
+                BOOL inError = !OTSupportOctagonMessageReadFrom(new_supportsOctagon, reader);
+                if (inError)
+                {
+                    return NO;
+                }
+                PBReaderRecallMark(reader, &mark_supportsOctagon);
+            }
+            break;
+            case 6 /* supportsSOS */:
+            {
+                OTSupportSOSMessage *new_supportsSOS = [[OTSupportSOSMessage alloc] init];
+                self->_supportsSOS = new_supportsSOS;
+                PBDataReaderMark mark_supportsSOS;
+                BOOL markError = !PBReaderPlaceMark(reader, &mark_supportsSOS);
+                if (markError)
+                {
+                    return NO;
+                }
+                BOOL inError = !OTSupportSOSMessageReadFrom(new_supportsSOS, reader);
+                if (inError)
+                {
+                    return NO;
+                }
+                PBReaderRecallMark(reader, &mark_supportsSOS);
+            }
+            break;
             default:
                 if (!PBReaderSkipValueWithTag(reader, tag, aType))
                     return NO;
@@ -162,6 +218,20 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
             PBDataWriterWriteSubmessage(writer, self->_voucher, 3);
         }
     }
+    /* supportsOctagon */
+    {
+        if (self->_supportsOctagon != nil)
+        {
+            PBDataWriterWriteSubmessage(writer, self->_supportsOctagon, 5);
+        }
+    }
+    /* supportsSOS */
+    {
+        if (self->_supportsSOS != nil)
+        {
+            PBDataWriterWriteSubmessage(writer, self->_supportsSOS, 6);
+        }
+    }
 }
 
 - (void)copyTo:(OTPairingMessage *)other
@@ -178,6 +248,14 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     {
         other.voucher = _voucher;
     }
+    if (_supportsOctagon)
+    {
+        other.supportsOctagon = _supportsOctagon;
+    }
+    if (_supportsSOS)
+    {
+        other.supportsSOS = _supportsSOS;
+    }
 }
 
 - (id)copyWithZone:(NSZone *)zone
@@ -186,6 +264,8 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     copy->_epoch = [_epoch copyWithZone:zone];
     copy->_prepare = [_prepare copyWithZone:zone];
     copy->_voucher = [_voucher copyWithZone:zone];
+    copy->_supportsOctagon = [_supportsOctagon copyWithZone:zone];
+    copy->_supportsSOS = [_supportsSOS copyWithZone:zone];
     return copy;
 }
 
@@ -199,6 +279,10 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     ((!self->_prepare && !other->_prepare) || [self->_prepare isEqual:other->_prepare])
     &&
     ((!self->_voucher && !other->_voucher) || [self->_voucher isEqual:other->_voucher])
+    &&
+    ((!self->_supportsOctagon && !other->_supportsOctagon) || [self->_supportsOctagon isEqual:other->_supportsOctagon])
+    &&
+    ((!self->_supportsSOS && !other->_supportsSOS) || [self->_supportsSOS isEqual:other->_supportsSOS])
     ;
 }
 
@@ -211,6 +295,10 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     [self->_prepare hash]
     ^
     [self->_voucher hash]
+    ^
+    [self->_supportsOctagon hash]
+    ^
+    [self->_supportsSOS hash]
     ;
 }
 
@@ -239,6 +327,22 @@ BOOL OTPairingMessageReadFrom(__unsafe_unretained OTPairingMessage *self, __unsa
     else if (!self->_voucher && other->_voucher)
     {
         [self setVoucher:other->_voucher];
+    }
+    if (self->_supportsOctagon && other->_supportsOctagon)
+    {
+        [self->_supportsOctagon mergeFrom:other->_supportsOctagon];
+    }
+    else if (!self->_supportsOctagon && other->_supportsOctagon)
+    {
+        [self setSupportsOctagon:other->_supportsOctagon];
+    }
+    if (self->_supportsSOS && other->_supportsSOS)
+    {
+        [self->_supportsSOS mergeFrom:other->_supportsSOS];
+    }
+    else if (!self->_supportsSOS && other->_supportsSOS)
+    {
+        [self setSupportsSOS:other->_supportsSOS];
     }
 }
 

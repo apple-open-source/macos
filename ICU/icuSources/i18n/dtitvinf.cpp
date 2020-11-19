@@ -42,12 +42,15 @@ U_NAMESPACE_BEGIN
 
 
 #ifdef DTITVINF_DEBUG
-#define PRINTMESG(msg) { std::cout << "(" << __FILE__ << ":" << __LINE__ << ") " << msg << "\n"; }
+#define PRINTMESG(msg) UPRV_BLOCK_MACRO_BEGIN { \
+    std::cout << "(" << __FILE__ << ":" << __LINE__ << ") " << msg << "\n"; \
+} UPRV_BLOCK_MACRO_END
 #endif
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(DateIntervalInfo)
 
 static const char gCalendarTag[]="calendar";
+static const char gGenericTag[]="generic";
 static const char gGregorianTag[]="gregorian";
 static const char gIntervalDateTimePatternTag[]="intervalFormats";
 static const char gFallbackPatternTag[]="fallback";
@@ -232,9 +235,12 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
 
     // Next calendar type
     UnicodeString nextCalendarType;
-
-    DateIntervalSink(DateIntervalInfo &diInfo, const char *currentCalendarType)
-            : dateIntervalInfo(diInfo), nextCalendarType(currentCalendarType, -1, US_INV) { }
+    
+    UBool onlyProcessShortDateSkeletons;
+    UBool stripRightToLeftMarks;
+    
+    DateIntervalSink(DateIntervalInfo &diInfo, const char *currentCalendarType, UBool onlyProcessShortDateSkeletons, UBool stripRightToLeftMarks)
+            : dateIntervalInfo(diInfo), nextCalendarType(currentCalendarType, -1, US_INV), onlyProcessShortDateSkeletons(onlyProcessShortDateSkeletons), stripRightToLeftMarks(stripRightToLeftMarks) { }
     virtual ~DateIntervalSink();
 
     virtual void put(const char *key, ResourceValue &value, UBool /*noFallback*/, UErrorCode &errorCode) {
@@ -267,7 +273,7 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
                 ResourceTable skeletonData = value.getTable(errorCode);
                 if (U_FAILURE(errorCode)) { return; }
                 for (int32_t j = 0; skeletonData.getKeyAndValue(j, key, value); j++) {
-                    if (value.getType() == URES_TABLE) {
+                    if (shouldProcessSkeleton(key) && value.getType() == URES_TABLE) {
                         // Process the skeleton
                         processSkeletonTable(key, value, errorCode);
                         if (U_FAILURE(errorCode)) { return; }
@@ -300,6 +306,29 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
                     if (U_FAILURE(errorCode)) { return; }
                 }
             }
+        }
+    }
+    
+    UBool shouldProcessSkeleton(const char *key) {
+        if (!onlyProcessShortDateSkeletons) {
+            return TRUE;
+        }
+        
+        // if we're only processing short date skeletons, look at the skeleton string: if it contains at least
+        // two of y, M, and d, and it has fewer than 3 Ms, it's a short date skeleton
+        int32_t yCount = 0, mCount = 0, dCount = 0;
+        const char *p = key;
+        while (*p != '\0') {
+            switch (*p++) {
+                case 'y': ++yCount; break;
+                case 'M': ++mCount; break;
+                case 'd': ++dCount; break;
+            }
+        }
+        if (mCount < 3 && ((yCount > 0 && mCount > 0) || (yCount > 0 && dCount > 0) || (mCount > 0 && dCount > 0))) {
+            return TRUE;
+        } else {
+            return FALSE;
         }
     }
 
@@ -362,6 +391,12 @@ struct DateIntervalInfo::DateIntervalSink : public ResourceSink {
 
         if (patternsOfOneSkeleton == NULL || patternsOfOneSkeleton[index].isEmpty()) {
             UnicodeString pattern = value.getUnicodeString(errorCode);
+            if (stripRightToLeftMarks) {
+                // if the pattern string came from a right-to-left locale, it might contain Unicode right-to-left
+                // marks to ensure proper display in a RTL context; we want to strip these if the interval formatter's
+                // actual locale is a LTR locale
+                pattern.findAndReplace(UnicodeString(u'\u200f'), UnicodeString());
+            }
             dateIntervalInfo.setIntervalPatternInternally(skeleton, lrgDiffCalUnit,
                                                           pattern, errorCode);
         }
@@ -407,26 +442,51 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& status)
     status = U_ZERO_ERROR;
 
     // Instantiate the resource bundles
-    UResourceBundle *rb, *calBundle;
+    UBool hasCountryResource = FALSE;
+    UResourceBundle *rb, *countryRB, *calBundle, *countryCalBundle;
     rb = ures_open(NULL, locName, &status);
+    countryRB = ures_openWithCountryFallback(NULL, locName, &hasCountryResource, &status);
     if (U_FAILURE(status)) {
         return;
     }
     calBundle = ures_getByKeyWithFallback(rb, gCalendarTag, NULL, &status);
+    countryCalBundle = ures_getByKeyWithFallback(countryRB, gCalendarTag, NULL, &status);
 
 
     if (U_SUCCESS(status)) {
         UResourceBundle *calTypeBundle, *itvDtPtnResource;
 
         // Get the fallback pattern
-        const UChar* resStr;
+        const UChar* resStr = nullptr;
         int32_t resStrLen = 0;
         calTypeBundle = ures_getByKeyWithFallback(calBundle, calendarTypeToUse, NULL, &status);
         itvDtPtnResource = ures_getByKeyWithFallback(calTypeBundle,
                                                      gIntervalDateTimePatternTag, NULL, &status);
-        resStr = ures_getStringByKeyWithFallback(itvDtPtnResource, gFallbackPatternTag,
-                                                 &resStrLen, &status);
+        // TODO(ICU-20400): After the fixing, we should find the "fallback" from
+        // the rb directly by the path "calendar/${calendar}/intervalFormats/fallback".
         if ( U_SUCCESS(status) ) {
+            resStr = ures_getStringByKeyWithFallback(itvDtPtnResource, gFallbackPatternTag,
+                                                     &resStrLen, &status);
+            if ( U_FAILURE(status) ) {
+                // Try to find "fallback" from "generic" to work around the bug in
+                // ures_getByKeyWithFallback
+                UErrorCode localStatus = U_ZERO_ERROR;
+                UResourceBundle *genericCalBundle =
+                    ures_getByKeyWithFallback(calBundle, gGenericTag, NULL, &localStatus);
+                UResourceBundle *genericItvDtPtnResource =
+                    ures_getByKeyWithFallback(
+                        genericCalBundle, gIntervalDateTimePatternTag, NULL, &localStatus);
+                resStr = ures_getStringByKeyWithFallback(
+                    genericItvDtPtnResource, gFallbackPatternTag, &resStrLen, &localStatus);
+                ures_close(genericItvDtPtnResource);
+                ures_close(genericCalBundle);
+                if ( U_SUCCESS(localStatus) ) {
+                    status = U_USING_FALLBACK_WARNING;;
+                }
+            }
+        }
+
+        if ( U_SUCCESS(status) && (resStr != nullptr)) {
             UnicodeString pattern = UnicodeString(TRUE, resStr, resStrLen);
             setFallbackIntervalPattern(pattern, status);
         }
@@ -434,43 +494,51 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& status)
         ures_close(calTypeBundle);
 
 
-        // Instantiate the sink
-        DateIntervalSink sink(*this, calendarTypeToUse);
-        const UnicodeString &calendarTypeToUseUString = sink.getNextCalendarType();
+        UResourceBundle *curCalBundle = hasCountryResource ? countryCalBundle : calBundle;
+        
+        while (curCalBundle != NULL) {
+            // Instantiate the sink
+            DateIntervalSink sink(*this, calendarTypeToUse, curCalBundle != calBundle, !locale.isRightToLeft());
+            const UnicodeString &calendarTypeToUseUString = sink.getNextCalendarType();
 
-        // Already loaded calendar types
-        Hashtable loadedCalendarTypes(FALSE, status);
+            // Already loaded calendar types
+            Hashtable loadedCalendarTypes(FALSE, status);
 
-        if (U_SUCCESS(status)) {
-            while (!calendarTypeToUseUString.isBogus()) {
-                // Set an error when a loop is detected
-                if (loadedCalendarTypes.geti(calendarTypeToUseUString) == 1) {
-                    status = U_INVALID_FORMAT_ERROR;
-                    break;
+            if (U_SUCCESS(status)) {
+                while (!calendarTypeToUseUString.isBogus()) {
+                    // Set an error when a loop is detected
+                    if (loadedCalendarTypes.geti(calendarTypeToUseUString) == 1) {
+                        status = U_INVALID_FORMAT_ERROR;
+                        break;
+                    }
+
+                    // Register the calendar type to avoid loops
+                    loadedCalendarTypes.puti(calendarTypeToUseUString, 1, status);
+                    if (U_FAILURE(status)) { break; }
+
+                    // Get the calendar string
+                    CharString calTypeBuffer;
+                    calTypeBuffer.appendInvariantChars(calendarTypeToUseUString, status);
+                    if (U_FAILURE(status)) { break; }
+                    const char *calType = calTypeBuffer.data();
+
+                    // Reset the next calendar type to load.
+                    sink.resetNextCalendarType();
+
+                    // Get all resources for this calendar type
+                    ures_getAllItemsWithFallback(curCalBundle, calType, sink, status);
                 }
-
-                // Register the calendar type to avoid loops
-                loadedCalendarTypes.puti(calendarTypeToUseUString, 1, status);
-                if (U_FAILURE(status)) { break; }
-
-                // Get the calendar string
-                CharString calTypeBuffer;
-                calTypeBuffer.appendInvariantChars(calendarTypeToUseUString, status);
-                if (U_FAILURE(status)) { break; }
-                const char *calType = calTypeBuffer.data();
-
-                // Reset the next calendar type to load.
-                sink.resetNextCalendarType();
-
-                // Get all resources for this calendar type
-                ures_getAllItemsWithFallback(calBundle, calType, sink, status);
             }
+            
+            curCalBundle = (curCalBundle == calBundle) ? NULL : calBundle;
         }
     }
 
     // Close the opened resource bundles
     ures_close(calBundle);
     ures_close(rb);
+    ures_close(countryCalBundle);
+    ures_close(countryRB);
 }
 
 void

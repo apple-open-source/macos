@@ -2,6 +2,7 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
+#import <dispatch/dispatch.h>
 
 #import "keychain/ckks/CKKSGroupOperation.h"
 #import "keychain/ckks/CKKSKeychainBackedKey.h"
@@ -24,7 +25,15 @@ NS_ASSUME_NONNULL_BEGIN
 // Any new TLKShares that CKKS suggested we upload along with this keyset
 @property NSArray<CKKSTLKShare*>* pendingTLKShares;
 
-- (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies;
+// Any views that didn't provide a keyset within time
+@property NSSet<NSString*>* viewsTimedOutWithoutKeysets;
+
+// Set this to configure how long to wait for CKKS to resonse
+@property dispatch_time_t desiredTimeout;
+
+- (instancetype)initWithDependencies:(OTOperationDependencies*)dependencies
+                       refetchNeeded:(BOOL)refetchNeeded;
+;
 - (instancetype)initWithViews:(NSSet<CKKSKeychainView*>*)views;
 @end
 

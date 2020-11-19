@@ -39,7 +39,7 @@
 #import "PixelBufferConformerCV.h"
 #import "TextTrackRepresentation.h"
 #import "TextureCacheCV.h"
-#import "VideoFullscreenLayerManagerObjC.h"
+#import "VideoLayerManagerObjC.h"
 #import "VideoTextureCopierCV.h"
 #import "WebCoreDecompressionSession.h"
 #import <AVFoundation/AVAsset.h>
@@ -47,7 +47,7 @@
 #import <QuartzCore/CALayer.h>
 #import <objc_runtime.h>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
-#import <pal/spi/mac/AVFoundationSPI.h>
+#import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <wtf/Deque.h>
 #import <wtf/FileSystem.h>
 #import <wtf/MainThread.h>
@@ -139,7 +139,7 @@ MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC(Media
     , m_loadingProgressed(false)
     , m_logger(player->mediaPlayerLogger())
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
-    , m_videoFullscreenLayerManager(makeUnique<VideoFullscreenLayerManagerObjC>(m_logger, m_logIdentifier))
+    , m_videoLayerManager(makeUnique<VideoLayerManagerObjC>(m_logger, m_logIdentifier))
     , m_effectiveRateChangedListener(EffectiveRateChangedListener::create(*this, [m_synchronizer timebase]))
 {
     auto logSiteIdentifier = LOGIDENTIFIER;
@@ -252,27 +252,8 @@ MediaPlayer::SupportsType MediaPlayerPrivateMediaSourceAVFObjC::supportsType(con
     // This engine does not support non-media-source sources.
     if (!parameters.isMediaSource)
         return MediaPlayer::SupportsType::IsNotSupported;
-#if ENABLE(MEDIA_STREAM)
-    if (parameters.isMediaStream)
-        return MediaPlayer::SupportsType::IsNotSupported;
-#endif
 
-    String extendedType = parameters.type.raw();
-    String outputCodecs = parameters.type.parameter(ContentType::codecsParameter());
-    if (!outputCodecs.isEmpty() && [PAL::getAVStreamDataParserClass() respondsToSelector:@selector(outputMIMECodecParameterForInputMIMECodecParameter:)]) {
-        outputCodecs = [PAL::getAVStreamDataParserClass() outputMIMECodecParameterForInputMIMECodecParameter:outputCodecs];
-        extendedType = makeString(parameters.type.containerType(), "; codecs=\"", outputCodecs, "\"");
-    }
-
-    auto supported = MediaPlayer::SupportsType::IsNotSupported;
-    auto& streamDataParserCache = AVStreamDataParserMIMETypeCache::singleton();
-    if (streamDataParserCache.isAvailable())
-        supported = streamDataParserCache.canDecodeType(extendedType);
-    else {
-        auto& assetCache = AVAssetMIMETypeCache::singleton();
-        if (assetCache.isAvailable())
-            supported = assetCache.canDecodeType(extendedType);
-    }
+    auto supported = SourceBufferParser::isContentTypeSupported(parameters.type);
 
     if (supported != MediaPlayer::SupportsType::IsSupported)
         return supported;
@@ -321,7 +302,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::prepareToPlay()
 
 PlatformLayer* MediaPlayerPrivateMediaSourceAVFObjC::platformLayer() const
 {
-    return m_videoFullscreenLayerManager->videoInlineLayer();
+    return m_videoLayerManager->videoInlineLayer();
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::play()
@@ -336,6 +317,9 @@ void MediaPlayerPrivateMediaSourceAVFObjC::play()
 
 void MediaPlayerPrivateMediaSourceAVFObjC::playInternal()
 {
+    if (!m_mediaSourcePrivate)
+        return;
+
     if (currentMediaTime() >= m_mediaSourcePrivate->duration()) {
         ALWAYS_LOG(LOGIDENTIFIER, "bailing, current time: ", currentMediaTime(), " greater than duration ", m_mediaSourcePrivate->duration());
         return;
@@ -589,6 +573,17 @@ NativeImagePtr MediaPlayerPrivateMediaSourceAVFObjC::nativeImageForCurrentTime()
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::updateLastPixelBuffer()
 {
+#if HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    if (m_videoOutput) {
+        CMTime outputTime;
+        if (auto pixelBuffer = adoptCF([m_videoOutput copyPixelBufferForSourceTime:toCMTime(currentMediaTime()) sourceTimeForDisplay:&outputTime])) {
+            INFO_LOG(LOGIDENTIFIER, "new pixelbuffer found for time ", toMediaTime(outputTime));
+            m_lastPixelBuffer = WTFMove(pixelBuffer);
+            return true;
+        }
+    }
+#endif
+
     if (m_sampleBufferDisplayLayer || !m_decompressionSession)
         return false;
 
@@ -636,7 +631,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::paintCurrentFrameInContext(GraphicsCo
     context.drawNativeImage(image, imageRect.size(), outputRect, imageRect);
 }
 
-bool MediaPlayerPrivateMediaSourceAVFObjC::copyVideoTextureToPlatformTexture(GraphicsContext3D* context, Platform3DObject outputTexture, GC3Denum outputTarget, GC3Dint level, GC3Denum internalFormat, GC3Denum format, GC3Denum type, bool premultiplyAlpha, bool flipY)
+bool MediaPlayerPrivateMediaSourceAVFObjC::copyVideoTextureToPlatformTexture(GraphicsContextGLOpenGL* context, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
 {
     // We have been asked to paint into a WebGL canvas, so take that as a signal to create
     // a decompression session, even if that means the native video can't also be displayed
@@ -674,7 +669,7 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::supportsAcceleratedRendering() const
 
 void MediaPlayerPrivateMediaSourceAVFObjC::acceleratedRenderingStateChanged()
 {
-    if (!m_hasBeenAskedToPaintGL) {
+    if (!m_hasBeenAskedToPaintGL || isVideoOutputAvailable()) {
         destroyDecompressionSession();
         ensureLayer();
     } else {
@@ -767,6 +762,15 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureLayer()
         return;
     }
 
+#if HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    ASSERT(!m_videoOutput);
+    if (isVideoOutputAvailable()) {
+        m_videoOutput = adoptNS([PAL::allocAVSampleBufferVideoOutputInstance() init]);
+        ASSERT(m_videoOutput);
+        [m_sampleBufferDisplayLayer setOutput:m_videoOutput.get()];
+    }
+#endif
+
     if ([m_sampleBufferDisplayLayer respondsToSelector:@selector(setPreventsDisplaySleepDuringVideoPlayback:)])
         m_sampleBufferDisplayLayer.get().preventsDisplaySleepDuringVideoPlayback = NO;
 
@@ -782,7 +786,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::ensureLayer()
 
     if (m_mediaSourcePrivate)
         m_mediaSourcePrivate->setVideoLayer(m_sampleBufferDisplayLayer.get());
-    m_videoFullscreenLayerManager->setVideoLayer(m_sampleBufferDisplayLayer.get(), snappedIntRect(m_player->playerContentBoxRect()).size());
+    m_videoLayerManager->setVideoLayer(m_sampleBufferDisplayLayer.get(), snappedIntRect(m_player->playerContentBoxRect()).size());
     m_player->renderingModeChanged();
 }
 
@@ -798,7 +802,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::destroyLayer()
 
     if (m_mediaSourcePrivate)
         m_mediaSourcePrivate->setVideoLayer(nullptr);
-    m_videoFullscreenLayerManager->didDestroyVideoLayer();
+    m_videoLayerManager->didDestroyVideoLayer();
     m_sampleBufferDisplayLayer = nullptr;
     setHasAvailableVideoFrame(false);
     m_player->renderingModeChanged();
@@ -834,6 +838,15 @@ void MediaPlayerPrivateMediaSourceAVFObjC::destroyDecompressionSession()
 bool MediaPlayerPrivateMediaSourceAVFObjC::shouldBePlaying() const
 {
     return m_playing && !seeking() && allRenderersHaveAvailableSamples() && m_readyState >= MediaPlayer::ReadyState::HaveFutureData;
+}
+
+bool MediaPlayerPrivateMediaSourceAVFObjC::isVideoOutputAvailable() const
+{
+#if HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    return PAL::getAVSampleBufferVideoOutputClass;
+#else
+    return false;
+#endif
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setHasAvailableVideoFrame(bool flag)
@@ -1030,6 +1043,9 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setCDMSession(LegacyCDMSession* sessi
         cdmStreamSession->setStreamSession(streamSession());
 #endif
 
+    if (!m_mediaSourcePrivate)
+        return;
+
     for (auto& sourceBuffer : m_mediaSourcePrivate->sourceBuffers())
         sourceBuffer->setCDMSession(m_session.get());
 }
@@ -1159,7 +1175,8 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
         setNetworkState(MediaPlayer::NetworkState::DecodeError);
         return;
     }
-    m_player->renderingModeChanged();
+
+    m_player->characteristicChanged();
 }
 
 ALLOW_NEW_API_WITHOUT_GUARDS_BEGIN
@@ -1185,35 +1202,41 @@ void MediaPlayerPrivateMediaSourceAVFObjC::characteristicsChanged()
     m_player->characteristicChanged();
 }
 
+RetainPtr<PlatformLayer> MediaPlayerPrivateMediaSourceAVFObjC::createVideoFullscreenLayer()
+{
+    return adoptNS([[CALayer alloc] init]);
+}
+
 void MediaPlayerPrivateMediaSourceAVFObjC::setVideoFullscreenLayer(PlatformLayer *videoFullscreenLayer, WTF::Function<void()>&& completionHandler)
 {
     updateLastImage();
-    m_videoFullscreenLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler), m_lastImage);
+    m_videoLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler), m_lastImage);
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::setVideoFullscreenFrame(FloatRect frame)
 {
-    m_videoFullscreenLayerManager->setVideoFullscreenFrame(frame);
+    m_videoLayerManager->setVideoFullscreenFrame(frame);
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::requiresTextTrackRepresentation() const
 {
-    return m_videoFullscreenLayerManager->videoFullscreenLayer();
+    return m_videoLayerManager->videoFullscreenLayer();
 }
     
 void MediaPlayerPrivateMediaSourceAVFObjC::syncTextTrackBounds()
 {
-    m_videoFullscreenLayerManager->syncTextTrackBounds();
+    m_videoLayerManager->syncTextTrackBounds();
 }
     
 void MediaPlayerPrivateMediaSourceAVFObjC::setTextTrackRepresentation(TextTrackRepresentation* representation)
 {
-    m_videoFullscreenLayerManager->setTextTrackRepresentation(representation);
+    m_videoLayerManager->setTextTrackRepresentation(representation);
 }
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 void MediaPlayerPrivateMediaSourceAVFObjC::setWirelessPlaybackTarget(Ref<MediaPlaybackTarget>&& target)
 {
+    ALWAYS_LOG(LOGIDENTIFIER);
     m_playbackTarget = WTFMove(target);
 }
 
@@ -1226,7 +1249,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setShouldPlayToPlaybackTarget(bool sh
     m_shouldPlayToTarget = shouldPlayToTarget;
 
     if (m_player)
-        m_player->currentPlaybackTargetIsWirelessChanged();
+        m_player->currentPlaybackTargetIsWirelessChanged(isCurrentPlaybackTargetWireless());
 }
 
 bool MediaPlayerPrivateMediaSourceAVFObjC::isCurrentPlaybackTargetWireless() const
@@ -1240,7 +1263,7 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::isCurrentPlaybackTargetWireless() con
 }
 #endif
 
-bool MediaPlayerPrivateMediaSourceAVFObjC::performTaskAtMediaTime(WTF::Function<void()>&& task, MediaTime time)
+bool MediaPlayerPrivateMediaSourceAVFObjC::performTaskAtMediaTime(WTF::Function<void()>&& task, const MediaTime& time)
 {
     __block WTF::Function<void()> taskIn = WTFMove(task);
 

@@ -4,6 +4,9 @@
 
 (import "system.sb")
 
+(allow file-write-data
+    (literal "/dev/random"))
+
 (allow file-read* file-write*
     (subpath "/private/var/db/mds")
     (regex #"^/private/var/folders/[^/]+/[^/]+/T(/|$)")

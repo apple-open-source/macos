@@ -61,6 +61,7 @@ extern NSString* const SFAnalyticsTopicCloudServices;
 extern NSString* const SFAnalyticsTopicKeySync;
 extern NSString* const SFAnalyticsTopicTrust;
 extern NSString* const SFAnalyticsTopicTransparency;
+extern NSString* const SFAnalyticsTopicNetworking;
 
 typedef NS_ENUM(NSInteger, SFAnalyticsEventClass) {
     SFAnalyticsEventClassSuccess,

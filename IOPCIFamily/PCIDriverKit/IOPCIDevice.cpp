@@ -61,7 +61,7 @@ IOPCIDevice::Open(IOService*   forClient,
             if(deviceMemoryArray != NULL)
             {
                 ivars->numDeviceMemoryMappings = deviceMemoryArray->getCount();
-                ivars->deviceMemoryMappings    = reinterpret_cast<IOMemoryMap**>(IOMalloc(sizeof(IOMemoryMap*) * ivars->numDeviceMemoryMappings));
+                ivars->deviceMemoryMappings    = reinterpret_cast<IOMemoryMap**>(IOMallocZero(sizeof(IOMemoryMap*) * ivars->numDeviceMemoryMappings));
                 // map all the memory for the device
                 for(uint32_t memoryIndex = 0; memoryIndex < ivars->numDeviceMemoryMappings; memoryIndex++)
                 {
@@ -208,8 +208,21 @@ IOPCIDevice::MemoryRead64(uint8_t   memoryIndex,
                           uint64_t  offset,
                           uint64_t* readData)
 {
+#if TARGET_CPU_X86 || TARGET_CPU_X86_64
     IOMemoryMap* deviceMemory = ivars->deviceMemoryMappings[memoryIndex];
     *readData = *reinterpret_cast<volatile uint64_t*>(deviceMemory->GetAddress() + offset);
+#else
+    uint64_t bounceData;
+    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation64Bit,
+                     offset,
+                     0,
+                     readData,
+                     ivars->deviceClient,
+                     0) != kIOReturnSuccess)
+    {
+        *readData = -1;
+    }
+#endif
 }
 
 void
@@ -240,10 +253,25 @@ IOPCIDevice::MemoryRead32(uint8_t   memoryIndex,
         }
     }
     else
-#endif
     {
         *readData = *reinterpret_cast<volatile uint32_t*>(deviceMemory->GetAddress() + offset);
     }
+#else
+    uint64_t bounceData;
+    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation32Bit,
+                     offset,
+                     0,
+                     &bounceData,
+                     ivars->deviceClient,
+                     0) != kIOReturnSuccess)
+    {
+        *readData = -1;
+    }
+    else
+    {
+        *readData = static_cast<uint32_t>(bounceData);
+    }
+#endif
 }
 
 void
@@ -274,10 +302,25 @@ IOPCIDevice::MemoryRead16(uint8_t   memoryIndex,
         }
     }
     else
-#endif
     {
         *readData = *reinterpret_cast<volatile uint16_t*>(deviceMemory->GetAddress() + offset);
     }
+#else
+    uint64_t bounceData;
+    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation16Bit,
+                     offset,
+                     0,
+                     &bounceData,
+                     ivars->deviceClient,
+                     0) != kIOReturnSuccess)
+    {
+        *readData = -1;
+    }
+    else
+    {
+        *readData = static_cast<uint16_t>(bounceData);
+    }
+#endif
 }
 
 void
@@ -308,10 +351,25 @@ IOPCIDevice::MemoryRead8(uint8_t  memoryIndex,
         }
     }
     else
-#endif
     {
         *readData = *reinterpret_cast<volatile uint8_t*>(deviceMemory->GetAddress() + offset);
     }
+#else
+    uint64_t bounceData;
+    if(_MemoryAccess(kPCIDriverKitMemoryAccessOperationDeviceRead | kPCIDriverKitMemoryAccessOperation8Bit,
+                     offset,
+                     0,
+                     &bounceData,
+                     ivars->deviceClient,
+                     0) != kIOReturnSuccess)
+    {
+        *readData = -1;
+    }
+    else
+    {
+        *readData = static_cast<uint8_t>(bounceData);
+    }
+#endif
 }
 
 void

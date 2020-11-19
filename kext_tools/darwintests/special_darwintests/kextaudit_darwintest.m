@@ -28,14 +28,6 @@ T_GLOBAL_META(T_META_NAMESPACE("kext_tools.kextaudit"));
 #define kKextAuditTestRemoteServiceName "com.apple.internal.xpc.remote.kext_audit"
 #define kKextAuditTestKext @"/System/Library/Extensions/Dont Steal Mac OS X.kext"
 
-/* Adding some LASIO definitions directly here */
-#define LASIOBridgeStateIsSecure			(1 << 0)
-#define LASIOBridgeStateNoKernelLoaded			(1 << 1)
-#define LASIOBridgeStateOffendingKernelLoaded		(1 << 2)
-#define LASIOBridgeStateOffendingKextLoaded		(1 << 3)
-#define LASIOBridgeLoadErrorRecorded			(1 << 4)
-#define LASIOBridgeStateBlacklistMissing		(1 << 5)
-
 xpc_remote_connection_t kextaudit_conn;
 
 static void kextaudit_connect_remote_service(void)
@@ -159,82 +151,11 @@ static void kextaudit_verify_kext_with_remote_service(NSString *kextPath) {
 	free((void *)cdHash);
 }
 
-static void kextaudit_verify_kext_with_lasio(NSString *kextPath) {
-	__block bool gotIt =  false;
-	const char    *cdHash = malloc(kKALNCDHashSize);
-	char    rawCDHash[kKALNCDHashSize] = {};
-	char *ptrrawCDHash= rawCDHash;
-	get_cdHash_for_kext(kextPath, (char **)&cdHash);
-
-	size_t cdHashSize = strlen(cdHash);
-	T_QUIET; T_ASSERT_TRUE(createRawBytesFromHexString(&rawCDHash[0], kKALNKCDHashSize, cdHash, cdHashSize), "create string of raw bytes");
-
-	const char *cmdString[] = { "cmd" };
-	xpc_object_t cmd = xpc_string_create("sendlasioinfo");
-	xpc_object_t msg = xpc_dictionary_create(cmdString, &cmd, 1);
-	xpc_object_t reply, loadedKexts;
-
-	reply = xpc_remote_connection_send_message_with_reply_sync(kextaudit_conn, msg);
-	T_QUIET; T_ASSERT_NE(xpc_get_type(reply), XPC_TYPE_ERROR, "Get multiversed reply");
-
-	loadedKexts = xpc_dictionary_get_value(reply, "loadedKextHashes");
-	T_QUIET; T_ASSERT_TRUE(loadedKexts, "Retrieve loaded kext hashes from reply");
-
-	xpc_array_apply(loadedKexts, (xpc_array_applier_t)^(size_t index, xpc_object_t loadedKext) {
-		uint8_t remote_cdHash[kKALNCDHashSize];
-		size_t copied = xpc_data_get_bytes(loadedKext, remote_cdHash, 0, kKALNCDHashSize);
-
-		if (copied != cdHashSize / 2) {
-			T_QUIET; T_EXPECT_EQ_ULONG(copied, cdHashSize / 2, "Expect cdHash of kexts to be half of kKALNCDHashSize");
-			return true;
-		}
-		if (! memcmp((void *)ptrrawCDHash, (void*)remote_cdHash, copied)) {
-			gotIt = true;
-			return false;
-		}
-		return true;
-	});
-
-	T_ASSERT_TRUE(gotIt, "Verify that lasio has kext at %s in its list of loaded kexts",
-		[kextPath UTF8String]);
-
-	free((void *)cdHash);
-}
-
-static uint64_t kextaudit_lasio_get_state() {
-	const char *cmdString[] = { "cmd" };
-	xpc_object_t cmd = xpc_string_create("sendlasioinfo");
-	xpc_object_t msg = xpc_dictionary_create(cmdString, &cmd, 1);
-	xpc_object_t reply;
-	uint64_t currentState = 0;
-
-	reply = xpc_remote_connection_send_message_with_reply_sync(kextaudit_conn, msg);
-	T_QUIET; T_ASSERT_NE(xpc_get_type(reply), XPC_TYPE_ERROR, "Get multiversed reply");
-
-	currentState = xpc_dictionary_get_uint64(reply, "currentState");
-
-	return currentState;
-}
-
-T_DECL(lasio_verify_kext_registration, "testing if a loaded kext is recorded by the kext_audit plugin and lasio", T_META_ASROOT(true))
+T_DECL(kextaudit_verify_kext_registration, "testing if a loaded kext is recorded by the kext_audit plugin", T_META_ASROOT(true))
 {
-	bool lasio_initialState = false; // initializing to insecure
-
 	kextaudit_connect_remote_service();
-
-	lasio_initialState = kextaudit_lasio_get_state();
-	T_LOG("Lasio is at a/an %s state before new kext load",
-		  lasio_initialState & LASIOBridgeStateIsSecure ? "secure" : "not secure");
 
 	kextaudit_audit_new_kext_load(kKextAuditTestKext);
 
-	if (lasio_initialState & LASIOBridgeStateIsSecure) /* initially secure - should remain secure */ {
-		kextaudit_verify_kext_with_remote_service(kKextAuditTestKext);
-
-		kextaudit_verify_kext_with_lasio(kKextAuditTestKext);
-
-		T_ASSERT_TRUE((kextaudit_lasio_get_state() & LASIOBridgeStateIsSecure), "Lasio must remain in a secure state");
-	} else /* initially insecure - should still remain insecure */ {
-		T_ASSERT_FALSE((kextaudit_lasio_get_state() & LASIOBridgeStateIsSecure), "Lasio must remain in an insecure state");
-	}
+	kextaudit_verify_kext_with_remote_service(kKextAuditTestKext);
 }

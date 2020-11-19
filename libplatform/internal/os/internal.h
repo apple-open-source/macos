@@ -26,9 +26,6 @@
 #include <TargetConditionals.h>
 #include <machine/cpu_capabilities.h>
 
-#include "os/base_private.h"
-#include "os/semaphore_private.h"
-
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -38,23 +35,21 @@
 #endif
 #include <mach/thread_switch.h>
 
+
+#include <os/atomic_private.h>
+
+#include "os/base_private.h"
+#include "os/semaphore_private.h"
+#include "os/crashlog_private.h"
+#include "yield.h"
+
 #define likely(x) os_likely(x)
 #define unlikely(x) os_unlikely(x)
 
-#define __OS_CRASH__(rc, msg)  ({ \
-		_os_set_crash_log_cause_and_message(rc, msg); \
-		os_prevent_tail_call_optimization(); \
-		__builtin_trap(); \
-	})
-
 #define __LIBPLATFORM_CLIENT_CRASH__(rc, msg) \
-		__OS_CRASH__(rc, "BUG IN CLIENT OF LIBPLATFORM: " msg)
+		OS_BUG_CLIENT(rc, "LIBPLATFORM", msg)
 #define __LIBPLATFORM_INTERNAL_CRASH__(rc, msg) \
-		__OS_CRASH__(rc, "BUG IN LIBPLATFORM: " msg)
-
-#define __OS_EXPOSE_INTERNALS__ 1
-#include "os/internal/internal_shared.h"
-#include "yield.h"
+		OS_BUG_INTERNAL(rc, "LIBPLATFORM", msg)
 
 #define OS_NOEXPORT extern __attribute__((__visibility__("hidden")))
 

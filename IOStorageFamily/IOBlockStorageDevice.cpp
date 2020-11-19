@@ -124,7 +124,7 @@ IOBlockStorageDevice::setWriteCacheState(bool enabled)
     return(kIOReturnUnsupported);
 }
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 IOReturn
 IOBlockStorageDevice::doLockUnlockMedia(bool doLock)
 {
@@ -143,7 +143,7 @@ IOBlockStorageDevice::reportPollRequirements(bool *pollRequired,
 {
     return(kIOReturnUnsupported);
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
 IOReturn
 IOBlockStorageDevice::requestIdle(void)
@@ -151,20 +151,20 @@ IOBlockStorageDevice::requestIdle(void)
     return(kIOReturnUnsupported);
 }
 
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
 IOReturn
 IOBlockStorageDevice::doDiscard(UInt64 block, UInt64 nblks)
 {
     return(kIOReturnUnsupported);
 }
-#endif /* TARGET_OS_OSX && defined(__x86_64__) */
+#endif /* TARGET_OS_OSX */
 
 IOReturn
 IOBlockStorageDevice::doUnmap(IOBlockStorageDeviceExtent * extents,
                               UInt32                       extentsCount,
                               IOStorageUnmapOptions        options)
 {
-#if TARGET_OS_OSX && defined(__x86_64__)
+#if TARGET_OS_OSX
     if (options) {
         return(kIOReturnUnsupported);
     } else {
@@ -181,9 +181,9 @@ IOBlockStorageDevice::doUnmap(IOBlockStorageDeviceExtent * extents,
     }
 
     return(kIOReturnSuccess);
-#else /* !TARGET_OS_OSX || !defined(__x86_64__) */
+#else /* !TARGET_OS_OSX */
     return(kIOReturnUnsupported);
-#endif /* !TARGET_OS_OSX || !defined(__x86_64__) */
+#endif /* !TARGET_OS_OSX */
 }
 
 IOReturn

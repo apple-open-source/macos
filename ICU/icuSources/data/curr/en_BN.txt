@@ -1,0 +1,12 @@
+// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
+en_BN{
+    %%Parent{"en_001"}
+    Currencies{
+        BND{
+            "$",
+            "Brunei Dollar",
+        }
+    }
+    Version{"36.1"}
+}

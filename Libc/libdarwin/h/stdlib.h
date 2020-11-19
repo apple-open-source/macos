@@ -192,7 +192,7 @@ _os_strdup_known(const char *str)
 #define os_calloc(__cnt, __size) ({ \
 	void *ptr = NULL; \
 	size_t _size = (__size); \
-	size_t _cnt = (__size); \
+	size_t _cnt = (__cnt); \
 	if ((__builtin_constant_p(__cnt) && __builtin_constant_p(__size)) || \
 			 !_dispatch_is_multithreaded()) { \
 		ptr = _os_calloc_known(_cnt, _size); \

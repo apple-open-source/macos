@@ -266,6 +266,10 @@ ualoc_getAppleParent(const char* localeID,
  *          superseded identifiers such as "no", "tl". Must not be
  *          NULL. Entries with the following values will be ignored:
  *          NULL, "", "root", any entry beginning with '-' or '_'.
+ *          "zxx" (meaning "no linguistic content") is a special value--
+ *          If this is included in availableLocalizations and there are no
+ *          matches between availableLocalizations and preferredLanguages,
+ *          the result set will contain "zxx".
  * @param availableLocalizationsCount
  *          Count of entries in availableLocalizations.
  * @param localizationsToUse

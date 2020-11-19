@@ -86,6 +86,7 @@
 /**
  * \def U_DISABLE_RENAMING
  * Determines whether to disable renaming or not.
+ * (Apple modifies the default to be 1, not 0)
  * @internal
  */
 #ifndef U_DISABLE_RENAMING
@@ -426,6 +427,7 @@
 /**
  * \def UCONFIG_NO_SERVICE
  * This switch turns off service registration.
+ * (Apple modifies the default to be 1, not 0)
  *
  * @stable ICU 3.2
  */
@@ -453,4 +455,4 @@
 #   define UCONFIG_NO_FILTERED_BREAK_ITERATION 0
 #endif
 
-#endif
+#endif  // __UCONFIG_H__

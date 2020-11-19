@@ -4403,21 +4403,17 @@ void *hfs_mallocz(size_t size)
 // -- Zone allocator-related structures and routines --
 
 hfs_zone_entry_t hfs_zone_entries[HFS_NUM_ZONES] = {
-	{ HFS_CNODE_ZONE, sizeof(struct cnode), "HFS node", true },
-	{ HFS_FILEFORK_ZONE, sizeof(struct filefork), "HFS fork", true },
-	{ HFS_DIRHINT_ZONE, sizeof(struct directoryhint), "HFS dirhint", true }
+	{ HFS_CNODE_ZONE, sizeof(struct cnode), "HFS node" },
+	{ HFS_FILEFORK_ZONE, sizeof(struct filefork), "HFS fork" },
+	{ HFS_DIRHINT_ZONE, sizeof(struct directoryhint), "HFS dirhint" }
 };
 
 hfs_zone_t hfs_zones[HFS_NUM_ZONES];
 
 void hfs_init_zones(void) {
 	for (int i = 0; i < HFS_NUM_ZONES; i++) {
-		hfs_zones[i].hz_zone = zinit(hfs_zone_entries[i].hze_elem_size, 1024 * 1024, PAGE_SIZE, hfs_zone_entries[i].hze_name);
-		hfs_zones[i].hz_elem_size = hfs_zone_entries[i].hze_elem_size;
-		
-		zone_change(hfs_zones[i].hz_zone, Z_CALLERACCT, false);
-		if (hfs_zone_entries[i].hze_noencrypt)
-			zone_change(hfs_zones[i].hz_zone, Z_NOENCRYPT, true);
+		hfs_zones[i].hz_zone = zone_create(hfs_zone_entries[i].hze_name,
+		    hfs_zone_entries[i].hze_elem_size, ZC_NOENCRYPT);
 	}
 }
 

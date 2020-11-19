@@ -506,7 +506,7 @@ main(int argc, const char *argv[])
 
 	init_globals();
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	remote_enabled = 1;
 	activate_bsd_out = 0;
 #endif

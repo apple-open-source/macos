@@ -413,7 +413,7 @@ void IOFireWireUnit::terminateUnitThreadFunc( void * refcon )
 {
     IOFireWireUnit *me = (IOFireWireUnit *)refcon;
     
-	FWKLOG(( "IOFireWireUnit::terminateUnitThreadFunc - entered terminate unit = 0x%08lx\n", me ));
+	FWKLOG(( "IOFireWireUnit::terminateUnitThreadFunc - entered terminate unit = %p\n", me ));
     
 	me->fControl->closeGate();
 	
@@ -442,7 +442,7 @@ void IOFireWireUnit::terminateUnitThreadFunc( void * refcon )
 
 	me->release();		// retained when thread was spawned
 
-	FWKLOG(( "IOFireWireUnit::terminateUnitThreadFunc - exiting terminate unit = 0x%08lx\n", me ));
+	FWKLOG(( "IOFireWireUnit::terminateUnitThreadFunc - exiting terminate unit = %p\n", me ));
 }
 
 // setConfigDirectory

@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "BytecodeStructs.h"
 #include "CodeBlock.h"
 #include "CodeSpecializationKind.h"
 #include "DirectArguments.h"
@@ -117,123 +116,6 @@ inline bool opInByVal(JSGlobalObject* globalObject, JSValue baseVal, JSValue pro
     RELEASE_AND_RETURN(scope, baseObj->hasProperty(globalObject, property));
 }
 
-inline void tryCachePutToScopeGlobal(
-    JSGlobalObject* globalObject, CodeBlock* codeBlock, OpPutToScope& bytecode, JSObject* scope,
-    PutPropertySlot& slot, const Identifier& ident)
-{
-    // Covers implicit globals. Since they don't exist until they first execute, we didn't know how to cache them at compile time.
-    auto& metadata = bytecode.metadata(codeBlock);
-    ResolveType resolveType = metadata.m_getPutInfo.resolveType();
-
-    switch (resolveType) {
-    case UnresolvedProperty:
-    case UnresolvedPropertyWithVarInjectionChecks: {
-        if (scope->isGlobalObject()) {
-            ResolveType newResolveType = needsVarInjectionChecks(resolveType) ? GlobalPropertyWithVarInjectionChecks : GlobalProperty;
-            resolveType = newResolveType; // Allow below caching mechanism to kick in.
-            ConcurrentJSLocker locker(codeBlock->m_lock);
-            metadata.m_getPutInfo = GetPutInfo(metadata.m_getPutInfo.resolveMode(), newResolveType, metadata.m_getPutInfo.initializationMode());
-            break;
-        }
-        FALLTHROUGH;
-    }
-    case GlobalProperty:
-    case GlobalPropertyWithVarInjectionChecks: {
-         // Global Lexical Binding Epoch is changed. Update op_get_from_scope from GlobalProperty to GlobalLexicalVar.
-        if (scope->isGlobalLexicalEnvironment()) {
-            JSGlobalLexicalEnvironment* globalLexicalEnvironment = jsCast<JSGlobalLexicalEnvironment*>(scope);
-            ResolveType newResolveType = needsVarInjectionChecks(resolveType) ? GlobalLexicalVarWithVarInjectionChecks : GlobalLexicalVar;
-            SymbolTableEntry entry = globalLexicalEnvironment->symbolTable()->get(ident.impl());
-            ASSERT(!entry.isNull());
-            ConcurrentJSLocker locker(codeBlock->m_lock);
-            metadata.m_getPutInfo = GetPutInfo(metadata.m_getPutInfo.resolveMode(), newResolveType, metadata.m_getPutInfo.initializationMode());
-            metadata.m_watchpointSet = entry.watchpointSet();
-            metadata.m_operand = reinterpret_cast<uintptr_t>(globalLexicalEnvironment->variableAt(entry.scopeOffset()).slot());
-            return;
-        }
-        break;
-    }
-    default:
-        return;
-    }
-
-    if (resolveType == GlobalProperty || resolveType == GlobalPropertyWithVarInjectionChecks) {
-        VM& vm = getVM(globalObject);
-        JSGlobalObject* globalObject = codeBlock->globalObject();
-        ASSERT(globalObject == scope || globalObject->varInjectionWatchpoint()->hasBeenInvalidated());
-        if (!slot.isCacheablePut()
-            || slot.base() != scope
-            || scope != globalObject
-            || !scope->structure(vm)->propertyAccessesAreCacheable())
-            return;
-        
-        if (slot.type() == PutPropertySlot::NewProperty) {
-            // Don't cache if we've done a transition. We want to detect the first replace so that we
-            // can invalidate the watchpoint.
-            return;
-        }
-        
-        scope->structure(vm)->didCachePropertyReplacement(vm, slot.cachedOffset());
-
-        ConcurrentJSLocker locker(codeBlock->m_lock);
-        metadata.m_structure.set(vm, codeBlock, scope->structure(vm));
-        metadata.m_operand = slot.cachedOffset();
-    }
-}
-
-inline void tryCacheGetFromScopeGlobal(
-    JSGlobalObject* globalObject, CodeBlock* codeBlock, VM& vm, OpGetFromScope& bytecode, JSObject* scope, PropertySlot& slot, const Identifier& ident)
-{
-    auto& metadata = bytecode.metadata(codeBlock);
-    ResolveType resolveType = metadata.m_getPutInfo.resolveType();
-
-    switch (resolveType) {
-    case UnresolvedProperty:
-    case UnresolvedPropertyWithVarInjectionChecks: {
-        if (scope->isGlobalObject()) {
-            ResolveType newResolveType = needsVarInjectionChecks(resolveType) ? GlobalPropertyWithVarInjectionChecks : GlobalProperty;
-            resolveType = newResolveType; // Allow below caching mechanism to kick in.
-            ConcurrentJSLocker locker(codeBlock->m_lock);
-            metadata.m_getPutInfo = GetPutInfo(metadata.m_getPutInfo.resolveMode(), newResolveType, metadata.m_getPutInfo.initializationMode());
-            break;
-        }
-        FALLTHROUGH;
-    }
-    case GlobalProperty:
-    case GlobalPropertyWithVarInjectionChecks: {
-         // Global Lexical Binding Epoch is changed. Update op_get_from_scope from GlobalProperty to GlobalLexicalVar.
-        if (scope->isGlobalLexicalEnvironment()) {
-            JSGlobalLexicalEnvironment* globalLexicalEnvironment = jsCast<JSGlobalLexicalEnvironment*>(scope);
-            ResolveType newResolveType = needsVarInjectionChecks(resolveType) ? GlobalLexicalVarWithVarInjectionChecks : GlobalLexicalVar;
-            SymbolTableEntry entry = globalLexicalEnvironment->symbolTable()->get(ident.impl());
-            ASSERT(!entry.isNull());
-            ConcurrentJSLocker locker(codeBlock->m_lock);
-            metadata.m_getPutInfo = GetPutInfo(metadata.m_getPutInfo.resolveMode(), newResolveType, metadata.m_getPutInfo.initializationMode());
-            metadata.m_watchpointSet = entry.watchpointSet();
-            metadata.m_operand = reinterpret_cast<uintptr_t>(globalLexicalEnvironment->variableAt(entry.scopeOffset()).slot());
-            return;
-        }
-        break;
-    }
-    default:
-        return;
-    }
-
-    // Covers implicit globals. Since they don't exist until they first execute, we didn't know how to cache them at compile time.
-    if (resolveType == GlobalProperty || resolveType == GlobalPropertyWithVarInjectionChecks) {
-        ASSERT(scope == globalObject || globalObject->varInjectionWatchpoint()->hasBeenInvalidated());
-        if (slot.isCacheableValue() && slot.slotBase() == scope && scope == globalObject && scope->structure(vm)->propertyAccessesAreCacheable()) {
-            Structure* structure = scope->structure(vm);
-            {
-                ConcurrentJSLocker locker(codeBlock->m_lock);
-                metadata.m_structure.set(vm, codeBlock, structure);
-                metadata.m_operand = slot.cachedOffset();
-            }
-            structure->startWatchingPropertyForReplacements(vm, slot.cachedOffset());
-        }
-    }
-}
-
 inline bool canAccessArgumentIndexQuickly(JSObject& object, uint32_t index)
 {
     switch (object.type()) {
@@ -255,6 +137,16 @@ inline bool canAccessArgumentIndexQuickly(JSObject& object, uint32_t index)
     return false;
 }
 
+ALWAYS_INLINE Structure* originalStructureBeforePut(VM& vm, JSValue value)
+{
+    if (!value.isCell())
+        return nullptr;
+    if (value.asCell()->type() == PureForwardingProxyType)
+        return jsCast<JSProxy*>(value)->target()->structure(vm);
+    return value.asCell()->structure(vm);
+}
+
+
 static ALWAYS_INLINE void putDirectWithReify(VM& vm, JSGlobalObject* globalObject, JSObject* baseObject, PropertyName propertyName, JSValue value, PutPropertySlot& slot, Structure** result = nullptr)
 {
     auto scope = DECLARE_THROW_SCOPE(vm);
@@ -263,7 +155,7 @@ static ALWAYS_INLINE void putDirectWithReify(VM& vm, JSGlobalObject* globalObjec
         RETURN_IF_EXCEPTION(scope, void());
     }
     if (result)
-        *result = baseObject->structure(vm);
+        *result = originalStructureBeforePut(vm, baseObject);
     scope.release();
     baseObject->putDirect(vm, propertyName, value, slot);
 }
@@ -359,17 +251,22 @@ SLOW_PATH_HIDDEN_DECL(slow_path_bitand);
 SLOW_PATH_HIDDEN_DECL(slow_path_bitor);
 SLOW_PATH_HIDDEN_DECL(slow_path_bitxor);
 SLOW_PATH_HIDDEN_DECL(slow_path_typeof);
+SLOW_PATH_HIDDEN_DECL(slow_path_typeof_is_object);
+SLOW_PATH_HIDDEN_DECL(slow_path_typeof_is_function);
 SLOW_PATH_HIDDEN_DECL(slow_path_is_object);
-SLOW_PATH_HIDDEN_DECL(slow_path_is_object_or_null);
-SLOW_PATH_HIDDEN_DECL(slow_path_is_function);
+SLOW_PATH_HIDDEN_DECL(slow_path_is_callable);
+SLOW_PATH_HIDDEN_DECL(slow_path_is_constructor);
 SLOW_PATH_HIDDEN_DECL(slow_path_in_by_id);
 SLOW_PATH_HIDDEN_DECL(slow_path_in_by_val);
 SLOW_PATH_HIDDEN_DECL(slow_path_del_by_val);
 SLOW_PATH_HIDDEN_DECL(slow_path_strcat);
 SLOW_PATH_HIDDEN_DECL(slow_path_to_primitive);
+SLOW_PATH_HIDDEN_DECL(slow_path_to_property_key);
 SLOW_PATH_HIDDEN_DECL(slow_path_get_enumerable_length);
 SLOW_PATH_HIDDEN_DECL(slow_path_has_generic_property);
 SLOW_PATH_HIDDEN_DECL(slow_path_has_structure_property);
+SLOW_PATH_HIDDEN_DECL(slow_path_has_own_structure_property);
+SLOW_PATH_HIDDEN_DECL(slow_path_in_structure_property);
 SLOW_PATH_HIDDEN_DECL(slow_path_has_indexed_property);
 SLOW_PATH_HIDDEN_DECL(slow_path_get_direct_pname);
 SLOW_PATH_HIDDEN_DECL(slow_path_get_property_enumerator);
@@ -389,6 +286,8 @@ SLOW_PATH_HIDDEN_DECL(slow_path_create_async_generator);
 SLOW_PATH_HIDDEN_DECL(slow_path_create_rest);
 SLOW_PATH_HIDDEN_DECL(slow_path_get_by_id_with_this);
 SLOW_PATH_HIDDEN_DECL(slow_path_get_by_val_with_this);
+SLOW_PATH_HIDDEN_DECL(slow_path_get_private_name);
+SLOW_PATH_HIDDEN_DECL(slow_path_get_prototype_of);
 SLOW_PATH_HIDDEN_DECL(slow_path_put_by_id_with_this);
 SLOW_PATH_HIDDEN_DECL(slow_path_put_by_val_with_this);
 SLOW_PATH_HIDDEN_DECL(slow_path_define_data_property);
@@ -399,6 +298,12 @@ SLOW_PATH_HIDDEN_DECL(slow_path_new_generator);
 SLOW_PATH_HIDDEN_DECL(slow_path_new_array_with_spread);
 SLOW_PATH_HIDDEN_DECL(slow_path_new_array_buffer);
 SLOW_PATH_HIDDEN_DECL(slow_path_spread);
+SLOW_PATH_HIDDEN_DECL(iterator_open_try_fast_narrow);
+SLOW_PATH_HIDDEN_DECL(iterator_open_try_fast_wide16);
+SLOW_PATH_HIDDEN_DECL(iterator_open_try_fast_wide32);
+SLOW_PATH_HIDDEN_DECL(iterator_next_try_fast_narrow);
+SLOW_PATH_HIDDEN_DECL(iterator_next_try_fast_wide16);
+SLOW_PATH_HIDDEN_DECL(iterator_next_try_fast_wide32);
 
 using SlowPathFunction = SlowPathReturnType(SLOW_PATH *)(CallFrame*, const Instruction*);
 

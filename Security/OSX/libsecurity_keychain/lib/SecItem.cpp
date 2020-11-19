@@ -42,6 +42,7 @@
 #include <Security/SecTrustPriv.h>
 #include "utilities/array_size.h"
 #include "utilities/SecCFWrappers.h"
+#include "LegacyAPICounts.h"
 
 #include <AssertMacros.h>
 #include <syslog.h>
@@ -71,8 +72,6 @@ OSStatus SecItemAdd_ios(CFDictionaryRef attributes, CFTypeRef *result);
 OSStatus SecItemCopyMatching_ios(CFDictionaryRef query, CFTypeRef *result);
 OSStatus SecItemUpdate_ios(CFDictionaryRef query, CFDictionaryRef attributesToUpdate);
 OSStatus SecItemDelete_ios(CFDictionaryRef query);
-OSStatus SecItemUpdateTokenItems_ios(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes);
-
 
 OSStatus SecItemValidateAppleApplicationGroupAccess(CFStringRef group);
 CFDictionaryRef SecItemCopyTranslatedAttributes(CFDictionaryRef inOSXDict, CFTypeRef itemClass,
@@ -3827,6 +3826,8 @@ AddItemResults(SecKeychainItemRef item,
 	//
 	// Note that we allocate *items if needed.
 
+	CFTypeRef localResult = NULL;
+
 	if (!item || !itemParams || !result)
 		return errSecParam;
 
@@ -3855,7 +3856,8 @@ AddItemResults(SecKeychainItemRef item,
 			CFArrayAppendValue(itemArray, itemRef);
 		}
 		else {
-			*result = CFRetain((CFTypeRef)itemRef);
+			CFReleaseNull(localResult);
+			localResult = CFRetain((CFTypeRef)itemRef);
 		}
 	}
 
@@ -3874,7 +3876,8 @@ AddItemResults(SecKeychainItemRef item,
 				CFArrayAppendValue(itemArray, persistentRef);
 			}
 			else {
-				*result = CFRetain(persistentRef);
+				CFReleaseNull(localResult);
+				localResult = CFRetain(persistentRef);
 			}
 			CFRelease(persistentRef);
 		}
@@ -3898,7 +3901,8 @@ AddItemResults(SecKeychainItemRef item,
 					CFArrayAppendValue(itemArray, dataRef);
 				}
 				else {
-					*result = CFRetain(dataRef);
+					CFReleaseNull(localResult);
+					localResult = CFRetain(dataRef);
 				}
 				CFRelease(dataRef);
 				status = errSecSuccess;
@@ -3920,7 +3924,8 @@ AddItemResults(SecKeychainItemRef item,
 					CFArrayAppendValue(itemArray, dataRef);
 				}
 				else {
-					*result = CFRetain(dataRef);
+					CFReleaseNull(localResult);
+					localResult = CFRetain(dataRef);
 				}
 				CFRelease(dataRef);
 				(void) SecKeychainItemFreeContent(NULL, data);
@@ -3949,7 +3954,8 @@ AddItemResults(SecKeychainItemRef item,
 				CFArrayAppendValue(itemArray, attrsDict);
 			}
 			else {
-				*result = CFRetain(attrsDict);
+				CFReleaseNull(localResult);
+				localResult = CFRetain(attrsDict);
 			}
 			CFRelease(attrsDict);
 		}
@@ -3962,14 +3968,22 @@ AddItemResults(SecKeychainItemRef item,
 		if (itemArray) {
 			CFArrayAppendValue(itemArray, itemDict);
 			CFRelease(itemDict);
-			*result = itemArray;
+			CFReleaseNull(localResult);
+			localResult = itemArray;
 		}
 		else {
-			*result = itemDict;
+			CFReleaseNull(localResult);
+			localResult = itemDict;
 		}
 	}
 	else if (itemArray) {
-		*result = itemArray;
+		CFReleaseNull(localResult);
+		localResult = itemArray;
+	}
+
+	if (localResult) {
+		*result = localResult;
+		localResult = NULL;
 	}
 
 	return status;
@@ -5083,14 +5097,6 @@ SecItemDelete(CFDictionaryRef query)
 }
 
 OSStatus
-SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes)
-{
-	OSStatus status = SecItemUpdateTokenItems_ios(tokenID, tokenItemsAttributes);
-	secitemlog(LOG_NOTICE, "SecItemUpdateTokenItems_ios result: %d", status);
-	return status;
-}
-
-OSStatus
 SecItemCopyMatching_osx(
 	CFDictionaryRef query,
 	CFTypeRef *result)
@@ -5099,6 +5105,8 @@ SecItemCopyMatching_osx(
 		return errSecParam;
 	else
 		*result = NULL;
+
+    setCountLegacyAPIEnabledForThread(false);
 
 	CFAllocatorRef allocator = CFGetAllocator(query);
 	CFIndex matchCount = 0;
@@ -5144,20 +5152,9 @@ error_exit:
 	}
 	_FreeSecItemParams(itemParams);
 
-	return status;
-}
+    setCountLegacyAPIEnabledForThread(true);
 
-OSStatus
-SecItemCopyDisplayNames(
-	CFArrayRef items,
-	CFArrayRef *displayNames)
-{
-    BEGIN_SECAPI
-	Required(items);
-	Required(displayNames);
-    //%%%TBI
-    return errSecUnimplemented;
-    END_SECAPI
+	return status;
 }
 
 OSStatus
@@ -5169,6 +5166,8 @@ SecItemAdd_osx(
 		return errSecParam;
 	else if (result)
 		*result = NULL;
+
+    setCountLegacyAPIEnabledForThread(false);
 
 	CFAllocatorRef allocator = CFGetAllocator(attributes);
 	CFMutableArrayRef itemArray = NULL;
@@ -5303,6 +5302,7 @@ error_exit:
 		*result = NULL;
 	}
 	_FreeSecItemParams(itemParams);
+    setCountLegacyAPIEnabledForThread(true);
 
 	return status;
 }
@@ -5330,6 +5330,8 @@ SecItemUpdate_osx(
 		CFRelease(results);
 	}
 
+    setCountLegacyAPIEnabledForThread(false);
+
 	OSStatus result = errSecSuccess;
 	CFIndex ix, count = CFArrayGetCount(items);
 	for (ix=0; ix < count; ix++) {
@@ -5339,6 +5341,8 @@ SecItemUpdate_osx(
 			result = _UpdateAggregateStatus(status, result, errSecSuccess);
 		}
 	}
+
+    setCountLegacyAPIEnabledForThread(true);
 
 	if (items) {
 		CFRelease(items);
@@ -5368,6 +5372,8 @@ SecItemDelete_osx(
 		CFRelease(results);
 	}
 
+    setCountLegacyAPIEnabledForThread(false);
+
 	OSStatus result = errSecSuccess;
 	CFIndex ix, count = CFArrayGetCount(items);
 	for (ix=0; ix < count; ix++) {
@@ -5382,6 +5388,8 @@ SecItemDelete_osx(
 			result = _UpdateAggregateStatus(status, result, errSecSuccess);
 		}
 	}
+
+    setCountLegacyAPIEnabledForThread(true);
 
 	if (items)
 		CFRelease(items);

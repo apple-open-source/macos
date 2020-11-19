@@ -86,7 +86,68 @@
             true) ? YES : NO;
 }
 
-+ (instancetype)withItem:(SecDbItemRef)item action:(NSString*)action ckks:(CKKSKeychainView*)ckks error: (NSError * __autoreleasing *) error {
+
++ (CKKSKey*)keyForItem:(SecDbItemRef)item zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
+    if(!item) {
+        ckkserror("ckks-key", zoneID, "Cannot select a key for no item!");
+        if(error) {
+            *error = [NSError errorWithDomain:CKKSErrorDomain
+                                         code:CKKSErrorUnexpectedNil
+                                  description:@"can't pick a key class for an empty item"];
+        }
+        return nil;
+    }
+
+    CKKSKeyClass* class = nil;
+
+    NSString* protection = (__bridge NSString*)SecDbItemGetCachedValueWithName(item, kSecAttrAccessible);
+    if([protection isEqualToString: (__bridge NSString*)kSecAttrAccessibleWhenUnlocked]) {
+        class = SecCKKSKeyClassA;
+    } else if([protection isEqualToString: (__bridge NSString*)kSecAttrAccessibleAlwaysPrivate] ||
+              [protection isEqualToString: (__bridge NSString*)kSecAttrAccessibleAfterFirstUnlock]) {
+        class = SecCKKSKeyClassC;
+    } else {
+        NSError* localError = [NSError errorWithDomain:CKKSErrorDomain
+                                                  code:CKKSInvalidKeyClass
+                                           description:[NSString stringWithFormat:@"can't pick key class for protection %@", protection]];
+        ckkserror("ckks-key", zoneID, "can't pick key class: %@ %@", localError, item);
+        if(error) {
+            *error = localError;
+        }
+
+        return nil;
+    }
+
+    NSError* currentKeyError = nil;
+    CKKSKey* key = [CKKSKey currentKeyForClass:class zoneID:zoneID error:&currentKeyError];
+    if(!key || currentKeyError) {
+        ckkserror("ckks-key", zoneID, "Couldn't find current key for %@: %@", class, currentKeyError);
+
+        if(error) {
+            *error = currentKeyError;
+        }
+        return nil;
+    }
+
+    // and make sure it's unwrapped.
+    NSError* loadedError = nil;
+    if(![key ensureKeyLoaded:&loadedError]) {
+        ckkserror("ckks-key", zoneID, "Couldn't load key(%@): %@", key, loadedError);
+        if(error) {
+            *error = loadedError;
+        }
+        return nil;
+    }
+
+    return key;
+}
+
++ (instancetype)withItem:(SecDbItemRef)item
+                  action:(NSString*)action
+                  zoneID:(CKRecordZoneID*)zoneID
+                   error:(NSError * __autoreleasing *)error
+{
     CFErrorRef cferror = NULL;
     CKKSKey* key = nil;
     NSString* uuid = nil;
@@ -96,11 +157,15 @@
 
     NSMutableDictionary* objd = nil;
 
+    ckkserror("ckksitem", zoneID, "Creating a (%@) outgoing queue entry for: %@", action, item);
+
     NSError* keyError = nil;
-    key = [ckks keyForItem:item error:&keyError];
+    key = [self keyForItem:item
+                    zoneID:zoneID
+                     error:&keyError];
     if(!key || keyError) {
         NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:keyError.code description:@"No key for item" underlying:keyError];
-        ckkserror("ckksitem", ckks, "no key for item: %@ %@", localerror, item);
+        ckkserror("ckksitem", zoneID, "no key for item: %@ %@", localerror, item);
         if(error) {
             *error = localerror;
         }
@@ -110,7 +175,7 @@
     objd = (__bridge_transfer NSMutableDictionary*) SecDbItemCopyPListWithMask(item, kSecDbSyncFlag, &cferror);
     if(!objd) {
         NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CFErrorGetCode(cferror) description:@"Couldn't create object plist" underlying:(__bridge_transfer NSError*)cferror];
-        ckkserror("ckksitem", ckks, "no plist: %@ %@", localerror, item);
+        ckkserror("ckksitem", zoneID, "no plist: %@ %@", localerror, item);
         if(error) {
             *error = localerror;
         }
@@ -123,7 +188,7 @@
     uuid = (__bridge_transfer NSString*) CFRetainSafe(SecDbItemGetValue(item, &v10itemuuid, &cferror));
     if(!uuid || cferror) {
         NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoUUIDOnItem description:@"No UUID for item" underlying:(__bridge_transfer NSError*)cferror];
-        ckkserror("ckksitem", ckks, "No UUID for item: %@ %@", localerror, item);
+        ckkserror("ckksitem", zoneID, "No UUID for item: %@ %@", localerror, item);
         if(error) {
             *error = localerror;
         }
@@ -131,7 +196,7 @@
     }
     if([uuid isKindOfClass:[NSNull class]]) {
         NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CKKSNoUUIDOnItem description:@"UUID not found in object" underlying:nil];
-        ckkserror("ckksitem", ckks, "couldn't fetch UUID: %@ %@", localerror, item);
+        ckkserror("ckksitem", zoneID, "couldn't fetch UUID: %@ %@", localerror, item);
         if(error) {
             *error = localerror;
         }
@@ -141,7 +206,7 @@
     accessgroup = (__bridge_transfer NSString*) CFRetainSafe(SecDbItemGetValue(item, &v6agrp, &cferror));
     if(!accessgroup || cferror) {
         NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CFErrorGetCode(cferror) description:@"accessgroup not found in object" underlying:(__bridge_transfer NSError*)cferror];
-        ckkserror("ckksitem", ckks, "couldn't fetch access group from item: %@ %@", localerror, item);
+        ckkserror("ckksitem", zoneID, "couldn't fetch access group from item: %@ %@", localerror, item);
         if(error) {
             *error = localerror;
         }
@@ -149,11 +214,11 @@
     }
     if([accessgroup isKindOfClass:[NSNull class]]) {
         // That's okay; this is only used for rate limiting.
-        ckkserror("ckksitem", ckks, "couldn't fetch accessgroup: %@", item);
+        ckkserror("ckksitem", zoneID, "couldn't fetch accessgroup: %@", item);
         accessgroup = @"no-group";
     }
 
-    CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:ckks.zoneID error:error];
+    CKKSMirrorEntry* ckme = [CKKSMirrorEntry tryFromDatabase:uuid zoneID:zoneID error:error];
 
     // The action this change should be depends on any existing pending action, if any
     // Particularly, we need to coalesce (existing action, new action) to:
@@ -162,7 +227,8 @@
     //    (delete, add) => modify
     NSString* actualAction = action;
 
-    CKKSOutgoingQueueEntry* existingOQE = [CKKSOutgoingQueueEntry tryFromDatabase:uuid state:SecCKKSStateNew zoneID:ckks.zoneID error:error];
+    NSError* fetchError = nil;
+    CKKSOutgoingQueueEntry* existingOQE = [CKKSOutgoingQueueEntry tryFromDatabase:uuid state:SecCKKSStateNew zoneID:zoneID error:&fetchError];
     if(existingOQE) {
         if([existingOQE.action isEqual: SecCKKSActionAdd]) {
             if([action isEqual:SecCKKSActionModify]) {
@@ -180,9 +246,46 @@
         if([existingOQE.action isEqual: SecCKKSActionDelete] && [action isEqual:SecCKKSActionAdd]) {
             actualAction = SecCKKSActionModify;
         }
+    } else if(fetchError) {
+        ckkserror("ckksitem", zoneID, "Unable to fetch an existing OQE due to error: %@", fetchError);
+        fetchError = nil;
+
+    } else {
+        if(!ckme && [action isEqualToString:SecCKKSActionDelete]) {
+            CKKSOutgoingQueueEntry* anyExistingOQE = [CKKSOutgoingQueueEntry tryFromDatabase:uuid zoneID:zoneID error:&fetchError];
+
+            if(fetchError) {
+                ckkserror("ckksitem", zoneID, "Unable to fetch an existing OQE (any state) due to error: %@", fetchError);
+            } else if(!anyExistingOQE) {
+                // This is a delete for an item which doesn't exist. Therefore, this is a no-op.
+                ckkserror("ckksitem", zoneID, "Asked to delete a record for which we don't have a CKME or any OQE, ignoring: %@", uuid);
+                return nil;
+            }
+        }
     }
 
     newGenerationCount = ckme ? ckme.item.generationCount : (NSInteger) 0; // TODO: this is wrong
+
+    // Is this modification just changing the mdat? As a performance improvement, don't update the item in CK
+    if(ckme && !existingOQE && [actualAction isEqualToString:SecCKKSActionModify]) {
+        NSError* ckmeError = nil;
+        NSMutableDictionary* mirror = [[CKKSItemEncrypter decryptItemToDictionary:ckme.item error:&ckmeError] mutableCopy];
+        NSMutableDictionary* objdCopy = [objd mutableCopy];
+
+        if(ckmeError) {
+            ckkserror("ckksitem", zoneID, "Unable to decrypt current CKME: %@", ckmeError);
+        } else {
+            mirror[(__bridge id)kSecAttrModificationDate] = nil;
+            mirror[(__bridge id)kSecAttrSHA1] = nil;
+            objdCopy[(__bridge id)kSecAttrModificationDate] = nil;
+            objdCopy[(__bridge id)kSecAttrSHA1] = nil;
+
+            if([mirror isEqualToDictionary:objdCopy]) {
+                ckksnotice("ckksitem", zoneID, "Update to item only changes mdat; skipping %@", uuid);
+                return nil;
+            }
+        }
+    }
 
     // Pull out any unencrypted fields
     NSNumber* pcsServiceIdentifier = objd[(id)kSecAttrPCSPlaintextServiceIdentifier];
@@ -196,7 +299,7 @@
 
     CKKSItem* baseitem = [[CKKSItem alloc] initWithUUID:uuid
                                           parentKeyUUID:key.uuid
-                                                 zoneID:ckks.zoneID
+                                                 zoneID:zoneID
                                         encodedCKRecord:nil
                                                 encItem:nil
                                              wrappedkey:nil
@@ -208,7 +311,7 @@
 
     if(!baseitem) {
         NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:CKKSItemCreationFailure description:@"Couldn't create an item" underlying:nil];
-        ckkserror("ckksitem", ckks, "couldn't create an item: %@ %@", localerror, item);
+        ckkserror("ckksitem", zoneID, "couldn't create an item: %@ %@", localerror, item);
         if(error) {
             *error = localerror;
         }
@@ -224,7 +327,7 @@
 
     if(!encryptedItem || encryptionError) {
         NSError* localerror = [NSError errorWithDomain:CKKSErrorDomain code:encryptionError.code description:@"Couldn't encrypt item" underlying:encryptionError];
-        ckkserror("ckksitem", ckks, "couldn't encrypt item: %@ %@", localerror, item);
+        ckkserror("ckksitem", zoneID, "couldn't encrypt item: %@ %@", localerror, item);
         if(error) {
             *error = localerror;
         }
@@ -268,6 +371,14 @@
 
 + (NSArray<CKKSOutgoingQueueEntry*>*) allInState: (NSString*) state zoneID:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error {
     return [self allWhere: @{@"state":CKKSNilToNSNull(state), @"ckzone":CKKSNilToNSNull(zoneID.zoneName)} error:error];
+}
+
++ (NSArray<CKKSOutgoingQueueEntry*>*)allWithUUID:(NSString*)uuid states:(NSArray<NSString*>*)states zoneID:(CKRecordZoneID*)zoneID error:(NSError * __autoreleasing *)error
+{
+    return [self allWhere:@{@"UUID": CKKSNilToNSNull(uuid),
+                            @"state": [[CKKSSQLWhereIn alloc] initWithValues:states],
+                            @"ckzone":CKKSNilToNSNull(zoneID.zoneName)}
+                    error:error];
 }
 
 

@@ -19,6 +19,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file
  * \brief C++ API: Formattable is a thin wrapper for primitive types used for formatting and parsing
@@ -30,7 +32,6 @@
 #include "unicode/stringpiece.h"
 #include "unicode/uformattable.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class CharString;
@@ -749,9 +750,10 @@ inline const Formattable* Formattable::fromUFormattable(const UFormattable *fmt)
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif //_FMTABLE
 //eof

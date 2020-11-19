@@ -84,6 +84,10 @@
     if (_value) {
         CFRelease(_value);
     }
+
+    if (_defaultValue) {
+        CFRelease(_defaultValue);
+    }
     
     if (_element) {
         CFRelease(_element);
@@ -169,6 +173,10 @@
 
 -(void)setDefaultValueRef:(IOHIDValueRef)defaultValueRef
 {
+    if (_defaultValue == defaultValueRef) {
+        return;
+    }
+
     if (_defaultValue) {
         CFRelease(_defaultValue);
     }
@@ -262,11 +270,6 @@
 - (uint8_t)reportID
 {
     return IOHIDElementGetReportID(_element);
-}
-
-- (uint32_t)valueLocation
-{
-    return _elementStruct.valueLocation;
 }
 
 - (uint32_t)usageMin

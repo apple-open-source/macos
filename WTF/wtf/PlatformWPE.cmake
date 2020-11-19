@@ -1,4 +1,5 @@
 list(APPEND WTF_PUBLIC_HEADERS
+    glib/ChassisType.h
     glib/GLibUtilities.h
     glib/GMutexLocker.h
     glib/GRefPtr.h
@@ -18,6 +19,7 @@ list(APPEND WTF_SOURCES
     generic/MemoryFootprintGeneric.cpp
     generic/WorkQueueGeneric.cpp
 
+    glib/ChassisType.cpp
     glib/FileSystemGlib.cpp
     glib/GLibUtilities.cpp
     glib/GRefPtr.cpp
@@ -27,7 +29,6 @@ list(APPEND WTF_SOURCES
     glib/URLGLib.cpp
 
     linux/CurrentProcessMemoryStatus.cpp
-    linux/MemoryPressureHandlerLinux.cpp
 
     posix/OSAllocatorPOSIX.cpp
     posix/ThreadingPOSIX.cpp
@@ -36,16 +37,21 @@ list(APPEND WTF_SOURCES
 
     unix/CPUTimeUnix.cpp
     unix/LanguageUnix.cpp
+    unix/MemoryPressureHandlerUnix.cpp
     unix/UniStdExtrasUnix.cpp
 )
 
 list(APPEND WTF_LIBRARIES
-    ${CMAKE_THREAD_LIBS_INIT}
     ${GLIB_GIO_LIBRARIES}
     ${GLIB_GOBJECT_LIBRARIES}
     ${GLIB_LIBRARIES}
-    ${ZLIB_LIBRARIES}
+    Threads::Threads
+    ZLIB::ZLIB
 )
+
+if (Systemd_FOUND)
+    list(APPEND WTF_LIBRARIES Systemd::Systemd)
+endif ()
 
 list(APPEND WTF_SYSTEM_INCLUDE_DIRECTORIES
     ${GIO_UNIX_INCLUDE_DIRS}

@@ -66,7 +66,7 @@ private:
 class Error : public CssmError {
 public:
 	Error(CSSM_RETURN err) : CssmError(err, false) { }
-	virtual const char *what () const throw();
+	virtual const char *what () const _NOEXCEPT;
 	
 	enum {
 		objectBusy = -1,

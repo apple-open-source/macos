@@ -47,7 +47,7 @@ static void setup_globals(void) {
 
     certs = @[(__bridge id)leaf,(__bridge id)intermediate];
     root = @[(__bridge id)rootcert];
-    verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:560000000.0]; //September 30, 2018 at 4:33:20 AM PDT
+    verifyDate = [NSDate dateWithTimeIntervalSinceReferenceDate:622000000.0]; //September 16, 2020 at 6:46:40 PM PDT
 
     CFReleaseNull(leaf);
     CFReleaseNull(intermediate);
@@ -84,11 +84,12 @@ static void tests(void)
 {
     SecPolicyRef policy = NULL;
 
-    policy = SecPolicyCreateSSL(true, CFSTR("openmarket.ess.apple.com"));
+    // init domains are excluded from IDS pinning rules
+    policy = SecPolicyCreateSSL(true, CFSTR("init.ess.apple.com"));
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultRecoverableTrustFailure, "Unpinned connection succeeeded when pinning required");
 
-    policy = SecPolicyCreateAppleIDSServiceContext(CFSTR("openmarket.ess.apple.com"), NULL);
+    policy = SecPolicyCreateAppleIDSServiceContext(CFSTR("init.ess.apple.com"), NULL);
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Policy pinned connection failed when pinning required");
 
@@ -97,14 +98,14 @@ static void tests(void)
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Systemwide hostname pinned connection failed when pinning required");
 
     NSDictionary *policy_properties = @{
-                                        (__bridge NSString *)kSecPolicyName : @"openmarket.ess.apple.com",
+                                        (__bridge NSString *)kSecPolicyName : @"init.ess.apple.com",
                                         (__bridge NSString *)kSecPolicyPolicyName : @"IDS",
                                         };
     policy = SecPolicyCreateWithProperties(kSecPolicyAppleSSL, (__bridge CFDictionaryRef)policy_properties);
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy(policy), kSecTrustResultUnspecified, "Systemwide policy name pinned connection failed when pinning required");
 
-    policy = SecPolicyCreateSSL(true, CFSTR("openmarket.ess.apple.com"));
+    policy = SecPolicyCreateSSL(true, CFSTR("init.ess.apple.com"));
     SecPolicySetOptionsValue(policy, kSecPolicyCheckPinningRequired, kCFBooleanTrue);
     is(test_with_policy_exception(policy, true), kSecTrustResultUnspecified, "Unpinned connection failed when pinning exception set");
 

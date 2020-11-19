@@ -25,8 +25,14 @@
 
 #define kGTraceMaxBreadcrumbSize  (16 * 1024)    // 16KiB
 #define kGTraceMinimumLineCount UINT32_C(1024)   // @64b ==  64k
+#define kGTraceDevelopLineCount UINT32_C(3072)   // @64b == 192k
 #define kGTraceMaximumLineCount UINT32_C(8192)   // @64b == 512k
+
+#if DEVELOPMENT
+#define kGTraceDefaultLineCount kGTraceDevelopLineCount
+#else
 #define kGTraceDefaultLineCount kGTraceMinimumLineCount
+#endif
 
 #pragma mark - Masks
 #define kGTRACE_COMPONENT_MASK      0x00000000FFFFFFFFULL       // 32 bits

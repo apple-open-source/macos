@@ -34,7 +34,7 @@
 #include <sys/param.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <assert.h>
+#include <utilities/simulatecrash_assert.h>
 #include <fcntl.h>
 #include <ctype.h>
 #include <strings.h>
@@ -183,12 +183,14 @@ OSStatus ntlmStringToLE(
 	unsigned		*ucodeLen)		// RETURNED
 {
 	CFIndex len = CFStringGetLength(pwd);
-    if (len > NTLM_MAX_STRING_LEN)
+    if (len > NTLM_MAX_STRING_LEN) {
         return errSecAllocate;
-	unsigned char *data = (unsigned char *)malloc(len * 2);
-    if (data == NULL)
+    }
+    unsigned char *data = (unsigned char *)malloc(len * 2);
+    if (data == NULL) {
         return errSecAllocate;
-	unsigned char *cp = data;
+    }
+    unsigned char *cp = data;
 
 	CFIndex dex;
 	for(dex=0; dex<len; dex++) {
@@ -430,11 +432,12 @@ OSStatus ntlmPasswordHash(
 
 	/* convert to little-endian unicode */
     res = ntlmStringToLE(pwd, &data, &len);
-    if (res)
+    if (res) {
         return res;
-	/* md4 hash of that */
-	md4Hash(data, len, digest);
-	free(data);
+    }
+    /* md4 hash of that */
+    md4Hash(data, len, digest);
+    free(data);
 
     return 0;
 }

@@ -54,6 +54,7 @@
 #import <WebCore/RenderObject.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SharedBuffer.h>
+#import <WebCore/SimpleRange.h>
 #import <WebKitLegacy/DOMPrivate.h>
 #import <pal/spi/mac/NSSharingServicePickerSPI.h>
 #import <wtf/URL.h>
@@ -147,6 +148,7 @@ bool WebContextMenuClient::clientFloatRectForNode(Node& node, FloatRect& rect) c
 }
 
 #if ENABLE(SERVICE_CONTROLS)
+
 void WebContextMenuClient::sharingServicePickerWillBeDestroyed(WebSharingServicePickerController &)
 {
     m_sharingServicePickerController = nil;
@@ -182,15 +184,15 @@ WebCore::FloatRect WebContextMenuClient::screenRectForCurrentSharingServicePicke
 
 RetainPtr<NSImage> WebContextMenuClient::imageForCurrentSharingServicePickerItem(WebSharingServicePickerController &)
 {
-    Page* page = [m_webView page];
+    auto page = [m_webView page];
     if (!page)
         return nil;
 
-    Node* node = page->contextMenuController().context().hitTestResult().innerNode();
+    auto node = makeRefPtr(page->contextMenuController().context().hitTestResult().innerNode());
     if (!node)
         return nil;
 
-    FrameView* frameView = node->document().view();
+    auto frameView = makeRefPtr(node->document().view());
     if (!frameView) {
         // This method shouldn't be called in cases where the controlled node isn't in a rendered view.
         ASSERT_NOT_REACHED();
@@ -202,15 +204,14 @@ RetainPtr<NSImage> WebContextMenuClient::imageForCurrentSharingServicePickerItem
         return nil;
 
     // This is effectively a snapshot, and will be painted in an unaccelerated fashion in line with FrameSnapshotting.
-    std::unique_ptr<ImageBuffer> buffer = ImageBuffer::create(rect.size(), Unaccelerated);
+    auto buffer = ImageBuffer::create(rect.size(), RenderingMode::Unaccelerated);
     if (!buffer)
         return nil;
 
-    VisibleSelection oldSelection = frameView->frame().selection().selection();
-    auto range = Range::create(node->document(), Position(node, Position::PositionIsBeforeAnchor), Position(node, Position::PositionIsAfterAnchor));
-    frameView->frame().selection().setSelection(VisibleSelection(range.get()), FrameSelection::DoNotSetFocus);
+    auto oldSelection = frameView->frame().selection().selection();
+    frameView->frame().selection().setSelection(*makeRangeSelectingNode(*node), FrameSelection::DoNotSetFocus);
 
-    OptionSet<PaintBehavior> oldPaintBehavior = frameView->paintBehavior();
+    auto oldPaintBehavior = frameView->paintBehavior();
     frameView->setPaintBehavior(PaintBehavior::SelectionOnly);
 
     buffer->context().translate(-toFloatSize(rect.location()));
@@ -219,12 +220,13 @@ RetainPtr<NSImage> WebContextMenuClient::imageForCurrentSharingServicePickerItem
     frameView->frame().selection().setSelection(oldSelection);
     frameView->setPaintBehavior(oldPaintBehavior);
 
-    RefPtr<Image> image = ImageBuffer::sinkIntoImage(WTFMove(buffer));
+    auto image = ImageBuffer::sinkIntoImage(WTFMove(buffer));
     if (!image)
         return nil;
 
     return image->snapshotNSImage();
 }
+
 #endif
 
 NSMenu *WebContextMenuClient::contextMenuForEvent(NSEvent *event, NSView *view, bool& isServicesMenu)

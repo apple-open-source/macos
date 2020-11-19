@@ -50,6 +50,7 @@
 #include "SOSAccountTesting.h"
 #include "SecdTestKeychainUtilities.h"
 
+#if SOS_ENABLED
 
 static bool AssertCreds(SOSAccount* account,CFStringRef acct_name, CFDataRef password) {
     CFErrorRef error = NULL;
@@ -57,15 +58,6 @@ static bool AssertCreds(SOSAccount* account,CFStringRef acct_name, CFDataRef pas
     ok((retval = SOSAccountAssertUserCredentialsAndUpdate(account, acct_name, password, &error)), "Credential setting (%@)", error);
     CFReleaseNull(error);
     return retval;
-}
-
-static inline bool SOSAccountEvaluateKeysAndCircle_wTxn(SOSAccount* acct, CFErrorRef* error)
-{
-    __block bool result = false;
-    [acct performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
-        result = SOSAccountEvaluateKeysAndCircle(txn, NULL);
-    }];
-    return result;
 }
 
 static bool ResetToOffering(SOSAccount* account) {
@@ -245,14 +237,16 @@ static void tests(void)
     david_account = nil;
     SOSTestCleanup();
 }
+#endif
 
 int secd_58_password_change(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(211);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

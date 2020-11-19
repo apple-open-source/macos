@@ -55,14 +55,6 @@
 #include "utils.h"
 #include "global.h"
 
-#ifndef DISABLE_SPECIAL_REPLY_PORT_IN_CHROOT
-#define DISABLE_SPECIAL_REPLY_PORT_IN_CHROOT 1
-#endif
-
-#ifndef DISABLE_SPECIAL_REPLY_PORT_IN_SIMULATOR
-#define DISABLE_SPECIAL_REPLY_PORT_IN_SIMULATOR 1
-#endif
-
 #ifndef USE_IMMEDIATE_SEND_TIMEOUT
 #define USE_IMMEDIATE_SEND_TIMEOUT 0
 #endif
@@ -196,29 +188,9 @@ WriteMyIncludes(FILE *file, statement_t *stats)
     fprintf(file, "\n");
     fprintf(file, "#include <TargetConditionals.h>\n");
     fprintf(file, "#include <mach/mach_sync_ipc.h>\n");
-#if DISABLE_SPECIAL_REPLY_PORT_IN_SIMULATOR
-    fprintf(file, "#ifndef __MigCanUseSpecialReplyPort\n");
-    fprintf(file, "#if TARGET_OS_SIMULATOR\n");
-    fprintf(file, "#define __MigCanUseSpecialReplyPort 0\n");
-    fprintf(file, "#define mig_get_special_reply_port() MACH_PORT_DEAD\n");
-    fprintf(file, "#define mig_dealloc_special_reply_port(port) __builtin_trap()\n");
-    fprintf(file, "#endif\n");
-    fprintf(file, "#endif /* __MigCanUseSpecialReplyPort */\n");
-#endif
-#if DISABLE_SPECIAL_REPLY_PORT_IN_CHROOT
-    fprintf(file, "#ifndef __MigCanUseSpecialReplyPort\n");
-    fprintf(file, "#if TARGET_OS_OSX\n");
-    fprintf(file, "extern _Bool _os_xbs_chrooted;\n");
-    fprintf(file, "#define __MigCanUseSpecialReplyPort (!_os_xbs_chrooted)\n");
-    fprintf(file, "#endif\n");
-    fprintf(file, "#endif /* __MigCanUseSpecialReplyPort */\n");
-#endif
-    fprintf(file, "#ifndef __MigCanUseSpecialReplyPort\n");
-    fprintf(file, "#define __MigCanUseSpecialReplyPort 1\n");
-    fprintf(file, "#endif /* __MigCanUseSpecialReplyPort */\n");
     fprintf(file, "#ifndef __MigSpecialReplyPortMsgOption\n");
-    fprintf(file, "#define __MigSpecialReplyPortMsgOption (__MigCanUseSpecialReplyPort ? "
-      "(MACH_SEND_SYNC_OVERRIDE|MACH_SEND_SYNC_USE_THRPRI|MACH_RCV_SYNC_WAIT) : MACH_MSG_OPTION_NONE)\n");
+    fprintf(file, "#define __MigSpecialReplyPortMsgOption "
+      "(MACH_SEND_SYNC_OVERRIDE|MACH_SEND_SYNC_USE_THRPRI|MACH_RCV_SYNC_WAIT)\n");
     fprintf(file, "#endif /* __MigSpecialReplyPortMsgOption */\n");
   }
   /*
@@ -256,11 +228,7 @@ WriteOneMachErrorDefine(FILE *file, char *name, boolean_t timeout, boolean_t Spe
   fprintf(file, "\tcase MACH_SEND_INVALID_DATA: \\\n");
   fprintf(file, "\tcase MACH_SEND_INVALID_DEST: \\\n");
   fprintf(file, "\tcase MACH_SEND_INVALID_HEADER: \\\n");
-  if (SpecialReplyPort) {
-    fprintf(file, "\t\tif (!__MigCanUseSpecialReplyPort) { \\\n");
-    fprintf(file, "\t\t\tmig_put_reply_port(InP->Head.msgh_reply_port); \\\n");
-    fprintf(file, "\t\t} \\\n");
-  } else {
+  if (!SpecialReplyPort) {
     fprintf(file, "\t\tmig_put_reply_port(InP->Head.msgh_reply_port); \\\n");
   }
   fprintf(file, "\t\tbreak; \\\n");
@@ -270,11 +238,7 @@ WriteOneMachErrorDefine(FILE *file, char *name, boolean_t timeout, boolean_t Spe
   }
   fprintf(file, "\tdefault: \\\n");
   if (SpecialReplyPort) {
-    fprintf(file, "\t\tif (__MigCanUseSpecialReplyPort) { \\\n");
-    fprintf(file, "\t\t\tmig_dealloc_special_reply_port(InP->Head.msgh_reply_port); \\\n");
-    fprintf(file, "\t\t} else { \\\n");
-    fprintf(file, "\t\t\tmig_dealloc_reply_port(InP->Head.msgh_reply_port); \\\n");
-    fprintf(file, "\t\t} \\\n");
+    fprintf(file, "\t\tmig_dealloc_special_reply_port(InP->Head.msgh_reply_port); \\\n");
   } else {
     fprintf(file, "\t\tmig_dealloc_reply_port(InP->Head.msgh_reply_port); \\\n");
   }
@@ -392,7 +356,7 @@ WriteRequestHead(FILE *file, routine_t *rt)
   else if (rt->rtOneWay)
     fprintf(file, "\tInP->%s = MACH_PORT_NULL;\n", rt->rtReplyPort->argMsgField);
   else if (rt->rtUseSpecialReplyPort)
-    fprintf(file, "\tInP->%s = __MigCanUseSpecialReplyPort ? mig_get_special_reply_port() : mig_get_reply_port();\n", rt->rtReplyPort->argMsgField);
+    fprintf(file, "\tInP->%s = mig_get_special_reply_port();\n", rt->rtReplyPort->argMsgField);
   else
     fprintf(file, "\tInP->%s = mig_get_reply_port();\n", rt->rtReplyPort->argMsgField);
 

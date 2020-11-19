@@ -43,7 +43,7 @@
 
 #include "SecBase64.h"
 
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <string.h>
 #include <stdbool.h>
 

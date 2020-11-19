@@ -9,11 +9,11 @@
 
 #import <IOKit/kext/OSKext.h>
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #define HAVE_SYSTEM_POLICY 1
-#else // !TARGET_OS_EMBEDDED
+#else // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 #define HAVE_SYSTEM_POLICY 0
-#endif // !TARGET_OS_EMBEDDED
+#endif // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 Boolean SPAllowKextLoad(OSKextRef kext);
 Boolean SPAllowKextLoadCache(OSKextRef kext);

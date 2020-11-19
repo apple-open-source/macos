@@ -31,17 +31,20 @@
 #include "ShouldGrandfatherStatistics.h"
 #include "WKAPICast.h"
 #include "WKDictionary.h"
+#include "WKMutableArray.h"
 #include "WKNumber.h"
 #include "WKRetainPtr.h"
 #include "WKSecurityOriginRef.h"
 #include "WKString.h"
 #include "WebDeviceOrientationAndMotionAccessController.h"
+#include "WebPageProxy.h"
 #include "WebResourceLoadStatisticsStore.h"
 #include "WebsiteData.h"
 #include "WebsiteDataFetchOption.h"
 #include "WebsiteDataRecord.h"
 #include "WebsiteDataStore.h"
 #include "WebsiteDataType.h"
+#include <WebCore/RegistrableDomain.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/URL.h>
 
@@ -66,9 +69,52 @@ WKWebsiteDataStoreRef WKWebsiteDataStoreCreateWithConfiguration(WKWebsiteDataSto
     return WebKit::toAPI(&WebKit::WebsiteDataStore::create(*WebKit::toImpl(configuration), sessionID).leakRef());
 }
 
+void WKWebsiteDataStoreRemoveITPDataForDomain(WKWebsiteDataStoreRef dataStoreRef, WKStringRef host, void* context, WKWebsiteDataStoreRemoveITPDataForDomainFunction callback)
+{
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebKit::WebsiteDataRecord dataRecord;
+    dataRecord.types.add(WebKit::WebsiteDataType::ResourceLoadStatistics);
+    dataRecord.addResourceLoadStatisticsRegistrableDomain(WebCore::RegistrableDomain::uncheckedCreateFromHost(WebKit::toImpl(host)->string()));
+    Vector<WebKit::WebsiteDataRecord> dataRecords = { WTFMove(dataRecord) };
+
+    OptionSet<WebKit::WebsiteDataType> dataTypes = WebKit::WebsiteDataType::ResourceLoadStatistics;
+    WebKit::toImpl(dataStoreRef)->removeData(dataTypes, dataRecords, [context, callback] {
+        callback(context);
+    });
+#else
+    callback(context);
+#endif
+}
+
+void WKWebsiteDataStoreDoesStatisticsDomainIDExistInDatabase(WKWebsiteDataStoreRef dataStoreRef, int domainID, void* context, WKWebsiteDataStoreDoesStatisticsDomainIDExistInDatabaseFunction callback)
+{
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebKit::toImpl(dataStoreRef)->domainIDExistsInDatabase(domainID, [context, callback](bool exists) {
+        callback(exists, context);
+    });
+#else
+    callback(false, context);
+#endif
+}
+
 void WKWebsiteDataStoreSetResourceLoadStatisticsEnabled(WKWebsiteDataStoreRef dataStoreRef, bool enable)
 {
-    WebKit::toImpl(dataStoreRef)->setResourceLoadStatisticsEnabled(enable);
+    auto* websiteDataStore = WebKit::toImpl(dataStoreRef);
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    websiteDataStore->useExplicitITPState();
+#endif
+    websiteDataStore->setResourceLoadStatisticsEnabled(enable);
+}
+
+void WKWebsiteDataStoreIsStatisticsEphemeral(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreStatisticsEphemeralFunction completionHandler)
+{
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebKit::toImpl(dataStoreRef)->isResourceLoadStatisticsEphemeral([context, completionHandler](bool isEphemeral) {
+        completionHandler(isEphemeral, context);
+    });
+#else
+    completionHandler(false, context);
+#endif
 }
 
 bool WKWebsiteDataStoreGetResourceLoadStatisticsEnabled(WKWebsiteDataStoreRef dataStoreRef)
@@ -429,13 +475,6 @@ void WKWebsiteDataStoreSetStatisticsShouldClassifyResourcesBeforeDataRecordsRemo
 #endif
 }
 
-void WKWebsiteDataStoreSetStatisticsNotifyPagesWhenTelemetryWasCaptured(WKWebsiteDataStoreRef dataStoreRef, bool value)
-{
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
-    WebKit::toImpl(dataStoreRef)->setNotifyPagesWhenTelemetryWasCaptured(value, []() { });
-#endif
-}
-
 void WKWebsiteDataStoreSetStatisticsMinimumTimeBetweenDataRecordsRemoval(WKWebsiteDataStoreRef dataStoreRef, double seconds)
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -538,6 +577,13 @@ void WKWebsiteDataStoreStatisticsHasIsolatedSession(WKWebsiteDataStoreRef dataSt
 #endif
 }
 
+void WKWebsiteDataStoreHasAppBoundSession(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreHasAppBoundSessionFunction callback)
+{
+    WebKit::toImpl(dataStoreRef)->hasAppBoundSession([context, callback](bool hasAppBoundSession) {
+        callback(hasAppBoundSession, context);
+    });
+}
+
 void WKWebsiteDataStoreSetResourceLoadStatisticsShouldDowngradeReferrerForTesting(WKWebsiteDataStoreRef dataStoreRef, bool enabled, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsShouldDowngradeReferrerForTestingFunction completionHandler)
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -571,6 +617,64 @@ void WKWebsiteDataStoreSetResourceLoadStatisticsFirstPartyWebsiteDataRemovalMode
 #endif
 }
 
+void WKWebsiteDataStoreSetResourceLoadStatisticsToSameSiteStrictCookiesForTesting(WKWebsiteDataStoreRef dataStoreRef, WKStringRef hostName, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsToSameSiteStrictCookiesForTestingFunction completionHandler)
+{
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebKit::toImpl(dataStoreRef)->setResourceLoadStatisticsToSameSiteStrictCookiesForTesting(URL(URL(), WebKit::toImpl(hostName)->string()), [context, completionHandler] {
+        completionHandler(context);
+    });
+#else
+    completionHandler(context);
+#endif
+}
+
+void WKWebsiteDataStoreSetResourceLoadStatisticsFirstPartyHostCNAMEDomainForTesting(WKWebsiteDataStoreRef dataStoreRef, WKStringRef firstPartyURLString, WKStringRef cnameURLString, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsFirstPartyHostCNAMEDomainForTestingFunction completionHandler)
+{
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebKit::toImpl(dataStoreRef)->setResourceLoadStatisticsFirstPartyHostCNAMEDomainForTesting(URL(URL(), WebKit::toImpl(firstPartyURLString)->string()), URL(URL(), WebKit::toImpl(cnameURLString)->string()), [context, completionHandler] {
+        completionHandler(context);
+    });
+#else
+    completionHandler(context);
+#endif
+}
+
+void WKWebsiteDataStoreSetResourceLoadStatisticsThirdPartyCNAMEDomainForTesting(WKWebsiteDataStoreRef dataStoreRef, WKStringRef cnameURLString, void* context, WKWebsiteDataStoreSetResourceLoadStatisticsThirdPartyCNAMEDomainForTestingFunction completionHandler)
+{
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebKit::toImpl(dataStoreRef)->setResourceLoadStatisticsThirdPartyCNAMEDomainForTesting(URL(URL(), WebKit::toImpl(cnameURLString)->string()), [context, completionHandler] {
+        completionHandler(context);
+    });
+#else
+    completionHandler(context);
+#endif
+}
+
+void WKWebsiteDataStoreSetAppBoundDomainsForTesting(WKArrayRef originURLsRef, void* context, WKWebsiteDataStoreSetAppBoundDomainsForTestingFunction completionHandler)
+{
+#if PLATFORM(COCOA)
+    RefPtr<API::Array> originURLsArray = toImpl(originURLsRef);
+    size_t newSize = originURLsArray ? originURLsArray->size() : 0;
+    HashSet<WebCore::RegistrableDomain> domains;
+    domains.reserveInitialCapacity(newSize);
+    for (size_t i = 0; i < newSize; ++i) {
+        auto* originURL = originURLsArray->at<API::URL>(i);
+        if (!originURL)
+            continue;
+        
+        domains.add(WebCore::RegistrableDomain { URL(URL(), originURL->string()) });
+    }
+
+    WebKit::WebsiteDataStore::setAppBoundDomainsForTesting(WTFMove(domains), [context, completionHandler] {
+        completionHandler(context);
+    });
+#else
+    UNUSED_PARAM(originURLsRef);
+    UNUSED_PARAM(context);
+    UNUSED_PARAM(completionHandler);
+#endif
+}
+
 void WKWebsiteDataStoreStatisticsResetToConsistentState(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreStatisticsResetToConsistentStateFunction completionHandler)
 {
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
@@ -579,15 +683,16 @@ void WKWebsiteDataStoreStatisticsResetToConsistentState(WKWebsiteDataStoreRef da
     });
 
     auto& store = *WebKit::toImpl(dataStoreRef);
-    store.clearResourceLoadStatisticsInWebProcesses([callbackAggregator = callbackAggregator.copyRef()] { });
-    store.resetCacheMaxAgeCapForPrevalentResources([callbackAggregator = callbackAggregator.copyRef()] { });
-    store.resetCrossSiteLoadsWithLinkDecorationForTesting([callbackAggregator = callbackAggregator.copyRef()] { });
-    store.setResourceLoadStatisticsShouldDowngradeReferrerForTesting(true, [callbackAggregator = callbackAggregator.copyRef()] { });
-    store.setResourceLoadStatisticsShouldBlockThirdPartyCookiesForTesting(false, false, [callbackAggregator = callbackAggregator.copyRef()] { });
-    store.setResourceLoadStatisticsFirstPartyWebsiteDataRemovalModeForTesting(false, [callbackAggregator = callbackAggregator.copyRef()] { });
-    store.resetParametersToDefaultValues([callbackAggregator = callbackAggregator.copyRef()] { });
-    store.scheduleClearInMemoryAndPersistent(WebKit::ShouldGrandfatherStatistics::No, [callbackAggregator = callbackAggregator.copyRef()] { });
-    store.setUseITPDatabase(false, [callbackAggregator = callbackAggregator.copyRef()] { });
+    store.clearResourceLoadStatisticsInWebProcesses([callbackAggregator] { });
+    store.resetCacheMaxAgeCapForPrevalentResources([callbackAggregator] { });
+    store.resetCrossSiteLoadsWithLinkDecorationForTesting([callbackAggregator] { });
+    store.setResourceLoadStatisticsShouldDowngradeReferrerForTesting(true, [callbackAggregator] { });
+    store.setResourceLoadStatisticsShouldBlockThirdPartyCookiesForTesting(false, false, [callbackAggregator] { });
+    store.setResourceLoadStatisticsShouldEnbleSameSiteStrictEnforcementForTesting(true, [callbackAggregator] { });
+    store.setResourceLoadStatisticsFirstPartyWebsiteDataRemovalModeForTesting(false, [callbackAggregator] { });
+    store.resetParametersToDefaultValues([callbackAggregator] { });
+    store.scheduleClearInMemoryAndPersistent(WebKit::ShouldGrandfatherStatistics::No, [callbackAggregator] { });
+    store.setUseITPDatabase(false, [callbackAggregator] { });
 #else
     UNUSED_PARAM(dataStoreRef);
     completionHandler(context);
@@ -676,16 +781,6 @@ void WKWebsiteDataStoreGetFetchCacheSizeForOrigin(WKWebsiteDataStoreRef dataStor
     });
 }
 
-WKStringRef WKWebsiteDataStoreCopyServiceWorkerRegistrationDirectory(WKWebsiteDataStoreRef dataStoreRef)
-{
-    return WebKit::toCopiedAPI(WebKit::toImpl(dataStoreRef)->serviceWorkerRegistrationDirectory());
-}
-
-void WKWebsiteDataStoreSetServiceWorkerRegistrationDirectory(WKWebsiteDataStoreRef dataStoreRef, WKStringRef serviceWorkerRegistrationDirectory)
-{
-    WebKit::toImpl(dataStoreRef)->setServiceWorkerRegistrationDirectory(WebKit::toImpl(serviceWorkerRegistrationDirectory)->string());
-}
-
 void WKWebsiteDataStoreSetPerOriginStorageQuota(WKWebsiteDataStoreRef, uint64_t)
 {
 }
@@ -716,4 +811,47 @@ void WKWebsiteDataStoreResetQuota(WKWebsiteDataStoreRef dataStoreRef, void* cont
         if (callback)
             callback(context);
     });
+}
+
+void WKWebsiteDataStoreClearAppBoundSession(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreClearAppBoundSessionFunction completionHandler)
+{
+    WebKit::toImpl(dataStoreRef)->clearAppBoundSession([context, completionHandler] {
+        completionHandler(context);
+    });
+}
+
+void WKWebsiteDataStoreReinitializeAppBoundDomains(WKWebsiteDataStoreRef dataStoreRef)
+{
+#if PLATFORM(COCOA)
+    WebKit::toImpl(dataStoreRef)->reinitializeAppBoundDomains();
+#endif
+}
+
+void WKWebsiteDataStoreUpdateBundleIdentifierInNetworkProcess(WKWebsiteDataStoreRef dataStoreRef, const WKStringRef bundleIdentifier, void* context, WKWebsiteDataStoreUpdateBundleIdentifierInNetworkProcessFunction completionHandler)
+{
+    WebKit::toImpl(dataStoreRef)->updateBundleIdentifierInNetworkProcess(WebKit::toImpl(bundleIdentifier)->string(), [context, completionHandler] {
+        completionHandler(context);
+    });
+}
+
+void WKWebsiteDataStoreClearBundleIdentifierInNetworkProcess(WKWebsiteDataStoreRef dataStoreRef, void* context, WKWebsiteDataStoreClearBundleIdentifierInNetworkProcessFunction completionHandler)
+{
+    WebKit::toImpl(dataStoreRef)->clearBundleIdentifierInNetworkProcess([context, completionHandler] {
+        completionHandler(context);
+    });
+}
+
+void WKWebsiteDataStoreGetAllStorageAccessEntries(WKWebsiteDataStoreRef dataStoreRef, WKPageRef pageRef, void* context, WKWebsiteDataStoreGetAllStorageAccessEntriesFunction callback)
+{
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    WebKit::toImpl(dataStoreRef)->getAllStorageAccessEntries(WebKit::toImpl(pageRef)->identifier(), [context, callback] (Vector<String>&& domains) {
+        auto domainArrayRef = WKMutableArrayCreate();
+        for (auto domain : domains)
+            WKArrayAppendItem(domainArrayRef, adoptWK(WKStringCreateWithUTF8CString(domain.utf8().data())).get());
+
+        callback(context, domainArrayRef);
+    });
+#else
+    callback(context, WKMutableArrayCreate());
+#endif
 }

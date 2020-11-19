@@ -50,7 +50,7 @@ public:
 	SECCFFUNCTIONS(IdentityCursor, SecIdentitySearchRef, errSecInvalidSearchRef, gTypes().IdentityCursor)
 
     IdentityCursor(const StorageManager::KeychainList &searchList, CSSM_KEYUSE keyUsage);
-	virtual ~IdentityCursor() throw();
+	virtual ~IdentityCursor() _NOEXCEPT;
 	virtual bool next(SecPointer<Identity> &identity);
 
 	CFDataRef pubKeyHashForSystemIdentity(CFStringRef domain);
@@ -69,7 +69,7 @@ class IdentityCursorPolicyAndID : public IdentityCursor
 {
 public:
     IdentityCursorPolicyAndID(const StorageManager::KeychainList &searchList, CSSM_KEYUSE keyUsage, CFStringRef idString, SecPolicyRef policy, bool returnOnlyValidIdentities);
-	virtual ~IdentityCursorPolicyAndID() throw();
+	virtual ~IdentityCursorPolicyAndID() _NOEXCEPT;
 	virtual bool next(SecPointer<Identity> &identity);
 	virtual void findPreferredIdentity();
 

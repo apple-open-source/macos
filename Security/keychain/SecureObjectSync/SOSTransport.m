@@ -206,7 +206,7 @@ void SOSUpdateKeyInterest(SOSAccount* account)
     secnotice("key-interests", "Updating interests done: %lu", (unsigned long)itemCount);
 
     CFStringRef uuid = SOSAccountCopyUUID(account);
-    SOSCloudKeychainUpdateKeys(keyDict, uuid, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^(CFDictionaryRef returnedValues, CFErrorRef error) {
+    SOSCloudKeychainUpdateKeys(keyDict, uuid, dispatch_get_global_queue(SOS_TRANSPORT_PRIORITY, 0), ^(CFDictionaryRef returnedValues, CFErrorRef error) {
         if (error) {
             secerror("Error updating keys: %@", error);
             account.key_interests_need_updating = true;

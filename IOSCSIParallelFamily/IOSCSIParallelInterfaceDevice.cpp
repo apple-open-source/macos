@@ -45,6 +45,7 @@
 
 // SCSI Parallel Family includes
 #include "IOSCSIParallelInterfaceDevice.h"
+#include "DriverKitKernelSupport/IOUserSCSIParallelInterfaceController.h"
 
 
 //-----------------------------------------------------------------------------
@@ -420,6 +421,55 @@ IOSCSIParallelInterfaceDevice::requestProbe ( IOOptionBits options )
 	
 }
 
+
+//-----------------------------------------------------------------------------
+//	GetNextOutstandingTask - Get the next outstanding task.		       [PUBLIC]
+//-----------------------------------------------------------------------------
+
+SCSIParallelTask *
+IOSCSIParallelInterfaceDevice::GetNextOutstandingTask ( )
+{
+	
+	SCSIParallelTask *	task 	= NULL;
+	
+	//Grab the queue lock.
+	IOSimpleLockLock ( fQueueLock );
+	
+	if ( !queue_empty ( &fOutstandingTaskList ) )
+	{
+		task = ( SCSIParallelTask * ) queue_first ( &fOutstandingTaskList );
+	}
+	
+	IOSimpleLockUnlock ( fQueueLock );
+	
+	return task;
+	
+}
+
+
+//-----------------------------------------------------------------------------
+//	SignalTaskSubmittedForTask - Set fTaskSubmitted to the given value.   [PUBLIC]
+//-----------------------------------------------------------------------------
+
+void
+IOSCSIParallelInterfaceDevice::SignalTaskSubmittedForTask ( SCSIParallelTaskIdentifier task )
+{
+	
+	SCSIParallelTask * parallelTask = NULL;
+	
+	parallelTask = ( SCSIParallelTask * ) task;
+	
+	if ( parallelTask != NULL )
+	{
+		
+		parallelTask->fTaskSubmitted = true;
+		GetCommandGate ( )->commandWakeup ( ( void * ) &parallelTask->fTaskSubmitted );
+
+	}
+		
+}
+
+
 //-----------------------------------------------------------------------------
 // InitializePowerManagement - 	Register the driver with our policy-maker
 //								(also in the same class).			[PROTECTED]
@@ -477,11 +527,15 @@ IOSCSIParallelInterfaceDevice::CreateTarget (
 	IOSCSIParallelInterfaceDevice * newDevice	= NULL;
 	bool							result		= false;
 	
+	STATUS_LOG ( ( "+CreateTarget \n" ) );
+	
 	newDevice = OSTypeAlloc ( IOSCSIParallelInterfaceDevice );
 	require_nonzero ( newDevice, DEVICE_CREATION_FAILURE );
 	
 	result = newDevice->InitTarget ( targetID, sizeOfHBAData, entry );
 	require ( result, RELEASE_DEVICE );
+	
+	STATUS_LOG ( ( "-CreateTarget \n" ) );
 	
 	return newDevice;
 	
@@ -1151,15 +1205,20 @@ IOSCSIParallelInterfaceDevice::SendSCSICommand (
 							SCSITaskStatus *			taskStatus )
 {
 	
-	SCSIParallelTaskIdentifier		parallelTask	= NULL;
-	IOMemoryDescriptor *			buffer			= NULL;
-	IOReturn						status			= kIOReturnBadArgument;
-	IOWorkLoop *					workLoop		= NULL;
-	bool							block			= true;
+	SCSIParallelTaskIdentifier				parallelTask		= NULL;
+	SCSIParallelTask *						parallelTaskPtr		= NULL;
+	IOMemoryDescriptor *					buffer				= NULL;
+	IOReturn								status				= kIOReturnBadArgument;
+	IOWorkLoop *							workLoop			= NULL;
+	IOUserSCSIParallelInterfaceController *	userController		= NULL;
+	bool									block				= true;
+	bool									ret					= false;
 	
 	// Set the defaults to an error state.		
 	*taskStatus			= kSCSITaskStatus_No_Status;
 	*serviceResponse	= kSCSIServiceResponse_SERVICE_DELIVERY_OR_TARGET_FAILURE;
+	
+	userController = OSDynamicCast ( IOUserSCSIParallelInterfaceController, fController );
 	
 	if ( isInactive ( ) == true )
 	{
@@ -1196,6 +1255,7 @@ IOSCSIParallelInterfaceDevice::SendSCSICommand (
 		
 	}
 	
+	parallelTaskPtr = ( SCSIParallelTask * ) parallelTask;
 	SetTargetIdentifier ( parallelTask, fTargetIdentifier );
 	SetDevice ( parallelTask, this );
     
@@ -1242,7 +1302,8 @@ IOSCSIParallelInterfaceDevice::SendSCSICommand (
 			
 			CommandCompleted ( request, *serviceResponse, *taskStatus );
 			
-			return true;
+			ret = true;
+			goto Exit;
 			
 		}
 		
@@ -1273,7 +1334,23 @@ IOSCSIParallelInterfaceDevice::SendSCSICommand (
 		
 	}
 	
-	return true;
+	ret = true;
+	
+	
+Exit:
+	
+	
+	if ( userController != NULL )
+	{
+		GetCommandGate ( )->runAction ( OSMemberFunctionCast (
+															  IOCommandGate::Action,
+															  this,
+															  &IOSCSIParallelInterfaceDevice::SignalTaskSubmittedForTask ),
+															  ( void * ) parallelTask );
+	}
+	
+	return ret;
+	
 	
 }
 
@@ -1322,7 +1399,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	// Make sure that the task is removed from the outstanding task list
 	// so that the driver no longer sees this task as outstanding.
 	RemoveFromOutstandingTaskList ( completedTask );
-			
+	
 	// Retrieve the original SCSI Task.
 	clientRequest = GetSCSITaskIdentifier ( completedTask );
 	if ( clientRequest == NULL )
@@ -1354,6 +1431,7 @@ IOSCSIParallelInterfaceDevice::CompleteSCSITask (
 	// Release the SCSI Parallel Task object.
 	FreeSCSIParallelTask ( completedTask );
 
+	
 	IOSimpleLockLock ( fQueueLock );
 
 	// If there are requests on the resend queue, send them first.

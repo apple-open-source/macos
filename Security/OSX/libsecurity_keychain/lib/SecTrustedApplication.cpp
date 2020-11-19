@@ -44,7 +44,6 @@ CFTypeID
 SecTrustedApplicationGetTypeID(void)
 {
 	BEGIN_SECAPI
-
 	return gTypes().TrustedApplication.typeID;
 
 	END_SECAPI1(_kCFRuntimeNotATypeID)
@@ -195,7 +194,6 @@ OSStatus SecTrustedApplicationCreateApplicationGroup(const char *groupName,
 	SecCertificateRef anchor, SecTrustedApplicationRef *appRef)
 {
 	BEGIN_SECAPI
-
 	CFRef<SecRequirementRef> req;
 	MacOSError::check(SecRequirementCreateGroup(CFTempString(groupName), anchor,
 		kSecCSDefaultFlags, &req.aref()));

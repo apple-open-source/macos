@@ -52,7 +52,15 @@
    interpreting these values and unsetting the variable as appropriate.
    See comments for each value as to which components set which values.
 */
-#define kRecoveryBootVar        "recovery-boot-mode"  // how to boot Recovery
+#define kRecoveryBootVar        "40A0DDD2-77F8-4392-B4A3-1E7304206516:recovery-boot-mode"  // how to boot Recovery
+
+/* The Recovery OS interprets this variable in the same manner as
+   kRecoveryBootVar. However, the booter does not look at this variable.
+   If this variable is set it is respected the next time the user manually
+   boots to the RecoveryOS. After that occurs the variable is purged.
+   If kRecoveryBootVar is also set, then this value is ignored.
+*/
+#define kRecoveryBootSettingVar "40A0DDD2-77F8-4392-B4A3-1E7304206516:recovery-boot-setting"  // how to boot Recovery
 
 /* Recovery-based Guest Mode is used on FDE systems.
    Set by: any login panel (EFI, OS, or screen lock) when "guest" is selected
@@ -102,12 +110,35 @@
 */
 #define kRecoveryBootModeFDERecovery        "fde-recovery"      // help!
 
+#define kRecoveryBootModeFDERecoveryKeyAuthMode        "fde-recovery-key-auth-mode"
+
 #define kRecoveryBootModeActivationLock        "activation-lock"
 
 /* A generic mode is defined, but has not yet been meaningfully used. */
 // #define kRecoveryBootModeGeneric     "generic"
 #define kRcevoeryBootModeRecovery       "unused"
 
+/* Medium Security installation downgrade flow
+   Set by: UpdateBrainService
+   Cleared by: Boot Recovery Assistant in the Recovery OS
+
+   If the user attempts to install a version of macOS that is no longer
+   being signed, they can elect to install in Medium ("Reduced") Security
+   mode. This requires a round-trip through the Recovery OS in order to
+   create the Medium Security boot policy. When this variable is set, Boot
+   Recovery Assistant will be launched to handle this.
+ */
+#define kRecoveryBootModeMediumDowngradeInstall "medium-install"
+
+/* On-demand SFR software update flow
+   Set by: Startup Disk
+   Cleared by: Boot Recovery Assistant in the Recovery OS
+
+   If the user selects a startup disk that's running a newer version of
+   macOS than the installed SFR supports, this variable can be set to
+   trigger Boot Recovery Assistant to perform an on-demand update.
+ */
+#define kRecoveryBootModeSFRUpdate "update-sfr"
 
 /* The kernel */
 #define kDefaultKernelPath  "/System/Library/Kernels/kernel"

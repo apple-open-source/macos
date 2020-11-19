@@ -32,6 +32,7 @@
 #include "AffineTransform.h"
 #include "DisplayListRecorder.h"
 #include "FloatConversion.h"
+#include "Gradient.h"
 #include "GraphicsContextPlatformPrivateCG.h"
 #include "ImageBuffer.h"
 #include "ImageOrientation.h"
@@ -47,7 +48,8 @@
 #include <wtf/URL.h>
 #include <wtf/text/TextStream.h>
 
-#define USE_DRAW_PATH_DIRECT (PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400))
+// FIXME: This should probably be HAVE(CG_CONTEXT_DRAW_PATH_DIRECT) and be in PlatformHave.h.
+#define USE_DRAW_PATH_DIRECT PLATFORM(COCOA)
 
 // FIXME: The following using declaration should be in <wtf/HashFunctions.h>.
 using WTF::pairIntHash;
@@ -313,9 +315,10 @@ void GraphicsContext::drawNativeImage(const RetainPtr<CGImageRef>& image, const 
         // containing only the portion we want to display. We need to do this because high-quality
         // interpolation smoothes sharp edges, causing pixels from outside the source rect to bleed
         // into the destination rect. See <rdar://problem/6112909>.
-        shouldUseSubimage = (interpolationQuality != kCGInterpolationNone) && (srcRect.size() != destRect.size() || !getCTM().isIdentityOrTranslationOrFlipped());
+        const float minimumAreaForInterpolation = 40 * 40;
         float xScale = srcRect.width() / destRect.width();
         float yScale = srcRect.height() / destRect.height();
+        shouldUseSubimage = (interpolationQuality != kCGInterpolationNone) && (xScale < 0 || yScale < 0 || destRect.area() >= minimumAreaForInterpolation) && (srcRect.size() != destRect.size() || !getCTM().isIdentityOrTranslationOrFlipped());
         if (shouldUseSubimage) {
             FloatRect subimageRect = srcRect;
             float leftPadding = srcRect.x() - floorf(srcRect.x());
@@ -512,7 +515,7 @@ void GraphicsContext::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& de
     if (paintingDisabled())
         return;
 
-    FloatSize bufferDestinationSize = buffer.sizeForDestinationSize(destRect.size());
+    FloatSize bufferDestinationSize = destRect.size();
     RetainPtr<CGImageRef> image = buffer.copyNativeImage(DontCopyBackingStore);
 
     CGContextRef context = platformContext();
@@ -1551,8 +1554,8 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect, RoundingMo
         return roundedIntRect(rect);
     }
 
-    float deviceScaleX = sqrtf(deviceMatrix.a * deviceMatrix.a + deviceMatrix.b * deviceMatrix.b);
-    float deviceScaleY = sqrtf(deviceMatrix.c * deviceMatrix.c + deviceMatrix.d * deviceMatrix.d);
+    float deviceScaleX = std::hypot(deviceMatrix.a, deviceMatrix.b);
+    float deviceScaleY = std::hypot(deviceMatrix.c, deviceMatrix.d);
 
     CGPoint deviceOrigin = CGPointMake(rect.x() * deviceScaleX, rect.y() * deviceScaleY);
     CGPoint deviceLowerRight = CGPointMake((rect.x() + rect.width()) * deviceScaleX,
@@ -1603,6 +1606,9 @@ void GraphicsContext::drawLinesForText(const FloatPoint& point, float thickness,
     Color localStrokeColor(strokeColor());
 
     FloatRect bounds = computeLineBoundsAndAntialiasingModeForText(FloatRect(point, FloatSize(widths.last(), thickness)), printing, localStrokeColor);
+    if (bounds.isEmpty())
+        return;
+
     bool fillColorIsNotEqualToStrokeColor = fillColor() != localStrokeColor;
     
     Vector<CGRect, 4> dashBounds;
@@ -1628,9 +1634,9 @@ void GraphicsContext::drawLinesForText(const FloatPoint& point, float thickness,
         if (!dashWidth)
             dashBounds.append(CGRectMake(bounds.x() + left, bounds.y(), width, bounds.height()));
         else {
-            auto startParticle = static_cast<unsigned>(std::ceil(left / (2 * dashWidth)));
-            auto endParticle = static_cast<unsigned>((left + width) / (2 * dashWidth));
-            for (unsigned j = startParticle; j < endParticle; ++j)
+            auto startParticle = static_cast<int>(std::ceil(left / (2 * dashWidth)));
+            auto endParticle = static_cast<int>((left + width) / (2 * dashWidth));
+            for (auto j = startParticle; j < endParticle; ++j)
                 dashBounds.append(CGRectMake(bounds.x() + j * 2 * dashWidth, bounds.y(), dashWidth, bounds.height()));
         }
     }
@@ -1760,19 +1766,15 @@ void GraphicsContext::setPlatformTextDrawingMode(TextDrawingModeFlags mode)
     ASSERT(hasPlatformContext());
 
     CGContextRef context = platformContext();
-    switch (mode) {
-    case TextModeFill:
-        CGContextSetTextDrawingMode(context, kCGTextFill);
-        break;
-    case TextModeStroke:
-        CGContextSetTextDrawingMode(context, kCGTextStroke);
-        break;
-    case TextModeFill | TextModeStroke:
+    
+    bool fill = mode.contains(TextDrawingMode::Fill);
+    bool stroke = mode.contains(TextDrawingMode::Stroke);
+    if (fill && stroke)
         CGContextSetTextDrawingMode(context, kCGTextFillStroke);
-        break;
-    default:
-        break;
-    }
+    else if (fill)
+        CGContextSetTextDrawingMode(context, kCGTextFill);
+    else if (stroke)
+        CGContextSetTextDrawingMode(context, kCGTextStroke);
 }
 
 void GraphicsContext::setPlatformStrokeColor(const Color& color)

@@ -32,7 +32,7 @@
 #include <sys/param.h>
 #include <xpc/xpc.h>
 #include <syslog.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <libproc.h>
 #include <sandbox.h>
 #include <syslog.h>

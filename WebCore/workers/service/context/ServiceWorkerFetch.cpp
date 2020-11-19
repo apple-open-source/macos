@@ -39,6 +39,7 @@
 #include "ServiceWorker.h"
 #include "ServiceWorkerClientIdentifier.h"
 #include "ServiceWorkerGlobalScope.h"
+#include "ServiceWorkerThread.h"
 #include "WorkerGlobalScope.h"
 
 namespace WebCore {
@@ -64,7 +65,7 @@ static inline Optional<ResourceError> validateResponse(const ResourceResponse& r
     return { };
 }
 
-static void processResponse(Ref<Client>&& client, Expected<Ref<FetchResponse>, ResourceError>&& result, FetchOptions::Mode mode, FetchOptions::Redirect redirect, const URL& requestURL)
+static void processResponse(Ref<Client>&& client, Expected<Ref<FetchResponse>, ResourceError>&& result, FetchOptions::Mode mode, FetchOptions::Redirect redirect, const URL& requestURL, CertificateInfo&& certificateInfo)
 {
     if (!result.has_value()) {
         client->didFail(result.error());
@@ -89,8 +90,6 @@ static void processResponse(Ref<Client>&& client, Expected<Ref<FetchResponse>, R
         return;
     }
 
-    resourceResponse.setSource(ResourceResponse::Source::ServiceWorker);
-
     // In case of main resource and mime type is the default one, we set it to text/html to pass more service worker WPT tests.
     // FIXME: We should refine our MIME type sniffing strategy for synthetic responses.
     if (mode == FetchOptions::Mode::Navigate) {
@@ -98,6 +97,9 @@ static void processResponse(Ref<Client>&& client, Expected<Ref<FetchResponse>, R
             resourceResponse.setMimeType("text/html"_s);
             resourceResponse.setTextEncodingName("UTF-8"_s);
         }
+
+        if (!resourceResponse.certificateInfo())
+            resourceResponse.setCertificateInfo(WTFMove(certificateInfo));
     }
 
     // As per https://fetch.spec.whatwg.org/#main-fetch step 9, copy request's url list in response's url list if empty.
@@ -148,7 +150,7 @@ void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalSc
     auto* formData = request.httpBody();
     Optional<FetchBody> body;
     if (formData && !formData->isEmpty()) {
-        body = FetchBody::fromFormData(*formData);
+        body = FetchBody::fromFormData(globalScope, *formData);
         if (!body) {
             client->didNotHandle();
             return;
@@ -172,8 +174,10 @@ void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalSc
     init.cancelable = true;
     auto event = FetchEvent::create(eventNames().fetchEvent, WTFMove(init), Event::IsTrusted::Yes);
 
-    event->onResponse([client = client.copyRef(), mode, redirect, requestURL] (auto&& result) mutable {
-        processResponse(WTFMove(client), WTFMove(result), mode, redirect, requestURL);
+    CertificateInfo certificateInfo = globalScope.certificateInfo();
+
+    event->onResponse([client, mode, redirect, requestURL, certificateInfo = WTFMove(certificateInfo)] (auto&& result) mutable {
+        processResponse(WTFMove(client), WTFMove(result), mode, redirect, requestURL, WTFMove(certificateInfo));
     });
 
     globalScope.dispatchEvent(event);

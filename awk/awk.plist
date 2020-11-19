@@ -5,24 +5,21 @@
 	<key>OpenSourceProject</key>
 	<string>awk</string>
 	<key>OpenSourceVersion</key>
-	<string>October 23, 2007</string>
+	<string>August 16, 2020</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.cs.princeton.edu/~bwk/btl.mirror/index.html</string>
+	<string>https://github.com/onetrueawk/awk</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.cs.princeton.edu/~bwk/btl.mirror/awk.tar.gz</string>
-	<key>OpenSourceSHA1</key>
-	<string>433317b8ed6d68bbfb18667384edfe64344b8074</string>
+	<string>https://github.com/onetrueawk/awk/archive/ed6ff8c1cb3136df1ea34ea2172fa84245c99c2b.zip</string>
+	<key>OpenSourceSHA512256</key>
+	<string>a3e59fba12d6ebb1ed921d6d42e4065474b4156fac5409408d4cb0be2cc462f6</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-11-12</string>
+	<string>2020-09-21</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>3668527</string>
 		<string>Fix build warnings.</string>
-		<string>Rename getline to awk_getline (7556911).</string>
-		<string>27852967: Implement UPLUS operator (awkgram.y, maketab.c, run.c)</string>
-		<string>27852967: Upstream fix for -0 (tran.c)</string>
-		<string>27852967: Modify isclvar to accept var== (lib.c)</string>
-		<string>62615119: Lucent awk tran.c getfval() / get_str_val() Function OFMT/CONVFMT Conversion Buffer Overflow</string>
+		<string>53872683: Unix Conformance: FAIL /tset/POSIX.cmd/awk/awk.ex - non-english locale tests</string>
+		<string>62947651: Fix return condition for readrec()</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>Other</string>

@@ -27,8 +27,9 @@
 #include "DAMain.h"
 
 #include <xpc/private.h>
+#include <os/log.h>
 
-static void __DADialogShow( DADiskRef disk, _DAAgentAction action )
+static void __DADialogShow( CFMutableArrayRef diskinfoarray, _DAAgentAction action )
 {
     xpc_object_t message;
 
@@ -42,13 +43,27 @@ static void __DADialogShow( DADiskRef disk, _DAAgentAction action )
 
         if ( connection )
         {
-            CFDataRef serialization;
-
-            serialization = DADiskGetSerialization( disk );
-
             xpc_dictionary_set_uint64( message, _kDAAgentActionKey, action );
 
-            xpc_dictionary_set_data( message, _kDAAgentDiskKey, CFDataGetBytePtr( serialization ), CFDataGetLength( serialization ) );
+            xpc_object_t array = xpc_array_create(  NULL, 0 );
+            int count;
+            CFIndex index;
+
+            count = CFArrayGetCount( diskinfoarray );
+
+            for ( index = 0; index < count; index++ )
+            {
+                xpc_object_t dict = xpc_dictionary_create( NULL, NULL, 0 );
+                CFDataRef serialization =  CFArrayGetValueAtIndex( diskinfoarray, index );
+                xpc_dictionary_set_data( dict, _kDAAgentDiskKey, CFDataGetBytePtr( serialization ), CFDataGetLength( serialization ) );
+                xpc_array_append_value(array, dict);
+                xpc_release(dict);
+            }
+
+            CFArrayRemoveAllValues( diskinfoarray );
+            xpc_dictionary_set_value(message, _kDAAgentDiskKey, array);
+
+            xpc_release(array);
 
             xpc_connection_set_event_handler( connection, ^( xpc_object_t object ) { } );
 
@@ -65,17 +80,25 @@ static void __DADialogShow( DADiskRef disk, _DAAgentAction action )
     }
 }
 
-void DADialogShowDeviceRemoval( DADiskRef disk )
+void DADialogShowDeviceRemoval( CFMutableArrayRef diskinfoarray )
 {
-    __DADialogShow( disk, _kDAAgentActionShowDeviceRemoval );
+    __DADialogShow( diskinfoarray, _kDAAgentActionShowDeviceRemoval );
 }
 
 void DADialogShowDeviceUnreadable( DADiskRef disk )
 {
-    __DADialogShow( disk, _kDAAgentActionShowDeviceUnreadable );
+    CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+    CFDataRef serialization = DADiskGetSerialization( disk );
+    CFArrayAppendValue( diskInfoArray, serialization );
+    __DADialogShow( diskInfoArray, _kDAAgentActionShowDeviceUnreadable );
+    CFRelease( diskInfoArray );
 }
 
 void DADialogShowDeviceUnrepairable( DADiskRef disk )
 {
-    __DADialogShow( disk, _kDAAgentActionShowDeviceUnrepairable );
+    CFMutableArrayRef diskInfoArray = CFArrayCreateMutable( kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks );
+    CFDataRef serialization = DADiskGetSerialization( disk );
+    CFArrayAppendValue( diskInfoArray, serialization );
+    __DADialogShow( diskInfoArray, _kDAAgentActionShowDeviceUnrepairable );
+    CFRelease( diskInfoArray );
 }

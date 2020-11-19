@@ -21,11 +21,17 @@
 * @APPLE_LICENSE_HEADER_END@
 */
 
-#import <Foundation/Foundation.h>
+#include <CoreFoundation/CoreFoundation.h>
+
+void SecCoreAnalyticsSendValue(CFStringRef _Nonnull eventName, int64_t value);
 
 #if __OBJC__
 
+#import <Foundation/Foundation.h>
+
 NS_ASSUME_NONNULL_BEGIN
+
+extern NSString* const SecCoreAnalyticsValue;
 
 @interface SecCoreAnalytics : NSObject
 

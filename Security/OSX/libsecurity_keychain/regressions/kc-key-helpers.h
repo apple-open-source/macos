@@ -227,16 +227,19 @@ static void checkKeyUse(SecKeyRef key, OSStatus expectedStatus) {
 
     CFErrorRef error = NULL;
     CFDataRef ciphertextData = SecTransformExecute(transform, &error);
+    CFDataRef roundtripData = NULL;
 
     if(error) {
-        is(CFErrorGetCode(error), expectedStatus, "%s: Encrypting data failed: %d %s (and expected %d)", testName, (int) CFErrorGetCode(error), CFStringGetCStringPtr(CFErrorCopyDescription(error), kCFStringEncodingUTF8), (int) expectedStatus);
+        CFStringRef errorStr = CFErrorCopyDescription(error);
+        is(CFErrorGetCode(error), expectedStatus, "%s: Encrypting data failed: %d %s (and expected %d)", testName, (int) CFErrorGetCode(error), CFStringGetCStringPtr(errorStr, kCFStringEncodingUTF8), (int) expectedStatus);
+        CFReleaseSafe(errorStr);
 
         if(expectedStatus != errSecSuccess) {
             // make test numbers match and quit
             for(int i = 1; i < checkKeyUseTests; i++) {
                 pass("test numbers match");
             }
-            return;
+            goto cleanup;
         }
 
     } else {
@@ -251,21 +254,21 @@ static void checkKeyUse(SecKeyRef key, OSStatus expectedStatus) {
     SecTransformSetAttribute(transform, kSecEncryptionMode, kSecModeCBCKey, NULL);
     SecTransformSetAttribute(transform, kSecTransformInputAttributeName, ciphertextData, NULL);
 
-    CFDataRef roundtripData = SecTransformExecute(transform, &error);
+    roundtripData = SecTransformExecute(transform, &error);
     is(error, NULL, "%s: checkKeyUse: SecTransformExecute (decrypt)", testName);
 
     if(error) {
         CFStringRef errorStr = CFErrorCopyDescription(error);
         fail("%s: Decrypting data failed: %d %s", testName, (int) CFErrorGetCode(error), CFStringGetCStringPtr(errorStr, kCFStringEncodingUTF8));
-        CFRelease(errorStr);
+        CFReleaseSafe(errorStr);
     } else {
         pass("%s: make test numbers match", testName);
     }
 
-    CFReleaseSafe(transform);
-
     eq_cf(plaintextData, roundtripData, "%s: checkKeyUse: roundtripped data is input data", testName);
 
+ cleanup:
+    CFReleaseSafe(transform);
     CFReleaseSafe(plaintext);
     CFReleaseSafe(plaintextData);
     CFReleaseSafe(ciphertextData);

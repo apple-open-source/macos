@@ -218,8 +218,8 @@ public:
 	const AccessCredentials *defaultCredentials();
 
 	// Only call these functions while holding globals().apiLock.
-	bool inCache() const throw() { return mInCache; }
-	void inCache(bool inCache) throw() { mInCache = inCache; }
+	bool inCache() const _NOEXCEPT { return mInCache; }
+	void inCache(bool inCache) _NOEXCEPT { mInCache = inCache; }
 	
 	void postEvent(SecKeychainEvent kcEvent, ItemImpl* item);
     void postEvent(SecKeychainEvent kcEvent, ItemImpl* item, PrimaryKey pk);

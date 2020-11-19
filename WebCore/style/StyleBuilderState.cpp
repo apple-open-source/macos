@@ -38,6 +38,7 @@
 #include "CSSImageSetValue.h"
 #include "CSSImageValue.h"
 #include "CSSShadowValue.h"
+#include "FontCache.h"
 #include "HTMLElement.h"
 #include "RenderTheme.h"
 #include "SVGElement.h"
@@ -45,8 +46,10 @@
 #include "Settings.h"
 #include "StyleBuilder.h"
 #include "StyleCachedImage.h"
+#include "StyleCursorImage.h"
 #include "StyleFontSizeFunctions.h"
 #include "StyleGeneratedImage.h"
+#include "StyleImageSet.h"
 #include "TransformFunctions.h"
 
 namespace WebCore {
@@ -57,7 +60,7 @@ BuilderState::BuilderState(Builder& builder, RenderStyle& style, BuilderContext&
     , m_styleMap(*this)
     , m_style(style)
     , m_context(WTFMove(context))
-    , m_cssToLengthConversionData(&style, rootElementStyle(), document().renderView())
+    , m_cssToLengthConversionData(&style, rootElementStyle(), &parentStyle(), document().renderView())
 {
 }
 
@@ -79,21 +82,34 @@ bool BuilderState::useSVGZoomRulesForLength() const
     return is<SVGElement>(element()) && !(is<SVGSVGElement>(*element()) && element()->parentNode());
 }
 
+Ref<CSSValue> BuilderState::resolveImageStyles(CSSValue& value)
+{
+    if (is<CSSGradientValue>(value))
+        return downcast<CSSGradientValue>(value).gradientWithStylesResolved(*this);
+
+    if (is<CSSImageSetValue>(value))
+        return downcast<CSSImageSetValue>(value).imageSetWithStylesResolved(*this);
+
+    // Creating filter operations doesn't create a new CSSValue reference.
+    if (is<CSSFilterImageValue>(value))
+        downcast<CSSFilterImageValue>(value).createFilterOperations(*this);
+
+    return makeRef(value);
+}
+
 RefPtr<StyleImage> BuilderState::createStyleImage(CSSValue& value)
 {
-    if (is<CSSImageGeneratorValue>(value)) {
-        if (is<CSSGradientValue>(value))
-            return StyleGeneratedImage::create(downcast<CSSGradientValue>(value).gradientWithStylesResolved(*this));
+    if (is<CSSImageValue>(value))
+        return StyleCachedImage::create(downcast<CSSImageValue>(value));
 
-        if (is<CSSFilterImageValue>(value)) {
-            // FilterImage needs to calculate FilterOperations.
-            downcast<CSSFilterImageValue>(value).createFilterOperations(*this);
-        }
-        return StyleGeneratedImage::create(downcast<CSSImageGeneratorValue>(value));
-    }
+    if (is<CSSCursorImageValue>(value))
+        return StyleCursorImage::create(downcast<CSSCursorImageValue>(value));
 
-    if (is<CSSImageValue>(value) || is<CSSImageSetValue>(value) || is<CSSCursorImageValue>(value))
-        return StyleCachedImage::create(value);
+    if (is<CSSImageGeneratorValue>(value))
+        return StyleGeneratedImage::create(downcast<CSSImageGeneratorValue>(resolveImageStyles(value).get()));
+    
+    if (is<CSSImageSetValue>(value))
+        return StyleImageSet::create(downcast<CSSImageSetValue>(resolveImageStyles(value).get()));
 
     return nullptr;
 }
@@ -149,17 +165,14 @@ bool BuilderState::createFilterOperations(const CSSValue& inValue, FilterOperati
 
     FilterOperations operations;
     for (auto& currentValue : downcast<CSSValueList>(inValue)) {
-
         if (is<CSSPrimitiveValue>(currentValue)) {
             auto& primitiveValue = downcast<CSSPrimitiveValue>(currentValue.get());
             if (!primitiveValue.isURI())
                 continue;
 
-            String cssUrl = primitiveValue.stringValue();
-            URL url = document().completeURL(cssUrl);
-
-            auto operation = ReferenceFilterOperation::create(cssUrl, url.fragmentIdentifier());
-            operations.operations().append(WTFMove(operation));
+            auto filterURL = primitiveValue.stringValue();
+            auto fragment = document().completeURL(filterURL).fragmentIdentifier().toString();
+            operations.operations().append(ReferenceFilterOperation::create(filterURL, fragment));
             continue;
         }
 
@@ -251,9 +264,9 @@ bool BuilderState::createFilterOperations(const CSSValue& inValue, FilterOperati
             int blur = item.blur ? item.blur->computeLength<int>(cssToLengthConversionData()) : 0;
             Color color;
             if (item.color)
-                color = colorFromPrimitiveValue(*item.color);
+                color = colorFromPrimitiveValueWithResolvedCurrentColor(*item.color);
 
-            operations.operations().append(DropShadowFilterOperation::create(location, blur, color.isValid() ? color : Color::transparent));
+            operations.operations().append(DropShadowFilterOperation::create(location, blur, color.isValid() ? color : Color::transparentBlack));
             break;
         }
         default:
@@ -295,13 +308,22 @@ Color BuilderState::colorFromPrimitiveValue(const CSSPrimitiveValue& value, bool
     case CSSValueWebkitFocusRingColor:
         return RenderTheme::singleton().focusRingColor(document().styleColorOptions(&m_style));
     case CSSValueCurrentcolor:
-        // Color is an inherited property so depending on it effectively makes the property inherited.
-        // FIXME: Setting the flag as a side effect of calling this function is a bit oblique. Can we do better?
-        m_style.setHasExplicitlyInheritedProperties();
-        return m_style.color();
+        return RenderStyle::currentColor();
     default:
         return StyleColor::colorFromKeyword(identifier, document().styleColorOptions(&m_style));
     }
+}
+
+Color BuilderState::colorFromPrimitiveValueWithResolvedCurrentColor(const CSSPrimitiveValue& value) const
+{
+    // FIXME: 'currentcolor' should be resolved at use time to make it inherit correctly. https://bugs.webkit.org/show_bug.cgi?id=210005
+    if (value.valueID() == CSSValueCurrentcolor) {
+        // Color is an inherited property so depending on it effectively makes the property inherited.
+        m_style.setHasExplicitlyInheritedProperties();
+        return m_style.color();
+    }
+
+    return colorFromPrimitiveValue(value);
 }
 
 void BuilderState::registerContentAttribute(const AtomString& attributeLocalName)
@@ -322,6 +344,8 @@ void BuilderState::adjustStyleForInterCharacterRuby()
 
 void BuilderState::updateFont()
 {
+    auto& fontSelector = const_cast<Document&>(document()).fontSelector();
+
     auto needsUpdate = [&] {
         if (m_fontDirty)
             return true;
@@ -341,7 +365,7 @@ void BuilderState::updateFont()
     updateFontForZoomChange();
     updateFontForOrientationChange();
 
-    m_style.fontCascade().update(&const_cast<Document&>(document()).fontSelector());
+    m_style.fontCascade().update(&fontSelector);
 
     m_fontDirty = false;
 }
@@ -351,7 +375,9 @@ void BuilderState::updateFontForTextSizeAdjust()
 {
     if (m_style.textSizeAdjust().isAuto()
         || !document().settings().textAutosizingEnabled()
-        || (document().settings().textAutosizingUsesIdempotentMode() && !m_style.textSizeAdjust().isNone()))
+        || (document().settings().textAutosizingUsesIdempotentMode()
+            && !m_style.textSizeAdjust().isNone()
+            && !document().settings().idempotentModeAutosizingOnlyHonorsPercentages()))
         return;
 
     auto newFontDescription = m_style.fontDescription();

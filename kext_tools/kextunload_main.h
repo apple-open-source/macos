@@ -66,7 +66,7 @@ enum {
 
 int longopt = 0;
 
-struct option sOptInfo[] = {
+static struct option sOptInfo[] = {
     { kOptNameHelp,                  no_argument,        NULL, kOptHelp },
 
     { kOptNameBundleIdentifier,      required_argument,  NULL, kOptBundleIdentifier },

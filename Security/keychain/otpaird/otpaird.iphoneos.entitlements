@@ -10,28 +10,13 @@
 	</array>
 	<key>com.apple.private.octagon</key>
 	<true/>
-	<key>com.apple.security.exception.files.absolute-path.read-only</key>
-	<array>
-		<string>/usr/libexec</string>
-	</array>
-	<key>com.apple.security.exception.iokit-user-client-class</key>
-	<array>
-		<string>AppleKeyStoreUserClient</string>
-	</array>
-	<key>com.apple.security.exception.mach-lookup.global-name</key>
-	<array>
-		<string>com.apple.security.octagon</string>
-		<string>com.apple.securityd.sos</string>
-	</array>
-	<key>com.apple.security.ts.identity-services-client</key>
-	<true/>
 	<key>keychain-cloud-circle</key>
 	<true/>
 	<key>platform-application</key>
 	<true/>
 	<key>seatbelt-profiles</key>
 	<array>
-		<string>temporary-sandbox</string>
+		<string>otpaird</string>
 	</array>
 </dict>
 </plist>

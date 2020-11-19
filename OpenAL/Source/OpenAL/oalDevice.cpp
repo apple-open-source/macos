@@ -367,7 +367,7 @@ void OALDevice::InitializeGraph (const char* 		inDeviceName)
 	 
     // ~~~~~~~~~~~~~~~~~~~~ SET UP OUTPUT NODE
 
-	ComponentDescription	cd;
+	AudioComponentDescription	cd;
 	cd.componentFlags = 0;        
 	cd.componentFlagsMask = 0;     
 
@@ -375,7 +375,7 @@ void OALDevice::InitializeGraph (const char* 		inDeviceName)
 	cd.componentType = kAudioUnitType_Output;          
 	cd.componentSubType = kAudioUnitSubType_DefaultOutput;       	
 	cd.componentManufacturer = kAudioUnitManufacturer_Apple;  
-	result = AUGraphNewNode (mAUGraph, &cd, 0, NULL, &mOutputNode);
+	result = AUGraphAddNode(mAUGraph, &cd, &mOutputNode);
 		THROW_RESULT
 		        		
 	// ~~~~~~~~~~~~~~~~~~~~ OPEN GRAPH
@@ -383,7 +383,7 @@ void OALDevice::InitializeGraph (const char* 		inDeviceName)
 	result = AUGraphOpen (mAUGraph);
 		THROW_RESULT
 	
-	result = AUGraphGetNodeInfo (mAUGraph, mOutputNode, 0, 0, 0, &mOutputUnit);
+	result = AUGraphNodeInfo (mAUGraph, mOutputNode, &cd, &mOutputUnit);
 		THROW_RESULT   
 	
  	result = AudioUnitInitialize (mOutputUnit);

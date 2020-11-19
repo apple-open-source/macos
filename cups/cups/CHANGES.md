@@ -1,25 +1,64 @@
-CHANGES - 2.3.1 - 2019-11-18
+CHANGES - 2.3.4 - 2020-04-24 (IN PROGRESS)
 ============================
+
+Changes in CUPS v2.3.4
+----------------------
+
+- CVE-20XX-YYYY: TODO rdar://61415567 embargo
+
+Changes in CUPS v2.3.3
+----------------------
+
+- CVE-2020-3898: The `ppdOpen` function did not handle invalid UI
+  constraint.  `ppdcSource::get_resolution` function did not handle
+  invalid resolution strings.
+- CVE-2019-8842: The `ippReadIO` function may under-read an extension
+  field.
+- Fixed WARNING_OPTIONS support for GCC 9.x
+
+Changes in CUPS v2.3.2
+----------------------
+
+- Localization updates.
 
 
 Changes in CUPS v2.3.1
 ----------------------
 
 - Documentation updates (Issue #5661, #5674, #5682)
+- CVE-2019-2228: The `ippSetValuetag` function did not validate the default
+  language value.
 - Fixed a crash bug in the web interface (Issue #5621)
+- The PPD cache code now looks up page sizes using their dimensions
+  (Issue #5633)
 - PPD files containing "custom" option keywords did not work (Issue #5639)
 - Added a workaround for the scheduler's systemd support (Issue #5640)
 - On Windows, TLS certificates generated on February 29 would likely fail
   (Issue #5643)
+- Added a DigestOptions directive for the `client.conf` file to control whether
+  MD5-based Digest authentication is allowed (Issue #5647)
+- Fixed a bug in the handling of printer resource files (Issue #5652)
+- The libusb-based USB backend now reports an error when the distribution
+  permissions are wrong (Issue #5658)
+- Added paint can labels to Dymo driver (Issue #5662)
+- The `ippeveprinter` program now supports authentication (Issue #5665)
+- The `ippeveprinter` program now advertises DNS-SD services on the correct
+  interfaces, and provides a way to turn them off (Issue #5666)
+- The `--with-dbusdir` option was ignored by the configure script (Issue #5671)
 - Sandboxed applications were not able to get the default printer (Issue #5676)
 - Log file access controls were not preserved by `cupsctl` (Issue #5677)
 - Default printers set with `lpoptions` did not work in all cases (Issue #5681,
   Issue #5683, Issue #5684)
+- Fixed an error in the jobs web interface template (Issue #5694)
+- Fixed an off-by-one error in `ippEnumString` (Issue #5695)
+- Fixed some new compiler warnings (Issue #5700)
+- Fixed a few issues with the Apple Raster support (rdar://55301114)
 - The IPP backend did not detect all cases where a job should be retried using
   a raster format (rdar://56021091)
 - Fixed spelling of "fold-accordion".
 - Fixed the default common name for TLS certificates used by `ippeveprinter`.
 - Fixed the option names used for IPP Everywhere finishing options.
+- Added support for the second roll of the DYMO Twin/DUO label printers.
 
 
 Changes in CUPS v2.3.0

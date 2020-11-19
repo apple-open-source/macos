@@ -65,7 +65,7 @@ enum {
 	@param itemAttrList (in/opt) A list of attributes which will be used for item creation.
     @param itemRef (out) On return, a pointer to a password reference.  Release this by calling the CFRelease function.
  */
-OSStatus SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList, SecPasswordRef *itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecKeychainAttributeList *itemAttrList, SecPasswordRef *itemRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @function SecPasswordAction
@@ -80,13 +80,13 @@ OSStatus SecGenericPasswordCreate(SecKeychainAttributeList *searchAttrList, SecK
 	@param data A pointer to a buffer containing the data to store.
 
  */
-OSStatus SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt32 *length, const void **data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecPasswordAction(SecPasswordRef itemRef, CFTypeRef message, UInt32 flags, UInt32 *length, const void **data) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 /*!
     @function SecPasswordSetInitialAccess
     @abstract Set the initial access ref.  Only used when a password is first added to the keychain.
  */
-OSStatus SecPasswordSetInitialAccess(SecPasswordRef itemRef, SecAccessRef accessRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, iosmac);
+OSStatus SecPasswordSetInitialAccess(SecPasswordRef itemRef, SecAccessRef accessRef) API_UNAVAILABLE(ios, watchos, tvos, bridgeos, macCatalyst);
 
 #if defined(__cplusplus)
 }

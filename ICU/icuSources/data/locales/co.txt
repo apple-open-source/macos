@@ -7,7 +7,7 @@ co{
         " v z]"
     }
     ExemplarCharactersIndex{"[A B C {CHJ} D E F G {GHJ} H I J L M N O P Q R S {SC} {SG} T U V Z]"}
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     layout{
         characters{"left-to-right"}
         lines{"top-to-bottom"}

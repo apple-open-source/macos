@@ -186,6 +186,35 @@ func Test_search_stat()
   bwipe!
 endfunc
 
+func Test_search_stat_foldopen()
+  CheckScreendump
+
+  let lines =<< trim END
+    set shortmess-=S
+    setl foldenable foldmethod=indent foldopen-=search
+    call append(0, ['if', "\tfoo", "\tfoo", 'endif'])
+    let @/ = 'foo'
+    call cursor(1,1)
+    norm n
+  END
+  call writefile(lines, 'Xsearchstat1')
+
+  let buf = RunVimInTerminal('-S Xsearchstat1', #{rows: 10})
+  call TermWait(buf)
+  call VerifyScreenDump(buf, 'Test_searchstat_3', {})
+
+  call term_sendkeys(buf, "n")
+  call TermWait(buf)
+  call VerifyScreenDump(buf, 'Test_searchstat_3', {})
+
+  call term_sendkeys(buf, "n")
+  call TermWait(buf)
+  call VerifyScreenDump(buf, 'Test_searchstat_3', {})
+
+  call StopVimInTerminal(buf)
+  call delete('Xsearchstat1')
+endfunc
+
 func! Test_search_stat_screendump()
   CheckScreendump
 
@@ -202,12 +231,12 @@ func! Test_search_stat_screendump()
   END
   call writefile(lines, 'Xsearchstat')
   let buf = RunVimInTerminal('-S Xsearchstat', #{rows: 10})
-  call term_wait(buf)
+  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_searchstat_1', {})
 
   call term_sendkeys(buf, ":nnoremap <silent> n n\<cr>")
   call term_sendkeys(buf, "gg0n")
-  call term_wait(buf)
+  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_searchstat_2', {})
 
   call StopVimInTerminal(buf)

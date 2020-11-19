@@ -80,13 +80,9 @@
 #include <vm/vm_map.h>
 #include <mach/vm_region.h>
 
-#include <libkern/OSAtomic.h>
-
-#include <pexpert/pexpert.h>
-
-#include "kern_internal.h"
-#include "synch_internal.h"
-#include "kern_trace.h"
+#include "kern/kern_internal.h"
+#include "kern/synch_internal.h"
+#include "kern/kern_trace.h"
 
 typedef struct uthread *uthread_t;
 

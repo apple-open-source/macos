@@ -46,6 +46,10 @@ static const char gCFRangeEncoding[1024] = { 0 };
 
 #   define SMALL_STRUCT_LIMIT	16
 
+#elif defined(__arm64__)
+
+#   define SMALL_STRUCT_LIMIT	16
+
 #else
 
 #   error "Unsupported MACOSX platform"
@@ -3849,7 +3853,11 @@ PyObjCFFI_Caller(PyObject *aMeth, PyObject* self, PyObject *args)
 	PyErr_Clear();
 	ffi_type* retsig = signature_to_ffi_return_type(rettype);
 	if (retsig == NULL) goto error_cleanup;
-	r = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, r, retsig, arglist);
+	if (variadicAllArgs) {
+		r = ffi_prep_cif_var(&cif, FFI_DEFAULT_ABI, Py_SIZE(methinfo), r, retsig, arglist);
+	} else {
+		r = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, r, retsig, arglist);
+	}
 	if (r != FFI_OK) {
 		PyErr_Format(PyExc_RuntimeError,
 			"Cannot setup FFI CIF [%d]", r);
@@ -3872,10 +3880,14 @@ PyObjCFFI_Caller(PyObject *aMeth, PyObject* self, PyObject *args)
 				msgResult, values);
 
 		} else {
+			/* No _stret variants on arm64 */
+#if !__arm64__
 			if (useStret) {
 				ffi_call(&cif, FFI_FN(objc_msgSendSuper_stret), 
 					msgResult, values);
-			} else {
+			} else
+#endif
+			{
 				ffi_call(&cif, FFI_FN(objc_msgSendSuper), 
 					msgResult, values);
 

@@ -182,7 +182,7 @@ get_sign_display_info(
 }
 #endif
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 static textprop_T	*current_text_props = NULL;
 static buf_T		*current_buf = NULL;
 
@@ -270,7 +270,6 @@ win_line(
     int		tocol = MAXCOL;		// end of inverting
     int		fromcol_prev = -2;	// start of inverting after cursor
     int		noinvcur = FALSE;	// don't invert the cursor
-    pos_T	*top, *bot;
     int		lnum_in_visual_area = FALSE;
     pos_T	pos;
     long	v;
@@ -297,7 +296,7 @@ win_line(
     int		*color_cols = NULL;	// pointer to according columns array
 #endif
     int		eol_hl_off = 0;		// 1 if highlighted char after EOL
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     int		text_prop_count;
     int		text_prop_next = 0;	// next text property to use
     textprop_T	*text_props = NULL;
@@ -491,7 +490,7 @@ win_line(
 	{
 	    extra_check = TRUE;
 	    get_term_attr = TRUE;
-	    win_attr = term_get_attr(wp->w_buffer, lnum, -1);
+	    win_attr = term_get_attr(wp, lnum, -1);
 	}
 #endif
 
@@ -535,6 +534,8 @@ win_line(
 	// handle Visual active in this window
 	if (VIsual_active && wp->w_buffer == curwin->w_buffer)
 	{
+	    pos_T	*top, *bot;
+
 	    if (LTOREQ_POS(curwin->w_cursor, VIsual))
 	    {
 		// Visual is after curwin->w_cursor
@@ -671,7 +672,7 @@ win_line(
 #endif
 
 #ifdef FEAT_SIGNS
-    sign_present = buf_get_signattrs(wp->w_buffer, lnum, &sattr);
+    sign_present = buf_get_signattrs(wp, lnum, &sattr);
 #endif
 
 #ifdef LINE_ATTR
@@ -752,7 +753,7 @@ win_line(
 	area_highlighting = TRUE;
     }
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     if (WIN_IS_POPUP(wp))
 	screen_line_flags |= SLF_POPUP;
 #endif
@@ -924,7 +925,7 @@ win_line(
     }
 #endif
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     {
 	char_u *prop_start;
 
@@ -1140,11 +1141,11 @@ win_line(
 	    }
 
 #ifdef FEAT_LINEBREAK
-	    if (wp->w_p_brisbr && draw_state == WL_BRI - 1
+	    if (wp->w_briopt_sbr && draw_state == WL_BRI - 1
 			    && n_extra == 0 && *get_showbreak_value(wp) != NUL)
 		// draw indent after showbreak value
 		draw_state = WL_BRI;
-	    else if (wp->w_p_brisbr && draw_state == WL_SBR && n_extra == 0)
+	    else if (wp->w_briopt_sbr && draw_state == WL_SBR && n_extra == 0)
 		// After the showbreak, draw the breakindent
 		draw_state = WL_BRI - 1;
 
@@ -1176,6 +1177,14 @@ win_line(
 		    c_final = NUL;
 		    n_extra = get_breakindent_win(wp,
 				       ml_get_buf(wp->w_buffer, lnum, FALSE));
+		    if (row == startrow)
+		    {
+			n_extra -= win_col_off2(wp);
+			if (n_extra < 0)
+			    n_extra = 0;
+		    }
+		    if (wp->w_skipcol > 0 && wp->w_p_wrap && wp->w_briopt_sbr)
+			need_showbreak = FALSE;
 		    // Correct end of highlighted area for 'breakindent',
 		    // required when 'linebreak' is also set.
 		    if (tocol == vcol)
@@ -1222,16 +1231,15 @@ win_line(
 		    c_extra = NUL;
 		    c_final = NUL;
 		    n_extra = (int)STRLEN(sbr);
-		    char_attr = HL_ATTR(HLF_AT);
-		    need_showbreak = FALSE;
+		    if (wp->w_skipcol == 0 || !wp->w_p_wrap)
+			need_showbreak = FALSE;
 		    vcol_sbr = vcol + MB_CHARLEN(sbr);
 		    // Correct end of highlighted area for 'showbreak',
 		    // required when 'linebreak' is also set.
 		    if (tocol == vcol)
 			tocol += n_extra;
 		    // combine 'showbreak' with 'wincolor'
-		    if (win_attr != 0)
-			char_attr = hl_combine_attr(win_attr, char_attr);
+		    char_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_AT));
 #  ifdef FEAT_SYN_HL
 		    // combine 'showbreak' with 'cursorline'
 		    if (cul_attr != 0)
@@ -1348,7 +1356,7 @@ win_line(
 	    }
 #endif
 
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
 	    if (text_props != NULL)
 	    {
 		int pi;
@@ -1418,7 +1426,7 @@ win_line(
 		syntax_attr = 0;
 # ifdef FEAT_TERMINAL
 		if (get_term_attr)
-		    syntax_attr = term_get_attr(wp->w_buffer, lnum, vcol);
+		    syntax_attr = term_get_attr(wp, lnum, vcol);
 # endif
 		// Get syntax attribute.
 		if (has_syntax)
@@ -1473,7 +1481,7 @@ win_line(
 # endif
 		}
 	    }
-# ifdef FEAT_TEXT_PROP
+# ifdef FEAT_PROP_POPUP
 	    // Combine text property highlight into syntax highlight.
 	    if (text_prop_type != NULL)
 	    {
@@ -1616,6 +1624,8 @@ win_line(
 			if (cul_attr)
 			    multi_attr = hl_combine_attr(multi_attr, cul_attr);
 #endif
+			multi_attr = hl_combine_attr(win_attr, multi_attr);
+
 			// put the pointer back to output the double-width
 			// character at the start of the next line.
 			++n_extra;
@@ -1700,7 +1710,8 @@ win_line(
 			if (area_attr == 0 && search_attr == 0)
 			{
 			    n_attr = n_extra + 1;
-			    extra_attr = HL_ATTR(HLF_8);
+			    extra_attr = hl_combine_attr(
+						     win_attr, HL_ATTR(HLF_8));
 			    saved_attr2 = char_attr; // save current attr
 			}
 		    }
@@ -1769,7 +1780,8 @@ win_line(
 			    if (area_attr == 0 && search_attr == 0)
 			    {
 				n_attr = n_extra + 1;
-				extra_attr = HL_ATTR(HLF_8);
+				extra_attr = hl_combine_attr(
+						     win_attr, HL_ATTR(HLF_8));
 				saved_attr2 = char_attr; // save current attr
 			    }
 			    mb_c = c;
@@ -1790,7 +1802,7 @@ win_line(
 		    mb_c = c;
 		    mb_utf8 = FALSE;
 		    mb_l = 1;
-		    multi_attr = HL_ATTR(HLF_AT);
+		    multi_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_AT));
 		    // Put pointer back so that the character will be
 		    // displayed at the start of the next line.
 		    --ptr;
@@ -1813,7 +1825,7 @@ win_line(
 		    if (area_attr == 0 && search_attr == 0)
 		    {
 			n_attr = n_extra + 1;
-			extra_attr = HL_ATTR(HLF_AT);
+			extra_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_AT));
 			saved_attr2 = char_attr; // save current attr
 		    }
 		    mb_c = c;
@@ -1939,11 +1951,11 @@ win_line(
 		    c_final = NUL;
 		    if (VIM_ISWHITE(c))
 		    {
-#ifdef FEAT_CONCEAL
+# ifdef FEAT_CONCEAL
 			if (c == TAB)
 			    // See "Tab alignment" below.
 			    FIX_FOR_BOGUSCOLS;
-#endif
+# endif
 			if (!wp->w_p_list)
 			    c = ' ';
 		    }
@@ -1968,7 +1980,7 @@ win_line(
 		    if (area_attr == 0 && search_attr == 0)
 		    {
 			n_attr = 1;
-			extra_attr = HL_ATTR(HLF_8);
+			extra_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_8));
 			saved_attr2 = char_attr; // save current attr
 		    }
 		    mb_c = c;
@@ -1988,7 +2000,7 @@ win_line(
 		    if (!attr_pri)
 		    {
 			n_attr = 1;
-			extra_attr = HL_ATTR(HLF_8);
+			extra_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_8));
 			saved_attr2 = char_attr; // save current attr
 		    }
 		    mb_c = c;
@@ -2126,7 +2138,7 @@ win_line(
 			    c_extra = lcs_tab2;
 			c_final = lcs_tab3;
 			n_attr = tab_len + 1;
-			extra_attr = HL_ATTR(HLF_8);
+			extra_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_8));
 			saved_attr2 = char_attr; // save current attr
 			mb_c = c;
 			if (enc_utf8 && utf_char2len(c) > 1)
@@ -2197,7 +2209,7 @@ win_line(
 		    --ptr;	    // put it back at the NUL
 		    if (!attr_pri)
 		    {
-			extra_attr = HL_ATTR(HLF_AT);
+			extra_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_AT));
 			n_attr = 1;
 		    }
 		    mb_c = c;
@@ -2243,7 +2255,7 @@ win_line(
 		    if (!attr_pri)
 		    {
 			n_attr = n_extra + 1;
-			extra_attr = HL_ATTR(HLF_8);
+			extra_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_8));
 			saved_attr2 = char_attr; // save current attr
 		    }
 		    mb_utf8 = FALSE;	// don't draw as UTF-8
@@ -2502,7 +2514,7 @@ win_line(
 		c_final = NUL;
 		n_extra = 1;
 		n_attr = 2;
-		extra_attr = HL_ATTR(HLF_AT);
+		extra_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_AT));
 	    }
 	    mb_c = c;
 	    if (enc_utf8 && utf_char2len(c) > 1)
@@ -2516,7 +2528,7 @@ win_line(
 	    if (!attr_pri)
 	    {
 		saved_attr3 = char_attr; // save current attr
-		char_attr = HL_ATTR(HLF_AT); // later copied to char_attr
+		char_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_AT));
 		n_attr3 = 1;
 	    }
 	}
@@ -2724,7 +2736,7 @@ win_line(
 		    || (n_extra && (c_extra != NUL || *p_extra != NUL))))
 	{
 	    c = lcs_ext;
-	    char_attr = HL_ATTR(HLF_AT);
+	    char_attr = hl_combine_attr(win_attr, HL_ATTR(HLF_AT));
 	    mb_c = c;
 	    if (enc_utf8 && utf_char2len(c) > 1)
 	    {
@@ -3089,9 +3101,9 @@ win_line(
 #ifdef FEAT_SYN_HL
 	    if (!(cul_screenline
 # ifdef FEAT_DIFF
-			&& diff_hlf == (hlf_T)0)
+			&& diff_hlf == (hlf_T)0
 # endif
-		    )
+		    ))
 		saved_char_attr = char_attr;
 	    else
 #endif
@@ -3123,7 +3135,7 @@ win_line(
 	cap_col = 0;
     }
 #endif
-#ifdef FEAT_TEXT_PROP
+#ifdef FEAT_PROP_POPUP
     vim_free(text_props);
     vim_free(text_prop_idxs);
 #endif

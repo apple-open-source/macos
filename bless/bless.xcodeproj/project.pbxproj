@@ -40,6 +40,7 @@
 				FC8588B81EEF3D47009EDD68 /* ShellScript */,
 			);
 			dependencies = (
+				953B200A24F9A0F40025209A /* PBXTargetDependency */,
 				FC8588B51EEF25A3009EDD68 /* PBXTargetDependency */,
 				FC8588B31EEF25A0009EDD68 /* PBXTargetDependency */,
 				FC8588B11EEF259D009EDD68 /* PBXTargetDependency */,
@@ -53,6 +54,7 @@
 			buildPhases = (
 			);
 			dependencies = (
+				B44C908422D6B326005F44F4 /* PBXTargetDependency */,
 				FC8588B71EEF25AE009EDD68 /* PBXTargetDependency */,
 			);
 			name = Libraries;
@@ -64,11 +66,41 @@
 		0C259F1314FCA25F00A3A244 /* protos.h in Headers */ = {isa = PBXBuildFile; fileRef = C66479270A35E7C90026B51E /* protos.h */; };
 		0C477C9715000D7200C0DFA2 /* BLSetEFIBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */; };
 		0CAD683A135CD78E00C9B626 /* BLSetEFIBootDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = 0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */; };
+		723BF18223A177EC00AC84EF /* libbootpolicy.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 723BF18123A177EC00AC84EF /* libbootpolicy.tbd */; };
+		72D184CC24B4FBDC008F9ADA /* libImg4Decode.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D184C724B4DBC9008F9ADA /* libImg4Decode.a */; };
+		72D184CE24B5036B008F9ADA /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D184CD24B5036B008F9ADA /* libDER.a */; };
+		953E41C624EF943800FB44FB /* bless2cli.c in Sources */ = {isa = PBXBuildFile; fileRef = 95BB315224EF8EB300920A16 /* bless2cli.c */; };
+		953E41CA24EF946000FB44FB /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 953E41C924EF946000FB44FB /* Foundation.framework */; };
+		953E41CC24EF946800FB44FB /* CFNetwork.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 953E41CB24EF946800FB44FB /* CFNetwork.framework */; };
+		953E41CE24EF947100FB44FB /* DiskImages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 953E41CD24EF947100FB44FB /* DiskImages.framework */; };
+		953E41CF24EF947F00FB44FB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F801A4B30C01F50364 /* CoreFoundation.framework */; };
+		953E41D124EF948900FB44FB /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 953E41D024EF948800FB44FB /* SystemConfiguration.framework */; };
+		953E41D324EF949400FB44FB /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 953E41D224EF949400FB44FB /* Security.framework */; };
+		953E41D424EF949B00FB44FB /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC4375FF1DFD3E020018A727 /* APFS.framework */; };
+		953E41D524EF94A200FB44FB /* apfs_boot_mount.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 954023F5249A45C70013D230 /* apfs_boot_mount.framework */; };
+		953E41D624EF94AC00FB44FB /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F61E91F901A4B30C01F50364 /* IOKit.framework */; };
+		953E41D824EF94B800FB44FB /* libbless2.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 953E41D724EF94B800FB44FB /* libbless2.a */; };
+		953E41DA24EF95D600FB44FB /* bless2_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 953E41D924EF95D600FB44FB /* bless2_private.h */; };
+		953E41DB24EF95F500FB44FB /* bless2_private.h in Headers */ = {isa = PBXBuildFile; fileRef = 953E41D924EF95D600FB44FB /* bless2_private.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		953E41DC24EF979500FB44FB /* libimg4.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = B4CB691122E7D6AA00BB045E /* libimg4.tbd */; };
+		954023F6249A45C80013D230 /* apfs_boot_mount.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 954023F5249A45C70013D230 /* apfs_boot_mount.framework */; };
+		9542712324F9AFED007BC896 /* libauthinstall.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 9542712224F9AFED007BC896 /* libauthinstall.tbd */; };
+		9542712424F9B074007BC896 /* libImg4Encode.a in Frameworks */ = {isa = PBXBuildFile; fileRef = B4CB691422E7DD5700BB045E /* libImg4Encode.a */; };
+		9542712524F9B08E007BC896 /* libImg4Decode.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72D184C724B4DBC9008F9ADA /* libImg4Decode.a */; };
+		95B78C8224B8AA7B000ADA84 /* libpartition.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 95B78C8124B8AA7A000ADA84 /* libpartition.a */; };
+		95E8D85A24F9B4130015B1B9 /* libamsupport.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 95E8D85924F9B4130015B1B9 /* libamsupport.tbd */; };
+		A03E04FA251C195300E63711 /* bless2.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A03E04F8251C181800E63711 /* bless2.plist */; };
+		A03E04FB251C196900E63711 /* test_bless2 in CopyFiles */ = {isa = PBXBuildFile; fileRef = A03E04F9251C183600E63711 /* test_bless2 */; };
 		A05957FA22989C69008C0499 /* bless.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = A087F015229769E20021CE0D /* bless.plist */; };
 		A0968A3C22A5B8E200F39FBD /* test_bless in CopyFiles */ = {isa = PBXBuildFile; fileRef = A0F8D4B222A1F8CA0018E165 /* test_bless */; };
 		B0063D8C16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c in Sources */ = {isa = PBXBuildFile; fileRef = B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */; };
 		B074D69316E5ACDA006D723F /* BLElToritoFindUEFI.c in Sources */ = {isa = PBXBuildFile; fileRef = B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */; };
 		B0DE188A23DFA98B00722ED9 /* BLIsMountAPFSSSV.c in Sources */ = {isa = PBXBuildFile; fileRef = B0DE188923DFA98B00722ED9 /* BLIsMountAPFSSSV.c */; };
+		B44C908522D6B34E005F44F4 /* bless2.h in Headers */ = {isa = PBXBuildFile; fileRef = B438DF4322C5929400CA839C /* bless2.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		B44C908622D6B366005F44F4 /* bless2.c in Sources */ = {isa = PBXBuildFile; fileRef = B438DF4422C5929400CA839C /* bless2.c */; };
+		B44C908F22D6B3FC005F44F4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B44C908C22D6B3D3005F44F4 /* CoreFoundation.framework */; };
+		B44C909022D6B403005F44F4 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B44C908A22D6B3CA005F44F4 /* IOKit.framework */; };
+		B44C909122D6B40A005F44F4 /* APFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B44C908822D6B3C3005F44F4 /* APFS.framework */; };
 		BA17434C0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */; };
 		BA17434D0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c in Sources */ = {isa = PBXBuildFile; fileRef = BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */; };
 		BA1C89FC07CBCBA4005CE20C /* modeFirmware.c in Sources */ = {isa = PBXBuildFile; fileRef = BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */; };
@@ -195,10 +227,37 @@
 		FC4A2ABA1B0A6DE0005044BB /* BLGetOSVersion.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA42D71B0A4AB60044E800 /* BLGetOSVersion.c */; };
 		FC4A58401F86A12F00F15E95 /* personalize.m in Sources */ = {isa = PBXBuildFile; fileRef = FC4A583E1F86A12F00F15E95 /* personalize.m */; };
 		FC4A58421F86D9CB00F15E95 /* Bom.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC4A58411F86D9CB00F15E95 /* Bom.framework */; };
+		FC7E599A23CC35AD00D7CC37 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC7E599823CC35AC00D7CC37 /* CoreGraphics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FC7E599B23CC35AD00D7CC37 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC7E599823CC35AC00D7CC37 /* CoreGraphics.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FC7E599C23CC35AD00D7CC37 /* CoreText.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC7E599923CC35AD00D7CC37 /* CoreText.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FC7E599D23CC35AD00D7CC37 /* CoreText.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC7E599923CC35AD00D7CC37 /* CoreText.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 		FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FCD9968523CD255D005FD479 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FCD9968423CD255D005FD479 /* ApplicationServices.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
+		FCD9968623CD255D005FD479 /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FCD9968423CD255D005FD479 /* ApplicationServices.framework */; settings = {ATTRIBUTES = (Weak, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		953B200924F9A0F40025209A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 953E41BD24EF91C000FB44FB;
+			remoteInfo = bless2cli;
+		};
+		95A5B87425018743003A8F7F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B44C903622D6B30A005F44F4;
+			remoteInfo = libbless2;
+		};
+		B44C908322D6B326005F44F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B44C903622D6B30A005F44F4;
+			remoteInfo = libbless2;
+		};
 		BA83D5AE0C19C23900752534 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
@@ -286,12 +345,22 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		953E41BC24EF91C000FB44FB /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		A063B40D224D9723006A3A3B /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
 			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
 			dstSubfolderSpec = 0;
 			files = (
+				A03E04FA251C195300E63711 /* bless2.plist in CopyFiles */,
 				A05957FA22989C69008C0499 /* bless.plist in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -302,6 +371,7 @@
 			dstPath = /AppleInternal/CoreOS/tests/bless;
 			dstSubfolderSpec = 0;
 			files = (
+				A03E04FB251C196900E63711 /* test_bless2 in CopyFiles */,
 				A0968A3C22A5B8E200F39FBD /* test_bless in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
@@ -350,11 +420,42 @@
 
 /* Begin PBXFileReference section */
 		0CAD6839135CD78E00C9B626 /* BLSetEFIBootDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLSetEFIBootDevice.c; sourceTree = "<group>"; };
+		723BF18123A177EC00AC84EF /* libbootpolicy.tbd */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libbootpolicy.tbd; path = usr/lib/libbootpolicy.tbd; sourceTree = SDKROOT; };
+		72D184C724B4DBC9008F9ADA /* libImg4Decode.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libImg4Decode.a; path = usr/local/lib/libImg4Decode.a; sourceTree = SDKROOT; };
+		72D184CA24B4FB9C008F9ADA /* libImg4Decode_os.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libImg4Decode_os.a; path = usr/local/lib/libImg4Decode_os.a; sourceTree = SDKROOT; };
+		72D184CD24B5036B008F9ADA /* libDER.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libDER.a; path = usr/local/lib/libDER.a; sourceTree = SDKROOT; };
+		953E41BE24EF91C000FB44FB /* bless2cli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bless2cli; sourceTree = BUILT_PRODUCTS_DIR; };
+		953E41C024EF91C000FB44FB /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		953E41C924EF946000FB44FB /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Frameworks/Foundation.framework; sourceTree = "<group>"; };
+		953E41CB24EF946800FB44FB /* CFNetwork.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CFNetwork.framework; path = Frameworks/CFNetwork.framework; sourceTree = "<group>"; };
+		953E41CD24EF947100FB44FB /* DiskImages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskImages.framework; path = PrivateFrameworks/DiskImages.framework; sourceTree = "<group>"; };
+		953E41D024EF948800FB44FB /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = Frameworks/SystemConfiguration.framework; sourceTree = "<group>"; };
+		953E41D224EF949400FB44FB /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = Frameworks/Security.framework; sourceTree = "<group>"; };
+		953E41D724EF94B800FB44FB /* libbless2.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libbless2.a; path = usr/local/lib/libbless2.a; sourceTree = SDKROOT; };
+		953E41D924EF95D600FB44FB /* bless2_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = bless2_private.h; path = libbless2/bless2_private.h; sourceTree = "<group>"; };
+		954023F5249A45C70013D230 /* apfs_boot_mount.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = apfs_boot_mount.framework; path = PrivateFrameworks/apfs_boot_mount.framework; sourceTree = "<group>"; };
+		9542712224F9AFED007BC896 /* libauthinstall.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libauthinstall.tbd; path = usr/lib/libauthinstall.tbd; sourceTree = SDKROOT; };
+		95B78C8124B8AA7A000ADA84 /* libpartition.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libpartition.a; path = usr/local/lib/libpartition.a; sourceTree = SDKROOT; };
+		95BB315224EF8EB300920A16 /* bless2cli.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = bless2cli.c; sourceTree = "<group>"; };
+		95D11E2324F9ADC90011B195 /* libcrypto.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libcrypto.tbd; path = usr/local/lib/libcrypto.tbd; sourceTree = SDKROOT; };
+		95D21DAE24F0457D00D348A6 /* bless2cli.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = bless2cli.entitlements; sourceTree = "<group>"; };
+		95E8D85924F9B4130015B1B9 /* libamsupport.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libamsupport.tbd; path = usr/lib/libamsupport.tbd; sourceTree = SDKROOT; };
+		95F2085624EF8EE8009901D7 /* bless_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = bless_private.h; path = libbless2/bless_private.h; sourceTree = "<group>"; };
+		A03E04F8251C181800E63711 /* bless2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = bless2.plist; sourceTree = "<group>"; };
+		A03E04F9251C183600E63711 /* test_bless2 */ = {isa = PBXFileReference; lastKnownFileType = text.script.python; path = test_bless2; sourceTree = "<group>"; };
 		A087F015229769E20021CE0D /* bless.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = bless.plist; sourceTree = "<group>"; };
 		A0F8D4B222A1F8CA0018E165 /* test_bless */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = test_bless; sourceTree = "<group>"; };
 		B0063D8B16E7DD1C0001102E /* BLCreateEFIXMLRepresentationForElToritoEntry.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForElToritoEntry.c; sourceTree = "<group>"; };
 		B074D69216E5ACDA006D723F /* BLElToritoFindUEFI.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLElToritoFindUEFI.c; sourceTree = "<group>"; };
 		B0DE188923DFA98B00722ED9 /* BLIsMountAPFSSSV.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsMountAPFSSSV.c; sourceTree = "<group>"; };
+		B438DF4322C5929400CA839C /* bless2.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bless2.h; sourceTree = "<group>"; };
+		B438DF4422C5929400CA839C /* bless2.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = bless2.c; sourceTree = "<group>"; };
+		B44C908222D6B30A005F44F4 /* libbless2.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libbless2.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		B44C908822D6B3C3005F44F4 /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = System/Library/PrivateFrameworks/APFS.framework; sourceTree = SDKROOT; };
+		B44C908A22D6B3CA005F44F4 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		B44C908C22D6B3D3005F44F4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		B4CB691122E7D6AA00BB045E /* libimg4.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libimg4.tbd; path = usr/lib/libimg4.tbd; sourceTree = SDKROOT; };
+		B4CB691422E7DD5700BB045E /* libImg4Encode.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libImg4Encode.a; path = usr/local/lib/libImg4Encode.a; sourceTree = SDKROOT; };
 		BA10D77D04FADE430070B3E0 /* minibless.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = minibless.c; sourceTree = "<group>"; };
 		BA17434B0987550D0076FBBE /* BLCreateEFIXMLRepresentationForLegacyDevice.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForLegacyDevice.c; sourceTree = "<group>"; };
 		BA1C89FB07CBCBA4005CE20C /* modeFirmware.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = modeFirmware.c; sourceTree = "<group>"; };
@@ -367,7 +468,7 @@
 		BA85208604CDEFFA00AE3A66 /* testgetparentdev.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testgetparentdev.c; sourceTree = "<group>"; };
 		BA8520BE04CE621300AE3A66 /* BLIsOpenFirmwarePresent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsOpenFirmwarePresent.c; sourceTree = "<group>"; };
 		BA92249A03A7F164000BA4D4 /* setOFLabel.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = setOFLabel.c; sourceTree = "<group>"; };
-		BA92249E03A7F27A000BA4D4 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
+		BA92249E03A7F27A000BA4D4 /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = Frameworks/CoreServices.framework; sourceTree = "<group>"; };
 		BA924000060D53EB004FC452 /* bless-prefix.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "bless-prefix.h"; sourceTree = "<group>"; };
 		BAA914300429422700B0AD74 /* extractBootBlocks.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = extractBootBlocks.c; sourceTree = "<group>"; };
 		BABA83AD04DE1AFC0072243F /* README.BOOTING */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = README.BOOTING; sourceTree = "<group>"; };
@@ -408,7 +509,7 @@
 		C6B01CA5092A96B5002BB995 /* BLCreateEFIXMLRepresentationForNetworkPath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForNetworkPath.c; sourceTree = "<group>"; };
 		C6B5C7900A221695000530DB /* BLCreateBooterInformationDictionary.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateBooterInformationDictionary.c; sourceTree = "<group>"; };
 		C6B77507079876D70037F14C /* setboot.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = setboot.c; sourceTree = "<group>"; };
-		C6DF0CE707B938FE00F5F2FA /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
+		C6DF0CE707B938FE00F5F2FA /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = Frameworks/DiskArbitration.framework; sourceTree = "<group>"; };
 		C6E53F2609228CD000D16619 /* BLCreateEFIXMLRepresentationForPath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLCreateEFIXMLRepresentationForPath.c; sourceTree = "<group>"; };
 		C6E5590E09EC7549004B8204 /* BLGetOpenFirmwareBootDeviceForNetworkPath.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetOpenFirmwareBootDeviceForNetworkPath.c; sourceTree = "<group>"; };
 		C6F19FD90AB0CA2800380AF6 /* testcgtext.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = testcgtext.c; sourceTree = "<group>"; };
@@ -416,9 +517,8 @@
 		F509904E0234414F01F502C1 /* bless_private.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bless_private.h; sourceTree = "<group>"; };
 		F5099052023441B901F502C1 /* BLBlockChecksum.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLBlockChecksum.c; sourceTree = "<group>"; };
 		F521EBA70228E90D01F502C1 /* BLGenerateOFLabel.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGenerateOFLabel.c; sourceTree = "<group>"; };
-		F521EBA90228ED9201F502C1 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
 		F523394A023432B001BB06B9 /* BLCopyFileFromCFData.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLCopyFileFromCFData.c; sourceTree = "<group>"; };
-		F52AF8160278542701F502C1 /* MediaKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaKit.framework; path = /System/Library/PrivateFrameworks/MediaKit.framework; sourceTree = "<absolute>"; };
+		F52AF8160278542701F502C1 /* MediaKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MediaKit.framework; path = PrivateFrameworks/MediaKit.framework; sourceTree = "<group>"; };
 		F54EC307027E73AE01F502C1 /* BLLoadFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLLoadFile.c; sourceTree = "<group>"; };
 		F5641E170227242C01F502C1 /* output.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = output.c; sourceTree = "<group>"; };
 		F58D19DC02A933D601000103 /* BLGetDiskSectorsForFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLGetDiskSectorsForFile.c; sourceTree = "<group>"; };
@@ -447,8 +547,8 @@
 		F61E91F401A4B30C01F50364 /* BLSetOpenFirmwareBootDeviceForMountPoint.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLSetOpenFirmwareBootDeviceForMountPoint.c; sourceTree = "<group>"; };
 		F61E91F501A4B30C01F50364 /* structs.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = structs.h; sourceTree = "<group>"; };
 		F61E91F601A4B30C01F50364 /* usage.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = usage.c; sourceTree = "<group>"; };
-		F61E91F801A4B30C01F50364 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		F61E91F901A4B30C01F50364 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		F61E91F801A4B30C01F50364 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = Frameworks/CoreFoundation.framework; sourceTree = "<group>"; };
+		F61E91F901A4B30C01F50364 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = Frameworks/IOKit.framework; sourceTree = "<group>"; };
 		F61E922601A4B47A01F50364 /* bless.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bless.h; sourceTree = "<group>"; };
 		F61E922C01A4CF5801F50364 /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 		F61E922D01A4CF5801F50364 /* bless.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = bless.8; sourceTree = "<group>"; };
@@ -462,20 +562,57 @@
 		F6A1C7E4020DFEFB01F50364 /* BLCreateFile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = BLCreateFile.c; sourceTree = "<group>"; };
 		FC424F961E8387170088DAEE /* manifests.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = manifests.m; sourceTree = "<group>"; };
 		FC4375F81DFD29E60018A727 /* BLAPFSUtilities.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLAPFSUtilities.c; sourceTree = "<group>"; };
-		FC4375FF1DFD3E020018A727 /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = /System/Library/PrivateFrameworks/APFS.framework; sourceTree = "<absolute>"; };
+		FC4375FF1DFD3E020018A727 /* APFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = APFS.framework; path = PrivateFrameworks/APFS.framework; sourceTree = "<group>"; };
 		FC48D0081F01B66500462641 /* blessUtilities.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = blessUtilities.c; sourceTree = "<group>"; };
 		FC4A583E1F86A12F00F15E95 /* personalize.m */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.objc; path = personalize.m; sourceTree = "<group>"; };
-		FC4A58411F86D9CB00F15E95 /* Bom.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Bom.framework; path = System/Library/PrivateFrameworks/Bom.framework; sourceTree = SDKROOT; };
-		FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OSPersonalization.framework; path = ../../../System/Library/PrivateFrameworks/OSPersonalization.framework; sourceTree = "<group>"; };
+		FC4A58411F86D9CB00F15E95 /* Bom.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Bom.framework; path = PrivateFrameworks/Bom.framework; sourceTree = "<group>"; };
+		FC7E599823CC35AC00D7CC37 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Frameworks/CoreGraphics.framework; sourceTree = "<group>"; };
+		FC7E599923CC35AD00D7CC37 /* CoreText.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreText.framework; path = Frameworks/CoreText.framework; sourceTree = "<group>"; };
+		FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OSPersonalization.framework; path = PrivateFrameworks/OSPersonalization.framework; sourceTree = "<group>"; };
 		FCA377641D9210F5009EF117 /* BLIsMountAPFS.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLIsMountAPFS.c; sourceTree = "<group>"; };
 		FCA377661D92FD58009EF117 /* BLHandleAPFSBlessData.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLHandleAPFSBlessData.c; sourceTree = "<group>"; };
 		FCA377681D930568009EF117 /* BLGetAPFSInodeNum.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetAPFSInodeNum.c; sourceTree = "<group>"; };
 		FCA63E2014F5C291006483AF /* testgenerateoflabel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = testgenerateoflabel.c; sourceTree = "<group>"; };
 		FCBA42D71B0A4AB60044E800 /* BLGetOSVersion.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = BLGetOSVersion.c; sourceTree = "<group>"; };
+		FCD9968423CD255D005FD479 /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = Frameworks/ApplicationServices.framework; sourceTree = "<group>"; };
 		FCD9B9602076C12400C1BD79 /* bless.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = bless.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		953E41BB24EF91C000FB44FB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				95E8D85A24F9B4130015B1B9 /* libamsupport.tbd in Frameworks */,
+				9542712524F9B08E007BC896 /* libImg4Decode.a in Frameworks */,
+				9542712424F9B074007BC896 /* libImg4Encode.a in Frameworks */,
+				9542712324F9AFED007BC896 /* libauthinstall.tbd in Frameworks */,
+				953E41DC24EF979500FB44FB /* libimg4.tbd in Frameworks */,
+				953E41D824EF94B800FB44FB /* libbless2.a in Frameworks */,
+				953E41D624EF94AC00FB44FB /* IOKit.framework in Frameworks */,
+				953E41D524EF94A200FB44FB /* apfs_boot_mount.framework in Frameworks */,
+				953E41D424EF949B00FB44FB /* APFS.framework in Frameworks */,
+				953E41D324EF949400FB44FB /* Security.framework in Frameworks */,
+				953E41D124EF948900FB44FB /* SystemConfiguration.framework in Frameworks */,
+				953E41CF24EF947F00FB44FB /* CoreFoundation.framework in Frameworks */,
+				953E41CE24EF947100FB44FB /* DiskImages.framework in Frameworks */,
+				953E41CC24EF946800FB44FB /* CFNetwork.framework in Frameworks */,
+				953E41CA24EF946000FB44FB /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B44C908E22D6B3F2005F44F4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				954023F6249A45C80013D230 /* apfs_boot_mount.framework in Frameworks */,
+				723BF18223A177EC00AC84EF /* libbootpolicy.tbd in Frameworks */,
+				B44C909122D6B40A005F44F4 /* APFS.framework in Frameworks */,
+				B44C909022D6B403005F44F4 /* IOKit.framework in Frameworks */,
+				B44C908F22D6B3FC005F44F4 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BA3D8157086C4E7D00484376 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -488,9 +625,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				95B78C8224B8AA7B000ADA84 /* libpartition.a in Frameworks */,
+				72D184CE24B5036B008F9ADA /* libDER.a in Frameworks */,
+				72D184CC24B4FBDC008F9ADA /* libImg4Decode.a in Frameworks */,
 				FC4A58421F86D9CB00F15E95 /* Bom.framework in Frameworks */,
 				FC4376001DFD3E4C0018A727 /* APFS.framework in Frameworks */,
 				C617597D057E749600252FAB /* CoreFoundation.framework in Frameworks */,
+				FC7E599A23CC35AD00D7CC37 /* CoreGraphics.framework in Frameworks */,
+				FCD9968523CD255D005FD479 /* ApplicationServices.framework in Frameworks */,
+				FC7E599C23CC35AD00D7CC37 /* CoreText.framework in Frameworks */,
 				C617597E057E749600252FAB /* IOKit.framework in Frameworks */,
 				C6175A1F057E749700252FAB /* libbless.a in Frameworks */,
 				FC88167E1EBBD73500935340 /* OSPersonalization.framework in Frameworks */,
@@ -510,6 +653,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FCD9968623CD255D005FD479 /* ApplicationServices.framework in Frameworks */,
+				FC7E599D23CC35AD00D7CC37 /* CoreText.framework in Frameworks */,
+				FC7E599B23CC35AD00D7CC37 /* CoreGraphics.framework in Frameworks */,
 				C61759D1057E749600252FAB /* CoreFoundation.framework in Frameworks */,
 				C6175A20057E749700252FAB /* libbless.a in Frameworks */,
 			);
@@ -540,8 +686,14 @@
 		08FB7794FE84155DC02AAC07 /* bless */ = {
 			isa = PBXGroup;
 			children = (
+				95D21DAE24F0457D00D348A6 /* bless2cli.entitlements */,
+				953E41D924EF95D600FB44FB /* bless2_private.h */,
+				95BB315224EF8EB300920A16 /* bless2cli.c */,
+				95F2085624EF8EE8009901D7 /* bless_private.h */,
+				B438DF4222C5925D00CA839C /* libbless2 */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				F61E922B01A4CF5801F50364 /* Other Files */,
+				953E41BF24EF91C000FB44FB /* bootutil */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
 				F61E91F701A4B30C01F50364 /* Frameworks */,
 			);
@@ -588,13 +740,35 @@
 				C61759EB057E749600252FAB /* extractBootBlocks */,
 				BA3D8159086C4E7D00484376 /* unbless */,
 				C68F27330CC13BCF00E3CD6A /* firmwaresyncd */,
+				B44C908222D6B30A005F44F4 /* libbless2.a */,
+				953E41BE24EF91C000FB44FB /* bless2cli */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
+		953E41BF24EF91C000FB44FB /* bootutil */ = {
+			isa = PBXGroup;
+			children = (
+				953E41C024EF91C000FB44FB /* main.swift */,
+			);
+			path = bootutil;
+			sourceTree = "<group>";
+		};
+		B438DF4222C5925D00CA839C /* libbless2 */ = {
+			isa = PBXGroup;
+			children = (
+				B438DF4322C5929400CA839C /* bless2.h */,
+				B438DF4422C5929400CA839C /* bless2.c */,
+			);
+			path = libbless2;
+			sourceTree = "<group>";
+			usesTabs = 1;
+		};
 		BA3A398B04C8AB2200E2414C /* test */ = {
 			isa = PBXGroup;
 			children = (
+				A03E04F9251C183600E63711 /* test_bless2 */,
+				A03E04F8251C181800E63711 /* bless2.plist */,
 				A0F8D4B222A1F8CA0018E165 /* test_bless */,
 				A087F015229769E20021CE0D /* bless.plist */,
 				BA3A398C04C8AB3500E2414C /* testgetfileid.c */,
@@ -745,18 +919,41 @@
 		F61E91F701A4B30C01F50364 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				95E8D85924F9B4130015B1B9 /* libamsupport.tbd */,
+				9542712224F9AFED007BC896 /* libauthinstall.tbd */,
+				95D11E2324F9ADC90011B195 /* libcrypto.tbd */,
+				953E41D724EF94B800FB44FB /* libbless2.a */,
+				953E41D224EF949400FB44FB /* Security.framework */,
+				953E41D024EF948800FB44FB /* SystemConfiguration.framework */,
+				953E41CD24EF947100FB44FB /* DiskImages.framework */,
+				953E41CB24EF946800FB44FB /* CFNetwork.framework */,
+				953E41C924EF946000FB44FB /* Foundation.framework */,
+				95B78C8124B8AA7A000ADA84 /* libpartition.a */,
+				72D184CD24B5036B008F9ADA /* libDER.a */,
+				72D184CA24B4FB9C008F9ADA /* libImg4Decode_os.a */,
+				72D184C724B4DBC9008F9ADA /* libImg4Decode.a */,
+				954023F5249A45C70013D230 /* apfs_boot_mount.framework */,
+				FCD9968423CD255D005FD479 /* ApplicationServices.framework */,
+				B4CB691422E7DD5700BB045E /* libImg4Encode.a */,
+				B4CB691122E7D6AA00BB045E /* libimg4.tbd */,
+				723BF18123A177EC00AC84EF /* libbootpolicy.tbd */,
+				B44C908C22D6B3D3005F44F4 /* CoreFoundation.framework */,
+				B44C908A22D6B3CA005F44F4 /* IOKit.framework */,
+				B44C908822D6B3C3005F44F4 /* APFS.framework */,
 				FC4A58411F86D9CB00F15E95 /* Bom.framework */,
 				FC4375FF1DFD3E020018A727 /* APFS.framework */,
 				C6DF0CE707B938FE00F5F2FA /* DiskArbitration.framework */,
 				F61E91F801A4B30C01F50364 /* CoreFoundation.framework */,
 				F61E91F901A4B30C01F50364 /* IOKit.framework */,
-				F521EBA90228ED9201F502C1 /* ApplicationServices.framework */,
 				F52AF8160278542701F502C1 /* MediaKit.framework */,
 				BA92249E03A7F27A000BA4D4 /* CoreServices.framework */,
 				FC88167D1EBBD6EE00935340 /* OSPersonalization.framework */,
+				FC7E599823CC35AC00D7CC37 /* CoreGraphics.framework */,
+				FC7E599923CC35AD00D7CC37 /* CoreText.framework */,
 			);
 			name = Frameworks;
-			sourceTree = "<group>";
+			path = System/Library;
+			sourceTree = SDKROOT;
 		};
 		F61E922B01A4CF5801F50364 /* Other Files */ = {
 			isa = PBXGroup;
@@ -799,6 +996,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		953E41C724EF943D00FB44FB /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				953E41DA24EF95D600FB44FB /* bless2_private.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B44C903722D6B30A005F44F4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B44C908522D6B34E005F44F4 /* bless2.h in Headers */,
+				953E41DB24EF95F500FB44FB /* bless2_private.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C6175970057E749600252FAB /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -844,6 +1058,43 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		953E41BD24EF91C000FB44FB /* bless2cli */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 953E41C224EF91C000FB44FB /* Build configuration list for PBXNativeTarget "bless2cli" */;
+			buildPhases = (
+				953E41C724EF943D00FB44FB /* Headers */,
+				953E41BA24EF91C000FB44FB /* Sources */,
+				953E41BB24EF91C000FB44FB /* Frameworks */,
+				953E41BC24EF91C000FB44FB /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				95A5B87525018743003A8F7F /* PBXTargetDependency */,
+			);
+			name = bless2cli;
+			productName = bootutil;
+			productReference = 953E41BE24EF91C000FB44FB /* bless2cli */;
+			productType = "com.apple.product-type.tool";
+		};
+		B44C903622D6B30A005F44F4 /* libbless2 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B44C907E22D6B30A005F44F4 /* Build configuration list for PBXNativeTarget "libbless2" */;
+			buildPhases = (
+				B44C903722D6B30A005F44F4 /* Headers */,
+				B44C903B22D6B30A005F44F4 /* Sources */,
+				B44C908E22D6B3F2005F44F4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libbless2;
+			productInstallPath = /usr/local/lib;
+			productName = libbless;
+			productReference = B44C908222D6B30A005F44F4 /* libbless2.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		BA3D8158086C4E7D00484376 /* unbless */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = BA3D815B086C4E9C00484376 /* Build configuration list for PBXNativeTarget "unbless" */;
@@ -983,8 +1234,13 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 1200;
 				LastUpgradeCheck = 0730;
 				TargetAttributes = {
+					953E41BD24EF91C000FB44FB = {
+						CreatedOnToolsVersion = 12.0;
+						ProvisioningStyle = Automatic;
+					};
 					FC8588A61EEF247C009EDD68 = {
 						CreatedOnToolsVersion = 9.0;
 					};
@@ -1011,11 +1267,13 @@
 				C617596D057E749600252FAB /* bless */,
 				C6175988057E749600252FAB /* minibless */,
 				C617599A057E749600252FAB /* libbless */,
+				B44C903622D6B30A005F44F4 /* libbless2 */,
 				C61759CB057E749600252FAB /* setOFLabel */,
 				BA83D5A20C19C22F00752534 /* bootblockdata */,
 				C61759E3057E749600252FAB /* extractBootBlocks */,
 				BA3D8158086C4E7D00484376 /* unbless */,
 				C68F27320CC13BCF00E3CD6A /* firmwaresyncd */,
+				953E41BD24EF91C000FB44FB /* bless2cli */,
 			);
 		};
 /* End PBXProject section */
@@ -1063,12 +1321,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "rm -r $DSTROOT/usr/local/include\nrm -r $DSTROOT/usr/local/lib\n";
+			shellScript = "rm -r $DSTROOT/usr/local/include\nif [ -d $DSTROOT/usr/local/lib ] \nthen\n\trm -r $DSTROOT/usr/local/lib\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		953E41BA24EF91C000FB44FB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				953E41C624EF943800FB44FB /* bless2cli.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B44C903B22D6B30A005F44F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B44C908622D6B366005F44F4 /* bless2.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		BA3D8156086C4E7D00484376 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1227,6 +1501,21 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		953B200A24F9A0F40025209A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 953E41BD24EF91C000FB44FB /* bless2cli */;
+			targetProxy = 953B200924F9A0F40025209A /* PBXContainerItemProxy */;
+		};
+		95A5B87525018743003A8F7F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B44C903622D6B30A005F44F4 /* libbless2 */;
+			targetProxy = 95A5B87425018743003A8F7F /* PBXContainerItemProxy */;
+		};
+		B44C908422D6B326005F44F4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B44C903622D6B30A005F44F4 /* libbless2 */;
+			targetProxy = B44C908322D6B326005F44F4 /* PBXContainerItemProxy */;
+		};
 		BA83D5AF0C19C23900752534 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = BA83D5A20C19C22F00752534 /* bootblockdata */;
@@ -1290,6 +1579,312 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		953E41C324EF91C000FB44FB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = bless2cli.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 9999;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					/System/Library/PrivateFrameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				"GCC_PREPROCESSOR_DEFINITIONS[arch=*]" = _DARWIN_USE_64_BIT_INODE;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/bless/;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = (
+					"-framework",
+					DiskArbitration,
+					"-framework",
+					MediaKit,
+					"-lSERestoreInfo",
+					"-lz",
+					"-lc++",
+					"-lDER",
+					"-lbootpolicy",
+				);
+				PRODUCT_NAME = bless2cli;
+				SDKROOT = macosx.internal;
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		953E41C424EF91C000FB44FB /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = bless2cli.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 9999;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					/System/Library/PrivateFrameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/bless/;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = (
+					"-framework",
+					DiskArbitration,
+					"-framework",
+					MediaKit,
+					"-lSERestoreInfo",
+					"-lz",
+					"-lc++",
+					"-lDER",
+					"-lbootpolicy",
+				);
+				PRODUCT_NAME = bless2cli;
+				SDKROOT = macosx.internal;
+				SWIFT_OPTIMIZATION_LEVEL = "-Owholemodule";
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Embedded;
+		};
+		953E41C524EF91C000FB44FB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_ENTITLEMENTS = bless2cli.entitlements;
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 9999;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					/System/Library/PrivateFrameworks,
+					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+					"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
+				);
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+					_DARWIN_USE_64_BIT_INODE,
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				INSTALL_PATH = /AppleInternal/CoreOS/tests/bless/;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				OTHER_LDFLAGS = (
+					"-framework",
+					DiskArbitration,
+					"-framework",
+					MediaKit,
+					"-lSERestoreInfo",
+					"-lz",
+					"-lc++",
+					"-lDER",
+					"-lbootpolicy",
+				);
+				PRODUCT_NAME = bless2cli;
+				SDKROOT = macosx.internal;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		B44C907F22D6B30A005F44F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = c17;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(value)",
+					_DARWIN_USE_64_BIT_INODE,
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				INSTALL_PATH = /usr/local/lib;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_NAME = bless2;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		B44C908022D6B30A005F44F4 /* Embedded */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = c17;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				INSTALL_PATH = /usr/local/lib;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_NAME = bless2;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Embedded;
+		};
+		B44C908122D6B30A005F44F4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				GCC_C_LANGUAGE_STANDARD = c17;
+				GCC_INLINES_ARE_PRIVATE_EXTERN = YES;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "bless-prefix.h";
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(value)",
+					_DARWIN_USE_64_BIT_INODE,
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
+				INSTALL_PATH = /usr/local/lib;
+				MACOSX_DEPLOYMENT_TARGET = 11.0;
+				PRODUCT_NAME = bless2;
+				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
 		BA3D815C086C4E9C00484376 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1319,6 +1914,7 @@
 		BA4E13E50C19B1D60049A1EA /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_WARN_INT_CONVERSION = YES_ERROR;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_PREPROCESSOR_DEFINITIONS = "BLESS_EMBEDDED=1";
@@ -1331,7 +1927,10 @@
 				HEADER_SEARCH_PATHS = libbless;
 				RC_ProjectSourceVersion = 9999;
 				SDKROOT = macosx.internal;
-				WARNING_CFLAGS = "-Wall";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
 			name = Embedded;
 		};
@@ -1355,6 +1954,7 @@
 				GCC_DYNAMIC_NO_PIC = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
 				INSTALL_PATH = /usr/sbin;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				OTHER_LDFLAGS = "";
 				PRODUCT_NAME = bless;
 				VERSIONING_SYSTEM = "apple-generic";
@@ -1395,9 +1995,10 @@
 				GCC_PREPROCESSOR_DEFINITIONS = "$(value)";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				INSTALL_PATH = /usr/local/lib;
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = bless;
 				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Embedded;
@@ -1462,9 +2063,10 @@
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				INSTALL_PATH = /usr/local/lib;
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = bless;
 				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -1487,9 +2089,8 @@
 					_DARWIN_USE_64_BIT_INODE,
 				);
 				INSTALL_PATH = /usr/sbin;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				OTHER_LDFLAGS = (
-					"-framework",
-					ApplicationServices,
 					"-framework",
 					DiskArbitration,
 					"-framework",
@@ -1531,10 +2132,6 @@
 					_DARWIN_USE_64_BIT_INODE,
 				);
 				INSTALL_PATH = /usr/local/bin;
-				OTHER_LDFLAGS = (
-					"-framework",
-					ApplicationServices,
-				);
 				PRODUCT_NAME = setOFLabel;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -1568,6 +2165,7 @@
 		BA7EB3FE086BD01A000A41C1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_WARN_INT_CONVERSION = YES_ERROR;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_TREAT_WARNINGS_AS_ERRORS = NO;
@@ -1579,7 +2177,10 @@
 				HEADER_SEARCH_PATHS = libbless;
 				RC_ProjectSourceVersion = 9999;
 				SDKROOT = macosx.internal;
-				WARNING_CFLAGS = "-Wall";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
 			name = Release;
 		};
@@ -1599,9 +2200,10 @@
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				INSTALL_PATH = /usr/local/lib;
-				MACOSX_DEPLOYMENT_TARGET = 10.6;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				PRODUCT_NAME = bless;
 				STRIP_INSTALLED_PRODUCT = NO;
+				SYSTEM_FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -1625,9 +2227,8 @@
 				);
 				INSTALL_PATH = /usr/sbin;
 				LD_GENERATE_MAP_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.13;
 				OTHER_LDFLAGS = (
-					"-framework",
-					ApplicationServices,
 					"-framework",
 					DiskArbitration,
 					"-framework",
@@ -1669,10 +2270,6 @@
 					_DARWIN_USE_64_BIT_INODE,
 				);
 				INSTALL_PATH = /usr/local/bin;
-				OTHER_LDFLAGS = (
-					"-framework",
-					ApplicationServices,
-				);
 				PRODUCT_NAME = setOFLabel;
 				VERSIONING_SYSTEM = "apple-generic";
 			};
@@ -1706,6 +2303,7 @@
 		BA7EB48A086BDDED000A41C1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_WARN_INT_CONVERSION = YES_ERROR;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = c99;
@@ -1719,7 +2317,10 @@
 				ONLY_ACTIVE_ARCH = YES;
 				RC_ProjectSourceVersion = 9999;
 				SDKROOT = macosx.internal;
-				WARNING_CFLAGS = "-Wall";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-error=deprecated-declarations",
+				);
 			};
 			name = Debug;
 		};
@@ -1792,6 +2393,7 @@
 		FC8588A71EEF247C009EDD68 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -1799,6 +2401,7 @@
 		FC8588A81EEF247C009EDD68 /* Embedded */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Embedded;
@@ -1806,6 +2409,7 @@
 		FC8588A91EEF247C009EDD68 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1834,6 +2438,26 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		953E41C224EF91C000FB44FB /* Build configuration list for PBXNativeTarget "bless2cli" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				953E41C324EF91C000FB44FB /* Release */,
+				953E41C424EF91C000FB44FB /* Embedded */,
+				953E41C524EF91C000FB44FB /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B44C907E22D6B30A005F44F4 /* Build configuration list for PBXNativeTarget "libbless2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B44C907F22D6B30A005F44F4 /* Release */,
+				B44C908022D6B30A005F44F4 /* Embedded */,
+				B44C908122D6B30A005F44F4 /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		BA3D815B086C4E9C00484376 /* Build configuration list for PBXNativeTarget "unbless" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

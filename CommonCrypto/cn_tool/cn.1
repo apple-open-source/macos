@@ -3,7 +3,7 @@
 .\"man mdoc.samples for a complete listing of options
 .\"man mdoc for the short list of editing options
 .\"/usr/share/misc/mdoc.template
-.Dd 8/20/12               \" DATE 
+.Dd August 20, 2012
 .Dt cn 1      \" Program name and manual section number 
 .Os Darwin
 .Sh NAME                 \" Section Header - required - don't modify 
@@ -14,7 +14,7 @@
 .Nd Command line interface to CommonNumerics routines.
 .Sh SYNOPSIS             \" Section Header - required - don't modify
 .Nm
-..Op Fl hilqv             \" [-hilqv]
+.Op Fl hilqv             \" [-hilqv]
 .Op Fl p Ar prompt       \" [-p prompt]
 .Op Ar command           \" [command]
 .Op Ar command_options   \" [command_options]
@@ -25,21 +25,21 @@ Common Numerics functions.
 .Pp
 .Nm
 has the following standard options for all sub-commands:
-.Bl -tag -width
+.Bl -tag -width Ds
 .It Fl h
 Show help information.
 .It Fl a
-Use the specified algorithm.  The CRC, Encode, and Decode commands have various algorithms
+Use the specified algorithm.
+The CRC, Encode, and Decode commands have various algorithms
 that can be used on data provided to them.
 .It Fl s <string>
 Performs the operation on the specified string value.
 .It Fl v
 Function in Verbose mode.
 .El                      \" Ends the list
-.Pp
 .Sh "CN COMMAND SUMMARY"
 .Nm
-currently only provides functions for two activities: CRC calculation and Base Encoding and Decoding (base16, base32, base64). 
+currently only provides functions for two activities: CRC calculation and Base Encoding and Decoding (base16, base32, base64).
 .Pp
 Here are brief descriptions of all the
 .Nm
@@ -50,7 +50,7 @@ commands:
 Perform a CRC on the data provided either as a string or on stdin.
 .Pp
 .Ar Algorithms
-.Bl -tag -compact
+.Bl -tag -compact -width Ds
 .It "10 - kCN_CRC_8"
 .It "11 - kCN_CRC_8_ICODE"
 .It "12 - kCN_CRC_8_ITU"
@@ -83,7 +83,7 @@ Encode or Decode data provided either as a string or on stdin using one of the a
 specified below.
 .Pp
 .Ar Algorithms
-.Bl -tag -compact
+.Bl -tag -compact -width Ds
 .It "1 - kCNEncodingBase64"
 .It "2 - kCNEncodingBase32"
 .It "3 - kCNEncodingBase32Recovery"
@@ -91,15 +91,15 @@ specified below.
 .It "5 - kCNEncodingBase16"
 .El
 .El
-.Pp
 .Sh ENVIRONMENT      \" May not be needed
 .Bl -tag -width "CN_READ_SIZE" \" ENV_VAR_1 is width of the string ENV_VAR_1
 .It Ev CN_READ_SIZE
 The "read size" to use when processing incoming data.
 .It Ev CN_WIDTH
-The number of columns in which to output data when performing a base encoding.  The default is 64 columns.
-.El                      
-.\" .Sh BUGS              \" Document known, unremedied bugs 
+The number of columns in which to output data when performing a base encoding.
+The default is 64 columns.
+.El
+.\" .Sh BUGS              \" Document known, unremedied bugs
 .Sh HISTORY           \" Document history if command behaves in a unique manner
 .Nm
 was introduced in Mac OS X version 10.9 and iOS version 7.0.

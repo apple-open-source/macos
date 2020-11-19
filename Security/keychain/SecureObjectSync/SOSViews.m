@@ -306,6 +306,26 @@ CFSetRef SOSViewCreateSetFromBitmask(uint64_t bitmask) {
     return retval;
 }
 
+bool SOSPeerInfoSupportsCKKSForAll(SOSPeerInfoRef peerInfo) {
+    if(!peerInfo) {
+        return false;
+    }
+
+    bool ret = false;
+    CFBooleanRef value = SOSPeerInfoV2DictionaryCopyBoolean(peerInfo, sCKKSForAll);
+
+    if(value) {
+        ret = CFBooleanGetValue(value) ? true : false;
+    }
+
+    CFReleaseNull(value);
+    return ret;
+}
+
+void SOSPeerInfoSetSupportsCKKSForAll(SOSPeerInfoRef peerInfo, bool supports) {
+    return SOSPeerInfoV2DictionarySetValue(peerInfo, sCKKSForAll, supports ? kCFBooleanTrue : kCFBooleanFalse);
+}
+
 const char *SOSViewsXlateAction(SOSViewActionCode action) {
     switch(action) {
         case kSOSCCViewEnable: return "kSOSCCViewEnable";

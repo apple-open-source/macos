@@ -56,8 +56,13 @@ typedef struct _SecOTRPublicIdentity* SecOTRPublicIdentityRef;
  * Full identity functions
  */
 SecOTRFullIdentityRef SecOTRFullIdentityCreate(CFAllocatorRef allocator, CFErrorRef *error);
-    
+
+// This variant is used by MessageProtection that doesn't use persistent references anymore.
 SecOTRFullIdentityRef SecOTRFullIdentityCreateFromSecKeyRef(CFAllocatorRef allocator, SecKeyRef privateKey,
+                                                            CFErrorRef *error);
+
+// This variant is used by SOS, and still relies on privateKey having a persistent reference.
+SecOTRFullIdentityRef SecOTRFullIdentityCreateFromSecKeyRefSOS(CFAllocatorRef allocator, SecKeyRef privateKey,
                                                                 CFErrorRef *error);
 SecOTRFullIdentityRef SecOTRFullIdentityCreateFromData(CFAllocatorRef allocator, CFDataRef serializedData, CFErrorRef *error);
     

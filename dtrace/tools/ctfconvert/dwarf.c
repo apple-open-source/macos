@@ -1141,10 +1141,10 @@ die_sou_create(dwarf_t *dw, Dwarf_Die str, Dwarf_Off off, tdesc_t *tdp,
 			if (die_unsigned(dw, mem, DW_AT_byte_size, &bytesz, 0)) {
 				ml->ml_offset += (bytesz * 8) - bitoff - ml->ml_size;
 			} else {
-				size_t bitsz = tdesc_bitsize(ml->ml_type);
-				assert((bitsz != 0) && "AT_byte_size missing and cannot figure the bitfield size");
+				size_t tdbitsz = tdesc_bitsize(ml->ml_type);
+				assert((tdbitsz != 0) && "AT_byte_size missing and cannot figure the bitfield size");
 
-				ml->ml_offset += bitsz - bitoff - ml->ml_size;
+				ml->ml_offset += tdbitsz - bitoff - ml->ml_size;
 			}
 #endif
 		}
@@ -2165,7 +2165,11 @@ dw_read(Elf *elf, const char *filename, const char *unitmatch, int verbose, tdat
 			/* This code doesn't handle the DW_TAG_class_type,
 			 *  or scope c++ definitions properly.
 			 */
-			if (lang == DW_LANG_C_plus_plus) {
+			if (lang == DW_LANG_C_plus_plus
+			    || lang == DW_LANG_ObjC_plus_plus
+			    || lang == DW_LANG_C_plus_plus_03
+			    || lang == DW_LANG_C_plus_plus_11
+			    || lang == DW_LANG_C_plus_plus_14) {
 				continue;
 			}
 		}

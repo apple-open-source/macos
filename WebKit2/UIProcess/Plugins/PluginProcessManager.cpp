@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -82,12 +82,17 @@ uint64_t PluginProcessManager::pluginProcessToken(const PluginModuleInfo& plugin
     return token;
 }
 
-void PluginProcessManager::getPluginProcessConnection(uint64_t pluginProcessToken, Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply&& reply)
+bool PluginProcessManager::getPluginProcessConnection(uint64_t pluginProcessToken, Messages::WebProcessProxy::GetPluginProcessConnection::DelayedReply&& reply)
 {
     ASSERT(pluginProcessToken);
 
-    PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(pluginProcessToken);
+    auto* pluginProcess = getOrCreatePluginProcess(pluginProcessToken);
+    ASSERT(pluginProcess);
+    if (!pluginProcess)
+        return false;
+
     pluginProcess->getPluginProcessConnection(WTFMove(reply));
+    return true;
 }
 
 void PluginProcessManager::removePluginProcessProxy(PluginProcessProxy* pluginProcessProxy)
@@ -100,7 +105,7 @@ void PluginProcessManager::removePluginProcessProxy(PluginProcessProxy* pluginPr
 
 void PluginProcessManager::fetchWebsiteData(const PluginModuleInfo& plugin, OptionSet<WebsiteDataFetchOption> fetchOptions, WTF::Function<void (Vector<String>)>&& completionHandler)
 {
-    auto token = pluginProcessToken(plugin, PluginProcessTypeNormal, PluginProcessSandboxPolicyNormal);
+    auto token = pluginProcessToken(plugin, PluginProcessType::Normal, PluginProcessSandboxPolicy::Normal);
     auto pluginProcess = fetchOptions.contains(WebsiteDataFetchOption::DoNotCreateProcesses) ? getPluginProcess(token) : getOrCreatePluginProcess(token);
     if (!pluginProcess) {
         completionHandler({ });
@@ -112,13 +117,13 @@ void PluginProcessManager::fetchWebsiteData(const PluginModuleInfo& plugin, Opti
 
 void PluginProcessManager::deleteWebsiteData(const PluginModuleInfo& plugin, WallTime modifiedSince, WTF::Function<void ()>&& completionHandler)
 {
-    PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(pluginProcessToken(plugin, PluginProcessTypeNormal, PluginProcessSandboxPolicyNormal));
+    PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(pluginProcessToken(plugin, PluginProcessType::Normal, PluginProcessSandboxPolicy::Normal));
     pluginProcess->deleteWebsiteData(modifiedSince, WTFMove(completionHandler));
 }
 
 void PluginProcessManager::deleteWebsiteDataForHostNames(const PluginModuleInfo& plugin, const Vector<String>& hostNames,WTF::Function<void ()>&& completionHandler)
 {
-    PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(pluginProcessToken(plugin, PluginProcessTypeNormal, PluginProcessSandboxPolicyNormal));
+    PluginProcessProxy* pluginProcess = getOrCreatePluginProcess(pluginProcessToken(plugin, PluginProcessType::Normal, PluginProcessSandboxPolicy::Normal));
     pluginProcess->deleteWebsiteDataForHostNames(hostNames, WTFMove(completionHandler));
 }
 

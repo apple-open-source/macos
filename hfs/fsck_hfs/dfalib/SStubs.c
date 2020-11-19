@@ -51,7 +51,8 @@ UInt32 GetTimeUTC(void)
 
 	(void) gettimeofday(&time, &zone);
 
-	return time.tv_sec + MAC_GMT_FACTOR;
+    // Value will be bigger than UIN32_MAX in 2040
+	return (UInt32)(time.tv_sec + MAC_GMT_FACTOR);
 }
 
 /*

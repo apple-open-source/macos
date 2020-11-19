@@ -48,6 +48,7 @@ int
 fclose(FILE *fp)
 {
 	int r;
+	int error = 0;
 
 	pthread_once(&__sdidinit, __sinit);
 
@@ -61,8 +62,13 @@ fclose(FILE *fp)
 	}
 	FLOCKFILE(fp);
 	r = __sflush(fp);
-	if (fp->_close != NULL && (*fp->_close)(fp->_cookie) < 0)
+	if (r < 0) {
+		error = errno;
+	}
+	if (fp->_close != NULL && (*fp->_close)(fp->_cookie) < 0) {
 		r = EOF;
+		error = errno;
+	}
 	if (fp->_flags & __SMBF)
 		free((char *)fp->_bf._base);
 	if (HASUB(fp))
@@ -73,5 +79,9 @@ fclose(FILE *fp)
 	fp->_r = fp->_w = 0;	/* Mess up if reaccessed. */
 	FUNLOCKFILE(fp);
 	__sfprelease(fp);	/* Release this FILE for reuse. */
+	/* Don't clobber errno unnecessarily. */
+	if (error) {
+		errno = error;
+	}
 	return (r);
 }

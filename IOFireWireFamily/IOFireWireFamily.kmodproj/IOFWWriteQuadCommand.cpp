@@ -234,14 +234,14 @@ bool IOFWWriteQuadCommand::createMemoryDescriptor( void )
 	
 	if( result )
 	{
-		((MemberVariables*)fMembers->fSubclassMembers)->fMemory = IOMemoryDescriptor::withAddress( fQuads, kMaxWriteQuads * sizeof(UInt32), kIODirectionOutIn );
+		((MemberVariables*)fMembers->fSubclassMembers)->fMemory = IOMemoryDescriptor::withAddress( fQuads, kMaxWriteQuads * sizeof(UInt32), kIODirectionInOut );
         if( ((MemberVariables*)fMembers->fSubclassMembers)->fMemory == NULL )
             result = false;
 	}
 	
 	if( result )
 	{
-		IOReturn status = ((MemberVariables*)fMembers->fSubclassMembers)->fMemory->prepare( kIODirectionOutIn );
+		IOReturn status = ((MemberVariables*)fMembers->fSubclassMembers)->fMemory->prepare( kIODirectionInOut );
 		if( status == kIOReturnSuccess )
 		{
 			prepared = true;
@@ -258,7 +258,7 @@ bool IOFWWriteQuadCommand::createMemoryDescriptor( void )
 		{
 			if( prepared )
 			{
-				((MemberVariables*)fMembers->fSubclassMembers)->fMemory->complete( kIODirectionOutIn );
+				((MemberVariables*)fMembers->fSubclassMembers)->fMemory->complete( kIODirectionInOut );
 			}
 
 			((MemberVariables*)fMembers->fSubclassMembers)->fMemory->release();
@@ -279,7 +279,7 @@ void IOFWWriteQuadCommand::destroyMemoryDescriptor()
 		(fMembers->fSubclassMembers != NULL) &&
 		((MemberVariables*)fMembers->fSubclassMembers)->fMemory != NULL )
 	{
-		((MemberVariables*)fMembers->fSubclassMembers)->fMemory->complete( kIODirectionOutIn );
+		((MemberVariables*)fMembers->fSubclassMembers)->fMemory->complete( kIODirectionInOut );
 		((MemberVariables*)fMembers->fSubclassMembers)->fMemory->release();
 		((MemberVariables*)fMembers->fSubclassMembers)->fMemory = NULL;
 	}
@@ -437,7 +437,7 @@ IOReturn IOFWWriteQuadCommand::execute()
 			}
 		}
 				
-//		IOLog( "IOFWWriteQuadCommand::execute - fControl->asyncWrite()\n" );		
+// IOLog( "IOFWWriteQuadCommand::execute - fControl->asyncWrite()\n" );		
         result = fControl->asyncWrite(	fGeneration, 
 										fNodeID, 
 										fAddressHi, 

@@ -61,6 +61,39 @@ static uint8_t descriptor[] = {
                                   @(kIOHIDPhysicalDeviceUniqueIDKey) : uuid,
                                   @(kIOHIDReportDescriptorKey) : desc };
     
+    // set notification
+    self.eventSystemClient = [[HIDEventSystemClient alloc] initWithType:HIDEventSystemClientTypeMonitor];
+    
+    [self.eventSystemClient setMatching: @{ @kIOHIDPhysicalDeviceUniqueIDKey : uuid}];
+     
+    [self.eventSystemClient setServiceNotificationHandler:^(HIDServiceClient * _Nonnull service) {
+        __strong TestHIDKeyboardPower * _self = self_;
+        if (!_self){
+            return;
+        }
+         
+        NSLog(@"Added : %@",service);
+         
+        _self.service = service;
+        [_self.serviceExpectation fulfill];
+     }];
+     
+     
+     [_eventSystemClient setEventHandler:^(HIDServiceClient * _Nullable service , HIDEvent * _Nonnull event) {
+         
+         __strong TestHIDKeyboardPower * _self = self_;
+         if (!_self){
+             return;
+         }
+          
+         NSLog(@"Event Value: %@",event);
+     }];
+     
+    [self.eventSystemClient setDispatchQueue:dispatch_get_main_queue()];
+    [self.eventSystemClient activate];
+    
+    // create user device
+    
     self.userDevice = [[HIDUserDevice alloc] initWithProperties:properties];
     
     [self.userDevice setSetReportHandler:^IOReturn(HIDReportType type, NSInteger reportID, const void * _Nonnull report, NSInteger reportLength) {
@@ -102,42 +135,16 @@ static uint8_t descriptor[] = {
     
     [self.userDevice activate];
     
-    self.eventSystemClient = [[HIDEventSystemClient alloc] initWithType:HIDEventSystemClientTypeMonitor];
-    
-    [self.eventSystemClient setMatching: @{ @kIOHIDPhysicalDeviceUniqueIDKey : uuid}];
-     
-    [self.eventSystemClient setServiceNotificationHandler:^(HIDServiceClient * _Nonnull service) {
-        __strong TestHIDKeyboardPower * _self = self_;
-        if (!_self){
-            return;
-        }
-         
-        NSLog(@"Added : %@",service);
-         
-        _self.service = service;
-        [_self.serviceExpectation fulfill];
-     }];
-     
-     
-     [_eventSystemClient setEventHandler:^(HIDServiceClient * _Nullable service , HIDEvent * _Nonnull event) {
-         
-         __strong TestHIDKeyboardPower * _self = self_;
-         if (!_self){
-             return;
-         }
-          
-         NSLog(@"Event Value: %@",event);
-     }];
-     
-    [self.eventSystemClient setDispatchQueue:dispatch_get_main_queue()];
-    [self.eventSystemClient activate];
-
 }
 
 -(void) tearDown {
 
-    [self.userDevice cancel];
-    [self.eventSystemClient cancel];
+    if (self.userDevice) {
+        [self.userDevice cancel];
+    }
+    if (self.eventSystemClient) {
+        [self.eventSystemClient cancel];
+    }
     
     [super tearDown];
 }

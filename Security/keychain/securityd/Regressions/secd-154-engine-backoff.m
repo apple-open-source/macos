@@ -28,6 +28,9 @@
 #include "SOSTestDataSource.h"
 
 #include "SOSRegressionUtilities.h"
+#include "SOSAccountTesting.h"
+
+#if SOS_ENABLED
 
 static int kTestTestCount = 10;
 static int MAX_PENALTY_TIME = 32;
@@ -268,12 +271,15 @@ static void tests(void)
     ok(successful_writes == 12, "successfull writes should have only reached 10");
     ok(monitor->penalty_box == 0, "penalty box should reset back to 0");
 }
+#endif
 
 int secd_154_engine_backoff(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

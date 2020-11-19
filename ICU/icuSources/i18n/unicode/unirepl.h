@@ -14,12 +14,13 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 /**
  * \file 
  * \brief C++ API: UnicodeReplacer
  */
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class Replaceable;
@@ -96,6 +97,7 @@ class U_I18N_API UnicodeReplacer /* not : public UObject because this is an inte
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

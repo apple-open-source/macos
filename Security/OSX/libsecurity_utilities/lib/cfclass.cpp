@@ -89,7 +89,7 @@ CFClass::cleanupObject(intptr_t op, CFTypeRef cf, bool &zap)
 }
 
 uint32_t
-CFClass::refCountForType(intptr_t op, CFTypeRef cf) throw()
+CFClass::refCountForType(intptr_t op, CFTypeRef cf) _NOEXCEPT
 {
     uint32_t result = 0;
     bool zap = false;
@@ -127,7 +127,7 @@ CFClass::refCountForType(intptr_t op, CFTypeRef cf) throw()
 
 
 void
-CFClass::finalizeType(CFTypeRef cf) throw()
+CFClass::finalizeType(CFTypeRef cf) _NOEXCEPT
 {
     /*
         We need to control the lifetime of the object.  This means
@@ -168,7 +168,7 @@ CFClass::finalizeType(CFTypeRef cf) throw()
 }
 
 Boolean
-CFClass::equalType(CFTypeRef cf1, CFTypeRef cf2) throw()
+CFClass::equalType(CFTypeRef cf1, CFTypeRef cf2) _NOEXCEPT
 {
 	// CF checks for pointer equality and ensures type equality already
 	try {
@@ -179,7 +179,7 @@ CFClass::equalType(CFTypeRef cf1, CFTypeRef cf2) throw()
 }
 
 CFHashCode
-CFClass::hashType(CFTypeRef cf) throw()
+CFClass::hashType(CFTypeRef cf) _NOEXCEPT
 {
 	try {
 		return SecCFObject::optional(cf)->hash();
@@ -189,7 +189,7 @@ CFClass::hashType(CFTypeRef cf) throw()
 }
 
 CFStringRef
-CFClass::copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict) throw()
+CFClass::copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict) _NOEXCEPT
 {
 	try {
 		return SecCFObject::optional(cf)->copyFormattingDesc(dict);
@@ -199,7 +199,7 @@ CFClass::copyFormattingDescType(CFTypeRef cf, CFDictionaryRef dict) throw()
 }
 
 CFStringRef
-CFClass::copyDebugDescType(CFTypeRef cf) throw()
+CFClass::copyDebugDescType(CFTypeRef cf) _NOEXCEPT
 {
 	try {
 		return SecCFObject::optional(cf)->copyDebugDesc();

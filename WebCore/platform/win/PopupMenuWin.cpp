@@ -49,7 +49,9 @@
 #include "ScrollbarThemeWin.h"
 #include "TextRun.h"
 #include "WebCoreInstanceHandle.h"
+#include <wtf/HexNumber.h>
 #include <wtf/WindowsExtras.h>
+#include <wtf/text/StringBuilder.h>
 
 #include <windows.h>
 #include <windowsx.h>
@@ -139,7 +141,7 @@ void PopupMenuWin::show(const IntRect& r, FrameView* view, int index)
 
     if (!m_scrollbar && visibleItems() < client()->listSize()) {
         // We need a scroll bar
-        m_scrollbar = client()->createScrollbar(*this, VerticalScrollbar, SmallScrollbar);
+        m_scrollbar = client()->createScrollbar(*this, VerticalScrollbar, ScrollbarControlSize::Small);
         m_scrollbar->styleChanged();
     }
 
@@ -354,7 +356,7 @@ void PopupMenuWin::calculatePositionAndSize(const IntRect& r, FrameView* v)
 
     if (naturalHeight > maxPopupHeight)
         // We need room for a scrollbar
-        popupWidth += ScrollbarTheme::theme().scrollbarThickness(SmallScrollbar);
+        popupWidth += ScrollbarTheme::theme().scrollbarThickness(ScrollbarControlSize::Small);
 
     // Add padding to align the popup text with the <select> text
     popupWidth += std::max<int>(0, client()->clientPaddingRight() - client()->clientInsetRight()) + std::max<int>(0, client()->clientPaddingLeft() - client()->clientInsetLeft());
@@ -641,7 +643,7 @@ void PopupMenuWin::paint(const IntRect& damageRect, HDC hdc)
 
         String itemText = client()->itemText(index);
 
-        TextRun textRun(itemText, 0, 0, AllowTrailingExpansion, itemStyle.textDirection(), itemStyle.hasTextDirectionOverride());
+        TextRun textRun(itemText, 0, 0, AllowLeftExpansion, itemStyle.textDirection(), itemStyle.hasTextDirectionOverride());
         context.setFillColor(optionTextColor);
 
         FontCascade itemFont = m_font;
@@ -1080,6 +1082,11 @@ LRESULT PopupMenuWin::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
     }
 
     return lResult;
+}
+
+String PopupMenuWin::debugDescription() const
+{
+    return makeString("PopupMenuWin 0x", hex(reinterpret_cast<uintptr_t>(this), Lowercase));
 }
 
 AccessiblePopupMenu::AccessiblePopupMenu(const PopupMenuWin& popupMenu)

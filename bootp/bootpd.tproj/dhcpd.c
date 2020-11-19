@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -611,7 +611,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     char		scratch_hwstr[sizeof(rq->dp_chaddr) * 3];
     SubnetRef 		subnet = NULL;
     dhcp_lease_time_t *	suggested_lease = NULL;
-    dhcp_cstate_t	state = dhcp_cstate_none_e;
+    dhcp_cstate_t	state = dhcp_cstate_inactive_e;
     uint32_t		txbuf[ETHERMTU / sizeof(uint32_t)];
     boolean_t		use_broadcast = FALSE;
 

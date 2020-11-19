@@ -29,14 +29,9 @@
 #include "CallFrame.h"
 #include "CatchScope.h"
 #include "CodeBlock.h"
-#include "Disassembler.h"
-#include "EntryFrame.h"
 #include "Interpreter.h"
-#include "JSCInlines.h"
-#include "JSCJSValue.h"
+#include "JSCJSValueInlines.h"
 #include "LLIntData.h"
-#include "LLIntOpcode.h"
-#include "LLIntThunks.h"
 #include "Opcode.h"
 #include "ShadowChicken.h"
 #include "VMInlines.h"
@@ -47,10 +42,10 @@ void genericUnwind(VM& vm, CallFrame* callFrame)
 {
     auto scope = DECLARE_CATCH_SCOPE(vm);
     CallFrame* topJSCallFrame = vm.topJSCallFrame();
-    if (Options::breakOnThrow()) {
+    if (UNLIKELY(Options::breakOnThrow())) {
         CodeBlock* codeBlock = topJSCallFrame->codeBlock();
         dataLog("In call frame ", RawPointer(topJSCallFrame), " for code block ", codeBlock, "\n");
-        CRASH();
+        WTFBreakpointTrap();
     }
     
     if (auto* shadowChicken = vm.shadowChicken())

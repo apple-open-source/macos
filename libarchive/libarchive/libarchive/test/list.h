@@ -363,6 +363,7 @@ DEFINE_TEST(test_read_format_zip_padded2)
 DEFINE_TEST(test_read_format_zip_padded3)
 DEFINE_TEST(test_read_format_zip_sfx)
 DEFINE_TEST(test_read_format_zip_traditional_encryption_data)
+DEFINE_TEST(test_read_format_zip_multithread)
 /*
 DEFINE_TEST(test_read_format_zip_winzip_aes128)
 DEFINE_TEST(test_read_format_zip_winzip_aes256)

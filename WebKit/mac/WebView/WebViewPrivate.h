@@ -117,7 +117,7 @@ extern NSString *WebQuickLookFileNameKey;
 extern NSString *WebQuickLookUTIKey;
 #endif
 
-#if TARGET_OS_IPHONE && __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+#if TARGET_OS_IOS
 @protocol UIDropSession;
 #endif
 
@@ -479,7 +479,7 @@ Could be worth adding to the API.
 
 - (void)_replaceCurrentHistoryItem:(WebHistoryItem *)item;
 
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+#if TARGET_OS_IOS
 - (BOOL)_requestStartDataInteraction:(CGPoint)clientPosition globalPosition:(CGPoint)globalPosition;
 - (WebUITextIndicatorData *)_getDataInteractionData;
 @property (nonatomic, readonly, strong, getter=_dataOperationTextIndicator) WebUITextIndicatorData *dataOperationTextIndicator;
@@ -797,18 +797,22 @@ Could be worth adding to the API.
 // - destinationProtocol: The protocol to grant access to.
 // - destinationHost: The host to grant access to.
 // - allowDestinationSubdomains: If host is a domain, setting this to YES will whitelist host and all its subdomains, recursively.
-+ (void)_addOriginAccessWhitelistEntryWithSourceOrigin:(NSString *)sourceOrigin destinationProtocol:(NSString *)destinationProtocol destinationHost:(NSString *)destinationHost allowDestinationSubdomains:(BOOL)allowDestinationSubdomains;
-+ (void)_removeOriginAccessWhitelistEntryWithSourceOrigin:(NSString *)sourceOrigin destinationProtocol:(NSString *)destinationProtocol destinationHost:(NSString *)destinationHost allowDestinationSubdomains:(BOOL)allowDestinationSubdomains;
++ (void)_addOriginAccessAllowListEntryWithSourceOrigin:(NSString *)sourceOrigin destinationProtocol:(NSString *)destinationProtocol destinationHost:(NSString *)destinationHost allowDestinationSubdomains:(BOOL)allowDestinationSubdomains;
++ (void)_removeOriginAccessAllowListEntryWithSourceOrigin:(NSString *)sourceOrigin destinationProtocol:(NSString *)destinationProtocol destinationHost:(NSString *)destinationHost allowDestinationSubdomains:(BOOL)allowDestinationSubdomains;
 
-// Removes all white list entries created with _addOriginAccessWhitelistEntryWithSourceOrigin.
-+ (void)_resetOriginAccessWhitelists;
+// Removes all allow list entries created with _addOriginAccessAllowListEntryWithSourceOrigin.
++ (void)_resetOriginAccessAllowLists;
 
 // FIXME: The following two methods are deprecated in favor of the overloads below that take the WebUserContentInjectedFrames argument. https://bugs.webkit.org/show_bug.cgi?id=41800.
-+ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime;
-+ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist;
++ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime __attribute__((deprecated("use _addUserScriptToGroup:world:source:url:includeMatchPatternStrings:excludeMatchPatternStrings:injectionTime:injectedFrames:")));
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist __attribute__((deprecated("use _addUserStyleSheetToGroup:world:source:url:includeMatchPatternStrings:excludeMatchPatternStrings:injectedFrames:")));
 
-+ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime injectedFrames:(WebUserContentInjectedFrames)injectedFrames;
-+ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectedFrames:(WebUserContentInjectedFrames)injectedFrames;
++ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime injectedFrames:(WebUserContentInjectedFrames)injectedFrames __attribute__((deprecated("use _addUserScriptToGroup:world:source:url:includeMatchPatternStrings:excludeMatchPatternStrings:injectionTime:injectedFrames:")));
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectedFrames:(WebUserContentInjectedFrames)injectedFrames __attribute__((deprecated("use _addUserStyleSheetToGroup:world:source:url:includeMatchPatternStrings:excludeMatchPatternStrings:injectedFrames:")));
+
++ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url includeMatchPatternStrings:(NSArray *)includeMatchPatternStrings excludeMatchPatternStrings:(NSArray *)excludeMatchPatternStrings injectionTime:(WebUserScriptInjectionTime)injectionTime injectedFrames:(WebUserContentInjectedFrames)injectedFrames;
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url includeMatchPatternStrings:(NSArray *)includeMatchPatternStrings excludeMatchPatternStrings:(NSArray *)excludeMatchPatternStrings injectedFrames:(WebUserContentInjectedFrames)injectedFrames;
+
 + (void)_removeUserScriptFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url;
 + (void)_removeUserStyleSheetFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url;
 + (void)_removeUserScriptsFromGroup:(NSString *)groupName world:(WebScriptWorld *)world;
@@ -818,28 +822,6 @@ Could be worth adding to the API.
 // SPI for DumpRenderTree
 + (void)_setLoadResourcesSerially:(BOOL)serialize;
 - (void)_forceRepaintForTesting;
-
-/*!
-    @method cssAnimationsSuspended
-    @abstract Returns whether or not CSS Animations are suspended.
-    @result YES if CSS Animations are suspended.
-*/
-- (BOOL)cssAnimationsSuspended;
-
-/*!
-    @method setCSSAnimationsSuspended
-    @param suspended YES to suspend animations, NO to resume animations.
-    @discussion Suspends or resumes all running animations and transitions in the page.
-*/
-- (void)setCSSAnimationsSuspended:(BOOL)suspended;
-
-/*
-    SPI to revert back to buggy behavior that would allow new transitions
-    and animations to run even when the view is suspended (e.g. loading a
-    new document).
-*/
-- (BOOL)allowsNewCSSAnimationsWhileSuspended;
-- (void)setAllowsNewCSSAnimationsWhileSuspended:(BOOL)allowed;
 
 + (void)_setDomainRelaxationForbidden:(BOOL)forbidden forURLScheme:(NSString *)scheme;
 + (void)_registerURLSchemeAsSecure:(NSString *)scheme;
@@ -1072,7 +1054,7 @@ typedef struct WebEdgeInsets {
 @end
 
 @interface WebView (WebViewFontSelection)
-+ (void)_setFontWhitelist:(NSArray *)whitelist;
++ (void)_setFontAllowList:(NSArray *)allowList;
 @end
 
 #if TARGET_OS_IPHONE
@@ -1087,6 +1069,10 @@ typedef struct WebEdgeInsets {
 
 @interface WebView (WebViewIOSAdditions)
 - (NSArray<DOMElement *> *)_editableElementsInRect:(CGRect)rect;
+- (void)revealCurrentSelection;
+
+// View must be a UIView.
+- (void)_installVisualIdentificationOverlayForViewIfNeeded:(id)view kind:(NSString *)kind;
 @end
 
 #endif

@@ -2,6 +2,14 @@
 // License & terms of use: http://www.unicode.org/copyright.html#License
 hi{
     AuxExemplarCharacters{"[\u200C\u200D]"}
+    Ellipsis{
+        final{"{0}…"}
+        initial{"…{0}"}
+        medial{"{0}…{1}"}
+        word-final{"{0} …"}
+        word-initial{"… {0}"}
+        word-medial{"{0} … {1}"}
+    }
     ExemplarCharacters{
         "[\u093C ॐ \u0902 \u0901 ः अ आ इ ई उ ऊ ऋ ऌ ऍ ए ऐ ऑ ओ औ क ख ग घ ङ च छ ज झ ञ ट "
         "ठ ड ढ ण त थ द ध न प फ ब भ म य र ल ळ व श ष स ह ऽ ा ि ी \u0941 \u0942 \u0943 "
@@ -11,9 +19,11 @@ hi{
         "[अ आ इ ई उ ऊ ऋ ए ऐ ओ औ क ख ग घ ङ च छ ज झ ञ ट ठ ड ढ ण त थ द ध न प फ ब भ म य र"
         " ल व श ष स ह]"
     }
-    ExemplarCharactersNumbers{"[\\- , . % ‰ + 0० 1१ 2२ 3३ 4४ 5५ 6६ 7७ 8८ 9९]"}
-    ExemplarCharactersPunctuation{"[\\- , ; \\: ! ? . ‘ ’ “ ” ( ) \\[ \\] \\{ \\} ॰]"}
+    ExemplarCharactersNumbers{"[\\- ‑ , . % ‰ + 0० 1१ 2२ 3३ 4४ 5५ 6६ 7७ 8८ 9९]"}
+    ExemplarCharactersPunctuation{"[\\- ‑ , ; \\: ! ? . ‘ ’ “ ” ( ) \\[ \\] \\{ \\} ॰]"}
+    MoreInformation{"?"}
     NumberElements{
+        default{"latn"}
         deva{
             patterns{
                 currencyFormat{"¤#,##,##0.00"}
@@ -22,7 +32,11 @@ hi{
                 scientificFormat{"[#E0]"}
             }
             symbols{
+                decimal{"."}
+                group{","}
+                minusSign{"-"}
                 percentSign{"%"}
+                plusSign{"+"}
             }
         }
         latn{
@@ -194,21 +208,25 @@ hi{
                 }
             }
             symbols{
+                decimal{"."}
                 exponential{"E"}
+                group{","}
                 infinity{"∞"}
                 list{";"}
+                minusSign{"-"}
                 nan{"NaN"}
                 perMille{"‰"}
                 percentSign{"%"}
+                plusSign{"+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
         }
         minimalPairs{
             ordinal{
-                few{"{0}था दाहिना मोड़ लें."}
+                few{"तीसरा दाहिना मोड़ लें."}
                 many{"{0}ठा दाहिना मोड़ लें."}
-                one{"{0}ला दाहिना मोड़ लें."}
+                one{"पहला दाहिना मोड़ लें."}
                 other{"{0}वां दाहिना मोड़ लें."}
                 two{"{0}रा दाहिना मोड़ लें."}
             }
@@ -220,7 +238,7 @@ hi{
         minimumGroupingDigits{"1"}
         native{"deva"}
     }
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     calendar{
         ethiopic{
             monthNames{
@@ -641,7 +659,7 @@ hi{
                 stand-alone{
                     abbreviated{
                         afternoon1{"दोपहर"}
-                        am{"प"}
+                        am{"पू"}
                         evening1{"शाम"}
                         midnight{"मध्यरात्रि"}
                         morning1{"सुबह"}
@@ -964,6 +982,9 @@ hi{
         indian{
             eras{
                 abbreviated{
+                    "शक",
+                }
+                wide{
                     "शक",
                 }
             }
@@ -1452,6 +1473,12 @@ hi{
         western_asian_scripts{"पश्चिमी एशियाई लिपि"}
         whitespace{"श्वेतरिक्ति"}
     }
+    delimiters{
+        alternateQuotationEnd{"’"}
+        alternateQuotationStart{"‘"}
+        quotationEnd{"”"}
+        quotationStart{"“"}
+    }
     fields{
         day{
             dn{"दिन"}
@@ -1475,6 +1502,11 @@ hi{
         }
         day-narrow{
             dn{"दिन"}
+            relative{
+                "-1"{"बीता कल"}
+                "0"{"आज"}
+                "1"{"आने वाला कल"}
+            }
             relativeTime{
                 future{
                     one{"{0} दिन में"}
@@ -1488,6 +1520,11 @@ hi{
         }
         day-short{
             dn{"दिन"}
+            relative{
+                "-1"{"बीता कल"}
+                "0"{"आज"}
+                "1"{"आने वाला कल"}
+            }
             relativeTime{
                 future{
                     one{"{0} दिन में"}
@@ -2201,6 +2238,11 @@ hi{
         }
         year-narrow{
             dn{"वर्ष"}
+            relative{
+                "-1"{"पिछले साल"}
+                "0"{"इस साल"}
+                "1"{"अगले साल"}
+            }
             relativeTime{
                 future{
                     one{"{0} वर्ष में"}
@@ -2309,6 +2351,10 @@ hi{
                 "[\\-‒⁻₋−➖﹣－]",
                 "[,،٫、︐︑﹐﹑，､]",
                 "[+⁺₊➕﬩﹢＋]",
+            }
+            stricter{
+                "[,٫︐﹐，]",
+                "[.․﹒．｡]",
             }
         }
     }

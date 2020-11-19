@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,17 +24,17 @@
  */
 
 #import "config.h"
-#import "WebProcessCocoa.h"
-#import "XPCServiceEntryPoint.h"
 
+#import "HandleXPCEndpointMessages.h"
+#import "WKCrashReporter.h"
+#import "XPCServiceEntryPoint.h"
 #import <CoreFoundation/CoreFoundation.h>
+#import <pal/spi/cf/CFUtilitiesSPI.h>
+#import <pal/spi/cocoa/LaunchServicesSPI.h>
+#import <sys/sysctl.h>
 #import <wtf/OSObjectPtr.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/spi/darwin/XPCSPI.h>
-
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
-#import <pal/spi/mac/NSApplicationSPI.h>
-#endif
 
 namespace WebKit {
 
@@ -42,13 +42,15 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
 {
     static xpc_object_t priorityBoostMessage = nullptr;
 
-    xpc_connection_set_target_queue(peer, dispatch_get_main_queue());
+    xpc_connection_set_target_queue(peer, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0));
     xpc_connection_set_event_handler(peer, ^(xpc_object_t event) {
         xpc_type_t type = xpc_get_type(event);
         if (type == XPC_TYPE_ERROR) {
             if (event == XPC_ERROR_CONNECTION_INVALID || event == XPC_ERROR_TERMINATION_IMMINENT) {
                 // FIXME: Handle this case more gracefully.
-                exit(EXIT_FAILURE);
+                [[NSRunLoop mainRunLoop] performBlock:^{
+                    exit(EXIT_FAILURE);
+                }];
             }
         } else {
             assert(type == XPC_TYPE_DICTIONARY);
@@ -58,7 +60,7 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
 
                 const char* serviceName = xpc_dictionary_get_string(event, "service-name");
                 CFStringRef entryPointFunctionName = nullptr;
-                if (!strcmp(serviceName, "com.apple.WebKit.WebContent") || !strcmp(serviceName, "com.apple.WebKit.WebContent.Development"))
+                if (strstr(serviceName, "com.apple.WebKit.WebContent") == serviceName)
                     entryPointFunctionName = CFSTR(STRINGIZE_VALUE_OF(WEBCONTENT_SERVICE_INITIALIZER));
                 else if (!strcmp(serviceName, "com.apple.WebKit.Networking"))
                     entryPointFunctionName = CFSTR(STRINGIZE_VALUE_OF(NETWORK_SERVICE_INITIALIZER));
@@ -69,12 +71,13 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
                 else
                     RELEASE_ASSERT_NOT_REACHED();
 
-                
                 typedef void (*InitializerFunction)(xpc_connection_t, xpc_object_t, xpc_object_t);
                 InitializerFunction initializerFunctionPtr = reinterpret_cast<InitializerFunction>(CFBundleGetFunctionPointerForName(webKitBundle, entryPointFunctionName));
                 if (!initializerFunctionPtr) {
                     NSLog(@"Unable to find entry point in WebKit.framework with name: %@", (__bridge NSString *)entryPointFunctionName);
-                    exit(EXIT_FAILURE);
+                    [[NSRunLoop mainRunLoop] performBlock:^{
+                        exit(EXIT_FAILURE);
+                    }];
                 }
 
                 auto reply = adoptOSObject(xpc_dictionary_create_reply(event));
@@ -89,7 +92,10 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
                 if (fd != -1)
                     dup2(fd, STDERR_FILENO);
 
-                initializerFunctionPtr(peer, event, priorityBoostMessage);
+                dispatch_sync(dispatch_get_main_queue(), ^{
+                    initializerFunctionPtr(peer, event, priorityBoostMessage);
+                });
+
                 if (priorityBoostMessage)
                     xpc_release(priorityBoostMessage);
             }
@@ -99,14 +105,40 @@ static void XPCServiceEventHandler(xpc_connection_t peer)
                 assert(!priorityBoostMessage);
                 priorityBoostMessage = xpc_retain(event);
             }
+
+            handleXPCEndpointMessages(event);
         }
     });
 
     xpc_connection_resume(peer);
 }
 
-int XPCServiceMain(int, const char**)
+#if PLATFORM(MAC)
+
+NEVER_INLINE NO_RETURN_DUE_TO_CRASH static void crashDueWebKitFrameworkVersionMismatch()
 {
+    CRASH();
+}
+
+#endif // PLATFORM(MAC)
+
+int XPCServiceMain(int argc, const char** argv)
+{
+    ASSERT(argc >= 1);
+    ASSERT(argv[0]);
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    if (argc >= 1 && argv[0] && strstr(argv[0], "com.apple.WebKit.WebContent")) {
+        // Enable CFPrefs direct mode to avoid unsuccessfully attempting to connect to the daemon and getting blocked by the sandbox.
+        _CFPrefsSetDirectModeEnabled(YES);
+#if HAVE(CF_PREFS_SET_READ_ONLY)
+        _CFPrefsSetReadOnly(YES);
+#endif
+    }
+#else
+    UNUSED_PARAM(argc);
+    UNUSED_PARAM(argv);
+#endif
+
     auto bootstrap = adoptOSObject(xpc_copy_bootstrap());
 #if PLATFORM(IOS_FAMILY)
     auto containerEnvironmentVariables = xpc_dictionary_get_value(bootstrap.get(), "ContainerEnvironmentVariables");
@@ -118,14 +150,25 @@ int XPCServiceMain(int, const char**)
 
     if (bootstrap) {
 #if PLATFORM(MAC)
-        if (const char* webKitBundleVersion = xpc_dictionary_get_string(bootstrap.get(), "WebKitBundleVersion")) {
-            CFBundleRef webKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit"));
-            NSString *expectedBundleVersion = (NSString *)CFBundleGetValueForInfoDictionaryKey(webKitBundle, kCFBundleVersionKey);
-
-            if (strcmp(webKitBundleVersion, expectedBundleVersion.UTF8String)) {
-                _WKSetCrashReportApplicationSpecificInformation([NSString stringWithFormat:@"WebKit framework version mismatch: '%s'", webKitBundleVersion]);
-                __builtin_trap();
+#if ASAN_ENABLED
+        // EXC_RESOURCE on ASAN builds freezes the process for several minutes: rdar://65027596
+        if (char *disableFreezingOnExcResource = getenv("DISABLE_FREEZING_ON_EXC_RESOURCE")) {
+            if (!strcasecmp(disableFreezingOnExcResource, "yes") || !strcasecmp(disableFreezingOnExcResource, "true") || !strcasecmp(disableFreezingOnExcResource, "1")) {
+                int val = 1;
+                int rc = sysctlbyname("debug.toggle_address_reuse", nullptr, 0, &val, sizeof(val));
+                if (rc < 0)
+                    WTFLogAlways("failed to set debug.toggle_address_reuse: %d\n", rc);
+                else
+                    WTFLogAlways("debug.toggle_address_reuse is now 1.\n");
             }
+        }
+#endif
+        String webKitBundleVersion = xpc_dictionary_get_string(bootstrap.get(), "WebKitBundleVersion");
+        String expectedBundleVersion = [NSBundle bundleWithIdentifier:@"com.apple.WebKit"].infoDictionary[(__bridge NSString *)kCFBundleVersionKey];
+        if (!webKitBundleVersion.isNull() && !expectedBundleVersion.isNull() && webKitBundleVersion != expectedBundleVersion) {
+            auto errorMessage = makeString("WebKit framework version mismatch: ", webKitBundleVersion, " != ", expectedBundleVersion);
+            logAndSetCrashLogMessage(errorMessage.utf8().data());
+            crashDueWebKitFrameworkVersionMismatch();
         }
 #endif
 
@@ -147,14 +190,6 @@ int XPCServiceMain(int, const char**)
 #if PLATFORM(MAC)
     // Don't allow Apple Events in WebKit processes. This can be removed when <rdar://problem/14012823> is fixed.
     setenv("__APPLEEVENTSSERVICENAME", "", 1);
-
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 101400
-    // We don't need to talk to the dock.
-    if (Class nsApplicationClass = NSClassFromString(@"NSApplication")) {
-        if ([nsApplicationClass respondsToSelector:@selector(_preventDockConnections)])
-            [nsApplicationClass _preventDockConnections];
-    }
-#endif
 #endif
 
     xpc_main(XPCServiceEventHandler);

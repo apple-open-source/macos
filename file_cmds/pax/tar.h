@@ -36,6 +36,9 @@
  *	@(#)tar.h	8.2 (Berkeley) 4/18/94
  */
 
+#ifndef _TAR_H_
+#define _TAR_H_
+
 /*
  * defines and data structures common to all tar formats
  */
@@ -154,3 +157,5 @@ typedef struct {
 	char devminor[8];		/* minor device number */
 	char prefix[TPFSZ];		/* linked to name */
 } HD_USTAR;
+
+#endif /* _TAR_H_ */

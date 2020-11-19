@@ -25,7 +25,7 @@
 
 #import "CKKSGroupOperation.h"
 #import "keychain/ot/ObjCImprovements.h"
-#include <utilities/debugging.h>
+#import "keychain/ckks/CKKS.h"
 
 @interface CKKSGroupOperation()
 @property bool fillInError;
@@ -53,12 +53,12 @@
         _startOperation = [NSBlockOperation blockOperationWithBlock:^{
             STRONGIFY(self);
             if(!self) {
-                secerror("ckks: received callback for released object");
+                ckkserror_global("ckks", "received callback for released object");
                 return;
             }
 
             if(![self allDependentsSuccessful]) {
-                secdebug("ckksgroup", "Not running due to some failed dependent: %@", self.error);
+                ckksinfo_global("ckksgroup", "Not running due to some failed dependent: %@", self.error);
                 [self cancel];
                 return;
             }
@@ -71,7 +71,7 @@
         _finishOperation = [NSBlockOperation blockOperationWithBlock:^{
             STRONGIFY(self);
             if(!self) {
-                secerror("ckks: received callback for released object");
+                ckkserror_global("ckks", "received callback for released object");
                 return;
             }
 
@@ -114,37 +114,62 @@
 }
 
 - (NSString*)description {
-    if(self.isFinished) {
+
+    static __thread unsigned __descriptionRecursion = 0;
+    NSString* state = [self operationStateString];
+    NSString *desc = NULL;
+
+    __descriptionRecursion++;
+
+    if(__descriptionRecursion > 10) {
+        desc = [NSString stringWithFormat: @"<%@: %@ recursion>", [self selfname], state];
+
+    } else if(self.isFinished) {
         if(self.error) {
-            return [NSString stringWithFormat: @"<%@: %@ %@ - %@>", [self selfname],
-                    [self operationStateString],
+            desc = [NSString stringWithFormat: @"<%@: %@ %@ - %@>", [self selfname],
+                    state,
                     self.finishDate,
                     self.error];
         } else {
-            return [NSString stringWithFormat: @"<%@: %@ %@>", [self selfname],
-                    [self operationStateString],
+            desc = [NSString stringWithFormat: @"<%@: %@ %@>", [self selfname],
+                    state,
                     self.finishDate];
         }
-    }
+    } else {
 
-    NSMutableArray* ops = [self.operationQueue.operations mutableCopy];
+        NSString* opsString = nil;
 
-    [ops removeObject: self.finishOperation];
+        if (self.operationQueue.operationCount + self.finishOperation.dependencies.count > 20) {
+            opsString = @"Potentially more than 20 operations";
+        } else {
+            NSMutableArray* ops = [self.operationQueue.operations mutableCopy];
 
-    // Any extra dependencies from the finish operation should be considered part of this group
-    for(NSOperation* finishDep in self.finishOperation.dependencies) {
-        if(finishDep != self.startOperation && (NSNotFound == [ops indexOfObject: finishDep])) {
-            [ops addObject: finishDep];
+            [ops removeObject: self.finishOperation];
+
+            // Any extra dependencies from the finish operation should be considered part of this group
+            for(NSOperation* finishDep in self.finishOperation.dependencies) {
+                if (ops.count > 20) {
+                    opsString = @"Potentially more than 20 operations";
+                    break;
+                }
+                if(finishDep != self.startOperation && (NSNotFound == [ops indexOfObject: finishDep])) {
+                    [ops addObject: finishDep];
+                }
+            }
+            if (opsString == nil) {
+                opsString = [ops componentsJoinedByString:@", "];
+            }
+        }
+
+        if(self.error) {
+            desc = [NSString stringWithFormat: @"<%@: %@ [%@] error:%@>", [self selfname], state, opsString, self.error];
+        } else {
+            desc = [NSString stringWithFormat: @"<%@: %@ [%@]%@>", [self selfname], state, opsString, [self pendingDependenciesString:@" dep:"]];
         }
     }
+    __descriptionRecursion--;
 
-    NSString* opsString = [ops componentsJoinedByString:@", "];
-
-    if(self.error) {
-        return [NSString stringWithFormat: @"<%@: %@ [%@] error:%@>", [self selfname], [self operationStateString], opsString, self.error];
-    } else {
-        return [NSString stringWithFormat: @"<%@: %@ [%@]%@>", [self selfname], [self operationStateString], opsString, [self pendingDependenciesString:@" dep:"]];
-    }
+    return desc;
 }
 
 - (NSString*)debugDescription {
@@ -275,7 +300,7 @@
 
     if([self isCancelled]) {
         // Cancelled operations can't add anything.
-        secnotice("ckksgroup", "Can't add operation dependency to cancelled group");
+        ckksnotice_global("ckksgroup", "Can't add operation dependency to cancelled group");
         return;
     }
 

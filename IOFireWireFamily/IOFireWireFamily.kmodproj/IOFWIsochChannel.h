@@ -88,7 +88,7 @@ protected:
     
     virtual IOReturn			updateBandwidth(bool claim);
     virtual void				reallocBandwidth( UInt32 generation );	
-    virtual void				free();
+    virtual void				free() APPLE_KEXT_OVERRIDE;
 
 public:
     // Called from IOFireWireController

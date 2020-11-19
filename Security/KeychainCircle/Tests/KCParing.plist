@@ -24,7 +24,14 @@
 			<false/>
 			<key>Command</key>
 			<array>
-				<string>BATS_XCTEST_CMD -NSTreatUnknownArgumentsAsOpen NO -ApplePersistenceIgnoreState YES -XCTest testSecPairBasicTest KCPairing.xctest</string>
+				<string>BATS_XCTEST_CMD</string>
+				<string>-NSTreatUnknownArgumentsAsOpen</string>
+				<string>NO</string>
+				<string>-ApplePersistenceIgnoreState</string>
+				<string>YES</string>
+				<string>-XCTest</string>
+				<string>testSecPairBasicTest</string>
+				<string>KCPairing.xctest</string>
 			</array>
 		</dict>
 	</array>

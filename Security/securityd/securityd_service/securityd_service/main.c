@@ -14,7 +14,7 @@
 #include <os/log.h>
 #include <stdio.h>
 #include <errno.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <unistd.h>
 #include <pwd.h>
 #include <uuid/uuid.h>
@@ -1356,9 +1356,7 @@ bool check_signature(xpc_connection_t connection)
 {
 #if !(DEBUG || RC_BUILDIT_YES)
     audit_token_t token;
-
     xpc_connection_get_audit_token(connection, &token);
-
     SecTaskRef task = SecTaskCreateWithAuditToken(NULL, token);
     if (task == NULL) {
         os_log(OS_LOG_DEFAULT, "failed getting SecTaskRef of the client");
@@ -1367,7 +1365,6 @@ bool check_signature(xpc_connection_t connection)
 
     uint32_t flags = SecTaskGetCodeSignStatus(task);
     /* check if valid and platform binary, but not platform path */
-
 
     if ((flags & (CS_VALID | CS_PLATFORM_BINARY | CS_PLATFORM_PATH)) != (CS_VALID | CS_PLATFORM_BINARY)) {
 		if (SecIsInternalRelease()) {
@@ -1383,18 +1380,19 @@ bool check_signature(xpc_connection_t connection)
 		}
     }
 
-    CFStringRef signingIdentity = SecTaskCopySigningIdentifier(task, NULL);
+    CFStringRef signingIdentifier = SecTaskCopySigningIdentifier(task, NULL);
     CFRelease(task);
-    if (signingIdentity == NULL) {
-        os_log(OS_LOG_DEFAULT, "client have no code sign identity");
+    if (signingIdentifier == NULL) {
+        os_log(OS_LOG_DEFAULT, "client has no code signing identifier");
         return false;
     }
 
-    bool res = CFEqual(signingIdentity, CFSTR("com.apple.securityd"));
-    CFRelease(signingIdentity);
+    bool res = CFEqual(signingIdentifier, CFSTR("com.apple.securityd"));
+    CFRelease(signingIdentifier);
 
-    if (!res)
-        os_log(OS_LOG_DEFAULT, "client is not not securityd");
+    if (!res) {
+        os_log(OS_LOG_DEFAULT, "client is not securityd");
+    }
 
     return res;
 #else

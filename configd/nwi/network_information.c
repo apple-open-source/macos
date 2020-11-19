@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -232,7 +232,7 @@ _nwi_state_copy_data()
 		size_t		dataLen	= 0;
 
 		dataRef = xpc_dictionary_get_data(reply, NWI_CONFIGURATION, &dataLen);
-		if (dataRef != NULL) {
+		if ((dataRef != NULL) && (dataLen >= sizeof(nwi_state))) {
 			nwi_state = malloc(dataLen);
 			memcpy(nwi_state, (void *)dataRef, dataLen);
 			if (nwi_state->version != NWI_STATE_VERSION) {
@@ -813,8 +813,14 @@ nwi_state_get_interface_names(nwi_state_t state,
 		return (state->if_list_count);
 	}
 	for (i = 0, scan = nwi_state_if_list(state);
-	     i < state->if_list_count; i++, scan++) {
-		names[i] = state->ifstate_list[*scan].ifname;
+	     i < state->if_list_count;
+	     i++, scan++) {
+		if (*scan < (state->max_if_count * 2)) {
+		    names[i] = state->ifstate_list[*scan].ifname;
+		} else {
+		    // nwi_state is corrupt
+		    return (0);
+		}
 	}
 	return (state->if_list_count);
 }

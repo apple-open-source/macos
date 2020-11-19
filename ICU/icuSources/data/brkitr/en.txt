@@ -1,14 +1,13 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 en{
-    Version{"2.1.19.14"}
+    Version{"36.1"}
     exceptions{
         SentenceBreak:array{
             "L.P.",
             "Alt.",
             "Approx.",
             "E.G.",
-            "E.g.",
             "e.g.",
             "O.",
             "Maj.",
@@ -151,6 +150,7 @@ en{
             "D.",
             "Adv.",
             "Lib.",
+            "E.g.",
             "Pro.",
             "U.S.A.",
             "S.E.",

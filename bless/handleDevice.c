@@ -41,6 +41,8 @@
 #include <sys/paths.h>
 #include <string.h>
 
+#include <APFS/APFS.h>
+
 #include "enums.h"
 #include "structs.h"
 
@@ -114,10 +116,10 @@ int modeDevice(BLContextPtr context, struct clarg actargs[klast]) {
         blesscontextprintf(context, kBLLogLevelError, "Couldn't find I/O Registry information for device %s\n", actargs[kdevice].argument);
         return 4;
     }
-    if (IOObjectConformsTo(devMediaObj, "AppleAPFSVolume")) {
+    if (IOObjectConformsTo(devMediaObj, APFS_VOLUME_OBJECT)) {
         // This is an APFS volume.  We need to mess with the preboot volume.
         ret = BlessPrebootVolume(context, actargs[kdevice].argument + strlen(_PATH_DEV), NULL, NULL, NULL,
-                                 actargs[knextonly].present == 0);
+                                 actargs);
     }
     IOObjectRelease(devMediaObj);
     if (ret) {

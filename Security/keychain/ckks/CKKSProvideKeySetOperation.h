@@ -23,7 +23,6 @@ NS_ASSUME_NONNULL_BEGIN
 //     But! -timeout: will work, and the operation will finish
 @interface CKKSProvideKeySetOperation : CKKSGroupOperation <CKKSKeySetProviderOperationProtocol>
 - (instancetype)initWithZoneName:(NSString*)zoneName;
-- (instancetype)initWithZoneName:(NSString*)zoneName keySet:(CKKSCurrentKeySet*)set;
 
 - (void)provideKeySet:(CKKSCurrentKeySet*)keyset;
 @end

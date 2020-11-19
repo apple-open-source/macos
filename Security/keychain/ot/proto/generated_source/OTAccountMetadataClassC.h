@@ -138,8 +138,9 @@ __attribute__((visibility("hidden")))
     OTAccountMetadataClassC_AccountState _icloudAccountState;
     NSString *_peerID;
     NSData *_syncingPolicy;
-    NSMutableArray<NSString *> *_syncingViews;
     OTAccountMetadataClassC_TrustState _trustState;
+    NSData *_voucher;
+    NSData *_voucherSignature;
     struct {
         int epoch:1;
         int lastHealthCheckup:1;
@@ -185,15 +186,20 @@ __attribute__((visibility("hidden")))
 - (OTAccountMetadataClassC_CDPState)StringAsCdpState:(NSString *)str;
 
 @property (nonatomic, readonly) BOOL hasSyncingPolicy;
-/** These store the current policy and view list, so that we don't need to re-ask TPH every time */
+/**
+ * Used during development
+ * reserved 9;
+ * reserved 10;
+ * This holds the current syncing policy for the local peer, including the view list.
+ */
 @property (nonatomic, retain) NSData *syncingPolicy;
 
-@property (nonatomic, retain) NSMutableArray<NSString *> *syncingViews;
-- (void)clearSyncingViews;
-- (void)addSyncingView:(NSString *)i;
-- (NSUInteger)syncingViewsCount;
-- (NSString *)syncingViewAtIndex:(NSUInteger)idx;
-+ (Class)syncingViewType;
+@property (nonatomic, readonly) BOOL hasVoucher;
+/** This might contain a voucher for use in joining Octagon. */
+@property (nonatomic, retain) NSData *voucher;
+
+@property (nonatomic, readonly) BOOL hasVoucherSignature;
+@property (nonatomic, retain) NSData *voucherSignature;
 
 // Performs a shallow copy into other
 - (void)copyTo:(OTAccountMetadataClassC *)other;

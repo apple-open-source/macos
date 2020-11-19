@@ -22,24 +22,15 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		301B84E208906F3000D77901 /* System.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 301B84E108906F3000D77901 /* System.framework */; };
-		4D0AF45606389034001DAB44 /* IOFireWireSBP2Login.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0284806BFFCB4D3D11CE233C /* IOFireWireSBP2Login.h */; };
-		4D0AF45706389034001DAB44 /* IOFireWireSBP2LUN.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0284806DFFCB4D3D11CE233C /* IOFireWireSBP2LUN.h */; };
-		4D0AF45806389034001DAB44 /* IOFireWireSBP2ManagementORB.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0284806FFFCB4D3D11CE233C /* IOFireWireSBP2ManagementORB.h */; };
-		4D0AF45906389034001DAB44 /* IOFireWireSBP2ORB.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 02848071FFCB4D3D11CE233C /* IOFireWireSBP2ORB.h */; };
-		4D0AF45A06389034001DAB44 /* IOFireWireSBP2Target.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 02848073FFCB4D3D11CE233C /* IOFireWireSBP2Target.h */; };
-		4D0AF45B06389034001DAB44 /* IOFireWireSBP2UserClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 02848075FFCB4D3D11CE233C /* IOFireWireSBP2UserClient.h */; };
-		4D0AF45C06389034001DAB44 /* IOFireWireSBP2LSIWorkaroundDescriptor.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 043801560002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.h */; };
-		4D0AF45D06389034001DAB44 /* IOFireWireSBP2UserClientCommon.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 02848082FFCB4DC711CE233C /* IOFireWireSBP2UserClientCommon.h */; };
 		4D0AF45F06389034001DAB44 /* FWDebugging.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848066FFCB4CC111CE233C /* FWDebugging.h */; };
-		4D0AF46006389034001DAB44 /* IOFireWireSBP2Login.h in Headers */ = {isa = PBXBuildFile; fileRef = 0284806BFFCB4D3D11CE233C /* IOFireWireSBP2Login.h */; settings = {ATTRIBUTES = (); }; };
-		4D0AF46106389034001DAB44 /* IOFireWireSBP2LUN.h in Headers */ = {isa = PBXBuildFile; fileRef = 0284806DFFCB4D3D11CE233C /* IOFireWireSBP2LUN.h */; settings = {ATTRIBUTES = (); }; };
-		4D0AF46206389034001DAB44 /* IOFireWireSBP2ManagementORB.h in Headers */ = {isa = PBXBuildFile; fileRef = 0284806FFFCB4D3D11CE233C /* IOFireWireSBP2ManagementORB.h */; settings = {ATTRIBUTES = (); }; };
-		4D0AF46306389034001DAB44 /* IOFireWireSBP2ORB.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848071FFCB4D3D11CE233C /* IOFireWireSBP2ORB.h */; settings = {ATTRIBUTES = (); }; };
-		4D0AF46406389034001DAB44 /* IOFireWireSBP2Target.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848073FFCB4D3D11CE233C /* IOFireWireSBP2Target.h */; settings = {ATTRIBUTES = (); }; };
-		4D0AF46506389034001DAB44 /* IOFireWireSBP2UserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848075FFCB4D3D11CE233C /* IOFireWireSBP2UserClient.h */; };
-		4D0AF46606389034001DAB44 /* IOFireWireSBP2UserClientCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848082FFCB4DC711CE233C /* IOFireWireSBP2UserClientCommon.h */; };
-		4D0AF46706389034001DAB44 /* IOFireWireSBP2LSIWorkaroundDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 043801560002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.h */; };
+		4D0AF46006389034001DAB44 /* IOFireWireSBP2Login.h in Headers */ = {isa = PBXBuildFile; fileRef = 0284806BFFCB4D3D11CE233C /* IOFireWireSBP2Login.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D0AF46106389034001DAB44 /* IOFireWireSBP2LUN.h in Headers */ = {isa = PBXBuildFile; fileRef = 0284806DFFCB4D3D11CE233C /* IOFireWireSBP2LUN.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D0AF46206389034001DAB44 /* IOFireWireSBP2ManagementORB.h in Headers */ = {isa = PBXBuildFile; fileRef = 0284806FFFCB4D3D11CE233C /* IOFireWireSBP2ManagementORB.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D0AF46306389034001DAB44 /* IOFireWireSBP2ORB.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848071FFCB4D3D11CE233C /* IOFireWireSBP2ORB.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D0AF46406389034001DAB44 /* IOFireWireSBP2Target.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848073FFCB4D3D11CE233C /* IOFireWireSBP2Target.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D0AF46506389034001DAB44 /* IOFireWireSBP2UserClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848075FFCB4D3D11CE233C /* IOFireWireSBP2UserClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D0AF46606389034001DAB44 /* IOFireWireSBP2UserClientCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848082FFCB4DC711CE233C /* IOFireWireSBP2UserClientCommon.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		4D0AF46706389034001DAB44 /* IOFireWireSBP2LSIWorkaroundDescriptor.h in Headers */ = {isa = PBXBuildFile; fileRef = 043801560002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4D0AF46806389034001DAB44 /* IOFireWireSBP2Diagnostics.h in Headers */ = {isa = PBXBuildFile; fileRef = 015B61D900A36AE011CE233E /* IOFireWireSBP2Diagnostics.h */; };
 		4D0AF46906389034001DAB44 /* IOFWSBP2PseudoAddressSpace.h in Headers */ = {isa = PBXBuildFile; fileRef = F5D1B4A603F8C1BB01126B9C /* IOFWSBP2PseudoAddressSpace.h */; };
 		4D0AF46C06389034001DAB44 /* IOFireWireSBP2Login.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0284806AFFCB4D3D11CE233C /* IOFireWireSBP2Login.cpp */; settings = {ATTRIBUTES = (); }; };
@@ -53,18 +44,17 @@
 		4D0AF47406389034001DAB44 /* IOFWSBP2PseudoAddressSpace.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5D1B4A703F8C1BB01126B9C /* IOFWSBP2PseudoAddressSpace.cpp */; };
 		4D0AF47D06389034001DAB44 /* FWDebugging.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848066FFCB4CC111CE233C /* FWDebugging.h */; settings = {ATTRIBUTES = (); }; };
 		4D0AF47E06389034001DAB44 /* IOFireWireSBP2UserClientCommon.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848082FFCB4DC711CE233C /* IOFireWireSBP2UserClientCommon.h */; settings = {ATTRIBUTES = (); }; };
-		4D0AF47F06389034001DAB44 /* IOFireWireSBP2Lib.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848083FFCB4DC711CE233C /* IOFireWireSBP2Lib.h */; settings = {ATTRIBUTES = (); }; };
+		4D0AF47F06389034001DAB44 /* IOFireWireSBP2Lib.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848083FFCB4DC711CE233C /* IOFireWireSBP2Lib.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4D0AF48006389034001DAB44 /* IOFireWireSBP2LibLogin.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848085FFCB4DC711CE233C /* IOFireWireSBP2LibLogin.h */; settings = {ATTRIBUTES = (); }; };
 		4D0AF48106389034001DAB44 /* IOFireWireSBP2LibLUN.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848087FFCB4DC711CE233C /* IOFireWireSBP2LibLUN.h */; settings = {ATTRIBUTES = (); }; };
 		4D0AF48206389034001DAB44 /* IOFireWireSBP2LibMgmtORB.h in Headers */ = {isa = PBXBuildFile; fileRef = 02848089FFCB4DC711CE233C /* IOFireWireSBP2LibMgmtORB.h */; settings = {ATTRIBUTES = (); }; };
 		4D0AF48306389034001DAB44 /* IOFireWireSBP2LibORB.h in Headers */ = {isa = PBXBuildFile; fileRef = 0284808BFFCB4DC711CE233C /* IOFireWireSBP2LibORB.h */; settings = {ATTRIBUTES = (); }; };
-		4D0AF48506389034001DAB44 /* IOFireWireSBP2Lib.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 02848083FFCB4DC711CE233C /* IOFireWireSBP2Lib.h */; };
 		4D0AF48806389034001DAB44 /* IOFireWireSBP2LibLogin.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02848084FFCB4DC711CE233C /* IOFireWireSBP2LibLogin.cpp */; settings = {ATTRIBUTES = (); }; };
 		4D0AF48906389034001DAB44 /* IOFireWireSBP2LibLUN.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02848086FFCB4DC711CE233C /* IOFireWireSBP2LibLUN.cpp */; settings = {ATTRIBUTES = (); }; };
 		4D0AF48A06389034001DAB44 /* IOFireWireSBP2LibMgmtORB.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 02848088FFCB4DC711CE233C /* IOFireWireSBP2LibMgmtORB.cpp */; settings = {ATTRIBUTES = (); }; };
 		4D0AF48B06389034001DAB44 /* IOFireWireSBP2LibORB.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0284808AFFCB4DC711CE233C /* IOFireWireSBP2LibORB.cpp */; settings = {ATTRIBUTES = (); }; };
-		4D0AF48D06389034001DAB44 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 00F0F48EFFCA2ACA11CE233C /* IOKit.framework */; };
-		4D0AF48E06389034001DAB44 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F5278E6000D571A901CE2124 /* CoreFoundation.framework */; };
+		83AE372B23A1EA3C003BBEE6 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83AE372A23A1EA3C003BBEE6 /* IOKit.framework */; };
+		83AE372D23A1EA46003BBEE6 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 83AE372C23A1EA46003BBEE6 /* CoreFoundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,75 +74,42 @@
 		};
 /* End PBXContainerItemProxy section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		4D0AF45506389034001DAB44 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/sbp2";
-			dstSubfolderSpec = 0;
-			files = (
-				4D0AF45606389034001DAB44 /* IOFireWireSBP2Login.h in CopyFiles */,
-				4D0AF45706389034001DAB44 /* IOFireWireSBP2LUN.h in CopyFiles */,
-				4D0AF45806389034001DAB44 /* IOFireWireSBP2ManagementORB.h in CopyFiles */,
-				4D0AF45906389034001DAB44 /* IOFireWireSBP2ORB.h in CopyFiles */,
-				4D0AF45A06389034001DAB44 /* IOFireWireSBP2Target.h in CopyFiles */,
-				4D0AF45B06389034001DAB44 /* IOFireWireSBP2UserClient.h in CopyFiles */,
-				4D0AF45C06389034001DAB44 /* IOFireWireSBP2LSIWorkaroundDescriptor.h in CopyFiles */,
-				4D0AF45D06389034001DAB44 /* IOFireWireSBP2UserClientCommon.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		4D0AF48406389034001DAB44 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/sbp2/";
-			dstSubfolderSpec = 0;
-			files = (
-				4D0AF48506389034001DAB44 /* IOFireWireSBP2Lib.h in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXFileReference section */
-		00F0F48EFFCA2ACA11CE233C /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
-		015B61D900A36AE011CE233E /* IOFireWireSBP2Diagnostics.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2Diagnostics.h; sourceTree = "<group>"; };
-		015B61DA00A36AE011CE233E /* IOFireWireSBP2Diagnostics.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2Diagnostics.cpp; sourceTree = "<group>"; };
-		02848066FFCB4CC111CE233C /* FWDebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FWDebugging.h; sourceTree = "<group>"; };
-		0284806AFFCB4D3D11CE233C /* IOFireWireSBP2Login.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2Login.cpp; sourceTree = "<group>"; };
-		0284806BFFCB4D3D11CE233C /* IOFireWireSBP2Login.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2Login.h; sourceTree = "<group>"; };
-		0284806CFFCB4D3D11CE233C /* IOFireWireSBP2LUN.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2LUN.cpp; sourceTree = "<group>"; };
-		0284806DFFCB4D3D11CE233C /* IOFireWireSBP2LUN.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2LUN.h; sourceTree = "<group>"; };
-		0284806EFFCB4D3D11CE233C /* IOFireWireSBP2ManagementORB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2ManagementORB.cpp; sourceTree = "<group>"; };
-		0284806FFFCB4D3D11CE233C /* IOFireWireSBP2ManagementORB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2ManagementORB.h; sourceTree = "<group>"; };
-		02848070FFCB4D3D11CE233C /* IOFireWireSBP2ORB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2ORB.cpp; sourceTree = "<group>"; };
-		02848071FFCB4D3D11CE233C /* IOFireWireSBP2ORB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2ORB.h; sourceTree = "<group>"; };
-		02848072FFCB4D3D11CE233C /* IOFireWireSBP2Target.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2Target.cpp; sourceTree = "<group>"; };
-		02848073FFCB4D3D11CE233C /* IOFireWireSBP2Target.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2Target.h; sourceTree = "<group>"; };
-		02848074FFCB4D3D11CE233C /* IOFireWireSBP2UserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2UserClient.cpp; sourceTree = "<group>"; };
-		02848075FFCB4D3D11CE233C /* IOFireWireSBP2UserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2UserClient.h; sourceTree = "<group>"; };
-		02848082FFCB4DC711CE233C /* IOFireWireSBP2UserClientCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2UserClientCommon.h; path = Common/IOFireWireSBP2UserClientCommon.h; sourceTree = SOURCE_ROOT; };
-		02848083FFCB4DC711CE233C /* IOFireWireSBP2Lib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2Lib.h; path = IOFireWireSBP2Lib/IOFireWireSBP2Lib.h; sourceTree = SOURCE_ROOT; };
-		02848084FFCB4DC711CE233C /* IOFireWireSBP2LibLogin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2LibLogin.cpp; sourceTree = "<group>"; };
-		02848085FFCB4DC711CE233C /* IOFireWireSBP2LibLogin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2LibLogin.h; sourceTree = "<group>"; };
-		02848086FFCB4DC711CE233C /* IOFireWireSBP2LibLUN.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2LibLUN.cpp; sourceTree = "<group>"; };
-		02848087FFCB4DC711CE233C /* IOFireWireSBP2LibLUN.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2LibLUN.h; sourceTree = "<group>"; };
-		02848088FFCB4DC711CE233C /* IOFireWireSBP2LibMgmtORB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2LibMgmtORB.cpp; sourceTree = "<group>"; };
-		02848089FFCB4DC711CE233C /* IOFireWireSBP2LibMgmtORB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2LibMgmtORB.h; sourceTree = "<group>"; };
-		0284808AFFCB4DC711CE233C /* IOFireWireSBP2LibORB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2LibORB.cpp; sourceTree = "<group>"; };
-		0284808BFFCB4DC711CE233C /* IOFireWireSBP2LibORB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2LibORB.h; sourceTree = "<group>"; };
-		043801560002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFireWireSBP2LSIWorkaroundDescriptor.h; sourceTree = "<group>"; };
-		043801570002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFireWireSBP2LSIWorkaroundDescriptor.cpp; sourceTree = "<group>"; };
-		301B84E108906F3000D77901 /* System.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = System.framework; path = /System/Library/Frameworks/System.framework; sourceTree = "<absolute>"; };
-		3085C9720F96BC7600113B7C /* Info-IOFireWireSBP2-FireLog.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireSBP2-FireLog.plist"; sourceTree = "<group>"; };
-		4D0AF47906389034001DAB44 /* Info-IOFireWireSBP2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireSBP2.plist"; sourceTree = "<group>"; };
+		015B61D900A36AE011CE233E /* IOFireWireSBP2Diagnostics.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2Diagnostics.h; path = Source/IOFireWireSBP2/IOFireWireSBP2Diagnostics.h; sourceTree = "<group>"; };
+		015B61DA00A36AE011CE233E /* IOFireWireSBP2Diagnostics.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2Diagnostics.cpp; path = Source/IOFireWireSBP2/IOFireWireSBP2Diagnostics.cpp; sourceTree = "<group>"; };
+		02848066FFCB4CC111CE233C /* FWDebugging.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = FWDebugging.h; path = Source/Common/FWDebugging.h; sourceTree = "<group>"; };
+		0284806AFFCB4D3D11CE233C /* IOFireWireSBP2Login.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2Login.cpp; path = Source/IOFireWireSBP2/IOFireWireSBP2Login.cpp; sourceTree = "<group>"; };
+		0284806BFFCB4D3D11CE233C /* IOFireWireSBP2Login.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2Login.h; path = Source/IOFireWireSBP2/IOFireWireSBP2Login.h; sourceTree = "<group>"; };
+		0284806CFFCB4D3D11CE233C /* IOFireWireSBP2LUN.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2LUN.cpp; path = Source/IOFireWireSBP2/IOFireWireSBP2LUN.cpp; sourceTree = "<group>"; };
+		0284806DFFCB4D3D11CE233C /* IOFireWireSBP2LUN.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2LUN.h; path = Source/IOFireWireSBP2/IOFireWireSBP2LUN.h; sourceTree = "<group>"; };
+		0284806EFFCB4D3D11CE233C /* IOFireWireSBP2ManagementORB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2ManagementORB.cpp; path = Source/IOFireWireSBP2/IOFireWireSBP2ManagementORB.cpp; sourceTree = "<group>"; };
+		0284806FFFCB4D3D11CE233C /* IOFireWireSBP2ManagementORB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2ManagementORB.h; path = Source/IOFireWireSBP2/IOFireWireSBP2ManagementORB.h; sourceTree = "<group>"; };
+		02848070FFCB4D3D11CE233C /* IOFireWireSBP2ORB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2ORB.cpp; path = Source/IOFireWireSBP2/IOFireWireSBP2ORB.cpp; sourceTree = "<group>"; };
+		02848071FFCB4D3D11CE233C /* IOFireWireSBP2ORB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2ORB.h; path = Source/IOFireWireSBP2/IOFireWireSBP2ORB.h; sourceTree = "<group>"; };
+		02848072FFCB4D3D11CE233C /* IOFireWireSBP2Target.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2Target.cpp; path = Source/IOFireWireSBP2/IOFireWireSBP2Target.cpp; sourceTree = "<group>"; };
+		02848073FFCB4D3D11CE233C /* IOFireWireSBP2Target.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2Target.h; path = Source/IOFireWireSBP2/IOFireWireSBP2Target.h; sourceTree = "<group>"; };
+		02848074FFCB4D3D11CE233C /* IOFireWireSBP2UserClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2UserClient.cpp; path = Source/IOFireWireSBP2/IOFireWireSBP2UserClient.cpp; sourceTree = "<group>"; };
+		02848075FFCB4D3D11CE233C /* IOFireWireSBP2UserClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2UserClient.h; path = Source/IOFireWireSBP2/IOFireWireSBP2UserClient.h; sourceTree = "<group>"; };
+		02848082FFCB4DC711CE233C /* IOFireWireSBP2UserClientCommon.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2UserClientCommon.h; path = Source/Common/IOFireWireSBP2UserClientCommon.h; sourceTree = "<group>"; };
+		02848083FFCB4DC711CE233C /* IOFireWireSBP2Lib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2Lib.h; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2Lib.h; sourceTree = "<group>"; };
+		02848084FFCB4DC711CE233C /* IOFireWireSBP2LibLogin.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2LibLogin.cpp; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2LibLogin.cpp; sourceTree = "<group>"; };
+		02848085FFCB4DC711CE233C /* IOFireWireSBP2LibLogin.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2LibLogin.h; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2LibLogin.h; sourceTree = "<group>"; };
+		02848086FFCB4DC711CE233C /* IOFireWireSBP2LibLUN.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2LibLUN.cpp; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2LibLUN.cpp; sourceTree = "<group>"; };
+		02848087FFCB4DC711CE233C /* IOFireWireSBP2LibLUN.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2LibLUN.h; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2LibLUN.h; sourceTree = "<group>"; };
+		02848088FFCB4DC711CE233C /* IOFireWireSBP2LibMgmtORB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2LibMgmtORB.cpp; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2LibMgmtORB.cpp; sourceTree = "<group>"; };
+		02848089FFCB4DC711CE233C /* IOFireWireSBP2LibMgmtORB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2LibMgmtORB.h; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2LibMgmtORB.h; sourceTree = "<group>"; };
+		0284808AFFCB4DC711CE233C /* IOFireWireSBP2LibORB.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2LibORB.cpp; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2LibORB.cpp; sourceTree = "<group>"; };
+		0284808BFFCB4DC711CE233C /* IOFireWireSBP2LibORB.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2LibORB.h; path = Source/IOFireWireSBP2Lib/IOFireWireSBP2LibORB.h; sourceTree = "<group>"; };
+		043801560002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFireWireSBP2LSIWorkaroundDescriptor.h; path = Source/IOFireWireSBP2/IOFireWireSBP2LSIWorkaroundDescriptor.h; sourceTree = "<group>"; };
+		043801570002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFireWireSBP2LSIWorkaroundDescriptor.cpp; path = Source/IOFireWireSBP2/IOFireWireSBP2LSIWorkaroundDescriptor.cpp; sourceTree = "<group>"; };
+		4D0AF47906389034001DAB44 /* Info-IOFireWireSBP2.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-IOFireWireSBP2.plist"; path = "Resources/Info-IOFireWireSBP2.plist"; sourceTree = "<group>"; };
 		4D0AF47A06389034001DAB44 /* IOFireWireSBP2.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireSBP2.kext; sourceTree = BUILT_PRODUCTS_DIR; };
-		4D0AF49106389035001DAB44 /* Info-IOFireWireSBP2Lib.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-IOFireWireSBP2Lib.plist"; sourceTree = "<group>"; };
+		4D0AF49106389035001DAB44 /* Info-IOFireWireSBP2Lib.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "Info-IOFireWireSBP2Lib.plist"; path = "Resources/Info-IOFireWireSBP2Lib.plist"; sourceTree = "<group>"; };
 		4D0AF49206389035001DAB44 /* IOFireWireSBP2Lib.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOFireWireSBP2Lib.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
-		F5278E6000D571A901CE2124 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		F5278E6100D571A901CE2124 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
-		F5D1B4A603F8C1BB01126B9C /* IOFWSBP2PseudoAddressSpace.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOFWSBP2PseudoAddressSpace.h; sourceTree = "<group>"; };
-		F5D1B4A703F8C1BB01126B9C /* IOFWSBP2PseudoAddressSpace.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOFWSBP2PseudoAddressSpace.cpp; sourceTree = "<group>"; };
+		83AE372A23A1EA3C003BBEE6 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		83AE372C23A1EA46003BBEE6 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		F5D1B4A603F8C1BB01126B9C /* IOFWSBP2PseudoAddressSpace.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = IOFWSBP2PseudoAddressSpace.h; path = Source/IOFireWireSBP2/IOFWSBP2PseudoAddressSpace.h; sourceTree = "<group>"; };
+		F5D1B4A703F8C1BB01126B9C /* IOFWSBP2PseudoAddressSpace.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = IOFWSBP2PseudoAddressSpace.cpp; path = Source/IOFireWireSBP2/IOFWSBP2PseudoAddressSpace.cpp; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -167,9 +124,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4D0AF48D06389034001DAB44 /* IOKit.framework in Frameworks */,
-				4D0AF48E06389034001DAB44 /* CoreFoundation.framework in Frameworks */,
-				301B84E208906F3000D77901 /* System.framework in Frameworks */,
+				83AE372B23A1EA3C003BBEE6 /* IOKit.framework in Frameworks */,
+				83AE372D23A1EA46003BBEE6 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -179,13 +135,10 @@
 		00F0F432FFCA255711CE233C /* IOFireWireSBP2 */ = {
 			isa = PBXGroup;
 			children = (
-				02848069FFCB4D3D11CE233C /* Common */,
-				00F0F477FFCA2A5011CE233C /* IOFireWireSBP2Lib.plugin */,
-				00F0F439FFCA255711CE233C /* IOFireWireSBP2 */,
+				8383671623A1D80200349126 /* Source */,
+				8383671523A1D7D400349126 /* Resources */,
+				83AE372923A1EA3C003BBEE6 /* Frameworks */,
 				00F0F450FFCA255711CE233C /* Products */,
-				4D0AF47906389034001DAB44 /* Info-IOFireWireSBP2.plist */,
-				3085C9720F96BC7600113B7C /* Info-IOFireWireSBP2-FireLog.plist */,
-				4D0AF49106389035001DAB44 /* Info-IOFireWireSBP2Lib.plist */,
 			);
 			name = IOFireWireSBP2;
 			sourceTree = "<group>";
@@ -211,10 +164,8 @@
 				043801570002B0C411CE2282 /* IOFireWireSBP2LSIWorkaroundDescriptor.cpp */,
 				F5D1B4A603F8C1BB01126B9C /* IOFWSBP2PseudoAddressSpace.h */,
 				F5D1B4A703F8C1BB01126B9C /* IOFWSBP2PseudoAddressSpace.cpp */,
-				301B84E108906F3000D77901 /* System.framework */,
-				F5278E6100D571A901CE2124 /* Kernel.framework */,
 			);
-			path = IOFireWireSBP2;
+			name = IOFireWireSBP2;
 			sourceTree = "<group>";
 		};
 		00F0F450FFCA255711CE233C /* Products */ = {
@@ -238,11 +189,8 @@
 				02848088FFCB4DC711CE233C /* IOFireWireSBP2LibMgmtORB.cpp */,
 				0284808BFFCB4DC711CE233C /* IOFireWireSBP2LibORB.h */,
 				0284808AFFCB4DC711CE233C /* IOFireWireSBP2LibORB.cpp */,
-				00F0F48EFFCA2ACA11CE233C /* IOKit.framework */,
-				F5278E6000D571A901CE2124 /* CoreFoundation.framework */,
 			);
 			name = IOFireWireSBP2Lib.plugin;
-			path = IOFireWireSBP2Lib;
 			sourceTree = "<group>";
 		};
 		02848069FFCB4D3D11CE233C /* Common */ = {
@@ -251,7 +199,35 @@
 				02848066FFCB4CC111CE233C /* FWDebugging.h */,
 				02848082FFCB4DC711CE233C /* IOFireWireSBP2UserClientCommon.h */,
 			);
-			path = Common;
+			name = Common;
+			sourceTree = "<group>";
+		};
+		8383671523A1D7D400349126 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				4D0AF47906389034001DAB44 /* Info-IOFireWireSBP2.plist */,
+				4D0AF49106389035001DAB44 /* Info-IOFireWireSBP2Lib.plist */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		8383671623A1D80200349126 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				02848069FFCB4D3D11CE233C /* Common */,
+				00F0F439FFCA255711CE233C /* IOFireWireSBP2 */,
+				00F0F477FFCA2A5011CE233C /* IOFireWireSBP2Lib.plugin */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		83AE372923A1EA3C003BBEE6 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				83AE372A23A1EA3C003BBEE6 /* IOKit.framework */,
+				83AE372C23A1EA46003BBEE6 /* CoreFoundation.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -261,7 +237,6 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				4D0AF45F06389034001DAB44 /* FWDebugging.h in Headers */,
 				4D0AF46006389034001DAB44 /* IOFireWireSBP2Login.h in Headers */,
 				4D0AF46106389034001DAB44 /* IOFireWireSBP2LUN.h in Headers */,
 				4D0AF46206389034001DAB44 /* IOFireWireSBP2ManagementORB.h in Headers */,
@@ -270,6 +245,7 @@
 				4D0AF46506389034001DAB44 /* IOFireWireSBP2UserClient.h in Headers */,
 				4D0AF46606389034001DAB44 /* IOFireWireSBP2UserClientCommon.h in Headers */,
 				4D0AF46706389034001DAB44 /* IOFireWireSBP2LSIWorkaroundDescriptor.h in Headers */,
+				4D0AF45F06389034001DAB44 /* FWDebugging.h in Headers */,
 				4D0AF46806389034001DAB44 /* IOFireWireSBP2Diagnostics.h in Headers */,
 				4D0AF46906389034001DAB44 /* IOFWSBP2PseudoAddressSpace.h in Headers */,
 			);
@@ -279,9 +255,9 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4D0AF47F06389034001DAB44 /* IOFireWireSBP2Lib.h in Headers */,
 				4D0AF47D06389034001DAB44 /* FWDebugging.h in Headers */,
 				4D0AF47E06389034001DAB44 /* IOFireWireSBP2UserClientCommon.h in Headers */,
-				4D0AF47F06389034001DAB44 /* IOFireWireSBP2Lib.h in Headers */,
 				4D0AF48006389034001DAB44 /* IOFireWireSBP2LibLogin.h in Headers */,
 				4D0AF48106389034001DAB44 /* IOFireWireSBP2LibLUN.h in Headers */,
 				4D0AF48206389034001DAB44 /* IOFireWireSBP2LibMgmtORB.h in Headers */,
@@ -297,12 +273,9 @@
 			buildConfigurationList = 30E4465C08394D3A00BE2CD4 /* Build configuration list for PBXNativeTarget "IOFireWireSBP2" */;
 			buildPhases = (
 				4D0AF45406389034001DAB44 /* ShellScript */,
-				4D0AF45506389034001DAB44 /* CopyFiles */,
 				4D0AF45E06389034001DAB44 /* Headers */,
-				4D0AF46A06389034001DAB44 /* Resources */,
 				4D0AF46B06389034001DAB44 /* Sources */,
 				4D0AF47506389034001DAB44 /* Frameworks */,
-				4D0AF47606389034001DAB44 /* Rez */,
 				4D0AF47706389034001DAB44 /* ShellScript */,
 			);
 			buildRules = (
@@ -320,11 +293,8 @@
 			buildConfigurationList = 30E4465708394D3A00BE2CD4 /* Build configuration list for PBXNativeTarget "IOFireWireSBP2Lib" */;
 			buildPhases = (
 				4D0AF47C06389034001DAB44 /* Headers */,
-				4D0AF48406389034001DAB44 /* CopyFiles */,
-				4D0AF48606389034001DAB44 /* Resources */,
 				4D0AF48706389034001DAB44 /* Sources */,
 				4D0AF48C06389034001DAB44 /* Frameworks */,
-				4D0AF48F06389034001DAB44 /* Rez */,
 			);
 			buildRules = (
 			);
@@ -342,14 +312,15 @@
 		00F0F431FFCA255711CE233C /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastUpgradeCheck = 1200;
 			};
 			buildConfigurationList = 30E4466608394D3A00BE2CD4 /* Build configuration list for PBXProject "IOFireWireSBP2" */;
 			compatibilityVersion = "Xcode 2.4";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
 			knownRegions = (
-				English,
 				en,
+				Base,
 			);
 			mainGroup = 00F0F432FFCA255711CE233C /* IOFireWireSBP2 */;
 			productRefGroup = 00F0F450FFCA255711CE233C /* Products */;
@@ -363,40 +334,6 @@
 		};
 /* End PBXProject section */
 
-/* Begin PBXResourcesBuildPhase section */
-		4D0AF46A06389034001DAB44 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4D0AF48606389034001DAB44 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXResourcesBuildPhase section */
-
-/* Begin PBXRezBuildPhase section */
-		4D0AF47606389034001DAB44 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		4D0AF48F06389034001DAB44 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXRezBuildPhase section */
-
 /* Begin PBXShellScriptBuildPhase section */
 		4D0AF45406389034001DAB44 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -405,7 +342,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		4D0AF47706389034001DAB44 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -465,24 +402,22 @@
 		30E4465808394D3A00BE2CD4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD)";
 				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2Lib.plist";
+				INFOPLIST_FILE = "Resources/Info-IOFireWireSBP2Lib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-undefined",
 					error,
 				);
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOFireWireSBP2Lib;
 				PRODUCT_NAME = IOFireWireSBP2Lib;
-				SECTORDER_FLAGS = "";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/sbp2/";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -499,21 +434,20 @@
 		30E4465908394D3A00BE2CD4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD)";
 				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2Lib.plist";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				INFOPLIST_FILE = "Resources/Info-IOFireWireSBP2Lib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-undefined",
 					error,
 				);
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOFireWireSBP2Lib;
 				PRODUCT_NAME = IOFireWireSBP2Lib;
-				SECTORDER_FLAGS = "";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/sbp2/";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -527,53 +461,23 @@
 			};
 			name = Deployment;
 		};
-		30E4465A08394D3A00BE2CD4 /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD)";
-				BUILD_STYLE = FireLog;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2Lib.plist";
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = (
-					"-bundle",
-					"-undefined",
-					error,
-				);
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOFireWireSBP2Lib;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused-parameter",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
-				WRAPPER_EXTENSION = plugin;
-			};
-			name = FireLog;
-		};
 		30E4465B08394D3A00BE2CD4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD)";
 				BUILD_STYLE = Default;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2Lib.plist";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				INFOPLIST_FILE = "Resources/Info-IOFireWireSBP2Lib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /System/Library/Extensions/IOFireWireSBP2.kext/Contents/PlugIns/;
-				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-undefined",
 					error,
 				);
 				OTHER_REZFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.IOFireWireSBP2Lib;
 				PRODUCT_NAME = IOFireWireSBP2Lib;
-				SECTORDER_FLAGS = "";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/sbp2/";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
@@ -589,131 +493,85 @@
 		30E4465D08394D3A00BE2CD4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				BUILD_STYLE = Development;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
+				INFOPLIST_FILE = "Resources/Info-IOFireWireSBP2.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /System/Library/Extensions;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.3.4;
+				MODULE_VERSION = 4.4.2;
 				OTHER_CFLAGS = "-Wno-format";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOFireWireSBP2;
 				PRODUCT_NAME = IOFireWireSBP2;
-				SDKROOT = macosx.internal;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/sbp2";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
 					"-Wno-unused-parameter",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-unused-function",
 				);
-				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
 				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
 			};
 			name = Development;
 		};
 		30E4465E08394D3A00BE2CD4 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				INFOPLIST_FILE = "Resources/Info-IOFireWireSBP2.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /System/Library/Extensions;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.3.4;
+				MODULE_VERSION = 4.4.2;
 				OTHER_CFLAGS = "-Wno-format";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOFireWireSBP2;
 				PRODUCT_NAME = IOFireWireSBP2;
-				SDKROOT = macosx.internal;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/sbp2";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
 					"-Wno-unused-parameter",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-unused-function",
 				);
-				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
 				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = NO;
 			};
 			name = Deployment;
-		};
-		30E4465F08394D3A00BE2CD4 /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
-				BUILD_STYLE = FireLog;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2-FireLog.plist";
-				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /System/Library/Extensions;
-				KERNEL_MODULE = YES;
-				MODULE_IOKIT = YES;
-				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.3.4;
-				OTHER_CFLAGS = "-Wno-format";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = IOFireWireSBP2;
-				SDKROOT = macosx.internal;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
-				WARNING_CFLAGS = (
-					"-W",
-					"-Wall",
-					"-Wno-unused-parameter",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
-				WRAPPER_EXTENSION = kext;
-			};
-			name = FireLog;
 		};
 		30E4466008394D3A00BE2CD4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				BUILD_STYLE = Default;
-				INFOPLIST_FILE = "Info-IOFireWireSBP2.plist";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				INFOPLIST_FILE = "Resources/Info-IOFireWireSBP2.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
-				INSTALL_PATH = /System/Library/Extensions;
 				KERNEL_MODULE = YES;
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireSBP2;
-				MODULE_VERSION = 4.3.4;
+				MODULE_VERSION = 4.4.2;
 				OTHER_CFLAGS = "-Wno-format";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
+				PRIVATE_HEADERS_FOLDER_PATH = "";
+				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOFireWireSBP2;
 				PRODUCT_NAME = IOFireWireSBP2;
-				SDKROOT = macosx.internal;
-				SECTORDER_FLAGS = "";
-				VALID_ARCHS = "ppc7400 ppc970 i386 ppc x86_64";
+				PUBLIC_HEADERS_FOLDER_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/sbp2";
 				WARNING_CFLAGS = (
 					"-W",
 					"-Wall",
 					"-Wno-unused-parameter",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wno-unused-function",
 				);
-				WARNING_CPLUSPLUSFLAGS = "-W -Wall -Wno-unused-parameter -Wno-four-char-constants -Wno-unknown-pragmas -Wno-pmf-conversions";
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Default;
@@ -722,8 +580,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Development;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -744,7 +602,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Deployment;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -759,28 +617,11 @@
 			};
 			name = Deployment;
 		};
-		30E4466408394D3A00BE2CD4 /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = all;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = FireLog;
-		};
 		30E4466508394D3A00BE2CD4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Default;
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -799,6 +640,32 @@
 			buildSettings = {
 				BUILD_STYLE = Development;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Development;
@@ -808,24 +675,67 @@
 			buildSettings = {
 				BUILD_STYLE = Deployment;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
-		};
-		30E4466908394D3A00BE2CD4 /* FireLog */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUILD_STYLE = FireLog;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
-				SDKROOT = macosx.internal;
-			};
-			name = FireLog;
 		};
 		30E4466A08394D3A00BE2CD4 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_STYLE = Default;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++17";
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				SDKROOT = macosx.internal;
 			};
 			name = Default;
@@ -838,7 +748,6 @@
 			buildConfigurations = (
 				30E4465808394D3A00BE2CD4 /* Development */,
 				30E4465908394D3A00BE2CD4 /* Deployment */,
-				30E4465A08394D3A00BE2CD4 /* FireLog */,
 				30E4465B08394D3A00BE2CD4 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -849,7 +758,6 @@
 			buildConfigurations = (
 				30E4465D08394D3A00BE2CD4 /* Development */,
 				30E4465E08394D3A00BE2CD4 /* Deployment */,
-				30E4465F08394D3A00BE2CD4 /* FireLog */,
 				30E4466008394D3A00BE2CD4 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -860,7 +768,6 @@
 			buildConfigurations = (
 				30E4466208394D3A00BE2CD4 /* Development */,
 				30E4466308394D3A00BE2CD4 /* Deployment */,
-				30E4466408394D3A00BE2CD4 /* FireLog */,
 				30E4466508394D3A00BE2CD4 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -871,7 +778,6 @@
 			buildConfigurations = (
 				30E4466708394D3A00BE2CD4 /* Development */,
 				30E4466808394D3A00BE2CD4 /* Deployment */,
-				30E4466908394D3A00BE2CD4 /* FireLog */,
 				30E4466A08394D3A00BE2CD4 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003-2019 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003-2020 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -21,15 +21,13 @@
 #include "config.h"
 #include "ErrorPrototype.h"
 
-#include "Error.h"
-#include "JSFunction.h"
-#include "JSStringInlines.h"
-#include "ObjectPrototype.h"
+#include "IntegrityInlines.h"
 #include "JSCInlines.h"
 #include "StringRecursionChecker.h"
 
 namespace JSC {
 
+STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(ErrorPrototypeBase);
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(ErrorPrototype);
 
 static EncodedJSValue JSC_HOST_CALL errorProtoFuncToString(JSGlobalObject*, CallFrame*);
@@ -48,24 +46,22 @@ const ClassInfo ErrorPrototype::s_info = { "Object", &Base::s_info, &errorProtot
 @end
 */
 
-ErrorPrototype::ErrorPrototype(VM& vm, Structure* structure)
-    : JSNonFinalObject(vm, structure)
+ErrorPrototypeBase::ErrorPrototypeBase(VM& vm, Structure* structure)
+    : Base(vm, structure)
 {
 }
 
-ErrorPrototype* ErrorPrototype::create(VM& vm, JSGlobalObject*, Structure* structure)
-{
-    ErrorPrototype* prototype = new (NotNull, allocateCell<ErrorPrototype>(vm.heap)) ErrorPrototype(vm, structure);
-    prototype->finishCreation(vm, "Error"_s);
-    return prototype;
-}
-
-void ErrorPrototype::finishCreation(VM& vm, const String& name)
+void ErrorPrototypeBase::finishCreation(VM& vm, const String& name)
 {
     Base::finishCreation(vm);
     ASSERT(inherits(vm, info()));
     putDirectWithoutTransition(vm, vm.propertyNames->name, jsString(vm, name), static_cast<unsigned>(PropertyAttribute::DontEnum));
     putDirectWithoutTransition(vm, vm.propertyNames->message, jsEmptyString(vm), static_cast<unsigned>(PropertyAttribute::DontEnum));
+}
+
+ErrorPrototype::ErrorPrototype(VM& vm, Structure* structure)
+    : Base(vm, structure)
+{
 }
 
 // ------------------------------ Functions ---------------------------
@@ -83,6 +79,7 @@ EncodedJSValue JSC_HOST_CALL errorProtoFuncToString(JSGlobalObject* globalObject
     if (!thisValue.isObject())
         return throwVMTypeError(globalObject, scope);
     JSObject* thisObj = asObject(thisValue);
+    Integrity::auditStructureID(vm, thisObj->structureID());
 
     // Guard against recursion!
     StringRecursionChecker checker(globalObject, thisObj);

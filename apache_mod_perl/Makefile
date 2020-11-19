@@ -18,7 +18,7 @@ PERLEXTRASLIB := $(subst Perl,Perl/Extras,$(shell perl -e 'require Config; print
 PERLARCHLIB := $(shell perl -e 'require Config; print $$Config::Config{installarchlib}')
 PERLEXTRASARCHLIB := $(subst Perl,Perl/Extras,$(PERLARCHLIB))
 CFLAGS += -std=c89
-SDKROOTADJUSTED = $(shell echo $(SDKROOT) | sed -e 's,/AppleInternal,,g' | sed -e 's,/BuildRoot,,g')
+INCLUDEDIR = $(shell $(DT_TOOLCHAIN_DIR)/usr/local/bin/apxs -q includedir)
 
 install::
 	@echo "--> Extracting..."
@@ -55,7 +55,8 @@ install::
 		$(CP) $${bundle} $${bundledir} && \
 		$(STRIP) -x $${bundle}; \
 	done
-	$(MV) $(DSTROOT)$(SDKROOTADJUSTED)/usr/include $(DSTROOT)/usr/include
+	$(MKDIR) $(DSTROOT)/usr/include
+	$(MV) $(DSTROOT)/$(INCLUDEDIR) $(DSTROOT)/usr/include/apache2
 	$(RM) -rf $(DSTROOT)/Applications
 
 	$(INSTALL_DIRECTORY) $(DSTROOT)/usr/local/OpenSourceVersions

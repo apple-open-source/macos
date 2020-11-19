@@ -27,7 +27,9 @@
 #include "Utilities.h"
 #include <Security/Security.h>
 #include "misc.h"
-#include <mach-o/dyld_priv.h> // for dyld_get_program_sdk_version
+#include <mach-o/dyld_priv.h>
+
+#include "simulatecrash_assert.h"
 
 const static CFStringRef SignName = CFSTR("com.apple.security.Sign"), VerifyName = CFSTR("com.apple.security.Verify");
 const CFStringRef __nonnull kSecKeyAttributeName = CFSTR("KEY"), kSecSignatureAttributeName = CFSTR("Signature"), kSecInputIsAttributeName = CFSTR("InputIs");
@@ -410,8 +412,8 @@ static SecTransformInstanceBlock SignTransform(CFStringRef name,
 				OSStatus rc = SecKeyGetCSSMKey(key, &cssm_key);
 				SEC_FAIL(rc);
 
-                if (((!cssm_key->KeyHeader.KeyUsage) & CSSM_KEYUSE_SIGN)               // Keep the previous test to be compatible with existing apps
-                    || ((dyld_get_program_sdk_version() >= DYLD_MACOSX_VERSION_10_13)  // Better check for newly compiled apps
+                if (((!cssm_key->KeyHeader.KeyUsage) & CSSM_KEYUSE_SIGN)
+                    || (dyld_program_sdk_at_least(dyld_platform_version_macOS_10_13) // Keep the previous test to be compatible with existing apps
                         && !(cssm_key->KeyHeader.KeyUsage & (CSSM_KEYUSE_SIGN|CSSM_KEYUSE_ANY))))
 				{
 					key = NULL; // This key cannot sign! 
@@ -539,8 +541,8 @@ static SecTransformInstanceBlock VerifyTransform(CFStringRef name,
 				rc = SecKeyGetCSSMKey((SecKeyRef)value, &cssm_key);
 				SEC_FAIL(rc);
 
-                if (((!cssm_key->KeyHeader.KeyUsage) & CSSM_KEYUSE_SIGN)               // Keep the previous test to be compatible with existing apps
-                    || ((dyld_get_program_sdk_version() >= DYLD_MACOSX_VERSION_10_13)  // Better check for newly compiled apps
+                if (((!cssm_key->KeyHeader.KeyUsage) & CSSM_KEYUSE_SIGN)
+                    || (dyld_program_sdk_at_least(dyld_platform_version_macOS_10_13) // Keep the previous test to be compatible with existing apps
                         && !(cssm_key->KeyHeader.KeyUsage & (CSSM_KEYUSE_VERIFY|CSSM_KEYUSE_ANY))))
 				{
 					key = NULL; // This key cannot verify!

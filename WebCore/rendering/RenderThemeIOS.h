@@ -27,12 +27,11 @@
 
 #if PLATFORM(IOS_FAMILY)
 
+#include "CSSValueKey.h"
 #include "RenderThemeCocoa.h"
 
 #if USE(SYSTEM_PREVIEW)
-#if HAVE(IOSURFACE)
 #include "IOSurface.h"
-#endif
 #include <wtf/RetainPtr.h>
 #endif
 
@@ -51,7 +50,7 @@ public:
 
     static void adjustRoundBorderRadius(RenderStyle&, RenderBox&);
 
-    static CFStringRef contentSizeCategory();
+    CFStringRef contentSizeCategory() const final;
 
     WEBCORE_EXPORT static void setContentSizeCategory(const String&);
 
@@ -59,11 +58,20 @@ public:
     void paintSystemPreviewBadge(Image&, const PaintInfo&, const FloatRect&) override;
 #endif
 
-protected:
+    using CSSValueToSystemColorMap = HashMap<CSSValueKey, Color>;
+
+    WEBCORE_EXPORT static const CSSValueToSystemColorMap& cssValueToSystemColorMap();
+    WEBCORE_EXPORT static void setCSSValueToSystemColorMap(CSSValueToSystemColorMap&&);
+
+    WEBCORE_EXPORT static void setFocusRingColor(const Color&);
+
+#if ENABLE(FULL_KEYBOARD_ACCESS)
+    WEBCORE_EXPORT static Color systemFocusRingColor();
+#endif
+
+private:
     LengthBox popupInternalPaddingBox(const RenderStyle&) const override;
-    
-    FontCascadeDescription& cachedSystemFontDescription(CSSValueID systemFontID) const override;
-    void updateCachedSystemFontDescription(CSSValueID, FontCascadeDescription&) const override;
+
     int baselinePosition(const RenderBox&) const override;
 
     bool isControlStyled(const RenderStyle&, const RenderStyle& userAgentStyle) const override;
@@ -94,11 +102,6 @@ protected:
     void adjustSliderThumbSize(RenderStyle&, const Element*) const override;
     bool paintSliderThumbDecorations(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
-    // Returns the repeat interval of the animation for the progress bar.
-    Seconds animationRepeatIntervalForProgressBar(RenderProgress&) const override;
-    // Returns the duration of the animation for the progress bar.
-    Seconds animationDurationForProgressBar(RenderProgress&) const override;
-
     bool paintProgressBar(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
 #if ENABLE(DATALIST_ELEMENT)
@@ -118,7 +121,7 @@ protected:
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-    Color platformTapHighlightColor() const override { return 0x4D1A1A1A; }
+    Color platformTapHighlightColor() const override { return SRGBA<uint8_t> { 26, 26, 26, 77 } ; }
 #endif
 
     bool shouldHaveSpinButton(const HTMLInputElement&) const override;
@@ -133,6 +136,7 @@ protected:
 #if ENABLE(ATTACHMENT_ELEMENT)
     LayoutSize attachmentIntrinsicSize(const RenderAttachment&) const override;
     int attachmentBaseline(const RenderAttachment&) const override;
+    bool attachmentShouldAllowWidthToShrink(const RenderAttachment&) const override { return true; }
     bool paintAttachment(const RenderObject&, const PaintInfo&, const IntRect&) override;
 #endif
 
@@ -149,7 +153,6 @@ private:
     String extraDefaultStyleSheet() final;
 #endif
 
-    const Color& shadowColor() const;
     FloatRect addRoundedBorderClip(const RenderObject& box, GraphicsContext&, const IntRect&);
 
     Color systemColor(CSSValueID, OptionSet<StyleColor::Options>) const override;
@@ -161,10 +164,8 @@ private:
 
 #if USE(SYSTEM_PREVIEW)
     RetainPtr<CIContext> m_ciContext;
-#if HAVE(IOSURFACE)
     std::unique_ptr<IOSurface> m_largeBadgeSurface;
     std::unique_ptr<IOSurface> m_smallBadgeSurface;
-#endif
 #endif
 
     bool m_shouldMockBoldSystemFontForAccessibility { false };

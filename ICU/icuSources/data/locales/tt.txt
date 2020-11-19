@@ -1,10 +1,16 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 tt{
+    AuxExemplarCharacters{"[ғ қ]"}
     ExemplarCharacters{
-        "[а ә б в г д е ё ж җ з и й к л м н о ө п р с т у ү ф х һ ц ч ш щ ъ ы ь э ю я"
-        "]"
+        "[а ә б в г д е ё ж җ з и й к л м н ң о ө п р с т у ү ф х һ ц ч ш щ ъ ы ь э ю"
+        " я]"
     }
+    ExemplarCharactersIndex{
+        "[А Ә Б В Г Д Е Ё Ж Җ З И Й К Л М Н Ң О Ө П Р С Т У Ү Ф Х Һ Ц Ч Ш Щ Ъ Ы Ь Э Ю"
+        " Я]"
+    }
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — , ; \\: ! ? . … ' ‘ ’ \u0022 “ ” ( ) \\[ \\] § @ * / \\& # ′ ″]"}
     NumberElements{
         default{"latn"}
         latn{
@@ -35,7 +41,7 @@ tt{
         minimumGroupingDigits{"1"}
         native{"latn"}
     }
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{
@@ -43,8 +49,8 @@ tt{
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
-                "d MMMM, y 'ел' (G), EEEE",
-                "d MMMM, y 'ел' (G)",
+                "d MMMM, y 'ел' (G), EEEE",
+                "d MMMM, y 'ел' (G)",
                 "dd.MM.y G",
                 "dd.MM.y GGGGG",
                 "{1}, {0}",
@@ -75,9 +81,9 @@ tt{
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
-                "d MMMM, y 'ел', EEEE",
-                "d MMMM, y 'ел'",
-                "d MMM, y 'ел'",
+                "d MMMM, y 'ел', EEEE",
+                "d MMMM, y 'ел'",
+                "d MMM, y 'ел'",
                 "dd.MM.y",
                 "{1}, {0}",
                 "{1}, {0}",
@@ -93,10 +99,10 @@ tt{
                 EHm{"E, HH:mm"}
                 EHms{"E, HH:mm:ss"}
                 Ed{"E, d"}
-                Gy{"G y 'ел'"}
-                GyMMM{"G y 'ел', MMM"}
-                GyMMMEd{"E, G d MMM y 'ел'"}
-                GyMMMd{"G d MMM y 'ел'"}
+                Gy{"G y 'ел'"}
+                GyMMM{"G y 'ел', MMM"}
+                GyMMMEd{"E, G d MMM y 'ел'"}
+                GyMMMd{"G d MMM y 'ел'"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -122,13 +128,13 @@ tt{
                 y{"y"}
                 yM{"MM.y"}
                 yMEd{"E, dd.MM.y"}
-                yMMM{"MMM, y 'ел'"}
-                yMMMEd{"E, d MMM, y 'ел'"}
-                yMMMM{"MMMM, y 'ел'"}
-                yMMMd{"d MMM, y 'ел'"}
+                yMMM{"MMM, y 'ел'"}
+                yMMMEd{"E, d MMM, y 'ел'"}
+                yMMMM{"MMMM, y 'ел'"}
+                yMMMd{"d MMM, y 'ел'"}
                 yMd{"dd.MM.y"}
-                yQQQ{"QQQ, y 'ел'"}
-                yQQQQ{"QQQQ, y 'ел'"}
+                yQQQ{"QQQ, y 'ел'"}
+                yQQQQ{"QQQQ, y 'ел'"}
                 yw{
                     other{"Y 'елның' w 'атнасы'"}
                 }
@@ -230,6 +236,10 @@ tt{
             eras{
                 abbreviated{
                     "б.э.к.",
+                    "милади",
+                }
+                abbreviated%variant{
+                    "б.э.к.",
                     "б.э.",
                 }
                 wide{
@@ -309,22 +319,22 @@ tt{
                     y{"E, dd.MM.y – E, dd.MM.y"}
                 }
                 yMMM{
-                    M{"MMM – MMM, y 'ел'"}
-                    y{"MMM, y 'ел' - MMM, y 'ел'"}
+                    M{"MMM – MMM, y 'ел'"}
+                    y{"MMM, y 'ел' - MMM, y 'ел'"}
                 }
                 yMMMEd{
-                    M{"E, d MMM – E, d MMM, y 'ел'"}
-                    d{"E, d MMM – E, d MMM, y 'ел'"}
-                    y{"E, d MMM, y 'ел' – E, d MMM, y 'ел'"}
+                    M{"E, d MMM – E, d MMM, y 'ел'"}
+                    d{"E, d MMM – E, d MMM, y 'ел'"}
+                    y{"E, d MMM, y 'ел' – E, d MMM, y 'ел'"}
                 }
                 yMMMM{
-                    M{"MMMM – MMMM, y 'ел'"}
-                    y{"MMMM, y 'ел' – MMMM, y 'ел'"}
+                    M{"MMMM – MMMM, y 'ел'"}
+                    y{"MMMM, y 'ел' – MMMM, y 'ел'"}
                 }
                 yMMMd{
-                    M{"d MMM – d MMM, y 'ел'"}
-                    d{"d–d MMM, y 'ел'"}
-                    y{"d MMM, y 'ел' – d MMM, y 'ел'"}
+                    M{"d MMM – d MMM, y 'ел'"}
+                    d{"d–d MMM, y 'ел'"}
+                    y{"d MMM, y 'ел' – d MMM, y 'ел'"}
                 }
                 yMd{
                     M{"dd.MM.y – dd.MM.y"}

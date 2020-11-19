@@ -45,12 +45,13 @@
 #include <assert.h>
 #include <mach/mach_time.h>
 
-#define	LOCKSTAT_OPTSTR	"x:bths:n:d:i:l:f:e:ckwWgCHEATID:RpPo:V"
+
+#define	LOCKSTAT_OPTSTR	"x:bths:n:d:i:l:f:e:ckwWgCHEATID:RpPo:VSY"
 
 #define LATER 0
 
 #define	LS_MAX_STACK_DEPTH	50
-#define	LS_MAX_EVENTS		64
+#define	LS_MAX_EVENTS		70
 
 /* APPLE NOTE: does not exist on OSX. */
 typedef uintptr_t pc_t;
@@ -58,6 +59,7 @@ typedef uintptr_t pc_t;
 typedef struct lsrec {
 	struct lsrec	*ls_next;	/* next in hash chain */
 	uintptr_t	ls_lock;	/* lock address */
+	char		ls_name[64];
 	uintptr_t	ls_caller;	/* caller address */
 	uint32_t	ls_count;	/* cumulative event count */
 	uint32_t	ls_event;	/* type of event */
@@ -97,6 +99,19 @@ extern char *strtok_r(char *, const char *, char **);
 #define	MIN_AGGSIZE	(16 * 1024)
 #define	MAX_AGGSIZE	(32 * 1024 * 1024)
 
+/*
+ * There is no cpu[n] array in kernel that can be used directly. Lockstat interposes
+ * on different symbol and remaps it during output to cpu[n]. This effectively hides
+ * the symbol so it should be something that never appears in lockstat output.
+ */
+#if defined(__arm64__) || defined(__arm__)
+#define	PER_CPU_SYMBOL	"CpuDataEntries"
+#elif defined(__i386__) || defined(__x86_64__)
+#define	PER_CPU_SYMBOL	"cpu_data_ptr"
+#else
+#error "Unsupported platform"
+#endif
+
 static int g_stkdepth;
 static int g_topn = INT_MAX;
 static hrtime_t g_elapsed;
@@ -133,12 +148,12 @@ typedef struct ls_event_info {
 } ls_event_info_t;
 
 static ls_event_info_t g_event_info[LS_MAX_EVENTS] = {
-#if defined(__i386__) || defined(__x86_64__)
 	{ 'C',	"Lock",	"Adaptive mutex spin",			"abs",
 	    "lockstat:::adaptive-spin" },
-#endif
 	{ 'C', "Lock", "Spin lock spin", 			"abs",
 	    "lockstat:::spin-spin" },
+	{ 'C', "Lock", "Ticket lock spin", 			"abs",
+	    "lockstat:::ticket-spin" },
 	{ 'C',	"Lock",	"Adaptive mutex block",			"abs",
 	    "lockstat:::adaptive-block" },
 	{ 'C',	"Lock",	"R/W writer blocked by writer",		"abs",
@@ -151,7 +166,6 @@ static ls_event_info_t g_event_info[LS_MAX_EVENTS] = {
 	    "lockstat:::rw-block", "arg2 != 0 && arg3 == 0 && arg4" },
 	{ 'C',	"Lock",	"R/W reader spin",	"nsec",
 	    "lockstat:::rw-spin"},
-	{ 'C',	"Lock",	"Unknown event (type 8)",		"units"	},
 	{ 'C',	"Lock",	"Unknown event (type 9)",		"units"	},
 	{ 'C',	"Lock",	"Unknown event (type 10)",		"units"	},
 	{ 'C',	"Lock",	"Unknown event (type 11)",		"units"	},
@@ -181,13 +195,15 @@ static ls_event_info_t g_event_info[LS_MAX_EVENTS] = {
 	{ 'H',	"Lock",	"Spin lock hold",			"nsec",
 	    "lockstat:::spin-release", NULL,
 	    "lockstat:::spin-acquire" },
+	{ 'H',	"Lock",	"Ticket lock hold",			"nsec",
+	    "lockstat:::ticket-release", NULL,
+	    "lockstat:::ticket-acquire" },
 	{ 'H',	"Lock",	"R/W writer hold",			"nsec",
 	    "lockstat:::rw-release", "arg1 == 0",
 	    "lockstat:::rw-acquire" },
 	{ 'H',	"Lock",	"R/W reader hold",			"nsec",
 	    "lockstat:::rw-release", "arg1 != 0",
 	    "lockstat:::rw-acquire" },
-	{ 'H',	"Lock",	"Unknown event (type 36)",		"units"	},
 	{ 'H',	"Lock",	"Unknown event (type 37)",		"units"	},
 	{ 'H',	"Lock",	"Unknown event (type 38)",		"units"	},
 	{ 'H',	"Lock",	"Unknown event (type 39)",		"units"	},
@@ -217,6 +233,18 @@ static ls_event_info_t g_event_info[LS_MAX_EVENTS] = {
 	{ 'E',	"Lock",	"Lockstat enter failure",		"(N/A)"	},
 	{ 'E',	"Lock",	"Lockstat exit failure",		"nsec"	},
 	{ 'E',	"Lock",	"Lockstat record failure",		"(N/A)"	},
+	{ 'S',    "Lock group",     "Spinlock spin time profiling",	"abs",
+	    "lockprof:::spin-spin-10ms", NULL },
+	{ 'S',    "Lock group",     "Ticket lock spin time profiling",	"abs",
+	    "lockprof:::ticket-spin-10ms", NULL },
+	{ 'Y',    "Lock group",     "Spinlock held profiling",	"events",
+	    "lockprof:::spin-held-100", NULL },
+	{ 'Y',    "Lock group",     "Spinlock misses profiling",	"events",
+	    "lockprof:::spin-miss-100", NULL },
+	{ 'Y',    "Lock group",     "Ticket lock held profiling",	"events",
+	    "lockprof:::ticket-held-100", NULL },
+	{ 'Y',    "Lock group",     "Ticket lock misses profiling",	"events",
+	    "lockprof:::ticket-miss-100", NULL },
 };
 
 hrtime_t
@@ -334,6 +362,8 @@ usage(void)
 
 	show_events('C', "Contention");
 	show_events('H', "Hold-time");
+	show_events('Y', "Held/miss profiling");
+	show_events('S', "Spin time profiling");
 	show_events('I', "Interrupt");
 	show_events('E', "Error");
 	(void) fprintf(stderr, "\n");
@@ -513,6 +543,8 @@ coalesce(int (*cmp)(lsrec_t *, lsrec_t *), lsrec_t **lock, int n)
 			target = current;
 			continue;
 		}
+		strlcpy(target->ls_name, current->ls_name,
+		    sizeof(target->ls_name));
 		current->ls_event = LS_MAX_EVENTS;
 		target->ls_count += current->ls_count;
 		target->ls_refcnt += current->ls_refcnt;
@@ -637,6 +669,18 @@ dprog_add(const char *fmt, ...)
 	va_end(args);
 }
 
+static int
+prof_event(ls_event_info_t *info)
+{
+	switch (info->ev_type) {
+		case 'S':
+		case 'Y':
+			return (1);
+		default:
+			return (0);
+	}
+}
+
 /*
  * This function may read like an open sewer, but keep in mind that programs
  * that generate other programs are rarely pretty.  If one has the unenviable
@@ -652,6 +696,7 @@ dprog_addevent(int event)
 	const char *caller;
 	char arg0[80];
 	char *arg1 = "arg1";
+	char *name = NULL;
 	char buf[80];
 	hrtime_t dur;
 	int depth;
@@ -660,20 +705,26 @@ dprog_addevent(int event)
 		return;
 
 	if (info->ev_type == 'I') {
-		/* CPU symbols are contiguous in memory. */
-		uintptr_t cpu_addr = sym_to_addr("cpu[0]");
+		/*
+		 * Lookup per-cpu symbol address. Symbol must be continuous in memory and
+		 * has larger size than max amount of CPUs available (see the encoding below).
+		 */
+		uintptr_t cpu_addr = sym_to_addr(PER_CPU_SYMBOL);
 		if (!cpu_addr)
-			fail(1, "failed to retrieve the symbol for cpu[0]");
+			fail(1, "failed to retrieve the symbol " PER_CPU_SYMBOL);
 
 		/*
 		 * For interrupt events, arg0 (normally the lock pointer) is
-		 * the CPU address plus the current pil, and arg1 (normally
+		 * the per-cpu data pointer plus current cpu, and arg1 (normally
 		 * the number of nanoseconds) is the number of nanoseconds
 		 * late -- and it's stored in arg2.
 		 */
 		(void) snprintf(arg0, sizeof(arg0), "(uintptr_t) 0x%"PRIxPTR" + cpu", cpu_addr);
 		caller = "(uintptr_t)arg0";
-		arg1 = "arg2";
+	} else if (prof_event(info)) {
+		(void) snprintf(arg0, sizeof(arg0), "arg0");
+		caller = "caller";
+		name = "probemod";
 	} else {
 		(void) snprintf(arg0, sizeof(arg0), "(uintptr_t) arg0");
 		caller = "caller";
@@ -763,6 +814,9 @@ dprog_addevent(int event)
 
 	if (g_tracing) {
 		dprog_add("\ttrace(%dULL);\n", event);
+		if (name) {
+			dprog_add("\ttrace(%s);\n", name);
+		}
 		dprog_add("\ttrace(%s);\n", arg0);
 		dprog_add("\ttrace(%s);\n", caller);
 		dprog_add(stack);
@@ -774,12 +828,22 @@ dprog_addevent(int event)
 		 * first aggregation variable ID and @hist assigned the
 		 * second; see the comment in process_aggregate() for details.
 		 */
-		dprog_add("\t@avg[%dULL, %s, %s%s] = avg(%s);\n",
-		    event, arg0, caller, stack, arg1);
-
+		if (name) {
+			dprog_add("\t@avg[%dULL, %s, %s, %s%s] = avg(%s);\n",
+			    event, name, arg0, caller, stack, arg1);
+		} else {
+			dprog_add("\t@avg[%dULL, %s, %s%s] = avg(%s);\n",
+			    event, arg0, caller, stack, arg1);
+		}
 		if (g_recsize >= LS_HIST) {
-			dprog_add("\t@hist[%dULL, %s, %s%s] = quantize"
-			    "(%s);\n", event, arg0, caller, stack, arg1);
+			if (name) {
+				dprog_add("\t@hist[%dULL, %s, %s, %s%s] = quantize"
+				    "(%s);\n", event, name, arg0, caller, stack,
+				    arg1);
+			} else {
+				dprog_add("\t@hist[%dULL, %s, %s%s] = quantize"
+				    "(%s);\n", event, arg0, caller, stack, arg1);
+			}
 		}
 	}
 
@@ -883,6 +947,14 @@ lsrec_fill(lsrec_t *lsrec, const dtrace_recdesc_t *rec, int nrecs, caddr_t data)
 	lsrec->ls_event = (uint32_t)*((uint64_t *)(data + rec->dtrd_offset));
 	rec++;
 
+	/* An additional record is for the lock (group) name */
+	if ((g_recsize > LS_HIST && nrecs > 4) ||
+	    (nrecs > 3 && g_recsize <= LS_HIST)) {
+		strlcpy(lsrec->ls_name, ((char*)data + rec->dtrd_offset),
+		    sizeof(lsrec->ls_name));
+		rec++;
+	}
+
 	if (rec->dtrd_size != sizeof (uintptr_t))
 		fail(0, "bad lock address size in second record");
 
@@ -896,7 +968,6 @@ lsrec_fill(lsrec_t *lsrec, const dtrace_recdesc_t *rec, int nrecs, caddr_t data)
 	/* LINTED - alignment */
 	lsrec->ls_caller = *((uintptr_t *)(data + rec->dtrd_offset));
 	rec++;
-
 	if (g_recsize > LS_HIST) {
 		int frames, i;
 		pc_t *stack;
@@ -966,7 +1037,7 @@ process_aggregate(const dtrace_aggdata_t *agg, void *arg)
 	}
 
 	lsrec_fill(lsrec, &aggdesc->dtagd_rec[1],
-	    aggdesc->dtagd_nrecs - 1, data);
+	    aggdesc->dtagd_nrecs - 2, data);
 
 	rec = &aggdesc->dtagd_rec[aggdesc->dtagd_nrecs - 1];
 
@@ -1219,6 +1290,8 @@ main(int argc, char **argv)
 		case 'E':
 		case 'H':
 		case 'I':
+		case 'S':
+		case 'Y':
 			for (i = 0; i < LS_MAX_EVENTS; i++)
 				if (g_event_info[i].ev_type == c)
 					g_enabled[i] = 1;
@@ -1623,7 +1696,7 @@ main(int argc, char **argv)
 }
 
 static char *
-format_symbol(char *buf, uintptr_t addr, int show_size)
+format_symbol(char *buf, size_t bufsize, uintptr_t addr, int show_size)
 {
 	uintptr_t symoff = 0;
 	char *symname;
@@ -1633,18 +1706,18 @@ format_symbol(char *buf, uintptr_t addr, int show_size)
 
 	// if the symbol could not be found, display the address
 	if (symname == NULL)
-		(void) sprintf(buf, "0x%llx", (unsigned long long)addr);
+		(void) snprintf(buf, bufsize, "0x%llx", (unsigned long long)addr);
 	else if (show_size && symoff == 0 && symname != NULL)
-		(void) sprintf(buf, "%s[%ld]", symname, (long)symsize);
+		(void) snprintf(buf, bufsize, "%s[%ld]", symname, (long)symsize);
+	/* CPU is encoded as per-cpu data ptr + cpu. Symbol offset holds the n. */
+	else if (bcmp(symname, PER_CPU_SYMBOL, sizeof(PER_CPU_SYMBOL)) == 0)
+		(void) snprintf(buf, bufsize, "cpu[%d]", (int)symoff);
 	else if (symoff == 0 && symname != NULL)
-		(void) sprintf(buf, "%s", symname);
-	else if (symoff < 16 && bcmp(symname, "master_cpu", 10) == 0)	/* CPU */
-		(void) sprintf(buf, "cpu[%d]", (int) symoff);
+		(void) snprintf(buf, bufsize, "%s", symname);
 	else if (symoff <= symsize || (symoff < 256 && addr != symoff))
-		(void) sprintf(buf, "%s+0x%llx", symname,
-		    (unsigned long long)symoff);
+		(void) snprintf(buf, bufsize, "%s+0x%llx", symname, (unsigned long long)symoff);
 	else
-		(void) sprintf(buf, "0x%llx", (unsigned long long)addr);
+		(void) snprintf(buf, bufsize, "0x%llx", (unsigned long long)addr);
 	return (buf);
 }
 
@@ -1703,14 +1776,16 @@ report_stats(FILE *out, lsrec_t **sort_buf, size_t nrecs, uint64_t total_count,
 			break;
 
 		if (g_pflag) {
-			int j;
-
 			(void) fprintf(out, "%u %u",
 			    lsp->ls_event, lsp->ls_count);
+			if (lsp->ls_name[0] != 0) {
+				(void) fprintf(out, " %s", lsp->ls_name);
+			} else {
+				(void) fprintf(out, " %s",
+				    format_symbol(buf, sizeof(buf), lsp->ls_lock, g_cflag));
+			}
 			(void) fprintf(out, " %s",
-			    format_symbol(buf, lsp->ls_lock, g_cflag));
-			(void) fprintf(out, " %s",
-			    format_symbol(buf, lsp->ls_caller, 0));
+			    format_symbol(buf, sizeof(buf), lsp->ls_caller, 0));
 			(void) fprintf(out, " %f",
 			    (double)lsp->ls_refcnt / lsp->ls_count);
 			if (rectype >= LS_TIME)
@@ -1726,7 +1801,7 @@ report_stats(FILE *out, lsrec_t **sort_buf, size_t nrecs, uint64_t total_count,
 				    lsp->ls_stack[j] == 0)
 					break;
 				(void) fprintf(out, " %s",
-				    format_symbol(buf, lsp->ls_stack[j], 0));
+				    format_symbol(buf, sizeof(buf), lsp->ls_stack[j], 0));
 			}
 			(void) fprintf(out, "\n");
 			continue;
@@ -1770,11 +1845,15 @@ report_stats(FILE *out, lsrec_t **sort_buf, size_t nrecs, uint64_t total_count,
 		(void) fprintf(out, "%4.2f %8s ",
 		    (double)lsp->ls_refcnt / lsp->ls_count, buf);
 
-		(void) fprintf(out, "%-22s ",
-		    format_symbol(buf, lsp->ls_lock, g_cflag));
-
+		if (lsp->ls_name[0] != 0) {
+			(void) fprintf(out, "%-22s ",
+			    lsp->ls_name);
+		} else {
+			(void) fprintf(out, "%-22s ",
+			    format_symbol(buf, sizeof(buf), lsp->ls_lock, g_cflag));
+		}
 		(void) fprintf(out, "%-24s\n",
-		    format_symbol(buf, lsp->ls_caller, 0));
+		    format_symbol(buf, sizeof(buf), lsp->ls_caller, 0));
 
 		if (rectype < LS_HIST)
 			continue;
@@ -1823,12 +1902,12 @@ report_stats(FILE *out, lsrec_t **sort_buf, size_t nrecs, uint64_t total_count,
 				continue;
 			}
 			(void) fprintf(out, "%-24s\n",
-			    format_symbol(buf, lsp->ls_stack[fr], 0));
+			    format_symbol(buf, sizeof(buf), lsp->ls_stack[fr], 0));
 			fr++;
 		}
 		while (rectype > LS_STACK(fr) && lsp->ls_stack[fr] != 0) {
 			(void) fprintf(out, "%15s %-36s %-24s\n", "", "",
-			    format_symbol(buf, lsp->ls_stack[fr], 0));
+			    format_symbol(buf, sizeof(buf), lsp->ls_stack[fr], 0));
 			fr++;
 		}
 	}
@@ -1867,8 +1946,8 @@ report_trace(FILE *out, lsrec_t **sort_buf)
 		(void) fprintf(out, "%2d  %10llu  %11p  %-24s  %-24s\n",
 		    lsp->ls_event, (unsigned long long)lsp->ls_time,
 		    (void *)lsp->ls_next,
-		    format_symbol(buf, lsp->ls_lock, 0),
-		    format_symbol(buf2, lsp->ls_caller, 0));
+		    format_symbol(buf, sizeof(buf), lsp->ls_lock, 0),
+		    format_symbol(buf2, sizeof(buf2), lsp->ls_caller, 0));
 
 		if (rectype <= LS_STACK(0))
 			continue;
@@ -1882,7 +1961,7 @@ report_trace(FILE *out, lsrec_t **sort_buf)
 
 		while (rectype > LS_STACK(fr) && lsp->ls_stack[fr] != 0) {
 			(void) fprintf(out, "%53s  %-24s\n", "",
-			    format_symbol(buf, lsp->ls_stack[fr], 0));
+			    format_symbol(buf, sizeof(buf), lsp->ls_stack[fr], 0));
 			fr++;
 		}
 		(void) fprintf(out, "\n");

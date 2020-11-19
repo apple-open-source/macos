@@ -34,6 +34,7 @@
 #include "WebCoreArgumentCoders.h"
 #include <WebCore/CacheQueryOptions.h>
 #include <WebCore/HTTPParsers.h>
+#include <WebCore/RetrieveRecordsOptions.h>
 #include <pal/SessionID.h>
 #include <wtf/MainThread.h>
 #include <wtf/NeverDestroyed.h>
@@ -281,18 +282,26 @@ void Cache::retrieveRecord(const RecordInformation& record, Ref<ReadRecordTaskCo
     });
 }
 
-void Cache::retrieveRecords(const URL& url, RecordsCallback&& callback)
+void Cache::retrieveRecords(const RetrieveRecordsOptions& options, RecordsCallback&& callback)
 {
     ASSERT(m_state == State::Open);
 
-    auto taskCounter = ReadRecordTaskCounter::create([caches = makeRef(m_caches), identifier = m_identifier, callback = WTFMove(callback)](Vector<Record>&& records, Vector<uint64_t>&& failedRecordIdentifiers) mutable {
+    auto taskCounter = ReadRecordTaskCounter::create([caches = makeRef(m_caches), identifier = m_identifier, shouldProvideResponse = options.shouldProvideResponse, callback = WTFMove(callback)](Vector<Record>&& records, Vector<uint64_t>&& failedRecordIdentifiers) mutable {
         auto* cache = caches->find(identifier);
         if (cache)
             cache->removeFromRecordList(failedRecordIdentifiers);
+
+        if (!shouldProvideResponse) {
+            for (auto& record : records) {
+                record.response = { };
+                record.responseBody = nullptr;
+                record.responseBodySize = 0;
+            }
+        }
         callback(WTFMove(records));
     });
 
-    if (url.isNull()) {
+    if (options.request.url().isNull()) {
         for (auto& records : m_records.values()) {
             for (auto& record : records)
                 retrieveRecord(record, taskCounter.copyRef());
@@ -300,12 +309,18 @@ void Cache::retrieveRecords(const URL& url, RecordsCallback&& callback)
         return;
     }
 
-    auto* records = recordsFromURL(url);
+    if (!options.ignoreMethod && options.request.httpMethod() != "GET")
+        return;
+
+    auto* records = recordsFromURL(options.request.url());
     if (!records)
         return;
 
-    for (auto& record : *records)
-        retrieveRecord(record, taskCounter.copyRef());
+    CacheQueryOptions queryOptions { options.ignoreSearch, options.ignoreMethod, options.ignoreVary, { } };
+    for (auto& record : *records) {
+        if (DOMCacheEngine::queryCacheMatch(options.request, record.url, record.hasVaryStar, record.varyHeaders, queryOptions))
+            retrieveRecord(record, taskCounter.copyRef());
+    }
 }
 
 RecordInformation& Cache::addRecord(Vector<RecordInformation>* records, const Record& record)
@@ -557,45 +572,80 @@ Storage::Record Cache::encode(const RecordInformation& recordInformation, const 
     return { recordInformation.key, { }, header, body, { } };
 }
 
-Optional<Cache::DecodedRecord> Cache::decodeRecordHeader(const Storage::Record& storage)
+static Optional<WebCore::DOMCacheEngine::Record> decodeDOMCacheRecord(WTF::Persistence::Decoder& decoder)
 {
-    WTF::Persistence::Decoder decoder(storage.header.data(), storage.header.size());
-
-    Record record;
-
-    double insertionTime;
-    if (!decoder.decode(insertionTime))
+    Optional<FetchHeaders::Guard> requestHeadersGuard;
+    decoder >> requestHeadersGuard;
+    if (!requestHeadersGuard)
+        return WTF::nullopt;
+    
+    ResourceRequest request;
+    if (!request.decodeWithoutPlatformData(decoder))
+        return WTF::nullopt;
+    
+    FetchOptions options;
+    if (!FetchOptions::decodePersistent(decoder, options))
+        return WTF::nullopt;
+    
+    Optional<String> referrer;
+    decoder >> referrer;
+    if (!referrer)
+        return WTF::nullopt;
+    
+    Optional<FetchHeaders::Guard> responseHeadersGuard;
+    decoder >> responseHeadersGuard;
+    if (!responseHeadersGuard)
         return WTF::nullopt;
 
-    uint64_t size;
-    if (!decoder.decode(size))
+    ResourceResponse response;
+    if (!ResourceResponse::decode(decoder, response))
         return WTF::nullopt;
-
-    if (!decoder.decode(record.requestHeadersGuard))
-        return WTF::nullopt;
-
-    if (!record.request.decodeWithoutPlatformData(decoder))
-        return WTF::nullopt;
-
-    if (!FetchOptions::decodePersistent(decoder, record.options))
-        return WTF::nullopt;
-
-    if (!decoder.decode(record.referrer))
-        return WTF::nullopt;
-
-    if (!decoder.decode(record.responseHeadersGuard))
-        return WTF::nullopt;
-
-    if (!decoder.decode(record.response))
-        return WTF::nullopt;
-
-    if (!decoder.decode(record.responseBodySize))
+    
+    Optional<uint64_t> responseBodySize;
+    decoder >> responseBodySize;
+    if (!responseBodySize)
         return WTF::nullopt;
 
     if (!decoder.verifyChecksum())
         return WTF::nullopt;
 
-    return DecodedRecord { insertionTime, size, WTFMove(record) };
+    return {{
+        0,
+        0,
+        WTFMove(*requestHeadersGuard),
+        WTFMove(request),
+        WTFMove(options),
+        WTFMove(*referrer),
+        WTFMove(*responseHeadersGuard),
+        WTFMove(response),
+        { },
+        WTFMove(*responseBodySize)
+    }};
+}
+
+Optional<Cache::DecodedRecord> Cache::decodeRecordHeader(const Storage::Record& storage)
+{
+    WTF::Persistence::Decoder decoder(storage.header.data(), storage.header.size());
+
+    Optional<double> insertionTime;
+    decoder >> insertionTime;
+    if (!insertionTime)
+        return WTF::nullopt;
+
+    Optional<uint64_t> size;
+    decoder >> size;
+    if (!size)
+        return WTF::nullopt;
+
+    Optional<WebCore::DOMCacheEngine::Record> record = decodeDOMCacheRecord(decoder);
+    if (!record)
+        return WTF::nullopt;
+
+    return {{
+        WTFMove(*insertionTime),
+        WTFMove(*size),
+        WTFMove(*record)
+    }};
 }
 
 Optional<Record> Cache::decode(const Storage::Record& storage)

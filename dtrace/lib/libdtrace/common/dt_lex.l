@@ -736,11 +736,27 @@ yybegin(yystate_t state)
 void
 yyinit(dt_pcb_t *pcb)
 {
-	yy_switch_to_buffer(yy_create_buffer(yyin, YY_BUF_SIZE));
+	/* Switch parser state to the pcb and allocate buffers (if required). */
+	if (pcb != NULL) {
+		if (pcb->pcb_yybufstate == NULL) {
+			pcb->pcb_yybufstate = yy_create_buffer(yyin, YY_BUF_SIZE);
+		}
+
+		yy_switch_to_buffer(pcb->pcb_yybufstate);
+	}
 
 	yypcb = pcb;
 	yylineno = 1;
 	yypragma = NULL;
+}
+
+/*
+ * Called when a pcb is going to be destroyed. Allows freeing up of flex resources.
+ */
+void
+yyfini(dt_pcb_t *pcb)
+{
+	yy_delete_buffer(pcb->pcb_yybufstate);
 }
 
 /*

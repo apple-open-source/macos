@@ -69,7 +69,7 @@ struct asl_context {
 	bool asl_enabled;
 	const char *progname;
 	int asl_fd;
-#if TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
+#if TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST
 	const char *sim_log_path;
 	os_unfair_lock sim_connect_lock;
 #else
@@ -146,7 +146,7 @@ _simple_asl_get_fd(void)
 		return -1;
 	}
 
-#if TARGET_OS_SIMULATOR && !TARGET_OS_IOSMAC
+#if TARGET_OS_SIMULATOR && !TARGET_OS_MACCATALYST
 	os_unfair_lock_lock_with_options(&ctx->sim_connect_lock,
 			OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION);
 	if (ctx->sim_log_path) {

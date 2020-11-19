@@ -41,7 +41,6 @@ private:
   virtual void arbitrateForKeyboard( IOHIKeyboard * kb );
 
 public:
-      IOService * displayManager;	// we send user activity tickles to the display manager
 
   static void keyboardEvent(OSObject * target,
      /* eventType */        unsigned   eventType,

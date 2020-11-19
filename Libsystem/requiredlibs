@@ -10,6 +10,7 @@ removefile
 system_asl
 system_blocks
 system_c
+system_collections
 system_configuration
 system_coreservices
 system_darwin

@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Moose</string>
+        <key>OpenSourceVersion</key>
+        <string>2.2012</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>https://cpan.metacpan.org/authors/id/E/ET/ETHER/Moose-2.2012.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+        <key>OpenSourceImportDate</key>
+        <string>2020-04-27</string>
+</dict>

@@ -1,7 +1,7 @@
 " Tests for popup windows
 
 source check.vim
-CheckFeature textprop
+CheckFeature popupwin
 
 source screendump.vim
 
@@ -65,9 +65,9 @@ func Test_simple_popup()
 
   " clear all popups after moving the cursor a bit, so that ruler is updated
   call term_sendkeys(buf, "axxx\<Esc>")
-  call term_wait(buf)
+  call TermWait(buf)
   call term_sendkeys(buf, "0")
-  call term_wait(buf)
+  call TermWait(buf)
   call term_sendkeys(buf, ":call popup_clear()\<CR>")
   call VerifyScreenDump(buf, 'Test_popupwin_08', {})
 
@@ -86,9 +86,13 @@ func Test_popup_with_border_and_padding()
 	  call popup_create('hello padding', #{line: 2, col: 23, padding: []})
 	  call popup_create('hello both', #{line: 2, col: 43, border: [], padding: [], highlight: 'Normal'})
 	  call popup_create('border TL', #{line: 6, col: 3, border: [1, 0, 0, 4]})
-	  call popup_create('paddings', #{line: 6, col: 23, padding: [1, 3, 2, 4]})
+	  call popup_create('paddings', #{line: 6, col: 23, padding: range(1, 4)})
 	  call popup_create('wrapped longer text', #{line: 8, col: 55, padding: [0, 3, 0, 3], border: [0, 1, 0, 1]})
 	  call popup_create('right aligned text', #{line: 11, col: 56, wrap: 0, padding: [0, 3, 0, 3], border: [0, 1, 0, 1]})
+	  call popup_create('X', #{line: 2, col: 73})
+	  call popup_create('X', #{line: 3, col: 74})
+	  call popup_create('X', #{line: 4, col: 75})
+	  call popup_create('X', #{line: 5, col: 76})
     END
     call insert(lines, iter == 1 ? '' : 'set enc=latin1')
     call writefile(lines, 'XtestPopupBorder')
@@ -175,6 +179,14 @@ func Test_popup_with_border_and_padding()
   " Check that popup_setoptions() takes the output of popup_getoptions()
   call popup_setoptions(winid, options)
   call assert_equal(options, popup_getoptions(winid))
+
+  " Check that range() doesn't crash
+  call popup_setoptions(winid, #{
+	\ padding: range(1, 4),
+	\ border: range(5, 8),
+	\ borderhighlight: range(4),
+	\ borderchars: range(8),
+	\ })
 
   let winid = popup_create('hello both', #{line: 3, col: 8, border: [], padding: []})
   call assert_equal(#{
@@ -416,7 +428,7 @@ func Test_popup_nospace()
   call delete('XtestPopupNospace')
 endfunc
 
-func Test_popup_firstline()
+func Test_popup_firstline_dump()
   CheckScreendump
 
   let lines =<< trim END
@@ -437,7 +449,9 @@ func Test_popup_firstline()
   " clean up
   call StopVimInTerminal(buf)
   call delete('XtestPopupFirstline')
+endfunc
 
+func Test_popup_firstline()
   let winid = popup_create(['1111', '222222', '33333', '44444'], #{
 	\ maxheight: 2,
 	\ firstline: 3,
@@ -479,6 +493,7 @@ func Test_popup_firstline()
   call popup_setoptions(winid, #{line: 3})
   call assert_equal(0, popup_getoptions(winid).firstline)
   call assert_equal(10, popup_getpos(winid).firstline)
+  call popup_close(winid)
 
   " CTRL-D scrolls down half a page
   let winid = popup_create(['xxx']->repeat(50), #{
@@ -814,10 +829,13 @@ func Test_popup_in_tab()
 endfunc
 
 func Test_popup_valid_arguments()
+  call assert_equal(0, len(popup_list()))
+
   " Zero value is like the property wasn't there
   let winid = popup_create("text", #{col: 0})
   let pos = popup_getpos(winid)
   call assert_inrange(&columns / 2 - 1, &columns / 2 + 1, pos.col)
+  call assert_equal([winid], popup_list())
   call popup_clear()
 
   " using cursor column has minimum value of 1
@@ -840,6 +858,9 @@ func Test_popup_invalid_arguments()
   call assert_fails('call popup_create(666, {})', 'E86:')
   call popup_clear()
   call assert_fails('call popup_create("text", "none")', 'E715:')
+  call popup_clear()
+  call assert_fails('call popup_create(test_null_string(), {})', 'E450:')
+  call assert_fails('call popup_create(test_null_list(), {})', 'E450:')
   call popup_clear()
 
   call assert_fails('call popup_create("text", #{col: "xxx"})', 'E475:')
@@ -879,10 +900,18 @@ func Test_popup_invalid_arguments()
   call popup_clear()
   call assert_fails('call popup_create([#{text: "text", props: ["none"]}], {})', 'E715:')
   call popup_clear()
+  call assert_fails('call popup_create([#{text: "text", props: range(3)}], {})', 'E715:')
+  call popup_clear()
   call assert_fails('call popup_create("text", #{mask: ["asdf"]})', 'E475:')
+  call popup_clear()
+  call assert_fails('call popup_create("text", #{mask: range(5)})', 'E475:')
+  call popup_clear()
+  call popup_create("text", #{mask: [range(4)]})
   call popup_clear()
   call assert_fails('call popup_create("text", #{mask: test_null_list()})', 'E475:')
   call assert_fails('call popup_create("text", #{mapping: []})', 'E745:')
+  call popup_clear()
+  call assert_fails('call popup_create("text", #{tabpage : 4})', 'E997:')
   call popup_clear()
 endfunc
 
@@ -890,6 +919,10 @@ func Test_win_execute_closing_curwin()
   split
   let winid = popup_create('some text', {})
   call assert_fails('call win_execute(winid, winnr() .. "close")', 'E994')
+  call popup_clear()
+
+  let winid = popup_create('some text', {})
+  call assert_fails('call win_execute(winid, printf("normal! :\<C-u>call popup_close(%d)\<CR>", winid))', 'E994')
   call popup_clear()
 endfunc
 
@@ -904,7 +937,12 @@ func Test_win_execute_not_allowed()
   call assert_fails('call win_execute(winid, "tabnext")', 'E994:')
   call assert_fails('call win_execute(winid, "next")', 'E994:')
   call assert_fails('call win_execute(winid, "rewind")', 'E994:')
+  call assert_fails('call win_execute(winid, "pedit filename")', 'E994:')
   call assert_fails('call win_execute(winid, "buf")', 'E994:')
+  call assert_fails('call win_execute(winid, "bnext")', 'E994:')
+  call assert_fails('call win_execute(winid, "bprev")', 'E994:')
+  call assert_fails('call win_execute(winid, "bfirst")', 'E994:')
+  call assert_fails('call win_execute(winid, "blast")', 'E994:')
   call assert_fails('call win_execute(winid, "edit")', 'E994:')
   call assert_fails('call win_execute(winid, "enew")', 'E994:')
   call assert_fails('call win_execute(winid, "wincmd x")', 'E994:')
@@ -1037,7 +1075,7 @@ func Test_popup_hide()
   call assert_equal('hello', line)
   call assert_equal(0, popup_getpos(winid).visible)
   " buffer is still listed but hidden
-  call assert_match(winbufnr(winid) .. 'u h.*\[Popup\]', execute('ls u'))
+  call assert_match(winbufnr(winid) .. 'u a.*\[Popup\]', execute('ls u'))
 
   eval winid->popup_show()
   redraw
@@ -1086,7 +1124,12 @@ func Test_popup_move()
   let line = join(map(range(1, 6), 'screenstring(1, v:val)'), '')
   call assert_equal('hworld', line)
 
+  call assert_fails('call popup_move(winid, [])', 'E715:')
+  call assert_fails('call popup_move(winid, test_null_dict())', 'E715:')
+
   call popup_close(winid)
+
+  call assert_equal(0, popup_move(-1, {}))
 
   bwipe!
 endfunc
@@ -1319,7 +1362,8 @@ func Test_popup_atcursor_pos()
 	normal 3G45|r@
 	let winid1 = popup_atcursor(['First', 'SeconD'], #{
 	      \ pos: 'topright',
-	      \ moved: [0, 0, 0],
+	      \ moved: range(3),
+	      \ mousemoved: range(3),
 	      \ })
   END
   call writefile(lines, 'XtestPopupAtcursorPos')
@@ -1361,7 +1405,7 @@ func Test_popup_beval()
   END
   call writefile(lines, 'XtestPopupBeval')
   let buf = RunVimInTerminal('-S XtestPopupBeval', #{rows: 10})
-  call term_wait(buf, 100)
+  call TermWait(buf, 50)
   call term_sendkeys(buf, 'j')
   call term_sendkeys(buf, ":call Hover()\<CR>")
   call VerifyScreenDump(buf, 'Test_popupwin_beval_1', {})
@@ -1382,8 +1426,8 @@ func Test_popup_filter()
   call setline(1, 'some text')
 
   func MyPopupFilter(winid, c)
-    if a:c == 'e'
-      let g:eaten = 'e'
+    if a:c == 'e' || a:c == "\<F9>"
+      let g:eaten = a:c
       return 1
     endif
     if a:c == '0'
@@ -1403,6 +1447,8 @@ func Test_popup_filter()
   " e is consumed by the filter
   call feedkeys('e', 'xt')
   call assert_equal('e', g:eaten)
+  call feedkeys("\<F9>", 'xt')
+  call assert_equal("\<F9>", g:eaten)
 
   " 0 is ignored by the filter
   normal $
@@ -1413,7 +1459,7 @@ func Test_popup_filter()
 
   " x closes the popup
   call feedkeys('x', 'xt')
-  call assert_equal('e', g:eaten)
+  call assert_equal("\<F9>", g:eaten)
   call assert_equal(-1, winbufnr(winid))
 
   delfunc MyPopupFilter
@@ -1579,12 +1625,14 @@ func Test_popup_empty()
   let pos = popup_getpos(winid)
   call assert_equal(5, pos.width)
   call assert_equal(5, pos.height)
+  call popup_close(winid)
 
   let winid = popup_create([], #{border: []})
   redraw
   let pos = popup_getpos(winid)
   call assert_equal(3, pos.width)
   call assert_equal(3, pos.height)
+  call popup_close(winid)
 endfunc
 
 func Test_popup_never_behind()
@@ -1630,8 +1678,8 @@ func s:VerifyPosition(p, msg, line, col, width, height)
 endfunc
 
 func Test_popup_position_adjust()
-  " Anything placed past 2 cells from of the right of the screen is moved to the
-  " left.
+  " Anything placed past the last cell on the right of the screen is moved to
+  " the left.
   "
   " When wrapping is disabled, we also shift to the left to display on the
   " screen, unless fixed is set.
@@ -1639,24 +1687,11 @@ func Test_popup_position_adjust()
   " Entries for cases which don't vary based on wrapping.
   " Format is per tests described below
   let both_wrap_tests = [
-	\       ['a', 5, &columns,        5, &columns - 2, 1, 1],
-	\       ['b', 5, &columns + 1,    5, &columns - 2, 1, 1],
-	\       ['c', 5, &columns - 1,    5, &columns - 2, 1, 1],
+	\       ['a', 5, &columns,        5, &columns, 1, 1],
+	\       ['b', 5, &columns + 1,    5, &columns, 1, 1],
+	\       ['c', 5, &columns - 1,    5, &columns - 1, 1, 1],
 	\       ['d', 5, &columns - 2,    5, &columns - 2, 1, 1],
-	\       ['e', 5, &columns - 3,    5, &columns - 3, 1, 1],
-	\
-	\       ['aa', 5, &columns,        5, &columns - 2, 2, 1],
-	\       ['bb', 5, &columns + 1,    5, &columns - 2, 2, 1],
-	\       ['cc', 5, &columns - 1,    5, &columns - 2, 2, 1],
-	\       ['dd', 5, &columns - 2,    5, &columns - 2, 2, 1],
-	\       ['ee', 5, &columns - 3,    5, &columns - 3, 2, 1],
-	\
-	\       ['aaa', 5, &columns,        5, &columns - 2, 3, 1],
-	\       ['bbb', 5, &columns + 1,    5, &columns - 2, 3, 1],
-	\       ['ccc', 5, &columns - 1,    5, &columns - 2, 3, 1],
-	\       ['ddd', 5, &columns - 2,    5, &columns - 2, 3, 1],
-	\       ['eee', 5, &columns - 3,    5, &columns - 3, 3, 1],
-	\ ]
+	\       ['e', 5, &columns - 3,    5, &columns - 3, 1, 1]]
 
   " these test groups are dicts with:
   "  - comment: something to identify the group of tests by
@@ -1677,11 +1712,24 @@ func Test_popup_position_adjust()
 	\     pos: 'botleft',
 	\   },
 	\   tests: both_wrap_tests + [
-	\       ['aaaa', 5, &columns,        4, &columns - 2, 3, 2],
-	\       ['bbbb', 5, &columns + 1,    4, &columns - 2, 3, 2],
-	\       ['cccc', 5, &columns - 1,    4, &columns - 2, 3, 2],
+	\       ['aa', 5, &columns,        4, &columns, 1, 2],
+	\       ['bb', 5, &columns + 1,    4, &columns, 1, 2],
+	\       ['cc', 5, &columns - 1,    5, &columns - 1, 2, 1],
+	\       ['dd', 5, &columns - 2,    5, &columns - 2, 2, 1],
+	\       ['ee', 5, &columns - 3,    5, &columns - 3, 2, 1],
+	\
+	\       ['aaa', 5, &columns,        3, &columns, 1, 3],
+	\       ['bbb', 5, &columns + 1,    3, &columns, 1, 3],
+	\       ['ccc', 5, &columns - 1,    4, &columns - 1, 2, 2],
+	\       ['ddd', 5, &columns - 2,    5, &columns - 2, 3, 1],
+	\       ['eee', 5, &columns - 3,    5, &columns - 3, 3, 1],
+	\
+	\       ['aaaa', 5, &columns,        2, &columns, 1, 4],
+	\       ['bbbb', 5, &columns + 1,    2, &columns, 1, 4],
+	\       ['cccc', 5, &columns - 1,    4, &columns - 1, 2, 2],
 	\       ['dddd', 5, &columns - 2,    4, &columns - 2, 3, 2],
 	\       ['eeee', 5, &columns - 3,    5, &columns - 3, 4, 1],
+	\       ['eeee', 5, &columns - 4,    5, &columns - 4, 4, 1],
 	\   ],
 	\ },
 	\ #{
@@ -1691,6 +1739,18 @@ func Test_popup_position_adjust()
 	\     pos: 'botleft',
 	\   },
 	\   tests: both_wrap_tests + [
+	\       ['aa', 5, &columns,        5, &columns - 1, 2, 1],
+	\       ['bb', 5, &columns + 1,    5, &columns - 1, 2, 1],
+	\       ['cc', 5, &columns - 1,    5, &columns - 1, 2, 1],
+	\       ['dd', 5, &columns - 2,    5, &columns - 2, 2, 1],
+	\       ['ee', 5, &columns - 3,    5, &columns - 3, 2, 1],
+	\
+	\       ['aaa', 5, &columns,        5, &columns - 2, 3, 1],
+	\       ['bbb', 5, &columns + 1,    5, &columns - 2, 3, 1],
+	\       ['ccc', 5, &columns - 1,    5, &columns - 2, 3, 1],
+	\       ['ddd', 5, &columns - 2,    5, &columns - 2, 3, 1],
+	\       ['eee', 5, &columns - 3,    5, &columns - 3, 3, 1],
+	\
 	\       ['aaaa', 5, &columns,        5, &columns - 3, 4, 1],
 	\       ['bbbb', 5, &columns + 1,    5, &columns - 3, 4, 1],
 	\       ['cccc', 5, &columns - 1,    5, &columns - 3, 4, 1],
@@ -1706,9 +1766,21 @@ func Test_popup_position_adjust()
 	\     pos: 'botleft',
 	\   },
 	\   tests: both_wrap_tests + [
-	\       ['aaaa', 5, &columns,        5, &columns - 2, 3, 1],
-	\       ['bbbb', 5, &columns + 1,    5, &columns - 2, 3, 1],
-	\       ['cccc', 5, &columns - 1,    5, &columns - 2, 3, 1],
+	\       ['aa', 5, &columns,        5, &columns, 1, 1],
+	\       ['bb', 5, &columns + 1,    5, &columns, 1, 1],
+	\       ['cc', 5, &columns - 1,    5, &columns - 1, 2, 1],
+	\       ['dd', 5, &columns - 2,    5, &columns - 2, 2, 1],
+	\       ['ee', 5, &columns - 3,    5, &columns - 3, 2, 1],
+	\
+	\       ['aaa', 5, &columns,        5, &columns, 1, 1],
+	\       ['bbb', 5, &columns + 1,    5, &columns, 1, 1],
+	\       ['ccc', 5, &columns - 1,    5, &columns - 1, 2, 1],
+	\       ['ddd', 5, &columns - 2,    5, &columns - 2, 3, 1],
+	\       ['eee', 5, &columns - 3,    5, &columns - 3, 3, 1],
+	\
+	\       ['aaaa', 5, &columns,        5, &columns, 1, 1],
+	\       ['bbbb', 5, &columns + 1,    5, &columns, 1, 1],
+	\       ['cccc', 5, &columns - 1,    5, &columns - 1, 2, 1],
 	\       ['dddd', 5, &columns - 2,    5, &columns - 2, 3, 1],
 	\       ['eeee', 5, &columns - 3,    5, &columns - 3, 4, 1],
 	\   ],
@@ -2063,6 +2135,10 @@ func Test_popup_settext()
   call term_sendkeys(buf, ":call popup_settext(p, [#{text: 'aaaa'}, #{text: 'bbbb'}, #{text: 'cccc'}])\<CR>")
   call VerifyScreenDump(buf, 'Test_popup_settext_06', {})
 
+  " range() (doesn't work)
+  call term_sendkeys(buf, ":call popup_settext(p, range(4, 8))\<CR>")
+  call VerifyScreenDump(buf, 'Test_popup_settext_07', {})
+
   " clean up
   call StopVimInTerminal(buf)
   call delete('XtestPopupSetText')
@@ -2118,7 +2194,11 @@ func Test_set_get_options()
   call assert_equal(1, options.drag)
   call assert_equal('Another', options.highlight)
 
+  call assert_fails('call popup_setoptions(winid, [])', 'E715:')
+  call assert_fails('call popup_setoptions(winid, test_null_dict())', 'E715:')
+
   call popup_close(winid)
+  call assert_equal(0, popup_setoptions(winid, options.wrap))
 endfunc
 
 func Test_popupwin_garbage_collect()
@@ -2205,42 +2285,106 @@ endfunc
 
 func Test_popupwin_filter_mouse()
   func MyPopupFilter(winid, c)
-    let g:got_mouse_col = v:mouse_col
-    let g:got_mouse_lnum = v:mouse_lnum
-    let g:got_mouse_winid = v:mouse_winid
+    let g:got_mousepos = getmousepos()
     return 0
   endfunc
 
-  let winid = popup_create(['short', 'long line that will wrap', 'short'], #{
-	\ line: 4,
-	\ col: 8,
+  call setline(1, ['.'->repeat(25)]->repeat(10))
+  let winid = popup_create(['short', 'long line that will wrap', 'other'], #{
+	\ line: 2,
+	\ col: 4,
 	\ maxwidth: 12,
+	\ padding: [],
+	\ border: [],
 	\ filter: 'MyPopupFilter',
 	\ })
   redraw
-  call test_setmouse(4, 8)
-  call feedkeys("\<LeftMouse>", 'xt')
-  call assert_equal(1, g:got_mouse_col)
-  call assert_equal(1, g:got_mouse_lnum)
-  call assert_equal(winid, g:got_mouse_winid)
+  "    123456789012345678901
+  "  1 .....................
+  "  2 ...+--------------+..
+  "  3 ...|              |..
+  "  4 ...| short        |..
+  "  5 ...| long line th |..
+  "  6 ...| at will wrap |..
+  "  7 ...| other        |..
+  "  8 ...|              |..
+  "  9 ...+--------------+..
+  " 10 .....................
+  let tests = []
 
-  call test_setmouse(5, 8)
-  call feedkeys("\<LeftMouse>", 'xt')
-  call assert_equal(1, g:got_mouse_col)
-  call assert_equal(2, g:got_mouse_lnum)
+  func AddItemOutsidePopup(tests, row, col)
+    eval a:tests->add(#{clickrow: a:row, clickcol: a:col, result: #{
+	  \ screenrow: a:row, screencol: a:col,
+	  \ winid: win_getid(), winrow: a:row, wincol: a:col,
+	  \ line: a:row, column: a:col,
+	  \ }})
+  endfunc
+  func AddItemInPopupBorder(tests, winid, row, col)
+    eval a:tests->add(#{clickrow: a:row, clickcol: a:col, result: #{
+	  \ screenrow: a:row, screencol: a:col,
+	  \ winid: a:winid, winrow: a:row - 1, wincol: a:col - 3,
+	  \ line: 0, column: 0,
+	  \ }})
+  endfunc
+  func AddItemInPopupText(tests, winid, row, col, textline, textcol)
+    eval a:tests->add(#{clickrow: a:row, clickcol: a:col, result: #{
+	  \ screenrow: a:row, screencol: a:col,
+	  \ winid: a:winid, winrow: a:row - 1, wincol: a:col - 3,
+	  \ line: a:textline, column: a:textcol,
+	  \ }})
+  endfunc
 
-  call test_setmouse(6, 8)
-  call feedkeys("\<LeftMouse>", 'xt')
-  call assert_equal(13, g:got_mouse_col)
-  call assert_equal(2, g:got_mouse_lnum)
+  " above and below popup
+  for c in range(1, 21)
+    call AddItemOutsidePopup(tests, 1, c)
+    call AddItemOutsidePopup(tests, 10, c)
+  endfor
+  " left and right of popup
+  for r in range(1, 10)
+    call AddItemOutsidePopup(tests, r, 3)
+    call AddItemOutsidePopup(tests, r, 20)
+  endfor
+  " top and bottom in popup
+  for c in range(4, 19)
+    call AddItemInPopupBorder(tests, winid, 2, c)
+    call AddItemInPopupBorder(tests, winid, 3, c)
+    call AddItemInPopupBorder(tests, winid, 8, c)
+    call AddItemInPopupBorder(tests, winid, 9, c)
+  endfor
+  " left and right margin in popup
+  for r in range(2, 9)
+    call AddItemInPopupBorder(tests, winid, r, 4)
+    call AddItemInPopupBorder(tests, winid, r, 5)
+    call AddItemInPopupBorder(tests, winid, r, 18)
+    call AddItemInPopupBorder(tests, winid, r, 19)
+  endfor
+  " text "short"
+  call AddItemInPopupText(tests, winid, 4, 6, 1, 1)
+  call AddItemInPopupText(tests, winid, 4, 10, 1, 5)
+  call AddItemInPopupText(tests, winid, 4, 11, 1, 6)
+  call AddItemInPopupText(tests, winid, 4, 17, 1, 6)
+  " text "long line th"
+  call AddItemInPopupText(tests, winid, 5, 6, 2, 1)
+  call AddItemInPopupText(tests, winid, 5, 10, 2, 5)
+  call AddItemInPopupText(tests, winid, 5, 17, 2, 12)
+  " text "at will wrap"
+  call AddItemInPopupText(tests, winid, 6, 6, 2, 13)
+  call AddItemInPopupText(tests, winid, 6, 10, 2, 17)
+  call AddItemInPopupText(tests, winid, 6, 17, 2, 24)
+  " text "other"
+  call AddItemInPopupText(tests, winid, 7, 6, 3, 1)
+  call AddItemInPopupText(tests, winid, 7, 10, 3, 5)
+  call AddItemInPopupText(tests, winid, 7, 11, 3, 6)
+  call AddItemInPopupText(tests, winid, 7, 17, 3, 6)
 
-  call test_setmouse(7, 20)
-  call feedkeys("\<LeftMouse>", 'xt')
-  call assert_equal(13, g:got_mouse_col)
-  call assert_equal(3, g:got_mouse_lnum)
-  call assert_equal(winid, g:got_mouse_winid)
+  for item in tests
+    call test_setmouse(item.clickrow, item.clickcol)
+    call feedkeys("\<LeftMouse>", 'xt')
+    call assert_equal(item.result, g:got_mousepos)
+  endfor
 
   call popup_close(winid)
+  enew!
   delfunc MyPopupFilter
 endfunc
 
@@ -2277,10 +2421,44 @@ endfunc
 
 func Test_popupwin_terminal_buffer()
   CheckFeature terminal
+  CheckUnix
+  " Starting a terminal to run a shell in is considered flaky.
+  let g:test_is_flaky = 1
 
-  let ptybuf = term_start(&shell, #{hidden: 1})
-  call assert_fails('let winnr = popup_create(ptybuf, #{})', 'E278:')
-  exe 'bwipe! ' .. ptybuf
+  let origwin = win_getid()
+  let termbuf = term_start(&shell, #{hidden: 1})
+  let winid = popup_create(termbuf, #{minwidth: 40, minheight: 10})
+  " Wait for shell to start
+  call WaitForAssert({-> assert_equal("run", job_status(term_getjob(termbuf)))})
+  sleep 100m
+  " Check this doesn't crash
+  call assert_equal(winnr(), winnr('j'))
+  call assert_equal(winnr(), winnr('k'))
+  call assert_equal(winnr(), winnr('h'))
+  call assert_equal(winnr(), winnr('l'))
+
+  " Cannot quit while job is running
+  call assert_fails('call feedkeys("\<C-W>:quit\<CR>", "xt")', 'E948:')
+
+  " Cannot enter Terminal-Normal mode. (TODO: but it works...)
+  call feedkeys("xxx\<C-W>N", 'xt')
+  call assert_fails('call feedkeys("gf", "xt")', 'E863:')
+  call feedkeys("a\<C-U>", 'xt')
+
+  " Cannot escape from terminal window
+  call assert_fails('tab drop xxx', 'E863:')
+
+  " Cannot open a second one.
+  let termbuf2 = term_start(&shell, #{hidden: 1})
+  call assert_fails('call popup_create(termbuf2, #{})', 'E861:')
+  call term_sendkeys(termbuf2, "exit\<CR>")
+
+  " Exiting shell closes popup window
+  call feedkeys("exit\<CR>", 'xt')
+  " Wait for shell to exit
+  sleep 100m
+  call feedkeys(":quit\<CR>", 'xt')
+  call assert_equal(origwin, win_getid())
 endfunc
 
 func Test_popupwin_with_buffer_and_filter()
@@ -2615,10 +2793,28 @@ func Test_popup_cursorline()
   call StopVimInTerminal(buf)
 
   call delete('XtestPopupCursorLine')
+
+  " ---------
+  " Use current buffer for popupmenu
+  " ---------
+  let lines =<< trim END
+    call setline(1, ['one', 'two', 'three'])
+    let winid = popup_create(bufnr('%'), #{
+	  \ cursorline : 1,
+	  \ })
+    call win_execute(winid, "2")
+  END
+  call writefile(lines, 'XtestPopupCursorLine')
+  let buf = RunVimInTerminal('-S XtestPopupCursorLine', #{rows: 10})
+  call VerifyScreenDump(buf, 'Test_popupwin_cursorline_8', {})
+  call StopVimInTerminal(buf)
+
+  call delete('XtestPopupCursorLine')
 endfunc
 
 func Test_previewpopup()
   CheckScreendump
+  CheckFeature quickfix
 
   call writefile([
         \ "!_TAG_FILE_ENCODING\tutf-8\t//",
@@ -2669,9 +2865,9 @@ func Test_previewpopup()
   call term_sendkeys(buf, "/another\<CR>\<C-W>}")
   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_4', {})
 
-  call term_sendkeys(buf, ":cd ..\<CR>:\<CR>")
+  call term_sendkeys(buf, ":silent cd ..\<CR>:\<CR>")
   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_5', {})
-  call term_sendkeys(buf, ":cd testdir\<CR>")
+  call term_sendkeys(buf, ":silent cd testdir\<CR>")
 
   call term_sendkeys(buf, ":pclose\<CR>")
   call term_sendkeys(buf, ":\<BS>")
@@ -2685,6 +2881,12 @@ func Test_previewpopup()
   call term_sendkeys(buf, ":psearch searched\<CR>")
   call term_sendkeys(buf, ":\<CR>")
   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_8', {})
+
+  call term_sendkeys(buf, "\<C-W>p")
+  call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_9', {})
+
+  call term_sendkeys(buf, ":call win_execute(popup_findpreview(), 'call popup_clear()')\<CR>")
+  call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_10', {})
 
   call StopVimInTerminal(buf)
   call delete('Xtags')
@@ -2790,13 +2992,14 @@ endfunc
 
 func Test_popupmenu_info_border()
   CheckScreendump
+  CheckFeature quickfix
 
   let lines = Get_popupmenu_lines()
   call add(lines, 'set completepopup=height:4,highlight:InfoPopup')
   call writefile(lines, 'XtestInfoPopup')
 
   let buf = RunVimInTerminal('-S XtestInfoPopup', #{rows: 14})
-  call term_wait(buf, 50)
+  call TermWait(buf, 25)
 
   call term_sendkeys(buf, "A\<C-X>\<C-U>")
   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_1', {})
@@ -2815,19 +3018,36 @@ func Test_popupmenu_info_border()
   call term_sendkeys(buf, "\<C-N>\<C-N>")
   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_5', {})
 
+  " Test that the popupmenu's scrollbar and infopopup do not overlap
+  call term_sendkeys(buf, "\<Esc>")
+  call term_sendkeys(buf, ":set pumheight=3\<CR>")
+  call term_sendkeys(buf, "cc\<C-X>\<C-U>")
+  call VerifyScreenDump(buf, 'Test_popupwin_infopopup_6', {})
+
+  " Hide the info popup, cycle trough buffers, make sure it didn't get
+  " deleted.
+  call term_sendkeys(buf, "\<Esc>")
+  call term_sendkeys(buf, ":set hidden\<CR>")
+  call term_sendkeys(buf, ":bn\<CR>")
+  call term_sendkeys(buf, ":bn\<CR>")
+  call term_sendkeys(buf, "otest text test text\<C-X>\<C-U>")
+  call VerifyScreenDump(buf, 'Test_popupwin_infopopup_7', {})
+
+  call term_sendkeys(buf, "\<Esc>")
   call StopVimInTerminal(buf)
   call delete('XtestInfoPopup')
 endfunc
 
 func Test_popupmenu_info_noborder()
   CheckScreendump
+  CheckFeature quickfix
 
   let lines = Get_popupmenu_lines()
   call add(lines, 'set completepopup=height:4,border:off')
   call writefile(lines, 'XtestInfoPopupNb')
 
   let buf = RunVimInTerminal('-S XtestInfoPopupNb', #{rows: 14})
-  call term_wait(buf, 50)
+  call TermWait(buf, 25)
 
   call term_sendkeys(buf, "A\<C-X>\<C-U>")
   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_nb_1', {})
@@ -2838,13 +3058,14 @@ endfunc
 
 func Test_popupmenu_info_align_menu()
   CheckScreendump
+  CheckFeature quickfix
 
   let lines = Get_popupmenu_lines()
   call add(lines, 'set completepopup=height:4,border:off,align:menu')
   call writefile(lines, 'XtestInfoPopupNb')
 
   let buf = RunVimInTerminal('-S XtestInfoPopupNb', #{rows: 14})
-  call term_wait(buf, 50)
+  call TermWait(buf, 25)
 
   call term_sendkeys(buf, "A\<C-X>\<C-U>")
   call term_sendkeys(buf, "\<C-N>")
@@ -2868,13 +3089,14 @@ endfunc
 
 func Test_popupmenu_info_hidden()
   CheckScreendump
+  CheckFeature quickfix
 
   let lines = Get_popupmenu_lines()
   call add(lines, 'call InfoHidden()')
   call writefile(lines, 'XtestInfoPopupHidden')
 
   let buf = RunVimInTerminal('-S XtestInfoPopupHidden', #{rows: 14})
-  call term_wait(buf, 50)
+  call TermWait(buf, 25)
 
   call term_sendkeys(buf, "A\<C-X>\<C-U>")
   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_hidden_1', {})
@@ -2888,6 +3110,58 @@ func Test_popupmenu_info_hidden()
   call term_sendkeys(buf, "\<Esc>")
   call StopVimInTerminal(buf)
   call delete('XtestInfoPopupHidden')
+endfunc
+
+func Test_popupmenu_info_too_wide()
+  CheckScreendump
+  CheckFeature quickfix
+
+  let lines =<< trim END
+    call setline(1, range(10))
+
+    set completeopt+=preview,popup
+    set completepopup=align:menu
+    set omnifunc=OmniFunc
+    hi InfoPopup ctermbg=lightgrey
+
+    func OmniFunc(findstart, base)
+      if a:findstart
+        return 0
+      endif
+
+      let menuText = 'some long text to make sure the menu takes up all of the width of the window'
+      return #{
+    	\ words: [
+    	  \ #{
+    	    \ word: 'scrap',
+    	    \ menu: menuText,
+    	    \ info: "other words are\ncooler than this and some more text\nto make wrap",
+    	  \ },
+    	  \ #{
+    	    \ word: 'scappier',
+    	    \ menu: menuText,
+    	    \ info: 'words are cool',
+    	  \ },
+    	  \ #{
+    	    \ word: 'scrappier2',
+    	    \ menu: menuText,
+    	    \ info: 'words are cool',
+    	  \ },
+    	\ ]
+     \ }
+    endfunc
+  END
+
+  call writefile(lines, 'XtestInfoPopupWide')
+  let buf = RunVimInTerminal('-S XtestInfoPopupWide', #{rows: 8})
+  call TermWait(buf, 25)
+
+  call term_sendkeys(buf, "Ascr\<C-X>\<C-O>")
+  call VerifyScreenDump(buf, 'Test_popupwin_infopopup_wide_1', {})
+
+  call term_sendkeys(buf, "\<Esc>")
+  call StopVimInTerminal(buf)
+  call delete('XtestInfoPopupWide')
 endfunc
 
 func Test_popupwin_recycle_bnr()
@@ -2931,5 +3205,160 @@ func Test_popupwin_cancel()
   call assert_equal({}, popup_getpos(win2))
   call assert_equal({}, popup_getpos(win3))
 endfunc
+
+func Test_popupwin_filter_redraw()
+  " Create two popups with a filter that closes the popup when typing "0".
+  " Both popups should close, even though the redraw also calls
+  " popup_reset_handled()
+
+  func CloseFilter(winid, key)
+    if a:key == '0'
+      call popup_close(a:winid)
+      redraw
+    endif
+    return 0  " pass the key
+  endfunc
+
+  let id1 = popup_create('first one', #{
+	\ line: 1,
+	\ col: 1,
+	\ filter: 'CloseFilter',
+	\ })
+  let id2 = popup_create('second one', #{
+	\ line: 9,
+	\ col: 1,
+	\ filter: 'CloseFilter',
+	\ })
+  call assert_equal(1, popup_getpos(id1).line)
+  call assert_equal(9, popup_getpos(id2).line)
+
+  call feedkeys('0', 'xt')
+  call assert_equal({}, popup_getpos(id1))
+  call assert_equal({}, popup_getpos(id2))
+
+  call popup_clear()
+  delfunc CloseFilter
+endfunc
+
+func Test_popupwin_double_width()
+  CheckScreendump
+
+  let lines =<< trim END
+    call setline(1, 'x你好世界你好世你好世界你好')
+    call setline(2, '你好世界你好世你好世界你好')
+    call setline(3, 'x你好世界你好世你好世界你好')
+    call popup_create('你好，世界 - 你好，世界xxxxx', #{line: 1, col: 3, maxwidth: 14})
+  END
+  call writefile(lines, 'XtestPopupWide')
+
+  let buf = RunVimInTerminal('-S XtestPopupWide', #{rows: 10})
+  call VerifyScreenDump(buf, 'Test_popupwin_doublewidth_1', {})
+
+  call StopVimInTerminal(buf)
+  call delete('XtestPopupWide')
+endfunc
+
+func Test_popupwin_sign()
+  CheckScreendump
+
+  let lines =<< trim END
+    call setline(1, range(10))
+    call sign_define('Current', {
+	    \ 'text': '>>',
+	    \ 'texthl': 'WarningMsg',
+	    \ 'linehl': 'Error',
+	    \ })
+    call sign_define('Other', {
+	    \ 'text': '#!',
+	    \ 'texthl': 'Error',
+	    \ 'linehl': 'Search',
+	    \ })
+    let winid = popup_create(['hello', 'bright', 'world'], {
+	    \ 'minwidth': 20,
+	    \ })
+    call setwinvar(winid, "&signcolumn", "yes")
+    let winbufnr = winbufnr(winid)
+
+    " add sign to current buffer, shows
+    call sign_place(1, 'Selected', 'Current', bufnr('%'), {'lnum': 1})
+    " add sign to current buffer, does not show
+    call sign_place(2, 'PopUpSelected', 'Other', bufnr('%'), {'lnum': 2})
+
+    " add sign to popup buffer, shows
+    call sign_place(3, 'PopUpSelected', 'Other', winbufnr, {'lnum': 1})
+    " add sign to popup buffer, does not show
+    call sign_place(4, 'Selected', 'Current', winbufnr, {'lnum': 2})
+  END
+  call writefile(lines, 'XtestPopupSign')
+
+  let buf = RunVimInTerminal('-S XtestPopupSign', #{rows: 10})
+  call VerifyScreenDump(buf, 'Test_popupwin_sign_1', {})
+
+  call StopVimInTerminal(buf)
+  call delete('XtestPopupSign')
+endfunc
+
+func Test_popupwin_bufnr()
+  let popwin = popup_create(['blah'], #{})
+  let popbuf = winbufnr(popwin)
+  split asdfasdf
+  let newbuf = bufnr()
+  call assert_true(newbuf > popbuf, 'New buffer number is higher')
+  call assert_equal(newbuf, bufnr('$'))
+  call popup_clear()
+  let popwin = popup_create(['blah'], #{})
+  " reuses previous buffer number
+  call assert_equal(popbuf, winbufnr(popwin))
+  call assert_equal(newbuf, bufnr('$'))
+
+  call popup_clear()
+  bwipe!
+endfunc
+
+func Test_popupwin_filter_input_multibyte()
+  func MyPopupFilter(winid, c)
+    let g:bytes = range(a:c->strlen())->map({i -> char2nr(a:c[i])})
+    return 0
+  endfunc
+  let winid = popup_create('', #{mapping: 0, filter: 'MyPopupFilter'})
+
+  " UTF-8: E3 80 80, including K_SPECIAL(0x80)
+  call feedkeys("\u3000", 'xt')
+  call assert_equal([0xe3, 0x80, 0x80], g:bytes)
+
+  " UTF-8: E3 80 9B, including CSI(0x9B)
+  call feedkeys("\u301b", 'xt')
+  call assert_equal([0xe3, 0x80, 0x9b], g:bytes)
+
+  call popup_clear()
+  delfunc MyPopupFilter
+  unlet g:bytes
+endfunc
+
+func Test_popupwin_atcursor_far_right()
+  new
+
+  " this was getting stuck
+  set signcolumn=yes
+  call setline(1, repeat('=', &columns))
+  normal! ggg$
+  let winid = popup_atcursor(repeat('x', 500), #{moved: 'any', border: []})
+
+  call popup_close(winid)
+  bwipe!
+  set signcolumn&
+endfunc
+
+func Test_popupwin_splitmove()
+  vsplit
+  let win2 = win_getid()
+  let popup_winid = popup_dialog('hello', {})
+  call assert_fails('call win_splitmove(popup_winid, win2)', 'E957:')
+  call assert_fails('call win_splitmove(win2, popup_winid)', 'E957:')
+
+  call popup_clear()
+  bwipe
+endfunc
+
 
 " vim: shiftwidth=2 sts=2

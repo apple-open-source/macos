@@ -26,11 +26,11 @@
 
 WI.Resource = class Resource extends WI.SourceCode
 {
-    constructor(url, {mimeType, type, loaderIdentifier, targetId, requestIdentifier, requestMethod, requestHeaders, requestData, requestSentTimestamp, requestSentWalltime, initiatorCallFrames, initiatorSourceCodeLocation, initiatorNode, originalRequestWillBeSentTimestamp} = {})
+    constructor(url, {mimeType, type, loaderIdentifier, targetId, requestIdentifier, requestMethod, requestHeaders, requestData, requestSentTimestamp, requestSentWalltime, initiatorCallFrames, initiatorSourceCodeLocation, initiatorNode} = {})
     {
-        super();
-
         console.assert(url);
+
+        super(url);
 
         if (type in WI.Resource.Type)
             type = WI.Resource.Type[type];
@@ -39,8 +39,6 @@ WI.Resource = class Resource extends WI.SourceCode
             type = WI.Resource.Type.StyleSheet;
         }
 
-        this._url = url;
-        this._urlComponents = null;
         this._mimeType = mimeType;
         this._mimeTypeComponents = null;
         this._type = Resource.resolvedType(type, mimeType);
@@ -60,7 +58,6 @@ WI.Resource = class Resource extends WI.SourceCode
         this._initiatorSourceCodeLocation = initiatorSourceCodeLocation || null;
         this._initiatorNode = initiatorNode || null;
         this._initiatedResources = [];
-        this._originalRequestWillBeSentTimestamp = originalRequestWillBeSentTimestamp || null;
         this._requestSentTimestamp = requestSentTimestamp || NaN;
         this._requestSentWalltime = requestSentWalltime || NaN;
         this._responseReceivedTimestamp = NaN;
@@ -242,11 +239,11 @@ WI.Resource = class Resource extends WI.SourceCode
     {
         switch (priority) {
         case WI.Resource.NetworkPriority.Low:
-            return WI.UIString("Low");
+            return WI.UIString("Low", "Low @ Network Priority", "Low network request priority");
         case WI.Resource.NetworkPriority.Medium:
-            return WI.UIString("Medium");
+            return WI.UIString("Medium", "Medium @ Network Priority", "Medium network request priority");
         case WI.Resource.NetworkPriority.High:
-            return WI.UIString("High");
+            return WI.UIString("High", "High @ Network Priority", "High network request priority");
         default:
             return null;
         }
@@ -310,7 +307,6 @@ WI.Resource = class Resource extends WI.SourceCode
 
     // Public
 
-    get url() { return this._url; }
     get mimeType() { return this._mimeType; }
     get target() { return this._target; }
     get type() { return this._type; }
@@ -322,7 +318,6 @@ WI.Resource = class Resource extends WI.SourceCode
     get initiatorSourceCodeLocation() { return this._initiatorSourceCodeLocation; }
     get initiatorNode() { return this._initiatorNode; }
     get initiatedResources() { return this._initiatedResources; }
-    get originalRequestWillBeSentTimestamp() { return this._originalRequestWillBeSentTimestamp; }
     get statusCode() { return this._statusCode; }
     get statusText() { return this._statusText; }
     get responseSource() { return this._responseSource; }
@@ -351,13 +346,6 @@ WI.Resource = class Resource extends WI.SourceCode
     get responseBodyTransferSize() { return this._responseBodyTransferSize; }
     get cachedResponseBodySize() { return this._cachedResponseBodySize; }
     get redirects() { return this._redirects; }
-
-    get urlComponents()
-    {
-        if (!this._urlComponents)
-            this._urlComponents = parseURL(this._url);
-        return this._urlComponents;
-    }
 
     get loadedSecurely()
     {
@@ -855,14 +843,22 @@ WI.Resource = class Resource extends WI.SourceCode
         if (specialContentPromise)
             return specialContentPromise;
 
-        // If we have the requestIdentifier we can get the actual response for this specific resource.
-        // Otherwise the content will be cached resource data, which might not exist anymore.
-        if (this._requestIdentifier)
-            return this._target.NetworkAgent.getResponseBody(this._requestIdentifier);
+        if (this._target.type === WI.TargetType.Worker) {
+            console.assert(this.isScript);
+            let scriptForTarget = this.scripts.find((script) => script.target === this._target);
+            console.assert(scriptForTarget);
+            if (scriptForTarget)
+                return scriptForTarget.requestContentFromBackend();
+        } else {
+            // If we have the requestIdentifier we can get the actual response for this specific resource.
+            // Otherwise the content will be cached resource data, which might not exist anymore.
+            if (this._requestIdentifier)
+                return this._target.NetworkAgent.getResponseBody(this._requestIdentifier);
 
-        // There is no request identifier or frame to request content from.
-        if (this._parentFrame)
-            return this._target.PageAgent.getResourceContent(this._parentFrame.id, this._url);
+            // There is no request identifier or frame to request content from.
+            if (this._parentFrame)
+                return this._target.PageAgent.getResourceContent(this._parentFrame.id, this._url);
+        }
 
         return Promise.reject(new Error("Content request failed."));
     }

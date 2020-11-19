@@ -17,7 +17,7 @@ PREBINDING = NO;
 WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wparentheses -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline $(SECURITY_WARNING_CFLAGS);
 SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=format-security -Werror=implicit-int-conversion -Werror=memset-transposed-args -Werror=return-stack-address -Werror=shadow -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
 STRIP_INSTALLED_PRODUCT = YES;
-HEADER_SEARCH_PATHS = /usr/include/libxml2 "Pregenerated Files/include";
+HEADER_SEARCH_PATHS = /usr/include/libxml2;
 
 DEBUG_DEFINES = $(DEBUG_DEFINES_$(CONFIGURATION));
 DEBUG_DEFINES_Debug = ;
@@ -29,6 +29,13 @@ GCC_OPTIMIZATION_LEVEL_Debug = 0;
 GCC_OPTIMIZATION_LEVEL_Release = s;
 GCC_OPTIMIZATION_LEVEL_Production = $(GCC_OPTIMIZATION_LEVEL_Release);
 
+COPY_PHASE_STRIP = NO;
 DEAD_CODE_STRIPPING = $(DEAD_CODE_STRIPPING_$(CONFIGURATION));
 DEAD_CODE_STRIPPING_Release = YES;
 DEAD_CODE_STRIPPING_Production = $(DEAD_CODE_STRIPPING_Release);
+
+SDKROOT = macosx.internal;
+
+ALWAYS_SEARCH_USER_PATHS = NO;
+
+SUPPORTED_PLATFORMS = appletvos appletvsimulator iphoneos iphonesimulator macosx watchos watchsimulator;

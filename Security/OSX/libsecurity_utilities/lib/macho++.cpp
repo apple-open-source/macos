@@ -768,11 +768,12 @@ const fat_arch *Universal::findArch(const Architecture &target) const
 	// exact match
 	for (const fat_arch *arch = mArchList; arch < end; ++arch)
 		if (arch->cputype == target.cpuType()
-			&& arch->cpusubtype == target.cpuSubtype())
+			&& (arch->cpusubtype & ~CPU_SUBTYPE_MASK) == target.cpuSubtype())
 			return arch;
 	// match for generic model of main architecture
 	for (const fat_arch *arch = mArchList; arch < end; ++arch)
-		if (arch->cputype == target.cpuType() && arch->cpusubtype == 0)
+		if (arch->cputype == target.cpuType()
+			&& (arch->cpusubtype & ~CPU_SUBTYPE_MASK) == 0)
 			return arch;
 	// match for any subarchitecture of the main architecture (questionable)
 	for (const fat_arch *arch = mArchList; arch < end; ++arch)
@@ -790,7 +791,7 @@ MachO *Universal::findImage(const Architecture &target) const
 	
 MachO* Universal::make(MachO* macho) const
 {
-	auto_ptr<MachO> mo(macho);				// safe resource
+	unique_ptr<MachO> mo(macho);				// safe resource
 	uint32_t type = mo->type();
 	if (type == 0)							// not a recognized Mach-O type
 		UnixError::throwMe(ENOEXEC);
@@ -829,7 +830,7 @@ void Universal::architectures(Architectures &archs) const
 		for (unsigned n = 0; n < mArchCount; n++)
 			archs.insert(mArchList[n]);
 	} else {
-		auto_ptr<MachO> macho(architecture());
+		unique_ptr<MachO> macho(architecture());
 		archs.insert(macho->architecture());
 	}
 }
@@ -880,7 +881,7 @@ bool Universal::isSuspicious() const
 	Universal::Architectures archList;
 	architectures(archList);
 	for (Universal::Architectures::const_iterator it = archList.begin(); it != archList.end(); ++it) {
-		auto_ptr<MachO> macho(architecture(*it));
+		unique_ptr<MachO> macho(architecture(*it));
 		if (macho->isSuspicious())
 			return true;
 	}

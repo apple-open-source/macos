@@ -265,6 +265,8 @@
 #define AGENT_HINT_SHOW_RESET "show-reset"
 #define AGENT_HINT_PASSWORD_ONLY "password-only"
 #define AGENT_HINT_SHEET_CONTEXT "sheet-context"
+#define AGENT_HINT_LACONTEXT "lacontext"
+#define AGENT_HINT_REQUIRED_USER "required-user"
 
 // Public Key Hash from certificate used for login
 #define AGENT_HINT_TOKEN_HASH "token-hash"
@@ -297,6 +299,9 @@
 
 #define AGENT_HINT_IGNORE_SESSION "ignore-session-state"
 #define AGENT_HINT_NO_UI_EXPECTED "no-ui-expected"
+
+/* LocalAuthentication specific */
+#define AGENT_HINT_EXT_PASSWORD "la-ext-passwd"
 
 /* Keychain synchronization */
 // iDisk keychain blob metainfo dictionary; follows "defaults" naming
@@ -358,5 +363,33 @@
 
 /* Sheet window ID */
 #define kAuthorizationEnvironmentWindowId "cgwindowid"
+
+/* LWOS authenticate approval and admin status */
+#define kAuthorizationFVAdmin "fvadmin"
+
+/* Prelogin user database defines */
+#define PLUDB_USERNAME "username"
+#define PLUDB_LUSERNAME "lusername"
+#define PLUDB_KEK "kek"
+#define PLUDB_VEK "vek"
+#define PLUDB_GUID "guid"
+#define PLUDB_ADMIN "admin"
+#define PLUDB_SCPAIR "scpairing"
+#define PLUDB_IMAGE "image"
+#define PLUDB_PWDHINT "pwdhint"
+#define PLUDB_SCUNLOCK_DATA "scunl"
+#define PLUDB_SCENF "scen"
+#define PLUDB_SCUAC "scuac"
+#define PLUDB_DNODE "dnode"
+#define PLUDB_OWNER "owner"
+
+/* FVUnlock related defines */
+#define AGENT_FVUNLOCK_USER "fvusername"
+#define AGENT_FVUNLOCK_PASSWORD "fvpassword"
+
+/* PRL related defines */
+#define AGENT_CONTEXT_AKS_MAX_ATTEMPTS "aks-max-attempts"
+#define AGENT_CONTEXT_AKS_FAILURES "aks-fail-count"
+#define AGENT_CONTEXT_AKS_BACKOFF "aks-backoff"
 
 #endif /* !_SECURITY_AUTHORIZATIONTAGSPRIV_H_ */

@@ -25,7 +25,6 @@
 #import <XCTest/XCTest.h>
 #import <XCTest/XCTest.h>
 #import "keychain/ckks/CKKSCondition.h"
-#import <utilities/debugging.h>
 
 @interface CKKSConditionTests : XCTestCase
 @end

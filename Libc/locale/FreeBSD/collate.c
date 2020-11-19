@@ -393,11 +393,30 @@ largesearch(const wchar_t key, locale_t loc)
 	return NULL;
 }
 
-__private_extern__ void
+/*
+* This is provided for programs (like grep) that are calling this
+* private function.  This is also used by wcscoll()
+*/
+void
 __collate_lookup_l(const wchar_t *t, int *len, int *prim, int *sec, locale_t loc)
 {
 	struct __collate_st_chain_pri *p2;
 	int l;
+
+	if (!*t) {
+		*len = 0;
+		*prim = 0;
+		*sec = 0;
+		return;
+	}
+
+	NORMALIZE_LOCALE(loc);
+	if (loc->__collate_load_error) {
+		*len = 1;
+		*prim = *t;
+		*sec = 0;
+		return;
+	}
 
 	*len = 1;
 	*prim = *sec = 0;
@@ -428,22 +447,41 @@ __collate_lookup_l(const wchar_t *t, int *len, int *prim, int *sec, locale_t loc
 }
 
 /*
- * This is only provided for programs (like grep) that are calling this
- * private function.  This will go away eventually.
+ * This is also provided for programs (like grep) that are calling this
+ * private function - that do not perform their own multi-byte handling.
+ * This will go away eventually.
  */
 void
 __collate_lookup(const unsigned char *t, int *len, int *prim, int *sec)
 {
 	locale_t loc = __current_locale();
-	wchar_t *w = __collate_mbstowcs((const char *)t, loc);
+	wchar_t *w = NULL;
 	int sverrno;
+
+	if (!*t) {
+		*len = 0;
+		*prim = 0;
+		*sec = 0;
+		return;
+	}
+
+	if (loc->__collate_load_error || (w = __collate_mbstowcs((const char *)t, loc)) == NULL) {
+		*len = 1;
+		*prim = (int)*t;
+		*sec = 0;
+
+		sverrno = errno;
+		free((void*)w);
+		errno = sverrno;
+		return;
+	}
 
 	__collate_lookup_l(w, len, prim, sec, loc);
 	sverrno = errno;
 	free(w);
 	errno = sverrno;
 }
- 
+
 __private_extern__ void
 __collate_lookup_which(const wchar_t *t, int *len, int *pri, int which, locale_t loc)
 {

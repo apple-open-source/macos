@@ -1,5 +1,232 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 gaa{
-    Version{"2.1.48.13"}
+    Version{"36.1"}
+    units{
+        coordinate{
+            dnam{"jeŋ koji ejwɛ"}
+            east{"{0} bokã"}
+            north{"{0} kooyi"}
+            south{"{0} wuoyi"}
+            west{"{0} anai"}
+        }
+        duration{
+            century{
+                dnam{"afii ohai"}
+                other{"afii ohai {0}"}
+            }
+            day{
+                dnam{"gbii"}
+                other{"gbii {0}"}
+                per{"{0} daa gbi"}
+            }
+            decade{
+                dnam{"afii nyɔŋma"}
+                other{"afi nyɔŋmai {0}"}
+            }
+            hour{
+                dnam{"ŋmɛlɛtswai"}
+                other{"ŋmɛlɛtswai {0}"}
+                per{"{0} ŋmɛlɛtswaa fɛɛ ŋmɛlɛtswaa"}
+            }
+            microsecond{
+                dnam{"sɛkɛnsi mlijaa 1000"}
+                other{"sɛkɛnsi {0} mlijaa 1000"}
+            }
+            millisecond{
+                dnam{"sɛkɛnsi mlijaa 100"}
+                other{"sɛkɛnsi {0} mlijaa 100"}
+            }
+            minute{
+                dnam{"minitii"}
+                other{"minitii {0}"}
+                per{"{0} miniti fɛɛ miniti"}
+            }
+            month{
+                dnam{"nyɔji"}
+                other{"nyɔji {0}"}
+                per{"{0} daa nyɔɔŋ"}
+            }
+            nanosecond{
+                dnam{"sɛkɛnsi frim"}
+                other{"sɛkɛnsi frim {0}"}
+            }
+            second{
+                dnam{"sɛkɛnsi"}
+                other{"sɛkɛnsii {0}"}
+                per{"{0} sɛkɛnsi fɛɛ sɛkɛnsi"}
+            }
+            week{
+                dnam{"otsii"}
+                other{"otsii {0}"}
+                per{"{0} daa otsi"}
+            }
+            year{
+                dnam{"afii"}
+                other{"afii {0}"}
+                per{"{0} daa afi"}
+            }
+        }
+        length{
+            centimeter{
+                dnam{"sɛntimitai"}
+                other{"sɛntimitai {0}"}
+                per{"{0} sɛntimita fɛɛ sɛntimita"}
+            }
+            decimeter{
+                dnam{"dɛsimita"}
+                other{"dɛsimitai {0}"}
+            }
+            kilometer{
+                dnam{"kilomita"}
+                other{"kilomitai {0}"}
+                per{"{0} kilomita fɛɛ kilomita"}
+            }
+            meter{
+                dnam{"mitai"}
+                other{"mitai {0}"}
+                per{"{0} mita fɛɛ mita"}
+            }
+            millimeter{
+                dnam{"milimitai"}
+                other{"milimitai {0}"}
+            }
+        }
+    }
+    unitsNarrow{
+        coordinate{
+            dnam{"koji"}
+            east{"{0}B"}
+            north{"{0}K"}
+            south{"{0}W"}
+            west{"{0}A"}
+        }
+        duration{
+            day{
+                dnam{"gbi"}
+                other{"{0}g"}
+            }
+            hour{
+                dnam{"ŋmɛlɛtswaa"}
+                other{"{0}ŋm"}
+            }
+            millisecond{
+                dnam{"sɛkmlij"}
+                other{"{0}sm"}
+            }
+            minute{
+                dnam{"min"}
+                other{"{0}m"}
+            }
+            month{
+                dnam{"nyɔɔŋ"}
+                other{"{0}n"}
+            }
+            second{
+                dnam{"sɛk"}
+                other{"{0}s"}
+            }
+            week{
+                dnam{"otsi"}
+                other{"{0}o"}
+            }
+            year{
+                dnam{"afi"}
+                other{"a{0}"}
+            }
+        }
+        length{
+            kilometer{
+                dnam{"km"}
+                other{"{0}km"}
+            }
+            meter{
+                dnam{"m"}
+            }
+            millimeter{
+                other{"{0}mm"}
+            }
+        }
+    }
+    unitsShort{
+        coordinate{
+            dnam{"koji"}
+            east{"{0} B"}
+            north{"{0} K"}
+            south{"{0} W"}
+            west{"{0} A"}
+        }
+        duration{
+            century{
+                dnam{"ao"}
+                other{"{0}ao"}
+            }
+            day{
+                dnam{"gbii"}
+                other{"gbii {0}"}
+                per{"{0}/gbi"}
+            }
+            decade{
+                dnam{"an"}
+                other{"{0}an"}
+            }
+            hour{
+                dnam{"ŋmɛlɛtswai"}
+                other{"ŋm {0}"}
+                per{"{0}/ŋm"}
+            }
+            microsecond{
+                dnam{"μsɛk"}
+                other{"{0}μs"}
+            }
+            millisecond{
+                dnam{"sɛk mlij"}
+                other{"sm {0}"}
+            }
+            minute{
+                dnam{"min"}
+                other{"min {0}"}
+                per{"{0}/min"}
+            }
+            month{
+                dnam{"nyɔji"}
+                other{"nyɔji {0}"}
+                per{"{0}/nyɔɔŋ"}
+            }
+            nanosecond{
+                dnam{"sɛkɛnsifrim"}
+                other{"{0}sf"}
+            }
+            second{
+                dnam{"sɛk"}
+                other{"sɛk {0}"}
+                per{"{0}/s"}
+            }
+            week{
+                dnam{"otsii"}
+                other{"{0} otsii"}
+                per{"{0}/otsi"}
+            }
+            year{
+                dnam{"afii"}
+                other{"{0} afii"}
+                per{"{0}/afi"}
+            }
+        }
+        length{
+            centimeter{
+                dnam{"sɛm"}
+                other{"{0} sɛm"}
+                per{"{0}/sɛm"}
+            }
+            kilometer{
+                dnam{"km"}
+                other{"{0} km"}
+                per{"{0}/km"}
+            }
+            meter{
+                dnam{"m"}
+            }
+        }
+    }
 }

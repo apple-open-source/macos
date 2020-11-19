@@ -141,10 +141,11 @@ copyErrorMessageFromBundle(OSStatus status,CFStringRef tableName)
 	
     // Convert status to Int32 string representation, e.g. "-25924"
     keyString = CFStringCreateWithFormat (kCFAllocatorDefault,NULL,CFSTR("%d"),(int)status);
-    if (!keyString)
+    if (!keyString) {
         goto xit;
+    }
 
-	errorString = CFCopyLocalizedStringFromTableInBundle(keyString,tableName,secBundle,NULL);
+    errorString = CFCopyLocalizedStringFromTableInBundle(keyString,tableName,secBundle,NULL);
     if (CFStringCompare(errorString, keyString, 0)==kCFCompareEqualTo)	// no real error message
 	{
 		if (errorString)

@@ -18,6 +18,7 @@
 #include "keychain/SecureObjectSync/SOSPeerInfoPriv.h"
 #include "keychain/SecureObjectSync/SOSAuthKitHelpers.h"
 #import "Analytics/Clients/SOSAnalytics.h"
+#import <Security/SecBase64.h>
 #include "utilities/SecTrace.h"
 
 
@@ -32,9 +33,9 @@ static bool sosGhostCheckValid(SOSPeerInfoRef pi) {
         case SOSPeerInfo_iOS:
         case SOSPeerInfo_tvOS:
         case SOSPeerInfo_watchOS:
-        case SOSPeerInfo_macOS:
             retval = true;
             break;
+        case SOSPeerInfo_macOS: // go back and quit killing macos ghosts so people can multi-boot
         case SOSPeerInfo_iCloud:
         case SOSPeerInfo_unknown:
         default:
@@ -140,28 +141,27 @@ static NSUInteger SOSGhostBustThinSerialClones(SOSCircleRef circle, NSString *my
 
     for(CFIndex i = CFArrayGetCount(sortPeers); i > 0; i--) {
         SOSPeerInfoRef pi = (SOSPeerInfoRef) CFArrayGetValueAtIndex(sortPeers, i-1);
-        
-        if(sosGhostCheckValid(pi)) {
+        NSString *peerID = (__bridge NSString *)SOSPeerInfoGetPeerID(pi);
+
+        if(![peerID isEqualToString: myPeerID] && sosGhostCheckValid(pi)) {
             NSString *serial = CFBridgingRelease(SOSPeerInfoV2DictionaryCopyString(pi, sSerialNumberKey));
-            NSString *peerID = (__bridge NSString *)SOSPeerInfoGetPeerID(pi);
             if(serial != nil) {
                 if([latestPeers objectForKey:serial] != nil) {
-                    if(peerID != myPeerID) {
-                        [removals addObject:peerID];
-                    } else {
-                        secnotice("ghostBust", "There is a more recent peer for this serial number");
-                    }
+                    secnotice("ghostBust", "There is a more recent peer than %@ for this serial number", SOSPeerInfoGetSPID(pi));
+                    [removals addObject:peerID];
                 } else {
                     [latestPeers setObject:peerID forKey:serial];
                 }
             } else {
-                secnotice("ghostBust", "Removing peerID (%@) with no serial number", peerID);
+                secnotice("ghostBust", "Removing peerID (%@) with no serial number", SOSPeerInfoGetSPID(pi));
                 [removals addObject:peerID];
             }
         }
     }
-    SOSCircleRemovePeersByIDUnsigned(circle, (__bridge CFSetRef)(removals));
     gbcount = [removals count];
+    if(gbcount > 0) {
+        SOSCircleRemovePeersByIDUnsigned(circle, (__bridge CFSetRef)(removals));
+    }
     CFReleaseNull(sortPeers);
     return gbcount;
 }
@@ -175,6 +175,42 @@ static void SOSCircleRemoveiCloudIdentities(SOSCircleRef circle) {
     SOSCircleRemovePeersByIDUnsigned(circle, (__bridge CFSetRef)(removals));
 }
 
+// this is only used to determine if we have a circle that can't accept new peers because of ghosts.
+static void SOSCircleRemoveWindowsPeers(SOSCircleRef circle) {
+    NSMutableSet *removals = [[NSMutableSet alloc] init];
+    SOSCircleForEachActivePeer(circle, ^(SOSPeerInfoRef peer) {
+        NSString *devType = (__bridge NSString *)SOSPeerInfoGetPeerDeviceType(peer);
+        if([devType hasPrefix: @"Windows"]) {
+            NSString *peerID = (__bridge NSString *)SOSPeerInfoGetPeerID(peer);
+            [removals addObject:peerID];
+        }
+    });
+    SOSCircleRemovePeersByIDUnsigned(circle, (__bridge CFSetRef)(removals));
+}
+
+static void SOSCircleRemovePeersNotInMidlist(SOSCircleRef circle) {
+    __block SOSAuthKitHelpers *akh = nil;
+
+    if([SOSAuthKitHelpers accountIsHSA2]) {
+        [SOSAuthKitHelpers activeMIDs:^(NSSet <SOSTrustedDeviceAttributes *> * _Nullable activeMIDs, NSError * _Nullable error) {
+            akh = [[SOSAuthKitHelpers alloc] initWithActiveMIDS:activeMIDs];
+        }];
+    }
+    
+    NSMutableSet *removals = [[NSMutableSet alloc] init];
+    if(akh) {
+        SOSCircleForEachActivePeer(circle, ^(SOSPeerInfoRef peer) {
+            NSString *mid = CFBridgingRelease(SOSPeerInfoV2DictionaryCopyString(peer, sMachineIDKey));
+            if(![akh midIsValidInList:mid]) {
+                NSString *peerID = (__bridge NSString *)SOSPeerInfoGetPeerID(peer);
+                [removals addObject:peerID];
+            }
+        });
+        SOSCircleRemovePeersByIDUnsigned(circle, (__bridge CFSetRef)(removals));
+    }
+}
+
+
 bool SOSAccountGhostResultsInReset(SOSAccount* account) {
     if(!account.peerID || !account.trust.trustedCircle) return false;
     SOSCircleRef newCircle = SOSCircleCopyCircle(kCFAllocatorDefault, account.trust.trustedCircle, NULL);
@@ -182,6 +218,8 @@ bool SOSAccountGhostResultsInReset(SOSAccount* account) {
     SOSCircleClearMyGhosts(newCircle, account.peerInfo);
     SOSCircleRemoveRetired(newCircle, NULL);
     SOSCircleRemoveiCloudIdentities(newCircle);
+    SOSCircleRemoveWindowsPeers(newCircle);
+    SOSCircleRemovePeersNotInMidlist(newCircle);
     int npeers = SOSCircleCountPeers(newCircle);
     CFReleaseNull(newCircle);
     return npeers == 0;
@@ -200,6 +238,7 @@ static NSUInteger SOSGhostBustThinByMIDList(SOSCircleRef circle, NSString *myPee
         if(options & SOSGhostBustByMID) {
             NSString *mid = CFBridgingRelease(SOSPeerInfoV2DictionaryCopyString(peer, sMachineIDKey));
             if(![akh midIsValidInList:mid]) {
+                secnotice("ghostBust", "Removing peerInfo %@ - mid is not in list", SOSPeerInfoGetSPID(peer));
                 [removals addObject:peerID];
                 gbmid++;
                 return;
@@ -208,6 +247,7 @@ static NSUInteger SOSGhostBustThinByMIDList(SOSCircleRef circle, NSString *myPee
         if(options & SOSGhostBustBySerialNumber) {
             NSString *serial = CFBridgingRelease(SOSPeerInfoV2DictionaryCopyString(peer, sSerialNumberKey));
             if(![akh serialIsValidInList: serial]) {
+                secnotice("ghostBust", "Removing peerInfo %@ - serial# is not in list", SOSPeerInfoGetSPID(peer));
                 [removals addObject:peerID];
                 gbserial++;
                 return;
@@ -222,92 +262,86 @@ static NSUInteger SOSGhostBustThinByMIDList(SOSCircleRef circle, NSString *myPee
     return [removals count];
 }
 
-static bool SOSGhostBustiCloudIdentityPrivateKeys(SOSAccount *account) {
-    __block bool cleaned = false;
-    SecKeyRef pubKey = NULL;
-    CFTypeRef queryResult = NULL;
-    CFDataRef pubKeyHash = NULL;
-    CFDictionaryRef query = NULL;
-    __block int removed = 0;
+static NSUInteger SOSGhostBustiCloudIdentityPrivateKeys(SOSAccount *account) {
+    __block NSUInteger cleaned = 0;
 
-    SOSFullPeerInfoRef iCloudIdentity = SOSCircleCopyiCloudFullPeerInfoVerifier(account.trust.trustedCircle, NULL);
-    require_action_quiet(iCloudIdentity, retOut, secnotice("ghostBust", "No iCloud Identity FPI"));
-    pubKey = SOSFullPeerInfoCopyPubKey(iCloudIdentity, NULL);
-    require_action_quiet(pubKey, retOut, secnotice("ghostBust", "Can't get iCloud Identity pubkey"));
-    pubKeyHash = SecKeyCopyPublicKeyHash(pubKey);
-    require_action_quiet(pubKeyHash, retOut, secnotice("ghostBust", "Can't get iCloud Identity pubkey hash"));
-    query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-        kSecMatchLimit,            kSecMatchLimitAll,
-        kSecClass,                 kSecClassKey,
-        kSecAttrKeyClass,          kSecAttrKeyClassPrivate,
-        kSecAttrSynchronizable,    kSecAttrSynchronizableAny,
-        kSecReturnAttributes,      kCFBooleanTrue,
-        kSecAttrAccessGroup,       kSOSInternalAccessGroup,
-        NULL);
-    require_action_quiet(errSecSuccess == SecItemCopyMatching(query, &queryResult), retOut, secnotice("ghostBust", "Can't get iCloud Identity private keys"));
-    require_action_quiet(CFGetTypeID(queryResult) == CFArrayGetTypeID(), retOut, cleaned = true);
-    CFArrayRef iCloudPrivKeys = queryResult;
-    secnotice("ghostBust", "Screening %ld icloud private keys", (long)CFArrayGetCount(iCloudPrivKeys));
-    CFArrayForEach(iCloudPrivKeys, ^(const void *value) {
-        CFDictionaryRef privkey = asDictionary(value, NULL);
-        if(privkey) {
-            CFDataRef candidate = asData(CFDictionaryGetValue(privkey, kSecAttrApplicationLabel), NULL);
-            if(candidate && !CFEqual(pubKeyHash, candidate)) {
-                CFStringRef label = asString(CFDictionaryGetValue(privkey, kSecAttrLabel), NULL);
-                if(label) {
-                    if(CFStringHasPrefix(label, CFSTR("Cloud Identity"))) {
+    [ account iCloudIdentityStatus_internal:^(NSDictionary *tableSpid, NSError *error) {
+        if(!tableSpid) {
+            secnotice("ghostBust", "Couldn't work on iCloud Identities (%@)", error);
+        }
 
-                        CFDictionaryRef delQuery = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
-                            kSecClass,                 kSecClassKey,
-                            kSecAttrKeyClass,          kSecAttrKeyClassPrivate,
-                            kSecAttrSynchronizable,    kSecAttrSynchronizableAny,
-                            kSecAttrApplicationLabel,   candidate,
-                            NULL);
+        size_t keysToRemove = [tableSpid[kSOSIdentityStatusKeyOnly] count];
 
-                        OSStatus status = SecItemDelete(delQuery);
-                        if(errSecSuccess == status) {
-                            secnotice("ghostBust", "removed %@", label);
-                            removed++;
-                            cleaned = true;
-                        } else {
-                            secnotice("ghostbust", "Search for %@ returned %d", candidate, (int) status);
-                        }
-                        CFReleaseNull(delQuery);
-                    }
+        if(keysToRemove == 0) {
+            return;
+        }
+
+        if([tableSpid[kSOSIdentityStatusCompleteIdentity] count] == 0) {
+            secnotice("ghostBust", "No iCloud Identity FPI, can't remove iCloudIdentity extra keys");
+            return;
+        }
+
+        for (NSString *pid in tableSpid[kSOSIdentityStatusKeyOnly]) {
+            CFStringRef fullKeyLabel = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("Cloud Identity - '%@'"), pid);
+
+            if(fullKeyLabel) {
+                CFDictionaryRef query = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                                     kSecClass,                 kSecClassKey,
+                                                                     kSecAttrKeyClass,          kSecAttrKeyClassPrivate,
+                                                                     kSecAttrSynchronizable,    kSecAttrSynchronizableAny,
+                                                                     kSecUseTombstones,         kCFBooleanTrue,
+                                                                     kSecAttrLabel,             fullKeyLabel,
+                                                                     NULL);
+                OSStatus status = SecItemDelete(query);
+                if(errSecSuccess == status) {
+                    secnotice("ghostBust", "removed %@", pid);
+                    cleaned++;
+                } else {
+                    secnotice("ghostbust", "Delete for %@ returned %d", pid, (int) status);
                 }
+                CFReleaseNull(query);
+                CFReleaseNull(fullKeyLabel);
             }
         }
-    });
-    secnotice("ghostBust", "Removed %d icloud private keys", removed);
-retOut:
-    CFReleaseNull(query);
-    CFReleaseNull(queryResult);
-    CFReleaseNull(pubKeyHash);
-    CFReleaseNull(pubKey);
-    CFReleaseNull(iCloudIdentity);
+        secnotice("ghostBust", "Removed %zu of %zu deserted icloud private keys", cleaned, keysToRemove);
+    }];
     return cleaned;
 }
 
 bool SOSAccountGhostBustCircle(SOSAccount *account, SOSAuthKitHelpers *akh, SOSAccountGhostBustingOptions options, int mincount) {
     __block bool result = false;
+    __block bool actionTaken = false;
     CFErrorRef localError = NULL;
     __block NSUInteger nbusted = 9999;
     NSMutableDictionary *attributes =[NSMutableDictionary new];
+
     int circleSize = SOSCircleCountPeers(account.trust.trustedCircle);
 
-    if ([akh isUseful] && [account isInCircle:nil] && circleSize > mincount) {
-        if(options & SOSGhostBustiCloudIdentities) {
-            secnotice("ghostBust", "Callout to cleanup icloud identities");
-            result = SOSGhostBustiCloudIdentityPrivateKeys(account);
-        } else {
+    if(options & SOSGhostBustiCloudIdentities && [account isInCircle:nil]) {
+        secnotice("ghostBust", "Callout to cleanup icloud identities");
+        nbusted = SOSGhostBustiCloudIdentityPrivateKeys(account);
+        if(nbusted) {
+            attributes[@"iCloudPrivKeysBusted"] = @(nbusted);
+            [[SOSAnalytics logger] logSoftFailureForEventNamed:@"GhostBust" withAttributes:attributes];
+            result = true;
+        }
+        actionTaken = true;
+    }
+
+    if(options &  (~SOSGhostBustiCloudIdentities)) {
+        if ([akh isUseful] && [account isInCircle:nil] && circleSize > mincount) {
             [account.trust modifyCircle:account.circle_transport err:&localError action:^(SOSCircleRef circle) {
-                nbusted = SOSGhostBustThinByMIDList(circle, account.peerID, akh, options, attributes);
-                secnotice("ghostbust", "Removed %lu ghosts from circle by midlist && serialNumber", (unsigned long)nbusted);
+                if((options & SOSGhostBustByMID) || (options & SOSGhostBustBySerialNumber)) {
+                    nbusted = SOSGhostBustThinByMIDList(circle, account.peerID, akh, options, attributes);
+                    secnotice("ghostbust", "Removed %lu ghosts from circle by midlist && serialNumber", (unsigned long)nbusted);
+                    actionTaken = true;
+                }
                 if(options & SOSGhostBustSerialByAge) {
                     NSUInteger thinBusted = 9999;
                     thinBusted = SOSGhostBustThinSerialClones(circle, account.peerID);
                     nbusted += thinBusted;
                     attributes[@"byAge"] = @(thinBusted);
+                    actionTaken = true;
                 }
                 attributes[@"total"] = @(SecBucket1Significant(nbusted));
                 attributes[@"startCircleSize"] = @(SecBucket1Significant(circleSize));
@@ -324,17 +358,17 @@ bool SOSAccountGhostBustCircle(SOSAccount *account, SOSAuthKitHelpers *akh, SOSA
             }];
             secnotice("circleOps", "Ghostbusting %@ (%@)", result ? CFSTR("Performed") : CFSTR("Not Performed"), localError);
         }
-    } else {
-        secnotice("circleOps", "Ghostbusting skipped");
     }
     CFReleaseNull(localError);
-    
-    if(result) {
-        [[SOSAnalytics logger] logSoftFailureForEventNamed:@"GhostBust" withAttributes:attributes];
-    } else if(nbusted == 0){
-        [[SOSAnalytics logger] logSuccessForEventNamed:@"GhostBust"];
-    } else {
-        [[SOSAnalytics logger] logHardFailureForEventNamed:@"GhostBust" withAttributes:nil];
+
+    if(actionTaken) {
+        if(result) {
+            [[SOSAnalytics logger] logSoftFailureForEventNamed:@"GhostBust" withAttributes:attributes];
+        } else if(nbusted == 0){
+            [[SOSAnalytics logger] logSuccessForEventNamed:@"GhostBust"];
+        } else {
+            [[SOSAnalytics logger] logHardFailureForEventNamed:@"GhostBust" withAttributes:nil];
+        }
     }
     return result;
 }

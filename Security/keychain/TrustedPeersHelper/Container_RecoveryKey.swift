@@ -4,19 +4,19 @@ import Foundation
 extension Container {
     func preflightVouchWithRecoveryKey(recoveryKey: String,
                                        salt: String,
-                                       reply: @escaping (String?, Set<String>?, TPPolicy?, Error?) -> Void) {
+                                       reply: @escaping (String?, TPSyncingPolicy?, Error?) -> Void) {
         self.semaphore.wait()
-        let reply: (String?, Set<String>?, TPPolicy?, Error?) -> Void = {
+        let reply: (String?, TPSyncingPolicy?, Error?) -> Void = {
             os_log("preflightRecoveryKey complete: %{public}@",
-                   log: tplogTrace, type: .info, traceError($3))
+                   log: tplogTrace, type: .info, traceError($2))
             self.semaphore.signal()
-            reply($0, $1, $2, $3)
+            reply($0, $1, $2)
         }
 
         self.fetchAndPersistChangesIfNeeded { fetchError in
             guard fetchError == nil else {
                 os_log("preflightRecoveryKey unable to fetch current peers: %{public}@", log: tplogDebug, type: .default, (fetchError as CVarArg?) ?? "")
-                reply(nil, nil, nil, fetchError)
+                reply(nil, nil, fetchError)
                 return
             }
 
@@ -24,7 +24,7 @@ extension Container {
             self.fetchPolicyDocumentsWithSemaphore(versions: self.model.allPolicyVersions()) { _, fetchPolicyDocumentsError in
                 guard fetchPolicyDocumentsError == nil else {
                     os_log("preflightRecoveryKey unable to fetch policy documents: %{public}@", log: tplogDebug, type: .default, (fetchPolicyDocumentsError as CVarArg?) ?? "no error")
-                    reply(nil, nil, nil, fetchPolicyDocumentsError)
+                    reply(nil, nil, fetchPolicyDocumentsError)
                     return
                 }
 
@@ -32,14 +32,14 @@ extension Container {
                     guard let egoPeerID = self.containerMO.egoPeerID,
                         let egoPermData = self.containerMO.egoPeerPermanentInfo,
                         let egoPermSig = self.containerMO.egoPeerPermanentInfoSig else {
-                        os_log("preflightRecoveryKey: no ego peer ID", log: tplogDebug, type: .default)
-                        reply(nil, nil, nil, ContainerError.noPreparedIdentity)
-                        return
+                            os_log("preflightRecoveryKey: no ego peer ID", log: tplogDebug, type: .default)
+                            reply(nil, nil, ContainerError.noPreparedIdentity)
+                            return
                     }
 
                     let keyFactory = TPECPublicKeyFactory()
                     guard let selfPermanentInfo = TPPeerPermanentInfo(peerID: egoPeerID, data: egoPermData, sig: egoPermSig, keyFactory: keyFactory) else {
-                        reply(nil, nil, nil, ContainerError.invalidPermanentInfoOrSig)
+                        reply(nil, nil, ContainerError.invalidPermanentInfoOrSig)
                         return
                     }
 
@@ -48,27 +48,27 @@ extension Container {
                         recoveryKeys = try RecoveryKey(recoveryKeyString: recoveryKey, recoverySalt: salt)
                     } catch {
                         os_log("preflightRecoveryKey: failed to create recovery keys: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                        reply(nil, nil, nil, ContainerError.failedToCreateRecoveryKey)
+                        reply(nil, nil, ContainerError.failedToCreateRecoveryKey)
                         return
                     }
 
                     // Dear model: if i were to use this recovery key, what peers would I end up using?
                     guard self.model.isRecoveryKeyEnrolled() else {
                         os_log("preflightRecoveryKey: recovery Key is not enrolled", log: tplogDebug, type: .default)
-                        reply(nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
+                        reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                         return
                     }
 
-                    guard let sponsorPeerID = self.model.peerIDThatTrustsRecoveryKeys(TPRecoveryKeyPair(signingSPKI: recoveryKeys.peerKeys.signingKey.publicKey.keyData,
-                                                                                                        encryptionSPKI: recoveryKeys.peerKeys.encryptionKey.publicKey.keyData)) else {
+                    guard let sponsorPeerID = self.model.peerIDThatTrustsRecoveryKeys(TPRecoveryKeyPair(signingKeyData: recoveryKeys.peerKeys.signingKey.publicKey.keyData,
+                                                                                                        encryptionKeyData: recoveryKeys.peerKeys.encryptionKey.publicKey.keyData)) else {
                                                                                                             os_log("preflightRecoveryKey Untrusted recovery key set", log: tplogDebug, type: .default)
-                                                                                                            reply(nil, nil, nil, ContainerError.untrustedRecoveryKeys)
+                                                                                                            reply(nil, nil, ContainerError.untrustedRecoveryKeys)
                                                                                                             return
                     }
 
                     guard let sponsor = self.model.peer(withID: sponsorPeerID) else {
                         os_log("preflightRecoveryKey Failed to find peer with ID", log: tplogDebug, type: .default)
-                        reply(nil, nil, nil, ContainerError.sponsorNotRegistered(sponsorPeerID))
+                        reply(nil, nil, ContainerError.sponsorNotRegistered(sponsorPeerID))
                         return
                     }
 
@@ -76,12 +76,13 @@ extension Container {
                         let bestPolicy = try self.model.policy(forPeerIDs: sponsor.dynamicInfo?.includedPeerIDs ?? [sponsor.peerID],
                                                                candidatePeerID: egoPeerID,
                                                                candidateStableInfo: sponsor.stableInfo)
+                        let syncingPolicy = try bestPolicy.syncingPolicy(forModel: selfPermanentInfo.modelID,
+                                                                         syncUserControllableViews: sponsor.stableInfo?.syncUserControllableViews ?? .UNKNOWN)
 
-                        let views = try bestPolicy.views(forModel: selfPermanentInfo.modelID)
-                        reply(recoveryKeys.peerKeys.peerID, views, bestPolicy, nil)
+                        reply(recoveryKeys.peerKeys.peerID, syncingPolicy, nil)
                     } catch {
                         os_log("preflightRecoveryKey: error fetching policy: %{public}@", log: tplogDebug, type: .default, error as CVarArg)
-                        reply(nil, nil, nil, error)
+                        reply(nil, nil, error)
                         return
                     }
                 }

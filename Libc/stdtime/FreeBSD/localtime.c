@@ -187,7 +187,6 @@ struct rule {
 typedef struct {
 	int token;
 	int is_set;
-	int null_bootstrap;
 } notify_tz_t;
 
 #define NOTIFY_TZ_NAME		"com.apple.system.timezone"
@@ -382,8 +381,8 @@ __private_extern__ long		__darwin_altzone = 0;
 }
 #endif /* NOTIFY_TZ_LOG */
 
-static notify_tz_t	gmt_notify = {-1, 0, 0};
-static notify_tz_t	lcl_notify = {-1, 0, 0};
+static notify_tz_t	gmt_notify = {-1, 0};
+static notify_tz_t	lcl_notify = {-1, 0};
 static const char notify_tz_name[] = NOTIFY_TZ_NAME;
 #endif /* NOTIFY_TZ */
 
@@ -519,34 +518,6 @@ settzname(void)
 }
 
 #ifdef NOTIFY_TZ
-static int
-do_null_bootstrap_check(notify_tz_t *p)
-{
-	/*
-	 * If we're running in a null bootstrap context (e.g. the bootstrap server),
-	 * we will not be able to contact the notify server. In this case we want to
-	 * avoid opening /etc/localtime every time the process does a asctime_r(3)
-	 * or similar. But we have to do this once to get the right time zone.
-	 *
-	 * So first time through, we set a bit to indicate that we're in the null
-	 * bootstrap context. The second time through, we force the "set" bit in the
-	 * notify_tz_t structure to -1 and avoid the path where it can be set to
-	 * zero (which would trigger opening and reloading the timezone file).
-	 */
-	if (bootstrap_port != MACH_PORT_NULL) {
-		return -1;
-	}
-
-	if (!p->null_bootstrap) {
-		p->null_bootstrap = 1;
-		p->is_set = 0;
-		return -1;
-	}
-
-	p->is_set = -1;
-	return 0;
-}
-
 static void
 notify_check_tz(notify_tz_t *p)
 {
@@ -555,9 +526,6 @@ notify_check_tz(notify_tz_t *p)
 
 	if (p->token < 0)
 		return;
-	if (do_null_bootstrap_check(p) == 0) {
-		return;
-	}
 	nstat = notify_check(p->token, &ncheck);
 	if (nstat || ncheck) {
 		p->is_set = 0;
@@ -579,7 +547,8 @@ notify_register_tz(char *file, notify_tz_t *p)
 	unsigned int nstat;
 	int ncheck;
 
-	if (do_null_bootstrap_check(p) == 0) {
+	if (bootstrap_port == MACH_PORT_NULL) {
+		/* error handling below resets is_set, we don't want that */
 		return;
 	}
 
@@ -1553,27 +1522,50 @@ char *path;
 		(void) tzparse(gmt, sp, TRUE);
 }
 
+/**
+ * In NULL_BOOTSTRAP environments, we can't use notifyd to learn about the changes in timezone.
+ * Instead, we look at the modified time of the TZDEFAULT symlink.
+ * As a performance optimization, we only reload the timezone data if the modified time is newer than the
+ * last time we loaded the timezone file.
+ *
+ * If the tzload fails, we need to reset the saved timestamp to force the timezone file to be reloaded next time
+ * we try to use it. This is a special case that occurs at first boot for launchd (and other early boot-tasks)
+ * rdar://60592414
+ */
+static struct timespec last_default_tzload_mtimespec = {0, 0};
+static void
+tzsetwall_check_default_file_timestamp(void)
+{
+	if (!TZDEFAULT) {
+		return;
+	}
+
+	struct stat statbuf;
+
+	if (lstat(TZDEFAULT, &statbuf) == 0) {
+		if (statbuf.st_mtimespec.tv_sec > last_default_tzload_mtimespec.tv_sec ||
+			(statbuf.st_mtimespec.tv_sec == last_default_tzload_mtimespec.tv_sec &&
+			statbuf.st_mtimespec.tv_nsec > last_default_tzload_mtimespec.tv_nsec)) {
+			/* Trigger resetting the local TZ */
+			lcl_is_set = 0;
+		}
+		last_default_tzload_mtimespec = statbuf.st_mtimespec;
+	}
+}
+
 static void
 tzsetwall_basic(int rdlocked)
 {
 #ifdef NOTIFY_TZ
-	notify_check_tz(&lcl_notify);
-#else
-	if (TZDEFAULT) {
-		static struct timespec last_mtimespec = {0, 0};
-		struct stat statbuf;
-
-		if (lstat(TZDEFAULT, &statbuf) == 0) {
-			if (statbuf.st_mtimespec.tv_sec > last_mtimespec.tv_sec ||
-				(statbuf.st_mtimespec.tv_sec == last_mtimespec.tv_sec &&
-				statbuf.st_mtimespec.tv_nsec > last_mtimespec.tv_nsec)) {
-				/* Trigger resetting the local TZ */
-				lcl_is_set = 0;
-			}
-			last_mtimespec = statbuf.st_mtimespec;
-		}
+	if (bootstrap_port != MACH_PORT_NULL) {
+		notify_check_tz(&lcl_notify);
+	} else {
+		tzsetwall_check_default_file_timestamp();
 	}
+#else
+	tzsetwall_check_default_file_timestamp();
 #endif /* NOTIFY_TZ */
+
 	if (!rdlocked)
 		_RWLOCK_RDLOCK(&lcl_rwlock);
 	if (lcl_is_set < 0) {
@@ -1607,13 +1599,18 @@ tzsetwall_basic(int rdlocked)
 #ifdef NOTIFY_TZ
 	{
 		char		fullname[FILENAME_MAX + 1];
-		if (tzload((char *) NULL, lclptr, fullname, TRUE) != 0)
+		if (tzload((char *) NULL, lclptr, fullname, TRUE) != 0) {
+			// The load failed, so we need to reset the cached modified time
+			// of the timezone file
+			last_default_tzload_mtimespec = (const struct timespec){0};
+
 			/*
 			 * If fullname is empty (an error occurred) then
 			 * default to the UTC path
 			 */
 			gmtload(lclptr, *fullname ? NULL : fullname);
-			notify_register_tz(fullname, &lcl_notify);
+		}
+		notify_register_tz(fullname, &lcl_notify);
 	}
 #else /* ! NOTIFY_TZ */
 	if (tzload((char *) NULL, lclptr, TRUE) != 0)
@@ -1703,14 +1700,16 @@ tzset_basic(int rdlocked)
 		 * notifications.
 		 */
 		int		parsedOK = FALSE;
-		if (tzload(name, lclptr, fullname, TRUE) != 0)
-			if (name[0] == ':' || !(parsedOK = tzparse(name, lclptr, FALSE) == 0))
+		if (tzload(name, lclptr, fullname, TRUE) != 0) {
+			if (name[0] == ':' || !(parsedOK = tzparse(name, lclptr, FALSE) == 0)) {
 				/*
 				 * If fullname is empty (an error occurred) then
 				 * default to the UTC path
 				 */
 				(void) gmtload(lclptr, *fullname ? NULL : fullname);
-				notify_register_tz(parsedOK ? NULL : fullname, &lcl_notify);
+			}
+		}
+		notify_register_tz(parsedOK ? NULL : fullname, &lcl_notify);
 	}
 #else /* ! NOTIFY_TZ */
 	if (tzload(name, lclptr, TRUE) != 0)

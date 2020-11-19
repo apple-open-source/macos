@@ -49,7 +49,7 @@
 
 - (void)testNoFixupOnInitialStart {
     id mockFixups = OCMClassMock([CKKSFixups class]);
-    OCMReject([[[mockFixups stub] ignoringNonObjectArgs] fixup:0 for:[OCMArg any]]);
+    [[[mockFixups reject] ignoringNonObjectArgs] fixup:0 for:[OCMArg any]];
 
     [self startCKKSSubsystem];
     [self performOctagonTLKUpload:self.ckksViews];
@@ -118,13 +118,13 @@
     CKRecord* currentPointerRecord2 = self.keychainZone.currentDatabase[currentPointerRecordID2];
     XCTAssertNotNil(currentPointerRecord2, "Found record in CloudKit at expected UUID");
 
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     // Tear down the CKKS object
     [self.keychainView halt];
 
-    [self.keychainView dispatchSync: ^bool {
+    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         // Edit the zone state entry to have no fixups
         NSError* error = nil;
         CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
@@ -146,7 +146,7 @@
         XCTAssertEqual(cip3.identifier, @"garbage", "Identifier is what we thought it was");
         [cip3 saveToDatabase:&error];
         XCTAssertNil(error, "no error saving to database");
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 
     self.silentFetchesAllowed = false;
@@ -165,7 +165,7 @@
     [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
 
-    [self.keychainView dispatchSync: ^bool {
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         // The zone state entry should be up the most recent fixup level
         NSError* error = nil;
         CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:self.keychainZoneID.zoneName error:&error];
@@ -187,12 +187,11 @@
         }
 
         [self waitForExpectations:@[foundCIP2] timeout:0.1];
-        return true;
     }];
 }
 
 - (void)setFixupNumber:(CKKSFixup)newFixup ckks:(CKKSKeychainView*)ckks {
-    [ckks dispatchSync: ^bool {
+    [ckks dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         // Edit the zone state entry to have no fixups
         NSError* error = nil;
         CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry fromDatabase:ckks.zoneID.zoneName error:&error];
@@ -203,7 +202,7 @@
         ckse.lastFixup = newFixup;
         [ckse saveToDatabase: &error];
         XCTAssertNil(error, "no error saving to database");
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 }
 
@@ -217,6 +216,8 @@
 
     [self waitForCKModifications];
     OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
 
     // Tear down the CKKS object
     [self.keychainView halt];
@@ -256,7 +257,6 @@
 
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForFixupOperation] wait:20*NSEC_PER_SEC], "Key state should become waitforfixup");
 
-    self.silentFetchesAllowed = true;
     [self releaseCloudKitFetchHold];
     XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], "Key state should become ready");
 
@@ -266,12 +266,11 @@
     XCTAssertNil(self.keychainView.lastFixupOperation.error, "Shouldn't have been any error performing fixup");
 
     // and check that the share made it
-    [self.keychainView dispatchSync:^bool {
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* blockerror = nil;
         CKKSTLKShareRecord* localshare = [CKKSTLKShareRecord tryFromDatabaseFromCKRecordID:shareCKRecord.recordID error:&blockerror];
         XCTAssertNil(blockerror, "Shouldn't error finding new TLKShare record in database");
         XCTAssertNotNil(localshare, "Should be able to find a new TLKShare record in database");
-        return true;
     }];
 }
 
@@ -313,7 +312,7 @@
     [self deleteGenericPassword:@"first"];
 
     // Corrupt the second item's CKMirror entry to only contain system fields in the CKRecord portion (to emulate early CKKS behavior)
-    [self.keychainView dispatchSync:^bool {
+    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
         CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:secondRecordID.recordName zoneID:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Should have no error pulling second CKKSMirrorEntry from database");
@@ -324,7 +323,7 @@
 
         [ckme saveToDatabase:&error];
         XCTAssertNil(error, "No error saving system-fielded CKME back to database");
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 
     // Now, restart CKKS, but place a hold on the fixup operation
@@ -367,7 +366,7 @@
 
 
     // Modify the sqlite DB to simulate how earlier verions would save these records
-    [self.keychainView dispatchSync:^bool {
+    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
         NSError* error = nil;
         CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.remoteSOSOnlyPeer.peerID zoneID:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Should have no error pulling CKKSDeviceStateEntry from database");
@@ -379,7 +378,7 @@
 
         [cdse saveToDatabase:&error];
         XCTAssertNil(error, "No error saving modified CDSE back to database");
-        return true;
+        return CKKSDatabaseTransactionCommit;
     }];
 
     // Tear down the CKKS object
@@ -402,15 +401,57 @@
     [self.keychainView waitForOperationsOfClass:[CKKSIncomingQueueOperation class]];
 
     // And all CDSEs should have an octagon peer ID again!
-    [self.keychainView dispatchSync:^bool {
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
         CKKSDeviceStateEntry* cdse = [CKKSDeviceStateEntry fromDatabase:self.remoteSOSOnlyPeer.peerID zoneID:self.keychainZoneID error:&error];
         XCTAssertNil(error, "Should have no error pulling CKKSDeviceStateEntry from database");
 
         XCTAssertNotNil(cdse.octagonPeerID, "CDSE should have an octagon peer ID");
         XCTAssertNotNil(cdse.octagonStatus, "CDSE should have an octagon status");
-        return false;
     }];
+}
+
+- (void)testFixupDeletesTombstoneEntries {
+    [self startCKKSSubsystem];
+    [self performOctagonTLKUpload:self.ckksViews];
+
+    XCTAssertEqual(0, [self.keychainView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:20*NSEC_PER_SEC], @"Key state should become 'ready'");
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+    [self waitForCKModifications];
+
+    // The CKKS stack now rejects tombstone items. So, let's inject one out of band.
+
+    [self.keychainView halt];
+
+    [self setFixupNumber:CKKSFixupResaveDeviceStateEntries ckks:self.keychainView];
+
+    CKRecord* ckr = [self createFakeTombstoneRecord:self.keychainZoneID
+                                         recordName:@"7B598D31-F9C5-481E-98AC-5A507ACB2D85"
+                                            account:@"account-delete-me"];
+    [self.keychainZone addToZone:ckr];
+
+    [self.keychainView dispatchSyncWithSQLTransaction:^CKKSDatabaseTransactionResult{
+        CKKSMirrorEntry* ckme = [[CKKSMirrorEntry alloc] initWithCKRecord:ckr];
+        NSError* error = nil;
+        [ckme saveToDatabase:&error];
+
+        XCTAssertNil(error, "Should be no error saving the CKME to the database");
+        return CKKSDatabaseTransactionCommit;
+    }];
+
+    // Now, restart CKKS. The bad record should be deleted.
+    [self expectCKDeleteItemRecords:1 zoneID:self.keychainZoneID];
+
+    self.keychainView = [[CKKSViewManager manager] restartZone:self.keychainZoneID.zoneName];
+    [self beginSOSTrustedViewOperation:self.keychainView];
+
+    // Deletions should occur
+    OCMVerifyAllWithDelay(self.mockDatabase, 20);
+
+    [self.keychainView.lastFixupOperation waitUntilFinished];
+    XCTAssertNil(self.keychainView.lastFixupOperation.error, "Shouldn't have been any error performing fixup");
+
+    [self findGenericPassword:@"account-delete-me" expecting:errSecItemNotFound];
 }
 
 @end

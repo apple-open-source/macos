@@ -40,6 +40,7 @@
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/PublicSuffix.h>
 #include <WebCore/SharedBuffer.h>
+#include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/SoupNetworkSession.h>
 #include <WebCore/TextEncoding.h>
 #include <wtf/MainThread.h>
@@ -50,14 +51,14 @@ using namespace WebCore;
 
 static const size_t gDefaultReadBufferSize = 8192;
 
-NetworkDataTaskSoup::NetworkDataTaskSoup(NetworkSession& session, NetworkDataTaskClient& client, const ResourceRequest& requestWithCredentials, StoredCredentialsPolicy storedCredentialsPolicy, ContentSniffingPolicy shouldContentSniff, WebCore::ContentEncodingSniffingPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation)
+NetworkDataTaskSoup::NetworkDataTaskSoup(NetworkSession& session, NetworkDataTaskClient& client, const ResourceRequest& requestWithCredentials, FrameIdentifier frameID, PageIdentifier pageID, StoredCredentialsPolicy storedCredentialsPolicy, ContentSniffingPolicy shouldContentSniff, WebCore::ContentEncodingSniffingPolicy, bool shouldClearReferrerOnHTTPSToHTTPRedirect, bool dataTaskIsForMainFrameNavigation)
     : NetworkDataTask(session, client, requestWithCredentials, storedCredentialsPolicy, shouldClearReferrerOnHTTPSToHTTPRedirect, dataTaskIsForMainFrameNavigation)
+    , m_frameID(frameID)
+    , m_pageID(pageID)
     , m_shouldContentSniff(shouldContentSniff)
     , m_timeoutSource(RunLoop::main(), this, &NetworkDataTaskSoup::timeoutFired)
 {
     m_session->registerNetworkDataTask(*this);
-    if (m_scheduledFailureType != NoFailure)
-        return;
 
     auto request = requestWithCredentials;
     if (request.url().protocolIsInHTTPFamily()) {
@@ -65,7 +66,7 @@ NetworkDataTaskSoup::NetworkDataTaskSoup(NetworkSession& session, NetworkDataTas
         auto url = request.url();
         if (m_storedCredentialsPolicy == StoredCredentialsPolicy::Use) {
             m_user = url.user();
-            m_password = url.pass();
+            m_password = url.password();
             request.removeCredentials();
 
             if (m_user.isEmpty() && m_password.isEmpty())
@@ -75,7 +76,7 @@ NetworkDataTaskSoup::NetworkDataTaskSoup(NetworkSession& session, NetworkDataTas
         }
         applyAuthenticationToRequest(request);
     }
-    createRequest(WTFMove(request));
+    createRequest(WTFMove(request), WasBlockingCookies::No);
 }
 
 NetworkDataTaskSoup::~NetworkDataTaskSoup()
@@ -103,7 +104,7 @@ void NetworkDataTaskSoup::setPendingDownloadLocation(const String& filename, San
     m_allowOverwriteDownload = allowOverwrite;
 }
 
-void NetworkDataTaskSoup::createRequest(ResourceRequest&& request)
+void NetworkDataTaskSoup::createRequest(ResourceRequest&& request, WasBlockingCookies wasBlockingCookies)
 {
     m_currentRequest = WTFMove(request);
 
@@ -133,6 +134,8 @@ void NetworkDataTaskSoup::createRequest(ResourceRequest&& request)
         return;
     }
 
+    restrictRequestReferrerToOriginIfNeeded(m_currentRequest);
+
     unsigned messageFlags = SOUP_MESSAGE_NO_REDIRECT;
 
     m_currentRequest.updateSoupMessage(soupMessage.get(), m_session->blobRegistry());
@@ -147,6 +150,17 @@ void NetworkDataTaskSoup::createRequest(ResourceRequest&& request)
         soup_message_disable_feature(soupMessage.get(), SOUP_TYPE_AUTH_MANAGER);
 #endif
     }
+
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    bool shouldBlockCookies = wasBlockingCookies == WasBlockingCookies::Yes ? true : m_storedCredentialsPolicy == StoredCredentialsPolicy::EphemeralStateless;
+    if (!shouldBlockCookies) {
+        if (auto* networkStorageSession = m_session->networkStorageSession())
+            shouldBlockCookies = networkStorageSession->shouldBlockCookies(m_currentRequest, m_frameID, m_pageID, WebCore::ShouldRelaxThirdPartyCookieBlocking::No);
+    }
+    if (shouldBlockCookies)
+        soup_message_disable_feature(soupMessage.get(), SOUP_TYPE_COOKIE_JAR);
+    m_isBlockingCookies = shouldBlockCookies;
+#endif
 
 #if SOUP_CHECK_VERSION(2, 67, 1)
     if ((m_currentRequest.url().protocolIs("https") && !shouldAllowHSTSPolicySetting()) || (m_currentRequest.url().protocolIs("http") && !shouldAllowHSTSProtocolUpgrade()))
@@ -194,6 +208,7 @@ void NetworkDataTaskSoup::clearRequest()
     m_downloadOutputStream = nullptr;
     g_cancellable_cancel(m_cancellable.get());
     m_cancellable = nullptr;
+    m_isBlockingCookies = false;
     if (m_soupMessage) {
         g_signal_handlers_disconnect_matched(m_soupMessage.get(), G_SIGNAL_MATCH_DATA, 0, 0, nullptr, nullptr, this);
         if (m_session)
@@ -215,11 +230,6 @@ void NetworkDataTaskSoup::resume()
         return;
 
     m_state = State::Running;
-
-    if (m_scheduledFailureType != NoFailure) {
-        ASSERT(m_failureTimer.isActive());
-        return;
-    }
 
     startTimeout();
 
@@ -296,11 +306,22 @@ void NetworkDataTaskSoup::stopTimeout()
 void NetworkDataTaskSoup::sendRequestCallback(SoupRequest* soupRequest, GAsyncResult* result, NetworkDataTaskSoup* task)
 {
     RefPtr<NetworkDataTaskSoup> protectedThis = adoptRef(task);
+    if (soupRequest != task->m_soupRequest.get()) {
+        // This can happen when the request is cancelled and a new one is started before
+        // the previous async operation completed. This is common when forcing a redirection
+        // due to HSTS. We can simply ignore this old request.
+#if ASSERT_ENABLED
+        GUniqueOutPtr<GError> error;
+        GRefPtr<GInputStream> inputStream = adoptGRef(soup_request_send_finish(soupRequest, result, &error.outPtr()));
+        ASSERT(g_error_matches(error.get(), G_IO_ERROR, G_IO_ERROR_CANCELLED));
+#endif
+        return;
+    }
+
     if (task->state() == State::Canceling || task->state() == State::Completed || !task->m_client) {
         task->clearRequest();
         return;
     }
-    ASSERT(soupRequest == task->m_soupRequest.get());
 
     if (task->state() == State::Suspended) {
         ASSERT(!task->m_pendingResult);
@@ -323,7 +344,7 @@ void NetworkDataTaskSoup::didSendRequest(GRefPtr<GInputStream>&& inputStream)
             m_response.setSniffedContentType(soup_request_get_content_type(m_soupRequest.get()));
         m_response.updateFromSoupMessage(m_soupMessage.get());
         if (m_response.mimeType().isEmpty() && m_soupMessage->status_code != SOUP_STATUS_NOT_MODIFIED)
-            m_response.setMimeType(MIMETypeRegistry::getMIMETypeForPath(m_response.url().path()));
+            m_response.setMimeType(MIMETypeRegistry::mimeTypeForPath(m_response.url().path().toString()));
 
         if (shouldStartHTTPRedirection()) {
             m_inputStream = WTFMove(inputStream);
@@ -344,7 +365,7 @@ void NetworkDataTaskSoup::didSendRequest(GRefPtr<GInputStream>&& inputStream)
         m_response.setTextEncodingName(extractCharsetFromMediaType(contentType));
         m_response.setExpectedContentLength(soup_request_get_content_length(m_soupRequest.get()));
         if (m_response.mimeType().isEmpty())
-            m_response.setMimeType(MIMETypeRegistry::getMIMETypeForPath(m_response.url().path()));
+            m_response.setMimeType(MIMETypeRegistry::mimeTypeForPath(m_response.url().path().toString()));
 
         m_inputStream = WTFMove(inputStream);
     }
@@ -433,6 +454,11 @@ bool NetworkDataTaskSoup::tlsConnectionAcceptCertificate(GTlsCertificate* certif
     return false;
 }
 
+bool NetworkDataTaskSoup::persistentCredentialStorageEnabled() const
+{
+    return static_cast<NetworkSessionSoup&>(*m_session).persistentCredentialStorageEnabled();
+}
+
 void NetworkDataTaskSoup::applyAuthenticationToRequest(ResourceRequest& request)
 {
     if (m_user.isEmpty() && m_password.isEmpty())
@@ -440,7 +466,7 @@ void NetworkDataTaskSoup::applyAuthenticationToRequest(ResourceRequest& request)
 
     auto url = request.url();
     url.setUser(m_user);
-    url.setPass(m_password);
+    url.setPassword(m_password);
     request.setURL(url);
 
     m_user = String();
@@ -503,7 +529,7 @@ void NetworkDataTaskSoup::authenticate(AuthenticationChallenge&& challenge)
     // of all request latency, versus a one-time latency for the small subset of requests that
     // use HTTP authentication. In the end, this doesn't matter much, because persistent credentials
     // will become session credentials after the first use.
-    if (m_storedCredentialsPolicy == StoredCredentialsPolicy::Use) {
+    if (m_storedCredentialsPolicy == StoredCredentialsPolicy::Use && persistentCredentialStorageEnabled()) {
         auto protectionSpace = challenge.protectionSpace();
         m_session->networkStorageSession()->getCredentialFromPersistentStorage(protectionSpace, m_cancellable.get(),
             [this, protectedThis = makeRef(*this), authChallenge = WTFMove(challenge)] (Credential&& credential) mutable {
@@ -542,7 +568,7 @@ void NetworkDataTaskSoup::continueAuthenticate(AuthenticationChallenge&& challen
                 if (credential.persistence() == CredentialPersistenceForSession || credential.persistence() == CredentialPersistencePermanent)
                     m_session->networkStorageSession()->credentialStorage().set(m_partition, credential, challenge.protectionSpace(), challenge.failureResponse().url());
 
-                if (credential.persistence() == CredentialPersistencePermanent) {
+                if (credential.persistence() == CredentialPersistencePermanent && persistentCredentialStorageEnabled()) {
                     m_protectionSpaceForPersistentStorage = challenge.protectionSpace();
                     m_credentialForPersistentStorage = credential;
                 }
@@ -661,9 +687,23 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
 
     const auto& url = request.url();
     m_user = url.user();
-    m_password = url.pass();
+    m_password = url.password();
     m_lastHTTPMethod = request.httpMethod();
     request.removeCredentials();
+
+    if (isTopLevelNavigation()) {
+        request.setFirstPartyForCookies(request.url());
+#if SOUP_CHECK_VERSION(2, 69, 90)
+        soup_message_set_is_top_level_navigation(m_soupMessage.get(), true);
+#endif
+    }
+
+#if SOUP_CHECK_VERSION(2, 69, 90)
+    if (request.isSameSite()) {
+        GUniquePtr<SoupURI> requestURI = urlToSoupURI(request.url());
+        soup_message_set_site_for_cookies(m_soupMessage.get(), requestURI.get());
+    }
+#endif
 
     if (isCrossOrigin) {
         // The network layer might carry over some headers from the original request that
@@ -678,10 +718,12 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
         }
     }
 
+    auto wasBlockingCookies = m_isBlockingCookies ? WasBlockingCookies::Yes : WasBlockingCookies::No;
+
     clearRequest();
 
     auto response = ResourceResponse(m_response);
-    m_client->willPerformHTTPRedirection(WTFMove(response), WTFMove(request), [this, protectedThis = makeRef(*this), isCrossOrigin](const ResourceRequest& newRequest) {
+    m_client->willPerformHTTPRedirection(WTFMove(response), WTFMove(request), [this, protectedThis = makeRef(*this), isCrossOrigin, wasBlockingCookies](const ResourceRequest& newRequest) {
         if (newRequest.isNull() || m_state == State::Canceling)
             return;
 
@@ -689,12 +731,12 @@ void NetworkDataTaskSoup::continueHTTPRedirection()
         if (request.url().protocolIsInHTTPFamily()) {
             if (isCrossOrigin) {
                 m_startTime = MonotonicTime::now();
-                m_networkLoadMetrics.reset();
+                m_networkLoadMetrics = { };
             }
 
             applyAuthenticationToRequest(request);
         }
-        createRequest(WTFMove(request));
+        createRequest(WTFMove(request), wasBlockingCookies);
         if (m_soupRequest && m_state != State::Suspended) {
             m_state = State::Suspended;
             resume();
@@ -838,7 +880,7 @@ void NetworkDataTaskSoup::didGetHeaders()
     // since we are waiting until we know that this authentication succeeded before actually storing.
     // This is because we want to avoid hitting the disk twice (once to add and once to remove) for
     // incorrect credentials or polluting the keychain with invalid credentials.
-    if (!isAuthenticationFailureStatusCode(m_soupMessage->status_code) && m_soupMessage->status_code < 500) {
+    if (!isAuthenticationFailureStatusCode(m_soupMessage->status_code) && m_soupMessage->status_code < 500 && persistentCredentialStorageEnabled()) {
         m_session->networkStorageSession()->saveCredentialToPersistentStorage(m_protectionSpaceForPersistentStorage, m_credentialForPersistentStorage);
         m_protectionSpaceForPersistentStorage = ProtectionSpace();
         m_credentialForPersistentStorage = Credential();
@@ -949,7 +991,7 @@ void NetworkDataTaskSoup::didWriteDownload(gsize bytesWritten)
     ASSERT(bytesWritten == m_readBuffer.size());
     auto* download = m_session->networkProcess().downloadManager().download(m_pendingDownloadID);
     ASSERT(download);
-    download->didReceiveData(bytesWritten);
+    download->didReceiveData(bytesWritten, 0, 0);
     read();
 }
 
@@ -1074,24 +1116,22 @@ void NetworkDataTaskSoup::startingCallback(SoupMessage* soupMessage, NetworkData
 }
 
 #if SOUP_CHECK_VERSION(2, 67, 1)
+
 bool NetworkDataTaskSoup::shouldAllowHSTSPolicySetting() const
 {
     // Follow Apple's HSTS abuse mitigation 1:
     //  "Limit HSTS State to the Hostname, or the Top Level Domain + 1"
-    if (isTopLevelNavigation() || hostsAreEqual(m_currentRequest.url(), m_currentRequest.firstPartyForCookies()) || isPublicSuffix(m_currentRequest.url().host().toStringWithoutCopying()))
-        return true;
-
-    return false;
+    return isTopLevelNavigation()
+        || m_currentRequest.url().host() == m_currentRequest.firstPartyForCookies().host()
+        || isPublicSuffix(m_currentRequest.url().host().toStringWithoutCopying());
 }
 
 bool NetworkDataTaskSoup::shouldAllowHSTSProtocolUpgrade() const
 {
-    // Follow Apple's HSTS abuse mitgation 2:
+    // Follow Apple's HSTS abuse mitigation 2:
     // "Ignore HSTS State for Subresource Requests to Blocked Domains"
-    if (!isTopLevelNavigation() && !m_currentRequest.allowCookies())
-        return false;
-
-    return true;
+    return isTopLevelNavigation()
+        && !m_isBlockingCookies;
 }
 
 void NetworkDataTaskSoup::protocolUpgradedViaHSTS(SoupMessage* soupMessage)
@@ -1110,6 +1150,7 @@ void NetworkDataTaskSoup::hstsEnforced(SoupHSTSEnforcer*, SoupMessage* soupMessa
     if (soupMessage == task->m_soupMessage.get())
         task->protocolUpgradedViaHSTS(soupMessage);
 }
+
 #endif
 
 void NetworkDataTaskSoup::didStartRequest()
@@ -1131,7 +1172,7 @@ void NetworkDataTaskSoup::restartedCallback(SoupMessage* soupMessage, NetworkDat
 void NetworkDataTaskSoup::didRestart()
 {
     m_startTime = MonotonicTime::now();
-    m_networkLoadMetrics.reset();
+    m_networkLoadMetrics = { };
 }
 
 } // namespace WebKit

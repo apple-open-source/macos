@@ -84,7 +84,11 @@ extern "C" {
 
 #define AP_REG_DOLLAR_ENDONLY 0x200 /* '$' matches at end of subject string only */
 
-#define AP_REG_MATCH "MATCH_" /** suggested prefix for ap_regname */
+#define AP_REG_NO_DEFAULT 0x400 /**< Don't implicitely add AP_REG_DEFAULT options */
+
+#define AP_REG_MATCH "MATCH_" /**< suggested prefix for ap_regname */
+
+#define AP_REG_DEFAULT (AP_REG_DOTALL|AP_REG_DOLLAR_ENDONLY)
 
 /* Error values: */
 enum {
@@ -182,6 +186,8 @@ AP_DECLARE(apr_size_t) ap_regerror(int errcode, const ap_regex_t *preg,
  * Return an array of named regex backreferences
  * @param preg The precompiled regex
  * @param names The array to which the names will be added
+ * @param prefix An optional prefix to add to the returned names.  AP_REG_MATCH
+ * is the recommended prefix.
  * @param upper If non zero, uppercase the names
  */
 AP_DECLARE(int) ap_regname(const ap_regex_t *preg,

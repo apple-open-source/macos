@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -151,7 +151,7 @@ isA_SecIdentity(CFTypeRef obj);
  *   by NEHotspotConfiguration application.
  */
 OSStatus
-EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(SecIdentityRef sec_identity, CFArrayRef chain, CFArrayRef * ret_array) API_AVAILABLE(ios(11.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
+EAPSecIdentityCreateTrustChainWithPersistentCertificateRefs(SecIdentityRef sec_identity, CFArrayRef chain, CFArrayRef * ret_array) API_AVAILABLE(ios(11.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, macCatalyst);
 
 /*
  * EAPSecCertificateAttribute dictionary keys:
@@ -195,6 +195,6 @@ EAPSecCertificateCopyUserNameString(SecCertificateRef cert);
  *   Return the SHA1 digest for the given cert as a CFString.
  */
 CFStringRef
-EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0)) API_UNAVAILABLE(macos, iosmac);
+EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert) API_AVAILABLE(ios(8.0), watchos(5.0), tvos(9.0), macos(10.16));
 
 #endif /* _EAP8021X_EAPCERTIFICATE_UTIL_H */

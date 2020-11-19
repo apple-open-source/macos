@@ -3,14 +3,14 @@
  * Copyright (c) 2004-2006 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -18,7 +18,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -91,7 +91,7 @@ OS_ATOMIC_FUNCTION_START(OSAtomicAnd32Orig, 2)
 OS_ATOMIC_FUNCTION_START(OSAtomicAnd32OrigBarrier, 2)
 	ATOMIC_ARITHMETIC(andl, ATOMIC_RET_ORIG)
 	ret
-	
+
 // uint32_t OSAtomicOr32Orig( uint32_t mask, uint32_t *value);
 OS_ATOMIC_FUNCTION_START(OSAtomicOr32Orig, 2)
 OS_ATOMIC_FUNCTION_START(OSAtomicOr32OrigBarrier, 2)
@@ -251,7 +251,7 @@ OS_ATOMIC_FUNCTION_START(OSAtomicDequeue, 2)
  *
  * void  OSAtomicFifoEnqueue( OSFifoQueueHead *list, void *new, size_t offset);
  */
-OS_ATOMIC_FUNCTION_START(OSAtomicFifoEnqueue, 2)
+OS_ATOMIC_FUNCTION_START(OSAtomicFifoEnqueue$VARIANT$PFZ, 2)
 	pushq	%rbx
 	xorl	%ebx,%ebx	// clear "preemption pending" flag
 	movq 	_commpage_pfz_base(%rip),%rcx
@@ -266,7 +266,7 @@ OS_ATOMIC_FUNCTION_START(OSAtomicFifoEnqueue, 2)
 	
 	
 /* void* OSAtomicFifoDequeue( OSFifoQueueHead *list, size_t offset); */
-OS_ATOMIC_FUNCTION_START(OSAtomicFifoDequeue, 2)
+OS_ATOMIC_FUNCTION_START(OSAtomicFifoDequeue$VARIANT$PFZ, 2)
 	pushq	%rbx
 	xorl	%ebx,%ebx	// clear "preemption pending" flag
 	movq	_commpage_pfz_base(%rip), %rcx
@@ -276,7 +276,7 @@ OS_ATOMIC_FUNCTION_START(OSAtomicFifoDequeue, 2)
 	testl	%ebx,%ebx	// pending preemption?
 	jz	1f
 	call	_preempt	// call into the kernel to pfz_exit
-1:	
+1:
 	popq	%rbx
 	ret			// ptr to 1st element in Q in %rax
 

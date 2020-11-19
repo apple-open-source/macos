@@ -27,16 +27,9 @@
 #include "LLIntData.h"
 
 #include "ArithProfile.h"
-#include "BytecodeConventions.h"
 #include "CodeBlock.h"
-#include "CodeType.h"
-#include "Instruction.h"
-#include "JSScope.h"
 #include "LLIntCLoop.h"
-#include "MaxFrameExtentForSlowPathCall.h"
 #include "Opcode.h"
-#include "PropertyOffset.h"
-#include "ShadowChicken.h"
 #include "WriteBarrier.h"
 
 #define STATIC_ASSERT(cond) static_assert(cond, "LLInt assumes " #cond)
@@ -139,7 +132,7 @@ void Data::performAssertions(VM& vm)
     ASSERT(!(reinterpret_cast<ptrdiff_t>((reinterpret_cast<WriteBarrier<JSCell>*>(0x4000)->slot())) - 0x4000));
 
     // FIXME: make these assertions less horrible.
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     Vector<int> testVector;
     testVector.resize(42);
     ASSERT(bitwise_cast<uint32_t*>(&testVector)[sizeof(void*)/sizeof(uint32_t) + 1] == 42);

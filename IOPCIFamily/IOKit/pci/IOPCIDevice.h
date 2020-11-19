@@ -213,12 +213,6 @@ enum {
     kIOPCIDevicePausedState     = 3,
 };
 
-enum
-{
-    // bits getInterruptType result
-    kIOInterruptTypePCIMessaged = 0x00010000
-};
-
 // setLatencyTolerance options
 enum
 {
@@ -270,7 +264,8 @@ struct IOPCIEvent
     uint32_t      data[5];
 };
 
-class IOPCIEventSource : public IOEventSource
+__exported_push
+class __kpi_deprecated("Use PCIDriverKit") IOPCIEventSource : public IOEventSource
 {
     friend class IOPCIBridge;
     friend class IOPCI2PCIBridge;
@@ -297,6 +292,7 @@ protected:
     virtual void free( void ) APPLE_KEXT_OVERRIDE;
     virtual bool checkForWork( void ) APPLE_KEXT_OVERRIDE;
 };
+__exported_pop
 
 
 typedef IOReturn (*IOPCIDeviceConfigHandler)(void * ref,
@@ -364,7 +360,8 @@ Matches a device whose class code is 0x0200zz, an ethernet device.
 
 */
 
-class IOPCIDevice : public IOService
+__exported_push
+class __kpi_deprecated("Use PCIDriverKit") IOPCIDevice : public IOService
 {
 #if TARGET_OS_OSX
     OSDeclareDefaultStructorsWithDispatch(IOPCIDevice)
@@ -805,7 +802,96 @@ public:
     enum { kIOPCIAERErrorDescriptionMaxLength = 256 };
 
     void copyAERErrorDescriptionForBit(bool correctable, uint32_t bit, char * string, size_t maxLength);
+
+	/*!
+	 * @brief       Reads a 64-bit value from the PCI device's aperture at a given memory index.
+	 * @discussion  This method reads a 64-bit register on the device and returns its value. 
+	 * @param       memoryIndex An index into the array of ranges assigned to the device.
+	 * @param       offset An offset into the device's memory specified by the index.
+	 * @param       readData An out parameter containing the 64-bit value in host byte order. -1 is written to readData on error.
+	 */
+	IOReturn deviceMemoryRead64(uint8_t   memoryIndex,
+						  uint64_t  offset,
+						  uint64_t* readData);
+
+	/*!
+	 * @brief       Reads a 32-bit value from the PCI device's aperture at a given memory index.
+	 * @discussion  This method reads a 32-bit register on the device and returns its value.
+	 * @param       memoryIndex An index into the array of ranges assigned to the device.
+	 * @param       offset An offset into the device's memory specified by the index.
+	 * @param       readData An out parameter containing the 32-bit value in host byte order. -1 is written to readData on error.
+	 */
+	IOReturn deviceMemoryRead32(uint8_t   memoryIndex,
+						  uint64_t  offset,
+						  uint32_t* readData);
+
+	/*!
+	 * @brief       Reads a 16-bit value from the PCI device's aperture at a given memory index.
+	 * @discussion  This method reads a 16-bit register on the device and returns its value.
+	 * @param       memoryIndex An index into the array of ranges assigned to the device.
+	 * @param       offset An offset into the device's memory specified by the index.
+	 * @param       readData An out parameter containing the 16-bit value in host byte order. -1 is written to readData on error.
+	 */
+	IOReturn deviceMemoryRead16(uint8_t   memoryIndex,
+						  uint64_t  offset,
+						  uint16_t* readData);
+
+	/*!
+	 * @brief       Reads an 8-bit value from the PCI device's aperture at a given memory index.
+	 * @discussion  This method reads an 8-bit register on the device and returns its value.
+	 * @param       memoryIndex An index into the array of ranges assigned to the device.
+	 * @param       offset An offset into the device's memory specified by the index.
+	 * @param       readData An out parameter containing the 8-bit. -1 is written to readData on error.
+	 */
+	IOReturn deviceMemoryRead8(uint8_t  memoryIndex,
+						 uint64_t offset,
+						 uint8_t* readData);
+
+	/*!
+	 * @brief       Writes a 64-bit value to the PCI device's aperture at a given memory index.
+	 * @discussion  This method writes a 64-bit register on the device and returns its value.
+	 * @param       memoryIndex An index into the array of ranges assigned to the device
+	 * @param       offset An offset into the device's memory specified by the index.
+	 * @param       data A 64-bit value to be written in host byte order.
+	 */
+	IOReturn deviceMemoryWrite64(uint8_t  memoryIndex,
+						   uint64_t offset,
+						   uint64_t data);
+
+	/*!
+	 * @brief       Writes a 32-bit value to the PCI device's aperture at a given memory index.
+	 * @discussion  This method writes a 32-bit register on the device and returns its value.
+	 * @param       memoryIndex An index into the array of ranges assigned to the device.
+	 * @param       offset An offset into the device's memory specified by the index.
+	 * @param       data A 32-bit value to be written in host byte order.
+	 */
+	IOReturn deviceMemoryWrite32(uint8_t  memoryIndex,
+						   uint64_t offset,
+						   uint32_t data);
+
+	/*!
+	 * @brief       Writes a 16-bit value to the PCI device's aperture at a given memory index.
+	 * @discussion  This method writes a 16-bit register on the device and returns its value.
+	 * @param       memoryIndex An index into the array of ranges assigned to the device.
+	 * @param       offset An offset into the device's memory specified by the index.
+	 * @param       data A 16-bit value to be written in host byte order.
+	 */
+	IOReturn deviceMemoryWrite16(uint8_t  memoryIndex,
+						   uint64_t offset,
+						   uint16_t data);
+
+	/*!
+	 * @brief       Writes an 8-bit value to the PCI device's aperture at a given memory index.
+	 * @discussion  This method writes an 8-bit register on the device and returns its value.
+	 * @param       memoryIndex An index into the array of ranges assigned to the device
+	 * @param       offset An offset into the device's memory specified by the index.
+	 * @param       data An 8-bit value.
+	 */
+	IOReturn deviceMemoryWrite8(uint8_t  memoryIndex,
+						  uint64_t offset,
+						  uint8_t  data);
 };
+__exported_pop
 
 #endif /* defined(KERNEL) */
 

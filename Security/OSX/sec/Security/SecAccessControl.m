@@ -478,7 +478,7 @@ SecAccessControlRef SecAccessControlCreateFromData(CFAllocatorRef allocator, CFD
     CFPropertyListRef plist;
     const uint8_t *der = CFDataGetBytePtr(data);
     const uint8_t *der_end = der + CFDataGetLength(data);
-    require_quiet(der = der_decode_plist(0, kCFPropertyListMutableContainers, &plist, error, der, der_end), errOut);
+    require_quiet(der = der_decode_plist(0, &plist, error, der, der_end), errOut);
     if (der != der_end) {
         SecError(errSecDecode, error, CFSTR("trailing garbage at end of SecAccessControl data"));
         goto errOut;

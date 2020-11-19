@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011, 2013-2017, 2019 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011, 2013-2017, 2019, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -486,7 +486,68 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 
 	if_bsd_name = SCNetworkInterfaceGetBSDName(interface);
 	if (if_bsd_name != NULL) {
-		SCPrint(TRUE, stdout, CFSTR("%@  interface name       = %@\n"), prefix, if_bsd_name);
+		SCPrint(TRUE, stdout, CFSTR("%@  interface name       = %@"), prefix, if_bsd_name);
+
+#if	!TARGET_OS_IPHONE
+		if (isA_SCBondInterface(interface)) {
+			CFArrayRef	members;
+
+			members = SCBondInterfaceGetMemberInterfaces(interface);
+			if (members != NULL) {
+				CFIndex	n	= CFArrayGetCount(members);
+
+				SCPrint(TRUE, stdout, CFSTR(", members = ("));
+				for (CFIndex i = 0; i < n; i++) {
+					SCNetworkInterfaceRef	member;
+					CFStringRef		bsdName;
+
+					member = CFArrayGetValueAtIndex(members, i);
+					bsdName = SCNetworkInterfaceGetBSDName(member);
+					SCPrint(TRUE, stdout, CFSTR("%s%@"),
+						i == 0 ? "" : ", ",
+						bsdName != NULL ? bsdName : CFSTR("?"));
+				}
+				SCPrint(TRUE, stdout, CFSTR(")"));
+			}
+		} else
+#endif	// !TARGET_OS_IPHONE
+
+		if (isA_SCBridgeInterface(interface)) {
+			CFArrayRef	members;
+
+			members = SCBridgeInterfaceGetMemberInterfaces(interface);
+			if (members != NULL) {
+				CFIndex	n	= CFArrayGetCount(members);
+
+				SCPrint(TRUE, stdout, CFSTR(", members = ("));
+				for (CFIndex i = 0; i < n; i++) {
+					SCNetworkInterfaceRef	member;
+					CFStringRef		bsdName;
+
+					member = CFArrayGetValueAtIndex(members, i);
+					bsdName = SCNetworkInterfaceGetBSDName(member);
+					SCPrint(TRUE, stdout, CFSTR("%s%@"),
+						i == 0 ? "" : ", ",
+						bsdName != NULL ? bsdName : CFSTR("?"));
+				}
+				SCPrint(TRUE, stdout, CFSTR(")"));
+			}
+		} else
+
+		if (isA_SCVLANInterface(interface)) {
+			SCNetworkInterfaceRef	physical;
+			CFNumberRef		tag;
+
+			physical = SCVLANInterfaceGetPhysicalInterface(interface);
+			tag = SCVLANInterfaceGetTag(interface);
+			if ((physical != NULL) && (tag != NULL)) {
+				SCPrint(TRUE, stdout, CFSTR(", physical interface = %@, tag = %@"),
+					physical,
+					tag);
+			}
+		}
+
+		SCPrint(TRUE, stdout, CFSTR("\n"));
 	}
 
 	if_type = SCNetworkInterfaceGetInterfaceType(interface);

@@ -71,7 +71,7 @@ SecCmsContentInfoGetContent(SecCmsContentInfoRef cinfo);
  */
 extern CSSM_DATA_PTR
 SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -80,7 +80,7 @@ SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo)
  */
 extern const SecAsn1Item *
 SecCmsContentInfoGetInnerContent(SecCmsContentInfoRef cinfo)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 /*!
@@ -99,7 +99,7 @@ SecCmsContentInfoGetContentTypeTag(SecCmsContentInfoRef cinfo);
  */
 extern CSSM_OID *
 SecCmsContentInfoGetContentTypeOID(SecCmsContentInfoRef cinfo)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -108,7 +108,7 @@ SecCmsContentInfoGetContentTypeOID(SecCmsContentInfoRef cinfo)
  */
 extern SecAsn1Oid *
 SecCmsContentInfoGetContentTypeOID(SecCmsContentInfoRef cinfo)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 /*!
@@ -143,7 +143,7 @@ SecCmsContentInfoGetContentEncAlg(SecCmsContentInfoRef cinfo)
  */
 extern OSStatus
 SecCmsContentInfoSetContentData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -157,7 +157,7 @@ SecCmsContentInfoSetContentData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinf
  */
 extern OSStatus
 SecCmsContentInfoSetContentData(SecCmsContentInfoRef cinfo, CFDataRef data, Boolean detached)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
@@ -173,7 +173,7 @@ SecCmsContentInfoSetContentData(SecCmsContentInfoRef cinfo, CFDataRef data, Bool
  */
 extern OSStatus
 SecCmsContentInfoSetContentSignedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsSignedDataRef sigd)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -186,7 +186,7 @@ SecCmsContentInfoSetContentSignedData(SecCmsMessageRef cmsg, SecCmsContentInfoRe
  */
 extern OSStatus
 SecCmsContentInfoSetContentSignedData(SecCmsContentInfoRef cinfo, SecCmsSignedDataRef sigd)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // TARGET_OS_OSX
 
 #if TARGET_OS_OSX
@@ -202,7 +202,7 @@ SecCmsContentInfoSetContentSignedData(SecCmsContentInfoRef cinfo, SecCmsSignedDa
  */
 extern OSStatus
 SecCmsContentInfoSetContentEnvelopedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsEnvelopedDataRef envd)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -215,7 +215,7 @@ SecCmsContentInfoSetContentEnvelopedData(SecCmsMessageRef cmsg, SecCmsContentInf
  */
 extern OSStatus
 SecCmsContentInfoSetContentEnvelopedData(SecCmsContentInfoRef cinfo, SecCmsEnvelopedDataRef envd)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
@@ -231,7 +231,7 @@ SecCmsContentInfoSetContentEnvelopedData(SecCmsContentInfoRef cinfo, SecCmsEnvel
  */
 extern OSStatus
 SecCmsContentInfoSetContentDigestedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsDigestedDataRef digd)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -244,7 +244,7 @@ SecCmsContentInfoSetContentDigestedData(SecCmsMessageRef cmsg, SecCmsContentInfo
  */
 extern OSStatus
 SecCmsContentInfoSetContentDigestedData(SecCmsContentInfoRef cinfo, SecCmsDigestedDataRef digd)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
@@ -260,7 +260,7 @@ SecCmsContentInfoSetContentDigestedData(SecCmsContentInfoRef cinfo, SecCmsDigest
  */
 extern OSStatus
 SecCmsContentInfoSetContentEncryptedData(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, SecCmsEncryptedDataRef encd)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 /*!
     @function
@@ -273,41 +273,41 @@ SecCmsContentInfoSetContentEncryptedData(SecCmsMessageRef cmsg, SecCmsContentInf
  */
 extern OSStatus
 SecCmsContentInfoSetContentEncryptedData(SecCmsContentInfoRef cinfo, SecCmsEncryptedDataRef encd)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
 OSStatus
 SecCmsContentInfoSetContentOther(SecCmsMessageRef cmsg, SecCmsContentInfoRef cinfo, CSSM_DATA_PTR data, Boolean detached, const CSSM_OID *eContentType)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 OSStatus
 SecCmsContentInfoSetContentOther(SecCmsContentInfoRef cinfo, SecAsn1Item *data, Boolean detached, const SecAsn1Oid *eContentType)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
 extern OSStatus
 SecCmsContentInfoSetContentEncAlg(SecArenaPoolRef pool, SecCmsContentInfoRef cinfo,
                                   SECOidTag bulkalgtag, CSSM_DATA_PTR parameters, int keysize)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 extern OSStatus
 SecCmsContentInfoSetContentEncAlg(SecCmsContentInfoRef cinfo,
 				    SECOidTag bulkalgtag, const SecAsn1Item *parameters, int keysize)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !TARGET_OS_OSX
 
 #if TARGET_OS_OSX
 extern OSStatus
 SecCmsContentInfoSetContentEncAlgID(SecArenaPoolRef pool, SecCmsContentInfoRef cinfo,
                                     SECAlgorithmID *algid, int keysize)
-    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4)) API_UNAVAILABLE(macCatalyst);
 #else // !TARGET_OS_OSX
 extern OSStatus
 SecCmsContentInfoSetContentEncAlgID(SecCmsContentInfoRef cinfo,
 				    SECAlgorithmID *algid, int keysize)
-    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 #endif // !!TARGET_OS_OSX
 
 /*!
@@ -315,14 +315,14 @@ SecCmsContentInfoSetContentEncAlgID(SecCmsContentInfoRef cinfo,
  */
 extern void
 SecCmsContentInfoSetBulkKey(SecCmsContentInfoRef cinfo, SecSymmetricKeyRef bulkkey)
-    API_AVAILABLE(macos(10.4),ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4),ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 
 /*!
     @function
  */
 extern SecSymmetricKeyRef
 SecCmsContentInfoGetBulkKey(SecCmsContentInfoRef cinfo)
-    API_AVAILABLE(macos(10.4),ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(iosmac);
+    API_AVAILABLE(macos(10.4),ios(2.0), tvos(2.0), watchos(1.0)) API_UNAVAILABLE(macCatalyst);
 
 /*!
     @function

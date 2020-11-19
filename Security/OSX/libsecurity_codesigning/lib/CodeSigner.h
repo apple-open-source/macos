@@ -51,7 +51,7 @@ public:
 	SECCFFUNCTIONS(SecCodeSigner, SecCodeSignerRef, errSecCSInvalidObjectRef, gCFObjects().CodeSigner)
 
 	SecCodeSigner(SecCSFlags flags);
-    virtual ~SecCodeSigner() throw();
+    virtual ~SecCodeSigner() _NOEXCEPT;
 	
 	void parameters(CFDictionaryRef args);	// parse and set parameters
 	bool valid() const;

@@ -68,7 +68,6 @@ public:
     /*!
      * @function getReport
      * @abstract Get a report from the HID device.
-     * @discussion A completion parameter may be added in the future.
      * @param report A memory descriptor that describes the memory to store
      * the report read from the HID device.
      * @param reportType The report type.
@@ -76,7 +75,7 @@ public:
      * other 24 bits are options to specify the request.
      * @param completionTimeout Specifies an amount of time (in ms) after which
      * the command will be aborted if the entire command has not been completed.
-     * @param action Action to call CompleteReport when request completes. If omitted then
+     * @param action OSAction to call CompleteReport when request completes. If omitted then
      * getReport() executes synchronously, blocking until the request is complete.
      * @result kIOReturnSuccess on success, or an error return otherwise.
      */
@@ -91,7 +90,6 @@ public:
     /*!
      * @function setReport
      * @abstract Send a report to the HID device.
-     * @discussion A completion parameter may be added in the future.
      * @param report A memory descriptor that describes the report to send
      * to the HID device.
      * @param reportType The report type.
@@ -99,7 +97,7 @@ public:
      * other 24 bits are options to specify the request.
      * @param completionTimeout Specifies an amount of time (in ms) after which
      * the command will be aborted if the entire command has not been completed.
-     * @param action Action to call CompleteReport when request completes. If omitted then
+     * @param action OSAction to call CompleteReport when request completes. If omitted then
      * setReport() executes synchronously, blocking until the request is complete.
      * @result kIOReturnSuccess on success, or an error return otherwise.
      */

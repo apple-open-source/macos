@@ -34,7 +34,7 @@ namespace CodeSigning {
 //
 // We need a nothrow destructor
 //
-CSError::~CSError() throw ()
+CSError::~CSError() _NOEXCEPT
 { }
 
 

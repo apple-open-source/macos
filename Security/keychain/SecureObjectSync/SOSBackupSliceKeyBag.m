@@ -49,7 +49,6 @@
 #include <Security/SecRecoveryKey.h>
 #include "SOSKeyedPubKeyIdentifier.h"
 #include "keychain/SecureObjectSync/SOSInternal.h"
-#include "SecADWrapper.h"
 #include "SecCFAllocator.h"
 
 CFStringRef bskbRkbgPrefix = CFSTR("RK");
@@ -131,10 +130,10 @@ const uint8_t* der_decode_BackupSliceKeyBag(CFAllocatorRef allocator,
     der = ccder_decode_sequence_tl(&sequence_end, der, der_end);
     require_quiet(sequence_end == der_end, fail);
 
-    der = der_decode_data(kCFAllocatorDefault, kCFPropertyListImmutable, &vb->aks_bag, error, der, sequence_end);
+    der = der_decode_data(kCFAllocatorDefault, &vb->aks_bag, error, der, sequence_end);
     vb->peers = SOSPeerInfoSetCreateFromArrayDER(kCFAllocatorDefault, &kSOSPeerSetCallbacks, error,
                                                  &der, der_end);
-    der = der_decode_dictionary(kCFAllocatorDefault, kCFPropertyListImmutable, &vb->wrapped_keys, error, der, sequence_end);
+    der = der_decode_dictionary(kCFAllocatorDefault, &vb->wrapped_keys, error, der, sequence_end);
 
     require_quiet(SecRequirementError(der == der_end, error, CFSTR("Extra space in sequence")), fail);
 
@@ -489,17 +488,17 @@ bool SOSBKSBPeerBackupKeyIsInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, S
     return result;
 }
 
-// returns true if all peers in (peers) and only those peers have matching backupKeys in the BSKB
 bool SOSBSKBAllPeersBackupKeysAreInKeyBag(SOSBackupSliceKeyBagRef backupSliceKeyBag, CFSetRef peers) {
-    __block bool result = false;
+    // earlier we had to accept BSKBs listing peers without backup keys for compatibility.  For that reason
+    // this routine will iterate over the peers given and only disqualify the BSKB if it doesn't include the backup key of a peer with one.
+    __block bool result = true;
     if(backupSliceKeyBag && peers) {
-        result = (SOSBSKBCountPeers(backupSliceKeyBag) == CFSetGetCount(peers));
-        if(result) {
-            CFSetForEach(peers, ^(const void *value) {
-                SOSPeerInfoRef pi = asSOSPeerInfo(value);
-                result &= pi && SOSBKSBPeerBackupKeyIsInKeyBag(backupSliceKeyBag, pi);
-            });
-        }
+        CFSetForEach(peers, ^(const void *value) {
+            SOSPeerInfoRef pi = asSOSPeerInfo(value);
+            if(pi && SOSPeerInfoHasBackupKey(pi)) {
+                result &= SOSBKSBPeerBackupKeyIsInKeyBag(backupSliceKeyBag, pi);
+            }
+        });
     }
     return result;
 }

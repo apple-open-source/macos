@@ -54,6 +54,7 @@ public:
     void loadResource(WebCore::Frame&, WebCore::CachedResource&, WebCore::ResourceRequest&&, const WebCore::ResourceLoaderOptions&, CompletionHandler<void(RefPtr<WebCore::SubresourceLoader>&&)>&&) final;
     void loadResourceSynchronously(WebCore::FrameLoader&, unsigned long resourceLoadIdentifier, const WebCore::ResourceRequest&, WebCore::ClientCredentialPolicy, const WebCore::FetchOptions&, const WebCore::HTTPHeaderMap&, WebCore::ResourceError&, WebCore::ResourceResponse&, Vector<char>& data) final;
     void pageLoadCompleted(WebCore::Page&) final;
+    void browsingContextRemoved(WebCore::Frame&) final;
 
     void remove(WebCore::ResourceLoader*) final;
     void setDefersLoading(WebCore::ResourceLoader&, bool) final;
@@ -87,6 +88,8 @@ public:
     bool isOnLine() const final;
     void addOnlineStateChangeListener(Function<void(bool)>&&) final;
     void setOnLineState(bool);
+
+    static uint64_t generateLoadIdentifier();
 
 private:
     void scheduleLoad(WebCore::ResourceLoader&, WebCore::CachedResource*, bool shouldClearReferrerOnHTTPSToHTTPRedirect);
@@ -125,7 +128,6 @@ private:
     HashMap<unsigned long, PreconnectCompletionHandler> m_preconnectCompletionHandlers;
     Vector<Function<void(bool)>> m_onlineStateChangeListeners;
     bool m_isOnLine { true };
-    HashSet<WebResourceLoader*> m_loadersWithUploads;
 };
 
 } // namespace WebKit

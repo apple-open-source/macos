@@ -197,9 +197,8 @@ didReceiveResponse:(NSURLResponse *)response
     (void)remove(updateFilePath);
 
     int fd;
-    off_t off;
     fd = open(updateFilePath, O_RDWR | O_CREAT | O_TRUNC, 0644);
-    if (fd < 0  || (off = lseek(fd, 0, SEEK_SET)) < 0) {
+    if (fd < 0) {
         secnotice("validupdate","unable to open %@ (errno %d)", self->_currentUpdateFileURL, errno);
     }
     if (fd >= 0) {
@@ -218,7 +217,7 @@ didReceiveResponse:(NSURLResponse *)response
     if (!self->_currentUpdateFile) {
         secnotice("validupdate", "failed to open %@: %@. canceling task %@", self->_currentUpdateFileURL, error, dataTask);
 #if ENABLE_TRUSTD_ANALYTICS
-        [[TrustdHealthAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
+        [[TrustAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
 #endif // ENABLE_TRUSTD_ANALYTICS
         completionHandler(NSURLSessionResponseCancel);
         [self reschedule];
@@ -259,7 +258,7 @@ didCompleteWithError:(NSError *)error {
     if (error) {
         secnotice("validupdate", "Session %@ task %@ failed with error %@", session, task, error);
 #if ENABLE_TRUSTD_ANALYTICS
-        [[TrustdHealthAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
+        [[TrustAnalytics logger] logResultForEvent:TrustdHealthAnalyticsEventValidUpdate hardFailure:NO result:error];
 #endif // ENABLE_TRUSTD_ANALYTICS
         [self reschedule];
         /* close file before we leave */
@@ -288,30 +287,25 @@ didCompleteWithError:(NSError *)error {
 @interface ValidUpdateRequest : NSObject
 @property NSTimeInterval updateScheduled;
 @property NSURLSession *backgroundSession;
+@property NSURLSession *ephemeralSession;
 @end
 
 static ValidUpdateRequest *request = nil;
 
 @implementation ValidUpdateRequest
 
-- (NSURLSessionConfiguration *)validUpdateConfiguration {
-    /* preferences to override defaults */
-    CFTypeRef value = NULL;
-    bool updateOnWiFiOnly = true;
-    value = CFPreferencesCopyValue(kUpdateWiFiOnlyKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    if (isBoolean(value)) {
-        updateOnWiFiOnly = CFBooleanGetValue((CFBooleanRef)value);
-    }
-    CFReleaseNull(value);
-    bool updateInBackground = true;
-    value = CFPreferencesCopyValue(kUpdateBackgroundKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
-    if (isBoolean(value)) {
-        updateInBackground = CFBooleanGetValue((CFBooleanRef)value);
-    }
-    CFReleaseNull(value);
-
+- (NSURLSessionConfiguration *)validUpdateConfiguration:(BOOL)background {
     NSURLSessionConfiguration *config = nil;
-    if (updateInBackground) {
+    if (background) {
+        /* preferences to override defaults */
+        CFTypeRef value = NULL;
+        bool updateOnWiFiOnly = true;
+        value = CFPreferencesCopyValue(kUpdateWiFiOnlyKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+        if (isBoolean(value)) {
+            updateOnWiFiOnly = CFBooleanGetValue((CFBooleanRef)value);
+        }
+        CFReleaseNull(value);
+
         config = [NSURLSessionConfiguration backgroundSessionConfigurationWithIdentifier: @"com.apple.trustd.networking.background"];
         config.networkServiceType = NSURLNetworkServiceTypeBackground;
         config.discretionary = YES;
@@ -332,8 +326,9 @@ static ValidUpdateRequest *request = nil;
     return config;
 }
 
-- (void) createSession:(dispatch_queue_t)updateQueue forServer:(NSString *)updateServer {
-    NSURLSessionConfiguration *config = [self validUpdateConfiguration];
+- (NSURLSession *)createSession:(BOOL)background queue:(dispatch_queue_t)updateQueue forServer:(NSString *)updateServer
+{
+    NSURLSessionConfiguration *config = [self validUpdateConfiguration:background];
     ValidDelegate *delegate = [[ValidDelegate alloc] init];
     delegate.handler = ^(void) {
         request.updateScheduled = 0.0;
@@ -348,7 +343,23 @@ static ValidUpdateRequest *request = nil;
        We'll then dispatch the work on updateQueue and return from the callback. */
     NSOperationQueue *queue = [[NSOperationQueue alloc] init];
     queue.maxConcurrentOperationCount = 1;
-    _backgroundSession = [NSURLSession sessionWithConfiguration:config delegate:delegate delegateQueue:queue];
+    return [NSURLSession sessionWithConfiguration:config delegate:delegate delegateQueue:queue];
+}
+
+- (void) createSessions:(dispatch_queue_t)updateQueue forServer:(NSString *)updateServer {
+    self.ephemeralSession = [self createSession:NO queue:updateQueue forServer:updateServer];
+
+    bool updateInBackground = true;
+    CFTypeRef value = CFPreferencesCopyValue(kUpdateBackgroundKey, kSecPrefsDomain, kCFPreferencesAnyUser, kCFPreferencesCurrentHost);
+    if (isBoolean(value)) {
+        updateInBackground = CFBooleanGetValue((CFBooleanRef)value);
+    }
+    CFReleaseNull(value);
+    if (updateInBackground) {
+        self.backgroundSession = [self createSession:YES queue:updateQueue forServer:updateServer];
+    } else {
+        self.backgroundSession = self.ephemeralSession;
+    }
 }
 
 - (BOOL) scheduleUpdateFromServer:(NSString *)server forVersion:(NSUInteger)version withQueue:(dispatch_queue_t)updateQueue {
@@ -399,7 +410,7 @@ static ValidUpdateRequest *request = nil;
         });
 
         if (!self.backgroundSession) {
-            [self createSession:updateQueue forServer:server];
+            [self createSessions:updateQueue forServer:server];
         } else {
             ValidDelegate *delegate = (ValidDelegate *)[self.backgroundSession delegate];
             delegate.currentUpdateServer = [server copy];
@@ -424,17 +435,65 @@ static ValidUpdateRequest *request = nil;
 
     return YES;
 }
+
+- (BOOL)updateNowFromServer:(NSString *)server version:(NSUInteger)version queue:(dispatch_queue_t)updateQueue
+{
+    if (!server) {
+        secnotice("validupdate", "invalid update request");
+        return NO;
+    }
+
+    if (!updateQueue) {
+        secnotice("validupdate", "missing update queue, skipping update");
+        return NO;
+    }
+
+    if (!self.ephemeralSession) {
+        [self createSessions:updateQueue forServer:server];
+    } else {
+        ValidDelegate *delegate = (ValidDelegate *)[self.ephemeralSession delegate];
+        delegate.currentUpdateServer = [server copy];
+    }
+
+    /* POWER LOG EVENT: scheduling our background download session now */
+    SecPLLogRegisteredEvent(@"ValidUpdateEvent", @{
+        @"timestamp" : @([[NSDate date] timeIntervalSince1970]),
+        @"event" : @"downloadScheduled",
+        @"version" : @(version)
+    });
+
+    NSURL *validUrl = [NSURL URLWithString:[NSString stringWithFormat:@"https://%@/g3/v%ld",
+                                            server, (unsigned long)version]];
+    NSURLSessionDataTask *dataTask = [self.ephemeralSession dataTaskWithURL:validUrl];
+    dataTask.taskDescription = [NSString stringWithFormat:@"%lu",(unsigned long)version];
+    [dataTask resume];
+    secnotice("validupdate", "running foreground data task %@ at %f", dataTask, CFAbsoluteTimeGetCurrent());
+    return YES;
+}
+
 @end
 
+static void SecValidUpdateCreateValidUpdateRequest()
+{
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        @autoreleasepool {
+            request = [[ValidUpdateRequest alloc] init];
+        }
+    });
+}
+
 bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex version)  {
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            @autoreleasepool {
-                request = [[ValidUpdateRequest alloc] init];
-            }
-        });
+    SecValidUpdateCreateValidUpdateRequest();
     @autoreleasepool {
         return [request scheduleUpdateFromServer:(__bridge NSString*)server forVersion:version withQueue:queue];
+    }
+}
+
+bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex version) {
+    SecValidUpdateCreateValidUpdateRequest();
+    @autoreleasepool {
+        return [request updateNowFromServer:(__bridge NSString*)server version:version queue:queue];
     }
 }
 
@@ -490,7 +549,7 @@ bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex v
             SecORVCConsumeOCSPResponse(orvc, ocspResponse, self.expiration, true, false);
             if (analytics && !orvc->done) {
                 /* We got an OCSP response that didn't pass validation */
-                analytics-> ocsp_validation_failed = true;
+                analytics->ocsp_validation_failed = true;
             }
         } else if (analytics) {
             /* We got something that wasn't an OCSP response (e.g. captive portal) --

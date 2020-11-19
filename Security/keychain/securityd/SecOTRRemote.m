@@ -64,7 +64,7 @@ CFDataRef SecOTRSessionCreateRemote_internal(CFDataRef publicAccountData, CFData
     privateKeyRef = SOSAccountCopyDeviceKey(privateAccount, error);
     require_quiet(privateKeyRef, fail);
 
-    privateIdentity = SecOTRFullIdentityCreateFromSecKeyRef(kCFAllocatorDefault, privateKeyRef, error);
+    privateIdentity = SecOTRFullIdentityCreateFromSecKeyRefSOS(kCFAllocatorDefault, privateKeyRef, error);
     require_quiet(privateIdentity, fail);
     CFReleaseNull(privateKeyRef);
 

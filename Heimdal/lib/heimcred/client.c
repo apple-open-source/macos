@@ -87,6 +87,7 @@ cfstring2cstring(CFStringRef string)
 }
 
 static char *HeimCredImpersonateBundle = NULL;
+static CFDataRef HeimCredImpersonateAuditToken = NULL;
 
 void
 HeimCredSetImpersonateBundle(CFStringRef bundle)
@@ -109,10 +110,27 @@ HeimCredGetImpersonateBundle(void)
 static void
 UpdateImpersonateBundle(xpc_object_t message)
 {
-    if (HeimCredImpersonateBundle)
+    if (HeimCredImpersonateBundle) {
 	xpc_dictionary_set_string(message, "impersonate", HeimCredImpersonateBundle);
+#if TARGET_OS_OSX
+	if (CFDataGetLength(HeimCredImpersonateAuditToken) > 0) {
+	xpc_dictionary_set_data(message, "impersonate_token", CFDataGetBytePtr(HeimCredImpersonateAuditToken), CFDataGetLength(HeimCredImpersonateAuditToken));
+	}
+#endif
+    }
 }
 
+void
+HeimCredSetImpersonateAuditToken(CFDataRef auditToken)
+{
+    HeimCredImpersonateAuditToken = auditToken;
+}
+
+CFDataRef
+HeimCredGetImpersonateAuditToken(void)
+{
+    return HeimCredImpersonateAuditToken;
+}
 
 /*
  *
@@ -127,12 +145,12 @@ _HeimCredInit(void)
 	    _HeimCredInitCommon();
 
 	    HeimCredCTX.conn = xpc_connection_create_mach_service("com.apple.GSSCred",
-								  HeimCredCTX.queue,
-								  XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
-
+								HeimCredCTX.queue,
+								XPC_CONNECTION_MACH_SERVICE_PRIVILEGED);
+    
 	    xpc_connection_set_event_handler(HeimCredCTX.conn, ^(xpc_object_t object){ HeimItemNotify(object); });
 	    xpc_connection_resume(HeimCredCTX.conn);
-
+    
 	    HeimWakeupVersion();
 	});
 }
@@ -169,7 +187,7 @@ CreateCFError(CFErrorRef *error, int error_code, CFStringRef fmt, ...)
 						    keys,
 						    values,
 						    NUM_ERROR_DESC);
-    CFRelease(values[0]);
+    CFRELEASE_NULL(values[0]);
     
     return true;
     
@@ -257,14 +275,14 @@ HeimCredAddItem(xpc_object_t object)
     CFUUIDRef uuid = CFDictionaryGetValue(attributes, kHEIMAttrUUID);
     if (uuid == NULL) {
 	if (attributes)
-	    CFRelease(attributes);
+	    CFRELEASE_NULL(attributes);
 	return NULL;
     }
 
     HeimCredRef cred = HeimCredCreateItem(uuid);
     if (cred == NULL) {
 	if (attributes)
-	    CFRelease(attributes);
+	    CFRELEASE_NULL(attributes);
 	return NULL;
     }
     
@@ -377,7 +395,7 @@ HeimCredSetAttribute(HeimCredRef cred, CFTypeRef key, CFTypeRef value, CFErrorRe
     if (attrs == NULL)
 	return false;
     bool ret = HeimCredSetAttributes(cred, attrs, error);
-    CFRelease(attrs);
+    CFRELEASE_NULL(attrs);
     return ret;
 
 }
@@ -428,14 +446,26 @@ HeimCredSetAttributes(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *
 CFTypeRef
 HeimCredCopyAttribute(HeimCredRef cred, CFTypeRef attribute)
 {
-    CFDictionaryRef attrs = HeimCredCopyAttributes(cred, NULL, NULL);
-    if (attrs == NULL)
-	return NULL;
+    __block CFDictionaryRef attrs = NULL;
+
+    dispatch_sync(HeimCredCTX.queue, ^{
+	if (cred->attributes)
+	    CFRetain(cred->attributes);
+	attrs = cred->attributes;
+    });
+
+    //check local cached value first, if miss, then refresh
+    if (!attrs || !CFDictionaryContainsKey(attrs, attribute)) {
+	CFRELEASE_NULL(attrs);
+	attrs = HeimCredCopyAttributes(cred, NULL, NULL);
+	if (attrs == NULL)
+	    return NULL;
+    }
 	
     CFTypeRef ref = CFDictionaryGetValue(attrs, attribute);
     if (ref)
 	CFRetain(ref);
-    CFRelease(attrs);
+    CFRELEASE_NULL(attrs);
     return ref;
 }
 
@@ -446,42 +476,35 @@ HeimCredCopyAttribute(HeimCredRef cred, CFTypeRef attribute)
 CFDictionaryRef
 HeimCredCopyAttributes(HeimCredRef cred, CFSetRef attributes, CFErrorRef *error)
 {
-    __block CFDictionaryRef attrs;
+    __block CFDictionaryRef attrs = NULL;
 
     HC_INIT_ERROR(error);
 
-    dispatch_sync(HeimCredCTX.queue, ^{
-	    if (cred->attributes)
-		CFRetain(cred->attributes);
-	    attrs = cred->attributes;
-	});
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "fetch");
+    HeimCredSetUUID(request, "uuid", cred->uuid);
+    UpdateImpersonateBundle(request);
 
-    if (attrs == NULL) {
-	xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
-	xpc_dictionary_set_string(request, "command", "fetch");
-	HeimCredSetUUID(request, "uuid", cred->uuid);
-	UpdateImpersonateBundle(request);
-
-	xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
-	xpc_release(request);
-	if (reply == NULL) {
-	    CreateCFError(error, kHeimCredErrorServerDisconnected, CFSTR("Server didn't return any data"));
-	    return NULL;
-	}
-	if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
-	    CreateCFError(error, kHeimCredErrorServerReturnedError, CFSTR("Server returned an error: %@"), reply);
-	    return NULL;
-	}
-
-	dispatch_sync(HeimCredCTX.queue, ^{
-		CFRELEASE_NULL(cred->attributes);
-		attrs = cred->attributes = 
-		    HeimCredMessageCopyAttributes(reply, "attributes", CFDictionaryGetTypeID());
-		if (attrs)
-		    CFRetain(attrs);
-	    });
-	xpc_release(reply);
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+    xpc_release(request);
+    if (reply == NULL) {
+	CreateCFError(error, kHeimCredErrorServerDisconnected, CFSTR("Server didn't return any data"));
+	return NULL;
     }
+    if (xpc_get_type(reply) == XPC_TYPE_ERROR) {
+	CreateCFError(error, kHeimCredErrorServerReturnedError, CFSTR("Server returned an error: %@"), reply);
+	return NULL;
+    }
+
+    dispatch_sync(HeimCredCTX.queue, ^{
+	CFRELEASE_NULL(cred->attributes);
+	attrs = cred->attributes =
+	HeimCredMessageCopyAttributes(reply, "attributes", CFDictionaryGetTypeID());
+	if (attrs)
+	    CFRetain(attrs);
+    });
+    xpc_release(reply);
+
     return attrs;
 }
 
@@ -534,10 +557,10 @@ HeimCredCopyQuery(CFDictionaryRef query)
 	    if (uuid == NULL)
 		return (bool)true;
 	    HeimCredRef cred = HeimCredCreateItem(uuid);
-	    CFRelease(uuid);
+	    CFRELEASE_NULL(uuid);
 	    if (cred) {
 		CFArrayAppendValue(result, cred);
-		CFRelease(cred);
+		CFRELEASE_NULL(cred);
 	    }
 	    return (bool)true;
 	});
@@ -579,7 +602,7 @@ SendItemCommand(const char *command, CFUUIDRef uuid)
     CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 
     xpc_object_t reply = SendQueryCommand(command, query);
-    CFRelease(query);
+    CFRELEASE_NULL(query);
     return reply;
 }
 
@@ -591,7 +614,7 @@ HeimCredDeleteByUUID(CFUUIDRef uuid)
     xpc_object_t reply = SendItemCommand("delete", uuid);
     if (reply)
 	xpc_release(reply);
-    
+    CFDictionaryRemoveValue(HeimCredCTX.items, uuid);
 }
 /*
  *
@@ -611,9 +634,16 @@ void
 HeimCredRetainTransient(HeimCredRef cred)
 {
     HC_INIT();
-    xpc_object_t reply = SendItemCommand("retain-transient", cred->uuid);
-    if (reply)
-	xpc_release(reply);
+
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "retain-transient");
+    HeimCredSetUUID(request, "uuid", cred->uuid);
+
+    UpdateImpersonateBundle(request);
+
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+    xpc_release(request);
+    xpc_release(reply);
 }
 
 /*
@@ -624,9 +654,15 @@ void
 HeimCredReleaseTransient(HeimCredRef cred)
 {
     HC_INIT();
-    xpc_object_t reply = SendItemCommand("release-transient", cred->uuid);
-    if (reply)
-	xpc_release(reply);
+    xpc_object_t request = xpc_dictionary_create(NULL, NULL, 0);
+    xpc_dictionary_set_string(request, "command", "release-transient");
+    HeimCredSetUUID(request, "uuid", cred->uuid);
+
+    UpdateImpersonateBundle(request);
+
+    xpc_object_t reply = xpc_connection_send_message_with_reply_sync(HeimCredCTX.conn, request);
+    xpc_release(request);
+    xpc_release(reply);
 }
 
 bool
@@ -763,6 +799,37 @@ HeimCredDoAuth(HeimCredRef cred, CFDictionaryRef attributes, CFErrorRef *error)
 	xpc_release(reply);
 	
 	return result_cfdict;
+}
+
+bool
+HeimCredDeleteAll(CFStringRef altDSID, CFErrorRef *error)
+{
+    HC_INIT_ERROR(error);
+    
+    const void *keys[2] = { (void *)kHEIMAttrAltDSID, kHEIMObjectType };
+    const void *values[2] = { (void *)altDSID, kHEIMObjectAny };
+    
+    CFDictionaryRef query = CFDictionaryCreate(NULL, keys, values, 2, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    
+    xpc_object_t reply = SendQueryCommand("delete-all", query);
+    if (reply == NULL)
+	return false;
+
+    bool result = false;
+
+    if (xpc_dictionary_get_value(reply, "error") == NULL)
+	result = true;
+
+    xpc_release(reply);
+    
+    return result;
+}
+
+void
+_HeimCredResetLocalCache(void)
+{
+    CFRELEASE_NULL(HeimCredCTX.items);
+    HeimCredCTX.items = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 }
 
 /*

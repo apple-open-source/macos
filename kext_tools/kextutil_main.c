@@ -27,6 +27,8 @@
 #include <servers/bootstrap.h>    // bootstrap mach ports
 #include <bootfiles.h>
 
+#include "KernelManagementShims/Shims.h"
+
 #pragma mark Constants
 /*******************************************************************************
 * Constants
@@ -55,6 +57,8 @@ isRunningAsRoot()
 {
     return geteuid() == 0;
 }
+
+extern void shimKextutilArgsToKMUtilAndRun(KextutilArgs *);
 
 #pragma mark Main Routine
 /*******************************************************************************
@@ -101,6 +105,11 @@ main(int argc, char * const * argv)
     result = checkArgs(&toolArgs);
     if (result != EX_OK) {
         goto finish;
+    }
+
+    if (disableKextTools() && isKernelManagementLinked()) {
+        shimKextutilArgsToKMUtilAndRun(&toolArgs); /* this function exits */
+        exit(EX_OSERR);
     }
 
    /* From here on out the default exit status is ok.

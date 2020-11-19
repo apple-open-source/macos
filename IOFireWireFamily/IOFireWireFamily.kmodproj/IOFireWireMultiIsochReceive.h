@@ -57,7 +57,7 @@ class IOFireWireMultiIsochReceiveListener : public OSObject
 				  FWMultiIsochReceiveListenerCallback callback,
 				  void *pCallbackRefCon,
 				  FWMultiIsochReceiveListenerParams *pListenerParams);
-		void free();
+		void free() APPLE_KEXT_OVERRIDE;
 	public:
 		static IOFireWireMultiIsochReceiveListener *create(IOFireWireController *fwController,
 														   UInt32 channel,
@@ -99,7 +99,7 @@ class IOFireWireMultiIsochReceivePacket : public OSObject
 	{
 		OSDeclareDefaultStructors(IOFireWireMultiIsochReceivePacket)
 		bool init(IOFireWireController *fwController);
-		void free();
+		void free() APPLE_KEXT_OVERRIDE;
 	public:
 		static IOFireWireMultiIsochReceivePacket *create(IOFireWireController *fwController);
 		

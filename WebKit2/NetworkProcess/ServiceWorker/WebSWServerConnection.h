@@ -30,6 +30,7 @@
 #include "MessageReceiver.h"
 #include "MessageSender.h"
 #include "ServiceWorkerFetchTask.h"
+#include <WebCore/ExceptionOr.h>
 #include <WebCore/FetchIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/SWServer.h>
@@ -39,6 +40,11 @@
 
 namespace IPC {
 class FormDataReference;
+
+template<> struct AsyncReplyError<WebCore::ExceptionOr<bool>> {
+    static WebCore::ExceptionOr<bool> create() { return WebCore::Exception { WebCore::TypeError, "Internal error"_s }; }
+};
+
 }
 
 namespace WebCore {
@@ -55,7 +61,7 @@ class NetworkProcess;
 class NetworkResourceLoader;
 class ServiceWorkerFetchTask;
 
-class WebSWServerConnection : public WebCore::SWServer::Connection, public IPC::MessageSender, public IPC::MessageReceiver {
+class WebSWServerConnection final : public WebCore::SWServer::Connection, public IPC::MessageSender, public IPC::MessageReceiver {
 public:
     WebSWServerConnection(NetworkProcess&, WebCore::SWServer&, IPC::Connection&, WebCore::ProcessIdentifier);
     WebSWServerConnection(const WebSWServerConnection&) = delete;
@@ -64,7 +70,6 @@ public:
     IPC::Connection& ipcConnection() const { return m_contentConnection.get(); }
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
-    void didReceiveSyncMessage(IPC::Connection&, IPC::Decoder&, std::unique_ptr<IPC::Encoder>&);
     
     PAL::SessionID sessionID() const;
 
@@ -87,6 +92,9 @@ private:
 
     void scheduleJobInServer(WebCore::ServiceWorkerJobData&&);
 
+    using UnregisterJobResult = Expected<bool, WebCore::ExceptionData>;
+    void scheduleUnregisterJobInServer(WebCore::ServiceWorkerJobIdentifier, WebCore::ServiceWorkerRegistrationIdentifier, WebCore::DocumentOrWorkerIdentifier, CompletionHandler<void(UnregisterJobResult&&)>&&);
+
     void startFetch(ServiceWorkerFetchTask&, WebCore::SWServerWorker&);
 
     void matchRegistration(uint64_t registrationMatchRequestIdentifier, const WebCore::SecurityOriginData& topOrigin, const URL& clientURL);
@@ -94,8 +102,8 @@ private:
 
     void registerServiceWorkerClient(WebCore::SecurityOriginData&& topOrigin, WebCore::ServiceWorkerClientData&&, const Optional<WebCore::ServiceWorkerRegistrationIdentifier>&, String&& userAgent);
     void unregisterServiceWorkerClient(const WebCore::ServiceWorkerClientIdentifier&);
-    void syncTerminateWorkerFromClient(WebCore::ServiceWorkerIdentifier, CompletionHandler<void()>&&);
-    void isServiceWorkerRunning(WebCore::ServiceWorkerIdentifier, CompletionHandler<void(bool)>&&);
+    void terminateWorkerFromClient(WebCore::ServiceWorkerIdentifier, CompletionHandler<void()>&&);
+    void whenServiceWorkerIsTerminatedForTesting(WebCore::ServiceWorkerIdentifier, CompletionHandler<void()>&&);
 
     void postMessageToServiceWorkerClient(WebCore::DocumentIdentifier destinationContextIdentifier, const WebCore::MessageWithMessagePorts&, WebCore::ServiceWorkerIdentifier sourceServiceWorkerIdentifier, const String& sourceOrigin) final;
 
@@ -110,6 +118,8 @@ private:
     void postMessageToServiceWorker(WebCore::ServiceWorkerIdentifier destination, WebCore::MessageWithMessagePorts&&, const WebCore::ServiceWorkerOrClientIdentifier& source);
     void controlClient(WebCore::ServiceWorkerClientIdentifier, WebCore::SWServerRegistration&, const WebCore::ResourceRequest&);
 
+    URL clientURLFromIdentifier(WebCore::DocumentOrWorkerIdentifier);
+
     IPC::Connection* messageSenderConnection() const final { return m_contentConnection.ptr(); }
     uint64_t messageSenderDestinationID() const final { return 0; }
     
@@ -118,6 +128,7 @@ private:
     Ref<IPC::Connection> m_contentConnection;
     Ref<NetworkProcess> m_networkProcess;
     HashMap<WebCore::ServiceWorkerClientIdentifier, WebCore::ClientOrigin> m_clientOrigins;
+    HashMap<WebCore::ServiceWorkerJobIdentifier, CompletionHandler<void(UnregisterJobResult&&)>> m_unregisterJobs;
     bool m_isThrottleable { true };
 };
 

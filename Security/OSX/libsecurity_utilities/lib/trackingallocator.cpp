@@ -43,20 +43,20 @@ TrackingAllocator::~TrackingAllocator()
 // Standard allocation operations.
 // We pass them down to our subAllocator and keep track of what we've got.
 //
-void *TrackingAllocator::malloc(size_t inSize) throw(std::bad_alloc)
+void *TrackingAllocator::malloc(size_t inSize)
 {
 	void *anAddress = subAllocator.malloc(inSize);
 	mAllocSet.insert(anAddress);
 	return anAddress;
 }
 
-void TrackingAllocator::free(void *inAddress) throw()
+void TrackingAllocator::free(void *inAddress) _NOEXCEPT
 {
 	subAllocator.free(inAddress);
 	mAllocSet.erase(inAddress);
 }
 
-void *TrackingAllocator::realloc(void *inAddress, size_t inNewSize) throw(std::bad_alloc)
+void *TrackingAllocator::realloc(void *inAddress, size_t inNewSize)
 {
 	void *anAddress = subAllocator.realloc(inAddress, inNewSize);
 	if (anAddress != inAddress)

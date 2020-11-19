@@ -25,6 +25,7 @@
 
 #import "config.h"
 #import "UTIUtilities.h"
+
 #import <wtf/MainThread.h>
 #import <wtf/TinyLRUCache.h>
 #import <wtf/text/StringHash.h>
@@ -32,12 +33,6 @@
 
 #if PLATFORM(IOS_FAMILY)
 #import <MobileCoreServices/MobileCoreServices.h>
-#endif
-
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/AdditionalUTIMappings.h>
-#else
-#define ADDITIONAL_UTI_MAPPINGS
 #endif
 
 namespace WebCore {
@@ -97,7 +92,7 @@ static String UTIFromUnknownMIMEType(const String& mimeType)
             { "model/vnd.usdz+zip"_s, "com.pixar.universal-scene-description-mobile"_s },
             { "model/usd"_s, "com.pixar.universal-scene-description-mobile"_s },
             { "model/vnd.pixar.usd"_s, "com.pixar.universal-scene-description-mobile"_s },
-            ADDITIONAL_UTI_MAPPINGS
+            { "model/vnd.reality"_s, "com.apple.reality"_s }
         };
 
         HashMap<String, String, ASCIICaseInsensitiveHash> map;
@@ -115,25 +110,36 @@ static String UTIFromUnknownMIMEType(const String& mimeType)
 
 struct UTIFromMIMETypeCachePolicy : TinyLRUCachePolicy<String, String> {
 public:
-    static String createValueForKey(const String& key)
+    static String createValueForKey(const String& mimeType)
     {
-        auto type = adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, key.createCFString().get(), 0));
+        auto type = adoptCF(UTTypeCreatePreferredIdentifierForTag(kUTTagClassMIMEType, mimeType.createCFString().get(), 0));
         if (type)
             return type.get();
-        return UTIFromUnknownMIMEType(key);
+        return UTIFromUnknownMIMEType(mimeType);
     }
 };
+
+static TinyLRUCache<String, String, 16, UTIFromMIMETypeCachePolicy>& cacheUTIFromMimeType()
+{
+    static NeverDestroyed<TinyLRUCache<String, String, 16, UTIFromMIMETypeCachePolicy>> cache;
+    return cache;
+}
 
 String UTIFromMIMEType(const String& mimeType)
 {
     ASSERT(isMainThread());
-    static NeverDestroyed<TinyLRUCache<String, String, 16, UTIFromMIMETypeCachePolicy>> cache;
-    return cache.get().get(mimeType);
+    return cacheUTIFromMimeType().get(mimeType);
 }
 
 bool isDeclaredUTI(const String& UTI)
 {
     return UTTypeIsDeclared(UTI.createCFString().get());
+}
+
+String UTIFromTag(const String& tagClass, const String& tag, const String& conformingToUTI)
+{
+    auto u = adoptCF(UTTypeCreatePreferredIdentifierForTag(tagClass.createCFString().get(), tag.createCFString().get(), conformingToUTI.createCFString().get()));
+    return String(u.get());
 }
 
 }

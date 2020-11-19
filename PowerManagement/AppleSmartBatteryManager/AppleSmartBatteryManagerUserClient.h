@@ -63,18 +63,17 @@ private:
     AppleSmartBatteryManager *      fOwner;
     task_t                          fOwningTask;
     uint8_t                         fUserClientType;
-    
+
     IOReturn    secureInflowDisable(int level, int *return_code);
-
     IOReturn    secureChargeInhibit(int level, int *return_code);
-
+    IOReturn    clientCloseGated(void);
 public:
 
     virtual IOReturn clientClose( void ) APPLE_KEXT_OVERRIDE;
-    
-    virtual IOReturn externalMethod( uint32_t selector, 
+
+    virtual IOReturn externalMethod(uint32_t selector,
                                 IOExternalMethodArguments * arguments,
-                                IOExternalMethodDispatch * dispatch = 0, 
+                                IOExternalMethodDispatch * dispatch = 0,
                                 OSObject * targe    = 0, void * reference = 0 ) APPLE_KEXT_OVERRIDE;
 
     virtual bool start( IOService * provider ) APPLE_KEXT_OVERRIDE;

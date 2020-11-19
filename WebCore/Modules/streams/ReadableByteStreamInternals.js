@@ -22,8 +22,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-// @conditional=ENABLE(STREAMS_API)
 // @internal
 
 function privateInitializeReadableByteStreamController(stream, underlyingByteSource, highWaterMark)
@@ -226,7 +224,7 @@ function readableByteStreamControllerPull(controller)
         } catch (error) {
             return @Promise.@reject(error);
         }
-        return @Promise.@resolve({value: view, done: false});
+        return @createFulfilledPromise({ value: view, done: false });
     }
 
     if (@getByIdDirectPrivate(controller, "autoAllocateChunkSize") !== @undefined) {
@@ -575,8 +573,8 @@ function readableByteStreamControllerConvertDescriptor(pullIntoDescriptor)
 function readableStreamFulfillReadIntoRequest(stream, chunk, done)
 {
     "use strict";
-
-    @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readIntoRequests").@shift().@resolve.@call(@undefined, {value: chunk, done: done});
+    const readIntoRequest = @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readIntoRequests").@shift();
+    @fulfillPromise(readIntoRequest, { value: chunk, done: done });
 }
 
 function readableStreamBYOBReaderRead(reader, view)
@@ -638,14 +636,14 @@ function readableByteStreamControllerPullInto(controller, view)
 
     if (@getByIdDirectPrivate(stream, "state") === @streamClosed) {
         const emptyView = new ctor(pullIntoDescriptor.buffer, pullIntoDescriptor.byteOffset, 0);
-        return @Promise.@resolve({ value: emptyView, done: true });
+        return @createFulfilledPromise({ value: emptyView, done: true });
     }
 
     if (@getByIdDirectPrivate(controller, "queue").size > 0) {
         if (@readableByteStreamControllerFillDescriptorFromQueue(controller, pullIntoDescriptor)) {
             const filledView = @readableByteStreamControllerConvertDescriptor(pullIntoDescriptor);
             @readableByteStreamControllerHandleQueueDrain(controller);
-            return @Promise.@resolve({ value: filledView, done: false });
+            return @createFulfilledPromise({ value: filledView, done: false });
         }
         if (@getByIdDirectPrivate(controller, "closeRequested")) {
             const e = @makeTypeError("Closing stream has been requested");
@@ -668,8 +666,8 @@ function readableStreamAddReadIntoRequest(stream)
     @assert(@isReadableStreamBYOBReader(@getByIdDirectPrivate(stream, "reader")));
     @assert(@getByIdDirectPrivate(stream, "state") === @streamReadable || @getByIdDirectPrivate(stream, "state") === @streamClosed);
 
-    const readRequest = @newPromiseCapability(@Promise);
+    const readRequest = @newPromise();
     @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readIntoRequests").@push(readRequest);
 
-    return readRequest.@promise;
+    return readRequest;
 }

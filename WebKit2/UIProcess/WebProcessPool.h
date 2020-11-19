@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,7 +37,6 @@
 #include "PlugInAutoStartProvider.h"
 #include "PluginInfoStore.h"
 #include "ProcessThrottler.h"
-#include "StatisticsRequest.h"
 #include "VisitedLinkStore.h"
 #include "WebContextClient.h"
 #include "WebContextConnectionClient.h"
@@ -56,6 +55,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounter.h>
 #include <wtf/RefPtr.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -72,6 +72,7 @@ OBJC_CLASS NSMutableDictionary;
 OBJC_CLASS NSObject;
 OBJC_CLASS NSSet;
 OBJC_CLASS NSString;
+OBJC_CLASS WKPreferenceObserver;
 #endif
 
 #if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
@@ -91,7 +92,11 @@ class PageConfiguration;
 
 namespace WebCore {
 class RegistrableDomain;
+enum class EventMakesGamepadsVisible : bool;
 struct MockMediaDevice;
+#if PLATFORM(COCOA)
+class PowerSourceNotifier;
+#endif
 }
 
 namespace WebKit {
@@ -108,7 +113,6 @@ class WebPageProxy;
 class WebProcessCache;
 struct GPUProcessCreationParameters;
 struct NetworkProcessCreationParameters;
-struct StatisticsData;
 struct WebProcessCreationParameters;
 struct WebProcessDataStoreParameters;
     
@@ -121,7 +125,7 @@ int webProcessLatencyQOS();
 int webProcessThroughputQOS();
 #endif
 
-enum class ProcessSwapRequestedByClient;
+enum class ProcessSwapRequestedByClient : bool;
 
 class WebProcessPool final : public API::ObjectImpl<API::Object::Type::ProcessPool>, public CanMakeWeakPtr<WebProcessPool>, private IPC::MessageReceiver {
 public:
@@ -148,21 +152,21 @@ public:
         m_supplements.add(T::supplementName(), T::create(this));
     }
 
-    void addMessageReceiver(IPC::StringReference messageReceiverName, IPC::MessageReceiver&);
-    void addMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID, IPC::MessageReceiver&);
-    void removeMessageReceiver(IPC::StringReference messageReceiverName);
-    void removeMessageReceiver(IPC::StringReference messageReceiverName, uint64_t destinationID);
+    void addMessageReceiver(IPC::ReceiverName, IPC::MessageReceiver&);
+    void addMessageReceiver(IPC::ReceiverName, uint64_t destinationID, IPC::MessageReceiver&);
+    void removeMessageReceiver(IPC::ReceiverName);
+    void removeMessageReceiver(IPC::ReceiverName, uint64_t destinationID);
 
     WebBackForwardCache& backForwardCache() { return m_backForwardCache.get(); }
     
     template <typename T>
-    void addMessageReceiver(IPC::StringReference messageReceiverName, ObjectIdentifier<T> destinationID, IPC::MessageReceiver& receiver)
+    void addMessageReceiver(IPC::ReceiverName messageReceiverName, ObjectIdentifier<T> destinationID, IPC::MessageReceiver& receiver)
     {
         addMessageReceiver(messageReceiverName, destinationID.toUInt64(), receiver);
     }
     
     template <typename T>
-    void removeMessageReceiver(IPC::StringReference messageReceiverName, ObjectIdentifier<T> destinationID)
+    void removeMessageReceiver(IPC::ReceiverName messageReceiverName, ObjectIdentifier<T> destinationID)
     {
         removeMessageReceiver(messageReceiverName, destinationID.toUInt64());
     }
@@ -185,15 +189,13 @@ public:
 
     // WebProcessProxy object which does not have a running process which is used for convenience, to avoid
     // null checks in WebPageProxy.
-    WebProcessProxy* dummyProcessProxy() const { return m_dummyProcessProxy; }
+    WebProcessProxy* dummyProcessProxy(PAL::SessionID sessionID) const { return m_dummyProcessProxies.get(sessionID).get(); }
 
     // WebProcess or NetworkProcess as approporiate for current process model. The connection must be non-null.
     IPC::Connection* networkingProcessConnection();
 
     template<typename T> void sendToAllProcesses(const T& message);
     template<typename T> void sendToAllProcessesForSession(const T& message, PAL::SessionID);
-    template<typename T> void sendToAllProcessesRelaunchingThemIfNecessary(const T& message);
-    template<typename T> void sendToOneProcess(T&& message);
 
     // Sends the message to WebProcess or NetworkProcess as approporiate for current process model.
     template<typename T> void sendToNetworkingProcess(T&& message);
@@ -245,14 +247,15 @@ public:
     PluginInfoStore& pluginInfoStore() { return m_pluginInfoStore; }
 
     void setPluginLoadClientPolicy(WebCore::PluginLoadClientPolicy, const String& host, const String& bundleIdentifier, const String& versionString);
-    void resetPluginLoadClientPolicies(HashMap<String, HashMap<String, HashMap<String, uint8_t>>>&&);
+    void resetPluginLoadClientPolicies(HashMap<String, HashMap<String, HashMap<String, WebCore::PluginLoadClientPolicy>>>&&);
     void clearPluginClientPolicies();
-    const HashMap<String, HashMap<String, HashMap<String, uint8_t>>>& pluginLoadClientPolicies() const { return m_pluginLoadClientPolicies; }
+    const HashMap<String, HashMap<String, HashMap<String, WebCore::PluginLoadClientPolicy>>>& pluginLoadClientPolicies() const { return m_pluginLoadClientPolicies; }
 #endif
 
 #if PLATFORM(MAC) && ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
-    void startDisplayLink(IPC::Connection&, unsigned observerID, uint32_t displayID);
-    void stopDisplayLink(IPC::Connection&, unsigned observerID, uint32_t displayID);
+    Optional<unsigned> nominalFramesPerSecondForDisplay(WebCore::PlatformDisplayID);
+    void startDisplayLink(IPC::Connection&, DisplayLinkObserverID, WebCore::PlatformDisplayID);
+    void stopDisplayLink(IPC::Connection&, DisplayLinkObserverID, WebCore::PlatformDisplayID);
     void stopDisplayLinks(IPC::Connection&);
 #endif
 
@@ -294,7 +297,7 @@ public:
     void stopMemorySampler();
 
 #if USE(SOUP)
-    void setInitialHTTPCookieAcceptPolicy(HTTPCookieAcceptPolicy policy) { m_initialHTTPCookieAcceptPolicy = policy; }
+    void setInitialHTTPCookieAcceptPolicy(WebCore::HTTPCookieAcceptPolicy policy) { m_initialHTTPCookieAcceptPolicy = policy; }
     void setNetworkProxySettings(const WebCore::SoupNetworkProxySettings&);
 #endif
     void setEnhancedAccessibility(bool);
@@ -323,10 +326,10 @@ public:
     void clearCachedCredentials();
     void terminateNetworkProcess();
     void terminateAllWebContentProcesses();
+    void sendNetworkProcessPrepareToSuspendForTesting(CompletionHandler<void()>&&);
     void sendNetworkProcessWillSuspendImminentlyForTesting();
     void sendNetworkProcessDidResume();
     void terminateServiceWorkers();
-    void terminateServiceWorkerProcess(const WebCore::RegistrableDomain&, const PAL::SessionID&);
 
     void syncNetworkProcessCookies();
     void syncLocalStorage(CompletionHandler<void()>&& callback);
@@ -358,8 +361,6 @@ public:
     void setHTTPPipeliningEnabled(bool);
     bool httpPipeliningEnabled() const;
 
-    void getStatistics(uint32_t statisticsMask, Function<void (API::Dictionary*, CallbackBase::Error)>&&);
-    
     bool javaScriptConfigurationFileEnabled() { return m_javaScriptConfigurationFileEnabled; }
     void setJavaScriptConfigurationFileEnabled(bool flag);
 #if PLATFORM(IOS_FAMILY)
@@ -368,6 +369,14 @@ public:
 
     void garbageCollectJavaScriptObjects();
     void setJavaScriptGarbageCollectorTimerEnabled(bool flag);
+
+    enum class GamepadType {
+        All,
+        HID,
+        GameControllerFramework,
+    };
+    size_t numberOfConnectedGamepadsForTesting(GamepadType);
+    void setUsesOnlyHIDGamepadProviderForTesting(bool);
 
 #if PLATFORM(COCOA)
     static bool omitPDFSupport();
@@ -391,8 +400,8 @@ public:
 
     // Network Process Management
     NetworkProcessProxy& ensureNetworkProcess(WebsiteDataStore* withWebsiteDataStore = nullptr);
-    NetworkProcessProxy* networkProcess() { return m_networkProcess.get(); }
-    void networkProcessCrashed(NetworkProcessProxy&, Vector<std::pair<RefPtr<WebProcessProxy>, Messages::WebProcessProxy::GetNetworkProcessConnectionDelayedReply>>&&);
+    NetworkProcessProxy* networkProcess() const { return m_networkProcess.get(); }
+    void networkProcessCrashed(NetworkProcessProxy&);
 
     void getNetworkProcessConnection(WebProcessProxy&, Messages::WebProcessProxy::GetNetworkProcessConnectionDelayedReply&&);
 
@@ -400,7 +409,7 @@ public:
 #if ENABLE(SERVICE_WORKER)
     void establishWorkerContextConnectionToNetworkProcess(NetworkProcessProxy&, WebCore::RegistrableDomain&&, PAL::SessionID, CompletionHandler<void()>&&);
     void removeFromServiceWorkerProcesses(WebProcessProxy&);
-    size_t serviceWorkerProxiesCount() const { return m_serviceWorkerProcesses.size(); }
+    size_t serviceWorkerProxiesCount() const { return m_serviceWorkerProcesses.computeSize(); }
     void setAllowsAnySSLCertificateForServiceWorker(bool allows) { m_allowsAnySSLCertificateForServiceWorker = allows; }
     bool allowsAnySSLCertificateForServiceWorker() const { return m_allowsAnySSLCertificateForServiceWorker; }
     void updateServiceWorkerUserAgent(const String& userAgent);
@@ -422,7 +431,7 @@ public:
 #endif
 
     static void setInvalidMessageCallback(void (*)(WKStringRef));
-    static void didReceiveInvalidMessage(const IPC::StringReference& messageReceiverName, const IPC::StringReference& messageName);
+    static void didReceiveInvalidMessage(IPC::MessageName);
 
     bool isURLKnownHSTSHost(const String& urlString) const;
     void resetHSTSHosts();
@@ -443,7 +452,7 @@ public:
     void updateHiddenPageThrottlingAutoIncreaseLimit();
 
     void setMemoryCacheDisabled(bool);
-    void setFontWhitelist(API::Array*);
+    void setFontAllowList(API::Array*);
 
     UserObservablePageCounter::Token userObservablePageCount()
     {
@@ -460,18 +469,14 @@ public:
         return m_hiddenPageThrottlingAutoIncreasesCounter.count();
     }
 
-    void clearResourceLoadStatistics();
-
     bool alwaysRunsAtBackgroundPriority() const { return m_alwaysRunsAtBackgroundPriority; }
     bool shouldTakeUIBackgroundAssertion() const { return m_shouldTakeUIBackgroundAssertion; }
 
     void synthesizeAppIsBackground(bool background);
     
 #if ENABLE(GAMEPAD)
-    void gamepadConnected(const UIGamepad&);
+    void gamepadConnected(const UIGamepad&, WebCore::EventMakesGamepadsVisible);
     void gamepadDisconnected(const UIGamepad&);
-
-    void setInitialConnectedGamepads(const Vector<std::unique_ptr<UIGamepad>>&);
 #endif
 
 #if PLATFORM(COCOA)
@@ -509,7 +514,9 @@ public:
 
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
     void didCommitCrossSiteLoadWithDataTransfer(PAL::SessionID, const WebCore::RegistrableDomain& fromDomain, const WebCore::RegistrableDomain& toDomain, OptionSet<WebCore::CrossSiteNavigationDataTransfer::Flag>, WebPageProxyIdentifier, WebCore::PageIdentifier);
+    void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&&);
     void seedResourceLoadStatisticsForTesting(const WebCore::RegistrableDomain& firstPartyDomain, const WebCore::RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&&);
+    void sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&&);
 #endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
@@ -521,12 +528,8 @@ public:
     void setUserMessageHandler(Function<void(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&)>&& handler) { m_userMessageHandler = WTFMove(handler); }
     const Function<void(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&)>& userMessageHandler() const { return m_userMessageHandler; }
 #endif
-    
-    void setWebProcessHasUploads(WebCore::ProcessIdentifier);
-    void clearWebProcessHasUploads(WebCore::ProcessIdentifier);
 
-    void setWebProcessIsPlayingAudibleMedia(WebCore::ProcessIdentifier);
-    void clearWebProcessIsPlayingAudibleMedia(WebCore::ProcessIdentifier);
+    WebProcessWithAudibleMediaToken webProcessWithAudibleMediaToken() const;
 
     void disableDelayedWebProcessLaunch() { m_isDelayedWebProcessLaunchDisabled = true; }
 
@@ -539,6 +542,21 @@ public:
 
     void setUseSeparateServiceWorkerProcess(bool);
     bool useSeparateServiceWorkerProcess() const { return m_useSeparateServiceWorkerProcess; }
+
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    void notifyPreferencesChanged(const String& domain, const String& key, const Optional<String>& encodedValue);
+#endif
+
+#if PLATFORM(PLAYSTATION)
+    const String& webProcessPath() const { return m_resolvedPaths.webProcessPath; }
+    const String& networkProcessPath() const { return m_resolvedPaths.networkProcessPath; }
+    int32_t userId() const { return m_userId; }
+#endif
+
+#if PLATFORM(COCOA)
+    OSObjectPtr<xpc_object_t> xpcEndpointMessage() const;
+    void sendNetworkProcessXPCEndpointToWebProcess(OSObjectPtr<xpc_object_t> endpointMessage);
+#endif
 
 private:
     void platformInitialize();
@@ -553,14 +571,10 @@ private:
     WebProcessProxy& createNewWebProcess(WebsiteDataStore*, WebProcessProxy::IsPrewarmed = WebProcessProxy::IsPrewarmed::No);
     void initializeNewWebProcess(WebProcessProxy&, WebsiteDataStore*, WebProcessProxy::IsPrewarmed = WebProcessProxy::IsPrewarmed::No);
 
-    void requestWebContentStatistics(StatisticsRequest&);
-
     void platformInitializeNetworkProcess(NetworkProcessCreationParameters&);
 
     void handleMessage(IPC::Connection&, const String& messageName, const UserData& messageBody);
     void handleSynchronousMessage(IPC::Connection&, const String& messageName, const UserData& messageBody, CompletionHandler<void(UserData&&)>&&);
-
-    void didGetStatistics(const StatisticsData&, uint64_t callbackID);
 
 #if ENABLE(GAMEPAD)
     void startedUsingGamepads(IPC::Connection&);
@@ -570,6 +584,7 @@ private:
 #endif
 
     void updateProcessAssertions();
+    void updateAudibleMediaAssertions();
 
     // IPC::MessageReceiver.
     // Implemented in generated WebProcessPoolMessageReceiver.cpp
@@ -609,6 +624,13 @@ private:
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)
     static float displayBrightness();
     static void backlightLevelDidChangeCallback(CFNotificationCenterRef, void *observer, CFStringRef name, const void *, CFDictionaryRef userInfo);    
+#if ENABLE(REMOTE_INSPECTOR)
+    static void remoteWebInspectorEnabledCallback(CFNotificationCenterRef, void *observer, CFStringRef name, const void *, CFDictionaryRef userInfo);
+#endif
+#endif
+
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    void startObservingPreferenceChanges();
 #endif
 
     static void registerHighDynamicRangeChangeCallback();
@@ -619,11 +641,11 @@ private:
 
     Vector<RefPtr<WebProcessProxy>> m_processes;
     WebProcessProxy* m_prewarmedProcess { nullptr };
-    WebProcessProxy* m_dummyProcessProxy { nullptr }; // A lightweight WebProcessProxy without backing process.
+
+    HashMap<PAL::SessionID, WeakPtr<WebProcessProxy>> m_dummyProcessProxies; // Lightweight WebProcessProxy objects without backing process.
 
 #if ENABLE(SERVICE_WORKER)
-    using RegistrableDomainWithSessionID = std::pair<WebCore::RegistrableDomain, PAL::SessionID>;
-    HashMap<RegistrableDomainWithSessionID, WeakPtr<WebProcessProxy>> m_serviceWorkerProcesses;
+    WeakHashSet<WebProcessProxy> m_serviceWorkerProcesses;
     bool m_waitingForWorkerContextProcessConnection { false };
     bool m_allowsAnySSLCertificateForServiceWorker { false };
     String m_serviceWorkerUserAgent;
@@ -664,7 +686,7 @@ private:
     bool m_alwaysUsesComplexTextCodePath { false };
     bool m_shouldUseFontSmoothing { true };
 
-    Vector<String> m_fontWhitelist;
+    Vector<String> m_fontAllowList;
 
     // Messages that were posted before any pages were created.
     // The client should use initialization messages instead, so that a restarted process would get the same state.
@@ -679,7 +701,7 @@ private:
     WebContextSupplementMap m_supplements;
 
 #if USE(SOUP)
-    HTTPCookieAcceptPolicy m_initialHTTPCookieAcceptPolicy { HTTPCookieAcceptPolicy::OnlyFromMainDocumentDomain };
+    WebCore::HTTPCookieAcceptPolicy m_initialHTTPCookieAcceptPolicy { WebCore::HTTPCookieAcceptPolicy::ExclusivelyFromMainDocumentDomain };
     WebCore::SoupNetworkProxySettings m_networkProxySettings;
 #endif
 
@@ -693,14 +715,15 @@ private:
 #if ENABLE(WEBPROCESS_WINDOWSERVER_BLOCKING)
     RetainPtr<NSObject> m_scrollerStyleNotificationObserver;
 #endif
-    RetainPtr<NSObject> m_activationObserver;
     RetainPtr<NSObject> m_deactivationObserver;
 
     std::unique_ptr<HighPerformanceGraphicsUsageSampler> m_highPerformanceGraphicsUsageSampler;
     std::unique_ptr<PerActivityStateCPUUsageSampler> m_perActivityStateCPUUsageSampler;
 #endif
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(COCOA)
+    std::unique_ptr<WebCore::PowerSourceNotifier> m_powerSourceNotifier;
+    RetainPtr<NSObject> m_activationObserver;
     RetainPtr<NSObject> m_accessibilityEnabledObserver;
 #endif
 
@@ -711,7 +734,6 @@ private:
     std::unique_ptr<NetworkProcessProxy> m_networkProcess;
 
     HashMap<uint64_t, RefPtr<DictionaryCallback>> m_dictionaryCallbacks;
-    HashMap<uint64_t, RefPtr<StatisticsRequest>> m_statisticsRequests;
 
 #if USE(SOUP)
     bool m_ignoreTLSErrors { true };
@@ -724,6 +746,7 @@ private:
     bool m_shouldTakeUIBackgroundAssertion;
     bool m_shouldMakeNextWebProcessLaunchFailForTesting { false };
     bool m_shouldMakeNextNetworkProcessLaunchFailForTesting { false };
+    bool m_tccPreferenceEnabled { false };
 
     UserObservablePageCounter m_userObservablePageCounter;
     ProcessSuppressionDisabledCounter m_processSuppressionDisabledForPageCounter;
@@ -741,7 +764,7 @@ private:
 #endif
 
 #if ENABLE(NETSCAPE_PLUGIN_API)
-    HashMap<String, HashMap<String, HashMap<String, uint8_t>>> m_pluginLoadClientPolicies;
+    HashMap<String, HashMap<String, HashMap<String, WebCore::PluginLoadClientPolicy>>> m_pluginLoadClientPolicies;
 #endif
 
 #if ENABLE(GAMEPAD)
@@ -761,6 +784,11 @@ private:
         String cookieStorageDirectory;
         String containerCachesDirectory;
         String containerTemporaryDirectory;
+#endif
+
+#if PLATFORM(PLAYSTATION)
+        String webProcessPath;
+        String networkProcessPath;
 #endif
 
         Vector<String> additionalWebProcessSandboxExtensionPaths;
@@ -790,11 +818,19 @@ private:
     Function<void(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&)> m_userMessageHandler;
 #endif
 
-    HashMap<WebCore::ProcessIdentifier, std::unique_ptr<ProcessAssertion>> m_processesWithUploads;
-    std::unique_ptr<ProcessAssertion> m_uiProcessUploadAssertion;
+    WebProcessWithAudibleMediaCounter m_webProcessWithAudibleMediaCounter;
 
-    HashMap<WebCore::ProcessIdentifier, std::unique_ptr<ProcessAssertion>> m_processesPlayingAudibleMedia;
-    std::unique_ptr<ProcessAssertion> m_uiProcessMediaPlaybackAssertion;
+    struct AudibleMediaActivity {
+        UniqueRef<ProcessAssertion> uiProcessMediaPlaybackAssertion;
+#if ENABLE(GPU_PROCESS)
+        std::unique_ptr<ProcessAssertion> gpuProcessMediaPlaybackAssertion;
+#endif
+    };
+    Optional<AudibleMediaActivity> m_audibleMediaActivity;
+
+#if PLATFORM(PLAYSTATION)
+    int32_t m_userId { -1 };
+#endif
 
 #if PLATFORM(IOS)
     // FIXME: Delayed process launch is currently disabled on iOS for performance reasons (rdar://problem/49074131).
@@ -803,6 +839,14 @@ private:
     bool m_isDelayedWebProcessLaunchDisabled { false };
 #endif
     bool m_useSeparateServiceWorkerProcess { false };
+
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    HashSet<WebCore::RegistrableDomain> m_domainsWithUserInteraction;
+#endif
+
+#if PLATFORM(COCOA)
+    OSObjectPtr<xpc_object_t> m_endpointMessage;
+#endif
 };
 
 template<typename T>
@@ -838,35 +882,6 @@ void WebProcessPool::sendToAllProcessesForSession(const T& message, PAL::Session
         WebProcessProxy* process = m_processes[i].get();
         if (process->canSendMessage() && !process->isPrewarmed() && process->sessionID() == sessionID)
             process->send(T(message), 0);
-    }
-}
-
-template<typename T>
-void WebProcessPool::sendToAllProcessesRelaunchingThemIfNecessary(const T& message)
-{
-    // FIXME (Multi-WebProcess): WebProcessPool doesn't track processes that have exited, so it cannot relaunch these. Perhaps this functionality won't be needed in this mode.
-    sendToAllProcesses(message);
-}
-
-template<typename T>
-void WebProcessPool::sendToOneProcess(T&& message)
-{
-    bool messageSent = false;
-    size_t processCount = m_processes.size();
-    for (size_t i = 0; i < processCount; ++i) {
-        WebProcessProxy* process = m_processes[i].get();
-        if (process->canSendMessage()) {
-            process->send(std::forward<T>(message), 0);
-            messageSent = true;
-            break;
-        }
-    }
-
-    if (!messageSent) {
-        prewarmProcess();
-        RefPtr<WebProcessProxy> process = m_processes.last();
-        if (process->canSendMessage())
-            process->send(std::forward<T>(message), 0);
     }
 }
 

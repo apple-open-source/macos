@@ -8,10 +8,10 @@ pt_PT{
         word-initial{"… {0}"}
         word-medial{"{0} … {1}"}
     }
-    ExemplarCharactersNumbers{"[  \\- , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
+    ExemplarCharactersNumbers{"[  \\- ‑ , % ‰ + 0 1 2 3 4 5 6 7 8 9]"}
     ExemplarCharactersPunctuation{
-        "[\\- ‐ – — , ; \\: ! ? . … ' \u0022 “ ” « » ( ) \\[ \\] § @ * / \\& # † ‡ ′ "
-        "″]"
+        "[\\- ‐ ‑ – — , ; \\: ! ? . … ' \u0022 “ ” « » ( ) \\[ \\] § @ * / \\& # † ‡ "
+        "′ ″]"
     }
     MoreInformation{"?"}
     NumberElements{
@@ -28,7 +28,6 @@ pt_PT{
             patterns{
                 accountingFormat{"#,##0.00 ¤;(#,##0.00 ¤)"}
                 currencyFormat{"#,##0.00 ¤"}
-                decimalFormat{"#,##0.###"}
             }
             patternsLong{
                 decimalFormat{
@@ -162,8 +161,6 @@ pt_PT{
             }
             symbols{
                 group{" "}
-                minusSign{"-"}
-                plusSign{"+"}
             }
         }
         minimalPairs{
@@ -174,7 +171,7 @@ pt_PT{
         minimumGroupingDigits{"2"}
         native{"latn"}
     }
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -458,21 +455,12 @@ pt_PT{
             }
             dayPeriod{
                 format{
-                    abbreviated{
-                        noon{"meio-dia"}
-                    }
                     narrow{
                         afternoon1{"tarde"}
                         evening1{"noite"}
                         midnight{"meia-noite"}
                         morning1{"manhã"}
                         night1{"madrugada"}
-                        noon{"meio-dia"}
-                    }
-                    wide{
-                        afternoon1{"da tarde"}
-                        evening1{"da noite"}
-                        morning1{"da manhã"}
                         noon{"meio-dia"}
                     }
                 }
@@ -567,24 +555,6 @@ pt_PT{
                     M{"dd/MM – dd/MM/y"}
                     d{"dd/MM – dd/MM/y"}
                     y{"dd/MM/y – dd/MM/y"}
-                }
-            }
-            monthNames{
-                format{
-                    wide{
-                        "janeiro",
-                        "fevereiro",
-                        "março",
-                        "abril",
-                        "maio",
-                        "junho",
-                        "julho",
-                        "agosto",
-                        "setembro",
-                        "outubro",
-                        "novembro",
-                        "dezembro",
-                    }
                 }
             }
             quarters{
@@ -713,13 +683,6 @@ pt_PT{
     }
     fields{
         day{
-            relative{
-                "-1"{"ontem"}
-                "-2"{"anteontem"}
-                "0"{"hoje"}
-                "1"{"amanhã"}
-                "2"{"depois de amanhã"}
-            }
             relativeTime{
                 future{
                     one{"dentro de {0} dia"}
@@ -967,10 +930,6 @@ pt_PT{
                     one{"dentro de {0} trim."}
                     other{"dentro de {0} trim."}
                 }
-                past{
-                    one{"há {0} trim."}
-                    other{"há {0} trim."}
-                }
             }
         }
         sat{
@@ -1144,10 +1103,6 @@ pt_PT{
                 future{
                     one{"dentro de {0} quarta-feira"}
                     other{"dentro de {0} quartas-feiras"}
-                }
-                past{
-                    one{"há {0} quarta-feira"}
-                    other{"há {0} quartas-feiras"}
                 }
             }
         }

@@ -1,5 +1,5 @@
 #define IN_LIBEXSLT
-#include "libexslt/libexslt.h"
+#include "libexslt.h"
 
 #include <libxml/xmlversion.h>
 
@@ -8,7 +8,7 @@
 #include <libxslt/xsltconfig.h>
 #include <libxslt/extensions.h>
 
-#include <libexslt/exsltconfig.h>
+#include "exsltconfig.h"
 #include "exslt.h"
 
 const char *exsltLibraryVersion = LIBEXSLT_VERSION_STRING

@@ -174,7 +174,6 @@ public:
 
 /*! @function getReport
     @abstract Get a report from the HID device.
-    @discussion A completion parameter may be added in the future.
     @param report A memory descriptor that describes the memory to store
     the report read from the HID device.
     @param reportType The report type.
@@ -187,7 +186,6 @@ public:
 
 /*! @function setReport
     @abstract Send a report to the HID device.
-    @discussion A completion parameter may be added in the future.
     @param report A memory descriptor that describes the report to send
     to the HID device.
     @param reportType The report type.

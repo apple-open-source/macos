@@ -25,19 +25,37 @@ import Foundation
 import SecurityFoundation
 
 class RecoveryKey: NSObject {
-    public var recoveryKeys: RecoveryKeySet
-    public var secret: Data
+    internal var recoveryKeys: RecoveryKeySet
+    internal var secret: Data
 
-    public var peerKeys: OctagonSelfPeerKeys
+    internal var peerKeys: OctagonSelfPeerKeys
 
-    public init(recoveryKeyString: String, recoverySalt: String) throws {
+    internal init(recoveryKeyString: String, recoverySalt: String) throws {
         self.secret = Data(bytes: Array(recoveryKeyString.utf8), count: recoveryKeyString.utf8.count)
         self.recoveryKeys = try RecoveryKeySet(secret: self.secret, recoverySalt: recoverySalt)
 
-        let hash = try RecoveryKeySet.hashRecoveryedSigningPublicKey(keyData: self.recoveryKeys.signingKey.publicKey.keyData)
-        let peerID = "RK-" + hash
+        let peerID = RecoveryKey.PeerID(signingPublicKeyData: self.recoveryKeys.signingKey.publicKey.keyData)
 
         try self.peerKeys = OctagonSelfPeerKeys(peerID: peerID, signingKey: self.recoveryKeys.signingKey, encryptionKey: self.recoveryKeys.encryptionKey)
+    }
+
+    static func PeerID(signingPublicKeyData: Data) -> String {
+        let hash = RecoveryKeySet.hashRecoveryedSigningPublicKey(keyData: signingPublicKeyData)
+        let peerID = "RK-" + hash
+
+        return peerID
+    }
+
+    static func spki(publicKeyData: Data) throws -> Data {
+        let key = try _SFECPublicKey(data: publicKeyData, specifier: _SFECKeySpecifier(curve: SFEllipticCurve.nistp384))
+        return key.encodeSubjectPublicKeyInfo()
+    }
+
+    public static func asPeer(recoveryKeys: TPRecoveryKeyPair, viewList: Set<String>) throws -> TrustedPeersHelperPeer {
+        return TrustedPeersHelperPeer(peerID: self.PeerID(signingPublicKeyData: recoveryKeys.signingKeyData),
+                                      signingSPKI: try self.spki(publicKeyData: recoveryKeys.signingKeyData),
+                                      encryptionSPKI: try self.spki(publicKeyData: recoveryKeys.encryptionKeyData),
+                                      viewList: viewList)
     }
 }
 

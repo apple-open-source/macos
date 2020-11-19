@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +40,7 @@
 #import <wtf/FileSystem.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/URL.h>
+#import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/CString.h>
 
 @interface WKPlaceholderModalWindow : NSWindow 
@@ -61,14 +62,14 @@ namespace WebKit {
 void PluginProcessProxy::platformGetLaunchOptionsWithAttributes(ProcessLauncher::LaunchOptions& launchOptions, const PluginProcessAttributes& pluginProcessAttributes)
 {
     ASSERT(pluginProcessAttributes.moduleInfo.pluginArchitecture == CPU_TYPE_X86_64);
-    launchOptions.processType = ProcessLauncher::ProcessType::Plugin64;
+    launchOptions.processType = ProcessLauncher::ProcessType::Plugin;
 
     launchOptions.extraInitializationData.add("plugin-path", pluginProcessAttributes.moduleInfo.path);
 
     if (PluginProcessManager::singleton().experimentalPlugInSandboxProfilesEnabled())
         launchOptions.extraInitializationData.add("experimental-sandbox-plugin", "1");
 
-    if (pluginProcessAttributes.sandboxPolicy == PluginProcessSandboxPolicyUnsandboxed) {
+    if (pluginProcessAttributes.sandboxPolicy == PluginProcessSandboxPolicy::Unsandboxed) {
         if (!currentProcessIsSandboxed())
             launchOptions.extraInitializationData.add("disable-sandbox", "1");
         else
@@ -81,9 +82,7 @@ void PluginProcessProxy::platformInitializePluginProcess(PluginProcessCreationPa
     // For now only Flash is known to behave with asynchronous plug-in initialization.
     parameters.supportsAsynchronousPluginInitialization = m_pluginProcessAttributes.moduleInfo.bundleIdentifier == "com.macromedia.Flash Player.plugin";
 
-#if HAVE(HOSTED_CORE_ANIMATION)
     parameters.acceleratedCompositingPort = MachSendRight::create([CARemoteLayerServer sharedServer].serverPort);
-#endif
     parameters.networkATSContext = adoptCF(_CFNetworkCopyATSContext());
 }
 
@@ -251,11 +250,7 @@ void PluginProcessProxy::launchProcess(const String& launchPath, const Vector<St
     if (!shouldLaunchProcess(m_pluginProcessAttributes, launchPath, arguments))
         return completionHandler(false);
 
-    RetainPtr<NSMutableArray> argumentsArray = adoptNS([[NSMutableArray alloc] initWithCapacity:arguments.size()]);
-    for (size_t i = 0; i < arguments.size(); ++i)
-        [argumentsArray addObject:(NSString *)arguments[i]];
-
-    [NSTask launchedTaskWithLaunchPath:launchPath arguments:argumentsArray.get()];
+    [NSTask launchedTaskWithLaunchPath:launchPath arguments:createNSArray(arguments).get()];
     completionHandler(true);
 }
 
@@ -265,10 +260,10 @@ static bool isJavaUpdaterURL(const PluginProcessAttributes& pluginProcessAttribu
     if (![url isFileURL])
         return false;
 
-    NSArray *javaUpdaterAppNames = [NSArray arrayWithObjects:@"Java Updater.app", @"JavaUpdater.app", nil];
+    NSArray *javaUpdaterAppNames = @[@"Java Updater.app", @"JavaUpdater.app"];
 
     for (NSString *javaUpdaterAppName in javaUpdaterAppNames) {
-        NSString *javaUpdaterPath = [NSString pathWithComponents:[NSArray arrayWithObjects:(NSString *)pluginProcessAttributes.moduleInfo.path, @"Contents/Resources", javaUpdaterAppName, nil]];
+        NSString *javaUpdaterPath = [NSString pathWithComponents:@[(NSString *)pluginProcessAttributes.moduleInfo.path, @"Contents/Resources", javaUpdaterAppName]];
         if ([url.path isEqualToString:javaUpdaterPath])
             return YES;
     }
@@ -289,20 +284,16 @@ void PluginProcessProxy::launchApplicationAtURL(const String& urlString, const V
     if (!shouldLaunchApplicationAtURL(m_pluginProcessAttributes, urlString))
         return completionHandler(false);
 
-    RetainPtr<NSMutableArray> argumentsArray = adoptNS([[NSMutableArray alloc] initWithCapacity:arguments.size()]);
-    for (size_t i = 0; i < arguments.size(); ++i)
-        [argumentsArray addObject:(NSString *)arguments[i]];
-
-    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-    NSDictionary *configuration = [NSDictionary dictionaryWithObject:argumentsArray.get() forKey:NSWorkspaceLaunchConfigurationArguments];
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    auto configuration = @{ NSWorkspaceLaunchConfigurationArguments: createNSArray(arguments).get() };
     [[NSWorkspace sharedWorkspace] launchApplicationAtURL:[NSURL URLWithString:urlString] options:NSWorkspaceLaunchAsync configuration:configuration error:nullptr];
-    ALLOW_DEPRECATED_DECLARATIONS_END
+ALLOW_DEPRECATED_DECLARATIONS_END
     completionHandler(true);
 }
 
 static bool isSilverlightPreferencesURL(const PluginProcessAttributes& pluginProcessAttributes, const String& urlString)
 {
-    NSURL *silverlightPreferencesURL = [NSURL fileURLWithPathComponents:[NSArray arrayWithObjects:(NSString *)pluginProcessAttributes.moduleInfo.path, @"Contents/Resources/Silverlight Preferences.app", nil]];
+    NSURL *silverlightPreferencesURL = [NSURL fileURLWithPathComponents:@[(NSString *)pluginProcessAttributes.moduleInfo.path, @"Contents/Resources/Silverlight Preferences.app"]];
 
     return [[NSURL URLWithString:urlString] isEqual:silverlightPreferencesURL];
 }

@@ -28,6 +28,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		11BDA09723C5594F0068327D /* cddecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 11BDA09523C558490068327D /* cddecoder.cpp */; };
 		2D122AA622FC6B4C00F61CCF /* IOBacklightDisplayTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */; };
 		2D122AA722FC6B4C00F61CCF /* IOBacklightDisplayTrace.h in Headers */ = {isa = PBXBuildFile; fileRef = 2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */; };
 		2D122AA822FC6DB500F61CCF /* IOBacklightDisplayTrace.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */; };
@@ -40,7 +41,6 @@
 		2D39A49D21EFFA53005D88DF /* IOGDiagnoseUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */; };
 		2D39A49E21EFFA55005D88DF /* IOGDiagnoseUtils.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3F8F97201F3A98B700C236A6 /* IOGDiagnoseUtils.cpp */; };
 		2D39A49F21F2756C005D88DF /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C026C47C1E044D1E0061BD4A /* IOKit.framework */; };
-		2D39A4A121F2757B005D88DF /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2D39A4A021F2757B005D88DF /* CoreFoundation.framework */; };
 		2D457733203B7E6000068B4B /* IODisplayWranglerUserClients.hpp in Headers */ = {isa = PBXBuildFile; fileRef = 2D457731203B7E6000068B4B /* IODisplayWranglerUserClients.hpp */; };
 		2D457734203B7E6000068B4B /* IODisplayWranglerUserClients.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D457732203B7E6000068B4B /* IODisplayWranglerUserClients.cpp */; };
 		2D4A93B821C4219C00647538 /* agdcdecoder.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2D4A93B321C4219C00647538 /* agdcdecoder.cpp */; };
@@ -416,6 +416,7 @@
 		03E63E0301BD474F03CA2A5F /* IOI2CInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CInterface.h; sourceTree = "<group>"; };
 		03E63E0401BD474F03CA2A5F /* IOI2CInterfacePrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOI2CInterfacePrivate.h; sourceTree = "<group>"; };
 		03F3AC4601BD482403CA2A5F /* IOI2CInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IOI2CInterface.cpp; sourceTree = "<group>"; };
+		11BDA09523C558490068327D /* cddecoder.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = cddecoder.cpp; sourceTree = "<group>"; };
 		16E5BDFC00BEE42611CA2A5F /* IOGraphicsInterface.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsInterface.h; sourceTree = "<group>"; };
 		16E5BDFD00BEE42611CA2A5F /* IOGraphicsInterfaceTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOGraphicsInterfaceTypes.h; sourceTree = "<group>"; };
 		221BC4E700BB072011CA2A5F /* IOMacOSTypes.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOMacOSTypes.h; sourceTree = "<group>"; };
@@ -426,6 +427,7 @@
 		221BC4ED00BB072011CA2A5F /* IONDRV.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IONDRV.h; sourceTree = "<group>"; };
 		221BC4EE00BB072011CA2A5F /* IONDRVFramebuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVFramebuffer.cpp; sourceTree = "<group>"; };
 		221BC4EF00BB072011CA2A5F /* IONDRVLibraries.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = IONDRVLibraries.cpp; sourceTree = "<group>"; };
+		2486857624A54EA400A95717 /* IOGraphicsSignposts.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = IOGraphicsSignposts.plist; sourceTree = "<group>"; };
 		24BED4EC21ED198000702AAD /* syntax_checker.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = syntax_checker.py; sourceTree = "<group>"; };
 		24BED4ED21ED198000702AAD /* IOGraphicsFamily.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; path = IOGraphicsFamily.py; sourceTree = "<group>"; };
 		2D122AA522FC6B4C00F61CCF /* IOBacklightDisplayTrace.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOBacklightDisplayTrace.h; sourceTree = "<group>"; };
@@ -493,7 +495,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				2D39A4A121F2757B005D88DF /* CoreFoundation.framework in Frameworks */,
 				2D39A49F21F2756C005D88DF /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -551,6 +552,7 @@
 		015488CD00BAFF6C11CA2A5F = {
 			isa = PBXGroup;
 			children = (
+				2486857624A54EA400A95717 /* IOGraphicsSignposts.plist */,
 				A68335990D450E6600307FE3 /* Info-IOGraphicsFamily.plist */,
 				A68335B30D450E6600307FE3 /* Info-IONDRVSupport.plist */,
 				015488E200BB00FE11CA2A5F /* IOGraphicsFamily */,
@@ -726,6 +728,7 @@
 				2D4A93B521C4219C00647538 /* IOGDiagnoseDecode.cpp */,
 				2D4A93B621C4219C00647538 /* IOGDiagnoseDecode.hpp */,
 				2D4A93B021C4219C00647538 /* TraceTokens.hpp */,
+				11BDA09523C558490068327D /* cddecoder.cpp */,
 			);
 			path = IOGDiagnoseDecode;
 			sourceTree = "<group>";
@@ -1064,7 +1067,6 @@
 		015488CC00BAFF6C11CA2A5F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				DefaultBuildSystemTypeForWorkspace = Original;
 				LastUpgradeCheck = 1100;
 				TargetAttributes = {
 					2D39A48921E7FC79005D88DF = {
@@ -1160,6 +1162,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				2D4A93BB21C4219C00647538 /* iogdecoder.cpp in Sources */,
+				11BDA09723C5594F0068327D /* cddecoder.cpp in Sources */,
 				2DC0DCA122E7993D00E7DBFB /* abldecoder.cpp in Sources */,
 				2D4A93BA21C4219C00647538 /* IOGDiagnoseDecode.cpp in Sources */,
 				2D4A93B921C4219C00647538 /* ContinuousTimeFormatter.cpp in Sources */,
@@ -2014,6 +2017,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				SDKROOT = macosx.internal;
 			};
 			name = Development;
@@ -2042,6 +2046,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				SDKROOT = macosx.internal;
 			};
 			name = Deployment;
@@ -2070,6 +2075,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				HEADER_SEARCH_PATHS = "$(SRCROOT)";
+				OTHER_CFLAGS = "-ftrivial-auto-var-init=pattern";
 				SDKROOT = macosx.internal;
 			};
 			name = Default;
@@ -2134,6 +2140,11 @@
 		A68335960D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+					development,
+				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = NO;
@@ -2176,6 +2187,8 @@
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
 				MODULE_START = IOGraphicsFamilyModuleStart;
 				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1";
+				OTHER_CFLAGS_kasan = "$(OTHER_CFLAGS_development) $(KASAN_DEFAULT_CFLAGS)";
 				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOGraphicsFamily;
@@ -2194,6 +2207,11 @@
 		A68335970D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+					development,
+				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = YES;
@@ -2222,6 +2240,8 @@
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
 				MODULE_START = IOGraphicsFamilyModuleStart;
 				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1";
+				OTHER_CFLAGS_kasan = "$(OTHER_CFLAGS_development) $(KASAN_DEFAULT_CFLAGS)";
 				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Contents/PrivateHeaders/graphics";
@@ -2242,6 +2262,11 @@
 		A68335980D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+					development,
+				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
@@ -2268,6 +2293,8 @@
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
 				MODULE_START = IOGraphicsFamilyModuleStart;
 				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1";
+				OTHER_CFLAGS_kasan = "$(OTHER_CFLAGS_development) $(KASAN_DEFAULT_CFLAGS)";
 				OTHER_LDFLAGS = "-lFastCompression-Kernel";
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IOGraphicsFamily;
@@ -2285,6 +2312,11 @@
 		A68335B00D450E6600307FE3 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+					development,
+				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = NO;
@@ -2329,6 +2361,8 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONDRVSupport;
 				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1";
+				OTHER_CFLAGS_kasan = "$(OTHER_CFLAGS_development) $(KASAN_DEFAULT_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IONDRVSupport;
@@ -2347,6 +2381,11 @@
 		A68335B10D450E6600307FE3 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+					development,
+				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				COPY_PHASE_STRIP = YES;
@@ -2372,6 +2411,8 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONDRVSupport;
 				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1";
+				OTHER_CFLAGS_kasan = "$(OTHER_CFLAGS_development) $(KASAN_DEFAULT_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IONDRVSupport;
@@ -2390,6 +2431,11 @@
 		A68335B20D450E6600307FE3 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				BUILD_VARIANTS = (
+					normal,
+					kasan,
+					development,
+				);
 				BUNDLE_STYLE = SHALLOW;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -2413,6 +2459,8 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IONDRVSupport;
 				MODULE_VERSION = 1.5.1;
+				OTHER_CFLAGS_development = "-DDEVELOPMENT=1";
+				OTHER_CFLAGS_kasan = "$(OTHER_CFLAGS_development) $(KASAN_DEFAULT_CFLAGS)";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_BUNDLE_IDENTIFIER = com.apple.iokit.IONDRVSupport;

@@ -34,6 +34,7 @@
 #include "SecTranslocateXPCServer.hpp"
 #include "SecTranslocateUtilities.hpp"
 #include "SecTranslocateShared.hpp"
+#include "SecTranslocateEnumUtils.hpp"
 
 namespace Security {
 namespace SecTranslocate {
@@ -42,24 +43,36 @@ static void doCreate(xpc_object_t msg, xpc_object_t reply)
 {
     const char* original = xpc_dictionary_get_string(msg, kSecTranslocateXPCMessageOriginalPath);
     const char* dest = xpc_dictionary_get_string(msg, kSecTranslocateXPCMessageDestinationPath);
+    const int64_t opts = xpc_dictionary_get_int64(msg, kSecTranslocateXPCMessageOptions);
 
     string originalPath = original ? original : "";
     string destPath = dest ? dest: "";
+    TranslocationOptions options = static_cast<TranslocationOptions>(opts);
 
-    if( originalPath.empty())
+    if (originalPath.empty())
     {
         Syslog::error("SecTranslocate: XPCServer, doCreate no path to translocate");
         UnixError::throwMe(EINVAL);
     }
 
-    TranslocationPath tPath(originalPath);
+    string result = originalPath;
+    
+    if ((options & TranslocationOptions::Generic) == TranslocationOptions::Generic) {
+        GenericTranslocationPath tPath(originalPath, TranslocationOptions::Unveil);
 
-    string result = tPath.getOriginalRealPath();
+        if(tPath.shouldTranslocate())
+        {
+            result = Security::SecTranslocate::translocatePathForUser(tPath, destPath);
+        }
+    } else {
+        TranslocationPath tPath(originalPath, TranslocationOptions::Default);
 
-    if(tPath.shouldTranslocate())
-    {
-        result = Security::SecTranslocate::translocatePathForUser(tPath, destPath);
+        if(tPath.shouldTranslocate())
+        {
+            result = Security::SecTranslocate::translocatePathForUser(tPath, destPath);
+        }
     }
+    
     xpc_dictionary_set_string(reply, kSecTranslocateXPCReplySecurePath, result.c_str());
 }
 

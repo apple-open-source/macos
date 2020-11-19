@@ -1,17 +1,15 @@
 #if OCTAGON
 
 class OctagonErrorHandlingTests: OctagonTestsBase {
-
     func testEstablishFailedError() throws {
         self.startCKAccountStatusMock()
 
         let establishExpectation = self.expectation(description: "establishExpectation")
 
-        self.fakeCuttlefishServer.establishListener = {  [unowned self] request in
+        self.fakeCuttlefishServer.establishListener = { [unowned self] request in
             self.fakeCuttlefishServer.establishListener = nil
 
-            self.fakeCuttlefishServer.establish(request) {
-                response, error in
+            self.fakeCuttlefishServer.establish(request) { response, error in
                 XCTAssertNil(error, "should be no error from establish")
                 XCTAssertNotNil(response, "should get a response from establish")
                 // drop the response on the floor
@@ -31,7 +29,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         let establishExpectation = self.expectation(description: "establishExpectation")
 
-        self.fakeCuttlefishServer.establishListener = {  [unowned self] request in
+        self.fakeCuttlefishServer.establishListener = { [unowned self] request in
             self.fakeCuttlefishServer.establishListener = nil
             establishExpectation.fulfill()
 
@@ -51,7 +49,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
 
         var t0 = Date.distantPast
 
-        self.fakeCuttlefishServer.establishListener = {  [unowned self] request in
+        self.fakeCuttlefishServer.establishListener = { [unowned self] request in
             self.fakeCuttlefishServer.establishListener = nil
             establishExpectation.fulfill()
 
@@ -188,8 +186,8 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
         self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain: CKErrorDomain,
-                code: CKError.networkUnavailable.rawValue,
-                userInfo: [CKErrorRetryAfterKey: 2]))
+                                                                   code: CKError.networkUnavailable.rawValue,
+                                                                   userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.sendContainerChange(context: self.cuttlefishContext)
 
@@ -224,8 +222,8 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         self.mockAuthKit.machineIDFetchErrors.append(CKPrettyError(domain: CKErrorDomain,
-                code: CKError.networkUnavailable.rawValue,
-                userInfo: [CKErrorRetryAfterKey: 2]))
+                                                                   code: CKError.networkUnavailable.rawValue,
+                                                                   userInfo: [CKErrorRetryAfterKey: 2]))
 
         self.sendContainerChange(context: self.cuttlefishContext)
 
@@ -401,7 +399,7 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         // Peer 2 arrives (with a voucher), but is not on the trusted device list
         let firstPeerID = clique.cliqueMemberIdentifier
@@ -473,11 +471,16 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
 
         // And on unlock, it should handle the update
+        self.assertAllCKKSViewsUpload(tlkShares: 1)
+
         self.aksLockState = false
         self.lockStateTracker.recheck()
 
         self.wait(for: [updateTrustExpectation], timeout: 30)
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.verifyDatabaseMocks()
     }
 
     func testCKKSResetRecoverFromCKKSConflict() throws {
@@ -492,10 +495,10 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
 
         do {
-            let clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
-            XCTAssertNotNil(clique, "Clique should not be nil")
+            let clique = OTClique(contextData: self.otcliqueContext)
+            try clique.establish()
         } catch {
-            XCTFail("Shouldn't have errored making new friends: \(error)")
+            XCTFail("Shouldn't have errored establishing Octagon: \(error)")
         }
 
         // Now, we should be in 'ready', and CKKS should be stuck
@@ -536,6 +539,78 @@ class OctagonErrorHandlingTests: OctagonTestsBase {
         for (zoneID, tlkUUID) in tlkUUIDs {
             XCTAssertEqual(tlkUUID, (self.keys![zoneID] as? ZoneKeys)?.tlk?.uuid, "TLK should match conflicted version")
         }
+    }
+
+    func testHandlePeerMissingOnSetUserControllableViews() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Another device updates the world, but we don't get the push
+        let reset = self.makeInitiatorContext(contextID: "reset")
+        self.assertResetAndBecomeTrusted(context: reset)
+
+        // Now, the original peer sets their view status
+        #if os(tvOS)
+        throw XCTSkip("TVs don't set user-controllable views")
+        #else
+
+        let clique = self.cliqueFor(context: self.cuttlefishContext)
+
+        do {
+            try clique.setUserControllableViewsSyncStatus(true)
+            XCTFail("Should be an error setting user-visible sync status")
+        } catch {
+        }
+
+        // Octagon should notice that it's been kicked out.
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        #endif // os(tvOS)
+    }
+
+    func testHandlePeerMissingOnTrustUpdate() throws {
+        self.startCKAccountStatusMock()
+        self.assertResetAndBecomeTrustedInDefaultContext()
+
+        // Another device joins
+        let joiner = self.makeInitiatorContext(contextID: "joiner")
+        self.assertJoinViaEscrowRecovery(joiningContext: joiner, sponsor: self.cuttlefishContext)
+
+        // Now, directly after the default context fetches, another device resets Octagon.
+        // To simulate this, we reset things in the updateTrust listener.
+        let reset = self.makeInitiatorContext(contextID: "reset")
+
+        let updateTrustExpectation = self.expectation(description: "updateTrust")
+        self.fakeCuttlefishServer.updateListener = { request in
+            reset.startOctagonStateMachine()
+
+            do {
+                try reset.setCDPEnabled()
+                self.assertEnters(context: reset, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+                let arguments = OTConfigurationContext()
+                arguments.altDSID = try reset.authKitAdapter.primaryiCloudAccountAltDSID()
+                arguments.context = reset.contextID
+                arguments.otControl = self.otControl
+
+                let clique = try OTClique.newFriends(withContextData: arguments, resetReason: .testGenerated)
+                XCTAssertNotNil(clique, "Clique should not be nil")
+            } catch {
+                XCTFail("Shouldn't have errored making new friends: \(error)")
+            }
+            self.assertEnters(context: reset, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+
+            updateTrustExpectation.fulfill()
+            return FakeCuttlefishServer.makeCloudKitCuttlefishError(code: .updateTrustPeerNotFound)
+        }
+
+        // Notify Octagon of the join
+        self.sendContainerChange(context: self.cuttlefishContext)
+
+        self.wait(for: [updateTrustExpectation], timeout: 10)
+
+        // Octagon should notice that it's been kicked out.
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
     }
 }
 

@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if ENABLE(VIDEO_PRESENTATION_MODE)
 
 #include "EventListener.h"
 #include "FloatRect.h"
@@ -55,6 +55,7 @@ public:
     WEBCORE_EXPORT virtual ~VideoFullscreenModelVideoElement();
     WEBCORE_EXPORT void setVideoElement(HTMLVideoElement*);
     HTMLVideoElement* videoElement() const { return m_videoElement.get(); }
+    WEBCORE_EXPORT RetainPtr<PlatformLayer> createVideoFullscreenLayer();
     WEBCORE_EXPORT void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler = [] { });
     WEBCORE_EXPORT void willExitFullscreen();
     WEBCORE_EXPORT void waitForPreparedForInlineThen(WTF::Function<void()>&& completionHandler = [] { });

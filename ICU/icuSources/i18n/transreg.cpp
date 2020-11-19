@@ -137,7 +137,7 @@ Transliterator* TransliteratorAlias::create(UParseError& pe,
             return 0;
         }
         if (compoundFilter != 0)
-            t->adoptFilter((UnicodeSet*)compoundFilter->clone());
+            t->adoptFilter(compoundFilter->clone());
         break;
     case COMPOUND:
         {
@@ -179,8 +179,8 @@ Transliterator* TransliteratorAlias::create(UParseError& pe,
 
             if (U_SUCCESS(ec)) {
                 t = new CompoundTransliterator(ID, transliterators,
-                    (compoundFilter ? (UnicodeSet*)(compoundFilter->clone()) : 0),
-                    anonymousRBTs, pe, ec);
+                        (compoundFilter ? compoundFilter->clone() : nullptr),
+                        anonymousRBTs, pe, ec);
                 if (t == 0) {
                     ec = U_MEMORY_ALLOCATION_ERROR;
                     return 0;
@@ -952,7 +952,7 @@ void TransliteratorRegistry::registerEntry(const UnicodeString& ID,
     if (visible) {
         registerSTV(source, target, variant);
         if (!availableIDs.contains((void*) &ID)) {
-            UnicodeString *newID = (UnicodeString *)ID.clone();
+            UnicodeString *newID = ID.clone();
             // Check to make sure newID was created.
             if (newID != NULL) {
                 // NUL-terminate the ID string

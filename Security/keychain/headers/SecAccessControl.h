@@ -94,7 +94,7 @@ typedef CF_OPTIONS(CFOptionFlags, SecAccessControlCreateFlags) {
     kSecAccessControlBiometryCurrentSet     API_AVAILABLE(macos(10.13.4), ios(11.3)) = 1u << 3,
     kSecAccessControlTouchIDCurrentSet      API_DEPRECATED_WITH_REPLACEMENT("kSecAccessControlBiometryCurrentSet", macos(10.12.1, 10.13.4), ios(9.0, 11.3)) = 1u << 3,
     kSecAccessControlDevicePasscode         API_AVAILABLE(macos(10.11), ios(9.0)) = 1u << 4,
-    kSecAccessControlWatch                  API_AVAILABLE(macos(10.15), ios(NA), iosmac(13.0)) = 1u << 5,
+    kSecAccessControlWatch                  API_AVAILABLE(macos(10.15), ios(NA), macCatalyst(13.0)) = 1u << 5,
     kSecAccessControlOr                     API_AVAILABLE(macos(10.12.1), ios(9.0)) = 1u << 14,
     kSecAccessControlAnd                    API_AVAILABLE(macos(10.12.1), ios(9.0)) = 1u << 15,
     kSecAccessControlPrivateKeyUsage        API_AVAILABLE(macos(10.12.1), ios(9.0)) = 1u << 30,

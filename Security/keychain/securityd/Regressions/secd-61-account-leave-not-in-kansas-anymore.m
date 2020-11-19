@@ -51,6 +51,8 @@
 
 #include "SecdTestKeychainUtilities.h"
 
+#if SOS_ENABLED
+
 /*
  static void trim_retirements_from_circle(SOSAccount* account) {
  SOSAccountForEachCircle(account, ^(SOSCircleRef circle) {
@@ -178,13 +180,16 @@ static void tests(void)
     SOSTestCleanup();
 }
 
+#endif
+
 int secd_61_account_leave_not_in_kansas_anymore(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(82);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

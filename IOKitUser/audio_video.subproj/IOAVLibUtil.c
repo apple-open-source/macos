@@ -43,11 +43,12 @@ static CFStringRef CreateAbsoluteRegistryPathFromString(CFStringRef path, const 
     return path;
 }
 
-CFMutableDictionaryRef IOAVClassMatching(const char * typeName, CFStringRef rootPath, IOAVLocation location)
+CFMutableDictionaryRef __IOAVClassMatching(const char * typeName, CFStringRef rootPath, IOAVLocation location, unsigned int unit)
 {
+#if defined(__arm__) || defined(__arm64__)
     CFMutableDictionaryRef  matching    = NULL;
 
-    matching = IOServiceMatching(typeName);
+    matching = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
     require(matching, exit);
 
     // filter by location, if specified
@@ -55,11 +56,23 @@ CFMutableDictionaryRef IOAVClassMatching(const char * typeName, CFStringRef root
         CFStringRef locString   = NULL;
 
         locString = CFStringCreateWithCString(kCFAllocatorDefault, IOAVLocationString(location), kCFStringEncodingUTF8);
-        require(locString, exit);
+        require(locString, error);
 
         CFDictionarySetValue(matching, CFSTR(kIOAVLocationKey), locString);
 
         CFRelease(locString);
+    }
+
+    // filter by unit, if specified
+    if ( unit != kIOAVUnitNone ) {
+        CFNumberRef num = NULL;
+
+        num = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &unit);
+        require(num, error);
+
+        CFDictionarySetValue(matching, CFSTR(kIOAVUnitKey), num);
+
+        CFRelease(num);
     }
 
     // filter by root path, if specified
@@ -68,10 +81,10 @@ CFMutableDictionaryRef IOAVClassMatching(const char * typeName, CFStringRef root
         CFStringRef path;
 
         path = CreateAbsoluteRegistryPathFromString(rootPath, kIODeviceTreePlane);
-        require(path, exit);
+        require(path, error);
 
         parentMatching = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-        require_action(parentMatching, exit, CFRelease(path));
+        require_action(parentMatching, error, CFRelease(path));
 
         CFDictionarySetValue(parentMatching, CFSTR(kIOPathMatchKey), path);
         CFRelease(path);
@@ -81,16 +94,49 @@ CFMutableDictionaryRef IOAVClassMatching(const char * typeName, CFStringRef root
         CFRelease(parentMatching);
     }
 
+    // Append property to match
+    {
+        CFMutableDictionaryRef propertyDict = NULL;
+        CFStringRef matchProp = NULL;
+
+        propertyDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        require(propertyDict, error);
+
+        matchProp = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s%s"), typeName, kIOAVUserInterfaceSupportedKeySuffix);
+        require_action(matchProp, error, CFRelease(propertyDict));
+
+        CFDictionarySetValue(propertyDict, matchProp, kCFBooleanTrue);
+
+        CFDictionarySetValue(matching, CFSTR(kIOPropertyMatchKey), propertyDict);
+
+        CFRelease(propertyDict);
+        CFRelease(matchProp);
+    }
+
+    goto exit;
+
+error:
+    CFRelease(matching);
+    matching = NULL;
+
 exit:
     return matching;
+#else
+    (void)typeName;
+    (void)rootPath;
+    (void)location;
+    (void)unit;
+    (void)CreateAbsoluteRegistryPathFromString;
+    return NULL;
+#endif // defined(__arm__) || defined(__arm64__)
 }
 
-CFTypeRef __IOAVCopyFirstMatchingIOAVObjectOfType(const char * typeName, IOAVTypeConstructor * typeConstructor, CFStringRef rootPath, IOAVLocation location)
+CFTypeRef __IOAVCopyFirstMatchingIOAVObjectOfType(const char * typeName, IOAVTypeConstructor * typeConstructor, CFStringRef rootPath, IOAVLocation location, unsigned int unit)
 {
     CFTypeRef               object      = NULL;
     io_service_t            service;
 
-    service = IOServiceGetMatchingService(kIOMasterPortDefault, IOAVClassMatching(typeName, rootPath, location));
+    service = IOServiceGetMatchingService(kIOMasterPortDefault, IOAVClassMatching(typeName, rootPath, location, unit));
     require(service, exit);
 
     object = typeConstructor(kCFAllocatorDefault, service);

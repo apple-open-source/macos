@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google Inc. All Rights Reserved.
- * Copyright (C) 2019 Apple Inc.  All rights reserved.
+ * Copyright (C) 2020 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,12 +27,12 @@
 #pragma once
 
 #include "AnimationFrameRate.h"
-#include "DOMHighResTimeStamp.h"
+#include "ReducedResolutionSeconds.h"
+#include "Timer.h"
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -50,20 +50,20 @@ public:
     ~ScriptedAnimationController();
     void clearDocumentPointer() { m_document = nullptr; }
     bool requestAnimationFrameEnabled() const;
+
     WEBCORE_EXPORT Seconds interval() const;
-
-    typedef int CallbackId;
-
-    CallbackId registerCallback(Ref<RequestAnimationFrameCallback>&&);
-    void cancelCallback(CallbackId);
-    void serviceRequestAnimationFrameCallbacks(DOMHighResTimeStamp timestamp);
+    WEBCORE_EXPORT OptionSet<ThrottlingReason> throttlingReasons() const;
 
     void suspend();
     void resume();
-    
+
     void addThrottlingReason(ThrottlingReason reason) { m_throttlingReasons.add(reason); }
     void removeThrottlingReason(ThrottlingReason reason) { m_throttlingReasons.remove(reason); }
-    WEBCORE_EXPORT bool isThrottled() const;
+
+    using CallbackId = int;
+    CallbackId registerCallback(Ref<RequestAnimationFrameCallback>&&);
+    void cancelCallback(CallbackId);
+    void serviceRequestAnimationFrameCallbacks(ReducedResolutionSeconds);
 
 private:
     ScriptedAnimationController(Document&);
@@ -71,17 +71,17 @@ private:
     Page* page() const;
     Seconds preferredScriptedAnimationInterval() const;
     bool isThrottledRelativeToPage() const;
-    bool shouldRescheduleRequestAnimationFrame(DOMHighResTimeStamp) const;
+    bool shouldRescheduleRequestAnimationFrame(ReducedResolutionSeconds) const;
     void scheduleAnimation();
 
     using CallbackList = Vector<RefPtr<RequestAnimationFrameCallback>>;
     CallbackList m_callbacks;
-    DOMHighResTimeStamp m_lastAnimationFrameTimestamp { 0 };
 
     WeakPtr<Document> m_document;
     CallbackId m_nextCallbackId { 0 };
     int m_suspendCount { 0 };
 
+    ReducedResolutionSeconds m_lastAnimationFrameTimestamp;
     OptionSet<ThrottlingReason> m_throttlingReasons;
 };
 

@@ -79,7 +79,7 @@
     if(localError) {
         if([self.deps.lockStateTracker isLockedError:localError]) {
             secerror("octagon-consistency: Unable to fetch current account state due to lock state: %@", localError);
-            self.nextState = OctagonStateWaitForUnlock;
+            self.nextState = OctagonStateWaitForClassCUnlock;
             [self runBeforeGroupFinished:self.finishedOp];
             return;
         }
@@ -148,7 +148,7 @@
         if(!persisted || localError) {
             if([self.deps.lockStateTracker isLockedError:localError]) {
                 secerror("octagon-consistency: Unable to save new account state due to lock state: %@", localError);
-                self.nextState = OctagonStateWaitForUnlock;
+                self.nextState = OctagonStateWaitForClassCUnlock;
                 [self runBeforeGroupFinished:self.finishedOp];
                 return;
             }

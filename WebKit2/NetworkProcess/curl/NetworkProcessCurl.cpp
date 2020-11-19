@@ -49,11 +49,6 @@ void NetworkProcess::allowSpecificHTTPSCertificateForHost(const CertificateInfo&
     notImplemented();
 }
 
-void NetworkProcess::clearCacheForAllOrigins(uint32_t cachesToClear)
-{
-    notImplemented();
-}
-
 void NetworkProcess::clearDiskCache(WallTime, CompletionHandler<void()>&& completionHandler)
 {
     notImplemented();
@@ -61,17 +56,6 @@ void NetworkProcess::clearDiskCache(WallTime, CompletionHandler<void()>&& comple
 }
 
 void NetworkProcess::platformTerminate()
-{
-    notImplemented();
-}
-
-void NetworkProcess::platformPrepareToSuspend(CompletionHandler<void()>&& completionHandler)
-{
-    notImplemented();
-    completionHandler();
-}
-
-void NetworkProcess::platformProcessDidResume()
 {
     notImplemented();
 }

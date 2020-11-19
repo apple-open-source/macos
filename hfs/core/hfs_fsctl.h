@@ -373,6 +373,9 @@ enum {
 
 #define HFSIOC_FORCE_ENABLE_DEFRAG _IOWR('h', 49, u_int32_t)
 
+/* NOTE: fsctl selector 'h' 50 is defined in XNU  */
+
+
 /* These fsctls are ported from apfs. */
 #ifndef APFSIOC_SET_NEAR_LOW_DISK
 #define APFSIOC_SET_NEAR_LOW_DISK _IOW('J', 17, u_int32_t)

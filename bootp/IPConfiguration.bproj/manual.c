@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -275,7 +275,8 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
     manual = (Service_manual_t *)ServiceGetPrivate(service_p);
     switch (evid) {
       case IFEventID_start_e: {
-	  ipconfig_method_data_t method_data;
+	  ipconfig_method_data_t 	method_data;
+	  char				timer_name[32];
 
 	  method_data = (ipconfig_method_data_t)event_data;
 	  if (manual) {
@@ -304,7 +305,9 @@ manual_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 	      service_router_set_iaddr(service_p, method_data->manual.router);
 	      service_router_set_iaddr_valid(service_p);
 	  }
-	  manual->timer = timer_callout_init();
+	  snprintf(timer_name, sizeof(timer_name), "manual-%s",
+		   if_name(if_p));
+	  manual->timer = timer_callout_init(timer_name);
 	  if (manual->timer == NULL) {
 	      my_log(LOG_NOTICE, "MANUAL %s: timer_callout_init failed",
 		     if_name(if_p));

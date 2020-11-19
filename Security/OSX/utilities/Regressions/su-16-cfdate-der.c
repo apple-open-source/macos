@@ -114,6 +114,7 @@ static bool ok_date_equals(int testnumber, CFDateRef decoded, CFDateRef expected
     }
 }
 
+#if 0
 static CFCalendarRef sZuluCalendar = NULL;
 
 static CFCalendarRef SecCFCalendarGetZulu() {
@@ -170,10 +171,12 @@ static bool parallelizeZulu(bool useSharedZuluCalendar, void(^action)(CFCalendar
     dispatch_release(dgroup);
     return !stop;
 }
+#endif
 
 // We expect this to fail until this is fixed:
 //  <rdar://problem/16372688> CFCalendarDecomposeAbsoluteTime is not thread safe
 //
+#if 0
 static void testWithUnguardedZuluCalendar() {
     const bool useSharedZuluCalendar = true;
     __block bool success = true;
@@ -217,6 +220,7 @@ static void testDoWithZulu() {
 
     ok(success,"unexpected result from CFCalendarDecomposeAbsoluteTime");
 }
+#endif
 
 #define kTestsPerTestCase 12
 static void one_test(const struct test_case * thisCase, int testnumber)
@@ -246,7 +250,7 @@ static void one_test(const struct test_case * thisCase, int testnumber)
     CFReleaseNull(error);
 
     CFDateRef decoded = NULL;
-    const uint8_t* decode_end = der_decode_date(NULL, kCFPropertyListMutableContainers,
+    const uint8_t* decode_end = der_decode_date(NULL,
                                                   &decoded, &error, encoded, buffer_end);
     ok(error == NULL, "[%d] der_decode_date failed: %@", testnumber, error);
     CFReleaseNull(error);
@@ -256,7 +260,7 @@ static void one_test(const struct test_case * thisCase, int testnumber)
 
     CFPropertyListRef decoded_type = NULL;
 
-    decode_end = der_decode_plist(NULL, kCFPropertyListMutableContainers,
+    decode_end = der_decode_plist(NULL,
                                   &decoded_type, &error, encoded, buffer_end);
     ok(error == NULL, "[%d] der_decode_plist failed: %@", testnumber, error);
     CFReleaseNull(error);

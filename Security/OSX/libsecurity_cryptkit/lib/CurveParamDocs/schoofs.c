@@ -31,7 +31,6 @@
  *************************************************************/
 
 #include <stdio.h>
-#include<assert.h>
 #include <math.h>
 #include"giants.h"
 #include "tools.h"

@@ -240,7 +240,7 @@ _dwarf_get_fde_list_internal(Dwarf_Debug dbg, Dwarf_Cie ** cie_data,
 	    /* This is a CIE.  */
 	    Dwarf_Cie cie_ptr_to_use = 0;
 
-	    int res = dwarf_find_existing_cie_ptr(prefix.cf_start_addr,
+	    res = dwarf_find_existing_cie_ptr(prefix.cf_start_addr,
 						  cur_cie_ptr,
 						  &cie_ptr_to_use,
 						  head_cie_ptr);
@@ -281,7 +281,7 @@ _dwarf_get_fde_list_internal(Dwarf_Debug dbg, Dwarf_Cie ** cie_data,
 	} else {
 	    /* this is an FDE, Frame Description Entry, see the Dwarf
 	       Spec, section 6.4.1 */
-	    int res = 0;
+	    res = 0;
 	    Dwarf_Cie cie_ptr_to_use = 0;
 	    Dwarf_Fde fde_ptr_to_use = 0;
 

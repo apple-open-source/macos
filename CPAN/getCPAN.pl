@@ -14,7 +14,7 @@ use Getopt::Long ();
 use IO::File;
 use Proc::Reliable;
 
-my $URLprefix = 'http://search.cpan.org/CPAN/authors/id';
+my $URLprefix = 'https://cpan.metacpan.org/authors/id';
 
 my($download, $file);
 Getopt::Long::GetOptions('d' => \$download, 'f=s', \$file);
@@ -46,7 +46,7 @@ if(defined($file)) {
 
 my($dist, $found, $foundvers, $name, $vers, %projects);
 my $curl = Proc::Reliable->new(); # use default retry count and times
-my @curlargs = qw(curl -O);
+my @curlargs = qw(curl -L -O);
 my %downloaded;
 for my $m (@modules) {
     printf "Looking for %s\n", $m;
@@ -105,7 +105,7 @@ for my $m (@modules) {
     #printf "%s-%s => %s-%s\n", $m, $projects{$m}, $name, $vers;
     if($download) {
 	print "    Downloading $url\n";
-	$curlargs[2] = $url;
+	$curlargs[3] = $url;
 	my($out, $err, $status, $msg) = $curl->run(\@curlargs);
 	if($status != 0 || `file $tarball` !~ /gzip compressed data/) {
 	    warn "***\"@curlargs\" failed: $msg\n";

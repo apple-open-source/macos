@@ -76,7 +76,7 @@ public:
 
     uint32 at(uint32 inOffset) const
     {
-		if (inOffset > mLength)
+		if (CheckUInt32Add(inOffset, AtomSize) > mLength)
 		{
             CssmError::throwMe(CSSMERR_DL_DATABASE_CORRUPT);
 		}

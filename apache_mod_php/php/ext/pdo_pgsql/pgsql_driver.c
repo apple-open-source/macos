@@ -101,8 +101,7 @@ int _pdo_pgsql_error(pdo_dbh_t *dbh, pdo_stmt_t *stmt, int errcode, const char *
 	}
 
 	if (!dbh->methods) {
-		zend_throw_exception_ex(php_pdo_get_exception(), einfo->errcode, "SQLSTATE[%s] [%d] %s",
-				*pdo_err, einfo->errcode, einfo->errmsg);
+		pdo_throw_exception(einfo->errcode, einfo->errmsg, pdo_err);
 	}
 
 	return errcode;
@@ -479,7 +478,7 @@ static int pdo_pgsql_get_attribute(pdo_dbh_t *dbh, zend_long attr, zval *return_
 static int pdo_pgsql_check_liveness(pdo_dbh_t *dbh)
 {
 	pdo_pgsql_db_handle *H = (pdo_pgsql_db_handle *)dbh->driver_data;
-	if (PQstatus(H->server) == CONNECTION_BAD) {
+	if (!PQconsumeInput(H->server) || PQstatus(H->server) == CONNECTION_BAD) {
 		PQreset(H->server);
 	}
 	return (PQstatus(H->server) == CONNECTION_OK) ? SUCCESS : FAILURE;
@@ -1071,13 +1070,21 @@ static PHP_METHOD(PDO, pgsqlGetNotify)
 
 	H = (pdo_pgsql_db_handle *)dbh->driver_data;
 
-	PQconsumeInput(H->server);
+	if (!PQconsumeInput(H->server)) {
+		pdo_pgsql_error(dbh, PGRES_FATAL_ERROR, NULL);
+		PDO_HANDLE_DBH_ERR();
+		RETURN_FALSE;
+	}
 	pgsql_notify = PQnotifies(H->server);
 
 	if (ms_timeout && !pgsql_notify) {
 		php_pollfd_for_ms(PQsocket(H->server), PHP_POLLREADABLE, (int)ms_timeout);
 
-		PQconsumeInput(H->server);
+		if (!PQconsumeInput(H->server)) {
+			pdo_pgsql_error(dbh, PGRES_FATAL_ERROR, NULL);
+			PDO_HANDLE_DBH_ERR();
+			RETURN_FALSE;
+		}
 		pgsql_notify = PQnotifies(H->server);
 	}
 

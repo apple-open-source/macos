@@ -143,7 +143,7 @@ migrate_disklabel(int fd, off_t start, struct gpt_ent *ent)
 	return (ent);
 }
 
-static void
+static int 
 migrate(int fd)
 {
 	uuid_t uuid;
@@ -162,7 +162,7 @@ migrate(int fd)
 	map = map_find(MAP_TYPE_MBR);
 	if (map == NULL || map->map_start != 0) {
 		warnx("%s: error: no partitions to convert", device_name);
-		return;
+		return 1;
 	}
 
 	mbr = map->map_data;
@@ -170,14 +170,14 @@ migrate(int fd)
 	if (map_find(MAP_TYPE_PRI_GPT_HDR) != NULL ||
 	    map_find(MAP_TYPE_SEC_GPT_HDR) != NULL) {
 		warnx("%s: error: device already contains a GPT", device_name);
-		return;
+		return 1;
 	}
 
 	/* Get the amount of free space after the MBR */
 	blocks = map_free(1LL, 0LL);
 	if (blocks == 0LL) {
 		warnx("%s: error: no room for the GPT header", device_name);
-		return;
+		return 1;
 	}
 
 	/* Don't create more than parts entries. */
@@ -199,14 +199,14 @@ migrate(int fd)
 	map = map_last();
 	if (map->map_type != MAP_TYPE_UNUSED) {
 		warnx("%s: error: no room for the backup header", device_name);
-		return;
+		return 1;
 	}
 
 	if (map->map_size < blocks)
 		blocks = map->map_size;
 	if (blocks == 1LL) {
 		warnx("%s: error: no room for the GPT table", device_name);
-		return;
+		return 1;
 	}
 
 	blocks--;		/* Number of blocks in the GPT table. */
@@ -214,7 +214,7 @@ migrate(int fd)
 	tbl = map_add(2LL, blocks, MAP_TYPE_PRI_GPT_TBL,
 	    calloc(blocks, secsz));
 	if (gpt == NULL || tbl == NULL)
-		return;
+		return 1;
 
 	lbt = map_add(last - blocks, blocks, MAP_TYPE_SEC_GPT_TBL,
 	    tbl->map_data);
@@ -283,7 +283,7 @@ migrate(int fd)
 			if (!force) {
 				warnx("%s: error: unknown partition type (%d)",
 				    device_name, mbr->mbr_part[i].part_typ);
-				return;
+				return 1;
 			}
 		}
 	}
@@ -338,6 +338,7 @@ int
 cmd_migrate(int argc, char *argv[])
 {
 	int ch, fd;
+	int ret = 0;
 
 	/* Get the migrate options */
 	while ((ch = getopt(argc, argv, "fs")) != -1) {
@@ -363,10 +364,10 @@ cmd_migrate(int argc, char *argv[])
 			return (1);
 		}
 
-		migrate(fd);
+		ret = migrate(fd);
 
 		gpt_close(fd);
 	}
 
-	return (0);
+	return (ret);
 }

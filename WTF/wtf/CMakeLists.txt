@@ -17,6 +17,7 @@ set(WTF_PUBLIC_HEADERS
     BloomFilter.h
     BooleanLattice.h
     Box.h
+    BoxPtr.h
     Brigand.h
     BubbleSort.h
     BumpPointerAllocator.h
@@ -30,6 +31,7 @@ set(WTF_PUBLIC_HEADERS
     ClockType.h
     CommaPrinter.h
     CompactPointerTuple.h
+    CompactRefPtrTuple.h
     CompilationThread.h
     Compiler.h
     CompletionHandler.h
@@ -46,6 +48,7 @@ set(WTF_PUBLIC_HEADERS
     CryptographicallyRandomNumber.h
     DataLog.h
     DataMutex.h
+    DataRef.h
     DateMath.h
     DebugHeap.h
     DebugUtilities.h
@@ -56,13 +59,14 @@ set(WTF_PUBLIC_HEADERS
     DoublyLinkedList.h
     DumbPtrTraits.h
     DumbValueTraits.h
+    EnumClassOperatorOverloads.h
     EnumTraits.h
     Expected.h
     ExportMacros.h
+    FailureAction.h
     FastBitVector.h
     FastMalloc.h
     FastTLS.h
-    FeatureDefines.h
     FileMetadata.h
     FilePrintStream.h
     FileSystem.h
@@ -122,7 +126,6 @@ set(WTF_PUBLIC_HEADERS
     LoggingHashMap.h
     LoggingHashSet.h
     LoggingHashTraits.h
-    MD5.h
     MachSendRight.h
     MainThread.h
     MainThreadData.h
@@ -138,6 +141,7 @@ set(WTF_PUBLIC_HEADERS
     MetaAllocatorPtr.h
     MonotonicTime.h
     NakedPtr.h
+    NakedRef.h
     NaturalLoops.h
     NeverDestroyed.h
     NoLock.h
@@ -147,10 +151,12 @@ set(WTF_PUBLIC_HEADERS
     NotFound.h
     NumberOfCores.h
     OSAllocator.h
+    OSLogPrintStream.h
     OSObjectPtr.h
     OSRandomSource.h
     ObjCRuntimeExtras.h
     ObjectIdentifier.h
+    Observer.h
     OptionSet.h
     OptionSetHash.h
     Optional.h
@@ -158,7 +164,6 @@ set(WTF_PUBLIC_HEADERS
     Packed.h
     PackedRef.h
     PackedRefPtr.h
-    PackedIntVector.h
     PageAllocation.h
     PageBlock.h
     PageReservation.h
@@ -170,7 +175,18 @@ set(WTF_PUBLIC_HEADERS
     ParallelVectorIterator.h
     ParkingLot.h
     Platform.h
+    PlatformCallingConventions.h
+    PlatformCPU.h
+    PlatformEnable.h
+    PlatformEnableCocoa.h
+    PlatformEnablePlayStation.h
+    PlatformEnableWinApple.h
+    PlatformEnableWinCairo.h
+    PlatformHave.h
+    PlatformLegacy.h
+    PlatformOS.h
     PlatformRegisters.h
+    PlatformUse.h
     PointerComparison.h
     PointerPreparations.h
     PrintStream.h
@@ -198,7 +214,6 @@ set(WTF_PUBLIC_HEADERS
     ResourceUsage.h
     RetainPtr.h
     RunLoop.h
-    RunLoopTimer.h
     SHA1.h
     SaturatedArithmetic.h
     SchedulePair.h
@@ -225,6 +240,7 @@ set(WTF_PUBLIC_HEADERS
     StackShotProfiler.h
     StackStats.h
     StackTrace.h
+    StdIntExtras.h
     StdLibExtras.h
     StdList.h
     StdMap.h
@@ -250,6 +266,7 @@ set(WTF_PUBLIC_HEADERS
     TimingScope.h
     TinyLRUCache.h
     TinyPtrSet.h
+    TranslatedProcess.h
     TriState.h
     TypeCasts.h
     URL.h
@@ -323,6 +340,7 @@ set(WTF_PUBLIC_HEADERS
     text/StringHasher.h
     text/StringImpl.h
     text/StringOperators.h
+    text/StringParsingBuffer.h
     text/StringToIntegerConversion.h
     text/StringView.h
     text/SymbolImpl.h
@@ -346,6 +364,8 @@ set(WTF_PUBLIC_HEADERS
     unicode/CharacterNames.h
     unicode/Collator.h
     unicode/UTF8Conversion.h
+
+    unicode/icu/ICUHelpers.h
 )
 
 set(WTF_SOURCES
@@ -384,13 +404,13 @@ set(WTF_SOURCES
     Lock.cpp
     LockedPrintStream.cpp
     Logger.cpp
-    MD5.cpp
     MainThread.cpp
     MediaTime.cpp
     MemoryPressureHandler.cpp
     MetaAllocator.cpp
     MonotonicTime.cpp
     NumberOfCores.cpp
+    OSLogPrintStream.cpp
     OSRandomSource.cpp
     ObjectIdentifier.cpp
     PageBlock.cpp
@@ -456,6 +476,7 @@ set(WTF_SOURCES
     text/Base64.cpp
     text/CString.cpp
     text/ExternalStringImpl.cpp
+    text/LineBreakIteratorPoolICU.cpp
     text/LineEnding.cpp
     text/StringBuffer.cpp
     text/StringBuilder.cpp
@@ -479,13 +500,7 @@ set(WTF_SOURCES
     unicode/UTF8Conversion.cpp
 
     unicode/icu/CollatorICU.cpp
-)
-
-set(WTF_INCLUDE_DIRECTORIES
-    # FIXME: https://bugs.webkit.org/show_bug.cgi?id=196734#c1
-    "${CMAKE_BINARY_DIR}"
-    "${DERIVED_SOURCES_DIR}"
-    "${THIRDPARTY_DIR}"
+    unicode/icu/ICUHelpers.cpp
 )
 
 set(WTF_PRIVATE_INCLUDE_DIRECTORIES

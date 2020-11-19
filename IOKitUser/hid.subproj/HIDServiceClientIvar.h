@@ -25,7 +25,7 @@ struct { \
     IOHIDVirtualServiceClientCallbacksV2  *callbacks; \
     void                                  *target; \
     void                                  *refcon; \
-} virtual; \
+} virtualService; \
 CFMutableDictionaryRef          cachedProperties; \
 IOHIDServiceFastPathInterface   **fastPathInterface; \
 IOCFPlugInInterface             **plugInInterface; \

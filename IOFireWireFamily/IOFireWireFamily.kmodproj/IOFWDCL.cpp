@@ -16,12 +16,7 @@
 
 #import <libkern/c++/OSCollectionIterator.h>
 
-#if FIRELOG
-#import <IOKit/firewire/FireLog.h>
-#define FIRELOG_MSG(x) FireLog x
-#else
-#define FIRELOG_MSG(x) do {} while (0)
-#endif
+#define FIRELOG_MSG(x)	{ do {} while (0); }
 
 using namespace IOFireWireLib ;
 
@@ -252,75 +247,51 @@ IOFWDCL::debug()
 {
 	if ( fBranch )
 	{
-		FIRELOG_MSG(( "    branch --> %p\n", fBranch )) ;
+		DebugLog( "    branch --> %p\n", fBranch ) ;
 	}
 	
 	if ( fCallback )
 	{
-		if ( fCallback == IOFWUserLocalIsochPort::s_nuDCLCallout )
-		{
-			#if FIRELOG
-				uint64_t * asyncRef = (uint64_t*)getRefcon() ;
-				FIRELOG_MSG(( "    callback (USER) callback=%p refcon=%p\n", asyncRef[ kIOAsyncCalloutFuncIndex ], asyncRef[ kIOAsyncCalloutRefconIndex ] )) ;
-			#endif
-		}
-		else
-		{
-			FIRELOG_MSG(( "    callback %p\n", fCallback )) ;
-		}
+		DebugLog( "    callback %p\n", fCallback ) ;
 	}
 	
 	if ( fTimeStampPtr )
 	{
-		FIRELOG_MSG(( "    time stamp @ %p\n", fTimeStampPtr )) ;
+		DebugLog( "    time stamp @ %p\n", fTimeStampPtr ) ;
 	}
 	
 	if ( fRangeCount )
 	{
-		FIRELOG_MSG(( "    ranges\n" )) ;
+		DebugLog( "    ranges\n" ) ;
 		for( unsigned index=0; index < fRangeCount; ++index )
 		{
-			FIRELOG_MSG(( "        %d: %p ( +%dd, +0x%x )\n", index, fRanges[index].address, fRanges[index].length, fRanges[index].length )) ;
+			DebugLog( "        %d: %p ( +%d )\n", index, (void *)fRanges[index].address, (unsigned int)fRanges[index].length ) ;
 		}
 	}
 	
 	if ( fUpdateList )
 	{
-		FIRELOG_MSG(( "    update" )) ;
+		DebugLog( "    update" ) ;
 		OSIterator * iterator = OSCollectionIterator::withCollection( fUpdateList ) ;
 
 		if ( !iterator )
 		{
-			FIRELOG_MSG(("couldn't get iterator!\n")) ;
+			DebugLog("couldn't get iterator!\n") ;
 		}
 		else
 		{
-#if FIRELOG	
-			// bracket this to hide unused variable warning
-			unsigned count = 0 ;
-			while( OSObject * obj = iterator->getNextObject() )
-			{
-				if ( ( count++ & 0x7 ) == 0 )
-				{
-					FIRELOG_MSG(("\n" )) ;
-					FIRELOG_MSG(("        ")) ;
-				}
-				FIRELOG_MSG(( "%p ", obj )) ;
-			}
-			FIRELOG_MSG(("\n")) ;
-#endif			
 			iterator->release() ;
 		}
 	}
 
 	if ( fUserStatusPtr )
 	{
-		FIRELOG_MSG(( "    status @ %p\n", fUserStatusPtr )) ;
+		DebugLog( "    status @ %p\n", fUserStatusPtr ) ;
 	}
 	
 	if ( fRefcon )
 	{
-		FIRELOG_MSG(( "    refcon 0x%x\n", fRefcon )) ;
+		DebugLog( "    refcon %p\n", fRefcon ) ;
 	}
 }
 
@@ -375,6 +346,9 @@ IOFWDCL::importUserDCL (
 	NuDCLExportData * 		sharedData = ( NuDCLExportData * )data ;
 	dataSize = sizeof( NuDCLExportData ) ;
 	data += dataSize ;
+	
+	// (IOFireWireFamily) IOFWDCL<0xffffff804c8e8f40>::importUserDCL
+	//	DebugLog("IOFWDCL<%p>::importUserDCL\n", this ) ;
 
 	IOReturn error = kIOReturnSuccess ;
 
@@ -410,7 +384,7 @@ IOFWDCL::importUserDCL (
 		{
 			for( unsigned index=0; index < (unsigned)sharedData->updateCount; ++index )
 			{
-				updateSet->setObject( dcls->getObject( userUpdateList[ index ] - 1 ) ) ;
+				updateSet->setObject( dcls->getObject( (unsigned int)(userUpdateList[ index ] - 1 ) ) ) ;
 			}
 
 			setUpdateList( updateSet ) ;
@@ -470,7 +444,7 @@ IOFWDCL::importUserDCL (
 	{
 		if ( sharedData->branchIndex )
 		{
-			unsigned branchIndex = sharedData->branchIndex - 1 ;
+			unsigned branchIndex = (unsigned int)(sharedData->branchIndex - 1 ) ;
 			if ( branchIndex >= dcls->getCount() )
 			{
 				DebugLog("branch index out of range\n") ;
@@ -501,7 +475,7 @@ OSMetaClassDefineReservedUnused ( IOFWDCL, 4 ) ;		// used to be relink()
 OSDefineMetaClassAndAbstractStructors( IOFWReceiveDCL, IOFWDCL )
 
 bool
-IOFWReceiveDCL:: initWithParams( 
+IOFWReceiveDCL::initWithParams(
 	OSSet * 			updateSet, 
 	UInt8 				headerBytes, 
 	unsigned 			rangesCount, 
@@ -528,10 +502,10 @@ IOFWReceiveDCL::setWaitControl( bool wait )
 }
 
 void
-IOFWReceiveDCL::debug ()
+IOFWReceiveDCL::debug()
 {
-	FIRELOG_MSG(("%p: RECEIVE\n", this )) ;
-	FIRELOG_MSG(("    wait: %s, headerBytes: %d\n", fWait ? "YES" : "NO", fHeaderBytes )) ;
+	DebugLog("%p: RECEIVE\n", this ) ;
+	DebugLog("    wait: %s, headerBytes: %d\n", fWait ? "YES" : "NO", fHeaderBytes ) ;
 	
 	IOFWDCL::debug() ;
 }
@@ -543,6 +517,9 @@ IOFWReceiveDCL::importUserDCL (
 	IOMemoryMap *			bufferMap,
 	const OSArray *			dcls )
 {
+	// (IOFireWireFamily) IOFWReceiveDCL<0xffffff804c4c8a40>::importUserDCL
+	//	DebugLog("IOFWReceiveDCL<%p>::importUserDCL\n", this ) ;
+	
 	IOReturn error = IOFWDCL::importUserDCL( data, dataSize, bufferMap, dcls ) ;
 
 	if ( !error )
@@ -689,38 +666,38 @@ IOFWSendDCL::setRanges ( UInt32 numRanges, IOVirtualRange ranges[] )
 }
 
 void
-IOFWSendDCL::debug ()
+IOFWSendDCL::debug()
 {
-	FIRELOG_MSG(("%p: SEND\n", this )) ;
+	DebugLog("%p: SEND\n", this ) ;
 	if ( fUserHeaderPtr )
 	{
-		FIRELOG_MSG(("    user hdr: %p, user hdr mask --> %p\n", fUserHeaderPtr, fUserHeaderMaskPtr )) ;
+		DebugLog("    user hdr: %p, user hdr mask --> %p\n", fUserHeaderPtr, fUserHeaderMaskPtr ) ;
 	}
 
 	if ( fSkipBranchDCL )
 	{
-		FIRELOG_MSG(("    skip --> %p\n", fSkipBranchDCL )) ;
+		DebugLog("    skip --> %p\n", fSkipBranchDCL ) ;
 	}
 	
 	if ( fSkipCallback )
 	{
 		if ( fSkipCallback == IOFWUserLocalIsochPort::s_nuDCLCallout )
 		{
-			FIRELOG_MSG(("        skip callback: (USER) " )) ;
+			DebugLog("        skip callback: (USER) " ) ;
 			
 			if ( fSkipRefcon )
 			{
-				FIRELOG_MSG(("callback:%p refcon:0x%lx\n", ((uint64_t*)fSkipRefcon)[ kIOAsyncCalloutFuncIndex ], ((uint64_t*)fSkipRefcon)[ kIOAsyncCalloutRefconIndex ] )) ;
+				DebugLog("callback:0x%llx refcon:0x%llx\n", ((uint64_t*)fSkipRefcon)[ kIOAsyncCalloutFuncIndex ], ((uint64_t*)fSkipRefcon)[ kIOAsyncCalloutRefconIndex ] ) ;
 			}
 			else
 			{
-				FIRELOG_MSG(("NULL\n")) ;
+				DebugLog("NULL\n") ;
 			}
 		}
 		else
 		{
-			FIRELOG_MSG(("        skip callback: %p\n", fSkipCallback )) ;
-			FIRELOG_MSG(("        skip refcon: 0x%lx\n", fSkipRefcon )) ;
+			DebugLog("        skip callback: %p\n", fSkipCallback ) ;
+			DebugLog("        skip refcon: %p\n", fSkipRefcon ) ;
 		}
 	}
 	
@@ -734,6 +711,8 @@ IOFWSendDCL::importUserDCL (
 	IOMemoryMap *			bufferMap,
 	const OSArray *			dcls )
 {
+	DebugLog("// *** TEST: IOFWSendDCL<%p>::importUserDCL\n", this ) ;
+	
 	IOReturn error = IOFWDCL::importUserDCL( data, dataSize, bufferMap, dcls ) ;
 	if ( error )
 	{
@@ -765,7 +744,7 @@ IOFWSendDCL::importUserDCL (
 
 	if ( sendData->skipBranchIndex )
 	{
-		unsigned branchIndex = sendData->skipBranchIndex - 1 ;
+		unsigned branchIndex = (unsigned int)(sendData->skipBranchIndex - 1) ;
 		if ( branchIndex >= dcls->getCount() )
 		{
 			DebugLog("skip branch index out of range\n") ;
@@ -828,6 +807,8 @@ OSDefineMetaClassAndAbstractStructors( IOFWSkipCycleDCL, IOFWDCL )
 bool
 IOFWSkipCycleDCL::init ()
 {
+	DebugLog("// *** TEST: IOFWSkipCycleDCL<%p>::init\n", this );
+	
 	bool result = IOFWDCL::initWithRanges( NULL, 0, NULL ) ;
 	
 	return result ;
@@ -859,8 +840,8 @@ IOFWSkipCycleDCL::getSpan ( IOVirtualRange& result )
 }
 
 void
-IOFWSkipCycleDCL::debug ()
+IOFWSkipCycleDCL::debug()
 {
-	FIRELOG_MSG(("%p: SKIP CYCLE\n", this )) ;
+	DebugLog("%p: SKIP CYCLE\n", this ) ;
 	IOFWDCL::debug() ;
 }

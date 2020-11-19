@@ -32,50 +32,55 @@
 #include "DocumentMarkerController.h"
 #include "Element.h"
 #include "Position.h"
-#include "Range.h"
 #include "SmartReplace.h"
 #include "TextIterator.h"
 #include "VisibleUnits.h"
 
 namespace WebCore {
 
-DictationCommandIOS::DictationCommandIOS(Document& document, Vector<Vector<String>>&& dictationPhrases, RetainPtr<id> metadata)
+DictationCommandIOS::DictationCommandIOS(Document& document, Vector<Vector<String>>&& dictationPhrases, id metadata)
     : CompositeEditCommand(document, EditAction::Dictation)
     , m_dictationPhrases(WTFMove(dictationPhrases))
-    , m_metadata(WTFMove(metadata))
+    , m_metadata(metadata)
 {
+}
+
+Ref<DictationCommandIOS> DictationCommandIOS::create(Document& document, Vector<Vector<String>>&& dictationPhrases, id metadata)
+{
+    return adoptRef(*new DictationCommandIOS(document, WTFMove(dictationPhrases), metadata));
 }
 
 void DictationCommandIOS::doApply()
 {
-    VisiblePosition insertionPosition(startingSelection().visibleStart());
-
-    unsigned resultLength = 0;
+    uint64_t resultLength = 0;
     for (auto& interpretations : m_dictationPhrases) {
         const String& firstInterpretation = interpretations[0];
         resultLength += firstInterpretation.length();
         inputText(firstInterpretation, true);
 
-        if (interpretations.size() > 1)
-            document().markers().addDictationPhraseWithAlternativesMarker(*endingSelection().toNormalizedRange(), interpretations);
+        if (interpretations.size() > 1) {
+            auto alternatives = interpretations;
+            alternatives.remove(0);
+            addMarker(*endingSelection().toNormalizedRange(), DocumentMarker::DictationPhraseWithAlternatives, WTFMove(alternatives));
+        }
 
         setEndingSelection(VisibleSelection(endingSelection().visibleEnd()));
     }
 
-    VisiblePosition afterResults(endingSelection().visibleEnd());
+    // FIXME: Add the result marker using a Position cached before results are inserted, instead of relying on character counts.
 
-    Element* root = afterResults.rootEditableElement();
+    auto endPosition = endingSelection().visibleEnd();
+    auto end = makeBoundaryPoint(endPosition);
+    auto* root = endPosition.rootEditableElement();
+    if (!end || !root)
+        return;
 
-    // FIXME: Add the result marker using a Position cached before results are inserted, instead of relying on TextIterators.
-    auto rangeToEnd = Range::create(document(), createLegacyEditingPosition((Node *)root, 0), afterResults.deepEquivalent());
-    int endIndex = TextIterator::rangeLength(rangeToEnd.ptr(), true);
-    int startIndex = endIndex - resultLength;
+    auto endOffset = characterCount({ { *root, 0 }, WTFMove(*end) });
+    if (endOffset < resultLength)
+        return;
 
-    if (startIndex >= 0) {
-        RefPtr<Range> resultRange = TextIterator::rangeFromLocationAndLength(document().documentElement(), startIndex, endIndex, true);
-        ASSERT(resultRange); // FIXME: What guarantees this?
-        document().markers().addDictationResultMarker(*resultRange, m_metadata);
-    }
+    auto resultRange = resolveCharacterRange(makeRangeSelectingNodeContents(*root), { endOffset - resultLength, endOffset });
+    addMarker(resultRange, DocumentMarker::DictationResult, m_metadata);
 }
 
 } // namespace WebCore

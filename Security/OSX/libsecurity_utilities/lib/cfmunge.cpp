@@ -221,17 +221,21 @@ CFTypeRef CF_RETURNS_RETAINED CFMake::makedictionary()
 				return dict;
 		} else
 			return NULL;	// bad syntax
-	} else
+    } else {
 		dict = CFDictionaryCreateMutable(allocator, 0,
 			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (dict == NULL)
+    }
+
+    if (dict == NULL) {
         return dict;
-	if (add(dict))
-		return dict;
-	else {
-		CFReleaseSafe(dict);
-		return NULL;
-	}
+    }
+
+    if (add(dict)) {
+        return dict;
+    } else {
+        CFReleaseSafe(dict);
+        return NULL;
+    }
 }
 
 CFDictionaryRef CFMake::add(CFMutableDictionaryRef dict)

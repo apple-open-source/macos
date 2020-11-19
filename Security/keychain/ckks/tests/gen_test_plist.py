@@ -59,7 +59,10 @@ for x in get_class_names():
     test_dictionary['WorkingDirectory'] = '/AppleInternal/XCTests/com.apple.security/'
 
     test_command = Foundation.NSMutableArray.array()
-    test_command.append('BATS_XCTEST_CMD -XCTest {} CKKSTests.xctest'.format(x))
+    test_command.append('BATS_XCTEST_CMD')
+    test_command.append('-XCTest')
+    test_command.append('{}'.format(x))
+    test_command.append('CKKSTests.xctest')
     test_dictionary['Command'] = test_command
 
     test_list.append(test_dictionary)

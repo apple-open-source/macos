@@ -1,0 +1,2471 @@
+diff -Naur net-snmp-5.6.2.1.orig/ChangeLog net-snmp-5.6.2.1.working/ChangeLog
+--- net-snmp-5.6.2.1.orig/ChangeLog	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/ChangeLog	2020-09-14 18:40:30.000000000 -0700
+@@ -81245,7 +81245,7 @@
+ 
+    * local/mib2c:
+ 
+-   change counter 64 type from 'counter64' to 'U64', since the former can't be
++   change counter 64 type from 'counter64' to 'NS_U64', since the former can't be
+    used as a variable declaration type; process $HOME/.snmp/mib2c.conf, if it
+    exists; new foreach internalindex and externalindex; new sub table_has_create
+    and count_external_indexes
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/if-mib/ifTable/ifTable.h net-snmp-5.6.2.1.working/agent/mibgroup/if-mib/ifTable/ifTable.h
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/if-mib/ifTable/ifTable.h	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/if-mib/ifTable/ifTable.h	2020-09-14 18:16:08.000000000 -0700
+@@ -198,35 +198,35 @@
+          */
+ 
+         /*
+-         * ifHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h
++         * ifHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h
+          */
+ 
+         /*
+-         * ifHCInUcastPkts(7)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h
++         * ifHCInUcastPkts(7)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h
+          */
+ 
+         /*
+-         * ifHCInMulticastPkts(8)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h
++         * ifHCInMulticastPkts(8)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h
+          */
+ 
+         /*
+-         * ifHCInBroadcastPkts(9)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h
++         * ifHCInBroadcastPkts(9)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h
+          */
+ 
+         /*
+-         * ifHCOutOctets(10)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h
++         * ifHCOutOctets(10)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h
+          */
+ 
+         /*
+-         * ifHCOutUcastPkts(11)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h
++         * ifHCOutUcastPkts(11)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h
+          */
+ 
+         /*
+-         * ifHCOutMulticastPkts(12)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h
++         * ifHCOutMulticastPkts(12)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h
+          */
+ 
+         /*
+-         * ifHCOutBroadcastPkts(13)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h
++         * ifHCOutBroadcastPkts(13)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h
+          */
+ 
+         /*
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/if-mib/ifXTable/ifXTable.c net-snmp-5.6.2.1.working/agent/mibgroup/if-mib/ifXTable/ifXTable.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/if-mib/ifXTable/ifXTable.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/if-mib/ifXTable/ifXTable.c	2020-09-14 18:22:06.000000000 -0700
+@@ -700,7 +700,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ifHCInOctets data.
+@@ -710,7 +710,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ifHCInOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -718,7 +718,7 @@
+  */
+ int
+ ifHCInOctets_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                 U64 * ifHCInOctets_val_ptr)
++                 NS_U64 * ifHCInOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ifHCInOctets_val_ptr);
+@@ -757,7 +757,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ifHCInUcastPkts data.
+@@ -767,7 +767,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ifHCInUcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -775,7 +775,7 @@
+  */
+ int
+ ifHCInUcastPkts_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                    U64 * ifHCInUcastPkts_val_ptr)
++                    NS_U64 * ifHCInUcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ifHCInUcastPkts_val_ptr);
+@@ -816,7 +816,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ifHCInMulticastPkts data.
+@@ -826,7 +826,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ifHCInMulticastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -834,7 +834,7 @@
+  */
+ int
+ ifHCInMulticastPkts_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                        U64 * ifHCInMulticastPkts_val_ptr)
++                        NS_U64 * ifHCInMulticastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ifHCInMulticastPkts_val_ptr);
+@@ -875,7 +875,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ifHCInBroadcastPkts data.
+@@ -885,7 +885,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ifHCInBroadcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -893,7 +893,7 @@
+  */
+ int
+ ifHCInBroadcastPkts_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                        U64 * ifHCInBroadcastPkts_val_ptr)
++                        NS_U64 * ifHCInBroadcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ifHCInBroadcastPkts_val_ptr);
+@@ -933,7 +933,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ifHCOutOctets data.
+@@ -943,7 +943,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ifHCOutOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -951,7 +951,7 @@
+  */
+ int
+ ifHCOutOctets_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                  U64 * ifHCOutOctets_val_ptr)
++                  NS_U64 * ifHCOutOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ifHCOutOctets_val_ptr);
+@@ -991,7 +991,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ifHCOutUcastPkts data.
+@@ -1001,7 +1001,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ifHCOutUcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1009,7 +1009,7 @@
+  */
+ int
+ ifHCOutUcastPkts_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                     U64 * ifHCOutUcastPkts_val_ptr)
++                     NS_U64 * ifHCOutUcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ifHCOutUcastPkts_val_ptr);
+@@ -1052,7 +1052,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ifHCOutMulticastPkts data.
+@@ -1062,7 +1062,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ifHCOutMulticastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1070,7 +1070,7 @@
+  */
+ int
+ ifHCOutMulticastPkts_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                         U64 * ifHCOutMulticastPkts_val_ptr)
++                         NS_U64 * ifHCOutMulticastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ifHCOutMulticastPkts_val_ptr);
+@@ -1112,7 +1112,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ifHCOutBroadcastPkts data.
+@@ -1122,7 +1122,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ifHCOutBroadcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1130,7 +1130,7 @@
+  */
+ int
+ ifHCOutBroadcastPkts_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                         U64 * ifHCOutBroadcastPkts_val_ptr)
++                         NS_U64 * ifHCOutBroadcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ifHCOutBroadcastPkts_val_ptr);
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/if-mib/ifXTable/ifXTable.h net-snmp-5.6.2.1.working/agent/mibgroup/if-mib/ifXTable/ifXTable.h
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/if-mib/ifXTable/ifXTable.h	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/if-mib/ifXTable/ifXTable.h	2020-09-14 18:17:21.000000000 -0700
+@@ -143,28 +143,28 @@
+                                            u_long *
+                                            ifOutBroadcastPkts_val_ptr);
+     int             ifHCInOctets_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                                     U64 * ifHCInOctets_val_ptr);
++                                     NS_U64 * ifHCInOctets_val_ptr);
+     int             ifHCInUcastPkts_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                                        U64 * ifHCInUcastPkts_val_ptr);
++                                        NS_U64 * ifHCInUcastPkts_val_ptr);
+     int             ifHCInMulticastPkts_get(ifXTable_rowreq_ctx *
+                                             rowreq_ctx,
+-                                            U64 *
++                                            NS_U64 *
+                                             ifHCInMulticastPkts_val_ptr);
+     int             ifHCInBroadcastPkts_get(ifXTable_rowreq_ctx *
+                                             rowreq_ctx,
+-                                            U64 *
++                                            NS_U64 *
+                                             ifHCInBroadcastPkts_val_ptr);
+     int             ifHCOutOctets_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                                      U64 * ifHCOutOctets_val_ptr);
++                                      NS_U64 * ifHCOutOctets_val_ptr);
+     int             ifHCOutUcastPkts_get(ifXTable_rowreq_ctx * rowreq_ctx,
+-                                         U64 * ifHCOutUcastPkts_val_ptr);
++                                         NS_U64 * ifHCOutUcastPkts_val_ptr);
+     int             ifHCOutMulticastPkts_get(ifXTable_rowreq_ctx *
+                                              rowreq_ctx,
+-                                             U64 *
++                                             NS_U64 *
+                                              ifHCOutMulticastPkts_val_ptr);
+     int             ifHCOutBroadcastPkts_get(ifXTable_rowreq_ctx *
+                                              rowreq_ctx,
+-                                             U64 *
++                                             NS_U64 *
+                                              ifHCOutBroadcastPkts_val_ptr);
+     int             ifLinkUpDownTrapEnable_get(ifXTable_rowreq_ctx *
+                                                rowreq_ctx,
+@@ -284,86 +284,86 @@
+ 
+     int             ifHCInOctets_check_value(ifXTable_rowreq_ctx *
+                                              rowreq_ctx,
+-                                             U64 ifHCInOctets_val);
++                                             NS_U64 ifHCInOctets_val);
+     int             ifHCInOctets_undo_setup(ifXTable_rowreq_ctx *
+                                             rowreq_ctx);
+     int             ifHCInOctets_set(ifXTable_rowreq_ctx * rowreq_ctx,
+-                                     U64 ifHCInOctets_val);
++                                     NS_U64 ifHCInOctets_val);
+     int             ifHCInOctets_undo(ifXTable_rowreq_ctx * rowreq_ctx);
+ 
+     int             ifHCInUcastPkts_check_value(ifXTable_rowreq_ctx *
+                                                 rowreq_ctx,
+-                                                U64 ifHCInUcastPkts_val);
++                                                NS_U64 ifHCInUcastPkts_val);
+     int             ifHCInUcastPkts_undo_setup(ifXTable_rowreq_ctx *
+                                                rowreq_ctx);
+     int             ifHCInUcastPkts_set(ifXTable_rowreq_ctx * rowreq_ctx,
+-                                        U64 ifHCInUcastPkts_val);
++                                        NS_U64 ifHCInUcastPkts_val);
+     int             ifHCInUcastPkts_undo(ifXTable_rowreq_ctx * rowreq_ctx);
+ 
+     int             ifHCInMulticastPkts_check_value(ifXTable_rowreq_ctx *
+                                                     rowreq_ctx,
+-                                                    U64
++                                                    NS_U64
+                                                     ifHCInMulticastPkts_val);
+     int             ifHCInMulticastPkts_undo_setup(ifXTable_rowreq_ctx *
+                                                    rowreq_ctx);
+     int             ifHCInMulticastPkts_set(ifXTable_rowreq_ctx *
+                                             rowreq_ctx,
+-                                            U64 ifHCInMulticastPkts_val);
++                                            NS_U64 ifHCInMulticastPkts_val);
+     int             ifHCInMulticastPkts_undo(ifXTable_rowreq_ctx *
+                                              rowreq_ctx);
+ 
+     int             ifHCInBroadcastPkts_check_value(ifXTable_rowreq_ctx *
+                                                     rowreq_ctx,
+-                                                    U64
++                                                    NS_U64
+                                                     ifHCInBroadcastPkts_val);
+     int             ifHCInBroadcastPkts_undo_setup(ifXTable_rowreq_ctx *
+                                                    rowreq_ctx);
+     int             ifHCInBroadcastPkts_set(ifXTable_rowreq_ctx *
+                                             rowreq_ctx,
+-                                            U64 ifHCInBroadcastPkts_val);
++                                            NS_U64 ifHCInBroadcastPkts_val);
+     int             ifHCInBroadcastPkts_undo(ifXTable_rowreq_ctx *
+                                              rowreq_ctx);
+ 
+     int             ifHCOutOctets_check_value(ifXTable_rowreq_ctx *
+                                               rowreq_ctx,
+-                                              U64 ifHCOutOctets_val);
++                                              NS_U64 ifHCOutOctets_val);
+     int             ifHCOutOctets_undo_setup(ifXTable_rowreq_ctx *
+                                              rowreq_ctx);
+     int             ifHCOutOctets_set(ifXTable_rowreq_ctx * rowreq_ctx,
+-                                      U64 ifHCOutOctets_val);
++                                      NS_U64 ifHCOutOctets_val);
+     int             ifHCOutOctets_undo(ifXTable_rowreq_ctx * rowreq_ctx);
+ 
+     int             ifHCOutUcastPkts_check_value(ifXTable_rowreq_ctx *
+                                                  rowreq_ctx,
+-                                                 U64 ifHCOutUcastPkts_val);
++                                                 NS_U64 ifHCOutUcastPkts_val);
+     int             ifHCOutUcastPkts_undo_setup(ifXTable_rowreq_ctx *
+                                                 rowreq_ctx);
+     int             ifHCOutUcastPkts_set(ifXTable_rowreq_ctx * rowreq_ctx,
+-                                         U64 ifHCOutUcastPkts_val);
++                                         NS_U64 ifHCOutUcastPkts_val);
+     int             ifHCOutUcastPkts_undo(ifXTable_rowreq_ctx *
+                                           rowreq_ctx);
+ 
+     int             ifHCOutMulticastPkts_check_value(ifXTable_rowreq_ctx *
+                                                      rowreq_ctx,
+-                                                     U64
++                                                     NS_U64
+                                                      ifHCOutMulticastPkts_val);
+     int             ifHCOutMulticastPkts_undo_setup(ifXTable_rowreq_ctx *
+                                                     rowreq_ctx);
+     int             ifHCOutMulticastPkts_set(ifXTable_rowreq_ctx *
+                                              rowreq_ctx,
+-                                             U64 ifHCOutMulticastPkts_val);
++                                             NS_U64 ifHCOutMulticastPkts_val);
+     int             ifHCOutMulticastPkts_undo(ifXTable_rowreq_ctx *
+                                               rowreq_ctx);
+ 
+     int             ifHCOutBroadcastPkts_check_value(ifXTable_rowreq_ctx *
+                                                      rowreq_ctx,
+-                                                     U64
++                                                     NS_U64
+                                                      ifHCOutBroadcastPkts_val);
+     int             ifHCOutBroadcastPkts_undo_setup(ifXTable_rowreq_ctx *
+                                                     rowreq_ctx);
+     int             ifHCOutBroadcastPkts_set(ifXTable_rowreq_ctx *
+                                              rowreq_ctx,
+-                                             U64 ifHCOutBroadcastPkts_val);
++                                             NS_U64 ifHCOutBroadcastPkts_val);
+     int             ifHCOutBroadcastPkts_undo(ifXTable_rowreq_ctx *
+                                               rowreq_ctx);
+ 
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/if-mib/ifXTable/ifXTable_interface.c net-snmp-5.6.2.1.working/agent/mibgroup/if-mib/ifXTable/ifXTable_interface.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/if-mib/ifXTable/ifXTable_interface.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/if-mib/ifXTable/ifXTable_interface.c	2020-09-14 18:20:22.000000000 -0700
+@@ -702,75 +702,75 @@
+         break;
+ 
+         /*
+-         * ifHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCINOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ifHCInOctets_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ifHCInOctets_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+-         * ifHCInUcastPkts(7)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCInUcastPkts(7)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCINUCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ifHCInUcastPkts_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ifHCInUcastPkts_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+-         * ifHCInMulticastPkts(8)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCInMulticastPkts(8)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCINMULTICASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ifHCInMulticastPkts_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ifHCInMulticastPkts_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+-         * ifHCInBroadcastPkts(9)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCInBroadcastPkts(9)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCINBROADCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ifHCInBroadcastPkts_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ifHCInBroadcastPkts_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+-         * ifHCOutOctets(10)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCOutOctets(10)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCOUTOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ifHCOutOctets_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ifHCOutOctets_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+-         * ifHCOutUcastPkts(11)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCOutUcastPkts(11)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCOUTUCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ifHCOutUcastPkts_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ifHCOutUcastPkts_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+-         * ifHCOutMulticastPkts(12)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCOutMulticastPkts(12)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCOUTMULTICASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ifHCOutMulticastPkts_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ifHCOutMulticastPkts_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+-         * ifHCOutBroadcastPkts(13)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCOutBroadcastPkts(13)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCOUTBROADCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ifHCOutBroadcastPkts_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ifHCOutBroadcastPkts_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -977,56 +977,56 @@
+         break;
+ 
+         /*
+-         * ifHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCINOCTETS:
+         rc = SNMP_ERR_NOTWRITABLE;
+         break;
+ 
+         /*
+-         * ifHCInUcastPkts(7)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCInUcastPkts(7)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCINUCASTPKTS:
+         rc = SNMP_ERR_NOTWRITABLE;
+         break;
+ 
+         /*
+-         * ifHCInMulticastPkts(8)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCInMulticastPkts(8)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCINMULTICASTPKTS:
+         rc = SNMP_ERR_NOTWRITABLE;
+         break;
+ 
+         /*
+-         * ifHCInBroadcastPkts(9)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCInBroadcastPkts(9)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCINBROADCASTPKTS:
+         rc = SNMP_ERR_NOTWRITABLE;
+         break;
+ 
+         /*
+-         * ifHCOutOctets(10)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCOutOctets(10)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCOUTOCTETS:
+         rc = SNMP_ERR_NOTWRITABLE;
+         break;
+ 
+         /*
+-         * ifHCOutUcastPkts(11)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCOutUcastPkts(11)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCOUTUCASTPKTS:
+         rc = SNMP_ERR_NOTWRITABLE;
+         break;
+ 
+         /*
+-         * ifHCOutMulticastPkts(12)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCOutMulticastPkts(12)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCOUTMULTICASTPKTS:
+         rc = SNMP_ERR_NOTWRITABLE;
+         break;
+ 
+         /*
+-         * ifHCOutBroadcastPkts(13)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ifHCOutBroadcastPkts(13)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IFHCOUTBROADCASTPKTS:
+         rc = SNMP_ERR_NOTWRITABLE;
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/data_access/systemstats_common.c net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/data_access/systemstats_common.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/data_access/systemstats_common.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/data_access/systemstats_common.c	2020-09-14 18:17:21.000000000 -0700
+@@ -264,7 +264,7 @@
+            && entry->stats.columnAvail[IPSYSTEMSTATSTABLE_HCOUTFRAGCREATES]
+         && entry->stats.columnAvail[IPSYSTEMSTATSTABLE_HCOUTDISCARDS]) {
+ 
+-        U64 tmp, tmp2, tmp3;
++        NS_U64 tmp, tmp2, tmp3;
+         tmp = entry->stats.HCOutRequests;
+         u64Incr(&tmp, &entry->stats.HCOutForwDatagrams);
+         u64Incr(&tmp, &entry->stats.HCOutFragCreates);
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_data_get.c net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_data_get.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_data_get.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_data_get.c	2020-09-14 18:28:14.000000000 -0700
+@@ -252,7 +252,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCInReceives data.
+@@ -262,7 +262,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCInReceives_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -270,7 +270,7 @@
+  */
+ int
+ ipIfStatsHCInReceives_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                          U64 * ipIfStatsHCInReceives_val_ptr)
++                          NS_U64 * ipIfStatsHCInReceives_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCInReceives_val_ptr);
+@@ -377,7 +377,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCInOctets data.
+@@ -387,7 +387,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCInOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -395,7 +395,7 @@
+  */
+ int
+ ipIfStatsHCInOctets_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                        U64 * ipIfStatsHCInOctets_val_ptr)
++                        NS_U64 * ipIfStatsHCInOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCInOctets_val_ptr);
+@@ -844,7 +844,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCInForwDatagrams data.
+@@ -854,7 +854,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCInForwDatagrams_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -862,7 +862,7 @@
+  */
+ int
+ ipIfStatsHCInForwDatagrams_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                               U64 * ipIfStatsHCInForwDatagrams_val_ptr)
++                               NS_U64 * ipIfStatsHCInForwDatagrams_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCInForwDatagrams_val_ptr);
+@@ -1249,7 +1249,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCInDelivers data.
+@@ -1259,7 +1259,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCInDelivers_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1267,7 +1267,7 @@
+  */
+ int
+ ipIfStatsHCInDelivers_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                          U64 * ipIfStatsHCInDelivers_val_ptr)
++                          NS_U64 * ipIfStatsHCInDelivers_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCInDelivers_val_ptr);
+@@ -1378,7 +1378,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCOutRequests data.
+@@ -1388,7 +1388,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCOutRequests_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1396,7 +1396,7 @@
+  */
+ int
+ ipIfStatsHCOutRequests_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                           U64 * ipIfStatsHCOutRequests_val_ptr)
++                           NS_U64 * ipIfStatsHCOutRequests_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCOutRequests_val_ptr);
+@@ -1514,7 +1514,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCOutForwDatagrams data.
+@@ -1524,7 +1524,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCOutForwDatagrams_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1532,7 +1532,7 @@
+  */
+ int
+ ipIfStatsHCOutForwDatagrams_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                                U64 * ipIfStatsHCOutForwDatagrams_val_ptr)
++                                NS_U64 * ipIfStatsHCOutForwDatagrams_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCOutForwDatagrams_val_ptr);
+@@ -1981,7 +1981,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCOutTransmits data.
+@@ -1991,7 +1991,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCOutTransmits_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1999,7 +1999,7 @@
+  */
+ int
+ ipIfStatsHCOutTransmits_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                            U64 * ipIfStatsHCOutTransmits_val_ptr)
++                            NS_U64 * ipIfStatsHCOutTransmits_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCOutTransmits_val_ptr);
+@@ -2105,7 +2105,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCOutOctets data.
+@@ -2115,7 +2115,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCOutOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2123,7 +2123,7 @@
+  */
+ int
+ ipIfStatsHCOutOctets_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                         U64 * ipIfStatsHCOutOctets_val_ptr)
++                         NS_U64 * ipIfStatsHCOutOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCOutOctets_val_ptr);
+@@ -2227,7 +2227,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCInMcastPkts data.
+@@ -2237,7 +2237,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCInMcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2245,7 +2245,7 @@
+  */
+ int
+ ipIfStatsHCInMcastPkts_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                           U64 * ipIfStatsHCInMcastPkts_val_ptr)
++                           NS_U64 * ipIfStatsHCInMcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCInMcastPkts_val_ptr);
+@@ -2354,7 +2354,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCInMcastOctets data.
+@@ -2364,7 +2364,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCInMcastOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2372,7 +2372,7 @@
+  */
+ int
+ ipIfStatsHCInMcastOctets_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                             U64 * ipIfStatsHCInMcastOctets_val_ptr)
++                             NS_U64 * ipIfStatsHCInMcastOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCInMcastOctets_val_ptr);
+@@ -2479,7 +2479,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCOutMcastPkts data.
+@@ -2489,7 +2489,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCOutMcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2497,7 +2497,7 @@
+  */
+ int
+ ipIfStatsHCOutMcastPkts_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                            U64 * ipIfStatsHCOutMcastPkts_val_ptr)
++                            NS_U64 * ipIfStatsHCOutMcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCOutMcastPkts_val_ptr);
+@@ -2603,7 +2603,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCOutMcastOctets data.
+@@ -2613,7 +2613,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCOutMcastOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2621,7 +2621,7 @@
+  */
+ int
+ ipIfStatsHCOutMcastOctets_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                              U64 * ipIfStatsHCOutMcastOctets_val_ptr)
++                              NS_U64 * ipIfStatsHCOutMcastOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCOutMcastOctets_val_ptr);
+@@ -2725,7 +2725,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCInBcastPkts data.
+@@ -2735,7 +2735,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCInBcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2743,7 +2743,7 @@
+  */
+ int
+ ipIfStatsHCInBcastPkts_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                           U64 * ipIfStatsHCInBcastPkts_val_ptr)
++                           NS_U64 * ipIfStatsHCInBcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCInBcastPkts_val_ptr);
+@@ -2847,7 +2847,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipIfStatsHCOutBcastPkts data.
+@@ -2857,7 +2857,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipIfStatsHCOutBcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2865,7 +2865,7 @@
+  */
+ int
+ ipIfStatsHCOutBcastPkts_get(ipIfStatsTable_rowreq_ctx * rowreq_ctx,
+-                            U64 * ipIfStatsHCOutBcastPkts_val_ptr)
++                            NS_U64 * ipIfStatsHCOutBcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipIfStatsHCOutBcastPkts_val_ptr);
+diff -Naur net-snmp-5.6.2.1.orig/include/net-snmp/library/int64.h net-snmp-5.6.2.1.working/include/net-snmp/library/int64.h
+--- net-snmp-5.6.2.1.orig/include/net-snmp/library/int64.h	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/include/net-snmp/library/int64.h	2020-09-14 20:24:32.000000000 -0700
+@@ -5,31 +5,31 @@
+ extern          "C" {
+ #endif
+ 
+-    typedef struct counter64 U64;
+-
++    typedef struct counter64 NS_U64;
++ 
+ #define I64CHARSZ 21
+ 
+-    void            divBy10(U64, U64 *, unsigned int *);
+-    void            multBy10(U64, U64 *);
+-    void            incrByU16(U64 *, unsigned int);
+-    void            incrByU32(U64 *, unsigned int);
++    void            divBy10(NS_U64, NS_U64 *, unsigned int *);
++    void            multBy10(NS_U64, NS_U64 *);
++    void            incrByU16(NS_U64 *, unsigned int);
++    void            incrByU32(NS_U64 *, unsigned int);
+     NETSNMP_IMPORT
+-    void            zeroU64(U64 *);
+-    int             isZeroU64(const U64 *);
++    void            zeroU64(NS_U64 *);
++    int             isZeroU64(const NS_U64 *);
+     NETSNMP_IMPORT
+-    void            printU64(char *, const U64 *);
++    void            printU64(char *, const NS_U64 *);
+     NETSNMP_IMPORT
+-    void            printI64(char *, const U64 *);
+-    int             read64(U64 *, const char *);
++    void            printI64(char *, const NS_U64 *);
++    int             read64(NS_U64 *, const char *);
+     NETSNMP_IMPORT
+-    void            u64Subtract(const U64 * pu64one, const U64 * pu64two,
+-                                U64 * pu64out);
+-    void            u64Incr(U64 * pu64out, const U64 * pu64one);
+-    void            u64UpdateCounter(U64 * pu64out, const U64 * pu64one,
+-                                     const U64 * pu64two);
+-    void            u64Copy(U64 * pu64one, const U64 * pu64two);
++    void            u64Subtract(const NS_U64 * pu64one, const NS_U64 * pu64two,
++                                NS_U64 * pu64out);
++    void            u64Incr(NS_U64 * pu64out, const NS_U64 * pu64one);
++    void            u64UpdateCounter(NS_U64 * pu64out, const NS_U64 * pu64one,
++                                     const NS_U64 * pu64two);
++    void            u64Copy(NS_U64 * pu64one, const NS_U64 * pu64two);
+ 
+-    int             netsnmp_c64_check_for_32bit_wrap(U64 *old_val, U64 *new_val,
++    int             netsnmp_c64_check_for_32bit_wrap(NS_U64 *old_val, NS_U64 *new_val,
+                                                      int adjust);
+     NETSNMP_IMPORT
+     int             netsnmp_c64_check32_and_update(struct counter64 *prev_val,
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_data_get.h net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_data_get.h
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_data_get.h	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_data_get.h	2020-09-14 18:17:21.000000000 -0700
+@@ -50,7 +50,7 @@
+                                             ipIfStatsInReceives_val_ptr);
+     int             ipIfStatsHCInReceives_get(ipIfStatsTable_rowreq_ctx *
+                                               rowreq_ctx,
+-                                              U64 *
++                                              NS_U64 *
+                                               ipIfStatsHCInReceives_val_ptr);
+     int             ipIfStatsInOctets_get(ipIfStatsTable_rowreq_ctx *
+                                           rowreq_ctx,
+@@ -58,7 +58,7 @@
+                                           ipIfStatsInOctets_val_ptr);
+     int             ipIfStatsHCInOctets_get(ipIfStatsTable_rowreq_ctx *
+                                             rowreq_ctx,
+-                                            U64 *
++                                            NS_U64 *
+                                             ipIfStatsHCInOctets_val_ptr);
+     int             ipIfStatsInHdrErrors_get(ipIfStatsTable_rowreq_ctx *
+                                              rowreq_ctx,
+@@ -87,7 +87,7 @@
+     int            
+         ipIfStatsHCInForwDatagrams_get(ipIfStatsTable_rowreq_ctx *
+                                        rowreq_ctx,
+-                                       U64 *
++                                       NS_U64 *
+                                        ipIfStatsHCInForwDatagrams_val_ptr);
+     int             ipIfStatsReasmReqds_get(ipIfStatsTable_rowreq_ctx *
+                                             rowreq_ctx,
+@@ -111,7 +111,7 @@
+                                             ipIfStatsInDelivers_val_ptr);
+     int             ipIfStatsHCInDelivers_get(ipIfStatsTable_rowreq_ctx *
+                                               rowreq_ctx,
+-                                              U64 *
++                                              NS_U64 *
+                                               ipIfStatsHCInDelivers_val_ptr);
+     int             ipIfStatsOutRequests_get(ipIfStatsTable_rowreq_ctx *
+                                              rowreq_ctx,
+@@ -119,7 +119,7 @@
+                                              ipIfStatsOutRequests_val_ptr);
+     int             ipIfStatsHCOutRequests_get(ipIfStatsTable_rowreq_ctx *
+                                                rowreq_ctx,
+-                                               U64 *
++                                               NS_U64 *
+                                                ipIfStatsHCOutRequests_val_ptr);
+     int             ipIfStatsOutForwDatagrams_get(ipIfStatsTable_rowreq_ctx
+                                                   * rowreq_ctx,
+@@ -128,7 +128,7 @@
+     int            
+         ipIfStatsHCOutForwDatagrams_get(ipIfStatsTable_rowreq_ctx *
+                                         rowreq_ctx,
+-                                        U64 *
++                                        NS_U64 *
+                                         ipIfStatsHCOutForwDatagrams_val_ptr);
+     int             ipIfStatsOutDiscards_get(ipIfStatsTable_rowreq_ctx *
+                                              rowreq_ctx,
+@@ -156,7 +156,7 @@
+                                               ipIfStatsOutTransmits_val_ptr);
+     int             ipIfStatsHCOutTransmits_get(ipIfStatsTable_rowreq_ctx *
+                                                 rowreq_ctx,
+-                                                U64 *
++                                                NS_U64 *
+                                                 ipIfStatsHCOutTransmits_val_ptr);
+     int             ipIfStatsOutOctets_get(ipIfStatsTable_rowreq_ctx *
+                                            rowreq_ctx,
+@@ -164,7 +164,7 @@
+                                            ipIfStatsOutOctets_val_ptr);
+     int             ipIfStatsHCOutOctets_get(ipIfStatsTable_rowreq_ctx *
+                                              rowreq_ctx,
+-                                             U64 *
++                                             NS_U64 *
+                                              ipIfStatsHCOutOctets_val_ptr);
+     int             ipIfStatsInMcastPkts_get(ipIfStatsTable_rowreq_ctx *
+                                              rowreq_ctx,
+@@ -172,7 +172,7 @@
+                                              ipIfStatsInMcastPkts_val_ptr);
+     int             ipIfStatsHCInMcastPkts_get(ipIfStatsTable_rowreq_ctx *
+                                                rowreq_ctx,
+-                                               U64 *
++                                               NS_U64 *
+                                                ipIfStatsHCInMcastPkts_val_ptr);
+     int             ipIfStatsInMcastOctets_get(ipIfStatsTable_rowreq_ctx *
+                                                rowreq_ctx,
+@@ -180,7 +180,7 @@
+                                                ipIfStatsInMcastOctets_val_ptr);
+     int             ipIfStatsHCInMcastOctets_get(ipIfStatsTable_rowreq_ctx
+                                                  * rowreq_ctx,
+-                                                 U64 *
++                                                 NS_U64 *
+                                                  ipIfStatsHCInMcastOctets_val_ptr);
+     int             ipIfStatsOutMcastPkts_get(ipIfStatsTable_rowreq_ctx *
+                                               rowreq_ctx,
+@@ -188,7 +188,7 @@
+                                               ipIfStatsOutMcastPkts_val_ptr);
+     int             ipIfStatsHCOutMcastPkts_get(ipIfStatsTable_rowreq_ctx *
+                                                 rowreq_ctx,
+-                                                U64 *
++                                                NS_U64 *
+                                                 ipIfStatsHCOutMcastPkts_val_ptr);
+     int             ipIfStatsOutMcastOctets_get(ipIfStatsTable_rowreq_ctx *
+                                                 rowreq_ctx,
+@@ -196,7 +196,7 @@
+                                                 ipIfStatsOutMcastOctets_val_ptr);
+     int             ipIfStatsHCOutMcastOctets_get(ipIfStatsTable_rowreq_ctx
+                                                   * rowreq_ctx,
+-                                                  U64 *
++                                                  NS_U64 *
+                                                   ipIfStatsHCOutMcastOctets_val_ptr);
+     int             ipIfStatsInBcastPkts_get(ipIfStatsTable_rowreq_ctx *
+                                              rowreq_ctx,
+@@ -204,7 +204,7 @@
+                                              ipIfStatsInBcastPkts_val_ptr);
+     int             ipIfStatsHCInBcastPkts_get(ipIfStatsTable_rowreq_ctx *
+                                                rowreq_ctx,
+-                                               U64 *
++                                               NS_U64 *
+                                                ipIfStatsHCInBcastPkts_val_ptr);
+     int             ipIfStatsOutBcastPkts_get(ipIfStatsTable_rowreq_ctx *
+                                               rowreq_ctx,
+@@ -212,7 +212,7 @@
+                                               ipIfStatsOutBcastPkts_val_ptr);
+     int             ipIfStatsHCOutBcastPkts_get(ipIfStatsTable_rowreq_ctx *
+                                                 rowreq_ctx,
+-                                                U64 *
++                                                NS_U64 *
+                                                 ipIfStatsHCOutBcastPkts_val_ptr);
+     int            
+         ipIfStatsDiscontinuityTime_get(ipIfStatsTable_rowreq_ctx *
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_interface.c net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_interface.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_interface.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipIfStatsTable/ipIfStatsTable_interface.c	2020-09-14 18:30:57.000000000 -0700
+@@ -696,13 +696,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCInReceives(4)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCInReceives(4)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCINRECEIVES:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCInReceives_get(rowreq_ctx,
+-                                       (U64 *) var->val.string);
++                                       (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -715,12 +715,12 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCINOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ipIfStatsHCInOctets_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ipIfStatsHCInOctets_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -784,13 +784,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCInForwDatagrams(13)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCInForwDatagrams(13)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCINFORWDATAGRAMS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCInForwDatagrams_get(rowreq_ctx,
+-                                            (U64 *) var->val.string);
++                                            (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -843,13 +843,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCInDelivers(19)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCInDelivers(19)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCINDELIVERS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCInDelivers_get(rowreq_ctx,
+-                                       (U64 *) var->val.string);
++                                       (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -863,13 +863,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCOutRequests(21)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCOutRequests(21)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCOUTREQUESTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCOutRequests_get(rowreq_ctx,
+-                                        (U64 *) var->val.string);
++                                        (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -883,13 +883,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCOutForwDatagrams(24)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCOutForwDatagrams(24)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCOUTFORWDATAGRAMS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCOutForwDatagrams_get(rowreq_ctx,
+-                                             (U64 *) var->val.string);
++                                             (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -953,13 +953,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCOutTransmits(31)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCOutTransmits(31)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCOUTTRANSMITS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCOutTransmits_get(rowreq_ctx,
+-                                         (U64 *) var->val.string);
++                                         (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -973,12 +973,12 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCOutOctets(33)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCOutOctets(33)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCOUTOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+-        rc = ipIfStatsHCOutOctets_get(rowreq_ctx, (U64 *) var->val.string);
++        rc = ipIfStatsHCOutOctets_get(rowreq_ctx, (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -992,13 +992,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCInMcastPkts(35)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCInMcastPkts(35)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCINMCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCInMcastPkts_get(rowreq_ctx,
+-                                        (U64 *) var->val.string);
++                                        (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1012,13 +1012,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCInMcastOctets(37)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCInMcastOctets(37)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCINMCASTOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCInMcastOctets_get(rowreq_ctx,
+-                                          (U64 *) var->val.string);
++                                          (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1032,13 +1032,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCOutMcastPkts(39)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCOutMcastPkts(39)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCOUTMCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCOutMcastPkts_get(rowreq_ctx,
+-                                         (U64 *) var->val.string);
++                                         (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1052,13 +1052,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCOutMcastOctets(41)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCOutMcastOctets(41)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCOUTMCASTOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCOutMcastOctets_get(rowreq_ctx,
+-                                           (U64 *) var->val.string);
++                                           (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1072,13 +1072,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCInBcastPkts(43)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCInBcastPkts(43)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCINBCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCInBcastPkts_get(rowreq_ctx,
+-                                        (U64 *) var->val.string);
++                                        (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1092,13 +1092,13 @@
+         break;
+ 
+         /*
+-         * ipIfStatsHCOutBcastPkts(45)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipIfStatsHCOutBcastPkts(45)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPIFSTATSHCOUTBCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipIfStatsHCOutBcastPkts_get(rowreq_ctx,
+-                                         (U64 *) var->val.string);
++                                         (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable.c net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable.c	2020-09-14 18:39:34.000000000 -0700
+@@ -434,7 +434,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCInReceives data.
+@@ -444,7 +444,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCInReceives_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -452,7 +452,7 @@
+  */
+ int
+ ipSystemStatsHCInReceives_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                              U64 * ipSystemStatsHCInReceives_val_ptr)
++                              NS_U64 * ipSystemStatsHCInReceives_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCInReceives_val_ptr);
+@@ -561,7 +561,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCInOctets data.
+@@ -571,7 +571,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCInOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -579,7 +579,7 @@
+  */
+ int
+ ipSystemStatsHCInOctets_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                            U64 * ipSystemStatsHCInOctets_val_ptr)
++                            NS_U64 * ipSystemStatsHCInOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCInOctets_val_ptr);
+@@ -1039,7 +1039,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCInForwDatagrams data.
+@@ -1049,7 +1049,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCInForwDatagrams_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1058,7 +1058,7 @@
+ int
+ ipSystemStatsHCInForwDatagrams_get(ipSystemStatsTable_rowreq_ctx *
+                                    rowreq_ctx,
+-                                   U64 *
++                                   NS_U64 *
+                                    ipSystemStatsHCInForwDatagrams_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+@@ -1456,7 +1456,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCInDelivers data.
+@@ -1466,7 +1466,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCInDelivers_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1474,7 +1474,7 @@
+  */
+ int
+ ipSystemStatsHCInDelivers_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                              U64 * ipSystemStatsHCInDelivers_val_ptr)
++                              NS_U64 * ipSystemStatsHCInDelivers_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCInDelivers_val_ptr);
+@@ -1584,7 +1584,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCOutRequests data.
+@@ -1594,7 +1594,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCOutRequests_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1602,7 +1602,7 @@
+  */
+ int
+ ipSystemStatsHCOutRequests_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                               U64 * ipSystemStatsHCOutRequests_val_ptr)
++                               NS_U64 * ipSystemStatsHCOutRequests_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCOutRequests_val_ptr);
+@@ -1790,7 +1790,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCOutForwDatagrams data.
+@@ -1800,7 +1800,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCOutForwDatagrams_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -1809,7 +1809,7 @@
+ int
+ ipSystemStatsHCOutForwDatagrams_get(ipSystemStatsTable_rowreq_ctx *
+                                     rowreq_ctx,
+-                                    U64 *
++                                    NS_U64 *
+                                     ipSystemStatsHCOutForwDatagrams_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+@@ -2270,7 +2270,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCOutTransmits data.
+@@ -2280,7 +2280,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCOutTransmits_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2288,7 +2288,7 @@
+  */
+ int
+ ipSystemStatsHCOutTransmits_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                                U64 * ipSystemStatsHCOutTransmits_val_ptr)
++                                NS_U64 * ipSystemStatsHCOutTransmits_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCOutTransmits_val_ptr);
+@@ -2397,7 +2397,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCOutOctets data.
+@@ -2407,7 +2407,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCOutOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2415,7 +2415,7 @@
+  */
+ int
+ ipSystemStatsHCOutOctets_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                             U64 * ipSystemStatsHCOutOctets_val_ptr)
++                             NS_U64 * ipSystemStatsHCOutOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCOutOctets_val_ptr);
+@@ -2521,7 +2521,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCInMcastPkts data.
+@@ -2531,7 +2531,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCInMcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2539,7 +2539,7 @@
+  */
+ int
+ ipSystemStatsHCInMcastPkts_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                               U64 * ipSystemStatsHCInMcastPkts_val_ptr)
++                               NS_U64 * ipSystemStatsHCInMcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCInMcastPkts_val_ptr);
+@@ -2646,7 +2646,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCInMcastOctets data.
+@@ -2656,7 +2656,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCInMcastOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2665,7 +2665,7 @@
+ int
+ ipSystemStatsHCInMcastOctets_get(ipSystemStatsTable_rowreq_ctx *
+                                  rowreq_ctx,
+-                                 U64 *
++                                 NS_U64 *
+                                  ipSystemStatsHCInMcastOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+@@ -2772,7 +2772,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCOutMcastPkts data.
+@@ -2782,7 +2782,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCOutMcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2790,7 +2790,7 @@
+  */
+ int
+ ipSystemStatsHCOutMcastPkts_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                                U64 * ipSystemStatsHCOutMcastPkts_val_ptr)
++                                NS_U64 * ipSystemStatsHCOutMcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCOutMcastPkts_val_ptr);
+@@ -2902,7 +2902,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCOutMcastOctets data.
+@@ -2912,7 +2912,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCOutMcastOctets_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -2921,7 +2921,7 @@
+ int
+ ipSystemStatsHCOutMcastOctets_get(ipSystemStatsTable_rowreq_ctx *
+                                   rowreq_ctx,
+-                                  U64 *
++                                  NS_U64 *
+                                   ipSystemStatsHCOutMcastOctets_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+@@ -3028,7 +3028,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCInBcastPkts data.
+@@ -3038,7 +3038,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCInBcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -3046,7 +3046,7 @@
+  */
+ int
+ ipSystemStatsHCInBcastPkts_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                               U64 * ipSystemStatsHCInBcastPkts_val_ptr)
++                               NS_U64 * ipSystemStatsHCInBcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCInBcastPkts_val_ptr);
+@@ -3152,7 +3152,7 @@
+  *
+  *
+  * Its syntax is COUNTER64 (based on perltype COUNTER64)
+- * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (U64)
++ * The net-snmp type is ASN_COUNTER64. The C type decl is U64 (NS_U64)
+  */
+ /**
+  * Extract the current value of the ipSystemStatsHCOutBcastPkts data.
+@@ -3162,7 +3162,7 @@
+  * @param rowreq_ctx
+  *        Pointer to the row request context.
+  * @param ipSystemStatsHCOutBcastPkts_val_ptr
+- *        Pointer to storage for a U64 variable
++ *        Pointer to storage for a NS_U64 variable
+  *
+  * @retval MFD_SUCCESS         : success
+  * @retval MFD_SKIP            : skip this node (no value for now)
+@@ -3170,7 +3170,7 @@
+  */
+ int
+ ipSystemStatsHCOutBcastPkts_get(ipSystemStatsTable_rowreq_ctx * rowreq_ctx,
+-                                U64 * ipSystemStatsHCOutBcastPkts_val_ptr)
++                                NS_U64 * ipSystemStatsHCOutBcastPkts_val_ptr)
+ {
+    /** we should have a non-NULL pointer */
+     netsnmp_assert(NULL != ipSystemStatsHCOutBcastPkts_val_ptr);
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable.h net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable.h
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable.h	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable.h	2020-09-14 18:17:21.000000000 -0700
+@@ -303,7 +303,7 @@
+         
+         ipSystemStatsHCInReceives_get(ipSystemStatsTable_rowreq_ctx *
+                                       rowreq_ctx,
+-                                      U64 *
++                                      NS_U64 *
+                                       ipSystemStatsHCInReceives_val_ptr);
+     int             ipSystemStatsInOctets_get(ipSystemStatsTable_rowreq_ctx
+                                               * rowreq_ctx,
+@@ -327,7 +327,7 @@
+         
+         ipSystemStatsHCInOctets_get(ipSystemStatsTable_rowreq_ctx *
+                                     rowreq_ctx,
+-                                    U64 * ipSystemStatsHCInOctets_val_ptr);
++                                    NS_U64 * ipSystemStatsHCInOctets_val_ptr);
+     int
+      
+         
+@@ -466,7 +466,7 @@
+         
+         ipSystemStatsHCInForwDatagrams_get(ipSystemStatsTable_rowreq_ctx *
+                                            rowreq_ctx,
+-                                           U64 *
++                                           NS_U64 *
+                                            ipSystemStatsHCInForwDatagrams_val_ptr);
+     int
+      
+@@ -570,7 +570,7 @@
+         
+         ipSystemStatsHCInDelivers_get(ipSystemStatsTable_rowreq_ctx *
+                                       rowreq_ctx,
+-                                      U64 *
++                                      NS_U64 *
+                                       ipSystemStatsHCInDelivers_val_ptr);
+     int
+      
+@@ -610,7 +610,7 @@
+         
+         ipSystemStatsHCOutRequests_get(ipSystemStatsTable_rowreq_ctx *
+                                        rowreq_ctx,
+-                                       U64 *
++                                       NS_U64 *
+                                        ipSystemStatsHCOutRequests_val_ptr);
+     int
+      
+@@ -670,7 +670,7 @@
+         
+         ipSystemStatsHCOutForwDatagrams_get(ipSystemStatsTable_rowreq_ctx *
+                                             rowreq_ctx,
+-                                            U64 *
++                                            NS_U64 *
+                                             ipSystemStatsHCOutForwDatagrams_val_ptr);
+     int
+      
+@@ -810,7 +810,7 @@
+         
+         ipSystemStatsHCOutTransmits_get(ipSystemStatsTable_rowreq_ctx *
+                                         rowreq_ctx,
+-                                        U64 *
++                                        NS_U64 *
+                                         ipSystemStatsHCOutTransmits_val_ptr);
+     int
+      
+@@ -850,7 +850,7 @@
+         
+         ipSystemStatsHCOutOctets_get(ipSystemStatsTable_rowreq_ctx *
+                                      rowreq_ctx,
+-                                     U64 *
++                                     NS_U64 *
+                                      ipSystemStatsHCOutOctets_val_ptr);
+     int
+      
+@@ -890,7 +890,7 @@
+         
+         ipSystemStatsHCInMcastPkts_get(ipSystemStatsTable_rowreq_ctx *
+                                        rowreq_ctx,
+-                                       U64 *
++                                       NS_U64 *
+                                        ipSystemStatsHCInMcastPkts_val_ptr);
+     int
+      
+@@ -930,7 +930,7 @@
+         
+         ipSystemStatsHCInMcastOctets_get(ipSystemStatsTable_rowreq_ctx *
+                                          rowreq_ctx,
+-                                         U64 *
++                                         NS_U64 *
+                                          ipSystemStatsHCInMcastOctets_val_ptr);
+     int
+      
+@@ -970,7 +970,7 @@
+         
+         ipSystemStatsHCOutMcastPkts_get(ipSystemStatsTable_rowreq_ctx *
+                                         rowreq_ctx,
+-                                        U64 *
++                                        NS_U64 *
+                                         ipSystemStatsHCOutMcastPkts_val_ptr);
+     int
+      
+@@ -1010,7 +1010,7 @@
+         
+         ipSystemStatsHCOutMcastOctets_get(ipSystemStatsTable_rowreq_ctx *
+                                           rowreq_ctx,
+-                                          U64 *
++                                          NS_U64 *
+                                           ipSystemStatsHCOutMcastOctets_val_ptr);
+     int
+      
+@@ -1050,7 +1050,7 @@
+         
+         ipSystemStatsHCInBcastPkts_get(ipSystemStatsTable_rowreq_ctx *
+                                        rowreq_ctx,
+-                                       U64 *
++                                       NS_U64 *
+                                        ipSystemStatsHCInBcastPkts_val_ptr);
+     int
+      
+@@ -1090,7 +1090,7 @@
+         
+         ipSystemStatsHCOutBcastPkts_get(ipSystemStatsTable_rowreq_ctx *
+                                         rowreq_ctx,
+-                                        U64 *
++                                        NS_U64 *
+                                         ipSystemStatsHCOutBcastPkts_val_ptr);
+     int
+      
+diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable_interface.c net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable_interface.c
+--- net-snmp-5.6.2.1.orig/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable_interface.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/agent/mibgroup/ip-mib/ipSystemStatsTable/ipSystemStatsTable_interface.c	2020-09-14 18:33:01.000000000 -0700
+@@ -650,13 +650,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCInReceives(4)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCInReceives(4)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCINRECEIVES:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCInReceives_get(rowreq_ctx,
+-                                           (U64 *) var->val.string);
++                                           (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -670,13 +670,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCInOctets(6)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCINOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCInOctets_get(rowreq_ctx,
+-                                         (U64 *) var->val.string);
++                                         (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -740,13 +740,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCInForwDatagrams(13)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCInForwDatagrams(13)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCINFORWDATAGRAMS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCInForwDatagrams_get(rowreq_ctx,
+-                                                (U64 *) var->val.string);
++                                                (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -800,13 +800,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCInDelivers(19)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCInDelivers(19)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCINDELIVERS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCInDelivers_get(rowreq_ctx,
+-                                           (U64 *) var->val.string);
++                                           (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -820,13 +820,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCOutRequests(21)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCOutRequests(21)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCOUTREQUESTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCOutRequests_get(rowreq_ctx,
+-                                            (U64 *) var->val.string);
++                                            (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -850,13 +850,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCOutForwDatagrams(24)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCOutForwDatagrams(24)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCOUTFORWDATAGRAMS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCOutForwDatagrams_get(rowreq_ctx,
+-                                                 (U64 *) var->val.string);
++                                                 (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -920,13 +920,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCOutTransmits(31)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCOutTransmits(31)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCOUTTRANSMITS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCOutTransmits_get(rowreq_ctx,
+-                                             (U64 *) var->val.string);
++                                             (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -940,13 +940,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCOutOctets(33)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCOutOctets(33)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCOUTOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCOutOctets_get(rowreq_ctx,
+-                                          (U64 *) var->val.string);
++                                          (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -960,13 +960,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCInMcastPkts(35)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCInMcastPkts(35)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCINMCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCInMcastPkts_get(rowreq_ctx,
+-                                            (U64 *) var->val.string);
++                                            (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -980,13 +980,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCInMcastOctets(37)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCInMcastOctets(37)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCINMCASTOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCInMcastOctets_get(rowreq_ctx,
+-                                              (U64 *) var->val.string);
++                                              (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1000,13 +1000,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCOutMcastPkts(39)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCOutMcastPkts(39)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCOUTMCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCOutMcastPkts_get(rowreq_ctx,
+-                                             (U64 *) var->val.string);
++                                             (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1020,13 +1020,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCOutMcastOctets(41)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCOutMcastOctets(41)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCOUTMCASTOCTETS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCOutMcastOctets_get(rowreq_ctx,
+-                                               (U64 *) var->val.string);
++                                               (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1040,13 +1040,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCInBcastPkts(43)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCInBcastPkts(43)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCINBCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCInBcastPkts_get(rowreq_ctx,
+-                                            (U64 *) var->val.string);
++                                            (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+@@ -1060,13 +1060,13 @@
+         break;
+ 
+         /*
+-         * ipSystemStatsHCOutBcastPkts(45)/COUNTER64/ASN_COUNTER64/U64(U64)//l/A/w/e/r/d/h 
++         * ipSystemStatsHCOutBcastPkts(45)/COUNTER64/ASN_COUNTER64/U64(NS_U64)//l/A/w/e/r/d/h 
+          */
+     case COLUMN_IPSYSTEMSTATSHCOUTBCASTPKTS:
+-        var->val_len = sizeof(U64);
++        var->val_len = sizeof(NS_U64);
+         var->type = ASN_COUNTER64;
+         rc = ipSystemStatsHCOutBcastPkts_get(rowreq_ctx,
+-                                             (U64 *) var->val.string);
++                                             (NS_U64 *) var->val.string);
+         break;
+ 
+         /*
+diff -Naur net-snmp-5.6.2.1.orig/include/net-snmp/data_access/ipstats.h net-snmp-5.6.2.1.working/include/net-snmp/data_access/ipstats.h
+--- net-snmp-5.6.2.1.orig/include/net-snmp/data_access/ipstats.h	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/include/net-snmp/data_access/ipstats.h	2020-09-14 18:17:20.000000000 -0700
+@@ -58,45 +58,45 @@
+     * other columns, when underlying OS does not provide them.
+     * Always fill at least 32 bits, the table is periodically polled -> 32 bit
+     * overflow shall be detected and 64 bit value should be computed automatically. */
+-   U64             HCInReceives;
+-   U64             HCInOctets;
++   NS_U64             HCInReceives;
++   NS_U64             HCInOctets;
+    u_long          InHdrErrors;
+-   U64             HCInNoRoutes; 
++   NS_U64             HCInNoRoutes; 
+    u_long          InAddrErrors;
+    u_long          InUnknownProtos;
+    u_long          InTruncatedPkts;
+    
+    /* optional, can be computed from HCInNoRoutes and HCOutForwDatagrams */
+-   U64             HCInForwDatagrams; 
++   NS_U64             HCInForwDatagrams; 
+    
+    u_long          ReasmReqds;
+    u_long          ReasmOKs;
+    u_long          ReasmFails;
+    u_long          InDiscards;
+-   U64             HCInDelivers;
+-   U64             HCOutRequests;
+-   U64             HCOutNoRoutes;
+-   U64             HCOutForwDatagrams;
+-   U64             HCOutDiscards;
++   NS_U64             HCInDelivers;
++   NS_U64             HCOutRequests;
++   NS_U64             HCOutNoRoutes;
++   NS_U64             HCOutForwDatagrams;
++   NS_U64             HCOutDiscards;
+    
+    /* optional, can be computed from HCOutFragOKs + HCOutFragFails*/
+-   U64             HCOutFragReqds;
+-   U64             HCOutFragOKs;
+-   U64             HCOutFragFails;
+-   U64             HCOutFragCreates;
++   NS_U64             HCOutFragReqds;
++   NS_U64             HCOutFragOKs;
++   NS_U64             HCOutFragFails;
++   NS_U64             HCOutFragCreates;
+    
+    /* optional, can be computed from 
+     * HCOutRequests +HCOutForwDatagrams + HCOutFragCreates
+     * - HCOutFragReqds - HCOutNoRoutes  - HCOutDiscards */
+-   U64             HCOutTransmits;
++   NS_U64             HCOutTransmits;
+    
+-   U64             HCOutOctets;
+-   U64             HCInMcastPkts;
+-   U64             HCInMcastOctets;
+-   U64             HCOutMcastPkts;
+-   U64             HCOutMcastOctets;
+-   U64             HCInBcastPkts;
+-   U64             HCOutBcastPkts;
++   NS_U64             HCOutOctets;
++   NS_U64             HCInMcastPkts;
++   NS_U64             HCInMcastOctets;
++   NS_U64             HCOutMcastPkts;
++   NS_U64             HCOutMcastOctets;
++   NS_U64             HCInBcastPkts;
++   NS_U64             HCOutBcastPkts;
+ 
+    /* Array of available columns.*/
+    int             columnAvail[IPSYSTEMSTATSTABLE_LAST+1];
+diff -Naur net-snmp-5.6.2.1.orig/local/mib2c net-snmp-5.6.2.1.working/local/mib2c
+--- net-snmp-5.6.2.1.orig/local/mib2c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/local/mib2c	2020-09-14 18:17:20.000000000 -0700
+@@ -148,7 +148,7 @@
+ 	       "UNSIGNED32", "u_long",
+ 	       "UINTEGER", "u_long",
+ 	       "OBJECTID", "oid",
+-	       "COUNTER64", "U64",
++	       "COUNTER64", "NS_U64",
+ 	       "COUNTER", "u_long",
+ 	       "IPADDR", "in_addr_t",
+ 	       "BITS", "char",
+diff -Naur net-snmp-5.6.2.1.orig/local/mib2c-conf.d/generic-ctx-get.m2i net-snmp-5.6.2.1.working/local/mib2c-conf.d/generic-ctx-get.m2i
+--- net-snmp-5.6.2.1.orig/local/mib2c-conf.d/generic-ctx-get.m2i	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/local/mib2c-conf.d/generic-ctx-get.m2i	2020-09-14 18:17:20.000000000 -0700
+@@ -92,7 +92,7 @@
+     $m2c_ctx_lhs = $m2c_ctx_rhs$m2c_ctx_lm;
+     memcpy( $m2c_ctx_lh, $m2c_ctx_rh, $m2c_ctx_rhs$m2c_ctx_cm );
+ @else@
+-@   if $node.decl =~ /U64/i@ #              ASN_COUNTER64
++@   if $node.decl =~ /NS_U64/i@ #              ASN_COUNTER64
+     ${m2c_ctx_lh}.high = ${m2c_ctx_rh}.high;
+     ${m2c_ctx_lh}.low = ${m2c_ctx_rh}.low;
+ @   else@
+diff -Naur net-snmp-5.6.2.1.orig/local/mib2c-conf.d/node-get.m2i net-snmp-5.6.2.1.working/local/mib2c-conf.d/node-get.m2i
+--- net-snmp-5.6.2.1.orig/local/mib2c-conf.d/node-get.m2i	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/local/mib2c-conf.d/node-get.m2i	2020-09-14 18:42:51.000000000 -0700
+@@ -84,7 +84,7 @@
+ @       include generic-get-char.m2i@
+ @    elsif $node.decl =~ /oid/i@ #                    ASN_OBJECT_ID
+ @       include generic-get-oid.m2i@
+-@    elsif $node.decl =~ /U64/i@ #                    ASN_COUNTER64
++@    elsif $node.decl =~ /NS_U64/i@ #                    ASN_COUNTER64
+ @       include generic-get-U64.m2i@
+ @    else@
+ @        print ERROR: unknown node.decl: $node.decl@
+diff -Naur net-snmp-5.6.2.1.orig/snmplib/asn1.c net-snmp-5.6.2.1.working/snmplib/asn1.c
+--- net-snmp-5.6.2.1.orig/snmplib/asn1.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/snmplib/asn1.c	2020-09-14 18:43:16.000000000 -0700
+@@ -1853,7 +1853,7 @@
+         ((*(bufp + 1) == ASN_OPAQUE_COUNTER64) ||
+          (*(bufp + 1) == ASN_OPAQUE_U64))) {
+         /*
+-         * change type to Counter64 or U64 
++         * change type to Counter64 or NS_U64 
+          */
+         *type = *(bufp + 1);
+         /*
+diff -Naur net-snmp-5.6.2.1.orig/snmplib/int64.c net-snmp-5.6.2.1.working/snmplib/int64.c
+--- net-snmp-5.6.2.1.orig/snmplib/int64.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/snmplib/int64.c	2020-09-14 18:17:20.000000000 -0700
+@@ -31,7 +31,7 @@
+  * @param[out] puR   Remainder.
+  */
+ void
+-divBy10(U64 u64, U64 * pu64Q, unsigned int *puR)
++divBy10(NS_U64 u64, NS_U64 * pu64Q, unsigned int *puR)
+ {
+     unsigned long   ulT;
+     unsigned long   ulQ;
+@@ -81,7 +81,7 @@
+  * @param[out] pu64P Product.
+  */
+ void
+-multBy10(U64 u64, U64 * pu64P)
++multBy10(NS_U64 u64, NS_U64 * pu64P)
+ {
+     unsigned long   ulT;
+     unsigned long   ulP;
+@@ -128,7 +128,7 @@
+  *
+  */
+ void
+-incrByU16(U64 * pu64, unsigned int u16)
++incrByU16(NS_U64 * pu64, unsigned int u16)
+ {
+     incrByU32(pu64, u16);
+ }
+@@ -141,7 +141,7 @@
+  *
+  */
+ void
+-incrByU32(U64 * pu64, unsigned int u32)
++incrByU32(NS_U64 * pu64, unsigned int u32)
+ {
+     uint32_t tmp;
+ 
+@@ -159,7 +159,7 @@
+  * @param[out] pu64out pu64one - pu64two.
+  */
+ void
+-u64Subtract(const U64 * pu64one, const U64 * pu64two, U64 * pu64out)
++u64Subtract(const NS_U64 * pu64one, const NS_U64 * pu64two, NS_U64 * pu64out)
+ {
+     int carry;
+ 
+@@ -175,7 +175,7 @@
+  * @param[in,out] pu64out pu64out += pu64one.
+  */
+ void
+-u64Incr(U64 * pu64out, const U64 * pu64one)
++u64Incr(NS_U64 * pu64out, const NS_U64 * pu64one)
+ {
+     pu64out->high = (uint32_t)(pu64out->high + pu64one->high);
+     incrByU32(pu64out, pu64one->low);
+@@ -189,9 +189,9 @@
+  * @param[out] pu64out pu64out += (pu64one - pu64two)
+  */
+ void
+-u64UpdateCounter(U64 * pu64out, const U64 * pu64one, const U64 * pu64two)
++u64UpdateCounter(NS_U64 * pu64out, const NS_U64 * pu64one, const NS_U64 * pu64two)
+ {
+-    U64 tmp;
++    NS_U64 tmp;
+ 
+     u64Subtract(pu64one, pu64two, &tmp);
+     u64Incr(pu64out, &tmp);
+@@ -204,7 +204,7 @@
+  * @param[out] pu64one Where to store the copy - *pu64one = *pu64two.
+  */
+ void
+-u64Copy(U64 * pu64one, const U64 * pu64two)
++u64Copy(NS_U64 * pu64one, const NS_U64 * pu64two)
+ {
+     *pu64one = *pu64two;
+ }
+@@ -215,7 +215,7 @@
+  * @param[in] pu64 Number to be zeroed.
+  */
+ void
+-zeroU64(U64 * pu64)
++zeroU64(NS_U64 * pu64)
+ {
+     pu64->low = 0;
+     pu64->high = 0;
+@@ -227,7 +227,7 @@
+  * @param[in] pu64 Number to be checked.
+  */
+ int
+-isZeroU64(const U64 * pu64)
++isZeroU64(const NS_U64 * pu64)
+ {
+     return pu64->low == 0 && pu64->high == 0;
+ }
+@@ -385,10 +385,10 @@
+ /** Convert an unsigned 64-bit number to ASCII. */
+ void
+ printU64(char *buf, /* char [I64CHARSZ+1]; */
+-         const U64 * pu64)
++         const NS_U64 * pu64)
+ {
+-    U64             u64a;
+-    U64             u64b;
++    NS_U64             u64a;
++    NS_U64             u64b;
+ 
+     char            aRes[I64CHARSZ + 1];
+     unsigned int    u;
+@@ -409,9 +409,9 @@
+ /** Convert a signed 64-bit number to ASCII. */
+ void
+ printI64(char *buf, /* char [I64CHARSZ+1]; */
+-         const U64 * pu64)
++         const NS_U64 * pu64)
+ {
+-    U64             u64a;
++    NS_U64             u64a;
+ 
+     if (pu64->high & 0x80000000) {
+         u64a.high = (uint32_t) ~pu64->high;
+@@ -424,11 +424,11 @@
+     }
+ }
+ 
+-/** Convert a signed 64-bit integer from ASCII to U64. */
++/** Convert a signed 64-bit integer from ASCII to NS_U64. */
+ int
+-read64(U64 * i64, const char *str)
++read64(NS_U64 * i64, const char *str)
+ {
+-    U64             i64p;
++    NS_U64             i64p;
+     unsigned int    u;
+     int             sign = 0;
+     int             ok = 0;
+diff -Naur net-snmp-5.6.2.1.orig/snmplib/read_config.c net-snmp-5.6.2.1.working/snmplib/read_config.c
+--- net-snmp-5.6.2.1.orig/snmplib/read_config.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/snmplib/read_config.c	2020-09-14 18:17:20.000000000 -0700
+@@ -2216,10 +2216,10 @@
+         return readfrom;
+ 
+     case ASN_COUNTER64:
+-        if (*len < sizeof(U64))
++        if (*len < sizeof(NS_U64))
+             return NULL;
+-        *len = sizeof(U64);
+-        read64((U64 *) dataptr, readfrom);
++        *len = sizeof(NS_U64);
++        read64((NS_U64 *) dataptr, readfrom);
+         readfrom = skip_token(readfrom);
+         return readfrom;
+     }
+diff -Naur net-snmp-5.6.2.1.orig/testing/fulltests/unit-tests/T015int64_clib.c net-snmp-5.6.2.1.working/testing/fulltests/unit-tests/T015int64_clib.c
+--- net-snmp-5.6.2.1.orig/testing/fulltests/unit-tests/T015int64_clib.c	2014-02-20 06:49:27.000000000 -0800
++++ net-snmp-5.6.2.1.working/testing/fulltests/unit-tests/T015int64_clib.c	2020-09-14 18:17:19.000000000 -0700
+@@ -1,4 +1,4 @@
+-/* HEADER Testing 64-bit integer operations (U64). */
++/* HEADER Testing 64-bit integer operations (NS_U64). */
+ 
+ int i, j;
+ char buf[22];
+@@ -15,7 +15,7 @@
+ };
+ 
+ for (i = 0; i < sizeof(intval)/sizeof(intval[0]); ++i) {
+-    U64 a, b;
++    NS_U64 a, b;
+     a.low = (uint32_t)intval[i];
+     a.high = (uint32_t)(intval[i] >> 32);
+     printI64(buf, &a);
+@@ -27,7 +27,7 @@
+ 
+ for (i = 0; i < sizeof(intval)/sizeof(intval[0]); ++i) {
+     for (j = i; j < sizeof(intval)/sizeof(intval[0]); ++j) {
+-        U64 a, b;
++        NS_U64 a, b;
+         uint64_t d;
+         a.low = (uint32_t)intval[i];
+         a.high = (uint32_t)(intval[i] >> 32);
+@@ -43,7 +43,7 @@
+         
+ for (i = 0; i < sizeof(intval)/sizeof(intval[0]); ++i) {
+     for (j = i; j < sizeof(intval)/sizeof(intval[0]); ++j) {
+-        U64 a, b, c;
++        NS_U64 a, b, c;
+         uint64_t d;
+         a.low = (uint32_t)intval[i];
+         a.high = (uint32_t)(intval[i] >> 32);
+@@ -58,7 +58,7 @@
+ }
+         
+ {
+-    U64 old_val, new_val;
++    NS_U64 old_val, new_val;
+     old_val.low = 7;
+     old_val.high = 0;
+     new_val = old_val;

@@ -61,11 +61,15 @@ static inline SOSPeerInfoRef asSOSPeerInfo(CFTypeRef obj) {
     return isSOSPeerInfo(obj) ? (SOSPeerInfoRef) obj : NULL;
 }
 
-SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonPeerEncryptionKey, CFErrorRef* error);
+SOSPeerInfoRef SOSPeerInfoCreate(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key, SecKeyRef signingKey,
+                                 SecKeyRef octagonSigningKey, SecKeyRef octagonPeerEncryptionKey, bool supportsCKKS4All,
+                                 CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateWithTransportAndViews(CFAllocatorRef allocator, CFDictionaryRef gestalt, CFDataRef backup_key,
                                                       CFStringRef IDSID, CFStringRef transportType, CFBooleanRef preferIDS,
-                                                      CFBooleanRef preferFragmentation, CFBooleanRef preferAckModel, CFSetRef enabledViews, SecKeyRef signingKey, SecKeyRef octagonSigningKey, SecKeyRef octagonPeerEncryptionKey, CFErrorRef* error);
+                                                      CFBooleanRef preferFragmentation, CFBooleanRef preferAckModel, CFSetRef enabledViews, SecKeyRef signingKey,
+                                                      SecKeyRef octagonSigningKey, SecKeyRef octagonPeerEncryptionKey, bool supportsCKKS4All,
+                                                      CFErrorRef* error);
 
 SOSPeerInfoRef SOSPeerInfoCreateCloudIdentity(CFAllocatorRef allocator, CFDictionaryRef gestalt, SecKeyRef signingKey, CFErrorRef* error);
 
@@ -138,6 +142,8 @@ CFIndex SOSPeerInfoGetPeerProtocolVersion(SOSPeerInfoRef peer);
 
 // Stringified ID for this peer, not human readable.
 CFStringRef SOSPeerInfoGetPeerID(SOSPeerInfoRef peer);
+CFStringRef SOSPeerInfoGetSPID(SOSPeerInfoRef pi);
+
 bool SOSPeerInfoPeerIDEqual(SOSPeerInfoRef pi, CFStringRef myPeerID);
 
 CFIndex SOSPeerInfoGetVersion(SOSPeerInfoRef peer);
@@ -153,7 +159,7 @@ CFTypeRef SOSPeerGestaltGetAnswer(CFDictionaryRef gestalt, CFStringRef question)
 SecKeyRef SOSPeerInfoCopyPubKey(SOSPeerInfoRef peer, CFErrorRef *error);
 SecKeyRef SOSPeerInfoCopyOctagonSigningPublicKey(SOSPeerInfoRef peer, CFErrorRef* error);
 SecKeyRef SOSPeerInfoCopyOctagonEncryptionPublicKey(SOSPeerInfoRef peer, CFErrorRef* error);
-void SOSPeerInfoSetOctagonKeysInDescription(SOSPeerInfoRef peer,  SecKeyRef octagonSigningKey,
+bool SOSPeerInfoSetOctagonKeysInDescription(SOSPeerInfoRef peer,  SecKeyRef octagonSigningKey,
                                             SecKeyRef octagonEncryptionKey, CFErrorRef *error);
 CFDataRef SOSPeerInfoGetAutoAcceptInfo(SOSPeerInfoRef peer);
 
@@ -182,6 +188,9 @@ CFMutableSetRef SOSPeerInfoCopyEnabledViews(SOSPeerInfoRef peer);
 void SOSPeerInfoWithEnabledViewSet(SOSPeerInfoRef pi, void (^operation)(CFSetRef enabled));
 uint64_t SOSViewBitmaskFromSet(CFSetRef views);
 uint64_t SOSPeerInfoViewBitMask(SOSPeerInfoRef pi);
+
+bool SOSPeerInfoSupportsCKKSForAll(SOSPeerInfoRef peerInfo);
+void SOSPeerInfoSetSupportsCKKSForAll(SOSPeerInfoRef peerInfo, bool supports);
 
 bool SOSPeerInfoKVSOnly(SOSPeerInfoRef pi);
 CFStringRef SOSPeerInfoCopyTransportType(SOSPeerInfoRef peer);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -67,7 +67,6 @@ WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
 @property (nonatomic) BOOL prewarmsProcessesAutomatically WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 @property (nonatomic) BOOL usesWebProcessCache WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 @property (nonatomic) BOOL pageCacheEnabled WK_API_AVAILABLE(macos(10.14), ios(12.0));
-@property (nonatomic) BOOL suppressesConnectionTerminationOnSystemChange WK_API_DEPRECATED_WITH_REPLACEMENT("_WKWebsiteDataStoreConfiguration.suppressesConnectionTerminationOnSystemChange", macos(10.14, WK_MAC_TBA), ios(12.0, WK_IOS_TBA));
 @property (nonatomic, getter=isJITEnabled) BOOL JITEnabled WK_API_AVAILABLE(macos(10.14.4), ios(12.2));
 @property (nonatomic, nullable, copy, setter=setHSTSStorageDirectory:) NSURL *hstsStorageDirectory WK_API_AVAILABLE(macos(10.15), ios(13.0));
 

@@ -192,7 +192,7 @@ DatabaseSession::DbClose(CSSM_DB_HANDLE inDbHandle)
     DbContextMap::iterator it = mDbContextMap.find(inDbHandle);
     if (it == mDbContextMap.end())
         CssmError::throwMe(CSSM_ERRCODE_INVALID_DB_HANDLE);
-    auto_ptr<DbContext> aDbContext(it->second);
+    unique_ptr<DbContext> aDbContext(it->second);
     mDbContextMap.erase(it);
     mDatabaseManager.dbClose(*aDbContext);
 }

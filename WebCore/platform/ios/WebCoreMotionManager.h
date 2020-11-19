@@ -23,22 +23,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#pragma once
-
-#import <CoreLocation/CoreLocation.h>
-#import <wtf/HashCountedSet.h>
-#import <wtf/WeakHashSet.h>
-
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
 
-#import <CoreMotion/CoreMotion.h>
+#import <CoreLocation/CoreLocation.h>
+#import <wtf/WeakHashSet.h>
 
-const float kMotionUpdateInterval = 1.0f / 60.0f;
+constexpr float kMotionUpdateInterval = 1.0f / 60.0f;
+@class CMMotionManager;
 
 namespace WebCore {
 class DeviceMotionClientIOS;
 class MotionManagerClient;
-};
+}
 
 WEBCORE_EXPORT @interface WebCoreMotionManager : NSObject {
     CMMotionManager* m_motionManager;

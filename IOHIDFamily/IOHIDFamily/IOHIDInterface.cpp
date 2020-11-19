@@ -26,6 +26,7 @@
 #include "IOHIDInterface.h"
 #include "IOHIDDevice.h"
 #include "IOHIDElementPrivate.h"
+#include "IOHIDLibUserClient.h"
 #include "OSStackRetain.h"
 #include "IOHIDDebug.h"
 #include <IOKit/hidsystem/IOHIDShared.h>
@@ -67,6 +68,7 @@ OSDefineMetaClassAndStructors( IOHIDInterface, IOService )
 #define _reportPool                 _reserved->reportPool
 #define _opened                     _reserved->opened
 #define _sleeping                   _reserved->sleeping
+#define _terminated                 _reserved->terminated
 
 //---------------------------------------------------------------------------
 // IOHIDInterface::free
@@ -159,6 +161,13 @@ IOReturn IOHIDInterface::message(UInt32 type,
         }
     } else if  (type == kIOHIDMessageRelayServiceInterfaceActive && provider != _owner) {
         result = _owner->message(type, this, argument);
+    } else if (type == kIOHIDDeviceWillTerminate && provider == _owner) {
+        _terminated = true;
+
+        if (_sleeping && _reportAction) {
+            _sleeping = false;
+            _commandGate->commandWakeup((void *)_reportAction);
+        }
     } else {
         result = super::message(type, provider, argument);
     }
@@ -250,6 +259,20 @@ bool IOHIDInterface::start( IOService * provider )
     if (boolean) {
         setProperty(kIOHIDBuiltInKey, boolean);
         builtin = boolean->getValue();
+    }
+    OSSafeReleaseNULL(object);
+
+    object = _owner->copyProperty(kIOHIDPointerAccelerationSupportKey);
+    boolean = OSDynamicCast(OSBoolean, object);
+    if (boolean) {
+        setProperty(kIOHIDPointerAccelerationSupportKey, boolean);
+    }
+    OSSafeReleaseNULL(object);
+
+    object = _owner->copyProperty(kIOHIDScrollAccelerationSupportKey);
+    boolean = OSDynamicCast(OSBoolean, object);
+    if (boolean) {
+        setProperty(kIOHIDScrollAccelerationSupportKey, boolean);
     }
     OSSafeReleaseNULL(object);
     
@@ -624,7 +647,7 @@ void IOHIDInterface::handleReportGated(AbsoluteTime timestamp,
     IOReturn ret = kIOReturnSuccess;
     IOBufferMemoryDescriptor *poolReport;
     
-    require(_opened, exit);
+    require(_opened && !_terminated, exit);
     
     require_action(_reportPool, exit, HIDServiceLogError("No report pool"));
     
@@ -637,8 +660,8 @@ void IOHIDInterface::handleReportGated(AbsoluteTime timestamp,
             HIDServiceLogError("command sleep: 0x%x", ret);
         }
         
-        // make sure we weren't closed by close() call
-        require(_opened, exit);
+        // make sure we weren't closed by close() call or are now terminating
+        require(_opened && !_terminated, exit);
     }
     
     require_action(_reportPool->getCount(), exit, {
@@ -807,72 +830,18 @@ IMPL(IOHIDInterface, SetElementValues)
 {
     IOReturn ret = kIOReturnError;
     UInt8 *values = NULL;
-    IOHIDElementCookie *cookies = NULL;
-    UInt32 totalSize = 0;
-    UInt32 offset = 0;
-    uint32_t allocSize = 0;
     IOBufferMemoryDescriptor *md = NULL;
     
     md = OSDynamicCast(IOBufferMemoryDescriptor, elementValues);
     require_action(md && count, exit, ret = kIOReturnBadArgument);
-    
-    require(!os_mul_overflow(count, sizeof(IOHIDElementCookie), &allocSize), exit);
-    
+
     values = (UInt8 *)md->getBytesNoCopy();
     
-    cookies = (IOHIDElementCookie *)IOMalloc(allocSize);
-    require_action(cookies, exit, ret = kIOReturnNoMemory);
-    
-    bzero(cookies, count);
-    
-    for (unsigned int i = 0; i < count; i++) {
-        IOHIDElementValueHeader *header = NULL;
-        IOHIDElementPrivate *element = NULL;
-        UInt32 valueSize = 0;
-        
-        // make sure we are within bounds of md.
-        assert(offset <= (elementValues->getLength() - sizeof(IOHIDElementValueHeader)));
-        
-        header = (IOHIDElementValueHeader *)values;
-        
-        element = (IOHIDElementPrivate *)_deviceElements->getObject(header->cookie);
-        require_action(element, exit, {
-            HIDLogError("No element for cookie %d", (unsigned int)header->cookie);
-            ret = kIOReturnBadArgument;
-        });
-        
-        cookies[i] = (IOHIDElementCookie)header->cookie;
-        
-        valueSize = (UInt32)element->getByteSize();
-        
-        // size check
-        totalSize += sizeof(IOHIDElementValueHeader) + valueSize;
-        require_action(totalSize <= elementValues->getLength(), exit, {
-            HIDLogError("IOHIDInterface SetElementValues totalSize: %d length: %d",
-                        (unsigned int)totalSize, (int)elementValues->getLength());
-            ret = kIOReturnBadArgument;
-        });
-        
-        OSData *data = OSData::withBytesNoCopy(header->value, valueSize);
-        if (data) {
-            // update our element value (will not post to device)
-            element->setDataBits(data);
-            data->release();
-        }
-        
-        values += sizeof(IOHIDElementValueHeader) + valueSize;
-        offset += sizeof(IOHIDElementValueHeader) + valueSize;
-    }
-    
-    // all data is copied over, tell the device
-    ret = _owner->postElementValues(cookies, count);
+    // Post the data to the device
+    ret = _owner->postElementTransaction(values, (UInt32)md->getLength());
     require_noerr_action(ret, exit, HIDServiceLogError("postElementValues failed: 0x%x", ret));
-    
+
 exit:
-    if (cookies) {
-        IOFree(cookies, allocSize);
-    }
-    
     return ret;
 }
 

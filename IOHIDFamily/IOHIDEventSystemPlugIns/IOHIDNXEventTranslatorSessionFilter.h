@@ -21,6 +21,7 @@
 #include  <shared_mutex>
 #include "CF.h"
 #import <Foundation/Foundation.h>
+#import <SkyLight/SLSDisplayManager.h>
 
 
 #define kIOHIDPowerOnThresholdMS                    (500)            // 1/2 second
@@ -36,6 +37,14 @@ struct LogEntry {
     IOHIDEventPolicyValue   policy;
     IOHIDEventType          eventType;
     uint64_t                timestamp;
+};
+
+struct LogNXEventEntry {
+    struct timeval         time;
+    IOHIDEventPolicyValue  policy;
+    int32_t                senderPID;
+    uint32_t               nxEventType;
+    uint64_t               timestamp;
 };
 
 class IOHIDNXEventTranslatorSessionFilter
@@ -73,9 +82,6 @@ private:
     uint32_t                        _powerState;
     uint32_t                        _powerOnThresholdEventCount;
     uint32_t                        _powerOnThreshold;
-    IONotificationPortRef           _port;
-    io_object_t                     _wranglerNotifier;
-    io_service_t                    _wrangler;
     uint32_t                        _displayState;
     uint32_t                        _displaySleepAbortThreshold;
     uint32_t                        _displayWakeAbortThreshold;
@@ -83,6 +89,7 @@ private:
     CFMutableDictionaryRefWrap      _assertionNames;
     uint64_t                        _previousEventTime;
     uint64_t                        _declareActivityThreshold;
+    dispatch_queue_t                _updateActivityQueue;
   
     CFMutableDictionaryRefWrap      _modifiers;
     CFMutableDictionaryRefWrap      _companions;
@@ -96,6 +103,7 @@ private:
     uint64_t    _displayStateChangeTime;
     
     IOHIDSimpleQueueRef             _displayLog;
+    IOHIDSimpleQueueRef             _nxEventLog;
     
 private:
 
@@ -120,6 +128,7 @@ private:
     void updateButtons();
     void updateActivity (bool active);
     void updateDisplayLog(IOHIDEventSenderID serviceID, IOHIDEventPolicyValue policy, IOHIDEventType eventType, uint64_t timestamp);
+    void updateNXEventLog(IOHIDEventPolicyValue policy, IOHIDEventRef event, uint64_t timestamp);
     
     IOHIDServiceRef getCompanionService(IOHIDServiceRef service);
     
@@ -127,10 +136,7 @@ private:
     static void powerNotificationCallback (void * refcon, io_service_t	service, uint32_t messageType, void * messageArgument);
     void powerNotificationCallback (io_service_t	service, uint32_t messageType, void * messageArgument);
   
-    void displayMatchNotificationCallback (io_iterator_t iterator);
-    static void displayMatchNotificationCallback (void * refcon, io_iterator_t iterator);
-    static void displayNotificationCallback (void * refcon, io_service_t	service, uint32_t messageType, void * messageArgument);
-    void displayNotificationCallback (io_service_t	service, uint32_t messageType, void * messageArgument);
+    void displayNotificationCallback (SLSDisplayPowerStateNotificationType state);
     IOHIDEventRef displayStateFilter (IOHIDServiceRef sender, IOHIDEventRef  event);
   
     boolean_t shouldCancelEvent (IOHIDEventRef  event);

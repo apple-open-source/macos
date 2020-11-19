@@ -17,6 +17,7 @@
     HIDManagerElementHandler    _elementHandler;
     HIDDeviceHandler            _deviceNotificationHandler;
     HIDReportHandler            _inputReportHandler;
+    HIDBlock                    _cancelHandler;
 }
 
 - (instancetype)init
@@ -28,6 +29,10 @@
     }
     
     _manager = IOHIDManagerCreate(kCFAllocatorDefault, 0);
+
+    if (!_manager) {
+        return nil;
+    }
     
     return self;
 }
@@ -41,6 +46,10 @@
     }
     
     _manager = IOHIDManagerCreate(kCFAllocatorDefault, (IOOptionBits)options);
+
+    if (!_manager) {
+        return nil;
+    }
     
     return self;
 }
@@ -210,7 +219,7 @@ static void inputReportCallback(void *context,
 
 - (void)setCancelHandler:(HIDBlock)handler
 {
-    IOHIDManagerSetCancelHandler(_manager, handler);
+    _cancelHandler = handler;
 }
 
 - (void)setDispatchQueue:(dispatch_queue_t)queue
@@ -230,6 +239,14 @@ static void inputReportCallback(void *context,
 
 - (void)activate
 {
+    IOHIDManagerSetCancelHandler(_manager, ^{
+        // Block captures reference to self while cancellation hasn't completed.
+        if (self->_cancelHandler) {
+            self->_cancelHandler();
+            self->_cancelHandler = nil;
+        }
+    });
+
     IOHIDManagerActivate(_manager);
 }
 

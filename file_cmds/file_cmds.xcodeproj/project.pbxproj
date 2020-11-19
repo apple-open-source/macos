@@ -19,6 +19,17 @@
 			name = tests;
 			productName = tests;
 		};
+		729D07252347EC4D000716E5 /* macos_host_tools */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 729D07682347EC4D000716E5 /* Build configuration list for PBXAggregateTarget "macos_host_tools" */;
+			buildPhases = (
+			);
+			dependencies = (
+				729D074E2347EC4D000716E5 /* PBXTargetDependency */,
+			);
+			name = macos_host_tools;
+			productName = macos_host_tools;
+		};
 		FC8A8C3C14B64A9D001B97AD /* shar */ = {
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FC8A8C3D14B64A9D001B97AD /* Build configuration list for PBXAggregateTarget "shar" */;
@@ -200,6 +211,8 @@
 		3E59B9311D4A767600D3128C /* futimens.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E59B9301D4A767600D3128C /* futimens.c */; };
 		3E966CEE1FB2216F0019F7A1 /* file_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */; };
 		3E966CF01FB2218A0019F7A1 /* chgrp.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E966CEB1FB2214F0019F7A1 /* chgrp.sh */; };
+		729D06D8230B5E42000716E5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 729D06D7230B5E42000716E5 /* CoreFoundation.framework */; };
+		7D0A20EA2499364700F0F6D7 /* metrics.c in Sources */ = {isa = PBXBuildFile; fileRef = 7D0A20E92499364700F0F6D7 /* metrics.c */; };
 		FC8A8A2814B6486E001B97AD /* chflags.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDCC14B6460C0070FACB /* chflags.c */; };
 		FC8A8BE414B6494B001B97AD /* chflags.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCB1BDCB14B6460C0070FACB /* chflags.1 */; };
 		FC8A8BE514B64958001B97AD /* chmod.c in Sources */ = {isa = PBXBuildFile; fileRef = FCB1BDD014B6460C0070FACB /* chmod.c */; };
@@ -311,6 +324,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		729D074F2347EC4D000716E5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FCB1BDAF14B645D00070FACB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FC8A8B8C14B648ED001B97AD;
+			remoteInfo = mtree;
+		};
 		FC8A8C4914B64DE1001B97AD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = FCB1BDAF14B645D00070FACB /* Project object */;
@@ -1180,6 +1200,9 @@
 		3E59B9301D4A767600D3128C /* futimens.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = futimens.c; sourceTree = "<group>"; };
 		3E966CEB1FB2214F0019F7A1 /* chgrp.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = chgrp.sh; sourceTree = "<group>"; };
 		3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = file_cmds.plist; sourceTree = "<group>"; };
+		729D06D7230B5E42000716E5 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+		7D0A20E82499364700F0F6D7 /* metrics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = metrics.h; sourceTree = "<group>"; };
+		7D0A20E92499364700F0F6D7 /* metrics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = metrics.c; sourceTree = "<group>"; };
 		FC8A8B1214B648D7001B97AD /* chmod */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chmod; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B1A14B648E0001B97AD /* chown */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chown; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A8B2214B648E3001B97AD /* cksum */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cksum; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1490,6 +1513,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				729D06D8230B5E42000716E5 /* CoreFoundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1571,6 +1595,14 @@
 			path = tests;
 			sourceTree = "<group>";
 		};
+		729D06D6230B5E42000716E5 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				729D06D7230B5E42000716E5 /* CoreFoundation.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		FCB1BDAD14B645D00070FACB = {
 			isa = PBXGroup;
 			children = (
@@ -1606,6 +1638,7 @@
 				FCB1BE8614B6460C0070FACB /* touch */,
 				FDAD94A71808BCB700B4D5A0 /* Libraries */,
 				FCB1BDB914B645D10070FACB /* Products */,
+				729D06D6230B5E42000716E5 /* Frameworks */,
 			);
 			indentWidth = 8;
 			sourceTree = "<group>";
@@ -1870,6 +1903,8 @@
 				FCB1BE4114B6460C0070FACB /* specspec.c */,
 				FCB1BE4214B6460C0070FACB /* test */,
 				FCB1BE4814B6460C0070FACB /* verify.c */,
+				7D0A20E82499364700F0F6D7 /* metrics.h */,
+				7D0A20E92499364700F0F6D7 /* metrics.c */,
 			);
 			path = mtree;
 			sourceTree = "<group>";
@@ -2548,6 +2583,7 @@
 				FC8A8CC814B65F92001B97AD /* uncompress */,
 				FC8A8C5014B650CF001B97AD /* unlink */,
 				3E966CE71FB2211F0019F7A1 /* tests */,
+				729D07252347EC4D000716E5 /* macos_host_tools */,
 			);
 		};
 /* End PBXProject section */
@@ -2863,6 +2899,7 @@
 				FC8A8C1914B64A1A001B97AD /* create.c in Sources */,
 				FC8A8C1A14B64A22001B97AD /* excludes.c in Sources */,
 				FC8A8C1B14B64A27001B97AD /* misc.c in Sources */,
+				7D0A20EA2499364700F0F6D7 /* metrics.c in Sources */,
 				FC8A8C1C14B64A2D001B97AD /* mtree.c in Sources */,
 				FC8A8C1D14B64A31001B97AD /* spec.c in Sources */,
 				FC8A8C1E14B64A34001B97AD /* specspec.c in Sources */,
@@ -2962,6 +2999,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		729D074E2347EC4D000716E5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FC8A8B8C14B648ED001B97AD /* mtree */;
+			targetProxy = 729D074F2347EC4D000716E5 /* PBXContainerItemProxy */;
+		};
 		FC8A8C4A14B64DE1001B97AD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FC8A8BC414B648EF001B97AD /* stat */;
@@ -3328,6 +3370,14 @@
 			};
 			name = Release;
 		};
+		729D07692347EC4D000716E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/bin;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		FC8A8B1114B648D7001B97AD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3465,6 +3515,7 @@
 					ENABLE_SHA1,
 					ENABLE_SHA256,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = YES;
 				INSTALL_PATH = /usr/sbin;
 				"OTHER_LDFLAGS[sdk=macosx*]" = "-lCrashReporterClient";
 			};
@@ -3627,6 +3678,14 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3E966CE81FB2211F0019F7A1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		729D07682347EC4D000716E5 /* Build configuration list for PBXAggregateTarget "macos_host_tools" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				729D07692347EC4D000716E5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

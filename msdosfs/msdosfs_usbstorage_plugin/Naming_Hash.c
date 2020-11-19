@@ -47,52 +47,6 @@ static void ht_remove_from_list(LF_HashTable_t* psHT, LF_TableEntry_t* psTEToRem
     free(psTEToRemove);
 }
 
-int ht_AllocateHashTable(struct LF_HashTable** ppTable)
-{
-    *ppTable = (struct LF_HashTable*) malloc(sizeof(struct LF_HashTable));
-    if (*ppTable == NULL)
-        return ENOMEM;
-
-    memset(*ppTable, 0, sizeof(struct LF_HashTable));
-    MultiReadSingleWrite_Init(&(*ppTable)->sHTLck);
-    return 0;
-}
-
-// Should be locked from outside the function
-LF_TableEntry_t* ht_LookupByName(LF_HashTable_t* psHT, struct unistr255* psName, uint32_t* puKey)
-{
-    uint32_t uKey = hash(psName);
-    if (puKey != NULL)
-        *puKey = uKey;
-
-    return psHT->psEntries[uKey];
-}
-
-LF_TableEntry_t* ht_LookupByEntry(LF_HashTable_t* psHT, struct unistr255* psName, uint64_t uEntry, LF_TableEntry_t** ppsPrevTE, uint32_t* puKey)
-{
-    MultiReadSingleWrite_LockRead(&psHT->sHTLck);
-    CONV_Unistr255ToLowerCase( psName );
-    LF_TableEntry_t* psTE = ht_LookupByName(psHT, psName, puKey);
-    LF_TableEntry_t* psPrevTE = NULL;
-
-    /* step through linked list */
-    for (; psTE != NULL; psTE = psTE->psNextEntry)
-    {
-        if (psTE->uEntryNum == uEntry)
-        {
-            if (ppsPrevTE != NULL)
-                *ppsPrevTE = psPrevTE;
-
-            MultiReadSingleWrite_FreeRead(&psHT->sHTLck);
-            return psTE; /* found */
-        }
-        psPrevTE = psTE;
-    }
-
-    MultiReadSingleWrite_FreeRead(&psHT->sHTLck);
-    return NULL; /* not found */
-}
-
 /* force inserts the key-val pair */
 static void ht_remove_rand_item(LF_HashTable_t* psHT, uint32_t uStartKey)
 {
@@ -109,18 +63,70 @@ static void ht_remove_rand_item(LF_HashTable_t* psHT, uint32_t uStartKey)
     }
 }
 
+int ht_AllocateHashTable(struct LF_HashTable** ppTable)
+{
+    *ppTable = (struct LF_HashTable*) malloc(sizeof(struct LF_HashTable));
+    if (*ppTable == NULL)
+        return ENOMEM;
+
+    memset(*ppTable, 0, sizeof(struct LF_HashTable));
+    MultiReadSingleWrite_Init(&(*ppTable)->sHTLck);
+    return 0;
+}
+
+// Should be locked from outside the function
+LF_TableEntry_t* ht_LookupByName(LF_HashTable_t* psHT, struct unistr255* psName, uint32_t* puKey)
+{
+    if (psHT == NULL) return NULL;
+    uint32_t uKey = hash(psName);
+    if (puKey != NULL)
+        *puKey = uKey;
+
+    return psHT->psEntries[uKey];
+}
+
+/* Assumtion : Under lock */
+LF_TableEntry_t* ht_LookupByEntry(LF_HashTable_t* psHT, struct unistr255* psName, uint64_t uEntry, LF_TableEntry_t** ppsPrevTE, uint32_t* puKey)
+{
+    if (psHT == NULL) return NULL;
+    CONV_Unistr255ToLowerCase( psName );
+    LF_TableEntry_t* psTE = ht_LookupByName(psHT, psName, puKey);
+    LF_TableEntry_t* psPrevTE = NULL;
+
+    /* step through linked list */
+    for (; psTE != NULL; psTE = psTE->psNextEntry)
+    {
+        if (psTE->uEntryOffsetInDir == uEntry)
+        {
+            if (ppsPrevTE != NULL)
+                *ppsPrevTE = psPrevTE;
+
+            MultiReadSingleWrite_FreeRead(&psHT->sHTLck);
+            return psTE; /* found */
+        }
+        psPrevTE = psTE;
+    }
+
+    return NULL; /* not found */
+}
+
 /* inserts the key-val pair */
 int ht_insert(LF_HashTable_t* psHT, struct unistr255* psName, uint64_t uEntryNum, bool bForceInsert)
 {
+    if (psHT == NULL) return EINVAL;
+
     int err = 0;
     uint32_t uKey;
     bool bNeedToEvictRandom = false;
+    MultiReadSingleWrite_LockWrite(&psHT->sHTLck);
+
     //check if we can insert more values
     if (ht_reached_max_bound(psHT))
     {
         if (!bForceInsert)
         {
-            psHT->bIncomplete = 1;
+            psHT->bIncomplete = true;
+            MultiReadSingleWrite_FreeWrite(&psHT->sHTLck);
             return 0;
         }
         else
@@ -132,10 +138,9 @@ int ht_insert(LF_HashTable_t* psHT, struct unistr255* psName, uint64_t uEntryNum
     LF_TableEntry_t* psTE = ht_LookupByEntry( psHT, psName, uEntryNum, NULL, &uKey);
     if (psTE != NULL)
     {
-        return EEXIST;
+        err = EEXIST;
+        goto exit;
     }
-
-    MultiReadSingleWrite_LockWrite(&psHT->sHTLck);
 
     //If we are in force insert and there is no space
     //evict a random item
@@ -153,7 +158,7 @@ int ht_insert(LF_HashTable_t* psHT, struct unistr255* psName, uint64_t uEntryNum
     }
 
     psNewTE->psNextEntry = NULL;
-    psNewTE->uEntryNum = uEntryNum;
+    psNewTE->uEntryOffsetInDir = uEntryNum;
     psTE = psHT->psEntries[uKey];
     /* look for the correct place */
     /* if this is the first one */
@@ -165,7 +170,7 @@ int ht_insert(LF_HashTable_t* psHT, struct unistr255* psName, uint64_t uEntryNum
 
     for (; psTE != NULL; psTE = psTE->psNextEntry)
     {
-        if (psTE->uEntryNum > uEntryNum)
+        if (psTE->uEntryOffsetInDir > uEntryNum)
         {
             psNewTE->psNextEntry = psTE;
             (psPrevTE == NULL) ? (psHT->psEntries[uKey] = psNewTE) : (psPrevTE->psNextEntry = psNewTE);
@@ -190,16 +195,19 @@ exit:
 
 bool ht_reached_low_bound(LF_HashTable_t* psHT)
 {
+    if (psHT == NULL) return false;
     return (psHT->uCounter <= LOW_BOUND_HASH_VALUES);
 }
 
 bool ht_reached_max_bound(LF_HashTable_t* psHT)
 {
+    if (psHT == NULL) return false;
     return !(psHT->uCounter < MAX_HASH_VALUES);
 }
 
 int ht_remove(LF_HashTable_t* psHT, const char *pcUTF8Name, uint64_t uEntry)
 {
+    if (psHT == NULL) return EINVAL;
     LF_TableEntry_t* psPrevTE;
     uint32_t uKey;
     struct unistr255* psName = (struct unistr255*) malloc(sizeof(struct unistr255));
@@ -217,13 +225,15 @@ int ht_remove(LF_HashTable_t* psHT, const char *pcUTF8Name, uint64_t uEntry)
         goto exit;
     }
 
+    MultiReadSingleWrite_LockWrite(&psHT->sHTLck);
+    
     LF_TableEntry_t* psTE = ht_LookupByEntry( psHT, psName, uEntry, &psPrevTE, &uKey);
     if (psTE == NULL)
     {
-        return (psHT->bIncomplete)? 0 : ENOENT;
+        MultiReadSingleWrite_FreeWrite(&psHT->sHTLck);
+        iError = (psHT->bIncomplete)? 0 : ENOENT;
+        goto exit;
     }
-
-    MultiReadSingleWrite_LockWrite(&psHT->sHTLck);
 
     ht_remove_from_list(psHT, psTE, psPrevTE, uKey);
 
@@ -239,6 +249,7 @@ exit:
 /* recursively frees table entriy chains, starting with last one added */
 void ht_free_all(LF_HashTable_t *psHT)
 {
+    if (psHT == NULL) return;
     MultiReadSingleWrite_LockWrite(&psHT->sHTLck);
 
     LF_TableEntry_t* psTE = NULL;
@@ -263,6 +274,7 @@ void ht_free_all(LF_HashTable_t *psHT)
 
 void ht_DeAllocateHashTable(LF_HashTable_t *psHT)
 {
+    if (psHT == NULL) return;
     ht_free_all(psHT);
     MultiReadSingleWrite_DeInit(&psHT->sHTLck);
     free(psHT);

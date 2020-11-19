@@ -62,7 +62,7 @@ create_network_dict(CFStringRef ssid)
 Boolean
 IPConfigurationForgetNetwork(CFStringRef interface_name, CFStringRef ssid)
 {
-    if_name_t			ifname;
+    InterfaceName		ifname;
     kern_return_t		kret;
     CFDictionaryRef		network_dict;
     CFDataRef			network_data;
@@ -82,7 +82,7 @@ IPConfigurationForgetNetwork(CFStringRef interface_name, CFStringRef ssid)
 		    mach_error_string(kret));
 	return (FALSE);
     }
-    my_CFStringToCStringAndLength(interface_name, ifname, sizeof(ifname));
+    InterfaceNameInitWithCFString(ifname, interface_name);
     network_dict = create_network_dict(ssid);
     network_data
 	= CFPropertyListCreateData(NULL,
@@ -109,8 +109,7 @@ IPConfigurationForgetNetwork(CFStringRef interface_name, CFStringRef ssid)
     }
     else {
 	IPConfigLog(LOG_NOTICE,
-		    "ipconfig_forget_network(%s) succeeded",
-		    ifname);
+		    "ipconfig_forget_network(%s) succeeded", ifname);
 	success = TRUE;
     }
     return (success);

@@ -47,7 +47,7 @@ IOHIDSetEventsEnable( io_connect_t connect,
 
 extern kern_return_t
 IOHIDSetCursorEnable( io_connect_t connect,
-	boolean_t enable );
+	boolean_t enable ) __attribute__((availability(macos,deprecated=10.16)));
 
 enum {
     // Options for IOHIDPostEvent()
@@ -57,6 +57,7 @@ enum {
     kIOHIDPostHIDManagerEvent       = 0x00000008
 };
 
+#define HIDPostEventDeprecatedMsg "Use CGSEventTap for posting HID events, IOHIDUserDevice for simulating HID device, IOPMAssertionDeclareUserActivity for reporting user activity"
 extern kern_return_t
 IOHIDPostEvent( io_connect_t        connect,
                 UInt32              eventType,
@@ -64,46 +65,45 @@ IOHIDPostEvent( io_connect_t        connect,
                 const NXEventData * eventData,
                 UInt32              eventDataVersion,
                 IOOptionBits        eventFlags,
-                IOOptionBits        options );
+                IOOptionBits        options ) __attribute__((availability(macos,deprecated=10.16,message=HIDPostEventDeprecatedMsg)));
 
 extern kern_return_t
-IOHIDSetMouseLocation( io_connect_t connect, int x, int y);
+IOHIDSetMouseLocation( io_connect_t connect, int x, int y)  __attribute__((availability(macos,deprecated=10.16)));
 
 extern kern_return_t
 IOHIDGetButtonEventNum( io_connect_t connect,
 	NXMouseButton button, int * eventNum ) __deprecated;
 
 extern kern_return_t
-IOHIDGetScrollAcceleration( io_connect_t handle, double * acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+IOHIDGetScrollAcceleration( io_connect_t handle, double * acceleration ) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 
 extern kern_return_t
-IOHIDSetScrollAcceleration( io_connect_t handle, double acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+IOHIDSetScrollAcceleration( io_connect_t handle, double acceleration ) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 
 extern kern_return_t
-IOHIDGetMouseAcceleration( io_connect_t handle, double * acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+IOHIDGetMouseAcceleration( io_connect_t handle, double * acceleration) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 
 extern kern_return_t
-IOHIDSetMouseAcceleration( io_connect_t handle, double acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+IOHIDSetMouseAcceleration( io_connect_t handle, double acceleration ) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 
 extern kern_return_t
-IOHIDGetMouseButtonMode( io_connect_t handle, int * mode );
+IOHIDGetMouseButtonMode( io_connect_t handle, int * mode ) __attribute__((availability(macos,deprecated=10.16)));
 
 extern kern_return_t
-IOHIDSetMouseButtonMode( io_connect_t handle, int mode ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+IOHIDSetMouseButtonMode( io_connect_t handle, int mode ) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 
 extern kern_return_t
-IOHIDGetAccelerationWithKey( io_connect_t handle, CFStringRef key, double * acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+IOHIDGetAccelerationWithKey( io_connect_t handle, CFStringRef key, double * acceleration ) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 
 extern kern_return_t
-IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key, double acceleration ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
-
+IOHIDSetAccelerationWithKey( io_connect_t handle, CFStringRef key, double acceleration ) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 extern kern_return_t
 IOHIDGetParameter( io_connect_t handle, CFStringRef key, IOByteCount maxSize, 
-		void * bytes, IOByteCount * actualSize ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_2_0, __IPHONE_10_0);
+		void * bytes, IOByteCount * actualSize ) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 
 extern kern_return_t
 IOHIDSetParameter( io_connect_t handle, CFStringRef key, 
-		const void * bytes, IOByteCount size ) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_12, __IPHONE_NA, __IPHONE_NA);
+		const void * bytes, IOByteCount size ) __attribute__((availability(macos,introduced=10.0,deprecated=10.12)));
 
 extern kern_return_t
 IOHIDCopyCFTypeParameter( io_connect_t handle, CFStringRef key,
@@ -114,11 +114,6 @@ IOHIDSetCFTypeParameter( io_connect_t handle, CFStringRef key,
                 CFTypeRef parameter );
 
 // selectors are found in IOHIDParameter.h
-extern kern_return_t
-IOHIDGetModifierLockState( io_connect_t handle, int selector, bool *state );
-
-extern kern_return_t
-IOHIDSetModifierLockState( io_connect_t handle, int selector, bool state );
 
 extern kern_return_t
 IOHIDGetStateForSelector( io_connect_t handle, int selector, UInt32 *state );
@@ -126,18 +121,24 @@ IOHIDGetStateForSelector( io_connect_t handle, int selector, UInt32 *state );
 extern kern_return_t
 IOHIDSetStateForSelector( io_connect_t handle, int selector, UInt32 state );
 
+extern kern_return_t
+IOHIDGetModifierLockState( io_connect_t handle, int selector, bool *state );
+
+extern kern_return_t
+IOHIDSetModifierLockState( io_connect_t handle, int selector, bool state );
+
 // Used by Window Server only
 extern kern_return_t
-IOHIDRegisterVirtualDisplay( io_connect_t handle, UInt32 *display_token );
+IOHIDRegisterVirtualDisplay( io_connect_t handle, UInt32 *display_token ) __attribute__((availability(macos,introduced=10.0,deprecated=10.16)));
 
 extern kern_return_t
-IOHIDUnregisterVirtualDisplay( io_connect_t handle, UInt32 display_token );
+IOHIDUnregisterVirtualDisplay( io_connect_t handle, UInt32 display_token ) __attribute__((availability(macos,introduced=10.0,deprecated=10.16)));
 
 extern kern_return_t
-IOHIDSetVirtualDisplayBounds( io_connect_t handle, UInt32 display_token, const IOGBounds * bounds );
+IOHIDSetVirtualDisplayBounds( io_connect_t handle, UInt32 display_token, const IOGBounds * bounds ) __attribute__((availability(macos,introduced=10.0,deprecated=10.16)));
 
 extern kern_return_t
-IOHIDGetActivityState( io_connect_t handle, bool *hidActivityIdle );
+IOHIDGetActivityState( io_connect_t handle, bool *hidActivityIdle ) __attribute__((availability(macos,deprecated=10.16)));
 
 /*
  * @typedef IOHIDRequestType

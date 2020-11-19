@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>List-MoreUtils</string>
+        <key>OpenSourceVersion</key>
+        <string>0.428</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/R/RE/REHSACK/List-MoreUtils-0.428.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2019-12-04</string>
+        <key>OpenSourceLicense</key>
+        <string>Apache 2.0</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

@@ -59,6 +59,8 @@
 #include <wpe/WebKitNetworkProxySettings.h>
 #include <wpe/WebKitNotification.h>
 #include <wpe/WebKitNotificationPermissionRequest.h>
+#include <wpe/WebKitOptionMenu.h>
+#include <wpe/WebKitOptionMenuItem.h>
 #include <wpe/WebKitPermissionRequest.h>
 #include <wpe/WebKitPlugin.h>
 #include <wpe/WebKitResponsePolicyDecision.h>
@@ -82,6 +84,7 @@
 #include <wpe/WebKitWebViewBackend.h>
 #include <wpe/WebKitWebViewSessionState.h>
 #include <wpe/WebKitWebsiteData.h>
+#include <wpe/WebKitWebsiteDataAccessPermissionRequest.h>
 #include <wpe/WebKitWebsiteDataManager.h>
 #include <wpe/WebKitWindowProperties.h>
 

@@ -53,6 +53,26 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSData* _Nullable)asBase64DecodedData;
 @end
 
+// These thread-local variables should be set by your database layer
+// This ensures that all SQL write operations are performed under the protection of a transaction.
+// Use [CKKSSQLDatabaseObject +performCKKSTransaction] to get one of these if you don't have any other mechanism.
+extern __thread bool CKKSSQLInTransaction;
+extern __thread bool CKKSSQLInWriteTransaction;
+
+typedef NS_ENUM(uint8_t, CKKSDatabaseTransactionResult) {
+    CKKSDatabaseTransactionRollback = 0,
+    CKKSDatabaseTransactionCommit = 1,
+};
+
+// A database provider must provide these operations.
+@protocol CKKSDatabaseProviderProtocol
+- (void)dispatchSyncWithSQLTransaction:(CKKSDatabaseTransactionResult (^)(void))block;
+- (void)dispatchSyncWithReadOnlySQLTransaction:(void (^)(void))block;
+
+// Used to maintain lock ordering.
+- (BOOL)insideSQLTransaction;
+@end
+
 @interface CKKSSQLDatabaseObject : NSObject <NSCopying>
 
 @property (copy) NSDictionary<NSString*, NSString*>* originalSelfWhereClause;
@@ -114,6 +134,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (NSString *)quotedString:(NSString *)string;
 
++ (BOOL)performCKKSTransaction:(CKKSDatabaseTransactionResult (^)(void))block;
+
 #pragma mark - Subclasses must implement the following:
 
 // Given a row from the database, make this object
@@ -169,6 +191,11 @@ NSString* CKKSSQLWhereColumnNameAsString(CKKSSQLWhereColumnName columnName);
 @property NSString* value;
 - (instancetype)initWithOperation:(CKKSSQLWhereComparator)op value:(NSString*)value;
 + (instancetype)op:(CKKSSQLWhereComparator)op value:(NSString*)value;
+@end
+
+@interface CKKSSQLWhereIn : NSObject
+@property NSArray<NSString*>* values;
+- (instancetype)initWithValues:(NSArray<NSString*>*)values;
 @end
 
 

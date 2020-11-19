@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 namespace API {
 class Array;
@@ -50,7 +51,7 @@ public:
 #if PLATFORM(IOS_FAMILY)
     void chooseFiles(const Vector<String>& filenames, const String& displayString, const API::Data* iconImageData);
 #endif
-    void chooseFiles(const Vector<String>& filenames);
+    void chooseFiles(const Vector<String>& filenames, const Vector<String>& allowedMIMETypes = { });
     void cancel();
 
     void invalidate();

@@ -67,8 +67,8 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
 + (void)initialize
 {
 #if !PLATFORM(IOS_FAMILY)
-    JSC::initializeThreading();
-    RunLoop::initializeMainRunLoop();
+    JSC::initialize();
+    WTF::initializeMainThread();
 #endif
 }
 
@@ -261,7 +261,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     return self;
 }
 
-- (WebCore::ArchiveResource&)_coreResource
+- (NakedRef<WebCore::ArchiveResource>)_coreResource
 {
     return *_private->coreResource;
 }

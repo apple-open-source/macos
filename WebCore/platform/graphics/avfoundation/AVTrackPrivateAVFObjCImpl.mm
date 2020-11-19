@@ -23,10 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#include "config.h"
-#include "AVTrackPrivateAVFObjCImpl.h"
+#import "config.h"
+#import "AVTrackPrivateAVFObjCImpl.h"
 
-#if ENABLE(VIDEO_TRACK)
+#if ENABLE(VIDEO)
 
 #import "MediaSelectionGroupAVFObjC.h"
 #import <AVFoundation/AVAssetTrack.h>
@@ -241,4 +241,4 @@ int AVTrackPrivateAVFObjCImpl::trackID() const
 
 }
 
-#endif // ENABLE(VIDEO_TRACK)
+#endif // ENABLE(VIDEO)

@@ -80,10 +80,10 @@ template<class Decoder> inline Optional<ClientOrigin> ClientOrigin::decode(Decod
     Optional<SecurityOriginData> topOrigin;
     Optional<SecurityOriginData> clientOrigin;
     decoder >> topOrigin;
-    if (!topOrigin)
+    if (!topOrigin || topOrigin->isEmpty())
         return WTF::nullopt;
     decoder >> clientOrigin;
-    if (!clientOrigin)
+    if (!clientOrigin || clientOrigin->isEmpty())
         return WTF::nullopt;
 
     return ClientOrigin { WTFMove(*topOrigin), WTFMove(*clientOrigin) };
@@ -106,8 +106,6 @@ template<> struct HashTraits<WebCore::ClientOrigin> : GenericHashTraits<WebCore:
     static bool isDeletedValue(const WebCore::ClientOrigin& slot) { return slot.topOrigin.isHashTableDeletedValue(); }
 };
 
-template<> struct DefaultHash<WebCore::ClientOrigin> {
-    typedef ClientOriginKeyHash Hash;
-};
+template<> struct DefaultHash<WebCore::ClientOrigin> : ClientOriginKeyHash { };
 
 } // namespace WTF

@@ -348,17 +348,22 @@ static NSInteger _reporterWrites;
     OCMStub([mockTopic databasePathForCKKS]).andReturn(ckksPath);
     OCMStub([mockTopic databasePathForSOS]).andReturn(sosPath);
     OCMStub([mockTopic databasePathForPCS]).andReturn(pcsPath);
-    OCMStub([mockTopic databasePathForTLS]).andReturn(tlsPath);
+    OCMStub([mockTopic databasePathForTrust]).andReturn(tlsPath);
     OCMStub([mockTopic databasePathForSignIn]).andReturn(signInPath);
     OCMStub([mockTopic databasePathForCloudServices]).andReturn(cloudServicesPath);
 
     // These are not used for testing, but real data can pollute tests so point to empty DBs
     NSString *localpath = [_path stringByAppendingFormat:@"/local_empty_%ld.db", (long)_testnum];
-    NSString *trustPath = [_path stringByAppendingFormat:@"/trust_empty_%ld.db", (long)_testnum];
-    NSString *trustdhealthPath = [_path stringByAppendingFormat:@"/trustdhealth_empty_%ld.db", (long)_testnum];
+    NSString *networkingPath = [_path stringByAppendingFormat:@"/networking_empty_%ld.db", (long)_testnum];
     OCMStub([mockTopic databasePathForLocal]).andReturn(localpath);
-    OCMStub([mockTopic databasePathForTrust]).andReturn(trustPath);
-    OCMStub([mockTopic databasePathForTrustdHealth]).andReturn(trustdhealthPath);
+    OCMStub([mockTopic databasePathForNetworking]).andReturn(networkingPath);
+
+#if TARGET_OS_OSX
+    NSString *rootTrustPath = [_path stringByAppendingFormat:@"/root_trust_empty_%ld.db", (long)_testnum];
+    NSString *rootNetworkingPath = [_path stringByAppendingFormat:@"/root_networking_empty_%ld.db", (long)_testnum];
+    OCMStub([mockTopic databasePathForRootTrust]).andReturn(rootTrustPath);
+    OCMStub([mockTopic databasePathForRootNetworking]).andReturn(rootNetworkingPath);
+#endif
 
     _reporterWrites = 0;
     mockReporter = OCMClassMock([SFAnalyticsReporter class]);

@@ -235,7 +235,7 @@
 ỽ → v ; # 1EFD;LATIN SMALL LETTER MIDDLE-WELSH V
 Ỿ → Y ; # 1EFE;LATIN CAPITAL LETTER Y WITH LOOP
 ỿ → y ; # 1EFF;LATIN SMALL LETTER Y WITH LOOP
-# Latin extended C and D, added with <rdar://problem/51045632>
+# Latin extended C and D (later addition)
 Ⱡ → L ; # 2C60;LATIN CAPITAL LETTER L WITH DOUBLE BAR
 ⱡ → l ; # 2C61;LATIN SMALL LETTER L WITH DOUBLE BAR
 Ɫ → L ; # 2C62;LATIN CAPITAL LETTER L WITH MIDDLE TILDE
@@ -423,6 +423,8 @@
 ℓ → l ; # 2113;SCRIPT SMALL L (compat)
 ℕ → N ; # 2115;DOUBLE-STRUCK CAPITAL N (compat)
 № → No ; # 2116;NUMERO SIGN (compat)
+℗ → '(P)' ; # 2117;SOUND RECORDING COPYRIGHT (later addition)
+℘ → P ; # 2118;SCRIPT CAPITAL P (later addition)
 ℙ → P ; # 2119;DOUBLE-STRUCK CAPITAL P (compat)
 ℚ → Q ; # 211A;DOUBLE-STRUCK CAPITAL Q (compat)
 ℛ → R ; # 211B;SCRIPT CAPITAL R (compat)

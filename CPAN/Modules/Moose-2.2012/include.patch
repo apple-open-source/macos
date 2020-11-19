@@ -1,0 +1,21 @@
+diff -Nurp Moose-2.2012-orig/inc/ExtUtils/HasCompiler.pm Moose-2.2012/inc/ExtUtils/HasCompiler.pm
+--- Moose-2.2012-orig/inc/ExtUtils/HasCompiler.pm	2019-11-22 10:53:10.000000000 -0800
++++ Moose-2.2012/inc/ExtUtils/HasCompiler.pm	2020-04-27 18:59:04.000000000 -0700
+@@ -114,7 +114,7 @@ sub can_compile_loadable_object {
+ 		elsif ($^O eq 'android') {
+ 			push @extra, qq{"-L$incdir"}, '-lperl', $perllibs;
+ 		}
+-		push @commands, qq{$cc $ccflags $optimize "-I$incdir" $cccdlflags -c $source_name -o $object_file};
++		push @commands, qq{$cc $ccflags $optimize -iwithsysroot "$incdir" $cccdlflags -c $source_name -o $object_file};
+ 		push @commands, qq{$ld $object_file -o $loadable_object $lddlflags @extra};
+ 	}
+ 
+@@ -177,7 +177,7 @@ sub can_compile_static_library {
+ 	}
+ 	else {
+ 		my $my_ar = length $full_ar ? $full_ar : $ar;
+-		push @commands, qq{$cc $ccflags $optimize "-I$incdir" -c $source_name -o $object_file};
++		push @commands, qq{$cc $ccflags $optimize -iwithsysroot "$incdir" -c $source_name -o $object_file};
+ 		push @commands, qq{$my_ar cr $static_library $object_file};
+ 		push @commands, qq{$ranlib $static_library} if $ranlib ne ':';
+ 	}

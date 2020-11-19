@@ -5,7 +5,6 @@
  * others. All Rights Reserved.
  ********************************************************************/
 
-
 #include "unicode/utypes.h"
 
 #if !UCONFIG_NO_BREAK_ITERATION && !UCONFIG_NO_REGULAR_EXPRESSIONS && !UCONFIG_NO_FORMATTING
@@ -116,9 +115,29 @@ CharClass *BreakRules::addCharClass(const UnicodeString &name, const UnicodeStri
     // Create the expanded definition for this char class,
     // replacing any set references with the corresponding definition.
 
+    // Hack to handle character class overrides for rdar://problem/51193810
+    // Currently the test rules files only have locales en/zh (same delimiters) and ja (only non-QU delimiters),
+    // so hardcocde rule mods here. If necessary in the future we can do something fancier.
+    UnicodeString definitionMod(definition);
+    const char* lang = fLocale.getLanguage();
+    if (fType == UBRK_LINE && (uprv_strcmp(lang,"en")==0 || uprv_strcmp(lang,"zh")==0)) {
+        UnicodeString suffix;
+        if (name.compare(u"QU",2)==0) {
+            suffix.setTo(u"-[“‘”]]", 7);
+        } else if (name.compare(u"OP",2)==0) {
+            suffix.setTo(u" [“‘]]", 6);
+        } else if (name.compare(u"CL",2)==0) {
+            suffix.setTo(u" [”]]", 5);
+        }
+        if (suffix.length() > 0) {
+            definitionMod.insert(0, u'[');
+            definitionMod.append(suffix);
+        }
+    }
+
     UnicodeString expandedDef;
     UnicodeString emptyString;
-    fSetRefsMatcher->reset(definition);
+    fSetRefsMatcher->reset(definitionMod);
     while (fSetRefsMatcher->find() && U_SUCCESS(status)) {
         const UnicodeString name =
                 fSetRefsMatcher->group(fSetRefsMatcher->pattern().groupNumberFromName("ClassName", status), status);
@@ -136,13 +155,13 @@ CharClass *BreakRules::addCharClass(const UnicodeString &name, const UnicodeStri
         printf("epandedDef: %s\n", CStr(expandedDef)());
     }
 
-    UnicodeSet *s = new UnicodeSet(expandedDef, USET_IGNORE_SPACE, NULL, status);
+    LocalPointer<UnicodeSet> s(new UnicodeSet(expandedDef, USET_IGNORE_SPACE, NULL, status), status);
     if (U_FAILURE(status)) {
-        IntlTest::gTest->errln("%s:%d: error %s creating UnicodeSet %s", __FILE__, __LINE__,
-                               u_errorName(status), CStr(name)());
-        return NULL;
+        IntlTest::gTest->errln("%s:%d: error %s creating UnicodeSet %s\n    Expanded set definition: %s",
+                               __FILE__, __LINE__, u_errorName(status), CStr(name)(), CStr(expandedDef)());
+        return nullptr;
     }
-    CharClass *cclass = new CharClass(name, definition, expandedDef, s);
+    CharClass *cclass = new CharClass(name, definitionMod, expandedDef, s.orphan());
     CharClass *previousClass = static_cast<CharClass *>(uhash_put(fCharClasses.getAlias(),
                                                         new UnicodeString(name),   // Key, owned by hash table.
                                                         cclass,                    // Value, owned by hash table.
@@ -661,12 +680,12 @@ void RBBIMonkeyImpl::join() {
 }
 
 
-#define MONKEY_ERROR(msg, index) { \
+#define MONKEY_ERROR(msg, index) UPRV_BLOCK_MACRO_BEGIN { \
     IntlTest::gTest->errln("%s:%d %s at index %d. Parameters to reproduce: @rules=%s,seed=%u,loop=1,verbose ", \
                     __FILE__, __LINE__, msg, index, fRuleFileName, fTestData->fRandomSeed); \
     if (fVerbose) { fTestData->dump(index); } \
     status = U_INVALID_STATE_ERROR;  \
-}
+} UPRV_BLOCK_MACRO_END
 
 void RBBIMonkeyImpl::runTest() {
     UErrorCode status = U_ZERO_ERROR;

@@ -612,7 +612,7 @@ IOBufferMemoryDescriptor *IOHIDElementContainer::createElementValuesMemory()
     
     DescriptorLog("Element value capacity %ld", (long)capacity);
     
-    descriptor = IOBufferMemoryDescriptor::withOptions(kIOMemoryKernelUserShared,
+    descriptor = IOBufferMemoryDescriptor::withOptions(kIOMemoryUnshared,
                                                        capacity);
     require(descriptor, exit);
     
@@ -772,7 +772,7 @@ bool IOHIDElementContainer::processReport(IOHIDReportType reportType,
     
     // Get the first element in the report handler chain.
     element = GetHeadElement(GetReportHandlerSlot(reportID), reportType);
-    
+
     while (element) {
         if (shouldTickle) {
             *shouldTickle |= element->shouldTickleActivity();

@@ -33,7 +33,7 @@
  * @see_also: JSCContext
  *
  * JSCVirtualMachine represents a group of JSCContext<!-- -->s. It allows
- * concurrent JavaScript exeution by creating a different instance of
+ * concurrent JavaScript execution by creating a different instance of
  * JSCVirtualMachine in each thread.
  *
  * To create a group of JSCContext<!-- -->s pass the same JSCVirtualMachine
@@ -51,20 +51,24 @@ static Lock wrapperCacheMutex;
 
 static HashMap<JSContextGroupRef, JSCVirtualMachine*>& wrapperMap()
 {
-    static NeverDestroyed<HashMap<JSContextGroupRef, JSCVirtualMachine*>> map;
-    return map;
+    static LazyNeverDestroyed<HashMap<JSContextGroupRef, JSCVirtualMachine*>> shared;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [&] {
+        shared.construct();
+    });
+    return shared;
 }
 
 static void addWrapper(JSContextGroupRef group, JSCVirtualMachine* vm)
 {
-    std::lock_guard<Lock> lock(wrapperCacheMutex);
+    auto locker = holdLock(wrapperCacheMutex);
     ASSERT(!wrapperMap().contains(group));
     wrapperMap().set(group, vm);
 }
 
 static void removeWrapper(JSContextGroupRef group)
 {
-    std::lock_guard<Lock> lock(wrapperCacheMutex);
+    auto locker = holdLock(wrapperCacheMutex);
     ASSERT(wrapperMap().contains(group));
     wrapperMap().remove(group);
 }

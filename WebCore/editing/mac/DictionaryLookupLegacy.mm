@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #import "FocusController.h"
 #import "Frame.h"
 #import "FrameSelection.h"
-#import "HTMLConverter.h"
 #import "HitTestResult.h"
 #import "Page.h"
 #import "Range.h"
@@ -55,11 +54,11 @@ static NSRange tokenRange(const String& string, NSRange range, NSDictionary **op
     if (!PAL::getLULookupDefinitionModuleClass())
         return NSMakeRange(NSNotFound, 0);
 
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     return [PAL::getLULookupDefinitionModuleClass() tokenRangeForString:string range:range options:options];
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     return NSMakeRange(NSNotFound, 0);
 }
@@ -69,51 +68,50 @@ static bool selectionContainsPosition(const VisiblePosition& position, const Vis
     if (!selection.isRange())
         return false;
 
-    RefPtr<Range> selectedRange = selection.toNormalizedRange();
+    auto selectedRange = selection.toNormalizedRange();
     if (!selectedRange)
         return false;
 
-    return selectedRange->contains(position);
+    return createLiveRange(*selectedRange)->contains(position);
 }
 
-std::tuple<RefPtr<Range>, NSDictionary *> DictionaryLookup::rangeForSelection(const VisibleSelection& selection)
+Optional<std::tuple<SimpleRange, NSDictionary *>> DictionaryLookup::rangeForSelection(const VisibleSelection& selection)
 {
     auto selectedRange = selection.toNormalizedRange();
     if (!selectedRange)
-        return { nullptr, nil };
+        return WTF::nullopt;
 
     // Since we already have the range we want, we just need to grab the returned options.
     auto selectionStart = selection.visibleStart();
     auto selectionEnd = selection.visibleEnd();
 
     // As context, we are going to use the surrounding paragraphs of text.
-    auto paragraphStart = startOfParagraph(selectionStart);
-    auto paragraphEnd = endOfParagraph(selectionEnd);
+    auto paragraphRange = makeSimpleRange(startOfParagraph(selectionStart), endOfParagraph(selectionEnd));
+    if (!paragraphRange)
+        return WTF::nullopt;
 
-    int lengthToSelectionStart = TextIterator::rangeLength(makeRange(paragraphStart, selectionStart).get());
-    int lengthToSelectionEnd = TextIterator::rangeLength(makeRange(paragraphStart, selectionEnd).get());
-    NSRange rangeToPass = NSMakeRange(lengthToSelectionStart, lengthToSelectionEnd - lengthToSelectionStart);
+    auto selectionRange = *makeSimpleRange(selectionStart, selectionEnd);
 
     NSDictionary *options = nil;
-    tokenRange(plainText(makeRange(paragraphStart, paragraphEnd).get()), rangeToPass, &options);
+    tokenRange(plainText(*paragraphRange), characterRange(*paragraphRange, selectionRange), &options);
 
-    return { selectedRange, options };
+    return { { *selectedRange, options } };
 }
 
-std::tuple<RefPtr<Range>, NSDictionary *> DictionaryLookup::rangeAtHitTestResult(const HitTestResult& hitTestResult)
+Optional<std::tuple<SimpleRange, NSDictionary *>> DictionaryLookup::rangeAtHitTestResult(const HitTestResult& hitTestResult)
 {
     auto* node = hitTestResult.innerNonSharedNode();
     if (!node || !node->renderer())
-        return { nullptr, nil };
+        return WTF::nullopt;
 
     auto* frame = node->document().frame();
     if (!frame)
-        return { nullptr, nil };
+        return WTF::nullopt;
 
     // Don't do anything if there is no character at the point.
     auto framePoint = hitTestResult.roundedPointInInnerNodeFrame();
     if (!frame->rangeForPoint(framePoint))
-        return { nullptr, nil };
+        return WTF::nullopt;
 
     auto position = frame->visiblePositionForPoint(framePoint);
     if (position.isNull())
@@ -125,29 +123,33 @@ std::tuple<RefPtr<Range>, NSDictionary *> DictionaryLookup::rangeAtHitTestResult
         return rangeForSelection(selection);
 
     VisibleSelection selectionAccountingForLineRules { position };
-    selectionAccountingForLineRules.expandUsingGranularity(WordGranularity);
+    selectionAccountingForLineRules.expandUsingGranularity(TextGranularity::WordGranularity);
     position = selectionAccountingForLineRules.start();
 
     // As context, we are going to use 250 characters of text before and after the point.
     auto fullCharacterRange = rangeExpandedAroundPositionByCharacters(position, 250);
     if (!fullCharacterRange)
-        return { nullptr, nil };
+        return WTF::nullopt;
 
-    NSRange rangeToPass = NSMakeRange(TextIterator::rangeLength(makeRange(fullCharacterRange->startPosition(), position).get()), 0);
+    auto rangeToPosition = makeSimpleRange(fullCharacterRange->start, position);
+    if (!rangeToPosition)
+        return WTF::nullopt;
+
+    NSRange rangeToPass = NSMakeRange(characterCount(*rangeToPosition), 0);
     NSDictionary *options = nil;
-    NSRange extractedRange = tokenRange(plainText(fullCharacterRange.get()), rangeToPass, &options);
+    auto extractedRange = tokenRange(plainText(*fullCharacterRange), rangeToPass, &options);
 
     // tokenRange sometimes returns {NSNotFound, 0} if it was unable to determine a good string.
     // FIXME (159063): We shouldn't need to check for zero length here.
     if (extractedRange.location == NSNotFound || !extractedRange.length)
-        return { nullptr, nil };
+        return WTF::nullopt;
 
-    return { TextIterator::subrange(*fullCharacterRange, extractedRange.location, extractedRange.length), options };
+    return { { resolveCharacterRange(*fullCharacterRange, extractedRange), options } };
 }
 
 static void expandSelectionByCharacters(PDFSelection *selection, NSInteger numberOfCharactersToExpand, NSInteger& charactersAddedBeforeStart, NSInteger& charactersAddedAfterEnd)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     size_t originalLength = selection.string.length;
     [selection extendSelectionAtStart:numberOfCharactersToExpand];
@@ -157,12 +159,12 @@ static void expandSelectionByCharacters(PDFSelection *selection, NSInteger numbe
     [selection extendSelectionAtEnd:numberOfCharactersToExpand];
     charactersAddedAfterEnd = selection.string.length - originalLength - charactersAddedBeforeStart;
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 std::tuple<NSString *, NSDictionary *> DictionaryLookup::stringForPDFSelection(PDFSelection *selection)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     // Don't do anything if there is no character at the point.
     if (!selection || !selection.string.length)
@@ -195,14 +197,14 @@ std::tuple<NSString *, NSDictionary *> DictionaryLookup::stringForPDFSelection(P
     ASSERT([selection.string isEqualToString:[fullPlainTextString substringWithRange:extractedRange]]);
     return { selection.string, options };
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 
     return { @"", nil };
 }
 
 static id <NSImmediateActionAnimationController> showPopupOrCreateAnimationController(bool createAnimationController, const DictionaryPopupInfo& dictionaryPopupInfo, NSView *view, const WTF::Function<void(TextIndicator&)>& textIndicatorInstallationCallback, const WTF::Function<FloatRect(FloatRect)>& rootViewToViewConversionCallback)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     if (!PAL::getLULookupDefinitionModuleClass())
         return nil;
@@ -241,7 +243,7 @@ static id <NSImmediateActionAnimationController> showPopupOrCreateAnimationContr
     [PAL::getLULookupDefinitionModuleClass() showDefinitionForTerm:dictionaryPopupInfo.attributedString.get() atLocation:textBaselineOrigin options:mutableOptions.get()];
     return nil;
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
     return nil;
 }
 
@@ -254,13 +256,13 @@ void DictionaryLookup::showPopup(const DictionaryPopupInfo& dictionaryPopupInfo,
 
 void DictionaryLookup::hidePopup()
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     if (!PAL::getLULookupDefinitionModuleClass())
         return;
     [PAL::getLULookupDefinitionModuleClass() hideDefinition];
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 id <NSImmediateActionAnimationController> DictionaryLookup::animationControllerForPopup(const DictionaryPopupInfo& dictionaryPopupInfo, NSView *view, const WTF::Function<void(TextIndicator&)>& textIndicatorInstallationCallback, const WTF::Function<FloatRect(FloatRect)>& rootViewToViewConversionCallback, WTF::Function<void()>&& clearTextIndicator)

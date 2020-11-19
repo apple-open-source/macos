@@ -525,8 +525,7 @@ static uint8_t descriptor[] = {
     HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_IOREG, self.userDevice && self.device, "user device:%@ device:%@", self.userDevice, self.device);
     
     NSArray<HIDElement *> * arrayElements  =  [self.device elementsMatching: @{ @kIOHIDElementReportIDKey: @(1)}];
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST, arrayElements && arrayElements.count, "elements: %@", arrayElements);
-    
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST, arrayElements && arrayElements.count, "elements: %@", arrayElements);    
     
     expectation = [[XCTestExpectation alloc] initWithDescription:@"expectation: block completion"];
     
@@ -543,7 +542,7 @@ static uint8_t descriptor[] = {
                                 expectation);
     HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, ret, "error: %@", error);
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.getReportCount == 1, "report count: %ld", self.getReportCount);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.getReportCount == 2, "report count: %ld", self.getReportCount);
 }
 
 - (void)testInputArrayElementUpdate {
@@ -606,7 +605,7 @@ static uint8_t descriptor[] = {
                                 expectation);
     HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, ret, "error:%@ dataElements:%@", error, dataElements);
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.getReportCount == 1, "report count: %ld", self.getReportCount);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.getReportCount == 2, "report count: %ld", self.getReportCount);
 }
 
 - (void)testInputDataElementUpdate {
@@ -682,7 +681,7 @@ static uint8_t descriptor[] = {
                                 expectation);
     HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, ret, "error:%@ transaction:%@", error, transaction);
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.getReportCount == 2, "report count: %ld", self.getReportCount);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.getReportCount == 3, "report count: %ld", self.getReportCount);
     
 }
 

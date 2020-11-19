@@ -2,10 +2,12 @@
 #import <Security/OTClique.h>
 #import <OCMock/OCMock.h>
 
-#import <SoftLinking/SoftLinking.h>
 #import "keychain/ot/OTCuttlefishContext.h"
 #import <Security/SecItemPriv.h>
+#import <SecurityFoundation/SecurityFoundation.h>
 #import "keychain/categories/NSError+UsefulConstructors.h"
+#import "keychain/securityd/SOSCloudCircleServer.h"
+#import "keychain/SecureObjectSync/SOSAccountPriv.h"
 
 static const uint8_t signingKey_384[] = {
     0x04, 0xe4, 0x1b, 0x3e, 0x88, 0x81, 0x9f, 0x3b, 0x80, 0xd0, 0x28, 0x1c,
@@ -104,6 +106,117 @@ static const uint8_t signingKey_384[] = {
     } else {
         return true;
     }
+}
+
++ (NSData* _Nullable)copyInitialSyncData:(SOSInitialSyncFlags)flags error:(NSError**)error
+{
+    CFErrorRef cferror = NULL;
+    NSData* result = CFBridgingRelease(SOSCCCopyInitialSyncData_Server(flags, &cferror));
+
+    if(cferror && error) {
+        *error = CFBridgingRelease(cferror);
+    }
+
+    return result;
+}
+
++ (NSDictionary* _Nullable)copyPiggybackingInitialSyncData:(NSData*)data
+{
+    const uint8_t* der = [data bytes];
+    const uint8_t *der_end = der + [data length];
+
+    NSDictionary* results = SOSPiggyCopyInitialSyncData(&der, der_end);
+    return results;
+}
+
++ (BOOL)testSecKey:(CKKSSelves*)octagonSelf error:(NSError**)error
+{
+    id<CKKSSelfPeer> currentSelfPeer = octagonSelf.currentSelf;
+
+    NSData* signingFullKey = currentSelfPeer.signingKey.keyData;
+
+    SecKeyRef octagonSigningPubSecKey = CFRetainSafe(currentSelfPeer.publicSigningKey.secKey);
+    SecKeyRef octagonEncryptionPubSecKey = CFRetainSafe(currentSelfPeer.publicEncryptionKey.secKey);
+
+    NSError* localerror = nil;
+
+    bool savedSigningKey = SOSCCSaveOctagonKeysToKeychain(@"Octagon Peer Signing ID for Test-ak",
+                                                          signingFullKey,
+                                                          384,
+                                                          octagonSigningPubSecKey,
+                                                          &localerror);
+    if(!savedSigningKey) {
+        if(error) {
+            *error = localerror;
+        }
+        CFReleaseNull(octagonSigningPubSecKey);
+        CFReleaseNull(octagonEncryptionPubSecKey);
+        return NO;
+    }
+
+    // Okay, can we load this key pair?
+
+    // Try the SPI route first
+    CFErrorRef cferror = NULL;
+    SecKeyRef signingPrivateKey = SecKeyCopyMatchingPrivateKey(octagonSigningPubSecKey, &cferror);
+    if(!signingPrivateKey) {
+        if(error) {
+            *error = CFBridgingRelease(cferror);
+        } else {
+            CFReleaseNull(cferror);
+        }
+        CFReleaseNull(octagonSigningPubSecKey);
+        CFReleaseNull(octagonEncryptionPubSecKey);
+        return NO;
+    }
+
+    // and can you get the persistent ref from that private key?
+    CFDataRef pref = NULL;
+    OSStatus status = SecKeyCopyPersistentRef(signingPrivateKey, &pref);
+    if(status != errSecSuccess) {
+        if(error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:status
+                                  description:@"Failed to copy persistent ref"];
+        }
+        CFReleaseNull(pref);
+        CFReleaseNull(octagonSigningPubSecKey);
+        CFReleaseNull(octagonEncryptionPubSecKey);
+        return NO;
+    }
+
+
+    SFECKeyPair *signingFullKeyPair = [[SFECKeyPair alloc] initWithData:signingFullKey
+                                                              specifier:[[SFECKeySpecifier alloc] initWithCurve:SFEllipticCurveNistp384]
+                                                                  error:&localerror];
+    if(!signingFullKey) {
+        if(error) {
+            *error = localerror;
+        }
+        CFReleaseNull(octagonSigningPubSecKey);
+        CFReleaseNull(octagonEncryptionPubSecKey);
+        return NO;
+    }
+
+    CFDataRef prefFromSF = NULL;
+    OSStatus statusFromSF = SecKeyCopyPersistentRef(signingFullKeyPair.secKey, &prefFromSF);
+    if(statusFromSF != errSecSuccess) {
+        if(error) {
+            *error = [NSError errorWithDomain:NSOSStatusErrorDomain
+                                         code:statusFromSF
+                                  description:@"Failed to copy persistent ref"];
+        }
+        CFReleaseNull(pref);
+        CFReleaseNull(octagonSigningPubSecKey);
+        CFReleaseNull(octagonEncryptionPubSecKey);
+        return NO;
+    }
+
+    CFReleaseNull(pref);
+    CFReleaseNull(octagonSigningPubSecKey);
+    CFReleaseNull(octagonEncryptionPubSecKey);
+
+    return YES;
 }
 
 @end

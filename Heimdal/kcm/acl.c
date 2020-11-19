@@ -115,12 +115,12 @@ kcm_principal_access(krb5_context context,
 	    ret = 0;
 	    break;
 	    
-	default:
+	case IAKERB_ACCESS_DENIED:
 	    ret = KRB5_FCC_PERM;
 	    break;
     }
     
-    kcm_log(1, (ret == 0 ? "kcm_principal_access: access allowed" : "kcm_principal_access: access denied"));
+    kcm_log(1, "kcm_principal_access: access %s", (ret==0 ? "allowed" : "denied"));
     return ret;
 }
 

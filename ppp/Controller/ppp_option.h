@@ -28,7 +28,11 @@
 
 /* PATHS definitions for PPP */
 
-#define DIR_KEXT		"/System/Library/Extensions/"
+#if TARGET_OS_OSX
+#define DIR_KEXT		"/System/Library/SystemConfiguration/PPPController.bundle/Contents/PlugIns/"
+#else
+#define DIR_KEXT		"/System/Library/SystemConfiguration/PPPController.bundle/PlugIns/"
+#endif
 #define DIR_LOGS		"/var/log/ppp/"
 #define DIR_TTYS		"/dev/"
 #define PATH_PPPD 		"/usr/sbin/pppd"

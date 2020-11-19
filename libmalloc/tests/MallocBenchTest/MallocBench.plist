@@ -21,10 +21,12 @@
 				<string>BATS_TMP_DIR/.*perfdata</string>
 				<string>BATS_TMP_DIR/dtres_.*</string>
 			</array>
+			<key>TestOutputType</key>
+			<string>stderrOutput</string>
 			<key>TestName</key>
 			<string>libmalloc.MallocBench</string>
 			<key>Timeout</key>
-			<integer>2400</integer>
+			<integer>4800</integer>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/libmalloc</string>
 			<key>Tags</key>

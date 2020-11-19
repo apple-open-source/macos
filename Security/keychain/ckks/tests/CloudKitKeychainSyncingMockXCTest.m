@@ -23,11 +23,15 @@
 
 #if OCTAGON
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #import <OCMock/OCMock.h>
+#pragma clang diagnostic pop
 
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"
 
+#import "keychain/securityd/SecItemSchema.h"
 #import "keychain/securityd/SecItemServer.h"
 #import "keychain/securityd/SecItemDb.h"
 
@@ -106,6 +110,9 @@
     self.suggestTLKUpload = OCMClassMock([CKKSNearFutureScheduler class]);
     OCMStub([self.suggestTLKUpload trigger]);
 
+    self.requestPolicyCheck = OCMClassMock([CKKSNearFutureScheduler class]);
+    OCMStub([self.requestPolicyCheck trigger]);
+
     // If a subclass wants to fill these in before calling setUp, fine.
     self.ckksZones = self.ckksZones ?: [NSMutableSet set];
     self.ckksViews = self.ckksViews ?: [NSMutableSet set];
@@ -140,15 +147,12 @@
     OCMStub([mockConnection remoteObjectProxyWithErrorHandler:[OCMArg any]]).andCall(self, @selector(injectedManager));
     self.ckksControl = [[CKKSControl alloc] initWithConnection:mockConnection];
     XCTAssertNotNil(self.ckksControl, "Should have received control object");
-
-    self.accountMetaDataStore = OCMPartialMock([[OTCuttlefishAccountStateHolder alloc]init]);
-    OCMStub([self.accountMetaDataStore loadOrCreateAccountMetadata:[OCMArg anyObjectRef]]).andCall(self, @selector(loadOrCreateAccountMetadata:));
 }
 
 - (void)tearDown {
-    // Make sure the key state machine won't be poked after teardown
+    // Make sure the key state machines won't continue
     for(CKKSKeychainView* view in self.ckksViews) {
-        [view.pokeKeyStateMachineScheduler cancel];
+        [view.stateMachine haltOperation];
     }
     [self.ckksViews removeAllObjects];
 
@@ -157,8 +161,6 @@
 
     [self.mockCKKSKeychainBackedKey stopMocking];
     self.mockCKKSKeychainBackedKey = nil;
-
-    [((id)self.accountMetaDataStore) stopMocking];
 
     self.remoteSOSOnlyPeer = nil;
 }
@@ -185,7 +187,9 @@
         [view beginCloudKitOperation];
     }
 
-    [view beginTrustedOperation:@[self.mockSOSAdapter] suggestTLKUpload:self.suggestTLKUpload];
+    [view beginTrustedOperation:@[self.mockSOSAdapter]
+               suggestTLKUpload:self.suggestTLKUpload
+             requestPolicyCheck:self.requestPolicyCheck];
 }
 
 - (void)endSOSTrustedOperationForAllViews {
@@ -259,6 +263,7 @@
     NSError* error = nil;
 
     ZoneKeys* zonekeys = [[ZoneKeys alloc] init];
+    zonekeys.viewName = zoneID.zoneName;
 
     zonekeys.tlk = [self fakeTLK:zoneID];
     [zonekeys.tlk CKRecordWithZoneID: zoneID]; // no-op here, but memoize in the object
@@ -291,26 +296,31 @@
 }
 
 - (void)saveFakeKeyHierarchyToLocalDatabase: (CKRecordZoneID*)zoneID {
-    NSError* error = nil;
     ZoneKeys* zonekeys = [self createFakeKeyHierarchy: zoneID oldTLK:nil];
 
-    [zonekeys.tlk saveToDatabase:&error];
-    XCTAssertNil(error, "TLK saved to database successfully");
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult {
+        NSError* error = nil;
 
-    [zonekeys.classA saveToDatabase:&error];
-    XCTAssertNil(error, "Class A key saved to database successfully");
+        [zonekeys.tlk saveToDatabase:&error];
+        XCTAssertNil(error, "TLK saved to database successfully");
 
-    [zonekeys.classC saveToDatabase:&error];
-    XCTAssertNil(error, "Class C key saved to database successfully");
+        [zonekeys.classA saveToDatabase:&error];
+        XCTAssertNil(error, "Class A key saved to database successfully");
 
-    [zonekeys.currentTLKPointer saveToDatabase:&error];
-    XCTAssertNil(error, "Current TLK pointer saved to database successfully");
+        [zonekeys.classC saveToDatabase:&error];
+        XCTAssertNil(error, "Class C key saved to database successfully");
 
-    [zonekeys.currentClassAPointer saveToDatabase:&error];
-    XCTAssertNil(error, "Current Class A pointer saved to database successfully");
+        [zonekeys.currentTLKPointer saveToDatabase:&error];
+        XCTAssertNil(error, "Current TLK pointer saved to database successfully");
 
-    [zonekeys.currentClassCPointer saveToDatabase:&error];
-    XCTAssertNil(error, "Current Class C pointer saved to database successfully");
+        [zonekeys.currentClassAPointer saveToDatabase:&error];
+        XCTAssertNil(error, "Current Class A pointer saved to database successfully");
+
+        [zonekeys.currentClassCPointer saveToDatabase:&error];
+        XCTAssertNil(error, "Current Class C pointer saved to database successfully");
+
+        return CKKSDatabaseTransactionCommit;
+    }];
 }
 
 - (void)putFakeDeviceStatusInCloudKit:(CKRecordZoneID*)zoneID zonekeys:(ZoneKeys*)zonekeys {
@@ -460,7 +470,7 @@
 
     for(CKKSKeychainView* view in views) {
         XCTAssertEqual(0, [view.keyHierarchyConditions[SecCKKSZoneKeyStateWaitForTLKCreation] wait:40*NSEC_PER_SEC], @"key state should enter 'waitfortlkcreation' (view %@)", view);
-        [keysetOps addObject: [view findKeySet]];
+        [keysetOps addObject: [view findKeySet:NO]];
     }
 
     // Now that we've kicked them all off, wait for them to resolve
@@ -577,6 +587,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     CFReleaseNull(cferror);
     return piggybackdata;
 }
+
 - (void)SOSPiggyBackAddToKeychain:(NSDictionary*)piggydata{
     __block CFErrorRef cferror = NULL;
     kc_with_dbt(true, &cferror, ^bool (SecDbConnectionRef dbt) {
@@ -676,11 +687,15 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     ZoneKeys* keys = self.keys[zoneID];
     XCTAssertNotNil(keys, "Have a zonekeys object for this zone");
 
-    for(CKKSTLKShareRecord* share in keys.tlkShares) {
-        NSError* error = nil;
-        [share saveToDatabase:&error];
-        XCTAssertNil(error, "Shouldn't have been an error saving a TLKShare to the database");
-    }
+    [CKKSSQLDatabaseObject performCKKSTransaction:^CKKSDatabaseTransactionResult{
+        for(CKKSTLKShareRecord* share in keys.tlkShares) {
+            NSError* error = nil;
+            [share saveToDatabase:&error];
+            XCTAssertNil(error, "Shouldn't have been an error saving a TLKShare to the database");
+        }
+
+        return CKKSDatabaseTransactionCommit;
+    }];
 }
 
 - (void)createAndSaveFakeKeyHierarchy: (CKRecordZoneID*)zoneID {
@@ -862,7 +877,7 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
 - (void)checkNoCKKSData: (CKKSKeychainView*) view {
     // Test that there are no items in the database
-    [view dispatchSync:^bool{
+    [view dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
         NSArray<CKKSMirrorEntry*>* ckmes = [CKKSMirrorEntry all: view.zoneID error:&error];
         XCTAssertNil(error, "No error fetching CKMEs");
@@ -883,7 +898,6 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
         NSArray<CKKSDeviceStateEntry*>* deviceStates = [CKKSDeviceStateEntry allInZone:view.zoneID error:&error];
         XCTAssertNil(error, "should be no error fetching device states");
         XCTAssertEqual(deviceStates.count, 0ul, "No Device State entries");
-        return false;
     }];
 }
 
@@ -982,6 +996,15 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     return item;
 }
 
+
+- (CKRecord*)createFakeTombstoneRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName account:(NSString*)account {
+    NSMutableDictionary* item = [[self fakeRecordDictionary:account zoneID:zoneID] mutableCopy];
+    item[@"tomb"] = @YES;
+
+    CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:recordName zoneID:zoneID];
+    return [self newRecord:ckrid withNewItemData:item];
+}
+
 - (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName {
     return [self createFakeRecord: zoneID recordName:recordName withAccount: nil key:nil];
 }
@@ -1035,6 +1058,17 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     CKRecord* ckr = [item CKRecordWithZoneID: recordID.zoneID];
     XCTAssertNotNil(ckr, "Created a CKRecord");
     return ckr;
+}
+
+- (void)addItemToCloudKitZone:(NSDictionary*)itemDict recordName:(NSString*)recordName zoneID:(CKRecordZoneID*)zoneID
+{
+    FakeCKZone* zone = self.zones[zoneID];
+    XCTAssertNotNil(zone, "Should have a zone for %@", zoneID);
+
+    CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:recordName zoneID:zoneID];
+    CKRecord* record = [self newRecord:ckrid withNewItemData:itemDict];
+
+    [zone addToZone:record];
 }
 
 - (NSDictionary*)decryptRecord: (CKRecord*) record {
@@ -1097,6 +1131,18 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
 - (void)addGenericPassword: (NSString*) password account: (NSString*) account viewHint:(NSString*)viewHint {
     [self addGenericPassword:password account:account viewHint:viewHint access:(id)kSecAttrAccessibleAfterFirstUnlock expecting:errSecSuccess message:@"Add item to keychain with a viewhint"];
+}
+
+
+- (void)addGenericPassword:(NSString*)password account:(NSString*)account accessGroup:(NSString*)accessGroup
+{
+    [self addGenericPassword:password
+                     account:account
+                      access:(id)kSecAttrAccessibleAfterFirstUnlock
+                    viewHint:nil
+                 accessGroup:accessGroup
+                   expecting:errSecSuccess
+                     message:@"Add item to keychain with an access group"];
 }
 
 - (void)updateGenericPassword: (NSString*) newPassword account: (NSString*)account {
@@ -1178,10 +1224,83 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     XCTAssertEqualObjects(storedPassword, password, "Stored password should match received password");
 }
 
+- (void)checkGenericPasswordStoredUUID:(NSString*)uuid account:(NSString*)account {
+    NSDictionary* queryAttributes = @{(id)kSecClass: (id)kSecClassGenericPassword,
+                                      (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                      (id)kSecAttrAccount : account,
+                                      (id)kSecAttrSynchronizable: @(YES),
+                                      (id)kSecReturnAttributes : @(YES),
+                                      (id)kSecReturnData : (id)kCFBooleanTrue,
+    };
+
+    __block CFErrorRef cferror = nil;
+    Query *q = query_create_with_limit( (__bridge CFDictionaryRef)queryAttributes, NULL, kSecMatchUnlimited, NULL, &cferror);
+    XCTAssertNil((__bridge id)cferror, "Should be no error creating query");
+    CFReleaseNull(cferror);
+
+    __block size_t count = 0;
+
+    bool ok = kc_with_dbt(true, &cferror, ^(SecDbConnectionRef dbt) {
+        return SecDbItemQuery(q, NULL, dbt, &cferror, ^(SecDbItemRef item, bool *stop) {
+            count += 1;
+
+            NSString* itemUUID = (NSString*) CFBridgingRelease(CFRetain(SecDbItemGetValue(item, &v10itemuuid, &cferror)));
+            XCTAssertEqualObjects(uuid, itemUUID, "Item uuid should match expectation");
+        });
+    });
+
+    XCTAssertTrue(ok, "query should have been successful");
+    XCTAssertNil((__bridge id)cferror, "Should be no error performing query");
+    CFReleaseNull(cferror);
+
+    XCTAssertEqual(count, 1, "Should have processed one item");
+}
+
+- (void)setGenericPasswordStoredUUID:(NSString*)uuid account:(NSString*)account {
+    NSDictionary* queryAttributes = @{(id)kSecClass: (id)kSecClassGenericPassword,
+                                      (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                                      (id)kSecAttrAccount : account,
+                                      (id)kSecAttrSynchronizable: @(YES),
+                                      (id)kSecReturnAttributes : @(YES),
+                                      (id)kSecReturnData : (id)kCFBooleanTrue,
+    };
+
+    __block CFErrorRef cferror = nil;
+    Query *q = query_create_with_limit( (__bridge CFDictionaryRef)queryAttributes, NULL, kSecMatchUnlimited, NULL, &cferror);
+    XCTAssertNil((__bridge id)cferror, "Should be no error creating query");
+    CFReleaseNull(cferror);
+
+    __block size_t count = 0;
+
+    bool ok = kc_with_dbt(true, &cferror, ^(SecDbConnectionRef dbt) {
+        return SecDbItemQuery(q, NULL, dbt, &cferror, ^(SecDbItemRef item, bool *stop) {
+            count += 1;
+
+            NSDictionary* updates = @{(id) kSecAttrUUID: uuid};
+
+            SecDbItemRef new_item = SecDbItemCopyWithUpdates(item, (__bridge CFDictionaryRef)updates, &cferror);
+            XCTAssertTrue(new_item != NULL, "Should be able to create a new item");
+
+            bool updateOk = kc_transaction_type(dbt, kSecDbExclusiveRemoteCKKSTransactionType, &cferror, ^{
+                return SecDbItemUpdate(item, new_item, dbt, kCFBooleanFalse, q->q_uuid_from_primary_key, &cferror);
+            });
+            XCTAssertTrue(updateOk, "Should be able to update item");
+
+            return;
+        });
+    });
+
+    XCTAssertTrue(ok, "query should have been successful");
+    XCTAssertNil((__bridge id)cferror, "Should be no error performing query");
+    CFReleaseNull(cferror);
+
+    XCTAssertEqual(count, 1, "Should have processed one item");
+}
+
 -(XCTestExpectation*)expectChangeForView:(NSString*)view {
     NSString* notification = [NSString stringWithFormat: @"com.apple.security.view-change.%@", view];
     return [self expectationForNotification:notification object:nil handler:^BOOL(NSNotification * _Nonnull nsnotification) {
-        secnotice("ckks", "Got a notification for %@: %@", notification, nsnotification);
+        ckksnotice_global("ckks", "Got a notification for %@: %@", notification, nsnotification);
         return YES;
     }];
 }
@@ -1208,14 +1327,6 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
         XCTAssertEqual(items.count, n, "Should have received %lu items", (unsigned long)n);
     }
-}
-
-- (OTAccountMetadataClassC*)loadOrCreateAccountMetadata:(NSError**)error
-{
-    if(error) {
-        *error = [NSError errorWithDomain:@"securityd" code:errSecInteractionNotAllowed userInfo:nil];
-    }
-    return nil;
 }
 
 @end

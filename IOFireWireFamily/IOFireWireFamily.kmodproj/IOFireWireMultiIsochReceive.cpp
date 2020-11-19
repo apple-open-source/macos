@@ -20,6 +20,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "FWDebugging.h"
+
 #include <IOKit/firewire/IOFireWireController.h>
 #include <IOKit/firewire/IOFireWireMultiIsochReceive.h>
 ///////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +43,7 @@ bool IOFireWireMultiIsochReceiveListener::init(IOFireWireController *fwControlle
 {
 	bool success = true;
 	
-	//IOLog( "IOFireWireMultiIsochReceiveListener::init (0x%08X)\n",(int) this);
+	DebugLog("// *** TEST: IOFireWireMultiIsochReceiveListener<%p>::init\n", this );
 	
 	// init super
     if( !OSObject::init() )
@@ -153,7 +155,7 @@ bool IOFireWireMultiIsochReceivePacket::init(IOFireWireController *fwController)
 {
 	bool success = true;
 	
-	//IOLog( "IOFireWireMultiIsochReceivePacket::init (0x%08X)\n",(int) this);
+	DebugLog("// *** TEST: IOFireWireMultiIsochReceivePacket<%p>::init\n", this );
 	
 	// init super
     if( !OSObject::init() )

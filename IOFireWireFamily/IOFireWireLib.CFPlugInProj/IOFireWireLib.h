@@ -1537,7 +1537,7 @@ typedef struct IOFireWireDeviceInterface_t
 								... ) ;
 
 	/*!
-		@function FireLog
+		@function FireLog	// DEPRECATED
 		@abstract Logs string to in-kernel debug buffer
         @param self The device interface to use.
 	*/

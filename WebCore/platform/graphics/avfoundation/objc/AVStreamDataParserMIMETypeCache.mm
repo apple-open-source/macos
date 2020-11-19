@@ -30,7 +30,7 @@
 
 #import "AVAssetMIMETypeCache.h"
 #import "ContentType.h"
-#import <pal/spi/mac/AVFoundationSPI.h>
+#import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <wtf/HashSet.h>
 
 #import <pal/cf/CoreMediaSoftLink.h>
@@ -54,7 +54,7 @@ AVStreamDataParserMIMETypeCache& AVStreamDataParserMIMETypeCache::singleton()
     return cache.get();
 }
 
-bool AVStreamDataParserMIMETypeCache::canDecodeTypeInternal(const ContentType& type)
+bool AVStreamDataParserMIMETypeCache::canDecodeExtendedType(const ContentType& type)
 {
 #if ENABLE(VIDEO) && USE(AVFOUNDATION)
     ASSERT(isAvailable());

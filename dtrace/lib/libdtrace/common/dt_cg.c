@@ -200,7 +200,7 @@ dt_cg_ptrsize(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp,
 		}
 		type = r.ctr_contents;
 	} else if (kind == CTF_K_PTRAUTH) {
-		type = ctf_type_reference(ctfp, type);
+		type = ctf_type_resolve(ctfp, ctf_type_reference(ctfp, type));
 		assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
 		type = ctf_type_reference(ctfp, type);
 	} else
@@ -656,7 +656,7 @@ dt_cg_prearith_op(dt_node_t *dnp, dt_irlist_t *dlp, dt_regset_t *drp, uint_t op)
 		kind = ctf_type_kind(ctfp, type);
 		assert(dt_type_is_pointer(kind));
 		if (kind == CTF_K_PTRAUTH) {
-			type = ctf_type_reference(ctfp, type);
+			type = ctf_type_resolve(ctfp, ctf_type_reference(ctfp, type));
 			assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
 		}
 		size = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));
@@ -719,7 +719,7 @@ dt_cg_postarith_op(dt_node_t *dnp, dt_irlist_t *dlp,
 		kind = ctf_type_kind(ctfp, type);
 		assert(dt_type_is_pointer(kind));
 		if (kind == CTF_K_PTRAUTH) {
-			type = ctf_type_reference(ctfp, type);
+			type = ctf_type_resolve(ctfp, ctf_type_reference(ctfp, type));
 			assert(ctf_type_kind(ctfp, type) == CTF_K_POINTER);
 		}
 		size = ctf_type_size(ctfp, ctf_type_reference(ctfp, type));

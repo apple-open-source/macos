@@ -1,18 +1,18 @@
 /*
- * Copyright (C) 2005-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -153,6 +153,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (BOOL)allowFileAccessFromFileURLs;
 - (void)setAllowFileAccessFromFileURLs:(BOOL)flag;
 
+- (BOOL)allowTopNavigationToDataURLs;
+- (void)setAllowTopNavigationToDataURLs:(BOOL)flag;
+
 - (BOOL)allowCrossOriginSubresourcesToAskForCredentials;
 - (void)setAllowCrossOriginSubresourcesToAskForCredentials:(BOOL)flag;
 
@@ -266,6 +269,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (BOOL)webAudioEnabled;
 - (void)setWebAudioEnabled:(BOOL)enabled;
 
+- (BOOL)modernUnprefixedWebAudioEnabled;
+- (void)setModernUnprefixedWebAudioEnabled:(BOOL)enabled;
+
 - (BOOL)subpixelCSSOMElementMetricsEnabled;
 - (void)setSubpixelCSSOMElementMetricsEnabled:(BOOL)enabled;
 
@@ -280,6 +286,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 
 - (BOOL)webGPUEnabled;
 - (void)setWebGPUEnabled:(BOOL)enabled;
+
+- (BOOL)maskWebGLStringsEnabled;
+- (void)setMaskWebGLStringsEnabled:(BOOL)enabled;
 
 - (BOOL)accelerated2dCanvasEnabled;
 - (void)setAccelerated2dCanvasEnabled:(BOOL)enabled;
@@ -383,8 +392,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (BOOL)_alwaysRequestGeolocationPermission;
 - (void)_setAlwaysUseAcceleratedOverflowScroll:(BOOL)flag;
 - (BOOL)_alwaysUseAcceleratedOverflowScroll;
-- (void)_setLayoutInterval:(int)milliseconds;
-- (int)_layoutInterval; // Milliseonds.
 - (void)_setMaxParseDuration:(float)d;
 - (float)_maxParseDuration;
 - (void)_setInterpolationQuality:(int)quality;
@@ -414,7 +421,7 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (void)didRemoveFromWebView;
 
 // Full screen support is dependent on WebCore/WebKit being
-// compiled with ENABLE_FULLSCREEN_API. 
+// compiled with ENABLE_FULLSCREEN_API.
 - (void)setFullScreenEnabled:(BOOL)flag;
 - (BOOL)fullScreenEnabled;
 
@@ -488,9 +495,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 
 - (BOOL)hiddenPageCSSAnimationSuspensionEnabled;
 - (void)setHiddenPageCSSAnimationSuspensionEnabled:(BOOL)flag;
-
-- (BOOL)renderingUpdateThrottlingEnabled;
-- (void)setRenderingUpdateThrottlingEnabled:(BOOL)flag;
 
 - (BOOL)lowPowerVideoAudioBufferSizeEnabled;
 - (void)setLowPowerVideoAudioBufferSizeEnabled:(BOOL)enabled;
@@ -585,8 +589,8 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (void)setWebAnimationsMutableTimelinesEnabled:(BOOL)flag;
 - (BOOL)webAnimationsMutableTimelinesEnabled;
 
-- (void)setPointerEventsEnabled:(BOOL)flag;
-- (BOOL)pointerEventsEnabled;
+- (void)setCSSCustomPropertiesAndValuesEnabled:(BOOL)flag;
+- (BOOL)CSSCustomPropertiesAndValuesEnabled;
 
 - (void)setSyntheticEditingCommandsEnabled:(BOOL)flag;
 - (BOOL)syntheticEditingCommandsEnabled;
@@ -615,6 +619,9 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (void)setCSSLogicalEnabled:(BOOL)flag;
 - (BOOL)cssLogicalEnabled;
 
+- (void)setLineHeightUnitsEnabled:(BOOL)flag;
+- (BOOL)lineHeightUnitsEnabled;
+
 - (BOOL)adClickAttributionEnabled;
 - (void)setAdClickAttributionEnabled:(BOOL)flag;
 
@@ -636,11 +643,21 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 - (void)setCSSShadowPartsEnabled:(BOOL)flag;
 - (BOOL)cssShadowPartsEnabled;
 
+- (void)setLayoutFormattingContextIntegrationEnabled:(BOOL)flag;
+- (BOOL)layoutFormattingContextIntegrationEnabled;
+
 - (BOOL)isInAppBrowserPrivacyEnabled;
 - (void)setInAppBrowserPrivacyEnabled:(BOOL)flag;
 
+- (void)setWebSQLEnabled:(BOOL)flag;
+- (BOOL)webSQLEnabled;
+
+- (void)setUserGesturePromisePropagationEnabled:(BOOL)flag;
+- (BOOL)userGesturePromisePropagationEnabled;
+
 @property (nonatomic) BOOL visualViewportAPIEnabled;
 @property (nonatomic) BOOL CSSOMViewScrollingAPIEnabled;
+@property (nonatomic) BOOL CSSOMViewSmoothScrollingEnabled;
 @property (nonatomic) BOOL largeImageAsyncDecodingEnabled;
 @property (nonatomic) BOOL animatedImageAsyncDecodingEnabled;
 @property (nonatomic) BOOL javaScriptMarkupEnabled;
@@ -679,6 +696,7 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL requestIdleCallbackEnabled;
 @property (nonatomic) BOOL asyncClipboardAPIEnabled;
 @property (nonatomic) BOOL linkPreloadResponsiveImagesEnabled;
+@property (nonatomic) BOOL aspectRatioOfImgFromWidthAndHeightEnabled;
 
 #if TARGET_OS_IPHONE
 @property (nonatomic) BOOL quickLookDocumentSavingEnabled;

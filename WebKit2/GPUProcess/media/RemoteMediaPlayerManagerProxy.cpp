@@ -31,7 +31,6 @@
 #include "GPUConnectionToWebProcess.h"
 #include "Logging.h"
 #include "RemoteMediaPlayerConfiguration.h"
-#include "RemoteMediaPlayerManagerMessages.h"
 #include "RemoteMediaPlayerManagerProxyMessages.h"
 #include "RemoteMediaPlayerProxy.h"
 #include "RemoteMediaPlayerProxyConfiguration.h"
@@ -40,7 +39,9 @@
 #include <WebCore/MediaPlayerPrivate.h>
 #include <wtf/UniqueRef.h>
 
-#define MESSAGE_CHECK_CONTEXTID(identifier) MESSAGE_CHECK_BASE(m_proxies.isValidKey(identifier), &m_gpuConnectionToWebProcess.connection())
+#if PLATFORM(COCOA)
+#include <WebCore/AVAssetMIMETypeCache.h>
+#endif
 
 namespace WebKit {
 
@@ -60,8 +61,6 @@ RemoteMediaPlayerManagerProxy::~RemoteMediaPlayerManagerProxy()
 
 void RemoteMediaPlayerManagerProxy::createMediaPlayer(MediaPlayerPrivateRemoteIdentifier id, MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, RemoteMediaPlayerProxyConfiguration&& proxyConfiguration, CompletionHandler<void(RemoteMediaPlayerConfiguration&)>&& completionHandler)
 {
-    MESSAGE_CHECK_CONTEXTID(id);
-
     ASSERT(!m_proxies.contains(id));
 
     RemoteMediaPlayerConfiguration playerConfiguration;
@@ -98,7 +97,7 @@ void RemoteMediaPlayerManagerProxy::getSupportedTypes(MediaPlayerEnums::MediaEng
     completionHandler(WTFMove(result));
 }
 
-void RemoteMediaPlayerManagerProxy::supportsType(MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, const WebCore::MediaEngineSupportParameters&& parameters, CompletionHandler<void(MediaPlayer::SupportsType)>&& completionHandler)
+void RemoteMediaPlayerManagerProxy::supportsTypeAndCodecs(MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, const WebCore::MediaEngineSupportParameters&& parameters, CompletionHandler<void(MediaPlayer::SupportsType)>&& completionHandler)
 {
     auto engine = MediaPlayer::mediaEngine(engineIdentifier);
     if (!engine) {
@@ -109,6 +108,32 @@ void RemoteMediaPlayerManagerProxy::supportsType(MediaPlayerEnums::MediaEngineId
 
     auto result = engine->supportsTypeAndCodecs(parameters);
     completionHandler(result);
+}
+
+void RemoteMediaPlayerManagerProxy::canDecodeExtendedType(WebCore::MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, const String&& mimeType, CompletionHandler<void(bool)>&& completionHandler)
+{
+    bool supported = false;
+
+    switch (engineIdentifier) {
+    case MediaPlayerEnums::MediaEngineIdentifier::AVFoundation:
+#if PLATFORM(COCOA)
+        supported = AVAssetMIMETypeCache::singleton().canDecodeType(mimeType) == MediaPlayerEnums::SupportsType::IsSupported;
+        break;
+#endif
+
+    case MediaPlayerEnums::MediaEngineIdentifier::AVFoundationMSE:
+    case MediaPlayerEnums::MediaEngineIdentifier::AVFoundationMediaStream:
+    case MediaPlayerEnums::MediaEngineIdentifier::AVFoundationCF:
+    case MediaPlayerEnums::MediaEngineIdentifier::GStreamer:
+    case MediaPlayerEnums::MediaEngineIdentifier::GStreamerMSE:
+    case MediaPlayerEnums::MediaEngineIdentifier::HolePunch:
+    case MediaPlayerEnums::MediaEngineIdentifier::MediaFoundation:
+    case MediaPlayerEnums::MediaEngineIdentifier::MockMSE:
+        ASSERT_NOT_REACHED();
+        break;
+    }
+
+    completionHandler(supported);
 }
 
 void RemoteMediaPlayerManagerProxy::originsInMediaCache(MediaPlayerEnums::MediaEngineIdentifier engineIdentifier, const String&& path, CompletionHandler<void(Vector<WebCore::SecurityOriginData>&&)>&& completionHandler)
@@ -167,82 +192,24 @@ void RemoteMediaPlayerManagerProxy::supportsKeySystem(MediaPlayerEnums::MediaEng
     completionHandler(result);
 }
 
-void RemoteMediaPlayerManagerProxy::prepareForPlayback(MediaPlayerPrivateRemoteIdentifier id, bool privateMode, WebCore::MediaPlayerEnums::Preload preload, bool preservesPitch, bool prepareForRendering)
+void RemoteMediaPlayerManagerProxy::didReceivePlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (auto player = m_proxies.get(id))
-        player->prepareForPlayback(privateMode, preload, preservesPitch, prepareForRendering);
+    if (auto* player = m_proxies.get(makeObjectIdentifier<MediaPlayerPrivateRemoteIdentifierType>(decoder.destinationID())))
+        player->didReceiveMessage(connection, decoder);
 }
 
-void RemoteMediaPlayerManagerProxy::load(MediaPlayerPrivateRemoteIdentifier id, URL&& url, WebCore::ContentType&& contentType, String&& keySystem, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&& completionHandler)
+void RemoteMediaPlayerManagerProxy::didReceiveSyncPlayerMessage(IPC::Connection& connection, IPC::Decoder& decoder, std::unique_ptr<IPC::Encoder>& encoder)
 {
-    if (auto player = m_proxies.get(id))
-        player->load(WTFMove(url), WTFMove(contentType), WTFMove(keySystem), WTFMove(completionHandler));
+    if (auto* player = m_proxies.get(makeObjectIdentifier<MediaPlayerPrivateRemoteIdentifierType>(decoder.destinationID())))
+        player->didReceiveSyncMessage(connection, decoder, encoder);
 }
 
-void RemoteMediaPlayerManagerProxy::cancelLoad(MediaPlayerPrivateRemoteIdentifier id)
+RemoteMediaPlayerProxy* RemoteMediaPlayerManagerProxy::getProxy(const MediaPlayerPrivateRemoteIdentifier& id)
 {
-    if (auto player = m_proxies.get(id))
-        player->cancelLoad();
-}
-
-void RemoteMediaPlayerManagerProxy::prepareToPlay(MediaPlayerPrivateRemoteIdentifier id)
-{
-    if (auto player = m_proxies.get(id))
-        player->prepareToPlay();
-}
-
-void RemoteMediaPlayerManagerProxy::play(MediaPlayerPrivateRemoteIdentifier id)
-{
-    if (auto player = m_proxies.get(id))
-        player->play();
-}
-
-void RemoteMediaPlayerManagerProxy::pause(MediaPlayerPrivateRemoteIdentifier id)
-{
-    if (auto player = m_proxies.get(id))
-        player->pause();
-}
-
-void RemoteMediaPlayerManagerProxy::seek(MediaPlayerPrivateRemoteIdentifier id, MediaTime&& time)
-{
-    if (auto player = m_proxies.get(id))
-        player->seek(WTFMove(time));
-}
-
-void RemoteMediaPlayerManagerProxy::seekWithTolerance(MediaPlayerPrivateRemoteIdentifier id, MediaTime&& time, MediaTime&& negativeTolerance, MediaTime&& positiveTolerance)
-{
-    if (auto player = m_proxies.get(id))
-        player->seekWithTolerance(WTFMove(time), WTFMove(negativeTolerance), WTFMove(positiveTolerance));
-}
-
-void RemoteMediaPlayerManagerProxy::setVolume(MediaPlayerPrivateRemoteIdentifier id, double volume)
-{
-    if (auto player = m_proxies.get(id))
-        player->setVolume(volume);
-}
-
-void RemoteMediaPlayerManagerProxy::setMuted(MediaPlayerPrivateRemoteIdentifier id, bool muted)
-{
-    if (auto player = m_proxies.get(id))
-        player->setMuted(muted);
-}
-
-void RemoteMediaPlayerManagerProxy::setPreload(MediaPlayerPrivateRemoteIdentifier id, WebCore::MediaPlayerEnums::Preload preload)
-{
-    if (auto player = m_proxies.get(id))
-        player->setPreload(preload);
-}
-
-void RemoteMediaPlayerManagerProxy::setPrivateBrowsingMode(MediaPlayerPrivateRemoteIdentifier id, bool privateMode)
-{
-    if (auto player = m_proxies.get(id))
-        player->setPrivateBrowsingMode(privateMode);
-}
-
-void RemoteMediaPlayerManagerProxy::setPreservesPitch(MediaPlayerPrivateRemoteIdentifier id, bool preservesPitch)
-{
-    if (auto player = m_proxies.get(id))
-        player->setPreservesPitch(preservesPitch);
+    auto results = m_proxies.find(id);
+    if (results != m_proxies.end())
+        return results->value.get();
+    return nullptr;
 }
 
 #if !RELEASE_LOG_DISABLED
@@ -258,7 +225,5 @@ WTFLogChannel& RemoteMediaPlayerManagerProxy::logChannel() const
 #endif
 
 } // namespace WebKit
-
-#undef MESSAGE_CHECK_CONTEXTID
 
 #endif

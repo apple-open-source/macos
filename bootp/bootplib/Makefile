@@ -10,7 +10,7 @@ endif
 
 ifeq ($(PLATFORM),macosx)
 # Mac OS X internal SDK
-ARCHS=i386 x86_64
+ARCHS=x86_64
 CORETELEPHONY=
 endif
 

@@ -22,6 +22,7 @@ struct __OpaqueSOSPeerInfo {
     // Cached data
     CFDictionaryRef         gestalt;
     CFStringRef             peerID;
+    CFStringRef             spid;
     CFIndex                 version;
     CFStringRef             verifiedAppKeyID;
     bool                    verifiedResult;
@@ -34,6 +35,10 @@ CF_RETURNS_RETAINED SOSPeerInfoRef SOSPeerInfoAllocate(CFAllocatorRef allocator)
 bool SOSPeerInfoSign(SecKeyRef privKey, SOSPeerInfoRef peer, CFErrorRef *error);
 bool SOSPeerInfoVerify(SOSPeerInfoRef peer, CFErrorRef *error);
 void SOSPeerInfoSetVersionNumber(SOSPeerInfoRef pi, int version);
+
+SOSPeerInfoRef SOSPeerInfoCopyWithModification(CFAllocatorRef allocator, SOSPeerInfoRef original,
+                                               SecKeyRef signingKey, CFErrorRef *error,
+                                               bool (^modification)(SOSPeerInfoRef peerToModify, CFErrorRef *error));
 
 extern const CFStringRef peerIDLengthKey;
 

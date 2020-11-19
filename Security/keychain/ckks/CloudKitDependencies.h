@@ -103,6 +103,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (nonatomic, copy) NSString *operationID;
 @property (nonatomic, readonly, strong, nullable) CKOperationConfiguration *resolvedConfiguration;
+
+@property (nonatomic, strong) NSString *deviceIdentifier;
 @end
 
 @interface CKFetchRecordZoneChangesOperation () <CKKSFetchRecordZoneChangesOperation>
@@ -151,13 +153,15 @@ NS_ASSUME_NONNULL_BEGIN
 
 /* APSConnection */
 @protocol OctagonAPSConnection <NSObject>
+@property NSArray<NSString*>* enabledTopics;
+@property NSArray<NSString*>* opportunisticTopics;
+@property NSArray<NSString*>* darkWakeTopics;
+
 + (instancetype)alloc;
 - (id)initWithEnvironmentName:(NSString*)environmentName
             namedDelegatePort:(NSString*)namedDelegatePort
                         queue:(dispatch_queue_t)queue;
 
-- (void)setEnabledTopics:(NSArray<NSString *> *)enabledTopics;
-- (void)setDarkWakeTopics:(NSArray<NSString *> *)darkWakeTopics;
 
 @property (nonatomic, readwrite, assign) id<APSConnectionDelegate> delegate;
 @end

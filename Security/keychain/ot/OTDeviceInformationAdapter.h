@@ -19,7 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSString*)osVersion;
 
 /* Returns the serial number as a string. */
-- (NSString*)serialNumber;
+- (NSString* _Nullable)serialNumber;
 
 /* register for deviceName updates */
 - (void)registerForDeviceNameUpdates:(id<OTDeviceInformationNameUpdateListener>)listener;

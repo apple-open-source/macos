@@ -32,8 +32,7 @@
 #import "Event.h"
 #import "EventListener.h"
 #import "EventNames.h"
-#import "HTMLElement.h"
-#import "HTMLMediaElement.h"
+#import "HTMLVideoElement.h"
 #import "Logging.h"
 #import "MediaControlsHost.h"
 #import "MediaSelectionOption.h"
@@ -47,6 +46,13 @@
 
 namespace WebCore {
 
+// This is the rate which we report to our clients, namely AVKit, when playback has stalled.
+// The value must be non-zero, so as to differentiate "playing-but-stalled" from "paused". But
+// the value also must be very small, so there is no visible movement in the system provided
+// timeline slider when stalled. The value below will cause the slider to move 1 second every
+// 3 years, so meets both goals.
+static const float StalledPlaybackRate = 0.00000001f;
+
 PlaybackSessionModelMediaElement::PlaybackSessionModelMediaElement()
     : EventListener(EventListener::CPPEventListenerType)
 {
@@ -58,8 +64,13 @@ PlaybackSessionModelMediaElement::~PlaybackSessionModelMediaElement()
 
 void PlaybackSessionModelMediaElement::setMediaElement(HTMLMediaElement* mediaElement)
 {
-    if (m_mediaElement == mediaElement)
+    if (m_mediaElement == mediaElement) {
+        if (m_mediaElement) {
+            for (auto client : m_clients)
+                client->isPictureInPictureSupportedChanged(isPictureInPictureSupported());
+        }
         return;
+    }
 
     auto& events = eventNames();
 
@@ -140,9 +151,11 @@ void PlaybackSessionModelMediaElement::updateForEventName(const WTF::AtomString&
     if (all
         || eventName == eventNames().pauseEvent
         || eventName == eventNames().playEvent
-        || eventName == eventNames().ratechangeEvent) {
+        || eventName == eventNames().ratechangeEvent
+        || eventName == eventNames().waitingEvent
+        || eventName == eventNames().canplayEvent) {
         bool isPlaying = this->isPlaying();
-        float playbackRate = this->playbackRate();
+        float playbackRate = isStalled() ? StalledPlaybackRate : this->playbackRate();
         for (auto client : m_clients)
             client->rateChanged(isPlaying, playbackRate);
     }
@@ -298,17 +311,24 @@ void PlaybackSessionModelMediaElement::selectLegibleMediaOption(uint64_t index)
     if (index < m_legibleTracksForMenu.size())
         textTrack = m_legibleTracksForMenu[static_cast<size_t>(index)].get();
     else
-        textTrack = TextTrack::captionMenuOffItem();
+        textTrack = &TextTrack::captionMenuOffItem();
 
     m_mediaElement->setSelectedTextTrack(textTrack);
 }
 
 void PlaybackSessionModelMediaElement::togglePictureInPicture()
 {
-    if (m_mediaElement->fullscreenMode() == MediaPlayerEnums::VideoFullscreenModePictureInPicture)
-        m_mediaElement->exitFullscreen();
+#if ENABLE(VIDEO_PRESENTATION_MODE)
+    ASSERT(is<HTMLVideoElement>(*m_mediaElement));
+    if (!is<HTMLVideoElement>(*m_mediaElement))
+        return;
+
+    auto& element = downcast<HTMLVideoElement>(*m_mediaElement);
+    if (element.fullscreenMode() == MediaPlayerEnums::VideoFullscreenModePictureInPicture)
+        element.setFullscreenMode(MediaPlayerEnums::VideoFullscreenModeNone);
     else
-        m_mediaElement->enterFullscreen(MediaPlayerEnums::VideoFullscreenModePictureInPicture);
+        element.setFullscreenMode(MediaPlayerEnums::VideoFullscreenModePictureInPicture);
+#endif
 }
 
 void PlaybackSessionModelMediaElement::toggleMuted()
@@ -389,6 +409,7 @@ const Vector<AtomString>& PlaybackSessionModelMediaElement::observedEventNames()
 {
     // FIXME(157452): Remove the right-hand constructor notation once NeverDestroyed supports initializer_lists.
     static NeverDestroyed<Vector<AtomString>> names = Vector<AtomString>({
+        eventNames().canplayEvent,
         eventNames().durationchangeEvent,
         eventNames().pauseEvent,
         eventNames().playEvent,
@@ -396,6 +417,7 @@ const Vector<AtomString>& PlaybackSessionModelMediaElement::observedEventNames()
         eventNames().timeupdateEvent,
         eventNames().progressEvent,
         eventNames().volumechangeEvent,
+        eventNames().waitingEvent,
         eventNames().webkitcurrentplaybacktargetiswirelesschangedEvent,
     });
     return names.get();
@@ -403,15 +425,13 @@ const Vector<AtomString>& PlaybackSessionModelMediaElement::observedEventNames()
 
 const AtomString&  PlaybackSessionModelMediaElement::eventNameAll()
 {
-    static NeverDestroyed<AtomString> eventNameAll("allEvents", AtomString::ConstructFromLiteral);
+    static MainThreadNeverDestroyed<const AtomString> eventNameAll("allEvents", AtomString::ConstructFromLiteral);
     return eventNameAll;
 }
 
 double PlaybackSessionModelMediaElement::duration() const
 {
-    if (!m_mediaElement)
-        return 0;
-    return m_mediaElement->supportsSeeking() ? m_mediaElement->duration() : std::numeric_limits<double>::quiet_NaN();
+    return m_mediaElement ? m_mediaElement->duration() : 0;
 }
 
 double PlaybackSessionModelMediaElement::currentTime() const
@@ -429,6 +449,11 @@ bool PlaybackSessionModelMediaElement::isPlaying() const
     return m_mediaElement ? !m_mediaElement->paused() : false;
 }
 
+bool PlaybackSessionModelMediaElement::isStalled() const
+{
+    return m_mediaElement && m_mediaElement->readyState() <= HTMLMediaElement::HAVE_CURRENT_DATA;
+}
+
 float PlaybackSessionModelMediaElement::playbackRate() const
 {
     return m_mediaElement ? m_mediaElement->playbackRate() : 0;
@@ -436,7 +461,7 @@ float PlaybackSessionModelMediaElement::playbackRate() const
 
 Ref<TimeRanges> PlaybackSessionModelMediaElement::seekableRanges() const
 {
-    return m_mediaElement ? m_mediaElement->seekable() : TimeRanges::create();
+    return m_mediaElement && m_mediaElement->supportsSeeking() ? m_mediaElement->seekable() : TimeRanges::create();
 }
 
 double PlaybackSessionModelMediaElement::seekableTimeRangesLastModifiedTime() const
@@ -496,39 +521,36 @@ Vector<MediaSelectionOption> PlaybackSessionModelMediaElement::legibleMediaSelec
 
 uint64_t PlaybackSessionModelMediaElement::legibleMediaSelectedIndex() const
 {
-    uint64_t selectedIndex = std::numeric_limits<uint64_t>::max();
-    uint64_t offIndex = 0;
-    bool trackMenuItemSelected = false;
-
     auto host = m_mediaElement ? m_mediaElement->mediaControlsHost() : nullptr;
-
     if (!host)
-        return selectedIndex;
+        return std::numeric_limits<uint64_t>::max();
 
     AtomString displayMode = host->captionDisplayMode();
-    TextTrack* offItem = host->captionMenuOffItem();
-    TextTrack* automaticItem = host->captionMenuAutomaticItem();
+    TextTrack& offItem = TextTrack::captionMenuOffItem();
+    TextTrack& automaticItem = TextTrack::captionMenuAutomaticItem();
+
+    Optional<uint64_t> selectedIndex;
+    Optional<uint64_t> offIndex;
 
     for (size_t index = 0; index < m_legibleTracksForMenu.size(); index++) {
         auto& track = m_legibleTracksForMenu[index];
-        if (track == offItem)
+
+        if (track == &offItem)
             offIndex = index;
 
-        if (track == automaticItem && displayMode == MediaControlsHost::automaticKeyword()) {
-            selectedIndex = index;
-            trackMenuItemSelected = true;
-        }
-
-        if (displayMode != MediaControlsHost::automaticKeyword() && track->mode() == TextTrack::Mode::Showing) {
-            selectedIndex = index;
-            trackMenuItemSelected = true;
+        if (displayMode == MediaControlsHost::automaticKeyword()) {
+            if (track == &automaticItem)
+                selectedIndex = index;
+        } else {
+            if (track->mode() == TextTrack::Mode::Showing)
+                selectedIndex = index;
         }
     }
 
-    if (offItem && !trackMenuItemSelected && displayMode == MediaControlsHost::forcedOnlyKeyword())
+    if (!selectedIndex && displayMode == MediaControlsHost::forcedOnlyKeyword())
         selectedIndex = offIndex;
 
-    return selectedIndex;
+    return selectedIndex.valueOr(std::numeric_limits<uint64_t>::max());
 }
 
 bool PlaybackSessionModelMediaElement::externalPlaybackEnabled() const

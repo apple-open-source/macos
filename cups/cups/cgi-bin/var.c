@@ -1,7 +1,7 @@
 /*
  * CGI form variable and array functions for CUPS.
  *
- * Copyright © 2007-2019 by Apple Inc.
+ * Copyright © 2007-2020 by Apple Inc.
  * Copyright © 1997-2005 by Easy Software Products.
  *
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
@@ -983,7 +983,7 @@ cgi_initialize_post(void)
   */
 
   length = (size_t)strtol(content_length, NULL, 10);
-  data   = malloc(length + 1);
+  data   = malloc(length + 1);		// lgtm [cpp/uncontrolled-allocation-size]
 
   if (data == NULL)
     return (0);

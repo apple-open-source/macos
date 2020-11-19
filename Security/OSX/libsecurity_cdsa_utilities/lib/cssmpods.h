@@ -43,17 +43,18 @@ class Guid : public PodWrapper<Guid, CSSM_GUID> {
 public:
     Guid() { /*IFDEBUG(*/ memset(this, 0, sizeof(*this)) /*)*/ ; }
     Guid(const CSSM_GUID &rGuid) { memcpy(this, &rGuid, sizeof(*this)); }
+    Guid(const Guid &rGuid) { memcpy(this, &rGuid, sizeof(*this)); }
     Guid(const char *string);
 	Guid(const std::string &s);
 
-    Guid &operator = (const CSSM_GUID &rGuid)
+    Guid &operator = (const Guid &rGuid)
     { memcpy(this, &rGuid, sizeof(CSSM_GUID)); return *this; }
    
-    bool operator == (const CSSM_GUID &other) const
+    bool operator == (const Guid &other) const
     { return (this == &other) || !memcmp(this, &other, sizeof(CSSM_GUID)); }
-    bool operator != (const CSSM_GUID &other) const
+    bool operator != (const Guid &other) const
     { return (this != &other) && memcmp(this, &other, sizeof(CSSM_GUID)); }
-    bool operator < (const CSSM_GUID &other) const
+    bool operator < (const Guid &other) const
     { return memcmp(this, &other, sizeof(CSSM_GUID)) < 0; }
     size_t hash() const {	//@@@ revisit this hash
         return Data1 + (Data2 << 3) + (Data3 << 11) + (Data4[3]) + (Data4[6] << 22);
@@ -84,12 +85,12 @@ public:
     CssmSubserviceUid() { clearPod(); }
     CssmSubserviceUid(const CSSM_SUBSERVICE_UID &rSSuid) { memcpy(this, &rSSuid, sizeof(*this)); }
 
-    CssmSubserviceUid &operator = (const CSSM_SUBSERVICE_UID &rSSuid)
+    CssmSubserviceUid &operator = (const CssmSubserviceUid &rSSuid)
     { memcpy(this, &rSSuid, sizeof(CSSM_SUBSERVICE_UID)); return *this; }
    
-    bool operator == (const CSSM_SUBSERVICE_UID &other) const;
-    bool operator != (const CSSM_SUBSERVICE_UID &other) const { return !(*this == other); }
-    bool operator < (const CSSM_SUBSERVICE_UID &other) const;
+    bool operator == (const CssmSubserviceUid &other) const;
+    bool operator != (const CssmSubserviceUid &other) const { return !(*this == other); }
+    bool operator < (const CssmSubserviceUid &other) const;
 
     CssmSubserviceUid(const CSSM_GUID &guid, const CSSM_VERSION *version = NULL,
 		uint32 subserviceId = 0,

@@ -60,7 +60,7 @@ struct BC_command {
 #define BC_OP_RESET    0x0D
 #define BC_OP_START_NORECORDING 0x0E
 #define BC_OP_SET_USER_OVERSIZE 0x0F
-
+#define BC_OP_DEBUG_BUFFER 0x10
 	/* user-space data buffers, use varies with opcode */
 	unsigned int bc_data1_size;
 	unsigned int bc_data2_size;
@@ -105,10 +105,12 @@ struct BC_playlist_header {
 #define BC_FS_APFS                    (1<<0)    /* mount is apfs */
 #define BC_FS_APFS_ENCRYPTED          (1<<1)    /* mount volume I/O is encrypted (non-CoreStorage) */
 #define BC_FS_APFS_ENCRYPTION_ROLLING (1<<2)    /* mount volume in transition to/from encrypted */
-#define BC_FS_APFS_CONTAINER          (1<<3)    /* mount is an apfs container (vs a volume) */
+#define BC_FS_APFS_CONTAINER          (1<<3)    /* mount is an apfs container */
 #define BC_FS_APFS_FUSION             (1<<4)    /* mount is (or is contained by) an apfs fusion container */
 #define BC_FS_CS                      (1<<5)    /* mount is a CoreStorage volume */
 #define BC_FS_CS_FUSION               (1<<6)    /* mount is a CoreStorage Fusion (CPDK) volume */
+#define BC_FS_APFS_VOLUME             (1<<7)    /* mount is an apfs volume */
+#define BC_FS_APFS_SNAPSHOT           (1<<8)    /* mount is an apfs snapshot */
 
 /*
  * Playlist mounts represent mount points to be cached.
@@ -426,6 +428,8 @@ struct BC_statistics {
 #define	BC_FLAG_HTRUNCATED		(1 << 3)	/* history list truncated */
 #define	BC_FLAG_SHUTDOWN		(1 << 4)	/* readahead shut down */
 
+	uuid_t ss_mount_uuid[STAT_MOUNTMAX]; /* uuid of each mount referred to in stats above */
+	
 	char ss_playback_end_reason[64];
 	char ss_cache_end_reason[64];
 	char ss_history_end_reason[64];
@@ -495,7 +499,6 @@ extern int	BC_read_playlist(const char *, struct BC_playlist **);
 extern int	BC_write_playlist(const char *, const struct BC_playlist *);
 extern int	BC_merge_playlists(struct BC_playlist *, const struct BC_playlist *);
 extern int  BC_playlists_intersect(const struct BC_playlist*, const struct BC_playlist*);
-extern int	BC_playlist_for_file(int fd, struct BC_playlist** ppc);
 extern int  BC_playlist_for_filename(int fd, const char *fname, off_t maxsize, struct BC_playlist** ppc);
 extern int  BC_playlist_for_file_extents(int fd, uint nextents, const struct bc_file_extent* extents, struct BC_playlist** ppc);
 extern int  BC_sort_and_coalesce_playlist(struct BC_playlist* pc);
@@ -514,6 +517,7 @@ extern struct BC_omap_history *BC_copy_omap_history(const struct BC_omap_history
 extern void BC_free_omap_history(struct BC_omap_history *);
 #define OH_FREE_ZERO(oh) do { if (oh) { BC_free_omap_history(oh); (oh) = NULL; } } while (0)
 extern int	BC_fetch_statistics(struct BC_statistics **);
+extern int	BC_fetch_debug_buffer(char**, size_t *);
 extern int	BC_set_userspace_oversize(const struct BC_userspace_oversize *);
 extern int	BC_set_userspace_timestamps(const struct BC_userspace_timestamps *);
 extern int	BC_set_userspace_fusion_optimization_stats(const struct BC_userspace_fusion_optimizations *);

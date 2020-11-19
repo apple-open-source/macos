@@ -26,6 +26,10 @@
 #include <ptrauth.h>
 #endif
 
+#ifndef __ptrauth_objc_isa_pointer
+#define __ptrauth_objc_isa_pointer
+#endif
+
 #if __has_feature(ptrauth_calls) &&  __cplusplus < 201103L
 
 // C ptrauth or old C++ ptrauth
@@ -197,11 +201,36 @@ typedef uintptr_t BlockByrefDestroyFunction;
 
 #endif
 
+#if __has_feature(ptrauth_calls)
+#define _Block_get_relative_function_pointer(field, type)                 \
+    ((type)ptrauth_sign_unauthenticated(                                  \
+            (void *)((uintptr_t)(intptr_t)(field) + (uintptr_t)&(field)), \
+            ptrauth_key_function_pointer, 0))
+#else
+#define _Block_get_relative_function_pointer(field, type)                   \
+    ((type)((uintptr_t)(intptr_t)(field) + (uintptr_t)&(field)))
+#endif
+
+#define _Block_descriptor_ptrauth_discriminator 0xC0BB
+
+// We support small descriptors when block descriptors are signed, and on
+// platforms without ptrauth. We do not support them on ptrauth platforms
+// without signed block descriptors.
+#if __has_feature(ptrauth_signed_block_descriptors) || !__has_feature(ptrauth_calls)
+#define BLOCK_SMALL_DESCRIPTOR_SUPPORTED 1
+#endif
 
 // Values for Block_layout->flags to describe block objects
 enum {
     BLOCK_DEALLOCATING =      (0x0001),  // runtime
     BLOCK_REFCOUNT_MASK =     (0xfffe),  // runtime
+    BLOCK_INLINE_LAYOUT_STRING = (1 << 21), // compiler
+
+#if BLOCK_SMALL_DESCRIPTOR_SUPPORTED
+    BLOCK_SMALL_DESCRIPTOR =  (1 << 22), // compiler
+#endif
+
+    BLOCK_IS_NOESCAPE =       (1 << 23), // compiler
     BLOCK_NEEDS_FREE =        (1 << 24), // runtime
     BLOCK_HAS_COPY_DISPOSE =  (1 << 25), // compiler
     BLOCK_HAS_CTOR =          (1 << 26), // compiler: helpers have C++ code
@@ -232,8 +261,20 @@ struct Block_descriptor_3 {
     const char *layout;     // contents depend on BLOCK_HAS_EXTENDED_LAYOUT
 };
 
+struct Block_descriptor_small {
+    uint32_t size;
+
+    int32_t signature;
+    int32_t layout;
+
+    /* copy & dispose are optional, only access them if
+       Block_layout->flags & BLOCK_HAS_COPY_DIPOSE */
+    int32_t copy;
+    int32_t dispose;
+};
+
 struct Block_layout {
-    void *isa;
+    void * __ptrauth_objc_isa_pointer isa;
     volatile int32_t flags; // contains ref count
     int32_t reserved;
     BlockInvokeFunction invoke;
@@ -262,7 +303,7 @@ enum {
 };
 
 struct Block_byref {
-    void *isa;
+    void * __ptrauth_objc_isa_pointer isa;
     struct Block_byref *forwarding;
     volatile int32_t flags; // contains ref count
     uint32_t size;
@@ -375,9 +416,81 @@ _Block_set_dispose_fn(struct Block_descriptor_2 *desc,
     _Block_set_function_pointer(desc->dispose, fn);
 }
 
+static inline void *
+_Block_get_descriptor(struct Block_layout *aBlock)
+{
+    void *descriptor;
+
+#if __has_feature(ptrauth_signed_block_descriptors)
+    if (!(aBlock->flags & BLOCK_SMALL_DESCRIPTOR)) {
+        descriptor =
+                (void *)ptrauth_strip(aBlock->descriptor, ptrauth_key_asda);
+    } else {
+        uintptr_t disc = ptrauth_blend_discriminator(
+                &aBlock->descriptor, _Block_descriptor_ptrauth_discriminator);
+        descriptor = (void *)ptrauth_auth_data(
+                aBlock->descriptor, ptrauth_key_asda, disc);
+    }
+#elif __has_feature(ptrauth_calls)
+    descriptor = (void *)ptrauth_strip(aBlock->descriptor, ptrauth_key_asda);
+#else
+    descriptor = (void *)aBlock->descriptor;
+#endif
+
+    return descriptor;
+}
+
+static inline void
+_Block_set_descriptor(struct Block_layout *aBlock, void *desc)
+{
+    aBlock->descriptor = (struct Block_descriptor_1 *)desc;
+}
+
+static inline __typeof__(void (*)(void *, const void *))
+_Block_get_copy_function(struct Block_layout *aBlock)
+{
+    if (!(aBlock->flags & BLOCK_HAS_COPY_DISPOSE))
+        return NULL;
+
+    void *desc = _Block_get_descriptor(aBlock);
+#if BLOCK_SMALL_DESCRIPTOR_SUPPORTED
+    if (aBlock->flags & BLOCK_SMALL_DESCRIPTOR) {
+        struct Block_descriptor_small *bds =
+                (struct Block_descriptor_small *)desc;
+        return _Block_get_relative_function_pointer(
+                bds->copy, void (*)(void *, const void *));
+    }
+#endif
+
+    struct Block_descriptor_2 *bd2 =
+            (struct Block_descriptor_2 *)((unsigned char *)desc +
+                                          sizeof(struct Block_descriptor_1));
+    return _Block_get_copy_fn(bd2);
+}
+
+static inline __typeof__(void (*)(const void *))
+_Block_get_dispose_function(struct Block_layout *aBlock)
+{
+    if (!(aBlock->flags & BLOCK_HAS_COPY_DISPOSE))
+        return NULL;
+
+    void *desc = _Block_get_descriptor(aBlock);
+#if BLOCK_SMALL_DESCRIPTOR_SUPPORTED
+    if (aBlock->flags & BLOCK_SMALL_DESCRIPTOR) {
+        struct Block_descriptor_small *bds =
+                (struct Block_descriptor_small *)desc;
+        return _Block_get_relative_function_pointer(
+                bds->dispose, void (*)(const void *));
+    }
+#endif
+
+    struct Block_descriptor_2 *bd2 =
+            (struct Block_descriptor_2 *)((unsigned char *)desc +
+                                          sizeof(struct Block_descriptor_1));
+    return _Block_get_dispose_fn(bd2);
+}
 
 // Other support functions
-
 
 // runtime entry to get total size of a closure
 BLOCK_EXPORT size_t Block_size(void *aBlock);

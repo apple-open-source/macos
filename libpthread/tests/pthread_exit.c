@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <pthread.h>
+#include <pthread/private.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -101,4 +102,20 @@ T_DECL(pthread_exit_detached, "pthread_exit with detached threads")
 		T_PASS("Created threads %d..%d", i*THREAD_DEPTH, (i+1)*THREAD_DEPTH-1);
 	}
 	T_PASS("Success!");
+}
+
+static void
+key_dtor(void *value)
+{
+	T_ASSERT_EQ(1, pthread_self_is_exiting_np(), "exiting");
+}
+
+T_DECL(pthread_self_is_exiting_np, "pthread_self_is_exiting_np")
+{
+	pthread_key_t key;
+
+	T_ASSERT_POSIX_ZERO(pthread_key_create(&key, key_dtor), NULL);
+	pthread_setspecific(key, (void *)-1);
+	T_ASSERT_EQ(0, pthread_self_is_exiting_np(), "not exiting");
+	pthread_exit(NULL);
 }

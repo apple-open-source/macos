@@ -212,7 +212,10 @@
 <li><a href="core.html#contentdigest">ContentDigest</a></li>
 <li><a href="mod_usertrack.html#cookiedomain">CookieDomain</a></li>
 <li><a href="mod_usertrack.html#cookieexpires">CookieExpires</a></li>
+<li><a href="mod_usertrack.html#cookiehttponly">CookieHTTPOnly</a></li>
 <li><a href="mod_usertrack.html#cookiename">CookieName</a></li>
+<li><a href="mod_usertrack.html#cookiesamesite">CookieSameSite</a></li>
+<li><a href="mod_usertrack.html#cookiesecure">CookieSecure</a></li>
 <li><a href="mod_usertrack.html#cookiestyle">CookieStyle</a></li>
 <li><a href="mod_usertrack.html#cookietracking">CookieTracking</a></li>
 <li><a href="mpm_common.html#coredumpdirectory">CoreDumpDirectory</a></li>
@@ -414,15 +417,19 @@
 <li><a href="prefork.html#maxspareservers">MaxSpareServers</a></li>
 <li><a href="mpm_common.html#maxsparethreads">MaxSpareThreads</a></li>
 <li><a href="mpm_netware.html#maxthreads">MaxThreads</a></li>
+<li><a href="mod_md.html#mdactivationdelay">MDActivationDelay</a></li>
 <li><a href="mod_md.html#mdbaseserver">MDBaseServer</a></li>
 <li><a href="mod_md.html#mdcachallenges">MDCAChallenges</a></li>
 <li><a href="mod_md.html#mdcertificateagreement">MDCertificateAgreement</a></li>
 <li><a href="mod_md.html#mdcertificateauthority">MDCertificateAuthority</a></li>
+<li><a href="mod_md.html#mdcertificatecheck">MDCertificateCheck</a></li>
 <li><a href="mod_md.html#mdcertificatefile">MDCertificateFile</a></li>
 <li><a href="mod_md.html#mdcertificatekeyfile">MDCertificateKeyFile</a></li>
+<li><a href="mod_md.html#mdcertificatemonitor">MDCertificateMonitor</a></li>
 <li><a href="mod_md.html#mdcertificateprotocol">MDCertificateProtocol</a></li>
 <li><a href="mod_md.html#mdcertificatestatus">MDCertificateStatus</a></li>
 <li><a href="mod_md.html#mdchallengedns01">MDChallengeDns01</a></li>
+<li><a href="mod_md.html#mdcontactemail">MDContactEmail</a></li>
 <li><a href="mod_md.html#mddrivemode">MDDriveMode</a></li>
 <li><a href="mod_md.html#mdhttpproxy">MDHttpProxy</a></li>
 <li><a href="mod_md.html#mdmember">MDMember</a></li>
@@ -438,6 +445,10 @@
 <li><a href="mod_md.html#mdrenewwindow">MDRenewWindow</a></li>
 <li><a href="mod_md.html#mdrequirehttps">MDRequireHttps</a></li>
 <li><a href="mod_md.html#mdserverstatus">MDServerStatus</a></li>
+<li><a href="mod_md.html#mdstapleothers">MDStapleOthers</a></li>
+<li><a href="mod_md.html#mdstapling">MDStapling</a></li>
+<li><a href="mod_md.html#mdstaplingkeepresponse">MDStaplingKeepResponse</a></li>
+<li><a href="mod_md.html#mdstaplingrenewwindow">MDStaplingRenewWindow</a></li>
 <li><a href="mod_md.html#mdstoredir">MDStoreDir</a></li>
 <li><a href="mod_md.html#mdwarnwindow">MDWarnWindow</a></li>
 <li><a href="mod_socache_memcache.html#memcacheconnttl">MemcacheConnTTL</a></li>
@@ -739,7 +750,7 @@
 <a href="../ko/mod/directives.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/directives.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a> |
 <a href="../zh-cn/mod/directives.html" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">コメント</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/directives.html';
@@ -757,7 +768,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/directives.html'
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />この文書は <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> のライセンスで提供されています。.</p>
 <p class="menu"><a href="../mod/">モジュール</a> | <a href="../mod/directives.html">ディレクティブ</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">用語</a> | <a href="../sitemap.html">サイトマップ</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

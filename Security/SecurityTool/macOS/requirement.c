@@ -62,6 +62,7 @@ int requirement_evaluate(int argc, char * const *argv)
         fprintf(stderr, "parsing requirement failed (%d): %s\n", status, errorStr);
         
         free(errorStr);
+        CFReleaseSafe(errorDesc);
         
         err = 1;
     }
@@ -82,7 +83,7 @@ int requirement_evaluate(int argc, char * const *argv)
         }
         
         CFArrayAppendValue(certs, cert);
-        CFRelease(cert);
+        CFReleaseSafe(cert);
     }
     
     // Evaluate!

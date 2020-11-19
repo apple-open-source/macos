@@ -88,7 +88,7 @@
     if(olditem) {
         NSMutableDictionary* oldDictionary = [[CKKSItemEncrypter decryptItemToDictionary: olditem error:error] mutableCopy];
         if(!oldDictionary) {
-            secerror("Couldn't decrypt old CKMirror entry: %@", (error ? *error : @"null error passed in"));
+            ckkserror("ckme", olditem.zoneID, "Couldn't decrypt old CKMirror entry: %@", (error ? *error : @"null error passed in"));
             return nil;
         }
 
@@ -159,7 +159,7 @@
 
     NSDictionary* result = [self decryptDictionary: item.encitem key:itemkey authenticatedData:authenticatedData error:error];
     if(!result) {
-        secwarning("ckks: couldn't decrypt item %@", *error);
+        ckkserror("item", item.zoneID, "ckks: couldn't decrypt item %@", *error);
     }
     return result;
 }
@@ -177,7 +177,7 @@
                                                       code:1
                                                   userInfo:@{NSLocalizedDescriptionKey:
                                                                  [NSString stringWithFormat:@"Unrecognized encryption version: %lu", (unsigned long)item.encver]}];
-            secerror("decryptItemToDictionary %@", localError);
+            ckkserror("item", item.zoneID, "decryptItemToDictionary failed: %@", localError);
             if (error) {
                 *error = localError;
             }

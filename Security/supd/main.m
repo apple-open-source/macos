@@ -22,6 +22,14 @@
  */
 
 #include <TargetConditionals.h>
+#import <Foundation/NSError_Private.h>
+#import <dirhelper_priv.h>
+
+#if TARGET_OS_OSX
+#include <sandbox.h>
+#include <notify.h>
+#include <pwd.h>
+#endif
 
 #if TARGET_OS_SIMULATOR
 
@@ -61,9 +69,41 @@ int main(int argc, char** argv)
 
 @end
 
+static void securityuploadd_sandbox(void)
+{
+#if TARGET_OS_OSX
+    // Enter the sandbox on macOS
+    char homeDir[PATH_MAX] = {};
+    struct passwd* pwd = getpwuid(getuid());
+    if (pwd == NULL) {
+        secerror("Failed to get home directory for user: %d", errno);
+        exit(EXIT_FAILURE);
+    }
+
+    if (realpath(pwd->pw_dir, homeDir) == NULL) {
+        strlcpy(homeDir, pwd->pw_dir, sizeof(homeDir));
+    }
+
+    const char *sandbox_params[] = {
+        "HOME", homeDir,
+        NULL
+    };
+
+    char *sberror = NULL;
+    secerror("initializing securityuploadd sandbox with HOME=%s", homeDir);
+    if (sandbox_init_with_parameters("com.apple.securityuploadd", SANDBOX_NAMED, sandbox_params, &sberror) != 0) {
+        secerror("Failed to enter securityuploadd sandbox: %{public}s", sberror);
+        exit(EXIT_FAILURE);
+    }
+#endif
+}
+
 int main(int argc, const char *argv[])
 {
     secnotice("lifecycle", "supd lives!");
+    [NSError _setFileNameLocalizationEnabled:NO];
+    securityuploadd_sandbox();
+
     ServiceDelegate *delegate = [ServiceDelegate new];
 
     // kick the singleton so it can register its xpc activity handler

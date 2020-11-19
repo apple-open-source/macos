@@ -43,7 +43,7 @@
 #include <xpc/private.h>
 #include <xpc/xpc.h>
 #include <os/state_private.h>
-
+#include <RunningBoardServices/RBSAssertionAdapter_Private.h>
 
 
 #include "PMConnection.h"
@@ -55,6 +55,9 @@
 #include "powermanagementServer.h"
 #include "SystemLoad.h"
 #include "Platform.h"
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64) || XCTEST
+#include "PMDisplay.h"
+#endif
 
 
 
@@ -130,7 +133,6 @@ static ProcessInfo*                 processInfoCreate(pid_t p);
 static ProcessInfo*                 processInfoRetain(pid_t p);
 STATIC void                         processInfoRelease(pid_t p);
 static ProcessInfo*                 processInfoGet(pid_t p);
-static void                         setClamshellSleepState(void);
 static int                          getAssertionTypeIndex(CFStringRef type);
 
 STATIC void                         handleAssertionTimeout(assertionType_t *assertType);
@@ -181,6 +183,8 @@ sysQualifier_t                      gSysQualifier;
 static CFMutableSetRef              gPendingResponses = NULL;
 static long                         gPendingAckToken = 0;
 static uint32_t                     gSleepBlockers = 0;
+static uint32_t                     gPrevClamshellSleepState = 0;
+
 __private_extern__ void             sendSleepNotificationResponse(void *acknowledgementToken, bool allow);
 
 // list for storing idle and system sleep preventers
@@ -638,17 +642,38 @@ exit:
  ******************************************************************************
  ******************************************************************************
  *****************************************************************************/
-void updateAppSleepStates(ProcessInfo *pinfo, int *disableAppSleep, int *enableAppSleep)
+void updateAppSleepStates(ProcessInfo *pinfo, int *disableAppSleep, int *enableAppSleep, int *assertionID)
 {
     if (!pinfo) return;
 
-    if ((disableAppSleep) && (pinfo->disableAS_pend == true)) {
-        *disableAppSleep = 1;
-        pinfo->disableAS_pend = false;
+    pid_t app_pid = pinfo->pid;
+    ProcessInfo *app_pinfo = pinfo;
+ 
+    assertion_t *assertion = NULL;
+    lookupAssertion(pinfo->pid, *assertionID, &assertion);
+ 
+    if (assertion && assertion->causingPid && assertion->causingPinfo) {
+        app_pid = assertion->causingPid;
+        app_pinfo = assertion->causingPinfo;
     }
-    if ((enableAppSleep) && (pinfo->enableAS_pend == true)) {
+
+    if ((disableAppSleep) && (app_pinfo->disableAS_pend == true)) {
+        *disableAppSleep = 1;
+        app_pinfo->disableAS_pend = false;
+        if (rbs_appnap_enabled_for_pid(app_pid, RBSAppNapSubFeatureIOPM)) {
+            DEBUG_LOG("Setting app nap state to true for %d because of power assertion\n", app_pid);
+            rbs_set_iopm_appnap_state(app_pid, "App is holding power assertion", true);
+            *disableAppSleep = 0;
+        }
+    }
+    if ((enableAppSleep) && (app_pinfo->enableAS_pend == true)) {
         *enableAppSleep = 1;
-        pinfo->enableAS_pend = false;
+        app_pinfo->enableAS_pend = false;
+        if (rbs_appnap_enabled_for_pid(app_pid, RBSAppNapSubFeatureIOPM)) {
+            DEBUG_LOG("Setting app nap state to false for %d because all assertions are released\n", app_pid);
+            rbs_set_iopm_appnap_state(app_pid, "App has released its last power assertion", false);
+            *enableAppSleep = 0;
+        }
     }
 }
 
@@ -671,12 +696,15 @@ kern_return_t _io_pm_assertion_create (
 
     audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, &callerGID, &callerPID, NULL, NULL);    
 
+    *assertion_id = 0;
     *disableAppSleep = 0;
+    *enTrIntensity = 0;
+
     unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)props, propsCnt, kCFAllocatorNull);
     if (unfolder) {
         newAssertionProperties = (CFMutableDictionaryRef)
                                     CFPropertyListCreateWithData( 0, unfolder, 
-                                                                  kCFPropertyListMutableContainersAndLeaves, 
+                                                                  kCFPropertyListMutableContainers,
                                                                   NULL, NULL);
         CFRelease(unfolder);
     }
@@ -704,7 +732,7 @@ kern_return_t _io_pm_assertion_create (
     *return_code = doCreate(callerPID, newAssertionProperties, (IOPMAssertionID *)assertion_id, &pinfo, enTrIntensity);
 
     if ((*return_code == kIOReturnSuccess) && (pinfo != NULL) ) {
-        updateAppSleepStates(pinfo, disableAppSleep, NULL);
+        updateAppSleepStates(pinfo, disableAppSleep, NULL, assertion_id);
     }
 
 exit:
@@ -739,6 +767,8 @@ kern_return_t _io_pm_assertion_set_properties (
 
     *disableAppSleep = 0;
     *enableAppSleep = 0;
+    *enTrIntensity = 0;
+
     unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)props, propsCnt, kCFAllocatorNull);
     if (unfolder) {
         setProperties = (CFDictionaryRef)CFPropertyListCreateWithData(0, unfolder, 0, NULL, NULL);
@@ -757,7 +787,7 @@ kern_return_t _io_pm_assertion_set_properties (
 
     *return_code = doSetProperties(callerPID, assertion_id, setProperties, enTrIntensity);
     if (*return_code == kIOReturnSuccess) {
-        updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, enableAppSleep);
+        updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, enableAppSleep, &assertion_id);
     }
 
 
@@ -788,13 +818,14 @@ kern_return_t _io_pm_assertion_retain_release (
 
     *disableAppSleep = 0;
     *enableAppSleep = 0;
+    *retainCnt = 0;
     if (kIOPMAssertionMIGDoRetain == action) {
         *return_code = doRetain(callerPID, assertion_id, retainCnt);
     } else {
         *return_code = doRelease(callerPID, assertion_id, retainCnt);
     }
     if (*return_code == kIOReturnSuccess) {
-        updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, enableAppSleep);
+        updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, enableAppSleep, &assertion_id);
     }
     return KERN_SUCCESS;
 }
@@ -816,6 +847,8 @@ kern_return_t _io_pm_assertion_copy_details (
     pid_t               callerPID = -1;
 
 
+    *assertionsCnt = 0;
+    *assertions = 0;
     *return_val = kIOReturnNotFound;
 
     if (kIOPMAssertionMIGCopyAll == whichData)
@@ -945,13 +978,18 @@ exit:
 }
 
 // Changes clamshell sleep state
-static void setClamshellSleepState( )
+__private_extern__ void setClamshellSleepState( )
 {
     io_connect_t        connect = IO_OBJECT_NULL;
     uint64_t            in;
-    static int          prevState = -1;
-    int                 newState = 0;
+    uint32_t            newState = 0;
     __block int         lidSleepCount = 0;
+    bool                desktop_mode = false;
+    bool                update = false;
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64) || XCTEST
+    int                 pwr_src;
+
+#endif
 
     // Check lid sleep preventers on kDeclareUserActivityType and kTicklessDisplayWakeType
     applyToAssertionsSync(&gAssertionTypes[kDeclareUserActivityType], kSelectActive,
@@ -968,39 +1006,96 @@ static void setClamshellSleepState( )
                           });
 
 
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64) || XCTEST
+    // Check assertion from WindowServer while processing hot plug
+    applyToAssertionsSync(&gAssertionTypes[kPreventSleepType], kSelectActive,
+                          ^(assertion_t *assertion) {
+                              if (assertion->state & kAssertionLidStateModifier) {
+                                  lidSleepCount++;
+                              }
+                          });
 
-    if (lidSleepCount || prevState) {
-        DEBUG_LOG("lidClose sleep preventers: %d prevState: %d\n", lidSleepCount, prevState);
+    // check DesktopMode and ac connected
+    pwr_src = _getPowerSource();
+    if (pwr_src == kACPowered) {
+        desktop_mode = isDesktopMode();
+        if (desktop_mode) {
+            newState |= kClamshellDisableDesktopMode;
+        }
     }
-    if (lidSleepCount && (prevState < 1)) {
-        newState = 1;
+#endif //(TARGET_OS_OSX && TARGET_CPU_ARM64)
+    if (lidSleepCount) {
+        newState |= kClamshellDisableAssertions;
     }
-    else if (lidSleepCount == 0) {
-        if (prevState == 0) {
+    DEBUG_LOG("EvaluateClamshell. Result :  %d because {DesktopMode with AC: %u, assertions %d\n", newState, desktop_mode, lidSleepCount);
+
+    if (newState && gPrevClamshellSleepState == 0) {
+        update = true;
+    }
+    else if (newState == 0 && gPrevClamshellSleepState != 0) {
+        update = true;
+    }
+    gPrevClamshellSleepState = newState;
+
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64) || XCTEST
+    // do not modify clamshell sleep state in dark wake
+    if (!isA_FullWake()) {
+        /*
+         * Preserve kClamshellDisableSystemSleep across dark wakes
+         * This ensures that the first update after a full wake is always
+         * sent to rootDomain
+         */
+        gPrevClamshellSleepState = gPrevClamshellSleepState | kClamshellDisableSystemSleep;
+        DEBUG_LOG("Not modifying ClamshellSleepState for rootDomain in dark wake. gPrevClamshellSleepState %d", gPrevClamshellSleepState);
+        return;
+    }
+#endif
+
+    if (update) {
+        if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL) {
+            ERROR_LOG("Failed to open connection to RootDomain\n");
             return;
         }
-        newState = 0;
-    }
-    else {
-        return;
-    }
 
-    if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL) {
-        ERROR_LOG("Failed to open connection to RootDomain\n");
-        return;
-    }
+        in = newState ? 1 : 0;
+        INFO_LOG("EvaluateClamshell. Disable :  %lld because {DesktopMode with AC: %u, assertions %d\n", in, desktop_mode, lidSleepCount);
 
-    in = newState ? 1 : 0;
-    INFO_LOG("Setting ClamshellSleepState to %lld\n", in);
-
-    IOConnectCallMethod(connect, kPMSetClamshellSleepState, 
-                        &in, 1, 
-                        NULL, 0, NULL, 
-                        NULL, NULL, NULL);
-    prevState = newState;
+        IOConnectCallMethod(connect, kPMSetClamshellSleepState, 
+                            &in, 1, 
+                            NULL, 0, NULL, 
+                            NULL, NULL, NULL);
+        }
     return;
 }
 
+__private_extern__ int getClamshellSleepState()
+{
+    // 1 : disable sleep on clamshell close
+    // 0 : enable sleep on clamshell close
+    return gPrevClamshellSleepState;
+}
+
+__private_extern__ void disableClamshellSleepState()
+{
+    io_connect_t        connect = IO_OBJECT_NULL;
+    uint64_t            newState = 1;
+
+    if (gPrevClamshellSleepState == 0) {
+        if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL) {
+            ERROR_LOG("Failed to open connection to RootDomain\n");
+            return;
+        }
+
+        INFO_LOG("Setting ClamshellSleepState to %lld\n", newState);
+
+        IOConnectCallMethod(connect, kPMSetClamshellSleepState, 
+                            &newState, 1, 
+                            NULL, 0, NULL, 
+                            NULL, NULL, NULL);
+    }
+    gPrevClamshellSleepState |= kClamshellDisableSystemSleep;
+    return;
+}
 
 __private_extern__ void sendActivityTickle ()
 {
@@ -1017,7 +1112,17 @@ __private_extern__ void sendActivityTickle ()
                 currTime, lastTickle_ts, isDisplayAsleep(), userActiveRootDomain());
         return;
     }
+    if (!isDisplayAsleep() && !userActiveRootDomain()) {
+        DEBUG_LOG("Activity tickle while in notification wake");
+        userActiveHandleRootDomainActivity(true);
+    }
 
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    if (isDisplayAsleep() && !canSustainFullWake()) {
+        INFO_LOG("In a darkwake state and cannot sustain full wake");
+        return;
+    }
+#endif
 
     if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL) {
         ERROR_LOG("Failed to open connection to rootDomain\n");
@@ -1028,6 +1133,15 @@ __private_extern__ void sendActivityTickle ()
                         NULL, 0, 
                         NULL, 0, NULL, 
                         NULL, NULL, NULL);
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    /* Turn on display if needed */
+    if (isDisplayAsleep() || inFlightDimRequest()) {
+        INFO_LOG("Display is asleep on activity tickle. Lets turn it on\n");
+        unblankDisplay();
+    } else {
+        DEBUG_LOG("Display is not asleep. Not turning it on\n");
+    }
+#endif
     if (rc != kIOReturnSuccess) {
         ERROR_LOG("Activity tickle failed with error 0x%x\n", rc);
     }
@@ -1294,31 +1408,111 @@ __private_extern__ CFMutableDictionaryRef _IOPMAssertionDescriptionCreate(
     return descriptor;
 }
 
-
-
-__private_extern__ IOReturn InternalCreateAssertion(
-                                                    CFMutableDictionaryRef properties, 
-                                                    IOPMAssertionID *outID)
-{
-    if (!properties) 
+static IOReturn InternalCreateAssertionWithState(CFMutableDictionaryRef properties,
+                                                              IOPMAssertionID *outID, uint32_t state) {
+    if (!properties)
         return kIOReturnBadArgument;
 
     CFRetain(properties);
 
     dispatch_async(_getPMMainQueue(), ^{
+        pid_t pid = getpid();
+#if XCTEST
+        pid = (pid_t)XCTEST_PID;
+#endif
         if (outID == NULL) {
             /* Some don't care for assertionId */
             IOPMAssertionID   assertionID = kIOPMNullAssertionID;
-            doCreate(getpid(), properties, &assertionID, NULL, NULL);
+            doCreate(pid, properties, &assertionID, NULL, NULL);
         }
-        else if ( *outID == kIOPMNullAssertionID )
-            doCreate(getpid(), properties, outID, NULL, NULL);
+        else if (*outID == kIOPMNullAssertionID) {
+            doCreate(pid, properties, outID, NULL, NULL);
+            if (state) {
+                assertion_t *assertion = NULL;
+                IOReturn ret = lookupAssertion(pid, *outID, &assertion);
+                if (ret == kIOReturnSuccess && assertion) {
+                    assertion->state |= kAssertionTimeoutIsSystemTimer;
+                }
+            }
+        }
 
         CFRelease(properties);
     });
 
     return kIOReturnSuccess;
+
 }
+
+__private_extern__ IOReturn InternalDeclareUserActive(CFStringRef description,
+                                                        IOPMAssertionID *outID)
+{
+    IOReturn ret = kIOReturnSuccess;
+    assertion_t *assertion = NULL;
+    bool create_new = true;
+    if (!description || !outID)
+        return kIOReturnBadArgument;
+
+    CFMutableDictionaryRef properties = NULL;
+    properties = _IOPMAssertionDescriptionCreate(
+                    kIOPMAssertionUserIsActive,
+                    description,
+                    NULL, NULL,
+                    NULL, 0,
+                    kIOPMAssertionTimeoutActionRelease);
+
+    if (properties) {
+
+        // set timeout value
+        CFTimeInterval display_sleep_timer = gDisplaySleepTimer * 60; /* Convert to secs */
+        CFNumberRef cf_display_sleep_timer = CFNumberCreate(0, kCFNumberDoubleType, &display_sleep_timer);
+        if (cf_display_sleep_timer) {
+            CFDictionarySetValue(properties, kIOPMAssertionTimeoutKey, cf_display_sleep_timer);
+            CFRelease(cf_display_sleep_timer);
+        }
+
+        /* Check if this is a repeat call on previously returned assertion id */
+        do {
+            if (outID == kIOPMNullAssertionID)
+                break;
+#if XCTEST
+            ret = lookupAssertion((pid_t)XCTEST_PID, *outID, &assertion);
+#else
+            ret = lookupAssertion(getpid(), *outID, &assertion);
+#endif
+            if ((kIOReturnSuccess != ret) || !assertion)
+                break;
+
+            if (assertion->kassert != kDeclareUserActivityType)
+                break;
+
+            /* Extend the timeout timer of this assertion by display sleep timer value */
+
+            int k = kIOPMAssertionLevelOn;
+            CFNumberRef level_on = CFNumberCreate(0, kCFNumberIntType, &k);
+            CFDictionarySetValue(assertion->props, kIOPMAssertionLevelKey, level_on);
+            CFRelease(level_on);
+
+            ret = doSetProperties(getpid(), *outID, properties, NULL);
+            create_new = false;
+        } while (false);
+
+        if (create_new) {
+            *outID = kIOPMNullAssertionID;
+            ret = InternalCreateAssertionWithState(properties, outID, kAssertionTimeoutIsSystemTimer);
+        }
+        CFRelease(properties);
+    }
+    return ret;
+
+}
+
+__private_extern__ IOReturn InternalCreateAssertion(
+                                                    CFMutableDictionaryRef properties, 
+                                                    IOPMAssertionID *outID)
+{
+    return InternalCreateAssertionWithState(properties, outID, 0);
+}
+
 
 __private_extern__ void InternalReleaseAssertion(
                                                  IOPMAssertionID *outID)
@@ -1752,7 +1946,7 @@ __private_extern__ void _ProxyAssertions(const struct IOPMSystemCapabilityChange
  * Takes an assertion to keep display on for up to
  * a max of 'kPMMaxDisplayTurnOffDelay' minutes
  */
-void delayDisplayTurnOff( )
+__private_extern__ void delayDisplayTurnOff( )
 {
 
     CFNumberRef  levelNum = NULL;
@@ -1862,6 +2056,17 @@ static bool callerIsEntitledToAssertion(
             return false;
         }
     }
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    value = CFDictionaryGetValue(newAssertionProperties, kIOPMAssertionProcessingHotPlug);
+    if (isA_CFBoolean(value) && (value == kCFBooleanTrue)) {
+        caller_is_allowed = auditTokenHasEntitlement(token, kIOPMDisplayServiceEntitlement);
+
+        if (!caller_is_allowed) {
+            ERROR_LOG("Pid %d is not privileged to set property %@\n", callerPID, kIOPMAssertionProcessingHotPlug);
+            return false;
+        }
+    }
+#endif
     return caller_is_allowed;
 }
 
@@ -2342,9 +2547,14 @@ static void disableAppSleep(ProcessInfo *pinfo)
         return;
 
     pinfo->disableAS_pend = false;
-    snprintf(notify_str, sizeof(notify_str), "%s.%d", 
-             kIOPMDisableAppSleepPrefix,pinfo->pid);
-    notify_post(notify_str);
+    if (rbs_appnap_enabled_for_pid(pinfo->pid, RBSAppNapSubFeatureIOPM)) {
+        DEBUG_LOG("Setting app nap state to true for %d\n", pinfo->pid);
+        rbs_set_iopm_appnap_state(pinfo->pid, "App is holding power assertion", true);
+    } else {
+        snprintf(notify_str, sizeof(notify_str), "%s.%d", 
+                 kIOPMDisableAppSleepPrefix,pinfo->pid);
+        notify_post(notify_str);
+    }
 
 }
 
@@ -2356,14 +2566,20 @@ static void enableAppSleep(ProcessInfo *pinfo)
         return;
 
     pinfo->enableAS_pend = false;
-    snprintf(notify_str, sizeof(notify_str), "%s.%d", 
-             kIOPMEnableAppSleepPrefix, pinfo->pid);
-    notify_post(notify_str);
+    if (rbs_appnap_enabled_for_pid(pinfo->pid, RBSAppNapSubFeatureIOPM)) {
+        DEBUG_LOG("Setting app nap state to false for %d\n", pinfo->pid);
+        rbs_set_iopm_appnap_state(pinfo->pid, "App has released its last power assertion", false);
+    } else {
+        snprintf(notify_str, sizeof(notify_str), "%s.%d", 
+                 kIOPMEnableAppSleepPrefix, pinfo->pid);
+        notify_post(notify_str);
+    }
 }
 
 
 void schedDisableAppSleep(assertion_t *assertion)
 {
+#if !TARGET_OS_IPHONE && !XCTEST
     assertionType_t     *assertType = NULL;
     ProcessInfo         *pinfo = NULL;
     uint32_t            agg;
@@ -2373,6 +2589,9 @@ void schedDisableAppSleep(assertion_t *assertion)
     if ( !(assertType->flags & kAssertionTypePreventAppSleep)) return;
 
     pinfo = assertion->pinfo;
+    if (assertion->causingPid && assertion->causingPinfo) {
+        pinfo = assertion->causingPinfo;
+    }
     if (pinfo->pid == getpid()) return;
 
 
@@ -2389,11 +2608,13 @@ void schedDisableAppSleep(assertion_t *assertion)
             processInfoRelease(pinfo->pid);
         });
     }
+#endif
 }
 
 
 void schedEnableAppSleep(assertion_t *assertion)
 {
+#if !TARGET_OS_IPHONE && !XCTEST
     assertionType_t     *assertType = NULL;
     ProcessInfo         *pinfo = NULL;
 
@@ -2401,6 +2622,9 @@ void schedEnableAppSleep(assertion_t *assertion)
     if ( !(assertType->flags & kAssertionTypePreventAppSleep)) return;
 
     pinfo = assertion->pinfo;
+    if (assertion->causingPid && assertion->causingPinfo) {
+        pinfo = assertion->causingPinfo;
+    }
     if (pinfo->pid == getpid()) return;
 
 
@@ -2417,6 +2641,7 @@ void schedEnableAppSleep(assertion_t *assertion)
             });
         }
     }
+#endif
 }
 
 
@@ -2521,7 +2746,9 @@ kern_return_t _io_pm_change_sa_assertion_behavior (
     uid_t               callerUID = -1;
     gid_t               callerGID = -1;
 
-    audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, &callerGID, &callerPID, NULL, NULL);    
+    audit_token_to_au32(token, NULL, NULL, NULL, &callerUID, &callerGID, &callerPID, NULL, NULL);
+
+    *oldFlags = 0;
     if (!callerIsRoot(callerUID))
     {
         *return_code = kIOReturnNotPrivileged;
@@ -2552,10 +2779,11 @@ kern_return_t _io_pm_declare_system_active (
 
     audit_token_to_au32(token, NULL, NULL, NULL, NULL, NULL, &callerPID, NULL, NULL);
 
+    *assertion_id = 0;
     unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)props, propsCnt, kCFAllocatorNull);
     if (unfolder) {
         assertionProperties = (CFMutableDictionaryRef)CFPropertyListCreateWithData
-                                    (0, unfolder, kCFPropertyListMutableContainersAndLeaves, NULL, NULL);
+                                    (0, unfolder, kCFPropertyListMutableContainers, NULL, NULL);
         CFRelease(unfolder);
     }
 
@@ -2641,7 +2869,7 @@ kern_return_t  _io_pm_declare_user_active (
     if (unfolder) {
         assertionProperties = (CFMutableDictionaryRef)
                                 CFPropertyListCreateWithData(0, unfolder, 
-                                                             kCFPropertyListMutableContainersAndLeaves, 
+                                                             kCFPropertyListMutableContainers,
                                                              NULL, NULL);
         CFRelease(unfolder);
     }
@@ -2701,7 +2929,7 @@ kern_return_t  _io_pm_declare_user_active (
     }
 
     if (*return_code == kIOReturnSuccess)
-        updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, NULL);
+        updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, NULL, assertion_id);
 
 exit:
 
@@ -2740,7 +2968,7 @@ kern_return_t  _io_pm_declare_network_client_active (
     if (unfolder) {
         assertionProperties = (CFMutableDictionaryRef)
                                 CFPropertyListCreateWithData(0, unfolder, 
-                                                             kCFPropertyListMutableContainersAndLeaves, 
+                                                             kCFPropertyListMutableContainers,
                                                              NULL, NULL);
         CFRelease(unfolder);
     }
@@ -2803,7 +3031,7 @@ kern_return_t  _io_pm_declare_network_client_active (
     }
 
     if (*return_code == kIOReturnSuccess)
-        updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, NULL);
+        updateAppSleepStates(processInfoGet(callerPID), disableAppSleep, NULL, assertion_id);
 
 exit:
     if (assertionProperties)
@@ -3116,7 +3344,7 @@ kern_return_t  _io_pm_set_exception_limits (
     unfolder = CFDataCreateWithBytesNoCopy(0, (const UInt8 *)props, propsCnt, kCFAllocatorNull);
     if (unfolder) {
         dict = (CFDictionaryRef)CFPropertyListCreateWithData(0, unfolder,
-                                                             kCFPropertyListMutableContainersAndLeaves,
+                                                             kCFPropertyListImmutable,
                                                              NULL, NULL);
         CFRelease(unfolder);
     }
@@ -3926,6 +4154,19 @@ static void forwardPropertiesToAssertion(const void *key, const void *value, voi
             assertion->mods |= kAssertionModLidState;
         }
     }
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    else if (CFEqual(key, kIOPMAssertionProcessingHotPlug)) {
+        if (!isA_CFBoolean(value)) return;
+        if ((value == kCFBooleanTrue) && !(assertion->state & kAssertionLidStateModifier)) {
+            assertion->state |= kAssertionLidStateModifier;
+            assertion->mods |= kAssertionModLidState;
+        }
+        else if((value == kCFBooleanFalse) && (assertion->state & kAssertionLidStateModifier)) {
+            assertion->state &= ~kAssertionLidStateModifier;
+            assertion->mods |= kAssertionModLidState;
+        }
+    }
+#endif
     else if (CFEqual(key, kIOPMAssertionExitSilentRunning)) {
         if (!isA_CFBoolean(value)) return;
         if ((value == kCFBooleanTrue) && !(assertion->state & kAssertionExitSilentRunningMode)) {
@@ -4419,6 +4660,9 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
 {
     uint32_t    assertBit = 0;
     bool    activeExists, activesForTheType;
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    uint32_t displaySleepTimer = 0;
+#endif
 
     if (assertType->effectIdx == kNoEffect)
         return;
@@ -4477,6 +4721,12 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
          */
         if ( ((assertType->kassert == kPreventSleepType) || (assertType->kassert == kNetworkAccessType))
              && activesForTheType) {
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+            if ((assertType->kassert == kPreventSleepType) && activesForTheType){
+                // PreventSystemSleep assertion. Update clamshell sleep state
+                setClamshellSleepState();
+            }
+#endif
             _unclamp_silent_running(true);
             setVMDarkwakeMode(false);
         }
@@ -4521,6 +4771,21 @@ void setKernelAssertions(assertionType_t *assertType, assertionOps op)
     }
     else {
         kerAssertionBits &= ~assertBit;
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+        if (assertBit & kIOPMDriverAssertionPreventDisplaySleepBit) {
+            INFO_LOG("Time to turn off display - kerAssertionBits %u. Time since last hid activity %u\n", kerAssertionBits, getTimeSinceLastTickle());
+            // idle sleep. Dim all displays
+            IOReturn err = getDisplaySleepTimer(&displaySleepTimer);
+            if (err == kIOReturnSuccess && displaySleepTimer == 0) {
+                INFO_LOG("Display sleep is disabled\n");
+            } else if (isA_NotificationDisplayWake()) {
+                INFO_LOG("Display idle timer is ignored due to notification wake");
+            } else {
+                dimDisplay();
+            }
+
+        }
+#endif
         sendUserAssertionsToKernel(kerAssertionBits);
     }
     if (gAggChange) notify_post( kIOPMAssertionsChangedNotifyString );
@@ -4537,6 +4802,7 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
     uint64_t        level = 0;
     bool            assertionLevel = 0;
     io_connect_t    connect = IO_OBJECT_NULL;
+    bool            notificationWakeCancelled = false;
 
     if (assertType->kassert != kTicklessDisplayWakeType)
         return;
@@ -4570,12 +4836,17 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
     if ( (connect = getRootDomainConnect()) == IO_OBJECT_NULL)
         return;
 
-    if (level) { 
-        if ((isA_DarkWakeState() || isA_SleepState())) {
+    if (level) {
+        if (((isA_DarkWakeState() && !isA_FullWake()) || isA_SleepState() || isDisplayAsleep())) {
+            INFO_LOG("Setting notification display wake %d %d %d %d", isA_DarkWakeState(), isA_FullWake(), isA_SleepState(), isDisplayAsleep());
             set_NotificationDisplayWake( );
         }
     }
     else {
+        if (isA_NotificationDisplayWake()) {
+            notificationWakeCancelled = true;
+        }
+        INFO_LOG("Cancelling notification display wake %d", isA_NotificationDisplayWake());
         cancel_NotificationDisplayWake( );
     }
 
@@ -4583,11 +4854,49 @@ static void displayWakeHandler(assertionType_t *assertType, assertionOps op)
     // avoid 'kIOPMUserPresentPassive' level when display is waking
     // to display notification
     updateAggregates(assertType, activesForTheType);
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    if (level) {
+        if (isDisplayAsleep() || inFlightDimRequest()) {
+            INFO_LOG("Turning on display for notification wake");
+            unblankDisplay();
+        }
+    } else {
+        if (notificationWakeCancelled) {
+            // check for useractive state before turning off display
+            if (!userActiveRootDomain()) {
+                INFO_LOG("Turning off display after notification wake");
+                blankDisplay();
+                // cancel and sleep immediately if needed
+                CFStringRef wakeType = NULL;
+                wakeType = _copyRootDomainProperty(CFSTR(kIOPMRootDomainWakeTypeKey));
+                if (wakeType) {
+                    if (CFEqual(wakeType, kIOPMRootDomainWakeTypeNotification)) {
+                        INFO_LOG("Going to sleep after notification wake");
+                        CFMutableDictionaryRef options = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks,
+                                            &kCFTypeDictionaryValueCallBacks);
+                        if (options) {
+                            CFDictionarySetValue(options, CFSTR("Sleep Reason"), CFSTR("Notification Wake Back to Sleep"));
+                        }
+
+                        IOPMSleepSystemWithOptions(connect, options);
+                        if (options){
+                            CFRelease(options);
+                        }
+                    }
+                    CFRelease(wakeType);
+                } else {
+                    INFO_LOG("Wake type not set");
+                }
+            } else {
+                INFO_LOG("User is active. Ignoring notification wake assertion release");
+            }
+        }
+    }
+#endif
     IOConnectCallMethod(connect, kPMSetDisplayPowerOn, 
                         &level, 1, 
                         NULL, 0, NULL, 
                         NULL, NULL, NULL);
-
     if (gAggChange) notify_post( kIOPMAssertionsChangedNotifyString );
 
 check_silentRunning:
@@ -4802,6 +5111,13 @@ static IOReturn raiseAssertion(assertion_t *assertion)
         assertion->state |= kAssertionLidStateModifier;
     }
 
+#if (TARGET_OS_OSX && TARGET_CPU_ARM64)
+    val = CFDictionaryGetValue(assertion->props, kIOPMAssertionProcessingHotPlug);
+    if (isA_CFBoolean(val) && (val == kCFBooleanTrue)) {
+        assertion->state |= kAssertionLidStateModifier;
+    }
+#endif
+
     /* Is this timed */
     numRef = CFDictionaryGetValue(assertion->props, kIOPMAssertionTimeoutKey);
     if (isA_CFNumber(numRef)) 
@@ -4846,6 +5162,7 @@ STATIC IOReturn doCreate(
     assertion_t             *tmp_a = NULL;
     IOReturn                result = kIOReturnSuccess;
     ProcessInfo             *pinfo = NULL;
+    ProcessInfo             *causing_pinfo = NULL;
     assertionType_t         *assertType = NULL;
     static uint32_t         gNextAssertionIdx = 0;
 
@@ -4886,6 +5203,16 @@ STATIC IOReturn doCreate(
     CFRetain(newProperties);
     assertion->retainCnt = 1;
     assertion->pinfo = pinfo;
+
+    // create pinfo for caused by pid
+    if (assertion->causingPid) {
+        if ( !(causing_pinfo = processInfoRetain(assertion->causingPid))) {
+            causing_pinfo = processInfoCreate(assertion->causingPid);
+        }
+        if (causing_pinfo) {
+            assertion->causingPinfo = causing_pinfo;
+        }
+    }
 
     assertion->assertionId = ID_FROM_INDEX(i);
     CFDictionarySetValue(gAssertionsArray, (const void *)(uintptr_t)i, (const void *)assertion);

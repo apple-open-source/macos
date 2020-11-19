@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <xpc/xpc.h>
 #include <xpc/private.h>
+#include <os/log.h>
 
 static int _si_muser_disabled = 0;
 static xpc_pipe_t __muser_pipe;
@@ -47,7 +48,9 @@ _muser_call(const char *procname, xpc_object_t payload)
 	xpc_object_t result = NULL;
 	xpc_object_t reply;
 	xpc_pipe_t pipe;
-
+	int rv;
+	bool retried = false; /* try again incase of usermanager jetsam */
+	bool retryagain = false;
 	if (!payload) { return NULL; }
 
 	pipe = _muser_xpc_pipe(false);
@@ -55,17 +58,38 @@ _muser_call(const char *procname, xpc_object_t payload)
 
 	xpc_dictionary_set_string(payload, kLIMMessageRPCName, procname);
 	xpc_dictionary_set_uint64(payload, kLIMMessageVersion, 1);
-
-	int rv = xpc_pipe_routine(pipe, payload, &reply);
-	switch (rv) {
-		case 0:
-			result = reply;
-			break;
-		case EAGAIN:
-		case EPIPE:
-		default:
-			break;
-	}
+	
+	/* if EPIPE, EAGAIN retry once */
+	do  {
+		retryagain = false;	/* if set from previous pass, reset now */
+		rv = xpc_pipe_routine(pipe, payload, &reply);
+		switch (rv) {
+			case 0:
+				result = reply;
+				break;
+			case EAGAIN:
+			case EPIPE:
+				{
+					if (retried) {
+						/* retried already, so bail out */
+						os_log_error(OS_LOG_DEFAULT, "_muser_call: Failure (%d) with retry, bailing", rv);
+						break;
+					}
+					/* lets retry one more time as jetsam of usermanager results in EPIPE */
+					retried = true;
+					retryagain = true;
+					os_log_debug(OS_LOG_DEFAULT, "_muser_call: Error from xpc pipe (%d), retrying", rv);
+					/* reestablish connetion */
+					xpc_release(pipe);
+					/* reestablish muser pipe */
+					pipe = _muser_xpc_pipe(true);
+					if (!pipe) { return NULL; }
+				}
+				break;
+			default:
+				break;
+		}
+	} while (retryagain);
 
 	xpc_release(pipe);
 	return result;

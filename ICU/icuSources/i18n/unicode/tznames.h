@@ -15,6 +15,8 @@
  */
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/uloc.h"
@@ -71,7 +73,6 @@ typedef enum UTimeZoneNameType {
 
 U_CDECL_END
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class UVector;
@@ -410,7 +411,9 @@ public:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif

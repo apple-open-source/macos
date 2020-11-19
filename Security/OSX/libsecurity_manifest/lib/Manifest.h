@@ -49,7 +49,7 @@ public:
 	
 	Manifest ();
 
-	virtual ~Manifest () throw ();
+	virtual ~Manifest () _NOEXCEPT;
 	
 	ManifestInternal& GetManifestInternal () {return mManifestInternal;}
 	ManifestSigner* GetSigner () {return mManifestSigner;}

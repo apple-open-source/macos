@@ -26,8 +26,6 @@
 #include "config.h"
 #include "VideoTextureCopierCV.h"
 
-#if HAVE(CORE_VIDEO)
-
 #include "FourCC.h"
 #include "Logging.h"
 #include "TextureCacheCV.h"
@@ -57,7 +55,6 @@
 
 namespace WebCore {
 
-#if HAVE(IOSURFACE)
 enum class PixelRange {
     Unknown,
     Video,
@@ -374,23 +371,22 @@ static const Vector<GLfloat> YCbCrToRGBMatrixForRangeAndTransferFunction(PixelRa
     ASSERT(iterator != matrices.get().end());
     return iterator->second;
 }
-#endif // HAVE(IOSURFACE)
 
-VideoTextureCopierCV::VideoTextureCopierCV(GraphicsContext3D& context)
+VideoTextureCopierCV::VideoTextureCopierCV(GraphicsContextGLOpenGL& context)
     : m_sharedContext(context)
-    , m_context(GraphicsContext3D::createShared(context))
-    , m_framebuffer(context.createFramebuffer())
+    , m_context(GraphicsContextGLOpenGL::createShared(context))
+    , m_framebuffer(m_context->createFramebuffer())
 {
 }
 
 VideoTextureCopierCV::~VideoTextureCopierCV()
 {
     if (m_vertexBuffer)
-        m_context->deleteProgram(m_vertexBuffer);
+        m_context->deleteBuffer(m_vertexBuffer);
     if (m_program)
         m_context->deleteProgram(m_program);
     if (m_yuvVertexBuffer)
-        m_context->deleteProgram(m_yuvVertexBuffer);
+        m_context->deleteBuffer(m_yuvVertexBuffer);
     if (m_yuvProgram)
         m_context->deleteProgram(m_yuvProgram);
     m_context->deleteFramebuffer(m_framebuffer);
@@ -404,62 +400,62 @@ static StringMap& enumToStringMap()
     static NeverDestroyed<StringMap> map;
     if (map.get().empty()) {
         StringMap stringMap;
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RGB));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RGBA));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::LUMINANCE_ALPHA));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::LUMINANCE));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::ALPHA));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R16F));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R32F));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R8UI));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R8I));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R16UI));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R16I));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R32UI));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::R32I));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG16F));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG32F));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG8UI));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG8I));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG16UI));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG16I));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG32UI));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG32I));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RGB8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::SRGB8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RGBA8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::SRGB8_ALPHA8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RGBA4));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RGB10_A2));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::DEPTH_COMPONENT16));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::DEPTH_COMPONENT24));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::DEPTH_COMPONENT32F));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::DEPTH24_STENCIL8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::DEPTH32F_STENCIL8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RGB));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RGBA));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::LUMINANCE_ALPHA));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::LUMINANCE));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::ALPHA));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RED));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::RG_INTEGER));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::DEPTH_STENCIL));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::UNSIGNED_BYTE));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::UNSIGNED_SHORT_5_6_5));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::UNSIGNED_SHORT_4_4_4_4));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::UNSIGNED_SHORT_5_5_5_1));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::BYTE));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::HALF_FLOAT));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::FLOAT));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::UNSIGNED_SHORT));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::SHORT));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::UNSIGNED_INT));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::INT));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::UNSIGNED_INT_2_10_10_10_REV));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::UNSIGNED_INT_24_8));
-        map.get().emplace(STRINGIFY_PAIR(GraphicsContext3D::FLOAT_32_UNSIGNED_INT_24_8_REV));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RGB));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RGBA));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::LUMINANCE_ALPHA));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::LUMINANCE));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::ALPHA));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R16F));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R32F));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R8UI));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R8I));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R16UI));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R16I));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R32UI));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::R32I));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG16F));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG32F));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG8UI));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG8I));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG16UI));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG16I));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG32UI));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG32I));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RGB8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::SRGB8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RGBA8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::SRGB8_ALPHA8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RGBA4));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RGB10_A2));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::DEPTH_COMPONENT16));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::DEPTH_COMPONENT24));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::DEPTH_COMPONENT32F));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::DEPTH24_STENCIL8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::DEPTH32F_STENCIL8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RGB));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RGBA));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::LUMINANCE_ALPHA));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::LUMINANCE));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::ALPHA));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RED));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::RG_INTEGER));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::DEPTH_STENCIL));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::UNSIGNED_BYTE));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::UNSIGNED_SHORT_5_6_5));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::UNSIGNED_SHORT_4_4_4_4));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::UNSIGNED_SHORT_5_5_5_1));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::BYTE));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::HALF_FLOAT));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::FLOAT));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::UNSIGNED_SHORT));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::SHORT));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::UNSIGNED_INT));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::INT));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::UNSIGNED_INT_2_10_10_10_REV));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::UNSIGNED_INT_24_8));
+        map.get().emplace(STRINGIFY_PAIR(GraphicsContextGL::FLOAT_32_UNSIGNED_INT_24_8_REV));
 
 #if USE(OPENGL_ES)
         map.get().emplace(STRINGIFY_PAIR(GL_RED_INTEGER));
@@ -514,12 +510,12 @@ bool VideoTextureCopierCV::initializeContextObjects()
     vertexShaderSource.appendLiteral("    gl_Position = a_position;\n");
     vertexShaderSource.appendLiteral("}\n");
 
-    Platform3DObject vertexShader = m_context->createShader(GraphicsContext3D::VERTEX_SHADER);
+    PlatformGLObject vertexShader = m_context->createShader(GraphicsContextGL::VERTEX_SHADER);
     m_context->shaderSource(vertexShader, vertexShaderSource.toString());
     m_context->compileShaderDirect(vertexShader);
 
-    GC3Dint value = 0;
-    m_context->getShaderiv(vertexShader, GraphicsContext3D::COMPILE_STATUS, &value);
+    GCGLint value = 0;
+    m_context->getShaderiv(vertexShader, GraphicsContextGL::COMPILE_STATUS, &value);
     if (!value) {
         LOG(WebGL, "VideoTextureCopierCV::copyVideoTextureToPlatformTexture(%p) - Vertex shader failed to compile.", this);
         m_context->deleteShader(vertexShader);
@@ -561,11 +557,11 @@ bool VideoTextureCopierCV::initializeContextObjects()
     fragmentShaderSource.appendLiteral("    }\n");
     fragmentShaderSource.appendLiteral("}\n");
 
-    Platform3DObject fragmentShader = m_context->createShader(GraphicsContext3D::FRAGMENT_SHADER);
+    PlatformGLObject fragmentShader = m_context->createShader(GraphicsContextGL::FRAGMENT_SHADER);
     m_context->shaderSource(fragmentShader, fragmentShaderSource.toString());
     m_context->compileShaderDirect(fragmentShader);
 
-    m_context->getShaderiv(fragmentShader, GraphicsContext3D::COMPILE_STATUS, &value);
+    m_context->getShaderiv(fragmentShader, GraphicsContextGL::COMPILE_STATUS, &value);
     if (!value) {
         LOG(WebGL, "VideoTextureCopierCV::copyVideoTextureToPlatformTexture(%p) - Fragment shader failed to compile.", this);
         m_context->deleteShader(vertexShader);
@@ -578,7 +574,7 @@ bool VideoTextureCopierCV::initializeContextObjects()
     m_context->attachShader(m_program, fragmentShader);
     m_context->linkProgram(m_program);
 
-    m_context->getProgramiv(m_program, GraphicsContext3D::LINK_STATUS, &value);
+    m_context->getProgramiv(m_program, GraphicsContextGL::LINK_STATUS, &value);
     if (!value) {
         LOG(WebGL, "VideoTextureCopierCV::copyVideoTextureToPlatformTexture(%p) - Program failed to link.", this);
         m_context->deleteShader(vertexShader);
@@ -606,8 +602,8 @@ bool VideoTextureCopierCV::initializeContextObjects()
     m_vertexBuffer = m_context->createBuffer();
     float vertices[12] = { -1, -1, 1, -1, 1, 1, 1, 1, -1, 1, -1, -1 };
 
-    m_context->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, m_vertexBuffer);
-    m_context->bufferData(GraphicsContext3D::ARRAY_BUFFER, sizeof(float) * 12, vertices, GraphicsContext3D::STATIC_DRAW);
+    m_context->bindBuffer(GraphicsContextGL::ARRAY_BUFFER, m_vertexBuffer);
+    m_context->bufferData(GraphicsContextGL::ARRAY_BUFFER, sizeof(float) * 12, vertices, GraphicsContextGL::STATIC_DRAW);
 
     return true;
 }
@@ -639,12 +635,12 @@ bool VideoTextureCopierCV::initializeUVContextObjects()
         "}\n"_s
     };
 
-    Platform3DObject vertexShader = m_context->createShader(GraphicsContext3D::VERTEX_SHADER);
+    PlatformGLObject vertexShader = m_context->createShader(GraphicsContextGL::VERTEX_SHADER);
     m_context->shaderSource(vertexShader, vertexShaderSource);
     m_context->compileShaderDirect(vertexShader);
 
-    GC3Dint status = 0;
-    m_context->getShaderiv(vertexShader, GraphicsContext3D::COMPILE_STATUS, &status);
+    GCGLint status = 0;
+    m_context->getShaderiv(vertexShader, GraphicsContextGL::COMPILE_STATUS, &status);
     if (!status) {
         LOG(WebGL, "VideoTextureCopierCV::initializeUVContextObjects(%p) - Vertex shader failed to compile.", this);
         m_context->deleteShader(vertexShader);
@@ -678,11 +674,11 @@ bool VideoTextureCopierCV::initializeUVContextObjects()
         "}\n"_s
     };
 
-    Platform3DObject fragmentShader = m_context->createShader(GraphicsContext3D::FRAGMENT_SHADER);
+    PlatformGLObject fragmentShader = m_context->createShader(GraphicsContextGL::FRAGMENT_SHADER);
     m_context->shaderSource(fragmentShader, fragmentShaderSource);
     m_context->compileShaderDirect(fragmentShader);
 
-    m_context->getShaderiv(fragmentShader, GraphicsContext3D::COMPILE_STATUS, &status);
+    m_context->getShaderiv(fragmentShader, GraphicsContextGL::COMPILE_STATUS, &status);
     if (!status) {
         LOG(WebGL, "VideoTextureCopierCV::initializeUVContextObjects(%p) - Fragment shader failed to compile.", this);
         m_context->deleteShader(vertexShader);
@@ -695,7 +691,7 @@ bool VideoTextureCopierCV::initializeUVContextObjects()
     m_context->attachShader(m_yuvProgram, fragmentShader);
     m_context->linkProgram(m_yuvProgram);
 
-    m_context->getProgramiv(m_yuvProgram, GraphicsContext3D::LINK_STATUS, &status);
+    m_context->getProgramiv(m_yuvProgram, GraphicsContextGL::LINK_STATUS, &status);
     if (!status) {
         LOG(WebGL, "VideoTextureCopierCV::initializeUVContextObjects(%p) - Program failed to link.", this);
         m_context->deleteShader(vertexShader);
@@ -721,26 +717,30 @@ bool VideoTextureCopierCV::initializeUVContextObjects()
     m_yuvVertexBuffer = m_context->createBuffer();
     float vertices[12] = { -1, -1, 1, -1, 1, 1, 1, 1, -1, 1, -1, -1 };
 
-    m_context->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, m_yuvVertexBuffer);
-    m_context->bufferData(GraphicsContext3D::ARRAY_BUFFER, sizeof(vertices), vertices, GraphicsContext3D::STATIC_DRAW);
+    m_context->bindBuffer(GraphicsContextGL::ARRAY_BUFFER, m_yuvVertexBuffer);
+    m_context->bufferData(GraphicsContextGL::ARRAY_BUFFER, sizeof(vertices), vertices, GraphicsContextGL::STATIC_DRAW);
     m_context->enableVertexAttribArray(m_yuvPositionAttributeLocation);
-    m_context->vertexAttribPointer(m_yuvPositionAttributeLocation, 2, GraphicsContext3D::FLOAT, false, 0, 0);
+    m_context->vertexAttribPointer(m_yuvPositionAttributeLocation, 2, GraphicsContextGL::FLOAT, false, 0, 0);
 
     return true;
 }
 
 #if USE(ANGLE)
-void* VideoTextureCopierCV::attachIOSurfaceToTexture(GC3Denum target, GC3Denum internalFormat, GC3Dsizei width, GC3Dsizei height, GC3Denum type, IOSurfaceRef surface, GC3Duint plane)
+void* VideoTextureCopierCV::attachIOSurfaceToTexture(GCGLenum target, GCGLenum internalFormat, GCGLsizei width, GCGLsizei height, GCGLenum type, IOSurfaceRef surface, GCGLuint plane)
 {
     auto display = m_context->platformDisplay();
     EGLint eglTextureTarget = 0;
 
-    if (target == GraphicsContext3D::TEXTURE_RECTANGLE_ARB)
+    if (target == GraphicsContextGL::TEXTURE_RECTANGLE_ARB)
         eglTextureTarget = EGL_TEXTURE_RECTANGLE_ANGLE;
-    else if (target == GraphicsContext3D::TEXTURE_2D)
+    else if (target == GraphicsContextGL::TEXTURE_2D)
         eglTextureTarget = EGL_TEXTURE_2D;
     else {
         LOG(WebGL, "Unknown texture target %d.", static_cast<int>(target));
+        return nullptr;
+    }
+    if (eglTextureTarget != GraphicsContextGL::EGLIOSurfaceTextureTarget()) {
+        LOG(WebGL, "Mismatch in EGL texture target %d.", static_cast<int>(target));
         return nullptr;
     }
 
@@ -752,6 +752,8 @@ void* VideoTextureCopierCV::attachIOSurfaceToTexture(GC3Denum target, GC3Denum i
         EGL_TEXTURE_INTERNAL_FORMAT_ANGLE, static_cast<EGLint>(internalFormat),
         EGL_TEXTURE_FORMAT, EGL_TEXTURE_RGBA,
         EGL_TEXTURE_TYPE_ANGLE, static_cast<EGLint>(type),
+        // Only has an effect on the iOS Simulator.
+        EGL_IOSURFACE_USAGE_HINT_ANGLE, EGL_IOSURFACE_READ_HINT_ANGLE,
         EGL_NONE, EGL_NONE
     };
     EGLSurface pbuffer = EGL_CreatePbufferFromClientBuffer(display, EGL_IOSURFACE_ANGLE, surface, m_context->platformConfig(), surfaceAttributes);
@@ -772,7 +774,7 @@ void VideoTextureCopierCV::detachIOSurfaceFromTexture(void* handle)
 }
 #endif
 
-bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, size_t width, size_t height, Platform3DObject outputTexture, GC3Denum outputTarget, GC3Dint level, GC3Denum internalFormat, GC3Denum format, GC3Denum type, bool premultiplyAlpha, bool flipY)
+bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, size_t width, size_t height, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
 {
     // CVOpenGLTextureCache seems to be disabled since the deprecation of
     // OpenGL. To avoid porting unused code to the ANGLE code paths, remove it.
@@ -796,7 +798,6 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     }
 #endif // USE(ANGLE)
 
-#if HAVE(IOSURFACE)
     // FIXME: This currently only supports '420v' and '420f' pixel formats. Investigate supporting more pixel formats.
     OSType pixelFormat = CVPixelBufferGetPixelFormatType(image);
     if (pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange && pixelFormat != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
@@ -825,22 +826,23 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
         }
     }
 
-    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_framebuffer);
+    m_context->bindFramebuffer(GraphicsContextGL::FRAMEBUFFER, m_framebuffer);
 
     // Allocate memory for the output texture.
-    m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, outputTexture);
-    m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
-    m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
-    m_context->texImage2DDirect(GraphicsContext3D::TEXTURE_2D, level, internalFormat, width, height, 0, format, type, nullptr);
+    m_context->bindTexture(GraphicsContextGL::TEXTURE_2D, outputTexture);
+    m_context->texParameteri(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_MAG_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_MIN_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_WRAP_S, GraphicsContextGL::CLAMP_TO_EDGE);
+    m_context->texParameteri(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_WRAP_T, GraphicsContextGL::CLAMP_TO_EDGE);
+    m_context->texImage2DDirect(GraphicsContextGL::TEXTURE_2D, level, internalFormat, width, height, 0, format, type, nullptr);
 
-    m_context->framebufferTexture2D(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::TEXTURE_2D, outputTexture, level);
-    GC3Denum status = m_context->checkFramebufferStatus(GraphicsContext3D::FRAMEBUFFER);
-    if (status != GraphicsContext3D::FRAMEBUFFER_COMPLETE) {
+    m_context->framebufferTexture2D(GraphicsContextGL::FRAMEBUFFER, GraphicsContextGL::COLOR_ATTACHMENT0, GraphicsContextGL::TEXTURE_2D, outputTexture, level);
+    GCGLenum status = m_context->checkFramebufferStatus(GraphicsContextGL::FRAMEBUFFER);
+    if (status != GraphicsContextGL::FRAMEBUFFER_COMPLETE) {
         LOG(WebGL, "VideoTextureCopierCV::copyVideoTextureToPlatformTexture(%p) - Unable to create framebuffer for outputTexture.", this);
         return false;
     }
+    m_context->bindTexture(GraphicsContextGL::TEXTURE_2D, 0);
 
     m_context->useProgram(m_yuvProgram);
     m_context->viewport(0, 0, width, height);
@@ -851,49 +853,51 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     auto uvPlaneWidth = IOSurfaceGetWidthOfPlane(surface, 1);
     auto uvPlaneHeight = IOSurfaceGetHeightOfPlane(surface, 1);
 
-#if USE(OPENGL_ES) || (USE(ANGLE) && PLATFORM(IOS_FAMILY))
-    GC3Denum videoTextureTarget = GraphicsContext3D::TEXTURE_2D;
-#elif USE(OPENGL) || (USE(ANGLE) && !PLATFORM(IOS_FAMILY))
-    GC3Denum videoTextureTarget = GraphicsContext3D::TEXTURE_RECTANGLE_ARB;
+#if USE(OPENGL_ES)
+    GCGLenum videoTextureTarget = GraphicsContextGL::TEXTURE_2D;
+#elif USE(OPENGL)
+    GCGLenum videoTextureTarget = GraphicsContextGL::TEXTURE_RECTANGLE_ARB;
+#elif USE(ANGLE)
+    GCGLenum videoTextureTarget = GraphicsContextGL::IOSurfaceTextureTarget();
 #else
 #error Unsupported configuration
 #endif
     auto uvTexture = m_context->createTexture();
-    m_context->activeTexture(GraphicsContext3D::TEXTURE1);
+    m_context->activeTexture(GraphicsContextGL::TEXTURE1);
     m_context->bindTexture(videoTextureTarget, uvTexture);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_MAG_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_MIN_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_WRAP_S, GraphicsContextGL::CLAMP_TO_EDGE);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_WRAP_T, GraphicsContextGL::CLAMP_TO_EDGE);
 #if USE(ANGLE)
-    auto uvHandle = attachIOSurfaceToTexture(videoTextureTarget, GraphicsContext3D::RG, uvPlaneWidth, uvPlaneHeight, GraphicsContext3D::UNSIGNED_BYTE, surface, 1);
+    auto uvHandle = attachIOSurfaceToTexture(videoTextureTarget, GraphicsContextGL::RG, uvPlaneWidth, uvPlaneHeight, GraphicsContextGL::UNSIGNED_BYTE, surface, 1);
     if (!uvHandle) {
         m_context->deleteTexture(uvTexture);
         return false;
     }
 #else
-    if (!m_context->texImageIOSurface2D(videoTextureTarget, GraphicsContext3D::RG, uvPlaneWidth, uvPlaneHeight, GraphicsContext3D::RG, GraphicsContext3D::UNSIGNED_BYTE, surface, 1)) {
+    if (!m_context->texImageIOSurface2D(videoTextureTarget, GraphicsContextGL::RG, uvPlaneWidth, uvPlaneHeight, GraphicsContextGL::RG, GraphicsContextGL::UNSIGNED_BYTE, surface, 1)) {
         m_context->deleteTexture(uvTexture);
         return false;
     }
 #endif // USE(ANGLE)
 
     auto yTexture = m_context->createTexture();
-    m_context->activeTexture(GraphicsContext3D::TEXTURE0);
+    m_context->activeTexture(GraphicsContextGL::TEXTURE0);
     m_context->bindTexture(videoTextureTarget, yTexture);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_MAG_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_MIN_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_WRAP_S, GraphicsContextGL::CLAMP_TO_EDGE);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_WRAP_T, GraphicsContextGL::CLAMP_TO_EDGE);
 #if USE(ANGLE)
-    auto yHandle = attachIOSurfaceToTexture(videoTextureTarget, GraphicsContext3D::RED, yPlaneWidth, yPlaneHeight, GraphicsContext3D::UNSIGNED_BYTE, surface, 0);
+    auto yHandle = attachIOSurfaceToTexture(videoTextureTarget, GraphicsContextGL::RED, yPlaneWidth, yPlaneHeight, GraphicsContextGL::UNSIGNED_BYTE, surface, 0);
     if (!yHandle) {
         m_context->deleteTexture(yTexture);
         m_context->deleteTexture(uvTexture);
         return false;
     }
 #else
-    if (!m_context->texImageIOSurface2D(videoTextureTarget, GraphicsContext3D::LUMINANCE, yPlaneWidth, yPlaneHeight, GraphicsContext3D::LUMINANCE, GraphicsContext3D::UNSIGNED_BYTE, surface, 0)) {
+    if (!m_context->texImageIOSurface2D(videoTextureTarget, GraphicsContextGL::LUMINANCE, yPlaneWidth, yPlaneHeight, GraphicsContextGL::LUMINANCE, GraphicsContextGL::UNSIGNED_BYTE, surface, 0)) {
         m_context->deleteTexture(yTexture);
         m_context->deleteTexture(uvTexture);
         return false;
@@ -913,7 +917,7 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     m_context->uniformMatrix4fv(m_colorMatrixUniformLocation, 1, GL_FALSE, colorMatrix.data());
 
     // Do the actual drawing.
-    m_context->drawArrays(GraphicsContext3D::TRIANGLES, 0, 6);
+    m_context->drawArrays(GraphicsContextGL::TRIANGLES, 0, 6);
 
 #if USE(OPENGL_ES) || (USE(ANGLE) && PLATFORM(IOS_FAMILY))
     // flush() must be called here in order to re-synchronize the output texture's contents across the
@@ -935,12 +939,9 @@ bool VideoTextureCopierCV::copyImageToPlatformTexture(CVPixelBufferRef image, si
     m_lastFlipY = flipY;
 
     return true;
-#else
-    return false;
-#endif // HAVE(IOSURFACE)
 }
 
-bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(TextureType inputVideoTexture, size_t width, size_t height, Platform3DObject outputTexture, GC3Denum outputTarget, GC3Dint level, GC3Denum internalFormat, GC3Denum format, GC3Denum type, bool premultiplyAlpha, bool flipY, bool swapColorChannels)
+bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(TextureType inputVideoTexture, size_t width, size_t height, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY, bool swapColorChannels)
 {
     if (!inputVideoTexture)
         return false;
@@ -949,8 +950,8 @@ bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(TextureType inputVi
     GLfloat lowerRight[2] = { 0, 0 };
     GLfloat upperRight[2] = { 0, 0 };
     GLfloat upperLeft[2] = { 0, 0 };
-    Platform3DObject videoTextureName;
-    GC3Denum videoTextureTarget;
+    PlatformGLObject videoTextureName;
+    GCGLenum videoTextureTarget;
 
 #if USE(OPENGL_ES)
     videoTextureName = CVOpenGLESTextureGetName(inputVideoTexture);
@@ -991,7 +992,7 @@ bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(TextureType inputVi
     return copyVideoTextureToPlatformTexture(videoTextureName, videoTextureTarget, width, height, outputTexture, outputTarget, level, internalFormat, format, type, premultiplyAlpha, flipY, swapColorChannels);
 }
 
-bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(Platform3DObject videoTextureName, GC3Denum videoTextureTarget, size_t width, size_t height, Platform3DObject outputTexture, GC3Denum outputTarget, GC3Dint level, GC3Denum internalFormat, GC3Denum format, GC3Denum type, bool premultiplyAlpha, bool flipY, bool swapColorChannels)
+bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(PlatformGLObject videoTextureName, GCGLenum videoTextureTarget, size_t width, size_t height, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY, bool swapColorChannels)
 {
     LOG(WebGL, "VideoTextureCopierCV::copyVideoTextureToPlatformTexture(%p) - internalFormat: %s, format: %s, type: %s flipY: %s, premultiplyAlpha: %s", this, enumToStringMap()[internalFormat], enumToStringMap()[format], enumToStringMap()[type], flipY ? "true" : "false", premultiplyAlpha ? "true" : "false");
 
@@ -1002,33 +1003,34 @@ bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(Platform3DObject vi
         }
     }
 
-    m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_framebuffer);
+    m_context->bindFramebuffer(GraphicsContextGL::FRAMEBUFFER, m_framebuffer);
     
     // Allocate memory for the output texture.
-    m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, outputTexture);
-    m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
-    m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
-    m_context->texImage2DDirect(GraphicsContext3D::TEXTURE_2D, level, internalFormat, width, height, 0, format, type, nullptr);
+    m_context->bindTexture(GraphicsContextGL::TEXTURE_2D, outputTexture);
+    m_context->texParameteri(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_MAG_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_MIN_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_WRAP_S, GraphicsContextGL::CLAMP_TO_EDGE);
+    m_context->texParameteri(GraphicsContextGL::TEXTURE_2D, GraphicsContextGL::TEXTURE_WRAP_T, GraphicsContextGL::CLAMP_TO_EDGE);
+    m_context->texImage2DDirect(GraphicsContextGL::TEXTURE_2D, level, internalFormat, width, height, 0, format, type, nullptr);
 
-    m_context->framebufferTexture2D(GraphicsContext3D::FRAMEBUFFER, GraphicsContext3D::COLOR_ATTACHMENT0, GraphicsContext3D::TEXTURE_2D, outputTexture, level);
-    GC3Denum status = m_context->checkFramebufferStatus(GraphicsContext3D::FRAMEBUFFER);
-    if (status != GraphicsContext3D::FRAMEBUFFER_COMPLETE) {
+    m_context->framebufferTexture2D(GraphicsContextGL::FRAMEBUFFER, GraphicsContextGL::COLOR_ATTACHMENT0, GraphicsContextGL::TEXTURE_2D, outputTexture, level);
+    GCGLenum status = m_context->checkFramebufferStatus(GraphicsContextGL::FRAMEBUFFER);
+    if (status != GraphicsContextGL::FRAMEBUFFER_COMPLETE) {
         LOG(WebGL, "VideoTextureCopierCV::copyVideoTextureToPlatformTexture(%p) - Unable to create framebuffer for outputTexture.", this);
         return false;
     }
+    m_context->bindTexture(GraphicsContextGL::TEXTURE_2D, 0);
 
     m_context->useProgram(m_program);
     m_context->viewport(0, 0, width, height);
 
     // Bind and set up the texture for the video source.
-    m_context->activeTexture(GraphicsContext3D::TEXTURE0);
+    m_context->activeTexture(GraphicsContextGL::TEXTURE0);
     m_context->bindTexture(videoTextureTarget, videoTextureName);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);
-    m_context->texParameteri(videoTextureTarget, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_MAG_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_MIN_FILTER, GraphicsContextGL::LINEAR);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_WRAP_S, GraphicsContextGL::CLAMP_TO_EDGE);
+    m_context->texParameteri(videoTextureTarget, GraphicsContextGL::TEXTURE_WRAP_T, GraphicsContextGL::CLAMP_TO_EDGE);
 
     // Configure the drawing parameters.
     m_context->uniform1i(m_textureUniformLocation, 0);
@@ -1044,9 +1046,9 @@ bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(Platform3DObject vi
 
     // Do the actual drawing.
     m_context->enableVertexAttribArray(m_positionAttributeLocation);
-    m_context->bindBuffer(GraphicsContext3D::ARRAY_BUFFER, m_vertexBuffer);
-    m_context->vertexAttribPointer(m_positionAttributeLocation, 2, GraphicsContext3D::FLOAT, false, 0, 0);
-    m_context->drawArrays(GraphicsContext3D::TRIANGLES, 0, 6);
+    m_context->bindBuffer(GraphicsContextGL::ARRAY_BUFFER, m_vertexBuffer);
+    m_context->vertexAttribPointer(m_positionAttributeLocation, 2, GraphicsContextGL::FLOAT, false, 0, 0);
+    m_context->drawArrays(GraphicsContextGL::TRIANGLES, 0, 6);
 
 #if USE(OPENGL_ES)
     // flush() must be called here in order to re-synchronize the output texture's contents across the
@@ -1062,5 +1064,3 @@ bool VideoTextureCopierCV::copyVideoTextureToPlatformTexture(Platform3DObject vi
 }
 
 }
-
-#endif // HAVE(CORE_VIDEO)

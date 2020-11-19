@@ -713,6 +713,16 @@ typedef struct resolverList {
 	CFRelease(global_proxy);
 }
 
+- (void)applyPolicies
+{
+	if (self.controlPolicySession != nil && ![self.controlPolicySession apply]) {
+		SC_log(LOG_ERR, "Failed to apply control policies");
+	}
+	if (self.policySession != nil && ![self.policySession apply]) {
+		SC_log(LOG_ERR, "Failed to apply policies");
+	}
+}
+
 - (void)processProxyChanges
 {
 	CFDictionaryRef			proxies;
@@ -721,12 +731,17 @@ typedef struct resolverList {
 	if (proxies == NULL) {
 		SC_log(LOG_INFO, "No proxy information");
 
+		BOOL destroyedAgent = NO;
 		NSMutableDictionary *copy = [self.floatingProxyAgentList copy];
 		for (NSString *entity in copy) {
 			id agent = [copy objectForKey:entity];
 			[self destroyFloatingAgent:agent];
+			destroyedAgent = YES;
 		}
 
+		if (destroyedAgent) {
+			[self applyPolicies];
+		}
 		return;
 	}
 
@@ -734,6 +749,8 @@ typedef struct resolverList {
 	[self processScopedProxyChanges:proxies];
 	[self processSupplementalProxyChanges:proxies];
 	[self processServiceSpecificProxyChanges:proxies];
+
+	[self applyPolicies];
 
 	CFRelease(proxies);
 }
@@ -1490,6 +1507,8 @@ remove_policy:
 done:
 
 	[self processOnionResolver:dns_config];
+	[self applyPolicies];
+
 	if (dns_config != NULL) {
 		dns_configuration_free(dns_config);
 	}
@@ -1752,7 +1771,6 @@ done:
 	NEPolicySession		*	session;
 	uint32_t			multiple_entity_offset;
 	NEPolicy		*	newPolicy;
-	BOOL				ok;
 	uint32_t			order;
 	uint32_t			orderForSkip;
 	NSMutableArray		*	policyArray;
@@ -1849,12 +1867,6 @@ done:
 		return NO;
 	}
 
-	ok = [session apply];
-	if (!ok) {
-		SC_log(LOG_NOTICE, "Could not apply policy for agent %@", [agent getAgentName]);
-		return NO;
-	}
-
 	policyArray = [self.policyDB objectForKey:[agent getAgentName]];
 	if (policyArray == nil) {
 		policyArray = [NSMutableArray array];
@@ -1864,7 +1876,7 @@ done:
 	[policyArray addObject:numberToNSNumber(policyID2)];
 	[self.policyDB setObject:policyArray forKey:[agent getAgentName]];
 
-	return ok;
+	return YES;
 }
 
 #pragma mark Agent manipulation functions
@@ -2048,11 +2060,6 @@ done:
 				}
 			}
 
-			result = [session apply];
-			if (result == NO) {
-				SC_log(LOG_NOTICE, "Could not apply removed policies for agent %@", [agent getAgentName]);
-			}
-
 			[self.policyDB removeObjectForKey:[agent getAgentName]];
 		}
 
@@ -2080,11 +2087,6 @@ done:
 				ok = [self.controlPolicySession removeAllPolicies];
 				if (!ok) {
 					SC_log(LOG_ERR, "Could not remove policies for agent %@", [agent getAgentName]);
-				}
-
-				ok = [self.controlPolicySession apply];
-				if (!ok) {
-					SC_log(LOG_ERR, "Could not apply policy change for agent %@", [agent getAgentName]);
 				}
 
 				self.controlPolicySession = nil;

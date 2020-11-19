@@ -494,13 +494,18 @@ UTF16LEToUTF8(unsigned char* out, int *outlen,
 {
     unsigned char* outstart = out;
     const unsigned char* processed = inb;
-    unsigned char* outend = out + *outlen;
+    unsigned char* outend;
     unsigned short* in = (unsigned short*) inb;
     unsigned short* inend;
     unsigned int c, d, inlen;
     unsigned char *tmp;
     int bits;
 
+    if (*outlen == 0) {
+        *inlenb = 0;
+        return(0);
+    }
+    outend = out + *outlen;
     if ((*inlenb % 2) == 1)
         (*inlenb)--;
     inlen = *inlenb / 2;
@@ -2414,7 +2419,7 @@ xmlCharEncOutput(xmlOutputBufferPtr output, int init)
 {
     int ret = -2;
     size_t written;
-    size_t writtentot = 0;
+    int writtentot = 0;
     size_t toconv;
     int c_in;
     int c_out;
@@ -2464,7 +2469,7 @@ retry:
 	xmlGenericError(xmlGenericErrorContext,
 		"initialized encoder\n");
 #endif
-        return(0);
+        return(c_out);
     }
 
     /*
@@ -2618,7 +2623,7 @@ retry:
 	    break;
 	}
     }
-    return(ret);
+    return(writtentot ? writtentot : ret);
 }
 #endif
 

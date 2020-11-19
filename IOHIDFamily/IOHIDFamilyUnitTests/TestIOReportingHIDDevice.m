@@ -10,7 +10,6 @@
 #import <IOKit/hid/IOHIDKeys.h>
 #import <IOKit/hid/IOHIDUserDevice.h>
 #import <IOKit/hid/AppleHIDUsageTables.h>
-#import <XCTest/XCTMemoryChecker.h>
 #import <IOKit/usb/USBSpec.h>
 #import "IOHIDXCTestExpectation.h"
 #import "IOHIDUnitTestUtility.h"
@@ -33,7 +32,6 @@ char *testData2 = "Test Data Command 2";
     HIDDisplayIOReportingInterfaceRef  _hidDisplayInterface;
     dispatch_queue_t     _queue;
     NSString             *_containerID;
-    XCTMemoryChecker     *_memoryChecker;
 }
 @property XCTestExpectation  *testSetReportExpectation;
 @property XCTestExpectation  *testGetReportExpectation;
@@ -92,15 +90,13 @@ static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __u
     
     _containerID = [[[NSUUID alloc] init] UUIDString];
     
-    _memoryChecker = [[XCTMemoryChecker alloc]initWithDelegate:self];
-    
     NSMutableDictionary* deviceConfig = [[NSMutableDictionary alloc] init];
     
     NSData *descriptorData = [[NSData alloc] initWithBytes:descriptor length:sizeof(descriptor)];
     
     deviceConfig [@kIOHIDReportDescriptorKey] = descriptorData;
     
-#if !TARGET_OS_IPHONE || TARGET_OS_IOSMAC
+#if !TARGET_OS_IPHONE || TARGET_OS_MACCATALYST
     deviceConfig [@kUSBDeviceContainerID] = _containerID;
 #else
     deviceConfig [@kUSBContainerID] = _containerID;
@@ -137,69 +133,63 @@ static IOReturn __setReportCallback(void * _Nullable refcon, IOHIDReportType __u
     
     
     _initIOReporting();
-    
-    [_memoryChecker assertObjectsOfTypes:@[@"HIDDisplayIOReportingInterface",@"CFDataRef"] invalidAfterScope:^{
+    @autoreleasepool {
         
-        @autoreleasepool {
+        _hidDisplayInterface = HIDDisplayCreateIOReportingInterfaceWithContainerID((__bridge CFStringRef)_containerID);
+        
+        HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, _hidDisplayInterface != NULL);
+        
+        uint32_t testCommand = 1;
+        NSData *outputData = [[NSData alloc] initWithBytes:&testCommand length:sizeof(uint32_t)];
+        
+        
+        
+        HIDDisplayIOReportingSetInputDataHandler(_hidDisplayInterface, ^(CFDataRef  _Nonnull inputData) {
             
-            _hidDisplayInterface = HIDDisplayCreateIOReportingInterfaceWithContainerID((__bridge CFStringRef)_containerID);
+            NSString *dataString = [NSString stringWithUTF8String:((__bridge NSData*)inputData).bytes];
             
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_HIDUTIL | COLLECT_IOREG, _hidDisplayInterface != NULL);
+            NSLog(@"%@",dataString);
             
-            uint32_t testCommand = 1;
-            NSData *outputData = [[NSData alloc] initWithBytes:&testCommand length:sizeof(uint32_t)];
-            
-            
-            
-            HIDDisplayIOReportingSetInputDataHandler(_hidDisplayInterface, ^(CFDataRef  _Nonnull inputData) {
-                
-                NSString *dataString = [NSString stringWithUTF8String:((__bridge NSData*)inputData).bytes];
-                
-                NSLog(@"%@",dataString);
-                
-                if ([[NSString stringWithFormat:@"%s",testData1] isEqualToString:dataString]) {
-                    [_testReportMatchExpectation fulfill];
-                } else {
-                    NSLog(@"No Match");
-                }
-                
-                [_testGetReportExpectation fulfill];
-                
-            });
-            
-            
-            HIDDisplayIOReportingSetDispatchQueue(_hidDisplayInterface, dispatch_queue_create("com.apple.hidtest-inputreport", NULL));
-            
-            HIDDisplayIOReportingSetCancelHandler(_hidDisplayInterface, ^{
-                [_cancelHandlerExpectation fulfill];
-            });
-            
-            HIDDisplayIOReportingActivate(_hidDisplayInterface);
-            
-            HIDDisplayIOReportingSetOutputData(_hidDisplayInterface, (__bridge CFDataRef)outputData, NULL);
-            
-            XCTWaiterResult result = [XCTWaiter waitForExpectations:@[_testSetReportExpectation, _testGetReportExpectation, _testReportMatchExpectation] timeout:10];
-            HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_HIDUTIL | COLLECT_IOREG,
-                                        result == XCTWaiterResultCompleted,
-                                        "result:%ld %@ %@ %@",
-                                        (long)result,
-                                        _testSetReportExpectation,_testGetReportExpectation, _testReportMatchExpectation);
-            
-            
-            HIDDisplayIOReportingCancel(_hidDisplayInterface);
-            
-            result = [XCTWaiter waitForExpectations:@[_cancelHandlerExpectation] timeout:10];
-            
-            if (_hidDisplayInterface) {
-                
-                CFRelease(_hidDisplayInterface);
+            if ([[NSString stringWithFormat:@"%s",testData1] isEqualToString:dataString]) {
+                [_testReportMatchExpectation fulfill];
+            } else {
+                NSLog(@"No Match");
             }
             
+            [_testGetReportExpectation fulfill];
             
+        });
+        
+        
+        HIDDisplayIOReportingSetDispatchQueue(_hidDisplayInterface, dispatch_queue_create("com.apple.hidtest-inputreport", NULL));
+        
+        HIDDisplayIOReportingSetCancelHandler(_hidDisplayInterface, ^{
+            [_cancelHandlerExpectation fulfill];
+        });
+        
+        HIDDisplayIOReportingActivate(_hidDisplayInterface);
+        
+        HIDDisplayIOReportingSetOutputData(_hidDisplayInterface, (__bridge CFDataRef)outputData, NULL);
+        
+        XCTWaiterResult result = [XCTWaiter waitForExpectations:@[_testSetReportExpectation, _testGetReportExpectation, _testReportMatchExpectation] timeout:10];
+        HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_HIDUTIL | COLLECT_IOREG,
+                                    result == XCTWaiterResultCompleted,
+                                    "result:%ld %@ %@ %@",
+                                    (long)result,
+                                    _testSetReportExpectation,_testGetReportExpectation, _testReportMatchExpectation);
+        
+        
+        HIDDisplayIOReportingCancel(_hidDisplayInterface);
+        
+        result = [XCTWaiter waitForExpectations:@[_cancelHandlerExpectation] timeout:10];
+        
+        if (_hidDisplayInterface) {
+            
+            CFRelease(_hidDisplayInterface);
         }
-    }];
-    
-    
+        
+        
+    }
     
 }
 

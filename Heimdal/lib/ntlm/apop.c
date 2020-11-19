@@ -193,7 +193,7 @@ heim_cram_md5_verify_ctx(heim_cram_md5 ctx, const char *challenge, const char *r
 {
     uint8_t hash[CC_MD5_DIGEST_LENGTH];
     char *str = NULL;
-    char *response_lower = strdup(response);
+    char *response_lower = NULL;
     size_t len;
     int res;
 

@@ -83,7 +83,7 @@ static void one_test(const struct test_case * thisCase)
 
     CFArrayRef decoded = NULL;
     
-    const uint8_t* decode_end = der_decode_array(NULL, kCFPropertyListMutableContainersAndLeaves,
+    const uint8_t* decode_end = der_decode_array(NULL,
                                                  &decoded, NULL, encoded, buffer_end);
     
     ok(decode_end == buffer_end, "didn't decode whole buffer");
@@ -91,7 +91,7 @@ static void one_test(const struct test_case * thisCase)
 
     CFTypeRef decoded_type = NULL;
 
-    decode_end = der_decode_plist(NULL, kCFPropertyListMutableContainersAndLeaves,
+    decode_end = der_decode_plist(NULL,
                                   &decoded_type, NULL, encoded, buffer_end);
 
     ok(decode_end == buffer_end, "didn't decode whole buffer");

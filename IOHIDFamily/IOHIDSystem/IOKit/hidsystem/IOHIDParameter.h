@@ -343,6 +343,7 @@ enum {
     kIOHIDCapsLockState             = 0x00000001,
     kIOHIDNumLockState              = 0x00000002,
     kIOHIDActivityUserIdle          = 0x00000003,
+    // We no longer report display state through HIDSystem. This will not return the current state.
     kIOHIDActivityDisplayOn         = 0x00000004,
 };
 

@@ -28,6 +28,8 @@
 #include <ctype.h>
 #include <stdbool.h>
 
+#include <security_utilities/simulatecrash_assert.h>
+
 /*
  * Given a string containing either a UTC-style or "generalized time"
  * time string, convert to a CFDateRef. Returns nonzero on

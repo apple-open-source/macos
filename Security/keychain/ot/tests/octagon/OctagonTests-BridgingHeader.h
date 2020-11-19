@@ -6,6 +6,7 @@
 #import <CloudKit/CloudKit_Private.h>
 
 #import <AuthKit/AuthKit.h>
+#import <AuthKit/AKError.h>
 
 #import <KeychainCircle/KeychainCircle.h>
 #import "KeychainCircle/KCJoiningSession.h"
@@ -37,6 +38,7 @@
 
 #import "keychain/ot/OT.h"
 #import "keychain/ot/OTClique.h"
+#import "keychain/ot/OTClique+Private.h"
 #import "keychain/ot/OTControl.h"
 #import "keychain/ot/OTControlProtocol.h"
 #import "keychain/ot/OTManager.h"
@@ -82,6 +84,7 @@
 #import "keychain/SecureObjectSync/SOSControlServer.h"
 #import "KeychainCircle/Tests/FakeSOSControl.h"
 #import "keychain/escrowrequest/Framework/SecEscrowRequest.h"
+#import "OSX/sec/ipc/server_security_helpers.h"
 
 //CDP
 #import <CoreCDP/CDPFollowUpController.h>
@@ -100,3 +103,6 @@
 
 #include <dispatch/dispatch.h>
 #import "keychain/ot/OctagonCKKSPeerAdapter.h"
+#import "keychain/ot/proto/generated_source/OTEscrowRecord.h"
+#import "keychain/ot/proto/generated_source/OTEscrowRecordMetadata.h"
+#import "keychain/ot/proto/generated_source/OTEscrowRecordMetadataClientMetadata.h"

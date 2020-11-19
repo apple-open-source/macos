@@ -205,7 +205,7 @@ OSErr DeviceRead(int device, int drive, void* buffer, SInt64 offset, UInt32 reqB
 		return (5);
 	}
 
-	*actBytes = nbytes;
+	*actBytes = (UInt32)nbytes;
 	return (0);
 
 #else
@@ -258,7 +258,7 @@ OSErr DeviceWrite(int device, int drive, void* buffer, SInt64 offset, UInt32 req
 		return (5);
 	}
 
-	*actBytes = nbytes;
+	*actBytes = (UInt32)nbytes;
 	return (0);
 #else
 	OSErr err;

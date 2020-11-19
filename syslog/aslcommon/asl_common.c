@@ -37,6 +37,7 @@
 #include <xpc/xpc.h>
 #include <TargetConditionals.h>
 #include <configuration_profile.h>
+#include <os/variant_private.h>
 #include <asl.h>
 #include <asl_core.h>
 #include <asl_msg.h>
@@ -841,7 +842,7 @@ asl_out_dst_set_access(int fd, asl_out_dst_data_t *dst)
 #if !TARGET_OS_SIMULATOR
 	uid_t fuid = 0;
 	gid_t fgid = 80;
-#if !TARGET_OS_EMBEDDED
+#if !TARGET_OS_IPHONE
 	int status;
 	acl_t acl;
 	uuid_t uuid;
@@ -863,9 +864,12 @@ asl_out_dst_set_access(int fd, asl_out_dst_data_t *dst)
 
 	fchown(fd, fuid, fgid);
 
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 	return fd;
 #else
+	if (os_variant_is_basesystem("com.apple.syslog")) {
+		return fd;
+	}
 	acl = acl_init(1);
 
 	for (i = 0; i < dst->ngid; i++)
@@ -945,7 +949,7 @@ asl_file_create_return:
 
 	acl_free(acl);
 	return fd;
-#endif /* !TARGET_OS_EMBEDDED */
+#endif /* !TARGET_OS_IPHONE */
 #endif /* !TARGET_OS_SIMULATOR */
 }
 
@@ -1703,7 +1707,7 @@ _asl_out_module_parse_dst(asl_out_module_t *m, char *s, mode_t def_mode)
 		p = NULL;
 	}
 
-#if TARGET_OS_EMBEDDED
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 	/* check for crashreporter files */
 	if ((KEYMATCH(dst->path, _PATH_CRASHREPORTER)) || (KEYMATCH(dst->path, _PATH_CRASHREPORTER_MOBILE_1)) || (KEYMATCH(dst->path, _PATH_CRASHREPORTER_MOBILE_2)))
 	{

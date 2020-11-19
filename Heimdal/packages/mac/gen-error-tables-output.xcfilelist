@@ -1,0 +1,12 @@
+${HEIMDAL_TMPDIR}/asn1_err.c
+${HEIMDAL_TMPDIR}/gkrb5_err.c
+${HEIMDAL_TMPDIR}/wind_err.c
+${HEIMDAL_TMPDIR}/krb5_err.c
+${HEIMDAL_TMPDIR}/krb_err.c
+${HEIMDAL_TMPDIR}/k524_err.c
+${HEIMDAL_TMPDIR}/heim_err.c
+${HEIMDAL_TMPDIR}/hdb_err.c
+${HEIMDAL_TMPDIR}/hx509_err.c
+${HEIMDAL_TMPDIR}/kadm5_err.c
+${HEIMDAL_TMPDIR}/ntlm_err.c
+${HEIMDAL_TMPDIR}/hc_err.c

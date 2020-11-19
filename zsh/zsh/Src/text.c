@@ -470,8 +470,13 @@ gettext2(Estate state)
 			    " || " : " && ");
 		    s->code = *state->pc++;
 		    s->pop = (WC_SUBLIST_TYPE(s->code) == WC_SUBLIST_END);
-		    if (WC_SUBLIST_FLAGS(s->code) & WC_SUBLIST_NOT)
-			taddstr("! ");
+		    if (WC_SUBLIST_FLAGS(s->code) & WC_SUBLIST_NOT) {
+			if (WC_SUBLIST_SKIP(s->code) == 0)
+			    stack = 1;
+			taddstr((stack || (!(WC_SUBLIST_FLAGS(s->code) &
+			        WC_SUBLIST_SIMPLE) && wc_code(*state->pc) !=
+			        WC_PIPE)) ? "!" : "! ");
+		    }
 		    if (WC_SUBLIST_FLAGS(s->code) & WC_SUBLIST_COPROC)
 			taddstr("coproc ");
 		}
@@ -579,7 +584,7 @@ gettext2(Estate state)
 		    state->pc = end;
 		    if (!nargs) {
 			/*
-			 * Unnamed fucntion.
+			 * Unnamed function.
 			 * We're not going to pull any arguments off
 			 * later, so skip them now...
 			 */

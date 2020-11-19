@@ -31,6 +31,8 @@
 
 #include "keychain/SecureObjectSync/SOSDataSource.h"
 
+#include "utilities/simulatecrash_assert.h"
+
 __BEGIN_DECLS
 
 enum {

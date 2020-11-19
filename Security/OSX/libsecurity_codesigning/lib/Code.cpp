@@ -48,7 +48,7 @@ SecCode::SecCode(SecCode *host)
 //
 // Clean up a SecCode object
 //
-SecCode::~SecCode() throw()
+SecCode::~SecCode() _NOEXCEPT
 try {
 } catch (...) {
 	return;

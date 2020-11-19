@@ -27,11 +27,11 @@
 namespace WebCore {
 namespace Style {
 
-enum PropertyWhitelistType {
-    PropertyWhitelistNone   = 0,
-    PropertyWhitelistMarker,
-#if ENABLE(VIDEO_TRACK)
-    PropertyWhitelistCue
+enum PropertyAllowlistType {
+    PropertyAllowlistNone   = 0,
+    PropertyAllowlistMarker,
+#if ENABLE(VIDEO)
+    PropertyAllowlistCue
 #endif
 };
 
@@ -65,7 +65,7 @@ public:
     MatchBasedOnRuleHash matchBasedOnRuleHash() const { return static_cast<MatchBasedOnRuleHash>(m_matchBasedOnRuleHash); }
     bool containsUncommonAttributeSelector() const { return m_containsUncommonAttributeSelector; }
     unsigned linkMatchType() const { return m_linkMatchType; }
-    PropertyWhitelistType propertyWhitelistType() const { return static_cast<PropertyWhitelistType>(m_propertyWhitelistType); }
+    PropertyAllowlistType propertyAllowlistType() const { return static_cast<PropertyAllowlistType>(m_propertyAllowlistType); }
     bool isEnabled() const { return m_isEnabled; }
     void setEnabled(bool value) { m_isEnabled = value; }
 
@@ -75,16 +75,16 @@ public:
 
 private:
     RefPtr<const StyleRule> m_styleRule;
+    // Keep in sync with RuleFeature's selectorIndex and selectorListIndex size.
     unsigned m_selectorIndex : 16;
     unsigned m_selectorListIndex : 16;
-    // This number was picked fairly arbitrarily. We can probably lower it if we need to.
-    // Some simple testing showed <100,000 RuleData's on large sites.
-    unsigned m_position : 18;
+    // If we have more rules than 2^bitcount here we'll get confused about rule order.
+    unsigned m_position : 22;
     unsigned m_matchBasedOnRuleHash : 3;
     unsigned m_canMatchPseudoElement : 1;
     unsigned m_containsUncommonAttributeSelector : 1;
     unsigned m_linkMatchType : 2; //  SelectorChecker::LinkMatchMask
-    unsigned m_propertyWhitelistType : 2;
+    unsigned m_propertyAllowlistType : 2;
     unsigned m_isEnabled : 1;
     SelectorFilter::Hashes m_descendantSelectorIdentifierHashes;
 };

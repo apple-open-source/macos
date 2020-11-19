@@ -72,7 +72,7 @@ static char *sccsid = "@(#)xdr_array.c    2.1 88/07/29 4.0 RPCSRC";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 #include "sec_xdr.h"
 

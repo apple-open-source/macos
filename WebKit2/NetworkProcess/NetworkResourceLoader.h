@@ -31,9 +31,11 @@
 #include "NetworkConnectionToWebProcess.h"
 #include "NetworkConnectionToWebProcessMessagesReplies.h"
 #include "NetworkLoadClient.h"
+#include "NetworkResourceLoadIdentifier.h"
 #include "NetworkResourceLoadParameters.h"
 #include <WebCore/AdClickAttribution.h>
 #include <WebCore/ContentSecurityPolicyClient.h>
+#include <WebCore/CrossOriginAccessControl.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SecurityPolicyViolationEvent.h>
 #include <WebCore/Timer.h>
@@ -56,6 +58,8 @@ class WebSWServerConnection;
 
 enum class NegotiatedLegacyTLS : bool;
 
+struct ResourceLoadInfo;
+
 namespace NetworkCache {
 class Entry;
 }
@@ -65,6 +69,7 @@ class NetworkResourceLoader final
     , public NetworkLoadClient
     , public IPC::MessageSender
     , public WebCore::ContentSecurityPolicyClient
+    , public WebCore::CrossOriginAccessControlCheckDisabler
     , public CanMakeWeakPtr<NetworkResourceLoader> {
 public:
     static Ref<NetworkResourceLoader> create(NetworkResourceLoadParameters&& parameters, NetworkConnectionToWebProcess& connection, Messages::NetworkConnectionToWebProcess::PerformSynchronousLoadDelayedReply&& reply = nullptr)
@@ -99,17 +104,21 @@ public:
     struct SynchronousLoadData;
 
     // NetworkLoadClient.
-    void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) override;
-    bool isSynchronous() const override;
-    bool isAllowedToAskUserForCredentials() const override { return m_isAllowedToAskUserForCredentials; }
-    void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&&) override;
-    void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) override;
-    void didReceiveBuffer(Ref<WebCore::SharedBuffer>&&, int reportedEncodedDataLength) override;
-    void didFinishLoading(const WebCore::NetworkLoadMetrics&) override;
-    void didFailLoading(const WebCore::ResourceError&) override;
-    void didBlockAuthenticationChallenge() override;
-    bool shouldCaptureExtraNetworkLoadMetrics() const override;
+    void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent) final;
+    bool isSynchronous() const final;
+    bool isAllowedToAskUserForCredentials() const final { return m_isAllowedToAskUserForCredentials; }
+    void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&&) final;
+    void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) final;
+    void didReceiveBuffer(Ref<WebCore::SharedBuffer>&&, int reportedEncodedDataLength) final;
+    void didFinishLoading(const WebCore::NetworkLoadMetrics&) final;
+    void didFailLoading(const WebCore::ResourceError&) final;
+    void didBlockAuthenticationChallenge() final;
+    void didReceiveChallenge(const WebCore::AuthenticationChallenge&) final;
+    bool shouldCaptureExtraNetworkLoadMetrics() const final;
 
+    // CrossOriginAccessControlCheckDisabler
+    bool crossOriginAccessControlCheckEnabled() const override;
+        
     void convertToDownload(DownloadID, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&);
 
     bool isMainResource() const { return m_parameters.request.requester() == WebCore::ResourceRequest::Requester::Main; }
@@ -187,7 +196,7 @@ private:
     WebCore::ResourceResponse sanitizeResponseIfPossible(WebCore::ResourceResponse&&, WebCore::ResourceResponse::SanitizationType);
 
     // ContentSecurityPolicyClient
-    void addConsoleMessage(MessageSource, MessageLevel, const String&, unsigned long) final;
+    void addConsoleMessage(MessageSource, MessageLevel, const String&, unsigned long requestIdentifier = 0) final;
     void sendCSPViolationReport(URL&&, Ref<WebCore::FormData>&&) final;
     void enqueueSecurityPolicyViolationEvent(WebCore::SecurityPolicyViolationEvent::Init&&) final;
 
@@ -196,6 +205,8 @@ private:
     void handleAdClickAttributionConversion(WebCore::AdClickAttribution::Conversion&&, const URL&, const WebCore::ResourceRequest&);
 
     Optional<Seconds> validateCacheEntryForMaxAgeCapValidation(const WebCore::ResourceRequest&, const WebCore::ResourceRequest& redirectRequest, const WebCore::ResourceResponse&);
+
+    ResourceLoadInfo resourceLoadInfo();
 
     const NetworkResourceLoadParameters m_parameters;
 
@@ -236,6 +247,8 @@ private:
 #if ENABLE(SERVICE_WORKER)
     std::unique_ptr<ServiceWorkerFetchTask> m_serviceWorkerFetchTask;
 #endif
+    NetworkResourceLoadIdentifier m_resourceLoadID;
+    WebCore::ResourceResponse m_redirectResponse;
 };
 
 } // namespace WebKit

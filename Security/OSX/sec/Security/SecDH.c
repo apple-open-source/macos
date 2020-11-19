@@ -53,33 +53,28 @@
 
 static inline ccdh_gp_t SecDH_gp(SecDHContext dh)
 {
-    return  (ccdh_gp_t)dh;
+    return (ccdh_gp_t)dh;
 }
 
 static inline ccdh_full_ctx_t SecDH_priv(SecDHContext dh)
 {
     ccdh_gp_t gp = SecDH_gp(dh);
     cc_size s = ccn_sizeof_n(ccdh_gp_n(gp));
-    ccdh_full_ctx_t priv = (ccdh_full_ctx_t)((char *) dh + ccdh_gp_size(s));
- 
-    return priv;
+    return (ccdh_full_ctx_t)cc_pad_align((uintptr_t)dh + ccdh_gp_size(s));
 }
 
 size_t SecDHGetMaxKeyLength(SecDHContext dh) {
 
     ccdh_gp_t gp = SecDH_gp(dh);
-    cc_size s = ccn_sizeof_n(ccdh_gp_n(gp));
-
-    return s;
+    return ccn_sizeof_n(ccdh_gp_n(gp));
 }
-
 
 static inline size_t SecDH_context_size(size_t p_len)
 {
-    cc_size n = ccn_nof_size(p_len);
-    cc_size real_p_len = ccn_sizeof_n(n);
-    size_t context_size = ccdh_gp_size(real_p_len)+ccdh_full_ctx_size(real_p_len);
-    return context_size;
+    cc_size real_p_len = ccn_sizeof_size(p_len);
+
+    // Add padding to allow proper alignment of the ccdh_full_ctx.
+    return ccdh_gp_size(real_p_len) + (CC_MAX_ALIGNMENT - 1) + ccdh_full_ctx_size(real_p_len);
 }
 
 /* Shared static functions. */
@@ -210,7 +205,7 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
     }
     cc_size n = ccn_nof_size(decodedParams.p.length);
     cc_size p_len = ccn_sizeof_n(n);
-    size_t context_size = ccdh_gp_size(p_len)+ccdh_full_ctx_size(p_len);
+    size_t context_size = SecDH_context_size(p_len);
     void *context = malloc(context_size);
     if(context==NULL)
         return errSecAllocate;

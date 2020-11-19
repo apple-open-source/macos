@@ -166,7 +166,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUIDNAPointer, UIDNA, uidna_close);
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Output container for IDNA processing errors.

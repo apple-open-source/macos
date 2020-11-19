@@ -27,6 +27,8 @@
 
 #if ENABLE(SERVICE_WORKER)
 
+#include "ServiceWorkerIdentifier.h"
+
 namespace WebCore {
 
 class SWClientConnection;
@@ -41,8 +43,7 @@ public:
     static void setSharedProvider(ServiceWorkerProvider&);
 
     virtual SWClientConnection& serviceWorkerConnection() = 0;
-
-    void registerServiceWorkerClients();
+    virtual void terminateWorkerForTesting(ServiceWorkerIdentifier, CompletionHandler<void()>&&) = 0;
 
     void setMayHaveRegisteredServiceWorkers() { m_mayHaveRegisteredServiceWorkers = true; }
 

@@ -588,11 +588,13 @@ static void TestComposeDecompose(void) {
     coll = ucol_open("", &status);
     if (U_FAILURE(status)) {
         log_data_err("Error opening collator -> %s (Are you missing data?)\n", u_errorName(status));
+        uset_close(charsToTest);
         return;
     }
     charsToTestSize = uset_size(charsToTest);
     if (charsToTestSize <= 0) {
         log_err("Set was zero. Missing data?\n");
+        uset_close(charsToTest);
         return;
     }
     t = (tester **)malloc(charsToTestSize * sizeof(tester *));
@@ -1454,14 +1456,14 @@ static void TestContraction(void) {
             UCollationElements *iter2 = ucol_openElements(coll,
                                                          &(testdata[i][j]),
                                                          1, &status);
-            uint32_t ce;
+            int32_t ce;
             if (U_FAILURE(status)) {
                 log_err("Collation iterator creation failed\n");
                 return;
             }
             ce = ucol_next(iter2, &status);
             while (ce != UCOL_NULLORDER) {
-                if ((uint32_t)ucol_next(iter1, &status) != ce) {
+                if (ucol_next(iter1, &status) != ce) {
                     log_err("Collation elements in contraction split does not match\n");
                     return;
                 }

@@ -64,13 +64,14 @@
 #define kPrebootIndicator	"{Preboot}"
 
 static int interpretEFIString(BLContextPtr context, CFStringRef efiString, char *bootdevice, int deviceLen,
-                              char *relPath, char *relPathLen);
+                              char *relPath, int relPathLen);
 
 static void addElements(const void *key, const void *value, void *context);
 
 static int findBootRootAggregate(BLContextPtr context, char *memberPartition, char *bootRootDevice, int deviceLen);
 static int FixupPrebootMountPointInPaths(CFMutableDictionaryRef dict, const char *mountPoint);
-
+static int
+GetSystemBSDForVolumeGroupUUID(BLContextPtr context, CFStringRef uuid, char *currentDev, int len);
 
 
 /* 8 words of "finder info" in volume
@@ -104,6 +105,7 @@ static const char *messages[7][2] = {
     { "64-bit VSDB volume id not present", "64-bit VSDB volume id: " }
     
 };
+
 
 int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
     int                 	ret;
@@ -176,7 +178,38 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
             }
             
             CFRelease(efibootdev);
-        } else {
+        } else if (preboot == kBLPreBootEnvType_iBoot) {
+            CFStringRef     bootvolume = NULL;
+            CFArrayRef      uuidArr;
+            
+            ret = BLCopyEFINVRAMVariableAsString(context,
+                                                 CFSTR("40A0DDD2-77F8-4392-B4A3-1E7304206516:boot-volume"),
+                                                 &bootvolume);
+            
+            if(ret || bootvolume == NULL) {
+                blesscontextprintf(context, kBLLogLevelError,
+                                   "Can't access \"boot-volume\" NVRAM variable\n");
+                return 1;
+            }
+
+            blesscontextprintf(context, kBLLogLevelVerbose,  "Current boot-volume string is: '%s'\n",
+                               BLGetCStringDescription(bootvolume));
+            
+            // Split the UUIDs and get the last UUID from the array.
+            uuidArr = CFStringCreateArrayBySeparatingStrings(kCFAllocatorDefault, bootvolume, CFSTR(":"));
+
+            CFStringRef uuidstring = CFArrayGetValueAtIndex(uuidArr, CFArrayGetCount(uuidArr) - 1);
+            ret = GetSystemBSDForVolumeGroupUUID(context, uuidstring, currentDev, sizeof currentDev);
+            CFRelease(bootvolume);
+            CFRelease(uuidArr);
+            
+            if(ret) {
+                blesscontextprintf(context, kBLLogLevelError,
+                                   "Can't interpret boot-volume\n");
+                return 2;
+            }
+        }
+        else {
             blesscontextprintf(context, kBLLogLevelError,  "Unknown preboot environment\n");
             return 1;
         }
@@ -699,7 +732,7 @@ int modeInfo(BLContextPtr context, struct clarg actargs[klast]) {
 }
 
 static int interpretEFIString(BLContextPtr context, CFStringRef efiString, char *bootdevice, int deviceLen,
-                              char *relPath, char *relPathLen)
+                              char *relPath, int relPathLen)
 {
     char                interface[IF_NAMESIZE];
     char                host[NS_MAXDNAME];
@@ -927,4 +960,89 @@ static int FixupPrebootMountPointInPaths(CFMutableDictionaryRef dict, const char
 		CFDictionarySetValue(word, CFSTR("Path"), newPath);
 	}
 	return 0;
+}
+
+static int
+GetSystemBSDForVolumeGroupUUID(BLContextPtr context, CFStringRef uuid, char *currentDev, int len)
+{
+    int                        ret = 0;
+    kern_return_t              kret;
+    CFMutableDictionaryRef     match_dict = NULL;
+    CFMutableArrayRef          role_array = NULL;
+    CFMutableDictionaryRef     prop_dict = NULL;
+    io_iterator_t              pb_iter = IO_OBJECT_NULL;
+    io_service_t               volume = IO_OBJECT_NULL;
+    char                       bsd_name[MAXPATHLEN];
+    
+    // Create a matching dictionary for all system volumes
+    match_dict = IOServiceMatching(APFS_VOLUME_OBJECT);
+    if (!match_dict) {
+        contextprintf(context, kBLLogLevelVerbose, "could not get a matching dictionary for %s\n",
+               APFS_VOLUME_OBJECT);
+        ret = ENOENT;
+        goto fail;
+    }
+    role_array = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+                                      &kCFTypeArrayCallBacks);
+
+    if (!role_array) {
+        contextprintf(context, kBLLogLevelVerbose, "cannot create array for role property\n");
+        ret = ENOMEM;
+        goto fail;
+    }
+    CFArrayAppendValue(role_array, CFSTR(kAPFSVolumeRoleSystem));
+    prop_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
+                                          &kCFTypeDictionaryKeyCallBacks,
+                                          &kCFTypeDictionaryValueCallBacks);
+
+    if (!prop_dict) {
+        contextprintf(context, kBLLogLevelVerbose, "cannot create dictionary for property match\n");
+        ret = ENOMEM;
+        goto fail;
+    }
+    CFDictionaryAddValue(prop_dict, CFSTR(kAPFSRoleKey), role_array);
+    CFDictionaryAddValue(prop_dict, CFSTR(kAPFSVolGroupUUIDKey), uuid);
+    CFDictionaryAddValue(match_dict, CFSTR(kIOPropertyMatchKey), prop_dict);
+
+    // Get the volumes. Note: match_dict is released by this call
+    kret = IOServiceGetMatchingServices(kIOMasterPortDefault, match_dict,
+                                        &pb_iter);
+    match_dict = NULL;
+    if (kret) {
+        contextprintf(context, kBLLogLevelVerbose, "could not find system volumes: %X\n", kret);
+        ret = ENOENT;
+        goto fail;
+    }
+
+
+    // Only one system volume should be returned.
+    if ((volume = IOIteratorNext(pb_iter))) {
+        // Get a C string for the device node
+        CFStringRef bsd_prop = IORegistryEntryCreateCFProperty(volume, CFSTR(kIOBSDNameKey),
+                                                   kCFAllocatorDefault, 0);
+        if (!bsd_prop) {
+            contextprintf(context, kBLLogLevelVerbose, "No BSD Name for system volume!\n");
+            ret = ENOENT;
+            goto fail;
+        }
+        if (!CFStringGetCString(bsd_prop, bsd_name, sizeof bsd_name,
+                                kCFStringEncodingUTF8)) {
+            contextprintf(context, kBLLogLevelVerbose, "cannot convert BSD Name property to C string\n");
+            ret = EILSEQ;
+            goto fail;
+        }
+        snprintf(currentDev, len, "/dev/%s", bsd_name);
+    }
+    else {
+        ret = EINVAL;
+        contextprintf(context, kBLLogLevelVerbose, "Cannot find matching system volume\n");
+    }
+
+fail:
+    if (volume != IO_OBJECT_NULL) IOObjectRelease(volume);
+    if (match_dict) CFRelease(match_dict);
+    if (role_array) CFRelease(role_array);
+    if (prop_dict) CFRelease(prop_dict);
+    if (pb_iter != IO_OBJECT_NULL) IOObjectRelease(pb_iter);
+    return ret;
 }

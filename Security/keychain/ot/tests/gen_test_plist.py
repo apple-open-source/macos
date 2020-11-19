@@ -43,7 +43,24 @@ for x in ['TrustedPeersTests', 'TrustedPeersHelperUnitTests']:
     test_dictionary['WorkingDirectory'] = '/AppleInternal/XCTests/com.apple.security/'
 
     test_command = Foundation.NSMutableArray.array()
-    test_command.append('BATS_XCTEST_CMD {}.xctest'.format(x))
+    test_command.append('BATS_XCTEST_CMD')
+    test_command.append('{}.xctest'.format(x))
+    test_dictionary['Command'] = test_command
+
+    test_list.append(test_dictionary)
+
+
+for x in ['OctagonTrustTests']:
+
+    test_dictionary = Foundation.NSMutableDictionary.dictionary()
+    test_dictionary['TestName'] = x
+    test_dictionary['Timeout']= 1200
+    test_dictionary['ShowSubtestResults']= True
+    test_dictionary['WorkingDirectory'] = '/AppleInternal/XCTests/com.apple.security/'
+
+    test_command = Foundation.NSMutableArray.array()
+    test_command.append('BATS_XCTEST_CMD')
+    test_command.append('{}.xctest'.format(x))
     test_dictionary['Command'] = test_command
 
     test_list.append(test_dictionary)
@@ -58,7 +75,10 @@ for x in get_class_names():
     test_dictionary['WorkingDirectory'] = '/AppleInternal/XCTests/com.apple.security/'
 
     test_command = Foundation.NSMutableArray.array()
-    test_command.append('BATS_XCTEST_CMD -XCTest {} OctagonTests.xctest'.format(x))
+    test_command.append('BATS_XCTEST_CMD')
+    test_command.append('-XCTest')
+    test_command.append('{}'.format(x))
+    test_command.append('OctagonTests.xctest')
     test_dictionary['Command'] = test_command
 
     test_list.append(test_dictionary)

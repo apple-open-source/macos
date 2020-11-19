@@ -33,8 +33,11 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         this._workerTargetTreeElementMap = new Map;
         this._mainFrameTreeElement = null;
         this._extensionScriptsFolderTreeElement = null;
+        this._extensionStyleSheetsFolderTreeElement = null;
         this._extraScriptsFolderTreeElement = null;
+        this._extraStyleSheetsFolderTreeElement = null;
         this._anonymousScriptsFolderTreeElement = null;
+        this._anonymousStyleSheetsFolderTreeElement = null;
 
         this._originTreeElementMap = new Map;
 
@@ -103,6 +106,17 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         this._debuggerStepOutButtonItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, WI.debuggerStepOut, this);
         this._debuggerStepOutButtonItem.enabled = false;
 
+        // COMPATIBILITY (iOS 13.4): Debugger.stepNext did not exist yet.
+        if (InspectorBackend.hasCommand("Debugger.stepNext")) {
+            this._debuggerStepNextButtonItem = createButtonNavigationitem({
+                identifier: "debugger-step-next",
+                toolTipOrLabel: WI.UIString("Step (%s or %s)").format(WI.stepNextKeyboardShortcut.displayName, WI.stepNextAlternateKeyboardShortcut.displayName),
+                image: "Images/StepNext.svg",
+            });
+            this._debuggerStepNextButtonItem.addEventListener(WI.ButtonNavigationItem.Event.Clicked, WI.debuggerStepNext, this);
+            this._debuggerStepNextButtonItem.enabled = false;
+        }
+
         this._timelineRecordingWarningElement = null;
         this._auditTestWarningElement = null;
         this._breakpointsDisabledWarningElement = null;
@@ -119,7 +133,19 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         this._pauseReasonContainer.appendChild(this._pauseReasonSection.element);
 
         this._callStackTreeOutline = this.createContentTreeOutline({suppressFiltering: true});
+        this._callStackTreeOutline.allowsMultipleSelection = true;
         this._callStackTreeOutline.addEventListener(WI.TreeOutline.Event.SelectionDidChange, this._handleTreeSelectionDidChange, this);
+        this._callStackTreeOutline.populateContextMenu = (contextMenu, event, treeElement) => {
+            if (this._callStackTreeOutline.selectedTreeElements.length) {
+                contextMenu.appendItem(WI.UIString("Copy"), () => {
+                    this.handleCopyEvent(event);
+                });
+
+                contextMenu.appendSeparator();
+            }
+
+            WI.TreeOutline.prototype.populateContextMenu(contextMenu, event, treeElement);
+        };
 
         let callStackRow = new WI.DetailsSectionRow;
         callStackRow.element.appendChild(this._callStackTreeOutline.element);
@@ -235,7 +261,7 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         this._resourcesTreeOutline.includeSourceMapResourceChildren = true;
         resourcesContainer.appendChild(this._resourcesTreeOutline.element);
 
-        if (WI.NetworkManager.supportsLocalResourceOverrides() || WI.NetworkManager.supportsBootstrapScript() || InspectorBackend.hasDomain("CSS")) {
+        if (WI.NetworkManager.supportsLocalResourceOverrides() || WI.NetworkManager.supportsBootstrapScript() || WI.CSSManager.supportsInspectorStyleSheet()) {
             let createResourceNavigationBar = new WI.NavigationBar;
 
             let createResourceButtonNavigationItem = new WI.ButtonNavigationItem("create-resource", WI.UIString("Create Resource"), "Images/Plus15.svg", 15, 15);
@@ -314,6 +340,7 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         WI.auditManager.addEventListener(WI.AuditManager.Event.TestCompleted, this._handleAuditManagerTestCompleted, this);
 
         WI.cssManager.addEventListener(WI.CSSManager.Event.StyleSheetAdded, this._handleCSSStyleSheetAdded, this);
+        WI.cssManager.addEventListener(WI.CSSManager.Event.StyleSheetRemoved, this._handleCSSStyleSheetRemoved, this);
 
         WI.targetManager.addEventListener(WI.TargetManager.Event.TargetAdded, this._handleTargetAdded, this);
         WI.targetManager.addEventListener(WI.TargetManager.Event.TargetRemoved, this._handleTargetRemoved, this);
@@ -327,11 +354,14 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
             }, this);
         }
 
+        // COMPATIBILITY (iOS 13.1): Debugger.setPauseOnDebuggerStatements did not exist yet.
+        if (InspectorBackend.hasCommand("Debugger.setPauseOnDebuggerStatements"))
+            WI.debuggerManager.addBreakpoint(WI.debuggerManager.debuggerStatementsBreakpoint);
+
         WI.debuggerManager.addBreakpoint(WI.debuggerManager.allExceptionsBreakpoint);
         WI.debuggerManager.addBreakpoint(WI.debuggerManager.uncaughtExceptionsBreakpoint);
 
-        // COMPATIBILITY (iOS 10): Debugger.setPauseOnAssertions did not exist yet.
-        if (InspectorBackend.hasCommand("Debugger.setPauseOnAssertions") && WI.settings.showAssertionFailuresBreakpoint.value)
+        if (WI.settings.showAssertionFailuresBreakpoint.value)
             WI.debuggerManager.addBreakpoint(WI.debuggerManager.assertionFailuresBreakpoint);
 
         // COMPATIBILITY (iOS 13): Debugger.setPauseOnMicrotasks did not exist yet.
@@ -402,7 +432,8 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
 
     static shouldPlaceResourcesAtTopLevel()
     {
-        return WI.sharedApp.debuggableType === WI.DebuggableType.JavaScript
+        return WI.sharedApp.debuggableType === WI.DebuggableType.ITML
+            || WI.sharedApp.debuggableType === WI.DebuggableType.JavaScript
             || WI.sharedApp.debuggableType === WI.DebuggableType.ServiceWorker;
     }
 
@@ -518,35 +549,133 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         if (treeElement)
             return treeElement;
 
-        // Only special case Script objects.
-        if (!(representedObject instanceof WI.Script)) {
-            console.error("Didn't find a TreeElement for representedObject", representedObject);
-            return null;
+        if (representedObject instanceof WI.Script) {
+            // If the Script has a URL we should have found it earlier.
+            if (representedObject.url) {
+                console.assert(false, "Didn't find a ScriptTreeElement for a Script with a URL.", representedObject);
+                return null;
+            }
+
+            console.assert(representedObject.anonymous, representedObject);
+
+            // Since the Script does not have a URL we consider it an 'anonymous' script. These scripts happen from calls to
+            // window.eval() or browser features like Auto Fill and Reader. They are not normally added to the sidebar, but since
+            // we have a ScriptContentView asking for the tree element we will make a ScriptTreeElement on demand and add it.
+
+            if (!this._anonymousScriptsFolderTreeElement)
+                this._anonymousScriptsFolderTreeElement = new WI.FolderTreeElement(WI.UIString("Anonymous Scripts"), new WI.ScriptCollection);
+
+            if (!this._anonymousScriptsFolderTreeElement.parent) {
+                let index = insertionIndexForObjectInListSortedByFunction(this._anonymousScriptsFolderTreeElement, this._resourcesTreeOutline.children, this._boundCompareTreeElements);
+                this._resourcesTreeOutline.insertChild(this._anonymousScriptsFolderTreeElement, index);
+                this._resourcesTreeOutline.disclosureButtons = true;
+            }
+
+            this._anonymousScriptsFolderTreeElement.representedObject.add(representedObject);
+
+            let scriptTreeElement = new WI.ScriptTreeElement(representedObject);
+            this._anonymousScriptsFolderTreeElement.appendChild(scriptTreeElement);
+            return scriptTreeElement;
         }
 
-        // If the Script has a URL we should have found it earlier.
-        if (representedObject.url) {
-            console.error("Didn't find a ScriptTreeElement for a Script with a URL.");
-            return null;
+        if (representedObject instanceof WI.CSSStyleSheet) {
+            // If the CSSStyleSheet has a URL we should have found it earlier.
+            if (representedObject.url) {
+                console.assert(false, "Didn't find a CSSStyleSheetTreeElement for a CSSStyleSheet with a URL.", representedObject);
+                return null;
+            }
+
+            console.assert(representedObject.anonymous, representedObject);
+
+            if (!this._anonymousStyleSheetsFolderTreeElement)
+                this._anonymousStyleSheetsFolderTreeElement = new WI.FolderTreeElement(WI.UIString("Anonymous Style Sheets"), new WI.CSSStyleSheetCollection);
+
+            if (!this._anonymousStyleSheetsFolderTreeElement.parent) {
+                let index = insertionIndexForObjectInListSortedByFunction(this._anonymousStyleSheetsFolderTreeElement, this._resourcesTreeOutline.children, this._boundCompareTreeElements);
+                this._resourcesTreeOutline.insertChild(this._anonymousStyleSheetsFolderTreeElement, index);
+                this._resourcesTreeOutline.disclosureButtons = true;
+            }
+
+           let cssStyleSheetTreeElement = new WI.CSSStyleSheetTreeElement(representedObject);
+           this._anonymousStyleSheetsFolderTreeElement.appendChild(cssStyleSheetTreeElement);
+           return cssStyleSheetTreeElement;
         }
 
-        // Since the Script does not have a URL we consider it an 'anonymous' script. These scripts happen from calls to
-        // window.eval() or browser features like Auto Fill and Reader. They are not normally added to the sidebar, but since
-        // we have a ScriptContentView asking for the tree element we will make a ScriptTreeElement on demand and add it.
+        console.assert(false, "Didn't find a TreeElement for representedObject", representedObject);
+        return null;
+    }
 
-        if (!this._anonymousScriptsFolderTreeElement)
-            this._anonymousScriptsFolderTreeElement = new WI.FolderTreeElement(WI.UIString("Anonymous Scripts"), new WI.ScriptCollection);
+    handleCopyEvent(event)
+    {
+        let selectedTreeElements = new Set(this._callStackTreeOutline.selectedTreeElements);
+        if (!selectedTreeElements.size)
+            return;
 
-        if (!this._anonymousScriptsFolderTreeElement.parent) {
-            let index = insertionIndexForObjectInListSortedByFunction(this._anonymousScriptsFolderTreeElement, this._resourcesTreeOutline.children, this._boundCompareTreeElements);
-            this._resourcesTreeOutline.insertChild(this._anonymousScriptsFolderTreeElement, index);
+        let treeElement = this._callStackTreeOutline.children[0];
+
+        const ignoreHidden = true;
+        const skipUnrevealed = true;
+        const stayWithin = null;
+        const dontPopulate = true;
+        while (!treeElement.revealed(ignoreHidden))
+            treeElement = treeElement.traverseNextTreeElement(skipUnrevealed, stayWithin, dontPopulate);
+
+        let indentString = WI.indentString();
+        let threads = [];
+        let asyncBoundary = null;
+
+        while (treeElement) {
+            if (treeElement instanceof WI.ThreadTreeElement) {
+                threads.push({
+                    name: treeElement.mainTitle,
+                    frames: [],
+                });
+
+                asyncBoundary = null;
+            } else if (treeElement instanceof WI.CallFrameTreeElement) {
+                if (treeElement.isAsyncBoundaryCallFrame) {
+                    asyncBoundary = treeElement.mainTitle;
+                } else if (selectedTreeElements.has(treeElement)) {
+                    if (asyncBoundary) {
+                        threads.lastValue.frames.push("--- " + asyncBoundary + " ---");
+                        asyncBoundary = null;
+                    }
+
+                    let line = treeElement.mainTitle;
+
+                    let sourceCodeLocation = treeElement.callFrame.sourceCodeLocation;
+                    if (sourceCodeLocation)
+                        line += " (" + sourceCodeLocation.displayLocationString() + ")";
+
+                    threads.lastValue.frames.push(line);
+                }
+            }
+
+            treeElement = treeElement.traverseNextTreeElement(skipUnrevealed, stayWithin, dontPopulate);
         }
 
-        this._anonymousScriptsFolderTreeElement.representedObject.add(representedObject);
+        let multipleFramesSelected = threads.filter(({frames}) => frames.length).length > 1;
 
-        let scriptTreeElement = new WI.ScriptTreeElement(representedObject);
-        this._anonymousScriptsFolderTreeElement.appendChild(scriptTreeElement);
-        return scriptTreeElement;
+        let lines = [];
+        for (let {name, frames} of threads) {
+            if (multipleFramesSelected)
+                lines.push(name);
+
+            for (let frame of frames) {
+                let prefix = "";
+                if (multipleFramesSelected)
+                    prefix = indentString;
+                lines.push(prefix + frame);
+            }
+        }
+        if (!lines.length)
+            return;
+
+        setTimeout(() => {
+            InspectorFrontendHost.copyText(lines.join("\n"));
+        });
+
+        event.stop();
     }
 
     // Protected
@@ -744,12 +873,18 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
             (treeElement) => treeElement instanceof WI.OriginTreeElement,
             (treeElement) => {
                 return treeElement !== this._extensionScriptsFolderTreeElement
+                    && treeElement !== this._extensionStyleSheetsFolderTreeElement
                     && treeElement !== this._extraScriptsFolderTreeElement
-                    && treeElement !== this._anonymousScriptsFolderTreeElement;
+                    && treeElement !== this._extraStyleSheetsFolderTreeElement
+                    && treeElement !== this._anonymousScriptsFolderTreeElement
+                    && treeElement !== this._anonymousStyleSheetsFolderTreeElement;
             },
             (treeElement) => treeElement === this._extensionScriptsFolderTreeElement,
+            (treeElement) => treeElement === this._extensionStyleSheetsFolderTreeElement,
             (treeElement) => treeElement === this._extraScriptsFolderTreeElement,
+            (treeElement) => treeElement === this._extraStyleSheetsFolderTreeElement,
             (treeElement) => treeElement === this._anonymousScriptsFolderTreeElement,
+            (treeElement) => treeElement === this._anonymousStyleSheetsFolderTreeElement,
         ];
 
         let aRank = rankFunctions.findIndex((rankFunction) => rankFunction(a));
@@ -861,8 +996,10 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
 
             let parentTreeElement = null;
 
-            if (resource instanceof WI.CSSStyleSheet && resource.isInspectorStyleSheet())
+            if (resource instanceof WI.CSSStyleSheet) {
+                console.assert(resource.isInspectorStyleSheet());
                 parentTreeElement = this._resourcesTreeOutline.findTreeElement(resource.parentFrame.mainResource);
+            }
 
             if (!parentTreeElement) {
                 let origin = resource.urlComponents.origin;
@@ -917,15 +1054,52 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         }
     }
 
+    _addStyleSheet(styleSheet)
+    {
+        console.assert(styleSheet instanceof WI.CSSStyleSheet);
+        console.assert(!styleSheet.isInspectorStyleSheet());
+
+        // We don't add style sheets without URLs here. Those style sheets can quickly clutter the
+        // interface and are usually more transient. They will get added if/when they need to be
+        // shown in a content view.
+        if (styleSheet.anonymous)
+            return;
+
+        let parentTreeElement = null;
+
+        if (WI.browserManager.isExtensionScheme(styleSheet.urlComponents.scheme)) {
+            if (!this._extensionStyleSheetsFolderTreeElement)
+                this._extensionStyleSheetsFolderTreeElement = new WI.FolderTreeElement(WI.UIString("Extension Style Sheets"), new WI.CSSStyleSheetCollection);
+            parentTreeElement = this._extensionStyleSheetsFolderTreeElement;
+        } else {
+            if (!this._extraStyleSheetsFolderTreeElement)
+                this._extraStyleSheetsFolderTreeElement = new WI.FolderTreeElement(WI.UIString("Extra Style Sheets"), new WI.CSSStyleSheetCollection);
+            parentTreeElement = this._extraStyleSheetsFolderTreeElement;
+        }
+
+        if (!parentTreeElement.parent) {
+            let index = insertionIndexForObjectInListSortedByFunction(parentTreeElement, this._resourcesTreeOutline.children, this._boundCompareTreeElements);
+            this._resourcesTreeOutline.insertChild(parentTreeElement, index);
+            this._resourcesTreeOutline.disclosureButtons = true;
+        }
+
+        let treeElement = new WI.CSSStyleSheetTreeElement(styleSheet);
+
+        let index = insertionIndexForObjectInListSortedByFunction(treeElement, parentTreeElement.children, this._boundCompareTreeElements);
+        parentTreeElement.insertChild(treeElement, index);
+    }
+
     _addScript(script)
     {
+        console.assert(script instanceof WI.Script);
+
         // We don't add scripts without URLs here. Those scripts can quickly clutter the interface and
         // are usually more transient. They will get added if/when they need to be shown in a content view.
-        if (!script.url && !script.sourceURL)
+        if (script.anonymous)
             return;
 
         // Target main resource.
-        if (WI.sharedApp.debuggableType !== WI.DebuggableType.JavaScript) {
+        if (WI.sharedApp.debuggableType !== WI.DebuggableType.JavaScript && WI.sharedApp.debuggableType !== WI.DebuggableType.ITML) {
             if (script.target !== WI.pageTarget) {
                 if (script.isMainResource()) {
                     this._addWorkerTargetWithMainResource(script.target);
@@ -949,7 +1123,7 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         } else {
             let parentFolderTreeElement = null;
 
-            if (script.injected) {
+            if (WI.browserManager.isExtensionScheme(script.urlComponents.scheme)) {
                 if (!this._extensionScriptsFolderTreeElement) {
                     let collection = new WI.ScriptCollection;
                     this._extensionScriptsFolderTreeElement = new WI.FolderTreeElement(WI.UIString("Extension Scripts"), collection);
@@ -971,6 +1145,7 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
             if (!parentFolderTreeElement.parent) {
                 let index = insertionIndexForObjectInListSortedByFunction(parentFolderTreeElement, this._resourcesTreeOutline.children, this._boundCompareTreeElements);
                 this._resourcesTreeOutline.insertChild(parentFolderTreeElement, index);
+                this._resourcesTreeOutline.disclosureButtons = true;
             }
 
             parentFolderTreeElement.appendChild(scriptTreeElement);
@@ -1022,6 +1197,7 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
     {
         let comparator = (a, b) => {
             const rankFunctions = [
+                (treeElement) => treeElement.representedObject === WI.debuggerManager.debuggerStatementsBreakpoint,
                 (treeElement) => treeElement.representedObject === WI.debuggerManager.allExceptionsBreakpoint,
                 (treeElement) => treeElement.representedObject === WI.debuggerManager.uncaughtExceptionsBreakpoint,
                 (treeElement) => treeElement.representedObject === WI.debuggerManager.assertionFailuresBreakpoint,
@@ -1092,7 +1268,10 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
             return domNodeTreeElement;
         };
 
-        if (breakpoint === WI.debuggerManager.allExceptionsBreakpoint) {
+        if (breakpoint === WI.debuggerManager.debuggerStatementsBreakpoint) {
+            options.className = "breakpoint-debugger-statement-icon";
+            options.title = WI.UIString("Debugger Statements");
+        } else if (breakpoint === WI.debuggerManager.allExceptionsBreakpoint) {
             options.className = "breakpoint-exception-icon";
             options.title = WI.repeatedUIString.allExceptions();
         } else if (breakpoint === WI.debuggerManager.uncaughtExceptionsBreakpoint) {
@@ -1433,8 +1612,7 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
             if (!pauseData)
                 break;
 
-            // COMPATIBILITY (iOS 8): 'directive' was 'directiveText'.
-            this._pauseReasonTextRow.text = WI.UIString("Content Security Policy violation of directive: %s").format(pauseData.directive || pauseData.directiveText);
+            this._pauseReasonTextRow.text = WI.UIString("Content Security Policy violation of directive: %s").format(pauseData.directive);
             this._pauseReasonGroup.rows = [this._pauseReasonTextRow];
             return true;
 
@@ -1846,19 +2024,16 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
 
     _populateCreateBreakpointContextMenu(contextMenu)
     {
-        // COMPATIBILITY (iOS 10): Debugger.setPauseOnAssertions did not exist yet.
-        if (InspectorBackend.hasCommand("Debugger.setPauseOnAssertions")) {
-            let assertionFailuresBreakpointShown = WI.settings.showAssertionFailuresBreakpoint.value;
+        let assertionFailuresBreakpointShown = WI.settings.showAssertionFailuresBreakpoint.value;
 
-            contextMenu.appendCheckboxItem(WI.repeatedUIString.assertionFailures(), () => {
-                if (assertionFailuresBreakpointShown)
-                    WI.debuggerManager.removeBreakpoint(WI.debuggerManager.assertionFailuresBreakpoint);
-                else {
-                    WI.debuggerManager.assertionFailuresBreakpoint.disabled = false;
-                    WI.debuggerManager.addBreakpoint(WI.debuggerManager.assertionFailuresBreakpoint);
-                }
-            }, assertionFailuresBreakpointShown);
-        }
+        contextMenu.appendCheckboxItem(WI.repeatedUIString.assertionFailures(), () => {
+            if (assertionFailuresBreakpointShown)
+                WI.debuggerManager.removeBreakpoint(WI.debuggerManager.assertionFailuresBreakpoint);
+            else {
+                WI.debuggerManager.assertionFailuresBreakpoint.disabled = false;
+                WI.debuggerManager.addBreakpoint(WI.debuggerManager.assertionFailuresBreakpoint);
+            }
+        }, assertionFailuresBreakpointShown);
 
         contextMenu.appendSeparator();
 
@@ -1948,7 +2123,7 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
             });
         }
 
-        if (InspectorBackend.hasDomain("CSS")) {
+        if (WI.CSSManager.supportsInspectorStyleSheet()) {
             let addInspectorStyleSheetItem = (menu, frame) => {
                 menu.appendItem(WI.UIString("Inspector Style Sheet"), () => {
                     if (WI.settings.resourceGroupingMode.value === WI.Resource.GroupingMode.Path) {
@@ -1987,8 +2162,11 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         this._workerTargetTreeElementMap.clear();
         this._mainFrameTreeElement = null;
         this._extensionScriptsFolderTreeElement = null;
+        this._extensionStyleSheetsFolderTreeElement = null;
         this._extraScriptsFolderTreeElement = null;
+        this._extraStyleSheetsFolderTreeElement = null;
         this._anonymousScriptsFolderTreeElement = null;
+        this._anonymousStyleSheetsFolderTreeElement = null;
 
         this._originTreeElementMap.clear();
 
@@ -2015,6 +2193,11 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
 
             if (script.sourceMaps.length && WI.SourcesNavigationSidebarPanel.shouldPlaceResourcesAtTopLevel())
                 this._resourcesTreeOutline.disclosureButtons = true;
+        }
+
+        for (let styleSheet of WI.cssManager.styleSheets) {
+            if (styleSheet.origin !== WI.CSSStyleSheet.Type.Author && !styleSheet.isInspectorStyleSheet())
+                this._addStyleSheet(styleSheet);
         }
     }
 
@@ -2169,6 +2352,8 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         this._debuggerStepOverButtonItem.enabled = true;
         this._debuggerStepIntoButtonItem.enabled = true;
         this._debuggerStepOutButtonItem.enabled = true;
+        if (this._debuggerStepNextButtonItem)
+            this._debuggerStepNextButtonItem.enabled = true;
 
         this.element.classList.add("paused");
     }
@@ -2184,6 +2369,8 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
         this._debuggerStepOverButtonItem.enabled = false;
         this._debuggerStepIntoButtonItem.enabled = false;
         this._debuggerStepOutButtonItem.enabled = false;
+        if (this._debuggerStepNextButtonItem)
+            this._debuggerStepNextButtonItem.enabled = false;
 
         this.element.classList.remove("paused");
     }
@@ -2362,19 +2549,53 @@ WI.SourcesNavigationSidebarPanel = class SourcesNavigationSidebarPanel extends W
 
     _handleCSSStyleSheetAdded(event)
     {
-        let styleSheet = event.data.styleSheet;
-        if (!styleSheet.isInspectorStyleSheet())
+        let {styleSheet} = event.data;
+        if (styleSheet.origin === WI.CSSStyleSheet.Type.Author)
             return;
 
-        if (WI.settings.resourceGroupingMode.value === WI.Resource.GroupingMode.Type) {
-            let frameTreeElement = this.treeElementForRepresentedObject(styleSheet.parentFrame);
-            if (frameTreeElement) {
-                frameTreeElement.addRepresentedObjectToNewChildQueue(styleSheet);
-                return;
+        if (styleSheet.isInspectorStyleSheet()) {
+            if (WI.settings.resourceGroupingMode.value === WI.Resource.GroupingMode.Type) {
+                let frameTreeElement = this.treeElementForRepresentedObject(styleSheet.parentFrame);
+                if (frameTreeElement) {
+                    frameTreeElement.addRepresentedObjectToNewChildQueue(styleSheet);
+                    return;
+                }
             }
-        }
 
-        this._addResource(styleSheet);
+            this._addResource(styleSheet);
+        } else
+            this._addStyleSheet(styleSheet);
+    }
+
+    _handleCSSStyleSheetRemoved(event)
+    {
+        let {styleSheet} = event.data;
+        if (styleSheet.origin === WI.CSSStyleSheet.Type.Author)
+            return;
+
+        let treeElement = this._resourcesTreeOutline.findTreeElement(styleSheet);
+        if (!treeElement)
+            return;
+
+        let parent = treeElement.parent;
+        treeElement.parent.removeChild(treeElement);
+
+        if (!parent.children.length)
+            parent.parent.removeChild(parent);
+
+        switch (parent) {
+        case this._extensionStyleSheetsFolderTreeElement:
+            this._extensionStyleSheetsFolderTreeElement = null;
+            break;
+
+        case this._extraStyleSheetsFolderTreeElement:
+            this._extraStyleSheetsFolderTreeElement = null;
+            break;
+
+        case this._anonymousStyleSheetsFolderTreeElement:
+            this._anonymousStyleSheetsFolderTreeElement = null;
+            break;
+        }
     }
 
     _handleTargetAdded(event)

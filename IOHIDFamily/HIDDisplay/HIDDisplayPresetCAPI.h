@@ -103,7 +103,9 @@ HIDDisplayDeviceRef __nullable HIDDisplayCreateDeviceWithContainerID(CFStringRef
  * given container ID. If no corresponding
  * HID device matches container ID  , this will return NULL.
  * Caller is expected to create only single instance of HIDDisplayPresetIntereface per system for all HIDDisplayPreset APIs
- * as these APIs are not thread safe.
+ * as these APIs are not thread safe. This api shouldn't be used in case underlying service is expected to terminate / add while
+ * api is in process. Calling this for terminated or in progress termination service containerID may have undesirable results.
+ * Use HIDDisplayCreatePresetInterfaceWithService instead.
  *
  * @param containerID
  * Attributes which can uniquely identify display device.
@@ -132,21 +134,6 @@ HIDDisplayPresetInterfaceRef __nullable HIDDisplayCreatePresetInterfaceWithConta
  * Returns an instance of a hidDisplayInterface object on success which has to be released by caller.
  */
 HIDDisplayPresetInterfaceRef __nullable HIDDisplayCreatePresetInterfaceWithService(io_service_t service);
-
-
-/*!
- * HIDDisplayGetContainerID
- *
- * @abstract
- * Get ContainerID for hid preset device
- *
- * @discussion
- * get container id published on device interface or any of it's parent
- *
- * @result
- * CFStringRef for containerID. Caller shouldn't release any returned CFString
- */
-CFStringRef __nullable HIDDisplayGetContainerID(HIDDisplayPresetInterfaceRef hidDisplayInterface);
 
 /*!
  * HIDDisplayGetPresetCount

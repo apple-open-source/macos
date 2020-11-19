@@ -34,6 +34,7 @@
 #include "SWContextManager.h"
 #include "ServiceWorkerContainer.h"
 #include "ServiceWorkerFetchResult.h"
+#include "ServiceWorkerGlobalScope.h"
 #include "ServiceWorkerJobData.h"
 #include "ServiceWorkerRegistration.h"
 #include <wtf/CrossThreadCopier.h>
@@ -105,13 +106,6 @@ void SWClientConnection::registrationJobResolvedInServer(ServiceWorkerJobIdentif
 
     if (!isPosted && shouldNotifyWhenResolved == ShouldNotifyWhenResolved::Yes)
         didResolveRegistrationPromise(registrationData.key);
-}
-
-void SWClientConnection::unregistrationJobResolvedInServer(ServiceWorkerJobIdentifier jobIdentifier, bool unregistrationResult)
-{
-    postTaskForJob(jobIdentifier, IsJobComplete::Yes, [unregistrationResult] (auto& job) {
-        job.resolvedWithUnregistrationResult(unregistrationResult);
-    });
 }
 
 void SWClientConnection::startScriptFetchForServer(ServiceWorkerJobIdentifier jobIdentifier, const ServiceWorkerRegistrationKey& registrationKey, FetchOptions::Cache cachePolicy)
@@ -259,6 +253,14 @@ void SWClientConnection::clearPendingJobs()
                     job->failedWithException(Exception { TypeError, "Internal error"_s });
             }
         });
+    }
+}
+
+void SWClientConnection::registerServiceWorkerClients()
+{
+    for (auto* document : Document::allDocuments()) {
+        auto controllingServiceWorkerRegistrationIdentifier = document->activeServiceWorker() ? makeOptional<ServiceWorkerRegistrationIdentifier>(document->activeServiceWorker()->registrationIdentifier()) : WTF::nullopt;
+        registerServiceWorkerClient(document->topOrigin(), ServiceWorkerClientData::from(*document, *this), controllingServiceWorkerRegistrationIdentifier, document->userAgent(document->url()));
     }
 }
 

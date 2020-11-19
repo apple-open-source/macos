@@ -5,11 +5,11 @@
 # Set $FileCurrent to the name of the .inc file that you want to read in, and
 # find the latest versions for those modules.  Set the @FilePreviousList list
 # to the name of the other .inc files, so if $FileCurrent contains a version
-# not used by any other version, it can use "svn mv" to make the new directory,
-# otherwise, "svn cp" will be used.
+# not used by any other version, it can use "git mv" to make the new directory,
+# otherwise, "git cp" will be used.
 #
 # By default, updateCPAN will only print out what I would do.  The -d flag
-# causes actual changes; new svn directories will be created, the new modules
+# causes actual changes; new git directories will be created, the new modules
 # will be downloaded and then the $FileCurrent file will be updated with the
 # new version numbers.
 #
@@ -22,9 +22,9 @@ use Getopt::Long ();
 use IO::File;
 use Proc::Reliable;
 
-my $FileCurrent = '5.28.inc';
+my $FileCurrent = '5.30.inc';
 my @FilePreviousList = qw(5.18.inc);
-my $URLprefix = 'http://search.cpan.org/CPAN/authors/id';
+my $URLprefix = 'https://cpan.metacpan.org/authors/id';
 
 my $download;
 my @skip;
@@ -205,21 +205,21 @@ for my $proj (sort(keys(%projectsCurrent))) {
 	}
 	if(defined($projectsPrevious{$old})) {
 	    print "    Copying $old to $new\n";
-	    if(system('svn', 'cp', $old, $new) != 0) {
-		warn "***Can't svn cp $old $new\n";
+	    if(system('cp', '-a', $old, $new) != 0) {
+		warn "***Can't cp $old $new\n";
 		unlink($tarball);
 		next;
 	    }
 	} else {
 	    print "    Renaming $old to $new\n";
-	    if(system('svn', 'mv', $old, $new) != 0) {
-		warn "***Can't svn mv $old $new\n";
+	    if(system('git', 'mv', $old, $new) != 0) {
+		warn "***Can't git mv $old $new\n";
 		unlink($tarball);
 		next;
 	    }
 	}
 	$CWD = $new;
-	if(system('svn', 'mv', "$old.tar.gz", $tarball) != 0) {
+	if(system('mv', "$old.tar.gz", $tarball) != 0) {
 	    warn "***Can't rename $old.tar.gz to $tarball\n";
 	}
 	rename("../$tarball", $tarball) or warn "***Couldn't move $tarball into $new\n";

@@ -265,7 +265,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUResourceBundlePointer, UResourceBundle, ures_c
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 #ifndef U_HIDE_DEPRECATED_API
 /**
@@ -890,7 +890,7 @@ ures_getUnicodeStringByKey(const UResourceBundle *resB, const char* key, UErrorC
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Create a string enumerator, owned by the caller, of all locales located within

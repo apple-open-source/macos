@@ -1,0 +1,95 @@
+;;
+;; kcm - sandbox profile
+;; Copyright (c) 2010 - 2011 Apple Inc.  All Rights reserved.
+;;
+;; WARNING: The sandbox rules in this file currently constitute 
+;; Apple System Private Interface and are subject to change at any time and
+;; without notice. The contents of this file are also auto-generated and not
+;; user editable; it may be overwritten at any time.
+;;
+(version 1)
+
+;;(deny default (with no-callout))
+
+(deny default)
+
+(import "com.apple.corefoundation.sb")
+(import "opendirectory.sb")
+(import "system.sb")
+
+(corefoundation)
+(system-network)
+
+(allow file-ioctl
+       (literal "/dev/dtracehelper")
+       (literal "/dev/auditsessions"))
+
+(deny file*
+       (subpath "/var/root")
+       (subpath "/private/var/root")
+       (with no-log))
+
+(allow file-read*
+       (literal "/")
+       (literal "/etc/krb5.conf")
+       (subpath "/Library/Preferences")
+       (literal "/dev/auditsessions")
+       (literal "/dev/dtracehelper")
+       (literal "/dev/null")
+       (literal "/private/etc")
+       (literal "/private/var")
+       (literal "/private/etc/hosts")
+       (literal "/private/etc/resolv.conf")
+       (literal "/private/etc/krb5.conf")
+       (literal "/private/etc/services")
+       (literal "/private/etc/localtime")
+       (literal "/private/var/run/resolv.conf")
+       (subpath "/private/var/db/mds")
+       (subpath "/usr/sbin")
+       (subpath "/System/Library/CoreServices")
+       (subpath "/Library/KerberosPlugins")
+       (subpath "/System/Library/KerberosPlugins")
+       (subpath "/Library/Frameworks"))
+
+(allow file-read-metadata
+       (literal "/usr")
+       (literal "/usr/local")
+       (literal "/usr/local/lib")
+       (literal "/private/var/db"))
+       
+(allow file-write* file-read*
+       (literal "/private/var/db/heim-credential-store.archive"))
+
+(allow file-write-data
+       (literal "/dev/dtracehelper")
+       (literal "/private/var/db/mds/system/mds.lock"))
+       
+(allow ipc-posix-shm)
+
+(allow mach-lookup
+       (global-name "com.apple.SecurityServer")
+       (global-name "com.apple.SystemConfiguration.DNSConfiguration")
+       (global-name "com.apple.SystemConfiguration.configd")
+       (global-name "com.apple.TrustEvaluationAgent")
+       (global-name "com.apple.ocspd")
+       (global-name "com.apple.GSSCred")
+       (global-name "com.apple.networkd"))
+
+(allow network-outbound
+       (literal "/private/var/run/mDNSResponder")
+       (remote udp)
+       (remote tcp)
+       (control-name "com.apple.network.statistics")
+       (control-name "com.apple.netsrc"))
+
+(allow sysctl-read)
+
+(allow system-audit)
+
+(allow file-map-executable
+      (subpath "/System/Library/KerberosPlugins/"))
+
+(allow iokit-open (iokit-user-client-class "AppleFDEKeyStoreUserClient"))
+
+(allow process-info-dirtycontrol (target self))
+(allow process-info-pidfdinfo (target self))

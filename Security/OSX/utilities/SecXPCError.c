@@ -56,7 +56,7 @@ CFErrorRef SecCreateCFErrorWithXPCObject(xpc_object_t xpc_error)
         const uint8_t *der = xpc_dictionary_get_data(xpc_error, kUserInfoKey, &size);
         if (der) {
             const uint8_t *der_end = der + size;
-            der = der_decode_plist(kCFAllocatorDefault, kCFPropertyListImmutable,
+            der = der_decode_plist(kCFAllocatorDefault,
                                    &user_info, NULL, der, der_end);
             if (der != der_end)
                 CFReleaseNull(user_info);

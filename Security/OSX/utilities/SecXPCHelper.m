@@ -35,6 +35,32 @@
     return errorClasses;
 }
 
++ (NSSet<Class> *)safeCKErrorPrimitiveClasses
+{
+    static NSMutableSet<Class> *errorClasses = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        errorClasses = [NSMutableSet set];
+        char *classes[] = {
+            "CKArchivedAnchoredPackage",
+            "CKAsset",
+            "CKPackage",
+            "CKRecordID",
+            "CKReference",
+            "CLLocation",
+        };
+
+        for (unsigned n = 0; n < sizeof(classes) / sizeof(classes[0]); n++) {
+            Class class = objc_getClass(classes[n]);
+            if (class) {
+                [errorClasses addObject:class];
+            }
+        }
+    });
+
+    return errorClasses;
+}
+
 + (NSSet<Class> *)safeErrorCollectionClasses
 {
     static NSMutableSet<Class> *errorClasses = nil;
@@ -47,6 +73,7 @@
             "NSError",
             "NSOrderedSet",
             "NSSet",
+            "NSURLError",
         };
 
         for (unsigned n = 0; n < sizeof(classes) / sizeof(classes[0]); n++) {
@@ -67,6 +94,9 @@
     dispatch_once(&onceToken, ^{
         errorClasses = [NSMutableSet set];
         for (Class class in [SecXPCHelper safeErrorPrimitiveClasses]) {
+            [errorClasses addObject:class];
+        }
+        for (Class class in [SecXPCHelper safeCKErrorPrimitiveClasses]) {
             [errorClasses addObject:class];
         }
         for (Class class in [SecXPCHelper safeErrorCollectionClasses]) {
@@ -155,7 +185,7 @@
 
 static NSString *kArchiveKeyError = @"error";
 
-+ (NSError *)errorFromEncodedData:(NSData *)data
++ (NSError * _Nullable)errorFromEncodedData:(NSData *)data
 {
     NSKeyedUnarchiver *unarchiver = nil;
     NSError *error = nil;

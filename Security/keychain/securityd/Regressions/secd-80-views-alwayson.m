@@ -37,6 +37,7 @@
 #include "secd_regressions.h"
 #include "SOSAccountTesting.h"
 #include "SecdTestKeychainUtilities.h"
+#if SOS_ENABLED
 
 static void testView(SOSAccount* account, SOSViewResultCode expected, CFStringRef view, SOSViewActionCode action, char *label) {
     CFErrorRef error = NULL;
@@ -94,12 +95,17 @@ static void alwaysOnTest()
     
     SOSTestCleanup();
 }
+#endif
 
 int secd_80_views_alwayson(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(35);
     secd_test_clear_testviews();
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     alwaysOnTest();
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

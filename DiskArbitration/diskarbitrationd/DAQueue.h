@@ -69,6 +69,8 @@ extern void DADiskUnmountApprovalCallback( DADiskRef disk, DAResponseCallback re
 
 extern void DAIdleCallback( void );
 
+extern void DADiskListCompleteCallback( void );
+
 extern void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef argument1 );
 
 extern void DAQueueCallbacks( DASessionRef session, _DACallbackKind kind, DADiskRef argument0, CFTypeRef argument1 );

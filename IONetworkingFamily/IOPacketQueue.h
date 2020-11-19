@@ -47,7 +47,8 @@ struct IOMbufQueue;
     access to the queue between methods that have a "lock" prefix. 
 */
 
-class IOPacketQueue : public OSObject
+
+class __exported IOPacketQueue : public OSObject
 {   
     OSDeclareDefaultStructors( IOPacketQueue )
 

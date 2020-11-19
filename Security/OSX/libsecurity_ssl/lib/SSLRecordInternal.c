@@ -330,8 +330,8 @@ SSLRecordSetOption(SSLRecordContextRef ref, SSLRecordOption option, bool value)
 
 /***** Internal Record Layer APIs *****/
 
-#include <CommonCrypto/CommonRandomSPI.h>
-#define CCRNGSTATE ccDRBGGetRngState()
+#include <corecrypto/ccrng.h>
+#define CCRNGSTATE ccrng(NULL)
 
 SSLRecordContextRef
 SSLCreateInternalRecordLayer(SSLContextRef sslCtx)

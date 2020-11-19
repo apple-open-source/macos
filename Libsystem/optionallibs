@@ -4,5 +4,6 @@ quarantine
 system_containermanager
 system_featureflags
 system_networkextension
+system_product_info_filter
 system_secinit
 system_symptoms

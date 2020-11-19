@@ -36,6 +36,7 @@
 #import "GraphicsContextCG.h"
 #import "HostWindow.h"
 #import "IntRect.h"
+#import "ScreenProperties.h"
 #import "WAKWindow.h"
 #import "Widget.h"
 #import <pal/cocoa/MediaToolboxSoftLink.h>
@@ -64,11 +65,17 @@ bool screenIsMonochrome(Widget*)
 
 bool screenHasInvertedColors()
 {
+    if (auto data = screenData(primaryScreenDisplayID()))
+        return data->screenHasInvertedColors;
+    
     return PAL::softLinkUIKitUIAccessibilityIsInvertColorsEnabled();
 }
 
 bool screenSupportsExtendedColor(Widget*)
 {
+    if (auto data = screenData(primaryScreenDisplayID()))
+        return data->screenSupportsExtendedColor;
+
     return MGGetBoolAnswer(kMGQHasExtendedColorDisplay);
 }
 
@@ -141,6 +148,10 @@ FloatSize screenSize()
 {
     if (deviceHasIPadCapability() && [[PAL::getUIApplicationClass() sharedApplication] _isClassic])
         return { 320, 480 };
+
+    if (auto data = screenData(primaryScreenDisplayID()))
+        return data->screenRect.size();
+
     return FloatSize([[PAL::getUIScreenClass() mainScreen] _referenceBounds].size);
 }
 
@@ -148,6 +159,10 @@ FloatSize availableScreenSize()
 {
     if (deviceHasIPadCapability() && [[PAL::getUIApplicationClass() sharedApplication] _isClassic])
         return { 320, 480 };
+
+    if (auto data = screenData(primaryScreenDisplayID()))
+        return data->screenAvailableRect.size();
+
     return FloatSize([PAL::getUIScreenClass() mainScreen].bounds.size);
 }
 
@@ -166,6 +181,34 @@ float screenScaleFactor(UIScreen *screen)
         screen = [PAL::getUIScreenClass() mainScreen];
 
     return screen.scale;
+}
+
+ScreenProperties collectScreenProperties()
+{
+    ScreenProperties screenProperties;
+
+    PlatformDisplayID displayID = 0;
+
+    for (UIScreen *screen in [PAL::getUIScreenClass() screens]) {
+        FloatRect screenAvailableRect = screen.bounds;
+        screenAvailableRect.setY(NSMaxY(screen.bounds) - (screenAvailableRect.y() + screenAvailableRect.height())); // flip
+        FloatRect screenRect = screen._referenceBounds;
+        
+        RetainPtr<CGColorSpaceRef> colorSpace = screenColorSpace(nullptr);
+        
+        int screenDepth = WebCore::screenDepth(nullptr);
+        int screenDepthPerComponent = WebCore::screenDepthPerComponent(nullptr);
+        bool screenSupportsExtendedColor = WebCore::screenSupportsExtendedColor(nullptr);
+        bool screenHasInvertedColors = WebCore::screenHasInvertedColors();
+        float scaleFactor = WebCore::screenPPIFactor();
+
+        screenProperties.screenDataMap.set(++displayID, ScreenData { screenAvailableRect, screenRect, colorSpace, screenDepth, screenDepthPerComponent, screenSupportsExtendedColor, screenHasInvertedColors, false, scaleFactor });
+        
+        if (screen == [PAL::getUIScreenClass() mainScreen])
+            screenProperties.primaryDisplayID = displayID;
+    }
+    
+    return screenProperties;
 }
 
 } // namespace WebCore

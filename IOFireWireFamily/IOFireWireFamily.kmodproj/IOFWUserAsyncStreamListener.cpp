@@ -214,7 +214,7 @@ IOFWUserAsyncStreamListener::completeInit( IOFireWireUserClient* userclient, FWU
 		{
 			fPacketQueueBuffer = IOMemoryDescriptor::withAddressRange(	params->queueBuffer,
 																		params->queueSize,
-																		kIODirectionOutIn,
+																		kIODirectionInOut,
 																		fUserClient->getOwningTask() ) ;
 			if ( !fPacketQueueBuffer )
 			{
@@ -230,7 +230,7 @@ IOFWUserAsyncStreamListener::completeInit( IOFireWireUserClient* userclient, FWU
 			}
 
 			if ( status )
-				fBufferAvailable = fPacketQueueBuffer->getLength() ;
+				fBufferAvailable = (UInt32)fPacketQueueBuffer->getLength() ;
 		}
 	}
 	

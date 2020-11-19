@@ -25,12 +25,6 @@
 
 #import "DOMDocumentInternal.h"
 
-#import <WebCore/Attr.h>
-#import <WebCore/CDATASection.h>
-#import <WebCore/CSSRuleList.h>
-#import <WebCore/CSSStyleDeclaration.h>
-#import <WebCore/Comment.h>
-#import <WebCore/DocumentFullscreen.h>
 #import "DOMAbstractViewInternal.h"
 #import "DOMAttrInternal.h"
 #import "DOMCDATASectionInternal.h"
@@ -56,28 +50,33 @@
 #import "DOMStyleSheetListInternal.h"
 #import "DOMTextInternal.h"
 #import "DOMTreeWalkerInternal.h"
-#import <WebCore/DOMWindow.h>
 #import "DOMXPathExpressionInternal.h"
 #import "DOMXPathResultInternal.h"
+#import "ExceptionHandlers.h"
+#import "ObjCNodeFilterCondition.h"
+#import <WebCore/Attr.h>
+#import <WebCore/CDATASection.h>
+#import <WebCore/CSSRuleList.h>
+#import <WebCore/CSSStyleDeclaration.h>
+#import <WebCore/Comment.h>
+#import <WebCore/DOMWindow.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentFragment.h>
+#import <WebCore/DocumentFullscreen.h>
 #import <WebCore/DocumentType.h>
-#import <WebCore/Element.h>
 #import <WebCore/Event.h>
-#import "ExceptionHandlers.h"
 #import <WebCore/HTMLCollection.h>
-#import <WebCore/HTMLElement.h>
 #import <WebCore/HTMLHeadElement.h>
 #import <WebCore/HTMLScriptElement.h>
 #import <WebCore/JSExecState.h>
 #import <WebCore/NameNodeList.h>
 #import <WebCore/NativeNodeFilter.h>
-#import <WebCore/Node.h>
 #import <WebCore/NodeIterator.h>
 #import <WebCore/NodeList.h>
-#import "ObjCNodeFilterCondition.h"
 #import <WebCore/ProcessingInstruction.h>
 #import <WebCore/Range.h>
+#import <WebCore/SecurityOrigin.h>
+#import <WebCore/SimpleRange.h>
 #import <WebCore/StyleProperties.h>
 #import <WebCore/StyleSheetList.h>
 #import <WebCore/Text.h>
@@ -87,7 +86,6 @@
 #import <WebCore/XPathExpression.h>
 #import <WebCore/XPathNSResolver.h>
 #import <WebCore/XPathResult.h>
-#import <wtf/GetPtr.h>
 #import <wtf/URL.h>
 
 #define IMPL static_cast<WebCore::Document*>(reinterpret_cast<WebCore::Node*>(_internal))
@@ -217,7 +215,7 @@
 - (NSString *)URL
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->urlForBindings();
+    return IMPL->urlForBindings().string();
 }
 
 - (NSString *)cookie
@@ -407,13 +405,16 @@
 - (DOMHTMLScriptElement *)currentScript
 {
     WebCore::JSMainThreadNullState state;
-    return kit(WTF::getPtr(IMPL->currentScript()));
+    WebCore::Element* element = IMPL->currentScript();
+    if (!is<WebCore::HTMLScriptElement>(element))
+        return nil;
+    return kit(WTF::getPtr(downcast<WebCore::HTMLScriptElement>(element)));
 }
 
 - (NSString *)origin
 {
     WebCore::JSMainThreadNullState state;
-    return IMPL->origin();
+    return IMPL->securityOrigin().toString();
 }
 
 - (DOMElement *)scrollingElement

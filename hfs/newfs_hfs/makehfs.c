@@ -279,7 +279,7 @@ createExtents(HFSPlusForkData *file,
 		 */
 		if ((blockStep * numExtents) < blocksLeft) {
 			// Need to adjust the first one.
-			firstAdjust = blocksLeft - (blockStep * numExtents);
+			firstAdjust = (int)(blocksLeft - (blockStep * numExtents));
 			if ((firstAdjust % minBlocks) != 0)
 				firstAdjust = ROUNDUP(firstAdjust, minBlocks);
 		}
@@ -657,7 +657,7 @@ InitVH(hfsparams_t *defaults, UInt64 sectors, HFSPlusVolumeHeader *hp)
 	bzero(hp, kBytesPerSector);
 
 	blockSize = defaults->blockSize;
-	blockCount = sectors / (blockSize >> kLog2SectorSize);
+	blockCount = (UInt32)(sectors / (blockSize >> kLog2SectorSize));
 
 	/*
 	 * HFSPlusVolumeHeader is located at sector 2, so we may need
@@ -984,7 +984,7 @@ MarkExtentUsed(const DriveInfo *driveInfo,
 		memset(buf, 0, sizeof(buf));
 		secNum = curBlock / (bufSize * kBitsPerByte);
 		blockOffset = curBlock % (bufSize * kBitsPerByte);
-		numBlocks = MIN((bufSize * kBitsPerByte) - blockOffset, blocksLeft);
+		numBlocks = (uint32_t)MIN((bufSize * kBitsPerByte) - blockOffset, blocksLeft);
 
 		/*
 		 * Okay, now we've got the block number to read,
@@ -1895,7 +1895,7 @@ WriteBuffer(const DriveInfo *driveInfo, UInt64 startingSector, UInt64 byteCount,
 	/* try a buffer size for optimal IO, __UP TO 4MB__. if that
 	   fails, then try with the minimum allowed buffer size, which
 	   is equal to physSectorSize */
-	tempbufSizeInPhysSectors = MIN ( (byteCount - 1 + physSectorSize) / physSectorSize,
+	tempbufSizeInPhysSectors = (UInt32)MIN ( (byteCount - 1 + physSectorSize) / physSectorSize,
 					     driveInfo->physSectorsPerIO );
 	/* limit at 4MB */
 	tempbufSizeInPhysSectors = MIN ( tempbufSizeInPhysSectors, (4 * 1024 * 1024) / physSectorSize );
@@ -1922,9 +1922,9 @@ WriteBuffer(const DriveInfo *driveInfo, UInt64 startingSector, UInt64 byteCount,
 	byteOffsetInPhysSector =  (sector % sectorSizeRatio) * kBytesPerSector;
 
 	while (byteCount > 0) {
-		numPhysSectorsToIO = MIN ( (byteCount - 1 + physSectorSize) / physSectorSize,
+		numPhysSectorsToIO = (UInt32)MIN ( (byteCount - 1 + physSectorSize) / physSectorSize,
 				       tempbufSizeInPhysSectors );
-		numBytesToIO = MIN(byteCount, (unsigned)((numPhysSectorsToIO * physSectorSize) - byteOffsetInPhysSector));
+		numBytesToIO = (UInt32)MIN(byteCount, (unsigned)((numPhysSectorsToIO * physSectorSize) - byteOffsetInPhysSector));
 
 		/* if IO does not align with physical sector boundaries */
 		if ((0 != byteOffsetInPhysSector) || ((numBytesToIO % physSectorSize) != 0)) {

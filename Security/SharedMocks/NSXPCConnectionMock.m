@@ -14,8 +14,7 @@
 @implementation NSXPCConnectionMock
 - (instancetype) initWithRealObject:(id)reality
 {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _reality = reality;
     }
     return self;

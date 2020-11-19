@@ -26,14 +26,28 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFRuntime.h>
 #include <xpc/xpc.h>
+#import "config.h"
+
+#if HEIMCRED_SERVER
+#import <heim-ipc.h>
+#import "heim_threads.h"
+
+typedef enum {
+    CRED_STATUS_ACQUIRE_INITIAL = -1,
+    CRED_STATUS_ACQUIRE_START = 0,
+    CRED_STATUS_ACQUIRE_STOPPED = 1,
+    CRED_STATUS_ACQUIRE_FAILED = 2,
+    CRED_STATUS_ACQUIRE_SUCCESS = 3
+} cred_acquire_status;
+
+#endif
 
 #include "heimcred.h"
 
-#define CFRELEASE_NULL(x) do { if (x) { CFRelease(x); x = NULL; } } while(0)
+#define CFRELEASE_NULL(x) do { if (x!=NULL) { CFRelease(x); x = NULL; } } while(0)
 
 struct HeimMech;
 
@@ -43,6 +57,15 @@ struct HeimCred_s {
     CFDictionaryRef attributes;
 #if HEIMCRED_SERVER
     struct HeimMech *mech;
+    
+    HEIMDAL_MUTEX event_mutex;  //mutex for events, times, and statuses
+    time_t renew_time;		//the next attempt to renew a renewable ticket
+    heim_event_t renew_event;	//the event for renewal
+    time_t next_acquire_time;  	//run time for next acquire attempt to get a new credential
+    time_t expire;		//the time when the cred expires
+    heim_event_t expire_event;	//the event for refreshing the cred
+    cred_acquire_status acquire_status;	//the refresh status
+    uid_t session;		//the session id for events;
 #endif
 };
 
@@ -70,7 +93,7 @@ void
 _HeimCredInitCommon(void);
 
 HeimCredRef
-HeimCredCreateItem(CFUUIDRef uuid);
+HeimCredCreateItem(CFUUIDRef uuid) CF_RETURNS_RETAINED;
 
 CFTypeID
 HeimCredGetTypeID(void);

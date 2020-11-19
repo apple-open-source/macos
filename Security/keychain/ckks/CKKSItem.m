@@ -178,7 +178,17 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     _uuid = [[record recordID] recordName];
     self.parentKeyUUID = [record[SecCKRecordParentKeyRefKey] recordID].recordName;
     self.encitem = record[SecCKRecordDataKey];
-    self.wrappedkey = [[CKKSWrappedAESSIVKey alloc] initWithBase64: record[SecCKRecordWrappedKeyKey]];
+
+    // If wrapped key is nil, this is a bad record. We've seen this at least once, though, and so need to be resilient to it.
+    // Passing nil here will cause a crash, so pass all zeroes.
+    NSString* wrappedKey = record[SecCKRecordWrappedKeyKey];
+    if(wrappedKey) {
+        self.wrappedkey = [[CKKSWrappedAESSIVKey alloc] initWithBase64:wrappedKey];
+    } else {
+        ckkserror("ckksitem", record.recordID.zoneID, "Corrupt item recieved with no wrapped key");
+        self.wrappedkey = [CKKSWrappedAESSIVKey zeroedKey];
+    }
+
     self.generationCount = [record[SecCKRecordGenerationCountKey] unsignedIntegerValue];
     self.encver = [record[SecCKRecordEncryptionVersionKey] unsignedIntegerValue];
 
@@ -228,27 +238,27 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     // Note that since all of those things are included as authenticated data into the AES-SIV ciphertext, we could just
     // compare that. However, check 'em all.
     if(![record.recordID.recordName isEqualToString: self.uuid]) {
-        secinfo("ckksitem", "UUID does not match");
+        ckksinfo_global("ckksitem", "UUID does not match");
         return false;
     }
 
     if(![[record[SecCKRecordParentKeyRefKey] recordID].recordName isEqualToString: self.parentKeyUUID]) {
-        secinfo("ckksitem", "wrapping key reference does not match");
+        ckksinfo_global("ckksitem", "wrapping key reference does not match");
         return false;
     }
 
     if(![record[SecCKRecordGenerationCountKey] isEqual: [NSNumber numberWithInteger:self.generationCount]]) {
-        secinfo("ckksitem", "SecCKRecordGenerationCountKey does not match");
+        ckksinfo_global("ckksitem", "SecCKRecordGenerationCountKey does not match");
         return false;
     }
 
     if(![record[SecCKRecordWrappedKeyKey] isEqual: [self.wrappedkey base64WrappedKey]]) {
-        secinfo("ckksitem", "SecCKRecordWrappedKeyKey does not match");
+        ckksinfo_global("ckksitem", "SecCKRecordWrappedKeyKey does not match");
         return false;
     }
 
     if(![record[SecCKRecordDataKey] isEqual: self.encitem]) {
-        secinfo("ckksitem", "SecCKRecordDataKey does not match");
+        ckksinfo_global("ckksitem", "SecCKRecordDataKey does not match");
         return false;
     }
 
@@ -256,19 +266,19 @@ plaintextPCSServiceIdentifier: (NSNumber*) pcsServiceIdentifier
     // Why is obj-c nullable equality so difficult?
     if(!((record[SecCKRecordPCSServiceIdentifier] == nil && self.plaintextPCSServiceIdentifier == nil) ||
           [record[SecCKRecordPCSServiceIdentifier] isEqual: self.plaintextPCSServiceIdentifier])) {
-        secinfo("ckksitem", "SecCKRecordPCSServiceIdentifier does not match");
+        ckksinfo_global("ckksitem", "SecCKRecordPCSServiceIdentifier does not match");
         return false;
     }
 
     if(!((record[SecCKRecordPCSPublicKey] == nil && self.plaintextPCSPublicKey == nil) ||
           [record[SecCKRecordPCSPublicKey] isEqual: self.plaintextPCSPublicKey])) {
-        secinfo("ckksitem", "SecCKRecordPCSPublicKey does not match");
+        ckksinfo_global("ckksitem", "SecCKRecordPCSPublicKey does not match");
         return false;
     }
 
     if(!((record[SecCKRecordPCSPublicIdentity] == nil && self.plaintextPCSPublicIdentity == nil) ||
           [record[SecCKRecordPCSPublicIdentity] isEqual: self.plaintextPCSPublicIdentity])) {
-        secinfo("ckksitem", "SecCKRecordPCSPublicIdentity does not match");
+        ckksinfo_global("ckksitem", "SecCKRecordPCSPublicIdentity does not match");
         return false;
     }
 

@@ -33,7 +33,7 @@ diff -Naur net-snmp-5.6.2.1.orig/agent/mibgroup/hardware/memory/memory_darwin.c 
                  count = VM_REGION_EXTENDED_INFO_COUNT; 
 -                if (vm_region(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_extended_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
 +                
-+#if defined(__ppc64__) || defined(__x86_64__)
++#if defined(__LP64__)
 +                if (vm_region_64(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_info_t)&info, &count, &object_name) != KERN_SUCCESS) {
 +#else			
 +		if (vm_region(tasks[j], &address, &size, VM_REGION_EXTENDED_INFO, (vm_region_info_t)&info, &count, &object_name) != KERN_SUCCESS) {

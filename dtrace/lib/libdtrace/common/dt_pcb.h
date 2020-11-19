@@ -90,6 +90,7 @@ typedef struct dt_pcb {
 	int pcb_braces;		/* number of open curly braces in lexer */
 	int pcb_brackets;	/* number of open square brackets in lexer */
 	int pcb_parens;		/* number of open parentheses in lexer */
+	void *pcb_yybufstate;	/* flex parser state */
 } dt_pcb_t;
 
 extern void dt_pcb_push(dtrace_hdl_t *, dt_pcb_t *);

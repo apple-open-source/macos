@@ -52,6 +52,8 @@
 
 #include "SecdTestKeychainUtilities.h"
 
+#if SOS_ENABLED
+
 
 /*
  static void trim_retirements_from_circle(SOSAccount* account) {
@@ -250,14 +252,17 @@ static void tests(void)
     SOSTestCleanup();
 }
 
+#endif
+
 int secd_57_account_leave(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(191);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     secd_test_clear_testviews();
-
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

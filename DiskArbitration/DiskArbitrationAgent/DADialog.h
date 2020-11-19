@@ -32,7 +32,7 @@ extern "C" {
 #endif /* __cplusplus */
 
 extern void DADialogInitialize( void );
-extern void DADialogShowDeviceRemoval( DADiskRef disk );
+extern void DADialogShowDeviceRemoval( CFMutableArrayRef disklist );
 extern void DADialogShowDeviceUnreadable( DADiskRef disk );
 extern void DADialogShowDeviceUnrepairable( DADiskRef disk );
 

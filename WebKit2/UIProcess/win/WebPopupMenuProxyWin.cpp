@@ -41,6 +41,8 @@
 #include <WebCore/ScrollbarThemeWin.h>
 #include <WebCore/WebCoreInstanceHandle.h>
 #include <windowsx.h>
+#include <wtf/HexNumber.h>
+#include <wtf/text/StringBuilder.h>
 
 #if USE(DIRECT2D)
 #include <WebCore/Direct2DUtilities.h>
@@ -196,7 +198,7 @@ void WebPopupMenuProxyWin::showPopupMenu(const IntRect& rect, TextDirection, dou
     HWND hostWindow = m_webView->window();
 
     if (!m_scrollbar && visibleItems() < m_items.size()) {
-        m_scrollbar = Scrollbar::createNativeScrollbar(*this, VerticalScrollbar, SmallScrollbar);
+        m_scrollbar = Scrollbar::createNativeScrollbar(*this, VerticalScrollbar, ScrollbarControlSize::Small);
         m_scrollbar->styleChanged();
     }
 
@@ -382,7 +384,7 @@ void WebPopupMenuProxyWin::calculatePositionAndSize(const IntRect& rect)
 
     if (naturalHeight > maxPopupHeight) {
         // We need room for a scrollbar
-        popupWidth += ScrollbarTheme::theme().scrollbarThickness(SmallScrollbar);
+        popupWidth += ScrollbarTheme::theme().scrollbarThickness(ScrollbarControlSize::Small);
     }
 
     popupHeight += 2 * popupWindowBorderWidth;
@@ -1033,4 +1035,10 @@ void WebPopupMenuProxyWin::configureBackingStore(const WebCore::IntSize& size)
     m_immediateContext->ClearRenderTargetView(m_renderTargetView.get(), DirectX::Colors::BlanchedAlmond); 
 }
 #endif
+
+String WebPopupMenuProxyWin::debugDescription() const
+{
+    return makeString("WebPopupMenuProxyWin 0x", hex(reinterpret_cast<uintptr_t>(this), Lowercase));
+}
+
 } // namespace WebKit

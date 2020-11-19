@@ -1,0 +1,10 @@
+#freebsd = https://github.com/freebsd/freebsd.git
+
+sed/POSIX	freebsd	usr.bin/sed/POSIX	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/compile.c	freebsd	usr.bin/sed/compile.c	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/defs.h	freebsd	usr.bin/sed/defs.h	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/extern.h	freebsd	usr.bin/sed/extern.h	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/main.c	freebsd	usr.bin/sed/main.c	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/misc.c	freebsd	usr.bin/sed/misc.c	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/process.c	freebsd	usr.bin/sed/process.c	3a58a22a0b52d622721ce09df3930ff87174022f
+sed/sed.1	freebsd	usr.bin/sed/sed.1	3a58a22a0b52d622721ce09df3930ff87174022f

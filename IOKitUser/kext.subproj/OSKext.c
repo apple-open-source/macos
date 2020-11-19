@@ -1186,6 +1186,7 @@ static bool __OSKextShouldLog(
     OSKextRef        aKext,
     OSKextLogSpec    msgLogSpec);
 
+
 Boolean _isArray(CFTypeRef);
 Boolean _isDictionary(CFTypeRef);
 Boolean _isString(CFTypeRef);
@@ -3214,6 +3215,7 @@ CFMutableArrayRef __OSKextCreateKextsFromURL(
         }
         goto finish;
     }
+
 
    /*****
     * If anURL is not a kext bundle, then scan it as a directory
@@ -8744,6 +8746,7 @@ Boolean __OSKextReadSymbolReferences(
     unsigned int               num_syms      = 0;
     unsigned int               syms_bytes    = 0;
     unsigned int               sym_index     = 0;
+    size_t                     nlist_size    = sizeof(struct nlist);  // assume 32-bit, update below if 64-bit.
 
     __OSKextGetFileSystemPath(aKext, /* otherURL */ NULL,
         /* resolveToBase */ false, kextPath);
@@ -8772,6 +8775,7 @@ Boolean __OSKextReadSymbolReferences(
 
     if (ISMACHO64(MAGIC32(mach_header))) {
         sixtyfourbit = true;
+        nlist_size = sizeof(struct nlist_64);
     }
     if (ISSWAPPEDMACHO(MAGIC32(mach_header))) {
         swap = 1;
@@ -8791,7 +8795,7 @@ Boolean __OSKextReadSymbolReferences(
 
     syms_address = (char *)mach_header + sym_offset;
     string_list = (char *)mach_header + str_offset;
-    syms_bytes = num_syms * sizeof(struct nlist);
+    syms_bytes = num_syms * nlist_size;
 
     if (syms_address + syms_bytes > (char *)file_end) {
         OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
@@ -8982,6 +8986,7 @@ Boolean __OSKextFindSymbols(
     unsigned int               num_syms      = 0;
     unsigned int               syms_bytes    = 0;
     unsigned int               sym_index     = 0;
+    size_t                     nlist_size    = sizeof(struct nlist);  // assume 32-bit, update below if 64-bit
     CFMutableArrayRef          libsArray     = NULL;  // release if created
     OSKextRef                  libKext       = NULL;  // do not release
     char                     * symbol_name   = NULL;  // do not free
@@ -9006,6 +9011,7 @@ Boolean __OSKextFindSymbols(
 
     if (ISMACHO64(MAGIC32(mach_header))) {
         sixtyfourbit = true;
+        nlist_size = sizeof(struct nlist_64);
     }
     if (ISSWAPPEDMACHO(MAGIC32(mach_header))) {
         swap = 1;
@@ -9025,7 +9031,7 @@ Boolean __OSKextFindSymbols(
 
     syms_address = (char *)mach_header + sym_offset;
     string_list = (char *)mach_header + str_offset;
-    syms_bytes = num_syms * sizeof(struct nlist);
+    syms_bytes = num_syms * nlist_size;
 
     if (syms_address + syms_bytes > (char *)file_end) {
         OSKextLog(aKext, kOSKextLogErrorLevel | kOSKextLogLinkFlag,
@@ -12472,6 +12478,7 @@ CFDictionaryRef OSKextCopyLoadedKextInfo(
     CFArrayRef kextIdentifiers,
     CFArrayRef infoKeys)
 {
+
     CFDictionaryRef        result        = NULL;
     OSReturn               op_result     = kOSReturnError;
     CFMutableDictionaryRef requestDict   = NULL;  // must release
@@ -20275,6 +20282,7 @@ static bool __OSKextShouldLog(
 
     return logSpecMatch(msgLogSpec, __sUserLogFilter);
 }
+
 
 /*********************************************************************
 *********************************************************************/

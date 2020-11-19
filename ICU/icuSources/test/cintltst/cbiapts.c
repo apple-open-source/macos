@@ -35,11 +35,17 @@
 #include "cbiapts.h"
 #include "cmemory.h"
 
-#define TEST_ASSERT_SUCCESS(status) {if (U_FAILURE(status)) { \
-log_data_err("Failure at file %s, line %d, error = %s (Are you missing data?)\n", __FILE__, __LINE__, u_errorName(status));}}
+#define TEST_ASSERT_SUCCESS(status) UPRV_BLOCK_MACRO_BEGIN { \
+    if (U_FAILURE(status)) { \
+        log_data_err("Failure at file %s, line %d, error = %s (Are you missing data?)\n", __FILE__, __LINE__, u_errorName(status)); \
+    } \
+} UPRV_BLOCK_MACRO_END
 
-#define TEST_ASSERT(expr) {if ((expr)==FALSE) { \
-log_data_err("Test Failure at file %s, line %d (Are you missing data?)\n", __FILE__, __LINE__);}}
+#define TEST_ASSERT(expr) UPRV_BLOCK_MACRO_BEGIN { \
+    if ((expr)==FALSE) { \
+        log_data_err("Test Failure at file %s, line %d (Are you missing data?)\n", __FILE__, __LINE__); \
+    } \
+} UPRV_BLOCK_MACRO_END
 
 #define APPLE_ADDITIONS 1
 
@@ -107,7 +113,7 @@ static UChar* toUChar(const char *src, void **freeHook) {
     UErrorCode status = U_ZERO_ERROR;
     if (src == NULL) {
         return NULL;
-    };
+    }
 
     cnv = ucnv_open(NULL, &status);
     if(U_FAILURE(status) || cnv == NULL) {
@@ -540,7 +546,7 @@ static UBreakIterator * testOpenRules(char *rules) {
     if (U_FAILURE(status)) {
         log_data_err("FAIL: ubrk_openRules: ICU Error \"%s\" (Are you missing data?)\n", u_errorName(status));
         bi = 0;
-    };
+    }
     freeToUCharStrings(&strCleanUp);
     return bi;
 
@@ -574,7 +580,7 @@ static void TestBreakIteratorRules() {
     ubrk_setText(bi,  uData, -1, &status);
 
     pos = ubrk_first(bi);
-    for (i=0; i<sizeof(breaks); i++) {
+    for (i=0; i<(int)sizeof(breaks); i++) {
         if (pos == i && breaks[i] != '*') {
             log_err("FAIL: unexpected break at position %d found\n", pos);
             break;
@@ -738,12 +744,15 @@ static void TestBreakIteratorUText(void) {
     bi = ubrk_open(UBRK_WORD, "en_US", NULL, 0, &status);
     if (U_FAILURE(status)) {
         log_err_status(status, "Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_errorName(status));
+        utext_close(ut);
         return;
     }
 
     ubrk_setUText(bi, ut, &status);
     if (U_FAILURE(status)) {
         log_err("Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_errorName(status));
+        ubrk_close(bi);
+        utext_close(ut);
         return;
     }
 
@@ -1105,7 +1114,7 @@ static const TestBISuppressionsItem testBISuppressionsItems[] = {
     { "en",             testSentenceSuppressionsE3, testSentFwdOffsetsE3,     testSentRevOffsetsE3     },
     { "en@ss=standard", testSentenceSuppressionsE3u, testSentSuppFwdOffsetsE3, testSentSuppRevOffsetsE3 },
     { "en",             testSentenceSuppressionsE3u, testSentFwdOffsetsE3u,    testSentRevOffsetsE3u    },
-    { NULL, NULL, NULL }
+    { NULL, NULL, NULL, NULL }
 };
 
 static void TestBreakIteratorSuppressions(void) {
@@ -1472,9 +1481,9 @@ static const RBTokResult expTokLatnNLLT_57[] = { // 67 tokens
     { { 133, 1 }, 0x00 },  //
     { { 134, 2 }, 0x20 },  //
     { { 136, 1 }, 0x00 },  //
-    { { 137, 2 }, 0xEC },  //
-    { { 139, 1 }, 0x00 },  //
-    { { 140, 2 }, 0x64 },  //
+    { { 137, 2 }, 0xEC },  // x3
+    { { 139, 1 }, 0x00 },  // :
+    { { 140, 2 }, 0x64 },  // 30
     { { 142, 1 }, 0x00 },  //
     { { 143, 2 }, 0x3D },  //
     { { 145, 1 }, 0x00 },  //
@@ -1549,9 +1558,9 @@ static const RBTokResult expTokLatnStdW[] = { // 72 tokens
     { { 134,  1 }, 0x000 }, //
     { { 135,  1 }, 0x000 }, //
     { { 136,  1 }, 0x000 }, //
-    { { 137,  2 }, 0x0EC }, //
-    { { 139,  1 }, 0x000 }, //
-    { { 140,  2 }, 0x064 }, //
+    { { 137,  2 }, 0x064 }, // x3 (in ICU 66, flags change xEC -> x64)
+    { { 139,  1 }, 0x000 }, // :
+    { { 140,  2 }, 0x064 }, // 30
     { { 142,  1 }, 0x000 }, //
     { { 143,  1 }, 0x000 }, //
     { { 144,  1 }, 0x000 }, //
@@ -2151,10 +2160,18 @@ typedef struct {
     const TokTextAndResults* textAndResults;
 } TokRulesAndTests;
 
+#ifdef APPLE_XCODE_BUILD
+#define TESTDATA_PARENT "."
+#define WORD_PARENT "testdata" // the testdata build copies word.txt to testdata in the Xocde build
+#else
+#define TESTDATA_PARENT ".."
+#define WORD_PARENT "../../data/brkitr/rules"
+#endif
+
 static const TokRulesAndTests tokRulesTests[] = { // icu60 binary files invalid in ICU 62
-    { "CFST", "../testdata/tokCFSTrules.txt",     NULL,/*tokCFSTrulesLE_icu60.data invalid*/ "../testdata/tokCFSTrulesLE_icu57.data", tokTextAndResCFST },
-    { "NLLT", "../testdata/wordNLLTu8.txt",       NULL,/*wordNLLT_icu60.dat invalid */       "../testdata/wordNLLT_icu57.dat",        tokTextAndResNLLT },
-    { "StdW", "../../data/brkitr/rules/word.txt", NULL,                                      NULL,                                    tokTextAndResStdW },
+    { "CFST", TESTDATA_PARENT "/testdata/tokCFSTrules.txt",     NULL,/*tokCFSTrulesLE_icu60.data invalid*/ TESTDATA_PARENT "/testdata/tokCFSTrulesLE_icu57.data", tokTextAndResCFST },
+    { "NLLT", TESTDATA_PARENT "/testdata/wordNLLTu8.txt",       NULL,/*wordNLLT_icu60.dat invalid */       TESTDATA_PARENT "/testdata/wordNLLT_icu57.dat",        tokTextAndResNLLT },
+    { "StdW", WORD_PARENT "/word.txt", NULL,                                      NULL,                                    tokTextAndResStdW },
     { "WORD", NULL,                               NULL,                                      NULL,                                    tokTextAndResStdW },
     { NULL, NULL, NULL, NULL, NULL }
 };
@@ -2205,16 +2222,17 @@ static void* dataBufFromFile(const char* path, long* dataBufSizeP) {
 static void handleTokResults(const char* testItem, const char* tokClass, const char* ruleSource, const char* algType,
                              uint64_t duration, int32_t expTokLen, const RBTokResult* expTokRes,
                              int32_t getTokLen, RuleBasedTokenRange* getTokens, unsigned long *getFlags) {
-    int32_t iToken;
+    int32_t iToken, mismatchAt = -1;
     UBool fail = (getTokLen != expTokLen);
     for (iToken = 0; !fail && iToken < getTokLen; iToken++) {
         if (  getTokens[iToken].location != expTokRes[iToken].token.location || getTokens[iToken].length != expTokRes[iToken].token.length ||
               getFlags[iToken] != expTokRes[iToken].flags ) {
             fail = TRUE;
+            mismatchAt = iToken;
         }
     }
     if (fail) {
-        log_err("FAIL: %s %s %s %s expected %d tokens, got %d\n", testItem, tokClass, ruleSource, algType, expTokLen, getTokLen);
+        log_err("FAIL: %s %s %s %s expected %d tokens, got %d, mismatch at %d\n", testItem, tokClass, ruleSource, algType, expTokLen, getTokLen, mismatchAt);
         printf("# expect               get\n");
         printf("# loc len flags        loc len flags\n");
         int32_t maxTokens = (getTokLen >= expTokLen)? getTokLen: expTokLen;

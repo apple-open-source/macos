@@ -146,6 +146,7 @@ remove_old_linklocal_modifiers(CFMutableDictionaryRef modifiers)
 	    if (linklocal_modifier_has_expired(dict, now)) {
 		CFStringRef	key = (CFStringRef)keys[i];
 
+		my_log(LOG_NOTICE, "%@: CGA linklocal modifier expired", key);
 		CFDictionaryRemoveValue(modifiers, key);
 	    }
 	}
@@ -562,10 +563,10 @@ GetModifierForInterface(CFStringRef ifname_cf, CFMutableDictionaryRef mod_dict,
     CFDictionaryRef	dict;
     CFDataRef		modifier = NULL;
 
+    *need_write = false;
     dict = CFDictionaryGetValue(mod_dict, ifname_cf);
     if (isA_CFDictionary(dict) != NULL) {
 	modifier = CGAModifierDictGetModifier(dict, security_level_p);
-	*need_write = false;
     }
     if (modifier == NULL) {
 	*security_level_p = kCGASecurityLevelZero;
@@ -584,6 +585,7 @@ EstablishInterfaceModifiers(const char * ifname,
 			    struct in6_cga_prepare * cga_prep,
 			    bool linklocal)
 {
+    bool		changed = false;
     CFStringRef		ifname_cf;
     CFDataRef		modifier = NULL;
     bool		need_write = false;
@@ -600,7 +602,10 @@ EstablishInterfaceModifiers(const char * ifname,
 
     /* link-local modifier */
     modifier = GetModifierForInterface(ifname_cf, S_LinkLocalModifiers,
-				       &security_level, &need_write);
+				       &security_level, &changed);
+    if (changed) {
+	need_write = true;
+    }
     if (linklocal) {
 	/* this is the modifier we want to set */
 	set_modifier = modifier;
@@ -609,7 +614,10 @@ EstablishInterfaceModifiers(const char * ifname,
 
     /* interface modifier */
     modifier = GetModifierForInterface(ifname_cf, S_InterfaceModifiers,
-				       &security_level, &need_write);
+				       &security_level, &changed);
+    if (changed) {
+	need_write = true;
+    }
     if (set_modifier == NULL) {
 	set_modifier = modifier;
 	set_security_level = security_level;
@@ -671,10 +679,26 @@ CGAInit(void)
 boolean_t G_is_netboot;
 
 int
-main()
+main(int argc, char * argv[])
 {
     ipconfigd_create_paths();
     CGAInit();
+    if (argc > 1) {
+	const char *	ifname = argv[1];
+
+	if (if_nametoindex(ifname) == 0) {
+	    fprintf(stderr, "No such interface '%s'\n",
+		    ifname);
+	}
+	else {
+	    struct in6_cga_prepare	cgaprep;
+
+	    CGAPrepareSetForInterfaceLinkLocal(ifname, &cgaprep);
+	    CGAPrepareSetForInterface(ifname, &cgaprep);
+	}
+    }
+    exit(0);
+    return (0);
 }
 
 #endif /* TEST_CGA */

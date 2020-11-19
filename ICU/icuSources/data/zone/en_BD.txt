@@ -1,10 +1,8 @@
-﻿// ***************************************************************************
-// * Copyright (C) 2017 Apple Inc.. All Rights Reserved.
-// * Apple locale stub addition.
-// ***************************************************************************
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html#License
 en_BD{
     %%Parent{"en_001"}
-    Version{"2.1.31.33"}
+    Version{"36.1"}
     zoneStrings{
         "meta:India"{
             ss{"IST"}

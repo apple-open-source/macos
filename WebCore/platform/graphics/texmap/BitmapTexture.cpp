@@ -38,14 +38,14 @@ void BitmapTexture::updateContents(TextureMapper&, GraphicsLayer* sourceLayer, c
 {
     // Making an unconditionally unaccelerated buffer here is OK because this code
     // isn't used by any platforms that respect the accelerated bit.
-    std::unique_ptr<ImageBuffer> imageBuffer = ImageBuffer::create(targetRect.size(), Unaccelerated);
+    std::unique_ptr<ImageBuffer> imageBuffer = ImageBuffer::create(targetRect.size(), RenderingMode::Unaccelerated);
 
     if (!imageBuffer)
         return;
 
     GraphicsContext& context = imageBuffer->context();
     context.setImageInterpolationQuality(InterpolationQuality::Default);
-    context.setTextDrawingMode(TextModeFill);
+    context.setTextDrawingMode(TextDrawingMode::Fill);
 
     IntRect sourceRect(targetRect);
     sourceRect.setLocation(offset);

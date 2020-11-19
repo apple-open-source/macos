@@ -775,7 +775,6 @@ report_results(pdwriter_t perfDataWriter, replay_config_t config)
 		//Write out the fragmentation in DefaultMallocZone as a primary metric.
 		//
 		pdwriter_new_value(perfDataWriter, _DefaultFragMetricName, PDUNIT_CUSTOM(FragmentedPercent), defaultFrag);
-		pdwriter_record_variable(perfDataWriter, kPCFailureThresholdPctVar, 10);
 	} else if (config & CONFIG_REC_STATS) {
 		printf("\n\n\n");
 		printf("Call       Cycles (mean)\n");
@@ -828,7 +827,6 @@ report_results(pdwriter_t perfDataWriter, replay_config_t config)
 						// operation enum is indexed from 1, adjust index for mcall_to_name.
 						snprintf(full_name, sizeof(full_name), "%s-mean", mcall_to_name(i + 1));
 						pdwriter_new_value(perfDataWriter, full_name, pdunit_instructions, mean);
-						pdwriter_record_variable(perfDataWriter, kPCFailureThresholdPctVar, 100);
 					} else {
 						printf("%9s  %6llu\n", mcall_to_name(i + 1), mean);
 					}

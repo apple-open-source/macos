@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,15 +31,13 @@
 #include "AirCode.h"
 #include "B3BackwardsCFG.h"
 #include "B3BackwardsDominators.h"
-#include "B3BasicBlockInlines.h"
 #include "B3BasicBlockUtils.h"
-#include "B3BlockWorklist.h"
 #include "B3CFG.h"
 #include "B3DataSection.h"
 #include "B3Dominators.h"
 #include "B3NaturalLoops.h"
 #include "B3OpaqueByproducts.h"
-#include "B3PhiChildren.h"
+#include "B3ProcedureInlines.h"
 #include "B3StackSlot.h"
 #include "B3ValueInlines.h"
 #include "B3Variable.h"
@@ -152,6 +150,8 @@ Value* Procedure::addConstant(Origin origin, Type type, uint64_t bits)
 
 Value* Procedure::addBottom(Origin origin, Type type)
 {
+    if (type.isTuple())
+        return add<BottomTupleValue>(origin, type);
     return addIntConstant(origin, type, 0);
 }
 
@@ -164,13 +164,13 @@ Value* Procedure::addBoolConstant(Origin origin, TriState triState)
 {
     int32_t value = 0;
     switch (triState) {
-    case FalseTriState:
+    case TriState::False:
         value = 0;
         break;
-    case TrueTriState:
+    case TriState::True:
         value = 1;
         break;
-    case MixedTriState:
+    case TriState::Indeterminate:
         return nullptr;
     }
 
@@ -239,22 +239,22 @@ void Procedure::dump(PrintStream& out) const
             continue;
 
         if (!didPrint) {
-            dataLog("Orphaned values:\n");
+            dataLog(tierName, "Orphaned values:\n");
             didPrint = true;
         }
-        dataLog("    ", deepDump(*this, value), "\n");
+        dataLog(tierName, "    ", deepDump(*this, value), "\n");
     }
     if (hasQuirks())
-        out.print("Has Quirks: True\n");
+        out.print(tierName, "Has Quirks: True\n");
     if (variables().size()) {
-        out.print("Variables:\n");
+        out.print(tierName, "Variables:\n");
         for (Variable* variable : variables())
-            out.print("    ", deepDump(variable), "\n");
+            out.print(tierName, "    ", deepDump(variable), "\n");
     }
     if (stackSlots().size()) {
-        out.print("Stack slots:\n");
+        out.print(tierName, "Stack slots:\n");
         for (StackSlot* slot : stackSlots())
-            out.print("    ", pointerDump(slot), ": ", deepDump(slot), "\n");
+            out.print(tierName, "    ", pointerDump(slot), ": ", deepDump(slot), "\n");
     }
     if (m_byproducts->count())
         out.print(*m_byproducts);
@@ -347,11 +347,6 @@ bool Procedure::isFastConstant(const ValueKey& constant)
     if (!constant)
         return false;
     return m_fastConstants.contains(constant);
-}
-
-CCallHelpers::Label Procedure::entrypointLabel(unsigned index) const
-{
-    return m_code->entrypointLabel(index);
 }
 
 void* Procedure::addDataSection(size_t size)

@@ -368,6 +368,13 @@ private:
      * Tests the registerAlias() function
      */
     void TestRegisterAlias(void);
+    
+    /**
+     * Test for rdar://problem/61817095 (and maybe eventually other Hans-Hant errors)
+     * Apple-only
+     * ICU4C only
+     */
+    void TestHansHant(void);
 
     //======================================================================
     // Support methods

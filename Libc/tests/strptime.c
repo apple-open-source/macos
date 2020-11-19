@@ -3,6 +3,8 @@
 #include <darwintest.h>
 #include <darwintest_utils.h>
 
+T_GLOBAL_META(T_META_REQUIRES_OS_VARIANT_NOT("IsDarwinOS"));
+
 T_DECL(strptime_PR_27004626, "strptime() should fail when a %t doesn't match anything")
 {
 	struct tm tm;

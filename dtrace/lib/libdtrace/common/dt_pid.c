@@ -556,7 +556,6 @@ dt_pid_create_provider_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp,
 	} else {
 		const prmap_t *pmp;
 		char *obj;
-		prmap_t thread_local_map;
 
 		/*
 		 * If we can't find a matching module, don't sweat it -- either
@@ -754,11 +753,9 @@ dt_pid_create_probes(dtrace_probedesc_t *pdp, dtrace_hdl_t *dtp, dt_pcb_t *pcb,
 		}
 	}
 	
-	if (provider_type != DTFTP_PROVIDER_NONE) {	
-		if ((P = dt_proc_grab(dtp, pid, PGRAB_RDONLY | PGRAB_FORCE,
+	if (provider_type != DTFTP_PROVIDER_NONE) {
+		if ((P = dt_proc_grab(dtp, pid, 0,
 				      0)) == NULL) {
-			(void) dt_pid_error(dtp, pcb, NULL, NULL, D_PROC_GRAB,
-			    "failed to grab process %d", (int)pid);
 			return (-1);
 		}
 		

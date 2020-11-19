@@ -55,7 +55,7 @@
 extern "C" {
 #endif
 
-#if TARGET_OS_MAC
+#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
 #    pragma pack(push,2)
 #endif
 
@@ -535,7 +535,7 @@ KLStatus KLDisposeLoginOptions(KLLoginOptions ioOptions)
 KLStatus KLDisposeString (char *inStringToDispose)
     KERBEROS_APPLE_DEPRECATED("no replacement");
 
-#if TARGET_OS_MAC
+#if defined(__APPLE__) && (defined(__ppc__) || defined(__ppc64__) || defined(__i386__) || defined(__x86_64__))
 #    pragma pack(pop)
 #endif
 

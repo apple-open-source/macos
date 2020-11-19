@@ -1,4 +1,4 @@
-.TH "ZSHALL" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHALL" "1" "February 14, 2020" "zsh 5\&.8"
 .SH "NAME"
 zshall \- the Z shell meta\-man page
 .\" Yodl file: Zsh/intro.yo
@@ -8,6 +8,8 @@ a number of sections\&.  This manual page includes all the separate manual pages
 following order:
 .PP
 .PD 0
+.TP
+\fIzsh\fP          Zsh overview
 .TP
 \fIzshroadmap\fP   Informal introduction to the manual
 .TP
@@ -367,6 +369,51 @@ Restricted mode can also be activated any time by setting the
 \fBRESTRICTED\fP option\&.  This immediately enables all the restrictions
 described above even if the shell still has not processed all startup
 files\&.
+.PP
+A shell \fIRestricted Mode\fP is an outdated way to restrict what users may
+do:  modern systems have better, safer and more reliable ways to
+confine user actions, such as \fIchroot jails\fP, \fIcontainers\fP and
+\fIzones\fP\&.
+.PP
+A restricted shell is very difficult to implement safely\&.  The feature
+may be removed in a future version of zsh\&.
+.PP
+It is important to realise that the restrictions only apply to the shell,
+not to the commands it runs (except for some shell builtins)\&.  While a
+restricted shell can only run the restricted list of commands accessible
+via the predefined `\fBPATH\fP' variable, it does not prevent those
+commands from running any other command\&.
+.PP
+As an example, if `\fBenv\fP' is among the list of \fIallowed\fP commands,
+then it allows the user to run any command as `\fBenv\fP' is not a shell
+builtin command and can run arbitrary executables\&.
+.PP
+So when implementing a restricted shell framework it is important to be
+fully aware of what actions each of the \fIallowed\fP commands or features
+(which may be regarded as \fImodules\fP) can perform\&.
+.PP
+Many commands can have their behaviour affected by environment
+variables\&.  Except for the few listed above, zsh does not restrict
+the setting of environment variables\&.
+.PP
+If a `\fBperl\fP', `\fBpython\fP', `\fBbash\fP', or other general purpose
+interpreted script it treated as a restricted
+command, the user can work around the restriction by
+setting specially crafted `\fBPERL5LIB\fP', `\fBPYTHONPATH\fP',
+`\fBBASHENV\fP' (etc\&.) environment variables\&. On GNU systems, any
+command can be made to run arbitrary code when performing character set
+conversion (including zsh itself) by setting a `\fBGCONV_PATH\fP'
+environment variable\&.  Those are only a few examples\&.
+.PP
+Bear in mind that, contrary to some other shells, `\fBreadonly\fP' is not a
+security feature in zsh as it can be undone and so cannot be used to
+mitigate the above\&.
+.PP
+A restricted shell only works if the allowed commands are few
+and carefully written so as not to grant more access to users than
+intended\&.  It is also important to restrict what zsh module the user may
+load as some of them, such as `\fBzsh/system\fP', `\fBzsh/mapfile\fP' and
+`\fBzsh/files\fP', allow bypassing most of the restrictions\&.
 .\" Yodl file: Zsh/files.yo
 .SH "STARTUP/SHUTDOWN FILES"
 Commands are first read from \fB/etc/zshenv\fP; this cannot be overridden\&.
@@ -426,7 +473,7 @@ file will be used instead\&.
 .so man1/zshtcpsys.1
 .so man1/zshzftpsys.1
 .so man1/zshcontrib.1
-.TH "ZSHALL" "1" "February 3, 2019" "zsh 5\&.7\&.1"
+.TH "ZSHALL" "1" "February 14, 2020" "zsh 5\&.8"
 .\" Yodl file: Zsh/filelist.yo
 .SH "FILES"
 .PD 0

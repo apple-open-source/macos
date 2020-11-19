@@ -109,9 +109,9 @@ enum {
 
 #define kOptChars                "a:Ab:cd:DehiIk:lmnp:qr:s:tvxzZ"
 
-int longopt = 0;
+static int longopt = 0;
 
-struct option sOptInfo[] = {
+static struct option sOptInfo[] = {
     { kOptNameLongindexHack,         no_argument,        &longopt, kLongOptLongindexHack },
     { kOptNameHelp,                  no_argument,        NULL,     kOptHelp },
     { kOptNameBundleIdentifier,      required_argument,  NULL,     kOptBundleIdentifier },
@@ -141,7 +141,7 @@ struct option sOptInfo[] = {
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
 };
 
-typedef struct {
+typedef struct KextutilArgs {
    /* These are ints so we can check for multiply set real easy.
     */
     int                    flag_n;  // used to sanity-check -n, -l, -m
@@ -249,7 +249,8 @@ ExitStatus sendPersonalities(
 Boolean serializeLoad(
     KextutilArgs * toolArgs,
     Boolean        loadFlag);
-static void usage(UsageLevel usageLevel);
+
+void usage(UsageLevel usageLevel);
 
 extern kern_return_t kextmanager_lock_kextload(
     mach_port_t server,

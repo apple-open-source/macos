@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -22,6 +22,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
+#pragma once
 
 #include "AirCode.h"
 #include "AirInstInlines.h"
@@ -263,20 +265,20 @@ inline void checkDoesNotUseInstruction(Compilation& compilation, const char* tex
 }
 
 template<typename Type>
-struct Operand {
+struct B3Operand {
     const char* name;
     Type value;
 };
 
-typedef Operand<int64_t> Int64Operand;
-typedef Operand<int32_t> Int32Operand;
-typedef Operand<int16_t> Int16Operand;
-typedef Operand<int8_t> Int8Operand;
+typedef B3Operand<int64_t> Int64Operand;
+typedef B3Operand<int32_t> Int32Operand;
+typedef B3Operand<int16_t> Int16Operand;
+typedef B3Operand<int8_t> Int8Operand;
 
-#define MAKE_OPERAND(value) Operand<decltype(value)> { #value, value }
+#define MAKE_OPERAND(value) B3Operand<decltype(value)> { #value, value }
 
 template<typename FloatType>
-void populateWithInterestingValues(Vector<Operand<FloatType>>& operands)
+void populateWithInterestingValues(Vector<B3Operand<FloatType>>& operands)
 {
     operands.append({ "0.", static_cast<FloatType>(0.) });
     operands.append({ "-0.", static_cast<FloatType>(-0.) });
@@ -302,9 +304,9 @@ void populateWithInterestingValues(Vector<Operand<FloatType>>& operands)
 }
 
 template<typename FloatType>
-Vector<Operand<FloatType>> floatingPointOperands()
+Vector<B3Operand<FloatType>> floatingPointOperands()
 {
-    Vector<Operand<FloatType>> operands;
+    Vector<B3Operand<FloatType>> operands;
     populateWithInterestingValues(operands);
     return operands;
 };
@@ -802,6 +804,7 @@ void testCheckAddRemoveCheckWithZExt32(int32_t);
 void testCheckSubImm();
 void testCheckSubBadImm();
 void testCheckSub();
+void testCheckSubBitAnd();
 double doubleSub(double, double);
 void testCheckSub64();
 void testCheckSubFold(int, int);

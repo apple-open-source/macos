@@ -29,6 +29,7 @@
 #include <libkern/OSDebug.h>
 #include <i386/cpuid.h>
 #include "dmar.h"
+#include <libkern/sysctl.h>
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -276,7 +277,8 @@ struct vtd_unit_t
              translating:1,
              selective:1,
              qi:1,
-             intmapper:1;
+             intmapper:1,
+	     x2apic_mode:1;
 };
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -309,10 +311,12 @@ static
 vtd_unit_t * unit_init(ACPI_DMAR_HARDWARE_UNIT * dmar)
 {
 	vtd_unit_t             * unit;
-    ACPI_DMAR_DEVICE_SCOPE * scope;
-    ACPI_DMAR_PCI_PATH     * path;
+	ACPI_DMAR_DEVICE_SCOPE * scope;
+	ACPI_DMAR_PCI_PATH     * path;
 	uintptr_t                enddmar, endscope;
-    uint32_t                 paths, bus0ep;
+	uint32_t                 paths, bus0ep;
+	int x2apic_mode = 0;
+	size_t siz = sizeof(x2apic_mode);
 
 	unit = IONew(vtd_unit_t, 1);
 	if (!unit) return (NULL);
@@ -343,10 +347,28 @@ vtd_unit_t * unit_init(ACPI_DMAR_HARDWARE_UNIT * dmar)
 	unit->intmapper = (1 & (unit->regs->extended_capability >> 3));
 	unit->qi = (1 & (unit->regs->extended_capability >> 1));
 
-	VTLOG(" cap 0x%llx extcap 0x%llx glob %d round %d cache sel %d mode %d iotlb %p nfault[%d] %p\n",
+	/* Get x2APIC enable status from XNU */
+	(void)sysctlbyname("machdep.x2apic_enabled", &x2apic_mode, &siz, 0, 0);
+
+	/* Bit 4 indicates support for Extended Interrupt Mode (x2APIC support) */
+	if (x2apic_mode && ((1UL << 4) & unit->regs->extended_capability) == 0) {
+		x2apic_mode = 0;
+		/*
+		 * Note that we should not need to tell XNU to go back to
+		 * legacy xAPIC mode because this scenario should never happen
+		 * (if the CPU reports x2APIC mode is supported, the VT-d IRE
+		 * must support x2APIC (and EIM)).
+		 */
+		VTLOG("XNU reports x2APIC mode enabled, but IRE does not support it!\n");
+		kprintf("XNU reports x2APIC mode enabled, but IRE does not support it!\n");
+	}
+
+	unit->x2apic_mode = x2apic_mode;
+
+	VTLOG(" cap 0x%llx extcap 0x%llx glob %d round %d cache sel %d mode %d iotlb %p nfault[%d] %p x2apic %d\n",
 			unit->regs->capability, unit->regs->extended_capability,
 			unit->global, unit->hwrounding, unit->selective, unit->caching,
-			unit->iotlb, unit->num_fault, unit->faults);
+			unit->iotlb, unit->num_fault, unit->faults, (int)unit->x2apic_mode);
 
 	if (os_add_overflow(((uintptr_t)dmar), dmar->Header.Length, &enddmar)) enddmar = 0;
 	scope = (typeof(scope)) (dmar + 1);
@@ -434,11 +456,11 @@ unit_interrupts_enable(vtd_unit_t * unit)
 	if (unit->msi_address)
 	{
 		unit->regs->invalidation_completion_event_data          = unit->msi_data;
-		unit->regs->invalidation_completion_event_address       = unit->msi_address;
+		unit->regs->invalidation_completion_event_address       = unit->msi_address & 0xFFFFFFFF;
 		unit->regs->invalidation_completion_event_upper_address = (unit->msi_address >> 32);
 
 		unit->regs->fault_event_data          = unit->msi_data + 1;
-		unit->regs->fault_event_address       = unit->msi_address;
+		unit->regs->fault_event_address       = unit->msi_address & 0xFFFFFFFF;
 		unit->regs->fault_event_upper_address = (unit->msi_address >> 32);
 
 		__mfence();
@@ -453,7 +475,7 @@ unit_interrupts_enable(vtd_unit_t * unit)
 static void
 unit_enable(vtd_unit_t * unit, uint32_t qi_stamp)
 {
-    uint32_t command;
+	uint32_t command;
 
 	// unit may already be enabled if EFI left it that way, disable.
 	unit_quiesce(unit);
@@ -484,8 +506,8 @@ unit_enable(vtd_unit_t * unit, uint32_t qi_stamp)
 	// hw resets head on disable
 	unit->qi_tail = 0;
 	unit->regs->invalidation_queue_tail = 0;
-    unit->regs->invalidation_queue_address = unit->qi_address;
-    unit->qi_stamp = qi_stamp;
+	unit->regs->invalidation_queue_address = unit->qi_address;
+	unit->qi_stamp = qi_stamp;
 
 	command = 0;
 
@@ -498,7 +520,12 @@ unit_enable(vtd_unit_t * unit, uint32_t qi_stamp)
 
 	if (unit->intmapper && unit->ir_address)
 	{
-        unit->regs->interrupt_remapping_table = unit->ir_address;
+		if (unit->x2apic_mode) {
+			/* Bit 11 is the Extended Interrupt Mode Enable (1=X2APIC Active) bit */
+			unit->regs->interrupt_remapping_table = unit->ir_address | (1UL << 11);
+		} else {
+			unit->regs->interrupt_remapping_table = unit->ir_address;
+		}
 		unit->regs->global_command = (1UL<<24);
 		__mfence();
 		while (!((1UL<<24) & unit->regs->global_status)) {}
@@ -506,7 +533,11 @@ unit_enable(vtd_unit_t * unit, uint32_t qi_stamp)
 
 		// enable IR
 		command |= (1UL<<25);
-//		command |= (1UL<<23);                      // Compatibility Format Interrupt ok
+#if 0
+		if (!unit->x2apic_mode) {
+			command |= (1UL<<23);                      // Compatibility Format Interrupt ok
+		}
+#endif
 		unit->regs->global_command = command;
 		__mfence();
 		while (!((1UL<<25) & unit->regs->global_status)) {}
@@ -894,6 +925,7 @@ public:
     uint64_t          fIRAddress;
     ir_descriptor_t * fIRTable;
     uint8_t           fDisabled;
+	bool		x2apic_mode;
 
 	static void install(IOWorkLoop * wl, uint32_t flags, 
 						IOService * provider, const OSData * data);
@@ -1163,6 +1195,7 @@ bool
 AppleVTD::init(IOWorkLoop * wl, const OSData * data)
 {
 	uint32_t unitIdx;
+	bool x2apic_mode_disabled_on_at_least_one_unit = false;
 
 	if (!super::init()) return (false);
 
@@ -1171,6 +1204,7 @@ AppleVTD::init(IOWorkLoop * wl, const OSData * data)
 	wl->retain();
 	fWorkLoop = wl;
 	fCacheLineSize = cpuid_info()->cache_linesize;
+	x2apic_mode = false;
 
 	ACPI_TABLE_DMAR *           dmar = (typeof(dmar))      data->getBytesNoCopy();
 	ACPI_DMAR_HEADER *          dmarEnd = (typeof(dmarEnd))(((uintptr_t) dmar) + data->getLength());
@@ -1186,9 +1220,21 @@ AppleVTD::init(IOWorkLoop * wl, const OSData * data)
 		{
 			case ACPI_DMAR_TYPE_HARDWARE_UNIT:
 				unit = (typeof(unit)) hdr;
-				if ((units[unitIdx] = unit_init(unit))) unitIdx++;
+				if ((units[unitIdx] = unit_init(unit))) {
+					/* If one enables x2apic mode, all units must */
+					if (units[unitIdx]->x2apic_mode == 0) {
+						x2apic_mode_disabled_on_at_least_one_unit = true;
+					} else {
+						x2apic_mode = true;
+					}
+					unitIdx++;
+				}
 				break;
 		}
+	}
+
+	if (x2apic_mode && x2apic_mode_disabled_on_at_least_one_unit) {
+		VTLOG("x2APIC mode enabled on at least one IRE, but disabled on other(s)!\n");
 	}
 
 	return (unitIdx != 0);
@@ -1451,7 +1497,7 @@ AppleVTD::space_alloc(vtd_space_t * bf, vtd_vaddr_t addr, vtd_vaddr_t size,
 			&& (mapSpecification->numAddressBits <= 32)
 			&& (size > bf->stats.largest_32b))		bf->stats.largest_32b = size;
 
-		if (mapSpecification->alignment > page_size) align = atop_64(mapSpecification->alignment);
+		if (mapSpecification->alignment > page_size) align = static_cast<vtd_vaddr_t>(atop_64(mapSpecification->alignment));
 	}
 
 	if (!bf->block)
@@ -1676,7 +1722,7 @@ AppleVTD::initHardware(IOService *provider)
 		{
 			if ((0x100 << fContextWidth) & unit->regs->capability)
 			{
-				fTreeBits = (30 + 9 * fContextWidth);  // (57+9) for 64
+				fTreeBits = (30 + 9 * static_cast<uint32_t>(fContextWidth));  // (57+9) for 64
 				break;
 			}
 		}
@@ -1744,7 +1790,7 @@ AppleVTD::initHardware(IOService *provider)
 				addr = mem->BaseAddress;
 				count = atop_32(mem->EndAddress - addr);
 		
-				space_alloc_fixed(fSpace, atop_64(addr), count);
+				space_alloc_fixed(fSpace, static_cast<vtd_baddr_t>(atop_64(addr)), count);
 				for (; count; addr += page_size, count--)
 				{
 					fSpace->tables[0][atop_64(addr)].bits = (addr | kPageAccess);
@@ -2059,11 +2105,15 @@ IOPCISetMSIInterrupt(uint32_t vector, uint32_t count, uint32_t * msiData)
     for (idx = vector; idx < (vector + count); idx++)
     {
 		extern int cpu_to_lapic[];
+		int destShift;
+
 		levelTrigger = 0;
 		present      = (msiData != 0);
 		destVector   = (0xFF & idx);
 		destID       = (uint64_t)cpu_to_lapic[((idx & 0xFF00) >> 8)];
-		irte = (destID << 40)      // destID
+		/* In x2APIC mode, the destination starts at bit 32; legacy xAPIC: bit 40 */
+		destShift    = vtd->x2apic_mode ? 32 : 40;
+		irte = (destID << destShift)      // destID
 			 | (destVector << 16)  // vector
 			 | (0 << 5)            // fixed delivery mode
 			 | (levelTrigger << 4) // trigger
@@ -2090,14 +2140,15 @@ IOPCISetMSIInterrupt(uint32_t vector, uint32_t count, uint32_t * msiData)
 
     if (msiData)
     {
-		msiData[0] = 0xfee00000                 // addr lo
-				   | ((vector & 0x7fff) << 5)	// handle[14:0]
-				   | (1 << 4)  					// remap format
-				   | (1 << 3)  					// SHV (add subhandle to vector)
-				   | ((vector & 0x8000) >> 13); // b2 handle[15]
+		/* WARNING: If x2APIC is enabled, this MUST be in remappable format! */
+		msiData[0] = 0xfee00000                	// addr lo
+			   | ((vector & 0x7fff) << 5)	// handle[14:0]
+			   | (1 << 4)  			// remap format
+			   | (1 << 3)  			// SHV (add subhandle to vector)
+			   | ((vector & 0x8000) >> 13); // b2 handle[15]
 
-		msiData[1] = 0;         // addr hi
-		msiData[2] = 0;			// data (subhandle)
+		msiData[1] = 0;         		// addr hi
+		msiData[2] = 0;				// data (subhandle)
     }
 
     return (kIOReturnSuccess);
@@ -2196,7 +2247,7 @@ AppleVTD::spaceMapMemory(
 			  uint64_t                    * mapLength)
 {
 	vtd_vaddr_t base;
-	uint32_t pageCount;
+	uint64_t pageCount;
 	const upl_page_info_t * pageInfo;
 
 	IOMDDMAWalkSegmentState  walkState;
@@ -2212,20 +2263,23 @@ AppleVTD::spaceMapMemory(
 
     uint64_t mappedAddress;
     uint64_t mappedLength;
-    uint64_t pageOffset;
+    uint64_t firstPageOffset;
+    bool     discontig;
     IOReturn ret;
 
 	mapperPageMask  = 4096 - 1;
 	mapperPageShift = (64 - __builtin_clzll(mapperPageMask));
 	mappedAddress = 0;
 	pageInfo = NULL;
-	pageOffset = 0;
+	firstPageOffset = 0;
+	discontig = false;
 
 	if (pageList)
 	{
-		pageOffset = pageList->pageOffset;
-		pageCount  = pageList->pageListCount;
-		pageInfo   = pageList->pageList;
+		firstPageOffset = pageList->pageOffset;
+		pageCount       = pageList->pageListCount;
+		pageInfo        = pageList->pageList;
+		discontig       = (pageCount != atop_64(round_page_64(length + firstPageOffset)));
 	}
 	else if (memory)
 	{
@@ -2235,17 +2289,26 @@ AppleVTD::spaceMapMemory(
 
 		for (index = 0; index < length; )
 		{
-			if (index && (mapperPageMask & (index + pageOffset))) break;
-
 			walkArgs->fOffset = descriptorOffset + index;
 			ret = memory->dmaCommandOperation(mdOp, &walkState, sizeof(walkState));
 			mdOp = kIOMDWalkSegments;
 			if (ret != kIOReturnSuccess) break;
 			phys = walkArgs->fIOVMAddr;
 			segLen = walkArgs->fLength;
+			if (segLen > (length - index)) {
+				segLen = length - index;
+			}
 			align = (phys & mapperPageMask);
-			if (!index) pageOffset = align;
-			else if (align) break;
+			if (index) {
+				if (align) {
+					discontig = true;
+				}
+				if (mapperPageMask & index) {
+					discontig = true;
+				}
+			} else {
+				firstPageOffset = align;
+			}
 			pageCount += ((align + segLen + mapperPageMask) >> mapperPageShift);
 			index += segLen;
 		}
@@ -2258,12 +2321,12 @@ AppleVTD::spaceMapMemory(
 	if (kIODMAMapFixedAddress & mapOptions)
 	{
 		mappedAddress = *mapAddress;
-		base = mappedAddress >> mapperPageShift;
-		if (pageOffset != (mappedAddress - (base << mapperPageShift))) return (kIOReturnNotAligned);
+		base = static_cast<vtd_vaddr_t>(mappedAddress >> mapperPageShift);
+		if (firstPageOffset != (mappedAddress - (base << mapperPageShift))) return (kIOReturnNotAligned);
 	}
 	else base = 0;
 
-	base = space_alloc(space, base, pageCount, mapOptions, mapSpecification, pageInfo);
+	base = space_alloc(space, base, static_cast<vtd_vaddr_t>(pageCount), mapOptions, mapSpecification, pageInfo);
 
 	if (!base) return (kIOReturnNoResources);
 	vtassert((base + pageCount) <= space->vsize);
@@ -2286,6 +2349,9 @@ AppleVTD::spaceMapMemory(
 			if (ret != kIOReturnSuccess) break;
 			phys = walkArgs->fIOVMAddr;
 			segLen = walkArgs->fLength;
+			if (segLen > (length - index)) {
+				segLen = length - index;
+			}
 
 			index += segLen;
 
@@ -2299,8 +2365,14 @@ AppleVTD::spaceMapMemory(
 		}
 	}
 
-    *mapAddress = mappedAddress + pageOffset;
-    *mapLength  = mappedLength  - pageOffset;
+    *mapAddress = mappedAddress + firstPageOffset;
+	if (discontig) {
+		// returning the total DMA map size will cause IOMD to scatter gather the DMA
+		*mapLength  = mappedLength - firstPageOffset;
+	} else {
+		// returning the exact map length means the DMA must be a single range
+		*mapLength  = length;
+	}
 
     return (kIOReturnSuccess);
 }
@@ -2329,13 +2401,13 @@ AppleVTD::spaceUnmapMemory(	vtd_space_t * space,
 	uint32_t     idx;
 	uint32_t     next;
 	uint32_t     count;
-	uint64_t     stamp;
+	uint32_t     stamp;
 	ppnum_t      addr;
 	ppnum_t      pages;
 
     did = space->domain;
-    addr = atop_64(mapAddress);
-    pages = atop_64(round_page_64(mapAddress + mapLength)) - addr;
+    addr = static_cast<ppnum_t>(atop_64(mapAddress));
+    pages = static_cast<ppnum_t>(atop_64(round_page_64(mapAddress + mapLength)) - addr);
 
 #if KP
 	VTLOG("iovmFree: 0x%x,0x%x\n", (int)pages, addr);
@@ -2431,7 +2503,7 @@ AppleVTD::spaceUnmapMemory(	vtd_space_t * space,
                 count++;
                 next = (idx + 1) & kQIIndexMask;
                 WAIT_QI_FREE(unit, idx);
-                uint64_t command = (stamp<<32) | (1<<5) | (5);
+                uint64_t command = (static_cast<uint64_t>(stamp)<<32) | (1<<5) | (5);
 //       		command |= (1<<4); // make an int
                 unit->qi_table[idx].command = command;
                 unit->qi_table[idx].address = unit->qi_stamp_address;
@@ -2499,7 +2571,7 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 	uint32_t     idx;
 	uint32_t     next;
 	uint32_t     gran;
-	uint64_t     stamp;
+	uint32_t     stamp;
 	uint64_t     deadline;
 	bool         ok;
 
@@ -2549,7 +2621,7 @@ AppleVTD::contextInvalidate(uint16_t domainID)
 		next = (idx + 1) & kQIIndexMask;
 		WAIT_QI_FREE(unit, idx);
 		unit->qi_table[idx].address = unit->qi_stamp_address;
-		unit->qi_table[idx].command = (stamp<<32) | (1<<5) | (5);
+		unit->qi_table[idx].command = (static_cast<uint64_t>(stamp)<<32) | (1<<5) | (5);
 		unit->qi_table_stamps[idx] = stamp;
 
 		__mfence();
@@ -2579,7 +2651,7 @@ AppleVTD::interruptInvalidate(uint16_t index, uint16_t count)
 	unsigned int unitIdx;
 	uint32_t     idx;
 	uint32_t     next;
-	uint64_t     stamp;
+	uint32_t     stamp;
 	uint64_t     deadline;
 	bool         ok;
 
@@ -2607,7 +2679,7 @@ AppleVTD::interruptInvalidate(uint16_t index, uint16_t count)
 		next = (idx + 1) & kQIIndexMask;
 		WAIT_QI_FREE(unit, idx);
 		unit->qi_table[idx].address = unit->qi_stamp_address;
-		unit->qi_table[idx].command = (stamp<<32) | (1<<5) | (5);
+		unit->qi_table[idx].command = (static_cast<uint64_t>(stamp)<<32) | (1<<5) | (5);
 		unit->qi_table_stamps[idx] = stamp;
 
 		__mfence();
@@ -2632,7 +2704,7 @@ AppleVTD::interruptInvalidate(uint16_t index, uint16_t count)
 uint64_t
 AppleVTD::spaceMapToPhysicalAddress(vtd_space_t * space, uint64_t addr)
 {
-	ppnum_t      page = atop_64(addr);
+	ppnum_t      page = static_cast<ppnum_t>(atop_64(addr));
 	page_entry_t entry;
 
 	if (page >= space->vsize) return (addr);
@@ -2664,10 +2736,10 @@ AppleVTD::spaceInsert(vtd_space_t * space, uint32_t mapOptions,
 	ppnum_t phys;
 	uint32_t pageCount;
 
-    addr = atop_64(mapAddress);
-    offset = atop_64(mapAddress + byteOffset) - addr;
-	phys = atop_64(physicalAddress);
-	pageCount = atop_64(physicalAddress + length) - phys;
+    addr = static_cast<ppnum_t>(atop_64(mapAddress));
+    offset = static_cast<ppnum_t>(atop_64(mapAddress + byteOffset) - addr);
+	phys = static_cast<ppnum_t>(atop_64(physicalAddress));
+	pageCount = static_cast<uint32_t>(atop_64(physicalAddress + length) - phys);
 
 	addr += offset;
 	vtassert((addr + pageCount) <= space->vsize);

@@ -19,7 +19,7 @@ crc64_init()
 AUTH_INLINE uint64_t
 crc64_final(uint64_t crc)
 {
-      return crc ^= xorout;
+      return crc ^ xorout;
 }
     
 AUTH_INLINE AUTH_NONNULL_ALL uint64_t

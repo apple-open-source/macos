@@ -4,6 +4,9 @@ en_IN{
     %%Parent{"en_001"}
     NumberElements{
         latn{
+            miscPatterns{
+                range{"{0}–{1}"}
+            }
             patterns{
                 currencyFormat{"¤ #,##,##0.00"}
                 decimalFormat{"#,##,##0.###"}
@@ -12,12 +15,12 @@ en_IN{
             patternsShort{
                 currencyFormat{
                     1000{
-                        one{"¤0T"}
-                        other{"¤0T"}
+                        one{"¤0K"}
+                        other{"¤0K"}
                     }
                     10000{
-                        one{"¤00T"}
-                        other{"¤00T"}
+                        one{"¤00K"}
+                        other{"¤00K"}
                     }
                     100000{
                         one{"¤0L"}
@@ -40,12 +43,12 @@ en_IN{
                         other{"¤000Cr"}
                     }
                     10000000000{
-                        one{"¤0TCr"}
-                        other{"¤0TCr"}
+                        one{"¤0KCr"}
+                        other{"¤0KCr"}
                     }
                     100000000000{
-                        one{"¤00TCr"}
-                        other{"¤00TCr"}
+                        one{"¤00KCr"}
+                        other{"¤00KCr"}
                     }
                     1000000000000{
                         one{"¤0LCr"}
@@ -62,16 +65,20 @@ en_IN{
                 }
                 decimalFormat{
                     1000{
-                        one{"0T"}
-                        other{"0T"}
+                        one{"0K"}
+                        other{"0K"}
                     }
                     10000{
-                        one{"00T"}
-                        other{"00T"}
+                        one{"00K"}
+                        other{"00K"}
                     }
                     100000{
                         one{"0L"}
                         other{"0L"}
+                    }
+                    1000000{
+                        one{"00L"}
+                        other{"00L"}
                     }
                     10000000{
                         one{"0Cr"}
@@ -81,19 +88,35 @@ en_IN{
                         one{"00Cr"}
                         other{"00Cr"}
                     }
+                    1000000000{
+                        one{"000Cr"}
+                        other{"000Cr"}
+                    }
                     10000000000{
-                        one{"0TCr"}
-                        other{"0TCr"}
+                        one{"0KCr"}
+                        other{"0KCr"}
                     }
                     100000000000{
-                        one{"00TCr"}
-                        other{"00TCr"}
+                        one{"00KCr"}
+                        other{"00KCr"}
+                    }
+                    1000000000000{
+                        one{"0LCr"}
+                        other{"0LCr"}
+                    }
+                    10000000000000{
+                        one{"00LCr"}
+                        other{"00LCr"}
+                    }
+                    100000000000000{
+                        one{"000LCr"}
+                        other{"000LCr"}
                     }
                 }
             }
         }
     }
-    Version{"2.1.49.14"}
+    Version{"36.1"}
     calendar{
         generic{
             DateTimePatterns{

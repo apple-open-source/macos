@@ -116,7 +116,7 @@ ExtendedAttribute::ExtendedAttribute(
 	setupAttrs();
 }
 
-ExtendedAttribute::~ExtendedAttribute() throw()
+ExtendedAttribute::~ExtendedAttribute() _NOEXCEPT
 {
 
 }

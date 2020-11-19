@@ -71,9 +71,6 @@
 //#include "package_version.h"
 #define extern /* so that variables in extern.h are not extern... */
 #include "extern.h"
-#include "ipsecPolicyTracer.h"
-#include "ipsecMessageTracer.h"
-
 
 void usage (/*int*/);
 int main (int, char **);
@@ -170,10 +167,6 @@ main(argc, argv)
 		case 'f':
 			f_mode = MODE_SCRIPT;
 			if ((fp = fopen(optarg, "r")) == NULL) {
-                IPSECPOLICYTRACEREVENT(optarg,
-                                       IPSECPOLICYEVENTCODE_SETKEY_ERROR,
-                                       CONSTSTR("could not open policy file"),
-                                       CONSTSTR("setkey -f : fopen erred"));
 				err(1, "fopen");
 				/*NOTREACHED*/
 			}
@@ -246,10 +239,6 @@ main(argc, argv)
 	if (argc > 0) {
 		while (argc--)
 			if (fileproc(*argv++) < 0) {
-                IPSECPOLICYTRACEREVENT(argv[-1],
-                                       IPSECPOLICYEVENTCODE_SETKEY_ERROR,
-                                       CONSTSTR("could not parse policy file"),
-                                       CONSTSTR("setkey: fileproc erred"));
 				err(1, "%s", argv[-1]);
 				/*NOTREACHED*/
 			}
@@ -258,10 +247,6 @@ main(argc, argv)
 
 	so = pfkey_open();
 	if (so < 0) {
-        IPSECPOLICYTRACEREVENT(argv[-1],
-                               IPSECPOLICYEVENTCODE_SETKEY_ERROR,
-                               CONSTSTR("couldn't open pfkey socket"),
-                               CONSTSTR("setkey: pfkey_open erred"));
 		perror("pfkey_open");
 		exit(1);
 	}
@@ -283,10 +268,6 @@ main(argc, argv)
 		break;
 	case MODE_STDIN:
 		if (get_supported() < 0) {
-            IPSECPOLICYTRACEREVENT("STDIN",
-                                   IPSECPOLICYEVENTCODE_SETKEY_ERROR,
-                                   CONSTSTR(ipsec_strerror()),
-                                   CONSTSTR("setkey: get_supported erred"));
 			errx(1, "%s", ipsec_strerror());
 			/*NOTREACHED*/
 		}

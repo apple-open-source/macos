@@ -176,6 +176,11 @@ struct	rainfo {
 	u_int32_t dnssl_lifetime;
 	u_int32_t dnssl_option_length;
 
+	/* Captive Portal RFC 7710 */
+	char *	capport;
+	u_int32_t capport_length;
+	u_int32_t capport_option_length;
+
 	/* actual RA packet data and its length */
 	size_t ra_datalen;
 	u_char *ra_data;

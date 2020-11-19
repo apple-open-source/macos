@@ -22,7 +22,7 @@
 #include "resolver.h"
 #include "libkern/OSAtomic.h"
 
-#if TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#if defined(__arm__) || defined(__arm64__)
 
 OS_ATOMIC_EXPORT
 int32_t OSAtomicAdd32(int32_t v, volatile int32_t *p);
@@ -389,34 +389,54 @@ typedef struct {
 	long gencount;
 } _OSQueueHead;
 
-
-void
-OSAtomicEnqueue(OSQueueHead *list, void *new, size_t offset)
+OS_ALWAYS_INLINE
+static inline void
+_OSAtomicEnqueue_llsc(OSQueueHead *list, void *new, size_t offset)
 {
 	void * volatile *headptr = &(((_OSQueueHead*)list)->item);
 	void * volatile *nextptr = (void*)((char*)new + offset);
-	void *head, *next;
+	void *head, *tmp, *next;
 
 	head = os_atomic_load(headptr, relaxed);
 	next = new;
 	do {
-		*nextptr = head;
-	} while (!os_atomic_cmpxchgvw(headptr, head, next, &head, release));
+		*nextptr = tmp = head;
+		head = os_atomic_load_exclusive(headptr, relaxed);
+	} while (tmp != head || !os_atomic_store_exclusive(headptr, next, release));
 }
 
-void*
-OSAtomicDequeue(OSQueueHead *list, size_t offset)
+OS_ALWAYS_INLINE
+static inline void *
+_OSAtomicDequeue_llsc(OSQueueHead *list, size_t offset)
 {
 	void * volatile *headptr = &(((_OSQueueHead*)list)->item);
 	void * volatile *nextptr;
 	void *head, *next;
 
-	os_atomic_rmw_loop(headptr, head, next, acquire, {
-		if (!head) os_atomic_rmw_loop_give_up(break);
+	do {
+		head = os_atomic_load_exclusive(headptr, acquire);
+		if (!head) {
+			os_atomic_clear_exclusive();
+			break;
+		}
 		nextptr = (void*)((char*)head + offset);
 		next = *nextptr;
-	});
+	} while (unlikely(!os_atomic_store_exclusive(headptr, next, relaxed)));
+
 	return head;
+}
+
+
+void
+OSAtomicEnqueue(OSQueueHead *list, void *new, size_t offset)
+{
+	return _OSAtomicEnqueue_llsc(list, new, offset);
+}
+
+void*
+OSAtomicDequeue(OSQueueHead *list, size_t offset)
+{
+	return _OSAtomicDequeue_llsc(list, offset);
 }
 
 
@@ -426,6 +446,6 @@ OSMemoryBarrier(void)
 	os_atomic_thread_fence(seq_cst);
 }
 
-#endif // TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR
+#endif // defined(__arm__) || defined(__arm64__)
 
 struct _os_empty_files_are_not_c_files;

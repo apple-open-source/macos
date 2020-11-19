@@ -8,7 +8,7 @@ mni{
         Beng{"বাংলা"}
         Mtei{"মেইটেই মায়েক"}
     }
-    Version{"2.1.48.13"}
+    Version{"36.1"}
     localeDisplayPattern{
         keyTypePattern{"{0}: {1}"}
         pattern{"{0} ({1})"}

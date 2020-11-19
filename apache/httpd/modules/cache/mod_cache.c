@@ -986,7 +986,7 @@ static apr_status_t cache_save_filter(ap_filter_t *f, apr_bucket_brigade *in)
 
         /* 304 does not contain Content-Type and mod_mime regenerates the
          * Content-Type based on the r->filename. This would lead to original
-         * Content-Type to be lost (overwriten by whatever mod_mime generates).
+         * Content-Type to be lost (overwritten by whatever mod_mime generates).
          * We preserves the original Content-Type here. */
         ap_set_content_type(r, apr_table_get(
                 cache->stale_handle->resp_hdrs, "Content-Type"));
@@ -1229,6 +1229,16 @@ static apr_status_t cache_save_filter(ap_filter_t *f, apr_bucket_brigade *in)
         return APR_SUCCESS;
     }
 
+    /* Set the content length if known.
+     */
+    cl = apr_table_get(r->err_headers_out, "Content-Length");
+    if (cl == NULL) {
+        cl = apr_table_get(r->headers_out, "Content-Length");
+    }
+    if (cl && !ap_parse_strict_length(&size, cl)) {
+        reason = "invalid content length";
+    }
+
     if (reason) {
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, r, APLOGNO(00768)
                 "cache: %s not cached for request %s. Reason: %s",
@@ -1250,19 +1260,6 @@ static apr_status_t cache_save_filter(ap_filter_t *f, apr_bucket_brigade *in)
 
     /* Make it so that we don't execute this path again. */
     cache->in_checked = 1;
-
-    /* Set the content length if known.
-     */
-    cl = apr_table_get(r->err_headers_out, "Content-Length");
-    if (cl == NULL) {
-        cl = apr_table_get(r->headers_out, "Content-Length");
-    }
-    if (cl) {
-        char *errp;
-        if (apr_strtoff(&size, cl, &errp, 10) || *errp || size < 0) {
-            cl = NULL; /* parse error, see next 'if' block */
-        }
-    }
 
     if (!cl) {
         /* if we don't get the content-length, see if we have all the
@@ -2533,7 +2530,7 @@ static const command_rec cache_cmds[] =
 {
     /* XXX
      * Consider a new config directive that enables loading specific cache
-     * implememtations (like mod_cache_mem, mod_cache_file, etc.).
+     * implementations (like mod_cache_mem, mod_cache_file, etc.).
      * Rather than using a LoadModule directive, admin would use something
      * like CacheModule  mem_cache_module | file_cache_module, etc,
      * which would cause the approprpriate cache module to be loaded.

@@ -418,7 +418,7 @@ namespace IOFireWireLib {
 			++args ;	// we tacked on an extra arg at the beginning, so we undo that.
 			
 			bool	equal ;
-			UInt32	offset = (unsigned long)args[6] ;
+			UInt32	offset = (UInt32)((unsigned long)args[6]) ;
 			
 			if ( (unsigned long) args[1] == 8 )
 				// 32-bit compare
@@ -432,11 +432,11 @@ namespace IOFireWireLib {
 				mWriter(
 					addressSpaceRef,
 					(FWClientCommandID)(args[0]),						// commandID,
-					(unsigned long)(args[1]) >> 1,								// packetSize
+					(UInt32)((unsigned long)args[1] >> 1),								// packetSize
 					mBuffer + (unsigned long)args[2] + ( (unsigned long) args[1] == 8 ? 4 : 8),// packet
-					(UInt16)(unsigned long)args[3],							// nodeID
-					(unsigned long)(args[5]),									// addr.nodeID, addr.addressHi,
-					(unsigned long)(args[6]),
+					(UInt16)((unsigned long)args[3]),							// nodeID
+					(UInt32)((unsigned long)args[5]),									// addr.nodeID, addr.addressHi,
+					(UInt32)((unsigned long)args[6]),
 					(void*) mRefCon) ;									// refcon
 			}
 			else
@@ -484,15 +484,15 @@ namespace IOFireWireLib {
 		
 			::CFDictionaryAddValue( me->mPendingLocks, args[0], lockValues ) ;
 	
-			UInt32 offset = (unsigned long)args[6] ;	// !!! hack - all address spaces have 0 for addressLo
+			UInt32 offset = (UInt32)((unsigned long)args[6]) ;	// !!! hack - all address spaces have 0 for addressLo
 	
 			(me->mReader)( (AddressSpaceRef) refcon,
 							(FWClientCommandID)(args[0]),					// commandID,
-							(unsigned long)(args[1]),								// packetSize
+							(UInt32)((unsigned long)args[1]),								// packetSize
 							offset,											// packetOffset
-							(UInt16)(unsigned long)(args[3]),						// nodeID; double cast avoids compiler warning
-							(unsigned long)(args[5]),								// addr.addressHi,
-							(unsigned long)(args[6]),								// addr.addressLo
+							(UInt16)((unsigned long)args[3]),						// nodeID; double cast avoids compiler warning
+							(UInt32)((unsigned long)args[5]),								// addr.addressHi,
+							(UInt32)((unsigned long)args[6]),								// addr.addressLo
 							(void*) me->mRefCon) ;							// refcon
 	
 		}
@@ -501,11 +501,11 @@ namespace IOFireWireLib {
 			(me->mWriter)(
 				(AddressSpaceRef) refcon,
 				(FWClientCommandID) args[0],						// commandID,
-				(unsigned long)(args[1]),									// packetSize
-				me->mBuffer + (unsigned long)(args[2]),					// packet
-				(UInt16)(unsigned long)(args[3]),							// nodeID
-				(unsigned long)(args[5]),									// addr.addressHi, addr.addressLo
-				(unsigned long)(args[6]),
+				(UInt32)((unsigned long)args[1]),									// packetSize
+				me->mBuffer + (unsigned long)args[2],					// packet
+				(UInt16)((unsigned long)args[3]),							// nodeID
+				(UInt32)((unsigned long)args[5]),									// addr.addressHi, addr.addressLo
+				(UInt32)((unsigned long)args[6]),
 				(void*) me->mRefCon) ;								// refcon
 	
 		}
@@ -530,11 +530,11 @@ namespace IOFireWireLib {
 		{
 			(me->mReader)( (AddressSpaceRef) refcon,
 						(FWClientCommandID) args[0],					// commandID,
-						(unsigned long)(args[1]),								// packetSize
-						(unsigned long)(args[2]),								// packetOffset
-						(UInt16)(unsigned long)(args[3]),						// nodeID
-						(unsigned long)(args[5]),								// addr.nodeID, addr.addressHi,
-						(unsigned long)(args[6]),
+						(UInt32)((unsigned long)args[1]),								// packetSize
+						(UInt32)((unsigned long)args[2]),								// packetOffset
+						(UInt16)((unsigned long)args[3]),						// nodeID
+						(UInt32)((unsigned long)args[5]),								// addr.nodeID, addr.addressHi,
+						(UInt32)((unsigned long)args[6]),
 						(void*) me->mRefCon) ;							// refcon
 		}
 		else

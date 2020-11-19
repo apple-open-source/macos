@@ -1,5 +1,0 @@
-#include "lib.xcconfig"
-
-SKIP_INSTALL = YES
-
-OTHER_CFLAGS_coverage = $(inherited) -fprofile-arcs -ftest-coverage

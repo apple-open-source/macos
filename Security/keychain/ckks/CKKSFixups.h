@@ -40,11 +40,12 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
     CKKSFixupFetchTLKShares,
     CKKSFixupLocalReload,
     CKKSFixupResaveDeviceStateEntries,
+    CKKSFixupDeleteAllCKKSTombstones,
 };
-#define CKKSCurrentFixupNumber (CKKSFixupResaveDeviceStateEntries)
+#define CKKSCurrentFixupNumber (CKKSFixupDeleteAllCKKSTombstones)
 
 @interface CKKSFixups : NSObject
-+(CKKSGroupOperation*)fixup:(CKKSFixup)lastfixup for:(CKKSKeychainView*)keychainView;
++(nullable CKKSGroupOperation*)fixup:(CKKSFixup)lastfixup for:(CKKSKeychainView*)keychainView;
 @end
 
 // Fixup declarations. You probably don't need to look at these
@@ -61,6 +62,7 @@ typedef NS_ENUM(NSUInteger, CKKSFixup) {
 @interface CKKSFixupLocalReloadOperation : CKKSGroupOperation
 @property (weak) CKKSKeychainView* ckks;
 - (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)keychainView
+                             fixupNumber:(CKKSFixup)fixupNumber
                         ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
 @end
 

@@ -35,7 +35,6 @@
 #include <utilities/der_date.h>
 
 #include <stdlib.h>
-#include <assert.h>
 
 #include "SOSRing.h"
 #include "SOSRingUtils.h"

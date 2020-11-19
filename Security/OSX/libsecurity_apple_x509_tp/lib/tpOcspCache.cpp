@@ -31,7 +31,7 @@
 #include <security_utilities/globalizer.h>
 #include <security_utilities/threading.h>
 #include <security_ocspd/ocspdUtils.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 /*
  * Set this flag nonzero to turn off this cache module. Generally used to debug

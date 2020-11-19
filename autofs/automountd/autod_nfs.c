@@ -698,6 +698,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	freemntopts(mp);
 
 	entries = 0;
+    host = NULL;
 	for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
 		if (!mfs->mfs_ignore) {
 			entries++;

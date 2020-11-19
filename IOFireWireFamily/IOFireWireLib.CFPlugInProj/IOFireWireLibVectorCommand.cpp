@@ -324,7 +324,7 @@ namespace IOFireWireLib
 		if( status == kIOReturnSuccess )
 		{
 			count = CFArrayGetCount( mCommandArray );
-			status = EnsureCapacity( count );
+			status = EnsureCapacity( (UInt32)count );
 		}
 
 		if( status == kIOReturnSuccess )
@@ -364,7 +364,7 @@ namespace IOFireWireLib
 												  inputs, 2,
 												  NULL, &output_count);
 
-			mInflightCount = count;
+			mInflightCount = (UInt32)count;
 			
 //			printf( "VectorCommand::Submit - IOConnectCallAsyncStructMethod status = 0x%08lx\n", status );
 		}
@@ -457,9 +457,9 @@ namespace IOFireWireLib
 			
 			// pack 'em up like the kernel would
 			void * args[3];
-			args[0] = (void*)mResultBuffer[index].bytesTransferred;
-			args[1] = (void*)mResultBuffer[index].ackCode;
-			args[2] = (void*)mResultBuffer[index].responseCode;
+			args[0] = (void*)(uintptr_t)mResultBuffer[index].bytesTransferred;
+			args[1] = (void*)(uintptr_t)mResultBuffer[index].ackCode;
+			args[2] = (void*)(uintptr_t)mResultBuffer[index].responseCode;
 		
 			// call the completion routine
 			cmd->CommandCompletionHandler( cmd, status, args, 3 );
@@ -590,7 +590,7 @@ namespace IOFireWireLib
 		
 		CFRange search_range = CFRangeMake( 0, CFArrayGetCount( me->mCommandArray ) );
 		
-		return CFArrayGetFirstIndexOfValue( me->mCommandArray, search_range, command );
+		return (UInt32)CFArrayGetFirstIndexOfValue( me->mCommandArray, search_range, command );
 	}
 	
 	// RemoveCommandAtIndex
@@ -623,7 +623,7 @@ namespace IOFireWireLib
 	{
 		VectorCommand * me = IOFireWireIUnknown::InterfaceMap<VectorCommand>::GetThis(self);
 		
-		return CFArrayGetCount( me->mCommandArray );
+		return (UInt32)CFArrayGetCount( me->mCommandArray );
 	}
 
 	// RetainCallback

@@ -59,6 +59,7 @@
 				18DB9CEA1F45077D0003D865 /* Copy common/json */,
 				1849417F1EC6754300736745 /* Copy common/lexer */,
 				184941801EC6754700736745 /* Copy common/llquantize */,
+				1856F472236798E2006F9A1C /* Copy common/lockstat */,
 				184941811EC6754B00736745 /* Copy common/misc */,
 				184941821EC6754F00736745 /* Copy common/multiaggs */,
 				18588EC4210D37FE002610DA /* Copy common/objc */,
@@ -107,6 +108,15 @@
 				181232F01EC68A7A00A3EB23 /* Copy common/version */,
 			);
 			dependencies = (
+				18FF988E24452E170049790D /* PBXTargetDependency */,
+				18FF989024452E170049790D /* PBXTargetDependency */,
+				18FF989224452E180049790D /* PBXTargetDependency */,
+				18FF989424452E180049790D /* PBXTargetDependency */,
+				18FF989624452E180049790D /* PBXTargetDependency */,
+				18FF989824452E180049790D /* PBXTargetDependency */,
+				18FF989A24452E180049790D /* PBXTargetDependency */,
+				18FF989C24452E180049790D /* PBXTargetDependency */,
+				18FF989E24452E180049790D /* PBXTargetDependency */,
 				18DB9CFB1F4508500003D865 /* PBXTargetDependency */,
 				1858EF451E80A62D0062F48D /* PBXTargetDependency */,
 				186BF9E921BB40D50020C1C7 /* PBXTargetDependency */,
@@ -122,6 +132,7 @@
 				189D49291C3D4867002613B0 /* PBXTargetDependency */,
 				189D48F81C3D3569002613B0 /* PBXTargetDependency */,
 				181024EC1D6F3BDA0063C5AC /* PBXTargetDependency */,
+				18FF9832244526480049790D /* PBXTargetDependency */,
 				189D48DC1C3D2D00002613B0 /* PBXTargetDependency */,
 				189D48DE1C3D2D00002613B0 /* PBXTargetDependency */,
 				181024EA1D6F3BD00063C5AC /* PBXTargetDependency */,
@@ -146,6 +157,7 @@
 			buildConfigurationList = 189D49891C3D61B5002613B0 /* Build configuration list for PBXAggregateTarget "dtrace_tests_osx" */;
 			buildPhases = (
 				181233031EC68B2500A3EB23 /* Copy common/i386/pid */,
+				1CC109DD2452F24500F91689 /* CopyFiles */,
 			);
 			dependencies = (
 				189D49901C3D61F6002613B0 /* PBXTargetDependency */,
@@ -705,7 +717,6 @@
 		18493F461EC66B2600736745 /* AllTests in Copy common test files */ = {isa = PBXBuildFile; fileRef = 189D45881C3AA84F002613B0 /* AllTests */; };
 		18493F471EC66B2800736745 /* NoSafetyTests in Copy common test files */ = {isa = PBXBuildFile; fileRef = 189D45891C3AA84F002613B0 /* NoSafetyTests */; };
 		18493F481EC66B2900736745 /* NoSafetyTests.arm in Copy common test files */ = {isa = PBXBuildFile; fileRef = 189D458A1C3AA84F002613B0 /* NoSafetyTests.arm */; };
-		18493F491EC66B2B00736745 /* NoSafetyTests.arm.tvwatchos in Copy common test files */ = {isa = PBXBuildFile; fileRef = 18493A4E1EC6617700736745 /* NoSafetyTests.arm.tvwatchos */; };
 		18493F4A1EC66B2E00736745 /* QuickTests in Copy common test files */ = {isa = PBXBuildFile; fileRef = 189D458B1C3AA84F002613B0 /* QuickTests */; };
 		18493F4B1EC66B3100736745 /* SafetyTests in Copy common test files */ = {isa = PBXBuildFile; fileRef = 189D458C1C3AA84F002613B0 /* SafetyTests */; };
 		18493F4D1EC66BF600736745 /* err.D_AGG_FUNC.bad.d in Copy common/aggs */ = {isa = PBXBuildFile; fileRef = 18493E8A1EC667BC00736745 /* err.D_AGG_FUNC.bad.d */; };
@@ -1334,25 +1345,16 @@
 		184941F61EC67ED600736745 /* tst.ternary.d in Copy common/operators */ = {isa = PBXBuildFile; fileRef = 18493C761EC6655100736745 /* tst.ternary.d */; };
 		184941F71EC67ED600736745 /* tst.ternary.d.out in Copy common/operators */ = {isa = PBXBuildFile; fileRef = 18493C771EC6655100736745 /* tst.ternary.d.out */; };
 		184941F81EC67EFB00736745 /* err.D_PDESC_ZERO.badlib.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939C51EC65ECD00736745 /* err.D_PDESC_ZERO.badlib.d */; };
-		184941F91EC67EFB00736745 /* err.D_PDESC_ZERO.badlib.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939C61EC65ECD00736745 /* err.D_PDESC_ZERO.badlib.exe */; };
 		184941FA1EC67EFB00736745 /* err.D_PDESC_ZERO.badname_arm.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939C71EC65ECD00736745 /* err.D_PDESC_ZERO.badname_arm.d */; };
-		184941FB1EC67EFB00736745 /* err.D_PDESC_ZERO.badname_arm.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939C81EC65ECD00736745 /* err.D_PDESC_ZERO.badname_arm.exe */; };
 		184941FC1EC67EFB00736745 /* err.D_PDESC_ZERO.badproc1.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939C91EC65ECD00736745 /* err.D_PDESC_ZERO.badproc1.d */; };
 		184941FD1EC67EFB00736745 /* err.D_PROC_BADPID.badproc2.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939CA1EC65ECD00736745 /* err.D_PROC_BADPID.badproc2.d */; };
 		184942001EC67EFB00736745 /* err.D_PROC_FUNC.badfunc.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939CD1EC65ECD00736745 /* err.D_PROC_FUNC.badfunc.d */; };
-		184942011EC67EFB00736745 /* err.D_PROC_FUNC.badfunc.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939CE1EC65ECD00736745 /* err.D_PROC_FUNC.badfunc.exe */; };
 		184942021EC67EFB00736745 /* err.D_PROC_LIB.libdash.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939CF1EC65ECD00736745 /* err.D_PROC_LIB.libdash.d */; };
-		184942031EC67EFB00736745 /* err.D_PROC_LIB.libdash.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D01EC65ECD00736745 /* err.D_PROC_LIB.libdash.exe */; };
 		184942041EC67EFB00736745 /* err.D_PROC_NAME.alldash.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D11EC65ECD00736745 /* err.D_PROC_NAME.alldash.d */; };
-		184942051EC67EFB00736745 /* err.D_PROC_NAME.alldash.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D21EC65ECD00736745 /* err.D_PROC_NAME.alldash.exe */; };
 		184942061EC67EFB00736745 /* err.D_PROC_NAME.badname.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D31EC65ECD00736745 /* err.D_PROC_NAME.badname.d */; };
-		184942071EC67EFB00736745 /* err.D_PROC_NAME.badname.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D41EC65ECD00736745 /* err.D_PROC_NAME.badname.exe */; };
 		184942081EC67EFB00736745 /* err.D_PROC_NAME.globdash.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D51EC65ECD00736745 /* err.D_PROC_NAME.globdash.d */; };
-		184942091EC67EFB00736745 /* err.D_PROC_NAME.globdash.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D61EC65ECD00736745 /* err.D_PROC_NAME.globdash.exe */; };
 		1849420A1EC67EFB00736745 /* err.D_PROC_OFF.toobig.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D71EC65ECD00736745 /* err.D_PROC_OFF.toobig.d */; };
-		1849420B1EC67EFB00736745 /* err.D_PROC_OFF.toobig.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D81EC65ECD00736745 /* err.D_PROC_OFF.toobig.exe */; };
 		1849420C1EC67EFB00736745 /* tst.coverage.d in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939D91EC65ECD00736745 /* tst.coverage.d */; };
-		1849420D1EC67EFB00736745 /* tst.coverage.exe in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939DA1EC65ECD00736745 /* tst.coverage.exe */; };
 		184942111EC67EFB00736745 /* tst.manypids.ksh in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939DE1EC65ECD00736745 /* tst.manypids.ksh */; };
 		184942121EC67EFB00736745 /* tst.oneshot_return.ksh in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939DF1EC65ECD00736745 /* tst.oneshot_return.ksh */; };
 		184942131EC67EFB00736745 /* tst.ProbeModUTF8.ksh in Copy common/pid */ = {isa = PBXBuildFile; fileRef = 184939E01EC65ECD00736745 /* tst.ProbeModUTF8.ksh */; };
@@ -1544,6 +1546,12 @@
 		184B07DA200FD1B700B1E4AD /* tst.unsetenv2.ksh.out in Copy common/env */ = {isa = PBXBuildFile; fileRef = 184B07CF200FD14A00B1E4AD /* tst.unsetenv2.ksh.out */; };
 		185220DC21C31F7F006F1FCD /* tst.predicates.d in Copy common/fbtprovider */ = {isa = PBXBuildFile; fileRef = 185220DB21C31F6E006F1FCD /* tst.predicates.d */; };
 		185369F41E4BECB80091707E /* tst.sse3.movshdup.c in Sources */ = {isa = PBXBuildFile; fileRef = 185369E81E4BEC9D0091707E /* tst.sse3.movshdup.c */; };
+		1856F47323679903006F9A1C /* tst.adaptiveprobes.d in Copy common/lockstat */ = {isa = PBXBuildFile; fileRef = 1856F46C236798D6006F9A1C /* tst.adaptiveprobes.d */; };
+		1856F47423679905006F9A1C /* tst.lockprof.spin.ksh in Copy common/lockstat */ = {isa = PBXBuildFile; fileRef = 1856F46F236798D6006F9A1C /* tst.lockprof.spin.ksh */; };
+		1856F47523679906006F9A1C /* tst.lockprof.ticket.ksh in Copy common/lockstat */ = {isa = PBXBuildFile; fileRef = 1856F471236798D7006F9A1C /* tst.lockprof.ticket.ksh */; };
+		1856F47623679908006F9A1C /* tst.rwprobes.d in Copy common/lockstat */ = {isa = PBXBuildFile; fileRef = 1856F470236798D6006F9A1C /* tst.rwprobes.d */; };
+		1856F4772367990B006F9A1C /* tst.spinprobes.d in Copy common/lockstat */ = {isa = PBXBuildFile; fileRef = 1856F46D236798D6006F9A1C /* tst.spinprobes.d */; };
+		1856F4782367990E006F9A1C /* tst.ticketprobes.d in Copy common/lockstat */ = {isa = PBXBuildFile; fileRef = 1856F46E236798D6006F9A1C /* tst.ticketprobes.d */; };
 		18588EC5210D3829002610DA /* tst.TrampolineBlacklist.ksh in Copy common/objc */ = {isa = PBXBuildFile; fileRef = 18588EC3210D37EF002610DA /* tst.TrampolineBlacklist.ksh */; };
 		18588ED0210D38A6002610DA /* tst.TrampolineBlacklist.m in Sources */ = {isa = PBXBuildFile; fileRef = 18588EC2210D37EF002610DA /* tst.TrampolineBlacklist.m */; };
 		18588ED1210D38AC002610DA /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18EB6895206576C70047663F /* Foundation.framework */; };
@@ -1705,6 +1713,7 @@
 		189D49361C3D4960002613B0 /* tst.spin.c in Sources */ = {isa = PBXBuildFile; fileRef = 189D492C1C3D4952002613B0 /* tst.spin.c */; };
 		189D49411C3D49E1002613B0 /* tst.args1.c in Sources */ = {isa = PBXBuildFile; fileRef = 189D48861C3D2A80002613B0 /* tst.args1.c */; };
 		189D49D31C3D6678002613B0 /* tst.userlandkey.c in Sources */ = {isa = PBXBuildFile; fileRef = 189D49C81C3D6667002613B0 /* tst.userlandkey.c */; };
+		18A113DF244525DA00D7E5CE /* tst.coverage.c in Sources */ = {isa = PBXBuildFile; fileRef = 18A113DE244525CE00D7E5CE /* tst.coverage.c */; };
 		18A1C7EA2040E789007833A7 /* libdtrace.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 6EBC97EE099BFB9E0001019C /* libdtrace.dylib */; };
 		18A1C7EB2040E789007833A7 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 188D0ECC1F39147500972E20 /* IOKit.framework */; };
 		18A1C7EC2040E789007833A7 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18F2858A151EB3B2009134A0 /* CoreFoundation.framework */; };
@@ -1843,6 +1852,7 @@
 		18EC69A221FB08B100B4053C /* dt_cpp.h in Copy dt_cpp.h file */ = {isa = PBXBuildFile; fileRef = 7EF9CBD90B94F7AB007FDEDC /* dt_cpp.h */; };
 		18EC69A521FB08F700B4053C /* dtrace.plist in Copy open source plist */ = {isa = PBXBuildFile; fileRef = D2FAD5950BCC593A00EDD5A2 /* dtrace.plist */; };
 		18EC69A821FB095C00B4053C /* com.apple.dtrace.plist in Copy logging plist */ = {isa = PBXBuildFile; fileRef = 1887E6C92124F6D00041300E /* com.apple.dtrace.plist */; };
+		18EED432240C3A8E0011CD05 /* tst.physmem.destruct.d in Copy common/funcs */ = {isa = PBXBuildFile; fileRef = 18EED431240C3A7A0011CD05 /* tst.physmem.destruct.d */; };
 		18F2858B151EB3B2009134A0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18F2858A151EB3B2009134A0 /* CoreFoundation.framework */; };
 		18F2858C151EB512009134A0 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 18F2858A151EB3B2009134A0 /* CoreFoundation.framework */; };
 		18FB4B791ECA439000E5FE63 /* tst.ring2.d in Copy common/buffering */ = {isa = PBXBuildFile; fileRef = 18493E461EC6675400736745 /* tst.ring2.d */; };
@@ -1853,9 +1863,24 @@
 		18FC90181EB3E45B0021B66C /* test_lib.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 18FC90061EB3D6620021B66C /* test_lib.dylib */; };
 		18FD748A1E85B21A00CC1E79 /* tst.return.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FD747F1E85B20100CC1E79 /* tst.return.c */; };
 		18FD7C8721F76EFD0036A80C /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 18FD7C8621F76EFD0036A80C /* libc++.tbd */; };
+		18FF984424452D5F0049790D /* err.D_PDESC_ZERO.badlib.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983324452D2B0049790D /* err.D_PDESC_ZERO.badlib.c */; };
+		18FF984D24452D6F0049790D /* err.D_PDESC_ZERO.badname_arm.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983424452D2B0049790D /* err.D_PDESC_ZERO.badname_arm.c */; };
+		18FF985624452D880049790D /* err.D_PROC_CREATEFAIL.many.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983B24452D2D0049790D /* err.D_PROC_CREATEFAIL.many.c */; };
+		18FF985F24452D9E0049790D /* err.D_PROC_FUNC.badfunc.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983624452D2C0049790D /* err.D_PROC_FUNC.badfunc.c */; };
+		18FF986824452DB10049790D /* err.D_PROC_LIB.libdash.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983824452D2C0049790D /* err.D_PROC_LIB.libdash.c */; };
+		18FF987124452DBC0049790D /* err.D_PROC_NAME.alldash.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983724452D2C0049790D /* err.D_PROC_NAME.alldash.c */; };
+		18FF987A24452DD10049790D /* err.D_PROC_NAME.badname.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983924452D2C0049790D /* err.D_PROC_NAME.badname.c */; };
+		18FF988324452DE10049790D /* err.D_PROC_NAME.globdash.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983A24452D2C0049790D /* err.D_PROC_NAME.globdash.c */; };
+		18FF988C24452DF00049790D /* err.D_PROC_OFF.toobig.c in Sources */ = {isa = PBXBuildFile; fileRef = 18FF983524452D2C0049790D /* err.D_PROC_OFF.toobig.c */; };
+		1CC109DE2452F27600F91689 /* tst.vmregsarray.d in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1CC109DC2452F09200F91689 /* tst.vmregsarray.d */; };
 		3A6CFEFD221CE36800AD777D /* ctf_api.h in Headers */ = {isa = PBXBuildFile; fileRef = 18A75450202A59D60051B921 /* ctf_api.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A6CFEFE221CE36800AD777D /* ctf.h in Headers */ = {isa = PBXBuildFile; fileRef = 18A75452202A5A7B0051B921 /* ctf.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		45C3A4491885DF2A0083C133 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 180BCA2C0F4FF4FA00889012 /* CoreSymbolication.framework */; };
+		4D90D441235067E80047F93C /* err.D_PROTO_LEN.mtonstoofew.d in Copy common/funcs */ = {isa = PBXBuildFile; fileRef = 4D90D440235067030047F93C /* err.D_PROTO_LEN.mtonstoofew.d */; };
+		4D90D442235067E80047F93C /* err.D_PROTO_LEN.mtonstoomany.d in Copy common/funcs */ = {isa = PBXBuildFile; fileRef = 4D90D43D235067030047F93C /* err.D_PROTO_LEN.mtonstoomany.d */; };
+		4D90D443235067E80047F93C /* tst.mtons.d in Copy common/funcs */ = {isa = PBXBuildFile; fileRef = 4D90D43E235067030047F93C /* tst.mtons.d */; };
+		4D90D444235067E80047F93C /* tst.mtons.out in Copy common/funcs */ = {isa = PBXBuildFile; fileRef = 4D90D43F235067030047F93C /* tst.mtons.out */; };
+		4DD1BEA52342706F00924BB2 /* tst.machctimestamp.d in Copy common/builtinvar */ = {isa = PBXBuildFile; fileRef = 4D4D52AD233B65350070D874 /* tst.machctimestamp.d */; };
 		6E45445722483AF300435CA1 /* atom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6E45445622483A9100435CA1 /* atom.cpp */; };
 		6E45445822483AF300435CA1 /* atom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6E45445622483A9100435CA1 /* atom.cpp */; };
 		6E45445922483AF400435CA1 /* atom.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 6E45445622483A9100435CA1 /* atom.cpp */; };
@@ -2465,6 +2490,76 @@
 			proxyType = 1;
 			remoteGlobalIDString = 6EBC97ED099BFB9E0001019C;
 			remoteInfo = libdtrace;
+		};
+		18FF9831244526480049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18A113D6244525A900D7E5CE;
+			remoteInfo = tst.coverage.d;
+		};
+		18FF988D24452E170049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF983C24452D410049790D;
+			remoteInfo = err.D_PDESC_ZERO.badlib.exe;
+		};
+		18FF988F24452E170049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF984524452D620049790D;
+			remoteInfo = err.D_PDESC_ZERO.badname_arm.exe;
+		};
+		18FF989124452E180049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF984E24452D720049790D;
+			remoteInfo = err.D_PROC_CREATEFAIL.many.exe;
+		};
+		18FF989324452E180049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF985724452D8E0049790D;
+			remoteInfo = err.D_PROC_FUNC.badfunc.exe;
+		};
+		18FF989524452E180049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF986024452DA00049790D;
+			remoteInfo = err.D_PROC_LIB.libdash.exe;
+		};
+		18FF989724452E180049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF986924452DB20049790D;
+			remoteInfo = err.D_PROC_NAME.alldash.exe;
+		};
+		18FF989924452E180049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF987224452DC00049790D;
+			remoteInfo = err.D_PROC_NAME.badname.exe;
+		};
+		18FF989B24452E180049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF987B24452DD40049790D;
+			remoteInfo = err.D_PROC_NAME.globdash.exe;
+		};
+		18FF989D24452E180049790D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 18FF988424452DE40049790D;
+			remoteInfo = err.D_PROC_OFF.toobig.exe;
 		};
 		3AA4B99E223AEDE2003AF00D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -3267,7 +3362,6 @@
 				18493F461EC66B2600736745 /* AllTests in Copy common test files */,
 				18493F471EC66B2800736745 /* NoSafetyTests in Copy common test files */,
 				18493F481EC66B2900736745 /* NoSafetyTests.arm in Copy common test files */,
-				18493F491EC66B2B00736745 /* NoSafetyTests.arm.tvwatchos in Copy common test files */,
 				18493F4B1EC66B3100736745 /* SafetyTests in Copy common test files */,
 			);
 			name = "Copy common test files";
@@ -3622,6 +3716,7 @@
 			files = (
 				C96F690A1EFDD41C0092780E /* tst.cpucycles.d in Copy common/builtinvar */,
 				C96F690B1EFDD41C0092780E /* tst.cpuinstrs.d in Copy common/builtinvar */,
+				4DD1BEA52342706F00924BB2 /* tst.machctimestamp.d in Copy common/builtinvar */,
 				C96F690C1EFDD41C0092780E /* tst.vcycles.d in Copy common/builtinvar */,
 				C96F690D1EFDD41C0092780E /* tst.vinstrs.d in Copy common/builtinvar */,
 				1849405F1EC6706500736745 /* err.D_XLATE_NOCONV.cpuusage.d in Copy common/builtinvar */,
@@ -3946,6 +4041,8 @@
 				1849414C1EC674B700736745 /* err.D_PROTO_LEN.stopbadarg.d in Copy common/funcs */,
 				1849414D1EC674B700736745 /* err.D_PROTO_LEN.tolowertoofew.d in Copy common/funcs */,
 				1849414E1EC674B700736745 /* err.D_PROTO_LEN.tolowertoomany.d in Copy common/funcs */,
+				4D90D441235067E80047F93C /* err.D_PROTO_LEN.mtonstoofew.d in Copy common/funcs */,
+				4D90D442235067E80047F93C /* err.D_PROTO_LEN.mtonstoomany.d in Copy common/funcs */,
 				1849414F1EC674B700736745 /* err.D_PROTO_LEN.touppertoofew.d in Copy common/funcs */,
 				184941501EC674B700736745 /* err.D_PROTO_LEN.touppertoomany.d in Copy common/funcs */,
 				184941511EC674B700736745 /* err.D_STRINGOF_TYPE.badstringof.d in Copy common/funcs */,
@@ -3970,6 +4067,7 @@
 				184941651EC674B700736745 /* tst.lltostr.d.out in Copy common/funcs */,
 				184941661EC674B700736745 /* tst.lltostrbase.d in Copy common/funcs */,
 				184941671EC674B700736745 /* tst.lltostrbase.d.out in Copy common/funcs */,
+				18EED432240C3A8E0011CD05 /* tst.physmem.destruct.d in Copy common/funcs */,
 				1849416B1EC674B700736745 /* tst.progenyof.d in Copy common/funcs */,
 				1849416C1EC674B700736745 /* tst.rand.d in Copy common/funcs */,
 				1849416D1EC674B800736745 /* tst.strchr.d in Copy common/funcs */,
@@ -3986,6 +4084,8 @@
 				184941781EC674B800736745 /* tst.system.d.out in Copy common/funcs */,
 				184941791EC674B800736745 /* tst.tolower.d in Copy common/funcs */,
 				1849417A1EC674B800736745 /* tst.tolower.out in Copy common/funcs */,
+				4D90D443235067E80047F93C /* tst.mtons.d in Copy common/funcs */,
+				4D90D444235067E80047F93C /* tst.mtons.out in Copy common/funcs */,
 				1849417B1EC674B800736745 /* tst.toupper.d in Copy common/funcs */,
 				1849417C1EC674B800736745 /* tst.toupper.out in Copy common/funcs */,
 			);
@@ -4186,25 +4286,16 @@
 			dstSubfolderSpec = 0;
 			files = (
 				184941F81EC67EFB00736745 /* err.D_PDESC_ZERO.badlib.d in Copy common/pid */,
-				184941F91EC67EFB00736745 /* err.D_PDESC_ZERO.badlib.exe in Copy common/pid */,
 				184941FA1EC67EFB00736745 /* err.D_PDESC_ZERO.badname_arm.d in Copy common/pid */,
-				184941FB1EC67EFB00736745 /* err.D_PDESC_ZERO.badname_arm.exe in Copy common/pid */,
 				184941FC1EC67EFB00736745 /* err.D_PDESC_ZERO.badproc1.d in Copy common/pid */,
 				184941FD1EC67EFB00736745 /* err.D_PROC_BADPID.badproc2.d in Copy common/pid */,
 				184942001EC67EFB00736745 /* err.D_PROC_FUNC.badfunc.d in Copy common/pid */,
-				184942011EC67EFB00736745 /* err.D_PROC_FUNC.badfunc.exe in Copy common/pid */,
 				184942021EC67EFB00736745 /* err.D_PROC_LIB.libdash.d in Copy common/pid */,
-				184942031EC67EFB00736745 /* err.D_PROC_LIB.libdash.exe in Copy common/pid */,
 				184942041EC67EFB00736745 /* err.D_PROC_NAME.alldash.d in Copy common/pid */,
-				184942051EC67EFB00736745 /* err.D_PROC_NAME.alldash.exe in Copy common/pid */,
 				184942061EC67EFB00736745 /* err.D_PROC_NAME.badname.d in Copy common/pid */,
-				184942071EC67EFB00736745 /* err.D_PROC_NAME.badname.exe in Copy common/pid */,
 				184942081EC67EFB00736745 /* err.D_PROC_NAME.globdash.d in Copy common/pid */,
-				184942091EC67EFB00736745 /* err.D_PROC_NAME.globdash.exe in Copy common/pid */,
 				1849420A1EC67EFB00736745 /* err.D_PROC_OFF.toobig.d in Copy common/pid */,
-				1849420B1EC67EFB00736745 /* err.D_PROC_OFF.toobig.exe in Copy common/pid */,
 				1849420C1EC67EFB00736745 /* tst.coverage.d in Copy common/pid */,
-				1849420D1EC67EFB00736745 /* tst.coverage.exe in Copy common/pid */,
 				184942111EC67EFB00736745 /* tst.manypids.ksh in Copy common/pid */,
 				184942121EC67EFB00736745 /* tst.oneshot_return.ksh in Copy common/pid */,
 				184942131EC67EFB00736745 /* tst.ProbeModUTF8.ksh in Copy common/pid */,
@@ -4639,6 +4730,22 @@
 			name = "Copy common/env";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		1856F472236798E2006F9A1C /* Copy common/lockstat */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(TEST_INSTALL_PATH)/common/lockstat";
+			dstSubfolderSpec = 0;
+			files = (
+				1856F47323679903006F9A1C /* tst.adaptiveprobes.d in Copy common/lockstat */,
+				1856F47423679905006F9A1C /* tst.lockprof.spin.ksh in Copy common/lockstat */,
+				1856F47523679906006F9A1C /* tst.lockprof.ticket.ksh in Copy common/lockstat */,
+				1856F47623679908006F9A1C /* tst.rwprobes.d in Copy common/lockstat */,
+				1856F4772367990B006F9A1C /* tst.spinprobes.d in Copy common/lockstat */,
+				1856F4782367990E006F9A1C /* tst.ticketprobes.d in Copy common/lockstat */,
+			);
+			name = "Copy common/lockstat";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		18588EC4210D37FE002610DA /* Copy common/objc */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -4744,6 +4851,16 @@
 			files = (
 			);
 			name = "Copy common/perf";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		1CC109DD2452F24500F91689 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(TEST_INSTALL_PATH)/i386/arrays";
+			dstSubfolderSpec = 0;
+			files = (
+				1CC109DE2452F27600F91689 /* tst.vmregsarray.d in CopyFiles */,
+			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		456E1F5C1883D7040039DA74 /* CopyFiles */ = {
@@ -4984,27 +5101,17 @@
 		1849280421FFD8D60086F741 /* usdtheadergen.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = usdtheadergen.c; path = cmd/usdtheadergen/usdtheadergen.c; sourceTree = "<group>"; };
 		1849280F2200E0BD0086F741 /* usdtheadergen.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = usdtheadergen.xcconfig; path = config/usdtheadergen.xcconfig; sourceTree = "<group>"; };
 		184939C51EC65ECD00736745 /* err.D_PDESC_ZERO.badlib.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PDESC_ZERO.badlib.d; path = test/tst/common/pid/err.D_PDESC_ZERO.badlib.d; sourceTree = "<group>"; };
-		184939C61EC65ECD00736745 /* err.D_PDESC_ZERO.badlib.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PDESC_ZERO.badlib.exe; path = test/tst/common/pid/err.D_PDESC_ZERO.badlib.exe; sourceTree = "<group>"; };
 		184939C71EC65ECD00736745 /* err.D_PDESC_ZERO.badname_arm.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PDESC_ZERO.badname_arm.d; path = test/tst/common/pid/err.D_PDESC_ZERO.badname_arm.d; sourceTree = "<group>"; };
-		184939C81EC65ECD00736745 /* err.D_PDESC_ZERO.badname_arm.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PDESC_ZERO.badname_arm.exe; path = test/tst/common/pid/err.D_PDESC_ZERO.badname_arm.exe; sourceTree = "<group>"; };
 		184939C91EC65ECD00736745 /* err.D_PDESC_ZERO.badproc1.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PDESC_ZERO.badproc1.d; path = test/tst/common/pid/err.D_PDESC_ZERO.badproc1.d; sourceTree = "<group>"; };
 		184939CA1EC65ECD00736745 /* err.D_PROC_BADPID.badproc2.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROC_BADPID.badproc2.d; path = test/tst/common/pid/err.D_PROC_BADPID.badproc2.d; sourceTree = "<group>"; };
 		184939CB1EC65ECD00736745 /* err.D_PROC_CREATEFAIL.many.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROC_CREATEFAIL.many.d; path = test/tst/common/pid/err.D_PROC_CREATEFAIL.many.d; sourceTree = "<group>"; };
-		184939CC1EC65ECD00736745 /* err.D_PROC_CREATEFAIL.many.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PROC_CREATEFAIL.many.exe; path = test/tst/common/pid/err.D_PROC_CREATEFAIL.many.exe; sourceTree = "<group>"; };
 		184939CD1EC65ECD00736745 /* err.D_PROC_FUNC.badfunc.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROC_FUNC.badfunc.d; path = test/tst/common/pid/err.D_PROC_FUNC.badfunc.d; sourceTree = "<group>"; };
-		184939CE1EC65ECD00736745 /* err.D_PROC_FUNC.badfunc.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PROC_FUNC.badfunc.exe; path = test/tst/common/pid/err.D_PROC_FUNC.badfunc.exe; sourceTree = "<group>"; };
 		184939CF1EC65ECD00736745 /* err.D_PROC_LIB.libdash.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROC_LIB.libdash.d; path = test/tst/common/pid/err.D_PROC_LIB.libdash.d; sourceTree = "<group>"; };
-		184939D01EC65ECD00736745 /* err.D_PROC_LIB.libdash.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PROC_LIB.libdash.exe; path = test/tst/common/pid/err.D_PROC_LIB.libdash.exe; sourceTree = "<group>"; };
 		184939D11EC65ECD00736745 /* err.D_PROC_NAME.alldash.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROC_NAME.alldash.d; path = test/tst/common/pid/err.D_PROC_NAME.alldash.d; sourceTree = "<group>"; };
-		184939D21EC65ECD00736745 /* err.D_PROC_NAME.alldash.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PROC_NAME.alldash.exe; path = test/tst/common/pid/err.D_PROC_NAME.alldash.exe; sourceTree = "<group>"; };
 		184939D31EC65ECD00736745 /* err.D_PROC_NAME.badname.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROC_NAME.badname.d; path = test/tst/common/pid/err.D_PROC_NAME.badname.d; sourceTree = "<group>"; };
-		184939D41EC65ECD00736745 /* err.D_PROC_NAME.badname.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PROC_NAME.badname.exe; path = test/tst/common/pid/err.D_PROC_NAME.badname.exe; sourceTree = "<group>"; };
 		184939D51EC65ECD00736745 /* err.D_PROC_NAME.globdash.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROC_NAME.globdash.d; path = test/tst/common/pid/err.D_PROC_NAME.globdash.d; sourceTree = "<group>"; };
-		184939D61EC65ECD00736745 /* err.D_PROC_NAME.globdash.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PROC_NAME.globdash.exe; path = test/tst/common/pid/err.D_PROC_NAME.globdash.exe; sourceTree = "<group>"; };
 		184939D71EC65ECD00736745 /* err.D_PROC_OFF.toobig.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROC_OFF.toobig.d; path = test/tst/common/pid/err.D_PROC_OFF.toobig.d; sourceTree = "<group>"; };
-		184939D81EC65ECD00736745 /* err.D_PROC_OFF.toobig.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = err.D_PROC_OFF.toobig.exe; path = test/tst/common/pid/err.D_PROC_OFF.toobig.exe; sourceTree = "<group>"; };
 		184939D91EC65ECD00736745 /* tst.coverage.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.coverage.d; path = test/tst/common/pid/tst.coverage.d; sourceTree = "<group>"; };
-		184939DA1EC65ECD00736745 /* tst.coverage.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = tst.coverage.exe; path = test/tst/common/pid/tst.coverage.exe; sourceTree = "<group>"; };
 		184939DB1EC65ECD00736745 /* tst.emptystack.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.emptystack.d; path = test/tst/common/pid/tst.emptystack.d; sourceTree = "<group>"; };
 		184939DC1EC65ECD00736745 /* tst.emptystack.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.emptystack.d.out; path = test/tst/common/pid/tst.emptystack.d.out; sourceTree = "<group>"; };
 		184939DD1EC65ECD00736745 /* tst.emptystack.exe */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = tst.emptystack.exe; path = test/tst/common/pid/tst.emptystack.exe; sourceTree = "<group>"; };
@@ -5112,7 +5219,6 @@
 		18493A4B1EC6616B00736745 /* err.D_SYNTAX.TypedefInClause.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_SYNTAX.TypedefInClause.d; path = test/tst/common/typedef/err.D_SYNTAX.TypedefInClause.d; sourceTree = "<group>"; };
 		18493A4C1EC6616B00736745 /* tst.ChainTypedef.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.ChainTypedef.d; path = test/tst/common/typedef/tst.ChainTypedef.d; sourceTree = "<group>"; };
 		18493A4D1EC6616B00736745 /* tst.TypedefDataAssign.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.TypedefDataAssign.d; path = test/tst/common/typedef/tst.TypedefDataAssign.d; sourceTree = "<group>"; };
-		18493A4E1EC6617700736745 /* NoSafetyTests.arm.tvwatchos */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = NoSafetyTests.arm.tvwatchos; path = test/tst/common/NoSafetyTests.arm.tvwatchos; sourceTree = "<group>"; };
 		18493A501EC661B200736745 /* err.D_DECL_TYPERED.BadTransDecl.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_DECL_TYPERED.BadTransDecl.d; path = test/tst/common/translators/err.D_DECL_TYPERED.BadTransDecl.d; sourceTree = "<group>"; };
 		18493A511EC661B200736745 /* err.D_OP_INCOMPLETE.NonExistentInput1.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_OP_INCOMPLETE.NonExistentInput1.d; path = test/tst/common/translators/err.D_OP_INCOMPLETE.NonExistentInput1.d; sourceTree = "<group>"; };
 		18493A521EC661B200736745 /* err.D_SYNTAX.BadTransDecl1.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_SYNTAX.BadTransDecl1.d; path = test/tst/common/translators/err.D_SYNTAX.BadTransDecl1.d; sourceTree = "<group>"; };
@@ -6328,6 +6434,12 @@
 		185369E81E4BEC9D0091707E /* tst.sse3.movshdup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tst.sse3.movshdup.c; path = test/tst/i386/pid/tst.sse3.movshdup.c; sourceTree = "<group>"; };
 		185369E91E4BEC9D0091707E /* tst.sse3.movshdup.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.sse3.movshdup.d; path = test/tst/i386/pid/tst.sse3.movshdup.d; sourceTree = "<group>"; };
 		185369F31E4BECAA0091707E /* tst.sse3.movshdup.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tst.sse3.movshdup.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		1856F46C236798D6006F9A1C /* tst.adaptiveprobes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.adaptiveprobes.d; path = test/tst/common/lockstat/tst.adaptiveprobes.d; sourceTree = "<group>"; };
+		1856F46D236798D6006F9A1C /* tst.spinprobes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.spinprobes.d; path = test/tst/common/lockstat/tst.spinprobes.d; sourceTree = "<group>"; };
+		1856F46E236798D6006F9A1C /* tst.ticketprobes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.ticketprobes.d; path = test/tst/common/lockstat/tst.ticketprobes.d; sourceTree = "<group>"; };
+		1856F46F236798D6006F9A1C /* tst.lockprof.spin.ksh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.lockprof.spin.ksh; path = test/tst/common/lockstat/tst.lockprof.spin.ksh; sourceTree = "<group>"; };
+		1856F470236798D6006F9A1C /* tst.rwprobes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.rwprobes.d; path = test/tst/common/lockstat/tst.rwprobes.d; sourceTree = "<group>"; };
+		1856F471236798D7006F9A1C /* tst.lockprof.ticket.ksh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.lockprof.ticket.ksh; path = test/tst/common/lockstat/tst.lockprof.ticket.ksh; sourceTree = "<group>"; };
 		18588EC2210D37EF002610DA /* tst.TrampolineBlacklist.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = tst.TrampolineBlacklist.m; path = test/tst/common/objc/tst.TrampolineBlacklist.m; sourceTree = "<group>"; };
 		18588EC3210D37EF002610DA /* tst.TrampolineBlacklist.ksh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = tst.TrampolineBlacklist.ksh; path = test/tst/common/objc/tst.TrampolineBlacklist.ksh; sourceTree = "<group>"; };
 		18588EC7210D385F002610DA /* test_objc.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = test_objc.xcconfig; path = config/tests/test_objc.xcconfig; sourceTree = "<group>"; };
@@ -6507,6 +6619,8 @@
 		189D49C91C3D6667002613B0 /* tst.userlandkey.d.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.userlandkey.d.out; path = test/tst/common/types/tst.userlandkey.d.out; sourceTree = "<group>"; };
 		189D49CA1C3D6667002613B0 /* tst.userlandkey.ksh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.userlandkey.ksh; path = test/tst/common/types/tst.userlandkey.ksh; sourceTree = "<group>"; };
 		189D49D21C3D6669002613B0 /* tst.userlandkey.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tst.userlandkey.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18A113DD244525A900D7E5CE /* tst.coverage.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tst.coverage.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18A113DE244525CE00D7E5CE /* tst.coverage.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tst.coverage.c; path = test/tst/common/pid/tst.coverage.c; sourceTree = "<group>"; };
 		18A1C7E02040E76B007833A7 /* badioctl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = badioctl.c; path = test/cmd/badioctl/badioctl.c; sourceTree = "<group>"; };
 		18A1C7E12040E778007833A7 /* dtrace_local_executable.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = dtrace_local_executable.xcconfig; path = config/dtrace_local_executable.xcconfig; sourceTree = "<group>"; };
 		18A1C7F22040E789007833A7 /* badioctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = badioctl; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -6632,6 +6746,7 @@
 		18EB6891206475990047663F /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		18EB6893206477BD0047663F /* perf.probes.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = perf.probes.m; path = test/tst/common/perf/perf.probes.m; sourceTree = "<group>"; };
 		18EB6895206576C70047663F /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		18EED431240C3A7A0011CD05 /* tst.physmem.destruct.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.physmem.destruct.d; path = test/tst/common/funcs/tst.physmem.destruct.d; sourceTree = "<group>"; };
 		18F2858A151EB3B2009134A0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = ../../../../../../../../System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<group>"; };
 		18FC8F8B1EB3D65D0021B66C /* test_lib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_lib.c; path = test/tst/common/processcontrol/test_lib.c; sourceTree = "<group>"; };
 		18FC90061EB3D6620021B66C /* test_lib.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = test_lib.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -6655,8 +6770,32 @@
 		18FD7C8421F76EF60036A80C /* Accounts.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Accounts.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/Accounts.framework; sourceTree = DEVELOPER_DIR; };
 		18FD7C8621F76EFD0036A80C /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/usr/lib/libc++.tbd"; sourceTree = DEVELOPER_DIR; };
 		18FDD3830FA186E90024C54F /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
+		18FF983324452D2B0049790D /* err.D_PDESC_ZERO.badlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PDESC_ZERO.badlib.c; path = test/tst/common/pid/err.D_PDESC_ZERO.badlib.c; sourceTree = "<group>"; };
+		18FF983424452D2B0049790D /* err.D_PDESC_ZERO.badname_arm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PDESC_ZERO.badname_arm.c; path = test/tst/common/pid/err.D_PDESC_ZERO.badname_arm.c; sourceTree = "<group>"; };
+		18FF983524452D2C0049790D /* err.D_PROC_OFF.toobig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PROC_OFF.toobig.c; path = test/tst/common/pid/err.D_PROC_OFF.toobig.c; sourceTree = "<group>"; };
+		18FF983624452D2C0049790D /* err.D_PROC_FUNC.badfunc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PROC_FUNC.badfunc.c; path = test/tst/common/pid/err.D_PROC_FUNC.badfunc.c; sourceTree = "<group>"; };
+		18FF983724452D2C0049790D /* err.D_PROC_NAME.alldash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PROC_NAME.alldash.c; path = test/tst/common/pid/err.D_PROC_NAME.alldash.c; sourceTree = "<group>"; };
+		18FF983824452D2C0049790D /* err.D_PROC_LIB.libdash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PROC_LIB.libdash.c; path = test/tst/common/pid/err.D_PROC_LIB.libdash.c; sourceTree = "<group>"; };
+		18FF983924452D2C0049790D /* err.D_PROC_NAME.badname.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PROC_NAME.badname.c; path = test/tst/common/pid/err.D_PROC_NAME.badname.c; sourceTree = "<group>"; };
+		18FF983A24452D2C0049790D /* err.D_PROC_NAME.globdash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PROC_NAME.globdash.c; path = test/tst/common/pid/err.D_PROC_NAME.globdash.c; sourceTree = "<group>"; };
+		18FF983B24452D2D0049790D /* err.D_PROC_CREATEFAIL.many.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = err.D_PROC_CREATEFAIL.many.c; path = test/tst/common/pid/err.D_PROC_CREATEFAIL.many.c; sourceTree = "<group>"; };
+		18FF984324452D410049790D /* err.D_PDESC_ZERO.badlib.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PDESC_ZERO.badlib.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18FF984C24452D620049790D /* err.D_PDESC_ZERO.badname_arm.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PDESC_ZERO.badname_arm.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18FF985524452D720049790D /* err.D_PROC_CREATEFAIL.many.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PROC_CREATEFAIL.many.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18FF985E24452D8E0049790D /* err.D_PROC_FUNC.badfunc.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PROC_FUNC.badfunc.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18FF986724452DA00049790D /* err.D_PROC_LIB.libdash.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PROC_LIB.libdash.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18FF987024452DB30049790D /* err.D_PROC_NAME.alldash.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PROC_NAME.alldash.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18FF987924452DC00049790D /* err.D_PROC_NAME.badname.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PROC_NAME.badname.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18FF988224452DD40049790D /* err.D_PROC_NAME.globdash.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PROC_NAME.globdash.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		18FF988B24452DE40049790D /* err.D_PROC_OFF.toobig.exe */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = err.D_PROC_OFF.toobig.exe; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CC109DC2452F09200F91689 /* tst.vmregsarray.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.vmregsarray.d; path = test/tst/i386/arrays/tst.vmregsarray.d; sourceTree = "<group>"; };
 		456E1F611883D7040039DA74 /* lockstat */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lockstat; sourceTree = BUILT_PRODUCTS_DIR; };
 		45A48B3618194C410034E526 /* ctftools.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = ctftools.xcconfig; path = config/ctftools.xcconfig; sourceTree = "<group>"; };
+		4D4D52AD233B65350070D874 /* tst.machctimestamp.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.machctimestamp.d; path = test/tst/common/builtinvar/tst.machctimestamp.d; sourceTree = "<group>"; };
+		4D90D43D235067030047F93C /* err.D_PROTO_LEN.mtonstoomany.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROTO_LEN.mtonstoomany.d; path = test/tst/common/funcs/err.D_PROTO_LEN.mtonstoomany.d; sourceTree = "<group>"; };
+		4D90D43E235067030047F93C /* tst.mtons.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = tst.mtons.d; path = test/tst/common/funcs/tst.mtons.d; sourceTree = "<group>"; };
+		4D90D43F235067030047F93C /* tst.mtons.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = tst.mtons.out; path = test/tst/common/funcs/tst.mtons.out; sourceTree = "<group>"; };
+		4D90D440235067030047F93C /* err.D_PROTO_LEN.mtonstoofew.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = err.D_PROTO_LEN.mtonstoofew.d; path = test/tst/common/funcs/err.D_PROTO_LEN.mtonstoofew.d; sourceTree = "<group>"; };
 		6E45445522483A9000435CA1 /* atom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = atom.h; path = tools/ctfconvert/atom.h; sourceTree = "<group>"; };
 		6E45445622483A9100435CA1 /* atom.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = atom.cpp; path = tools/ctfconvert/atom.cpp; sourceTree = "<group>"; };
 		6E4B3B2722482A6400A2CFFF /* include */ = {isa = PBXFileReference; lastKnownFileType = folder; path = include; sourceTree = "<group>"; };
@@ -7083,6 +7222,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		18A113D9244525A900D7E5CE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		18A1C7E92040E789007833A7 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -7130,6 +7276,69 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		18FD74851E85B20F00CC1E79 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF983F24452D410049790D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF984824452D620049790D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF985124452D720049790D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF985A24452D8E0049790D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF986324452DA00049790D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF986C24452DB20049790D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF987524452DC00049790D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF987E24452DD40049790D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF988724452DE40049790D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -8382,6 +8591,8 @@
 				18493D131EC6663600736745 /* err.D_PROTO_LEN.mtabadarg.d */,
 				18493D141EC6663600736745 /* err.D_PROTO_LEN.mtatoofew.d */,
 				18493D151EC6663600736745 /* err.D_PROTO_LEN.mtatoomany.d */,
+				4D90D440235067030047F93C /* err.D_PROTO_LEN.mtonstoofew.d */,
+				4D90D43D235067030047F93C /* err.D_PROTO_LEN.mtonstoomany.d */,
 				18493D161EC6663600736745 /* err.D_PROTO_LEN.panicbadarg.d */,
 				18493D171EC6663600736745 /* err.D_PROTO_LEN.progenyofbad2.d */,
 				18493D181EC6663600736745 /* err.D_PROTO_LEN.stopbadarg.d */,
@@ -8412,9 +8623,12 @@
 				18493D311EC6663600736745 /* tst.lltostr.d.out */,
 				18493D321EC6663600736745 /* tst.lltostrbase.d */,
 				18493D331EC6663600736745 /* tst.lltostrbase.d.out */,
+				4D90D43E235067030047F93C /* tst.mtons.d */,
+				4D90D43F235067030047F93C /* tst.mtons.out */,
 				18493D341EC6663600736745 /* tst.mutex_owned.d */,
 				18493D351EC6663600736745 /* tst.mutex_owner.d */,
 				18493D361EC6663600736745 /* tst.mutex_type_adaptive.d */,
+				18EED431240C3A7A0011CD05 /* tst.physmem.destruct.d */,
 				18493D371EC6663600736745 /* tst.progenyof.d */,
 				18493D381EC6663600736745 /* tst.rand.d */,
 				18493D391EC6663700736745 /* tst.strchr.d */,
@@ -8716,6 +8930,7 @@
 				18493E1F1EC6674600736745 /* tst.cpu.d */,
 				C92456991EFDD31600F3B938 /* tst.cpucycles.d */,
 				C924569C1EFDD31700F3B938 /* tst.cpuinstrs.d */,
+				4D4D52AD233B65350070D874 /* tst.machctimestamp.d */,
 				18493E201EC6674600736745 /* tst.epid.d */,
 				18493E211EC6674600736745 /* tst.epid1.d */,
 				18493E221EC6674600736745 /* tst.errno.d */,
@@ -9082,6 +9297,19 @@
 			name = env;
 			sourceTree = "<group>";
 		};
+		1856F46B236798B3006F9A1C /* lockstat */ = {
+			isa = PBXGroup;
+			children = (
+				1856F46C236798D6006F9A1C /* tst.adaptiveprobes.d */,
+				1856F46F236798D6006F9A1C /* tst.lockprof.spin.ksh */,
+				1856F471236798D7006F9A1C /* tst.lockprof.ticket.ksh */,
+				1856F470236798D6006F9A1C /* tst.rwprobes.d */,
+				1856F46D236798D6006F9A1C /* tst.spinprobes.d */,
+				1856F46E236798D6006F9A1C /* tst.ticketprobes.d */,
+			);
+			name = lockstat;
+			sourceTree = "<group>";
+		};
 		18588EC1210D37D5002610DA /* objc */ = {
 			isa = PBXGroup;
 			children = (
@@ -9305,12 +9533,12 @@
 				18DB9CE11F4507280003D865 /* json */,
 				18493CCF1EC665B000736745 /* lexer */,
 				18493CA81EC665A100736745 /* llquantize */,
+				1856F46B236798B3006F9A1C /* lockstat */,
 				18493CA41EC6658900736745 /* mib */,
 				18493C981EC6657900736745 /* misc */,
 				18493C851EC6656600736745 /* multiaggs */,
 				189D45891C3AA84F002613B0 /* NoSafetyTests */,
 				189D458A1C3AA84F002613B0 /* NoSafetyTests.arm */,
-				18493A4E1EC6617700736745 /* NoSafetyTests.arm.tvwatchos */,
 				18588EC1210D37D5002610DA /* objc */,
 				18493C781EC6655500736745 /* offsetof */,
 				18493C751EC6654300736745 /* operators */,
@@ -9377,49 +9605,49 @@
 		189D48731C3D2A6C002613B0 /* pid */ = {
 			isa = PBXGroup;
 			children = (
+				18FF983324452D2B0049790D /* err.D_PDESC_ZERO.badlib.c */,
 				184939C51EC65ECD00736745 /* err.D_PDESC_ZERO.badlib.d */,
-				184939C61EC65ECD00736745 /* err.D_PDESC_ZERO.badlib.exe */,
+				18FF983424452D2B0049790D /* err.D_PDESC_ZERO.badname_arm.c */,
 				184939C71EC65ECD00736745 /* err.D_PDESC_ZERO.badname_arm.d */,
-				184939C81EC65ECD00736745 /* err.D_PDESC_ZERO.badname_arm.exe */,
 				184939C91EC65ECD00736745 /* err.D_PDESC_ZERO.badproc1.d */,
 				184939CA1EC65ECD00736745 /* err.D_PROC_BADPID.badproc2.d */,
+				18FF983B24452D2D0049790D /* err.D_PROC_CREATEFAIL.many.c */,
 				184939CB1EC65ECD00736745 /* err.D_PROC_CREATEFAIL.many.d */,
-				184939CC1EC65ECD00736745 /* err.D_PROC_CREATEFAIL.many.exe */,
+				18FF983624452D2C0049790D /* err.D_PROC_FUNC.badfunc.c */,
 				184939CD1EC65ECD00736745 /* err.D_PROC_FUNC.badfunc.d */,
-				184939CE1EC65ECD00736745 /* err.D_PROC_FUNC.badfunc.exe */,
+				18FF983824452D2C0049790D /* err.D_PROC_LIB.libdash.c */,
 				184939CF1EC65ECD00736745 /* err.D_PROC_LIB.libdash.d */,
-				184939D01EC65ECD00736745 /* err.D_PROC_LIB.libdash.exe */,
+				18FF983724452D2C0049790D /* err.D_PROC_NAME.alldash.c */,
 				184939D11EC65ECD00736745 /* err.D_PROC_NAME.alldash.d */,
-				184939D21EC65ECD00736745 /* err.D_PROC_NAME.alldash.exe */,
+				18FF983924452D2C0049790D /* err.D_PROC_NAME.badname.c */,
 				184939D31EC65ECD00736745 /* err.D_PROC_NAME.badname.d */,
-				184939D41EC65ECD00736745 /* err.D_PROC_NAME.badname.exe */,
+				18FF983A24452D2C0049790D /* err.D_PROC_NAME.globdash.c */,
 				184939D51EC65ECD00736745 /* err.D_PROC_NAME.globdash.d */,
-				184939D61EC65ECD00736745 /* err.D_PROC_NAME.globdash.exe */,
+				18FF983524452D2C0049790D /* err.D_PROC_OFF.toobig.c */,
 				184939D71EC65ECD00736745 /* err.D_PROC_OFF.toobig.d */,
-				184939D81EC65ECD00736745 /* err.D_PROC_OFF.toobig.exe */,
+				189D48861C3D2A80002613B0 /* tst.args1.c */,
+				189D48871C3D2A80002613B0 /* tst.args1.d */,
+				18A113DE244525CE00D7E5CE /* tst.coverage.c */,
 				184939D91EC65ECD00736745 /* tst.coverage.d */,
-				184939DA1EC65ECD00736745 /* tst.coverage.exe */,
+				189D488A1C3D2A80002613B0 /* tst.dlopen.c */,
+				189D488B1C3D2A80002613B0 /* tst.dlopen.ksh */,
 				184939DB1EC65ECD00736745 /* tst.emptystack.d */,
 				184939DC1EC65ECD00736745 /* tst.emptystack.d.out */,
 				184939DD1EC65ECD00736745 /* tst.emptystack.exe */,
-				184939DE1EC65ECD00736745 /* tst.manypids.ksh */,
-				184939DF1EC65ECD00736745 /* tst.oneshot_return.ksh */,
-				184939E01EC65ECD00736745 /* tst.ProbeModUTF8.ksh */,
-				184939E11EC65ECD00736745 /* tst.ProbeModUTF8.ksh.out */,
-				189D48861C3D2A80002613B0 /* tst.args1.c */,
-				189D48871C3D2A80002613B0 /* tst.args1.d */,
-				189D488A1C3D2A80002613B0 /* tst.dlopen.c */,
-				189D488B1C3D2A80002613B0 /* tst.dlopen.ksh */,
 				189D488F1C3D2A80002613B0 /* tst.float.c */,
 				189D48901C3D2A80002613B0 /* tst.float.d */,
 				189D48911C3D2A80002613B0 /* tst.fork.c */,
 				189D48921C3D2A80002613B0 /* tst.fork.d */,
 				189D48931C3D2A80002613B0 /* tst.gcc.c */,
 				189D48941C3D2A80002613B0 /* tst.gcc.d */,
-				18202A8D1E43DF1E004EC15E /* tst.oneshot.c */,
-				18202A8E1E43DF1E004EC15E /* tst.oneshot.ksh */,
+				184939DE1EC65ECD00736745 /* tst.manypids.ksh */,
 				18202A9D1E453636004EC15E /* tst.oneshot_multithreaded.c */,
 				18202A9E1E453636004EC15E /* tst.oneshot_multithreaded.ksh */,
+				184939DF1EC65ECD00736745 /* tst.oneshot_return.ksh */,
+				18202A8D1E43DF1E004EC15E /* tst.oneshot.c */,
+				18202A8E1E43DF1E004EC15E /* tst.oneshot.ksh */,
+				184939E01EC65ECD00736745 /* tst.ProbeModUTF8.ksh */,
+				184939E11EC65ECD00736745 /* tst.ProbeModUTF8.ksh.out */,
 				189D48981C3D2A80002613B0 /* tst.ret1.c */,
 				189D48991C3D2A80002613B0 /* tst.ret1.d */,
 				189D489A1C3D2A80002613B0 /* tst.ret2.c */,
@@ -9473,6 +9701,7 @@
 		189D49471C3D5485002613B0 /* i386 */ = {
 			isa = PBXGroup;
 			children = (
+				1CC109DC2452F09200F91689 /* tst.vmregsarray.d */,
 				189D49481C3D5490002613B0 /* pid */,
 			);
 			name = i386;
@@ -9792,6 +10021,16 @@
 				18588ECF210D3882002610DA /* tst.TrampolineBlacklist.exe */,
 				186BF9E521BB40930020C1C7 /* perf.launchtime.exe */,
 				1849280221FFD8B10086F741 /* usdtheadergen */,
+				18A113DD244525A900D7E5CE /* tst.coverage.exe */,
+				18FF984324452D410049790D /* err.D_PDESC_ZERO.badlib.exe */,
+				18FF984C24452D620049790D /* err.D_PDESC_ZERO.badname_arm.exe */,
+				18FF985524452D720049790D /* err.D_PROC_CREATEFAIL.many.exe */,
+				18FF985E24452D8E0049790D /* err.D_PROC_FUNC.badfunc.exe */,
+				18FF986724452DA00049790D /* err.D_PROC_LIB.libdash.exe */,
+				18FF987024452DB30049790D /* err.D_PROC_NAME.alldash.exe */,
+				18FF987924452DC00049790D /* err.D_PROC_NAME.badname.exe */,
+				18FF988224452DD40049790D /* err.D_PROC_NAME.globdash.exe */,
+				18FF988B24452DE40049790D /* err.D_PROC_OFF.toobig.exe */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -10835,6 +11074,22 @@
 			productReference = 189D49D21C3D6669002613B0 /* tst.userlandkey.exe */;
 			productType = "com.apple.product-type.tool";
 		};
+		18A113D6244525A900D7E5CE /* tst.coverage.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18A113DA244525A900D7E5CE /* Build configuration list for PBXNativeTarget "tst.coverage.exe" */;
+			buildPhases = (
+				18A113D7244525A900D7E5CE /* Sources */,
+				18A113D9244525A900D7E5CE /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = tst.coverage.exe;
+			productName = ctfmerge;
+			productReference = 18A113DD244525A900D7E5CE /* tst.coverage.exe */;
+			productType = "com.apple.product-type.tool";
+		};
 		18A1C7E22040E789007833A7 /* badioctl */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 18A1C7EF2040E789007833A7 /* Build configuration list for PBXNativeTarget "badioctl" */;
@@ -10952,6 +11207,150 @@
 			name = tst.return.exe;
 			productName = ctfmerge;
 			productReference = 18FD74891E85B20F00CC1E79 /* tst.return.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF983C24452D410049790D /* err.D_PDESC_ZERO.badlib.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF984024452D410049790D /* Build configuration list for PBXNativeTarget "err.D_PDESC_ZERO.badlib.exe" */;
+			buildPhases = (
+				18FF983D24452D410049790D /* Sources */,
+				18FF983F24452D410049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PDESC_ZERO.badlib.exe;
+			productName = ctfmerge;
+			productReference = 18FF984324452D410049790D /* err.D_PDESC_ZERO.badlib.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF984524452D620049790D /* err.D_PDESC_ZERO.badname_arm.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF984924452D620049790D /* Build configuration list for PBXNativeTarget "err.D_PDESC_ZERO.badname_arm.exe" */;
+			buildPhases = (
+				18FF984624452D620049790D /* Sources */,
+				18FF984824452D620049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PDESC_ZERO.badname_arm.exe;
+			productName = ctfmerge;
+			productReference = 18FF984C24452D620049790D /* err.D_PDESC_ZERO.badname_arm.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF984E24452D720049790D /* err.D_PROC_CREATEFAIL.many.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF985224452D720049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_CREATEFAIL.many.exe" */;
+			buildPhases = (
+				18FF984F24452D720049790D /* Sources */,
+				18FF985124452D720049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PROC_CREATEFAIL.many.exe;
+			productName = ctfmerge;
+			productReference = 18FF985524452D720049790D /* err.D_PROC_CREATEFAIL.many.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF985724452D8E0049790D /* err.D_PROC_FUNC.badfunc.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF985B24452D8E0049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_FUNC.badfunc.exe" */;
+			buildPhases = (
+				18FF985824452D8E0049790D /* Sources */,
+				18FF985A24452D8E0049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PROC_FUNC.badfunc.exe;
+			productName = ctfmerge;
+			productReference = 18FF985E24452D8E0049790D /* err.D_PROC_FUNC.badfunc.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF986024452DA00049790D /* err.D_PROC_LIB.libdash.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF986424452DA00049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_LIB.libdash.exe" */;
+			buildPhases = (
+				18FF986124452DA00049790D /* Sources */,
+				18FF986324452DA00049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PROC_LIB.libdash.exe;
+			productName = ctfmerge;
+			productReference = 18FF986724452DA00049790D /* err.D_PROC_LIB.libdash.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF986924452DB20049790D /* err.D_PROC_NAME.alldash.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF986D24452DB20049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_NAME.alldash.exe" */;
+			buildPhases = (
+				18FF986A24452DB20049790D /* Sources */,
+				18FF986C24452DB20049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PROC_NAME.alldash.exe;
+			productName = ctfmerge;
+			productReference = 18FF987024452DB30049790D /* err.D_PROC_NAME.alldash.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF987224452DC00049790D /* err.D_PROC_NAME.badname.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF987624452DC00049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_NAME.badname.exe" */;
+			buildPhases = (
+				18FF987324452DC00049790D /* Sources */,
+				18FF987524452DC00049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PROC_NAME.badname.exe;
+			productName = ctfmerge;
+			productReference = 18FF987924452DC00049790D /* err.D_PROC_NAME.badname.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF987B24452DD40049790D /* err.D_PROC_NAME.globdash.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF987F24452DD40049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_NAME.globdash.exe" */;
+			buildPhases = (
+				18FF987C24452DD40049790D /* Sources */,
+				18FF987E24452DD40049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PROC_NAME.globdash.exe;
+			productName = ctfmerge;
+			productReference = 18FF988224452DD40049790D /* err.D_PROC_NAME.globdash.exe */;
+			productType = "com.apple.product-type.tool";
+		};
+		18FF988424452DE40049790D /* err.D_PROC_OFF.toobig.exe */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 18FF988824452DE40049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_OFF.toobig.exe" */;
+			buildPhases = (
+				18FF988524452DE40049790D /* Sources */,
+				18FF988724452DE40049790D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = err.D_PROC_OFF.toobig.exe;
+			productName = ctfmerge;
+			productReference = 18FF988B24452DE40049790D /* err.D_PROC_OFF.toobig.exe */;
 			productType = "com.apple.product-type.tool";
 		};
 		456E1F561883D7040039DA74 /* lockstat */ = {
@@ -11200,11 +11599,21 @@
 				186BF9DC21BB40930020C1C7 /* perf.launchtime.exe */,
 				189D49541C3D54A4002613B0 /* perf.overhead.exe */,
 				1864396D2003E42C00DC0864 /* perf.usdt_overhead.exe */,
+				18FF983C24452D410049790D /* err.D_PDESC_ZERO.badlib.exe */,
+				18FF984524452D620049790D /* err.D_PDESC_ZERO.badname_arm.exe */,
+				18FF984E24452D720049790D /* err.D_PROC_CREATEFAIL.many.exe */,
+				18FF985724452D8E0049790D /* err.D_PROC_FUNC.badfunc.exe */,
+				18FF986024452DA00049790D /* err.D_PROC_LIB.libdash.exe */,
+				18FF986924452DB20049790D /* err.D_PROC_NAME.alldash.exe */,
+				18FF987224452DC00049790D /* err.D_PROC_NAME.badname.exe */,
+				18FF987B24452DD40049790D /* err.D_PROC_NAME.globdash.exe */,
+				18FF988424452DE40049790D /* err.D_PROC_OFF.toobig.exe */,
 				18EB6884206442680047663F /* perf.probes.exe */,
 				1858EF3B1E80A6070062F48D /* tst.angle_brackets.exe */,
 				186DF6191D6F24F100476464 /* tst.basic.exe */,
 				189D48471C3D27BF002613B0 /* tst.fds.exe */,
 				189D486B1C3D2A44002613B0 /* tst.args1.exe */,
+				18A113D6244525A900D7E5CE /* tst.coverage.exe */,
 				189D493F1C3D49E1002613B0 /* tst.dlopen.exe */,
 				189D48A51C3D2C31002613B0 /* tst.float.exe */,
 				189D48AE1C3D2C45002613B0 /* tst.fork.exe */,
@@ -11257,7 +11666,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "if [[ $CURRENT_ARCH == \"arm\"* ]]; then\ninstall -d $DSTROOT/usr/lib/dtrace/arm\ninstall -d $DSTROOT/usr/lib/dtrace/arm64\ninstall $SRCROOT/scripts/swift_arm.d $DSTROOT/usr/lib/dtrace/arm/swift_arm.d\ninstall $SRCROOT/scripts/swift_arm64.d $DSTROOT/usr/lib/dtrace/arm64/swift_arm64.d\nelif [[ $CURRENT_ARCH == \"x86\"* ]]; then\ninstall -d $DSTROOT/usr/lib/dtrace/x86_64\ninstall $SRCROOT/scripts/swift_x86_64.d $DSTROOT/usr/lib/dtrace/x86_64/swift_x86_64.d\nfi\n";
+			shellScript = "if [[ $ARCHS =~ (^| )arm ]]; then\ninstall -d $DSTROOT/usr/lib/dtrace/arm\ninstall -d $DSTROOT/usr/lib/dtrace/arm64\ninstall $SRCROOT/scripts/swift_arm.d $DSTROOT/usr/lib/dtrace/arm/swift_arm.d\ninstall $SRCROOT/scripts/swift_arm64.d $DSTROOT/usr/lib/dtrace/arm64/swift_arm64.d\nfi\nif [[ $ARCHS =~ (^| )x86 ]]; then\ninstall -d $DSTROOT/usr/lib/dtrace/x86_64\ninstall $SRCROOT/scripts/swift_x86_64.d $DSTROOT/usr/lib/dtrace/x86_64/swift_x86_64.d\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -11533,6 +11942,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		18A113D7244525A900D7E5CE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18A113DF244525DA00D7E5CE /* tst.coverage.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		18A1C7E72040E789007833A7 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -11588,6 +12005,78 @@
 			buildActionMask = 2147483647;
 			files = (
 				18FD748A1E85B21A00CC1E79 /* tst.return.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF983D24452D410049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF984424452D5F0049790D /* err.D_PDESC_ZERO.badlib.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF984624452D620049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF984D24452D6F0049790D /* err.D_PDESC_ZERO.badname_arm.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF984F24452D720049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF985624452D880049790D /* err.D_PROC_CREATEFAIL.many.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF985824452D8E0049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF985F24452D9E0049790D /* err.D_PROC_FUNC.badfunc.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF986124452DA00049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF986824452DB10049790D /* err.D_PROC_LIB.libdash.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF986A24452DB20049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF987124452DBC0049790D /* err.D_PROC_NAME.alldash.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF987324452DC00049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF987A24452DD10049790D /* err.D_PROC_NAME.badname.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF987C24452DD40049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF988324452DE10049790D /* err.D_PROC_NAME.globdash.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		18FF988524452DE40049790D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				18FF988C24452DF00049790D /* err.D_PROC_OFF.toobig.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -12142,6 +12631,56 @@
 			isa = PBXTargetDependency;
 			target = 6EBC97ED099BFB9E0001019C /* libdtrace */;
 			targetProxy = 18FD7C8221F76C9B0036A80C /* PBXContainerItemProxy */;
+		};
+		18FF9832244526480049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18A113D6244525A900D7E5CE /* tst.coverage.exe */;
+			targetProxy = 18FF9831244526480049790D /* PBXContainerItemProxy */;
+		};
+		18FF988E24452E170049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF983C24452D410049790D /* err.D_PDESC_ZERO.badlib.exe */;
+			targetProxy = 18FF988D24452E170049790D /* PBXContainerItemProxy */;
+		};
+		18FF989024452E170049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF984524452D620049790D /* err.D_PDESC_ZERO.badname_arm.exe */;
+			targetProxy = 18FF988F24452E170049790D /* PBXContainerItemProxy */;
+		};
+		18FF989224452E180049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF984E24452D720049790D /* err.D_PROC_CREATEFAIL.many.exe */;
+			targetProxy = 18FF989124452E180049790D /* PBXContainerItemProxy */;
+		};
+		18FF989424452E180049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF985724452D8E0049790D /* err.D_PROC_FUNC.badfunc.exe */;
+			targetProxy = 18FF989324452E180049790D /* PBXContainerItemProxy */;
+		};
+		18FF989624452E180049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF986024452DA00049790D /* err.D_PROC_LIB.libdash.exe */;
+			targetProxy = 18FF989524452E180049790D /* PBXContainerItemProxy */;
+		};
+		18FF989824452E180049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF986924452DB20049790D /* err.D_PROC_NAME.alldash.exe */;
+			targetProxy = 18FF989724452E180049790D /* PBXContainerItemProxy */;
+		};
+		18FF989A24452E180049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF987224452DC00049790D /* err.D_PROC_NAME.badname.exe */;
+			targetProxy = 18FF989924452E180049790D /* PBXContainerItemProxy */;
+		};
+		18FF989C24452E180049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF987B24452DD40049790D /* err.D_PROC_NAME.globdash.exe */;
+			targetProxy = 18FF989B24452E180049790D /* PBXContainerItemProxy */;
+		};
+		18FF989E24452E180049790D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 18FF988424452DE40049790D /* err.D_PROC_OFF.toobig.exe */;
+			targetProxy = 18FF989D24452E180049790D /* PBXContainerItemProxy */;
 		};
 		3AA4B99F223AEDE2003AF00D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -12783,6 +13322,22 @@
 			};
 			name = Release;
 		};
+		18A113DB244525A900D7E5CE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18A113DC244525A900D7E5CE /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		18A1C7F02040E789007833A7 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A1C7E12040E778007833A7 /* dtrace_local_executable.xcconfig */;
@@ -12909,6 +13464,150 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
 			buildSettings = {
+			};
+			name = Release;
+		};
+		18FF984124452D410049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF984224452D410049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18FF984A24452D620049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF984B24452D620049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18FF985324452D720049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF985424452D720049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18FF985C24452D8E0049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF985D24452D8E0049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18FF986524452DA00049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF986624452DA00049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18FF986E24452DB20049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF986F24452DB20049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18FF987724452DC00049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF987824452DC00049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18FF988024452DD40049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF988124452DD40049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		18FF988924452DE40049790D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		18FF988A24452DE40049790D /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 18A75C40202A86B7004DAC97 /* test_pid.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
 		};
@@ -13481,6 +14180,15 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		18A113DA244525A900D7E5CE /* Build configuration list for PBXNativeTarget "tst.coverage.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18A113DB244525A900D7E5CE /* Debug */,
+				18A113DC244525A900D7E5CE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		18A1C7EF2040E789007833A7 /* Build configuration list for PBXNativeTarget "badioctl" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -13540,6 +14248,87 @@
 			buildConfigurations = (
 				18FD74871E85B20F00CC1E79 /* Debug */,
 				18FD74881E85B20F00CC1E79 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF984024452D410049790D /* Build configuration list for PBXNativeTarget "err.D_PDESC_ZERO.badlib.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF984124452D410049790D /* Debug */,
+				18FF984224452D410049790D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF984924452D620049790D /* Build configuration list for PBXNativeTarget "err.D_PDESC_ZERO.badname_arm.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF984A24452D620049790D /* Debug */,
+				18FF984B24452D620049790D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF985224452D720049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_CREATEFAIL.many.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF985324452D720049790D /* Debug */,
+				18FF985424452D720049790D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF985B24452D8E0049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_FUNC.badfunc.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF985C24452D8E0049790D /* Debug */,
+				18FF985D24452D8E0049790D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF986424452DA00049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_LIB.libdash.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF986524452DA00049790D /* Debug */,
+				18FF986624452DA00049790D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF986D24452DB20049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_NAME.alldash.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF986E24452DB20049790D /* Debug */,
+				18FF986F24452DB20049790D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF987624452DC00049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_NAME.badname.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF987724452DC00049790D /* Debug */,
+				18FF987824452DC00049790D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF987F24452DD40049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_NAME.globdash.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF988024452DD40049790D /* Debug */,
+				18FF988124452DD40049790D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		18FF988824452DE40049790D /* Build configuration list for PBXNativeTarget "err.D_PROC_OFF.toobig.exe" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				18FF988924452DE40049790D /* Debug */,
+				18FF988A24452DE40049790D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

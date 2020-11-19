@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,7 @@
 #import "config.h"
 #import "WKWebViewPrivateForTesting.h"
 
+#import "AudioSessionRoutingArbitratorProxy.h"
 #import "UserMediaProcessManager.h"
 #import "ViewGestureController.h"
 #import "WKWebViewIOS.h"
@@ -35,6 +36,7 @@
 #import "WebViewImpl.h"
 #import "_WKFrameHandleInternal.h"
 #import "_WKInspectorInternal.h"
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ValidationBubble.h>
 
 
@@ -65,7 +67,7 @@
         auto* validationBubble = _page->validationBubble();
         String message = validationBubble ? validationBubble->message() : emptyString();
         double fontSize = validationBubble ? validationBubble->fontSize() : 0;
-        return @{ userInterfaceItem: @{ @"message": (NSString *)message, @"fontSize": [NSNumber numberWithDouble:fontSize] } };
+        return @{ userInterfaceItem: @{ @"message": (NSString *)message, @"fontSize": @(fontSize) } };
     }
 
 #if PLATFORM(IOS_FAMILY)
@@ -142,6 +144,17 @@
 #endif
 }
 
+- (void)_resetNavigationGestureStateForTesting
+{
+#if PLATFORM(MAC)
+    if (auto gestureController = _impl->gestureController())
+        gestureController->reset();
+#else
+    if (_gestureController)
+        _gestureController->reset();
+#endif
+}
+
 - (void)_setDefersLoadingForTesting:(BOOL)defersLoading
 {
     _page->setDefersLoadingForTesting(defersLoading);
@@ -157,6 +170,17 @@
     return _page && _page->hasInspectorFrontend();
 }
 
+- (void)_processWillSuspendForTesting:(void (^)(void))completionHandler
+{
+    if (!_page) {
+        completionHandler();
+        return;
+    }
+    _page->process().sendPrepareToSuspend(WebKit::IsSuspensionImminent::No, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
+}
+
 - (void)_processWillSuspendImminentlyForTesting
 {
     if (_page)
@@ -169,12 +193,12 @@
         _page->process().sendProcessDidResume();
 }
 
-- (void)_setAssertionStateForTesting:(int)value
+- (void)_setAssertionTypeForTesting:(int)value
 {
     if (!_page)
         return;
 
-    _page->process().setAssertionStateForTesting(static_cast<WebKit::AssertionState>(value));
+    _page->process().setAssertionTypeForTesting(static_cast<WebKit::ProcessAssertionType>(value));
 }
 
 - (BOOL)_hasServiceWorkerBackgroundActivityForTesting
@@ -207,6 +231,44 @@
     _page->doAfterProcessingAllPendingMouseEvents([action = makeBlockPtr(action)] {
         action();
     });
+}
+
++ (void)_setApplicationBundleIdentifier:(NSString *)bundleIdentifier
+{
+    WebCore::setApplicationBundleIdentifierOverride(String(bundleIdentifier));
+}
+
++ (void)_clearApplicationBundleIdentifierTestingOverride
+{
+    WebCore::clearApplicationBundleIdentifierTestingOverride();
+}
+
+- (BOOL)_hasSleepDisabler
+{
+    return _page && _page->process().hasSleepDisabler();
+}
+
+- (WKWebViewAudioRoutingArbitrationStatus)_audioRoutingArbitrationStatus
+{
+#if ENABLE(ROUTING_ARBITRATION)
+    switch (_page->process().audioSessionRoutingArbitrator().arbitrationStatus()) {
+    case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::None: return WKWebViewAudioRoutingArbitrationStatusNone;
+    case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::Pending: return WKWebViewAudioRoutingArbitrationStatusPending;
+    case WebKit::AudioSessionRoutingArbitratorProxy::ArbitrationStatus::Active: return WKWebViewAudioRoutingArbitrationStatusActive;
+    default: ASSERT_NOT_REACHED();
+    }
+#else
+    return WKWebViewAudioRoutingArbitrationStatusNone;
+#endif
+}
+
+- (double)_audioRoutingArbitrationUpdateTime
+{
+#if ENABLE(ROUTING_ARBITRATION)
+    return _page->process().audioSessionRoutingArbitrator().arbitrationUpdateTime().secondsSinceEpoch().seconds();
+#else
+    return 0;
+#endif
 }
 
 @end

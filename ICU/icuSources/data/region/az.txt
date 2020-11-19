@@ -310,7 +310,7 @@ az{
         CZ{"Çex Respublikası"}
         FK{"Folklend adaları (Malvin adaları)"}
         SZ{"Svazilend"}
-        TL{"Doğu Timor"}
+        TL{"Şərqi Timor"}
     }
-    Version{"2.1.49.82"}
+    Version{"36.1"}
 }

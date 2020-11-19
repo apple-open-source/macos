@@ -35,14 +35,14 @@
 function typedArraySpeciesConstructor(value)
 {
     "use strict";
-    let constructor = value.constructor;
+    var constructor = value.constructor;
     if (constructor === @undefined)
         return @typedArrayGetOriginalConstructor(value);
 
     if (!@isObject(constructor))
         @throwTypeError("|this|.constructor is not an Object or undefined");
 
-    constructor = constructor.@speciesSymbol;
+    constructor = constructor.@@species;
     if (@isUndefinedOrNull(constructor))
         return @typedArrayGetOriginalConstructor(value);
     // The lack of an @isConstructor(constructor) check here is not observable because
@@ -60,33 +60,12 @@ function typedArrayClampArgumentToStartOrEnd(value, length, undefinedValue)
     if (value === @undefined)
         return undefinedValue;
 
-    let int = @toInteger(value);
+    var int = @toInteger(value);
     if (int < 0) {
         int += length;
         return int < 0 ? 0 : int;
     }
     return int > length ? length : int;
-}
-
-function values()
-{
-    "use strict";
-    @typedArrayLength(this);
-    return new @ArrayIterator(this, "value", @arrayIteratorValueNext);
-}
-
-function keys()
-{
-    "use strict";
-    @typedArrayLength(this);
-    return new @ArrayIterator(this, "key", @arrayIteratorKeyNext);
-}
-
-function entries()
-{
-    "use strict";
-    @typedArrayLength(this);
-    return new @ArrayIterator(this, "key+value", @arrayIteratorKeyValueNext);
 }
 
 function every(callback /*, thisArg */)
@@ -95,7 +74,7 @@ function every(callback /*, thisArg */)
     var length = @typedArrayLength(this);
     var thisArg = @argument(1);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.every callback must be a function");
 
     for (var i = 0; i < length; i++) {
@@ -110,15 +89,15 @@ function fill(value /* [, start [, end]] */)
 {
     "use strict";
 
-    let length = @typedArrayLength(this);
+    var length = @typedArrayLength(this);
 
-    let start = @argument(1);
-    let end = @argument(2);
+    var start = @argument(1);
+    var end = @argument(2);
 
     start = @typedArrayClampArgumentToStartOrEnd(start, length, 0);
     end = @typedArrayClampArgumentToStartOrEnd(end, length, length);
 
-    for (let i = start; i < end; i++)
+    for (var i = start; i < end; i++)
         this[i] = value;
     return this;
 }
@@ -129,11 +108,11 @@ function find(callback /* [, thisArg] */)
     var length = @typedArrayLength(this);
     var thisArg = @argument(1);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.find callback must be a function");
 
     for (var i = 0; i < length; i++) {
-        let elem = this[i];
+        var elem = this[i];
         if (callback.@call(thisArg, elem, i, this))
             return elem;
     }
@@ -146,7 +125,7 @@ function findIndex(callback /* [, thisArg] */)
     var length = @typedArrayLength(this);
     var thisArg = @argument(1);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.findIndex callback must be a function");
 
     for (var i = 0; i < length; i++) {
@@ -162,7 +141,7 @@ function forEach(callback /* [, thisArg] */)
     var length = @typedArrayLength(this);
     var thisArg = @argument(1);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.forEach callback must be a function");
 
     for (var i = 0; i < length; i++)
@@ -176,7 +155,7 @@ function some(callback /* [, thisArg] */)
     var length = @typedArrayLength(this);
     var thisArg = @argument(1);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.some callback must be a function");
 
     for (var i = 0; i < length; i++) {
@@ -244,7 +223,7 @@ function sort(comparator)
     if (length < 2)
         return;
 
-    if (typeof comparator == "function")
+    if (@isCallable(comparator))
         mergeSort(this, length, comparator);
     else
         @typedArraySort(this);
@@ -259,12 +238,12 @@ function subarray(begin, end)
     if (!@isTypedArrayView(this))
         @throwTypeError("|this| should be a typed array view");
 
-    let start = @toInteger(begin);
-    let finish;
+    var start = @toInteger(begin);
+    var finish;
     if (end !== @undefined)
         finish = @toInteger(end);
 
-    let constructor = @typedArraySpeciesConstructor(this);
+    var constructor = @typedArraySpeciesConstructor(this);
 
     return @typedArraySubarrayCreate.@call(this, start, finish, constructor);
 }
@@ -276,7 +255,7 @@ function reduce(callback /* [, initialValue] */)
 
     var length = @typedArrayLength(this);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.reduce callback must be a function");
 
     var argumentCount = @argumentCount();
@@ -302,7 +281,7 @@ function reduceRight(callback /* [, initialValue] */)
 
     var length = @typedArrayLength(this);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.reduceRight callback must be a function");
 
     var argumentCount = @argumentCount();
@@ -328,7 +307,7 @@ function map(callback /*, thisArg */)
 
     var length = @typedArrayLength(this);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.map callback must be a function");
 
     var thisArg = @argument(1);
@@ -339,7 +318,7 @@ function map(callback /*, thisArg */)
     if (constructor === @undefined)
         result = new (@typedArrayGetOriginalConstructor(this))(length);
     else {
-        var speciesConstructor = constructor.@speciesSymbol;
+        var speciesConstructor = constructor.@@species;
         if (@isUndefinedOrNull(speciesConstructor))
             result = new (@typedArrayGetOriginalConstructor(this))(length);
         else {
@@ -362,7 +341,7 @@ function filter(callback /*, thisArg */)
 
     var length = @typedArrayLength(this);
 
-    if (typeof callback !== "function")
+    if (!@isCallable(callback))
         @throwTypeError("TypedArray.prototype.filter callback must be a function");
 
     var thisArg = @argument(1);
@@ -380,7 +359,7 @@ function filter(callback /*, thisArg */)
     if (constructor === @undefined)
         result = new (@typedArrayGetOriginalConstructor(this))(resultLength);
     else {
-        var speciesConstructor = constructor.@speciesSymbol;
+        var speciesConstructor = constructor.@@species;
         if (@isUndefinedOrNull(speciesConstructor))
             result = new (@typedArrayGetOriginalConstructor(this))(resultLength);
         else {

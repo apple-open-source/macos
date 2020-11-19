@@ -363,9 +363,9 @@ extern "C" {
 #define DW_AT_upc_threads_scaled                0x3210 /* UPC */
 
 /* Apple extension */
-#define DW_AT_APPLE_ptrauth_key                       0x3e03
-#define DW_AT_APPLE_ptrauth_address_discriminated     0x3e04
-#define DW_AT_APPLE_ptrauth_extra_discriminator       0x3e05
+#define DW_AT_APPLE_ptrauth_key                       0x3e04
+#define DW_AT_APPLE_ptrauth_address_discriminated     0x3e05
+#define DW_AT_APPLE_ptrauth_extra_discriminator       0x3e06
 
 #define DW_AT_hi_user                           0x3fff
 
@@ -618,6 +618,9 @@ extern "C" {
 #define DW_LANG_C                       0x0002
 #define DW_LANG_Ada83                   0x0003
 #define DW_LANG_C_plus_plus             0x0004
+#define DW_LANG_C_plus_plus_03          0x0019 /* DWARF5 */
+#define DW_LANG_C_plus_plus_11          0x001a /* DWARF5 */
+#define DW_LANG_C_plus_plus_14          0x0021 /* DWARF5 */
 #define DW_LANG_Cobol74                 0x0005
 #define DW_LANG_Cobol85                 0x0006
 #define DW_LANG_Fortran77               0x0007

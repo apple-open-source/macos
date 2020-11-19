@@ -25,14 +25,14 @@
 
 #include "DAInternal.h"
 
-#include <vproc.h>
 #include <sys/stat.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <CoreFoundation/CFBundlePriv.h>
 #include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
+#include <os/transaction_private.h>
 
-static vproc_transaction_t __vproc_transaction       = NULL;
-static size_t              __vproc_transaction_count = 0;
+static os_transaction_t __os_transaction       = NULL;
+static size_t              __os_transaction_count = 0;
 
 __private_extern__ int ___isautofs( const char * path )
 {
@@ -117,25 +117,25 @@ __private_extern__ int ___mkdir( const char * path, mode_t mode )
     return status;
 }
 
-__private_extern__ void ___vproc_transaction_begin( void )
+__private_extern__ void ___os_transaction_begin( void )
 {
-    if ( __vproc_transaction_count == 0 )
+    if ( __os_transaction_count == 0 )
     {
-        __vproc_transaction = vproc_transaction_begin( NULL );
+        __os_transaction = os_transaction_create( "com.apple.daemon.diskarbitrationd" );
     }
 
-    __vproc_transaction_count++;
+    __os_transaction_count++;
 }
 
-__private_extern__ void ___vproc_transaction_end( void )
+__private_extern__ void ___os_transaction_end( void )
 {
-    __vproc_transaction_count--;
+    __os_transaction_count--;
 
-    if ( __vproc_transaction_count == 0 )
+    if ( __os_transaction_count == 0 )
     {
-        vproc_transaction_end( NULL, __vproc_transaction );
+         os_release(__os_transaction );
 
-        __vproc_transaction = NULL;
+        __os_transaction = NULL;
     }
 }
 
@@ -483,22 +483,42 @@ __private_extern__ CFUUIDRef ___CFUUIDCreateFromName( CFAllocatorRef allocator, 
      * Creates a UUID from a unique "name" in the given "name space".  See version 3 UUID.
      */
 
-    CC_MD5_CTX  md5c;
-    CFUUIDBytes uuid;
+    CC_SHA256_CTX sha_ctx;
+    CFUUIDBytes cfuuid;
+    uint8_t digest[CC_SHA256_DIGEST_LENGTH] = "";
+    uuid_t uuid;
 
-    assert( sizeof( uuid ) == CC_MD5_DIGEST_LENGTH );
 
-    uuid = CFUUIDGetUUIDBytes( space );
+    cfuuid = CFUUIDGetUUIDBytes( space );
 
-    CC_MD5_Init( &md5c );
-    CC_MD5_Update( &md5c, &uuid, sizeof( uuid ) );
-    CC_MD5_Update( &md5c, CFDataGetBytePtr( name ), CFDataGetLength( name ) );
-    CC_MD5_Final( ( void * ) &uuid, &md5c );
+    CC_SHA256_Init( &sha_ctx );
+    CC_SHA256_Update( &sha_ctx, &cfuuid, sizeof( cfuuid ) );
+    CC_SHA256_Update( &sha_ctx, CFDataGetBytePtr( name ), CFDataGetLength( name ) );
+    CC_SHA256_Final( ( void * ) &digest, &sha_ctx );
 
-    uuid.byte6 = 0x30 | ( uuid.byte6 & 0x0F );
-    uuid.byte8 = 0x80 | ( uuid.byte8 & 0x3F );
+    /*
+	* Copy the digest into the UUID.
+	* XOR excess bytes rather than truncate.
+	*/
+	memset(uuid, 0, sizeof(uuid));
+	for (uint idx = 0; idx < CC_SHA256_DIGEST_LENGTH; idx++)
+	{
+	    uuid[idx % sizeof(uuid)] ^= digest[idx];
+	}
 
-    return CFUUIDCreateFromUUIDBytes( allocator, uuid );
+	/*
+	* Make it a valid UUID.
+	* Pretend we have a RFC 4122 version 4 UUID even though the contents
+	* aren't really random.  Version 3 or 5 would be more appropriate, but
+	* we'd rather use a modern hash function to reduce predictability.
+	*/
+	uuid[6] = (uuid[6] & 0x0F) | 0x40;
+	uuid[8] = (uuid[8] & 0x3F) | 0x80;
+
+     return CFUUIDCreateWithBytes( allocator, uuid[0], uuid[1], uuid[2], uuid[3],
+                                        uuid[4], uuid[5], uuid[6], uuid[7],
+                                        uuid[8], uuid[9], uuid[10], uuid[11],
+                                        uuid[12], uuid[13], uuid[14], uuid[15] );
 }
 
 __private_extern__ CFUUIDRef ___CFUUIDCreateFromString( CFAllocatorRef allocator, CFStringRef string )

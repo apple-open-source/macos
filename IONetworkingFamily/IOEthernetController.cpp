@@ -34,6 +34,7 @@
 #include <IOKit/network/IOEthernetInterface.h>
 #include <IOKit/IOMapper.h>
 #include <IOKit/IOBufferMemoryDescriptor.h>
+#include "IONetworkControllerPrivate.h"
 
 #include "IONetworkDebug.h"
 
@@ -188,7 +189,7 @@ bool IOEthernetController::init(OSDictionary * properties)
 	_reserved->fHasTimeSyncTransmitCallbackIDAvailable = true;
 	
 	_reserved->fAVBControllerState = kIOEthernetControllerAVBStateActivated;
-    setProperty("AVBControllerState", _reserved->fAVBControllerState, 32);
+    setProperty(kAVBControllerStateKey, _reserved->fAVBControllerState, 32);
 	
 	if(KERN_SUCCESS != semaphore_create(kernel_task, &_reserved->fTimeSyncCallbackStartSemaphore, SYNC_POLICY_FIFO, 0))
 	{
@@ -1087,13 +1088,13 @@ IOReturn IOEthernetController::setAVBControllerState(IOEthernetControllerAVBStat
 {
 	IOReturn result = kIOReturnSuccess;
 	
-	setProperty("AVBControllerState", newState, 64);
+	setProperty(kAVBControllerStateKey, newState, 64);
 	
 	if(_reserved)
 	{
 		IOEthernetControllerAVBState oldState = _reserved->fAVBControllerState;
 		_reserved->fAVBControllerState = newState;
-        setProperty("AVBControllerState", _reserved->fAVBControllerState, 32);
+        setProperty(kAVBControllerStateKey, _reserved->fAVBControllerState, 32);
 
 		IOLockLock(_reserved->fStateChangeNotifiersLock);
 		
@@ -1214,7 +1215,7 @@ void IOEthernetController::setNumberOfRealtimeTransmitQueues(uint32_t numberOfTr
 			_reserved->fTransmitQueuePrefetchDelay = NULL;
 		}
 		_reserved->fNumberOfRealtimeTransmitQueues = numberOfTransmitQueues;
-        setProperty("NumberOfRealtimeTranmitQueues", numberOfTransmitQueues, 32);
+        setProperty(kNumberOfRealtimeTransmitQueuesKey, numberOfTransmitQueues, 32);
 		if(_reserved->fNumberOfRealtimeTransmitQueues)
 		{
 			_reserved->fTransmitQueuePacketLatency = (uint64_t *)IOMalloc(sizeof(uint64_t) * _reserved->fNumberOfRealtimeTransmitQueues);
@@ -1320,7 +1321,7 @@ void IOEthernetController::setNumberOfRealtimeReceiveQueues(uint32_t numberOfRec
 	if(_reserved)
 	{
 		_reserved->fNumberOfRealtimeReceiveQueues = numberOfReceiveQueues;
-        setProperty("NumberOfRealtimeReceiveQueues", numberOfReceiveQueues, 32);
+        setProperty(kNumberOfRealtimeReceiveQueuesKey, numberOfReceiveQueues, 32);
 	}
 }
 
@@ -1599,7 +1600,7 @@ IOReturn IOEthernetController::setGPTPPresent(bool gPTPPresent)
 	{
 		if(gPTPPresent != _reserved->fgPTPPresent)
 		{
-			setProperty("gPTPPresent", gPTPPresent);
+			setProperty(kGPTPPresentKey, gPTPPresent);
 			
 			if(gPTPPresent)
 			{
@@ -1715,7 +1716,7 @@ void IOEthernetController::setTimeSyncPacketSupport(IOEthernetControllerAVBTimeS
 	if(_reserved)
 	{
 		_reserved->fTimeSyncSupport = timeSyncPacketSupport;
-        setProperty("TimeSyncSupport", timeSyncPacketSupport, 32);
+        setProperty(kTimeSyncSupportKey, timeSyncPacketSupport, 32);
 	}
 }
 

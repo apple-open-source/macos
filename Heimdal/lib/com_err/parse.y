@@ -33,7 +33,7 @@
  */
 
 #include "compile_et.h"
-#include "lex.h"
+#include "lex_et.h"
 
 void yyerror (char *s);
 static long name2number(const char *str);

@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <sys/mount.h>
 #include <sys/param.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -463,4 +464,40 @@ char *xar_get_mtime(xar_t x, xar_file_t f) {
 	tmp = calloc(128,1);
 	strftime(tmp, 127, "%F %T", &tm);
 	return tmp;
+}
+
+size_t xar_optimal_io_size_at_path(const char *path)
+{
+	// Start at 1MiB
+	size_t optimal_rsize = 1024 * 1024;
+	
+	// Stat the destination of the archive to determine the optimal fs operation size
+	struct statfs target_mount_stat_fs;
+	if ( statfs(path, &target_mount_stat_fs) == 0 )
+	{
+		// iosize is the size that the filesystem likes to work in
+		size_t fs_iosize = target_mount_stat_fs.f_iosize;
+		if ( fs_iosize == -1 )
+		{
+			fs_iosize = optimal_rsize;
+		}
+		
+		// If we're a remote filesystem, never let us go below the optimal size above of 1MiB
+		// NFS is horrible and lies that the optimal size is 512 bytes.
+		// Whereas SMB in my testing returns 7MiBs (far more practicle)
+		// This ensures that we do something sane if reading over the network
+		if ( ( target_mount_stat_fs.f_flags & MNT_LOCAL ) != MNT_LOCAL )
+		{
+			if ( fs_iosize > optimal_rsize )
+			{
+				optimal_rsize = fs_iosize;
+			}
+		}
+		else
+		{
+			optimal_rsize = fs_iosize;
+		}
+	}
+	
+	return optimal_rsize;
 }

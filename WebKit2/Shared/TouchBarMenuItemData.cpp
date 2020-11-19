@@ -22,7 +22,11 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #include "config.h"
+
+#if HAVE(TOUCH_BAR)
+
 #include "TouchBarMenuItemData.h"
 
 #include "Decoder.h"
@@ -47,7 +51,7 @@ TouchBarMenuItemData::TouchBarMenuItemData(const WebCore::HTMLMenuItemElement& e
 
 void TouchBarMenuItemData::encode(IPC::Encoder& encoder) const
 {
-    encoder.encodeEnum(type);
+    encoder << type;
     
     encoder << identifier;
     encoder << priority;
@@ -56,7 +60,7 @@ void TouchBarMenuItemData::encode(IPC::Encoder& encoder) const
 Optional<TouchBarMenuItemData> TouchBarMenuItemData::decode(IPC::Decoder& decoder)
 {
     TouchBarMenuItemData result;
-    if (!decoder.decodeEnum(result.type))
+    if (!decoder.decode(result.type))
         return WTF::nullopt;
     
     if (!decoder.decode(result.identifier))
@@ -69,3 +73,5 @@ Optional<TouchBarMenuItemData> TouchBarMenuItemData::decode(IPC::Decoder& decode
 }
 
 }
+
+#endif // HAVE(TOUCH_BAR)

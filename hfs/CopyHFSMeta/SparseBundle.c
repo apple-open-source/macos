@@ -176,7 +176,8 @@ doSparseWrite(IOWrapper_t *context, off_t offset, void *buffer, off_t len)
 			free(bandName);
 			bandName = NULL;
 			ctx->cfd = fd;
-			ctx->cBandNum = bandNum;
+			assert(bandNum < INT_MAX);
+			ctx->cBandNum = (int)bandNum;
 		} else {
 			fd = ctx->cfd;
 		}

@@ -93,19 +93,29 @@ static NSString* const KeychainDataclass = @"KeychainDataclass";
         creditCardsQuery[(id)kSecAttrAccessGroup] = @"com.apple.safari.credit-cards";
         OSStatus creditCardsResult = SecItemDelete((__bridge CFDictionaryRef)creditCardsQuery);
 
-        if (inetResult != errSecSuccess) {
+        if (inetResult == errSecSuccess) {
+            secnotice("itemDelete", "deleted synchronizable passwords from table inet");
+        } else {
             secwarning("failed to delete synchronizable passwords from table inet: %d", (int)inetResult);
         }
-        if (genpResult != errSecSuccess) {
+        if (genpResult == errSecSuccess) {
+            secnotice("itemDelete", "deleted synchronizable passwords from table genp");
+        } else {
             secwarning("failed to delete synchronizable passwords from table genp: %d", (int)genpResult);
         }
-        if (certResult != errSecSuccess) {
-            secwarning("failed to delete synchronizable passwords from table cert: %d", (int)certResult);
+        if (certResult == errSecSuccess) {
+            secnotice("itemDelete", "deleted synchronizable certificates from table cert");
+        } else {
+            secwarning("failed to delete synchronizable certificates from table cert: %d", (int)certResult);
         }
-        if (keyResult != errSecSuccess) {
-            secwarning("failed to delete synchronizable passwords from table keys: %d", (int)keyResult);
+        if (keyResult == errSecSuccess) {
+            secnotice("itemDelete", "deleted synchronizable keys from table keys");
+        } else {
+            secwarning("failed to delete synchronizable keys from table keys: %d", (int)keyResult);
         }
-        if (creditCardsResult != errSecSuccess) {
+        if (creditCardsResult == errSecSuccess) {
+            secnotice("itemDelete", "deleted credit cards from table genp");
+        } else {
             secwarning("failed to delete credit cards from table genp: %d", (int)creditCardsResult);
         }
     }

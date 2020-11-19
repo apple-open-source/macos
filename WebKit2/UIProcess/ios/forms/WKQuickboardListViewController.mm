@@ -23,17 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "WKQuickboardListViewController.h"
+#import "config.h"
+#import "WKQuickboardListViewController.h"
 
 #if PLATFORM(WATCHOS)
 
-#import <PepperUICore/PUICActionController.h>
-#import <PepperUICore/PUICActionGroup.h>
-#import <PepperUICore/PUICApplication_Private.h>
-#import <PepperUICore/PUICQuickboardLanguageController.h>
-#import <PepperUICore/PUICQuickboardViewController_Private.h>
-#import <PepperUICore/PUICStatusBarAppContextView.h>
 #import <wtf/RetainPtr.h>
 
 static const CGFloat itemCellTopToLabelBaseline = 26;
@@ -53,6 +47,24 @@ static const CGFloat itemCellBaselineToBottom = 8;
 
 @end
 
+#if HAVE(QUICKBOARD_COLLECTION_VIEWS)
+
+@implementation WKQuickboardListCollectionViewItemCell
+
+- (CGFloat)topToLabelBaselineSpecValue
+{
+    return itemCellTopToLabelBaseline;
+}
+
+- (CGFloat)baselineToBottomSpecValue
+{
+    return itemCellBaselineToBottom;
+}
+
+@end
+
+#endif // HAVE(QUICKBOARD_COLLECTION_VIEWS)
+
 @interface WKQuickboardListViewController () <PUICQuickboardLanguageControllerDelegate>
 @end
 
@@ -66,8 +78,13 @@ static const CGFloat itemCellBaselineToBottom = 8;
 
 - (instancetype)initWithDelegate:(id <WKQuickboardViewControllerDelegate>)delegate
 {
+#if USE(APPLE_INTERNAL_SDK)
     if (self = [super initWithDelegate:delegate dictationMode:PUICDictationModeText])
         _contextViewNeedsUpdate = YES;
+#else
+    if (self = [super initWithDelegate:delegate])
+        _contextViewNeedsUpdate = YES;
+#endif
 
     return self;
 }
@@ -133,6 +150,8 @@ static const CGFloat itemCellBaselineToBottom = 8;
     [self reloadHeaderContentView];
 }
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
+
 - (PUICActionController *)actionController
 {
     if (![self.delegate allowsLanguageSelectionMenuForListViewController:self])
@@ -142,6 +161,8 @@ static const CGFloat itemCellBaselineToBottom = 8;
     auto actionGroup = adoptNS([[PUICActionGroup alloc] initWithActionItems:@[ languageSelectionActionItem ] actionStyle:PUICActionStyleAutomatic]);
     return [[[PUICActionController alloc] initWithActionGroup:actionGroup.get()] autorelease];
 }
+
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 #pragma mark - PUICQuickboardLanguageControllerDelegate
 

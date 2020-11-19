@@ -78,7 +78,7 @@
         // Why is obj-c nullable equality so difficult?
         if(!((record[SecCKRecordServerWasCurrent] == nil && self.wasCurrent == 0) ||
              [record[SecCKRecordServerWasCurrent] isEqual: [NSNumber numberWithUnsignedLongLong:self.wasCurrent]])) {
-            secinfo("ckksitem", "was_current does not match");
+            ckksinfo_global("ckksitem", "was_current does not match");
             matches = false;
         }
     }

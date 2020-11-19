@@ -111,7 +111,7 @@ public:
 #endif
 
 #if USE(FREETYPE)
-    FontPlatformData(cairo_font_face_t*, FcPattern*, float size, bool fixedWidth, bool syntheticBold, bool syntheticOblique, FontOrientation);
+    FontPlatformData(cairo_font_face_t*, RefPtr<FcPattern>&&, float size, bool fixedWidth, bool syntheticBold, bool syntheticOblique, FontOrientation);
 #endif
 
 #if PLATFORM(WIN)
@@ -154,6 +154,8 @@ public:
     FontWidthVariant widthVariant() const { return m_widthVariant; }
     TextRenderingMode textRenderingMode() const { return m_textRenderingMode; }
     bool isForTextCombine() const { return widthVariant() != FontWidthVariant::RegularWidth; } // Keep in sync with callers of FontDescription::setWidthVariant().
+
+    String familyName() const;
 
 #if USE(CAIRO)
     cairo_scaled_font_t* scaledFont() const { return m_scaledFont.get(); }

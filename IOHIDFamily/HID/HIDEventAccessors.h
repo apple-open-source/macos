@@ -135,7 +135,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface HIDEvent (HIDLEDEvent)
 
-+ (instancetype)ledEvent:(uint64_t)timestamp ledMask:(uint32_t)ledMask number:(uint8_t)number state:(boolean_t)state options:(uint32_t)options;
++ (instancetype)ledEvent:(uint64_t)timestamp ledMask:(uint32_t)ledMask number:(uint8_t)number state:(uint32_t)state options:(uint32_t)options;
 
 @end
 
@@ -157,7 +157,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 @interface HIDEvent (HIDKeyboardEvent)
 
-+ (instancetype)keyboardEvent:(uint64_t)timestamp usagePage:(uint16_t)usagePage usage:(uint16_t)usage down:(boolean_t)down options:(uint32_t)options;
++ (instancetype)keyboardEvent:(uint64_t)timestamp usagePage:(uint16_t)usagePage usage:(uint16_t)usage down:(uint32_t)down options:(uint32_t)options;
 
 @end
 

@@ -28,7 +28,6 @@
 #include <wtf/text/StringBuilder.h>
 
 #include <wtf/dtoa.h>
-#include <wtf/MathExtras.h>
 
 namespace WTF {
 
@@ -50,7 +49,7 @@ void StringBuilder::reifyString() const
         return;
     }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     m_isReified = true;
 #endif
 
@@ -454,6 +453,16 @@ void StringBuilder::shrinkToFit()
         ASSERT(!hasOverflowed());
         m_string = WTFMove(m_buffer);
     }
+}
+
+bool StringBuilder::isAllASCII() const
+{
+    auto length = this->length();
+    if (!length)
+        return true;
+    if (m_is8Bit)
+        return charactersAreAllASCII(characters8(), length);
+    return charactersAreAllASCII(characters16(), length);
 }
 
 } // namespace WTF

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,7 +44,9 @@ bool isInWebProcess();
 bool isInNetworkProcess();
 
 WEBCORE_EXPORT void setApplicationBundleIdentifier(const String&);
-String applicationBundleIdentifier();
+WEBCORE_EXPORT void setApplicationBundleIdentifierOverride(const String&);
+WEBCORE_EXPORT String applicationBundleIdentifier();
+WEBCORE_EXPORT void clearApplicationBundleIdentifierTestingOverride();
 
 #if PLATFORM(MAC)
 
@@ -59,6 +61,7 @@ WEBCORE_EXPORT bool isITunes();
 WEBCORE_EXPORT bool isMicrosoftMessenger();
 WEBCORE_EXPORT bool isMicrosoftMyDay();
 WEBCORE_EXPORT bool isMicrosoftOutlook();
+WEBCORE_EXPORT bool isMiniBrowser();
 bool isQuickenEssentials();
 WEBCORE_EXPORT bool isSafari();
 bool isSolidStateNetworksDownloader();
@@ -82,6 +85,7 @@ WEBCORE_EXPORT bool isSafariViewService();
 WEBCORE_EXPORT bool isIMDb();
 WEBCORE_EXPORT bool isWebBookmarksD();
 WEBCORE_EXPORT bool isDumpRenderTree();
+WEBCORE_EXPORT bool isMiniBrowser();
 bool isMobileStore();
 bool isSpringBoard();
 WEBCORE_EXPORT bool isWebProcess();
@@ -96,6 +100,20 @@ WEBCORE_EXPORT bool isAppleApplication();
 WEBCORE_EXPORT bool isEvernote();
 WEBCORE_EXPORT bool isEventbrite();
 WEBCORE_EXPORT bool isDataActivation();
+WEBCORE_EXPORT bool isNews();
+WEBCORE_EXPORT bool isStocks();
+WEBCORE_EXPORT bool isFeedly();
+WEBCORE_EXPORT bool isPocketCity();
+WEBCORE_EXPORT bool isEssentialSkeleton();
+WEBCORE_EXPORT bool isLaBanquePostale();
+WEBCORE_EXPORT bool isESPNFantasySports();
+WEBCORE_EXPORT bool isDoubleDown();
+WEBCORE_EXPORT bool isFIFACompanion();
+WEBCORE_EXPORT bool isNoggin();
+WEBCORE_EXPORT bool isOKCupid();
+WEBCORE_EXPORT bool isJWLibrary();
+WEBCORE_EXPORT bool isPaperIO();
+WEBCORE_EXPORT bool isCrunchyroll();
 
 } // IOSApplication
 

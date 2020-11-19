@@ -14,7 +14,7 @@
 #include <corecrypto/ccder.h>
 
 // If you provide a set in *set, we will add elements to it and return the union.
-const uint8_t* der_decode_set(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_set(CFAllocatorRef allocator,
                               CFSetRef* set, CFErrorRef *error,
                               const uint8_t* der, const uint8_t *der_end);
 

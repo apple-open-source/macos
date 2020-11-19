@@ -209,7 +209,6 @@ apr_status_t h2_fifo_create(h2_fifo **pfifo, apr_pool_t *pool, int capacity);
 apr_status_t h2_fifo_set_create(h2_fifo **pfifo, apr_pool_t *pool, int capacity);
 
 apr_status_t h2_fifo_term(h2_fifo *fifo);
-apr_status_t h2_fifo_interrupt(h2_fifo *fifo);
 
 int h2_fifo_count(h2_fifo *fifo);
 
@@ -229,7 +228,7 @@ apr_status_t h2_fifo_try_pull(h2_fifo *fifo, void **pelem);
 
 typedef enum {
     H2_FIFO_OP_PULL,   /* pull the element from the queue, ie discard it */
-    H2_FIFO_OP_REPUSH, /* pull and immediatley re-push it */
+    H2_FIFO_OP_REPUSH, /* pull and immediately re-push it */
 } h2_fifo_op_t;
 
 typedef h2_fifo_op_t h2_fifo_peek_fn(void *head, void *ctx);
@@ -280,7 +279,6 @@ apr_status_t h2_ififo_create(h2_ififo **pfifo, apr_pool_t *pool, int capacity);
 apr_status_t h2_ififo_set_create(h2_ififo **pfifo, apr_pool_t *pool, int capacity);
 
 apr_status_t h2_ififo_term(h2_ififo *fifo);
-apr_status_t h2_ififo_interrupt(h2_ififo *fifo);
 
 int h2_ififo_count(h2_ififo *fifo);
 
@@ -412,9 +410,14 @@ apr_status_t h2_res_create_ngheader(h2_ngheader **ph, apr_pool_t *p,
 apr_status_t h2_req_create_ngheader(h2_ngheader **ph, apr_pool_t *p, 
                                     const struct h2_request *req);
 
+/**
+ * Add a HTTP/2 header and return the table key if it really was added
+ * and not ignored.
+ */
 apr_status_t h2_req_add_header(apr_table_t *headers, apr_pool_t *pool, 
                                const char *name, size_t nlen,
-                               const char *value, size_t vlen);
+                               const char *value, size_t vlen,
+                               size_t max_field_len, int *pwas_added);
 
 /*******************************************************************************
  * h2_request helpers

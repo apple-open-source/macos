@@ -31,10 +31,9 @@
 #include "AirSpecial.h"
 #include "AirStackSlot.h"
 #include "B3Value.h"
-#include "FPRInfo.h"
 #include "GPRInfo.h"
 
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
 IGNORE_RETURN_TYPE_WARNINGS_BEGIN
 #endif
 
@@ -383,7 +382,7 @@ void printInternal(PrintStream& out, Arg::Signedness signedness)
 
 } // namespace WTF
 
-#if ASSERT_DISABLED
+#if !ASSERT_ENABLED
 IGNORE_RETURN_TYPE_WARNINGS_END
 #endif
 

@@ -24,8 +24,8 @@
 #import <wtf/BlockObjCExceptions.h>
 
 #if PLATFORM(IOS_FAMILY)
-#include "WAKResponder.h"
-#include "WAKView.h"
+#import "WAKResponder.h"
+#import "WAKView.h"
 #endif
 
 namespace WebCore {
@@ -33,7 +33,7 @@ namespace WebCore {
 
 void Chrome::focusNSView(NSView* view)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
 
     // Handle the WK2 case where there is no view passed in.
     if (!view) {
@@ -57,7 +57,7 @@ void Chrome::focusNSView(NSView* view)
     if (![view superview])
         client().makeFirstResponder(firstResponder);
 
-    END_BLOCK_OBJC_EXCEPTIONS;
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 } // namespace WebCore

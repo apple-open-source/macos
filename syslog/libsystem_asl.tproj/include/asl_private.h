@@ -99,7 +99,7 @@
 /*
  * Memory limits: work queue size for syslogd and max message size in libasl
  */
-#if TARGET_OS_EMBEDDED
+#if TARGET_OS_IPHONE
 #define SYSLOGD_WORK_QUEUE_MEMORY 3072000
 #define LIBASL_MAX_MSG_SIZE       2048000
 #else

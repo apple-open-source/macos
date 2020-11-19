@@ -1,10 +1,14 @@
-#compdef ansible ansible-config ansible-console ansible-doc ansible-galaxy ansible-inventory ansible-playbook ansible-pull ansible-vault
+#compdef ansible ansible-config ansible-console ansible-doc ansible-galaxy ansible-inventory ansible-playbook ansible-pull ansible-vault -value-,ANSIBLE_STDOUT_CALLBACK,-default-
 
 local curcontext="$curcontext" plug plugvar ign ret=1
 local -a args state line
 local -A opt_args
 
 case $service in
+  *,ANSIBLE_STDOUT_CALLBACK,*)
+    plug=callback
+    state=plugins
+  ;;
   ansible|ansible-console|ansible-doc|ansible-playbook)
     args=(
       \*{-M+,--module-path=}'[specify path to modules]:module path:_dir_list'
@@ -30,7 +34,7 @@ case $service in
       '(-D --diff)'{-D,--diff}'[show differences when changing small files and templates]'
       '(-b --become)'{-b,--become}'[escalate privileges on remote system]'
       '(-f --forks)'{-f+,--forks=}'[specify number of parallel processes to use]:processes [5]'
-      '--become-method=[specify privilege escalation method to use]:method [sudo]:(sudo su pbrun pfexec doas dzdo ksu runas pmrun enable machinectl)'
+      '--become-method=[specify privilege escalation method to use]:method [sudo]:(sesu sudo su pbrun pfexec doas dzdo ksu runas pmrun enable machinectl)'
       '--become-user=[specify remote user for running operations]:user:_users'
       "--syntax-check[perform a syntax check on the playbook, but don't execute it]"
       '!(-R --su-user -U --sudo-user)'{-R,-U,--su-user,--sudo-user}':user [root]:_users'
@@ -45,7 +49,7 @@ case $service in
   ;|
   ansible|ansible-console|ansible-inventory|ansible-playbook|ansible-pull)
     args+=(
-      '(-i --inventory)'{-i+,--inventory=}'[specify inventory host file or host list]: : _alternative "files\:inventory file\:_files"
+      \*{-i+,--inventory=}'[specify inventory host file or host list]: : _alternative "files\:inventory file\:_files"
 	"hosts\:host\: _sequence _hosts"'
       '!(-i --inventory)--inventory-file=:inventory file:_files'
     )
@@ -106,7 +110,7 @@ case $service in
       '(-l --list -F --list_files -s --snippet)'{-l,--list}'[list available plugins]'
       '(-l --list -F --list_files -s --snippet)'{-F,--list_files}'[show plugin names and their source files without summaries]'
       '(-l --list -F --list_files -s --snippet)'{-s,--snippet}'[show playbook snippet for specified plugins]'
-      '(-t --type)'{-t+,--type=}'[choose plugin type]:plugin type [module]:(cache callback connection inventory lookup module strategy vars)'
+      '(-t --type)'{-t+,--type=}'[choose plugin type]:plugin type [module]:(become cache callback cliconf connection httpapi inventory lookup shell module strategy vars)'
       '*:plugin:->plugins'
     )
   ;;
@@ -115,9 +119,11 @@ case $service in
       '--export[when doing an --list, represent in a way that is optimized for export]'
       '(-y --yaml)--graph[output inventory graph]'
       '--host[output specific host information]'
+      '--output=[with --list, specify output file]:file:_files'
       '--list[output all hosts information]'
+      '(-y --yaml --vars --graph)--toml[use TOML format instead of JSON]'
       '(-y --yaml)--vars[add variables to the graph display]'
-      '(-y --yaml --vars --graph)'{-y,--yaml}'[use YAML format instead of JSON]'
+      '(-y --yaml --toml --vars --graph)'{-y,--yaml}'[use YAML format instead of JSON]'
     )
   ;;
   ansible-galaxy)
@@ -162,6 +168,7 @@ case $service in
   ;;
   ansible-vault)
     args=( -A "-*" $args
+      '::action:(create decrypt edit encrypt encrypt_string rekey view)'
       '--new-vault-id=[specify new vault identity to use for rekey]:vault id'
       '--new-vault-password-file=[specify new vault password file to use for rekey]:file:_files'
       '*::args:->vault'
@@ -170,12 +177,15 @@ case $service in
 esac
 
 (( $#words > 2 )) && ign='!'
-_arguments -s -S -C $args \
-  "${ign}(- :)--version[display version information]" \
-  "${ign}(- :)"{-h,--help}'[display usage information]' \
-  \*{-v,--verbose}"[verbose mode (repeat to increase)]" && ret=0
+if (( $#args )); then
+  _arguments -s -S -C $args \
+    "${ign}(- :)--version[display version information, config and module locations]" \
+    "${ign}(- :)"{-h,--help}'[display usage information]' \
+    \*{-v,--verbose}"[verbose mode (repeat to increase)]" && ret=0
 
-plug=${(v)opt_args[(i)-(t|-type)]:-module}
+  plug=${(v)opt_args[(i)-(t|-type)]:-module}
+fi
+
 case $state in
   args)
     case ${(v)opt_args[(I)-(m|module)]} in
@@ -265,6 +275,7 @@ case $state in
       ;;
       install)
 	args+=(
+	  "--force-with-deps[force overwriting an existing role and it's dependencies]"
 	  '(-n --no-deps)'{-n,--no-deps}"[don’t download roles listed as dependencies]"
 	  '(-i --ignore-errors)'{-i,--ignore-errors}'[ignore errors and continue with the next specified role]'
 	  '(-g --keep-scm-meta)'{-g,--keep-scm-meta}'[use tar instead of the scm archive option when packaging the role]'
@@ -303,6 +314,9 @@ case $state in
 	  '(-n --name)'{-n+,--name=}'[specify the variable name]:variable'
 	  '--stdin-name=[specify the variable name for stdin]:variable'
 	)
+      ;|
+      create|edit|rekey|view) args+=( ':file:_files' ) ;|
+      (en|de)crypt) args+=( '::file:_files' )
       ;;
     esac
     _arguments -s -S $args && ret=0

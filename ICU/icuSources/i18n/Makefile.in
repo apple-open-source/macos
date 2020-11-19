@@ -88,7 +88,7 @@ cpdtrans.o rbt.o rbt_data.o rbt_pars.o rbt_rule.o rbt_set.o \
 nultrans.o remtrans.o casetrn.o titletrn.o tolowtrn.o toupptrn.o anytrans.o \
 name2uni.o uni2name.o nortrans.o quant.o transreg.o brktrans.o \
 regexcmp.o rematch.o repattrn.o regexst.o regextxt.o regeximp.o uregex.o uregexc.o \
-ulocdata.o measfmt.o currfmt.o curramt.o currunit.o measure.o utmscale.o \
+measfmt.o currfmt.o curramt.o currunit.o measure.o utmscale.o \
 csdetect.o csmatch.o csr2022.o csrecog.o csrmbcs.o csrsbcs.o csrucode.o csrutf8.o inputext.o \
 wintzimpl.o windtfmt.o winnmfmt.o basictz.o dtrule.o rbtz.o tzrule.o tztrans.o vtzone.o zonemeta.o \
 standardplural.o upluralrules.o plurrule.o plurfmt.o selfmt.o dtitvfmt.o dtitvinf.o udateintervalformat.o \
@@ -103,16 +103,18 @@ number_affixutils.o number_compact.o number_decimalquantity.o \
 number_decimfmtprops.o number_fluent.o number_formatimpl.o number_grouping.o \
 number_integerwidth.o number_longnames.o number_modifiers.o number_notation.o number_output.o \
 number_padding.o number_patternmodifier.o number_patternstring.o \
-number_rounding.o number_scientific.o number_stringbuilder.o number_utils.o number_asformat.o \
+number_rounding.o number_scientific.o number_utils.o number_asformat.o \
 number_mapper.o number_multiplier.o number_currencysymbols.o number_skeletons.o number_capi.o \
-double-conversion.o double-conversion-bignum-dtoa.o double-conversion-bignum.o \
-double-conversion-cached-powers.o double-conversion-diy-fp.o \
+double-conversion-string-to-double.o double-conversion-double-to-string.o \
+double-conversion-bignum-dtoa.o double-conversion-bignum.o \
+double-conversion-cached-powers.o \
 double-conversion-fast-dtoa.o double-conversion-strtod.o \
-numparse_stringsegment.o numparse_parsednumber.o numparse_impl.o \
+string_segment.o numparse_parsednumber.o numparse_impl.o \
 numparse_symbols.o numparse_decimal.o numparse_scientific.o numparse_currency.o \
 numparse_affixes.o numparse_compositions.o numparse_validators.o \
 numrange_fluent.o numrange_impl.o \
-erarules.o formattedvalue.o formattedval_iterimpl.o formattedval_sbimpl.o
+erarules.o \
+formattedvalue.o formattedval_iterimpl.o formattedval_sbimpl.o formatted_string_builder.o
 
 ## Header files to install
 HEADERS = $(srcdir)/unicode/*.h

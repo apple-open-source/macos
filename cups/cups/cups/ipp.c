@@ -1,7 +1,7 @@
 /*
  * Internet Printing Protocol functions for CUPS.
  *
- * Copyright © 2007-2019 by Apple Inc.
+ * Copyright © 2007-2020 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
@@ -2866,7 +2866,8 @@ ippReadIO(void       *src,		/* I - Data source */
   unsigned char		*buffer,	/* Data buffer */
 			string[IPP_MAX_TEXT],
 					/* Small string buffer */
-			*bufptr;	/* Pointer into buffer */
+			*bufptr,	/* Pointer into buffer */
+			*bufptrEnd;	/* Pointer after valid buffer range */
   ipp_attribute_t	*attr;		/* Current attribute */
   ipp_tag_t		tag;		/* Current tag */
   ipp_tag_t		value_tag;	/* Current value tag */
@@ -3040,8 +3041,13 @@ ippReadIO(void       *src,		/* I - Data source */
 
           DEBUG_printf(("2ippReadIO: name length=%d", n));
 
-          if (n == 0 && tag != IPP_TAG_MEMBERNAME &&
-	      tag != IPP_TAG_END_COLLECTION)
+          if (n && parent)
+          {
+            _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Invalid named IPP attribute in collection."), 1);
+            DEBUG_puts("1ippReadIO: bad attribute name in collection.");
+            return (IPP_STATE_ERROR);
+          }
+          else if (n == 0 && tag != IPP_TAG_MEMBERNAME && tag != IPP_TAG_END_COLLECTION)
 	  {
 	   /*
 	    * More values for current attribute...
@@ -3436,6 +3442,8 @@ ippReadIO(void       *src,		/* I - Data source */
 		}
 
                 bufptr = buffer;
+                bufptrEnd = &buffer[n];
+
 
 	       /*
 	        * text-with-language and name-with-language are composite
@@ -3449,7 +3457,7 @@ ippReadIO(void       *src,		/* I - Data source */
 
 		n = (bufptr[0] << 8) | bufptr[1];
 
-		if ((bufptr + 2 + n) >= (buffer + IPP_BUF_SIZE) || n >= (int)sizeof(string))
+		if ((bufptr + 2 + n) > bufptrEnd || n >= (int)sizeof(string))
 		{
 		  _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
 		                _("IPP language length overflows value."), 1);
@@ -3476,7 +3484,7 @@ ippReadIO(void       *src,		/* I - Data source */
                 bufptr += 2 + n;
 		n = (bufptr[0] << 8) | bufptr[1];
 
-		if ((bufptr + 2 + n) >= (buffer + IPP_BUF_SIZE))
+		if ((bufptr + 2 + n) > bufptrEnd)
 		{
 		  _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
 		                _("IPP string length overflows value."), 1);

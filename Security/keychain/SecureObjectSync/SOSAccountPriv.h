@@ -21,7 +21,6 @@
 #include <corecrypto/ccder.h>
 
 #include <AssertMacros.h>
-#include <assert.h>
 
 #import <notify.h>
 
@@ -97,16 +96,19 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 @property   (nonatomic, assign)     BOOL                        circle_rings_retirements_need_attention;
 @property   (nonatomic, assign)     BOOL                        engine_peer_state_needs_repair;
 @property   (nonatomic, assign)     BOOL                        key_interests_need_updating;
+@property   (nonatomic, assign)     BOOL                        need_backup_peers_created_after_backup_key_set;
+
 
 @property   (nonatomic, retain)     NSMutableArray               *change_blocks;
 
 @property   (nonatomic, retain)     NSMutableDictionary          *waitForInitialSync_blocks;
 
-@property   (nonatomic, retain)     NSData*                     accountKeyDerivationParamters;
+@property   (nonatomic, retain)     NSData*                     accountKeyDerivationParameters;
 
 @property   (nonatomic, assign)     BOOL                        accountKeyIsTrusted;
 @property   (nonatomic)             SecKeyRef                   accountKey;
 @property   (nonatomic)             SecKeyRef                   previousAccountKey;
+@property   (nonatomic)             SecKeyRef                   peerPublicKey;
 
 @property   (copy)                  SOSAccountSaveBlock         saveBlock;
 
@@ -121,14 +123,18 @@ typedef void (^SOSAccountSaveBlock)(CFDataRef flattenedAccount, CFErrorRef flatt
 @property   (nonatomic, assign)     BOOL                        notifyViewChangeOnExit;
 @property   (nonatomic, assign)     BOOL                        notifyBackupOnExit;
 
-@property   (nonatomic, retain)     NSUserDefaults*              settings;
+@property   (nonatomic, retain)     NSUserDefaults*             settings;
 
+@property   (nonatomic)              SecKeyRef                  octagonSigningFullKeyRef;
+@property   (nonatomic)              SecKeyRef                  octagonEncryptionFullKeyRef;
+
+@property   (nonatomic, assign)     BOOL                        accountIsChanging;
 
 
 -(id) init NS_UNAVAILABLE;
 -(id) initWithGestalt:(CFDictionaryRef)gestalt factory:(SOSDataSourceFactoryRef)factory;
 
-//- (void)startStateMachine;
+- (void)startStateMachine;
 
 void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
                                     CFStringRef ds_name,
@@ -145,6 +151,7 @@ void SOSAccountAddSyncablePeerBlock(SOSAccount*  a,
 
 #if OCTAGON
 - (void)triggerBackupForPeers:(NSArray<NSString*>*)backupPeer;
+- (void)triggerRingUpdate;
 #endif
 
 
@@ -205,8 +212,6 @@ bool SOSAccountHandleCircleMessage(SOSAccount* account,
 CF_RETURNS_RETAINED
 CFDictionaryRef SOSAccountHandleRetirementMessages(SOSAccount* account, CFDictionaryRef circle_retirement_messages, CFErrorRef *error);
 
-void SOSAccountRecordRetiredPeersInCircle(SOSAccount* account);
-
 bool SOSAccountHandleUpdateCircle(SOSAccount* account,
                                   SOSCircleRef prospective_circle,
                                   bool writeUpdate,
@@ -247,6 +252,8 @@ bool SOSAccountIsAccountIdentity(SOSAccount* account, SOSPeerInfoRef peer_info, 
 bool SOSAccountFullPeerInfoVerify(SOSAccount* account, SecKeyRef privKey, CFErrorRef *error);
 CF_RETURNS_RETAINED SOSPeerInfoRef GenerateNewCloudIdentityPeerInfo(CFErrorRef *error);
 
+void SOSiCloudIdentityPrivateKeyForEach(void (^complete)(SecKeyRef privKey));
+
 // Credentials
 bool SOSAccountHasPublicKey(SOSAccount* account, CFErrorRef* error);
 bool SOSAccountPublishCloudParameters(SOSAccount* account, CFErrorRef* error);
@@ -269,12 +276,11 @@ void SOSAccountSetLastDepartureReason(SOSAccount* account, enum DepartureReason 
 void SOSAccountSetUserPublicTrustedForTesting(SOSAccount* account);
 
 void SOSAccountPurgeIdentity(SOSAccount*);
-bool sosAccountLeaveCircle(SOSAccount* account, SOSCircleRef circle, NSData* parentData, CFErrorRef* error);
+bool sosAccountLeaveCircle(SOSAccount* account, SOSCircleRef circle, CFErrorRef* error);
 
 bool SOSAccountForEachRing(SOSAccount* account, SOSRingRef (^action)(CFStringRef name, SOSRingRef ring));
 bool SOSAccountUpdateBackUp(SOSAccount* account, CFStringRef viewname, CFErrorRef *error);
 void SOSAccountEnsureRecoveryRing(SOSAccount* account);
-bool SOSAccountEnsureInBackupRings(SOSAccount* account);
 
 bool SOSAccountEnsurePeerRegistration(SOSAccount* account, CFErrorRef *error);
 

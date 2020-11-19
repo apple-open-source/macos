@@ -64,6 +64,8 @@ static int hfs_isordered(struct cnode *, struct cnode *);
 
 extern int hfs_removefile_callback(struct buf *bp, void *hfsmp);
 
+uint32_t _hfs_max_origins = MAX_CACHED_ORIGINS_DEFAULT;
+uint32_t _hfs_max_file_origins = MAX_CACHED_FILE_ORIGINS_DEFAULT;
 
 __inline__ int hfs_checkdeleted (struct cnode *cp) {
 	return ((cp->c_flag & (C_DELETED | C_NOEXISTS)) ? ENOENT : 0);	

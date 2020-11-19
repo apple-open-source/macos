@@ -23,7 +23,7 @@
 #include "RSA_DSA_signature.h"
 #include "RSA_DSA_utils.h"
 #include <stdexcept>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <security_utilities/debugging.h>
 #include <security_cdsa_utilities/cssmdata.h>
 #include <opensslUtils/opensslUtils.h>

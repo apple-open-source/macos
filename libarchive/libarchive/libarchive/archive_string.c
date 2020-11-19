@@ -75,6 +75,9 @@ __FBSDID("$FreeBSD: head/lib/libarchive/archive_string.c 201095 2009-12-28 02:33
 #define wmemmove(a,b,i)  (wchar_t *)memmove((a), (b), (i) * sizeof(wchar_t))
 #endif
 
+#undef max
+#define max(a, b)       ((a)>(b)?(a):(b))
+
 struct archive_string_conv {
 	struct archive_string_conv	*next;
 	char				*from_charset;
@@ -807,7 +810,8 @@ archive_string_append_from_wcs(struct archive_string *as,
 			as->s[as->length] = '\0';
 			/* Re-allocate buffer for MBS. */
 			if (archive_string_ensure(as,
-			    as->length + len * 2 + 1) == NULL)
+			    as->length + max(len * 2,
+			    (size_t)MB_CUR_MAX) + 1) == NULL)
 				return (-1);
 			p = as->s + as->length;
 			end = as->s + as->buffer_length - MB_CUR_MAX -1;
@@ -3010,7 +3014,7 @@ archive_string_normalize_C(struct archive_string *as, const void *_p,
 		while ((n2 = parse(&uc2, s, len)) > 0) {
 			uint32_t ucx[FDC_MAX];
 			int ccx[FDC_MAX];
-			int cl, cx, i, nx, ucx_size;
+            int cl, cx, i, nx = 0, ucx_size;
 			int LIndex,SIndex;
 			uint32_t nfc;
 
@@ -3447,7 +3451,8 @@ strncat_from_utf8_libarchive2(struct archive_string *as,
 			as->length = p - as->s;
 			/* Re-allocate buffer for MBS. */
 			if (archive_string_ensure(as,
-			    as->length + len * 2 + 1) == NULL)
+			    as->length + max(len * 2,
+			    (size_t)MB_CUR_MAX) + 1) == NULL)
 				return (-1);
 			p = as->s + as->length;
 			end = as->s + as->buffer_length - MB_CUR_MAX -1;

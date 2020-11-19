@@ -38,6 +38,16 @@
 <tr><th><a href="module-dict.html#SourceFile">Fichier Source:</a></th><td>mod_userdir.c</td></tr></table>
 <h3>Sommaire</h3>
 
+<div class="warning">En activant ce module, vous permettez à plusieurs
+utilisateurs de stocker des contenus sous un seul noeud de l'arborescence. La
+politique de stockage sous un seul noeud de l'arborescence est un principe clé de
+Javascript et de la sécurité du web. En stockant des pages web sous un seul noeud
+de l'arborescence, celles-ci peuvent se lire et se contrôler mutuellement et
+d'éventuels problèmes de sécurité liés à une page peut affecter les autres. Ceci
+peut s'avérer particulièrement dangereux dans le cas des pages web mettant en
+oeuvre du contenu dynamique et de l'authentification et lorsque les utilisateurs
+ne se voient pas tous forcément d'un bon oeil.</div>
+
 <p>Ce module permet l'accès aux répertoires propres à un utilisateur en
 utilisant la syntaxe <code>http://example.com/~utilisateur/</code>.</p>
 </div>
@@ -199,7 +209,7 @@ UserDir enabled user1 user2 user3</pre>
 <a href="../ja/mod/mod_userdir.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_userdir.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_userdir.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Commentaires</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_userdir.html';
@@ -217,7 +227,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_userdir.html
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -25,9 +25,12 @@
 
 WI.SourceCode = class SourceCode extends WI.Object
 {
-    constructor()
+    constructor(url)
     {
         super();
+
+        this._url = url;
+        this._urlComponents = null;
 
         this._originalRevision = new WI.SourceCodeRevision(this);
         this._currentRevision = this._originalRevision;
@@ -96,9 +99,21 @@ WI.SourceCode = class SourceCode extends WI.Object
         return this._currentRevision.content;
     }
 
+    get base64Encoded()
+    {
+        return this._currentRevision.base64Encoded;
+    }
+
     get url()
     {
-        // To be overridden by subclasses.
+        return this._url;
+    }
+
+    get urlComponents()
+    {
+        if (!this._urlComponents)
+            this._urlComponents = parseURL(this._url);
+        return this._urlComponents;
     }
 
     get contentIdentifier()

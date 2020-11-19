@@ -51,6 +51,12 @@ CF_RETURNS_RETAINED _Nullable
 SecCertificateRef SecFrameworkCertificateCreate(const uint8_t * der_bytes, CFIndex der_length);
 CF_RETURNS_RETAINED _Nullable
 SecCertificateRef SecFrameworkCertificateCreateFromTestCert(SecCertificateRef cert);
+CF_RETURNS_RETAINED
+SecPolicyRef SecFrameworkPolicyCreateSSL(Boolean server, CFStringRef __nullable hostname);
+CF_RETURNS_RETAINED
+SecPolicyRef SecFrameworkPolicyCreateBasicX509(void);
+CF_RETURNS_RETAINED
+SecPolicyRef SecFrameworkPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef __nullable email);
 
 NS_ASSUME_NONNULL_END
 

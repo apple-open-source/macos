@@ -29,6 +29,7 @@
 #import "trust/trustd/SecRevocationServer.h"
 
 bool SecValidUpdateRequest(dispatch_queue_t queue, CFStringRef server, CFIndex version);
+bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex version);
 bool SecORVCBeginFetches(SecORVCRef orvc, SecCertificateRef cert);
 
 #endif /* _SECURITY_SECREVOCATIONNETWORKING_H_ */

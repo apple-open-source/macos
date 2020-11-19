@@ -1,7 +1,7 @@
-<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
-<meta content="text/html; charset=ISO-8859-1" http-equiv="Content-Type" />
+<meta content="text/html; charset=UTF-8" http-equiv="Content-Type" />
 <!--
         XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
               This file is generated from xml source: DO NOT EDIT
@@ -24,7 +24,7 @@
 <a href="http://www.apache.org/">Apache</a> &gt; <a href="http://httpd.apache.org/">HTTP Server</a> &gt; <a href="http://httpd.apache.org/docs/">Documentation</a> &gt; <a href="../">Version 2.4</a> &gt; <a href="./">Rewrite</a></div><div id="page-content"><div id="preamble"><h1>Advanced Techniques with mod_rewrite</h1>
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../en/rewrite/advanced.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/rewrite/advanced.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
+<a href="../fr/rewrite/advanced.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a></p>
 </div>
 
 
@@ -94,8 +94,8 @@ http://physical_host_of_user1/u/user/anypath
       a user has no entry in the map:</p>
 
 <pre class="prettyprint lang-config">RewriteEngine on
-RewriteMap      users-to-hosts   "txt:/path/to/map.users-to-hosts"
-RewriteRule   "^/u/([^/]+)/?(.*)"   "http://${users-to-hosts:$1|server0}/u/$1/$2"</pre>
+RewriteMap    users-to-hosts      "txt:/path/to/map.users-to-hosts"
+RewriteRule   "^/u/([^/]+)/?(.*)" "http://${users-to-hosts:$1|server0}/u/$1/$2"</pre>
 
     </dd>
   </dl>
@@ -127,7 +127,7 @@ RewriteRule   "^/u/([^/]+)/?(.*)"   "http://${users-to-hosts:$1|server0}/u/$1/$2
 
 <pre class="prettyprint lang-config"># This example is valid in per-directory context only
 RewriteCond "%{REQUEST_URI}"   "!-U"
-RewriteRule "^(.+)\.html$"          "/regenerate_page.cgi"   [PT,L]</pre>
+RewriteRule "^(.+)\.html$"     "/regenerate_page.cgi"   [PT,L]</pre>
 
 
     <p>The <code>-U</code> operator determines whether the test string
@@ -166,8 +166,8 @@ RewriteRule "^(.+)\.html$"          "/regenerate_page.cgi"   [PT,L]</pre>
       to accomplish this.</p>
 
 <pre class="prettyprint lang-config">RewriteEngine on
-RewriteMap lb "rnd:/path/to/serverlist.txt"
-RewriteRule "^/(.*)" "http://${lb:servers}/$1" [P,L]</pre>
+RewriteMap lb        "rnd:/path/to/serverlist.txt"
+RewriteRule "^/(.*)" "http://${lb:servers}/$1"     [P,L]</pre>
 
 
 <p><code>serverlist.txt</code> will contain a list of the servers:</p>
@@ -306,10 +306,10 @@ RewriteRule   "^foo\.html$"             "foo.night.html"</pre>
     <dt>Description:</dt>
 
     <dd>
-      <p>At time, we want to maintain some kind of status when we
+      <p>At times, we want to maintain some kind of status when we
       perform a rewrite. For example, you want to make a note that
       you've done that rewrite, so that you can check later to see if a
-      request can via that rewrite. One way to do this is by setting an
+      request came via that rewrite. One way to do this is by setting an
       environment variable.</p>
     </dd>
 
@@ -330,7 +330,10 @@ RewriteRule   "^/horse/(.*)"   "/pony/$1" [E=<strong>rewritten:1</strong>]</pre>
 
     <p>Note that environment variables do not survive an external
     redirect. You might consider using the [CO] flag to set a
-    cookie.</p>
+    cookie. For per-directory and htaccess rewrites, where the final
+    substitution is processed as an internal redirect, environment
+    variables from the previous round of rewriting are prefixed with
+    "REDIRECT_". </p>
 
     </dd>
   </dl>
@@ -338,8 +341,8 @@ RewriteRule   "^/horse/(.*)"   "/pony/$1" [E=<strong>rewritten:1</strong>]</pre>
 </div></div>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../en/rewrite/advanced.html" title="English">&nbsp;en&nbsp;</a> |
-<a href="../fr/rewrite/advanced.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a></p>
-</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed again by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="http://httpd.apache.org/lists.html">mailing lists</a>.</div>
+<a href="../fr/rewrite/advanced.html" hreflang="fr" rel="alternate" title="FranÃ§ais">&nbsp;fr&nbsp;</a></p>
+</div><div class="top"><a href="#page-header"><img src="../images/up.gif" alt="top" /></a></div><div class="section"><h2><a id="comments_section" name="comments_section">Comments</a></h2><div class="warning"><strong>Notice:</strong><br />This is not a Q&amp;A section. Comments placed here should be pointed towards suggestions on improving the documentation or server, and may be removed by our moderators if they are either implemented or considered invalid/off-topic. Questions on how to manage the Apache HTTP Server should be directed at either our IRC channel, #httpd, on Freenode, or sent to our <a href="https://httpd.apache.org/lists.html">mailing lists</a>.</div>
 <script type="text/javascript"><!--//--><![CDATA[//><!--
 var comments_shortname = 'httpd';
 var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/advanced.html';
@@ -357,7 +360,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/rewrite/advanced.htm
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2019 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2020 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

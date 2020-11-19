@@ -112,31 +112,41 @@ std::unique_ptr<Entry> Entry::decodeStorageRecord(const Storage::Record& storage
     auto entry = makeUnique<Entry>(storageEntry);
 
     WTF::Persistence::Decoder decoder(storageEntry.header.data(), storageEntry.header.size());
-    if (!decoder.decode(entry->m_response))
+    WebCore::ResourceResponse response;
+    if (!WebCore::ResourceResponse::decode(decoder, response))
         return nullptr;
+    entry->m_response = WTFMove(response);
     entry->m_response.setSource(WebCore::ResourceResponse::Source::DiskCache);
 
-    bool hasVaryingRequestHeaders;
-    if (!decoder.decode(hasVaryingRequestHeaders))
+    Optional<bool> hasVaryingRequestHeaders;
+    decoder >> hasVaryingRequestHeaders;
+    if (!hasVaryingRequestHeaders)
         return nullptr;
 
-    if (hasVaryingRequestHeaders) {
-        if (!decoder.decode(entry->m_varyingRequestHeaders))
+    if (*hasVaryingRequestHeaders) {
+        Optional<Vector<std::pair<String, String>>> varyingRequestHeaders;
+        decoder >> varyingRequestHeaders;
+        if (!varyingRequestHeaders)
             return nullptr;
+        entry->m_varyingRequestHeaders = WTFMove(*varyingRequestHeaders);
     }
 
-    bool isRedirect;
-    if (!decoder.decode(isRedirect))
+    Optional<bool> isRedirect;
+    decoder >> isRedirect;
+    if (!isRedirect)
         return nullptr;
 
-    if (isRedirect) {
+    if (*isRedirect) {
         entry->m_redirectRequest.emplace();
         if (!entry->m_redirectRequest->decodeWithoutPlatformData(decoder))
             return nullptr;
     }
 
-    if (!decoder.decode(entry->m_maxAgeCap))
+    Optional<Optional<Seconds>> maxAgeCap;
+    decoder >> maxAgeCap;
+    if (!maxAgeCap)
         return nullptr;
+    entry->m_maxAgeCap = WTFMove(*maxAgeCap);
 
     if (!decoder.verifyChecksum()) {
         LOG(NetworkCache, "(NetworkProcess) checksum verification failure\n");
@@ -166,6 +176,8 @@ void Entry::initializeShareableResourceHandleFromStorageRecord() const
         return;
 
     auto shareableResource = ShareableResource::create(sharedMemory.releaseNonNull(), 0, m_sourceStorageRecord.body.size());
+    if (!shareableResource)
+        return;
     shareableResource->createHandle(m_shareableResourceHandle);
 }
 #endif
@@ -212,32 +224,24 @@ void Entry::setNeedsValidation(bool value)
 
 void Entry::asJSON(StringBuilder& json, const Storage::RecordInfo& info) const
 {
-    json.appendLiteral("{\n");
-    json.appendLiteral("\"hash\": ");
+    json.appendLiteral("{\n"
+        "\"hash\": ");
     json.appendQuotedJSONString(m_key.hashAsString());
-    json.appendLiteral(",\n");
-    json.appendLiteral("\"bodySize\": ");
-    json.appendNumber(info.bodySize);
-    json.appendLiteral(",\n");
-    json.appendLiteral("\"worth\": ");
-    json.append(FormattedNumber::fixedPrecision(info.worth));
-    json.appendLiteral(",\n");
-    json.appendLiteral("\"partition\": ");
+    json.append(",\n"
+        "\"bodySize\": ", info.bodySize, ",\n"
+        "\"worth\": ", info.worth, ",\n"
+        "\"partition\": ");
     json.appendQuotedJSONString(m_key.partition());
-    json.appendLiteral(",\n");
-    json.appendLiteral("\"timestamp\": ");
-    json.append(FormattedNumber::fixedPrecision(m_timeStamp.secondsSinceEpoch().milliseconds()));
-    json.appendLiteral(",\n");
-    json.appendLiteral("\"URL\": ");
+    json.append(",\n"
+        "\"timestamp\": ", m_timeStamp.secondsSinceEpoch().milliseconds(), ",\n"
+        "\"URL\": ");
     json.appendQuotedJSONString(m_response.url().string());
-    json.appendLiteral(",\n");
-    json.appendLiteral("\"bodyHash\": ");
+    json.appendLiteral(",\n"
+        "\"bodyHash\": ");
     json.appendQuotedJSONString(info.bodyHash);
-    json.appendLiteral(",\n");
-    json.appendLiteral("\"bodyShareCount\": ");
-    json.appendNumber(info.bodyShareCount);
-    json.appendLiteral(",\n");
-    json.appendLiteral("\"headers\": {\n");
+    json.append(",\n"
+        "\"bodyShareCount\": ", info.bodyShareCount, ",\n"
+        "\"headers\": {\n");
     bool firstHeader = true;
     for (auto& header : m_response.httpHeaderFields()) {
         if (!firstHeader)
@@ -248,8 +252,9 @@ void Entry::asJSON(StringBuilder& json, const Storage::RecordInfo& info) const
         json.appendLiteral(": ");
         json.appendQuotedJSONString(header.value);
     }
-    json.appendLiteral("\n}\n");
-    json.appendLiteral("}");
+    json.appendLiteral("\n"
+        "}\n"
+        "}");
 }
 
 }

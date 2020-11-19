@@ -26,7 +26,7 @@
 #import "config.h"
 #import "PointerEvent.h"
 
-#if ENABLE(POINTER_EVENTS) && ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
+#if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
 
 #import "EventNames.h"
 
@@ -73,7 +73,7 @@ Ref<PointerEvent> PointerEvent::create(const String& type, const PlatformTouchEv
 }
 
 PointerEvent::PointerEvent(const AtomString& type, const PlatformTouchEvent& event, IsCancelable isCancelable, unsigned index, bool isPrimary, Ref<WindowProxy>&& view)
-    : MouseEvent(type, typeCanBubble(type), isCancelable, typeIsComposed(type), event.timestamp().approximateMonotonicTime(), WTFMove(view), 0, event.touchLocationAtIndex(index), event.touchLocationAtIndex(index), { }, event.modifiers(), buttonForType(type), buttonsForType(type), nullptr, 0, 0, nullptr, IsSimulated::No, IsTrusted::Yes)
+    : MouseEvent(type, typeCanBubble(type), isCancelable, typeIsComposed(type), event.timestamp().approximateMonotonicTime(), WTFMove(view), 0, event.touchLocationAtIndex(index), event.touchLocationAtIndex(index), { }, event.modifiers(), buttonForType(type), buttonsForType(type), nullptr, 0, 0, IsSimulated::No, IsTrusted::Yes)
     , m_pointerId(event.touchIdentifierAtIndex(index))
     , m_width(2 * event.radiusXAtIndex(index))
     , m_height(2 * event.radiusYAtIndex(index))
@@ -92,4 +92,4 @@ PointerEvent::PointerEvent(const AtomString& type, const PlatformTouchEvent& eve
 
 } // namespace WebCore
 
-#endif // ENABLE(POINTER_EVENTS) && ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
+#endif // ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)

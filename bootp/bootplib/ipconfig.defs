@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2014 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2014, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,16 +34,28 @@ type ip_address = MACH_MSG_TYPE_INTEGER_32
 type ipconfig_status = MACH_MSG_TYPE_INTEGER_32
 	ctype : ipconfig_status_t;
 
-type if_name = array[32] of char
-	ctype : if_name_t;
-type inline_data = array [ * : 2048 ] of char
-	ctype : inline_data_t;
+type if_name = array[16] of char
+	ctype : InterfaceName;
+type service_id = array[128] of char
+	ctype : ServiceID;
 
 /*
  * serialized XML data (client->server)
  */
 type xmlData    = ^ array [] of MACH_MSG_TYPE_BYTE
 	ctype : xmlData_t;
+
+/*
+ * serialized XML data (server->client)
+ */
+type xmlDataOut    = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : xmlDataOut_t;
+
+/*
+ * serialized data out (server->client)
+ */
+type dataOut = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : dataOut_t;
 
 /*
  * MiG interfaces
@@ -54,7 +66,7 @@ routine ipconfig_if_count(	server : mach_port_t;
 routine ipconfig_get_option(	server : mach_port_t;
 				name : if_name;
 				option_code : int;
-			 out	option_data : inline_data;
+			 out	option_data : dataOut;
 			 out	status : ipconfig_status);
 
 routine ipconfig_if_addr(	server : mach_port_t;
@@ -64,7 +76,7 @@ routine ipconfig_if_addr(	server : mach_port_t;
 
 routine ipconfig_get_packet(	server : mach_port_t;
 				name : if_name;
-			 out	packet : inline_data;
+			 out	packet : dataOut;
 			 out	status : ipconfig_status);
 
 routine ipconfig_set(		server : mach_port_t;
@@ -91,22 +103,17 @@ routine ipconfig_set_something(	server : mach_port_t;
 routine ipconfig_add_service(	server : mach_port_t;
 				name : if_name;
 				method_data : xmlData;
-			out	service_id : inline_data;
+			out	serviceID : service_id;
 			out	status : ipconfig_status;
 	    ServerAuditToken	audit_token : audit_token_t);
 
-routine ipconfig_remove_service_with_id(
-				server : mach_port_t;
-				service_id : inline_data;
-			out	status : ipconfig_status;
-	    ServerAuditToken	audit_token : audit_token_t);
-
+	skip;
 
 routine ipconfig_find_service(	server : mach_port_t;
 				name : if_name;
 				exact : boolean_t;
 				method_data : xmlData;
-			out	service_id : inline_data;
+			out	serviceID : service_id;
 			out	status : ipconfig_status );
 
 routine ipconfig_remove_service(server : mach_port_t;
@@ -118,27 +125,27 @@ routine ipconfig_remove_service(server : mach_port_t;
 routine ipconfig_set_service(	server : mach_port_t;
 				name : if_name;
 				method_data : xmlData;
-			out	service_id : inline_data;
+			out	serviceID : service_id;
 			out	status : ipconfig_status;
 	    ServerAuditToken	audit_token : audit_token_t);
 
 
 routine ipconfig_get_v6_packet(	server : mach_port_t;
 				name : if_name;
-			 out	packet : inline_data;
+			 out	packet : dataOut;
 			 out	status : ipconfig_status);
 
 routine ipconfig_remove_service_on_interface(
 				server : mach_port_t;
 				name : if_name;
-				service_id : inline_data;
+				serviceID : service_id;
 			out	status : ipconfig_status;
 	    ServerAuditToken	audit_token : audit_token_t);
 
 routine ipconfig_refresh_service(
 				server : mach_port_t;
 				name : if_name;
-				service_id : inline_data;
+				serviceID : service_id;
 			out	status : ipconfig_status;
 	    ServerAuditToken	audit_token : audit_token_t);
 
@@ -148,3 +155,8 @@ routine ipconfig_forget_network(
 				network_data : xmlData;
 			out	status : ipconfig_status;
 	    ServerAuditToken	audit_token : audit_token_t);
+
+routine ipconfig_get_ra(	server : mach_port_t;
+				name : if_name;
+			 out	ra_data : xmlDataOut;
+			 out	status : ipconfig_status);

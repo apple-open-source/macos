@@ -1,4 +1,4 @@
-module Security.SecTask [extern_c] {
+module Security.SecTask [extern_c][system] {
     header "SecTask.h"
     export *
 }

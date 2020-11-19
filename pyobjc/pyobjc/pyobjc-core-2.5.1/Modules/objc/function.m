@@ -204,7 +204,7 @@ func_call(PyObject* s, PyObject* args, PyObject* kwds)
 	}
 
 	if (variadicAllArgs) {
-		r = ffi_prep_cif(&cif, FFI_DEFAULT_ABI, cif_arg_count,
+		r = ffi_prep_cif_var(&cif, FFI_DEFAULT_ABI, Py_SIZE(self->methinfo), cif_arg_count,
 			signature_to_ffi_return_type(self->methinfo->rettype.type), arglist);
 		if (r != FFI_OK) {
 			PyErr_Format(PyExc_RuntimeError,

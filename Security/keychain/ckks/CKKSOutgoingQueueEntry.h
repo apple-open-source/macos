@@ -55,7 +55,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)withItem:(SecDbItemRef)item
                   action:(NSString*)action
-                    ckks:(CKKSKeychainView*)ckks
+                  zoneID:(CKRecordZoneID*)zoneID
                    error:(NSError* __autoreleasing*)error;
 + (instancetype)fromDatabase:(NSString*)uuid
                        state:(NSString*)state
@@ -74,6 +74,11 @@ NS_ASSUME_NONNULL_BEGIN
 + (NSArray<CKKSOutgoingQueueEntry*>*)allInState:(NSString*)state
                                          zoneID:(CKRecordZoneID*)zoneID
                                           error:(NSError* __autoreleasing*)error;
+
++ (NSArray<CKKSOutgoingQueueEntry*>*)allWithUUID:(NSString*)uuid
+                                          states:(NSArray<NSString*>*)states
+                                          zoneID:(CKRecordZoneID*)zoneID
+                                           error:(NSError * __autoreleasing *)error;
 
 + (NSDictionary<NSString*, NSNumber*>*)countsByStateInZone:(CKRecordZoneID*)zoneID error:(NSError* __autoreleasing*)error;
 + (NSInteger)countByState:(CKKSItemState *)state zone:(CKRecordZoneID*)zoneID error: (NSError * __autoreleasing *) error;

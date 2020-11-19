@@ -90,7 +90,7 @@
     _connection = [[SFKeychainServerFakeConnection alloc] init];
 
     self.keychainPartialMock = OCMPartialMock(_keychain);
-    [[[[self.keychainPartialMock stub] andCall:@selector(getDatabaseKeyDataithError:) onObject:self] ignoringNonObjectArgs] _onQueueGetDatabaseKeyDataWithError:NULL];
+    [[[[self.keychainPartialMock stub] andCall:@selector(getDatabaseKeyDataWithError:) onObject:self] ignoringNonObjectArgs] _onQueueGetDatabaseKeyDataWithError:NULL];
 
     [_keychain _registerItemTypeForTesting:[TestItemType itemType]];
 }
@@ -472,7 +472,7 @@
     XCTAssertNotNil(keychain, @"should have been able to create a keychain instance");
 
     self.keychainPartialMock = OCMPartialMock(keychain);
-    [[[[self.keychainPartialMock stub] andCall:@selector(getDatabaseKeyDataithError:) onObject:self] ignoringNonObjectArgs] _onQueueGetDatabaseKeyDataWithError:NULL];
+    [[[[self.keychainPartialMock stub] andCall:@selector(getDatabaseKeyDataWithError:) onObject:self] ignoringNonObjectArgs] _onQueueGetDatabaseKeyDataWithError:NULL];
 
     SecCDKeychainAccessControlEntity* owner = [SecCDKeychainAccessControlEntity accessControlEntityWithType:SecCDKeychainAccessControlEntityTypeAccessGroup stringRepresentation:@"com.apple.token"];
 

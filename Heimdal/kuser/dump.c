@@ -36,6 +36,7 @@
 #include "kuser_locl.h"
 #include "kcc-commands.h"
 #include "heimcred.h"
+#include "heimbase.h"
 
 /*
  *
@@ -73,7 +74,6 @@ dump_credentials(struct dump_credentials_options *opt, int argc, char **argv)
     if (query == NULL)
 	errx(1, "out of memory");
 
-
     array = HeimCredCopyQuery(query);
     CFRelease(query);
     if (array == NULL) {
@@ -92,7 +92,10 @@ dump_credentials(struct dump_credentials_options *opt, int argc, char **argv)
 
 	    attrs = HeimCredCopyAttributes(cred, NULL, NULL);
 	    if (attrs) {
-		CFShow(attrs);
+		CFStringRef objType = CFDictionaryGetValue(attrs, kHEIMObjectType);
+		if (!CFEqual(objType, kHEIMTypeKerberosAcquireCred)) {
+		    CFShow(attrs);
+		}
 		CFRelease(attrs);
 	    }
 	}

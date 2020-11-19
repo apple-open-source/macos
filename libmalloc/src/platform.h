@@ -44,12 +44,13 @@
 #endif // MALLOC_TARGET_IOS
 
 // <rdar://problem/12596555>
+#define CONFIG_RECIRC_DEPOT 1
+#define CONFIG_AGGRESSIVE_MADVISE 1
+
 #if MALLOC_TARGET_IOS
-# define CONFIG_RECIRC_DEPOT 1
-# define CONFIG_AGGRESSIVE_MADVISE 1
+# define DEFAULT_AGGRESSIVE_MADVISE_ENABLED true
 #else // MALLOC_TARGET_IOS
-# define CONFIG_RECIRC_DEPOT 1
-# define CONFIG_AGGRESSIVE_MADVISE 0
+# define DEFAULT_AGGRESSIVE_MADVISE_ENABLED false
 #endif // MALLOC_TARGET_IOS
 
 // <rdar://problem/10397726>
@@ -92,6 +93,10 @@
 #define CONFIG_LARGE_CACHE 1
 #endif
 
+#if CONFIG_LARGE_CACHE
+#define DEFAULT_LARGE_CACHE_ENABLED true
+#endif
+
 #if MALLOC_TARGET_IOS
 // The VM system on iOS forces malloc-tagged memory to never be marked as
 // copy-on-write, this would include calls we make to vm_copy. Given that the
@@ -106,6 +111,12 @@
 #define ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING 0
 #else
 #define ENABLE_MEMORY_RESOURCE_EXCEPTION_HANDLING 1
+#endif
+
+#if !TARGET_OS_DRIVERKIT && (!TARGET_OS_OSX || MALLOC_TARGET_64BIT)
+#define CONFIG_FEATUREFLAGS_SIMPLE 1
+#else
+#define CONFIG_FEATUREFLAGS_SIMPLE 0
 #endif
 
 // presence of commpage memsize

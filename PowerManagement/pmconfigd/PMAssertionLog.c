@@ -28,6 +28,7 @@
 
 #include "PMAssertions.h"
 #include "PrivateLib.h"
+#include "BatteryTimeRemaining.h"
 
 #include <IOReport.h>
 
@@ -74,7 +75,7 @@ static void logAssertionActivity(assertLogAction  action,
 {
 
     bool            logBT = false;
-    CFDateRef       time = NULL;
+    CFDateRef       time = NULL, createTime = NULL;
     CFStringRef     actionStr = NULL;
     CFNumberRef     pid_cf = NULL, retain_cf = NULL, uniqueAID = NULL;
     CFTypeRef       type = NULL, name = NULL, btSymbols = NULL;
@@ -161,6 +162,10 @@ static void logAssertionActivity(assertLogAction  action,
         CFRelease(entry);
         return;
     }
+
+    // Creation time of assertion
+    if ((createTime = CFDictionaryGetValue(props, kIOPMAssertionCreateDateKey)) != NULL)
+        CFDictionarySetValue(entry, kIOPMAssertionCreateDateKey, createTime);
 
     // Assertion type
     if ((type = CFDictionaryGetValue(props, kIOPMAssertionTypeKey)) != NULL)
@@ -523,8 +528,8 @@ void logASLAssertionsAggregate(void)
     char            capacityBuf[64];
     static int      prevPwrSrc = -1;
     static uint32_t prevAssertionBits = 0;
-    PowerSources    pwrSrc;
-    uint32_t        capacity;
+    PowerSources    pwrSrc = kACPowered;
+    uint32_t        capacity = 0;
     bool            battExists;
 
     battExists = getPowerState(&pwrSrc, &capacity);

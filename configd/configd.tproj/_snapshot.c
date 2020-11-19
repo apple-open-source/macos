@@ -142,12 +142,8 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	if (f == NULL) {
 		return kSCStatusFailed;
 	}
-	SCPrint(TRUE, f, CFSTR("Main thread :\n\n"));
+	SCPrint(TRUE, f, CFSTR("Main [plug-in] thread :\n\n"));
 	SCPrint(TRUE, f, CFSTR("%@\n"), CFRunLoopGetCurrent());
-	if (plugin_runLoop != NULL) {
-		SCPrint(TRUE, f, CFSTR("Plug-in thread :\n\n"));
-		SCPrint(TRUE, f, CFSTR("%@\n"), plugin_runLoop);
-	}
 	listSessions(f);
 	(void) fclose(f);
 

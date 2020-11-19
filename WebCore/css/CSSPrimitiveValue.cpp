@@ -32,12 +32,12 @@
 #include "CSSValueKeywords.h"
 #include "CalculationValue.h"
 #include "Color.h"
+#include "ColorSerialization.h"
 #include "Counter.h"
 #include "DeprecatedCSSOMPrimitiveValue.h"
 #include "FontCascade.h"
 #include "Node.h"
 #include "Pair.h"
-#include "RGBColor.h"
 #include "Rect.h"
 #include "RenderStyle.h"
 #include <wtf/NeverDestroyed.h>
@@ -72,6 +72,8 @@ static inline bool isValidCSSUnitTypeForDoubleConversion(CSSUnitType unitType)
     case CSSUnitType::CSS_PT:
     case CSSUnitType::CSS_PX:
     case CSSUnitType::CSS_Q:
+    case CSSUnitType::CSS_LHS:
+    case CSSUnitType::CSS_RLHS:
     case CSSUnitType::CSS_QUIRKY_EMS:
     case CSSUnitType::CSS_RAD:
     case CSSUnitType::CSS_REMS:
@@ -81,15 +83,10 @@ static inline bool isValidCSSUnitTypeForDoubleConversion(CSSUnitType unitType)
     case CSSUnitType::CSS_VMAX:
     case CSSUnitType::CSS_VMIN:
     case CSSUnitType::CSS_VW:
-        return true;
     case CSSUnitType::CSS_DPCM:
     case CSSUnitType::CSS_DPI:
     case CSSUnitType::CSS_DPPX:
-#if ENABLE(CSS_IMAGE_RESOLUTION) || ENABLE(RESOLUTION_MEDIA_QUERY)
         return true;
-#else
-        return false;
-#endif
     case CSSUnitType::CSS_ATTR:
     case CSSUnitType::CSS_COUNTER:
     case CSSUnitType::CSS_COUNTER_NAME:
@@ -113,7 +110,7 @@ static inline bool isValidCSSUnitTypeForDoubleConversion(CSSUnitType unitType)
     return false;
 }
 
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
 
 static inline bool isStringType(CSSUnitType type)
 {
@@ -153,6 +150,8 @@ static inline bool isStringType(CSSUnitType type)
     case CSSUnitType::CSS_PT:
     case CSSUnitType::CSS_PX:
     case CSSUnitType::CSS_Q:
+    case CSSUnitType::CSS_LHS:
+    case CSSUnitType::CSS_RLHS:
     case CSSUnitType::CSS_QUAD:
     case CSSUnitType::CSS_QUIRKY_EMS:
     case CSSUnitType::CSS_RAD:
@@ -176,7 +175,7 @@ static inline bool isStringType(CSSUnitType type)
     return false;
 }
 
-#endif // !ASSERT_DISABLED
+#endif // ASSERT_ENABLED
 
 typedef HashMap<const CSSPrimitiveValue*, String> CSSTextCache;
 static CSSTextCache& cssTextCache()
@@ -458,7 +457,8 @@ void CSSPrimitiveValue::cleanup()
         m_value.pair->deref();
         break;
     case CSSUnitType::CSS_CALC:
-        m_value.calc->deref();
+        if (m_value.calc)
+            m_value.calc->deref();
         break;
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER:
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH:
@@ -507,6 +507,8 @@ void CSSPrimitiveValue::cleanup()
     case CSSUnitType::CSS_DPCM:
     case CSSUnitType::CSS_FR:
     case CSSUnitType::CSS_Q:
+    case CSSUnitType::CSS_LHS:
+    case CSSUnitType::CSS_RLHS:
     case CSSUnitType::CSS_IDENT:
     case CSSUnitType::CSS_UNKNOWN:
     case CSSUnitType::CSS_UNICODE_RANGE:
@@ -636,6 +638,23 @@ double CSSPrimitiveValue::computeNonCalcLengthDouble(const CSSToLengthConversion
     case CSSUnitType::CSS_Q:
         factor = cssPixelsPerInch / QPerInch;
         break;
+    case CSSUnitType::CSS_LHS:
+        ASSERT(conversionData.style());
+        if (conversionData.computingLineHeight() || conversionData.computingFontSize()) {
+            // Try to get the parent's computed line-height, or fall back to the initial line-height of this element's font spacing.
+            factor = conversionData.parentStyle() ? conversionData.parentStyle()->computedLineHeight() : conversionData.style()->fontMetrics().lineSpacing();
+        } else
+            factor = conversionData.style()->computedLineHeight();
+        break;
+    case CSSUnitType::CSS_RLHS:
+        if (conversionData.rootStyle()) {
+            if (conversionData.computingLineHeight() || conversionData.computingFontSize())
+                factor = conversionData.rootStyle()->computeLineHeight(conversionData.rootStyle()->specifiedLineHeight());
+            else
+                factor = conversionData.rootStyle()->computedLineHeight();
+        } else
+            factor = 1.0;
+        break;
     case CSSUnitType::CSS_IN:
         factor = cssPixelsPerInch;
         break;
@@ -721,6 +740,7 @@ double CSSPrimitiveValue::conversionToCanonicalUnitsScaleFactor(CSSUnitType unit
     case CSSUnitType::CSS_DEG:
     case CSSUnitType::CSS_MS:
     case CSSUnitType::CSS_HZ:
+    case CSSUnitType::CSS_DPPX:
         break;
     case CSSUnitType::CSS_CM:
         factor = cssPixelsPerInch / cmPerInch;
@@ -896,29 +916,6 @@ String CSSPrimitiveValue::stringValue() const
     }
 }
 
-ExceptionOr<Counter&> CSSPrimitiveValue::getCounterValue() const
-{
-    if (primitiveUnitType() != CSSUnitType::CSS_COUNTER)
-        return Exception { InvalidAccessError };
-    return *m_value.counter;
-}
-
-ExceptionOr<Rect&> CSSPrimitiveValue::getRectValue() const
-{
-    if (primitiveUnitType() != CSSUnitType::CSS_RECT)
-        return Exception { InvalidAccessError };
-    return *m_value.rect;
-}
-
-ExceptionOr<Ref<RGBColor>> CSSPrimitiveValue::getRGBColorValue() const
-{
-    if (primitiveUnitType() != CSSUnitType::CSS_RGBCOLOR)
-        return Exception { InvalidAccessError };
-
-    // FIXME: This should not return a new object for each invocation.
-    return RGBColor::create(m_value.color->rgb());
-}
-
 NEVER_INLINE String CSSPrimitiveValue::formatNumberValue(StringView suffix) const
 {
     return makeString(m_value.num, suffix);
@@ -952,6 +949,8 @@ String CSSPrimitiveValue::unitTypeString(CSSUnitType unitType)
         case CSSUnitType::CSS_DPCM: return "dpcm";
         case CSSUnitType::CSS_FR: return "fr";
         case CSSUnitType::CSS_Q: return "q";
+        case CSSUnitType::CSS_LHS: return "lh";
+        case CSSUnitType::CSS_RLHS: return "rlh";
         case CSSUnitType::CSS_TURN: return "turn";
         case CSSUnitType::CSS_REMS: return "rem";
         case CSSUnitType::CSS_CHS: return "ch";
@@ -1039,6 +1038,10 @@ ALWAYS_INLINE String CSSPrimitiveValue::formatNumberForCustomCSSText() const
         return formatNumberValue("fr");
     case CSSUnitType::CSS_Q:
         return formatNumberValue("q");
+    case CSSUnitType::CSS_LHS:
+        return formatNumberValue("lh");
+    case CSSUnitType::CSS_RLHS:
+        return formatNumberValue("rlh");
     case CSSUnitType::CSS_DIMENSION:
         // FIXME: We currently don't handle CSSUnitType::CSS_DIMENSION properly as we don't store
         // the actual dimension, just the numeric value as a string.
@@ -1084,10 +1087,12 @@ ALWAYS_INLINE String CSSPrimitiveValue::formatNumberForCustomCSSText() const
     case CSSUnitType::CSS_QUAD:
         return quadValue()->cssText();
     case CSSUnitType::CSS_RGBCOLOR:
-        return color().cssText();
+        return serializationForCSS(color());
     case CSSUnitType::CSS_PAIR:
         return pairValue()->cssText();
     case CSSUnitType::CSS_CALC:
+        if (!m_value.calc)
+            break;
         return m_value.calc->cssText();
     case CSSUnitType::CSS_SHAPE:
         return m_value.shape->cssText();
@@ -1166,6 +1171,8 @@ bool CSSPrimitiveValue::equals(const CSSPrimitiveValue& other) const
     case CSSUnitType::CSS_VMAX:
     case CSSUnitType::CSS_FR:
     case CSSUnitType::CSS_Q:
+    case CSSUnitType::CSS_LHS:
+    case CSSUnitType::CSS_RLHS:
         return m_value.num == other.m_value.num;
     case CSSUnitType::CSS_PROPERTY_ID:
         return propertyName(m_value.propertyID) == propertyName(other.m_value.propertyID);
@@ -1209,7 +1216,7 @@ Ref<DeprecatedCSSOMPrimitiveValue> CSSPrimitiveValue::createDeprecatedCSSOMPrimi
     return DeprecatedCSSOMPrimitiveValue::create(*this, styleDeclaration);
 }
 
-// https://drafts.css-houdini.org/css-properties-values-api/#dependency-cycles-via-relative-units
+// https://drafts.css-houdini.org/css-properties-values-api/#dependency-cycles
 void CSSPrimitiveValue::collectDirectComputationalDependencies(HashSet<CSSPropertyID>& values) const
 {
     switch (primitiveUnitType()) {
@@ -1218,6 +1225,10 @@ void CSSPrimitiveValue::collectDirectComputationalDependencies(HashSet<CSSProper
     case CSSUnitType::CSS_EXS:
     case CSSUnitType::CSS_CHS:
         values.add(CSSPropertyFontSize);
+        break;
+    case CSSUnitType::CSS_LHS:
+        values.add(CSSPropertyFontSize);
+        values.add(CSSPropertyLineHeight);
         break;
     case CSSUnitType::CSS_CALC:
         m_value.calc->collectDirectComputationalDependencies(values);
@@ -1232,6 +1243,10 @@ void CSSPrimitiveValue::collectDirectRootComputationalDependencies(HashSet<CSSPr
     switch (primitiveUnitType()) {
     case CSSUnitType::CSS_REMS:
         values.add(CSSPropertyFontSize);
+        break;
+    case CSSUnitType::CSS_RLHS:
+        values.add(CSSPropertyFontSize);
+        values.add(CSSPropertyLineHeight);
         break;
     case CSSUnitType::CSS_CALC:
         m_value.calc->collectDirectRootComputationalDependencies(values);

@@ -38,6 +38,10 @@
 #include <ils.h>
 #include <dispatch/dispatch.h>
 #include <TargetConditionals.h>
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+#include <sys/sysctl.h>
+#include <apfs/apfs_sysctl.h>
+#endif
 
 /* notify SPI */
 uint32_t notify_peek(int token, uint32_t *val);
@@ -1716,6 +1720,32 @@ _fsi_get_name_number_aliases(si_mod_t *si, const char *name, int num, int which,
 
 /* MOUNT */
 
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+static si_item_t *
+_fsi_parse_edt_fs(si_mod_t *si, const char *name, int which, struct edt_fstab *fs, uint64_t va, uint64_t vb)
+{
+	int match;
+	si_item_t *item;
+
+	if (fs == NULL) return NULL;
+
+	match = 0;
+
+	if (which == SEL_ALL) match = 1;
+	else if ((which == SEL_NAME) && (string_equal(name, fs->fs_spec))) match = 1;
+	else if ((which == SEL_NUMBER) && (string_equal(name, fs->fs_file))) match = 1;
+
+	if (match == 0)
+	{
+		return NULL;
+	}
+
+	item = (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, va, vb, fs->fs_spec, fs->fs_file, fs->fs_vfstype, fs->fs_mntops, fs->fs_type, fs->fs_freq, fs->fs_passno);
+
+	return item;
+}
+#endif
+
 static si_item_t *
 _fsi_parse_fs(si_mod_t *si, const char *name, int which, char *data, uint64_t va, uint64_t vb)
 {
@@ -1883,6 +1913,75 @@ _fsi_fs_root(si_mod_t *si)
 	return si_item_retain(rootfs);
 }
 
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+static void *
+_fsi_get_edt_fs(si_mod_t *si, const char *name, int which)
+{
+	void *data;
+	struct edt_fstab *fstab;
+	size_t i, size;
+	si_item_t *item;
+	si_list_t *all;
+	uint64_t va, vb;
+
+	if ((which != SEL_ALL) && (name == NULL)) return NULL;
+
+	all = NULL;
+	item = NULL;
+	fstab = NULL;
+	i = 0;
+	size = 0;
+
+	// obtain fstab information from the EDT provided through this sysctl
+	if (sysctlbyname(APFS_FSTAB_SYSCTL, NULL, &size, NULL, 0) || !size)
+	{
+		return all;
+	}
+
+	fstab = malloc(size);
+	if (!fstab)
+	{
+		return all;
+	}
+
+	if (sysctlbyname(APFS_FSTAB_SYSCTL, fstab, &size, NULL, 0))
+	{
+		free(fstab);
+		return all;
+	}
+	size = size / sizeof(struct edt_fstab);
+
+	_fsi_get_validation(si, VALIDATION_FSTAB, _PATH_FSTAB, NULL, &va, &vb);
+
+	forever
+	{
+		if (i >= size)
+		{
+			free(fstab);
+			break;
+		}
+
+		data = fstab + i;
+		i++;
+
+		item = _fsi_parse_edt_fs(si, name, which, data, va, vb);
+
+		if (item == NULL) continue;
+
+		if (which == SEL_ALL)
+		{
+			all = si_list_add(all, item);
+			si_item_release(item);
+			continue;
+		}
+
+		return item;
+	}
+
+	return all;
+}
+#endif
+
 static void *
 _fsi_get_fs(si_mod_t *si, const char *name, int which)
 {
@@ -1902,6 +2001,24 @@ _fsi_get_fs(si_mod_t *si, const char *name, int which)
 	synthesize_root = 1;
 #else
 	synthesize_root = 0;
+#endif
+
+#if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
+	// We still boot using HFS sometimes (e.g. ramdisks) and therefore
+	// need to conditionalize using the EDT over the fstab file.
+	// Certain HFS ramdisks rely on the EDT entries. Prefer the EDT
+	// over the fstab file, but fall back to use the file upon failure
+	// to obtain the EDT entries.
+	struct statfs rootfs;
+	const char *root_path = "/";
+
+	if (statfs(root_path, &rootfs)) return NULL;
+
+	all = _fsi_get_edt_fs(si, name, which);
+	if (all || string_equal(rootfs.f_fstypename, "apfs"))
+	{
+		return all;
+	}
 #endif
 
 	f = fopen(_PATH_FSTAB, "r");

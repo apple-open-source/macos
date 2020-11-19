@@ -64,7 +64,7 @@ PasswordImpl::PasswordImpl(PasswordImpl& existing)
 
 
 
-PasswordImpl::~PasswordImpl() throw()
+PasswordImpl::~PasswordImpl() _NOEXCEPT
 {
 }
 

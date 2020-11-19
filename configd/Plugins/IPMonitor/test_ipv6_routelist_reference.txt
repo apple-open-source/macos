@@ -1383,16 +1383,3 @@ failed to add: Host 2620:149:4:f01:225:ff:fecc:89a2 Gate 2620:149:4:f01:225:ff:f
 failed to add: Host 2620:149:4:f01:225:ff:fecc:89a1 Gate 2620:149:4:f01:225:ff:fecc:89a2 Ifp en0 Ifa 2001:470:1f05:3cb:cabc:c8ff:fe96:9601
 =================> Apply 'test5', 'test4' End <=================
 
-Checking for leaks
-Process:         test_ipv6_routelist [XXXX]
-Path: XXXX
-Identifier:      test_ipv6_routelist
-Code Type:       X86-64
-
-Date/Time:       XXXX
-OS Version: XXXX
-Report Version:  7
-
-leaks Report Version: 4.0
-Process XXXX 0 leaks for 0 total leaked bytes.
-

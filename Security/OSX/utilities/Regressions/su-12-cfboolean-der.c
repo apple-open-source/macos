@@ -61,14 +61,14 @@ static void one_test(CFBooleanRef value, size_t der_size, const uint8_t *expecte
 #endif
 
     CFBooleanRef decoded = NULL;
-    const uint8_t* decode_end = der_decode_boolean(NULL, kCFPropertyListMutableContainersAndLeaves,
+    const uint8_t* decode_end = der_decode_boolean(NULL,
                                                    &decoded, NULL, encoded, buffer_end);
 
     ok(decode_end == buffer_end);
     ok((decoded != NULL) && CFEqual(decoded, value));
 
     CFPropertyListRef decoded_type = NULL;
-    decode_end = der_decode_plist(NULL, kCFPropertyListMutableContainersAndLeaves,
+    decode_end = der_decode_plist(NULL,
                                   &decoded_type, NULL, encoded, buffer_end);
 
     ok(decode_end == buffer_end);

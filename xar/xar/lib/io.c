@@ -40,6 +40,7 @@
 #include "config.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
@@ -47,6 +48,7 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <sys/types.h>
+#include <sys/param.h>
 #include <assert.h>
 
 #ifndef HAVE_ASPRINTF
@@ -120,16 +122,17 @@ struct datamod xar_datamods[] = {
 };
 
 size_t xar_io_get_rsize(xar_t x) {
-	size_t bsize;
+	size_t bsize = xar_optimal_io_size_at_path(XAR(x)->dirname);
 	const char *opt = NULL;
 
-	opt = xar_opt_get(x, "rsize");
-	if( !opt ) {
-		bsize = 4096;
-	} else {
-		bsize = strtol(opt, NULL, 0);
-		if( ((bsize == LONG_MAX) || (bsize == LONG_MIN)) && (errno == ERANGE) ) {
-			bsize = 4096;
+	opt = xar_opt_get(x, XAR_OPT_RSIZE);
+	if( opt ) {
+		errno = 0;
+		size_t potential_bsize = strtol(opt, NULL, 0);
+		if ( potential_bsize != 0 &&
+			 errno != ERANGE && potential_bsize != LONG_MAX && potential_bsize != LONG_MIN)
+		{
+			bsize = potential_bsize;
 		}
 	}
 
@@ -820,52 +823,93 @@ int32_t xar_attrcopy_from_heap_to_stream_end(xar_stream *stream) {
 	return XAR_STREAM_OK;
 }
 
+static
+ssize_t xar_pread_block(int fd, void *buf, size_t nbyte, off_t offset)
+{
+	ssize_t total = 0;
+	while (total < nbyte) {
+		ssize_t len = pread(fd, buf + total, nbyte - total, offset + total);
+		if (len < 0) {
+			if (errno == EINTR) {
+				continue;
+			}
+			return -1;
+		}
+		if (len == 0) {
+			// hit EOF, return partial read
+			return total;
+		}
+		total += len;
+	}
+	return total;
+}
+
+static
+ssize_t xar_pwrite_block(int fd, const void *buf, size_t nbyte, off_t offset)
+{
+	ssize_t total = 0;
+	while (total < nbyte) {
+		ssize_t len = pwrite(fd, buf + total, nbyte - total, offset + total);
+		if (len < 0) {
+			if (errno == EINTR) {
+				continue;
+			}
+			return -1;
+		}
+		total += len;
+	}
+	return total;
+}
+
 /* xar_heap_to_archive
  * x: archive to operate on
  * Returns 0 on success, -1 on error
  * Summary: copies the heap into the archive.
  */
 int32_t xar_heap_to_archive(xar_t x) {
-	long bsize;
-	ssize_t r;
-	int off;
-	const char *opt;
-	char *b;
-
-	opt = xar_opt_get(x, "rsize");
-	if( !opt ) {
-		bsize = 4096;
-	} else {
-		bsize = strtol(opt, NULL, 0);
-		if( ((bsize == LONG_MAX) || (bsize == LONG_MIN)) && (errno == ERANGE) ) {
-			bsize = 4096;
-		}
-	}
-	
-	b = calloc(1, bsize);
+	const long bsize = xar_io_get_rsize(x);
+	char *b = malloc(bsize);
 	if( !b ) return -1;
-	
-	lseek(XAR(x)->heap_fd, 0, SEEK_SET);
-	while(1) {
-		r = read(XAR(x)->heap_fd, b, bsize);
-		if( r == 0 ) break;
-		if( (r < 0) && (errno == EINTR) ) continue;
-		if( r < 0 ) {
+
+	const ssize_t dst_heap_start_offset = lseek(XAR(x)->fd, 0, SEEK_CUR);
+	if ( dst_heap_start_offset < 0 ) {
+		return -1;
+	}
+
+	const ssize_t src_heap_size = lseek(XAR(x)->heap_fd, 0, SEEK_END);
+	if ( src_heap_size < 0 ) {
+		return -1;
+	}
+		
+	// Let's set our offset to the end of the XAR file (end of dst heap)
+	ssize_t src_heap_offset = src_heap_size;
+	while (1) {
+		// Move backward by one block.
+		src_heap_offset = MAX(0, src_heap_offset - bsize);
+
+		// Read from the source heap using the current offset
+		ssize_t read_len = xar_pread_block(XAR(x)->heap_fd, b, bsize, src_heap_offset);
+		if ( read_len == 0 ) break;
+		if ( read_len < 0 ) {
 			free(b);
 			return -1;
 		}
 
-		size_t writesize = r;
-		off = 0;
-		do {
-			r = write(XAR(x)->fd, b+off, writesize-off);
-			if( (r < 0) && (errno != EINTR) ) {
-				free(b);
-				return -1;
-			}
-			off += r;
-		} while( off < bsize && off < writesize ); // writesize should always be less than bsize.
+		// This line right here is the entire reason we read / write the heap backwards.
+		// We've already read anything after this offset, so go ahead and truncate it.
+		if ( ftruncate(XAR(x)->heap_fd, src_heap_offset) != 0 ) {
+			free(b);
+			return -1;
+		}
+		
+		// Write the same number of bytes into the output heap
+		ssize_t write_len = xar_pwrite_block(XAR(x)->fd, b, read_len, dst_heap_start_offset + src_heap_offset);
+		if ( ( write_len < 0 ) || ( write_len != read_len ) ) {
+			free(b);
+			return -1;
+		}
 	}
-	free(b);
-	return 0;
+
+    free(b);
+    return 0;
 }

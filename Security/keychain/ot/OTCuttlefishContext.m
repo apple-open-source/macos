@@ -33,6 +33,7 @@
 
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
+#include "keychain/SecureObjectSync/SOSInternal.h"
 
 #import "keychain/analytics/CKKSLaunchSequence.h"
 #import "keychain/categories/NSError+UsefulConstructors.h"
@@ -56,6 +57,7 @@
 #import "keychain/ot/OTDetermineHSA2AccountStatusOperation.h"
 #import "keychain/ot/OTDeviceInformationAdapter.h"
 #import "keychain/ot/OTEnsureOctagonKeyConsistency.h"
+#import "keychain/ot/OTPreloadOctagonKeysOperation.h"
 #import "keychain/ot/OTEpochOperation.h"
 #import "keychain/ot/OTEstablishOperation.h"
 #import "keychain/ot/OTFetchViewsOperation.h"
@@ -64,6 +66,7 @@
 #import "keychain/ot/OTLeaveCliqueOperation.h"
 #import "keychain/ot/OTLocalCKKSResetOperation.h"
 #import "keychain/ot/OTLocalCuttlefishReset.h"
+#import "keychain/ot/OTModifyUserControllableViewStatusOperation.h"
 #import "keychain/ot/OTOperationDependencies.h"
 #import "keychain/ot/OTPrepareOperation.h"
 #import "keychain/ot/OTRemovePeersOperation.h"
@@ -107,8 +110,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 @interface OTCuttlefishContext () <OTCuttlefishAccountStateHolderNotifier>
 {
-    NSData* _vouchData;
-    NSData* _vouchSig;
     NSString* _bottleID;
     NSString* _bottleSalt;
     NSData* _entropy;
@@ -127,6 +128,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 @property CKKSCondition *cloudKitAccountStateKnown;
 
 @property CKKSNearFutureScheduler* suggestTLKUploadNotifier;
+@property CKKSNearFutureScheduler* requestPolicyCheckNotifier;
+
+@property OctagonAPSReceiver* apsReceiver;
 
 // Make writable
 @property (nullable) CKKSViewManager* viewManager;
@@ -134,7 +138,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 // Dependencies (for injection)
 @property id<OTSOSAdapter> sosAdapter;
 @property id<CKKSPeerProvider> octagonAdapter;
-@property (readonly) Class<OctagonAPSConnection> apsConnectionClass;
 @property (readonly) Class<SecEscrowRequestable> escrowRequestClass;
 
 @property (nonatomic) BOOL initialBecomeUntrustedPosted;
@@ -162,11 +165,14 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         _containerName = containerName;
         _contextID = contextID;
 
+        _apsReceiver = [OctagonAPSReceiver receiverForNamedDelegatePort:SecCKKSAPSNamedPort
+                                                     apsConnectionClass:apsConnectionClass];
+        [_apsReceiver registerCuttlefishReceiver:self forContainerName:self.containerName];
+
         _viewManager = viewManager;
 
         _initialBecomeUntrustedPosted = NO;
 
-        _apsConnectionClass = apsConnectionClass;
         _launchSequence = [[CKKSLaunchSequence alloc] initWithRocketName:@"com.apple.octagon.launch"];
 
         _queue = dispatch_queue_create("com.apple.security.otcuttlefishcontext", DISPATCH_QUEUE_SERIAL);
@@ -212,6 +218,15 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                                 secnotice("octagon-ckks", "Adding flag for CKKS TLK upload");
                                                                                 [self.stateMachine handleFlag:OctagonFlagCKKSRequestsTLKUpload];
                                                                             }];
+
+        _requestPolicyCheckNotifier = [[CKKSNearFutureScheduler alloc] initWithName:@"octagon-policy-check"
+                                                                              delay:500*NSEC_PER_MSEC
+                                                                   keepProcessAlive:false
+                                                          dependencyDescriptionCode:0 block:^{
+            STRONGIFY(self);
+            secnotice("octagon-ckks", "Adding flag for CKKS policy check");
+            [self.stateMachine handleFlag:OctagonFlagCKKSRequestsPolicyCheck];
+        }];
     }
     return self;
 }
@@ -398,7 +413,11 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     }
 
     [self.stateMachine handleFlag:OctagonFlagAccountIsAvailable];
-    
+
+    if(OctagonIsOptimizationEnabled()){
+        [self.stateMachine handleFlag:OctagonFlagWarmEscrowRecordCache];
+    }
+
     if(localError) {
         if(error) {
             *error = localError;
@@ -547,11 +566,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)localReset:(nonnull void (^)(NSError * _Nullable))reply
 {
-    OTLocalResetOperation* pendingOp = [[OTLocalResetOperation alloc] init:self.containerName
-                                                       contextID:self.contextID
-                                                   intendedState:OctagonStateBecomeUntrusted
-                                                      errorState:OctagonStateError
-                                                   cuttlefishXPCWrapper:self.cuttlefishXPCWrapper];
+    OTLocalResetOperation* pendingOp = [[OTLocalResetOperation alloc] initWithDependencies:self.operationDependencies
+                                                                             intendedState:OctagonStateInitializing
+                                                                                errorState:OctagonStateError];
 
     NSMutableSet* sourceStates = [NSMutableSet setWithArray: OctagonStateMap().allKeys];
     [self.stateMachine doSimpleStateMachineRPC:@"local-reset" op:pendingOp sourceStates:sourceStates reply:reply];
@@ -715,8 +732,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 {
     dispatch_assert_queue(self.queue);
 
-    WEAKIFY(self);
-
     [self.launchSequence addEvent:currentState];
 
     // If We're initializing, or there was some recent update to the account state,
@@ -749,7 +764,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     }
 
     if([currentState isEqualToString:OctagonStateCloudKitNewlyAvailable]) {
-        return [self cloudKitAccountNewlyAvailableOperation];
+        OctagonFlag* warmEscrowCache = nil;
+        if([flags _onqueueContains:OctagonFlagWarmEscrowRecordCache] && OctagonIsOptimizationEnabled()) {
+            [flags _onqueueRemoveFlag:OctagonFlagWarmEscrowRecordCache];
+            warmEscrowCache = OctagonFlagWarmEscrowRecordCache;
+        }
+        return [self cloudKitAccountNewlyAvailableOperation:warmEscrowCache];
     }
 
     if([currentState isEqualToString:OctagonStateDetermineCDPState]) {
@@ -848,6 +868,31 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                      intendedState:OctagonStateBecomeReady
                                                         errorState:OctagonStateError];
     }
+
+    if([currentState isEqualToString:OctagonStateEnableUserControllableViews]) {
+        return [[OTModifyUserControllableViewStatusOperation alloc] initWithDependencies:self.operationDependencies
+                                                                      intendedViewStatus:TPPBPeerStableInfo_UserControllableViewStatus_ENABLED
+                                                                           intendedState:OctagonStateBecomeReady
+                                                                        peerMissingState:OctagonStateReadyUpdated
+                                                                                errorState:OctagonStateBecomeReady];
+    }
+
+    if([currentState isEqualToString:OctagonStateDisableUserControllableViews]) {
+        return [[OTModifyUserControllableViewStatusOperation alloc] initWithDependencies:self.operationDependencies
+                                                                      intendedViewStatus:TPPBPeerStableInfo_UserControllableViewStatus_DISABLED
+                                                                           intendedState:OctagonStateBecomeReady
+                                                                        peerMissingState:OctagonStateReadyUpdated
+                                                                              errorState:OctagonStateBecomeReady];
+    }
+
+    if([currentState isEqualToString:OctagonStateSetUserControllableViewsToPeerConsensus]) {
+        // Setting the status to FOLLOWING will either enable or disable the value, depending on our peers.
+        return [[OTModifyUserControllableViewStatusOperation alloc] initWithDependencies:self.operationDependencies
+                                                                      intendedViewStatus:TPPBPeerStableInfo_UserControllableViewStatus_FOLLOWING
+                                                                           intendedState:OctagonStateBecomeReady
+                                                                        peerMissingState:OctagonStateReadyUpdated
+                                                                              errorState:OctagonStateBecomeReady];
+    }
     
     if([currentState isEqualToString:OctagonStateNoAccount]) {
         // We only want to move out of untrusted if something useful has happened!
@@ -885,6 +930,17 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             }
         }
 
+        if([flags _onqueueContains:OctagonFlagAttemptSOSConsistency]) {
+            [flags _onqueueRemoveFlag:OctagonFlagAttemptSOSConsistency];
+            if(self.sosAdapter.sosEnabled) {
+                secnotice("octagon", "Attempting SOS upgrade again (due to a consistency notification)");
+                return [OctagonStateTransitionOperation named:@"attempt-sos-upgrade"
+                                                     entering:OctagonStateAttemptSOSUpgrade];
+            } else {
+                secnotice("octagon", "Someone would like us to check SOS consistency, but this platform doesn't support SOS.");
+            }
+        }
+
         if([flags _onqueueContains:OctagonFlagCuttlefishNotification]) {
             [flags _onqueueRemoveFlag:OctagonFlagCuttlefishNotification];
             secnotice("octagon", "Updating TPH (while untrusted) due to push");
@@ -915,69 +971,19 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     if([currentState isEqualToString:OctagonStateDetermineiCloudAccountState]) {
         secnotice("octagon", "Determine iCloud account status");
 
-        // TODO replace with OTDetermineHSA2AccountStatusOperation in <rdar://problem/54094162> Octagon: ensure Octagon operations can't occur on SA accounts
-        return [OctagonStateTransitionOperation named:@"octagon-determine-icloud-state"
-                                            intending:OctagonStateNoAccount
-                                           errorState:OctagonStateError
-                                  withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
-            STRONGIFY(self);
-
-            NSError *authKitError = nil;
-            NSString* primaryAccountAltDSID = [self.authKitAdapter primaryiCloudAccountAltDSID:&authKitError];
-
-            dispatch_sync(self.queue, ^{
-                NSError* error = nil;
-
-                if(primaryAccountAltDSID != nil) {
-                    secnotice("octagon", "iCloud account is present; checking HSA2 status");
-
-                    bool hsa2 = [self.authKitAdapter accountIsHSA2ByAltDSID:primaryAccountAltDSID];
-                    secnotice("octagon", "HSA2 is %@", hsa2 ? @"enabled" : @"disabled");
-
-                    [self.accountMetadataStore _onqueuePersistAccountChanges:^OTAccountMetadataClassC *(OTAccountMetadataClassC * metadata) {
-                        if(hsa2) {
-                            metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_ACCOUNT_AVAILABLE;
-                        } else {
-                            metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_NO_ACCOUNT;
-                        }
-                        metadata.altDSID = primaryAccountAltDSID;
-                        return metadata;
-                    } error:&error];
-
-                    // If there's an HSA2 account, return to 'initializing' here, as we want to centralize decisions on what to do next
-                    if(hsa2) {
-                        op.nextState = OctagonStateInitializing;
-                    } else {
-                        [self.accountStateTracker setHSA2iCloudAccountStatus:CKKSAccountStatusNoAccount];
-                        op.nextState = OctagonStateWaitForHSA2;
-                    }
-
-                } else {
-                    secnotice("octagon", "iCloud account is not present: %@", authKitError);
-
-                    [self.accountMetadataStore _onqueuePersistAccountChanges:^OTAccountMetadataClassC *(OTAccountMetadataClassC * metadata) {
-                        metadata.icloudAccountState = OTAccountMetadataClassC_AccountState_NO_ACCOUNT;
-                        metadata.altDSID = nil;
-                        return metadata;
-                    } error:&error];
-
-                    op.nextState = OctagonStateNoAccount;
-                }
-
-                if(error) {
-                    secerror("octagon: unable to save new account state: %@", error);
-                }
-            });
-        }];
+        // If there's an HSA2 account, return to 'initializing' here, as we want to centralize decisions on what to do next
+        return [[OTDetermineHSA2AccountStatusOperation alloc] initWithDependencies:self.operationDependencies
+                                                                       stateIfHSA2:OctagonStateInitializing
+                                                                    stateIfNotHSA2:OctagonStateWaitForHSA2
+                                                                  stateIfNoAccount:OctagonStateNoAccount
+                                                                        errorState:OctagonStateError];
     }
 
     if([currentState isEqualToString:OctagonStateNoAccountDoReset]) {
         secnotice("octagon", "Attempting local-reset as part of signout");
-        return [[OTLocalResetOperation alloc] init:self.containerName
-                                         contextID:self.contextID
-                                     intendedState:OctagonStateNoAccount
-                                        errorState:OctagonStateNoAccount
-                              cuttlefishXPCWrapper:self.cuttlefishXPCWrapper];
+        return [[OTLocalResetOperation alloc] initWithDependencies:self.operationDependencies
+                                                     intendedState:OctagonStateNoAccount
+                                                        errorState:OctagonStateNoAccount];
     }
 
     if([currentState isEqualToString:OctagonStateEnsureConsistency]) {
@@ -993,12 +999,30 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                              entering:OctagonStateBecomeReady];
     }
 
+    if([currentState isEqualToString:OctagonStateBottlePreloadOctagonKeysInSOS]) {
+        secnotice("octagon", "Preloading Octagon Keys on the SOS Account");
+        if(self.sosAdapter.sosEnabled) {
+            return [[OTPreloadOctagonKeysOperation alloc] initWithDependencies:self.operationDependencies
+                                                                 intendedState:OctagonStateBecomeReady
+                                                                    errorState:OctagonStateBecomeReady];
+        }
+        // Add further consistency checks here.
+        return [OctagonStateTransitionOperation named:@"no-preload-octagon-key"
+                                             entering:OctagonStateBecomeReady];
+    }
+
     if([currentState isEqualToString:OctagonStateEnsureUpdatePreapprovals]) {
         secnotice("octagon", "SOS is enabled; ensuring preapprovals are correct");
         return [[OTSOSUpdatePreapprovalsOperation alloc] initWithDependencies:self.operationDependencies
                                                                 intendedState:OctagonStateBecomeReady
                                                            sosNotPresentState:OctagonStateBecomeReady
                                                                    errorState:OctagonStateBecomeReady];
+    }
+
+    if([currentState isEqualToString:OctagonStateAttemptSOSUpgradeDetermineCDPState]) {
+        return [[OTDetermineCDPBitStatusOperation alloc] initWithDependencies:self.operationDependencies
+                                                                intendedState:OctagonStateAttemptSOSUpgrade
+                                                                   errorState:OctagonStateWaitForCDP];
     }
 
     if([currentState isEqualToString:OctagonStateAttemptSOSUpgrade] && OctagonPerformSOSUpgrade()) {
@@ -1041,43 +1065,20 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                           epoch:1];
 
     } else if([currentState isEqualToString:OctagonStateBottleJoinVouchWithBottle]) {
-        // <rdar://problem/57768490> Octagon: ensure we use appropriate CKKS policy when joining octagon with future policy
-        // When we join with a bottle, we need to be sure that we've found all the TLKShares that we can reasonably unpack via the bottle
-
-        OTVouchWithBottleOperation* pendingOp  = [[OTVouchWithBottleOperation alloc] initWithDependencies:self.operationDependencies
-                                                                                            intendedState:OctagonStateInitiatorSetCDPBit
-                                                                                               errorState:OctagonStateBecomeUntrusted
-                                                                                                 bottleID:_bottleID
-                                                                                                  entropy:_entropy
-                                                                                               bottleSalt:_bottleSalt];
-
-        CKKSResultOperation* callback = [CKKSResultOperation named:@"vouchWithBottle-callback"
-                                                         withBlock:^{
-                                                             secnotice("otrpc", "Returning a vouch with bottle call: %@, %@  %@", pendingOp.voucher, pendingOp.voucherSig, pendingOp.error);
-                                                             self->_vouchSig = pendingOp.voucherSig;
-                                                             self->_vouchData = pendingOp.voucher;
-                                                         }];
-        [callback addDependency:pendingOp];
-        [self.operationQueue addOperation: callback];
-
-        return pendingOp;
+        return [[OTVouchWithBottleOperation alloc] initWithDependencies:self.operationDependencies
+                                                          intendedState:OctagonStateInitiatorSetCDPBit
+                                                             errorState:OctagonStateBecomeUntrusted
+                                                               bottleID:_bottleID
+                                                                entropy:_entropy
+                                                             bottleSalt:_bottleSalt
+                                                            saveVoucher:YES];
 
     } else if([currentState isEqualToString:OctagonStateVouchWithRecoveryKey]) {
-        OTVouchWithRecoveryKeyOperation* pendingOp  = [[OTVouchWithRecoveryKeyOperation alloc] initWithDependencies:self.operationDependencies
-                                                                                            intendedState:OctagonStateInitiatorSetCDPBit
-                                                                                               errorState:OctagonStateBecomeUntrusted
-                                                                                                 recoveryKey:_recoveryKey];
-
-        CKKSResultOperation* callback = [CKKSResultOperation named:@"vouchWithRecoveryKey-callback"
-                                                         withBlock:^{
-                                                             secnotice("otrpc", "Returning a vouch with recovery key call: %@, %@  %@", pendingOp.voucher, pendingOp.voucherSig, pendingOp.error);
-                                                             self->_vouchSig = pendingOp.voucherSig;
-                                                             self->_vouchData = pendingOp.voucher;
-                                                         }];
-        [callback addDependency:pendingOp];
-        [self.operationQueue addOperation: callback];
-
-        return pendingOp;
+        return [[OTVouchWithRecoveryKeyOperation alloc] initWithDependencies:self.operationDependencies
+                                                               intendedState:OctagonStateInitiatorSetCDPBit
+                                                                  errorState:OctagonStateBecomeUntrusted
+                                                                 recoveryKey:_recoveryKey
+                                                                 saveVoucher:YES];
 
     } else if([currentState isEqualToString:OctagonStateInitiatorSetCDPBit]) {
         return [[OTSetCDPBitOperation alloc] initWithDependencies:self.operationDependencies
@@ -1094,13 +1095,10 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return op;
 
     } else if ([currentState isEqualToString:OctagonStateInitiatorJoin]){
-        OTJoinWithVoucherOperation* op  = [[OTJoinWithVoucherOperation alloc] initWithDependencies:self.operationDependencies
-                                                                                     intendedState:OctagonStateBecomeReady
-                                                                                 ckksConflictState:OctagonStateInitiatorJoinCKKSReset
-                                                                                        errorState:OctagonStateBecomeUntrusted
-                                                                                       voucherData:_vouchData
-                                                                                        voucherSig:_vouchSig];
-        return op;
+       return [[OTJoinWithVoucherOperation alloc] initWithDependencies:self.operationDependencies
+                                                         intendedState:OctagonStateBottlePreloadOctagonKeysInSOS
+                                                     ckksConflictState:OctagonStateInitiatorJoinCKKSReset
+                                                            errorState:OctagonStateBecomeUntrusted];
 
     } else if([currentState isEqualToString:OctagonStateInitiatorJoinCKKSReset]) {
         return [[OTLocalCKKSResetOperation alloc] initWithDependencies:self.operationDependencies
@@ -1109,11 +1107,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
     } else if ([currentState isEqualToString:OctagonStateInitiatorJoinAfterCKKSReset]){
         return [[OTJoinWithVoucherOperation alloc] initWithDependencies:self.operationDependencies
-                                                          intendedState:OctagonStateBecomeReady
+                                                          intendedState:OctagonStateBottlePreloadOctagonKeysInSOS
                                                       ckksConflictState:OctagonStateBecomeUntrusted
-                                                             errorState:OctagonStateBecomeUntrusted
-                                                            voucherData:_vouchData
-                                                             voucherSig:_vouchSig];
+                                                             errorState:OctagonStateBecomeUntrusted];
 
     } else if([currentState isEqualToString:OctagonStateResetBecomeUntrusted]) {
         return [self becomeUntrustedOperation:OctagonStateResetAndEstablish];
@@ -1128,8 +1124,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
     } else if([currentState isEqualToString:OctagonStateResetAnyMissingTLKCKKSViews]) {
         return [[OTResetCKKSZonesLackingTLKsOperation alloc] initWithDependencies:self.operationDependencies
-                                                           intendedState:OctagonStateEstablishEnableCDPBit
-                                                              errorState:OctagonStateError];
+                                                                    intendedState:OctagonStateEstablishEnableCDPBit
+                                                                       errorState:OctagonStateError];
 
     } else if([currentState isEqualToString:OctagonStateEstablishEnableCDPBit]) {
         return [[OTSetCDPBitOperation alloc] initWithDependencies:self.operationDependencies
@@ -1181,6 +1177,17 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                       intendedState: OctagonStateBecomeUntrusted
                                                          errorState: OctagonStateBecomeUntrusted];
 
+    } else if([currentState isEqualToString:OctagonStateWaitForClassCUnlock]) {
+        if([flags _onqueueContains:OctagonFlagUnlocked]) {
+            [flags _onqueueRemoveFlag:OctagonFlagUnlocked];
+            return [OctagonStateTransitionOperation named:[NSString stringWithFormat:@"%@", @"initializing-after-initial-unlock"]
+                                                 entering:OctagonStateInitializing];
+        }
+
+        [pendingFlagHandler _onqueueHandlePendingFlag:[[OctagonPendingFlag alloc] initWithFlag:OctagonFlagUnlocked
+                                                                                    conditions:OctagonPendingConditionsDeviceUnlocked]];
+        return nil;
+
     } else if([currentState isEqualToString: OctagonStateWaitForUnlock]) {
         if([flags _onqueueContains:OctagonFlagUnlocked]) {
             [flags _onqueueRemoveFlag:OctagonFlagUnlocked];
@@ -1206,6 +1213,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return [[OTUploadNewCKKSTLKsOperation alloc] initWithDependencies:self.operationDependencies
                                                             intendedState:OctagonStateReady
                                                         ckksConflictState:OctagonStateAssistCKKSTLKUploadCKKSReset
+                                                         peerMissingState:OctagonStateReadyUpdated
                                                                errorState:OctagonStateReady];
 
     } else if([currentState isEqualToString:OctagonStateAssistCKKSTLKUploadCKKSReset]) {
@@ -1218,20 +1226,51 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         return [[OTUploadNewCKKSTLKsOperation alloc] initWithDependencies:self.operationDependencies
                                                             intendedState:OctagonStateReady
                                                         ckksConflictState:OctagonStateReady
+                                                         peerMissingState:OctagonStateReadyUpdated
                                                                errorState:OctagonStateReady];
 
     } else if([currentState isEqualToString:OctagonStateReady]) {
+        if([flags _onqueueContains:OctagonFlagCuttlefishNotification]) {
+            [flags _onqueueRemoveFlag:OctagonFlagCuttlefishNotification];
+            secnotice("octagon", "Updating TPH (while ready) due to push");
+            return [OctagonStateTransitionOperation named:@"octagon-update"
+                                                 entering:OctagonStateReadyUpdated];
+        }
+
         if([flags _onqueueContains:OctagonFlagCKKSRequestsTLKUpload]) {
             [flags _onqueueRemoveFlag:OctagonFlagCKKSRequestsTLKUpload];
             return [OctagonStateTransitionOperation named:@"ckks-assist"
                                                  entering:OctagonStateAssistCKKSTLKUpload];
         }
 
-        if([flags _onqueueContains:OctagonFlagCuttlefishNotification]) {
-            [flags _onqueueRemoveFlag:OctagonFlagCuttlefishNotification];
-            secnotice("octagon", "Updating TPH (while ready) due to push");
-            return [OctagonStateTransitionOperation named:@"octagon-update"
-                                                 entering:OctagonStateReadyUpdated];
+        if([flags _onqueueContains:OctagonFlagAttemptBottleTLKExtraction]) {
+            [flags _onqueueRemoveFlag:OctagonFlagAttemptBottleTLKExtraction];
+            if(_bottleID && _entropy && _bottleSalt) {
+                // Reuse the vouch-with-bottle operation. That'll make us a new voucher, but as a side effect, it will extract TLKs.
+                return [[OTVouchWithBottleOperation alloc] initWithDependencies:self.operationDependencies
+                                                                  intendedState:OctagonStateBecomeReady
+                                                                     errorState:OctagonStateBecomeReady
+                                                                       bottleID:_bottleID
+                                                                        entropy:_entropy
+                                                                     bottleSalt:_bottleSalt
+                                                                    saveVoucher:NO];
+            } else {
+                secnotice("octagon", "Received an suggestion to retry TLK extraction via bottle, but have no entropy stashed");
+            }
+        }
+
+        if([flags _onqueueContains:OctagonFlagAttemptRecoveryKeyTLKExtraction]) {
+            [flags _onqueueRemoveFlag:OctagonFlagAttemptRecoveryKeyTLKExtraction];
+            if(_recoveryKey) {
+                // Reuse the vouch-with-rk operation. That'll make us a new voucher, but as a side effect, it will extract TLKs.
+                return [[OTVouchWithRecoveryKeyOperation alloc] initWithDependencies:self.operationDependencies
+                                                                       intendedState:OctagonStateBecomeReady
+                                                                          errorState:OctagonStateBecomeReady
+                                                                         recoveryKey:_recoveryKey
+                                                                         saveVoucher:NO];
+            } else {
+                secnotice("octagon", "Received an suggestion to retry TLK extraction via RK, but have no recovery key stashed");
+            }
         }
 
         if([flags _onqueueContains:OctagonFlagFetchAuthKitMachineIDList]) {
@@ -1269,6 +1308,27 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             }
         }
 
+        if([flags _onqueueContains:OctagonFlagAttemptUserControllableViewStatusUpgrade]) {
+            [flags _onqueueRemoveFlag:OctagonFlagAttemptUserControllableViewStatusUpgrade];
+            secnotice("octagon", "Attempting user-view control upgrade");
+            return [OctagonStateTransitionOperation named:@"attempt-user-view-upgrade"
+                                                 entering:OctagonStateSetUserControllableViewsToPeerConsensus];
+        }
+
+        if([flags _onqueueContains:OctagonFlagCKKSRequestsPolicyCheck]) {
+            [flags _onqueueRemoveFlag:OctagonFlagCKKSRequestsPolicyCheck];
+            secnotice("octagon", "Updating CKKS policy");
+            return [OctagonStateTransitionOperation named:@"ckks-policy-update"
+                                                 entering:OctagonStateReadyUpdated];
+        }
+
+        if([flags _onqueueContains:OctagonFlagCKKSViewSetChanged]) {
+            // We want to tell CKKS that we're trusted again.
+            [flags _onqueueRemoveFlag:OctagonFlagCKKSViewSetChanged];
+            return [OctagonStateTransitionOperation named:@"ckks-update-trust"
+                                                 entering:OctagonStateBecomeReady];
+        }
+
         if([flags _onqueueContains:OctagonFlagAccountIsAvailable]) {
             // We're in ready--we already know the account is available
             secnotice("octagon", "Removing 'account is available' flag");
@@ -1287,7 +1347,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             [flags _onqueueRemoveFlag:OctagonFlagCDPEnabled];
         }
 
-        secnotice("octagon", "Entering state ready");
         [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:OctagonAnalyticsLastKeystateReady];
         [self.launchSequence launch];
         return nil;
@@ -1319,7 +1378,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                   OTAccountMetadataClassC* account = [self.accountMetadataStore loadOrCreateAccountMetadata:&localError];
                                   if(localError && [self.lockStateTracker isLockedError:localError]){
                                       secnotice("octagon", "Device is locked! pending initialization on unlock");
-                                      op.nextState = OctagonStateWaitForUnlock;
+                                      // Since we can't load a class C item, we go to a different waitforunlock state.
+                                      // That way, we'll be less likely for an RPC to break us.
+                                      op.nextState = OctagonStateWaitForClassCUnlock;
                                       return;
                                   }
 
@@ -1336,6 +1397,20 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                       // This seems an odd place to do this, but CKKS currently also tracks the CloudKit account state.
                                       // Since we think we have an HSA2 account, let CKKS figure out its own CloudKit state
                                       secnotice("octagon-ckks", "Initializing CKKS views");
+                                      [self.cuttlefishXPCWrapper fetchCurrentPolicyWithContainer:self.containerName
+                                                                                         context:self.contextID
+                                                                                 modelIDOverride:self.deviceAdapter.modelID
+                                                                                           reply:^(TPSyncingPolicy * _Nullable syncingPolicy,
+                                                                                                   TPPBPeerStableInfo_UserControllableViewStatus userControllableViewStatusOfPeers,
+                                                                                                   NSError * _Nullable policyError) {
+                                          if(!syncingPolicy || policyError) {
+                                              secnotice("octagon-ckks", "Unable to fetch initial syncing policy: %@", policyError);
+                                          } else {
+                                              secnotice("octagon-ckks", "Fetched initial syncing policy: %@", syncingPolicy);
+                                              [self.viewManager setCurrentSyncingPolicy:syncingPolicy];
+                                          }
+                                      }];
+
                                       [self.viewManager createViews];
                                       [self.viewManager beginCloudKitOperationOfAllViews];
 
@@ -1383,7 +1458,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                         intending:OctagonStateCuttlefishTrustCheck
                                        errorState:OctagonStatePostRepairCFU
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
-                                  [self checkTrustStatusAndPostRepairCFUIfNecessary:^(CliqueStatus status, BOOL posted, BOOL hasIdentity, NSError *trustFromTPHError) {
+                                  [self checkTrustStatusAndPostRepairCFUIfNecessary:^(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError *trustFromTPHError) {
 
                                       [[CKKSAnalytics logger] logResultForEvent:OctagonEventTPHHealthCheckStatus hardFailure:false result:trustFromTPHError];
                                       if(trustFromTPHError) {
@@ -1391,7 +1466,10 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                           op.error = trustFromTPHError;
                                           op.nextState = OctagonStateError;
                                       } else {
-                                          if(hasIdentity == NO) {
+                                          if (isLocked == YES) {
+                                              op.nextState = OctagonStateWaitForUnlock;
+                                              secnotice("octagon-health", "TPH says device is locked!");
+                                          } else if (hasIdentity == NO) {
                                               op.nextState = OctagonStateUntrusted;
                                           } else if(hasIdentity == YES && status == CliqueStatusIn){
                                               secnotice("octagon-health", "TPH says we're trusted and in");
@@ -1440,8 +1518,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                              if(shouldPost) {
                                                                  secnotice("octagon-health", "Posting Escrow CFU");
                                                                  NSError* postEscrowCFUError = nil;
-                                                                 [self postConfirmPasscodeCFU:&postEscrowCFUError];
-                                                                 if(postEscrowCFUError) {
+                                                                 BOOL ret = [self postConfirmPasscodeCFU:&postEscrowCFUError];
+                                                                 if(!ret) {
                                                                      op.error = postEscrowCFUError;
                                                                  }
                                                              } else {
@@ -1468,31 +1546,54 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                         intending:OctagonStateUntrusted
                                        errorState:OctagonStateError
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
+        __block BOOL deviceIsLocked = NO;
         [self checkTrustStatusAndPostRepairCFUIfNecessary:^(CliqueStatus status,
                                                             BOOL posted,
                                                             BOOL hasIdentity,
+                                                            BOOL isLocked,
                                                             NSError * _Nullable postError) {
             if(postError) {
                 secerror("ocagon-health: failed to post repair cfu via state machine: %@", postError);
+            } else if (isLocked) {
+                deviceIsLocked = isLocked;
+                secnotice("octagon-health", "device is locked, not posting cfu");
             } else {
                 secnotice("octagon-health", "posted repair cfu via state machine");
             }
         }];
-        op.nextState = OctagonStateUntrusted;
+        if (deviceIsLocked == YES) {
+            op.nextState = OctagonStateWaitForUnlock;
+        } else {
+            op.nextState = OctagonStateUntrusted;
+        }
       }];
 }
 
-- (CKKSResultOperation<OctagonStateTransitionOperationProtocol>* _Nullable)cloudKitAccountNewlyAvailableOperation
+- (CKKSResultOperation<OctagonStateTransitionOperationProtocol>* _Nullable)cloudKitAccountNewlyAvailableOperation:(OctagonFlag*)warmEscrowCache
 {
     WEAKIFY(self);
+
     return [OctagonStateTransitionOperation named:@"octagon-icloud-account-available"
                                         intending:OctagonStateDetermineCDPState
                                        errorState:OctagonStateError
                               withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
                                   STRONGIFY(self);
-                                  // Register with APS, but don't bother to wait until it's complete.
                                   secnotice("octagon", "iCloud sign in occurred. Attemping to register with APS...");
-
+                                  // Check if escrow fetch flag is set to warm up the escrow cache
+                                  if(warmEscrowCache != nil && OctagonIsOptimizationEnabled()) {
+                                      secnotice("octagon-warm-escrowcache", "Beginning fetching escrow records to warm up the escrow cache in TPH");
+                                      dispatch_async(dispatch_get_global_queue(QOS_CLASS_UTILITY, 0), ^{
+                                          STRONGIFY(self);
+                                          [self rpcFetchAllViableEscrowRecords:NO reply:^(NSArray<NSData *> *records, NSError *error) {
+                                              if(error){
+                                                  secerror("octagon-warm-escrowcache: failed to fetch escrow records, %@", error);
+                                              } else {
+                                                  secnotice("octagon-warm-escrowcache", "Successfully fetched escrow records");
+                                              }
+                                          }];
+                                      });
+                                  }
+                                  // Register with APS, but don't bother to wait until it's complete.
                                   CKContainer* ckContainer = [CKContainer containerWithIdentifier:self.containerName];
                                   [ckContainer serverPreferredPushEnvironmentWithCompletionHandler: ^(NSString *apsPushEnvString, NSError *error) {
                                       STRONGIFY(self);
@@ -1507,10 +1608,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                       } else {
                                           secnotice("octagonpush", "Registering for environment '%@'", apsPushEnvString);
 
-                                          OctagonAPSReceiver* aps = [OctagonAPSReceiver receiverForEnvironment:apsPushEnvString
-                                                                                             namedDelegatePort:SecCKKSAPSNamedPort
-                                                                                            apsConnectionClass:self.apsConnectionClass];
-                                          [aps registerCuttlefishReceiver:self forContainerName:self.containerName];
+                                          [self.apsReceiver registerForEnvironment:apsPushEnvString];
                                       }
                                   }];
 
@@ -1531,6 +1629,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                         NSString* egoPeerID,
                                         NSDictionary<NSString*, NSNumber*>* _Nullable peerCountByModelID,
                                         BOOL isExcluded,
+                                        BOOL isLocked,
                                         NSError * _Nullable error) {
         BOOL hasIdentity = egoPeerID != nil;
         secnotice("octagon-health", "repairAccountIfTrustedByTPHWithIntendedState status: %ld, peerID: %@, isExcluded: %d error: %@", (long)status, egoPeerID, isExcluded, error);
@@ -1541,6 +1640,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             return;
         }
 
+        if (isLocked) {
+            secnotice("octagon-health", "device is locked");
+            nextState = OctagonStateWaitForUnlock;
+            return;
+        }
+        
         if(OctagonAuthoritativeTrustIsEnabled() && hasIdentity && status == CliqueStatusIn) {
             secnotice("octagon-health", "TPH believes we're trusted, accepting ego peerID as %@", egoPeerID);
 
@@ -1567,7 +1672,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return nextState;
 }
 
-- (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, NSError * _Nullable error))reply
+- (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable error))reply
 {
     WEAKIFY(self);
     OTOperationConfiguration *configuration = [[OTOperationConfiguration alloc] init];
@@ -1575,6 +1680,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                NSString* _Nullable egoPeerID,
                                                NSDictionary<NSString*, NSNumber*>* _Nullable peerCountByModelID,
                                                BOOL isExcluded,
+                                               BOOL isLocked,
                                                NSError * _Nullable error) {
         STRONGIFY(self);
 
@@ -1582,7 +1688,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
         BOOL hasIdentity = egoPeerID != nil;
         if (error && error.code != errSecInteractionNotAllowed) {
-            reply(status, NO, hasIdentity, error);
+            reply(status, NO, hasIdentity, isLocked, error);
+            return;
+        }
+
+        if (isLocked) {
+            secnotice("octagon", "device is locked; not posting CFU");
+            reply(status, NO, hasIdentity, isLocked, error);
             return;
         }
 
@@ -1605,7 +1717,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         }
         if(!phonePeerPresent) {
             secnotice("octagon", "No iOS peers in account; not posting CFU");
-            reply(status, NO, hasIdentity, nil);
+            reply(status, NO, hasIdentity, isLocked, nil);
             return;
         }
 #endif
@@ -1631,7 +1743,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
                 if(circleError && [circleError.domain isEqualToString:(__bridge NSString*)kSOSErrorDomain] && circleError.code == kSOSErrorNotReady) {
                     secnotice("octagon", "SOS is not ready, not posting CFU until it becomes so");
-                    reply(status, NO, hasIdentity, nil);
+                    reply(status, NO, hasIdentity, isLocked, nil);
                     return;
 
                 } else if(circleError) {
@@ -1640,7 +1752,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
                 } else if(sosStatus == kSOSCCInCircle) {
                     secnotice("octagon", "SOS is InCircle, not posting CFU");
-                    reply(status, NO, hasIdentity, nil);
+                    reply(status, NO, hasIdentity, isLocked, nil);
                     return;
                 } else {
                     secnotice("octagon", "SOS is %@, posting CFU", (__bridge NSString*)SOSCCGetStatusDescription(sosStatus));
@@ -1651,10 +1763,10 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         if(OctagonAuthoritativeTrustIsEnabled() && (status == CliqueStatusNotIn || status == CliqueStatusAbsent || isExcluded)) {
             NSError* localError = nil;
             BOOL posted = [self postRepairCFU:&localError];
-            reply(status, posted, hasIdentity, localError);
+            reply(status, posted, hasIdentity, isLocked, localError);
             return;
         }
-        reply(status, NO, hasIdentity, nil);
+        reply(status, NO, hasIdentity, isLocked, nil);
         return;
     }];
 }
@@ -1699,15 +1811,25 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                       [self.accountStateTracker triggerOctagonStatusFetch];
                                   }
 
-                                  [self checkTrustStatusAndPostRepairCFUIfNecessary:^(CliqueStatus status, BOOL posted, BOOL hasIdentity, NSError * _Nullable postError) {
+                                  __block BOOL deviceIsLocked = NO;
+                                  [self checkTrustStatusAndPostRepairCFUIfNecessary:^(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable postError) {
 
                                       [[CKKSAnalytics logger] logResultForEvent:OctagonEventCheckTrustForCFU hardFailure:false result:postError];
                                       if(postError){
                                           secerror("octagon: cfu failed to post");
+                                      } else if (isLocked == YES) {
+                                          deviceIsLocked = isLocked;
+                                          secerror("octagon: device is locked, not posting cfu");
                                       } else {
                                           secnotice("octagon", "clique status: %@, posted cfu: %d", OTCliqueStatusToString(status), !!posted);
                                       }
                                   }];
+
+                                  if (deviceIsLocked == YES) {
+                                      secnotice("octagon", "device is locked, state moving to wait for unlock");
+                                      op.nextState = OctagonStateWaitForUnlock;
+                                      return;
+                                  }
 
                                   [self.accountMetadataStore persistAccountChanges:^OTAccountMetadataClassC * _Nonnull(OTAccountMetadataClassC * _Nonnull metadata) {
                                       metadata.trustState = OTAccountMetadataClassC_TrustState_UNTRUSTED;
@@ -1725,6 +1847,15 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                       CKKSKeychainView* view = self.viewManager.views[key];
                                       secnotice("octagon-ckks", "Informing %@ of new untrusted status", view);
                                       [view endTrustedOperation];
+                                  }
+
+                                  // We are no longer in a CKKS4All world. Tell SOS!
+                                  if(self.sosAdapter.sosEnabled) {
+                                      NSError* soserror = nil;
+                                      [self.sosAdapter updateCKKS4AllStatus:NO error:&soserror];
+                                      if(soserror) {
+                                          secnotice("octagon-ckks", "Unable to disable the CKKS4All status in SOS: %@", soserror);
+                                      }
                                   }
 
                                   /*
@@ -1761,13 +1892,12 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         __block NSString* peerID = nil;
         NSError* localError = nil;
 
-        __block NSSet<NSString*>* viewList = nil;
-        __block TPPolicy* policy = nil;
+        __block TPSyncingPolicy* policy = nil;
 
         [self.accountMetadataStore persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
             peerID = metadata.peerID;
-            viewList = metadata.syncingViews.count > 0 ? [NSSet setWithArray:metadata.syncingViews] : nil;
-            policy = metadata.hasSyncingPolicy ? [metadata getTPPolicy] : nil;
+
+            policy = metadata.hasSyncingPolicy ? [metadata getTPSyncingPolicy] : nil;
 
             if(metadata.attemptedJoin == OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED) {
                 return nil;
@@ -1778,17 +1908,37 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
         if(!peerID || localError) {
             secerror("octagon-ckks: No peer ID to pass to CKKS. Syncing will be disabled.");
-        } else if(!viewList || !policy) {
+        } else if(!policy) {
             secerror("octagon-ckks: No memoized CKKS policy, re-fetching");
             op.nextState = OctagonStateRefetchCKKSPolicy;
             return;
 
         } else {
-            secnotice("octagon-ckks", "Initializing CKKS views with view list %@ and policy %@", viewList, policy);
-            [self.viewManager setSyncingViews:viewList
-                                sortingPolicy:policy];
+            if(policy.syncUserControllableViews == TPPBPeerStableInfo_UserControllableViewStatus_UNKNOWN) {
+                secnotice("octagon-ckks", "Memoized CKKS policy has no opinion of user-controllable view status");
+                // Suggest the update, whenever possible
+                OctagonPendingFlag* pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptUserControllableViewStatusUpgrade
+                                                                                conditions:OctagonPendingConditionsDeviceUnlocked];
+                [self.stateMachine handlePendingFlag:pendingFlag];
+            } else {
+                // We are now in a CKKS4All world. Tell SOS!
+                if(self.sosAdapter.sosEnabled) {
+                    NSError* soserror = nil;
+                    [self.sosAdapter updateCKKS4AllStatus:YES error:&soserror];
+                    if(soserror) {
+                        secnotice("octagon-ckks", "Unable to enable the CKKS4All status in SOS: %@", soserror);
+                    }
+                }
+            }
 
-            OctagonCKKSPeerAdapter* octagonAdapter = [[OctagonCKKSPeerAdapter alloc] initWithPeerID:peerID operationDependencies:[self operationDependencies]];
+            secnotice("octagon-ckks", "Initializing CKKS views with policy %@: %@", policy, policy.viewList);
+
+            [self.viewManager setCurrentSyncingPolicy:policy];
+
+            OctagonCKKSPeerAdapter* octagonAdapter = [[OctagonCKKSPeerAdapter alloc] initWithPeerID:peerID
+                                                                                      containerName:self.containerName
+                                                                                          contextID:self.contextID
+                                                                                      cuttlefishXPC:self.cuttlefishXPCWrapper];
 
             // This octagon adapter must be able to load the self peer keys, or we're in trouble.
             NSError* egoPeerKeysError = nil;
@@ -1824,7 +1974,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                 }
 
                 [view beginTrustedOperation:peerProviders
-                           suggestTLKUpload:self.suggestTLKUploadNotifier];
+                           suggestTLKUpload:self.suggestTLKUploadNotifier
+                         requestPolicyCheck:self.requestPolicyCheckNotifier];
             }
         }
         [self notifyTrustChanged:OTAccountMetadataClassC_TrustState_TRUSTED];
@@ -1875,7 +2026,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     }
     if (ckDeviceId) {
         NSString *selfDeviceID = self.viewManager.accountTracker.ckdeviceID;
-        if (![selfDeviceID isEqualToString:serialNumber]) {
+        if (serialNumber == nil || ![selfDeviceID isEqualToString:serialNumber]) {
             secnotice("octagon", "TTR request not for me (deviceId)");
             return;
         }
@@ -1999,7 +2150,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     if(accountMetadata.lastHealthCheckup == 0) {
         return nil;
     }
-    return [[NSDate alloc] initWithTimeIntervalSince1970: accountMetadata.lastHealthCheckup];
+    return [[NSDate alloc] initWithTimeIntervalSince1970: ((NSTimeInterval)accountMetadata.lastHealthCheckup) / 1000.0];
 }
 
 - (void)requestTrustedDeviceListRefresh
@@ -2086,6 +2237,21 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
             haveAccount = false;
         }
     });
+
+    if(!haveAccount) {
+        // Right after account sign-in, it's possible that the CK account exists, but that we just haven't learned about
+        // it yet, and still have the 'no account' state cached. So, let's check in...
+        secnotice("octagon-ck", "No CK account present. Attempting to refetch CK account status...");
+        if(![self.accountStateTracker notifyCKAccountStatusChangeAndWait:timeout]) {
+            secnotice("octagon-ck", "Fetching new CK account status did not complete in time");
+        }
+
+        // After the above call finishes, we should have a fresh value in self.cloudKitAccountInfo
+        dispatch_sync(self.queue, ^{
+            haveAccount = self.cloudKitAccountInfo.accountStatus == CKKSAccountStatusAvailable;
+        });
+        secnotice("octagon-ck", "After refetch, CK account status is %@", haveAccount ? @"present" : @"missing");
+    }
     return haveAccount ? CKKSAccountStatusAvailable : CKKSAccountStatusNoAccount;
 }
 
@@ -2156,10 +2322,10 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return;
 }
 
--(void)joinWithBottle:(NSString*)bottleID
-              entropy:(NSData *)entropy
-           bottleSalt:(NSString *)bottleSalt
-                reply:(void (^)(NSError * _Nullable error))reply
+- (void)joinWithBottle:(NSString*)bottleID
+               entropy:(NSData *)entropy
+            bottleSalt:(NSString *)bottleSalt
+                 reply:(void (^)(NSError * _Nullable error))reply
 {
     _bottleID = bottleID;
     _entropy = entropy;
@@ -2213,19 +2379,22 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return @{
         OctagonStateInitiatorSetCDPBit: @{
             OctagonStateInitiatorUpdateDeviceList: @{
-                OctagonStateInitiatorJoin: @{
-                    OctagonStateBecomeReady: @{
-                        OctagonStateReady: [OctagonStateTransitionPathStep success],
-                    },
-
-                    OctagonStateInitiatorJoinCKKSReset: @{
-                        OctagonStateInitiatorJoinAfterCKKSReset: @{
-                            OctagonStateBecomeReady: @{
-                                OctagonStateReady: [OctagonStateTransitionPathStep success]
+                    OctagonStateInitiatorJoin: @{
+                            OctagonStateBottlePreloadOctagonKeysInSOS: @{
+                                    OctagonStateBecomeReady: @{
+                                            OctagonStateReady: [OctagonStateTransitionPathStep success],
+                                    },
                             },
-                        },
+                            OctagonStateInitiatorJoinCKKSReset: @{
+                                            OctagonStateInitiatorJoinAfterCKKSReset: @{
+                                                    OctagonStateBottlePreloadOctagonKeysInSOS: @{
+                                                            OctagonStateBecomeReady: @{
+                                                                    OctagonStateReady: [OctagonStateTransitionPathStep success]
+                                                            },
+                                                    },
+                                            },
+                            },
                     },
-                },
             },
         },
     };
@@ -2236,12 +2405,21 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
           reply:(void (^)(NSError * _Nullable error))reply
 {
 
-    _vouchData = vouchData;
-    _vouchSig = vouchSig;
-
     if ([self checkForCKAccount:nil] != CKKSAccountStatusAvailable) {
         secnotice("octagon", "No cloudkit account present");
         reply([self errorNoiCloudAccount]);
+        return;
+    }
+
+    NSError* metadataError = nil;
+    [self.accountMetadataStore persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
+        metadata.voucher = vouchData;
+        metadata.voucherSignature = vouchSig;
+        return metadata;
+    } error:&metadataError];
+    if(metadataError) {
+        secnotice("octagon", "Unable to save voucher for joining: %@", metadataError);
+        reply(metadataError);
         return;
     }
 
@@ -2369,8 +2547,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     }
 
     result[@"CoreFollowUp"] = [self.followupHandler sysdiagnoseStatus];
-    result[@"lastOctagonPush"] = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastOctagonPush];
 
+    result[@"lastOctagonPush"] = [[CKKSAnalytics logger] datePropertyForKey:CKKSAnalyticsLastOctagonPush];
+    result[@"pushEnvironments"] = [self.apsReceiver registeredPushEnvironments];
 
     [self.cuttlefishXPCWrapper dumpWithContainer:self.containerName
                                          context:self.contextID
@@ -2467,6 +2646,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                              NSString* egoPeerID,
                                              NSDictionary<NSString*, NSNumber*>* _Nullable peerCountByModelID,
                                              BOOL isExcluded,
+                                             BOOL isLocked,
                                              NSError *error))reply
 {
     CliqueStatus status = CliqueStatusAbsent;
@@ -2477,8 +2657,8 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         status = CliqueStatusNotIn;
     }
 
-    secnotice("octagon", "returning cached clique status: %@", OTCliqueStatusToString(status));
-    reply(status, account.peerID, nil, NO, NULL);
+    secinfo("octagon", "returning cached clique status: %@", OTCliqueStatusToString(status));
+    reply(status, account.peerID, nil, NO, NO, NULL);
 }
 
 
@@ -2487,6 +2667,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                  NSString* _Nullable peerID,
                                  NSDictionary<NSString*, NSNumber*>* _Nullable peerCountByModelID,
                                  BOOL isExcluded,
+                                 BOOL isLocked,
                                  NSError *error))reply
 {
     __block NSError* localError = nil;
@@ -2494,13 +2675,13 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     OTAccountMetadataClassC* account = [self.accountMetadataStore loadOrCreateAccountMetadata:&localError];
     if(localError && [self.lockStateTracker isLockedError:localError]){
         secnotice("octagon", "Device is locked! pending initialization on unlock");
-        reply(CliqueStatusError, nil, nil, NO, localError);
+        reply(CliqueStatusError, nil, nil, NO, NO, localError);
         return;
     }
 
     if(account.icloudAccountState == OTAccountMetadataClassC_AccountState_NO_ACCOUNT) {
         secnotice("octagon", "no account! returning clique status 'no account'");
-        reply(CliqueStatusNoCloudKitAccount, nil, nil, NO, NULL);
+        reply(CliqueStatusNoCloudKitAccount, nil, nil, NO, NO, NULL);
         return;
     }
 
@@ -2512,7 +2693,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     CKKSAccountStatus ckAccountStatus = [self checkForCKAccount:configuration];
     if(ckAccountStatus == CKKSAccountStatusNoAccount) {
         secnotice("octagon", "No cloudkit account present");
-        reply(CliqueStatusNoCloudKitAccount, nil, nil, NO, NULL);
+        reply(CliqueStatusNoCloudKitAccount, nil, nil, NO, NO, NULL);
         return;
     } else if(ckAccountStatus == CKKSAccountStatusUnknown) {
         secnotice("octagon", "Unknown cloudkit account status, returning cached trust value");
@@ -2524,6 +2705,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     __block NSDictionary<NSString*, NSNumber*>* peerModelCounts = nil;
     __block BOOL excluded = NO;
     __block CliqueStatus trustStatus = CliqueStatusError;
+    __block BOOL isLocked = NO;
 
     [self.cuttlefishXPCWrapper trustStatusWithContainer:self.containerName
                                                 context:self.contextID
@@ -2533,6 +2715,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         peerID = egoStatus.egoPeerID;
         excluded = egoStatus.isExcluded;
         peerModelCounts = egoStatus.viablePeerCountsByModelID;
+        isLocked = egoStatus.isLocked;
         localError = xpcError;
 
         if(xpcError) {
@@ -2573,7 +2756,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         }
     }];
 
-    reply(trustStatus, peerID, peerModelCounts, excluded, localError);
+    reply(trustStatus, peerID, peerModelCounts, excluded, isLocked, localError);
 }
 
 - (void)rpcFetchAllViableBottles:(void (^)(NSArray<NSString*>* _Nullable sortedBottleIDs, NSArray<NSString*>* _Nullable sortedPartialEscrowRecordIDs, NSError* _Nullable error))reply
@@ -2597,6 +2780,51 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                 reply(sortedEscrowRecordIDs, sortedPartialEscrowRecordIDs, error);
             }
         }];
+}
+
+- (void)rpcFetchAllViableEscrowRecords:(BOOL)forceFetch reply:(void (^)(NSArray<NSData*>* _Nullable records,
+                                                 NSError* _Nullable error))reply
+{
+    if ([self checkForCKAccount:nil] != CKKSAccountStatusAvailable) {
+        secnotice("octagon", "No cloudkit account present");
+        reply(NULL, [self errorNoiCloudAccount]);
+        return;
+    }
+
+    // As this isn't a state-modifying operation, we don't need to go through the state machine.
+    [self.cuttlefishXPCWrapper fetchViableEscrowRecordsWithContainer:self.containerName
+                                                             context:self.contextID
+                                                          forceFetch:(BOOL)forceFetch
+                                                               reply:^(NSArray<NSData *> * _Nullable records, NSError * _Nullable error) {
+        if(error){
+            secerror("octagon: error fetching all viable escrow records: %@", error);
+            reply(nil, error);
+        }else{
+            secnotice("octagon", "fetched escrow records: %@", records);
+
+            reply(records, error);
+        }
+    }];
+}
+
+- (void)rpcInvalidateEscrowCache:(void (^)(NSError* _Nullable error))reply
+{
+    if ([self checkForCKAccount:nil] != CKKSAccountStatusAvailable) {
+        secnotice("octagon", "No cloudkit account present");
+        reply([self errorNoiCloudAccount]);
+        return;
+    }
+
+    // As this isn't a state-modifying operation, we don't need to go through the state machine.
+    [self.cuttlefishXPCWrapper removeEscrowCacheWithContainer:self.containerName context:self.contextID reply:^(NSError * _Nullable removeError) {
+        if (removeError){
+            secerror("octagon: failed to remove escrow cache: %@", removeError);
+            reply(removeError);
+        } else{
+            secnotice("octagon", "successfully removed escrow cache");
+            reply(nil);
+        }
+    }];
 }
 
 - (void)fetchEscrowContents:(void (^)(NSData* _Nullable entropy,
@@ -2659,10 +2887,127 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                           reply:reply];
 }
 
-#pragma mark --- Testing
-- (void) setAccountStateHolder:(OTCuttlefishAccountStateHolder*)accountMetadataStore
+- (void)rpcFetchUserControllableViewsSyncingStatus:(void (^)(BOOL areSyncing, NSError* _Nullable error))reply
 {
-    self.accountMetadataStore = accountMetadataStore;
+    if(self.viewManager.policy) {
+        BOOL syncing = self.viewManager.policy.syncUserControllableViewsAsBoolean;
+
+        secnotice("octagon-ckks", "Returning user-controllable status as %@ (%@)",
+                  syncing ? @"enabled" : @"disabled",
+                  TPPBPeerStableInfo_UserControllableViewStatusAsString(self.viewManager.policy.syncUserControllableViews));
+
+        reply(syncing, nil);
+        return;
+    }
+
+    // No loaded policy? Let's trigger a fetch.
+    [self rpcRefetchCKKSPolicy:^(NSError * _Nullable error) {
+        if(error) {
+            secnotice("octagon-ckks", "Failed to fetch policy: %@", error);
+            reply(NO, error);
+            return;
+        }
+
+        if(self.viewManager.policy) {
+            BOOL syncing = self.viewManager.policy.syncUserControllableViewsAsBoolean;
+
+            secnotice("octagon-ckks", "Returning user-controllable status as %@ (%@)",
+                      syncing ? @"enabled" : @"disabled",
+                      TPPBPeerStableInfo_UserControllableViewStatusAsString(self.viewManager.policy.syncUserControllableViews));
+
+            reply(syncing, nil);
+            return;
+
+        } else {
+            // The tests sometimes don't have a viewManager. If we're in the tests, try this last-ditch effort:
+            if(SecCKKSTestsEnabled()) {
+                NSError* metadataError = nil;
+                OTAccountMetadataClassC* accountState = [self.accountMetadataStore loadOrCreateAccountMetadata:&metadataError];
+                if(metadataError) {
+                    secnotice("octagon-ckks", "Error fetching acount state: %@", metadataError);
+                }
+                TPSyncingPolicy* policy = [accountState getTPSyncingPolicy];
+                if(policy) {
+                    BOOL syncing = policy.syncUserControllableViewsAsBoolean;
+                    secnotice("octagon-ckks", "Returning user-controllable status (fetched from account state) as %@ (%@)",
+                              syncing ? @"enabled" : @"disabled",
+                              TPPBPeerStableInfo_UserControllableViewStatusAsString(self.viewManager.policy.syncUserControllableViews));
+                    reply(syncing, nil);
+                    return;
+                }
+            }
+
+            secnotice("octagon-ckks", "Policy missing even after a refetch?");
+            reply(NO, [NSError errorWithDomain:OctagonErrorDomain
+                                          code:OTErrorSyncPolicyMissing
+                                   description:@"Sync policy is missing even after refetching"]);
+            return;
+        }
+    }];
+}
+
+- (void)rpcSetUserControllableViewsSyncingStatus:(BOOL)status reply:(void (^)(BOOL areSyncing, NSError* _Nullable error))reply
+{
+#if TARGET_OS_TV
+    // TVs can't set this value.
+    secnotice("octagon-ckks", "Rejecting set of user-controllable sync status due to platform");
+    reply(NO, [NSError errorWithDomain:OctagonErrorDomain
+                                  code:OTErrorNotSupported
+                           description:@"This platform does not support setting the user-controllable view syncing status"]);
+#else
+
+    OctagonState* firstState = status ? OctagonStateEnableUserControllableViews : OctagonStateDisableUserControllableViews;
+
+    secnotice("octagon-ckks", "Settting user-controllable sync status as '%@'", status ? @"enabled" : @"disabled");
+
+    [self.stateMachine doWatchedStateMachineRPC:@"octagon-set-policy"
+                                   sourceStates:[NSMutableSet setWithArray: @[OctagonStateReady]]
+                                           path:[OctagonStateTransitionPath pathFromDictionary:@{
+                                               firstState: @{
+                                                       OctagonStateBecomeReady: @{
+                                                               OctagonStateReady: [OctagonStateTransitionPathStep success],
+                                                       },
+                                               },
+                                           }]
+                                          reply:^(NSError * _Nullable error) {
+        if(error) {
+            secnotice("octagon-ckks", "Failed to set sync policy to '%@': %@", status ? @"enabled" : @"disabled", error);
+            reply(NO, error);
+            return;
+        }
+
+        if(self.viewManager.policy) {
+            BOOL finalStatus = self.viewManager.policy.syncUserControllableViewsAsBoolean;
+            secnotice("octagon-ckks", "User-controllable sync status is set as '%@'", finalStatus ? @"enabled" : @"disabled");
+            reply(finalStatus, nil);
+            return;
+        }
+
+        // The tests sometimes don't have a viewManager. If we're in the tests, try this last-ditch effort:
+        if(SecCKKSTestsEnabled()) {
+            NSError* metadataError = nil;
+            OTAccountMetadataClassC* accountState = [self.accountMetadataStore loadOrCreateAccountMetadata:&metadataError];
+            if(metadataError) {
+                secnotice("octagon-ckks", "Error fetching acount state: %@", metadataError);
+            }
+            TPSyncingPolicy* policy = [accountState getTPSyncingPolicy];
+            if(policy) {
+                BOOL syncing = policy.syncUserControllableViewsAsBoolean;
+                secnotice("octagon-ckks", "Returning user-controllable status (fetched from account state) as %@ (%@)",
+                          syncing ? @"enabled" : @"disabled",
+                          TPPBPeerStableInfo_UserControllableViewStatusAsString(self.viewManager.policy.syncUserControllableViews));
+                reply(syncing, nil);
+                return;
+            }
+        }
+
+        secnotice("octagon-ckks", "Policy missing even after a refetch?");
+        reply(NO, [NSError errorWithDomain:OctagonErrorDomain
+                                      code:OTErrorSyncPolicyMissing
+                               description:@"Sync policy is missing even after refetching"]);
+        return;
+    }];
+#endif
 }
 
 #pragma mark --- Health Checker
@@ -2735,17 +3080,16 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     return YES;
 }
 
-- (void)postConfirmPasscodeCFU:(NSError**)error
+- (BOOL)postConfirmPasscodeCFU:(NSError**)error
 {
+    BOOL ret = NO;
     NSError* localError = nil;
-    [self.followupHandler postFollowUp:OTFollowupContextTypeOfflinePasscodeChange error:&localError];
+    ret = [self.followupHandler postFollowUp:OTFollowupContextTypeOfflinePasscodeChange error:&localError];
     if(localError){
         secerror("octagon-health: CoreCDP offline passcode change failed: %@", localError);
         *error = localError;
     }
-    else{
-        secnotice("octagon-health", "CoreCDP offline passcode change success");
-    }
+    return ret;
 }
 
 - (void)checkOctagonHealth:(BOOL)skipRateLimitingCheck reply:(void (^)(NSError * _Nullable error))reply
@@ -2772,6 +3116,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                    OctagonStateHealthCheckReset: [OctagonStateTransitionPathStep success],
                                                                    OctagonStateHealthCheckLeaveClique: [OctagonStateTransitionPathStep success],
                                                                },
+                                                               OctagonStateWaitForUnlock: [OctagonStateTransitionPathStep success],
                                                            },
                                                        },
                                                        OctagonStateWaitForCDP: [OctagonStateTransitionPathStep success],
@@ -2782,52 +3127,27 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                           reply:reply];
 }
 
-- (void)attemptSOSUpgrade:(void (^)(NSError* _Nullable error))reply
-{
-    secnotice("octagon-sos", "attempting to perform an sos upgrade");
-
-    if ([self checkForCKAccount:nil] != CKKSAccountStatusAvailable) {
-        secnotice("octagon-sos", "No cloudkit account present");
-        reply([self errorNoiCloudAccount]);
-        return;
-    }
-
-    NSSet* sourceStates = [NSSet setWithArray: @[OctagonStateUntrusted]];
-
-    OTSOSUpgradeOperation *pendingOp = [[OTSOSUpgradeOperation alloc] initWithDependencies:self.operationDependencies
-                                                                             intendedState:OctagonStateBecomeReady
-                                                                         ckksConflictState:OctagonStateBecomeUntrusted
-                                                                                errorState:OctagonStateBecomeUntrusted
-                                                                                deviceInfo:self.prepareInformation
-                                                                            policyOverride:self.policyOverride];
-
-    OctagonStateTransitionRequest<OTSOSUpgradeOperation*>* request = [[OctagonStateTransitionRequest alloc] init:@"attempt-sos-upgrade"
-                                                                                                    sourceStates:sourceStates
-                                                                                                     serialQueue:self.queue
-                                                                                                         timeout:OctagonStateTransitionDefaultTimeout
-                                                                                                    transitionOp:pendingOp];
-
-    CKKSResultOperation* callback = [CKKSResultOperation named:@"sos-upgrade-callback"
-                                                     withBlock:^{
-                                                         secnotice("otrpc", "Returning from an sos upgrade attempt: %@", pendingOp.error);
-                                                         [[CKKSAnalytics logger] logResultForEvent:OctagonEventUpgradePreapprovedJoinAfterPairing hardFailure:false result:pendingOp.error];
-                                                         reply(pendingOp.error);
-                                                     }];
-
-    [callback addDependency:pendingOp];
-    [self.operationQueue addOperation: callback];
-    
-    [self.stateMachine handleExternalRequest:request];
-}
-
 - (void)waitForOctagonUpgrade:(void (^)(NSError* error))reply
 {
     secnotice("octagon-sos", "waitForOctagonUpgrade");
+
+    NSError* localError = nil;
 
     if (!self.sosAdapter.sosEnabled) {
         secnotice("octagon-sos", "sos not enabled, nothing to do for waitForOctagonUpgrade");
         reply(nil);
         return;
+    } else if ([self.sosAdapter circleStatus:&localError] != kSOSCCInCircle) {
+        secnotice("octagon-sos", "SOS circle status: %d, cannot perform sos upgrade", [self.sosAdapter circleStatus:&localError]);
+        if (localError == nil) {
+            localError = [NSError errorWithDomain:(__bridge NSString*)kSOSErrorDomain code:kSOSErrorNoCircle userInfo:@{NSLocalizedDescriptionKey : @"Not in circle"}];
+        } else {
+            secerror("octagon-sos: error retrieving circle status: %@", localError);
+        }
+        reply(localError);
+        return;
+    } else {
+        secnotice("octagon-sos", "in sos circle!, attempting upgrade");
     }
 
     if ([self.stateMachine isPaused]) {
@@ -2846,12 +3166,15 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         }
     }
 
-    NSSet* sourceStates = [NSSet setWithArray: @[OctagonStateUntrusted]];
+    NSSet* sourceStates = [NSSet setWithArray: @[OctagonStateWaitForCDP,
+                                                 OctagonStateUntrusted]];
 
     OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:@{
-        OctagonStateAttemptSOSUpgrade: @{
-            OctagonStateBecomeReady: @{
-                OctagonStateReady: [OctagonStateTransitionPathStep success],
+        OctagonStateAttemptSOSUpgradeDetermineCDPState: @{
+            OctagonStateAttemptSOSUpgrade: @{
+                OctagonStateBecomeReady: @{
+                    OctagonStateReady: [OctagonStateTransitionPathStep success],
+                },
             },
         },
     }];

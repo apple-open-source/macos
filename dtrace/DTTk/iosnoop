@@ -222,8 +222,8 @@ fi
  	    "TIME", "STIME", "DELTA", "DEVICE", "INS", "MAJ", "MIN", "UID",
 	    "PID", "PPID", "D", "BLOCK", "SIZE", "MOUNT", "FILE", "PATH",
 	    "COMM","ARGS") :
- 	    printf("%5s %5s %1s %8s %6s ", "UID", "PID", "D", "BLOCK", "SIZE");
-	OPT_args == 0 ? printf("%10s %s\n", "COMM", "PATHNAME") : 1;
+	    printf("%5s %5s %1s %10s %8s ", "UID", "PID", "D", "BLOCK", "SIZE");
+	OPT_args == 0 ? printf("%32s %s\n", "COMM", "PATHNAME") : 1;
  	OPT_args == 1 ? printf("%28s %s\n", "PATHNAME", "ARGS") : 1;
  }
 
@@ -340,10 +340,10 @@ fi
 	    args[0]->b_flags & B_READ ? "R" : "W", 
 	    args[0]->b_blkno, args[0]->b_bcount, args[2]->fi_mount,
 	    args[2]->fi_name, args[2]->fi_pathname, self->scomm, self->sargs) :
- 	    printf("%5d %5d %1s %8d %6d ",
+	    printf("%5d %5d %1s %10d %8d ",
  	    this->suid, this->spid, args[0]->b_flags & B_READ ? "R" : "W",
 	    args[0]->b_blkno, args[0]->b_bcount);
-	OPT_args == 0 ? printf("%10s %s\n", self->scomm, args[2]->fi_pathname)
+	OPT_args == 0 ? printf("%32s %s\n", self->scomm, args[2]->fi_pathname)
 	    : 1;
  	OPT_args == 1 ? printf("%28s %S\n",
 	    args[2]->fi_pathname, self->sargs) : 1;

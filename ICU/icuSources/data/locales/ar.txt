@@ -15,23 +15,28 @@ ar{
         "آ ب ة ت ث ج ح خ د ذ ر ز س ش ص ض ط ظ ع غ ف ق ك ل م ن ه و ى ي]"
     }
     ExemplarCharactersIndex{"[ا ب ت ث ج ح خ د ذ ر ز س ش ص ض ط ظ ع غ ف ق ك ل م ن ه و ي]"}
-    ExemplarCharactersNumbers{"[\u061C\u200E \\- , ٫ ٬ . % ٪ ‰ ؉ + 0٠ 1١ 2٢ 3٣ 4٤ 5٥ 6٦ 7٧ 8٨ 9٩]"}
-    ExemplarCharactersPunctuation{"[\\- ‐ – — ، ؛ \\: ! ؟ . … ' \u0022 « » ( ) \\[ \\]]"}
+    ExemplarCharactersNumbers{"[\u061C\u200E \\- ‑ , ٫ ٬ . % ٪ ‰ ؉ + 0٠ 1١ 2٢ 3٣ 4٤ 5٥ 6٦ 7٧ 8٨ 9٩]"}
+    ExemplarCharactersPunctuation{"[\\- ‐ ‑ – — ، ؛ \\: ! ؟ . … ' \u0022 « » ( ) \\[ \\]]"}
     MoreInformation{"؟"}
     NumberElements{
         arab{
             patterns{
                 currencyFormat{"#,##0.00 ¤"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
             symbols{
+                decimal{"٫"}
                 exponential{"اس"}
+                group{"٬"}
                 infinity{"∞"}
                 list{"؛"}
+                minusSign{"؜-"}
                 nan{"ليس رقم"}
                 perMille{"؉"}
                 percentSign{"٪؜"}
+                plusSign{"؜+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
@@ -48,6 +53,7 @@ ar{
             patterns{
                 accountingFormat{"¤#,##0.00;(¤#,##0.00)"}
                 currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0%"}
                 scientificFormat{"#E0"}
             }
@@ -350,7 +356,9 @@ ar{
                 }
             }
             symbols{
+                decimal{"."}
                 exponential{"E"}
+                group{","}
                 infinity{"∞"}
                 minusSign{"‎-"}
                 nan{"ليس رقمًا"}
@@ -377,7 +385,7 @@ ar{
         minimumGroupingDigits{"1"}
         native{"arab"}
     }
-    Version{"2.1.49.82"}
+    Version{"36.1"}
     calendar{
         buddhist{
             eras{
@@ -2029,8 +2037,8 @@ ar{
     delimiters{
         alternateQuotationEnd{"'"}
         alternateQuotationStart{"'"}
-        quotationEnd{"\""}
-        quotationStart{"\""}
+        quotationEnd{"\u0022"}
+        quotationStart{"\u0022"}
     }
     fields{
         day{
@@ -3196,14 +3204,20 @@ ar{
         or{
             2{"{0} أو {1}"}
             end{"{0} أو {1}"}
-            middle{"{0} و{1}"}
-            start{"{0} و{1}"}
+            middle{"{0} أو {1}"}
+            start{"{0} أو {1}"}
+        }
+        or-narrow{
+            start{"{0} أو {1}"}
+        }
+        or-short{
+            middle{"{0} أو {1}"}
         }
         standard{
             2{"{0} و{1}"}
-            end{"{0}، و{1}"}
-            middle{"{0}، {1}"}
-            start{"{0}، {1}"}
+            end{"{0} و{1}"}
+            middle{"{0} و{1}"}
+            start{"{0} و{1}"}
         }
         standard-narrow{
             2{"{0} و{1}"}
@@ -3213,9 +3227,9 @@ ar{
         }
         standard-short{
             2{"{0} و{1}"}
-            end{"{0}، و{1}"}
-            middle{"{0}، و{1}"}
-            start{"{0}، و{1}"}
+            end{"{0} و{1}"}
+            middle{"{0} و{1}"}
+            start{"{0} و{1}"}
         }
         unit{
             2{"{0} و{1}"}

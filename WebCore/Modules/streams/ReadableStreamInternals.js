@@ -24,7 +24,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// @conditional=ENABLE(STREAMS_API)
 // @internal
 
 function readableStreamReaderGenericInitialize(reader, stream)
@@ -63,8 +62,26 @@ function privateInitializeReadableStreamDefaultController(stream, underlyingSour
     @putByIdDirectPrivate(this, "pulling", false);
     @putByIdDirectPrivate(this, "strategy", @validateAndNormalizeQueuingStrategy(size, highWaterMark));
 
-    const controller = this;
-    @promiseInvokeOrNoopNoCatch(underlyingSource, "start", [this]).@then(() => {
+    return this;
+}
+
+// https://streams.spec.whatwg.org/#set-up-readable-stream-default-controller, starting from step 6.
+// The other part is implemented in privateInitializeReadableStreamDefaultController.
+function setupReadableStreamDefaultController(stream, underlyingSource, size, highWaterMark, startMethod, pullMethod, cancelMethod)
+{
+    "use strict";
+    const controller = new @ReadableStreamDefaultController(stream, underlyingSource, size, highWaterMark, @isReadableStream);
+    const startAlgorithm = () => @promiseInvokeOrNoopMethodNoCatch(underlyingSource, startMethod, [controller]);
+    const pullAlgorithm = () => @promiseInvokeOrNoopMethod(underlyingSource, pullMethod, [controller]);
+    const cancelAlgorithm = (reason) => @promiseInvokeOrNoopMethod(underlyingSource, cancelMethod, [reason]);
+
+    @putByIdDirectPrivate(controller, "pullAlgorithm", pullAlgorithm);
+    @putByIdDirectPrivate(controller, "cancelAlgorithm", cancelAlgorithm);
+    @putByIdDirectPrivate(controller, "pull", @readableStreamDefaultControllerPull);
+    @putByIdDirectPrivate(controller, "cancel", @readableStreamDefaultControllerCancel);
+    @putByIdDirectPrivate(stream, "readableStreamController", controller);
+
+    startAlgorithm().@then(() => {
         @putByIdDirectPrivate(controller, "started", true);
         @assert(!@getByIdDirectPrivate(controller, "pulling"));
         @assert(!@getByIdDirectPrivate(controller, "pullAgain"));
@@ -72,12 +89,6 @@ function privateInitializeReadableStreamDefaultController(stream, underlyingSour
     }, (error) => {
         @readableStreamDefaultControllerError(controller, error);
     });
-
-    @putByIdDirectPrivate(this, "cancel", @readableStreamDefaultControllerCancel);
-
-    @putByIdDirectPrivate(this, "pull", @readableStreamDefaultControllerPull);
-
-    return this;
 }
 
 function readableStreamDefaultControllerError(controller, error)
@@ -141,14 +152,16 @@ function readableStreamTee(stream, shouldClone)
 
     const pullFunction = @readableStreamTeePullFunction(teeState, reader, shouldClone);
 
-    const branch1 = new @ReadableStream({
-        "pull": pullFunction,
-        "cancel": @readableStreamTeeBranch1CancelFunction(teeState, stream)
-    });
-    const branch2 = new @ReadableStream({
-        "pull": pullFunction,
-        "cancel": @readableStreamTeeBranch2CancelFunction(teeState, stream)
-    });
+    const branch1Source = { };
+    @putByIdDirectPrivate(branch1Source, "pull", pullFunction);
+    @putByIdDirectPrivate(branch1Source, "cancel", @readableStreamTeeBranch1CancelFunction(teeState, stream));
+
+    const branch2Source = { };
+    @putByIdDirectPrivate(branch2Source, "pull", pullFunction);
+    @putByIdDirectPrivate(branch2Source, "cancel", @readableStreamTeeBranch2CancelFunction(teeState, stream));
+
+    const branch1 = new @ReadableStream(branch1Source);
+    const branch2 = new @ReadableStream(branch2Source);
 
     @getByIdDirectPrivate(reader, "closedPromiseCapability").@promise.@then(@undefined, function(e) {
         if (teeState.closedOrErrored)
@@ -156,6 +169,7 @@ function readableStreamTee(stream, shouldClone)
         @readableStreamDefaultControllerError(branch1.@readableStreamController, e);
         @readableStreamDefaultControllerError(branch2.@readableStreamController, e);
         teeState.closedOrErrored = true;
+        teeState.cancelPromiseCapability.@resolve.@call();
     });
 
     // Additional fields compared to the spec, as they are needed within pull/cancel functions.
@@ -195,6 +209,7 @@ function readableStreamTeePullFunction(teeState, reader, shouldClone)
                 if (!teeState.canceled2)
                     @readableStreamDefaultControllerClose(teeState.branch2.@readableStreamController);
                 teeState.closedOrErrored = true;
+                teeState.cancelPromiseCapability.@resolve.@call();
             }
             if (teeState.closedOrErrored)
                 return;
@@ -285,20 +300,20 @@ function readableStreamError(stream, error)
 
     if (@isReadableStreamDefaultReader(reader)) {
         const requests = @getByIdDirectPrivate(reader, "readRequests");
-        for (let index = 0, length = requests.length; index < length; ++index)
-            requests[index].@reject.@call(@undefined, error);
         @putByIdDirectPrivate(reader, "readRequests", []);
+        for (let index = 0, length = requests.length; index < length; ++index)
+            @rejectPromise(requests[index], error);
     } else {
         @assert(@isReadableStreamBYOBReader(reader));
         const requests = @getByIdDirectPrivate(reader, "readIntoRequests");
-        for (let index = 0, length = requests.length; index < length; ++index)
-            requests[index].@reject.@call(@undefined, error);
         @putByIdDirectPrivate(reader, "readIntoRequests", []);
+        for (let index = 0, length = requests.length; index < length; ++index)
+            @rejectPromise(requests[index], error);
     }
 
     @getByIdDirectPrivate(reader, "closedPromiseCapability").@reject.@call(@undefined, error);
     const promise = @getByIdDirectPrivate(reader, "closedPromiseCapability").@promise;
-    @putPromiseInternalField(promise, @promiseFieldFlags, @getPromiseInternalField(promise, @promiseFieldFlags) | @promiseFlagsIsHandled);
+    @markPromiseAsHandled(promise);
 }
 
 function readableStreamDefaultControllerCallPullIfNeeded(controller)
@@ -322,7 +337,7 @@ function readableStreamDefaultControllerCallPullIfNeeded(controller)
     @assert(!@getByIdDirectPrivate(controller, "pullAgain"));
     @putByIdDirectPrivate(controller, "pulling", true);
 
-    @promiseInvokeOrNoop(@getByIdDirectPrivate(controller, "underlyingSource"), "pull", [controller]).@then(function() {
+    @getByIdDirectPrivate(controller, "pullAlgorithm").@call(@undefined).@then(function() {
         @putByIdDirectPrivate(controller, "pulling", false);
         if (@getByIdDirectPrivate(controller, "pullAgain")) {
             @putByIdDirectPrivate(controller, "pullAgain", false);
@@ -385,7 +400,7 @@ function readableStreamDefaultControllerCancel(controller, reason)
     "use strict";
 
     @putByIdDirectPrivate(controller, "queue", @newQueue());
-    return @promiseInvokeOrNoop(@getByIdDirectPrivate(controller, "underlyingSource"), "cancel", [reason]);
+    return @getByIdDirectPrivate(controller, "cancelAlgorithm").@call(@undefined, reason);
 }
 
 function readableStreamDefaultControllerPull(controller)
@@ -399,7 +414,8 @@ function readableStreamDefaultControllerPull(controller)
             @readableStreamClose(stream);
         else
             @readableStreamDefaultControllerCallPullIfNeeded(controller);
-        return @Promise.@resolve({value: chunk, done: false});
+
+        return @createFulfilledPromise({ value: chunk, done: false });
     }
     const pendingPromise = @readableStreamAddReadRequest(stream);
     @readableStreamDefaultControllerCallPullIfNeeded(controller);
@@ -429,9 +445,9 @@ function readableStreamClose(stream)
 
     if (@isReadableStreamDefaultReader(reader)) {
         const requests = @getByIdDirectPrivate(reader, "readRequests");
-        for (let index = 0, length = requests.length; index < length; ++index)
-            requests[index].@resolve.@call(@undefined, {value:@undefined, done: true});
         @putByIdDirectPrivate(reader, "readRequests", []);
+        for (let index = 0, length = requests.length; index < length; ++index)
+            @fulfillPromise(requests[index], { value: @undefined, done: true });
     }
 
     @getByIdDirectPrivate(reader, "closedPromiseCapability").@resolve.@call();
@@ -440,8 +456,8 @@ function readableStreamClose(stream)
 function readableStreamFulfillReadRequest(stream, chunk, done)
 {
     "use strict";
-
-    @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readRequests").@shift().@resolve.@call(@undefined, {value: chunk, done: done});
+    const readRequest = @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readRequests").@shift();
+    @fulfillPromise(readRequest, { value: chunk, done: done });
 }
 
 function readableStreamDefaultControllerEnqueue(controller, chunk)
@@ -480,7 +496,7 @@ function readableStreamDefaultReaderRead(reader)
 
     @putByIdDirectPrivate(stream, "disturbed", true);
     if (state === @streamClosed)
-        return @Promise.@resolve({value: @undefined, done: true});
+        return @createFulfilledPromise({ value: @undefined, done: true });
     if (state === @streamErrored)
         return @Promise.@reject(@getByIdDirectPrivate(stream, "storedError"));
     @assert(state === @streamReadable);
@@ -495,10 +511,10 @@ function readableStreamAddReadRequest(stream)
     @assert(@isReadableStreamDefaultReader(@getByIdDirectPrivate(stream, "reader")));
     @assert(@getByIdDirectPrivate(stream, "state") == @streamReadable);
 
-    const readRequest = @newPromiseCapability(@Promise);
+    const readRequest = @newPromise();
     @getByIdDirectPrivate(@getByIdDirectPrivate(stream, "reader"), "readRequests").@push(readRequest);
 
-    return readRequest.@promise;
+    return readRequest;
 }
 
 function isReadableStreamDisturbed(stream)
@@ -522,7 +538,7 @@ function readableStreamReaderGenericRelease(reader)
         @putByIdDirectPrivate(reader, "closedPromiseCapability", { @promise: @newHandledRejectedPromise(@makeTypeError("reader released lock")) });
 
     const promise = @getByIdDirectPrivate(reader, "closedPromiseCapability").@promise;
-    @putPromiseInternalField(promise, @promiseFieldFlags, @getPromiseInternalField(promise, @promiseFieldFlags) | @promiseFlagsIsHandled);
+    @markPromiseAsHandled(promise);
     @putByIdDirectPrivate(@getByIdDirectPrivate(reader, "ownerReadableStream"), "reader", @undefined);
     @putByIdDirectPrivate(reader, "ownerReadableStream", @undefined);
 }

@@ -143,12 +143,17 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	if (CFRef<CFDataRef> infoData = rep->component(cdInfoSlot))
 		infoDict.take(makeCFDictionaryFrom(infoData));
 	
-	uint32_t inherit = code->isSigned() ? state.mPreserveMetadata : 0;
+	uint32_t inherit = 0;
+
+	if (code->isSigned() && (code->codeDirectory(false)->flags & kSecCodeSignatureLinkerSigned) == 0) {
+		inherit = state.mPreserveMetadata;
+	}
 
 	// work out the canonical identifier
 	identifier = state.mIdentifier;
-	if (identifier.empty() && (inherit & kSecCodeSignerPreserveIdentifier))
+	if (identifier.empty() && (inherit & kSecCodeSignerPreserveIdentifier)) {
 		identifier = code->identifier();
+	}
 	if (identifier.empty()) {
 		identifier = rep->recommendedIdentifier(*this);
 		if (identifier.find('.') == string::npos)
@@ -174,8 +179,6 @@ void SecCodeSigner::Signer::prepare(SecCSFlags flags)
 	entitlements = state.mEntitlementData;
 	if (!entitlements && (inherit & kSecCodeSignerPreserveEntitlements))
 		entitlements = code->component(cdEntitlementSlot);
-
-	generateEntitlementDER = signingFlags() & kSecCSSignGenerateEntitlementDER;
 	
 	// work out the CodeDirectory flags word
 	bool haveCdFlags = false;
@@ -409,12 +412,12 @@ void SecCodeSigner::Signer::buildResources(std::string root, std::string relBase
 	if (!(signingFlags() & kSecCSSignV1)) {
 		CFCopyRef<CFDictionaryRef> rules2 = cfget<CFDictionaryRef>(rulesDict, "rules2");
 		if (!rules2) {
-            // Clone V1 rules and add default nesting rules at weight 0 (overridden by anything in rules,
-            // because the default weight, according to ResourceBuilder::addRule(), is 1).
+			// Clone V1 rules and add default nesting rules at weight 0 (overridden by anything in rules,
+			// because the default weight, according to ResourceBuilder::addRule(), is 1).
 			// V1 rules typically do not cover these places so we'll prevail, but if they do, we defer to them.
-			rules2 = cfmake<CFDictionaryRef>("{+%O"
+			rules2.take(cfmake<CFDictionaryRef>("{+%O"
 				"'^(Frameworks|SharedFrameworks|PlugIns|Plug-ins|XPCServices|Helpers|MacOS|Library/(Automator|Spotlight|LoginItems))/' = {nested=#T, weight=0}" // exclude dynamic repositories
-			"}", rules);
+			"}", rules));
 		}
 
 		Dispatch::Group group;
@@ -540,7 +543,7 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 	if (state.mPreserveAFSC)
 		writer->setPreserveAFSC(state.mPreserveAFSC);
 
-	auto_ptr<ArchEditor> editor(state.mDetached
+	unique_ptr<ArchEditor> editor(state.mDetached
 		? static_cast<ArchEditor *>(new BlobEditor(*fat, *this))
 		: new MachOEditor(writer, *fat, this->digestAlgorithms(), rep->mainExecutablePath()));
 	assert(editor->count() > 0);
@@ -556,6 +559,22 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 		if (arch.architecture.cpuType() == CPU_TYPE_I386) {
 			if (cdFlags & kSecCodeSignatureLibraryValidation) {
 				MacOSError::throwMe(errSecCSBadLVArch);
+			}
+		}
+		
+		bool generateEntitlementDER = false;
+		if (signingFlags() & kSecCSSignGenerateEntitlementDER) {
+			generateEntitlementDER = true;
+		} else {
+			uint32_t platform = arch.source->platform();
+			switch (platform) {
+				case PLATFORM_WATCHOS:
+				case PLATFORM_BRIDGEOS:
+					generateEntitlementDER = false;
+					break;
+				default:
+					generateEntitlementDER = true;
+					break;
 			}
 		}
 
@@ -581,7 +600,7 @@ void SecCodeSigner::Signer::signMachO(Universal *fat, const Requirement::Context
 						 arch.source->offset(), arch.source->signingExtent(),
 						 mainBinary, rep->execSegBase(&(arch.architecture)), rep->execSegLimit(&(arch.architecture)),
 						 unsigned(digestAlgorithms().size()-1),
-						 preEncryptHashMaps[arch.architecture], runtimeVersionToUse);
+						 preEncryptHashMaps[arch.architecture], runtimeVersionToUse, generateEntitlementDER);
 			});
 		}
 	
@@ -660,7 +679,8 @@ void SecCodeSigner::Signer::signArchitectureAgnostic(const Requirement::Context 
 				 rep->execSegBase(NULL), rep->execSegLimit(NULL),
 				 unsigned(digestAlgorithms().size()-1),
 				 preEncryptHashMaps[preEncryptMainArch], // Only one map, the default.
-				 (cdFlags & kSecCodeSignatureRuntime) ? state.mRuntimeVersionOverride : 0);
+				 (cdFlags & kSecCodeSignatureRuntime) ? state.mRuntimeVersionOverride : 0,
+				 signingFlags() & kSecCSSignGenerateEntitlementDER);
 		
 		CodeDirectory *cd = builder.build();
 		if (!state.mDryRun)
@@ -708,7 +728,7 @@ void SecCodeSigner::Signer::populate(CodeDirectory::Builder &builder, DiskRep::W
 									 bool mainBinary, size_t execSegBase, size_t execSegLimit,
 									 unsigned alternateDigestCount,
 									 PreEncryptHashMap const &preEncryptHashMap,
-									 uint32_t runtimeVersion)
+									 uint32_t runtimeVersion, bool generateEntitlementDER)
 {
 	// fill the CodeDirectory
 	builder.executable(rep->mainExecutablePath(), pagesize, offset, length);

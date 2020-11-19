@@ -259,7 +259,7 @@ GetJournalInfoBlock(SGlobPtr GPtr, JournalInfoBlock *jibp, UInt32 *bsizep)
 			if (jibp)
 				memcpy(jibp, block, sizeof(JournalInfoBlock));
 			if (bsizep)
-				*bsizep = blockSize;
+				*bsizep = (UInt32)blockSize;
 			result = 0;
 		} else {
 			if (debug) {
@@ -602,6 +602,7 @@ OSErr IVChk( SGlobPtr GPtr )
 	OSErr						err;
 	HFSMasterDirectoryBlock *	myMDBPtr;
 	HFSPlusVolumeHeader *		myVHBPtr;
+	UInt64					numBlk;
 	UInt32					numABlks;
 	UInt32					minABlkSz;
 	UInt32					maxNumberOfAllocationBlocks;
@@ -721,7 +722,7 @@ OSErr IVChk( SGlobPtr GPtr )
 		
 		// catch the case where the volume allocation block count is greater than 
 		// maximum number of device allocation blocks. - bug 2916021
-		numABlks = myVOPtr->totalDeviceSectors / ( myVHBPtr->blockSize / Blk_Size );
+		numABlks = (UInt32)(myVOPtr->totalDeviceSectors / ( myVHBPtr->blockSize / Blk_Size ));
 		if ( myVHBPtr->totalBlocks > numABlks ) {
 			RcdError( GPtr, E_NABlks );
 			err = E_NABlks;					
@@ -753,16 +754,17 @@ OSErr IVChk( SGlobPtr GPtr )
 
 	//  verify volume allocation info
 	//	Note: i is the number of sectors per allocation block
-	numABlks = totalSectors;
+	numBlk = totalSectors;
 	minABlkSz = Blk_Size;							//	init minimum ablock size
 	//	loop while #ablocks won't fit
-	for( i = 2; numABlks > maxNumberOfAllocationBlocks; i++ ) {
+	for( i = 2; numBlk > maxNumberOfAllocationBlocks; i++ ) {
 		minABlkSz = i * Blk_Size;					//	jack up minimum
-		numABlks  = totalSectors / i;				//	recompute #ablocks, assuming this size
+		numBlk  = totalSectors / i;				//	recompute #ablocks, assuming this size
 	 }
 
+	numABlks = (UInt32)numBlk;
 	vcb->vcbBlockSize = realAllocationBlockSize;
-	numABlks = totalSectors / ( realAllocationBlockSize / Blk_Size );
+	numABlks = (UInt32)(totalSectors / ( realAllocationBlockSize / Blk_Size ));
 	if ( VolumeObjectIsHFSPlus( ) ) {
 		// HFS Plus allocation block size must be power of 2
 		if ( (realAllocationBlockSize < minABlkSz) || 
@@ -794,7 +796,7 @@ OSErr IVChk( SGlobPtr GPtr )
 		bitMapSizeInSectors = ( numABlks + kBitsPerSector - 1 ) / kBitsPerSector;			//	VBM size in blocks
 
 		//ее	Calculate the validaty of HFS Allocation blocks, I think realTotalBlocks == numABlks
-		numABlks = (totalSectors - 3 - bitMapSizeInSectors) / (realAllocationBlockSize / Blk_Size);	//	actual # of alloc blks
+		numABlks = (UInt32)((totalSectors - 3 - bitMapSizeInSectors) / (realAllocationBlockSize / Blk_Size));	//	actual # of alloc blks
 
 		if ( realTotalBlocks > numABlks ) {
 			RcdError( GPtr, E_NABlks );
@@ -1075,7 +1077,7 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 		btcb->lastLeafNode		= header.lastLeafNode;
 
 		btcb->nodeSize			= header.nodeSize;
-		btcb->totalNodes		= ( GPtr->calculatedExtentsFCB->fcbPhysicalSize / btcb->nodeSize );
+		btcb->totalNodes		= (UInt32)( GPtr->calculatedExtentsFCB->fcbPhysicalSize / btcb->nodeSize );
 		btcb->freeNodes			= btcb->totalNodes;								//	start with everything free
 
 		//	Make sure the header nodes size field is correct by looking at the 1st record offset
@@ -1083,7 +1085,7 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 		if ( (err != noErr) && (btcb->nodeSize != 1024) )		//	default HFS+ Extents node size is 1024
 		{
 			btcb->nodeSize			= 1024;
-			btcb->totalNodes		= ( GPtr->calculatedExtentsFCB->fcbPhysicalSize / btcb->nodeSize );
+			btcb->totalNodes		= (UInt32)( GPtr->calculatedExtentsFCB->fcbPhysicalSize / btcb->nodeSize );
 			btcb->freeNodes			= btcb->totalNodes;								//	start with everything free
 			
 			err = CheckNodesFirstOffset( GPtr, btcb );
@@ -1136,7 +1138,7 @@ OSErr	CreateExtentsBTreeControlBlock( SGlobPtr GPtr )
 		btcb->lastLeafNode	= header.lastLeafNode;
 		
 		btcb->nodeSize		= header.nodeSize;
-		btcb->totalNodes	= (GPtr->calculatedExtentsFCB->fcbPhysicalSize / btcb->nodeSize );
+		btcb->totalNodes	= (UInt32)(GPtr->calculatedExtentsFCB->fcbPhysicalSize / btcb->nodeSize );
 		btcb->freeNodes		= btcb->totalNodes;									//	start with everything free
 
 		//	Make sure the header nodes size field is correct by looking at the 1st record offset
@@ -1429,7 +1431,7 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
 		btcb->keyCompareType		= header.keyCompareType;
 		btcb->leafRecords		= header.leafRecords;
 		btcb->nodeSize			= header.nodeSize;
-		btcb->totalNodes		= ( GPtr->calculatedCatalogFCB->fcbPhysicalSize / btcb->nodeSize );
+		btcb->totalNodes		= (UInt32)( GPtr->calculatedCatalogFCB->fcbPhysicalSize / btcb->nodeSize );
 		btcb->freeNodes			= btcb->totalNodes;									//	start with everything free
 		btcb->attributes		|=(kBTBigKeysMask + kBTVariableIndexKeysMask);		//	HFS+ Catalog files have large, variable-sized keys
 
@@ -1444,7 +1446,7 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
 		if ( (err != noErr) && (btcb->nodeSize != 4096) )		//	default HFS+ Catalog node size is 4096
 		{
 			btcb->nodeSize			= 4096;
-			btcb->totalNodes		= ( GPtr->calculatedCatalogFCB->fcbPhysicalSize / btcb->nodeSize );
+			btcb->totalNodes		= (UInt32)( GPtr->calculatedCatalogFCB->fcbPhysicalSize / btcb->nodeSize );
 			btcb->freeNodes			= btcb->totalNodes;								//	start with everything free
 			
 			err = CheckNodesFirstOffset( GPtr, btcb );
@@ -1489,7 +1491,7 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
 		btcb->keyCompareProc	= (void *) CompareCatalogKeys;
 		btcb->leafRecords		= header.leafRecords;
 		btcb->nodeSize			= header.nodeSize;
-		btcb->totalNodes		= (GPtr->calculatedCatalogFCB->fcbPhysicalSize / btcb->nodeSize );
+		btcb->totalNodes		= (UInt32)(GPtr->calculatedCatalogFCB->fcbPhysicalSize / btcb->nodeSize );
 		btcb->freeNodes			= btcb->totalNodes;									//	start with everything free
 
 		btcb->treeDepth		= header.treeDepth;
@@ -2129,7 +2131,7 @@ OSErr	CreateAttributesBTreeControlBlock( SGlobPtr GPtr )
 			btcb->keyCompareProc	= (void *)CompareAttributeKeys;
 			btcb->leafRecords		= header.leafRecords;
 			btcb->nodeSize			= header.nodeSize;
-			btcb->totalNodes		= ( GPtr->calculatedAttributesFCB->fcbPhysicalSize / btcb->nodeSize );
+			btcb->totalNodes		= (UInt32)( GPtr->calculatedAttributesFCB->fcbPhysicalSize / btcb->nodeSize );
 			btcb->freeNodes			= btcb->totalNodes;									//	start with everything free
 			btcb->attributes		|=(kBTBigKeysMask + kBTVariableIndexKeysMask);		//	HFS+ Attributes files have large, variable-sized keys
 

@@ -35,6 +35,7 @@
 
 #include "hi_locl.h"
 #include <dispatch/dispatch.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 #include "heap.h"
 
@@ -44,6 +45,7 @@ struct heim_event_data {
     int flags;
 #define RUNNING	1
 #define IN_FREE 2
+#define CF_OBJECT 4
     heim_ipc_event_callback_t callback;
     heim_ipc_event_final_t final;
     void *ctx;
@@ -132,8 +134,14 @@ trigger_jobs(void)
 
 	    _heim_ipc_suspend_timer();
 
-	    dispatch_async(timer_job_q, ^{ 
-		    e->callback(e, e->ctx); 
+	    dispatch_async(timer_job_q, ^{
+		    if (e->flags & CF_OBJECT) {
+			CFRetain(e->ctx);
+		    }
+		    e->callback(e, e->ctx);
+		    if (e->flags & CF_OBJECT) {
+			CFRelease(e->ctx);
+		    }
 		    dispatch_async(timer_sync_q, ^{
 			    e->flags &= ~RUNNING;
 			    if (e->running)
@@ -206,6 +214,27 @@ heim_ipc_event_create_f(heim_ipc_event_callback_t cb, void *ctx)
     return e;
 }
 
+/**
+ * Create a event that is (re)schedule and set the callback functions
+ * and context variable.
+ *
+ * The callback function can call heim_ipc_event_cancel() and
+ * heim_ipc_event_free().
+ *
+ * @param cb callback function when the event is triggered
+ * @param ctx CFTypeRef context passed to the callback function, retained during execution.
+ *
+ * @return a heim ipc event
+ */
+
+heim_event_t
+heim_ipc_event_cf_create_f(heim_ipc_event_callback_t cb, CFTypeRef ctx)
+{
+    heim_event_t e = heim_ipc_event_create_f(cb, (void*)ctx);
+    e->flags |= CF_OBJECT;
+    
+    return e;
+}
 
 /**
  * (Re)schedule a new timeout for an event
@@ -258,6 +287,16 @@ heim_ipc_event_cancel(heim_event_t e)
 	    e->t = 0;
 	    reschedule_timer();
 	});
+}
+
+bool
+heim_ipc_event_is_cancelled(heim_event_t e)
+{
+    __block bool result = false;
+    dispatch_sync(timer_sync_q, ^{
+	result = e->t == 0;
+    });
+    return result;
 }
 
 /**

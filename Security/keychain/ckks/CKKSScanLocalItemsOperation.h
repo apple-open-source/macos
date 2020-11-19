@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2016-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -23,18 +23,20 @@
 
 #import <Foundation/Foundation.h>
 
-#import "keychain/ckks/CKKSGroupOperation.h"
-
 #if OCTAGON
+
+#import "keychain/ckks/CKKSResultOperation.h"
+#import "keychain/ckks/CKKSOperationDependencies.h"
+#import "keychain/ot/OctagonStateMachineHelpers.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @class CKKSKeychainView;
-@class CKKSEgoManifest;
 
-@interface CKKSScanLocalItemsOperation : CKKSResultOperation
-@property CKOperationGroup* ckoperationGroup;
+@interface CKKSScanLocalItemsOperation : CKKSResultOperation <OctagonStateTransitionOperationProtocol>
+@property (nullable) CKOperationGroup* ckoperationGroup;
 
+@property CKKSOperationDependencies* deps;
 @property (weak) CKKSKeychainView* ckks;
 
 @property size_t recordsFound;
@@ -43,8 +45,11 @@ NS_ASSUME_NONNULL_BEGIN
 @property size_t missingLocalItemsFound;
 
 - (instancetype)init NS_UNAVAILABLE;
-- (instancetype)initWithCKKSKeychainView:(CKKSKeychainView*)ckks ckoperationGroup:(CKOperationGroup*)ckoperationGroup;
-
+- (instancetype)initWithDependencies:(CKKSOperationDependencies*)dependencies
+                                ckks:(CKKSKeychainView*)ckks
+                           intending:(OctagonState*)intendedState
+                          errorState:(OctagonState*)errorState
+                    ckoperationGroup:(CKOperationGroup* _Nullable)ckoperationGroup;
 @end
 
 NS_ASSUME_NONNULL_END

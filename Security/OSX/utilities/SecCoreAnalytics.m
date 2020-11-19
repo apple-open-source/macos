@@ -26,9 +26,20 @@
 #import <SoftLinking/SoftLinking.h>
 #import <Availability.h>
 
+NSString* const SecCoreAnalyticsValue = @"value";
+
+
+void SecCoreAnalyticsSendValue(CFStringRef _Nonnull eventName, int64_t value)
+{
+    [SecCoreAnalytics sendEvent:(__bridge NSString*)eventName
+                          event:@{
+                              SecCoreAnalyticsValue: [NSNumber numberWithLong:value],
+                          }];
+}
+
 @implementation SecCoreAnalytics
 
-SOFT_LINK_FRAMEWORK_SAFE(PrivateFrameworks, CoreAnalytics);
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CoreAnalytics);
 
 SOFT_LINK_FUNCTION(CoreAnalytics, AnalyticsSendEvent, soft_AnalyticsSendEvent, \
     void, (NSString* eventName, NSDictionary<NSString*,NSObject*>* eventPayload),(eventName, eventPayload));

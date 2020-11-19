@@ -28,6 +28,7 @@
 #import "WKBrowsingContextController.h"
 #import "WKBrowsingContextGroup.h"
 #import "WKProcessGroup.h"
+#import <wtf/NakedRef.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
 
@@ -70,7 +71,7 @@ class WebProcessPool;
 @property (nonatomic) BOOL sizeChangedSinceLastVisibleContentRectUpdate;
 @property (nonatomic, readonly) UIInterfaceOrientation interfaceOrientation;
 
-- (instancetype)initWithFrame:(CGRect)frame processPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView;
+- (instancetype)initWithFrame:(CGRect)frame processPool:(NakedRef<WebKit::WebProcessPool>)processPool configuration:(Ref<API::PageConfiguration>&&)configuration webView:(WKWebView *)webView;
 
 - (void)didUpdateVisibleRect:(CGRect)visibleRect
     unobscuredRect:(CGRect)unobscuredRect
@@ -82,7 +83,8 @@ class WebProcessPool;
     scale:(CGFloat)scale minimumScale:(CGFloat)minimumScale
     inStableState:(BOOL)isStableState
     isChangingObscuredInsetsInteractively:(BOOL)isChangingObscuredInsetsInteractively
-    enclosedInScrollableAncestorView:(BOOL)enclosedInScrollableAncestorView;
+    enclosedInScrollableAncestorView:(BOOL)enclosedInScrollableAncestorView
+    sendEvenIfUnchanged:(BOOL)sendEvenIfUnchanged;
 
 - (void)didFinishScrolling;
 - (void)didInterruptScrolling;
@@ -95,10 +97,14 @@ class WebProcessPool;
 
 - (std::unique_ptr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy:(WebKit::WebProcessProxy&)process;
 - (void)_processDidExit;
+#if ENABLE(GPU_PROCESS)
+- (void)_gpuProcessCrashed;
+#endif
 - (void)_processWillSwap;
 - (void)_didRelaunchProcess;
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
 - (void)_processDidCreateContextForVisibilityPropagation;
+- (void)_gpuProcessDidCreateContextForVisibilityPropagation;
 #endif
 - (void)_setAcceleratedCompositingRootView:(UIView *)rootView;
 

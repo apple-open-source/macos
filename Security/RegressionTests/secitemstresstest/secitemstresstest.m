@@ -43,8 +43,9 @@ Cleanup(void)
         (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     status = SecItemDelete((__bridge CFDictionaryRef)query);
-    if (status != errSecSuccess || status == errSecItemNotFound)
+    if (status != errSecSuccess) {
         printf("cleanup ag1: %d\n", (int)status);
+    }
 
     query = @{
         (id)kSecClass : (id)kSecClassGenericPassword,
@@ -52,8 +53,9 @@ Cleanup(void)
         (id)kSecUseDataProtectionKeychain : (id)kCFBooleanTrue,
     };
     status = SecItemDelete((__bridge CFDictionaryRef)query);
-    if (status != errSecSuccess || status != errSecItemNotFound)
+    if (status != errSecSuccess) {
         printf("cleanup ag2: %d\n", (int)status);
+    }
 }
 
 static void

@@ -3207,12 +3207,12 @@ cat_check_link_ancestry(struct hfsmount *hfsmp, cnid_t cnid, cnid_t pointed_at_c
             break;
         }
         if ((result = getkey(hfsmp, cnid, (CatalogKey *)keyp))) {
-            LFHFS_LOG(LEVEL_ERROR, "cat_check_link_ancestry: getkey failed id=%u, vol=%s\n", cnid, hfsmp->vcbVN);
+            LFHFS_LOG(LEVEL_ERROR, "cat_check_link_ancestry: getkey failed [%d] id=%u, vol=%s\n", result, cnid, hfsmp->vcbVN);
             invalid = 1;  /* On errors, assume an invalid parent */
             break;
         }
         if ((result = BTSearchRecord(fcb, ip, &btdata, NULL, NULL))) {
-            LFHFS_LOG(LEVEL_ERROR, "cat_check_link_ancestry: cannot find id=%u, vol=%s\n", cnid, hfsmp->vcbVN);
+            LFHFS_LOG(LEVEL_ERROR, "cat_check_link_ancestry: cannot find id=%u, vol=%s, [%d]\n", cnid, hfsmp->vcbVN, result);
             invalid = 1;  /* On errors, assume an invalid parent */
             break;
         }

@@ -38,9 +38,8 @@ static uint8_t descriptor [] = {
     NSDictionary * description = @{
                                    @kIOHIDPhysicalDeviceUniqueIDKey : uniqueID,
                                    @kIOHIDReportDescriptorKey : [NSData dataWithBytes:descriptor length:sizeof(descriptor)],
-                                   @kIOHIDAltHandlerIdKey   : @(58),
-                                   @kIOHIDProductIDKey  : @(1234),
-                                   @kIOHIDVendorIDKey    : @(1234),
+                                   @kIOHIDProductIDKey  : @(637),
+                                   @kIOHIDVendorIDKey   : @(kIOHIDAppleVendorID),
     };
     
     self.eventSystemClientCancelExpectation = [[XCTestExpectation alloc] initWithDescription:@"expectation: event System Client cancel"];
@@ -48,7 +47,7 @@ static uint8_t descriptor [] = {
     
     self.hidEventSystemClient  = [[HIDEventSystemClient alloc] initWithType:HIDEventSystemClientTypeMonitor];
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.hidEventSystemClient != NULL);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST , self.hidEventSystemClient != NULL);
     
     [self.hidEventSystemClient setMatching:@{@kIOHIDPhysicalDeviceUniqueIDKey : uniqueID}];
     
@@ -80,7 +79,7 @@ static uint8_t descriptor [] = {
     
     self.userDevice = [[HIDUserDevice alloc] initWithProperties:description];
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE, self.userDevice != NULL);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_IOREG, self.userDevice != NULL);
 }
 
 - (void)tearDown {
@@ -91,7 +90,7 @@ static uint8_t descriptor [] = {
     
     result = [XCTWaiter waitForExpectations:@[self.eventSystemClientCancelExpectation] timeout:3];
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_IOREG, result == XCTWaiterResultCompleted, "%@", @[self.eventSystemClientCancelExpectation]);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_IOREG, result == XCTWaiterResultCompleted, "%@", @[self.eventSystemClientCancelExpectation]);
     
     [super tearDown];
 }
@@ -102,9 +101,9 @@ static uint8_t descriptor [] = {
     
     result = [XCTWaiter waitForExpectations:@[self.testServiceExpectation] timeout:3];
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_LOGARCHIVE | COLLECT_IOREG, result == XCTWaiterResultCompleted, "%@", @[self.testServiceExpectation]);
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_IOREG, result == XCTWaiterResultCompleted, "%@", @[self.testServiceExpectation]);
     
-    HIDXCTAssertWithParameters (RETURN_FROM_TEST, [[self.hidServiceClient propertyForKey:@kIOHIDKeyboardSupportsEscKey] boolValue] == NO, "@kIOHIDKeyboardSupportsEscKey true");
+    HIDXCTAssertWithParameters (RETURN_FROM_TEST | COLLECT_IOREG, [[self.hidServiceClient propertyForKey:@kIOHIDKeyboardSupportsEscKey] boolValue] == NO, "@kIOHIDKeyboardSupportsEscKey true");
     
 }
 

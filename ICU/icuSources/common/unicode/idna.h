@@ -24,6 +24,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_IDNA
 
 #include "unicode/bytestream.h"
@@ -31,7 +33,6 @@
 #include "unicode/uidna.h"
 #include "unicode/unistr.h"
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class IDNAInfo;
@@ -321,7 +322,9 @@ private:
 };
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif  // UCONFIG_NO_IDNA
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif  // __IDNA_H__

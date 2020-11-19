@@ -16,8 +16,7 @@
 IOHIDEventSystemRef         client; \
 IOHIDEventCallback          callback; \
 void                        *refCon; \
-uint32_t                    lockCount; \
-pthread_mutex_t             lock; \
+__IOHIDSessionQueueContext  *queueContext; \
 pthread_cond_t              stateCondition; \
 boolean_t                   state; \
 boolean_t                   stateBusy; \

@@ -41,7 +41,6 @@
 #include "WebKitInjectedBundleClient.h"
 #include "WebKitNetworkProxySettingsPrivate.h"
 #include "WebKitNotificationProvider.h"
-#include "WebKitPluginPrivate.h"
 #include "WebKitPrivate.h"
 #include "WebKitProtocolHandler.h"
 #include "WebKitSecurityManagerPrivate.h"
@@ -53,6 +52,7 @@
 #include "WebKitWebContextPrivate.h"
 #include "WebKitWebViewPrivate.h"
 #include "WebKitWebsiteDataManagerPrivate.h"
+#include "WebKitWebsitePoliciesPrivate.h"
 #include "WebNotificationManagerProxy.h"
 #include "WebProcessMessages.h"
 #include "WebURLSchemeHandler.h"
@@ -69,6 +69,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/URLParser.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/WTFGType.h>
@@ -120,7 +121,10 @@ enum {
 #endif
     PROP_WEBSITE_DATA_MANAGER,
 #if PLATFORM(GTK)
-    PROP_PSON_ENABLED
+    PROP_PSON_ENABLED,
+#if !USE(GTK4)
+    PROP_USE_SYSYEM_APPEARANCE_FOR_SCROLLBARS
+#endif
 #endif
 };
 
@@ -204,6 +208,9 @@ struct _WebKitWebContextPrivate {
     bool clientsDetached;
 #if PLATFORM(GTK)
     bool psonEnabled;
+#if !USE(GTK4)
+    bool useSystemAppearanceForScrollbars;
+#endif
 #endif
 
     GRefPtr<WebKitFaviconDatabase> faviconDatabase;
@@ -333,6 +340,11 @@ static void webkitWebContextGetProperty(GObject* object, guint propID, GValue* v
     case PROP_PSON_ENABLED:
         g_value_set_boolean(value, context->priv->psonEnabled);
         break;
+#if !USE(GTK4)
+    case PROP_USE_SYSYEM_APPEARANCE_FOR_SCROLLBARS:
+        g_value_set_boolean(value, webkit_web_context_get_use_system_appearance_for_scrollbars(context));
+        break;
+#endif
 #endif
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, paramSpec);
@@ -358,6 +370,11 @@ static void webkitWebContextSetProperty(GObject* object, guint propID, const GVa
     case PROP_PSON_ENABLED:
         context->priv->psonEnabled = g_value_get_boolean(value);
         break;
+#if !USE(GTK4)
+    case PROP_USE_SYSYEM_APPEARANCE_FOR_SCROLLBARS:
+        webkit_web_context_set_use_system_appearance_for_scrollbars(context, g_value_get_boolean(value));
+        break;
+#endif
 #endif
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propID, paramSpec);
@@ -377,13 +394,16 @@ static void webkitWebContextConstructed(GObject* object)
     configuration.setInjectedBundlePath(FileSystem::stringFromFileSystemRepresentation(bundleFilename.get()));
 #if PLATFORM(GTK)
     configuration.setProcessSwapsOnNavigation(priv->psonEnabled);
+#if !USE(GTK4)
+    configuration.setUseSystemAppearanceForScrollbars(priv->useSystemAppearanceForScrollbars);
+#endif
 #endif
 
     if (!priv->websiteDataManager)
         priv->websiteDataManager = adoptGRef(webkit_website_data_manager_new("local-storage-directory", priv->localStorageDirectory.data(), nullptr));
 
     if (!webkit_website_data_manager_is_ephemeral(priv->websiteDataManager.get()))
-        WebKit::LegacyGlobalSettings::singleton().setHSTSStorageDirectory(FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_hsts_cache_directory(priv->websiteDataManager.get())));
+        configuration.setHSTSStorageDirectory(FileSystem::stringFromFileSystemRepresentation(webkit_website_data_manager_get_hsts_cache_directory(priv->websiteDataManager.get())));
 
     priv->processPool = WebProcessPool::create(configuration);
     priv->processPool->setPrimaryDataStore(webkitWebsiteDataManagerGetDataStore(priv->websiteDataManager.get()));
@@ -519,6 +539,29 @@ static void webkit_web_context_class_init(WebKitWebContextClass* webContextClass
             _("Whether swap Web processes on cross-site navigations is enabled"),
             FALSE,
             static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+
+#if !USE(GTK4)
+    /**
+     * WebKitWebContext:use-system-appearance-for-scrollbars:
+     *
+     * Whether to use system appearance for rendering scrollbars.
+     *
+     * This is enabled by default for backwards compatibility, but it's only
+     * recommened to use when the application includes other widgets to ensure
+     * consistency, or when consistency with other applications is required too.
+     *
+     * Since: 2.30
+     */
+    g_object_class_install_property(
+        gObjectClass,
+        PROP_USE_SYSYEM_APPEARANCE_FOR_SCROLLBARS,
+        g_param_spec_boolean(
+            "use-system-appearance-for-scrollbars",
+            _("Use system appearance for scrollbars"),
+            _("Whether to use system appearance for rendering scrollbars"),
+            TRUE,
+            static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT)));
+#endif
 #endif
 
     /**
@@ -1108,31 +1151,12 @@ WebKitSecurityManager* webkit_web_context_get_security_manager(WebKitWebContext*
  * @directory: the directory to add
  *
  * Set an additional directory where WebKit will look for plugins.
+ *
+ * Deprecated: 2.32
  */
-void webkit_web_context_set_additional_plugins_directory(WebKitWebContext* context, const char* directory)
+void webkit_web_context_set_additional_plugins_directory(WebKitWebContext*, const char*)
 {
-    g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
-    g_return_if_fail(directory);
-
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    context->priv->processPool->setAdditionalPluginsDirectory(FileSystem::stringFromFileSystemRepresentation(directory));
-#endif
-}
-
-static void destroyPluginList(GList* plugins)
-{
-    g_list_free_full(plugins, g_object_unref);
-}
-
-static void webkitWebContextGetPluginThread(GTask* task, gpointer object, gpointer /* taskData */, GCancellable*)
-{
-    GList* returnValue = 0;
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    Vector<PluginModuleInfo> plugins = WEBKIT_WEB_CONTEXT(object)->priv->processPool->pluginInfoStore().plugins();
-    for (size_t i = 0; i < plugins.size(); ++i)
-        returnValue = g_list_prepend(returnValue, webkitPluginCreate(plugins[i]));
-#endif
-    g_task_return_pointer(task, returnValue, reinterpret_cast<GDestroyNotify>(destroyPluginList));
+    g_warning("webkit_web_context_set_additional_plugins_directory is deprecated and does nothing. Netscape plugins are no longer supported.");
 }
 
 /**
@@ -1146,13 +1170,17 @@ static void webkitWebContextGetPluginThread(GTask* task, gpointer object, gpoint
  *
  * When the operation is finished, @callback will be called. You can then call
  * webkit_web_context_get_plugins_finish() to get the result of the operation.
+ *
+ * Deprecated: 2.32
  */
 void webkit_web_context_get_plugins(WebKitWebContext* context, GCancellable* cancellable, GAsyncReadyCallback callback, gpointer userData)
 {
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
 
+    g_warning("webkit_web_context_get_plugins is deprecated and always returns an empty list. Netscape plugins are no longer supported.");
+
     GRefPtr<GTask> task = adoptGRef(g_task_new(context, cancellable, callback, userData));
-    g_task_run_in_thread(task.get(), webkitWebContextGetPluginThread);
+    g_task_return_pointer(task.get(), nullptr, nullptr);
 }
 
 /**
@@ -1165,11 +1193,13 @@ void webkit_web_context_get_plugins(WebKitWebContext* context, GCancellable* can
  *
  * Returns: (element-type WebKitPlugin) (transfer full): a #GList of #WebKitPlugin. You must free the #GList with
  *    g_list_free() and unref the #WebKitPlugin<!-- -->s with g_object_unref() when you're done with them.
+ *
+ * Deprecated: 2.32
  */
 GList* webkit_web_context_get_plugins_finish(WebKitWebContext* context, GAsyncResult* result, GError** error)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), 0);
-    g_return_val_if_fail(g_task_is_valid(result, context), 0);
+    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), nullptr);
+    g_return_val_if_fail(g_task_is_valid(result, context), nullptr);
 
     return static_cast<GList*>(g_task_propagate_pointer(G_TASK(result), error));
 }
@@ -1200,9 +1230,7 @@ GList* webkit_web_context_get_plugins_finish(WebKitWebContext* context, GAsyncRe
  *     const gchar  *path;
  *
  *     path = webkit_uri_scheme_request_get_path (request);
- *     if (!g_strcmp0 (path, "plugins")) {
- *         /<!-- -->* Create a GInputStream with the contents of plugins about page, and set its length to stream_length *<!-- -->/
- *     } else if (!g_strcmp0 (path, "memory")) {
+ *     if (!g_strcmp0 (path, "memory")) {
  *         /<!-- -->* Create a GInputStream with the contents of memory about page, and set its length to stream_length *<!-- -->/
  *     } else if (!g_strcmp0 (path, "applications")) {
  *         /<!-- -->* Create a GInputStream with the contents of applications about page, and set its length to stream_length *<!-- -->/
@@ -1230,6 +1258,17 @@ void webkit_web_context_register_uri_scheme(WebKitWebContext* context, const cha
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
     g_return_if_fail(scheme);
     g_return_if_fail(callback);
+
+    auto canonicalizedScheme = WTF::URLParser::maybeCanonicalizeScheme(scheme);
+    if (!canonicalizedScheme) {
+        g_critical("Cannot register invalid URI scheme %s", scheme);
+        return;
+    }
+
+    if (WTF::URLParser::isSpecialScheme(canonicalizedScheme.value())) {
+        g_warning("Registering special URI scheme %s is no longer allowed", scheme);
+        return;
+    }
 
     auto handler = WebKitURISchemeHandler::create(context, callback, userData, destroyNotify);
     auto addResult = context->priv->uriSchemeHandlers.set(String::fromUTF8(scheme), WTFMove(handler));
@@ -1261,9 +1300,9 @@ void webkit_web_context_set_sandbox_enabled(WebKitWebContext* context, gboolean 
     context->priv->processPool->setSandboxEnabled(enabled);
 }
 
-static bool pathIsBlacklisted(const char* path)
+static bool pathIsBlocked(const char* path)
 {
-    static const Vector<CString, 4> blacklistedPrefixes = {
+    static const Vector<CString, 4> blockedPrefixes = {
         // These are recreated by bwrap and it doesn't make sense to try and rebind them.
         "sys", "proc", "dev",
         "", // All of `/` isn't acceptable.
@@ -1273,7 +1312,7 @@ static bool pathIsBlacklisted(const char* path)
         return true;
 
     GUniquePtr<char*> splitPath(g_strsplit(path, G_DIR_SEPARATOR_S, 3));
-    return blacklistedPrefixes.contains(splitPath.get()[1]);
+    return blockedPrefixes.contains(splitPath.get()[1]);
 }
 
 /**
@@ -1297,7 +1336,7 @@ void webkit_web_context_add_path_to_sandbox(WebKitWebContext* context, const cha
 {
     g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
 
-    if (pathIsBlacklisted(path)) {
+    if (pathIsBlocked(path)) {
         g_critical("Attempted to add disallowed path to sandbox: %s", path);
         return;
     }
@@ -1755,6 +1794,51 @@ void webkit_web_context_send_message_to_all_extensions(WebKitWebContext* context
         process->send(Messages::WebProcess::SendMessageToWebExtension(webkitUserMessageGetMessage(message)), 0);
 }
 
+#if PLATFORM(GTK) && !USE(GTK4)
+/**
+ * webkit_web_context_set_use_system_appearance_for_scrollbars:
+ * @context: a #WebKitWebContext
+ * @enabled: value to set
+ *
+ * Set the #WebKitWebContext:use-system-appearance-for-scrollbars property.
+ *
+ * Since: 2.30
+ */
+void webkit_web_context_set_use_system_appearance_for_scrollbars(WebKitWebContext* context, gboolean enabled)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_CONTEXT(context));
+
+    if (context->priv->useSystemAppearanceForScrollbars == enabled)
+        return;
+
+    context->priv->useSystemAppearanceForScrollbars = enabled;
+    g_object_notify(G_OBJECT(context), "use-system-appearance-for-scrollbars");
+
+    if (!context->priv->processPool)
+        return;
+
+    context->priv->processPool->configuration().setUseSystemAppearanceForScrollbars(enabled);
+    context->priv->processPool->sendToAllProcesses(Messages::WebProcess::SetUseSystemAppearanceForScrollbars(enabled));
+}
+
+/**
+ * webkit_web_context_get_use_system_appearance_for_scrollbars:
+ * @context: a #WebKitWebContext
+ *
+ * Get the #WebKitWebContext:use-system-appearance-for-scrollbars property.
+ *
+ * Returns: %TRUE if scrollbars are rendering using the system appearance, or %FALSE otherwise
+ *
+ * Since: 2.30
+ */
+gboolean webkit_web_context_get_use_system_appearance_for_scrollbars(WebKitWebContext* context)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_CONTEXT(context), TRUE);
+
+    return context->priv->useSystemAppearanceForScrollbars;
+}
+#endif
+
 void webkitWebContextInitializeNotificationPermissions(WebKitWebContext* context)
 {
     g_signal_emit(context, signals[INITIALIZE_NOTIFICATION_PERMISSIONS], 0);
@@ -1802,7 +1886,7 @@ WebProcessPool& webkitWebContextGetProcessPool(WebKitWebContext* context)
     return *context->priv->processPool;
 }
 
-void webkitWebContextCreatePageForWebView(WebKitWebContext* context, WebKitWebView* webView, WebKitUserContentManager* userContentManager, WebKitWebView* relatedView)
+void webkitWebContextCreatePageForWebView(WebKitWebContext* context, WebKitWebView* webView, WebKitUserContentManager* userContentManager, WebKitWebView* relatedView, WebKitWebsitePolicies* defaultWebsitePolicies)
 {
     auto pageConfiguration = API::PageConfiguration::create();
     pageConfiguration->setProcessPool(context->priv->processPool.get());
@@ -1815,6 +1899,7 @@ void webkitWebContextCreatePageForWebView(WebKitWebContext* context, WebKitWebVi
     if (!manager)
         manager = context->priv->websiteDataManager.get();
     pageConfiguration->setWebsiteDataStore(&webkitWebsiteDataManagerGetDataStore(manager));
+    pageConfiguration->setDefaultWebsitePolicies(webkitWebsitePoliciesGetWebsitePolicies(defaultWebsitePolicies));
     webkitWebViewCreatePage(webView, WTFMove(pageConfiguration));
 
     auto& page = webkitWebViewGetPage(webView);

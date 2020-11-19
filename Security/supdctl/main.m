@@ -30,8 +30,6 @@
 
 /* Internal Topic Names */
 NSString* const SFAnalyticsTopicKeySync = @"KeySyncTopic";
-NSString* const SFAnalyticsTopicTrust = @"TrustTopic";
-NSString* const SFAnalyticsTopicTransparency = @"TransparencyTopic";
 
 static void nsprintf(NSString *fmt, ...) NS_FORMAT_FUNCTION(1, 2);
 static void nsprintf(NSString *fmt, ...)

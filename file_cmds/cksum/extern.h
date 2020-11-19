@@ -34,6 +34,9 @@
  * $FreeBSD: src/usr.bin/cksum/extern.h,v 1.6 2003/03/13 23:32:28 robert Exp $
  */
 
+#ifndef _CKSUM_EXTERN_H_
+#define _CKSUM_EXTERN_H_
+
 #include <sys/cdefs.h>
 
 __BEGIN_DECLS
@@ -45,3 +48,5 @@ int	csum1(int, uint32_t *, off_t *);
 int	csum2(int, uint32_t *, off_t *);
 int	crc32(int, uint32_t *, off_t *);
 __END_DECLS
+
+#endif /* _CKSUM_EXTERN_H_ */

@@ -6,7 +6,7 @@
 #import <SecurityFoundation/SFKey.h>
 #import <SecurityFoundation/SFKey_Private.h>
 #import <corecrypto/ccsha2.h>
-#import <CommonCrypto/CommonRandomSPI.h>
+#import <corecrypto/ccrng.h>
 
 @implementation TPHObjectiveC : NSObject
 

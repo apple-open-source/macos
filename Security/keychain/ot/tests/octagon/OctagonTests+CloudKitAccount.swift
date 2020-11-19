@@ -42,8 +42,8 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.cuttlefishContext.startOctagonStateMachine()
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
 
-        // And CKKS should be in 'loggedout'
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateLoggedOut, within: 10 * NSEC_PER_SEC)
+        // And CKKS shouldn't be spun up
+        XCTAssertEqual(self.injectedManager!.views.count, 0, "Should have no CKKS views before CK login")
 
         // Account sign in occurs
         let newAltDSID = UUID().uuidString
@@ -188,7 +188,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForHSA2, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateLoggedOut, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(self.injectedManager!.views.count, 0, "Should have no CKKS views in an SA account")
 
         // On CK account sign-out, Octagon should stay in 'wait for hsa2': if there's no HSA2, we don't actually care about the CK account status
         self.accountStatus = .noAccount
@@ -202,7 +202,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
         self.assertNoAccount(context: self.cuttlefishContext)
 
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateLoggedOut, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(self.injectedManager!.views.count, 0, "Should have no CKKS views in an SA account")
     }
 
     func testSAtoHSA2PromotionWithoutCloudKit() throws {
@@ -351,15 +351,16 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         let statusexpectation = self.expectation(description: "trust status returns")
         let configuration = OTOperationConfiguration()
         configuration.timeoutWaitForCKAccount = 500 * NSEC_PER_MSEC
-        self.cuttlefishContext.rpcTrustStatus(configuration) { egoStatus, _, _, _, _ in
+        self.cuttlefishContext.rpcTrustStatus(configuration) { egoStatus, _, _, _, _, error in
             XCTAssertEqual(.noCloudKitAccount, egoStatus, "cliqueStatus should be 'no cloudkit account'")
+            XCTAssertNil(error, "should have no error fetching status")
             statusexpectation.fulfill()
         }
         self.wait(for: [statusexpectation], timeout: 10)
 
         self.assertNoAccount(context: self.cuttlefishContext)
 
-        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateLoggedOut, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(self.injectedManager!.views.count, 0, "Should have no CKKS views")
     }
 
     func testStatusRPCsWithUnknownCloudKitAccount() throws {
@@ -367,7 +368,7 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
         let statusexpectation = self.expectation(description: "trust status returns")
         let configuration = OTOperationConfiguration()
         configuration.timeoutWaitForCKAccount = 500 * NSEC_PER_MSEC
-        self.cuttlefishContext.rpcTrustStatus(configuration) { egoStatus, _, _, _, _ in
+        self.cuttlefishContext.rpcTrustStatus(configuration) { egoStatus, _, _, _, _, _ in
             XCTAssertTrue([.absent].contains(egoStatus), "Self peer should be in the 'absent' state")
             statusexpectation.fulfill()
         }
@@ -425,6 +426,63 @@ class OctagonCloudKitAccountTests: OctagonTestsBase {
 
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
         self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
+
+        // Let Octagon know about the account status, so test teardown is fast
+        self.startCKAccountStatusMock()
+    }
+
+    func testReceiveOctagonAPICallBeforeCKAccountNotification() throws {
+        // Device is signed out of everything
+        self.mockAuthKit.altDSID = nil
+        self.accountStatus = .noAccount
+        self.startCKAccountStatusMock()
+
+        // Tell SOS that it is absent, so we don't enable CDP on bringup
+        self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCCircleAbsent)
+
+        // With no account, Octagon should go directly into 'NoAccount'
+        self.cuttlefishContext.startOctagonStateMachine()
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateNoAccount, within: 10 * NSEC_PER_SEC)
+        XCTAssertEqual(self.injectedManager!.views.count, 0, "Should have no CKKS views before CK login")
+
+        // Account sign in occurs
+        let newAltDSID = UUID().uuidString
+        self.mockAuthKit.altDSID = newAltDSID
+        XCTAssertNoThrow(try self.cuttlefishContext.accountAvailable(newAltDSID), "Sign-in shouldn't error")
+
+        // Octagon should go into 'wait for cloudkit account'
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitingForCloudKitAccount, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateLoggedOut, within: 10 * NSEC_PER_SEC)
+
+        // RPCs should fail, since CK is not present
+        let fetchViableFailureExpectation = self.expectation(description: "fetchViableBottles callback occurs")
+        self.cuttlefishContext.rpcFetchAllViableBottles { _, _, error in
+            XCTAssertNotNil(error, "should be an error fetching viable bottles before CK is ready")
+
+            if let nserror = error as NSError? {
+                XCTAssertEqual(nserror.domain, OctagonErrorDomain, "Error should be from correct domain")
+                XCTAssertEqual(nserror.code, OctagonError.OTErrorNotSignedIn.rawValue, "Error should indicate no account present")
+            } else {
+                XCTFail("Unable to convert error to nserror")
+            }
+            fetchViableFailureExpectation.fulfill()
+        }
+        self.wait(for: [fetchViableFailureExpectation], timeout: 10)
+
+        // CK signs in, but we aren't yet notified about it
+        self.accountStatus = .available
+
+        // RPCs should cause Octagon to recheck the CK account status and wake up
+        // In particular, fetching all viable bottles should succeed, instead of erroring with 'no CK account'
+        let fetchViableExpectation = self.expectation(description: "fetchViableBottles callback occurs")
+        self.cuttlefishContext.rpcFetchAllViableBottles { _, _, error in
+            XCTAssertNil(error, "should be no error fetching viable bottles")
+            fetchViableExpectation.fulfill()
+        }
+        self.wait(for: [fetchViableExpectation], timeout: 10)
+
+        // With no SOS and no CDP, Octagon should wait for enablement
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForCDP, within: 10 * NSEC_PER_SEC)
     }
 }
 

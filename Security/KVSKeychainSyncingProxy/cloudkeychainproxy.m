@@ -70,52 +70,129 @@
 #import "CKDSecuritydAccount.h"
 #import "CKDKVSStore.h"
 #import "CKDAKSLockMonitor.h"
+#import "SOSCloudKeychainConstants.h"
 
+#include <utilities/simulatecrash_assert.h>
 
-void finalize_connection(void *not_used);
-void handle_connection_event(const xpc_connection_t peer);
-static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t peer, xpc_object_t event);
-
-static bool operation_put_dictionary(xpc_object_t event);
-static bool operation_get_v2(xpc_connection_t peer, xpc_object_t event);
-
-int ckdproxymain(int argc, const char *argv[]);
 
 #define PROXYXPCSCOPE "xpcproxy"
 
-static void describeXPCObject(char *prefix, xpc_object_t object)
-{
-//#ifndef NDEBUG
-    // This is useful for debugging.
-    if (object)
-    {
-        char *desc = xpc_copy_description(object);
-        secdebug(PROXYXPCSCOPE, "%s%s\n", prefix, desc);
-        free(desc);
-    }
-    else
-        secdebug(PROXYXPCSCOPE, "%s<NULL>\n", prefix);
+@interface CloudKeychainProxy : NSObject
+-(id _Nullable) init;
 
-//#endif
+@property (nonatomic, retain) UbiqitousKVSProxy *proxyID;
+@property (nonatomic, retain) xpc_connection_t listener;
+@property (nonatomic, retain) dispatch_source_t sigterm_source;
+@property (nonatomic, retain) NSURL *registrationFileName;
+
++ (CloudKeychainProxy *) sharedObject;
+- (void) cloudkeychainproxy_peer_dictionary_handler: (const xpc_connection_t) peer forEvent: (xpc_object_t) event;
+
+@end
+
+static void cloudkeychainproxy_event_handler(xpc_connection_t peer)
+{
+    if (xpc_get_type(peer) != XPC_TYPE_CONNECTION) {
+        secinfo(PROXYXPCSCOPE, "expected XPC_TYPE_CONNECTION");
+        return;
+    }
+
+    xpc_object_t ent = xpc_connection_copy_entitlement_value(peer, "com.apple.CloudKeychainProxy.client");
+    if (ent == NULL || xpc_get_type(ent) != XPC_TYPE_BOOL || xpc_bool_get_value(ent) != true) {
+        secnotice(PROXYXPCSCOPE, "cloudkeychainproxy_event_handler: rejected client %d", xpc_connection_get_pid(peer));
+        xpc_connection_cancel(peer);
+        return;
+    }
+
+    xpc_connection_set_target_queue(peer, [[CloudKeychainProxy sharedObject].proxyID ckdkvsproxy_queue]);
+    xpc_connection_set_event_handler(peer, ^(xpc_object_t event)
+    {
+        // We could handle other peer events (e.g.) disconnects,
+        // but we don't keep per-client state so there is no need.
+        if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {
+            [[CloudKeychainProxy sharedObject]   cloudkeychainproxy_peer_dictionary_handler: peer forEvent: event];
+        }
+    });
+    
+    // This will tell the connection to begin listening for events. If you
+    // have some other initialization that must be done asynchronously, then
+    // you can defer this call until after that initialization is done.
+    xpc_connection_resume(peer);
 }
 
-static NSObject *CreateNSObjectForCFXPCObjectFromKey(xpc_object_t xdict, const char * _Nonnull key)
-{
-    xpc_object_t xObj = xpc_dictionary_get_value(xdict, key);
+static void finalize_connection(void *not_used) {
+    secinfo(PROXYXPCSCOPE, "finalize_connection");
+    [[CloudKeychainProxy sharedObject].proxyID synchronizeStore];
+    xpc_transaction_end();
+}
 
+@implementation CloudKeychainProxy
+
+static CFStringRef kRegistrationFileName = CFSTR("com.apple.security.cloudkeychainproxy3.keysToRegister.plist");
+
++ (CloudKeychainProxy *) sharedObject {
+    static CloudKeychainProxy *sharedCKP = nil;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        sharedCKP = [CloudKeychainProxy new];
+    });
+    
+    return sharedCKP;
+}
+
+-(id _Nullable) init {
+    if ((self = [super init])) {
+        _registrationFileName = (NSURL *)CFBridgingRelease(SecCopyURLForFileInPreferencesDirectory(kRegistrationFileName));
+        _proxyID = [UbiqitousKVSProxy withAccount: [CKDSecuritydAccount securitydAccount]
+                                          store: [CKDKVSStore kvsInterface]
+                                    lockMonitor: [CKDAKSLockMonitor monitor]
+                                    persistence: _registrationFileName];
+        
+        _listener = xpc_connection_create_mach_service(kCKPServiceName, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
+        xpc_connection_set_finalizer_f(_listener, finalize_connection);
+        xpc_connection_set_event_handler(_listener, ^(xpc_object_t object){ cloudkeychainproxy_event_handler(object); });
+
+        // It looks to me like there is insufficient locking to allow a request to come in on the XPC connection while doing the initial all items.
+        // Therefore I'm leaving the XPC connection suspended until that has time to process.
+        xpc_connection_resume(_listener);
+
+        (void)signal(SIGTERM, SIG_IGN);
+        _sigterm_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, _proxyID.ckdkvsproxy_queue);
+        dispatch_source_set_event_handler(_sigterm_source, ^{
+            secnotice(PROXYXPCSCOPE, "exiting due to SIGTERM");
+            xpc_transaction_exit_clean();
+        });
+        dispatch_activate(_sigterm_source);
+    }
+    return self;
+}
+
+
+- (void) describeXPCObject: (char *) prefix withObject: (xpc_object_t) object {
+    if(object) {
+        char *desc = xpc_copy_description(object);
+        secinfo(PROXYXPCSCOPE, "%s%s", prefix, desc);
+        free(desc);
+    } else {
+        secinfo(PROXYXPCSCOPE, "%s<NULL>", prefix);
+    }
+}
+
+- (NSObject *) CreateNSObjectForCFXPCObjectFromKey: (xpc_object_t) xdict withKey: (const char * _Nonnull) key {
+    xpc_object_t xObj = xpc_dictionary_get_value(xdict, key);
     if (!xObj) {
         return nil;
     }
-
     return (__bridge_transfer NSObject *)(_CFXPCCreateCFObjectFromXPCObject(xObj));
 }
 
-static NSArray<NSString*> *CreateArrayOfStringsForCFXPCObjectFromKey(xpc_object_t xdict, const char * _Nonnull key) {
-    NSObject * possibleArray = CreateNSObjectForCFXPCObjectFromKey(xdict, key);
+- (NSArray<NSString*> *) CreateArrayOfStringsForCFXPCObjectFromKey: (xpc_object_t) xdict withKey: (const char * _Nonnull) key {
+    NSObject * possibleArray = [self CreateNSObjectForCFXPCObjectFromKey: xdict withKey: key];
 
-    if (![possibleArray isNSArray__])
+    if (![possibleArray isNSArray__]) {
         return nil;
-
+    }
+    
     __block bool onlyStrings = true;
     [(NSArray*) possibleArray enumerateObjectsUsingBlock:^(id  _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
         if (![obj isNSString__]) {
@@ -127,208 +204,187 @@ static NSArray<NSString*> *CreateArrayOfStringsForCFXPCObjectFromKey(xpc_object_
     return onlyStrings ? (NSArray<NSString*>*) possibleArray : nil;
 }
 
-static CFStringRef kRegistrationFileName = CFSTR("com.apple.security.cloudkeychainproxy3.keysToRegister.plist");
-
-static UbiqitousKVSProxy *SharedProxy(void) {
-    static UbiqitousKVSProxy *sProxy = NULL;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        sProxy = [UbiqitousKVSProxy withAccount: [CKDSecuritydAccount securitydAccount]
-                                          store: [CKDKVSStore kvsInterface]
-                                    lockMonitor: [CKDAKSLockMonitor monitor]
-                                    persistence: (NSURL *)CFBridgingRelease(SecCopyURLForFileInPreferencesDirectory(kRegistrationFileName))];
-    });
-
-    return sProxy;
-}
-
-static void sendAckResponse(const xpc_connection_t peer, xpc_object_t event) {
+- (void)  sendAckResponse: (const xpc_connection_t) peer forEvent: (xpc_object_t) event {
     xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
-    if (replyMessage)   // Caller wanted an ACK, so give one
-    {
+    if (replyMessage) {  // Caller wanted an ACK, so give one
         xpc_dictionary_set_string(replyMessage, kMessageKeyValue, "ACK");
         xpc_connection_send_message(peer, replyMessage);
     }
 }
 
-static void cloudkeychainproxy_peer_dictionary_handler(const xpc_connection_t peer, xpc_object_t event)
-{
+- (void) cloudkeychainproxy_peer_dictionary_handler: (const xpc_connection_t) peer forEvent: (xpc_object_t) event {
     bool result = false;
     int err = 0;
 
-    require_action_string(xpc_get_type(event) == XPC_TYPE_DICTIONARY, xit, err = -51, "expected XPC_TYPE_DICTIONARY");
+    @autoreleasepool {
 
-    const char *operation = xpc_dictionary_get_string(event, kMessageKeyOperation);
-    require_action(operation, xit, result = false);
+        require_action_string(xpc_get_type(event) == XPC_TYPE_DICTIONARY, xit, err = -51, "expected XPC_TYPE_DICTIONARY");
 
-    // Check protocol version
-    uint64_t version = xpc_dictionary_get_uint64(event, kMessageKeyVersion);
-    secdebug(PROXYXPCSCOPE, "Reply version: %lld\n", version);
-    require_action(version == kCKDXPCVersion, xit, result = false);
+        const char *operation = xpc_dictionary_get_string(event, kMessageKeyOperation);
+        require_action(operation, xit, result = false);
 
-    // Operations
-    secdebug(PROXYXPCSCOPE, "Handling %s operation", operation);
+        // Check protocol version
+        uint64_t version = xpc_dictionary_get_uint64(event, kMessageKeyVersion);
+        secinfo(PROXYXPCSCOPE, "Reply version: %lld", version);
+        require_action(version == kCKDXPCVersion, xit, result = false);
+
+        // Operations
+        secinfo(PROXYXPCSCOPE, "Handling %s operation", operation);
 
 
-    if (!strcmp(operation, kOperationPUTDictionary))
-    {
-        operation_put_dictionary(event);
-        sendAckResponse(peer, event);
-    }
-    else if (!strcmp(operation, kOperationGETv2))
-    {
-        operation_get_v2(peer, event);
-        // operationg_get_v2 sends the response
-    }
-    else if (!strcmp(operation, kOperationClearStore))
-    {
-        [SharedProxy() clearStore];
-        sendAckResponse(peer, event);
-    }
-    else if (!strcmp(operation, kOperationSynchronize))
-    {
-        [SharedProxy() synchronizeStore];
-        sendAckResponse(peer, event);
-    }
-    else if (!strcmp(operation, kOperationSynchronizeAndWait))
-    {
-        xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
-        secnotice(XPROXYSCOPE, "%s XPC request: %s", kWAIT2MINID, kOperationSynchronizeAndWait);
-        
-        [SharedProxy() waitForSynchronization:^(__unused NSDictionary *values, NSError *error)
-         {
-             secnotice(PROXYXPCSCOPE, "%s Result from [Proxy waitForSynchronization:]: %@", kWAIT2MINID, error);
-
-             if (replyMessage)   // Caller wanted an ACK, so give one
-             {
-                 if (error)
-                 {
-                     xpc_object_t xerrobj = SecCreateXPCObjectWithCFError((__bridge CFErrorRef)(error));
-                     xpc_dictionary_set_value(replyMessage, kMessageKeyError, xerrobj);
-                 } else {
-                     xpc_dictionary_set_string(replyMessage, kMessageKeyValue, "ACK");
-                 }
-                 xpc_connection_send_message(peer, replyMessage);
-             }
-         }];
-    }
-    else if (!strcmp(operation, kOperationRegisterKeys))
-    {
-        xpc_object_t xkeysToRegisterDict = xpc_dictionary_get_value(event, kMessageKeyValue);
-
-        xpc_object_t xKTRallkeys = xpc_dictionary_get_value(xkeysToRegisterDict, kMessageAllKeys);
-
-        NSString* accountUUID = (NSString*) CreateNSObjectForCFXPCObjectFromKey(event, kMessageKeyAccountUUID);
-
-        if (![accountUUID isKindOfClass:[NSString class]]) {
-            accountUUID = nil;
-        }
-
-        NSDictionary *KTRallkeys = (__bridge_transfer NSDictionary *)(_CFXPCCreateCFObjectFromXPCObject(xKTRallkeys));
-
-        [SharedProxy() registerKeys: KTRallkeys forAccount: accountUUID];
-        sendAckResponse(peer, event);
-
-        secdebug(PROXYXPCSCOPE, "RegisterKeys message sent");
-    }
-    else if (!strcmp(operation, kOperationRemoveKeys))
-    {
-        xpc_object_t xkeysToRemoveDict = xpc_dictionary_get_value(event, kMessageKeyValue);
-        
-        NSString* accountUUID = (NSString*) CreateNSObjectForCFXPCObjectFromKey(event, kMessageKeyAccountUUID);
-        
-        if (![accountUUID isKindOfClass:[NSString class]]) {
-            accountUUID = nil;
-        }
-        
-        NSArray *KTRallkeys = (__bridge_transfer NSArray *)(_CFXPCCreateCFObjectFromXPCObject(xkeysToRemoveDict));
-        
-        [SharedProxy() removeKeys:KTRallkeys forAccount:accountUUID];
-        sendAckResponse(peer, event);
-        
-        secdebug(PROXYXPCSCOPE, "RemoveKeys message sent");
-    }
-    else if (!strcmp(operation, kOperationRequestSyncWithPeers))
-    {
-
-        NSArray<NSString*> * peerIDs = CreateArrayOfStringsForCFXPCObjectFromKey(event, kMessageKeyPeerIDList);
-        NSArray<NSString*> * backupPeerIDs = CreateArrayOfStringsForCFXPCObjectFromKey(event, kMesssgeKeyBackupPeerIDList);
-
-        require_action(peerIDs && backupPeerIDs, xit, (secnotice(XPROXYSCOPE, "Bad call to sync with peers"), result = false));
-
-        [SharedProxy() requestSyncWithPeerIDs: peerIDs backupPeerIDs: backupPeerIDs];
-        sendAckResponse(peer, event);
-
-        secdebug(PROXYXPCSCOPE, "RequestSyncWithAllPeers reply sent");
-    }
-    else if (!strcmp(operation, kOperationHasPendingSyncWithPeer)) {
-        NSString *peerID = (NSString*) CreateNSObjectForCFXPCObjectFromKey(event, kMessageKeyPeerID);
-
-        BOOL hasPending = [SharedProxy() hasSyncPendingFor: peerID];
-
-        xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
-        if (replyMessage)
+        if (!strcmp(operation, kOperationPUTDictionary))
         {
-            xpc_dictionary_set_bool(replyMessage, kMessageKeyValue, hasPending);
-            xpc_connection_send_message(peer, replyMessage);
-            secdebug(PROXYXPCSCOPE, "HasPendingSyncWithPeer reply sent");
+            [self operation_put_dictionary: event];
+            [self sendAckResponse: peer forEvent: event];
         }
-    }
-    else if (!strcmp(operation, kOperationHasPendingKey)) {
-        NSString *peerID = (NSString*) CreateNSObjectForCFXPCObjectFromKey(event, kMessageKeyPeerID);
-
-        BOOL hasPending = [SharedProxy() hasPendingKey: peerID];
-
-        xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
-        if (replyMessage)
+        else if (!strcmp(operation, kOperationGETv2))
         {
-            xpc_dictionary_set_bool(replyMessage, kMessageKeyValue, hasPending);
-            xpc_connection_send_message(peer, replyMessage);
-            secdebug(PROXYXPCSCOPE, "HasIncomingMessageFromPeer reply sent");
+            [self operation_get_v2: peer forEvent: event];
+            // operationg_get_v2 sends the response
         }
-    }
-    else if (!strcmp(operation, kOperationRequestEnsurePeerRegistration))
-    {
-        [SharedProxy() requestEnsurePeerRegistration];
-        sendAckResponse(peer, event);
-        secdebug(PROXYXPCSCOPE, "RequestEnsurePeerRegistration reply sent");
-    }
-    else if (!strcmp(operation, kOperationFlush))
-    {
-        [SharedProxy() doAfterFlush:^{
-            sendAckResponse(peer, event);
-            secdebug(PROXYXPCSCOPE, "flush reply sent");
-        }];
-    }
-    else if (!strcmp(operation, kOperationPerfCounters)) {
-        [SharedProxy() perfCounters:^(NSDictionary *counters){
+        else if (!strcmp(operation, kOperationClearStore))
+        {
+            [_proxyID clearStore];
+            [self sendAckResponse: peer forEvent: event];
+        }
+        else if (!strcmp(operation, kOperationSynchronize))
+        {
+            [_proxyID synchronizeStore];
+            [self sendAckResponse: peer forEvent: event];
+        }
+        else if (!strcmp(operation, kOperationSynchronizeAndWait))
+        {
             xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
-            xpc_object_t object = _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)counters);
-            xpc_dictionary_set_value(replyMessage, kMessageKeyValue, object);
-            xpc_connection_send_message(peer, replyMessage);
-        }];
-    }
-    else
-    {
-        char *description = xpc_copy_description(event);
-        secdebug(PROXYXPCSCOPE, "Unknown op=%s request from pid %d: %s", operation, xpc_connection_get_pid(peer), description);
-        free(description);
-    }
-    result = true;
+            secnotice(XPROXYSCOPE, "%s XPC request: %s", kWAIT2MINID, kOperationSynchronizeAndWait);
+            
+            [_proxyID waitForSynchronization:^(__unused NSDictionary *values, NSError *error)
+             {
+                 secnotice(PROXYXPCSCOPE, "%s Result from [Proxy waitForSynchronization:]: %@", kWAIT2MINID, error);
+
+                 if (replyMessage)   // Caller wanted an ACK, so give one
+                 {
+                     if (error)
+                     {
+                         xpc_object_t xerrobj = SecCreateXPCObjectWithCFError((__bridge CFErrorRef)(error));
+                         xpc_dictionary_set_value(replyMessage, kMessageKeyError, xerrobj);
+                     } else {
+                         xpc_dictionary_set_string(replyMessage, kMessageKeyValue, "ACK");
+                     }
+                     xpc_connection_send_message(peer, replyMessage);
+                 }
+             }];
+        }
+        else if (!strcmp(operation, kOperationRegisterKeys))
+        {
+            xpc_object_t xkeysToRegisterDict = xpc_dictionary_get_value(event, kMessageKeyValue);
+
+            xpc_object_t xKTRallkeys = xpc_dictionary_get_value(xkeysToRegisterDict, kMessageAllKeys);
+
+            NSString* accountUUID = (NSString*) [self CreateNSObjectForCFXPCObjectFromKey:event withKey: kMessageKeyAccountUUID];
+
+            if (![accountUUID isKindOfClass:[NSString class]]) {
+                accountUUID = nil;
+            }
+
+            NSDictionary *KTRallkeys = (__bridge_transfer NSDictionary *)(_CFXPCCreateCFObjectFromXPCObject(xKTRallkeys));
+
+            [_proxyID registerKeys: KTRallkeys forAccount: accountUUID];
+            [self sendAckResponse: peer forEvent: event];
+
+            secinfo(PROXYXPCSCOPE, "RegisterKeys message sent");
+        }
+        else if (!strcmp(operation, kOperationRemoveKeys))
+        {
+            xpc_object_t xkeysToRemoveDict = xpc_dictionary_get_value(event, kMessageKeyValue);
+            
+            NSString* accountUUID = (NSString*) [self CreateNSObjectForCFXPCObjectFromKey: event withKey: kMessageKeyAccountUUID];
+            
+            if (![accountUUID isKindOfClass:[NSString class]]) {
+                accountUUID = nil;
+            }
+            
+            NSArray *KTRallkeys = (__bridge_transfer NSArray *)(_CFXPCCreateCFObjectFromXPCObject(xkeysToRemoveDict));
+            
+            [_proxyID removeKeys:KTRallkeys forAccount:accountUUID];
+            [self sendAckResponse: peer forEvent: event];
+
+            secinfo(PROXYXPCSCOPE, "RemoveKeys message sent");
+        }
+        else if (!strcmp(operation, kOperationRequestSyncWithPeers))
+        {
+
+            NSArray<NSString*> * peerIDs = [self CreateArrayOfStringsForCFXPCObjectFromKey: event withKey: kMessageKeyPeerIDList];
+            NSArray<NSString*> * backupPeerIDs = [self CreateArrayOfStringsForCFXPCObjectFromKey: event withKey: kMesssgeKeyBackupPeerIDList];
+
+            require_action(peerIDs && backupPeerIDs, xit, (secnotice(XPROXYSCOPE, "Bad call to sync with peers"), result = false));
+
+            [_proxyID requestSyncWithPeerIDs: peerIDs backupPeerIDs: backupPeerIDs];
+            [self sendAckResponse: peer forEvent: event];
+
+            secinfo(PROXYXPCSCOPE, "RequestSyncWithAllPeers reply sent");
+        }
+        else if (!strcmp(operation, kOperationHasPendingSyncWithPeer)) {
+            NSString *peerID = (NSString*) [self CreateNSObjectForCFXPCObjectFromKey: event withKey: kMessageKeyPeerID];
+
+            BOOL hasPending = [_proxyID hasSyncPendingFor: peerID];
+
+            xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
+            if (replyMessage)
+            {
+                xpc_dictionary_set_bool(replyMessage, kMessageKeyValue, hasPending);
+                xpc_connection_send_message(peer, replyMessage);
+                secinfo(PROXYXPCSCOPE, "HasPendingSyncWithPeer reply sent");
+            }
+        }
+        else if (!strcmp(operation, kOperationHasPendingKey)) {
+            NSString *peerID = (NSString*) [self CreateNSObjectForCFXPCObjectFromKey: event withKey: kMessageKeyPeerID];
+
+            BOOL hasPending = [_proxyID hasPendingKey: peerID];
+
+            xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
+            if (replyMessage)
+            {
+                xpc_dictionary_set_bool(replyMessage, kMessageKeyValue, hasPending);
+                xpc_connection_send_message(peer, replyMessage);
+                secinfo(PROXYXPCSCOPE, "HasIncomingMessageFromPeer reply sent");
+            }
+        }
+        else if (!strcmp(operation, kOperationRequestEnsurePeerRegistration))
+        {
+            [_proxyID requestEnsurePeerRegistration];
+            [self sendAckResponse: peer forEvent: event];
+            secinfo(PROXYXPCSCOPE, "RequestEnsurePeerRegistration reply sent");
+        }
+        else if (!strcmp(operation, kOperationFlush))
+        {
+            [_proxyID doAfterFlush:^{
+                [self sendAckResponse: peer forEvent: event];
+                secinfo(PROXYXPCSCOPE, "flush reply sent");
+            }];
+        }
+        else if (!strcmp(operation, kOperationPerfCounters)) {
+            [_proxyID perfCounters:^(NSDictionary *counters){
+                xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
+                xpc_object_t object = _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)counters);
+                xpc_dictionary_set_value(replyMessage, kMessageKeyValue, object);
+                xpc_connection_send_message(peer, replyMessage);
+            }];
+        }
+        else
+        {
+            char *description = xpc_copy_description(event);
+            secinfo(PROXYXPCSCOPE, "Unknown op=%s request from pid %d: %s", operation, xpc_connection_get_pid(peer), description);
+            free(description);
+        }
+        result = true;
 xit:
-    if (!result)
-        describeXPCObject("handle_operation fail: ", event);
+        if (!result) {
+            [self describeXPCObject: "handle_operation fail: " withObject: event];
+        }
+    }
 }
 
-void finalize_connection(void *not_used)
-{
-    secdebug(PROXYXPCSCOPE, "finalize_connection");
-    [SharedProxy() synchronizeStore];
-	xpc_transaction_end();
-}
-
-static bool operation_put_dictionary(xpc_object_t event)
-{
+- (bool) operation_put_dictionary: (xpc_object_t) event {
     // PUT a set of objects into the KVS store. Return false if error
     xpc_object_t xvalue = xpc_dictionary_get_value(event, kMessageKeyValue);
     if (!xvalue) {
@@ -337,29 +393,28 @@ static bool operation_put_dictionary(xpc_object_t event)
 
     NSObject* object = (__bridge_transfer NSObject*) _CFXPCCreateCFObjectFromXPCObject(xvalue);
     if (![object isKindOfClass:[NSDictionary<NSString*, NSObject*> class]]) {
-        describeXPCObject("operation_put_dictionary unable to convert to CF: ", xvalue);
+        [self describeXPCObject: "operation_put_dictionary unable to convert to CF: " withObject: xvalue];
         return false;
     }
 
-    [SharedProxy() setObjectsFromDictionary: (NSDictionary<NSString*, NSObject*> *)object];
+    [_proxyID setObjectsFromDictionary: (NSDictionary<NSString*, NSObject*> *)object];
 
     return true;
 }
 
-static bool operation_get_v2(xpc_connection_t peer, xpc_object_t event)
-{
+- (bool) operation_get_v2: (xpc_connection_t) peer forEvent: (xpc_object_t) event {
     // GET a set of objects from the KVS store. Return false if error
     xpc_object_t replyMessage = xpc_dictionary_create_reply(event);
     if (!replyMessage)
     {
-        secdebug(PROXYXPCSCOPE, "can't create replyMessage");
+        secinfo(PROXYXPCSCOPE, "can't create replyMessage");
         assert(false);   //must have a reply handler
         return false;
     }
     xpc_object_t returnedValues = xpc_dictionary_create(NULL, NULL, 0);
     if (!returnedValues)
     {
-        secdebug(PROXYXPCSCOPE, "can't create returnedValues");
+        secinfo(PROXYXPCSCOPE, "can't create returnedValues");
         assert(false);   // must have a spot for the returned values
         return false;
     }
@@ -367,18 +422,18 @@ static bool operation_get_v2(xpc_connection_t peer, xpc_object_t event)
     xpc_object_t xvalue = xpc_dictionary_get_value(event, kMessageKeyValue);
     if (!xvalue)
     {
-        secdebug(PROXYXPCSCOPE, "missing \"value\" key");
+        secinfo(PROXYXPCSCOPE, "missing \"value\" key");
         return false;
     }
     
     xpc_object_t xkeystoget = xpc_dictionary_get_value(xvalue, kMessageKeyKeysToGet);
     if (xkeystoget)
     {
-        secdebug(PROXYXPCSCOPE, "got xkeystoget");
+        secinfo(PROXYXPCSCOPE, "got xkeystoget");
         CFTypeRef keystoget = _CFXPCCreateCFObjectFromXPCObject(xkeystoget);
         if (!keystoget || (CFGetTypeID(keystoget)!=CFArrayGetTypeID()))     // not "getAll", this is an error of some kind
         {
-            secdebug(PROXYXPCSCOPE, "can't convert keystoget or is not an array");
+            secinfo(PROXYXPCSCOPE, "can't convert keystoget or is not an array");
             CFReleaseSafe(keystoget);
             return false;
         }
@@ -386,16 +441,16 @@ static bool operation_get_v2(xpc_connection_t peer, xpc_object_t event)
         [(__bridge NSArray *)keystoget enumerateObjectsUsingBlock: ^ (id obj, NSUInteger idx, BOOL *stop)
         {
             NSString *key = (NSString *)obj;
-            id object = [SharedProxy() objectForKey:key];
-            secdebug(PROXYXPCSCOPE, "get: key: %@, object: %@", key, object);
+            id object = [_proxyID objectForKey:key];
+            secinfo(PROXYXPCSCOPE, "get: key: %@, object: %@", key, object);
             xpc_object_t xobject = object ? _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)object) : xpc_null_create();
             xpc_dictionary_set_value(returnedValues, [key UTF8String], xobject);
         }];
     }
     else    // get all values from kvs
     {
-        secdebug(PROXYXPCSCOPE, "get all values from kvs");
-        NSDictionary *all = [SharedProxy() copyAsDictionary];
+        secinfo(PROXYXPCSCOPE, "get all values from kvs");
+        NSDictionary *all = [_proxyID copyAsDictionary];
         [all enumerateKeysAndObjectsUsingBlock: ^ (id key, id obj, BOOL *stop)
         {
             xpc_object_t xobject = obj ? _CFXPCCreateXPCObjectFromCFObject((__bridge CFTypeRef)obj) : xpc_null_create();
@@ -410,53 +465,23 @@ static bool operation_get_v2(xpc_connection_t peer, xpc_object_t event)
     return true;
 }
 
-static void cloudkeychainproxy_event_handler(xpc_connection_t peer)
-{
-    if (xpc_get_type(peer) != XPC_TYPE_CONNECTION)
-    {
-        secdebug(PROXYXPCSCOPE, "expected XPC_TYPE_CONNECTION");
-        return;
-    }
 
-    xpc_object_t ent = xpc_connection_copy_entitlement_value(peer, "com.apple.CloudKeychainProxy.client");
-    if (ent == NULL || xpc_get_type(ent) != XPC_TYPE_BOOL || xpc_bool_get_value(ent) != true) {
-        secnotice(PROXYXPCSCOPE, "cloudkeychainproxy_event_handler: rejected client %d", xpc_connection_get_pid(peer));
-        xpc_connection_cancel(peer);
-        return;
-    }
+@end
 
-    xpc_connection_set_target_queue(peer, [SharedProxy() ckdkvsproxy_queue]);
-    xpc_connection_set_event_handler(peer, ^(xpc_object_t event)
-    {
-        // We could handle other peer events (e.g.) disconnects,
-        // but we don't keep per-client state so there is no need.
-        if (xpc_get_type(event) == XPC_TYPE_DICTIONARY) {
-            cloudkeychainproxy_peer_dictionary_handler(peer, event);
-        }
-	});
-	
-	// This will tell the connection to begin listening for events. If you
-	// have some other initialization that must be done asynchronously, then
-	// you can defer this call until after that initialization is done.
-	xpc_connection_resume(peer);
-}
-
-static void diagnostics(int argc, const char *argv[])
-{
-    @autoreleasepool
-    {
-        NSDictionary *all = [SharedProxy() copyAsDictionary];
+static void diagnostics(int argc, const char *argv[]) {
+    @autoreleasepool {
+        NSDictionary *all = [[CloudKeychainProxy sharedObject].proxyID copyAsDictionary];
         NSLog(@"All: %@",all);
     }
 }
 
-int ckdproxymain(int argc, const char *argv[])
-{
-    secdebug(PROXYXPCSCOPE, "Starting CloudKeychainProxy");
+
+
+int main(int argc, const char *argv[]) {
+    secinfo(PROXYXPCSCOPE, "Starting CloudKeychainProxy");
     char *wait4debugger = getenv("WAIT4DEBUGGER");
 
-    if (wait4debugger && !strcasecmp("YES", wait4debugger))
-    {
+    if (wait4debugger && !strcasecmp("YES", wait4debugger)) {
         syslog(LOG_ERR, "Waiting for debugger");
         kill(getpid(), SIGTSTP);
     }
@@ -465,31 +490,18 @@ int ckdproxymain(int argc, const char *argv[])
         diagnostics(argc, argv);
         return 0;
     }
-
-    UbiqitousKVSProxy* proxyID = SharedProxy();
-
-    if (proxyID) {  // nothing bad happened when initializing
-        xpc_connection_t listener = xpc_connection_create_mach_service(kCKPServiceName, NULL, XPC_CONNECTION_MACH_SERVICE_LISTENER);
-        xpc_connection_set_event_handler(listener, ^(xpc_object_t object){ cloudkeychainproxy_event_handler(object); });
-
-        // It looks to me like there is insufficient locking to allow a request to come in on the XPC connection while doing the initial all items.
-        // Therefore I'm leaving the XPC connection suspended until that has time to process.
-        xpc_connection_resume(listener);
-
-        @autoreleasepool
-        {
-            secdebug(PROXYXPCSCOPE, "Starting mainRunLoop");
-            NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
-            [runLoop run];
-        }
+    
+    CloudKeychainProxy *ckp = nil;
+    @autoreleasepool {
+        ckp = [CloudKeychainProxy sharedObject];
     }
-
-    secdebug(PROXYXPCSCOPE, "Exiting CloudKeychainProxy");
+    
+    if (ckp) {  // nothing bad happened when initializing
+        secinfo(PROXYXPCSCOPE, "Starting mainRunLoop");
+        NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
+        [runLoop run];
+    }
+    secinfo(PROXYXPCSCOPE, "Exiting CloudKeychainProxy");
 
     return EXIT_FAILURE;
-}
-
-int main(int argc, const char *argv[])
-{
-    return ckdproxymain(argc, argv);
 }

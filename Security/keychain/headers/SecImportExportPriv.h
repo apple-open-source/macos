@@ -10,7 +10,7 @@ CF_IMPLICIT_BRIDGING_ENABLED
 
 #if TARGET_OS_OSX
 OSStatus SecPKCS12Import_ios(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef * __nonnull CF_RETURNS_RETAINED items)
-     SPI_AVAILABLE(macos(10.15), iosmac(13.0)) API_UNAVAILABLE(ios, watchos, tvos);
+     SPI_AVAILABLE(macos(10.15), macCatalyst(13.0)) API_UNAVAILABLE(ios, watchos, tvos);
 #endif
 
 CF_IMPLICIT_BRIDGING_DISABLED

@@ -30,56 +30,57 @@
 
 #include "FormattingContext.h"
 #include "LayoutBox.h"
-#include "LayoutContainer.h"
+#include "LayoutContainerBox.h"
+#include "LayoutReplacedBox.h"
 #include "LengthFunctions.h"
 
 namespace WebCore {
 namespace Layout {
 
-ContentWidthAndMargin InlineFormattingContext::Geometry::inlineBlockWidthAndMargin(const Box& formattingContextRoot, const UsedHorizontalValues& usedHorizontalValues)
+ContentWidthAndMargin InlineFormattingContext::Geometry::inlineBlockWidthAndMargin(const Box& formattingContextRoot, const HorizontalConstraints& horizontalConstraints, const OverrideHorizontalValues& overrideHorizontalValues)
 {
     ASSERT(formattingContextRoot.isInFlow());
 
     // 10.3.10 'Inline-block', replaced elements in normal flow
 
     // Exactly as inline replaced elements.
-    if (formattingContextRoot.replaced())
-        return inlineReplacedWidthAndMargin(formattingContextRoot, usedHorizontalValues);
+    if (formattingContextRoot.isReplacedBox())
+        return inlineReplacedWidthAndMargin(downcast<ReplacedBox>(formattingContextRoot), horizontalConstraints, { }, overrideHorizontalValues);
 
     // 10.3.9 'Inline-block', non-replaced elements in normal flow
 
     // If 'width' is 'auto', the used value is the shrink-to-fit width as for floating elements.
     // A computed value of 'auto' for 'margin-left' or 'margin-right' becomes a used value of '0'.
     // #1
-    auto width = computedValueIfNotAuto(formattingContextRoot.style().logicalWidth(), usedHorizontalValues.constraints.width);
+    auto width = computedValue(formattingContextRoot.style().logicalWidth(), horizontalConstraints.logicalWidth);
     if (!width)
-        width = shrinkToFitWidth(formattingContextRoot, usedHorizontalValues.constraints.width);
+        width = shrinkToFitWidth(formattingContextRoot, horizontalConstraints.logicalWidth);
 
     // #2
-    auto computedHorizontalMargin = Geometry::computedHorizontalMargin(formattingContextRoot, usedHorizontalValues);
+    auto computedHorizontalMargin = Geometry::computedHorizontalMargin(formattingContextRoot, horizontalConstraints);
 
-    return ContentWidthAndMargin { *width, { computedHorizontalMargin.start.valueOr(0_lu), computedHorizontalMargin.end.valueOr(0_lu) }, computedHorizontalMargin };
+    return ContentWidthAndMargin { *width, { computedHorizontalMargin.start.valueOr(0_lu), computedHorizontalMargin.end.valueOr(0_lu) } };
 }
 
-ContentHeightAndMargin InlineFormattingContext::Geometry::inlineBlockHeightAndMargin(const Box& layoutBox, const UsedHorizontalValues& usedHorizontalValues, const UsedVerticalValues& usedVerticalValues) const
+ContentHeightAndMargin InlineFormattingContext::Geometry::inlineBlockHeightAndMargin(const Box& layoutBox, const HorizontalConstraints& horizontalConstraints, const OverrideVerticalValues& overrideVerticalValues) const
 {
     ASSERT(layoutBox.isInFlow());
 
     // 10.6.2 Inline replaced elements, block-level replaced elements in normal flow, 'inline-block' replaced elements in normal flow and floating replaced elements
-    if (layoutBox.replaced())
-        return inlineReplacedHeightAndMargin(layoutBox, usedHorizontalValues, usedVerticalValues);
+    if (layoutBox.isReplacedBox())
+        return inlineReplacedHeightAndMargin(downcast<ReplacedBox>(layoutBox), horizontalConstraints, { }, overrideVerticalValues);
 
     // 10.6.6 Complicated cases
     // - 'Inline-block', non-replaced elements.
-    return complicatedCases(layoutBox, usedHorizontalValues, usedVerticalValues);
+    return complicatedCases(layoutBox, horizontalConstraints, overrideVerticalValues);
 }
 
-Optional<InlineLayoutUnit> InlineFormattingContext::Geometry::computedTextIndent(const Container& formattingContextRoot, const UsedHorizontalValues::Constraints& horizontalConstraints) const
+Optional<InlineLayoutUnit> InlineFormattingContext::Geometry::computedTextIndent(const ContainerBox& formattingContextRoot, const HorizontalConstraints& horizontalConstraints) const
 {
     auto textIndent = formattingContextRoot.style().textIndent();
     if (textIndent == RenderStyle::initialTextIndent())
         return { };
-    return InlineLayoutUnit { minimumValueForLength(textIndent, horizontalConstraints.width) };
+    return InlineLayoutUnit { minimumValueForLength(textIndent, horizontalConstraints.logicalWidth) };
 }
 
 }

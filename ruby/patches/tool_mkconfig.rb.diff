@@ -1,7 +1,13 @@
---- tool/mkconfig.rb.orig	2017-06-30 03:58:32.000000000 -0700
-+++ tool/mkconfig.rb	2018-01-03 12:01:04.000000000 -0800
-@@ -127,12 +127,20 @@
-       val = "arch_flag || #{val}" if universal
+diff --git tool/mkconfig.rb tool/mkconfig.rb
+index 5da0e7d..8538b0c 100755
+--- tool/mkconfig.rb
++++ tool/mkconfig.rb
+@@ -116,15 +116,23 @@
+     when /^prefix$/
+       val = "(TOPDIR || DESTDIR + #{val})"
+     when /^ARCH_FLAG$/
+-      val = "arch_flag || #{val}" if universal
++      val = "arch_flag || \"\"" if universal
      when /^UNIVERSAL_ARCHNAMES$/
        universal, val = val, 'universal' if universal
 -    when /^arch$/
@@ -25,15 +31,15 @@
      end
      v = "  CONFIG[\"#{name}\"] #{eq} #{val}\n"
      if fast[name]
-@@ -187,7 +195,6 @@
+@@ -185,7 +193,6 @@ module RbConfig
  print "  DESTDIR = ", (drive ? "TOPDIR && TOPDIR[/\\A[a-z]:/i] || " : ""), "'' unless defined? DESTDIR\n"
  print <<'ARCH' if universal
    arch_flag = ENV['ARCHFLAGS'] || ((e = ENV['RC_ARCHS']) && e.split.uniq.map {|a| "-arch #{a}"}.join(' '))
 -  arch = arch_flag && arch_flag[/\A\s*-arch\s+(\S+)\s*\z/, 1]
  ARCH
  print "  universal = #{universal}\n" if universal
- print "  CONFIG = {}\n"
-@@ -284,6 +291,9 @@
+ print "  # The hash configurations stored.\n"
+@@ -358,6 +365,9 @@ def RbConfig.ruby
    end
  end
  CROSS_COMPILING = nil unless defined? CROSS_COMPILING
@@ -42,4 +48,4 @@
 +APPLE_GEM_HOME = File.join(RbConfig::CONFIG['libdir'], 'ruby/gems', RbConfig::CONFIG['ruby_version'])
  EOS
  
- $stdout = STDOUT
+ # vi:set sw=2:

@@ -43,7 +43,6 @@
 #include <WebCore/FileIconLoader.h>
 #include <WebCore/FloatRect.h>
 #include <WebCore/Frame.h>
-#include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameView.h>
 #include <WebCore/FullScreenController.h>
 #include <WebCore/FullscreenManager.h>
@@ -190,7 +189,7 @@ static COMPtr<IPropertyBag> createWindowFeaturesPropertyBag(const WindowFeatures
     return COMPtr<IPropertyBag>(AdoptCOM, COMPropertyBag<COMVariant>::adopt(map));
 }
 
-Page* WebChromeClient::createWindow(Frame& frame, const FrameLoadRequest&, const WindowFeatures& features, const NavigationAction& navigationAction)
+Page* WebChromeClient::createWindow(Frame& frame, const WindowFeatures& features, const NavigationAction& navigationAction)
 {
     COMPtr<IWebUIDelegate> delegate = uiDelegate();
     if (!delegate)
@@ -746,7 +745,7 @@ void WebChromeClient::attachViewOverlayGraphicsLayer(GraphicsLayer*)
     // FIXME: If we want view-relative page overlays in Legacy WebKit on Windows, this would be the place to hook them up.
 }
 
-void WebChromeClient::scheduleCompositingLayerFlush()
+void WebChromeClient::scheduleRenderingUpdate()
 {
     m_webView->flushPendingGraphicsLayerChangesSoon();
 }

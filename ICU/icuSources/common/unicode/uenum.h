@@ -26,7 +26,7 @@
 U_NAMESPACE_BEGIN
 class StringEnumeration;
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * \file
@@ -69,7 +69,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUEnumerationPointer, UEnumeration, uenum_close)
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Returns the number of elements that the iterator traverses.  If
@@ -173,7 +173,7 @@ uenum_reset(UEnumeration* en, UErrorCode* status);
 U_STABLE UEnumeration* U_EXPORT2
 uenum_openFromStringEnumeration(icu::StringEnumeration* adopted, UErrorCode* ec);
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Given an array of const UChar* strings, return a UEnumeration.  String pointers from 0..count-1 must not be null.

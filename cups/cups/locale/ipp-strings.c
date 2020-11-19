@@ -576,6 +576,10 @@ _("finishing-template.trim-after-documents");
 _("finishing-template.trim-after-job");
 /* TRANSLATORS: Trim After Every Page */
 _("finishing-template.trim-after-pages");
+/* TRANSLATORS: Trim After Every Set */
+_("finishing-template.trim-after-sets");
+/* TRANSLATORS: Trim After Every Page */
+_("finishing-template.trim-after-sheets");
 /* TRANSLATORS: Finishings */
 _("finishings");
 /* TRANSLATORS: Finishings */
@@ -1578,6 +1582,32 @@ _("media-type.cardboard");
 _("media-type.cardstock");
 /* TRANSLATORS: CD */
 _("media-type.cd");
+/* TRANSLATORS: Photo Advanced Paper */
+_("media-type.com.hp.advanced-photo");
+/* TRANSLATORS: Brochure Glossy Paper */
+_("media-type.com.hp.brochure-glossy");
+/* TRANSLATORS: Brochure Matte Paper */
+_("media-type.com.hp.brochure-matte");
+/* TRANSLATORS: Matte Coverstock */
+_("media-type.com.hp.cover-matte");
+/* TRANSLATORS: EcoSMART Lite Paper */
+_("media-type.com.hp.ecosmart-lite");
+/* TRANSLATORS: Everyday Glossy Paper */
+_("media-type.com.hp.everyday-glossy");
+/* TRANSLATORS: Everyday Matte Paper */
+_("media-type.com.hp.everyday-matte");
+/* TRANSLATORS: Extra Heavyweight Paper */
+_("media-type.com.hp.extra-heavy");
+/* TRANSLATORS: Intermediate Paper */
+_("media-type.com.hp.intermediate");
+/* TRANSLATORS: Mid-Weight Paper */
+_("media-type.com.hp.mid-weight");
+/* TRANSLATORS: Inkjet Premium Paper */
+_("media-type.com.hp.premium-inkjet");
+/* TRANSLATORS: Photo Premium Paper */
+_("media-type.com.hp.premium-photo");
+/* TRANSLATORS: Premium Matte Presentation Paper */
+_("media-type.com.hp.premium-presentation-matte");
 /* TRANSLATORS: Continuous */
 _("media-type.continuous");
 /* TRANSLATORS: Continuous Long */
@@ -1674,6 +1704,14 @@ _("media-type.gravure-cylinder");
 _("media-type.image-setter-paper");
 /* TRANSLATORS: Imaging Cylinder */
 _("media-type.imaging-cylinder");
+/* TRANSLATORS: Photo Paper Plus Glossy II*/
+_("media-type.jp.co.canon-photo-paper-plus-glossy-ii");
+/* TRANSLATORS: Photo Paper Pro Platinum*/
+_("media-type.jp.co.canon-photo-paper-pro-platinum");
+/* TRANSLATORS: Photo Paper Plus Glossy II*/
+_("media-type.jp.co.canon_photo-paper-plus-glossy-ii");
+/* TRANSLATORS: Photo Paper Pro Platinum*/
+_("media-type.jp.co.canon_photo-paper-pro-platinum");
 /* TRANSLATORS: Labels */
 _("media-type.labels");
 /* TRANSLATORS: Colored Labels */

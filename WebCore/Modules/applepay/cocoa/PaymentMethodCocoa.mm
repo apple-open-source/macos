@@ -32,15 +32,18 @@
 #import "ApplePayPaymentMethodType.h"
 #import <pal/spi/cocoa/PassKitSPI.h>
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/PaymentMethodCocoaAdditions.mm>
-#else
 namespace WebCore {
-static void finishConverting(PKPaymentMethod *, ApplePayPaymentMethod&) { }
-}
-#endif
 
-namespace WebCore {
+static void finishConverting(PKPaymentMethod *paymentMethod, ApplePayPaymentMethod& result)
+{
+#if HAVE(PASSKIT_INSTALLMENTS)
+    if (NSString *bindToken = paymentMethod.bindToken)
+        result.bindToken = bindToken;
+#else
+    UNUSED_PARAM(paymentMethod);
+    UNUSED_PARAM(result);
+#endif
+}
 
 static ApplePayPaymentPass::ActivationState convert(PKPaymentPassActivationState paymentPassActivationState)
 {
@@ -94,6 +97,49 @@ static Optional<ApplePayPaymentMethod::Type> convert(PKPaymentMethodType payment
     }
 }
 
+#if HAVE(PASSKIT_PAYMENT_METHOD_BILLING_ADDRESS)
+static void convert(CNLabeledValue<CNPostalAddress*> *postalAddress, ApplePayPaymentContact &result)
+{
+    Vector<String> addressLine;
+    if (NSString *street = postalAddress.value.street) {
+        addressLine.append(street);
+        result.addressLines = WTFMove(addressLine);
+    }
+    result.subLocality = postalAddress.value.subLocality;
+    result.locality = postalAddress.value.city;
+    result.subAdministrativeArea = postalAddress.value.subAdministrativeArea;
+    result.administrativeArea = postalAddress.value.state;
+    result.postalCode = postalAddress.value.postalCode;
+    result.country = postalAddress.value.country;
+    result.countryCode = postalAddress.value.ISOCountryCode;
+}
+
+static Optional<ApplePayPaymentContact> convert(CNContact *billingContact)
+{
+    if (!billingContact)
+        return WTF::nullopt;
+
+    ApplePayPaymentContact result;
+    
+    if (auto firstPhoneNumber = billingContact.phoneNumbers.firstObject)
+        result.phoneNumber = firstPhoneNumber.value.stringValue;
+    
+    if (auto firstEmailAddress = billingContact.emailAddresses.firstObject)
+        result.emailAddress = firstEmailAddress.value;
+    
+    result.givenName = billingContact.givenName;
+    result.familyName = billingContact.familyName;
+    
+    result.phoneticGivenName = billingContact.phoneticGivenName;
+    result.phoneticFamilyName = billingContact.phoneticFamilyName;
+    
+    if (CNLabeledValue<CNPostalAddress*> *firstPostalAddress = billingContact.postalAddresses.firstObject)
+        convert(firstPostalAddress, result);
+
+    return result;
+}
+#endif
+
 static ApplePayPaymentMethod convert(PKPaymentMethod *paymentMethod)
 {
     ApplePayPaymentMethod result;
@@ -102,7 +148,9 @@ static ApplePayPaymentMethod convert(PKPaymentMethod *paymentMethod)
         result.displayName = displayName;
     if (NSString *network = paymentMethod.network)
         result.network = network;
-
+#if HAVE(PASSKIT_PAYMENT_METHOD_BILLING_ADDRESS)
+    result.billingContact = convert(paymentMethod.billingAddress);
+#endif
     result.type = convert(paymentMethod.type);
     result.paymentPass = convert(paymentMethod.paymentPass);
 

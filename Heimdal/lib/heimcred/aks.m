@@ -138,7 +138,6 @@ ksEncryptData(NSData *plainText)
 			 cursor + ctLen, &tagLen);
     memset_s(bulkKey, 0, sizeof(bulkKey), sizeof(bulkKey));
     if (ccerr || tagLen != 16) {
-	[blob release];
 	return NULL;
     }
 
@@ -245,7 +244,7 @@ ksDecryptData(NSData * blob)
 	goto out;
     }
 
-    clear = [plainText retain];
+    clear = plainText;
 out:
     memset_s(bulkKey, 0, bulkKeySize, bulkKeySize);
     free(tag);

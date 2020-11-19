@@ -2916,6 +2916,14 @@ journal_modify_block_end(journal *jnl, struct buf *bp, void (*func)(buf_t bp, vo
 		 * corresponding write to the btree.
 		 */
 		task_update_logical_writes(current_task(), (2 * bsize), TASK_WRITE_METADATA, vp);
+		/*
+		 * Update the physical writes counter for metadata writes.
+		 * We use (2 * bsize) to account for the write to the on-disk journal
+		 * followed by write to actual location later.
+		 */
+		task_update_physical_writes(current_task(), TASK_PHYSICAL_WRITE_METADATA,
+									(2 * bsize),
+									TASK_BALANCE_CREDIT);
 
 		if (func) {
 			void (*old_func)(buf_t, void *)=NULL, *old_arg=NULL;
@@ -3881,11 +3889,11 @@ end_transaction(transaction *tr, int force_it, errno_t (*callback)(void*), void 
 
 	lock_oldstart(jnl);
 	/*
-	 * Because old_start is locked above, we can cast away the volatile qualifier before passing it to memcpy.
+	 * Because old_start is locked above, we can cast away the volatile qualifier before passing it to memmove.
 	 * slide everyone else down and put our latest guy in the last
 	 * entry in the old_start array
 	 */
-	memcpy(__CAST_AWAY_QUALIFIER(&jnl->old_start[0], volatile, void *), __CAST_AWAY_QUALIFIER(&jnl->old_start[1], volatile, void *), sizeof(jnl->old_start)-sizeof(jnl->old_start[0]));
+	memmove(__CAST_AWAY_QUALIFIER(&jnl->old_start[0], volatile, void *), __CAST_AWAY_QUALIFIER(&jnl->old_start[1], volatile, void *), sizeof(jnl->old_start)-sizeof(jnl->old_start[0]));
 	jnl->old_start[sizeof(jnl->old_start)/sizeof(jnl->old_start[0]) - 1] = tr->journal_start | 0x8000000000000000LL;
 
 	unlock_oldstart(jnl);

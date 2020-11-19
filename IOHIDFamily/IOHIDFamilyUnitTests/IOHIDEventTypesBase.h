@@ -697,6 +697,7 @@ typedef uint32_t IOHIDSwipeMask;
     @constant kIOHIDGestureMotionOffTopEdge
     @constant kIOHIDGestureMotionFromBottomEdge
     @constant kIOHIDGestureMotionOffBottomEdge
+    @constant kIOHIDGestureMotionLongPress
 */
 enum {
     kIOHIDGestureMotionNone,
@@ -714,6 +715,7 @@ enum {
     kIOHIDGestureMotionOffTopEdge,
     kIOHIDGestureMotionFromBottomEdge,
     kIOHIDGestureMotionOffBottomEdge,
+    kIOHIDGestureMotionLongPress,
 };
 typedef uint16_t IOHIDGestureMotion;
 

@@ -607,12 +607,13 @@ static CFDataRef SecRSAPrivateKeyCreatePKCS1(CFAllocatorRef allocator, ccrsa_ful
 {
     const size_t result_size = ccrsa_export_priv_size(fullkey);
 
-	CFMutableDataRef pkcs1 = CFDataCreateMutable(allocator, result_size);
+    CFMutableDataRef pkcs1 = CFDataCreateMutable(allocator, result_size);
 
-    if (pkcs1 == NULL)
+    if (pkcs1 == NULL) {
         return NULL;
+    }
 
-	CFDataSetLength(pkcs1, result_size);
+    CFDataSetLength(pkcs1, result_size);
 
     uint8_t *bytes = CFDataGetMutableBytePtr(pkcs1);
 

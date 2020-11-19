@@ -24,11 +24,10 @@
 #ifndef __INTERNAL_H
 #define __INTERNAL_H
 
-#define __OS_EXPOSE_INTERNALS__ 1
-
 // Toggles for fixes for specific Radars. If we get enough of these, we
 // probably should create a separate header file for them.
 #define RDAR_48993662 1
+#define OS_ATOMIC_CONFIG_MEMORY_ORDER_DEPENDENCY 1
 
 #include <Availability.h>
 #include <TargetConditionals.h>
@@ -57,12 +56,19 @@
 #include <mach/vm_page_size.h>
 #include <mach/vm_param.h>
 #include <mach/vm_statistics.h>
-#include <os/internal/internal_shared.h>
+#include <machine/cpu_capabilities.h>
+#include <os/atomic_private.h>
+#include <os/crashlog_private.h>
 #include <os/lock_private.h>
 #include <os/once_private.h>
 #include <os/overflow.h>
+#if !TARGET_OS_DRIVERKIT
+# include <os/feature_private.h>
+#endif
 #include <os/tsd.h>
 #include <paths.h>
+#include <pthread/private.h>  // _pthread_threadid_self_np_direct()
+#include <pthread/tsd_private.h>  // TSD keys
 #include <signal.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -98,6 +104,7 @@
 #include "nano_malloc_common.h"
 #include "nano_malloc.h"
 #include "nanov2_malloc.h"
+#include "pguard_malloc.h"
 #include "purgeable_malloc.h"
 #include "malloc_private.h"
 #include "thresholds.h"
@@ -112,10 +119,16 @@
 #include "malloc_implementation.h"
 
 MALLOC_NOEXPORT
-extern boolean_t malloc_tracing_enabled;
+extern bool malloc_tracing_enabled;
 
 MALLOC_NOEXPORT
 extern unsigned malloc_debug_flags;
+
+MALLOC_NOEXPORT
+extern bool malloc_space_efficient_enabled;
+
+MALLOC_NOEXPORT
+extern bool malloc_medium_space_efficient_enabled;
 
 MALLOC_NOEXPORT MALLOC_NOINLINE
 void
@@ -124,6 +137,13 @@ malloc_error_break(void);
 MALLOC_NOEXPORT MALLOC_NOINLINE MALLOC_USED
 int
 malloc_gdb_po_unsafe(void);
+
+MALLOC_NOEXPORT __attribute__((always_inline, const))
+static inline bool
+malloc_traced(void)
+{
+	return malloc_tracing_enabled;
+}
 
 /*
   * Copies the malloc library's _malloc_msl_lite_hooks_t structure to a given
@@ -135,6 +155,14 @@ malloc_gdb_po_unsafe(void);
 struct _malloc_msl_lite_hooks_s;
 typedef void (*set_msl_lite_hooks_callout_t) (struct _malloc_msl_lite_hooks_s *hooksp, size_t size);
 void set_msl_lite_hooks(set_msl_lite_hooks_callout_t callout);
+
+
+// pthread reserves 5 TSD keys for libmalloc
+#define __TSD_MALLOC_PGUARD_SAMPLE_COUNTER __PTK_LIBMALLOC_KEY0
+#define __TSD_MALLOC_UNUSED1               __PTK_LIBMALLOC_KEY1
+#define __TSD_MALLOC_UNUSED2               __PTK_LIBMALLOC_KEY2
+#define __TSD_MALLOC_UNUSED3               __PTK_LIBMALLOC_KEY3
+#define __TSD_MALLOC_UNUSED4               __PTK_LIBMALLOC_KEY4
 
 
 #endif // __INTERNAL_H

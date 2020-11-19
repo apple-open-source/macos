@@ -27,15 +27,17 @@
 
 #include "WebFrameNetworkingContext.h"
 #include "WebResourceLoadScheduler.h"
+#include <WebCore/AudioDestination.h>
 #include <WebCore/BlobRegistry.h>
 #include <WebCore/BlobRegistryImpl.h>
 #include <WebCore/FrameLoader.h>
+#include <WebCore/MediaStrategy.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageGroup.h>
 
 #if USE(CFURLCONNECTION)
-#include <pal/spi/cf/CFNetworkSPI.h>
+#include <pal/spi/win/CFNetworkSPIWin.h>
 #endif
 
 using namespace WebCore;
@@ -60,9 +62,25 @@ PasteboardStrategy* WebPlatformStrategies::createPasteboardStrategy()
     return nullptr;
 }
 
+class WebMediaStrategy final : public MediaStrategy {
+private:
+#if ENABLE(WEB_AUDIO)
+    std::unique_ptr<AudioDestination> createAudioDestination(AudioIOCallback& callback, const String& inputDeviceId,
+        unsigned numberOfInputChannels, unsigned numberOfOutputChannels, float sampleRate) override
+    {
+        return AudioDestination::create(callback, inputDeviceId, numberOfInputChannels, numberOfOutputChannels, sampleRate);
+    }
+#endif
+};
+
+MediaStrategy* WebPlatformStrategies::createMediaStrategy()
+{
+    return new WebMediaStrategy;
+}
+
 class WebBlobRegistry final : public BlobRegistry {
 private:
-    void registerFileBlobURL(const URL& url, Ref<BlobDataFileReference>&& reference, const String& contentType) final { m_blobRegistry.registerFileBlobURL(url, WTFMove(reference), contentType); }
+    void registerFileBlobURL(const URL& url, Ref<BlobDataFileReference>&& reference, const String&, const String& contentType) final { m_blobRegistry.registerFileBlobURL(url, WTFMove(reference), contentType); }
     void registerBlobURL(const URL& url, Vector<BlobPart>&& parts, const String& contentType) final { m_blobRegistry.registerBlobURL(url, WTFMove(parts), contentType); }
     void registerBlobURL(const URL& url, const URL& srcURL) final { m_blobRegistry.registerBlobURL(url, srcURL); }
     void registerBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, RefPtr<BlobDataFileReference>&& reference, const String& contentType) final { m_blobRegistry.registerBlobURLOptionallyFileBacked(url, srcURL, WTFMove(reference), contentType); }

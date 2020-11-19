@@ -109,7 +109,6 @@ bool AppleUserHIDEventDriver::deviceSupported()
     vid = OSDynamicCast(OSNumber, OSDictionaryGetValue(_properties, kIOHIDVendorIDKey));
     pid = OSDynamicCast(OSNumber, OSDictionaryGetValue(_properties, kIOHIDProductIDKey));
     
-    // DFR
     if (vid && pid) {
         // DFR
         if (vid->unsigned32BitValue() == kIOHIDAppleVendorID &&

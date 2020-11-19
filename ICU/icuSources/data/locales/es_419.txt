@@ -109,8 +109,9 @@ es_419{
                 plusSign{"+"}
             }
         }
+        minimumGroupingDigits{"1"}
     }
-    Version{"2.1.47.86"}
+    Version{"36.1"}
     calendar{
         coptic{
             monthNames{
@@ -245,21 +246,21 @@ es_419{
                     y{"y–y G"}
                 }
                 GyM{
-                    G{"MM/y GGGGG – MM/y GGGGG"}
-                    M{"MM/y – MM/y GGGGG"}
-                    y{"MM/y – MM/y GGGGG"}
+                    G{"MM/y GGGGG – MM/y GGGGG"}
+                    M{"MM/y – MM/y GGGGG"}
+                    y{"MM/y – MM/y GGGGG"}
                 }
                 GyMEd{
-                    G{"E dd/MM/y GGGGG – E dd/MM/y GGGGG"}
-                    M{"E dd/MM/y – E dd/MM/y GGGGG"}
-                    d{"E dd/MM/y – E dd/MM/y GGGGG"}
-                    y{"E dd/MM/y – E dd/MM/y GGGGG"}
+                    G{"E dd/MM/y GGGGG – E dd/MM/y GGGGG"}
+                    M{"E dd/MM/y – E dd/MM/y GGGGG"}
+                    d{"E dd/MM/y – E dd/MM/y GGGGG"}
+                    y{"E dd/MM/y – E dd/MM/y GGGGG"}
                 }
                 GyMd{
-                    G{"dd/MM/y GGGGG – dd/MM/y GGGGG"}
-                    M{"dd/MM/y – dd/MM/y GGGGG"}
-                    d{"dd/MM/y – dd/MM/y GGGGG"}
-                    y{"dd/MM/y – dd/MM/y GGGGG"}
+                    G{"dd/MM/y GGGGG – dd/MM/y GGGGG"}
+                    M{"dd/MM/y – dd/MM/y GGGGG"}
+                    d{"dd/MM/y – dd/MM/y GGGGG"}
+                    y{"dd/MM/y – dd/MM/y GGGGG"}
                 }
                 MEd{
                     M{"E, d/M – E, d/M"}
@@ -271,6 +272,7 @@ es_419{
                 }
                 MMMd{
                     M{"d 'de' MMM – d 'de' MMM"}
+                    d{"d–d 'de' MMM"}
                 }
                 fallback{"{0} – {1}"}
                 yM{
@@ -423,55 +425,46 @@ es_419{
                 }
             }
             dayPeriod{
-                format{
-                    wide{
-                        noon{"del mediodía"}
-                    }
-                }
                 stand-alone{
                     abbreviated{
                         am{"a.m."}
                         pm{"p.m."}
                     }
-                    narrow{
-                        am{"a.m."}
-                        pm{"p.m."}
-                    }
                     wide{
                         am{"a.m."}
-                        morning1{"madrugada"}
                         pm{"p.m."}
                     }
                 }
             }
             intervalFormats{
                 GyM{
-                    G{"MM/y GGGGG – MM/y GGGGG"}
-                    M{"MM/y – MM/y GGGGG"}
-                    y{"MM/y – MM/y GGGGG"}
+                    G{"MM/y GGGGG – MM/y GGGGG"}
+                    M{"MM/y – MM/y GGGGG"}
+                    y{"MM/y – MM/y GGGGG"}
                 }
                 GyMEd{
-                    G{"E, dd/MM/y GGGGG – E, dd/MM/y GGGGG"}
-                    M{"E, dd/MM/y – E, dd/MM/y GGGGG"}
-                    d{"E, dd/MM/y – E, dd/MM/y GGGGG"}
-                    y{"E, dd/MM/y – E, dd/MM/y GGGGG"}
+                    G{"E, dd/MM/y GGGGG – E, dd/MM/y GGGGG"}
+                    M{"E, dd/MM/y – E, dd/MM/y GGGGG"}
+                    d{"E, dd/MM/y – E, dd/MM/y GGGGG"}
+                    y{"E, dd/MM/y – E, dd/MM/y GGGGG"}
                 }
                 GyMMMEd{
-                    G{"E d MMM 'de' y G – E d MMM 'de' y G"}
-                    M{"E d MMM – E d MMM 'de' y G"}
-                    d{"E d MMM – E d MMM 'de' y G"}
-                    y{"E d MMM 'de' y – E d MMM 'de' y G"}
+                    G{"E d MMM 'de' y G – E d MMM 'de' y G"}
+                    M{"E d MMM – E d MMM 'de' y G"}
+                    d{"E d MMM – E d MMM 'de' y G"}
+                    y{"E d MMM 'de' y – E d MMM 'de' y G"}
                 }
                 GyMMMd{
-                    G{"d MMM 'de' y G – d MMM 'de' y G"}
-                    M{"d MMM – d MMM 'de' y G"}
+                    G{"d MMM 'de' y G – d MMM 'de' y G"}
+                    M{"d MMM – d MMM 'de' y G"}
                     d{"d–d MMM 'de' y G"}
-                    y{"d MMM 'de' y – d MMM 'de' y G"}
+                    y{"d MMM 'de' y – d MMM 'de' y G"}
                 }
                 GyMd{
-                    G{"dd/MM/y GGGGG – dd/MM/y GGGGG"}
-                    M{"dd/MM/y – dd/MM/y GGGGG"}
-                    d{"dd/MM/y – dd/MM/y GGGGG"}
+                    G{"dd/MM/y GGGGG – dd/MM/y GGGGG"}
+                    M{"dd/MM/y – dd/MM/y GGGGG"}
+                    d{"dd/MM/y – dd/MM/y GGGGG"}
+                    y{"dd/MM/y – dd/MM/y GGGGG"}
                 }
                 MEd{
                     M{"E, d/M – E, d/M"}
@@ -487,12 +480,16 @@ es_419{
                 }
                 h{
                     a{"h a – h a"}
+                    h{"h–h a"}
                 }
                 hmv{
                     a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
                 }
                 hv{
                     a{"h a – h a v"}
+                    h{"h–h a v"}
                 }
                 yMEd{
                     M{"E, d/M/y – E, d/M/y"}
@@ -500,6 +497,7 @@ es_419{
                     y{"E, d/M/y – E, d/M/y"}
                 }
                 yMMM{
+                    M{"MMM–MMM y"}
                     y{"MMM 'de' y – MMM 'de' y"}
                 }
                 yMMMEd{
@@ -508,6 +506,7 @@ es_419{
                     y{"E, d 'de' MMM 'de' y – E, d 'de' MMM 'de' y"}
                 }
                 yMMMM{
+                    M{"MMMM–MMMM 'de' y"}
                     y{"MMMM 'de' y – MMMM 'de' y"}
                 }
                 yMMMd{
@@ -810,7 +809,6 @@ es_419{
         currency_symbols{"símbolos de monedas"}
         dash_connector{"Guión/conector"}
         digits{"dígitos"}
-        dingbats{"Símbolos y viñetas"}
         downwards_upwards_arrows{"Flechas hacia arriba y hacia abajo"}
         european_scripts{"Símbolos de escritura de Europa"}
         female{"femenino"}
@@ -827,7 +825,6 @@ es_419{
         hanzi_traditional{"Hanzi (tradicional)"}
         heart{"corazón"}
         historic_scripts{"Símbolos de escritura históricos"}
-        ideographic_desc_characters{"Caracteres descriptivos ideográficos"}
         japanese_kana{"Kana japonés"}
         keycap{"tecla mayus"}
         leftwards_rightwards_arrows{"Flechas hacia la derecha y hacia la izquierda"}

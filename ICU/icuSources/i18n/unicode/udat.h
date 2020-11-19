@@ -842,6 +842,18 @@ U_CAPI UCalendarDateFields U_EXPORT2
 udat_toCalendarDateField(UDateFormatField field);
 
 
+#ifndef U_HIDE_INTERNAL_API
+/**
+ * Maps from a pattern character to the corresponding UDateFormatField.
+ * @return the UDateFormatField.  This will be UDAT_FIELD_COUNT if the
+ * specified character does not correspond to any UDateFormatField value.
+ * @internal Apple <rdar://problem/62136559> 
+ */
+U_CAPI UDateFormatField U_EXPORT2
+udat_patternCharToDateFormatField(UChar patternChar);
+#endif /* U_HIDE_INTERNAL_API */
+
+
 /**
  * Open a new UDateFormat for formatting and parsing dates and times.
  * A UDateFormat may be used to format dates in calls to {@link #udat_format },
@@ -923,11 +935,13 @@ typedef enum UDateFormatBooleanAttribute {
 
     /* Do not conditionalize the following with #ifndef U_HIDE_DEPRECATED_API,
      * it is needed for layout of DateFormat object. */
+#ifndef U_FORCE_HIDE_DEPRECATED_API
     /**
      * One more than the highest normal UDateFormatBooleanAttribute value.
      * @deprecated ICU 58 The numeric value may change over time, see ICU ticket #12420.
      */
     UDAT_BOOLEAN_ATTRIBUTE_COUNT = 4
+#endif  // U_FORCE_HIDE_DEPRECATED_API
 } UDateFormatBooleanAttribute;
 
 /**
@@ -975,7 +989,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUDateFormatPointer, UDateFormat, udat_close);
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Open a copy of a UDateFormat.

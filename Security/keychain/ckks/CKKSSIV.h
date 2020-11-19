@@ -52,6 +52,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithData:(NSData*)data;
 - (NSData*)wrappedData;
 - (NSString*)base64WrappedKey;
+
+// Almost certainly not a valid key; use if you need a placeholder
++ (CKKSWrappedAESSIVKey*)zeroedKey;
 @end
 
 @interface CKKSAESSIVKey : CKKSBaseAESSIVKey
@@ -70,6 +73,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSData* _Nullable)decryptData:(NSData*)ciphertext
                authenticatedData:(NSDictionary<NSString*, NSData*>* _Nullable)ad
                            error:(NSError* __autoreleasing*)error;
+
+// Please only call this if you're storing this key to the keychain, or sending it to a peer.
+- (NSData*)keyMaterial;
 
 @end
 

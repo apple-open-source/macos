@@ -39,7 +39,17 @@ then
     passed=`cat .passed`
     failed=`cat .failed`
 else
-	printf '    %-35s: TEST SKIPPED (SMB printing not enabled)\n' $test_name
+    ### APPLE modification starts
+    cat SMBLIST | while read name input output options
+    do
+        case $name in
+            \#*) continue;;
+            '') continue;;
+        esac
+	printf '    %-35s: TEST SKIPPED (SMB printing not enabled)\n' $name
+    done
+    #printf '    %-35s: TEST SKIPPED (SMB printing not enabled)\n' $test_name
+    ### APPLE modification ends
 fi
 
 exit $exitcode

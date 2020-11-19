@@ -357,7 +357,7 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 	if ( filePtr->fcbFileID == kHFSRepairCatalogFileID)
 		flags |= kEFNoExtOvflwMask;
 	
-	result = ExtendFileC ( vcb, filePtr, (bytesToAdd+511)>>9, flags, &actualSectorsAdded );
+	result = ExtendFileC ( vcb, filePtr, (UInt32)((bytesToAdd+511)>>9), flags, &actualSectorsAdded );
 	ReturnIfError(result);
 
 	filePtr->fcbLogicalSize = filePtr->fcbPhysicalSize;	// new B-tree looks at fcbEOF
@@ -388,7 +388,7 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 			
 			//	Zero newly allocated portion of HFS+ private file.
 			if ( result == noErr )
-				result = ZeroFileBlocks( vcb, filePtr, fileSize - actualSectorsAdded, actualSectorsAdded );
+				result = ZeroFileBlocks( vcb, filePtr, (UInt32)(fileSize - actualSectorsAdded), actualSectorsAdded );
 		}
 	}
 	else if ( vcb->vcbSignature == kHFSSigWord )
@@ -399,7 +399,7 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 			MarkVCBDirty( vcb );
 			result = FlushAlternateVolumeControlBlock( vcb, false );
 			if ( result == noErr )
-				result = ZeroFileBlocks( vcb, filePtr, fileSize - actualSectorsAdded, actualSectorsAdded );
+				result = ZeroFileBlocks( vcb, filePtr, (UInt32)(fileSize - actualSectorsAdded), actualSectorsAdded );
 		}
 		else if ( filePtr->fcbFileID == kHFSCatalogFileID || filePtr->fcbFileID == kHFSRepairCatalogFileID )
 		{
@@ -407,7 +407,7 @@ SetEndOfForkProc ( SFCB *filePtr, FSSize minEOF, FSSize maxEOF )
 			MarkVCBDirty( vcb );
 			result = FlushAlternateVolumeControlBlock( vcb, false );
 			if ( result == noErr )
-				result = ZeroFileBlocks( vcb, filePtr, fileSize - actualSectorsAdded, actualSectorsAdded );
+				result = ZeroFileBlocks( vcb, filePtr, (UInt32)(fileSize - actualSectorsAdded), actualSectorsAdded );
 		}
 	}
 	

@@ -471,7 +471,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSData *&value)
 	IOReturn status = kIOReturnSuccess;    
     UInt32 entry;
     const UInt32 *data;
-    UInt32 offset;
+    UInt32 offset = 0;
     int len = 0;
 
 	status = checkROMState();
@@ -535,7 +535,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSString *&value)
 	IOReturn status = kIOReturnSuccess;
     UInt32 entry = 0;
     const UInt32 *data;
-    UInt32 offset;
+    UInt32 offset = 0;
     int len = 0;
     
 	status = checkROMState();
@@ -594,7 +594,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSString *&value)
 
 	if( status == kIOReturnSuccess )
 	{
-		FWKLOG(( "IOConfigDirectory::getIndexValue(OSString) updateROMCache( %ld, %d )\n", offset, len ));
+		FWKLOG(( "IOConfigDirectory::getIndexValue(OSString) updateROMCache( 0x%08x, 0x%08x )\n", offset, len ));
     
     	status = updateROMCache(offset + 1,len);
 	}
@@ -673,7 +673,7 @@ IOReturn IOConfigDirectory::getIndexValue(int index, IOConfigDirectory *&value)
 {
 	IOReturn status = kIOReturnSuccess;
     UInt32 entry = 0;
-    UInt32 offset;
+    UInt32 offset = 0;
 
 	status = checkROMState();
 	

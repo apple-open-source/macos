@@ -162,9 +162,9 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                     if (!localResourceOverride.disabled) {
                         target.NetworkAgent.addInterception.invoke({
                             url: localResourceOverride.url,
+                            stage: InspectorBackend.Enum.Network.NetworkStage.Response,
                             caseSensitive: localResourceOverride.isCaseSensitive,
                             isRegex: localResourceOverride.isRegex,
-                            networkStage: InspectorBackend.Enum.Network.NetworkStage.Response,
                         });
                     }
                 }
@@ -313,10 +313,12 @@ WI.NetworkManager = class NetworkManager extends WI.Object
  * ${WI.UIString("The contents and enabled state will be preserved across Web Inspector sessions.")}
  * 
  * ${WI.UIString("Some examples of ways to use this script include (but are not limited to):")}
- *  - ${WI.UIString("overriding built-in functions to log call traces or add `debugger` statements")}
+ *  - ${WI.UIString("overriding built-in functions to log call traces or add %s statements").format(WI.unlocalizedString("`debugger`"))}
  *  - ${WI.UIString("ensuring that common debugging functions are available on every page via the Console")}
+ * 
+ * ${WI.UIString("More information is available at <https://webkit.org/web-inspector/inspector-bootstrap-script/>.")}
  */
-`;
+`.trimStart();
         }
 
         const target = null;
@@ -365,7 +367,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                 url: localResourceOverride.url,
                 caseSensitive: localResourceOverride.isCaseSensitive,
                 isRegex: localResourceOverride.isRegex,
-                networkStage: InspectorBackend.Enum.Network.NetworkStage.Response,
+                stage: InspectorBackend.Enum.Network.NetworkStage.Response,
             };
 
             // COMPATIBILITY (iOS 13.0): Network.addInterception did not exist.
@@ -398,7 +400,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
                 url: localResourceOverride.url,
                 caseSensitive: localResourceOverride.isCaseSensitive,
                 isRegex: localResourceOverride.isRegex,
-                networkStage: InspectorBackend.Enum.Network.NetworkStage.Response,
+                stage: InspectorBackend.Enum.Network.NetworkStage.Response,
             };
 
             // COMPATIBILITY (iOS 13.0): Network.removeInterception did not exist.
@@ -462,15 +464,17 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         return true;
     }
 
-    resourceForURL(url)
+    resourcesForURL(url)
     {
-        if (!this._mainFrame)
-            return null;
+        let resources = new Set;
+        if (this._mainFrame) {
+            if (this._mainFrame.mainResource.url === url)
+                resources.add(this._mainFrame.mainResource);
 
-        if (this._mainFrame.mainResource.url === url)
-            return this._mainFrame.mainResource;
-
-        return this._mainFrame.resourceForURL(url, true);
+            const recursivelySearchChildFrames = true;
+            resources.addAll(this._mainFrame.resourcesForURL(url, recursivelySearchChildFrames));
+        }
+        return resources;
     }
 
     adoptOrphanedResourcesForTarget(target)
@@ -637,13 +641,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         if (this._waitingForMainFrameResourceTreePayload)
             return;
 
-        // COMPATIBILITY (iOS 8): Timeline timestamps for legacy backends are computed
-        // dynamically from the first backend timestamp received. For navigations we
-        // need to reset that base timestamp, and an appropriate timestamp to use is
-        // the new main resource's will be sent timestamp. So save this value on the
-        // resource in case it becomes a main resource.
-        var originalRequestWillBeSentTimestamp = timestamp;
-
         var elapsedTime = WI.timelineManager.computeElapsedTime(timestamp);
         let resource = this._resourceRequestIdentifierMap.get(requestIdentifier);
         if (resource) {
@@ -669,7 +666,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             initiatorCallFrames: this._initiatorCallFramesFromPayload(initiator),
             initiatorSourceCodeLocation: this._initiatorSourceCodeLocationFromPayload(initiator),
             initiatorNode: this._initiatorNodeFromPayload(initiator),
-            originalRequestWillBeSentTimestamp,
         });
 
         // Associate the resource with the requestIdentifier so it can be found in future loading events.
@@ -841,7 +837,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         if (!resource) {
             var frame = this.frameForIdentifier(frameIdentifier);
             if (frame)
-                resource = frame.resourceForURL(response.url);
+                resource = frame.resourcesForURL(response.url).firstValue;
 
             // If we find the resource this way we had marked it earlier as finished via Page.getResourceTree.
             // Associate the resource with the requestIdentifier so it can be found in future loading events.
@@ -942,12 +938,21 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         this._resourceRequestIdentifierMap.delete(requestIdentifier);
     }
 
+    requestIntercepted(target, requestId, request)
+    {
+        // FIXME: add request interception support to the frontend.
+        this.dispatchEventToListeners(WI.NetworkManager.Event.RequestIntercepted, {target, requestId, request});
+    }
+
     responseIntercepted(target, requestId, response)
     {
         let url = WI.urlWithoutFragment(response.url);
         let localResourceOverride = this.localResourceOverrideForURL(url);
         if (!localResourceOverride || localResourceOverride.disabled) {
-            target.NetworkAgent.interceptContinue(requestId);
+            target.NetworkAgent.interceptContinue.invoke({
+                requestId,
+                stage: InspectorBackend.Enum.Network.NetworkStage.Response,
+            });
             return;
         }
 
@@ -974,16 +979,16 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
     // RuntimeObserver
 
-    executionContextCreated(contextPayload)
+    executionContextCreated(payload)
     {
-        let frame = this.frameForIdentifier(contextPayload.frameId);
+        let frame = this.frameForIdentifier(payload.frameId);
         console.assert(frame);
         if (!frame)
             return;
 
-        let displayName = contextPayload.name || frame.mainResource.displayName;
+        let type = WI.ExecutionContext.typeFromPayload(payload);
         let target = frame.mainResource.target;
-        let executionContext = new WI.ExecutionContext(target, contextPayload.id, displayName, contextPayload.isPageContext, frame);
+        let executionContext = new WI.ExecutionContext(target, payload.id, type, payload.name, frame);
         frame.addExecutionContext(executionContext);
     }
 
@@ -1006,10 +1011,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
 
         let frame = this.frameForIdentifier(frameIdentifier);
         if (frame) {
-            // This is a new request for an existing frame, which might be the main resource or a new resource.
-            if (resourceOptions.type === "Document" && frame.mainResource.url === url && frame.loaderIdentifier === resourceOptions.loaderIdentifier)
-                resource = frame.mainResource;
-            else if (resourceOptions.type === "Document" && frame.provisionalMainResource && frame.provisionalMainResource.url === url && frame.provisionalLoaderIdentifier === resourceOptions.loaderIdentifier)
+            if (resourceOptions.type === InspectorBackend.Enum.Page.ResourceType.Document && frame.provisionalMainResource && frame.provisionalMainResource.url === url && frame.provisionalLoaderIdentifier === resourceOptions.loaderIdentifier)
                 resource = frame.provisionalMainResource;
             else {
                 resource = new WI.Resource(url, resourceOptions);
@@ -1119,7 +1121,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         if (!url || isNaN(lineNumber) || lineNumber < 0)
             return null;
 
-        var sourceCode = WI.networkManager.resourceForURL(url);
+        let sourceCode = WI.networkManager.resourcesForURL(url).firstValue;
         if (!sourceCode)
             sourceCode = WI.debuggerManager.scriptsForURL(url, WI.mainTarget)[0];
 
@@ -1328,7 +1330,8 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             return;
         }
 
-        if (!InspectorBackend.hasDomain("Network")) {
+        let target = WI.assumingMainTarget();
+        if (!target.hasCommand("Network.loadResource")) {
             this._sourceMapLoadAndParseFailed(sourceMapURL);
             return;
         }
@@ -1340,7 +1343,6 @@ WI.NetworkManager = class NetworkManager extends WI.Object
         if (!frameIdentifier)
             frameIdentifier = WI.networkManager.mainFrame ? WI.networkManager.mainFrame.id : "";
 
-        let target = WI.assumingMainTarget();
         target.NetworkAgent.loadResource(frameIdentifier, sourceMapURL, sourceMapLoaded);
     }
 
@@ -1413,7 +1415,7 @@ WI.NetworkManager = class NetworkManager extends WI.Object
             url: localResourceOverride.url,
             caseSensitive: localResourceOverride.isCaseSensitive,
             isRegex: localResourceOverride.isRegex,
-            networkStage: InspectorBackend.Enum.Network.NetworkStage.Response,
+            stage: InspectorBackend.Enum.Network.NetworkStage.Response,
         };
 
         // COMPATIBILITY (iOS 13.0): Network.addInterception / Network.removeInterception did not exist.
@@ -1469,4 +1471,5 @@ WI.NetworkManager.Event = {
     BootstrapScriptDestroyed: "network-manager-bootstrap-script-destroyed",
     LocalResourceOverrideAdded: "network-manager-local-resource-override-added",
     LocalResourceOverrideRemoved: "network-manager-local-resource-override-removed",
+    RequestIntercepted: "network-manager-request-intercepted"
 };

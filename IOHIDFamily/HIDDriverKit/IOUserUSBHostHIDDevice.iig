@@ -134,7 +134,6 @@ public:
     /*!
      @function getReport
      @abstract Get a report from the HID device.
-     @discussion A completion parameter may be added in the future.
      @param report A memory descriptor that describes the memory to store
      the report read from the HID device.
      @param reportType The report type.
@@ -142,7 +141,7 @@ public:
      other 24 bits are options to specify the request.
      @param completionTimeout Specifies an amount of time (in ms) after which
      the command will be aborted if the entire command has not been completed.
-     @param completion Function to call when request completes. If omitted then
+     @param action OSAction to call CompleteReport when request completes. If omitted then
      getReport() executes synchronously, blocking until the request is complete.
      @result kIOReturnSuccess on success, or an error return otherwise.
      */
@@ -156,7 +155,6 @@ public:
     /*!
      * @function setReport
      * @abstract Send a report to the HID device.
-     * @discussion A completion parameter may be added in the future.
      * @param report A memory descriptor that describes the report to send
      * to the HID device.
      * @param reportType The report type.
@@ -164,8 +162,7 @@ public:
      * other 24 bits are options to specify the request.
      * @param completionTimeout Specifies an amount of time (in ms) after which
      * the command will be aborted if the entire command has not been completed.
-     * @param action Action to call CompleteReport when request completes. If omitted then
-     * setReport() executes synchronously, blocking until the request is complete.
+     * @param action OSAction to call CompleteReport when request completes.
      * @result kIOReturnSuccess on success, or an error return otherwise.
      */
     
@@ -225,6 +222,36 @@ protected:
                                       uint32_t      actualByteCount,
                                       uint64_t      completionTimestamp) TYPE(IOUSBHostPipe::CompleteAsyncIO);
 
+    /*!
+     * @function CompleteOutputReport
+     * @abstract Complete output report, when report is sent over output pipe
+     * @discussion Function call upon sent completion of output reports using Interrupt pipes.
+     * <code>action</code> reference carry <code>IOUSBHIDCompletion</code>
+     * associated with read request
+     * @param action completion action
+     * @param status completion status
+     * @param actualByteCount number of bytes read
+     */
+
+    virtual void CompleteOutputReport (OSAction      * action TARGET,
+                                       IOReturn      status,
+                                       uint32_t      actualByteCount,
+                                       uint64_t      completionTimestamp) TYPE(IOUSBHostPipe::CompleteAsyncIO);
+
+    /*!
+     * @function CompleteOutputRequest
+     * @abstract Complete output report, when report is senf over control pipe
+     * @discussion Function call upon sent completion of output reports using control pipe.
+     * <code>action</code> reference carry <code>IOUSBHIDCompletion</code>
+     * associated with read request
+     * @param action completion action
+     * @param status completion status
+     * @param bytesTransferred number of bytes read
+     */
+
+    virtual void CompleteOutputRequest (OSAction     *action TARGET,
+                                        IOReturn     status,
+                                        uint32_t     bytesTransferred) TYPE(IOUSBHostDevice::CompleteAsyncDeviceRequest);
     
     /*!
      * @function TimerOccurred
@@ -279,8 +306,6 @@ protected:
      * other 24 bits are options to specify the request.
      * @param completionTimeout Specifies an amount of time (in ms) after which
      * the command will be aborted if the entire command has not been completed.
-     * @param completion Function to call when request completes. If omitted then
-     * getReport() executes synchronously, blocking until the request is complete.
      * @result kIOReturnSuccess on success, or an error return otherwise.
      */
 
@@ -289,26 +314,8 @@ protected:
                              IOOptionBits            options,
                              uint32_t                completionTimeout,
                              uint32_t                * bytesTransferred) LOCALONLY;
-    
-    /*!
-     * @function setReport
-     * @abstract Syncronous send a report to the HID device.
-     * @param report A memory descriptor that describes the report to send
-     * to the HID device.
-     * @param reportType The report type.
-     * @param options The lower 8 bits will represent the Report ID.  The
-     * other 24 bits are options to specify the request.
-     * @param completionTimeout Specifies an amount of time (in ms) after which
-     * the command will be aborted if the entire command has not been completed.
-     * @result kIOReturnSuccess on success, or an error return otherwise.
-     */
 
-    kern_return_t setReport (IOMemoryDescriptor      * report,
-                             IOHIDReportType         reportType,
-                             IOOptionBits            options,
-                             uint32_t                completionTimeout) LOCALONLY;
-    
-    
+
     /*!
      * @function setProperty
      * @abstract Pass property from corresponding kernel object

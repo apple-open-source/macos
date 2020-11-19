@@ -27,8 +27,6 @@
 #define SERVICE_TYPE_NONE 0
 #define SERVICE_TYPE_PATH_PUBLIC 1
 #define SERVICE_TYPE_PATH_PRIVATE 2
-#define SERVICE_TYPE_TIMER_PUBLIC 3
-#define SERVICE_TYPE_TIMER_PRIVATE 4
 
 #define SERVICE_PREFIX "com.apple.system.notify.service."
 #define SERVICE_PREFIX_LEN 32
@@ -42,8 +40,6 @@ typedef struct
 int service_open(const char *name, client_t *client, audit_token_t audit);
 int service_open_path(const char *name, const char *path, uid_t uid, gid_t gid);
 int service_open_path_private(const char *name, client_t *client, const char *path, audit_token_t audit, uint32_t flags);
-int service_open_timer(const char *name, const char *args);
-int service_open_timer_private(const char *name, client_t *client, const char *args);
 void service_close(uint16_t service_index);
 void *service_info_get(uint16_t index);
 

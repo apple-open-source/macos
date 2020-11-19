@@ -34,6 +34,7 @@
 #include <security_cdsa_utilities/cssmbridge.h>
 #include <Security/SecBase.h>
 #include <security_utilities/logging.h>
+#include "LegacyAPICounts.h"
 
 //
 // This no longer talks to securityd; it is a kernel function.
@@ -105,75 +106,7 @@ OSStatus SessionGetDistinguishedUser(SecuritySessionId session, uid_t *user)
     END_API(CSSM)
 }
 
-//OSStatus _SessionSetUserPreferences(SecuritySessionId session);
-//
-//static
-//void SessionUserPreferencesChanged(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
-//{
-//#warning "The cast will loose some information"
-//	_SessionSetUserPreferences((SecuritySessionId)uintptr_t(observer));
-//}
-//
-//OSStatus _SessionSetUserPreferences(SecuritySessionId session)
-//{
-//    BEGIN_API
-//	CFStringRef appleLanguagesStr = CFSTR("AppleLanguages");
-//	CFStringRef controlTintStr = CFSTR("AppleAquaColorVariant");
-//	CFStringRef keyboardUIModeStr = CFSTR("AppleKeyboardUIMode");
-//	CFStringRef textDirectionStr = CFSTR("AppleTextDirection");
-//	CFStringRef hitoolboxAppIDStr = CFSTR("com.apple.HIToolbox");
-//	CFNotificationCenterRef center = CFNotificationCenterGetDistributedCenter();
-//
-//	CFRef<CFMutableDictionaryRef> userPrefsDict(CFDictionaryCreateMutable(NULL, 10, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-//	CFRef<CFMutableDictionaryRef> globalPrefsDict(CFDictionaryCreateMutable(NULL, 10, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
-//	
-//	if (!userPrefsDict || !globalPrefsDict)
-//		return errSessionValueNotSet;
-//	
-//	CFRef<CFArrayRef> appleLanguagesArray(static_cast<CFArrayRef>(CFPreferencesCopyAppValue(appleLanguagesStr, kCFPreferencesCurrentApplication)));
-//	if (appleLanguagesArray)
-//		CFDictionarySetValue(globalPrefsDict, appleLanguagesStr, appleLanguagesArray);
-//	
-//	CFRef<CFNumberRef> controlTintNumber(static_cast<CFNumberRef>(CFPreferencesCopyAppValue(controlTintStr, kCFPreferencesCurrentApplication)));
-//	if (controlTintNumber)
-//		CFDictionarySetValue(globalPrefsDict, controlTintStr, controlTintNumber);
-//
-//	CFRef<CFNumberRef> keyboardUIModeNumber(static_cast<CFNumberRef>(CFPreferencesCopyAppValue(keyboardUIModeStr, kCFPreferencesCurrentApplication)));
-//	if (keyboardUIModeNumber)
-//		CFDictionarySetValue(globalPrefsDict, keyboardUIModeStr, keyboardUIModeNumber);
-//
-//	CFRef<CFNumberRef> textDirectionNumber(static_cast<CFNumberRef>(CFPreferencesCopyAppValue(textDirectionStr, kCFPreferencesCurrentApplication)));
-//	if (textDirectionNumber)
-//		CFDictionarySetValue(globalPrefsDict, textDirectionStr, textDirectionNumber);
-//	
-//	if (CFDictionaryGetCount(globalPrefsDict) > 0)
-//		CFDictionarySetValue(userPrefsDict, kCFPreferencesAnyApplication, globalPrefsDict);
-//
-//	CFPreferencesSynchronize(hitoolboxAppIDStr, kCFPreferencesCurrentUser, 
-//			kCFPreferencesCurrentHost);
-//	CFRef<CFDictionaryRef> hitoolboxPrefsDict(static_cast<CFDictionaryRef>(CFPreferencesCopyMultiple(NULL, hitoolboxAppIDStr, kCFPreferencesCurrentUser, kCFPreferencesCurrentHost)));
-//	if (hitoolboxPrefsDict) {
-//		CFDictionarySetValue(userPrefsDict, hitoolboxAppIDStr, hitoolboxPrefsDict);
-//		CFNotificationCenterPostNotification(center, CFSTR("com.apple.securityagent.InputPrefsChanged"), CFSTR("com.apple.loginwindow"), hitoolboxPrefsDict, true);
-//	}
-//	
-//	CFRef<CFDataRef> userPrefsData(CFPropertyListCreateXMLData(NULL, userPrefsDict));
-//	if (!userPrefsData)
-//		return errSessionValueNotSet;
-//	server().setSessionUserPrefs(session, (uint32_t)CFDataGetLength(userPrefsData), CFDataGetBytePtr(userPrefsData));
-//
-//    END_API(CSSM)
-//}
-
 OSStatus SessionSetUserPreferences(SecuritySessionId session)
 {
-//	OSStatus status = _SessionSetUserPreferences(session);
-//	if (errSecSuccess == status) {
-//		CFNotificationCenterRef center = CFNotificationCenterGetDistributedCenter();
-//		// We've succeeded in setting up a static set of prefs, now set up 
-//		CFNotificationCenterAddObserver(center, (void*)session, SessionUserPreferencesChanged, CFSTR("com.apple.Carbon.TISNotifySelectedKeyboardInputSourceChanged"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
-//		CFNotificationCenterAddObserver(center, (void*)session, SessionUserPreferencesChanged, CFSTR("com.apple.Carbon.TISNotifyEnabledKeyboardInputSourcesChanged"), NULL, CFNotificationSuspensionBehaviorDeliverImmediately);
-//	}
-//	return status;
     return errSecSuccess;
 }

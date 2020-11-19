@@ -2,6 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>com.apple.private.cloudkit.notifyOnAccountWarmup</key>
+	<true/>
 	<key>com.apple.private.dark-wake-push</key>
 	<true/>
 	<key>com.apple.private.accounts.allaccounts</key>
@@ -35,6 +37,8 @@
 	<key>com.apple.private.cloudkit.allowUnverifiedAccount</key>
 	<true/>
 	<key>com.apple.private.cloudkit.supportservice</key>
+	<true/>
+	<key>com.apple.private.cloudkit.spi</key>
 	<true/>
 	<key>com.apple.private.appleaccount.app-hidden-from-icloud-settings</key>
 	<true/>
@@ -91,6 +95,8 @@
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<key>com.apple.symptom_diagnostics.report</key>
+	<true/>
+	<key>com.apple.private.security.storage.Keychains</key>
 	<true/>
 </dict>
 </plist>

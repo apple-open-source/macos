@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2019 Apple, Inc. All rights reserved.
+ * Copyright (c) 2004-2020 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -200,6 +200,41 @@ does_copy_protection(int fd)
 		return -1;
 
 	return ((sfs.f_flags & MNT_CPROTECT) == MNT_CPROTECT);
+}
+
+static bool
+path_does_copy_protection(const char *path)
+{
+	struct statfs sfs;
+
+	if (statfs(path, &sfs) == -1) {
+		char parent_path[MAXPATHLEN];
+
+		if (errno != ENOENT)
+			return false;
+
+		// If the path doesn't exist,
+		// try to get its parent path and re-attempt the statfs().
+		if (dirname_r(path, parent_path) == NULL)
+			return false;
+
+		if (statfs(parent_path, &sfs) == -1)
+			return false;
+	}
+
+	return ((sfs.f_flags & MNT_CPROTECT) == MNT_CPROTECT);
+}
+
+static int
+do_copy_protected_open(const char *path, int flags, int class, int dpflags, int mode)
+{
+	// The passed-in protection class is meaningful, so use open_dprotected_np().
+	if (path_does_copy_protection(path)) {
+		return open_dprotected_np(path, flags, class, dpflags, mode);
+	}
+
+	// Fall-back to regular open().
+	return open(path, flags, mode);
 }
 
 static void
@@ -1078,6 +1113,74 @@ static int copyfile_clone(copyfile_state_t state)
 }
 
 /*
+ * Check if two provided paths are identical,
+ * and if we're able to determine that, return true.
+ */
+static bool copyfile_paths_identical(const char *src, const char *dst)
+{
+	struct attrlist attrs;
+	struct statfs sfs;
+	struct stat src_sb, dst_sb;
+	char volroot[MAXPATHLEN + 1];
+	struct {
+		uint32_t length;
+		vol_capabilities_attr_t volAttrs;
+	} volattrs;
+	char *real_src_path = NULL, *real_dst_path = NULL;
+
+	// Common case: the destination does not exist.
+	if ((stat(dst, &dst_sb) == -1) || (stat(src, &src_sb) == -1))
+		return false;
+
+	// If both files exist, then we next try to check file IDs.
+	// This requires that the underlying filesystem support persistent file IDs.
+	if (statfs(src, &sfs) == -1)
+		return false;
+
+	strlcpy(volroot, sfs.f_mntonname, sizeof(volroot));
+	memset(&attrs, 0, sizeof(attrs));
+	attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attrs.volattr = ATTR_VOL_CAPABILITIES;
+
+	if (getattrlist(volroot, &attrs, &volattrs, sizeof(volattrs), 0) == -1)
+		return false;
+
+	// If the underlying devices are not the same, then the files are not the same.
+	if (src_sb.st_dev != dst_sb.st_dev)
+		return false;
+
+	if ((volattrs.volAttrs.capabilities[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_PERSISTENTOBJECTIDS) &&
+		(volattrs.volAttrs.valid[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_PERSISTENTOBJECTIDS)) {
+		// The underlying source filesystem supports persistent file IDs,
+		// so if our two files have the same file ID on the same device,
+		// they are identical.
+		return (src_sb.st_ino == dst_sb.st_ino);
+	}
+
+	// Finally, if we don't support persistent file ID's,
+	// we fall back to path comparisons.
+	real_src_path = realpath(src, NULL);
+	if (real_src_path == NULL)
+		goto exit;
+
+	real_dst_path = realpath(dst, NULL);
+	if (real_dst_path == NULL)
+		goto exit;
+
+	if (strncasecmp(src, dst, MAXPATHLEN) == 0)
+		return true;
+
+exit:
+	if (real_src_path)
+		free(real_src_path);
+
+	if (real_dst_path)
+		free(real_dst_path);
+
+	return false;
+}
+
+/*
  * the original copyfile() routine; this copies a source file to a destination
  * file.  Note that because we need to set the names in the state variable, this
  * is not just the same as opening the two files, and then calling fcopyfile().
@@ -1133,6 +1236,20 @@ int copyfile(const char *src, const char *dst, copyfile_state_t state, copyfile_
 
 	COPYFILE_SET_FNAME(src, s);
 	COPYFILE_SET_FNAME(dst, s);
+
+	if (!(s->flags & COPYFILE_CHECK)) {
+		// We have no work to do if `src` and `dst` point to the same place.
+		if (copyfile_paths_identical(src, dst)) {
+			// ...but return an error if requested to do so.
+			if (s->flags & COPYFILE_EXCL) {
+				s->err = EEXIST;
+				goto error_exit;
+			}
+
+			ret = 0;
+			goto exit;
+		}
+	}
 
 	if (s->flags & COPYFILE_RECURSIVE) {
 		ret = copytree(s);
@@ -1678,7 +1795,7 @@ static int copyfile_unset_acl(copyfile_state_t s)
  */
 static int copyfile_open(copyfile_state_t s)
 {
-	int oflags = O_EXCL | O_CREAT | O_WRONLY;
+	int oflags = O_EXCL | O_CREAT;
 	int islnk = 0, isdir = 0, isreg = 0;
 	int osrc = 0, dsrc = 0;
 	int prot_class = PROTECTION_CLASS_DEFAULT;
@@ -1749,6 +1866,26 @@ static int copyfile_open(copyfile_state_t s)
 
 	if (s->dst && s->dst_fd == -2)
 	{
+		/*
+		 * Per <rdar://60074298>, only open files for writing if we expect
+		 * to modify the file's content. This avoids undesirable side effects
+		 * of O_WRONLY when we're only modifying metadata/attributes.
+		 *
+		 * The calls needed by COPYFILE_METADATA (e.g. fchown(), fchmod(),
+		 * fchflags(), futimes(), fsetattrlist(), f{set,remove}xattr(), and
+		 * acl_set_fd()) are safe to use with O_RDONLY descriptors. They
+		 * operate on the underlying vnode_t, as path-based variants do.
+		 * These usually only need write permissions in st_mode or ACLs.
+		 */
+		const copyfile_flags_t writable_flags = (COPYFILE_DATA | COPYFILE_DATA_SPARSE);
+		if (COPYFILE_PACK & s->flags) {
+			oflags |= O_WRONLY; // always writes file content
+		} else if (COPYFILE_UNPACK & s->flags) {
+			oflags |= O_RDONLY; // only updates metadata
+		} else {
+			oflags |= (writable_flags & s->flags) ? O_WRONLY : O_RDONLY;
+		}
+
 		/*
 		 * COPYFILE_UNLINK tells us to try removing the destination
 		 * before we create it.  We don't care if the file doesn't
@@ -1841,7 +1978,8 @@ static int copyfile_open(copyfile_state_t s)
 				return -1;
 			}
 			set_cprot_explicit = 1;
-		} else while((s->dst_fd = open_dprotected_np(s->dst, oflags | dsrc, prot_class, 0, s->sb.st_mode | S_IWUSR)) < 0)
+		} else while((s->dst_fd = do_copy_protected_open(s->dst, oflags | dsrc, prot_class,
+			0, s->sb.st_mode | S_IWUSR)) < 0)
 		{
 			/*
 			 * We set S_IWUSR because fsetxattr does not -- at the time this comment
@@ -2053,10 +2191,13 @@ static int copyfile_data_sparse(copyfile_state_t s, size_t input_blk_size, size_
 	if (!(s->flags & COPYFILE_DATA_SPARSE)) {
 		// Don't attempt this unless the right flags are passed.
 		return ENOTSUP;
-	} else if (src_size <= 0) {
+	} else if (src_size < 0) {
 		// The file size of our source is invalid; there's nothing to copy.
 		errno = EINVAL;
 		goto error_exit;
+	} else if (src_size == 0) {
+		// This is a zero-length file: no work to do.
+		goto exit;
 	}
 
 	// Since a major underlying filesystem requires that holes are block-aligned,
@@ -2761,6 +2902,8 @@ static int copyfile_stat(copyfile_state_t s)
 	return 0;
 }
 
+#define MAX_GETXATTR_RETRIES     3
+#define MAX_XATTR_BUFFER_SIZE    (32 * 1024 * 1024) // 32 MiB
 /*
  * Similar to copyfile_security() in some ways; this
  * routine copies the extended attributes from the source,
@@ -2774,31 +2917,53 @@ static int copyfile_stat(copyfile_state_t s)
 static int copyfile_xattr(copyfile_state_t s)
 {
 	char *name;
-	char *namebuf, *end;
+	char *namebuf = NULL;
+	char *end;
 	ssize_t xa_size;
 	void *xa_dataptr;
-	ssize_t bufsize = 4096;
+	ssize_t xa_bufsize = 4096;
+	ssize_t namebuf_size = 0;
 	ssize_t asize;
-	ssize_t nsize;
+	ssize_t list_size;
 	int ret = 0;
 	int look_for_decmpea = 0;
+	int tries_left = MAX_GETXATTR_RETRIES;
 
 	/* delete EAs on destination */
-	if ((nsize = flistxattr(s->dst_fd, 0, 0, 0)) > 0)
+dst_restart:
+	if ((list_size = flistxattr(s->dst_fd, 0, 0, 0)) > 0)
 	{
-		if ((namebuf = (char *) malloc(nsize)) == NULL)
-			return -1;
-		else
-			nsize = flistxattr(s->dst_fd, namebuf, nsize, 0);
+		/* this is always true on the first call: no buffer yet (namebuf_size == 0) */
+		if (list_size > namebuf_size) {
+			if (list_size > MAX_XATTR_BUFFER_SIZE) {
+				copyfile_warn("destination's xattr list size (%zu) exceeds the threshold (%d); trying to allocate", list_size, MAX_XATTR_BUFFER_SIZE);
+			}
+			namebuf_size = list_size;
+			void *tdptr = namebuf;
 
-		if (nsize > 0) {
+			if ((namebuf =
+				 (void *) realloc((void *) namebuf, namebuf_size)) == NULL)
+			{
+				if (tdptr) {
+					free(tdptr);
+				}
+				return -1;
+			}
+		}
+		list_size = flistxattr(s->dst_fd, namebuf, namebuf_size, 0);
+
+		if ((list_size < 0) && (errno == ERANGE) && (tries_left > 0)) {
+			/* `namebuf` is too small - try again */
+			tries_left--;
+			goto dst_restart;
+		} else if (list_size > 0) {
 			/*
 			 * With this, end points to the last byte of the allocated buffer
 			 * This *should* be NUL, from flistxattr, but if it's not, we can
 			 * set it anyway -- it'll result in a truncated name, which then
 			 * shouldn't match when we get them later.
 			 */
-			end = namebuf + nsize - 1;
+			end = namebuf + list_size - 1;
 			if (*end != 0)
 				*end = 0;
 			for (name = namebuf; name <= end; name += strlen(name) + 1) {
@@ -2809,15 +2974,24 @@ static int copyfile_xattr(copyfile_state_t s)
 				fremovexattr(s->dst_fd, name,0);
 			}
 		}
-		free(namebuf);
-	} else
-		if (nsize < 0)
-		{
-			if (errno == ENOTSUP || errno == EPERM)
-				return 0;
-			else
-				return -1;
+	}
+	else if (list_size < 0)
+	{
+		if (namebuf) {
+			free(namebuf);
 		}
+		if (errno == ENOTSUP || errno == EPERM) {
+			return 0;
+		} else {
+			return -1;
+		}
+	}
+	if (namebuf) {
+		free(namebuf);
+	}
+	namebuf = NULL;
+	namebuf_size = 0;
+	tries_left = MAX_GETXATTR_RETRIES;
 
 #ifdef DECMPFS_XATTR_NAME
 	if ((s->flags & COPYFILE_DATA) &&
@@ -2829,24 +3003,50 @@ static int copyfile_xattr(copyfile_state_t s)
 #endif
 
 	/* get name list of EAs on source */
-	if ((nsize = flistxattr(s->src_fd, 0, 0, look_for_decmpea)) < 0)
+src_restart:
+	if ((list_size = flistxattr(s->src_fd, 0, 0, look_for_decmpea)) <= 0)
 	{
-		if (errno == ENOTSUP || errno == EPERM)
+		if (namebuf) {
+			free(namebuf);
+		}
+
+		if (list_size == 0) {
 			return 0;
-		else
+		} else if (errno == ENOTSUP || errno == EPERM) {
+			return 0;
+		} else {
 			return -1;
-	} else
-		if (nsize == 0)
-			return 0;
+		}
+	}
 
-	if ((namebuf = (char *) malloc(nsize)) == NULL)
-		return -1;
-	else
-		nsize = flistxattr(s->src_fd, namebuf, nsize, look_for_decmpea);
+	/* this is always true on the first call: no buffer yet (namebuf_size == 0) */
+	if (list_size > namebuf_size) {
+		if (list_size > MAX_XATTR_BUFFER_SIZE) {
+			copyfile_warn("source's xattr list size (%zu) exceeds the threshold (%d); trying to allocate", list_size, MAX_XATTR_BUFFER_SIZE);
+		}
+		namebuf_size = list_size;
+		void *tdptr = namebuf;
+		if ((namebuf =
+			 (void *) realloc((void *) namebuf, namebuf_size)) == NULL)
+		{
+			if (tdptr) {
+				free(tdptr);
+			}
+			return -1;
+		}
+	}
 
-	if (nsize <= 0) {
-		free(namebuf);
-		return (int)nsize;
+	list_size = flistxattr(s->src_fd, namebuf, namebuf_size, look_for_decmpea);
+
+	if ((list_size < 0) && (errno == ERANGE) && (tries_left > 0)) {
+		/* `namebuf` is too small - try again */
+		tries_left--;
+		goto src_restart;
+	} else if (list_size <= 0) {
+		if (namebuf) {
+			free(namebuf);
+		}
+		return (int)list_size;
 	}
 
 	/*
@@ -2855,11 +3055,11 @@ static int copyfile_xattr(copyfile_state_t s)
 	 * set it anyway -- it'll result in a truncated name, which then
 	 * shouldn't match when we get them later.
 	 */
-	end = namebuf + nsize - 1;
+	end = namebuf + list_size - 1;
 	if (*end != 0)
 		*end = 0;
 
-	if ((xa_dataptr = (void *) malloc(bufsize)) == NULL) {
+	if ((xa_dataptr = (void *) malloc(xa_bufsize)) == NULL) {
 		free(namebuf);
 		return -1;
 	}
@@ -2875,17 +3075,22 @@ static int copyfile_xattr(copyfile_state_t s)
 		if (strncmp(name, XATTR_QUARANTINE_NAME, end - name) == 0)
 			continue;
 
+		tries_left = MAX_GETXATTR_RETRIES;
+get_restart:
 		if ((xa_size = fgetxattr(s->src_fd, name, 0, 0, 0, look_for_decmpea)) < 0)
 		{
 			continue;
 		}
 
-		if (xa_size > bufsize)
+		if (xa_size > xa_bufsize)
 		{
+			if (xa_size > MAX_XATTR_BUFFER_SIZE) {
+				copyfile_warn("xattr named %s has size (%zu), which exceeds the threshold (%d); trying to allocate", name, list_size, MAX_XATTR_BUFFER_SIZE);
+			}
 			void *tdptr = xa_dataptr;
-			bufsize = xa_size;
+			xa_bufsize = xa_size;
 			if ((xa_dataptr =
-				 (void *) realloc((void *) xa_dataptr, bufsize)) == NULL)
+				 (void *) realloc((void *) xa_dataptr, xa_bufsize)) == NULL)
 			{
 				free(tdptr);
 				ret = -1;
@@ -2893,8 +3098,13 @@ static int copyfile_xattr(copyfile_state_t s)
 			}
 		}
 
-		if ((asize = fgetxattr(s->src_fd, name, xa_dataptr, xa_size, 0, look_for_decmpea)) < 0)
+		if ((asize = fgetxattr(s->src_fd, name, xa_dataptr, xa_bufsize, 0, look_for_decmpea)) < 0)
 		{
+			if ((errno == ERANGE) && (tries_left > 0)) {
+				/* `xa_dataptr` is too small - try again */
+				tries_left--;
+				goto get_restart;
+			}
 			continue;
 		}
 

@@ -307,7 +307,7 @@ Boolean _DAResponseDispatch( CFTypeRef response, SInt32 responseID )
                             }
                         }
 
-                        DALogDebug( "  dispatched response, id = %016llX:%016llX, kind = %s, disk = %@, dissented, status = 0x%08X.",
+                        DALogError( "  dispatched response, id = %016llX:%016llX, kind = %s, disk = %@, dissented, status = 0x%08X.",
                                     DACallbackGetAddress( callback ),
                                     DACallbackGetContext( callback ),
                                     _DACallbackKindGetName( DACallbackGetKind( callback ) ),
@@ -456,6 +456,11 @@ void DADiskUnmountApprovalCallback( DADiskRef disk, DAResponseCallback response,
 void DAIdleCallback( void )
 {
     __DAQueueCallbacks( _kDAIdleCallback, NULL, NULL );
+}
+
+void DADiskListCompleteCallback( void )
+{
+    __DAQueueCallbacks( _kDADiskListCompleteCallback, NULL, NULL );
 }
 
 void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef argument1 )
@@ -724,6 +729,7 @@ void DAQueueCallback( DACallbackRef callback, DADiskRef argument0, CFTypeRef arg
                     break;
                 }
                 case _kDAIdleCallback:
+                case _kDADiskListCompleteCallback:
                 {
                     callback = DACallbackCreateCopy( kCFAllocatorDefault, callback );
 

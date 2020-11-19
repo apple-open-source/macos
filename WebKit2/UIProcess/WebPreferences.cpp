@@ -34,6 +34,10 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ThreadingPrimitives.h>
 
+#if !PLATFORM(COCOA)
+#include <WebCore/NotImplemented.h>
+#endif
+
 namespace WebKit {
 
 Ref<WebPreferences> WebPreferences::create(const String& identifier, const String& keyPrefix, const String& globalDebugKeyPrefix)
@@ -118,25 +122,6 @@ void WebPreferences::updateBoolValueForInternalDebugFeatureKey(const String& key
 
         return;
     }
-    if (key == WebPreferencesKey::captureAudioInUIProcessEnabledKey()) {
-        for (auto* page : m_pages)
-            page->process().processPool().configuration().setShouldCaptureAudioInUIProcess(value);
-
-        return;
-    }
-    if (key == WebPreferencesKey::captureAudioInGPUProcessEnabledKey()) {
-        for (auto* page : m_pages)
-            page->process().processPool().configuration().setShouldCaptureAudioInGPUProcess(value);
-
-        return;
-    }
-    if (key == WebPreferencesKey::captureVideoInUIProcessEnabledKey()) {
-        for (auto* page : m_pages)
-            page->process().processPool().configuration().setShouldCaptureVideoInUIProcess(value);
-
-        return;
-    }
-
     update(); // FIXME: Only send over the changed key and value.
 }
 
@@ -209,5 +194,68 @@ void WebPreferences::registerDefaultUInt32ValueForKey(const String& key, uint32_
     if (platformGetUInt32UserValueForKey(key, userValue))
         m_store.setUInt32ValueForKey(key, userValue);
 }
+
+#if !PLATFORM(COCOA) && !PLATFORM(GTK)
+void WebPreferences::platformInitializeStore()
+{
+    notImplemented();
+}
+#endif
+
+#if !PLATFORM(COCOA)
+void WebPreferences::platformUpdateStringValueForKey(const String&, const String&)
+{
+    notImplemented();
+}
+
+void WebPreferences::platformUpdateBoolValueForKey(const String&, bool)
+{
+    notImplemented();
+}
+
+void WebPreferences::platformUpdateUInt32ValueForKey(const String&, uint32_t)
+{
+    notImplemented();
+}
+
+void WebPreferences::platformUpdateDoubleValueForKey(const String&, double)
+{
+    notImplemented();
+}
+
+void WebPreferences::platformUpdateFloatValueForKey(const String&, float)
+{
+    notImplemented();
+}
+
+void WebPreferences::platformDeleteKey(const String&)
+{
+    notImplemented();
+}
+
+bool WebPreferences::platformGetStringUserValueForKey(const String&, String&)
+{
+    notImplemented();
+    return false;
+}
+
+bool WebPreferences::platformGetBoolUserValueForKey(const String&, bool&)
+{
+    notImplemented();
+    return false;
+}
+
+bool WebPreferences::platformGetUInt32UserValueForKey(const String&, uint32_t&)
+{
+    notImplemented();
+    return false;
+}
+
+bool WebPreferences::platformGetDoubleUserValueForKey(const String&, double&)
+{
+    notImplemented();
+    return false;
+}
+#endif
 
 } // namespace WebKit

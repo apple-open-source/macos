@@ -164,21 +164,41 @@ $(OBJROOT)/wrappers:
 	    cd $(OBJROOT)/$$vers/DSTROOT$(MERGEBIN) && \
 	    for f in *; do \
 		if file $$f | head -1 | fgrep -q script; then \
-		    fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$$vers&/"` && \
-		    ditto $$f $(DSTROOT)$(MERGEBIN)/$$fv && \
-		    sed "s/@VERSION@/$$vers/g" $(FIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \
-		    if [ ! -e $(DSTROOT)$(MERGEBIN)/$$f ]; then \
-			ln -f $(DSTROOT)$(MERGEBIN)/$(DUMMY) $(DSTROOT)$(MERGEBIN)/$$f; \
+		    hassomeothervers=0 && \
+		    for othervers in $(ORDEREDVERS); do \
+			if [ -e $(OBJROOT)/$$othervers/DSTROOT$(MERGEBIN)/$$f -a $$othervers != $$vers ]; then \
+			    hassomeothervers=1; \
+			fi; \
+		    done && \
+		    if [ $$hassomeothervers -eq 1 ]; then \
+			fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$$vers&/"` && \
+			ditto $$f $(DSTROOT)$(MERGEBIN)/$$fv && \
+			sed "s/@VERSION@/$$vers/g" $(FIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \
+			if [ ! -e $(DSTROOT)$(MERGEBIN)/$$f ]; then \
+			    ln -f $(DSTROOT)$(MERGEBIN)/$(DUMMY) $(DSTROOT)$(MERGEBIN)/$$f; \
+			fi; \
+		    else \
+			ditto $$f $(DSTROOT)$(MERGEBIN)/$$f; \
 		    fi; \
 		elif echo $$f | grep -q "[^0-9]$$vers"; then \
 		    true; \
 		else \
-		    echo $$f >> $(OBJROOT)/wrappers && \
-		    if [ -e $$f$$vers ]; then \
-			ditto $$f$$vers $(DSTROOT)$(MERGEBIN)/$$f$$vers; \
+		    hassomeothervers=0 && \
+		    for othervers in $(ORDEREDVERS); do \
+			if [ -e $(OBJROOT)/$$othervers/DSTROOT$(MERGEBIN)/$$f -a $$othervers != $$vers ]; then \
+			    hassomeothervers=1; \
+			fi; \
+		    done && \
+		    if [ $$hassomeothervers -eq 1 ]; then \
+			echo $$f >> $(OBJROOT)/wrappers && \
+			if [ -e $$f$$vers ]; then \
+			    ditto $$f$$vers $(DSTROOT)$(MERGEBIN)/$$f$$vers; \
+			else \
+			    ditto $$f $(DSTROOT)$(MERGEBIN)/$$f$$vers; \
+			fi; \
 		    else \
-			ditto $$f $(DSTROOT)$(MERGEBIN)/$$f$$vers; \
-		    fi \
+			ditto $$f $(DSTROOT)$(MERGEBIN)/$$f; \
+		    fi || exit 1; \
 		fi || exit 1; \
 	    done || exit 1; \
 	done
@@ -229,9 +249,19 @@ domergeman:
 	    for d in man*; do \
 		cd $$d && \
 		for f in `find . -type f -name '*.*' | sed 's,^\./,,'`; do \
-		    ff=`echo $$f | sed -E "s/\.[^.]*(.gz)?$$/$$vers&/"` && \
-		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
-		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
+		    hassomeothervers=0 && \
+		    for othervers in $(ORDEREDVERS); do \
+			if [ -e $(OBJROOT)/$$othervers/DSTROOT$(MERGEMAN)/$$d/$$f -a $$othervers != $$vers ]; then \
+			    hassomeothervers=1; \
+			fi; \
+		    done && \
+		    if [ $$hassomeothervers -eq 1 ]; then \
+			ff=`echo $$f | sed -E "s/\.[^.]*(.gz)?$$/$$vers&/"` && \
+			ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
+			if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
+			    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
+			fi || exit 1; \
+		    else \
 			ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
 		    fi || exit 1; \
 		done && \

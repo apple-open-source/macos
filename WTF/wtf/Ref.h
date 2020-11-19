@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -45,9 +45,10 @@ inline void adopted(const void*) { }
 template<typename T, typename PtrTraits> class Ref;
 template<typename T, typename PtrTraits = DumbPtrTraits<T>> Ref<T, PtrTraits> adoptRef(T&);
 
-template<typename T, typename PtrTraits>
+template<typename T, typename Traits>
 class Ref {
 public:
+    using PtrTraits = Traits;
     static constexpr bool isRef = true;
 
     ~Ref()
@@ -66,9 +67,17 @@ public:
         object.ref();
     }
 
-    // Use copyRef() instead.
-    Ref(const Ref& other) = delete;
-    template<typename X, typename Y> Ref(const Ref<X, Y>& other) = delete;
+    Ref(const Ref& other)
+        : m_ptr(other.ptr())
+    {
+        m_ptr->ref();
+    }
+
+    template<typename X, typename Y> Ref(const Ref<X, Y>& other)
+        : m_ptr(other.ptr())
+    {
+        m_ptr->ref();
+    }
 
     Ref(Ref&& other)
         : m_ptr(&other.leakRef())
@@ -87,16 +96,14 @@ public:
     Ref& operator=(Ref&&);
     template<typename X, typename Y> Ref& operator=(Ref<X, Y>&&);
 
-    // Use copyRef() and the move assignment operators instead.
-    Ref& operator=(const Ref&) = delete;
-    template<typename X, typename Y> Ref& operator=(const Ref<X, Y>&) = delete;
+    Ref& operator=(const Ref&);
+    template<typename X, typename Y> Ref& operator=(const Ref<X, Y>&);
 
     template<typename X, typename Y> void swap(Ref<X, Y>&);
 
     // Hash table deleted values, which are only constructed and never copied or destroyed.
-    Ref(HashTableDeletedValueType) : m_ptr(hashTableDeletedValue()) { }
-    bool isHashTableDeletedValue() const { return m_ptr == hashTableDeletedValue(); }
-    static T* hashTableDeletedValue() { return reinterpret_cast<T*>(-1); }
+    Ref(HashTableDeletedValueType) : m_ptr(PtrTraits::hashTableDeletedValue()) { }
+    bool isHashTableDeletedValue() const { return PtrTraits::isHashTableDeletedValue(m_ptr); }
 
     Ref(HashTableEmptyValueType) : m_ptr(hashTableEmptyValue()) { }
     bool isHashTableEmptyValue() const { return m_ptr == hashTableEmptyValue(); }
@@ -104,17 +111,6 @@ public:
 
     const T* ptrAllowingHashTableEmptyValue() const { ASSERT(m_ptr || isHashTableEmptyValue()); return PtrTraits::unwrap(m_ptr); }
     T* ptrAllowingHashTableEmptyValue() { ASSERT(m_ptr || isHashTableEmptyValue()); return PtrTraits::unwrap(m_ptr); }
-
-    void assignToHashTableEmptyValue(Ref&& reference)
-    {
-#if ASAN_ENABLED
-        if (__asan_address_is_poisoned(this))
-            __asan_unpoison_memory_region(this, sizeof(*this));
-#endif
-        ASSERT(m_ptr == hashTableEmptyValue());
-        m_ptr = &reference.leakRef();
-        ASSERT(m_ptr);
-    }
 
     T* operator->() const { ASSERT(m_ptr); return PtrTraits::unwrap(m_ptr); }
     T* ptr() const RETURNS_NONNULL { ASSERT(m_ptr); return PtrTraits::unwrap(m_ptr); }
@@ -124,6 +120,7 @@ public:
 
     template<typename X, typename Y> Ref<T, PtrTraits> replace(Ref<X, Y>&&) WARN_UNUSED_RETURN;
 
+    // The following function is deprecated.
     Ref copyRef() && = delete;
     Ref copyRef() const & WARN_UNUSED_RETURN { return Ref(*m_ptr); }
 
@@ -184,6 +181,31 @@ inline Ref<T, U>& Ref<T, U>::operator=(Ref<X, Y>&& reference)
 #endif
     Ref movedReference = WTFMove(reference);
     swap(movedReference);
+    return *this;
+}
+
+template<typename T, typename U>
+inline Ref<T, U>& Ref<T, U>::operator=(const Ref& reference)
+{
+#if ASAN_ENABLED
+    if (__asan_address_is_poisoned(this))
+        __asan_unpoison_memory_region(this, sizeof(*this));
+#endif
+    Ref copiedReference = reference;
+    swap(copiedReference);
+    return *this;
+}
+
+template<typename T, typename U>
+template<typename X, typename Y>
+inline Ref<T, U>& Ref<T, U>::operator=(const Ref<X, Y>& reference)
+{
+#if ASAN_ENABLED
+    if (__asan_address_is_poisoned(this))
+        __asan_unpoison_memory_region(this, sizeof(*this));
+#endif
+    Ref copiedReference = reference;
+    swap(copiedReference);
     return *this;
 }
 

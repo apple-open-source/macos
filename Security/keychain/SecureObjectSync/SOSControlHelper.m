@@ -24,6 +24,8 @@
 #import <Foundation/Foundation.h>
 #import <Foundation/NSXPCConnection.h>
 #import <objc/runtime.h>
+#import <Security/SecXPCHelper.h>
+#include <utilities/debugging.h>
 
 #import "keychain/SecureObjectSync/SOSTypes.h"
 #import "keychain/SecureObjectSync/SOSControlHelper.h"
@@ -31,40 +33,37 @@
 void
 _SOSControlSetupInterface(NSXPCInterface *interface)
 {
-    static NSMutableSet *errClasses;
+    NSSet<Class> *errClasses = [SecXPCHelper safeErrorClasses];
 
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        errClasses = [NSMutableSet set];
+    @try {
+        [interface setClasses:errClasses forSelector:@selector(userPublicKey:) argumentIndex:2 ofReply:YES];
 
-        char *classes[] = {
-            "NSURL",
-            "NSURLError",
-            "NSError"
-        };
+        [interface setClasses:errClasses forSelector:@selector(stashedCredentialPublicKey:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(assertStashedAccountCredential:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(validatedStashedAccountCredential:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(stashAccountCredential:complete:) argumentIndex:1 ofReply:YES];
 
-        for (unsigned n = 0; n < sizeof(classes)/sizeof(classes[0]); n++) {
-            Class cls = objc_getClass(classes[n]);
-            if (cls)
-                [errClasses addObject:cls];
-        }
-    });
+        [interface setClasses:errClasses forSelector:@selector(ghostBust:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(ghostBustPeriodic:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(ghostBustTriggerTimed:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(ghostBustInfo:) argumentIndex:0 ofReply:YES];
 
-    [interface setClasses:errClasses forSelector:@selector(userPublicKey:) argumentIndex:2 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(iCloudIdentityStatus:) argumentIndex:1 ofReply:YES];
 
-    [interface setClasses:errClasses forSelector:@selector(stashedCredentialPublicKey:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(assertStashedAccountCredential:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(stashAccountCredential:complete:) argumentIndex:1 ofReply:YES];
-
-    [interface setClasses:errClasses forSelector:@selector(myPeerInfo:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(circleHash:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(circleJoiningBlob:complete:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(joinCircleWithBlob:version:complete:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(initialSyncCredentials:complete:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(importInitialSyncCredentials:complete:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(triggerSync:complete:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(getWatchdogParameters:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(setWatchdogParmeters:complete:) argumentIndex:0 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(ghostBust:complete:) argumentIndex:1 ofReply:YES];
-    [interface setClasses:errClasses forSelector:@selector(triggerBackup:complete:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(myPeerInfo:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(circleHash:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(circleJoiningBlob:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(joinCircleWithBlob:version:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(initialSyncCredentials:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(importInitialSyncCredentials:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(rpcTriggerSync:complete:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(getWatchdogParameters:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(setWatchdogParmeters:complete:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(rpcTriggerBackup:complete:) argumentIndex:0 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(rpcTriggerRingUpdate:) argumentIndex:0 ofReply:YES];
+    }
+    @catch(NSException* e) {
+        secerror("Could not configure SOSControlHelper: %@", e);
+        @throw e;
+    }
 }

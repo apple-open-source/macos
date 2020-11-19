@@ -27,9 +27,11 @@
 
 #include "MessageReceiver.h"
 #include "MessageSender.h"
+#include "WebSocketIdentifier.h"
 #include <WebCore/NetworkSendQueue.h>
 #include <WebCore/ThreadableWebSocketChannel.h>
-#include <wtf/Identified.h>
+#include <WebCore/WebSocketChannelInspector.h>
+#include <WebCore/WebSocketFrame.h>
 #include <wtf/WeakPtr.h>
 
 namespace IPC {
@@ -40,10 +42,12 @@ class DataReference;
 
 namespace WebKit {
 
-class WebSocketChannel : public IPC::MessageSender, public IPC::MessageReceiver, public WebCore::ThreadableWebSocketChannel, public RefCounted<WebSocketChannel>, public Identified<WebSocketChannel> {
+class WebSocketChannel : public IPC::MessageSender, public IPC::MessageReceiver, public WebCore::ThreadableWebSocketChannel, public RefCounted<WebSocketChannel>, public CanMakeWeakPtr<WebSocketChannel> {
 public:
     static Ref<WebSocketChannel> create(WebCore::Document&, WebCore::WebSocketChannelClient&);
     ~WebSocketChannel();
+
+    WebSocketIdentifier identifier() const { return m_identifier; }
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
@@ -73,12 +77,17 @@ private:
     void refThreadableWebSocketChannel() final { ref(); }
     void derefThreadableWebSocketChannel() final { deref(); }
 
+    void notifySendFrame(WebCore::WebSocketFrame::OpCode, const char* data, size_t length);
+    void logErrorMessage(const String&);
+
     // Message receivers
     void didConnect(String&& subprotocol, String&& extensions);
     void didReceiveText(String&&);
     void didReceiveBinaryData(IPC::DataReference&&);
     void didClose(unsigned short code, String&&);
     void didReceiveMessageError(String&&);
+    void didSendHandshakeRequest(WebCore::ResourceRequest&&);
+    void didReceiveHandshakeResponse(WebCore::ResourceResponse&&);
 
     // MessageSender
     IPC::Connection* messageSenderConnection() const final;
@@ -90,7 +99,9 @@ private:
     void enqueueTask(Function<void()>&&);
 
     WeakPtr<WebCore::Document> m_document;
+    WebSocketIdentifier m_identifier;
     WeakPtr<WebCore::WebSocketChannelClient> m_client;
+    URL m_url;
     String m_subprotocol;
     String m_extensions;
     size_t m_bufferedAmount { 0 };
@@ -98,6 +109,7 @@ private:
     bool m_isSuspended { false };
     Deque<Function<void()>> m_pendingTasks;
     WebCore::NetworkSendQueue m_messageQueue;
+    WebCore::WebSocketChannelInspector m_inspector;
 };
 
 } // namespace WebKit

@@ -182,12 +182,16 @@ static off_t write_diff_adj_holes(int fd, off_t block_size) {
 	return 0;
 }
 
+static off_t write_nothing(__unused int fd, __unused off_t block_size) {
+	return 0;
+}
+
 typedef struct {
 	creator_func func; // pointer to function to create a sparse file
 	const char * name; // null terminated string
 } sparse_test_func;
 
-#define NUM_TEST_FUNCTIONS 10
+#define NUM_TEST_FUNCTIONS 11
 sparse_test_func test_functions[NUM_TEST_FUNCTIONS] = {
 	{write_start_and_end_holes,		"start_and_end_holes"},
 	{write_middle_hole,				"middle_hole"},
@@ -198,7 +202,8 @@ sparse_test_func test_functions[NUM_TEST_FUNCTIONS] = {
 	{write_no_sparse,				"no_sparse"},
 	{write_sparse_odd_offset,		"write_sparse_odd_offset"},
 	{write_sparse_bs_offset,		"write_sparse_bs_offset"},
-	{write_diff_adj_holes,			"write_diff_adj_holes"}
+	{write_diff_adj_holes,			"write_diff_adj_holes"},
+	{write_nothing,					"write_nothing"},
 };
 
 bool do_sparse_test(const char* apfs_test_directory, size_t block_size) {

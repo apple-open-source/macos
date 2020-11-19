@@ -26,6 +26,8 @@
 #include "config.h"
 #include "RenderThemeGadget.h"
 
+#if !USE(GTK4)
+
 #include "FloatRect.h"
 #include "GRefPtrGtk.h"
 
@@ -36,19 +38,8 @@ std::unique_ptr<RenderThemeGadget> RenderThemeGadget::create(const RenderThemeGa
     switch (info.type) {
     case RenderThemeGadget::Type::Generic:
         return makeUnique<RenderThemeGadget>(info, parent, siblings, position);
-    case RenderThemeGadget::Type::TextField:
-        return makeUnique<RenderThemeTextFieldGadget>(info, parent, siblings, position);
-    case RenderThemeGadget::Type::Radio:
-    case RenderThemeGadget::Type::Check:
-        return makeUnique<RenderThemeToggleGadget>(info, parent, siblings, position);
-    case RenderThemeGadget::Type::Arrow:
-        return makeUnique<RenderThemeArrowGadget>(info, parent, siblings, position);
-    case RenderThemeGadget::Type::Icon:
-        return makeUnique<RenderThemeIconGadget>(info, parent, siblings, position);
     case RenderThemeGadget::Type::Scrollbar:
         return makeUnique<RenderThemeScrollbarGadget>(info, parent, siblings, position);
-    case RenderThemeGadget::Type::Button:
-        return makeUnique<RenderThemeButtonGadget>(info, parent, siblings, position);
     }
 
     ASSERT_NOT_REACHED();
@@ -130,7 +121,11 @@ Color RenderThemeGadget::color() const
 Color RenderThemeGadget::backgroundColor() const
 {
     GdkRGBA returnValue;
+
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     gtk_style_context_get_background_color(m_context.get(), gtk_style_context_get_state(m_context.get()), &returnValue);
+    ALLOW_DEPRECATED_DECLARATIONS_END
+
     return returnValue;
 }
 
@@ -195,15 +190,6 @@ bool RenderThemeGadget::render(cairo_t* cr, const FloatRect& paintRect, FloatRec
     return true;
 }
 
-void RenderThemeGadget::renderFocus(cairo_t* cr, const FloatRect& focusRect)
-{
-    FloatRect rect = focusRect;
-    auto margin = marginBox();
-    rect.move(margin.left, margin.top);
-    rect.contract(margin.left + margin.right, margin.top + margin.bottom);
-    gtk_render_focus(m_context.get(), cr, rect.x(), rect.y(), rect.width(), rect.height());
-}
-
 RenderThemeBoxGadget::RenderThemeBoxGadget(const RenderThemeGadget::Info& info, GtkOrientation orientation, const Vector<RenderThemeGadget::Info> children, RenderThemeGadget* parent)
     : RenderThemeGadget(info, parent, Vector<RenderThemeGadget::Info>(), 0)
     , m_orientation(orientation)
@@ -231,122 +217,6 @@ IntSize RenderThemeBoxGadget::preferredSize() const
         }
     }
     return RenderThemeGadget::preferredSize().expandedTo(childrenSize);
-}
-
-RenderThemeTextFieldGadget::RenderThemeTextFieldGadget(const RenderThemeGadget::Info& info, RenderThemeGadget* parent, const Vector<RenderThemeGadget::Info> siblings, unsigned position)
-    : RenderThemeGadget(info, parent, siblings, position)
-{
-}
-
-IntSize RenderThemeTextFieldGadget::minimumSize() const
-{
-    // We allow text fields smaller than the min size set on themes.
-    return IntSize();
-}
-
-RenderThemeToggleGadget::RenderThemeToggleGadget(const RenderThemeGadget::Info& info, RenderThemeGadget* parent, const Vector<RenderThemeGadget::Info> siblings, unsigned position)
-    : RenderThemeGadget(info, parent, siblings, position)
-    , m_type(info.type)
-{
-    ASSERT(m_type == RenderThemeGadget::Type::Radio || m_type == RenderThemeGadget::Type::Check);
-}
-
-bool RenderThemeToggleGadget::render(cairo_t* cr, const FloatRect& paintRect, FloatRect*)
-{
-    FloatRect contentsRect;
-    RenderThemeGadget::render(cr, paintRect, &contentsRect);
-    if (m_type == RenderThemeGadget::Type::Radio)
-        gtk_render_option(m_context.get(), cr, contentsRect.x(), contentsRect.y(), contentsRect.width(), contentsRect.height());
-    else
-        gtk_render_check(m_context.get(), cr, contentsRect.x(), contentsRect.y(), contentsRect.width(), contentsRect.height());
-    return true;
-}
-
-RenderThemeArrowGadget::RenderThemeArrowGadget(const RenderThemeGadget::Info& info, RenderThemeGadget* parent, const Vector<RenderThemeGadget::Info> siblings, unsigned position)
-    : RenderThemeGadget(info, parent, siblings, position)
-{
-}
-
-bool RenderThemeArrowGadget::render(cairo_t* cr, const FloatRect& paintRect, FloatRect*)
-{
-    FloatRect contentsRect;
-    RenderThemeGadget::render(cr, paintRect, &contentsRect);
-    IntSize minSize = minimumSize();
-    int arrowSize = std::min(minSize.width(), minSize.height());
-    FloatPoint arrowPosition(contentsRect.x(), contentsRect.y() + (contentsRect.height() - arrowSize) / 2);
-    if (gtk_style_context_get_state(m_context.get()) & GTK_STATE_FLAG_DIR_LTR)
-        arrowPosition.move(contentsRect.width() - arrowSize, 0);
-    gtk_render_arrow(m_context.get(), cr, G_PI / 2, arrowPosition.x(), arrowPosition.y(), arrowSize);
-    return true;
-}
-
-RenderThemeIconGadget::RenderThemeIconGadget(const RenderThemeGadget::Info& info, RenderThemeGadget* parent, const Vector<RenderThemeGadget::Info> siblings, unsigned position)
-    : RenderThemeGadget(info, parent, siblings, position)
-{
-}
-
-GtkIconSize RenderThemeIconGadget::gtkIconSizeForPixelSize(unsigned pixelSize) const
-{
-    if (pixelSize < IconSizeGtk::SmallToolbar)
-        return GTK_ICON_SIZE_MENU;
-    if (pixelSize >= IconSizeGtk::SmallToolbar && pixelSize < IconSizeGtk::Button)
-        return GTK_ICON_SIZE_SMALL_TOOLBAR;
-    if (pixelSize >= IconSizeGtk::Button && pixelSize < IconSizeGtk::LargeToolbar)
-        return GTK_ICON_SIZE_BUTTON;
-    if (pixelSize >= IconSizeGtk::LargeToolbar && pixelSize < IconSizeGtk::DragAndDrop)
-        return GTK_ICON_SIZE_LARGE_TOOLBAR;
-    if (pixelSize >= IconSizeGtk::DragAndDrop && pixelSize < IconSizeGtk::Dialog)
-        return GTK_ICON_SIZE_DND;
-
-    return GTK_ICON_SIZE_DIALOG;
-}
-
-bool RenderThemeIconGadget::render(cairo_t* cr, const FloatRect& paintRect, FloatRect*)
-{
-    ASSERT(!m_iconName.isNull());
-    GRefPtr<GIcon> icon = adoptGRef(g_themed_icon_new(m_iconName.data()));
-    unsigned lookupFlags = GTK_ICON_LOOKUP_USE_BUILTIN | GTK_ICON_LOOKUP_FORCE_SIZE | GTK_ICON_LOOKUP_FORCE_SVG;
-    GtkTextDirection direction = gtk_style_context_get_direction(m_context.get());
-    if (direction & GTK_TEXT_DIR_LTR)
-        lookupFlags |= GTK_ICON_LOOKUP_DIR_LTR;
-    else if (direction & GTK_TEXT_DIR_RTL)
-        lookupFlags |= GTK_ICON_LOOKUP_DIR_RTL;
-    int iconWidth, iconHeight;
-    if (!gtk_icon_size_lookup(gtkIconSizeForPixelSize(m_iconSize), &iconWidth, &iconHeight))
-        iconWidth = iconHeight = m_iconSize;
-    GRefPtr<GtkIconInfo> iconInfo = adoptGRef(gtk_icon_theme_lookup_by_gicon(gtk_icon_theme_get_default(), icon.get(),
-        std::min(iconWidth, iconHeight), static_cast<GtkIconLookupFlags>(lookupFlags)));
-    if (!iconInfo)
-        return false;
-
-    GRefPtr<GdkPixbuf> iconPixbuf = adoptGRef(gtk_icon_info_load_symbolic_for_context(iconInfo.get(), m_context.get(), nullptr, nullptr));
-    if (!iconPixbuf)
-        return false;
-
-    FloatSize pixbufSize(gdk_pixbuf_get_width(iconPixbuf.get()), gdk_pixbuf_get_height(iconPixbuf.get()));
-    FloatRect contentsRect;
-    RenderThemeGadget::render(cr, paintRect, &contentsRect);
-    if (pixbufSize.width() > contentsRect.width() || pixbufSize.height() > contentsRect.height()) {
-        iconWidth = iconHeight = std::min(contentsRect.width(), contentsRect.height());
-        pixbufSize = FloatSize(iconWidth, iconHeight);
-        iconPixbuf = adoptGRef(gdk_pixbuf_scale_simple(iconPixbuf.get(), pixbufSize.width(), pixbufSize.height(), GDK_INTERP_BILINEAR));
-    }
-
-    gtk_render_icon(m_context.get(), cr, iconPixbuf.get(), contentsRect.x() + (contentsRect.width() - pixbufSize.width()) / 2,
-        contentsRect.y() + (contentsRect.height() - pixbufSize.height()) / 2);
-    return true;
-}
-
-IntSize RenderThemeIconGadget::minimumSize() const
-{
-    if (m_iconSize < IconSizeGtk::Menu)
-        return IntSize(m_iconSize, m_iconSize);
-
-    int iconWidth, iconHeight;
-    if (gtk_icon_size_lookup(gtkIconSizeForPixelSize(m_iconSize), &iconWidth, &iconHeight))
-        return IntSize(iconWidth, iconHeight);
-
-    return IntSize(m_iconSize, m_iconSize);
 }
 
 RenderThemeScrollbarGadget::RenderThemeScrollbarGadget(const RenderThemeGadget::Info& info, RenderThemeGadget* parent, const Vector<RenderThemeGadget::Info> siblings, unsigned position)
@@ -386,15 +256,6 @@ void RenderThemeScrollbarGadget::renderStepper(cairo_t* cr, const FloatRect& pai
         contentsRect.y() + (contentsRect.height() - stepperSize) / 2, stepperSize);
 }
 
-RenderThemeButtonGadget::RenderThemeButtonGadget(const Info& info, RenderThemeGadget* parent, const Vector<RenderThemeGadget::Info> siblings, unsigned position)
-    : RenderThemeGadget(info, parent, siblings, position)
-{
-}
-
-IntSize RenderThemeButtonGadget::minimumSize() const
-{
-    // Allow buttons to be smaller than the minimum size
-    return IntSize();
-}
-
 } // namespace WebCore
+
+#endif // !USE(GTK4)

@@ -300,8 +300,9 @@ static void FreeArenaList(PLArenaPool *pool, PLArena *head, PRBool reallyFree)
 
     ap = &head->next;
     a = *ap;
-    if (!a)
+    if (!a) {
         return;
+    }
 
 	do {
 		*ap = a->next;

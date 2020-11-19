@@ -20,6 +20,9 @@ credential_t credential_create_with_credential(credential_t,bool);
 AUTH_WARN_RESULT AUTH_MALLOC AUTH_NONNULL_ALL AUTH_RETURNS_RETAINED    
 credential_t credential_create_with_right(const char *);
 
+AUTH_WARN_RESULT AUTH_MALLOC AUTH_RETURNS_RETAINED
+credential_t credential_create_lwos(auth_items_t context, bool session);
+
 AUTH_NONNULL_ALL
 uid_t credential_get_uid(credential_t);
 

@@ -23,7 +23,7 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 #include "sec_xdr.h"
 

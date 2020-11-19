@@ -26,14 +26,13 @@
 #include "config.h"
 #include "ModuleAnalyzer.h"
 
-#include "JSCInlines.h"
+#include "IdentifierInlines.h"
 #include "JSGlobalObject.h"
 #include "JSModuleRecord.h"
 #include "ModuleScopeData.h"
 #include "StrongInlines.h"
 
 namespace JSC {
-
 
 ModuleAnalyzer::ModuleAnalyzer(JSGlobalObject* globalObject, const Identifier& moduleKey, const SourceCode& sourceCode, const VariableEnvironment& declaredVariables, const VariableEnvironment& lexicalVariables)
     : m_vm(globalObject->vm())
@@ -140,7 +139,7 @@ JSModuleRecord* ModuleAnalyzer::analyze(ModuleProgramNode& moduleProgramNode)
     for (const auto& pair : m_moduleRecord->lexicalVariables())
         exportVariable(moduleProgramNode, pair.key, pair.value);
 
-    if (Options::dumpModuleRecord())
+    if (UNLIKELY(Options::dumpModuleRecord()))
         m_moduleRecord->dump();
 
     return m_moduleRecord.get();

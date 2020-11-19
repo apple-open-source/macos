@@ -18,15 +18,13 @@ FEATURE_LEGACY_UTMP_APIS = 1
 FEATURE_THERM_NOTIFICATION_APIS = 1
 
 # No pre-1050 variants (should match sys/cdefs.h)
-#FEATURE_ONLY_1050_VARIANTS = 1
+FEATURE_ONLY_1050_VARIANTS = 1
 
 # No legacy variants (should match sys/cdefs.h)
-.if CURRENT_ARCH 64$
 FEATURE_ONLY_UNIX_CONFORMANCE = 1
-.endif
 
 # Only 64-bit ino_t (should match sys/cdefs.h)
-#FEATURE_ONLY_64_BIT_INO_T = 1
+FEATURE_ONLY_64_BIT_INO_T = 1
 
 # Patch 3333969
 FEATURE_PATCH_3333969 = 1

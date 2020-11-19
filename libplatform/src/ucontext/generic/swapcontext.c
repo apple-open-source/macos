@@ -2,14 +2,14 @@
  * Copyright (c) 2007, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 
@@ -50,8 +50,15 @@
 #define _XOPEN_SOURCE 600L
 #include <ucontext.h>
 #include <errno.h>
+#include <TargetConditionals.h>
 
-#if defined(__x86_64__) || defined(__i386__)
+/* This is a macro to capture all the code added in here that is purely to make
+ * conformance tests pass and seems to have no functional reason nor is it
+ * required by the standard */
+#define CONFORMANCE_SPECIFIC_HACK 1
+
+#if TARGET_OS_OSX || TARGET_OS_DRIVERKIT
+
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
 #include <sys/param.h>
@@ -65,22 +72,34 @@ int
 swapcontext(ucontext_t *oucp, const ucontext_t *ucp)
 {
 	int ret;
-
 	if ((oucp == NULL) || (ucp == NULL)) {
 		errno = EINVAL;
-		return (-1);
+		return -1;
 	}
+
 	oucp->uc_flags &= ~UCF_SWAPPED;
+
+#if CONFORMANCE_SPECIFIC_HACK
+	// getcontext overwrites uc_link so we save it and restore it
+	ucontext_t *next_context = oucp->uc_link;
 	ret = getcontext(oucp);
+	oucp->uc_link = next_context;
+#endif
+
 	if ((ret == 0) && !(oucp->uc_flags & UCF_SWAPPED)) {
 		oucp->uc_flags |= UCF_SWAPPED;
+		/* In the future, when someone calls setcontext(oucp), that will return
+		 * us to the getcontext call above with ret = 0. However, because we
+		 * just flipped the UCF_SWAPPED bit, we will not call setcontext again
+		 * and will return. */
 		ret = setcontext(ucp);
 	}
+
 	asm(""); // Prevent tailcall <rdar://problem/12581792>
 	return (ret);
 }
 
-#else
+#else /* TARGET_OS_OSX || TARGET_OS_DRIVERKIT */
 
 int
 swapcontext(ucontext_t *oucp, const ucontext_t *ucp)
@@ -89,4 +108,4 @@ swapcontext(ucontext_t *oucp, const ucontext_t *ucp)
 	return -1;
 }
 
-#endif
+#endif /* TARGET_OS_OSX || TARGET_OS_DRIVERKIT */

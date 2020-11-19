@@ -71,6 +71,7 @@ enum {
 
 #define kOptNamePLists                  "plists"
 #define kOptNameLoadList                "load-list"
+#define kOptNameKextVariant             "kext-variant"
 /* Misc flags.
  */
 #define kOptNameNoAuthentication        "no-authentication"
@@ -104,6 +105,7 @@ enum {
 #define kLongOptMaxSliceSize             (-14)
 #define kLongOptPLists                   (-15)
 #define kLongOptLoadList                 (-16)
+#define kLongOptKextVariant              (-17)
 
 #define kOptChars                ":a:b:c:ehK:lLnNqsStT:vz"
 
@@ -135,6 +137,7 @@ struct option sOptInfo[] = {
 
     { kOptNamePLists,                   required_argument,  &longopt, kLongOptPLists },
     { kOptNameLoadList,                 required_argument,  &longopt, kLongOptLoadList },
+    { kOptNameKextVariant,              required_argument,  &longopt, kLongOptKextVariant },
 
     /* Always on for kcgen; can be removed at some point. */
     { kOptNameAllPersonalities,         no_argument,        &longopt, kLongOptAllPersonalities },
@@ -162,6 +165,7 @@ typedef struct {
 
     char    * plistsPath;
     char    * loadListPath;
+    char    * kextVariant;
 
     CFMutableSetRef    kextIDs;          // -b; must release
     CFMutableSetRef    optionalKextIDs;  // -optional-bundle-id; must release

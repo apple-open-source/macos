@@ -305,6 +305,19 @@ extern const CFStringRef kSecAttrPCSPlaintextPublicKey
 extern const CFStringRef kSecAttrPCSPlaintextPublicIdentity
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 
+extern const CFStringRef kSecDataInetExtraNotes
+__OSX_AVAILABLE(10.16) __IOS_AVAILABLE(14.0) __TVOS_AVAILABLE(14.0) __WATCHOS_AVAILABLE(7.0);
+extern const CFStringRef kSecDataInetExtraHistory
+__OSX_AVAILABLE(10.16) __IOS_AVAILABLE(14.0) __TVOS_AVAILABLE(14.0) __WATCHOS_AVAILABLE(7.0);
+extern const CFStringRef kSecDataInetExtraClientDefined0
+__OSX_AVAILABLE(10.16) __IOS_AVAILABLE(14.0) __TVOS_AVAILABLE(14.0) __WATCHOS_AVAILABLE(7.0);
+extern const CFStringRef kSecDataInetExtraClientDefined1
+__OSX_AVAILABLE(10.16) __IOS_AVAILABLE(14.0) __TVOS_AVAILABLE(14.0) __WATCHOS_AVAILABLE(7.0);
+extern const CFStringRef kSecDataInetExtraClientDefined2
+__OSX_AVAILABLE(10.16) __IOS_AVAILABLE(14.0) __TVOS_AVAILABLE(14.0) __WATCHOS_AVAILABLE(7.0);
+extern const CFStringRef kSecDataInetExtraClientDefined3
+__OSX_AVAILABLE(10.16) __IOS_AVAILABLE(14.0) __TVOS_AVAILABLE(14.0) __WATCHOS_AVAILABLE(7.0);
+
 // ObjectID of item stored on the token.  Token-type specific BLOB.
 // For kSecAttrTokenIDSecureEnclave and kSecAttrTokenIDAppleKeyStore, ObjectID is libaks's blob representation of encoded key.
 extern const CFStringRef kSecAttrTokenOID
@@ -433,7 +446,7 @@ extern const CFStringRef kSecUseCallerName
 extern const CFStringRef kSecUseTokenRawItems
     __OSX_AVAILABLE(10.13) __IOS_AVAILABLE(11.0) __TVOS_AVAILABLE(11.0) __WATCHOS_AVAILABLE(4.0);
 extern const CFStringRef kSecUseCertificatesWithMatchIssuers
-    __OSX_AVAILABLE(10.14) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, iosmac);
+    __OSX_AVAILABLE(10.14) API_UNAVAILABLE(ios, tvos, watchos, bridgeos, macCatalyst);
 
 extern const CFStringRef kSOSInternalAccessGroup
     __OSX_AVAILABLE(10.9) __IOS_AVAILABLE(7.0) __TVOS_AVAILABLE(9.3) __WATCHOS_AVAILABLE(2.3);
@@ -454,24 +467,6 @@ extern const CFStringRef kSecAttrTokenIDAppleKeyStore
 
 
 extern const CFStringRef kSecNetworkExtensionAccessGroupSuffix;
-
-/*!
-    @function SecItemCopyDisplayNames
-    @abstract Returns an array containing unique display names for each of the
-        certificates, keys, identities, or passwords in the provided items
-        array.
-    @param items An array containing items of type SecKeychainItemRef,
-        SecKeyRef, SecCertificateRef, or SecIdentityRef. All items in the
-        array should be of the same type.
-    @param displayNames On return, an array of CFString references containing
-        unique names for the supplied items. You are responsible for releasing
-        this array reference by calling the CFRelease function.
-    @result A result code. See "Security Error Codes" (SecBase.h).
-    @discussion Use this function to obtain item names which are suitable for
-        display in a menu or list view. The returned names are guaranteed to
-        be unique across the set of provided items.
-*/
-OSStatus SecItemCopyDisplayNames(CFArrayRef items, CFArrayRef *displayNames);
 
 /*!
     @function SecItemDeleteAll
@@ -526,6 +521,7 @@ void SecItemFetchCurrentItemAcrossAllDevices(CFStringRef accessGroup,
     @function SecItemVerifyBackupIntegrity
     @abstract Verifies the presence and integrity of all key material required
         to restore a backup of the keychain.
+    @discussion This function performs a synchronous call to securityd, be prepared to wait for it to scan the keychain.
     @param lightweight Only verify the item keys wrapped by backup keys instead
         of the default rigorous pass. This mode can be run in any
         security class.
@@ -601,8 +597,7 @@ bool _SecSystemKeychainTransfer(CFErrorRef *error);
 bool _SecSyncDeleteUserViews(uid_t uid, CFErrorRef *error);
 
 
-
-OSStatus SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes);
+OSStatus SecItemUpdateTokenItemsForAccessGroups(CFTypeRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItemsAttributes);
 
 #if SEC_OS_OSX
 CFTypeRef SecItemCreateFromAttributeDictionary_osx(CFDictionaryRef refAttributes);
@@ -694,6 +689,17 @@ __OSX_AVAILABLE_STARTING(__MAC_10_12, __IPHONE_NA);
  */
 extern const CFStringRef kSecAttrTokenIDSecureElement
 SPI_AVAILABLE(ios(10.13));
+
+/*!
+ @function SecItemDeleteKeychainItemsForAppClip
+ @abstract Remove all keychain items of specified App Clip's application identifier
+ @discussion At uninstallation time an App Clip should not leave behind any data. This function deletes any keychain items it might have had.
+ @param applicationIdentifier Name of the App Clip application identifier which is getting uninstalled.
+ @result Returns errSecSuccess if zero or more items were successfully deleted, otherwise errSecInternal
+ */
+OSStatus
+SecItemDeleteKeychainItemsForAppClip(CFStringRef applicationIdentifier)
+SPI_AVAILABLE(ios(10.14));
 
 __END_DECLS
 

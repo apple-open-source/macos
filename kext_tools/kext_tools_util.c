@@ -22,10 +22,10 @@
  */
 
 #include <TargetConditionals.h>
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
     #include <bless.h>
     #include "bootcaches.h"
-#endif  // !TARGET_OS_EMBEDDED
+#endif  // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 #include <libc.h>
 #include <libgen.h>
@@ -33,6 +33,7 @@
 #include <sysexits.h>
 #include <asl.h>
 
+#include <getopt.h>
 #include <syslog.h>
 #include <sys/resource.h>
 #include <IOKit/kext/OSKext.h>
@@ -127,6 +128,15 @@ Boolean createCFMutableSet(CFMutableSetRef * setOut,
         result = false;
     }
     return result;
+}
+
+uint32_t disableKextTools() {
+    uint32_t backOff = 0; // there's a new sheriff in town
+    size_t   sizeOfBackOff = sizeof(backOff);
+    if (sysctlbyname("hw.use_kernelmanagerd", &backOff, &sizeOfBackOff, NULL, 0) != 0) {
+        return 0;
+    }
+    return backOff;
 }
 
 /*******************************************************************************
@@ -249,7 +259,7 @@ finish:
     return result;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 /******************************************************************************
  ******************************************************************************/
 
@@ -464,7 +474,7 @@ Boolean isDebugSetInBootargs(void)
     return(result);
 }
 
-#endif  // !TARGET_OS_EMBEDDED
+#endif  // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 /*******************************************************************************
  * createRawBytesFromHexString() - Given an ASCII hex string + length, dump the
@@ -1929,7 +1939,9 @@ get_bootarg_int(char *bootArg, uint32_t *valuep)
         char *token = NULL;
         uint32_t value = (uint32_t)strtoul(&argStart[argLen], &token, 0);
         if (token == NULL || (*token) == '\0' || isspace(*token)) {
-            *valuep = value;
+            if (valuep) {
+                *valuep = value;
+            }
             return true;
         }
     }
@@ -1973,7 +1985,7 @@ get_signpost_log(void)
     return sKextSignpostLog;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 /*******************************************************************************
  * Check to see if this is an Apple internal build.  If apple internel then
  * use development kernel if it exists.
@@ -2009,7 +2021,7 @@ Boolean useDevelopmentKernel(const char * theKernelPath)
 
     return(myResult);
 }
-#endif  // !TARGET_OS_EMBEDDED
+#endif  // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 /*******************************************************************************
 * Basic log function. If any log flags are set, log the message
@@ -2094,7 +2106,7 @@ void log_CFError(
     return;
 }
 
-#if !TARGET_OS_EMBEDDED
+#if !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 // log helper for libbless, exported as SPI via bootroot.h
 int32_t
 BRBLLogFunc(void *refcon __unused, int32_t level, const char *string)
@@ -2148,7 +2160,11 @@ Boolean getKernelPathForURL(CFURLRef    theVolRootURL,
                 CFGetTypeID(postBootPathsDict) == CFDictionaryGetTypeID()) {
 
                 kernelCacheDict = (CFDictionaryRef)
-                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV5Key);
+                    CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV6Key);
+                if (!kernelCacheDict) {
+                    kernelCacheDict = (CFDictionaryRef)
+                        CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV5Key);
+                }
                 if (!kernelCacheDict) {
                     kernelCacheDict = (CFDictionaryRef)
                         CFDictionaryGetValue(postBootPathsDict, kBCKernelcacheV4Key);
@@ -2330,7 +2346,7 @@ translatePrelinkedToImmutablePath(const char *prelinked_path, char *imk_path, si
 
     return true;
 }
-#endif   // !TARGET_OS_EMBEDDED
+#endif   // !(TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR)
 
 /*******************************************************************************
 * safe_mach_error_string()

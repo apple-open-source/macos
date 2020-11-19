@@ -27,7 +27,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: buffer.c,v 1.6 2019/05/07 02:27:11 christos Exp $")
+FILE_RCSID("@(#)$File: buffer.c,v 1.8 2020/02/16 15:52:49 christos Exp $")
 #endif	/* lint */
 
 #include "magic.h"
@@ -56,7 +56,7 @@ void
 buffer_fini(struct buffer *b)
 {
 	free(b->ebuf);
-    b->ebuf = NULL;
+	b->ebuf = NULL;
 }
 
 int
@@ -65,7 +65,7 @@ buffer_fill(const struct buffer *bb)
 	struct buffer *b = CCAST(struct buffer *, bb);
 
 	if (b->elen != 0)
-		return b->elen == CAST(size_t, ~0) ? -1 : 0;
+		return b->elen == FILE_BADSIZE ? -1 : 0;
 
 	if (!S_ISREG(b->st.st_mode))
 		goto out;
@@ -78,12 +78,12 @@ buffer_fill(const struct buffer *bb)
 	b->eoff = b->st.st_size - b->elen;
 	if (pread(b->fd, b->ebuf, b->elen, b->eoff) == -1) {
 		free(b->ebuf);
-        b->ebuf = NULL;
+		b->ebuf = NULL;
 		goto out;
 	}
 
 	return 0;
 out:
-	b->elen = CAST(size_t, ~0);
+	b->elen = FILE_BADSIZE;
 	return -1;
 }

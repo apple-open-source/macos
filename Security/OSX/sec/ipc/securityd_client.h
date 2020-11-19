@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2018 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -182,6 +182,7 @@ enum SecXPCOperation {
     sec_keychain_backup_syncable_id,
     sec_keychain_restore_syncable_id,
     sec_item_backup_copy_names_id,
+    sec_item_backup_ensure_copy_view_id,
     sec_item_backup_handoff_fd_id,
     sec_item_backup_set_confirmed_manifest_id,
     sec_item_backup_restore_id,
@@ -216,24 +217,18 @@ enum SecXPCOperation {
     kSecXPCOpTryUserCredentials,
     kSecXPCOpSetUserCredentials,
     kSecXPCOpSetUserCredentialsAndDSID,
-    kSecXPCOpSetUserCredentialsAndDSIDWithAnalytics,
     kSecXPCOpCanAuthenticate,
     kSecXPCOpPurgeUserCredentials,
     kSecXPCOpDeviceInCircle,
     kSecXPCOpRequestToJoin,
-    kSecXPCOpRequestToJoinWithAnalytics,
     kSecXPCOpRequestToJoinAfterRestore,
-    kSecXPCOpRequestToJoinAfterRestoreWithAnalytics,
     kSecXPCOpResetToOffering,
     kSecXPCOpResetToEmpty,
-    kSecXPCOpResetToEmptyWithAnalytics,
     kSecXPCOpView,
     kSecXPCOpViewSet,
-    kSecXPCOpViewSetWithAnalytics,
     kSecXPCOpRemoveThisDeviceFromCircle,
-    kSecXPCOpRemoveThisDeviceFromCircleWithAnalytics,
     kSecXPCOpRemovePeersFromCircle,
-    kSecXPCOpRemovePeersFromCircleWithAnalytics,
+    kSecXPCOpLoggedIntoAccount,
     kSecXPCOpLoggedOutOfAccount,
     kSecXPCOpBailFromCircle,
     kSecXPCOpAcceptApplicants,
@@ -255,7 +250,6 @@ enum SecXPCOperation {
     kSecXPCOpSetNewPublicBackupKey,
     kSecXPCOpSetBagForAllSlices,
     kSecXPCOpWaitForInitialSync,
-    kSecXPCOpWaitForInitialSyncWithAnalytics,
     kSecXPCOpCheckPeerAvailability,
     kSecXPCOpCopyApplication,
     kSecXPCOpCopyCircleJoiningBlob,
@@ -270,7 +264,7 @@ enum SecXPCOperation {
     kSecXPCOpWhoAmI,
     kSecXPCOpTransmogrifyToSyncBubble,
     kSecXPCOpTransmogrifyToSystemKeychain,
-    sec_item_update_token_items_id,
+    sec_item_update_token_items_for_access_groups_id,
     kSecXPCOpDeleteUserView,
     sec_trust_store_copy_all_id,
     sec_trust_store_copy_usage_constraints_id,
@@ -294,6 +288,9 @@ enum SecXPCOperation {
     kSecXPCOpOTASecExperimentGetNewAsset,
     sec_trust_get_exception_reset_count_id,
     sec_trust_increment_exception_reset_count_id,
+    kSecXPCOpSetCARevocationAdditions,
+    kSecXPCOpCopyCARevocationAdditions,
+    kSecXPCOpValidUpdate,
 };
 
 
@@ -313,6 +310,8 @@ typedef struct SecurityClient {
     bool inMultiUser;
     int activeUser;
 #endif
+    bool isAppClip;
+    CFStringRef applicationIdentifier;
 } SecurityClient;
 
 
@@ -334,7 +333,7 @@ struct securityd {
     CFDataRef (*sec_keychain_backup)(SecurityClient *client, CFDataRef keybag, CFDataRef passcode, bool emcs, CFErrorRef* error);
     bool (*sec_keychain_restore)(CFDataRef backup, SecurityClient *client, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_roll_keys)(bool force, CFErrorRef* error);
-    bool (*sec_item_update_token_items)(CFStringRef tokenID, CFArrayRef query, SecurityClient *client, CFErrorRef* error);
+    bool (*sec_item_update_token_items_for_access_groups)(CFStringRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItems, SecurityClient *client, CFErrorRef* error);
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
     /* SHAREDWEBCREDENTIALS */
     bool (*sec_add_shared_web_credential)(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
@@ -343,6 +342,7 @@ struct securityd {
     CFDictionaryRef (*sec_keychain_backup_syncable)(CFDictionaryRef backup_in, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_keychain_restore_syncable)(CFDictionaryRef backup, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     CFArrayRef (*sec_item_backup_copy_names)(CFErrorRef *error);
+    CFStringRef (*sec_item_backup_ensure_copy_view)(CFStringRef viewName, CFErrorRef *error);
     int (*sec_item_backup_handoff_fd)(CFStringRef backupName, CFErrorRef *error);
     bool (*sec_item_backup_set_confirmed_manifest)(CFStringRef backupName, CFDataRef keybagDigest, CFDataRef manifest, CFErrorRef *error);
     bool (*sec_item_backup_restore)(CFStringRef backupName, CFStringRef peerID, CFDataRef keybag, CFDataRef secret, CFDataRef backup, CFErrorRef *error);
@@ -351,28 +351,22 @@ struct securityd {
     bool (*soscc_TryUserCredentials)(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
     bool (*soscc_SetUserCredentials)(CFStringRef user_label, CFDataRef user_password, CFErrorRef *error);
     bool (*soscc_SetUserCredentialsAndDSID)(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
-    bool (*soscc_SetUserCredentialsAndDSIDWithAnalytics)(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFDataRef parentEvent, CFErrorRef *error);
     bool (*soscc_CanAuthenticate)(CFErrorRef *error);
     bool (*soscc_PurgeUserCredentials)(CFErrorRef *error);
     SOSCCStatus (*soscc_ThisDeviceIsInCircle)(CFErrorRef* error);
     bool (*soscc_RequestToJoinCircle)(CFErrorRef* error);
-    bool (*soscc_RequestToJoinCircleWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     bool (*soscc_RequestToJoinCircleAfterRestore)(CFErrorRef* error);
-    bool (*soscc_RequestToJoinCircleAfterRestoreWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     bool (*soscc_SetToNew)(CFErrorRef *error);
     bool (*soscc_ResetToOffering)(CFErrorRef* error);
     bool (*soscc_ResetToEmpty)(CFErrorRef* error);
-    bool (*soscc_ResetToEmptyWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     SOSViewResultCode (*soscc_View)(CFStringRef view, SOSViewActionCode action, CFErrorRef *error);
     bool (*soscc_ViewSet)(CFSetRef enabledViews, CFSetRef disabledViews);
-    bool (*soscc_ViewSetWithAnalytics)(CFSetRef enabledViews, CFSetRef disabledViews, CFDataRef parentEvent);
     bool (*soscc_RegisterSingleRecoverySecret)(CFDataRef backupSlice, bool forV0Only, CFErrorRef *error);
     bool (*soscc_RegisterRecoveryPublicKey)(CFDataRef recovery_key, CFErrorRef *error);
     CFDataRef (*soscc_CopyRecoveryPublicKey)(CFErrorRef *error);
     bool (*soscc_RemoveThisDeviceFromCircle)(CFErrorRef* error);
-    bool (*soscc_RemoveThisDeviceFromCircleWithAnalytics)(CFDataRef parentEvent, CFErrorRef* error);
     bool (*soscc_RemovePeersFromCircle)(CFArrayRef peers, CFErrorRef* error);
-    bool (*soscc_RemovePeersFromCircleWithAnalytics)(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error);
+    bool (*soscc_LoggedIntoAccount)(CFErrorRef* error);
     bool (*soscc_LoggedOutOfAccount)(CFErrorRef* error);
     bool (*soscc_BailFromCircle)(uint64_t limit_in_seconds, CFErrorRef* error);
     bool (*soscc_AcceptApplicants)(CFArrayRef applicants, CFErrorRef* error);
@@ -400,7 +394,6 @@ struct securityd {
     bool   (*sec_set_circle_log_settings)(CFTypeRef type, CFErrorRef* error);
     SOSPeerInfoRef (*soscc_CopyMyPeerInfo)(CFErrorRef*);
     bool (*soscc_WaitForInitialSync)(CFErrorRef*);
-    bool (*soscc_WaitForInitialSyncWithAnalytics)(CFDataRef parentEvent, CFErrorRef *error);
     bool (*soscc_PeerAvailability)(CFErrorRef *error);
     SOSPeerInfoRef (*soscc_CopyApplicant)(CFErrorRef *error);
     CFDataRef (*soscc_CopyCircleJoiningBlob)(SOSPeerInfoRef applicant, CFErrorRef *error);
@@ -445,6 +438,9 @@ struct trustd {
     bool (*sec_trust_increment_exception_reset_count)(CFErrorRef *error);
     uint64_t (*sec_trust_get_exception_reset_count)(CFErrorRef *error);
 #endif
+    bool (*sec_trust_store_set_ca_revocation_additions)(CFStringRef appID, CFDictionaryRef additions, CFErrorRef *error);
+    CFDictionaryRef (*sec_trust_store_copy_ca_revocation_additions)(CFStringRef appID, CFErrorRef *error);
+    bool (*sec_valid_update)(CFErrorRef *error);
 };
 
 extern struct trustd *gTrustd;
@@ -534,11 +530,14 @@ typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
 - (void)secItemVerifyBackupIntegrity:(BOOL)lightweight
                           completion:(void (^)(NSDictionary<NSString*, NSString*>* resultsPerKeyclass, NSError* error))completion;
 
+// Delete all items from the keychain where agrp==identifier and clip==1. Requires App Clip deletion entitlement.
+- (void)secItemDeleteForAppClipApplicationIdentifier:(NSString*)identifier
+                                          completion:(void (^)(OSStatus status))completion;
 @end
 
 // Call this to receive a proxy object conforming to SecuritydXPCProtocol that you can call methods on.
 // It's probably a remote object for securityd/secd, but it might be in-process if you've configured it that way.
-id<SecuritydXPCProtocol> SecuritydXPCProxyObject(void (^rpcErrorHandler)(NSError *));
+id<SecuritydXPCProtocol> SecuritydXPCProxyObject(bool synchronous, void (^rpcErrorHandler)(NSError *));
 
 // Set up a local securityxpcserver: after this call, all securitydxpc calls will be handled in-process instead of actually transferring to securityd
 id<SecuritydXPCProtocol> SecCreateLocalSecuritydXPCServer(void) NS_RETURNS_RETAINED;

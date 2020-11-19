@@ -1,7 +1,6 @@
 #if OCTAGON
 
 class OctagonSOSTests: OctagonTestsBase {
-
     func testSOSOctagonKeyConsistency() throws {
         self.putFakeKeyHierarchiesInCloudKit()
         self.putSelfTLKSharesInCloudKit()
@@ -67,10 +66,12 @@ class OctagonSOSTests: OctagonTestsBase {
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         self.verifyDatabaseMocks()
         self.waitForCKModifications()
+
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
 
@@ -84,8 +85,6 @@ class OctagonSOSTests: OctagonTestsBase {
 
         self.aksLockState = true
         self.lockStateTracker.recheck()
-
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         // Now restart the context
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
@@ -124,17 +123,18 @@ class OctagonSOSTests: OctagonTestsBase {
         self.mockSOSAdapter.circleStatus = SOSCCStatus(kSOSCCInCircle)
 
         XCTAssertTrue(OctagonPerformSOSUpgrade(), "SOS upgrade should be on")
+
         self.cuttlefishContext.startOctagonStateMachine()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
         self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
 
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
-
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
         self.verifyDatabaseMocks()
         self.waitForCKModifications()
 
         self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
+        self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
 
         let peerID = try self.cuttlefishContext.accountMetadataStore.getEgoPeerID()
         XCTAssertNotNil(peerID, "Should have a peer ID")
@@ -143,11 +143,6 @@ class OctagonSOSTests: OctagonTestsBase {
         self.mockSOSAdapter.selfPeer = newSOSPeer
 
         self.mockSOSAdapter.trustedPeers.add(newSOSPeer)
-
-        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
-        self.assertSelfTLKSharesInCloudKit(context: self.cuttlefishContext)
-        self.assertConsidersSelfTrustedCachedAccountStatus(context: self.cuttlefishContext)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
 
         // Now restart the context
         self.manager.removeContext(forContainerName: OTCKContainerName, contextID: OTDefaultContext)
@@ -160,7 +155,7 @@ class OctagonSOSTests: OctagonTestsBase {
         self.lockStateTracker.recheck()
 
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateWaitForUnlock, within: 10 * NSEC_PER_SEC)
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateWaitForTrust, within: 10 * NSEC_PER_SEC)
 
         self.assertAllCKKSViewsUpload(tlkShares: 2)
         self.aksLockState = false
@@ -176,7 +171,7 @@ class OctagonSOSTests: OctagonTestsBase {
 
         self.verifyDatabaseMocks()
         self.waitForCKModifications()
-        assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
     }
 
     func testSOSPerformOctagonKeyConsistencyOnCircleChange() throws {
@@ -241,11 +236,16 @@ class OctagonSOSTests: OctagonTestsBase {
             XCTAssertNotNil(error, "error should not be nil")
         }
 
+        /*
+         * I don't see any way in swift to call a deprecated API.
+         * But, since we're not actually testing behavior here, it's
+         * okay to ignore.
         do {
             try clique.safariPasswordSyncingEnabled()
         } catch {
             XCTAssertNotNil(error, "error should not be nil")
         }
+         */
 
         do {
             try clique.waitForInitialSync()
@@ -253,7 +253,12 @@ class OctagonSOSTests: OctagonTestsBase {
             XCTAssertNotNil(error, "error should not be nil")
         }
 
+        /*
+         * I don't see any way in swift to call a deprecated API.
+         * But, since we're not actually testing behavior here, it's
+         * okay to ignore.
         clique.viewSet(Set(), disabledViews: Set())
+         */
 
         do {
             try clique.setUserCredentialsAndDSID("", password: Data())

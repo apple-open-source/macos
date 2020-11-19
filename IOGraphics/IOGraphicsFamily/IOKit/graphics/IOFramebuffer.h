@@ -34,7 +34,7 @@
 #include <IOKit/graphics/IOFramebufferShared.h>
 
 
-#define IOFRAMEBUFFER_REV           7
+#define IOFRAMEBUFFER_REV           8
 
 
 class IOFramebuffer;
@@ -542,6 +542,8 @@ protected:
 
     IOReturn deliverFramebufferNotification(
                     IOIndex event, void * info = 0 );
+
+    static void handleVBL(IOFramebuffer * inst, void * unused);
 
 #ifdef IOFRAMEBUFFER_PRIVATE
 #include <IOKit/graphics/IOFramebufferPrivate.h>

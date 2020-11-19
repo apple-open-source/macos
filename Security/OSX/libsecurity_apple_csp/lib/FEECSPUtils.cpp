@@ -168,7 +168,7 @@ feePubKey CryptKit::rawCssmKeyToFee(
 	const CssmKey	&cssmKey)
 {
 	const CSSM_KEYHEADER *hdr = &cssmKey.KeyHeader;
-	assert(hdr->BlobType == CSSM_KEYBLOB_RAW); 
+	assert(hdr->BlobType == CSSM_KEYBLOB_RAW);
 	
 	switch(hdr->AlgorithmId) {
 		case CSSM_ALGID_FEE:

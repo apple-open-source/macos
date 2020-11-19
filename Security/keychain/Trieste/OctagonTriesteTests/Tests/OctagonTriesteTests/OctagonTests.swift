@@ -16,7 +16,6 @@ extension CDAIOSDevice {
 }
 
 final class OctagonTests: CDTTestCase {
-
     let username: String? = nil
     let password: String? = nil
     var signedIn: Bool = false
@@ -111,7 +110,6 @@ final class OctagonTests: CDTTestCase {
     }
 
     func compareCKKSZone(name zone: String, status1: NSDictionary, status2: NSDictionary) -> Bool {
-
         let zone1 = status1[zone] as! NSDictionary
         let zone2 = status2[zone] as! NSDictionary
 
@@ -136,7 +134,6 @@ final class OctagonTests: CDTTestCase {
     }
 
     func compareCKKSStatus(c1: NSDictionary, c2: NSDictionary) -> Bool {
-
         let status1 = c1["status"] as! NSDictionary
         let status2 = c2["status"] as! NSDictionary
 
@@ -165,7 +162,6 @@ final class OctagonTests: CDTTestCase {
 
     func sosApplication(_ device: CDAIOSDevice, verbose: Bool = false) throws {
         if self.password != nil {
-
             print("submitting application\n")
 
             let password = try device.executeFile(atPath: securityTool, withArguments: ["sync", "-P", self.password!])
@@ -183,7 +179,6 @@ final class OctagonTests: CDTTestCase {
 
     func sosApprove(_ device: CDAIOSDevice, verbose: Bool = false) throws {
         if self.password != nil {
-
             print("approving applications\n")
 
             let password = try device.executeFile(atPath: securityTool, withArguments: ["sync", "-P", self.password!])

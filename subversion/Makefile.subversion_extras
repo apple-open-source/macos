@@ -14,9 +14,10 @@ Extra_Configure_Flags = --enable-shared --disable-static \
                         --with-apr=$(APR_TOOLCHAIN_DIR) \
                         --with-apr-util=$(APR_TOOLCHAIN_DIR) \
                         --with-swig=$(shell test -e /usr/bin/swig && echo /usr || echo /usr/local) \
-                        --with-ruby-sitedir=$(RBLIBDIR)/ruby \
                         --with-sasl=$(SDKROOT)/usr \
                         --includedir=$(Install_Prefix)/local/include
+
+Extra_Make_Flags = V=1
 
 # We are only performing post-install actions here.
 GnuNoBuild            = YES
@@ -117,8 +118,8 @@ perl-bindings:
 	cd $(BuildDirectory) && \
 	for vers in $(PERLORDEREDVERS); do \
 	    export VERSIONER_PERL_VERSION=$${vers} && \
-	    installarchlib=`perl -MConfig -e 'print $$Config::Config{installarchlib}' | sed "s,^/System,," | sed "s,^/Library,/AppleInternal/Library,"` && \
-	    installprivlib=`perl -MConfig -e 'print $$Config::Config{installprivlib}' | sed "s,^/System,," | sed "s,^/Library,/AppleInternal/Library,"` && \
+	    installarchlib=`perl -MConfig -e 'print $$Config::Config{installarchlib}' | sed "s,^/System/Library/Perl,/usr/local/lib/subversion/perl,"` && \
+	    installprivlib=`perl -MConfig -e 'print $$Config::Config{installprivlib}' | sed "s,^/System/Library/Perl,/usr/local/lib/subversion/perl,"` && \
 	    installbin=$${installprivlib}/bin && \
 	    PLARGS="INSTALLDIRS=perl INSTALLARCHLIB='$${installarchlib}' INSTALLPRIVLIB='$${installprivlib}' INSTALLBIN='$${installbin}' INSTALLSCRIPT='$${installbin}' INSTALLMAN3DIR='/usr/local/share/man/man3'" && \
 	    MAKEARGS="$(Extra_Make_Flags) DESTDIR='$(DSTROOT)'" && \
@@ -149,6 +150,9 @@ post-install:
 	find $(DSTROOT) -name .packlist -delete
 	install -d -o root -g wheel -m 0755 $(DSTROOT)/usr/local/bin
 	install -o root -g wheel -m 0755 $(SRCROOT)/git-svn/git-svn $(DSTROOT)/usr/local/bin
+	sed -i '' -e 's:/usr/bin/perl:/usr/bin/perl$(PERLDEFAULT):' $(DSTROOT)/usr/local/bin/git-svn
+	$(MKDIR) $(OSL)
+	$(INSTALL_FILE) $(SRCROOT)/git-svn/COPYING $(OSL)/git-svn.txt
 	install -d -o root -g wheel -m 0755 $(DSTROOT)/usr/local/share/git-core/perl
 	ditto $(SRCROOT)/git-svn/perl $(DSTROOT)/usr/local/share/git-core/perl
 	chown -R root:wheel $(DSTROOT)/usr/local/share/git-core/perl

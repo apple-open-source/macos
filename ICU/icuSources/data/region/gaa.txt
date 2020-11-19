@@ -1,5 +1,179 @@
 ﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html#License
 gaa{
-    Version{"2.1.48.13"}
+    Countries{
+        001{"Jeŋ Fɛɛ"}
+        002{"Afrika"}
+        003{"Kooyigbɛ Amerika"}
+        005{"Wuoyigbɛ Amerika"}
+        009{"Ŋshɔkpɔi"}
+        011{"Afrika Anaigbɛ"}
+        013{"Teŋgbɛ Amerika"}
+        014{"Afrika Bokagbɛ"}
+        015{"Afrika Kooyigbɛ"}
+        017{"Afrika Teŋgbɛ"}
+        018{"Afrika Wuoyigbɛ"}
+        019{"Amerika Niiaŋ"}
+        021{"Kooyigbɛ Shɔŋŋ Amerika"}
+        029{"Karibean"}
+        030{"Asia Bokagbɛ"}
+        034{"Asia Wuoyigbɛ"}
+        035{"Asia Wuoyi-Bokagbɛ"}
+        039{"Yuropa Wuoyigbɛ"}
+        053{"Australasia"}
+        054{"Melanesia"}
+        057{"Ŋshɔkpɔi Bibii"}
+        061{"Ŋshɔkpɔi Bibii Pii"}
+        142{"Asia"}
+        143{"Asia Teŋgbɛ"}
+        145{"Asia Anaigbɛ"}
+        150{"Yuropa"}
+        151{"Yuropa Bokagbɛ"}
+        154{"Yuropa Kooyigbɛ"}
+        155{"Yuropa Anaigbɛ"}
+        202{"Afrika Fã Ni Yɔɔ Sahara Lɛ Shishi"}
+        419{"Romanse Amerika"}
+        AG{"Antigua Kɛ Barbuda"}
+        AI{"Anguilla"}
+        AO{"Angola"}
+        AR{"Argentina"}
+        AW{"Aruba"}
+        BB{"Barbados"}
+        BF{"Burkina Faso"}
+        BI{"Burundi"}
+        BJ{"Benin"}
+        BL{"St. Barthélemy"}
+        BM{"Bermuda"}
+        BO{"Bolivia"}
+        BQ{"Netherlands Ni Yɔɔ Karibean"}
+        BR{"Brazil"}
+        BS{"Bahamas"}
+        BV{"Bouvet Ŋshɔkpɔ"}
+        BW{"Botswana"}
+        BZ{"Belize"}
+        CA{"Kanada"}
+        CD{"Kongo - Kinshasa"}
+        CF{"Teŋgbɛ Afrika Jeŋmaŋ"}
+        CG{"Kongo - Brazzaville"}
+        CI{"Ko Divua"}
+        CL{"Tsili"}
+        CM{"Kameroon"}
+        CN{"Tsaina"}
+        CO{"Kolombia"}
+        CR{"Kosta Rika"}
+        CU{"Kuba"}
+        CV{"Kape Verde"}
+        CW{"Kurasao"}
+        DJ{"Djibouti"}
+        DM{"Dominika"}
+        DO{"Dominika Republik"}
+        DZ{"Algeria"}
+        EA{"Keuta Kɛ Melilla"}
+        EC{"Ekuador"}
+        EG{"Ejipt"}
+        EH{"Sahara Wuoyigbɛ"}
+        ER{"Eritrea"}
+        ET{"Etiopia"}
+        EU{"Yuropa Maji Ekomefeemɔ"}
+        EZ{"Yuropaniiaŋ"}
+        FK{"Falkland Ŋshɔkpɔi"}
+        GA{"Gabon"}
+        GD{"Grenada"}
+        GF{"Frentsibii Guiana"}
+        GH{"Ghana"}
+        GL{"Greenland"}
+        GM{"Gambia"}
+        GN{"Guinea"}
+        GP{"Guadeloupe"}
+        GQ{"Ekuatorial Guinea"}
+        GS{"Georgia Wuoyi Kɛ Sandwitsi Ŋshɔkpɔi Ni Yɔɔ Wuoyi"}
+        GT{"Guatemala"}
+        GW{"Guinea-Bissau"}
+        GY{"Guyana"}
+        HN{"Honduras"}
+        HT{"Haiti"}
+        IC{"Kanary Ŋshɔkpɔi"}
+        IN{"India"}
+        IO{"Britain Shikpɔji Ni Yɔɔ Indian Ŋshɔ Lɛ Mli"}
+        JM{"Jamaika"}
+        JP{"Japan"}
+        KE{"Kenya"}
+        KM{"Komoros"}
+        KN{"St. Kitts Kɛ Nevis"}
+        KY{"Kayman Ŋshɔkpɔi"}
+        LC{"St. Lusia"}
+        LR{"Liberia"}
+        LS{"Lesotho"}
+        LY{"Libia"}
+        MA{"Moroko"}
+        MF{"St. Martin"}
+        MG{"Madagaskar"}
+        ML{"Mali"}
+        MO{"Makao SAR Tsaina"}
+        MQ{"Martinik"}
+        MR{"Mauritania"}
+        MS{"Montserrat"}
+        MU{"Mauritius"}
+        MW{"Malawi"}
+        MX{"Meziko"}
+        MZ{"Mozambik"}
+        NA{"Namibia"}
+        NE{"Niger"}
+        NG{"Anago"}
+        NI{"Nikaragua"}
+        PA{"Panama"}
+        PE{"Peru"}
+        PM{"St. Pierre Kɛ Mikelon"}
+        PR{"Puerto Riko"}
+        PY{"Paraguay"}
+        QO{"Ŋshɔkpɔi Ni Yɔɔ Shɔŋŋ"}
+        RE{"Réunion"}
+        RW{"Rwanda"}
+        SC{"Seyshelles"}
+        SD{"Sudan"}
+        SH{"St. Helena"}
+        SL{"Sierra Leone"}
+        SN{"Senegal"}
+        SO{"Somalia"}
+        SR{"Suriname"}
+        SS{"Sudan Wuoyi"}
+        ST{"São Tomé Kɛ Prínsipe"}
+        SV{"El Salvador"}
+        SX{"Sint Maarten"}
+        SZ{"Eswatini"}
+        TC{"Turks Kɛ Kaikos Ŋshɔkpɔi"}
+        TD{"Tsad"}
+        TF{"Frentsibii Ashikpɔji Ni Yɔɔ Wuoyi"}
+        TG{"Togo"}
+        TN{"Tunisia"}
+        TT{"Trinidad Kɛ Tobago"}
+        TZ{"Tanzania"}
+        UG{"Uganda"}
+        UN{"Jeŋmaji Ekomefeemɔ"}
+        US{"United States"}
+        UY{"Uruguay"}
+        VC{"St. Vinsent Kɛ Grenadines"}
+        VE{"Venezuela"}
+        VG{"Britain Ŋshɔkpɔi Ni Atarako Amɛhe"}
+        VI{"US Ŋshɔkpɔi Ni Atarako Amɛhe"}
+        XA{"Eyaa Ŋwɛi Kɛ Shikpɔŋ Fɛɛ"}
+        XB{"Eyaa Biɛ Kɛ Biɛ Fɛɛ"}
+        YT{"Mayotte"}
+        ZA{"South Afrika"}
+        ZM{"Zambia"}
+        ZW{"Zimbabwe"}
+        ZZ{"He Ko Ni Gbɛ́i Bɛ Mli"}
+    }
+    Countries%short{
+        MO{"Makao"}
+        US{"US"}
+    }
+    Countries%variant{
+        CD{"Kongo (DR)"}
+        CG{"Kongo (Jeŋmaŋ)"}
+        CI{"Ko Divua"}
+        FK{"Falkland Ŋshɔkpɔi Lɛ"}
+        SZ{"Swaziland"}
+    }
+    Version{"36.1"}
 }

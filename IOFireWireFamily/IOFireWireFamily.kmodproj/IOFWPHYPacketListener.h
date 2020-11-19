@@ -48,7 +48,7 @@ protected:
 	static IOFWPHYPacketListener * createWithController( IOFireWireController * controller );
 
     virtual bool initWithController( IOFireWireController * control );
-    virtual void free( void );
+    virtual void free( void ) APPLE_KEXT_OVERRIDE;
 
 public:
 

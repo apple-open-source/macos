@@ -241,7 +241,6 @@ static STAILQ_HEAD(, IOFBController) gIOFBAllControllers
 
 static OSArray *            gAllFramebuffers;
 static OSArray *            gStartedFramebuffers;
-static IOWorkLoop *         gIOFBHIDWorkLoop;
 static IOTimerEventSource * gIOFBDelayedPrefsEvent;
 static IOTimerEventSource * gIOFBServerAckTimer;
 static IONotifier *         gIOFBRootNotifier;
@@ -413,7 +412,7 @@ public:
     IOInterruptEventSource *     fWorkES;
     IOService      *             fDevice;
     OSNumber       *             fDependentID;
-    const char     *             fName;
+    char                         fName[64];
     AbsoluteTime                 fInitTime;
 
     thread_t                     fPowerThread;
@@ -448,9 +447,6 @@ public:
     uintptr_t                    fSaveGAR;
 #endif
 
-    char                         * fDGPUName;
-    size_t                       fDGPUNameLen;
-
     static IOFBController *withFramebuffer(IOFramebuffer *fb);
     static IOFBController *copyController(IOFramebuffer *fb,
                                           const CopyType flag);
@@ -461,6 +457,7 @@ public:
     bool init(IOFramebuffer *fb);
 #pragma clang diagnostic pop
 
+    void setThreadName();
     void unhookFB(IOFramebuffer *fb);
 
     bool isMuted() const { return fState & kIOFBMuted; }
@@ -562,8 +559,6 @@ struct IOFramebufferPrivate
     void *                      dpInterruptRef;
     UInt32                      dpInterrupDelayTime;
 
-
-	const OSSymbol *			displayPrefKey;
 
     IOByteCount                 gammaDataLen;
     UInt8 *                     gammaData;
@@ -1196,9 +1191,9 @@ void IOGraphicsWorkLoop::wakeupGate(void *event, bool oneThread)
     shmem = GetShmem(fb);                                               \
     SETSEMA(shmem)
 
+static const uint64_t kCursorThresholdAT = ms2at(20);
 #if TIME_CURSOR
 
-static const uint64_t kCursorThresholdAT = ms2at(20);
 #define CURSORLOCK(fb)                                                       \
     StdFBShmem_t *shmem = nullptr;                                           \
     if (2 != fb->getPowerState()) {                                          \
@@ -1350,6 +1345,13 @@ IOFBController *IOFBController::withFramebuffer(IOFramebuffer *fb)
     return me;
 }
 
+void IOFBController::setThreadName()
+{
+    char name[64];
+    snprintf(name, sizeof(name), "IOGraphics-%s", fName);
+    thread_set_thread_name(fWl->getThread(), name);
+}
+
 bool IOFBController::init(IOFramebuffer *fb)
 {
     IOFBC_START(init,0,0,0);
@@ -1377,29 +1379,6 @@ bool IOFBController::init(IOFramebuffer *fb)
         fExternal = (NULL != service->getProperty(kIOPCITunnelledKey, gIOServicePlane,
             kIORegistryIterateRecursively | kIORegistryIterateParents));
 
-        static const char   eGPUName[] = "EGPU";
-        static const char   eGPURegistryName[] = "display";
-        static uint8_t      eGPUCount = 0;
-        if ((0 == strncmp(eGPURegistryName, service->getName(), strlen(eGPURegistryName))) && fExternal)
-        {
-            fDGPUNameLen = strlen(eGPUName) + 4; // Max 3 digits plus terminator
-            fDGPUName = IONew(char, fDGPUNameLen);
-            if (NULL != fDGPUName)
-            {
-                snprintf(fDGPUName, fDGPUNameLen, "%s%u", eGPUName, eGPUCount);
-                fName = fDGPUName;
-            }
-            else
-            {
-                fName = service->getName();
-                fDGPUNameLen = 0;
-            }
-        }
-        else
-        {
-            fName = service->getName();
-        }
-
         OSData *data = OSDynamicCast(OSData, service->getProperty("vendor-id"));
         if (data)
             fVendorID = ((uint32_t *) data->getBytesNoCopy())[0];
@@ -1410,13 +1389,16 @@ bool IOFBController::init(IOFramebuffer *fb)
             kprintf("IOG CS_OFF: %#llx\n", gIOGDebugFlags);
         }
     }
-    else
-        fName = "FB??";
+
+    IOService *nameService = fDevice ? fDevice : fb;
+    snprintf(fName, sizeof(fName), "%s-%#x", nameService->getName(),
+        static_cast<uint32_t>(nameService->getRegistryEntryID()));
 
 #if SINGLE_THREAD
     fWl = gIOFBSystemWorkLoop;
 #else
     fWl = IOGraphicsControllerWorkLoop::workLoop(0, NULL, NULL, this);
+    setThreadName();
 #endif
     if (!fWl)
         panic("controller->fWl");
@@ -1469,12 +1451,6 @@ void IOFBController::free()
                       this, IOFBController, fNextController);
     }
     OSSafeReleaseNULL(fWl);
-
-    if (fDGPUName)
-    {
-        IODelete(fDGPUName, char, fDGPUNameLen);
-        fDGPUName = NULL;
-    }
 
     IOFBC_END(free,0,0,0);
 }
@@ -2005,6 +1981,8 @@ __private_extern__ "C" kern_return_t IOGraphicsFamilyModuleStart(kmod_info_t *ki
 
     gIOFBSystemWorkLoop = IOGraphicsSystemWorkLoop::workLoop(0, NULL, NULL, NULL);
     if (!gIOFBSystemWorkLoop) panic("gIOFBSystemWorkLoop");
+    thread_set_thread_name(gIOFBSystemWorkLoop->getThread(), "IOGraphicsSystem");
+
     gAllFramebuffers     = OSArray::withCapacity(8);
     gStartedFramebuffers = OSArray::withCapacity(1);
     gIOFramebufferKey    = OSSymbol::withCStringNoCopy("IOFramebuffer");
@@ -2021,6 +1999,11 @@ __private_extern__ "C" kern_return_t IOGraphicsFamilyModuleStart(kmod_info_t *ki
 
     // Single threaded at this point no need to be atomically careful
     gIOGDebugFlags = kIOGDbgVBLThrottle | kIOGDbgLidOpen;
+
+#if DEVELOPMENT
+    gIOGDebugFlags |= kIOGDbgWaitQuietControllerPanic;
+#endif
+
     // As part of the static bitmap investigation done during Lobo
     // <rdar://problem/33468295> Black flash / screen dimmed between static bitmap and live content when waking from standby
     // Was root caused to the fadeTimer running = disabled via removal of kIOGDbgFades
@@ -2442,6 +2425,11 @@ static void IOFramebufferBootInitFB(IOVirtualAddress frameBuffer,
 	if (logoData) IODelete(logoData, uint8_t, lw * lh);
 }
 
+void IOFramebuffer::sysAssertGated(void)
+{
+    SYSASSERTGATED();
+}
+
 void IOFramebuffer::setupCursor(void)
 {
     IOFB_START(setupCursor,0,0,0);
@@ -2746,7 +2734,7 @@ IOReturn IOFramebuffer::extSetStartupDisplayMode(
 			&inst->__private->timingInfo, sizeof(inst->__private->timingInfo));
 		if (data)
 		{
-			inst->setPreference(NULL, gIOFBStartupModeTimingKey, data);
+			inst->setPreference(inst->__private->display, gIOFBStartupModeTimingKey, data);
 			data->release();
 		}
 	}
@@ -3930,6 +3918,20 @@ done:
                0, timeout);
     D(GENERAL, thisName, " time left %llu, status %d, regId %#llx\n",
         timeout, status, getRegistryEntryID());
+
+    // Panic to investigate IOFramebufferOpen failures <61600559>.
+    if ((kIOReturnSuccess != status) &&
+        (kIOGDbgWaitQuietControllerPanic & atomic_load(&gIOGDebugFlags)))
+    {
+        char path[512];
+        int pathLen = sizeof(path);
+        if (!getPath(path, &pathLen, gIOServicePlane)) {
+            snprintf(path, sizeof(path), "path lookup failed");
+        }
+        panic("%s: waitQuietController failed: 0x%08x %#llx %s",
+            thisName, status, getRegistryEntryID(), path);
+    }
+
     IOFB_END(waitQuietController,status,0,0);
     return status;
 }
@@ -4602,8 +4604,13 @@ void IOFramebuffer::initialize()
 	OSDictionary  *     matching;
 
 	gIOFBServerInit      = true;
+#if defined(__arm__) || defined(__arm64__)
+    gIOFBBlackBoot       = 0;//(0 != (kBootArgsFlagBlack & ((boot_args *) PE_state.bootArgs)->bootFlags));
+    gIOFBBlackBootTheme  = 0;//(0 != (kBootArgsFlagBlackBg & ((boot_args *) PE_state.bootArgs)->bootFlags));
+#else
 	gIOFBBlackBoot       = (0 != (kBootArgsFlagBlack & ((boot_args *) PE_state.bootArgs)->flags));
 	gIOFBBlackBootTheme  = (0 != (kBootArgsFlagBlackBg & ((boot_args *) PE_state.bootArgs)->flags));
+#endif
 	if (gIOFBBlackBoot || gIOFBBlackBootTheme) gIOFBGrayValue = 0;
     gIOFBVerboseBoot     = PE_parse_boot_argn("-v", NULL,0);
 
@@ -4644,16 +4651,6 @@ void IOFramebuffer::initialize()
 	gIOGraphicsPrefsVersionKey = OSSymbol::withCStringNoCopy(kIOGraphicsPrefsVersionKey);
 	gIOGraphicsPrefsVersionValue = OSNumber::withNumber(kIOGraphicsPrefsCurrentVersion, 32);
 	gIOFBVblDeltaMult = (1 << 16);
-
-    matching  = nameMatching("IOHIDSystem");
-	IOService * hidsystem = copyMatchingService(matching);
-	if (hidsystem)
-	{
-		gIOFBHIDWorkLoop = hidsystem->getWorkLoop();
-		if (gIOFBHIDWorkLoop) gIOFBHIDWorkLoop->retain();
-		hidsystem->release();
-	}
-	if (matching) matching->release();
 
 	// system work
 	gIOFBWorkES = IOInterruptEventSource::interruptEventSource(gIOFBSystemWorkLoop, &systemWork);
@@ -5082,23 +5079,25 @@ void IOFramebuffer::transformLocation(StdFBShmem_t * shmem,
     IOFB_END(transformLocation,0,0,0);
 }
 
-void IOFramebuffer::moveCursor( IOGPoint * cursorLoc, int frame )
+void IOFramebuffer::moveCursorImpl( const IOGPoint& cursorLoc, int frame )
 {
-    UInt32 hwCursorActive;
-
     if (isInactive())
         return; // rdar://30475917
 
     if (static_cast<UInt32>(frame) >= __private->numCursorFrames)
         return;
 
-	nextCursorLoc = *cursorLoc;
+    if (!cursorEnable)
+        return;
+
+    nextCursorLoc = cursorLoc;
     nextCursorFrame = frame;
 
-	CURSORLOCK(this);
-
+    StdFBShmem_t *shmem = static_cast<StdFBShmem_t *>(priv);
+    SETSEMA(shmem);
     if (frame != shmem->frame)
     {
+        UInt32 hwCursorActive;
         if (__private->cursorFlags[frame] && pagingState)
         {
             hwCursorActive = _setCursorImage( frame );
@@ -5119,14 +5118,33 @@ void IOFramebuffer::moveCursor( IOGPoint * cursorLoc, int frame )
         }
     }
 
-	if (kIOFBRotateFlags & __private->transform)
-		transformLocation(shmem, &nextCursorLoc, &shmem->cursorLoc);
-	else
-		shmem->cursorLoc = nextCursorLoc;
-	shmem->frame = frame;
-	deferredMoveCursor( this );
+    if (kIOFBRotateFlags & __private->transform)
+        transformLocation(shmem, &nextCursorLoc, &shmem->cursorLoc);
+    else
+        shmem->cursorLoc = nextCursorLoc;
+    shmem->frame = frame;
+    deferredMoveCursor( this );
 
-	CURSORUNLOCK(this);
+    CLEARSEMA(shmem, this);
+}
+
+void IOFramebuffer::moveCursor( IOGPoint * cursorLoc, int frame )
+{
+    if (2 != getPowerState()) {
+        FBGATEGUARD(ctrlgated, this);
+        moveCursorImpl(*cursorLoc, frame);
+    } else {
+        uint64_t nameBufInt[1] = {0}; GPACKSTRING(nameBufInt, thisName);
+        uint64_t fnBufInt[2]   = {0}; GPACKSTRING(fnBufInt,   __FUNCTION__);
+        IOG_KTRACE_IFSLOW_START(DBG_IOG_CURSORLOCK);
+        FBGATEGUARD(ctrlgated, this);
+        IOG_KTRACE_IFSLOW_END(DBG_IOG_CURSORLOCK, DBG_FUNC_NONE,
+                              kGTRACE_ARGUMENT_STRING, nameBufInt[0],
+                              kGTRACE_ARGUMENT_STRING, fnBufInt[0],
+                              kGTRACE_ARGUMENT_STRING, fnBufInt[1],
+                              kCursorThresholdAT);
+        moveCursorImpl(*cursorLoc, frame);
+    }
 }
 
 void IOFramebuffer::hideCursor( void )
@@ -5235,16 +5253,18 @@ bool IOFramebuffer::getTimeOfVBL(AbsoluteTime * deadlineAT, uint32_t frames)
 	return (true);
 }
 
-void IOFramebuffer::handleVBL(IOFramebuffer * inst, void * ref)
+void IOFramebuffer::handleVBL(IOFramebuffer * inst, void *)
 {
     IOFB_START(handleVBL,0,0,0);
     StdFBShmem_t * shmem = GetShmem(inst);
     AbsoluteTime   now;
     uint64_t       _now, calculatedDelta, drift;
 
+
     if (!shmem)
     {
         IOFB_END(handleVBL,-1,__LINE__,0);
+        KDBG_FILTERED(IOGDBG_VBLANK, inst && inst->__private ? inst->__private->regID : -1);
         return;
     }
 	inst->__private->actualVBLCount++;
@@ -5254,6 +5274,8 @@ void IOFramebuffer::handleVBL(IOFramebuffer * inst, void * ref)
 	AbsoluteTime delta = now;
 	SUB_ABSOLUTETIME(&delta, &shmem->vblTime);
 	calculatedDelta = AbsoluteTime_to_scalar(&shmem->vblDeltaReal);
+
+    KDBG_FILTERED(IOGDBG_VBLANK | DBG_FUNC_START, inst->__private->regID, delta, calculatedDelta, now);
 
 	if (calculatedDelta && inst->__private->vblThrottle)
 	{
@@ -5282,9 +5304,12 @@ void IOFramebuffer::handleVBL(IOFramebuffer * inst, void * ref)
     shmem->vblTime  = now;
 	inst->__private->actualVBLCount = 0;
 
-    KERNEL_DEBUG(0xc000030 | DBG_FUNC_NONE,
-                 (uint32_t)(AbsoluteTime_to_scalar(&shmem->vblDeltaReal) >> 32),
-                 (uint32_t)(AbsoluteTime_to_scalar(&shmem->vblDeltaReal)), 0, 0, 0);
+    const uint64_t bits =
+        (inst->__private->vblThrottle ? 1 : 0) |
+        (gIOFBVBLDrift ? 2 : 0) |
+        0;
+
+    KDBG_FILTERED(IOGDBG_VBLANK | DBG_FUNC_END, inst->__private->regID, shmem->vblCount, shmem->vblDelta, bits);
 
     if (inst->vblSemaphore)
         semaphore_signal_all(inst->vblSemaphore);
@@ -5418,14 +5443,62 @@ IOReturn IOFramebuffer::extSetCursorPosition(
         OSObject * target, void * reference, IOExternalMethodArguments * args)
 {
     IOFB_START(extSetCursorPosition,0,0,0);
-//    IOFramebuffer * inst = (IOFramebuffer *) target;
-//    SInt32          x    = args->scalarInput[0];
-//    SInt32          y    = args->scalarInput[1];
+    IOFramebuffer * inst = (IOFramebuffer *)target;
 
-//    kIOGReportAPIState_SetCursorPosition
+    const auto& argX = args->scalarInput[0];
+    const auto& argY = args->scalarInput[1];
+    const auto& argFrame = args->scalarInput[2];
+
+    IOGBounds *screenBounds;
+    inst->getBoundingRect(&screenBounds);
+
+    IOGPoint cursorLoc = {
+        .x = static_cast<SInt16>(argX),
+        .y = static_cast<SInt16>(argY)
+    };
+
+    if (screenBounds == nullptr)
+    {
+        IOLog("IOG: screenBounds is null");
+        return kIOReturnBadArgument;
+    }
+    else
+    {
+        if (cursorLoc.x < screenBounds->minx || cursorLoc.x > screenBounds->maxx ||
+            cursorLoc.y < screenBounds->miny || cursorLoc.y > screenBounds->maxy)
+        {
+            IOLog("IOG: cursor position (%d,%d) is out of screen bounds:(%d,%d,%d,%d)",
+            cursorLoc.x, cursorLoc.y,
+            screenBounds->minx, screenBounds->miny, screenBounds->maxx, screenBounds->maxy);
+            return kIOReturnBadArgument;
+        }
+    }
+
+    if (argFrame > INT_MAX)
+    {
+        IOLog("IOG: frame index integer overflow %llx", argFrame);
+        return kIOReturnBadArgument;
+    }
+    const int frame = static_cast<int>(argFrame);
+
+    // TODO: Validate the locking here does not interfere with cursor movements, else
+    // if it does, then a near-lockless implementation will be required.  Certainly
+    // something that is off the IOGWL...
+    IOG_KTRACE_IFSLOW_START(DBG_IOG_CURSORLOCK);
+    FBGATEGUARD(ctrlgated, inst);
+
+    uint64_t nameBufInt[1] = {0}; GPACKSTRING(nameBufInt, inst->thisName);
+    uint64_t fnBufInt[2]   = {0}; GPACKSTRING(fnBufInt,   __FUNCTION__);
+    IOG_KTRACE_IFSLOW_END(DBG_IOG_CURSORLOCK, DBG_FUNC_NONE,
+                          kGTRACE_ARGUMENT_STRING, nameBufInt[0],
+                          kGTRACE_ARGUMENT_STRING, fnBufInt[0],
+                          kGTRACE_ARGUMENT_STRING, fnBufInt[1],
+                          kCursorThresholdAT);
+    
+    inst->moveCursorImpl(cursorLoc, frame);
 
     IOFB_END(extSetCursorPosition,kIOReturnUnsupported,0,0);
-    return (kIOReturnUnsupported);
+    return kIOReturnSuccess;
 }
 
 void IOFramebuffer::transformCursor( StdFBShmem_t * shmem, IOIndex frame )
@@ -7762,8 +7835,6 @@ void IOFramebuffer::displaysOnline(bool nowOnline)
 	}
 	else
 	{
-        OSSafeReleaseNULL(__private->displayPrefKey);
-	
 		TIMESTART();
 		if (__private->paramHandler)
 			__private->paramHandler->setDisplay(0);
@@ -8877,7 +8948,6 @@ IOReturn IOFramebuffer::open( void )
 
         if (!gAllFramebuffers
          || !gIOFBRootNotifier
-         || !gIOFBHIDWorkLoop
          || !gIOFBWorkES
          || !IODisplayWrangler::serverStart())
         {
@@ -14311,33 +14381,40 @@ OSObject * IOFramebuffer::copyPreferences( void )
     return (gIOFBPrefsSerializer);
 }
 
+OSDictionary * IOFramebuffer::copyPreferenceDict( const OSSymbol * prefKey)
+{
+    OSDictionary *   dict = nullptr;
+
+    if (!gIOFBPrefs)
+        return (nullptr);
+
+    if (!prefKey)
+        return (nullptr);
+
+    if ((dict = OSDynamicCast(OSDictionary, gIOFBPrefs->getObject(prefKey))))
+        dict->retain();
+
+    return (dict);
+}
+
 OSObject * IOFramebuffer::copyPreference( IODisplay * display, const OSSymbol * key )
 {
     IOFB_START(copyPreference,0,0,0);
     OSDictionary *   dict;
     OSObject *       value = 0;
-
-    if (!gIOFBPrefs)
-    {
-        IOFB_END(copyPreference,-1,__LINE__,0);
-        return (value);
-    }
-
-	if (!__private->displayPrefKey && display)
-		__private->displayPrefKey = (const OSSymbol *) display->copyProperty(kIODisplayPrefKeyKey);
-    if (!__private->displayPrefKey)
-    {
-        IOFB_END(copyPreference,-1,__LINE__,0);
-        return (value);
-    }
-
-    if ((dict = OSDynamicCast(OSDictionary, gIOFBPrefs->getObject(__private->displayPrefKey))))
+    OSObject *obj = display->copyProperty(kIODisplayPrefKeyKey);
+    const OSSymbol * prefKey = OSDynamicCast(OSSymbol, obj);
+    
+    dict = copyPreferenceDict(prefKey);
+    if (dict)
     {
         value = dict->getObject(key);
         if (value)
             value->retain();
+        OSSafeReleaseNULL(dict);
     }
 
+    OSSafeReleaseNULL(obj);
     IOFB_END(copyPreference,0,0,0);
     return (value);
 }
@@ -14348,18 +14425,23 @@ bool IOFramebuffer::getIntegerPreference( IODisplay * display, const OSSymbol * 
     bool found = false;
     OSObject *
     pref = copyPreference(display, key);
+    OSObject *obj = display->copyProperty(kIODisplayPrefKeyKey);
+    const OSSymbol * prefKey = OSDynamicCast(OSSymbol, obj);
+    
     if (pref)
     {
         OSNumber * num;
         if ((num = OSDynamicCast(OSNumber, pref)))
         {
             value[0] = num->unsigned32BitValue();
-            DEBG1(thisName, " found(%s) %s = %d\n", __private->displayPrefKey->getCStringNoCopy(), 
-            										key->getCStringNoCopy(), (uint32_t) value[0]);
+            if (prefKey)
+                DEBG1(thisName, " found(%s) %s = %d\n", prefKey->getCStringNoCopy(),
+                                                        key->getCStringNoCopy(), (uint32_t) value[0]);
             found = true;
         }
         pref->release();
     }
+    OSSafeReleaseNULL(obj);
     IOFB_END(getIntegerPreference,found,0,0);
     return (found);
 }
@@ -14370,6 +14452,8 @@ bool IOFramebuffer::setPreference( IODisplay * display, const OSSymbol * key, OS
     OSDictionary *   dict;
     OSObject *       oldValue = 0;
     bool             madeChanges = false;
+    const OSSymbol * prefKey = nullptr;
+    OSObject *       obj = nullptr;
 
     if (!gIOFBPrefs)
     {
@@ -14377,22 +14461,24 @@ bool IOFramebuffer::setPreference( IODisplay * display, const OSSymbol * key, OS
         return (false);
     }
 
-	if (!__private->displayPrefKey && display)
-		__private->displayPrefKey = (const OSSymbol *) display->copyProperty(kIODisplayPrefKeyKey);
+    if (display) {
+        obj = display->copyProperty(kIODisplayPrefKeyKey);
+		prefKey = OSDynamicCast(OSSymbol, obj);
+    }
 
-	if (!__private->displayPrefKey)
+	if (!prefKey)
     {
         IOFB_END(setPreference,false,__LINE__,0);
 		return (false);
     }
 
-    dict = OSDynamicCast(OSDictionary, gIOFBPrefs->getObject(__private->displayPrefKey));
+    dict = OSDynamicCast(OSDictionary, gIOFBPrefs->getObject(prefKey));
     if (!dict)
     {
         dict = OSDictionary::withCapacity(4);
         if (dict)
         {
-            gIOFBPrefs->setObject(__private->displayPrefKey, dict);
+            gIOFBPrefs->setObject(prefKey, dict);
             dict->release();
             madeChanges = true;
         }
@@ -14422,6 +14508,7 @@ bool IOFramebuffer::setPreference( IODisplay * display, const OSSymbol * key, OS
         gIOFBDelayedPrefsEvent->setTimeoutMS((UInt32) 2000);
     }
 
+    OSSafeReleaseNULL(obj);
     IOFB_END(setPreference,true,0,0);
     return (true);
 }

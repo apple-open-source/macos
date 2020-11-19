@@ -81,7 +81,6 @@ includes
 #include "controller_options.h"
 #include "reachability.h"
 #include "scnc_cache.h"
-#include "diagnostics.h"
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -2572,56 +2571,6 @@ log_scnc_start (struct service *serv, int onDemand, CFStringRef onDemandHostName
 	}
 }
 
-#if !TARGET_OS_OSX
-static vpn_metric_protocol_t
-get_metric_protocol (struct service *serv)
-{
-	switch (serv->type) {
-        case TYPE_PPP:
-            switch (serv->subtype) {
-                case PPP_TYPE_L2TP:
-                    return (VPN_PROTOCOL_L2TP);
-                default:
-                    break;
-            }
-            break;
-            
-        case TYPE_IPSEC:
-            return (VPN_PROTOCOL_IPSEC);
-            
-            
-        default:
-            break;
-	}
-    
-    return (VPN_PROTOCOL_NONE);
-}
-#endif
-
-static void log_vpn_metrics (struct service *serv)
-{
-#if !TARGET_OS_OSX
-    if (!serv)
-        return;
-    
-    if (!serv->establishtime) {
-        // Do not log for service that is not established.
-        // We get a SCNC STOP even when switching between inactive
-        // services.  So avoid logging those.
-        return;
-    }
-    
-    vpn_metric_protocol_t protocol = get_metric_protocol(serv);
-    
-    if ((protocol != VPN_PROTOCOL_NONE) &&
-        !vpn_diagnostics_set_metric(VPN_METRIC_PROTOCOL, protocol)) {
-        SCLog(TRUE, LOG_ERR, CFSTR("log_vpn_metrics: failed to log vpn diagnostics: protocol"));
-    }
-#else
-#pragma unused(serv)
-#endif
-}
-
 /* --------------------------------------------------------------------------
 -----------------------------------------------------------------------------
 -----------------------------------------------------------------------------
@@ -2649,8 +2598,7 @@ int scnc_stop(struct service *serv, void *client, int signal, int scnc_reason)
     }
 
 	log_scnc_stop(serv, pid, scnc_reason);
-	log_vpn_metrics(serv);
-    
+
 	switch (serv->type) {
 		case TYPE_PPP: ret = ppp_stop(serv, signal); break;
 		case TYPE_IPSEC:  ret = ipsec_stop(serv, signal); break;

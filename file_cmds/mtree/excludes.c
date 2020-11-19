@@ -31,17 +31,17 @@
 __FBSDID("$FreeBSD: src/usr.sbin/mtree/excludes.c,v 1.8 2003/10/21 08:27:05 phk Exp $");
 
 #include <sys/types.h>
-#include <sys/time.h>		/* XXX for mtree.h */
 #include <sys/queue.h>
 
 #include <err.h>
+#include <errno.h>
 #include <fnmatch.h>
 #include <fts.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "mtree.h"		/* XXX for extern.h */
+#include "metrics.h"
 #include "extern.h"
 
 /*
@@ -81,8 +81,10 @@ read_excludes_file(const char *name)
 
 		str = malloc(len + 1);
 		e = malloc(sizeof *e);
-		if (str == 0 || e == 0)
+		if (str == 0 || e == 0) {
+			RECORD_FAILURE(59, ENOMEM);
 			errx(1, "memory allocation error");
+		}
 		e->glob = str;
 		memcpy(str, line, len);
 		str[len] = '\0';

@@ -101,8 +101,11 @@ OSStatus makeMasterPassword(const char *fvmkcName, const char *masterPasswordPas
     OSStatus status = SecKeychainCreate(fvmkcName, (UInt32) strlen(masterPasswordPassword), masterPasswordPassword, false, initialAccess, keychainRef);
     if (status!=noErr)
     {
-		if (status==errSecDuplicateKeychain || status==CSSMERR_DL_DATASTORE_ALREADY_EXISTS)
+        if (status==errSecDuplicateKeychain || status==CSSMERR_DL_DATASTORE_ALREADY_EXISTS) {
             sec_error("The keychain file %s already exists", fvmkcName);
+        } else if (status != errSecSuccess) {
+            sec_error("Could not create keychain file %s: %s", fvmkcName, sec_errstr(status));
+        }
         return status;
     }
 
@@ -199,18 +202,24 @@ OSStatus createPair(CFStringRef hostName,CFStringRef userName,SecKeychainRef key
 
     // cleanup
 xit:
-    if (certRef)
+    if (certRef) {
         CFRelease(certRef);
-    if (certData.Data)
+    }
+    if (certData.Data) {
         free(certData.Data);
-	if (hostStr)
-		free(hostStr);
-	if (userStr)
-		free(userStr);
-	if (tpHand)
-		CSSM_ModuleDetach(tpHand);
-	if (clHand)
-		CSSM_ModuleDetach(clHand);
+    }
+    if (hostStr) {
+        free(hostStr);
+    }
+    if (userStr) {
+        free(userStr);
+    }
+    if (tpHand) {
+        CSSM_ModuleDetach(tpHand);
+    }
+    if (clHand) {
+        CSSM_ModuleDetach(clHand);
+    }
 	if (pubKey)
     {
 		CSSM_FreeKey(cspHand,
@@ -707,8 +716,9 @@ keychain_createMFV(int argc, char * const *argv)
         return SHOW_USAGE_MESSAGE;
 
     keychainName = (argc == 1)?*argv:_masterKeychainName;
-    if (!keychainName || *keychainName == '\0')
+    if (!keychainName || *keychainName == '\0') {
         return -1;
+    }
 
 	if (!password && !do_prompt)
 	{

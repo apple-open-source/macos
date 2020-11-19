@@ -28,12 +28,12 @@
 
 #if ENABLE(DFG_JIT)
 
-#include "CodeBlockWithJITType.h"
+#include "ButterflyInlines.h"
 #include "DFGClobberize.h"
 #include "DFGClobbersExitState.h"
 #include "DFGDominators.h"
 #include "DFGMayExit.h"
-#include "JSCInlines.h"
+#include "DFGOSRAvailabilityAnalysisPhase.h"
 #include <wtf/Assertions.h>
 
 namespace JSC { namespace DFG {
@@ -71,6 +71,8 @@ public:
             dataLogF(") == (%s = ", #right); \
             dataLog(right); \
             dataLogF(") (%s:%d).\n", __FILE__, __LINE__); \
+            dataLog("\n\n\n"); \
+            m_graph.baselineCodeBlockFor(nullptr)->dumpBytecode(); \
             dumpGraphIfAppropriate(); \
             WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, #left " == " #right); \
             CRASH(); \
@@ -81,6 +83,11 @@ public:
         
     void validate()
     {
+        if (m_graph.m_isValidating)
+            return;
+
+        auto isValidating = SetForScope(m_graph.m_isValidating, true);
+
         // NB. This code is not written for performance, since it is not intended to run
         // in release builds.
 
@@ -286,6 +293,11 @@ public:
                     VALIDATE((node), !!node->child1());
                     VALIDATE((node), !!node->cellOperand()->value() && node->cellOperand()->value().isCell());
                     break;
+                case CheckArrayOrEmpty:
+                    VALIDATE((node), is64Bit());
+                    VALIDATE((node), !!node->child1());
+                    VALIDATE((node), node->child1().useKind() == CellUse);
+                    break;
                 case CheckStructureOrEmpty:
                     VALIDATE((node), is64Bit());
                     VALIDATE((node), !!node->child1());
@@ -304,6 +316,12 @@ public:
                         if (variant.kind() != PutByIdVariant::Transition)
                             continue;
                         VALIDATE((node), !variant.oldStructureForTransition()->dfgShouldWatch());
+                    }
+                    break;
+                case MultiDeleteByOffset:
+                    for (unsigned i = node->multiDeleteByOffsetData().variants.size(); i--;) {
+                        const DeleteByIdVariant& variant = node->multiDeleteByOffsetData().variants[i];
+                        VALIDATE((node), !variant.newStructure() || !variant.oldStructure()->dfgShouldWatch());
                     }
                     break;
                 case MaterializeNewObject:
@@ -363,6 +381,20 @@ public:
                     break;
                 case NewArrayBuffer:
                     VALIDATE((node), node->vectorLengthHint() >= node->castOperand<JSImmutableButterfly*>()->length());
+                    break;
+                case GetByVal:
+                    switch (node->arrayMode().type()) {
+                    case Array::Int32:
+                    case Array::Double:
+                    case Array::Contiguous:
+                        // We rely on being an original array structure because we are SaneChain, and we need 
+                        // Array.prototype to be our prototype, so we can return undefined when we go OOB.
+                        if (node->arrayMode().isOutOfBoundsSaneChain())
+                            VALIDATE((node), node->arrayMode().isJSArrayWithOriginalStructure());
+                        break;
+                    default:
+                        break;
+                    }
                     break;
                 default:
                     break;
@@ -473,7 +505,7 @@ private:
                     Node* node = block->at(i);
                     m_graph.doToChildren(node, [&] (const Edge& edge) {
                         Node* child = edge.node();
-                        VALIDATE((node), block->isInPhis(child) || seenNodes.contains(child));
+                        VALIDATE((node, edge), block->isInPhis(child) || seenNodes.contains(child));
                     });
                     seenNodes.add(node);
                 }
@@ -483,7 +515,7 @@ private:
                 Node* node = block->phis[i];
                 ASSERT(phisInThisBlock.contains(node));
                 VALIDATE((node), node->op() == Phi);
-                VirtualRegister local = node->local();
+                Operand operand = node->operand();
                 for (unsigned j = 0; j < m_graph.numChildren(node); ++j) {
                     // Phi children in LoadStore form are invalid.
                     if (m_graph.m_form == LoadStore && block->isPhiIndex(i))
@@ -519,10 +551,10 @@ private:
                     for (unsigned k = 0; k < block->predecessors.size(); ++k) {
                         BasicBlock* prevBlock = block->predecessors[k];
                         VALIDATE((block->predecessors[k]), prevBlock);
-                        Node* prevNode = prevBlock->variablesAtTail.operand(local);
+                        Node* prevNode = prevBlock->variablesAtTail.operand(operand);
                         // If we have a Phi that is not referring to *this* block then all predecessors
                         // must have that local available.
-                        VALIDATE((local, block, block->predecessors[k]), prevNode);
+                        VALIDATE((operand, block, block->predecessors[k]), prevNode);
                         switch (prevNode->op()) {
                         case GetLocal:
                         case Flush:
@@ -533,11 +565,11 @@ private:
                             break;
                         }
                         if (node->shouldGenerate()) {
-                            VALIDATE((local, block->predecessors[k], prevNode),
+                            VALIDATE((operand, block->predecessors[k], prevNode),
                                      prevNode->shouldGenerate());
                         }
                         VALIDATE(
-                            (local, block->predecessors[k], prevNode),
+                            (operand, block->predecessors[k], prevNode),
                             prevNode->op() == SetLocal
                             || prevNode->op() == SetArgumentDefinitely
                             || prevNode->op() == SetArgumentMaybe
@@ -547,24 +579,28 @@ private:
                             break;
                         }
                         // At this point it cannot refer into this block.
-                        VALIDATE((local, block->predecessors[k], prevNode), !prevBlock->isInBlock(edge.node()));
+                        VALIDATE((operand, block->predecessors[k], prevNode), !prevBlock->isInBlock(edge.node()));
                     }
                     
                     VALIDATE((node, edge), found);
                 }
             }
             
-            Operands<size_t> getLocalPositions(
-                block->variablesAtHead.numberOfArguments(),
-                block->variablesAtHead.numberOfLocals());
-            Operands<size_t> setLocalPositions(
-                block->variablesAtHead.numberOfArguments(),
-                block->variablesAtHead.numberOfLocals());
+            Operands<size_t> getLocalPositions(OperandsLike, block->variablesAtHead);
+            Operands<size_t> setLocalPositions(OperandsLike, block->variablesAtHead);
             
-            for (size_t i = 0; i < block->variablesAtHead.numberOfArguments(); ++i) {
-                VALIDATE((virtualRegisterForArgument(i), block), !block->variablesAtHead.argument(i) || block->variablesAtHead.argument(i)->accessesStack(m_graph));
+            for (size_t i = 0; i < block->variablesAtHead.numberOfTmps(); ++i) {
+                VALIDATE((Operand::tmp(i), block), !block->variablesAtHead.tmp(i) || block->variablesAtHead.tmp(i)->accessesStack(m_graph));
                 if (m_graph.m_form == ThreadedCPS)
-                    VALIDATE((virtualRegisterForArgument(i), block), !block->variablesAtTail.argument(i) || block->variablesAtTail.argument(i)->accessesStack(m_graph));
+                    VALIDATE((Operand::tmp(i), block), !block->variablesAtTail.tmp(i) || block->variablesAtTail.tmp(i)->accessesStack(m_graph));
+
+                getLocalPositions.tmp(i) = notSet;
+                setLocalPositions.tmp(i) = notSet;
+            }
+            for (size_t i = 0; i < block->variablesAtHead.numberOfArguments(); ++i) {
+                VALIDATE((virtualRegisterForArgumentIncludingThis(i), block), !block->variablesAtHead.argument(i) || block->variablesAtHead.argument(i)->accessesStack(m_graph));
+                if (m_graph.m_form == ThreadedCPS)
+                    VALIDATE((virtualRegisterForArgumentIncludingThis(i), block), !block->variablesAtTail.argument(i) || block->variablesAtTail.argument(i)->accessesStack(m_graph));
                 
                 getLocalPositions.argument(i) = notSet;
                 setLocalPositions.argument(i) = notSet;
@@ -668,24 +704,24 @@ private:
                     if (!m_myRefCounts.get(node))
                         break;
                     if (m_graph.m_form == ThreadedCPS) {
-                        VALIDATE((node, block), getLocalPositions.operand(node->local()) == notSet);
+                        VALIDATE((node, block), getLocalPositions.operand(node->operand()) == notSet);
                         VALIDATE((node, block), !!node->child1());
                         VALIDATE((node, block), node->child1()->op() == SetArgumentDefinitely || node->child1()->op() == Phi);
                     }
-                    getLocalPositions.operand(node->local()) = i;
+                    getLocalPositions.operand(node->operand()) = i;
                     break;
                 case SetLocal:
                     // Only record the first SetLocal. There may be multiple SetLocals
                     // because of flushing.
-                    if (setLocalPositions.operand(node->local()) != notSet)
+                    if (setLocalPositions.operand(node->operand()) != notSet)
                         break;
-                    setLocalPositions.operand(node->local()) = i;
+                    setLocalPositions.operand(node->operand()) = i;
                     break;
                 case SetArgumentDefinitely:
                     // This acts like a reset. It's ok to have a second GetLocal for a local in the same
                     // block if we had a SetArgumentDefinitely for that local.
-                    getLocalPositions.operand(node->local()) = notSet;
-                    setLocalPositions.operand(node->local()) = notSet;
+                    getLocalPositions.operand(node->operand()) = notSet;
+                    setLocalPositions.operand(node->operand()) = notSet;
                     break;
                 case SetArgumentMaybe:
                     break;
@@ -709,9 +745,14 @@ private:
             if (m_graph.m_form == LoadStore)
                 continue;
             
+            for (size_t i = 0; i < block->variablesAtHead.numberOfTmps(); ++i) {
+                checkOperand(
+                    block, getLocalPositions, setLocalPositions, Operand::tmp(i));
+            }
+
             for (size_t i = 0; i < block->variablesAtHead.numberOfArguments(); ++i) {
                 checkOperand(
-                    block, getLocalPositions, setLocalPositions, virtualRegisterForArgument(i));
+                    block, getLocalPositions, setLocalPositions, virtualRegisterForArgumentIncludingThis(i));
             }
             for (size_t i = 0; i < block->variablesAtHead.numberOfLocals(); ++i) {
                 checkOperand(
@@ -780,14 +821,13 @@ private:
 
         auto& dominators = m_graph.ensureSSADominators();
 
+        if (Options::validateFTLOSRExitLiveness())
+            validateOSRExitAvailability(m_graph);
+
         for (unsigned entrypointIndex : m_graph.m_entrypointIndexToCatchBytecodeIndex.keys())
             VALIDATE((), entrypointIndex > 0); // By convention, 0 is the entrypoint index for the op_enter entrypoint, which can not be in a catch.
 
-        for (BlockIndex blockIndex = 0; blockIndex < m_graph.numBlocks(); ++blockIndex) {
-            BasicBlock* block = m_graph.block(blockIndex);
-            if (!block)
-                continue;
-            
+        for (BasicBlock* block : m_graph.blocksInNaturalOrder()) {
             VALIDATE((block), block->phis.isEmpty());
 
             bool didSeeExitOK = false;
@@ -937,7 +977,7 @@ private:
 
     void checkOperand(
         BasicBlock* block, Operands<size_t>& getLocalPositions,
-        Operands<size_t>& setLocalPositions, VirtualRegister operand)
+        Operands<size_t>& setLocalPositions, Operand operand)
     {
         if (getLocalPositions.operand(operand) == notSet)
             return;
@@ -968,26 +1008,26 @@ private:
         dataLog(node, " -> ", edge);
     }
     
-    void reportValidationContext(VirtualRegister local, BasicBlock* block)
+    void reportValidationContext(Operand operand, BasicBlock* block)
     {
         if (!block) {
-            dataLog(local, " in null Block ");
+            dataLog(operand, " in null Block ");
             return;
         }
 
-        dataLog(local, " in Block ", *block);
+        dataLog(operand, " in Block ", *block);
     }
     
     void reportValidationContext(
-        VirtualRegister local, BasicBlock* sourceBlock, BasicBlock* destinationBlock)
+        Operand operand, BasicBlock* sourceBlock, BasicBlock* destinationBlock)
     {
-        dataLog(local, " in Block ", *sourceBlock, " -> ", *destinationBlock);
+        dataLog(operand, " in Block ", *sourceBlock, " -> ", *destinationBlock);
     }
     
     void reportValidationContext(
-        VirtualRegister local, BasicBlock* sourceBlock, Node* prevNode)
+        Operand operand, BasicBlock* sourceBlock, Node* prevNode)
     {
-        dataLog(prevNode, " for ", local, " in Block ", *sourceBlock);
+        dataLog(prevNode, " for ", operand, " in Block ", *sourceBlock);
     }
     
     void reportValidationContext(Node* node, BasicBlock* block)

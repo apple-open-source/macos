@@ -287,6 +287,8 @@ nb{
         VU{"Vanuatu"}
         WF{"Wallis og Futuna"}
         WS{"Samoa"}
+        XA{"pseudospråk – aksenter"}
+        XB{"pseudospråk – RTL"}
         XK{"Kosovo"}
         YE{"Jemen"}
         YT{"Mayotte"}
@@ -308,6 +310,7 @@ nb{
         CZ{"Den tsjekkiske republikk"}
         FK{"Falklandsøyene (Islas Malvinas)"}
         SZ{"Swaziland"}
+        TL{"Timor-Leste"}
     }
-    Version{"2.1.48.42"}
+    Version{"36.1"}
 }

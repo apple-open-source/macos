@@ -75,9 +75,9 @@ int DIAGNOSTIC_InsertNewRecord(NodeRecord_s* psFileRecord, uint64_t uParentClust
     }
 
     MultiReadSingleWrite_LockWrite(&psFSRecord->sDiagnosticDB.sCacheLock);
-    if ( DIAGNOSTIC_IsRecordExist(psFSRecord, uParentCluster,&sTempName, NULL))
+    if ( DIAGNOSTIC_IsRecordExist(psFSRecord, uParentCluster, &sTempName, NULL))
     {
-        MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_InsertNewRecord: FileRecord with name %s in directory with uFileID %llu already exist.\n",pcName,uParentCluster);
+        MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_InsertNewRecord: FileRecord with name %s in directory with uFileID %llu already exist.\n",pcName, uParentCluster);
         assert(0);
         iError = EEXIST;
         goto exit;
@@ -212,4 +212,41 @@ int DIAGNOSTIC_CacheDeInit(FileSystemRecord_s* psFSRecord)
 
     return iError;
 }
+
+void DIAGNOSTIC_ValidateChainCache(NodeRecord_s* psNodeRecord)
+{
+    ClusterChainCacheEntry_s* psLookupEntry = NULL;
+    uint64_t startOffset = 0;
+    // Store the first LOWER_BOUND_ENTRIES_TO_EVICT elements in a temp array temp[0..k-1].
+    // Find the largest element in psLRUEntryToEvict[].
+    TAILQ_FOREACH(psLookupEntry,
+                  &psNodeRecord->sRecordData.psClusterChainList, psClusterChainCacheListEntry) {
+        MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_ValidateChainCache: failed %llu, %llu", startOffset, psLookupEntry->uFileOffset);
+
+        if (startOffset > psLookupEntry->uFileOffset) {
+            MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_ValidateChainCache: failed [%p], %llu > %llu", psNodeRecord, startOffset, psLookupEntry->uFileOffset);
+            assert(0);
+        }
+
+        if (psLookupEntry->pvFileOwner != psNodeRecord) {
+            MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_ValidateChainCache: fileOwner is not identical [%p] != [%p]", psNodeRecord, psLookupEntry->pvFileOwner);
+            assert(0);
+        }
+
+        uint32_t uClusterCount = 0;
+        for (int i = 0; i < MAX_CHAIN_CACHE_ELEMENTS_PER_ENTRY; i++) {
+            uClusterCount += psLookupEntry->psConsecutiveCluster[i].uAmountOfConsecutiveClusters;
+        }
+
+        if (uClusterCount != psLookupEntry->uAmountOfClusters) {
+            MSDOS_LOG(LEVEL_ERROR, "DIAGNOSTIC_ValidateChainCache: failed [%p], %u > %u", psLookupEntry->pvFileOwner, uClusterCount, psLookupEntry->uAmountOfClusters);
+            assert(0);
+        }
+
+        startOffset = psLookupEntry->uFileOffset;
+    }
+    
+    MSDOS_LOG(LEVEL_ERROR, "validate_chain_cache_order %p good", psNodeRecord);
+}
+
 #endif //DIAGNOSTIC

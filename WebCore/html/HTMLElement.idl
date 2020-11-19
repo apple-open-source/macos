@@ -19,11 +19,12 @@
  */
 
 [
-    CustomConstructor(),
     CustomPushEventHandlerScope,
     ExportMacro=WEBCORE_EXPORT,
     JSGenerateToNativeObject,
 ] interface HTMLElement : Element {
+    [Custom] constructor();
+
     // Metadata attributes.
     [CEReactions, Reflect] attribute DOMString title;
     [CEReactions, Reflect] attribute DOMString lang;
@@ -34,7 +35,7 @@
     [CEReactions, Reflect] attribute boolean hidden;
     void click();
     [CEReactions, Reflect] attribute DOMString accessKey;
-    // readonly attribute DOMString accessKeyLabel; // FIXME: Not supported.
+    readonly attribute DOMString accessKeyLabel;
     [CEReactions] attribute boolean draggable;
     // [CEReactions] attribute HTMLMenuElement? contextMenu; // FIXME: Not supported.
     [CEReactions] attribute boolean spellcheck;
@@ -58,8 +59,8 @@
     [CEReactions] attribute [TreatNullAs=EmptyString] DOMString outerText;
 
     // iOS autocorrect / autocapitalization extensions.
-    [Conditional=IOS_AUTOCORRECT_AND_AUTOCAPITALIZE, CEReactions] attribute boolean autocorrect;
-    [Conditional=IOS_AUTOCORRECT_AND_AUTOCAPITALIZE, CEReactions] attribute [TreatNullAs=EmptyString] DOMString autocapitalize;
+    [Conditional=AUTOCORRECT, CEReactions] attribute boolean autocorrect;
+    [Conditional=AUTOCAPITALIZE, CEReactions] attribute [TreatNullAs=EmptyString] DOMString autocapitalize;
 
     // FIXME: We are the only browser to support this now that Blink dropped it (http://crbug.com/688943).
     [CEReactions, Reflect] attribute DOMString webkitdropzone;

@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS_FAMILY) || (PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE))
+#if ENABLE(VIDEO_PRESENTATION_MODE)
 
 #include "AudioSession.h"
 #include "FloatRect.h"
@@ -76,11 +76,12 @@ public:
 class VideoFullscreenModelClient {
 public:
     virtual ~VideoFullscreenModelClient() = default;
-    virtual void hasVideoChanged(bool) { };
-    virtual void videoDimensionsChanged(const FloatSize&) { };
+    virtual void hasVideoChanged(bool) { }
+    virtual void videoDimensionsChanged(const FloatSize&) { }
     virtual void willEnterPictureInPicture() { }
     virtual void didEnterPictureInPicture() { }
     virtual void failedToEnterPictureInPicture() { }
+    virtual void prepareToExitPictureInPicture() { }
     virtual void willExitPictureInPicture() { }
     virtual void didExitPictureInPicture() { }
     virtual void modelDestroyed() { }

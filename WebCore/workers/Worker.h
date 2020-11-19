@@ -61,10 +61,10 @@ public:
     ExceptionOr<void> postMessage(JSC::JSGlobalObject&, JSC::JSValue message, PostMessageOptions&&);
 
     void terminate();
-
-    bool hasPendingActivity() const final;
+    bool wasTerminated() const { return m_wasTerminated; }
 
     String identifier() const { return m_identifier; }
+    const String& name() const { return m_name; }
 
     ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
 
@@ -80,10 +80,12 @@ private:
     void didReceiveResponse(unsigned long identifier, const ResourceResponse&) final;
     void notifyFinished() final;
 
+    // ActiveDOMObject.
     void stop() final;
     void suspend(ReasonForSuspension) final;
     void resume() final;
     const char* activeDOMObjectName() const final;
+    bool virtualHasPendingActivity() const final;
 
     static void networkStateChanged(bool isOnLine);
 

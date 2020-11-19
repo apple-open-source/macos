@@ -35,6 +35,8 @@
 #import "WKDeferringGestureRecognizer.h"
 #import "WKDrawingView.h"
 #import <WebCore/Region.h>
+#import <WebCore/TransformationMatrix.h>
+#import <WebCore/WebCoreCALayerExtras.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/SoftLinking.h>
 
@@ -45,8 +47,15 @@ static void collectDescendantViewsAtPoint(Vector<UIView *, 16>& viewsAtPoint, UI
     if (parent.clipsToBounds && ![parent pointInside:point withEvent:event])
         return;
 
+    if (parent.layer.mask && ![parent.layer _web_maskContainsPoint:point])
+        return;
+
     for (UIView *view in [parent subviews]) {
         CGPoint subviewPoint = [view convertPoint:point fromView:parent];
+
+        auto transform = WebCore::TransformationMatrix { [view.layer transform] };
+        if (!transform.isInvertible())
+            continue;
 
         auto handlesEvent = [&] {
             // FIXME: isUserInteractionEnabled is mostly redundant with event regions for web content layers.
@@ -76,6 +85,74 @@ static void collectDescendantViewsAtPoint(Vector<UIView *, 16>& viewsAtPoint, UI
     };
 }
 
+#if ENABLE(EDITABLE_REGION)
+
+static void collectDescendantViewsInRect(Vector<UIView *, 16>& viewsInRect, UIView *parent, CGRect rect)
+{
+    if (parent.clipsToBounds && !CGRectIntersectsRect(parent.bounds, rect))
+        return;
+
+    if (parent.layer.mask && ![parent.layer _web_maskMayIntersectRect:rect])
+        return;
+
+    for (UIView *view in parent.subviews) {
+        CGRect subviewRect = [view convertRect:rect fromView:parent];
+
+        auto intersectsRect = [&] {
+            // FIXME: isUserInteractionEnabled is mostly redundant with event regions for web content layers.
+            //        It is currently only needed for scroll views.
+            if (!view.isUserInteractionEnabled)
+                return false;
+
+            if (CGRectIsEmpty(view.frame))
+                return false;
+
+            if (!CGRectIntersectsRect(subviewRect, view.bounds))
+                return false;
+
+            if (![view isKindOfClass:WKCompositingView.class])
+                return true;
+            auto* node = RemoteLayerTreeNode::forCALayer(view.layer);
+            return node->eventRegion().intersects(WebCore::IntRect { subviewRect });
+        }();
+
+        if (intersectsRect)
+            viewsInRect.append(view);
+
+        if (!view.subviews)
+            return;
+
+        collectDescendantViewsInRect(viewsInRect, view, subviewRect);
+    };
+}
+
+bool mayContainEditableElementsInRect(UIView *rootView, const WebCore::FloatRect& rect)
+{
+    Vector<UIView *, 16> viewsInRect;
+    collectDescendantViewsInRect(viewsInRect, rootView, rect);
+    if (viewsInRect.isEmpty())
+        return false;
+    bool possiblyHasEditableElements = true;
+    for (auto *view : WTF::makeReversedRange(viewsInRect)) {
+        if (![view isKindOfClass:WKCompositingView.class])
+            continue;
+        auto* node = RemoteLayerTreeNode::forCALayer(view.layer);
+        if (!node)
+            continue;
+        WebCore::IntRect rectToTest { [view convertRect:rect fromView:rootView] };
+        if (node->eventRegion().containsEditableElementsInRect(rectToTest))
+            return true;
+        bool hasEditableRegion = node->eventRegion().hasEditableRegion();
+        if (hasEditableRegion && node->eventRegion().contains(rectToTest))
+            return false;
+        if (hasEditableRegion)
+            possiblyHasEditableElements = false;
+    }
+    return possiblyHasEditableElements;
+}
+
+#endif // ENABLE(EDITABLE_REGION)
+
 static bool isScrolledBy(WKChildScrollView* scrollView, UIView *hitView)
 {
     auto scrollLayerID = RemoteLayerTreeNode::layerID(scrollView.layer);
@@ -96,7 +173,6 @@ static bool isScrolledBy(WKChildScrollView* scrollView, UIView *hitView)
     return false;
 }
 
-#if ENABLE(POINTER_EVENTS)
 OptionSet<WebCore::TouchAction> touchActionsForPoint(UIView *rootView, const WebCore::IntPoint& point)
 {
     Vector<UIView *, 16> viewsAtPoint;
@@ -129,7 +205,6 @@ OptionSet<WebCore::TouchAction> touchActionsForPoint(UIView *rootView, const Web
 
     return node->eventRegion().touchActionsForPoint(WebCore::IntPoint(hitViewPoint));
 }
-#endif
 
 UIScrollView *findActingScrollParent(UIScrollView *scrollView, const RemoteLayerTreeHost& host)
 {
@@ -225,7 +300,7 @@ static Class scrollViewScrollIndicatorClass()
 
 + (Class)layerClass
 {
-    return [CATransformLayer self];
+    return [CATransformLayer class];
 }
 
 @end
@@ -234,7 +309,7 @@ static Class scrollViewScrollIndicatorClass()
 
 + (Class)layerClass
 {
-    return [CABackdropLayer self];
+    return [CABackdropLayer class];
 }
 
 @end
@@ -243,7 +318,7 @@ static Class scrollViewScrollIndicatorClass()
 
 + (Class)layerClass
 {
-    return [CAShapeLayer self];
+    return [CAShapeLayer class];
 }
 
 @end
@@ -273,7 +348,6 @@ static Class scrollViewScrollIndicatorClass()
 
 @end
 
-#if USE(UIREMOTEVIEW_CONTEXT_HOSTING)
 @implementation WKUIRemoteView
 
 - (instancetype)initWithFrame:(CGRect)frame pid:(pid_t)pid contextID:(uint32_t)contextID
@@ -303,7 +377,6 @@ static Class scrollViewScrollIndicatorClass()
 }
 
 @end
-#endif
 
 @implementation WKBackdropView
 
@@ -327,7 +400,8 @@ static Class scrollViewScrollIndicatorClass()
     if (!self)
         return nil;
 
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 110000
+// FIXME: Likely we can remove this special case for watchOS and tvOS.
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     self.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
 #endif
 

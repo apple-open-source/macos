@@ -32,8 +32,10 @@
 #include "SOSCircle_regressions.h"
 #include "SOSRegressionUtilities.h"
 
+#if SOS_ENABLED
+
 #define encode_decode_count 2
-#if !TARGET_OS_SIMULATOR
+
 static CF_RETURNS_RETAINED SOSBackupSliceKeyBagRef EncodeDecode(SOSBackupSliceKeyBagRef bag)
 {
     SOSBackupSliceKeyBagRef result = NULL;
@@ -54,17 +56,6 @@ static CF_RETURNS_RETAINED SOSBackupSliceKeyBagRef EncodeDecode(SOSBackupSliceKe
 
     return result;
 }
-#endif
-
-#if 0
-static CFDataRef CFDataCreateWithRandom(CFAllocatorRef allocator, size_t size) {
-    CFMutableDataRef result = CFDataCreateMutableWithScratch(allocator, size);
-
-    SecRandomCopyBytes(kSecRandomDefault, size, CFDataGetMutableBytePtr(result));
-
-    return result;
-}
-#endif
 
 static const uint8_t sEntropy1[] = {
     0xc4, 0xb9, 0xa6, 0x6e, 0xeb, 0x56, 0xa1, 0x5c, 0x1d, 0x30, 0x09, 0x40,
@@ -77,12 +68,6 @@ static const uint8_t sEntropy2[] = {
     0x17, 0xb3, 0x27, 0x12, 0x1b, 0x1f, 0xdf, 0xa0, 0x5b, 0xc6, 0x66, 0x54,
     0x3a, 0x91, 0x0d, 0xc1, 0x5f, 0x57, 0x98, 0x44
 };
-
-#if !TARGET_OS_SIMULATOR
-    #define tests_count (8 + encode_decode_count)
-#else
-    #define tests_count (6)
-#endif
 
 static void tests(void)
 {
@@ -132,7 +117,6 @@ static void tests(void)
 
     SOSBackupSliceKeyBagRef vb2 = NULL;
 
-#if !TARGET_OS_SIMULATOR
     vb = SOSBackupSliceKeyBagCreate(kCFAllocatorDefault, piSet, &localError);
     ok(vb != NULL, "Allocation: (%@)", localError);
     CFReleaseNull(localError);
@@ -140,20 +124,6 @@ static void tests(void)
     vb2 = EncodeDecode(vb);
 
     ok(vb2 != NULL, "transcoded");
-#endif
-#if 0
-    // <rdar://problem/20561988> Have helper functions for new security object that load bags
-    keybag_handle_t ourHandle = SOSBSKBLoadAndUnlockWithPeerSecret(vb, peer2WithBackup, entropy2, &localError);
-    ok(ourHandle != bad_keybag_handle, "loaded with peer secret, handle %d (%@)", ourHandle, localError);
-    CFReleaseNull(localError);
-
-    aks_unload_bag(ourHandle);
-#else
-TODO:{
-    todo("no simulator supprt");
-    ok(false);
-    }
-#endif
 
     CFReleaseNull(vb);
     CFReleaseNull(vb2);
@@ -172,14 +142,15 @@ TODO:{
     CFReleaseNull(entropy1);
     CFReleaseNull(entropy2);
 }
-
-static int kTestTestCount = tests_count;
+#endif
 
 int sc_153_backupslicekeybag(int argc, char *const *argv)
 {
-    plan_tests(kTestTestCount);
-
+#if SOS_ENABLED
+    plan_tests(12);
     tests();
-
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

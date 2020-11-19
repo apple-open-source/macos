@@ -140,6 +140,10 @@ InitDeviceWrapper(const char *path, DeviceInfo_t *devp)
 	}
 
 	ctx.pathname = strdup(rawname);
+	if (ctx.pathname == NULL) {
+		warn("Cannot strdup the pathname");
+		goto done;
+	}
 	retctx = malloc(sizeof(ctx));
 	if (retctx == NULL) {
 		warn("Cannot allocate space for device context");

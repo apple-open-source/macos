@@ -25,15 +25,13 @@
 
 #include "config.h"
 #include "WebPreferencesDefaultValues.h"
+
 #include <WebCore/RuntimeApplicationChecks.h>
 
 #if PLATFORM(COCOA)
-#include <wtf/spi/darwin/dyldSPI.h>
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #include "VersionChecks.h"
+#include <pal/spi/cocoa/FeatureFlagsSPI.h>
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
 namespace WebKit {
@@ -80,5 +78,209 @@ bool defaultDisallowSyncXHRDuringPageDismissalEnabled()
 #endif
     return true;
 }
+
+static bool defaultAsyncFrameAndOverflowScrollingEnabled()
+{
+#if PLATFORM(IOS_FAMILY)
+    return true;
+#endif
+
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("async_frame_and_overflow_scrolling");
+#endif
+
+#if PLATFORM(MAC)
+    return true;
+#endif
+
+    return false;
+}
+
+bool defaultAsyncFrameScrollingEnabled()
+{
+#if USE(NICOSIA)
+    return true;
+#endif
+
+    return defaultAsyncFrameAndOverflowScrollingEnabled();
+}
+
+bool defaultAsyncOverflowScrollingEnabled()
+{
+    return defaultAsyncFrameAndOverflowScrollingEnabled();
+}
+
+#if ENABLE(GPU_PROCESS)
+
+bool defaultUseGPUProcessForMedia()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("canvas_and_media_in_gpu_process");
+#endif
+
+    return false;
+}
+
+#endif // ENABLE(GPU_PROCESS)
+
+bool defaultRenderCanvasInGPUProcessEnabled()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("canvas_and_media_in_gpu_process");
+#endif
+
+    return false;
+}
+
+#if ENABLE(MEDIA_STREAM)
+
+bool defaultCaptureAudioInGPUProcessEnabled()
+{
+#if PLATFORM(MAC) && HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("webrtc_in_gpu_process");
+#endif
+
+#if PLATFORM(IOS_FAMILY) && HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("canvas_and_media_in_gpu_process");
+#endif
+
+    return false;
+}
+
+bool defaultCaptureAudioInUIProcessEnabled()
+{
+#if PLATFORM(IOS_FAMILY)
+    return false;
+#endif
+
+#if PLATFORM(MAC)
+    return !defaultCaptureAudioInGPUProcessEnabled();
+#endif
+
+    return false;
+}
+
+bool defaultCaptureVideoInGPUProcessEnabled()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("webrtc_in_gpu_process");
+#endif
+
+    return false;
+}
+
+#endif // ENABLE(MEDIA_STREAM)
+
+#if ENABLE(WEB_RTC)
+
+bool defaultWebRTCCodecsInGPUProcess()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("webrtc_in_gpu_process");
+#endif
+
+    return false;
+}
+
+#endif // ENABLE(WEB_RTC)
+
+#if ENABLE(WEBGL2)
+
+bool defaultWebGL2Enabled()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("WebGL2");
+#endif
+
+    return false;
+}
+
+#endif // ENABLE(WEBGL2)
+
+#if ENABLE(WEBGPU)
+
+bool defaultWebGPUEnabled()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("WebGPU");
+#endif
+
+    return false;
+}
+
+#endif // ENABLE(WEBGPU)
+
+bool defaultInAppBrowserPrivacy()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("InAppBrowserPrivacy");
+#endif
+
+    return false;
+}
+
+#if HAVE(INCREMENTAL_PDF_APIS)
+bool defaultIncrementalPDFEnabled()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("incremental_pdf");
+#endif
+
+    return false;
+}
+#endif
+
+#if ENABLE(WEBXR)
+
+bool defaultWebXREnabled()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("WebXR");
+#endif
+
+    return false;
+}
+
+#endif // ENABLE(WEBXR)
+
+#if ENABLE(VP9)
+bool defaultVP9DecoderEnabled()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("vp9_decoder");
+#endif
+
+    return true;
+}
+#endif
+
+#if ENABLE(VP9)
+bool defaultVP9SWDecoderEnabledOnBattery()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("SW_vp9_decoder_on_battery");
+#endif
+
+    return false;
+}
+#endif
+
+#if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
+bool defaultWebMParserEnabled()
+{
+#if HAVE(SYSTEM_FEATURE_FLAGS)
+    return isFeatureFlagEnabled("webm_parser");
+#endif
+
+    return true;
+}
+#endif
+
+#if ENABLE(WEB_RTC)
+bool defaultWebRTCH264LowLatencyEncoderEnabled()
+{
+    return true;
+}
+#endif
 
 } // namespace WebKit

@@ -151,7 +151,8 @@ typedef struct {
 	CFStringRef		addressString;
 	Boolean			builtin;
 	CFStringRef		configurationAction;
-	Boolean			hidden;
+	Boolean			hiddenConfiguration;
+	Boolean			hiddenInterface;
 	CFStringRef		location;
 	CFStringRef		path;
 	uint64_t		entryID;
@@ -218,6 +219,10 @@ __SCNetworkConfigurationBackup			(SCPreferencesRef	prefs,
 #pragma mark -
 #pragma mark SCNetworkInterface configuration (internal)
 
+
+extern const SCNetworkServiceRef __kSCNetworkInterfaceSearchExternal;
+
+extern const SCNetworkServiceRef __kSCNetworkInterfaceSearchSystem;
 
 Boolean
 __SCNetworkInterfaceMatchesName			(CFStringRef		name,
@@ -481,21 +486,18 @@ Boolean
 __SCNetworkServiceIsPPTP			(SCNetworkServiceRef	service);
 
 
-void
-__SCNetworkPopulateDefaultNIPrefs		(SCPreferencesRef	ni_prefs);
-
 /*!
  @function __SCNetworkServiceMigrateNew
  @discussion Adds network service to SCPreferencesRef if it doesn't exists
  @param prefs SCPreferencesRef
  @param service The network service
- @param bsdMapping Mapping of interface names between configurations
+ @param bsdNameMapping Mapping of interface names between configurations
  @result TRUE if add service to prefs is successful
  */
 Boolean
 __SCNetworkServiceMigrateNew			(SCPreferencesRef	prefs,
 						 SCNetworkServiceRef	service,
-						 CFDictionaryRef	bsdMapping,
+						 CFDictionaryRef	bsdNameMapping,
 						 CFDictionaryRef	setMapping,
 						 CFDictionaryRef	serviceSetMapping);
 

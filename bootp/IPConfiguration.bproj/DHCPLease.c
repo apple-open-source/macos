@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,18 +46,60 @@
 #include "dhcp_thread.h"
 #include "cfutil.h"
 
-#define DHCPCLIENT_LEASE_FILE_FMT	DHCPCLIENT_LEASES_DIR "/%s-%s"
+#define DHCPCLIENT_LEASE_FILE_FMT	DHCPCLIENT_LEASES_DIR "/%s.plist"
 
 /* required properties: */
 #define kLeaseStartDate			CFSTR("LeaseStartDate")
 #define kPacketData			CFSTR("PacketData")
 #define kRouterHardwareAddress		CFSTR("RouterHardwareAddress")
 #define kSSID				CFSTR("SSID") /* wi-fi only */
+#define kClientIdentifier		CFSTR("ClientIdentifier")
 
 /* informative properties: */
 #define kLeaseLength			CFSTR("LeaseLength")
 #define kIPAddress			CFSTR("IPAddress")
 #define kRouterIPAddress		CFSTR("RouterIPAddress")
+
+static Boolean
+client_id_data_matches(CFDataRef client_id,
+		       uint8_t cid_type, const void * cid, int cid_length)
+{
+    const UInt8 *	bytes;
+    CFIndex		len;
+    Boolean		match = FALSE;
+
+    if (cid_length == 0) {
+	goto done;
+    }
+    if (isA_CFData(client_id) == NULL) {
+	goto done;
+    }
+    len = CFDataGetLength(client_id);
+    if (len != (cid_length + 1)) {
+	goto done;
+    }
+    bytes = CFDataGetBytePtr(client_id);
+    if (*bytes != cid_type) {
+	goto done;
+    }
+    if (bcmp(bytes + 1, cid, cid_length) == 0) {
+	match = TRUE;
+    }
+
+ done:
+    return (match);
+}
+
+static CFDataRef
+client_id_data_create(uint8_t cid_type, const void * cid, int cid_length)
+{
+    CFMutableDataRef	client_id_data;
+
+    client_id_data = CFDataCreateMutable(NULL, cid_length + 1);
+    CFDataAppendBytes(client_id_data, &cid_type, 1);
+    CFDataAppendBytes(client_id_data, cid, cid_length);
+    return (client_id_data);
+}
 
 /*
  * Function: DHCPLeaseCreateWithDictionary
@@ -67,8 +109,11 @@
  *   returns NULL if those checks fail.
  */
 static DHCPLeaseRef
-DHCPLeaseCreateWithDictionary(CFDictionaryRef dict, bool is_wifi)
+DHCPLeaseCreateWithDictionary(CFDictionaryRef dict,
+			      uint8_t cid_type, const void * cid,
+			      int cid_length, bool is_wifi)
 {
+    CFDataRef			client_id_data;
     CFDataRef			hwaddr_data;
     dhcp_lease_time_t		lease_time;
     DHCPLeaseRef		lease_p;
@@ -79,6 +124,13 @@ DHCPLeaseCreateWithDictionary(CFDictionaryRef dict, bool is_wifi)
     CFDateRef			start_date;
     dhcp_lease_time_t		t1_time;
     dhcp_lease_time_t		t2_time;
+
+
+    /* get the client identifier */
+    client_id_data = CFDictionaryGetValue(dict, kClientIdentifier);
+    if (!client_id_data_matches(client_id_data, cid_type, cid, cid_length)) {
+	goto failed;
+    }
 
     /* get the lease start time */
     start_date = CFDictionaryGetValue(dict, kLeaseStartDate);
@@ -213,8 +265,10 @@ DHCPLeaseCreate(struct in_addr our_ip, struct in_addr router_ip,
 }
 
 static CFDictionaryRef
-DHCPLeaseCopyDictionary(DHCPLeaseRef lease_p)
+DHCPLeaseCopyDictionary(DHCPLeaseRef lease_p,
+			uint8_t cid_type, const void * cid, int cid_length)
 {
+    CFDataRef			client_id_data;
     CFDataRef			data;
     CFDateRef			date;
     CFMutableDictionaryRef	dict;
@@ -224,6 +278,11 @@ DHCPLeaseCopyDictionary(DHCPLeaseRef lease_p)
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
+    /* set the Client Identifier */
+    client_id_data = client_id_data_create(cid_type, cid, cid_length);
+    CFDictionarySetValue(dict, kClientIdentifier, client_id_data);
+    CFRelease(client_id_data);
+
     /* set the IP address */
     str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
 				   IP_LIST(&lease_p->our_ip));
@@ -320,25 +379,12 @@ DHCPLeaseListLog(DHCPLeaseListRef list_p)
     return;
 }
 
-static bool
+static void
 DHCPLeaseListGetPath(const char * ifname,
-		     uint8_t cid_type, const void * cid, int cid_length,
 		     char * filename, int filename_size)
 {
-    char *			idstr;
-    char			idstr_scratch[128];
-    
-    idstr = identifierToStringWithBuffer(cid_type, cid, cid_length,
-					 idstr_scratch, sizeof(idstr_scratch));
-    if (idstr == NULL) {
-	return (FALSE);
-    }
-    snprintf(filename, filename_size, DHCPCLIENT_LEASE_FILE_FMT, ifname,
-	     idstr);
-    if (idstr != idstr_scratch) {
-	free(idstr);
-    }
-    return (TRUE);
+    snprintf(filename, filename_size, DHCPCLIENT_LEASE_FILE_FMT, ifname);
+    return;
 }
 
 void
@@ -416,15 +462,14 @@ DHCPLeaseListRead(DHCPLeaseListRef list_p,
     struct in_addr		lease_ip;
 
     DHCPLeaseListInit(list_p);
-    if (DHCPLeaseListGetPath(ifname, cid_type, cid, cid_length,
-			     filename, sizeof(filename)) == FALSE) {
-	goto done;
-    }
+    DHCPLeaseListGetPath(ifname, filename, sizeof(filename));
     lease_dict = my_CFPropertyListCreateFromFile(filename);
     if (isA_CFDictionary(lease_dict) == NULL) {
 	goto done;
     }
-    lease_p = DHCPLeaseCreateWithDictionary(lease_dict, is_wifi);
+    lease_p = DHCPLeaseCreateWithDictionary(lease_dict,
+					    cid_type, cid, cid_length,
+					    is_wifi);
     if (lease_p == NULL) {
 	goto done;
     }
@@ -462,10 +507,7 @@ DHCPLeaseListWrite(DHCPLeaseListRef list_p,
     CFDictionaryRef	lease_dict;
     DHCPLeaseRef	lease_p;
     
-    if (DHCPLeaseListGetPath(ifname, cid_type, cid, cid_length,
-			     filename, sizeof(filename)) == FALSE) {
-	return;
-    }
+    DHCPLeaseListGetPath(ifname, filename, sizeof(filename));
     DHCPLeaseListRemoveStaleLeases(list_p);
     count = dynarray_count(list_p);
     if (count == 0) {
@@ -473,7 +515,7 @@ DHCPLeaseListWrite(DHCPLeaseListRef list_p,
 	return;
     }
     lease_p = dynarray_element(list_p, count - 1);
-    lease_dict = DHCPLeaseCopyDictionary(lease_p);
+    lease_dict = DHCPLeaseCopyDictionary(lease_p, cid_type, cid, cid_length);
     if (my_CFPropertyListWriteFile(lease_dict, filename, 0644) < 0) {
 	/*
 	 * An ENOENT error is expected on a read-only filesystem.  All 

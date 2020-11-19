@@ -197,6 +197,8 @@ public:
     static bool setParameter( OSDictionary * params, const OSSymbol * paramName, SInt32 value );
     static OSDictionary * getIntegerRange( OSDictionary * params, const OSSymbol * sym,
                                       SInt32 * value, SInt32 * min, SInt32 * max );
+    
+    void loadPrefs( uint64_t edidHash, uint32_t vendor, uint32_t product, uint32_t serial );
 
     // low level set/get
     virtual bool doIntegerSet( OSDictionary * params,

@@ -42,6 +42,7 @@
 #include <security_utilities/debugging.h>
 #include <signal.h>
 
+#include <sstream>
 
 namespace Security {
 namespace UnixPlusPlus {
@@ -371,7 +372,7 @@ bool Child::checkStatus(int options)
 	secinfo("unixchild", "checking %p (pid %d)", this, this->pid());
 	int status;
   again:
-	switch (IFDEBUG(pid_t pid =) ::wait4(this->pid(), &status, options, NULL)) {
+	switch (pid_t pid = ::wait4(this->pid(), &status, options, NULL)) {
 	case pid_t(-1):
 		switch (errno) {
 		case EINTR:
@@ -420,7 +421,9 @@ void Child::checkChildren()
 		} else if (!mChildren().empty()) {
 			int status;
 			while (pid_t pid = ::wait4(0, &status, WNOHANG, NULL)) {
-				secinfo("unixchild", "universal child check (%ld children known alive)", mChildren().size());
+				ostringstream os;
+				os << "universal child check (" << mChildren().size() << " children known alive)";
+				secinfo("unixchild", "%s", os.str().c_str());
 				switch (pid) {
 				case pid_t(-1):
 					switch (errno) {

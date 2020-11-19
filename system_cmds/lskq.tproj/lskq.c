@@ -101,14 +101,15 @@ fflags_build(struct kevent_extinfo *info, char *str, int len)
 	}
 
 	case EVFILT_VNODE: {
-		snprintf(str, len, "%c%c%c%c%c%c%c",
+		snprintf(str, len, "%c%c%c%c%c%c%c%c",
 			(ff & NOTE_DELETE) ? 'd' : '-',
 			(ff & NOTE_WRITE)  ? 'w' : '-',
 			(ff & NOTE_EXTEND) ? 'e' : '-',
 			(ff & NOTE_ATTRIB) ? 'a' : '-',
 			(ff & NOTE_LINK)   ? 'l' : '-',
 			(ff & NOTE_RENAME) ? 'r' : '-',
-			(ff & NOTE_REVOKE) ? 'v' : '-'
+			(ff & NOTE_REVOKE) ? 'v' : '-',
+			(ff & NOTE_FUNLOCK) ? 'u' : '-'
 		);
 		break;
 	}

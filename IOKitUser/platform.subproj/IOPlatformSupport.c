@@ -45,6 +45,24 @@
 #define DLOG_ERROR1(format, args ...)
 #endif
 
+#if defined(TARGET_OS_OSX) && !defined(__x86_64__)
+typedef struct {
+    const char *keyName;
+    uint32_t    defaultValue;
+} PlatformDefaultsDescriptor;
+
+PlatformDefaultsDescriptor platformDefaults[] =
+{
+    {"TCPKeepAliveDuringSleep",                 1},
+    {kIOPMWakeOnLANKey,                         1},
+    {"NotificationWake",                        1},
+    {"TCPKeepAliveExpirationTimeout",    88*60*60}
+};
+
+static const int kPlatformDefaultsCount = sizeof(platformDefaults)/sizeof(PlatformDefaultsDescriptor);
+static CFMutableDictionaryRef platformDefaultsDict = NULL;
+#endif /* defined(TARGET_OS_OSX) && !defined(__x86_64__) */
+
 
 /* IOCopyModel
  *
@@ -238,6 +256,35 @@ static CFTypeRef _copyRootDomainProperty(CFStringRef key)
     return obj;
 }
 
+#if defined(TARGET_OS_OSX) && !defined(__x86_64__)
+static void copyPlatformDefaults()
+{
+    platformDefaultsDict = CFDictionaryCreateMutable(0, 0,
+                                        &kCFTypeDictionaryKeyCallBacks,
+                                        &kCFTypeDictionaryValueCallBacks);
+    int i;
+    CFStringRef key;
+    CFNumberRef value;
+    for (i = 0; i <kPlatformDefaultsCount; i++) {
+        key = CFStringCreateWithCString(0, platformDefaults[i].keyName, kCFStringEncodingUTF8);
+        if (platformDefaults[i].defaultValue == 0) {
+            CFDictionarySetValue(platformDefaultsDict, key, kCFBooleanFalse);
+        } else if (platformDefaults[i].defaultValue == 1) {
+            CFDictionarySetValue(platformDefaultsDict, key, kCFBooleanTrue);
+        } else {
+            value = CFNumberCreate(0, kCFNumberSInt32Type, &platformDefaults[i].defaultValue);
+            CFDictionarySetValue(platformDefaultsDict, key, value);
+            if (value) {
+                CFRelease(value);
+            }
+        }
+        if (key) {
+            CFRelease(key);
+        }
+    }
+}
+#endif /* defined(TARGET_OS_OSX) && !defined(__x86_64__) */
+
 /*
  *
  * Defaults
@@ -265,6 +312,25 @@ IOReturn IOPlatformCopyFeatureDefault(
             *outValue = CFRetain(returnObj);
         }
         CFRelease(platformFeatures);
+    } else {
+#if !(defined(TARGET_OS_OSX) && !defined(__x86_64__))
+        // IOPPF hasn't published feature defaults yet
+        return kIOReturnNotReady;
+#else
+        // no platform defaults in rootDomain. Use IOKitUser defaults
+        if (!platformDefaultsDict) {
+            // copy platform defaults
+            copyPlatformDefaults();
+        }
+        if (platformDefaultsDict) {
+            returnObj = CFDictionaryGetValue(platformDefaultsDict, platformSettingKey);
+            if (returnObj) {
+                *outValue = CFRetain(returnObj);
+            } else {
+                *outValue = NULL;
+            }
+        }
+#endif
     }
     
     if (*outValue) {

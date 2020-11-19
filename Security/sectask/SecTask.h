@@ -127,7 +127,7 @@ CFStringRef SecTaskCopySigningIdentifier(SecTaskRef task, CFErrorRef *error);
 */
 
 uint32_t SecTaskGetCodeSignStatus(SecTaskRef task)
-    API_AVAILABLE(ios(10.0), watchos(3.0), tvos(10.0), iosmac(11.0)) SPI_AVAILABLE(macos(10.5));
+    API_AVAILABLE(ios(10.0), watchos(3.0), tvos(10.0), macCatalyst(11.0)) SPI_AVAILABLE(macos(10.5));
 
 
 CF_IMPLICIT_BRIDGING_DISABLED

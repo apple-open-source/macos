@@ -171,7 +171,7 @@ static u_char last_challenge_response[16] = "";
 #include "fsm.h"		/* Need to poke MPPE options */
 #include "ccp.h"
 //#include <net/ppp-comp.h>
-#include <ppp_comp.h>
+#include "ppp_comp.h"
 #endif
 
 /*

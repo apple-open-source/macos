@@ -357,9 +357,9 @@ SSCSPSession::FreeKey(const AccessCredentials *accessCred,
 		// that!
 
 		// Find the key in the map.  Tell tell the key to free itself
-		// (when the auto_ptr deletes the key it removes itself from the map). 
+		// (when the unique_ptr deletes the key it removes itself from the map). 
 	    secinfo("freeKey", "CSPDL FreeKey");
-		auto_ptr<SSKey> ssKey(&mSSCSPDLSession.find<SSKey>(ioKey));
+		unique_ptr<SSKey> ssKey(&mSSCSPDLSession.find<SSKey>(ioKey));
 		ssKey->free(accessCred, ioKey, deleteKey);
 	}
 	else

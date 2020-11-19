@@ -56,7 +56,7 @@ public:
     const MSC_RV error;
 	OSStatus osStatus() const;
 	int unixError() const;
-	const char *what () const throw ();
+	const char *what () const _NOEXCEPT;
 	
 	static void check(MSC_RV err) { if (err != MSC_SUCCESS) throwMe(err); }
 	static void throwMe(MSC_RV err);

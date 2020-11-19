@@ -47,7 +47,7 @@ Error::Error(kern_return_t err) : error(err)
     secnotice("security_exception", "mach error: %d", err);
 }
 
-Error::~Error() throw()
+Error::~Error() _NOEXCEPT
 { }
 
 
@@ -142,9 +142,10 @@ mach_port_t Port::cancelNotify(mach_msg_id_t type)
 {
     // Mach won't let us unset the DPN port if we are already dead
     // (EVEN if the DPN has already been sent!) So just ignore that case...
-    if (isDead())
+    if (isDead()) {
         return MACH_PORT_NULL;
-	return requestNotify(MACH_PORT_NULL, type);
+    }
+    return requestNotify(MACH_PORT_NULL, type);
 }
 
 mach_port_msgcount_t Port::qlimit() const

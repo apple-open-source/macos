@@ -92,6 +92,7 @@ static CFStringRef                      currentPowerSource = NULL;
 static unsigned long                    g_overrides = 0;
 static unsigned long                    gLastOverrideState = 0;
 static unsigned long                    gSleepSetting = -1;
+static unsigned long                    gDisplaySleepSetting = -1;
 
 static io_connect_t                     gPowerManager;
 
@@ -470,6 +471,9 @@ __private_extern__ bool getAggressivenessValue(
                                                CFNumberType        type,
                                                uint32_t           *ret)
 {
+    if (!dict) {
+        return false;
+    }
     CFTypeRef           obj = CFDictionaryGetValue(dict, key);
 
     *ret = 0;
@@ -579,6 +583,7 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
     }
 
     if ((obj = CFDictionaryGetValue(dict, CFSTR(kIOHibernateFileKey))) && isA_CFString(obj))
+    {
         do
         {
 
@@ -684,6 +689,7 @@ static int ProcessHibernateSettings(CFDictionaryRef dict, bool standby, bool isD
                 IORegistryEntrySetCFProperty(rootDomain, CFSTR(kIOHibernateFileKey), obj);
             }
         } while (false);
+    }
 
 	if (haveFile && deleteFile) {
 			unlink(path);
@@ -1015,6 +1021,9 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
     IOReturn                            ret;
     CFNumberRef                         n1, n0;
     CFNumberRef                         sleepSetting;
+    CFNumberRef                         displaySetting;
+    unsigned long                       newDisplaySetting = -1;
+    unsigned long                       newSleepSetting = -1;
     int                                 one = 1;
     int                                 zero = 0;
     
@@ -1034,7 +1043,22 @@ activate_profiles(CFDictionaryRef d, CFStringRef s, bool removeUnsupported)
 
     sleepSetting = (CFNumberRef)isA_CFNumber(CFDictionaryGetValue(energy_settings, CFSTR(kIOPMSystemSleepKey)));
     if (sleepSetting) {
-        CFNumberGetValue(sleepSetting, kCFNumberLongType, &gSleepSetting);
+        CFNumberGetValue(sleepSetting, kCFNumberLongType, &newSleepSetting);
+    }
+    displaySetting = (CFNumberRef)isA_CFNumber(CFDictionaryGetValue(energy_settings, CFSTR(kIOPMDisplaySleepKey)));
+    if (displaySetting) {
+        CFNumberGetValue(displaySetting, kCFNumberLongType, &newDisplaySetting);
+    }
+
+    // log sleep and display timer
+    if (gSleepSetting != newSleepSetting || gDisplaySleepSetting != newDisplaySetting) {
+        INFO_LOG("Sleep timer %lu display timer %lu\n", newSleepSetting, newDisplaySetting);
+    }
+    if (newSleepSetting != -1) {
+        gSleepSetting = newSleepSetting;
+    }
+    if (newDisplaySetting != -1) {
+        gDisplaySleepSetting = newDisplaySetting;
     }
 
     if(g_overrides)
@@ -1338,6 +1362,7 @@ exit:
 __private_extern__ void 
 PMSettingsPrefsHaveChanged(void) 
 {
+    INFO_LOG("Energy Saver Prefs have changed");
     // re-blast system-wide settings
     PMActivateSystemPowerSettings();
 
@@ -1362,16 +1387,10 @@ PMSettingsPrefsHaveChanged(void)
     return;
 }
 
-
-/* PMSettingsPSChange
- *
- * A power source has changed. Has the current power provider changed?
- * If so, get new settings down to the kernel.
- */
-__private_extern__ void PMSettingsPSChange(void)
+static void PMSettingsPSChange_sync(void)
 {
     CFStringRef     newPowerSource;
-    
+
     int powersource = getActivePSType();
     if (kIOPSProvidedByExternalBattery == powersource) {
         newPowerSource = CFSTR(kIOPMUPSPowerKey);
@@ -1397,19 +1416,38 @@ __private_extern__ void PMSettingsPSChange(void)
             } else {
                 // This is either battery power or UPS power, "internal power"
                 IOPMSetAggressiveness(gPowerManager, kPMPowerSource, kIOPMInternalPower);
-            }     
+            }
         } else {
             // If we WERE in the middle of a sleep, delay notification until we're awake.
             deferredPSChangeNotify = 1;
         }
-        
+
         if(energySettings) {
+            // re read settings in memory
+            CFRelease(energySettings);
+            energySettings = IOPMCopyPMPreferences();
+            INFO_LOG("Settings change for power source change to %@ %{public}@", newPowerSource, energySettings);
             activate_profiles( energySettings, 
                                 currentPowerSource,
                                 kIOPMRemoveUnsupportedSettings);
         }
     }
 
+}
+
+/* PMSettingsPSChange
+ *
+ * A power source has changed. Has the current power provider changed?
+ * If so, get new settings down to the kernel.
+ *
+ * This is called from BatteryTimeRemaining on its queue but also calls back
+ * into that module. Hence, dispatch in a different queue.
+ */
+__private_extern__ void PMSettingsPSChange(void)
+{
+    dispatch_async(_getPMMainQueue(), ^() {
+        PMSettingsPSChange_sync();
+    });
 }
 
 /* activateForcedSettings

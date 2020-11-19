@@ -299,11 +299,11 @@ void PeerConnectionBackend::setRemoteDescriptionFailed(Exception&& exception)
 
 void PeerConnectionBackend::addPendingTrackEvent(PendingTrackEvent&& event)
 {
-    ASSERT(!m_peerConnection.isClosed());
+    ASSERT(!m_peerConnection.isStopped());
     m_pendingTrackEvents.append(WTFMove(event));
 }
 
-static String extractIPAddress(const String& sdp)
+static String extractIPAddress(StringView sdp)
 {
     unsigned counter = 0;
     for (auto item : StringView { sdp }.split(' ')) {
@@ -438,17 +438,33 @@ String PeerConnectionBackend::filterSDP(String&& sdp) const
         return WTFMove(sdp);
 
     StringBuilder filteredSDP;
-    sdp.split('\n', [&filteredSDP](StringView line) {
-        if (line.startsWith("c=IN IP4"))
-            filteredSDP.append("c=IN IP4 0.0.0.0\r");
-        else if (line.startsWith("c=IN IP6"))
-            filteredSDP.append("c=IN IP6 ::\r");
-        else if (!line.startsWith("a=candidate"))
-            filteredSDP.append(line);
-        else if (line.find(" host ", 11) == notFound)
-            filteredSDP.append(filterICECandidate(line.toString()));
-        else
+    sdp.split('\n', [this, &filteredSDP](StringView line) {
+        if (line.startsWith("c=IN IP4")) {
+            filteredSDP.append("c=IN IP4 0.0.0.0\r\n");
             return;
+        }
+        if (line.startsWith("c=IN IP6")) {
+            filteredSDP.append("c=IN IP6 ::\r\n");
+            return;
+        }
+        if (!line.startsWith("a=candidate")) {
+            filteredSDP.append(line);
+            filteredSDP.append('\n');
+            return;
+        }
+        if (line.find(" host ", 11) == notFound) {
+            filteredSDP.append(filterICECandidate(line.toString()));
+            filteredSDP.append('\n');
+            return;
+        }
+
+        auto ipAddress = extractIPAddress(line);
+        auto mdnsName = m_ipAddressToMDNSNameMap.get(ipAddress);
+        if (mdnsName.isEmpty())
+            return;
+        auto sdp = line.toString();
+        sdp.replace(ipAddress, mdnsName);
+        filteredSDP.append(sdp);
         filteredSDP.append('\n');
     });
     return filteredSDP.toString();
@@ -504,7 +520,7 @@ void PeerConnectionBackend::registerMDNSName(const String& ipAddress)
     ++m_waitingForMDNSRegistration;
     auto& document = downcast<Document>(*m_peerConnection.scriptExecutionContext());
     auto& provider = document.page()->libWebRTCProvider();
-    provider.registerMDNSName(document.identifier().toUInt64(), ipAddress, [peerConnection = makeRef(m_peerConnection), this, ipAddress] (LibWebRTCProvider::MDNSNameOrError&& result) {
+    provider.registerMDNSName(document.identifier(), ipAddress, [peerConnection = makeRef(m_peerConnection), this, ipAddress] (LibWebRTCProvider::MDNSNameOrError&& result) {
         if (peerConnection->isStopped())
             return;
 
@@ -520,6 +536,7 @@ void PeerConnectionBackend::registerMDNSName(const String& ipAddress)
 
 void PeerConnectionBackend::finishedRegisteringMDNSName(const String& ipAddress, const String& name)
 {
+    m_ipAddressToMDNSNameMap.add(ipAddress, name);
     Vector<PendingICECandidate*> candidates;
     for (auto& candidate : m_pendingICECandidates) {
         if (candidate.sdp.find(ipAddress) != notFound) {

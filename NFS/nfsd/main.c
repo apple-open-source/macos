@@ -151,8 +151,8 @@ static void config_sanity_check(struct nfs_conf_server *conf);
 static void config_sysctl_changed(struct nfs_conf_server *, struct nfs_conf_server *);
 static void config_loop(void);
 
+pid_t get_nfsd_pid(void);
 static pid_t get_pid(const char *);
-static pid_t get_nfsd_pid(void);
 static void signal_nfsd(int);
 static void sigmux(int);
 
@@ -167,7 +167,7 @@ static int nfsd_disable(void);
 static int nfsd_load(void);
 static int nfsd_unload(void);
 static int nfsd_start(void);
-static int nfsd_stop(void);
+static int nfsd_kickstart(void);
 
 static void register_services(void);
 static int safe_exec(char *const*, int);
@@ -183,6 +183,20 @@ usage(void)
 			"[-p nfsport] [-P mountport] [command]\n");
 	fprintf(stderr, "commands: enable, disable, start, stop, restart, update, status, checkexports, verbose [up|down]\n");
 	exit(1);
+}
+
+static int
+handle_unprivileged_user(void)
+{
+    if (getuid()) {
+        printf("Sorry, nfsd must be run as root\n");
+        printf("unprivileged usage: nfsd [ status | [-F file] checkexports]\n");
+        /* try to make sure the nfsd service isn't loaded in the per-user launchd */
+        if (nfsd_is_loaded())
+            nfsd_unload();
+        exit(2);
+    }
+    return 1;
 }
 
 int
@@ -347,18 +361,9 @@ main(int argc, char *argv[], __unused char *envp[])
 		}
 	}
 
-	if (getuid()) {
-		printf("Sorry, nfsd must be run as root\n");
-		printf("unprivileged usage: nfsd [ status | [-F file] checkexports]\n");
-		/* try to make sure the nfsd service isn't loaded in the per-user launchd */
-		if (nfsd_is_loaded())
-			nfsd_unload();
-		exit(2);
-	}
-
 	if (argc > 0) {
 		/* process the given, privileged command */
-		if (!strcmp(argv[0], "enable")) {
+		if (!strcmp(argv[0], "enable") && handle_unprivileged_user()) {
 			if (!nfsd_is_enabled()) {
 				rv = nfsd_enable();
 			} else {
@@ -367,7 +372,7 @@ main(int argc, char *argv[], __unused char *envp[])
 				if (!nfsd_is_running())
 					rv = nfsd_is_loaded() ? nfsd_start() : nfsd_load();
 			}
-		} else if (!strcmp(argv[0], "disable")) {
+		} else if (!strcmp(argv[0], "disable") && handle_unprivileged_user()) {
 			if (nfsd_is_enabled()) {
 				rv = nfsd_disable();
 			} else {
@@ -375,7 +380,7 @@ main(int argc, char *argv[], __unused char *envp[])
 				if (nfsd_is_loaded())
 					rv = nfsd_unload();
 			}
-		} else if (!strcmp(argv[0], "start")) {
+		} else if (!strcmp(argv[0], "start") && handle_unprivileged_user()) {
 			if (nfsd_is_running()) {
 				printf("The nfsd service is already running.\n");
 			} else {
@@ -383,7 +388,7 @@ main(int argc, char *argv[], __unused char *envp[])
 					nfsd_is_enabled() ? "" : " (use 'enable' to make permanent)");
 				rv = nfsd_is_loaded() ? nfsd_start() : nfsd_load();
 			}
-		} else if (!strcmp(argv[0], "stop")) {
+		} else if (!strcmp(argv[0], "stop") && handle_unprivileged_user()) {
 			if (!nfsd_is_running()) {
 				printf("The nfsd service is not running.\n");
 			} else {
@@ -391,20 +396,19 @@ main(int argc, char *argv[], __unused char *envp[])
 					!nfsd_is_enabled() ? "" : " (use 'disable' to make permanent)");
 				rv = nfsd_unload();
 			}
-		} else if (!strcmp(argv[0], "restart")) {
+		} else if (!strcmp(argv[0], "restart") && handle_unprivileged_user()) {
 			if (!nfsd_is_running() || !nfsd_is_loaded())
 				printf("The nfsd service does not appear to be running.\n");
 			if (nfsd_is_running()) {
-				/* should be immediately restarted if /etc/exports exists */
-				rv = nfsd_stop();
+				rv = nfsd_kickstart();
 			} else {
 				printf("Starting the nfsd service%s\n",
 					nfsd_is_enabled() ? "" : " (use 'enable' to permanently enable)");
 				rv = nfsd_is_loaded() ? nfsd_start() : nfsd_load();
 			}
-		} else if (!strcmp(argv[0], "update")) {
+		} else if (!strcmp(argv[0], "update") && handle_unprivileged_user()) {
 			signal_nfsd(SIGHUP);
-		} else if (!strcmp(argv[0], "verbose")) {
+		} else if (!strcmp(argv[0], "verbose") && handle_unprivileged_user()) {
 			argc--;
 			argv++;
 			for (;argc;argc--,argv++) {
@@ -1221,7 +1225,7 @@ get_pid(const char *path)
 /*
  * get the PID of the running nfsd
  */
-static pid_t
+pid_t
 get_nfsd_pid(void)
 {
 	return (get_pid(_PATH_NFSD_PID));
@@ -1342,12 +1346,12 @@ nfsd_start(void)
 }
 
 /*
- * Use launchctl to stop the nfsd service.
+ * Use launchctl to kickstart the nfsd service.
  */
 static int
-nfsd_stop(void)
+nfsd_kickstart(void)
 {
-	const char *const args[] = { _PATH_LAUNCHCTL, "stop", _NFSD_SERVICE_LABEL, NULL };
+	const char *const args[] = { _PATH_LAUNCHCTL, "kickstart", "-k" ,_NFSD_KICKSTART_LABEL, NULL };
 	return safe_exec((char *const*)args, 0);
 }
 

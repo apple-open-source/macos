@@ -463,6 +463,15 @@ bool SecCertificateGetDeveloperIDDate(SecCertificateRef certificate, CFAbsoluteT
 
 CFAbsoluteTime SecAbsoluteTimeFromDateContentWithError(DERTag tag, const uint8_t *bytes, size_t length, CFErrorRef *error);
 
+/* Return the (last) attribute value from the Subject DN with the indicated Attribute OID.
+ * This suits as a replacement for SecCertificateCopySubjectComponent */
+CFStringRef SecCertificateCopySubjectAttributeValue(SecCertificateRef cert, DERItem *attributeOID)
+    API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0));
+
+/* Return the external roots (for use with SecTrustSetAnchorCertificates) */
+CFArrayRef SecCertificateCopyAppleExternalRoots(void)
+    API_AVAILABLE(macos(10.16), ios(14.0), watchos(7.0), tvos(14.0));
+
 /*
  * Legacy functions (OS X only)
  */
@@ -579,7 +588,7 @@ OSStatus SecCertificateReleaseFirstFieldValue(SecCertificateRef certificate, con
  */
 OSStatus SecCertificateCopySubjectComponent(SecCertificateRef certificate, const CSSM_OID *component,
      CFStringRef *result)
-    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_12_4, __IPHONE_NA, __IPHONE_NA, "SecCertificateCopySubjectComponent is deprecated. Use SecCertificateCopyCommonNames,SecCertificateCopyOrganization,SecCertificateCopyOrganizationalUnit, etc. instead.");
+    __OSX_AVAILABLE_BUT_DEPRECATED_MSG(__MAC_10_0, __MAC_10_12_4, __IPHONE_NA, __IPHONE_NA, "SecCertificateCopySubjectComponent is deprecated. Use SecCertificateCopySubjectAttributeValue instead.");
 
 /*     Convenience functions for searching.
  */

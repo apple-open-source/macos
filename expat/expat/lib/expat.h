@@ -36,6 +36,8 @@
 #include <stdlib.h>
 #include "expat_external.h"
 
+#include <os/availability.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -888,7 +890,7 @@ XML_SetParamEntityParsing(XML_Parser parser,
    Note: If parser == NULL, the function will do nothing and return 0.
 */
 XMLPARSEAPI(int)
-XML_SetHashSalt(XML_Parser parser, unsigned long hash_salt) __OSX_AVAILABLE_STARTING(__MAC_10_11_2, __IPHONE_NA);
+XML_SetHashSalt(XML_Parser parser, unsigned long hash_salt) API_AVAILABLE(macosx(10.11.2));
 
 /* If XML_Parse or XML_ParseBuffer have returned XML_STATUS_ERROR, then
    XML_GetErrorCode returns information about the error.

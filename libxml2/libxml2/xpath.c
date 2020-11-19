@@ -14485,7 +14485,8 @@ scan_children:
 	do {
 	    cur = cur->parent;
 	    depth--;
-	    if ((cur == NULL) || (cur == limit))
+	    if ((cur == NULL) || (cur == limit) ||
+                (cur->type == XML_DOCUMENT_NODE))
 	        goto done;
 	    if (cur->type == XML_ELEMENT_NODE) {
 		ret = xmlStreamPop(patstream);
@@ -14754,8 +14755,7 @@ xmlXPathTryStreamCompile(xmlXPathContextPtr ctxt, const xmlChar *str) {
 	    }
 	}
 
-	stream = xmlPatterncompile(str, dict, XML_PATTERN_XPATH,
-			&namespaces[0]);
+	stream = xmlPatterncompile(str, dict, XML_PATTERN_XPATH, namespaces);
 	if (namespaces != NULL) {
 	    xmlFree((xmlChar **)namespaces);
 	}

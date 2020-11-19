@@ -5,8 +5,7 @@
 	<key>BATSConfigVersion</key>
 	<string>0.1.0</string>
 	<key>IgnoreCrashes</key>
-	<array>
-	</array>
+	<array/>
 	<key>Project</key>
 	<string>system_cmds</string>
 	<key>IgnoreOutput</key>
@@ -28,13 +27,11 @@
 				<string>-all</string>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_lsmp</string>
 			<key>TestSpecificLogs</key>
-			<array>
-			</array>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
@@ -48,17 +45,14 @@
 				<string>/usr/sbin/lsof</string>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_lsof</string>
 			<key>TestSpecificLogs</key>
-			<array>
-			</array>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
-
 		<dict>
 			<key>Arch</key>
 			<string>platform-native</string>
@@ -69,13 +63,30 @@
 				<string>/usr/bin/zprint</string>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_zprint</string>
 			<key>TestSpecificLogs</key>
+			<array/>
+			<key>WorkingDirectory</key>
+			<string>/tmp/</string>
+		</dict>
+		<dict>
+			<key>Arch</key>
+			<string>platform-native</string>
+			<key>AsRoot</key>
+			<true/>
+			<key>Command</key>
 			<array>
+				<string>recon</string>
+				<string>/AppleInternal/Tests/system_cmds/test_zprint.lua</string>
 			</array>
+			<key>IgnoreCrashes</key>
+			<array/>
+			<key>TestName</key>
+			<string>test_zprint_lua</string>
+			<key>TestSpecificLogs</key>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
@@ -89,13 +100,11 @@
 				<string>/usr/bin/hostinfo</string>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_hostinfo</string>
 			<key>TestSpecificLogs</key>
-			<array>
-			</array>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
@@ -109,13 +118,11 @@
 				<string>/usr/local/bin/ltop</string>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_ltop</string>
 			<key>TestSpecificLogs</key>
-			<array>
-			</array>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
@@ -129,13 +136,11 @@
 				<string>/usr/bin/vm_stat</string>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_vm_stat</string>
 			<key>TestSpecificLogs</key>
-			<array>
-			</array>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
@@ -149,13 +154,11 @@
 				<string>/sbin/dmesg</string>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_dmesg</string>
 			<key>TestSpecificLogs</key>
-			<array>
-			</array>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
@@ -170,13 +173,11 @@
 				<string>-a</string>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_sysctl</string>
 			<key>TestSpecificLogs</key>
-			<array>
-			</array>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>
@@ -200,13 +201,11 @@
 				</dict>
 			</array>
 			<key>IgnoreCrashes</key>
-			<array>
-			</array>
+			<array/>
 			<key>TestName</key>
 			<string>test_proc_uuid_policy</string>
 			<key>TestSpecificLogs</key>
-			<array>
-			</array>
+			<array/>
 			<key>WorkingDirectory</key>
 			<string>/tmp/</string>
 		</dict>

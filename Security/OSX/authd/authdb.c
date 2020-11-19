@@ -943,13 +943,18 @@ _import_rules(authdb_connection_t dbconn, CFMutableArrayRef rules, bool version_
         if (version_check) {
             if (rule_get_id(rule) != 0) { // rule already exists see if we need to update
                 rule_t current = rule_create_with_string(rule_get_name(rule), dbconn);
-                if (rule_get_version(rule) > rule_get_version(current)) {
+                int64_t currVer = rule_get_version(current);
+                int64_t newVer = rule_get_version(rule);
+
+                if (newVer > currVer) {
                     update = true;
                 }
                 CFReleaseSafe(current);
                 
                 if (!update) {
                     continue;
+                } else {
+                    os_log(AUTHD_LOG, "authdb: right %{public}s new version %lld vs existing version %lld, will update", rule_get_name(rule), newVer, currVer);
                 }
             }
         }
@@ -977,7 +982,7 @@ _import_rules(authdb_connection_t dbconn, CFMutableArrayRef rules, bool version_
         
         if (!delayCommit) {
             bool success = rule_sql_commit(rule, dbconn, now, NULL);
-            os_log_debug(AUTHD_LOG, "authdb: %{public}s %{public}s %{public}s %{public}s",
+            os_log(AUTHD_LOG, "authdb: %{public}s %{public}s %{public}s %{public}s",
                  update ? "updating" : "importing",
                  rule_get_type(rule) == RT_RULE ? "rule" : "right",
                  rule_get_name(rule), success ? "success" : "FAIL");

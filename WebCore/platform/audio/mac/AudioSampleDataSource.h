@@ -42,7 +42,6 @@ namespace WebCore {
 
 class CAAudioStreamDescription;
 class CARingBuffer;
-class MediaStreamTrackPrivate;
 
 class AudioSampleDataSource : public ThreadSafeRefCounted<AudioSampleDataSource, WTF::DestructionThread::MainRunLoop>
 #if !RELEASE_LOG_DISABLED
@@ -50,7 +49,7 @@ class AudioSampleDataSource : public ThreadSafeRefCounted<AudioSampleDataSource,
 #endif
     {
 public:
-    static Ref<AudioSampleDataSource> create(size_t, MediaStreamTrackPrivate&);
+    static Ref<AudioSampleDataSource> create(size_t, WTF::LoggerHelper&);
 
     ~AudioSampleDataSource();
 
@@ -66,15 +65,13 @@ public:
 
     bool pullAvalaibleSamplesAsChunks(AudioBufferList&, size_t frameCount, uint64_t timeStamp, Function<void()>&&);
 
-    void setPaused(bool);
-
     void setVolume(float volume) { m_volume = volume; }
     float volume() const { return m_volume; }
 
     void setMuted(bool muted) { m_muted = muted; }
     bool muted() const { return m_muted; }
 
-    CAAudioStreamDescription* inputDescription() { return m_inputDescription.get(); }
+    const CAAudioStreamDescription* inputDescription() const { return m_inputDescription.get(); }
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger; }
@@ -82,8 +79,10 @@ public:
     void setLogger(Ref<const Logger>&&, const void*);
 #endif
 
+    static constexpr float EquivalentToMaxVolume = 0.95;
+
 private:
-    AudioSampleDataSource(size_t, MediaStreamTrackPrivate&);
+    AudioSampleDataSource(size_t, LoggerHelper&);
 
     OSStatus setupConverter();
     bool pullSamplesInternal(AudioBufferList&, size_t&, uint64_t, double, PullMode);
@@ -114,8 +113,8 @@ private:
 
     float m_volume { 1.0 };
     bool m_muted { false };
-    bool m_paused { true };
-    bool m_transitioningFromPaused { true };
+    bool m_shouldComputeOutputSampleOffset { true };
+    uint64_t m_endFrameWhenNotEnoughData { 0 };
 
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;

@@ -37,11 +37,11 @@ class HexDump {
         }
         
         if offset != 0 {
-            if Utils.roundDown(physicalDiskSector, UInt32(offset)) == offset {
+            if Utils.roundDown(UInt64(physicalDiskSector), UInt64(offset)) == offset {
                 file.seek(toFileOffset: UInt64(offset))
             }
             else {
-                let newOffset = Utils.roundDown(physicalDiskSector, UInt32(offset))
+                let newOffset = Utils.roundDown(UInt64(physicalDiskSector), UInt64(offset))
                 file.seek(toFileOffset: UInt64(newOffset))
                 offset_in_chunk = offset - Int(newOffset)
             }
@@ -88,11 +88,11 @@ class HexDump {
         
         // If an offset has been specified, attempt to seek to it.
         if offset != 0 {
-            if Utils.roundDown(UInt32(physicalDiskSector), UInt32(offset)) == offset {
+            if Utils.roundDown(UInt64(physicalDiskSector), UInt64(offset)) == offset {
                 file.seek(toFileOffset: UInt64(offset))
             }
             else {
-                aligned_offset = UInt64(Utils.roundDown(UInt32(physicalDiskSector), UInt32(offset)))
+                aligned_offset = UInt64(Utils.roundDown(UInt64(physicalDiskSector), UInt64(offset)))
                 file.seek(toFileOffset: UInt64(aligned_offset))
                 offset_in_chunk = offset - aligned_offset
                 readSize = bytesToRead + Int(offset_in_chunk)
@@ -111,6 +111,14 @@ class HexDump {
             }
         }
         return (dumpStr, [UInt8](accumulatedData) ,SUCCESS)
+    }
+
+    // Change (spoil) disk image
+    func write(path: String, offset: UInt64, dataToWrite: Data) {
+        log("Change \(path) in offset \(offset): \(dataToWrite)")
+        let file = FileHandle(forWritingAtPath: path)!
+        file.seek(toFileOffset: offset)
+        file.write(dataToWrite)
     }
     
     // Write a single line of output to stdout.

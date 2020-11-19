@@ -36,6 +36,9 @@
  *	@(#)pat_rep.h	8.1 (Berkeley) 5/31/93
  */
 
+#ifndef _PAT_REP_H_
+#define _PAT_REP_H_
+
 /*
  * data structure for storing user supplied replacement strings (-s)
  */
@@ -49,3 +52,5 @@ typedef struct replace {
 } REPLACE;
 
 int tty_rename(ARCHD *);	/* used for -o invalid=rename recovery */
+
+#endif /* _PAT_REP_H_ */

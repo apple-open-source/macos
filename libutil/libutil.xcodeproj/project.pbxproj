@@ -82,6 +82,8 @@
 		BA79F9E613BB76B0006A292D /* wipefs.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9BC13BB70FF006A292D /* wipefs.3 */; };
 		BA79F9E913BB77FA006A292D /* libutil.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9AB13BB70FF006A292D /* libutil.plist */; };
 		BA79F9EA13BB77FF006A292D /* libutil.txt in CopyFiles */ = {isa = PBXBuildFile; fileRef = BA79F9AC13BB70FF006A292D /* libutil.txt */; };
+		C198003123F661F9004D70D5 /* expand_number.c in Sources */ = {isa = PBXBuildFile; fileRef = C198003023F661DF004D70D5 /* expand_number.c */; };
+		C198003223F66284004D70D5 /* expand_number.3 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C198002F23F661DF004D70D5 /* expand_number.3 */; };
 		FDA46DED1D6D110000C63528 /* libutil.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FDA46DEC1D6D110000C63528 /* libutil.plist */; };
 		FDA4991B199D6A0400A32E83 /* humanize_number_test.c in Sources */ = {isa = PBXBuildFile; fileRef = FDA4991A199D6A0400A32E83 /* humanize_number_test.c */; };
 		FDA4991C199D6B9300A32E83 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = BA79F9C513BB718B006A292D /* libutil.dylib */; };
@@ -164,6 +166,7 @@
 			dstPath = /usr/local/share/man/man3;
 			dstSubfolderSpec = 0;
 			files = (
+				C198003223F66284004D70D5 /* expand_number.3 in CopyFiles */,
 				BA79F9DD13BB76B0006A292D /* getmntopts.3 in CopyFiles */,
 				BA79F9DE13BB76B0006A292D /* humanize_number.3 in CopyFiles */,
 				BA79F9DF13BB76B0006A292D /* pidfile.3 in CopyFiles */,
@@ -244,6 +247,8 @@
 		BA79F9BD13BB70FF006A292D /* wipefs.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = wipefs.cpp; sourceTree = "<group>"; };
 		BA79F9BE13BB70FF006A292D /* wipefs.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = wipefs.h; sourceTree = "<group>"; };
 		BA79F9C513BB718B006A292D /* libutil.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libutil.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		C198002F23F661DF004D70D5 /* expand_number.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = expand_number.3; sourceTree = "<group>"; };
+		C198003023F661DF004D70D5 /* expand_number.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = expand_number.c; sourceTree = "<group>"; };
 		FDA46DEC1D6D110000C63528 /* libutil.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = libutil.plist; sourceTree = "<group>"; };
 		FDA49903199D69B000A32E83 /* humanize_number_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = humanize_number_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		FDA4991A199D6A0400A32E83 /* humanize_number_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = humanize_number_test.c; sourceTree = "<group>"; };
@@ -294,8 +299,11 @@
 		BA79F99513BB70D7006A292D = {
 			isa = PBXGroup;
 			children = (
+				C198002F23F661DF004D70D5 /* expand_number.3 */,
+				C198003023F661DF004D70D5 /* expand_number.c */,
 				BA79F9A313BB70FF006A292D /* ExtentManager.cpp */,
 				BA79F9A413BB70FF006A292D /* ExtentManager.h */,
+				7259A9711D519321008F83F6 /* Frameworks */,
 				BA79F9A513BB70FF006A292D /* getmntopts.3 */,
 				BA79F9A613BB70FF006A292D /* getmntopts.c */,
 				BA79F9A713BB70FF006A292D /* humanize_number.3 */,
@@ -307,6 +315,7 @@
 				BA79F9AE13BB70FF006A292D /* mntopts.h */,
 				BA79F9AF13BB70FF006A292D /* pidfile.3 */,
 				BA79F9B013BB70FF006A292D /* pidfile.c */,
+				BA79F9C613BB718B006A292D /* Products */,
 				BA79F9B313BB70FF006A292D /* realhostname_sa.3 */,
 				BA79F9B413BB70FF006A292D /* realhostname.3 */,
 				BA79F9B513BB70FF006A292D /* realhostname.c */,
@@ -315,16 +324,14 @@
 				FDA49919199D6A0400A32E83 /* tests */,
 				BA79F9B813BB70FF006A292D /* trimdomain.3 */,
 				BA79F9B913BB70FF006A292D /* trimdomain.c */,
+				FDBC27081741B47200CA4B2B /* tzlink_internal.h */,
 				FDBC26F91741B18500CA4B2B /* tzlink.c */,
 				FDBC27091741B47200CA4B2B /* tzlink.h */,
-				FDBC27081741B47200CA4B2B /* tzlink_internal.h */,
 				FDBC26F11741B13400CA4B2B /* tzlinkd */,
 				BA79F9BC13BB70FF006A292D /* wipefs.3 */,
 				BA79F9BD13BB70FF006A292D /* wipefs.cpp */,
 				BA79F9BE13BB70FF006A292D /* wipefs.h */,
 				FDBC270C1741B66500CA4B2B /* xcconfigs */,
-				BA79F9C613BB718B006A292D /* Products */,
-				7259A9711D519321008F83F6 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -431,6 +438,7 @@
 				FDBC26EC1741B13400CA4B2B /* Sources */,
 				FDBC26ED1741B13400CA4B2B /* Frameworks */,
 				FDBC26EE1741B13400CA4B2B /* CopyFiles */,
+				35459D5A24BF78E800AD3207 /* Install Sandbox Profile */,
 			);
 			buildRules = (
 			);
@@ -447,14 +455,15 @@
 		BA79F99713BB70D7006A292D /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0420;
+				LastUpgradeCheck = 1200;
 			};
 			buildConfigurationList = BA79F99A13BB70D7006A292D /* Build configuration list for PBXProject "libutil" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				Base,
 			);
 			mainGroup = BA79F99513BB70D7006A292D;
 			productRefGroup = BA79F9C613BB718B006A292D /* Products */;
@@ -473,6 +482,26 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		35459D5A24BF78E800AD3207 /* Install Sandbox Profile */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tzlinkd/com.apple.tzlinkd.sb",
+			);
+			name = "Install Sandbox Profile";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(INSTALL_ROOT)/System/Library/Sandbox/Profiles/com.apple.tzlinkd.sb",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ ${PLATFORM_NAME} = \"macosx\" ]; then\n    ${CP} ${SCRIPT_INPUT_FILE_0} ${SCRIPT_OUTPUT_FILE_0}\nfi\n";
+		};
 		BA79F9DA13BB750E006A292D /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -512,6 +541,7 @@
 				BA79F9CC13BB7207006A292D /* getmntopts.c in Sources */,
 				BA79F9CD13BB7207006A292D /* humanize_number.c in Sources */,
 				BA79F9CE13BB7207006A292D /* pidfile.c in Sources */,
+				C198003123F661F9004D70D5 /* expand_number.c in Sources */,
 				BA79F9D013BB7207006A292D /* realhostname.c in Sources */,
 				BA79F9D113BB7207006A292D /* reexec_to_match_kernel.c in Sources */,
 				BA79F9D213BB7207006A292D /* trimdomain.c in Sources */,
@@ -590,6 +620,7 @@
 		3EB206CD1F5096F100B150D3 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -597,6 +628,7 @@
 		3EB206CE1F5096F100B150D3 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -606,6 +638,34 @@
 			baseConfigurationReference = 3F09C378186D1F73007AF93C /* base.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
 				"PLIST_FILE_OUTPUT_FORMAT[sdk=iphoneos*]" = binary;
 				"PLIST_FILE_OUTPUT_FORMAT[sdk=macosx*]" = XML;
 				USE_HEADERMAP = NO;
@@ -617,6 +677,32 @@
 			baseConfigurationReference = 3F09C378186D1F73007AF93C /* base.xcconfig */;
 			buildSettings = {
 				APPLY_RULES_IN_COPY_FILES = YES;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
 				"PLIST_FILE_OUTPUT_FORMAT[sdk=iphoneos*]" = binary;
 				"PLIST_FILE_OUTPUT_FORMAT[sdk=macosx*]" = XML;
 				USE_HEADERMAP = NO;
@@ -627,7 +713,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F7A5E8820510D34007087AF /* lib.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0;
 				DYLIB_CURRENT_VERSION = 1.0;
 				EXECUTABLE_PREFIX = lib;
@@ -654,7 +740,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F7A5E8820510D34007087AF /* lib.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1.0;
 				DYLIB_CURRENT_VERSION = 1.0;
 				EXECUTABLE_PREFIX = lib;
@@ -676,6 +762,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FDA4991D199D6CB800A32E83 /* test.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -684,6 +772,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FDA4991D199D6CB800A32E83 /* test.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "-";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -691,6 +781,7 @@
 		FDA49911199D69B800A32E83 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -698,6 +789,7 @@
 		FDA49912199D69B800A32E83 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -705,6 +797,7 @@
 		FDBC26E51741B09300CA4B2B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -712,6 +805,7 @@
 		FDBC26E61741B09300CA4B2B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -719,6 +813,7 @@
 		FDBC26EA1741B09D00CA4B2B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -726,6 +821,7 @@
 		FDBC26EB1741B09D00CA4B2B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -734,6 +830,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FDBC270D1741B66500CA4B2B /* tzlinkd.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 			};
 			name = Debug;
@@ -742,6 +839,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = FDBC270D1741B66500CA4B2B /* tzlinkd.xcconfig */;
 			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 			};
 			name = Release;

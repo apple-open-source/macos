@@ -32,12 +32,14 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 
-const uint8_t* der_decode_string(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_string(CFAllocatorRef allocator,
                                  CFStringRef* string, CFErrorRef *error,
                                  const uint8_t* der, const uint8_t *der_end)
 {
-    if (NULL == der)
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
 
     size_t payload_size = 0;
     const uint8_t *payload = ccder_decode_tl(CCDER_UTF8_STRING, &payload_size, der, der_end);
@@ -73,9 +75,10 @@ size_t der_sizeof_string(CFStringRef str, CFErrorRef *error)
 uint8_t* der_encode_string(CFStringRef string, CFErrorRef *error,
                            const uint8_t *der, uint8_t *der_end)
 {
-    // Obey the NULL allowed rules.
-    if (!der_end)
+    if (NULL == der_end) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
 
     const CFIndex str_length = CFStringGetLength(string);
 
@@ -88,7 +91,8 @@ uint8_t* der_encode_string(CFStringRef string, CFErrorRef *error,
         return NULL;
     }
 
-    return ccder_encode_tl(CCDER_UTF8_STRING, bytes_used, der,
-           ccder_encode_body(bytes_used, buffer, der, der_end));
+    return SecCCDEREncodeHandleResult(ccder_encode_tl(CCDER_UTF8_STRING, bytes_used, der,
+                                                      ccder_encode_body(bytes_used, buffer, der, der_end)),
+                                      error);
 
 }

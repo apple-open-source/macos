@@ -42,6 +42,9 @@
 #include <dispatch/private.h>
 #include <os/state_private.h>
 #include <mach/mach_time.h>
+#if __has_include(<Rosetta/Rosetta.h>)
+#  include <Rosetta/Rosetta.h>
+#endif
 
 #include <IOKit/hid/IOHIDAnalytics.h>
 
@@ -49,6 +52,11 @@
 #define IOHIDUDLog(fmt, ...)       os_log(_IOHIDLogCategory(kIOHIDLogCategoryUserDevice), "0x%llx: " fmt, device->regID, ##__VA_ARGS__)
 #define IOHIDUDLogInfo(fmt, ...)    os_log_info(_IOHIDLogCategory(kIOHIDLogCategoryUserDevice), "0x%llx: " fmt, device->regID, ##__VA_ARGS__)
 #define IOHIDUDLogDebug(fmt, ...)   os_log_debug(_IOHIDLogCategory(kIOHIDLogCategoryUserDevice), "0x%llx: " fmt, device->regID, ##__VA_ARGS__)
+
+IOHID_DYN_LINK_DYLIB(/usr/lib, Rosetta)
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_is_current_process_translated, dyn_rosetta_is_current_process_translated, bool, false, (void), ())
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_rosetta_absolute_time, dyn_rosetta_convert_to_rosetta_absolute_time, uint64_t, system_time, (uint64_t system_time), (system_time))
+IOHID_DYN_LINK_FUNCTION(Rosetta, rosetta_convert_to_system_absolute_time, dyn_rosetta_convert_to_system_absolute_time, uint64_t, rosetta_time, (uint64_t rosetta_time), (rosetta_time))
 
 static IOHIDUserDeviceRef   __IOHIDUserDeviceCreate(
                                     CFAllocatorRef          allocator, 
@@ -381,7 +389,7 @@ IOReturn __IOHIDUserDeviceStartDevice(IOHIDUserDeviceRef device, IOOptionBits op
     kr = IOConnectGetService(device->connect, &device->userDevice);
     require_noerr(kr, error);
     
-    IORegistryEntryGetRegistryEntryID(device->service, &device->regID);
+    IORegistryEntryGetRegistryEntryID(device->userDevice, &device->regID);
     
     IOHIDUDLog("Start: %@", device);
     
@@ -398,6 +406,7 @@ error:
     return kr;
     
 }
+
 
 //------------------------------------------------------------------------------
 // __IOHIDUserDeviceSerializeState
@@ -918,24 +927,46 @@ void __IOHIDUserDeviceQueueCallback(CFMachPortRef port __unused, void *msg __unu
         uint64_t                        response[kIOHIDResourceUserClientResponseIndexCount]    = {kIOReturnUnsupported,header->token};
         uint8_t *                       responseReport  = NULL;
         CFIndex                         responseLength  = 0;
-        
+        uint32_t                        reportID        = header->reportID;
+        uint32_t                        reportFlags     = header->reportFlags;
+
         // set report
         if ( header->direction == kIOHIDResourceReportDirectionOut ) {
-            CFIndex     reportLength    = min(header->length, (nextEntry->size - sizeof(IOHIDResourceDataQueueHeader)));
-            uint8_t *   report          = ((uint8_t*)header)+sizeof(IOHIDResourceDataQueueHeader);
-            
+            CFIndex     reportLength;
+            uint8_t *   payload          = ((uint8_t*)header)+sizeof(IOHIDResourceDataQueueHeader);
+            uint8_t *   report           = NULL;
+
+            if (reportFlags & kIOHIDResourceOOBReport) {
+                require_action(nextEntry->size >= sizeof(IOHIDResourceOOBReportInfo) + sizeof(IOHIDResourceDataQueueHeader),
+                               exit,
+                               IOHIDUDLogError("Packet size is to small for large report, but large report flag is set. reportFlags:%#x entrySize:%u",
+                                               reportFlags, (uint32_t)nextEntry->size));
+
+                IOHIDResourceOOBReportInfo *info = (void*)payload;
+                report = (uint8_t*)info->token;
+                reportLength = info->length;
+            } else {
+                report = payload;
+                reportLength = min(header->length, (nextEntry->size - sizeof(IOHIDResourceDataQueueHeader)));
+            }
+
+
             ++(device->statistics.setreport);
             
             if ( device->setReport.callback ) {
                 HIDDEBUGTRACE(kHID_UserDev_SetReportCallback, device, 0, 0, 0);
-                response[kIOHIDResourceUserClientResponseIndexResult] = (*device->setReport.callback)(device->setReport.refcon, header->type, header->reportID, report, reportLength);
+                response[kIOHIDResourceUserClientResponseIndexResult] = (*device->setReport.callback)(device->setReport.refcon, header->type, reportID, report, reportLength);
             } else if (device->setReportBlock) {
                 response[kIOHIDResourceUserClientResponseIndexResult] = (device->setReportBlock)(header->type,
-                                                                                                 header->reportID,
+                                                                                                 reportID,
                                                                                                  report,
                                                                                                  reportLength);
             } else {
                 IOHIDUDLogInfo("set report not handled");
+            }
+            if (reportFlags & kIOHIDResourceOOBReport) {
+                uint64_t inputs[] = { ((IOHIDResourceOOBReportInfo*)payload)->token };
+                IOConnectCallMethod(device->connect, kIOHIDResourceDeviceUserClientMethodReleaseToken, inputs, 1, NULL, 0, NULL, NULL, NULL, NULL);
             }
             
         }
@@ -948,14 +979,14 @@ void __IOHIDUserDeviceQueueCallback(CFMachPortRef port __unused, void *msg __unu
             ++(device->statistics.getreport);
             
             if ( device->getReport.callback ) {
-                response[kIOHIDResourceUserClientResponseIndexResult] = (*device->getReport.callback)(device->getReport.refcon, header->type, header->reportID, responseReport, responseLength);
+                response[kIOHIDResourceUserClientResponseIndexResult] = (*device->getReport.callback)(device->getReport.refcon, header->type, reportID, responseReport, responseLength);
             }
             
             if ( device->getReportWithReturnLength.callback ) {
-                response[kIOHIDResourceUserClientResponseIndexResult] = (*device->getReportWithReturnLength.callback)(device->getReportWithReturnLength.refcon, header->type, header->reportID, responseReport, &responseLength);
+                response[kIOHIDResourceUserClientResponseIndexResult] = (*device->getReportWithReturnLength.callback)(device->getReportWithReturnLength.refcon, header->type, reportID, responseReport, &responseLength);
             } else if (device->getReportBlock) {
                 response[kIOHIDResourceUserClientResponseIndexResult] = (device->getReportBlock)(header->type,
-                                                                                                 header->reportID,
+                                                                                                 reportID,
                                                                                                  responseReport,
                                                                                                  &responseLength);
             }
@@ -966,7 +997,7 @@ void __IOHIDUserDeviceQueueCallback(CFMachPortRef port __unused, void *msg __unu
                 IOHIDUDLogInfo("get report not handled");
             }
         }
-
+    exit:
         // post the response
         kr = IOConnectCallMethod(device->connect, kIOHIDResourceDeviceUserClientMethodPostReportResponse, response, sizeof(response)/sizeof(uint64_t), responseReport, responseLength, NULL, NULL, NULL, NULL);
         if (kr) {
@@ -1005,22 +1036,26 @@ void __IOHIDUserDeviceHandleReportAsyncCallback(void *refcon, IOReturn result)
 IOReturn IOHIDUserDeviceHandleReportAsyncWithTimeStamp(IOHIDUserDeviceRef device, uint64_t timestamp, const uint8_t *report, CFIndex reportLength, IOHIDUserDeviceHandleReportAsyncCallback callback, void * refcon)
 {
     IOHIDDeviceHandleReportAsyncContext *pContext = malloc(sizeof(IOHIDDeviceHandleReportAsyncContext));
-    
+
     if (!pContext)
         return kIOReturnNoMemory;
 
     pContext->callback = callback;
     pContext->refcon = refcon;
-    
+
     mach_port_t wakePort = MACH_PORT_NULL;
     uint64_t asyncRef[kOSAsyncRef64Count];
-    
+
     wakePort = IONotificationPortGetMachPort(device->async.port);
-    
+
     asyncRef[kIOAsyncCalloutFuncIndex] = (uint64_t)(uintptr_t)__IOHIDUserDeviceHandleReportAsyncCallback;
     asyncRef[kIOAsyncCalloutRefconIndex] = (uint64_t)(uintptr_t)pContext;
 
-    return IOConnectCallAsyncMethod(device->connect, kIOHIDResourceDeviceUserClientMethodHandleReport, wakePort, asyncRef, kOSAsyncRef64Count, &timestamp, 1, report, reportLength, NULL, NULL, NULL, NULL);
+    timestamp = dyn_rosetta_is_current_process_translated() ?
+        dyn_rosetta_convert_to_system_absolute_time(timestamp) : timestamp;
+    return IOConnectCallAsyncMethod(device->connect,
+        kIOHIDResourceDeviceUserClientMethodHandleReport, wakePort, asyncRef,
+        kOSAsyncRef64Count, &timestamp, 1, report, reportLength, NULL, NULL, NULL, NULL);
 }
 
 //------------------------------------------------------------------------------
@@ -1029,6 +1064,10 @@ IOReturn IOHIDUserDeviceHandleReportAsyncWithTimeStamp(IOHIDUserDeviceRef device
 IOReturn IOHIDUserDeviceHandleReportWithTimeStamp(IOHIDUserDeviceRef device, uint64_t timestamp, const uint8_t * report, CFIndex reportLength)
 {
     IOReturn kr;
+
+    timestamp = dyn_rosetta_is_current_process_translated() ?
+        dyn_rosetta_convert_to_system_absolute_time(timestamp) : timestamp;
+
     HIDDEBUGTRACE(kHID_UserDev_HandleReport, timestamp, device, reportLength, 0);
     ++(device->statistics.handlereport);
     kr = IOConnectCallMethod(device->connect, kIOHIDResourceDeviceUserClientMethodHandleReport, &timestamp, 1, report, reportLength, NULL, NULL, NULL, NULL);

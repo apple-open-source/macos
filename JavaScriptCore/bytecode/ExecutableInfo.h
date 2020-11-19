@@ -30,14 +30,14 @@
 namespace JSC {
     
 enum class DerivedContextType : uint8_t { None, DerivedConstructorContext, DerivedMethodContext };
-enum class EvalContextType    : uint8_t { None, FunctionEvalContext };
+enum class EvalContextType    : uint8_t { None, FunctionEvalContext, InstanceFieldEvalContext };
+enum class NeedsClassFieldInitializer : uint8_t { No, Yes };
 
 // FIXME: These flags, ParserModes and propagation to XXXCodeBlocks should be reorganized.
 // https://bugs.webkit.org/show_bug.cgi?id=151547
 struct ExecutableInfo {
-    ExecutableInfo(bool usesEval, bool isStrictMode, bool isConstructor, bool isBuiltinFunction, ConstructorKind constructorKind, JSParserScriptMode scriptMode, SuperBinding superBinding, SourceParseMode parseMode, DerivedContextType derivedContextType, bool isArrowFunctionContext, bool isClassContext, EvalContextType evalContextType)
+    ExecutableInfo(bool usesEval, bool isConstructor, bool isBuiltinFunction, ConstructorKind constructorKind, JSParserScriptMode scriptMode, SuperBinding superBinding, SourceParseMode parseMode, DerivedContextType derivedContextType, NeedsClassFieldInitializer needsClassFieldInitializer, bool isArrowFunctionContext, bool isClassContext, EvalContextType evalContextType)
         : m_usesEval(usesEval)
-        , m_isStrictMode(isStrictMode)
         , m_isConstructor(isConstructor)
         , m_isBuiltinFunction(isBuiltinFunction)
         , m_constructorKind(static_cast<unsigned>(constructorKind))
@@ -45,6 +45,7 @@ struct ExecutableInfo {
         , m_scriptMode(static_cast<unsigned>(scriptMode))
         , m_parseMode(parseMode)
         , m_derivedContextType(static_cast<unsigned>(derivedContextType))
+        , m_needsClassFieldInitializer(static_cast<unsigned>(needsClassFieldInitializer))
         , m_isArrowFunctionContext(isArrowFunctionContext)
         , m_isClassContext(isClassContext)
         , m_evalContextType(static_cast<unsigned>(evalContextType))
@@ -55,7 +56,6 @@ struct ExecutableInfo {
     }
 
     bool usesEval() const { return m_usesEval; }
-    bool isStrictMode() const { return m_isStrictMode; }
     bool isConstructor() const { return m_isConstructor; }
     bool isBuiltinFunction() const { return m_isBuiltinFunction; }
     ConstructorKind constructorKind() const { return static_cast<ConstructorKind>(m_constructorKind); }
@@ -66,10 +66,10 @@ struct ExecutableInfo {
     EvalContextType evalContextType() const { return static_cast<EvalContextType>(m_evalContextType); }
     bool isArrowFunctionContext() const { return m_isArrowFunctionContext; }
     bool isClassContext() const { return m_isClassContext; }
+    NeedsClassFieldInitializer needsClassFieldInitializer() const { return static_cast<NeedsClassFieldInitializer>(m_needsClassFieldInitializer); }
 
 private:
     unsigned m_usesEval : 1;
-    unsigned m_isStrictMode : 1;
     unsigned m_isConstructor : 1;
     unsigned m_isBuiltinFunction : 1;
     unsigned m_constructorKind : 2;
@@ -77,6 +77,7 @@ private:
     unsigned m_scriptMode: 1;
     SourceParseMode m_parseMode;
     unsigned m_derivedContextType : 2;
+    unsigned m_needsClassFieldInitializer : 1;
     unsigned m_isArrowFunctionContext : 1;
     unsigned m_isClassContext : 1;
     unsigned m_evalContextType : 2;

@@ -27,6 +27,14 @@
  *
  */
 
+/* We need to guard against the other copy of libDER.
+ * This is outside this header's guards because DERItem.h currently guards
+ * the DERItem type against this header (legacy from when this header also
+ * defined the type). */
+#ifndef _LIB_DER_H_
+#include <libDER/DERItem.h>
+#endif    /* _LIB_DER_H_ */
+
 #ifndef	_SECURITY_OIDS_H_
 #define _SECURITY_OIDS_H_
 
@@ -34,24 +42,6 @@
 #include <string.h>
 
 __BEGIN_DECLS
-
-/* This is a subset of libDER's oids.h. If the types header has
- * already been included, we should skip these typedef declarations. */
-#ifndef _LIB_DER_H_
-/*
- * Basic data types
- */
-typedef uint8_t DERByte;
-typedef size_t DERSize;
-
-/*
- * Primary representation of a block of memory.
- */
-typedef struct {
-    DERByte		*data;
-    DERSize		length;
-} DERItem;
-#endif    /* _LIB_DER_H_ */
 
 /* Algorithm oids. */
 extern const DERItem

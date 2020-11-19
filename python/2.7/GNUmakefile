@@ -118,10 +118,10 @@ $(OBJROOT)/$(PROJECT):
 	ed - $(PROJECT)/Modules/readline.c < $(FIX)/readline.c.ed && \
 	ex - $(PROJECT)/Modules/selectmodule.c < $(FIX)/selectmodule.c.ex && \
 	patch $(PROJECT)/Python/ceval.c $(FIX)/ceval.c.patch && \
-	ed - $(PROJECT)/Python/dynload_shlib.c < $(FIX)/dynload_shlib.c.ed && \
+	patch -p1 $(PROJECT)/Python/dynload_shlib.c $(FIX)/python-dynload_shlib-lp64.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py.patch && \
 	patch $(PROJECT)/setup.py $(FIX)/setup.py-21106613.patch && \
-	ed - $(PROJECT)/setup.py < $(FIX)/setup.py.ed && \
+	patch -p1 $(PROJECT)/setup.py $(FIX)/setup.py-4627554-no64.patch && \
 	ed - $(PROJECT)/Modules/main.c < $(FIX)/Modules_main.c.ed && \
 	patch $(PROJECT)/Modules/main.c $(FIX)/deprecate.diff && \
 	patch $(PROJECT)/Mac/Makefile.in $(FIX)/Mac.Makefile.in.patch && \
@@ -139,6 +139,15 @@ $(OBJROOT)/$(PROJECT):
 	(cd $(PROJECT) && patch -p1 < $(FIX)/PR-46170992.diff)
 	dtrace -h -s $(FIX)/pydtrace.d -o '$(PYDTRACE_H)'
 	(cd $(PROJECT) && patch -R -p1 <$(FIX)/system-paths-revert.patch)
+	(cd $(PROJECT) && git apply $(FIX)/dyld-shared-cache.patch)
+	(cd $(PROJECT) && git apply $(FIX)/python-CVE-2018-20852.patch)
+	(cd $(PROJECT) && git apply $(FIX)/setup.py-61766230.patch)
+	(cd $(PROJECT) && patch -p1 < $(FIX)/python-darwin20.patch)
+	(cd $(PROJECT) && patch -p1 < $(FIX)/python-arm64e-machinetype.patch)
+	(cd $(PROJECT) && patch -p1 < $(FIX)/python-arm64-universal-ccshared.patch)
+	(cd $(PROJECT) && patch -p1 < $(FIX)/python-http-header-injection-59387782.patch)
+	(cd $(PROJECT) && patch -p1 < $(FIX)/python-openpty-include.patch)
+	(cd $(PROJECT) && patch -p1 < $(FIX)/python-system-version-compat.patch)
 
 install: installpython
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au

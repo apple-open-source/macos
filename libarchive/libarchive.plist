@@ -46,8 +46,11 @@
 		<string>libarchive/archive_read_support_format_zip.c 51855785</string>
 		<string>libarchive/archive_write_disk_posix.c 52273121</string>
 		<string>libarchive/archive_write_disk_posix.c 53392409</string>
+		<string>libarchive/archive_read_support_format_zip.c 52273121</string>
 		<string>libarchive/archive_string.c 57570559 (22b1db9d46654afc6f0c28f90af8cdc84a199f41)</string>
 		<string>Fix sparse file offset overflow on 32-bit systems: 58275909 (e9f5e7081c62a47fb875569403e37cacca26dc12)</string>
+		<string>libarchive/archive_string.c 58275904 (4f085eea879e2be745f4d9bf57e8513ae48157f4)</string>
+		<string>libarchive/archive_cryptor.c 63179001 (8ea6be2423b54afcbfc51d2549f208a2759f59cb)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

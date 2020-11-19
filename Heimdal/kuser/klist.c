@@ -480,6 +480,12 @@ display_v5_ccache (krb5_context context, krb5_ccache ccache,
 		krb5_warnx(context, N_("No ticket file: %s", ""),
 			   krb5_cc_get_name(context, ccache));
 	    return 1;
+	} else if (ret == KRB5_CC_NOTFOUND) {
+	    char *fullname;
+	    krb5_cc_get_full_name(context, ccache, &fullname);
+	    krb5_warnx(context, N_("Cache not found: %s", ""),
+		       fullname);
+	    return 1;
 	} else
 	    krb5_err (context, 1, ret, "krb5_cc_get_principal");
     }

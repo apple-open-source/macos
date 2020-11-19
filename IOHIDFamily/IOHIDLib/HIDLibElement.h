@@ -73,7 +73,6 @@
 @property (readonly)        uint32_t                    unit;
 @property (readonly)        uint8_t                     unitExponent;
 @property (readonly)        uint8_t                     reportID;
-@property (readonly)        uint32_t                    valueLocation;
 @property (readonly)        uint32_t                    usageMin;
 @property (readonly)        uint32_t                    usageMax;
 @property (readonly)        IOHIDElementCollectionType  collectionType;

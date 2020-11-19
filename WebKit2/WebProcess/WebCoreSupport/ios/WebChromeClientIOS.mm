@@ -30,6 +30,8 @@
 
 #import "DrawingArea.h"
 #import "EditableImageControllerMessages.h"
+#import "InteractionInformationAtPosition.h"
+#import "InteractionInformationRequest.h"
 #import "UIKitSPI.h"
 #import "WebCoreArgumentCoders.h"
 #import "WebFrame.h"
@@ -39,6 +41,7 @@
 #import <WebCore/AudioSession.h>
 #import <WebCore/ContentChangeObserver.h>
 #import <WebCore/Icon.h>
+#import <WebCore/MouseEvent.h>
 #import <WebCore/NotImplemented.h>
 #import <WebCore/PlatformMouseEvent.h>
 #import <wtf/RefPtr.h>
@@ -151,7 +154,7 @@ RefPtr<Icon> WebChromeClient::createIconForFiles(const Vector<String>& filenames
 
     // FIXME: We should generate an icon showing multiple files here, if applicable. Currently, if there are multiple
     // files, we only use the first URL to generate an icon.
-    return Icon::createIconForImage(iconForFile([NSURL fileURLWithPath:filenames[0] isDirectory:NO]).CGImage);
+    return Icon::createIconForImage(iconForFile([NSURL fileURLWithPath:filenames[0] isDirectory:NO]).get().CGImage);
 }
 
 void WebChromeClient::associateEditableImageWithAttachment(GraphicsLayer::EmbeddedViewID embeddedViewID, const String& attachmentID)
@@ -184,13 +187,27 @@ void WebChromeClient::didDestroyEditableImage(GraphicsLayer::EmbeddedViewID embe
 
 bool WebChromeClient::shouldUseMouseEventForSelection(const WebCore::PlatformMouseEvent& event)
 {
-    // In macCatalyst, despite getting mouse events, we still want UITextInteraction and friends to own selection gestures.
+    // In iPadOS and macCatalyst, despite getting mouse events, we still want UITextInteraction and friends to own selection gestures.
     // However, we need to allow single-clicks to set the selection, because that is how UITextInteraction is activated.
-#if HAVE(HOVER_GESTURE_RECOGNIZER)
+#if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     return event.clickCount() <= 1;
 #else
     return true;
 #endif
+}
+
+bool WebChromeClient::showDataDetectorsUIForElement(const Element& element, const Event& event)
+{
+    if (!event.isMouseEvent())
+        return false;
+
+    // FIXME: Ideally, we would be able to generate InteractionInformationAtPosition without re-hit-testing the element.
+    auto& mouseEvent = downcast<MouseEvent>(event);
+    auto request = InteractionInformationRequest { roundedIntPoint(mouseEvent.locationInRootViewCoordinates()) };
+    request.includeLinkIndicator = true;
+    auto positionInformation = m_page.positionInformation(request);
+    m_page.send(Messages::WebPageProxy::ShowDataDetectorsUIForPositionInformation(positionInformation));
+    return true;
 }
 
 } // namespace WebKit

@@ -30,25 +30,25 @@
 #endif
 
 /* libxml2 includes unicode/[...].h files which uses C++ comments */
-#if defined(__GNUC__)
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic warning "-Wcomment"
+#elif defined(__GNUC__)
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wcomment"
 #endif
-#elif defined(__clang__)
-#pragma clang diagnostic push
-#pragma clang diagnostic warning "-Wcomment"
 #endif
 
 /* libxml2 */
 #include <libxml/HTMLparser.h>
 
-#if defined(__GNUC__)
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
 #if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
 #pragma GCC diagnostic pop
 #endif
-#elif defined(__clang__)
-#pragma clang diagnostic pop
 #endif
 
 #include "http_protocol.h"
@@ -107,7 +107,7 @@ typedef struct {
     const char *doctype;
     const char *etag;
     unsigned int flags;
-    size_t bufsz;
+    int bufsz;
     apr_hash_t *links;
     apr_array_header_t *events;
     const char *charset_out;
@@ -696,7 +696,7 @@ static meta *metafix(request_rec *r, const char *buf, apr_size_t len)
                     if ((*p == '\'') || (*p == '"')) {
                         delim = *p++;
                         for (q = p; *q && *q != delim; ++q);
-                        /* No terminating delimiter found? Skip the boggus directive */
+                        /* No terminating delimiter found? Skip the bogus directive */
                         if (*q != delim)
                            break;
                     } else {

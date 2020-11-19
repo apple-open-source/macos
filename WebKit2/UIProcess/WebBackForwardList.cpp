@@ -30,6 +30,7 @@
 #include "Logging.h"
 #include "SessionState.h"
 #include "WebBackForwardCache.h"
+#include "WebBackForwardListCounts.h"
 #include "WebPageProxy.h"
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
@@ -274,6 +275,11 @@ unsigned WebBackForwardList::forwardListCount() const
     return m_page && m_currentIndex ? m_entries.size() - (*m_currentIndex + 1) : 0;
 }
 
+WebBackForwardListCounts WebBackForwardList::counts() const
+{
+    return WebBackForwardListCounts { backListCount(), forwardListCount() };
+}
+
 Ref<API::Array> WebBackForwardList::backList() const
 {
     return backListAsAPIArrayWithLimit(backListCount());
@@ -484,7 +490,7 @@ const char* WebBackForwardList::loggingString()
     StringBuilder builder;
 
     builder.appendLiteral("WebBackForwardList 0x");
-    appendUnsignedAsHex(reinterpret_cast<uintptr_t>(this), builder);
+    builder.append(hex(reinterpret_cast<uintptr_t>(this)));
     builder.appendLiteral(" - ");
     builder.appendNumber(m_entries.size());
     builder.appendLiteral(" entries, has current index ");

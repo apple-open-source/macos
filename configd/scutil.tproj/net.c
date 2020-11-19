@@ -811,8 +811,13 @@ do_net_migrate_perform(int argc, char **argv)
 		currentConfiguration = argv[2];
 	}
 
-	SCPrint(_sc_debug, stdout, CFSTR("sourceConfiguration: %s\ntargetConfiguration: %s\ncurrentConfiguration: %s\n"),
-		sourceConfiguration, targetConfiguration, (currentConfiguration != NULL) ? currentConfiguration : "<current system>" );
+	SCPrint(_sc_debug, stdout,
+		CFSTR("sourceConfiguration: %s\n"
+		      "targetConfiguration: %s\n"
+		      "currentConfiguration: %s\n"),
+		sourceConfiguration,
+		targetConfiguration,
+		(currentConfiguration != NULL) ? currentConfiguration : "<current system>" );
 
 	str = CFStringCreateWithCString(NULL, sourceConfiguration, kCFStringEncodingUTF8);
 	sourceConfigurationURL = CFURLCreateWithFileSystemPath(NULL, str, kCFURLPOSIXPathStyle, TRUE);
@@ -831,10 +836,10 @@ do_net_migrate_perform(int argc, char **argv)
 	migrationFiles = _SCNetworkConfigurationPerformMigration(sourceConfigurationURL, currentConfigurationURL, targetConfigurationURL, NULL);
 
 	if (migrationFiles != NULL) {
-		SCPrint(TRUE, stdout, CFSTR("Migration Successful: %@ \n"), migrationFiles);
-	}
-	else {
-		SCPrint(TRUE, stdout, CFSTR("Migration Unsuccessful \n"));
+		SCPrint(TRUE, stdout, CFSTR("Migration complete\n"));
+		SCPrint(_sc_debug, stdout, CFSTR("updated files: %@\n"), migrationFiles);
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("Migration failed\n"));
 	}
 
 	if (sourceConfigurationURL != NULL) {
@@ -890,8 +895,7 @@ __private_extern__
 void
 do_net_migrate(int argc, char **argv)
 {
-	char *key;
-	SCPrint(TRUE, stdout, CFSTR("do_net_migrate called, %d\n"), argc);
+	char	*key;
 
 	key = argv[0];
 	argv++;

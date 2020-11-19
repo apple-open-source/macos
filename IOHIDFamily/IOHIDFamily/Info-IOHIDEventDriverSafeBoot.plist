@@ -79,9 +79,9 @@
 			<string>IOHIDInterface</string>
 			<key>PrimaryVendorEvents</key>
 			<array>
-				<integer>280461364428801</integer>
-				<integer>280461364428802</integer>
-				<integer>280461364428803</integer>
+				<integer>4279500801</integer>
+				<integer>4279500802</integer>
+				<integer>4279500803</integer>
 			</array>
 		</dict>
 		<key>HID Pointing Shim Driver</key>
@@ -493,9 +493,9 @@
 			<string>IOHIDInterface</string>
 			<key>PrimaryVendorEvents</key>
 			<array>
-				<integer>280461364428801</integer>
-				<integer>280461364428802</integer>
-				<integer>280461364428803</integer>
+				<integer>4279500801</integer>
+				<integer>4279500802</integer>
+				<integer>4279500803</integer>
 			</array>
 		</dict>
 		<key>VMWare Legacy Work-around</key>

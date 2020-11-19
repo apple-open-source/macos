@@ -8,19 +8,20 @@ UserType          = Developer
 ToolType          = Commands
 GnuNoChown=YES
 GnuAfterInstall     = post-install install-plist
-Extra_Configure_Flags= --with-newconfigdir=/usr/share/uucp --with-user=_uucp
+Extra_Configure_Flags= --with-newconfigdir=/private/etc/uucp --with-user=_uucp
 
 # It's a GNU Source project
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
-DIRS=$(DSTROOT)/usr/share/uucp $(DSTROOT)/private/var/log/uucp $(DSTROOT)/private/var/spool/uucp
+# Directories that will be created and owned by _uucp
+UUCP_DIRS=$(DSTROOT)/private/var/log/uucp $(DSTROOT)/private/var/spool/uucp
 
 post-install:
-	$(MKDIR) $(DIRS)
-	$(INSTALL_FILE) $(SRCROOT)/configs/passwd  $(DSTROOT)/usr/share/uucp
-	$(INSTALL_FILE) $(SRCROOT)/configs/port    $(DSTROOT)/usr/share/uucp
-	$(INSTALL_FILE) $(SRCROOT)/configs/sys     $(DSTROOT)/usr/share/uucp
-	$(CHOWN) _uucp $(DIRS)
+	$(MKDIR) $(UUCP_DIRS) $(DSTROOT)/private/etc/uucp
+	$(INSTALL_FILE) $(SRCROOT)/configs/passwd  $(DSTROOT)/private/etc/uucp
+	$(INSTALL_FILE) $(SRCROOT)/configs/port    $(DSTROOT)/private/etc/uucp
+	$(INSTALL_FILE) $(SRCROOT)/configs/sys     $(DSTROOT)/private/etc/uucp
+	$(CHOWN) _uucp $(UUCP_DIRS)
 
 OSV     = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL     = $(DSTROOT)/usr/local/OpenSourceLicenses

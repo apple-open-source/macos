@@ -115,13 +115,6 @@ TidyOption   tidyImplToOption( const TidyOptionImpl* option );
 
 #endif
 
-/* Apple Changes:
-   2007-02-20 iccir Export for binary compatibility.
-*/
-#ifdef TIDY_APPLE_CHANGES
-#pragma GCC visibility push(default)
-#endif
-
 /* Create/Destroy a Tidy "document" object */
 TidyDocImpl* tidyDocCreate(void);
 void         tidyDocRelease( TidyDocImpl* impl );
@@ -153,9 +146,5 @@ int          tidyDocSaveString( TidyDocImpl* impl, tmbstr buffer, uint* buflen )
 int          tidyDocSaveBuffer( TidyDocImpl* impl, TidyBuffer* outbuf );
 int          tidyDocSaveSink( TidyDocImpl* impl, TidyOutputSink* docOut );
 int          tidyDocSaveStream( TidyDocImpl* impl, StreamOut* out );
-
-#ifdef TIDY_APPLE_CHANGES
-#pragma GCC visibility pop
-#endif
 
 #endif /* __TIDY_INT_H__ */

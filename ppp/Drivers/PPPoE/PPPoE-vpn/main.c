@@ -89,7 +89,7 @@ static char		device[17];
 static CFStringRef	service = NULL;
 static CFStringRef	access_concentrator = NULL;
 
-#define PPPOE_NKE	"PPPoE.kext"
+#define PPPOE_NKE	"/System/Library/Extensions/PPPoE.kext"
 #define PPPOE_NKE_ID	"com.apple.nke.pppoe"
 
 int pppoevpn_get_pppd_args(struct vpn_params *params, int reload);
@@ -107,40 +107,25 @@ ref is the vpn bundle reference
 pppref is the ppp bundle reference
 bundles can be layout in two different ways
 - As simple vpn bundles (bundle.vpn). the bundle contains the vpn bundle binary.
-- As full ppp bundles (bundle.ppp). The bundle contains the ppp bundle binary, 
-and also the vpn kext and the vpn bundle binary in its Plugins directory.
-if a simple vpn bundle was used, pppref will be NULL.
-if a ppp bundle was used, the vpn plugin will be able to get access to the 
-Plugins directory and load the vpn kext.
+- As full ppp bundles (bundle.ppp). The bundle contains the ppp bundle binary.
+if a vpn bundle was used, pppref will be NULL.
 ----------------------------------------------------------------------------- */
 int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppref, int debug, int log_verbose)
 {
     int 	s;
-    char 	name[MAXPATHLEN]; 
-    CFURLRef	url;
+    char 	name[MAXPATHLEN];
 
     /* first load the kext if we are loaded as part of a ppp bundle */
     if (pppref) {
         s = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
         if (s < 0) {
-            if ((url = CFBundleCopyBundleURL(pppref))) {
-                name[0] = 0;
-                CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
-                CFRelease(url);
-                strlcat(name, "/", sizeof(name));
-                if ((url = CFBundleCopyBuiltInPlugInsURL(pppref))) {
-                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
-                                MAXPATHLEN - strlen(name) - strlen(PPPOE_NKE) - 1);
-                    CFRelease(url);
-                    strlcat(name, "/", sizeof(name));
-                    strlcat(name, PPPOE_NKE, sizeof(name));
+            strlcpy(name, PPPOE_NKE, sizeof(name)-1);
 #if TARGET_OS_OSX  // This file is not built for Embedded
-                    if (!load_kext(name, 0))
+            if (!load_kext(name, 0)) {
 #else
-                    if (!load_kext(PPPOE_NKE_ID, 1))
+            if (!load_kext(PPPOE_NKE_ID, 1)) {
 #endif
-                        s = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
-                }	
+                s = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_PPPOE);
             }
             if (s < 0) {
                 vpnlog(LOG_ERR, "PPPoE plugin: Unable to load PPPoE kernel extension\n");

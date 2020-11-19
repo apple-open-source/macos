@@ -13,273 +13,517 @@ nb{
     ExemplarCharacters{"[a à b c d e é f g h i j k l m n o ó ò ô p q r s t u v w x y z æ ø å]"}
     ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z Æ Ø Å]"}
     ExemplarCharactersNumbers{"[  , % ‰ + − 0 1 2 3 4 5 6 7 8 9]"}
-    ExemplarCharactersPunctuation{"[\\- – , ; \\: ! ? . ' \u0022 « » ( ) \\[ \\] \\{ \\} § @ * / \\\\]"}
+    ExemplarCharactersPunctuation{"[\\- ‑ – , ; \\: ! ? . ' \u0022 « » ( ) \\[ \\] \\{ \\} § @ * / \\\\]"}
     MoreInformation{"?"}
     NumberElements{
         arab{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
                 accountingFormat{"¤ #,##0.00"}
                 currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
+                decimal{"٫"}
+                exponential{"اس"}
                 group{" "}
+                infinity{"∞"}
+                list{"؛"}
                 minusSign{"؜−"}
+                nan{"NaN"}
+                perMille{"؉"}
                 percentSign{"٪؜"}
                 plusSign{"؜+"}
+                superscriptingExponent{"×"}
                 timeSeparator{"."}
             }
         }
         arabext{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"×۱۰^"}
                 group{" "}
+                infinity{"∞"}
+                list{"؛"}
                 minusSign{"‎−‎"}
+                nan{"NaN"}
+                perMille{"؉"}
+                percentSign{"٪"}
                 plusSign{"‎+‎"}
+                superscriptingExponent{"×"}
                 timeSeparator{"."}
             }
         }
         bali{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         beng{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         brah{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         cakm{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         cham{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         default{"latn"}
         deva{
             miscPatterns{
                 atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        fullwide{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        gujr{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        guru{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        hanidec{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        java{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        kali{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        khmr{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        knda{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        lana{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        lanatham{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        laoo{
-            miscPatterns{
-                atLeast{"≥{0}"}
-            }
-            patterns{
-                percentFormat{"#,##0 %"}
-            }
-            symbols{
-                decimal{","}
-                group{" "}
-                minusSign{"−"}
-            }
-        }
-        latn{
-            miscPatterns{
-                approximately{"~{0}"}
-                atLeast{"≥{0}"}
-                atMost{"≤{0}"}
                 range{"{0}–{1}"}
             }
             patterns{
                 accountingFormat{"¤ #,##0.00"}
                 currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        fullwide{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        gujr{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        guru{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        hanidec{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        java{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        kali{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        khmr{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        knda{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        lana{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        lanatham{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        laoo{
+            miscPatterns{
+                atLeast{"≥{0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"E"}
+                group{" "}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
+            }
+        }
+        latn{
+            miscPatterns{
+                approximately{"ca. {0}"}
+                atLeast{"≥ {0}"}
+                atMost{"≤ {0}"}
+                range{"{0}–{1}"}
+            }
+            patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
                 scientificFormat{"#E0"}
             }
@@ -442,10 +686,12 @@ nb{
                 exponential{"E"}
                 group{" "}
                 infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
                 nan{"NaN"}
                 perMille{"‰"}
                 percentSign{"%"}
+                plusSign{"+"}
                 superscriptingExponent{"×"}
                 timeSeparator{":"}
             }
@@ -453,27 +699,53 @@ nb{
         lepc{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         limb{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         minimalPairs{
@@ -489,266 +761,526 @@ nb{
         mlym{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         mong{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         mtei{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         mymr{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         mymrshan{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         native{"latn"}
         nkoo{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         olck{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         orya{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         osma{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         saur{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         shrd{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         sora{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         sund{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         takr{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         talu{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         tamldec{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         telu{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         thai{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         tibt{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
         vaii{
             miscPatterns{
                 atLeast{"≥{0}"}
+                range{"{0}–{1}"}
             }
             patterns{
+                accountingFormat{"¤ #,##0.00"}
+                currencyFormat{"¤ #,##0.00"}
+                decimalFormat{"#,##0.###"}
                 percentFormat{"#,##0 %"}
+                scientificFormat{"#E0"}
             }
             symbols{
                 decimal{","}
+                exponential{"E"}
                 group{" "}
+                infinity{"∞"}
+                list{";"}
                 minusSign{"−"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+                superscriptingExponent{"×"}
             }
         }
     }
-    Version{"2.1.48.42"}
+    Version{"36.1"}
     calendar{
         buddhist{
             DateTimePatterns{
@@ -1111,6 +1643,35 @@ nb{
                     M{"dd.MM.y–dd.MM.y"}
                     d{"dd.MM.y–dd.MM.y"}
                     y{"dd.MM.y–dd.MM.y"}
+                }
+            }
+            monthPatterns{
+                format{
+                    abbreviated{
+                        leap{"{0}bis"}
+                    }
+                    narrow{
+                        leap{"{0}b"}
+                    }
+                    wide{
+                        leap{"{0}bis"}
+                    }
+                }
+                numeric{
+                    all{
+                        leap{"{0}bis"}
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        leap{"{0}bis"}
+                    }
+                    narrow{
+                        leap{"{0}b"}
+                    }
+                    wide{
+                        leap{"{0}bis"}
+                    }
                 }
             }
         }
@@ -1554,6 +2115,35 @@ nb{
                     M{"dd.MM.y–dd.MM.y"}
                     d{"dd.MM.y–dd.MM.y"}
                     y{"dd.MM.y–dd.MM.y"}
+                }
+            }
+            monthPatterns{
+                format{
+                    abbreviated{
+                        leap{"{0}bis"}
+                    }
+                    narrow{
+                        leap{"{0}b"}
+                    }
+                    wide{
+                        leap{"{0}bis"}
+                    }
+                }
+                numeric{
+                    all{
+                        leap{"{0}bis"}
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        leap{"{0}bis"}
+                    }
+                    narrow{
+                        leap{"{0}b"}
+                    }
+                    wide{
+                        leap{"{0}bis"}
+                    }
                 }
             }
         }
@@ -3154,13 +3744,13 @@ nb{
                     "Yōrō (717–724)",
                     "Jinki (724–729)",
                     "Tenpyō (729–749)",
-                    "Tenpyō-kampō (749-749)",
-                    "Tenpyō-shōhō (749-757)",
-                    "Tenpyō-hōji (757-765)",
-                    "Tenpyō-jingo (765-767)",
-                    "Jingo-keiun (767-770)",
+                    "Tenpyō-kampō (749–749)",
+                    "Tenpyō-shōhō (749–757)",
+                    "Tenpyō-hōji (757–765)",
+                    "Tenpyō-jingo (765–767)",
+                    "Jingo-keiun (767–770)",
                     "Hōki (770–780)",
-                    "Ten-ō (781-782)",
+                    "Ten-ō (781–782)",
                     "Enryaku (782–806)",
                     "Daidō (806–810)",
                     "Kōnin (810–824)",
@@ -3169,7 +3759,7 @@ nb{
                     "Kajō (848–851)",
                     "Ninju (851–854)",
                     "Saikō (854–857)",
-                    "Ten-an (857-859)",
+                    "Ten-an (857–859)",
                     "Jōgan (859–877)",
                     "Gangyō (877–885)",
                     "Ninna (885–889)",
@@ -3221,7 +3811,7 @@ nb{
                     "Chōji (1104–1106)",
                     "Kashō (1106–1108)",
                     "Tennin (1108–1110)",
-                    "Ten-ei (1110-1113)",
+                    "Ten-ei (1110–1113)",
                     "Eikyū (1113–1118)",
                     "Gen’ei (1118–1120)",
                     "Hōan (1120–1124)",

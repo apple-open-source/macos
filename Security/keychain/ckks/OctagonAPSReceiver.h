@@ -39,7 +39,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, strong, nullable) NSDate* ckksPushReceivedDate;
 @end
 
-@protocol CKKSZoneUpdateReceiver <NSObject>
+@protocol CKKSZoneUpdateReceiverProtocol <NSObject>
 - (void)notifyZoneChange:(CKRecordZoneNotification* _Nullable)notification;
 @end
 
@@ -55,28 +55,32 @@ NS_ASSUME_NONNULL_BEGIN
 
 @property (readonly) BOOL haveStalePushes;
 
-+ (instancetype)receiverForEnvironment:(NSString*)environmentName
-                     namedDelegatePort:(NSString*)namedDelegatePort
-                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass;
++ (instancetype)receiverForNamedDelegatePort:(NSString*)namedDelegatePort
+                          apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass;
++ (void)resetGlobalDelegatePortMap;
 
-- (CKKSCondition*)registerReceiver:(id<CKKSZoneUpdateReceiver>)receiver forZoneID:(CKRecordZoneID*)zoneID;
+- (void)registerForEnvironment:(NSString*)environmentName;
+
+- (CKKSCondition*)registerCKKSReceiver:(id<CKKSZoneUpdateReceiverProtocol>)receiver;
+
+// APS reserves the right to coalesce pushes by topic. So, any cuttlefish container push might hide pushes for other cuttlefish containers.
+// This is okay for now, as we only have one active cuttlefish container per device, but if we start to have multiple accounts, this handling might need to change.
 - (CKKSCondition*)registerCuttlefishReceiver:(id<OctagonCuttlefishUpdateReceiver>)receiver forContainerName:(NSString*)containerName;
 
 // Test support:
-- (instancetype)initWithEnvironmentName:(NSString*)environmentName
-                      namedDelegatePort:(NSString*)namedDelegatePort
+- (instancetype)initWithNamedDelegatePort:(NSString*)namedDelegatePort
                      apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass;
-- (instancetype)initWithEnvironmentName:(NSString*)environmentName
-                      namedDelegatePort:(NSString*)namedDelegatePort
+- (instancetype)initWithNamedDelegatePort:(NSString*)namedDelegatePort
                      apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
                        stalePushTimeout:(uint64_t)stalePushTimeout;
+
 // This is the queue that APNS will use send the notifications to us
 + (dispatch_queue_t)apsDeliveryQueue;
+- (NSArray<NSString *>*)registeredPushEnvironments;
 @end
 
 @interface OctagonAPSReceiver (Testing)
-+ (void)resetGlobalEnviornmentMap;
-- (void)reportDroppedPushes:(NSDictionary<NSString*, NSMutableSet<CKRecordZoneNotification*>*>*)notifications;
+- (void)reportDroppedPushes:(NSSet<CKRecordZoneNotification*>*)notifications;
 @end
 
 NS_ASSUME_NONNULL_END

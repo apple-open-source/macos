@@ -34,7 +34,7 @@
 #ifndef _STRUCTS_H_
 #define _STRUCTS_H_
 
-#include "enums.h"
+#define kMaxArgLength 2048
 
 struct clarg {
     short present;

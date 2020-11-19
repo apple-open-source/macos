@@ -312,6 +312,19 @@ typedef void ( *DAIdleCallback )( void * context );
 
 extern void DARegisterIdleCallback( DASessionRef session, DAIdleCallback callback, void * context );
 
+typedef void ( *DADiskListCompleteCallback )( void * context );
+
+/*!
+ * @function   DARegisterDiskListCompleteCallback
+ * @abstract   Registers a callback function to be called when the initial stream of disk appeared events are complete
+ * @abstract   for a session. Needs to be registered before registering DARegisterDiskAppearedCallback.
+ * @param      session  The session object.
+ * @param      callback The registered callback function.
+ * @param      context  The user-defined context parameter to pass to the callback function.
+ */
+
+extern void DARegisterDiskListCompleteCallback( DASessionRef session, DADiskListCompleteCallback  callback, void * context );
+
 #endif /* !__DISKARBITRATIOND__ */
 
 #ifdef __cplusplus

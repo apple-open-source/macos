@@ -15,8 +15,11 @@
 #import "CKDSimulatedStore.h"
 #import "CKDSimulatedAccount.h"
 #import "CKDAKSLockMonitor.h"
-
 #include "SOSCloudKeychainConstants.h"
+#include "SOSAccountTesting.h"
+
+
+#if SOS_ENABLED
 
 @interface CKDSimulatedLockMonitor : NSObject<CKDLockMonitor>
 
@@ -47,8 +50,7 @@
 }
 
 - (instancetype) init {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         _locked = true;
         _unlockedSinceBoot = false;
     }
@@ -189,12 +191,15 @@ static void tests(void) {
 
 }
 
+#endif
 
 int secd_210_keyinterest(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(12);
-
     tests();
-
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

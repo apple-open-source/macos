@@ -143,10 +143,11 @@ rack_region_insert(rack_t *rack, region_t region)
 		rack->region_generation->nextgen->num_regions_allocated = new_size;
 		rack->region_generation->nextgen->num_regions_allocated_shift = new_shift;
 
-		// Throw the switch to atomically advance to the next generation.
-		rack->region_generation = rack->region_generation->nextgen;
 		// Ensure everyone sees the advance.
 		OSMemoryBarrier();
+
+		// Throw the switch to atomically advance to the next generation.
+		rack->region_generation = rack->region_generation->nextgen;
 	}
 
 	// Insert the new region into the hash ring, and update malloc statistics

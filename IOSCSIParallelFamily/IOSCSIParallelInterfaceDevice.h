@@ -658,6 +658,10 @@ public:
 	
 	// This member routine is obsoleted and should not be used by a client.
 	virtual SCSIServiceResponse AbortSCSICommand ( SCSITaskIdentifier request );
+	
+	SCSIParallelTask *		GetNextOutstandingTask ( );
+	void					SignalTaskSubmittedForTask ( SCSIParallelTaskIdentifier task );
+
 
 protected:
 	
@@ -714,7 +718,7 @@ private:
 	// such as synchronous negotiation, wide negotiation, qas,
 	// tagged command queueing, etc.
 	void 		DetermineParallelFeatures ( UInt8 * inqData );
-	
+		
 };
 
 

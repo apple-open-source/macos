@@ -1,11 +1,4 @@
-//
-//  SecDbBackupTests.m
-//  Security
-//
-//  Created by Wouter de Groot on 2018-12-12.
-//
-
-#import <XCTest/XCTest.h>
+#import "SecDbBackupTestsBase.h"
 #import "keychain/securityd/SecDbBackupManager.h"
 
 #if !SECDB_BACKUPS_ENABLED
@@ -20,77 +13,29 @@
 
 #import "keychain/securityd/SecDbBackupManager_Internal.h"
 
-#import "CKKS.h"
-#import <utilities/SecFileLocations.h>
-#import "spi.h"
-#import "SecItemServer.h"
+
 #import <objc/runtime.h>
 #include "utilities/der_plist.h"
 #include <Security/SecItemPriv.h>
 
-@interface SecDbBackupTests : XCTestCase
+@interface SecDbBackupTests : SecDbBackupTestsBase
 
 @end
 
 SecDbBackupManager* _manager;
-NSString* _uuidstring;
 
-@implementation SecDbBackupTests {
-    NSString* _testHomeDirectory;
-}
-
-static int testCheckV12DevEnabled(void) {
-    return 1;
-}
+@implementation SecDbBackupTests
 
 + (void)setUp {
     [super setUp];
-    checkV12DevEnabled = testCheckV12DevEnabled;
-    SecCKKSDisable();
-#if OCTAGON
-    SecCKKSTestSetDisableSOS(true);
-#endif
-    _uuidstring = [[NSUUID UUID] UUIDString];
 }
 
 + (void)tearDown {
-    SetCustomHomeURL(NULL);
-    SecKeychainDbReset(NULL);
-    resetCheckV12DevEnabled();
+	[super tearDown];
 }
 
 - (void)setUp {
     [super setUp];
-
-    NSString* testName = [self.name componentsSeparatedByString:@" "][1];
-    testName = [testName stringByReplacingOccurrencesOfString:@"]" withString:@""];
-    secnotice("secdbbackuptest", "Beginning test %@", testName);
-
-    // Make a new fake keychain
-    NSError* error;
-    _testHomeDirectory = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"%@/%@/", _uuidstring, testName]];
-
-    NSLog(@"%@", _testHomeDirectory);
-
-    [[NSFileManager defaultManager] createDirectoryAtPath:_testHomeDirectory
-                              withIntermediateDirectories:YES
-                                               attributes:nil
-                                                    error:&error];
-    // No XCTAssert in class method
-    if (error) {
-        NSLog(@"Could not make directory at %@", _testHomeDirectory);
-    }
-
-    SetCustomHomeURLString((__bridge CFStringRef)_testHomeDirectory);
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        securityd_init(NULL);
-    });
-    SecKeychainDbReset(NULL);
-
-    // Actually load the database.
-    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
-
     [SecDbBackupManager resetManager];
     _manager = [SecDbBackupManager manager];
 }
@@ -359,9 +304,9 @@ static int testCheckV12DevEnabled(void) {
     void* aksunwrappedbytes = NULL;
     size_t aksunwrappedlen = 0;
     XCTAssertEqual(aks_ref_key_decrypt(refkey, NULL, 0, kcsk.aksWrappedKey.bytes, kcsk.aksWrappedKey.length, &aksunwrappedbytes, &aksunwrappedlen), kAKSReturnSuccess, @"Successfully unwrapped KCSK private key");
-    SFECKeyPair* aksunwrapped = [_manager ECKeyPairFromDerBytes:aksunwrappedbytes length:aksunwrappedlen error:&error];
+    SFECKeyPair* aksunwrapped = [_manager getECKeyPairFromDERBytes:aksunwrappedbytes length:aksunwrappedlen error:&error];
     XCTAssertNil(error, @"No error reconstructing AKS backup key");
-    XCTAssert(aksunwrapped, @"Got key from ECKeyPairFromDerBytes");
+    XCTAssert(aksunwrapped, @"Got key from getECKeyPairFromDERBytes");
     aks_ref_key_free(&refkey);
 
     // Verify backupWrappedKey
@@ -428,7 +373,7 @@ static int testCheckV12DevEnabled(void) {
 - (void)testWrapItemKey {
     SFAESKey* randomKey = [self randomAESKey];
     NSError* error;
-    SecDbBackupWrappedItemKey* itemKey = [_manager wrapItemKey:randomKey forKeyclass:key_class_akpu error:&error];
+    SecDbBackupWrappedKey* itemKey = [_manager wrapItemKey:randomKey forKeyclass:key_class_akpu error:&error];
     XCTAssertNil(itemKey, @"Do not expect result wrapping to akpu");
     XCTAssertEqual(error.code, SecDbBackupInvalidArgument, @"Expect invalid argument error wrapping to akpu");
 
@@ -437,7 +382,22 @@ static int testCheckV12DevEnabled(void) {
     XCTAssertNil(error, @"No error wrapping item to ak");
     XCTAssertEqualObjects(itemKey.baguuid, _manager.bagIdentity.baguuid, @"item wrapped under expected bag uuid");
 
-    // TODO: implement decryption and test it here
+    // TODO: implement decryption and test it
+}
+
+- (void)testWrapMetadataKey {
+    SFAESKey* randomKey = [self randomAESKey];
+    NSError* error;
+    SecDbBackupWrappedKey* itemKey = [_manager wrapMetadataKey:randomKey forKeyclass:key_class_akpu error:&error];
+    XCTAssertNil(itemKey, @"Do not expect result wrapping to akpu");
+    XCTAssertEqual(error.code, SecDbBackupInvalidArgument, @"Expect invalid argument error wrapping to akpu");
+
+    error = nil;
+    itemKey = [_manager wrapMetadataKey:randomKey forKeyclass:key_class_ak error:&error];
+    XCTAssertNil(error, @"No error wrapping item to ak");
+    XCTAssertEqualObjects(itemKey.baguuid, _manager.bagIdentity.baguuid, @"item wrapped under expected bag uuid");
+
+    // TODO: implement decryption and test it
 }
 
 // Does not inspect the item because it's encrypted and no code yet built to do recovery.

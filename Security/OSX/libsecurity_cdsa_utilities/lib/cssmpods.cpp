@@ -38,9 +38,10 @@ char *Guid::toString(char buffer[stringRepLength+1]) const
 {
     sprintf(buffer, "{%8.8x-%4.4hx-%4.4hx-",
             int(n2h(Data1)), n2h(Data2), n2h(Data3));
-    for (int n = 0; n < 2; n++)
+    for (int n = 0; n < 2; n++) {
         sprintf(buffer + 20 + 2*n, "%2.2hhx", Data4[n]);
-	buffer[24] = '-';
+    }
+    buffer[24] = '-';
     for (int n = 2; n < 8; n++)
         sprintf(buffer + 21 + 2*n, "%2.2hhx", Data4[n]);
     buffer[37] = '}';
@@ -86,8 +87,9 @@ void Guid::parseGuid(const char *string)
 	
     int d1;
     uint16 d2, d3;
-    if (sscanf(string, "{%8x-%4hx-%4hx-", &d1, &d2, &d3) != 3)
+    if (sscanf(string, "{%8x-%4hx-%4hx-", &d1, &d2, &d3) != 3) {
         CssmError::throwMe(CSSM_ERRCODE_INVALID_GUID);
+    }
 	Data1 = h2n(uint32(d1));
 	Data2 = h2n(d2);
 	Data3 = h2n(d3);
@@ -131,7 +133,7 @@ CssmSubserviceUid::CssmSubserviceUid(const CSSM_GUID &guid,
 }
 
 
-bool CssmSubserviceUid::operator == (const CSSM_SUBSERVICE_UID &otherUid) const
+bool CssmSubserviceUid::operator == (const CssmSubserviceUid &otherUid) const
 {
     // make sure we don't crash if we get bad data
 #pragma clang diagnostic push
@@ -145,7 +147,7 @@ bool CssmSubserviceUid::operator == (const CSSM_SUBSERVICE_UID &otherUid) const
 		&& guid() == other.guid();
 }
 
-bool CssmSubserviceUid::operator < (const CSSM_SUBSERVICE_UID &otherUid) const
+bool CssmSubserviceUid::operator < (const CssmSubserviceUid &otherUid) const
 {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wtautological-undefined-compare"
@@ -173,7 +175,7 @@ CryptoDataClass::~CryptoDataClass()
 
 CSSM_RETURN CryptoDataClass::callbackShim(CSSM_DATA *output, void *ctx)
 {
-	BEGIN_API
+	BEGIN_API_NO_METRICS
 	*output = reinterpret_cast<CryptoDataClass *>(ctx)->yield();
 	END_API(CSSM)
 }

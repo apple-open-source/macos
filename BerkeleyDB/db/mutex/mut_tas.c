@@ -6,6 +6,8 @@
  * $Id: mut_tas.c,v 12.36 2008/03/13 15:23:09 mbrey Exp $
  */
 
+#if ((defined(x86_64) || defined(__x86_64__)) && defined(__GNUC__))
+
 #include "db_config.h"
 
 #include "db_int.h"
@@ -291,3 +293,5 @@ __db_tas_mutex_destroy(env, mutex)
 	COMPQUIET(mutexp, NULL);	/* MUTEX_DESTROY may not be defined. */
 	return (0);
 }
+
+#endif

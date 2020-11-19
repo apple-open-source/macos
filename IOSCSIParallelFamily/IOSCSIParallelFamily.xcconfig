@@ -1,4 +1,11 @@
+SDKROOT = macosx.internal
+
 BUILD_VARIANTS[sdk=macosx*] = normal kasan
 BUILD_VARIANTS[sdk=iphoneos*] = normal kasan
 CODE_SIGN_IDENTITY = -
 OTHER_CFLAGS_kasan = $(KASAN_DEFAULT_CFLAGS)
+SYSTEM_HEADER_SEARCH_PATHS = DriverKit/Headers
+
+// Symbol visibility
+OTHER_LDFLAGS[sdk=macos*] = $(inherited) -Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist -Wl,-segprot,__LINKINFO,r--,r--
+GCC_SYMBOLS_PRIVATE_EXTERN = YES

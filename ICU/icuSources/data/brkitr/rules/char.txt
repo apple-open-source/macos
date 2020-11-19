@@ -25,6 +25,13 @@ $Prepend     = [\p{Grapheme_Cluster_Break = Prepend}];
 $SpacingMark = [\p{Grapheme_Cluster_Break = SpacingMark}];
 
 #
+#  From cldr/common/properties/segments/
+#       and issue CLDR-10994
+#
+$Virama      = [\p{Gujr}\p{sc=Telu}\p{sc=Mlym}\p{sc=Orya}\p{sc=Beng}\p{sc=Deva}&\p{Indic_Syllabic_Category=Virama}];
+$LinkingConsonant = [\p{Gujr}\p{sc=Telu}\p{sc=Mlym}\p{sc=Orya}\p{sc=Beng}\p{sc=Deva}&\p{Indic_Syllabic_Category=Consonant}];
+$ExtCccZwj   = [[\p{gcb=Extend}-\p{ccc=0}] \p{gcb=ZWJ}];
+
 # Korean Syllable Definitions
 #
 $L           = [\p{Grapheme_Cluster_Break = L}];
@@ -47,7 +54,7 @@ $Extended_Pict = [:ExtPict:];
 #  $E_Base_GAZ  = [\p{Grapheme_Cluster_Break = EBG}];
 # They must be replaced with updated versions as follows
 #  $E_Base      = [:EBase:];
-#  $E_Base_GAZ  = [\U000026F9\U0001F466-\U0001F469\U0001F91D\U0001F9D1]; # EBase that also occur after ZWJ in emoji-zwj-sequences
+#  $E_Base_GAZ  = [\U0001F466-\U0001F469\U0001F91D\U0001F9D1]; # EBase that also occur after ZWJ in emoji-zwj-sequences
 
 ## -------------------------------------------------
 !!chain;
@@ -67,6 +74,9 @@ $L ($L | $V | $LV | $LVT);
 
 # GB 9b
 $Prepend [^$Control $CR $LF];
+
+# GB 9.3, from CLDR-10994
+$LinkingConsonant $ExtCccZwj* $Virama $ExtCccZwj* $LinkingConsonant;
 
 # GB 11 Do not break within emoji modifier sequences or emoji zwj sequences.
 $Extended_Pict $Extend* $ZWJ $Extended_Pict;

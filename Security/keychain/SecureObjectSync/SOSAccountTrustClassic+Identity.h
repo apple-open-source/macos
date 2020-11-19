@@ -17,7 +17,7 @@
 -(bool) fullPeerInfoVerify:(SecKeyRef) privKey err:(CFErrorRef *)error;
 -(bool) hasFullPeerInfo:(CFErrorRef*) error;
 -(SOSFullPeerInfoRef) CopyAccountIdentityPeerInfo CF_RETURNS_RETAINED;
--(bool) ensureFullPeerAvailable:(CFDictionaryRef)gestalt deviceID:(CFStringRef)deviceID backupKey:(CFDataRef)backup err:(CFErrorRef *) error;
+-(bool) ensureFullPeerAvailable:(SOSAccount*)account err:(CFErrorRef *) error;
 -(bool) isMyPeerActive:(CFErrorRef*) error;
 -(void) purgeIdentity;
 

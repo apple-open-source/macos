@@ -58,15 +58,21 @@
 #define PLOCKSTAT_MUTEX_RELEASE(x, y)
 #endif /* PLOCKSTAT */
 
-extern int __gettimeofday(struct timeval *, struct timezone *);
+typedef union {
+	uint64_t val;
+	struct {
+		uint32_t seq;
+		uint16_t waiters;
+		uint16_t signal;
+	};
+} pthread_ulock_cond_state_u;
 
-PTHREAD_NOEXPORT
-int _pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex,
-		const struct timespec *abstime, int isRelative, int isconforming);
+#define _PTHREAD_COND_WAITERS_INC \
+		(1ull << (offsetof(pthread_ulock_cond_state_u, waiters) * CHAR_BIT))
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline void
-COND_GETSEQ_ADDR(_pthread_cond *cond,
+COND_GETSEQ_ADDR(pthread_cond_t *cond,
 		volatile uint64_t **c_lsseqaddr,
 		volatile uint32_t **c_lseqcnt,
 		volatile uint32_t **c_useqcnt,
@@ -84,11 +90,24 @@ COND_GETSEQ_ADDR(_pthread_cond *cond,
 	*c_lsseqaddr = (volatile uint64_t *)*c_lseqcnt;
 }
 
+OS_ALWAYS_INLINE
+static inline pthread_ulock_cond_state_u *
+_pthread_ulock_cond_state(pthread_cond_t *cond)
+{
+	return (pthread_ulock_cond_state_u *)&cond->c_seq[cond->misalign];
+}
+
 #ifndef BUILDING_VARIANT /* [ */
 
-static void _pthread_cond_cleanup(void *arg);
-static void _pthread_cond_updateval(_pthread_cond *cond, _pthread_mutex *mutex,
+static void _pthread_psynch_cond_cleanup(void *arg);
+static void _pthread_cond_updateval(pthread_cond_t *cond, pthread_mutex_t *mutex,
 		int error, uint32_t updateval);
+
+static int
+_pthread_ulock_cond_wait_complete(pthread_ulock_cond_state_u *state,
+		pthread_mutex_t *mutex, int rc);
+static void
+_pthread_ulock_cond_cleanup(void *arg);
 
 
 int
@@ -122,12 +141,7 @@ pthread_condattr_setpshared(pthread_condattr_t *attr, int pshared)
 {
 	int res = EINVAL;
 	if (attr->sig == _PTHREAD_COND_ATTR_SIG) {
-#if __DARWIN_UNIX03
-		if (pshared == PTHREAD_PROCESS_PRIVATE || pshared == PTHREAD_PROCESS_SHARED)
-#else /* __DARWIN_UNIX03 */
-		if (pshared == PTHREAD_PROCESS_PRIVATE)
-#endif /* __DARWIN_UNIX03 */
-		{
+		if (pshared == PTHREAD_PROCESS_PRIVATE || pshared == PTHREAD_PROCESS_SHARED) {
 			attr->pshared = pshared;
 			res = 0;
 		}
@@ -139,14 +153,16 @@ int
 pthread_cond_timedwait_relative_np(pthread_cond_t *cond, pthread_mutex_t *mutex,
 		const struct timespec *abstime)
 {
-	return _pthread_cond_wait(cond, mutex, abstime, 1, 0);
+	return _pthread_cond_wait(cond, mutex, abstime, 1,
+			PTHREAD_CONFORM_UNIX03_NOCANCEL);
 }
 
 #endif /* !BUILDING_VARIANT ] */
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline int
-_pthread_cond_init(_pthread_cond *cond, const pthread_condattr_t *attr, int conforming)
+_pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr,
+		uint32_t sig)
 {
 	volatile uint64_t *c_lsseqaddr;
 	volatile uint32_t *c_lseqcnt, *c_useqcnt, *c_sseqcnt;
@@ -157,80 +173,115 @@ _pthread_cond_init(_pthread_cond *cond, const pthread_condattr_t *attr, int conf
 	cond->c_seq[2] = 0;
 	cond->unused = 0;
 
+	// TODO: PTHREAD_STRICT candidate
 	cond->misalign = (((uintptr_t)&cond->c_seq[0]) & 0x7) != 0;
 	COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
 	*c_sseqcnt = PTH_RWS_CV_CBIT; // set Sword to 0c
 
-	if (conforming) {
-		if (attr) {
-			cond->pshared = attr->pshared;
-		} else {
-			cond->pshared = _PTHREAD_DEFAULT_PSHARED;
-		}
+	if (attr) {
+		cond->pshared = attr->pshared;
 	} else {
 		cond->pshared = _PTHREAD_DEFAULT_PSHARED;
 	}
-
-	long sig = _PTHREAD_COND_SIG;
 
 	// Ensure all contents are properly set before setting signature.
 #if defined(__LP64__)
 	// For binary compatibility reasons we cannot require natural alignment of
 	// the 64bit 'sig' long value in the struct. rdar://problem/21610439
-	uint32_t *sig32_ptr = (uint32_t*)&cond->sig;
-	uint32_t *sig32_val = (uint32_t*)&sig;
-	*(sig32_ptr + 1) = *(sig32_val + 1);
-	os_atomic_store(sig32_ptr, *sig32_val, release);
-#else
-	os_atomic_store2o(cond, sig, sig, release);
+	cond->sig._pad = 0;
 #endif
+	os_atomic_store(&cond->sig.val, sig, release);
 
 	return 0;
 }
 
 #ifndef BUILDING_VARIANT /* [ */
 
-PTHREAD_NOINLINE
+OS_ALWAYS_INLINE
 static int
-_pthread_cond_check_init_slow(_pthread_cond *cond, bool *inited)
+_pthread_cond_check_signature(pthread_cond_t *cond, uint32_t sig_current,
+		uint32_t *sig_inout)
 {
-	int res = EINVAL;
-	if (cond->sig == _PTHREAD_COND_SIG_init) {
-		_PTHREAD_LOCK(cond->lock);
-		if (cond->sig == _PTHREAD_COND_SIG_init) {
-			res = _pthread_cond_init(cond, NULL, 0);
-			if (inited) {
-				*inited = true;
-			}
-		} else if (cond->sig == _PTHREAD_COND_SIG) {
-			res = 0;
+	int res = 0;
+	switch (sig_current) {
+	case _PTHREAD_COND_SIG_init:
+		__builtin_unreachable();
+		break;
+	case _PTHREAD_COND_SIG_pristine:
+		if (*sig_inout != _PTHREAD_COND_SIG_pristine) {
+			os_atomic_store(&cond->sig.val, *sig_inout, relaxed);
 		}
-		_PTHREAD_UNLOCK(cond->lock);
-	} else if (cond->sig == _PTHREAD_COND_SIG) {
-		res = 0;
+		break;
+	case _PTHREAD_COND_SIG_psynch:
+	case _PTHREAD_COND_SIG_ulock:
+		if (*sig_inout == _PTHREAD_COND_SIG_pristine) {
+			*sig_inout = sig_current;
+		} else if (*sig_inout != sig_current) {
+			PTHREAD_INTERNAL_CRASH(0, "Mixed ulock and psych condvar use");
+		}
+		break;
+	default:
+		// TODO: PTHREAD_STRICT candidate
+		res = EINVAL;
+		break;
 	}
+
 	return res;
 }
 
-PTHREAD_ALWAYS_INLINE
-static inline int
-_pthread_cond_check_init(_pthread_cond *cond, bool *inited)
+OS_NOINLINE
+static int
+_pthread_cond_check_init_slow(pthread_cond_t *cond, uint32_t *sig_inout)
 {
-	int res = 0;
-	if (cond->sig != _PTHREAD_COND_SIG) {
-		return _pthread_cond_check_init_slow(cond, inited);
+	int res;
+	_pthread_lock_lock(&cond->lock);
+
+	uint32_t sig_current = os_atomic_load(&cond->sig.val, relaxed);
+	if (sig_current == _PTHREAD_COND_SIG_init) {
+		res = _pthread_cond_init(cond, NULL, *sig_inout);
+	} else {
+		res = _pthread_cond_check_signature(cond, sig_current, sig_inout);
 	}
+
+	_pthread_lock_unlock(&cond->lock);
 	return res;
+}
+
+/*
+ * These routines maintain the signature of the condition variable, which
+ * encodes a small state machine:
+ * - a statically initialized condvar begins with SIG_init
+ * - explicit initialization via _cond_init() and implicit initialization
+ *   transition to SIG_pristine, as there have been no waiters so we don't know
+ *   what kind of mutex we'll be used with
+ * - the first _cond_wait() transitions to one of SIG_psynch or SIG_ulock
+ *   according to the mutex being waited on
+ *
+ * On entry, *sig_inout is the furthest state we can transition to given the
+ * calling context.  On exit, it is the actual state we observed, after any
+ * possible advancement.
+ */
+OS_ALWAYS_INLINE
+static inline int
+_pthread_cond_check_init(pthread_cond_t *cond, uint32_t *sig_inout)
+{
+	uint32_t sig_current = os_atomic_load(&cond->sig.val, relaxed);
+	if (sig_current == _PTHREAD_COND_SIG_init) {
+		return _pthread_cond_check_init_slow(cond, sig_inout);
+	} else {
+		return _pthread_cond_check_signature(cond, sig_current, sig_inout);
+	}
 }
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_cond_destroy(pthread_cond_t *ocond)
+pthread_cond_destroy(pthread_cond_t *cond)
 {
-	_pthread_cond *cond = (_pthread_cond *)ocond;
 	int res = EINVAL;
-	if (cond->sig == _PTHREAD_COND_SIG) {
-		_PTHREAD_LOCK(cond->lock);
+	uint32_t sig = os_atomic_load(&cond->sig.val, relaxed);
+	switch (sig) {
+	case _PTHREAD_COND_SIG_psynch:
+		_pthread_lock_lock(&cond->lock);
 
 		uint64_t oldval64, newval64;
 		uint32_t lcntval, ucntval, scntval;
@@ -261,30 +312,37 @@ pthread_cond_destroy(pthread_cond_t *ocond)
 			flags |= _PTHREAD_MTX_OPT_PSHARED;
 		}
 
-		cond->sig = _PTHREAD_NO_SIG;
+		os_atomic_store(&cond->sig.val, _PTHREAD_NO_SIG, relaxed);
 		res = 0;
 
-		_PTHREAD_UNLOCK(cond->lock);
+		_pthread_lock_unlock(&cond->lock);
 
 		if (needclearpre) {
 			(void)__psynch_cvclrprepost(cond, lcntval, ucntval, scntval, 0, lcntval, flags);
 		}
-	} else if (cond->sig == _PTHREAD_COND_SIG_init) {
+		break;
+	case _PTHREAD_COND_SIG_init:
 		// Compatibility for misbehaving applications that attempt to
 		// destroy a statically initialized condition variable.
-		cond->sig = _PTHREAD_NO_SIG;
+		//
+		// fall through
+	case _PTHREAD_COND_SIG_pristine:
+	case _PTHREAD_COND_SIG_ulock:
+		os_atomic_store(&cond->sig.val, _PTHREAD_NO_SIG, relaxed);
 		res = 0;
+		break;
+	default:
+		// TODO: PTHREAD_STRICT candidate
+		break;
 	}
 	return res;
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline int
-_pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
+_pthread_psynch_cond_signal(pthread_cond_t *cond, bool broadcast,
+		mach_port_t thread)
 {
-	int res;
-	_pthread_cond *cond = (_pthread_cond *)ocond;
-
 	uint32_t updateval;
 	uint32_t diffgen;
 	uint32_t ulval;
@@ -296,12 +354,6 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 
 	int retry_count = 0, uretry_count = 0;
 	int ucountreset = 0;
-
-	bool inited = false;
-	res = _pthread_cond_check_init(cond, &inited);
-	if (res != 0 || inited == true) {
-		return res;
-	}
 
 	COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
 
@@ -394,9 +446,9 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 	if (broadcast) {
 		// pass old U val so kernel will know the diffgen
 		uint64_t cvudgen = ((uint64_t)ucntval << 32) | diffgen;
-		updateval = __psynch_cvbroad(ocond, cvlsgen, cvudgen, flags, NULL, 0, 0);
+		updateval = __psynch_cvbroad(cond, cvlsgen, cvudgen, flags, NULL, 0, 0);
 	} else {
-		updateval = __psynch_cvsignal(ocond, cvlsgen, ucntval, thread, NULL, 0, 0, flags);
+		updateval = __psynch_cvsignal(cond, cvlsgen, ucntval, thread, NULL, 0, 0, flags);
 	}
 
 	if (updateval != (uint32_t)-1 && updateval != 0) {
@@ -406,14 +458,95 @@ _pthread_cond_signal(pthread_cond_t *ocond, bool broadcast, mach_port_t thread)
 	return 0;
 }
 
+OS_ALWAYS_INLINE
+static inline int
+_pthread_ulock_cond_signal(pthread_cond_t *cond, bool broadcast,
+		mach_port_t thread)
+{
+	pthread_ulock_cond_state_u *state = _pthread_ulock_cond_state(cond);
+
+	pthread_ulock_cond_state_u oldstate, newstate;
+	// release to pair with acquire after wait
+	os_atomic_rmw_loop(&state->val, oldstate.val, newstate.val, release, {
+		if (!oldstate.waiters || oldstate.waiters == oldstate.signal) {
+			os_atomic_rmw_loop_give_up(return 0);
+		}
+
+		newstate = (pthread_ulock_cond_state_u){
+			.seq = oldstate.seq + 1,
+			.waiters = oldstate.waiters,
+			.signal = broadcast ? oldstate.waiters :
+					MIN(oldstate.signal + 1, oldstate.waiters),
+		};
+	});
+
+	PTHREAD_TRACE(ulcond_signal, cond, oldstate.val, newstate.val, broadcast);
+
+	// Priority hole: if we're pre-empted here, nobody else can signal the
+	// waiter we took responsibility for signaling by incrementing the signal
+	// count.
+
+	if (oldstate.signal < oldstate.waiters) {
+		uint32_t wake_op = UL_COMPARE_AND_WAIT | ULF_NO_ERRNO;
+		if (broadcast) {
+			wake_op |= ULF_WAKE_ALL;
+		} else if (thread) {
+			wake_op |= ULF_WAKE_THREAD;
+		}
+
+		for (;;) {
+			int rc = __ulock_wake(wake_op, &state->seq, thread);
+			if (rc < 0) {
+				switch (-rc) {
+				case EINTR:
+					continue;
+				case ENOENT:
+					break;
+				case EALREADY:
+					if (!thread) {
+						PTHREAD_INTERNAL_CRASH(0, "EALREADY from ulock_wake");
+					}
+					// Compatibility with psynch: promote to broadcast
+					return pthread_cond_broadcast(cond);
+				default:
+					PTHREAD_INTERNAL_CRASH(-rc, "ulock_wake failure");
+				}
+			}
+			break;
+		}
+	}
+
+	return 0;
+}
+
+OS_ALWAYS_INLINE
+static inline int
+_pthread_cond_signal(pthread_cond_t *cond, bool broadcast, mach_port_t thread)
+{
+	uint32_t sig = _PTHREAD_COND_SIG_pristine;
+	int res = _pthread_cond_check_init(cond, &sig);
+	if (res != 0 || sig == _PTHREAD_COND_SIG_pristine) {
+		return res;
+	}
+
+	switch (sig) {
+	case _PTHREAD_COND_SIG_psynch:
+		return _pthread_psynch_cond_signal(cond, broadcast, thread);
+	case _PTHREAD_COND_SIG_ulock:
+		return _pthread_ulock_cond_signal(cond, broadcast, thread);
+	default:
+		PTHREAD_INTERNAL_CRASH(sig, "impossible cond signature");
+	}
+}
+
 /*
  * Signal a condition variable, waking up all threads waiting for it.
  */
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_cond_broadcast(pthread_cond_t *ocond)
+pthread_cond_broadcast(pthread_cond_t *cond)
 {
-	return _pthread_cond_signal(ocond, true, MACH_PORT_NULL);
+	return _pthread_cond_signal(cond, true, MACH_PORT_NULL);
 }
 
 /*
@@ -421,13 +554,13 @@ pthread_cond_broadcast(pthread_cond_t *ocond)
  */
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_cond_signal_thread_np(pthread_cond_t *ocond, pthread_t thread)
+pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
 {
 	mach_port_t mp = MACH_PORT_NULL;
 	if (thread) {
 		mp = pthread_mach_thread_np((_Nonnull pthread_t)thread);
 	}
-	return _pthread_cond_signal(ocond, false, mp);
+	return _pthread_cond_signal(cond, false, mp);
 }
 
 /*
@@ -435,34 +568,17 @@ pthread_cond_signal_thread_np(pthread_cond_t *ocond, pthread_t thread)
  */
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_cond_signal(pthread_cond_t *ocond)
+pthread_cond_signal(pthread_cond_t *cond)
 {
-	return _pthread_cond_signal(ocond, false, MACH_PORT_NULL);
+	return _pthread_cond_signal(cond, false, MACH_PORT_NULL);
 }
 
-/*
- * Manage a list of condition variables associated with a mutex
- */
-
-/*
- * Suspend waiting for a condition variable.
- * Note: we have to keep a list of condition variables which are using
- * this same mutex variable so we can detect invalid 'destroy' sequences.
- * If conformance is not cancelable, we skip the _pthread_testcancel(),
- * but keep the remaining conforming behavior..
- */
-PTHREAD_NOEXPORT PTHREAD_NOINLINE
-int
-_pthread_cond_wait(pthread_cond_t *ocond,
-			pthread_mutex_t *omutex,
-			const struct timespec *abstime,
-			int isRelative,
-			int conforming)
+static int
+_pthread_psynch_cond_wait(pthread_cond_t *cond,
+			pthread_mutex_t *mutex,
+			const struct timespec *then,
+			pthread_conformance_t conforming)
 {
-	int res;
-	_pthread_cond *cond = (_pthread_cond *)ocond;
-	_pthread_mutex *mutex = (_pthread_mutex *)omutex;
-	struct timespec then = { 0, 0 };
 	uint32_t mtxgen, mtxugen, flags=0, updateval;
 	uint32_t lcntval, ucntval, scntval;
 	uint32_t nlval, ulval, savebits;
@@ -470,77 +586,6 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 	volatile uint32_t *c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 	uint64_t oldval64, newval64, mugen, cvlsgen;
 	uint32_t *npmtx = NULL;
-	int timeout_elapsed = 0;
-
-	res = _pthread_cond_check_init(cond, NULL);
-	if (res != 0) {
-		return res;
-	}
-
-	if (conforming) {
-		if (!_pthread_mutex_check_signature(mutex) &&
-				!_pthread_mutex_check_signature_init(mutex)) {
-			return EINVAL;
-		}
-		if (conforming == PTHREAD_CONFORM_UNIX03_CANCELABLE) {
-			_pthread_testcancel(conforming);
-		}
-	}
-
-	/* send relative time to kernel */
-	if (abstime) {
-		if (abstime->tv_nsec < 0 || abstime->tv_nsec >= NSEC_PER_SEC) {
-			return EINVAL;
-		}
-
-		if (isRelative == 0) {
-			struct timespec now;
-			struct timeval tv;
-			__gettimeofday(&tv, NULL);
-			TIMEVAL_TO_TIMESPEC(&tv, &now);
-
-			if ((abstime->tv_sec == now.tv_sec) ?
-				(abstime->tv_nsec <= now.tv_nsec) :
-				(abstime->tv_sec < now.tv_sec)) {
-				timeout_elapsed = 1;
-			} else {
-				/* Compute relative time to sleep */
-				then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
-				then.tv_sec = abstime->tv_sec - now.tv_sec;
-				if (then.tv_nsec < 0) {
-					then.tv_nsec += NSEC_PER_SEC;
-					then.tv_sec--;
-				}
-			}
-		} else {
-			then.tv_sec = abstime->tv_sec;
-			then.tv_nsec = abstime->tv_nsec;
-			if ((then.tv_sec == 0) && (then.tv_nsec == 0)) {
-				timeout_elapsed = 1;
-			}
-		}
-	}
-
-	if (cond->busy != NULL && cond->busy != mutex) {
-		return EINVAL;
-	}
-
-	/*
-	 * If timeout is known to have elapsed, we still need to unlock and
-	 * relock the mutex to allow other waiters to get in line and
-	 * modify the condition state.
-	 */
-	 if (timeout_elapsed) {
-		res = pthread_mutex_unlock(omutex);
-		if (res != 0) {
-			return res;
-		}
-		res = pthread_mutex_lock(omutex);
-		if (res != 0) {
-			return res;
-		}
-		return ETIMEDOUT;
-	}
 
 	COND_GETSEQ_ADDR(cond, &c_lsseqaddr, &c_lseqcnt, &c_useqcnt, &c_sseqcnt);
 
@@ -562,7 +607,7 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 
 	cond->busy = mutex;
 
-	res = _pthread_mutex_droplock(mutex, &flags, &npmtx, &mtxgen, &mtxugen);
+	int res = _pthread_mutex_droplock(mutex, &flags, &npmtx, &mtxgen, &mtxugen);
 
 	/* TBD: cases are for normal (non owner for recursive mutex; error checking)*/
 	if (res != 0) {
@@ -579,28 +624,28 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 	cvlsgen = ((uint64_t)(ulval | savebits)<< 32) | nlval;
 
 	// SUSv3 requires pthread_cond_wait to be a cancellation point
-	if (conforming) {
-		pthread_cleanup_push(_pthread_cond_cleanup, (void *)cond);
-		updateval = __psynch_cvwait(ocond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)then.tv_sec, (int32_t)then.tv_nsec);
-		_pthread_testcancel(conforming);
+	if (conforming == PTHREAD_CONFORM_UNIX03_CANCELABLE) {
+		pthread_cleanup_push(_pthread_psynch_cond_cleanup, (void *)cond);
+		updateval = __psynch_cvwait(cond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)(then->tv_sec), (int32_t)(then->tv_nsec));
+		pthread_testcancel();
 		pthread_cleanup_pop(0);
 	} else {
-		updateval = __psynch_cvwait(ocond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)then.tv_sec, (int32_t)then.tv_nsec);
+		updateval = __psynch_cvwait(cond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)(then->tv_sec), (int32_t)(then->tv_nsec));
 	}
 
 	if (updateval == (uint32_t)-1) {
 		int err = errno;
 		switch (err & 0xff) {
-			case ETIMEDOUT:
-				res = ETIMEDOUT;
-				break;
-			case EINTR:
-				// spurious wakeup (unless canceled)
-				res = 0;
-				break;
-			default:
-				res = EINVAL;
-				break;
+		case ETIMEDOUT:
+			res = ETIMEDOUT;
+			break;
+		case EINTR:
+			// spurious wakeup (unless canceled)
+			res = 0;
+			break;
+		default:
+			res = EINVAL;
+			break;
 		}
 
 		// add unlock ref to show one less waiter
@@ -612,15 +657,228 @@ _pthread_cond_wait(pthread_cond_t *ocond,
 		_pthread_cond_updateval(cond, mutex, 0, updateval);
 	}
 
-	pthread_mutex_lock(omutex);
+	pthread_mutex_lock(mutex);
 
 	return res;
 }
 
-static void
-_pthread_cond_cleanup(void *arg)
+struct pthread_ulock_cond_cancel_ctx_s {
+	pthread_cond_t *cond;
+	pthread_mutex_t *mutex;
+};
+
+static int
+_pthread_ulock_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+		const struct timespec *then, pthread_conformance_t conforming)
 {
-	_pthread_cond *cond = (_pthread_cond *)arg;
+	bool cancelable = (conforming == PTHREAD_CONFORM_UNIX03_CANCELABLE);
+
+	uint64_t timeout_ns = 0;
+	if (then->tv_sec || then->tv_nsec) {
+		// psynch compatibility: cast and bitwise-truncate tv_nsec
+		uint64_t fraction_ns = ((uint32_t)then->tv_nsec) & 0x3fffffff;
+		if (os_mul_and_add_overflow(then->tv_sec, NSEC_PER_SEC, fraction_ns,
+				&timeout_ns)) {
+			// saturate (can't wait longer than 584 years...)
+			timeout_ns = UINT64_MAX;
+		}
+	}
+
+	pthread_ulock_cond_state_u *state = _pthread_ulock_cond_state(cond);
+
+	pthread_ulock_cond_state_u origstate = {
+		.val = os_atomic_add(&state->val, _PTHREAD_COND_WAITERS_INC, relaxed)
+	};
+
+	int rc = _pthread_mutex_ulock_unlock(mutex);
+	if (rc) {
+		return _pthread_ulock_cond_wait_complete(state, NULL, rc);
+	}
+
+	PTHREAD_TRACE(ulcond_wait, cond, origstate.val, timeout_ns, 0);
+
+	do {
+		const uint32_t wait_op = UL_COMPARE_AND_WAIT | ULF_NO_ERRNO;
+		if (cancelable) {
+			struct pthread_ulock_cond_cancel_ctx_s ctx = {
+				.cond = cond,
+				.mutex = mutex,
+			};
+			pthread_cleanup_push(_pthread_ulock_cond_cleanup, &ctx);
+			rc = __ulock_wait2(wait_op | ULF_WAIT_CANCEL_POINT, &state->seq,
+					origstate.seq, timeout_ns, 0);
+			pthread_testcancel();
+			pthread_cleanup_pop(0);
+		} else {
+			rc = __ulock_wait2(wait_op, &state->seq, origstate.seq, timeout_ns, 0);
+		}
+		if (rc < 0) {
+			switch (-rc) {
+			case EFAULT:
+				continue;
+			case EINTR:
+				// "These functions shall not return an error code of [EINTR]."
+				// => promote to spurious wake-up
+				rc = 0;
+				goto out;
+			case ETIMEDOUT:
+				rc = ETIMEDOUT;
+				goto out;
+			default:
+				PTHREAD_INTERNAL_CRASH(-rc, "ulock_wait failure");
+			}
+		} else {
+			// XXX for now don't care about other waiters
+			rc = 0;
+		}
+	} while (os_atomic_load(&state->seq, relaxed) == origstate.seq);
+
+out:
+	return _pthread_ulock_cond_wait_complete(state, mutex, rc);
+}
+
+static int
+_pthread_ulock_cond_wait_complete(pthread_ulock_cond_state_u *state,
+		pthread_mutex_t *mutex, int rc)
+{
+	if (mutex) {
+		// XXX Check this return value?  Historically we haven't, but if rc == 0
+		// we could promote the return value to this one.
+		_pthread_mutex_ulock_lock(mutex, false);
+	}
+
+	pthread_ulock_cond_state_u oldstate, newstate;
+	// acquire to pair with release upon signal
+	os_atomic_rmw_loop(&state->val, oldstate.val, newstate.val, acquire, {
+		newstate = (pthread_ulock_cond_state_u){
+			.seq = oldstate.seq,
+			.waiters = oldstate.waiters - 1,
+			.signal = oldstate.signal ? oldstate.signal - 1 : 0,
+		};
+	});
+
+	return rc;
+}
+
+/*
+ * Suspend waiting for a condition variable.
+ * If conformance is not cancelable, we skip the pthread_testcancel(),
+ * but keep the remaining conforming behavior.
+ */
+PTHREAD_NOEXPORT OS_NOINLINE
+int
+_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex,
+			const struct timespec *abstime, int isRelative,
+			pthread_conformance_t conforming)
+{
+	int res;
+	struct timespec then = { 0, 0 };
+	bool timeout_elapsed = false;
+
+	if (!_pthread_mutex_check_signature(mutex) &&
+			!_pthread_mutex_check_signature_init(mutex)) {
+		return EINVAL;
+	}
+
+	bool ulock = _pthread_mutex_uses_ulock(mutex);
+	uint32_t sig = ulock ? _PTHREAD_COND_SIG_ulock : _PTHREAD_COND_SIG_psynch;
+	res = _pthread_cond_check_init(cond, &sig);
+	if (res != 0) {
+		return res;
+	}
+
+	if (conforming == PTHREAD_CONFORM_UNIX03_CANCELABLE) {
+		pthread_testcancel();
+	}
+
+	/* send relative time to kernel */
+	if (abstime) {
+		if (abstime->tv_nsec < 0 || abstime->tv_nsec >= NSEC_PER_SEC) {
+			// TODO: PTHREAD_STRICT candidate
+			return EINVAL;
+		}
+
+		if (isRelative == 0) {
+			struct timespec now;
+			struct timeval tv;
+			__gettimeofday(&tv, NULL);
+			TIMEVAL_TO_TIMESPEC(&tv, &now);
+
+			if ((abstime->tv_sec == now.tv_sec) ?
+				(abstime->tv_nsec <= now.tv_nsec) :
+				(abstime->tv_sec < now.tv_sec)) {
+				timeout_elapsed = true;
+			} else {
+				/* Compute relative time to sleep */
+				then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
+				then.tv_sec = abstime->tv_sec - now.tv_sec;
+				if (then.tv_nsec < 0) {
+					then.tv_nsec += NSEC_PER_SEC;
+					then.tv_sec--;
+				}
+			}
+		} else {
+			then.tv_sec = abstime->tv_sec;
+			then.tv_nsec = abstime->tv_nsec;
+			if ((then.tv_sec == 0) && (then.tv_nsec == 0)) {
+				timeout_elapsed = true;
+			}
+		}
+	}
+
+	if (!ulock && cond->busy != NULL && cond->busy != mutex) {
+		// TODO: PTHREAD_STRICT candidate
+		return EINVAL;
+	}
+
+	/*
+	 * If timeout is known to have elapsed, we still need to unlock and
+	 * relock the mutex to allow other waiters to get in line and
+	 * modify the condition state.
+	 */
+	if (timeout_elapsed) {
+		res = pthread_mutex_unlock(mutex);
+		if (res != 0) {
+			return res;
+		}
+		res = pthread_mutex_lock(mutex);
+		if (res != 0) {
+			return res;
+		}
+
+		return ETIMEDOUT;
+	}
+
+	if (ulock) {
+		return _pthread_ulock_cond_wait(cond, mutex, &then, conforming);
+	} else {
+		return _pthread_psynch_cond_wait(cond, mutex, &then, conforming);
+	}
+}
+
+static void
+_pthread_ulock_cond_cleanup(void *arg)
+{
+	struct pthread_ulock_cond_cancel_ctx_s *ctx = arg;
+	pthread_ulock_cond_state_u *state = _pthread_ulock_cond_state(ctx->cond);
+
+	(void)_pthread_ulock_cond_wait_complete(state, ctx->mutex, 0);
+
+	// "A thread that has been unblocked because it has been canceled while
+	// blocked in a call to pthread_cond_timedwait() or pthread_cond_wait()
+	// shall not consume any condition signal that may be directed concurrently
+	// at the condition variable if there are other threads blocked on the
+	// condition variable."
+	//
+	// Since we have no way to know if we've eaten somebody else's signal, just
+	// signal again pessimistically.
+	pthread_cond_signal(ctx->cond);
+}
+
+static void
+_pthread_psynch_cond_cleanup(void *arg)
+{
+	pthread_cond_t *cond = (pthread_cond_t *)arg;
 	pthread_t thread = pthread_self();
 	pthread_mutex_t *mutex;
 
@@ -630,11 +888,10 @@ _pthread_cond_cleanup(void *arg)
 	}
 // 4597450: end
 
-	mutex = (pthread_mutex_t *)cond->busy;
+	mutex = cond->busy;
 
 	// add unlock ref to show one less waiter
-	_pthread_cond_updateval(cond, (_pthread_mutex *)mutex,
-			thread->cancel_error, 0);
+	_pthread_cond_updateval(cond, mutex, thread->cancel_error, 0);
 
 	/*
 	** Can't do anything if this fails -- we're on the way out
@@ -645,7 +902,7 @@ _pthread_cond_cleanup(void *arg)
 }
 
 static void
-_pthread_cond_updateval(_pthread_cond *cond, _pthread_mutex *mutex,
+_pthread_cond_updateval(pthread_cond_t *cond, pthread_mutex_t *mutex,
 		int error, uint32_t updateval)
 {
 	int needclearpre;
@@ -731,18 +988,9 @@ _pthread_cond_updateval(_pthread_cond *cond, _pthread_mutex *mutex,
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_cond_init(pthread_cond_t *ocond, const pthread_condattr_t *attr)
+pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr)
 {
-	int conforming;
-
-#if __DARWIN_UNIX03
-	conforming = 1;
-#else /* __DARWIN_UNIX03 */
-	conforming = 0;
-#endif /* __DARWIN_UNIX03 */
-
-	_pthread_cond *cond = (_pthread_cond *)ocond;
-	_PTHREAD_LOCK_INIT(cond->lock);
-	return _pthread_cond_init(cond, attr, conforming);
+	_pthread_lock_init(&cond->lock);
+	return _pthread_cond_init(cond, attr, _PTHREAD_COND_SIG_pristine);
 }
 

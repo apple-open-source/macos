@@ -13,6 +13,7 @@ BUILT_PRODUCTS_DIR="$1"
 # run on the build machine. Build a dedicate copy of zic
 # for processing zoneinfo files
 
+ZICHOST_OBJROOT="${BUILT_PRODUCTS_DIR}/zic_host-objroot"
 ZICHOST_SYMROOT="${BUILT_PRODUCTS_DIR}/zic_host-sym"
 ZICHOST_DSTROOT="${BUILT_PRODUCTS_DIR}/zic_host-dst"
 ZICHOST="${ZICHOST_DSTROOT}/zic_host"
@@ -41,7 +42,7 @@ env -i \
 		-target zic \
 		-sdk "macosxinternal" \
 		SRCROOT="${SRCROOT}" \
-		OBJROOT="${OBJROOT}" \
+		OBJROOT="${ZICHOST_OBJROOT}" \
 		SYMROOT="${ZICHOST_SYMROOT}" \
 		DSTROOT="${ZICHOST_DSTROOT}" \
 		ARCHS='$(NATIVE_ARCH_ACTUAL)' \

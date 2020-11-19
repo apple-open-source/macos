@@ -8,4 +8,5 @@ package SOS;
 
 message AccountConfiguration {
     repeated string pendingBackupPeers = 1;
+    optional bool ringUpdateFlag = 2;
 }

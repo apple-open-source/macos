@@ -315,7 +315,6 @@
 		3F6F43E71613A8E300CA9ADB /* asl_msg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_msg.c; sourceTree = "<group>"; };
 		3F6F43E81613A8E300CA9ADB /* asl_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_store.c; sourceTree = "<group>"; };
 		3F6F43E91613A8E300CA9ADB /* asl_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = asl_util.c; sourceTree = "<group>"; };
-		3F900DB619383950003CA7E6 /* sim-compat-symlink.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = "sim-compat-symlink.sh"; sourceTree = "<group>"; };
 		3FCCB5361749B53D00F8FEBC /* asl.conf.ios_sim */ = {isa = PBXFileReference; lastKnownFileType = text; name = asl.conf.ios_sim; path = syslogd.tproj/asl.conf.ios_sim; sourceTree = "<group>"; };
 		3FE6E8391A529FEF0075D75F /* asl.conf.ios */ = {isa = PBXFileReference; lastKnownFileType = text; name = asl.conf.ios; path = syslogd.tproj/asl.conf.ios; sourceTree = "<group>"; };
 		3FE6E83A1A529FEF0075D75F /* asl.conf.osx */ = {isa = PBXFileReference; lastKnownFileType = text; name = asl.conf.osx; path = syslogd.tproj/asl.conf.osx; sourceTree = "<group>"; };
@@ -408,7 +407,6 @@
 				3F6F43CD1613A8E300CA9ADB /* libsystem_asl */,
 				505ACB9E108FD16400197086 /* Products */,
 				3FFD43F717485C5B007DAC1B /* xcodeconfig */,
-				3F900DB519383950003CA7E6 /* xcodescripts */,
 				503A82461099029200B0D08A /* libbsm.dylib */,
 				2D60F61015657D0F00F2E3F9 /* libz.dylib */,
 			);
@@ -473,14 +471,6 @@
 				3F6F43E91613A8E300CA9ADB /* asl_util.c */,
 			);
 			path = src;
-			sourceTree = "<group>";
-		};
-		3F900DB519383950003CA7E6 /* xcodescripts */ = {
-			isa = PBXGroup;
-			children = (
-				3F900DB619383950003CA7E6 /* sim-compat-symlink.sh */,
-			);
-			path = xcodescripts;
 			sourceTree = "<group>";
 		};
 		3FFD43F717485C5B007DAC1B /* xcodeconfig */ = {
@@ -612,7 +602,6 @@
 				3F6F43C71613922800CA9ADB /* Frameworks */,
 				3F6F43C81613922800CA9ADB /* Headers */,
 				3F6F44131613AA9300CA9ADB /* Install man3 */,
-				3F900DB41938393C003CA7E6 /* Sim compat symlink */,
 			);
 			buildRules = (
 			);
@@ -735,21 +724,6 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		3F900DB41938393C003CA7E6 /* Sim compat symlink */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 8;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/xcodescripts/sim-compat-symlink.sh",
-			);
-			name = "Sim compat symlink";
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = "/bin/bash -e -x";
-			shellScript = ". \"${SCRIPT_INPUT_FILE_0}\"";
-		};
 		50A9CB7A10A8D16300AA715E /* after install */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 8;

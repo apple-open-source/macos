@@ -1074,7 +1074,7 @@ read_request:
      *   completion at some point may require reads (e.g. SSL_ERROR_WANT_READ),
      *   an output filter can also set the sense to CONN_SENSE_WANT_READ at any
      *   time for event MPM to do the right thing,
-     * - suspend the connection (SUSPENDED) such that it now interracts with
+     * - suspend the connection (SUSPENDED) such that it now interacts with
      *   the MPM through suspend/resume_connection() hooks, and/or registered
      *   poll callbacks (PT_USER), and/or registered timed callbacks triggered
      *   by timer events.
@@ -1523,7 +1523,8 @@ static void process_timeout_queue(struct timeout_queue *q,
                  */
                 apr_time_t q_expiry = cs->queue_timestamp + qp->timeout;
                 apr_time_t next_expiry = queues_next_expiry;
-                if (!next_expiry || next_expiry > q_expiry) {
+                if (!next_expiry
+                        || next_expiry > q_expiry + TIMEOUT_FUDGE_FACTOR) {
                     queues_next_expiry = q_expiry;
                 }
                 break;
@@ -1884,8 +1885,6 @@ static void * APR_THREAD_FUNC listener_thread(apr_thread_t * thd, void *dummy)
          * with and without wake-ability.
          */
         if (timeout_time && timeout_time < (now = apr_time_now())) {
-            timeout_time = now + TIMEOUT_FUDGE_FACTOR;
-
             /* handle timed out sockets */
             apr_thread_mutex_lock(timeout_mutex);
 
@@ -1897,16 +1896,16 @@ static void * APR_THREAD_FUNC listener_thread(apr_thread_t * thd, void *dummy)
                 process_keepalive_queue(0); /* kill'em all \m/ */
             }
             else {
-                process_keepalive_queue(timeout_time);
+                process_keepalive_queue(now);
             }
             /* Step 2: write completion timeouts */
-            process_timeout_queue(write_completion_q, timeout_time,
+            process_timeout_queue(write_completion_q, now,
                                   start_lingering_close_nonblocking);
             /* Step 3: (normal) lingering close completion timeouts */
-            process_timeout_queue(linger_q, timeout_time,
+            process_timeout_queue(linger_q, now,
                                   stop_lingering_close);
             /* Step 4: (short) lingering close completion timeouts */
-            process_timeout_queue(short_linger_q, timeout_time,
+            process_timeout_queue(short_linger_q, now,
                                   stop_lingering_close);
 
             apr_thread_mutex_unlock(timeout_mutex);
@@ -2187,7 +2186,7 @@ static void setup_threads_runtime(void)
      * the connections they handle (i.e. ptrans). We can't use this thread's
      * self pool because all these objects survive it, nor use pchild or pconf
      * directly because this starter thread races with other modules' runtime,
-     * nor finally pchild (or subpool thereof) because it is killed explicitely
+     * nor finally pchild (or subpool thereof) because it is killed explicitly
      * before pconf (thus connections/ptrans can live longer, which matters in
      * ONE_PROCESS mode). So this leaves us with a subpool of pconf, created
      * before any ptrans hence destroyed after.
@@ -2491,7 +2490,7 @@ static void child_main(int child_num_arg, int child_bucket)
      * from being received.  The child processes no longer use signals for
      * any communication with the parent process. Let's also do this before
      * child_init() hooks are called and possibly create threads that
-     * otherwise could "steal" (implicitely) MPM's signals.
+     * otherwise could "steal" (implicitly) MPM's signals.
      */
     rv = apr_setup_signal_thread();
     if (rv != APR_SUCCESS) {

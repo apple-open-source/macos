@@ -391,7 +391,7 @@ do_identity_search_with_policy(CFTypeRef keychainOrArray,
 
 	safe_CFRelease(&idStr);
 	safe_CFRelease(&policy);
-	safe_CFRelease(policySearch);
+	safe_CFRelease(&policySearch);
 }
 
 static void

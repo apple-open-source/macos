@@ -47,7 +47,7 @@ enum
     kHIDPage_Telephony              = 0x0B,
     kHIDPage_Consumer               = 0x0C,
     kHIDPage_Digitizer              = 0x0D,
-    /* Reserved 0x0E */
+    kHIDPage_Haptics                = 0x0E,
     kHIDPage_PID                    = 0x0F,    /* USB Physical Interface Device definitions for force feedback and related devices. */
     kHIDPage_Unicode                = 0x10,
     /* Reserved 0x11 - 0x13 */
@@ -72,7 +72,9 @@ enum
     /* ReservedPointofSalepages 0x8F */
     kHIDPage_CameraControl          = 0x90,    /* USB Device Class Definition for Image Class Devices */
     kHIDPage_Arcade                 = 0x91,    /* OAAF Definitions for arcade and coinop related Devices */
-    /* Reserved 0x92 - 0xFEFF */
+    /* Reserved 0x92 - 0xF1CF */
+    kHIDPage_FIDO                   = 0xF1D0,
+    /* Reserved 0xF1D1 - 0xFEFF */
     /* VendorDefined 0xFF00 - 0xFFFF */
     kHIDPage_VendorDefinedStart     = 0xFF00
 };
@@ -96,6 +98,7 @@ enum
     kHIDUsage_GD_MultiAxisController    = 0x08,    /* Application Collection */
     kHIDUsage_GD_TabletPCSystemControls    = 0x09,    /* Application Collection */
     kHIDUsage_GD_AssistiveControl    = 0x0A,    /* Application Collection */
+    kHIDUsage_GD_SystemMultiAxisController  =0x0E, /* Application Collection */
     kHIDUsage_GD_SpatialController    = 0x0F,    /* Application Collection */
     kHIDUsage_GD_AssistiveControlCompatible    = 0x10,    /* Application Collection */
     /* 0x0B - 0x2F Reserved */
@@ -122,7 +125,13 @@ enum
     kHIDUsage_GD_Vbry    = 0x44,    /* Dynamic Value */
     kHIDUsage_GD_Vbrz    = 0x45,    /* Dynamic Value */
     kHIDUsage_GD_Vno    = 0x46,    /* Dynamic Value */
-    /* 0x47 - 0x7F Reserved */
+    kHIDUsage_GD_FeatureNotification  = 0x47, /* Dynamic Value/Dynamic Flag */
+    kHIDUsage_GD_ResolutionMultiplier = 0x48, /* Dynamic Value */
+    kHIDUsage_GD_Qx    = 0x49, /* Dynamic Value */
+    kHIDUsage_GD_Qy    = 0x4A, /* Dynamic Value */
+    kHIDUsage_GD_Qz    = 0x4B, /* Dynamic Value */
+    kHIDUsage_GD_Qw    = 0x4C, /* Dynamic Value */
+    /* 0x4D - 0x7F Reserved */
     kHIDUsage_GD_SystemControl    = 0x80,    /* Application Collection */
     kHIDUsage_GD_SystemPowerDown    = 0x81,    /* One-Shot Control */
     kHIDUsage_GD_SystemSleep    = 0x82,    /* One-Shot Control */
@@ -139,14 +148,19 @@ enum
     kHIDUsage_GD_SystemMenuUp    = 0x8C,    /* Re-Trigger Control */
     kHIDUsage_GD_SystemMenuDown    = 0x8D,    /* Re-Trigger Control */
     /* 0x8E - 0x8F Reserved */
-    kHIDUsage_GD_DPadUp    = 0x90,    /* On/Off Control */
-    kHIDUsage_GD_DPadDown    = 0x91,    /* On/Off Control */
-    kHIDUsage_GD_DPadRight    = 0x92,    /* On/Off Control */
-    kHIDUsage_GD_DPadLeft    = 0x93,    /* On/Off Control */
-    kHIDUsage_GD_IndexTrigger    = 0x94,    /* On/Off Control */
-    kHIDUsage_GD_PalmTrigger    = 0x95,    /* On/Off Control */
-    kHIDUsage_GD_Thumbstick    = 0x96,    /* On/Off Control */
-    /* 0x94 - 0xFFFF Reserved */
+    kHIDUsage_GD_DPadUp    = 0x90,              /* On/Off Control */
+    kHIDUsage_GD_DPadDown    = 0x91,            /* On/Off Control */
+    kHIDUsage_GD_DPadRight    = 0x92,           /* On/Off Control */
+    kHIDUsage_GD_DPadLeft    = 0x93,            /* On/Off Control */
+    kHIDUsage_GD_IndexTrigger    = 0x94,        /* Momentary Control / Dynamic Value */
+    kHIDUsage_GD_PalmTrigger    = 0x95,         /* Momentary Control / Dynamic Value */
+    kHIDUsage_GD_Thumbstick    = 0x96,          /* Physical Collection */
+    kHIDUsage_GD_SFShift = 0x97,                /* Momentary Control */
+    kHIDUsage_GD_SFShiftLock = 0x98,            /* On/Off Control */
+    kHIDUsage_GD_SFShiftLockIndicator = 0x99,   /* Dynamic Value */
+    kHIDUsage_GD_SystemDismissNotification = 0x9A, /* One-Shot Control */
+    kHIDUsage_GD_DoNotDisturb  = 0x9B,          /* On/Off Control */
+    /* 0x9C - 0xFFFF Reserved */
     kHIDUsage_GD_Reserved = 0xFFFF
 };
 
@@ -1219,8 +1233,11 @@ enum
     kHIDUsage_Csmr_ALOnlineActivityBrowswer= 0x1C5, /* Selector */
     kHIDUsage_Csmr_ALResearchOrSearchBrowswer   = 0x1C6, /* Selector */
     kHIDUsage_Csmr_ALAudioPlayer= 0x1C7, /* Selector */
-    kHIDUsage_Csmr_ALNavigation = 0x1C8, /* Selector */
-    /* 0x1C9 - 0x1FF Reserved */
+    kHIDUsage_Csmr_ALMessageStatus = 0x1C8, /* Selector */
+    kHIDUsage_Csmr_ALContactSync = 0x1C9, /* Selector */
+    kHIDUsage_Csmr_ALNavigation = 0x1CA, /* Selector */
+    kHIDUsage_Csmr_ALContextawareDesktopAssistant = 0x1CB, /* Selector */
+    /* 0x1CC - 0x1FF Reserved */
     kHIDUsage_Csmr_GenericGUIApplicationControls    = 0x200,    /* Named Array */
     kHIDUsage_Csmr_ACNew    = 0x201,    /* Selector */
     kHIDUsage_Csmr_ACOpen    = 0x202,    /* Selector */
@@ -1365,8 +1382,48 @@ enum
     kHIDUsage_Csmr_ACKeyboardLayoutSelect   = 0x29D,    /* One-Shot Control */
     kHIDUsage_Csmr_ACNavigationGuidance     = 0x29E,    /* Selector */
     kHIDUsage_Csmr_ACDesktopShowAllWindows  = 0x29F,    /* Selector */
-    kHIDUsage_Csmr_ACDesktopShowAllApplications = 0x2A0,    /* Selector */
-    /* 0x2A1 - 0xFFFF Reserved */
+    kHIDUsage_Csmr_ACSoftKeyLeft            = 0x2A0,    /* Selector */
+    kHIDUsage_Csmr_ACSoftKeyRight           = 0x2A1,    /* Selector */
+    kHIDUsage_Csmr_ACDesktopShowAllApplications = 0x2A2,    /* Selector */
+    /* 0x02A3 - 0x02AF Reserved */
+    kHIDUsage_Csmr_ACIdleKeepAlive = 0x2B0,    /* Selector */
+    /* 0x02B1 - 0x02BF Reserved */
+    kHIDUsage_Csmr_ExtendedKeyboardAttributesCollection   = 0x2C0, /* Logical Collection */
+    kHIDUsage_Csmr_KeyboardFormFactor       = 0x2C1, /* Static Value */
+    kHIDUsage_Csmr_KeyboardKeyType          = 0x2C2, /* Static Value */
+    kHIDUsage_Csmr_KeyboardPhysicalLayout   = 0x2C3, /* Static Value */
+    kHIDUsage_Csmr_VendorSpecificKeyboardPhysicalLayout     = 0x2C4, /* Static Value */
+    kHIDUsage_Csmr_KeyboardIETFLanguageTagIndex             = 0x2C5, /* Static Value */
+    kHIDUsage_Csmr_ImplementedKeyboardInputAssistControls   = 0x2C6, /* Static Value */
+    kHIDUsage_Csmr_KeyboardInputAssistPrevious      = 0x2C7, /* Selector */
+    kHIDUsage_Csmr_KeyboardInputAssistNext          = 0x2C8, /* Selector */
+    kHIDUsage_Csmr_KeyboardInputAssistPreviousGroup = 0x2C9, /* Selector */
+    kHIDUsage_Csmr_KeyboardInputAssistNextGroup     = 0x2CA, /* Selector */
+    kHIDUsage_Csmr_KeyboardInputAssistAccept        = 0x2CB, /* Selector */
+    kHIDUsage_Csmr_KeyboardInputAssistCancel        = 0x2CC, /* Selector */
+    /* 0x02CD - 0x04FF Reserved */
+    kHIDUsage_Csmr_ContactEdited            = 0x500, /* On/Off Control */
+    kHIDUsage_Csmr_ContactAdded             = 0x501, /* On/Off Control */
+    kHIDUsage_Csmr_ContactRecordActive      = 0x502, /* On/Off Control */
+    kHIDUsage_Csmr_ContactIndex             = 0x503, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactNickname          = 0x504, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactFirstName         = 0x505, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactLastName          = 0x506, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactFullName          = 0x507, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactPhoneNumberPersonal       = 0x508, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactPhoneNumberBusiness       = 0x509, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactPhoneNumberMobile         = 0x50A, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactPhoneNumberPager          = 0x50B, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactPhoneNumberFax            = 0x50C, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactPhoneNumberOther          = 0x50D, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactEmailPersonal             = 0x50E, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactEmailBusiness             = 0x50F, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactEmailOther                = 0x510, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactEmailMain                 = 0x511, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactSpeedDialNumber           = 0x512, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactStatusFlag                = 0x513, /* Dynamic Value */
+    kHIDUsage_Csmr_ContactMisc                      = 0x514, /* Dynamic Value */
+    /* 0x0515 - 0xFFFF Reserved */
     kHIDUsage_Csmr_Reserved = 0xFFFF
 };
 
@@ -1446,6 +1503,41 @@ enum
     
     /* 0x70 - 0xFFFF Reserved */
     kHIDUsage_Dig_Reserved                          = 0xFFFF
+};
+
+/* Haptics Feedback Controls Page (0x0E) */
+/* This section provides detailed descriptions of the usages employed by Haptics Controllers. */
+enum
+{
+    kHIDUsage_Haptics_SimpleHapticController       = 0x0001, /* Application Collection or Logical Collection */
+    /* 0x0002 - 0x000F Reserved */
+    kHIDUsage_Haptics_WaveformList                 = 0x0010, /* Named Array */
+    kHIDUsage_Haptics_DurationList                 = 0x0011, /* Named Array */
+    /* 0x0012 - 0x001F Reserved */
+    kHIDUsage_Haptics_AutoTrigger                  = 0x0020, /* Dynamic Value */
+    kHIDUsage_Haptics_ManualTrigger                = 0x0021, /* Dynamic Value */
+    kHIDUsage_Haptics_AutoTriggerAssociatedControl = 0x0022, /* Static Value */
+    kHIDUsage_Haptics_Intensity                    = 0x0023, /* Dynamic Value */
+    kHIDUsage_Haptics_RepeatCount                  = 0x0024, /* Dynamic Value */
+    kHIDUsage_Haptics_RetriggerPeriod              = 0x0025, /* Dynamic Value */
+    kHIDUsage_Haptics_WaveformVendorPage           = 0x0026, /* Static Value */
+    kHIDUsage_Haptics_WaveformVendorID             = 0x0027, /* Static Value */
+    kHIDUsage_Haptics_WaveformCutoffTime           = 0x0028, /* Static Value */
+    /* 0x0029 - 0x0FFF Reserved */
+    /* 0x1000 Reserved */
+    kHIDUsage_Haptics_WaveformNone                 = 0x1001, /* Static Value */
+    kHIDUsage_Haptics_WaveformStop                 = 0x1002, /* Static Value */
+    kHIDUsage_Haptics_WaveformClick                = 0x1003, /* Static Value */
+    kHIDUsage_Haptics_WaveformBuzzContinuous       = 0x1004, /* Static Value */
+    kHIDUsage_Haptics_WaveformRumbleContinuous     = 0x1005, /* Static Value */
+    kHIDUsage_Haptics_WaveformPress                = 0x1006, /* Static Value */
+    kHIDUsage_Haptics_WaveformRelease              = 0x1007, /* Static Value */
+    /* 0x1008 - 0x1FFF Reserved for standard waveforms */
+    /* 0x2000 Reserved */
+    kHIDUsage_Haptics_VendorWaveformFirst          = 0x2001, /* Static Value */
+    /* 0x2001 - 0x2FFF Vendor waveforms */
+    kHIDUsage_Haptics_VendorWaveformLast           = 0x2FFF, /* Static Value */
+    /* 0x3000 - 0xFFFF Reserved */
 };
 
 /* Physical Interface Device Page (0x0F) */
@@ -2586,6 +2678,17 @@ enum
     /* Reserved 0x01 - 0x1F */
     kHIDUsage_CC_Autofocus = 0x20,      /* One-Shot Control */
     kHIDUsage_CC_Shutter = 0x21,        /* One-Shot Control */
+};
+
+/* Fast IDentify Online (FIDO) Alliance Page (0xF1D0) */
+enum
+{
+    kHIDUsage_FIDO_Undefined    = 0x00,  /* FIDO Undefined Usage */
+    kHIDUsage_FIDO_U2FDevice    = 0x01,  /* CA - U2F Authenticator Device */
+    /* Reserved 0x02 - 0x1F */
+    kHIDUsage_FIDO_InputData    = 0x20,  /* DV - Input Report Data */
+    kHIDUsage_FIDO_OutputData   = 0x21,  /* DV - Output Report Data */
+    /* Reserved 0x22 - 0xFFFF */
 };
 
 #endif /* _IOHIDUSAGETABLES_H */

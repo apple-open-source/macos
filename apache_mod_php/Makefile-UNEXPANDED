@@ -24,7 +24,7 @@ Extra_Make_Flags = -j $(shell sysctl -n hw.ncpu) $(Environment)
 #SDK variables for configure
 SDKROOT = $(shell xcrun --show-sdk-path --sdk macosx.internal)
 SDK = -isysroot $(SDKROOT)
-APXS = $(DT_TOOLCHAIN_DIR)/usr/local/bin/apxs
+APXS = $(shell xcrun -f apxs)
 SDKUSRDIR = $(SDKROOT)$(USRDIR)
 			
 # This allows extra variables to be passed _just_ to configure.

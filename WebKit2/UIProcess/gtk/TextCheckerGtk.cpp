@@ -203,7 +203,7 @@ void TextChecker::requestCheckingOfString(Ref<TextCheckerCompletion>&& completio
 {
 #if ENABLE(SPELLCHECK)
     TextCheckingRequestData request = completion->textCheckingRequestData();
-    ASSERT(request.sequence() != unrequestedTextCheckingSequence);
+    ASSERT(request.identifier());
     ASSERT(request.checkingTypes());
 
     completion->didFinishCheckingText(checkTextOfParagraph(completion->spellDocumentTag(), request.text(), insertionPoint, request.checkingTypes(), false));
@@ -269,8 +269,7 @@ Vector<TextCheckingResult> TextChecker::checkTextOfParagraph(SpellDocumentTag sp
 
         TextCheckingResult misspellingResult;
         misspellingResult.type = TextCheckingType::Spelling;
-        misspellingResult.location = offset + misspellingLocation;
-        misspellingResult.length = misspellingLength;
+        misspellingResult.range = CharacterRange(offset + misspellingLocation, misspellingLength);
         paragraphCheckingResult.append(misspellingResult);
         offset += misspellingLocation + misspellingLength;
         // Generally, we end up checking at the word separator, move to the adjacent word.

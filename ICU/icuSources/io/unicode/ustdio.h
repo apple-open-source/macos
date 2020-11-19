@@ -355,7 +355,7 @@ U_DEFINE_LOCAL_OPEN_POINTER(LocalUFILEPointer, UFILE, u_fclose);
 
 U_NAMESPACE_END
 
-#endif // U_SHOW_CPLUSPLUS_API
+#endif
 
 /**
  * Tests if the UFILE is at the end of the file stream.

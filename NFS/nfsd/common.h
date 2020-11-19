@@ -75,6 +75,7 @@ void mountd(void);
 int get_exportlist(void);
 int check_for_mount_changes(void);
 int clear_export_errors(uint32_t);
+pid_t get_nfsd_pid(void);
 
 /* globals */
 extern pthread_attr_t pattr;

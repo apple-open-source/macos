@@ -3297,6 +3297,7 @@ PHP_METHOD(DateTimeImmutable, modify)
 
 	date_clone_immutable(object, &new_object);
 	if (!php_date_modify(&new_object, modify, modify_len)) {
+		zval_ptr_dtor(&new_object);
 		RETURN_FALSE;
 	}
 
@@ -3561,6 +3562,7 @@ static void php_date_time_set(zval *object, zend_long h, zend_long i, zend_long 
 	dateobj->time->s = s;
 	dateobj->time->us = ms;
 	timelib_update_ts(dateobj->time, NULL);
+	timelib_update_from_sse(dateobj->time);
 } /* }}} */
 
 /* {{{ proto DateTime date_time_set(DateTime object, int hour, int minute[, int second[, int microseconds]])
@@ -4359,6 +4361,20 @@ static int php_date_interval_initialize_from_hash(zval **return_value, php_inter
 		} \
 	} while (0);
 
+#define PHP_DATE_INTERVAL_READ_PROPERTY_DAYS(member) \
+	do { \
+		zval *z_arg = zend_hash_str_find(myht, "days", sizeof("days") - 1); \
+		if (z_arg && Z_TYPE_P(z_arg) == IS_FALSE) { \
+			(*intobj)->diff->member = -99999; \
+		} else if (z_arg && Z_TYPE_P(z_arg) <= IS_STRING) { \
+			zend_string *str = zval_get_string(z_arg); \
+			DATE_A64I((*intobj)->diff->member, ZSTR_VAL(str)); \
+			zend_string_release(str); \
+		} else { \
+			(*intobj)->diff->member = -1LL; \
+		} \
+	} while (0);
+
 #define PHP_DATE_INTERVAL_READ_PROPERTY_DOUBLE(element, member, def) \
 	do { \
 		zval *z_arg = zend_hash_str_find(myht, element, sizeof(element) - 1); \
@@ -4375,19 +4391,21 @@ static int php_date_interval_initialize_from_hash(zval **return_value, php_inter
 	PHP_DATE_INTERVAL_READ_PROPERTY("h", h, timelib_sll, -1)
 	PHP_DATE_INTERVAL_READ_PROPERTY("i", i, timelib_sll, -1)
 	PHP_DATE_INTERVAL_READ_PROPERTY("s", s, timelib_sll, -1)
-	do {
+	{
 		zval *z_arg = zend_hash_str_find(myht, "f", sizeof("f") - 1);
+		(*intobj)->diff->us = -1000000;
 		if (z_arg) {
-			(*intobj)->diff->us = ((double)zval_get_double(z_arg) * 1000000);
-		} else {
-			(*intobj)->diff->us = (double) -1000000;
+			double val = zval_get_double(z_arg) * 1000000;
+			if (val >= 0 && val < 1000000) {
+				(*intobj)->diff->us = val;
+			}
 		}
-	} while (0);
+	}
 	PHP_DATE_INTERVAL_READ_PROPERTY("weekday", weekday, int, -1)
 	PHP_DATE_INTERVAL_READ_PROPERTY("weekday_behavior", weekday_behavior, int, -1)
 	PHP_DATE_INTERVAL_READ_PROPERTY("first_last_day_of", first_last_day_of, int, -1)
 	PHP_DATE_INTERVAL_READ_PROPERTY("invert", invert, int, 0);
-	PHP_DATE_INTERVAL_READ_PROPERTY_I64("days", days);
+	PHP_DATE_INTERVAL_READ_PROPERTY_DAYS(days);
 	PHP_DATE_INTERVAL_READ_PROPERTY("special_type", special.type, unsigned int, 0);
 	PHP_DATE_INTERVAL_READ_PROPERTY_I64("special_amount", special.amount);
 	PHP_DATE_INTERVAL_READ_PROPERTY("have_weekday_relative", have_weekday_relative, unsigned int, 0);
@@ -5154,7 +5172,7 @@ static HashTable *date_object_get_properties_period(zval *object) /* {{{ */
 
 	if (period_obj->start) {
 		php_date_obj *date_obj;
-		object_init_ex(&zv, date_ce_date);
+		object_init_ex(&zv, period_obj->start_ce);
 		date_obj = Z_PHPDATE_P(&zv);
 		date_obj->time = timelib_time_clone(period_obj->start);
 	} else {
@@ -5164,7 +5182,7 @@ static HashTable *date_object_get_properties_period(zval *object) /* {{{ */
 
 	if (period_obj->current) {
 		php_date_obj *date_obj;
-		object_init_ex(&zv, date_ce_date);
+		object_init_ex(&zv, period_obj->start_ce);
 		date_obj = Z_PHPDATE_P(&zv);
 		date_obj->time = timelib_time_clone(period_obj->current);
 	} else {
@@ -5174,7 +5192,7 @@ static HashTable *date_object_get_properties_period(zval *object) /* {{{ */
 
 	if (period_obj->end) {
 		php_date_obj *date_obj;
-		object_init_ex(&zv, date_ce_date);
+		object_init_ex(&zv, period_obj->start_ce);
 		date_obj = Z_PHPDATE_P(&zv);
 		date_obj->time = timelib_time_clone(period_obj->end);
 	} else {
@@ -5211,7 +5229,7 @@ static int php_date_period_initialize_from_hash(php_period_obj *period_obj, Hash
 
 	ht_entry = zend_hash_str_find(myht, "start", sizeof("start")-1);
 	if (ht_entry) {
-		if (Z_TYPE_P(ht_entry) == IS_OBJECT && Z_OBJCE_P(ht_entry) == date_ce_date) {
+		if (Z_TYPE_P(ht_entry) == IS_OBJECT && instanceof_function(Z_OBJCE_P(ht_entry), date_ce_interface)) {
 			php_date_obj *date_obj;
 			date_obj = Z_PHPDATE_P(ht_entry);
 			period_obj->start = timelib_time_clone(date_obj->time);
@@ -5225,7 +5243,7 @@ static int php_date_period_initialize_from_hash(php_period_obj *period_obj, Hash
 
 	ht_entry = zend_hash_str_find(myht, "end", sizeof("end")-1);
 	if (ht_entry) {
-		if (Z_TYPE_P(ht_entry) == IS_OBJECT && Z_OBJCE_P(ht_entry) == date_ce_date) {
+		if (Z_TYPE_P(ht_entry) == IS_OBJECT && instanceof_function(Z_OBJCE_P(ht_entry), date_ce_interface)) {
 			php_date_obj *date_obj;
 			date_obj = Z_PHPDATE_P(ht_entry);
 			period_obj->end = timelib_time_clone(date_obj->time);
@@ -5238,7 +5256,7 @@ static int php_date_period_initialize_from_hash(php_period_obj *period_obj, Hash
 
 	ht_entry = zend_hash_str_find(myht, "current", sizeof("current")-1);
 	if (ht_entry) {
-		if (Z_TYPE_P(ht_entry) == IS_OBJECT && Z_OBJCE_P(ht_entry) == date_ce_date) {
+		if (Z_TYPE_P(ht_entry) == IS_OBJECT && instanceof_function(Z_OBJCE_P(ht_entry), date_ce_interface)) {
 			php_date_obj *date_obj;
 			date_obj = Z_PHPDATE_P(ht_entry);
 			period_obj->current = timelib_time_clone(date_obj->time);

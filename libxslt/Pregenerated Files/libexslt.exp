@@ -1,0 +1,17 @@
+_exsltCommonRegister
+_exsltDateRegister
+_exsltDateXpathCtxtRegister
+_exsltDynRegister
+_exsltFuncRegister
+_exsltLibexsltVersion
+_exsltLibraryVersion
+_exsltLibxmlVersion
+_exsltLibxsltVersion
+_exsltMathRegister
+_exsltMathXpathCtxtRegister
+_exsltRegisterAll
+_exsltSaxonRegister
+_exsltSetsRegister
+_exsltSetsXpathCtxtRegister
+_exsltStrRegister
+_exsltStrXpathCtxtRegister

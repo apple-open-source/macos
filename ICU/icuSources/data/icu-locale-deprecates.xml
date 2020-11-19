@@ -23,11 +23,14 @@
     <alias from="iw" to="he"/>
     <alias from="iw_IL" to="he_IL"/>
     <alias from="ja_JP_TRADITIONAL" to="ja_JP" rbpath="/calendar/default" value="japanese"/>
+    <alias from="ks_IN" to="ks_Arab_IN"/>
     <alias from="mni_IN" to="mni_Beng_IN"/>
     <alias from="mo" to="ro"/>
     <alias from="no_NO" to="nb_NO"/>
     <alias from="no_NO_NY" to="nn_NO"/>
     <alias from="no" to="nb"/>
+    <alias from="pa_Aran" to="pa_Arab"/> <!-- Apple addition, content alias -->
+    <alias from="pa_Aran_PK" to="pa_Arab_PK"/> <!-- Apple addition, content alias -->
     <alias from="pa_IN" to="pa_Guru_IN"/>
     <alias from="pa_PK" to="pa_Arab_PK"/>
     <alias from="sat_IN" to="sat_Olck_IN"/>
@@ -49,9 +52,14 @@
     <alias from="th_TH_TRADITIONAL" to="th_TH" rbpath="/calendar/default" value="buddhist"/>
     <alias from="tl" to="fil"/>
     <alias from="tl_PH" to="fil_PH"/>
+    <alias from="ur_Aran_IN" to="ur_Arab_IN"/> <!-- Apple addition -->
+    <alias from="ur_Aran_PK" to="ur_Arab_PK"/> <!-- Apple addition -->
+    <alias from="ur_IN" to="ur_Arab_IN"/> <!-- Apple addition, since we move ur_IN to ur_Arab_IN -->
+    <alias from="ur_PK" to="ur_Arab_PK"/> <!-- Apple addition, since we move ur_PK to ur_Arab_PK -->
     <alias from="uz_AF" to="uz_Arab_AF"/>
     <alias from="uz_UZ" to="uz_Latn_UZ"/>
     <alias from="vai_LR" to="vai_Vaii_LR"/>
+    <alias from="wuu" to="zh"/> <!-- Apple addition, content alias -->
     <alias from="yue_CN" to="yue_Hans_CN"/>
     <alias from="yue_HK" to="yue_Hant_HK"/>
     <alias from="zh_CN" to="zh_Hans_CN"/>

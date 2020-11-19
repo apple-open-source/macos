@@ -170,6 +170,36 @@ struct IONetworkInterfaceAddressChangeParameters
 #define kIONetworkTxStatusNoResources \
         iokit_family_msg(sub_iokit_networking, 0x20d)
 
+/*! @defined kIONetworkTxStatusHardwareFreedPacket
+    @discussion Hardware free this packet.
+*/
+#define kIONetworkTxStatusHardwareFreedPacket \
+        iokit_family_msg(sub_iokit_networking, 0x20e)
+
+/*! @defined kIONetworkTxStatusHardwareDropOnMaxSuppressedRetries
+    @discussion Hardware dropped the frame after suppress retries reached max.
+*/
+#define kIONetworkTxStatusHardwareDropOnMaxSuppressedRetries \
+        iokit_family_msg(sub_iokit_networking, 0x20f)
+
+/*! @defined kIONetworkTxStatusHardwareForcedPacketExpiry
+    @discussion  Hardware forced packet lifetime expiry
+*/
+#define kIONetworkTxStatusHardwareForcedPacketExpiry \
+        iokit_family_msg(sub_iokit_networking, 0x210)
+
+/*! @defined kIONetworkTxStatusHardwareDroppedPacket
+    @discussion  Hardware dropped Tx packet.
+*/
+#define kIONetworkTxStatusHardwareDroppedPacket \
+        iokit_family_msg(sub_iokit_networking, 0x211)
+
+/*! @defined kIONetworkTxStatusPktDroppedMisc
+    @discussion  Tx Packet dropped, place holder for other reasons
+*/
+#define kIONetworkTxStatusPktDroppedMisc \
+        iokit_family_msg(sub_iokit_networking, 0x212)
+
 /*! @defined kIONetworkLinkStateActive
  @discussion Link state is now active.
  */

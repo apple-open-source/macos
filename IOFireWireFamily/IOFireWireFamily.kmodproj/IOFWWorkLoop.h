@@ -45,12 +45,12 @@ protected:
 	IOThread			fRemoveSourceThread;
 	OSSet *				fRemoveSourceDeferredSet;
 	
-	bool init( void );
-	void free( void );
+	bool init( void ) APPLE_KEXT_OVERRIDE;
+	void free( void ) APPLE_KEXT_OVERRIDE;
 	
     // Overrides to check for sleeping
-    virtual void closeGate();
-    virtual bool tryCloseGate();
+    virtual void closeGate() APPLE_KEXT_OVERRIDE;
+    virtual bool tryCloseGate() APPLE_KEXT_OVERRIDE;
 	
 public:
     // Create a workloop
@@ -62,7 +62,7 @@ public:
     // Wake workloop up (closes gate if successful)
     virtual IOReturn wake( void *token );
 	
-	virtual IOReturn removeEventSource(IOEventSource *toRemove);
+	virtual IOReturn removeEventSource(IOEventSource *toRemove) APPLE_KEXT_OVERRIDE;
 
 };
 

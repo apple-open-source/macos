@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>zsh</string>
 	<key>OpenSourceVersion</key>
-	<string>5.7.1</string>
+	<string>5.8</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.zsh.org/</string>
 	<key>OpenSourceURL</key>
-	<string>https://astuteinternet.dl.sourceforge.net/project/zsh/zsh/5.7.1/zsh-5.7.1.tar.xz</string>
+	<string>https://astuteinternet.dl.sourceforge.net/project/zsh/zsh/5.8/zsh-5.8.tar.xz</string>
 	<key>OpenSourceSHA512256</key>
-	<string>a1c84d95b6f0252d7fd351852b41d47a8cd54a2f8cba6a478bc04a7d355e0b45</string>
+	<string>2030ec494a3389231038f10fa6f3008eadf8d0270b85ac586cbd37d96a94fce6</string>
 	<key>OpenSourceImportDate</key>
-	<string>2019-04-20</string>
+	<string>2020-04-04</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Completion/Unix/Command/_subversion: 6087334</string>

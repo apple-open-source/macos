@@ -62,7 +62,7 @@
  * The following macros are used to declare global sets of objects, which
  * are collected by the linker into a `linker set' as defined below.
  * For Mach-O, this is done by constructing a separate segment inside the
- * __DATA section for each set.  The contents of this segment are an array
+ * __DATA_CONST section for each set.  The contents of this segment are an array
  * of pointers to the objects in the set.
  *
  * Note that due to limitations of the Mach-O format, there cannot
@@ -84,6 +84,7 @@
 # include <mach-o/getsect.h>
 # include <mach-o/loader.h>
 # include <mach-o/dyld.h>
+# include <crt_externs.h>
 
 # if __LP64__
 #  define MACH_HEADER_TYPE struct mach_header_64
@@ -98,6 +99,15 @@
 # endif
 #endif
 
+#if __LP64__ && !(__x86_64__ || __i386__)
+# define LINKER_SET_ENTRY_PACKED
+# define LINKER_SET_SEGMENT __DATA_CONST
+# define LINKER_SET_SEGMENT_CSTR "__DATA_CONST"
+#else
+# define LINKER_SET_ENTRY_PACKED __attribute__((packed))
+# define LINKER_SET_SEGMENT __DATA
+# define LINKER_SET_SEGMENT_CSTR "__DATA"
+#endif
 
 /*
  * Private macros, not to be used outside this header file.
@@ -105,13 +115,13 @@
  * The objective of this macro stack is to produce the following output,
  * given SET and SYM as arguments:
  *
- *  void const * __set_SET_sym_SYM __attribute__((section("__DATA,SET"))) = & SYM
+ *  void const * __set_SET_sym_SYM __attribute__((section("__DATA_CONST,SET"))) = & SYM
  */
 
 /* Wrap entries in a type that can be blacklisted from KASAN */
 struct linker_set_entry {
 	void *ptr;
-} __attribute__((packed));
+} LINKER_SET_ENTRY_PACKED;
 
 #ifdef __LS_VA_STRINGIFY__
 #  undef __LS_VA_STRINGIFY__
@@ -123,7 +133,7 @@ struct linker_set_entry {
 #define __LS_VA_STRCONCAT(_x, _y)        __LS_VA_STRINGIFY(_x,_y)
 #define __LINKER_MAKE_SET(_set, _sym)                                   \
 	/*__unused*/ /*static*/ const struct linker_set_entry /*const*/ __set_##_set##_sym_##_sym               \
-	__attribute__ ((section(__LS_VA_STRCONCAT(__DATA,_set)),used)) = { (void *)&_sym }
+	__attribute__ ((section(__LS_VA_STRCONCAT(LINKER_SET_SEGMENT,_set)),used)) = { (void *)&_sym }
 /* the line above is very fragile - if your compiler breaks linker sets,
  *  just play around with "static", "const", "used" etc. :-) */
 
@@ -214,6 +224,7 @@ __linker_get_slide(struct mach_header *_header)
 	}
 	return 0;
 #else
+	(void)_header;
 	return 0;
 #endif
 }
@@ -224,12 +235,12 @@ __attribute__((__const__));
 static __inline void **
 __linker_set_object_begin(MACH_HEADER_TYPE *_header, const char *_set)
 {
-	void *_set_begin;
+	char *_set_begin;
 	SECTDATA_SIZE_TYPE _size;
 
-	_set_begin = GETSECTIONDATA_VARIANT(_header, "__DATA", _set, &_size);
+	_set_begin = (char *)GETSECTIONDATA_VARIANT(_header, LINKER_SET_SEGMENT_CSTR, _set, &_size);
 	_set_begin += __linker_get_slide((struct mach_header *)_header);
-	return (void **) _set_begin;
+	return (void **)(uintptr_t)_set_begin;
 }
 
 static __inline void **
@@ -238,10 +249,10 @@ __attribute__((__const__));
 static __inline void **
 __linker_set_object_limit(MACH_HEADER_TYPE *_header, const char *_set)
 {
-	void *_set_begin;
+	char *_set_begin;
 	SECTDATA_SIZE_TYPE _size;
 
-	_set_begin = GETSECTIONDATA_VARIANT(_header, "__DATA", _set, &_size);
+	_set_begin = (char *)GETSECTIONDATA_VARIANT(_header, LINKER_SET_SEGMENT_CSTR, _set, &_size);
 	_set_begin += __linker_get_slide((struct mach_header *)_header);
 
 	return (void **) ((uintptr_t) _set_begin + _size);

@@ -22,6 +22,7 @@
 #include "JSTestNamedAndIndexedSetterNoIdentifier.h"
 
 #include "ActiveDOMObject.h"
+#include "DOMIsoSubspaces.h"
 #include "JSDOMAbstractOperations.h"
 #include "JSDOMBinding.h"
 #include "JSDOMConstructorNotConstructable.h"
@@ -29,10 +30,13 @@
 #include "JSDOMExceptionHandling.h"
 #include "JSDOMWrapperCache.h"
 #include "ScriptExecutionContext.h"
+#include "WebCoreJSClientData.h"
 #include <JavaScriptCore/FunctionPrototype.h>
 #include <JavaScriptCore/HeapAnalyzer.h>
 #include <JavaScriptCore/JSCInlines.h>
+#include <JavaScriptCore/JSDestructibleObjectHeapCellType.h>
 #include <JavaScriptCore/PropertyNameArray.h>
+#include <JavaScriptCore/SubspaceInlines.h>
 #include <wtf/GetPtr.h>
 #include <wtf/PointerPreparations.h>
 #include <wtf/URL.h>
@@ -46,7 +50,7 @@ using namespace JSC;
 JSC::EncodedJSValue jsTestNamedAndIndexedSetterNoIdentifierConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::PropertyName);
 bool setJSTestNamedAndIndexedSetterNoIdentifierConstructor(JSC::JSGlobalObject*, JSC::EncodedJSValue, JSC::EncodedJSValue);
 
-class JSTestNamedAndIndexedSetterNoIdentifierPrototype : public JSC::JSNonFinalObject {
+class JSTestNamedAndIndexedSetterNoIdentifierPrototype final : public JSC::JSNonFinalObject {
 public:
     using Base = JSC::JSNonFinalObject;
     static JSTestNamedAndIndexedSetterNoIdentifierPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
@@ -57,6 +61,12 @@ public:
     }
 
     DECLARE_INFO;
+    template<typename CellType, JSC::SubspaceAccess>
+    static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
+    {
+        STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestNamedAndIndexedSetterNoIdentifierPrototype, Base);
+        return &vm.plainObjectSpace;
+    }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
         return JSC::Structure::create(vm, globalObject, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), info());
@@ -83,7 +93,7 @@ template<> JSValue JSTestNamedAndIndexedSetterNoIdentifierConstructor::prototype
 template<> void JSTestNamedAndIndexedSetterNoIdentifierConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
     putDirect(vm, vm.propertyNames->prototype, JSTestNamedAndIndexedSetterNoIdentifier::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, String("TestNamedAndIndexedSetterNoIdentifier"_s)), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestNamedAndIndexedSetterNoIdentifier"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
 }
 
@@ -96,12 +106,13 @@ static const HashTableValue JSTestNamedAndIndexedSetterNoIdentifierPrototypeTabl
     { "constructor", static_cast<unsigned>(JSC::PropertyAttribute::DontEnum), NoIntrinsic, { (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestNamedAndIndexedSetterNoIdentifierConstructor), (intptr_t) static_cast<PutPropertySlot::PutValueFunc>(setJSTestNamedAndIndexedSetterNoIdentifierConstructor) } },
 };
 
-const ClassInfo JSTestNamedAndIndexedSetterNoIdentifierPrototype::s_info = { "TestNamedAndIndexedSetterNoIdentifierPrototype", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestNamedAndIndexedSetterNoIdentifierPrototype) };
+const ClassInfo JSTestNamedAndIndexedSetterNoIdentifierPrototype::s_info = { "TestNamedAndIndexedSetterNoIdentifier", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestNamedAndIndexedSetterNoIdentifierPrototype) };
 
 void JSTestNamedAndIndexedSetterNoIdentifierPrototype::finishCreation(VM& vm)
 {
     Base::finishCreation(vm);
     reifyStaticProperties(vm, JSTestNamedAndIndexedSetterNoIdentifier::info(), JSTestNamedAndIndexedSetterNoIdentifierPrototypeTableValues, *this);
+    JSC_TO_STRING_TAG_WITHOUT_TRANSITION();
 }
 
 const ClassInfo JSTestNamedAndIndexedSetterNoIdentifier::s_info = { "TestNamedAndIndexedSetterNoIdentifier", &Base::s_info, nullptr, nullptr, CREATE_METHOD_TABLE(JSTestNamedAndIndexedSetterNoIdentifier) };
@@ -223,9 +234,11 @@ bool JSTestNamedAndIndexedSetterNoIdentifier::put(JSCell* cell, JSGlobalObject* 
     }
 
     if (!propertyName.isSymbol()) {
-        PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry };
+        PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry, &lexicalGlobalObject->vm() };
         JSValue prototype = thisObject->getPrototypeDirect(JSC::getVM(lexicalGlobalObject));
-        if (!(prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot))) {
+        bool found = prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot);
+        slot.disallowVMEntry.reset();
+        if (!found) {
             auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
             auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
             RETURN_IF_EXCEPTION(throwScope, true);
@@ -252,9 +265,11 @@ bool JSTestNamedAndIndexedSetterNoIdentifier::putByIndex(JSCell* cell, JSGlobalO
     }
 
     auto propertyName = Identifier::from(vm, index);
-    PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry };
+    PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry, &vm };
     JSValue prototype = thisObject->getPrototypeDirect(vm);
-    if (!(prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot))) {
+    bool found = prototype.isObject() && asObject(prototype)->getPropertySlot(lexicalGlobalObject, propertyName, slot);
+    slot.disallowVMEntry.reset();
+    if (!found) {
         auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
         auto nativeValue = convert<IDLDOMString>(*lexicalGlobalObject, value);
         RETURN_IF_EXCEPTION(throwScope, true);
@@ -281,8 +296,10 @@ bool JSTestNamedAndIndexedSetterNoIdentifier::defineOwnProperty(JSObject* object
     }
 
     if (!propertyName.isSymbol()) {
-        PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry };
-        if (!JSObject::getOwnPropertySlot(thisObject, lexicalGlobalObject, propertyName, slot)) {
+        PropertySlot slot { thisObject, PropertySlot::InternalMethodType::VMInquiry, &lexicalGlobalObject->vm() };
+        bool found = JSObject::getOwnPropertySlot(thisObject, lexicalGlobalObject, propertyName, slot);
+        slot.disallowVMEntry.reset();
+        if (!found) {
             if (!propertyDescriptor.isDataDescriptor())
                 return false;
             auto throwScope = DECLARE_THROW_SCOPE(JSC::getVM(lexicalGlobalObject));
@@ -319,6 +336,27 @@ bool setJSTestNamedAndIndexedSetterNoIdentifierConstructor(JSGlobalObject* lexic
     }
     // Shadowing a built-in constructor
     return prototype->putDirect(vm, vm.propertyNames->constructor, JSValue::decode(encodedValue));
+}
+
+JSC::IsoSubspace* JSTestNamedAndIndexedSetterNoIdentifier::subspaceForImpl(JSC::VM& vm)
+{
+    auto& clientData = *static_cast<JSVMClientData*>(vm.clientData);
+    auto& spaces = clientData.subspaces();
+    if (auto* space = spaces.m_subspaceForTestNamedAndIndexedSetterNoIdentifier.get())
+        return space;
+    static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedAndIndexedSetterNoIdentifier> || !JSTestNamedAndIndexedSetterNoIdentifier::needsDestruction);
+    if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestNamedAndIndexedSetterNoIdentifier>)
+        spaces.m_subspaceForTestNamedAndIndexedSetterNoIdentifier = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestNamedAndIndexedSetterNoIdentifier);
+    else
+        spaces.m_subspaceForTestNamedAndIndexedSetterNoIdentifier = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestNamedAndIndexedSetterNoIdentifier);
+    auto* space = spaces.m_subspaceForTestNamedAndIndexedSetterNoIdentifier.get();
+IGNORE_WARNINGS_BEGIN("unreachable-code")
+IGNORE_WARNINGS_BEGIN("tautological-compare")
+    if (&JSTestNamedAndIndexedSetterNoIdentifier::visitOutputConstraints != &JSC::JSCell::visitOutputConstraints)
+        clientData.outputConstraintSpaces().append(space);
+IGNORE_WARNINGS_END
+IGNORE_WARNINGS_END
+    return space;
 }
 
 void JSTestNamedAndIndexedSetterNoIdentifier::analyzeHeap(JSCell* cell, HeapAnalyzer& analyzer)
@@ -358,11 +396,11 @@ JSC::JSValue toJSNewlyCreated(JSC::JSGlobalObject*, JSDOMGlobalObject* globalObj
 {
 
 #if ENABLE(BINDING_INTEGRITY)
-    void* actualVTablePointer = *(reinterpret_cast<void**>(impl.ptr()));
+    const void* actualVTablePointer = getVTablePointer(impl.ptr());
 #if PLATFORM(WIN)
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(__identifier("??_7TestNamedAndIndexedSetterNoIdentifier@WebCore@@6B@"));
+    void* expectedVTablePointer = __identifier("??_7TestNamedAndIndexedSetterNoIdentifier@WebCore@@6B@");
 #else
-    void* expectedVTablePointer = WTF_PREPARE_VTBL_POINTER_FOR_INSPECTION(&_ZTVN7WebCore37TestNamedAndIndexedSetterNoIdentifierE[2]);
+    void* expectedVTablePointer = &_ZTVN7WebCore37TestNamedAndIndexedSetterNoIdentifierE[2];
 #endif
 
     // If this fails TestNamedAndIndexedSetterNoIdentifier does not have a vtable, so you need to add the

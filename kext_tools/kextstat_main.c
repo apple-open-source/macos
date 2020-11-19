@@ -36,10 +36,32 @@
 
 #include "kextstat_main.h"
 
+#if RC_ENABLE_PRODUCT_INFO_FILTER
+static void * product_info_filter_disable __attribute__((section("__INFO_FILTER,__disable"))) __attribute__((used));
+#endif /*  RC_ENABLE_PRODUCT_INFO_FILTER */
+
 // not a utility.[ch] customer yet
 static const char * progname = "(unknown)";
 
+extern void shimKextstatArgsToKMUtilAndRun(KextstatArgs *toolArgs);
+
 void printPList_new(FILE * stream, CFTypeRef aPlist);
+
+/* KEXTSTAT_LEGACY_MODE=1 kextstat runs the old code */
+static bool
+shim_kextstat(void)
+{
+#if TARGET_OS_BRIDGE
+    return false;
+#else
+    char *legacy = getenv("KEXTSTAT_LEGACY_MODE");
+    if (legacy && legacy[0] == '1' && legacy[1] == '\0') {
+        return false;
+    }
+    return true;
+#endif
+}
+
 /*******************************************************************************
 *
 *******************************************************************************/
@@ -64,6 +86,11 @@ ExitStatus main(int argc, char * const * argv)
             result = EX_OK;
         }
         goto finish;
+    }
+
+    if (disableKextTools() && shim_kextstat()) {
+        shimKextstatArgsToKMUtilAndRun(&toolArgs); /* this function exits */
+        exit(EX_OSERR);
     }
 
     toolArgs.runningKernelArch = OSKextGetRunningKernelArchitecture();
@@ -526,7 +553,7 @@ CFComparisonResult compareNumbers(
 
 /*******************************************************************************
 *******************************************************************************/
-static void usage(UsageLevel usageLevel)
+void usage(UsageLevel usageLevel)
 {
     fprintf(stderr, "usage: %s [-a] [-k] [-l] [-b bundle_id] ...\n", progname);
 

@@ -115,7 +115,7 @@
         return NO;
     }
     
-    secnotice("octagon", "received connection from client pid %d", [newConnection processIdentifier]);
+    secinfo("octagon", "received connection from client pid %d", [newConnection processIdentifier]);
     newConnection.exportedInterface = OTSetupControlProtocol([NSXPCInterface interfaceWithProtocol:@protocol(OTControlProtocol)]);
     newConnection.exportedObject = [OctagonXPCEntitlementChecker createWithManager:[OTManager manager] entitlementBearer:newConnection];
 

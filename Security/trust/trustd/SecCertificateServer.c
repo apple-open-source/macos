@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2017-2020 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -37,6 +37,7 @@
 #include <Security/SecCertificateInternal.h>
 #include <Security/SecItem.h>
 #include <Security/SecInternal.h>
+#include <Security/SecTrustSettingsPriv.h>
 
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecCFError.h>
@@ -47,6 +48,7 @@
 #include "trust/trustd/SecPolicyServer.h"
 #include "trust/trustd/SecCertificateServer.h"
 #include "trust/trustd/SecRevocationServer.h"
+#include "trust/trustd/SecTrustStoreServer.h"
 
 // MARK: -
 // MARK: SecCertificateVC
@@ -253,6 +255,11 @@ struct SecCertificatePathVC {
     bool                isCT;
     bool                is_allowlisted;
     bool                hasStrongHashes;
+
+    /* revocationCAIndex contains the index of the last CA with a SPKI-based
+     * revocation match, or -1 (kCFNotFound) if no CA match was found.
+     * A value of 0 means the path has not yet been checked for a match. */
+    CFIndex             revocationCAIndex;
 
     void *              rvcs;
     CFIndex             rvcCount;
@@ -757,7 +764,7 @@ bool SecCertificatePathVCHasWeakKeySize(SecCertificatePathVCRef certificatePath)
             *stop = true;
         }
     });
-    
+
 errOut:
     CFReleaseSafe(keySizes);
     CFReleaseSafe(rsaSize);
@@ -768,19 +775,19 @@ errOut:
 /* Return a score for this certificate chain. */
 CFIndex SecCertificatePathVCScore(SecCertificatePathVCRef certificatePath, CFAbsoluteTime verifyTime) {
     CFIndex score = 0;
-    
+
     /* Paths that don't verify score terribly.c */
     if (certificatePath->lastVerifiedSigner != certificatePath->count - 1) {
         secdebug("trust", "lvs: %" PRIdCFIndex " count: %" PRIdCFIndex,
                  certificatePath->lastVerifiedSigner, certificatePath->count);
         score -= 100000;
     }
-    
+
     if (certificatePath->isAnchored) {
         /* Anchored paths for the win! */
         score += 10000;
     }
-    
+
     if (certificatePath->isSelfSigned && (certificatePath->selfIssued == certificatePath->count - 1)) {
         /* Chains that terminate in a self-signed certificate are preferred,
          even if they don't end in an anchor. */
@@ -791,19 +798,19 @@ CFIndex SecCertificatePathVCScore(SecCertificatePathVCRef certificatePath, CFAbs
         /* Longer chains are preferred when the chain doesn't end in a self-signed cert. */
         score += 1 * certificatePath->count;
     }
-    
+
     if (SecCertificatePathVCIsValid(certificatePath, verifyTime)) {
         score += 100;
     }
-    
+
     if (!SecCertificatePathVCHasWeakHash(certificatePath)) {
         score += 10;
     }
-    
+
     if (!SecCertificatePathVCHasWeakKeySize(certificatePath)) {
         score += 10;
     }
-    
+
     return score;
 }
 
@@ -999,6 +1006,63 @@ void SecCertificatePathVCSetRequiresCT(SecCertificatePathVCRef certificatePath, 
         return; /* once set, CT policy may be only be changed to a more strict value */
     }
     certificatePath->requiresCT = requiresCT;
+}
+
+static bool has_ca_additions_key(SecCertificatePathVCRef path, CFDictionaryRef ca_entry) {
+    bool result = false;
+    CFDataRef hash = CFDictionaryGetValue(ca_entry, kSecCARevocationSPKIHashKey);
+    if (!hash) {
+        return false;
+    }
+    /* only check issuing CAs and not the leaf */
+    for (CFIndex certIX = 1; certIX < SecCertificatePathVCGetCount(path); certIX++) {
+        SecCertificateRef ca = SecCertificatePathVCGetCertificateAtIndex(path, certIX);
+        CFDataRef spkiHash = SecCertificateCopySubjectPublicKeyInfoSHA256Digest(ca);
+        bool matched = CFEqualSafe(hash, spkiHash);
+        CFReleaseNull(spkiHash);
+        if (!matched) {
+            continue;
+        }
+        /* this SPKI is a match; remember highest index */
+        if (certIX > path->revocationCAIndex) {
+            path->revocationCAIndex = certIX;
+        }
+        result = true;
+    }
+    return result;
+}
+
+static void SecCertificatePathVCCheckCARevocationAdditions(SecCertificatePathVCRef path) {
+    CFDictionaryRef additions = _SecTrustStoreCopyCARevocationAdditions(NULL, NULL);
+    path->revocationCAIndex = kCFNotFound;
+    if (!additions) {
+        return;
+    }
+
+    __block bool result = false;
+    CFArrayRef ca_list = CFDictionaryGetValue(additions, kSecCARevocationAdditionsKey);
+    if (ca_list) {
+        CFArrayForEach(ca_list, ^(const void *value) {
+            result = result || has_ca_additions_key(path, value);
+        });
+    }
+
+    if (result) {
+        secinfo("ocsp", "key-based CA revocation applies at index %lld",
+                (long long)path->revocationCAIndex);
+    }
+
+    CFReleaseNull(additions);
+    return;
+}
+
+CFIndex SecCertificatePathVCIndexOfCAWithRevocationAdditions(SecCertificatePathVCRef certificatePath) {
+    if (!certificatePath) { return kCFNotFound; }
+    if (0 == certificatePath->revocationCAIndex) {
+        /* we haven't checked this path yet, do it now */
+        SecCertificatePathVCCheckCARevocationAdditions(certificatePath);
+    }
+    return certificatePath->revocationCAIndex;
 }
 
 CFAbsoluteTime SecCertificatePathVCIssuanceTime(SecCertificatePathVCRef certificatePath) {

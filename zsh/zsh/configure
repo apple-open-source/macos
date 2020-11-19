@@ -6281,7 +6281,7 @@ if test "$ac_res" != no; then :
 fi
 
 else
-  termcap_curses_order="$ncursesw_test tinfo termcap $ncurses_test curses"
+  termcap_curses_order="$ncursesw_test $ncurses_test tinfow tinfo termcap curses"
 fi
 else
   case "$host_os" in
@@ -6291,7 +6291,7 @@ else
    DL_EXT="${DL_EXT=sl}"
    termcap_curses_order="Hcurses $ncursesw_test $ncurses_test curses termcap" ;;
   *)
-   termcap_curses_order="$ncursesw_test tinfo termcap $ncurses_test curses" ;;
+   termcap_curses_order="$ncursesw_test $ncurses_test tinfow tinfo termcap curses" ;;
 esac
 fi
 
@@ -6314,6 +6314,63 @@ fi
 $as_echo "$zsh_cv_no_xopen" >&6; }
 if test x$zsh_cv_no_xopen = xyes; then
   $as_echo "#define ZSH_NO_XOPEN 1" >>confdefs.h
+
+fi
+
+LIBS_save_pre_term="$LIBS"
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing tigetstr" >&5
+$as_echo_n "checking for library containing tigetstr... " >&6; }
+if ${ac_cv_search_tigetstr+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tigetstr ();
+int
+main ()
+{
+return tigetstr ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' $termcap_curses_order; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_tigetstr=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_tigetstr+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_tigetstr+:} false; then :
+
+else
+  ac_cv_search_tigetstr=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tigetstr" >&5
+$as_echo "$ac_cv_search_tigetstr" >&6; }
+ac_res=$ac_cv_search_tigetstr
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
 
 fi
 
@@ -6492,7 +6549,316 @@ else
   zsh_cv_ignore_ncurses=no
   ;;
   *)
-  zsh_cv_ignore_ncurses=yes
+                    LIBS_save="$LIBS"
+        ac_cv_search_tigetstr_SAVE="$ac_cv_search_tigetstr"
+    ac_cv_search_tigetnum_SAVE="$ac_cv_search_tigetnum"
+    ac_cv_search_tigetflag_SAVE="$ac_cv_search_tigetflag"
+    ac_cv_search_tgetent_SAVE="$ac_cv_search_tgetent"
+    unset ac_cv_search_tigetstr ac_cv_search_tigetnum ac_cv_search_tigetflag ac_cv_search_tgetent
+    LIBS="$LIBS_save_pre_term"
+
+        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing tigetstr" >&5
+$as_echo_n "checking for library containing tigetstr... " >&6; }
+if ${ac_cv_search_tigetstr+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tigetstr ();
+int
+main ()
+{
+return tigetstr ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_tigetstr=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_tigetstr+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_tigetstr+:} false; then :
+
+else
+  ac_cv_search_tigetstr=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tigetstr" >&5
+$as_echo "$ac_cv_search_tigetstr" >&6; }
+ac_res=$ac_cv_search_tigetstr
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing tigetnum" >&5
+$as_echo_n "checking for library containing tigetnum... " >&6; }
+if ${ac_cv_search_tigetnum+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tigetnum ();
+int
+main ()
+{
+return tigetnum ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_tigetnum=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_tigetnum+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_tigetnum+:} false; then :
+
+else
+  ac_cv_search_tigetnum=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tigetnum" >&5
+$as_echo "$ac_cv_search_tigetnum" >&6; }
+ac_res=$ac_cv_search_tigetnum
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing tigetflag" >&5
+$as_echo_n "checking for library containing tigetflag... " >&6; }
+if ${ac_cv_search_tigetflag+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tigetflag ();
+int
+main ()
+{
+return tigetflag ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_tigetflag=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_tigetflag+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_tigetflag+:} false; then :
+
+else
+  ac_cv_search_tigetflag=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tigetflag" >&5
+$as_echo "$ac_cv_search_tigetflag" >&6; }
+ac_res=$ac_cv_search_tigetflag
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing tgetent" >&5
+$as_echo_n "checking for library containing tgetent... " >&6; }
+if ${ac_cv_search_tgetent+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char tgetent ();
+int
+main ()
+{
+return tgetent ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_tgetent=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_tgetent+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_tgetent+:} false; then :
+
+else
+  ac_cv_search_tgetent=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_tgetent" >&5
+$as_echo "$ac_cv_search_tgetent" >&6; }
+ac_res=$ac_cv_search_tgetent
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+    LIBS_result="$LIBS"
+
+    LIBS="$LIBS_save"
+        ac_cv_search_tigetstr="$ac_cv_search_tigetstr_SAVE"
+    ac_cv_search_tigetnum="$ac_cv_search_tigetnum_SAVE"
+    ac_cv_search_tigetflag="$ac_cv_search_tigetflag_SAVE"
+    ac_cv_search_tgetent="$ac_cv_search_tgetent_SAVE"
+
+    case $LIBS_result in
+      *-lncurses*|*-lcurses*)
+                        zsh_cv_ignore_ncurses=yes
+        ;;
+      *)
+                                        { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing initscr" >&5
+$as_echo_n "checking for library containing initscr... " >&6; }
+if ${ac_cv_search_initscr+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char initscr ();
+int
+main ()
+{
+return initscr ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' ncursesw ncurses curses; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_search_initscr=$ac_res
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext
+  if ${ac_cv_search_initscr+:} false; then :
+  break
+fi
+done
+if ${ac_cv_search_initscr+:} false; then :
+
+else
+  ac_cv_search_initscr=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_search_initscr" >&5
+$as_echo "$ac_cv_search_initscr" >&6; }
+ac_res=$ac_cv_search_initscr
+if test "$ac_res" != no; then :
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+        case $LIBS in
+          *-lncurses*|*-lcurses*)
+                                    zsh_cv_ignore_ncurses=no
+          ;;
+          *)
+            zsh_cv_ignore_ncurses=yes
+          ;;
+        esac
+    esac
   ;;
 esac
 fi
@@ -10332,6 +10698,42 @@ if test $zsh_cv_have_RLIMIT_KQUEUES = yes; then
 
 fi
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for limit RLIMIT_UMTXP" >&5
+$as_echo_n "checking for limit RLIMIT_UMTXP... " >&6; }
+if ${zsh_cv_have_RLIMIT_UMTXP+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <sys/types.h>
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#include <sys/resource.h>
+int
+main ()
+{
+RLIMIT_UMTXP
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+  zsh_cv_have_RLIMIT_UMTXP=yes
+else
+  zsh_cv_have_RLIMIT_UMTXP=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_have_RLIMIT_UMTXP" >&5
+$as_echo "$zsh_cv_have_RLIMIT_UMTXP" >&6; }
+
+if test $zsh_cv_have_RLIMIT_UMTXP = yes; then
+  $as_echo "#define HAVE_RLIMIT_UMTXP 1" >>confdefs.h
+
+fi
+
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking if RLIMIT_VMEM and RLIMIT_RSS are the same" >&5
 $as_echo_n "checking if RLIMIT_VMEM and RLIMIT_RSS are the same... " >&6; }
@@ -10695,13 +11097,9 @@ $as_echo_n "checking for /dev/fd filesystem... " >&6; }
 if ${zsh_cv_sys_path_dev_fd+:} false; then :
   $as_echo_n "(cached) " >&6
 else
-  if test "$host_os" = cygwin; then
-zsh_cv_sys_path_dev_fd=no
-else
-for zsh_cv_sys_path_dev_fd in /proc/self/fd /dev/fd no; do
+  for zsh_cv_sys_path_dev_fd in /proc/self/fd /dev/fd no; do
    test x`echo ok|(exec 3<&0; cat $zsh_cv_sys_path_dev_fd/3 2>/dev/null;)` = xok && break
  done
-fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_sys_path_dev_fd" >&5
 $as_echo "$zsh_cv_sys_path_dev_fd" >&6; }
@@ -10868,6 +11266,15 @@ fi
 $as_echo "$zsh_cv_sys_nis" >&6; }
 if test x$zsh_cv_sys_nis = xyes; then
   $as_echo "#define HAVE_NIS 1" >>confdefs.h
+
+  ac_fn_c_check_header_mongrel "$LINENO" "rpc/rpc.h" "ac_cv_header_rpc_rpc_h" "$ac_includes_default"
+if test "x$ac_cv_header_rpc_rpc_h" = xyes; then :
+
+else
+  test -f /usr/include/tirpc/rpc/rpc.h && \
+   CPPFLAGS="$CPPFLAGS -I/usr/include/tirpc"
+fi
+
 
   { $as_echo "$as_me:${as_lineno-$LINENO}: checking for library containing yp_all" >&5
 $as_echo_n "checking for library containing yp_all... " >&6; }
@@ -11245,10 +11652,7 @@ $as_echo_n "checking if named FIFOs work... " >&6; }
 if ${zsh_cv_sys_fifo+:} false; then :
   $as_echo_n "(cached) " >&6
 else
-  if test "$host_os" = cygwin; then
-zsh_cv_sys_fifo=yes
-else
-if test "$cross_compiling" = yes; then :
+  if test "$cross_compiling" = yes; then :
   zsh_cv_sys_fifo=yes
 else
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
@@ -11291,7 +11695,7 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
   conftest.$ac_objext conftest.beam conftest.$ac_ext
 fi
 
-fi
+
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $zsh_cv_sys_fifo" >&5
 $as_echo "$zsh_cv_sys_fifo" >&6; }

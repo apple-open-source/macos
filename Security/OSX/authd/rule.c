@@ -175,34 +175,9 @@ rule_create_default()
     mech = mechanism_create_with_string("builtin:authenticate,privileged", NULL);
     CFArrayAppendValue(rule->mechanisms, mech);
     CFReleaseNull(mech);
-
-    mech = mechanism_create_with_string("PKINITMechanism:auth,privileged", NULL);
-    CFArrayAppendValue(rule->mechanisms, mech);
-    CFReleaseNull(mech);
     
 done:
     return rule;
-}
-
-rule_t
-rule_create_preauthorization()
-{
-	rule_t rule = _rule_create();
-	require(rule != NULL, done);
-
-	auth_items_set_int64(rule->data, RULE_TYPE, RT_RIGHT);
-	auth_items_set_string(rule->data, RULE_NAME, "(preauthorization)");
-	auth_items_set_int64(rule->data, RULE_CLASS, RC_USER);
-	auth_items_set_string(rule->data, RULE_GROUP, "admin");
-	auth_items_set_int64(rule->data, RULE_TRIES, 1);
-	auth_items_set_int64(rule->data, RULE_FLAGS, RuleFlagShared | RuleFlagAuthenticateUser | RuleFlagRequireAppleSigned);
-
-	mechanism_t mech = mechanism_create_with_string("builtin:authenticate,privileged", NULL);
-	CFArrayAppendValue(rule->mechanisms, mech);
-	CFReleaseNull(mech);
-
-done:
-	return rule;
 }
 
 rule_t
@@ -1168,6 +1143,9 @@ rule_check_flags(rule_t rule, RuleFlags flags)
 bool
 rule_get_shared(rule_t rule)
 {
+    if (isInLWOS()) {
+        return false;
+    }
     return rule_check_flags(rule, RuleFlagShared);
 }
 

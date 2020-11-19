@@ -11,6 +11,7 @@ include ../Makefile.inc
 custompatching:
 	ed - $(DIR)/numpy/linalg/setup.py < 3901.ed
 	ed - $(DIR)/numpy/distutils/system_info.py < system_info.py.ed
+	( cd $(DIR) ; patch -p1 ) < arm64.diff
 
 postinstall:
 	cp -f $(DIR)/LICENSE.txt $(OSL)/$(NAME)-$(VERSION).txt

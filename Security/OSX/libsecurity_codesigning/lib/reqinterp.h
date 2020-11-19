@@ -88,6 +88,7 @@ protected:
 	bool verifyAnchor(SecCertificateRef cert, const unsigned char *digest);
 	bool appleSigned();
 	bool appleAnchored();
+	bool inTrustCache();
 
 	bool trustedCerts();
 	bool trustedCert(int slot);

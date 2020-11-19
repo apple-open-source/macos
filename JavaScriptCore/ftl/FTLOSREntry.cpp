@@ -30,8 +30,8 @@
 #include "CodeBlock.h"
 #include "DFGJITCode.h"
 #include "FTLForOSREntryJITCode.h"
+#include "JSCJSValueInlines.h"
 #include "OperandsInlines.h"
-#include "JSCInlines.h"
 #include "VMInlines.h"
 
 #if ENABLE(FTL_JIT)
@@ -50,34 +50,37 @@ void* prepareOSREntry(
 
     if (!entryCode->dfgCommon()->isStillValid) {
         dfgCode->clearOSREntryBlockAndResetThresholds(dfgCodeBlock);
-        return 0;
+        return nullptr;
     }
-    
-    if (Options::verboseOSR()) {
-        dataLog(
-            "FTL OSR from ", *dfgCodeBlock, " to ", *entryCodeBlock, " at ",
-            bytecodeIndex, ".\n");
-    }
+
+    dataLogLnIf(Options::verboseOSR(),
+        "FTL OSR from ", *dfgCodeBlock, " to ", *entryCodeBlock, " at ",
+        bytecodeIndex);
     
     if (bytecodeIndex)
         jsCast<ScriptExecutable*>(executable)->setDidTryToEnterInLoop(true);
 
     if (bytecodeIndex != entryCode->bytecodeIndex()) {
-        if (Options::verboseOSR())
-            dataLog("    OSR failed because we don't have an entrypoint for ", bytecodeIndex, "; ours is for ", entryCode->bytecodeIndex(), "\n");
-        return 0;
+        dataLogLnIf(Options::verboseOSR(), "    OSR failed because we don't have an entrypoint for ", bytecodeIndex, "; ours is for ", entryCode->bytecodeIndex());
+        return nullptr;
     }
     
     Operands<Optional<JSValue>> values;
     dfgCode->reconstruct(callFrame, dfgCodeBlock, CodeOrigin(bytecodeIndex), streamIndex, values);
     
-    if (Options::verboseOSR())
-        dataLog("    Values at entry: ", values, "\n");
+    dataLogLnIf(Options::verboseOSR(), "    Values at entry: ", values);
     
+    Optional<JSValue> reconstructedThis;
     for (int argument = values.numberOfArguments(); argument--;) {
-        JSValue valueOnStack = callFrame->r(virtualRegisterForArgument(argument).offset()).asanUnsafeJSValue();
+        JSValue valueOnStack = callFrame->r(virtualRegisterForArgumentIncludingThis(argument)).asanUnsafeJSValue();
         Optional<JSValue> reconstructedValue = values.argument(argument);
-        if ((reconstructedValue && valueOnStack == reconstructedValue.value()) || !argument)
+        if (!argument) {
+            // |this| argument can be unboxed. We should store boxed value instead for loop OSR entry since FTL assumes that all arguments are flushed JSValue.
+            // To make this valid, we will modify the stack on the fly: replacing the value with boxed value.
+            reconstructedThis = reconstructedValue;
+            continue;
+        }
+        if (reconstructedValue && valueOnStack == reconstructedValue.value())
             continue;
         dataLog("Mismatch between reconstructed values and the value on the stack for argument arg", argument, " for ", *entryCodeBlock, " at ", bytecodeIndex, ":\n");
         dataLog("    Value on stack: ", valueOnStack, "\n");
@@ -101,16 +104,20 @@ void* prepareOSREntry(
     
     int stackFrameSize = entryCode->common.requiredRegisterCountForExecutionAndExit();
     if (UNLIKELY(!vm.ensureStackCapacityFor(&callFrame->registers()[virtualRegisterForLocal(stackFrameSize - 1).offset()]))) {
-        if (Options::verboseOSR())
-            dataLog("    OSR failed because stack growth failed.\n");
-        return 0;
+        dataLogLnIf(Options::verboseOSR(), "    OSR failed because stack growth failed.");
+        return nullptr;
     }
     
     callFrame->setCodeBlock(entryCodeBlock);
     
     void* result = entryCode->addressForCall(ArityCheckNotRequired).executableAddress();
-    if (Options::verboseOSR())
-        dataLog("    Entry will succeed, going to address ", RawPointer(result), "\n");
+    dataLogLnIf(Options::verboseOSR(), "    Entry will succeed, going to address ", RawPointer(result));
+
+    // At this point, we're committed to triggering an OSR entry immediately after we return. Hence, it is safe to modify stack here.
+    if (result) {
+        if (reconstructedThis)
+            callFrame->r(virtualRegisterForArgumentIncludingThis(0)) = JSValue::encode(reconstructedThis.value());
+    }
     
     return result;
 }

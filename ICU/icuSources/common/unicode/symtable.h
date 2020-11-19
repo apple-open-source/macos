@@ -13,6 +13,9 @@
 #define SYMTABLE_H
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/uobject.h"
 
 /**
@@ -21,7 +24,6 @@
  * symbolic names.
  */
  
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 class ParsePosition;
@@ -111,6 +113,7 @@ public:
                                          ParsePosition& pos, int32_t limit) const = 0;
 };
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

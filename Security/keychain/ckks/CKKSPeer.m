@@ -100,8 +100,7 @@ NSString* const CKKSSOSPeerPrefix = @"spid-";
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder*)decoder
 {
-    self = [super init];
-    if(self) {
+    if ((self = [super init])) {
         _peerID = [decoder decodeObjectOfClass:[NSString class] forKey:@"peerID"];
 
         NSData* encryptionSPKI = [decoder decodeObjectOfClass:[NSData class] forKey:@"encryptionKey"];
@@ -185,8 +184,7 @@ NSString* const CKKSSOSPeerPrefix = @"spid-";
 
 - (nullable instancetype)initWithCoder:(nonnull NSCoder*)decoder
 {
-    self = [super init];
-    if(self) {
+    if ((self = [super init])) {
         _spid = [decoder decodeObjectOfClass:[NSString class] forKey:@"spid"];
 
         NSData* encryptionSPKI = [decoder decodeObjectOfClass:[NSData class] forKey:@"encryptionKey"];

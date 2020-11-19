@@ -220,7 +220,7 @@ Again:
 		goto out;
 	/* delay writing FATs */
 
-	mod |= handleDirTree(dosfs, &boot);
+	mod |= handleDirTree(dosfs, &boot, rdonly);
 	if (mod & FSFATAL)
 		goto out;
 

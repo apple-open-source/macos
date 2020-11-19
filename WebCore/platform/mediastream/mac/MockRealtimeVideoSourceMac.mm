@@ -59,19 +59,26 @@ CaptureSourceOrError MockRealtimeVideoSource::create(String&& deviceID, String&&
     auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(deviceID);
     ASSERT(device);
     if (!device)
-        return { };
+        return { "No mock camera device"_s };
 #endif
 
     auto source = adoptRef(*new MockRealtimeVideoSourceMac(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt)));
-    // FIXME: We should report error messages
-    if (constraints && source->applyConstraints(*constraints))
-        return { };
+    if (constraints) {
+        if (auto error = source->applyConstraints(*constraints))
+            return WTFMove(error->message);
+    }
 
     return CaptureSourceOrError(RealtimeVideoSource::create(WTFMove(source)));
 }
 
+Ref<MockRealtimeVideoSource> MockRealtimeVideoSourceMac::createForMockDisplayCapturer(String&& deviceID, String&& name, String&& hashSalt)
+{
+    return adoptRef(*new MockRealtimeVideoSourceMac(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt)));
+}
+
 MockRealtimeVideoSourceMac::MockRealtimeVideoSourceMac(String&& deviceID, String&& name, String&& hashSalt)
     : MockRealtimeVideoSource(WTFMove(deviceID), WTFMove(name), WTFMove(hashSalt))
+    , m_workQueue(WorkQueue::create("MockRealtimeVideoSource Render Queue", WorkQueue::Type::Serial, WorkQueue::QOS::UserInteractive))
 {
 }
 
@@ -89,7 +96,9 @@ void MockRealtimeVideoSourceMac::updateSampleBuffer()
     if (!sampleBuffer)
         return;
 
-    dispatchMediaSampleToObservers(*sampleBuffer);
+    m_workQueue->dispatch([this, protectedThis = makeRef(*this), sampleBuffer = WTFMove(sampleBuffer)]() mutable {
+        dispatchMediaSampleToObservers(*sampleBuffer);
+    });
 }
 
 } // namespace WebCore

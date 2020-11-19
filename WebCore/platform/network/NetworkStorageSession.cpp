@@ -26,6 +26,8 @@
 #include "config.h"
 #include "NetworkStorageSession.h"
 
+#include "Cookie.h"
+#include "HTTPCookieAcceptPolicy.h"
 #include "RuntimeApplicationChecks.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ProcessPrivilege.h>
@@ -55,7 +57,37 @@ void NetworkStorageSession::permitProcessToUseCookieAPI(bool value)
         removeProcessPrivilege(ProcessPrivilege::CanAccessRawCookies);
 }
 
+#if !PLATFORM(COCOA)
+Vector<Cookie> NetworkStorageSession::domCookiesForHost(const String&)
+{
+    ASSERT_NOT_IMPLEMENTED_YET();
+    return { };
+}
+#endif // !PLATFORM(COCOA)
+
 #if ENABLE(RESOURCE_LOAD_STATISTICS)
+
+#if !USE(SOUP)
+void NetworkStorageSession::setResourceLoadStatisticsEnabled(bool enabled)
+{
+    m_isResourceLoadStatisticsEnabled = enabled;
+}
+
+bool NetworkStorageSession::resourceLoadStatisticsEnabled() const
+{
+    return m_isResourceLoadStatisticsEnabled;
+}
+#endif
+
+void NetworkStorageSession::setResourceLoadStatisticsDebugLoggingEnabled(bool enabled)
+{
+    m_isResourceLoadStatisticsDebugLoggingEnabled = enabled;
+}
+
+bool NetworkStorageSession::resourceLoadStatisticsDebugLoggingEnabled() const
+{
+    return m_isResourceLoadStatisticsDebugLoggingEnabled;
+}
 
 bool NetworkStorageSession::shouldBlockThirdPartyCookies(const RegistrableDomain& registrableDomain) const
 {
@@ -78,6 +110,14 @@ bool NetworkStorageSession::shouldBlockThirdPartyCookiesButKeepFirstPartyCookies
     return m_registrableDomainsToBlockButKeepCookiesFor.contains(registrableDomain);
 }
 
+#if !PLATFORM(COCOA)
+void NetworkStorageSession::setAllCookiesToSameSiteStrict(const RegistrableDomain&, CompletionHandler<void()>&& completionHandler)
+{
+    // Not implemented.
+    completionHandler();
+}
+#endif
+
 bool NetworkStorageSession::hasHadUserInteractionAsFirstParty(const RegistrableDomain& registrableDomain) const
 {
     if (registrableDomain.isEmpty())
@@ -86,16 +126,16 @@ bool NetworkStorageSession::hasHadUserInteractionAsFirstParty(const RegistrableD
     return m_registrableDomainsWithUserInteractionAsFirstParty.contains(registrableDomain);
 }
 
-bool NetworkStorageSession::shouldBlockCookies(const ResourceRequest& request, Optional<FrameIdentifier> frameID, Optional<PageIdentifier> pageID) const
+bool NetworkStorageSession::shouldBlockCookies(const ResourceRequest& request, Optional<FrameIdentifier> frameID, Optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
 {
-    if (!m_isResourceLoadStatisticsEnabled)
-        return false;
-
-    return shouldBlockCookies(request.firstPartyForCookies(), request.url(), frameID, pageID);
+    return shouldBlockCookies(request.firstPartyForCookies(), request.url(), frameID, pageID, shouldRelaxThirdPartyCookieBlocking);
 }
     
-bool NetworkStorageSession::shouldBlockCookies(const URL& firstPartyForCookies, const URL& resource, Optional<FrameIdentifier> frameID, Optional<PageIdentifier> pageID) const
+bool NetworkStorageSession::shouldBlockCookies(const URL& firstPartyForCookies, const URL& resource, Optional<FrameIdentifier> frameID, Optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) const
 {
+    if (shouldRelaxThirdPartyCookieBlocking == ShouldRelaxThirdPartyCookieBlocking::Yes)
+        return false;
+
     if (!m_isResourceLoadStatisticsEnabled)
         return false;
 
@@ -116,6 +156,8 @@ bool NetworkStorageSession::shouldBlockCookies(const URL& firstPartyForCookies, 
     switch (m_thirdPartyCookieBlockingMode) {
     case ThirdPartyCookieBlockingMode::All:
         return true;
+    case ThirdPartyCookieBlockingMode::AllExceptBetweenAppBoundDomains:
+        return !shouldExemptDomainPairFromThirdPartyCookieBlocking(firstPartyDomain, resourceDomain);
     case ThirdPartyCookieBlockingMode::AllOnSitesWithoutUserInteraction:
         if (!hasHadUserInteractionAsFirstParty(firstPartyDomain))
             return true;
@@ -127,9 +169,18 @@ bool NetworkStorageSession::shouldBlockCookies(const URL& firstPartyForCookies, 
     return false;
 }
 
+bool NetworkStorageSession::shouldExemptDomainPairFromThirdPartyCookieBlocking(const RegistrableDomain& topFrameDomain, const RegistrableDomain& resourceDomain) const
+{
+    ASSERT(topFrameDomain != resourceDomain);
+    if (topFrameDomain.isEmpty() || resourceDomain.isEmpty())
+        return false;
+
+    return topFrameDomain == resourceDomain || (m_appBoundDomains.contains(topFrameDomain) && m_appBoundDomains.contains(resourceDomain));
+}
+
 Optional<Seconds> NetworkStorageSession::maxAgeCacheCap(const ResourceRequest& request)
 {
-    if (m_cacheMaxAgeCapForPrevalentResources && shouldBlockCookies(request, WTF::nullopt, WTF::nullopt))
+    if (m_cacheMaxAgeCapForPrevalentResources && shouldBlockCookies(request, WTF::nullopt, WTF::nullopt, ShouldRelaxThirdPartyCookieBlocking::No))
         return m_cacheMaxAgeCapForPrevalentResources;
     return WTF::nullopt;
 }
@@ -156,14 +207,6 @@ void NetworkStorageSession::setDomainsWithUserInteractionAsFirstParty(const Vect
 {
     m_registrableDomainsWithUserInteractionAsFirstParty.clear();
     m_registrableDomainsWithUserInteractionAsFirstParty.add(domains.begin(), domains.end());
-}
-
-void NetworkStorageSession::removePrevalentDomains(const Vector<RegistrableDomain>& domains)
-{
-    for (auto& domain : domains) {
-        m_registrableDomainsToBlockAndDeleteCookiesFor.remove(domain);
-        m_registrableDomainsToBlockButKeepCookiesFor.remove(domain);
-    }
 }
 
 bool NetworkStorageSession::hasStorageAccess(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, Optional<FrameIdentifier> frameID, PageIdentifier pageID) const
@@ -280,6 +323,16 @@ void NetworkStorageSession::resetCrossSiteLoadsWithLinkDecorationForTesting()
 void NetworkStorageSession::setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMode blockingMode)
 {
     m_thirdPartyCookieBlockingMode = blockingMode;
+}
+
+void NetworkStorageSession::setAppBoundDomains(HashSet<RegistrableDomain>&& domains)
+{
+    m_appBoundDomains = WTFMove(domains);
+}
+
+void NetworkStorageSession::resetAppBoundDomains()
+{
+    m_appBoundDomains.clear();
 }
 
 Optional<Seconds> NetworkStorageSession::clientSideCookieCap(const RegistrableDomain& firstParty, Optional<PageIdentifier> pageID) const

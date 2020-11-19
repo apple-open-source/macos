@@ -40,9 +40,11 @@
 #include <utilities/SecCFWrappers.h>
 #include <utilities/SecIOFormat.h>
 #include <utilities/SecFileLocations.h>
+#include "SOSAccountTesting.h"
 
 #include <AssertMacros.h>
 #include <stdint.h>
+#if SOS_ENABLED
 
 static int kTestTestCount = 8;
 
@@ -180,12 +182,15 @@ static void testSaveRestore(void) {
     CFReleaseSafe(testDevices);
     CFReleaseSafe(error);
 }
-                                                                                        
+#endif
+
 int secd_71_engine_save(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-
     testSaveRestore();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

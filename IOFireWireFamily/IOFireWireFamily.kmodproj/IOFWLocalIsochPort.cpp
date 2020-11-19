@@ -22,6 +22,8 @@ IOFWLocalIsochPort::init (
 		IODCLProgram *			program, 
 		IOFireWireController *	control)
 {
+	DebugLog("IOFWLocalIsochPort<%p>::init - program = %p\n", this, program );
+	
 	if ( ! IOFWIsochPort::init( ) )
 		return false;
 		
@@ -118,24 +120,17 @@ IOFWLocalIsochPort::printDCLProgram (
 	const DCLCommand *	currentDCL = dcl ;
 	UInt32 				index		= 0 ;
 	
-#if FIRELOG
-	if( printFN == NULL )
-	{
-		printFN = FireLog;
-	}
-#endif
-
-	if( printFN == NULL )
-	{
-		// nothing to print if there's no printer function
-		return;
-	}
+//	if( printFN == NULL )
+//	{
+//		// nothing to print if there's no printer function
+//		return;
+//	}
 		
-	(*printFN)("printDCLProgram program %p, count %x\n", currentDCL, count) ;
+	DebugLog("printDCLProgram program %p, count %x\n", currentDCL, count) ;
 	
 	while ( ( count == 0 || index < count ) && currentDCL )
 	{
-		(*printFN)("#%x  @%p   next=%p, cmplrData=%p, op=%u ", 
+		DebugLog("#%x  @%p   next=%p, cmplrData=%p, op=%u ",
 			index, 
 			currentDCL,
 			currentDCL->pNextDCLCommand,
@@ -149,14 +144,14 @@ IOFWLocalIsochPort::printDCLProgram (
 			case kDCLSendPacketOp:
 			case kDCLReceivePacketStartOp:
 			case kDCLReceivePacketOp:
-				(*printFN)("(DCLTransferPacket) buffer=%p, size=%u",
+				DebugLog("(DCLTransferPacket) buffer=%p, size=%d",
 					((DCLTransferPacket*)currentDCL)->buffer,
-					(int)((DCLTransferPacket*)currentDCL)->size) ;
+					((DCLTransferPacket*)currentDCL)->size) ;
 				break ;
 				
 			case kDCLSendBufferOp:
 			case kDCLReceiveBufferOp:
-				(*printFN)("(DCLTransferBuffer) buffer=%p, size=%lu, packetSize=%08X, bufferOffset=%08lX",
+				DebugLog("(DCLTransferBuffer) buffer=%p, size=%d, packetSize=%d, bufferOffset=0x%08x",
 					((DCLTransferBuffer*)currentDCL)->buffer,
 					((DCLTransferBuffer*)currentDCL)->size,
 					((DCLTransferBuffer*)currentDCL)->packetSize,
@@ -164,57 +159,57 @@ IOFWLocalIsochPort::printDCLProgram (
 				break ;
 	
 			case kDCLCallProcOp:
-				(*printFN)("(DCLCallProc) proc=%p, procData=%08lX",
+				DebugLog("(DCLCallProc) proc=%p, procData=%p",
 					((DCLCallProc*)currentDCL)->proc,
 					((DCLCallProc*)currentDCL)->procData ) ;
 				break ;
 				
 			case kDCLLabelOp:
-				(*printFN)("(DCLLabel)") ;
+				DebugLog("(DCLLabel)") ;
 				break ;
 				
 			case kDCLJumpOp:
-				(*printFN)("(DCLJump) pJumpDCLLabel=%p",
+				DebugLog("(DCLJump) pJumpDCLLabel=%p",
 					((DCLJump*)currentDCL)->pJumpDCLLabel) ;
 				break ;
 				
 			case kDCLSetTagSyncBitsOp:
-				(*printFN)("(DCLSetTagSyncBits) tagBits=%04lX, syncBits=%04lX",
-					(UInt32)((DCLSetTagSyncBits*)currentDCL)->tagBits,
-					(UInt32)((DCLSetTagSyncBits*)currentDCL)->syncBits) ;
+				DebugLog("(DCLSetTagSyncBits) tagBits=0x%04x, syncBits=0x%04x",
+					((DCLSetTagSyncBits*)currentDCL)->tagBits,
+					((DCLSetTagSyncBits*)currentDCL)->syncBits) ;
 				break ;
 				
 			case kDCLUpdateDCLListOp:
-				(*printFN)("(DCLUpdateDCLList) dclCommandList=%p, numDCLCommands=%lud\n",
+				DebugLog("(DCLUpdateDCLList) dclCommandList=%p, numDCLCommands=%d\n",
 					((DCLUpdateDCLList*)currentDCL)->dclCommandList,
 					((DCLUpdateDCLList*)currentDCL)->numDCLCommands) ;
 
 				for(UInt32 listIndex=0; listIndex < ((DCLUpdateDCLList*)currentDCL)->numDCLCommands; ++listIndex)
 				{
-					(*printFN)("%p ", (((DCLUpdateDCLList*)currentDCL)->dclCommandList)[listIndex]) ;
+					DebugLog("%p ", (((DCLUpdateDCLList*)currentDCL)->dclCommandList)[listIndex]) ;
 					if ( listIndex % 10 == 0 )
-						(*printFN)("\n") ;
+						DebugLog("\n") ;
 					IOSleep(8) ;
 				}
 				
-				(*printFN)("\n") ;
+				DebugLog("\n") ;
 				break ;
 	
 			case kDCLPtrTimeStampOp:
-				(*printFN)("(DCLPtrTimeStamp) timeStampPtr=%p",
+				DebugLog("(DCLPtrTimeStamp) timeStampPtr=%p",
 					((DCLPtrTimeStamp*)currentDCL)->timeStampPtr) ;
 				break ;
 				
 			case kDCLSkipCycleOp:
-				(*printFN)("(DCLSkipCycleOp)") ;
+				DebugLog("(DCLSkipCycleOp)") ;
 				break ;
 			
 			case kDCLNuDCLLeaderOp:
-				(*printFN)("(DCLNuDCLLeaderOp) DCL pool=%p", ((DCLNuDCLLeader*)currentDCL)->program ) ;
+				DebugLog("(DCLNuDCLLeaderOp) DCL pool=%p", ((DCLNuDCLLeader*)currentDCL)->program ) ;
 				break ;
 		}
 		
-		(*printFN)("\n") ;
+		DebugLog("\n") ;
 		
 		currentDCL = currentDCL->pNextDCLCommand ;
 		++index ;
@@ -228,10 +223,10 @@ IOFWLocalIsochPort::printDCLProgram (
 	if ( count > 0 )
 	{
 		if ( index != count )
-			(*printFN)("unexpected end of program\n") ;
+			DebugLog("unexpected end of program\n") ;
 		
 		if ( currentDCL != NULL )
-			(*printFN)("program too long for count\n") ;
+			DebugLog("program too long for count\n") ;
 	}
 }
 

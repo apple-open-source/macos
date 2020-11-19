@@ -15,6 +15,9 @@
 #define __DTINTRV_H__
 
 #include "unicode/utypes.h"
+
+#if U_SHOW_CPLUSPLUS_API
+
 #include "unicode/uobject.h"
 
 /**
@@ -22,8 +25,6 @@
  * \brief C++ API: Date Interval data type
  */
 
-
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 
@@ -157,6 +158,7 @@ DateInterval::operator!=(const DateInterval& other) const {
 
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif

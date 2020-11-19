@@ -30,7 +30,6 @@
 
 #include "AssemblyHelpers.h"
 #include "DFGOSRExitCompilerCommon.h"
-#include "FPRInfo.h"
 #include "FTLOSRExitCompiler.h"
 #include "FTLOperations.h"
 #include "FTLSaveRestore.h"
@@ -154,7 +153,7 @@ static void registerClobberCheck(AssemblyHelpers& jit, RegisterSet dontClobber)
     clobber.exclude(RegisterSet::calleeSaveRegisters());
     clobber.exclude(dontClobber);
     
-    GPRReg someGPR;
+    GPRReg someGPR = InvalidGPRReg;
     for (Reg reg = Reg::first(); reg <= Reg::last(); reg = reg.next()) {
         if (!clobber.get(reg) || !reg.isGPR())
             continue;

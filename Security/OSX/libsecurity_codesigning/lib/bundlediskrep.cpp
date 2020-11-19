@@ -198,7 +198,7 @@ void BundleDiskRep::setup(const Context *ctx)
 	// we're getting desperate here. Perhaps an oldish-style installer package? Look for a *.dist file
 	std::string distFile = findDistFile(this->resourcesRootPath());
 	if (!distFile.empty()) {
-		mMainExecutableURL = makeCFURL(distFile);
+		mMainExecutableURL.take(makeCFURL(distFile));
 		mExecRep = new FileDiskRep(this->mainExecutablePath().c_str());
 		checkPlainFile(mExecRep->fd(), this->mainExecutablePath());
 		mInstallerPackage = true;

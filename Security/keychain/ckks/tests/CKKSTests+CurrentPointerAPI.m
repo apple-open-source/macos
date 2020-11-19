@@ -228,7 +228,7 @@
     CFReleaseNull(cfresult);
 
     if(![actualSHA1 isEqual:sha1]) {
-        secnotice("ckks", "SHA1s don't match, but why?");
+        ckksnotice_global("ckks", "SHA1s don't match, but why?");
     }
 
     XCTestExpectation* otherSetCurrentExpectation = [self expectationWithDescription: @"callback occurs"];
@@ -572,7 +572,7 @@
     // Ensure that receiving the current item pointer generates a notification
     keychainChanged = [self expectChangeForView:self.keychainZoneID.zoneName];
 
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     [self waitForExpectations:@[keychainChanged] timeout:8];
@@ -591,7 +591,7 @@
 
     keychainChanged = [self expectChangeForView:self.keychainZoneID.zoneName];
 
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     [self waitForExpectations:@[keychainChanged] timeout:8];
@@ -656,7 +656,7 @@
     CKRecord* currentPointerRecord = self.keychainZone.currentDatabase[currentPointerRecordID];
     XCTAssertNotNil(currentPointerRecord, "Found record in CloudKit at expected UUID");
 
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     [self fetchCurrentPointer:false persistentRef:persistentRef];
@@ -666,7 +666,8 @@
 
     // Another machine comes along and deletes the pointer!
     [self.keychainZone deleteCKRecordIDFromZone: currentPointerRecordID];
-    [self.keychainView notifyZoneChange:nil];
+
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
     [self waitForExpectations:@[keychainChanged] timeout:8];
 
@@ -826,11 +827,11 @@
     modifiedRecord[SecCKRecordServerWasCurrent] = [NSNumber numberWithInteger:10];
     [self.keychainZone addToZone:modifiedRecord];
 
-    [self.keychainView notifyZoneChange:nil];
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     // Check that the number is on the CKKSMirrorEntry
-    [self.keychainView dispatchSync: ^bool {
+    [self.keychainView dispatchSyncWithReadOnlySQLTransaction:^{
         NSError* error = nil;
         CKKSMirrorEntry* ckme = [CKKSMirrorEntry fromDatabase:@"50184A35-4480-E8BA-769B-567CF72F1EC0" zoneID:self.keychainZoneID error:&error];
 
@@ -838,8 +839,6 @@
         XCTAssertNotNil(ckme, "Received a ckme");
 
         XCTAssertEqual(ckme.wasCurrent, 10u, "Properly received wasCurrent");
-
-        return true;
     }];
 }
 
@@ -1067,7 +1066,7 @@
     [self.keychainZone addToZone: mismatchedRecord];
 
     self.keychainView.holdIncomingQueueOperation = [CKKSResultOperation named:@"hold-incoming" withBlock:^{
-        secnotice("ckks", "Releasing process incoming queue hold");
+        ckksnotice_global("ckks", "Releasing process incoming queue hold");
     }];
 
     NSData* firstItemData = [@"asdf" dataUsingEncoding:NSUTF8StringEncoding];
@@ -1143,6 +1142,7 @@
     [self waitForExpectations:@[setCurrentExpectation] timeout:20];
 
     // Reissue a fetch and find the new persistent ref and sha1 for the item at this UUID
+    [self.injectedManager.zoneChangeFetcher notifyZoneChange:nil];
     [self.keychainView waitForFetchAndIncomingQueueProcessing];
 
     // The conflicting item update should have won

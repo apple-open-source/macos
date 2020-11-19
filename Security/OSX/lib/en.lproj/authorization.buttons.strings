@@ -143,3 +143,7 @@
 "com.apple.security.sudo" = "Allow";
 
 "com.apple.configurationprofiles.userenrollment.install" = "Enroll";
+
+"com.apple.configurationprofiles.deviceenrollment.install" = "Enroll";
+
+"com.apple.configurationprofiles.deviceenrollment.uninstall" = "Unenroll";

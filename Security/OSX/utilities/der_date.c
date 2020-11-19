@@ -39,13 +39,26 @@
 /* Cumulative number of days in the year for months up to month i.  */
 static int mdays[13] = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365 };
 
+static bool validateDateComponents(int year, int month, int day, int hour, int minute, int second, int *is_leap_year, CFErrorRef* error)
+{
+    int leapyear = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) ? 1 : 0;
+    if (is_leap_year) {
+        *is_leap_year = leapyear;
+    }
+    if (month < 1 || month > 12 || day < 1 || day > 31 || hour >= 24 || minute >= 60 || second > 61
+        || (month == 2 && day > mdays[month] - mdays[month - 1] + leapyear)
+        || (month != 2 && day > mdays[month] - mdays[month - 1]))
+    {
+        SecError(kSecDERErrorUnknownEncoding, error, CFSTR("Invalid date: %i, %i, %i, %i, %i, %i, %i"), year, month, day, hour, minute, second, leapyear);
+        return false;
+    }
+
+    return true;
+}
+
 static CFAbsoluteTime SecGregorianDateGetAbsoluteTime(int year, int month, int day, int hour, int minute, int second, CFTimeInterval timeZoneOffset, CFErrorRef *error) {
-    int is_leap_year = year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) ? 1 : 0;
-    if (month < 1 || month > 12 || day < 1 || day > 31 || hour >= 24 || minute >= 60 || second >= 60.0
-        || (month == 2 && day > mdays[month] - mdays[month - 1] + is_leap_year)
-        || (month != 2 && day > mdays[month] - mdays[month - 1])) {
-        /* Invalid date. */
-        SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Invalid date."), 0, error);
+    int is_leap_year = 0;
+    if (!validateDateComponents(year, month, day, hour, minute, second, &is_leap_year, error)) {
         return NULL_TIME;
     }
 
@@ -72,8 +85,10 @@ static bool SecAbsoluteTimeGetGregorianDate(CFTimeInterval at, int *year, int *m
     SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
         result = CFCalendarDecomposeAbsoluteTime(zuluCalendar, at, "yMdHms", year, month, day, hour, minute, second);
     });
-    if (!result)
+    if (!result) {
         SecCFDERCreateError(kSecDERErrorUnknownEncoding, CFSTR("Failed to encode date."), 0, error);
+    }
+
     return result;
 }
 
@@ -144,9 +159,11 @@ static const uint8_t *der_decode_decimal_fraction(double *fraction, CFErrorRef *
                 value += (ch - '0');
             }
         }
-        if (der >= der_end)
+        if (der >= der_end) {
+            SecCFDERCreateError(kSecDERErrorOverflow,
+                                CFSTR("overflow"), 0, error);
             der = NULL;
-        else if (last == '0') {
+        } else if (last == '0') {
             SecCFDERCreateError(kSecDERErrorUnknownEncoding,
                                 CFSTR("fraction ends in 0"), 0, error);
             der = NULL;
@@ -205,14 +222,6 @@ static const uint8_t* der_decode_commontime_body(CFAbsoluteTime *at, CFErrorRef 
 
 	CFTimeInterval timeZoneOffset = der_decode_timezone_offset(&der, der_end, error);
 
-#if 0
-    secinfo("dateparse",
-             "date %.*s year: %04d%02d%02d%02d%02d%02d%+05g",
-             length, bytes, g.year, g.month,
-             g.day, g.hour, g.minute, g.second,
-             timeZoneOffset / 60);
-#endif
-
     if (der) {
         if (der != der_end) {
             SecCFDERCreateError(kSecDERErrorUnknownEncoding,
@@ -257,12 +266,14 @@ const uint8_t* der_decode_universaltime_body(CFAbsoluteTime *at, CFErrorRef *err
     return der_decode_commontime_body(at, error, year, der, der_end);
 }
 
-const uint8_t* der_decode_date(CFAllocatorRef allocator, CFOptionFlags mutability,
+const uint8_t* der_decode_date(CFAllocatorRef allocator,
                                CFDateRef* date, CFErrorRef *error,
                                const uint8_t* der, const uint8_t *der_end)
 {
-    if (NULL == der)
+    if (NULL == der) {
+        SecCFDERCreateError(kSecDERErrorNullInput, CFSTR("null input"), NULL, error);
         return NULL;
+    }
 
     der = ccder_decode_constructed_tl(CCDER_GENERALIZED_TIME, &der_end, der, der_end);
     CFAbsoluteTime at = 0;
@@ -373,13 +384,38 @@ static uint8_t *ccder_encode_nanoseconds(CFAbsoluteTime at, const uint8_t *der,
     return der_end;
 }
 
-/* Encode generalized zulu time YYYYMMDDhhmmss[.ssss]Z */
 uint8_t* der_encode_generalizedtime_body(CFAbsoluteTime at, CFErrorRef *error,
                                          const uint8_t *der, uint8_t *der_end)
 {
+    return der_encode_generalizedtime_body_repair(at, error, false, der, der_end);
+}
+
+/* Encode generalized zulu time YYYYMMDDhhmmss[.ssss]Z */
+uint8_t* der_encode_generalizedtime_body_repair(CFAbsoluteTime at, CFErrorRef *error, bool repair,
+                                         const uint8_t *der, uint8_t *der_end)
+{
     int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
-    if (!SecAbsoluteTimeGetGregorianDate(at, &year, &month, &day, &hour, &minute, &second, error))
+    if (!SecAbsoluteTimeGetGregorianDate(at, &year, &month, &day, &hour, &minute, &second, error)) {
+        secerror("der: unable to encode date: %@", error ? *error : NULL);
         return NULL;
+    }
+
+    // Without repair flag, do not let validation change result so we do not change existing behavior
+    CFErrorRef localError = NULL;
+    if (!validateDateComponents(year, month, day, hour, minute, second, 0, &localError)) {
+        CFStringRef desc = CFErrorCopyDescription(localError);
+        __security_simulatecrash(desc, __sec_exception_code_CorruptItem);
+        CFReleaseNull(desc);
+        secerror("der: invalid date: %@; %s", localError, repair ? "setting default value" : "continuing");
+        CFReleaseNull(localError);
+        if (repair) {
+            year = 2001;
+            month = 1;
+            day = 1;
+            // I don't think this is required but I don't want any funny business with exactly midnight in any timezone
+            minute = 1;
+        }
+    }
 
     uint8_t * result = ccder_encode_decimal_quad(year, der,
            ccder_encode_decimal_pair(month, der,
@@ -387,17 +423,18 @@ uint8_t* der_encode_generalizedtime_body(CFAbsoluteTime at, CFErrorRef *error,
            ccder_encode_decimal_pair(hour, der,
            ccder_encode_decimal_pair(minute, der,
            ccder_encode_decimal_pair(second, der,
-           ccder_encode_nanoseconds(at, der,
+           ccder_encode_nanoseconds(at, der,    // Uses original "at" even after repair because DER length calculations depend on its exact value
            ccder_encode_byte('Z', der, der_end))))))));
 
-    return result;
+    return SecCCDEREncodeHandleResult(result, error);
 }
 
 uint8_t* der_encode_generalizedtime(CFAbsoluteTime at, CFErrorRef *error,
                                     const uint8_t *der, uint8_t *der_end)
 {
-    return ccder_encode_constructed_tl(CCDER_GENERALIZED_TIME, der_end, der,
-           der_encode_generalizedtime_body(at, error, der, der_end));
+    return SecCCDEREncodeHandleResult(ccder_encode_constructed_tl(CCDER_GENERALIZED_TIME, der_end, der,
+                                                                  der_encode_generalizedtime_body(at, error, der, der_end)),
+                                      error);
 }
 
 
@@ -406,4 +443,12 @@ uint8_t* der_encode_date(CFDateRef date, CFErrorRef *error,
 {
     return der_encode_generalizedtime(CFDateGetAbsoluteTime(date), error,
                                       der, der_end);
+}
+
+uint8_t* der_encode_date_repair(CFDateRef date, CFErrorRef *error,
+                                bool repair, const uint8_t *der, uint8_t *der_end)
+{
+    return SecCCDEREncodeHandleResult(ccder_encode_constructed_tl(CCDER_GENERALIZED_TIME, der_end, der,
+                                                                  der_encode_generalizedtime_body_repair(CFDateGetAbsoluteTime(date), error, repair, der, der_end)),
+                                      error);
 }

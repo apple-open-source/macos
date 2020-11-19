@@ -778,23 +778,26 @@ static void showPeerTrust(SecTrustRef peerTrust, bool verbose) {
     if (info && CFDictionaryGetCount(info)) {
         showInfo(info);
     }
-    if (info)
+    if (info) {
         CFRelease(info);
+    }
 
-	numCerts = SecTrustGetCertificateCount(peerTrust);
-	for(i=0; i<numCerts; i++) {
+    numCerts = SecTrustGetCertificateCount(peerTrust);
+    for(i=0; i<numCerts; i++) {
         plist = SecTrustCopySummaryPropertiesAtIndex(peerTrust, i);
-		printf("\n============= Peer Trust Cert %lu Summary =============\n\n", i);
+        printf("\n============= Peer Trust Cert %lu Summary =============\n\n", i);
         print_plist(plist);
-        if (plist)
+        if (plist) {
             CFRelease(plist);
-		printf("\n============= Peer Trust Cert %lu Details =============\n\n", i);
-		plist = SecTrustCopyDetailedPropertiesAtIndex(peerTrust, i);
+        }
+        printf("\n============= Peer Trust Cert %lu Details =============\n\n", i);
+        plist = SecTrustCopyDetailedPropertiesAtIndex(peerTrust, i);
         print_plist(plist);
-        if (plist)
+        if (plist) {
             CFRelease(plist);
-		printf("\n============= End of Peer Trust Cert %lu ==============\n", i);
-	}
+        }
+        printf("\n============= End of Peer Trust Cert %lu ==============\n", i);
+    }
 #endif
 }
 
@@ -1192,7 +1195,7 @@ int main(int argc, char **argv)
 				doTlsV11 = true;
                 break;
             case '^':
-				doSslV2 = doSslV3 = doTlsV1 = doTlsV12 = false;
+				doSslV2 = doSslV3 = doTlsV1 = false;
 				doTlsV12 = true;
                 break;
 			case 'L':

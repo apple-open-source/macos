@@ -70,12 +70,12 @@
 #include <utilities/SecXPCError.h>
 #include <utilities/der_plist.h>
 #include <utilities/der_plist_internal.h>
-#include <assert.h>
-#include <dlfcn.h>
+#include <utilities/simulatecrash_assert.h>
 #include <libaks_acl_cf_keys.h>
 #include <os/activity.h>
 #include <pthread.h>
 #include <os/lock.h>
+#include <os/feature_private.h>
 
 #include <Security/SecInternal.h>
 #include "keychain/SecureObjectSync/SOSInternal.h"
@@ -95,9 +95,10 @@
 
 #include <coreauthd_spi.h>
 #include <LocalAuthentication/LAPrivateDefines.h>
-#include <LocalAuthentication/LACFSupport.h>
 
 #include <ctkclient/ctkclient.h>
+
+#include "SecItemRateLimit.h"
 
 /*
  * See corresponding definition in SecDbKeychainItemV7. This is the unserialized
@@ -461,15 +462,6 @@ SecItemCreateFromAttributeDictionary(CFDictionaryRef refAttributes) {
 	return ref;
 }
 
-#if !TARGET_OS_OSX
-OSStatus
-SecItemCopyDisplayNames(CFArrayRef items, CFArrayRef *displayNames)
-{
-    // @@@ TBI
-    return -1 /* errSecUnimplemented */;
-}
-#endif // TARGET_OS_OSX
-
 typedef OSStatus (*secitem_operation)(CFDictionaryRef attributes, CFTypeRef *result);
 
 static bool explode_identity(CFDictionaryRef attributes, secitem_operation operation, 
@@ -543,7 +535,7 @@ static bool explode_identity(CFDictionaryRef attributes, secitem_operation opera
                     if (result) {
                         if (!status) {
                             /* result is a persistent ref to a cert */
-                            sqlite_int64 rowid;
+                            sqlite_int64 rowid = -1;
                             CFDictionaryRef tokenAttrs = NULL;
                             if (_SecItemParsePersistentRef(result, NULL, &rowid, &tokenAttrs)) {
                                 *return_result = _SecItemCreatePersistentRef(kSecClassIdentity, rowid, tokenAttrs);
@@ -674,21 +666,31 @@ static void infer_cert_label(SecCFDictionaryCOW *attributes)
     }
 }
 
-static CFDataRef CreateTokenPersistentRefData(CFTypeRef class, CFDictionaryRef attributes)
-{
+static CFDataRef CreateTokenPersistentRefData(CFTypeRef class, CFDictionaryRef attributes) {
     CFDataRef tokenPersistentRef = NULL;
-    CFStringRef tokenId;
+    CFStringRef tokenID = NULL;
+    CFDataRef tokenData = NULL;
+    CFDataRef oid = NULL;
     CFDictionaryRef itemValue = NULL;
-    require_quiet(tokenId = CFCast(CFString, CFDictionaryGetValue(attributes, kSecAttrTokenID)), out);
-    if (CFEqual(class, kSecClassIdentity)) {
-        itemValue = SecTokenItemValueCopy(CFDictionaryGetValue(attributes, kSecAttrIdentityCertificateData), NULL);
+
+    oid = CFDictionaryGetValue(attributes, kSecAttrTokenOID);
+    if (oid != NULL) {
+        require_quiet(tokenID = CFCast(CFString, CFDictionaryGetValue(attributes, kSecAttrTokenID)), out);
     } else {
-        itemValue = SecTokenItemValueCopy(CFDictionaryGetValue(attributes, kSecValueData), NULL);
+        // Identities are identified by their contained certificate, so we need to get tokenID and OID from certificate,
+        // not from the key.
+        if (CFEqual(class, kSecClassIdentity) && oid == NULL) {
+            require_quiet(tokenID = CFCast(CFString, CFDictionaryGetValue(attributes, kSecAttrIdentityCertificateTokenID)), out);
+            require_quiet(tokenData = CFCast(CFData, CFDictionaryGetValue(attributes, kSecAttrIdentityCertificateData)), out);
+        } else {
+            require_quiet(tokenID = CFCast(CFString, CFDictionaryGetValue(attributes, kSecAttrTokenID)), out);
+            require_quiet(tokenData = CFCast(CFData, CFDictionaryGetValue(attributes, kSecValueData)), out);
+        }
+        require_quiet(itemValue = SecTokenItemValueCopy(tokenData, NULL), out);
+        require_quiet(oid = CFDictionaryGetValue(itemValue, kSecTokenValueObjectIDKey), out);
+        require_quiet(CFCast(CFData, oid) != NULL, out);
     }
-    require_quiet(itemValue, out);
-    CFDataRef oid = CFDictionaryGetValue(itemValue, kSecTokenValueObjectIDKey);
-    require_quiet(oid, out);
-    CFArrayRef array = CFArrayCreateForCFTypes(kCFAllocatorDefault, class, tokenId, oid, NULL);
+    CFArrayRef array = CFArrayCreateForCFTypes(kCFAllocatorDefault, class, tokenID, oid, NULL);
     tokenPersistentRef = CFPropertyListCreateDERData(kCFAllocatorDefault, array, NULL);
     CFRelease(array);
 out:
@@ -702,9 +704,12 @@ static const uint8_t tk_persistent_ref_id[] = {'t', 'k', 'p', 'r'};
 CFDataRef _SecItemCreatePersistentRef(CFTypeRef class, sqlite_int64 rowid, CFDictionaryRef attributes)
 {
     CFDataRef result = NULL;
-    if (attributes && CFDictionaryContainsKey(attributes, CFEqual(class, kSecClassIdentity) ? kSecAttrIdentityCertificateTokenID : kSecAttrTokenID)) {
-        CFDataRef tokenPersistentRef = CreateTokenPersistentRefData(class, attributes);
-        require(tokenPersistentRef, out);
+    CFDataRef tokenPersistentRef = NULL;
+    if (attributes != NULL) {
+        tokenPersistentRef = CreateTokenPersistentRefData(class, attributes);
+    }
+
+    if (tokenPersistentRef != NULL) {
         CFMutableDataRef tmpData = CFDataCreateMutable(kCFAllocatorDefault, sizeof(tk_persistent_ref_id) + CFDataGetLength(tokenPersistentRef));
         CFDataAppendBytes(tmpData, tk_persistent_ref_id, sizeof(tk_persistent_ref_id));
         CFDataAppend(tmpData, tokenPersistentRef);
@@ -748,7 +753,7 @@ static bool ParseTokenPersistentRefData(CFDataRef persistent_ref, CFStringRef *r
     CFPropertyListRef pl = NULL;
     const uint8_t *der = CFDataGetBytePtr(persistent_ref) + sizeof(tk_persistent_ref_id);
     const uint8_t *der_end = der + (CFDataGetLength(persistent_ref) - sizeof(tk_persistent_ref_id));
-    require_quiet(der = der_decode_plist(0, kCFPropertyListImmutable, &pl, NULL, der, der_end), out);
+    require_quiet(der = der_decode_plist(0, &pl, NULL, der, der_end), out);
     require_quiet(der == der_end, out);
     require_quiet(CFGetTypeID(pl) == CFArrayGetTypeID(), out);
     require_quiet(CFArrayGetCount(pl) == 3, out);
@@ -828,11 +833,11 @@ static CFDataRef SecTokenItemValueCreate(CFDataRef oid, CFDataRef access_control
 }
 
 CFDictionaryRef SecTokenItemValueCopy(CFDataRef db_value, CFErrorRef *error) {
-    CFPropertyListRef plist = NULL;
+    CFPropertyListRef plist = NULL, result = NULL;
     require_quiet(CFCastWithError(CFData, db_value, error), out);
     const uint8_t *der = CFDataGetBytePtr(db_value);
     const uint8_t *der_end = der + CFDataGetLength(db_value);
-    require_quiet(der = der_decode_plist(0, kCFPropertyListImmutable, &plist, error, der, der_end), out);
+    require_quiet(der = der_decode_plist(0, &plist, error, der, der_end), out);
     require_action_quiet(der == der_end, out, SecError(errSecDecode, error, CFSTR("trailing garbage at end of token data field")));
     CFTypeRef value = CFDictionaryGetValue(plist, kSecTokenValueObjectIDKey);
     require_action_quiet(CFCast(CFData, value) != NULL, out,
@@ -841,9 +846,10 @@ CFDictionaryRef SecTokenItemValueCopy(CFDataRef db_value, CFErrorRef *error) {
     require_quiet(value == NULL || CFCastWithError(CFData, value, error), out);
     value = CFDictionaryGetValue(plist, kSecTokenValueDataKey);
     require_quiet(value == NULL || CFCastWithError(CFData, value, error), out);
-
+    result = CFRetainSafe(plist);
 out:
-    return plist;
+    CFReleaseNull(plist);
+    return result;
 }
 
 TKTokenRef SecTokenCreate(CFStringRef token_id, SecCFDictionaryCOW *auth_params, CFErrorRef *error) {
@@ -988,8 +994,11 @@ static bool SecItemResultCopyPrepared(CFTypeRef raw_result, TKTokenRef token,
             CFDictionaryRef parsed_value = NULL;
             require_quiet(parsed_value = SecTokenItemValueCopy(value, error), out);
             object_id = CFRetainSafe(CFDictionaryGetValue(parsed_value, kSecTokenValueObjectIDKey));
+            require_quiet(object_id == NULL || CFCastWithError(CFData, object_id, error) != NULL, out);
             ac_data = CFRetainSafe(CFDictionaryGetValue(parsed_value, kSecTokenValueAccessControlKey));
+            require_quiet(ac_data == NULL || CFCastWithError(CFData, ac_data, error) != NULL, out);
             object_value = CFRetainSafe(CFDictionaryGetValue(parsed_value, kSecTokenValueDataKey));
+            require_quiet(object_value == NULL || CFCastWithError(CFData, object_value, error) != NULL, out);
             CFRelease(parsed_value);
             if ((wants_data || wants_ref) && object_value == NULL) {
                 // Retrieve value directly from the token.
@@ -1057,7 +1066,9 @@ static bool SecItemResultCopyPrepared(CFTypeRef raw_result, TKTokenRef token,
             CFDictionaryRef parsed_value;
             require_quiet(parsed_value = SecTokenItemValueCopy(data, error), out);
             cert_data = CFRetainSafe(CFDictionaryGetValue(parsed_value, kSecTokenValueDataKey));
+            require_quiet(cert_data == NULL || CFCastWithError(CFData, cert_data, error) != NULL, out);
             cert_object_id = CFRetainSafe(CFDictionaryGetValue(parsed_value, kSecTokenValueObjectIDKey));
+            require_quiet(cert_object_id == NULL || CFCastWithError(CFData, cert_object_id, error) != NULL, out);
             CFRelease(parsed_value);
             if (cert_data == NULL) {
                 // Retrieve value directly from the token.
@@ -1123,7 +1134,7 @@ out:
 }
 
 bool SecItemResultProcess(CFDictionaryRef query, CFDictionaryRef auth_params, TKTokenRef token,
-                                 CFTypeRef raw_result, CFTypeRef *result, CFErrorRef *error) {
+                          CFTypeRef raw_result, CFTypeRef *result, CFErrorRef *error) {
     bool ok = false;
     require_action_quiet(raw_result != NULL, out, ok = true);
     require_action_quiet(result != NULL, out, ok = true);
@@ -1160,7 +1171,6 @@ out:
 static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, CFErrorRef *error) {
     bool ok = false;
     CFDataRef ac_data = NULL, acm_context = NULL;
-    void *la_lib = NULL;
 
     // If a ref was specified we get its attribute dictionary and parse it.
     CFTypeRef value = CFDictionaryGetValue(attrs->dictionary, kSecValueRef);
@@ -1251,9 +1261,6 @@ static bool SecItemAttributesPrepare(SecCFDictionaryCOW *attrs, bool forQuery, C
     ok = true;
 
 out:
-    if (la_lib != NULL) {
-        dlclose(la_lib);
-    }
     CFReleaseSafe(ac_data);
     CFReleaseSafe(acm_context);
     return ok;
@@ -1496,11 +1503,16 @@ bool SecItemAuthDoQuery(SecCFDictionaryCOW *query, SecCFDictionaryCOW *attribute
         }
 
         CFDictionaryRef attrs = (attributes != NULL) ? attributes->dictionary : NULL;
-        if(!perform(token, query->dictionary, attrs, auth_params.dictionary, error)) {
-            require_quiet((result = SecItemCreatePairsFromError(error, ac_pairs)) == kSecItemAuthResultOK, out);
+        if(perform(token, query->dictionary, attrs, auth_params.dictionary, error)) {
+            result = kSecItemAuthResultOK;
+            if(error && *error) {
+                // <rdar://problem/60642633> SecItemAuthDoQuery perform() sometimes returns success and fills in error parameter
+                secdebug("SecItemAuthDoQuery", "perform() succeded but returned an error: %@", *error);
+                CFReleaseNull(*error);
+            }
+        } else {
+            result = SecItemCreatePairsFromError(error, ac_pairs);
         }
-
-        result = kSecItemAuthResultOK;
 
     out:
         return result;
@@ -1549,16 +1561,21 @@ static bool dict_to_error_request(enum SecXPCOperation op, CFDictionaryRef query
     }, NULL);
 }
 
-static bool cfstring_array_to_error_request(enum SecXPCOperation op, CFStringRef string, CFArrayRef attributes, __unused SecurityClient *client, CFErrorRef *error)
+static bool cfstring_array_array_to_error_request(enum SecXPCOperation op, CFStringRef string, CFArrayRef groups, CFArrayRef items, __unused SecurityClient *client, CFErrorRef *error)
 {
     return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
         if (string) {
             if (!SecXPCDictionarySetString(message, kSecXPCKeyString, string, error))
                 return false;
         }
+
+        if (groups) {
+            if (!SecXPCDictionarySetPList(message, kSecXPCKeyArray, groups, error))
+                return false;
+        }
         
-        if (attributes) {
-            if (!SecXPCDictionarySetPList(message, kSecXPCKeyQuery, attributes, error))
+        if (items) {
+            if (!SecXPCDictionarySetPList(message, kSecXPCKeyQuery, items, error))
                 return false;
         }
         
@@ -1698,6 +1715,16 @@ out:
     return ok;
 }
 
+static void countReadOnlyAPICall() {
+    if (!isReadOnlyAPIRateWithinLimits()) {
+    }
+}
+
+static void countModifyingAPICall() {
+    if (!isModifyingAPIRateWithinLimits()) {
+    }
+}
+
 OSStatus SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
     __block SecCFDictionaryCOW attrs = { attributes };
     OSStatus status;
@@ -1714,8 +1741,10 @@ OSStatus SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
             if (token == NULL) {
                 CFTypeRef raw_result = NULL;
                 logUnreasonableDataLength(attributes);
-                if (!SECURITYD_XPC(sec_item_add, cftype_client_to_bool_cftype_error_request, attributes, SecSecurityClientGet(), &raw_result, error))
+                countModifyingAPICall();
+                if (!SECURITYD_XPC(sec_item_add, cftype_client_to_bool_cftype_error_request, attributes, SecSecurityClientGet(), &raw_result, error)) {
                     return false;
+                }
 
                 bool ok = SecItemResultProcess(attributes, auth_params, token, raw_result, result, error);
                 CFReleaseSafe(raw_result);
@@ -1756,8 +1785,10 @@ OSStatus SecItemCopyMatching(CFDictionaryRef inQuery, CFTypeRef *result) {
     status = SecOSStatusWith(^bool(CFErrorRef *error) {
         return SecItemAuthDoQuery(&query, NULL, SecItemCopyMatching, error, ^bool(TKTokenRef token, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error) {
             CFTypeRef raw_result = NULL;
-            if (!SECURITYD_XPC(sec_item_copy_matching, cftype_client_to_bool_cftype_error_request, query, SecSecurityClientGet(), &raw_result, error))
+            countReadOnlyAPICall();
+            if (!SECURITYD_XPC(sec_item_copy_matching, cftype_client_to_bool_cftype_error_request, query, SecSecurityClientGet(), &raw_result, error)) {
                 return false;
+            }
 
             // We intentionally pass NULL as token argument, because we want to be able to decide about token on which the item lives
             // on per-record basis, not wholesale.  Logic inside SecItemResultCopyPrepared will open proper token according
@@ -1899,6 +1930,7 @@ SecItemUpdateWithError(CFDictionaryRef inQuery,
         goto errOut;
 
     result = SecItemAuthDoQuery(&query, &attributesToUpdate, SecItemUpdate, error, ^bool(TKTokenRef token, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error) {
+        countModifyingAPICall();
         if (token == NULL) {
                 return SecItemRawUpdate(query, attributes, error);
         } else {
@@ -1953,6 +1985,7 @@ OSStatus SecItemDelete(CFDictionaryRef inQuery) {
 
     status = SecOSStatusWith(^bool(CFErrorRef *error) {
         return SecItemAuthDoQuery(&query, NULL, SecItemDelete, error, ^bool(TKTokenRef token, CFDictionaryRef query, CFDictionaryRef attributes, CFDictionaryRef auth_params, CFErrorRef *error) {
+            countModifyingAPICall();
             if (token == NULL) {
                 return SECURITYD_XPC(sec_item_delete, dict_client_to_error_request, query, SecSecurityClientGet(), error);
             } else {
@@ -2004,75 +2037,50 @@ SecItemDeleteAll(void)
     });
 }
 
-#if 0
-static bool
-agrps_client_to_error_request(enum SecXPCOperation op, CFArrayRef agrps, __unused SecurityClient *client, CFErrorRef *error)
-{
-    return securityd_send_sync_and_do(op, error, ^bool(xpc_object_t message, CFErrorRef *error) {
-        return SecXPCDictionarySetPList(message, kSecXPCKeyAccessGroups, agrps, error);
-    }, NULL);
-}
-#endif
-
 bool SecItemDeleteAllWithAccessGroups(CFArrayRef accessGroups, CFErrorRef *error) {
-#if 0
-    os_activity_t activity = os_activity_create("SecItemDeleteAllWithAccessGroups", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
-    os_activity_scope(activity);
-    os_release(activity);
-
-    return SECURITYD_XPC(sec_delete_items_with_access_groups, agrps_client_to_error_request, accessGroups,
-			 SecSecurityClientGet(), error);
-#else
     return true;
-#endif
 }
 
 OSStatus
-#if SECITEM_SHIM_OSX
-SecItemUpdateTokenItems_ios(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes)
-#else
-SecItemUpdateTokenItems(CFTypeRef tokenID, CFArrayRef tokenItemsAttributes)
-#endif
+SecItemUpdateTokenItemsForAccessGroups(CFTypeRef tokenID, CFArrayRef accessGroups, CFArrayRef tokenItemsAttributes)
 {
     OSStatus status;
 
-    os_activity_t activity = os_activity_create("SecItemUpdateTokenItems_ios", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
+    os_activity_t activity = os_activity_create("SecItemUpdateTokenItemsForAccessGroups", OS_ACTIVITY_CURRENT, OS_ACTIVITY_FLAG_DEFAULT);
     os_activity_scope(activity);
     os_release(activity);
 
     status = SecOSStatusWith(^bool(CFErrorRef *error) {
-        CFArrayRef tmpArrayRef = tokenItemsAttributes;
+        bool ok = false;
+        CFMutableArrayRef tokenItemsForServer = NULL;
         if (tokenItemsAttributes) {
-            CFMutableArrayRef tokenItems = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+            tokenItemsForServer = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
             for (CFIndex i = 0; i < CFArrayGetCount(tokenItemsAttributes); ++i) {
                 CFDictionaryRef itemAttributes = CFArrayGetValueAtIndex(tokenItemsAttributes, i);
                 CFTypeRef accessControl = CFDictionaryGetValue(itemAttributes, kSecAttrAccessControl);
                 CFTypeRef tokenOID = CFDictionaryGetValue(itemAttributes, kSecAttrTokenOID);
                 CFTypeRef valueData = CFDictionaryGetValue(itemAttributes, kSecValueData);
                 if (tokenOID != NULL && accessControl != NULL && CFDataGetTypeID() == CFGetTypeID(accessControl)) {
-                    CFDataRef data = SecTokenItemValueCreate(tokenOID, accessControl, valueData, error);
-                    if (!data) {
-                        CFRelease(tokenItems);
-                        return false;
-                    }
-                    
+                    CFDataRef data;
+                    require_quiet(data = SecTokenItemValueCreate(tokenOID, accessControl, valueData, error), out);
                     CFMutableDictionaryRef attributes = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, itemAttributes);
                     CFDictionarySetValue(attributes, kSecValueData, data);
                     CFDictionarySetValue(attributes, kSecAttrTokenID, tokenID);
                     CFDictionaryRemoveValue(attributes, kSecAttrAccessControl);
                     CFDictionaryRemoveValue(attributes, kSecAttrTokenOID);
-                    CFArrayAppendValue(tokenItems, attributes);
-                    CFRelease(attributes);
-                    CFRelease(data);
+                    CFArrayAppendValue(tokenItemsForServer, attributes);
+                    CFReleaseNull(attributes);
+                    CFReleaseNull(data);
+                } else {
+                    CFArrayAppendValue(tokenItemsForServer, itemAttributes);
                 }
-                else
-                    CFArrayAppendValue(tokenItems, itemAttributes);
             }
-            
-            tmpArrayRef = tokenItems;
         }
 
-        return SECURITYD_XPC(sec_item_update_token_items, cfstring_array_to_error_request, tokenID, tmpArrayRef, SecSecurityClientGet(), error);
+        ok = SECURITYD_XPC(sec_item_update_token_items_for_access_groups, cfstring_array_array_to_error_request, tokenID, accessGroups, tokenItemsForServer, SecSecurityClientGet(), error);
+    out:
+        CFReleaseNull(tokenItemsForServer);
+        return ok;
     });
 
     return status;

@@ -533,7 +533,7 @@ static const func_info_t func_infos[] = {
 	F0("var_dump",                     MAY_BE_NULL),
 	F1("var_export",                   MAY_BE_NULL | MAY_BE_STRING),
 	F0("debug_zval_dump",              MAY_BE_NULL),
-	F1("print_r",                      MAY_BE_FALSE | MAY_BE_STRING),
+	F1("print_r",                      MAY_BE_TRUE | MAY_BE_STRING),
 	F0("memory_get_usage",             MAY_BE_FALSE | MAY_BE_LONG),
 	F0("memory_get_peak_usage",        MAY_BE_FALSE | MAY_BE_LONG),
 	F0("register_shutdown_function",   MAY_BE_NULL | MAY_BE_FALSE),
@@ -1694,8 +1694,7 @@ uint32_t zend_get_func_info(const zend_call_info *call_info, const zend_ssa *ssa
 		zval *zv;
 		func_info_t *info;
 
-		zv = zend_hash_find_ex(&func_info, Z_STR_P(CRT_CONSTANT_EX(call_info->caller_op_array, call_info->caller_init_opline, call_info->caller_init_opline->op2, ssa->rt_constants)), 1);
-		if (zv) {
+		if (!call_info->callee_func->common.scope && (zv = zend_hash_find_ex(&func_info, Z_STR_P(CRT_CONSTANT_EX(call_info->caller_op_array, call_info->caller_init_opline, call_info->caller_init_opline->op2, ssa->rt_constants)), 1))) {
 			info = Z_PTR_P(zv);
 			if (UNEXPECTED(zend_optimizer_is_disabled_func(info->name, info->name_len))) {
 				ret = MAY_BE_NULL;

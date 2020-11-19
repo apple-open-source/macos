@@ -7,5 +7,6 @@ if [[ "${ACTION}" == "install" ]]; then
 fi
 
 if [[ "${ACTION}" == "install" || "${ACTION}" == "installapi" ]]; then
+  mkdir -p ${DSTROOT}/usr/lib
   ln -s libexpat.1.tbd ${DSTROOT}/usr/lib/libexpat.tbd
 fi

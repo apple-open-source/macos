@@ -27,7 +27,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: funcs.c,v 1.104 2019/05/07 02:27:11 christos Exp $")
+FILE_RCSID("@(#)$File: funcs.c,v 1.115 2020/02/20 15:50:20 christos Exp $")
 #endif	/* lint */
 
 #include "magic.h"
@@ -48,6 +48,77 @@ FILE_RCSID("@(#)$File: funcs.c,v 1.104 2019/05/07 02:27:11 christos Exp $")
 #define SIZE_MAX	((size_t)~0)
 #endif
 
+protected char *
+file_copystr(char *buf, size_t blen, size_t width, const char *str)
+{
+	if (++width > blen)
+		width = blen;
+	strlcpy(buf, str, width);
+	return buf;
+}
+
+private void
+file_clearbuf(struct magic_set *ms)
+{
+	free(ms->o.buf);
+	ms->o.buf = NULL;
+	ms->o.blen = 0;
+}
+
+private int
+file_checkfield(char *msg, size_t mlen, const char *what, const char **pp)
+{
+	const char *p = *pp;
+	int fw = 0;
+
+	while (*p && isdigit((unsigned char)*p))
+		fw = fw * 10 + (*p++ - '0');
+
+	*pp = p;
+
+	if (fw < 1024)
+		return 1;
+	if (msg)
+		snprintf(msg, mlen, "field %s too large: %d", what, fw);
+
+	return 0;
+}
+
+protected int
+file_checkfmt(char *msg, size_t mlen, const char *fmt)
+{
+	for (const char *p = fmt; *p; p++) {
+		if (*p != '%')
+			continue;
+		if (*++p == '%')
+			continue;
+		// Skip uninteresting.
+		while (strchr("0.'+- ", *p) != NULL)
+			p++;
+		if (*p == '*') {
+			if (msg)
+				snprintf(msg, mlen, "* not allowed in format");
+			return -1;
+		}
+
+		if (!file_checkfield(msg, mlen, "width", &p))
+			return -1;
+
+		if (*p == '.') {
+			p++;
+			if (!file_checkfield(msg, mlen, "precision", &p))
+				return -1;
+		}
+
+		if (!isalpha((unsigned char)*p)) {
+			if (msg)
+				snprintf(msg, mlen, "bad format char: %c", *p);
+			return -1;
+		}
+	}
+	return 0;
+}
+
 /*
  * Like printf, only we append to a buffer.
  */
@@ -56,12 +127,26 @@ file_vprintf(struct magic_set *ms, const char *fmt, va_list ap)
 {
 	int len;
 	char *buf, *newstr;
+	char tbuf[1024];
 
 	if (ms->event_flags & EVENT_HAD_ERR)
 		return 0;
+
+	if (file_checkfmt(tbuf, sizeof(tbuf), fmt)) {
+		file_clearbuf(ms);
+		file_error(ms, 0, "Bad magic format `%s' (%s)", fmt, tbuf);
+		return -1;
+	}
+
 	len = vasprintf(&buf, fmt, ap);
-	if (len < 0)
-		goto out;
+	if (len < 0 || (size_t)len > 1024 || len + ms->o.blen > 1024 * 1024) {
+		size_t blen = ms->o.blen;
+		free(buf);
+		file_clearbuf(ms);
+		file_error(ms, 0, "Output buffer space exceeded %d+%zu", len,
+		    blen);
+		return -1;
+	}
 
 	if (ms->o.buf != NULL) {
 		len = asprintf(&newstr, "%s%s", ms->o.buf, buf);
@@ -72,9 +157,11 @@ file_vprintf(struct magic_set *ms, const char *fmt, va_list ap)
 		buf = newstr;
 	}
 	ms->o.buf = buf;
+	ms->o.blen = len;
 	return 0;
 out:
-	fprintf(stderr, "vasprintf failed (%s)", strerror(errno));
+	file_clearbuf(ms);
+	file_error(ms, errno, "vasprintf failed");
 	return -1;
 }
 
@@ -103,8 +190,7 @@ file_error_core(struct magic_set *ms, int error, const char *f, va_list va,
 	if (ms->event_flags & EVENT_HAD_ERR)
 		return;
 	if (lineno != 0) {
-		free(ms->o.buf);
-		ms->o.buf = NULL;
+		file_clearbuf(ms);
 		(void)file_printf(ms, "line %" SIZE_T_FORMAT "u:", lineno);
 	}
 	if (ms->o.buf && *ms->o.buf)
@@ -283,6 +369,17 @@ file_buffer(struct magic_set *ms, int fd, struct stat *st,
 		}
 	}
 
+	/* Check if we have a CSV file */
+	if ((ms->flags & MAGIC_NO_CHECK_CSV) == 0) {
+		m = file_is_csv(ms, &b, looks_text);
+		if ((ms->flags & MAGIC_DEBUG) != 0)
+			(void)fprintf(stderr, "[try csv %d]\n", m);
+		if (m) {
+			if (checkdone(ms, &rv))
+				goto done;
+		}
+	}
+
 	/* Check if we have a CDF file */
 	if ((ms->flags & MAGIC_NO_CHECK_CDF) == 0) {
 		m = file_trycdf(ms, &b);
@@ -385,10 +482,7 @@ file_reset(struct magic_set *ms, int checkloaded)
 		file_error(ms, 0, "no magic files loaded");
 		return -1;
 	}
-	if (ms->o.buf) {
-		free(ms->o.buf);
-		ms->o.buf = NULL;
-	}
+	file_clearbuf(ms);
 	if (ms->o.pbuf) {
 		free(ms->o.pbuf);
 		ms->o.pbuf = NULL;
@@ -510,7 +604,7 @@ file_check_mem(struct magic_set *ms, unsigned int level)
 protected size_t
 file_printedlen(const struct magic_set *ms)
 {
-	return ms->o.buf == NULL ? 0 : strlen(ms->o.buf);
+	return ms->o.blen;
 }
 
 protected int
@@ -548,7 +642,11 @@ file_regcomp(file_regex_t *rx, const char *pat, int flags)
 	rx->old_lc_ctype = uselocale(rx->c_lc_ctype);
 	assert(rx->old_lc_ctype != NULL);
 #else
-	rx->old_lc_ctype = setlocale(LC_CTYPE, "C");
+	rx->old_lc_ctype = setlocale(LC_CTYPE, NULL);
+	assert(rx->old_lc_ctype != NULL);
+	rx->old_lc_ctype = strdup(rx->old_lc_ctype);
+	assert(rx->old_lc_ctype != NULL);
+	(void)setlocale(LC_CTYPE, "C");
 #endif
 	rx->pat = pat;
 
@@ -561,7 +659,8 @@ file_regexec(file_regex_t *rx, const char *str, size_t nmatch,
 {
 	assert(rx->rc == 0);
 	/* XXX: force initialization because glibc does not always do this */
-	memset(pmatch, 0, nmatch * sizeof(*pmatch));
+	if (nmatch != 0)
+		memset(pmatch, 0, nmatch * sizeof(*pmatch));
 	return regexec(&rx->rx, str, nmatch, pmatch, eflags);
 }
 
@@ -575,6 +674,7 @@ file_regfree(file_regex_t *rx)
 	freelocale(rx->c_lc_ctype);
 #else
 	(void)setlocale(LC_CTYPE, rx->old_lc_ctype);
+	free(rx->old_lc_ctype);
 #endif
 }
 
@@ -600,9 +700,11 @@ file_push_buffer(struct magic_set *ms)
 		return NULL;
 
 	pb->buf = ms->o.buf;
+	pb->blen = ms->o.blen;
 	pb->offset = ms->offset;
 
 	ms->o.buf = NULL;
+	ms->o.blen = 0;
 	ms->offset = 0;
 
 	return pb;
@@ -622,6 +724,7 @@ file_pop_buffer(struct magic_set *ms, file_pushbuf_t *pb)
 	rbuf = ms->o.buf;
 
 	ms->o.buf = pb->buf;
+	ms->o.blen = pb->blen;
 	ms->offset = pb->offset;
 
 	free(pb);
@@ -652,4 +755,34 @@ file_printable(char *buf, size_t bufsiz, const char *str, size_t slen)
 	}
 	*ptr = '\0';
 	return buf;
+}
+
+struct guid {
+	uint32_t data1;
+	uint16_t data2;
+	uint16_t data3;
+	uint8_t data4[8];
+};
+
+protected int
+file_parse_guid(const char *s, uint64_t *guid)
+{
+	struct guid *g = CAST(struct guid *, guid);
+	return sscanf(s,
+	    "%8x-%4hx-%4hx-%2hhx%2hhx-%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
+	    &g->data1, &g->data2, &g->data3, &g->data4[0], &g->data4[1],
+	    &g->data4[2], &g->data4[3], &g->data4[4], &g->data4[5],
+	    &g->data4[6], &g->data4[7]) == 11 ? 0 : -1;
+}
+
+protected int
+file_print_guid(char *str, size_t len, const uint64_t *guid)
+{
+	const struct guid *g = CAST(const struct guid *, guid);
+
+	return snprintf(str, len, "%.8X-%.4hX-%.4hX-%.2hhX%.2hhX-"
+	    "%.2hhX%.2hhX%.2hhX%.2hhX%.2hhX%.2hhX",
+	    g->data1, g->data2, g->data3, g->data4[0], g->data4[1],
+	    g->data4[2], g->data4[3], g->data4[4], g->data4[5],
+	    g->data4[6], g->data4[7]);
 }

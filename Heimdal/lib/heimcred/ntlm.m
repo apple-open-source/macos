@@ -40,6 +40,7 @@
 #import "heimbase.h"
 #import "config.h"
 #import "heimntlm.h"
+#import "common.h"
 
 #if ENABLE_NTLM
 
@@ -145,8 +146,11 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 
 	/* type1 flags */
 	flags_cfnum = DictionaryGetTypedValue(input, kHEIMAttrNTLMClientFlags, CFNumberGetTypeID());
-	if (flags_cfnum == NULL)
-		goto error;
+	if (flags_cfnum == NULL) {
+		    goto error;
+	} else {
+	    CFRetain(flags_cfnum);
+	}
 
 	if (! CFNumberGetValue(flags_cfnum, kCFNumberSInt32Type, &type1flags))
 	   goto error;
@@ -302,6 +306,7 @@ NTLMAuthCallback(HeimCredRef cred, CFDictionaryRef input)
 		goto error;
 
 	/*  flags */
+	CFRELEASE_NULL(flags_cfnum);
 	flags_cfnum = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt32Type, &type3.flags);
 	if (!flags_cfnum)
 		goto error;
@@ -351,18 +356,16 @@ error:
 		free(type3.ntlm.data);
 	if (type3.sessionkey.data)
 		free(type3.sessionkey.data);
+	if (type3.ws)
+		free(type3.ws);
 	heim_ntlm_free_type2(&type2);
 	heim_ntlm_free_buf(&sessionkey);
 	heim_ntlm_free_buf(&tidata);
 
-	if (type3_cfdata)
-		CFRelease(type3_cfdata);
-	if (kcmflags_cfnum)
-		CFRelease(kcmflags_cfnum);
-	if (flags_cfnum)
-		CFRelease(flags_cfnum);
-	if (sessionkey_cfdata)
-		CFRelease(sessionkey_cfdata);
+	CFRELEASE_NULL(type3_cfdata);
+	CFRELEASE_NULL(kcmflags_cfnum);
+	CFRELEASE_NULL(flags_cfnum);
+	CFRELEASE_NULL(sessionkey_cfdata);
 
 	return result_cfdict;
 }
@@ -390,9 +393,9 @@ _HeimCredRegisterNTLM(void)
 	CFDictionarySetValue(schema, kHEIMAttrStatus, CFSTR("n"));
 
 	CFSetAddValue(set, schema);
-	CFRelease(schema);
+	CFRELEASE_NULL(schema);
 
-	_HeimCredRegisterMech(kHEIMTypeNTLM, set, NULL, NTLMAuthCallback);
-	CFRelease(set);
+	_HeimCredRegisterMech(kHEIMTypeNTLM, set, NULL, NTLMAuthCallback, NULL, false, NULL);
+	CFRELEASE_NULL(set);
 #endif /* ENABLE_NTLM */
 }

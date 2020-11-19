@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
+#import "config.h"
 #import "PlatformCALayerRemoteCustom.h"
 
 #import "LayerHostingContext.h"
@@ -107,7 +107,7 @@ Ref<WebCore::PlatformCALayer> PlatformCALayerRemoteCustom::clone(PlatformCALayer
 
     if (layerType() == LayerTypeAVPlayerLayer) {
         
-        if ([platformLayer() isKindOfClass:PAL::getAVPlayerLayerClass()]) {
+        if (PAL::isAVFoundationFrameworkAvailable() && [platformLayer() isKindOfClass:PAL::getAVPlayerLayerClass()]) {
             clonedLayer = adoptNS([PAL::allocAVPlayerLayerInstance() init]);
 
             AVPlayerLayer *destinationPlayerLayer = static_cast<AVPlayerLayer *>(clonedLayer.get());

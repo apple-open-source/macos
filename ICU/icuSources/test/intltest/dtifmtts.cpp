@@ -57,6 +57,7 @@ void DateIntervalFormatTest::runIndexedTest( int32_t index, UBool exec, const ch
         TESTCASE(8, testTicket11669);
         TESTCASE(9, testTicket12065);
         TESTCASE(10, testFormattedDateInterval);
+        TESTCASE(11, testCreateInstanceForAllLocales);
         default: name = ""; break;
     }
 }
@@ -132,7 +133,7 @@ void DateIntervalFormatTest::testAPI() {
     status = U_ZERO_ERROR;
     logln("Testing DateIntervalFormat clone");
 
-    DateIntervalFormat* another = (DateIntervalFormat*)dtitvfmt->clone();
+    DateIntervalFormat* another = dtitvfmt->clone();
     if ( (*another) != (*dtitvfmt) ) {
         dataerrln("%s:%d ERROR: clone failed", __FILE__, __LINE__);
     }
@@ -224,7 +225,7 @@ void DateIntervalFormatTest::testAPI() {
     }
 
     status = U_ZERO_ERROR;
-    DateFormat* nonConstFmt = (DateFormat*)fmt->clone();
+    DateFormat* nonConstFmt = fmt->clone();
     dtitvfmt->adoptDateFormat(nonConstFmt, status);
     anotherFmt = dtitvfmt->getDateFormat();
     if ( (*fmt) != (*anotherFmt) || U_FAILURE(status) ) {
@@ -250,7 +251,7 @@ void DateIntervalFormatTest::testAPI() {
     logln("Testing DateIntervalFormat constructor and assigment operator");
     status = U_ZERO_ERROR;
 
-    DateFormat* constFmt = (constFmt*)dtitvfmt->getDateFormat()->clone();
+    DateFormat* constFmt = dtitvfmt->getDateFormat()->clone();
     inf = dtitvfmt->getDateIntervalInfo()->clone();
 
 
@@ -338,8 +339,8 @@ void DateIntervalFormatTest::testAPI() {
         DateInterval * dtitv12 = new DateInterval(date1, date2);
         TimeZone * tzCalif = TimeZone::createTimeZone("US/Pacific");
         TimeZone * tzTokyo = TimeZone::createTimeZone("Asia/Tokyo");
-        UnicodeString fmtCalif = UnicodeString(ctou("Mar 2, 10:30\\u2009\\u2013\\u200917:30"));
-        UnicodeString fmtTokyo = UnicodeString(ctou("Mar 3, 03:30\\u2009\\u2013\\u200910:30"));
+        UnicodeString fmtCalif = UnicodeString(ctou("Mar 2, 10:30\\u2009\\u2013\\u200917:30")); // Apple data mod
+        UnicodeString fmtTokyo = UnicodeString(ctou("Mar 3, 03:30\\u2009\\u2013\\u200910:30")); // Apple data mod
 
         dtitvfmt->adoptTimeZone(tzCalif);
         res.remove();
@@ -1496,7 +1497,7 @@ void DateIntervalFormatTest::stress(const char** data, int32_t data_length,
                 GregorianCalendar* gregCal = new GregorianCalendar(loc, ec);
                 if (!assertSuccess("GregorianCalendar()", ec)) return;
                 const DateFormat* dformat = dtitvfmt->getDateFormat();
-                DateFormat* newOne = (DateFormat*)dformat->clone();
+                DateFormat* newOne = dformat->clone();
                 newOne->adoptCalendar(gregCal);
                 //dtitvfmt->adoptDateFormat(newOne, ec);
                 dtitvfmt->setDateFormat(*newOne, ec);
@@ -1653,7 +1654,7 @@ void DateIntervalFormatTest::testTicket12065() {
         dataerrln("FAIL: DateIntervalFormat::createInstance failed for Locale::getEnglish()");
         return;
     }
-    LocalPointer<DateIntervalFormat> clone(dynamic_cast<DateIntervalFormat *>(formatter->clone()));
+    LocalPointer<DateIntervalFormat> clone(formatter->clone());
     if (*formatter != *clone) {
         errln("%s:%d DateIntervalFormat and clone are not equal.", __FILE__, __LINE__);
         return;
@@ -1702,6 +1703,49 @@ void DateIntervalFormatTest::testFormattedDateInterval() {
             UPRV_LENGTHOF(expectedFieldPositions));
     }
 
+    {
+        const char16_t* message = u"FormattedDateInterval identical dates test: no span field";
+        const char16_t* expectedString = u"July 20, 2018";
+        LocalPointer<Calendar> input1(Calendar::createInstance("en-GB", status));
+        input1->set(2018, 6, 20);
+        FormattedDateInterval result = fmt->formatToValue(*input1, *input1, status);
+        static const UFieldPositionWithCategory expectedFieldPositions[] = {
+            // field, begin index, end index
+            {UFIELD_CATEGORY_DATE, UDAT_MONTH_FIELD, 0, 4},
+            {UFIELD_CATEGORY_DATE, UDAT_DATE_FIELD, 5, 7},
+            {UFIELD_CATEGORY_DATE, UDAT_YEAR_FIELD, 9, 13}};
+        checkMixedFormattedValue(
+            message,
+            result,
+            expectedString,
+            expectedFieldPositions,
+            UPRV_LENGTHOF(expectedFieldPositions));
+    }
+
+    // Test sample code
+    {
+        LocalPointer<Calendar> input1(Calendar::createInstance("en-GB", status));
+        LocalPointer<Calendar> input2(Calendar::createInstance("en-GB", status));
+        input1->set(2018, 6, 20);
+        input2->set(2018, 7, 3);
+
+        // Let fmt be a DateIntervalFormat for locale en-US and skeleton dMMMMy
+        // Let input1 be July 20, 2018 and input2 be August 3, 2018:
+        FormattedDateInterval result = fmt->formatToValue(*input1, *input2, status);
+        assertEquals("Expected output from format",
+            u"July 20\u2009\u2013\u2009August 3, 2018", result.toString(status)); // Apple data mod
+        ConstrainedFieldPosition cfpos;
+        cfpos.constrainField(UFIELD_CATEGORY_DATE_INTERVAL_SPAN, 0);
+        if (result.nextPosition(cfpos, status)) {
+            assertEquals("Expect start index", 0, cfpos.getStart());
+            assertEquals("Expect end index", 7, cfpos.getLimit());
+        } else {
+            // No such span: can happen if input dates are equal.
+        }
+        assertFalse("No more than one occurrence of the field",
+            result.nextPosition(cfpos, status));
+    }
+
     // To test the fallback pattern behavior, make a custom DateIntervalInfo.
     DateIntervalInfo dtitvinf(status);
     dtitvinf.setFallbackIntervalPattern("<< {1} --- {0} >>", status);
@@ -1738,5 +1782,40 @@ void DateIntervalFormatTest::testFormattedDateInterval() {
     }
 }
 
+void DateIntervalFormatTest::testCreateInstanceForAllLocales() {
+    IcuTestErrorCode status(*this, "testCreateInstanceForAllLocales");
+    int32_t locale_count = 0;
+    const Locale* locales = icu::Locale::getAvailableLocales(locale_count);
+    // Iterate through all locales
+    for (int32_t i = 0; i < locale_count; i++) {
+        std::unique_ptr<icu::StringEnumeration> calendars(
+            icu::Calendar::getKeywordValuesForLocale(
+                "calendar", locales[i], FALSE, status));
+        int32_t calendar_count = calendars->count(status);
+        if (status.errIfFailureAndReset()) { break; }
+        // In quick mode, only run 1/5 of locale combination
+        // to make the test run faster.
+        if (quick && (i % 5 != 0)) continue;
+        LocalPointer<DateIntervalFormat> fmt(
+            DateIntervalFormat::createInstance(u"dMMMMy", locales[i], status),
+            status);
+        if (status.errIfFailureAndReset(locales[i].getName())) {
+            continue;
+        }
+        // Iterate through all calendars in this locale
+        for (int32_t j = 0; j < calendar_count; j++) {
+            // In quick mode, only run 1/7 of locale/calendar combination
+            // to make the test run faster.
+            if (quick && ((i * j) % 7 != 0)) continue;
+            const char* calendar = calendars->next(nullptr, status);
+            Locale locale(locales[i]);
+            locale.setKeywordValue("calendar", calendar, status);
+            fmt.adoptInsteadAndCheckErrorCode(
+                DateIntervalFormat::createInstance(u"dMMMMy", locale, status),
+                status);
+            status.errIfFailureAndReset(locales[i].getName());
+        }
+    }
+}
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

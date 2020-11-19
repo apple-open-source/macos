@@ -13,8 +13,15 @@
 #define PEX8733Range(start, end)         (~(((uint32_t)(1) << start) - 1) & (((uint32_t)(1) << end) | (((uint32_t)(1) << end) - 1)))
 
 // 4.3.2 PCI Express Memory-Mapped Configuration Space
-#define descriptorSpaceOffset(channel)    (0x20000 + 0x400 * (channel))
-#define configurationSpaceOffset(channel) (0x21000 + 0x1000 * (channel))
+#define descriptorSpaceOffset(channel)                 (0x20000 + 0x400 * (channel))
+#define virtualBridgeconfigurationSpaceOffset(channel) (0x21000 + 0x1000 * (channel))
+
+enum PEX8733TestMode
+{
+    kPEX8733TestModeNone = 0,
+    kPEX8733TestModeBlock,
+    kPEX8733TestModeDescriptor
+};
 
 enum
 {
@@ -28,36 +35,37 @@ enum
     kPEX8733DefaultNumDMADescriptors          = 4,
     kPEX8733DefaultDMADescriptorPrefetchLimit = 1,
     kPEX8733MemoryIndex                       = 0,
+    kPEX8733MSIInterruptIndex                 = 1,
     kPEX8733DefaultChannel                    = 0,
 
     kPEX8733DMAChannelGlobalControlModeFour = 0,
-    kPEX8733DMAChannelGlobalControlModeOne = 1,
-    kPEX8733DMAChannelGlobalControlModeTwo = 2,
+    kPEX8733DMAChannelGlobalControlModeOne  = 1,
+    kPEX8733DMAChannelGlobalControlModeTwo  = 2,
 
 
     // Section 19.12 of PEX_8733 Data Book
     kPEX8733DMAChannelCapabilitiesOffset                             = 0x1F0,
-    kPEX8733DMAChannelGlobalControlOffset                            = kPEX8733DMAChannelCapabilitiesOffset + 0x8,
-    kPEX8733DMAChannelSourceAddressLowerOffset                       = kPEX8733DMAChannelCapabilitiesOffset + 0x10,
-    kPEX8733DMAChannelSourceAddressUpperOffset                       = kPEX8733DMAChannelCapabilitiesOffset + 0x14,
-    kPEX8733DMAChannelDestinationAddressLowerOffset                  = kPEX8733DMAChannelCapabilitiesOffset + 0x18,
-    kPEX8733DMAChannelDestinationAddressUpperOffset                  = kPEX8733DMAChannelCapabilitiesOffset + 0x1C,
-    kPEX8733DMAChannelTransferSizeOffset                             = kPEX8733DMAChannelCapabilitiesOffset + 0x20,
-    kPEX8733DMAChannelDescriptorRingAddressLowerOffset               = kPEX8733DMAChannelCapabilitiesOffset + 0x24,
-    kPEX8733DMAChannelDescriptorRingAddressUpperOffset               = kPEX8733DMAChannelCapabilitiesOffset + 0x28,
-    kPEX8733DMAChannelDescriptorRingNextDescriptorAddressLowerOffset = kPEX8733DMAChannelCapabilitiesOffset + 0x2C,
-    kPEX8733DMAChannelDescriptorRingRingSizeOffset                   = kPEX8733DMAChannelCapabilitiesOffset + 0x30,
-    kPEX8733DMAChannelDescriptorRingLastDescriptorAddressLowerOffset = kPEX8733DMAChannelCapabilitiesOffset + 0x34,
-    kPEX8733DMAChannelDescriptorRingLastDescriptorTransferSizeOffset = kPEX8733DMAChannelCapabilitiesOffset + 0x38,
-    kPEX8733DMAChannelMaximumPrefetchLimitOffset                     = kPEX8733DMAChannelCapabilitiesOffset + 0x44,
-    kPEX8733DMAChannelControlStatusRegisterOffset                    = kPEX8733DMAChannelCapabilitiesOffset + 0x48,
-    kPEX8733DMAChannelInterruptControlStatusRegisterOffset           = kPEX8733DMAChannelCapabilitiesOffset + 0x4C,
+    kPEX8733DMAChannelGlobalControlOffset                            = 0x8,
+    kPEX8733DMAChannelSourceAddressLowerOffset                       = 0x10,
+    kPEX8733DMAChannelSourceAddressUpperOffset                       = 0x14,
+    kPEX8733DMAChannelDestinationAddressLowerOffset                  = 0x18,
+    kPEX8733DMAChannelDestinationAddressUpperOffset                  = 0x1C,
+    kPEX8733DMAChannelTransferSizeOffset                             = 0x20,
+    kPEX8733DMAChannelDescriptorRingAddressLowerOffset               = 0x24,
+    kPEX8733DMAChannelDescriptorRingAddressUpperOffset               = 0x28,
+    kPEX8733DMAChannelDescriptorRingNextDescriptorAddressLowerOffset = 0x2C,
+    kPEX8733DMAChannelDescriptorRingRingSizeOffset                   = 0x30,
+    kPEX8733DMAChannelDescriptorRingLastDescriptorAddressLowerOffset = 0x34,
+    kPEX8733DMAChannelDescriptorRingLastDescriptorTransferSizeOffset = 0x38,
+    kPEX8733DMAChannelMaximumPrefetchLimitOffset                     = 0x44,
+    kPEX8733DMAChannelControlStatusRegisterOffset                    = 0x48,
+    kPEX8733DMAChannelInterruptControlStatusRegisterOffset           = 0x4C,
 
 
 
 
     kPEX8733DMAChannelSize         = 0x1000,
-    kPEX8733DMAChannelCapabilityID = 0xB,
+    kPEX8733DMAChannelCapabilityID = -0xB,
 
 };
 

@@ -40,6 +40,10 @@
 #include <stdio.h>
 #include <thread>
 
+#if BPLATFORM(PLAYSTATION)
+#include <pthread_np.h>
+#endif
+
 namespace bmalloc {
 
 static constexpr bool verbose = false;
@@ -68,7 +72,7 @@ struct PrintTime {
 
 DEFINE_STATIC_PER_PROCESS_STORAGE(Scavenger);
 
-Scavenger::Scavenger(const std::lock_guard<Mutex>&)
+Scavenger::Scavenger(const LockHolder&)
 {
     BASSERT(!Environment::get()->isDebugHeapEnabled());
 
@@ -92,11 +96,11 @@ Scavenger::Scavenger(const std::lock_guard<Mutex>&)
 
 void Scavenger::run()
 {
-    std::lock_guard<Mutex> lock(mutex());
-    runHoldingLock();
+    LockHolder lock(mutex());
+    run(lock);
 }
 
-void Scavenger::runHoldingLock()
+void Scavenger::run(const LockHolder&)
 {
     m_state = State::Run;
     m_condition.notify_all();
@@ -104,11 +108,11 @@ void Scavenger::runHoldingLock()
 
 void Scavenger::runSoon()
 {
-    std::lock_guard<Mutex> lock(mutex());
-    runSoonHoldingLock();
+    LockHolder lock(mutex());
+    runSoon(lock);
 }
 
-void Scavenger::runSoonHoldingLock()
+void Scavenger::runSoon(const LockHolder&)
 {
     if (willRunSoon())
         return;
@@ -124,11 +128,11 @@ void Scavenger::didStartGrowing()
 
 void Scavenger::scheduleIfUnderMemoryPressure(size_t bytes)
 {
-    std::lock_guard<Mutex> lock(mutex());
-    scheduleIfUnderMemoryPressureHoldingLock(bytes);
+    LockHolder lock(mutex());
+    scheduleIfUnderMemoryPressure(lock, bytes);
 }
 
-void Scavenger::scheduleIfUnderMemoryPressureHoldingLock(size_t bytes)
+void Scavenger::scheduleIfUnderMemoryPressure(const LockHolder& lock, size_t bytes)
 {
     m_scavengerBytes += bytes;
     if (m_scavengerBytes < scavengerBytesPerMemoryPressureCheck)
@@ -143,19 +147,19 @@ void Scavenger::scheduleIfUnderMemoryPressureHoldingLock(size_t bytes)
         return;
 
     m_isProbablyGrowing = false;
-    runHoldingLock();
+    run(lock);
 }
 
 void Scavenger::schedule(size_t bytes)
 {
-    std::lock_guard<Mutex> lock(mutex());
-    scheduleIfUnderMemoryPressureHoldingLock(bytes);
+    LockHolder lock(mutex());
+    scheduleIfUnderMemoryPressure(lock, bytes);
     
     if (willRunSoon())
         return;
     
     m_isProbablyGrowing = false;
-    runSoonHoldingLock();
+    runSoon(lock);
 }
 
 inline void dumpStats()
@@ -179,14 +183,14 @@ inline void dumpStats()
 
 std::chrono::milliseconds Scavenger::timeSinceLastFullScavenge()
 {
-    std::unique_lock<Mutex> lock(mutex());
+    UniqueLockHolder lock(mutex());
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_lastFullScavengeTime);
 }
 
 #if BUSE(PARTIAL_SCAVENGE)
 std::chrono::milliseconds Scavenger::timeSinceLastPartialScavenge()
 {
-    std::unique_lock<Mutex> lock(mutex());
+    UniqueLockHolder lock(mutex());
     return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_lastPartialScavengeTime);
 }
 #endif
@@ -200,7 +204,10 @@ void Scavenger::enableMiniMode()
 
 void Scavenger::scavenge()
 {
-    std::unique_lock<Mutex> lock(m_scavengingMutex);
+    if (!m_isEnabled)
+        return;
+
+    UniqueLockHolder lock(m_scavengingMutex);
 
     if (verbose) {
         fprintf(stderr, "--------------------------------\n");
@@ -216,7 +223,7 @@ void Scavenger::scavenge()
 #if !BUSE(PARTIAL_SCAVENGE)
             size_t deferredDecommits = 0;
 #endif
-            std::lock_guard<Mutex> lock(Heap::mutex());
+            UniqueLockHolder lock(Heap::mutex());
             for (unsigned i = numHeaps; i--;) {
                 if (!isActiveHeapKind(static_cast<HeapKind>(i)))
                     continue;
@@ -241,7 +248,7 @@ void Scavenger::scavenge()
 
         {
             PrintTime printTime("full scavenge mark all as eligible time");
-            std::lock_guard<Mutex> lock(Heap::mutex());
+            LockHolder lock(Heap::mutex());
             for (unsigned i = numHeaps; i--;) {
                 if (!isActiveHeapKind(static_cast<HeapKind>(i)))
                     continue;
@@ -267,7 +274,7 @@ void Scavenger::scavenge()
     }
 
     {
-        std::unique_lock<Mutex> lock(mutex());
+        UniqueLockHolder lock(mutex());
         m_lastFullScavengeTime = std::chrono::steady_clock::now();
     }
 }
@@ -275,7 +282,10 @@ void Scavenger::scavenge()
 #if BUSE(PARTIAL_SCAVENGE)
 void Scavenger::partialScavenge()
 {
-    std::unique_lock<Mutex> lock(m_scavengingMutex);
+    if (!m_isEnabled)
+        return;
+
+    UniqueLockHolder lock(m_scavengingMutex);
 
     if (verbose) {
         fprintf(stderr, "--------------------------------\n");
@@ -287,7 +297,7 @@ void Scavenger::partialScavenge()
         BulkDecommit decommitter;
         {
             PrintTime printTime("\npartialScavenge under lock time");
-            std::lock_guard<Mutex> lock(Heap::mutex());
+            UniqueLockHolder lock(Heap::mutex());
             for (unsigned i = numHeaps; i--;) {
                 if (!isActiveHeapKind(static_cast<HeapKind>(i)))
                     continue;
@@ -308,7 +318,7 @@ void Scavenger::partialScavenge()
 
         {
             PrintTime printTime("partialScavenge mark all as eligible time");
-            std::lock_guard<Mutex> lock(Heap::mutex());
+            LockHolder lock(Heap::mutex());
             for (unsigned i = numHeaps; i--;) {
                 if (!isActiveHeapKind(static_cast<HeapKind>(i)))
                     continue;
@@ -335,7 +345,7 @@ void Scavenger::partialScavenge()
     }
 
     {
-        std::unique_lock<Mutex> lock(mutex());
+        UniqueLockHolder lock(mutex());
         m_lastPartialScavengeTime = std::chrono::steady_clock::now();
     }
 }
@@ -345,7 +355,7 @@ size_t Scavenger::freeableMemory()
 {
     size_t result = 0;
     {
-        std::lock_guard<Mutex> lock(Heap::mutex());
+        UniqueLockHolder lock(Heap::mutex());
         for (unsigned i = numHeaps; i--;) {
             if (!isActiveHeapKind(static_cast<HeapKind>(i)))
                 continue;
@@ -402,12 +412,12 @@ void Scavenger::threadRunLoop()
     
     while (true) {
         if (m_state == State::Sleep) {
-            std::unique_lock<Mutex> lock(mutex());
+            UniqueLockHolder lock(mutex());
             m_condition.wait(lock, [&]() { return m_state != State::Sleep; });
         }
         
         if (m_state == State::RunSoon) {
-            std::unique_lock<Mutex> lock(mutex());
+            UniqueLockHolder lock(mutex());
             m_condition.wait_for(lock, m_waitTime, [&]() { return m_state != State::RunSoon; });
         }
         
@@ -513,7 +523,7 @@ void Scavenger::threadRunLoop()
 void Scavenger::setThreadName(const char* name)
 {
     BUNUSED(name);
-#if BOS(DARWIN)
+#if BOS(DARWIN) || BPLATFORM(PLAYSTATION)
     pthread_setname_np(name);
 #elif BOS(LINUX)
     // Truncate the given name since Linux limits the size of the thread name 16 including null terminator.

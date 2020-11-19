@@ -187,11 +187,13 @@ WI.settings = {
     emulateInUserGesture: new WI.Setting("emulate-in-user-gesture", false),
     enableControlFlowProfiler: new WI.Setting("enable-control-flow-profiler", false),
     enableLineWrapping: new WI.Setting("enable-line-wrapping", true),
+    frontendAppearance: new WI.Setting("frontend-appearance", "system"),
     groupMediaRequestsByDOMNode: new WI.Setting("group-media-requests-by-dom-node", WI.Setting.migrateValue("group-by-dom-node") || false),
     indentUnit: new WI.Setting("indent-unit", 4),
     indentWithTabs: new WI.Setting("indent-with-tabs", false),
     resourceCachingDisabled: new WI.Setting("disable-resource-caching", false),
     searchCaseSensitive: new WI.Setting("search-case-sensitive", false),
+    searchFromSelection: new WI.Setting("search-from-selection", false),
     searchRegularExpression: new WI.Setting("search-regular-expression", false),
     selectedNetworkDetailContentViewIdentifier: new WI.Setting("network-detail-content-view-identifier", "preview"),
     sourceMapsEnabled: new WI.Setting("source-maps-enabled", true),
@@ -217,8 +219,8 @@ WI.settings = {
 
     // Experimental
     experimentalEnablePreviewFeatures: new WI.Setting("experimental-enable-preview-features", true),
-    experimentalEnableNewTabBar: new WI.Setting("experimental-enable-new-tab-bar", false),
     experimentalEnableStylesJumpToEffective: new WI.Setting("experimental-styles-jump-to-effective", false),
+    experimentalEnableStyelsJumpToVariableDeclaration: new WI.Setting("experimental-styles-jump-to-variable-declaration", false),
 
     // Protocol
     protocolLogAsText: new WI.Setting("protocol-log-as-text", false),
@@ -227,6 +229,7 @@ WI.settings = {
     protocolFilterMultiplexingBackendMessages: new WI.Setting("protocol-filter-multiplexing-backend-messages", true),
 
     // Engineering
+    engineeringShowInternalExecutionContexts: new WI.EngineeringSetting("engineering-show-internal-execution-contexts", false),
     engineeringShowInternalScripts: new WI.EngineeringSetting("engineering-show-internal-scripts", false),
     engineeringPauseForInternalScripts: new WI.EngineeringSetting("engineering-pause-for-internal-scripts", false),
     engineeringShowInternalObjectsInHeapSnapshot: new WI.EngineeringSetting("engineering-show-internal-objects-in-heap-snapshot", false),
@@ -235,6 +238,7 @@ WI.settings = {
 
     // Debug
     debugShowConsoleEvaluations: new WI.DebugSetting("debug-show-console-evaluations", false),
+    debugOutlineFocusedElement: new WI.DebugSetting("debug-outline-focused-element", false),
     debugEnableLayoutFlashing: new WI.DebugSetting("debug-enable-layout-flashing", false),
     debugEnableStyleEditingDebugMode: new WI.DebugSetting("debug-enable-style-editing-debug-mode", false),
     debugEnableUncaughtExceptionReporter: new WI.DebugSetting("debug-enable-uncaught-exception-reporter", true),

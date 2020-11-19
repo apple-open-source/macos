@@ -113,7 +113,7 @@
 -(void)resetUnlockDependency {
     if(self.unlockDependency == nil || ![self.unlockDependency isPending]) {
         CKKSResultOperation* op = [CKKSResultOperation named:@"keybag-unlocked-dependency" withBlock: ^{
-            secinfo("ckks", "Keybag unlocked");
+            ckksinfo_global("ckks", "Keybag unlocked");
         }];
         op.descriptionErrorCode = CKKSResultDescriptionPendingUnlock;
         self.unlockDependency = op;
@@ -125,7 +125,7 @@
     bool locked = true;
 
     if(!SecAKSGetIsLocked(&locked, &aksError)) {
-        secerror("ckks: error querying lock state: %@", aksError);
+        ckkserror_global("ckks", "error querying lock state: %@", aksError);
         CFReleaseNull(aksError);
     }
 
@@ -173,9 +173,28 @@
     });
 }
 
--(bool)isLockedError:(NSError *)error {
+- (bool)lockedError:(NSError *)error
+{
     bool isLockedError = error.code == errSecInteractionNotAllowed &&
         ([error.domain isEqualToString:@"securityd"] || [error.domain isEqualToString:(__bridge NSString*)kSecErrorDomain]);
+    return isLockedError;
+}
+
+- (bool)checkErrorChainForLockState:(NSError*)error
+{
+    while(error != nil) {
+        if([self lockedError:error]) {
+            return true;
+        }
+
+        error = error.userInfo[NSUnderlyingErrorKey];
+    }
+
+    return false;
+}
+
+-(bool)isLockedError:(NSError *)error {
+    bool isLockedError = [self checkErrorChainForLockState:error];
 
     /*
      * If we are locked, and the the current lock state track disagree, lets double check

@@ -1,0 +1,104 @@
+--- perl-5.28.1/perl.c	2018-11-01 15:07:55.000000000 -0700
++++ perl-5.28.1-new/perl.c	2019-03-26 22:30:43.000000000 -0700
+@@ -62,6 +62,12 @@
+ #  endif
+ #endif
+ 
++#ifndef OPEN_SOURCE
++#ifdef __APPLE__
++#include <rootless.h>
++#endif
++#endif
++
+ static I32 read_e_script(pTHX_ int idx, SV *buf_sv, int maxlen);
+ 
+ #ifdef SETUID_SCRIPTS_ARE_SECURE_NOW
+@@ -4617,6 +4623,34 @@
+     }
+ }
+ 
++#if defined(PERL_PREPENDTOPATH) || defined(PERL_APPENDTOPATH)
++#define	_incpushfile(path)					\
++{								\
++    PerlIO *fp;							\
++    char *e = getenv("NO_"#path);				\
++								\
++    if (!(e && *e) && (fp = PerlIO_open(path, "r")) != NULL) {	\
++	char buf[1024];						\
++	char *cp;						\
++	int res;						\
++	SV *sv = newSVpvn("", 0);				\
++								\
++	while ((res = PerlIO_read(fp, buf, sizeof(buf))) > 0)	\
++	    sv_catpvn(sv, buf, res);				\
++	PerlIO_close(fp);					\
++	if (res == 0 && SvCUR(sv) > 0) {			\
++	    STRLEN len;						\
++	    cp = SvPV_nolen(sv);				\
++	    while ((cp = strchr(cp, '\n')) != NULL)		\
++		*cp = ':';					\
++	    cp = SvPV(sv, len);					\
++	    incpush_use_sep(cp, len, INCPUSH_ADD_ARCHONLY_SUB_DIRS);	\
++	}							\
++	SvREFCNT_dec(sv);					\
++    }								\
++}
++#endif /* defined(PERL_PREPENDTOPATH) || defined(PERL_APPENDTOPATH) */
++
+ STATIC void
+ S_init_perllib(pTHX)
+ {
+@@ -4670,17 +4704,36 @@
+        (and not the architecture specific directories from $ENV{PERL5LIB}) */
+ 
+ #include "perl_inc_macro.h"
++#ifdef PERL_PREPENDTOPATH
++    _incpushfile(PERL_PREPENDTOPATH);
++#endif /* PERL_PREPENDTOPATH */
++
+ /* Use the ~-expanded versions of APPLLIB (undocumented),
+     SITEARCH, SITELIB, VENDORARCH, VENDORLIB, ARCHLIB and PRIVLIB
+ */
+     INCPUSH_APPLLIB_EXP
+     INCPUSH_SITEARCH_EXP
+     INCPUSH_SITELIB_EXP
++#if defined(NO_NETWORK_LIBRARY_PERL_FILE) && (defined(PERL_VENDORARCH_EXP) || defined(PERL_VENDORLIB_EXP))
++  if (access(NO_NETWORK_LIBRARY_PERL_FILE, F_OK) != 0) {
++#endif /* NO_NETWORK_LIBRARY_PERL_FILE && (PERL_VENDORARCH_EXP || PERL_VENDORLIB_EXP) */
+     INCPUSH_PERL_VENDORARCH_EXP
+     INCPUSH_PERL_VENDORLIB_EXP
++#if defined(NO_NETWORK_LIBRARY_PERL_FILE) && (defined(PERL_VENDORARCH_EXP) || defined(PERL_VENDORLIB_EXP))
++  }
++#endif /* NO_NETWORK_LIBRARY_PERL_FILE && (PERL_VENDORARCH_EXP || PERL_VENDORLIB_EXP) */
++
++#ifdef UPDATESLIB
++    S_incpush_use_sep(aTHX_ STR_WITH_LEN(UPDATESLIB), INCPUSH_ADD_ARCHONLY_SUB_DIRS);
++#endif /* UPDATESLIB */
++
+     INCPUSH_ARCHLIB_EXP
+     INCPUSH_PRIVLIB_EXP
+     INCPUSH_PERL_OTHERLIBDIRS
++#ifdef PERL_APPENDTOPATH
++    _incpushfile(PERL_APPENDTOPATH);
++#endif /* PERL_APPENDTOPATH */
++
+     INCPUSH_PERL5LIB
+     INCPUSH_APPLLIB_OLD_EXP
+     INCPUSH_SITELIB_STEM
+@@ -4889,6 +4942,16 @@
+     PERL_ARGS_ASSERT_INCPUSH;
+     assert(len > 0);
+ 
++#ifndef OPEN_SOURCE
++#ifdef __APPLE__
++	if (rootless_restricted_environment()) {
++		if (rootless_check_trusted(dir)) {
++			return;
++		}
++	}
++#endif
++#endif
++
+     /* Could remove this vestigial extra block, if we don't mind a lot of
+        re-indenting diff noise.  */
+     {

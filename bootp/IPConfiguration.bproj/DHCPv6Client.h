@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2017 Apple Inc. All rights reserved.
+ * Copyright (c) 2009-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,6 +50,13 @@ typedef enum {
     kDHCPv6ClientNotificationTypeGenerateSymptom = 2
 } DHCPv6ClientNotificationType;
 
+typedef
+enum {
+      kDHCPv6ClientModeIdle = 0,
+      kDHCPv6ClientModeStateless = 1,
+      kDHCPv6ClientModeStateful = 2,
+} DHCPv6ClientMode;
+
 typedef void
 (*DHCPv6ClientNotificationCallBack)(DHCPv6ClientRef client,
 				    void * callback_arg,
@@ -65,6 +72,9 @@ DHCPv6ClientOptionIsOK(int option);
 DHCPv6ClientRef
 DHCPv6ClientCreate(interface_t * if_p);
 
+DHCPv6ClientMode
+DHCPv6ClientGetMode(DHCPv6ClientRef client);
+
 void
 DHCPv6ClientStart(DHCPv6ClientRef client, bool allocate_address);
 
@@ -75,7 +85,7 @@ void
 DHCPv6ClientRelease(DHCPv6ClientRef * client_p);
 
 bool
-DHCPv6ClientGetInfo(DHCPv6ClientRef client, dhcpv6_info_t * info_p);
+DHCPv6ClientGetInfo(DHCPv6ClientRef client, ipv6_info_t * info_p);
 
 void
 DHCPv6ClientCopyAddresses(DHCPv6ClientRef client, 

@@ -163,7 +163,7 @@ promptpath(char *p, int npath, int tilde)
  *
  * txtchangep gives an integer controlling the attributes of
  * the prompt.  This is for use in zle to maintain the attributes
- * consistenly.  Other parts of the shell should not need to use it.
+ * consistently.  Other parts of the shell should not need to use it.
  */
 
 /**/
@@ -1075,10 +1075,9 @@ putstr(int d)
 mod_export void
 countprompt(char *str, int *wp, int *hp, int overf)
 {
-    int w = 0, h = 1;
+    int w = 0, h = 1, multi = 0, wcw = 0;
     int s = 1;
 #ifdef MULTIBYTE_SUPPORT
-    int wcw, multi = 0;
     char inchar;
     mbstate_t mbs;
     wchar_t wc;
@@ -1087,10 +1086,28 @@ countprompt(char *str, int *wp, int *hp, int overf)
 #endif
 
     for (; *str; str++) {
-	if (w > zterm_columns && overf >= 0) {
-	    w = 0;
+	/*
+	 * Avoid double-incrementing the height when there's a newline in the
+	 * prompt and the line it terminates takes up exactly the width of the
+	 * terminal
+	 */
+	while (w > zterm_columns && overf >= 0 && !multi) {
 	    h++;
+	    if (wcw) {
+		/*
+		 * Wide characters don't get split off. They move to the
+		 * next line if there is not enough space.
+		 */
+		w = wcw;
+		break;
+	    } else {
+		/*
+		 * Tabs overflow to the next line as if they were made of spaces.
+		 */
+		w -= zterm_columns;
+	    }
 	}
+	wcw = 0;
 	/*
 	 * Input string should be metafied, so tokens in it should
 	 * be real tokens, even if there are multibyte characters.
@@ -1171,11 +1188,18 @@ countprompt(char *str, int *wp, int *hp, int overf)
      * This isn't easy to handle generally; just assume there's no
      * output.
      */
-    if(w >= zterm_columns && overf >= 0) {
-	if (!overf || w > zterm_columns) {
-	    w = 0;
-	    h++;
+    while (w > zterm_columns && overf >= 0) {
+	h++;
+	if (wcw) {
+	    w = wcw;
+	    break;
+	} else {
+	    w -= zterm_columns;
 	}
+    }
+    if (w == zterm_columns && overf == 0) {
+	w = 0;
+	h++;
     }
     if(wp)
 	*wp = w;

@@ -20,7 +20,6 @@ ___is_threaded
 ___pthread_supported_features
 ___pthread_tsd_lock
 ___pthread_tsd_max
-___unix_conforming
 __main_qos
 __pthread_count
 __pthread_list_lock

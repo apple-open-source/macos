@@ -25,10 +25,9 @@
 
 .scope-bar {
     padding: 0 3px;
-    overflow: hidden;
 
     --scope-bar-margin-default: 2px;
-    --scope-bar-padding-default: 4px;
+    --scope-bar-padding-default: 6px;
     --scope-bar-text-color-default: var(--text-color);
     --scope-bar-background-color-default: unset;
     --scope-bar-background-opacity-default: var(--glyph-opacity);
@@ -68,6 +67,10 @@
     opacity: var(--scope-bar-background-opacity);
 }
 
+.scope-bar > li:focus {
+    outline: none;
+}
+
 .scope-bar > li:matches(.selected, :hover) {
     --scope-bar-text-color-default: var(--selected-foreground-color);
     --scope-bar-background-color-default: var(--glyph-color-active);
@@ -96,12 +99,18 @@
     pointer-events: none;
 }
 
+.scope-bar > li:focus::after,
+.scope-bar > li.multiple > select:focus {
+    outline: auto -webkit-focus-ring-color;
+    outline-offset: -1px;
+}
+
 body[dir=ltr] .scope-bar > li.multiple > select {
-    left: calc(var(--scope-bar-padding) - var(--scope-bar-padding-default) - 4px);
+    left: calc(var(--scope-bar-padding) - var(--scope-bar-padding-default) - 2px);
 }
 
 body[dir=rtl] .scope-bar > li.multiple > select {
-    right: calc(var(--scope-bar-padding) - var(--scope-bar-padding-default) - 4px);
+    right: calc(var(--scope-bar-padding) - var(--scope-bar-padding-default) - 2px);
 }
 
 .scope-bar > li.multiple:not(.selected) > select {

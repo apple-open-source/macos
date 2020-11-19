@@ -71,9 +71,8 @@ WK_EXPORT void WKBundlePageSimulateMouseUp(WKBundlePageRef page, int button, WKP
 WK_EXPORT void WKBundlePageSimulateMouseMotion(WKBundlePageRef page, WKPoint position, double time);
 
 WK_EXPORT uint64_t WKBundlePageGetRenderTreeSize(WKBundlePageRef page);
-
-WK_EXPORT WKRenderObjectRef WKBundlePageCopyRenderTree(WKBundlePageRef page);
-WK_EXPORT WKRenderLayerRef WKBundlePageCopyRenderLayerTree(WKBundlePageRef page);
+WK_EXPORT void WKBundlePageCopyRenderTree(WKBundlePageRef page);
+WK_EXPORT void WKBundlePageCopyRenderLayerTree(WKBundlePageRef page);
 
 // FIXME: This function is only still here to keep open source Mac builds building. It doesn't do anything anymore!
 // We should remove it as soon as we can.
@@ -116,6 +115,7 @@ WK_EXPORT void WKBundlePageStopExtendingIncrementalRenderingSuppression(WKBundle
 
 // UserContent API (compatible with Modern API, for WKTR)
 WK_EXPORT void WKBundlePageAddUserScript(WKBundlePageRef page, WKStringRef source, _WKUserScriptInjectionTime injectionTime, WKUserContentInjectedFrames injectedFrames);
+WK_EXPORT void WKBundlePageAddUserScriptInWorld(WKBundlePageRef page, WKStringRef source, WKBundleScriptWorldRef scriptWorld, _WKUserScriptInjectionTime injectionTime, WKUserContentInjectedFrames injectedFrames);
 WK_EXPORT void WKBundlePageAddUserStyleSheet(WKBundlePageRef page, WKStringRef source, WKUserContentInjectedFrames injectedFrames);
 WK_EXPORT void WKBundlePageRemoveAllUserContent(WKBundlePageRef page);
 

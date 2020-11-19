@@ -64,50 +64,29 @@
 #include <machine/vmparam.h>
 #include <mach/vm_statistics.h>
 
-extern int _pthread_cond_wait(pthread_cond_t *cond,
-			pthread_mutex_t *mutex,
-			const struct timespec *abstime,
-			int isRelative,
-			int isconforming);
-extern int __sigwait(const sigset_t *set, int *sig);
-extern int __pthread_sigmask(int, const sigset_t *, sigset_t *);
-extern int __pthread_markcancel(mach_port_t);
-extern int __pthread_canceled(int);
-extern int __semwait_signal_nocancel(int, int, int, int, __int64_t, __int32_t);
+#ifndef BUILDING_VARIANT /* [ */
 
-
-PTHREAD_NOEXPORT
-int _pthread_join(pthread_t thread, void **value_ptr, int conforming);
-
-static inline int
-_pthread_conformance(void)
-{
-#if __DARWIN_UNIX03
-	if (__unix_conforming == 0)
-		__unix_conforming = 1;
-#ifdef VARIANT_CANCELABLE
-	return PTHREAD_CONFORM_UNIX03_CANCELABLE;
-#else /* !VARIANT_CANCELABLE */
-	return PTHREAD_CONFORM_UNIX03_NOCANCEL;
-#endif
-#else /* __DARWIN_UNIX03 */
-	return PTHREAD_CONFORM_DARWIN_LEGACY;
-#endif /* __DARWIN_UNIX03 */
-}
-
-#ifndef VARIANT_CANCELABLE
-
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline int
 _pthread_update_cancel_state(pthread_t thread, int mask, int state)
 {
-	int oldstate, newstate;
-	os_atomic_rmw_loop2o(thread, cancel_state, oldstate, newstate, seq_cst, {
+	uint16_t oldstate, newstate;
+	os_atomic_rmw_loop(&thread->cancel_state, oldstate, newstate, relaxed, {
 		newstate = oldstate;
 		newstate &= ~mask;
 		newstate |= state;
 	});
 	return oldstate;
+}
+
+/* When a thread exits set the cancellation state to DISABLE and DEFERRED */
+void
+_pthread_setcancelstate_exit(pthread_t thread, void *value_ptr)
+{
+	_pthread_update_cancel_state(thread,
+			_PTHREAD_CANCEL_STATE_MASK | _PTHREAD_CANCEL_TYPE_MASK,
+			PTHREAD_CANCEL_DISABLE | PTHREAD_CANCEL_DEFERRED |
+			_PTHREAD_CANCEL_EXITING);
 }
 
 /*
@@ -117,11 +96,6 @@ PTHREAD_NOEXPORT_VARIANT
 int
 pthread_cancel(pthread_t thread)
 {
-#if __DARWIN_UNIX03
-	if (__unix_conforming == 0)
-		__unix_conforming = 1;
-#endif /* __DARWIN_UNIX03 */
-
 	if (!_pthread_is_valid(thread, NULL)) {
 		return(ESRCH);
 	}
@@ -130,93 +104,20 @@ pthread_cancel(pthread_t thread)
 	if (thread->wqthread != 0) {
 		return(ENOTSUP);
 	}
-#if __DARWIN_UNIX03
-	int state = os_atomic_or2o(thread, cancel_state, _PTHREAD_CANCEL_PENDING, relaxed);
+	int state = os_atomic_or(&thread->cancel_state, _PTHREAD_CANCEL_PENDING, relaxed);
 	if (state & PTHREAD_CANCEL_ENABLE) {
-		mach_port_t kport = _pthread_kernel_thread(thread);
+		mach_port_t kport = _pthread_tsd_slot(thread, MACH_THREAD_SELF);
 		if (kport) __pthread_markcancel(kport);
 	}
-#else /* __DARWIN_UNIX03 */
-	thread->cancel_state |= _PTHREAD_CANCEL_PENDING;
-#endif /* __DARWIN_UNIX03 */
 	return (0);
 }
-
-
-void
-pthread_testcancel(void)
-{
-	_pthread_testcancel(_pthread_conformance());
-}
-
-#ifndef BUILDING_VARIANT /* [ */
-
-PTHREAD_NOEXPORT_VARIANT
-void
-_pthread_exit_if_canceled(int error)
-{
-	if (((error & 0xff) == EINTR) && __unix_conforming && (__pthread_canceled(0) == 0)) {
-		pthread_t self = pthread_self();
-
-		_pthread_validate_signature(self);
-		self->cancel_error = error;
-		self->canceled = true;
-		pthread_exit(PTHREAD_CANCELED);
-	}
-}
-
-
-static inline bool
-_pthread_is_canceled(pthread_t thread)
-{
-	const int flags = (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING);
-	int state = os_atomic_load2o(thread, cancel_state, seq_cst);
-	return (state & flags) == flags;
-}
-
-PTHREAD_NOEXPORT_VARIANT
-void
-_pthread_testcancel(int isconforming)
-{
-	pthread_t self = pthread_self();
-	if (_pthread_is_canceled(self)) {
-		_pthread_validate_signature(self);
-		// 4597450: begin
-		self->canceled = (isconforming != PTHREAD_CONFORM_DARWIN_LEGACY);
-		// 4597450: end
-		pthread_exit(isconforming ? PTHREAD_CANCELED : NULL);
-	}
-}
-
-PTHREAD_NOEXPORT
-void
-_pthread_markcancel_if_canceled(pthread_t thread, mach_port_t kport)
-{
-	const int flags = (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING);
-	int state = os_atomic_load2o(thread, cancel_state, relaxed);
-	if ((state & flags) == flags && __unix_conforming) {
-		__pthread_markcancel(kport);
-	}
-}
-
-/* When a thread exits set the cancellation state to DISABLE and DEFERRED */
-PTHREAD_NOEXPORT
-void
-_pthread_setcancelstate_exit(pthread_t thread, void *value_ptr)
-{
-	_pthread_update_cancel_state(thread,
-			_PTHREAD_CANCEL_STATE_MASK | _PTHREAD_CANCEL_TYPE_MASK,
-			PTHREAD_CANCEL_DISABLE | PTHREAD_CANCEL_DEFERRED);
-}
-
-#endif /* !BUILDING_VARIANT ] */
 
 /*
  * Query/update the cancelability 'state' of a thread
  */
-PTHREAD_ALWAYS_INLINE
-static inline int
-_pthread_setcancelstate_internal(int state, int *oldstateptr, int conforming)
+PTHREAD_NOEXPORT_VARIANT
+int
+pthread_setcancelstate(int state, int *oldstateptr)
 {
 	pthread_t self = pthread_self();
 
@@ -224,14 +125,10 @@ _pthread_setcancelstate_internal(int state, int *oldstateptr, int conforming)
 
 	switch (state) {
 	case PTHREAD_CANCEL_ENABLE:
-		if (conforming) {
-			__pthread_canceled(1);
-		}
+		__pthread_canceled(1);
 		break;
 	case PTHREAD_CANCEL_DISABLE:
-		if (conforming) {
-			__pthread_canceled(2);
-		}
+		__pthread_canceled(2);
 		break;
 	default:
 		return EINVAL;
@@ -241,25 +138,7 @@ _pthread_setcancelstate_internal(int state, int *oldstateptr, int conforming)
 	if (oldstateptr) {
 		*oldstateptr = oldstate & _PTHREAD_CANCEL_STATE_MASK;
 	}
-	if (!conforming) {
-		/* See if we need to 'die' now... */
-		_pthread_testcancel(PTHREAD_CONFORM_DARWIN_LEGACY);
-	}
 	return 0;
-}
-
-PTHREAD_NOEXPORT_VARIANT
-int
-pthread_setcancelstate(int state, int *oldstate)
-{
-#if __DARWIN_UNIX03
-	if (__unix_conforming == 0) {
-		__unix_conforming = 1;
-	}
-	return (_pthread_setcancelstate_internal(state, oldstate, 1));
-#else /* __DARWIN_UNIX03 */
-	return (_pthread_setcancelstate_internal(state, oldstate, 0));
-#endif /* __DARWIN_UNIX03 */
 }
 
 /*
@@ -269,66 +148,86 @@ PTHREAD_NOEXPORT_VARIANT
 int
 pthread_setcanceltype(int type, int *oldtype)
 {
-	pthread_t self;
+	pthread_t self = pthread_self();
 
-#if __DARWIN_UNIX03
-	if (__unix_conforming == 0)
-		__unix_conforming = 1;
-#endif /* __DARWIN_UNIX03 */
+	_pthread_validate_signature(self);
 
 	if ((type != PTHREAD_CANCEL_DEFERRED) &&
 	    (type != PTHREAD_CANCEL_ASYNCHRONOUS))
 		return EINVAL;
-	self = pthread_self();
-	_pthread_validate_signature(self);
 	int oldstate = _pthread_update_cancel_state(self, _PTHREAD_CANCEL_TYPE_MASK, type);
 	if (oldtype) {
 		*oldtype = oldstate & _PTHREAD_CANCEL_TYPE_MASK;
 	}
-#if !__DARWIN_UNIX03
-	/* See if we need to 'die' now... */
-	_pthread_testcancel(PTHREAD_CONFORM_DARWIN_LEGACY);
-#endif /* __DARWIN_UNIX03 */
 	return (0);
 }
 
 
+OS_ALWAYS_INLINE
+static inline bool
+_pthread_is_canceled(pthread_t thread)
+{
+	const int flags = (PTHREAD_CANCEL_ENABLE|_PTHREAD_CANCEL_PENDING);
+	int state = os_atomic_load(&thread->cancel_state, seq_cst);
+	return (state & flags) == flags;
+}
+
+OS_ALWAYS_INLINE
+static inline void *
+_pthread_get_exit_value(pthread_t thread)
+{
+	if (os_unlikely(_pthread_is_canceled(thread))) {
+		return PTHREAD_CANCELED;
+	}
+	return thread->tl_exit_value;
+}
+
+void
+pthread_testcancel(void)
+{
+	pthread_t self = pthread_self();
+	if (os_unlikely(_pthread_is_canceled(self))) {
+		_pthread_validate_signature(self);
+		// 4597450: begin
+		self->canceled = true;
+		// 4597450: end
+		pthread_exit(PTHREAD_CANCELED);
+	}
+}
+
+void
+_pthread_markcancel_if_canceled(pthread_t thread, mach_port_t kport)
+{
+	if (os_unlikely(_pthread_is_canceled(thread))) {
+		__pthread_markcancel(kport);
+	}
+}
+
+void
+_pthread_exit_if_canceled(int error)
+{
+	if ((error & 0xff) == EINTR && __pthread_canceled(0) == 0) {
+		pthread_t self = pthread_self();
+
+		_pthread_validate_signature(self);
+		self->cancel_error = error;
+		self->canceled = true;
+		pthread_exit(PTHREAD_CANCELED);
+	}
+}
+
 int
 pthread_sigmask(int how, const sigset_t * set, sigset_t * oset)
 {
-#if __DARWIN_UNIX03
 	int err = 0;
 
 	if (__pthread_sigmask(how, set, oset) == -1) {
 		err = errno;
 	}
 	return(err);
-#else /* __DARWIN_UNIX03 */
-	return(__pthread_sigmask(how, set, oset));
-#endif /* __DARWIN_UNIX03 */
-}
-
-#ifndef BUILDING_VARIANT /* [ */
-
-typedef struct pthread_join_context_s {
-	pthread_t   waiter;
-	void      **value_ptr;
-	mach_port_t kport;
-	semaphore_t custom_stack_sema;
-	bool        detached;
-} pthread_join_context_s, *pthread_join_context_t;
-
-static inline void *
-_pthread_get_exit_value(pthread_t thread)
-{
-	if (__unix_conforming && _pthread_is_canceled(thread)) {
-		return PTHREAD_CANCELED;
-	}
-	return thread->tl_exit_value;
 }
 
 // called with _pthread_list_lock held
-PTHREAD_NOEXPORT
 semaphore_t
 _pthread_joiner_prepost_wake(pthread_t thread)
 {
@@ -351,7 +250,7 @@ _pthread_joiner_abort_wait(pthread_t thread, pthread_join_context_t ctx)
 {
 	bool aborted = false;
 
-	_PTHREAD_LOCK(_pthread_list_lock);
+	_pthread_lock_lock(&_pthread_list_lock);
 	if (!ctx->detached && thread->tl_exit_gate != MACH_PORT_DEAD) {
 		/*
 		 * _pthread_joiner_prepost_wake() didn't happen
@@ -362,12 +261,13 @@ _pthread_joiner_abort_wait(pthread_t thread, pthread_join_context_t ctx)
 		thread->tl_exit_gate = MACH_PORT_NULL;
 		aborted = true;
 	}
-	_PTHREAD_UNLOCK(_pthread_list_lock);
+	_pthread_lock_unlock(&_pthread_list_lock);
 	return aborted;
 }
 
 static int
-_pthread_joiner_wait(pthread_t thread, pthread_join_context_t ctx, int conforming)
+_pthread_joiner_wait(pthread_t thread, pthread_join_context_t ctx,
+		pthread_conformance_t conforming)
 {
 	uint32_t *exit_gate = &thread->tl_exit_gate;
 	int ulock_op = UL_UNFAIR_LOCK | ULF_NO_ERRNO;
@@ -407,8 +307,8 @@ _pthread_joiner_wait(pthread_t thread, pthread_join_context_t ctx, int conformin
 			 * over the cancelation which will be acted upon at the next
 			 * cancelation point.
 			 */
-			if (conforming == PTHREAD_CONFORM_UNIX03_CANCELABLE &&
-					_pthread_is_canceled(ctx->waiter)) {
+			if (os_unlikely(conforming == PTHREAD_CONFORM_UNIX03_CANCELABLE &&
+					_pthread_is_canceled(ctx->waiter))) {
 				if (_pthread_joiner_abort_wait(thread, ctx)) {
 					ctx->waiter->canceled = true;
 					pthread_exit(PTHREAD_CANCELED);
@@ -420,7 +320,7 @@ _pthread_joiner_wait(pthread_t thread, pthread_join_context_t ctx, int conformin
 
 	bool cleanup = false;
 
-	_PTHREAD_LOCK(_pthread_list_lock);
+	_pthread_lock_lock(&_pthread_list_lock);
 	// If pthread_detach() was called, we can't safely dereference the thread,
 	// else, decide who gets to deallocate the thread (see _pthread_terminate).
 	if (!ctx->detached) {
@@ -428,7 +328,7 @@ _pthread_joiner_wait(pthread_t thread, pthread_join_context_t ctx, int conformin
 		thread->tl_join_ctx = NULL;
 		cleanup = thread->tl_joiner_cleans_up;
 	}
-	_PTHREAD_UNLOCK(_pthread_list_lock);
+	_pthread_lock_unlock(&_pthread_list_lock);
 
 	if (cleanup) {
 		_pthread_deallocate(thread, false);
@@ -436,9 +336,9 @@ _pthread_joiner_wait(pthread_t thread, pthread_join_context_t ctx, int conformin
 	return 0;
 }
 
-PTHREAD_NOEXPORT PTHREAD_NOINLINE
+OS_NOINLINE
 int
-_pthread_join(pthread_t thread, void **value_ptr, int conforming)
+_pthread_join(pthread_t thread, void **value_ptr, pthread_conformance_t conforming)
 {
 	pthread_t self = pthread_self();
 	pthread_join_context_s ctx = {
@@ -453,6 +353,7 @@ _pthread_join(pthread_t thread, void **value_ptr, int conforming)
 	if (!_pthread_validate_thread_and_list_lock(thread)) {
 		return ESRCH;
 	}
+
 	_pthread_validate_signature(self);
 
 	if (!thread->tl_joinable || (thread->tl_join_ctx != NULL)) {
@@ -466,14 +367,14 @@ _pthread_join(pthread_t thread, void **value_ptr, int conforming)
 		thread->tl_joinable = false;
 		if (value_ptr) *value_ptr = _pthread_get_exit_value(thread);
 	} else {
-		ctx.kport = _pthread_kernel_thread(thread);
+		ctx.kport = _pthread_tsd_slot(thread, MACH_THREAD_SELF);
 		thread->tl_exit_gate = ctx.kport;
 		thread->tl_join_ctx = &ctx;
 		if (thread->tl_has_custom_stack) {
 			ctx.custom_stack_sema = (semaphore_t)os_get_cached_semaphore();
 		}
 	}
-	_PTHREAD_UNLOCK(_pthread_list_lock);
+	_pthread_lock_unlock(&_pthread_list_lock);
 
 	if (res == 0) {
 		if (ctx.kport == MACH_PORT_NULL) {
@@ -500,19 +401,30 @@ _pthread_join(pthread_t thread, void **value_ptr, int conforming)
 }
 
 #endif /* !BUILDING_VARIANT ] */
-#endif /* VARIANT_CANCELABLE */
 
-/*
- * Wait for a thread to terminate and obtain its exit value.
- */
+static inline pthread_conformance_t
+_pthread_conformance(void)
+{
+#ifdef VARIANT_CANCELABLE
+	return PTHREAD_CONFORM_UNIX03_CANCELABLE;
+#else /* !VARIANT_CANCELABLE */
+	return PTHREAD_CONFORM_UNIX03_NOCANCEL;
+#endif
+}
+
+static inline void
+_pthread_testcancel_if_cancelable_variant(void)
+{
+#ifdef VARIANT_CANCELABLE
+	pthread_testcancel();
+#endif
+}
+
 int
 pthread_join(pthread_t thread, void **value_ptr)
 {
-	int conforming = _pthread_conformance();
-	if (conforming == PTHREAD_CONFORM_UNIX03_CANCELABLE) {
-		_pthread_testcancel(conforming);
-	}
-	return _pthread_join(thread, value_ptr, conforming);
+	_pthread_testcancel_if_cancelable_variant();
+	return _pthread_join(thread, value_ptr, _pthread_conformance());
 }
 
 int
@@ -531,22 +443,14 @@ pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
 int
 sigwait(const sigset_t * set, int * sig)
 {
-#if __DARWIN_UNIX03
-	int err = 0, conformance = _pthread_conformance();
+	int err = 0;
 
-	if (__unix_conforming == 0)
-		__unix_conforming = 1;
-
-	if (conformance == PTHREAD_CONFORM_UNIX03_CANCELABLE) {
-		_pthread_testcancel(conformance);
-	}
+	_pthread_testcancel_if_cancelable_variant();
 
 	if (__sigwait(set, sig) == -1) {
 		err = errno;
 
-		if (conformance == PTHREAD_CONFORM_UNIX03_CANCELABLE) {
-			_pthread_testcancel(conformance);
-		}
+		_pthread_testcancel_if_cancelable_variant();
 
 		/*
 		 * EINTR that isn't a result of pthread_cancel()
@@ -557,18 +461,5 @@ sigwait(const sigset_t * set, int * sig)
 		}
 	}
 	return(err);
-#else /* __DARWIN_UNIX03 */
-	if (__sigwait(set, sig) == -1) {
-		/*
-		 * EINTR that isn't a result of pthread_cancel()
-		 * is translated to 0.
-		 */
-		if (errno != EINTR) {
-			return -1;
-		}
-	}
-
-	return 0;
-#endif /* __DARWIN_UNIX03 */
 }
 

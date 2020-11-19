@@ -54,6 +54,7 @@
 #include "keychain/securityd/SOSCloudCircleServer.h"
 #include "SecdTestKeychainUtilities.h"
 #include "SOSAccountTesting.h"
+#if SOS_ENABLED
 
 
 static void testView(SOSAccount* account, SOSViewResultCode expected, CFStringRef view, SOSViewActionCode action, char *label) {
@@ -143,10 +144,10 @@ static void tests(void)
     testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected view capability for kSOSViewKeychainV0");
     testView(account, kSOSCCViewMember, kSOSViewAppleTV, kSOSCCViewQuery, "Expected view capability for kSOSViewAppleTV");
 
-    ok([account.trust updateViewSetsWithAnalytics:account enabled:SOSViewsGetV0ViewSet() disabled:nullSet parentEvent: NULL], "Expect not accepting kSOSKeychainV0");
+    ok([account.trust updateViewSets:account enabled:SOSViewsGetV0ViewSet() disabled:nullSet], "Expect not accepting kSOSKeychainV0");
     testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected no addition of kSOSKeychainV0");
 
-    ok([account.trust updateViewSetsWithAnalytics:account enabled:SOSViewsGetV0ViewSet() disabled:nullSet parentEvent: NULL], "Expect not accepting kSOSKeychainV0");
+    ok([account.trust updateViewSets:account enabled:SOSViewsGetV0ViewSet() disabled:nullSet], "Expect not accepting kSOSKeychainV0");
     testView(account, kSOSCCViewNotMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected no addition of kSOSKeychainV0");
 
     SOSPeerInfoRef pi = account.peerInfo;
@@ -155,10 +156,10 @@ static void tests(void)
     
     ok(vr == kSOSCCViewMember, "Set Virtual View manually");
     
-    ok(![account.trust updateViewSetsWithAnalytics:account enabled:nullSet disabled:SOSViewsGetV0ViewSet() parentEvent: NULL], "Expect not removing kSOSKeychainV0");
+    ok(![account.trust updateViewSets:account enabled:nullSet disabled:SOSViewsGetV0ViewSet()], "Expect not removing kSOSKeychainV0");
     testView(account, kSOSCCViewMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected kSOSKeychainV0 is still there");
     
-    ok(![account.trust updateViewSetsWithAnalytics:account enabled:nullSet disabled:SOSViewsGetV0ViewSet() parentEvent: NULL], "Expect not removing kSOSKeychainV0");
+    ok(![account.trust updateViewSets:account enabled:nullSet disabled:SOSViewsGetV0ViewSet()], "Expect not removing kSOSKeychainV0");
     testView(account, kSOSCCViewMember, kSOSViewKeychainV0, kSOSCCViewQuery, "Expected kSOSKeychainV0 is still there");
    
     SOSDataSourceRelease(test_source, NULL);
@@ -166,15 +167,18 @@ static void tests(void)
 
     SOSTestCleanup();
 }
+#endif
 
 int secd_80_views_basic(int argc, char *const *argv)
 {
+#if SOS_ENABLED
     plan_tests(kTestTestCount);
-    
     secd_test_setup_temp_keychain(__FUNCTION__, NULL);
     secd_test_clear_testviews();
     testViewLists();
     tests();
-    
+#else
+    plan_tests(0);
+#endif
     return 0;
 }

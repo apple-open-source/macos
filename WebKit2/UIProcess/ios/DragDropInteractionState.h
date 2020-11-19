@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(DRAG_SUPPORT) && PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
 
 #import "UIKitSPI.h"
 #import <WebCore/DragActions.h>
@@ -46,7 +46,7 @@ struct TextIndicatorData;
 namespace WebKit {
 
 struct DragSourceState {
-    WebCore::DragSourceAction action { WebCore::DragSourceActionNone };
+    OptionSet<WebCore::DragSourceAction> action;
     CGPoint adjustedOrigin { CGPointZero };
     CGRect dragPreviewFrameInRootViewCoordinates { CGRectZero };
     RetainPtr<UIImage> image;
@@ -133,4 +133,4 @@ private:
 
 } // namespace WebKit
 
-#endif // ENABLE(DRAG_SUPPORT) && PLATFORM(IOS_FAMILY)
+#endif // PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)

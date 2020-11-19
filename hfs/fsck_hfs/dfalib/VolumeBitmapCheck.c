@@ -706,7 +706,7 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	 * them against the on-disk bitmap.
 	 */
 	for (bit = 0; bit < gTotalBits; bit += kBitsPerSegment) {
-		(void) GetSegmentBitmap(bit, &buffer, kTestingBits);
+		(void) GetSegmentBitmap((UInt32)bit, &buffer, kTestingBits);
 
 		/* 
 		 * When we cross file block boundries read a new block from disk.

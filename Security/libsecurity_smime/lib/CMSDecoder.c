@@ -223,7 +223,6 @@ OSStatus CMSDecoderUpdateMessage(
         case DS_Init:
             /* First time through; set up */
             ASSERT(cmsDecoder->decoder == NULL);
-            ASSERT(cmsDecoder->arena == NULL);
             ortn = SecCmsDecoderCreate(NULL, NULL, NULL, NULL, NULL, NULL, &cmsDecoder->decoder);
             if(ortn) {
                 ortn = cmsRtnToOSStatus(ortn);

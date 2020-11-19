@@ -1,0 +1,17 @@
+--- man/hu/hunspell.4	2008-04-11 04:37:29.000000000 -0700
++++ man/hu/hunspell.4	2020-04-06 13:14:00.000000000 -0700
+@@ -1,6 +1,5 @@
+ .hla hu
+ .TH hunspell 4 "2008. április 11."
+-.LO 1
+ .SH NÉV
+ hunspell \- a Hunspell állományainak formátuma
+ .SH LEÍRÁS
+@@ -191,7 +190,6 @@
+ AF 2
+ AF A
+ AF AB
+-...
+ .fi
+ .RE
+ .PP

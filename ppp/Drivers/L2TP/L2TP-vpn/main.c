@@ -124,16 +124,12 @@ ref is the vpn bundle reference
 pppref is the ppp bundle reference
 bundles can be layout in two different ways
 - As simple vpn bundles (bundle.vpn). the bundle contains the vpn bundle binary.
-- As full ppp bundles (bundle.ppp). The bundle contains the ppp bundle binary, 
-and also the vpn kext and the vpn bundle binary in its Plugins directory.
+- As full ppp bundles (bundle.ppp). The bundle contains the ppp bundle binary.
 if a simple vpn bundle was used, pppref will be NULL.
-if a ppp bundle was used, the vpn plugin will be able to get access to the 
-Plugins directory and load the vpn kext.
 ----------------------------------------------------------------------------- */
 int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppref, int debug_mode, int log_verbose)
 {
     char 	name[MAXPATHLEN]; 
-    CFURLRef	url;
     size_t		len; 
 	int			nb_cpu = 1, nb_threads = 0;
 
@@ -146,26 +142,17 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                 break;
         if (listen_sockfd < 0) {
             vpnlog(LOG_DEBUG, "L2TP plugin: first call to socket failed - attempting to load kext\n");
-            if ((url = CFBundleCopyBundleURL(pppref))) {
-                name[0] = 0;
-                CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)name, MAXPATHLEN - 1);
-                CFRelease(url);
-                strlcat(name, "/", sizeof(name));
-                if ((url = CFBundleCopyBuiltInPlugInsURL(pppref))) {
-                    CFURLGetFileSystemRepresentation(url, 0, (UInt8 *)(name + strlen(name)), 
-                                MAXPATHLEN - strlen(name) - strlen(L2TP_NKE) - 1);
-                    CFRelease(url);
-                    strlcat(name, "/", sizeof(name));
-                    strlcat(name, L2TP_NKE, sizeof(name));
+            strlcpy(name, L2TP_NKE, sizeof(name)-1);
 #if TARGET_OS_OSX // This file is not built for Embedded
-                    if (!load_kext(name, 0))
+            if (!load_kext(name, 0)) {
 #else
-                    if (!load_kext(L2TP_NKE_ID, 1))
+            if (!load_kext(L2TP_NKE_ID, 1)) {
 #endif
-                        while ((listen_sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP)) < 0)
-                            if (errno != EINTR)
-                                break;
-                }	
+                while ((listen_sockfd = socket(PF_PPP, SOCK_DGRAM, PPPPROTO_L2TP)) < 0) {
+                    if (errno != EINTR) {
+                        break;
+                    }
+                }
             }
             if (listen_sockfd < 0) {
                 vpnlog(LOG_ERR, "L2TP plugin: Unable to load L2TP kernel extension\n");

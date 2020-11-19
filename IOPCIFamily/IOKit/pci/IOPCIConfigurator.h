@@ -131,7 +131,7 @@ enum {
     kIOPCIConfiguratorVTLog          = 0x00000004,
     
     kIOPCIConfiguratorAER            = 0x00000008,
-    kIOPCIConfiguratorWakeToOff      = 0x00000010,
+    kIOPCIConfiguratorWakeToOff      = 0x00000010,       // deprecated rdar://problem/64949845
     kIOPCIConfiguratorDeviceMap      = 0x00000020,
 
     kIOPCIConfiguratorLogSaveRestore = 0x00000040,
@@ -272,6 +272,7 @@ struct IOPCIConfigEntry
     IOPCIConfigEntry *  parent;
     IOPCIConfigEntry *  child;
     IOPCIConfigEntry *  peer;
+    IOPCIConfigEntry *  hostBridgeEntry;
     uint32_t			id;
     uint32_t            classCode;
     IOPCIAddressSpace   space;
@@ -283,6 +284,7 @@ struct IOPCIConfigEntry
     uint32_t            fpbCapBlock;
     uint32_t            fpbCaps;
 
+    IOPCIBridge *       hostBridge;
     IOPCIRange *        ranges[kIOPCIRangeCount];
     IOPCIRange          busResv;
     uint32_t            rangeBaseChanges;
@@ -334,12 +336,9 @@ class IOPCIConfigurator : public IOService
 
     IOWorkLoop *            fWL;
     IOOptionBits            fFlags;
-    IOPCIBridge *           fHostBridge;
     IOPCIConfigEntry *      fRoot;
     uint64_t                fPFM64Size;
 	uint32_t				fRootVendorProduct;
-
-	uint8_t					fMaxPayload;
 
     IOPCIRange *            fConsoleRange;
     IOPCIScalar             fPFMConsole;
@@ -408,7 +407,7 @@ protected:
     void    bridgeProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
     void    cardbusProbeRanges(IOPCIConfigEntry * bridge, uint32_t resetMask);
     void    bridgeProbeBusRange(IOPCIConfigEntry * bridge, uint32_t resetMask);
-	uint32_t findPCICapability(IOPCIConfigEntry * device,
+    uint32_t findPCICapability(IOPCIConfigEntry * device,
                                uint32_t capabilityID, uint32_t * found);
     void    checkCacheLineSize(IOPCIConfigEntry * device);
     void    writeLatencyTimer(IOPCIConfigEntry * device);
@@ -423,22 +422,20 @@ protected:
 
     bool     createRoot(void);
     IOReturn addHostBridge(IOPCIBridge * hostBridge);
-    IOPCIConfigEntry * findEntry(IOPCIAddressSpace space);
+    IOPCIConfigEntry * findEntry(IORegistryEntry * from, IOPCIAddressSpace space);
 
-	bool     configAccess(IOPCIConfigEntry * device, bool write);
+    bool     configAccess(IOPCIConfigEntry * device, bool write);
     void     configAccess(IOPCIConfigEntry * device, uint32_t access, uint32_t offset, void * data);
 
-    uint32_t configRead32( IOPCIAddressSpace space, uint32_t offset);
-	void     configWrite32(IOPCIAddressSpace space, uint32_t offset, uint32_t data);
-	uint32_t findPCICapability(IOPCIAddressSpace space,
+    uint32_t findPCICapability(IORegistryEntry * from, IOPCIAddressSpace space,
                                uint32_t capabilityID, uint32_t * found);
 
-    uint32_t configRead32( IOPCIConfigEntry * device, uint32_t offset);
-    uint16_t configRead16( IOPCIConfigEntry * device, uint32_t offset);
-    uint8_t  configRead8(  IOPCIConfigEntry * device, uint32_t offset);
-    void     configWrite32(IOPCIConfigEntry * device, uint32_t offset, uint32_t data);
-    void     configWrite16(IOPCIConfigEntry * device, uint32_t offset, uint16_t data);
-    void     configWrite8( IOPCIConfigEntry * device, uint32_t offset, uint8_t  data);
+    uint32_t configRead32(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL);
+    uint16_t configRead16(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL);
+    uint8_t  configRead8(IOPCIConfigEntry * device, uint32_t offset, IOPCIAddressSpace *targetAddressSpace = NULL);
+    void     configWrite32(IOPCIConfigEntry * device, uint32_t offset, uint32_t data, IOPCIAddressSpace *targetAddressSpace = NULL);
+    void     configWrite16(IOPCIConfigEntry * device, uint32_t offset, uint16_t data, IOPCIAddressSpace *targetAddressSpace = NULL);
+    void     configWrite8(IOPCIConfigEntry * device, uint32_t offset, uint8_t  data, IOPCIAddressSpace *targetAddressSpace = NULL);
 
 public:
     bool init(IOWorkLoop * wl, uint32_t flags);

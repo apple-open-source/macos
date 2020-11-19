@@ -15,6 +15,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/measure.h"
@@ -25,7 +27,6 @@
  * \brief C++ API: Currency Amount Object.
  */
  
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /**
@@ -80,7 +81,7 @@ class U_I18N_API CurrencyAmount: public Measure {
      * have the same class as returned by getDynamicClassID().
      * @stable ICU 3.0
      */
-    virtual UObject* clone() const;
+    virtual CurrencyAmount* clone() const;
 
     /**
      * Destructor
@@ -128,7 +129,9 @@ inline const char16_t* CurrencyAmount::getISOCurrency() const {
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif // !UCONFIG_NO_FORMATTING
+
+#endif /* U_SHOW_CPLUSPLUS_API */
+
 #endif // __CURRENCYAMOUNT_H__

@@ -252,6 +252,11 @@ static WebDefaultUIKitDelegate *sharedDelegate = nil;
     return CGPointZero;
 }
 
+- (BOOL)shouldRevealCurrentSelectionAfterInsertion
+{
+    return YES;
+}
+
 - (void)showPlaybackTargetPicker:(BOOL)hasVideo fromRect:(CGRect)elementRect
 {
 }
@@ -262,6 +267,11 @@ static WebDefaultUIKitDelegate *sharedDelegate = nil;
     return 0;
 }
 #endif
+
+- (BOOL)shouldSuppressPasswordEcho
+{
+    return NO;
+}
 
 - (BOOL)hasRichlyEditableSelection
 {
@@ -281,11 +291,6 @@ static WebDefaultUIKitDelegate *sharedDelegate = nil;
 - (NSInteger)getPasteboardChangeCount
 {
     return 0;
-}
-
-- (BOOL)isUnperturbedDictationResultMarker:(id)metadataForMarker
-{
-    return NO;
 }
 
 - (void)webView:(WebView *)webView willAddPlugInView:(id)plugInView

@@ -23,15 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "WKFocusedFormControlView.h"
+#import "config.h"
+#import "WKFocusedFormControlView.h"
 
 #if PLATFORM(WATCHOS)
 
 asm(".linker_option \"-framework\", \"PepperUICore\"");
 
-#import <PepperUICore/PUICCrownInputSequencer.h>
-#import <PepperUICore/PUICCrownInputSequencer_Private.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <wtf/NeverDestroyed.h>
@@ -396,7 +394,7 @@ static NSDictionary *submitActionNameFontAttributes()
     }
 
     if (targetHighlightedFrameDeltaX || targetHighlightedFrameDeltaY) {
-        CGFloat distanceToTarget = std::sqrt(targetHighlightedFrameDeltaX * targetHighlightedFrameDeltaX + targetHighlightedFrameDeltaY * targetHighlightedFrameDeltaY);
+        CGFloat distanceToTarget = std::hypot(targetHighlightedFrameDeltaX, targetHighlightedFrameDeltaY);
         unitVectorToTarget = CGVector { targetHighlightedFrameDeltaX / distanceToTarget, targetHighlightedFrameDeltaY / distanceToTarget };
     }
 
@@ -462,10 +460,21 @@ static NSDictionary *submitActionNameFontAttributes()
 
 - (void)setSuggestions:(NSArray<UITextSuggestion *> *)suggestions
 {
-    if (_textSuggestions == suggestions || [_textSuggestions isEqualToArray:suggestions])
+    RetainPtr<NSMutableArray> displayableTextSuggestions;
+    if (suggestions) {
+        displayableTextSuggestions = adoptNS([[NSMutableArray alloc] initWithCapacity:suggestions.count]);
+        for (UITextSuggestion *suggestion in suggestions) {
+            if (!suggestion.displayText.length)
+                continue;
+
+            [displayableTextSuggestions addObject:suggestion];
+        }
+    }
+
+    if (_textSuggestions == displayableTextSuggestions.get() || [_textSuggestions isEqualToArray:displayableTextSuggestions.get()])
         return;
 
-    _textSuggestions = adoptNS(suggestions.copy);
+    _textSuggestions = WTFMove(displayableTextSuggestions);
     [_delegate focusedFormControllerDidUpdateSuggestions:self];
 }
 

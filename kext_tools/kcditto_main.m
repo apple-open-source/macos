@@ -4,6 +4,7 @@
 #import <Bom/Bom.h>
 #import <APFS/APFS.h>
 
+#import <libproc.h>
 #import <stdio.h>
 #import <stdbool.h>
 #import <sysexits.h>
@@ -11,46 +12,44 @@
 
 #import "bootcaches.h"
 #import "kext_tools_util.h"
-#import "rosp_staging.h"
-
-bool removeTempScript(void)
-{
-    bool result = false;
-    if (remove(_kOSKextDeferredBootcachesInstallScriptPath) < 0) {
-        LOG_ERROR("Error removing %s: %d (%s)",
-                _kOSKextDeferredBootcachesInstallScriptPath,
-                errno, strerror(errno));
-        goto finish;
-    }
-    result = true;
-finish:
-    return result;
-}
+#import "kc_staging.h"
 
 int main(int argc, char **argv)
 {
-    (void)argv;
+	int result = EX_SOFTWARE;
+	char pathbuf[PROC_PIDPATHINFO_MAXSIZE];
+	struct statfs sfs = {};
 
-    int result = EX_SOFTWARE;
+	if (argc != 1) {
+		LOG_ERROR("kcditto installs previously built kext collections onto the Preboot volume.");
+		LOG_ERROR("It takes no arguments.");
+		result = EX_USAGE;
+		goto finish;
+	}
 
-    if (argc != 1) {
-        fprintf(stderr, "kcditto takes no arguments and should not be run directly.\n");
-        fprintf(stderr, "kcditto installs previously-rebuilt kernelcaches onto the System volume.\n");
-        result = EX_USAGE;
-        goto finish;
-    }
+	int ret = proc_pidpath(getpid(), pathbuf, sizeof(pathbuf));
+	if (ret <= 0) {
+		LOG_ERROR("Can't get executable path for (%d)%s: %s",
+		          getpid(), argv[0], strerror(errno));
+		goto finish;
+	}
+	if (statfs(pathbuf, &sfs) < 0) {
+		goto finish;
+	}
 
-    result = copyKernelsInVolume("/");
-    if (result != EX_OK) {
-        LOG_ERROR("Error copying kernels (standalone)...");
-        goto finish;
-    }
+	LOG("Copying deferred prelinked kernels in %s...", sfs.f_mntonname);
+	result = copyDeferredPrelinkedKernels(sfs.f_mntonname);
+	if (result != EX_OK) {
+		LOG_ERROR("Error copying deferred prelinked kernels (standalone)...");
+	}
 
-    if (!removeTempScript()) {
-        LOG_ERROR("Error removing temp script (standalone)...");
-        result = EX_SOFTWARE;
-        goto finish;
-    }
+	LOG("Copying KCs in %s...", sfs.f_mntonname);
+	result = copyKCsInVolume(sfs.f_mntonname);
+	if (result != EX_OK) {
+		LOG_ERROR("Error copying KCs (standalone)...");
+		goto finish;
+	}
+
 finish:
-    return result;
+	return result;
 }

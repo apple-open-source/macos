@@ -52,6 +52,7 @@ public:
     ~TranslocatorServer();
 
     string translocatePathForUser(const TranslocationPath &originalPath, const string &destPath) override;
+    string translocatePathForUser(const GenericTranslocationPath &originalPath, const string &destPath) override;
     bool destroyTranslocatedPathForUser(const string &translocatedPath) override;
     void appLaunchCheckin(pid_t pid) override;
     

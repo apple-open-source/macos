@@ -22,6 +22,8 @@
 
 #include "unicode/utypes.h"
 
+#if U_SHOW_CPLUSPLUS_API
+
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/calendar.h"
@@ -36,7 +38,6 @@
  * \brief C++ API: Symbols for formatting dates.
  */
 
-#if U_SHOW_CPLUSPLUS_API
 U_NAMESPACE_BEGIN
 
 /* forward declaration */
@@ -1025,9 +1026,10 @@ DateFormatSymbols::capitalizeForUsage(DateFormatSymbols::ECapitalizationContextU
 }
 
 U_NAMESPACE_END
-#endif // U_SHOW_CPLUSPLUS_API
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
+
+#endif /* U_SHOW_CPLUSPLUS_API */
 
 #endif // _DTFMTSYM
 //eof

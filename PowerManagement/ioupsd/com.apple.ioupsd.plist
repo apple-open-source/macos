@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.ioupsd</string>
+	<key>Program</key>
+	<string>/usr/libexec/ioupsd</string>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>EnablePressuredExit</key>
+	<false/>
+	<key>LaunchEvents</key>
+	<dict>
+		<key>com.apple.iokit.matching</key>
+		<dict>
+			<key>Device was attached</key>
+			<dict>
+				<key>IOProviderClass</key>
+				<string>IOHIDDevice</string>
+				<key>DeviceUsagePairs</key>
+				<array>
+					<dict>
+						<key>DeviceUsagePage</key>
+						<integer>132</integer>
+					</dict>
+					<dict>
+						<key>DeviceUsagePage</key>
+						<integer>133</integer>
+					</dict>
+					<dict>
+						<key>DeviceUsagePage</key>
+						<integer>65280</integer>
+						<key>DeviceUsage</key>
+						<integer>20</integer>
+					</dict>
+					<dict>
+						<key>DeviceUsagePage</key>
+						<integer>132</integer>
+						<key>DeviceUsage</key>
+						<integer>6</integer>
+					</dict>
+				</array>
+				<key>IOMatchLaunchStream</key>
+				<false/>
+			</dict>
+		</dict>
+	</dict>
+</dict>
+</plist>

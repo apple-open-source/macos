@@ -228,7 +228,7 @@ public:
     const Vector<FormDataElement>& elements() const { return m_elements; }
     const Vector<char>& boundary() const { return m_boundary; }
 
-    RefPtr<SharedBuffer> asSharedBuffer() const;
+    WEBCORE_EXPORT RefPtr<SharedBuffer> asSharedBuffer() const;
 
     bool alwaysStream() const { return m_alwaysStream; }
     void setAlwaysStream(bool alwaysStream) { m_alwaysStream = alwaysStream; }
@@ -250,7 +250,7 @@ public:
         return FormURLEncoded;
     }
 
-    uint64_t lengthInBytes() const;
+    WEBCORE_EXPORT uint64_t lengthInBytes() const;
 
     WEBCORE_EXPORT URL asBlobURL() const;
 

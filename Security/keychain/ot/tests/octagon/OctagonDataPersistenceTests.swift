@@ -3,7 +3,6 @@ import XCTest
 #if OCTAGON
 
 class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockXCTest {
-
     override static func setUp() {
         super.setUp()
 
@@ -147,7 +146,7 @@ class OctagonAccountMetadataClassCPersistenceTests: CloudKitKeychainSyncingMockX
         do {
             let state2 = try OTAccountMetadataClassC.loadFromKeychain(forContainer: OTCKContainerName, contextID: OTDefaultContext)
             XCTAssertNotNil(state2)
-            XCTAssertEqual(state2.peerID, nil, "peerID should be nil")
+            XCTAssertNil(state2.peerID, "peerID should be nil")
             XCTAssertEqual(state2.icloudAccountState, OTAccountMetadataClassC_AccountState.UNKNOWN, "account state should be OTAccountMetadataClassC_AccountState_UNKNOWN")
             XCTAssertEqual(state2.trustState, OTAccountMetadataClassC_TrustState.UNKNOWN, "trust state should be OTAccountMetadataClassC_TrustState_UNKNOWN")
         } catch {

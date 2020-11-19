@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,8 +23,7 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef ObjCObjectGraph_h
-#define ObjCObjectGraph_h
+#pragma once
 
 #include "APIObject.h"
 #include <wtf/RetainPtr.h>
@@ -55,11 +54,11 @@ public:
     static RetainPtr<id> transform(id, const Transformer&);
 
     void encode(IPC::Encoder&) const;
-    static bool decode(IPC::Decoder&, RefPtr<API::Object>&);
+    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, RefPtr<API::Object>&);
 
 private:
     static void encode(IPC::Encoder&, id);
-    static bool decode(IPC::Decoder&, RetainPtr<id>&);
+    static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, RetainPtr<id>&);
 
     explicit ObjCObjectGraph(id rootObject)
         : m_rootObject(rootObject)
@@ -70,5 +69,3 @@ private:
 };
 
 } // namespace WebKit
-
-#endif // ObjCObjectGraph_h

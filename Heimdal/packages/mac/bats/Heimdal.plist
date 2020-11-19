@@ -12,6 +12,17 @@
 	<array>
 		<dict>
 			<key>TestName</key>
+			<string>GSSCred Unit Tests</string>
+			<key>Command</key>
+			<array>
+				<string>BATS_XCTEST_CMD</string>
+				<string>/AppleInternal/CoreOS/tests/Heimdal/bin/GSSCredTests.xctest</string>
+			</array>
+			<key>ShowSubtestResults</key>
+			<true/>
+		</dict>
+		<dict>
+			<key>TestName</key>
 			<string>test_aks</string>
 			<key>Command</key>
 			<array>

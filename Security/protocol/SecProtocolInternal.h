@@ -27,18 +27,18 @@
 #define CiphersuitesPFS \
     TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384, \
     TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, \
+    TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, \
+    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, \
+    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, \
+    TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256, \
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA384, \
     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256, \
     TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, \
     TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, \
-    TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256, \
-    TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, \
-    TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256, \
     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384, \
     TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256, \
     TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, \
-    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, \
-    TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+    TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
 
 #define CiphersuitesNonPFS \
     TLS_RSA_WITH_AES_256_GCM_SHA384, \
@@ -114,18 +114,6 @@ sec_protocol_configuration_populate_secure_defaults(sec_protocol_configuration_t
 
 void
 sec_protocol_configuration_register_builtin_exceptions(sec_protocol_configuration_t configuration);
-
-bool
-sec_protocol_helper_ciphersuite_group_contains_ciphersuite(tls_ciphersuite_group_t group, tls_ciphersuite_t suite);
-
-tls_protocol_version_t
-sec_protocol_helper_ciphersuite_minimum_TLS_version(tls_ciphersuite_t ciphersuite);
-
-tls_protocol_version_t
-sec_protocol_helper_ciphersuite_maximum_TLS_version(tls_ciphersuite_t ciphersuite);
-
-const char *
-sec_protocol_helper_get_ciphersuite_name(tls_ciphersuite_t ciphersuite);
 
 const tls_key_exchange_group_t *
 sec_protocol_helper_tls_key_exchange_group_set_to_key_exchange_group_list(tls_key_exchange_group_set_t set, size_t *listSize);

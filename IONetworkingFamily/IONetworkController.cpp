@@ -112,9 +112,10 @@ static const OSData   * gIONullLinkData;
 
 // Global symbols.
 //
-const OSSymbol * gIONetworkFilterGroup;
-const OSSymbol * gIOEthernetWakeOnLANFilterGroup;
-const OSSymbol * gIOEthernetDisabledWakeOnLANFilterGroup;
+__exported const OSSymbol * gIONetworkFilterGroup;
+__exported const OSSymbol * gIOEthernetWakeOnLANFilterGroup;
+__exported const OSSymbol * gIOEthernetDisabledWakeOnLANFilterGroup;
+
 uint32_t         gIONetworkDebugFlags = 0;
 #ifdef __x86_64__
 OSArray *        gIONetworkMbufCursorKexts;

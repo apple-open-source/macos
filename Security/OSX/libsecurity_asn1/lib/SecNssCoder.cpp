@@ -32,7 +32,7 @@
 #include <security_utilities/utilities.h>
 #include <security_asn1/secasn1.h>
 #include <string.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 
 #ifdef	NDEBUG
 #define THROW_ENABLE	1

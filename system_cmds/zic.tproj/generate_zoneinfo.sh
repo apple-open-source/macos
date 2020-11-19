@@ -60,7 +60,7 @@ if [ $? -ne 0 ]; then
 fi
 
 chmod -R og-w "${ZONEINFO}"
-for f in "zone.tab" "iso3166.tab"; do
+for f in "zone.tab" "iso3166.tab" "leapseconds"; do
     install -m 0444 "${DATFILES}/$f" "${ZONEINFO}/$f" || exit 1
 done
 if [ $? -ne 0 ]; then

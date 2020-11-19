@@ -34,6 +34,7 @@
 #include "LibWebRTCRtpReceiverBackend.h"
 #include "LibWebRTCRtpSenderBackend.h"
 #include "LibWebRTCRtpTransceiverBackend.h"
+#include "Logging.h"
 #include "MediaEndpointConfiguration.h"
 #include "Page.h"
 #include "RTCIceCandidate.h"
@@ -51,8 +52,10 @@ namespace WebCore {
 
 static std::unique_ptr<PeerConnectionBackend> createLibWebRTCPeerConnectionBackend(RTCPeerConnection& peerConnection)
 {
-    if (!LibWebRTCProvider::webRTCAvailable())
+    if (!LibWebRTCProvider::webRTCAvailable()) {
+        RELEASE_LOG_ERROR(WebRTC, "LibWebRTC is not available to create a backend");
         return nullptr;
+    }
 
     auto* page = downcast<Document>(*peerConnection.scriptExecutionContext()).page();
     if (!page)
@@ -442,7 +445,7 @@ void LibWebRTCPeerConnectionBackend::applyRotationForOutgoingVideoSources()
     for (auto& transceiver : m_peerConnection.currentTransceivers()) {
         if (!transceiver->sender().isStopped()) {
             if (auto* videoSource = backendFromRTPSender(transceiver->sender()).videoSource())
-                videoSource->setApplyRotation(true);
+                videoSource->applyRotation();
         }
     }
 }

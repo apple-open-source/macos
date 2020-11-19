@@ -37,7 +37,7 @@
 #include <sys/param.h>
 #include <dirent.h>
 #include <fcntl.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <time.h>
 #include <string>
 #include <unistd.h>

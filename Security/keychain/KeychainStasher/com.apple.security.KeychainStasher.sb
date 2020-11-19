@@ -1,0 +1,22 @@
+(version 1)
+
+(deny default)
+(deny file-map-executable process-info* nvram*)
+(deny dynamic-code-generation)
+
+(import "system.sb")
+(import "com.apple.corefoundation.sb")
+(corefoundation)
+
+(allow process-info-dirtycontrol (target self))
+
+(allow mach-lookup (global-name "com.apple.securityd.xpc"))
+
+(allow file-read-metadata)
+
+(if (param "ANALYTICSDIR")
+    (allow file-read* file-write* (subpath (param "ANALYTICSDIR"))))
+
+(allow file-read* (subpath "/usr/libexec"))
+
+(allow user-preference-read (preference-domain "kCFPreferencesAnyApplication"))

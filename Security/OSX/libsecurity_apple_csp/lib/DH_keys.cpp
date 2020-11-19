@@ -27,7 +27,7 @@
 #include <security_cdsa_utilities/cssmdata.h>
 #include <AppleCSPSession.h>
 #include <AppleCSPUtils.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <security_utilities/debugging.h>
 #include <Security/oidsalg.h>
 #include <YarrowConnection.h>

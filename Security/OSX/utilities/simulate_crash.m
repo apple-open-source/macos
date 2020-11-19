@@ -11,7 +11,7 @@
 #import <SoftLinking/SoftLinking.h>
 #import <Foundation/Foundation.h>
 
-SOFT_LINK_FRAMEWORK_SAFE(PrivateFrameworks, CrashReporterSupport);
+SOFT_LINK_OPTIONAL_FRAMEWORK(PrivateFrameworks, CrashReporterSupport);
 
 SOFT_LINK_FUNCTION(CrashReporterSupport, SimulateCrash, soft_SimulateCrash, \
                    BOOL, (pid_t pid, mach_exception_data_type_t exceptionCode, NSString *description),

@@ -1,5 +1,4 @@
-#!/usr/bin/python
-#
+#!/usr/local/bin/python3
 
 import sys
 from glob import glob
@@ -25,9 +24,9 @@ def set_security_ios_cmd():
 
 def security_cmd_by_platform():
         swVers = subprocess.check_output(["sw_vers"])
-        deviceInformation = str(swVers, 'utf-8')
-        if "Mac OS X" in deviceInformation:
-                print("using security2 command on macosx")
+        deviceInformation = swVers.decode('utf-8')
+        if "Mac OS X" in deviceInformation or "macOS" in deviceInformation:
+                print("using security2 command on macos")
                 return set_security_mac_cmd()
         elif "iPhone OS" in deviceInformation:
                 print("using security command on ios")
@@ -38,19 +37,16 @@ def security_cmd_by_platform():
 
 security_cmd = security_cmd_by_platform()
 
-print("resetting octagon")
-subprocess.check_output(["otctl", "resetoctagon"])
-
-print("resetting ckks")
-subprocess.check_output(["ckksctl", "reset-cloudkit"])
+print("deleting all escrow records")
+subprocess.check_output(["stingrayutil", "--deleteAll", "ReallyDeleteAll"])
 
 print("resetting SOS")
 subprocess.check_output([security_cmd, "sync", "-C"])
 subprocess.check_output([security_cmd, "sync", "-P", "$iCloudPassword"])
 subprocess.check_output([security_cmd, "sync", "-O"])
 
-print("deleting all escrow records")
-subprocess.check_output(["stingrayutil", "--deleteAll", "ReallyDeleteAll"])
+print("resetting octagon")
+subprocess.check_output(["otctl", "resetoctagon"])
 
 print("creating new escrow record")
 subprocess.check_output(["sbdtool", "passcode_request_trigger"])

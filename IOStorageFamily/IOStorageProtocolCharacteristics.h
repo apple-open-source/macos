@@ -24,7 +24,13 @@
 #ifndef _IOKIT_IO_STORAGE_PROTOCOL_CHARACTERISTICS_H_
 #define _IOKIT_IO_STORAGE_PROTOCOL_CHARACTERISTICS_H_
 
+#include <TargetConditionals.h>
+
+#if TARGET_OS_DRIVERKIT
+#include <DriverKit/storage/IOStorageControllerCharacteristics.h>
+#else
 #include <IOKit/storage/IOStorageControllerCharacteristics.h>
+#endif
 
 /*
  *	Protocol Characteristics - Characteristics defined for protocols.
@@ -641,5 +647,50 @@ Example:
 */
 #define kIOPropertyPhysicalInterconnectTypePCI		"PCI"
 
+/*!
+ @defined kIOPropertyPhysicalInterconnectTypePCIExpress
+ @discussion This key defines the value of PCI-Express for the key
+ kIOPropertyPhysicalInterconnectTypePCIExpress. If the device is connected
+ via PCI-Express, this key should be set.
+ 
+ Example:
+ <pre>
+ @textblock
+ <dict>
+ 	<key>Protocol Characteristics</key>
+ 	<dict>
+ 		<key>Physical Interconnect</key>
+ 		<string>PCI-Express</string>
+ 		<key>Physical Interconnect Location</key>
+ 		<string>Internal</string>
+ 	</dict>
+ </dict>
+ @/textblock
+ </pre>
+ */
+#define kIOPropertyPhysicalInterconnectTypePCIExpress		"PCI-Express"
+
+/*!
+ @defined kIOPropertyPhysicalInterconnectTypeAppleFabric
+ @discussion This key defines the value of Apple Fabric for the key
+ kIOPropertyPhysicalInterconnectTypeAppleFabric. If the device is connected
+ via Apple Fabric, this key should be set.
+
+ Example:
+ <pre>
+ @textblock
+ <dict>
+ 	<key>Protocol Characteristics</key>
+ 	<dict>
+ 		<key>Physical Interconnect</key>
+ 		<string>Apple Fabric</string>
+ 		<key>Physical Interconnect Location</key>
+ 		<string>Internal</string>
+ 	</dict>
+ </dict>
+ @/textblock
+ </pre>
+ */
+#define kIOPropertyPhysicalInterconnectTypeAppleFabric		"Apple Fabric"
 
 #endif	/* _IOKIT_IO_STORAGE_PROTOCOL_CHARACTERISTICS_H_ */

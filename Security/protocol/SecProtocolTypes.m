@@ -84,11 +84,11 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_array,
 
 - (instancetype)init
 {
-    self = [super init];
-    if (self == nil) {
+    if ((self = [super init])) {
+        self->xpc_array = xpc_array_create(NULL, 0);
+    } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
-    self->xpc_array = xpc_array_create(NULL, 0);
     return self;
 }
 
@@ -166,11 +166,11 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_identity,
         return SEC_NIL_BAD_INPUT;
     }
 
-    self = [super init];
-    if (self == nil) {
+    if ((self = [super init])) {
+        self->identity = __DECONST(SecIdentityRef, CFRetainSafe(_identity));
+    } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
-    self->identity = __DECONST(SecIdentityRef, CFRetainSafe(_identity));
     return self;
 }
 
@@ -180,12 +180,12 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_identity,
         return SEC_NIL_BAD_INPUT;
     }
     
-    self = [super init];
-    if (self == nil) {
+    if ((self = [super init])) {
+        self->identity = __DECONST(SecIdentityRef, CFRetainSafe(_identity));
+        self->certs = __DECONST(CFArrayRef, CFRetainSafe(certificates));
+    } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
-    self->identity = __DECONST(SecIdentityRef, CFRetainSafe(_identity));
-    self->certs = __DECONST(CFArrayRef, CFRetainSafe(certificates));
     
     return self;
 }
@@ -202,16 +202,14 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_identity,
         return SEC_NIL_BAD_INPUT;
     }
 
-    self = [super init];
-    if (self == nil) {
+    if ((self = [super init])) {
+        self->certs = __DECONST(CFArrayRef, CFRetainSafe(certificates));
+        self->sign_block = sign;
+        self->decrypt_block = decrypt;
+        self->operation_queue = queue;
+    } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
-
-    self->certs = __DECONST(CFArrayRef, CFRetainSafe(certificates));
-    self->sign_block = sign;
-    self->decrypt_block = decrypt;
-    self->operation_queue = queue;
-
     return self;
 }
 
@@ -354,11 +352,11 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_certificate,
         return SEC_NIL_BAD_INPUT;
     }
 
-    self = [super init];
-    if (self == nil) {
+    if ((self = [super init])) {
+        self->certificate = __DECONST(SecCertificateRef, CFRetainSafe(_certificate));
+    } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
-    self->certificate = __DECONST(SecCertificateRef, CFRetainSafe(_certificate));
     return self;
 }
 
@@ -403,11 +401,11 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_trust,
         return SEC_NIL_BAD_INPUT;
     }
 
-    self = [super init];
-    if (self == nil) {
+    if ((self = [super init])) {
+        self->trust = __DECONST(SecTrustRef, CFRetainSafe(_trust));
+    } else {
         return SEC_NIL_OUT_OF_MEMORY;
     }
-    self->trust = __DECONST(SecTrustRef, CFRetainSafe(_trust));
     return self;
 }
 
@@ -461,9 +459,9 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_protocol_configuration_builder,
 
 @implementation SEC_CONCRETE_CLASS_NAME(sec_protocol_configuration_builder)
 
-- (id)init {
-    self = [super init];
-    if (self) {
+- (id)init
+{
+    if (self = [super init]) {
         CFBundleRef bundle = CFBundleGetMainBundle();
         if (bundle != NULL) {
             CFTypeRef rawATS = CFBundleGetValueForInfoDictionaryKey(bundle, CFSTR(kATSInfoKey));
@@ -475,9 +473,10 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_protocol_configuration_builder,
     return self;
 }
 
-- (id)initWithDictionary:(CFDictionaryRef)dict andInternalFlag:(bool)flag {
-    self = [super init];
-    if (self) {
+- (id)initWithDictionary:(CFDictionaryRef)dict
+         andInternalFlag:(bool)flag
+{
+    if ((self = [super init])) {
         self->dictionary = dict;
         CFRetainSafe(dict);
         self->is_apple = flag;
@@ -519,8 +518,7 @@ SEC_OBJECT_IMPL_INTERNAL_OBJC(sec_protocol_configuration,
 @implementation SEC_CONCRETE_CLASS_NAME(sec_protocol_configuration)
 
 - (id)init {
-    self = [super init];
-    if (self) {
+    if ((self = [super init])) {
         self->dictionary = xpc_dictionary_create(NULL, NULL, 0);
     }
     return self;

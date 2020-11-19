@@ -61,9 +61,7 @@ static const char *kXPCNotificationNameKey = "Notification";
 }
 
 - (instancetype) init {
-    self = [super init];
-
-    if (self) {
+    if ((self = [super init])) {
         self.queue = dispatch_queue_create("XPC Notification Dispatch", DISPATCH_QUEUE_SERIAL);
         self.listeners = [NSPointerArray weakObjectsPointerArray];
         __weak typeof(self) weakSelf = self;

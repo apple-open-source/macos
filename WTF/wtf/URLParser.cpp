@@ -29,7 +29,6 @@
 #include <array>
 #include <mutex>
 #include <unicode/uidna.h>
-#include <unicode/utf8.h>
 #include <unicode/utypes.h>
 
 namespace WTF {
@@ -239,7 +238,7 @@ static const uint8_t characterClassTable[256] = {
     UserInfo | ForbiddenHost, // '['
     UserInfo | SlashQuestionOrHash | ForbiddenHost, // '\\'
     UserInfo | ForbiddenHost, // ']'
-    UserInfo, // '^'
+    UserInfo | ForbiddenHost, // '^'
     0, // '_'
     UserInfo | Default, // '`'
     ValidScheme, // 'a'
@@ -412,7 +411,7 @@ template<typename CharacterType> ALWAYS_INLINE static bool isInUserInfoEncodeSet
 template<typename CharacterType> ALWAYS_INLINE static bool isPercentOrNonASCII(CharacterType character) { return !isASCII(character) || character == '%'; }
 template<typename CharacterType> ALWAYS_INLINE static bool isSlashQuestionOrHash(CharacterType character) { return character <= '\\' && characterClassTable[character] & SlashQuestionOrHash; }
 template<typename CharacterType> ALWAYS_INLINE static bool isValidSchemeCharacter(CharacterType character) { return character <= 'z' && characterClassTable[character] & ValidScheme; }
-template<typename CharacterType> ALWAYS_INLINE static bool isForbiddenHostCodePoint(CharacterType character) { return character <= ']' && characterClassTable[character] & ForbiddenHost; }
+template<typename CharacterType> ALWAYS_INLINE static bool isForbiddenHostCodePoint(CharacterType character) { return character <= '^' && characterClassTable[character] & ForbiddenHost; }
 ALWAYS_INLINE static bool shouldPercentEncodeQueryByte(uint8_t byte, const bool& urlIsSpecial)
 {
     if (characterClassTable[byte] & QueryPercent)
@@ -1148,7 +1147,7 @@ URLParser::URLParser(const String& input, const URL& base, const URLTextEncoding
         || (input.isAllSpecialCharacters<isC0ControlOrSpace>()
             && m_url.m_string == base.m_string.left(base.m_queryEnd)));
     ASSERT(internalValuesConsistent(m_url));
-#if !ASSERT_DISABLED
+#if ASSERT_ENABLED
     if (!m_didSeeSyntaxViolation) {
         // Force a syntax violation at the beginning to make sure we get the same result.
         URLParser parser(makeString(" ", input), base, nonUTF8QueryEncoding);
@@ -1156,7 +1155,7 @@ URLParser::URLParser(const String& input, const URL& base, const URLTextEncoding
         if (parsed.isValid())
             ASSERT(allValuesEqual(parser.result(), m_url));
     }
-#endif
+#endif // ASSERT_ENABLED
 }
 
 template<typename CharacterType>
@@ -2548,14 +2547,14 @@ template<typename CharacterType> Optional<URLParser::LCharBuffer> URLParser::dom
     int32_t numCharactersConverted = uidna_nameToASCII(&internationalDomainNameTranscoder(), StringView(domain).upconvertedCharacters(), domain.length(), hostnameBuffer, maxDomainLength, &processingDetails, &error);
 
     if (U_SUCCESS(error) && !processingDetails.errors) {
-#if ASSERT_DISABLED
-        UNUSED_PARAM(numCharactersConverted);
-#else
+#if ASSERT_ENABLED
         for (int32_t i = 0; i < numCharactersConverted; ++i) {
             ASSERT(isASCII(hostnameBuffer[i]));
             ASSERT(!isASCIIUpper(hostnameBuffer[i]));
         }
-#endif
+#else
+        UNUSED_PARAM(numCharactersConverted);
+#endif // ASSERT_ENABLED
         ascii.append(hostnameBuffer, numCharactersConverted);
         if (domain != StringView(ascii.data(), ascii.size()))
             syntaxViolation(iteratorForSyntaxViolationPosition);
@@ -2774,7 +2773,7 @@ Optional<String> URLParser::formURLDecode(StringView input)
     if (utf8.isNull())
         return WTF::nullopt;
     auto percentDecoded = percentDecode(reinterpret_cast<const LChar*>(utf8.data()), utf8.length());
-    return String::fromUTF8(percentDecoded.data(), percentDecoded.size());
+    return String::fromUTF8ReplacingInvalidSequences(percentDecoded.data(), percentDecoded.size());
 }
 
 // https://url.spec.whatwg.org/#concept-urlencoded-parser

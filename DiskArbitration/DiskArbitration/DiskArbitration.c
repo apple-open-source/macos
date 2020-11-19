@@ -49,6 +49,16 @@ __private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef ses
 __private_extern__ mach_port_t      _DASessionGetID( DASessionRef session );
 __private_extern__ void             _DASessionInitialize( void );
 
+/*
+ * Helper functions used by framework for storing callback information in the session's register dictionary
+ *
+ */
+__private_extern__ CFMutableDictionaryRef DACallbackCreate( CFAllocatorRef   allocator, mach_vm_offset_t address, mach_vm_offset_t context);
+__private_extern__ SInt32 DAAddCallbackToSession(DASessionRef session, CFMutableDictionaryRef callback);
+__private_extern__ void DARemoveCallbackFromSessionWithKey(DASessionRef session, SInt32 index);
+__private_extern__ SInt32 DARemoveCallbackFromSession(DASessionRef session, mach_vm_offset_t address, mach_vm_offset_t context);
+__private_extern__ CFMutableDictionaryRef DAGetCallbackFromSession(DASessionRef session, SInt32 index);
+
 static void __DAInitialize( void )
 {
     CFMutableDictionaryRef match;
@@ -471,6 +481,13 @@ __private_extern__ void _DADispatchCallback( DASessionRef    session,
 
             break;
         }
+       case _kDADiskListCompleteCallback:
+       {
+            ( ( DADiskListCompleteCallback ) address )( context );
+
+            break;
+       }
+
     }
 
     if ( response )

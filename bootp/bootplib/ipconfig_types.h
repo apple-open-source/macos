@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2015 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2019 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +25,9 @@
 #define _S_IPCONFIG_TYPES_H
 
 #include <sys/types.h>
+#include <net/if.h>
 #include <netinet/in.h>
+#include "cfutil.h"
 
 #ifdef mig_external
 #undef mig_external
@@ -33,12 +35,73 @@
 #define mig_external __private_extern__
 
 #define IPCONFIG_IF_ANY		""
-#define MAX_IF_NAMELEN 		32
-#define MAX_INLINE_DATA 	2048
 
-typedef char if_name_t[MAX_IF_NAMELEN];
-typedef char inline_data_t[MAX_INLINE_DATA];
+
+#define kInterfaceNameSize	IF_NAMESIZE
+
+typedef char	InterfaceName[kInterfaceNameSize];
+
+static inline char *
+InterfaceNameNulTerminate(InterfaceName name)
+{
+    name[kInterfaceNameSize - 1] = '\0';
+    return (name);
+}
+
+static inline void
+InterfaceNameClear(InterfaceName name)
+{
+    memset(name, 0, kInterfaceNameSize);
+}
+
+static inline void
+InterfaceNameInit(InterfaceName name, const char * cstr)
+{
+    InterfaceNameClear(name);
+    strlcpy(name, cstr, kInterfaceNameSize);
+}
+
+static inline void
+InterfaceNameInitWithCFString(InterfaceName name, CFStringRef str)
+{
+    InterfaceNameClear(name);
+    my_CFStringToCStringAndLength(str, name, kInterfaceNameSize);
+}
+
+#define kServiceIDSize		128
+
+typedef char	ServiceID[kServiceIDSize];
+
+static inline void
+ServiceIDClear(ServiceID service_id)
+{
+    memset(service_id, 0, kServiceIDSize);
+}
+
+static inline void
+ServiceIDInit(ServiceID service_id, const char * cstr)
+{
+    ServiceIDClear(service_id);
+    strlcpy(service_id, cstr, kServiceIDSize);
+}
+
+static inline void
+ServiceIDInitWithCFString(ServiceID service_id, CFStringRef str)
+{
+    ServiceIDClear(service_id);
+    my_CFStringToCStringAndLength(str, service_id, kServiceIDSize);
+}
+
+static inline CFStringRef
+ServiceIDCreateCFString(ServiceID service_id)
+{
+    return (CFStringCreateWithCString(NULL, (const char *)service_id,
+				      kCFStringEncodingUTF8));
+}
+
 typedef uint8_t * xmlData_t;
+typedef uint8_t * xmlDataOut_t;
+typedef uint8_t * dataOut_t;
 typedef u_int32_t ip_address_t;
 
 typedef enum {

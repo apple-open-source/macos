@@ -14,6 +14,8 @@
 		<string>Use SDKROOT / xcrun to find set RbConfig::CONFIG["includedir"]</string>
 		<string>Change default bindir for gems to /usr/local/bin</string>
 		<string>Include/Link with LibreSSL</string>
+		<string>Import patch for CVE-2019-15845 (59405593)</string>
+		<string>Import patch for CVE-2020-10663 (61948350)</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>ruby</string>

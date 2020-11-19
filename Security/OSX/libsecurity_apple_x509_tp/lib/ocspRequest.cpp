@@ -31,7 +31,7 @@
 #include <security_ocspd/ocspResponse.h>
 #include <security_ocspd/ocspExtensions.h>
 #include <security_ocspd/ocspdUtils.h>
-#include <assert.h>
+#include <security_utilities/simulatecrash_assert.h>
 #include <string.h>
 #include <Security/oidsalg.h>
 #include <Security/oidscert.h>

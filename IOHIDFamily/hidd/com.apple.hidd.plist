@@ -3,43 +3,27 @@
 <plist version="1.0">
 <dict>
 	<key>KeepAlive</key>
-	<true/>
+	<false/>
 	<key>Label</key>
 	<string>com.apple.hidd</string>
-    <key>MachServices</key>
-    <dict>
-            <key>com.apple.iohideventsystem</key>
-            <dict>
-                    <key>ResetAtClose</key>
-                    <true/>
-            </dict>
-    </dict>
-	<key>ProgramArguments</key>
-	<array>
-		<string>/usr/libexec/hidd</string>
-	</array>
 	<key>EnableTransactions</key>
 	<true/>
 	<key>POSIXSpawnType</key>
 	<string>Interactive</string>
-    <key>UserName</key>
-    <string>_hidd</string>
-    <key>Group</key>
-    <string>_hidd</string>
-	<key>LaunchEvents</key>
+	<key>UserName</key>
+	<string>_hidd</string>
+	<key>Group</key>
+	<string>_hidd</string>
+	<key>MachServices</key>
 	<dict>
-		<key>com.apple.iokit.matching</key>
-		<dict>
-			<key>com.apple.device-attach</key>
-			<dict>
-				<key>IOProviderClass</key>
-				<string>IOHIDFamily</string>
-				<key>IONameMatch</key>
-				<string>IOHID</string>
-				<key>IOMatchLaunchStream</key>
-				<true/>
-			</dict>
-		</dict>
+		<key>com.apple.hidpreferenceshelper</key>
+		<true/>
 	</dict>
+	<key>EnablePressuredExit</key>
+	<true/>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/hidd</string>
+	</array>
 </dict>
 </plist>

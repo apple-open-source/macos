@@ -1,4 +1,4 @@
-# Copyright (C) 2019 Apple Inc. All rights reserved.
+# Copyright (C) 2019-2020 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -32,8 +32,13 @@ messages -> GPUProcess {
     ProcessDidTransitionToForeground()
     ProcessDidTransitionToBackground()
 
+    AddSession(PAL::SessionID sessionID, struct WebKit::GPUProcessSessionParameters parameters)
+    RemoveSession(PAL::SessionID sessionID)
+
 #if ENABLE(MEDIA_STREAM)
     SetMockCaptureDevicesEnabled(bool isEnabled)
+    SetOrientationForMediaCapture(uint64_t orientation);
+    UpdateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier processID) -> () Async
 #endif
 }
 

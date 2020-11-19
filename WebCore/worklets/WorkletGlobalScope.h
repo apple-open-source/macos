@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -62,9 +62,10 @@ public:
     EventLoopTaskGroup& eventLoop() final;
 
     const URL& url() const final { return m_code.url(); }
-    String origin() const final;
 
     void evaluate();
+
+    ReferrerPolicy referrerPolicy() const final;
 
     using RefCounted::ref;
     using RefCounted::deref;
@@ -86,7 +87,7 @@ public:
     virtual void prepareForDestruction();
 
 protected:
-    WorkletGlobalScope(Document&, ScriptSourceCode&&);
+    WorkletGlobalScope(Document&, Ref<JSC::VM>&&, ScriptSourceCode&&);
     WorkletGlobalScope(const WorkletGlobalScope&) = delete;
     WorkletGlobalScope(WorkletGlobalScope&&) = delete;
 
@@ -121,7 +122,7 @@ private:
     bool wrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) final { RELEASE_ASSERT_NOT_REACHED(); return false; }
     bool unwrapCryptoKey(const Vector<uint8_t>&, Vector<uint8_t>&) final { RELEASE_ASSERT_NOT_REACHED(); return false; }
 #endif
-    URL completeURL(const String&) const final;
+    URL completeURL(const String&, ForceUTF8 = ForceUTF8::No) const final;
     String userAgent(const URL&) const final;
     void disableEval(const String&) final;
     void disableWebAssembly(const String&) final;

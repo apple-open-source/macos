@@ -106,7 +106,7 @@ void CryptKit::FEEDContext::init(
 			mAllocdPrivKey);
 	}
 	else {
-		assert(opStarted());	
+		assert(opStarted());
 	}
 	if(mPubKey == NULL) {
 		assert(!opStarted());
@@ -118,7 +118,7 @@ void CryptKit::FEEDContext::init(
 			mAllocdPubKey);
 	}
 	else {
-		assert(opStarted());	
+		assert(opStarted());
 	}
 	
 	/* validate context - no other attributes allowed */

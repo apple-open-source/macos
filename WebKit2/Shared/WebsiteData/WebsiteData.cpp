@@ -28,6 +28,7 @@
 
 #include "ArgumentCoders.h"
 #include "WebsiteDataType.h"
+#include <WebCore/RegistrableDomain.h>
 #include <WebCore/SecurityOriginData.h>
 #include <wtf/text/StringHash.h>
 
@@ -36,7 +37,7 @@ namespace WebKit {
 void WebsiteData::Entry::encode(IPC::Encoder& encoder) const
 {
     encoder << origin;
-    encoder.encodeEnum(type);
+    encoder << type;
     encoder << size;
 }
 
@@ -50,7 +51,7 @@ auto WebsiteData::Entry::decode(IPC::Decoder& decoder) -> Optional<Entry>
         return WTF::nullopt;
     result.origin = WTFMove(*securityOriginData);
 
-    if (!decoder.decodeEnum(result.type))
+    if (!decoder.decode(result.type))
         return WTF::nullopt;
 
     if (!decoder.decode(result.size))
@@ -67,6 +68,9 @@ void WebsiteData::encode(IPC::Encoder& encoder) const
     encoder << hostNamesWithPluginData;
 #endif
     encoder << hostNamesWithHSTSCache;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    encoder << registrableDomainsWithResourceLoadStatistics;
+#endif
 }
 
 bool WebsiteData::decode(IPC::Decoder& decoder, WebsiteData& result)
@@ -81,6 +85,10 @@ bool WebsiteData::decode(IPC::Decoder& decoder, WebsiteData& result)
 #endif
     if (!decoder.decode(result.hostNamesWithHSTSCache))
         return false;
+#if ENABLE(RESOURCE_LOAD_STATISTICS)
+    if (!decoder.decode(result.registrableDomainsWithResourceLoadStatistics))
+        return false;
+#endif
     return true;
 }
 
@@ -127,6 +135,10 @@ WebsiteDataProcessType WebsiteData::ownerProcess(WebsiteDataType dataType)
         return WebsiteDataProcessType::UI;
     case WebsiteDataType::AdClickAttributions:
         return WebsiteDataProcessType::Network;
+#if HAVE(CFNETWORK_ALTERNATIVE_SERVICE)
+    case WebsiteDataType::AlternativeServices:
+        return WebsiteDataProcessType::Network;
+#endif
     }
 
     RELEASE_ASSERT_NOT_REACHED();

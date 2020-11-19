@@ -95,10 +95,16 @@
         return;
     }
 
-    OctagonCKKSPeerAdapter* octagonAdapter = [[OctagonCKKSPeerAdapter alloc] initWithPeerID:octagonPeerID operationDependencies:self.deps];
+    OctagonCKKSPeerAdapter* octagonAdapter = [[OctagonCKKSPeerAdapter alloc] initWithPeerID:octagonPeerID
+                                                                              containerName:self.deps.containerName
+                                                                                  contextID:self.deps.contextID
+                                                                              cuttlefishXPC:self.deps.cuttlefishXPCWrapper];
+
+    secnotice("octagon", "Fetched SOS Self! Fetching Octagon Adapter now: %@", octagonAdapter);
 
     NSError* fetchSelfPeersError = nil;
     CKKSSelves *selfPeers = [octagonAdapter fetchSelfPeers:&fetchSelfPeersError];
+
     if((!selfPeers) || fetchSelfPeersError) {
         secnotice("octagon", "failed to retrieve self peers: %@", fetchSelfPeersError);
         self.error = fetchSelfPeersError;
@@ -122,8 +128,8 @@
     if(![octagonSigningKeyData isEqualToData:sosSigningKeyData] || ![octagonEncryptionKeyData isEqualToData:sosEncryptionKeyData]) {
         secnotice("octagon", "SOS and Octagon signing keys do NOT match! updating SOS");
         NSError* updateError = nil;
-        [self.deps.sosAdapter updateOctagonKeySetWithAccount:currentSelfPeer error:&updateError];
-        if(updateError) {
+        BOOL ret = [self.deps.sosAdapter updateOctagonKeySetWithAccount:currentSelfPeer error:&updateError];
+        if(!ret) {
             self.error = updateError;
             [self runBeforeGroupFinished:self.finishOp];
             return;

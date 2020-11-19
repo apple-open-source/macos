@@ -208,6 +208,21 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
 						if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
 						return 2;
 					}
+					if (IOObjectConformsTo(rootMedia, "AppleAPFSSnapshot")) {
+						io_registry_entry_t volMedia;
+						
+						contextprintf(context, kBLLogLevelVerbose, "%s is a snapshot\n", newBSDName);
+						ret = BLAPFSSnapshotToVolume(context, rootMedia, &volMedia);
+						if (ret) {
+							contextprintf(context, kBLLogLevelError, "Could not resolve snapshot at %s to a volume\n", newBSDName);
+							IOObjectRelease(rootMedia);
+							if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
+							return ret;
+						}
+						IOObjectRelease(rootMedia);
+						rootMedia = volMedia;
+					}
+
 					rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
 					if (!rootUUID) {
 						contextprintf(context, kBLLogLevelError, "No valid volume UUID for device %s\n", newBSDName);
@@ -239,7 +254,7 @@ int setefidevice(BLContextPtr context, const char * bsdname, int bootNext,
 					CFRelease(rootUUID);
 					if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
 					contextprintf(context, kBLLogLevelVerbose, "Substituting preboot volume %s\n", prebootBSD);
-					strlcat(prebootPath, "/System/Library/CoreServices/boot.efi", sizeof prebootPath);
+					strlcat(prebootPath, kBL_PATH_CORESERVICES "/boot.efi", sizeof prebootPath);
 					partialPath = pathEnd - 1;
 				}
 			}
@@ -445,6 +460,22 @@ int setefifilepath(BLContextPtr context, const char *path, int bootNext,
 					if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
 					return 2;
 				}
+				
+				if (IOObjectConformsTo(rootMedia, "AppleAPFSSnapshot")) {
+					io_registry_entry_t volMedia;
+					
+					contextprintf(context, kBLLogLevelVerbose, "%s is a snapshot\n", newBSDName);
+					ret = BLAPFSSnapshotToVolume(context, rootMedia, &volMedia);
+					if (ret) {
+						contextprintf(context, kBLLogLevelError, "Could not resolve snapshot at %s to a volume\n", newBSDName);
+						IOObjectRelease(rootMedia);
+						if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
+						return ret;
+					}
+					IOObjectRelease(rootMedia);
+					rootMedia = volMedia;
+				}
+
 				rootUUID = IORegistryEntryCreateCFProperty(rootMedia, CFSTR(kIOMediaUUIDKey), kCFAllocatorDefault, 0);
 				if (!rootUUID) {
 					contextprintf(context, kBLLogLevelError, "No valid volume UUID for device %s\n", newBSDName);
@@ -476,7 +507,7 @@ int setefifilepath(BLContextPtr context, const char *path, int bootNext,
 				CFRelease(rootUUID);
 				if (mustUnmount) BLUnmountContainerVolume(context, prebootMountPoint);
                 contextprintf(context, kBLLogLevelVerbose, "Substituting preboot volume %s\n", prebootBSD);
-				strlcat(prebootPath, "/System/Library/CoreServices/boot.efi", sizeof prebootPath);
+				strlcat(prebootPath, kBL_PATH_CORESERVICES "/boot.efi", sizeof prebootPath);
 				partialPath = pathEnd - 1;
             }
         }

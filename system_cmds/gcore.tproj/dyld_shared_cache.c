@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <TargetConditionals.h>
 
 static const size_t dyld_cache_header_size = sizeof (struct copied_dyld_cache_header);
 
@@ -47,9 +48,9 @@ shared_cache_filename(const uuid_t uu)
 {
     assert(!uuid_is_null(uu));
     static char *sc_argv[] = {
-#if defined(__i386__) || defined(__x86_64__)
-        "/var/db/dyld",
-#elif defined(__arm__) || defined(__arm64__)
+#if TARGET_OS_OSX
+        "/System/Library/dyld",
+#elif TARGET_OS_IPHONE
         "/System/Library/Caches/com.apple.dyld",
 #else
 #error undefined

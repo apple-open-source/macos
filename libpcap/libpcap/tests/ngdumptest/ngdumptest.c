@@ -42,9 +42,9 @@
 #include <uuid/uuid.h>
 #include <net/pktap.h>
 
-#include "bpf.h"
+#include "pcap/bpf.h"
 
-#include "pcap-ng.h"
+#include "pcap/pcap-ng.h"
 #include "pcap-util.h"
 
 enum {
@@ -90,6 +90,7 @@ help(const char *str)
 	printf(" %-36s # %s\n", "-i name", "interface name");
 	printf(" %-36s # %s\n", "-n num_data", "number of data blocks");
 	printf(" %-36s # %s\n", "-p name:pid:uuid", "process name, pid and uuid");
+	printf(" %-36s # %s\n", "-p type:data", "secrets type (number), secrets data (string)");
 	printf(" %-36s # %s\n", "-t (simple|enhanced|obsolote|pktap)", "type of packet");
 	printf(" %-36s # %s\n", " ", "note obsolete is not implemented");
 	printf(" %-36s # %s\n", "-w name", "packet capture file name");
@@ -209,6 +210,38 @@ make_kern_event_block(struct kern_event_msg *event)
 	
 	write_block(block);
 	
+	pcap_ng_free_block(block);
+}
+
+void
+make_decryption_secrets_block(uint32_t type, size_t len, uint8_t *data)
+{
+	struct pcapng_decryption_secrets_fields *dsb_fields;
+	pcapng_block_t block = pcap_ng_block_alloc(pcap_ng_block_size_max());
+
+	if (verbose)
+		printf("%s\n", __func__);
+
+	pcap_ng_block_reset(block, PCAPNG_BT_DSB);
+
+	if (first_comment && comment) {
+		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
+	}
+
+	dsb_fields = pcap_ng_get_decryption_secrets_fields(block);
+	dsb_fields->secrets_type = type;
+	dsb_fields->secrets_length = (uint32_t)len;
+
+	if (copy_data_buffer) {
+		pcap_ng_block_packet_copy_data(block, data, dsb_fields->secrets_length);
+	} else {
+		pcap_ng_block_packet_set_data(block, data, dsb_fields->secrets_length);
+	}
+	if (!first_comment && comment) {
+		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
+	}
+	write_block(block);
+
 	pcap_ng_free_block(block);
 }
 
@@ -382,7 +415,7 @@ main(int argc, char * const argv[])
 	 * Loop through argument to build PCAP-NG block
 	 * Optionally write to file
 	 */
-	while ((ch = getopt(argc, argv, "4:6:Cc:D:d:fk:hi:n:p:t:w:xv")) != -1) {
+	while ((ch = getopt(argc, argv, "4:6:Cc:D:d:fk:hi:n:p:s:t:w:xv")) != -1) {
 		switch (ch) {
 			case 'C':
 				copy_data_buffer = 1;
@@ -567,6 +600,44 @@ main(int argc, char * const argv[])
 				
 				make_process_information_block(proc_name, proc_pid, proc_uuid);
 				
+				break;
+			}
+			case 's': {
+				char *ptr;
+				char *tofree;
+				char *str;
+				size_t len;
+
+				uint32_t secrets_type = 0;
+				uint32_t secrets_length = 0;
+				uint8_t *secrets_data = NULL;
+
+				tofree = strdup(optarg);
+				if (tofree == NULL)
+					errx(1, "### strdup() failed");
+				ptr = tofree;
+
+				if ((str = strsep(&ptr, ":")) == NULL)
+					errx(1, "-p argument missing");
+
+				secrets_type = (uint32_t)strtoul(str, NULL, 0);
+
+				if ((str = strsep(&ptr, ":")) == NULL)
+					errx(1, "-p argument missing");
+
+				/* replace the final '\0' by '\n' */
+				len = strlen(str);
+				secrets_length = (uint32_t)(len + 1);
+				secrets_data = calloc(secrets_length, 1);
+				if (secrets_data == NULL) {
+					err(EX_OSERR, "calloc()");
+				}
+				memcpy(secrets_data, str, len);
+				secrets_data[len] = '\n';
+				free(secrets_data);
+				free(tofree);
+
+				make_decryption_secrets_block(secrets_type, secrets_length, secrets_data);
 				break;
 			}
 			case 't':

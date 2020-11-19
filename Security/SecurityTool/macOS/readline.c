@@ -140,10 +140,12 @@ read_file(const char *name, CSSM_DATA *outData)
 	return result;
 
 loser:
-    if (fd != -1)
+    if (fd != -1) {
         close(fd);
-	if (buffer)
-		free(buffer);
+    }
+    if (buffer) {
+        free(buffer);
+    }
 
 	return result;
 }

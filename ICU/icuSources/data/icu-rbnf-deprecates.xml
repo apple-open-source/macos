@@ -27,6 +27,7 @@ necessary and can we just use the main list in icu-locale-deprecates.xml?
    <alias from="iw" to="he" />
    <alias from="no" to="nb" />
    <alias from="sh" to="sr_Latn" />
+   <alias from="wuu" to="zh" /> <!-- Apple addition -->
    <alias from="zh_Hant_HK" to="yue" />
    <alias from="zh_HK" to="yue" />
    <alias from="zh_MO" to="yue" />

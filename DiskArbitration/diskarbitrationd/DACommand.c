@@ -33,6 +33,8 @@
 #include <unistd.h>
 #include <mach/mach.h>
 #include <sys/wait.h>
+#include <spawn.h>
+#include <crt_externs.h>
 
 enum
 {
@@ -107,6 +109,11 @@ static void __DACommandExecute( char * const *           argv,
     {
         int fd;
         int rt_val;
+        posix_spawnattr_t attr, *attrp;
+        posix_spawn_file_actions_t file_actions, *file_actionsp;;
+
+        attrp = NULL;
+        file_actionsp = NULL;
 
         /*
          * Prepare the post-fork execution environment.
@@ -120,28 +127,6 @@ static void __DACommandExecute( char * const *           argv,
         if (rt_val == -1) {
             _exit( EX_NOPERM );
         }
-        
-        for ( fd = getdtablesize() - 1; fd > -1; fd-- )
-        {
-            if ( fd != outputPipe[1] )
-            {
-                close( fd );
-            }
-        }
-
-        fd = open( _PATH_DEVNULL, O_RDWR, 0 );
-
-        if ( fd != -1 )
-        {
-            dup2( fd, STDIN_FILENO );
-            dup2( fd, STDOUT_FILENO );
-            dup2( fd, STDERR_FILENO );
-
-            if ( fd > 2 )
-            {
-                close( fd );
-            }
-        }
 
         if ( outputPipe[1] != -1 )
         {
@@ -150,12 +135,35 @@ static void __DACommandExecute( char * const *           argv,
             close( outputPipe[1] );
         }
 
+        status = posix_spawnattr_init(&attr);
+        if ( status )  { goto spawn_destroy; }
+        attrp = &attr;
+        status = posix_spawn_file_actions_init(&file_actions);
+        if ( status )  { goto spawn_destroy; }
+        file_actionsp = &file_actions;
+        status = posix_spawnattr_setflags(&attr, POSIX_SPAWN_CLOEXEC_DEFAULT | POSIX_SPAWN_SETEXEC);
+        if ( status )  { goto spawn_destroy; }
+        status = posix_spawn_file_actions_addinherit_np(&file_actions, STDOUT_FILENO);
+        if ( status )  { goto spawn_destroy; }
+        status = posix_spawn_file_actions_addinherit_np(&file_actions, STDERR_FILENO);
+        if ( status )  { goto spawn_destroy; }
+        status = posix_spawn_file_actions_addinherit_np(&file_actions, STDIN_FILENO);
+        if ( status )  { goto spawn_destroy; }
+
         /*
          * Run the executable.
          */
+        posix_spawn(NULL, argv[0], &file_actions, &attr, argv, *_NSGetEnviron());
 
-        execv( argv[0], argv );
+spawn_destroy:
 
+        if (file_actionsp != NULL) {
+            posix_spawn_file_actions_destroy(file_actionsp);
+        }
+
+        if (attrp != NULL) {
+            posix_spawnattr_destroy(attrp);
+        }
         _exit( EX_OSERR );
     }
 

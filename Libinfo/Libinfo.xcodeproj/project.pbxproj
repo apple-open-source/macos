@@ -827,6 +827,7 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */;
 			buildSettings = {
+				GCC_OPTIMIZATION_LEVEL = s;
 				IS_ZIPPERED = YES;
 				PRODUCT_NAME = info;
 			};

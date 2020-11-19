@@ -65,3 +65,20 @@ elf_getident(Elf * elf, size_t * ptr)
 		*ptr = sz;
 	return (id);
 }
+
+char *
+elf_getimage(Elf * elf, size_t * ptr)
+{
+	char *image = NULL;
+
+	ELFRLOCK(elf)
+
+	if (ptr) {
+		*ptr = elf->ed_imagesz;
+	}
+	image = elf->ed_image;
+
+	ELFUNLOCK(elf)
+
+	return image;
+}

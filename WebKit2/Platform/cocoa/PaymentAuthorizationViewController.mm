@@ -49,11 +49,7 @@
 
 - (void)_getPaymentServicesMerchantURL:(void(^)(NSURL *, NSError *))completion
 {
-#if HAVE(PASSKIT_API_TYPE)
     [PAL::getPKPaymentAuthorizationViewControllerClass() paymentServicesMerchantURLForAPIType:[_request APIType] completion:completion];
-#else
-    [PAL::getPKPaymentAuthorizationViewControllerClass() paymentServicesMerchantURL:completion];
-#endif
 }
 
 #pragma mark PKPaymentAuthorizationViewControllerDelegate
@@ -90,10 +86,12 @@
     [self _willFinishWithError:error];
 }
 
+ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
 - (void)paymentAuthorizationViewController:(PKPaymentAuthorizationViewController *)controller didRequestMerchantSession:(void(^)(PKPaymentMerchantSession *, NSError *))completion
 {
     [self _didRequestMerchantSession:completion];
 }
+ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
 @end
 

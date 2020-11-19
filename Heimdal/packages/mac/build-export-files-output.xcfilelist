@@ -1,0 +1,5 @@
+${HEIMDAL_TMPDIR}/heimdal.exp
+${HEIMDAL_TMPDIR}/gss.exp
+${HEIMDAL_TMPDIR}/heimdal-asn1.exp
+${HEIMDAL_TMPDIR}/commonauth.exp
+${HEIMDAL_TMPDIR}/gssapi_rewrite.h

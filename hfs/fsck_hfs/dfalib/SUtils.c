@@ -1642,7 +1642,7 @@ DumpData(const void *data, size_t len, char *label)
 			if (*tmp)
 				allzeroes = 0;
 		}
-		for (i = gap; i >= 0; i--) {
+		for (i = (int)gap; i >= 0; i--) {
 			fprintf(stderr, "  ");
 			if (i % 2 == 1)
 				fprintf(stderr, " ");
@@ -2308,17 +2308,17 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 		fcb = vcb->vcbExtentsFile;
 		CopyMemory( fcb->fcbExtents32, volumeHeader->extentsFile.extents, sizeof(HFSPlusExtentRecord) );
 		volumeHeader->extentsFile.logicalSize = fcb->fcbLogicalSize;
-		volumeHeader->extentsFile.totalBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
+		volumeHeader->extentsFile.totalBlocks = (u_int32_t)(fcb->fcbPhysicalSize / vcb->vcbBlockSize);
 	
 		fcb = vcb->vcbCatalogFile;
 		CopyMemory( fcb->fcbExtents32, volumeHeader->catalogFile.extents, sizeof(HFSPlusExtentRecord) );
 		volumeHeader->catalogFile.logicalSize = fcb->fcbLogicalSize;
-		volumeHeader->catalogFile.totalBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
+		volumeHeader->catalogFile.totalBlocks = (u_int32_t)(fcb->fcbPhysicalSize / vcb->vcbBlockSize);
 
 		fcb = vcb->vcbAllocationFile;
 		CopyMemory( fcb->fcbExtents32, volumeHeader->allocationFile.extents, sizeof(HFSPlusExtentRecord) );
 		volumeHeader->allocationFile.logicalSize = fcb->fcbLogicalSize;
-		volumeHeader->allocationFile.totalBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
+		volumeHeader->allocationFile.totalBlocks = (u_int32_t)(fcb->fcbPhysicalSize / vcb->vcbBlockSize);
 		
 		if (vcb->vcbAttributesFile != NULL)	//	Only update fields if an attributes file existed and was open
 		{
@@ -2326,7 +2326,7 @@ OSErr	FlushVolumeControlBlock( SVCB *vcb )
 			CopyMemory( fcb->fcbExtents32, volumeHeader->attributesFile.extents, sizeof(HFSPlusExtentRecord) );
 			volumeHeader->attributesFile.logicalSize = fcb->fcbLogicalSize;
 			volumeHeader->attributesFile.clumpSize = fcb->fcbClumpSize;
-			volumeHeader->attributesFile.totalBlocks = fcb->fcbPhysicalSize / vcb->vcbBlockSize;
+			volumeHeader->attributesFile.totalBlocks = (u_int32_t)(fcb->fcbPhysicalSize / vcb->vcbBlockSize);
 		}
 	}
 	else

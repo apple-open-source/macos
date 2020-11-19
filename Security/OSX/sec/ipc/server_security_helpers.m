@@ -30,6 +30,7 @@
 #include <Security/SecTaskPriv.h>
 #include "ipc/securityd_client.h"
 #include <Security/SecEntitlements.h>
+#include "sectask/SystemEntitlements.h"
 #include <utilities/SecInternalReleasePriv.h>
 #include <sys/codesign.h>
 #include <Security/SecItem.h>
@@ -108,8 +109,7 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
         client->uid = uid;
         client->musr = NULL;
 
-#if TARGET_OS_IOS
-#if HAVE_MOBILE_KEYBAG_SUPPORT
+#if TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT
         if (device_is_multiuser()) {
             CFErrorRef error = NULL;
 
@@ -139,15 +139,23 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
                 client->keybag = KEYBAG_DEVICE;
             }
         } else
-#endif
+#endif /* TARGET_OS_IOS && HAVE_MOBILE_KEYBAG_SUPPORT */
+#if TARGET_OS_IOS || TARGET_OS_TV
         /*
-         * If the client application is a enterprise app according to usermanager, switch
-         * to the per enterprise slice of keychain.
+         * iOS supports Enterprise Data Separation.
+         * tvOS supports guest users.
+         * Use the appropriate musr values for either.
          */
         {
             UMUserPersona * persona = [[UMUserManager sharedManager] currentPersona];
-            if (persona && persona.userPersonaType == UMUserPersonaTypeEnterprise) {
-                secinfo("serverxpc", "securityd client: enterprise user");
+            if (persona &&
+#if TARGET_OS_IOS
+                persona.userPersonaType == UMUserPersonaTypeEnterprise
+#elif TARGET_OS_TV
+                persona.userPersonaType == UMUserPersonaTypeGuest
+#endif
+                ) {
+                secinfo("serverxpc", "securityd client: persona user %@", persona.userPersonaNickName);
                 uuid_t uuid;
 
                 if (uuid_parse([persona.userPersonaUniqueString UTF8String], uuid) != 0) {
@@ -156,11 +164,15 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
                 client->musr = CFDataCreate(NULL, uuid, sizeof(uuid_t));
             }
         }
-#endif /* TARGET_OS_IOS */
+#endif /* TARGET_OS_IOS || TARGET_OS_TV */
 
         client->task = SecTaskCreateWithAuditToken(kCFAllocatorDefault, auditToken);
-
         client->accessGroups = SecTaskCopyAccessGroups(client->task);
+        client->applicationIdentifier = SecTaskCopyApplicationIdentifier(client->task);
+        client->isAppClip = SecTaskGetBooleanValueForEntitlement(client->task, kSystemEntitlementOnDemandInstallCapable);
+        if (client->isAppClip) {
+            secinfo("serverxpc", "securityd client: app clip (API restricted)");
+        }
 
 #if TARGET_OS_IPHONE
         client->allowSystemKeychain = SecTaskGetBooleanValueForEntitlement(client->task, kSecEntitlementPrivateSystemKeychain);
@@ -173,6 +185,10 @@ fill_security_client(SecurityClient * client, const uid_t uid, audit_token_t aud
         }
 #endif
         if (!sanityCheckClientAccessGroups(client)) {
+            CFReleaseNull(client->task);
+            CFReleaseNull(client->accessGroups);
+            CFReleaseNull(client->musr);
+            CFReleaseNull(client->applicationIdentifier);
             return false;
         }
     }

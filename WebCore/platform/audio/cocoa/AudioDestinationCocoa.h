@@ -50,6 +50,7 @@ protected:
 
     bool isPlaying() final { return m_isPlaying; }
     float sampleRate() const final { return m_sampleRate; }
+    unsigned framesPerBuffer() const final;
     AudioUnit& outputUnit() { return m_outputUnit; }
     
     // DefaultOutputUnit callback
@@ -66,7 +67,7 @@ private:
     void configure();
     void processBusAfterRender(AudioBus&, UInt32 numberOfFrames);
 
-    OSStatus render(UInt32 numberOfFrames, AudioBufferList* ioData);
+    OSStatus render(const AudioTimeStamp*, UInt32 numberOfFrames, AudioBufferList* ioData);
 
     AudioUnit m_outputUnit;
     AudioIOCallback& m_callback;

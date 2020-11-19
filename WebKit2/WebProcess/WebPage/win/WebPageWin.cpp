@@ -63,7 +63,7 @@ void WebPage::platformDetach()
 {
 }
 
-void WebPage::platformEditorState(Frame& frame, EditorState& result, IncludePostLayoutDataHint shouldIncludePostLayoutData) const
+void WebPage::getPlatformEditorState(Frame&, EditorState&) const
 {
 }
 
@@ -73,9 +73,6 @@ bool WebPage::performDefaultBehaviorForKeyEvent(const WebKeyboardEvent& keyboard
         return false;
 
     switch (keyboardEvent.windowsVirtualKeyCode()) {
-    case VK_SPACE:
-        scroll(m_page.get(), keyboardEvent.shiftKey() ? ScrollUp : ScrollDown, ScrollByPage);
-        break;
     case VK_LEFT:
         scroll(m_page.get(), ScrollLeft, ScrollByLine);
         break;

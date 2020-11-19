@@ -31,7 +31,5 @@ NSString* const OctagonEventAttributeTimeSinceLastPostedFollowUp = @"TimeSinceLa
 
 NSString* OTCKContainerName = @"com.apple.security.keychain";
 NSString* const CuttlefishTrustZone = @"CuttlefishTrustZone";
-NSString* const CuttlefishErrorDomain = @"CuttlefishError";
 NSString* const TrustedPeersHelperErrorDomain = @"com.apple.security.trustedpeers.container";
 
-NSString* const CuttlefishErrorRetryAfterKey = @"retryafter";

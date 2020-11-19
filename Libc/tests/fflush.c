@@ -197,13 +197,14 @@ T_DECL(fclose_enospc, "ensure ENOSPC is preserved on fclose")
 	 * system(3) would be easier...
 	 */
 	char *hdiutil_argv[] = {
-		"/usr/bin/hdiutil", "create", "-size", "5m", "-type", "UDIF",
+		"/usr/bin/hdiutil", "create", "-size", "10m", "-type", "UDIF",
 		"-volname", VOLNAME, "-nospotlight", "-fs", "HFS+", DMGFILE, "-attach",
 		NULL,
 	};
 	pid_t hdiutil_create = -1;
 	int ret = dt_launch_tool(&hdiutil_create, hdiutil_argv, false, NULL, NULL);
-	T_ASSERT_POSIX_SUCCESS(ret, "created and attached 5MB DMG");
+	T_ASSERT_POSIX_SUCCESS(ret, "created and attached 10MB DMG");
+	T_ATEND(cleanup_dmg);
 	int status = 0;
 	pid_t waited = waitpid(hdiutil_create, &status, 0);
 	T_QUIET; T_ASSERT_EQ(waited, hdiutil_create,
@@ -213,8 +214,6 @@ T_DECL(fclose_enospc, "ensure ENOSPC is preserved on fclose")
 	T_QUIET;
 	T_ASSERT_EQ(WEXITSTATUS(status), 0,
 			"hdiutil should have exited successfully");
-
-	T_ATEND(cleanup_dmg);
 
 	/*
 	 * Open for updating, as previously only write-only files would be flushed
@@ -349,14 +348,14 @@ T_DECL(ftell_feof,
 	T_ASSERT_NOTNULL(fp, "opened SystemVersion.plist");
 	struct stat sb;
 	T_ASSERT_POSIX_SUCCESS(fstat(fileno(fp), &sb), "fstat SystemVersion.plist");
-	void *buf = malloc(sb.st_size * 2);
+	void *buf = malloc((size_t)(sb.st_size * 2));
 	T_ASSERT_NOTNULL(buf, "allocating buffer for size of SystemVersion.plist");
 	T_SETUPEND;
 
 	T_ASSERT_POSIX_SUCCESS(fseek(fp, 0, SEEK_SET), "seek to beginning");
 	// fread can return short *or* zero, according to manpage
-	fread(buf, sb.st_size * 2, 1, fp);
-	T_ASSERT_EQ(ftell(fp), sb.st_size, "tfell() == file size");
+	fread(buf, (size_t)(sb.st_size * 2), 1, fp);
+	T_ASSERT_EQ(ftell(fp), (long)sb.st_size, "ftell() == file size");
 	T_ASSERT_TRUE(feof(fp), "feof() reports end-of-file");
 	free(buf);
 }
@@ -367,7 +366,7 @@ T_DECL(putc_flush, "ensure putc flushes to file on close") {
 	T_WITH_ERRNO;
 	T_ASSERT_NOTNULL(fp, "opened temporary file read/write");
 	T_WITH_ERRNO;
-	T_ASSERT_EQ(fwrite("testing", 1, 7, fp), 7, "write temp contents");
+	T_ASSERT_EQ(fwrite("testing", 1, 7, fp), 7UL, "write temp contents");
 	(void)fclose(fp);
 
 	fp = fopen(fname, "r+");
@@ -377,12 +376,12 @@ T_DECL(putc_flush, "ensure putc flushes to file on close") {
 	T_ASSERT_POSIX_SUCCESS(fseek(fp, -1, SEEK_END), "seek to end - 1");
 	T_ASSERT_EQ(fgetc(fp), 'g', "fgetc should read 'g'");
 	T_ASSERT_EQ(fgetc(fp), EOF, "fgetc should read EOF");
-	T_ASSERT_EQ(ftell(fp), 7, "tfell should report position 7");
+	T_ASSERT_EQ(ftell(fp), 7L, "ftell should report position 7");
 
 	int ret = fputc('!', fp);
 	T_ASSERT_POSIX_SUCCESS(ret,
 			"fputc to put an additional character in the FILE");
-	T_ASSERT_EQ(ftell(fp), 8, "tfell should report position 8");
+	T_ASSERT_EQ(ftell(fp), 8L, "ftell should report position 8");
 
 	T_QUIET;
 	T_ASSERT_POSIX_SUCCESS(fclose(fp), "close temp file");
@@ -405,7 +404,7 @@ T_DECL(putc_writedrop, "ensure writes are flushed with a pending read buffer") {
 	T_WITH_ERRNO;
 	T_ASSERT_NOTNULL(fp, "opened temporary file read/write");
 	T_WITH_ERRNO;
-	T_ASSERT_EQ(fwrite("testing", 1, 7, fp), 7, "write temp contents");
+	T_ASSERT_EQ(fwrite("testing", 1, 7, fp), 7UL, "write temp contents");
 	(void)fclose(fp);
 
 	fp = fopen(fname, "r+");

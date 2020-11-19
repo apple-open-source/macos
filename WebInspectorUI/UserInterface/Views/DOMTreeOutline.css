@@ -34,7 +34,7 @@
 
     list-style-type: none;
 
- /* Needed to make the negative z-index on .selection-area works. Otherwise the background-color from .syntax-highlighted hides the selection. */
+    /* Needed to make the negative z-index on .selection-area works. Otherwise the background-color from .syntax-highlighted hides the selection. */
     background-color: transparent !important;
     color: var(--text-color);
 
@@ -43,6 +43,12 @@
     --sublist-margin-start: 4px;
     --sublist-padding-start: 1px;
     --sublist-border-width-start: 9px;
+
+    --shadow-subtree-background-color: hsla(0, 0%, 0%, 0.05);
+}
+
+.tree-outline.dom.non-selectable {
+    -webkit-user-select: text;
 }
 
 .tree-outline.dom li .selection-area {
@@ -50,6 +56,7 @@
     left: 0;
     right: 0;
     height: 15px;
+    z-index: -1;
 }
 
 .tree-outline.dom li.selected .selection-area {
@@ -61,17 +68,13 @@
     border-top: 2px solid var(--selected-background-color);
 }
 
-.tree-outline.dom:not(.non-selectable):focus li:matches(.selected, .hovered) .selection-area {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:not(.non-selectable):focus-within li.selected .selection-area {
     background-color: var(--selected-background-color);
 }
 
 .tree-outline.dom:not(.non-selectable) li.hovered:not(.selected) .selection-area {
+    background-color: var(--selected-background-color);
     opacity: 0.3;
-}
-
-.tree-outline.dom li > :not(.selection-area) {
-    position: relative;
-    z-index: 1;
 }
 
 .tree-outline.dom li.inspected-node > span::after {
@@ -81,7 +84,7 @@
     white-space: pre;
 }
 
-.tree-outline.dom:focus li.inspected-node.selected > span::after {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-within li.inspected-node.selected > span::after {
     color: var(--selected-secondary-text-color);
 }
 
@@ -116,6 +119,7 @@
 .tree-outline.dom li {
     padding: 0;
     word-wrap: break-word;
+    outline: none;
 
     --item-padding-start: 17px;
     --item-padding-end: 6px;
@@ -129,6 +133,10 @@
 .tree-outline.dom li.editing {
     margin-left: var(--item-padding-start);
     margin-right: var(--item-padding-end);
+}
+
+.tree-outline.dom li > span > .html-text-node {
+    unicode-bidi: isolate-override;
 }
 
 .tree-outline.dom li .pseudo-class-indicator {
@@ -146,7 +154,7 @@
     left: var(--item-pseudo-class-indicator-start);
 }
 
-.tree-outline.dom:focus li.selected .pseudo-class-indicator {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-within li.selected .pseudo-class-indicator {
     background-color: var(--selected-foreground-color);
 }
 
@@ -154,11 +162,11 @@
     padding-left: 2px;
 }
 
-.tree-outline.dom:focus li.selected {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-within li.selected {
     color: white;
 }
 
-.tree-outline.dom:focus li.selected * {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-within li.selected * {
     color: inherit;
 }
 
@@ -196,7 +204,7 @@
     float: left;
 }
 
-.tree-outline.dom:focus li.parent.selected::before {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-within li.parent.selected::before {
     background-image: url(../Images/DisclosureTriangles.svg#closed-selected);
 }
 
@@ -204,7 +212,7 @@
     background-image: url(../Images/DisclosureTriangles.svg#open-normal);
 }
 
-.tree-outline.dom:focus li.parent.expanded.selected::before {
+body:not(.window-inactive, .window-docked-inactive) .tree-outline.dom:focus-within li.parent.expanded.selected::before {
     background-image: url(../Images/DisclosureTriangles.svg#open-selected);
 }
 
@@ -231,11 +239,11 @@
     margin-top: -13px;
     margin-left: -2px;
     content: "";
-    background-color: hsla(0, 0%, 90%, 0.5);
+    background-color: var(--shadow-subtree-background-color);
 }
 
 .tree-outline.dom li.parent.shadow + ol.children.expanded {
-    background-color: hsla(0, 0%, 90%, 0.5);
+    background-color: var(--shadow-subtree-background-color);
 }
 
 .showing-find-banner .tree-outline.dom .search-highlight {
@@ -266,15 +274,12 @@
 }
 
 @media (prefers-color-scheme: dark) {
-    .tree-outline.dom .shadow {
-        color: var(--text-color);
+    .tree-outline.dom {
+        --shadow-subtree-background-color: hsla(0, 0%, 100%, 0.05);
     }
 
-    /* FIXME: extract this as a variable. It's slightly different from var(background-color-secondary),
-    but close enough for now. It needs to use partial translucency so that the selection area shines through. */
-    .tree-outline.dom li.parent.shadow + ol.children.expanded,
-    .tree-outline.dom li.parent.shadow::after {
-        background-color: hsla(0, 0%, 90%, 0.1);
+    .tree-outline.dom .shadow {
+        color: var(--text-color);
     }
 
     .showing-find-banner .tree-outline.dom .search-highlight {

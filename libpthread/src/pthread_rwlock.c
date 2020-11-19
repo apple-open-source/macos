@@ -57,9 +57,6 @@
 
 #include "resolver.h"
 #include "internal.h"
-#if DEBUG
-#include <platform/compat.h> // for bzero
-#endif
 
 #ifdef PLOCKSTAT
 #include "plockstat.h"
@@ -81,17 +78,6 @@
 
 // maximum number of times a read lock may be obtained
 #define	MAX_READ_LOCKS		(INT_MAX - 1)
-
-union rwlock_seq; // forward declaration
-enum rwlock_seqfields; // forward declaration
-
-PTHREAD_NOEXPORT PTHREAD_WEAK // prevent inlining of return value into callers
-int _pthread_rwlock_lock_slow(pthread_rwlock_t *orwlock, bool readlock,
-		bool trylock);
-
-PTHREAD_NOEXPORT PTHREAD_WEAK // prevent inlining of return value into callers
-int _pthread_rwlock_unlock_slow(pthread_rwlock_t *orwlock,
-		enum rwlock_seqfields updated_seqfields);
 
 
 #if defined(__LP64__)
@@ -133,7 +119,7 @@ typedef enum rwlock_seqfields {
 		if (_pthread_debuglog >= 0) { \
 		_simple_dprintf(_pthread_debuglog, "rw_" #op " %p tck %7llu thr %llx " \
 		"L %x -> %x S %x -> %x U %x -> %x updt %x\n", rwlock, \
-		mach_absolute_time() - _pthread_debugstart, _pthread_selfid_direct(), \
+		mach_absolute_time() - _pthread_debugstart, _pthread_threadid_self_np_direct(), \
 		(f) & RWLOCK_SEQ_LS ? (oldseq).lcntval : 0, \
 		(f) & RWLOCK_SEQ_LS ? (newseq).lcntval : 0, \
 		(f) & RWLOCK_SEQ_LS ? (oldseq).rw_seq  : 0, \
@@ -148,23 +134,23 @@ typedef enum rwlock_seqfields {
 #error RWLOCK_GETSEQ_ADDR assumes little endian layout of sequence words
 #endif
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline void
-RWLOCK_GETSEQ_ADDR(_pthread_rwlock *rwlock, rwlock_seq **seqaddr)
+RWLOCK_GETSEQ_ADDR(pthread_rwlock_t *rwlock, rwlock_seq **seqaddr)
 {
 	// 128-bit aligned address inside rw_seq & rw_mis arrays
 	*seqaddr = (void*)(((uintptr_t)rwlock->rw_seq + 0xful) & ~0xful);
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline void
-RWLOCK_GETTID_ADDR(_pthread_rwlock *rwlock, uint64_t **tidaddr)
+RWLOCK_GETTID_ADDR(pthread_rwlock_t *rwlock, uint64_t **tidaddr)
 {
 	// 64-bit aligned address inside rw_tid array (&rw_tid[0] for aligned lock)
 	*tidaddr = (void*)(((uintptr_t)rwlock->rw_tid + 0x7ul) & ~0x7ul);
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline void
 rwlock_seq_load(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 		const rwlock_seqfields seqfields)
@@ -191,7 +177,7 @@ rwlock_seq_load(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 	}
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline void
 rwlock_seq_atomic_load_relaxed(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 		const rwlock_seqfields seqfields)
@@ -203,19 +189,19 @@ rwlock_seq_atomic_load_relaxed(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 		// Workaround clang armv81 codegen bug for 128bit os_atomic_load
 		// rdar://problem/31213932
 		oldseqval->seq_LSU = seqaddr->seq_LSU;
-		while (!os_atomic_cmpxchgvw(&seqaddr->atomic_seq_LSU,
+		while (!os_atomic_cmpxchgv(&seqaddr->atomic_seq_LSU,
 				oldseqval->seq_LSU, oldseqval->seq_LSU, &oldseqval->seq_LSU,
 				relaxed));
 #else
-		oldseqval->seq_LSU = os_atomic_load(&seqaddr->atomic_seq_LSU, relaxed);
+		oldseqval->seq_LSU = os_atomic_load_wide(&seqaddr->atomic_seq_LSU, relaxed);
 #endif
 #else
-		oldseqval->seq_LS = os_atomic_load(&seqaddr->atomic_seq_LS, relaxed);
+		oldseqval->seq_LS = os_atomic_load_wide(&seqaddr->atomic_seq_LS, relaxed);
 		oldseqval->seq_U = os_atomic_load(&seqaddr->atomic_seq_U, relaxed);
 #endif
 		break;
 	case RWLOCK_SEQ_LS:
-		oldseqval->seq_LS = os_atomic_load(&seqaddr->atomic_seq_LS, relaxed);
+		oldseqval->seq_LS = os_atomic_load_wide(&seqaddr->atomic_seq_LS, relaxed);
 		break;
 #if DEBUG // unused
 	case RWLOCK_SEQ_U:
@@ -230,7 +216,7 @@ rwlock_seq_atomic_load_relaxed(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 #define rwlock_seq_atomic_load(seqaddr, oldseqval, seqfields, m) \
 		rwlock_seq_atomic_load_##m(seqaddr, oldseqval, seqfields)
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline rwlock_seqfields
 rwlock_seq_atomic_cmpxchgv_relaxed(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 		rwlock_seq *newseqval, const rwlock_seqfields seqfields)
@@ -274,7 +260,7 @@ rwlock_seq_atomic_cmpxchgv_relaxed(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 	return updated_seqfields;
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline rwlock_seqfields
 rwlock_seq_atomic_cmpxchgv_acquire(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 		rwlock_seq *newseqval, const rwlock_seqfields seqfields)
@@ -318,7 +304,7 @@ rwlock_seq_atomic_cmpxchgv_acquire(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 	return updated_seqfields;
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline rwlock_seqfields
 rwlock_seq_atomic_cmpxchgv_release(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 		rwlock_seq *newseqval, const rwlock_seqfields seqfields)
@@ -340,7 +326,8 @@ rwlock_seq_atomic_cmpxchgv_release(rwlock_seq *seqaddr, rwlock_seq *oldseqval,
 			if (!r) oldseqval->seq_U = newseqval->seq_U;
 			updated_seqfields = r ? RWLOCK_SEQ_LSU : RWLOCK_SEQ_U;
 		} else {
-			oldseqval->seq_LS = os_atomic_load(&seqaddr->atomic_seq_LS,relaxed);
+			oldseqval->seq_LS = os_atomic_load_wide(&seqaddr->atomic_seq_LS,
+					relaxed);
 		}
 #endif
 		break;
@@ -399,12 +386,8 @@ pthread_rwlockattr_setpshared(pthread_rwlockattr_t * attr, int pshared)
 {
 	int res = EINVAL;
 	if (attr->sig == _PTHREAD_RWLOCK_ATTR_SIG) {
-#if __DARWIN_UNIX03
 		if (( pshared == PTHREAD_PROCESS_PRIVATE) ||
 				(pshared == PTHREAD_PROCESS_SHARED))
-#else /* __DARWIN_UNIX03 */
-		if ( pshared == PTHREAD_PROCESS_PRIVATE)
-#endif /* __DARWIN_UNIX03 */
 		{
 			attr->pshared = pshared ;
 			res = 0;
@@ -415,9 +398,9 @@ pthread_rwlockattr_setpshared(pthread_rwlockattr_t * attr, int pshared)
 
 #endif /* !BUILDING_VARIANT ] */
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline int
-_pthread_rwlock_init(_pthread_rwlock *rwlock, const pthread_rwlockattr_t *attr)
+_pthread_rwlock_init(pthread_rwlock_t *rwlock, const pthread_rwlockattr_t *attr)
 {
 	uint64_t *tidaddr;
 	RWLOCK_GETTID_ADDR(rwlock, &tidaddr);
@@ -476,7 +459,7 @@ _pthread_rwlock_init(_pthread_rwlock *rwlock, const pthread_rwlockattr_t *attr)
 	*(sig32_ptr + 1) = *(sig32_val + 1);
 	os_atomic_store(sig32_ptr, *sig32_val, release);
 #else
-	os_atomic_store2o(rwlock, sig, sig, release);
+	os_atomic_store(&rwlock->sig, sig, release);
 #endif
 
 	return 0;
@@ -506,9 +489,9 @@ _pthread_rwlock_modbits(uint32_t lgenval, uint32_t updateval, uint32_t savebits)
 	return(rval);
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline void
-_pthread_rwlock_updateval(_pthread_rwlock *rwlock, uint32_t updateval)
+_pthread_rwlock_updateval(pthread_rwlock_t *rwlock, uint32_t updateval)
 {
 	bool isoverlap = (updateval & PTH_RWL_MBIT) != 0;
 
@@ -536,10 +519,9 @@ _pthread_rwlock_updateval(_pthread_rwlock *rwlock, uint32_t updateval)
 	RWLOCK_DEBUG_SEQ(update, rwlock, oldseq, newseq, updateval, RWLOCK_SEQ_LS);
 }
 
-#if __DARWIN_UNIX03
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline int
-_pthread_rwlock_check_busy(_pthread_rwlock *rwlock)
+_pthread_rwlock_check_busy(pthread_rwlock_t *rwlock)
 {
 	int res = 0;
 
@@ -554,38 +536,32 @@ _pthread_rwlock_check_busy(_pthread_rwlock *rwlock)
 
 	return res;
 }
-#endif /* __DARWIN_UNIX03 */
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_rwlock_destroy(pthread_rwlock_t *orwlock)
+pthread_rwlock_destroy(pthread_rwlock_t *rwlock)
 {
 	int res = 0;
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 
-	_PTHREAD_LOCK(rwlock->lock);
+	_pthread_lock_lock(&rwlock->lock);
 	if (_pthread_rwlock_check_signature(rwlock)) {
-#if __DARWIN_UNIX03
 		res = _pthread_rwlock_check_busy(rwlock);
-#endif /* __DARWIN_UNIX03 */
 	} else if (!_pthread_rwlock_check_signature_init(rwlock)) {
 		res = EINVAL;
 	}
 	if (res == 0) {
 		rwlock->sig = _PTHREAD_NO_SIG;
 	}
-	_PTHREAD_UNLOCK(rwlock->lock);
+	_pthread_lock_unlock(&rwlock->lock);
 	return res;
 }
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_rwlock_init(pthread_rwlock_t *orwlock, const pthread_rwlockattr_t *attr)
+pthread_rwlock_init(pthread_rwlock_t *rwlock, const pthread_rwlockattr_t *attr)
 {
 	int res = 0;
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 
-#if __DARWIN_UNIX03
 	if (attr && attr->sig != _PTHREAD_RWLOCK_ATTR_SIG) {
 		res = EINVAL;
 	}
@@ -593,58 +569,54 @@ pthread_rwlock_init(pthread_rwlock_t *orwlock, const pthread_rwlockattr_t *attr)
 	if (res == 0 && _pthread_rwlock_check_signature(rwlock)) {
 		res = _pthread_rwlock_check_busy(rwlock);
 	}
-#endif
 	if (res == 0) {
-		_PTHREAD_LOCK_INIT(rwlock->lock);
+		_pthread_lock_init(&rwlock->lock);
 		res = _pthread_rwlock_init(rwlock, attr);
 	}
 	return res;
 }
 
-PTHREAD_NOINLINE
+OS_NOINLINE
 static int
-_pthread_rwlock_check_init_slow(pthread_rwlock_t *orwlock)
+_pthread_rwlock_check_init_slow(pthread_rwlock_t *rwlock)
 {
 	int res = EINVAL;
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 
 	if (_pthread_rwlock_check_signature_init(rwlock)) {
-		_PTHREAD_LOCK(rwlock->lock);
+		_pthread_lock_lock(&rwlock->lock);
 		if (_pthread_rwlock_check_signature_init(rwlock)) {
 			res = _pthread_rwlock_init(rwlock, NULL);
 		} else if (_pthread_rwlock_check_signature(rwlock)){
 			res = 0;
 		}
-		_PTHREAD_UNLOCK(rwlock->lock);
+		_pthread_lock_unlock(&rwlock->lock);
 	} else if (_pthread_rwlock_check_signature(rwlock)){
 		res = 0;
 	}
 	if (res != 0) {
-		PLOCKSTAT_RW_ERROR(orwlock, READ_LOCK_PLOCKSTAT, res);
+		PLOCKSTAT_RW_ERROR(rwlock, READ_LOCK_PLOCKSTAT, res);
 	}
 	return res;
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline int
-_pthread_rwlock_check_init(pthread_rwlock_t *orwlock)
+_pthread_rwlock_check_init(pthread_rwlock_t *rwlock)
 {
 	int res = 0;
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 
 	if (!_pthread_rwlock_check_signature(rwlock)) {
-		return _pthread_rwlock_check_init_slow(orwlock);
+		return _pthread_rwlock_check_init_slow(rwlock);
 	}
 	return res;
 }
 
-PTHREAD_NOINLINE
+OS_NOINLINE
 static int
-_pthread_rwlock_lock_wait(pthread_rwlock_t *orwlock, bool readlock,
+_pthread_rwlock_lock_wait(pthread_rwlock_t *rwlock, bool readlock,
 		rwlock_seq newseq)
 {
 	int res;
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 
 #ifdef PLOCKSTAT
 	int plockstat = readlock ? READ_LOCK_PLOCKSTAT : WRITE_LOCK_PLOCKSTAT;
@@ -660,14 +632,14 @@ _pthread_rwlock_lock_wait(pthread_rwlock_t *orwlock, bool readlock,
 
 	uint32_t updateval;
 
-	PLOCKSTAT_RW_BLOCK(orwlock, plockstat);
+	PLOCKSTAT_RW_BLOCK(rwlock, plockstat);
 
 	do {
 		if (readlock) {
-			updateval = __psynch_rw_rdlock(orwlock, newseq.lcntval,
+			updateval = __psynch_rw_rdlock(rwlock, newseq.lcntval,
 					newseq.ucntval, newseq.rw_seq, rwlock->rw_flags);
 		} else {
-			updateval = __psynch_rw_wrlock(orwlock, newseq.lcntval,
+			updateval = __psynch_rw_wrlock(rwlock, newseq.lcntval,
 					newseq.ucntval, newseq.rw_seq, rwlock->rw_flags);
 		}
 		if (updateval == (uint32_t)-1) {
@@ -679,28 +651,27 @@ _pthread_rwlock_lock_wait(pthread_rwlock_t *orwlock, bool readlock,
 
 	if (res == 0) {
 		_pthread_rwlock_updateval(rwlock, updateval);
-		PLOCKSTAT_RW_BLOCKED(orwlock, plockstat, BLOCK_SUCCESS_PLOCKSTAT);
+		PLOCKSTAT_RW_BLOCKED(rwlock, plockstat, BLOCK_SUCCESS_PLOCKSTAT);
 	} else {
-		PLOCKSTAT_RW_BLOCKED(orwlock, plockstat, BLOCK_FAIL_PLOCKSTAT);
+		PLOCKSTAT_RW_BLOCKED(rwlock, plockstat, BLOCK_FAIL_PLOCKSTAT);
 		PTHREAD_INTERNAL_CRASH(res, "kernel rwlock returned unknown error");
 	}
 
 	return res;
 }
 
-PTHREAD_NOEXPORT PTHREAD_NOINLINE
+OS_NOINLINE
 int
-_pthread_rwlock_lock_slow(pthread_rwlock_t *orwlock, bool readlock,
+_pthread_rwlock_lock_slow(pthread_rwlock_t *rwlock, bool readlock,
 		bool trylock)
 {
 	int res;
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 
 #ifdef PLOCKSTAT
 	int plockstat = readlock ? READ_LOCK_PLOCKSTAT : WRITE_LOCK_PLOCKSTAT;
 #endif
 
-	res = _pthread_rwlock_check_init(orwlock);
+	res = _pthread_rwlock_check_init(rwlock);
 	if (res != 0) return res;
 
 	rwlock_seq *seqaddr;
@@ -709,14 +680,12 @@ _pthread_rwlock_lock_slow(pthread_rwlock_t *orwlock, bool readlock,
 	rwlock_seq oldseq, newseq;
 	rwlock_seq_atomic_load(seqaddr, &oldseq, RWLOCK_SEQ_LSU, relaxed);
 
-#if __DARWIN_UNIX03
 	uint64_t *tidaddr;
 	RWLOCK_GETTID_ADDR(rwlock, &tidaddr);
-	uint64_t selfid = _pthread_selfid_direct();
+	uint64_t selfid = _pthread_threadid_self_np_direct();
 	if (is_rwl_ebit_set(oldseq.lcntval)) {
-		if (os_atomic_load(tidaddr, relaxed) == selfid) return EDEADLK;
+		if (os_atomic_load_wide(tidaddr, relaxed) == selfid) return EDEADLK;
 	}
-#endif /* __DARWIN_UNIX03 */
 
 	int retry_count;
 	bool gotlock;
@@ -779,41 +748,38 @@ retry:
 			RWLOCK_SEQ_LS, acquire));
 
 	if (gotlock) {
-#if __DARWIN_UNIX03
-		if (!readlock) os_atomic_store(tidaddr, selfid, relaxed);
-#endif /* __DARWIN_UNIX03 */
+		if (!readlock) os_atomic_store_wide(tidaddr, selfid, relaxed);
 		res = 0;
 	} else if (trylock) {
 		res = EBUSY;
 	} else {
-		res = _pthread_rwlock_lock_wait(orwlock, readlock, newseq);
+		res = _pthread_rwlock_lock_wait(rwlock, readlock, newseq);
 	}
 
 out:
 #ifdef PLOCKSTAT
 	if (res == 0) {
-		PLOCKSTAT_RW_ACQUIRE(orwlock, plockstat);
+		PLOCKSTAT_RW_ACQUIRE(rwlock, plockstat);
 	} else {
-		PLOCKSTAT_RW_ERROR(orwlock, plockstat, res);
+		PLOCKSTAT_RW_ERROR(rwlock, plockstat, res);
 	}
 #endif
 
 	return res;
 }
 
-PTHREAD_ALWAYS_INLINE
+OS_ALWAYS_INLINE
 static inline int
-_pthread_rwlock_lock(pthread_rwlock_t *orwlock, bool readlock, bool trylock)
+_pthread_rwlock_lock(pthread_rwlock_t *rwlock, bool readlock, bool trylock)
 {
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 #if PLOCKSTAT
 	if (PLOCKSTAT_RW_ACQUIRE_ENABLED() || PLOCKSTAT_RW_ERROR_ENABLED()) {
-		return _pthread_rwlock_lock_slow(orwlock, readlock, trylock);
+		return _pthread_rwlock_lock_slow(rwlock, readlock, trylock);
 	}
 #endif
 
 	if (os_unlikely(!_pthread_rwlock_check_signature(rwlock))) {
-		return _pthread_rwlock_lock_slow(orwlock, readlock, trylock);
+		return _pthread_rwlock_lock_slow(rwlock, readlock, trylock);
 	}
 
 	rwlock_seq *seqaddr;
@@ -825,11 +791,9 @@ _pthread_rwlock_lock(pthread_rwlock_t *orwlock, bool readlock, bool trylock)
 	// slowpath below (which has rwlock_seq_atomic_load)
 	rwlock_seq_load(seqaddr, &oldseq, RWLOCK_SEQ_LSU);
 
-#if __DARWIN_UNIX03
 	if (os_unlikely(is_rwl_ebit_set(oldseq.lcntval))) {
-		return _pthread_rwlock_lock_slow(orwlock, readlock, trylock);
+		return _pthread_rwlock_lock_slow(rwlock, readlock, trylock);
 	}
-#endif /* __DARWIN_UNIX03 */
 
 	bool gotlock;
 	do {
@@ -850,7 +814,7 @@ _pthread_rwlock_lock(pthread_rwlock_t *orwlock, bool readlock, bool trylock)
 			if (readlock) {
 				if (os_unlikely(diff_genseq(oldseq.lcntval, oldseq.ucntval) >=
 						PTHRW_MAX_READERS)) {
-					return _pthread_rwlock_lock_slow(orwlock, readlock,trylock);
+					return _pthread_rwlock_lock_slow(rwlock, readlock, trylock);
 				}
 				// Need to update L (remove U bit) and S word
 				newseq.lcntval &= ~PTH_RWL_UBIT;
@@ -861,20 +825,18 @@ _pthread_rwlock_lock(pthread_rwlock_t *orwlock, bool readlock, bool trylock)
 			newseq.lcntval += PTHRW_INC;
 			newseq.rw_seq  += PTHRW_INC;
 		} else {
-			return _pthread_rwlock_lock_slow(orwlock, readlock, trylock);
+			return _pthread_rwlock_lock_slow(rwlock, readlock, trylock);
 		}
 	} while (os_unlikely(!rwlock_seq_atomic_cmpxchgv(seqaddr, &oldseq, &newseq,
 			RWLOCK_SEQ_LS, acquire)));
 
 	if (os_likely(gotlock)) {
-#if __DARWIN_UNIX03
 		if (!readlock) {
 			uint64_t *tidaddr;
 			RWLOCK_GETTID_ADDR(rwlock, &tidaddr);
-			uint64_t selfid = _pthread_selfid_direct();
-			os_atomic_store(tidaddr, selfid, relaxed);
+			uint64_t selfid = _pthread_threadid_self_np_direct();
+			os_atomic_store_wide(tidaddr, selfid, relaxed);
 		}
-#endif /* __DARWIN_UNIX03 */
 		return 0;
 	} else if (trylock) {
 		return EBUSY;
@@ -885,48 +847,47 @@ _pthread_rwlock_lock(pthread_rwlock_t *orwlock, bool readlock, bool trylock)
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_rwlock_rdlock(pthread_rwlock_t *orwlock)
+pthread_rwlock_rdlock(pthread_rwlock_t *rwlock)
 {
 	// read lock, no try
-	return _pthread_rwlock_lock(orwlock, true, false);
+	return _pthread_rwlock_lock(rwlock, true, false);
 }
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_rwlock_tryrdlock(pthread_rwlock_t *orwlock)
+pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock)
 {
 	// read lock, try lock
-	return _pthread_rwlock_lock(orwlock, true, true);
+	return _pthread_rwlock_lock(rwlock, true, true);
 }
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_rwlock_wrlock(pthread_rwlock_t *orwlock)
+pthread_rwlock_wrlock(pthread_rwlock_t *rwlock)
 {
 	// write lock, no try
-	return _pthread_rwlock_lock(orwlock, false, false);
+	return _pthread_rwlock_lock(rwlock, false, false);
 }
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_rwlock_trywrlock(pthread_rwlock_t *orwlock)
+pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock)
 {
 	// write lock, try lock
-	return _pthread_rwlock_lock(orwlock, false, true);
+	return _pthread_rwlock_lock(rwlock, false, true);
 }
 
-PTHREAD_NOINLINE
+OS_NOINLINE
 static int
-_pthread_rwlock_unlock_drop(pthread_rwlock_t *orwlock, rwlock_seq oldseq,
+_pthread_rwlock_unlock_drop(pthread_rwlock_t *rwlock, rwlock_seq oldseq,
 		rwlock_seq newseq)
 {
 	int res;
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 
 	RWLOCK_DEBUG_SEQ(unlock, rwlock, oldseq, newseq, !droplock, RWLOCK_SEQ_LSU);
 	uint32_t updateval;
 	do {
-		updateval = __psynch_rw_unlock(orwlock, oldseq.lcntval,
+		updateval = __psynch_rw_unlock(rwlock, oldseq.lcntval,
 				newseq.ucntval, newseq.rw_seq, rwlock->rw_flags);
 		if (updateval == (uint32_t)-1) {
 			res = errno;
@@ -944,19 +905,18 @@ _pthread_rwlock_unlock_drop(pthread_rwlock_t *orwlock, rwlock_seq oldseq,
 	return res;
 }
 
-PTHREAD_NOEXPORT PTHREAD_NOINLINE
+OS_NOINLINE
 int
-_pthread_rwlock_unlock_slow(pthread_rwlock_t *orwlock,
+_pthread_rwlock_unlock_slow(pthread_rwlock_t *rwlock,
 		rwlock_seqfields updated_seqfields)
 {
 	int res;
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 	rwlock_seqfields seqfields = RWLOCK_SEQ_LSU;
 #ifdef PLOCKSTAT
 	int wrlock = 0;
 #endif
 
-	res = _pthread_rwlock_check_init(orwlock);
+	res = _pthread_rwlock_check_init(rwlock);
 	if (res != 0) return res;
 
 	rwlock_seq *seqaddr;
@@ -974,11 +934,9 @@ _pthread_rwlock_unlock_slow(pthread_rwlock_t *orwlock,
 #ifdef PLOCKSTAT
 		wrlock = 1;
 #endif
-#if __DARWIN_UNIX03
 		uint64_t *tidaddr;
 		RWLOCK_GETTID_ADDR(rwlock, &tidaddr);
-		os_atomic_store(tidaddr, 0, relaxed);
-#endif /* __DARWIN_UNIX03 */
+		os_atomic_store_wide(tidaddr, 0, relaxed);
 	}
 
 	bool droplock;
@@ -1022,30 +980,29 @@ _pthread_rwlock_unlock_slow(pthread_rwlock_t *orwlock,
 			seqaddr, &oldseq, &newseq, seqfields, release)));
 
 	if (droplock) {
-		res = _pthread_rwlock_unlock_drop(orwlock, oldseq, newseq);
+		res = _pthread_rwlock_unlock_drop(rwlock, oldseq, newseq);
 	}
 
-	PLOCKSTAT_RW_RELEASE(orwlock, wrlock);
+	PLOCKSTAT_RW_RELEASE(rwlock, wrlock);
 
 	return res;
 }
 
 PTHREAD_NOEXPORT_VARIANT
 int
-pthread_rwlock_unlock(pthread_rwlock_t *orwlock)
+pthread_rwlock_unlock(pthread_rwlock_t *rwlock)
 {
-	_pthread_rwlock *rwlock = (_pthread_rwlock *)orwlock;
 	rwlock_seqfields seqfields = RWLOCK_SEQ_LSU;
 	rwlock_seqfields updated_seqfields = RWLOCK_SEQ_NONE;
 
 #if PLOCKSTAT
 	if (PLOCKSTAT_RW_RELEASE_ENABLED() || PLOCKSTAT_RW_ERROR_ENABLED()) {
-		return _pthread_rwlock_unlock_slow(orwlock, updated_seqfields);
+		return _pthread_rwlock_unlock_slow(rwlock, updated_seqfields);
 	}
 #endif
 
 	if (os_unlikely(!_pthread_rwlock_check_signature(rwlock))) {
-		return _pthread_rwlock_unlock_slow(orwlock, updated_seqfields);
+		return _pthread_rwlock_unlock_slow(rwlock, updated_seqfields);
 	}
 
 	rwlock_seq *seqaddr;
@@ -1060,16 +1017,14 @@ pthread_rwlock_unlock(pthread_rwlock_t *orwlock)
 	}
 
 	if (is_rwl_ebit_set(oldseq.lcntval)) {
-#if __DARWIN_UNIX03
 		uint64_t *tidaddr;
 		RWLOCK_GETTID_ADDR(rwlock, &tidaddr);
-		os_atomic_store(tidaddr, 0, relaxed);
-#endif /* __DARWIN_UNIX03 */
+		os_atomic_store_wide(tidaddr, 0, relaxed);
 	}
 
 	do {
 		if (updated_seqfields) {
-			return _pthread_rwlock_unlock_slow(orwlock, updated_seqfields);
+			return _pthread_rwlock_unlock_slow(rwlock, updated_seqfields);
 		}
 
 		newseq = oldseq;
@@ -1089,7 +1044,7 @@ pthread_rwlock_unlock(pthread_rwlock_t *orwlock)
 				// no L/S update if lock is not exclusive or no writer pending
 				// kernel transition only needed if U == S
 			} else {
-				return _pthread_rwlock_unlock_slow(orwlock, updated_seqfields);
+				return _pthread_rwlock_unlock_slow(rwlock, updated_seqfields);
 			}
 		}
 	} while (os_unlikely(seqfields != (updated_seqfields =

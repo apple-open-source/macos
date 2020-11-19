@@ -692,3 +692,20 @@ SecCertificateRef SecOCSPResponseCopySigner(SecOCSPResponseRef this, SecCertific
     /* We couldn't find who signed this ocspResponse, give up. */
     return NULL;
 }
+
+bool SecOCSPResponseIsWeakHash(SecOCSPResponseRef response) {
+    SecAsn1AlgId algId = response->basicResponse.algId;
+    const DERItem algOid = {
+        .data = algId.algorithm.Data,
+        .length = algId.algorithm.Length,
+    };
+    SecSignatureHashAlgorithm algorithm = SecSignatureHashAlgorithmForAlgorithmOid(&algOid);
+    if (algorithm == kSecSignatureHashAlgorithmUnknown ||
+        algorithm == kSecSignatureHashAlgorithmMD2 ||
+        algorithm == kSecSignatureHashAlgorithmMD4 ||
+        algorithm == kSecSignatureHashAlgorithmMD5 ||
+        algorithm == kSecSignatureHashAlgorithmSHA1) {
+        return true;
+    }
+    return false;
+}

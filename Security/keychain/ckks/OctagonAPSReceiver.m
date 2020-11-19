@@ -33,7 +33,6 @@
 #import "keychain/ot/ObjCImprovements.h"
 #import <CloudKit/CloudKit_Private.h>
 #include <utilities/SecAKSWrappers.h>
-#include <utilities/debugging.h>
 
 @implementation CKRecordZoneNotification (CKKSPushTracing)
 - (void)setCkksPushTracingEnabled:(BOOL)ckksPushTracingEnabled {
@@ -66,62 +65,70 @@
 
 @property CKKSNearFutureScheduler *clearStalePushNotifications;
 
+@property NSString* namedDelegatePort;
+@property NSMutableDictionary<NSString*, id<OctagonAPSConnection>>* environmentMap;
+
+
 // If we receive notifications for a record zone that hasn't been registered yet, send them a their updates when they register
-@property NSMutableDictionary<NSString*, NSMutableSet<CKRecordZoneNotification*>*>* undeliveredUpdates;
+@property NSMutableSet<CKRecordZoneNotification*>* undeliveredUpdates;
 
 // Same, but for cuttlefish containers (and only remember that a push was received; don't remember the pushes themselves)
 @property NSMutableSet<NSString*>* undeliveredCuttlefishUpdates;
 
-@property NSMapTable<NSString*, id<CKKSZoneUpdateReceiver>>* zoneMap;
+@property (nullable) id<CKKSZoneUpdateReceiverProtocol> zoneUpdateReceiver;
 @property NSMapTable<NSString*, id<OctagonCuttlefishUpdateReceiver>>* octagonContainerMap;
 @end
 
 @implementation OctagonAPSReceiver
 
-+ (instancetype)receiverForEnvironment:(NSString *)environmentName
-                     namedDelegatePort:(NSString*)namedDelegatePort
-                    apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
++ (instancetype)receiverForNamedDelegatePort:(NSString*)namedDelegatePort
+                          apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
 {
-    if(environmentName == nil) {
-        secnotice("octagonpush", "No push environment; not bringing up APS.");
-        return nil;
-    }
-
     @synchronized([self class]) {
-        NSMutableDictionary<NSString*, OctagonAPSReceiver*>* environmentMap = [self synchronizedGlobalEnvironmentMap];
+        NSMutableDictionary<NSString*, OctagonAPSReceiver*>* delegatePortMap = [self synchronizedGlobalDelegatePortMap];
 
-        OctagonAPSReceiver* recv = [environmentMap valueForKey: environmentName];
+        OctagonAPSReceiver* recv = delegatePortMap[namedDelegatePort];
 
         if(recv == nil) {
-            recv = [[OctagonAPSReceiver alloc] initWithEnvironmentName: environmentName namedDelegatePort:namedDelegatePort apsConnectionClass: apsConnectionClass];
-            [environmentMap setValue: recv forKey: environmentName];
+            recv = [[OctagonAPSReceiver alloc] initWithNamedDelegatePort:namedDelegatePort
+                                                      apsConnectionClass:apsConnectionClass];
+            delegatePortMap[namedDelegatePort] = recv;
         }
 
         return recv;
     }
 }
 
-+ (void)resetGlobalEnviornmentMap
++ (void)resetGlobalDelegatePortMap
 {
     @synchronized (self) {
-        [self resettableSynchronizedGlobalEnvironmentMap:YES];
+        [self resettableSynchronizedGlobalDelegatePortMap:YES];
     }
 }
 
-+ (NSMutableDictionary<NSString*, OctagonAPSReceiver*>*)synchronizedGlobalEnvironmentMap
++ (NSMutableDictionary<NSString*, OctagonAPSReceiver*>*)synchronizedGlobalDelegatePortMap
 {
-    return [self resettableSynchronizedGlobalEnvironmentMap:NO];
+    return [self resettableSynchronizedGlobalDelegatePortMap:NO];
 }
 
-+ (NSMutableDictionary<NSString*, OctagonAPSReceiver*>*)resettableSynchronizedGlobalEnvironmentMap:(BOOL)reset
++ (NSMutableDictionary<NSString*, OctagonAPSReceiver*>*)resettableSynchronizedGlobalDelegatePortMap:(BOOL)reset
 {
-    static NSMutableDictionary<NSString*, OctagonAPSReceiver*>* environmentMap = nil;
+    static NSMutableDictionary<NSString*, OctagonAPSReceiver*>* delegatePortMap = nil;
 
-    if(environmentMap == nil || reset) {
-        environmentMap = [[NSMutableDictionary alloc] init];
+    if(delegatePortMap == nil || reset) {
+        delegatePortMap = [[NSMutableDictionary alloc] init];
     }
 
-    return environmentMap;
+    return delegatePortMap;
+}
+
+- (NSArray<NSString *>*)registeredPushEnvironments
+{
+    __block NSArray<NSString*>* environments = nil;
+    dispatch_sync([OctagonAPSReceiver apsDeliveryQueue], ^{
+        environments = [self.environmentMap allKeys];
+    });
+    return environments;
 }
 
 + (dispatch_queue_t)apsDeliveryQueue {
@@ -142,66 +149,46 @@
     return haveStalePushes;
 }
 
-- (NSSet<NSString*>*)cuttlefishPushTopics
+- (NSArray<NSString*>*)cuttlefishPushTopics
 {
     NSString* cuttlefishTopic = [kCKPushTopicPrefix stringByAppendingString:@"com.apple.security.cuttlefish"];
 
     // Currently cuttlefish pushes are sent to TPH. System XPC services can't properly register to be woken
     // at push time, so receive them for it.
     NSString* tphTopic = [kCKPushTopicPrefix stringByAppendingString:@"com.apple.TrustedPeersHelper"];
-    NSString* securitydTopic = [kCKPushTopicPrefix stringByAppendingString:@"com.apple.securityd"];
 
-    return [NSSet setWithArray:@[cuttlefishTopic, tphTopic, securitydTopic]];
+    return @[cuttlefishTopic, tphTopic];
 }
 
-- (instancetype)initWithEnvironmentName:(NSString*)environmentName
-                      namedDelegatePort:(NSString*)namedDelegatePort
-                     apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
+- (instancetype)initWithNamedDelegatePort:(NSString*)namedDelegatePort
+                       apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
 {
-    return [self initWithEnvironmentName:environmentName
-                       namedDelegatePort:namedDelegatePort
-                      apsConnectionClass:apsConnectionClass
-                        stalePushTimeout:5*60*NSEC_PER_SEC];
+    return [self initWithNamedDelegatePort:namedDelegatePort
+                        apsConnectionClass:apsConnectionClass
+                          stalePushTimeout:5*60*NSEC_PER_SEC];
 }
 
-- (instancetype)initWithEnvironmentName:(NSString*)environmentName
-                      namedDelegatePort:(NSString*)namedDelegatePort
-                     apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
-                       stalePushTimeout:(uint64_t)stalePushTimeout
+- (instancetype)initWithNamedDelegatePort:(NSString*)namedDelegatePort
+                       apsConnectionClass:(Class<OctagonAPSConnection>)apsConnectionClass
+                         stalePushTimeout:(uint64_t)stalePushTimeout
 {
-    if(self = [super init]) {
+    if((self = [super init])) {
         _apsConnectionClass = apsConnectionClass;
-        _apsConnection = NULL;
 
-        _undeliveredUpdates = [NSMutableDictionary dictionary];
+        _undeliveredUpdates = [NSMutableSet set];
         _undeliveredCuttlefishUpdates = [[NSMutableSet alloc] init];
 
-        // APS might be slow. This doesn't need to happen immediately, so let it happen later.
-        WEAKIFY(self);
-        dispatch_async([OctagonAPSReceiver apsDeliveryQueue], ^{
-            STRONGIFY(self);
-            if(!self) {
-                return;
-            }
-            self.apsConnection = [[self.apsConnectionClass alloc] initWithEnvironmentName:environmentName namedDelegatePort:namedDelegatePort queue:[OctagonAPSReceiver apsDeliveryQueue]];
-            self.apsConnection.delegate = self;
+        _namedDelegatePort = namedDelegatePort;
 
-            // The following string should match: [[NSBundle mainBundle] bundleIdentifier]
-            NSString* ckksTopic = [kCKPushTopicPrefix stringByAppendingString:@"com.apple.securityd"];
+        _environmentMap = [NSMutableDictionary dictionary];
 
-            NSArray* topics = [@[ckksTopic] arrayByAddingObjectsFromArray:[self cuttlefishPushTopics].allObjects];
-            [self.apsConnection setEnabledTopics:topics];
-#if TARGET_OS_OSX
-            [self.apsConnection setDarkWakeTopics:topics];
-#endif
-        });
-
-        _zoneMap = [NSMapTable strongToWeakObjectsMapTable];
         _octagonContainerMap = [NSMapTable strongToWeakObjectsMapTable];
+        _zoneUpdateReceiver = nil;
 
+        WEAKIFY(self);
         void (^clearPushBlock)(void) = ^{
             dispatch_async([OctagonAPSReceiver apsDeliveryQueue], ^{
-                NSDictionary<NSString*, NSMutableSet<CKRecordZoneNotification*>*> *droppedUpdates;
+                NSMutableSet<CKRecordZoneNotification*> *droppedUpdates;
                 STRONGIFY(self);
                 if (self == nil) {
                     return;
@@ -209,7 +196,7 @@
 
                 droppedUpdates = self.undeliveredUpdates;
 
-                self.undeliveredUpdates = [NSMutableDictionary dictionary];
+                self.undeliveredUpdates = [NSMutableSet set];
                 [self.undeliveredCuttlefishUpdates removeAllObjects];
 
                 [self reportDroppedPushes:droppedUpdates];
@@ -225,8 +212,47 @@
     return self;
 }
 
+- (void)registerForEnvironment:(NSString*)environmentName
+{
+    WEAKIFY(self);
+
+    // APS might be slow. This doesn't need to happen immediately, so let it happen later.
+    dispatch_async([OctagonAPSReceiver apsDeliveryQueue], ^{
+        STRONGIFY(self);
+        if(!self) {
+            return;
+        }
+
+        id<OctagonAPSConnection> apsConnection = self.environmentMap[environmentName];
+        if(apsConnection) {
+            // We've already set one of these up.
+            return;
+        }
+
+        apsConnection = [[self.apsConnectionClass alloc] initWithEnvironmentName:environmentName namedDelegatePort:self.namedDelegatePort queue:[OctagonAPSReceiver apsDeliveryQueue]];
+        self.environmentMap[environmentName] = apsConnection;
+
+        apsConnection.delegate = self;
+
+        // The following string should match: [[NSBundle mainBundle] bundleIdentifier]
+        NSString* ckksTopic = [kCKPushTopicPrefix stringByAppendingString:@"com.apple.securityd"];
+
+#if TARGET_OS_WATCH
+        // Watches treat CKKS as opportunistic, and Octagon as normal priority.
+        apsConnection.enabledTopics = [self cuttlefishPushTopics];
+        apsConnection.opportunisticTopics = @[ckksTopic];
+#else
+        apsConnection.enabledTopics = [[self cuttlefishPushTopics] arrayByAddingObject:ckksTopic];
+#if TARGET_OS_OSX
+        apsConnection.darkWakeTopics = self.apsConnection.enabledTopics;
+#endif // TARGET_OS_OSX
+
+#endif // TARGET_OS_WATCH
+    });
+}
+
 // Report that pushes we are dropping
-- (void)reportDroppedPushes:(NSDictionary<NSString*, NSMutableSet<CKRecordZoneNotification*>*>*)notifications
+- (void)reportDroppedPushes:(NSSet<CKRecordZoneNotification*>*)notifications
 {
     bool hasBeenUnlocked = false;
     CFErrorRef error = NULL;
@@ -243,44 +269,43 @@
         eventName = @"CKKS APNS Push Dropped - never unlocked";
     }
 
-    for (NSString *zone in notifications) {
-        for (CKRecordZoneNotification *notification in notifications[zone]) {
-            if (notification.ckksPushTracingEnabled) {
-                secnotice("apsnotification", "Submitting initial CKEventMetric due to notification %@", notification);
+    for (CKRecordZoneNotification *notification in notifications) {
+        if (notification.ckksPushTracingEnabled) {
+            ckksnotice_global("apsnotification", "Submitting initial CKEventMetric due to notification %@", notification);
 
-                SecEventMetric *metric = [[SecEventMetric alloc] initWithEventName:@"APNSPushMetrics"];
-                metric[@"push_token_uuid"] = notification.ckksPushTracingUUID;
-                metric[@"push_received_date"] = notification.ckksPushReceivedDate;
+            SecEventMetric *metric = [[SecEventMetric alloc] initWithEventName:@"APNSPushMetrics"];
+            metric[@"push_token_uuid"] = notification.ckksPushTracingUUID;
+            metric[@"push_received_date"] = notification.ckksPushReceivedDate;
 
-                metric[@"push_event_name"] = eventName;
+            metric[@"push_event_name"] = eventName;
 
-                [[SecMetrics managerObject] submitEvent:metric];
-            }
+            [[SecMetrics managerObject] submitEvent:metric];
         }
     }
 }
 
-
-
-- (CKKSCondition*)registerReceiver:(id<CKKSZoneUpdateReceiver>)receiver forZoneID:(CKRecordZoneID *)zoneID {
+- (CKKSCondition*)registerCKKSReceiver:(id<CKKSZoneUpdateReceiverProtocol>)receiver
+{
     CKKSCondition* finished = [[CKKSCondition alloc] init];
 
     WEAKIFY(self);
     dispatch_async([OctagonAPSReceiver apsDeliveryQueue], ^{
         STRONGIFY(self);
         if(!self) {
-            secerror("ckks: received registration for released OctagonAPSReceiver");
+            ckkserror_global("octagonpush", "received registration for released OctagonAPSReceiver");
             return;
         }
 
-        [self.zoneMap setObject:receiver forKey: zoneID.zoneName];
+        ckksnotice_global("octagonpush", "Registering new CKKS push receiver: %@", receiver);
 
-        NSMutableSet<CKRecordZoneNotification*>* currentPendingMessages = self.undeliveredUpdates[zoneID.zoneName];
-        [self.undeliveredUpdates removeObjectForKey:zoneID.zoneName];
+        self.zoneUpdateReceiver = receiver;
+
+        NSMutableSet<CKRecordZoneNotification*>* currentPendingMessages = [self.undeliveredUpdates copy];
+        [self.undeliveredUpdates removeAllObjects];
 
         for(CKRecordZoneNotification* message in currentPendingMessages.allObjects) {
             // Now, send the receiver its notification!
-            secerror("ckks: sending stored push(%@) to newly-registered zone(%@): %@", message, zoneID.zoneName, receiver);
+            ckkserror_global("octagonpush", "sending stored push(%@) to newly-registered receiver: %@", message, receiver);
             [receiver notifyZoneChange:message];
         }
 
@@ -299,7 +324,7 @@
     dispatch_async([OctagonAPSReceiver apsDeliveryQueue], ^{
         STRONGIFY(self);
         if(!self) {
-            secerror("octagon: received registration for released OctagonAPSReceiver");
+            ckkserror_global("octagonpush", "received registration for released OctagonAPSReceiver");
             return;
         }
 
@@ -308,7 +333,7 @@
             [self.undeliveredCuttlefishUpdates removeObject:containerName];
 
             // Now, send the receiver its fake notification!
-            secerror("octagon: sending fake push to newly-registered cuttlefish receiver(%@): %@", containerName, receiver);
+            ckkserror_global("octagonpush", "sending fake push to newly-registered cuttlefish receiver(%@): %@", containerName, receiver);
             [receiver notifyContainerChange:nil];
         }
 
@@ -322,29 +347,27 @@
 
 - (void)connection:(APSConnection *)connection didReceivePublicToken:(NSData *)publicToken {
     // no-op.
-    secnotice("octagonpush", "OctagonAPSDelegate initiated: %@", connection);
+    ckksnotice_global("octagonpush", "OctagonAPSDelegate initiated: %@", connection);
 }
 
 - (void)connection:(APSConnection *)connection didReceiveToken:(NSData *)token forTopic:(NSString *)topic identifier:(NSString *)identifier {
-    secnotice("octagonpush", "Received per-topic push token \"%@\" for topic \"%@\" identifier \"%@\" on connection %@", token, topic, identifier, connection);
+    ckksnotice_global("octagonpush", "Received per-topic push token \"%@\" for topic \"%@\" identifier \"%@\" on connection %@", token, topic, identifier, connection);
 }
 
 - (void)connection:(APSConnection *)connection didReceiveIncomingMessage:(APSIncomingMessage *)message {
-    secnotice("octagonpush", "OctagonAPSDelegate received a message(%@): %@ ", message.topic, message.userInfo);
+    ckksnotice_global("octagonpush", "OctagonAPSDelegate received a message(%@): %@ ", message.topic, message.userInfo);
 
     // Report back through APS that we received a message
     if(message.tracingEnabled) {
         [connection confirmReceiptForMessage:message];
     }
 
-    NSSet<NSString*>* cuttlefishTopics = [self cuttlefishPushTopics];
-
     // Separate and handle cuttlefish notifications
-    if([cuttlefishTopics containsObject:message.topic] && [message.userInfo objectForKey:@"cf"]) {
+    if(message.userInfo[@"cf"] != nil) {
         NSDictionary* cfInfo = message.userInfo[@"cf"];
         NSString* container = cfInfo[@"c"];
 
-        secnotice("octagonpush", "Received a cuttlefish push to container %@", container);
+        ckksnotice_global("octagonpush", "Received a cuttlefish push to container %@", container);
         [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastOctagonPush];
 
         if(container) {
@@ -353,7 +376,7 @@
             if(receiver) {
                 [receiver notifyContainerChange:message];
             } else {
-                secerror("octagonpush: received cuttlefish push for unregistered container: %@", container);
+                ckkserror_global("octagonpush", "received cuttlefish push for unregistered container: %@", container);
                 [self.undeliveredCuttlefishUpdates addObject:container];
                 [self.clearStalePushNotifications trigger];
             }
@@ -380,23 +403,16 @@
         [[CKKSAnalytics logger] setDateProperty:[NSDate date] forKey:CKKSAnalyticsLastCKKSPush];
 
         // Find receiever in map
-        id<CKKSZoneUpdateReceiver> recv = [self.zoneMap objectForKey:rznotification.recordZoneID.zoneName];
+        id<CKKSZoneUpdateReceiverProtocol> recv = self.zoneUpdateReceiver;
         if(recv) {
             [recv notifyZoneChange:rznotification];
         } else {
-            secerror("ckks: received push for unregistered zone: %@", rznotification);
-            if(rznotification.recordZoneID) {
-                NSMutableSet<CKRecordZoneNotification*>* currentPendingMessages = self.undeliveredUpdates[rznotification.recordZoneID.zoneName];
-                if(currentPendingMessages) {
-                    [currentPendingMessages addObject:rznotification];
-                } else {
-                    self.undeliveredUpdates[rznotification.recordZoneID.zoneName] = [NSMutableSet setWithObject:rznotification];
-                    [self.clearStalePushNotifications trigger];
-                }
-            }
+            ckkserror_global("ckkspush", "received push for unregistered receiver: %@", rznotification);
+            [self.undeliveredUpdates addObject:rznotification];
+            [self.clearStalePushNotifications trigger];
         }
     } else {
-        secerror("ckks: unexpected notification: %@", notification);
+        ckkserror_global("ckkspush", "unexpected notification: %@", notification);
     }
 }
 

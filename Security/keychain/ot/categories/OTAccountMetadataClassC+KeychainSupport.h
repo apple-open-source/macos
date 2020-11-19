@@ -15,10 +15,10 @@ NS_ASSUME_NONNULL_BEGIN
 + (OTAccountMetadataClassC* _Nullable)loadFromKeychainForContainer:(NSString*)containerName contextID:(NSString*)contextID error:(NSError**)error;
 @end
 
-@class TPPolicy;
+@class TPSyncingPolicy;
 @interface OTAccountMetadataClassC (NSSecureCodingSupport)
-- (void)setTPPolicy:(TPPolicy* _Nullable)policy;
-- (TPPolicy* _Nullable)getTPPolicy;
+- (void)setTPSyncingPolicy:(TPSyncingPolicy* _Nullable)policy;
+- (TPSyncingPolicy* _Nullable)getTPSyncingPolicy;
 @end
 
 NS_ASSUME_NONNULL_END

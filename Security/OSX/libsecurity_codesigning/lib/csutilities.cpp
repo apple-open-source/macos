@@ -34,13 +34,16 @@
 #include <security_asn1/SecAsn1Templates.h>
 #include <Security/SecCertificatePriv.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecPolicyPriv.h>
 #include <utilities/SecAppleAnchorPriv.h>
 #include <utilities/SecInternalReleasePriv.h>
 #include "requirement.h"
 #include <security_utilities/hashing.h>
 #include <security_utilities/debugging.h>
 #include <security_utilities/errors.h>
+#include <sys/mount.h>
 #include <sys/utsname.h>
+#include "debugging.h"
 
 extern "C" {
 
@@ -85,13 +88,7 @@ void hashOfCertificate(const void *certData, size_t certLength, SHA1::Digest dig
 void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest)
 {
 	assert(cert);
-#if TARGET_OS_OSX
-	CSSM_DATA certData;
-	MacOSError::check(SecCertificateGetData(cert, &certData));
-	hashOfCertificate(certData.Data, certData.Length, digest);
-#else
     hashOfCertificate(SecCertificateGetBytePtr(cert), SecCertificateGetLength(cert), digest);
-#endif
 }
 
 
@@ -112,36 +109,32 @@ bool verifyHash(SecCertificateRef cert, const Hashing::Byte *digest)
 //
 bool certificateHasField(SecCertificateRef cert, const CSSM_OID &oid)
 {
-	assert(cert);
-	CSSM_DATA *value;
-	switch (OSStatus rc = SecCertificateCopyFirstFieldValue(cert, &oid, &value)) {
-	case errSecSuccess:
-		MacOSError::check(SecCertificateReleaseFirstFieldValue(cert, &oid, value));
-		return true;					// extension found by oid
-	case errSecUnknownTag:
-		break;							// oid not recognized by CL - continue below
-	default:
-		MacOSError::throwMe(rc);		// error: fail
+	CFDataRef oidData = NULL;
+	CFDataRef data = NULL;
+	bool isCritical = false;
+	bool matched = false;
+
+	oidData = CFDataCreateWithBytesNoCopy(NULL, oid.Data, oid.Length,
+	                                      kCFAllocatorNull);
+	if (!(cert && oidData)) {
+		goto out;
 	}
-	
-	// check the CL's bag of unrecognized extensions
-	CSSM_DATA **values;
-	bool found = false;
-	if (SecCertificateCopyFieldValues(cert, &CSSMOID_X509V3CertificateExtensionCStruct, &values))
-		return false;	// no unrecognized extensions - no match
-	if (values)
-		for (CSSM_DATA **p = values; *p; p++) {
-			const CSSM_X509_EXTENSION *ext = (const CSSM_X509_EXTENSION *)(*p)->Data;
-			if (oid == ext->extnId) {
-				found = true;
-				break;
-			}
-		}
-	MacOSError::check(SecCertificateReleaseFieldValues(cert, &CSSMOID_X509V3CertificateExtensionCStruct, values));
-	return found;
+	data = SecCertificateCopyExtensionValue(cert, oidData, &isCritical);
+	if (data == NULL) {
+		goto out;
+	}
+	matched = true;
+out:
+	if (data) {
+		CFRelease(data);
+	}
+	if (oidData) {
+		CFRelease(oidData);
+	}
+	return matched;
 }
-    
-    
+
+
 //
 // Retrieve X.509 policy extension OIDs, if any.
 // This currently ignores policy qualifiers.
@@ -149,24 +142,16 @@ bool certificateHasField(SecCertificateRef cert, const CSSM_OID &oid)
 bool certificateHasPolicy(SecCertificateRef cert, const CSSM_OID &policyOid)
 {
 	bool matched = false;
-	assert(cert);
-	CSSM_DATA *data;
-	if (OSStatus rc = SecCertificateCopyFirstFieldValue(cert, &CSSMOID_CertificatePolicies, &data))
-		MacOSError::throwMe(rc);
-	if (data && data->Data && data->Length == sizeof(CSSM_X509_EXTENSION)) {
-		const CSSM_X509_EXTENSION *ext = (const CSSM_X509_EXTENSION *)data->Data;
-		assert(ext->format == CSSM_X509_DATAFORMAT_PARSED);
-		const CE_CertPolicies *policies = (const CE_CertPolicies *)ext->value.parsedValue;
-		if (policies)
-			for (unsigned int n = 0; n < policies->numPolicies; n++) {
-				const CE_PolicyInformation &cp = policies->policies[n];
-				if (cp.certPolicyId == policyOid) {
-					matched = true;
-					break;
-				}
-			}
+	CFDataRef oidData = CFDataCreateWithBytesNoCopy(NULL, policyOid.Data, policyOid.Length,
+	                                      kCFAllocatorNull);
+	if (!(cert && oidData)) {
+		goto out;
 	}
-	SecCertificateReleaseFirstFieldValue(cert, &CSSMOID_PolicyConstraints, data);
+	matched = SecPolicyCheckCertCertificatePolicy(cert, oidData);
+out:
+	if (oidData) {
+		CFRelease(oidData);
+	}
 	return matched;
 }
 
@@ -335,6 +320,19 @@ bool LimitedAsync::perform(Dispatch::Group &groupRef, void (^block)()) {
 		block();
 		return false;
 	}
+}
+
+bool isOnRootFilesystem(const char *path)
+{
+	int rc = 0;
+	struct statfs sfb;
+
+	rc = statfs(path, &sfb);
+	if (rc != 0) {
+		secerror("Unable to check if path is on rootfs: %d, %s", errno, path);
+		return false;
+	}
+	return ((sfb.f_flags & MNT_ROOTFS) == MNT_ROOTFS);
 }
 
 } // end namespace CodeSigning

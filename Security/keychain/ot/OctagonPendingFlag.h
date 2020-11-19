@@ -25,8 +25,11 @@ NSString* OctagonPendingConditionsToString(OctagonPendingConditions cond);
 
 @property (readonly) OctagonPendingConditions conditions;
 
+@property (nullable) NSOperation* afterOperation;
+
 - (instancetype)initWithFlag:(OctagonFlag*)flag delayInSeconds:(NSTimeInterval)delay;
 - (instancetype)initWithFlag:(OctagonFlag*)flag conditions:(OctagonPendingConditions)conditions;
+- (instancetype)initWithFlag:(OctagonFlag*)flag after:(NSOperation*)op;
 @end
 
 NS_ASSUME_NONNULL_END

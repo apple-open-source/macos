@@ -28,6 +28,10 @@ EOF
 set -e
 set -o pipefail
 
+for FS in JHFS+ APFS FAT32 EXFAT; do
+    touch "$DERIVED_SOURCES_DIR/$FS-dmg.dat"
+done
+
 # The following change is taken directly from the XCBuild changes made for APFS in
 # the commit cf61eef74b8
 if [ "$CURRENT_ARCH" = undefined_arch ]; then
@@ -44,7 +48,7 @@ fi
 # filter out any that aren't applicable to the targeted
 # platform).  Finally grep for the TEST macro again
 grep -l -E '^TEST\(' *.[cm] | xargs xcrun clang -E -D TEST=TEST \
-	-arch "$CURRENT_ARCH" -I.. -F"$SDKROOT""$SYSTEM_LIBRARY_DIR"/PrivateFrameworks | \
+	-arch "$CURRENT_ARCH" -I"$DERIVED_SOURCES_DIR" -I.. -F"$SDKROOT""$SYSTEM_LIBRARY_DIR"/PrivateFrameworks | \
 	grep -h -E 'TEST\(' >>"$DERIVED_FILE_DIR"/list-tests.c
 
 # Build an executable for the host platform

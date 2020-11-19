@@ -49,7 +49,7 @@ public:
     ConstructorKind constructorKind() const { return m_codeBlock->constructorKind(); }
     SuperBinding superBinding() const { return m_codeBlock->superBinding(); }
     JSParserScriptMode scriptMode() const { return m_codeBlock->scriptMode(); }
-    bool isStrictMode() const { return m_codeBlock->isStrictMode(); }
+    NeedsClassFieldInitializer needsClassFieldInitializer() const { return m_codeBlock->needsClassFieldInitializer(); }
     bool usesEval() const { return m_codeBlock->usesEval(); }
     SourceParseMode parseMode() const { return m_codeBlock->parseMode(); }
     bool isArrowFunction() { return m_codeBlock->isArrowFunction(); }
@@ -63,9 +63,11 @@ public:
     VirtualRegister thisRegister() const { return m_codeBlock->thisRegister(); }
     VirtualRegister scopeRegister() const { return m_codeBlock->scopeRegister(); }
     bool wasCompiledWithDebuggingOpcodes() const { return m_codeBlock->wasCompiledWithDebuggingOpcodes(); }
+    bool hasCheckpoints() const { return m_codeBlock->hasCheckpoints(); }
     bool hasTailCalls() const { return m_codeBlock->hasTailCalls(); }
 
     // Updating UnlinkedCodeBlock.
+    void setHasCheckpoints() { m_codeBlock->setHasCheckpoints(); }
     void setHasTailCalls() { m_codeBlock->setHasTailCalls(); }
     void setNumCalleeLocals(int numCalleeLocals) { m_codeBlock->m_numCalleeLocals = numCalleeLocals; }
     void setNumVars(int numVars) { m_codeBlock->m_numVars = numVars; }
@@ -118,10 +120,9 @@ public:
         m_constantIdentifierSets.append(ConstantIdentifierSetEntry(set, result));
     }
 
-    const WriteBarrier<Unknown>& constantRegister(int index) { return m_constantRegisters[index - FirstConstantRegisterIndex]; }
+    const WriteBarrier<Unknown>& constantRegister(VirtualRegister reg) const { return m_constantRegisters[reg.toConstantIndex()]; }
     const Vector<WriteBarrier<Unknown>>& constantRegisters() { return m_constantRegisters; }
-    static ALWAYS_INLINE bool isConstantRegisterIndex(int index) { return index >= FirstConstantRegisterIndex; }
-    ALWAYS_INLINE JSValue getConstant(int index) const { return m_constantRegisters[index - FirstConstantRegisterIndex].get(); }
+    ALWAYS_INLINE JSValue getConstant(VirtualRegister reg) const { return m_constantRegisters[reg.toConstantIndex()].get(); }
     const Vector<SourceCodeRepresentation>& constantsSourceCodeRepresentation() { return m_constantsSourceCodeRepresentation; }
 
     unsigned addConstant(JSValue v, SourceCodeRepresentation sourceCodeRepresentation = SourceCodeRepresentation::Other)

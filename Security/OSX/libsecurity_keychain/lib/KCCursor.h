@@ -47,7 +47,7 @@ protected:
 	KCCursorImpl(const StorageManager::KeychainList &searchList, const SecKeychainAttributeList *attrList);
 
 public:
-	virtual ~KCCursorImpl() throw();
+	virtual ~KCCursorImpl() _NOEXCEPT;
 	bool next(Item &item);
     bool mayDelete();
 

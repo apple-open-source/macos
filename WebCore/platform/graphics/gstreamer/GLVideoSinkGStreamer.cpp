@@ -22,33 +22,12 @@
 
 #if ENABLE(VIDEO) && USE(GSTREAMER_GL)
 
-#include "GLContext.h"
 #include "GStreamerCommon.h"
 #include "MediaPlayerPrivateGStreamer.h"
+#include "PlatformDisplay.h"
+
 #include <gst/app/gstappsink.h>
 #include <wtf/glib/WTFGType.h>
-
-#if USE(GLX)
-#include "GLContextGLX.h"
-#include <gst/gl/x11/gstgldisplay_x11.h>
-#endif
-
-#if USE(EGL)
-#include "GLContextEGL.h"
-#include <gst/gl/egl/gstgldisplay_egl.h>
-#endif
-
-#if PLATFORM(X11)
-#include "PlatformDisplayX11.h"
-#endif
-
-#if PLATFORM(WAYLAND)
-#include "PlatformDisplayWayland.h"
-#endif
-
-#if USE(WPE_RENDERER)
-#include "PlatformDisplayLibWPE.h"
-#endif
 
 // gstglapi.h may include eglplatform.h and it includes X.h, which
 // defines None, breaking MediaPlayer::None enum
@@ -58,12 +37,14 @@
 
 using namespace WebCore;
 
+enum {
+    PROP_0,
+    PROP_STATS,
+    PROP_LAST
+};
+
 struct _WebKitGLVideoSinkPrivate {
     GRefPtr<GstElement> appSink;
-    GRefPtr<GstGLContext> glContext;
-    GRefPtr<GstGLDisplay> glDisplay;
-    GRefPtr<GstContext> glDisplayElementContext;
-    GRefPtr<GstContext> glAppElementContext;
     MediaPlayerPrivateGStreamer* mediaPlayerPrivate;
 };
 
@@ -134,113 +115,18 @@ void webKitGLVideoSinkFinalize(GObject* object)
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
 
-static bool ensureGstGLContext(WebKitGLVideoSink* sink)
+Optional<GRefPtr<GstContext>> requestGLContext(const char* contextType)
 {
-    WebKitGLVideoSinkPrivate* priv = sink->priv;
-
-    if (priv->glContext)
-        return true;
-
     auto& sharedDisplay = PlatformDisplay::sharedDisplayForCompositing();
+    auto* gstGLDisplay = sharedDisplay.gstGLDisplay();
+    auto* gstGLContext = sharedDisplay.gstGLContext();
 
-    // The floating ref removal support was added in https://bugzilla.gnome.org/show_bug.cgi?id=743062.
-    bool shouldAdoptRef = webkitGstCheckVersion(1, 14, 0);
-    if (!priv->glDisplay) {
-#if PLATFORM(X11)
-#if USE(GLX)
-        if (is<PlatformDisplayX11>(sharedDisplay)) {
-            GST_DEBUG_OBJECT(sink, "Creating X11 shared GL display");
-            if (shouldAdoptRef)
-                priv->glDisplay = adoptGRef(GST_GL_DISPLAY(gst_gl_display_x11_new_with_display(downcast<PlatformDisplayX11>(sharedDisplay).native())));
-            else
-                priv->glDisplay = GST_GL_DISPLAY(gst_gl_display_x11_new_with_display(downcast<PlatformDisplayX11>(sharedDisplay).native()));
-        }
-#elif USE(EGL)
-        if (is<PlatformDisplayX11>(sharedDisplay)) {
-            GST_DEBUG_OBJECT(sink, "Creating X11 shared EGL display");
-            if (shouldAdoptRef)
-                priv->glDisplay = adoptGRef(GST_GL_DISPLAY(gst_gl_display_egl_new_with_egl_display(downcast<PlatformDisplayX11>(sharedDisplay).eglDisplay())));
-            else
-                priv->glDisplay = GST_GL_DISPLAY(gst_gl_display_egl_new_with_egl_display(downcast<PlatformDisplayX11>(sharedDisplay).eglDisplay()));
-        }
-#endif
-#endif
-
-#if PLATFORM(WAYLAND)
-        if (is<PlatformDisplayWayland>(sharedDisplay)) {
-            GST_DEBUG_OBJECT(sink, "Creating Wayland shared display");
-            if (shouldAdoptRef)
-                priv->glDisplay = adoptGRef(GST_GL_DISPLAY(gst_gl_display_egl_new_with_egl_display(downcast<PlatformDisplayWayland>(sharedDisplay).eglDisplay())));
-            else
-                priv->glDisplay = GST_GL_DISPLAY(gst_gl_display_egl_new_with_egl_display(downcast<PlatformDisplayWayland>(sharedDisplay).eglDisplay()));
-        }
-#endif
-
-#if USE(WPE_RENDERER)
-        if (is<PlatformDisplayLibWPE>(sharedDisplay)) {
-            GST_DEBUG_OBJECT(sink, "Creating WPE shared EGL display");
-            if (shouldAdoptRef)
-                priv->glDisplay = adoptGRef(GST_GL_DISPLAY(gst_gl_display_egl_new_with_egl_display(downcast<PlatformDisplayLibWPE>(sharedDisplay).eglDisplay())));
-            else
-                priv->glDisplay = GST_GL_DISPLAY(gst_gl_display_egl_new_with_egl_display(downcast<PlatformDisplayLibWPE>(sharedDisplay).eglDisplay()));
-        }
-#endif
-
-        ASSERT(priv->glDisplay);
-    }
-
-    GLContext* sharedContext = sharedDisplay.sharingGLContext();
-    if (!sharedContext) {
-        GST_ELEMENT_ERROR(GST_ELEMENT_CAST(sink), RESOURCE, NOT_FOUND, (("WebKit shared GL context unavailable")),
-            ("The WebKit shared GL context somehow disappeared. Video textures rendering will fail."));
-        return false;
-    }
-
-    // EGL and GLX are mutually exclusive, no need for ifdefs here.
-    GstGLPlatform glPlatform = sharedContext->isEGLContext() ? GST_GL_PLATFORM_EGL : GST_GL_PLATFORM_GLX;
-
-#if USE(OPENGL_ES)
-    GstGLAPI glAPI = GST_GL_API_GLES2;
-#elif USE(OPENGL)
-    GstGLAPI glAPI = GST_GL_API_OPENGL;
-#else
-    ASSERT_NOT_REACHED();
-#endif
-
-    PlatformGraphicsContext3D contextHandle = sharedContext->platformContext();
-    if (!contextHandle)
-        return false;
-
-    if (shouldAdoptRef)
-        priv->glContext = adoptGRef(gst_gl_context_new_wrapped(priv->glDisplay.get(), reinterpret_cast<guintptr>(contextHandle), glPlatform, glAPI));
-    else
-        priv->glContext = gst_gl_context_new_wrapped(priv->glDisplay.get(), reinterpret_cast<guintptr>(contextHandle), glPlatform, glAPI);
-
-    // Activate and fill the GStreamer wrapped context with the Webkit's shared one.
-    auto* previousActiveContext = GLContext::current();
-    sharedContext->makeContextCurrent();
-    if (gst_gl_context_activate(priv->glContext.get(), TRUE)) {
-        GUniqueOutPtr<GError> error;
-        if (!gst_gl_context_fill_info(priv->glContext.get(), &error.outPtr()))
-            GST_WARNING("Failed to fill in GStreamer context: %s", error->message);
-        gst_gl_context_activate(priv->glContext.get(), FALSE);
-    } else
-        GST_WARNING("Failed to activate GStreamer context %" GST_PTR_FORMAT, priv->glContext.get());
-    if (previousActiveContext)
-        previousActiveContext->makeContextCurrent();
-
-    return true;
-}
-
-GRefPtr<GstContext> requestGLContext(WebKitGLVideoSink* sink, const char* contextType)
-{
-    WebKitGLVideoSinkPrivate* priv = sink->priv;
-    if (!ensureGstGLContext(sink))
-        return nullptr;
+    if (!(gstGLDisplay && gstGLContext))
+        return WTF::nullopt;
 
     if (!g_strcmp0(contextType, GST_GL_DISPLAY_CONTEXT_TYPE)) {
         GstContext* displayContext = gst_context_new(GST_GL_DISPLAY_CONTEXT_TYPE, TRUE);
-        gst_context_set_gl_display(displayContext, priv->glDisplay.get());
+        gst_context_set_gl_display(displayContext, gstGLDisplay);
         return adoptGRef(displayContext);
     }
 
@@ -248,40 +134,44 @@ GRefPtr<GstContext> requestGLContext(WebKitGLVideoSink* sink, const char* contex
         GstContext* appContext = gst_context_new("gst.gl.app_context", TRUE);
         GstStructure* structure = gst_context_writable_structure(appContext);
 #if GST_CHECK_VERSION(1, 12, 0)
-        gst_structure_set(structure, "context", GST_TYPE_GL_CONTEXT, priv->glContext.get(), nullptr);
+        gst_structure_set(structure, "context", GST_TYPE_GL_CONTEXT, gstGLContext, nullptr);
 #else
-        gst_structure_set(structure, "context", GST_GL_TYPE_CONTEXT, priv->glContext.get(), nullptr);
+        gst_structure_set(structure, "context", GST_GL_TYPE_CONTEXT, gstGLContext, nullptr);
 #endif
         return adoptGRef(appContext);
     }
 
-    return nullptr;
+    return WTF::nullopt;
+}
+
+static bool setGLContext(GstElement* elementSink, const char* contextType)
+{
+    GRefPtr<GstContext> oldContext = gst_element_get_context(elementSink, contextType);
+    if (!oldContext) {
+        auto newContext = requestGLContext(contextType);
+        if (!newContext.hasValue())
+            return false;
+        gst_element_set_context(elementSink, newContext->get());
+    }
+    return true;
 }
 
 static GstStateChangeReturn webKitGLVideoSinkChangeState(GstElement* element, GstStateChange transition)
 {
-    WebKitGLVideoSink* sink = WEBKIT_GL_VIDEO_SINK(element);
-    WebKitGLVideoSinkPrivate* priv = sink->priv;
-
 #if GST_CHECK_VERSION(1, 14, 0)
     GST_DEBUG_OBJECT(element, "%s", gst_state_change_get_name(transition));
 #endif
 
     switch (transition) {
     case GST_STATE_CHANGE_NULL_TO_READY:
+#if GST_CHECK_VERSION(1, 14, 0)
     case GST_STATE_CHANGE_READY_TO_READY:
+#endif
     case GST_STATE_CHANGE_READY_TO_PAUSED: {
-        if (!priv->glDisplayElementContext)
-            priv->glDisplayElementContext = requestGLContext(sink, GST_GL_DISPLAY_CONTEXT_TYPE);
-
-        if (priv->glDisplayElementContext)
-            gst_element_set_context(GST_ELEMENT_CAST(sink), priv->glDisplayElementContext.get());
-
-        if (!priv->glAppElementContext)
-            priv->glAppElementContext = requestGLContext(sink, "gst.gl.app_context");
-
-        if (priv->glAppElementContext)
-            gst_element_set_context(GST_ELEMENT_CAST(sink), priv->glAppElementContext.get());
+        if (!setGLContext(element, GST_GL_DISPLAY_CONTEXT_TYPE))
+            return GST_STATE_CHANGE_FAILURE;
+        if (!setGLContext(element, "gst.gl.app_context"))
+            return GST_STATE_CHANGE_FAILURE;
         break;
     }
     default:
@@ -291,6 +181,25 @@ static GstStateChangeReturn webKitGLVideoSinkChangeState(GstElement* element, Gs
     return GST_ELEMENT_CLASS(parent_class)->change_state(element, transition);
 }
 
+static void webKitGLVideoSinkGetProperty(GObject* object, guint propertyId, GValue* value, GParamSpec* paramSpec)
+{
+    WebKitGLVideoSink* sink = WEBKIT_GL_VIDEO_SINK(object);
+
+    switch (propertyId) {
+    case PROP_STATS:
+        if (webkitGstCheckVersion(1, 17, 0)) {
+            GUniqueOutPtr<GstStructure> stats;
+            g_object_get(sink->priv->appSink.get(), "stats", &stats.outPtr(), nullptr);
+            gst_value_set_structure(value, stats.get());
+        }
+        break;
+    default:
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, paramSpec);
+        RELEASE_ASSERT_NOT_REACHED();
+        break;
+    }
+}
+
 static void webkit_gl_video_sink_class_init(WebKitGLVideoSinkClass* klass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(klass);
@@ -298,9 +207,13 @@ static void webkit_gl_video_sink_class_init(WebKitGLVideoSinkClass* klass)
 
     objectClass->constructed = webKitGLVideoSinkConstructed;
     objectClass->finalize = webKitGLVideoSinkFinalize;
+    objectClass->get_property = webKitGLVideoSinkGetProperty;
 
     gst_element_class_add_pad_template(elementClass, gst_static_pad_template_get(&sinkTemplate));
     gst_element_class_set_static_metadata(elementClass, "WebKit GL video sink", "Sink/Video", "Renders video", "Philippe Normand <philn@igalia.com>");
+
+    g_object_class_install_property(objectClass, PROP_STATS, g_param_spec_boxed("stats", "Statistics",
+        "Sink Statistics", GST_TYPE_STRUCTURE, static_cast<GParamFlags>(G_PARAM_READABLE | G_PARAM_STATIC_STRINGS)));
 
     elementClass->change_state = GST_DEBUG_FUNCPTR(webKitGLVideoSinkChangeState);
 }
@@ -347,9 +260,7 @@ void webKitGLVideoSinkSetMediaPlayerPrivate(WebKitGLVideoSink* sink, MediaPlayer
 
 bool webKitGLVideoSinkProbePlatform()
 {
-    auto& sharedDisplay = PlatformDisplay::sharedDisplayForCompositing();
-    GLContext* sharedContext = sharedDisplay.sharingGLContext();
-    if (!sharedContext) {
+    if (!PlatformDisplay::sharedDisplayForCompositing().gstGLContext()) {
         GST_WARNING("WebKit shared GL context is not available.");
         return false;
     }

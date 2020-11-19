@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2020 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,10 +48,10 @@
 #include <WebCore/CookieJar.h>
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DiagnosticLoggingKeys.h>
-#include <WebCore/DocumentStorageAccess.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/ResourceLoadStatistics.h>
 #include <WebCore/SQLiteDatabase.h>
+#include <WebCore/SQLiteFileSystem.h>
 #include <WebCore/SQLiteStatement.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/CrossThreadCopier.h>
@@ -60,6 +60,10 @@
 
 namespace WebKit {
 using namespace WebCore;
+
+WebResourceLoadStatisticsStore::State WebResourceLoadStatisticsStore::suspendedState { WebResourceLoadStatisticsStore::State::Running };
+Lock WebResourceLoadStatisticsStore::suspendedStateLock;
+Condition WebResourceLoadStatisticsStore::suspendedStateChangeCondition;
 
 const OptionSet<WebsiteDataType>& WebResourceLoadStatisticsStore::monitoredDataTypes()
 {
@@ -90,6 +94,9 @@ void WebResourceLoadStatisticsStore::setNotifyPagesWhenDataRecordsWereScanned(bo
 {
     ASSERT(RunLoop::isMain());
 
+    if (isEphemeral())
+        return;
+
     postTask([this, value] {
         if (m_statisticsStore)
             m_statisticsStore->setNotifyPagesWhenDataRecordsWereScanned(value);
@@ -100,6 +107,11 @@ void WebResourceLoadStatisticsStore::setNotifyPagesWhenDataRecordsWereScanned(bo
 {
     ASSERT(RunLoop::isMain());
     
+    if (isEphemeral()) {
+        completionHandler();
+        return;
+    }
+
     postTask([this, value, completionHandler = WTFMove(completionHandler)]() mutable {
         if (m_statisticsStore)
             m_statisticsStore->setNotifyPagesWhenDataRecordsWereScanned(value);
@@ -111,7 +123,12 @@ void WebResourceLoadStatisticsStore::setNotifyPagesWhenDataRecordsWereScanned(bo
 void WebResourceLoadStatisticsStore::setIsRunningTest(bool value, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
-    
+
+    if (isEphemeral()) {
+        completionHandler();
+        return;
+    }
+
     postTask([this, value, completionHandler = WTFMove(completionHandler)]() mutable {
         if (m_statisticsStore)
             m_statisticsStore->setIsRunningTest(value);
@@ -142,37 +159,48 @@ void WebResourceLoadStatisticsStore::setShouldSubmitTelemetry(bool value)
     });
 }
 
-void WebResourceLoadStatisticsStore::setNotifyPagesWhenTelemetryWasCaptured(bool value, CompletionHandler<void()>&& completionHandler)
+static Ref<WorkQueue> sharedStatisticsQueue()
 {
-    ASSERT(RunLoop::isMain());
-
-    WebKit::WebResourceLoadStatisticsTelemetry::setNotifyPagesWhenTelemetryWasCaptured(value);
-    completionHandler();
+    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("WebResourceLoadStatisticsStore Process Data Queue", WorkQueue::Type::Serial, WorkQueue::QOS::Utility));
+    return queue.get().copyRef();
 }
 
-WebResourceLoadStatisticsStore::WebResourceLoadStatisticsStore(NetworkSession& networkSession, const String& resourceLoadStatisticsDirectory, ShouldIncludeLocalhost shouldIncludeLocalhost)
+WebResourceLoadStatisticsStore::WebResourceLoadStatisticsStore(NetworkSession& networkSession, const String& resourceLoadStatisticsDirectory, ShouldIncludeLocalhost shouldIncludeLocalhost, ResourceLoadStatistics::IsEphemeral isEphemeral)
     : m_networkSession(makeWeakPtr(networkSession))
-    , m_statisticsQueue(WorkQueue::create("WebResourceLoadStatisticsStore Process Data Queue", WorkQueue::Type::Serial, WorkQueue::QOS::Utility))
+    , m_statisticsQueue(sharedStatisticsQueue())
     , m_dailyTasksTimer(RunLoop::main(), this, &WebResourceLoadStatisticsStore::performDailyTasks)
+    , m_isEphemeral(isEphemeral)
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
-    postTask([this, databaseEnabled = networkSession.networkProcess().isITPDatabaseEnabled(), resourceLoadStatisticsDirectory = resourceLoadStatisticsDirectory.isolatedCopy(), shouldIncludeLocalhost, sessionID = networkSession.sessionID()] {
-        if (databaseEnabled) {
-            m_statisticsStore = makeUnique<ResourceLoadStatisticsDatabaseStore>(*this, m_statisticsQueue, shouldIncludeLocalhost, resourceLoadStatisticsDirectory, sessionID);
+    // No daily tasks needed for ephemeral sessions since no resource load statistics are collected.
+    if (isEphemeral == ResourceLoadStatistics::IsEphemeral::Yes)
+        return;
 
-            auto memoryStore = makeUnique<ResourceLoadStatisticsMemoryStore>(*this, m_statisticsQueue, shouldIncludeLocalhost);
-            downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore.get()).populateFromMemoryStore(*memoryStore);
-        } else {
-            m_statisticsStore = makeUnique<ResourceLoadStatisticsMemoryStore>(*this, m_statisticsQueue, shouldIncludeLocalhost);
-            m_persistentStorage = makeUnique<ResourceLoadStatisticsPersistentStorage>(downcast<ResourceLoadStatisticsMemoryStore>(*m_statisticsStore), m_statisticsQueue, resourceLoadStatisticsDirectory);
-        }
+    if (!resourceLoadStatisticsDirectory.isEmpty()) {
+        postTask([this, databaseEnabled = networkSession.networkProcess().isITPDatabaseEnabled(), resourceLoadStatisticsDirectory = resourceLoadStatisticsDirectory.isolatedCopy(), shouldIncludeLocalhost, sessionID = networkSession.sessionID()] {
+            if (databaseEnabled) {
+                m_statisticsStore = makeUnique<ResourceLoadStatisticsDatabaseStore>(*this, m_statisticsQueue, shouldIncludeLocalhost, resourceLoadStatisticsDirectory, sessionID);
 
-        // FIXME(193297): This should be revised after the UIProcess version goes away.
-        m_statisticsStore->didCreateNetworkProcess();
-    });
+                auto memoryStore = makeUnique<ResourceLoadStatisticsMemoryStore>(*this, m_statisticsQueue, shouldIncludeLocalhost);
+                downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore.get()).populateFromMemoryStore(*memoryStore);
 
-    m_dailyTasksTimer.startRepeating(24_h);
+                auto legacyPlistFilePath = FileSystem::pathByAppendingComponent(resourceLoadStatisticsDirectory, "full_browsing_session_resourceLog.plist");
+                if (FileSystem::fileExists(legacyPlistFilePath))
+                    FileSystem::deleteFile(legacyPlistFilePath);
+
+            } else {
+                m_statisticsStore = makeUnique<ResourceLoadStatisticsMemoryStore>(*this, m_statisticsQueue, shouldIncludeLocalhost);
+                m_persistentStorage = makeUnique<ResourceLoadStatisticsPersistentStorage>(downcast<ResourceLoadStatisticsMemoryStore>(*m_statisticsStore), m_statisticsQueue, resourceLoadStatisticsDirectory);
+
+                SQLiteFileSystem::deleteDatabaseFile(FileSystem::pathByAppendingComponent(resourceLoadStatisticsDirectory, "observations.db"));
+            }
+
+            m_statisticsStore->didCreateNetworkProcess();
+        });
+
+        m_dailyTasksTimer.startRepeating(24_h);
+    }
 }
 
 WebResourceLoadStatisticsStore::~WebResourceLoadStatisticsStore()
@@ -182,16 +210,24 @@ WebResourceLoadStatisticsStore::~WebResourceLoadStatisticsStore()
     RELEASE_ASSERT(!m_persistentStorage);
 }
 
-void WebResourceLoadStatisticsStore::didDestroyNetworkSession()
+void WebResourceLoadStatisticsStore::didDestroyNetworkSession(CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
 
+    auto callbackAggregator = CallbackAggregator::create([completionHandler = WTFMove(completionHandler)] () mutable {
+        completionHandler();
+    });
+
     m_networkSession = nullptr;
-    flushAndDestroyPersistentStore();
+    flushAndDestroyPersistentStore([callbackAggregator] { });
+    destroyResourceLoadStatisticsStore([callbackAggregator] { });
 }
 
 inline void WebResourceLoadStatisticsStore::postTask(WTF::Function<void()>&& task)
 {
+    // Resource load statistics should not be captured for ephemeral sessions.
+    RELEASE_ASSERT(!isEphemeral());
+
     ASSERT(RunLoop::isMain());
     m_statisticsQueue->dispatch([protectedThis = makeRef(*this), task = WTFMove(task)] {
         task();
@@ -204,21 +240,31 @@ inline void WebResourceLoadStatisticsStore::postTaskReply(WTF::Function<void()>&
     RunLoop::main().dispatch(WTFMove(reply));
 }
 
-void WebResourceLoadStatisticsStore::flushAndDestroyPersistentStore()
+void WebResourceLoadStatisticsStore::destroyResourceLoadStatisticsStore(CompletionHandler<void()>&& completionHandler)
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
-    // Make sure we destroy the persistent store on the background queue and wait for it to die
-    // synchronously since it has a C++ reference to us. Blocking nature of this task allows us
-    // to not maintain a WebResourceLoadStatisticsStore reference for the duration of dispatch,
-    // avoiding double-deletion issues when this is invoked from the destructor.
-    BinarySemaphore semaphore;
-    m_statisticsQueue->dispatch([&semaphore, this] {
-        m_persistentStorage = nullptr;
+    if (isEphemeral()) {
+        completionHandler();
+        return;
+    }
+
+    postTask([this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)]() mutable {
         m_statisticsStore = nullptr;
-        semaphore.signal();
+        postTaskReply(WTFMove(completionHandler));
     });
-    semaphore.wait();
+}
+
+void WebResourceLoadStatisticsStore::flushAndDestroyPersistentStore(CompletionHandler<void()>&& completionHandler)
+{
+    RELEASE_ASSERT(RunLoop::isMain());
+
+    // Make sure we destroy the persistent store on the background queue and stay alive until it
+    // is destroyed because it has a C++ reference to us.
+    m_statisticsQueue->dispatch([this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)] () mutable {
+        m_persistentStorage = nullptr;
+        RunLoop::main().dispatch(WTFMove(completionHandler));
+    });
 }
 
 void WebResourceLoadStatisticsStore::populateMemoryStoreFromDisk(CompletionHandler<void()>&& completionHandler)
@@ -230,7 +276,19 @@ void WebResourceLoadStatisticsStore::populateMemoryStoreFromDisk(CompletionHandl
             m_persistentStorage->populateMemoryStoreFromDisk([protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler)]() mutable {
                 postTaskReply(WTFMove(completionHandler));
             });
-        else
+        else if (m_statisticsStore && is<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore)) {
+            auto& databaseStore = downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore);
+            if (databaseStore.isNewResourceLoadStatisticsDatabaseFile()) {
+                m_statisticsStore->grandfatherExistingWebsiteData([protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler)]() mutable {
+                    postTaskReply(WTFMove(completionHandler));
+                });
+                databaseStore.setIsNewResourceLoadStatisticsDatabaseFile(false);
+            } else
+                postTaskReply([this, protectedThis = WTFMove(protectedThis), completionHandler = WTFMove(completionHandler)]() mutable {
+                    logTestingEvent("PopulatedWithoutGrandfathering"_s);
+                    completionHandler();
+                });
+        } else
             postTaskReply(WTFMove(completionHandler));
     });
 }
@@ -238,6 +296,16 @@ void WebResourceLoadStatisticsStore::populateMemoryStoreFromDisk(CompletionHandl
 void WebResourceLoadStatisticsStore::setResourceLoadStatisticsDebugMode(bool value, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
+
+    if (isEphemeral()) {
+        completionHandler();
+        return;
+    }
+
+    if (m_networkSession) {
+        if (auto* storageSession = m_networkSession->networkStorageSession())
+            storageSession->setResourceLoadStatisticsDebugLoggingEnabled(value);
+    }
 
     postTask([this, value, completionHandler = WTFMove(completionHandler)]() mutable {
         if (m_statisticsStore)
@@ -250,6 +318,11 @@ void WebResourceLoadStatisticsStore::setPrevalentResourceForDebugMode(const Regi
 {
     ASSERT(RunLoop::isMain());
     
+    if (isEphemeral()) {
+        completionHandler();
+        return;
+    }
+
     postTask([this, domain = domain.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
         if (m_statisticsStore)
             m_statisticsStore->setPrevalentResourceForDebugMode(domain);
@@ -268,25 +341,45 @@ void WebResourceLoadStatisticsStore::scheduleStatisticsAndDataRecordsProcessing(
     });
 }
 
-void WebResourceLoadStatisticsStore::resourceLoadStatisticsUpdated(Vector<ResourceLoadStatistics>&& statistics)
+void WebResourceLoadStatisticsStore::statisticsDatabaseHasAllTables(CompletionHandler<void(bool)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    
+    postTask([this, completionHandler = WTFMove(completionHandler)]() mutable { 
+        if (!m_statisticsStore || !is<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore)) {
+            completionHandler(false);
+            ASSERT_NOT_REACHED();
+            return;
+        }
+        auto missingTables = downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore).checkForMissingTablesInSchema();
+        postTaskReply([hasAllTables = missingTables ? false : true, completionHandler = WTFMove(completionHandler)] () mutable {
+            completionHandler(hasAllTables);
+        });
+    });
+}
+
+void WebResourceLoadStatisticsStore::resourceLoadStatisticsUpdated(Vector<ResourceLoadStatistics>&& statistics, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
 
     // It is safe to move the origins to the background queue without isolated copy here because this is an r-value
     // coming from IPC. ResourceLoadStatistics only contains strings which are safe to move to other threads as long
     // as nobody on this thread holds a reference to those strings.
-    postTask([this, protectedThis = makeRef(*this), statistics = WTFMove(statistics)]() mutable {
-        if (!m_statisticsStore)
+    postTask([this, protectedThis = makeRef(*this), statistics = WTFMove(statistics), completionHandler = WTFMove(completionHandler)]() mutable {
+        if (!m_statisticsStore) {
+            postTaskReply(WTFMove(completionHandler));
             return;
+        }
 
+        ASSERT(suspendedState != State::Suspended);
         m_statisticsStore->mergeStatistics(WTFMove(statistics));
-
+        postTaskReply(WTFMove(completionHandler));
         // We can cancel any pending request to process statistics since we're doing it synchronously below.
         m_statisticsStore->cancelPendingStatisticsProcessingRequest();
 
         // Fire before processing statistics to propagate user interaction as fast as possible to the network process.
-        m_statisticsStore->updateCookieBlocking([this, protectedThis = protectedThis.copyRef()]() {
-            postTaskReply([this, protectedThis = protectedThis.copyRef()]() {
+        m_statisticsStore->updateCookieBlocking([this, protectedThis]() {
+            postTaskReply([this, protectedThis = protectedThis]() {
                 logTestingEvent("Statistics Updated"_s);
             });
         });
@@ -298,6 +391,9 @@ void WebResourceLoadStatisticsStore::hasStorageAccess(const RegistrableDomain& s
 {
     ASSERT(subFrameDomain != topFrameDomain);
     ASSERT(RunLoop::isMain());
+
+    if (isEphemeral())
+        return hasStorageAccessEphemeral(subFrameDomain, topFrameDomain, frameID, pageID, WTFMove(completionHandler));
 
     postTask([this, subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), frameID, pageID, completionHandler = WTFMove(completionHandler)]() mutable {
         if (!m_statisticsStore) {
@@ -313,6 +409,19 @@ void WebResourceLoadStatisticsStore::hasStorageAccess(const RegistrableDomain& s
             });
         });
     });
+}
+
+void WebResourceLoadStatisticsStore::hasStorageAccessEphemeral(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, Optional<FrameIdentifier> frameID, PageIdentifier pageID, CompletionHandler<void(bool)>&& completionHandler)
+{
+    ASSERT(isEphemeral());
+
+    if (m_networkSession) {
+        if (auto* storageSession = m_networkSession->networkStorageSession()) {
+            completionHandler(storageSession->hasStorageAccess(subFrameDomain, topFrameDomain, frameID, pageID));
+            return;
+        }
+    }
+    completionHandler(false);
 }
 
 bool WebResourceLoadStatisticsStore::hasStorageAccessForFrame(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, FrameIdentifier frameID, PageIdentifier pageID)
@@ -342,41 +451,44 @@ void WebResourceLoadStatisticsStore::callHasStorageAccessForFrameHandler(const R
     callback(false);
 }
 
-void WebResourceLoadStatisticsStore::requestStorageAccess(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier webPageID, WebPageProxyIdentifier webPageProxyID, CompletionHandler<void(StorageAccessWasGranted, StorageAccessPromptWasShown)>&& completionHandler)
+void WebResourceLoadStatisticsStore::requestStorageAccess(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier webPageID, WebPageProxyIdentifier webPageProxyID, StorageAccessScope scope, CompletionHandler<void(RequestStorageAccessResult)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
 
     if (subFrameDomain == topFrameDomain) {
-        completionHandler(StorageAccessWasGranted::Yes, StorageAccessPromptWasShown::No);
+        completionHandler({ StorageAccessWasGranted::Yes, StorageAccessPromptWasShown::No, scope, topFrameDomain, subFrameDomain });
         return;
     }
     
-    auto statusHandler = [this, protectedThis = makeRef(*this), subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), frameID, webPageID, webPageProxyID, completionHandler = WTFMove(completionHandler)](StorageAccessStatus status) mutable {
+    if (isEphemeral())
+        return requestStorageAccessEphemeral(subFrameDomain, topFrameDomain, frameID, webPageID, webPageProxyID, scope, WTFMove(completionHandler));
+
+    auto statusHandler = [this, protectedThis = makeRef(*this), subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), frameID, webPageID, webPageProxyID, scope, completionHandler = WTFMove(completionHandler)](StorageAccessStatus status) mutable {
         switch (status) {
         case StorageAccessStatus::CannotRequestAccess:
-            completionHandler(StorageAccessWasGranted::No, StorageAccessPromptWasShown::No);
+            completionHandler({ StorageAccessWasGranted::No, StorageAccessPromptWasShown::No, scope, topFrameDomain, subFrameDomain });
             return;
         case StorageAccessStatus::RequiresUserPrompt:
             {
             if (!m_networkSession)
-                return completionHandler(StorageAccessWasGranted::No, StorageAccessPromptWasShown::No);
+                return completionHandler({ StorageAccessWasGranted::No, StorageAccessPromptWasShown::No, scope, topFrameDomain, subFrameDomain });
 
-            CompletionHandler<void(bool)> requestConfirmationCompletionHandler = [this, protectedThis = protectedThis.copyRef(), subFrameDomain, topFrameDomain, frameID, webPageID, completionHandler = WTFMove(completionHandler)] (bool userDidGrantAccess) mutable {
+            CompletionHandler<void(bool)> requestConfirmationCompletionHandler = [this, protectedThis, subFrameDomain, topFrameDomain, frameID, webPageID, scope, completionHandler = WTFMove(completionHandler)] (bool userDidGrantAccess) mutable {
                 if (userDidGrantAccess)
-                    grantStorageAccess(subFrameDomain, topFrameDomain, frameID, webPageID, StorageAccessPromptWasShown::Yes, WTFMove(completionHandler));
+                    grantStorageAccess(subFrameDomain, topFrameDomain, frameID, webPageID, StorageAccessPromptWasShown::Yes, scope, WTFMove(completionHandler));
                 else
-                    completionHandler(StorageAccessWasGranted::No, StorageAccessPromptWasShown::Yes);
+                    completionHandler({ StorageAccessWasGranted::No, StorageAccessPromptWasShown::Yes, scope, topFrameDomain, subFrameDomain });
             };
             m_networkSession->networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::RequestStorageAccessConfirm(webPageProxyID, frameID, subFrameDomain, topFrameDomain), WTFMove(requestConfirmationCompletionHandler));
             }
             return;
         case StorageAccessStatus::HasAccess:
-            completionHandler(StorageAccessWasGranted::Yes, StorageAccessPromptWasShown::No);
+            completionHandler({ StorageAccessWasGranted::Yes, StorageAccessPromptWasShown::No, scope, topFrameDomain, subFrameDomain });
             return;
         }
     };
 
-    postTask([this, subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), frameID, webPageID, statusHandler = WTFMove(statusHandler)]() mutable {
+    postTask([this, subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), frameID, webPageID, scope, statusHandler = WTFMove(statusHandler)]() mutable {
         if (!m_statisticsStore) {
             postTaskReply([statusHandler = WTFMove(statusHandler)]() mutable {
                 statusHandler(StorageAccessStatus::CannotRequestAccess);
@@ -384,7 +496,7 @@ void WebResourceLoadStatisticsStore::requestStorageAccess(const RegistrableDomai
             return;
         }
 
-        m_statisticsStore->requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, webPageID, [statusHandler = WTFMove(statusHandler)](StorageAccessStatus status) mutable {
+        m_statisticsStore->requestStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, webPageID, scope, [statusHandler = WTFMove(statusHandler)](StorageAccessStatus status) mutable {
             postTaskReply([statusHandler = WTFMove(statusHandler), status]() mutable {
                 statusHandler(status);
             });
@@ -392,9 +504,29 @@ void WebResourceLoadStatisticsStore::requestStorageAccess(const RegistrableDomai
     });
 }
 
+void WebResourceLoadStatisticsStore::requestStorageAccessEphemeral(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier webPageID, WebPageProxyIdentifier webPageProxyID, StorageAccessScope scope, CompletionHandler<void(RequestStorageAccessResult)>&& completionHandler)
+{
+    ASSERT(isEphemeral());
+
+    if (!m_networkSession || !m_domainsWithEphemeralUserInteraction.contains(subFrameDomain))
+        return completionHandler({ StorageAccessWasGranted::No, StorageAccessPromptWasShown::No, scope, topFrameDomain, subFrameDomain });
+
+    CompletionHandler<void(bool)> requestConfirmationCompletionHandler = [this, protectedThis = makeRef(*this), subFrameDomain, topFrameDomain, frameID, webPageID, scope, completionHandler = WTFMove(completionHandler)] (bool userDidGrantAccess) mutable {
+        if (userDidGrantAccess)
+            grantStorageAccessEphemeral(subFrameDomain, topFrameDomain, frameID, webPageID, StorageAccessPromptWasShown::Yes, scope, WTFMove(completionHandler));
+        else
+            completionHandler({ StorageAccessWasGranted::No, StorageAccessPromptWasShown::Yes, scope, topFrameDomain, subFrameDomain });
+    };
+
+    m_networkSession->networkProcess().parentProcessConnection()->sendWithAsyncReply(Messages::NetworkProcessProxy::RequestStorageAccessConfirm(webPageProxyID, frameID, subFrameDomain, topFrameDomain), WTFMove(requestConfirmationCompletionHandler));
+}
+
 void WebResourceLoadStatisticsStore::requestStorageAccessUnderOpener(RegistrableDomain&& domainInNeedOfStorageAccess, PageIdentifier openerPageID, RegistrableDomain&& openerDomain)
 {
     ASSERT(RunLoop::isMain());
+
+    if (isEphemeral())
+        return requestStorageAccessUnderOpenerEphemeral(WTFMove(domainInNeedOfStorageAccess), openerPageID, WTFMove(openerDomain));
 
     // It is safe to move the strings to the background queue without isolated copy here because they are r-value references
     // coming from IPC. Strings which are safe to move to other threads as long as nobody on this thread holds a reference
@@ -405,26 +537,50 @@ void WebResourceLoadStatisticsStore::requestStorageAccessUnderOpener(Registrable
     });
 }
 
-void WebResourceLoadStatisticsStore::grantStorageAccess(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, StorageAccessPromptWasShown promptWasShown, CompletionHandler<void(StorageAccessWasGranted, StorageAccessPromptWasShown)>&& completionHandler)
+void WebResourceLoadStatisticsStore::requestStorageAccessUnderOpenerEphemeral(RegistrableDomain&& domainInNeedOfStorageAccess, PageIdentifier openerPageID, RegistrableDomain&& openerDomain)
+{
+    ASSERT(isEphemeral());
+
+    if (m_networkSession) {
+        if (auto* storageSession = m_networkSession->networkStorageSession())
+            storageSession->grantStorageAccess(WTFMove(domainInNeedOfStorageAccess), WTFMove(openerDomain), WTF::nullopt, openerPageID);
+    }
+}
+
+void WebResourceLoadStatisticsStore::grantStorageAccess(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, StorageAccessPromptWasShown promptWasShown, StorageAccessScope scope, CompletionHandler<void(RequestStorageAccessResult)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
-    postTask([this, subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), frameID, pageID, promptWasShown, completionHandler = WTFMove(completionHandler)]() mutable {
+    postTask([this, subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), frameID, pageID, promptWasShown, scope, completionHandler = WTFMove(completionHandler)]() mutable {
         if (!m_statisticsStore) {
-            postTaskReply([promptWasShown, completionHandler = WTFMove(completionHandler)]() mutable {
-                completionHandler(StorageAccessWasGranted::No, promptWasShown);
+            postTaskReply([subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), promptWasShown, scope, completionHandler = WTFMove(completionHandler)]() mutable {
+                completionHandler({ StorageAccessWasGranted::No, promptWasShown, scope, topFrameDomain, subFrameDomain });
             });
             return;
         }
 
-        m_statisticsStore->grantStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, promptWasShown, [promptWasShown, completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted wasGrantedAccess) mutable {
-            postTaskReply([wasGrantedAccess, promptWasShown, completionHandler = WTFMove(completionHandler)]() mutable {
-                completionHandler(wasGrantedAccess, promptWasShown);
+        m_statisticsStore->grantStorageAccess(WTFMove(subFrameDomain), WTFMove(topFrameDomain), frameID, pageID, promptWasShown, scope, [subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), promptWasShown, scope, completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted wasGrantedAccess) mutable {
+            postTaskReply([subFrameDomain = subFrameDomain.isolatedCopy(), topFrameDomain = topFrameDomain.isolatedCopy(), wasGrantedAccess, promptWasShown, scope, completionHandler = WTFMove(completionHandler)]() mutable {
+                completionHandler({ wasGrantedAccess, promptWasShown, scope, topFrameDomain, subFrameDomain });
             });
         });
     });
 }
 
-StorageAccessWasGranted WebResourceLoadStatisticsStore::grantStorageAccess(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, Optional<FrameIdentifier> frameID, PageIdentifier pageID)
+void WebResourceLoadStatisticsStore::grantStorageAccessEphemeral(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, FrameIdentifier frameID, PageIdentifier pageID, StorageAccessPromptWasShown promptWasShown, StorageAccessScope scope, CompletionHandler<void(RequestStorageAccessResult)>&& completionHandler)
+{
+    ASSERT(isEphemeral());
+
+    if (m_networkSession) {
+        if (auto* storageSession = m_networkSession->networkStorageSession()) {
+            storageSession->grantStorageAccess(subFrameDomain, topFrameDomain, frameID, pageID);
+            completionHandler({ StorageAccessWasGranted::Yes, promptWasShown, scope, topFrameDomain, subFrameDomain });
+            return;
+        }
+    }
+    completionHandler({ StorageAccessWasGranted::No, promptWasShown, scope, topFrameDomain, subFrameDomain });
+}
+
+StorageAccessWasGranted WebResourceLoadStatisticsStore::grantStorageAccessInStorageSession(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, Optional<FrameIdentifier> frameID, PageIdentifier pageID, StorageAccessScope scope)
 {
     ASSERT(RunLoop::isMain());
 
@@ -432,7 +588,7 @@ StorageAccessWasGranted WebResourceLoadStatisticsStore::grantStorageAccess(const
 
     if (m_networkSession) {
         if (auto* storageSession = m_networkSession->networkStorageSession()) {
-            storageSession->grantStorageAccess(resourceDomain, firstPartyDomain, frameID, pageID);
+            storageSession->grantStorageAccess(resourceDomain, firstPartyDomain, (scope == StorageAccessScope::PerFrame ? frameID : WTF::nullopt), pageID);
             ASSERT(storageSession->hasStorageAccess(resourceDomain, firstPartyDomain, frameID, pageID));
             isStorageGranted = true;
         }
@@ -441,11 +597,11 @@ StorageAccessWasGranted WebResourceLoadStatisticsStore::grantStorageAccess(const
     return isStorageGranted ? StorageAccessWasGranted::Yes : StorageAccessWasGranted::No;
 }
 
-void WebResourceLoadStatisticsStore::callGrantStorageAccessHandler(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, Optional<FrameIdentifier> frameID, PageIdentifier pageID, CompletionHandler<void(StorageAccessWasGranted)>&& completionHandler)
+void WebResourceLoadStatisticsStore::callGrantStorageAccessHandler(const RegistrableDomain& subFrameDomain, const RegistrableDomain& topFrameDomain, Optional<FrameIdentifier> frameID, PageIdentifier pageID, StorageAccessScope scope, CompletionHandler<void(StorageAccessWasGranted)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
 
-    completionHandler(grantStorageAccess(subFrameDomain, topFrameDomain, frameID, pageID));
+    completionHandler(grantStorageAccessInStorageSession(subFrameDomain, topFrameDomain, frameID, pageID, scope));
 }
 
 void WebResourceLoadStatisticsStore::hasCookies(const RegistrableDomain& domain, CompletionHandler<void(bool)>&& completionHandler)
@@ -473,6 +629,9 @@ void WebResourceLoadStatisticsStore::setThirdPartyCookieBlockingMode(ThirdPartyC
             ASSERT_NOT_REACHED();
     }
 
+    if (isEphemeral())
+        return;
+
     postTask([this, blockingMode]() {
         if (!m_statisticsStore)
             return;
@@ -481,9 +640,29 @@ void WebResourceLoadStatisticsStore::setThirdPartyCookieBlockingMode(ThirdPartyC
     });
 }
 
+void WebResourceLoadStatisticsStore::setSameSiteStrictEnforcementEnabled(SameSiteStrictEnforcementEnabled enabled)
+{
+    ASSERT(RunLoop::isMain());
+
+    if (isEphemeral())
+        return;
+
+    postTask([this, enabled]() {
+        if (!m_statisticsStore)
+            return;
+
+        m_statisticsStore->setSameSiteStrictEnforcementEnabled(enabled);
+    });
+}
+
 void WebResourceLoadStatisticsStore::setFirstPartyWebsiteDataRemovalMode(FirstPartyWebsiteDataRemovalMode mode, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
+
+    if (isEphemeral()) {
+        completionHandler();
+        return;
+    }
 
     postTask([this, mode, completionHandler = WTFMove(completionHandler)]() mutable {
         if (m_statisticsStore) {
@@ -494,6 +673,53 @@ void WebResourceLoadStatisticsStore::setFirstPartyWebsiteDataRemovalMode(FirstPa
         postTaskReply([completionHandler = WTFMove(completionHandler)]() mutable {
             completionHandler();
         });
+    });
+}
+
+void WebResourceLoadStatisticsStore::setStandaloneApplicationDomain(const RegistrableDomain& domain, CompletionHandler<void()>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+
+    if (isEphemeral() || domain.isEmpty()) {
+        completionHandler();
+        return;
+    }
+
+    RELEASE_LOG(ResourceLoadStatistics, "WebResourceLoadStatisticsStore::setStandaloneApplicationDomain() called with non-empty domain.");
+
+    postTask([this, domain = domain.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
+        if (m_statisticsStore)
+            m_statisticsStore->setStandaloneApplicationDomain(WTFMove(domain));
+        postTaskReply([completionHandler = WTFMove(completionHandler)]() mutable {
+            completionHandler();
+        });
+    });
+}
+
+void WebResourceLoadStatisticsStore::setAppBoundDomains(HashSet<RegistrableDomain>&& domains, CompletionHandler<void()>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+
+    if (isEphemeral() || domains.isEmpty()) {
+        completionHandler();
+        return;
+    }
+
+    auto domainsCopy = crossThreadCopy(domains);
+
+    if (m_networkSession) {
+        if (auto* storageSession = m_networkSession->networkStorageSession()) {
+            storageSession->setAppBoundDomains(WTFMove(domains));
+            storageSession->setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMode::AllExceptBetweenAppBoundDomains);
+        }
+    }
+
+    postTask([this, domains = WTFMove(domainsCopy), completionHandler = WTFMove(completionHandler)]() mutable {
+        if (m_statisticsStore) {
+            m_statisticsStore->setAppBoundDomains(WTFMove(domains));
+            m_statisticsStore->setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMode::AllExceptBetweenAppBoundDomains);
+        }
+        postTaskReply(WTFMove(completionHandler));
     });
 }
 
@@ -520,12 +746,6 @@ void WebResourceLoadStatisticsStore::removeAllStorageAccess(CompletionHandler<vo
     completionHandler();
 }
 
-void WebResourceLoadStatisticsStore::applicationWillTerminate()
-{
-    ASSERT(RunLoop::isMain());
-    flushAndDestroyPersistentStore();
-}
-
 void WebResourceLoadStatisticsStore::performDailyTasks()
 {
     ASSERT(RunLoop::isMain());
@@ -534,6 +754,8 @@ void WebResourceLoadStatisticsStore::performDailyTasks()
         if (m_statisticsStore) {
             m_statisticsStore->includeTodayAsOperatingDateIfNecessary();
             m_statisticsStore->calculateAndSubmitTelemetry();
+            if (is<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore))
+                downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore).runIncrementalVacuumCommand();
         }
     });
 }
@@ -545,11 +767,7 @@ void WebResourceLoadStatisticsStore::submitTelemetry(CompletionHandler<void()>&&
     postTask([this, completionHandler = WTFMove(completionHandler)]() mutable  {
         if (!m_statisticsStore)
             return;
-        
-        if (is<ResourceLoadStatisticsMemoryStore>(*m_statisticsStore))
-            WebResourceLoadStatisticsTelemetry::calculateAndSubmit(downcast<ResourceLoadStatisticsMemoryStore>(*m_statisticsStore));
-        else
-            m_statisticsStore->calculateAndSubmitTelemetry();
+        m_statisticsStore->calculateAndSubmitTelemetry(NotifyPagesForTesting::Yes);
         postTaskReply(WTFMove(completionHandler));
     });
 }
@@ -568,6 +786,10 @@ void WebResourceLoadStatisticsStore::logUserInteraction(const RegistrableDomain&
 {
     ASSERT(RunLoop::isMain());
 
+    // User interactions need to be logged for ephemeral sessions to support the Storage Access API.
+    if (isEphemeral())
+        return logUserInteractionEphemeral(domain, WTFMove(completionHandler));
+
     postTask([this, domain = domain.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
         auto innerCompletionHandler = [completionHandler = WTFMove(completionHandler)]() mutable {
             postTaskReply(WTFMove(completionHandler));
@@ -578,6 +800,14 @@ void WebResourceLoadStatisticsStore::logUserInteraction(const RegistrableDomain&
         }
         innerCompletionHandler();
     });
+}
+
+void WebResourceLoadStatisticsStore::logUserInteractionEphemeral(const RegistrableDomain& domain, CompletionHandler<void()>&& completionHandler)
+{
+    ASSERT(isEphemeral());
+
+    m_domainsWithEphemeralUserInteraction.add(domain);
+    completionHandler();
 }
 
 void WebResourceLoadStatisticsStore::logCrossSiteLoadWithLinkDecoration(const RegistrableDomain& fromDomain, const RegistrableDomain& toDomain, CompletionHandler<void()>&& completionHandler)
@@ -595,7 +825,10 @@ void WebResourceLoadStatisticsStore::logCrossSiteLoadWithLinkDecoration(const Re
 void WebResourceLoadStatisticsStore::clearUserInteraction(const RegistrableDomain& domain, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
-    
+
+    if (isEphemeral())
+        return clearUserInteractionEphemeral(domain, WTFMove(completionHandler));
+
     postTask([this, domain = domain.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
         auto innerCompletionHandler = [completionHandler = WTFMove(completionHandler)]() mutable {
             postTaskReply(WTFMove(completionHandler));
@@ -608,9 +841,20 @@ void WebResourceLoadStatisticsStore::clearUserInteraction(const RegistrableDomai
     });
 }
 
+void WebResourceLoadStatisticsStore::clearUserInteractionEphemeral(const RegistrableDomain& domain, CompletionHandler<void()>&& completionHandler)
+{
+    ASSERT(isEphemeral());
+
+    m_domainsWithEphemeralUserInteraction.remove(domain);
+    completionHandler();
+}
+
 void WebResourceLoadStatisticsStore::hasHadUserInteraction(const RegistrableDomain& domain, CompletionHandler<void(bool)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
+
+    if (isEphemeral())
+        return hasHadUserInteractionEphemeral(domain, WTFMove(completionHandler));
 
     postTask([this, domain = domain.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
         bool hadUserInteraction = m_statisticsStore ? m_statisticsStore->hasHadUserInteraction(domain, OperatingDatesWindow::Long) : false;
@@ -618,6 +862,13 @@ void WebResourceLoadStatisticsStore::hasHadUserInteraction(const RegistrableDoma
             completionHandler(hadUserInteraction);
         });
     });
+}
+
+void WebResourceLoadStatisticsStore::hasHadUserInteractionEphemeral(const RegistrableDomain& domain, CompletionHandler<void(bool)>&& completionHandler)
+{
+    ASSERT(isEphemeral());
+
+    completionHandler(m_domainsWithEphemeralUserInteraction.contains(domain));
 }
 
 void WebResourceLoadStatisticsStore::setLastSeen(const RegistrableDomain& domain, Seconds seconds, CompletionHandler<void()>&& completionHandler)
@@ -725,7 +976,12 @@ void WebResourceLoadStatisticsStore::dumpResourceLoadStatistics(CompletionHandle
 void WebResourceLoadStatisticsStore::isPrevalentResource(const RegistrableDomain& domain, CompletionHandler<void(bool)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
-    
+
+    if (isEphemeral()) {
+        completionHandler(false);
+        return;
+    }
+
     postTask([this, domain = domain.isolatedCopy(), completionHandler = WTFMove(completionHandler)]() mutable {
         bool isPrevalentResource = m_statisticsStore ? m_statisticsStore->isPrevalentResource(domain) : false;
         postTaskReply([isPrevalentResource, completionHandler = WTFMove(completionHandler)]() mutable {
@@ -905,6 +1161,9 @@ void WebResourceLoadStatisticsStore::scheduleCookieBlockingUpdate(CompletionHand
 
 void WebResourceLoadStatisticsStore::scheduleClearInMemoryAndPersistent(ShouldGrandfatherStatistics shouldGrandfather, CompletionHandler<void()>&& completionHandler)
 {
+    if (isEphemeral())
+        return clearInMemoryEphemeral(WTFMove(completionHandler));
+
     ASSERT(RunLoop::isMain());
     postTask([this, protectedThis = makeRef(*this), shouldGrandfather, completionHandler = WTFMove(completionHandler)]() mutable {
         if (m_persistentStorage)
@@ -922,11 +1181,13 @@ void WebResourceLoadStatisticsStore::scheduleClearInMemoryAndPersistent(ShouldGr
             postTaskReply(WTFMove(completionHandler));
         });
 
-        m_statisticsStore->clear([this, protectedThis = protectedThis.copyRef(), shouldGrandfather, callbackAggregator = callbackAggregator.copyRef()] () mutable {
+        m_statisticsStore->clear([this, protectedThis, shouldGrandfather, callbackAggregator] () mutable {
             if (shouldGrandfather == ShouldGrandfatherStatistics::Yes) {
-                if (m_statisticsStore)
+                if (m_statisticsStore) {
                     m_statisticsStore->grandfatherExistingWebsiteData([callbackAggregator = WTFMove(callbackAggregator)]() mutable { });
-                else
+                    if (is<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore))
+                        downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore).setIsNewResourceLoadStatisticsDatabaseFile(true);
+                } else
                     RELEASE_LOG(ResourceLoadStatistics, "WebResourceLoadStatisticsStore::scheduleClearInMemoryAndPersistent After being cleared, m_statisticsStore is null when trying to grandfather data.");
             }
         });
@@ -942,6 +1203,32 @@ void WebResourceLoadStatisticsStore::scheduleClearInMemoryAndPersistent(WallTime
     // For now, be conservative and clear everything regardless of modifiedSince.
     UNUSED_PARAM(modifiedSince);
     scheduleClearInMemoryAndPersistent(shouldGrandfather, WTFMove(callback));
+}
+
+void WebResourceLoadStatisticsStore::clearInMemoryEphemeral(CompletionHandler<void()>&& completionHandler)
+{
+    m_domainsWithEphemeralUserInteraction.clear();
+    if (auto* storageSession = m_networkSession->networkStorageSession())
+        storageSession->removeAllStorageAccess();
+    
+    completionHandler();
+}
+
+void WebResourceLoadStatisticsStore::domainIDExistsInDatabase(int domainID, CompletionHandler<void(bool)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+
+    postTask([this, domainID, completionHandler = WTFMove(completionHandler)]() mutable {
+        if (!m_statisticsStore || !is<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore)) {
+            completionHandler(false);
+            return;
+        }
+        auto& databaseStore = downcast<ResourceLoadStatisticsDatabaseStore>(*m_statisticsStore);
+        bool domainIDExists = databaseStore.domainIDExistsInDatabase(domainID);
+        postTaskReply([domainIDExists, completionHandler = WTFMove(completionHandler)]() mutable {
+            completionHandler(domainIDExists);
+        });
+    });
 }
 
 void WebResourceLoadStatisticsStore::setTimeToLiveUserInteraction(Seconds seconds, CompletionHandler<void()>&& completionHandler)
@@ -989,6 +1276,18 @@ void WebResourceLoadStatisticsStore::setCacheMaxAgeCap(Seconds seconds, Completi
     completionHandler();
 }
 
+bool WebResourceLoadStatisticsStore::needsUserInteractionQuirk(const RegistrableDomain& domain) const
+{
+    static NeverDestroyed<HashSet<RegistrableDomain>> quirks = [] {
+        HashSet<RegistrableDomain> set;
+        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("kinja.com"_s));
+        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("youtube.com"_s));
+        return set;
+    }();
+
+    return quirks.get().contains(domain);
+}
+
 void WebResourceLoadStatisticsStore::callUpdatePrevalentDomainsToBlockCookiesForHandler(const RegistrableDomainsToBlockCookiesFor& domainsToBlock, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
@@ -999,28 +1298,22 @@ void WebResourceLoadStatisticsStore::callUpdatePrevalentDomainsToBlockCookiesFor
             storageSession->setPrevalentDomainsToBlockButKeepCookiesFor(domainsToBlock.domainsToBlockButKeepCookiesFor);
             storageSession->setDomainsWithUserInteractionAsFirstParty(domainsToBlock.domainsWithUserInteractionAsFirstParty);
         }
+
+        HashSet<RegistrableDomain> domainsWithUserInteractionQuirk;
+        for (auto& domain : domainsToBlock.domainsWithUserInteractionAsFirstParty) {
+            if (needsUserInteractionQuirk(domain))
+                domainsWithUserInteractionQuirk.add(domain);
+        }
+
+        if (m_domainsWithUserInteractionQuirk != domainsWithUserInteractionQuirk) {
+            m_domainsWithUserInteractionQuirk = domainsWithUserInteractionQuirk;
+            m_networkSession->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::SetDomainsWithUserInteraction(domainsWithUserInteractionQuirk), 0);
+        }
     }
 
     completionHandler();
 }
 
-void WebResourceLoadStatisticsStore::removePrevalentDomains(const Vector<RegistrableDomain>& domains)
-{
-    ASSERT(RunLoop::isMain());
-    if (!m_networkSession)
-        return;
-
-    if (auto* storageSession = m_networkSession->networkStorageSession())
-        storageSession->removePrevalentDomains(domains);
-}
-
-void WebResourceLoadStatisticsStore::callRemoveDomainsHandler(const Vector<RegistrableDomain>& domains)
-{
-    ASSERT(RunLoop::isMain());
-
-    removePrevalentDomains(domains);
-}
-    
 void WebResourceLoadStatisticsStore::setMaxStatisticsEntries(size_t maximumEntryCount, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
@@ -1047,6 +1340,16 @@ void WebResourceLoadStatisticsStore::setPruneEntriesDownTo(size_t pruneTargetCou
 void WebResourceLoadStatisticsStore::resetParametersToDefaultValues(CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
+
+    if (isEphemeral()) {
+        completionHandler();
+        return;
+    }
+
+    if (m_networkSession) {
+        if (auto* storageSession = m_networkSession->networkStorageSession())
+            storageSession->resetAppBoundDomains();
+    }
 
     postTask([this, completionHandler = WTFMove(completionHandler)]() mutable {
         if (m_statisticsStore)
@@ -1084,12 +1387,34 @@ void WebResourceLoadStatisticsStore::invalidateAndCancel()
     m_networkSession = nullptr;
 }
 
-void WebResourceLoadStatisticsStore::deleteWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType> dataTypes, Vector<std::pair<RegistrableDomain, WebsiteDataToRemove>>&& domainsToRemoveWebsiteDataFor, bool shouldNotifyPage, CompletionHandler<void(const HashSet<RegistrableDomain>&)>&& completionHandler)
+void WebResourceLoadStatisticsStore::removeDataForDomain(RegistrableDomain domain, CompletionHandler<void()>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    postTask([this, domain = WTFMove(domain), completionHandler = WTFMove(completionHandler)]() mutable {
+        if (m_statisticsStore)
+            m_statisticsStore->removeDataForDomain(domain);
+
+        postTaskReply(WTFMove(completionHandler));
+    });
+}
+
+void WebResourceLoadStatisticsStore::registrableDomains(CompletionHandler<void(Vector<RegistrableDomain>&&)>&& completionHandler)
+{
+    ASSERT(RunLoop::isMain());
+    postTask([this, completionHandler = WTFMove(completionHandler)]() mutable {
+        auto domains = m_statisticsStore ? m_statisticsStore->allDomains() : Vector<RegistrableDomain>();
+        postTaskReply([domains = crossThreadCopy(WTFMove(domains)), completionHandler = WTFMove(completionHandler)]() mutable {
+            completionHandler(WTFMove(domains));
+        });
+    });
+}
+
+void WebResourceLoadStatisticsStore::deleteAndRestrictWebsiteDataForRegistrableDomains(OptionSet<WebsiteDataType> dataTypes, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&& domainsToDeleteAndRestrictWebsiteDataFor, bool shouldNotifyPage, CompletionHandler<void(const HashSet<RegistrableDomain>&)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
     
     if (m_networkSession) {
-        m_networkSession->deleteWebsiteDataForRegistrableDomains(dataTypes, WTFMove(domainsToRemoveWebsiteDataFor), shouldNotifyPage, WTFMove(completionHandler));
+        m_networkSession->deleteAndRestrictWebsiteDataForRegistrableDomains(dataTypes, WTFMove(domainsToDeleteAndRestrictWebsiteDataFor), shouldNotifyPage, WTFMove(completionHandler));
         return;
     }
 
@@ -1126,7 +1451,7 @@ void WebResourceLoadStatisticsStore::aggregatedThirdPartyData(CompletionHandler<
 {
     ASSERT(RunLoop::isMain());
 
-    postTask([this, completionHandler = WTFMove(completionHandler)]() mutable  {
+    postTask([this, completionHandler = WTFMove(completionHandler)]() mutable {
         if (!m_statisticsStore) {
             postTaskReply([completionHandler = WTFMove(completionHandler)]() mutable {
                 completionHandler({ });
@@ -1142,41 +1467,41 @@ void WebResourceLoadStatisticsStore::aggregatedThirdPartyData(CompletionHandler<
 
 void WebResourceLoadStatisticsStore::suspend(CompletionHandler<void()>&& completionHandler)
 {
-    ASSERT(RunLoop::isMain());
-
     CompletionHandlerCallingScope completionHandlerCaller(WTFMove(completionHandler));
-    Locker<Lock> stateLocker(m_stateLock);
-    if (m_state != State::Running)
+    Locker<Lock> stateLocker(suspendedStateLock);
+    if (suspendedState != State::Running)
         return;
-    m_state = State::WillSuspend;
+    suspendedState = State::WillSuspend;
 
-    postTask([this, completionHandler = completionHandlerCaller.release()] () mutable {
-        Locker<Lock> stateLocker(m_stateLock);
-        ASSERT(m_state != State::Suspended);
+    sharedStatisticsQueue()->dispatch([completionHandler = completionHandlerCaller.release()] () mutable {
 
-        if (m_state != State::WillSuspend) {
+        for (auto& databaseStore : ResourceLoadStatisticsDatabaseStore::allStores())
+            databaseStore->interrupt();
+        
+        Locker<Lock> stateLocker(suspendedStateLock);
+        ASSERT(suspendedState != State::Suspended);
+
+        if (suspendedState != State::WillSuspend) {
             postTaskReply(WTFMove(completionHandler));
             return;
         }
 
-        m_state = State::Suspended;
+        suspendedState = State::Suspended;
         postTaskReply(WTFMove(completionHandler));
 
-        while (m_state == State::Suspended)
-            m_stateChangeCondition.wait(m_stateLock);
-        ASSERT(m_state == State::Running);
+        while (suspendedState == State::Suspended)
+            suspendedStateChangeCondition.wait(suspendedStateLock);
+        ASSERT(suspendedState != State::Suspended);
     });
 }
 
 void WebResourceLoadStatisticsStore::resume()
 {
-    ASSERT(RunLoop::isMain());
-
-    Locker<Lock> stateLocker(m_stateLock);
-    auto previousState = m_state;
-    m_state = State::Running;
+    Locker<Lock> stateLocker(suspendedStateLock);
+    auto previousState = suspendedState;
+    suspendedState = State::Running;
     if (previousState == State::Suspended)
-        m_stateChangeCondition.notifyOne();
+        suspendedStateChangeCondition.notifyOne();
 }
 
 void WebResourceLoadStatisticsStore::insertExpiredStatisticForTesting(const RegistrableDomain& domain, bool hadUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent, CompletionHandler<void()>&& completionHandler)

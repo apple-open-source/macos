@@ -38,7 +38,6 @@
 #import "Editing.h"
 #import "EditorClient.h"
 #import "Frame.h"
-#import "HTMLConverter.h"
 #import "HTMLInputElement.h"
 #import "HTMLNames.h"
 #import "HTMLParserIdioms.h"
@@ -83,7 +82,7 @@ void Editor::setTextAlignmentForChangedBaseWritingDirection(WritingDirection dir
     // If the text has left or right alignment, flip left->right and right->left. 
     // Otherwise, do nothing.
 
-    auto selectionStyle = EditingStyle::styleAtSelectionStart(m_frame.selection().selection());
+    auto selectionStyle = EditingStyle::styleAtSelectionStart(m_document.selection().selection());
     if (!selectionStyle || !selectionStyle->style())
          return;
 
@@ -127,14 +126,14 @@ void Editor::setTextAlignmentForChangedBaseWritingDirection(WritingDirection dir
     if (!newValue)
         return;
 
-    Element* focusedElement = m_frame.document()->focusedElement();
+    Element* focusedElement = m_document.focusedElement();
     if (focusedElement && (is<HTMLTextAreaElement>(*focusedElement) || (is<HTMLInputElement>(*focusedElement)
         && (downcast<HTMLInputElement>(*focusedElement).isTextField()
             || downcast<HTMLInputElement>(*focusedElement).isSearchField())))) {
         if (direction == WritingDirection::Natural)
             return;
         downcast<HTMLElement>(*focusedElement).setAttributeWithoutSynchronization(alignAttr, newValue);
-        m_frame.document()->updateStyleIfNeeded();
+        m_document.updateStyleIfNeeded();
         return;
     }
 
@@ -147,7 +146,7 @@ void Editor::removeUnchangeableStyles()
 {
     // This function removes styles that the user cannot modify by applying their default values.
     
-    auto editingStyle = EditingStyle::create(m_frame.document()->bodyOrFrameset());
+    auto editingStyle = EditingStyle::create(m_document.bodyOrFrameset());
     auto defaultStyle = editingStyle->style()->mutableCopy();
     
     // Text widgets implement background color via the UIView property. Their body element will not have one.
@@ -202,33 +201,31 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
         pasteboardImage.url.url = pasteboardImageURL;
         pasteboardImage.url.title = title;
     }
-    pasteboardImage.suggestedName = imageSourceURL.lastPathComponent();
+    pasteboardImage.suggestedName = imageSourceURL.lastPathComponent().toString();
     pasteboardImage.imageSize = image->size();
     pasteboardImage.resourceMIMEType = pasteboard.resourceMIMEType(cachedImage->response().mimeType());
     pasteboardImage.resourceData = cachedImage->resourceBuffer();
 
-    Position beforeImagePosition(&imageElement, Position::PositionIsBeforeAnchor);
-    Position afterImagePosition(&imageElement, Position::PositionIsAfterAnchor);
-    auto imageRange = Range::create(imageElement.document(), beforeImagePosition, afterImagePosition);
-    client()->getClientPasteboardDataForRange(imageRange.ptr(), pasteboardImage.clientTypes, pasteboardImage.clientData);
+    if (!pasteboard.isStatic())
+        client()->getClientPasteboardData(makeRangeSelectingNode(imageElement), pasteboardImage.clientTypes, pasteboardImage.clientData);
 
     pasteboard.write(pasteboardImage);
 }
 
 void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> options)
 {
-    RefPtr<Range> range = selectedRange();
+    auto range = selectedRange();
     bool allowPlainText = options.contains(PasteOption::AllowPlainText);
-    WebContentReader reader(m_frame, *range, allowPlainText);
+    WebContentReader reader(*m_document.frame(), *range, allowPlainText);
     int numberOfPasteboardItems = client()->getPasteboardItemsCount();
     for (int i = 0; i < numberOfPasteboardItems; ++i) {
-        RefPtr<DocumentFragment> fragment = client()->documentFragmentFromDelegate(i);
+        auto fragment = client()->documentFragmentFromDelegate(i);
         if (!fragment)
             continue;
         reader.addFragment(fragment.releaseNonNull());
     }
 
-    RefPtr<DocumentFragment> fragment = reader.fragment;
+    auto fragment = WTFMove(reader.fragment);
     if (!fragment) {
         bool chosePlainTextIgnored;
         fragment = webContentFromPasteboard(*pasteboard, *range, allowPlainText, chosePlainTextIgnored);
@@ -237,22 +234,22 @@ void Editor::pasteWithPasteboard(Pasteboard* pasteboard, OptionSet<PasteOption> 
     if (fragment && options.contains(PasteOption::AsQuotation))
         quoteFragmentForPasting(*fragment);
 
-    if (fragment && shouldInsertFragment(*fragment, range.get(), EditorInsertAction::Pasted))
+    if (fragment && shouldInsertFragment(*fragment, range, EditorInsertAction::Pasted))
         pasteAsFragment(fragment.releaseNonNull(), canSmartReplaceWithPasteboard(*pasteboard), false, options.contains(PasteOption::IgnoreMailBlockquote) ? MailBlockquoteHandling::IgnoreBlockquote : MailBlockquoteHandling::RespectBlockquote);
 }
 
-void Editor::insertDictationPhrases(Vector<Vector<String>>&& dictationPhrases, RetainPtr<id> metadata)
+void Editor::insertDictationPhrases(Vector<Vector<String>>&& dictationPhrases, id metadata)
 {
-    if (m_frame.selection().isNone())
+    if (m_document.selection().isNone())
         return;
 
     if (dictationPhrases.isEmpty())
         return;
 
-    DictationCommandIOS::create(document(), WTFMove(dictationPhrases), WTFMove(metadata))->apply();
+    DictationCommandIOS::create(document(), WTFMove(dictationPhrases), metadata)->apply();
 }
 
-void Editor::setDictationPhrasesAsChildOfElement(const Vector<Vector<String>>& dictationPhrases, RetainPtr<id> metadata, Element& element)
+void Editor::setDictationPhrasesAsChildOfElement(const Vector<Vector<String>>& dictationPhrases, id metadata, Element& element)
 {
     // Clear the composition.
     clear();
@@ -261,7 +258,7 @@ void Editor::setDictationPhrasesAsChildOfElement(const Vector<Vector<String>>& d
     // Some day we could make them Undoable, and let callers clear the Undo stack explicitly if they wish.
     clearUndoRedoOperations();
 
-    m_frame.selection().clear();
+    m_document.selection().clear();
 
     element.removeChildren();
 
@@ -270,14 +267,13 @@ void Editor::setDictationPhrasesAsChildOfElement(const Vector<Vector<String>>& d
         return;
     }
 
-    RefPtr<Range> context = document().createRange();
-    context->selectNodeContents(element);
+    auto context = makeRangeSelectingNodeContents(element);
 
     StringBuilder dictationPhrasesBuilder;
     for (auto& interpretations : dictationPhrases)
         dictationPhrasesBuilder.append(interpretations[0]);
 
-    element.appendChild(createFragmentFromText(*context, dictationPhrasesBuilder.toString()));
+    element.appendChild(createFragmentFromText(context, dictationPhrasesBuilder.toString()));
 
     auto weakElement = makeWeakPtr(element);
 
@@ -293,20 +289,19 @@ void Editor::setDictationPhrasesAsChildOfElement(const Vector<Vector<String>>& d
         return;
     }
 
-    Text& textNode = downcast<Text>(*element.firstChild());
-    int previousDictationPhraseStart = 0;
+    auto& textNode = downcast<Text>(*element.firstChild());
+    unsigned previousDictationPhraseStart = 0;
     for (auto& interpretations : dictationPhrases) {
-        int dictationPhraseLength = interpretations[0].length();
-        int dictationPhraseEnd = previousDictationPhraseStart + dictationPhraseLength;
+        auto dictationPhraseLength = interpretations[0].length();
         if (interpretations.size() > 1) {
-            auto dictationPhraseRange = Range::create(document(), &textNode, previousDictationPhraseStart, &textNode, dictationPhraseEnd);
-            document().markers().addDictationPhraseWithAlternativesMarker(dictationPhraseRange, interpretations);
+            auto alternatives = interpretations;
+            alternatives.remove(0);
+            addMarker(textNode, previousDictationPhraseStart, dictationPhraseLength, DocumentMarker::DictationPhraseWithAlternatives, WTFMove(alternatives));
         }
-        previousDictationPhraseStart = dictationPhraseEnd;
+        previousDictationPhraseStart += dictationPhraseLength;
     }
 
-    auto resultRange = Range::create(document(), &textNode, 0, &textNode, textNode.length());
-    document().markers().addDictationResultMarker(resultRange, metadata);
+    addMarker(textNode, 0, textNode.length(), DocumentMarker::DictationResult, retainPtr(metadata));
 
     client()->respondToChangedContents();
 }
@@ -340,7 +335,7 @@ void Editor::setTextAsChildOfElement(const String& text, Element& element)
 
     // As a side effect this function sets a caret selection after the inserted content. Much of what
     // follows is more expensive if there is a selection, so clear it since it's going to change anyway.
-    m_frame.selection().clear();
+    m_document.selection().clear();
 
     // clear out all current children of element
     element.removeChildren();
@@ -356,9 +351,7 @@ void Editor::setTextAsChildOfElement(const String& text, Element& element)
         if (parent)
             element.remove();
 
-        auto context = document().createRange();
-        context->selectNodeContents(element);
-        element.appendChild(createFragmentFromText(context, text));
+        element.appendChild(createFragmentFromText(makeRangeSelectingNodeContents(element), text));
 
         // restore element to document
         if (parent) {
@@ -381,7 +374,7 @@ void Editor::setTextAsChildOfElement(const String& text, Element& element)
     selection.setBase(visiblePos);
     selection.setExtent(visiblePos);
 
-    m_frame.selection().setSelection(selection);
+    m_document.selection().setSelection(selection);
 
     client()->respondToChangedContents();
 }
@@ -390,7 +383,7 @@ void Editor::setTextAsChildOfElement(const String& text, Element& element)
 // have a stale selection.
 void Editor::ensureLastEditCommandHasCurrentSelectionIfOpenForMoreTyping()
 {
-    TypingCommand::ensureLastEditCommandHasCurrentSelectionIfOpenForMoreTyping(&m_frame, m_frame.selection().selection());
+    TypingCommand::ensureLastEditCommandHasCurrentSelectionIfOpenForMoreTyping(m_document, m_document.selection().selection());
 }
 
 } // namespace WebCore

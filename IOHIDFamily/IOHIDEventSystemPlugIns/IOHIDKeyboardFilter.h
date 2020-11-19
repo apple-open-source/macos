@@ -18,6 +18,7 @@
 
 #include <IOKit/hid/IOHIDServiceFilterPlugIn.h>
 #include <IOKit/hid/IOHIDUsageTables.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 #include <map>
 #include <set>
 
@@ -162,6 +163,8 @@ private:
     dispatch_source_t _ejectKeyDelayTimer;
 
     dispatch_source_t _mouseKeyActivationResetTimer;
+    
+    IOPMConnection  _powerConnect;
 #endif
 
     boolean_t       _capsLockState;
@@ -223,6 +226,12 @@ private:
     uint32_t getKeyboardID ();
     uint32_t getKeyboardID (uint16_t productID, uint16_t vendorID);
     bool isModifiersPressed ();
+    //------------------------------------------------------------------------------
+    // IOHIDKeyboardFilter::powerNotificationCallback
+    //------------------------------------------------------------------------------
+    static void powerNotificationCallback (void * refcon, IOPMConnection connection, IOPMConnectionMessageToken token, IOPMCapabilityBits eventDescriptor);
+    void powerNotificationCallback (IOPMConnection connection, IOPMConnectionMessageToken token, IOPMCapabilityBits eventDescriptor);
+
 #endif
     
     void setEjectKeyProperty(uint32_t keyboardID);

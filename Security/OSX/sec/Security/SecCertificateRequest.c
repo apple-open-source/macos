@@ -1,15 +1,15 @@
 /*
- * Copyright (c) 2008-2009,2012-2017 Apple Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2008-2009,2012-2020 Apple Inc. All Rights Reserved.
+ *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  */
@@ -111,7 +111,7 @@ static uint8_t * mod128_oid_encoding_ptr(uint8_t *ptr, uint32_t src, bool final)
 {
     if (src > 128)
         ptr = mod128_oid_encoding_ptr(ptr, src / 128, false);
-    
+
     unsigned char octet = src % 128;
     if (!final)
         octet |= 128;
@@ -170,16 +170,16 @@ Consider using IA5String for email address
 static inline bool printable_string(CFStringRef string)
 {
     bool result = true;
-    
-    CFCharacterSetRef printable_charset = 
+
+    CFCharacterSetRef printable_charset =
         CFCharacterSetCreateWithCharactersInString(kCFAllocatorDefault,
             CFSTR("ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                     "abcdefghijklmnopqrstuvwxyz"
                     "0123456789 '()+,-./:=?"));
-    CFCharacterSetRef not_printable_charset = 
+    CFCharacterSetRef not_printable_charset =
         CFCharacterSetCreateInvertedSet(kCFAllocatorDefault, printable_charset);
     CFRange found;
-    if (CFStringFindCharacterFromSet(string, not_printable_charset, 
+    if (CFStringFindCharacterFromSet(string, not_printable_charset,
         CFRangeMake(0, CFStringGetLength(string)), 0, &found))
             result = false;
 
@@ -189,7 +189,7 @@ static inline bool printable_string(CFStringRef string)
     return result;
 }
 
-static bool make_nss_atv(PRArenaPool *poolp, 
+static bool make_nss_atv(PRArenaPool *poolp,
     CFTypeRef oid, const void * value, const unsigned char type_in, NSS_ATV *nss_atv)
 {
     size_t length = 0;
@@ -210,7 +210,7 @@ static bool make_nss_atv(PRArenaPool *poolp,
         else {
             if (!type || type == SecASN1PrintableString) {
                 if (!printable_string(value))
-                    type = SEC_ASN1_IA5_STRING;
+                    type = SEC_ASN1_UTF8_STRING;
                 else
                     type = SEC_ASN1_PRINTABLE_STRING;
             }
@@ -245,8 +245,8 @@ static bool make_nss_atv(PRArenaPool *poolp,
         /* will remain valid for the duration of the operation, still maybe copy into pool */
         oid_length = CFDataGetLength(oid);
         oid_data = (uint8_t *)CFDataGetBytePtr(oid);
-    }    
-    NSS_ATV stage_nss_atv = { { oid_length, oid_data }, 
+    }
+    NSS_ATV stage_nss_atv = { { oid_length, oid_data },
         { { length, (uint8_t*)buffer }, type } };
     *nss_atv = stage_nss_atv;
     return true;
@@ -270,7 +270,7 @@ static NSS_RDN **make_subject(PRArenaPool *poolp, CFArrayRef subject)
         for (atv_ix = 0; atv_ix < atv_count; atv_ix++) {
             rdns[rdn_ix].atvs[atv_ix] = &atvs[atv_ix];
             CFArrayRef atv = CFArrayGetValueAtIndex(rdn, atv_ix);
-            if ((CFArrayGetCount(atv) != 2) 
+            if ((CFArrayGetCount(atv) != 2)
                 || !make_nss_atv(poolp, CFArrayGetValueAtIndex(atv, 0),
                         CFArrayGetValueAtIndex(atv, 1), 0, &atvs[atv_ix]))
                 return NULL;
@@ -302,7 +302,7 @@ static void make_general_names(const void *key, const void *value, void *context
     }
 
     require(entry_count > 0, out);
-    
+
     require(key,out);
     require(CFGetTypeID(key) == CFStringGetTypeID(), out);
 
@@ -312,7 +312,7 @@ static void make_general_names(const void *key, const void *value, void *context
             capacity *= 2;
         else
             capacity = 10;
-        
+
         void * new_array = PORT_ArenaZNewArray(gn->poolp, SecAsn1Item, capacity);
         if (gn->names)
             memcpy(new_array, gn->names, gn->capacity);
@@ -389,7 +389,7 @@ static void make_general_names(const void *key, const void *value, void *context
 	}
 	else
         goto out;
-    
+
     if (gn_values) {
         for (entry_ix = 0; entry_ix < entry_count; entry_ix++) {
             CFTypeRef entry_value = CFArrayGetValueAtIndex(gn_values, entry_ix);
@@ -419,7 +419,7 @@ out:
 static SecAsn1Item make_subjectAltName_extension(PRArenaPool *poolp, CFDictionaryRef subjectAltNames)
 {
     SecAsn1Item subjectAltExt = {};
-    
+
     struct make_general_names_context context = { poolp, NULL, 0 };
     CFDictionaryApplyFunction(subjectAltNames, make_general_names, &context);
 
@@ -498,7 +498,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters)
     if (basic_contraints_num) {
         NSS_BasicConstraints basic_contraints = { asn1_true, {} };
         uint8_t path_len;
-        
+
         int basic_contraints_path_len = 0;
         require(CFNumberGetValue(basic_contraints_num, kCFNumberIntType, &basic_contraints_path_len), out);
         if (basic_contraints_path_len >= 0 && basic_contraints_path_len < 256) {
@@ -506,12 +506,12 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters)
             basic_contraints.pathLenConstraint.Length = sizeof(path_len);
             basic_contraints.pathLenConstraint.Data = &path_len;
         }
-        
+
         csr_extension[num_extensions].extnId.Data = oidBasicConstraints.data;
         csr_extension[num_extensions].extnId.Length = oidBasicConstraints.length;
         csr_extension[num_extensions].critical = asn1_true;
-        
-        SEC_ASN1EncodeItem(poolp, &csr_extension[num_extensions].value, &basic_contraints, 
+
+        SEC_ASN1EncodeItem(poolp, &csr_extension[num_extensions].value, &basic_contraints,
             kSecAsn1BasicConstraintsTemplate);
         require(num_extensions++ < max_extensions, out);
     }
@@ -532,7 +532,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters)
         int key_usage_value;
         require(CFNumberGetValue(key_usage_requested, kCFNumberIntType, &key_usage_value), out);
         if (key_usage_value > 0) {
-            uint32_t key_usage_value_be = 0, key_usage_mask = 1<<31;
+            uint32_t key_usage_value_be = 0, key_usage_mask = (uint32_t)0x80000000; // 1L<<31
             uint32_t key_usage_value_max_bitlen = 9, key_usage_value_bitlen = 0;
             while(key_usage_value_max_bitlen) {
                 if (key_usage_value & 1) {
@@ -544,7 +544,7 @@ extensions_from_parameters(PRArenaPool *poolp, CFDictionaryRef parameters)
                 key_usage_mask >>= 1;
             }
 
-            SecAsn1Item key_usage_input = { key_usage_value_bitlen, 
+            SecAsn1Item key_usage_input = { key_usage_value_bitlen,
                 ((uint8_t*)&key_usage_value_be) + 3 - (key_usage_value_bitlen >> 3) };
             SEC_ASN1EncodeItem(poolp, &key_usage_asn1_value, &key_usage_input, kSecAsn1BitStringTemplate);
 
@@ -603,14 +603,14 @@ NSS_Attribute **nss_attributes_from_parameters_dict(PRArenaPool *poolp, CFDictio
        whenever possible.  If internationalization issues make this
        impossible, the UTF8String alternative SHOULD be used.  PKCS #9-
        attribute processing systems MUST be able to recognize and process
-       all string types in DirectoryString values. 
-       
+       all string types in DirectoryString values.
+
        Upperbound of 255 defined for all PKCS#9 attributes.
-       
+
        pkcs-9 OBJECT IDENTIFIER ::= {iso(1) member-body(2) us(840)
                                         rsadsi(113549) pkcs(1) 9}
        pkcs-9-at-challengePassword   OBJECT IDENTIFIER ::= {pkcs-9 7}
-       
+
     */
     if (!parameters)
         return NULL;
@@ -631,11 +631,11 @@ NSS_Attribute **nss_attributes_from_parameters_dict(PRArenaPool *poolp, CFDictio
             if (!printable_string(challenge))
                 utf8 = true;
 
-        SecAsn1Item *challenge_password_value = PORT_ArenaZNewArray(poolp, SecAsn1Item, 1);        
+        SecAsn1Item *challenge_password_value = PORT_ArenaZNewArray(poolp, SecAsn1Item, 1);
         SecAsn1Item challenge_password_raw = { strlen(buffer), (uint8_t*)buffer };
-        SEC_ASN1EncodeItem(poolp, challenge_password_value, &challenge_password_raw, 
+        SEC_ASN1EncodeItem(poolp, challenge_password_value, &challenge_password_raw,
             utf8 ? kSecAsn1UTF8StringTemplate : kSecAsn1PrintableStringTemplate);
-        SecAsn1Item **challenge_password_values = PORT_ArenaZNewArray(poolp, SecAsn1Item *, 2);        
+        SecAsn1Item **challenge_password_values = PORT_ArenaZNewArray(poolp, SecAsn1Item *, 2);
         challenge_password_values[0] = challenge_password_value;
         challenge_password_attr.attrType.Length = sizeof(pkcs9ChallengePassword);
         challenge_password_attr.attrType.Data = (uint8_t*)&pkcs9ChallengePassword;
@@ -656,7 +656,7 @@ NSS_Attribute **nss_attributes_from_parameters_dict(PRArenaPool *poolp, CFDictio
         extensions_requested_attr.attrValue = extensions_requested_values;
         num_attrs++;
     }
-    
+
     NSS_Attribute **attributes_ptr = PORT_ArenaZNewArray(poolp, NSS_Attribute *, num_attrs + 1);
     NSS_Attribute *attributes = PORT_ArenaZNewArray(poolp, NSS_Attribute, num_attrs);
     if (challenge_password_attr.attrType.Length) {
@@ -783,7 +783,7 @@ static CF_RETURNS_RETAINED CFDataRef make_signature (void *data_pointer, size_t 
     return signature;
 }
 
-CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject, 
+CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey)
 {
     if (subject == NULL || *subject == NULL) {
@@ -796,12 +796,13 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     SecKeyRef realPublicKey = NULL; /* We calculate this from the private key rather than
                                      * trusting the caller to give us the right one. */
     PRArenaPool *poolp = PORT_NewArena(1024);
-    
-    if (!poolp)
-        return NULL;
 
-	NSSCertRequest certReq;
-	memset(&certReq, 0, sizeof(certReq));
+    if (!poolp) {
+        return NULL;
+    }
+
+    NSSCertRequest certReq;
+    memset(&certReq, 0, sizeof(certReq));
 
     /* version */
     unsigned char version = 0;
@@ -831,7 +832,7 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
         rdnps[rdn_num] = &rdns[rdn_num];
         rdn_num++;
         for (one_atv = *one_rdn; one_atv->oid; one_atv++) {
-            if (!make_nss_atv(poolp, one_atv->oid, one_atv->value, 
+            if (!make_nss_atv(poolp, one_atv->oid, one_atv->value,
                     one_atv->type, &atvs[atv_num]))
                 goto out;
             atvps[atv_num] = &atvs[atv_num];
@@ -841,7 +842,7 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     }
     rdnps[rdn_num] = NULL;
     certReq.reqInfo.subject.rdns = rdnps;
-    
+
     /* public key info */
     realPublicKey = SecKeyCopyPublicKey(privateKey);
     if (!realPublicKey) {
@@ -852,7 +853,7 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     require_quiet(realPublicKey, out);
     publicKeyData = make_public_key(realPublicKey, &certReq.reqInfo.subjectPublicKeyInfo, &allocated_parameters);
     require_quiet(publicKeyData, out);
-    
+
     certReq.reqInfo.attributes = nss_attributes_from_parameters_dict(poolp, parameters);
     SecCmsArraySortByDER((void **)certReq.reqInfo.attributes, kSecAsn1AttributeTemplate, NULL);
 
@@ -869,13 +870,13 @@ CFDataRef SecGenerateCertificateRequestWithParameters(SecRDN *subject,
     require_quiet(signature, out);
     certReq.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
     certReq.signature.Length = 8 * CFDataGetLength(signature);
-    
+
     /* encode csr */
     SecAsn1Item cert_request = {};
-    require_quiet(SEC_ASN1EncodeItem(poolp, &cert_request, &certReq, 
+    require_quiet(SEC_ASN1EncodeItem(poolp, &cert_request, &certReq,
         kSecAsn1CertRequestTemplate), out);
     csr = CFDataCreate(kCFAllocatorDefault, cert_request.Data, cert_request.Length);
-    
+
 out:
     if (allocated_parameters) {
         free(certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters.Data);
@@ -892,7 +893,7 @@ out:
     return csr;
 }
 
-CFDataRef SecGenerateCertificateRequest(CFArrayRef subject, 
+CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     CFDictionaryRef parameters, SecKeyRef publicKey, SecKeyRef privateKey)
 {
     CFDataRef csr = NULL;
@@ -901,12 +902,13 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     SecKeyRef realPublicKey = NULL; /* We calculate this from the private key rather than
                                      * trusting the caller to give us the right one. */
     bool allocated_parameters = false;
-    
-    if (!poolp)
-        return NULL;
 
-	NSSCertRequest certReq;
-	memset(&certReq, 0, sizeof(certReq));
+    if (!poolp) {
+        return NULL;
+    }
+
+    NSSCertRequest certReq;
+    memset(&certReq, 0, sizeof(certReq));
 
     /* version */
     unsigned char version = 0;
@@ -915,7 +917,7 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
 
     /* subject */
     certReq.reqInfo.subject.rdns = make_subject(poolp, (CFArrayRef)subject);
-    
+
     /* public key info */
     realPublicKey = SecKeyCopyPublicKey(privateKey);
     if (!realPublicKey) {
@@ -926,7 +928,7 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     require_quiet(realPublicKey, out);
     publicKeyData = make_public_key(realPublicKey, &certReq.reqInfo.subjectPublicKeyInfo, &allocated_parameters);
     require_quiet(publicKeyData, out);
-    
+
     certReq.reqInfo.attributes = nss_attributes_from_parameters_dict(poolp, parameters);
     SecCmsArraySortByDER((void **)certReq.reqInfo.attributes, kSecAsn1AttributeTemplate, NULL);
 
@@ -943,13 +945,13 @@ CFDataRef SecGenerateCertificateRequest(CFArrayRef subject,
     require_quiet(signature, out);
     certReq.signature.Data = (uint8_t *)CFDataGetBytePtr(signature);
     certReq.signature.Length = 8 * CFDataGetLength(signature);
-    
+
     /* encode csr */
     SecAsn1Item cert_request = {};
-    require_quiet(SEC_ASN1EncodeItem(poolp, &cert_request, &certReq, 
+    require_quiet(SEC_ASN1EncodeItem(poolp, &cert_request, &certReq,
         kSecAsn1CertRequestTemplate), out);
     csr = CFDataCreate(kCFAllocatorDefault, cert_request.Data, cert_request.Length);
-    
+
 out:
     if (allocated_parameters) {
         free(certReq.reqInfo.subjectPublicKeyInfo.algorithm.parameters.Data);
@@ -1057,9 +1059,9 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
                                        undecodedCertReq.certRequestBlob.Length, kCFAllocatorNull);
     require_quiet(alg && signature && data, out);
     require_quiet(SecKeyVerifySignature(candidatePublicKey, alg, data, signature, NULL), out);
-        
+
     SecAsn1Item subject_item = { 0 }, extensions_item = { 0 }, challenge_item = { 0 };
-    require_quiet(SEC_ASN1EncodeItem(poolp, &subject_item, 
+    require_quiet(SEC_ASN1EncodeItem(poolp, &subject_item,
         &decodedCertReq.reqInfo.subject, kSecAsn1NameTemplate), out);
 
     if (*decodedCertReq.reqInfo.attributes) {
@@ -1074,7 +1076,7 @@ bool SecVerifyCertificateRequest(CFDataRef csr, SecKeyRef *publicKey,
                     extensions_item = *attr->attrValue[0];
         }
     }
-    
+
     if (subject && subject_item.Length)
         *subject = CFDataCreate(kCFAllocatorDefault, subject_item.Data, subject_item.Length);
     if (extensions && extensions_item.Length)
@@ -1105,19 +1107,19 @@ out:
     return valid;
 }
 
-#define HIDIGIT(v) (((v) / 10) + '0')    
-#define LODIGIT(v) (((v) % 10) + '0')     
+#define HIDIGIT(v) (((v) / 10) + '0')
+#define LODIGIT(v) (((v) % 10) + '0')
 
 static OSStatus
 DER_CFDateToUTCTime(PRArenaPool *poolp, CFAbsoluteTime date, SecAsn1Item * utcTime)
 {
     unsigned char *d;
-    
+
     utcTime->Length = 13;
     utcTime->Data = d = PORT_ArenaAlloc(poolp, 13);
     if (!utcTime->Data)
         return SECFailure;
-    
+
     __block int year = 0, month = 0, day = 0, hour = 0, minute = 0, second = 0;
     __block bool result;
     SecCFCalendarDoWithZuluCalendar(^(CFCalendarRef zuluCalendar) {
@@ -1125,15 +1127,15 @@ DER_CFDateToUTCTime(PRArenaPool *poolp, CFAbsoluteTime date, SecAsn1Item * utcTi
     });
     if (!result)
         return SECFailure;
-    
+
     /* UTC time does not handle the years before 1950 */
     if (year < 1950)
         return SECFailure;
-    
+
     /* remove the century since it's added to the year by the
      CFAbsoluteTimeGetGregorianDate routine, but is not needed for UTC time */
     year %= 100;
-    
+
     d[0] = HIDIGIT(year);
     d[1] = LODIGIT(year);
     d[2] = HIDIGIT(month);
@@ -1151,7 +1153,7 @@ DER_CFDateToUTCTime(PRArenaPool *poolp, CFAbsoluteTime date, SecAsn1Item * utcTi
 }
 
 SecCertificateRef
-SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDictionaryRef parameters, 
+SecGenerateSelfSignedCertificate(CFArrayRef subject, CFDictionaryRef parameters,
     SecKeyRef __unused publicKey, SecKeyRef privateKey)
 {
     SecCertificateRef cert = NULL;
@@ -1276,7 +1278,7 @@ SecIdentitySignCertificateWithAlgorithm(SecIdentityRef issuer, CFDataRef serialn
     require_noerr(SecIdentityCopyCertificate(issuer, &issuer_cert), out);
     CFDataRef issuer_name = SecCertificateCopySubjectSequence(issuer_cert);
     SecAsn1Item issuer_item = { CFDataGetLength(issuer_name), (uint8_t*)CFDataGetBytePtr(issuer_name) };
-    require_noerr_action_quiet(SEC_ASN1DecodeItem(poolp, &cert_tmpl.tbs.issuer.rdns, 
+    require_noerr_action_quiet(SEC_ASN1DecodeItem(poolp, &cert_tmpl.tbs.issuer.rdns,
         kSecAsn1NameTemplate, &issuer_item), out, CFReleaseNull(issuer_name));
     CFReleaseNull(issuer_name);
 

@@ -148,6 +148,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithSOSAdapter:(id<OTSOSAdapter>)sosAdapter
                   lockStateTracker:(CKKSLockStateTracker*)lockStateTracker
          cloudKitClassDependencies:(CKKSCloudKitClassDependencies*)cloudKitClassDependencies;
+
+- (void)invalidateEscrowCache:(NSString * _Nullable)containerName
+                    contextID:(NSString*)contextID
+                        reply:(nonnull void (^)(NSError * _Nullable error))reply;
 @end
 
 NS_ASSUME_NONNULL_END

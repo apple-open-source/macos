@@ -47,9 +47,9 @@ public:
 	Allocator &subAllocator;
 
 	// standard Allocator operations
-	void *malloc(size_t inSize) throw(std::bad_alloc);
-	void free(void *inAddress) throw();
-	void *realloc(void *inAddress, size_t inNewSize) throw(std::bad_alloc);
+	void *malloc(size_t inSize);
+	void free(void *inAddress) _NOEXCEPT;
+	void *realloc(void *inAddress, size_t inNewSize);
 
 	// reset frees all memory; commit forgets about it all
 	void reset();

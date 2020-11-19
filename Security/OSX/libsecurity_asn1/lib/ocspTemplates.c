@@ -27,7 +27,6 @@
 #include "keyTemplates.h"		/* for kSecAsn1AlgorithmIDTemplate */
 #include "SecAsn1Templates.h"
 #include <stddef.h>
-#include <assert.h>
 
 // MARK: ----- OCSP Request -----
 

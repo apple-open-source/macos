@@ -1,3 +1,64 @@
+2020-08-17  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [GTK][l10n] Updated Polish translation of WebKitGTK for 2.30
+        https://bugs.webkit.org/show_bug.cgi?id=215547
+
+        Rubber-stamped by Carlos Garcia Campos.
+
+        * pl.po:
+
+2020-06-18  Yuri Chornoivan  <yurchor@ukr.net>
+
+        [GTK] [l10n] Updated Ukrainian translation of WebKitGTK
+        https://bugs.webkit.org/show_bug.cgi?id=212844
+
+        Rubber-stamped by Carlos Garcia Campos.
+
+        * uk.po:
+
+2020-05-20  Yuri Chornoivan  <yurchor@ukr.net>
+
+        [GTK] [l10n] Updated Ukrainian translation of WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=209798
+
+        Rubber-stamped by Carlos Garcia Campos.
+
+        * uk.po:
+
+2020-03-05  Piotr Drąg  <piotrdrag@gmail.com>
+
+        [GTK][l10n] Updated Polish translation of WebKitGTK for 2.28
+        https://bugs.webkit.org/show_bug.cgi?id=208410
+
+        Rubber-stamped by Carlos Garcia Campos.
+
+        * pl.po:
+
+2020-02-17  Yuchen Guo  <egyc@live.com>
+
+        Updated Simplified Chinese translation
+        https://bugs.webkit.org/show_bug.cgi?id=207685
+
+        Rubber-stamped by Carlos Garcia Campos.
+
+        * zh_CN.po:
+
+2020-01-28  Devin Rousso  <drousso@apple.com>
+
+        Unreviewed, speculative gtk build fix after r255214
+
+        * POTFILES.in:
+        * da.po:
+        * de.po:
+        * es.po:
+        * fr.po:
+        * id.po:
+        * it.po:
+        * pl.po:
+        * pt_BR.po:
+        * sv.po:
+        * uk.po:
+
 2019-11-25  Rafael Fontenelle  <rafaelff@gnome.org>
 
         [l10n] [pt_BR] Updated Brazilian Portuguese translation

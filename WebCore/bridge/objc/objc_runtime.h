@@ -124,16 +124,15 @@ public:
         return Structure::create(vm, globalObject, prototype, TypeInfo(ObjectType, StructureFlags), info());
     }
 
-protected:
-    void finishCreation(JSGlobalObject*);
-
 private:
     ObjcFallbackObjectImp(JSGlobalObject*, Structure*, ObjcInstance*, const String& propertyName);
+    void finishCreation(JSGlobalObject*);
+
     static void destroy(JSCell*);
     static bool getOwnPropertySlot(JSObject*, JSGlobalObject*, PropertyName, PropertySlot&);
     static bool put(JSCell*, JSGlobalObject*, PropertyName, JSValue, PutPropertySlot&);
-    static CallType getCallData(JSCell*, CallData&);
-    static bool deleteProperty(JSCell*, JSGlobalObject*, PropertyName);
+    static CallData getCallData(JSCell*);
+    static bool deleteProperty(JSCell*, JSGlobalObject*, PropertyName, DeletePropertySlot&);
     static JSValue defaultValue(const JSObject*, JSGlobalObject*, PreferredPrimitiveType);
 
     bool toBoolean(JSGlobalObject*) const; // FIXME: Currently this is broken because none of the superclasses are marked virtual. We need to solve this in the longer term.

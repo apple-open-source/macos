@@ -22,7 +22,7 @@ PRODUCT_BUNDLE_IDENTIFIER = ${MODULE_NAME}
 INFOPLIST_FILE = kern/pthread-Info.plist
 
 ALWAYS_SEARCH_USER_PATHS = NO
-SRCROOT_SEARCH_PATHS = $(SRCROOT) $(SRCROOT)/pthread $(SRCROOT)/private
+SRCROOT_SEARCH_PATHS = $(SRCROOT)/private $(SRCROOT)/include $(SRCROOT)
 HEADER_SEARCH_PATHS = $(SDKROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/Kernel.framework/Headers $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders $(SDKROOT)/System/Library/Frameworks/System.framework/Headers $(SRCROOT_SEARCH_PATHS)
 GCC_C_LANGUAGE_STANDARD = gnu11
 CLANG_CXX_LANGUAGE_STANDARD = gnu++0x

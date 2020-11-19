@@ -164,8 +164,12 @@ copy_process_info(void)
 	__block sysmon_table_t result = NULL;
 
 	sema = dispatch_semaphore_create(0);
-	request = sysmon_request_create(SYSMON_REQUEST_TYPE_PROCESS, ^(sysmon_table_t table) {
-		result = sysmon_retain(table);
+	request = sysmon_request_create_with_error(SYSMON_REQUEST_TYPE_PROCESS, ^(sysmon_table_t table, const char *error_str) {
+		if (table) {
+			result = sysmon_retain(table);
+		} else {
+			fprintf(stderr, "sysmon request failed with error: %s\n", error_str);
+		}
 		dispatch_semaphore_signal(sema);
 	});
 	sysmon_request_add_attribute(request, SYSMON_ATTR_PROC_PID);

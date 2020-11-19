@@ -48,7 +48,7 @@ static AtkObject* wrapperParent(WebKitAccessible* wrapper)
     return WEBKIT_IS_ACCESSIBLE(atkParent) ? atkParent : nullptr;
 }
 
-void AXObjectCache::detachWrapper(AccessibilityObject* obj, AccessibilityDetachmentType detachmentType)
+void AXObjectCache::detachWrapper(AXCoreObject* obj, AccessibilityDetachmentType detachmentType)
 {
     auto* wrapper = obj->wrapper();
     ASSERT(wrapper);
@@ -354,8 +354,7 @@ void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject* obje
         // Consider previous text objects that might be present for
         // the current accessibility object to ensure we emit the
         // right offset (e.g. multiline text areas).
-        auto range = Range::create(document, node->parentNode(), 0, node, 0);
-        offsetToEmit = offset + TextIterator::rangeLength(range.ptr());
+        offsetToEmit = offset + characterCount(SimpleRange { { *node->parentNode(), 0 }, { *node, 0 } });
     }
 
     g_signal_emit_by_name(wrapper, detail.data(), offsetToEmit, textToEmit.length(), textToEmit.utf8().data());

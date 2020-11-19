@@ -19,16 +19,14 @@
 //these are copies of SecDH_gp() and SecDH_priv()
 static inline ccdh_gp_t vmdh_gp(struct vmdh *dh)
 {
-    return  (ccdh_gp_t)dh;
+    return (ccdh_gp_t)dh;
 }
 
 static inline ccdh_full_ctx_t vmdh_priv(struct vmdh *dh)
 {
     ccdh_gp_t gp = vmdh_gp(dh);
     cc_size s = ccn_sizeof_n(ccdh_gp_n(gp));
-    ccdh_full_ctx_t priv = (ccdh_full_ctx_t)((char *) dh + ccdh_gp_size(s));
- 
-    return priv;
+    return (ccdh_full_ctx_t)cc_pad_align((uintptr_t)dh + ccdh_gp_size(s));
 }
 
 static uint32_t param_g = 5;

@@ -34,6 +34,7 @@
 #import <Security/Security.h>
 #import "HeimCredCoder.h"
 #import "common.h"
+#import "gsscred.h"
 
 @implementation HeimCredDecoder
 
@@ -46,8 +47,8 @@ static uuid_t boolean_false = {  0x48, 0xD3, 0x95, 0xCD, 0x37, 0xC7, 0x41, 0x76,
     if (!ns)
 	return NULL;
     
-    if ([ns isKindOfClass:[NSString class]] || [ns isKindOfClass:[NSData class]] || [ns isKindOfClass:[NSNumber class]]) {
-	return (CFTypeRef)[ns copy];
+    if ([ns isKindOfClass:[NSString class]] || [ns isKindOfClass:[NSData class]] || [ns isKindOfClass:[NSNumber class]] || [ns isKindOfClass:[NSDate class]]) {
+	return (CFTypeRef)CFBridgingRetain([ns copy]);
     }
     
     if ([ns isKindOfClass:[NSUUID class]]) {
@@ -101,13 +102,11 @@ static uuid_t boolean_false = {  0x48, 0xD3, 0x95, 0xCD, 0x37, 0xC7, 0x41, 0x76,
 static void
 convertDict(const void *key, const void *value, void *context)
 {
-    NSMutableDictionary *dict = context;
+    NSMutableDictionary *dict = (__bridge NSMutableDictionary *)context;
     id nskey = [HeimCredDecoder copyCF2NS:key];
     id nsvalue = [HeimCredDecoder copyCF2NS:value];
     if (nskey && nsvalue)
 	[dict setObject:nsvalue forKey:nskey];
-    [nskey release];
-    [nsvalue release];
 }
 
 + (id)copyCF2NS:(CFTypeRef)cf
@@ -125,11 +124,13 @@ convertDict(const void *key, const void *value, void *context)
     }
     
     if (type == CFStringGetTypeID())
-	return (id)CFStringCreateCopy(NULL, cf);
+	return CFBridgingRelease(CFStringCreateCopy(NULL, cf));
     if (type == CFDataGetTypeID())
-	return (id)CFDataCreateCopy(NULL, cf);
+	return CFBridgingRelease(CFDataCreateCopy(NULL, cf));
     if (type == CFNumberGetTypeID())
-	return (id)CFRetain(cf);
+	return (__bridge id)cf;
+    if (type == CFDateGetTypeID())
+	return (__bridge id)cf;
     
     if (type == CFUUIDGetTypeID()) {
         union {
@@ -149,7 +150,6 @@ convertDict(const void *key, const void *value, void *context)
 	for (n = 0; n < len; n++) {
 	    id obj = [HeimCredDecoder copyCF2NS:CFArrayGetValueAtIndex(cf, n)];
 	    if (obj) [array addObject:obj];
-	    [obj release];
 	}
         return array;
     }
@@ -159,7 +159,7 @@ convertDict(const void *key, const void *value, void *context)
         NSMutableDictionary *dict = [[NSMutableDictionary alloc] initWithCapacity:len];
         if (!dict) return NULL;
 	
-	CFDictionaryApplyFunction(cf, convertDict, dict);
+	CFDictionaryApplyFunction(cf, convertDict, (__bridge void *)dict);
 	return dict;
     }
     return NULL;
@@ -173,17 +173,17 @@ convertDict(const void *key, const void *value, void *context)
 	if (data == nil)
 	    return NULL;
 	
-	clearText = [ksDecryptData(data) autorelease];
+	clearText = HeimCredGlobalCTX.decryptData(data);
 	if (clearText == NULL)
 	    return NULL;
-
-	HeimCredDecoder *decoder = [[[HeimCredDecoder alloc] initForReadingFromData:(NSData *)clearText error:NULL] autorelease];
+	
+	HeimCredDecoder *decoder = [[HeimCredDecoder alloc] initForReadingFromData:(NSData *)clearText error:NULL];
 	if (decoder == nil)
 	    return NULL;
-
-	id obj = [[decoder decodeObjectOfClasses:[HeimCredDecoder allowedClasses] forKey:NSKeyedArchiveRootObjectKey] retain];
-        [decoder finishDecoding];
-
+	
+	id obj = [decoder decodeObjectOfClasses:[HeimCredDecoder allowedClasses] forKey:NSKeyedArchiveRootObjectKey];
+	[decoder finishDecoding];
+	
 	return obj;
     }
 }
@@ -191,18 +191,18 @@ convertDict(const void *key, const void *value, void *context)
 + (void)archiveRootObject:(id)object toFile:(NSString *)archiveFile
 {
     @autoreleasepool {
+	os_log_info(GSSOSLog(), "Save Credentials to disk");
 	NSData *data = [NSKeyedArchiver archivedDataWithRootObject:object];
 	if (data == nil)
 	    return;
-    
-	NSData *encText = ksEncryptData(data);
+	
+	NSData *encText = HeimCredGlobalCTX.encryptData(data);
 	if (encText == NULL) {
 	    [[NSFileManager defaultManager] removeItemAtPath:archiveFile error:NULL];
 	    return;
 	}
 	
 	[encText writeToFile:archiveFile atomically:NO];
-	[encText release];
     }
 }
 
@@ -221,10 +221,10 @@ convertDict(const void *key, const void *value, void *context)
 		[NSMutableString class], [NSString class],
 		[NSNumber class],
 		[NSUUID class],
-		[NSMutableData class], [NSData class],
+		[NSMutableData class], [NSData class], [NSDate class],
 		nil];
     });
-    return [[_set retain] autorelease];
+    return _set;
 }
 
 @end

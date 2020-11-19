@@ -802,8 +802,18 @@ RepairHardLinkChains(SGlobPtr gp, Boolean isdir)
 			flags = rec.hfsPlusFolder.flags;
 			li = hash_search(inodeID, slots, slotsUsed, linkInfo);
 		} else {
+            long ref_num;
+
 			inodeID = rec.hfsPlusFile.fileID;
-			link_ref_num = atol((char*)&filename[prefixlen]);
+            ref_num = atol((char*)&filename[prefixlen]);
+            if (ref_num < 0 || ref_num > UINT32_MAX) {
+                result = EINVAL;
+                if (fsckGetVerbosity(gp->context) >= kDebugLog) {
+                    plog ("\tLink reference num=%ld is invalid for inode=%u result=%d\n", ref_num, inodeID, result);
+                }
+                break;
+            }
+			link_ref_num = (UInt32)ref_num;
 			flags = rec.hfsPlusFile.flags;
 			li = hash_search(link_ref_num, slots, slotsUsed, linkInfo);
 		}

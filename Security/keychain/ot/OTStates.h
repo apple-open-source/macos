@@ -45,6 +45,9 @@ extern OctagonState* const OctagonStateBecomeUntrusted;
 // WaitForUnlock indicates that Octagon is waiting for the device to unlock before attempting the pended operation
 extern OctagonState* const OctagonStateWaitForUnlock;
 
+// Similar to the above, but we can't even be sure there's an account until the device unlocks for the first time.
+extern OctagonState* const OctagonStateWaitForClassCUnlock;
+
 // 'ready' indicates that this machine believes it is trusted by its peers
 // and has no pending things to do.
 extern OctagonState* const OctagonStateReady;
@@ -54,6 +57,11 @@ extern OctagonState* const OctagonStateBecomeReady;
 
 // BecomeReady might go here, if it's not actually ready
 extern OctagonState* const OctagonStateRefetchCKKSPolicy;
+
+// Used in RPCs to set CKKS sync status
+extern OctagonState* const OctagonStateEnableUserControllableViews;
+extern OctagonState* const OctagonStateDisableUserControllableViews;
+extern OctagonState* const OctagonStateSetUserControllableViewsToPeerConsensus;
 
 // Enter this state if you'd like the state machine to double-check everything
 extern OctagonState* const OctagonStateEnsureConsistency;
@@ -83,6 +91,7 @@ extern OctagonState* const OctagonStateDeviceListUpdated;
 
 /* used for join with bottle */
 extern OctagonState* const OctagonStateBottleJoinCreateIdentity;
+extern OctagonState* const OctagonStateBottlePreloadOctagonKeysInSOS;
 
 /* used for join with recovery key */
 extern OctagonState* const OctagonStateCreateIdentityForRecoveryKey;
@@ -129,6 +138,7 @@ extern OctagonState* const OctagonStateUpdateSOSPreapprovals;
 extern OctagonState* const OctagonStateError;
 extern OctagonState* const OctagonStateDisabled;
 
+extern OctagonState* const OctagonStateAttemptSOSUpgradeDetermineCDPState;
 extern OctagonState* const OctagonStateAttemptSOSUpgrade;
 extern OctagonState* const OctagonStateSOSUpgradeCKKSReset;
 extern OctagonState* const OctagonStateSOSUpgradeAfterCKKSReset;
@@ -170,6 +180,10 @@ extern OctagonFlag* const OctagonFlagIDMSLevelChanged;
 extern OctagonFlag* const OctagonFlagEgoPeerPreapproved;
 
 extern OctagonFlag* const OctagonFlagCKKSRequestsTLKUpload;
+extern OctagonFlag* const OctagonFlagCKKSRequestsPolicyCheck;
+
+// Set by Octagon when the CKKS view set has changed. Indicates a need to re-tell CKKS if it's trusted or not.
+extern OctagonFlag* const OctagonFlagCKKSViewSetChanged;
 
 // We've received a change notification from cuttlefish; we should probably see what's new
 extern OctagonFlag* const OctagonFlagCuttlefishNotification NS_SWIFT_NAME(OctagonFlagCuttlefishNotification);
@@ -187,6 +201,12 @@ extern OctagonFlag* const OctagonFlagAttemptSOSUpdatePreapprovals;
 extern OctagonFlag* const OctagonFlagAttemptSOSConsistency;
 
 extern OctagonFlag* const OctagonFlagEscrowRequestInformCloudServicesOperation;
+extern OctagonFlag* const OctagonFlagWarmEscrowRecordCache;
+
+extern OctagonFlag* const OctagonFlagAttemptBottleTLKExtraction;
+extern OctagonFlag* const OctagonFlagAttemptRecoveryKeyTLKExtraction;
+
+extern OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade;
 
 
 NS_ASSUME_NONNULL_END

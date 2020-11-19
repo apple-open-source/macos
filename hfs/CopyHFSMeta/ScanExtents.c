@@ -194,7 +194,6 @@ ScanExtents(VolumeObjects_t *vop, int useAltHdr)
 	off_t vBlockSize;
 	size_t nodeSize;
 	size_t bufferSize;
-	int blocksPerNode;
 	void *nodePtr = NULL;
 	unsigned int nodeNum = 0;
 
@@ -227,10 +226,8 @@ ScanExtents(VolumeObjects_t *vop, int useAltHdr)
 	 * does mean it is less efficient than it should be.
 	 */
 	if (nodeSize < vBlockSize) {
-		blocksPerNode = 1;	// 1 block will hold multiple nodes
 		bufferSize = vBlockSize;
 	} else {
-		blocksPerNode = nodeSize / vBlockSize;
 		bufferSize = nodeSize;
 	}
 

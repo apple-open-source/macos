@@ -54,10 +54,20 @@ private:
         return JSC::JSValue::encode(JSC::jsNull());
     }
 
-    static JSC::CallType getCallData(JSC::JSCell*, JSC::CallData& callData)
+    static JSC::CallData getCallData(JSC::JSCell*)
     {
+        JSC::CallData callData;
+        callData.type = JSC::CallData::Type::Native;
         callData.native.function = callThrowTypeError;
-        return JSC::CallType::Host;
+        return callData;
+    }
+
+    static JSC::CallData getConstructData(JSC::JSCell*)
+    {
+        JSC::CallData callData;
+        callData.type = JSC::CallData::Type::Native;
+        callData.native.function = callThrowTypeError;
+        return callData;
     }
 };
 

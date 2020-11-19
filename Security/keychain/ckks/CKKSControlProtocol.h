@@ -25,7 +25,7 @@
 
 @protocol CKKSControlProtocol <NSObject>
 - (void)performanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> *))reply;
-- (void)rpcResetLocal:    (NSString*)viewName reply: (void(^)(NSError* result)) reply;
+- (void)rpcResetLocal: (NSString*)viewName reply: (void(^)(NSError* result)) reply;
 
 /**
  * Reset CloudKit zone with a caller provided reason, the reason will be logged in the operation group

@@ -37,8 +37,8 @@ static void _set_auth_token_hints(auth_items_t, auth_items_t, auth_token_t);
 static OSStatus _evaluate_user_credential_for_rule(engine_t, credential_t, rule_t, bool, bool, enum Reason *);
 static void _engine_set_credential(engine_t, credential_t, bool);
 static OSStatus _evaluate_rule(engine_t, rule_t, bool *);
-static bool _preevaluate_class_rule(engine_t engine, rule_t rule);
-static bool _preevaluate_rule(engine_t engine, rule_t rule);
+static bool _preevaluate_class_rule(engine_t engine, rule_t rule, const char **group);
+static bool _preevaluate_rule(engine_t engine, rule_t rule, const char **group);
 
 static uint64_t global_engine_count;
 
@@ -65,7 +65,6 @@ struct _engine_s {
     auth_rights_t grantedRights;
     
 	CFTypeRef la_context;
-	bool preauthorizing;
 
     enum Reason reason;
     int32_t tries;
@@ -156,14 +155,16 @@ engine_create(connection_t conn, auth_token_t auth)
     
     engine->reason = noReason;
 
-	engine->preauthorizing = false;
-
 	engine->la_context = NULL;
     
     engine->now = CFAbsoluteTimeGetCurrent();
     
     session_update(auth_token_get_session(engine->auth));
-    engine->sessionCredential = credential_create(session_get_uid(auth_token_get_session(engine->auth)));
+    if (isInLWOS()) {
+        engine->sessionCredential = credential_create_lwos(NULL, true);
+    } else {
+        engine->sessionCredential = credential_create(session_get_uid(auth_token_get_session(engine->auth)));
+    }
     engine->credentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
     engine->effectiveCredentials = CFSetCreateMutable(kCFAllocatorDefault, 0, &kCFTypeSetCallBacks);
     
@@ -313,6 +314,27 @@ _evaluate_credential_for_rule(engine_t engine, credential_t cred, rule_t rule, b
     }
 }
 
+static bool _is_lwos_user_in_group(engine_t engine, rule_t rule)
+{
+    if (!isInLWOS()) {
+        return false;
+    }
+    
+    const char *group = rule_get_group(rule);
+    if (!(group && strcmp(group, "admin") == 0)) {
+        os_log_error(AUTHD_LOG, "Group %{public}s not supported in FV mode (engine %lld)", group, engine->engine_index);
+        return false;
+    }
+
+    const char *data = auth_items_get_string(engine->context, kAuthorizationFVAdmin);
+    if (!data) {
+        os_log_error(AUTHD_LOG, "User is not member of the group %{public}s (engine %lld)", group, engine->engine_index);
+        return false;
+    }
+    
+    return (strcmp(data, "1") == 0);
+}
+
 static OSStatus
 _evaluate_user_credential_for_rule(engine_t engine, credential_t cred, rule_t rule, bool ignoreShared, bool sessionOwner, enum Reason * reason)
 {
@@ -329,7 +351,7 @@ _evaluate_user_credential_for_rule(engine_t engine, credential_t cred, rule_t ru
         return errAuthorizationDenied;
     }
 
-    if (credential_get_valid(cred) != true) {
+    if (credential_get_valid(cred) != true && !isInLWOS()) {
         os_log(AUTHD_LOG, "%{public}s %i invalid (does NOT satisfy rule) (engine %lld)", cred_label, credential_get_uid(cred), engine->engine_index);
         if (reason) {  *reason = invalidPassphrase; }
         return errAuthorizationDenied;
@@ -376,7 +398,7 @@ _evaluate_user_credential_for_rule(engine_t engine, credential_t cred, rule_t ru
                 }
             }
             
-            if (credential_check_membership(cred, rule_get_group(rule))) {
+            if (credential_check_membership(cred, rule_get_group(rule)) || _is_lwos_user_in_group(engine, rule)) {
                 os_log(AUTHD_LOG, "%{public}s %i is member of group %{public}s (does satisfy rule) (engine %lld)", cred_label, credential_get_uid(cred), rule_get_group(rule), engine->engine_index);
                 return errAuthorizationSuccess;
             } else {
@@ -651,11 +673,16 @@ done:
 static OSStatus
 _evaluate_authentication(engine_t engine, rule_t rule)
 {
+    os_log_debug(AUTHD_LOG, "engine %lld: FV mode %d", engine->engine_index, isInLWOS());
+
     OSStatus status = errAuthorizationDenied;
     ccaudit_t ccaudit = ccaudit_create(engine->proc, engine->auth, AUE_ssauthint);
     os_log_debug(AUTHD_LOG, "engine %lld: evaluate authentication", engine->engine_index);
     _set_rule_hints(engine->hints, rule);
-    _set_session_hints(engine, rule);
+    if (!isInLWOS()) {
+        // we do not need to set hints in LWOS as we do not know which user will be authenticated
+        _set_session_hints(engine, rule);
+    }
 
     CFArrayRef mechanisms = rule_get_mechanisms(rule);
     if (!(CFArrayGetCount(mechanisms) > 0)) {
@@ -684,10 +711,14 @@ _evaluate_authentication(engine_t engine, rule_t rule)
             status = errAuthorizationDenied;
             
             credential_t newCred = NULL;
-            if (auth_items_exist(engine->context, "uid")) {
-                newCred = credential_create(auth_items_get_uint(engine->context, "uid"));
+
+            if (isInLWOS() && auth_items_exist(engine->context, kAuthorizationFVAdmin)) {
+                os_log_debug(AUTHD_LOG, "Credentials for FV unlock (engine %lld)", engine->engine_index);
+                newCred = credential_create_lwos(engine->context, false);
+            } else if (auth_items_exist(engine->context, AGENT_CONTEXT_UID)) {
+                newCred = credential_create(auth_items_get_uint(engine->context, AGENT_CONTEXT_UID));
             } else {
-                os_log_info(AUTHD_LOG, "Mechanism failed to return a valid uid (engine %lld)", engine->engine_index);
+                os_log_error(AUTHD_LOG, "Mechanism failed to return a valid UID (engine %lld)", engine->engine_index);
 				if (engine->la_context) {
 					// sheet failed so remove sheet reference and next time, standard dialog will be displayed
 					CFReleaseNull(engine->la_context);
@@ -695,12 +726,12 @@ _evaluate_authentication(engine_t engine, rule_t rule)
             }
             
             if (newCred) {
-                if (credential_get_valid(newCred)) {
-                    os_log(AUTHD_LOG, "UID %u authenticated as user %{public}s (UID %u) for right '%{public}s'", auth_token_get_uid(engine->auth), credential_get_name(newCred), credential_get_uid(newCred), engine->currentRightName);
+                if (credential_get_valid(newCred) || isInLWOS()) {
+                    os_log(AUTHD_LOG, "UID %u authenticated as user %{public}s (UID %i) for right '%{public}s'", auth_token_get_uid(engine->auth), credential_get_name(newCred), credential_get_uid(newCred), engine->currentRightName);
                     ccaudit_log_success(ccaudit, newCred, engine->currentRightName);
                 } else {
-                    os_log(AUTHD_LOG, "UID %u failed to authenticate as user '%{public}s' for right '%{public}s'", auth_token_get_uid(engine->auth), auth_items_get_string(engine->context, "username"), engine->currentRightName);
-                    ccaudit_log_failure(ccaudit, auth_items_get_string(engine->context, "username"), engine->currentRightName);
+                    os_log(AUTHD_LOG, "UID %u failed to authenticate as user '%{public}s' for right '%{public}s'", auth_token_get_uid(engine->auth), auth_items_get_string(engine->context, AGENT_USERNAME), engine->currentRightName);
+                    ccaudit_log_failure(ccaudit, auth_items_get_string(engine->context, AGENT_USERNAME), engine->currentRightName);
                 }
                 
                 status = _evaluate_user_credential_for_rule(engine, newCred, rule, true, false, &engine->reason);
@@ -799,10 +830,12 @@ _evaluate_class_user(engine_t engine, rule_t rule)
     }
     
     if (!rule_get_authenticate_user(rule)) {
-        status = _evaluate_user_credential_for_rule(engine, engine->sessionCredential, rule, true, true, NULL);
-        
-        if (status == errAuthorizationSuccess) {
-            return errAuthorizationSuccess;
+        if (!isInLWOS()) {
+            status = _evaluate_user_credential_for_rule(engine, engine->sessionCredential, rule, true, true, NULL);
+            
+            if (status == errAuthorizationSuccess) {
+                return errAuthorizationSuccess;
+            }
         }
         
         return errAuthorizationDenied;
@@ -860,22 +893,22 @@ _evaluate_class_user(engine_t engine, rule_t rule)
         return errAuthorizationSuccess;
 	}
 
-	if (!engine->preauthorizing) {
-		if (!(engine->flags & kAuthorizationFlagInteractionAllowed)) {
+    if (!(engine->flags & kAuthorizationFlagSheet)) {
+        if (!(engine->flags & kAuthorizationFlagInteractionAllowed)) {
             os_log_error(AUTHD_LOG, "Fatal: interaction not allowed (kAuthorizationFlagInteractionAllowed not set) (engine %lld)", engine->engine_index);
-			return errAuthorizationInteractionNotAllowed;
-		}
-
-		if (!(session_get_attributes(auth_token_get_session(engine->auth)) & AU_SESSION_FLAG_HAS_GRAPHIC_ACCESS)) {
-			os_log_error(AUTHD_LOG, "Fatal: interaction not allowed (session has no ui access) (engine %lld)", engine->engine_index);
-			return errAuthorizationInteractionNotAllowed;
-		}
-
-		if (server_in_dark_wake() && !(engine->flags & kAuthorizationFlagIgnoreDarkWake)) {
-			os_log_error(AUTHD_LOG, "Fatal: authorization denied (DW) (engine %lld)", engine->engine_index);
-			return errAuthorizationDenied;
-		}
-	}
+            return errAuthorizationInteractionNotAllowed;
+        }
+        
+        if (!(session_get_attributes(auth_token_get_session(engine->auth)) & AU_SESSION_FLAG_HAS_GRAPHIC_ACCESS)) {
+            os_log_error(AUTHD_LOG, "Fatal: interaction not allowed (session has no ui access) (engine %lld)", engine->engine_index);
+            return errAuthorizationInteractionNotAllowed;
+        }
+        
+        if (server_in_dark_wake() && !(engine->flags & kAuthorizationFlagIgnoreDarkWake)) {
+            os_log_error(AUTHD_LOG, "Fatal: authorization denied (DW) (engine %lld)", engine->engine_index);
+            return errAuthorizationDenied;
+        }
+    }
 
 	return _evaluate_authentication(engine, rule);
 }
@@ -925,15 +958,14 @@ _evaluate_class_rule(engine_t engine, rule_t rule, bool *save_pwd)
 }
 
 static bool
-_preevaluate_class_rule(engine_t engine, rule_t rule)
+_preevaluate_class_rule(engine_t engine, rule_t rule, const char **group)
 {
 	os_log_debug(AUTHD_LOG, "engine %lld: _preevaluate_class_rule %{public}s", engine->engine_index, rule_get_name(rule));
 
 	__block bool password_only = false;
 	rule_delegates_iterator(rule, ^bool(rule_t delegate) {
-		if (_preevaluate_rule(engine, delegate)) {
+		if (_preevaluate_rule(engine, delegate, group)) {
 				password_only = true;
-				return false;
 		}
 		return true;
 	});
@@ -972,8 +1004,8 @@ _evaluate_class_mechanism(engine_t engine, rule_t rule)
         
 		if (status == errAuthorizationSuccess) {
 			credential_t newCred = NULL;
-			if (auth_items_exist(engine->context, "uid")) {
-				newCred = credential_create(auth_items_get_uint(engine->context, "uid"));
+			if (auth_items_exist(engine->context, AGENT_CONTEXT_UID)) {
+				newCred = credential_create(auth_items_get_uint(engine->context, AGENT_CONTEXT_UID));
 			} else {
 				os_log_info(AUTHD_LOG, "Mechanism did not return a uid (engine %lld)", engine->engine_index);
 			}
@@ -1049,7 +1081,7 @@ _evaluate_rule(engine_t engine, rule_t rule, bool *save_pwd)
 
 // returns true if this rule or its children contain RC_USER rule with password_only==true
 static bool
-_preevaluate_rule(engine_t engine, rule_t rule)
+_preevaluate_rule(engine_t engine, rule_t rule, const char **group)
 {
 	os_log_debug(AUTHD_LOG, "engine %lld: _preevaluate_rule %{public}s", engine->engine_index, rule_get_name(rule));
 
@@ -1058,9 +1090,12 @@ _preevaluate_rule(engine_t engine, rule_t rule)
 		case RC_DENY:
 			return false;
 		case RC_USER:
+            if (group && !*group) {
+                *group = rule_get_group(rule);
+            }
 			return rule_get_password_only(rule);
 		case RC_RULE:
-			return _preevaluate_class_rule(engine, rule);
+			return _preevaluate_class_rule(engine, rule, group);
 		case RC_MECHANISM:
 			return false;
 		default:
@@ -1183,129 +1218,49 @@ static bool _verify_sandbox(engine_t engine, const char * right)
 #pragma mark -
 #pragma mark engine methods
 
-OSStatus engine_preauthorize(engine_t engine, auth_items_t credentials)
+OSStatus engine_get_right_properties(engine_t engine, const char *rightName, CFDictionaryRef *output)
 {
-	os_log(AUTHD_LOG, "engine %lld: preauthorizing", engine->engine_index);
+    OSStatus status = errAuthorizationInternal;
+    
+    CFMutableDictionaryRef properties = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    require(properties != NULL, done);
+    require(rightName != NULL, done);
 
-	OSStatus status = errAuthorizationDenied;
-	bool save_password = false;
+    // first check if any of rights uses rule with password-only set to true
+    // if so, set appropriate hint so SecurityAgent won't use alternate authentication methods like smartcard etc.
+    authdb_connection_t dbconn = authdb_connection_acquire(server_get_database()); // get db handle
+    
+    os_log_debug(AUTHD_LOG, "engine %lld: get right properties %{public}s", engine->engine_index, rightName);
+    rule_t rule = _find_rule(engine, dbconn, rightName);
+    
+    if (rule) {
+        const char *group = NULL;
+        bool passwordOnly = _preevaluate_rule(engine, rule, &group);
+        CFDictionarySetValue(properties, CFSTR(kAuthorizationRuleParameterPasswordOnly), passwordOnly ? kCFBooleanTrue : kCFBooleanFalse);
+        if (group) {
+            CFStringRef groupCf = CFStringCreateWithCString(kCFAllocatorDefault, group, kCFStringEncodingUTF8);
+            if (groupCf) {
+                CFDictionarySetValue(properties, CFSTR(kAuthorizationRuleParameterGroup), groupCf);
+                CFRelease(groupCf);
+            }
+        }
+        CFRelease(rule);
+        status = errAuthorizationSuccess;
+    } else {
+        os_log_debug(AUTHD_LOG, "engine %lld: cannot get right properties %{public}s", engine->engine_index, rightName);
+        status = errAuthorizationInvalidRef;
+    }
+    
+    authdb_connection_release(&dbconn); // release db handle
+    os_log_debug(AUTHD_LOG, "engine %lld: right properties %@", engine->engine_index, properties);
 
-	engine->flags = kAuthorizationFlagExtendRights;
-	engine->preauthorizing = true;
-    CFAssignRetained(engine->la_context, engine_copy_context(engine, credentials));
-	_extract_password_from_la(engine);
-
-	const char *user = auth_items_get_string(credentials, kAuthorizationEnvironmentUsername);
-	require(user, done);
-
-	auth_items_set_string(engine->context, kAuthorizationEnvironmentUsername, user);
-	struct passwd *pwd = getpwnam(user);
-	require(pwd, done);
-
-	auth_items_set_int(engine->context, AGENT_CONTEXT_UID, pwd->pw_uid);
-
-	const char *service = auth_items_get_string(credentials, AGENT_CONTEXT_AP_PAM_SERVICE_NAME);
-
-	if (service) {
-		auth_items_set_string(engine->context, AGENT_CONTEXT_AP_USER_NAME, user);
-		auth_items_set_string(engine->context, AGENT_CONTEXT_AP_PAM_SERVICE_NAME, service);
-	}
-
-	if (auth_items_exist(credentials, AGENT_CONTEXT_AP_TOKEN)) {
-		size_t datalen = 0;
-		const void *data = auth_items_get_data(credentials, AGENT_CONTEXT_AP_TOKEN, &datalen);
-		if (data) {
-			auth_items_set_data(engine->context, AGENT_CONTEXT_AP_TOKEN, data, datalen);
-		}
-	}
-
-	auth_items_t decrypted_items = auth_items_create();
-	require_action(decrypted_items != NULL, done, os_log_error(AUTHD_LOG, "Unable to create items (engine %lld)", engine->engine_index));
-	auth_items_content_copy(decrypted_items, auth_token_get_context(engine->auth));
-	auth_items_decrypt(decrypted_items, auth_token_get_encryption_key(engine->auth));
-	auth_items_copy(engine->context, decrypted_items);
-	CFReleaseSafe(decrypted_items);
-
-	engine->dismissed = false;
-	auth_rights_clear(engine->grantedRights);
-
-	rule_t rule = rule_create_preauthorization();
-	engine->currentRightName = rule_get_name(rule);
-	engine->currentRule = rule;
-	status = _evaluate_rule(engine, rule, &save_password);
-	switch (status) {
-			case errAuthorizationSuccess:
-				os_log(AUTHD_LOG, "Succeeded preauthorizing client '%{public}s' [%d] for authorization created by '%{public}s' [%d] (%X,%d) (engine %lld)",
-					process_get_code_url(engine->proc), process_get_pid(engine->proc),
-					auth_token_get_code_url(engine->auth), auth_token_get_pid(engine->auth), (unsigned int)engine->flags, auth_token_least_privileged(engine->auth), engine->engine_index);
-				status = errAuthorizationSuccess;
-				break;
-			case errAuthorizationDenied:
-			case errAuthorizationInteractionNotAllowed:
-			case errAuthorizationCanceled:
-				os_log(AUTHD_LOG, "Failed to preauthorize client '%{public}s' [%d] for authorization created by '%{public}s' [%d] (%X,%d) (%i) (engine %lld)",
-					process_get_code_url(engine->proc), process_get_pid(engine->proc),
-					auth_token_get_code_url(engine->auth), auth_token_get_pid(engine->auth), (unsigned int)engine->flags, auth_token_least_privileged(engine->auth), (int)status, engine->engine_index);
-				break;
-			default:
-				os_log_error(AUTHD_LOG, "Preauthorize returned %d => returning errAuthorizationInternal (engine %lld)", (int)status, engine->engine_index);
-				status = errAuthorizationInternal;
-				break;
-		}
-
-		CFReleaseSafe(rule);
-
-	if (engine->dismissed) {
-		os_log_error(AUTHD_LOG, "Engine dismissed (engine %lld)", engine->engine_index);
-		status = errAuthorizationDenied;
-	}
-
-	os_log_debug(AUTHD_LOG, "engine %lld: preauthorize result: %d", engine->engine_index, (int)status);
-
-		_cf_set_iterate(engine->credentials, ^bool(CFTypeRef value) {
-			credential_t cred = (credential_t)value;
-			// skip all uid credentials when running in least privileged
-			if (auth_token_least_privileged(engine->auth) && !credential_is_right(cred))
-				return true;
-
-			session_t session = auth_token_get_session(engine->auth);
-			auth_token_set_credential(engine->auth, cred);
-			if (credential_get_shared(cred)) {
-				session_set_credential(session, cred);
-			}
-			if (credential_is_right(cred)) {
-				os_log(AUTHD_LOG, "engine %lld: adding least privileged %{public}scredential %{public}s to authorization", engine->engine_index, credential_get_shared(cred) ? "shared " : "", credential_get_name(cred));
-			} else {
-				os_log(AUTHD_LOG, "engine %lld: adding %{public}scredential %{public}s (%i) to authorization", engine->engine_index, credential_get_shared(cred) ? "shared " : "", credential_get_name(cred), credential_get_uid(cred));
-			}
-			return true;
-		});
-
-
-	if (status == errAuthorizationSuccess && save_password) {
-		auth_items_set_flags(engine->context, kAuthorizationEnvironmentPassword, kAuthorizationContextFlagExtractable);
-	}
-
-	if ((status == errAuthorizationSuccess) || (status == errAuthorizationCanceled)) {
-		auth_items_t encrypted_items = auth_items_create();
-		require_action(encrypted_items != NULL, done, os_log_error(AUTHD_LOG, "Unable to create items (engine %lld)", engine->engine_index));
-		auth_items_content_copy_with_flags(encrypted_items, engine->context, kAuthorizationContextFlagExtractable);
-#if DEBUG
-		os_log_debug(AUTHD_LOG, "engine %lld: ********** Dumping preauthorized context for encryption **********", engine->engine_index);
-		os_log_debug(AUTHD_LOG, "%@", encrypted_items);
-#endif
-		auth_items_encrypt(encrypted_items, auth_token_get_encryption_key(engine->auth));
-		auth_items_copy_with_flags(auth_token_get_context(engine->auth), encrypted_items, kAuthorizationContextFlagExtractable);
-		os_log_debug(AUTHD_LOG, "engine %lld: encrypted preauthorization context data", engine->engine_index);
-		CFReleaseSafe(encrypted_items);
-	}
-
+    if (output && status == errAuthorizationSuccess) {
+        *output = properties;
+        CFRetain(*output);
+    }
 done:
-	engine->preauthorizing = false;
-	auth_items_clear(engine->context);
-	auth_items_clear(engine->sticky_context);
-	CFDictionaryRemoveAllValues(engine->mechanism_agents);
-	return status;
+    CFReleaseSafe(properties);
+    return status;
 }
 
 OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t environment, AuthorizationFlags flags)
@@ -1313,10 +1268,11 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     __block OSStatus status = errAuthorizationSuccess;
     __block bool save_password = false;
 	__block bool password_only = false;
-    CFIndex rights_count = auth_rights_get_count(rights);
+    CFIndex rights_count = 0;
     ccaudit_t ccaudit = NULL;
-    
     require(rights != NULL, done);
+    
+    rights_count = auth_rights_get_count(rights);
     
     ccaudit = ccaudit_create(engine->proc, engine->auth, AUE_ssauthorize);
     if (auth_rights_get_count(rights) > 0) {
@@ -1405,7 +1361,6 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 
 		engine_acquire_sheet_data(engine);
 		_extract_password_from_la(engine);
-		engine->preauthorizing = true;
 	}
     
     engine->dismissed = false;
@@ -1422,8 +1377,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 			os_log_debug(AUTHD_LOG, "engine %lld: checking if rule %{public}s contains password-only item", engine->engine_index, key);
 
 			rule_t rule = _find_rule(engine, dbconn, key);
-
-			if (rule && _preevaluate_rule(engine, rule)) {
+			if (rule && _preevaluate_rule(engine, rule, NULL)) {
 				password_only = true;
                 CFReleaseSafe(rule);
 				return false;
@@ -1462,6 +1416,7 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
 
         // only need the hints & mechanisms if we are going to show ui
         if (engine->flags & kAuthorizationFlagInteractionAllowed || engine->flags & kAuthorizationFlagSheet) {
+            os_log_debug(AUTHD_LOG, "setting hints for UI authorization");
             _set_right_hints(engine->hints, key);
             _set_localization_hints(dbconn, engine->hints, rule);
             if (!engine->authenticateRule) {
@@ -1544,10 +1499,6 @@ OSStatus engine_authorize(engine_t engine, auth_rights_t rights, auth_items_t en
     }
     
     os_log_debug(AUTHD_LOG, "engine %lld: authorize result: %d", engine->engine_index, (int)status);
-
-	if (engine->flags & kAuthorizationFlagSheet) {
-		engine->preauthorizing = false;
-	}
 
     if ((engine->flags & kAuthorizationFlagExtendRights) && !(engine->flags & kAuthorizationFlagDestroyRights)) {
         _cf_set_iterate(engine->credentials, ^bool(CFTypeRef value) {

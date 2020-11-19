@@ -54,13 +54,13 @@ class ResourceRequest;
 
 class WebFrameLoaderClient : public WebCore::FrameLoaderClient {
 public:
-    WebFrameLoaderClient(WebFrame* = 0);
+    explicit WebFrameLoaderClient(WebFrame* = nullptr);
+    ~WebFrameLoaderClient();
 
-    void setWebFrame(WebFrame* webFrame) { m_webFrame = webFrame; }
+    void setWebFrame(WebFrame& webFrame) { m_webFrame = &webFrame; }
     WebFrame* webFrame() const { return m_webFrame.get(); }
 
 private:
-    void frameLoaderDestroyed() final;
     bool hasWebView() const final; // mainly for assertions
 
     Optional<WebCore::PageIdentifier> pageID() const final;
@@ -160,22 +160,22 @@ private:
     void didRunInsecureContent(WebCore::SecurityOrigin&, const URL&) final;
     void didDetectXSS(const URL&, bool didBlockEntirePage) final;
 
-    WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&) final;
-    WebCore::ResourceError blockedError(const WebCore::ResourceRequest&) final;
-    WebCore::ResourceError blockedByContentBlockerError(const WebCore::ResourceRequest&) final;
-    WebCore::ResourceError cannotShowURLError(const WebCore::ResourceRequest&) final;
-    WebCore::ResourceError interruptedForPolicyChangeError(const WebCore::ResourceRequest&) final;
+    WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError blockedError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError blockedByContentBlockerError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError cannotShowURLError(const WebCore::ResourceRequest&) const final;
+    WebCore::ResourceError interruptedForPolicyChangeError(const WebCore::ResourceRequest&) const final;
 #if ENABLE(CONTENT_FILTERING)
-    WebCore::ResourceError blockedByContentFilterError(const WebCore::ResourceRequest&) final;
+    WebCore::ResourceError blockedByContentFilterError(const WebCore::ResourceRequest&) const final;
 #endif
 
-    WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&) final;
-    WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&) final;
-    WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&) final;
+    WebCore::ResourceError cannotShowMIMETypeError(const WebCore::ResourceResponse&) const final;
+    WebCore::ResourceError fileDoesNotExistError(const WebCore::ResourceResponse&) const final;
+    WebCore::ResourceError pluginWillHandleLoadError(const WebCore::ResourceResponse&) const final;
 
-    bool shouldFallBack(const WebCore::ResourceError&) final;
+    bool shouldFallBack(const WebCore::ResourceError&) const final;
 
-    WTF::String userAgent(const URL&) final;
+    WTF::String userAgent(const URL&) const final;
     
     void savePlatformDataToCachedFrame(WebCore::CachedFrame*) final;
     void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*) final;
@@ -185,8 +185,6 @@ private:
     void transitionToCommittedForNewPage() final;
 
     void didRestoreFromBackForwardCache() final;
-
-    void dispatchDidBecomeFrameset(bool) final;
 
     bool canHandleRequest(const WebCore::ResourceRequest&) const final;
     bool canShowMIMEType(const WTF::String& MIMEType) const final;
@@ -205,8 +203,7 @@ private:
 
     void setTitle(const WebCore::StringWithDirection&, const URL&) final;
 
-    RefPtr<WebCore::Frame> createFrame(const URL&, const WTF::String& name, WebCore::HTMLFrameOwnerElement&,
-        const WTF::String& referrer) final;
+    RefPtr<WebCore::Frame> createFrame(const WTF::String& name, WebCore::HTMLFrameOwnerElement&) final;
     RefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement&, const URL&,
     const Vector<WTF::String>&, const Vector<WTF::String>&, const WTF::String&, bool) final;
     void redirectDataToPlugin(WebCore::Widget&) final;
@@ -249,6 +246,7 @@ private:
 #endif
 
     void prefetchDNS(const String&) final;
+    void sendH2Ping(const URL&, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>&&)>&&) final;
 
     void getLoadDecisionForIcons(const Vector<std::pair<WebCore::LinkIcon&, uint64_t>>&) final;
     void finishedLoadingIcon(uint64_t, WebCore::SharedBuffer*) final;

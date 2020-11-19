@@ -15,5 +15,5 @@ en_PH{
             "US Dollar",
         }
     }
-    Version{"2.1.47.70"}
+    Version{"36.1"}
 }

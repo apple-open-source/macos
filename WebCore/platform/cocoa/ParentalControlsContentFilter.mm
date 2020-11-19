@@ -67,9 +67,9 @@ bool ParentalControlsContentFilter::enabled()
     return enabled;
 }
 
-std::unique_ptr<ParentalControlsContentFilter> ParentalControlsContentFilter::create()
+UniqueRef<ParentalControlsContentFilter> ParentalControlsContentFilter::create()
 {
-    return makeUnique<ParentalControlsContentFilter>();
+    return makeUniqueRef<ParentalControlsContentFilter>();
 }
 
 static inline bool canHandleResponse(const ResourceResponse& response)
@@ -150,6 +150,9 @@ void ParentalControlsContentFilter::updateFilterState()
 #if PLATFORM(IOS)
 void ParentalControlsContentFilter::setHasConsumedSandboxExtension(bool hasConsumedSandboxExtension)
 {
+    if (m_sandboxExtensionState == SandboxExtensionState::Consumed)
+        return;
+
     m_sandboxExtensionState = (hasConsumedSandboxExtension ? SandboxExtensionState::Consumed : SandboxExtensionState::NotConsumed);
 }
 #endif

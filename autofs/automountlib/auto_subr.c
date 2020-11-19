@@ -931,7 +931,7 @@ void
 btree_enter(struct dir_entry **head, struct dir_entry *ent)
 {
 	register struct dir_entry *p, *prev = NULL;
-	register int direction;
+	register int direction = -2;
 
 	ent->right = ent->left = NULL;
 	if (*head == NULL) {
@@ -1071,20 +1071,17 @@ trace_prt(__unused int newmsg, char *fmt, ...)
  * Return the name of the highest-bitness ISA for this machine.
  * We assume here that, as this is part of the OS, it'll be built
  * fat enough that the ISA for which we're compiled is the ISA in
- * question.  We also assume (correctly, as of the current version
- * of our compiler) that, when building for x86-64, __x86_64__ is
- * defined and __i386__ isn't, and we assume (correctly) that we
- * aren't supporting 64-bit PowerPC any more.
+ * question.
  */
 static int
 natisa(char *buf, size_t bufsize)
 {
-#if defined(__ppc__)
-	(void) strlcpy(buf, "powerpc", bufsize);
+#if defined(__x86_64__)
+	(void) strlcpy(buf, "x86_64", bufsize);
 #elif defined(__i386__)
 	(void) strlcpy(buf, "i386", bufsize);
-#elif defined(__x86_64__)
-	(void) strlcpy(buf, "x86_64", bufsize);
+#elif defined(__arm64__)
+	(void) strlcpy(buf, "arm64", bufsize);
 #else
 #error "can't determine native ISA"
 #endif

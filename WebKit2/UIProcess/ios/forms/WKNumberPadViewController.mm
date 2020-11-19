@@ -23,16 +23,13 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "WKNumberPadViewController.h"
+#import "config.h"
+#import "WKNumberPadViewController.h"
 
 #if PLATFORM(WATCHOS)
 
 #import "UIKitSPI.h"
 #import "WKNumberPadView.h"
-#import <PepperUICore/PUICQuickboardViewController_Private.h>
-#import <PepperUICore/PUICResources.h>
-#import <PepperUICore/UIDevice+PUICAdditions.h>
 #import <WebCore/LocalizedStrings.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
@@ -259,7 +256,9 @@ static CGFloat inputLabelFontSize()
     fadeOutAnimation.toValue = @0;
     fadeOutAnimation.duration = numberPadViewDismissAnimationDuration;
     fadeOutAnimation.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionEaseInEaseOut];
+#if USE(APPLE_INTERNAL_SDK)
     [self.contentView addAnimation:fadeOutAnimation forKey:@"WebKitNumberPadFadeOutAnimationKey"];
+#endif
     self.contentView.alpha = 0;
 }
 

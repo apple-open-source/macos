@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2018, 2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -44,7 +44,6 @@
 #define	my_log(__level, __format, ...)	SC_log(__level, __format, ## __VA_ARGS__)
 
 #endif	/* TEST_IPMONITOR_AWD_REPORT || TEST_IPMONITOR_CONTROL */
-
 
 STATIC AWDServerConnection *
 IPMonitorAWDServerConnection(void)
@@ -126,14 +125,14 @@ InterfaceAdvisoryReportSubmit(InterfaceAdvisoryReportRef report)
 	metric.name = value;					\
     }
 
-void
+PRIVATE_EXTERN void
 InterfaceAdvisoryReportSetFlags(InterfaceAdvisoryReportRef report,
 				AWDIPMonitorInterfaceAdvisoryReport_Flags flags)
 {
     INTERFACE_ADVISORY_REPORT_SET_PROP(report, flags, flags);
 }
 
-void
+PRIVATE_EXTERN void
 InterfaceAdvisoryReportSetAdvisoryCount(InterfaceAdvisoryReportRef report,
 					uint32_t count)
 {

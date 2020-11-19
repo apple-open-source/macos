@@ -527,7 +527,7 @@ OSStatus	CheckInsertParams		(FCB						*filePtr,
 	BTreeControlBlockPtr	btreePtr;
 	
 	if (filePtr == nil)									return	paramErr;
-
+	if (recordLen == 0)									return  paramErr;
 	btreePtr = (BTreeControlBlockPtr) filePtr->fcbBTCBPtr;
 	if (btreePtr == nil)								return	fsBTInvalidFileErr;
 	if (iterator == nil)								return	paramErr;

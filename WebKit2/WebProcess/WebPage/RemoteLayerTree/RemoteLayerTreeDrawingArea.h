@@ -65,9 +65,8 @@ private:
 
     WebCore::GraphicsLayerFactory* graphicsLayerFactory() override;
     void setRootCompositingLayer(WebCore::GraphicsLayer*) override;
-    void scheduleInitialDeferredPaint() override;
-    void scheduleCompositingLayerFlush() override;
-    void scheduleCompositingLayerFlushImmediately() override;
+    void scheduleRenderingUpdate() override;
+    void scheduleImmediateRenderingUpdate() override;
     void attachViewOverlayGraphicsLayer(WebCore::GraphicsLayer*) override;
 
     void addTransactionCallbackID(CallbackID) override;
@@ -85,14 +84,13 @@ private:
     bool usesDelegatedPageScaling() const override { return true; }
 
     void setLayerTreeStateIsFrozen(bool) override;
-    bool layerTreeStateIsFrozen() const override { return m_isFlushingSuspended; }
-    bool layerFlushThrottlingIsActive() const override { return m_isThrottlingLayerFlushes && m_layerFlushTimer.isActive(); }
+    bool layerTreeStateIsFrozen() const override { return m_isRenderingSuspended; }
 
     void forceRepaint() override;
     bool forceRepaintAsync(CallbackID) override { return false; }
 
     void setViewExposedRect(Optional<WebCore::FloatRect>) override;
-    Optional<WebCore::FloatRect> viewExposedRect() const override { return m_scrolledViewExposedRect; }
+    Optional<WebCore::FloatRect> viewExposedRect() const override { return m_viewExposedRect; }
 
     void acceleratedAnimationDidStart(uint64_t layerID, const String& key, MonotonicTime startTime) override;
     void acceleratedAnimationDidEnd(uint64_t layerID, const String& key) override;
@@ -110,15 +108,12 @@ private:
 
     void activityStateDidChange(OptionSet<WebCore::ActivityState::Flag> changed, ActivityStateChangeID, const Vector<CallbackID>& callbackIDs) override;
 
-    bool adjustLayerFlushThrottling(WebCore::LayerFlushThrottleState::Flags) override;
-
     bool addMilestonesToDispatch(OptionSet<WebCore::LayoutMilestone>) override;
 
-    void updateScrolledExposedRect();
     void updateRootLayers();
 
     void addCommitHandlers();
-    void flushLayers();
+    void updateRendering();
 
     WebCore::TiledBacking* mainFrameTiledBacking() const;
 
@@ -151,20 +146,15 @@ private:
     WebCore::IntSize m_viewSize;
 
     Optional<WebCore::FloatRect> m_viewExposedRect;
-    Optional<WebCore::FloatRect> m_scrolledViewExposedRect;
 
-    WebCore::Timer m_layerFlushTimer;
-    bool m_isFlushingSuspended { false };
-    bool m_hasDeferredFlush { false };
-    bool m_flushingInitialDeferredPaint { false };
-    bool m_isThrottlingLayerFlushes { false };
-    bool m_isLayerFlushThrottlingTemporarilyDisabledForInteraction { false };
-    bool m_isInitialThrottledLayerFlush { false };
+    WebCore::Timer m_updateRenderingTimer;
+    bool m_isRenderingSuspended { false };
+    bool m_hasDeferredRenderingUpdate { false };
+    bool m_nextRenderingUpdateRequiresSynchronousImageDecoding { false };
+    bool m_inUpdateRendering { false };
 
     bool m_waitingForBackingStoreSwap { false };
-    bool m_hadFlushDeferredWhileWaitingForBackingStoreSwap { false };
-    bool m_nextFlushIsForImmediatePaint { false };
-    bool m_inFlushLayers { false };
+    bool m_deferredRenderingUpdateWhileWaitingForBackingStoreSwap { false };
 
     dispatch_queue_t m_commitQueue;
     RefPtr<BackingStoreFlusher> m_pendingBackingStoreFlusher;

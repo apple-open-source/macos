@@ -34,7 +34,6 @@
 #include "SSLRecordInternal.h"
 
 #include <string.h>
-#include <assert.h>
 
 #include <utilities/SecIOFormat.h>
 

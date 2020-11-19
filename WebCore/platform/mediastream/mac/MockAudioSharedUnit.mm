@@ -89,12 +89,12 @@ static void addHum(float amplitude, float frequency, float sampleRate, uint64_t 
 
 CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID, String&& name, String&& hashSalt, const MediaConstraints* constraints)
 {
-#ifndef NDEBUG
     auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(deviceID);
     ASSERT(device);
     if (!device)
-        return { };
-#endif
+        return { "No mock microphone device"_s };
+
+    MockAudioSharedUnit::singleton().setSampleRate(WTF::get<MockMicrophoneProperties>(device->properties).defaultSampleRate);
     return CoreAudioCaptureSource::createForTesting(WTFMove(deviceID),  WTFMove(name), WTFMove(hashSalt), constraints, MockAudioSharedUnit::singleton());
 }
 
@@ -108,8 +108,6 @@ MockAudioSharedUnit::MockAudioSharedUnit()
     : m_timer(RunLoop::current(), this, &MockAudioSharedUnit::tick)
     , m_workQueue(WorkQueue::create("MockAudioSharedUnit Capture Queue"))
 {
-    setSampleRate(AudioSession::sharedSession().sampleRate());
-    setEnableEchoCancellation(false);
 }
 
 bool MockAudioSharedUnit::hasAudioUnit() const
@@ -213,7 +211,7 @@ void MockAudioSharedUnit::reconfigure()
     const bool isNonInterleaved = true;
     FillOutASBDForLPCM(m_streamFormat, rate, channelCount, bitsPerByte * bytesPerFloat, bitsPerByte * bytesPerFloat, isFloat, isBigEndian, isNonInterleaved);
 
-    m_audioBufferList = makeUnique<WebAudioBufferList>(m_streamFormat, m_streamFormat.mBytesPerFrame * m_maximiumFrameCount);
+    m_audioBufferList = makeUnique<WebAudioBufferList>(m_streamFormat, m_maximiumFrameCount);
 
     CMFormatDescriptionRef formatDescription;
     CMAudioFormatDescriptionCreate(NULL, &m_streamFormat, 0, NULL, 0, NULL, NULL, &formatDescription);

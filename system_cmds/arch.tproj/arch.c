@@ -43,6 +43,15 @@
 #include <NSSystemDirectories.h>
 #include <sysdir.h>
 
+#if defined(__x86_64__)
+#include <System/i386/cpu_capabilities.h>
+#endif
+
+#if TARGET_OS_OSX
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#endif
+
 #ifndef ARCH_PROG
 #define ARCH_PROG	"arch"
 #endif
@@ -61,7 +70,8 @@ static const char envname[] = "ARCHPREFERENCE";
 /* The CPU struct contains the argument buffer to posix_spawnattr_setbinpref_np */
 
 typedef struct {
-    cpu_type_t *buf;
+    cpu_type_t *types;
+    cpu_subtype_t *subtypes;
     int errs;
     size_t count;
     size_t capacity;
@@ -70,19 +80,17 @@ typedef struct {
 typedef struct {
     const char *arch;
     cpu_type_t cpu;
+    cpu_subtype_t cpusubtype;
 } CPUTypes;
 
 static const CPUTypes knownArchs[] = {
-#if defined(__i386__) || defined(__x86_64__)
-    {"i386", CPU_TYPE_I386},
-    {"x86_64", CPU_TYPE_X86_64},
-#elif defined(__arm64__)
-    {"arm64", CPU_TYPE_ARM64},
-#elif defined(__arm__)
-    {"arm", CPU_TYPE_ARM},
-#else
-#error "Unsupported architecture"
-#endif
+    {"i386", CPU_TYPE_I386, CPU_SUBTYPE_X86_ALL},
+    {"x86_64", CPU_TYPE_X86_64, CPU_SUBTYPE_X86_64_ALL},
+    {"x86_64h", CPU_TYPE_X86_64, CPU_SUBTYPE_X86_64_H},
+    {"arm", CPU_TYPE_ARM, CPU_SUBTYPE_ARM_ALL},
+    {"arm64", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64_ALL},
+    {"arm64e", CPU_TYPE_ARM64, CPU_SUBTYPE_ARM64E},
+    {"arm64_32", CPU_TYPE_ARM64_32, CPU_SUBTYPE_ARM64_32_ALL},
 };
 
 /* environment SPI */
@@ -96,20 +104,63 @@ extern char **environ;
 
 /*
  * The native 32 and 64-bit architectures (this is relative to the architecture
- * the arch command is running.  NULL means unsupported.
+ * the arch command is running). NULL means unsupported.
  */
+
+static const char*
+native32(void)
+{
 #if defined(__i386__) || defined(__x86_64__)
-    #define NATIVE_32	"i386"
-    #define NATIVE_64	"x86_64"
-#elif defined(__arm64__)
-        #define NATIVE_64	"arm64"
-        #define NATIVE_32	NULL
+    return "i386";
+#elif defined(__arm64__) && !defined(__LP64__)
+    return "arm64_32";
 #elif defined(__arm__)
-    #define NATIVE_32	"arm"
-    #define NATIVE_64	NULL
+    return "arm";
+#else
+    return NULL;
+#endif
+}
+
+static const char*
+native64(void)
+{
+#if defined(__x86_64__)
+    // FIXME: It is not clear if we should do this check, given the comment above which states "this is relative to the architecture the arch command is running".
+    if (((*(uint64_t*)_COMM_PAGE_CPU_CAPABILITIES64) & kIsTranslated))
+        return "arm64";
+    return "x86_64";
+#elif defined(__i386__)
+    return "x86_64";
+#elif defined(__arm64__) && defined(__LP64__)
+    return "arm64";
+#elif defined(__arm64__)
+    return "arm64_32";
+#else
+    return NULL;
+#endif
+}
+
+static bool
+isSupportedCPU(cpu_type_t cpu)
+{
+#if defined(__x86_64__)
+    if (((*(uint64_t*)_COMM_PAGE_CPU_CAPABILITIES64) & kIsTranslated))
+        return cpu == CPU_TYPE_X86_64 || cpu == CPU_TYPE_ARM64;
+    return cpu == CPU_TYPE_X86_64;
+#elif defined(__i386__)
+    return cpu == CPU_TYPE_I386 || cpu == CPU_TYPE_X86_64;
+#elif defined(__arm64__) && defined(__LP64__) && TARGET_OS_OSX
+    return cpu == CPU_TYPE_X86_64 || cpu == CPU_TYPE_ARM64;
+#elif defined(__arm64__) && defined(__LP64__)
+    return cpu == CPU_TYPE_ARM64;
+#elif defined(__arm64__)
+    return cpu == CPU_TYPE_ARM64_32;
+#elif defined(__arm__)
+    return cpu == CPU_TYPE_ARM;
 #else
     #error "Unsupported architecture"
 #endif
+}
 
 bool unrecognizednative32seen = false;
 bool unrecognizednative64seen = false;
@@ -149,7 +200,8 @@ spawnIt(CPU *cpu, int pflag, const char *str, char **argv)
     int ret;
     size_t copied;
     size_t count = cpu->count;
-    cpu_type_t *prefs = cpu->buf;
+    cpu_type_t *prefs = cpu->types;
+    cpu_subtype_t *subprefs = cpu->subtypes;
 
     if(count == 0) {
         if(unrecognizednative32seen)
@@ -169,8 +221,19 @@ spawnIt(CPU *cpu, int pflag, const char *str, char **argv)
     /* do the equivalent of exec, rather than creating a separate process */
     if((ret = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETEXEC)) != 0)
         errc(1, ret, "posix_spawnattr_setflags");
-    if((ret = posix_spawnattr_setbinpref_np(&attr, count, prefs, &copied)) != 0)
-        errc(1, ret, "posix_spawnattr_setbinpref_np");
+    if((ret = posix_spawnattr_setarchpref_np(&attr, count, prefs, subprefs, &copied)) != 0)
+            errc(1, ret, "posix_spawnattr_setbinpref_np");
+
+#if TARGET_OS_OSX
+    for (size_t i = 0; i < copied; i++) {
+        if (prefs[i] == CPU_TYPE_ARM64) {
+            int affinity = 0;
+            size_t asize = sizeof(affinity);
+            sysctlbyname("kern.curproc_arch_affinity", NULL, NULL, &affinity, asize);
+        }
+    }
+#endif /* TARGET_OS_OSX */
+
     if(copied != count)
         errx(1, "posix_spawnattr_setbinpref_np only copied %lu of %lu", copied, count);
     if(pflag)
@@ -190,9 +253,12 @@ initCPU(CPU *cpu)
     cpu->errs = 0;
     cpu->count = 0;
     cpu->capacity = 1;
-    cpu->buf = (cpu_type_t *)malloc(cpu->capacity * sizeof(cpu_type_t));
-    if(!cpu->buf)
-        err(1, "Failed to malloc CPU buffer");
+    cpu->types = (cpu_type_t *)malloc(cpu->capacity * sizeof(cpu_type_t));
+    if(!cpu->types)
+        err(1, "Failed to malloc CPU type buffer");
+    cpu->subtypes = (cpu_subtype_t *)malloc(cpu->capacity * sizeof(cpu_subtype_t));
+    if(!cpu->subtypes)
+        err(1, "Failed to malloc CPU subtype buffer");
 }
 
 /*
@@ -200,18 +266,25 @@ initCPU(CPU *cpu)
  * the array as necessary.
  */
 static void
-addCPU(CPU *cpu, cpu_type_t n)
+addCPU(CPU *cpu, cpu_type_t n, cpu_subtype_t s)
 {
     if(cpu->count == cpu->capacity) {
         cpu_type_t *newcpubuf;
+        cpu_subtype_t *newcpusubbuf;
         
         cpu->capacity *= 2;
-        newcpubuf = (cpu_type_t *)realloc(cpu->buf, cpu->capacity * sizeof(cpu_type_t));
+        newcpubuf = (cpu_type_t *)realloc(cpu->types, cpu->capacity * sizeof(cpu_type_t));
         if(!newcpubuf)
-            err(1, "Out of memory realloc-ing CPU structure");
-        cpu->buf = newcpubuf;
+            err(1, "Out of memory realloc-ing CPU types structure");
+        cpu->types = newcpubuf;
+        newcpusubbuf = (cpu_subtype_t *)realloc(cpu->subtypes, cpu->capacity * sizeof(cpu_subtype_t));
+        if(!newcpusubbuf)
+            err(1, "Out of memory realloc-ing CPU subtypes structure");
+        cpu->subtypes = newcpusubbuf;
+        
     }
-    cpu->buf[cpu->count++] = n;
+    cpu->types[cpu->count] = n;
+    cpu->subtypes[cpu->count++] = s;
 }
 
 /*
@@ -225,8 +298,10 @@ addCPUbyname(CPU *cpu, const char *name)
     int i;
     
     for (i=0; i < sizeof(knownArchs)/sizeof(knownArchs[0]); i++) {
+        if (!isSupportedCPU(knownArchs[i].cpu))
+            continue;
         if (0 == strcasecmp(name, knownArchs[i].arch)) {
-            addCPU(cpu, knownArchs[i].cpu);
+            addCPU(cpu, knownArchs[i].cpu, knownArchs[i].cpusubtype);
             return;
         }
     }
@@ -622,13 +697,13 @@ spawnFromArgs(CPU *cpu, char **argv)
         if((ret = MATCHARGWITHVALUE(argv, "-arch", 5, "-arch without architecture"))) {
             ap = ret;
         } else if(MATCHARG(argv, "-32")) {
-            ap = NATIVE_32;
+            ap = native32();
             if(!ap) {
                 unrecognizednative32seen = true;
                 continue;
             }
         } else if(MATCHARG(argv, "-64")) {
-            ap = NATIVE_64;
+            ap = native64();
             if(!ap) {
                 unrecognizednative64seen = true;
                 continue;

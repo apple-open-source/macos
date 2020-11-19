@@ -26,7 +26,8 @@
 #include <utilities/SecCFRelease.h>
 #include <utilities/debugging.h>
 #include <notify.h>
-
+#include "keychain/SecureObjectSync/SOSInternal.h"
+#include <Security/OTConstants.h>
 
 //
 // OSStatus values we magically know
@@ -69,66 +70,26 @@ bool SecCheckErrno(int result, CFErrorRef *error, CFStringRef format, ...) {
     return false;
 }
 
-bool SecPOSIXError(int error, CFErrorRef *cferror, CFStringRef format, ...)
-{
-	if (error == 0) return true;
-	if (error) {
-		va_list args;
-		CFIndex code = error;
-		CFErrorRef previousError = *cferror;
-
-		*cferror = NULL;
-		va_start(args, format);
-		SecCFCreateErrorWithFormatAndArguments(code, kSecErrnoDomain, previousError, cferror, NULL, format, args);
-		va_end(args);
-	}
-	return false;
-}
-
-bool SecCoreCryptoError(int error, CFErrorRef *cferror, CFStringRef format, ...)
-{
-	if (error == 0) return true;
-	if (error) {
-		va_list args;
-		CFIndex code = error;
-		CFErrorRef previousError = *cferror;
-
-		*cferror = NULL;
-		va_start(args, format);
-		SecCFCreateErrorWithFormatAndArguments(code, kSecCoreCryptoDomain, previousError, cferror, NULL, format, args);
-		va_end(args);
-	}
-	return false;
-}
-
-
-bool SecNotifyError(uint32_t result, CFErrorRef *error, CFStringRef format, ...) {
-    if (result == NOTIFY_STATUS_OK) return true;
-    if (error) {
-        va_list args;
-        CFIndex code = result;
-        CFErrorRef previousError = *error;
-
-        *error = NULL;
-        va_start(args, format);
-        SecCFCreateErrorWithFormatAndArguments(code, kSecNotifyDomain, previousError, error, NULL, format, args);
-        va_end(args);
-    }
-    return false;
-}
-
 bool SecError(OSStatus status, CFErrorRef *error, CFStringRef format, ...) {
-    if (status == 0) return true;
-    if (error) {
-        va_list args;
-        CFIndex code = status;
-        CFErrorRef previousError = *error;
-
-        *error = NULL;
-        va_start(args, format);
-        SecCFCreateErrorWithFormatAndArguments(code, kSecErrorDomain, previousError, error, NULL, format, args);
-        va_end(args);
+    if (status == 0) {
+        return true;
     }
+
+    CFErrorRef localError = NULL;
+    va_list args;
+    CFIndex code = status;
+    va_start(args, format);
+    SecCFCreateErrorWithFormatAndArguments(code, kSecErrorDomain, error ? *error : NULL, &localError, NULL, format, args);
+    va_end(args);
+
+    if (error) {
+        *error = localError; // Existing *error is consumed by SecCFCreateErrorWithFormatAndArguments
+    } else {
+        // This happens a bunch in our codebase, so this log can only really exist in debug builds
+        secdebug("secerror", "Error, but no out-parameter for error: %@", localError);
+        CFReleaseNull(localError);
+    }
+
     return false;
 }
 
@@ -175,6 +136,57 @@ bool SecCFCreateErrorWithFormat(CFIndex errorCode, CFStringRef domain, CFErrorRe
     return result;
 }
 
+static bool SecCFErrorIsEqual(CFIndex errorCode, CFStringRef domain, CFStringRef description, CFErrorRef previousError)
+{
+    bool isEqual = false;
+    bool equalDescriptions = false;
+
+    if (previousError == NULL) {
+        return false;
+    }
+
+    CFDictionaryRef previousUserInfo = CFErrorCopyUserInfo(previousError);
+    CFStringRef previousDescription = CFDictionaryGetValue(previousUserInfo, kCFErrorDescriptionKey);
+    if (previousDescription) {
+        equalDescriptions = CFStringCompare(description, previousDescription, 0) == kCFCompareEqualTo ? true : false;
+    }
+
+    CFReleaseNull(previousUserInfo);
+    bool equalCodes = errorCode == CFErrorGetCode(previousError);
+
+    CFErrorDomain previousDomain = CFErrorGetDomain(previousError);
+    bool equalDomains = CFStringCompare(domain, previousDomain, 0) == kCFCompareEqualTo ? true : false;
+
+    isEqual = equalCodes && equalDomains && equalDescriptions;
+    return isEqual;
+}
+
+#define CAP_LIMIT   200
+static bool SecCFErrorShouldCapNestedError(CFErrorRef previousError, long *newCount)
+{
+    bool shouldCap = false;
+
+    if (previousError) {
+        CFDictionaryRef userInfo = CFErrorCopyUserInfo(previousError);
+        if (userInfo && CFDictionaryContainsKey(userInfo, kSOSCountKey) == true) {
+            CFNumberRef previousCount = CFDictionaryGetValue(userInfo, kSOSCountKey);
+            if (previousCount) {
+                long previousLong = 0;
+                CFNumberGetValue(previousCount, kCFNumberLongType, &previousLong);
+                if (SecErrorIsNestedErrorCappingEnabled() && previousLong >= CAP_LIMIT) {
+                    shouldCap = true;
+                } else {
+                    *newCount = previousLong+1;
+                }
+            }
+        }
+        CFReleaseNull(userInfo);
+    } else {
+        *newCount = 0;
+    }
+    return shouldCap;
+}
+
 // Also consumes whatever newError points to
 bool SecCFCreateErrorWithFormatAndArguments(CFIndex errorCode, CFStringRef domain,
                                             CF_CONSUMED CFErrorRef previousError, CFErrorRef *newError,
@@ -182,35 +194,57 @@ bool SecCFCreateErrorWithFormatAndArguments(CFIndex errorCode, CFStringRef domai
 {
     if (newError && !(*newError)) {
         CFStringRef formattedString = CFStringCreateWithFormatAndArguments(NULL, formatoptions, format, args);
-        
-        const void* keys[2] =   { kCFErrorDescriptionKey,   kCFErrorUnderlyingErrorKey};
-        const void* values[2] = { formattedString,          previousError };
-        const CFIndex numEntriesToUse = (previousError != NULL) ? 2 : 1;
 
-        // Prepare to release whatever we replaced, as long as they didn't tell us to do so via previousError
-        // In a sane world, this function wouldn't have a previousError argument, since it should always release what it's replacing,
-        // but changing all callsites is a huge change
-        CFErrorRef replacing = ((*newError) == previousError) ? NULL : *newError;
+        long newDepthCount = 0;
+        CFNumberRef newCount = NULL;
 
-        *newError = CFErrorCreateWithUserInfoKeysAndValues(kCFAllocatorDefault, domain, errorCode,
-                                                           keys, values, numEntriesToUse);
+        if (SecCFErrorIsEqual(errorCode, domain, formattedString, previousError) == true) {
+            secdebug("error_thee_well", "SecCFCreateErrorWithFormatAndArguments previous Error: %@ is equal to the new incoming error: domain: %@, error code: %ld, description: %@", previousError, domain, (long)errorCode, formattedString);
+            *newError = CFRetainSafe(previousError);
+            CFReleaseNull(previousError);
+            CFReleaseNull(formattedString);
+            return false;
+        } else if (SecCFErrorShouldCapNestedError(previousError, &newDepthCount) == true) {
+            secdebug("error_thee_well", "SecCFCreateErrorWithFormatAndArguments reached nested error limit, returning previous error: %@", previousError);
+            *newError = CFRetainSafe(previousError);
+            CFReleaseNull(previousError);
+            CFReleaseNull(formattedString);
+            return false;
+        } else {
+            newCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberLongType, &newDepthCount);
+        }
 
-        CFReleaseNull(formattedString);
-        if (previousError)
+        CFMutableDictionaryRef newUserInfo = CFDictionaryCreateMutableForCFTypes(kCFAllocatorDefault);
+
+        if (previousError) {
+            CFDictionaryAddValue(newUserInfo, kCFErrorUnderlyingErrorKey, previousError);
+        }
+        if (newCount) {
+            CFDictionaryAddValue(newUserInfo, kSOSCountKey, newCount);
+        }
+        if (formattedString) {
+            CFDictionaryAddValue(newUserInfo, kCFErrorDescriptionKey, formattedString);
+        }
+
+        *newError = CFErrorCreate(kCFAllocatorDefault, domain, errorCode, newUserInfo);
+
+        if (previousError) {
             secdebug("error_thee_well", "encapsulated %@ with new error: %@", previousError, *newError);
-
-        CFReleaseNull(replacing);
+        }
+        CFReleaseNull(newCount);
+        CFReleaseNull(formattedString);
+        CFReleaseNull(newUserInfo);
         CFReleaseNull(previousError);
     } else {
         if (previousError && newError && (previousError != *newError)) {
             secdebug("error_thee_well", "dropping %@", previousError);
-            CFRelease(previousError);
+            CFReleaseNull(previousError);
         }
     }
 
-    if (newError)
+    if (newError) {
         secdebug("error_thee_well", "SecError: %@", *newError);
-
+    }
 
     return false;
 }

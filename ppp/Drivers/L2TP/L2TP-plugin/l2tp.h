@@ -27,7 +27,7 @@
 #include <netinet/in.h>
 #include "../L2TP-extension/l2tpk.h"
 
-#define L2TP_NKE	"L2TP.kext"
+#define L2TP_NKE	"/System/Library/Extensions/L2TP.kext"
 #define L2TP_NKE_ID	"com.apple.nke.l2tp"
 
 /* L2TP exit codes */

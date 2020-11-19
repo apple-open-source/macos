@@ -22,15 +22,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "ComplexTextController.h"
+#import "config.h"
+#import "ComplexTextController.h"
 
-#include "FontCache.h"
-#include "FontCascade.h"
-#include <pal/spi/cocoa/CoreTextSPI.h>
-#include <wtf/SoftLinking.h>
-#include <wtf/WeakPtr.h>
-#include <CoreText/CoreText.h>
+#import "FontCache.h"
+#import "FontCascade.h"
+#import <CoreText/CoreText.h>
+#import <pal/spi/cocoa/CoreTextSPI.h>
+#import <wtf/SoftLinking.h>
+#import <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -105,7 +105,7 @@ static const UniChar* provideStringAndAttributes(CFIndex stringIndex, CFIndex* c
 
     *charCount = info->length - stringIndex;
     *attributes = info->attributes;
-    return info->cp + stringIndex;
+    return reinterpret_cast<const UniChar*>(info->cp + stringIndex);
 }
 
 void ComplexTextController::collectComplexTextRunsForCharacters(const UChar* cp, unsigned length, unsigned stringLocation, const Font* font)
@@ -128,11 +128,11 @@ void ComplexTextController::collectComplexTextRunsForCharacters(const UChar* cp,
         font = m_font.fallbackRangesAt(0).fontForCharacter(baseCharacter);
         if (!font)
             font = &m_font.fallbackRangesAt(0).fontForFirstRange();
-        stringAttributes = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, font->getCFStringAttributes(m_font.enableKerning(), font->platformData().orientation())));
+        stringAttributes = adoptCF(CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, font->getCFStringAttributes(m_font.enableKerning(), font->platformData().orientation(), m_font.fontDescription().computedLocale()).get()));
         // We don't know which font should be used to render this grapheme cluster, so enable CoreText's fallback mechanism by using the CTFont which doesn't have CoreText's fallback disabled.
         CFDictionarySetValue(const_cast<CFMutableDictionaryRef>(stringAttributes.get()), kCTFontAttributeName, font->platformData().font());
     } else
-        stringAttributes = font->getCFStringAttributes(m_font.enableKerning(), font->platformData().orientation());
+        stringAttributes = font->getCFStringAttributes(m_font.enableKerning(), font->platformData().orientation(), m_font.fontDescription().computedLocale());
 
     RetainPtr<CTLineRef> line;
 

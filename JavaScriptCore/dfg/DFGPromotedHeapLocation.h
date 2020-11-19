@@ -54,7 +54,7 @@ enum PromotedLocationKind {
     ArgumentPLoc,
     ArgumentsCalleePLoc,
     ClosureVarPLoc,
-    PromiseInternalFieldPLoc,
+    InternalFieldObjectPLoc,
     FunctionActivationPLoc,
     FunctionExecutablePLoc,
     IndexedPropertyPLoc,
@@ -121,6 +121,7 @@ public:
         case NamedPropertyPLoc:
         case ClosureVarPLoc:
         case RegExpObjectLastIndexPLoc:
+        case InternalFieldObjectPLoc:
             return false;
 
         default:
@@ -214,9 +215,7 @@ namespace WTF {
 void printInternal(PrintStream&, JSC::DFG::PromotedLocationKind);
 
 template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::DFG::PromotedHeapLocation> {
-    typedef JSC::DFG::PromotedHeapLocationHash Hash;
-};
+template<> struct DefaultHash<JSC::DFG::PromotedHeapLocation> : JSC::DFG::PromotedHeapLocationHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::DFG::PromotedHeapLocation> : SimpleClassHashTraits<JSC::DFG::PromotedHeapLocation> {
@@ -224,9 +223,7 @@ template<> struct HashTraits<JSC::DFG::PromotedHeapLocation> : SimpleClassHashTr
 };
 
 template<typename T> struct DefaultHash;
-template<> struct DefaultHash<JSC::DFG::PromotedLocationDescriptor> {
-    typedef JSC::DFG::PromotedLocationDescriptorHash Hash;
-};
+template<> struct DefaultHash<JSC::DFG::PromotedLocationDescriptor> : JSC::DFG::PromotedLocationDescriptorHash { };
 
 template<typename T> struct HashTraits;
 template<> struct HashTraits<JSC::DFG::PromotedLocationDescriptor> : SimpleClassHashTraits<JSC::DFG::PromotedLocationDescriptor> {

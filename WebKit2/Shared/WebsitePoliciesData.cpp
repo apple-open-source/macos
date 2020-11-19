@@ -28,8 +28,6 @@
 
 #include "ArgumentCoders.h"
 #include "WebProcess.h"
-#include <WebCore/CustomHeaderFields.h>
-#include <WebCore/DocumentLoader.h>
 #include <WebCore/Frame.h>
 #include <WebCore/Page.h>
 
@@ -45,7 +43,6 @@ void WebsitePoliciesData::encode(IPC::Encoder& encoder) const
     encoder << allowedAutoplayQuirks;
     encoder << customHeaderFields;
     encoder << popUpPolicy;
-    encoder << websiteDataStoreParameters;
     encoder << customUserAgent;
     encoder << customUserAgentAsSiteSpecificQuirks;
     encoder << customNavigatorPlatform;
@@ -54,6 +51,9 @@ void WebsitePoliciesData::encode(IPC::Encoder& encoder) const
     encoder << simulatedMouseEventsDispatchPolicy;
     encoder << legacyOverflowScrollingTouchPolicy;
     encoder << allowContentChangeObserverQuirk;
+    encoder << allowsContentJavaScript;
+    encoder << mouseEventPolicy;
+    encoder << idempotentModeAutosizingOnlyHonorsPercentages;
 }
 
 Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
@@ -88,11 +88,6 @@ Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
     Optional<WebsitePopUpPolicy> popUpPolicy;
     decoder >> popUpPolicy;
     if (!popUpPolicy)
-        return WTF::nullopt;
-
-    Optional<Optional<WebsiteDataStoreParameters>> websiteDataStoreParameters;
-    decoder >> websiteDataStoreParameters;
-    if (!websiteDataStoreParameters)
         return WTF::nullopt;
 
     Optional<String> customUserAgent;
@@ -134,7 +129,22 @@ Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
     decoder >> allowContentChangeObserverQuirk;
     if (!allowContentChangeObserverQuirk)
         return WTF::nullopt;
-    
+
+    Optional<WebCore::AllowsContentJavaScript> allowsContentJavaScript;
+    decoder >> allowsContentJavaScript;
+    if (!allowsContentJavaScript)
+        return WTF::nullopt;
+
+    Optional<WebCore::MouseEventPolicy> mouseEventPolicy;
+    decoder >> mouseEventPolicy;
+    if (!mouseEventPolicy)
+        return WTF::nullopt;
+
+    Optional<bool> idempotentModeAutosizingOnlyHonorsPercentages;
+    decoder >> idempotentModeAutosizingOnlyHonorsPercentages;
+    if (!idempotentModeAutosizingOnlyHonorsPercentages)
+        return WTF::nullopt;
+
     return { {
         WTFMove(*contentBlockersEnabled),
         WTFMove(*allowedAutoplayQuirks),
@@ -144,7 +154,6 @@ Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
 #endif
         WTFMove(*customHeaderFields),
         WTFMove(*popUpPolicy),
-        WTFMove(*websiteDataStoreParameters),
         WTFMove(*customUserAgent),
         WTFMove(*customUserAgentAsSiteSpecificQuirks),
         WTFMove(*customNavigatorPlatform),
@@ -153,6 +162,9 @@ Optional<WebsitePoliciesData> WebsitePoliciesData::decode(IPC::Decoder& decoder)
         WTFMove(*simulatedMouseEventsDispatchPolicy),
         WTFMove(*legacyOverflowScrollingTouchPolicy),
         WTFMove(*allowContentChangeObserverQuirk),
+        WTFMove(*allowsContentJavaScript),
+        WTFMove(*mouseEventPolicy),
+        WTFMove(*idempotentModeAutosizingOnlyHonorsPercentages),
     } };
 }
 
@@ -263,7 +275,19 @@ void WebsitePoliciesData::applyToDocumentLoader(WebsitePoliciesData&& websitePol
         break;
     }
 
+    switch (websitePolicies.mouseEventPolicy) {
+    case WebCore::MouseEventPolicy::Default:
+        documentLoader.setMouseEventPolicy(WebCore::MouseEventPolicy::Default);
+        break;
+#if ENABLE(IOS_TOUCH_EVENTS)
+    case WebCore::MouseEventPolicy::SynthesizeTouchEvents:
+        documentLoader.setMouseEventPolicy(WebCore::MouseEventPolicy::SynthesizeTouchEvents);
+        break;
+#endif
+    }
+
     documentLoader.setAllowContentChangeObserverQuirk(websitePolicies.allowContentChangeObserverQuirk);
+    documentLoader.setIdempotentModeAutosizingOnlyHonorsPercentages(websitePolicies.idempotentModeAutosizingOnlyHonorsPercentages);
 
     auto* frame = documentLoader.frame();
     if (!frame)

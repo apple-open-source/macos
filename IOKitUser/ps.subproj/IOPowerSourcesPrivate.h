@@ -249,6 +249,7 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
 #define kPSTimeRemainingNotifyRawExternalBit    (1 << 26)
 #define kPSTimeRemainingNotifyShowChargingUIBit (1 << 27)
 #define kPSTimeRemainingNotifyPlayChargingChimeBit (1 << 28)
+#define kPSTimeRemainingNotifyAdapterUnsupported (1 << 29)
 #define kPSTimeRemainingNotifyActivePS8BitsStarts   56
 
 /*
@@ -259,60 +260,6 @@ IOReturn IOPSGetSupportedPowerSources(IOPSPowerSourceIndex *active,
  * Notify(3) string on which powerd posts a notification when system enters restricted mode
  */
 #define kIOPSNotifyRestrictedMode           "com.apple.system.powersources.restrictedmode"
-
-/*!
- * @define      kIOPSBattLogEntryTime
- * @abstract    CFDictionary key used by IOPSCopyChargeLog
- * @discussion
- *              CFDate type. Specifies the time at which an log entry is made.
- */
-#define kIOPSBattLogEntryTime       "Log Entry Timestamp"
-
-/*!
- * @define      kIOPSBattLogEntryTZ
- * @abstract    CFDictionary key used by IOPSCopyChargeLog
- * @discussion
- *              CFNumber type with CFNumberType set to kCFNumberDoubleType.
- *              This value specifies difference in seconds between current system 
- *              time zone and GMT. Obtained with CFTimeZoneGetSecondsFromGMT().
- */
-#define kIOPSBattLogEntryTZ         "Log Entry Timezone"
-
-
-/*
- *!  @function IOPSCopyChargeLog
- *
- *   @abstract Returns an array of historical battery data collected over the past 2 hours.
- *             This records a maximum of 2 hours of history at 5 minute intervals.
- *             This charge log resets upon system boot and every time this SPI is called.
- *             Caller must be signed with the 'com.apple.private.iokit.powerlogging' entitlement.
- *             It is intended for Apple internal use only.
- *
- *   @param sinceTime   IOPSCopyChargeLog will return all power source history (if any) since this date.
- *                      This should be UTC based timestamp.
- *
- *   @param chargeLog   If successful, the dictionary returned will have the name of batteries as keys. A CFArray
- *                      is associated with each key and this array contains log entries collected since the
- *                      specified time 'sinceTime'.
- *                      Each entry in this array will be a CFDictionary.
- *                      Each dictionary will contain some or all of the following keys as defined in <IOKit/ps/IOPSKeys.h>.
- *                            - kIOPSBattLogEntryTime   - CFDate - the GMT time when the entry is recorded.
- *                            - kIOPSBattLogEntryTZ     - CFNumber double type. Specifies the difference in seconds 
- *                                                        between system's current time zone and GMT
- *                            - kIOPSCurrentCapacityKey - mAh. A CFNumber int type.
- *                            - kIOPSMaxCapacityKey     - mAh. This is the Full Charge Capacity. CFNumber int type.
- *                            - kIOPSPowerSourceStateKey   - CFString - with string kIOPSACPowerValue or kIOPSBatteryPowerValue
- *                            - kIOPSIsChargingKey      - CFBoolean - is charging or not.
- *                            - kIOPSIsChargedKey       - CFBoolean - fully charged or not
- *                            - kIOPSCurrentKey         - mA. Roughly a one minute average of the battery's amperage.
- *
- *                      Upon error, or when no history is available, IOPSCopyChargeLog shall return 
- *                      an empty array in this parameter.
- *
- *  @result             Returns kIOReturnSuccess on success. Can return kIOReturnError or 
- *                      kIOReturnNotSupported on platforms with power sources.
- */
-IOReturn IOPSCopyChargeLog(CFAbsoluteTime sinceTime, CFDictionaryRef *chargeLog);
 
 /* kIOPSAccNotifyPowerSource - Posted when an accessory's power changes to/from limited power source */
 #define kIOPSAccNotifyPowerSource               "com.apple.system.accpowersources.source"

@@ -47,18 +47,18 @@ enum class XSSProtectionDisposition {
     BlockEnabled,
 };
 
-enum ContentTypeOptionsDisposition {
-    ContentTypeOptionsNone,
-    ContentTypeOptionsNosniff
+enum class ContentTypeOptionsDisposition : bool {
+    None,
+    Nosniff
 };
 
-enum XFrameOptionsDisposition {
-    XFrameOptionsNone,
-    XFrameOptionsDeny,
-    XFrameOptionsSameOrigin,
-    XFrameOptionsAllowAll,
-    XFrameOptionsInvalid,
-    XFrameOptionsConflict
+enum class XFrameOptionsDisposition : uint8_t {
+    None,
+    Deny,
+    SameOrigin,
+    AllowAll,
+    Invalid,
+    Conflict
 };
 
 enum class CrossOriginResourcePolicy {
@@ -72,13 +72,15 @@ bool isValidReasonPhrase(const String&);
 bool isValidHTTPHeaderValue(const String&);
 bool isValidAcceptHeaderValue(const String&);
 bool isValidLanguageHeaderValue(const String&);
+#if USE(GLIB)
 WEBCORE_EXPORT bool isValidUserAgentHeaderValue(const String&);
+#endif
 bool isValidHTTPToken(const String&);
+bool isValidHTTPToken(StringView);
 Optional<WallTime> parseHTTPDate(const String&);
 String filenameFromHTTPContentDisposition(const String&);
 String extractMIMETypeFromMediaType(const String&);
 String extractCharsetFromMediaType(const String&);
-void findCharsetInMediaType(const String& mediaType, unsigned int& charsetPos, unsigned int& charsetLen, unsigned int start = 0);
 XSSProtectionDisposition parseXSSProtectionHeader(const String& header, String& failureReason, unsigned& failurePosition, String& reportURL);
 AtomString extractReasonPhraseFromHTTPStatusLine(const String&);
 WEBCORE_EXPORT XFrameOptionsDisposition parseXFrameOptionsHeader(const String&);
@@ -89,8 +91,6 @@ WEBCORE_EXPORT bool parseRange(const String&, long long& rangeOffset, long long&
 ContentTypeOptionsDisposition parseContentTypeOptionsHeader(StringView header);
 
 // Parsing Complete HTTP Messages.
-enum HTTPVersion { Unknown, HTTP_1_0, HTTP_1_1 };
-size_t parseHTTPRequestLine(const char* data, size_t length, String& failureReason, String& method, String& url, HTTPVersion&);
 size_t parseHTTPHeader(const char* data, size_t length, String& failureReason, StringView& nameStr, String& valueStr, bool strict = true);
 size_t parseHTTPRequestBody(const char* data, size_t length, Vector<unsigned char>& body);
 
@@ -106,6 +106,7 @@ bool isCrossOriginSafeHeader(const String&, const HTTPHeaderSet&);
 bool isCrossOriginSafeRequestHeader(HTTPHeaderName, const String&);
 
 String normalizeHTTPMethod(const String&);
+bool isSafeMethod(const String&);
 
 WEBCORE_EXPORT CrossOriginResourcePolicy parseCrossOriginResourcePolicyHeader(StringView);
 
@@ -152,8 +153,8 @@ bool addToAccessControlAllowList(const String& string, unsigned start, unsigned 
     return true;
 }
 
-template<class HashType = DefaultHash<String>::Hash>
-HashSet<String, HashType> parseAccessControlAllowList(const String& string)
+template<class HashType = DefaultHash<String>>
+Optional<HashSet<String, HashType>> parseAccessControlAllowList(const String& string)
 {
     HashSet<String, HashType> set;
     unsigned start = 0;

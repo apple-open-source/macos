@@ -25,41 +25,11 @@
 
 #import "_WKUserContentWorld.h"
 
-#import "APIUserContentWorld.h"
-#import "WKObject.h"
-#import <wtf/Vector.h>
-#import <wtf/text/WTFString.h>
-
-namespace WebKit {
-
-template<> struct WrapperTraits<API::UserContentWorld> {
-    using WrapperClass = _WKUserContentWorld;
-};
-
-}
-
-namespace API {
-
-inline Vector<WTF::String> toStringVector(NSArray *input)
-{
-    Vector<WTF::String> vector;
-
-    NSUInteger size = input.count;
-    if (!size)
-        return vector;
-
-    vector.reserveInitialCapacity(size);
-    for (id string : input) {
-        if ([string isKindOfClass:[NSString class]])
-            vector.uncheckedAppend(string);
-    }
-    return vector;
-}
-
-}
+@class WKContentWorld;
 
 @interface _WKUserContentWorld () <WKObject> {
 @package
-    API::ObjectStorage<API::UserContentWorld> _userContentWorld;
+    RetainPtr<WKContentWorld> _contentWorld;
 }
+- (instancetype)_initWithContentWorld:(WKContentWorld *)world;
 @end

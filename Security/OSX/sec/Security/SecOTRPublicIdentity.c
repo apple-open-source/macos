@@ -186,6 +186,7 @@ SecOTRPublicIdentityRef SecOTRPublicIdentityCreateFromBytes(CFAllocatorRef alloc
     const uint8_t* fullSequenceEnd = *bytes + *size;
 
     const uint8_t* keyData = ccder_decode_sequence_tl(&fullSequenceEnd, *bytes, fullSequenceEnd);
+    require(keyData != NULL, fail);
     size_t fullSize = (size_t)(fullSequenceEnd - *bytes);
     
     size_t   keyDataSize;

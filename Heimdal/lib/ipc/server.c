@@ -102,6 +102,22 @@ init_globals(void)
 }
 
 void
+heim_ipc_init_globals(void)
+{
+    init_globals();
+}
+
+void heim_ipc_resume_events(void)
+{
+    dispatch_resume(eventq);
+}
+
+void heim_ipc_suspend_events(void)
+{
+    dispatch_suspend(eventq);
+}
+
+void
 _heim_ipc_suspend_timer(void)
 {
     dispatch_suspend(timer);

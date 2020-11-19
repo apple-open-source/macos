@@ -53,7 +53,7 @@ CssmError::CssmError(CSSM_RETURN err, bool suppresslogging) : error(err)
 }
 
 
-const char *CssmError::what() const throw ()
+const char *CssmError::what() const _NOEXCEPT
 {
     return whatBuffer;
 }

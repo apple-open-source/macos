@@ -228,17 +228,17 @@ webkit_web_context_get_favicon_database_directory   (WebKitWebContext           
 WEBKIT_API WebKitSecurityManager *
 webkit_web_context_get_security_manager             (WebKitWebContext              *context);
 
-WEBKIT_API void
+WEBKIT_DEPRECATED void
 webkit_web_context_set_additional_plugins_directory (WebKitWebContext              *context,
                                                      const gchar                   *directory);
 
-WEBKIT_API void
+WEBKIT_DEPRECATED void
 webkit_web_context_get_plugins                      (WebKitWebContext              *context,
                                                      GCancellable                  *cancellable,
                                                      GAsyncReadyCallback            callback,
                                                      gpointer                       user_data);
 
-WEBKIT_API GList *
+WEBKIT_DEPRECATED GList *
 webkit_web_context_get_plugins_finish               (WebKitWebContext              *context,
                                                      GAsyncResult                  *result,
                                                      GError                       **error);
@@ -323,6 +323,13 @@ webkit_web_context_initialize_notification_permissions
 WEBKIT_API void
 webkit_web_context_send_message_to_all_extensions   (WebKitWebContext              *context,
                                                      WebKitUserMessage             *message);
+
+WEBKIT_API void
+webkit_web_context_set_use_system_appearance_for_scrollbars (WebKitWebContext      *context,
+                                                             gboolean               enabled);
+
+WEBKIT_API gboolean
+webkit_web_context_get_use_system_appearance_for_scrollbars (WebKitWebContext      *context);
 
 G_END_DECLS
 

@@ -62,7 +62,7 @@ randul()
     }
     /* Assume rand has at least 12 bits of precision */
     
-    for (i=0; i<sizeof(l); ++i)
+    for (i=0; i<(int32_t)sizeof(l); ++i)
         ((char*)&l)[i] = (char)((rand() & 0x0FF0) >> 4);
     return l;
 }
@@ -132,10 +132,38 @@ enum E_Where
 typedef enum E_Where E_Where;
 /*****************************************************************************/
 
-#define CONFIRM_EQ(actual,expected) if (u_strcmp(expected,actual)==0){ record_pass(); } else { record_fail(); log_err("%s  returned  %s  instead of %s\n", action, austrdup(actual), austrdup(expected)); }
-#define CONFIRM_INT_EQ(actual,expected) if ((expected)==(actual)) { record_pass(); } else { record_fail(); log_err("%s returned %d instead of %d\n",  action, actual, expected); }
-#define CONFIRM_INT_GE(actual,expected) if ((actual)>=(expected)) { record_pass(); } else { record_fail(); log_err("%s returned %d instead of x >= %d\n",  action, actual, expected); }
-#define CONFIRM_INT_NE(actual,expected) if ((expected)!=(actual)) { record_pass(); } else { record_fail(); log_err("%s returned %d instead of x != %d\n",  action, actual, expected); }
+#define CONFIRM_EQ(actual,expected) UPRV_BLOCK_MACRO_BEGIN { \
+    if (u_strcmp(expected,actual)==0) { \
+        record_pass(); \
+    } else { \
+        record_fail(); \
+        log_err("%s  returned  %s  instead of %s\n", action, austrdup(actual), austrdup(expected)); \
+    } \
+} UPRV_BLOCK_MACRO_END
+#define CONFIRM_INT_EQ(actual,expected) UPRV_BLOCK_MACRO_BEGIN { \
+    if ((expected)==(actual)) { \
+        record_pass(); \
+    } else { \
+        record_fail(); \
+        log_err("%s returned %d instead of %d\n",  action, actual, expected); \
+    } \
+} UPRV_BLOCK_MACRO_END
+#define CONFIRM_INT_GE(actual,expected) UPRV_BLOCK_MACRO_BEGIN { \
+    if ((actual)>=(expected)) { \
+        record_pass(); \
+    } else { \
+        record_fail(); \
+        log_err("%s returned %d instead of x >= %d\n",  action, actual, expected); \
+    } \
+} UPRV_BLOCK_MACRO_END
+#define CONFIRM_INT_NE(actual,expected) UPRV_BLOCK_MACRO_BEGIN { \
+    if ((expected)!=(actual)) { \
+        record_pass(); \
+    } else { \
+        record_fail(); \
+        log_err("%s returned %d instead of x != %d\n",  action, actual, expected); \
+    } \
+} UPRV_BLOCK_MACRO_END
 /*#define CONFIRM_ErrorCode(actual,expected) if ((expected)==(actual)) { record_pass(); } else { record_fail();  log_err("%s returned  %s  instead of %s\n", action, myErrorName(actual), myErrorName(expected)); } */
 static void 
 CONFIRM_ErrorCode(UErrorCode actual,UErrorCode expected) 
@@ -2137,7 +2165,7 @@ static void TestFallback()
         UResourceBundle* tResB;
         UResourceBundle* zoneResource;
         const UChar* version = NULL;
-        static const UChar versionStr[] = { 0x0032, 0x002E, 0x0031, 0x002E, 0x0034, 0x0037, 0x002E, 0x0038, 0x0032, 0x0000}; // 2.1.47.82 in nn_NO
+        static const UChar versionStr[] = u"36.1"; // 36.1 in nn_NO
 
         if(err != U_ZERO_ERROR){
             log_data_err("Expected U_ZERO_ERROR when trying to test no_NO_NY aliased to nn_NO for Version err=%s\n",u_errorName(err));
@@ -2681,7 +2709,7 @@ static void TestGetFunctionalEquivalent(void) {
         "f",    "mo",                             "mo", /* ? */
         "f",    "no",                             "no", /* ? */
         "f",    "ars",                            "ars", /* ? */
-        "t",    "wuu",                            "wuu", /* ? */
+        "f",    "wuu",                            "wuu", /* ? */
         /* Additions to test locales without resources */
         "f",    "en_CN",                          "root",
         "f",    "zh_Hant_CN",                     "zh@collation=stroke",
@@ -2970,7 +2998,7 @@ tres_getString(const UResourceBundle *resB,
         }
 
         /* verify NUL-termination */
-        if((p8 != buffer8 || length8 < sizeof(buffer8)) && s8[length8] != 0) {
+        if((p8 != buffer8 || length8 < (int32_t)sizeof(buffer8)) && s8[length8] != 0) {
             log_err("ures_getUTF8String(%p, %ld, '%s') did not NUL-terminate\n",
                     resB, (long)idx, key);
         }

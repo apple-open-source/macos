@@ -186,7 +186,7 @@ errOut:
 SecOTRFullIdentityRef SecOTRFullIdentityCreate(CFAllocatorRef allocator, CFErrorRef *error)
 {
     SecKeyRef signingKey = SecOTRCreateSigningKey(allocator);
-    SecOTRFullIdentityRef newID = SecOTRFullIdentityCreateFromSecKeyRef(allocator, signingKey, error);
+    SecOTRFullIdentityRef newID = SecOTRFullIdentityCreateFromSecKeyRefSOS(allocator, signingKey, error);
     CFReleaseNull(signingKey);
 
     return newID;
@@ -298,7 +298,8 @@ OSStatus SecOTRFIInitFromV2Bytes(SecOTRFullIdentityRef newID, CFAllocatorRef all
     --*size;
 
     require_noerr_quiet(status = SecOTRFICreateKeysFromReadPersistentRefAndPublicKey(bytes, size, &newID->publicSigningKey, &newID->privateSigningKey, &newID->privateKeyPersistentRef, &CreateECPublicKeyFrom), fail);
-
+    newID->isMessageProtectionKey = false;
+    
     return status;
 
 fail:
@@ -306,6 +307,49 @@ fail:
     CFReleaseNull(newID->publicSigningKey);
     CFReleaseNull(newID->privateSigningKey);
 
+    return status;
+}
+
+static
+OSStatus SecOTRFIInitFromV3Bytes(SecOTRFullIdentityRef newID, CFAllocatorRef allocator,
+                                const uint8_t **bytes,size_t *size) {
+    OSStatus status = errSecInvalidData;
+    require_action(**bytes == 3, fail, status = errSecParam);
+    ++*bytes;
+    --*size;
+    
+    uint16_t dataSize;
+    require_noerr_quiet(readSize(bytes, size, &dataSize), fail);
+    
+    int32_t keysz32 = 256;
+    CFNumberRef ksizeNumber = CFNumberCreate(NULL, kCFNumberSInt32Type, &keysz32);
+    CFDataRef keyBytes = CFDataCreate(allocator, *bytes, dataSize);
+    
+    CFDictionaryRef dict = CFDictionaryCreateForCFTypes(kCFAllocatorDefault,
+                                                       kSecAttrKeyType, kSecAttrKeyTypeECSECPrimeRandom,
+                                                       kSecAttrKeyClass, kSecAttrKeyClassPrivate,
+                                                       kSecAttrKeySizeInBits, ksizeNumber,
+                                                       kSecAttrIsPermanent, kCFBooleanFalse, NULL);
+    
+    CFErrorRef error;
+    SecKeyRef key = SecKeyCreateWithData(keyBytes, dict, &error);
+    
+    CFReleaseSafe(dict);
+    CFReleaseSafe(keyBytes);
+    CFReleaseSafe(ksizeNumber);
+    
+    if (key == NULL) {
+        CFRelease(error);
+        return errSecInvalidData;
+    }
+    
+    newID->privateKeyPersistentRef = NULL;
+    newID->isMessageProtectionKey = true;
+    newID->privateSigningKey = key;
+    newID->publicSigningKey = SecKeyCopyPublicKey(newID->privateSigningKey);
+    status = errSecSuccess;
+    
+fail:
     return status;
 }
 
@@ -320,13 +364,27 @@ static CFDataRef SecKeyCreatePersistentRef(SecKeyRef theKey, CFErrorRef *error) 
 
 SecOTRFullIdentityRef SecOTRFullIdentityCreateFromSecKeyRef(CFAllocatorRef allocator, SecKeyRef privateKey,
                                                             CFErrorRef *error) {
-    // TODO - make sure this is an appropriate key type
-    SecOTRFullIdentityRef newID = CFTypeAllocate(SecOTRFullIdentity, struct _SecOTRFullIdentity, allocator);
-    CFRetainAssign(newID->privateSigningKey, privateKey);
-    require_action(newID->publicSigningKey = SecKeyCreatePublicFromPrivate(privateKey), fail,
-                   SecError(errSecInternalComponent, error, CFSTR("Failed to extract public key from private key")));
+      // TODO - make sure this is an appropriate key type
+      SecOTRFullIdentityRef newID = CFTypeAllocate(SecOTRFullIdentity, struct _SecOTRFullIdentity, allocator);
+      CFRetainAssign(newID->privateSigningKey, privateKey);
+      require_action(newID->publicSigningKey = SecKeyCreatePublicFromPrivate(privateKey), fail,
+                     SecError(errSecInternalComponent, error, CFSTR("Failed to extract public key from private key")));
+      // MessageProtection keys are no longer having persistent references.
+      newID->privateKeyPersistentRef = NULL;
+      newID->isMessageProtectionKey = true;
+      
+      require(SecOTRFICachePublicHash(newID, error), fail);
+      return newID;
+  fail:
+      CFReleaseNull(newID);
+      return NULL;
+}
+
+SecOTRFullIdentityRef SecOTRFullIdentityCreateFromSecKeyRefSOS(CFAllocatorRef allocator, SecKeyRef privateKey,
+                                                            CFErrorRef *error) {
+    SecOTRFullIdentityRef newID = SecOTRFullIdentityCreateFromSecKeyRef(allocator, privateKey, error);
     require(newID->privateKeyPersistentRef = SecKeyCreatePersistentRef(privateKey, error), fail);
-    require(SecOTRFICachePublicHash(newID, error), fail);
+    newID->isMessageProtectionKey = false;
     return newID;
 fail:
     CFReleaseNull(newID);
@@ -346,6 +404,9 @@ SecOTRFullIdentityRef SecOTRFullIdentityCreateFromBytes(CFAllocatorRef allocator
             break;
         case 2:
             require_noerr_action_quiet(status = SecOTRFIInitFromV2Bytes(newID, allocator, bytes, size), fail, SecError(status, error, CFSTR("failed to decode v2 otr session: %d"), (int)status));
+            break;
+        case 3:
+            require_noerr_action_quiet(status = SecOTRFIInitFromV3Bytes(newID, allocator, bytes, size), fail, SecError(status, error, CFSTR("failed to decode v3 otr session: %d"), (int)status));
             break;
         case 0: // Version 0 was used in seeds of 5.0, transition from those seeds unsupported - keys were in exported data.
         default:
@@ -432,6 +493,23 @@ bool SecOTRFIPurgeAllFromKeychain(CFErrorRef *error)
     }
 }
 
+static OSStatus SecOTRFIAppendV3Serialization(SecOTRFullIdentityRef fullID, CFMutableDataRef serializeInto)
+{
+    const uint8_t version = 3;
+    CFIndex start = CFDataGetLength(serializeInto);
+    CFDataAppendBytes(serializeInto, &version, sizeof(version));
+    CFErrorRef error = nil;
+    CFDataRef privKeyBytes = SecKeyCopyExternalRepresentation(fullID->privateSigningKey, &error);
+    require(privKeyBytes != nil, fail);
+    appendSizeAndData(privKeyBytes, serializeInto);
+    CFReleaseSafe(privKeyBytes);
+    return errSecSuccess;
+
+fail:
+    CFDataSetLength(serializeInto, start);
+
+    return errSecParam;
+}
 
 static OSStatus SecOTRFIAppendV2Serialization(SecOTRFullIdentityRef fullID, CFMutableDataRef serializeInto)
 {
@@ -452,7 +530,13 @@ fail:
 
 bool SecOTRFIAppendSerialization(SecOTRFullIdentityRef fullID, CFMutableDataRef serializeInto, CFErrorRef *error)
 {
-    OSStatus status = SecOTRFIAppendV2Serialization(fullID, serializeInto);
+    OSStatus status = errSecParam;
+    if (fullID->isMessageProtectionKey) {
+        status = SecOTRFIAppendV3Serialization(fullID, serializeInto);
+    } else {
+        status = SecOTRFIAppendV2Serialization(fullID, serializeInto);
+    }
+    
     if (errSecSuccess == status) {
         return true;
     } else {

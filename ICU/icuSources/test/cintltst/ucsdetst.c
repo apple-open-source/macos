@@ -642,23 +642,29 @@ typedef struct {
     const char* encodingName;   // expected
 } SampleTextAndEncoding;
 
+#ifdef APPLE_XCODE_BUILD
+#define TESTDATA_DIR "testdata"
+#else
+#define TESTDATA_DIR "../testdata"
+#endif
+
 static const SampleTextAndEncoding mailSampleTests[] = {
-    { "../testdata/encodingSamples/mailExample_Latin1_2.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1_3.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1_4.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1_6.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1_7.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1_8.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1_9.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1Esc_2.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1Esc_3.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1Esc_4.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1Esc_6.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1Esc_7.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1Esc_8.txt", "iso-8859-1" },
-    { "../testdata/encodingSamples/mailExample_Latin1Esc_9.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1_2.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1_3.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1_4.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1_6.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1_7.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1_8.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1_9.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1Esc_2.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1Esc_3.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1Esc_4.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1Esc_6.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1Esc_7.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1Esc_8.txt", "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1Esc_9.txt", "iso-8859-1" },
     // additions for <rdar://problem/56373519>
-    { "../testdata/encodingSamples/mailExample_Latin1_11.txt",  "iso-8859-1" },
+    { TESTDATA_DIR "/encodingSamples/mailExample_Latin1_11.txt",  "iso-8859-1" },
     { NULL, NULL }
 };
 

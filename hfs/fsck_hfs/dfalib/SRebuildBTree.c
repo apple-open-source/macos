@@ -474,7 +474,7 @@ ExitThisRoutine:
 	SFCB *					myFCBPtr, * oldFCBPtr;
 	UInt32 					myBytesUsed = 0;
 	UInt32 					myMapNodeCount;
-	UInt64					myNumBlocks;
+	UInt32					myNumBlocks;
 	FSSize					myNewEOF;
 	BTHeaderRec				myHeaderRec;
 	
@@ -532,7 +532,7 @@ ExitThisRoutine:
 	myErr = BlockFindAll( myBTreeCBPtr->fcbPtr, myNumBlocks);
 	ReturnIfError( myErr );
 	myBTreeCBPtr->fcbPtr->fcbPhysicalSize = myNewEOF;
-	myErr = ZeroFileBlocks( myVCBPtr, myBTreeCBPtr->fcbPtr, 0, myNewEOF >> kSectorShift );
+	myErr = ZeroFileBlocks( myVCBPtr, myBTreeCBPtr->fcbPtr, 0, (UInt32)(myNewEOF >> kSectorShift) );
 	ReturnIfError( myErr );
 
 	/* now set real values in our BTree Control Block */
@@ -544,7 +544,7 @@ ExitThisRoutine:
 	else if (FileID == kHFSExtentsFileID)
 		myFCBPtr->fcbClumpSize = myVCBPtr->vcbExtentsFile->fcbClumpSize;
 	
-	myBTreeCBPtr->totalNodes = ( myFCBPtr->fcbPhysicalSize / myBTreeCBPtr->nodeSize );
+	myBTreeCBPtr->totalNodes = (UInt32)( myFCBPtr->fcbPhysicalSize / myBTreeCBPtr->nodeSize );
 	myBTreeCBPtr->freeNodes = myBTreeCBPtr->totalNodes;
 
 	// Initialize our new BTree (write out header node and an empty leaf node)

@@ -86,8 +86,29 @@ __private_extern__ bool isDisplayAsleep(void);
 static uint32_t updateUserActivityLevels(void);
 
 #ifdef XCTEST
+uint32_t xctUserInactiveDuration = 0;
+
+void xctSetUserInactiveDuration(uint32_t value) {
+    xctUserInactiveDuration = value;
+}
+
 void xctSetUserActiveRootDomain(bool active) {
     gUserActive.rootDomain = active;
+}
+
+bool xctGetUserActiveRootDomain() {
+    return gUserActive.rootDomain;
+}
+
+uint64_t xctGetUserActivityPostedLevels() {
+    return gUserActive.postedLevels;
+}
+
+void xctUserActive_prime() {
+    bzero(&gUserActive, sizeof(UserActiveStruct));
+
+    gUserActive.postedLevels = kIOPMUserPresentActive;
+    xctSetUserActiveRootDomain(true);
 }
 #endif
 
@@ -95,12 +116,14 @@ static void userActive_prime(void) {
     bzero(&gUserActive, sizeof(UserActiveStruct));
 
     gUserActive.postedLevels = 0xFFFF; // bogus value
-    userActiveHandleRootDomainActivity();
+    userActiveHandleRootDomainActivity(true);
 
 }
 
 bool userActiveRootDomain(void)
 {
+    // returns true when display is on except for
+    // notification wake
     return gUserActive.rootDomain;
 }
 void userActiveHandleSleep(void)
@@ -139,14 +162,13 @@ __private_extern__ bool getSessionUserActivity(uint64_t *sessionLevels)
     return gUserActive.sessionUserActivity;
 }
 
-void userActiveHandleRootDomainActivity(void)
+void userActiveHandleRootDomainActivity(bool active)
 {
-    CFBooleanRef    userIsActive = NULL;
-
-    userIsActive = IORegistryEntryCreateCFProperty(getRootDomain(),
-                                                   CFSTR(kIOPMUserIsActiveKey),
-                                                   0, 0);
-    if (userIsActive == kCFBooleanTrue) {
+    if (active == gUserActive.rootDomain) {
+        DEBUG_LOG("No change in userActive rootDomain %d\n", gUserActive.rootDomain);
+        return;
+    }
+    if (active == true) {
         _unclamp_silent_running(true);
         cancel_NotificationDisplayWake();
         cancelPowerNapStates();
@@ -164,9 +186,6 @@ void userActiveHandleRootDomainActivity(void)
     }
 
     INFO_LOG("rootDomain's user activity state:%d\n", gUserActive.rootDomain);
-    if (userIsActive) {
-        CFRelease(userIsActive);
-    }
     if (gUserActive.sessionActivityLevels == 0) {
         evaluateADS();
     }
@@ -176,6 +195,9 @@ void userActiveHandleRootDomainActivity(void)
 
 static uint32_t getUserInactiveDuration()
 {
+#if XCTEST
+    return xctUserInactiveDuration;
+#endif
     uint64_t now = getMonotonicContinuousTime();
 
     uint64_t hidInactivityDuration = 0;
@@ -438,8 +460,7 @@ static void shareTheSystemLoad(bool shouldNotify)
     // userLevel. Basing this data on display dimming is a crutch,
     // and may be invalid on systems with display dimming disabled.
     if (gUserActive.loggedIn) {
-        if (displayIsOff)
-        {
+        if (displayIsOff) {
             if (_DWBT_enabled()) {
                // System allows DWBT & user has opted in
 
@@ -741,7 +762,10 @@ __private_extern__ void SystemLoad_prime(void)
 
     // If this is a desktop, then we won't get any battery notifications.
     // Let's prime the battery pump right here with an initial coll.
-    SystemLoadBatteriesHaveChanged(_batteries());
+    int count = _batteryCount();
+    dispatch_sync(BatteryTimeRemaining_getQ(), ^() {
+        SystemLoadBatteriesHaveChanged(count);
+    });
 
     SystemLoadPrefsHaveChanged();
 
@@ -794,8 +818,17 @@ __private_extern__ void SystemLoadDisplayPowerStateHasChanged(bool _displayIsOff
         // Force set assertionActivityValid to false to ignore
         // assertions created prior to display sleep
         gUserActive.assertionActivityValid = 0;
+        userActiveHandleRootDomainActivity(false);
+    } else {
+        // display is on. Update UserActiveRootDomain
+        if (!isA_NotificationDisplayWake()){
+            DEBUG_LOG("Display is on: Not a notification wake. Updating user active rootdomain");
+            userActiveHandleRootDomainActivity(true);
+        } else {
+            DEBUG_LOG("Display is on: Is a notification wake");
+        }
     }
-    INFO_LOG("Display state: %s\n", (displayIsOff ? "Off" : "On"));
+    INFO_LOG("Display state: %s NotificationWake : %d\n", (displayIsOff ? "Off" : "On"), isA_NotificationDisplayWake());
 
     shareTheSystemLoad(kYesNotify);
     evaluateHidIdleNotification();
@@ -864,43 +897,49 @@ __private_extern__ void SystemLoadPrefsHaveChanged(void)
  *   onBatteryPower
  *   batteryBelowThreshold
  */
-__private_extern__ void SystemLoadBatteriesHaveChanged(IOPMBattery **batt_stats)
+__private_extern__ void SystemLoadBatteriesHaveChanged(int count)
 {
+    dispatch_assert_queue(BatteryTimeRemaining_getQ());
+
     static const int kBatThreshold = 40;
-    int count = _batteryCount();
     int sumMax = 0;
     int sumCurrent = 0;
     int i;
 
-    onACPower = false;
-    onBatteryPower = false;
-    batteryBelowThreshold = false;
+    bool local_onACPower = false;
+    bool local_onBatteryPower = false;
+    bool local_batteryBelowThreshold = false;
 
-    if (0 == count)
-    {
-        onACPower = true;
+    if (0 == count) {
+        local_onACPower = true;
         goto exit;
     }
-    for (i=0; i<count; i++)
-    {
+
+    IOPMBattery **batt_stats = _batteries();
+
+    for (i=0; i<count; i++) {
         if( batt_stats[i]->externalConnected ) {
-            onACPower = true;
+            local_onACPower = true;
         }
         sumCurrent += batt_stats[i]->currentCap;
         sumMax += batt_stats[i]->maxCap;
     }
-    if (!onACPower)
-    {
-        onBatteryPower = true;
+
+    if (!local_onACPower) {
+        local_onBatteryPower = true;
     }
-    if (sumMax
-        && (kBatThreshold > (100*sumCurrent)/sumMax))
-    {
-        batteryBelowThreshold = true;
+
+    if (sumMax && (kBatThreshold > (100*sumCurrent)/sumMax)) {
+        local_batteryBelowThreshold = true;
     }
 
 exit:
-    shareTheSystemLoad(kYesNotify);
+    dispatch_async(_getPMMainQueue(), ^() {
+        onACPower = local_onACPower;
+        onBatteryPower = local_onBatteryPower;
+        batteryBelowThreshold = local_batteryBelowThreshold;
+        shareTheSystemLoad(kYesNotify);
+    });
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */

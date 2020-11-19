@@ -39,7 +39,6 @@
 
 #include <Security/SecureObjectSync/SOSTypes.h>
 #include <Security/SecureObjectSync/SOSPeerInfo.h>
-#import <Security/SFSignInAnalytics.h>
 
 __BEGIN_DECLS
 
@@ -72,6 +71,7 @@ enum {
 typedef CF_OPTIONS(uint32_t, SOSInitialSyncFlags) {
     kSOSInitialSyncFlagTLKs = (1UL << 0),
     kSOSInitialSyncFlagiCloudIdentity = (1UL << 1),
+    kSOSInitialSyncFlagTLKsRequestOnly = (1UL << 2), // Note that this overrides the other two flags, as it's used for aborting the piggybacking session early and returning a very small number of TLKs
 };
 
 
@@ -126,7 +126,6 @@ bool SOSCCSetUserCredentials(CFStringRef user_label, CFDataRef user_password, CF
  */
 
 bool SOSCCSetUserCredentialsAndDSID(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFErrorRef *error);
-bool SOSCCSetUserCredentialsAndDSIDWithAnalytics(CFStringRef user_label, CFDataRef user_password, CFStringRef dsid, CFDataRef parentevent, CFErrorRef *error);
 
 /*!
  @function SOSCCTryUserCredentials
@@ -158,7 +157,6 @@ bool SOSCCRegisterUserCredentials(CFStringRef user_label, CFDataRef user_passwor
  @return if we waited successfully
  */
 bool SOSCCWaitForInitialSync(CFErrorRef* error);
-bool SOSCCWaitForInitialSyncWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCCanAuthenticate
@@ -247,7 +245,6 @@ bool SOSCCIsContinuityUnlockSyncing(void);
  @discussion Requests to join the user's circle or all the pending circles (other than his) if there are multiple pending circles.
  */
 bool SOSCCRequestToJoinCircle(CFErrorRef* error);
-bool SOSCCRequestToJoinCircleWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 
 /*!
@@ -258,7 +255,6 @@ bool SOSCCRequestToJoinCircleWithAnalytics(CFDataRef parentEvent, CFErrorRef* er
  @discussion Uses the cloud identity to get in the circle if it can. If it cannot it falls back on simple application.
  */
 bool SOSCCRequestToJoinCircleAfterRestore(CFErrorRef* error);
-bool SOSCCRequestToJoinCircleAfterRestoreWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCAccountSetToNew
@@ -283,7 +279,6 @@ bool SOSCCResetToOffering(CFErrorRef* error);
  @result true if we posted the circle successfully. False if there was an error.
  */
 bool SOSCCResetToEmpty(CFErrorRef* error);
-bool SOSCCResetToEmptyWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCRemoveThisDeviceFromCircle
@@ -294,7 +289,6 @@ bool SOSCCResetToEmptyWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
  */
 bool SOSCCRemoveThisDeviceFromCircle(CFErrorRef* error);
 
-bool SOSCCRemoveThisDeviceFromCircleWithAnalytics(CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
  @function SOSCCRemoveThisDeviceFromCircle
@@ -306,14 +300,18 @@ bool SOSCCRemoveThisDeviceFromCircleWithAnalytics(CFDataRef parentEvent, CFError
              that we don't have the user credentail (need to prompt for password)
  */
 bool SOSCCRemovePeersFromCircle(CFArrayRef peerList, CFErrorRef* error);
-bool SOSCCRemovePeersFromCircleWithAnalytics(CFArrayRef peers, CFDataRef parentEvent, CFErrorRef* error);
 
 /*!
- @function SOSCCRemoveThisDeviceFromCircle
- @abstract Removes the current device from the circle.
- @param error What went wrong trying to remove ourselves.
- @result true if we posted the removal. False if there was an error.
- @discussion This removes us from the circle.
+ @function SOSCCLoggedIntoAccount
+ @param error value set if there are xpc errors.
+ @abstract Notifies the account object that the device logged into an icloud account
+ */
+bool SOSCCLoggedIntoAccount(CFErrorRef* error);
+
+/*!
+ @function SOSCCLoggedOutOfAccount
+ @param error value set if there are xpc errors.
+ @abstract Removes the current device from the circle.  Clears the account object
  */
 bool SOSCCLoggedOutOfAccount(CFErrorRef* error);
 
@@ -578,7 +576,6 @@ SOSViewResultCode SOSCCView(CFStringRef view, SOSViewActionCode action, CFErrorR
  */
 
 bool SOSCCViewSet(CFSetRef enabledviews, CFSetRef disabledviews);
-bool SOSCCViewSetWithAnalytics(CFSetRef enabledviews, CFSetRef disabledviews, CFDataRef parentEvent);
 /*
  Security Attributes for PeerInfos
  

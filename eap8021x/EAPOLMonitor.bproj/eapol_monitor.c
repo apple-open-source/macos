@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2010-2016 Apple Inc. All rights reserved.
+ * Copyright (c) 2010-2020 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -266,30 +266,26 @@ S_CFUserNotificationResponse(CFOptionFlags flags)
     return (flags & 0x3);
 }
 
-#define kNetworkPrefPath "/System/Library/PreferencePanes/Network.prefPane"
+#define kEAPOLControllerPath	"/System/Library/SystemConfiguration/EAPOLController.bundle"
 
 static CFURLRef
 copy_icon_url(CFStringRef icon)
 {
-    CFBundleRef		np_bundle;
-    CFURLRef		np_url;
+    CFBundleRef		bundle = NULL;
+    CFURLRef		eapurl = NULL;
     CFURLRef		url = NULL;
 
-    np_url = CFURLCreateWithFileSystemPath(NULL,
-					   CFSTR(kNetworkPrefPath),
+    eapurl = CFURLCreateWithFileSystemPath(NULL,
+					   CFSTR(kEAPOLControllerPath),
 					   kCFURLPOSIXPathStyle, FALSE);
-    if (np_url != NULL) {
-	np_bundle = CFBundleCreate(NULL, np_url);
-	if (np_bundle != NULL) {
-	    url = CFBundleCopyResourceURL(np_bundle, icon, 
-					  CFSTR("icns"), NULL);
-	    if (url == NULL) {
-		url = CFBundleCopyResourceURL(np_bundle, icon, 
-					      CFSTR("tiff"), NULL);
-	    }
-	    CFRelease(np_bundle);
+    if (eapurl != NULL) {
+	bundle = CFBundleCreate(NULL, eapurl);
+	if (bundle != NULL) {
+	    url = CFBundleCopyResourceURL(bundle, icon,
+					  CFSTR("tiff"), NULL);
+	    CFRelease(bundle);
 	}
-	CFRelease(np_url);
+	CFRelease(eapurl);
     }
     return (url);
 }

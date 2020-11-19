@@ -43,7 +43,7 @@ RSC=rc.exe
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MD /W3 /O2 /D "WIN32" /D "NDEBUG" /D "_WINDOWS" /D "ssize_t=long" /FD /c
-# ADD CPP /nologo /MD /W3 /O2 /Oy- /Zi /I "../../server/mpm/winnt" "/I ../ssl" /I "../../include" /I "../../srclib/apr/include" /I "../../srclib/apr-util/include" /I "../../srclib/openssl/inc32" /I "../../srclib/jansson/include" /I "../../srclib/curl/include" /I "../core"   /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "ssize_t=long" /Fd"Release\mod_md_src" /FD /c
+# ADD CPP /nologo /MD /W3 /O2 /Oy- /Zi /I "../../server/mpm/winnt" "/I ../ssl" /I "../../include" /I "../generators" /I "../../srclib/apr/include" /I "../../srclib/apr-util/include" /I "../../srclib/openssl/inc32" /I "../../srclib/jansson/include" /I "../../srclib/curl/include" /I "../core"   /D "NDEBUG" /D "WIN32" /D "_WINDOWS" /D "ssize_t=long" /Fd"Release\mod_md_src" /FD /c
 # ADD BASE MTL /nologo /D "NDEBUG" /win32
 # ADD MTL /nologo /D "NDEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "NDEBUG"
@@ -75,7 +75,7 @@ PostBuild_Cmds=if exist $(TargetPath).manifest mt.exe -manifest $(TargetPath).ma
 # PROP Ignore_Export_Lib 0
 # PROP Target_Dir ""
 # ADD BASE CPP /nologo /MDd /W3 /EHsc /Zi /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "ssize_t=long" /FD /c
-# ADD CPP /nologo /MDd /W3 /EHsc /Zi /Od /I "../ssl" /I "../../include" /I "../../srclib/apr/include" /I "../../srclib/apr-util/include" /I "../../srclib/openssl/inc32" /I "../../srclib/jansson/include" /I "../../srclib/curl/include" /I "../core" /src" /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "ssize_t=long" /Fd"Debug\mod_md_src" /FD /c
+# ADD CPP /nologo /MDd /W3 /EHsc /Zi /Od /I "../ssl" /I "../../include" /I "../../srclib/apr/include" /I "../generators" /I "../../srclib/apr-util/include" /I "../../srclib/openssl/inc32" /I "../../srclib/jansson/include" /I "../../srclib/curl/include" /I "../core" /src" /D "_DEBUG" /D "WIN32" /D "_WINDOWS" /D "ssize_t=long" /Fd"Debug\mod_md_src" /FD /c
 # ADD BASE MTL /nologo /D "_DEBUG" /win32
 # ADD MTL /nologo /D "_DEBUG" /mktyplib203 /win32
 # ADD BASE RSC /l 0x409 /d "_DEBUG"
@@ -110,6 +110,10 @@ SOURCE=./mod_md_config.c
 # Begin Source File
 
 SOURCE=./mod_md_drive.c
+# End Source File
+# Begin Source File
+
+SOURCE=./mod_md_ocsp.c
 # End Source File
 # Begin Source File
 
@@ -174,6 +178,10 @@ SOURCE=./md_jws.c
 # Begin Source File
 
 SOURCE=./md_log.c
+# End Source File
+# Begin Source File
+
+SOURCE=./md_ocsp.c
 # End Source File
 # Begin Source File
 

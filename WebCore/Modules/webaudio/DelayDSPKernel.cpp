@@ -102,12 +102,13 @@ void DelayDSPKernel::process(const float* source, float* destination, size_t fra
     float* delayTimes = m_delayTimes.data();
     double maxTime = maxDelayTime();
 
-    bool sampleAccurate = delayProcessor() && delayProcessor()->delayTime()->hasSampleAccurateValues();
+    bool sampleAccurate = delayProcessor() && delayProcessor()->delayTime().hasSampleAccurateValues();
+    bool shouldUseARate = delayProcessor() && delayProcessor()->delayTime().automationRate() == AutomationRate::ARate;
 
-    if (sampleAccurate)
-        delayProcessor()->delayTime()->calculateSampleAccurateValues(delayTimes, framesToProcess);
+    if (sampleAccurate && shouldUseARate)
+        delayProcessor()->delayTime().calculateSampleAccurateValues(delayTimes, framesToProcess);
     else {
-        delayTime = delayProcessor() ? delayProcessor()->delayTime()->finalValue() : m_desiredDelayFrames / sampleRate;
+        delayTime = delayProcessor() ? delayProcessor()->delayTime().finalValue() : m_desiredDelayFrames / sampleRate;
 
         // Make sure the delay time is in a valid range.
         delayTime = std::min(maxTime, delayTime);
@@ -120,7 +121,7 @@ void DelayDSPKernel::process(const float* source, float* destination, size_t fra
     }
 
     for (unsigned i = 0; i < framesToProcess; ++i) {
-        if (sampleAccurate) {
+        if (sampleAccurate && shouldUseARate) {
             delayTime = delayTimes[i];
             delayTime = std::min(maxTime, delayTime);
             delayTime = std::max(0.0, delayTime);

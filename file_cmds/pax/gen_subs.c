@@ -216,17 +216,26 @@ ls_tty(ARCHD *arcn)
 void
 safe_print(const char *str, FILE *fp)
 {
-	char visbuf[5];
-	const char *cp;
-
 	/*
-	 * if printing to a tty, use vis(3) to print special characters.
+	 * if printing to a tty, use strvis(3) to print special characters.
 	 */
 	if (isatty(fileno(fp))) {
-		for (cp = str; *cp; cp++) {
-			(void)vis(visbuf, cp[0], VIS_CSTYLE, cp[1]);
-			(void)fputs(visbuf, fp);
+		/*
+		 * The size of visbuf must be four times the number
+		 * of bytes encoded from str (plus one for the NUL).
+		 */
+		char *visbuf = (char *) malloc(sizeof(char) * (4 * strlen(str) + 1));
+		if (visbuf == NULL) {
+			paxwarn(1, "Out of memory");
+			return;
 		}
+		/*
+		 * using strvis(3) instead of vis(3) to account for multibyte
+		 * characters
+		 */
+		(void)strvis(visbuf, str, VIS_CSTYLE);
+		(void)fputs(visbuf, fp);
+		free(visbuf);
 	} else {
 		(void)fputs(str, fp);
 	}

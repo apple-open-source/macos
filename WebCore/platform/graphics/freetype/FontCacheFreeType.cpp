@@ -222,7 +222,7 @@ struct FallbackFontDescriptionKey {
 
     unsigned computeHash() const
     {
-        return WTF::pairIntHash(descriptionKey.computeHash(), WTF::DefaultHash<bool>::Hash::hash(coloredFont));
+        return WTF::pairIntHash(descriptionKey.computeHash(), WTF::DefaultHash<bool>::hash(coloredFont));
     }
 
     FontDescriptionKey descriptionKey;
@@ -272,7 +272,7 @@ RefPtr<Font> FontCache::systemFallbackForCharacters(const FontDescription& descr
     getFontPropertiesFromPattern(resultPattern.get(), description, fixedWidth, syntheticBold, syntheticOblique);
 
     RefPtr<cairo_font_face_t> fontFace = adoptRef(cairo_ft_font_face_create_for_pattern(resultPattern.get()));
-    FontPlatformData alternateFontData(fontFace.get(), resultPattern.get(), description.computedPixelSize(), fixedWidth, syntheticBold, syntheticOblique, description.orientation());
+    FontPlatformData alternateFontData(fontFace.get(), WTFMove(resultPattern), description.computedPixelSize(), fixedWidth, syntheticBold, syntheticOblique, description.orientation());
     return fontForPlatformData(alternateFontData);
 }
 
@@ -500,7 +500,7 @@ static inline bool isCommonlyUsedGenericFamily(const String& familyNameString)
         || equalLettersIgnoringASCIICase(familyNameString, "cursive");
 }
 
-std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontFeatureSettings*, FontSelectionSpecifiedCapabilities)
+std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontFeatureSettings* fontFaceFeatures, FontSelectionSpecifiedCapabilities)
 {
     // The CSS font matching algorithm (http://www.w3.org/TR/css3-fonts/#font-matching-algorithm)
     // says that we must find an exact match for font family, slant (italic or oblique can be used)
@@ -564,6 +564,16 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
     bool fixedWidth, syntheticBold, syntheticOblique;
     getFontPropertiesFromPattern(resultPattern.get(), fontDescription, fixedWidth, syntheticBold, syntheticOblique);
 
+    if (fontFaceFeatures) {
+        for (auto& fontFaceFeature : *fontFaceFeatures) {
+            if (fontFaceFeature.enabled()) {
+                const auto& tag = fontFaceFeature.tag();
+                const char buffer[] = { tag[0], tag[1], tag[2], tag[3], '\0' };
+                FcPatternAddString(resultPattern.get(), FC_FONT_FEATURES, reinterpret_cast<const FcChar8*>(buffer));
+            }
+        }
+    }
+
     RefPtr<cairo_font_face_t> fontFace = adoptRef(cairo_ft_font_face_create_for_pattern(resultPattern.get()));
 #if ENABLE(VARIATION_FONTS)
     // Cairo doesn't have API to get the FT_Face of an unscaled font, so we need to
@@ -579,7 +589,7 @@ std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDe
             FcPatternAddString(resultPattern.get(), FC_FONT_VARIATIONS, reinterpret_cast<const FcChar8*>(variants.utf8().data()));
     }
 #endif
-    auto platformData = makeUnique<FontPlatformData>(fontFace.get(), resultPattern.get(), fontDescription.computedPixelSize(), fixedWidth, syntheticBold, syntheticOblique, fontDescription.orientation());
+    auto platformData = makeUnique<FontPlatformData>(fontFace.get(), WTFMove(resultPattern), fontDescription.computedPixelSize(), fixedWidth, syntheticBold, syntheticOblique, fontDescription.orientation());
     // Verify that this font has an encoding compatible with Fontconfig. Fontconfig currently
     // supports three encodings in FcFreeTypeCharIndex: Unicode, Symbol and AppleRoman.
     // If this font doesn't have one of these three encodings, don't select it.

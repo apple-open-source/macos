@@ -51,10 +51,14 @@
 + (NSString*)databasePathForPCS;
 + (NSString*)databasePathForLocal;
 + (NSString*)databasePathForTrust;
-+ (NSString*)databasePathForTrustdHealth;
-+ (NSString*)databasePathForTLS;
++ (NSString*)databasePathForNetworking;
 + (NSString*)databasePathForSignIn;
 + (NSString*)databasePathForCloudServices;
+
+#if TARGET_OS_OSX
++ (NSString*)databasePathForRootTrust;
++ (NSString*)databasePathForRootNetworking;
+#endif
 @end
 
 @interface SFAnalyticsReporter : NSObject

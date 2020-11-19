@@ -416,12 +416,14 @@ keychain_import(int argc, char * const *argv)
 	if(kcName) {
 		kcRef = keychain_open(kcName);
 		if(kcRef == NULL) {
-			return 1;
+			result = 1;
+			goto cleanup;
 		}
 	} else {
 		OSStatus status = SecKeychainCopyDefault(&kcRef);
 		if (status != noErr || kcRef == NULL) {
-			return 1;
+			result = 1;
+			goto cleanup;
 		}
 	}
 	if(readFileSizet(inFile, &inFileData, &inFileLen)) {
